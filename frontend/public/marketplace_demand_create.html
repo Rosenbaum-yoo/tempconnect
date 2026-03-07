@@ -1,0 +1,220 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <title>Nachfrage erstellen – TempConnect Marketplace</title>
+  <link rel="stylesheet" href="/public/css/enterprise.css"/>
+  <style>
+    .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+    .form-grid .full { grid-column: 1 / -1; }
+    label { display: block; font-size: 13px; color: var(--muted); margin-bottom: 4px; }
+    input, select, textarea { width: 100%; padding: 8px 10px; border: 1px solid var(--line); border-radius: var(--radius); background: rgba(255,255,255,.05); color: var(--fg); font-size: 14px; box-sizing: border-box; }
+    textarea { min-height: 60px; resize: vertical; }
+    .urgency-hint { font-size: 12px; color: var(--muted); margin-top: 4px; }
+    .msg { padding: 12px; border-radius: var(--radius); margin-top: 12px; font-size: 14px; }
+    .msg.ok { background: rgba(34,197,94,.15); color: #22c55e; }
+    .msg.err { background: rgba(239,68,68,.15); color: #ef4444; }
+    .result-box { margin-top: 16px; padding: 16px; border: 1px solid var(--line); border-radius: var(--radius); background: rgba(255,255,255,.03); }
+    .result-box h3 { margin: 0 0 8px; font-size: 15px; }
+    .match-item { padding: 8px 0; border-bottom: 1px solid var(--line); font-size: 13px; }
+    .sla-badge { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 11px; font-weight: 600; }
+    .sla-badge.running { background: rgba(59,130,246,.2); color: #3b82f6; }
+    .sla-badge.met { background: rgba(34,197,94,.2); color: #22c55e; }
+  </style>
+</head>
+<body data-sla-guard="sla_access">
+  <div id="paywall" class="wrap" style="display:none">
+    <div class="topbar"><span class="brand">TempConnect</span><a href="/" class="btn">Startseite</a></div>
+    <div class="paywall-box">
+      <h2>Bereich nicht verfuegbar</h2>
+      <p>Um Nachfragen im Marketplace zu erstellen, benoetigst du einen PLUS- oder NOTDIENST-Plan.</p>
+      <p>Aktueller Plan: <span id="paywall-current-plan" class="paywall-plan">–</span></p>
+      <a id="paywall-cta" href="/public/sla_abo.html" class="btn primary">Abo ansehen</a>
+    </div>
+  </div>
+
+  <div id="main-content" class="wrap">
+    <div class="topbar">
+      <span class="brand">TempConnect – Nachfrage erstellen</span>
+      <a href="/" class="btn">Startseite</a>
+      <a href="/public/enterprise.html" class="btn">Uebersicht</a>
+    </div>
+    <h1>Nachfrage im Marketplace erstellen</h1>
+    <p style="color:var(--muted);margin:0 0 16px">Beschreibe deinen Personalbedarf. TempConnect matched automatisch passende Kapazitaeten und benachrichtigt Anbieter.</p>
+
+    <form id="demandForm" class="card">
+      <div class="form-grid">
+        <div class="full">
+          <label for="title">Titel *</label>
+          <input id="title" name="title" required placeholder="z.B. 10 Produktionshelfer ab sofort"/>
+        </div>
+        <div>
+          <label for="role">Rolle / Beruf *</label>
+          <input id="role" name="role" required placeholder="z.B. Produktionshelfer"/>
+        </div>
+        <div>
+          <label for="skill_tags">Skills (kommagetrennt)</label>
+          <input id="skill_tags" name="skill_tags" placeholder="z.B. Schichtarbeit, Montage"/>
+        </div>
+        <div>
+          <label for="headcount">Anzahl Personen</label>
+          <input id="headcount" name="headcount" type="number" min="1" max="999" value="1"/>
+        </div>
+        <div>
+          <label for="start_date">Startdatum *</label>
+          <input id="start_date" name="start_date" type="date" required/>
+        </div>
+        <div>
+          <label for="end_date">Enddatum</label>
+          <input id="end_date" name="end_date" type="date"/>
+        </div>
+        <div>
+          <label for="location_city">Stadt *</label>
+          <input id="location_city" name="location_city" required placeholder="z.B. Muenchen"/>
+        </div>
+        <div>
+          <label for="location_postal">PLZ</label>
+          <input id="location_postal" name="location_postal" placeholder="z.B. 80331"/>
+        </div>
+        <div>
+          <label for="radius_km">Radius (km)</label>
+          <input id="radius_km" name="radius_km" type="number" min="1" max="500" value="25"/>
+        </div>
+        <div>
+          <label for="urgency">Dringlichkeit</label>
+          <select id="urgency" name="urgency">
+            <option value="normal">Normal (Pulse 120 Min)</option>
+            <option value="plus">Plus (Pulse 120 Min)</option>
+            <option value="notdienst">Notdienst (Pulse 30 Min)</option>
+          </select>
+          <p class="urgency-hint">Notdienst erfordert NOTDIENST-Plan. Pulse = Prozessnachweis, kein Erfolgsversprechen.</p>
+        </div>
+        <div>
+          <label for="budget_min">Budget min (EUR)</label>
+          <input id="budget_min" name="budget_min" type="number" step="0.01" min="0"/>
+        </div>
+        <div>
+          <label for="budget_max">Budget max (EUR)</label>
+          <input id="budget_max" name="budget_max" type="number" step="0.01" min="0"/>
+        </div>
+      </div>
+      <div style="margin-top:16px">
+        <button type="submit" class="btn primary" id="submitBtn">Nachfrage absenden</button>
+      </div>
+      <div id="msg" style="display:none"></div>
+    </form>
+
+    <div id="result" class="result-box" style="display:none">
+      <h3>Nachfrage erstellt</h3>
+      <p>ID: <span id="res-id"></span></p>
+      <p>Pulse-Status: <span id="res-sla"></span></p>
+      <div id="res-matches"></div>
+      <div style="margin-top:12px">
+        <a id="res-detail-link" href="#" class="btn primary">Zur Detailseite</a>
+      </div>
+    </div>
+
+    <p class="sla-disclaimer">Hinweis: TempConnect dokumentiert den Matching-Prozess (Pulse-Prozessnachweis). Es wird kein Vermittlungserfolg garantiert. Angaben ohne Gewaehr.</p>
+  </div>
+
+  <script src="/public/js/planFeatures.js"></script>
+  <script src="/public/js/slaGuard.js"></script>
+  <script>
+  (function() {
+    var form = document.getElementById("demandForm");
+    var msg = document.getElementById("msg");
+
+    form.addEventListener("submit", function(e) {
+      e.preventDefault();
+      msg.style.display = "none";
+      document.getElementById("result").style.display = "none";
+      var btn = document.getElementById("submitBtn");
+      btn.disabled = true;
+      btn.textContent = "Wird gesendet...";
+
+      var tags = (document.getElementById("skill_tags").value || "")
+        .split(",").map(function(t) { return t.trim(); }).filter(Boolean);
+
+      var body = {
+        title: document.getElementById("title").value.trim(),
+        role: document.getElementById("role").value.trim(),
+        skill_tags: tags,
+        headcount: parseInt(document.getElementById("headcount").value, 10) || 1,
+        start_date: document.getElementById("start_date").value,
+        end_date: document.getElementById("end_date").value || null,
+        location_city: document.getElementById("location_city").value.trim(),
+        location_postal: document.getElementById("location_postal").value.trim() || null,
+        radius_km: parseInt(document.getElementById("radius_km").value, 10) || 25,
+        urgency: document.getElementById("urgency").value,
+        budget_min: parseFloat(document.getElementById("budget_min").value) || null,
+        budget_max: parseFloat(document.getElementById("budget_max").value) || null
+      };
+
+      fetch("/api/marketplace/demand-requests", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify(body)
+      })
+      .then(function(r) { return r.json().then(function(d) { return { ok: r.ok, status: r.status, data: d }; }); })
+      .then(function(res) {
+        btn.disabled = false;
+        btn.textContent = "Nachfrage absenden";
+        if (res.ok) {
+          msg.className = "msg ok";
+          msg.textContent = "Nachfrage erfolgreich erstellt!";
+          msg.style.display = "block";
+          form.reset();
+
+          var d = res.data;
+          document.getElementById("res-id").textContent = d.id.substring(0, 8);
+          var slaEl = document.getElementById("res-sla");
+          if (d.sla_status) {
+            slaEl.innerHTML = '<span class="sla-badge ' + d.sla_status.toLowerCase() + '">' + d.sla_status + '</span>';
+            if (d.sla_due_at) slaEl.innerHTML += ' (Frist: ' + new Date(d.sla_due_at).toLocaleString("de-DE") + ')';
+          } else {
+            slaEl.textContent = "Kein Pulse";
+          }
+
+          var matchesEl = document.getElementById("res-matches");
+          matchesEl.innerHTML = "";
+          if (d.matches && d.matches.length > 0) {
+            matchesEl.innerHTML = "<h3>" + d.matches.length + " Matches gefunden</h3>";
+            d.matches.slice(0, 10).forEach(function(m) {
+              matchesEl.innerHTML += '<div class="match-item">' +
+                (m.supplier_company_name || "Anbieter") + ' – ' +
+                (m.capacity_title || m.capacity_role || "") + ' (' + (m.capacity_city || "") + ') – Score: ' + m.match_score +
+                '</div>';
+            });
+          } else {
+            matchesEl.innerHTML = "<p style='color:var(--muted)'>Noch keine Matches. Kapazitaeten werden laufend geprueft.</p>";
+          }
+
+          document.getElementById("res-detail-link").href = "/public/marketplace_demand_detail.html?id=" + d.id;
+          document.getElementById("result").style.display = "block";
+        } else {
+          var errText = d.error === "COMPANY_ONLY"
+            ? "Nur Unternehmen koennen Nachfragen erstellen."
+            : d.error === "PLAN_REQUIRED_NOTDIENST"
+            ? "Notdienst-Dringlichkeit erfordert einen NOTDIENST-Plan."
+            : (res.data.error || "Unbekannter Fehler");
+          msg.className = "msg err";
+          msg.textContent = errText;
+          msg.style.display = "block";
+        }
+      })
+      .catch(function() {
+        btn.disabled = false;
+        btn.textContent = "Nachfrage absenden";
+        msg.className = "msg err";
+        msg.textContent = "Netzwerkfehler. Bitte erneut versuchen.";
+        msg.style.display = "block";
+      });
+    });
+  })();
+  </script>
+  <div id="tc-footer" data-tc-footer></div>
+  <script src="/public/js/footer.js"></script>
+</body>
+</html>

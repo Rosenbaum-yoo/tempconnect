@@ -1,0 +1,14 @@
+# Hetzner Managed DB + App-Server (ohne lokalen DB-Container)
+# Nutzung: docker compose -f docker-compose.yml -f docker-compose.managed.yml up -d --build
+# Vorher: .env mit DATABASE_URL auf Managed PostgreSQL setzen (Hetzner Managed DB).
+# Migrate laeuft gegen DATABASE_URL; API verbindet sich ebenfalls ueber DATABASE_URL.
+
+services:
+  db:
+    profiles: ["local-db"]
+  migrate:
+    depends_on: []
+  api:
+    depends_on:
+      migrate:
+        condition: service_completed_successfully

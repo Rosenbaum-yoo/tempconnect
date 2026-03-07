@@ -1,0 +1,473 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <title>Abo-Modelle – TempConnect</title>
+  <link rel="stylesheet" href="/public/css/enterprise.css"/>
+  <style>
+    .plan-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; margin-top: 18px; }
+    @media (max-width: 1100px) { .plan-grid { grid-template-columns: repeat(2, 1fr); } }
+    @media (max-width: 520px) { .plan-grid { grid-template-columns: 1fr; } }
+    .plan-card {
+      padding: 14px; border-radius: 14px; background: rgba(0,0,0,.18);
+      border: 1px solid var(--line); transition: border-color .2s, transform .2s;
+    }
+    .plan-card:hover { transform: translateY(-4px); }
+    .plan-features div { padding: 4px 0; border-bottom: 1px solid var(--line); }
+    .plan-features div:last-child { border-bottom: none; }
+
+    .success-banner { background: rgba(57,217,138,.15); border: 1px solid rgba(57,217,138,.4); border-radius: 12px; padding: 12px 16px; margin-bottom: 14px; display: none; }
+    .cancel-banner { background: rgba(255,204,0,.1); border: 1px solid rgba(255,204,0,.3); border-radius: 12px; padding: 12px 16px; margin-bottom: 14px; display: none; }
+
+    .checkout-modal { position: fixed; inset: 0; display: none; place-items: center; background: rgba(0,0,0,.78); z-index: 50; }
+    .checkout-panel {
+      width: min(520px, 92vw); padding: 18px; border-radius: 18px;
+      border: 1px solid rgba(255,255,255,.16);
+      background: rgba(15,27,51,.96); box-shadow: 0 28px 70px rgba(0,0,0,.55); backdrop-filter: blur(10px);
+    }
+    .checkout-panel h2 { margin: 0 0 10px; }
+    .payment-methods { display: grid; gap: 10px; margin-top: 10px; }
+    .payment-btn {
+      display: flex; align-items: center; gap: 12px; padding: 14px;
+      border: 1px solid var(--line); border-radius: 12px;
+      background: rgba(255,255,255,.04); color: inherit; cursor: pointer; font-weight: 700;
+      text-align: left;
+    }
+    .payment-btn:hover { border-color: rgba(255,255,255,.18); }
+    .payment-btn.active { background: linear-gradient(135deg, var(--brand), var(--brand2)); border-color: transparent; }
+    .payment-btn:disabled { opacity: .5; cursor: not-allowed; }
+
+    .history-table { width: 100%; border-collapse: collapse; font-size: 13px; margin-top: 12px; }
+    .history-table th, .history-table td { text-align: left; padding: 8px 12px; border-bottom: 1px solid var(--line); }
+    .history-table th { color: var(--muted); font-weight: 600; font-size: 12px; text-transform: uppercase; }
+  </style>
+</head>
+<body>
+  <div id="main-content" class="wrap">
+    <div class="topbar">
+      <span class="brand"><span style="width:10px;height:10px;border-radius:50%;background:linear-gradient(135deg,var(--brand),var(--brand2));display:inline-block;margin-right:8px"></span>TempConnect</span>
+      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+        <a href="/" class="btn">Startseite</a>
+        <a href="/public/enterprise.html" class="btn">Übersicht</a>
+        <a href="/public/capacity_search.html" class="btn">Kapazitätssuche</a>
+        <a href="/public/sla_search_jobs_list.html" class="btn">Suchaufträge</a>
+      </div>
+    </div>
+
+    <!-- Success/Cancel banners (from Stripe redirect) -->
+    <div id="successBanner" class="success-banner">
+      <strong>Zahlung erfolgreich!</strong> Dein Abo wurde aktiviert. Die Seite wird aktualisiert.
+    </div>
+    <div id="cancelBanner" class="cancel-banner">
+      <strong>Zahlung abgebrochen.</strong> Du kannst den Checkout jederzeit erneut starten.
+    </div>
+
+    <div class="ds-page-header">
+      <div class="ds-page-header__content">
+        <h1 class="ds-page-title">Abo-Modelle</h1>
+        <p class="ds-page-subtitle">Upgrade oder Downgrade jederzeit moeglich. Bei Kuendigung wechselst du zum FREE-Plan.</p>
+      </div>
+    </div>
+    <div style="margin-top:14px;padding:14px;border-radius:14px;border:1px solid rgba(74,163,255,.25);background:rgba(74,163,255,.06)">
+      <div style="font-size:14px;font-weight:700">TempConnect verbindet Kapazitaetsmarktplatz mit Pulse Notdienst, verifizierten Anbietern und Deal-gesteuertem Kontaktaustausch.</div>
+    </div>
+
+    <!-- Plan Grid (identisch zum alten Abo-Bereich) -->
+    <div class="plan-grid" id="planGrid"></div>
+
+    <!-- Aktueller Plan (identisch zum alten Abo-Bereich) -->
+    <div style="margin-top:24px;max-width:500px;padding:14px;border:1px solid var(--line);border-radius:12px;background:rgba(0,0,0,.18)">
+      <h3 style="margin:0 0 10px">Aktueller Plan</h3>
+      <div id="currentPlanInfo"></div>
+      <div style="margin-top:14px">
+        <button class="btn" id="btnCancelSub" style="background:rgba(255,92,122,.15);border-color:rgba(255,92,122,.35);color:#ffd0d8" onclick="cancelSubscription()">Abo kuendigen (zurueck zu FREE)</button>
+      </div>
+    </div>
+
+    <!-- Zahlungshistorie -->
+    <div style="margin-top:24px;padding:14px;border:1px solid var(--line);border-radius:12px;background:rgba(0,0,0,.18)">
+      <h3 style="margin:0 0 8px">Zahlungshistorie</h3>
+      <div id="paymentHistory"><span style="color:var(--muted)">Lade…</span></div>
+    </div>
+
+    <p style="margin-top:24px;font-size:11px;color:var(--muted)">Hinweis: Inhalte dienen der Unterstützung und ersetzen keine rechtliche Prüfung. Angaben ohne Gewähr.</p>
+  </div>
+
+  <!-- Checkout Modal (identisch zum alten Abo-Bereich) -->
+  <div class="checkout-modal" id="checkoutModal">
+    <div class="checkout-panel">
+      <div style="display:flex;justify-content:space-between;align-items:center">
+        <h2>Abo abschliessen</h2>
+        <button class="btn" onclick="closeCheckout()">X</button>
+      </div>
+
+      <div id="checkoutPlanInfo" style="padding:14px;border-radius:14px;border:1px solid var(--line);background:rgba(0,0,0,.18)"></div>
+
+      <div style="margin-top:14px">
+        <label style="display:block;font-size:12px;color:var(--muted);margin:0 0 6px;font-weight:700">Zahlungsmethode waehlen</label>
+        <div class="payment-methods" id="paymentMethods"></div>
+      </div>
+
+      <div id="checkoutDemoSection" style="display:none;margin-top:16px;padding:14px;border-radius:12px;background:rgba(57,217,138,.1);border:1px solid rgba(57,217,138,.3)">
+        <p style="margin:0 0 10px"><b>Demo-Modus aktiv</b></p>
+        <p style="margin:0 0 12px;font-size:13px;color:var(--muted)">Im Demo-Modus wird keine echte Zahlung durchgefuehrt. Du erhaeltst sofort vollen Zugriff.</p>
+        <button class="btn" id="btnDemoConfirm" style="width:100%;background:rgba(57,217,138,.15);border-color:rgba(57,217,138,.35);color:#c8ffe7">Zahlung simulieren und Plan aktivieren</button>
+      </div>
+
+      <div id="checkoutStripeSection" style="display:none;margin-top:16px;padding:14px;border-radius:12px;background:rgba(99,91,255,.1);border:1px solid rgba(99,91,255,.3)">
+        <p style="margin:0 0 10px"><b>Stripe Checkout</b></p>
+        <p style="margin:0 0 12px;font-size:13px;color:var(--muted)">Du wirst zu Stripe weitergeleitet, um die Zahlung sicher abzuschliessen. Unterstuetzte Methoden: Kreditkarte, SEPA-Lastschrift, Sofort, Giropay.</p>
+        <p style="margin:0 0 12px;font-size:13px;color:var(--good)">Du erhaeltst sofort vollen Zugriff nach Zahlungseingang.</p>
+        <button class="btn" id="btnStripeCheckout" style="width:100%;background:#635bff;border-color:transparent;color:#fff">Weiter zu Stripe Checkout</button>
+      </div>
+
+      <p style="margin-top:14px;font-size:12px;color:var(--muted)">Du kannst dein Abo jederzeit kuendigen. Bei Kuendigung wechselst du zum FREE-Plan.</p>
+      <div id="checkoutStatus" style="display:none;margin-top:12px;color:var(--muted);font-size:13px"></div>
+    </div>
+  </div>
+
+  <script src="/public/js/planFeatures.js"></script>
+  <script src="/public/js/slaGuard.js"></script>
+  <script>
+  (function(){
+    var API = "/api";
+    var PLAN_ORDER = ["FREE", "BASIS", "PLUS", "NOTDIENST"];
+    var PRICES = { FREE: 0, BASIS: 150, PLUS: 499, NOTDIENST: 999 };
+    var PLAN_DATA = {
+      FREE: {
+        label: "FREE", sub: null,
+        features: [
+          { text: "Marketplace durchsuchen", cls: "" },
+          { text: "Keine Anfragen senden", cls: "color:var(--bad)" },
+          { text: "Keine Angebote", cls: "color:var(--bad)" },
+          { text: "Kein Notdienst", cls: "color:var(--bad)" }
+        ]
+      },
+      BASIS: {
+        label: "BASIS", sub: null,
+        features: [
+          { text: "5 Anfragen senden", cls: "color:var(--good)" },
+          { text: "5 Anfragen empfangen", cls: "color:var(--good)" },
+          { text: "5 Angebote erstellen", cls: "color:var(--good)" },
+          { text: "Kein Notdienst", cls: "color:var(--bad)" }
+        ],
+        hint: "Mehr Reichweite – finde schneller passende Partner."
+      },
+      PLUS: {
+        label: "PLUS (Pulse PRO)", sub: null,
+        cardStyle: "border-color:rgba(74,163,255,.4);background:rgba(74,163,255,.04)",
+        features: [
+          { text: "20 Anfragen senden / empfangen", cls: "color:var(--good)" },
+          { text: "20 Angebote erstellen", cls: "color:var(--good)" },
+          { text: "Enterprise-Dashboard", cls: "color:var(--good);font-weight:700" },
+          { text: "Pulse-Timer, Compliance-Ampel, Scorecard", cls: "color:var(--good)" },
+          { text: "Matching-Versuch in 120 Min", cls: "color:var(--good)" },
+          { text: "99% Plattformverfuegbarkeit", cls: "color:var(--good)" },
+          { text: "Kein Notdienst", cls: "color:var(--bad)" }
+        ],
+        hint: "Enterprise-Zugang mit Pulse-Schutz und Kapazitaetssuche."
+      },
+      NOTDIENST: {
+        label: "NOTDIENST (Pulse EMERGENCY)", sub: null,
+        cardStyle: "border-color:rgba(255,204,0,.5);background:rgba(255,204,0,.05)",
+        features: [
+          { text: "Unbegrenzt Anfragen senden / empfangen", cls: "color:var(--good)" },
+          { text: "Unbegrenzt Angebote erstellen", cls: "color:var(--good)" },
+          { text: "Enterprise-Dashboard (alle Features)", cls: "color:var(--good);font-weight:700" },
+          { text: "Matching-Versuch in 30 Min", cls: "color:var(--warn);font-weight:700" },
+          { text: "Eskalation nach 60 Min", cls: "color:var(--warn);font-weight:700" },
+          { text: "99,5% Plattformverfuegbarkeit", cls: "color:var(--good)" },
+          { text: "Hoechste Prioritaet + Notdienst-Badge", cls: "color:var(--good)" }
+        ],
+        hint: "Maximale Sichtbarkeit mit Pulse Notdienst und priorisiertem Matching."
+      }
+    };
+
+    var paymentConfig = null;
+    var currentPlan = "FREE";
+    var selectedPlan = null;
+    var selectedMethod = null;
+    var meData = null;
+
+    function esc(s) { return String(s || "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;"); }
+    function idempotencyKey() {
+      try { return (typeof crypto !== "undefined" && crypto.randomUUID) ? crypto.randomUUID() : "x-" + Math.random().toString(36).slice(2) + "-" + Date.now(); }
+      catch(e) { return "x-" + Math.random().toString(36).slice(2) + "-" + Date.now(); }
+    }
+    function getCsrf() { return fetch(API + "/csrf", { credentials: "include" }).then(function(r) { return r.ok ? r.json() : null; }); }
+    function apiCall(path, opts) {
+      opts = opts || {};
+      var method = opts.method || "GET";
+      var headers = { "Content-Type": "application/json" };
+      if (["POST","PATCH","PUT","DELETE"].indexOf(method) >= 0) {
+        headers["X-CSRF-Token"] = opts.csrf || "";
+        headers["Idempotency-Key"] = idempotencyKey();
+      }
+      return fetch(API + path, { method: method, headers: headers, body: opts.body ? JSON.stringify(opts.body) : undefined, credentials: "include" });
+    }
+
+    /* ── URL params (success/cancel from Stripe redirect) ── */
+    var urlParams = new URLSearchParams(window.location.search);
+    if (urlParams.get("payment") === "success") {
+      document.getElementById("successBanner").style.display = "block";
+      window.history.replaceState({}, "", "/public/sla_abo.html");
+    }
+    if (urlParams.get("payment") === "cancelled") {
+      document.getElementById("cancelBanner").style.display = "block";
+      window.history.replaceState({}, "", "/public/sla_abo.html");
+    }
+
+    /* ── Render Plan Grid (identisch zum alten Bereich) ── */
+    function renderPlans() {
+      var grid = document.getElementById("planGrid");
+      grid.innerHTML = "";
+      PLAN_ORDER.forEach(function(key) {
+        var plan = PLAN_DATA[key];
+        var price = PRICES[key];
+        var isCurrent = currentPlan === key;
+
+        var card = document.createElement("div");
+        card.className = "plan-card";
+        if (plan.cardStyle) card.setAttribute("style", plan.cardStyle);
+        if (isCurrent) card.style.border = "2px solid var(--brand)";
+        card.setAttribute("data-plan", key);
+
+        var labelColor = key === "PLUS" ? "color:var(--brand)" : key === "NOTDIENST" ? "color:var(--warn)" : "";
+        var featHtml = plan.features.map(function(f) {
+          return "<div" + (f.cls ? " style=\"" + f.cls + "\"" : "") + ">" + esc(f.text) + "</div>";
+        }).join("");
+        if (plan.hint) {
+          featHtml += "<div style=\"margin-top:8px;padding-top:8px;border-top:1px solid var(--line);font-size:12px;color:var(--muted)\">" + esc(plan.hint) + "</div>";
+        }
+
+        var btnHtml;
+        if (isCurrent) {
+          btnHtml = "<button class=\"btn\" style=\"width:100%;opacity:.5;cursor:not-allowed;background:rgba(255,255,255,.05)\" disabled>Aktuell</button>";
+        } else if (key === "FREE") {
+          btnHtml = "<button class=\"btn\" style=\"width:100%\" onclick=\"window._setPlan('FREE')\">Waehlen</button>";
+        } else {
+          var isPrimary = key === "PLUS" || key === "NOTDIENST";
+          btnHtml = "<button class=\"btn" + (isPrimary ? " primary\" style=\"width:100%;background:linear-gradient(135deg,var(--brand),var(--brand2));border-color:transparent\"" : "\" style=\"width:100%\"") + " onclick=\"window._setPlan('" + key + "')\">Waehlen</button>";
+        }
+
+        card.innerHTML =
+          "<div><b style=\"font-size:18px;" + labelColor + "\">" + esc(plan.label) + "</b></div>" +
+          "<div style=\"font-size:24px;font-weight:900;margin:8px 0\">" + price + " EUR</div>" +
+          "<div style=\"font-size:12px;color:var(--muted)\">pro Monat</div>" +
+          "<div class=\"plan-features\" style=\"margin-top:14px;font-size:13px\">" + featHtml + "</div>" +
+          "<div style=\"margin-top:14px\">" + btnHtml + "</div>";
+
+        grid.appendChild(card);
+      });
+    }
+
+    /* ── Aktueller Plan Info (identisch zum alten Bereich) ── */
+    function renderCurrentPlan() {
+      var el = document.getElementById("currentPlanInfo");
+      if (!meData) { el.innerHTML = "-"; return; }
+      var html = "Plan: <b>" + esc(meData.plan || "FREE") + "</b>";
+      if (meData.limits) {
+        if (meData.limits.requests_send === -1) {
+          html += "<br/>Unbegrenzte Nutzung";
+        } else {
+          html += "<br/>Anfragen: " + (meData.usage ? meData.usage.sent_count : 0) + " / " + meData.limits.requests_send;
+          html += "<br/>Karteikarten: " + (meData.usage ? meData.usage.listings_count : 0) + " / " + meData.limits.listings;
+        }
+        html += "<br/>Notdienst: " + (meData.limits.notdienst ? "Ja" : "Nein");
+      }
+      el.innerHTML = html;
+    }
+
+    /* ── Checkout Modal ── */
+    window._setPlan = function(planKey) {
+      if (planKey === "FREE") {
+        getCsrf().then(function(csrf) {
+          var token = csrf && (csrf.csrfToken || csrf.token);
+          return apiCall("/me/plan", { method: "POST", csrf: token, body: { plan: "FREE" } });
+        }).then(function(r) {
+          if (!r.ok) return r.json().then(function(e) { throw new Error(e.error || "Fehler"); });
+          return r.json();
+        }).then(function(me) {
+          meData = me;
+          currentPlan = me.plan || "FREE";
+          renderPlans();
+          renderCurrentPlan();
+          alert("Plan geaendert: " + currentPlan);
+        }).catch(function(e) { alert("Fehler: " + e.message); });
+        return;
+      }
+      openCheckout(planKey);
+    };
+
+    function openCheckout(planKey) {
+      selectedPlan = planKey;
+      selectedMethod = null;
+      var price = PRICES[planKey];
+      var plan = PLAN_DATA[planKey];
+      var benefit = planKey === "BASIS" ? "Mehr Reichweite – finde schneller passende Partner."
+        : planKey === "PLUS" ? "Noch mehr Reichweite – ideal fuer aktive Vermittlung."
+        : planKey === "NOTDIENST" ? "Maximale Sichtbarkeit mit Pulse Notdienst und priorisiertem Matching." : "";
+
+      document.getElementById("checkoutPlanInfo").innerHTML =
+        "<div style='display:flex;justify-content:space-between;align-items:center'>" +
+        "<div><b style='font-size:18px'>" + esc(plan.label) + "</b>" +
+        (benefit ? "<div style='font-size:13px;color:var(--good);margin-top:4px'>" + esc(benefit) + "</div>" : "") + "</div>" +
+        "<div style='font-size:24px;font-weight:900'>" + price + " EUR<span style='font-size:12px;color:var(--muted)'>/Monat</span></div>" +
+        "</div>";
+
+      // Build payment method buttons (identisch zum alten Bereich)
+      var methods = [
+        { key: "demo", icon: "🎭", label: "Demo-Zahlung", desc: "Testzahlung ohne echtes Geld", enabled: true },
+        { key: "stripe", icon: "💳", label: "Kreditkarte / SEPA / Klarna / Sofort", desc: paymentConfig && paymentConfig.stripe_enabled ? "Kreditkarte, SEPA, Sofort, Giropay" : "via Stripe (bald verfuegbar)", enabled: !!(paymentConfig && paymentConfig.stripe_enabled) },
+        { key: "paypal", icon: "🅿️", label: "PayPal", desc: paymentConfig && paymentConfig.paypal_enabled ? "Mit PayPal bezahlen" : "(bald verfuegbar)", enabled: !!(paymentConfig && paymentConfig.paypal_enabled) }
+      ];
+      var container = document.getElementById("paymentMethods");
+      container.innerHTML = "";
+      methods.forEach(function(m) {
+        var btn = document.createElement("button");
+        btn.type = "button";
+        btn.className = "payment-btn";
+        btn.disabled = !m.enabled;
+        btn.dataset.method = m.key;
+        btn.innerHTML = "<span style='font-size:20px'>" + m.icon + "</span><div style='text-align:left'><b>" + esc(m.label) + "</b><div style='margin:0;font-size:12px;color:var(--muted)'>" + esc(m.desc) + "</div></div>";
+        btn.onclick = function() { selectMethod(m.key); };
+        container.appendChild(btn);
+      });
+
+      document.getElementById("checkoutDemoSection").style.display = "none";
+      document.getElementById("checkoutStripeSection").style.display = "none";
+      document.getElementById("checkoutStatus").style.display = "none";
+      document.getElementById("checkoutModal").style.display = "grid";
+    }
+
+    function selectMethod(method) {
+      selectedMethod = method;
+      document.querySelectorAll(".payment-btn").forEach(function(b) { b.classList.remove("active"); });
+      var active = document.querySelector(".payment-btn[data-method='" + method + "']");
+      if (active) active.classList.add("active");
+      document.getElementById("checkoutDemoSection").style.display = method === "demo" ? "block" : "none";
+      document.getElementById("checkoutStripeSection").style.display = method === "stripe" ? "block" : "none";
+    }
+
+    window.closeCheckout = function() {
+      document.getElementById("checkoutModal").style.display = "none";
+      selectedPlan = null;
+      selectedMethod = null;
+    };
+
+    function doCheckout(method) {
+      if (!selectedPlan) return;
+      var statusEl = document.getElementById("checkoutStatus");
+      statusEl.style.display = "block";
+      statusEl.textContent = "Checkout wird erstellt…";
+      var demoBtn = document.getElementById("btnDemoConfirm");
+      var stripeBtn = document.getElementById("btnStripeCheckout");
+      if (demoBtn) demoBtn.disabled = true;
+      if (stripeBtn) stripeBtn.disabled = true;
+
+      getCsrf().then(function(csrf) {
+        var token = csrf && (csrf.csrfToken || csrf.token);
+        return apiCall("/payment/checkout", { method: "POST", csrf: token, body: { plan: selectedPlan, payment_method: method } });
+      }).then(function(r) {
+        if (!r.ok) return r.json().then(function(err) { throw new Error(err.error || "CHECKOUT_ERROR"); });
+        return r.json();
+      }).then(function(data) {
+        if (data.mode === "demo") {
+          statusEl.textContent = "Demo-Modus – Abo wird aktiviert…";
+          return getCsrf().then(function(csrf) {
+            var token = csrf && (csrf.csrfToken || csrf.token);
+            return apiCall("/payment/confirm", { method: "POST", csrf: token, body: { checkout_id: data.checkout_id } });
+          }).then(function(r) {
+            if (!r.ok) throw new Error("CONFIRM_FAILED");
+            return r.json();
+          }).then(function(result) {
+            statusEl.textContent = "Abo aktiviert! Seite wird neu geladen…";
+            setTimeout(function() { window.location.href = "/public/sla_abo.html"; }, 1500);
+          });
+        }
+        if (data.mode === "stripe" && data.redirect_url) {
+          statusEl.textContent = "Weiterleitung zu Stripe…";
+          window.location.href = data.redirect_url;
+          return;
+        }
+        if (data.mode === "paypal" && data.redirect_url) {
+          statusEl.textContent = "Weiterleitung zu PayPal…";
+          window.location.href = data.redirect_url;
+          return;
+        }
+        throw new Error("UNKNOWN_MODE");
+      }).catch(function(err) {
+        statusEl.textContent = "Fehler: " + (err.message || "Unbekannter Fehler");
+        if (demoBtn) demoBtn.disabled = false;
+        if (stripeBtn) stripeBtn.disabled = false;
+      });
+    }
+
+    document.getElementById("btnDemoConfirm").onclick = function() { doCheckout("demo"); };
+    document.getElementById("btnStripeCheckout").onclick = function() { doCheckout("stripe"); };
+
+    /* ── Cancel Subscription ── */
+    window.cancelSubscription = function() {
+      if (!confirm("Abo wirklich kuendigen? Du wechselst zum FREE-Plan und kannst keine Anfragen mehr senden.")) return;
+      getCsrf().then(function(csrf) {
+        var token = csrf && (csrf.csrfToken || csrf.token);
+        return apiCall("/me/plan/cancel", { method: "POST", csrf: token });
+      }).then(function(r) {
+        if (!r.ok) return r.json().then(function(e) { throw new Error(e.error || "Fehler"); });
+        return r.json();
+      }).then(function(me) {
+        meData = me;
+        currentPlan = me.plan || "FREE";
+        renderPlans();
+        renderCurrentPlan();
+        alert("Abo gekuendigt. Du bist jetzt im FREE-Plan.");
+      }).catch(function(e) { alert("Kuendigung fehlgeschlagen: " + e.message); });
+    };
+
+    /* ── Payment History ── */
+    function loadHistory() {
+      apiCall("/payment/history").then(function(r) {
+        if (!r.ok) return [];
+        return r.json();
+      }).then(function(rows) {
+        var el = document.getElementById("paymentHistory");
+        if (!Array.isArray(rows) || rows.length === 0) {
+          el.innerHTML = "<p style='color:var(--muted);font-size:13px'>Noch keine Zahlungen.</p>";
+          return;
+        }
+        var html = "<table class='history-table'><thead><tr><th>Datum</th><th>Plan</th><th>Betrag</th><th>Methode</th><th>Status</th></tr></thead><tbody>";
+        rows.forEach(function(r) {
+          var date = r.created_at ? new Date(r.created_at).toLocaleDateString("de-DE") : "–";
+          var statusCls = r.status === "completed" ? "color:var(--good)" : r.status === "failed" ? "color:var(--bad)" : "color:var(--warn)";
+          html += "<tr><td>" + esc(date) + "</td><td>" + esc(r.plan) + "</td><td>" + r.amount + " EUR</td><td>" + esc(r.method) + "</td><td style='" + statusCls + "'>" + esc(r.status) + "</td></tr>";
+        });
+        html += "</tbody></table>";
+        el.innerHTML = html;
+      }).catch(function() {
+        document.getElementById("paymentHistory").innerHTML = "<p style='color:var(--muted);font-size:13px'>Fehler beim Laden.</p>";
+      });
+    }
+
+    /* ── Init ── */
+    Promise.all([
+      fetch(API + "/me", { credentials: "include" }).then(function(r) { return r.ok ? r.json() : null; }),
+      apiCall("/payment/config").then(function(r) { return r.ok ? r.json() : null; })
+    ]).then(function(results) {
+      meData = results[0];
+      paymentConfig = results[1];
+      currentPlan = (meData && meData.plan) ? meData.plan : "FREE";
+      renderPlans();
+      renderCurrentPlan();
+      loadHistory();
+    }).catch(function() {
+      renderPlans();
+      renderCurrentPlan();
+      loadHistory();
+    });
+  })();
+  </script>
+  <div id="tc-footer" data-tc-footer></div>
+  <script src="/public/js/footer.js"></script>
+</body>
+</html>

@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <title>Matching-Ergebnisse – TempConnect</title>
+  <link rel="stylesheet" href="/public/css/enterprise.css"/>
+  <style>
+    .match-card{padding:var(--ds-space-4,16px);border:1px solid var(--line);border-radius:var(--ds-radius-lg,12px);background:rgba(255,255,255,.025);margin-bottom:12px;transition:border-color .2s}
+    .match-card:hover{border-color:rgba(255,255,255,.18)}
+    .match-header{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;margin-bottom:10px}
+    .match-score{font-size:28px;font-weight:800;color:var(--brand)}
+    .match-score small{font-size:12px;color:var(--muted);font-weight:600}
+    .score-bars{display:flex;flex-direction:column;gap:6px;margin:10px 0}
+    .score-bar{display:flex;align-items:center;gap:8px;font-size:12px}
+    .score-bar__label{width:90px;color:var(--muted);flex-shrink:0;text-align:right}
+    .score-bar__track{flex:1;height:8px;background:rgba(255,255,255,.06);border-radius:4px;overflow:hidden}
+    .score-bar__fill{height:100%;border-radius:4px;background:linear-gradient(90deg,var(--brand),var(--brand2,#7c3aed));transition:width .4s}
+    .score-bar__pts{width:50px;font-weight:700;color:var(--text);font-size:11px}
+    .match-meta{display:flex;flex-wrap:wrap;gap:10px;font-size:13px;color:var(--muted);margin-bottom:8px}
+    .match-actions{display:flex;gap:8px;margin-top:10px}
+  </style>
+</head>
+<body data-sla-guard="sla_access">
+  <div id="paywall" class="wrap" style="display:none">
+    <div class="topbar"><span class="brand">TempConnect</span><a href="/" class="btn">Startseite</a></div>
+    <div class="paywall-box">
+      <h2>Bereich nicht verfuegbar</h2>
+      <p>Aktueller Plan: <span id="paywall-current-plan" class="paywall-plan">–</span></p>
+      <a id="paywall-cta" href="/public/sla_abo.html" class="btn primary">Abo ansehen</a>
+    </div>
+  </div>
+
+  <div id="main-content" class="wrap">
+    <div class="topbar">
+      <span class="brand">TempConnect – Matching</span>
+      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+        <a href="/public/enterprise.html" class="btn">Uebersicht</a>
+        <a href="/public/capacity_exchange_feed.html" class="btn">Kapazitaetsboerse</a>
+        <a href="/public/company_requests.html" class="btn">Meine Anfragen</a>
+      </div>
+    </div>
+
+    <div class="ds-page-header">
+      <div class="ds-page-header__content">
+        <h1 class="ds-page-title" id="pageTitle">Matching-Ergebnisse</h1>
+        <p class="ds-page-subtitle" id="pageSubtitle">Multi-Faktor-Scoring: Rolle, Skills, Standort, Verfuegbarkeit, Verifizierung, Vendor Pool.</p>
+      </div>
+    </div>
+
+    <div id="matchInfo" style="margin-bottom:var(--ds-space-4,16px)"></div>
+    <div id="matches"></div>
+    <div id="emptyState" style="display:none" class="empty">Keine passenden Ergebnisse gefunden. Versuchen Sie andere Suchkriterien.</div>
+  </div>
+
+  <script src="/public/js/planFeatures.js"></script>
+  <script src="/public/js/slaGuard.js"></script>
+  <script>
+    var API = "/api";
+    function esc(s){return s==null?"":String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;")}
+    function fmtDate(d){return d?String(d).substring(0,10):"–"}
+
+    var FACTOR_LABELS={role:"Rolle",skills:"Skills",location:"Standort",availability:"Verfuegbarkeit",verified:"Verifiziert",vendorPool:"Vendor Pool"};
+    var FACTOR_MAX={role:30,skills:25,location:25,availability:10,verified:5,vendorPool:5};
+
+    function renderScoreBars(reasons){
+      if(!reasons||!reasons.length)return"";
+      return '<div class="score-bars">'+reasons.map(function(r){
+        var pct=r.max>0?Math.round((r.points/r.max)*100):0;
+        return '<div class="score-bar"><span class="score-bar__label">'+(FACTOR_LABELS[r.factor]||r.factor)+'</span><div class="score-bar__track"><div class="score-bar__fill" style="width:'+pct+'%"></div></div><span class="score-bar__pts">'+r.points+'/'+r.max+'</span></div>';
+      }).join("")+'</div>';
+    }
+
+    function renderMatchCard(m,type){
+      var entity=m.entity||m.capacity_post||m;
+      var score=m.score||0;
+      var reasons=m.reasons||[];
+      var title=entity.title||entity.role||"–";
+      var city=entity.location_city||"–";
+      var role=entity.role||"–";
+      var from=fmtDate(entity.availability_from||entity.start_date);
+      var to=fmtDate(entity.availability_to||entity.end_date);
+
+      var actions='';
+      if(type==='capacity'){
+        // Viewing matches for a capacity entry → show requisitions/demands
+        actions='<a href="/public/company_requests.html" class="btn primary" style="font-size:12px;padding:6px 12px">Details</a>';
+      }else{
+        // Viewing matches for a demand → show capacity posts
+        var entryId=entity.id||'';
+        actions='<a href="/public/capacity_exchange_feed.html" class="btn" style="font-size:12px;padding:6px 12px">Im Feed ansehen</a>';
+        actions+=' <a href="/public/sla_angebote.html?demand_id='+encodeURIComponent(entryId)+'" class="btn primary" style="font-size:12px;padding:6px 12px">Angebot erstellen</a>';
+      }
+
+      return '<div class="match-card">'+
+        '<div class="match-header">'+
+        '<div><div style="font-size:15px;font-weight:700">'+esc(title)+'</div><div class="match-meta"><span>Rolle: '+esc(role)+'</span><span>Stadt: '+esc(city)+'</span><span>'+from+' – '+to+'</span></div></div>'+
+        '<div class="match-score">'+score+'<small>/100</small></div>'+
+        '</div>'+
+        renderScoreBars(reasons)+
+        '<div class="match-actions">'+actions+'</div>'+
+        '</div>';
+    }
+
+    async function loadMatches(){
+      var params=new URLSearchParams(window.location.search);
+      var type=params.get("type")||"capacity"; // capacity or demand
+      var id=params.get("id");
+      if(!id){document.getElementById("matches").innerHTML='<p class="empty">Keine ID angegeben.</p>';return;}
+
+      var url;
+      if(type==="capacity"){
+        url=API+"/capacity-exchange/entries/"+encodeURIComponent(id)+"/matches";
+        document.getElementById("pageTitle").textContent="Matching fuer Kapazitaet";
+        document.getElementById("pageSubtitle").textContent="Passende Requisitions und Nachfragen fuer Ihre Kapazitaet.";
+      }else{
+        url=API+"/marketplace/demand-requests/"+encodeURIComponent(id)+"/matches";
+        document.getElementById("pageTitle").textContent="Matching fuer Nachfrage";
+        document.getElementById("pageSubtitle").textContent="Passende Kapazitaeten fuer Ihre Nachfrage.";
+      }
+
+      var container=document.getElementById("matches");
+      container.innerHTML='<p style="color:var(--muted)">Matching laeuft...</p>';
+
+      try{
+        var r=await fetch(url,{credentials:"include"});
+        if(!r.ok){container.innerHTML='<p style="color:var(--bad)">Fehler: '+r.status+'</p>';return;}
+        var data=await r.json();
+        var items=Array.isArray(data)?data:(data.data&&data.data.items)||data.items||data.matches||[];
+        if(!items.length){container.innerHTML='';document.getElementById("emptyState").style.display="block";return;}
+
+        document.getElementById("matchInfo").innerHTML='<div style="font-size:13px;color:var(--muted)">'+items.length+' Treffer gefunden</div>';
+        container.innerHTML=items.map(function(m){return renderMatchCard(m,type)}).join("");
+      }catch(e){
+        container.innerHTML='<p style="color:var(--bad)">Fehler: '+esc(e.message)+'</p>';
+      }
+    }
+    loadMatches();
+  </script>
+  <script src="/public/js/notifications.js"></script>
+  <div id="tc-footer" data-tc-footer></div>
+  <script src="/public/js/footer.js"></script>
+</body>
+</html>

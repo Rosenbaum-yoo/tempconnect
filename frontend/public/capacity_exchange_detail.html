@@ -1,0 +1,497 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <title>Kapazitaet – TempConnect</title>
+  <link rel="stylesheet" href="/public/css/enterprise.css"/>
+  <style>
+    .ce-detail { display: grid; grid-template-columns: 1fr 340px; gap: var(--ds-space-6); align-items: start; }
+    @media (max-width: 900px) { .ce-detail { grid-template-columns: 1fr; } }
+    .ce-detail__main { min-width: 0; }
+    .ce-detail__sidebar { display: flex; flex-direction: column; gap: var(--ds-space-4); }
+    .ce-section { padding: var(--ds-space-5); border: 1px solid var(--ds-border); border-radius: var(--ds-radius-lg); background: rgba(255,255,255,.025); margin-bottom: var(--ds-space-4); }
+    .ce-section__title { font-size: 13px; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; color: var(--ds-text-tertiary); margin: 0 0 var(--ds-space-3); padding-bottom: var(--ds-space-2); border-bottom: 1px solid var(--ds-border); }
+    .ce-field { margin-bottom: var(--ds-space-3); }
+    .ce-field__label { font-size: 11px; font-weight: 600; color: var(--ds-text-tertiary); text-transform: uppercase; letter-spacing: .04em; margin-bottom: 2px; }
+    .ce-field__value { font-size: 14px; color: var(--ds-text); }
+    .ce-fields-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0 var(--ds-space-6); }
+    .ce-freshness { display: inline-flex; align-items: center; gap: 4px; font-size: 12px; }
+    .ce-freshness__dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+    .ce-freshness__dot--fresh { background: var(--ds-success); box-shadow: 0 0 6px rgba(52,211,153,.3); }
+    .ce-freshness__dot--aging { background: var(--ds-warning); box-shadow: 0 0 6px rgba(251,191,36,.3); }
+    .ce-freshness__dot--stale { background: rgba(255,255,255,.15); }
+    .ce-interact-form { display: flex; flex-direction: column; gap: var(--ds-space-3); }
+    .ce-interact-form .ds-textarea { min-height: 60px; }
+    .ce-interact-btns { display: flex; flex-wrap: wrap; gap: var(--ds-space-2); }
+    .ce-match-card { padding: var(--ds-space-3); border: 1px solid var(--ds-border); border-radius: var(--ds-radius-md); margin-bottom: var(--ds-space-2); font-size: 13px; }
+    .ce-interaction-item { padding: var(--ds-space-3) 0; border-bottom: 1px solid rgba(255,255,255,.04); font-size: 13px; }
+    .ce-interaction-item:last-child { border-bottom: none; }
+    .ds-toast { opacity: 0; transform: translateY(12px); transition: opacity .3s, transform .3s; }
+    .ds-toast.show { opacity: 1; transform: translateY(0); }
+    .ce-completeness { margin-top: var(--ds-space-3); }
+    .ce-completeness__bar { height: 6px; border-radius: 3px; background: rgba(255,255,255,.08); overflow: hidden; }
+    .ce-completeness__fill { height: 100%; border-radius: 3px; background: var(--ds-brand); transition: width .4s; }
+    .ce-completeness__label { font-size: 12px; color: var(--ds-text-secondary); margin-top: 4px; }
+    .ce-action-row { display: flex; gap: var(--ds-space-2); flex-wrap: wrap; }
+    .ce-action-row .ds-btn--sm { font-size: 12px; }
+  </style>
+</head>
+<body data-sla-guard="sla_access">
+  <div id="paywall" class="wrap" style="display:none">
+    <div class="topbar"><span class="brand">TempConnect</span><a href="/" class="btn">Startseite</a></div>
+    <div class="paywall-box">
+      <h2>Bereich nicht verfuegbar</h2>
+      <p>Aktueller Plan: <span id="paywall-current-plan" class="paywall-plan">–</span></p>
+      <a id="paywall-cta" href="/public/sla_abo.html" class="btn primary">Abo ansehen</a>
+    </div>
+  </div>
+
+  <div id="main-content" class="ds-wrap">
+    <div class="ds-topbar">
+      <div class="ds-topbar__brand"><span class="ds-topbar__brand-dot"></span>TempConnect</div>
+      <nav class="ds-topbar__nav">
+        <a href="/public/enterprise.html" class="ds-nav-link">Uebersicht</a>
+        <span class="ds-topbar__separator"></span>
+        <a href="/public/capacity_exchange_manage.html" class="ds-nav-link">Meine Kapazitaeten</a>
+        <a href="/public/capacity_exchange_feed.html" class="ds-nav-link">Kapazitaetsboerse</a>
+      </nav>
+    </div>
+
+    <!-- Loading state -->
+    <div id="loading">
+      <div class="ds-skeleton ds-skeleton--title" style="margin-bottom:var(--ds-space-4)"></div>
+      <div class="ds-skeleton ds-skeleton--card" style="height:300px"></div>
+    </div>
+
+    <!-- Detail content (hidden until loaded) -->
+    <div id="detail" style="display:none">
+      <!-- Page Header -->
+      <div class="ds-page-header">
+        <div class="ds-page-header__content">
+          <h1 class="ds-page-title" id="d-title">–</h1>
+          <p class="ds-page-subtitle" id="d-subtitle">–</p>
+        </div>
+        <div class="ds-page-header__actions" id="d-header-actions"></div>
+      </div>
+
+      <!-- Status + Freshness bar -->
+      <div style="display:flex;gap:var(--ds-space-3);align-items:center;margin-bottom:var(--ds-space-5);flex-wrap:wrap" id="d-status-bar"></div>
+
+      <div class="ce-detail">
+        <!-- Main Column -->
+        <div class="ce-detail__main">
+
+          <!-- Workforce -->
+          <div class="ce-section">
+            <div class="ce-section__title">Personalangebot</div>
+            <div class="ce-fields-grid">
+              <div class="ce-field"><div class="ce-field__label">Rolle</div><div class="ce-field__value" id="d-role">–</div></div>
+              <div class="ce-field"><div class="ce-field__label">Kategorie</div><div class="ce-field__value" id="d-category">–</div></div>
+              <div class="ce-field"><div class="ce-field__label">Anzahl</div><div class="ce-field__value" id="d-headcount">–</div></div>
+              <div class="ce-field"><div class="ce-field__label">Skills</div><div class="ce-field__value" id="d-skills">–</div></div>
+            </div>
+          </div>
+
+          <!-- Timing -->
+          <div class="ce-section">
+            <div class="ce-section__title">Zeitraum &amp; Einsatzmodell</div>
+            <div class="ce-fields-grid">
+              <div class="ce-field"><div class="ce-field__label">Verfuegbarkeit</div><div class="ce-field__value" id="d-dates">–</div></div>
+              <div class="ce-field"><div class="ce-field__label">Typ</div><div class="ce-field__value" id="d-avail-type">–</div></div>
+              <div class="ce-field"><div class="ce-field__label">Schichtmodell</div><div class="ce-field__value" id="d-shift">–</div></div>
+              <div class="ce-field"><div class="ce-field__label">Einsatzart</div><div class="ce-field__value" id="d-employment">–</div></div>
+            </div>
+          </div>
+
+          <!-- Location -->
+          <div class="ce-section">
+            <div class="ce-section__title">Standort</div>
+            <div class="ce-fields-grid">
+              <div class="ce-field"><div class="ce-field__label">Stadt / PLZ</div><div class="ce-field__value" id="d-location">–</div></div>
+              <div class="ce-field"><div class="ce-field__label">Einsatzradius</div><div class="ce-field__value" id="d-radius">–</div></div>
+              <div class="ce-field"><div class="ce-field__label">Land</div><div class="ce-field__value" id="d-country">–</div></div>
+              <div class="ce-field" id="d-mobility-wrap" style="display:none"><div class="ce-field__label">Mobilitaet</div><div class="ce-field__value" id="d-mobility">–</div></div>
+            </div>
+          </div>
+
+          <!-- Qualifications -->
+          <div class="ce-section" id="sect-qual" style="display:none">
+            <div class="ce-section__title">Qualifikationen</div>
+            <div class="ce-field" id="d-qual-wrap" style="display:none"><div class="ce-field__label">Profil</div><div class="ce-field__value" id="d-qualifications" style="white-space:pre-wrap">–</div></div>
+            <div class="ce-field" id="d-cert-wrap" style="display:none"><div class="ce-field__label">Zertifikate</div><div class="ce-field__value" id="d-certifications" style="white-space:pre-wrap">–</div></div>
+          </div>
+
+          <!-- Commercial -->
+          <div class="ce-section" id="sect-price" style="display:none">
+            <div class="ce-section__title">Konditionen</div>
+            <div class="ce-fields-grid" id="d-price-fields"></div>
+          </div>
+
+          <!-- Owner: Matches -->
+          <div id="sect-matches" style="display:none">
+            <div class="ce-section">
+              <div class="ce-section__title">Passende Anfragen (Matching)</div>
+              <div id="d-matches"><span class="ds-text-sm ds-text-muted">Lade Matches…</span></div>
+            </div>
+          </div>
+
+          <!-- Owner: Interactions -->
+          <div id="sect-interactions" style="display:none">
+            <div class="ce-section">
+              <div class="ce-section__title">Eingegangene Interaktionen</div>
+              <div id="d-interactions"><span class="ds-text-sm ds-text-muted">Lade…</span></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Sidebar -->
+        <div class="ce-detail__sidebar">
+          <!-- Trust Signals -->
+          <div class="ce-section" id="sect-trust">
+            <div class="ce-section__title">Vertrauenssignale</div>
+            <div id="d-trust" style="display:flex;flex-wrap:wrap;gap:var(--ds-space-2)">
+              <span class="ds-text-sm ds-text-muted">–</span>
+            </div>
+          </div>
+
+          <!-- Compliance -->
+          <div class="ce-section">
+            <div class="ce-section__title">Compliance</div>
+            <div id="d-compliance-display" style="display:flex;align-items:center;gap:6px;font-size:14px">–</div>
+            <div id="d-completeness" class="ce-completeness" style="display:none">
+              <div class="ce-completeness__bar"><div class="ce-completeness__fill" id="d-completeness-fill" style="width:0"></div></div>
+              <div class="ce-completeness__label" id="d-completeness-label"></div>
+            </div>
+          </div>
+
+          <!-- Buyer quick actions -->
+          <div class="ce-section" id="sect-buyer-actions" style="display:none">
+            <div class="ce-section__title">Schnellaktionen</div>
+            <div class="ce-action-row">
+              <button class="ds-btn ds-btn--sm" id="btn-save-entry" title="Kapazitaet merken">&#9734; Merken</button>
+              <button class="ds-btn ds-btn--sm ds-btn--ghost" id="btn-share-entry" title="Link kopieren">&#128279; Link kopieren</button>
+            </div>
+          </div>
+
+          <!-- Interaction Panel (buyer view) -->
+          <div class="ce-section" id="sect-interact" style="display:none">
+            <div class="ce-section__title">Kontakt aufnehmen</div>
+            <div class="ce-interact-form">
+              <div class="ce-interact-btns">
+                <button class="ds-btn ds-btn--sm ds-btn--primary" data-itype="interest">Interesse bekunden</button>
+                <button class="ds-btn ds-btn--sm" data-itype="offer_request">Angebot anfragen</button>
+                <button class="ds-btn ds-btn--sm" data-itype="question">Frage stellen</button>
+                <button class="ds-btn ds-btn--sm ds-btn--ghost" data-itype="contact">Kontakt</button>
+              </div>
+              <textarea id="interact-msg" class="ds-textarea" placeholder="Optionale Nachricht…" maxlength="2000" rows="3"></textarea>
+              <div id="interact-feedback" style="display:none"></div>
+            </div>
+          </div>
+
+          <!-- Owner Actions -->
+          <div class="ce-section" id="sect-owner-actions" style="display:none">
+            <div class="ce-section__title">Aktionen</div>
+            <div id="d-owner-actions" style="display:flex;flex-direction:column;gap:var(--ds-space-2)"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <p class="ds-disclaimer">Alle Angaben ohne Gewaehr. TempConnect vermittelt, garantiert aber keinen Vermittlungserfolg.</p>
+  </div>
+
+  <div id="toast" class="ds-toast" role="status" aria-live="polite"></div>
+
+  <script src="/public/js/planFeatures.js"></script>
+  <script src="/public/js/slaGuard.js"></script>
+  <script>
+  (function() {
+    var API = "/api";
+    var params = new URLSearchParams(window.location.search);
+    var entryId = params.get("id");
+    var isOwner = params.get("owner") === "1";
+
+    if (!entryId) { window.location.href = "/public/capacity_exchange_feed.html"; return; }
+
+    function esc(s) { return s == null ? "" : String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;"); }
+    function fmtDate(d) { return d ? String(d).substring(0,10) : "–"; }
+
+    function toast(msg, type) {
+      var el = document.getElementById("toast");
+      el.textContent = msg;
+      el.className = "ds-toast ds-alert ds-alert--" + (type || "info") + " show";
+      clearTimeout(el._t);
+      el._t = setTimeout(function() { el.classList.remove("show"); }, 3500);
+    }
+
+    function getCsrf() {
+      return fetch(API + "/csrf", { credentials: "include" }).then(function(r) { return r.ok ? r.json() : {}; });
+    }
+
+    function apiFetch(path, opts) {
+      opts = opts || {};
+      var headers = { "Content-Type": "application/json" };
+      if (opts.csrf) headers["X-CSRF-Token"] = opts.csrf;
+      if (opts.method && opts.method !== "GET") {
+        headers["Idempotency-Key"] = (crypto.randomUUID ? crypto.randomUUID() : "x-" + Math.random().toString(36).slice(2) + "-" + Date.now());
+      }
+      return fetch(API + path, { method: opts.method || "GET", headers: headers, body: opts.body ? JSON.stringify(opts.body) : undefined, credentials: "include" });
+    }
+
+    var STATUS_MAP = {
+      draft: { label:"Entwurf", css:"ds-badge--neutral" }, active: { label:"Aktiv", css:"ds-badge--success" },
+      paused: { label:"Pausiert", css:"ds-badge--warning" }, expired: { label:"Abgelaufen", css:"ds-badge--danger" },
+      filled: { label:"Besetzt", css:"ds-badge--accent" }, archived: { label:"Archiviert", css:"ds-badge--neutral" }
+    };
+    var SHIFT_LABELS = { day:"Tagschicht", night:"Nachtschicht", rotating:"Wechselschicht", flexible:"Flexibel", weekend:"Wochenende", on_call:"Bereitschaft" };
+    var EMPLOYMENT_LABELS = { temporary:"ANUe", contract:"Werkvertrag", temp_to_perm:"Temp-to-Perm", project:"Projekt", on_call:"Abruf" };
+    var AVAIL_LABELS = { immediate:"Sofort", scheduled:"Geplant", flexible:"Flexibel" };
+    var COMPLIANCE_MAP = { unknown:{ label:"Unbekannt", color:"--grey" }, pending:{ label:"In Pruefung", color:"--yellow" }, partial:{ label:"Teilweise", color:"--yellow" }, complete:{ label:"Vollstaendig", color:"--green" } };
+    var INTERACTION_LABELS = { interest:"Interesse", offer_request:"Angebotsanfrage", question:"Frage", save:"Gespeichert", requisition_link:"Verknuepfung", deal_start:"Deal", contact:"Kontakt" };
+
+    function freshnessHtml(ts) {
+      if (!ts) return '<span class="ce-freshness"><span class="ce-freshness__dot ce-freshness__dot--stale"></span>Nicht bestaetigt</span>';
+      var h = (Date.now() - new Date(ts).getTime()) / 36e5;
+      if (h < 48) return '<span class="ce-freshness"><span class="ce-freshness__dot ce-freshness__dot--fresh"></span>Aktuell – ' + fmtDate(ts) + '</span>';
+      if (h < 96) return '<span class="ce-freshness"><span class="ce-freshness__dot ce-freshness__dot--aging"></span>Altert – ' + fmtDate(ts) + '</span>';
+      return '<span class="ce-freshness"><span class="ce-freshness__dot ce-freshness__dot--stale"></span>Veraltet – ' + fmtDate(ts) + '</span>';
+    }
+
+    function trustBadgesHtml(ts) {
+      if (!ts) return '<span class="ds-text-sm ds-text-muted">Keine Signale</span>';
+      var html = "";
+      if (ts.supplier_verified) html += '<span class="ds-trust-badge ds-trust-badge--verified">&#10003; Verifiziert</span>';
+      if (ts.compliance_complete) html += '<span class="ds-trust-badge ds-trust-badge--compliance">Compliance vollst.</span>';
+      if (ts.active_subscriber) html += '<span class="ds-trust-badge ds-trust-badge--active">Aktiver Abonnent</span>';
+      if (ts.completed_deals > 0) html += '<span class="ds-trust-badge ds-trust-badge--deals">' + ts.completed_deals + ' Deals</span>';
+      if (ts.recently_confirmed) html += '<span class="ds-trust-badge ds-trust-badge--response">Kuerzlich bestaetigt</span>';
+      if (ts.profile_completeness != null) html += '<span class="ds-trust-badge">Profil ' + Math.round(ts.profile_completeness * 100) + '%</span>';
+      return html || '<span class="ds-text-sm ds-text-muted">Keine Signale</span>';
+    }
+
+    // Load entry
+    var endpoint = isOwner ? "/capacity-exchange/entries/" + entryId : "/capacity-exchange/feed/" + entryId;
+    apiFetch(endpoint).then(function(r) {
+      if (r.status === 401) { window.location.href = "/"; return null; }
+      if (r.status === 404) { toast("Eintrag nicht gefunden", "danger"); return null; }
+      if (!r.ok) { toast("Fehler beim Laden", "danger"); return null; }
+      return r.json();
+    }).then(function(e) {
+      if (!e) return;
+      document.getElementById("loading").style.display = "none";
+      document.getElementById("detail").style.display = "block";
+      document.title = esc(e.title) + " – TempConnect";
+
+      // Header
+      document.getElementById("d-title").textContent = e.title;
+      document.getElementById("d-subtitle").textContent = e.role + (e.worker_category ? " · " + e.worker_category : "") + " · " + (e.location_city || "–");
+
+      // Header actions
+      var ha = document.getElementById("d-header-actions");
+      if (isOwner) {
+        ha.innerHTML = '<a href="/public/capacity_exchange_form.html?id=' + esc(e.id) + '" class="ds-btn">Bearbeiten</a><a href="/public/capacity_exchange_manage.html" class="ds-btn ds-btn--ghost">Zur Liste</a>';
+      } else {
+        ha.innerHTML = '<a href="/public/capacity_exchange_feed.html" class="ds-btn">Zurueck zur Boerse</a>';
+      }
+
+      // Status bar
+      var sm = STATUS_MAP[e.status] || { label: e.status, css: "ds-badge--neutral" };
+      var sb = document.getElementById("d-status-bar");
+      sb.innerHTML = '<span class="ds-badge ' + sm.css + '">' + esc(sm.label) + '</span>' + freshnessHtml(e.last_confirmed_at);
+      if (e.valid_until) sb.innerHTML += '<span class="ds-text-sm ds-text-muted">Gueltig bis: ' + fmtDate(e.valid_until) + '</span>';
+
+      // Workforce fields
+      document.getElementById("d-role").textContent = e.role || "–";
+      document.getElementById("d-category").textContent = e.worker_category || "–";
+      document.getElementById("d-headcount").textContent = (e.headcount || 1) + " Personen";
+      document.getElementById("d-skills").textContent = Array.isArray(e.skill_tags) && e.skill_tags.length ? e.skill_tags.join(", ") : "–";
+
+      // Timing
+      document.getElementById("d-dates").textContent = fmtDate(e.availability_from) + (e.availability_to ? " – " + fmtDate(e.availability_to) : " (offen)");
+      document.getElementById("d-avail-type").textContent = AVAIL_LABELS[e.availability_type] || e.availability_type || "–";
+      document.getElementById("d-shift").textContent = SHIFT_LABELS[e.shift_model] || e.shift_model || "–";
+      var empLabel = EMPLOYMENT_LABELS[e.employment_type] || e.employment_type || "–";
+      document.getElementById("d-employment").innerHTML = esc(empLabel) + (e.employment_type ? ' <span class="ds-badge ds-badge--neutral" style="font-size:11px;vertical-align:middle">' + esc(empLabel) + '</span>' : "");
+
+      // Location
+      document.getElementById("d-location").textContent = (e.location_city || "–") + (e.location_postal ? " " + e.location_postal : "");
+      document.getElementById("d-radius").textContent = (e.radius_km || 25) + " km";
+      document.getElementById("d-country").textContent = e.country || "DE";
+      if (e.mobility_notes) {
+        document.getElementById("d-mobility-wrap").style.display = "block";
+        document.getElementById("d-mobility").textContent = e.mobility_notes;
+      }
+
+      // Qualifications
+      if (e.qualification_summary || e.certifications_summary) {
+        document.getElementById("sect-qual").style.display = "block";
+        if (e.qualification_summary) { document.getElementById("d-qual-wrap").style.display = "block"; document.getElementById("d-qualifications").textContent = e.qualification_summary; }
+        if (e.certifications_summary) { document.getElementById("d-cert-wrap").style.display = "block"; document.getElementById("d-certifications").textContent = e.certifications_summary; }
+      }
+
+      // Commercial
+      if (e.price_type || e.price_min != null || e.price_max != null || e.price_hint) {
+        document.getElementById("sect-price").style.display = "block";
+        var ph = "";
+        if (e.price_type) ph += '<div class="ce-field"><div class="ce-field__label">Preistyp</div><div class="ce-field__value">' + esc(e.price_type) + '</div></div>';
+        if (e.price_min != null) ph += '<div class="ce-field"><div class="ce-field__label">Min</div><div class="ce-field__value">' + Number(e.price_min).toFixed(2) + ' EUR</div></div>';
+        if (e.price_max != null) ph += '<div class="ce-field"><div class="ce-field__label">Max</div><div class="ce-field__value">' + Number(e.price_max).toFixed(2) + ' EUR</div></div>';
+        if (e.price_hint) ph += '<div class="ce-field" style="grid-column:1/-1"><div class="ce-field__label">Hinweis</div><div class="ce-field__value">' + esc(e.price_hint) + '</div></div>';
+        document.getElementById("d-price-fields").innerHTML = ph;
+      }
+
+      // Trust sidebar
+      document.getElementById("d-trust").innerHTML = trustBadgesHtml(e.trust_signals);
+
+      // Compliance
+      var comp = COMPLIANCE_MAP[e.compliance_status] || { label: "–", color: "--grey" };
+      document.getElementById("d-compliance-display").innerHTML = '<span class="ds-traffic-light ds-traffic-light' + comp.color + '"></span>' + esc(comp.label);
+
+      // Profile completeness bar
+      var pc = e.trust_signals && e.trust_signals.profile_completeness;
+      if (pc != null) {
+        var pct = Math.round(pc * 100);
+        document.getElementById("d-completeness").style.display = "block";
+        document.getElementById("d-completeness-fill").style.width = pct + "%";
+        document.getElementById("d-completeness-fill").style.background = pct >= 80 ? "var(--ds-success)" : pct >= 50 ? "var(--ds-warning)" : "var(--ds-danger)";
+        document.getElementById("d-completeness-label").textContent = "Profilvollstaendigkeit: " + pct + "%";
+      }
+
+      // Buyer quick actions (save + share)
+      if (!isOwner && e.status === "active") {
+        document.getElementById("sect-buyer-actions").style.display = "block";
+        document.getElementById("btn-save-entry").addEventListener("click", function() {
+          var btn = this;
+          btn.disabled = true;
+          getCsrf().then(function(c) {
+            return apiFetch("/capacity-exchange/entries/" + entryId + "/interactions", {
+              method: "POST", csrf: c.csrfToken || c.token, body: { interaction_type: "save", message: null }
+            });
+          }).then(function(r) {
+            btn.disabled = false;
+            if (r.ok) { btn.innerHTML = "&#9733; Gemerkt"; toast("Kapazitaet gemerkt", "success"); }
+          }).catch(function() { btn.disabled = false; });
+        });
+        document.getElementById("btn-share-entry").addEventListener("click", function() {
+          var url = window.location.href;
+          if (navigator.clipboard && navigator.clipboard.writeText) {
+            navigator.clipboard.writeText(url).then(function() { toast("Link kopiert", "success"); });
+          } else {
+            var inp = document.createElement("input"); inp.value = url; document.body.appendChild(inp); inp.select(); document.execCommand("copy"); document.body.removeChild(inp);
+            toast("Link kopiert", "success");
+          }
+        });
+      }
+
+      // Buyer: show interaction panel
+      if (!isOwner && e.status === "active") {
+        document.getElementById("sect-interact").style.display = "block";
+        document.querySelectorAll("[data-itype]").forEach(function(btn) {
+          btn.addEventListener("click", function() { sendInteraction(btn.getAttribute("data-itype"), btn); });
+        });
+      }
+
+      // Owner: show actions + matches + interactions
+      if (isOwner) {
+        showOwnerActions(e);
+        loadMatches();
+        loadInteractions();
+      }
+    }).catch(function(err) {
+      document.getElementById("loading").innerHTML = '<div class="ds-alert ds-alert--danger">Fehler beim Laden des Eintrags.</div>';
+    });
+
+    function sendInteraction(type, btn) {
+      var msg = document.getElementById("interact-msg").value.trim();
+      var fb = document.getElementById("interact-feedback");
+      btn.disabled = true;
+      getCsrf().then(function(c) {
+        return apiFetch("/capacity-exchange/entries/" + entryId + "/interactions", {
+          method: "POST", csrf: c.csrfToken || c.token,
+          body: { interaction_type: type, message: msg || null }
+        });
+      }).then(function(r) {
+        if (!r.ok) return r.json().then(function(d) { throw new Error(d.error || "Fehler"); });
+        return r.json();
+      }).then(function() {
+        fb.className = "ds-alert ds-alert--success";
+        fb.textContent = (INTERACTION_LABELS[type] || type) + " erfolgreich gesendet.";
+        fb.style.display = "flex";
+        document.getElementById("interact-msg").value = "";
+        toast("Nachricht gesendet", "success");
+      }).catch(function(e) {
+        fb.className = "ds-alert ds-alert--danger";
+        fb.textContent = e.message || "Fehler";
+        fb.style.display = "flex";
+      }).finally(function() { btn.disabled = false; });
+    }
+
+    function showOwnerActions(e) {
+      document.getElementById("sect-owner-actions").style.display = "block";
+      var el = document.getElementById("d-owner-actions");
+      var h = "", s = e.status;
+      if (s === "draft") h += '<button class="ds-btn ds-btn--success" data-oa="activate">Aktivieren</button>';
+      if (s === "active") h += '<button class="ds-btn" data-oa="confirm">Aktualitaet bestaetigen</button>';
+      if (s === "active") h += '<button class="ds-btn ds-btn--ghost" data-oa="pause">Pausieren</button>';
+      if (s === "paused" || s === "expired") h += '<button class="ds-btn ds-btn--success" data-oa="reactivate">Reaktivieren</button>';
+      if (s === "active" || s === "paused") h += '<button class="ds-btn ds-btn--ghost" data-oa="fill">Als besetzt markieren</button>';
+      if (s !== "archived") h += '<button class="ds-btn ds-btn--ghost" data-oa="archive" style="color:var(--ds-text-tertiary)">Archivieren</button>';
+      el.innerHTML = h;
+      el.querySelectorAll("[data-oa]").forEach(function(btn) {
+        btn.addEventListener("click", function() {
+          var action = btn.getAttribute("data-oa");
+          if (action === "archive" && !confirm("Archivieren?")) return;
+          btn.disabled = true;
+          getCsrf().then(function(c) {
+            return apiFetch("/capacity-exchange/entries/" + entryId + "/" + action, { method: "POST", csrf: c.csrfToken || c.token });
+          }).then(function(r) {
+            if (!r.ok) return r.json().then(function(d) { throw new Error(d.error || "Fehler"); });
+            toast("Aktion ausgefuehrt", "success");
+            setTimeout(function() { window.location.reload(); }, 800);
+          }).catch(function(e) { toast(e.message, "danger"); btn.disabled = false; });
+        });
+      });
+    }
+
+    function loadMatches() {
+      document.getElementById("sect-matches").style.display = "block";
+      apiFetch("/capacity-exchange/entries/" + entryId + "/matches").then(function(r) { return r.ok ? r.json() : []; }).then(function(matches) {
+        var el = document.getElementById("d-matches");
+        if (!matches || !matches.length) { el.innerHTML = '<span class="ds-text-sm ds-text-muted">Keine passenden Anfragen gefunden.</span>'; return; }
+        var h = "";
+        matches.forEach(function(m) {
+          h += '<div class="ce-match-card"><strong>' + esc(m.title || m.role || "Anfrage") + '</strong>';
+          if (m.location_city) h += ' · ' + esc(m.location_city);
+          if (m.match_score != null) h += ' <span class="ds-badge ds-badge--brand">Score ' + m.match_score + '</span>';
+          h += '</div>';
+        });
+        el.innerHTML = h;
+      }).catch(function() {
+        document.getElementById("d-matches").innerHTML = '<span class="ds-text-sm ds-text-muted">Matching nicht verfuegbar.</span>';
+      });
+    }
+
+    function loadInteractions() {
+      document.getElementById("sect-interactions").style.display = "block";
+      apiFetch("/capacity-exchange/entries/" + entryId + "/interactions").then(function(r) { return r.ok ? r.json() : []; }).then(function(items) {
+        var el = document.getElementById("d-interactions");
+        if (!items || !items.length) { el.innerHTML = '<span class="ds-text-sm ds-text-muted">Noch keine Interaktionen.</span>'; return; }
+        var h = "";
+        items.forEach(function(i) {
+          var label = INTERACTION_LABELS[i.interaction_type] || i.interaction_type;
+          h += '<div class="ce-interaction-item"><span class="ds-badge ds-badge--brand" style="margin-right:6px">' + esc(label) + '</span>';
+          if (i.message) h += '<span class="ds-text-sm">' + esc(i.message) + '</span>';
+          h += '<br><span class="ds-text-xs ds-text-muted">' + fmtDate(i.created_at) + '</span></div>';
+        });
+        el.innerHTML = h;
+      }).catch(function() {
+        document.getElementById("d-interactions").innerHTML = '<span class="ds-text-sm ds-text-muted">Fehler beim Laden.</span>';
+      });
+    }
+  })();
+  </script>
+  <div id="tc-footer" data-tc-footer></div>
+  <script src="/public/js/footer.js"></script>
+</body>
+</html>

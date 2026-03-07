@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <title>Hilfe-Center – TempConnect</title>
+  <link rel="stylesheet" href="/public/css/design-system.css"/>
+  <style>
+    .help-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: var(--ds-space-3); margin-bottom: var(--ds-space-6); }
+    .help-card { border: 1px solid var(--ds-border); border-radius: var(--ds-radius-lg); padding: var(--ds-space-5); background: rgba(255,255,255,0.02); transition: border-color .15s; }
+    .help-card:hover { border-color: var(--ds-border-hover); }
+    .help-card h3 { font-size: 16px; font-weight: 700; margin: 0 0 var(--ds-space-2); display: flex; align-items: center; gap: var(--ds-space-2); }
+    .help-card p { font-size: 14px; color: var(--ds-text-secondary); line-height: 1.6; margin: 0; }
+
+    .faq-section { margin-bottom: var(--ds-space-6); }
+    .faq-section h2 { font-size: 18px; font-weight: 700; margin: 0 0 var(--ds-space-3); padding-top: var(--ds-space-4); border-top: 1px solid var(--ds-border); }
+    .faq-section:first-of-type h2 { border-top: none; padding-top: 0; }
+    .faq-item { border: 1px solid var(--ds-border); border-radius: var(--ds-radius-md); background: rgba(255,255,255,0.02); overflow: hidden; margin-bottom: var(--ds-space-2); }
+    .faq-q { display: flex; align-items: center; justify-content: space-between; padding: var(--ds-space-3) var(--ds-space-4); cursor: pointer; font-weight: 600; font-size: 14px; }
+    .faq-q:hover { background: rgba(255,255,255,0.03); }
+    .faq-q .arrow { font-size: 12px; color: var(--ds-text-secondary); transition: transform .2s; }
+    .faq-item.open .faq-q .arrow { transform: rotate(180deg); }
+    .faq-a { display: none; padding: 0 var(--ds-space-4) var(--ds-space-3); font-size: 13px; color: var(--ds-text-secondary); line-height: 1.6; }
+    .faq-item.open .faq-a { display: block; }
+  </style>
+</head>
+<body>
+  <div class="ds-wrap">
+    <nav class="ds-topbar">
+      <div class="ds-topbar__brand"><span class="ds-topbar__brand-dot"></span> TempConnect</div>
+      <div class="ds-topbar__nav">
+        <a href="/" class="ds-nav-link">Startseite</a>
+        <a href="/public/pricing.html" class="ds-nav-link">Tarife</a>
+        <a href="/public/onboarding.html" class="ds-nav-link">Erste Schritte</a>
+        <span class="ds-topbar__separator"></span>
+        <a href="/app" class="ds-btn">Anmelden</a>
+        <a href="/app" class="ds-btn ds-btn--primary">Kostenlos starten</a>
+      </div>
+    </nav>
+
+    <div class="ds-page-header">
+      <div class="ds-page-header__content">
+        <h1 class="ds-page-title">Hilfe-Center</h1>
+        <p class="ds-page-subtitle">Antworten auf haeufige Fragen, Anleitungen und Support-Kontakt.</p>
+      </div>
+    </div>
+
+    <!-- Topic Cards -->
+    <div class="help-grid">
+      <a href="#erste-schritte" class="help-card" style="text-decoration:none;color:inherit">
+        <h3>&#128640; Erste Schritte</h3>
+        <p>Registrierung, Profil, erste Anfrage oder Kapazitaet einstellen.</p>
+      </a>
+      <a href="#deals" class="help-card" style="text-decoration:none;color:inherit">
+        <h3>&#129309; So funktionieren Deals</h3>
+        <p>Anfragen, Angebote, Deal-Abschluss und Kontaktfreigabe.</p>
+      </a>
+      <a href="#unternehmen" class="help-card" style="text-decoration:none;color:inherit">
+        <h3>&#127970; Fuer Unternehmen</h3>
+        <p>Kapazitaetssuche, Suchauftraege, Matching und Beschaffung.</p>
+      </a>
+      <a href="#dienstleister" class="help-card" style="text-decoration:none;color:inherit">
+        <h3>&#128188; Fuer Personaldienstleister</h3>
+        <p>Eingang, Angebote, Sichtbarkeit und Bewertungen.</p>
+      </a>
+      <a href="#compliance" class="help-card" style="text-decoration:none;color:inherit">
+        <h3>&#128737; Compliance &amp; Nachweise</h3>
+        <p>Dokumenten-Upload, Ampellogik, Verifizierung.</p>
+      </a>
+      <a href="#abrechnung" class="help-card" style="text-decoration:none;color:inherit">
+        <h3>&#128179; Abrechnung &amp; Tarife</h3>
+        <p>Plan-Wechsel, Zahlungsmethoden, Rechnungen, Kuendigung.</p>
+      </a>
+      <a href="#kapazitaetsboerse" class="help-card" style="text-decoration:none;color:inherit">
+        <h3>&#128259; Kapazitaetsboerse</h3>
+        <p>Kapazitaeten einstellen, Boerse durchsuchen, Deals abschliessen, Sichtbarkeit erhoehen.</p>
+      </a>
+    </div>
+
+    <hr class="ds-divider"/>
+
+    <!-- FAQ Sections -->
+    <div class="faq-section" id="erste-schritte">
+      <h2>&#128640; Erste Schritte</h2>
+      <div class="faq-item">
+        <div class="faq-q" onclick="this.parentElement.classList.toggle('open')"><span>Wie registriere ich mich?</span><span class="arrow">&#9660;</span></div>
+        <div class="faq-a">Klicken Sie auf „Kostenlos starten" und geben Sie Ihre geschaeftliche E-Mail-Adresse sowie ein Passwort ein. Nach der E-Mail-Bestaetigung ist Ihr Konto sofort aktiv. Die Registrierung ist kostenlos.</div>
+      </div>
+      <div class="faq-item">
+        <div class="faq-q" onclick="this.parentElement.classList.toggle('open')"><span>Warum sollte ich mein Profil vervollstaendigen?</span><span class="arrow">&#9660;</span></div>
+        <div class="faq-a">Ein vollstaendiges Profil (Firmenname, Ansprechpartner, Kontaktdaten, Standort) erhoeht Ihre Sichtbarkeit im Marketplace und schafft Vertrauen bei anderen Teilnehmern. Sie koennen Ihren Profil-Fortschritt unter „Mein Profil" einsehen.</div>
+      </div>
+      <div class="faq-item">
+        <div class="faq-q" onclick="this.parentElement.classList.toggle('open')"><span>Was sind die ersten Schritte nach der Registrierung?</span><span class="arrow">&#9660;</span></div>
+        <div class="faq-a">1) Profil vervollstaendigen, 2) Rolle waehlen (Unternehmen oder Dienstleister), 3) Erste Suchanfrage erstellen oder Kapazitaet einstellen. Eine ausfuehrliche Anleitung finden Sie unter <a href="/public/onboarding.html" style="color:var(--ds-brand)">Erste Schritte</a>.</div>
+      </div>
+    </div>
+
+    <div class="faq-section" id="deals">
+      <h2>&#129309; So funktionieren Deals</h2>
+      <div class="faq-item">
+        <div class="faq-q" onclick="this.parentElement.classList.toggle('open')"><span>Was ist ein Deal?</span><span class="arrow">&#9660;</span></div>
+        <div class="faq-a">Ein Deal entsteht, wenn ein Unternehmen eine Anfrage sendet, ein Personaldienstleister ein Angebot abgibt und das Unternehmen dieses Angebot annimmt. Erst nach Deal-Abschluss werden die Kontaktdaten beider Parteien freigegeben.</div>
+      </div>
+      <div class="faq-item">
+        <div class="faq-q" onclick="this.parentElement.classList.toggle('open')"><span>Warum werden Kontaktdaten erst nach Deal-Abschluss freigegeben?</span><span class="arrow">&#9660;</span></div>
+        <div class="faq-a">Dies schuetzt beide Seiten vor ungewollter Kontaktaufnahme und stellt sicher, dass nur bei echtem Interesse ein Kontakt zustande kommt. Es erhoeht die Qualitaet der Interaktionen auf der Plattform.</div>
+      </div>
+      <div class="faq-item">
+        <div class="faq-q" onclick="this.parentElement.classList.toggle('open')"><span>Kann ich einen Deal stornieren?</span><span class="arrow">&#9660;</span></div>
+        <div class="faq-a">Deals koennen vor der endgueltigen Bestaetigung abgelehnt werden. Nach einem abgeschlossenen Deal wurden die Kontaktdaten bereits freigegeben. Die weitere Zusammenarbeit regeln die Parteien direkt untereinander.</div>
+      </div>
+    </div>
+
+    <div class="faq-section" id="unternehmen">
+      <h2>&#127970; Fuer Unternehmen</h2>
+      <div class="faq-item">
+        <div class="faq-q" onclick="this.parentElement.classList.toggle('open')"><span>Wie sende ich eine Kapazitaetsanfrage?</span><span class="arrow">&#9660;</span></div>
+        <div class="faq-a">Gehen Sie zur Kapazitaetssuche, filtern Sie nach Rolle, Region und Verfuegbarkeit, und klicken Sie bei einem passenden Angebot auf „Anfragen". Je nach Tarif haben Sie eine begrenzte oder unbegrenzte Anzahl an Anfragen pro Monat.</div>
+      </div>
+      <div class="faq-item">
+        <div class="faq-q" onclick="this.parentElement.classList.toggle('open')"><span>Was ist ein persistenter Suchauftrag?</span><span class="arrow">&#9660;</span></div>
+        <div class="faq-a">Ab dem PLUS-Tarif koennen Sie Suchauftraege speichern. Die Plattform sucht dann kontinuierlich nach passenden Kapazitaeten und benachrichtigt Sie bei neuen Treffern.</div>
+      </div>
+    </div>
+
+    <div class="faq-section" id="dienstleister">
+      <h2>&#128188; Fuer Personaldienstleister</h2>
+      <div class="faq-item">
+        <div class="faq-q" onclick="this.parentElement.classList.toggle('open')"><span>Wie stelle ich Kapazitaeten ein?</span><span class="arrow">&#9660;</span></div>
+        <div class="faq-a">Nutzen Sie die Funktion „Kapazitaet erstellen" im Marketplace-Bereich. Geben Sie Rolle, Anzahl, Region, Verfuegbarkeit und Stundensatz an. Ihre Kapazitaeten werden dann fuer suchende Unternehmen sichtbar.</div>
+      </div>
+      <div class="faq-item">
+        <div class="faq-q" onclick="this.parentElement.classList.toggle('open')"><span>Wie reagiere ich auf Anfragen?</span><span class="arrow">&#9660;</span></div>
+        <div class="faq-a">Eingegangene Anfragen finden Sie in Ihrem Eingang. Sie koennen jede Anfrage annehmen (und damit ein Angebot abgeben) oder ablehnen.</div>
+      </div>
+    </div>
+
+    <div class="faq-section" id="compliance">
+      <h2>&#128737; Compliance &amp; Nachweise</h2>
+      <div class="faq-item">
+        <div class="faq-q" onclick="this.parentElement.classList.toggle('open')"><span>Welche Dokumente kann ich hochladen?</span><span class="arrow">&#9660;</span></div>
+        <div class="faq-a">Sie koennen Gewerbeanmeldungen, AUeG-Genehmigungen, Haftpflichtversicherungen und andere branchenrelevante Nachweise hochladen. Dokumente werden mit Ablaufdatum versehen und in der Compliance-Ampel angezeigt.</div>
+      </div>
+      <div class="faq-item">
+        <div class="faq-q" onclick="this.parentElement.classList.toggle('open')"><span>Was bedeuten die Ampelfarben?</span><span class="arrow">&#9660;</span></div>
+        <div class="faq-a">Gruen: Alle Dokumente gueltig. Gelb: Mindestens ein Dokument laeuft bald ab. Rot: Mindestens ein Dokument ist abgelaufen oder fehlt.</div>
+      </div>
+    </div>
+
+    <div class="faq-section" id="kapazitaetsboerse">
+      <h2>&#128259; Kapazitaetsboerse</h2>
+      <div class="faq-item">
+        <div class="faq-q" onclick="this.parentElement.classList.toggle('open')"><span>Was ist die Kapazitaetsboerse?</span><span class="arrow">&#9660;</span></div>
+        <div class="faq-a">Die Kapazitaetsboerse ist ein Modul der TempConnect-Plattform, auf dem Personaldienstleister ihre verfuegbaren Mitarbeiterkapazitaeten einstellen koennen. Unternehmen durchsuchen die Boerse, um passende Kapazitaeten zu finden, Interesse zu bekunden und Angebote anzufordern. Ziel ist die schnellere Koordination von Personalangebot und -nachfrage.</div>
+      </div>
+      <div class="faq-item">
+        <div class="faq-q" onclick="this.parentElement.classList.toggle('open')"><span>Wie stelle ich verfuegbare Kapazitaeten ein?</span><span class="arrow">&#9660;</span></div>
+        <div class="faq-a">Gehen Sie zu „Kapazitaet einstellen" oder klicken Sie im Enterprise-Dashboard auf „Kapazitaeten verwalten" und dann auf „Neu einstellen". Geben Sie Rolle, Anzahl, Region, Verfuegbarkeit, Qualifikationen und Konditionen an. Sie koennen den Eintrag als Entwurf speichern oder direkt aktivieren. Aktive Eintraege erscheinen sofort in der Boerse.</div>
+      </div>
+      <div class="faq-item">
+        <div class="faq-q" onclick="this.parentElement.classList.toggle('open')"><span>Wie finden Unternehmen verfuegbare Mitarbeiter?</span><span class="arrow">&#9660;</span></div>
+        <div class="faq-a">In der Kapazitaetsboerse koennen Unternehmen nach Rolle, Stadt, Kategorie, Schichtmodell, Compliance-Status und Verfuegbarkeitsdatum filtern. Jede Kapazitaetskarte zeigt Vertrauenssignale (verifiziert, Compliance, Deals) und Frische-Indikatoren. Per Klick koennen Sie Interesse bekunden, ein Angebot anfragen oder eine Frage stellen.</div>
+      </div>
+      <div class="faq-item">
+        <div class="faq-q" onclick="this.parentElement.classList.toggle('open')"><span>Wie funktionieren Deals in der Kapazitaetsboerse?</span><span class="arrow">&#9660;</span></div>
+        <div class="faq-a">Ein Unternehmen bekundet Interesse an einem Kapazitaetseintrag. Der Dienstleister erhaelt eine Benachrichtigung und kann ein Angebot senden. Wenn beide Seiten einverstanden sind, wird ein Deal abgeschlossen. Erst dann werden Kontaktdaten freigegeben. Der gesamte Prozess wird auf der Plattform dokumentiert.</div>
+      </div>
+      <div class="faq-item">
+        <div class="faq-q" onclick="this.parentElement.classList.toggle('open')"><span>Wie erhoehe ich meine Sichtbarkeit auf TempConnect?</span><span class="arrow">&#9660;</span></div>
+        <div class="faq-a">Drei Faktoren verbessern Ihre Sichtbarkeit: 1) Vollstaendiges Firmenprofil – Profile mit allen Feldern erhalten mehr Anfragen. 2) Aktualitaet – Bestaetigen Sie Ihre Eintraege regelmaessig. Frische Eintraege werden bevorzugt angezeigt. 3) Mehrere Eintraege – Stellen Sie Kapazitaeten fuer verschiedene Rollen und Regionen ein, um in mehr Suchergebnissen zu erscheinen.</div>
+      </div>
+    </div>
+
+    <div class="faq-section" id="abrechnung">
+      <h2>&#128179; Abrechnung &amp; Tarife</h2>
+      <div class="faq-item">
+        <div class="faq-q" onclick="this.parentElement.classList.toggle('open')"><span>Wie wechsle ich meinen Tarif?</span><span class="arrow">&#9660;</span></div>
+        <div class="faq-a">Gehen Sie zu <a href="/public/sla_abo.html" style="color:var(--ds-brand)">Abo-Modelle</a> und waehlen Sie den gewuenschten Tarif. Upgrades werden sofort wirksam. Downgrades gelten ab dem naechsten Abrechnungszeitraum.</div>
+      </div>
+      <div class="faq-item">
+        <div class="faq-q" onclick="this.parentElement.classList.toggle('open')"><span>Wie kuendige ich mein Abo?</span><span class="arrow">&#9660;</span></div>
+        <div class="faq-a">Unter Abo-Modelle koennen Sie Ihr Abo jederzeit kuendigen. Sie wechseln dann automatisch zum kostenlosen FREE-Plan. Ihre Daten bleiben erhalten.</div>
+      </div>
+      <div class="faq-item">
+        <div class="faq-q" onclick="this.parentElement.classList.toggle('open')"><span>Was bedeutet Pulse-Timer?</span><span class="arrow">&#9660;</span></div>
+        <div class="faq-a">Der Pulse-Timer ist die maximale Zeitspanne, innerhalb derer die Plattform einen dokumentierten Matching-Versuch fuer Ihre Anfrage unternimmt. Dies ist ein Prozessnachweis (kein Vermittlungsversprechen). Die Zeitspanne haengt vom Tarif ab (PLUS: 120 Min, PRO: 60 Min, ENTERPRISE: 30 Min).</div>
+      </div>
+    </div>
+
+    <hr class="ds-divider"/>
+
+    <!-- Support Contact -->
+    <section style="text-align:center;padding:var(--ds-space-6) 0">
+      <h2 style="font-size:20px;font-weight:700;margin:0 0 var(--ds-space-2)">Support &amp; Kontakt</h2>
+      <p style="color:var(--ds-text-secondary);font-size:14px;margin:0 0 var(--ds-space-4);max-width:500px;margin-left:auto;margin-right:auto;line-height:1.6">Ihre Frage wurde nicht beantwortet? Kontaktieren Sie unser Support-Team. Wir antworten in der Regel innerhalb von 24 Stunden.</p>
+      <div style="display:flex;gap:var(--ds-space-3);justify-content:center;flex-wrap:wrap">
+        <a href="/public/legal/kontakt.html" class="ds-btn ds-btn--primary">Kontakt aufnehmen</a>
+        <a href="/public/trust/platform-sla.html" class="ds-btn">Plattform-SLA</a>
+      </div>
+    </section>
+
+    <div class="ds-disclaimer">
+      Inhalte dienen der Unterstuetzung und ersetzen keine rechtliche Pruefung. Angaben ohne Gewaehr.
+    </div>
+  </div>
+  <div id="tc-footer" data-tc-footer></div>
+  <script src="/public/js/footer.js"></script>
+</body>
+</html>

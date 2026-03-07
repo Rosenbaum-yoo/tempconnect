@@ -1,0 +1,11 @@
+# Root .dockerignore (falls später Images aus Projektroot gebaut werden)
+node_modules
+**/node_modules
+.env
+.env.*
+!.env.example
+!.env.dev.example
+!.env.prod.example
+.git
+*.md
+.gitignore

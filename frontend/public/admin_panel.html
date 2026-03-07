@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <title>Admin Panel – TempConnect</title>
+  <link rel="stylesheet" href="/public/css/enterprise.css"/>
+  <style>
+    .tab-bar{display:flex;gap:4px;border-bottom:1px solid var(--line);margin-bottom:var(--ds-space-4,16px);padding-bottom:0}
+    .tab-btn{padding:10px 18px;font-size:13px;font-weight:700;border:none;background:none;color:var(--muted);cursor:pointer;border-bottom:2px solid transparent;transition:color .15s,border-color .15s}
+    .tab-btn.active{color:var(--text);border-bottom-color:var(--brand)}
+    .tab-btn:hover{color:var(--text)}
+    .tab-panel{display:none}.tab-panel.active{display:block}
+    .admin-table{width:100%;border-collapse:collapse;font-size:13px}
+    .admin-table th,.admin-table td{padding:8px 10px;text-align:left;border-bottom:1px solid var(--line)}
+    .admin-table th{font-size:11px;text-transform:uppercase;letter-spacing:.04em;color:var(--muted);font-weight:700}
+    .metric-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:12px;margin-bottom:var(--ds-space-4,16px)}
+    .metric-tile{padding:16px;border:1px solid var(--line);border-radius:var(--ds-radius-lg,12px);background:rgba(255,255,255,.02);text-align:center}
+    .metric-tile .val{font-size:24px;font-weight:800;color:var(--brand)}
+    .metric-tile .lbl{font-size:11px;text-transform:uppercase;letter-spacing:.04em;color:var(--muted);margin-top:4px}
+    .search-bar{display:flex;gap:8px;margin-bottom:var(--ds-space-4,16px)}
+    .search-bar input{flex:1;min-width:0}
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="topbar">
+      <span class="brand">TempConnect Admin</span>
+      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+        <a href="/public/enterprise.html" class="btn">Uebersicht</a>
+        <a href="/" class="btn">Startseite</a>
+      </div>
+    </div>
+
+    <div class="ds-page-header">
+      <div class="ds-page-header__content">
+        <h1 class="ds-page-title">Admin Panel</h1>
+        <p class="ds-page-subtitle">Benutzer, Organisationen, Audit-Log und Plattform-Metriken.</p>
+      </div>
+    </div>
+
+    <div id="access-denied" style="display:none;padding:32px;text-align:center;color:var(--bad,#f87171)">
+      <h2>Zugriff verweigert</h2>
+      <p>Sie benoetigen Administratorrechte fuer diesen Bereich.</p>
+      <a href="/public/enterprise.html" class="btn" style="margin-top:12px">Zurueck zur Uebersicht</a>
+    </div>
+
+    <div id="admin-content" style="display:none">
+      <div class="tab-bar" id="tabBar">
+        <button class="tab-btn active" data-tab="users">Benutzer</button>
+        <button class="tab-btn" data-tab="orgs">Organisationen</button>
+        <button class="tab-btn" data-tab="audit">Audit-Log</button>
+        <button class="tab-btn" data-tab="metrics">Metriken</button>
+      </div>
+
+      <!-- Users Tab -->
+      <div class="tab-panel active" id="tab-users">
+        <div class="search-bar">
+          <input id="userSearch" type="text" placeholder="Benutzer suchen (Name, E-Mail, Firma)…" onkeydown="if(event.key==='Enter')loadUsers()"/>
+          <button class="btn primary" onclick="loadUsers()">Suchen</button>
+        </div>
+        <div id="usersTable"></div>
+        <div id="usersPaging" style="margin-top:8px;display:flex;gap:8px;justify-content:center"></div>
+      </div>
+
+      <!-- Organizations Tab -->
+      <div class="tab-panel" id="tab-orgs">
+        <div id="orgsTable"></div>
+      </div>
+
+      <!-- Audit Log Tab -->
+      <div class="tab-panel" id="tab-audit">
+        <div class="search-bar">
+          <input id="auditEntity" type="text" placeholder="Entity Type…" style="max-width:160px"/>
+          <input id="auditAction" type="text" placeholder="Action…" style="max-width:160px"/>
+          <input id="auditFrom" type="date"/>
+          <input id="auditTo" type="date"/>
+          <button class="btn primary" onclick="loadAudit()">Filtern</button>
+        </div>
+        <div id="auditTable"></div>
+      </div>
+
+      <!-- Metrics Tab -->
+      <div class="tab-panel" id="tab-metrics">
+        <div id="metricsGrid" class="metric-grid"></div>
+        <div id="metricsDetail"></div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    function esc(s){var d=document.createElement('div');d.textContent=s;return d.innerHTML}
+    var usersOffset=0,usersLimit=50;
+    var _csrf=null;
+    function getCsrf(){
+      if(_csrf)return Promise.resolve(_csrf);
+      return fetch('/api/csrf-token',{credentials:'include'}).then(function(r){return r.ok?r.json():{}}).then(function(d){_csrf=d.csrfToken||d.token;return _csrf});
+    }
+
+    // Tab switching
+    document.getElementById('tabBar').addEventListener('click',function(e){
+      var btn=e.target.closest('.tab-btn');if(!btn)return;
+      document.querySelectorAll('.tab-btn').forEach(function(b){b.classList.remove('active')});
+      document.querySelectorAll('.tab-panel').forEach(function(p){p.classList.remove('active')});
+      btn.classList.add('active');
+      document.getElementById('tab-'+btn.dataset.tab).classList.add('active');
+      if(btn.dataset.tab==='orgs'&&!document.getElementById('orgsTable').innerHTML)loadOrgs();
+      if(btn.dataset.tab==='metrics'&&!document.getElementById('metricsGrid').innerHTML)loadMetrics();
+    });
+
+    // Auth check
+    async function checkAdmin(){
+      try{
+        var r=await fetch('/api/admin/metrics',{credentials:'include'});
+        if(r.status===403){document.getElementById('access-denied').style.display='block';return}
+        document.getElementById('admin-content').style.display='block';
+        loadUsers();
+      }catch(e){document.getElementById('access-denied').style.display='block'}
+    }
+
+    // Users
+    async function loadUsers(offset){
+      usersOffset=offset||0;
+      var q=document.getElementById('userSearch').value.trim();
+      var url='/api/admin/users?limit='+usersLimit+'&offset='+usersOffset+(q?'&q='+encodeURIComponent(q):'');
+      var r=await fetch(url,{credentials:'include'});
+      var d=await r.json();var items=(d.data&&d.data.items)||[];var total=(d.data&&d.data.total)||0;
+      if(!items.length){document.getElementById('usersTable').innerHTML='<p class="empty">Keine Benutzer gefunden.</p>';document.getElementById('usersPaging').innerHTML='';return}
+      var html='<table class="admin-table"><thead><tr><th>ID</th><th>E-Mail</th><th>Firma</th><th>Rolle</th><th>Plan</th><th>Verifiziert</th><th>Aktionen</th></tr></thead><tbody>';
+      items.forEach(function(u){
+        var verified=u.is_verified?'<span class="tag green">Ja</span>':'<span class="tag red">Nein</span>';
+        var actions='<select onchange="adminEditUser('+u.id+',\'role\',this.value)" style="font-size:11px;padding:2px 4px;width:auto;min-width:80px;margin:0 2px 0 0">';
+        ['company','agency','admin','inactive'].forEach(function(r){actions+='<option'+(u.role===r?' selected':'')+'>'+r+'</option>'});
+        actions+='</select>';
+        actions+='<select onchange="adminEditUser('+u.id+',\'plan\',this.value)" style="font-size:11px;padding:2px 4px;width:auto;min-width:70px;margin:0 2px 0 0">';
+        ['FREE','BASIS','PLUS','NOTDIENST'].forEach(function(p){actions+='<option'+(u.plan===p?' selected':'')+'>'+p+'</option>'});
+        actions+='</select>';
+        if(!u.is_verified)actions+=' <button class="btn good" style="font-size:10px;padding:3px 8px" onclick="adminEditUser('+u.id+',\'is_verified\',true)">Verifizieren</button>';
+        if(u.role!=='inactive')actions+=' <button class="btn bad" style="font-size:10px;padding:3px 8px" onclick="adminDeactivate('+u.id+')">Deaktivieren</button>';
+        html+='<tr><td>'+u.id+'</td><td>'+esc(u.email||'')+'</td><td>'+esc(u.company_name||'')+'</td><td><span class="tag blue">'+esc(u.role||'')+'</span></td><td>'+esc(u.plan||'FREE')+'</td><td>'+verified+'</td><td style="white-space:nowrap">'+actions+'</td></tr>';
+      });
+      html+='</tbody></table>';
+      document.getElementById('usersTable').innerHTML=html;
+      // Paging
+      var pages=Math.ceil(total/usersLimit);
+      var pg='';for(var i=0;i<pages&&i<20;i++){
+        var cls=i*usersLimit===usersOffset?' primary':'';
+        pg+='<button class="btn'+cls+'" onclick="loadUsers('+i*usersLimit+')">'+( i+1)+'</button>';
+      }
+      document.getElementById('usersPaging').innerHTML=pg;
+    }
+
+    // Organizations
+    async function loadOrgs(){
+      var r=await fetch('/api/admin/organizations',{credentials:'include'});
+      var d=await r.json();var items=(d.data&&d.data.items)||[];
+      if(!items.length){document.getElementById('orgsTable').innerHTML='<p class="empty">Keine Organisationen.</p>';return}
+      var html='<table class="admin-table"><thead><tr><th>Name</th><th>Typ</th><th>Mitglieder</th><th>Standorte</th><th>Status</th><th>Erstellt</th></tr></thead><tbody>';
+      items.forEach(function(o){
+        var status=o.is_active?'<span class="tag green">Aktiv</span>':'<span class="tag red">Inaktiv</span>';
+        html+='<tr><td>'+esc(o.name||'')+'</td><td>'+esc(o.org_type||'')+'</td><td>'+( o.member_count||0)+'</td><td>'+(o.location_count||0)+'</td><td>'+status+'</td><td>'+(o.created_at?new Date(o.created_at).toLocaleDateString('de-DE'):'')+'</td></tr>';
+      });
+      html+='</tbody></table>';
+      document.getElementById('orgsTable').innerHTML=html;
+    }
+
+    // Audit Log
+    async function loadAudit(){
+      var params=[];
+      var et=document.getElementById('auditEntity').value.trim();if(et)params.push('entity_type='+encodeURIComponent(et));
+      var ac=document.getElementById('auditAction').value.trim();if(ac)params.push('action='+encodeURIComponent(ac));
+      var fr=document.getElementById('auditFrom').value;if(fr)params.push('from='+fr);
+      var to=document.getElementById('auditTo').value;if(to)params.push('to='+to);
+      params.push('limit=100');
+      var r=await fetch('/api/admin/audit-log?'+params.join('&'),{credentials:'include'});
+      var d=await r.json();var items=(d.data&&d.data.items)||[];
+      if(!items.length){document.getElementById('auditTable').innerHTML='<p class="empty">Keine Audit-Eintraege.</p>';return}
+      var html='<table class="admin-table"><thead><tr><th>Zeitpunkt</th><th>Akteur</th><th>Entity</th><th>Aktion</th><th>IP</th></tr></thead><tbody>';
+      items.forEach(function(a){
+        html+='<tr><td style="white-space:nowrap">'+(a.created_at?new Date(a.created_at).toLocaleString('de-DE'):'')+'</td><td>'+(a.actor_id||'–')+'</td><td>'+esc(a.entity_type||'')+' #'+(a.entity_id||'')+'</td><td><span class="tag muted">'+esc(a.action||'')+'</span></td><td>'+esc(a.ip_address||'–')+'</td></tr>';
+      });
+      html+='</tbody></table>';
+      document.getElementById('auditTable').innerHTML=html;
+    }
+
+    // Metrics
+    async function loadMetrics(){
+      var r=await fetch('/api/admin/metrics',{credentials:'include'});
+      var d=await r.json();var m=(d.data)||{};
+      var tiles=[
+        {lbl:'Benutzer gesamt',val:(m.users&&m.users.total)||0},
+        {lbl:'Neu (30 Tage)',val:(m.users&&m.users.last_30d)||0},
+        {lbl:'Organisationen',val:(m.organizations&&m.organizations.total)||0},
+        {lbl:'Aktive Kapazitaeten',val:(m.capacity_posts&&m.capacity_posts.active)||0}
+      ];
+      var reqMap=m.requisitions||{};
+      Object.keys(reqMap).forEach(function(k){tiles.push({lbl:'Req: '+k,val:reqMap[k]})});
+      var offMap=m.offers||{};
+      Object.keys(offMap).forEach(function(k){tiles.push({lbl:'Angebote: '+k,val:offMap[k]})});
+      document.getElementById('metricsGrid').innerHTML=tiles.map(function(t){
+        return '<div class="metric-tile"><div class="val">'+t.val+'</div><div class="lbl">'+esc(t.lbl)+'</div></div>';
+      }).join('');
+    }
+
+    // Admin user actions
+    async function adminEditUser(id,field,value){
+      var token=await getCsrf();
+      var body={};body[field]=value;
+      var r=await fetch('/api/admin/users/'+id,{method:'PATCH',credentials:'include',headers:{'Content-Type':'application/json','x-csrf-token':token||''},body:JSON.stringify(body)});
+      if(r.ok)loadUsers(usersOffset); else alert('Fehler: '+(await r.json()).error?.code||r.status);
+    }
+    async function adminDeactivate(id){
+      if(!confirm('Benutzer #'+id+' wirklich deaktivieren?'))return;
+      var token=await getCsrf();
+      var r=await fetch('/api/admin/users/'+id+'/deactivate',{method:'POST',credentials:'include',headers:{'Content-Type':'application/json','x-csrf-token':token||''}});
+      if(r.ok)loadUsers(usersOffset); else alert('Fehler');
+    }
+
+    checkAdmin();
+  </script>
+  <script src="/public/js/notifications.js"></script>
+  <div id="tc-footer" data-tc-footer></div>
+  <script src="/public/js/footer.js"></script>
+</body>
+</html>

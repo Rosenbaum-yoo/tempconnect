@@ -1,0 +1,11 @@
+# Ports nur intern (127.0.0.1) – fuer Produktion hinter Nginx Reverse Proxy.
+# Nutzung: docker compose -f docker-compose.yml -f docker-compose.ports-internal.yml up -d
+# Dann erreichbar nur von localhost; Nginx auf dem Host leitet 80/443 auf 127.0.0.1:8080.
+
+services:
+  db:
+    ports:
+      - "127.0.0.1:${DB_EXTERNAL_PORT:-5432}:5432"
+  frontend:
+    ports:
+      - "127.0.0.1:${FRONTEND_PORT:-8080}:80"

@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <title>Lieferanten-Bewertung – TempConnect</title>
+  <link rel="stylesheet" href="/public/css/enterprise.css"/>
+  <style>
+    .grade { font-size: 42px; font-weight: 800; text-align: center; margin: 14px 0; }
+    .grade.a { color: var(--good); }
+    .grade.b { color: var(--warn); }
+    .grade.c { color: var(--bad); }
+    .kpi { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 16px; }
+    .kpi div { padding: 12px; border-radius: 12px; background: rgba(0,0,0,.2); border: 1px solid var(--line); }
+    .kpi b { display: block; font-size: 18px; }
+    .kpi span { font-size: 12px; color: var(--muted); }
+  </style>
+</head>
+<body data-sla-guard="sla_access">
+  <div id="paywall" class="wrap" style="display:none">
+    <div class="topbar"><span class="brand">TempConnect</span><a href="/" class="btn">Startseite</a></div>
+    <div class="paywall-box">
+      <h2>Bereich nicht verfügbar</h2>
+      <p>Das Feature &quot;<span id="paywall-feature-name">Pulse-Bereich</span>&quot; ist mit deinem aktuellen Plan nicht nutzbar.</p>
+      <p>Aktueller Plan: <span id="paywall-current-plan" class="paywall-plan">–</span></p>
+      <a id="paywall-cta" href="/public/sla_abo.html" class="btn primary">Abo ansehen</a>
+    </div>
+  </div>
+  <div id="main-content" class="wrap">
+    <div class="topbar">
+      <span class="brand">TempConnect – Lieferanten-Bewertung</span>
+      <a href="/" class="btn">Startseite</a>
+      <a href="/public/enterprise.html" class="btn">Übersicht</a>
+      <a href="/public/capacity_search.html" class="btn">Kapazitätssuche</a>
+      <a href="/public/sla_search_jobs_list.html" class="btn">Suchaufträge</a>
+    </div>
+    <div class="card">
+      <label for="window">Zeitraum (Tage)</label>
+      <select id="window" style="margin-bottom:12px">
+        <option value="30">30 Tage</option>
+        <option value="90">90 Tage</option>
+      </select>
+      <label for="agencyId">Anbieter-ID (UUID) – leer = eigene Bewertung</label>
+      <input type="text" id="agencyId" placeholder="Leer = eigene Bewertung"/>
+      <button type="button" class="btn primary" style="margin-top:12px" id="btnLoad">Bewertung laden</button>
+    </div>
+    <div id="out">
+      <p class="empty">Zeitraum wählen und „Bewertung laden“ klicken.</p>
+    </div>
+  </div>
+  </div>
+  <script src="/public/js/planFeatures.js"></script>
+  <script src="/public/js/slaGuard.js"></script>
+  <script>
+    var API = "/api";
+    function api(path) {
+      return fetch(API + path, { credentials: "include" });
+    }
+    function checkAuth(r) { if (r.status === 401) { window.location.href = "/"; return false; } return true; }
+
+    document.getElementById("btnLoad").onclick = function() {
+      var windowDays = parseInt(document.getElementById("window").value, 10) || 30;
+      var agencyId = (document.getElementById("agencyId").value || "").trim();
+      api("/me").then(function(r) {
+        if (!checkAuth(r)) return;
+        return r.ok ? r.json() : null;
+      }).then(function(me) {
+        if (!me) return;
+        if (!agencyId) agencyId = me.id;
+        return api("/suppliers/" + encodeURIComponent(agencyId) + "/scorecard?window=" + windowDays);
+      }).then(function(r) {
+        if (!r) return;
+        if (!checkAuth(r)) return;
+        return r.ok ? r.json() : null;
+      }).then(function(data) {
+        var out = document.getElementById("out");
+        if (!data) { out.innerHTML = "<p class=\"empty\">Bewertung nicht verfügbar oder keine Berechtigung.</p>"; return; }
+        var g = (data.grade || "C").toUpperCase();
+        var cls = g === "A" ? "a" : g === "B" ? "b" : "c";
+        var html = "<div class=\"card\"><div class=\"grade " + cls + "\">" + (data.grade || "–") + "</div>";
+        html += "<p style=\"text-align:center;color:var(--muted);margin:0\">Zeitraum: " + windowDays + " Tage</p>";
+        html += "<div class=\"kpi\">";
+        html += "<div><b>" + (data.fill_rate != null ? (data.fill_rate * 100).toFixed(1) + "%" : "–") + "</b><span>Fill-rate</span></div>";
+        html += "<div><b>" + (data.on_time_rate != null ? (data.on_time_rate * 100).toFixed(1) + "%" : "–") + "</b><span>On-time</span></div>";
+        html += "<div><b>" + (data.sla_breach_rate != null ? (data.sla_breach_rate * 100).toFixed(1) + "%" : "–") + "</b><span>Pulse breach rate</span></div>";
+        html += "<div><b>" + (data.avg_rating != null ? data.avg_rating.toFixed(1) : "–") + "</b><span>Quality (avg rating)</span></div>";
+        html += "</div>";
+        if (data.totals) {
+          html += "<p style=\"margin-top:12px;font-size:13px;color:var(--muted)\">Anfragen erhalten: " + (data.totals.requests_received || 0) + ", angenommen: " + (data.totals.requests_accepted || 0) + ", abgeschlossen: " + (data.totals.requests_finalized || 0) + "</p>";
+        }
+        html += "</div>";
+        out.innerHTML = html;
+      });
+    };
+  </script>
+  <div id="tc-footer" data-tc-footer></div>
+  <script src="/public/js/footer.js"></script>
+</body>
+</html>

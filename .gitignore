@@ -1,0 +1,56 @@
+# Environment (niemals committen – Secrets! Nicht ins ZIP/Deploy-Paket.)
+.env
+.env.local
+.env.*.local
+.env.dev
+.env.prod
+*.env
+!*.env.example
+!.env.example
+!.env.prod.example
+!.env.dev.example
+
+# Dependencies – nie mit ins Repo/ZIP (Docker macht npm ci)
+node_modules/
+**/node_modules/
+
+# Logs
+*.log
+npm-debug.log*
+
+# Builds / Coverage
+dist/
+build/
+coverage/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Docker
+docker-compose.override.yml
+
+# Database
+*.sql.backup
+
+# Persistent data volumes (niemals committen)
+/data/
+/db-data/
+/redis-data/
+/backups/
+
+# Uploads / temp (niemals committen)
+uploads/
+tmp/
+**/uploads/
+**/tmp/
+
+# Deployment artifacts
+*.tar.gz
+*.zip

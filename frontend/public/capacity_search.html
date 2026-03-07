@@ -1,0 +1,655 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <title>Kapazitätssuche – TempConnect</title>
+  <link rel="stylesheet" href="/public/css/enterprise.css"/>
+</head>
+<body data-sla-guard="sla_access">
+  <div id="paywall" class="wrap" style="display:none">
+    <div class="topbar">
+      <span class="brand">TempConnect</span>
+      <a href="/" class="btn">Startseite</a>
+    </div>
+    <div class="paywall-box">
+      <h2>Bereich nicht verfügbar</h2>
+      <p>Das Feature &quot;<span id="paywall-feature-name">Pulse-Bereich</span>&quot; ist mit deinem aktuellen Plan nicht nutzbar.</p>
+      <p>Aktueller Plan: <span id="paywall-current-plan" class="paywall-plan">–</span></p>
+      <a id="paywall-cta" href="/public/sla_abo.html" class="btn primary">Abo ansehen</a>
+    </div>
+  </div>
+  <div id="main-content" class="wrap">
+    <div class="topbar">
+      <span class="brand">TempConnect – Kapazitätssuche</span>
+      <a href="/" class="btn">Startseite</a>
+      <a href="/public/enterprise.html" class="btn">Übersicht</a>
+      <a href="/public/sla_search_jobs_list.html" class="btn">Suchaufträge</a>
+      <a href="/public/company_requests.html" class="btn">Meine Anfragen</a>
+    </div>
+    <h1>Kapazitäten suchen</h1>
+    <p style="color:var(--muted);margin:0 0 12px">Jede Suche wird automatisch als persistenter Suchauftrag gespeichert und sofort gematcht. Neue Treffer werden laufend benachrichtigt.</p>
+    <form id="searchForm" class="card" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:12px;align-items:end">
+      <div>
+        <label for="role">Rolle</label>
+        <input type="text" id="role" placeholder="z. B. Fachkraft" name="role"/>
+      </div>
+      <div>
+        <label for="region">Stadt / PLZ</label>
+        <input type="text" id="region" placeholder="z. B. Stuttgart oder 70173" name="region"/>
+      </div>
+      <div>
+        <label for="radius_km">Umkreis</label>
+        <select id="radius_km" name="radius_km">
+          <option value="">– kein Umkreis –</option>
+          <option value="10">10 km</option>
+          <option value="25" selected>25 km</option>
+          <option value="50">50 km</option>
+          <option value="100">100 km</option>
+          <option value="200">200 km</option>
+        </select>
+      </div>
+      <div>
+        <label for="available_from">Verfügbar ab (Datum)</label>
+        <input type="date" id="available_from" name="available_from"/>
+      </div>
+      <div>
+        <label for="available_min">Mind. verfügbar (Anzahl)</label>
+        <input type="number" id="available_min" name="available_min" min="1" placeholder="1"/>
+      </div>
+      <div>
+        <button type="submit" class="btn primary">Suchen</button>
+      </div>
+    </form>
+    <div class="card" id="requestOptionsBar" style="margin-top:12px;display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:12px;align-items:end">
+      <div>
+        <label for="sla_minutes">Pulse (Minuten)</label>
+        <select id="sla_minutes" name="sla_minutes">
+          <option value="30">30</option>
+          <option value="60" selected>60</option>
+          <option value="120">120</option>
+          <option value="240">240</option>
+          <option value="480">480</option>
+        </select>
+      </div>
+      <div>
+        <label for="priority">Priorität</label>
+        <select id="priority" name="priority">
+          <option value="NORMAL" selected>NORMAL</option>
+          <option value="NOTDIENST">NOTDIENST</option>
+        </select>
+      </div>
+    </div>
+    <div id="notdienst_warn" class="notdienst-warn" style="display:none;margin-top:8px;padding:8px 12px;background:rgba(255,204,0,.15);border-radius:6px;font-size:13px;color:var(--warn,#e6b800)">
+      NOTDIENST = priorisierte Bearbeitung, ggf. planpflichtig
+    </div>
+    <div style="margin-top:16px">
+      <button type="button" id="btnCreateSearchJob" class="btn" style="border-style:dashed">Suchauftrag anlegen (läuft weiter bis geschlossen)</button>
+    </div>
+    <div id="results"></div>
+    <div id="geoResults"></div>
+
+    <!-- Gespeicherte Suchaufträge -->
+    <div style="margin-top:32px">
+      <div style="display:flex;align-items:center;gap:12px;margin-bottom:12px">
+        <h2 style="margin:0">Gespeicherte Suchaufträge</h2>
+        <span id="alertBadge" style="display:none;background:var(--brand,#635bff);color:#fff;border-radius:12px;padding:2px 10px;font-size:12px;font-weight:700"></span>
+      </div>
+      <div id="savedJobs"><div class="empty">Lade Suchaufträge…</div></div>
+    </div>
+  </div>
+
+  <!-- Edit Search Job Modal -->
+  <div id="modalEditJob" class="modal-overlay" style="display:none" aria-hidden="true">
+    <div class="modal" style="max-width:480px">
+      <h3 style="margin:0 0 16px">Suchauftrag bearbeiten</h3>
+      <form id="formEditJob">
+        <input type="hidden" id="editJobId"/>
+        <label class="label">Titel <span class="required">*</span></label>
+        <input type="text" id="editJobTitle" required class="input" style="width:100%;margin-bottom:12px"/>
+        <label class="label">Rolle</label>
+        <input type="text" id="editJobRole" class="input" style="width:100%;margin-bottom:12px"/>
+        <label class="label">Ort</label>
+        <input type="text" id="editJobCity" class="input" style="width:100%;margin-bottom:12px"/>
+        <label class="label">Radius (km)</label>
+        <input type="number" id="editJobRadius" min="1" max="500" class="input" style="width:100%;margin-bottom:12px"/>
+        <label class="label">Anzahl</label>
+        <input type="number" id="editJobHeadcount" min="1" max="999" class="input" style="width:100%;margin-bottom:12px"/>
+        <label class="label">Dringlichkeit</label>
+        <select id="editJobUrgency" class="input" style="width:100%;margin-bottom:12px">
+          <option value="normal">Normal</option>
+          <option value="plus">Plus</option>
+          <option value="notdienst">Notdienst</option>
+        </select>
+        <label class="label">Pulse-Zeitfenster (Minuten)</label>
+        <input type="number" id="editJobSlaMinutes" min="15" class="input" style="width:100%;margin-bottom:12px"/>
+        <div style="display:flex;gap:10px;margin-top:16px">
+          <button type="submit" class="btn primary">Speichern</button>
+          <button type="button" id="btnCloseEditJobModal" class="btn">Abbrechen</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <div id="modalSearchJob" class="modal-overlay" style="display:none" aria-hidden="true">
+    <div class="modal" style="max-width:480px">
+      <h3 style="margin:0 0 16px">Suchauftrag anlegen</h3>
+      <p style="color:var(--muted);font-size:14px;margin:0 0 16px">Der Suchauftrag läuft weiter, bis Sie ihn schließen. Sie erhalten Benachrichtigungen bei passenden Treffern.</p>
+      <form id="formSearchJob">
+        <label class="label">Titel <span class="required">*</span></label>
+        <input type="text" id="searchJobTitle" name="title" required placeholder="z. B. Pflegefachkraft Berlin" class="input" style="width:100%;margin-bottom:12px"/>
+        <label class="label">Rolle</label>
+        <input type="text" id="searchJobRole" name="role" placeholder="z. B. Pflegefachkraft" class="input" style="width:100%;margin-bottom:12px"/>
+        <label class="label">Ort</label>
+        <input type="text" id="searchJobCity" name="location_city" placeholder="Stadt oder PLZ" class="input" style="width:100%;margin-bottom:12px"/>
+        <label class="label">Radius (km)</label>
+        <input type="number" id="searchJobRadius" name="radius_km" min="0" max="500" value="50" class="input" style="width:100%;margin-bottom:12px"/>
+        <label class="label">Dringlichkeit</label>
+        <select id="searchJobUrgency" name="urgency" class="input" style="width:100%;margin-bottom:12px">
+          <option value="normal">Normal</option>
+          <option value="plus">Plus</option>
+          <option value="notdienst">Notdienst</option>
+        </select>
+        <label class="label">Pulse-Zeitfenster (Minuten, optional)</label>
+        <input type="number" id="searchJobSlaMinutes" name="sla_minutes" min="0" placeholder="Leer = Standard" class="input" style="width:100%;margin-bottom:12px"/>
+        <p style="font-size:12px;color:var(--muted);margin:0 0 16px">Hinweis: Der Suchauftrag unterliegt dem Pulse-Prozessnachweis (kein Erfolgsversprechen). Details in den AGB.</p>
+        <div style="display:flex;gap:10px;margin-top:16px">
+          <button type="submit" class="btn primary">Anlegen</button>
+          <button type="button" id="btnCloseSearchJobModal" class="btn">Abbrechen</button>
+        </div>
+      </form>
+    </div>
+  </div>
+  <style>.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.6);display:flex;align-items:center;justify-content:center;z-index:1000}.modal-overlay .modal{background:var(--card,#1a1a1a);border:1px solid var(--line);border-radius:8px;padding:24px}.label{display:block;margin-bottom:4px;font-size:13px}.required{color:var(--bad,#e55)}</style>
+
+  <script src="/public/js/planFeatures.js"></script>
+  <script src="/public/js/slaGuard.js"></script>
+  <div id="requestModal" class="modal" aria-hidden="true">
+    <div class="panel">
+      <h2>Anfrage senden</h2>
+      <p id="modalCapacityInfo" style="color:var(--muted);margin:0 0 12px;font-size:14px"></p>
+      <form id="requestForm">
+        <input type="hidden" id="req_capacity_id" name="capacity_id"/>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+          <div>
+            <label for="req_role">Rolle</label>
+            <input type="text" id="req_role" name="role" required/>
+          </div>
+          <div>
+            <label for="req_quantity">Anzahl</label>
+            <input type="number" id="req_quantity" name="quantity" min="1" value="1" required/>
+          </div>
+        </div>
+        <div>
+          <label for="req_location_text">Einsatzort</label>
+          <input type="text" id="req_location_text" name="location_text" placeholder="z. B. Stuttgart Mitte"/>
+        </div>
+        <div>
+          <label for="req_region">Region</label>
+          <input type="text" id="req_region" name="region" placeholder="z. B. Stuttgart"/>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+          <div>
+            <label for="req_start_date">Startdatum</label>
+            <input type="date" id="req_start_date" name="start_date" required/>
+          </div>
+          <div>
+            <label for="req_end_date">Enddatum</label>
+            <input type="date" id="req_end_date" name="end_date"/>
+          </div>
+        </div>
+        <div>
+          <label for="req_duration_days">Oder Dauer (Tage)</label>
+          <input type="number" id="req_duration_days" name="duration_days" min="1" placeholder="z. B. 7"/>
+        </div>
+        <div>
+          <label for="req_message">Nachricht</label>
+          <textarea id="req_message" name="message" rows="2" placeholder="Optionale Nachricht"></textarea>
+        </div>
+        <div style="display:flex;gap:10px;margin-top:14px">
+          <button type="submit" class="btn primary">Anfrage senden</button>
+          <button type="button" class="btn" onclick="closeModal()">Abbrechen</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <script>
+    var API = "/api";
+    function esc(s){if(!s)return "";return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;").replace(/'/g,"&#39;");}
+    function idempotencyKey() {
+      try { return (typeof crypto !== "undefined" && crypto.randomUUID) ? crypto.randomUUID() : "x-" + Math.random().toString(36).slice(2) + "-" + Date.now(); } catch(e) { return "x-" + Math.random().toString(36).slice(2) + "-" + Date.now(); }
+    }
+    function getCsrf() {
+      return fetch(API + "/csrf", { credentials: "include" }).then(function(r) { return r.ok ? r.json() : null; });
+    }
+    function api(path, opts) {
+      opts = opts || {};
+      var method = opts.method || "GET";
+      var headers = { "Content-Type": "application/json" };
+      if (["POST","PATCH","PUT","DELETE"].indexOf(method) >= 0) {
+        headers["X-CSRF-Token"] = opts.csrf || "";
+        headers["Idempotency-Key"] = idempotencyKey();
+      }
+      return fetch(API + path, {
+        method: method,
+        headers: headers,
+        body: opts.body ? JSON.stringify(opts.body) : undefined,
+        credentials: "include"
+      });
+    }
+    function checkAuth(r) {
+      if (r.status === 401) { window.location.href = "/"; return false; }
+      return true;
+    }
+
+    document.getElementById("searchForm").onsubmit = function(e) {
+      e.preventDefault();
+      var role = document.getElementById("role").value.trim() || "";
+      var region = document.getElementById("region").value.trim() || "";
+      var available_from = document.getElementById("available_from").value || null;
+      var available_min = document.getElementById("available_min").value ? parseInt(document.getElementById("available_min").value, 10) : 1;
+      var pulseMin = parseInt(document.getElementById("sla_minutes").value, 10) || 60;
+      var priority = document.getElementById("priority").value || "NORMAL";
+      var radiusKm = document.getElementById("radius_km").value ? parseInt(document.getElementById("radius_km").value, 10) : null;
+
+      var resultsEl = document.getElementById("results");
+      var geoResultsEl = document.getElementById("geoResults");
+      resultsEl.innerHTML = '<div class="empty">Suche läuft &amp; Suchauftrag wird gespeichert…</div>';
+      geoResultsEl.innerHTML = '';
+
+      // Geo-Koordinaten ermitteln (falls Region + Umkreis gesetzt)
+      var geoPromise;
+      if (region && radiusKm) {
+        geoPromise = api("/geo/coordinates?q=" + encodeURIComponent(region)).then(function(r) {
+          return r.ok ? r.json() : null;
+        }).catch(function() { return null; });
+      } else {
+        geoPromise = Promise.resolve(null);
+      }
+
+      geoPromise.then(function(coords) {
+        // 1) search-and-save: erstellt Suchauftrag + matched sofort
+        getCsrf().then(function(csrf) {
+          var token = csrf && (csrf.csrfToken || csrf.token);
+          return api("/sla/search-and-save", {
+            method: "POST",
+            csrf: token,
+            body: {
+              role: role,
+              region: region,
+              available_from: available_from,
+              min_available: available_min,
+              pulse_minutes: pulseMin,
+              priority: priority
+            }
+          });
+        }).then(function(r) {
+          if (!checkAuth(r)) return null;
+          if (!r.ok) { resultsEl.innerHTML = '<div class="empty">Suche fehlgeschlagen.</div>'; return null; }
+          return r.json();
+        }).then(function(data) {
+          if (!data) return;
+          var matches = data.matches || [];
+          var job = data.job || {};
+          var html = '<h2 style="margin:24px 0 12px">Suchauftrag gespeichert – ' + matches.length + ' Matches (von ' + (data.candidateCount || 0) + ' Kandidaten)</h2>';
+          html += '<div class="card" style="margin-bottom:12px;padding:12px"><span style="color:var(--muted);font-size:13px">Suchauftrag: <strong>' + esc(job.title || '–') + '</strong> · Status: ' + esc(job.status || 'open') + (job.sla_status ? ' · Pulse: ' + esc(job.sla_status) : '') + '</span></div>';
+          if (matches.length === 0) {
+            html += '<div class="empty">Keine Matches gefunden. Der Suchauftrag läuft weiter – Sie werden bei neuen Matches benachrichtigt.</div>';
+          } else {
+            matches.forEach(function(m) {
+              var name = esc(m.capacity_title || m.demand_title || '–');
+              var mRole = esc(m.capacity_role || m.demand_role || '–');
+              var city = esc(m.capacity_city || m.demand_city || '–');
+              var score = m.match_score != null ? m.match_score : '–';
+              var distHtml = m.distance_km != null ? ' · <span style="color:var(--brand);font-weight:600">' + m.distance_km + ' km</span>' : '';
+              html += '<div class="card" style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px">';
+              html += '<div><strong>' + name + '</strong> · ' + mRole + ' · ' + city + distHtml;
+              html += '<br><span style="color:var(--muted);font-size:13px">Score: ' + score + '</span></div>';
+              html += '<div style="display:flex;gap:6px">';
+              if (m.capacity_post_id) {
+                html += '<button type="button" class="btn" data-capacity-id="' + esc(m.capacity_post_id) + '" data-role="' + esc(m.capacity_role || '') + '" data-region="' + esc(m.capacity_city || '') + '">Anfragen</button>';
+                html += '<a href="/public/sla_angebote.html?role=' + encodeURIComponent(m.capacity_role || '') + '&quantity=1" class="btn primary">One-Click Angebot</a>';
+              }
+              html += '</div></div>';
+            });
+          }
+          resultsEl.innerHTML = html;
+          // Bind Anfragen buttons
+          resultsEl.querySelectorAll('[data-capacity-id]').forEach(function(btn) {
+            btn.onclick = function() {
+              openRequestModal(btn.getAttribute('data-capacity-id'), btn.getAttribute('data-role'), btn.getAttribute('data-region'));
+            };
+          });
+          // Refresh saved jobs list
+          loadSavedJobs();
+        }).catch(function() {
+          resultsEl.innerHTML = '<div class="empty">Fehler bei der Suche.</div>';
+        });
+
+        // 2) Direkte Umkreissuche (wenn Koordinaten vorhanden)
+        if (coords && coords.lat != null && coords.lng != null && radiusKm) {
+          var geoQuery = "/capacities?latitude=" + coords.lat + "&longitude=" + coords.lng + "&radius_km=" + radiusKm;
+          if (role) geoQuery += "&role=" + encodeURIComponent(role);
+          if (available_from) geoQuery += "&available_from=" + encodeURIComponent(available_from);
+          if (available_min > 1) geoQuery += "&available_min=" + available_min;
+          geoQuery += "&limit=50";
+
+          geoResultsEl.innerHTML = '<div class="empty" style="margin-top:16px">Umkreissuche läuft…</div>';
+          api(geoQuery).then(function(r) {
+            if (!r.ok) { geoResultsEl.innerHTML = ''; return null; }
+            return r.json();
+          }).then(function(data) {
+            if (!data || !data.items || data.items.length === 0) {
+              geoResultsEl.innerHTML = '<div class="card" style="margin-top:24px;padding:16px"><h3 style="margin:0 0 8px">Umkreissuche: ' + esc(region) + ' (' + radiusKm + ' km)</h3><div class="empty">Keine Kapazitäten im Umkreis gefunden.</div></div>';
+              return;
+            }
+            var gh = '<div style="margin-top:24px">';
+            gh += '<h2 style="margin:0 0 12px">Umkreissuche: ' + esc(region) + ' (' + radiusKm + ' km) – ' + data.items.length + ' Treffer</h2>';
+            data.items.forEach(function(c) {
+              var distBadge = c.distance_km != null ? '<span style="display:inline-block;background:var(--brand,#635bff);color:#fff;border-radius:12px;padding:2px 10px;font-size:12px;font-weight:700;margin-left:8px">' + c.distance_km + ' km</span>' : '';
+              var loc = '';
+              if (c.city) loc += esc(c.city);
+              if (c.postal_code) loc += (loc ? ' ' : '') + esc(c.postal_code);
+              if (!loc) loc = esc(c.region || '–');
+              var effLabel = c.available_effective != null ? c.available_effective : c.available_workers;
+              gh += '<div class="card" style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px">';
+              gh += '<div>';
+              gh += '<strong>' + esc(c.role || '–') + '</strong>' + distBadge;
+              gh += '<br><span style="color:var(--muted);font-size:13px">' + loc;
+              if (c.agency_company_name) gh += ' · ' + esc(c.agency_company_name);
+              gh += ' · Verfügbar: ' + effLabel;
+              if (c.available_from) gh += ' · ab ' + esc(String(c.available_from).substring(0, 10));
+              if (c.hourly_rate_cents) gh += ' · ' + (c.hourly_rate_cents / 100).toFixed(2) + ' €/h';
+              gh += '</span></div>';
+              gh += '<div style="display:flex;gap:6px">';
+              gh += '<button type="button" class="btn" data-geo-cap-id="' + esc(c.id) + '" data-role="' + esc(c.role || '') + '" data-region="' + esc(c.city || c.region || '') + '">Anfragen</button>';
+              gh += '</div></div>';
+            });
+            gh += '</div>';
+            geoResultsEl.innerHTML = gh;
+            // Bind Anfragen buttons fuer Geo-Ergebnisse
+            geoResultsEl.querySelectorAll('[data-geo-cap-id]').forEach(function(btn) {
+              btn.onclick = function() {
+                openRequestModal(btn.getAttribute('data-geo-cap-id'), btn.getAttribute('data-role'), btn.getAttribute('data-region'));
+              };
+            });
+          }).catch(function() {
+            geoResultsEl.innerHTML = '';
+          });
+        }
+      });
+    };
+
+    function openSearchJobModal() {
+      var el = document.getElementById("modalSearchJob");
+      if (!el) return;
+      var regionEl = document.getElementById("region");
+      if (regionEl && regionEl.value) {
+        var cityEl = document.getElementById("searchJobCity");
+        if (cityEl) cityEl.value = regionEl.value;
+      }
+      var roleEl = document.getElementById("role");
+      if (roleEl && roleEl.value) {
+        var jobRoleEl = document.getElementById("searchJobRole");
+        if (jobRoleEl) jobRoleEl.value = roleEl.value;
+      }
+      el.style.display = "flex";
+      el.setAttribute("aria-hidden", "false");
+      var title = document.getElementById("searchJobTitle");
+      if (title) title.focus();
+    }
+    function closeSearchJobModal() {
+      var el = document.getElementById("modalSearchJob");
+      if (!el) return;
+      el.style.display = "none";
+      el.setAttribute("aria-hidden", "true");
+    }
+    document.getElementById("btnCreateSearchJob").addEventListener("click", openSearchJobModal);
+    document.getElementById("btnCloseSearchJobModal").addEventListener("click", closeSearchJobModal);
+
+    document.getElementById("formSearchJob").addEventListener("submit", function(e) {
+      e.preventDefault();
+      var title = document.getElementById("searchJobTitle").value.trim();
+      if (!title) { alert("Bitte einen Titel angeben."); return; }
+      var body = {
+        title: title,
+        target_type: "CAPACITY",
+        role: document.getElementById("searchJobRole").value.trim() || null,
+        location_city: document.getElementById("searchJobCity").value.trim() || null,
+        radius_km: document.getElementById("searchJobRadius").value ? parseInt(document.getElementById("searchJobRadius").value, 10) : null,
+        urgency: document.getElementById("searchJobUrgency").value || "normal"
+      };
+      var slaMinutes = document.getElementById("searchJobSlaMinutes").value;
+      if (slaMinutes) body.sla_minutes = parseInt(slaMinutes, 10);
+      getCsrf().then(function(csrf) {
+        var token = csrf && (csrf.csrfToken || csrf.token);
+        return api("/sla/search-jobs", { method: "POST", csrf: token, body: body });
+      }).then(function(r) {
+        if (!r) return;
+        if (!checkAuth(r)) return;
+        if (!r.ok) {
+          r.json().catch(function(){ return {}; }).then(function(err) {
+            alert((err && err.error) ? err.error : "Suchauftrag konnte nicht angelegt werden.");
+          });
+          return;
+        }
+        return r.json();
+      }).then(function(created) {
+        if (!created || !created.id) return;
+        closeSearchJobModal();
+        window.location.href = "/public/sla_search_job_detail.html?id=" + encodeURIComponent(created.id) + "&new=1";
+      }).catch(function() { alert("Fehler beim Anlegen des Suchauftrags."); });
+    });
+
+    document.getElementById("priority").addEventListener("change", function() {
+      var isNotdienst = this.value === "NOTDIENST";
+      document.getElementById("notdienst_warn").style.display = isNotdienst ? "block" : "none";
+      if (isNotdienst) document.getElementById("sla_minutes").value = "30";
+    });
+
+    /* ── Gespeicherte Suchaufträge + Match-Alerts ── */
+    function loadSavedJobs() {
+      api("/sla/search-jobs").then(function(r) {
+        if (!checkAuth(r)) return null;
+        return r.ok ? r.json() : [];
+      }).then(function(jobs) {
+        var el = document.getElementById("savedJobs");
+        if (!el) return;
+        if (!Array.isArray(jobs) || jobs.length === 0) {
+          el.innerHTML = '<div class="empty">Noch keine Suchaufträge.</div>';
+          return;
+        }
+        var html = '';
+        jobs.forEach(function(j) {
+          var st = (j.status || 'open').toUpperCase();
+          var cls = st === 'OPEN' ? 'good' : st === 'PAUSED' ? 'warn' : 'muted';
+          var sla = j.sla_status ? ' · ' + esc(j.sla_status) : '';
+          html += '<div class="card" style="margin-bottom:8px">';
+          html += '<div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px">';
+          html += '<div><strong>' + esc(j.title || 'Suchauftrag') + '</strong>';
+          html += ' <span class="tag ' + cls + '">' + st + sla + '</span>';
+          if (j.role) html += '<br><span style="color:var(--muted);font-size:13px">' + esc(j.role) + (j.location_city ? ' · ' + esc(j.location_city) : '') + '</span>';
+          html += '</div><div style="display:flex;gap:6px;flex-wrap:wrap">';
+          if (st === 'OPEN') {
+            html += '<button class="btn" data-job-action="pause" data-job-id="' + esc(j.id) + '">Pause</button>';
+            html += '<button class="btn" data-job-action="close" data-job-id="' + esc(j.id) + '">Schließen</button>';
+          }
+          if (st === 'PAUSED') {
+            html += '<button class="btn primary" data-job-action="resume" data-job-id="' + esc(j.id) + '">Fortsetzen</button>';
+            html += '<button class="btn" data-job-action="close" data-job-id="' + esc(j.id) + '">Schließen</button>';
+          }
+          if (st !== 'CLOSED') {
+            html += '<button class="btn" data-job-action="edit" data-job-id="' + esc(j.id) + '" data-job-title="' + esc(j.title || '') + '" data-job-role="' + esc(j.role || '') + '" data-job-city="' + esc(j.location_city || '') + '" data-job-radius="' + (j.radius_km || 25) + '" data-job-headcount="' + (j.headcount || 1) + '" data-job-urgency="' + esc(j.urgency || 'normal') + '" data-job-sla="' + (j.sla_minutes || '') + '">Bearbeiten</button>';
+          }
+          html += '<button class="btn" style="color:var(--bad)" data-job-action="delete" data-job-id="' + esc(j.id) + '" data-job-title="' + esc(j.title || 'Suchauftrag') + '">Löschen</button>';
+          html += '<button class="btn primary" data-job-action="matches" data-job-id="' + esc(j.id) + '">Matches</button>';
+          html += '</div></div>';
+          html += '<div id="matches-' + esc(j.id) + '" style="display:none;margin-top:12px"></div>';
+          html += '</div>';
+        });
+        el.innerHTML = html;
+        el.querySelectorAll('[data-job-action]').forEach(function(btn) {
+          btn.onclick = function() { handleJobAction(btn.dataset.jobAction, btn.dataset.jobId, btn); };
+        });
+      });
+    }
+    function handleJobAction(action, jobId, btn) {
+      if (action === 'matches') { toggleMatches(jobId); return; }
+      if (action === 'edit') { openEditJobModal(btn); return; }
+      if (action === 'delete') { deleteJob(jobId, btn ? btn.getAttribute('data-job-title') : 'Suchauftrag'); return; }
+      var endpoint = '/sla/search-jobs/' + jobId + '/' + action;
+      getCsrf().then(function(csrf) {
+        return api(endpoint, { method: 'POST', csrf: csrf && csrf.token });
+      }).then(function(r) {
+        if (!checkAuth(r)) return;
+        loadSavedJobs();
+      });
+    }
+
+    function openEditJobModal(btn) {
+      document.getElementById('editJobId').value = btn.dataset.jobId;
+      document.getElementById('editJobTitle').value = btn.dataset.jobTitle || '';
+      document.getElementById('editJobRole').value = btn.dataset.jobRole || '';
+      document.getElementById('editJobCity').value = btn.dataset.jobCity || '';
+      document.getElementById('editJobRadius').value = btn.dataset.jobRadius || '25';
+      document.getElementById('editJobHeadcount').value = btn.dataset.jobHeadcount || '1';
+      document.getElementById('editJobUrgency').value = btn.dataset.jobUrgency || 'normal';
+      document.getElementById('editJobSlaMinutes').value = btn.dataset.jobSla || '';
+      var el = document.getElementById('modalEditJob');
+      el.style.display = 'flex';
+      el.setAttribute('aria-hidden', 'false');
+      document.getElementById('editJobTitle').focus();
+    }
+    document.getElementById('btnCloseEditJobModal').addEventListener('click', function() {
+      var el = document.getElementById('modalEditJob');
+      el.style.display = 'none';
+      el.setAttribute('aria-hidden', 'true');
+    });
+    document.getElementById('formEditJob').addEventListener('submit', function(e) {
+      e.preventDefault();
+      var jobId = document.getElementById('editJobId').value;
+      var body = {
+        title: document.getElementById('editJobTitle').value.trim(),
+        role: document.getElementById('editJobRole').value.trim() || null,
+        location_city: document.getElementById('editJobCity').value.trim() || null,
+        radius_km: parseInt(document.getElementById('editJobRadius').value, 10) || 25,
+        headcount: parseInt(document.getElementById('editJobHeadcount').value, 10) || 1,
+        urgency: document.getElementById('editJobUrgency').value || 'normal'
+      };
+      var sla = document.getElementById('editJobSlaMinutes').value;
+      if (sla) body.sla_minutes = parseInt(sla, 10);
+      getCsrf().then(function(csrf) {
+        return api('/sla/search-jobs/' + jobId, { method: 'PUT', csrf: csrf && (csrf.csrfToken || csrf.token), body: body });
+      }).then(function(r) {
+        if (!checkAuth(r)) return;
+        if (!r.ok) { r.json().then(function(err) { alert(err.error || 'Fehler'); }); return; }
+        var el = document.getElementById('modalEditJob');
+        el.style.display = 'none';
+        el.setAttribute('aria-hidden', 'true');
+        loadSavedJobs();
+      }).catch(function() { alert('Fehler beim Speichern.'); });
+    });
+
+    function deleteJob(jobId, title) {
+      if (!confirm('Suchauftrag "' + title + '" wirklich löschen? Alle Matches und Events werden entfernt.')) return;
+      getCsrf().then(function(csrf) {
+        return api('/sla/search-jobs/' + jobId, { method: 'DELETE', csrf: csrf && (csrf.csrfToken || csrf.token) });
+      }).then(function(r) {
+        if (!checkAuth(r)) return;
+        if (!r.ok) { r.json().then(function(err) { alert(err.error || 'Fehler'); }); return; }
+        loadSavedJobs();
+      }).catch(function() { alert('Fehler beim Löschen.'); });
+    }
+    function toggleMatches(jobId) {
+      var el = document.getElementById('matches-' + jobId);
+      if (!el) return;
+      if (el.style.display !== 'none') { el.style.display = 'none'; return; }
+      el.innerHTML = '<span style="color:var(--muted)">Lade Matches…</span>';
+      el.style.display = 'block';
+      api('/sla/search-jobs/' + jobId).then(function(r) { return r.ok ? r.json() : null; }).then(function(data) {
+        if (!data || !data.matches || data.matches.length === 0) {
+          el.innerHTML = '<div class="empty">Keine Matches.</div>';
+          return;
+        }
+        var html = '';
+        data.matches.forEach(function(m) {
+          var name = esc(m.capacity_title || m.demand_title || '–');
+          var role = esc(m.capacity_role || m.demand_role || '–');
+          var city = esc(m.capacity_city || m.demand_city || '–');
+          var score = m.match_score != null ? m.match_score : '–';
+          html += '<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid var(--line)">';
+          html += '<div><strong>' + name + '</strong> · ' + role + ' · ' + city + ' <span style="color:var(--muted);font-size:12px">(Score: ' + score + ')</span></div>';
+          html += '<div style="display:flex;gap:6px">';
+          if (m.capacity_post_id) {
+            html += '<button class="btn" onclick="openRequestModal(\'' + esc(m.capacity_post_id) + '\',\'' + esc(m.capacity_role || '') + '\',\'' + esc(m.capacity_city || '') + '\')">Anfragen</button>';
+            html += '<a href="/public/sla_angebote.html?demand_id=' + encodeURIComponent(data.id || '') + '&role=' + encodeURIComponent(m.capacity_role || '') + '&quantity=1&start=" class="btn primary">One-Click Angebot</a>';
+          }
+          html += '</div></div>';
+        });
+        el.innerHTML = html;
+      });
+    }
+    // Lade Suchaufträge + Alert-Badge
+    loadSavedJobs();
+    api('/sla/match-alerts/count').then(function(r) { return r.ok ? r.json() : null; }).then(function(d) {
+      if (d && d.count > 0) {
+        var badge = document.getElementById('alertBadge');
+        if (badge) { badge.textContent = d.count + ' neue Matches'; badge.style.display = 'inline'; }
+      }
+    });
+
+    function openRequestModal(capacityId, role, region) {
+      document.getElementById("req_capacity_id").value = capacityId;
+      document.getElementById("req_role").value = role || "";
+      document.getElementById("req_region").value = region || "";
+      document.getElementById("modalCapacityInfo").textContent = "Kapazität: " + (role || "–") + ", " + (region || "–");
+      document.getElementById("requestModal").classList.add("show");
+      document.getElementById("requestModal").setAttribute("aria-hidden", "false");
+    }
+    function closeModal() {
+      document.getElementById("requestModal").classList.remove("show");
+      document.getElementById("requestModal").setAttribute("aria-hidden", "true");
+    }
+
+    document.getElementById("requestForm").onsubmit = function(e) {
+      e.preventDefault();
+      var endDate = document.getElementById("req_end_date").value;
+      var durationDays = document.getElementById("req_duration_days").value;
+      if (!endDate && !durationDays) {
+        alert("Bitte Enddatum oder Dauer (Tage) angeben.");
+        return;
+      }
+      var priority = document.getElementById("priority").value || "NORMAL";
+      var slaMinutes = parseInt(document.getElementById("sla_minutes").value, 10) || 60;
+      var body = {
+        capacity_id: document.getElementById("req_capacity_id").value,
+        role: document.getElementById("req_role").value || null,
+        quantity: parseInt(document.getElementById("req_quantity").value, 10) || 1,
+        location_text: document.getElementById("req_location_text").value || null,
+        region: document.getElementById("req_region").value || null,
+        start_date: document.getElementById("req_start_date").value || null,
+        end_date: endDate || null,
+        duration_days: durationDays ? parseInt(durationDays, 10) : null,
+        message: document.getElementById("req_message").value || null,
+        priority: priority,
+        sla_minutes: slaMinutes
+      };
+      getCsrf().then(function(csrf) {
+        return api("/requests", { method: "POST", body: body, csrf: csrf && csrf.token });
+      }).then(function(r) {
+        if (!checkAuth(r)) return;
+        if (r.ok) return r.json();
+        return r.json().then(function(j) { alert(j.error || "Fehler"); });
+      }).then(function(created) {
+        if (created && created.id) {
+          closeModal();
+          window.location.href = "/public/request_detail.html?id=" + created.id;
+        }
+      });
+    };
+  </script>
+  <div id="tc-footer" data-tc-footer></div>
+  <script src="/public/js/footer.js"></script>
+</body>
+</html>

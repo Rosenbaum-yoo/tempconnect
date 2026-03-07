@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <title>Compliance – TempConnect</title>
+  <link rel="stylesheet" href="/public/css/design-system.css"/>
+  <style>
+    .trust-card { border: 1px solid var(--ds-border); border-radius: var(--ds-radius-lg); padding: var(--ds-space-5); background: rgba(255,255,255,0.02); margin-bottom: var(--ds-space-3); }
+    .trust-card h3 { font-size: 16px; font-weight: 700; margin: 0 0 var(--ds-space-2); display: flex; align-items: center; gap: var(--ds-space-2); }
+    .trust-card h3 .icon { font-size: 20px; }
+    .trust-card p, .trust-card li { font-size: 14px; color: var(--ds-text-secondary); line-height: 1.6; }
+    .trust-card ul { padding-left: 20px; margin: var(--ds-space-2) 0 0; }
+    .trust-card li { padding: 2px 0; }
+    .trust-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: var(--ds-space-3); }
+  </style>
+</head>
+<body>
+  <div class="ds-wrap">
+    <nav class="ds-topbar">
+      <div class="ds-topbar__brand"><span class="ds-topbar__brand-dot"></span> TempConnect</div>
+      <div class="ds-topbar__nav">
+        <a href="/" class="ds-nav-link">Startseite</a>
+        <a href="/public/trust/security.html" class="ds-nav-link">Sicherheit</a>
+        <a href="/public/trust/platform-sla.html" class="ds-nav-link">Plattform-SLA</a>
+        <a href="/public/trust/status.html" class="ds-nav-link">Status</a>
+        <span class="ds-topbar__separator"></span>
+        <a href="/app" class="ds-btn">Anmelden</a>
+      </div>
+    </nav>
+
+    <div class="ds-page-header">
+      <div class="ds-page-header__content">
+        <h1 class="ds-page-title">Compliance &amp; Regulatorik</h1>
+        <p class="ds-page-subtitle">Wie TempConnect regulatorische Anforderungen der Zeitarbeitsbranche unterstuetzt und Transparenz im Beschaffungsprozess schafft.</p>
+      </div>
+    </div>
+
+    <div class="trust-grid">
+      <div class="trust-card">
+        <h3><span class="icon">&#128220;</span> DSGVO / GDPR</h3>
+        <p>TempConnect ist nach den Grundsaetzen der Datenschutz-Grundverordnung konzipiert. Die Plattform verarbeitet nur die fuer den Geschaeftsbetrieb erforderlichen Daten und stellt sicher, dass Betroffenenrechte jederzeit wahrgenommen werden koennen.</p>
+        <ul>
+          <li>Datenminimierung und Zweckbindung</li>
+          <li>Recht auf Auskunft, Berichtigung und Loeschung</li>
+          <li>Verarbeitungsverzeichnis gemaess Art. 30 DSGVO</li>
+        </ul>
+      </div>
+
+      <div class="trust-card">
+        <h3><span class="icon">&#128196;</span> Auftragsverarbeitung (AV-Vertrag)</h3>
+        <p>Mit allen Infrastruktur- und Dienstleistungspartnern bestehen Auftragsverarbeitungsvertraege gemaess Art. 28 DSGVO. Die Datenverarbeitung erfolgt ausschliesslich in Rechenzentren innerhalb der Europaeischen Union.</p>
+      </div>
+
+      <div class="trust-card">
+        <h3><span class="icon">&#9989;</span> Dokumentenverifikation</h3>
+        <p>TempConnect unterstuetzt die Ueberpruefung von Compliance-Dokumenten wie Gewerbeanmeldungen, AUeG-Genehmigungen und Versicherungsnachweisen. Dokumente werden mit Ablaufdaten versehen und in einer Compliance-Ampel visualisiert.</p>
+        <ul>
+          <li>Upload und Verwaltung von Nachweisdokumenten</li>
+          <li>Ablaufueberwachung mit automatischer Warnung</li>
+          <li>Ampellogik: Gruen (gueltig), Gelb (laeuft ab), Rot (abgelaufen)</li>
+        </ul>
+      </div>
+
+      <div class="trust-card">
+        <h3><span class="icon">&#128203;</span> Audit Trail &amp; Protokollierung</h3>
+        <p>Alle geschaeftsrelevanten Aktionen auf der Plattform werden mit Zeitstempel, Akteur und Kontext protokolliert. Dies umfasst Anfragen, Angebote, Deal-Abschluesse, Statusaenderungen und Administrative Aktionen.</p>
+        <ul>
+          <li>Vollstaendiger Audit Log fuer Enterprise-Kunden</li>
+          <li>Pulse-Prozessnachweis mit Zeitstempeln</li>
+          <li>Nachvollziehbarkeit aller Matching-Versuche</li>
+        </ul>
+      </div>
+
+      <div class="trust-card">
+        <h3><span class="icon">&#128101;</span> Lieferanten-Qualitaet</h3>
+        <p>TempConnect bewertet Lieferanten anhand objektiver Kriterien wie Fill Rate, Puenktlichkeit und SLA-Einhaltung. Die Lieferanten-Scorecard bietet Transparenz ueber die Zuverlaessigkeit von Personaldienstleistern.</p>
+        <ul>
+          <li>Scorecard mit Note (A / B / C)</li>
+          <li>Compliance-Status je Lieferant</li>
+          <li>Vendor Pool Tiers (Preferred, Secondary, Trial, Blocked)</li>
+        </ul>
+      </div>
+
+      <div class="trust-card">
+        <h3><span class="icon">&#127919;</span> Compliance-Roadmap</h3>
+        <p>TempConnect entwickelt die Compliance-Funktionen kontinuierlich weiter. Geplante Erweiterungen umfassen:</p>
+        <ul>
+          <li>Automatische Dokumentenvalidierung</li>
+          <li>Branchenspezifische Compliance-Templates</li>
+          <li>Export-Funktionen fuer interne Audits</li>
+          <li>Integration mit Beschaffungssystemen</li>
+        </ul>
+      </div>
+    </div>
+
+    <hr class="ds-divider"/>
+
+    <section style="text-align:center;padding:var(--ds-space-6) 0">
+      <h2 style="font-size:20px;font-weight:700;margin:0 0 var(--ds-space-2)">Compliance-Anforderungen besprechen</h2>
+      <p style="color:var(--ds-text-secondary);font-size:14px;margin:0 0 var(--ds-space-4)">Kontaktieren Sie uns fuer individuelle Compliance-Anforderungen oder Enterprise-Integrationen.</p>
+      <div style="display:flex;gap:var(--ds-space-3);justify-content:center;flex-wrap:wrap">
+        <a href="/public/legal/kontakt.html" class="ds-btn ds-btn--primary">Kontakt aufnehmen</a>
+        <a href="/public/legal/datenschutz.html" class="ds-btn">Datenschutzerklaerung</a>
+      </div>
+    </section>
+
+    <div class="ds-disclaimer">
+      Diese Seite beschreibt den aktuellen Stand der Compliance-Funktionen. TempConnect ersetzt keine rechtliche Beratung. Alle Angaben ohne Gewaehr.
+    </div>
+  </div>
+  <div id="tc-footer" data-tc-footer></div>
+  <script src="/public/js/footer.js"></script>
+</body>
+</html>

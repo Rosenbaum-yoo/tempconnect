@@ -1,0 +1,293 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <title>Nachfrage Detail – TempConnect Marketplace</title>
+  <link rel="stylesheet" href="/public/css/enterprise.css"/>
+  <style>
+    .detail-header { margin-bottom: 20px; }
+    .detail-header h1 { margin: 0 0 4px; }
+    .meta { color: var(--muted); font-size: 13px; }
+    .meta span { margin-right: 16px; }
+    .section { margin-top: 24px; }
+    .section h2 { font-size: 16px; margin: 0 0 12px; border-bottom: 1px solid var(--line); padding-bottom: 6px; }
+    .sla-badge { display: inline-block; padding: 3px 10px; border-radius: 4px; font-size: 12px; font-weight: 600; }
+    .sla-badge.running { background: rgba(59,130,246,.2); color: #3b82f6; }
+    .sla-badge.met { background: rgba(34,197,94,.2); color: #22c55e; }
+    .sla-badge.breached { background: rgba(239,68,68,.2); color: #ef4444; }
+    .timeline { list-style: none; padding: 0; margin: 0; position: relative; }
+    .timeline::before { content: ''; position: absolute; left: 8px; top: 4px; bottom: 4px; width: 2px; background: var(--line); }
+    .timeline li { position: relative; padding: 6px 0 6px 28px; font-size: 13px; }
+    .timeline li::before { content: ''; position: absolute; left: 4px; top: 10px; width: 10px; height: 10px; border-radius: 50%; background: var(--line); border: 2px solid var(--bg); }
+    .timeline li.active::before { background: #3b82f6; }
+    .match-card, .offer-card { padding: 12px; border: 1px solid var(--line); border-radius: var(--radius); margin-bottom: 8px; background: rgba(255,255,255,.03); }
+    .match-card .score { font-weight: 600; color: #3b82f6; }
+    .offer-card .status { font-weight: 600; }
+    .offer-card .status.draft { color: var(--muted); }
+    .offer-card .status.sent { color: #f59e0b; }
+    .offer-card .status.accepted { color: #22c55e; }
+    .offer-card .status.rejected { color: #ef4444; }
+    .offer-actions { margin-top: 8px; }
+    .offer-actions button { margin-right: 6px; }
+    .empty-state { color: var(--muted); font-size: 14px; padding: 12px 0; }
+    .btn-group { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 12px; }
+    .tags { display: flex; gap: 4px; flex-wrap: wrap; margin-top: 4px; }
+    .tag { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 11px; background: rgba(255,255,255,.08); color: var(--muted); }
+  </style>
+</head>
+<body data-sla-guard="sla_access">
+  <div id="paywall" class="wrap" style="display:none">
+    <div class="topbar"><span class="brand">TempConnect</span><a href="/" class="btn">Startseite</a></div>
+    <div class="paywall-box">
+      <h2>Bereich nicht verfuegbar</h2>
+      <p>Die Detailansicht erfordert einen PLUS- oder NOTDIENST-Plan.</p>
+      <p>Aktueller Plan: <span id="paywall-current-plan" class="paywall-plan">–</span></p>
+      <a id="paywall-cta" href="/public/sla_abo.html" class="btn primary">Abo ansehen</a>
+    </div>
+  </div>
+
+  <div id="main-content" class="wrap">
+    <div class="topbar">
+      <span class="brand">TempConnect – Nachfrage Detail</span>
+      <a href="/" class="btn">Startseite</a>
+      <a href="/public/enterprise.html" class="btn">Uebersicht</a>
+    </div>
+
+    <div id="loading" style="padding:40px 0;color:var(--muted)">Lade Nachfrage...</div>
+
+    <div id="detail" style="display:none">
+      <div class="detail-header">
+        <h1 id="d-title"></h1>
+        <div class="meta">
+          <span>Rolle: <b id="d-role"></b></span>
+          <span>Stadt: <b id="d-city"></b></span>
+          <span>Headcount: <b id="d-headcount"></b></span>
+          <span>Status: <b id="d-status"></b></span>
+          <span>Erstellt: <b id="d-created"></b></span>
+        </div>
+        <div class="meta" style="margin-top:4px">
+          <span>Zeitraum: <b id="d-dates"></b></span>
+          <span>Dringlichkeit: <b id="d-urgency"></b></span>
+          <span>Budget: <b id="d-budget"></b></span>
+        </div>
+        <div id="d-tags" class="tags"></div>
+      </div>
+
+      <!-- SLA Section -->
+      <div class="section" id="sla-section">
+        <h2>Pulse-Prozessnachweis</h2>
+        <div id="sla-info" style="margin-bottom:12px"></div>
+        <ul class="timeline" id="sla-timeline"></ul>
+        <div class="btn-group">
+          <button class="btn" id="btn-sla-report" onclick="exportSlaReport()">Pulse-Report exportieren (JSON)</button>
+        </div>
+      </div>
+
+      <!-- Matches Section -->
+      <div class="section">
+        <h2>Matches (<span id="match-count">0</span>)</h2>
+        <div id="matches-list"></div>
+      </div>
+
+      <!-- Offers Section -->
+      <div class="section">
+        <h2>Angebote (<span id="offer-count">0</span>)</h2>
+        <div id="offers-list"></div>
+      </div>
+    </div>
+
+    <div id="error-box" style="display:none" class="card">
+      <h2>Fehler</h2>
+      <p id="error-msg" style="color:#ef4444"></p>
+      <a href="/public/enterprise.html" class="btn">Zurueck zur Uebersicht</a>
+    </div>
+
+    <p class="sla-disclaimer">Hinweis: Pulse = Prozessnachweis (Matching-Versuch, Benachrichtigung). Kein Vermittlungserfolg garantiert. Angaben ohne Gewaehr.</p>
+  </div>
+
+  <script src="/public/js/planFeatures.js"></script>
+  <script src="/public/js/slaGuard.js"></script>
+  <script>
+  var demandId = new URLSearchParams(window.location.search).get("id");
+  var demandData = null;
+
+  function fmtDate(d) {
+    if (!d) return "–";
+    return new Date(d).toLocaleString("de-DE", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" });
+  }
+
+  function showError(msg) {
+    document.getElementById("loading").style.display = "none";
+    document.getElementById("error-msg").textContent = msg;
+    document.getElementById("error-box").style.display = "block";
+  }
+
+  function renderSla(data) {
+    var info = document.getElementById("sla-info");
+    if (!data.sla_status) {
+      info.innerHTML = '<span style="color:var(--muted)">Kein Pulse (Plan ohne Pulse-Tracking)</span>';
+      document.getElementById("sla-timeline").innerHTML = "";
+      return;
+    }
+    var badge = '<span class="sla-badge ' + data.sla_status.toLowerCase() + '">' + data.sla_status + '</span>';
+    var due = data.sla_due_at ? " – Frist: " + fmtDate(data.sla_due_at) : "";
+    var mins = data.sla_minutes ? " (" + data.sla_minutes + " Min)" : "";
+    info.innerHTML = badge + mins + due;
+
+    var tl = document.getElementById("sla-timeline");
+    tl.innerHTML = "";
+    if (data.sla_events && data.sla_events.length > 0) {
+      data.sla_events.forEach(function(ev) {
+        var li = document.createElement("li");
+        li.className = "active";
+        li.innerHTML = "<b>" + ev.event_type + "</b> – " + fmtDate(ev.created_at);
+        tl.appendChild(li);
+      });
+    } else {
+      tl.innerHTML = '<li style="padding-left:0;color:var(--muted)">Keine Pulse-Events vorhanden.</li>';
+    }
+  }
+
+  function renderMatches(matches) {
+    var el = document.getElementById("matches-list");
+    document.getElementById("match-count").textContent = matches.length;
+    if (matches.length === 0) {
+      el.innerHTML = '<div class="empty-state">Keine Matches vorhanden.</div>';
+      return;
+    }
+    el.innerHTML = "";
+    matches.forEach(function(m) {
+      var div = document.createElement("div");
+      div.className = "match-card";
+      div.innerHTML =
+        '<div><b>' + (m.supplier_company_name || "Anbieter") + '</b> – ' +
+        (m.capacity_title || m.capacity_role || "–") + ' (' + (m.capacity_city || "–") + ')</div>' +
+        '<div class="meta" style="margin-top:4px">Score: <span class="score">' + m.match_score + '</span> – Status: ' + (m.status || "–") + '</div>';
+      el.appendChild(div);
+    });
+  }
+
+  function renderOffers(offers) {
+    var el = document.getElementById("offers-list");
+    document.getElementById("offer-count").textContent = offers.length;
+    if (offers.length === 0) {
+      el.innerHTML = '<div class="empty-state">Noch keine Angebote eingegangen.</div>';
+      return;
+    }
+    el.innerHTML = "";
+    offers.forEach(function(o) {
+      var div = document.createElement("div");
+      div.className = "offer-card";
+      var price = "";
+      if (o.price_value) price = o.price_value + " EUR";
+      else if (o.price_min || o.price_max) price = (o.price_min || "–") + " – " + (o.price_max || "–") + " EUR";
+      if (o.price_type) price += " (" + o.price_type + ")";
+
+      var html = '<div><b>' + (o.supplier_company_name || "Anbieter") + '</b></div>';
+      html += '<div class="meta" style="margin-top:4px">';
+      html += 'Status: <span class="status ' + o.status + '">' + o.status.toUpperCase() + '</span>';
+      if (price) html += ' – Preis: ' + price;
+      html += ' – ' + fmtDate(o.created_at);
+      html += '</div>';
+      if (o.notes) html += '<div style="margin-top:4px;font-size:13px;color:var(--muted)">' + o.notes + '</div>';
+
+      // Accept / Reject buttons for requester on "sent" offers
+      if (o.status === "sent" && demandData && demandData.requester_company_id) {
+        html += '<div class="offer-actions">';
+        html += '<button class="btn primary" onclick="updateOffer(\'' + o.id + '\',\'accepted\')">Annehmen</button>';
+        html += '<button class="btn" onclick="updateOffer(\'' + o.id + '\',\'rejected\')">Ablehnen</button>';
+        html += '</div>';
+      }
+      div.innerHTML = html;
+      el.appendChild(div);
+    });
+  }
+
+  function updateOffer(offerId, newStatus) {
+    fetch("/api/marketplace/offers/" + offerId + "/status", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      credentials: "include",
+      body: JSON.stringify({ status: newStatus })
+    })
+    .then(function(r) { return r.json().then(function(d) { return { ok: r.ok, data: d }; }); })
+    .then(function(res) {
+      if (res.ok) {
+        loadDetail(); // reload everything
+      } else {
+        alert("Fehler: " + (res.data.error || "Unbekannt"));
+      }
+    })
+    .catch(function() { alert("Netzwerkfehler"); });
+  }
+
+  function exportSlaReport() {
+    fetch("/api/marketplace/demand-requests/" + demandId + "/sla-report", { credentials: "include" })
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+      var blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
+      var url = URL.createObjectURL(blob);
+      var a = document.createElement("a");
+      a.href = url;
+      a.download = "sla-report-" + demandId.substring(0, 8) + ".json";
+      a.click();
+      URL.revokeObjectURL(url);
+    })
+    .catch(function() { alert("Pulse-Report konnte nicht geladen werden."); });
+  }
+
+  function loadDetail() {
+    if (!demandId) { showError("Keine Nachfrage-ID angegeben."); return; }
+
+    fetch("/api/marketplace/demand-requests/" + demandId, { credentials: "include" })
+    .then(function(r) {
+      if (!r.ok) throw new Error(r.status === 404 ? "Nachfrage nicht gefunden." : "Fehler beim Laden.");
+      return r.json();
+    })
+    .then(function(data) {
+      demandData = data;
+      document.getElementById("loading").style.display = "none";
+      document.getElementById("detail").style.display = "block";
+
+      document.getElementById("d-title").textContent = data.title || "–";
+      document.getElementById("d-role").textContent = data.role || "–";
+      document.getElementById("d-city").textContent = data.location_city || "–";
+      document.getElementById("d-headcount").textContent = data.headcount || 1;
+      document.getElementById("d-status").textContent = (data.status || "open").toUpperCase();
+      document.getElementById("d-created").textContent = fmtDate(data.created_at);
+      document.getElementById("d-dates").textContent = (data.start_date || "–") + " bis " + (data.end_date || "offen");
+      document.getElementById("d-urgency").textContent = (data.urgency || "normal").toUpperCase();
+      var budgetText = "–";
+      if (data.budget_min || data.budget_max) budgetText = (data.budget_min || "–") + " – " + (data.budget_max || "–") + " EUR";
+      document.getElementById("d-budget").textContent = budgetText;
+
+      var tagsEl = document.getElementById("d-tags");
+      tagsEl.innerHTML = "";
+      if (data.skill_tags && data.skill_tags.length > 0) {
+        data.skill_tags.forEach(function(t) {
+          var span = document.createElement("span");
+          span.className = "tag";
+          span.textContent = t;
+          tagsEl.appendChild(span);
+        });
+      }
+
+      renderSla(data);
+      renderMatches(data.matches || []);
+
+      // Load offers separately
+      fetch("/api/marketplace/demand-requests/" + demandId + "/offers", { credentials: "include" })
+      .then(function(r) { return r.ok ? r.json() : []; })
+      .then(function(offers) { renderOffers(offers); })
+      .catch(function() { renderOffers([]); });
+    })
+    .catch(function(err) { showError(err.message); });
+  }
+
+  loadDetail();
+  </script>
+  <div id="tc-footer" data-tc-footer></div>
+  <script src="/public/js/footer.js"></script>
+</body>
+</html>

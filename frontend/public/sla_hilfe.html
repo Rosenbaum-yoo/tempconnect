@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <title>Hilfe – TempConnect</title>
+  <link rel="stylesheet" href="/public/css/enterprise.css"/>
+</head>
+<body data-sla-guard="sla_help">
+  <div id="paywall" class="wrap" style="display:none">
+    <div class="topbar"><span class="brand">TempConnect</span><a href="/" class="btn">Startseite</a></div>
+    <div class="paywall-box">
+      <h2>Bereich nicht verfuegbar</h2>
+      <p>Das Feature Hilfe ist mit deinem aktuellen Plan nicht nutzbar.</p>
+      <p>Aktueller Plan: <span id="paywall-current-plan" class="paywall-plan">–</span></p>
+      <a id="paywall-cta" href="/public/sla_abo.html" class="btn primary">Abo ansehen</a>
+    </div>
+  </div>
+  <div id="main-content" class="wrap">
+    <div class="topbar">
+      <span class="brand">TempConnect – Hilfe</span>
+      <a href="/" class="btn">Startseite</a>
+      <a href="/public/enterprise.html" class="btn">Übersicht</a>
+      <a href="/public/capacity_search.html" class="btn">Kapazitätssuche</a>
+      <a href="/public/sla_search_jobs_list.html" class="btn">Suchaufträge</a>
+    </div>
+    <h1>Hilfe und Anleitung</h1>
+    <div class="card">
+      <h2 style="margin:0 0 10px">Was ist Pulse-safe?</h2>
+      <p style="color:var(--muted);margin:0">Im Pulse-Bereich verwenden wir Best effort, Entwurf und Vorlage. Inhalte dienen der Unterstuetzung und ersetzen keine rechtliche Pruefung. Angaben ohne Gewaehr. Support-Prioritaeten orientieren sich an den Tarifen.</p>
+    </div>
+    <div class="card">
+      <h2 style="margin:0 0 10px">FAQ</h2>
+      <p><strong>Wie sende ich eine Kapazitaetsanfrage?</strong> Kapazitaetssuche – Filter setzen – Kapazitaet anfragen.</p>
+      <p><strong>Was bedeutet der Pulse-Timer?</strong> Zeitspanne fuer Antwort des Anbieters.</p>
+      <p><strong>Wo finde ich Abo-Modelle?</strong> <a href="/public/sla_abo.html">Abo-Modelle</a></p>
+    </div>
+    <div class="card">
+      <h2 style="margin:0 0 10px">Kontakt</h2>
+      <p style="color:var(--muted);margin:0">Support: <a href="mailto:support@tempconnect.example.com">support@tempconnect.example.com</a></p>
+    </div>
+    <p class="sla-disclaimer">Hinweis: Inhalte dienen der Unterstuetzung und ersetzen keine rechtliche Pruefung. Angaben ohne Gewaehr.</p>
+  </div>
+  <script src="/public/js/planFeatures.js"></script>
+  <script src="/public/js/slaGuard.js"></script>
+  <div id="tc-footer" data-tc-footer></div>
+  <script src="/public/js/footer.js"></script>
+</body>
+</html>

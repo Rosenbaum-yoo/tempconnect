@@ -1,0 +1,311 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <title>Requisitions – TempConnect</title>
+  <link rel="stylesheet" href="/public/css/enterprise.css"/>
+  <style>
+    .filter-row { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 16px; align-items: center; }
+    .filter-row select, .filter-row input { width: auto; margin: 0; min-width: 140px; }
+    .status-badge { font-size: 11px; font-weight: 700; padding: 4px 10px; border-radius: 999px; display: inline-block; text-transform: uppercase; }
+    .sb-DRAFT { color: var(--muted); border: 1px solid var(--line); }
+    .sb-PENDING_APPROVAL { color: #fff3c2; border: 1px solid rgba(255,204,0,.4); background: rgba(255,204,0,.1); }
+    .sb-APPROVED { color: #c2e0ff; border: 1px solid rgba(74,163,255,.4); background: rgba(74,163,255,.1); }
+    .sb-OPEN { color: #c2e0ff; border: 1px solid rgba(74,163,255,.4); background: rgba(74,163,255,.15); }
+    .sb-IN_REVIEW { color: #e0cfff; border: 1px solid rgba(124,92,255,.4); background: rgba(124,92,255,.1); }
+    .sb-SHORTLISTED { color: #d0c2ff; border: 1px solid rgba(155,109,255,.4); background: rgba(155,109,255,.1); }
+    .sb-FILLED { color: #c8ffe7; border: 1px solid rgba(57,217,138,.4); background: rgba(57,217,138,.1); }
+    .sb-CLOSED { color: var(--muted); border: 1px solid var(--line); background: rgba(255,255,255,.04); }
+    .sb-CANCELLED { color: #ffd0d8; border: 1px solid rgba(255,92,122,.4); background: rgba(255,92,122,.1); }
+    .urgency-badge { font-size: 10px; font-weight: 700; padding: 2px 8px; border-radius: 999px; }
+    .ub-urgent, .ub-notdienst { color: #ffd0d8; border: 1px solid rgba(255,92,122,.4); background: rgba(255,92,122,.15); }
+    .ub-high { color: #fff3c2; border: 1px solid rgba(255,204,0,.4); background: rgba(255,204,0,.1); }
+    .req-row { cursor: pointer; transition: background .15s; }
+    .req-row:hover { background: rgba(255,255,255,.04); }
+    /* Detail modal */
+    .detail-section { margin-bottom: 16px; }
+    .detail-section h4 { margin: 0 0 8px; font-size: 14px; color: var(--muted); }
+    .detail-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; font-size: 13px; }
+    .detail-grid .dg-label { color: var(--muted); }
+    .event-list { max-height: 240px; overflow-y: auto; font-size: 12px; }
+    .event-item { padding: 6px 0; border-bottom: 1px solid var(--line); }
+    .actions-row { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 12px; }
+    /* Create form */
+    .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0 16px; }
+    .form-full { grid-column: 1 / -1; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="topbar">
+      <span class="brand"><span style="width:10px;height:10px;border-radius:50%;background:linear-gradient(135deg,var(--brand),var(--brand2));display:inline-block;margin-right:8px"></span>TempConnect</span>
+      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+        <a href="/public/executive_dashboard.html" class="btn">Dashboard</a>
+        <a href="/public/enterprise.html" class="btn">Hub</a>
+        <a href="/public/vendor_pool.html" class="btn">Vendor Pool</a>
+        <a href="/public/compliance_overview.html" class="btn">Compliance</a>
+      </div>
+    </div>
+
+    <div class="ds-page-header">
+      <div class="ds-page-header__content">
+        <h1 class="ds-page-title">Requisitions</h1>
+        <p class="ds-page-subtitle">Bedarfsanforderungen erstellen, verwalten und den Freigabe-Workflow steuern.</p>
+      </div>
+      <div class="ds-page-header__actions">
+        <button class="btn primary" onclick="showCreate()">+ Neue Requisition</button>
+      </div>
+    </div>
+
+    <div class="filter-row" style="padding:var(--ds-space-4);border:1px solid var(--ds-border);border-radius:var(--ds-radius-lg);background:rgba(255,255,255,.015)">
+      <select id="fStatus"><option value="">Alle Status</option>
+        <option>DRAFT</option><option>PENDING_APPROVAL</option><option>APPROVED</option>
+        <option>OPEN</option><option>IN_REVIEW</option><option>SHORTLISTED</option>
+        <option>FILLED</option><option>CLOSED</option><option>CANCELLED</option>
+      </select>
+      <select id="fUrgency"><option value="">Alle Dringlichkeiten</option>
+        <option value="normal">Normal</option><option value="high">Hoch</option>
+        <option value="urgent">Dringend</option><option value="notdienst">Notdienst</option>
+      </select>
+      <label style="margin:0"><input type="checkbox" id="fMine"> Nur meine</label>
+      <button class="btn" onclick="loadList()">Filtern</button>
+    </div>
+
+    <table class="table" id="reqTable">
+      <thead><tr>
+        <th>Titel</th><th>Rolle</th><th>Status</th><th>Dringlichkeit</th><th>Headcount</th><th>Erstellt</th>
+      </tr></thead>
+      <tbody id="reqBody"></tbody>
+    </table>
+    <div id="emptyMsg" class="ds-empty" style="display:none">
+      <div class="ds-empty__icon">&#128196;</div>
+      <div class="ds-empty__title">Keine Requisitions gefunden</div>
+      <div class="ds-empty__text">Erstellen Sie eine neue Requisition oder passen Sie die Filterkriterien an.</div>
+    </div>
+  </div>
+
+  <!-- Detail Modal -->
+  <div class="modal" id="detailModal">
+    <div class="panel" style="max-width:680px">
+      <div style="display:flex;justify-content:space-between;align-items:center">
+        <h2 id="detTitle" style="margin:0">–</h2>
+        <button class="btn" onclick="closeDetail()">Schliessen</button>
+      </div>
+      <div id="detContent" style="margin-top:16px"></div>
+    </div>
+  </div>
+
+  <!-- Create Modal -->
+  <div class="modal" id="createModal">
+    <div class="panel" style="max-width:640px;max-height:90vh;overflow-y:auto">
+      <div style="display:flex;justify-content:space-between;align-items:center">
+        <h2 style="margin:0">Neue Requisition</h2>
+        <button class="btn" onclick="closeCreate()">Abbrechen</button>
+      </div>
+      <form id="createForm" style="margin-top:16px" onsubmit="submitCreate(event)">
+        <div class="form-grid">
+          <div><label>Titel *</label><input id="cTitle" required minlength="3" maxlength="200"/></div>
+          <div><label>Rolle *</label><input id="cRole" required maxlength="120"/></div>
+          <div class="form-full"><label>Beschreibung</label><textarea id="cDesc" rows="3" maxlength="4000"></textarea></div>
+          <div><label>Headcount</label><input id="cHead" type="number" min="1" max="999" value="1"/></div>
+          <div><label>Dringlichkeit</label>
+            <select id="cUrg"><option value="normal">Normal</option><option value="high">Hoch</option><option value="urgent">Dringend</option><option value="notdienst">Notdienst</option></select>
+          </div>
+          <div><label>Startdatum</label><input id="cStart" type="date"/></div>
+          <div><label>Enddatum</label><input id="cEnd" type="date"/></div>
+          <div><label>Stadt</label><input id="cCity" maxlength="200"/></div>
+          <div><label>PLZ</label><input id="cPostal" maxlength="10"/></div>
+          <div><label>Umkreis (km)</label><input id="cRadius" type="number" min="1" max="500" value="25"/></div>
+          <div><label>Skills (kommagetrennt)</label><input id="cSkills" placeholder="z.B. Schweißen, SPS, Gabelstapler"/></div>
+          <div><label>Budget min (Cent)</label><input id="cBudgetMin" type="number" min="0"/></div>
+          <div><label>Budget max (Cent)</label><input id="cBudgetMax" type="number" min="0"/></div>
+          <div class="form-full"><label><input type="checkbox" id="cApproval"> Freigabe erforderlich</label></div>
+        </div>
+        <div style="margin-top:12px;display:flex;gap:8px">
+          <button type="submit" class="btn primary">Erstellen</button>
+          <button type="button" class="btn" onclick="closeCreate()">Abbrechen</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <script>
+    function esc(s) { var d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
+    var csrfToken = '';
+
+    async function apiGet(path) {
+      var r = await fetch('/api' + path, { credentials: 'include' });
+      if (r.status === 401) { location.href = '/public/login.html'; return null; }
+      return r.ok ? r.json() : null;
+    }
+    async function apiPost(path, body) {
+      var r = await fetch('/api' + path, {
+        method: 'POST', credentials: 'include',
+        headers: { 'Content-Type': 'application/json', 'x-csrf-token': csrfToken },
+        body: JSON.stringify(body)
+      });
+      if (r.status === 401) { location.href = '/public/login.html'; return null; }
+      return r.json();
+    }
+
+    async function init() {
+      var csrf = await fetch('/api/csrf-token', { credentials: 'include' });
+      if (csrf.ok) { var d = await csrf.json(); csrfToken = d.csrfToken || ''; }
+      loadList();
+    }
+
+    async function loadList() {
+      var qs = [];
+      var st = document.getElementById('fStatus').value;
+      var urg = document.getElementById('fUrgency').value;
+      var mine = document.getElementById('fMine').checked;
+      if (st) qs.push('status=' + st);
+      if (urg) qs.push('urgency=' + urg);
+      if (mine) qs.push('mine=true');
+      var data = await apiGet('/requisitions' + (qs.length ? '?' + qs.join('&') : ''));
+      if (!data) return;
+      var rows = data.items || [];
+      var tbody = document.getElementById('reqBody');
+      var empty = document.getElementById('emptyMsg');
+      if (!rows.length) { tbody.innerHTML = ''; empty.style.display = ''; return; }
+      empty.style.display = 'none';
+      tbody.innerHTML = rows.map(function(r) {
+        var urgClass = (r.urgency === 'urgent' || r.urgency === 'notdienst') ? 'ub-urgent' : r.urgency === 'high' ? 'ub-high' : '';
+        return '<tr class="req-row" onclick="openDetail(\'' + r.id + '\')">' +
+          '<td>' + esc(r.title) + '</td>' +
+          '<td>' + esc(r.role) + '</td>' +
+          '<td><span class="status-badge sb-' + r.status + '">' + esc(r.status) + '</span></td>' +
+          '<td>' + (urgClass ? '<span class="urgency-badge ' + urgClass + '">' + esc(r.urgency) + '</span>' : esc(r.urgency || 'normal')) + '</td>' +
+          '<td>' + (r.headcount || 1) + '</td>' +
+          '<td style="font-size:12px;color:var(--muted)">' + new Date(r.created_at).toLocaleDateString('de') + '</td></tr>';
+      }).join('');
+    }
+
+    /* ── Detail ──────────────────────────────────────── */
+    var currentReqId = null;
+    async function openDetail(id) {
+      currentReqId = id;
+      var req = await apiGet('/requisitions/' + id);
+      if (!req) return;
+      document.getElementById('detTitle').textContent = req.title;
+      var evts = await apiGet('/requisitions/' + id + '/events');
+      var cands = await apiGet('/requisitions/' + id + '/candidates');
+
+      var html = '<div class="detail-section"><div class="detail-grid">' +
+        '<div><span class="dg-label">Rolle:</span> ' + esc(req.role) + '</div>' +
+        '<div><span class="dg-label">Status:</span> <span class="status-badge sb-' + req.status + '">' + esc(req.status) + '</span></div>' +
+        '<div><span class="dg-label">Headcount:</span> ' + (req.headcount || 1) + '</div>' +
+        '<div><span class="dg-label">Dringlichkeit:</span> ' + esc(req.urgency || 'normal') + '</div>' +
+        '<div><span class="dg-label">Stadt:</span> ' + esc(req.location_city || '–') + '</div>' +
+        '<div><span class="dg-label">Erstellt:</span> ' + new Date(req.created_at).toLocaleString('de') + '</div>' +
+        '<div><span class="dg-label">Ersteller:</span> ' + esc(req.created_by_name || req.created_by_email || '–') + '</div>' +
+        '<div><span class="dg-label">Zugewiesen:</span> ' + esc(req.assigned_to_name || req.assigned_to_email || '–') + '</div>' +
+        (req.description ? '<div class="form-full"><span class="dg-label">Beschreibung:</span><br>' + esc(req.description) + '</div>' : '') +
+        '</div></div>';
+
+      // Aktionen
+      html += '<div class="actions-row">';
+      if (req.status === 'DRAFT') {
+        html += '<button class="btn primary" onclick="doTransition(\'OPEN\')">Oeffnen</button>';
+        html += '<button class="btn" onclick="doTransition(\'PENDING_APPROVAL\')">Zur Freigabe</button>';
+      }
+      if (req.status === 'PENDING_APPROVAL') {
+        html += '<button class="btn good" onclick="doTransition(\'APPROVED\')">Genehmigen</button>';
+      }
+      if (req.status === 'APPROVED') {
+        html += '<button class="btn primary" onclick="doTransition(\'OPEN\')">Oeffnen</button>';
+      }
+      if (['OPEN','IN_REVIEW','SHORTLISTED'].includes(req.status)) {
+        html += '<button class="btn good" onclick="doTransition(\'FILLED\')">Besetzt</button>';
+        html += '<button class="btn" onclick="doTransition(\'CLOSED\')">Schliessen</button>';
+      }
+      if (!['FILLED','CLOSED','CANCELLED'].includes(req.status)) {
+        html += '<button class="btn bad" onclick="doTransition(\'CANCELLED\')">Stornieren</button>';
+      }
+      html += '</div>';
+
+      // Kandidaten
+      if (cands && cands.candidates && cands.candidates.length) {
+        html += '<div class="detail-section" style="margin-top:16px"><h4>Kandidaten (' + cands.candidates.length + ')</h4>';
+        html += '<table class="table"><thead><tr><th>Kapazitaet</th><th>Status</th><th>Score</th></tr></thead><tbody>';
+        cands.candidates.forEach(function(c) {
+          html += '<tr><td>' + esc(c.capacity_title || c.capacity_post_id || '–') + '</td>' +
+            '<td><span class="status-badge sb-' + (c.status === 'shortlisted' ? 'FILLED' : c.status === 'rejected' ? 'CANCELLED' : 'OPEN') + '">' + esc(c.status) + '</span></td>' +
+            '<td>' + (c.match_score != null ? c.match_score : '–') + '</td></tr>';
+        });
+        html += '</tbody></table></div>';
+      }
+
+      // Events
+      if (evts && evts.events && evts.events.length) {
+        html += '<div class="detail-section" style="margin-top:16px"><h4>Event-Historie</h4><div class="event-list">';
+        evts.events.forEach(function(e) {
+          html += '<div class="event-item"><b>' + esc(e.event_type) + '</b> – ' +
+            esc(e.actor_name || e.actor_email || 'System') +
+            '<span class="muted">' + new Date(e.created_at).toLocaleString('de') + '</span></div>';
+        });
+        html += '</div></div>';
+      }
+
+      document.getElementById('detContent').innerHTML = html;
+      document.getElementById('detailModal').classList.add('show');
+    }
+
+    function closeDetail() { document.getElementById('detailModal').classList.remove('show'); currentReqId = null; }
+
+    async function doTransition(status) {
+      if (!currentReqId) return;
+      var payload = { status: status };
+      if (status === 'CANCELLED') {
+        var reason = prompt('Stornierungsgrund (optional):');
+        if (reason) payload.cancel_reason = reason;
+      }
+      var result = await apiPost('/requisitions/' + currentReqId + '/transition', payload);
+      if (result && !result.error) {
+        closeDetail();
+        loadList();
+      } else {
+        alert('Fehler: ' + (result?.error || 'Unbekannt'));
+      }
+    }
+
+    /* ── Create ──────────────────────────────────────── */
+    function showCreate() { document.getElementById('createModal').classList.add('show'); }
+    function closeCreate() { document.getElementById('createModal').classList.remove('show'); }
+
+    async function submitCreate(e) {
+      e.preventDefault();
+      var skills = document.getElementById('cSkills').value.split(',').map(function(s) { return s.trim(); }).filter(Boolean);
+      var body = {
+        title: document.getElementById('cTitle').value,
+        role: document.getElementById('cRole').value,
+        description: document.getElementById('cDesc').value || null,
+        headcount: parseInt(document.getElementById('cHead').value, 10) || 1,
+        urgency: document.getElementById('cUrg').value,
+        start_date: document.getElementById('cStart').value || null,
+        end_date: document.getElementById('cEnd').value || null,
+        location_city: document.getElementById('cCity').value || null,
+        location_postal: document.getElementById('cPostal').value || null,
+        radius_km: parseInt(document.getElementById('cRadius').value, 10) || 25,
+        skill_tags: skills.length ? skills : undefined,
+        budget_min_cents: parseInt(document.getElementById('cBudgetMin').value, 10) || undefined,
+        budget_max_cents: parseInt(document.getElementById('cBudgetMax').value, 10) || undefined,
+        approval_required: document.getElementById('cApproval').checked
+      };
+      var result = await apiPost('/requisitions', body);
+      if (result && result.id) {
+        closeCreate();
+        document.getElementById('createForm').reset();
+        loadList();
+      } else {
+        alert('Fehler: ' + JSON.stringify(result?.error || result?.details || 'Unbekannt'));
+      }
+    }
+
+    init();
+  </script>
+  <div id="tc-footer" data-tc-footer></div>
+  <script src="/public/js/footer.js"></script>
+</body>
+</html>

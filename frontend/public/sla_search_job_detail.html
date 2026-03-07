@@ -1,0 +1,312 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <title>Suchauftrag – TempConnect</title>
+  <link rel="stylesheet" href="/public/css/enterprise.css"/>
+  <style>
+    .status-badge { display: inline-block; padding: 4px 10px; border-radius: 6px; font-size: 13px; font-weight: 600; }
+    .status-badge.open { background: rgba(57,217,138,.2); color: #c8ffe7; }
+    .status-badge.paused { background: rgba(255,204,0,.2); color: #fff3c2; }
+    .status-badge.closed { background: rgba(255,255,255,.1); color: var(--muted); }
+    .sla-badge { display: inline-block; padding: 4px 10px; border-radius: 6px; font-size: 13px; margin-left: 8px; }
+    .sla-badge.RUNNING { background: rgba(57,217,138,.2); color: #c8ffe7; }
+    .sla-badge.MET { background: rgba(57,217,138,.25); color: #c8ffe7; }
+    .sla-badge.BREACHED { background: rgba(255,92,122,.2); color: #ffd0d8; }
+    .actions { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 16px; }
+    .match-row { display: flex; align-items: center; gap: 12px; padding: 10px 0; border-bottom: 1px solid var(--line); }
+    .match-score { font-weight: 700; min-width: 36px; }
+  </style>
+</head>
+<body data-sla-guard="sla_access">
+  <div id="paywall" class="wrap" style="display:none">
+    <div class="topbar">
+      <span class="brand">TempConnect</span>
+      <a href="/" class="btn">Startseite</a>
+    </div>
+    <div class="paywall-box">
+      <h2>Bereich nicht verfügbar</h2>
+      <p>Das Feature &quot;<span id="paywall-feature-name">Pulse-Bereich</span>&quot; ist mit deinem aktuellen Plan nicht nutzbar.</p>
+      <p>Aktueller Plan: <span id="paywall-current-plan" class="paywall-plan">–</span></p>
+      <a id="paywall-cta" href="/public/sla_abo.html" class="btn primary">Abo ansehen</a>
+    </div>
+  </div>
+
+  <div id="main-content" class="wrap" style="display:none">
+    <div class="topbar">
+      <span class="brand">TempConnect – Suchauftrag</span>
+      <a href="/" class="btn">Startseite</a>
+      <a href="/public/enterprise.html" class="btn">Übersicht</a>
+      <a href="/public/capacity_search.html" class="btn">Kapazitätssuche</a>
+      <a href="/public/sla_search_jobs_list.html" class="btn">Suchaufträge</a>
+    </div>
+    <div id="root"><p class="empty">Lade Suchauftrag…</p></div>
+  </div>
+
+  <!-- Edit Modal -->
+  <div id="modalEditJob" class="modal-overlay" style="display:none" aria-hidden="true">
+    <div class="modal-box" style="background:var(--card,#1a1a1a);border:1px solid var(--line);border-radius:8px;padding:24px;max-width:480px;width:100%">
+      <h3 style="margin:0 0 16px">Suchauftrag bearbeiten</h3>
+      <form id="formEditJob">
+        <label style="display:block;margin-bottom:4px;font-size:13px">Titel <span style="color:var(--bad)">*</span></label>
+        <input type="text" id="editTitle" required style="width:100%;margin-bottom:12px;padding:8px;background:rgba(255,255,255,.06);border:1px solid var(--line);border-radius:4px;color:inherit"/>
+        <label style="display:block;margin-bottom:4px;font-size:13px">Rolle</label>
+        <input type="text" id="editRole" style="width:100%;margin-bottom:12px;padding:8px;background:rgba(255,255,255,.06);border:1px solid var(--line);border-radius:4px;color:inherit"/>
+        <label style="display:block;margin-bottom:4px;font-size:13px">Ort</label>
+        <input type="text" id="editCity" style="width:100%;margin-bottom:12px;padding:8px;background:rgba(255,255,255,.06);border:1px solid var(--line);border-radius:4px;color:inherit"/>
+        <label style="display:block;margin-bottom:4px;font-size:13px">Radius (km)</label>
+        <input type="number" id="editRadius" min="1" max="500" style="width:100%;margin-bottom:12px;padding:8px;background:rgba(255,255,255,.06);border:1px solid var(--line);border-radius:4px;color:inherit"/>
+        <label style="display:block;margin-bottom:4px;font-size:13px">Anzahl</label>
+        <input type="number" id="editHeadcount" min="1" max="999" style="width:100%;margin-bottom:12px;padding:8px;background:rgba(255,255,255,.06);border:1px solid var(--line);border-radius:4px;color:inherit"/>
+        <label style="display:block;margin-bottom:4px;font-size:13px">Dringlichkeit</label>
+        <select id="editUrgency" style="width:100%;margin-bottom:12px;padding:8px;background:rgba(255,255,255,.06);border:1px solid var(--line);border-radius:4px;color:inherit">
+          <option value="normal">Normal</option>
+          <option value="plus">Plus</option>
+          <option value="notdienst">Notdienst</option>
+        </select>
+        <div style="display:flex;gap:10px;margin-top:16px">
+          <button type="submit" class="btn primary">Speichern</button>
+          <button type="button" class="btn" id="btnCloseEdit">Abbrechen</button>
+        </div>
+      </form>
+    </div>
+  </div>
+  <style>.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.6);display:flex;align-items:center;justify-content:center;z-index:1000}</style>
+
+  <script src="/public/js/planFeatures.js"></script>
+  <script src="/public/js/slaGuard.js"></script>
+  <script>
+    var API = "/api";
+    function esc(s){if(!s)return "";return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;").replace(/'/g,"&#39;");}
+    var params = new URLSearchParams(window.location.search);
+    var id = params.get("id");
+    var isNew = params.get("new") === "1";
+
+    function idempotencyKey() {
+      try { return (typeof crypto !== "undefined" && crypto.randomUUID) ? crypto.randomUUID() : "x-" + Math.random().toString(36).slice(2) + "-" + Date.now(); } catch(e) { return "x-" + Math.random().toString(36).slice(2) + "-" + Date.now(); }
+    }
+    function getCsrf() { return fetch(API + "/csrf", { credentials: "include" }).then(function(r) { return r.ok ? r.json() : null; }); }
+    function api(path, opts) {
+      opts = opts || {};
+      var method = opts.method || "GET";
+      var headers = { "Content-Type": "application/json" };
+      if (["POST","PATCH","PUT","DELETE"].indexOf(method) >= 0) {
+        headers["X-CSRF-Token"] = opts.csrf || "";
+        headers["Idempotency-Key"] = idempotencyKey();
+      }
+      return fetch(API + path, { method: method, headers: headers, body: opts.body ? JSON.stringify(opts.body) : undefined, credentials: "include" });
+    }
+    function checkAuth(r) { if (r.status === 401) { window.location.href = "/"; return false; } return true; }
+
+    function nudgeKey(userId) { return "tc_nudges_seen_" + (userId || "anon") + "_" + id; }
+    function shouldShowNudges(userId) {
+      if (isNew) return true;
+      try { return !localStorage.getItem(nudgeKey(userId)); } catch (e) { return false; }
+    }
+    function markNudgesSeen(userId) {
+      try { localStorage.setItem(nudgeKey(userId), "true"); } catch (e) {}
+    }
+
+    function render(job, userId, showNudges) {
+      var status = (job.status || "open").toLowerCase();
+      var slaStatus = (job.sla_status || "").toUpperCase();
+      var statusCls = status === "closed" ? "closed" : status === "paused" ? "paused" : "open";
+      var slaCls = slaStatus === "BREACHED" ? "BREACHED" : slaStatus === "MET" ? "MET" : "RUNNING";
+
+      var html = "";
+      if (showNudges) {
+        html += "<div class=\"card\" id=\"nudge-block\" style=\"margin-bottom:16px\">";
+        html += "<h3 style=\"margin:0 0 10px;font-size:14px;color:var(--muted)\">Tipp: So verbesserst du deine Sichtbarkeit (ohne Gewähr)</h3>";
+        html += "<p style=\"margin:0 0 12px;font-size:13px;color:var(--muted)\">Vollständige Profildaten erhöhen die Match-Qualität.</p>";
+        html += "<p style=\"margin:0 0 12px\"><a href=\"/public/sla_profil.html\" class=\"btn\">Zum Profil</a></p>";
+        html += "<p style=\"margin:0 0 12px;font-size:13px;color:var(--muted)\">Verifizierte Anbieter werden bevorzugt angezeigt (wenn verfügbar).</p>";
+        html += "<p style=\"margin:0 0 12px\"><a href=\"/public/sla_nachweise.html\" class=\"btn\">Nachweise hochladen</a></p>";
+        html += "<p style=\"margin:0 0 12px;font-size:13px;color:var(--muted)\">Erstelle ein Angebot/Listing, damit Matches schneller reagieren können.</p>";
+        html += "<p style=\"margin:0 0 12px\"><a href=\"/public/sla_angebote.html\" class=\"btn\">Angebot erstellen</a></p>";
+        html += "<button type=\"button\" class=\"btn\" id=\"nudge-verstanden\" style=\"margin-top:8px\">Verstanden</button>";
+        html += "</div>";
+      }
+
+      html += "<div class=\"card\"><h1 style=\"margin:0 0 8px\">" + esc(job.title || "Suchauftrag") + "</h1>";
+      html += "<p style=\"margin:0;color:var(--muted)\"><span class=\"status-badge " + statusCls + "\">" + esc(status) + "</span>";
+      if (slaStatus) html += " <span class=\"sla-badge " + slaCls + "\">Pulse " + esc(slaStatus) + "</span>";
+      html += "</p>";
+      html += "<p style=\"margin:8px 0 0\"><strong>Typ:</strong> " + esc(job.target_type || "–") + " · <strong>Rolle:</strong> " + esc(job.role || "–") + " · <strong>Ort:</strong> " + esc(job.location_city || "–") + " · <strong>Radius:</strong> " + (job.radius_km != null ? job.radius_km + " km" : "–") + "</p>";
+      if (job.sla_started_at) html += "<p style=\"margin:4px 0 0;font-size:13px;color:var(--muted)\">Pulse gestartet: " + new Date(job.sla_started_at).toLocaleString("de-DE") + "</p>";
+      if (job.sla_due_at) html += "<p style=\"margin:2px 0 0;font-size:13px;color:var(--muted)\">Pulse bis: " + new Date(job.sla_due_at).toLocaleString("de-DE") + "</p>";
+
+      var canAct = status !== "closed";
+      if (canAct) {
+        html += "<div class=\"actions\">";
+        if (status === "open") html += "<button type=\"button\" class=\"btn\" data-action=\"pause\">Pausieren</button>";
+        if (status === "paused") html += "<button type=\"button\" class=\"btn primary\" data-action=\"resume\">Fortsetzen</button>";
+        html += "<button type=\"button\" class=\"btn\" data-action=\"close\">Schließen</button>";
+        html += "<button type=\"button\" class=\"btn\" id=\"btnEditJob\">Bearbeiten</button>";
+        html += "<button type=\"button\" class=\"btn\" style=\"color:var(--bad)\" id=\"btnDeleteJob\">Löschen</button>";
+        html += "<button type=\"button\" class=\"btn\" id=\"btnExportReport\">Report exportieren (JSON)</button>";
+        html += "</div>";
+      } else {
+        html += "<div class=\"actions\">";
+        html += "<button type=\"button\" class=\"btn\" style=\"color:var(--bad)\" id=\"btnDeleteJob\">Löschen</button>";
+        html += "<button type=\"button\" class=\"btn\" id=\"btnExportReport\">Report exportieren (JSON)</button>";
+        html += "</div>";
+      }
+      html += "</div>";
+
+      var events = job.sla_events || [];
+      html += "<div class=\"card\" style=\"margin-top:16px\"><h3 style=\"margin:0 0 10px\">Pulse &amp; Aktivität</h3>";
+      if (events.length === 0) {
+        html += "<p class=\"empty\">Keine Einträge.</p>";
+      } else {
+        html += "<ul style=\"list-style:none;padding:0;margin:0\">";
+        events.forEach(function(e) {
+          html += "<li style=\"padding:8px 0;border-bottom:1px solid var(--line);font-size:13px;color:var(--muted)\"><strong>" + esc(e.event_type || "") + "</strong> " + (e.created_at ? new Date(e.created_at).toLocaleString("de-DE") : "") + "</li>";
+        });
+        html += "</ul>";
+      }
+      html += "</div>";
+
+      var matches = job.matches || [];
+      html += "<div class=\"card\" style=\"margin-top:16px\"><h3 style=\"margin:0 0 10px\">Treffer (" + matches.length + ")</h3>";
+      if (matches.length === 0) {
+        html += "<p class=\"empty\">Noch keine Treffer.</p>";
+      } else {
+        matches.forEach(function(m) {
+          var title = m.capacity_title || m.demand_title || "–";
+          var role = m.capacity_role || m.demand_role || "–";
+          var city = m.capacity_city || m.demand_city || "–";
+          var score = m.match_score != null ? m.match_score : "–";
+          html += "<div class=\"match-row\"><span class=\"match-score\">" + esc(String(score)) + "</span> <span>" + esc(title) + " · " + esc(role) + " · " + esc(city) + "</span></div>";
+        });
+      }
+      html += "</div>";
+
+      document.getElementById("root").innerHTML = html;
+      window._jobData = job;
+
+      document.querySelectorAll("[data-action]").forEach(function(btn) {
+        btn.onclick = function() { doAction(btn.getAttribute("data-action")); };
+      });
+      var exportBtn = document.getElementById("btnExportReport");
+      if (exportBtn) exportBtn.onclick = exportReport;
+      var editBtn = document.getElementById("btnEditJob");
+      if (editBtn) editBtn.onclick = function() { openEditModal(job); };
+      var deleteBtn = document.getElementById("btnDeleteJob");
+      if (deleteBtn) deleteBtn.onclick = function() { deleteJob(job); };
+      var verstandenBtn = document.getElementById("nudge-verstanden");
+      if (verstandenBtn) {
+        verstandenBtn.onclick = function() {
+          markNudgesSeen(userId);
+          var block = document.getElementById("nudge-block");
+          if (block) block.remove();
+        };
+      }
+    }
+
+    function openEditModal(job) {
+      document.getElementById('editTitle').value = job.title || '';
+      document.getElementById('editRole').value = job.role || '';
+      document.getElementById('editCity').value = job.location_city || '';
+      document.getElementById('editRadius').value = job.radius_km || 25;
+      document.getElementById('editHeadcount').value = job.headcount || 1;
+      document.getElementById('editUrgency').value = job.urgency || 'normal';
+      var el = document.getElementById('modalEditJob');
+      el.style.display = 'flex';
+      el.setAttribute('aria-hidden', 'false');
+    }
+    document.getElementById('btnCloseEdit').addEventListener('click', function() {
+      var el = document.getElementById('modalEditJob');
+      el.style.display = 'none';
+      el.setAttribute('aria-hidden', 'true');
+    });
+    document.getElementById('formEditJob').addEventListener('submit', function(e) {
+      e.preventDefault();
+      var body = {
+        title: document.getElementById('editTitle').value.trim(),
+        role: document.getElementById('editRole').value.trim() || null,
+        location_city: document.getElementById('editCity').value.trim() || null,
+        radius_km: parseInt(document.getElementById('editRadius').value, 10) || 25,
+        headcount: parseInt(document.getElementById('editHeadcount').value, 10) || 1,
+        urgency: document.getElementById('editUrgency').value || 'normal'
+      };
+      getCsrf().then(function(csrf) {
+        var token = csrf && (csrf.csrfToken || csrf.token);
+        return api('/sla/search-jobs/' + id, { method: 'PUT', csrf: token, body: body });
+      }).then(function(r) {
+        if (!checkAuth(r)) return;
+        if (!r.ok) { r.json().then(function(err) { alert(err.error || 'Fehler'); }); return; }
+        var el = document.getElementById('modalEditJob');
+        el.style.display = 'none';
+        el.setAttribute('aria-hidden', 'true');
+        load();
+      }).catch(function() { alert('Fehler beim Speichern.'); });
+    });
+
+    function deleteJob(job) {
+      if (!confirm('Suchauftrag "' + (job.title || '') + '" wirklich löschen? Alle Matches und Events werden entfernt.')) return;
+      getCsrf().then(function(csrf) {
+        var token = csrf && (csrf.csrfToken || csrf.token);
+        return api('/sla/search-jobs/' + id, { method: 'DELETE', csrf: token });
+      }).then(function(r) {
+        if (!checkAuth(r)) return;
+        if (!r.ok) { r.json().then(function(err) { alert(err.error || 'Fehler'); }); return; }
+        window.location.href = '/public/sla_search_jobs_list.html';
+      }).catch(function() { alert('Fehler beim Löschen.'); });
+    }
+
+    function doAction(action) {
+      var path = "/sla/search-jobs/" + id + "/" + action;
+      getCsrf().then(function(csrf) {
+        var token = csrf && (csrf.csrfToken || csrf.token);
+        return api(path, { method: "POST", csrf: token });
+      }).then(function(r) {
+        if (!checkAuth(r)) return;
+        if (!r.ok) {
+          r.json().catch(function(){ return {}; }).then(function(err) { alert((err && err.error) ? err.error : "Aktion fehlgeschlagen."); });
+          return;
+        }
+        load();
+      }).catch(function() { alert("Fehler."); });
+    }
+
+    function exportReport() {
+      var job = window._jobData;
+      if (!job) return;
+      var blob = new Blob([JSON.stringify(job, null, 2)], { type: "application/json" });
+      var a = document.createElement("a");
+      a.href = URL.createObjectURL(blob);
+      a.download = "suchauftrag-" + (job.id || id) + ".json";
+      a.click();
+      URL.revokeObjectURL(a.href);
+    }
+
+    function load() {
+      if (!id) { document.getElementById("root").innerHTML = "<p class=\"empty\">Keine ID.</p>"; return; }
+      var userId = null;
+      api("/me").then(function(r) {
+        if (r.ok) return r.json();
+        return null;
+      }).then(function(me) {
+        userId = (me && me.id) ? String(me.id) : null;
+        return api("/sla/search-jobs/" + id);
+      }).then(function(r) {
+        if (!r) return null;
+        if (!checkAuth(r)) return null;
+        if (r.status === 404) { document.getElementById("root").innerHTML = "<p class=\"empty\">Suchauftrag nicht gefunden.</p>"; return null; }
+        if (!r.ok) { document.getElementById("root").innerHTML = "<p class=\"empty\">Fehler beim Laden.</p>"; return null; }
+        return r.json();
+      }).then(function(job) {
+        if (!job) return;
+        document.getElementById("main-content").style.display = "block";
+        var showNudges = shouldShowNudges(userId);
+        render(job, userId, showNudges);
+      });
+    }
+    load();
+  </script>
+  <script src="/public/js/notifications.js"></script>
+  <div id="tc-footer" data-tc-footer></div>
+  <script src="/public/js/footer.js"></script>
+</body>
+</html>

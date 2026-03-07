@@ -1,0 +1,357 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <title>Tarife &amp; Preise – TempConnect</title>
+  <link rel="stylesheet" href="/public/css/design-system.css"/>
+  <style>
+    body { background: radial-gradient(ellipse 1100px 600px at 15% -5%, rgba(74,158,255,.14), transparent 60%),
+                        radial-gradient(ellipse 800px 500px at 90% -2%, rgba(124,92,255,.09), transparent 55%),
+                        var(--ds-bg); }
+
+    .section-label { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; color: var(--ds-brand); margin-bottom: var(--ds-space-2); }
+    .section-heading { font-size: clamp(22px, 3vw, 30px); font-weight: 800; letter-spacing: -0.02em; margin: 0 0 var(--ds-space-2); }
+    .section-desc { color: var(--ds-text-secondary); font-size: 15px; max-width: 600px; line-height: 1.6; margin: 0; }
+
+    /* Plan Grid – 5 columns */
+    .plan-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: var(--ds-space-3); margin-top: var(--ds-space-6); }
+    @media (max-width: 1100px) { .plan-grid { grid-template-columns: repeat(3, 1fr); } }
+    @media (max-width: 768px) { .plan-grid { grid-template-columns: repeat(2, 1fr); } }
+    @media (max-width: 520px) { .plan-grid { grid-template-columns: 1fr; } }
+
+    .plan-card {
+      padding: var(--ds-space-5); border-radius: var(--ds-radius-lg);
+      border: 1px solid var(--ds-border); background: rgba(255,255,255,0.02);
+      display: flex; flex-direction: column; transition: border-color .2s, transform .2s;
+    }
+    .plan-card:hover { transform: translateY(-3px); border-color: var(--ds-border-hover); }
+    .plan-card--recommended {
+      border-color: rgba(74,158,255,.4); background: rgba(74,158,255,.04);
+      box-shadow: 0 0 0 1px rgba(74,158,255,.15), var(--ds-shadow-md);
+    }
+    .plan-card--enterprise {
+      border-color: rgba(124,92,255,.3); background: rgba(124,92,255,.03);
+    }
+    .plan-card__badge { margin-bottom: var(--ds-space-2); }
+    .plan-card__name { font-size: 18px; font-weight: 800; margin-bottom: var(--ds-space-1); }
+    .plan-card__price { font-size: 28px; font-weight: 900; margin-bottom: 2px; }
+    .plan-card__price span { font-size: 13px; font-weight: 500; color: var(--ds-text-secondary); }
+    .plan-card__desc { font-size: 13px; color: var(--ds-text-secondary); line-height: 1.5; margin-bottom: var(--ds-space-4); min-height: 40px; }
+    .plan-card__features { list-style: none; padding: 0; margin: 0 0 var(--ds-space-5); flex: 1; }
+    .plan-card__features li { padding: var(--ds-space-1) 0; font-size: 13px; line-height: 1.5; display: flex; gap: 8px; align-items: flex-start; }
+    .plan-card__features li::before { content: "✓"; color: var(--ds-success); font-weight: 700; flex-shrink: 0; }
+    .plan-card__features li.excluded { color: var(--ds-text-tertiary); }
+    .plan-card__features li.excluded::before { content: "—"; color: var(--ds-text-tertiary); }
+    .plan-card__cta { margin-top: auto; }
+    .plan-card__cta .ds-btn { width: 100%; }
+
+    /* Comparison Table */
+    .comparison-wrap { overflow-x: auto; margin-top: var(--ds-space-6); border: 1px solid var(--ds-border); border-radius: var(--ds-radius-lg); }
+    .comparison-table { width: 100%; border-collapse: collapse; font-size: 13px; min-width: 700px; }
+    .comparison-table th, .comparison-table td { padding: 10px 14px; text-align: center; border-bottom: 1px solid var(--ds-border); }
+    .comparison-table th:first-child, .comparison-table td:first-child { text-align: left; font-weight: 600; min-width: 200px; }
+    .comparison-table thead th { background: rgba(255,255,255,0.03); font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; color: var(--ds-text-secondary); position: sticky; top: 0; }
+    .comparison-table thead th.highlight { color: var(--ds-brand); }
+    .comparison-table tbody tr:hover { background: rgba(255,255,255,0.02); }
+    .comparison-table .check { color: var(--ds-success); font-weight: 700; }
+    .comparison-table .cross { color: var(--ds-text-tertiary); }
+    .comparison-table .value { color: var(--ds-text); font-weight: 600; font-variant-numeric: tabular-nums; }
+    .comparison-table .group-row td { font-weight: 700; font-size: 12px; text-transform: uppercase; letter-spacing: 0.04em; color: var(--ds-text-secondary); background: rgba(255,255,255,0.015); border-bottom: 1px solid var(--ds-border); padding-top: 14px; }
+
+    /* FAQ */
+    .faq-list { display: flex; flex-direction: column; gap: var(--ds-space-2); margin-top: var(--ds-space-4); }
+    .faq-item { border: 1px solid var(--ds-border); border-radius: var(--ds-radius-md); background: rgba(255,255,255,0.02); overflow: hidden; }
+    .faq-q { display: flex; align-items: center; justify-content: space-between; padding: var(--ds-space-4); cursor: pointer; font-weight: 600; font-size: 14px; transition: background .15s; }
+    .faq-q:hover { background: rgba(255,255,255,0.03); }
+    .faq-q .arrow { font-size: 12px; color: var(--ds-text-secondary); transition: transform .2s; }
+    .faq-item.open .faq-q .arrow { transform: rotate(180deg); }
+    .faq-a { display: none; padding: 0 var(--ds-space-4) var(--ds-space-4); font-size: 13px; color: var(--ds-text-secondary); line-height: 1.6; }
+    .faq-item.open .faq-a { display: block; }
+  </style>
+</head>
+<body>
+  <div class="ds-wrap">
+    <nav class="ds-topbar">
+      <div class="ds-topbar__brand">
+        <span class="ds-topbar__brand-dot"></span>
+        TempConnect
+      </div>
+      <div class="ds-topbar__nav">
+        <a href="/" class="ds-nav-link">Startseite</a>
+        <a href="/public/trust/security.html" class="ds-nav-link">Sicherheit</a>
+        <a href="/public/hilfe.html" class="ds-nav-link">Hilfe</a>
+        <span class="ds-topbar__separator"></span>
+        <a href="/app" class="ds-btn">Anmelden</a>
+        <a href="/app" class="ds-btn ds-btn--primary">Kostenlos starten</a>
+      </div>
+    </nav>
+
+    <!-- Hero -->
+    <section style="text-align:center;padding:var(--ds-space-10) 0 var(--ds-space-6)">
+      <div class="section-label">Tarife &amp; Preise</div>
+      <h1 class="section-heading" style="font-size:clamp(26px,4vw,38px)">Transparente Preise fuer jede Unternehmensgroesse</h1>
+      <p class="section-desc" style="margin:var(--ds-space-2) auto 0">Starten Sie kostenlos. Upgraden Sie, wenn Sie mehr Reichweite, Compliance oder Enterprise-Funktionen benoetigen. Alle Tarife monatlich kuendbar.</p>
+    </section>
+
+    <!-- Plan Cards -->
+    <div class="plan-grid">
+      <!-- FREE -->
+      <div class="plan-card">
+        <div class="plan-card__name">FREE</div>
+        <div class="plan-card__price">0 EUR <span>/Monat</span></div>
+        <div class="plan-card__desc">Einstieg in den Marktplatz. Kapazitaeten ansehen, Plattform kennenlernen.</div>
+        <ul class="plan-card__features">
+          <li>Marketplace durchsuchen</li>
+          <li>Basis-Unternehmensprofil</li>
+          <li>Eingeschraenkte Sichtbarkeit</li>
+          <li class="excluded">Keine Anfragen senden</li>
+          <li class="excluded">Kein Matching</li>
+        </ul>
+        <div class="plan-card__cta">
+          <a href="/app" class="ds-btn ds-w-full">Kostenlos starten</a>
+        </div>
+      </div>
+
+      <!-- BASIS -->
+      <div class="plan-card">
+        <div class="plan-card__name">BASIS</div>
+        <div class="plan-card__price">150 EUR <span>/Monat</span></div>
+        <div class="plan-card__desc">Voller Marketplace-Zugang mit Anfragen, Angeboten und Deal-Teilnahme.</div>
+        <ul class="plan-card__features">
+          <li>Voller Marketplace-Zugang</li>
+          <li>5 Anfragen / Monat</li>
+          <li>5 Angebote erstellen</li>
+          <li>Profil-Listing im Verzeichnis</li>
+          <li>E-Mail-Support</li>
+        </ul>
+        <div class="plan-card__cta">
+          <a href="/app" class="ds-btn ds-w-full">Plan waehlen</a>
+        </div>
+      </div>
+
+      <!-- PLUS (recommended) -->
+      <div class="plan-card plan-card--recommended">
+        <div class="plan-card__badge">
+          <span class="ds-badge ds-badge--brand">Empfohlen</span>
+        </div>
+        <div class="plan-card__name" style="color:var(--ds-brand)">PLUS</div>
+        <div class="plan-card__price">499 EUR <span>/Monat</span></div>
+        <div class="plan-card__desc">Persistente Suchauftraege, Pulse-Schutz, erweiterte Sichtbarkeit und Compliance.</div>
+        <ul class="plan-card__features">
+          <li>20 Anfragen / Monat</li>
+          <li>Persistente Suchauftraege</li>
+          <li>Pulse-Timer (120 Min)</li>
+          <li>Enterprise-Dashboard</li>
+          <li>Compliance-Ampel &amp; Scorecard</li>
+          <li>Erhoehte Sichtbarkeit</li>
+          <li>Erweitertes Profil</li>
+        </ul>
+        <div class="plan-card__cta">
+          <a href="/app" class="ds-btn ds-btn--primary ds-w-full">Plan waehlen</a>
+        </div>
+      </div>
+
+      <!-- PRO -->
+      <div class="plan-card">
+        <div class="plan-card__name">PRO</div>
+        <div class="plan-card__price">799 EUR <span>/Monat</span></div>
+        <div class="plan-card__desc">Erweiterte Analysen, Prioritaets-Platzierung und Lieferanten-Bewertung.</div>
+        <ul class="plan-card__features">
+          <li>Unbegrenzte Anfragen</li>
+          <li>Erweiterte Analysen</li>
+          <li>Prioritaets-Platzierung</li>
+          <li>Lieferanten-Bewertungen</li>
+          <li>Erweitertes Matching</li>
+          <li>Alles aus PLUS</li>
+        </ul>
+        <div class="plan-card__cta">
+          <a href="/app" class="ds-btn ds-w-full">Plan waehlen</a>
+        </div>
+      </div>
+
+      <!-- ENTERPRISE -->
+      <div class="plan-card plan-card--enterprise">
+        <div class="plan-card__badge">
+          <span class="ds-badge ds-badge--accent">Enterprise</span>
+        </div>
+        <div class="plan-card__name" style="color:var(--ds-accent)">ENTERPRISE</div>
+        <div class="plan-card__price">Individuell</div>
+        <div class="plan-card__desc">Multi-Abteilungs-Management, Freigabe-Workflows, Vertragsmanagement und Reporting.</div>
+        <ul class="plan-card__features">
+          <li>Multi-Abteilungen &amp; Teams</li>
+          <li>Freigabe-Workflows</li>
+          <li>Compliance-Management</li>
+          <li>Vertragsmanagement</li>
+          <li>Vendor Pool Management</li>
+          <li>Enterprise-Reporting</li>
+          <li>Dedizierter Ansprechpartner</li>
+        </ul>
+        <div class="plan-card__cta">
+          <a href="/public/legal/kontakt.html" class="ds-btn ds-w-full">Kontakt aufnehmen</a>
+        </div>
+      </div>
+    </div>
+
+    <!-- Trust Row -->
+    <div class="ds-trust-row" style="margin-top:var(--ds-space-6)">
+      <div class="ds-trust-item"><span class="ds-trust-item__icon">&#128274;</span> DSGVO-konform</div>
+      <div class="ds-trust-item"><span class="ds-trust-item__icon">&#127465;&#127466;</span> Hosting in Deutschland</div>
+      <div class="ds-trust-item"><span class="ds-trust-item__icon">&#128197;</span> Monatlich kuendbar</div>
+      <div class="ds-trust-item"><span class="ds-trust-item__icon">&#9989;</span> Kein Lock-in</div>
+    </div>
+
+    <hr class="ds-divider"/>
+
+    <!-- Feature Comparison Table -->
+    <section class="ds-section" style="text-align:center">
+      <div class="section-label">Vergleich</div>
+      <h2 class="section-heading">Alle Features im Detail</h2>
+      <p class="section-desc" style="margin:0 auto var(--ds-space-4)">Detaillierter Vergleich aller Funktionen nach Tarif.</p>
+    </section>
+
+    <div class="comparison-wrap">
+      <table class="comparison-table">
+        <thead>
+          <tr>
+            <th>Funktion</th>
+            <th>FREE</th>
+            <th>BASIS</th>
+            <th class="highlight">PLUS</th>
+            <th>PRO</th>
+            <th>ENTERPRISE</th>
+          </tr>
+        </thead>
+        <tbody>
+          <!-- Marketplace -->
+          <tr class="group-row"><td colspan="6">Marketplace</td></tr>
+          <tr><td>Marketplace durchsuchen</td><td class="check">&#10003;</td><td class="check">&#10003;</td><td class="check">&#10003;</td><td class="check">&#10003;</td><td class="check">&#10003;</td></tr>
+          <tr><td>Anfragen senden</td><td class="cross">—</td><td class="value">5 / Monat</td><td class="value">20 / Monat</td><td class="value">Unbegrenzt</td><td class="value">Unbegrenzt</td></tr>
+          <tr><td>Anfragen empfangen</td><td class="cross">—</td><td class="value">5 / Monat</td><td class="value">20 / Monat</td><td class="value">Unbegrenzt</td><td class="value">Unbegrenzt</td></tr>
+          <tr><td>Angebote erstellen</td><td class="cross">—</td><td class="value">5 / Monat</td><td class="value">20 / Monat</td><td class="value">Unbegrenzt</td><td class="value">Unbegrenzt</td></tr>
+          <tr><td>Profil-Listing</td><td class="cross">—</td><td class="check">&#10003;</td><td class="check">&#10003;</td><td class="check">&#10003;</td><td class="check">&#10003;</td></tr>
+          <tr><td>Erhoehte Sichtbarkeit</td><td class="cross">—</td><td class="cross">—</td><td class="check">&#10003;</td><td class="check">&#10003;</td><td class="check">&#10003;</td></tr>
+          <tr><td>Prioritaets-Platzierung</td><td class="cross">—</td><td class="cross">—</td><td class="cross">—</td><td class="check">&#10003;</td><td class="check">&#10003;</td></tr>
+
+          <!-- Kapazitaetsboerse -->
+          <tr class="group-row"><td colspan="6">Kapazitaetsboerse</td></tr>
+          <tr><td>Boerse durchsuchen</td><td class="check">&#10003;</td><td class="check">&#10003;</td><td class="check">&#10003;</td><td class="check">&#10003;</td><td class="check">&#10003;</td></tr>
+          <tr><td>Kapazitaeten einstellen</td><td class="cross">—</td><td class="value">3 Eintraege</td><td class="value">20 Eintraege</td><td class="value">Unbegrenzt</td><td class="value">Unbegrenzt</td></tr>
+          <tr><td>Interesse bekunden / Deals</td><td class="cross">—</td><td class="value">5 / Monat</td><td class="value">20 / Monat</td><td class="value">Unbegrenzt</td><td class="value">Unbegrenzt</td></tr>
+          <tr><td>Vertrauenssignale &amp; Badges</td><td class="cross">—</td><td class="cross">—</td><td class="check">&#10003;</td><td class="check">&#10003;</td><td class="check">&#10003;</td></tr>
+          <tr><td>Aktivitaets-Statistiken</td><td class="cross">—</td><td class="cross">—</td><td class="check">&#10003;</td><td class="check">&#10003;</td><td class="check">&#10003;</td></tr>
+
+          <!-- Pulse & SLA -->
+          <tr class="group-row"><td colspan="6">Pulse &amp; SLA</td></tr>
+          <tr><td>Persistente Suchauftraege</td><td class="cross">—</td><td class="cross">—</td><td class="check">&#10003;</td><td class="check">&#10003;</td><td class="check">&#10003;</td></tr>
+          <tr><td>Pulse-Timer</td><td class="cross">—</td><td class="cross">—</td><td class="value">120 Min</td><td class="value">60 Min</td><td class="value">30 Min</td></tr>
+          <tr><td>Eskalation</td><td class="cross">—</td><td class="cross">—</td><td class="cross">—</td><td class="check">&#10003;</td><td class="check">&#10003;</td></tr>
+          <tr><td>Plattformverfuegbarkeit</td><td class="value">Best Effort</td><td class="value">Best Effort</td><td class="value">99 %</td><td class="value">99 %</td><td class="value">99,5 %</td></tr>
+
+          <!-- Analytics & Tools -->
+          <tr class="group-row"><td colspan="6">Analysen &amp; Tools</td></tr>
+          <tr><td>Enterprise-Dashboard</td><td class="cross">—</td><td class="cross">—</td><td class="check">&#10003;</td><td class="check">&#10003;</td><td class="check">&#10003;</td></tr>
+          <tr><td>Compliance-Ampel</td><td class="cross">—</td><td class="cross">—</td><td class="check">&#10003;</td><td class="check">&#10003;</td><td class="check">&#10003;</td></tr>
+          <tr><td>Lieferanten-Scorecard</td><td class="cross">—</td><td class="cross">—</td><td class="check">&#10003;</td><td class="check">&#10003;</td><td class="check">&#10003;</td></tr>
+          <tr><td>Erweiterte Analysen</td><td class="cross">—</td><td class="cross">—</td><td class="cross">—</td><td class="check">&#10003;</td><td class="check">&#10003;</td></tr>
+          <tr><td>Erweitertes Matching</td><td class="cross">—</td><td class="cross">—</td><td class="cross">—</td><td class="check">&#10003;</td><td class="check">&#10003;</td></tr>
+
+          <!-- Enterprise -->
+          <tr class="group-row"><td colspan="6">Enterprise-Funktionen</td></tr>
+          <tr><td>Multi-Abteilungen</td><td class="cross">—</td><td class="cross">—</td><td class="cross">—</td><td class="cross">—</td><td class="check">&#10003;</td></tr>
+          <tr><td>Freigabe-Workflows</td><td class="cross">—</td><td class="cross">—</td><td class="cross">—</td><td class="cross">—</td><td class="check">&#10003;</td></tr>
+          <tr><td>Vertragsmanagement</td><td class="cross">—</td><td class="cross">—</td><td class="cross">—</td><td class="cross">—</td><td class="check">&#10003;</td></tr>
+          <tr><td>Vendor Pool Management</td><td class="cross">—</td><td class="cross">—</td><td class="cross">—</td><td class="cross">—</td><td class="check">&#10003;</td></tr>
+          <tr><td>Enterprise-Reporting</td><td class="cross">—</td><td class="cross">—</td><td class="cross">—</td><td class="cross">—</td><td class="check">&#10003;</td></tr>
+
+          <!-- Support -->
+          <tr class="group-row"><td colspan="6">Support</td></tr>
+          <tr><td>E-Mail-Support</td><td class="cross">—</td><td class="check">&#10003;</td><td class="check">&#10003;</td><td class="check">&#10003;</td><td class="check">&#10003;</td></tr>
+          <tr><td>Priorisierter Support</td><td class="cross">—</td><td class="cross">—</td><td class="cross">—</td><td class="check">&#10003;</td><td class="check">&#10003;</td></tr>
+          <tr><td>Dedizierter Ansprechpartner</td><td class="cross">—</td><td class="cross">—</td><td class="cross">—</td><td class="cross">—</td><td class="check">&#10003;</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <hr class="ds-divider"/>
+
+    <!-- FAQ -->
+    <section class="ds-section" style="max-width:720px;margin:0 auto var(--ds-space-8)">
+      <div style="text-align:center;margin-bottom:var(--ds-space-4)">
+        <div class="section-label">Haeufige Fragen</div>
+        <h2 class="section-heading">FAQ zu Tarifen &amp; Abrechnung</h2>
+      </div>
+
+      <div class="faq-list" id="faqList">
+        <div class="faq-item">
+          <div class="faq-q" onclick="this.parentElement.classList.toggle('open')">
+            <span>Kann ich jederzeit upgraden oder downgraden?</span>
+            <span class="arrow">&#9660;</span>
+          </div>
+          <div class="faq-a">Ja. Sie koennen Ihren Tarif jederzeit aendern. Ein Upgrade wird sofort wirksam. Bei einem Downgrade behalten Sie bis zum Ende der aktuellen Abrechnungsperiode Zugriff auf alle Funktionen Ihres bisherigen Tarifs.</div>
+        </div>
+        <div class="faq-item">
+          <div class="faq-q" onclick="this.parentElement.classList.toggle('open')">
+            <span>Gibt es eine Vertragslaufzeit?</span>
+            <span class="arrow">&#9660;</span>
+          </div>
+          <div class="faq-a">Nein. Alle Tarife sind monatlich kuendbar. Es gibt keine Mindestlaufzeit und keinen Lock-in. Bei Kuendigung wechseln Sie automatisch zum FREE-Plan.</div>
+        </div>
+        <div class="faq-item">
+          <div class="faq-q" onclick="this.parentElement.classList.toggle('open')">
+            <span>Welche Zahlungsmethoden werden akzeptiert?</span>
+            <span class="arrow">&#9660;</span>
+          </div>
+          <div class="faq-a">Wir unterstuetzen Kreditkarte, SEPA-Lastschrift, Sofortueberweisung und Giropay ueber unseren Zahlungspartner Stripe. Alle Zahlungen werden sicher und verschluesselt abgewickelt.</div>
+        </div>
+        <div class="faq-item">
+          <div class="faq-q" onclick="this.parentElement.classList.toggle('open')">
+            <span>Was passiert mit meinen Daten bei Kuendigung?</span>
+            <span class="arrow">&#9660;</span>
+          </div>
+          <div class="faq-a">Bei einem Downgrade auf FREE bleiben Ihr Konto und Ihre Daten erhalten. Sie verlieren lediglich den Zugang zu den erweiterten Funktionen Ihres bisherigen Tarifs. Deals und abgeschlossene Vorgaenge bleiben dokumentiert.</div>
+        </div>
+        <div class="faq-item">
+          <div class="faq-q" onclick="this.parentElement.classList.toggle('open')">
+            <span>Was bedeutet Pulse-Timer?</span>
+            <span class="arrow">&#9660;</span>
+          </div>
+          <div class="faq-a">Der Pulse-Timer gibt die Zeitspanne an, innerhalb derer die Plattform einen dokumentierten Matching-Versuch fuer Ihre Anfrage unternimmt. Dies ist ein Prozessnachweis – kein Vermittlungsversprechen. PLUS-Kunden erhalten 120 Minuten, PRO-Kunden 60 Minuten, ENTERPRISE-Kunden 30 Minuten.</div>
+        </div>
+        <div class="faq-item">
+          <div class="faq-q" onclick="this.parentElement.classList.toggle('open')">
+            <span>Wie funktioniert der ENTERPRISE-Tarif?</span>
+            <span class="arrow">&#9660;</span>
+          </div>
+          <div class="faq-a">Der ENTERPRISE-Tarif wird individuell auf Ihre Anforderungen zugeschnitten. Kontaktieren Sie uns fuer ein Gespraech ueber Multi-Abteilungs-Management, Freigabe-Workflows, dedizierte Betreuung und individuelle SLA-Vereinbarungen.</div>
+        </div>
+        <div class="faq-item">
+          <div class="faq-q" onclick="this.parentElement.classList.toggle('open')">
+            <span>Erhalte ich eine Rechnung?</span>
+            <span class="arrow">&#9660;</span>
+          </div>
+          <div class="faq-a">Ja. Sie erhalten eine ordnungsgemaesse Rechnung fuer jeden Abrechnungszeitraum. Rechnungen sind in Ihrem Konto unter Zahlungshistorie einsehbar und koennen als PDF heruntergeladen werden.</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- CTA -->
+    <section style="text-align:center;padding:var(--ds-space-8) 0">
+      <h2 class="section-heading">Bereit fuer professionelle Personalkoordination?</h2>
+      <p class="section-desc" style="margin:var(--ds-space-2) auto var(--ds-space-5)">Starten Sie kostenlos und entdecken Sie, wie TempConnect Ihre Zeitarbeitskoordination vereinfacht.</p>
+      <div style="display:flex;gap:var(--ds-space-3);justify-content:center;flex-wrap:wrap">
+        <a href="/app" class="ds-btn ds-btn--primary ds-btn--lg">Jetzt kostenlos starten</a>
+        <a href="/public/legal/kontakt.html" class="ds-btn ds-btn--lg">Vertrieb kontaktieren</a>
+      </div>
+    </section>
+
+    <!-- Disclaimer -->
+    <div class="ds-disclaimer">
+      Alle Preise verstehen sich in EUR netto zzgl. gesetzlicher MwSt. TempConnect ist ein Plattformdienst zur Unterstuetzung des Matching-Prozesses. Es wird kein Vermittlungserfolg garantiert. Alle Angaben ohne Gewaehr.
+    </div>
+  </div>
+
+  <div id="tc-footer" data-tc-footer></div>
+  <script src="/public/js/footer.js"></script>
+</body>
+</html>

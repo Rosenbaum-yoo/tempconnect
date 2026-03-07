@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1.0">
+  <title>Über TempConnect — Plattform für professionelles Workforce Management</title>
+  <meta name="description" content="TempConnect verbindet Unternehmen und Personaldienstleister auf einer sicheren, SLA-gestützten Plattform. Erfahren Sie mehr über unsere Mission und Werte.">
+  <link rel="stylesheet" href="/public/css/enterprise.css">
+  <style>
+    .about-hero{text-align:center;padding:48px 0 32px}
+    .about-hero h1{font-size:2rem;margin:0 0 12px}
+    .about-hero .tagline{font-size:1.15rem;color:var(--muted);max-width:640px;margin:0 auto;line-height:1.6}
+
+    .about-mission{display:grid;grid-template-columns:1fr 1fr;gap:32px;margin:40px 0}
+    .about-mission .mission-card{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:28px}
+    .about-mission .mission-card h3{margin:0 0 12px;font-size:1.1rem;color:var(--fg)}
+    .about-mission .mission-card p{color:var(--muted);line-height:1.65;margin:0}
+
+    .about-values{margin:48px 0}
+    .about-values h2{text-align:center;margin:0 0 28px}
+    .values-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:24px}
+    .value-item{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:24px;text-align:center}
+    .value-item .value-icon{font-size:1.8rem;margin-bottom:12px}
+    .value-item h4{margin:0 0 8px;font-size:1rem}
+    .value-item p{color:var(--muted);font-size:.9rem;line-height:1.55;margin:0}
+
+    .about-numbers{margin:48px 0;text-align:center}
+    .about-numbers h2{margin:0 0 28px}
+    .numbers-row{display:flex;justify-content:center;gap:48px;flex-wrap:wrap}
+    .number-item .num{font-size:2rem;font-weight:700;background:linear-gradient(135deg,var(--brand),var(--brand2));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+    .number-item .label{color:var(--muted);font-size:.9rem;margin-top:4px}
+
+    .about-trust{margin:48px 0;background:var(--card);border:1px solid var(--border);border-radius:16px;padding:36px}
+    .about-trust h2{text-align:center;margin:0 0 8px}
+    .about-trust .trust-sub{text-align:center;color:var(--muted);margin:0 0 28px}
+    .trust-points{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+    .trust-point{display:flex;align-items:flex-start;gap:12px;padding:12px;border-radius:8px;background:rgba(255,255,255,.03)}
+    .trust-point .check{color:var(--brand);font-weight:700;font-size:1.1rem;flex-shrink:0;margin-top:2px}
+    .trust-point span{color:var(--muted);line-height:1.5;font-size:.95rem}
+
+    .about-cta{text-align:center;margin:48px 0 24px;padding:36px;background:linear-gradient(135deg,rgba(99,102,241,.08),rgba(168,85,247,.08));border-radius:16px;border:1px solid rgba(99,102,241,.15)}
+    .about-cta h2{margin:0 0 12px}
+    .about-cta p{color:var(--muted);margin:0 0 20px;max-width:500px;margin-left:auto;margin-right:auto}
+    .about-cta .cta-row{display:flex;justify-content:center;gap:12px;flex-wrap:wrap}
+    .about-cta .btn-primary{background:linear-gradient(135deg,var(--brand),var(--brand2));color:#fff;padding:12px 28px;border-radius:8px;text-decoration:none;font-weight:600;font-size:.95rem;border:0;transition:transform .15s}
+    .about-cta .btn-primary:hover{transform:translateY(-1px)}
+    .about-cta .btn-outline{border:1px solid var(--border);color:var(--fg);padding:12px 28px;border-radius:8px;text-decoration:none;font-size:.95rem;transition:border-color .15s}
+    .about-cta .btn-outline:hover{border-color:var(--brand)}
+
+    @media(max-width:768px){
+      .about-mission{grid-template-columns:1fr}
+      .values-grid{grid-template-columns:1fr}
+      .trust-points{grid-template-columns:1fr}
+      .numbers-row{gap:24px}
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="topbar">
+      <span class="brand"><span style="width:10px;height:10px;border-radius:50%;background:linear-gradient(135deg,var(--brand),var(--brand2));display:inline-block;margin-right:8px"></span>TempConnect</span>
+      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+        <a href="/" class="btn">Startseite</a>
+        <a href="/public/pricing.html" class="btn">Tarife</a>
+        <a href="/public/trust/security.html" class="btn">Sicherheit</a>
+        <a href="/public/legal/kontakt.html" class="btn">Kontakt</a>
+      </div>
+    </div>
+
+    <!-- Hero -->
+    <div class="ds-page-header">
+      <div class="ds-page-header__content">
+        <h1 class="ds-page-title">Über TempConnect</h1>
+        <p class="ds-page-subtitle">Die B2B-Plattform, die Unternehmen und Personaldienstleister auf Augenhöhe zusammenbringt — sicher, messbar und SLA-gestützt.</p>
+      </div>
+    </div>
+
+    <!-- Mission -->
+    <div class="about-mission">
+      <div class="mission-card">
+        <h3>🎯 Unsere Mission</h3>
+        <p>Wir digitalisieren die Zusammenarbeit zwischen Unternehmen und Personaldienstleistern. Statt intransparenter Prozesse, endloser E-Mail-Ketten und manueller Abstimmung bieten wir eine Plattform, auf der Kapazitäten in Echtzeit sichtbar werden, Deals messbar ablaufen und Qualität durch SLA-Kennzahlen gesichert ist.</p>
+      </div>
+      <div class="mission-card">
+        <h3>💡 Unsere Vision</h3>
+        <p>Eine Arbeitswelt, in der temporärer Personalbedarf innerhalb von Minuten — nicht Tagen — professionell und transparent gedeckt wird. TempConnect wird die zentrale Infrastruktur für Workforce Management im DACH-Raum.</p>
+      </div>
+    </div>
+
+    <!-- Values -->
+    <div class="about-values">
+      <h2>Unsere Werte</h2>
+      <div class="values-grid">
+        <div class="value-item">
+          <div class="value-icon">🔒</div>
+          <h4>Sicherheit & Datenschutz</h4>
+          <p>Deutsche Server, DSGVO-konform, verschlüsselte Übertragung. Ihre Daten gehören Ihnen — ohne Kompromisse.</p>
+        </div>
+        <div class="value-item">
+          <div class="value-icon">📊</div>
+          <h4>Messbare Qualität</h4>
+          <p>SLA-Metriken, Response-Zeiten und Matching-Scores machen Leistung transparent und vergleichbar.</p>
+        </div>
+        <div class="value-item">
+          <div class="value-icon">🤝</div>
+          <h4>Partnerschaftlichkeit</h4>
+          <p>Wir stehen für faire Zusammenarbeit auf Augenhöhe — zwischen Plattform, Unternehmen und Dienstleistern.</p>
+        </div>
+        <div class="value-item">
+          <div class="value-icon">⚡</div>
+          <h4>Geschwindigkeit</h4>
+          <p>Echtzeit-Kapazitäten, automatisiertes Matching und schnelle Deal-Abwicklung sparen wertvolle Zeit.</p>
+        </div>
+        <div class="value-item">
+          <div class="value-icon">✅</div>
+          <h4>Compliance</h4>
+          <p>Dokumentenprüfung, Audit-Trail und AÜG-Konformität sind keine Option, sondern Standard.</p>
+        </div>
+        <div class="value-item">
+          <div class="value-icon">🚀</div>
+          <h4>Innovation</h4>
+          <p>Wir entwickeln kontinuierlich weiter — mit KI-gestütztem Matching, Predictive Analytics und API-Integrationen.</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Numbers -->
+    <div class="about-numbers">
+      <h2>Plattform in Zahlen</h2>
+      <div class="numbers-row">
+        <div class="number-item">
+          <div class="num">5</div>
+          <div class="label">Tarif-Stufen</div>
+        </div>
+        <div class="number-item">
+          <div class="num">99,5%</div>
+          <div class="label">Verfügbarkeitsziel</div>
+        </div>
+        <div class="number-item">
+          <div class="num">≤15 Min</div>
+          <div class="label">Matching-Reaktionszeit (PRO)</div>
+        </div>
+        <div class="number-item">
+          <div class="num">DSGVO</div>
+          <div class="label">Vollständig konform</div>
+        </div>
+        <div class="number-item">
+          <div class="num">DE</div>
+          <div class="label">Server-Standort</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Enterprise Trust -->
+    <div class="about-trust">
+      <h2>Enterprise-Grade Infrastruktur</h2>
+      <p class="trust-sub">TempConnect erfüllt die Anforderungen professioneller B2B-Plattformen</p>
+      <div class="trust-points">
+        <div class="trust-point">
+          <span class="check">✓</span>
+          <span>Ende-zu-Ende-Verschlüsselung für alle Datenübertragungen (TLS 1.2+)</span>
+        </div>
+        <div class="trust-point">
+          <span class="check">✓</span>
+          <span>Hosting ausschließlich auf deutschen Servern — kein Datentransfer ins Ausland</span>
+        </div>
+        <div class="trust-point">
+          <span class="check">✓</span>
+          <span>Rollenbasierte Zugriffskontrolle (RBAC) mit granularen Berechtigungen</span>
+        </div>
+        <div class="trust-point">
+          <span class="check">✓</span>
+          <span>Vollständiger Audit-Trail für alle plattformrelevanten Aktionen</span>
+        </div>
+        <div class="trust-point">
+          <span class="check">✓</span>
+          <span>AV-Vertrag-Unterstützung für die Auftragsverarbeitung nach Art. 28 DSGVO</span>
+        </div>
+        <div class="trust-point">
+          <span class="check">✓</span>
+          <span>Rate-Limiting, CSRF-Schutz und Security-Header nach OWASP-Standards</span>
+        </div>
+        <div class="trust-point">
+          <span class="check">✓</span>
+          <span>Automatisierte Backups und Disaster-Recovery-Prozesse</span>
+        </div>
+        <div class="trust-point">
+          <span class="check">✓</span>
+          <span>Transparente SLA-Metriken mit öffentlichem Plattform-Status</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- CTA -->
+    <div class="about-cta">
+      <h2>Bereit für professionelles Workforce Management?</h2>
+      <p>Starten Sie kostenlos und erleben Sie, wie TempConnect Ihre Personaldienstleister-Beziehungen transformiert.</p>
+      <div class="cta-row">
+        <a href="/public/pricing.html" class="btn-primary">Tarife vergleichen</a>
+        <a href="/public/legal/kontakt.html" class="btn-outline">Kontakt aufnehmen</a>
+      </div>
+    </div>
+
+  </div>
+
+  <script src="/public/js/footer.js"></script>
+</body>
+</html>

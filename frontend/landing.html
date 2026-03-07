@@ -1,0 +1,270 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <title>TempConnect – Professionelle Personalvermittlung fuer Zeitarbeit</title>
+  <link rel="stylesheet" href="/public/css/design-system.css"/>
+  <style>
+    body { background: radial-gradient(ellipse 1100px 600px at 15% -5%, rgba(74,158,255,.18), transparent 60%),
+                        radial-gradient(ellipse 800px 500px at 90% -2%, rgba(124,92,255,.12), transparent 55%),
+                        var(--ds-bg); }
+
+    /* Hero */
+    .hero { padding: var(--ds-space-16) 0 var(--ds-space-12); text-align: center; }
+    .hero h1 { font-size: clamp(28px, 5vw, 46px); font-weight: 800; line-height: 1.15; margin: 0 auto var(--ds-space-5); max-width: 720px; letter-spacing: -0.03em; }
+    .hero h1 em { font-style: normal; background: linear-gradient(135deg, var(--ds-brand), var(--ds-accent)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
+    .hero p { color: var(--ds-text-secondary); font-size: 17px; line-height: 1.65; max-width: 600px; margin: 0 auto var(--ds-space-8); }
+    .hero-cta { display: flex; gap: var(--ds-space-3); justify-content: center; flex-wrap: wrap; }
+    .hero-cta .ds-btn--lg { padding: 14px 32px; font-size: 15px; }
+
+    /* Sections */
+    .section-label { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; color: var(--ds-brand); margin-bottom: var(--ds-space-2); }
+    .section-heading { font-size: clamp(22px, 3vw, 30px); font-weight: 800; letter-spacing: -0.02em; margin: 0 0 var(--ds-space-2); }
+    .section-desc { color: var(--ds-text-secondary); font-size: 15px; max-width: 560px; line-height: 1.6; margin: 0; }
+
+    /* How it works */
+    .steps-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: var(--ds-space-4); counter-reset: step; }
+    .step { padding: var(--ds-space-5); border: 1px solid var(--ds-border); border-radius: var(--ds-radius-lg); background: rgba(255,255,255,0.02); text-align: center; counter-increment: step; }
+    .step::before { content: counter(step); display: flex; align-items: center; justify-content: center; width: 36px; height: 36px; margin: 0 auto var(--ds-space-3); border-radius: 50%; font-size: 15px; font-weight: 800; background: var(--ds-brand-muted); border: 1px solid rgba(74,158,255,0.25); color: var(--ds-brand); }
+    .step h3 { font-size: 14px; font-weight: 700; margin: 0 0 var(--ds-space-1); }
+    .step p { font-size: 13px; color: var(--ds-text-secondary); margin: 0; line-height: 1.5; }
+
+    /* Audience split */
+    .audience-grid { display: grid; grid-template-columns: 1fr 1fr; gap: var(--ds-space-4); }
+    .audience-card { padding: var(--ds-space-6); border-radius: var(--ds-radius-lg); border: 1px solid var(--ds-border); background: rgba(255,255,255,0.02); }
+    .audience-card h3 { font-size: 17px; font-weight: 700; margin: 0 0 var(--ds-space-3); display: flex; align-items: center; gap: var(--ds-space-2); }
+    .audience-card ul { padding-left: 18px; margin: 0; }
+    .audience-card li { font-size: 13px; color: var(--ds-text-secondary); padding: var(--ds-space-1) 0; line-height: 1.5; }
+
+    @media (max-width: 768px) {
+      .audience-grid { grid-template-columns: 1fr; }
+      .hero { padding: var(--ds-space-10) 0 var(--ds-space-8); }
+    }
+  </style>
+</head>
+<body>
+  <div class="ds-wrap">
+    <!-- Topbar -->
+    <nav class="ds-topbar">
+      <div class="ds-topbar__brand">
+        <span class="ds-topbar__brand-dot"></span>
+        TempConnect
+      </div>
+      <div class="ds-topbar__nav">
+        <a href="/public/pricing.html" class="ds-nav-link">Tarife</a>
+        <a href="/public/trust/security.html" class="ds-nav-link">Sicherheit</a>
+        <a href="/public/about.html" class="ds-nav-link">Ueber uns</a>
+        <span class="ds-topbar__separator"></span>
+        <a href="/app" class="ds-btn">Anmelden</a>
+        <a href="/app" class="ds-btn ds-btn--primary">Kostenlos starten</a>
+      </div>
+    </nav>
+
+    <!-- Hero -->
+    <section class="hero">
+      <h1>Die B2B-Plattform fuer <em>professionelles Workforce Management</em></h1>
+      <p>TempConnect verbindet Unternehmen und Personaldienstleister auf einer sicheren, SLA-gestuetzten Plattform. Kapazitaeten in Echtzeit finden, Deals transparent abschliessen, Qualitaet messbar sichern.</p>
+      <div class="hero-cta">
+        <a href="/app" class="ds-btn ds-btn--primary ds-btn--lg">Jetzt starten</a>
+        <a href="/public/pricing.html" class="ds-btn ds-btn--lg">Tarife vergleichen</a>
+      </div>
+    </section>
+
+    <!-- Trust signals -->
+    <div class="ds-trust-row">
+      <div class="ds-trust-item"><span class="ds-trust-item__icon">&#128274;</span> DSGVO-konform</div>
+      <div class="ds-trust-item"><span class="ds-trust-item__icon">&#127465;&#127466;</span> Hosting in Deutschland</div>
+      <div class="ds-trust-item"><span class="ds-trust-item__icon">&#9989;</span> E-Mail-verifizierte Nutzer</div>
+      <div class="ds-trust-item"><span class="ds-trust-item__icon">&#128101;</span> Kontakt erst nach Deal</div>
+    </div>
+
+    <hr class="ds-divider"/>
+
+    <!-- How it works -->
+    <section class="ds-section" style="text-align:center">
+      <div class="section-label">Wie es funktioniert</div>
+      <h2 class="section-heading" style="margin-bottom:var(--ds-space-6)">In 5 Schritten zum Deal</h2>
+      <div class="steps-grid">
+        <div class="step"><h3>Registrieren</h3><p>E-Mail bestaetigen und Unternehmensprofil anlegen</p></div>
+        <div class="step"><h3>Suchen</h3><p>Kapazitaeten nach Rolle, Region und Verfuegbarkeit filtern</p></div>
+        <div class="step"><h3>Anfragen</h3><p>Passende Anbieter kontaktieren oder Broadcast senden</p></div>
+        <div class="step"><h3>Deal</h3><p>Bestes Angebot waehlen und Deal bestaetigen</p></div>
+        <div class="step"><h3>Kontakt</h3><p>Kontaktdaten werden erst nach Deal-Abschluss freigegeben</p></div>
+      </div>
+    </section>
+
+    <hr class="ds-divider"/>
+
+    <!-- For whom -->
+    <section class="ds-section">
+      <div style="text-align:center;margin-bottom:var(--ds-space-8)">
+        <div class="section-label">Fuer wen</div>
+        <h2 class="section-heading">Zwei Seiten, eine Plattform</h2>
+      </div>
+      <div class="audience-grid">
+        <div class="audience-card" style="border-color:rgba(74,158,255,0.2)">
+          <h3><span style="font-size:22px">&#127970;</span> Unternehmen</h3>
+          <p style="color:var(--ds-text-secondary);font-size:14px;margin:0 0 var(--ds-space-3)">Sie brauchen kurzfristig qualifiziertes Personal?</p>
+          <ul>
+            <li>Live-Kapazitaeten durchsuchen und direkt anfragen</li>
+            <li>Automatisches Matching nach Rolle, Standort und Verfuegbarkeit</li>
+            <li>Pulse-Prozessnachweis: jeder Matching-Versuch dokumentiert</li>
+            <li>Compliance-Ampel und Lieferanten-Bewertung</li>
+            <li>Kontaktdaten erst nach Deal-Abschluss</li>
+          </ul>
+        </div>
+        <div class="audience-card" style="border-color:rgba(124,92,255,0.2)">
+          <h3><span style="font-size:22px">&#128188;</span> Personaldienstleister</h3>
+          <p style="color:var(--ds-text-secondary);font-size:14px;margin:0 0 var(--ds-space-3)">Sie haben freie Kapazitaeten und suchen Auftraege?</p>
+          <ul>
+            <li>Kapazitaetsangebote einstellen und Sichtbarkeit erhoehen</li>
+            <li>Anfragen direkt im Posteingang empfangen</li>
+            <li>Bewertungssystem fuer Zuverlaessigkeit und Qualitaet</li>
+            <li>Compliance-Dokumente hochladen und verifizieren lassen</li>
+            <li>Notdienst-Badge fuer priorisierte Sichtbarkeit</li>
+          </ul>
+        </div>
+      </div>
+    </section>
+
+    <hr class="ds-divider"/>
+
+    <!-- Features -->
+    <section class="ds-section">
+      <div style="text-align:center;margin-bottom:var(--ds-space-8)">
+        <div class="section-label">Plattform-Funktionen</div>
+        <h2 class="section-heading">Alles fuer professionelle Personalkoordination</h2>
+      </div>
+      <div class="ds-grid ds-grid--auto">
+        <div class="ds-card">
+          <div class="ds-card__icon" style="margin-bottom:var(--ds-space-3)">&#128269;</div>
+          <div class="ds-card__title" style="margin-bottom:var(--ds-space-1)">Echtzeit-Kapazitaeten</div>
+          <p class="ds-text-sm ds-text-muted">Sehen Sie sofort, welche Anbieter verfuegbare Mitarbeiter in Ihrer Region haben.</p>
+        </div>
+        <div class="ds-card">
+          <div class="ds-card__icon" style="margin-bottom:var(--ds-space-3)">&#9889;</div>
+          <div class="ds-card__title" style="margin-bottom:var(--ds-space-1)">Automatisches Matching</div>
+          <p class="ds-text-sm ds-text-muted">Beschreiben Sie Ihren Bedarf – TempConnect matched passende Anbieter automatisch.</p>
+        </div>
+        <div class="ds-card">
+          <div class="ds-card__icon" style="margin-bottom:var(--ds-space-3)">&#128202;</div>
+          <div class="ds-card__title" style="margin-bottom:var(--ds-space-1)">Pulse-Prozessnachweis</div>
+          <p class="ds-text-sm ds-text-muted">PLUS- und NOTDIENST-Tarife dokumentieren jeden Matching-Versuch mit Zeitstempel.</p>
+        </div>
+        <div class="ds-card">
+          <div class="ds-card__icon" style="margin-bottom:var(--ds-space-3)">&#128737;</div>
+          <div class="ds-card__title" style="margin-bottom:var(--ds-space-1)">Compliance &amp; Bewertung</div>
+          <p class="ds-text-sm ds-text-muted">Compliance-Ampel, Lieferanten-Scorecard, Dokumentenmanagement mit Ablaufueberwachung.</p>
+        </div>
+        <div class="ds-card">
+          <div class="ds-card__icon" style="margin-bottom:var(--ds-space-3)">&#128176;</div>
+          <div class="ds-card__title" style="margin-bottom:var(--ds-space-1)">Faire Tarife</div>
+          <p class="ds-text-sm ds-text-muted">Von FREE bis ENTERPRISE – waehlen Sie den Tarif, der zu Ihrem Bedarf passt.</p>
+        </div>
+        <div class="ds-card">
+          <div class="ds-card__icon" style="margin-bottom:var(--ds-space-3)">&#128274;</div>
+          <div class="ds-card__title" style="margin-bottom:var(--ds-space-1)">Sicher &amp; DSGVO-konform</div>
+          <p class="ds-text-sm ds-text-muted">Hosting in Deutschland, verschluesselte Verbindungen, keine Weitergabe an Dritte.</p>
+        </div>
+      </div>
+    </section>
+
+    <hr class="ds-divider"/>
+
+    <!-- Plans teaser -->
+    <section class="ds-section" style="text-align:center">
+      <div class="section-label">Tarife</div>
+      <h2 class="section-heading">Starten Sie kostenlos</h2>
+      <p class="section-desc" style="margin:0 auto var(--ds-space-6)">Upgraden Sie, wenn Sie mehr brauchen. Alle Tarife monatlich kuendbar.</p>
+      <div class="ds-plan-grid" style="max-width:960px;margin:0 auto">
+        <div class="ds-plan-card">
+          <div class="ds-plan-card__name">FREE</div>
+          <div class="ds-plan-card__price">0 EUR <span>/Monat</span></div>
+          <ul class="ds-plan-card__features">
+            <li>Marketplace durchsuchen</li>
+            <li>Kapazitaeten ansehen</li>
+            <li class="ds-plan--disabled">Keine Anfragen senden</li>
+          </ul>
+          <a href="/app" class="ds-btn ds-w-full">Kostenlos starten</a>
+        </div>
+        <div class="ds-plan-card">
+          <div class="ds-plan-card__name">BASIS</div>
+          <div class="ds-plan-card__price">150 EUR <span>/Monat</span></div>
+          <ul class="ds-plan-card__features">
+            <li>5 Anfragen / Monat</li>
+            <li>5 Angebote erstellen</li>
+            <li>E-Mail-Support</li>
+          </ul>
+          <a href="/app" class="ds-btn ds-w-full">Plan waehlen</a>
+        </div>
+        <div class="ds-plan-card ds-plan-card--recommended">
+          <div class="ds-badge ds-badge--brand" style="margin-bottom:var(--ds-space-2)">Empfohlen</div>
+          <div class="ds-plan-card__name">PLUS</div>
+          <div class="ds-plan-card__price">499 EUR <span>/Monat</span></div>
+          <ul class="ds-plan-card__features">
+            <li>20 Anfragen / Monat</li>
+            <li>Pulse 120 Min</li>
+            <li>Enterprise-Dashboard</li>
+            <li>Compliance &amp; Scorecard</li>
+          </ul>
+          <a href="/app" class="ds-btn ds-btn--primary ds-w-full">Plan waehlen</a>
+        </div>
+        <div class="ds-plan-card ds-plan-card--premium">
+          <div class="ds-badge ds-badge--accent" style="margin-bottom:var(--ds-space-2)">Enterprise</div>
+          <div class="ds-plan-card__name">ENTERPRISE</div>
+          <div class="ds-plan-card__price">Individuell</div>
+          <ul class="ds-plan-card__features">
+            <li>Unbegrenzte Nutzung</li>
+            <li>Multi-Abteilungen</li>
+            <li>Freigabe-Workflows</li>
+            <li>Dedizierte Betreuung</li>
+          </ul>
+          <a href="/public/legal/kontakt.html" class="ds-btn ds-w-full">Kontakt aufnehmen</a>
+        </div>
+      </div>
+      <div style="margin-top:var(--ds-space-5)">
+        <a href="/public/pricing.html" class="ds-btn ds-btn--primary">Alle Tarife und Features vergleichen</a>
+      </div>
+    </section>
+
+    <!-- CTA final -->
+    <section class="ds-section" style="text-align:center;padding:var(--ds-space-8) 0">
+      <div class="section-label">Jetzt starten</div>
+      <h2 class="section-heading">Bereit fuer professionelles Workforce Management?</h2>
+      <p class="section-desc" style="margin:var(--ds-space-2) auto var(--ds-space-5)">Registrieren Sie sich kostenlos und erleben Sie, wie TempConnect Ihre Personaldienstleister-Beziehungen transformiert.</p>
+      <div style="display:flex;gap:var(--ds-space-3);justify-content:center;flex-wrap:wrap">
+        <a href="/app" class="ds-btn ds-btn--primary ds-btn--lg">Kostenlos starten</a>
+        <a href="/public/about.html" class="ds-btn ds-btn--lg">Mehr erfahren</a>
+      </div>
+    </section>
+
+    <!-- Disclaimer -->
+    <div class="ds-disclaimer">
+      TempConnect ist ein Plattformdienst zur Unterstuetzung des Matching-Prozesses zwischen Unternehmen und Zeitarbeitsfirmen.
+      Es wird kein Vermittlungserfolg garantiert. Pulse-Angaben beziehen sich auf den dokumentierten Prozessnachweis,
+      nicht auf das Zustandekommen eines Vertrags. Alle Angaben ohne Gewaehr.
+    </div>
+  </div>
+
+  <!-- Footer -->
+  <div id="tc-footer" data-tc-footer></div>
+  <script src="/public/js/footer.js"></script>
+  <script>
+    // Auto-Redirect: logged-in users
+    (function() {
+      fetch("/api/me", { credentials: "include" })
+        .then(function(r) { if (r.ok) return r.json(); throw new Error("not logged in"); })
+        .then(function(me) {
+          var hash = window.location.hash || "";
+          if (me.plan === "PLUS" || me.plan === "NOTDIENST" || me.plan === "PRO" || me.plan === "ENTERPRISE") {
+            window.location.replace("/sla" + hash);
+          } else {
+            window.location.replace("/app" + hash);
+          }
+        })
+        .catch(function() { /* Not logged in: show landing */ });
+    })();
+  </script>
+</body>
+</html>

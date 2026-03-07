@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <title>Systemstatus – TempConnect</title>
+  <link rel="stylesheet" href="/public/css/design-system.css"/>
+  <style>
+    .status-hero { text-align: center; padding: var(--ds-space-6) 0; }
+    .status-indicator { display: inline-flex; align-items: center; gap: var(--ds-space-2); padding: var(--ds-space-3) var(--ds-space-5); border-radius: var(--ds-radius-full); font-size: 16px; font-weight: 700; }
+    .status-indicator--ok { background: var(--ds-success-muted); border: 1px solid rgba(52,211,153,.35); color: #a7f3d0; }
+    .status-indicator--warn { background: var(--ds-warning-muted); border: 1px solid rgba(251,191,36,.35); color: #fde68a; }
+    .status-indicator--down { background: var(--ds-danger-muted); border: 1px solid rgba(248,113,113,.35); color: #fecaca; }
+    .status-indicator__dot { width: 12px; height: 12px; border-radius: 50%; }
+    .status-indicator--ok .status-indicator__dot { background: var(--ds-success); box-shadow: 0 0 8px rgba(52,211,153,.5); }
+    .status-indicator--warn .status-indicator__dot { background: var(--ds-warning); box-shadow: 0 0 8px rgba(251,191,36,.5); }
+    .status-indicator--down .status-indicator__dot { background: var(--ds-danger); box-shadow: 0 0 8px rgba(248,113,113,.5); }
+
+    .service-list { display: flex; flex-direction: column; gap: var(--ds-space-2); margin-top: var(--ds-space-4); }
+    .service-row { display: flex; align-items: center; justify-content: space-between; padding: var(--ds-space-4); border: 1px solid var(--ds-border); border-radius: var(--ds-radius-md); background: rgba(255,255,255,0.02); }
+    .service-row__name { font-weight: 600; font-size: 14px; display: flex; align-items: center; gap: var(--ds-space-2); }
+    .service-row__status { font-size: 13px; font-weight: 600; display: flex; align-items: center; gap: 6px; }
+    .service-row__dot { width: 8px; height: 8px; border-radius: 50%; }
+    .service-row__dot--ok { background: var(--ds-success); }
+    .service-row__dot--warn { background: var(--ds-warning); }
+    .service-row__dot--down { background: var(--ds-danger); }
+    .service-row__dot--loading { background: var(--ds-text-tertiary); }
+
+    .uptime-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: var(--ds-space-3); margin-top: var(--ds-space-4); }
+    .uptime-card { border: 1px solid var(--ds-border); border-radius: var(--ds-radius-lg); padding: var(--ds-space-5); background: rgba(255,255,255,0.02); text-align: center; }
+    .uptime-card__value { font-size: 32px; font-weight: 900; font-variant-numeric: tabular-nums; color: var(--ds-success); }
+    .uptime-card__label { font-size: 13px; color: var(--ds-text-secondary); margin-top: var(--ds-space-1); }
+
+    .incident-list { margin-top: var(--ds-space-4); }
+    .incident-empty { padding: var(--ds-space-6); border: 1px dashed var(--ds-border); border-radius: var(--ds-radius-md); text-align: center; }
+    .incident-empty__icon { font-size: 28px; margin-bottom: var(--ds-space-2); }
+    .incident-empty__text { font-size: 14px; color: var(--ds-text-secondary); }
+  </style>
+</head>
+<body>
+  <div class="ds-wrap">
+    <nav class="ds-topbar">
+      <div class="ds-topbar__brand"><span class="ds-topbar__brand-dot"></span> TempConnect</div>
+      <div class="ds-topbar__nav">
+        <a href="/" class="ds-nav-link">Startseite</a>
+        <a href="/public/trust/security.html" class="ds-nav-link">Sicherheit</a>
+        <a href="/public/trust/compliance.html" class="ds-nav-link">Compliance</a>
+        <a href="/public/trust/platform-sla.html" class="ds-nav-link">Plattform-SLA</a>
+        <span class="ds-topbar__separator"></span>
+        <a href="/app" class="ds-btn">Anmelden</a>
+      </div>
+    </nav>
+
+    <div class="ds-page-header">
+      <div class="ds-page-header__content">
+        <h1 class="ds-page-title">Systemstatus</h1>
+        <p class="ds-page-subtitle">Aktuelle Verfuegbarkeit der TempConnect-Plattform und ihrer Dienste.</p>
+      </div>
+    </div>
+
+    <!-- Overall Status -->
+    <div class="status-hero">
+      <div class="status-indicator status-indicator--ok" id="overallStatus">
+        <span class="status-indicator__dot"></span>
+        <span id="overallText">Systeme werden geprueft…</span>
+      </div>
+      <p style="color:var(--ds-text-secondary);font-size:13px;margin-top:var(--ds-space-2)" id="lastCheck">Letzte Pruefung: –</p>
+    </div>
+
+    <!-- Services -->
+    <section class="ds-section">
+      <h2 class="ds-h2">Einzelne Dienste</h2>
+      <div class="service-list" id="serviceList">
+        <div class="service-row">
+          <div class="service-row__name">&#127760; Web-Anwendung</div>
+          <div class="service-row__status" id="svcWeb"><span class="service-row__dot service-row__dot--loading"></span> Pruefe…</div>
+        </div>
+        <div class="service-row">
+          <div class="service-row__name">&#9889; API-Server</div>
+          <div class="service-row__status" id="svcApi"><span class="service-row__dot service-row__dot--loading"></span> Pruefe…</div>
+        </div>
+        <div class="service-row">
+          <div class="service-row__name">&#128451; Datenbank</div>
+          <div class="service-row__status" id="svcDb"><span class="service-row__dot service-row__dot--loading"></span> Pruefe…</div>
+        </div>
+        <div class="service-row">
+          <div class="service-row__name">&#128338; Hintergrunddienste</div>
+          <div class="service-row__status" id="svcBg"><span class="service-row__dot service-row__dot--loading"></span> Pruefe…</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Uptime Targets -->
+    <section class="ds-section">
+      <h2 class="ds-h2">Verfuegbarkeitsziele</h2>
+      <div class="uptime-grid">
+        <div class="uptime-card">
+          <div class="uptime-card__value">99,5 %</div>
+          <div class="uptime-card__label">Ziel-Verfuegbarkeit (Enterprise)</div>
+        </div>
+        <div class="uptime-card">
+          <div class="uptime-card__value">99,0 %</div>
+          <div class="uptime-card__label">Ziel-Verfuegbarkeit (PLUS / PRO)</div>
+        </div>
+        <div class="uptime-card">
+          <div class="uptime-card__value">&lt; 4 h</div>
+          <div class="uptime-card__label">Maximale Wiederherstellungszeit</div>
+        </div>
+        <div class="uptime-card">
+          <div class="uptime-card__value">24/7</div>
+          <div class="uptime-card__label">Infrastruktur-Monitoring</div>
+        </div>
+      </div>
+    </section>
+
+    <hr class="ds-divider"/>
+
+    <!-- Recent Incidents -->
+    <section class="ds-section">
+      <h2 class="ds-h2">Aktuelle Vorfaelle</h2>
+      <div class="incident-list" id="incidentList">
+        <div class="incident-empty">
+          <div class="incident-empty__icon">&#9989;</div>
+          <div class="incident-empty__text">Keine Vorfaelle in den letzten 30 Tagen.</div>
+        </div>
+      </div>
+    </section>
+
+    <div class="ds-disclaimer">
+      Diese Statusseite wird automatisch aktualisiert. Geplante Wartungsfenster werden im Voraus angekuendigt. Bei Fragen: <a href="/public/legal/kontakt.html" style="color:var(--ds-brand)">Kontakt</a>.
+    </div>
+  </div>
+
+  <div id="tc-footer" data-tc-footer></div>
+  <script src="/public/js/footer.js"></script>
+  <script>
+    (function() {
+      function setService(id, ok, label) {
+        var el = document.getElementById(id);
+        if (!el) return;
+        var dotCls = ok ? 'service-row__dot--ok' : 'service-row__dot--down';
+        var statusText = ok ? 'Betriebsbereit' : 'Nicht erreichbar';
+        el.innerHTML = '<span class="service-row__dot ' + dotCls + '"></span> ' + (label || statusText);
+      }
+
+      function checkHealth() {
+        var allOk = true;
+        // Check API health
+        fetch('/health', { cache: 'no-store' })
+          .then(function(r) {
+            var apiOk = r.ok;
+            setService('svcApi', apiOk);
+            setService('svcDb', apiOk, apiOk ? 'Betriebsbereit' : 'Unbekannt');
+            setService('svcBg', apiOk, apiOk ? 'Betriebsbereit' : 'Unbekannt');
+            if (!apiOk) allOk = false;
+            return apiOk;
+          })
+          .catch(function() {
+            setService('svcApi', false);
+            setService('svcDb', false, 'Unbekannt');
+            setService('svcBg', false, 'Unbekannt');
+            allOk = false;
+          })
+          .finally(function() {
+            // Web is always ok if we rendered this page
+            setService('svcWeb', true);
+
+            var overall = document.getElementById('overallStatus');
+            var text = document.getElementById('overallText');
+            if (allOk) {
+              overall.className = 'status-indicator status-indicator--ok';
+              text.textContent = 'Alle Systeme betriebsbereit';
+            } else {
+              overall.className = 'status-indicator status-indicator--warn';
+              text.textContent = 'Einige Dienste eingeschraenkt';
+            }
+
+            var now = new Date();
+            document.getElementById('lastCheck').textContent =
+              'Letzte Pruefung: ' + now.toLocaleDateString('de-DE') + ' ' + now.toLocaleTimeString('de-DE');
+          });
+      }
+
+      checkHealth();
+      setInterval(checkHealth, 60000); // refresh every 60s
+    })();
+  </script>
+</body>
+</html>

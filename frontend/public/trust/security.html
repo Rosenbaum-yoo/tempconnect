@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <title>Sicherheit – TempConnect</title>
+  <link rel="stylesheet" href="/public/css/design-system.css"/>
+  <style>
+    .trust-section { margin-bottom: var(--ds-space-6); }
+    .trust-card { border: 1px solid var(--ds-border); border-radius: var(--ds-radius-lg); padding: var(--ds-space-5); background: rgba(255,255,255,0.02); margin-bottom: var(--ds-space-3); }
+    .trust-card h3 { font-size: 16px; font-weight: 700; margin: 0 0 var(--ds-space-2); display: flex; align-items: center; gap: var(--ds-space-2); }
+    .trust-card h3 .icon { font-size: 20px; }
+    .trust-card p, .trust-card li { font-size: 14px; color: var(--ds-text-secondary); line-height: 1.6; }
+    .trust-card ul { padding-left: 20px; margin: var(--ds-space-2) 0 0; }
+    .trust-card li { padding: 2px 0; }
+    .trust-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: var(--ds-space-3); }
+  </style>
+</head>
+<body>
+  <div class="ds-wrap">
+    <nav class="ds-topbar">
+      <div class="ds-topbar__brand"><span class="ds-topbar__brand-dot"></span> TempConnect</div>
+      <div class="ds-topbar__nav">
+        <a href="/" class="ds-nav-link">Startseite</a>
+        <a href="/public/trust/compliance.html" class="ds-nav-link">Compliance</a>
+        <a href="/public/trust/platform-sla.html" class="ds-nav-link">Plattform-SLA</a>
+        <a href="/public/trust/status.html" class="ds-nav-link">Status</a>
+        <span class="ds-topbar__separator"></span>
+        <a href="/app" class="ds-btn">Anmelden</a>
+      </div>
+    </nav>
+
+    <div class="ds-page-header">
+      <div class="ds-page-header__content">
+        <h1 class="ds-page-title">Sicherheit &amp; Datenschutz</h1>
+        <p class="ds-page-subtitle">Wie TempConnect Ihre Unternehmensdaten schuetzt. Transparenz ueber Infrastruktur, Verschluesselung und Zugriffskontrollen.</p>
+      </div>
+    </div>
+
+    <!-- Trust Row -->
+    <div class="ds-trust-row" style="margin-bottom:var(--ds-space-6)">
+      <div class="ds-trust-item"><span class="ds-trust-item__icon">&#128274;</span> DSGVO-konform</div>
+      <div class="ds-trust-item"><span class="ds-trust-item__icon">&#127465;&#127466;</span> Hosting in Deutschland</div>
+      <div class="ds-trust-item"><span class="ds-trust-item__icon">&#128272;</span> TLS-verschluesselt</div>
+      <div class="ds-trust-item"><span class="ds-trust-item__icon">&#128737;</span> Zugriffskontrolle</div>
+    </div>
+
+    <div class="trust-grid">
+      <div class="trust-card">
+        <h3><span class="icon">&#128272;</span> Verschluesselung</h3>
+        <p>Alle Verbindungen zwischen Browser und Plattform werden ueber TLS (HTTPS) verschluesselt. Passwoerter werden mit bcrypt gehasht und niemals im Klartext gespeichert. Sensible Daten werden ausschliesslich verschluesselt uebertragen.</p>
+      </div>
+
+      <div class="trust-card">
+        <h3><span class="icon">&#127465;&#127466;</span> Hosting in Deutschland</h3>
+        <p>TempConnect wird in Rechenzentren der Hetzner Online GmbH in Deutschland betrieben. Alle Daten bleiben innerhalb der Europaeischen Union. Mit unseren Infrastruktur-Partnern bestehen Auftragsverarbeitungsvertraege (AV-Vertraege) gemaess Art. 28 DSGVO.</p>
+      </div>
+
+      <div class="trust-card">
+        <h3><span class="icon">&#128274;</span> DSGVO-Konformitaet</h3>
+        <p>TempConnect verarbeitet personenbezogene Daten ausschliesslich auf Grundlage der DSGVO. Wir erheben nur die fuer den Plattformbetrieb erforderlichen Daten. Nutzer haben jederzeit das Recht auf Auskunft, Berichtigung und Loeschung.</p>
+        <ul>
+          <li>Datenminimierung als Grundprinzip</li>
+          <li>Keine Weitergabe an Dritte ausserhalb der Plattform</li>
+          <li>Kontaktdaten erst nach Deal-Abschluss freigegeben</li>
+          <li>Vollstaendige Datenschutzerklaerung unter <a href="/public/legal/datenschutz.html" style="color:var(--ds-brand)">/datenschutz</a></li>
+        </ul>
+      </div>
+
+      <div class="trust-card">
+        <h3><span class="icon">&#128737;</span> Zugriffskontrollen</h3>
+        <p>Jeder Zugriff auf die Plattform erfordert eine authentifizierte Session. Zugriffe werden rollenbasiert gesteuert (RBAC). Sensitive Operationen erfordern CSRF-Token und werden durch Idempotenz-Schluesseln abgesichert.</p>
+        <ul>
+          <li>Session-basierte Authentifizierung</li>
+          <li>Rollenbasierte Zugriffskontrolle (RBAC)</li>
+          <li>CSRF-Schutz bei allen schreibenden Operationen</li>
+          <li>Rate Limiting gegen Brute-Force-Angriffe</li>
+        </ul>
+      </div>
+
+      <div class="trust-card">
+        <h3><span class="icon">&#128736;</span> Security Headers</h3>
+        <p>Die Plattform implementiert aktuelle Sicherheitsstandards auf Infrastrukturebene:</p>
+        <ul>
+          <li>X-Frame-Options: SAMEORIGIN</li>
+          <li>X-Content-Type-Options: nosniff</li>
+          <li>Strict-Transport-Security (HSTS)</li>
+          <li>Referrer-Policy: strict-origin-when-cross-origin</li>
+          <li>Permissions-Policy: keine Kamera, kein Mikrofon, keine Geolocation</li>
+        </ul>
+      </div>
+
+      <div class="trust-card">
+        <h3><span class="icon">&#128190;</span> Datensicherung</h3>
+        <p>Datenbanken werden regelmaessig gesichert. Die Infrastruktur ist fuer Ausfallsicherheit konzipiert. Im Ernstfall koennen Daten aus Backups wiederhergestellt werden. Wartungsfenster werden im Voraus angekuendigt.</p>
+      </div>
+    </div>
+
+    <hr class="ds-divider"/>
+
+    <section style="text-align:center;padding:var(--ds-space-6) 0">
+      <h2 style="font-size:20px;font-weight:700;margin:0 0 var(--ds-space-2)">Fragen zur Sicherheit?</h2>
+      <p style="color:var(--ds-text-secondary);font-size:14px;margin:0 0 var(--ds-space-4)">Kontaktieren Sie uns fuer weitere Informationen zu unseren Sicherheitsmassnahmen.</p>
+      <a href="/public/legal/kontakt.html" class="ds-btn ds-btn--primary">Kontakt aufnehmen</a>
+    </section>
+
+    <div class="ds-disclaimer">
+      Diese Seite beschreibt die technischen und organisatorischen Massnahmen zum Schutz Ihrer Daten. Sie ersetzt keine individuelle Sicherheitsbewertung. Alle Angaben ohne Gewaehr.
+    </div>
+  </div>
+  <div id="tc-footer" data-tc-footer></div>
+  <script src="/public/js/footer.js"></script>
+</body>
+</html>

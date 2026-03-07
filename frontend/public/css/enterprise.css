@@ -1,0 +1,64 @@
+/* Enterprise / Model B UI – imports Design System + backward compat */
+@import url('design-system.css');
+.wrap { max-width: 1100px; margin: 0 auto; padding: 24px; }
+.topbar { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 14px 18px; border: 1px solid var(--line); border-radius: 999px; background: rgba(255,255,255,.03); margin-bottom: 24px; }
+.brand { font-weight: 800; }
+.btn { padding: 10px 14px; border-radius: 12px; cursor: pointer; font-weight: 700; border: 1px solid var(--line); background: rgba(255,255,255,.04); color: var(--text); display: inline-block; font-size: 14px; }
+.btn:hover { border-color: rgba(255,255,255,.18); }
+.btn.primary { background: linear-gradient(135deg, var(--brand), var(--brand2)); border-color: transparent; }
+.btn.good { background: rgba(57,217,138,.15); border-color: rgba(57,217,138,.35); color: #c8ffe7; }
+.btn.bad { background: rgba(255,92,122,.15); border-color: rgba(255,92,122,.35); color: #ffd0d8; }
+.card { border: 1px solid var(--line); border-radius: var(--radius); background: rgba(255,255,255,.03); padding: 18px; margin-bottom: 14px; }
+.tag { font-size: 11px; font-weight: 700; padding: 6px 10px; border-radius: 999px; display: inline-block; margin-right: 8px; }
+.tag.green { color: #c8ffe7; border: 1px solid rgba(57,217,138,.35); background: rgba(57,217,138,.1); }
+.tag.yellow { color: #fff3c2; border: 1px solid rgba(255,204,0,.35); background: rgba(255,204,0,.1); }
+.tag.red { color: #ffd0d8; border: 1px solid rgba(255,92,122,.35); background: rgba(255,92,122,.1); }
+.tag.blue { color: #c2e0ff; border: 1px solid rgba(74,163,255,.35); background: rgba(74,163,255,.1); }
+.tag.muted { color: var(--muted); border: 1px solid var(--line); }
+.empty { padding: 24px; text-align: center; color: var(--muted); }
+.muted { color: var(--muted); font-size: 12px; display: block; margin-top: 2px; }
+.table { width: 100%; border-collapse: collapse; font-size: 14px; }
+.table th, .table td { padding: 10px 12px; text-align: left; border-bottom: 1px solid var(--line); }
+.table th { color: var(--muted); font-weight: 700; font-size: 12px; text-transform: uppercase; letter-spacing: .05em; }
+.kpi-row { display: grid; gap: 10px; }
+.kpi-row b { display: block; font-size: 18px; }
+label { display: block; font-size: 12px; color: var(--muted); margin: 0 0 6px; font-weight: 700; }
+input, select, textarea { width: 100%; padding: 10px 12px; border-radius: 12px; border: 1px solid var(--line); background: rgba(0,0,0,.3); color: var(--text); margin-bottom: 12px; outline: none; }
+.timer { font-variant-numeric: tabular-nums; font-weight: 800; }
+.modal { position: fixed; inset: 0; display: none; place-items: center; background: rgba(0,0,0,.78); z-index: 50; }
+.modal.show { display: grid; }
+.modal .panel { width: min(520px, 92vw); padding: 20px; border-radius: var(--radius); border: 1px solid var(--line); background: var(--card); }
+.modal h2 { margin: 0 0 14px; }
+.accordion-toggle { cursor: pointer; padding: 8px 0; color: var(--muted); font-size: 13px; }
+.accordion-body { display: none; padding: 8px 0; font-size: 13px; color: var(--muted); }
+.accordion-body.show { display: block; }
+.accordion-body ul { margin: 0; padding-left: 18px; }
+
+/* Navigation cards (Schnellzugriff) */
+.nav-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 12px; margin-top: 16px; }
+.nav-card { display: block; padding: 16px; border-radius: var(--radius); border: 1px solid var(--line); background: rgba(255,255,255,.03); text-decoration: none; color: inherit; transition: border-color .2s, transform .15s; cursor: pointer; }
+.nav-card:hover { border-color: rgba(255,255,255,.2); transform: translateY(-2px); }
+.nav-card:focus-visible { outline: 2px solid var(--brand); outline-offset: 2px; }
+.nav-card--active { border-color: var(--brand); background: rgba(74,163,255,.08); }
+.nav-card__icon { font-size: 22px; display: block; margin-bottom: 8px; }
+.nav-card__title { margin: 0 0 4px; font-size: 15px; font-weight: 800; }
+.nav-card__desc { margin: 0; font-size: 12px; color: var(--muted); line-height: 1.4; }
+
+/* Paywall (direct URL without plan access) */
+.paywall-box { max-width: 480px; margin: 24px auto; padding: 24px; border: 1px solid var(--line); border-radius: var(--radius); background: rgba(255,255,255,.04); text-align: center; }
+.paywall-box h2 { margin: 0 0 12px; font-size: 20px; }
+.paywall-box p { margin: 0 0 12px; color: var(--muted); font-size: 14px; }
+.paywall-box .paywall-plan { font-weight: 700; color: var(--text); }
+.paywall-box .btn { margin-top: 12px; }
+
+/* Locked card (visible, disabled, CTA upgrade) */
+.hub-card--locked { pointer-events: none; opacity: 0.85; position: relative; }
+.hub-card--locked .hub-card__lock { display: inline-block; margin-bottom: 8px; font-size: 20px; }
+.hub-card--locked .hub-card__sub { font-size: 12px; color: var(--warn); margin: 8px 0; }
+.hub-card--locked .hub-card__cta { pointer-events: auto; display: inline-block; margin-top: 12px; padding: 8px 14px; border-radius: 10px; font-size: 13px; font-weight: 700; background: rgba(74,163,255,.2); border: 1px solid rgba(74,163,255,.4); color: #c2e0ff; cursor: pointer; text-decoration: none; }
+.hub-card--locked .hub-card__cta:hover { background: rgba(74,163,255,.3); }
+.hub-card-wrapper { display: block; text-decoration: none; color: inherit; }
+.hub-card-wrapper.hub-card--locked { cursor: default; }
+
+/* SLA disclaimer (wiederverwendbar) */
+.sla-disclaimer { font-size: 12px; color: var(--muted); padding: 10px 14px; border-radius: 10px; background: rgba(0,0,0,.2); border: 1px solid var(--line); margin-top: 12px; }

@@ -1,0 +1,15 @@
+# Caddy – Reverse Proxy + SSL (Let's Encrypt automatisch)
+# Auf dem Host platzieren (z. B. /etc/caddy/Caddyfile).
+# Vorher: docker-compose.ports-internal.yml nutzen, damit App nur auf 127.0.0.1:8080 lauscht.
+#
+# 1. Domain durch echte Domain ersetzen
+# 2. Caddy starten: systemctl enable --now caddy
+
+deine-domain.de {
+    reverse_proxy 127.0.0.1:8080
+}
+
+# Optional: HTTP → HTTPS Redirect (Caddy macht das bei obiger Konfiguration automatisch)
+# www.deine-domain.de {
+#     redir https://deine-domain.de{uri} permanent
+# }

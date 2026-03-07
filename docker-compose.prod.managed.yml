@@ -1,0 +1,21 @@
+# =============================================================================
+# TempConnect – PRODUCTION Managed Services Overlay
+# =============================================================================
+# Nutzen wenn SOWOHL Managed PostgreSQL ALS AUCH Managed Redis verwendet wird.
+# Deaktiviert den lokalen Redis-Container – REDIS_URL muss in .env gesetzt sein.
+#
+# Nutzung:
+#   docker compose -f docker-compose.prod.yml -f docker-compose.prod.managed.yml up -d --build
+#
+# Wenn nur Managed DB (kein Managed Redis) → NICHT diese Datei verwenden,
+# docker-compose.prod.yml enthält bereits keinen DB-Container.
+# =============================================================================
+
+services:
+  redis:
+    profiles: ["local-redis"]
+  api:
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    # REDIS_URL muss auf Managed Redis zeigen (z.B. redis://:PASS@managed-redis:6379)

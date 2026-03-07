@@ -1,0 +1,3 @@
+-- Umkreissuche: Koordinaten am User (Profil-Adresse) für Distanzfilter
+ALTER TABLE users ADD COLUMN IF NOT EXISTS latitude DOUBLE PRECISION;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS longitude DOUBLE PRECISION;

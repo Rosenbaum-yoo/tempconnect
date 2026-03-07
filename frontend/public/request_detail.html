@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <title>Anfrage – TempConnect</title>
+  <link rel="stylesheet" href="/public/css/enterprise.css"/>
+  <style>
+    .timer-big { font-size: 28px; text-align: center; padding: 20px; font-weight: 800; }
+    .timer-big.green { color: var(--good); }
+    .timer-big.yellow { color: var(--warn); }
+    .timer-big.red { color: var(--bad); }
+    .timer-big.muted { color: var(--muted); }
+    .score-badge { display: inline-block; padding: 6px 12px; border-radius: 999px; font-weight: 700; margin-top: 8px; }
+    .score-badge.a { background: rgba(57,217,138,.2); color: #c8ffe7; }
+    .score-badge.b { background: rgba(255,204,0,.2); color: #fff3c2; }
+    .score-badge.c { background: rgba(255,92,122,.2); color: #ffd0d8; }
+    .actions { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 16px; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="topbar">
+      <a href="/" class="btn">Startseite</a>
+      <a href="/public/enterprise.html" class="btn">Übersicht</a>
+      <a href="/public/company_requests.html" class="btn">Meine Anfragen</a>
+      <a href="/public/agency_inbox.html" class="btn">Eingang</a>
+      <a href="/public/capacity_search.html" class="btn">Kapazitätssuche</a>
+      <a href="/public/sla_search_jobs_list.html" class="btn">Suchaufträge</a>
+    </div>
+    <div id="root"><p class="empty">Lade Anfrage…</p></div>
+  </div>
+  <script>
+    var API = "/api";
+    function esc(s){if(!s)return "";return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;").replace(/'/g,"&#39;");}
+    var id = (new URLSearchParams(window.location.search)).get("id");
+
+    function idempotencyKey() {
+      try { return (typeof crypto !== "undefined" && crypto.randomUUID) ? crypto.randomUUID() : "x-" + Math.random().toString(36).slice(2) + "-" + Date.now(); } catch(e) { return "x-" + Math.random().toString(36).slice(2) + "-" + Date.now(); }
+    }
+    function getCsrf() { return fetch(API + "/csrf", { credentials: "include" }).then(function(r) { return r.ok ? r.json() : null; }); }
+    function api(path, opts) {
+      opts = opts || {};
+      var method = opts.method || "GET";
+      var headers = { "Content-Type": "application/json" };
+      if (["POST","PATCH","PUT","DELETE"].indexOf(method) >= 0) {
+        headers["X-CSRF-Token"] = opts.csrf || "";
+        headers["Idempotency-Key"] = idempotencyKey();
+      }
+      return fetch(API + path, { method: method, headers: headers, body: opts.body ? JSON.stringify(opts.body) : undefined, credentials: "include" });
+    }
+    function checkAuth(r) { if (r.status === 401) { window.location.href = "/"; return false; } return true; }
+
+    function timerClass(respondBy, status) {
+      if (status === "BREACHED" || status === "RESOLVED") return "red";
+      if (!respondBy) return "muted";
+      var min = Math.floor((new Date(respondBy).getTime() - Date.now()) / 60000);
+      if (min <= 0) return "red";
+      if (min <= 15) return "yellow";
+      return "green";
+    }
+    function timerText(respondBy, status) {
+      if (status === "BREACHED") return "Pulse überschritten";
+      if (status === "RESOLVED") return "Erledigt";
+      if (!respondBy) return "Pulse nicht konfiguriert";
+      var min = Math.floor((new Date(respondBy).getTime() - Date.now()) / 60000);
+      if (min <= 0) return "Abgelaufen";
+      var h = Math.floor(min / 60), m = min % 60;
+      return (h ? h + "h " : "") + m + " min verbleibend";
+    }
+
+    function render(req) {
+      var canRespond = req.receiver_id === window._userId && (req.status === "SENT" || req.status === "OFFERED");
+      var respondBy = req.sla_respond_by ? new Date(req.sla_respond_by) : null;
+      var timerCls = timerClass(req.sla_respond_by, req.sla_status);
+      var comp = (req.compliance_status || "").toUpperCase();
+      var compCls = comp === "GREEN" ? "green" : comp === "YELLOW" ? "yellow" : "red";
+      var reasons = Array.isArray(req.compliance_reasons) && req.compliance_reasons.length
+        ? req.compliance_reasons.map(function(x) { return (x && x.message) ? x.message : (typeof x === "string" ? x : JSON.stringify(x || "")); }).filter(Boolean)
+        : [];
+      var reasonsHtml = reasons.length ? "<ul>" + reasons.map(function(m) { return "<li>" + esc(m) + "</li>"; }).join("") + "</ul>" : "<span>Keine Hinweise.</span>";
+      var scoreHtml = "";
+      if (req.scorecard && (req.scorecard.grade || req.scorecard.fill_rate != null)) {
+        var s = req.scorecard;
+        var g = (s.grade || "–").toUpperCase();
+        scoreHtml = "<div class=\"card\"><h3 style=\"margin:0 0 8px\">Supplier Scorecard</h3><span class=\"score-badge " + (g === "A" ? "a" : g === "B" ? "b" : "c") + "\">Grade " + esc(s.grade || "–") + "</span>";
+        scoreHtml += "<div class=\"kpi-row\" style=\"margin-top:12px;display:grid;grid-template-columns:repeat(4,1fr);gap:10px;font-size:13px\">";
+        scoreHtml += "<div><b>" + (s.fill_rate != null ? (s.fill_rate * 100).toFixed(0) + "%" : "–") + "</b><span class=\"muted\">Fill-rate</span></div>";
+        scoreHtml += "<div><b>" + (s.on_time_rate != null ? (s.on_time_rate * 100).toFixed(0) + "%" : "–") + "</b><span class=\"muted\">On-time</span></div>";
+        scoreHtml += "<div><b>" + (s.avg_rating != null ? s.avg_rating.toFixed(1) : "–") + "</b><span class=\"muted\">Quality</span></div>";
+        scoreHtml += "<div><b>" + (s.sla_breach_rate != null ? (s.sla_breach_rate * 100).toFixed(0) + "%" : "–") + "</b><span class=\"muted\">Pulse breach</span></div></div></div>";
+      }
+      var eventsHtml = "";
+      if (Array.isArray(req.sla_events) && req.sla_events.length) {
+        eventsHtml = "<ul style=\"list-style:none;padding:0;margin:0\">" + req.sla_events.map(function(e) {
+          return "<li style=\"padding:8px 0;border-bottom:1px solid var(--line);font-size:13px;color:var(--muted)\"><strong>" + esc(e.event_type || "") + "</strong> " + (e.created_at ? new Date(e.created_at).toLocaleString("de-DE") : "") + "</li>";
+        }).join("") + "</ul>";
+      } else eventsHtml = "<p class=\"empty\">Keine Pulse-Aktivität.</p>";
+      var actionsHtml = "";
+      if (canRespond) {
+        actionsHtml = "<div class=\"actions\"><button class=\"btn good\" data-action=\"ACCEPTED\">Annehmen</button><button class=\"btn bad\" data-action=\"DECLINED\">Ablehnen</button></div>";
+      }
+      var isRequester = req.requester_id === window._userId;
+      var showSlaBox = isRequester && req.status === "SENT";
+      var slaBoxHtml = "";
+      if (showSlaBox) {
+        slaBoxHtml = "<div class=\"card\" style=\"margin-top:12px\"><h3 style=\"margin:0 0 8px;font-size:14px\">Pulse ändern</h3>";
+        slaBoxHtml += "<div style=\"display:flex;align-items:center;gap:10px;flex-wrap:wrap\">";
+        slaBoxHtml += "<select id=\"sla_select\" style=\"max-width:120px\"><option value=\"30\">30 min</option><option value=\"60\">60 min</option><option value=\"120\">120 min</option><option value=\"240\">240 min</option><option value=\"480\">480 min</option></select>";
+        slaBoxHtml += "<button type=\"button\" class=\"btn primary\" id=\"slaSetBtn\">Pulse setzen</button></div></div>";
+      }
+
+      var html = "<div class=\"card\"><div class=\"timer-big " + timerCls + "\" id=\"timerDisplay\">" + timerText(req.sla_respond_by, req.sla_status) + "</div>";
+      html += "<p style=\"text-align:center;margin:0;color:var(--muted);font-size:14px\">Antwort bis: " + (req.sla_respond_by ? new Date(req.sla_respond_by).toLocaleString("de-DE") : "–") + "</p></div>";
+
+      if (req.compliance_status) {
+        html += "<div class=\"card\"><h3 style=\"margin:0 0 8px\">Compliance <span class=\"tag " + compCls + "\">" + esc(req.compliance_status) + "</span></h3>";
+        html += "<div class=\"accordion-toggle\" id=\"accordionWhy\" onclick=\"document.getElementById('accordionBody').classList.toggle('show')\">Warum? (klicken)</div>";
+        html += "<div class=\"accordion-body\" id=\"accordionBody\">" + reasonsHtml + "</div></div>";
+      }
+      html += scoreHtml;
+      html += "<div class=\"card\"><h3 style=\"margin:0 0 10px\">Anfrage</h3>";
+      html += "<p><strong>Rolle:</strong> " + esc(req.role || req.capacity_role || req.listing_category || "–") + "</p>";
+      html += "<p><strong>Status:</strong> " + esc(req.status || "–") + "</p>";
+      if (req.requester_company) html += "<p><strong>Anfragesteller:</strong> " + esc(req.requester_company) + "</p>";
+      if (req.receiver_company) html += "<p><strong>Empfänger:</strong> " + esc(req.receiver_company) + "</p>";
+      if (req.location_text) html += "<p><strong>Einsatzort:</strong> " + esc(req.location_text) + "</p>";
+      if (req.start_date) html += "<p><strong>Start:</strong> " + esc(req.start_date) + "</p>";
+      html += actionsHtml + "</div>";
+      html += "<div class=\"card\"><h3 style=\"margin:0 0 10px\">Pulse & Escalation</h3>" + eventsHtml + "</div>";
+
+      document.getElementById("root").innerHTML = html;
+      if (req.sla_respond_by && req.sla_status === "OK") {
+        window._timerReq = req;
+        window._timerId = setInterval(function() {
+          var el = document.getElementById("timerDisplay");
+          if (el) el.textContent = timerText(req.sla_respond_by, req.sla_status);
+        }, 60000);
+      }
+      document.querySelectorAll("[data-action]").forEach(function(btn) {
+        btn.onclick = function() { setStatus(btn.getAttribute("data-action")); };
+      });
+    }
+
+    function setStatus(status) {
+      getCsrf().then(function(csrf) {
+        return api("/requests/" + id + "/status", { method: "PATCH", body: { status: status }, csrf: csrf && csrf.token });
+      }).then(function(r) {
+        if (!checkAuth(r)) return;
+        if (r.ok) { load(); return; }
+        r.json().then(function(j) { alert(j.error || "Fehler"); });
+      });
+    }
+
+    function load() {
+      if (!id) { document.getElementById("root").innerHTML = "<p class=\"empty\">Keine Anfrage-ID.</p>"; return; }
+      api("/me").then(function(r) {
+        if (!checkAuth(r)) return;
+        return r.ok ? r.json() : null;
+      }).then(function(me) {
+        if (me) window._userId = me.id;
+        return api("/requests/" + id);
+      }).then(function(r) {
+        if (!checkAuth(r)) return;
+        if (!r.ok) { document.getElementById("root").innerHTML = "<p class=\"empty\">Anfrage nicht gefunden.</p>"; return; }
+        return r.json();
+      }).then(function(req) {
+        if (!req) return;
+        if (window._timerId) clearInterval(window._timerId);
+        render(req);
+      });
+    }
+    load();
+  </script>
+  <div id="tc-footer" data-tc-footer></div>
+  <script src="/public/js/footer.js"></script>
+</body>
+</html>

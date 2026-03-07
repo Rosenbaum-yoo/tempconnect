@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <title>Nachweise – TempConnect</title>
+  <link rel="stylesheet" href="/public/css/enterprise.css"/>
+</head>
+<body data-sla-guard="sla_proofs">
+  <div id="paywall" class="wrap" style="display:none">
+    <div class="topbar"><span class="brand">TempConnect</span><a href="/" class="btn">Startseite</a></div>
+    <div class="paywall-box">
+      <h2>Bereich nicht verfuegbar</h2>
+      <p>Das Feature Nachweise ist mit deinem aktuellen Plan nicht nutzbar.</p>
+      <p>Aktueller Plan: <span id="paywall-current-plan" class="paywall-plan">–</span></p>
+      <a id="paywall-cta" href="/public/sla_abo.html" class="btn primary">Abo ansehen</a>
+    </div>
+  </div>
+  <div id="main-content" class="wrap">
+    <div class="topbar">
+      <span class="brand">TempConnect – Nachweise</span>
+      <a href="/" class="btn">Startseite</a>
+      <a href="/public/enterprise.html" class="btn">Übersicht</a>
+      <a href="/public/capacity_search.html" class="btn">Kapazitätssuche</a>
+      <a href="/public/sla_search_jobs_list.html" class="btn">Suchaufträge</a>
+    </div>
+    <h1>Nachweise</h1>
+    <p style="color:var(--muted);margin:0 0 16px">Upload und Verwaltung von Nachweisen (Pulse-safe).</p>
+    <div class="card">
+      <label>Datei hochladen</label>
+      <input type="file" id="proofFile" accept=".pdf,.jpg,.jpeg,.png" style="margin-bottom:12px"/>
+      <p class="muted">Kommt in Kuerze. Das Backend nimmt Uploads noch nicht entgegen.</p>
+      <button type="button" class="btn primary" disabled>Hochladen (demnaechst)</button>
+    </div>
+    <div id="proof-list" class="empty">Keine Nachweise vorhanden.</div>
+    <p class="sla-disclaimer">Hinweis: Inhalte dienen der Unterstuetzung und ersetzen keine rechtliche Pruefung. Angaben ohne Gewaehr.</p>
+  </div>
+  <script src="/public/js/planFeatures.js"></script>
+  <script src="/public/js/slaGuard.js"></script>
+  <div id="tc-footer" data-tc-footer></div>
+  <script src="/public/js/footer.js"></script>
+</body>
+</html>

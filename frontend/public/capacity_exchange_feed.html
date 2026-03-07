@@ -1,0 +1,372 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <title>Kapazitaetsboerse – TempConnect</title>
+  <link rel="stylesheet" href="/public/css/enterprise.css"/>
+  <style>
+    .ce-feed { display: flex; flex-direction: column; gap: var(--ds-space-4); }
+    .ce-card { padding: var(--ds-space-5); border: 1px solid var(--ds-border); border-radius: var(--ds-radius-lg); background: rgba(255,255,255,.025); transition: border-color .2s, transform .15s, box-shadow .2s; cursor: pointer; }
+    .ce-card:hover { border-color: var(--ds-border-hover); transform: translateY(-1px); box-shadow: var(--ds-shadow-md); }
+    .ce-card__head { display: flex; justify-content: space-between; align-items: flex-start; gap: var(--ds-space-3); margin-bottom: var(--ds-space-3); }
+    .ce-card__title { font-size: 16px; font-weight: 700; margin: 0 0 2px; }
+    .ce-card__role { font-size: 13px; color: var(--ds-text-secondary); }
+    .ce-card__meta { display: flex; flex-wrap: wrap; gap: var(--ds-space-4); font-size: 13px; color: var(--ds-text-secondary); margin-bottom: var(--ds-space-3); }
+    .ce-card__meta-item { display: flex; align-items: center; gap: 4px; }
+    .ce-card__trust { display: flex; flex-wrap: wrap; gap: var(--ds-space-2); }
+    .ce-freshness { display: inline-flex; align-items: center; gap: 4px; font-size: 12px; }
+    .ce-freshness__dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+    .ce-freshness__dot--fresh { background: var(--ds-success); box-shadow: 0 0 6px rgba(52,211,153,.3); }
+    .ce-freshness__dot--aging { background: var(--ds-warning); box-shadow: 0 0 6px rgba(251,191,36,.3); }
+    .ce-freshness__dot--stale { background: rgba(255,255,255,.15); }
+    .ce-pagination { display: flex; align-items: center; justify-content: center; gap: var(--ds-space-3); margin-top: var(--ds-space-6); }
+    .ce-pagination__info { font-size: 13px; color: var(--ds-text-secondary); }
+    .ce-card__save { background:none; border:1px solid var(--ds-border); border-radius:var(--ds-radius-md); padding:4px 8px; cursor:pointer; color:var(--ds-text-secondary); font-size:12px; transition:color .2s,border-color .2s; }
+    .ce-card__save:hover { color:var(--ds-brand); border-color:var(--ds-brand); }
+    .ce-card__save.saved { color:var(--ds-brand); border-color:var(--ds-brand); }
+  </style>
+</head>
+<body data-sla-guard="sla_access">
+  <div id="paywall" class="wrap" style="display:none">
+    <div class="topbar"><span class="brand">TempConnect</span><a href="/" class="btn">Startseite</a></div>
+    <div class="paywall-box">
+      <h2>Bereich nicht verfuegbar</h2>
+      <p>Aktueller Plan: <span id="paywall-current-plan" class="paywall-plan">–</span></p>
+      <a id="paywall-cta" href="/public/sla_abo.html" class="btn primary">Abo ansehen</a>
+    </div>
+  </div>
+
+  <div id="main-content" class="ds-wrap">
+    <div class="ds-topbar">
+      <div class="ds-topbar__brand"><span class="ds-topbar__brand-dot"></span>TempConnect</div>
+      <nav class="ds-topbar__nav">
+        <a href="/public/enterprise.html" class="ds-nav-link">Uebersicht</a>
+        <span class="ds-topbar__separator"></span>
+        <a href="/public/capacity_exchange_manage.html" class="ds-nav-link">Meine Kapazitaeten</a>
+        <a href="/public/capacity_exchange_form.html" class="ds-nav-link">Neu einstellen</a>
+        <a href="/public/capacity_exchange_feed.html" class="ds-nav-link ds-nav-link--active">Kapazitaetsboerse</a>
+      </nav>
+    </div>
+
+    <div class="ds-page-header">
+      <div class="ds-page-header__content">
+        <h1 class="ds-page-title">Kapazitaetsboerse</h1>
+        <p class="ds-page-subtitle">Verfuegbare Personalkapazitaeten von verifizierten Dienstleistern durchsuchen.</p>
+      </div>
+    </div>
+
+    <!-- Activity / Trust Stats Bar -->
+    <div id="feed-stats" class="ds-stats-row" style="margin-bottom:var(--ds-space-4)">
+      <div class="ds-stat-tile"><span class="ds-stat-tile__value" id="fs-active">–</span><span class="ds-stat-tile__label">Aktive Kapazitaeten</span></div>
+      <div class="ds-stat-tile"><span class="ds-stat-tile__value" id="fs-suppliers">–</span><span class="ds-stat-tile__label">Dienstleister</span></div>
+      <div class="ds-stat-tile"><span class="ds-stat-tile__value" id="fs-deals" style="color:var(--ds-success)">–</span><span class="ds-stat-tile__label">Deals (30T)</span></div>
+      <div class="ds-stat-tile"><span class="ds-stat-tile__value" id="fs-fresh" style="color:var(--ds-brand)">–</span><span class="ds-stat-tile__label">Heute aktualisiert</span></div>
+    </div>
+
+    <!-- Filter Bar -->
+    <div class="ds-filter-bar">
+      <div class="ds-filter-item">
+        <label class="ds-label" for="ff-role">Rolle</label>
+        <input type="text" id="ff-role" class="ds-input" placeholder="z.B. Lagerhelfer" style="min-width:140px"/>
+      </div>
+      <div class="ds-filter-item">
+        <label class="ds-label" for="ff-city">Stadt</label>
+        <input type="text" id="ff-city" class="ds-input" placeholder="z.B. Stuttgart" style="min-width:130px"/>
+      </div>
+      <div class="ds-filter-item">
+        <label class="ds-label" for="ff-category">Kategorie</label>
+        <select id="ff-category" class="ds-select">
+          <option value="">Alle</option>
+          <option value="Helfer">Helfer</option>
+          <option value="Fachkraft">Fachkraft</option>
+          <option value="Spezialist">Spezialist</option>
+          <option value="Fuehrungskraft">Fuehrungskraft</option>
+        </select>
+      </div>
+      <div class="ds-filter-item">
+        <label class="ds-label" for="ff-shift">Schichtmodell</label>
+        <select id="ff-shift" class="ds-select">
+          <option value="">Alle</option>
+          <option value="day">Tagschicht</option>
+          <option value="night">Nachtschicht</option>
+          <option value="rotating">Wechselschicht</option>
+          <option value="flexible">Flexibel</option>
+          <option value="weekend">Wochenende</option>
+          <option value="on_call">Bereitschaft</option>
+        </select>
+      </div>
+      <div class="ds-filter-item">
+        <label class="ds-label" for="ff-compliance">Compliance</label>
+        <select id="ff-compliance" class="ds-select">
+          <option value="">Alle</option>
+          <option value="complete">Vollstaendig</option>
+          <option value="partial">Teilweise</option>
+          <option value="pending">In Pruefung</option>
+        </select>
+      </div>
+      <div class="ds-filter-item">
+        <label class="ds-label" for="ff-headcount">Min. Anzahl</label>
+        <input type="number" id="ff-headcount" class="ds-input" min="1" placeholder="1" style="min-width:80px"/>
+      </div>
+      <div class="ds-filter-item">
+        <label class="ds-label" for="ff-avail-from">Verfuegbar ab</label>
+        <input type="date" id="ff-avail-from" class="ds-input" style="min-width:130px"/>
+      </div>
+      <div class="ds-filter-item" style="align-self:flex-end">
+        <button type="button" id="btn-search" class="ds-btn ds-btn--primary">Suchen</button>
+      </div>
+    </div>
+
+    <!-- Sort bar -->
+    <div style="display:flex;align-items:center;gap:var(--ds-space-3);margin-bottom:var(--ds-space-2)">
+      <label class="ds-label" for="ff-sort" style="margin:0;white-space:nowrap;font-size:12px">Sortierung:</label>
+      <select id="ff-sort" class="ds-select" style="max-width:200px">
+        <option value="newest">Neueste zuerst</option>
+        <option value="priority">Prioritaet</option>
+        <option value="headcount">Anzahl (absteigend)</option>
+        <option value="freshness">Aktualitaet</option>
+      </select>
+    </div>
+
+    <!-- Results count -->
+    <div id="results-info" class="ds-text-sm ds-text-muted" style="margin-bottom:var(--ds-space-3)"></div>
+
+    <!-- Feed cards -->
+    <div id="feed" class="ce-feed">
+      <div class="ds-skeleton ds-skeleton--card" style="height:120px"></div>
+      <div class="ds-skeleton ds-skeleton--card" style="height:120px"></div>
+      <div class="ds-skeleton ds-skeleton--card" style="height:120px"></div>
+    </div>
+
+    <!-- Empty State -->
+    <div id="empty-state" style="display:none">
+      <div class="ds-empty">
+        <div class="ds-empty__icon">&#128270;</div>
+        <div class="ds-empty__title">Keine Kapazitaeten gefunden</div>
+        <p class="ds-empty__text">Versuchen Sie andere Filterkriterien oder erweitern Sie Ihre Suche.</p>
+        <button class="ds-btn" onclick="document.getElementById('ff-role').value='';document.getElementById('ff-city').value='';loadFeed(1)">Filter zuruecksetzen</button>
+      </div>
+    </div>
+
+    <!-- Pagination -->
+    <div id="pagination" class="ce-pagination" style="display:none">
+      <button id="btn-prev" class="ds-btn ds-btn--sm" disabled>Zurueck</button>
+      <span id="page-info" class="ce-pagination__info"></span>
+      <button id="btn-next" class="ds-btn ds-btn--sm">Weiter</button>
+    </div>
+
+    <p class="ds-disclaimer">Alle Angaben ohne Gewaehr. TempConnect vermittelt, garantiert aber keinen Vermittlungserfolg.</p>
+  </div>
+
+  <script src="/public/js/planFeatures.js"></script>
+  <script src="/public/js/slaGuard.js"></script>
+  <script>
+  (function() {
+    var API = "/api";
+    var PAGE_SIZE = 25;
+    var currentPage = 1;
+
+    function esc(s) { return s == null ? "" : String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;"); }
+    function fmtDate(d) { return d ? String(d).substring(0,10) : "–"; }
+
+    var SHIFT_LABELS = { day:"Tagschicht", night:"Nachtschicht", rotating:"Wechselschicht", flexible:"Flexibel", weekend:"Wochenende", on_call:"Bereitschaft" };
+    var EMPLOYMENT_LABELS = { temporary:"ANUe", contract:"Werkvertrag", temp_to_perm:"Temp-to-Perm", project:"Projekt", on_call:"Abruf" };
+    var COMPLIANCE_LABELS = { unknown:"Unbekannt", pending:"In Pruefung", partial:"Teilweise", complete:"Vollstaendig" };
+    var COMPLIANCE_COLORS = { complete:"--green", partial:"--yellow", pending:"--yellow", unknown:"--grey" };
+
+    function freshnessHtml(ts) {
+      if (!ts) return '<span class="ce-freshness"><span class="ce-freshness__dot ce-freshness__dot--stale"></span></span>';
+      var h = (Date.now() - new Date(ts).getTime()) / 36e5;
+      if (h < 48) return '<span class="ce-freshness"><span class="ce-freshness__dot ce-freshness__dot--fresh"></span>Aktuell</span>';
+      if (h < 96) return '<span class="ce-freshness"><span class="ce-freshness__dot ce-freshness__dot--aging"></span></span>';
+      return '<span class="ce-freshness"><span class="ce-freshness__dot ce-freshness__dot--stale"></span></span>';
+    }
+
+    function trustBadges(ts) {
+      if (!ts) return "";
+      var html = "";
+      if (ts.supplier_verified) html += '<span class="ds-trust-badge ds-trust-badge--verified">&#10003; Verifiziert</span>';
+      if (ts.compliance_complete) html += '<span class="ds-trust-badge ds-trust-badge--compliance">Compliance</span>';
+      if (ts.active_subscriber) html += '<span class="ds-trust-badge ds-trust-badge--active">Aktiver Abonnent</span>';
+      if (ts.completed_deals > 0) html += '<span class="ds-trust-badge ds-trust-badge--deals">' + ts.completed_deals + ' Deals</span>';
+      if (ts.recently_confirmed) html += '<span class="ds-trust-badge ds-trust-badge--response">Kuerzlich bestaetigt</span>';
+      return html;
+    }
+
+    function renderCard(e) {
+      var shift = e.shift_model ? SHIFT_LABELS[e.shift_model] || e.shift_model : null;
+      var compLabel = COMPLIANCE_LABELS[e.compliance_status] || "";
+      var compColor = COMPLIANCE_COLORS[e.compliance_status] || "--grey";
+      var priceHtml = "";
+      if (e.price_hint) { priceHtml = esc(e.price_hint); }
+      else if (e.price_min != null || e.price_max != null) {
+        var parts = [];
+        if (e.price_min != null) parts.push("ab " + Number(e.price_min).toFixed(2) + " EUR");
+        if (e.price_max != null) parts.push("bis " + Number(e.price_max).toFixed(2) + " EUR");
+        priceHtml = parts.join(" ");
+      }
+
+      var html = '<div class="ce-card" data-id="' + esc(e.id) + '">';
+      html += '<div class="ce-card__head">';
+      html += '<div><div class="ce-card__title">' + esc(e.title) + '</div>';
+      html += '<div class="ce-card__role">' + esc(e.role);
+      if (e.worker_category) html += ' · ' + esc(e.worker_category);
+      html += '</div></div>';
+      html += '<div style="display:flex;align-items:center;gap:var(--ds-space-2)">';
+      html += freshnessHtml(e.last_confirmed_at);
+      if (e.priority_level === "urgent") html += '<span class="ds-badge ds-badge--danger">Dringend</span>';
+      else if (e.priority_level === "elevated") html += '<span class="ds-badge ds-badge--warning">Erhoet</span>';
+      if (e.employment_type) html += '<span class="ds-badge ds-badge--neutral">' + esc(EMPLOYMENT_LABELS[e.employment_type] || e.employment_type) + '</span>';
+      html += '<button class="ce-card__save" data-save-id="' + esc(e.id) + '" title="Merken" onclick="event.stopPropagation();window._saveCap(this)">&#9734; Merken</button>';
+      html += '</div></div>';
+
+      html += '<div class="ce-card__meta">';
+      html += '<span class="ce-card__meta-item">&#128205; ' + esc(e.location_city || "–") + (e.location_postal ? " " + esc(e.location_postal) : "") + '</span>';
+      html += '<span class="ce-card__meta-item">&#128101; ' + (e.headcount || 1) + ' Personen</span>';
+      html += '<span class="ce-card__meta-item">&#128197; ' + fmtDate(e.availability_from) + (e.availability_to ? " – " + fmtDate(e.availability_to) : "+") + '</span>';
+      if (shift) html += '<span class="ce-card__meta-item">&#9200; ' + esc(shift) + '</span>';
+      if (compLabel) html += '<span class="ce-card__meta-item"><span class="ds-traffic-light ds-traffic-light' + compColor + '"></span>' + esc(compLabel) + '</span>';
+      if (priceHtml) html += '<span class="ce-card__meta-item">&#128176; ' + priceHtml + '</span>';
+      html += '</div>';
+
+      var trust = trustBadges(e.trust_signals);
+      if (trust) html += '<div class="ce-card__trust">' + trust + '</div>';
+
+      html += '</div>';
+      return html;
+    }
+
+    function loadFeed(page) {
+      currentPage = page || 1;
+      var params = new URLSearchParams();
+      var role = document.getElementById("ff-role").value.trim();
+      var city = document.getElementById("ff-city").value.trim();
+      var cat = document.getElementById("ff-category").value;
+      var shift = document.getElementById("ff-shift").value;
+      var comp = document.getElementById("ff-compliance").value;
+      var hc = document.getElementById("ff-headcount").value;
+      var availFrom = document.getElementById("ff-avail-from").value;
+      var sort = document.getElementById("ff-sort").value;
+      if (role) params.set("role", role);
+      if (city) params.set("city", city);
+      if (cat) params.set("worker_category", cat);
+      if (shift) params.set("shift_model", shift);
+      if (comp) params.set("compliance_status", comp);
+      if (hc) params.set("min_headcount", hc);
+      if (availFrom) params.set("availability_from", availFrom);
+      if (sort) params.set("sort", sort);
+      params.set("page", currentPage);
+      params.set("limit", PAGE_SIZE);
+
+      var feedEl = document.getElementById("feed");
+      var emptyEl = document.getElementById("empty-state");
+      var pagEl = document.getElementById("pagination");
+      var infoEl = document.getElementById("results-info");
+
+      feedEl.innerHTML = '<div class="ds-skeleton ds-skeleton--card" style="height:120px"></div><div class="ds-skeleton ds-skeleton--card" style="height:120px"></div>';
+      emptyEl.style.display = "none";
+      pagEl.style.display = "none";
+
+      fetch(API + "/capacity-exchange/feed?" + params.toString(), { credentials: "include" })
+      .then(function(r) {
+        if (r.status === 401) { window.location.href = "/"; return null; }
+        return r.ok ? r.json() : { items: [], total: 0 };
+      })
+      .then(function(data) {
+        if (!data) return;
+        var items = data.items || data || [];
+        var total = data.total || items.length;
+
+        if (!items.length) {
+          feedEl.innerHTML = "";
+          emptyEl.style.display = "block";
+          infoEl.textContent = "";
+          return;
+        }
+
+        infoEl.textContent = total + " Kapazitaet" + (total !== 1 ? "en" : "") + " gefunden";
+        var html = "";
+        items.forEach(function(e) { html += renderCard(e); });
+        feedEl.innerHTML = html;
+        emptyEl.style.display = "none";
+
+        // Bind card clicks
+        feedEl.querySelectorAll(".ce-card[data-id]").forEach(function(card) {
+          card.addEventListener("click", function() {
+            window.location.href = "/public/capacity_exchange_detail.html?id=" + card.getAttribute("data-id");
+          });
+        });
+
+        // Pagination
+        var totalPages = Math.ceil(total / PAGE_SIZE);
+        if (totalPages > 1) {
+          pagEl.style.display = "flex";
+          document.getElementById("page-info").textContent = "Seite " + currentPage + " von " + totalPages;
+          document.getElementById("btn-prev").disabled = currentPage <= 1;
+          document.getElementById("btn-next").disabled = currentPage >= totalPages;
+        } else {
+          pagEl.style.display = "none";
+        }
+      })
+      .catch(function() {
+        feedEl.innerHTML = '<div class="ds-alert ds-alert--danger">Fehler beim Laden der Kapazitaeten.</div>';
+      });
+    }
+
+    // Make loadFeed globally accessible for the reset button
+    window.loadFeed = loadFeed;
+
+    document.getElementById("btn-search").addEventListener("click", function() { loadFeed(1); });
+    document.getElementById("btn-prev").addEventListener("click", function() { if (currentPage > 1) loadFeed(currentPage - 1); });
+    document.getElementById("btn-next").addEventListener("click", function() { loadFeed(currentPage + 1); });
+
+    // Enter key triggers search
+    ["ff-role","ff-city","ff-headcount","ff-avail-from"].forEach(function(id) {
+      document.getElementById(id).addEventListener("keydown", function(e) { if (e.key === "Enter") loadFeed(1); });
+    });
+    ["ff-category","ff-shift","ff-compliance","ff-sort"].forEach(function(id) {
+      document.getElementById(id).addEventListener("change", function() { loadFeed(1); });
+    });
+    document.getElementById("ff-avail-from").addEventListener("change", function() { loadFeed(1); });
+
+    // Quick-save / bookmark
+    window._saveCap = function(btn) {
+      var id = btn.getAttribute("data-save-id");
+      btn.disabled = true;
+      fetch(API + "/csrf", { credentials:"include" }).then(function(r) { return r.ok ? r.json() : {}; }).then(function(c) {
+        var token = c.csrfToken || c.token;
+        var headers = { "Content-Type":"application/json" };
+        if (token) headers["X-CSRF-Token"] = token;
+        headers["Idempotency-Key"] = "save-" + id + "-" + Date.now();
+        return fetch(API + "/capacity-exchange/entries/" + id + "/interactions", {
+          method: "POST", headers: headers, credentials: "include",
+          body: JSON.stringify({ interaction_type: "save", message: null })
+        });
+      }).then(function(r) {
+        btn.disabled = false;
+        if (r.ok) { btn.innerHTML = "&#9733; Gemerkt"; btn.classList.add("saved"); }
+      }).catch(function() { btn.disabled = false; });
+    };
+
+    // Load activity stats bar
+    (function loadFeedStats() {
+      fetch(API + "/capacity-exchange/stats", { credentials: "include" })
+      .then(function(r) { return r.ok ? r.json() : null; })
+      .then(function(s) {
+        if (!s) return;
+        document.getElementById("fs-active").textContent = s.active != null ? s.active : "–";
+        document.getElementById("fs-suppliers").textContent = s.unique_suppliers != null ? s.unique_suppliers : "–";
+        document.getElementById("fs-deals").textContent = s.deals_last_30d != null ? s.deals_last_30d : "–";
+        document.getElementById("fs-fresh").textContent = s.confirmed_today != null ? s.confirmed_today : "–";
+      }).catch(function() {});
+    })();
+
+    loadFeed(1);
+  })();
+  </script>
+  <script src="/public/js/notifications.js"></script>
+  <div id="tc-footer" data-tc-footer></div>
+  <script src="/public/js/footer.js"></script>
+</body>
+</html>

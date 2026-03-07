@@ -1,0 +1,250 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <title>Angebote erstellen (Pulse-sicher) – TempConnect</title>
+  <link rel="stylesheet" href="/public/css/enterprise.css"/>
+  <style>
+    .form-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 12px; }
+    .form-grid label { display: block; font-size: 13px; margin-bottom: 4px; color: var(--muted); }
+    .form-grid input, .form-grid select, .form-grid textarea { width: 100%; }
+    .section-title { margin: 24px 0 8px; font-size: 16px; }
+    .check-row { display: flex; align-items: center; gap: 8px; margin: 6px 0; font-size: 14px; }
+    .check-row input[type=checkbox] { width: auto; }
+    #offerStatus { margin-top: 16px; padding: 12px; border-radius: 6px; display: none; }
+    #offerStatus.success { display: block; background: rgba(0,200,100,.12); color: var(--good,#0c6); }
+    #offerStatus.error { display: block; background: rgba(255,80,80,.12); color: var(--bad,#e55); }
+  </style>
+</head>
+<body data-sla-guard="sla_offers_create">
+  <div id="paywall" class="wrap" style="display:none">
+    <div class="topbar"><span class="brand">TempConnect</span><a href="/" class="btn">Startseite</a></div>
+    <div class="paywall-box">
+      <h2>Bereich nicht verfügbar</h2>
+      <p>Das Feature &quot;<span id="paywall-feature-name">Angebote erstellen</span>&quot; ist mit deinem aktuellen Plan nicht nutzbar.</p>
+      <p>Aktueller Plan: <span id="paywall-current-plan" class="paywall-plan">–</span></p>
+      <a id="paywall-cta" href="/public/sla_abo.html" class="btn primary">Abo ansehen</a>
+    </div>
+  </div>
+  <div id="main-content" class="wrap">
+    <div class="topbar">
+      <span class="brand">TempConnect – Angebote (Pulse-sicher)</span>
+      <a href="/" class="btn">Startseite</a>
+      <a href="/public/enterprise.html" class="btn">Übersicht</a>
+      <a href="/public/capacity_search.html" class="btn">Kapazitätssuche</a>
+      <a href="/public/sla_search_jobs_list.html" class="btn">Suchaufträge</a>
+    </div>
+    <h1>Angebote erstellen (Pulse-sicher)</h1>
+    <p style="color:var(--muted);margin:0 0 16px">Kapazitätsangebote mit Best-effort-Vorlagen. Fehlende Informationen werden als „Bitte prüfen" markiert.</p>
+
+    <form id="offerForm">
+      <!-- Request / Kapazität -->
+      <div class="card">
+        <h3 class="section-title" style="margin-top:0">Anfrage / Kapazität</h3>
+        <div class="form-grid">
+          <div>
+            <label for="of_demand_id">Anfrage auswählen</label>
+            <select id="of_demand_id" name="demand_id"><option value="">Lade…</option></select>
+          </div>
+          <div>
+            <label for="of_quantity">Angebotene Menge</label>
+            <input type="number" id="of_quantity" name="offered_quantity" min="1" value="1"/>
+          </div>
+          <div>
+            <label for="of_start">Startdatum</label>
+            <input type="date" id="of_start" name="start_confirmed"/>
+          </div>
+          <div>
+            <label for="of_end">Enddatum / Dauer</label>
+            <input type="date" id="of_end" name="end_date"/>
+          </div>
+        </div>
+      </div>
+
+      <!-- Pricing -->
+      <div class="card">
+        <h3 class="section-title" style="margin-top:0">Pricing</h3>
+        <div class="form-grid">
+          <div>
+            <label for="of_hourly_rate">Stundensatz (EUR)</label>
+            <input type="number" id="of_hourly_rate" name="offered_hourly_rate" min="0" step="0.01" placeholder="z. B. 28.50"/>
+          </div>
+          <div>
+            <label for="of_night">Zuschlag Nacht (%)</label>
+            <input type="number" id="of_night" name="surcharge_night" min="0" step="1" placeholder="25"/>
+          </div>
+          <div>
+            <label for="of_weekend">Zuschlag Wochenende (%)</label>
+            <input type="number" id="of_weekend" name="surcharge_weekend" min="0" step="1" placeholder="50"/>
+          </div>
+          <div>
+            <label for="of_holiday">Zuschlag Feiertag (%)</label>
+            <input type="number" id="of_holiday" name="surcharge_holiday" min="0" step="1" placeholder="100"/>
+          </div>
+          <div>
+            <label for="of_min_hours">Mindeststunden pro Schicht</label>
+            <input type="number" id="of_min_hours" name="min_hours_per_shift" min="0" step="0.5" placeholder="8"/>
+          </div>
+          <div>
+            <label for="of_billing">Abrechnungseinheit</label>
+            <select id="of_billing" name="billing_unit">
+              <option value="hourly">Stündlich</option>
+              <option value="daily">Täglich</option>
+              <option value="weekly">Wöchentlich</option>
+              <option value="monthly">Monatlich</option>
+            </select>
+          </div>
+        </div>
+      </div>
+
+      <!-- SLA -->
+      <div class="card">
+        <h3 class="section-title" style="margin-top:0">SLA</h3>
+        <div class="form-grid">
+          <div>
+            <label for="of_valid_until">Angebot gültig bis</label>
+            <input type="datetime-local" id="of_valid_until" name="validity_until"/>
+          </div>
+          <div>
+            <label for="of_replace_sla">Ersatz-SLA (Minuten)</label>
+            <input type="number" id="of_replace_sla" name="replacement_sla_minutes" min="0" placeholder="120"/>
+          </div>
+          <div>
+            <label for="of_response_time">Reaktionszeit bei Ausfall (Min.)</label>
+            <input type="number" id="of_response_time" name="response_time_minutes" min="0" placeholder="60"/>
+          </div>
+        </div>
+      </div>
+
+      <!-- Operations -->
+      <div class="card">
+        <h3 class="section-title" style="margin-top:0">Operations</h3>
+        <div class="form-grid">
+          <div>
+            <label for="of_contact">Ansprechpartner</label>
+            <input type="text" id="of_contact" name="contact_name" placeholder="Name"/>
+          </div>
+          <div>
+            <label for="of_phone">Telefonnummer</label>
+            <input type="tel" id="of_phone" name="contact_phone" placeholder="+49…"/>
+          </div>
+          <div style="grid-column:1/-1">
+            <label for="of_notes">Notizen</label>
+            <textarea id="of_notes" name="notes" rows="3" placeholder="Optionale Bemerkungen"></textarea>
+          </div>
+        </div>
+      </div>
+
+      <!-- Compliance -->
+      <div class="card">
+        <h3 class="section-title" style="margin-top:0">Compliance</h3>
+        <div class="check-row"><input type="checkbox" id="of_qual" name="qualification_met"/><label for="of_qual">Qualifikation erfüllt</label></div>
+        <div class="check-row"><input type="checkbox" id="of_proofs" name="proofs_available"/><label for="of_proofs">Nachweise vorhanden</label></div>
+        <div class="check-row"><input type="checkbox" id="of_ppe" name="ppe_required"/><label for="of_ppe">PPE erforderlich</label></div>
+      </div>
+
+      <div style="margin-top:16px;display:flex;gap:10px">
+        <button type="submit" class="btn primary">Angebot erstellen (Entwurf)</button>
+        <a href="/public/capacity_search.html" class="btn">Zurück</a>
+      </div>
+      <div id="offerStatus"></div>
+    </form>
+
+    <p class="sla-disclaimer" style="margin-top:24px">Hinweis: Inhalte dienen der Unterstützung und ersetzen keine rechtliche Prüfung. Angaben ohne Gewähr.</p>
+  </div>
+  <script src="/public/js/planFeatures.js"></script>
+  <script src="/public/js/slaGuard.js"></script>
+  <script>
+    var API = "/api";
+    function esc(s){if(!s)return "";return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;").replace(/'/g,"&#39;");}
+    function idempotencyKey(){try{return crypto.randomUUID();}catch(e){return "x-"+Math.random().toString(36).slice(2)+"-"+Date.now();}}
+    function getCsrf(){return fetch(API+"/csrf",{credentials:"include"}).then(function(r){return r.ok?r.json():null;});}
+
+    // URL-Prefill
+    var params = new URLSearchParams(window.location.search);
+
+    // Lade Demands für Dropdown
+    fetch(API + "/marketplace/demand-requests", { credentials: "include" }).then(function(r) {
+      return r.ok ? r.json() : [];
+    }).then(function(demands) {
+      var sel = document.getElementById("of_demand_id");
+      sel.innerHTML = '<option value="">– Bitte auswählen –</option>';
+      (Array.isArray(demands) ? demands : []).forEach(function(d) {
+        var opt = document.createElement("option");
+        opt.value = d.id;
+        opt.textContent = (d.title || "–") + " – " + (d.role || "–") + " (" + (d.status || "open") + ")";
+        sel.appendChild(opt);
+      });
+      if (params.get("demand_id")) sel.value = params.get("demand_id");
+    }).catch(function() {
+      document.getElementById("of_demand_id").innerHTML = '<option value="">Fehler beim Laden</option>';
+    });
+
+    // Prefill aus URL-Parametern
+    if (params.get("quantity")) document.getElementById("of_quantity").value = params.get("quantity");
+    if (params.get("start")) document.getElementById("of_start").value = params.get("start");
+
+    // Submit
+    document.getElementById("offerForm").onsubmit = function(e) {
+      e.preventDefault();
+      var demandId = document.getElementById("of_demand_id").value;
+      if (!demandId) { alert("Bitte eine Anfrage auswählen."); return; }
+      var body = {
+        offered_quantity: parseInt(document.getElementById("of_quantity").value, 10) || 1,
+        offered_hourly_rate: parseFloat(document.getElementById("of_hourly_rate").value) || null,
+        start_confirmed: document.getElementById("of_start").value || null,
+        end_date: document.getElementById("of_end").value || null,
+        surcharges: {
+          night: parseFloat(document.getElementById("of_night").value) || 0,
+          weekend: parseFloat(document.getElementById("of_weekend").value) || 0,
+          holiday: parseFloat(document.getElementById("of_holiday").value) || 0
+        },
+        min_hours_per_shift: parseFloat(document.getElementById("of_min_hours").value) || null,
+        billing_unit: document.getElementById("of_billing").value || "hourly",
+        validity_until: document.getElementById("of_valid_until").value || null,
+        replacement_sla_minutes: parseInt(document.getElementById("of_replace_sla").value, 10) || null,
+        response_time_minutes: parseInt(document.getElementById("of_response_time").value, 10) || null,
+        contact_name: document.getElementById("of_contact").value || null,
+        contact_phone: document.getElementById("of_phone").value || null,
+        notes: document.getElementById("of_notes").value || null,
+        compliance_check: {
+          qualification_met: document.getElementById("of_qual").checked,
+          proofs_available: document.getElementById("of_proofs").checked,
+          ppe_required: document.getElementById("of_ppe").checked
+        },
+        price_type: "hourly"
+      };
+      var statusEl = document.getElementById("offerStatus");
+      statusEl.className = ""; statusEl.style.display = "none";
+      getCsrf().then(function(csrf) {
+        var token = csrf && (csrf.csrfToken || csrf.token);
+        return fetch(API + "/marketplace/demand-requests/" + demandId + "/offers", {
+          method: "POST",
+          headers: { "Content-Type": "application/json", "X-CSRF-Token": token || "", "Idempotency-Key": idempotencyKey() },
+          body: JSON.stringify(body),
+          credentials: "include"
+        });
+      }).then(function(r) {
+        if (r.status === 401) { window.location.href = "/"; return; }
+        return r.json().then(function(j) { return { ok: r.ok, data: j }; });
+      }).then(function(res) {
+        if (!res) return;
+        if (res.ok) {
+          statusEl.textContent = "Angebot erstellt (Entwurf). ID: " + (res.data.id || "–");
+          statusEl.className = "success"; statusEl.style.display = "block";
+        } else {
+          statusEl.textContent = "Fehler: " + (res.data.error || JSON.stringify(res.data));
+          statusEl.className = "error"; statusEl.style.display = "block";
+        }
+      }).catch(function() {
+        statusEl.textContent = "Netzwerkfehler.";
+        statusEl.className = "error"; statusEl.style.display = "block";
+      });
+    };
+  </script>
+  <script src="/public/js/notifications.js"></script>
+  <div id="tc-footer" data-tc-footer></div>
+  <script src="/public/js/footer.js"></script>
+</body>
+</html>

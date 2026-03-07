@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <title>Plattform-SLA – TempConnect</title>
+  <link rel="stylesheet" href="/public/css/design-system.css"/>
+  <style>
+    .sla-card { border: 1px solid var(--ds-border); border-radius: var(--ds-radius-lg); padding: var(--ds-space-5); background: rgba(255,255,255,0.02); margin-bottom: var(--ds-space-3); }
+    .sla-card h3 { font-size: 16px; font-weight: 700; margin: 0 0 var(--ds-space-2); }
+    .sla-card p, .sla-card li { font-size: 14px; color: var(--ds-text-secondary); line-height: 1.6; }
+    .sla-card ul { padding-left: 20px; margin: var(--ds-space-2) 0 0; }
+    .sla-card li { padding: 2px 0; }
+    .sla-table-wrap { overflow-x: auto; margin-top: var(--ds-space-3); }
+    .sla-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+    .sla-table th, .sla-table td { padding: 10px 14px; text-align: left; border-bottom: 1px solid var(--ds-border); }
+    .sla-table th { font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; color: var(--ds-text-secondary); background: rgba(255,255,255,0.02); }
+    .sla-table td { color: var(--ds-text); }
+    .sla-table .highlight { color: var(--ds-brand); font-weight: 600; }
+  </style>
+</head>
+<body>
+  <div class="ds-wrap">
+    <nav class="ds-topbar">
+      <div class="ds-topbar__brand"><span class="ds-topbar__brand-dot"></span> TempConnect</div>
+      <div class="ds-topbar__nav">
+        <a href="/" class="ds-nav-link">Startseite</a>
+        <a href="/public/trust/security.html" class="ds-nav-link">Sicherheit</a>
+        <a href="/public/trust/compliance.html" class="ds-nav-link">Compliance</a>
+        <a href="/public/trust/status.html" class="ds-nav-link">Status</a>
+        <span class="ds-topbar__separator"></span>
+        <a href="/app" class="ds-btn">Anmelden</a>
+      </div>
+    </nav>
+
+    <div class="ds-page-header">
+      <div class="ds-page-header__content">
+        <h1 class="ds-page-title">Plattform-SLA</h1>
+        <p class="ds-page-subtitle">Unsere operativen Verpflichtungen gegenueber Ihnen: Verfuegbarkeit, Reaktionszeiten, Datensicherheit und Incident Management.</p>
+      </div>
+    </div>
+
+    <div class="sla-card">
+      <h3>&#127919; Plattform-Verfuegbarkeit</h3>
+      <p>TempConnect strebt eine hohe Verfuegbarkeit der Plattform an. Die konkreten Zielwerte haengen vom gewaehlten Tarif ab:</p>
+      <div class="sla-table-wrap">
+        <table class="sla-table">
+          <thead><tr><th>Tarif</th><th>Verfuegbarkeitsziel</th><th>Max. geplante Ausfallzeit / Monat</th></tr></thead>
+          <tbody>
+            <tr><td>FREE / BASIS</td><td>Best Effort</td><td>Keine Zusage</td></tr>
+            <tr><td class="highlight">PLUS / PRO</td><td class="highlight">99,0 %</td><td>~7,3 Stunden</td></tr>
+            <tr><td class="highlight">ENTERPRISE</td><td class="highlight">99,5 %</td><td>~3,6 Stunden</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p style="margin-top:var(--ds-space-2)">Wartungsfenster werden mindestens 48 Stunden im Voraus angekuendigt und finden bevorzugt ausserhalb der Geschaeftszeiten statt.</p>
+    </div>
+
+    <div class="sla-card">
+      <h3>&#128337; Support-Reaktionszeiten</h3>
+      <p>Die Reaktionszeiten fuer Support-Anfragen orientieren sich am Tarif und der Prioritaet des Anliegens:</p>
+      <div class="sla-table-wrap">
+        <table class="sla-table">
+          <thead><tr><th>Prioritaet</th><th>BASIS</th><th>PLUS / PRO</th><th>ENTERPRISE</th></tr></thead>
+          <tbody>
+            <tr><td>Kritisch (Plattform nicht erreichbar)</td><td>Best Effort</td><td class="highlight">&lt; 4 Stunden</td><td class="highlight">&lt; 1 Stunde</td></tr>
+            <tr><td>Hoch (Kernfunktion eingeschraenkt)</td><td>48 Stunden</td><td class="highlight">&lt; 8 Stunden</td><td class="highlight">&lt; 4 Stunden</td></tr>
+            <tr><td>Normal (Allgemeine Anfrage)</td><td>72 Stunden</td><td>48 Stunden</td><td class="highlight">24 Stunden</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p style="margin-top:var(--ds-space-2)">Supportzeiten: Montag bis Freitag, 09:00–18:00 Uhr MEZ (Feiertage ausgenommen). Enterprise-Kunden erhalten erweiterten Support nach individueller Vereinbarung.</p>
+    </div>
+
+    <div class="sla-card">
+      <h3>&#128680; Incident Management</h3>
+      <p>Bei Stoerungen und Vorfaellen folgt TempConnect einem strukturierten Prozess:</p>
+      <ul>
+        <li><strong>Erkennung:</strong> Automatisches Monitoring erkennt Ausfaelle und Leistungseinbrueche in Echtzeit.</li>
+        <li><strong>Klassifizierung:</strong> Vorfaelle werden nach Schwere klassifiziert (Kritisch, Hoch, Normal).</li>
+        <li><strong>Kommunikation:</strong> Betroffene Kunden werden ueber die Statusseite und bei kritischen Vorfaellen per E-Mail informiert.</li>
+        <li><strong>Behebung:</strong> Das Entwicklungsteam arbeitet an der schnellstmoeglichen Behebung.</li>
+        <li><strong>Nachbereitung:</strong> Nach Behebung wird eine Ursachenanalyse durchgefuehrt und Massnahmen zur Verhinderung eingeleitet.</li>
+      </ul>
+    </div>
+
+    <div class="sla-card">
+      <h3>&#128274; Datensicherheit &amp; Backup</h3>
+      <ul>
+        <li>TLS-Verschluesselung fuer alle Verbindungen</li>
+        <li>Passwoerter mit bcrypt gehasht</li>
+        <li>Regelmaessige Datenbank-Backups</li>
+        <li>Hosting in deutschen Rechenzentren (Hetzner Online GmbH)</li>
+        <li>Auftragsverarbeitungsvertraege (AV) mit allen Dienstleistern</li>
+        <li>DSGVO-konforme Datenverarbeitung</li>
+      </ul>
+    </div>
+
+    <div class="sla-card">
+      <h3>&#9881; Betriebliche Standards</h3>
+      <ul>
+        <li>Infrastruktur containerisiert (Docker) fuer konsistente Deployments</li>
+        <li>Automatisiertes Deployment mit Rollback-Faehigkeit</li>
+        <li>Security Headers aktiv (HSTS, CSP-ready, X-Frame-Options)</li>
+        <li>Rate Limiting und CSRF-Schutz auf API-Ebene</li>
+        <li>Strukturierte Protokollierung aller Systemereignisse</li>
+      </ul>
+    </div>
+
+    <hr class="ds-divider"/>
+
+    <section style="text-align:center;padding:var(--ds-space-6) 0">
+      <p style="color:var(--ds-text-secondary);font-size:14px;margin:0 0 var(--ds-space-3)">Fuer den Pulse-spezifischen SLA (Matching-Reaktionszeiten) siehe:</p>
+      <a href="/public/legal/sla.html" class="ds-btn">Pulse SLA-Anlage (Anlage 1)</a>
+    </section>
+
+    <div class="ds-disclaimer">
+      Diese Seite beschreibt die operativen Zielwerte und Standards der TempConnect-Plattform. Verbindliche SLA-Vereinbarungen werden im Rahmen von Enterprise-Vertraegen individuell geregelt. Alle Angaben ohne Gewaehr.
+    </div>
+  </div>
+  <div id="tc-footer" data-tc-footer></div>
+  <script src="/public/js/footer.js"></script>
+</body>
+</html>

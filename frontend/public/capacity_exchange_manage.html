@@ -1,0 +1,427 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <title>Kapazitaeten verwalten – TempConnect</title>
+  <link rel="stylesheet" href="/public/css/enterprise.css"/>
+  <style>
+    .ce-freshness { display: inline-flex; align-items: center; gap: 4px; font-size: 12px; color: var(--ds-text-secondary); }
+    .ce-freshness__dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+    .ce-freshness__dot--fresh { background: var(--ds-success); box-shadow: 0 0 6px rgba(52,211,153,.3); }
+    .ce-freshness__dot--aging { background: var(--ds-warning); box-shadow: 0 0 6px rgba(251,191,36,.3); }
+    .ce-freshness__dot--stale { background: rgba(255,255,255,.15); }
+    .ce-actions { display: flex; gap: 4px; flex-wrap: wrap; }
+    .ce-actions .ds-btn--sm { padding: 2px 8px; font-size: 11px; }
+    .ce-table-wrap { overflow-x: auto; border: 1px solid var(--ds-border); border-radius: var(--ds-radius-lg); background: rgba(255,255,255,.015); }
+    .ce-table-wrap .ds-table { margin: 0; }
+    .ds-toast { opacity: 0; transform: translateY(12px); transition: opacity .3s, transform .3s; }
+    .ds-toast.show { opacity: 1; transform: translateY(0); }
+  </style>
+</head>
+<body data-sla-guard="sla_access">
+  <div id="paywall" class="wrap" style="display:none">
+    <div class="topbar"><span class="brand">TempConnect</span><a href="/" class="btn">Startseite</a></div>
+    <div class="paywall-box">
+      <h2>Bereich nicht verfuegbar</h2>
+      <p>Die Kapazitaetsboerse ist mit deinem aktuellen Plan nicht nutzbar.</p>
+      <p>Aktueller Plan: <span id="paywall-current-plan" class="paywall-plan">–</span></p>
+      <a id="paywall-cta" href="/public/sla_abo.html" class="btn primary">Abo ansehen</a>
+    </div>
+  </div>
+
+  <div id="main-content" class="ds-wrap">
+    <!-- Topbar -->
+    <div class="ds-topbar">
+      <div class="ds-topbar__brand">
+        <span class="ds-topbar__brand-dot"></span>
+        TempConnect
+      </div>
+      <nav class="ds-topbar__nav">
+        <a href="/public/enterprise.html" class="ds-nav-link">Uebersicht</a>
+        <span class="ds-topbar__separator"></span>
+        <a href="/public/capacity_exchange_manage.html" class="ds-nav-link ds-nav-link--active">Meine Kapazitaeten</a>
+        <a href="/public/capacity_exchange_form.html" class="ds-nav-link">Neu einstellen</a>
+        <a href="/public/capacity_exchange_feed.html" class="ds-nav-link">Kapazitaetsboerse</a>
+      </nav>
+    </div>
+
+    <!-- Page Header -->
+    <div class="ds-page-header">
+      <div class="ds-page-header__content">
+        <h1 class="ds-page-title">Kapazitaeten verwalten</h1>
+        <p class="ds-page-subtitle">Uebersicht und Steuerung Ihrer eingestellten Personalkapazitaeten. Aktivieren, pausieren oder archivieren Sie Eintraege.</p>
+      </div>
+      <div class="ds-page-header__actions">
+        <a href="/public/capacity_exchange_form.html" class="ds-btn ds-btn--primary">+ Neue Kapazitaet</a>
+      </div>
+    </div>
+
+    <!-- KPI Stats -->
+    <div class="ds-stats-row" id="stats-row">
+      <div class="ds-stat-tile"><span class="ds-stat-tile__value" id="stat-total">–</span><span class="ds-stat-tile__label">Gesamt</span></div>
+      <div class="ds-stat-tile"><span class="ds-stat-tile__value" id="stat-active" style="color:var(--ds-success)">–</span><span class="ds-stat-tile__label">Aktiv</span></div>
+      <div class="ds-stat-tile"><span class="ds-stat-tile__value" id="stat-paused" style="color:var(--ds-warning)">–</span><span class="ds-stat-tile__label">Pausiert</span></div>
+      <div class="ds-stat-tile"><span class="ds-stat-tile__value" id="stat-draft">–</span><span class="ds-stat-tile__label">Entwuerfe</span></div>
+      <div class="ds-stat-tile"><span class="ds-stat-tile__value" id="stat-interactions" style="color:var(--ds-brand)">–</span><span class="ds-stat-tile__label">Interaktionen (7T)</span></div>
+    </div>
+
+    <!-- Alerts: Expiry + Stale (populated by JS) -->
+    <div id="alert-expiry" class="ds-alert ds-alert--warning" style="display:none"></div>
+    <div id="alert-stale" class="ds-alert ds-alert--info" style="display:none"></div>
+
+    <!-- Filter Bar -->
+    <div class="ds-filter-bar">
+      <div class="ds-filter-item">
+        <label class="ds-label" for="filter-status">Status</label>
+        <select id="filter-status" class="ds-select">
+          <option value="">Alle</option>
+          <option value="draft">Entwurf</option>
+          <option value="active">Aktiv</option>
+          <option value="paused">Pausiert</option>
+          <option value="expired">Abgelaufen</option>
+          <option value="filled">Besetzt</option>
+          <option value="archived">Archiviert</option>
+        </select>
+      </div>
+      <div class="ds-filter-item">
+        <label class="ds-label" for="filter-role">Rolle</label>
+        <input type="text" id="filter-role" class="ds-input" placeholder="z.B. Lagerhelfer" style="min-width:160px"/>
+      </div>
+      <div class="ds-filter-item" style="align-self:flex-end">
+        <button type="button" id="btn-filter" class="ds-btn">Filtern</button>
+      </div>
+      <div class="ds-filter-item" style="align-self:flex-end;margin-left:auto">
+        <button type="button" id="btn-bulk-confirm" class="ds-btn ds-btn--ghost" style="display:none" title="Alle aktiven Eintraege als aktuell bestaetigen">Alle bestaetigen</button>
+      </div>
+    </div>
+    <div id="result-count" class="ds-text-sm ds-text-muted" style="margin-bottom:var(--ds-space-3)"></div>
+
+    <!-- Table -->
+    <div id="table-area">
+      <div class="ce-table-wrap">
+        <table class="ds-table ds-table--clickable">
+          <thead>
+            <tr>
+              <th>Titel / Rolle</th>
+              <th>Standort</th>
+              <th>Anzahl</th>
+              <th>Verfuegbarkeit</th>
+              <th>Status</th>
+              <th>Aktualitaet</th>
+              <th style="text-align:right">Aktionen</th>
+            </tr>
+          </thead>
+          <tbody id="table-body">
+            <tr><td colspan="7"><div class="ds-skeleton ds-skeleton--card" style="height:48px;margin:8px 0"></div></td></tr>
+            <tr><td colspan="7"><div class="ds-skeleton ds-skeleton--card" style="height:48px;margin:8px 0"></div></td></tr>
+            <tr><td colspan="7"><div class="ds-skeleton ds-skeleton--card" style="height:48px;margin:8px 0"></div></td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Nudge: Publish more -->
+    <div id="nudge-publish-more" class="ds-alert ds-alert--info" style="display:none">
+      &#128200; <strong>Tipp:</strong> Dienstleister mit 3+ aktiven Eintraegen erhalten im Durchschnitt mehr Anfragen. <a href="/public/capacity_exchange_form.html" style="color:var(--ds-brand);text-decoration:underline">Weitere Kapazitaet einstellen</a>
+    </div>
+
+    <!-- Nudge: Profile completeness -->
+    <div id="nudge-profile" class="ds-alert ds-alert--warning" style="display:none">
+      &#128100; <strong>Profil unvollstaendig:</strong> Ein vollstaendiges Firmenprofil erhoeht Ihre Vertrauenswuerdigkeit und Sichtbarkeit. <a href="/public/company_profile.html" style="color:var(--ds-brand);text-decoration:underline">Profil vervollstaendigen</a>
+    </div>
+
+    <!-- Empty State (hidden by default) -->
+    <div id="empty-state" style="display:none">
+      <div class="ds-empty">
+        <div class="ds-empty__icon">&#128188;</div>
+        <div class="ds-empty__title">Noch keine Kapazitaeten eingestellt</div>
+        <p class="ds-empty__text">Stellen Sie Ihre verfuegbaren Personalkapazitaeten ein, damit Unternehmen Sie finden und anfragen koennen.</p>
+        <a href="/public/capacity_exchange_form.html" class="ds-btn ds-btn--primary">Erste Kapazitaet einstellen</a>
+      </div>
+    </div>
+
+    <p class="ds-disclaimer">Hinweis: Alle Angaben dienen der Vermittlungsunterstuetzung. TempConnect garantiert keinen Vermittlungserfolg.</p>
+  </div>
+
+  <!-- Toast -->
+  <div id="toast" class="ds-toast" role="status" aria-live="polite"></div>
+
+  <script src="/public/js/planFeatures.js"></script>
+  <script src="/public/js/slaGuard.js"></script>
+  <script>
+  (function() {
+    var API = "/api";
+    var currentEntries = [];
+
+    function esc(s) { return s == null ? "" : String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;"); }
+
+    function toast(msg, type) {
+      var el = document.getElementById("toast");
+      el.textContent = msg;
+      el.className = "ds-toast ds-alert ds-alert--" + (type || "info") + " show";
+      clearTimeout(el._t);
+      el._t = setTimeout(function() { el.classList.remove("show"); }, 3500);
+    }
+
+    function getCsrf() {
+      return fetch(API + "/csrf", { credentials: "include" }).then(function(r) { return r.ok ? r.json() : {}; });
+    }
+
+    function apiFetch(path, opts) {
+      opts = opts || {};
+      var headers = { "Content-Type": "application/json" };
+      if (opts.csrf) headers["X-CSRF-Token"] = opts.csrf;
+      if (opts.method && opts.method !== "GET") {
+        headers["Idempotency-Key"] = crypto.randomUUID ? crypto.randomUUID() : "x-" + Math.random().toString(36).slice(2) + "-" + Date.now();
+      }
+      return fetch(API + path, {
+        method: opts.method || "GET",
+        headers: headers,
+        body: opts.body ? JSON.stringify(opts.body) : undefined,
+        credentials: "include"
+      });
+    }
+
+    // Status badge map
+    var STATUS_MAP = {
+      draft:    { label: "Entwurf",     css: "ds-badge--neutral" },
+      active:   { label: "Aktiv",       css: "ds-badge--success" },
+      paused:   { label: "Pausiert",    css: "ds-badge--warning" },
+      expired:  { label: "Abgelaufen",  css: "ds-badge--danger" },
+      filled:   { label: "Besetzt",     css: "ds-badge--accent" },
+      archived: { label: "Archiviert",  css: "ds-badge--neutral" }
+    };
+
+    function statusBadge(status) {
+      var m = STATUS_MAP[status] || { label: status, css: "ds-badge--neutral" };
+      return '<span class="ds-badge ' + m.css + '">' + esc(m.label) + '</span>';
+    }
+
+    function freshnessIndicator(lastConfirmed) {
+      if (!lastConfirmed) return '<span class="ce-freshness"><span class="ce-freshness__dot ce-freshness__dot--stale"></span>Nicht bestaetigt</span>';
+      var hours = (Date.now() - new Date(lastConfirmed).getTime()) / 3600000;
+      if (hours < 48) return '<span class="ce-freshness"><span class="ce-freshness__dot ce-freshness__dot--fresh"></span>Aktuell</span>';
+      if (hours < 96) return '<span class="ce-freshness"><span class="ce-freshness__dot ce-freshness__dot--aging"></span>Altert</span>';
+      return '<span class="ce-freshness"><span class="ce-freshness__dot ce-freshness__dot--stale"></span>Veraltet</span>';
+    }
+
+    function formatDate(d) {
+      if (!d) return "–";
+      return String(d).substring(0, 10);
+    }
+
+    function buildActions(entry) {
+      var html = '<div class="ce-actions">';
+      var s = entry.status;
+      if (s === "draft") {
+        html += '<button class="ds-btn ds-btn--sm ds-btn--success" data-action="activate" data-id="' + esc(entry.id) + '">Aktivieren</button>';
+      }
+      if (s === "active") {
+        html += '<button class="ds-btn ds-btn--sm" data-action="confirm" data-id="' + esc(entry.id) + '">Bestaetigen</button>';
+        html += '<button class="ds-btn ds-btn--sm ds-btn--ghost" data-action="pause" data-id="' + esc(entry.id) + '">Pausieren</button>';
+      }
+      if (s === "paused") {
+        html += '<button class="ds-btn ds-btn--sm ds-btn--success" data-action="reactivate" data-id="' + esc(entry.id) + '">Reaktivieren</button>';
+      }
+      if (s === "expired") {
+        html += '<button class="ds-btn ds-btn--sm ds-btn--success" data-action="reactivate" data-id="' + esc(entry.id) + '">Reaktivieren</button>';
+      }
+      if (s !== "archived" && s !== "filled") {
+        html += '<a class="ds-btn ds-btn--sm ds-btn--ghost" href="/public/capacity_exchange_form.html?id=' + esc(entry.id) + '">Bearbeiten</a>';
+      }
+      if (s === "active" || s === "paused") {
+        html += '<button class="ds-btn ds-btn--sm ds-btn--ghost" data-action="fill" data-id="' + esc(entry.id) + '">Besetzt</button>';
+      }
+      if (s !== "archived") {
+        html += '<button class="ds-btn ds-btn--sm ds-btn--ghost" data-action="archive" data-id="' + esc(entry.id) + '" style="color:var(--ds-text-tertiary)">Archiv</button>';
+      }
+      html += '</div>';
+      return html;
+    }
+
+    function renderTable(entries) {
+      var tbody = document.getElementById("table-body");
+      currentEntries = entries;
+      if (!entries || entries.length === 0) {
+        document.getElementById("table-area").style.display = "none";
+        document.getElementById("empty-state").style.display = "block";
+        return;
+      }
+      document.getElementById("table-area").style.display = "block";
+      document.getElementById("empty-state").style.display = "none";
+
+      var html = "";
+      entries.forEach(function(e) {
+        html += '<tr data-entry-id="' + esc(e.id) + '">';
+        html += '<td><strong>' + esc(e.title) + '</strong><br><span class="ds-text-sm ds-text-muted">' + esc(e.role) + '</span></td>';
+        html += '<td>' + esc(e.location_city || "–") + (e.location_postal ? " " + esc(e.location_postal) : "") + '</td>';
+        html += '<td style="font-variant-numeric:tabular-nums">' + (e.headcount || 1) + '</td>';
+        html += '<td><span class="ds-text-sm">' + formatDate(e.availability_from) + (e.availability_to ? " – " + formatDate(e.availability_to) : "") + '</span></td>';
+        html += '<td>' + statusBadge(e.status) + '</td>';
+        html += '<td>' + freshnessIndicator(e.last_confirmed_at) + '</td>';
+        html += '<td style="text-align:right">' + buildActions(e) + '</td>';
+        html += '</tr>';
+      });
+      tbody.innerHTML = html;
+
+      // Bind action buttons
+      tbody.querySelectorAll("[data-action]").forEach(function(btn) {
+        btn.addEventListener("click", function(ev) {
+          ev.stopPropagation();
+          handleAction(btn.getAttribute("data-action"), btn.getAttribute("data-id"), btn);
+        });
+      });
+
+      // Row click -> detail
+      tbody.querySelectorAll("tr[data-entry-id]").forEach(function(row) {
+        row.addEventListener("click", function(ev) {
+          if (ev.target.closest("button, a")) return;
+          window.location.href = "/public/capacity_exchange_detail.html?id=" + row.getAttribute("data-entry-id") + "&owner=1";
+        });
+      });
+    }
+
+    function handleAction(action, id, btn) {
+      var actionMap = {
+        activate: "/capacity-exchange/entries/" + id + "/activate",
+        pause: "/capacity-exchange/entries/" + id + "/pause",
+        reactivate: "/capacity-exchange/entries/" + id + "/reactivate",
+        fill: "/capacity-exchange/entries/" + id + "/fill",
+        archive: "/capacity-exchange/entries/" + id + "/archive",
+        confirm: "/capacity-exchange/entries/" + id + "/confirm"
+      };
+      var endpoint = actionMap[action];
+      if (!endpoint) return;
+      if (action === "archive" && !confirm("Eintrag wirklich archivieren?")) return;
+      btn.disabled = true;
+      getCsrf().then(function(csrf) {
+        return apiFetch(endpoint, { method: "POST", csrf: csrf.csrfToken || csrf.token });
+      }).then(function(r) {
+        if (r.status === 401) { window.location.href = "/"; return; }
+        if (!r.ok) return r.json().then(function(d) { throw new Error(d.error || "Fehler"); });
+        return r.json();
+      }).then(function() {
+        var labels = { activate: "Aktiviert", pause: "Pausiert", reactivate: "Reaktiviert", fill: "Als besetzt markiert", archive: "Archiviert", confirm: "Aktualitaet bestaetigt" };
+        toast(labels[action] || "Aktion ausgefuehrt", "success");
+        loadEntries();
+      }).catch(function(e) {
+        toast(e.message || "Fehler bei Aktion", "danger");
+        btn.disabled = false;
+      });
+    }
+
+    function loadStats() {
+      apiFetch("/capacity-exchange/stats").then(function(r) { return r.ok ? r.json() : null; }).then(function(s) {
+        if (!s) return;
+        document.getElementById("stat-total").textContent = s.total != null ? s.total : 0;
+        document.getElementById("stat-active").textContent = s.active != null ? s.active : 0;
+        document.getElementById("stat-paused").textContent = s.paused != null ? s.paused : 0;
+        document.getElementById("stat-draft").textContent = s.draft != null ? s.draft : 0;
+        document.getElementById("stat-interactions").textContent = s.interactions_last_7d != null ? s.interactions_last_7d : 0;
+      });
+    }
+
+    function checkAlerts(entries) {
+      var now = Date.now();
+      var expiring = entries.filter(function(e) {
+        if (e.status !== "active" || !e.valid_until) return false;
+        var diff = (new Date(e.valid_until).getTime() - now) / 864e5;
+        return diff >= 0 && diff <= 7;
+      });
+      var stale = entries.filter(function(e) {
+        if (e.status !== "active") return false;
+        if (!e.last_confirmed_at) return true;
+        return (now - new Date(e.last_confirmed_at).getTime()) / 36e5 > 96;
+      });
+
+      var expiryEl = document.getElementById("alert-expiry");
+      if (expiring.length > 0) {
+        expiryEl.innerHTML = "&#9888; <strong>" + expiring.length + " Eintrag" + (expiring.length > 1 ? "e" : "") + "</strong> lauf" + (expiring.length > 1 ? "en" : "t") + " in den naechsten 7 Tagen ab. Pruefen Sie die Gueltigkeit oder verlaengern Sie.";
+        expiryEl.style.display = "flex";
+      } else { expiryEl.style.display = "none"; }
+
+      var staleEl = document.getElementById("alert-stale");
+      var bulkBtn = document.getElementById("btn-bulk-confirm");
+      if (stale.length > 0) {
+        staleEl.innerHTML = "&#128337; <strong>" + stale.length + " aktive Eintrag" + (stale.length > 1 ? "e" : "") + "</strong> seit ueber 96h nicht bestaetigt. Regelmaessige Bestaetigung erhoeht Ihre Sichtbarkeit im Feed.";
+        staleEl.style.display = "flex";
+        bulkBtn.style.display = "inline-flex";
+      } else { staleEl.style.display = "none"; bulkBtn.style.display = "none"; }
+    }
+
+    function loadEntries() {
+      var status = document.getElementById("filter-status").value;
+      var roleFilter = document.getElementById("filter-role").value.trim().toLowerCase();
+      var qs = status ? "?status=" + encodeURIComponent(status) : "";
+      apiFetch("/capacity-exchange/entries" + qs).then(function(r) {
+        if (r.status === 401) { window.location.href = "/"; return null; }
+        return r.ok ? r.json() : [];
+      }).then(function(entries) {
+        if (entries === null) return;
+        // Show alerts before filtering
+        checkAlerts(entries);
+        if (roleFilter) {
+          entries = entries.filter(function(e) { return ((e.role||"")+" "+(e.title||"")).toLowerCase().indexOf(roleFilter) >= 0; });
+        }
+        document.getElementById("result-count").textContent = entries.length ? entries.length + " Eintraeg" + (entries.length === 1 ? "" : "e") : "";
+        renderTable(entries);
+      });
+    }
+
+    // Bulk confirm all stale active entries
+    document.getElementById("btn-bulk-confirm").addEventListener("click", function() {
+      var btn = this;
+      btn.disabled = true;
+      btn.textContent = "Wird bestaetigt…";
+      getCsrf().then(function(csrf) {
+        var token = csrf.csrfToken || csrf.token;
+        var active = currentEntries.filter(function(e) { return e.status === "active"; });
+        return Promise.all(active.map(function(e) {
+          return apiFetch("/capacity-exchange/entries/" + e.id + "/confirm", { method: "POST", csrf: token }).catch(function() {});
+        }));
+      }).then(function() {
+        toast("Alle aktiven Eintraege bestaetigt", "success");
+        btn.textContent = "Alle bestaetigen";
+        btn.disabled = false;
+        loadEntries(); loadStats();
+      });
+    });
+
+    // Bind filter
+    document.getElementById("btn-filter").addEventListener("click", loadEntries);
+    document.getElementById("filter-status").addEventListener("change", loadEntries);
+    document.getElementById("filter-role").addEventListener("keydown", function(e) { if (e.key === "Enter") loadEntries(); });
+
+    // Nudge logic
+    function checkNudges(entries) {
+      var active = entries.filter(function(e) { return e.status === "active"; });
+      var publishEl = document.getElementById("nudge-publish-more");
+      if (active.length > 0 && active.length < 3) { publishEl.style.display = "flex"; } else { publishEl.style.display = "none"; }
+
+      // Profile completeness: check via /api/me
+      fetch(API + "/me", { credentials: "include" }).then(function(r) { return r.ok ? r.json() : null; }).then(function(u) {
+        if (!u) return;
+        var profileEl = document.getElementById("nudge-profile");
+        var fields = ["company_name","contact_email","contact_phone","address","description"];
+        var filled = fields.filter(function(f) { return u[f] && String(u[f]).trim(); }).length;
+        if (filled < fields.length) { profileEl.style.display = "flex"; } else { profileEl.style.display = "none"; }
+      }).catch(function() {});
+    }
+
+    // Extend loadEntries to trigger nudges
+    var _origRenderTable = renderTable;
+    renderTable = function(entries) {
+      _origRenderTable(entries);
+      checkNudges(entries);
+    };
+
+    // Init
+    loadStats();
+    loadEntries();
+  })();
+  </script>
+  <div id="tc-footer" data-tc-footer></div>
+  <script src="/public/js/footer.js"></script>
+</body>
+</html>

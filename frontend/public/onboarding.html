@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <title>Erste Schritte – TempConnect</title>
+  <link rel="stylesheet" href="/public/css/design-system.css"/>
+  <style>
+    .ob-steps { display: flex; flex-direction: column; gap: var(--ds-space-4); margin-top: var(--ds-space-6); counter-reset: ob; }
+    .ob-step { display: grid; grid-template-columns: 56px 1fr; gap: var(--ds-space-4); padding: var(--ds-space-5); border: 1px solid var(--ds-border); border-radius: var(--ds-radius-lg); background: rgba(255,255,255,0.02); counter-increment: ob; }
+    .ob-step__num { width: 48px; height: 48px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 20px; font-weight: 900; background: var(--ds-brand-muted); border: 1px solid rgba(74,158,255,.25); color: var(--ds-brand); }
+    .ob-step__num::after { content: counter(ob); }
+    .ob-step h3 { font-size: 17px; font-weight: 700; margin: 0 0 var(--ds-space-1); }
+    .ob-step p { font-size: 14px; color: var(--ds-text-secondary); line-height: 1.6; margin: 0 0 var(--ds-space-3); }
+    .ob-step .ds-btn { align-self: flex-start; }
+
+    .role-split { display: grid; grid-template-columns: 1fr 1fr; gap: var(--ds-space-4); margin-top: var(--ds-space-6); }
+    .role-card { padding: var(--ds-space-5); border: 1px solid var(--ds-border); border-radius: var(--ds-radius-lg); background: rgba(255,255,255,0.02); }
+    .role-card h3 { font-size: 16px; font-weight: 700; margin: 0 0 var(--ds-space-2); }
+    .role-card p { font-size: 14px; color: var(--ds-text-secondary); line-height: 1.6; margin: 0 0 var(--ds-space-3); }
+    .role-card ul { padding-left: 18px; margin: 0 0 var(--ds-space-3); }
+    .role-card li { font-size: 13px; color: var(--ds-text-secondary); padding: 2px 0; }
+
+    @media (max-width: 768px) {
+      .role-split { grid-template-columns: 1fr; }
+      .ob-step { grid-template-columns: 1fr; }
+      .ob-step__num { margin: 0 auto; }
+      .ob-step { text-align: center; }
+    }
+  </style>
+</head>
+<body>
+  <div class="ds-wrap">
+    <nav class="ds-topbar">
+      <div class="ds-topbar__brand"><span class="ds-topbar__brand-dot"></span> TempConnect</div>
+      <div class="ds-topbar__nav">
+        <a href="/" class="ds-nav-link">Startseite</a>
+        <a href="/public/pricing.html" class="ds-nav-link">Tarife</a>
+        <a href="/public/hilfe.html" class="ds-nav-link">Hilfe</a>
+        <span class="ds-topbar__separator"></span>
+        <a href="/app" class="ds-btn">Anmelden</a>
+        <a href="/app" class="ds-btn ds-btn--primary">Kostenlos starten</a>
+      </div>
+    </nav>
+
+    <div class="ds-page-header">
+      <div class="ds-page-header__content">
+        <h1 class="ds-page-title">Erste Schritte mit TempConnect</h1>
+        <p class="ds-page-subtitle">In fuenf Schritten zur professionellen Personalkoordination. Starten Sie kostenlos und finden Sie sofort passende Partner.</p>
+      </div>
+    </div>
+
+    <div class="ob-steps">
+      <div class="ob-step">
+        <div class="ob-step__num"></div>
+        <div>
+          <h3>Konto erstellen</h3>
+          <p>Registrieren Sie sich mit Ihrer geschaeftlichen E-Mail-Adresse. Die Registrierung ist kostenlos und dauert weniger als 2 Minuten. Nach der E-Mail-Bestaetigung ist Ihr Konto sofort aktiv.</p>
+          <a href="/app" class="ds-btn ds-btn--primary ds-btn--sm">Jetzt registrieren</a>
+        </div>
+      </div>
+
+      <div class="ob-step">
+        <div class="ob-step__num"></div>
+        <div>
+          <h3>Firmenprofil vervollstaendigen</h3>
+          <p>Fuellen Sie Ihr Unternehmensprofil aus: Firmenname, Ansprechpartner, Kontaktdaten, Standort und Branche. Ein vollstaendiges Profil erhoet Ihre Sichtbarkeit und schafft Vertrauen bei anderen Teilnehmern.</p>
+          <a href="/public/sla_profil.html" class="ds-btn ds-btn--sm">Zum Profil</a>
+        </div>
+      </div>
+
+      <div class="ob-step">
+        <div class="ob-step__num"></div>
+        <div>
+          <h3>Rolle waehlen</h3>
+          <p>Sind Sie ein <strong>Unternehmen</strong>, das Zeitarbeitskraefte sucht, oder ein <strong>Personaldienstleister</strong>, der Kapazitaeten anbietet? Ihre Rolle bestimmt, welche Funktionen und Ansichten fuer Sie relevant sind.</p>
+        </div>
+      </div>
+
+      <div class="ob-step">
+        <div class="ob-step__num"></div>
+        <div>
+          <h3>Erste Aktion durchfuehren</h3>
+          <p>Starten Sie direkt mit einer konkreten Aktion – je nach Ihrer Rolle:</p>
+          <div class="role-split" style="margin-top:var(--ds-space-3)">
+            <div class="role-card" style="border-color:rgba(74,158,255,.2)">
+              <h3>&#127970; Als Unternehmen</h3>
+              <p>Durchsuchen Sie die Kapazitaetsboerse nach verfuegbarem Personal oder erstellen Sie eine Bedarfsmeldung.</p>
+              <ul>
+                <li>Kapazitaetsboerse durchsuchen</li>
+                <li>Bedarfsmeldung erstellen</li>
+                <li>Dienstleister einladen</li>
+              </ul>
+              <a href="/public/capacity_exchange_feed.html" class="ds-btn ds-btn--sm">Kapazitaetsboerse oeffnen</a>
+            </div>
+            <div class="role-card" style="border-color:rgba(124,92,255,.2)">
+              <h3>&#128188; Als Personaldienstleister</h3>
+              <p>Stellen Sie Ihre erste verfuegbare Kapazitaet in der Boerse ein und erreichen Sie suchende Unternehmen.</p>
+              <ul>
+                <li>Kapazitaetseintrag erstellen</li>
+                <li>Firmenprofil vervollstaendigen</li>
+                <li>Einsatzregionen festlegen</li>
+              </ul>
+              <a href="/public/capacity_exchange_form.html" class="ds-btn ds-btn--sm">Kapazitaet einstellen</a>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="ob-step">
+        <div class="ob-step__num"></div>
+        <div>
+          <h3>Marketplace-Grundlagen verstehen</h3>
+          <p>Lernen Sie die Kernkonzepte der Plattform kennen:</p>
+          <ul style="padding-left:18px;margin:var(--ds-space-2) 0">
+            <li style="font-size:13px;color:var(--ds-text-secondary);padding:2px 0"><strong>Anfragen:</strong> Senden Sie eine Anfrage an einen oder mehrere Anbieter.</li>
+            <li style="font-size:13px;color:var(--ds-text-secondary);padding:2px 0"><strong>Angebote:</strong> Personaldienstleister koennen auf Anfragen mit Angeboten reagieren.</li>
+            <li style="font-size:13px;color:var(--ds-text-secondary);padding:2px 0"><strong>Deals:</strong> Wenn beide Seiten einverstanden sind, entsteht ein Deal – erst dann werden Kontaktdaten freigegeben.</li>
+            <li style="font-size:13px;color:var(--ds-text-secondary);padding:2px 0"><strong>Pulse:</strong> Ab dem PLUS-Tarif dokumentiert die Plattform jeden Matching-Versuch mit Zeitstempel.</li>
+          </ul>
+          <a href="/public/hilfe.html" class="ds-btn ds-btn--sm">Zum Hilfe-Center</a>
+        </div>
+      </div>
+    </div>
+
+    <hr class="ds-divider"/>
+
+    <!-- Supplier Acquisition Flow -->
+    <section style="margin-bottom:var(--ds-space-6)">
+      <h2 style="font-size:18px;font-weight:700;margin:0 0 var(--ds-space-2)">Dienstleister einladen</h2>
+      <p style="font-size:14px;color:var(--ds-text-secondary);line-height:1.6;margin:0 0 var(--ds-space-4)">Laden Sie Ihre bestehenden Personaldienstleister auf TempConnect ein. Der Onboarding-Prozess dauert nur wenige Minuten:</p>
+      <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:var(--ds-space-3)">
+        <div style="text-align:center;padding:var(--ds-space-4);border:1px solid var(--ds-border);border-radius:var(--ds-radius-md);background:rgba(255,255,255,.02)">
+          <div style="font-size:20px;margin-bottom:6px">&#9993;</div>
+          <strong style="font-size:13px">1. Einladen</strong>
+          <div style="font-size:12px;color:var(--ds-text-secondary);margin-top:4px">Per E-Mail oder Link</div>
+        </div>
+        <div style="text-align:center;padding:var(--ds-space-4);border:1px solid var(--ds-border);border-radius:var(--ds-radius-md);background:rgba(255,255,255,.02)">
+          <div style="font-size:20px;margin-bottom:6px">&#128100;</div>
+          <strong style="font-size:13px">2. Registrieren</strong>
+          <div style="font-size:12px;color:var(--ds-text-secondary);margin-top:4px">Konto und Profil anlegen</div>
+        </div>
+        <div style="text-align:center;padding:var(--ds-space-4);border:1px solid var(--ds-border);border-radius:var(--ds-radius-md);background:rgba(255,255,255,.02)">
+          <div style="font-size:20px;margin-bottom:6px">&#128203;</div>
+          <strong style="font-size:13px">3. Einstellen</strong>
+          <div style="font-size:12px;color:var(--ds-text-secondary);margin-top:4px">Kapazitaeten erfassen</div>
+        </div>
+        <div style="text-align:center;padding:var(--ds-space-4);border:1px solid var(--ds-border);border-radius:var(--ds-radius-md);background:rgba(255,255,255,.02)">
+          <div style="font-size:20px;margin-bottom:6px">&#129309;</div>
+          <strong style="font-size:13px">4. Matching</strong>
+          <div style="font-size:12px;color:var(--ds-text-secondary);margin-top:4px">Anfragen und Deals</div>
+        </div>
+      </div>
+    </section>
+
+    <hr class="ds-divider"/>
+
+    <section style="text-align:center;padding:var(--ds-space-6) 0">
+      <h2 style="font-size:20px;font-weight:700;margin:0 0 var(--ds-space-2)">Bereit?</h2>
+      <p style="color:var(--ds-text-secondary);font-size:14px;margin:0 0 var(--ds-space-4)">Registrieren Sie sich kostenlos und beginnen Sie sofort mit der Personalkoordination.</p>
+      <a href="/app" class="ds-btn ds-btn--primary ds-btn--lg">Kostenlos starten</a>
+    </section>
+
+    <div class="ds-disclaimer">
+      TempConnect ist ein Plattformdienst zur Unterstuetzung der Personalkoordination. Es wird kein Vermittlungserfolg garantiert. Alle Angaben ohne Gewaehr.
+    </div>
+  </div>
+  <div id="tc-footer" data-tc-footer></div>
+  <script src="/public/js/footer.js"></script>
+</body>
+</html>

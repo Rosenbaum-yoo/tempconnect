@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <title>Angebote verwalten – TempConnect</title>
+  <link rel="stylesheet" href="/public/css/enterprise.css"/>
+  <style>
+    .tab-bar{display:flex;gap:4px;border-bottom:1px solid var(--line);margin-bottom:16px}
+    .tab-btn{padding:10px 18px;font-size:13px;font-weight:700;border:none;background:none;color:var(--muted);cursor:pointer;border-bottom:2px solid transparent;transition:color .15s,border-color .15s}
+    .tab-btn.active{color:var(--text);border-bottom-color:var(--brand)}
+    .tab-btn:hover{color:var(--text)}
+    .tab-panel{display:none}.tab-panel.active{display:block}
+    .offer-card{padding:16px;border:1px solid var(--line);border-radius:var(--ds-radius-lg,12px);background:rgba(255,255,255,.025);margin-bottom:12px}
+    .offer-header{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;margin-bottom:8px}
+    .offer-title{font-size:15px;font-weight:700}
+    .offer-meta{font-size:13px;color:var(--muted);display:flex;flex-wrap:wrap;gap:10px;margin-bottom:8px}
+    .offer-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}
+    .status-badge{font-size:11px;font-weight:700;padding:4px 10px;border-radius:999px;display:inline-block}
+    .status-draft{color:#c2e0ff;border:1px solid rgba(74,163,255,.35);background:rgba(74,163,255,.1)}
+    .status-sent{color:#fff3c2;border:1px solid rgba(255,204,0,.35);background:rgba(255,204,0,.1)}
+    .status-accepted{color:#c8ffe7;border:1px solid rgba(57,217,138,.35);background:rgba(57,217,138,.1)}
+    .status-rejected{color:#ffd0d8;border:1px solid rgba(255,92,122,.35);background:rgba(255,92,122,.1)}
+    .status-countered{color:#e8d5ff;border:1px solid rgba(168,85,247,.35);background:rgba(168,85,247,.1)}
+    .status-withdrawn{color:var(--muted);border:1px solid var(--line);background:rgba(255,255,255,.03)}
+  </style>
+</head>
+<body data-sla-guard="sla_access">
+  <div id="paywall" class="wrap" style="display:none">
+    <div class="topbar"><span class="brand">TempConnect</span><a href="/" class="btn">Startseite</a></div>
+    <div class="paywall-box">
+      <h2>Bereich nicht verfuegbar</h2>
+      <p>Aktueller Plan: <span id="paywall-current-plan" class="paywall-plan">–</span></p>
+      <a id="paywall-cta" href="/public/sla_abo.html" class="btn primary">Abo ansehen</a>
+    </div>
+  </div>
+
+  <div id="main-content" class="wrap">
+    <div class="topbar">
+      <span class="brand">TempConnect – Angebote</span>
+      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+        <a href="/public/enterprise.html" class="btn">Uebersicht</a>
+        <a href="/public/sla_angebote.html" class="btn primary">Neues Angebot</a>
+      </div>
+    </div>
+
+    <div class="ds-page-header">
+      <div class="ds-page-header__content">
+        <h1 class="ds-page-title">Angebote verwalten</h1>
+        <p class="ds-page-subtitle">Gesendete und erhaltene Angebote einsehen und bearbeiten.</p>
+      </div>
+    </div>
+
+    <div class="tab-bar" id="tabBar">
+      <button class="tab-btn active" data-tab="sent">Meine Angebote</button>
+      <button class="tab-btn" data-tab="received">Erhaltene Angebote</button>
+    </div>
+
+    <div class="tab-panel active" id="tab-sent">
+      <div id="sentOffers"><p style="color:var(--muted)">Lade Angebote...</p></div>
+    </div>
+    <div class="tab-panel" id="tab-received">
+      <div id="receivedOffers"><p style="color:var(--muted)">Lade Angebote...</p></div>
+    </div>
+  </div>
+
+  <script src="/public/js/planFeatures.js"></script>
+  <script src="/public/js/slaGuard.js"></script>
+  <script>
+    var API="/api";
+    var _csrf=null;
+    function esc(s){return s==null?"":String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;")}
+    function fmtDate(d){return d?new Date(d).toLocaleDateString("de-DE"):"–"}
+    function fmtEur(v){return v!=null?(Number(v).toFixed(2)+" EUR"):"–"}
+
+    function getCsrf(){
+      if(_csrf)return Promise.resolve(_csrf);
+      return fetch(API+"/csrf-token",{credentials:"include"}).then(function(r){return r.ok?r.json():{}}).then(function(d){_csrf=d.csrfToken||d.token;return _csrf});
+    }
+
+    var STATUS_LABELS={draft:"Entwurf",sent:"Gesendet",accepted:"Angenommen",rejected:"Abgelehnt",countered:"Gegenangebot",withdrawn:"Zurueckgezogen"};
+
+    function statusBadge(s){
+      var cls="status-"+(s||"draft");
+      return '<span class="status-badge '+cls+'">'+(STATUS_LABELS[s]||s||"–")+'</span>';
+    }
+
+    function offerActions(offer,mode){
+      var btns=[];
+      if(mode==="sent"){
+        if(offer.status==="draft")btns.push('<button class="btn primary" style="font-size:12px;padding:6px 12px" onclick="changeStatus(\''+offer.id+'\',\'sent\')">Absenden</button>');
+        if(["draft","sent"].includes(offer.status))btns.push('<button class="btn bad" style="font-size:12px;padding:6px 12px" onclick="withdrawOffer(\''+offer.id+'\')">Zurueckziehen</button>');
+      }
+      if(mode==="received"){
+        if(offer.status==="sent")btns.push('<button class="btn good" style="font-size:12px;padding:6px 12px" onclick="acceptOffer(\''+offer.id+'\')">Annehmen</button>');
+        if(offer.status==="sent")btns.push('<button class="btn bad" style="font-size:12px;padding:6px 12px" onclick="rejectOffer(\''+offer.id+'\')">Ablehnen</button>');
+      }
+      return btns.join(" ");
+    }
+
+    function renderOfferCard(o,mode){
+      var title=o.demand_title||"Nachfrage";
+      var counterparty=mode==="sent"?(o.requester_name||"–"):(o.supplier_name||"–");
+      var cpLabel=mode==="sent"?"Auftraggeber":"Lieferant";
+      var rate=o.offered_hourly_rate?fmtEur(o.offered_hourly_rate)+"/Std.":"–";
+      return '<div class="offer-card"><div class="offer-header"><div class="offer-title">'+esc(title)+' – '+esc(o.demand_role||"")+'</div>'+statusBadge(o.status)+'</div>'+
+        '<div class="offer-meta"><span>'+cpLabel+': '+esc(counterparty)+'</span><span>Stadt: '+esc(o.demand_city||"–")+'</span><span>Rate: '+rate+'</span><span>Menge: '+(o.offered_quantity||1)+'</span><span>Erstellt: '+fmtDate(o.created_at)+'</span></div>'+
+        '<div class="offer-actions">'+offerActions(o,mode)+'</div></div>';
+    }
+
+    async function loadSentOffers(){
+      try{
+        var r=await fetch(API+"/marketplace/my-offers",{credentials:"include"});
+        var d=await r.json();var items=(d.data&&d.data.items)||[];
+        document.getElementById("sentOffers").innerHTML=items.length?items.map(function(o){return renderOfferCard(o,"sent")}).join(""):'<p class="empty">Noch keine Angebote gesendet.</p>';
+      }catch(e){document.getElementById("sentOffers").innerHTML='<p class="empty">Fehler beim Laden.</p>';}
+    }
+    async function loadReceivedOffers(){
+      try{
+        var r=await fetch(API+"/marketplace/received-offers",{credentials:"include"});
+        var d=await r.json();var items=(d.data&&d.data.items)||[];
+        document.getElementById("receivedOffers").innerHTML=items.length?items.map(function(o){return renderOfferCard(o,"received")}).join(""):'<p class="empty">Noch keine Angebote erhalten.</p>';
+      }catch(e){document.getElementById("receivedOffers").innerHTML='<p class="empty">Fehler beim Laden.</p>';}
+    }
+
+    async function changeStatus(id,status){
+      var token=await getCsrf();
+      await fetch(API+"/marketplace/offers/"+id+"/status",{method:"PATCH",credentials:"include",headers:{"Content-Type":"application/json","x-csrf-token":token||""},body:JSON.stringify({status:status})});
+      loadSentOffers();
+    }
+    async function withdrawOffer(id){
+      var token=await getCsrf();
+      await fetch(API+"/marketplace/offers/"+id+"/withdraw",{method:"POST",credentials:"include",headers:{"Content-Type":"application/json","x-csrf-token":token||""}});
+      loadSentOffers();
+    }
+    async function acceptOffer(id){
+      var token=await getCsrf();
+      await fetch(API+"/marketplace/offers/"+id+"/accept",{method:"POST",credentials:"include",headers:{"Content-Type":"application/json","x-csrf-token":token||""}});
+      loadReceivedOffers();
+    }
+    async function rejectOffer(id){
+      var token=await getCsrf();
+      await fetch(API+"/marketplace/offers/"+id+"/status",{method:"PATCH",credentials:"include",headers:{"Content-Type":"application/json","x-csrf-token":token||""},body:JSON.stringify({status:"rejected"})});
+      loadReceivedOffers();
+    }
+
+    // Tab switching
+    document.getElementById("tabBar").addEventListener("click",function(e){
+      var btn=e.target.closest(".tab-btn");if(!btn)return;
+      document.querySelectorAll(".tab-btn").forEach(function(b){b.classList.remove("active")});
+      document.querySelectorAll(".tab-panel").forEach(function(p){p.classList.remove("active")});
+      btn.classList.add("active");
+      document.getElementById("tab-"+btn.dataset.tab).classList.add("active");
+      if(btn.dataset.tab==="received")loadReceivedOffers();
+    });
+
+    loadSentOffers();
+  </script>
+  <script src="/public/js/notifications.js"></script>
+  <div id="tc-footer" data-tc-footer></div>
+  <script src="/public/js/footer.js"></script>
+</body>
+</html>

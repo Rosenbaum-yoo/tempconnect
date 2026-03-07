@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <title>Kapazitaet einstellen – TempConnect Marketplace</title>
+  <link rel="stylesheet" href="/public/css/enterprise.css"/>
+  <style>
+    .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+    .form-grid .full { grid-column: 1 / -1; }
+    label { display: block; font-size: 13px; color: var(--muted); margin-bottom: 4px; }
+    input, select, textarea { width: 100%; padding: 8px 10px; border: 1px solid var(--line); border-radius: var(--radius); background: rgba(255,255,255,.05); color: var(--fg); font-size: 14px; box-sizing: border-box; }
+    textarea { min-height: 60px; resize: vertical; }
+    .toggle-row { display: flex; align-items: center; gap: 8px; margin-top: 8px; }
+    .toggle-row input[type="checkbox"] { width: auto; }
+    .msg { padding: 12px; border-radius: var(--radius); margin-top: 12px; font-size: 14px; }
+    .msg.ok { background: rgba(34,197,94,.15); color: #22c55e; }
+    .msg.err { background: rgba(239,68,68,.15); color: #ef4444; }
+  </style>
+</head>
+<body data-sla-guard="sla_access">
+  <div id="paywall" class="wrap" style="display:none">
+    <div class="topbar"><span class="brand">TempConnect</span><a href="/" class="btn">Startseite</a></div>
+    <div class="paywall-box">
+      <h2>Bereich nicht verfuegbar</h2>
+      <p>Um Kapazitaeten im Marketplace einzustellen, benoetigst du einen PLUS- oder NOTDIENST-Plan.</p>
+      <p>Aktueller Plan: <span id="paywall-current-plan" class="paywall-plan">–</span></p>
+      <a id="paywall-cta" href="/public/sla_abo.html" class="btn primary">Abo ansehen</a>
+    </div>
+  </div>
+
+  <div id="main-content" class="wrap">
+    <div class="topbar">
+      <span class="brand">TempConnect – Kapazitaet einstellen</span>
+      <a href="/" class="btn">Startseite</a>
+      <a href="/public/enterprise.html" class="btn">Uebersicht</a>
+    </div>
+    <h1>Kapazitaet im Marketplace einstellen</h1>
+    <p style="color:var(--muted);margin:0 0 16px">Stelle dein Personalangebot ein. Unternehmen koennen es im Marketplace sehen und Anfragen senden.</p>
+
+    <form id="capForm" class="card">
+      <div class="form-grid">
+        <div class="full">
+          <label for="title">Titel *</label>
+          <input id="title" name="title" required placeholder="z.B. 5 Lagerhelfer Raum Stuttgart"/>
+        </div>
+        <div>
+          <label for="role">Rolle / Beruf *</label>
+          <input id="role" name="role" required placeholder="z.B. Lagerhelfer"/>
+        </div>
+        <div>
+          <label for="skill_tags">Skills (kommagetrennt)</label>
+          <input id="skill_tags" name="skill_tags" placeholder="z.B. Stapler, Kommissionierung"/>
+        </div>
+        <div>
+          <label for="headcount">Anzahl Personen</label>
+          <input id="headcount" name="headcount" type="number" min="1" max="999" value="1"/>
+        </div>
+        <div>
+          <label for="availability_from">Verfuegbar ab *</label>
+          <input id="availability_from" name="availability_from" type="date" required/>
+        </div>
+        <div>
+          <label for="availability_to">Verfuegbar bis</label>
+          <input id="availability_to" name="availability_to" type="date"/>
+        </div>
+        <div>
+          <label for="location_city">Stadt *</label>
+          <input id="location_city" name="location_city" required placeholder="z.B. Stuttgart"/>
+        </div>
+        <div>
+          <label for="location_postal">PLZ</label>
+          <input id="location_postal" name="location_postal" placeholder="z.B. 70173"/>
+        </div>
+        <div>
+          <label for="radius_km">Radius (km)</label>
+          <input id="radius_km" name="radius_km" type="number" min="1" max="500" value="25"/>
+        </div>
+        <div>
+          <label for="price_type">Preistyp</label>
+          <select id="price_type" name="price_type">
+            <option value="">– Keine Angabe –</option>
+            <option value="hourly">Stundensatz</option>
+            <option value="daily">Tagessatz</option>
+            <option value="fixed">Festpreis</option>
+          </select>
+        </div>
+        <div>
+          <label for="price_min">Preis min (EUR)</label>
+          <input id="price_min" name="price_min" type="number" step="0.01" min="0"/>
+        </div>
+        <div>
+          <label for="price_max">Preis max (EUR)</label>
+          <input id="price_max" name="price_max" type="number" step="0.01" min="0"/>
+        </div>
+        <div class="full">
+          <div class="toggle-row">
+            <input type="checkbox" id="is_search_agent" name="is_search_agent"/>
+            <label for="is_search_agent" style="margin:0">Such-Agent aktivieren (automatisch auf passende Nachfragen matchen)</label>
+          </div>
+        </div>
+      </div>
+      <div style="margin-top:16px">
+        <button type="submit" class="btn primary" id="submitBtn">Kapazitaet einstellen</button>
+      </div>
+      <div id="msg" style="display:none"></div>
+    </form>
+
+    <p class="sla-disclaimer">Hinweis: Alle Angaben dienen der Vermittlungsunterstuetzung. TempConnect garantiert keinen Vermittlungserfolg. Angaben ohne Gewaehr.</p>
+  </div>
+
+  <script src="/public/js/planFeatures.js"></script>
+  <script src="/public/js/slaGuard.js"></script>
+  <script>
+  (function() {
+    var form = document.getElementById("capForm");
+    var msg = document.getElementById("msg");
+
+    form.addEventListener("submit", function(e) {
+      e.preventDefault();
+      msg.style.display = "none";
+      var btn = document.getElementById("submitBtn");
+      btn.disabled = true;
+      btn.textContent = "Standort wird ermittelt...";
+
+      var tags = (document.getElementById("skill_tags").value || "")
+        .split(",").map(function(t) { return t.trim(); }).filter(Boolean);
+
+      var locationCity = document.getElementById("location_city").value.trim();
+      var locationPostal = document.getElementById("location_postal").value.trim() || null;
+
+      var body = {
+        title: document.getElementById("title").value.trim(),
+        role: document.getElementById("role").value.trim(),
+        skill_tags: tags,
+        headcount: parseInt(document.getElementById("headcount").value, 10) || 1,
+        availability_from: document.getElementById("availability_from").value,
+        availability_to: document.getElementById("availability_to").value || null,
+        location_city: locationCity,
+        location_postal: locationPostal,
+        radius_km: parseInt(document.getElementById("radius_km").value, 10) || 25,
+        price_type: document.getElementById("price_type").value || null,
+        price_min: parseFloat(document.getElementById("price_min").value) || null,
+        price_max: parseFloat(document.getElementById("price_max").value) || null,
+        is_search_agent: document.getElementById("is_search_agent").checked
+      };
+
+      // Geocoding: Koordinaten aus Stadt/PLZ ermitteln
+      var geoQuery = locationPostal
+        ? "/api/geo/coordinates?postal_code=" + encodeURIComponent(locationPostal) + "&city=" + encodeURIComponent(locationCity)
+        : "/api/geo/coordinates?q=" + encodeURIComponent(locationCity);
+
+      fetch(geoQuery, { credentials: "include" })
+        .then(function(r) { return r.ok ? r.json() : null; })
+        .catch(function() { return null; })
+        .then(function(coords) {
+          if (coords && coords.lat != null && coords.lng != null) {
+            body.location_lat = coords.lat;
+            body.location_lng = coords.lng;
+          }
+          btn.textContent = "Wird gespeichert...";
+          return submitCapacity(body);
+        });
+    });
+
+    function submitCapacity(body) {
+      var btn = document.getElementById("submitBtn");
+      fetch("/api/marketplace/capacity-posts", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify(body)
+      })
+      .then(function(r) { return r.json().then(function(d) { return { ok: r.ok, status: r.status, data: d }; }); })
+      .then(function(res) {
+        btn.disabled = false;
+        btn.textContent = "Kapazitaet einstellen";
+        if (res.ok) {
+          msg.className = "msg ok";
+          var geoHint = (body.location_lat != null) ? " Standort automatisch georeferenziert." : " Hinweis: Standort konnte nicht georeferenziert werden – Umkreissuche ggf. eingeschraenkt.";
+          msg.textContent = "Kapazitaet erfolgreich eingestellt (ID: " + res.data.id.substring(0,8) + ")." + geoHint;
+          msg.style.display = "block";
+          form.reset();
+        } else {
+          var errText = res.data.error === "AGENCY_ONLY"
+            ? "Nur Zeitarbeitsunternehmen (Agency) koennen Kapazitaeten einstellen."
+            : (res.data.error || "Unbekannter Fehler");
+          msg.className = "msg err";
+          msg.textContent = errText;
+          msg.style.display = "block";
+        }
+      })
+      .catch(function() {
+        btn.disabled = false;
+        btn.textContent = "Kapazitaet einstellen";
+        msg.className = "msg err";
+        msg.textContent = "Netzwerkfehler. Bitte erneut versuchen.";
+        msg.style.display = "block";
+      });
+    }
+  })();
+  </script>
+  <div id="tc-footer" data-tc-footer></div>
+  <script src="/public/js/footer.js"></script>
+</body>
+</html>

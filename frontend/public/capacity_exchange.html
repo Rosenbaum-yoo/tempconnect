@@ -1,0 +1,296 @@
+<!DOCTYPE html>
+<!--
+  Terminology Reference (consistent across all CE pages):
+  Kapazitaetseintrag  = Capacity Entry
+  Personalkapazitaet  = Workforce Availability
+  Suchanfrage / Bedarf = Workforce Request / Requisition
+  Angebot             = Offer
+  Deal                = Deal
+  Einsatz             = Assignment
+-->
+<html lang="de">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <title>Kapazitaetsboerse – TempConnect</title>
+  <meta name="description" content="Personalkapazitaeten koordinieren: Dienstleister stellen verfuegbare Kapazitaeten ein, Unternehmen finden passende Mitarbeiter. Professionelle B2B-Plattform."/>
+  <link rel="stylesheet" href="/public/css/design-system.css"/>
+  <style>
+    body { background: radial-gradient(ellipse 1100px 600px at 15% -5%, rgba(74,158,255,.14), transparent 60%),
+                        radial-gradient(ellipse 800px 500px at 90% -2%, rgba(124,92,255,.09), transparent 55%),
+                        var(--ds-bg); }
+
+    .section-label { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; color: var(--ds-brand); margin-bottom: var(--ds-space-2); }
+    .section-heading { font-size: clamp(22px, 3vw, 30px); font-weight: 800; letter-spacing: -0.02em; margin: 0 0 var(--ds-space-2); }
+    .section-desc { color: var(--ds-text-secondary); font-size: 15px; max-width: 600px; line-height: 1.6; margin: 0; }
+
+    /* Hero */
+    .ce-hero { text-align: center; padding: var(--ds-space-10) 0 var(--ds-space-8); }
+    .ce-hero h1 { font-size: clamp(28px, 4vw, 42px); font-weight: 800; letter-spacing: -0.02em; margin: 0 0 var(--ds-space-3); line-height: 1.15; }
+    .ce-hero .lead { font-size: 17px; color: var(--ds-text-secondary); max-width: 640px; margin: 0 auto var(--ds-space-5); line-height: 1.6; }
+    .ce-hero .cta-row { display: flex; gap: var(--ds-space-3); justify-content: center; flex-wrap: wrap; }
+
+    /* Workflow Steps */
+    .workflow { display: grid; grid-template-columns: repeat(4, 1fr); gap: var(--ds-space-4); margin: var(--ds-space-8) 0; }
+    .workflow-step { text-align: center; padding: var(--ds-space-5); border: 1px solid var(--ds-border); border-radius: var(--ds-radius-lg); background: rgba(255,255,255,0.02); position: relative; }
+    .workflow-step__num { width: 40px; height: 40px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; font-size: 16px; font-weight: 900; background: var(--ds-brand-muted); border: 1px solid rgba(74,158,255,.25); color: var(--ds-brand); margin-bottom: var(--ds-space-3); }
+    .workflow-step__icon { font-size: 28px; margin-bottom: var(--ds-space-3); }
+    .workflow-step h3 { font-size: 15px; font-weight: 700; margin: 0 0 var(--ds-space-2); }
+    .workflow-step p { font-size: 13px; color: var(--ds-text-secondary); margin: 0; line-height: 1.5; }
+    .workflow-arrow { display: none; }
+    @media (min-width: 769px) {
+      .workflow-step:not(:last-child)::after { content: "\2192"; position: absolute; right: -18px; top: 50%; transform: translateY(-50%); font-size: 18px; color: var(--ds-text-tertiary); z-index: 1; }
+    }
+    @media (max-width: 768px) { .workflow { grid-template-columns: 1fr 1fr; } }
+    @media (max-width: 480px) { .workflow { grid-template-columns: 1fr; } }
+
+    /* Value Props */
+    .vp-grid { display: grid; grid-template-columns: 1fr 1fr; gap: var(--ds-space-4); margin: var(--ds-space-6) 0; }
+    .vp-card { padding: var(--ds-space-6); border: 1px solid var(--ds-border); border-radius: var(--ds-radius-lg); background: rgba(255,255,255,0.02); }
+    .vp-card--supplier { border-left: 3px solid var(--ds-accent); }
+    .vp-card--company { border-left: 3px solid var(--ds-brand); }
+    .vp-card h3 { font-size: 18px; font-weight: 700; margin: 0 0 var(--ds-space-2); }
+    .vp-card .vp-subtitle { font-size: 14px; color: var(--ds-text-secondary); margin: 0 0 var(--ds-space-4); line-height: 1.5; }
+    .vp-card ol { padding-left: 20px; margin: 0 0 var(--ds-space-4); }
+    .vp-card li { font-size: 14px; color: var(--ds-text-secondary); padding: 4px 0; line-height: 1.5; }
+    .vp-card li strong { color: var(--ds-text); }
+    .vp-benefits { display: flex; flex-direction: column; gap: var(--ds-space-2); }
+    .vp-benefit { display: flex; align-items: flex-start; gap: 8px; font-size: 13px; color: var(--ds-text-secondary); line-height: 1.4; }
+    .vp-benefit__check { color: var(--ds-success); font-weight: 700; flex-shrink: 0; margin-top: 1px; }
+    @media (max-width: 768px) { .vp-grid { grid-template-columns: 1fr; } }
+
+    /* Trust Row */
+    .ce-trust-row { display: flex; justify-content: center; gap: var(--ds-space-6); flex-wrap: wrap; padding: var(--ds-space-6) 0; border-top: 1px solid var(--ds-border); border-bottom: 1px solid var(--ds-border); margin: var(--ds-space-6) 0; }
+    .ce-trust-item { display: flex; align-items: center; gap: var(--ds-space-2); font-size: 13px; font-weight: 600; color: var(--ds-text-secondary); }
+    .ce-trust-item__icon { font-size: 18px; }
+
+    /* Activity Stats */
+    .ce-activity { display: grid; grid-template-columns: repeat(4, 1fr); gap: var(--ds-space-3); margin: var(--ds-space-6) 0; }
+    .ce-activity__tile { text-align: center; padding: var(--ds-space-4); border: 1px solid var(--ds-border); border-radius: var(--ds-radius-lg); background: rgba(255,255,255,0.02); }
+    .ce-activity__value { display: block; font-size: 24px; font-weight: 800; font-variant-numeric: tabular-nums; margin-bottom: 2px; }
+    .ce-activity__label { font-size: 11px; color: var(--ds-text-secondary); text-transform: uppercase; letter-spacing: 0.04em; }
+    @media (max-width: 768px) { .ce-activity { grid-template-columns: 1fr 1fr; } }
+
+    /* Invite Flow */
+    .invite-flow { display: grid; grid-template-columns: repeat(4, 1fr); gap: var(--ds-space-3); margin: var(--ds-space-4) 0; }
+    .invite-flow__step { text-align: center; padding: var(--ds-space-4); border: 1px solid var(--ds-border); border-radius: var(--ds-radius-md); background: rgba(255,255,255,0.02); font-size: 13px; line-height: 1.4; }
+    .invite-flow__step strong { display: block; font-size: 14px; margin-bottom: 4px; }
+    @media (max-width: 768px) { .invite-flow { grid-template-columns: 1fr 1fr; } }
+  </style>
+</head>
+<body>
+  <div class="ds-wrap">
+    <nav class="ds-topbar">
+      <div class="ds-topbar__brand"><span class="ds-topbar__brand-dot"></span> TempConnect</div>
+      <div class="ds-topbar__nav">
+        <a href="/" class="ds-nav-link">Startseite</a>
+        <a href="/public/pricing.html" class="ds-nav-link">Tarife</a>
+        <a href="/public/hilfe.html" class="ds-nav-link">Hilfe</a>
+        <span class="ds-topbar__separator"></span>
+        <a href="/app" class="ds-btn">Anmelden</a>
+        <a href="/app" class="ds-btn ds-btn--primary">Kostenlos starten</a>
+      </div>
+    </nav>
+
+    <!-- ═══ HERO ═══ -->
+    <section class="ce-hero">
+      <div class="section-label">Kapazitaetsboerse</div>
+      <h1>Personalkapazitaeten koordinieren –<br/>schneller als per Telefon und E-Mail</h1>
+      <p class="lead">Personaldienstleister stellen verfuegbare Kapazitaeten ein. Unternehmen finden passende Mitarbeiter in ihrer Region. Koordination von Angebot und Nachfrage auf einer professionellen B2B-Plattform.</p>
+      <div class="cta-row">
+        <a href="/public/capacity_exchange_feed.html" class="ds-btn ds-btn--primary ds-btn--lg">Verfuegbare Kapazitaeten ansehen</a>
+        <a href="/public/capacity_exchange_form.html" class="ds-btn ds-btn--lg">Kapazitaet einstellen</a>
+        <a href="/public/onboarding.html" class="ds-btn ds-btn--lg">So funktioniert es</a>
+      </div>
+    </section>
+
+    <!-- ═══ 4-STEP WORKFLOW ═══ -->
+    <section style="text-align:center;margin-bottom:var(--ds-space-4)">
+      <div class="section-label">Ablauf</div>
+      <h2 class="section-heading">In vier Schritten zur Personalkoordination</h2>
+      <p class="section-desc" style="margin:0 auto">Vom Kapazitaetseintrag bis zum abgeschlossenen Deal – transparent und nachvollziehbar.</p>
+    </section>
+
+    <div class="workflow">
+      <div class="workflow-step">
+        <div class="workflow-step__num">1</div>
+        <div class="workflow-step__icon">&#128203;</div>
+        <h3>Kapazitaet einstellen</h3>
+        <p>Personaldienstleister erfassen verfuegbare Mitarbeiter mit Rolle, Region, Zeitraum und Qualifikationen.</p>
+      </div>
+      <div class="workflow-step">
+        <div class="workflow-step__num">2</div>
+        <div class="workflow-step__icon">&#128269;</div>
+        <h3>Bedarf suchen oder melden</h3>
+        <p>Unternehmen durchsuchen die Boerse nach passenden Kapazitaeten oder erstellen eine Bedarfsmeldung.</p>
+      </div>
+      <div class="workflow-step">
+        <div class="workflow-step__num">3</div>
+        <div class="workflow-step__icon">&#128200;</div>
+        <h3>Matching und Kontakt</h3>
+        <p>Die Plattform matcht Angebot und Nachfrage. Unternehmen bekunden Interesse oder fordern Angebote an.</p>
+      </div>
+      <div class="workflow-step">
+        <div class="workflow-step__num">4</div>
+        <div class="workflow-step__icon">&#129309;</div>
+        <h3>Angebot und Deal</h3>
+        <p>Konditionen werden abgestimmt und der Einsatz wird ueber die Plattform koordiniert und dokumentiert.</p>
+      </div>
+    </div>
+
+    <hr class="ds-divider"/>
+
+    <!-- ═══ VALUE PROPOSITIONS ═══ -->
+    <section style="text-align:center;margin-bottom:var(--ds-space-4)">
+      <div class="section-label">Fuer wen?</div>
+      <h2 class="section-heading">Zwei Seiten, ein Ziel: schnellere Personalkoordination</h2>
+    </section>
+
+    <div class="vp-grid">
+      <!-- Supplier -->
+      <div class="vp-card vp-card--supplier">
+        <h3>&#128188; Fuer Personaldienstleister</h3>
+        <p class="vp-subtitle">Verwandeln Sie ungenutzte Kapazitaeten in neue Auftraege. Stellen Sie verfuegbare Mitarbeiter ein und erreichen Sie Unternehmen, die jetzt Personal suchen.</p>
+        <ol>
+          <li><strong>Verfuegbare Mitarbeiter erfassen</strong> – Rolle, Anzahl, Region, Zeitraum</li>
+          <li><strong>Automatisch gematcht werden</strong> – mit passenden Bedarfsmeldungen</li>
+          <li><strong>Anfragen erhalten und Angebote senden</strong> – direkt auf der Plattform</li>
+          <li><strong>Einsaetze koordinieren</strong> – vom Interesse bis zum Deal</li>
+        </ol>
+        <div class="vp-benefits">
+          <div class="vp-benefit"><span class="vp-benefit__check">&#10003;</span> Weniger Leerlaufzeiten durch schnellere Vermittlung</div>
+          <div class="vp-benefit"><span class="vp-benefit__check">&#10003;</span> Zugang zu mehreren Auftraggebern gleichzeitig</div>
+          <div class="vp-benefit"><span class="vp-benefit__check">&#10003;</span> Zentrale Koordination statt einzelner Telefonate</div>
+          <div class="vp-benefit"><span class="vp-benefit__check">&#10003;</span> Sichtbarkeit Ihrer freien Kapazitaeten erhoehen</div>
+          <div class="vp-benefit"><span class="vp-benefit__check">&#10003;</span> Schnellere Reaktion auf kurzfristige Nachfrage</div>
+        </div>
+        <div style="margin-top:var(--ds-space-5)">
+          <a href="/public/capacity_exchange_form.html" class="ds-btn ds-btn--primary">Erste Kapazitaet einstellen</a>
+        </div>
+      </div>
+
+      <!-- Company -->
+      <div class="vp-card vp-card--company">
+        <h3>&#127970; Fuer Unternehmen</h3>
+        <p class="vp-subtitle">Finden Sie verfuegbare Personalkapazitaeten in Ihrer Region – in Minuten statt Tagen. Mehrere Dienstleister antworten auf Ihren Bedarf.</p>
+        <ol>
+          <li><strong>Bedarf melden oder Boerse durchsuchen</strong> – nach Rolle, Region, Verfuegbarkeit</li>
+          <li><strong>Passende Kapazitaeten sehen</strong> – mit Qualifikationen und Konditionen</li>
+          <li><strong>Angebote von Dienstleistern erhalten</strong> – vergleichbar und transparent</li>
+          <li><strong>Einsaetze schnell starten</strong> – koordiniert ueber die Plattform</li>
+        </ol>
+        <div class="vp-benefits">
+          <div class="vp-benefit"><span class="vp-benefit__check">&#10003;</span> Schnellerer Zugang zu verfuegbarem Personal</div>
+          <div class="vp-benefit"><span class="vp-benefit__check">&#10003;</span> Mehrere Dienstleister reagieren auf eine Anfrage</div>
+          <div class="vp-benefit"><span class="vp-benefit__check">&#10003;</span> Weniger Koordinationsaufwand und E-Mail-Verkehr</div>
+          <div class="vp-benefit"><span class="vp-benefit__check">&#10003;</span> Transparente Konditionen und Qualifikationen</div>
+          <div class="vp-benefit"><span class="vp-benefit__check">&#10003;</span> Kuerzere Time-to-Fill fuer offene Positionen</div>
+        </div>
+        <div style="margin-top:var(--ds-space-5)">
+          <a href="/public/capacity_exchange_feed.html" class="ds-btn ds-btn--primary">Kapazitaeten durchsuchen</a>
+        </div>
+      </div>
+    </div>
+
+    <hr class="ds-divider"/>
+
+    <!-- ═══ TRUST SIGNALS ═══ -->
+    <div class="ce-trust-row">
+      <div class="ce-trust-item"><span class="ce-trust-item__icon">&#128274;</span> DSGVO-konforme Plattform</div>
+      <div class="ce-trust-item"><span class="ce-trust-item__icon">&#10003;</span> Verifizierte Unternehmen</div>
+      <div class="ce-trust-item"><span class="ce-trust-item__icon">&#128737;</span> Compliance-Pruefung</div>
+      <div class="ce-trust-item"><span class="ce-trust-item__icon">&#127465;&#127466;</span> Hosting in Deutschland</div>
+      <div class="ce-trust-item"><span class="ce-trust-item__icon">&#128200;</span> Professionelle Standards</div>
+    </div>
+
+    <!-- ═══ ACTIVITY STATS ═══ -->
+    <section style="text-align:center">
+      <div class="section-label">Plattform-Aktivitaet</div>
+      <h2 class="section-heading">Die Boerse lebt – koordinieren Sie mit</h2>
+      <p class="section-desc" style="margin:0 auto var(--ds-space-4)">Aktuelle Kennzahlen der Kapazitaetsboerse.</p>
+    </section>
+
+    <div class="ce-activity" id="ce-stats">
+      <div class="ce-activity__tile">
+        <span class="ce-activity__value" id="stat-entries">–</span>
+        <span class="ce-activity__label">Aktive Eintraege</span>
+      </div>
+      <div class="ce-activity__tile">
+        <span class="ce-activity__value" id="stat-suppliers">–</span>
+        <span class="ce-activity__label">Aktive Anbieter</span>
+      </div>
+      <div class="ce-activity__tile">
+        <span class="ce-activity__value" id="stat-interactions">–</span>
+        <span class="ce-activity__label">Interaktionen (7 Tage)</span>
+      </div>
+      <div class="ce-activity__tile">
+        <span class="ce-activity__value" id="stat-regions">–</span>
+        <span class="ce-activity__label">Regionen abgedeckt</span>
+      </div>
+    </div>
+
+    <script>
+    (function() {
+      fetch("/api/capacity-exchange/stats", { credentials: "include" })
+        .then(function(r) { return r.ok ? r.json() : null; })
+        .then(function(s) {
+          if (!s) return;
+          var el;
+          el = document.getElementById("stat-entries"); if (el && s.active != null) el.textContent = s.active;
+          el = document.getElementById("stat-suppliers"); if (el && s.active_suppliers != null) el.textContent = s.active_suppliers;
+          el = document.getElementById("stat-interactions"); if (el && s.interactions_last_7d != null) el.textContent = s.interactions_last_7d;
+          el = document.getElementById("stat-regions"); if (el && s.regions != null) el.textContent = s.regions;
+        })
+        .catch(function() {});
+    })();
+    </script>
+
+    <hr class="ds-divider"/>
+
+    <!-- ═══ SUPPLIER ACQUISITION FLOW ═══ -->
+    <section style="text-align:center;margin-bottom:var(--ds-space-4)">
+      <div class="section-label">Partner einladen</div>
+      <h2 class="section-heading">Dienstleister auf die Plattform bringen</h2>
+      <p class="section-desc" style="margin:0 auto">Laden Sie Ihre bestehenden Personaldienstleister ein – der Onboarding-Prozess ist in wenigen Minuten abgeschlossen.</p>
+    </section>
+
+    <div class="invite-flow">
+      <div class="invite-flow__step">
+        <strong>1. Einladen</strong>
+        Dienstleister per E-Mail oder Link zur Plattform einladen.
+      </div>
+      <div class="invite-flow__step">
+        <strong>2. Registrieren</strong>
+        Dienstleister erstellt Konto und vervollstaendigt Firmenprofil.
+      </div>
+      <div class="invite-flow__step">
+        <strong>3. Kapazitaet einstellen</strong>
+        Verfuegbare Mitarbeiter mit Rolle und Region erfassen.
+      </div>
+      <div class="invite-flow__step">
+        <strong>4. Matching starten</strong>
+        Dienstleister erhaelt passende Anfragen und kann Angebote senden.
+      </div>
+    </div>
+
+    <hr class="ds-divider"/>
+
+    <!-- ═══ FINAL CTA ═══ -->
+    <section style="text-align:center;padding:var(--ds-space-8) 0">
+      <h2 class="section-heading">Bereit fuer effizientere Personalkoordination?</h2>
+      <p class="section-desc" style="margin:var(--ds-space-2) auto var(--ds-space-5)">Registrieren Sie sich kostenlos und nutzen Sie die Kapazitaetsboerse fuer schnellere Vermittlung.</p>
+      <div style="display:flex;gap:var(--ds-space-3);justify-content:center;flex-wrap:wrap">
+        <a href="/app" class="ds-btn ds-btn--primary ds-btn--lg">Kostenlos starten</a>
+        <a href="/public/capacity_exchange_feed.html" class="ds-btn ds-btn--lg">Boerse ansehen</a>
+        <a href="/public/legal/kontakt.html" class="ds-btn ds-btn--lg">Kontakt aufnehmen</a>
+      </div>
+    </section>
+
+    <div class="ds-disclaimer">
+      TempConnect ist ein Plattformdienst zur Unterstuetzung der Personalkoordination. Es wird kein Vermittlungserfolg garantiert. Alle Angaben ohne Gewaehr.
+    </div>
+  </div>
+  <div id="tc-footer" data-tc-footer></div>
+  <script src="/public/js/footer.js"></script>
+</body>
+</html>

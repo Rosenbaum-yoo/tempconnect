@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <title>Firmenprofil – TempConnect</title>
+  <link rel="stylesheet" href="/public/css/enterprise.css"/>
+  <style>
+    .pp-hero{display:flex;align-items:center;gap:var(--ds-space-5);padding:var(--ds-space-6);border:1px solid var(--ds-border);border-radius:var(--ds-radius-lg);background:var(--ds-bg-surface);margin-bottom:var(--ds-space-6)}
+    .pp-avatar{width:72px;height:72px;border-radius:var(--ds-radius-md);background:var(--ds-brand-muted);display:flex;align-items:center;justify-content:center;font-size:28px;font-weight:900;color:var(--ds-brand);flex-shrink:0}
+    .pp-hero-body h1{font-size:24px;font-weight:800;margin:0 0 4px}
+    .pp-hero-body p{font-size:13px;color:var(--ds-text-secondary);margin:0}
+    .pp-grid{display:grid;grid-template-columns:1fr 1fr;gap:var(--ds-space-4)}
+    @media(max-width:720px){.pp-grid{grid-template-columns:1fr}}
+    .pp-card{border:1px solid var(--ds-border);border-radius:var(--ds-radius-lg);background:var(--ds-bg-surface);padding:var(--ds-space-5)}
+    .pp-card-title{font-size:14px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:var(--ds-text-secondary);margin-bottom:var(--ds-space-3)}
+    .pp-row{display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid rgba(255,255,255,.04);font-size:13px}
+    .pp-row:last-child{border:none}
+    .pp-row .lbl{color:var(--ds-text-secondary)}
+    .pp-tag{font-size:11px;padding:3px 10px;border-radius:var(--ds-radius-full);border:1px solid var(--ds-border);background:rgba(255,255,255,.03);color:var(--ds-text-secondary);display:inline-block;margin:2px 2px}
+    .pp-badge{font-size:10px;font-weight:700;padding:2px 8px;border-radius:var(--ds-radius-full);text-transform:uppercase}
+    .pp-score{display:flex;align-items:center;gap:var(--ds-space-4);padding:var(--ds-space-4);border:1px solid var(--ds-border);border-radius:var(--ds-radius-lg);background:rgba(255,255,255,.015)}
+    .pp-score-grade{font-size:36px;font-weight:900;width:60px;height:60px;border-radius:var(--ds-radius-md);display:flex;align-items:center;justify-content:center}
+    .pp-kpis{display:grid;grid-template-columns:1fr 1fr 1fr;gap:var(--ds-space-3);flex:1}
+    .pp-kpi{text-align:center}
+    .pp-kpi .v{font-size:18px;font-weight:800}
+    .pp-kpi .l{font-size:10px;color:var(--ds-text-secondary);text-transform:uppercase;letter-spacing:.06em}
+    .pp-empty{color:var(--ds-text-tertiary);font-size:13px;padding:var(--ds-space-3) 0}
+    .pp-loading{text-align:center;padding:var(--ds-space-10);color:var(--ds-text-secondary)}
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="topbar">
+      <span class="brand"><span style="width:10px;height:10px;border-radius:50%;background:linear-gradient(135deg,var(--brand),var(--brand2));display:inline-block;margin-right:8px"></span>TempConnect</span>
+      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+        <a href="/" class="btn">Startseite</a>
+        <a href="/public/enterprise.html" class="btn">Übersicht</a>
+        <a href="/public/sla_profil.html" class="btn">Mein Profil</a>
+      </div>
+    </div>
+
+    <div id="pp-loading" class="pp-loading">Profil wird geladen …</div>
+    <div id="pp-main" style="display:none">
+      <!-- Hero -->
+      <div class="pp-hero" id="pp-hero"></div>
+
+      <!-- Completeness -->
+      <div id="pp-completeness" style="display:none;margin-bottom:var(--ds-space-6)"></div>
+
+      <!-- Grid -->
+      <div class="pp-grid" id="pp-grid"></div>
+
+      <!-- Scorecard -->
+      <div id="pp-scorecard" style="display:none;margin-top:var(--ds-space-6)"></div>
+    </div>
+  </div>
+
+  <script>
+  (function(){
+    "use strict";
+    function esc(s){ var d=document.createElement("div"); d.textContent=s||""; return d.innerHTML; }
+    function $(id){ return document.getElementById(id); }
+
+    // Get userId from URL ?id=X or show own profile
+    var params = new URLSearchParams(window.location.search);
+    var targetId = params.get("id");
+
+    async function load(){
+      var url = targetId
+        ? "/api/company-profile/public/" + encodeURIComponent(targetId)
+        : "/api/company-profile";
+      try{
+        var r = await fetch(url, { credentials: "include" });
+        if(!r.ok) throw new Error("HTTP "+r.status);
+        var res = await r.json();
+        var data = res.data || res;
+        $("pp-loading").style.display="none";
+        $("pp-main").style.display="block";
+        render(data);
+      }catch(e){
+        $("pp-loading").innerHTML="<p style='color:var(--ds-danger)'>Profil konnte nicht geladen werden.</p>";
+      }
+    }
+
+    function render(d){
+      // Hero
+      var u=d.user||{}, p=d.profile||{};
+      var name = p.legal_name || u.company_name || "Unternehmen";
+      var initials = name.substring(0,2).toUpperCase();
+      var heroHtml = "<div class='pp-avatar'>"+esc(initials)+"</div><div class='pp-hero-body'>";
+      heroHtml += "<h1>"+esc(name)+"</h1>";
+      var sub = [];
+      if(p.industry_focus) sub.push(esc(p.industry_focus));
+      if(p.headquarters_city) sub.push(esc(p.headquarters_city));
+      if(p.company_size) sub.push(esc(p.company_size)+" Mitarbeiter");
+      heroHtml += "<p>"+sub.join(" &middot; ")+"</p>";
+      if(p.website) heroHtml += "<p style='margin-top:4px'><a href='"+esc(p.website)+"' target='_blank' style='color:var(--ds-brand);font-size:12px'>"+esc(p.website)+"</a></p>";
+      heroHtml += "</div>";
+      $("pp-hero").innerHTML=heroHtml;
+
+      // Completeness bar
+      var c=d.completeness||{};
+      if(c.percentage!==undefined){
+        var pct=c.percentage;
+        var color=pct>=80?"var(--ds-success)":pct>=40?"var(--ds-warning)":"var(--ds-danger)";
+        $("pp-completeness").innerHTML="<div style='padding:var(--ds-space-3) var(--ds-space-5);border:1px solid var(--ds-border);border-radius:var(--ds-radius-lg);background:var(--ds-bg-surface);display:flex;align-items:center;gap:var(--ds-space-4)'><div style='font-size:12px;font-weight:700;color:var(--ds-text-secondary);white-space:nowrap'>Profil-Vollstaendigkeit</div><div style='flex:1;height:6px;border-radius:3px;background:rgba(255,255,255,.06);overflow:hidden'><div style='height:100%;width:"+pct+"%;border-radius:3px;background:"+color+";transition:width .4s'></div></div><div style='font-size:14px;font-weight:900;color:"+color+"'>"+pct+"%</div></div>";
+        $("pp-completeness").style.display="block";
+      }
+
+      // Grid cards
+      var gridHtml = "";
+
+      // Description
+      if(p.company_description){
+        gridHtml += "<div class='pp-card' style='grid-column:1/-1'><div class='pp-card-title'>Ueber uns</div><p style='font-size:13px;line-height:1.7;color:var(--ds-text-secondary)'>"+esc(p.company_description)+"</p></div>";
+      }
+
+      // Capabilities
+      var cap=d.capabilities||{};
+      var capHtml="";
+      ["staff_categories","industries_served","typical_roles","availability_regions","languages","specializations"].forEach(function(k){
+        var arr=cap[k]||[];
+        if(arr.length){
+          var labels={staff_categories:"Personalkategorien",industries_served:"Branchen",typical_roles:"Rollen",availability_regions:"Regionen",languages:"Sprachen",specializations:"Spezialisierungen"};
+          capHtml+="<div style='margin-bottom:var(--ds-space-3)'><div style='font-size:11px;color:var(--ds-text-tertiary);text-transform:uppercase;letter-spacing:.04em;margin-bottom:4px'>"+(labels[k]||k)+"</div>";
+          arr.forEach(function(t){ capHtml+="<span class='pp-tag'>"+esc(t)+"</span>"; });
+          capHtml+="</div>";
+        }
+      });
+      if(capHtml) gridHtml+="<div class='pp-card'><div class='pp-card-title'>Kompetenzen</div>"+capHtml+"</div>";
+
+      // Locations
+      var locs=d.locations||[];
+      if(locs.length){
+        var locHtml="";
+        locs.forEach(function(l){
+          locHtml+="<div class='pp-row'><span>"+esc(l.city||"–")+(l.is_headquarters?" <span class='pp-badge' style='background:var(--ds-success-muted);color:var(--ds-success)'>HQ</span>":"")+"</span><span class='lbl'>"+esc(l.country||"")+(l.radius_km?" · "+l.radius_km+" km":"")+"</span></div>";
+        });
+        gridHtml+="<div class='pp-card'><div class='pp-card-title'>Standorte</div>"+locHtml+"</div>";
+      }
+
+      // Certifications
+      var certs=d.certifications||[];
+      if(certs.length){
+        var certHtml="";
+        certs.forEach(function(c){
+          var color=c.is_expired?"var(--ds-danger-muted)":c.status==="active"?"var(--ds-success-muted)":"var(--ds-warning-muted)";
+          var tc=c.is_expired?"var(--ds-danger)":c.status==="active"?"var(--ds-success)":"var(--ds-warning)";
+          var label=c.is_expired?"Abgelaufen":c.status==="active"?"Aktiv":esc(c.status||"");
+          certHtml+="<div class='pp-row'><span>"+esc(c.cert_name)+(c.issuer?" <span style='color:var(--ds-text-tertiary);font-size:11px'>"+esc(c.issuer)+"</span>":"")+"</span><span class='pp-badge' style='background:"+color+";color:"+tc+"'>"+label+"</span></div>";
+        });
+        gridHtml+="<div class='pp-card'><div class='pp-card-title'>Zertifizierungen</div>"+certHtml+"</div>";
+      }
+
+      // Contacts
+      var contacts=d.contacts||[];
+      if(contacts.length){
+        var conHtml="";
+        contacts.forEach(function(c){
+          conHtml+="<div class='pp-row'><span>"+esc(c.name)+(c.role_title?" <span style='color:var(--ds-text-tertiary);font-size:11px'>"+esc(c.role_title)+"</span>":"")+"</span></div>";
+        });
+        gridHtml+="<div class='pp-card'><div class='pp-card-title'>Ansprechpartner</div>"+conHtml+"</div>";
+      }
+
+      $("pp-grid").innerHTML=gridHtml;
+
+      // Scorecard
+      var s=d.scorecard;
+      if(s&&s.grade){
+        var colors={A:"var(--ds-success)",B:"var(--ds-warning)",C:"var(--ds-danger)"};
+        var bg={A:"var(--ds-success-muted)",B:"var(--ds-warning-muted)",C:"var(--ds-danger-muted)"};
+        var scHtml="<div class='pp-card'><div class='pp-card-title'>Lieferanten-Bewertung</div><div class='pp-score'>";
+        scHtml+="<div class='pp-score-grade' style='background:"+(bg[s.grade]||bg.C)+";color:"+(colors[s.grade]||colors.C)+"'>"+esc(s.grade)+"</div>";
+        scHtml+="<div class='pp-kpis'>";
+        scHtml+="<div class='pp-kpi'><div class='v'>"+Math.round((s.fill_rate||0)*100)+"%</div><div class='l'>Fill Rate</div></div>";
+        scHtml+="<div class='pp-kpi'><div class='v'>"+Math.round((s.on_time_rate||0)*100)+"%</div><div class='l'>Puenktlichkeit</div></div>";
+        scHtml+="<div class='pp-kpi'><div class='v'>"+(s.sla_breach_count||0)+"</div><div class='l'>SLA-Brueche</div></div>";
+        scHtml+="</div></div></div>";
+        $("pp-scorecard").innerHTML=scHtml;
+        $("pp-scorecard").style.display="block";
+      }
+    }
+
+    load();
+  })();
+  </script>
+  <div id="tc-footer" data-tc-footer></div>
+  <script src="/public/js/footer.js"></script>
+</body>
+</html>
