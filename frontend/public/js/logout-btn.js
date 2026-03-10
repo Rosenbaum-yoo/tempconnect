@@ -7,7 +7,15 @@
   'use strict';
 
   function inject() {
-    var topbar = document.querySelector('.topbar');
+    /* Bevorzuge [data-notif-topbar] (sichtbare Haupt-Topbar).
+       Fallback auf ersten .topbar, der NICHT im #paywall-Container steckt. */
+    var topbar = document.querySelector('[data-notif-topbar]');
+    if (!topbar) {
+      var all = document.querySelectorAll('.topbar');
+      for (var i = 0; i < all.length; i++) {
+        if (!all[i].closest('#paywall')) { topbar = all[i]; break; }
+      }
+    }
     if (!topbar) return;
     if (document.getElementById('tc-logout-btn')) return;
 
@@ -18,7 +26,7 @@
     btn.innerHTML = '&#x23FB;&nbsp;Abmelden';
     btn.setAttribute('aria-label', 'Abmelden');
 
-    var base = [
+    btn.style.cssText = [
       'display:inline-flex',
       'align-items:center',
       'gap:4px',
@@ -35,28 +43,24 @@
       'transition:background .15s,border-color .15s',
       'white-space:nowrap',
       'flex-shrink:0',
-      'margin-left:6px',
+      'margin-left:auto',   /* schiebt Button an den rechten Rand */
       'line-height:1.4'
     ].join(';');
-    btn.style.cssText = base;
 
     btn.onmouseenter = function () {
-      btn.style.background    = 'rgba(255,92,122,.18)';
-      btn.style.borderColor   = 'rgba(255,92,122,.55)';
-      btn.style.color         = '#ffb0a0';
+      btn.style.background  = 'rgba(255,92,122,.18)';
+      btn.style.borderColor = 'rgba(255,92,122,.55)';
+      btn.style.color       = '#ffb0a0';
     };
     btn.onmouseleave = function () {
-      btn.style.background    = 'rgba(255,92,122,.07)';
-      btn.style.borderColor   = 'rgba(255,92,122,.3)';
-      btn.style.color         = 'rgba(255,160,140,.9)';
+      btn.style.background  = 'rgba(255,92,122,.07)';
+      btn.style.borderColor = 'rgba(255,92,122,.3)';
+      btn.style.color       = 'rgba(255,160,140,.9)';
     };
     btn.onclick = doLogout;
 
-    /* Topbar kann aus <span class="brand"> + <div> bestehen.
-       Den letzten <div> (Nav-Links) bevorzugen, sonst topbar direkt. */
-    var navDivs = topbar.querySelectorAll('div');
-    var target  = navDivs.length ? navDivs[navDivs.length - 1] : topbar;
-    target.appendChild(btn);
+    /* Direkt an die Topbar hängen — flexbox positioniert ihn automatisch */
+    topbar.appendChild(btn);
   }
 
   async function doLogout() {
