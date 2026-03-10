@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="de">
 <head>
   <meta charset="utf-8"/>
@@ -65,7 +65,7 @@
   </div>
 
   <div id="main-content" class="wrap">
-    <div class="topbar">
+    <div class="topbar" data-notif-topbar>
       <span class="brand"><span style="width:10px;height:10px;border-radius:50%;background:linear-gradient(135deg,var(--brand),var(--brand2));display:inline-block;margin-right:8px"></span>TempConnect</span>
       <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
         <a href="/" class="btn">Startseite</a>
@@ -74,6 +74,7 @@
         <a href="/public/company_requests.html" class="btn">Meine Anfragen</a>
         <a href="/public/agency_inbox.html" class="btn">Eingang</a>
         <a href="/public/capacity_exchange_feed.html" class="btn">Kapazitaetsboerse</a>
+        <a href="/public/timesheets.html" class="btn" style="background:rgba(74,158,255,.08);border-color:rgba(74,158,255,.25)">&#128336; Stundenzettel</a>
       </div>
     </div>
 
@@ -156,60 +157,60 @@
             <p class="ds-hub-card__desc">Nach Rolle, Region und Datum suchen und Kapazität anfragen.</p>
           </div>
         </a>
-        <a href="/public/company_requests.html" class="ds-hub-card">
+        <a href="/public/company_requests.html" class="ds-hub-card" data-feature="capacity_exchange_basic">
           <div class="ds-hub-card__icon">&#128228;</div>
           <div class="ds-hub-card__content">
             <div class="ds-hub-card__title">Meine Anfragen</div>
             <p class="ds-hub-card__desc">Gesendete Anfragen mit Pulse- und Compliance-Badge.</p>
           </div>
         </a>
-        <a href="/public/agency_inbox.html" class="ds-hub-card">
+        <a href="/public/agency_inbox.html" class="ds-hub-card" data-feature="capacity_exchange_basic">
           <div class="ds-hub-card__icon">&#128229;</div>
           <div class="ds-hub-card__content">
             <div class="ds-hub-card__title">Eingang</div>
             <p class="ds-hub-card__desc">Eingegangene Anfragen beantworten (Annehmen/Ablehnen).</p>
           </div>
         </a>
-        <a href="/public/supplier_scorecard.html" class="ds-hub-card">
+        <a href="/public/supplier_scorecard.html" class="ds-hub-card" data-feature="supplier_ratings">
           <div class="ds-hub-card__icon">&#11088;</div>
           <div class="ds-hub-card__content">
             <div class="ds-hub-card__title">Lieferanten-Bewertung</div>
             <p class="ds-hub-card__desc">Fill Rate, Pünktlichkeit, Pulse-Brüche, Note (A/B/C).</p>
           </div>
         </a>
-        <a href="/public/capacity_exchange_feed.html" class="ds-hub-card ds-hub-card--success">
+        <a href="/public/capacity_exchange_feed.html" class="ds-hub-card ds-hub-card--success" data-feature="capacity_exchange_basic">
           <div class="ds-hub-card__icon">&#128259;</div>
           <div class="ds-hub-card__content">
-            <div class="ds-hub-card__title">Kapazitaetsboerse</div>
-            <p class="ds-hub-card__desc">Verfuegbare Personalkapazitaeten von Dienstleistern durchsuchen und anfragen.</p>
+            <div class="ds-hub-card__title">Kapazitätsbörse</div>
+            <p class="ds-hub-card__desc">Verfügbare Personalkapazitäten von Dienstleistern durchsuchen und anfragen.</p>
           </div>
         </a>
-        <a href="/public/capacity_exchange_manage.html" class="ds-hub-card ds-hub-card--accent">
+        <a href="/public/capacity_exchange_manage.html" class="ds-hub-card ds-hub-card--accent" data-feature="capacity_exchange_basic">
           <div class="ds-hub-card__icon">&#128188;</div>
           <div class="ds-hub-card__content">
-            <div class="ds-hub-card__title">Kapazitaeten verwalten</div>
-            <p class="ds-hub-card__desc">Eigene Personalkapazitaeten einstellen, aktivieren und steuern.</p>
+            <div class="ds-hub-card__title">Kapazitäten verwalten</div>
+            <p class="ds-hub-card__desc">Eigene Personalkapazitäten einstellen, aktivieren und steuern.</p>
           </div>
         </a>
-        <a href="/public/sla_search_jobs_list.html" class="ds-hub-card" id="search-jobs-card">
+        <a href="/public/sla_search_jobs_list.html" class="ds-hub-card" id="search-jobs-card" data-feature="persistent_requisitions">
           <div class="ds-hub-card__icon">&#128203;</div>
           <div class="ds-hub-card__content">
-            <div class="ds-hub-card__title">Gespeicherte Suchauftraege</div>
-            <p class="ds-hub-card__desc">Laufende Suchauftraege anzeigen und verwalten.</p>
+            <div class="ds-hub-card__title">Gespeicherte Suchaufträge</div>
+            <p class="ds-hub-card__desc">Laufende Suchaufträge anzeigen und verwalten.</p>
           </div>
         </a>
-        <a href="/public/angebote_verwalten.html" class="ds-hub-card">
+        <a href="/public/angebote_verwalten.html" class="ds-hub-card" data-feature="capacity_exchange_basic">
           <div class="ds-hub-card__icon">&#128176;</div>
           <div class="ds-hub-card__content">
             <div class="ds-hub-card__title">Angebote verwalten</div>
             <p class="ds-hub-card__desc">Gesendete und erhaltene Angebote einsehen, annehmen oder ablehnen.</p>
           </div>
         </a>
-        <a href="/public/matching_results.html" class="ds-hub-card ds-hub-card--accent">
+        <a href="/public/matching_results.html" class="ds-hub-card ds-hub-card--accent" data-feature="capacity_exchange_matching">
           <div class="ds-hub-card__icon">&#11088;</div>
           <div class="ds-hub-card__content">
             <div class="ds-hub-card__title">Matching-Engine</div>
-            <p class="ds-hub-card__desc">Multi-Faktor-Scoring fuer Kapazitaeten und Nachfragen visualisieren.</p>
+            <p class="ds-hub-card__desc">Multi-Faktor-Scoring für Kapazitäten und Nachfragen visualisieren.</p>
           </div>
         </a>
         <a href="/public/sla_profil.html" class="ds-hub-card">
@@ -235,34 +236,36 @@
       <div class="section-label">VMS Enterprise</div>
       <h2 class="ds-h2" style="margin-bottom:var(--ds-space-4)">Requisitions, Compliance &amp; Steuerung</h2>
       <div class="ds-hub-grid">
-        <a href="/public/executive_dashboard.html" class="ds-hub-card ds-hub-card--brand">
+        <a href="/public/executive_dashboard.html" class="ds-hub-card ds-hub-card--brand" data-feature="basic_analytics">
           <div class="ds-hub-card__icon">&#128202;</div>
           <div class="ds-hub-card__content">
             <div class="ds-hub-card__title">Executive Dashboard</div>
             <p class="ds-hub-card__desc">KPIs, SLA-Compliance, Requisition-Status, Plattform-Statistik.</p>
           </div>
         </a>
-        <a href="/public/requisitions.html" class="ds-hub-card ds-hub-card--accent">
+        <a href="/public/requisitions.html" class="ds-hub-card ds-hub-card--accent" data-feature="persistent_requisitions">
           <div class="ds-hub-card__icon">&#128196;</div>
           <div class="ds-hub-card__content">
             <div class="ds-hub-card__title">Requisitions</div>
             <p class="ds-hub-card__desc">Bedarfsanforderungen erstellen, verwalten, Freigabe-Workflow.</p>
           </div>
         </a>
-        <a href="/public/vendor_pool.html" class="ds-hub-card ds-hub-card--success">
+        <a href="/public/vendor_pool.html" class="ds-hub-card ds-hub-card--success" data-feature="supplier_management">
           <div class="ds-hub-card__icon">&#129309;</div>
           <div class="ds-hub-card__content">
             <div class="ds-hub-card__title">Vendor Pool</div>
             <p class="ds-hub-card__desc">Lieferanten-Tiers verwalten (Preferred, Secondary, Trial, Blocked).</p>
           </div>
         </a>
-        <a href="/public/compliance_overview.html" class="ds-hub-card ds-hub-card--warning">
+        <a href="/public/compliance_overview.html" class="ds-hub-card ds-hub-card--warning" data-feature="compliance">
           <div class="ds-hub-card__icon">&#128737;</div>
           <div class="ds-hub-card__content">
             <div class="ds-hub-card__title">Compliance</div>
             <p class="ds-hub-card__desc">Dokumente mit Ampellogik, Ablauf-Übersicht, Verifizierung.</p>
           </div>
         </a>
+        <!-- Zeitarbeit-Hub: 4 Karten — sichtbar ab worker_module-Plan -->
+        <div id="zeitarbeit-hub" style="display:contents"></div>
       </div>
     </div>
 
@@ -352,9 +355,44 @@
         { feature: "sla_help", href: "/public/sla_hilfe.html", icon: "&#128161;", title: "Hilfe", desc: "FAQ, Kontakt und Was ist Pulse-safe?" },
         { feature: "sla_proofs", href: "/public/sla_nachweise.html", icon: "&#128206;", title: "Nachweise", desc: "Upload und Verwaltung von Nachweisen." }
       ];
+      /* ── Lock static [data-feature] hub cards ───────────── */
+      function applyStaticCardLocks(plan) {
+        document.querySelectorAll('[data-feature]').forEach(function(card) {
+          var feat = card.getAttribute('data-feature');
+          if (!feat) return;
+          if (PlanFeatures.hasFeature(plan, feat)) return; // plan has access
+          // Apply locked state
+          card.classList.add('ds-hub-card--locked');
+          // Lock icon (insert before first child)
+          if (!card.querySelector('.ds-hub-card__lock')) {
+            var lock = document.createElement('span');
+            lock.className = 'ds-hub-card__lock';
+            lock.setAttribute('aria-hidden', 'true');
+            lock.innerHTML = '&#128274;';
+            card.insertBefore(lock, card.firstChild);
+          }
+          // Meta text + upgrade link inside __content
+          var content = card.querySelector('.ds-hub-card__content');
+          if (content && !content.querySelector('.ds-hub-card__meta')) {
+            var allowed = PlanFeatures.getAllowedPlans(feat);
+            var minPlan = allowed.length ? allowed[0] : 'PLUS';
+            var meta = document.createElement('div');
+            meta.className = 'ds-hub-card__meta';
+            meta.textContent = 'Verf\u00fcgbar ab ' + minPlan;
+            var upg = document.createElement('a');
+            upg.href = '/public/sla_abo.html';
+            upg.className = 'ds-hub-card__upgrade';
+            upg.innerHTML = 'Upgrade ansehen &rarr;';
+            content.appendChild(meta);
+            content.appendChild(upg);
+          }
+        });
+      }
+
       function render() {
         var plan = window._slaPlan || "FREE";
         PlanFeatures.load().then(function() {
+          applyStaticCardLocks(plan);
           items.forEach(function(it) {
             var has = PlanFeatures.hasFeature(plan, it.feature);
             var el;
@@ -392,6 +430,74 @@
       fetch("/api/me", { credentials: "include" }).then(function(r) { return r.ok ? r.json() : null; }).then(function(me) {
         window._slaPlan = (me && me.plan) ? me.plan : "FREE";
         render();
+        // Zeitarbeit-Hub: 4 Karten (worker_module feature)
+        PlanFeatures.load().then(function() {
+          var hub = document.getElementById("zeitarbeit-hub");
+          if (!hub) return;
+          var hasWm = PlanFeatures.hasFeature(window._slaPlan, "worker_module");
+          var zeitarbeitCards = [
+            {
+              href: "/public/worker-submissions-review.html",
+              icon: "&#128197;",
+              title: "Einsatzplanung",
+              desc: "Worker Eins&auml;tze anlegen, Schichtzeiten pflegen, Assignments verwalten.",
+              cls:  "ds-hub-card--accent"
+            },
+            {
+              href: "/public/timesheet-templates.html",
+              icon: "&#128462;",
+              title: "Stundenzettel-Templates",
+              desc: "Vorlagen f&uuml;r Stundenzettel erstellen und Eins&auml;tzen zuweisen.",
+              cls:  "ds-hub-card--brand"
+            },
+            {
+              href: "/public/worker-submissions-review.html",
+              icon: "&#9989;",
+              title: "Einreichungen &amp; Freigaben",
+              desc: "Einreichungen pr&uuml;fen, intern genehmigen, an Kunden senden, in Abrechnung &uuml;bernehmen.",
+              cls:  "ds-hub-card--success"
+            },
+            {
+              href: "/public/workers.html",
+              icon: "&#128100;",
+              title: "Worker verwalten",
+              desc: "Arbeitnehmer anlegen, einladen, Profile und Dokumente verwalten.",
+              cls:  ""
+            }
+          ];
+          var frag = document.createDocumentFragment();
+          var wAllowed = PlanFeatures.getAllowedPlans("worker_module");
+          var wMin = wAllowed.length ? wAllowed[0] : "PLUS";
+          zeitarbeitCards.forEach(function(c) {
+            var el;
+            if (hasWm) {
+              el = document.createElement("a");
+              el.href = c.href;
+              el.className = "ds-hub-card " + (c.cls || "");
+              el.innerHTML =
+                '<div class="ds-hub-card__icon">' + c.icon + '</div>' +
+                '<div class="ds-hub-card__content">' +
+                  '<div class="ds-hub-card__title">' + c.title + '</div>' +
+                  '<p class="ds-hub-card__desc">' + c.desc + '</p>' +
+                '</div>';
+            } else {
+              el = document.createElement("div");
+              el.className = "ds-hub-card ds-hub-card--locked";
+              el.innerHTML =
+                '<span class="ds-hub-card__lock" aria-hidden="true">&#128274;</span>' +
+                '<div class="ds-hub-card__icon">' + c.icon + '</div>' +
+                '<div class="ds-hub-card__content">' +
+                  '<div class="ds-hub-card__title">' + c.title + '</div>' +
+                  '<p class="ds-hub-card__desc">' + c.desc + '</p>' +
+                  '<div class="ds-hub-card__meta">Verf&uuml;gbar ab ' + wMin + '</div>' +
+                  '<a href="/public/sla_abo.html" class="ds-hub-card__upgrade">Upgrade ansehen &rarr;</a>' +
+                '</div>';
+            }
+            frag.appendChild(el);
+          });
+          // display:contents ersetzt den Wrapper transparent
+          hub.replaceWith(frag);
+        });
         // Show first-action guide for FREE plan users
         if (me && me.plan === "FREE") {
           var guide = document.getElementById("first-action-guide");
@@ -521,5 +627,6 @@
   <script src="/public/js/notifications.js"></script>
   <div id="tc-footer" data-tc-footer></div>
   <script src="/public/js/footer.js"></script>
+  <script src="/public/js/logout-btn.js"></script>
 </body>
 </html>

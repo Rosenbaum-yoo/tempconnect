@@ -1,51 +1,229 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="de">
 <head>
   <meta charset="utf-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
-  <title>TempConnect – Professionelle Personalvermittlung fuer Zeitarbeit</title>
+  <title>TempConnect – Professionelles Workforce Management für Zeitarbeit</title>
+  <meta name="description" content="TempConnect verbindet Unternehmen und Personaldienstleister auf einer sicheren, DSGVO-konformen Plattform. Kapazitäten in Echtzeit finden, Deals transparent abschließen, Qualität messbar sichern."/>
   <link rel="stylesheet" href="/public/css/design-system.css"/>
   <style>
-    body { background: radial-gradient(ellipse 1100px 600px at 15% -5%, rgba(74,158,255,.18), transparent 60%),
-                        radial-gradient(ellipse 800px 500px at 90% -2%, rgba(124,92,255,.12), transparent 55%),
-                        var(--ds-bg); }
+    body {
+      background:
+        radial-gradient(ellipse 1100px 600px at 15% -5%, rgba(74,158,255,.16), transparent 60%),
+        radial-gradient(ellipse 800px 500px at 90% -2%, rgba(124,92,255,.10), transparent 55%),
+        var(--ds-bg);
+    }
 
-    /* Hero */
+    /* ── Hero ─────────────────────────────────────────────── */
     .hero { padding: var(--ds-space-16) 0 var(--ds-space-12); text-align: center; }
-    .hero h1 { font-size: clamp(28px, 5vw, 46px); font-weight: 800; line-height: 1.15; margin: 0 auto var(--ds-space-5); max-width: 720px; letter-spacing: -0.03em; }
-    .hero h1 em { font-style: normal; background: linear-gradient(135deg, var(--ds-brand), var(--ds-accent)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
-    .hero p { color: var(--ds-text-secondary); font-size: 17px; line-height: 1.65; max-width: 600px; margin: 0 auto var(--ds-space-8); }
+    .hero h1 {
+      font-size: clamp(28px, 5vw, 48px); font-weight: 800; line-height: 1.12;
+      margin: 0 auto var(--ds-space-5); max-width: 760px; letter-spacing: -0.03em;
+    }
+    .hero h1 em {
+      font-style: normal;
+      background: linear-gradient(135deg, var(--ds-brand), var(--ds-accent));
+      -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
+    }
+    .hero p {
+      color: var(--ds-text-secondary); font-size: 17px; line-height: 1.65;
+      max-width: 640px; margin: 0 auto var(--ds-space-8);
+    }
     .hero-cta { display: flex; gap: var(--ds-space-3); justify-content: center; flex-wrap: wrap; }
     .hero-cta .ds-btn--lg { padding: 14px 32px; font-size: 15px; }
 
-    /* Sections */
-    .section-label { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; color: var(--ds-brand); margin-bottom: var(--ds-space-2); }
-    .section-heading { font-size: clamp(22px, 3vw, 30px); font-weight: 800; letter-spacing: -0.02em; margin: 0 0 var(--ds-space-2); }
-    .section-desc { color: var(--ds-text-secondary); font-size: 15px; max-width: 560px; line-height: 1.6; margin: 0; }
+    /* ── Section titles ───────────────────────────────────── */
+    .section-label {
+      font-size: 11px; font-weight: 700; text-transform: uppercase;
+      letter-spacing: 0.08em; color: var(--ds-brand); margin-bottom: var(--ds-space-2);
+    }
+    .section-heading {
+      font-size: clamp(22px, 3vw, 30px); font-weight: 800;
+      letter-spacing: -0.02em; margin: 0 0 var(--ds-space-2);
+    }
+    .section-desc {
+      color: var(--ds-text-secondary); font-size: 15px;
+      max-width: 580px; line-height: 1.6; margin: 0;
+    }
 
-    /* How it works */
-    .steps-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: var(--ds-space-4); counter-reset: step; }
-    .step { padding: var(--ds-space-5); border: 1px solid var(--ds-border); border-radius: var(--ds-radius-lg); background: rgba(255,255,255,0.02); text-align: center; counter-increment: step; }
-    .step::before { content: counter(step); display: flex; align-items: center; justify-content: center; width: 36px; height: 36px; margin: 0 auto var(--ds-space-3); border-radius: 50%; font-size: 15px; font-weight: 800; background: var(--ds-brand-muted); border: 1px solid rgba(74,158,255,0.25); color: var(--ds-brand); }
+    /* ── How it works ─────────────────────────────────────── */
+    .steps-grid {
+      display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+      gap: var(--ds-space-4); counter-reset: step;
+    }
+    .step {
+      padding: var(--ds-space-5); border: 1px solid var(--ds-border);
+      border-radius: var(--ds-radius-lg); background: rgba(255,255,255,0.02);
+      text-align: center; counter-increment: step;
+    }
+    .step::before {
+      content: counter(step); display: flex; align-items: center; justify-content: center;
+      width: 36px; height: 36px; margin: 0 auto var(--ds-space-3); border-radius: 50%;
+      font-size: 15px; font-weight: 800; background: var(--ds-brand-muted);
+      border: 1px solid rgba(74,158,255,0.25); color: var(--ds-brand);
+    }
     .step h3 { font-size: 14px; font-weight: 700; margin: 0 0 var(--ds-space-1); }
     .step p { font-size: 13px; color: var(--ds-text-secondary); margin: 0; line-height: 1.5; }
 
-    /* Audience split */
+    /* ── Audience ─────────────────────────────────────────── */
     .audience-grid { display: grid; grid-template-columns: 1fr 1fr; gap: var(--ds-space-4); }
-    .audience-card { padding: var(--ds-space-6); border-radius: var(--ds-radius-lg); border: 1px solid var(--ds-border); background: rgba(255,255,255,0.02); }
-    .audience-card h3 { font-size: 17px; font-weight: 700; margin: 0 0 var(--ds-space-3); display: flex; align-items: center; gap: var(--ds-space-2); }
-    .audience-card ul { padding-left: 18px; margin: 0; }
-    .audience-card li { font-size: 13px; color: var(--ds-text-secondary); padding: var(--ds-space-1) 0; line-height: 1.5; }
+    .audience-card {
+      padding: var(--ds-space-6); border-radius: var(--ds-radius-lg);
+      border: 1px solid var(--ds-border); background: rgba(255,255,255,0.02);
+    }
+    .audience-card h3 {
+      font-size: 17px; font-weight: 700; margin: 0 0 var(--ds-space-3);
+      display: flex; align-items: center; gap: var(--ds-space-2);
+    }
+    .audience-card ul { padding-left: 18px; margin: 0 0 var(--ds-space-4); }
+    .audience-card li {
+      font-size: 13px; color: var(--ds-text-secondary);
+      padding: var(--ds-space-1) 0; line-height: 1.5;
+    }
 
+    /* ── Auth Modal ───────────────────────────────────────── */
+    .am-overlay {
+      position: fixed; inset: 0; background: rgba(0,0,0,.72); z-index: 200;
+      display: none; align-items: center; justify-content: center; padding: 16px;
+      backdrop-filter: blur(4px);
+    }
+    .am-overlay.open { display: flex; }
+    .am-panel {
+      width: min(500px, 100%); padding: 28px; border-radius: 20px;
+      border: 1px solid rgba(255,255,255,.12);
+      background: rgba(10,16,30,.98);
+      box-shadow: 0 32px 80px rgba(0,0,0,.65);
+      max-height: 92vh; overflow-y: auto;
+    }
+    .am-header {
+      display: flex; justify-content: space-between; align-items: center; margin-bottom: 22px;
+    }
+    .am-header h2 { margin: 0; font-size: 18px; font-weight: 800; letter-spacing: -0.02em; }
+    .am-close {
+      background: none; border: 1px solid rgba(255,255,255,.1); color: rgba(255,255,255,.4);
+      width: 32px; height: 32px; border-radius: 8px; cursor: pointer; font-size: 15px;
+      display: flex; align-items: center; justify-content: center; transition: all .15s; flex-shrink: 0;
+    }
+    .am-close:hover { border-color: rgba(255,255,255,.25); color: rgba(255,255,255,.7); }
+    .am-tabs {
+      display: flex; gap: 4px; margin-bottom: 22px;
+      background: rgba(255,255,255,.04); border-radius: 10px; padding: 4px;
+    }
+    .am-tab {
+      flex: 1; padding: 9px 12px; border-radius: 8px; border: none;
+      background: none; color: rgba(255,255,255,.4); font-weight: 700;
+      font-size: 13px; cursor: pointer; transition: all .15s;
+    }
+    .am-tab.active { background: rgba(255,255,255,.1); color: #fff; }
+    .am-pane { display: none; }
+    .am-pane.active { display: block; }
+    .am-field { margin-bottom: 14px; }
+    .am-field label {
+      display: block; font-size: 11px; font-weight: 700; color: rgba(255,255,255,.4);
+      text-transform: uppercase; letter-spacing: .06em; margin-bottom: 6px;
+    }
+    .am-input {
+      width: 100%; padding: 11px 14px; border-radius: 10px;
+      border: 1px solid rgba(255,255,255,.1); background: rgba(255,255,255,.05);
+      color: #eaeff8; font-size: 14px; outline: none; transition: border-color .15s;
+      box-sizing: border-box; font-family: inherit;
+    }
+    .am-input:focus { border-color: rgba(74,158,255,.5); background: rgba(74,158,255,.05); }
+    .am-input::placeholder { color: rgba(255,255,255,.2); }
+    select.am-input option { background: #0d1527; color: #eaeff8; }
+    .am-row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+    .am-btn {
+      display: block; width: 100%; padding: 13px 20px; border-radius: 10px;
+      border: none; font-weight: 700; font-size: 14px; cursor: pointer;
+      transition: all .15s; font-family: inherit; letter-spacing: .01em;
+    }
+    .am-btn + .am-btn { margin-top: 8px; }
+    .am-btn-primary {
+      background: linear-gradient(135deg, #4a9eff, #7c5cff); color: #fff;
+    }
+    .am-btn-primary:hover:not(:disabled) { opacity: .9; transform: translateY(-1px); }
+    .am-btn-primary:disabled { opacity: .45; cursor: not-allowed; transform: none; }
+    .am-btn-ghost {
+      background: rgba(255,255,255,.05); border: 1px solid rgba(255,255,255,.1);
+      color: rgba(255,255,255,.6);
+    }
+    .am-btn-ghost:hover { background: rgba(255,255,255,.08); }
+    .am-link {
+      color: #4a9eff; font-size: 13px; cursor: pointer; background: none;
+      border: none; padding: 0; font-weight: 600; font-family: inherit;
+    }
+    .am-link:hover { text-decoration: underline; }
+    .am-error {
+      background: rgba(255,92,122,.1); border: 1px solid rgba(255,92,122,.3);
+      border-radius: 8px; padding: 10px 14px; font-size: 13px; color: #ffd0d8;
+      margin-bottom: 16px; display: none; line-height: 1.5;
+    }
+    .am-error.visible { display: block; }
+    .am-success {
+      background: rgba(57,217,138,.1); border: 1px solid rgba(57,217,138,.3);
+      border-radius: 8px; padding: 10px 14px; font-size: 13px; color: #c8ffe7;
+      margin-bottom: 16px; display: none; line-height: 1.5;
+    }
+    .am-success.visible { display: block; }
+    .am-hint { font-size: 12px; color: rgba(255,255,255,.3); margin-top: 10px; line-height: 1.5; }
+    .am-divider {
+      text-align: center; color: rgba(255,255,255,.15); font-size: 12px;
+      margin: 18px 0; letter-spacing: .08em;
+    }
+    .am-checkbox-row { display: flex; gap: 10px; align-items: flex-start; }
+    .am-checkbox-row input[type="checkbox"] {
+      width: 16px; height: 16px; margin-top: 2px; flex-shrink: 0;
+      cursor: pointer; accent-color: #4a9eff;
+    }
+    .am-checkbox-row span { font-size: 13px; color: rgba(255,255,255,.45); line-height: 1.5; }
+    .am-checkbox-row a { color: #4a9eff; }
+    .am-bottom-link { text-align: center; margin-top: 14px; }
+
+    /* ── Toast ────────────────────────────────────────────── */
+    .tc-toast {
+      position: fixed; bottom: 24px; right: 24px; z-index: 300;
+      padding: 14px 18px; border-radius: 12px; border: 1px solid rgba(255,255,255,.1);
+      background: rgba(10,16,30,.97); backdrop-filter: blur(12px);
+      max-width: 380px; font-size: 14px; font-weight: 600;
+      transform: translateY(16px); opacity: 0; transition: all .25s;
+      pointer-events: none; line-height: 1.5;
+    }
+    .tc-toast.visible { transform: translateY(0); opacity: 1; }
+    .tc-toast.success { border-color: rgba(57,217,138,.4); color: #c8ffe7; }
+    .tc-toast.error   { border-color: rgba(255,92,122,.4); color: #ffd0d8; }
+    .tc-toast.info    { border-color: rgba(74,158,255,.4);  color: #c2e0ff; }
+
+    /* ── Footer ───────────────────────────────────────────── */
+    .tc-footer {
+      margin-top: 64px; padding: 28px 0 40px;
+      border-top: 1px solid var(--ds-border);
+    }
+    .tc-footer-links {
+      display: flex; justify-content: center; gap: 24px; flex-wrap: wrap;
+      font-size: 13px; margin-bottom: 14px;
+    }
+    .tc-footer-links a {
+      color: var(--ds-text-secondary); text-decoration: none; transition: color .15s;
+    }
+    .tc-footer-links a:hover { color: var(--ds-brand); }
+    .tc-footer-copy { text-align: center; font-size: 12px; color: rgba(255,255,255,.2); }
+
+    /* ── Responsive ───────────────────────────────────────── */
     @media (max-width: 768px) {
       .audience-grid { grid-template-columns: 1fr; }
       .hero { padding: var(--ds-space-10) 0 var(--ds-space-8); }
+      .am-row2 { grid-template-columns: 1fr; }
+    }
+    @media (max-width: 480px) {
+      .am-panel { padding: 22px 16px; }
+      .hero-cta { flex-direction: column; align-items: center; }
     }
   </style>
 </head>
 <body>
   <div class="ds-wrap">
-    <!-- Topbar -->
+
+    <!-- ── Topbar ─────────────────────────────────────────── -->
     <nav class="ds-topbar">
       <div class="ds-topbar__brand">
         <span class="ds-topbar__brand-dot"></span>
@@ -53,140 +231,141 @@
       </div>
       <div class="ds-topbar__nav">
         <a href="/public/pricing.html" class="ds-nav-link">Tarife</a>
-        <a href="/public/trust/security.html" class="ds-nav-link">Sicherheit</a>
-        <a href="/public/about.html" class="ds-nav-link">Ueber uns</a>
+        <a href="/public/about.html"   class="ds-nav-link">Über uns</a>
         <span class="ds-topbar__separator"></span>
-        <a href="/app" class="ds-btn">Anmelden</a>
-        <a href="/app" class="ds-btn ds-btn--primary">Kostenlos starten</a>
+        <button onclick="openAuth('login')"    class="ds-btn">Anmelden</button>
+        <button onclick="openAuth('register')" class="ds-btn ds-btn--primary">Kostenlos starten</button>
       </div>
     </nav>
 
-    <!-- Hero -->
+    <!-- ── Hero ──────────────────────────────────────────── -->
     <section class="hero">
-      <h1>Die B2B-Plattform fuer <em>professionelles Workforce Management</em></h1>
-      <p>TempConnect verbindet Unternehmen und Personaldienstleister auf einer sicheren, SLA-gestuetzten Plattform. Kapazitaeten in Echtzeit finden, Deals transparent abschliessen, Qualitaet messbar sichern.</p>
+      <h1>Die B2B-Plattform für<br/><em>professionelles Workforce Management</em></h1>
+      <p>TempConnect verbindet Unternehmen und Personaldienstleister auf einer sicheren, SLA-gestützten Plattform. Kapazitäten in Echtzeit finden, Deals transparent abschließen, Qualität messbar sichern.</p>
       <div class="hero-cta">
-        <a href="/app" class="ds-btn ds-btn--primary ds-btn--lg">Jetzt starten</a>
-        <a href="/public/pricing.html" class="ds-btn ds-btn--lg">Tarife vergleichen</a>
+        <button onclick="openAuth('register')" class="ds-btn ds-btn--primary ds-btn--lg">Jetzt kostenlos starten</button>
+        <a href="/public/pricing.html"         class="ds-btn ds-btn--lg">Tarife vergleichen</a>
       </div>
     </section>
 
-    <!-- Trust signals -->
+    <!-- ── Trust bar ─────────────────────────────────────── -->
     <div class="ds-trust-row">
-      <div class="ds-trust-item"><span class="ds-trust-item__icon">&#128274;</span> DSGVO-konform</div>
-      <div class="ds-trust-item"><span class="ds-trust-item__icon">&#127465;&#127466;</span> Hosting in Deutschland</div>
-      <div class="ds-trust-item"><span class="ds-trust-item__icon">&#9989;</span> E-Mail-verifizierte Nutzer</div>
-      <div class="ds-trust-item"><span class="ds-trust-item__icon">&#128101;</span> Kontakt erst nach Deal</div>
+      <div class="ds-trust-item"><span class="ds-trust-item__icon">🔒</span> DSGVO-konform</div>
+      <div class="ds-trust-item"><span class="ds-trust-item__icon">🇩🇪</span> Hosting in Deutschland</div>
+      <div class="ds-trust-item"><span class="ds-trust-item__icon">✅</span> E-Mail-verifizierte Nutzer</div>
+      <div class="ds-trust-item"><span class="ds-trust-item__icon">👥</span> Kontakt erst nach Deal</div>
     </div>
 
     <hr class="ds-divider"/>
 
-    <!-- How it works -->
+    <!-- ── How it works ──────────────────────────────────── -->
     <section class="ds-section" style="text-align:center">
       <div class="section-label">Wie es funktioniert</div>
       <h2 class="section-heading" style="margin-bottom:var(--ds-space-6)">In 5 Schritten zum Deal</h2>
       <div class="steps-grid">
-        <div class="step"><h3>Registrieren</h3><p>E-Mail bestaetigen und Unternehmensprofil anlegen</p></div>
-        <div class="step"><h3>Suchen</h3><p>Kapazitaeten nach Rolle, Region und Verfuegbarkeit filtern</p></div>
+        <div class="step"><h3>Registrieren</h3><p>E-Mail bestätigen und Unternehmensprofil anlegen</p></div>
+        <div class="step"><h3>Suchen</h3><p>Kapazitäten nach Rolle, Region und Verfügbarkeit filtern</p></div>
         <div class="step"><h3>Anfragen</h3><p>Passende Anbieter kontaktieren oder Broadcast senden</p></div>
-        <div class="step"><h3>Deal</h3><p>Bestes Angebot waehlen und Deal bestaetigen</p></div>
+        <div class="step"><h3>Deal</h3><p>Bestes Angebot wählen und Deal bestätigen</p></div>
         <div class="step"><h3>Kontakt</h3><p>Kontaktdaten werden erst nach Deal-Abschluss freigegeben</p></div>
       </div>
     </section>
 
     <hr class="ds-divider"/>
 
-    <!-- For whom -->
+    <!-- ── For whom ───────────────────────────────────────── -->
     <section class="ds-section">
       <div style="text-align:center;margin-bottom:var(--ds-space-8)">
-        <div class="section-label">Fuer wen</div>
+        <div class="section-label">Für wen</div>
         <h2 class="section-heading">Zwei Seiten, eine Plattform</h2>
       </div>
       <div class="audience-grid">
         <div class="audience-card" style="border-color:rgba(74,158,255,0.2)">
-          <h3><span style="font-size:22px">&#127970;</span> Unternehmen</h3>
-          <p style="color:var(--ds-text-secondary);font-size:14px;margin:0 0 var(--ds-space-3)">Sie brauchen kurzfristig qualifiziertes Personal?</p>
+          <h3><span style="font-size:22px">🏢</span> Unternehmen</h3>
+          <p style="color:var(--ds-text-secondary);font-size:14px;margin:0 0 var(--ds-space-3)">Sie benötigen kurzfristig qualifiziertes Personal?</p>
           <ul>
-            <li>Live-Kapazitaeten durchsuchen und direkt anfragen</li>
-            <li>Automatisches Matching nach Rolle, Standort und Verfuegbarkeit</li>
+            <li>Live-Kapazitäten durchsuchen und direkt anfragen</li>
+            <li>Automatisches Matching nach Rolle, Standort und Verfügbarkeit</li>
             <li>Pulse-Prozessnachweis: jeder Matching-Versuch dokumentiert</li>
             <li>Compliance-Ampel und Lieferanten-Bewertung</li>
             <li>Kontaktdaten erst nach Deal-Abschluss</li>
           </ul>
+          <button onclick="openAuth('register','company')" class="ds-btn ds-btn--primary" style="font-size:13px">Als Unternehmen registrieren</button>
         </div>
         <div class="audience-card" style="border-color:rgba(124,92,255,0.2)">
-          <h3><span style="font-size:22px">&#128188;</span> Personaldienstleister</h3>
-          <p style="color:var(--ds-text-secondary);font-size:14px;margin:0 0 var(--ds-space-3)">Sie haben freie Kapazitaeten und suchen Auftraege?</p>
+          <h3><span style="font-size:22px">💼</span> Personaldienstleister</h3>
+          <p style="color:var(--ds-text-secondary);font-size:14px;margin:0 0 var(--ds-space-3)">Sie haben freie Kapazitäten und suchen Aufträge?</p>
           <ul>
-            <li>Kapazitaetsangebote einstellen und Sichtbarkeit erhoehen</li>
+            <li>Kapazitätsangebote einstellen und Sichtbarkeit erhöhen</li>
             <li>Anfragen direkt im Posteingang empfangen</li>
-            <li>Bewertungssystem fuer Zuverlaessigkeit und Qualitaet</li>
+            <li>Bewertungssystem für Zuverlässigkeit und Qualität</li>
             <li>Compliance-Dokumente hochladen und verifizieren lassen</li>
-            <li>Notdienst-Badge fuer priorisierte Sichtbarkeit</li>
+            <li>Notdienst-Badge für priorisierte Sichtbarkeit</li>
           </ul>
+          <button onclick="openAuth('register','agency')" class="ds-btn" style="font-size:13px;border-color:rgba(124,92,255,0.3)">Als Personaldienstleister registrieren</button>
         </div>
       </div>
     </section>
 
     <hr class="ds-divider"/>
 
-    <!-- Features -->
+    <!-- ── Features ───────────────────────────────────────── -->
     <section class="ds-section">
       <div style="text-align:center;margin-bottom:var(--ds-space-8)">
         <div class="section-label">Plattform-Funktionen</div>
-        <h2 class="section-heading">Alles fuer professionelle Personalkoordination</h2>
+        <h2 class="section-heading">Alles für professionelle Personalkoordination</h2>
       </div>
       <div class="ds-grid ds-grid--auto">
         <div class="ds-card">
-          <div class="ds-card__icon" style="margin-bottom:var(--ds-space-3)">&#128269;</div>
-          <div class="ds-card__title" style="margin-bottom:var(--ds-space-1)">Echtzeit-Kapazitaeten</div>
-          <p class="ds-text-sm ds-text-muted">Sehen Sie sofort, welche Anbieter verfuegbare Mitarbeiter in Ihrer Region haben.</p>
+          <div class="ds-card__icon" style="margin-bottom:var(--ds-space-3)">🔍</div>
+          <div class="ds-card__title" style="margin-bottom:var(--ds-space-1)">Echtzeit-Kapazitäten</div>
+          <p class="ds-text-sm ds-text-muted">Sehen Sie sofort, welche Anbieter verfügbare Mitarbeiter in Ihrer Region haben.</p>
         </div>
         <div class="ds-card">
-          <div class="ds-card__icon" style="margin-bottom:var(--ds-space-3)">&#9889;</div>
+          <div class="ds-card__icon" style="margin-bottom:var(--ds-space-3)">⚡</div>
           <div class="ds-card__title" style="margin-bottom:var(--ds-space-1)">Automatisches Matching</div>
           <p class="ds-text-sm ds-text-muted">Beschreiben Sie Ihren Bedarf – TempConnect matched passende Anbieter automatisch.</p>
         </div>
         <div class="ds-card">
-          <div class="ds-card__icon" style="margin-bottom:var(--ds-space-3)">&#128202;</div>
+          <div class="ds-card__icon" style="margin-bottom:var(--ds-space-3)">📊</div>
           <div class="ds-card__title" style="margin-bottom:var(--ds-space-1)">Pulse-Prozessnachweis</div>
           <p class="ds-text-sm ds-text-muted">PLUS- und NOTDIENST-Tarife dokumentieren jeden Matching-Versuch mit Zeitstempel.</p>
         </div>
         <div class="ds-card">
-          <div class="ds-card__icon" style="margin-bottom:var(--ds-space-3)">&#128737;</div>
+          <div class="ds-card__icon" style="margin-bottom:var(--ds-space-3)">🛡</div>
           <div class="ds-card__title" style="margin-bottom:var(--ds-space-1)">Compliance &amp; Bewertung</div>
-          <p class="ds-text-sm ds-text-muted">Compliance-Ampel, Lieferanten-Scorecard, Dokumentenmanagement mit Ablaufueberwachung.</p>
+          <p class="ds-text-sm ds-text-muted">Compliance-Ampel, Lieferanten-Scorecard, Dokumentenmanagement mit Ablaufüberwachung.</p>
         </div>
         <div class="ds-card">
-          <div class="ds-card__icon" style="margin-bottom:var(--ds-space-3)">&#128176;</div>
+          <div class="ds-card__icon" style="margin-bottom:var(--ds-space-3)">💰</div>
           <div class="ds-card__title" style="margin-bottom:var(--ds-space-1)">Faire Tarife</div>
-          <p class="ds-text-sm ds-text-muted">Von FREE bis ENTERPRISE – waehlen Sie den Tarif, der zu Ihrem Bedarf passt.</p>
+          <p class="ds-text-sm ds-text-muted">Von FREE bis ENTERPRISE – wählen Sie den Tarif, der zu Ihrem Bedarf passt.</p>
         </div>
         <div class="ds-card">
-          <div class="ds-card__icon" style="margin-bottom:var(--ds-space-3)">&#128274;</div>
+          <div class="ds-card__icon" style="margin-bottom:var(--ds-space-3)">🔒</div>
           <div class="ds-card__title" style="margin-bottom:var(--ds-space-1)">Sicher &amp; DSGVO-konform</div>
-          <p class="ds-text-sm ds-text-muted">Hosting in Deutschland, verschluesselte Verbindungen, keine Weitergabe an Dritte.</p>
+          <p class="ds-text-sm ds-text-muted">Hosting in Deutschland, verschlüsselte Verbindungen, keine Weitergabe an Dritte.</p>
         </div>
       </div>
     </section>
 
     <hr class="ds-divider"/>
 
-    <!-- Plans teaser -->
+    <!-- ── Plans teaser ───────────────────────────────────── -->
     <section class="ds-section" style="text-align:center">
       <div class="section-label">Tarife</div>
       <h2 class="section-heading">Starten Sie kostenlos</h2>
-      <p class="section-desc" style="margin:0 auto var(--ds-space-6)">Upgraden Sie, wenn Sie mehr brauchen. Alle Tarife monatlich kuendbar.</p>
-      <div class="ds-plan-grid" style="max-width:960px;margin:0 auto">
+      <p class="section-desc" style="margin:0 auto var(--ds-space-6)">Upgraden Sie, wenn Sie mehr brauchen. Alle Tarife monatlich kündbar.</p>
+      <div class="ds-plan-grid" style="max-width:980px;margin:0 auto">
         <div class="ds-plan-card">
           <div class="ds-plan-card__name">FREE</div>
           <div class="ds-plan-card__price">0 EUR <span>/Monat</span></div>
           <ul class="ds-plan-card__features">
             <li>Marketplace durchsuchen</li>
-            <li>Kapazitaeten ansehen</li>
+            <li>Kapazitäten ansehen</li>
             <li class="ds-plan--disabled">Keine Anfragen senden</li>
           </ul>
-          <a href="/app" class="ds-btn ds-w-full">Kostenlos starten</a>
+          <button onclick="openAuth('register')" class="ds-btn ds-w-full">Kostenlos starten</button>
         </div>
         <div class="ds-plan-card">
           <div class="ds-plan-card__name">BASIS</div>
@@ -196,7 +375,7 @@
             <li>5 Angebote erstellen</li>
             <li>E-Mail-Support</li>
           </ul>
-          <a href="/app" class="ds-btn ds-w-full">Plan waehlen</a>
+          <button onclick="openAuth('register')" class="ds-btn ds-w-full">Plan wählen</button>
         </div>
         <div class="ds-plan-card ds-plan-card--recommended">
           <div class="ds-badge ds-badge--brand" style="margin-bottom:var(--ds-space-2)">Empfohlen</div>
@@ -208,7 +387,7 @@
             <li>Enterprise-Dashboard</li>
             <li>Compliance &amp; Scorecard</li>
           </ul>
-          <a href="/app" class="ds-btn ds-btn--primary ds-w-full">Plan waehlen</a>
+          <button onclick="openAuth('register')" class="ds-btn ds-btn--primary ds-w-full">Plan wählen</button>
         </div>
         <div class="ds-plan-card ds-plan-card--premium">
           <div class="ds-badge ds-badge--accent" style="margin-bottom:var(--ds-space-2)">Enterprise</div>
@@ -228,43 +407,476 @@
       </div>
     </section>
 
-    <!-- CTA final -->
+    <!-- ── Final CTA ──────────────────────────────────────── -->
     <section class="ds-section" style="text-align:center;padding:var(--ds-space-8) 0">
       <div class="section-label">Jetzt starten</div>
-      <h2 class="section-heading">Bereit fuer professionelles Workforce Management?</h2>
+      <h2 class="section-heading">Bereit für professionelles Workforce Management?</h2>
       <p class="section-desc" style="margin:var(--ds-space-2) auto var(--ds-space-5)">Registrieren Sie sich kostenlos und erleben Sie, wie TempConnect Ihre Personaldienstleister-Beziehungen transformiert.</p>
       <div style="display:flex;gap:var(--ds-space-3);justify-content:center;flex-wrap:wrap">
-        <a href="/app" class="ds-btn ds-btn--primary ds-btn--lg">Kostenlos starten</a>
+        <button onclick="openAuth('register')" class="ds-btn ds-btn--primary ds-btn--lg">Kostenlos starten</button>
         <a href="/public/about.html" class="ds-btn ds-btn--lg">Mehr erfahren</a>
       </div>
     </section>
 
-    <!-- Disclaimer -->
+    <!-- ── Disclaimer ─────────────────────────────────────── -->
     <div class="ds-disclaimer">
-      TempConnect ist ein Plattformdienst zur Unterstuetzung des Matching-Prozesses zwischen Unternehmen und Zeitarbeitsfirmen.
+      TempConnect ist ein Plattformdienst zur Unterstützung des Matching-Prozesses zwischen Unternehmen und Zeitarbeitsfirmen.
       Es wird kein Vermittlungserfolg garantiert. Pulse-Angaben beziehen sich auf den dokumentierten Prozessnachweis,
-      nicht auf das Zustandekommen eines Vertrags. Alle Angaben ohne Gewaehr.
+      nicht auf das Zustandekommen eines Vertrags. Alle Angaben ohne Gewähr.
     </div>
-  </div>
 
-  <!-- Footer -->
-  <div id="tc-footer" data-tc-footer></div>
-  <script src="/public/js/footer.js"></script>
+    <!-- ── Footer ─────────────────────────────────────────── -->
+    <footer class="tc-footer">
+      <div class="tc-footer-links">
+        <a href="/public/legal/impressum.html">Impressum</a>
+        <a href="/public/legal/datenschutz.html">Datenschutz</a>
+        <a href="/public/legal/agb.html">AGB</a>
+        <a href="/public/pricing.html">Tarife</a>
+        <a href="/public/about.html">Über uns</a>
+        <a href="/public/legal/kontakt.html">Kontakt</a>
+      </div>
+      <div class="tc-footer-copy">© 2026 TempConnect. Alle Rechte vorbehalten.</div>
+    </footer>
+  </div><!-- /.ds-wrap -->
+
+
+  <!-- ════════════════════════════════════════════════════════
+       AUTH MODAL
+       ════════════════════════════════════════════════════════ -->
+  <div class="am-overlay" id="amOverlay" onclick="handleOverlayClick(event)">
+    <div class="am-panel" id="amPanel">
+
+      <div class="am-header">
+        <h2 id="amTitle">Anmelden</h2>
+        <button class="am-close" onclick="closeAuth()" title="Schließen">✕</button>
+      </div>
+
+      <!-- Tab bar (login / register only) -->
+      <div class="am-tabs" id="amTabs">
+        <button class="am-tab active" id="amTabLogin"    onclick="showPane('login')">Anmelden</button>
+        <button class="am-tab"        id="amTabRegister" onclick="showPane('register')">Registrieren</button>
+      </div>
+
+      <!-- ── Login ─── -->
+      <div class="am-pane active" id="paneLogin">
+        <div class="am-error" id="errLogin"></div>
+        <div class="am-field">
+          <label>E-Mail-Adresse</label>
+          <input class="am-input" id="loginEmail" type="email" autocomplete="email" placeholder="name@firma.de"/>
+        </div>
+        <div class="am-field">
+          <label>Passwort</label>
+          <input class="am-input" id="loginPassword" type="password" autocomplete="current-password" placeholder="Ihr Passwort"/>
+        </div>
+        <div style="margin-top:18px">
+          <button class="am-btn am-btn-primary" id="btnLogin" onclick="doLogin()">Anmelden</button>
+        </div>
+        <div class="am-divider">─ ─ ─ ─ ─</div>
+        <div style="display:flex;justify-content:space-between;align-items:center">
+          <button class="am-link" onclick="showPane('forgot')">Passwort vergessen?</button>
+          <button class="am-link" onclick="showPane('register')">Noch kein Konto?</button>
+        </div>
+      </div>
+
+      <!-- ── Register ─── -->
+      <div class="am-pane" id="paneRegister">
+        <div class="am-error" id="errRegister"></div>
+        <div class="am-row2">
+          <div class="am-field">
+            <label>Ich bin</label>
+            <select class="am-input" id="regRole">
+              <option value="company">Unternehmen</option>
+              <option value="agency">Personaldienstleister</option>
+            </select>
+          </div>
+          <div class="am-field">
+            <label>Firma / Name</label>
+            <input class="am-input" id="regCompany" placeholder="Muster GmbH"/>
+          </div>
+        </div>
+        <div class="am-field">
+          <label>E-Mail-Adresse</label>
+          <input class="am-input" id="regEmail" type="email" autocomplete="email" placeholder="name@firma.de"/>
+        </div>
+        <div class="am-row2">
+          <div class="am-field">
+            <label>Telefon (optional)</label>
+            <input class="am-input" id="regPhone" type="tel" autocomplete="tel" placeholder="+49 ..."/>
+          </div>
+          <div class="am-field">
+            <label>Tarif wählen</label>
+            <select class="am-input" id="regPlan">
+              <option value="FREE">FREE – kostenlos</option>
+              <option value="BASIS">BASIS – 150 €/Monat</option>
+              <option value="PLUS">PLUS – 499 €/Monat</option>
+              <option value="NOTDIENST">NOTDIENST – 999 €/Monat</option>
+            </select>
+          </div>
+        </div>
+        <div class="am-row2">
+          <div class="am-field">
+            <label>PLZ</label>
+            <input class="am-input" id="regPostalCode" autocomplete="postal-code" placeholder="z.B. 10115"/>
+          </div>
+          <div class="am-field">
+            <label>Ort</label>
+            <input class="am-input" id="regCity" autocomplete="address-level2" placeholder="z.B. Berlin"/>
+          </div>
+        </div>
+        <div class="am-row2">
+          <div class="am-field">
+            <label>Passwort (min. 8 Zeichen)</label>
+            <input class="am-input" id="regPassword" type="password" autocomplete="new-password"/>
+          </div>
+          <div class="am-field">
+            <label>Passwort wiederholen</label>
+            <input class="am-input" id="regPassword2" type="password" autocomplete="new-password"/>
+          </div>
+        </div>
+        <div class="am-field" style="margin-top:4px">
+          <div class="am-checkbox-row">
+            <input type="checkbox" id="regAgb"/>
+            <span>Ich akzeptiere die <a href="/public/legal/agb.html" target="_blank">AGB</a> und habe die <a href="/public/legal/datenschutz.html" target="_blank">Datenschutzerklärung</a> gelesen.</span>
+          </div>
+        </div>
+        <div style="margin-top:18px">
+          <button class="am-btn am-btn-primary" id="btnRegister" onclick="doRegister()">Konto anlegen</button>
+        </div>
+        <div class="am-hint">Nach der Registrierung erhalten Sie eine Bestätigungs-E-Mail.</div>
+        <div class="am-divider">─ ─ ─ ─ ─</div>
+        <div class="am-bottom-link">
+          <button class="am-link" onclick="showPane('login')">Bereits registriert? Anmelden</button>
+        </div>
+      </div>
+
+      <!-- ── Forgot password ─── -->
+      <div class="am-pane" id="paneForgot">
+        <div class="am-error"   id="errForgot"></div>
+        <div class="am-success" id="okForgot"></div>
+        <p style="font-size:14px;color:rgba(255,255,255,.5);margin:0 0 18px;line-height:1.6">
+          Geben Sie Ihre E-Mail-Adresse ein. Wir senden Ihnen einen Link zum Zurücksetzen des Passworts.
+        </p>
+        <div class="am-field">
+          <label>E-Mail-Adresse</label>
+          <input class="am-input" id="forgotEmail" type="email" autocomplete="email" placeholder="name@firma.de"/>
+        </div>
+        <div style="margin-top:18px">
+          <button class="am-btn am-btn-primary" id="btnForgot" onclick="doForgotPassword()">Reset-Link senden</button>
+          <button class="am-btn am-btn-ghost"   onclick="showPane('login')" style="margin-top:8px">← Zurück zum Login</button>
+        </div>
+      </div>
+
+      <!-- ── Password reset ─── -->
+      <div class="am-pane" id="paneReset">
+        <div class="am-error"   id="errReset"></div>
+        <div class="am-success" id="okReset"></div>
+        <p style="font-size:14px;color:rgba(255,255,255,.5);margin:0 0 18px;line-height:1.6">
+          Wählen Sie ein neues, sicheres Passwort (mindestens 8 Zeichen).
+        </p>
+        <div class="am-field">
+          <label>Neues Passwort</label>
+          <input class="am-input" id="resetPassword" type="password" autocomplete="new-password"/>
+        </div>
+        <div class="am-field">
+          <label>Passwort wiederholen</label>
+          <input class="am-input" id="resetPassword2" type="password" autocomplete="new-password"/>
+        </div>
+        <div style="margin-top:18px">
+          <button class="am-btn am-btn-primary" id="btnReset" onclick="doResetPassword()">Passwort speichern</button>
+        </div>
+      </div>
+
+      <!-- ── Email verified ─── -->
+      <div class="am-pane" id="paneVerified">
+        <div class="am-success visible">&#10003; Ihre E-Mail-Adresse wurde erfolgreich bestätigt.</div>
+        <p style="font-size:14px;color:rgba(255,255,255,.5);margin:0 0 18px;line-height:1.6">
+          Sie können sich jetzt anmelden.
+        </p>
+        <button class="am-btn am-btn-primary" onclick="showPane('login')">Jetzt anmelden</button>
+      </div>
+
+    </div><!-- /.am-panel -->
+  </div><!-- /.am-overlay -->
+
+  <!-- Toast -->
+  <div class="tc-toast" id="tcToast"></div>
+
   <script>
-    // Auto-Redirect: logged-in users
-    (function() {
-      fetch("/api/me", { credentials: "include" })
-        .then(function(r) { if (r.ok) return r.json(); throw new Error("not logged in"); })
-        .then(function(me) {
-          var hash = window.location.hash || "";
-          if (me.plan === "PLUS" || me.plan === "NOTDIENST" || me.plan === "PRO" || me.plan === "ENTERPRISE") {
-            window.location.replace("/sla" + hash);
-          } else {
-            window.location.replace("/app" + hash);
-          }
-        })
-        .catch(function() { /* Not logged in: show landing */ });
+    'use strict';
+    const API = '/api';
+    var _resetToken  = null;
+    var _csrfToken   = null;   // cached CSRF token
+
+    /* ── CSRF: Token holen (gecacht, einmalig pro Session) ─ */
+    async function getCsrf() {
+      if (_csrfToken) return _csrfToken;
+      try {
+        var r = await fetch('/api/csrf', { credentials: 'include' });
+        var d = await r.json();
+        _csrfToken = d.token || null;
+      } catch (e) { _csrfToken = null; }
+      return _csrfToken;
+    }
+
+    /* ── POST-Wrapper: Content-Type + CSRF automatisch ──── */
+    async function postJSON(url, body) {
+      var csrf = await getCsrf();
+      var headers = { 'Content-Type': 'application/json' };
+      if (csrf) headers['x-csrf-token'] = csrf;
+      var r = await fetch(url, {
+        method: 'POST', credentials: 'include',
+        headers: headers,
+        body: JSON.stringify(body)
+      });
+      if (r.status === 403) {
+        // CSRF-Token abgelaufen — einmal neu holen und nochmals versuchen
+        _csrfToken = null;
+        csrf = await getCsrf();
+        if (csrf) headers['x-csrf-token'] = csrf;
+        r = await fetch(url, {
+          method: 'POST', credentials: 'include',
+          headers: headers,
+          body: JSON.stringify(body)
+        });
+      }
+      return r;
+    }
+
+    /* ── Init: logged-in redirect + URL params ─────────── */
+    (async function init() {
+      var p      = new URLSearchParams(location.search);
+      var verify = p.get('verify');
+      var reset  = p.get('reset');
+
+      if (verify) { handleVerify(verify); return; }
+      if (reset)  { _resetToken = reset; openAuth('reset'); return; }
+
+      try {
+        var r = await fetch('/api/me', { credentials: 'include' });
+        if (r.ok) window.location.replace('/public/enterprise.html');
+      } catch (e) { /* nicht eingeloggt — Landing anzeigen */ }
     })();
+
+    /* ── Email-Verifizierung ────────────────────────────── */
+    async function handleVerify(token) {
+      try {
+        var r = await fetch('/api/auth/verify/' + encodeURIComponent(token));
+        var d = await r.json();
+        if (r.ok && d.ok) {
+          openAuth('verified');
+        } else {
+          openAuth('login');
+          showErr('login', 'Der Bestätigungslink ist ungültig oder abgelaufen.');
+        }
+      } catch (e) {
+        openAuth('login');
+      }
+    }
+
+    /* ── Modal öffnen / schließen ───────────────────────── */
+    function openAuth(pane, role) {
+      document.getElementById('amOverlay').classList.add('open');
+      showPane(pane || 'login');
+      if (role) {
+        var sel = document.getElementById('regRole');
+        if (sel) sel.value = role;
+      }
+      setTimeout(function() {
+        var first = document.querySelector('.am-pane.active .am-input');
+        if (first) first.focus();
+      }, 60);
+    }
+
+    function closeAuth() {
+      document.getElementById('amOverlay').classList.remove('open');
+    }
+
+    function handleOverlayClick(e) {
+      if (e.target === document.getElementById('amOverlay')) closeAuth();
+    }
+
+    /* ── Pane wechseln ──────────────────────────────────── */
+    function showPane(pane) {
+      document.querySelectorAll('.am-pane').forEach(function(el) { el.classList.remove('active'); });
+      var id = 'pane' + pane.charAt(0).toUpperCase() + pane.slice(1);
+      var el = document.getElementById(id);
+      if (el) el.classList.add('active');
+
+      var tabPanes = ['login', 'register'];
+      document.getElementById('amTabs').style.display = tabPanes.indexOf(pane) >= 0 ? 'flex' : 'none';
+      var tabL = document.getElementById('amTabLogin');
+      var tabR = document.getElementById('amTabRegister');
+      if (tabL) tabL.classList.toggle('active', pane === 'login');
+      if (tabR) tabR.classList.toggle('active', pane === 'register');
+
+      var titles = { login:'Anmelden', register:'Konto erstellen', forgot:'Passwort vergessen', reset:'Neues Passwort setzen', verified:'E-Mail bestätigt' };
+      document.getElementById('amTitle').textContent = titles[pane] || '';
+    }
+
+    /* ── Error / Success helpers ────────────────────────── */
+    function showErr(pane, msg) {
+      var id = 'err' + pane.charAt(0).toUpperCase() + pane.slice(1);
+      var el = document.getElementById(id);
+      if (el) { el.textContent = msg; el.classList.add('visible'); }
+    }
+    function clearErr(pane) {
+      var id = 'err' + pane.charAt(0).toUpperCase() + pane.slice(1);
+      var el = document.getElementById(id);
+      if (el) { el.textContent = ''; el.classList.remove('visible'); }
+    }
+    function setBtn(id, loading, label) {
+      var b = document.getElementById(id);
+      if (!b) return;
+      b.disabled = loading;
+      b.textContent = loading ? '⏳ Bitte warten…' : label;
+    }
+
+    /* ── Redirect nach erfolgreicher Auth ───────────────── */
+    function redirectAfterAuth() {
+      window.location.replace('/public/enterprise.html');
+    }
+
+    /* ── LOGIN ──────────────────────────────────────────── */
+    async function doLogin() {
+      clearErr('login');
+      var email    = document.getElementById('loginEmail').value.trim();
+      var password = document.getElementById('loginPassword').value;
+      if (!email || !password) { showErr('login', 'Bitte E-Mail und Passwort eingeben.'); return; }
+
+      setBtn('btnLogin', true, 'Anmelden');
+      try {
+        var r = await postJSON('/api/auth/login', { email: email, password: password });
+        var d = await r.json();
+        if (!r.ok) {
+          var m = { INVALID_CREDENTIALS: 'E-Mail oder Passwort falsch.' };
+          showErr('login', m[d.error] || d.message || 'Anmeldung fehlgeschlagen.'); return;
+        }
+        redirectAfterAuth();
+      } catch (e) {
+        showErr('login', 'Verbindungsfehler. Bitte erneut versuchen.');
+      } finally {
+        setBtn('btnLogin', false, 'Anmelden');
+      }
+    }
+
+    /* ── REGISTER ───────────────────────────────────────── */
+    async function doRegister() {
+      clearErr('register');
+      var role       = document.getElementById('regRole').value;
+      var company    = document.getElementById('regCompany').value.trim();
+      var email      = document.getElementById('regEmail').value.trim();
+      var phone      = document.getElementById('regPhone').value.trim();
+      var plan       = document.getElementById('regPlan').value;
+      var postalCode = document.getElementById('regPostalCode').value.trim();
+      var city       = document.getElementById('regCity').value.trim();
+      var pw         = document.getElementById('regPassword').value;
+      var pw2        = document.getElementById('regPassword2').value;
+      var agb        = document.getElementById('regAgb').checked;
+
+      if (!email)        { showErr('register', 'Bitte E-Mail-Adresse eingeben.'); return; }
+      if (!pw)           { showErr('register', 'Bitte Passwort eingeben.'); return; }
+      if (pw.length < 8) { showErr('register', 'Passwort muss mindestens 8 Zeichen lang sein.'); return; }
+      if (pw !== pw2)    { showErr('register', 'Passwörter stimmen nicht überein.'); return; }
+      if (!agb)          { showErr('register', 'Bitte AGB und Datenschutzerklärung akzeptieren.'); return; }
+
+      setBtn('btnRegister', true, 'Konto anlegen');
+      try {
+        var r = await postJSON('/api/auth/register', {
+          role: role, email: email, password: pw,
+          company_name: company    || null,
+          phone:        phone      || null,
+          postal_code:  postalCode || null,
+          city:         city       || null,
+          plan:         plan
+        });
+        var d = await r.json();
+        if (!r.ok) {
+          var m = { EMAIL_EXISTS: 'Diese E-Mail ist bereits registriert.' };
+          showErr('register', m[d.error] || d.message || 'Registrierung fehlgeschlagen.'); return;
+        }
+        showToast('Willkommen bei TempConnect! Bitte bestätigen Sie Ihre E-Mail.', 'info');
+        setTimeout(redirectAfterAuth, 1200);
+      } catch (e) {
+        showErr('register', 'Verbindungsfehler. Bitte erneut versuchen.');
+      } finally {
+        setBtn('btnRegister', false, 'Konto anlegen');
+      }
+    }
+
+    /* ── FORGOT PASSWORD ────────────────────────────────── */
+    async function doForgotPassword() {
+      clearErr('forgot');
+      document.getElementById('okForgot').classList.remove('visible');
+      var email = document.getElementById('forgotEmail').value.trim();
+      if (!email) { showErr('forgot', 'Bitte E-Mail-Adresse eingeben.'); return; }
+
+      setBtn('btnForgot', true, 'Reset-Link senden');
+      try {
+        await postJSON('/api/auth/forgot-password', { email: email });
+        var ok = document.getElementById('okForgot');
+        ok.textContent = '✓ Falls ein Konto existiert, wurde ein Reset-Link gesendet.';
+        ok.classList.add('visible');
+        document.getElementById('forgotEmail').value = '';
+      } catch (e) {
+        showErr('forgot', 'Verbindungsfehler. Bitte erneut versuchen.');
+      } finally {
+        setBtn('btnForgot', false, 'Reset-Link senden');
+      }
+    }
+
+    /* ── RESET PASSWORD ─────────────────────────────────── */
+    async function doResetPassword() {
+      clearErr('reset');
+      document.getElementById('okReset').classList.remove('visible');
+      var pw  = document.getElementById('resetPassword').value;
+      var pw2 = document.getElementById('resetPassword2').value;
+      if (!pw || pw.length < 8) { showErr('reset', 'Passwort muss mindestens 8 Zeichen lang sein.'); return; }
+      if (pw !== pw2)            { showErr('reset', 'Passwörter stimmen nicht überein.'); return; }
+      if (!_resetToken)          { showErr('reset', 'Ungültiger Reset-Link. Bitte neu anfordern.'); return; }
+
+      setBtn('btnReset', true, 'Passwort speichern');
+      try {
+        var r = await postJSON('/api/auth/reset-password', { token: _resetToken, password: pw });
+        var d = await r.json();
+        if (r.ok || d.ok) {
+          var ok = document.getElementById('okReset');
+          ok.textContent = '✓ Passwort erfolgreich gesetzt. Sie können sich jetzt anmelden.';
+          ok.classList.add('visible');
+          _resetToken = null;
+          setTimeout(function() { showPane('login'); }, 2200);
+        } else {
+          var m = { TOKEN_EXPIRED: 'Der Reset-Link ist abgelaufen. Bitte neu anfordern.', PASSWORD_TOO_SHORT: 'Mindestens 8 Zeichen erforderlich.' };
+          showErr('reset', m[d.error] || d.message || 'Fehler beim Zurücksetzen.');
+        }
+      } catch (e) {
+        showErr('reset', 'Verbindungsfehler. Bitte erneut versuchen.');
+      } finally {
+        setBtn('btnReset', false, 'Passwort speichern');
+      }
+    }
+
+    /* ── Keyboard shortcuts ─────────────────────────────── */
+    document.addEventListener('keydown', function(e) {
+      if (e.key === 'Escape') { closeAuth(); return; }
+      if (e.key !== 'Enter') return;
+      if (e.target.tagName === 'TEXTAREA') return;
+      var active = document.querySelector('.am-pane.active');
+      if (!active) return;
+      var id = active.id;
+      if (id === 'paneLogin')    doLogin();
+      if (id === 'paneRegister') doRegister();
+      if (id === 'paneForgot')   doForgotPassword();
+      if (id === 'paneReset')    doResetPassword();
+    });
+
+    /* ── Toast ──────────────────────────────────────────── */
+    function showToast(msg, type) {
+      var el = document.getElementById('tcToast');
+      el.textContent = msg;
+      el.className = 'tc-toast visible' + (type ? ' ' + type : '');
+      clearTimeout(el._t);
+      el._t = setTimeout(function() { el.classList.remove('visible'); }, 4500);
+    }
   </script>
 </body>
 </html>

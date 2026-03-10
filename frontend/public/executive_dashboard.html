@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="de">
 <head>
   <meta charset="utf-8"/>
@@ -39,14 +39,13 @@
 </head>
 <body>
   <div class="wrap">
-    <div class="topbar">
+    <div class="topbar" data-notif-topbar>
       <span class="brand"><span style="width:10px;height:10px;border-radius:50%;background:linear-gradient(135deg,var(--brand),var(--brand2));display:inline-block;margin-right:8px"></span>TempConnect</span>
       <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
         <a href="/public/enterprise.html" class="btn">Hub</a>
         <a href="/public/requisitions.html" class="btn">Requisitions</a>
         <a href="/public/vendor_pool.html" class="btn">Vendor Pool</a>
         <a href="/public/compliance_overview.html" class="btn">Compliance</a>
-        <span id="notifBellWrap"></span>
       </div>
     </div>
 
@@ -337,5 +336,6 @@
   <script src="/public/js/notifications.js"></script>
   <div id="tc-footer" data-tc-footer></div>
   <script src="/public/js/footer.js"></script>
+  <script src="/public/js/logout-btn.js"></script>
 </body>
 </html>
