@@ -1,0 +1,40 @@
+{
+  "name": "tempconnect-frontend",
+  "version": "2.0.0",
+  "private": true,
+  "type": "module",
+  "description": "TempConnect Frontend — Static HTML/JS/CSS + React SPAs (OCC, SOC, SCC)",
+  "scripts": {
+    "lint:html": "htmlhint \"**/*.html\"",
+    "lint:js": "eslint public/js/ --max-warnings=0",
+    "lint": "npm run lint:html && npm run lint:js",
+    "lint:fix": "eslint public/js/ --fix",
+    "dev:occ":    "vite --config vite.config.ts",
+    "build:occ":  "tsc --noEmit && vite build --config vite.config.ts",
+    "preview:occ":"vite preview --config vite.config.ts",
+    "dev:soc":    "vite --config vite.config.support.ts",
+    "build:soc":  "tsc --noEmit && vite build --config vite.config.support.ts",
+    "preview:soc":"vite preview --config vite.config.support.ts",
+    "dev:scc":    "vite --config vite.config.staff.ts",
+    "build:scc":  "tsc --noEmit && vite build --config vite.config.staff.ts",
+    "preview:scc":"vite preview --config vite.config.staff.ts",
+    "build:all":  "npm run build:occ && npm run build:soc && npm run build:scc",
+    "typecheck":  "tsc --noEmit"
+  },
+  "dependencies": {
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "react-router-dom": "^6.26.2"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.0.0",
+    "@types/react": "^18.3.5",
+    "@types/react-dom": "^18.3.0",
+    "@vitejs/plugin-react": "^4.3.1",
+    "eslint": "^9.0.0",
+    "globals": "^15.0.0",
+    "htmlhint": "^1.1.4",
+    "typescript": "^5.5.4",
+    "vite": "^5.4.4"
+  }
+}

@@ -107,6 +107,7 @@ services:
       SMTP_PASS: ${SMTP_PASS}
       SMTP_FROM: ${SMTP_FROM}
       PAYMENT_MODE: ${PAYMENT_MODE:-demo}
+      FEATURE_GATE_BYPASS: ${FEATURE_GATE_BYPASS:-true}
       STRIPE_SECRET_KEY: ${STRIPE_SECRET_KEY:-}
       STRIPE_PUBLISHABLE_KEY: ${STRIPE_PUBLISHABLE_KEY:-}
       STRIPE_WEBHOOK_SECRET: ${STRIPE_WEBHOOK_SECRET:-}
@@ -115,6 +116,21 @@ services:
       RATE_LIMIT_STORE: ${RATE_LIMIT_STORE:-redis}
       REDIS_URL: ${REDIS_URL:-redis://redis:6379}
       LOG_LEVEL: ${LOG_LEVEL:-info}
+      SENTRY_DSN: ${SENTRY_DSN:-}
+      SENTRY_TRACES_SAMPLE_RATE: ${SENTRY_TRACES_SAMPLE_RATE:-0.1}
+      # ── Staff Control Center ─────────────────────────────────────────────────
+      # STAFF_USER_IDS: Komma-separierte UUIDs der ersten Staff-Mitglieder.
+      # Diese werden automatisch in die tempconnect_staff-Allowlist eingetragen
+      # wenn sie sich zum ersten Mal einloggen (Bootstrap-Mechanismus).
+      # Deine User-ID findest du mit: SELECT id FROM users WHERE email='deine@email.de';
+      STAFF_USER_IDS: ${STAFF_USER_IDS:-}
+      # Eigener Session-Secret für tc.staff.sid (empfohlen, sonst: SESSION_SECRET + ":staff")
+      STAFF_SESSION_SECRET: ${STAFF_SESSION_SECRET:-}
+      # Hetzner Cloud API Token (leer = Stub-Mode mit Demo-Daten)
+      HETZNER_API_TOKEN: ${HETZNER_API_TOKEN:-}
+    volumes:
+      - uploads:/app/uploads
+      - ./.claude:/app/.claude:ro
     command: ["npm", "run", "start"]
     healthcheck:
       test: ["CMD", "wget", "-q", "--spider", "http://localhost:3000/health"]
@@ -133,18 +149,22 @@ services:
     container_name: tempconnect_frontend
     restart: always
     depends_on:
-      - api
+      api:
+        condition: service_healthy
     # Dev: 8080:80 OK. Produktion hinter Nginx Reverse Proxy: Port nur intern (z. B. 127.0.0.1:8080:80).
     ports:
       - "${FRONTEND_PORT:-8080}:80"
     volumes:
       - ./frontend:/usr/share/nginx/html:ro
+      - ./support-ops-dist:/usr/share/nginx/html/support-ops:ro
+      - ./.claude:/workspace/.claude:ro
       - ./nginx/nginx.conf:/etc/nginx/conf.d/default.conf:ro
     healthcheck:
-      test: ["CMD-SHELL", "nginx -t 2>/dev/null"]
+      test: ["CMD-SHELL", "wget -q --spider http://localhost:80/health || exit 1"]
       interval: 30s
       timeout: 10s
       retries: 3
 
 volumes:
   dbdata:
+  uploads:
