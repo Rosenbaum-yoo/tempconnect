@@ -216,13 +216,9 @@ export async function createApp() {
   const sessionStore = new PgSession({ pool, tableName: "session", createTableIfMissing: true, ttl: 60 * 60 * 24 * 14 });
   const cookieSecure = config.NODE_ENV === "production" || (config.BASE_URL || "").toLowerCase().startsWith("https://");
 
-  // ── Plattform-Session (globale tc.sid) ───────────────────────────────────
-  app.use(session({ name: "tc.sid", secret: config.SESSION_SECRET, store: sessionStore, resave: true, saveUninitialized: false, rolling: true, cookie: { path: "/", httpOnly: true, sameSite: "lax", secure: cookieSecure, maxAge: 1000 * 60 * 60 * 24 * 14 } }));
-
   // ── SCC (Staff Control Center): eigene, harte Session nur auf /staff ────
-  // NACH der globalen Session gemountet: Express fuehrt beide fuer /staff/*
-  // aus, diese hier laeuft als letzte und gewinnt → req.session = {staffUserId}.
-  // Die globale Session (tc.sid) hat fuer /staff-Requests keinen Effekt mehr.
+  // Laeuft VOR der Plattform-Session, aber die Plattform-Session ueberspringt
+  // /staff-Pfade explizit, sodass req.session exklusiv der Staff-Session gehoert.
   const staffSessionStore = new PgSession({ pool, tableName: "staff_session", createTableIfMissing: true, ttl: 60 * 60 * 4 });
   const staffSessionSecret = process.env.STAFF_SESSION_SECRET || (String(config.SESSION_SECRET || "") + ":staff");
   app.use("/staff", session({
@@ -234,6 +230,14 @@ export async function createApp() {
     rolling: true,
     cookie: { path: "/staff", httpOnly: true, sameSite: "strict", secure: cookieSecure, maxAge: 1000 * 60 * 60 * 4 }
   }));
+
+  // ── Plattform-Session (tc.sid) — ueberspringt /staff-Pfade komplett ───────
+  // Verhindert dass req.session nach der Staff-Session ueberschrieben wird.
+  const platformSessionMiddleware = session({ name: "tc.sid", secret: config.SESSION_SECRET, store: sessionStore, resave: true, saveUninitialized: false, rolling: true, cookie: { path: "/", httpOnly: true, sameSite: "lax", secure: cookieSecure, maxAge: 1000 * 60 * 60 * 24 * 14 } });
+  app.use((req, res, next) => {
+    if (req.path.startsWith("/staff")) return next();
+    return platformSessionMiddleware(req, res, next);
+  });
   // CSRF + demoGuard apply to both /api/ and /api/v1/
   app.use("/api/", csrfProtect);
   app.use("/api/", demoGuard);
