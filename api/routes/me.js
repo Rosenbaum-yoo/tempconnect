@@ -57,24 +57,42 @@ export function createMeRouter(deps) {
     const orgId = await resolveOrgId(req, req.session.userId);
     const me = await getUserAndPlan(req.session.userId, { orgId });
     if (!me) return res.status(401).json({ error: "NOT_AUTHENTICATED" });
+
     let memberships = [];
     try {
       memberships = await rbacService.getUserMemberships(pool, req.session.userId);
     } catch { /* non-critical */ }
+
     const activeOrgId = orgId || null;
     const activeOrg = memberships.find((m) => String(m.org_id) === String(activeOrgId)) || null;
+
+    // Allowed locations for the active membership
+    let allowedLocations = [];
+    try {
+      if (activeOrg) {
+        allowedLocations = await rbacService.getAllowedLocationsForMembership(pool, activeOrg);
+      }
+    } catch { /* non-critical */ }
+
     res.json({
       ...me,
       plan_display_label: getPlanDisplayLabel(me.plan),
       memberships,
       active_org_id: activeOrgId,
       active_org: activeOrg ? {
-        org_id: activeOrg.org_id,
+        org_id:   activeOrg.org_id,
         org_name: activeOrg.org_name,
         org_type: activeOrg.org_type,
         role_key: activeOrg.role_key,
         org_plan: activeOrg.org_plan || null
-      } : null
+      } : null,
+      // Location context (set by orgContext middleware)
+      active_location_id:  req.locationId  || null,
+      active_location:     req.locationId
+        ? { id: req.locationId, name: req.locationName || null }
+        : null,
+      allowed_locations:   allowedLocations,
+      active_department_id: req.departmentId || null,
     });
   });
 
@@ -120,34 +138,63 @@ export function createMeRouter(deps) {
   });
 
   router.post("/me/active-org", requireAuth, async (req, res) => {
+    const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
     try {
       const orgId = String(req.body?.org_id || "").trim();
       if (!orgId) {
         return res.status(400).json({ error: "ORG_ID_REQUIRED", message: "Organisation erforderlich." });
       }
-      if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(orgId)) {
+      if (!UUID_RE.test(orgId)) {
         return res.status(400).json({ error: "INVALID_ORG_ID", message: "Ungueltige Organisation." });
       }
       const membership = await rbacService.getMembership(pool, req.session.userId, orgId);
       if (!membership) {
         return res.status(403).json({ error: "ORG_NOT_ALLOWED", message: "Keine Mitgliedschaft in dieser Organisation." });
       }
-      req.session._orgCache = { orgId: membership.org_id, role: membership.role_key, name: membership.org_name };
+
+      // Org switch: always clear stale location context first
+      delete req.session._locationCache;
+
+      req.session._orgCache = {
+        orgId: membership.org_id,
+        role:  membership.role_key,
+        name:  membership.org_name,
+        defaultLocationId: membership.location_id || null,
+      };
       req.orgId = membership.org_id;
       req.orgRole = membership.role_key;
       req.orgName = membership.org_name;
       req.orgMembership = membership;
+
+      // Optional: set a specific location for the new org in the same request
+      let activeLocationId = null;
+      let activeLocationName = null;
+      const requestedLocId = req.body?.location_id ?? null;
+      if (requestedLocId && UUID_RE.test(String(requestedLocId))) {
+        const { rows } = await pool.query(
+          "SELECT id, name FROM org_locations WHERE id=$1 AND org_id=$2 AND is_active=TRUE",
+          [requestedLocId, membership.org_id]
+        );
+        if (rows[0]) {
+          req.session._locationCache = { locationId: rows[0].id, locationName: rows[0].name };
+          activeLocationId   = rows[0].id;
+          activeLocationName = rows[0].name;
+        }
+      }
+
       res.locals.audit = {
-        action: "user.org_switch",
+        action:      "user.org_switch",
         entity_type: "org_membership",
-        entity_id: membership.id || null,
-        details: { org_id: membership.org_id }
+        entity_id:   membership.id || null,
+        details:     { org_id: membership.org_id, location_id: activeLocationId }
       };
       res.json({
-        ok: true,
-        active_org_id: membership.org_id,
-        org_name: membership.org_name,
-        role_key: membership.role_key
+        ok:                  true,
+        active_org_id:       membership.org_id,
+        org_name:            membership.org_name,
+        role_key:            membership.role_key,
+        active_location_id:  activeLocationId,
+        active_location_name: activeLocationName,
       });
     } catch (e) {
       logger.error({ err: e }, "Active org switch failed");
@@ -193,26 +240,53 @@ export function createMeRouter(deps) {
    * current org and be active. Persists in session.
    *
    * Body: { location_id: string (UUID) | null }
-   * Pass null to clear the explicit selection (reverts to membership default).
+   *   null → clear explicit selection (org-wide view).
+   *          Not allowed for membership-bound users.
+   *
+   * Security: location-bound memberships cannot switch to a different location.
    */
   router.post("/me/active-location", requireAuth, async (req, res) => {
+    const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
     try {
       const orgId = req.orgId || null;
       if (!orgId) {
         return res.status(403).json({ error: "NO_ORG_CONTEXT", message: "Organisations-Kontext erforderlich." });
       }
 
+      // Resolve membership for binding check (use req.orgMembership if already loaded)
+      const membership = req.orgMembership ||
+        await rbacService.getMembership(pool, req.session.userId, orgId);
+
+      const membershipLocationId =
+        membership?.location_id ||
+        req.session._orgCache?.defaultLocationId ||
+        null;
+      const isBound = !!membershipLocationId;
+
       const locationId = req.body?.location_id ?? null;
 
-      // Allow explicit clear
       if (locationId === null) {
+        // Clearing explicit selection: not allowed for bound memberships
+        if (isBound) {
+          return res.status(403).json({
+            error:   "LOCATION_BOUND",
+            message: "Ihre Mitgliedschaft ist an einen Standort gebunden und kann nicht auf alle Standorte erweitert werden."
+          });
+        }
         delete req.session._locationCache;
         return res.json({ ok: true, location_id: null, location_name: null });
       }
 
-      const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
       if (!UUID_RE.test(String(locationId))) {
         return res.status(400).json({ error: "INVALID_LOCATION_ID", message: "Ungültige Standort-ID." });
+      }
+
+      // Binding enforcement: bound membership may only confirm its own location
+      if (isBound && locationId !== membershipLocationId) {
+        return res.status(403).json({
+          error:   "LOCATION_BOUND",
+          message: "Ihre Mitgliedschaft erlaubt keinen Standortwechsel."
+        });
       }
 
       const { rows } = await pool.query(
@@ -226,10 +300,10 @@ export function createMeRouter(deps) {
 
       req.session._locationCache = { locationId: loc.id, locationName: loc.name };
       res.locals.audit = {
-        action: "user.location_switch",
+        action:      "user.location_switch",
         entity_type: "org_location",
-        entity_id: loc.id,
-        details: { org_id: orgId, location_name: loc.name },
+        entity_id:   loc.id,
+        details:     { org_id: orgId, location_name: loc.name },
       };
       res.json({ ok: true, location_id: loc.id, location_name: loc.name });
     } catch (e) {
@@ -243,7 +317,7 @@ export function createMeRouter(deps) {
    * Clears the explicit location selection from session.
    * The system will fall back to the membership-assigned default location.
    */
-  router.delete("/me/active-location", requireAuth, async (req, res) => {
+  router.delete("/me/active-location", requireAuth, (req, res) => {
     try {
       delete req.session._locationCache;
       res.json({ ok: true, location_id: null });

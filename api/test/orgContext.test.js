@@ -1,0 +1,515 @@
+/**
+ * Org Context Middleware unit tests.
+ * Tests all resolution branches: no session, explicit org header,
+ * session cache, primary org fallback, error resilience.
+ * Plus: location-scope validation, binding enforcement, UUID 400s.
+ *
+ * Run: node --test --test-force-exit test/orgContext.test.js
+ */
+
+import { describe, it } from "node:test";
+import assert from "node:assert/strict";
+import { orgContextMiddleware } from "../middleware/orgContext.js";
+
+// ── Mock factories ────────────────────────────────────────────
+
+const ORG_ID   = "a0b1c2d3-e4f5-6789-abcd-ef0123456789";
+const ORG_ID_B = "b1c2d3e4-f5a6-7890-bcde-f01234567890";
+const LOC_A    = "c2d3e4f5-a6b7-8901-cdef-012345678901";
+const LOC_B    = "d3e4f5a6-b7c8-9012-defa-123456789012";
+const USER_ID  = "user-abc-123";
+
+const MEMBERSHIP = {
+  org_id:      ORG_ID,
+  role_key:    "owner",
+  org_name:    "Test GmbH",
+  location_id: null,
+  department_id: null,
+};
+
+const MEMBERSHIP_BOUND = {
+  ...MEMBERSHIP,
+  role_key:    "member",
+  location_id: LOC_A,
+};
+
+const MEMBERSHIP_WITH_DEPT = {
+  ...MEMBERSHIP,
+  department_id: "dept-uuid-0000-0000-0000-000000000001",
+};
+
+function sequencePool(...responses) {
+  let idx = 0;
+  return {
+    query: async () => {
+      if (idx >= responses.length) throw new Error(`Unexpected query #${idx + 1}`);
+      const resp = responses[idx++];
+      if (resp instanceof Error) throw resp;
+      return resp;
+    }
+  };
+}
+
+function errorPool() {
+  return { query: async () => { throw new Error("DB unavailable"); } };
+}
+
+/** Pool that throws if query() is ever called. */
+function noQueryPool() {
+  return { query: async () => { throw new Error("no DB calls expected"); } };
+}
+
+function mockReq(overrides = {}) {
+  return {
+    session: { userId: USER_ID },
+    headers: {},
+    query: {},
+    body: {},
+    ...overrides
+  };
+}
+
+function mockRes() {
+  const res = { _status: 200, _body: null };
+  res.status = (s) => { res._status = s; return res; };
+  res.json   = (b) => { res._body  = b; return res; };
+  return res;
+}
+
+// ═══════════════════════════════════════════════════════════════
+// No session — skip entirely
+// ═══════════════════════════════════════════════════════════════
+
+describe("orgContextMiddleware — no session", () => {
+  it("calls next() immediately when no session", async () => {
+    const mw = orgContextMiddleware(noQueryPool());
+    let nextCalled = false;
+    await mw({ headers: {}, query: {}, body: {} }, mockRes(), () => { nextCalled = true; });
+    assert.ok(nextCalled);
+  });
+
+  it("calls next() when session exists but userId is missing", async () => {
+    const mw = orgContextMiddleware(noQueryPool());
+    let nextCalled = false;
+    await mw(mockReq({ session: {} }), mockRes(), () => { nextCalled = true; });
+    assert.ok(nextCalled);
+  });
+});
+
+// ═══════════════════════════════════════════════════════════════
+// UUID header validation → 400 (rules 1 & 2)
+// ═══════════════════════════════════════════════════════════════
+
+describe("orgContextMiddleware — invalid UUID headers return 400", () => {
+  it("returns 400 for non-UUID X-Org-Id header", async () => {
+    const mw = orgContextMiddleware(noQueryPool()); // DB must not be called
+    const req = mockReq({ headers: { "x-org-id": "not-a-uuid" } });
+    const res = mockRes();
+    let nextCalled = false;
+
+    await mw(req, res, () => { nextCalled = true; });
+
+    assert.equal(nextCalled, false);
+    assert.equal(res._status, 400);
+    assert.equal(res._body?.error, "INVALID_ORG_ID");
+  });
+
+  it("returns 400 for SQL injection attempt in X-Org-Id header", async () => {
+    const mw = orgContextMiddleware(noQueryPool());
+    const req = mockReq({ headers: { "x-org-id": "'; DROP TABLE users; --" } });
+    const res = mockRes();
+    let nextCalled = false;
+
+    await mw(req, res, () => { nextCalled = true; });
+
+    assert.equal(nextCalled, false);
+    assert.equal(res._status, 400);
+    assert.equal(res._body?.error, "INVALID_ORG_ID");
+  });
+
+  it("returns 400 for non-UUID X-Location-Id header", async () => {
+    const pool = sequencePool(
+      { rows: [{ org_id: ORG_ID }] }, // getPrimaryOrg: users query
+      { rows: [MEMBERSHIP] }           // getMembership
+    );
+    const mw = orgContextMiddleware(pool);
+    const req = mockReq({ headers: { "x-location-id": "not-a-uuid" } });
+    const res = mockRes();
+    let nextCalled = false;
+
+    await mw(req, res, () => { nextCalled = true; });
+
+    assert.equal(nextCalled, false);
+    assert.equal(res._status, 400);
+    assert.equal(res._body?.error, "INVALID_LOCATION_ID");
+  });
+
+  it("returns 400 for SQL injection in X-Location-Id header", async () => {
+    const mw = orgContextMiddleware(noQueryPool());
+    const req = mockReq({ headers: { "x-location-id": "'); DROP TABLE org_locations;--" } });
+    const res = mockRes();
+    let nextCalled = false;
+
+    await mw(req, res, () => { nextCalled = true; });
+
+    assert.equal(nextCalled, false);
+    assert.equal(res._status, 400);
+    assert.equal(res._body?.error, "INVALID_LOCATION_ID");
+  });
+
+  it("silently ignores invalid UUID in query.org_id (not a header → no 400)", async () => {
+    // query param with invalid UUID → silently skip, fall through to primary org resolve
+    const pool = sequencePool(
+      { rows: [] },  // getPrimaryOrg: no user.org_id
+      { rows: [] }   // no membership
+    );
+    const mw = orgContextMiddleware(pool);
+    const req = mockReq({ query: { org_id: "not-a-uuid" } });
+    const res = mockRes();
+    let nextCalled = false;
+
+    await mw(req, res, () => { nextCalled = true; });
+
+    assert.ok(nextCalled);
+    assert.equal(res._status, 200); // unchanged
+  });
+});
+
+// ═══════════════════════════════════════════════════════════════
+// Explicit org from X-Org-Id header
+// ═══════════════════════════════════════════════════════════════
+
+describe("orgContextMiddleware — explicit org via header", () => {
+  it("resolves org from X-Org-Id header with valid UUID", async () => {
+    const pool = sequencePool(
+      { rows: [MEMBERSHIP] },    // getMembership
+      { rows: [] }               // location resolution (no default loc) — no location cached
+    );
+    const mw = orgContextMiddleware(pool);
+    const req = mockReq({ headers: { "x-org-id": ORG_ID } });
+    let nextCalled = false;
+
+    await mw(req, mockRes(), () => { nextCalled = true; });
+
+    assert.ok(nextCalled);
+    assert.strictEqual(req.orgId, ORG_ID);
+    assert.strictEqual(req.orgRole, "owner");
+    assert.strictEqual(req.orgName, "Test GmbH");
+    assert.deepStrictEqual(req.orgMembership, MEMBERSHIP);
+    assert.ok(req.session._orgCache, "Explicit org should update session cache");
+    assert.strictEqual(req.session._orgCache.orgId, ORG_ID);
+  });
+
+  it("no membership for explicit org → org fields not set", async () => {
+    const pool = sequencePool({ rows: [] }); // getMembership returns null
+    const mw = orgContextMiddleware(pool);
+    const req = mockReq({ headers: { "x-org-id": ORG_ID } });
+    let nextCalled = false;
+
+    await mw(req, mockRes(), () => { nextCalled = true; });
+
+    assert.ok(nextCalled);
+    assert.strictEqual(req.orgId, undefined);
+  });
+
+  it("explicit org_id from query param is accepted (valid UUID)", async () => {
+    const pool = sequencePool({ rows: [MEMBERSHIP] });
+    const mw = orgContextMiddleware(pool);
+    const req = mockReq({ query: { org_id: ORG_ID } });
+    let nextCalled = false;
+
+    await mw(req, mockRes(), () => { nextCalled = true; });
+
+    assert.ok(nextCalled);
+    assert.strictEqual(req.orgId, ORG_ID);
+  });
+
+  it("org switch via header clears stale location cache", async () => {
+    const pool = sequencePool({ rows: [{ ...MEMBERSHIP, org_id: ORG_ID_B, org_name: "New Org" }] });
+    const mw = orgContextMiddleware(pool);
+    const req = mockReq({
+      headers: { "x-org-id": ORG_ID_B },
+      session: {
+        userId: USER_ID,
+        _orgCache:      { orgId: ORG_ID, role: "owner", name: "Old Org", defaultLocationId: null },
+        _locationCache: { locationId: LOC_A, locationName: "Alter Standort" }
+      }
+    });
+
+    await mw(req, mockRes(), () => {});
+
+    assert.strictEqual(req.orgId, ORG_ID_B);
+    assert.equal(req.session._locationCache, undefined, "location cache must be cleared on org switch");
+  });
+});
+
+// ═══════════════════════════════════════════════════════════════
+// Session cache
+// ═══════════════════════════════════════════════════════════════
+
+describe("orgContextMiddleware — session cache", () => {
+  it("uses cached org when available (no DB query)", async () => {
+    const mw = orgContextMiddleware(noQueryPool());
+    const req = mockReq({
+      session: {
+        userId: USER_ID,
+        _orgCache: { orgId: ORG_ID, role: "admin", name: "Cached GmbH", defaultLocationId: null }
+      }
+    });
+    let nextCalled = false;
+
+    await mw(req, mockRes(), () => { nextCalled = true; });
+
+    assert.ok(nextCalled);
+    assert.strictEqual(req.orgId, ORG_ID);
+    assert.strictEqual(req.orgRole, "admin");
+    assert.strictEqual(req.orgName, "Cached GmbH");
+  });
+});
+
+// ═══════════════════════════════════════════════════════════════
+// Primary org fallback + caching
+// ═══════════════════════════════════════════════════════════════
+
+describe("orgContextMiddleware — primary org resolution", () => {
+  it("resolves primary org and caches in session", async () => {
+    const pool = sequencePool(
+      { rows: [{ org_id: ORG_ID }] },  // users.org_id lookup
+      { rows: [MEMBERSHIP] }            // getMembership
+    );
+    const mw = orgContextMiddleware(pool);
+    const req = mockReq();
+    let nextCalled = false;
+
+    await mw(req, mockRes(), () => { nextCalled = true; });
+
+    assert.ok(nextCalled);
+    assert.strictEqual(req.orgId, ORG_ID);
+    assert.strictEqual(req.orgRole, "owner");
+    assert.ok(req.session._orgCache);
+    assert.strictEqual(req.session._orgCache.orgId, ORG_ID);
+  });
+
+  it("no membership → org fields not set, still calls next", async () => {
+    const pool = sequencePool(
+      { rows: [] },  // users.org_id: null
+      { rows: [] }   // fallback membership: none
+    );
+    const mw = orgContextMiddleware(pool);
+    const req = mockReq();
+    let nextCalled = false;
+
+    await mw(req, mockRes(), () => { nextCalled = true; });
+
+    assert.ok(nextCalled);
+    assert.strictEqual(req.orgId, undefined);
+  });
+});
+
+// ═══════════════════════════════════════════════════════════════
+// Location scope — locationScope field
+// ═══════════════════════════════════════════════════════════════
+
+describe("orgContextMiddleware — req.locationScope", () => {
+  it("locationScope is 'org' when no location is selected", async () => {
+    const pool = sequencePool(
+      { rows: [{ org_id: ORG_ID }] },
+      { rows: [MEMBERSHIP] }          // membership.location_id = null
+    );
+    const mw = orgContextMiddleware(pool);
+    const req = mockReq();
+
+    await mw(req, mockRes(), () => {});
+
+    assert.strictEqual(req.locationScope, 'org');
+    assert.strictEqual(req.locationId, undefined);
+  });
+
+  it("locationScope is 'bound' when membership has a default location", async () => {
+    const pool = sequencePool(
+      { rows: [{ org_id: ORG_ID }] },
+      { rows: [MEMBERSHIP_BOUND] },         // membership.location_id = LOC_A
+      { rows: [{ id: LOC_A, name: "HQ" }] } // resolveLocation for default
+    );
+    const mw = orgContextMiddleware(pool);
+    const req = mockReq();
+
+    await mw(req, mockRes(), () => {});
+
+    assert.strictEqual(req.locationScope, 'bound');
+    assert.strictEqual(req.locationId, LOC_A);
+    assert.strictEqual(req.locationName, "HQ");
+  });
+
+  it("locationScope is 'active' when location explicitly chosen via header", async () => {
+    const pool = sequencePool(
+      { rows: [MEMBERSHIP] },               // getMembership for X-Org-Id
+      { rows: [{ id: LOC_A, name: "Berlin" }] } // resolveLocation for X-Location-Id
+    );
+    const mw = orgContextMiddleware(pool);
+    const req = mockReq({
+      headers: { "x-org-id": ORG_ID, "x-location-id": LOC_A }
+    });
+
+    await mw(req, mockRes(), () => {});
+
+    assert.strictEqual(req.locationScope, 'active');
+    assert.strictEqual(req.locationId, LOC_A);
+  });
+
+  it("locationScope is null when no org context", async () => {
+    const pool = sequencePool({ rows: [] }, { rows: [] }); // no user org, no membership
+    const mw = orgContextMiddleware(pool);
+    const req = mockReq();
+
+    await mw(req, mockRes(), () => {});
+
+    assert.strictEqual(req.locationScope, null);
+    assert.strictEqual(req.orgId, undefined);
+  });
+});
+
+// ═══════════════════════════════════════════════════════════════
+// Location security rules (rules 3, 4)
+// ═══════════════════════════════════════════════════════════════
+
+describe("orgContextMiddleware — location security", () => {
+  it("returns 403 when X-Location-Id does not belong to org (rule 3)", async () => {
+    const pool = sequencePool(
+      { rows: [MEMBERSHIP] },  // getMembership for X-Org-Id
+      { rows: [] }             // resolveLocation: no match (cross-org location)
+    );
+    const mw = orgContextMiddleware(pool);
+    const req = mockReq({
+      headers: { "x-org-id": ORG_ID, "x-location-id": LOC_A }
+    });
+    const res = mockRes();
+    let nextCalled = false;
+
+    await mw(req, res, () => { nextCalled = true; });
+
+    assert.equal(nextCalled, false);
+    assert.equal(res._status, 403);
+    assert.equal(res._body?.error, "LOCATION_NOT_IN_ORG");
+  });
+
+  it("returns 403 when bound membership tries to switch location (rule 4)", async () => {
+    const pool = sequencePool(
+      { rows: [{ org_id: ORG_ID }] },
+      { rows: [MEMBERSHIP_BOUND] } // membership.location_id = LOC_A
+    );
+    const mw = orgContextMiddleware(pool);
+    const req = mockReq({
+      // LOC_B !== LOC_A → binding violation
+      headers: { "x-location-id": LOC_B }
+    });
+    const res = mockRes();
+    let nextCalled = false;
+
+    await mw(req, res, () => { nextCalled = true; });
+
+    assert.equal(nextCalled, false);
+    assert.equal(res._status, 403);
+    assert.equal(res._body?.error, "LOCATION_ACCESS_DENIED");
+  });
+
+  it("bound membership allowed to confirm its own location via X-Location-Id", async () => {
+    const pool = sequencePool(
+      { rows: [{ org_id: ORG_ID }] },
+      { rows: [MEMBERSHIP_BOUND] },           // membership.location_id = LOC_A
+      { rows: [{ id: LOC_A, name: "HQ" }] }  // resolveLocation for LOC_A (same as bound)
+    );
+    const mw = orgContextMiddleware(pool);
+    const req = mockReq({
+      headers: { "x-location-id": LOC_A }    // same as membership.location_id → allowed
+    });
+
+    await mw(req, mockRes(), () => {});
+
+    assert.strictEqual(req.locationId, LOC_A);
+    assert.strictEqual(req.locationScope, 'bound');
+  });
+
+  it("stale cached location for wrong org gets cleared on org switch", async () => {
+    const pool = sequencePool(
+      { rows: [{ ...MEMBERSHIP, org_id: ORG_ID_B, org_name: "New" }] }  // new org
+    );
+    const mw = orgContextMiddleware(pool);
+    const req = mockReq({
+      headers: { "x-org-id": ORG_ID_B },
+      session: {
+        userId:         USER_ID,
+        _orgCache:      { orgId: ORG_ID, role: "owner", name: "Old", defaultLocationId: null },
+        _locationCache: { locationId: LOC_A, locationName: "Old Location" }
+      }
+    });
+
+    await mw(req, mockRes(), () => {});
+
+    assert.equal(req.session._locationCache, undefined, "stale cache must be cleared");
+  });
+});
+
+// ═══════════════════════════════════════════════════════════════
+// req.departmentId
+// ═══════════════════════════════════════════════════════════════
+
+describe("orgContextMiddleware — req.departmentId", () => {
+  it("sets req.departmentId from membership.department_id", async () => {
+    const pool = sequencePool(
+      { rows: [{ org_id: ORG_ID }] },
+      { rows: [MEMBERSHIP_WITH_DEPT] }
+    );
+    const mw = orgContextMiddleware(pool);
+    const req = mockReq();
+
+    await mw(req, mockRes(), () => {});
+
+    assert.strictEqual(req.departmentId, MEMBERSHIP_WITH_DEPT.department_id);
+  });
+
+  it("req.departmentId is undefined when membership has no department", async () => {
+    const pool = sequencePool(
+      { rows: [{ org_id: ORG_ID }] },
+      { rows: [MEMBERSHIP] }
+    );
+    const mw = orgContextMiddleware(pool);
+    const req = mockReq();
+
+    await mw(req, mockRes(), () => {});
+
+    assert.strictEqual(req.departmentId, undefined);
+  });
+});
+
+// ═══════════════════════════════════════════════════════════════
+// Error resilience — non-blocking
+// ═══════════════════════════════════════════════════════════════
+
+describe("orgContextMiddleware — error resilience", () => {
+  it("unexpected DB error → still calls next() (non-blocking)", async () => {
+    const mw = orgContextMiddleware(errorPool());
+    const req = mockReq();
+    let nextCalled = false;
+
+    await mw(req, mockRes(), () => { nextCalled = true; });
+
+    assert.ok(nextCalled, "Middleware must not block on unexpected DB errors");
+    assert.strictEqual(req.orgId, undefined);
+  });
+
+  it("legacy user without org_membership → no 500, calls next()", async () => {
+    const pool = sequencePool(
+      { rows: [{ org_id: null }] }, // users.org_id = null
+      { rows: [] }                  // no memberships
+    );
+    const mw = orgContextMiddleware(pool);
+    const req = mockReq();
+    let nextCalled = false;
+
+    await mw(req, mockRes(), () => { nextCalled = true; });
+
+    assert.ok(nextCalled);
+    assert.strictEqual(req.orgId, undefined);
+  });
+});

@@ -287,6 +287,94 @@ export async function deactivateMember(pool, orgId, userId) {
   return rowCount > 0;
 }
 
+/* ═══════════════════════════════════════════════════════════
+ *  Location Helpers (Multi-Location-Kontext)
+ * ═══════════════════════════════════════════════════════════ */
+
+/**
+ * Rollen mit organisationsweitem Standortaufloesung.
+ * Diese Rollen koennen alle Standorte der Org einsehen,
+ * sofern ihre Membership selbst nicht standortgebunden ist.
+ */
+export const CROSS_LOCATION_ROLES = new Set([
+  'owner', 'admin', 'program_manager', 'supplier_manager', 'finance'
+]);
+
+/**
+ * Standort per ID abrufen. Gibt null zurueck wenn nicht vorhanden oder inaktiv.
+ */
+export async function getLocation(pool, locationId) {
+  if (!locationId) return null;
+  const { rows } = await pool.query(
+    `SELECT id, name, city, postal_code, country, is_hq
+     FROM org_locations WHERE id = $1 AND is_active = TRUE`,
+    [locationId]
+  );
+  return rows[0] || null;
+}
+
+/**
+ * Prueft ob ein Standort zu einer bestimmten Org gehoert (und aktiv ist).
+ */
+export async function locationBelongsToOrg(pool, locationId, orgId) {
+  if (!locationId || !orgId) return false;
+  const { rows } = await pool.query(
+    `SELECT 1 FROM org_locations WHERE id = $1 AND org_id = $2 AND is_active = TRUE`,
+    [locationId, orgId]
+  );
+  return rows.length > 0;
+}
+
+/**
+ * Prueft ob ein User mit der gegebenen Membership einen bestimmten Standort nutzen darf.
+ *
+ * Regeln:
+ *  - Standortgebundene Membership (membership.location_id gesetzt):
+ *      nur dieser eine Standort erlaubt.
+ *  - Ungebundene Membership:
+ *      jeder aktive Standort der eigenen Org ist zulaessig.
+ *
+ * @param {object} pool
+ * @param {{ org_id: string, location_id: string|null }} membership
+ * @param {string} locationId
+ * @returns {Promise<boolean>}
+ */
+export async function canAccessLocation(pool, membership, locationId) {
+  if (!membership || !locationId) return false;
+  if (membership.location_id) {
+    // Bound membership: only exact match allowed
+    return membership.location_id === locationId;
+  }
+  // Unbound: location must belong to the user's org
+  return await locationBelongsToOrg(pool, locationId, membership.org_id);
+}
+
+/**
+ * Gibt alle Standorte zurueck, die die Membership nutzen/sehen darf.
+ *
+ *  - Standortgebundene Membership → nur der gebundene Standort.
+ *  - Ungebundene Membership → alle aktiven Standorte der Org
+ *    (unabhaengig von der Rolle — Einschraenkung laeuft ueber die Binding).
+ *
+ * @param {object} pool
+ * @param {{ org_id: string, location_id: string|null }} membership
+ * @returns {Promise<Array<{ id: string, name: string, city: string, is_hq: boolean }>>}
+ */
+export async function getAllowedLocationsForMembership(pool, membership) {
+  if (!membership) return [];
+  if (membership.location_id) {
+    const loc = await getLocation(pool, membership.location_id);
+    return loc ? [loc] : [];
+  }
+  const { rows } = await pool.query(
+    `SELECT id, name, city, is_hq
+     FROM org_locations WHERE org_id = $1 AND is_active = TRUE
+     ORDER BY is_hq DESC, name ASC`,
+    [membership.org_id]
+  );
+  return rows;
+}
+
 /**
  * Alle Mitglieder einer Org auflisten.
  */
