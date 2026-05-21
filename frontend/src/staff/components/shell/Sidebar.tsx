@@ -46,7 +46,7 @@ interface SidebarProps {
 }
 
 export function Sidebar({ active, onActivate }: SidebarProps) {
-  const { data } = useBootstrap();
+  const { data, reload } = useBootstrap();
   const openCount = data?.executive_summary?.customer_requests?.open ?? 0;
 
   // Gruppen bauen
@@ -58,7 +58,8 @@ export function Sidebar({ active, onActivate }: SidebarProps) {
 
   const handleLogout = async () => {
     try { await sccApi.post("/auth/logout"); } catch { /* ignore */ }
-    window.location.href = "/public/staff/login.html";
+    // Bootstrap neu laden → 401 → AppShell zeigt LoginForm (kein Seiten-Reload nötig)
+    reload();
   };
 
   return (
