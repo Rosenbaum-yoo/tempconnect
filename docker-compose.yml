@@ -130,7 +130,6 @@ services:
       HETZNER_API_TOKEN: ${HETZNER_API_TOKEN:-}
     volumes:
       - uploads:/app/uploads
-      - ./.claude:/app/.claude:ro
     command: ["npm", "run", "start"]
     healthcheck:
       test: ["CMD", "wget", "-q", "--spider", "http://localhost:3000/health"]
@@ -157,7 +156,6 @@ services:
     volumes:
       - ./frontend:/usr/share/nginx/html:ro
       - ./support-ops-dist:/usr/share/nginx/html/support-ops:ro
-      - ./.claude:/workspace/.claude:ro
       - ./nginx/nginx.conf:/etc/nginx/conf.d/default.conf:ro
     healthcheck:
       test: ["CMD-SHELL", "wget -q --spider http://localhost:80/health || exit 1"]
