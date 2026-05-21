@@ -275,7 +275,7 @@ export function createStaffControlCenterRouter(deps) {
     res.json({ success: true, data: result });
   });
 
-  router.get("/inbox/meta", requireStaff, async (_req, res) => {
+  router.get("/inbox/meta", requireStaff, (_req, res) => {
     res.json({
       success: true,
       data: {
@@ -308,7 +308,7 @@ export function createStaffControlCenterRouter(deps) {
     res.json({ success: true, data: { items, filters } });
   });
 
-  router.get("/customer-requests-meta/statuses", requireStaff, async (_req, res) => {
+  router.get("/customer-requests-meta/statuses", requireStaff, (_req, res) => {
     res.json({
       success: true,
       data: {
@@ -342,7 +342,7 @@ export function createStaffControlCenterRouter(deps) {
     res.json({ success: true, data: { items, counters } });
   });
 
-  router.get("/subscription-requests-meta", requireStaff, async (_req, res) => {
+  router.get("/subscription-requests-meta", requireStaff, (_req, res) => {
     const buildAllowed = {};
     Object.values(SUB_STATUS).forEach((s) => { buildAllowed[s] = subAllowedNext(s); });
     res.json({
@@ -778,7 +778,7 @@ export function createStaffControlCenterRouter(deps) {
     ]);
     res.json({ success: true, data: { snapshot, audit } });
   });
-  router.get("/data-explorer", requireStaff, async (_req, res) => {
+  router.get("/data-explorer", requireStaff, (_req, res) => {
     res.json({ success: true, data: { views: staffControlService.listDataExplorerViews() } });
   });
   router.get("/data-explorer/:key", requireStaff, async (req, res) => {
