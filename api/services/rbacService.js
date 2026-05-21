@@ -60,8 +60,8 @@ export const PERMISSIONS = {
   // Org / Admin
   'org.settings':             ['owner','admin'],
   'org.members':              ['owner','admin'],
-  'org.locations':            ['owner','admin'],
-  'org.departments':          ['owner','admin'],
+  'org.locations':            ['owner','admin','program_manager'],
+  'org.departments':          ['owner','admin','program_manager'],
   'org.billing':              ['owner','admin','finance'],
 
   // Approvals
@@ -88,8 +88,34 @@ export const PERMISSIONS = {
   'supplier.view':            ['owner','admin','supplier_manager','program_manager','hiring_manager','finance','viewer'],
 
   // Settings
+
+  // Timesheets
+  'timesheet.view':           ['owner','admin','program_manager','hiring_manager','supplier_manager','finance','dispatcher','recruiter','member','supplier_user','viewer'],
+  'timesheet.create':          ['owner','admin','supplier_user','dispatcher','recruiter'],
+  'timesheet.edit':            ['owner','admin','supplier_user','dispatcher','recruiter'],
+  'timesheet.submit':          ['owner','admin','supplier_user','dispatcher','recruiter'],
+  'timesheet.approve':         ['owner','admin','program_manager','hiring_manager','finance'],
+  'timesheet.reject':          ['owner','admin','program_manager','hiring_manager','finance'],
   'settings.view':            ['owner','admin','program_manager','finance'],
-  'settings.edit':            ['owner','admin']
+  'settings.edit':            ['owner','admin'],
+
+  // Worker Self-Service Modul (Supplier-Seite)
+  'worker.view':              ['owner','admin','supplier_manager','program_manager','dispatcher','recruiter','finance','member'],
+  'worker.create':            ['owner','admin','dispatcher'],
+  'worker.edit':              ['owner','admin','dispatcher'],
+  'worker.manage':            ['owner','admin','dispatcher'],
+  'worker.review':            ['owner','admin','dispatcher','recruiter','supplier_manager'],
+
+  // Rate Cards
+  'rate_card.create':          ['owner','admin','program_manager','finance'],
+  'rate_card.update':          ['owner','admin','program_manager','finance'],
+  'rate_card.read':            ['owner','admin','program_manager','hiring_manager','supplier_manager','finance','viewer'],
+
+  // DSGVO Data Governance
+  'data_governance.export':     ['owner','admin'],
+  'data_governance.anonymize':  ['owner','admin'],
+  'data_governance.retention':  ['owner','admin'],
+  'data_governance.requests':   ['owner','admin']
 };
 
 /**

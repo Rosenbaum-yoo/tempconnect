@@ -46,6 +46,14 @@
     #api-key-modal { display:none; position:fixed; inset:0; background:rgba(0,0,0,.6); z-index:100; align-items:center; justify-content:center; }
     #api-key-modal.show { display:flex; }
     .occ-modal-content { background:var(--ds-surface,#1a1a2e); border:1px solid rgba(255,255,255,.1); border-radius:14px; padding:var(--ds-space-5); width:90%; max-width:500px; }
+    .occ-input { width:100%; padding:7px 11px; border-radius:8px; border:1px solid rgba(255,255,255,.12); background:rgba(0,0,0,.25); color:var(--ds-text); font-size:13px; box-sizing:border-box; }
+    .occ-input:focus { outline:none; border-color:var(--ds-brand); }
+    .occ-loc-card { background:rgba(255,255,255,.03); border:1px solid rgba(255,255,255,.07); border-radius:10px; padding:var(--ds-space-3) var(--ds-space-4); margin-bottom:var(--ds-space-2); display:flex; align-items:center; gap:var(--ds-space-3); }
+    .occ-loc-card__info { flex:1; min-width:0; }
+    .occ-loc-card__name { font-size:14px; font-weight:700; }
+    .occ-loc-card__meta { font-size:12px; color:var(--ds-text-secondary); margin-top:2px; }
+    .occ-loc-card__actions { display:flex; gap:6px; flex-shrink:0; }
+    .occ-edit-row { display:none; padding:var(--ds-space-3) var(--ds-space-4); background:rgba(74,158,255,.06); border:1px solid rgba(74,158,255,.2); border-radius:10px; margin-top:-8px; margin-bottom:var(--ds-space-2); }
   </style>
 </head>
 <body>
@@ -74,6 +82,8 @@
     <!-- Tabs -->
     <div class="occ-tabs" id="occ-tabs">
       <a class="occ-tab occ-tab--active" data-tab="members">👥 Mitglieder <span class="occ-tab__badge" id="badge-members">–</span></a>
+      <a class="occ-tab" data-tab="locations">📍 Standorte <span class="occ-tab__badge" id="badge-locations">–</span></a>
+      <a class="occ-tab" data-tab="departments">🏢 Abteilungen <span class="occ-tab__badge" id="badge-departments">–</span></a>
       <a class="occ-tab" data-tab="api-keys">🔑 API Keys <span class="occ-tab__badge" id="badge-api-keys">–</span></a>
       <a class="occ-tab" data-tab="webhooks">🔗 Webhooks <span class="occ-tab__badge" id="badge-webhooks">–</span></a>
       <a class="occ-tab" data-tab="audit">📋 Audit Log</a>
@@ -85,6 +95,81 @@
     <!-- Members Panel -->
     <div class="occ-panel occ-panel--active" id="panel-members">
       <div id="members-list"></div>
+    </div>
+
+    <!-- Locations Panel -->
+    <div class="occ-panel" id="panel-locations">
+      <div class="occ-card" id="loc-create-card">
+        <div class="occ-card__title" style="margin-bottom:var(--ds-space-3)">Neuen Standort anlegen</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:var(--ds-space-3)">
+          <div>
+            <label style="font-size:11px;color:var(--ds-text-secondary);display:block;margin-bottom:4px">Name *</label>
+            <input id="loc-name" type="text" placeholder="z.B. München HQ" class="occ-input"/>
+          </div>
+          <div>
+            <label style="font-size:11px;color:var(--ds-text-secondary);display:block;margin-bottom:4px">Stadt *</label>
+            <input id="loc-city" type="text" placeholder="München" class="occ-input"/>
+          </div>
+          <div>
+            <label style="font-size:11px;color:var(--ds-text-secondary);display:block;margin-bottom:4px">Straße</label>
+            <input id="loc-street" type="text" placeholder="Musterstraße 1" class="occ-input"/>
+          </div>
+          <div>
+            <label style="font-size:11px;color:var(--ds-text-secondary);display:block;margin-bottom:4px">PLZ</label>
+            <input id="loc-postal" type="text" placeholder="80331" class="occ-input"/>
+          </div>
+          <div>
+            <label style="font-size:11px;color:var(--ds-text-secondary);display:block;margin-bottom:4px">Land</label>
+            <select id="loc-country" class="occ-input">
+              <option value="DE">Deutschland (DE)</option>
+              <option value="AT">Österreich (AT)</option>
+              <option value="CH">Schweiz (CH)</option>
+              <option value="NL">Niederlande (NL)</option>
+              <option value="PL">Polen (PL)</option>
+              <option value="FR">Frankreich (FR)</option>
+            </select>
+          </div>
+          <div style="display:flex;align-items:flex-end;padding-bottom:2px">
+            <label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer">
+              <input id="loc-is-hq" type="checkbox" style="accent-color:var(--ds-brand);width:16px;height:16px"/>
+              Hauptsitz (HQ)
+            </label>
+          </div>
+        </div>
+        <div style="display:flex;justify-content:flex-end;margin-top:var(--ds-space-3);gap:var(--ds-space-2)">
+          <span id="loc-create-err" style="font-size:12px;color:#f87171;align-self:center"></span>
+          <button class="occ-btn occ-btn--primary" data-feature-key="org_settings" onclick="createLocation()">Standort anlegen</button>
+        </div>
+      </div>
+      <div id="locations-list"></div>
+    </div>
+
+    <!-- Departments Panel -->
+    <div class="occ-panel" id="panel-departments">
+      <div class="occ-card" id="dept-create-card">
+        <div class="occ-card__title" style="margin-bottom:var(--ds-space-3)">Neue Abteilung anlegen</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:var(--ds-space-3)">
+          <div>
+            <label style="font-size:11px;color:var(--ds-text-secondary);display:block;margin-bottom:4px">Name *</label>
+            <input id="dept-name" type="text" placeholder="z.B. IT / Vertrieb" class="occ-input"/>
+          </div>
+          <div>
+            <label style="font-size:11px;color:var(--ds-text-secondary);display:block;margin-bottom:4px">Kostenstelle</label>
+            <input id="dept-cost-center" type="text" placeholder="z.B. 4200" class="occ-input"/>
+          </div>
+          <div>
+            <label style="font-size:11px;color:var(--ds-text-secondary);display:block;margin-bottom:4px">Standort (optional)</label>
+            <select id="dept-location-id" class="occ-input">
+              <option value="">– kein Standort –</option>
+            </select>
+          </div>
+        </div>
+        <div style="display:flex;justify-content:flex-end;margin-top:var(--ds-space-3);gap:var(--ds-space-2)">
+          <span id="dept-create-err" style="font-size:12px;color:#f87171;align-self:center"></span>
+          <button class="occ-btn occ-btn--primary" data-feature-key="org_settings" onclick="createDepartment()">Abteilung anlegen</button>
+        </div>
+      </div>
+      <div id="departments-list"></div>
     </div>
 
     <!-- API Keys Panel -->
@@ -258,7 +343,7 @@
         window.history.replaceState({},'',url.toString());
       }
       // Lazy-load
-      const loaders={members:loadMembers,'api-keys':loadApiKeys,webhooks:loadWebhooks,audit:loadAudit,usage:loadUsage,security:loadSecurity,roles:loadRoles};
+      const loaders={members:loadMembers,locations:loadLocations,departments:loadDepartments,'api-keys':loadApiKeys,webhooks:loadWebhooks,audit:loadAudit,usage:loadUsage,security:loadSecurity,roles:loadRoles};
       if(loaders[tab.dataset.tab])loaders[tab.dataset.tab]();
       applyOrgDomLocks(document);
     }
@@ -525,6 +610,194 @@
       /* Fix: Route erwartet user_id (nicht membership_id), kein /role-Suffix */
       const r=await api('/org/members/'+userId,{method:'PATCH',body:JSON.stringify({role_key:newRole})});
       if(r&&r.success){loadRoles();loadMembers();}else{alert('Fehler: '+((r&&r.error&&r.error.code)||r.error||'Unbekannt'));}
+    }
+
+    /* ── Locations ───────────────────── */
+    let _locations=[];
+    async function loadLocations(){
+      const d=await api('/org/locations');
+      if(!d||!d.success){document.getElementById('locations-list').innerHTML='<div class="occ-empty">Standorte konnten nicht geladen werden.</div>';return;}
+      _locations=d.data.items||[];
+      document.getElementById('badge-locations').textContent=_locations.length;
+      // Populate department location dropdown
+      const sel=document.getElementById('dept-location-id');
+      if(sel){
+        const cur=sel.value;
+        sel.innerHTML='<option value="">– kein Standort –</option>';
+        _locations.forEach(l=>{sel.innerHTML+=`<option value="${esc(l.id)}">${esc(l.name)}${l.city?' ('+esc(l.city)+')':''}</option>`;});
+        if(cur)sel.value=cur;
+      }
+      if(!_locations.length){document.getElementById('locations-list').innerHTML='<div class="occ-empty">Noch keine Standorte angelegt.</div>';return;}
+      let html='';
+      _locations.forEach(loc=>{
+        const hqBadge=loc.is_hq?'<span class="occ-badge occ-badge--green">HQ</span>':'';
+        const address=[loc.street,loc.postal_code?loc.postal_code+' '+loc.city:loc.city,loc.country&&loc.country!=='DE'?loc.country:''].filter(Boolean).join(', ');
+        html+=`<div class="occ-loc-card" id="loc-row-${esc(loc.id)}">
+          <div class="occ-loc-card__info">
+            <div class="occ-loc-card__name">${esc(loc.name)} ${hqBadge}</div>
+            <div class="occ-loc-card__meta">${esc(address)||'–'}</div>
+          </div>
+          <div class="occ-loc-card__actions">
+            <button class="occ-btn" data-feature-key="org_settings" style="font-size:11px;padding:4px 10px" onclick="toggleLocEdit('${esc(loc.id)}')">Bearbeiten</button>
+            <button class="occ-btn occ-btn--danger" data-feature-key="org_settings" style="font-size:11px;padding:4px 10px" onclick="deactivateLocation('${esc(loc.id)}','${esc(loc.name)}')">Deaktivieren</button>
+          </div>
+        </div>
+        <div class="occ-edit-row" id="loc-edit-${esc(loc.id)}">
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:var(--ds-space-2);margin-bottom:var(--ds-space-2)">
+            <div><label style="font-size:11px;color:var(--ds-text-secondary);display:block;margin-bottom:3px">Name</label>
+              <input type="text" id="loc-edit-name-${esc(loc.id)}" value="${esc(loc.name)}" class="occ-input"/></div>
+            <div><label style="font-size:11px;color:var(--ds-text-secondary);display:block;margin-bottom:3px">Stadt</label>
+              <input type="text" id="loc-edit-city-${esc(loc.id)}" value="${esc(loc.city||'')}" class="occ-input"/></div>
+            <div><label style="font-size:11px;color:var(--ds-text-secondary);display:block;margin-bottom:3px">Straße</label>
+              <input type="text" id="loc-edit-street-${esc(loc.id)}" value="${esc(loc.street||'')}" class="occ-input"/></div>
+            <div><label style="font-size:11px;color:var(--ds-text-secondary);display:block;margin-bottom:3px">PLZ</label>
+              <input type="text" id="loc-edit-postal-${esc(loc.id)}" value="${esc(loc.postal_code||'')}" class="occ-input"/></div>
+          </div>
+          <div style="display:flex;align-items:center;gap:var(--ds-space-3);justify-content:space-between">
+            <label style="display:flex;align-items:center;gap:6px;font-size:12px;cursor:pointer">
+              <input type="checkbox" id="loc-edit-hq-${esc(loc.id)}" ${loc.is_hq?'checked':''} style="accent-color:var(--ds-brand)"/> Hauptsitz (HQ)
+            </label>
+            <div style="display:flex;gap:6px">
+              <span id="loc-edit-err-${esc(loc.id)}" style="font-size:11px;color:#f87171;align-self:center"></span>
+              <button class="occ-btn" onclick="toggleLocEdit('${esc(loc.id)}')">Abbrechen</button>
+              <button class="occ-btn occ-btn--primary" data-feature-key="org_settings" onclick="saveLocation('${esc(loc.id)}')">Speichern</button>
+            </div>
+          </div>
+        </div>`;
+      });
+      document.getElementById('locations-list').innerHTML=html;
+      applyOrgDomLocks(document.getElementById('locations-list'));
+    }
+    function toggleLocEdit(id){
+      const row=document.getElementById('loc-edit-'+id);
+      if(!row)return;
+      row.style.display=row.style.display==='block'?'none':'block';
+    }
+    async function saveLocation(id){
+      const name=document.getElementById('loc-edit-name-'+id)?.value.trim();
+      const city=document.getElementById('loc-edit-city-'+id)?.value.trim();
+      const street=document.getElementById('loc-edit-street-'+id)?.value.trim()||null;
+      const postal_code=document.getElementById('loc-edit-postal-'+id)?.value.trim()||null;
+      const is_hq=!!document.getElementById('loc-edit-hq-'+id)?.checked;
+      const errEl=document.getElementById('loc-edit-err-'+id);
+      if(!name||!city){if(errEl)errEl.textContent='Name und Stadt sind Pflicht.';return;}
+      if(errEl)errEl.textContent='';
+      const r=await api('/org/locations/'+id,{method:'PATCH',body:JSON.stringify({name,city,street,postal_code,is_hq})});
+      if(r&&r.success){loadLocations();loadOverview();}
+      else{if(errEl)errEl.textContent='Fehler: '+((r&&r.error&&r.error.code)||'Unbekannt');}
+    }
+    async function deactivateLocation(id,name){
+      if(!confirm('Standort "'+name+'" wirklich deaktivieren?\n\nEr wird nicht mehr als Filterstandort angeboten.'))return;
+      const r=await api('/org/locations/'+id,{method:'DELETE'});
+      if(r&&r.success){loadLocations();loadOverview();}
+      else{alert('Fehler beim Deaktivieren.');}
+    }
+    async function createLocation(){
+      const name=document.getElementById('loc-name').value.trim();
+      const city=document.getElementById('loc-city').value.trim();
+      const street=document.getElementById('loc-street').value.trim()||null;
+      const postal_code=document.getElementById('loc-postal').value.trim()||null;
+      const country=document.getElementById('loc-country').value||'DE';
+      const is_hq=!!document.getElementById('loc-is-hq').checked;
+      const errEl=document.getElementById('loc-create-err');
+      if(!name||!city){if(errEl)errEl.textContent='Name und Stadt sind Pflicht.';return;}
+      if(errEl)errEl.textContent='';
+      const r=await api('/org/locations',{method:'POST',body:JSON.stringify({name,city,street,postal_code,country,is_hq})});
+      if(r&&r.success){
+        document.getElementById('loc-name').value='';document.getElementById('loc-city').value='';
+        document.getElementById('loc-street').value='';document.getElementById('loc-postal').value='';
+        document.getElementById('loc-is-hq').checked=false;
+        loadLocations();loadOverview();
+      }else{if(errEl)errEl.textContent='Fehler: '+((r&&r.error&&r.error.code)||'Unbekannt');}
+    }
+
+    /* ── Departments ─────────────────── */
+    async function loadDepartments(){
+      // Ensure locations are loaded for the dropdown
+      if(!_locations.length){await loadLocations();}else{
+        // Refresh location dropdown
+        const sel=document.getElementById('dept-location-id');
+        if(sel&&sel.options.length<2){
+          sel.innerHTML='<option value="">– kein Standort –</option>';
+          _locations.forEach(l=>{sel.innerHTML+=`<option value="${esc(l.id)}">${esc(l.name)}${l.city?' ('+esc(l.city)+')':''}</option>`;});
+        }
+      }
+      const d=await api('/org/departments');
+      if(!d||!d.success){document.getElementById('departments-list').innerHTML='<div class="occ-empty">Abteilungen konnten nicht geladen werden.</div>';return;}
+      const items=d.data.items||[];
+      document.getElementById('badge-departments').textContent=items.length;
+      if(!items.length){document.getElementById('departments-list').innerHTML='<div class="occ-empty">Noch keine Abteilungen angelegt.</div>';return;}
+      let html='';
+      items.forEach(dept=>{
+        const locLabel=dept.location_name?`<span class="occ-badge occ-badge--gray">${esc(dept.location_name)}</span>`:'';
+        const cc=dept.cost_center?`<span style="font-size:11px;color:var(--ds-text-secondary)">KST ${esc(dept.cost_center)}</span>`:'';
+        html+=`<div class="occ-loc-card" id="dept-row-${esc(dept.id)}">
+          <div class="occ-loc-card__info">
+            <div class="occ-loc-card__name">${esc(dept.name)}</div>
+            <div class="occ-loc-card__meta" style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin-top:4px">${locLabel}${cc}</div>
+          </div>
+          <div class="occ-loc-card__actions">
+            <button class="occ-btn" data-feature-key="org_settings" style="font-size:11px;padding:4px 10px" onclick="toggleDeptEdit('${esc(dept.id)}')">Bearbeiten</button>
+            <button class="occ-btn occ-btn--danger" data-feature-key="org_settings" style="font-size:11px;padding:4px 10px" onclick="deactivateDept('${esc(dept.id)}','${esc(dept.name)}')">Deaktivieren</button>
+          </div>
+        </div>
+        <div class="occ-edit-row" id="dept-edit-${esc(dept.id)}">
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:var(--ds-space-2);margin-bottom:var(--ds-space-2)">
+            <div><label style="font-size:11px;color:var(--ds-text-secondary);display:block;margin-bottom:3px">Name</label>
+              <input type="text" id="dept-edit-name-${esc(dept.id)}" value="${esc(dept.name)}" class="occ-input"/></div>
+            <div><label style="font-size:11px;color:var(--ds-text-secondary);display:block;margin-bottom:3px">Kostenstelle</label>
+              <input type="text" id="dept-edit-cc-${esc(dept.id)}" value="${esc(dept.cost_center||'')}" class="occ-input"/></div>
+            <div><label style="font-size:11px;color:var(--ds-text-secondary);display:block;margin-bottom:3px">Standort</label>
+              <select id="dept-edit-loc-${esc(dept.id)}" class="occ-input">
+                <option value="">– kein Standort –</option>
+                ${_locations.map(l=>`<option value="${esc(l.id)}"${l.id===dept.location_id?' selected':''}>${esc(l.name)}${l.city?' ('+esc(l.city)+')':''}</option>`).join('')}
+              </select></div>
+          </div>
+          <div style="display:flex;justify-content:flex-end;gap:6px;align-items:center">
+            <span id="dept-edit-err-${esc(dept.id)}" style="font-size:11px;color:#f87171"></span>
+            <button class="occ-btn" onclick="toggleDeptEdit('${esc(dept.id)}')">Abbrechen</button>
+            <button class="occ-btn occ-btn--primary" data-feature-key="org_settings" onclick="saveDept('${esc(dept.id)}')">Speichern</button>
+          </div>
+        </div>`;
+      });
+      document.getElementById('departments-list').innerHTML=html;
+      applyOrgDomLocks(document.getElementById('departments-list'));
+    }
+    function toggleDeptEdit(id){
+      const row=document.getElementById('dept-edit-'+id);
+      if(!row)return;
+      row.style.display=row.style.display==='block'?'none':'block';
+    }
+    async function saveDept(id){
+      const name=document.getElementById('dept-edit-name-'+id)?.value.trim();
+      const cost_center=document.getElementById('dept-edit-cc-'+id)?.value.trim()||null;
+      const location_id=document.getElementById('dept-edit-loc-'+id)?.value||null;
+      const errEl=document.getElementById('dept-edit-err-'+id);
+      if(!name){if(errEl)errEl.textContent='Name ist Pflicht.';return;}
+      if(errEl)errEl.textContent='';
+      const r=await api('/org/departments/'+id,{method:'PATCH',body:JSON.stringify({name,cost_center,location_id:location_id||null})});
+      if(r&&r.success){loadDepartments();}
+      else{if(errEl)errEl.textContent='Fehler: '+((r&&r.error&&r.error.code)||'Unbekannt');}
+    }
+    async function deactivateDept(id,name){
+      if(!confirm('Abteilung "'+name+'" wirklich deaktivieren?'))return;
+      const r=await api('/org/departments/'+id,{method:'DELETE'});
+      if(r&&r.success){loadDepartments();loadOverview();}
+      else{alert('Fehler beim Deaktivieren.');}
+    }
+    async function createDepartment(){
+      const name=document.getElementById('dept-name').value.trim();
+      const cost_center=document.getElementById('dept-cost-center').value.trim()||null;
+      const location_id=document.getElementById('dept-location-id').value||null;
+      const errEl=document.getElementById('dept-create-err');
+      if(!name){if(errEl)errEl.textContent='Name ist Pflicht.';return;}
+      if(errEl)errEl.textContent='';
+      const r=await api('/org/departments',{method:'POST',body:JSON.stringify({name,cost_center,location_id:location_id||null})});
+      if(r&&r.success){
+        document.getElementById('dept-name').value='';document.getElementById('dept-cost-center').value='';
+        document.getElementById('dept-location-id').value='';
+        loadDepartments();loadOverview();
+      }else{if(errEl)errEl.textContent='Fehler: '+((r&&r.error&&r.error.code)||'Unbekannt');}
     }
 
     /* ── Init ─────────────────────── */
