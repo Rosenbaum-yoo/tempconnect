@@ -63,3 +63,7 @@ WHERE u.email = 'test@agentur.de'
     SELECT 1 FROM listings l
     WHERE l.owner_id = u.id AND l.category = 'Lager / Kommissionierung' AND l.region = 'Berlin'
   );
+
+-- OCC Owner Control Center (NUR DEV, NIE automatisch in Production):
+-- INSERT INTO occ_owner_access (user_id, occ_role, notes)
+-- VALUES ('<deine-dev-user-id>', 'owner', 'dev seed - nur lokal');

@@ -24,7 +24,15 @@ CREATE TABLE IF NOT EXISTS subscriptions (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
   plan TEXT NOT NULL CHECK (plan IN ('FREE','BASIS','PLUS','NOTDIENST')),
-  status TEXT NOT NULL DEFAULT 'active' CHECK (status IN ('active','past_due','canceled')),
+  status TEXT NOT NULL DEFAULT 'active' CHECK (status IN ('active','past_due','canceling','canceled')),
+  current_period_start TIMESTAMPTZ,
+  current_period_end TIMESTAMPTZ,
+  cancel_requested_at TIMESTAMPTZ,
+  cancel_at TIMESTAMPTZ,
+  canceled_at TIMESTAMPTZ,
+  cancel_requested_by UUID,
+  cancel_source TEXT,
+  cancel_reason TEXT,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
