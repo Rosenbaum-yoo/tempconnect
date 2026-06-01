@@ -1,59 +1,167 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="de">
 <head>
   <meta charset="utf-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <script src="/public/js/theme.js"></script>
   <title>Abo-Modelle – TempConnect</title>
-  <link rel="stylesheet" href="/public/css/enterprise.css"/>
+  <link rel="stylesheet" href="/public/css/design-system.css"/>
   <style>
-    .plan-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; margin-top: 18px; }
-    @media (max-width: 1100px) { .plan-grid { grid-template-columns: repeat(2, 1fr); } }
+    body { background: radial-gradient(ellipse 1100px 600px at 15% -5%, rgba(74,158,255,.14), transparent 60%),
+                        radial-gradient(ellipse 800px 500px at 90% -2%, rgba(124,92,255,.09), transparent 55%),
+                        var(--ds-bg); }
+
+    .section-label { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; color: var(--ds-brand); margin-bottom: var(--ds-space-2); }
+    .section-heading { font-size: clamp(22px, 3vw, 30px); font-weight: 800; letter-spacing: -0.02em; margin: 0 0 var(--ds-space-2); }
+    .section-desc { color: var(--ds-text-secondary); font-size: 15px; max-width: 600px; line-height: 1.6; margin: 0; }
+
+    /* Plan Grid */
+    .plan-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: var(--ds-space-3); margin-top: var(--ds-space-6); }
+    @media (max-width: 1100px) { .plan-grid { grid-template-columns: repeat(3, 1fr); } }
+    @media (max-width: 768px) { .plan-grid { grid-template-columns: repeat(2, 1fr); } }
     @media (max-width: 520px) { .plan-grid { grid-template-columns: 1fr; } }
+
     .plan-card {
-      padding: 14px; border-radius: 14px; background: rgba(0,0,0,.18);
-      border: 1px solid var(--line); transition: border-color .2s, transform .2s;
+      padding: var(--ds-space-5); border-radius: var(--ds-radius-lg);
+      border: 1px solid var(--ds-border); background: rgba(255,255,255,0.02);
+      display: flex; flex-direction: column; transition: border-color .2s, transform .2s;
     }
-    .plan-card:hover { transform: translateY(-4px); }
-    .plan-features div { padding: 4px 0; border-bottom: 1px solid var(--line); }
-    .plan-features div:last-child { border-bottom: none; }
+    .plan-card:hover { transform: translateY(-3px); border-color: var(--ds-border-hover); }
+    .plan-card--recommended {
+      border-color: rgba(74,158,255,.4); background: rgba(74,158,255,.04);
+      box-shadow: 0 0 0 1px rgba(74,158,255,.15), var(--ds-shadow-md);
+    }
+    .plan-card--enterprise {
+      border-color: rgba(124,92,255,.3); background: rgba(124,92,255,.03);
+    }
+    .plan-card--current {
+      border: 2px solid var(--ds-brand); box-shadow: 0 0 0 1px rgba(74,158,255,.2);
+    }
+    .plan-card--highlight {
+      border-color: rgba(74,158,255,.6);
+      box-shadow: 0 0 0 2px rgba(74,158,255,.25);
+    }
+    .plan-card__badge { margin-bottom: var(--ds-space-2); }
+    .plan-card__name { font-size: 18px; font-weight: 800; margin-bottom: var(--ds-space-1); }
+    .plan-card__price { font-size: 28px; font-weight: 900; margin-bottom: 2px; }
+    .plan-card__price span { font-size: 13px; font-weight: 500; color: var(--ds-text-secondary); }
+    .plan-card__desc { font-size: 13px; color: var(--ds-text-secondary); line-height: 1.5; margin-bottom: var(--ds-space-4); min-height: 40px; }
+    .plan-card__features { list-style: none; padding: 0; margin: 0 0 var(--ds-space-5); flex: 1; }
+    .plan-card__features li { padding: var(--ds-space-1) 0; font-size: 13px; line-height: 1.5; display: flex; gap: 8px; align-items: flex-start; }
+    .plan-card__features li::before { content: "\2713"; color: var(--ds-success); font-weight: 700; flex-shrink: 0; }
+    .plan-card__features li.excluded { color: var(--ds-text-tertiary); }
+    .plan-card__features li.excluded::before { content: "\00D7"; color: var(--ds-text-tertiary); }
+    .plan-card__cta { margin-top: auto; }
+    .plan-card__cta .ds-btn { width: 100%; }
 
-    .success-banner { background: rgba(57,217,138,.15); border: 1px solid rgba(57,217,138,.4); border-radius: 12px; padding: 12px 16px; margin-bottom: 14px; display: none; }
-    .cancel-banner { background: rgba(255,204,0,.1); border: 1px solid rgba(255,204,0,.3); border-radius: 12px; padding: 12px 16px; margin-bottom: 14px; display: none; }
+    /* Banners */
+    .success-banner { background: rgba(57,217,138,.15); border: 1px solid rgba(57,217,138,.4); border-radius: var(--ds-radius-md); padding: 12px 16px; margin-bottom: var(--ds-space-4); display: none; }
+    .cancel-banner { background: rgba(255,204,0,.1); border: 1px solid rgba(255,204,0,.3); border-radius: var(--ds-radius-md); padding: 12px 16px; margin-bottom: var(--ds-space-4); display: none; }
 
-    .checkout-modal { position: fixed; inset: 0; display: none; place-items: center; background: rgba(0,0,0,.78); z-index: 50; }
+    /* Info Cards */
+    .info-card {
+      padding: var(--ds-space-5); border-radius: var(--ds-radius-lg);
+      border: 1px solid var(--ds-border); background: rgba(255,255,255,0.02);
+    }
+    .info-card h3 { margin: 0 0 var(--ds-space-3); font-size: 16px; font-weight: 700; }
+
+    /* Checkout Modal */
+    .checkout-modal { position: fixed; inset: 0; display: none; place-items: center; background: rgba(0,0,0,.78); z-index: 50; backdrop-filter: blur(4px); }
     .checkout-panel {
-      width: min(520px, 92vw); padding: 18px; border-radius: 18px;
-      border: 1px solid rgba(255,255,255,.16);
-      background: rgba(15,27,51,.96); box-shadow: 0 28px 70px rgba(0,0,0,.55); backdrop-filter: blur(10px);
+      width: min(520px, 92vw); padding: var(--ds-space-6); border-radius: var(--ds-radius-xl);
+      border: 1px solid rgba(255,255,255,.12);
+      background: rgba(10,16,30,.98); box-shadow: 0 28px 70px rgba(0,0,0,.55); backdrop-filter: blur(10px);
     }
-    .checkout-panel h2 { margin: 0 0 10px; }
-    .payment-methods { display: grid; gap: 10px; margin-top: 10px; }
+    .checkout-panel h2 { margin: 0 0 var(--ds-space-3); font-size: 18px; font-weight: 800; }
+    .payment-methods { display: grid; gap: var(--ds-space-3); margin-top: var(--ds-space-3); }
     .payment-btn {
-      display: flex; align-items: center; gap: 12px; padding: 14px;
-      border: 1px solid var(--line); border-radius: 12px;
-      background: rgba(255,255,255,.04); color: inherit; cursor: pointer; font-weight: 700;
-      text-align: left;
+      display: flex; align-items: center; gap: 12px; padding: var(--ds-space-4);
+      border: 1px solid var(--ds-border); border-radius: var(--ds-radius-md);
+      background: rgba(255,255,255,.03); color: inherit; cursor: pointer; font-weight: 700;
+      text-align: left; transition: all .15s;
     }
-    .payment-btn:hover { border-color: rgba(255,255,255,.18); }
-    .payment-btn.active { background: linear-gradient(135deg, var(--brand), var(--brand2)); border-color: transparent; }
+    .payment-btn:hover { border-color: var(--ds-border-hover); background: rgba(255,255,255,.05); }
+    .payment-btn.active { background: linear-gradient(135deg, var(--ds-brand), var(--ds-accent)); border-color: transparent; color: #fff; }
     .payment-btn:disabled { opacity: .5; cursor: not-allowed; }
 
-    .history-table { width: 100%; border-collapse: collapse; font-size: 13px; margin-top: 12px; }
-    .history-table th, .history-table td { text-align: left; padding: 8px 12px; border-bottom: 1px solid var(--line); }
-    .history-table th { color: var(--muted); font-weight: 600; font-size: 12px; text-transform: uppercase; }
+    /* History Table */
+    .history-table { width: 100%; border-collapse: collapse; font-size: 13px; margin-top: var(--ds-space-3); }
+    .history-table th, .history-table td { text-align: left; padding: 10px 14px; border-bottom: 1px solid var(--ds-border); }
+    .history-table th { color: var(--ds-text-secondary); font-weight: 600; font-size: 12px; text-transform: uppercase; letter-spacing: 0.04em; }
+    .history-table tbody tr:hover { background: rgba(255,255,255,0.02); }
+
+    /* Comparison Table */
+    .comparison-wrap { overflow-x: auto; margin-top: var(--ds-space-6); border: 1px solid var(--ds-border); border-radius: var(--ds-radius-lg); }
+    .comparison-table { width: 100%; border-collapse: collapse; font-size: 13px; min-width: 700px; }
+    .comparison-table th, .comparison-table td { padding: 10px 14px; text-align: center; border-bottom: 1px solid var(--ds-border); }
+    .comparison-table th:first-child, .comparison-table td:first-child { text-align: left; font-weight: 600; min-width: 200px; }
+    .comparison-table thead th { background: rgba(255,255,255,0.03); font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; color: var(--ds-text-secondary); position: sticky; top: 0; }
+    .comparison-table thead th.highlight { color: var(--ds-brand); }
+    .comparison-table tbody tr:hover { background: rgba(255,255,255,0.02); }
+    .comparison-table .check { color: var(--ds-success); font-weight: 700; }
+    .comparison-table .cross { color: var(--ds-text-tertiary); }
+    .comparison-table .value { color: var(--ds-text); font-weight: 600; font-variant-numeric: tabular-nums; }
+    .comparison-table .group-row td { font-weight: 700; font-size: 12px; text-transform: uppercase; letter-spacing: 0.04em; color: var(--ds-text-secondary); background: rgba(255,255,255,0.015); border-bottom: 1px solid var(--ds-border); padding-top: 14px; }
+
+    /* Account Management Sektionen (Welle 8 Schritt 7) */
+    .account-grid { display: grid; grid-template-columns: 2fr 1fr; gap: var(--ds-space-4); margin-bottom: var(--ds-space-5); }
+    @media (max-width: 900px) { .account-grid { grid-template-columns: 1fr; } }
+    .account-card { padding: var(--ds-space-5); border-radius: var(--ds-radius-lg); border: 1px solid var(--ds-border); background: rgba(255,255,255,0.02); }
+    .account-card h3 { margin: 0 0 var(--ds-space-3); font-size: 16px; font-weight: 700; }
+    .account-status { display: flex; align-items: center; gap: var(--ds-space-3); flex-wrap: wrap; }
+    .account-status__plan { font-size: 28px; font-weight: 900; }
+    .account-status__pill { padding: 4px 10px; border-radius: 14px; font-size: 11px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; }
+    .account-status__pill--ok { background: var(--ds-success-muted); color: var(--ds-success); }
+    .account-status__pill--warn { background: var(--ds-warning-muted); color: var(--ds-warning); }
+    .account-status__pill--danger { background: var(--ds-danger-muted); color: var(--ds-danger); }
+    .account-status__pill--info { background: var(--ds-brand-muted); color: var(--ds-brand); }
+    .account-meta { margin-top: var(--ds-space-3); font-size: 13px; color: var(--ds-text-secondary); display: grid; grid-template-columns: max-content 1fr; gap: 4px 12px; }
+    .account-meta dt { font-weight: 600; }
+
+    .feature-matrix { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: var(--ds-space-2); }
+    .feature-cell { padding: 10px 12px; border-radius: var(--ds-radius-sm); border: 1px solid var(--ds-border); background: rgba(255,255,255,.02); display: flex; align-items: flex-start; gap: 8px; font-size: 13px; }
+    .feature-cell__dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; margin-top: 6px; }
+    .feature-cell--ok .feature-cell__dot { background: var(--ds-success); }
+    .feature-cell--locked { color: var(--ds-text-tertiary); }
+    .feature-cell--locked .feature-cell__dot { background: var(--ds-text-tertiary); }
+    .feature-cell--pending .feature-cell__dot { background: var(--ds-warning); }
+    .feature-cell--addon { border-color: rgba(74,158,255,.3); background: rgba(74,158,255,.04); }
+    .feature-cell__sub { display: block; font-size: 11px; color: var(--ds-text-secondary); margin-top: 2px; }
+
+    .limit-row { display: grid; grid-template-columns: 1fr auto; gap: 6px 12px; padding: 10px 0; border-bottom: 1px solid var(--tc-table-row-border); font-size: 13px; }
+    .limit-row:last-child { border-bottom: 0; }
+    .limit-row__bar { grid-column: 1 / -1; height: 6px; background: var(--tc-progress-track-bg); border-radius: 3px; overflow: hidden; }
+    .limit-row__bar > span { display: block; height: 100%; background: var(--ds-brand); }
+    .limit-row__bar--warn > span { background: var(--ds-warning); }
+    .limit-row__bar--danger > span { background: var(--ds-danger); }
+    .limit-row__meta { grid-column: 1 / -1; display: flex; gap: 6px; flex-wrap: wrap; font-size: 11px; color: var(--ds-text-secondary); }
+    .limit-row__pill { padding: 2px 8px; border-radius: 999px; border: 1px solid var(--ds-border-hover); background: var(--tc-badge-neutral-bg); font-weight: 700; }
+    .limit-row__pill--ok { color: var(--ds-success); border-color: rgba(52,211,153,.25); background: var(--ds-success-muted); }
+    .limit-row__pill--warn { color: var(--ds-warning); border-color: rgba(251,191,36,.28); background: var(--ds-warning-muted); }
+    .limit-row__pill--danger { color: var(--ds-danger); border-color: rgba(248,113,113,.28); background: var(--ds-danger-muted); }
+    .addon-chip-row { display: flex; gap: 6px; flex-wrap: wrap; margin-top: var(--ds-space-3); }
+    .addon-chip { font-size: 11px; padding: 4px 9px; border-radius: 999px; border: 1px solid rgba(74,158,255,.24); background: rgba(74,158,255,.07); color: #aad0ff; font-weight: 700; }
+    .quota-upgrade-card { margin-top: var(--ds-space-3); padding: var(--ds-space-3); border-radius: var(--ds-radius-md); border: 1px solid rgba(74,158,255,.22); background: rgba(74,158,255,.05); font-size: 12px; color: var(--ds-text-secondary); display: flex; gap: var(--ds-space-2); justify-content: space-between; align-items: center; flex-wrap: wrap; }
+
+    .pending-card { padding: var(--ds-space-4); border-radius: var(--ds-radius-md); border: 1px solid rgba(255,204,0,.35); background: rgba(255,204,0,.06); margin-bottom: var(--ds-space-2); }
+    .pending-card__head { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; font-size: 13px; font-weight: 700; }
+    .pending-card__sub { font-size: 12px; color: var(--ds-text-secondary); margin-top: 4px; }
+
+    .action-row { display: flex; gap: var(--ds-space-2); flex-wrap: wrap; }
+    .empty-block { padding: var(--ds-space-5); text-align: center; color: var(--ds-text-secondary); font-size: 13px; border: 1px dashed var(--ds-border); border-radius: var(--ds-radius-md); }
+    .account-error { padding: var(--ds-space-5); border: 1px solid rgba(255,92,122,.25); background: rgba(255,92,122,.04); border-radius: var(--ds-radius-md); }
   </style>
 </head>
 <body>
-  <div id="main-content" class="wrap">
-    <div class="topbar" data-notif-topbar>
-      <span class="brand"><span style="width:10px;height:10px;border-radius:50%;background:linear-gradient(135deg,var(--brand),var(--brand2));display:inline-block;margin-right:8px"></span>TempConnect</span>
-      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
-        <a href="/" class="btn">Startseite</a>
-        <a href="/public/enterprise.html" class="btn">&#220;bersicht</a>
-        <a href="/public/capacity_search.html" class="btn">Kapazitätssuche</a>
-        <a href="/public/sla_search_jobs_list.html" class="btn">Suchaufträge</a>
-      </div>
-    </div>
+  <div class="ds-wrap">
+    <div id="tc-shell"></div>
+
+    <!-- Hero -->
+    <section style="text-align:center;padding:var(--ds-space-10) 0 var(--ds-space-4)">
+      <div class="section-label">Abo-Modelle &amp; Tarife</div>
+      <h1 class="section-heading" style="font-size:clamp(26px,4vw,38px)">Waehlen Sie den passenden Tarif</h1>
+      <p class="section-desc" style="margin:var(--ds-space-2) auto 0">Upgrade oder Downgrade jederzeit moeglich. Alle Tarife monatlich kuendbar.</p>
+    </section>
 
     <!-- Success/Cancel banners (from Stripe redirect) -->
     <div id="successBanner" class="success-banner">
@@ -63,413 +171,335 @@
       <strong>Zahlung abgebrochen.</strong> Du kannst den Checkout jederzeit erneut starten.
     </div>
 
-    <div class="ds-page-header">
-      <div class="ds-page-header__content">
-        <h1 class="ds-page-title">Abo-Modelle</h1>
-        <p class="ds-page-subtitle">Upgrade oder Downgrade jederzeit moeglich. Bei Kuendigung wechselst du zum FREE-Plan.</p>
+    <!-- Account-Status + Limits-Block (Welle 8 Schritt 7, dynamisch via /api/me/entitlements) -->
+    <div class="account-grid" id="accountTopGrid">
+      <div class="account-card" id="accountStatusBlock">
+        <h3>Account-Status</h3>
+        <div class="empty-block">Lade Account-Daten&hellip;</div>
+      </div>
+      <div class="account-card" id="accountLimitsBlock">
+        <h3>Limits &amp; Nutzung</h3>
+        <div class="empty-block">Lade Limits&hellip;</div>
       </div>
     </div>
-    <div style="margin-top:14px;padding:14px;border-radius:14px;border:1px solid rgba(74,163,255,.25);background:rgba(74,163,255,.06)">
-      <div style="font-size:14px;font-weight:700">TempConnect verbindet Kapazitaetsmarktplatz mit Pulse Notdienst, verifizierten Anbietern und Deal-gesteuertem Kontaktaustausch.</div>
+
+    <!-- Aktionen (Upgrade / Downgrade / Kuendigung / Individuell anfragen) -->
+    <div class="account-card" id="accountActionsBlock" style="margin-bottom:var(--ds-space-5)">
+      <h3>Aktionen</h3>
+      <div class="empty-block">Lade Optionen&hellip;</div>
     </div>
 
-    <!-- Plan Grid (identisch zum alten Abo-Bereich) -->
+    <!-- Aktive Features + Add-ons + gesperrte Features -->
+    <div class="account-card" id="accountFeaturesBlock" style="margin-bottom:var(--ds-space-5)">
+      <h3>Aktive und gesperrte Features</h3>
+      <div class="empty-block">Lade Features&hellip;</div>
+    </div>
+
+    <!-- Pending Subscription-Requests -->
+    <div class="account-card" id="accountPendingBlock" style="margin-bottom:var(--ds-space-5)">
+      <h3>Offene Anfragen</h3>
+      <div class="empty-block">Pruefe offene Anfragen&hellip;</div>
+    </div>
+
+    <!-- Rechnungen (WAVE_09: /api/invoices — paid/overdue/refunded) -->
+    <div class="account-card" id="accountInvoicesBlock" style="margin-bottom:var(--ds-space-5)">
+      <h3>Rechnungen</h3>
+      <div class="empty-block">Lade Rechnungen&hellip;</div>
+    </div>
+
+    <!-- Dokumente / Vertragsunterlagen (Angebote, Bestaetigungen etc.) -->
+    <div class="account-card" id="accountDocumentsBlock" style="margin-bottom:var(--ds-space-5)">
+      <h3>Dokumente &amp; Tarifunterlagen</h3>
+      <div class="empty-block">Lade Dokumente&hellip;</div>
+    </div>
+
+    <hr class="ds-divider"/>
+
+    <!-- Plan Grid (existierender Renderer aus slaAbo.js) -->
+    <h2 class="section-heading" style="margin-top:var(--ds-space-4)">Tarif wechseln</h2>
+    <p class="section-desc" style="margin-bottom:var(--ds-space-3)">Standardtarife BASIS/PLUS/PRO koennen Sie direkt buchen. Individuelle Tarife laufen ueber unser Tarif-Team.</p>
     <div class="plan-grid" id="planGrid"></div>
 
-    <!-- Aktueller Plan (identisch zum alten Abo-Bereich) -->
-    <div style="margin-top:24px;max-width:500px;padding:14px;border:1px solid var(--line);border-radius:12px;background:rgba(0,0,0,.18)">
-      <h3 style="margin:0 0 10px">Aktueller Plan</h3>
-      <div id="currentPlanInfo"></div>
-      <div style="margin-top:14px">
-        <button class="btn" id="btnCancelSub" style="background:rgba(255,92,122,.15);border-color:rgba(255,92,122,.35);color:#ffd0d8" onclick="cancelSubscription()">Abo kuendigen (zurueck zu FREE)</button>
+    <!-- Trust Row -->
+    <div class="ds-trust-row" style="margin-top:var(--ds-space-6)">
+      <div class="ds-trust-item"><span class="ds-trust-item__icon">&#128274;</span> DSGVO-konform</div>
+      <div class="ds-trust-item"><span class="ds-trust-item__icon">&#127465;&#127466;</span> Hosting in Deutschland</div>
+      <div class="ds-trust-item"><span class="ds-trust-item__icon">&#128197;</span> Monatlich kuendbar</div>
+      <div class="ds-trust-item"><span class="ds-trust-item__icon">&#9989;</span> Kein Lock-in</div>
+    </div>
+
+    <!-- Bounty-Rabatt Teaser -->
+    <div id="bountyTeaser" style="display:none;margin-top:var(--ds-space-5)">
+      <div style="padding:var(--ds-space-4) var(--ds-space-5);border:1px solid rgba(57,217,138,.2);border-radius:14px;background:rgba(57,217,138,.03);display:flex;align-items:center;gap:var(--ds-space-4);flex-wrap:wrap">
+        <span style="font-size:24px;flex-shrink:0">&#127942;</span>
+        <div style="flex:1;min-width:200px">
+          <div style="font-weight:700;font-size:14px">Bis zu 20% Bounty-Rabatt verdienen</div>
+          <div style="font-size:12px;color:var(--ds-text-secondary);margin-top:2px;line-height:1.5">Gute Leistung zahlt sich aus &mdash; sammeln Sie Bounties durch Performance, Aktivitaet und Treue und senken Sie dauerhaft Ihren Abo-Preis.<span id="bountyTeaserCurrent" style="display:none;font-weight:600;color:var(--ds-success)"></span></div>
+        </div>
+        <a href="/public/bounties.html" class="ds-btn ds-btn--success ds-btn--sm" style="white-space:nowrap">Bounties ansehen</a>
       </div>
     </div>
 
-    <!-- Zahlungshistorie -->
-    <div style="margin-top:24px;padding:14px;border:1px solid var(--line);border-radius:12px;background:rgba(0,0,0,.18)">
-      <h3 style="margin:0 0 8px">Zahlungshistorie</h3>
-      <div id="paymentHistory"><span style="color:var(--muted)">Lade…</span></div>
+    <!-- Pilotkunden / Referral-Programm Banner -->
+    <div id="slaRefBanner" style="display:none;margin-top:var(--ds-space-5)">
+      <div style="padding:var(--ds-space-4) var(--ds-space-5);border:1px solid rgba(74,158,255,.25);border-radius:14px;background:rgba(74,158,255,.03)">
+        <div style="display:flex;align-items:center;gap:var(--ds-space-4);flex-wrap:wrap">
+          <span style="font-size:24px;flex-shrink:0">&#129309;</span>
+          <div style="flex:1;min-width:200px">
+            <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+              <span style="font-weight:700;font-size:14px">Empfehlungsprogramm</span>
+              <span id="slaRefPilotBadge" style="display:none;font-size:10px;font-weight:700;background:rgba(57,217,138,.15);color:var(--ds-success);padding:2px 8px;border-radius:10px">Pilotkunde</span>
+            </div>
+            <div id="slaRefDesc" style="font-size:12px;color:var(--ds-text-secondary);margin-top:3px;line-height:1.5"></div>
+          </div>
+          <div id="slaRefStats" style="display:flex;gap:var(--ds-space-4);flex-shrink:0"></div>
+          <a href="/public/bounties.html#referralSection" class="ds-btn ds-btn--primary ds-btn--sm" style="white-space:nowrap">Details &amp; Einladen</a>
+        </div>
+
+        <!-- Referral-Code Schnellzugriff -->
+        <div id="slaRefCodeRow" style="display:none;margin-top:var(--ds-space-3);padding-top:var(--ds-space-3);border-top:1px solid rgba(74,158,255,.12);display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+          <span style="font-size:12px;color:var(--ds-text-secondary)">Ihr Code:</span>
+          <code id="slaRefCode" style="font-size:16px;font-weight:900;letter-spacing:2px;background:rgba(255,255,255,.06);padding:4px 12px;border-radius:6px">---</code>
+          <button onclick="(function(){var c=document.getElementById('slaRefCode').textContent;navigator.clipboard.writeText(window.location.origin+'/?ref='+c);var b=document.getElementById('slaRefCopied');b.style.display='inline';setTimeout(function(){b.style.display='none'},2500)})()" class="ds-btn ds-btn--sm" style="font-size:11px;padding:3px 10px">&#128279; Link kopieren</button>
+          <span id="slaRefCopied" style="display:none;font-size:11px;color:var(--ds-success)">Kopiert!</span>
+        </div>
+      </div>
     </div>
 
-    <p style="margin-top:24px;font-size:11px;color:var(--muted)">Hinweis: Inhalte dienen der Unterstützung und ersetzen keine rechtliche Prüfung. Angaben ohne Gewähr.</p>
+    <hr class="ds-divider"/>
+
+    <!-- Feature Comparison Table -->
+    <section class="ds-section" style="text-align:center">
+      <div class="section-label">Vergleich</div>
+      <h2 class="section-heading">Alle Features im Detail</h2>
+      <p class="section-desc" style="margin:0 auto var(--ds-space-4)">Detaillierter Vergleich aller Funktionen nach Tarif.</p>
+    </section>
+
+    <div class="comparison-wrap">
+      <table class="comparison-table">
+        <thead>
+          <tr>
+            <th>Funktion</th>
+            <th>DEMO</th>
+            <th>BASIS</th>
+            <th class="highlight">PLUS</th>
+            <th>PRO</th>
+            <th>INDIVIDUELLER TARIF</th>
+          </tr>
+        </thead>
+        <tbody>
+          <!-- Marketplace -->
+          <tr class="group-row"><td colspan="6">Marketplace &amp; Anfragen</td></tr>
+          <tr><td>Marketplace durchsuchen</td><td class="check">&#10003;</td><td class="check">&#10003;</td><td class="check">&#10003;</td><td class="check">&#10003;</td><td class="check">&#10003;</td></tr>
+          <tr><td>Anfragen senden</td><td class="cross">&times;</td><td class="value">5 / Monat</td><td class="value">20 / Monat</td><td class="value">Unbegrenzt</td><td class="value">Unbegrenzt</td></tr>
+          <tr><td>Anfragen empfangen</td><td class="cross">&times;</td><td class="value">5 / Monat</td><td class="value">20 / Monat</td><td class="value">Unbegrenzt</td><td class="value">Unbegrenzt</td></tr>
+          <tr><td>Angebote erstellen</td><td class="cross">&times;</td><td class="value">5 / Monat</td><td class="value">20 / Monat</td><td class="value">Unbegrenzt</td><td class="value">Unbegrenzt</td></tr>
+          <tr><td>Profil-Listing</td><td class="cross">&times;</td><td class="check">&#10003;</td><td class="check">&#10003;</td><td class="check">&#10003;</td><td class="check">&#10003;</td></tr>
+          <tr><td>Erhoehte Sichtbarkeit</td><td class="cross">&times;</td><td class="cross">&times;</td><td class="check">&#10003;</td><td class="check">&#10003;</td><td class="check">&#10003;</td></tr>
+          <tr><td>Prioritaets-Platzierung</td><td class="cross">&times;</td><td class="cross">&times;</td><td class="cross">&times;</td><td class="check">&#10003;</td><td class="check">&#10003;</td></tr>
+          <tr><td>Arbeiter pro Deal / Anfrage</td><td class="cross">&times;</td><td class="value">3</td><td class="value">10</td><td class="value">20</td><td class="value">Unbegrenzt</td></tr>
+
+          <!-- Vermittlung -->
+          <tr class="group-row"><td colspan="6">Vermittlung</td></tr>
+          <tr><td>Boerse durchsuchen</td><td class="check">&#10003;</td><td class="check">&#10003;</td><td class="check">&#10003;</td><td class="check">&#10003;</td><td class="check">&#10003;</td></tr>
+          <tr><td>Personal einstellen</td><td class="cross">&times;</td><td class="value">3 Eintraege</td><td class="value">20 Eintraege</td><td class="value">Unbegrenzt</td><td class="value">Unbegrenzt</td></tr>
+          <tr><td>Interesse bekunden / Deals</td><td class="cross">&times;</td><td class="value">5 / Monat</td><td class="value">20 / Monat</td><td class="value">Unbegrenzt</td><td class="value">Unbegrenzt</td></tr>
+          <tr><td>Vertrauenssignale &amp; Badges</td><td class="cross">&times;</td><td class="cross">&times;</td><td class="check">&#10003;</td><td class="check">&#10003;</td><td class="check">&#10003;</td></tr>
+          <tr><td>Aktivitaets-Statistiken</td><td class="cross">&times;</td><td class="cross">&times;</td><td class="check">&#10003;</td><td class="check">&#10003;</td><td class="check">&#10003;</td></tr>
+
+          <!-- Matching -->
+          <tr class="group-row"><td colspan="6">Matching &amp; Scoring</td></tr>
+          <tr><td>Basis-Matching (Rolle, Skills, Standort)</td><td class="cross">&times;</td><td class="check">&#10003;</td><td class="check">&#10003;</td><td class="check">&#10003;</td><td class="check">&#10003;</td></tr>
+          <tr><td>Instant Match (13-Faktor-Scoring)</td><td class="cross">&times;</td><td class="cross">&times;</td><td class="check">&#10003;</td><td class="check">&#10003;</td><td class="check">&#10003;</td></tr>
+          <tr><td>Smart Ranking (AI-gestuetzte Signale)</td><td class="cross">&times;</td><td class="cross">&times;</td><td class="cross">&times;</td><td class="check">&#10003;</td><td class="check">&#10003;</td></tr>
+          <tr><td>Erklaerbares Ranking (Breakdown)</td><td class="cross">&times;</td><td class="cross">&times;</td><td class="cross">&times;</td><td class="check">&#10003;</td><td class="check">&#10003;</td></tr>
+          <tr><td>Match-Alerts &amp; Benachrichtigungen</td><td class="cross">&times;</td><td class="cross">&times;</td><td class="check">&#10003;</td><td class="check">&#10003;</td><td class="check">&#10003;</td></tr>
+          <tr><td>Preferred-First-Boost im Matching</td><td class="cross">&times;</td><td class="cross">&times;</td><td class="cross">&times;</td><td class="cross">&times;</td><td class="check">&#10003;</td></tr>
+
+          <!-- Operative Workflows -->
+          <tr class="group-row"><td colspan="6">Operative Workflows</td></tr>
+          <tr><td>Digitale Stundenzettel</td><td class="cross">&times;</td><td class="cross">&times;</td><td class="check">&#10003;</td><td class="check">&#10003;</td><td class="check">&#10003;</td></tr>
+          <tr><td>ArbZG-Pausenvalidierung</td><td class="cross">&times;</td><td class="cross">&times;</td><td class="check">&#10003;</td><td class="check">&#10003;</td><td class="check">&#10003;</td></tr>
+          <tr><td>Digitale Unterschrift</td><td class="cross">&times;</td><td class="cross">&times;</td><td class="check">&#10003;</td><td class="check">&#10003;</td><td class="check">&#10003;</td></tr>
+          <tr><td>Batch-Genehmigung (Stundenzettel)</td><td class="cross">&times;</td><td class="cross">&times;</td><td class="check">&#10003;</td><td class="check">&#10003;</td><td class="check">&#10003;</td></tr>
+          <tr><td>Operative Rechnungsstellung</td><td class="cross">&times;</td><td class="cross">&times;</td><td class="check">&#10003;</td><td class="check">&#10003;</td><td class="check">&#10003;</td></tr>
+          <tr><td>Rechnungs-KPI-Dashboard</td><td class="cross">&times;</td><td class="cross">&times;</td><td class="check">&#10003;</td><td class="check">&#10003;</td><td class="check">&#10003;</td></tr>
+          <tr><td>CSV-Export (Rechnungen)</td><td class="cross">&times;</td><td class="cross">&times;</td><td class="check">&#10003;</td><td class="check">&#10003;</td><td class="check">&#10003;</td></tr>
+
+          <!-- Emergency & Pricing -->
+          <tr class="group-row"><td colspan="6">Notdienst &amp; Preisvorschlaege</td></tr>
+          <tr><td>Emergency Staffing / Notdienst</td><td class="cross">&times;</td><td class="cross">&times;</td><td class="check">&#10003;</td><td class="check">&#10003;</td><td class="check">&#10003;</td></tr>
+          <tr><td>5-Stufen-Urgency-Modell</td><td class="cross">&times;</td><td class="cross">&times;</td><td class="check">&#10003;</td><td class="check">&#10003;</td><td class="check">&#10003;</td></tr>
+          <tr><td>Auto-Eskalation</td><td class="cross">&times;</td><td class="cross">&times;</td><td class="cross">&times;</td><td class="check">&#10003;</td><td class="check">&#10003;</td></tr>
+          <tr><td>Smart Pricing (Preisvorschlaege)</td><td class="cross">&times;</td><td class="cross">&times;</td><td class="check">&#10003;</td><td class="check">&#10003;</td><td class="check">&#10003;</td></tr>
+
+          <!-- Reputation -->
+          <tr class="group-row"><td colspan="6">Reputation &amp; Bewertung</td></tr>
+          <tr><td>Reputation-Score &amp; Grade</td><td class="cross">&times;</td><td class="cross">&times;</td><td class="check">&#10003;</td><td class="check">&#10003;</td><td class="check">&#10003;</td></tr>
+          <tr><td>Lieferanten-Bewertungen</td><td class="cross">&times;</td><td class="cross">&times;</td><td class="cross">&times;</td><td class="check">&#10003;</td><td class="check">&#10003;</td></tr>
+          <tr><td>Top-Supplier Leaderboard</td><td class="cross">&times;</td><td class="cross">&times;</td><td class="cross">&times;</td><td class="check">&#10003;</td><td class="check">&#10003;</td></tr>
+
+          <!-- Pulse & SLA -->
+          <tr class="group-row"><td colspan="6">Pulse &amp; SLA</td></tr>
+          <tr><td>Persistente Suchauftraege</td><td class="cross">&times;</td><td class="cross">&times;</td><td class="check">&#10003;</td><td class="check">&#10003;</td><td class="check">&#10003;</td></tr>
+          <tr><td>Pulse-Timer</td><td class="cross">&times;</td><td class="cross">&times;</td><td class="value">120 Min</td><td class="value">60 Min</td><td class="value">30 Min</td></tr>
+          <tr><td>Plattformverfuegbarkeit</td><td class="value">Best Effort</td><td class="value">Best Effort</td><td class="value">99 %</td><td class="value">99 %</td><td class="value">99,5 %</td></tr>
+
+          <!-- Analytics & Tools -->
+          <tr class="group-row"><td colspan="6">Analysen &amp; Tools</td></tr>
+          <tr><td>Dashboard individueller Tarife</td><td class="cross">&times;</td><td class="cross">&times;</td><td class="check">&#10003;</td><td class="check">&#10003;</td><td class="check">&#10003;</td></tr>
+          <tr><td>Compliance-Ampel &amp; Scorecard</td><td class="cross">&times;</td><td class="cross">&times;</td><td class="check">&#10003;</td><td class="check">&#10003;</td><td class="check">&#10003;</td></tr>
+          <tr><td>Erweiterte Analysen</td><td class="cross">&times;</td><td class="cross">&times;</td><td class="cross">&times;</td><td class="check">&#10003;</td><td class="check">&#10003;</td></tr>
+
+
+          <!-- Sicherheit & Authentifizierung -->
+          <tr class="group-row"><td colspan="6">Sicherheit &amp; Authentifizierung</td></tr>
+          <tr><td>MFA / TOTP (2-Faktor)</td><td class="cross">&times;</td><td class="cross">&times;</td><td class="check">&#10003;</td><td class="check">&#10003;</td><td class="check">&#10003;</td></tr>
+          <tr><td>SSO / SAML Login</td><td class="cross">&times;</td><td class="cross">&times;</td><td class="cross">&times;</td><td class="check">&#10003;</td><td class="check">&#10003;</td></tr>
+          <tr><td>SSO Admin-Konfiguration</td><td class="cross">&times;</td><td class="cross">&times;</td><td class="cross">&times;</td><td class="check">&#10003;</td><td class="check">&#10003;</td></tr>
+          <tr><td>Enforce SSO (Passwort-Login blockieren)</td><td class="cross">&times;</td><td class="cross">&times;</td><td class="cross">&times;</td><td class="cross">&times;</td><td class="check">&#10003;</td></tr>
+          <tr><td>SP Metadata &amp; IDP-Integration</td><td class="cross">&times;</td><td class="cross">&times;</td><td class="cross">&times;</td><td class="check">&#10003;</td><td class="check">&#10003;</td></tr>
+          <!-- Individueller Tarif -->
+          <tr class="group-row"><td colspan="6">Funktionen des individuellen Tarifs</td></tr>
+          <tr><td>Vendor Pool Management</td><td class="cross">&times;</td><td class="cross">&times;</td><td class="cross">&times;</td><td class="cross">&times;</td><td class="check">&#10003;</td></tr>
+          <tr><td>Preferred-First &amp; Coverage-Analyse</td><td class="cross">&times;</td><td class="cross">&times;</td><td class="cross">&times;</td><td class="cross">&times;</td><td class="check">&#10003;</td></tr>
+          <tr><td>Multi-Abteilungen &amp; Teams</td><td class="cross">&times;</td><td class="cross">&times;</td><td class="cross">&times;</td><td class="cross">&times;</td><td class="check">&#10003;</td></tr>
+          <tr><td>Freigabe-Workflows</td><td class="cross">&times;</td><td class="cross">&times;</td><td class="cross">&times;</td><td class="cross">&times;</td><td class="check">&#10003;</td></tr>
+          <tr><td>Vertragsmanagement</td><td class="cross">&times;</td><td class="cross">&times;</td><td class="cross">&times;</td><td class="cross">&times;</td><td class="check">&#10003;</td></tr>
+          <tr><td>Reporting fuer individuelle Tarife &amp; Audit</td><td class="cross">&times;</td><td class="cross">&times;</td><td class="cross">&times;</td><td class="cross">&times;</td><td class="check">&#10003;</td></tr>
+
+          <!-- Support -->
+          <tr class="group-row"><td colspan="6">Support</td></tr>
+          <tr><td>E-Mail-Support</td><td class="cross">&times;</td><td class="check">&#10003;</td><td class="check">&#10003;</td><td class="check">&#10003;</td><td class="check">&#10003;</td></tr>
+          <tr><td>Priorisierter Support</td><td class="cross">&times;</td><td class="cross">&times;</td><td class="cross">&times;</td><td class="check">&#10003;</td><td class="check">&#10003;</td></tr>
+          <tr><td>Dedizierter Ansprechpartner</td><td class="cross">&times;</td><td class="cross">&times;</td><td class="cross">&times;</td><td class="cross">&times;</td><td class="check">&#10003;</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <hr class="ds-divider"/>
+
+    <!-- Aktueller Plan & Zahlungshistorie -->
+    <section style="display:grid;grid-template-columns:1fr 1fr;gap:var(--ds-space-4);margin-bottom:var(--ds-space-6)">
+      <div class="info-card">
+        <h3>Aktueller Plan</h3>
+        <div id="currentPlanInfo"></div>
+        <div style="margin-top:var(--ds-space-4)">
+          <button class="ds-btn" id="btnCancelSub" style="background:rgba(255,92,122,.12);border-color:rgba(255,92,122,.3);color:#ffd0d8;font-size:13px" onclick="cancelSubscription()">Abo kuendigen</button>
+        </div>
+      </div>
+      <div class="info-card">
+        <h3>Zahlungshistorie</h3>
+        <div id="paymentHistory"><span style="color:var(--ds-text-secondary)">Lade…</span></div>
+      </div>
+    </section>
+
+    <!-- Disclaimer -->
+    <div class="ds-disclaimer">
+      Alle Preise verstehen sich in EUR netto zzgl. gesetzlicher MwSt. Hinweis: Inhalte dienen der Unterstuetzung und ersetzen keine rechtliche Pruefung. Angaben ohne Gewaehr.
+    </div>
   </div>
 
-  <!-- Checkout Modal (identisch zum alten Abo-Bereich) -->
+  <!-- Checkout Modal -->
   <div class="checkout-modal" id="checkoutModal">
     <div class="checkout-panel">
       <div style="display:flex;justify-content:space-between;align-items:center">
         <h2>Abo abschliessen</h2>
-        <button class="btn" onclick="closeCheckout()">X</button>
+        <button class="ds-btn" onclick="closeCheckout()" style="padding:6px 12px;font-size:14px">&#10005;</button>
       </div>
 
-      <div id="checkoutPlanInfo" style="padding:14px;border-radius:14px;border:1px solid var(--line);background:rgba(0,0,0,.18)"></div>
+      <div id="checkoutPlanInfo" style="padding:var(--ds-space-4);border-radius:var(--ds-radius-md);border:1px solid var(--ds-border);background:rgba(255,255,255,.02)"></div>
 
-      <div style="margin-top:14px">
-        <label style="display:block;font-size:12px;color:var(--muted);margin:0 0 6px;font-weight:700">Zahlungsmethode waehlen</label>
+      <div style="margin-top:var(--ds-space-4)">
+        <label style="display:block;font-size:12px;color:var(--ds-text-secondary);margin:0 0 6px;font-weight:700;text-transform:uppercase;letter-spacing:.04em">Zahlungsmethode waehlen</label>
         <div class="payment-methods" id="paymentMethods"></div>
       </div>
 
-      <div id="checkoutDemoSection" style="display:none;margin-top:16px;padding:14px;border-radius:12px;background:rgba(57,217,138,.1);border:1px solid rgba(57,217,138,.3)">
+      <div id="checkoutDemoSection" style="display:none;margin-top:var(--ds-space-4);padding:var(--ds-space-4);border-radius:var(--ds-radius-md);background:rgba(57,217,138,.08);border:1px solid rgba(57,217,138,.25)">
         <p style="margin:0 0 10px"><b>Demo-Modus aktiv</b></p>
-        <p style="margin:0 0 12px;font-size:13px;color:var(--muted)">Im Demo-Modus wird keine echte Zahlung durchgefuehrt. Du erhaeltst sofort vollen Zugriff.</p>
-        <button class="btn" id="btnDemoConfirm" style="width:100%;background:rgba(57,217,138,.15);border-color:rgba(57,217,138,.35);color:#c8ffe7">Zahlung simulieren und Plan aktivieren</button>
+        <p style="margin:0 0 12px;font-size:13px;color:var(--ds-text-secondary)">Im Demo-Modus wird keine echte Zahlung durchgefuehrt. Du erhaeltst sofort vollen Zugriff.</p>
+        <button class="ds-btn ds-btn--primary" id="btnDemoConfirm" style="width:100%;background:rgba(57,217,138,.2);border-color:rgba(57,217,138,.4);color:#c8ffe7">Zahlung simulieren und Plan aktivieren</button>
       </div>
 
-      <div id="checkoutStripeSection" style="display:none;margin-top:16px;padding:14px;border-radius:12px;background:rgba(99,91,255,.1);border:1px solid rgba(99,91,255,.3)">
+      <div id="checkoutStripeSection" style="display:none;margin-top:var(--ds-space-4);padding:var(--ds-space-4);border-radius:var(--ds-radius-md);background:rgba(99,91,255,.08);border:1px solid rgba(99,91,255,.25)">
         <p style="margin:0 0 10px"><b>Stripe Checkout</b></p>
-        <p style="margin:0 0 12px;font-size:13px;color:var(--muted)">Du wirst zu Stripe weitergeleitet, um die Zahlung sicher abzuschliessen. Unterstuetzte Methoden: Kreditkarte, SEPA-Lastschrift, Sofort, Giropay.</p>
-        <p style="margin:0 0 12px;font-size:13px;color:var(--good)">Du erhaeltst sofort vollen Zugriff nach Zahlungseingang.</p>
-        <button class="btn" id="btnStripeCheckout" style="width:100%;background:#635bff;border-color:transparent;color:#fff">Weiter zu Stripe Checkout</button>
+        <p style="margin:0 0 12px;font-size:13px;color:var(--ds-text-secondary)">Du wirst zu Stripe weitergeleitet, um die Zahlung sicher abzuschliessen. Unterstuetzte Methoden: Kreditkarte, SEPA-Lastschrift, Sofort, Giropay.</p>
+        <p style="margin:0 0 12px;font-size:13px;color:var(--ds-success)">Du erhaeltst sofort vollen Zugriff nach Zahlungseingang.</p>
+        <button class="ds-btn" id="btnStripeCheckout" style="width:100%;background:#635bff;border-color:transparent;color:#fff">Weiter zu Stripe Checkout</button>
       </div>
 
-      <p style="margin-top:14px;font-size:12px;color:var(--muted)">Du kannst dein Abo jederzeit kuendigen. Bei Kuendigung wechselst du zum FREE-Plan.</p>
-      <div id="checkoutStatus" style="display:none;margin-top:12px;color:var(--muted);font-size:13px"></div>
+      <p style="margin-top:var(--ds-space-4);font-size:12px;color:var(--ds-text-secondary)">Du kannst dein Abo jederzeit kuendigen.</p>
+      <div id="checkoutStatus" style="display:none;margin-top:var(--ds-space-3);color:var(--ds-text-secondary);font-size:13px"></div>
+    </div>
+  </div>
+
+  <!-- Downgrade-Warnung Modal -->
+  <div class="checkout-modal" id="downgradeModal">
+    <div class="checkout-panel" style="max-width:560px">
+      <div style="display:flex;justify-content:space-between;align-items:center">
+        <h2 id="dgTitle">Downgrade best&auml;tigen</h2>
+        <button class="ds-btn" onclick="closeDowngrade()" style="padding:6px 12px;font-size:14px">&#10005;</button>
+      </div>
+
+      <!-- Step 1: What you lose -->
+      <div id="dgStep1">
+        <div style="padding:var(--ds-space-4);border-radius:var(--ds-radius-md);border:1px solid rgba(255,92,122,.25);background:rgba(255,92,122,.06);margin:var(--ds-space-3) 0">
+          <div id="dgLossTitle" style="font-weight:700;font-size:14px;margin-bottom:var(--ds-space-2);color:var(--ds-danger)">&#9888; Das verlieren Sie bei einem Downgrade:</div>
+          <ul id="dgLossList" style="list-style:none;padding:0;margin:0;font-size:13px;color:var(--ds-text-secondary);line-height:2">
+          </ul>
+        </div>
+        <div id="dgBountyWarn" style="display:none;padding:var(--ds-space-3);border-radius:var(--ds-radius-md);border:1px solid rgba(57,217,138,.25);background:rgba(57,217,138,.05);margin-bottom:var(--ds-space-3)">
+          <div style="font-size:13px"><strong style="color:var(--ds-success)">Bounty-Rabatt</strong>: Sie haben <span id="dgBountyPct">0</span>% Bounty-Rabatt erarbeitet. Bei Downgrade verfallen alle wiederkehrenden Bounties.</div>
+        </div>
+        <div style="display:flex;gap:var(--ds-space-2);justify-content:flex-end">
+          <button class="ds-btn" onclick="closeDowngrade()">Abbrechen</button>
+          <button class="ds-btn" style="background:var(--ds-warning-muted);border-color:rgba(251,191,36,.35);color:var(--ds-warning)" onclick="dgShowStep(2)">Trotzdem fortfahren</button>
+        </div>
+      </div>
+
+      <!-- Step 2: Alternatives -->
+      <div id="dgStep2" style="display:none">
+        <div style="padding:var(--ds-space-4);border-radius:var(--ds-radius-md);border:1px solid rgba(74,158,255,.2);background:rgba(74,158,255,.04);margin:var(--ds-space-3) 0">
+          <div id="dgAltTitle" style="font-weight:700;font-size:14px;margin-bottom:var(--ds-space-2);color:var(--ds-brand)">&#128161; Alternativen zum Downgrade</div>
+          <div style="font-size:13px;color:var(--ds-text-secondary);line-height:1.7">
+            <div style="margin-bottom:8px"><strong>Wechsel auf niedrigeren Plan</strong> statt vollstaendiger Kuendigung &ndash; behalten Sie Basiszugang und Ihren Reputations-Score.</div>
+            <div style="margin-bottom:8px" id="dgAltSuggestion"></div>
+            <div><strong>Unzufrieden?</strong> Kontaktieren Sie unser <a href="/public/hilfe.html" style="color:var(--ds-brand)">Support-Team</a> &ndash; wir finden eine L&ouml;sung.</div>
+          </div>
+        </div>
+        <div style="display:flex;gap:var(--ds-space-2);justify-content:flex-end">
+          <button class="ds-btn" onclick="dgShowStep(1)">Zurueck</button>
+          <button id="dgStep2ConfirmBtn" class="ds-btn" style="background:rgba(255,92,122,.15);border-color:rgba(255,92,122,.3);color:#ffd0d8" onclick="dgShowStep(3)">Downgrade bestaetigen</button>
+        </div>
+      </div>
+
+      <!-- Step 3: Final confirmation -->
+      <div id="dgStep3" style="display:none">
+        <div style="text-align:center;padding:var(--ds-space-5) 0">
+          <div style="font-size:36px;margin-bottom:var(--ds-space-2)">&#9888;</div>
+          <div style="font-size:15px;font-weight:700;margin-bottom:var(--ds-space-2)">Letzte Warnung</div>
+          <p style="font-size:13px;color:var(--ds-text-secondary);max-width:360px;margin:0 auto var(--ds-space-4);line-height:1.6" id="dgFinalText">Sind Sie sicher? Diese Aktion kann nicht sofort rueckgaengig gemacht werden.</p>
+        </div>
+        <div style="display:flex;gap:var(--ds-space-2);justify-content:center">
+          <button class="ds-btn" onclick="closeDowngrade()" style="flex:1;max-width:200px">Doch behalten</button>
+          <button class="ds-btn" id="dgConfirmBtn" style="flex:1;max-width:200px;background:rgba(255,92,122,.2);border-color:rgba(255,92,122,.4);color:#ffd0d8" onclick="dgExecute()">Jetzt downgraden</button>
+        </div>
+      </div>
     </div>
   </div>
 
   <script src="/public/js/planFeatures.js"></script>
   <script src="/public/js/slaGuard.js"></script>
-  <script>
-  (function(){
-    var API = "/api";
-    var PLAN_ORDER = ["FREE", "BASIS", "PLUS", "NOTDIENST"];
-    var PRICES = { FREE: 0, BASIS: 150, PLUS: 499, NOTDIENST: 999 };
-    var PLAN_DATA = {
-      FREE: {
-        label: "FREE", sub: null,
-        features: [
-          { text: "Marketplace durchsuchen", cls: "" },
-          { text: "Keine Anfragen senden", cls: "color:var(--bad)" },
-          { text: "Keine Angebote", cls: "color:var(--bad)" },
-          { text: "Kein Notdienst", cls: "color:var(--bad)" }
-        ]
-      },
-      BASIS: {
-        label: "BASIS", sub: null,
-        features: [
-          { text: "5 Anfragen senden", cls: "color:var(--good)" },
-          { text: "5 Anfragen empfangen", cls: "color:var(--good)" },
-          { text: "5 Angebote erstellen", cls: "color:var(--good)" },
-          { text: "Kein Notdienst", cls: "color:var(--bad)" }
-        ],
-        hint: "Mehr Reichweite – finde schneller passende Partner."
-      },
-      PLUS: {
-        label: "PLUS (Pulse PRO)", sub: null,
-        cardStyle: "border-color:rgba(74,163,255,.4);background:rgba(74,163,255,.04)",
-        features: [
-          { text: "20 Anfragen senden / empfangen", cls: "color:var(--good)" },
-          { text: "20 Angebote erstellen", cls: "color:var(--good)" },
-          { text: "Enterprise-Dashboard", cls: "color:var(--good);font-weight:700" },
-          { text: "Pulse-Timer, Compliance-Ampel, Scorecard", cls: "color:var(--good)" },
-          { text: "Matching-Versuch in 120 Min", cls: "color:var(--good)" },
-          { text: "99% Plattformverfuegbarkeit", cls: "color:var(--good)" },
-          { text: "Kein Notdienst", cls: "color:var(--bad)" }
-        ],
-        hint: "Enterprise-Zugang mit Pulse-Schutz und Kapazitaetssuche."
-      },
-      NOTDIENST: {
-        label: "NOTDIENST (Pulse EMERGENCY)", sub: null,
-        cardStyle: "border-color:rgba(255,204,0,.5);background:rgba(255,204,0,.05)",
-        features: [
-          { text: "Unbegrenzt Anfragen senden / empfangen", cls: "color:var(--good)" },
-          { text: "Unbegrenzt Angebote erstellen", cls: "color:var(--good)" },
-          { text: "Enterprise-Dashboard (alle Features)", cls: "color:var(--good);font-weight:700" },
-          { text: "Matching-Versuch in 30 Min", cls: "color:var(--warn);font-weight:700" },
-          { text: "Eskalation nach 60 Min", cls: "color:var(--warn);font-weight:700" },
-          { text: "99,5% Plattformverfuegbarkeit", cls: "color:var(--good)" },
-          { text: "Hoechste Prioritaet + Notdienst-Badge", cls: "color:var(--good)" }
-        ],
-        hint: "Maximale Sichtbarkeit mit Pulse Notdienst und priorisiertem Matching."
-      }
-    };
-
-    var paymentConfig = null;
-    var currentPlan = "FREE";
-    var selectedPlan = null;
-    var selectedMethod = null;
-    var meData = null;
-
-    function esc(s) { return String(s || "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;"); }
-    function idempotencyKey() {
-      try { return (typeof crypto !== "undefined" && crypto.randomUUID) ? crypto.randomUUID() : "x-" + Math.random().toString(36).slice(2) + "-" + Date.now(); }
-      catch(e) { return "x-" + Math.random().toString(36).slice(2) + "-" + Date.now(); }
-    }
-    function getCsrf() { return fetch(API + "/csrf", { credentials: "include" }).then(function(r) { return r.ok ? r.json() : null; }); }
-    function apiCall(path, opts) {
-      opts = opts || {};
-      var method = opts.method || "GET";
-      var headers = { "Content-Type": "application/json" };
-      if (["POST","PATCH","PUT","DELETE"].indexOf(method) >= 0) {
-        headers["X-CSRF-Token"] = opts.csrf || "";
-        headers["Idempotency-Key"] = idempotencyKey();
-      }
-      return fetch(API + path, { method: method, headers: headers, body: opts.body ? JSON.stringify(opts.body) : undefined, credentials: "include" });
-    }
-
-    /* ── URL params (success/cancel from Stripe redirect) ── */
-    var urlParams = new URLSearchParams(window.location.search);
-    if (urlParams.get("payment") === "success") {
-      document.getElementById("successBanner").style.display = "block";
-      window.history.replaceState({}, "", "/public/sla_abo.html");
-    }
-    if (urlParams.get("payment") === "cancelled") {
-      document.getElementById("cancelBanner").style.display = "block";
-      window.history.replaceState({}, "", "/public/sla_abo.html");
-    }
-
-    /* ── Render Plan Grid (identisch zum alten Bereich) ── */
-    function renderPlans() {
-      var grid = document.getElementById("planGrid");
-      grid.innerHTML = "";
-      PLAN_ORDER.forEach(function(key) {
-        var plan = PLAN_DATA[key];
-        var price = PRICES[key];
-        var isCurrent = currentPlan === key;
-
-        var card = document.createElement("div");
-        card.className = "plan-card";
-        if (plan.cardStyle) card.setAttribute("style", plan.cardStyle);
-        if (isCurrent) card.style.border = "2px solid var(--brand)";
-        card.setAttribute("data-plan", key);
-
-        var labelColor = key === "PLUS" ? "color:var(--brand)" : key === "NOTDIENST" ? "color:var(--warn)" : "";
-        var featHtml = plan.features.map(function(f) {
-          return "<div" + (f.cls ? " style=\"" + f.cls + "\"" : "") + ">" + esc(f.text) + "</div>";
-        }).join("");
-        if (plan.hint) {
-          featHtml += "<div style=\"margin-top:8px;padding-top:8px;border-top:1px solid var(--line);font-size:12px;color:var(--muted)\">" + esc(plan.hint) + "</div>";
-        }
-
-        var btnHtml;
-        if (isCurrent) {
-          btnHtml = "<button class=\"btn\" style=\"width:100%;opacity:.5;cursor:not-allowed;background:rgba(255,255,255,.05)\" disabled>Aktuell</button>";
-        } else if (key === "FREE") {
-          btnHtml = "<button class=\"btn\" style=\"width:100%\" onclick=\"window._setPlan('FREE')\">Waehlen</button>";
-        } else {
-          var isPrimary = key === "PLUS" || key === "NOTDIENST";
-          btnHtml = "<button class=\"btn" + (isPrimary ? " primary\" style=\"width:100%;background:linear-gradient(135deg,var(--brand),var(--brand2));border-color:transparent\"" : "\" style=\"width:100%\"") + " onclick=\"window._setPlan('" + key + "')\">Waehlen</button>";
-        }
-
-        card.innerHTML =
-          "<div><b style=\"font-size:18px;" + labelColor + "\">" + esc(plan.label) + "</b></div>" +
-          "<div style=\"font-size:24px;font-weight:900;margin:8px 0\">" + price + " EUR</div>" +
-          "<div style=\"font-size:12px;color:var(--muted)\">pro Monat</div>" +
-          "<div class=\"plan-features\" style=\"margin-top:14px;font-size:13px\">" + featHtml + "</div>" +
-          "<div style=\"margin-top:14px\">" + btnHtml + "</div>";
-
-        grid.appendChild(card);
-      });
-    }
-
-    /* ── Aktueller Plan Info (identisch zum alten Bereich) ── */
-    function renderCurrentPlan() {
-      var el = document.getElementById("currentPlanInfo");
-      if (!meData) { el.innerHTML = "-"; return; }
-      var html = "Plan: <b>" + esc(meData.plan || "FREE") + "</b>";
-      if (meData.limits) {
-        if (meData.limits.requests_send === -1) {
-          html += "<br/>Unbegrenzte Nutzung";
-        } else {
-          html += "<br/>Anfragen: " + (meData.usage ? meData.usage.sent_count : 0) + " / " + meData.limits.requests_send;
-          html += "<br/>Karteikarten: " + (meData.usage ? meData.usage.listings_count : 0) + " / " + meData.limits.listings;
-        }
-        html += "<br/>Notdienst: " + (meData.limits.notdienst ? "Ja" : "Nein");
-      }
-      el.innerHTML = html;
-    }
-
-    /* ── Checkout Modal ── */
-    window._setPlan = function(planKey) {
-      if (planKey === "FREE") {
-        getCsrf().then(function(csrf) {
-          var token = csrf && (csrf.csrfToken || csrf.token);
-          return apiCall("/me/plan", { method: "POST", csrf: token, body: { plan: "FREE" } });
-        }).then(function(r) {
-          if (!r.ok) return r.json().then(function(e) { throw new Error(e.error || "Fehler"); });
-          return r.json();
-        }).then(function(me) {
-          meData = me;
-          currentPlan = me.plan || "FREE";
-          renderPlans();
-          renderCurrentPlan();
-          alert("Plan geaendert: " + currentPlan);
-        }).catch(function(e) { alert("Fehler: " + e.message); });
-        return;
-      }
-      openCheckout(planKey);
-    };
-
-    function openCheckout(planKey) {
-      selectedPlan = planKey;
-      selectedMethod = null;
-      var price = PRICES[planKey];
-      var plan = PLAN_DATA[planKey];
-      var benefit = planKey === "BASIS" ? "Mehr Reichweite – finde schneller passende Partner."
-        : planKey === "PLUS" ? "Noch mehr Reichweite – ideal fuer aktive Vermittlung."
-        : planKey === "NOTDIENST" ? "Maximale Sichtbarkeit mit Pulse Notdienst und priorisiertem Matching." : "";
-
-      document.getElementById("checkoutPlanInfo").innerHTML =
-        "<div style='display:flex;justify-content:space-between;align-items:center'>" +
-        "<div><b style='font-size:18px'>" + esc(plan.label) + "</b>" +
-        (benefit ? "<div style='font-size:13px;color:var(--good);margin-top:4px'>" + esc(benefit) + "</div>" : "") + "</div>" +
-        "<div style='font-size:24px;font-weight:900'>" + price + " EUR<span style='font-size:12px;color:var(--muted)'>/Monat</span></div>" +
-        "</div>";
-
-      // Build payment method buttons (identisch zum alten Bereich)
-      var methods = [
-        { key: "demo", icon: "🎭", label: "Demo-Zahlung", desc: "Testzahlung ohne echtes Geld", enabled: true },
-        { key: "stripe", icon: "💳", label: "Kreditkarte / SEPA / Klarna / Sofort", desc: paymentConfig && paymentConfig.stripe_enabled ? "Kreditkarte, SEPA, Sofort, Giropay" : "via Stripe (bald verfuegbar)", enabled: !!(paymentConfig && paymentConfig.stripe_enabled) },
-        { key: "paypal", icon: "🅿️", label: "PayPal", desc: paymentConfig && paymentConfig.paypal_enabled ? "Mit PayPal bezahlen" : "(bald verfuegbar)", enabled: !!(paymentConfig && paymentConfig.paypal_enabled) }
-      ];
-      var container = document.getElementById("paymentMethods");
-      container.innerHTML = "";
-      methods.forEach(function(m) {
-        var btn = document.createElement("button");
-        btn.type = "button";
-        btn.className = "payment-btn";
-        btn.disabled = !m.enabled;
-        btn.dataset.method = m.key;
-        btn.innerHTML = "<span style='font-size:20px'>" + m.icon + "</span><div style='text-align:left'><b>" + esc(m.label) + "</b><div style='margin:0;font-size:12px;color:var(--muted)'>" + esc(m.desc) + "</div></div>";
-        btn.onclick = function() { selectMethod(m.key); };
-        container.appendChild(btn);
-      });
-
-      document.getElementById("checkoutDemoSection").style.display = "none";
-      document.getElementById("checkoutStripeSection").style.display = "none";
-      document.getElementById("checkoutStatus").style.display = "none";
-      document.getElementById("checkoutModal").style.display = "grid";
-    }
-
-    function selectMethod(method) {
-      selectedMethod = method;
-      document.querySelectorAll(".payment-btn").forEach(function(b) { b.classList.remove("active"); });
-      var active = document.querySelector(".payment-btn[data-method='" + method + "']");
-      if (active) active.classList.add("active");
-      document.getElementById("checkoutDemoSection").style.display = method === "demo" ? "block" : "none";
-      document.getElementById("checkoutStripeSection").style.display = method === "stripe" ? "block" : "none";
-    }
-
-    window.closeCheckout = function() {
-      document.getElementById("checkoutModal").style.display = "none";
-      selectedPlan = null;
-      selectedMethod = null;
-    };
-
-    function doCheckout(method) {
-      if (!selectedPlan) return;
-      var statusEl = document.getElementById("checkoutStatus");
-      statusEl.style.display = "block";
-      statusEl.textContent = "Checkout wird erstellt…";
-      var demoBtn = document.getElementById("btnDemoConfirm");
-      var stripeBtn = document.getElementById("btnStripeCheckout");
-      if (demoBtn) demoBtn.disabled = true;
-      if (stripeBtn) stripeBtn.disabled = true;
-
-      getCsrf().then(function(csrf) {
-        var token = csrf && (csrf.csrfToken || csrf.token);
-        return apiCall("/payment/checkout", { method: "POST", csrf: token, body: { plan: selectedPlan, payment_method: method } });
-      }).then(function(r) {
-        if (!r.ok) return r.json().then(function(err) { throw new Error(err.error || "CHECKOUT_ERROR"); });
-        return r.json();
-      }).then(function(data) {
-        if (data.mode === "demo") {
-          statusEl.textContent = "Demo-Modus – Abo wird aktiviert…";
-          return getCsrf().then(function(csrf) {
-            var token = csrf && (csrf.csrfToken || csrf.token);
-            return apiCall("/payment/confirm", { method: "POST", csrf: token, body: { checkout_id: data.checkout_id } });
-          }).then(function(r) {
-            if (!r.ok) throw new Error("CONFIRM_FAILED");
-            return r.json();
-          }).then(function(result) {
-            statusEl.textContent = "Abo aktiviert! Seite wird neu geladen…";
-            setTimeout(function() { window.location.href = "/public/sla_abo.html"; }, 1500);
-          });
-        }
-        if (data.mode === "stripe" && data.redirect_url) {
-          statusEl.textContent = "Weiterleitung zu Stripe…";
-          window.location.href = data.redirect_url;
-          return;
-        }
-        if (data.mode === "paypal" && data.redirect_url) {
-          statusEl.textContent = "Weiterleitung zu PayPal…";
-          window.location.href = data.redirect_url;
-          return;
-        }
-        throw new Error("UNKNOWN_MODE");
-      }).catch(function(err) {
-        statusEl.textContent = "Fehler: " + (err.message || "Unbekannter Fehler");
-        if (demoBtn) demoBtn.disabled = false;
-        if (stripeBtn) stripeBtn.disabled = false;
-      });
-    }
-
-    document.getElementById("btnDemoConfirm").onclick = function() { doCheckout("demo"); };
-    document.getElementById("btnStripeCheckout").onclick = function() { doCheckout("stripe"); };
-
-    /* ── Cancel Subscription ── */
-    window.cancelSubscription = function() {
-      if (!confirm("Abo wirklich kuendigen? Du wechselst zum FREE-Plan und kannst keine Anfragen mehr senden.")) return;
-      getCsrf().then(function(csrf) {
-        var token = csrf && (csrf.csrfToken || csrf.token);
-        return apiCall("/me/plan/cancel", { method: "POST", csrf: token });
-      }).then(function(r) {
-        if (!r.ok) return r.json().then(function(e) { throw new Error(e.error || "Fehler"); });
-        return r.json();
-      }).then(function(me) {
-        meData = me;
-        currentPlan = me.plan || "FREE";
-        renderPlans();
-        renderCurrentPlan();
-        alert("Abo gekuendigt. Du bist jetzt im FREE-Plan.");
-      }).catch(function(e) { alert("Kuendigung fehlgeschlagen: " + e.message); });
-    };
-
-    /* ── Payment History ── */
-    function loadHistory() {
-      apiCall("/payment/history").then(function(r) {
-        if (!r.ok) return [];
-        return r.json();
-      }).then(function(rows) {
-        var el = document.getElementById("paymentHistory");
-        if (!Array.isArray(rows) || rows.length === 0) {
-          el.innerHTML = "<p style='color:var(--muted);font-size:13px'>Noch keine Zahlungen.</p>";
-          return;
-        }
-        var html = "<table class='history-table'><thead><tr><th>Datum</th><th>Plan</th><th>Betrag</th><th>Methode</th><th>Status</th></tr></thead><tbody>";
-        rows.forEach(function(r) {
-          var date = r.created_at ? new Date(r.created_at).toLocaleDateString("de-DE") : "–";
-          var statusCls = r.status === "completed" ? "color:var(--good)" : r.status === "failed" ? "color:var(--bad)" : "color:var(--warn)";
-          html += "<tr><td>" + esc(date) + "</td><td>" + esc(r.plan) + "</td><td>" + r.amount + " EUR</td><td>" + esc(r.method) + "</td><td style='" + statusCls + "'>" + esc(r.status) + "</td></tr>";
-        });
-        html += "</tbody></table>";
-        el.innerHTML = html;
-      }).catch(function() {
-        document.getElementById("paymentHistory").innerHTML = "<p style='color:var(--muted);font-size:13px'>Fehler beim Laden.</p>";
-      });
-    }
-
-    /* ── Init ── */
-    Promise.all([
-      fetch(API + "/me", { credentials: "include" }).then(function(r) { return r.ok ? r.json() : null; }),
-      apiCall("/payment/config").then(function(r) { return r.ok ? r.json() : null; })
-    ]).then(function(results) {
-      meData = results[0];
-      paymentConfig = results[1];
-      currentPlan = (meData && meData.plan) ? meData.plan : "FREE";
-      renderPlans();
-      renderCurrentPlan();
-      loadHistory();
-    }).catch(function() {
-      renderPlans();
-      renderCurrentPlan();
-      loadHistory();
-    });
-  })();
-  </script>
+  <script src="/public/js/pageShell.js"></script>
   <script src="/public/js/notifications.js"></script>
+  <script src="/public/js/entitlements.js"></script>
+  <script src="/public/js/catalogRenderer.js"></script>
+  <script src="/public/js/pages/slaAbo.js"></script>
+  <script src="/public/js/pages/accountSubscription.js"></script>
   <div id="tc-footer" data-tc-footer></div>
   <script src="/public/js/footer.js"></script>
-  <script src="/public/js/logout-btn.js"></script>
+  <script src="/public/js/demoBanner.js" defer></script>
+  <script src="/public/js/onboardingWizard.js" defer></script>
+  <script src="/public/js/breadcrumb.js" defer></script>
 </body>
 </html>

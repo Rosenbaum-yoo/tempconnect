@@ -1,0 +1,697 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <script src="/public/js/theme.js"></script>
+  <title>Spend & Kosten – TempConnect</title>
+  <link rel="stylesheet" href="/public/css/enterprise.css"/>
+  <style>
+    .kpi-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: var(--ds-space-3); margin-bottom: var(--ds-space-5); }
+    .kpi-tile { padding: var(--ds-space-4); border-radius: var(--ds-radius-lg); border: 1px solid var(--ds-border); background: var(--tc-kpi-bg); text-align: center; }
+    .kpi-tile .kpi-val { font-size: 24px; font-weight: 800; display: block; margin-bottom: 4px; font-variant-numeric: tabular-nums; }
+    .kpi-tile .kpi-label { font-size: 11px; color: var(--ds-text-secondary); text-transform: uppercase; letter-spacing: .05em; font-weight: 600; }
+    .section { margin-bottom: var(--ds-space-5); padding: var(--ds-space-5); border: 1px solid var(--ds-border); border-radius: var(--ds-radius-lg); background: var(--tc-filter-surface); }
+    .section h3 { margin: 0 0 var(--ds-space-4); font-size: 14px; text-transform: uppercase; letter-spacing: 0.04em; color: var(--ds-text-secondary); font-weight: 700; }
+    .filter-row { display: flex; gap: var(--ds-space-3); margin-bottom: var(--ds-space-4); align-items: flex-end; flex-wrap: wrap; padding: var(--ds-space-3); border: 1px solid var(--ds-border); border-radius: var(--ds-radius-lg); background: var(--tc-filter-surface); }
+    .filter-row input, .filter-row select { width: auto; margin: 0; max-width: 170px; }
+    .filter-row label { font-size: 11px; color: var(--ds-text-secondary); margin: 0; font-weight: 600; }
+    table { width: 100%; border-collapse: collapse; font-size: 13px; }
+    th { text-align: left; font-size: 11px; text-transform: uppercase; letter-spacing: .04em; color: var(--ds-text-secondary); padding: 8px 10px; border-bottom: 1px solid var(--ds-border); font-weight: 700; }
+    td { padding: 10px; border-bottom: 1px solid var(--tc-table-row-border); }
+    tr:hover td { background: var(--tc-table-hover-bg); }
+    .bar-chart { display: flex; flex-direction: column; gap: 6px; }
+    .bar-row { display: flex; align-items: center; gap: 10px; }
+    .bar-label { width: 140px; font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; flex-shrink: 0; }
+    .bar-track { flex: 1; height: 22px; border-radius: 4px; background: var(--tc-progress-track-bg); position: relative; overflow: hidden; }
+    .bar-fill { height: 100%; border-radius: 4px; background: var(--brand); transition: width .4s ease; }
+    .bar-val { width: 90px; text-align: right; font-size: 12px; font-weight: 600; font-variant-numeric: tabular-nums; flex-shrink: 0; }
+    .rate-display { font-variant-numeric: tabular-nums; font-weight: 600; }
+    .deviation-good { color: var(--good); }
+    .deviation-warn { color: var(--warn); }
+    .deviation-bad { color: var(--bad); }
+    .trend-up { color: var(--bad); }
+    .trend-down { color: var(--good); }
+    .trend-neutral { color: var(--ds-text-secondary); }
+    .time-chart { display: flex; align-items: flex-end; gap: 4px; height: 120px; padding: 0 4px; }
+    .time-bar { flex: 1; border-radius: 3px 3px 0 0; background: var(--brand); min-width: 16px; position: relative; transition: height .4s ease; }
+    .time-bar:hover { opacity: .8; }
+    .time-bar .tip { position: absolute; bottom: 100%; left: 50%; transform: translateX(-50%); background: var(--ds-bg); color: var(--ds-text); padding: 3px 6px; border-radius: 4px; font-size: 10px; white-space: nowrap; display: none; z-index: 5; border: 1px solid var(--ds-border); }
+    .time-bar:hover .tip { display: block; }
+    .time-labels { display: flex; gap: 4px; padding: 4px 4px 0; }
+    .time-labels span { flex: 1; text-align: center; font-size: 9px; color: var(--ds-text-secondary); min-width: 16px; }
+    .empty-state { text-align: center; padding: 30px; color: var(--ds-text-secondary); font-size: 14px; }
+    .link-row { display:flex; gap:8px; flex-wrap:wrap; margin: 0 0 var(--ds-space-4); }
+    /* .page-state canonical definitions live in design-system.css (WAVE_10) */
+    .section-note { padding: 12px 14px; border-radius: 10px; border: 1px dashed var(--ds-border); color: var(--ds-text-secondary); font-size: 12px; background: var(--tc-filter-surface); }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div id="tc-shell"></div>
+
+    <div class="ds-page-header">
+      <div class="ds-page-header__content">
+        <h1 class="ds-page-title">Spend &amp; Kosten</h1>
+        <p class="ds-page-subtitle">Kosten, Preisabweichungen und Lieferantenspend nach Arbeitsplatzangebot, Region und Zeitverlauf steuern.</p>
+      </div>
+    </div>
+    <div class="link-row">
+      <a class="btn" data-feature-key="enterprise_analytics" href="/public/executive_dashboard.html">Steuerung &amp; Analytik</a>
+      <a id="spendRateCardLink" class="btn" data-feature-key="rate_card_management" href="/public/rate-cards.html">Preisrahmen</a>
+      <a class="btn" data-feature-key="supplier_management" href="/public/vendor_pool.html">Lieferantenpool</a>
+      <a class="btn" href="/public/requisitions.html">Angebote</a>
+    </div>
+    <!-- Kontext-Badge: wird bei URL-Parameter-Drilldown eingeblendet -->
+    <div id="spendContextBadge" style="display:none"></div>
+    <div id="spendState" class="page-state"></div>
+    <div class="link-row" style="margin-top:-6px">
+      <button class="btn" type="button" data-feature-key="spend_analytics" data-spend-finance-export onclick="exportSpendFinanceTruth('csv')">Finance Snapshot CSV</button>
+      <button class="btn" type="button" data-feature-key="spend_analytics" data-spend-finance-export onclick="exportSpendFinanceTruth('json')">Finance Snapshot JSON</button>
+      <span id="spendFinanceExportStatus" class="ds-text-sm" style="color:var(--ds-text-secondary);display:inline-flex;align-items:center">Auditfähiger Finance-Snapshot verfügbar.</span>
+    </div>
+
+    <!-- Filters -->
+    <div class="filter-row">
+      <div><label>Von</label><input id="fFrom" type="date"/></div>
+      <div><label>Bis</label><input id="fTo" type="date"/></div>
+      <div><label>Kategorie</label><input id="fCat" type="text" placeholder="z.B. Pflege"/></div>
+      <div><label>Region</label><input id="fRegion" type="text" placeholder="z.B. München"/></div>
+      <div><label>Lieferant</label><select id="fVendor" onchange="loadAll()"><option value="">Alle Lieferanten</option></select></div>
+      <button class="btn primary" data-feature-key="spend_analytics" onclick="loadAll()">Aktualisieren</button>
+    </div>
+
+    <!-- KPI Tiles -->
+    <div id="spendScopeBar" style="display:none"></div>
+    <div class="kpi-grid" id="kpiGrid"><div class="kpi-tile"><span class="kpi-val">–</span><span class="kpi-label">Lade…</span></div></div>
+
+    <!-- Spend by Vendor -->
+    <div class="section">
+      <h3>Spend nach Lieferant (Top 10)</h3>
+      <div id="vendorChart" class="bar-chart"><div class="empty-state">Lade…</div></div>
+    </div>
+
+    <!-- Spend by Category -->
+    <div class="section">
+      <h3>Spend nach Rolle</h3>
+      <div id="categoryChart" class="bar-chart"><div class="empty-state">Lade…</div></div>
+    </div>
+
+    <!-- Spend by Region -->
+    <div class="section">
+      <h3>Spend nach Region</h3>
+      <div id="regionChart" class="bar-chart"><div class="empty-state">Lade…</div></div>
+    </div>
+
+    <!-- Spend over Time -->
+    <div class="section">
+      <h3>Kostenverlauf</h3>
+      <div id="timeChart" class="time-chart"><div class="empty-state" style="width:100%">Lade…</div></div>
+      <div id="timeLabels" class="time-labels"></div>
+    </div>
+
+    <!-- Rate Comparison -->
+    <div id="spendRateComparisonSection" class="section">
+      <h3>Preisrahmen-Abgleich: Ist vs. Preisrahmen</h3>
+      <div id="rateTable"></div>
+    </div>
+
+    <!-- Top Cost Drivers -->
+    <div class="section">
+      <h3>Top Kostentreiber</h3>
+      <div id="costDrivers" class="bar-chart"><div class="empty-state">Lade…</div></div>
+    </div>
+
+    <!-- Trends -->
+    <div class="section">
+      <h3>Spend-Trends zum Vormonat</h3>
+      <table id="trendsTable"><tbody><tr><td class="empty-state">Lade…</td></tr></tbody></table>
+    </div>
+  </div>
+
+  <script src="/public/js/surfaceAccess.js"></script>
+  <script src="/public/js/entitlements.js"></script>
+  <script>
+    var csrfToken = '';
+    var spendLoadVersion = 0;
+    var spendVendorOptionsIssue = false;
+    var currentMe = null;
+    var spendAnalyticsAccess = { canRead: false, canWrite: false, canExport: false, mode: 'hidden', reason: '' };
+    var rateCardAccess = { canRead: false, canWrite: false, mode: 'hidden', reason: '' };
+    var SPEND_FILTER_STORAGE_KEY = 'tc.spendAnalytics.filters.v1';
+    function applySpendDomLocks(root) {
+      if (window.TC && window.TC.entitlements && typeof window.TC.entitlements.applyDomLocks === 'function') {
+        window.TC.entitlements.applyDomLocks(root || document).catch(function() {});
+      }
+    }
+    function esc(s) { var d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
+    function eurFmt(cents) { return (cents / 100).toLocaleString('de-DE', { minimumFractionDigits: 0, maximumFractionDigits: 0 }); }
+    function eurFull(cents) { return (cents / 100).toLocaleString('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 }); }
+    function fmtDate(iso) {
+      if (!iso) return '–';
+      var d = new Date(iso);
+      if (isNaN(d.getTime())) return String(iso);
+      return d.toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' });
+    }
+    function fmtDateTime(iso) {
+      if (!iso) return '–';
+      var d = new Date(iso);
+      if (isNaN(d.getTime())) return String(iso);
+      return d.toLocaleString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+    }
+    function renderScopeBar(scope, generatedAt) {
+      var bar = document.getElementById('spendScopeBar');
+      if (!bar) return;
+      if (!scope) { bar.style.display = 'none'; bar.innerHTML = ''; return; }
+      var orgName = (currentMe && currentMe.org_name) || scope.org_id || '–';
+      var locName = null;
+      try { locName = sessionStorage.getItem('tc.activeLocationName'); } catch (_e) {}
+      var locDisplay = locName || scope.location_id || 'Alle Standorte';
+      var periodDisplay = scope.date_from || scope.date_to
+        ? fmtDate(scope.date_from) + ' – ' + fmtDate(scope.date_to)
+        : 'Gesamter Zeitraum';
+      var standDisplay = generatedAt ? fmtDateTime(generatedAt) : '–';
+      bar.setAttribute('style',
+        'padding:6px 0 10px;font-size:12px;color:var(--ds-text-secondary);' +
+        'display:flex;flex-wrap:wrap;gap:14px;align-items:center;' +
+        'border-bottom:1px solid var(--ds-border);margin-bottom:14px');
+      bar.innerHTML =
+        '<span title="Organisation – alle Spend-Daten sind auf diese Org beschraenkt">' +
+          '<strong style="color:var(--ds-text)">Org:</strong> ' + esc(orgName) +
+        '</span>' +
+        '<span title="Standort-Kontext – Alle Standorte bedeutet org-weite Auswertung">' +
+          '<strong style="color:var(--ds-text)">Standort:</strong> ' + esc(locDisplay) +
+        '</span>' +
+        '<span title="Analysezeitraum der dargestellten Spend-Kennzahlen">' +
+          '<strong style="color:var(--ds-text)">Zeitraum:</strong> ' + esc(periodDisplay) +
+        '</span>' +
+        '<span title="Zeitpunkt der Datenberechnung auf dem Server">' +
+          '<strong style="color:var(--ds-text)">Datenstand:</strong> ' + esc(standDisplay) +
+        '</span>';
+    }
+    function resolveSurfaceAccess(me, key) {
+      if (window.TC && window.TC.surfaceAccess && typeof window.TC.surfaceAccess.resolve === 'function') {
+        return window.TC.surfaceAccess.resolve(me, key) || { canRead: false, canWrite: false, mode: 'hidden', reason: '' };
+      }
+      return { canRead: false, canWrite: false, mode: 'hidden', reason: '' };
+    }
+    function applyRateCardAccess() {
+      var link = document.getElementById('spendRateCardLink');
+      var section = document.getElementById('spendRateComparisonSection');
+      if (link) link.style.display = rateCardAccess.canRead ? '' : 'none';
+      if (section) section.style.display = rateCardAccess.canRead ? '' : 'none';
+    }
+    function applySpendAccess() {
+      applyRateCardAccess();
+      Array.from(document.querySelectorAll('#fFrom, #fTo, #fCat, #fRegion, #fVendor, .filter-row button')).forEach(function(control) {
+        control.disabled = !spendAnalyticsAccess.canRead;
+      });
+      Array.from(document.querySelectorAll('button[data-spend-finance-export]')).forEach(function(button) {
+        button.style.display = spendAnalyticsAccess.canExport ? '' : 'none';
+      });
+      if (!spendAnalyticsAccess.canExport) {
+        setSpendFinanceExportStatus('Finance-Snapshot bleibt fuer diese Rolle ausgeblendet.', 'muted');
+      }
+      applySpendDomLocks(document);
+    }
+    function describeSpendAccess(access) {
+      if (!access || access.canRead) return '';
+      return access.reason || 'Spend & Kosten ist fuer diese Rolle derzeit nicht freigeschaltet.';
+    }
+    function renderPageState(id, tone, title, text) {
+      var el = document.getElementById(id);
+      if (!el) return;
+      if (!title && !text) {
+        el.className = 'page-state';
+        el.innerHTML = '';
+        el.style.display = 'none';
+        return;
+      }
+      el.className = 'page-state page-state--' + (tone || 'info');
+      el.innerHTML = '<div class="page-state__title">' + esc(title || '') + '</div><div class="page-state__text">' + esc(text || '') + '</div>';
+      el.style.display = '';
+    }
+    function showSpendState(tone, title, text) { renderPageState('spendState', tone, title, text); }
+    function clearSpendState() { renderPageState('spendState'); }
+    function sectionNote(text) { return '<div class="section-note">' + esc(text) + '</div>'; }
+    function readStoredSpendFilters() {
+      try {
+        var raw = sessionStorage.getItem(SPEND_FILTER_STORAGE_KEY);
+        if (!raw) return {};
+        var parsed = JSON.parse(raw);
+        return parsed && typeof parsed === 'object' ? parsed : {};
+      } catch (e) { return {}; }
+    }
+    function writeStoredSpendFilters(filters) {
+      try { sessionStorage.setItem(SPEND_FILTER_STORAGE_KEY, JSON.stringify(filters || {})); } catch (e) {}
+    }
+    function setKpiState(value, label) {
+      document.getElementById('kpiGrid').innerHTML = '<div class="kpi-tile"><span class="kpi-val">' + esc(value) + '</span><span class="kpi-label">' + esc(label) + '</span></div>';
+    }
+    function setSpendFinanceExportStatus(message, tone) {
+      var target = document.getElementById('spendFinanceExportStatus');
+      if (!target) return;
+      target.style.color = tone === 'good' ? 'var(--good)' : tone === 'bad' ? 'var(--bad)' : tone === 'warn' ? 'var(--warn)' : 'var(--ds-text-secondary)';
+      target.textContent = message || '';
+    }
+    function setSpendFinanceExportButtonsDisabled(disabled) {
+      Array.from(document.querySelectorAll('button[data-spend-finance-export]')).forEach(function (button) {
+        button.disabled = !!disabled;
+      });
+    }
+    function parseSpendExportFileName(disposition, fallback) {
+      if (!disposition) return fallback;
+      var match = /filename\\*=UTF-8''([^;]+)|filename=\"?([^\";]+)\"?/i.exec(disposition);
+      var raw = match ? (match[1] || match[2]) : null;
+      if (!raw) return fallback;
+      try { return decodeURIComponent(raw); } catch (_err) { return raw; }
+    }
+    function saveSpendExportBlob(blob, fileName) {
+      var link = document.createElement('a');
+      link.href = URL.createObjectURL(blob);
+      link.download = fileName;
+      link.style.display = 'none';
+      document.body.appendChild(link);
+      link.click();
+      setTimeout(function () {
+        URL.revokeObjectURL(link.href);
+        link.remove();
+      }, 1500);
+    }
+    async function exportSpendFinanceTruth(format) {
+      var normalized = String(format || '').toLowerCase();
+      if (normalized !== 'csv' && normalized !== 'json') return;
+      if (!spendAnalyticsAccess.canExport) return;
+      setSpendFinanceExportButtonsDisabled(true);
+      setSpendFinanceExportStatus('Finance-Export wird erstellt…', 'muted');
+      try {
+        if (normalized === 'csv') {
+          var response = await fetch('/api/reporting/finance-truth/export?format=csv', { credentials: 'include' });
+          if (response.status === 401) { location.href = '/'; return; }
+          if (!response.ok) throw new Error('HTTP ' + response.status);
+          var blob = await response.blob();
+          var fileName = parseSpendExportFileName(
+            response.headers.get('content-disposition'),
+            'finance-truth-' + new Date().toISOString().slice(0, 10) + '.csv'
+          );
+          saveSpendExportBlob(blob, fileName);
+        } else {
+          var payload = await api('/reporting/finance-truth/export?format=json');
+          if (!payload) throw new Error('Export derzeit nicht verfügbar');
+          var jsonBlob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json;charset=utf-8' });
+          saveSpendExportBlob(jsonBlob, 'finance-truth-' + new Date().toISOString().slice(0, 10) + '.json');
+        }
+        setSpendFinanceExportStatus('Finance-Export bereitgestellt.', 'good');
+      } catch (error) {
+        setSpendFinanceExportStatus('Finance-Export fehlgeschlagen: ' + ((error && error.message) || 'Unbekannter Fehler'), 'bad');
+      } finally {
+        setSpendFinanceExportButtonsDisabled(false);
+      }
+    }
+    function setSpendLoadingState() {
+      renderScopeBar(null, null);
+      setKpiState('–', 'Lade…');
+      document.getElementById('vendorChart').innerHTML = '<div class="empty-state">Lade…</div>';
+      document.getElementById('categoryChart').innerHTML = '<div class="empty-state">Lade…</div>';
+      document.getElementById('regionChart').innerHTML = '<div class="empty-state">Lade…</div>';
+      document.getElementById('timeChart').innerHTML = '<div class="empty-state" style="width:100%">Lade…</div>';
+      document.getElementById('timeLabels').innerHTML = '';
+      document.getElementById('rateTable').innerHTML = '<div class="empty-state">Lade…</div>';
+      document.getElementById('costDrivers').innerHTML = '<div class="empty-state">Lade…</div>';
+      document.getElementById('trendsTable').innerHTML = '<tbody><tr><td class="empty-state">Lade…</td></tr></tbody>';
+    }
+    function isCurrentSpendLoad(loadId) { return loadId === spendLoadVersion; }
+
+    function getLocHeader() {
+      try { return (window.TC && TC.api && typeof TC.api.getActiveLocationId === 'function') ? TC.api.getActiveLocationId() : null; } catch (_e) { return null; }
+    }
+    function getLocLabel() {
+      try { return sessionStorage.getItem('tc.activeLocationName') || null; } catch (_e) { return null; }
+    }
+    async function api(path) {
+      try {
+        var headers = {};
+        var locId = getLocHeader();
+        if (locId) headers['X-Location-Id'] = locId;
+        var r = await fetch('/api' + path, { credentials: 'include', headers: headers });
+        if (r.status === 401) { location.href = '/'; return null; }
+        if (!r.ok) return null;
+        return await r.json();
+      } catch (e) {
+        return null;
+      }
+    }
+
+    function selectedVendorName() {
+      var sel = document.getElementById('fVendor');
+      if (!sel || !sel.value || !sel.selectedOptions || !sel.selectedOptions[0]) return '';
+      return sel.selectedOptions[0].textContent || '';
+    }
+    function currentSpendFilters() {
+      return {
+        dateFrom: document.getElementById('fFrom').value,
+        dateTo: document.getElementById('fTo').value,
+        category: document.getElementById('fCat').value.trim(),
+        region: document.getElementById('fRegion').value.trim(),
+        vendorId: document.getElementById('fVendor').value
+      };
+    }
+
+    function getFilters(filters) {
+      var values = filters || currentSpendFilters();
+      var qs = '';
+      var f = values.dateFrom;
+      var t = values.dateTo;
+      var c = values.category;
+      var rg = values.region;
+      var vendor = values.vendorId;
+      if (f) qs += '&date_from=' + f;
+      if (t) qs += '&date_to=' + t;
+      if (c) qs += '&category=' + encodeURIComponent(c);
+      if (rg) qs += '&region=' + encodeURIComponent(rg);
+      if (vendor) qs += '&vendor_id=' + encodeURIComponent(vendor);
+      return qs ? '?' + qs.slice(1) : '';
+    }
+
+    async function loadVendorOptions() {
+      if (!spendAnalyticsAccess.canRead) {
+        spendVendorOptionsIssue = false;
+        var lockedSel = document.getElementById('fVendor');
+        if (lockedSel) lockedSel.innerHTML = '<option value="">Alle Lieferanten</option>';
+        return;
+      }
+      var data = await api('/suppliers/enriched?limit=100');
+      var sel = document.getElementById('fVendor');
+      if (!sel) return;
+      if (!data) {
+        spendVendorOptionsIssue = true;
+        sel.innerHTML = '<option value="">Alle Lieferanten</option>';
+        return;
+      }
+      var items = (data && data.items) || [];
+      spendVendorOptionsIssue = false;
+      sel.innerHTML = '<option value="">Alle Lieferanten</option>' + items.map(function(item) {
+        return '<option value="' + esc(item.supplier_org_id || '') + '">' + esc(item.supplier_org_name || item.supplier_org_id || 'Vendor') + '</option>';
+      }).join('');
+    }
+
+    function renderContextBadge(preSupplierName) {
+      var preRole = document.getElementById('fCat').value.trim();
+      var preRegion = document.getElementById('fRegion').value.trim();
+      var vendorId = document.getElementById('fVendor').value;
+      var supplierName = selectedVendorName() || preSupplierName || '';
+      var contextParts = [];
+      if (preRole) contextParts.push('Rolle/Kategorie: <strong>' + esc(preRole) + '</strong>');
+      if (preRegion) contextParts.push('Region: <strong>' + esc(preRegion) + '</strong>');
+      if (vendorId) contextParts.push('Lieferant: <strong>' + esc(supplierName) + '</strong>');
+      var badge = document.getElementById('spendContextBadge');
+      if (!contextParts.length) {
+        badge.style.display = 'none';
+        badge.innerHTML = '';
+        return;
+      }
+      badge.style.cssText = 'display:block;background:rgba(74,158,255,.08);border:1px solid rgba(74,158,255,.2);border-radius:8px;padding:10px 14px;font-size:13px;margin-bottom:14px;color:var(--ds-text-secondary)';
+      badge.innerHTML = '&#128279; Drilldown-Filter: ' + contextParts.join(' &bull; ')
+        + ' &nbsp;<a href="/public/spend-analytics.html" style="color:var(--brand);font-size:12px">Filter zuruecksetzen &times;</a>';
+    }
+
+    async function init() {
+      showSpendState('info', 'Spend-Analyse wird geladen', 'Filter, Lieferantenkontext und Managementdaten werden vorbereitet.');
+      currentMe = await api('/me');
+      spendAnalyticsAccess = resolveSurfaceAccess(currentMe, 'spend_analytics');
+      rateCardAccess = resolveSurfaceAccess(currentMe, 'rate_cards');
+      applySpendAccess();
+      if (!spendAnalyticsAccess.canRead) {
+        setKpiState('–', 'Spend-Sicht gesperrt');
+        document.getElementById('vendorChart').innerHTML = sectionNote(describeSpendAccess(spendAnalyticsAccess));
+        document.getElementById('categoryChart').innerHTML = sectionNote('Spend nach Rolle bleibt fuer diese Rolle ausgeblendet.');
+        document.getElementById('regionChart').innerHTML = sectionNote('Spend nach Region bleibt fuer diese Rolle ausgeblendet.');
+        document.getElementById('timeChart').innerHTML = '<div class="empty-state" style="width:100%">' + esc(describeSpendAccess(spendAnalyticsAccess)) + '</div>';
+        document.getElementById('timeLabels').innerHTML = '';
+        document.getElementById('rateTable').innerHTML = sectionNote('Preisrahmen-Abgleich ist ohne Spend-Zugriff nicht verfügbar.');
+        document.getElementById('costDrivers').innerHTML = sectionNote('Top-Kostentreiber bleiben fuer diese Rolle ausgeblendet.');
+        document.getElementById('trendsTable').innerHTML = '<tbody><tr><td class="empty-state">' + esc(describeSpendAccess(spendAnalyticsAccess)) + '</td></tr></tbody>';
+        showSpendState('info', 'Spend-Sicht ausgeblendet', describeSpendAccess(spendAnalyticsAccess));
+        return;
+      }
+      // URL-Parameter-Drilldown: ?role=&category=&supplier=&from=&to=
+      var urlP = new URLSearchParams(window.location.search);
+      var hasUrlFilters = urlP.has('role') || urlP.has('category') || urlP.has('region') ||
+        urlP.has('from') || urlP.has('to') || urlP.has('date_from') || urlP.has('date_to') ||
+        urlP.has('supplier') || urlP.has('vendor_id') || urlP.has('supplier_org_id');
+      var stored = hasUrlFilters ? {} : readStoredSpendFilters();
+      var preRole = hasUrlFilters ? (urlP.get('role') || urlP.get('category') || '') : (stored.category || '');
+      var preRegion = hasUrlFilters ? (urlP.get('region') || '') : (stored.region || '');
+      var preFrom = hasUrlFilters ? (urlP.get('from') || urlP.get('date_from') || '') : (stored.dateFrom || '');
+      var preTo = hasUrlFilters ? (urlP.get('to') || urlP.get('date_to') || '') : (stored.dateTo || '');
+      var preSupplier = urlP.get('supplier') || '';
+      var preVendorId = hasUrlFilters ? (urlP.get('vendor_id') || urlP.get('supplier_org_id') || '') : (stored.vendorId || '');
+      document.getElementById('fCat').value = preRole || '';
+      document.getElementById('fRegion').value = preRegion || '';
+      document.getElementById('fFrom').value = preFrom || '';
+      document.getElementById('fTo').value = preTo || '';
+      await loadVendorOptions();
+      if (preVendorId) document.getElementById('fVendor').value = preVendorId;
+      renderContextBadge(preSupplier);
+      await loadAll(false);
+    }
+
+    async function loadAll(persist) {
+      if (!spendAnalyticsAccess.canRead) return;
+      var shouldPersist = persist !== false;
+      var filterState = currentSpendFilters();
+      if (shouldPersist) writeStoredSpendFilters(filterState);
+      var loadId = ++spendLoadVersion;
+      var qs = getFilters(filterState);
+      renderContextBadge();
+      showSpendState('info', 'Spend-Analyse wird geladen', 'KPI-Karten, Verteilungen und Trends werden aktualisiert.');
+      setSpendLoadingState();
+      var results = await Promise.all([
+        loadSummary(qs, loadId),
+        loadVendors(qs, loadId),
+        loadCategories(qs, loadId),
+        loadRegions(qs, loadId),
+        loadTimeline(qs, loadId),
+        rateCardAccess.canRead ? loadRateComparison(qs, loadId) : Promise.resolve({ section: 'Preisrahmen-Abgleich', status: 'blocked' }),
+        loadCostDrivers(qs, loadId),
+        loadTrends(qs, loadId)
+      ]);
+      if (!isCurrentSpendLoad(loadId)) return;
+      var failures = results.filter(function(r) { return r && r.status === 'error'; }).map(function(r) { return r.section; });
+      if (spendVendorOptionsIssue) failures.unshift('Lieferantenfilter');
+      if (results.every(function(r) { return r && r.status === 'error'; })) {
+        showSpendState('bad', 'Spend-Analyse derzeit nicht verfügbar', 'Die Auswertungen konnten nicht geladen werden. Filter und Drilldowns bleiben erhalten.');
+      } else if (failures.length) {
+        showSpendState('warn', 'Teilweise Daten fehlen', failures.join(', ') + ' konnten nicht geladen werden. Die restliche Analyse bleibt verfügbar.');
+      } else {
+        clearSpendState();
+      }
+      applySpendDomLocks(document);
+    }
+
+    async function loadSummary(qs, loadId) {
+      var d = await api('/spend-analytics/summary' + qs);
+      if (!isCurrentSpendLoad(loadId)) return { section: 'KPI-Übersicht', status: 'stale' };
+      if (!d || !d.data) {
+        renderScopeBar(null, null);
+        setKpiState('!', 'Uebersicht nicht verfuegbar');
+        return { section: 'KPI-Übersicht', status: 'error' };
+      }
+      var s = d.data;
+      document.getElementById('kpiGrid').innerHTML = [
+        { label: 'Gesamtausgaben', val: eurFmt(s.total_spend_cents) + ' €', color: 'var(--brand)' },
+        { label: 'Ø Stundensatz', val: eurFull(s.avg_rate_cents) + ' €', color: 'var(--text)' },
+        { label: 'Einsaetze', val: s.assignment_count, color: 'var(--text)' },
+        { label: 'Lieferanten', val: s.vendor_count, color: '#7c5cff' },
+        { label: 'Überstunden', val: eurFmt(s.overtime_spend_cents) + ' €', color: 'var(--warn)' },
+        { label: 'Prognose', val: eurFmt(s.projected_spend_cents) + ' €', color: 'var(--ds-text-secondary)' },
+        { label: 'Ueber Preisrahmen', val: eurFmt(s.over_rate_spend_cents) + ' €', color: 'var(--bad)' },
+        { label: 'Stunden', val: Number(s.total_hours).toLocaleString('de-DE', {maximumFractionDigits:0}), color: 'var(--good)' }
+      ].map(function(t) {
+        return '<div class="kpi-tile"><span class="kpi-val" style="color:'+t.color+'">'+esc(String(t.val))+'</span><span class="kpi-label">'+esc(t.label)+'</span></div>';
+      }).join('');
+      renderScopeBar(d.scope || null, d.generated_at || null);
+      return { section: 'KPI-Übersicht', status: 'ok' };
+    }
+
+    function renderBarChart(containerId, items, labelKey, valKey, color, linkFn) {
+      var el = document.getElementById(containerId);
+      if (!items || !items.length) { var locLbl = getLocLabel(); el.innerHTML = '<div class="empty-state">' + (locLbl ? 'Keine Daten für Standort ' + locLbl + '.' : 'Keine Daten.') + '</div>'; return; }
+      var max = Math.max.apply(null, items.map(function(i) { return Number(i[valKey]) || 0; }));
+      el.innerHTML = items.map(function(i) {
+        var v = Number(i[valKey]) || 0;
+        var pct = max > 0 ? (v / max * 100) : 0;
+        var labelHtml = esc(i[labelKey] || 'Unbekannt');
+        // Vendor-Bars: Klick oeffnet Scorecard
+        if (linkFn) {
+          var href = linkFn(i);
+          labelHtml = href ? '<a href="'+href+'" style="color:inherit;text-decoration:underline;text-decoration-color:rgba(255,255,255,.2)" title="Scorecard oeffnen">'+labelHtml+'</a>' : labelHtml;
+        }
+        return '<div class="bar-row">' +
+          '<span class="bar-label" title="'+esc(i[labelKey] || 'Unbekannt')+'">'+labelHtml+'</span>' +
+          '<div class="bar-track"><div class="bar-fill" style="width:'+pct.toFixed(1)+'%;background:'+(color||'var(--brand)')+'"></div></div>' +
+          '<span class="bar-val">'+eurFmt(v)+' €</span></div>';
+      }).join('');
+    }
+
+    async function loadVendors(qs, loadId) {
+      var d = await api('/spend-analytics/by-vendor' + qs + (qs ? '&' : '?') + 'limit=10');
+      if (!isCurrentSpendLoad(loadId)) return { section: 'Spend nach Lieferant', status: 'stale' };
+      if (!d) {
+        document.getElementById('vendorChart').innerHTML = sectionNote('Spend nach Lieferant konnte derzeit nicht geladen werden.');
+        return { section: 'Spend nach Lieferant', status: 'error' };
+      }
+      if (!d.data || !d.data.length) {
+        document.getElementById('vendorChart').innerHTML = '<div class="empty-state">Keine Spend-Daten fuer Lieferanten im aktuellen Filter.</div>';
+        return { section: 'Spend nach Lieferant', status: 'empty' };
+      }
+      // Vendor-Bars sind klickbar -> Scorecard Deep-Link
+      renderBarChart('vendorChart', d.data, 'supplier_name', 'spend_cents', 'var(--brand)', function(item) {
+        if (!item.supplier_id) return null;
+        return '/public/supplier_scorecard.html?agencyId=' + encodeURIComponent(item.supplier_id)
+          + '&agencyName=' + encodeURIComponent(item.supplier_name || '');
+      });
+      return { section: 'Spend nach Lieferant', status: 'ok' };
+    }
+
+    async function loadCategories(qs, loadId) {
+      var d = await api('/spend-analytics/by-category' + qs);
+      if (!isCurrentSpendLoad(loadId)) return { section: 'Spend nach Rolle', status: 'stale' };
+      if (!d) {
+        document.getElementById('categoryChart').innerHTML = sectionNote('Spend nach Rolle konnte derzeit nicht geladen werden.');
+        return { section: 'Spend nach Rolle', status: 'error' };
+      }
+      if (!d.data || !d.data.length) {
+        document.getElementById('categoryChart').innerHTML = '<div class="empty-state">Keine Spend-Daten fuer Rollen im aktuellen Filter.</div>';
+        return { section: 'Spend nach Rolle', status: 'empty' };
+      }
+      renderBarChart('categoryChart', d.data, 'category', 'spend_cents', '#7c5cff');
+      return { section: 'Spend nach Rolle', status: 'ok' };
+    }
+
+    async function loadRegions(qs, loadId) {
+      var d = await api('/spend-analytics/by-region' + qs);
+      if (!isCurrentSpendLoad(loadId)) return { section: 'Spend nach Region', status: 'stale' };
+      if (!d) {
+        document.getElementById('regionChart').innerHTML = sectionNote('Spend nach Region konnte derzeit nicht geladen werden.');
+        return { section: 'Spend nach Region', status: 'error' };
+      }
+      if (!d.data || !d.data.length) {
+        document.getElementById('regionChart').innerHTML = '<div class="empty-state">Keine Spend-Daten fuer Regionen im aktuellen Filter.</div>';
+        return { section: 'Spend nach Region', status: 'empty' };
+      }
+      renderBarChart('regionChart', d.data, 'region', 'spend_cents', '#4aa3ff');
+      return { section: 'Spend nach Region', status: 'ok' };
+    }
+
+    async function loadTimeline(qs, loadId) {
+      var d = await api('/spend-analytics/over-time' + qs);
+      var el = document.getElementById('timeChart');
+      var labels = document.getElementById('timeLabels');
+      if (!isCurrentSpendLoad(loadId)) return { section: 'Kostenverlauf', status: 'stale' };
+      if (!d) {
+        el.innerHTML = sectionNote('Der Kostenverlauf konnte derzeit nicht geladen werden.');
+        labels.innerHTML = '';
+        return { section: 'Kostenverlauf', status: 'error' };
+      }
+      if (!d.data || !d.data.length) {
+        el.innerHTML = '<div class="empty-state" style="width:100%">Keine Zeitreihe fuer den aktuellen Filter.</div>';
+        labels.innerHTML = '';
+        return { section: 'Kostenverlauf', status: 'empty' };
+      }
+      var items = d.data;
+      var max = Math.max.apply(null, items.map(function(i) { return Number(i.spend_cents) || 0; }));
+      el.innerHTML = items.map(function(i) {
+        var v = Number(i.spend_cents) || 0;
+        var h = max > 0 ? Math.max(v / max * 100, 2) : 2;
+        return '<div class="time-bar" style="height:'+h.toFixed(1)+'%"><span class="tip">'+eurFmt(v)+' € — '+esc(i.period ? i.period.slice(0,7) : '')+'</span></div>';
+      }).join('');
+      labels.innerHTML = items.map(function(i) {
+        return '<span>'+(i.period ? i.period.slice(5,7)+'/'+i.period.slice(2,4) : '')+'</span>';
+      }).join('');
+      return { section: 'Kostenverlauf', status: 'ok' };
+    }
+
+    async function loadRateComparison(qs, loadId) {
+      var d = await api('/spend-analytics/rate-comparison' + qs);
+      var el = document.getElementById('rateTable');
+      if (!isCurrentSpendLoad(loadId)) return { section: 'Preisrahmen-Abgleich', status: 'stale' };
+      if (!d) {
+        el.innerHTML = sectionNote('Der Preisrahmen-Abgleich konnte derzeit nicht geladen werden.');
+        return { section: 'Preisrahmen-Abgleich', status: 'error' };
+      }
+      if (!d.data || !d.data.length) {
+        el.innerHTML = '<div class="empty-state">Keine Preisrahmen-Abgleichsdaten fuer den aktuellen Filter verfuegbar.</div>';
+        return { section: 'Preisrahmen-Abgleich', status: 'empty' };
+      }
+      var html = '<table><thead><tr><th>Kategorie</th><th>Lieferant</th><th>Ist Ø</th><th>Ziel</th><th>Max</th><th>Abweichung</th><th>Einsaetze</th></tr></thead><tbody>';
+      d.data.forEach(function(r) {
+        var cls = r.deviation_cents <= 0 ? 'deviation-good' : (r.actual_avg_cents <= r.max_avg_cents ? 'deviation-warn' : 'deviation-bad');
+        var sign = r.deviation_cents > 0 ? '+' : '';
+        html += '<tr><td><strong>'+esc(r.category)+'</strong></td><td>'+esc(r.supplier_name || '–')+'</td>' +
+          '<td class="rate-display">'+eurFull(r.actual_avg_cents)+' €</td>' +
+          '<td class="rate-display">'+eurFull(r.target_avg_cents)+' €</td>' +
+          '<td class="rate-display">'+eurFull(r.max_avg_cents)+' €</td>' +
+          '<td class="'+cls+'">'+sign+eurFull(r.deviation_cents)+' € ('+sign+(r.deviation_pct||0).toFixed(1)+'%)</td>' +
+          '<td>'+r.assignment_count+'</td></tr>';
+      });
+      html += '</tbody></table>';
+      el.innerHTML = html;
+      return { section: 'Preisrahmen-Abgleich', status: 'ok' };
+    }
+
+    async function loadCostDrivers(qs, loadId) {
+      var d = await api('/spend-analytics/top-cost-drivers' + qs);
+      if (!isCurrentSpendLoad(loadId)) return { section: 'Kostentreiber', status: 'stale' };
+      if (!d) {
+        document.getElementById('costDrivers').innerHTML = sectionNote('Top-Kostentreiber konnten derzeit nicht geladen werden.');
+        return { section: 'Kostentreiber', status: 'error' };
+      }
+      if (!d.data || !d.data.length) {
+        document.getElementById('costDrivers').innerHTML = '<div class="empty-state">Keine Kostentreiber fuer den aktuellen Filter vorhanden.</div>';
+        return { section: 'Kostentreiber', status: 'empty' };
+      }
+      var items = d.data.map(function(i) { return { label: (i.category||'?') + ' / ' + (i.supplier_name||'Alle'), spend_cents: i.spend_cents }; });
+      renderBarChart('costDrivers', items, 'label', 'spend_cents', 'var(--warn)');
+      return { section: 'Kostentreiber', status: 'ok' };
+    }
+
+    async function loadTrends(qs, loadId) {
+      var d = await api('/spend-analytics/trends' + qs);
+      var el = document.getElementById('trendsTable');
+      if (!isCurrentSpendLoad(loadId)) return { section: 'Spend-Trends', status: 'stale' };
+      if (!d) {
+        el.innerHTML = '<tbody><tr><td class="empty-state">' + esc('Spend-Trends konnten derzeit nicht geladen werden.') + '</td></tr></tbody>';
+        return { section: 'Spend-Trends', status: 'error' };
+      }
+      if (!d.data || !d.data.length) {
+        el.innerHTML = '<tbody><tr><td class="empty-state">Keine Trend-Daten fuer den aktuellen Filter.</td></tr></tbody>';
+        return { section: 'Spend-Trends', status: 'empty' };
+      }
+      var html = '<thead><tr><th>Monat</th><th>Spend</th><th>Stunden</th><th>Vormonat</th><th>MoM Δ</th></tr></thead><tbody>';
+      d.data.forEach(function(r) {
+        var month = r.period ? r.period.slice(0, 7) : '–';
+        var cls = r.mom_change_pct == null ? 'trend-neutral' : (r.mom_change_pct > 0 ? 'trend-up' : 'trend-down');
+        var arrow = r.mom_change_pct == null ? '–' : (r.mom_change_pct > 0 ? '▲' : (r.mom_change_pct < 0 ? '▼' : '●'));
+        html += '<tr><td>'+esc(month)+'</td><td class="rate-display">'+eurFmt(r.spend_cents)+' €</td>' +
+          '<td>'+Number(r.hours || 0).toLocaleString('de-DE',{maximumFractionDigits:0})+' h</td>' +
+          '<td class="rate-display">'+(r.prev_spend_cents != null ? eurFmt(r.prev_spend_cents)+' €' : '–')+'</td>' +
+          '<td class="'+cls+'">'+arrow+' '+(r.mom_change_pct != null ? (r.mom_change_pct > 0 ? '+' : '')+r.mom_change_pct.toFixed(1)+'%' : '–')+'</td></tr>';
+      });
+      html += '</tbody>';
+      el.innerHTML = html;
+      return { section: 'Spend-Trends', status: 'ok' };
+    }
+
+    init();
+  </script>
+<script src="/public/js/pageShell.js"></script>
+<script src="/public/js/notifications.js" defer></script>
+<div id="tc-footer" data-tc-footer></div>
+<script src="/public/js/footer.js"></script>
+<script src="/public/js/demoBanner.js" defer></script>
+<script src="/public/js/onboardingWizard.js" defer></script>
+<script src="/public/js/contextHints.js"></script>
+<script src="/public/js/breadcrumb.js" defer></script>
+</body>
+</html>

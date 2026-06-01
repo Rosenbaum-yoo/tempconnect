@@ -1,0 +1,278 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <script src="/public/js/theme.js"></script>
+  <title>Trust Center – TempConnect</title>
+  <link rel="stylesheet" href="/public/css/enterprise.css"/>
+  <style>
+    .kpi-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: var(--ds-space-3); margin-bottom: var(--ds-space-5); }
+    .kpi-tile { padding: var(--ds-space-4); border-radius: var(--ds-radius-lg); border: 1px solid var(--ds-border); background: rgba(255,255,255,.02); text-align: center; }
+    .kpi-tile .kpi-val { font-size: 26px; font-weight: 800; display: block; margin-bottom: 4px; font-variant-numeric: tabular-nums; }
+    .kpi-tile .kpi-label { font-size: 11px; color: var(--ds-text-secondary); text-transform: uppercase; letter-spacing: .05em; font-weight: 600; }
+    .section { margin-bottom: var(--ds-space-6); padding: var(--ds-space-5); border: 1px solid var(--ds-border); border-radius: var(--ds-radius-lg); background: rgba(255,255,255,.015); }
+    .section h3 { margin: 0 0 var(--ds-space-4); font-size: 14px; text-transform: uppercase; letter-spacing: 0.04em; color: var(--ds-text-secondary); font-weight: 700; }
+    table { width: 100%; border-collapse: collapse; font-size: 13px; }
+    th { text-align: left; font-size: 11px; text-transform: uppercase; letter-spacing: .04em; color: var(--ds-text-secondary); padding: 8px 10px; border-bottom: 1px solid var(--ds-border); font-weight: 700; }
+    td { padding: 10px; border-bottom: 1px solid rgba(255,255,255,.04); vertical-align: middle; }
+    tr:hover td { background: rgba(255,255,255,.02); }
+    .badge { display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .03em; }
+    .badge-pending { background: rgba(255,204,0,.12); color: var(--warn); }
+    .badge-in_progress { background: rgba(99,176,255,.15); color: #63b0ff; }
+    .badge-completed { background: rgba(52,199,89,.15); color: var(--good); }
+    .badge-rejected { background: rgba(255,69,58,.15); color: var(--bad); }
+    .cat-tag { display: inline-block; padding: 2px 6px; border-radius: 6px; font-size: 10px; font-weight: 700; margin: 1px; }
+    .cat-a { background: rgba(255,69,58,.12); color: var(--bad); }
+    .cat-b { background: rgba(255,204,0,.12); color: var(--warn); }
+    .cat-c { background: rgba(52,199,89,.12); color: var(--good); }
+    .cat-d { background: rgba(99,176,255,.12); color: #63b0ff; }
+    .retention-bar { height: 6px; border-radius: 3px; background: rgba(255,255,255,.08); overflow: hidden; margin-top: 4px; }
+    .retention-fill { height: 100%; border-radius: 3px; }
+    .filter-row { display: flex; gap: var(--ds-space-3); margin-bottom: var(--ds-space-4); align-items: flex-end; flex-wrap: wrap; padding: var(--ds-space-3); border: 1px solid var(--ds-border); border-radius: var(--ds-radius-lg); background: rgba(255,255,255,.015); }
+    .filter-row select { width: auto; margin: 0; max-width: 180px; }
+    .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,.6); z-index: 1000; display: flex; align-items: center; justify-content: center; }
+    .modal { background: var(--ds-surface, #1a1a2e); border: 1px solid var(--ds-border); border-radius: var(--ds-radius-lg); padding: var(--ds-space-6); width: 520px; max-width: 95vw; max-height: 90vh; overflow-y: auto; }
+    .modal h2 { margin: 0 0 var(--ds-space-4); font-size: 18px; }
+    .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: var(--ds-space-3); }
+    .form-grid .full { grid-column: 1 / -1; }
+    .form-grid label { font-size: 12px; color: var(--ds-text-secondary); font-weight: 600; margin-bottom: 2px; display: block; }
+    .form-grid select, .form-grid input, .form-grid textarea { width: 100%; margin: 0; }
+    .btn-row { display: flex; gap: 8px; justify-content: flex-end; margin-top: var(--ds-space-4); }
+    .empty-state { text-align: center; padding: 40px; color: var(--ds-text-secondary); font-size: 14px; }
+    .warn-box { padding: var(--ds-space-4); border: 1px solid rgba(255,69,58,.3); border-radius: var(--ds-radius-lg); background: rgba(255,69,58,.06); margin-bottom: var(--ds-space-4); color: var(--bad); font-size: 13px; }
+    .info-box { padding: var(--ds-space-4); border: 1px solid rgba(99,176,255,.3); border-radius: var(--ds-radius-lg); background: rgba(99,176,255,.06); margin-bottom: var(--ds-space-4); font-size: 13px; }
+    .page-state { display:none; margin-bottom: var(--ds-space-4); padding: 12px 14px; border-radius: 10px; border: 1px solid transparent; }
+    .page-state--info { display:block; background: rgba(74,158,255,.08); border-color: rgba(74,158,255,.22); }
+    .page-state--warn { display:block; background: rgba(255,204,0,.10); border-color: rgba(255,204,0,.24); }
+    .page-state--bad { display:block; background: rgba(255,69,58,.10); border-color: rgba(255,69,58,.22); }
+    .page-state__title { font-size: 13px; font-weight: 700; margin-bottom: 4px; }
+    .page-state__text { font-size: 12px; color: var(--ds-text-secondary); }
+    .tabs { display: flex; gap: 2px; margin-bottom: var(--ds-space-5); border-bottom: 1px solid var(--ds-border); }
+    .tab { padding: 10px 18px; font-size: 13px; font-weight: 600; cursor: pointer; color: var(--ds-text-secondary); border-bottom: 2px solid transparent; transition: .15s; }
+    .tab:hover { color: var(--text); }
+    .tab.active { color: var(--brand); border-bottom-color: var(--brand); }
+    .tab-panel { display: none; }
+    .tab-panel.active { display: block; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div id="tc-shell"></div>
+
+    <div class="ds-page-header">
+      <div class="ds-page-header__content">
+        <h1 class="ds-page-title">Trust Center</h1>
+        <p class="ds-page-subtitle">Rechtliches, Datenschutz, Sicherheit, Compliance und Governance.</p>
+      </div>
+      <div class="ds-page-header__actions">
+        <button id="dataGovernanceRequestButton" class="btn primary" onclick="openRequestModal()">+ Neue Anfrage</button>
+      </div>
+    </div>
+    <div id="dataGovernanceState" class="page-state"></div>
+
+    <!-- Onboarding Checklist -->
+    <div id="onboarding-checklist" style="display:none;margin-bottom:var(--ds-space-4)">
+      <div style="border:1px solid rgba(74,158,255,.15);border-radius:12px;background:rgba(74,158,255,.03);overflow:hidden">
+        <div style="display:flex;align-items:center;gap:10px;padding:10px 16px;cursor:pointer" onclick="toggleOnboarding()">
+          <span style="font-size:15px">&#128640;</span>
+          <span style="font-weight:700;font-size:14px;white-space:nowrap">Plattform einrichten</span>
+          <span id="onboarding-subtitle" style="font-size:12px;color:var(--ds-text-secondary,var(--muted));white-space:nowrap;overflow:hidden;text-overflow:ellipsis;flex-shrink:1;min-width:0"></span>
+          <div style="flex:1;min-width:40px;max-width:160px;height:4px;border-radius:2px;background:rgba(255,255,255,.08);overflow:hidden">
+            <div id="onboarding-progress-bar" style="height:100%;border-radius:2px;background:var(--ds-brand,#4a9eff);transition:width .4s ease;width:0%"></div>
+          </div>
+          <button id="onboarding-toggle-btn" type="button" style="background:none;border:none;color:var(--ds-text-secondary,var(--muted));cursor:pointer;font-size:10px;padding:2px 6px;transition:transform .25s;transform:rotate(0deg)" title="Auf-/Zuklappen" onclick="event.stopPropagation();toggleOnboarding()">&#9660;</button>
+          <button id="onboarding-dismiss-btn" type="button" onclick="event.stopPropagation();dismissOnboarding()" style="background:none;border:none;color:var(--ds-text-secondary,var(--muted));cursor:pointer;font-size:18px;padding:2px 6px;line-height:1" title="Ausblenden">&times;</button>
+        </div>
+        <div id="onboarding-body" style="max-height:0;overflow:hidden;transition:max-height .3s ease">
+          <div style="padding:0 16px 14px">
+            <div id="onboarding-steps"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Trust Center Hub Grid -->
+    <div class="ds-section" style="padding-top:0;margin-bottom:var(--ds-space-4)">
+      <div class="ds-hub-grid">
+        <div class="ds-hub-card ds-hub-card--current ds-hub-card--warning" aria-current="page">
+          <div class="ds-hub-card__icon">&#128737;</div>
+          <div class="ds-hub-card__content">
+            <div class="ds-hub-card__title">Trust Center</div>
+            <p class="ds-hub-card__desc">Sie befinden sich im Trust Center.</p>
+          </div>
+        </div>
+        <a href="/public/legal/impressum.html" class="ds-hub-card">
+          <div class="ds-hub-card__icon">&#128220;</div>
+          <div class="ds-hub-card__content">
+            <div class="ds-hub-card__title">Impressum</div>
+            <p class="ds-hub-card__desc">Gesetzlich vorgeschriebene Anbieterinformationen.</p>
+          </div>
+        </a>
+        <a href="/public/legal/agb.html" class="ds-hub-card">
+          <div class="ds-hub-card__icon">&#128196;</div>
+          <div class="ds-hub-card__content">
+            <div class="ds-hub-card__title">AGB Anlage 1</div>
+            <p class="ds-hub-card__desc">Allgemeine Gesch&auml;ftsbedingungen und Anlagen.</p>
+          </div>
+        </a>
+        <a href="/public/legal/datenschutz.html" class="ds-hub-card">
+          <div class="ds-hub-card__icon">&#128274;</div>
+          <div class="ds-hub-card__content">
+            <div class="ds-hub-card__title">Datenschutz</div>
+            <p class="ds-hub-card__desc">Datenschutzerkl&auml;rung und Verarbeitungshinweise.</p>
+          </div>
+        </a>
+        <a href="/public/trust/security.html" class="ds-hub-card ds-hub-card--brand">
+          <div class="ds-hub-card__icon">&#128272;</div>
+          <div class="ds-hub-card__content">
+            <div class="ds-hub-card__title">Sicherheit</div>
+            <p class="ds-hub-card__desc">Sicherheitsma&szlig;nahmen, Penetrationstests und Zertifizierungen.</p>
+          </div>
+        </a>
+        <a href="/public/about.html" class="ds-hub-card">
+          <div class="ds-hub-card__icon">&#127970;</div>
+          <div class="ds-hub-card__content">
+            <div class="ds-hub-card__title">&Uuml;ber uns</div>
+            <p class="ds-hub-card__desc">Unternehmen, Team und Mission von TempConnect.</p>
+          </div>
+        </a>
+        <a href="/public/trust/platform-sla.html" class="ds-hub-card">
+          <div class="ds-hub-card__icon">&#128200;</div>
+          <div class="ds-hub-card__content">
+            <div class="ds-hub-card__title">SLA</div>
+            <p class="ds-hub-card__desc">Service-Level-Agreements und Verf&uuml;gbarkeitsgarantien.</p>
+          </div>
+        </a>
+        <a href="#panel-inventory" class="ds-hub-card ds-hub-card--warning" onclick="switchTab('inventory');return false;">
+          <div class="ds-hub-card__icon">&#128737;</div>
+          <div class="ds-hub-card__content">
+            <div class="ds-hub-card__title">DSGVO Data Governance</div>
+            <p class="ds-hub-card__desc">Dateninventar, L&ouml;schanfragen, Aufbewahrung und Anonymisierung.</p>
+          </div>
+        </a>
+        <a href="/public/api-docs.html" class="ds-hub-card ds-hub-card--accent">
+          <div class="ds-hub-card__icon">&#128209;</div>
+          <div class="ds-hub-card__content">
+            <div class="ds-hub-card__title">API-Dokumentation</div>
+            <p class="ds-hub-card__desc">REST-API-Referenz, Endpunkte und Integrationsanleitungen.</p>
+          </div>
+        </a>
+      </div>
+    </div>
+
+    <!-- Tabs -->
+    <div class="tabs">
+      <div id="dataGovernanceTabInventory" class="tab active" data-tab="inventory" onclick="switchTab('inventory')">Dateninventar</div>
+      <div id="dataGovernanceTabRequests" class="tab" data-tab="requests" onclick="switchTab('requests')">DSGVO-Anfragen</div>
+      <div id="dataGovernanceTabRetention" class="tab" data-tab="retention" onclick="switchTab('retention')">Aufbewahrung</div>
+      <div id="dataGovernanceTabActions" class="tab" data-tab="actions" onclick="switchTab('actions')">Export &amp; Anonymisierung</div>
+    </div>
+
+    <!-- TAB: Dateninventar -->
+    <div class="tab-panel active" id="panel-inventory">
+      <div class="kpi-grid" id="catGrid"></div>
+      <div class="section" id="dataGovernanceExportUserSection">
+        <h3>Datenkategorien nach DSGVO</h3>
+        <table>
+          <thead><tr><th>Kategorie</th><th>Beschreibung</th><th>Tabellen</th><th>Aufbewahrung</th></tr></thead>
+          <tbody id="catTable"><tr><td colspan="4" class="empty-state">Lade…</td></tr></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- TAB: DSGVO-Anfragen -->
+    <div class="tab-panel" id="panel-requests">
+      <div class="filter-row">
+        <div><label style="margin:0;font-size:11px;color:var(--ds-text-secondary)">Status</label>
+          <select id="fReqStatus" onchange="loadRequests()"><option value="">Alle</option><option value="pending">Offen</option><option value="in_progress">In Bearbeitung</option><option value="completed">Abgeschlossen</option><option value="rejected">Abgelehnt</option></select></div>
+        <div><label style="margin:0;font-size:11px;color:var(--ds-text-secondary)">Typ</label>
+          <select id="fReqType" onchange="loadRequests()"><option value="">Alle</option><option value="export">Export</option><option value="deletion">Löschung</option><option value="rectification">Berichtigung</option><option value="restriction">Einschränkung</option></select></div>
+        <button class="btn" onclick="loadRequests()">Filtern</button>
+      </div>
+      <div class="section" id="dataGovernanceAnonymizeSection">
+        <h3>DSGVO-Anfragen</h3>
+        <table>
+          <thead><tr><th>Typ</th><th>Betroffener</th><th>Erstellt</th><th>Status</th><th>Bearbeiter</th><th>Aktionen</th></tr></thead>
+          <tbody id="reqTable"><tr><td colspan="6" class="empty-state">Lade…</td></tr></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- TAB: Aufbewahrung / Retention -->
+    <div class="tab-panel" id="panel-retention">
+      <div class="section">
+        <h3>Aufbewahrungsfristen</h3>
+        <table>
+          <thead><tr><th>Tabelle</th><th>Frist</th><th>Grund</th><th>Betroffene</th><th>Status</th></tr></thead>
+          <tbody id="retTable"><tr><td colspan="5" class="empty-state">Lade…</td></tr></tbody>
+        </table>
+      </div>
+      <div class="btn-row" style="justify-content:flex-start;gap:12px">
+        <button id="dataGovernanceRetentionDryRunButton" class="btn" onclick="runRetentionCleanup(true)">Dry-Run Bereinigung</button>
+        <button id="dataGovernanceRetentionCleanupButton" class="btn primary" onclick="runRetentionCleanup(false)">Bereinigung durchführen</button>
+      </div>
+      <pre id="cleanupResult" style="display:none;margin-top:16px;padding:16px;border:1px solid var(--ds-border);border-radius:8px;font-size:12px;background:rgba(0,0,0,.2);overflow-x:auto"></pre>
+    </div>
+
+    <!-- TAB: Export & Anonymisierung -->
+    <div class="tab-panel" id="panel-actions">
+      <div class="section">
+        <h3>Benutzer-Datenexport</h3>
+        <div class="info-box">Art. 15/20 DSGVO — Vollständiger Export aller personenbezogenen Daten eines Nutzers als JSON-Download.</div>
+        <div style="display:flex;gap:8px;align-items:flex-end">
+          <div><label style="font-size:12px;color:var(--ds-text-secondary);font-weight:600">User-ID</label><input id="exportUserId" placeholder="UUID" style="width:320px"/></div>
+          <button id="dataGovernanceExportUserButton" class="btn primary" onclick="exportUser()">Export starten</button>
+        </div>
+      </div>
+      <div class="section" id="dataGovernanceExportOrgSection">
+        <h3>Org-Datenexport</h3>
+        <div class="info-box">Gesamtexport aller organisationsbezogenen Daten für die Datenschutzakte.</div>
+        <button id="dataGovernanceExportOrgButton" class="btn primary" onclick="exportOrg()">Org-Export starten</button>
+      </div>
+      <div class="section">
+        <h3>Benutzer anonymisieren</h3>
+        <div class="warn-box">Art. 17 DSGVO — Unwiderrufliche Anonymisierung. Kategorie-A-Daten (PII) werden überschrieben, B anonymisiert, D gelöscht. Kategorie C bleibt erhalten.</div>
+        <div style="display:flex;gap:8px;align-items:flex-end">
+          <div><label style="font-size:12px;color:var(--ds-text-secondary);font-weight:600">User-ID</label><input id="anonUserId" placeholder="UUID" style="width:320px"/></div>
+          <button id="dataGovernanceCheckAnonButton" class="btn" onclick="checkAnon()">Prüfen</button>
+          <button id="dataGovernanceExecAnonButton" class="btn primary" onclick="execAnon()">Anonymisieren</button>
+        </div>
+        <pre id="anonResult" style="display:none;margin-top:16px;padding:16px;border:1px solid var(--ds-border);border-radius:8px;font-size:12px;background:rgba(0,0,0,.2);overflow-x:auto"></pre>
+      </div>
+    </div>
+  </div>
+
+  <!-- Neue Anfrage Modal -->
+  <div id="modalOverlay" class="modal-overlay" style="display:none" onclick="if(event.target===this)closeModal()">
+    <div class="modal">
+      <h2>Neue DSGVO-Anfrage</h2>
+      <form id="reqForm" onsubmit="return submitRequest(event)">
+        <div class="form-grid">
+          <div><label>Anfrage-Typ *</label>
+            <select id="fmType" required><option value="">Bitte wählen</option><option value="export">Datenexport (Art. 15/20)</option><option value="deletion">Löschung (Art. 17)</option><option value="rectification">Berichtigung (Art. 16)</option><option value="restriction">Einschränkung (Art. 18)</option></select></div>
+          <div><label>Betroffenen-Typ *</label>
+            <select id="fmSubjectType" required><option value="">Bitte wählen</option><option value="user">Benutzer</option><option value="worker">Worker</option><option value="organization">Organisation</option></select></div>
+          <div class="full"><label>Betroffenen-ID</label><input id="fmSubjectId" placeholder="UUID (optional)"/></div>
+          <div class="full"><label>Notizen</label><textarea id="fmNotes" rows="3" placeholder="Weitere Details…"></textarea></div>
+        </div>
+        <div class="btn-row">
+          <button type="button" class="btn" onclick="closeModal()">Abbrechen</button>
+          <button type="submit" class="btn primary">Anfrage erstellen</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <script src="/public/js/surfaceAccess.js"></script>
+  <script src="/public/js/pages/dataGovernance.js"></script>
+  <script src="/public/js/pageShell.js"></script>
+  <script src="/public/js/notifications.js"></script>
+  <script src="/public/js/onboardingChecklist.js" defer></script>
+  <div id="tc-footer" data-tc-footer></div>
+  <script src="/public/js/footer.js"></script>
+  <script src="/public/js/demoBanner.js" defer></script>
+  <script src="/public/js/onboardingWizard.js" defer></script>
+<script src="/public/js/breadcrumb.js" defer></script>
+</body>
+</html>

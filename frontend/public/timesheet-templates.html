@@ -1,0 +1,419 @@
+﻿<!DOCTYPE html>
+<html lang="de">
+<head>
+  <script src="/public/js/theme.js"></script>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Stundenzettel-Templates – TempConnect</title>
+  <link rel="stylesheet" href="/public/css/enterprise.css">
+  <style>
+    :root { --hub-accent:#4a9eff; }
+    body { background:#0a0f1e; color:#eaeff8; }
+
+    .tp-header {
+      background:rgba(255,255,255,.03); border:1px solid rgba(255,255,255,.08);
+      border-radius:999px; margin:14px auto 0; max-width:1200px;
+      width:calc(100% - 40px); padding:12px 18px;
+      backdrop-filter:blur(10px); display:flex; justify-content:space-between; align-items:center;
+    }
+    .tp-brand { font-weight:800; font-size:.95rem; color:#eaeff8; text-decoration:none;
+                display:flex; align-items:center; gap:8px; }
+    .tp-brand-logo { width:28px; height:28px; border-radius:8px; background:linear-gradient(135deg,#4a9eff,#7c5cff);
+                     display:flex; align-items:center; justify-content:center; font-size:.8rem; font-weight:800; color:#fff; }
+    .tp-main { max-width:1200px; margin:0 auto; padding:24px 20px; }
+
+    .tp-page-title { font-size:1.5rem; font-weight:800; margin-bottom:4px; }
+    .tp-page-sub   { font-size:.875rem; color:#8d9bba; margin-bottom:24px; }
+
+    /* Template Grid */
+    .tp-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(320px,1fr)); gap:16px; }
+    .tp-card {
+      background:#131b30; border:1.5px solid rgba(255,255,255,.08);
+      border-radius:14px; padding:20px; display:flex; flex-direction:column; gap:12px;
+      transition:border-color .18s,box-shadow .18s;
+    }
+    .tp-card:hover { border-color:rgba(74,158,255,.3); box-shadow:0 4px 16px rgba(74,158,255,.07); }
+    .tp-card-head { display:flex; align-items:flex-start; justify-content:space-between; gap:10px; }
+    .tp-card-name { font-weight:700; font-size:1rem; }
+    .tp-card-desc { font-size:.82rem; color:#8d9bba; margin-top:3px; }
+    .tp-default-badge {
+      padding:3px 9px; border-radius:20px; font-size:.72rem; font-weight:700;
+      background:rgba(74,158,255,.16); color:#93c5fd; white-space:nowrap; flex-shrink:0;
+    }
+    .tp-inactive-badge {
+      padding:3px 9px; border-radius:20px; font-size:.72rem; font-weight:700;
+      background:rgba(148,163,184,.1); color:#64748b; white-space:nowrap; flex-shrink:0;
+    }
+    .tp-meta { display:flex; gap:12px; flex-wrap:wrap; }
+    .tp-meta-item { font-size:.78rem; color:#8d9bba; display:flex; align-items:center; gap:4px; }
+    .tp-card-foot { border-top:1px solid rgba(255,255,255,.07); padding-top:12px;
+                    display:flex; gap:8px; justify-content:flex-end; }
+
+    /* Fields Preview */
+    .tp-fields { display:flex; flex-wrap:wrap; gap:5px; }
+    .tp-field-chip {
+      padding:3px 8px; border-radius:6px; font-size:.72rem; font-weight:600;
+      background:rgba(255,255,255,.06); border:1px solid rgba(255,255,255,.08); color:#8d9bba;
+    }
+    .tp-field-chip.req { border-color:rgba(74,158,255,.3); color:#7cb9ff; }
+
+    /* Buttons */
+    .btn { padding:7px 14px; border-radius:8px; border:1.5px solid rgba(255,255,255,.12);
+           background:rgba(255,255,255,.05); color:#eaeff8; cursor:pointer; font-size:.84rem;
+           font-weight:600; transition:all .15s; }
+    .btn:hover { background:rgba(255,255,255,.1); border-color:rgba(255,255,255,.2); }
+    .btn-primary { background:rgba(74,158,255,.18); border-color:rgba(74,158,255,.4); color:#7cb9ff; }
+    .btn-primary:hover { background:rgba(74,158,255,.28); }
+    .btn-danger  { background:rgba(248,113,113,.12); border-color:rgba(248,113,113,.3); color:#fca5a5; }
+    .btn-danger:hover  { background:rgba(248,113,113,.22); }
+    .btn-sm { padding:5px 10px; font-size:.78rem; border-radius:6px; }
+
+    /* Modal */
+    .modal-overlay { position:fixed; inset:0; background:rgba(0,0,0,.45); z-index:100;
+                     display:none; align-items:center; justify-content:center; padding:20px; }
+    .modal-overlay.on { display:flex; }
+    .modal { background:#131b30; border:1px solid rgba(255,255,255,.12); border-radius:16px;
+             width:100%; max-width:620px; max-height:90vh; overflow-y:auto; box-shadow:0 24px 64px rgba(0,0,0,.5); }
+    .modal-head { padding:20px 22px 16px; border-bottom:1px solid rgba(255,255,255,.08);
+                  display:flex; justify-content:space-between; align-items:center; position:sticky; top:0; background:#131b30; z-index:1; }
+    .modal-title { font-size:1.05rem; font-weight:800; }
+    .modal-body  { padding:22px; }
+    .modal-foot  { padding:16px 22px; border-top:1px solid rgba(255,255,255,.08); display:flex; gap:10px; }
+
+    .form-group { margin-bottom:16px; }
+    .form-label { display:block; font-size:.82rem; font-weight:600; color:#8d9bba;
+                  text-transform:uppercase; letter-spacing:.05em; margin-bottom:6px; }
+    .form-input, .form-textarea, .form-select {
+      width:100%; padding:9px 12px; border:1.5px solid rgba(255,255,255,.1);
+      border-radius:8px; background:#0a0f1e; color:#eaeff8; font-size:.875rem;
+      transition:border-color .15s; box-sizing:border-box;
+    }
+    .form-input:focus, .form-textarea:focus, .form-select:focus {
+      outline:none; border-color:#4a9eff; box-shadow:0 0 0 3px rgba(74,158,255,.12);
+    }
+    .form-textarea { resize:vertical; min-height:80px; }
+    .form-check { display:flex; align-items:center; gap:8px; font-size:.875rem; }
+    .form-check input { width:16px; height:16px; accent-color:#4a9eff; }
+
+    /* Field builder */
+    .field-list { display:flex; flex-direction:column; gap:8px; margin-bottom:10px; }
+    .field-row {
+      background:rgba(255,255,255,.04); border:1px solid rgba(255,255,255,.08);
+      border-radius:10px; padding:12px 14px; display:grid;
+      grid-template-columns:1fr 1fr auto auto; gap:8px; align-items:center;
+    }
+    .field-row .grip { cursor:grab; color:#8d9bba; user-select:none; }
+
+    .empty-state { text-align:center; padding:48px 20px; color:#8d9bba; }
+    .empty-state .icon { font-size:2.5rem; margin-bottom:12px; }
+    .empty-state h3 { font-size:1rem; font-weight:700; color:#eaeff8; margin-bottom:6px; }
+
+    .skel { height:140px; border-radius:14px; background:linear-gradient(90deg,#1a243a 25%,#24314e 50%,#1a243a 75%);
+            background-size:200% 100%; animation:sk 1.4s infinite; }
+    @keyframes sk { 0%{background-position:200% 0}100%{background-position:-200% 0} }
+    #toast { position:fixed; bottom:20px; right:20px; padding:12px 18px; border-radius:10px; font-size:.875rem; font-weight:600; z-index:999; opacity:0; transition:opacity .3s; pointer-events:none; }
+    #toast.show { opacity:1; }
+    #toast.success { background:rgba(52,211,153,.9); color:#064e3b; }
+    #toast.error   { background:rgba(248,113,113,.9); color:#7f1d1d; }
+  </style>
+</head>
+<body>
+
+<nav class="tp-header">
+  <a href="enterprise.html" class="tp-brand">
+    <div class="tp-brand-logo">TC</div>
+    <span>TempConnect</span>
+  </a>
+  <div style="display:flex;gap:8px;align-items:center">
+    <a href="worker-submissions-review.html" class="btn btn-sm">← Worker-Hub</a>
+    <a href="enterprise.html" class="btn btn-sm">Übersicht</a>
+  </div>
+</nav>
+
+<main class="tp-main">
+  <div style="display:flex;justify-content:space-between;align-items:flex-end;flex-wrap:wrap;gap:12px;margin-bottom:24px">
+    <div>
+      <h1 class="tp-page-title">📋 Stundenzettel-Templates</h1>
+      <p class="tp-page-sub">Vorlagen für Stundenzettel anlegen und Einsätzen zuweisen</p>
+    </div>
+    <button class="btn btn-primary" onclick="openModal()">+ Neue Vorlage</button>
+  </div>
+
+  <div id="loading"><div class="skel"></div><div class="skel" style="opacity:.6;margin-top:12px"></div></div>
+  <div id="content" style="display:none"></div>
+</main>
+
+<!-- Create/Edit Modal -->
+<div class="modal-overlay" id="modal">
+  <div class="modal">
+    <div class="modal-head">
+      <div class="modal-title" id="modalTitle">Neue Vorlage</div>
+      <button class="btn btn-sm" onclick="closeModal()">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-group">
+        <label class="form-label">Name <span style="color:#f87171">*</span></label>
+        <input type="text" class="form-input" id="fName" placeholder="z.B. Standard-Stundenzettel" maxlength="200">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Beschreibung</label>
+        <textarea class="form-textarea" id="fDesc" placeholder="Kurze Beschreibung der Vorlage…" maxlength="2000"></textarea>
+      </div>
+      <div class="form-group">
+        <label class="form-check">
+          <input type="checkbox" id="fDefault"> Als Standard-Vorlage festlegen
+        </label>
+      </div>
+
+      <div style="border-top:1px solid rgba(255,255,255,.08);margin:16px 0;padding-top:16px">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+          <div class="form-label" style="margin:0">Felder</div>
+          <button class="btn btn-sm" onclick="addField()">+ Feld hinzufügen</button>
+        </div>
+        <div class="field-list" id="fieldList"></div>
+        <div id="noFields" style="text-align:center;padding:16px;font-size:.84rem;color:#8d9bba">
+          Keine Felder — Standard-Stunden/Pausen-Felder werden immer angezeigt.
+        </div>
+      </div>
+
+      <div id="modalErr" style="display:none;padding:10px 12px;background:rgba(248,113,113,.1);border-radius:8px;font-size:.83rem;color:#fca5a5;border-left:3px solid #f87171;margin-top:4px"></div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn" onclick="closeModal()" style="flex:0 0 auto">Abbrechen</button>
+      <button class="btn btn-primary" onclick="saveTemplate()" id="saveBtn" style="flex:1">Speichern</button>
+    </div>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<script>
+const API = '/api';
+let templates = [], editingId = null;
+let _csrf = null;
+async function getCsrf() {
+  if (_csrf) return _csrf;
+  const r = await fetch(`${API}/csrf`, { credentials: 'include' });
+  const d = await r.json(); _csrf = d.token; return _csrf;
+}
+
+function esc(s) { const d = document.createElement('div'); d.textContent = s||''; return d.innerHTML; }
+function toast(msg, type='success') {
+  const t = document.getElementById('toast');
+  t.textContent = msg; t.className = 'show ' + type;
+  setTimeout(() => t.className = '', 3500);
+}
+
+/* ── Init ────────────────────────────────────────────────────────────────── */
+(async () => {
+  try {
+    await loadTemplates();
+  } catch(e) {
+    if (e.message === 'NOT_AUTH') location.href = 'enterprise.html';
+    else { document.getElementById('loading').innerHTML = `<div style="color:#f87171;padding:20px">Fehler: ${esc(e.message)}</div>`; }
+  }
+})();
+
+async function loadTemplates() {
+  const r = await fetch(`${API}/timesheet-templates`, { credentials: 'include' });
+  if (r.status === 401) throw new Error('NOT_AUTH');
+  if (!r.ok) throw new Error('Ladefehler ' + r.status);
+  const d = await r.json();
+  templates = d.items || [];
+  document.getElementById('loading').style.display = 'none';
+  document.getElementById('content').style.display = '';
+  render();
+}
+
+function render() {
+  const el = document.getElementById('content');
+  if (!templates.length) {
+    el.innerHTML = `<div class="empty-state">
+      <div class="icon">📋</div>
+      <h3>Noch keine Vorlagen</h3>
+      <p>Erstellen Sie Ihre erste Stundenzettel-Vorlage.<br>Sie können Vorlagen dann einzelnen Einsätzen zuweisen.</p>
+      <button class="btn btn-primary" onclick="openModal()" style="margin-top:16px">+ Erste Vorlage erstellen</button>
+    </div>`;
+    return;
+  }
+  el.innerHTML = `<div class="tp-grid">${templates.map(renderCard).join('')}</div>`;
+}
+
+function renderCard(t) {
+  const fieldChips = (t.fields || []).map(f =>
+    `<span class="tp-field-chip${f.is_required?' req':''}" title="${esc(f.field_key)}">${esc(f.label)}</span>`
+  ).join('');
+  return `<div class="tp-card">
+    <div class="tp-card-head">
+      <div>
+        <div class="tp-card-name">${esc(t.name)}</div>
+        ${t.description ? `<div class="tp-card-desc">${esc(t.description)}</div>` : ''}
+      </div>
+      <div style="display:flex;flex-direction:column;gap:4px;align-items:flex-end">
+        ${t.is_default ? `<span class="tp-default-badge">⭐ Standard</span>` : ''}
+        ${!t.is_active ? `<span class="tp-inactive-badge">Inaktiv</span>` : ''}
+      </div>
+    </div>
+    <div class="tp-meta">
+      <span class="tp-meta-item">📁 ${t.assignment_count||0} Einsätze</span>
+      ${t.created_by_email ? `<span class="tp-meta-item">👤 ${esc(t.created_by_email)}</span>` : ''}
+    </div>
+    ${(t.fields||[]).length ? `<div class="tp-fields">${fieldChips}</div>` : ''}
+    <div class="tp-card-foot">
+      <button class="btn btn-sm" onclick="toggleActive('${t.id}',${!t.is_active})">${t.is_active ? 'Deaktivieren' : 'Aktivieren'}</button>
+      <button class="btn btn-sm btn-primary" onclick="openEditModal('${t.id}')">✎ Bearbeiten</button>
+      <button class="btn btn-sm btn-danger" onclick="deleteTemplate('${t.id}')">✕</button>
+    </div>
+  </div>`;
+}
+
+/* ── Modal ────────────────────────────────────────────────────────────────── */
+let fields = []; // aktuell bearbeitete Felder
+
+function openModal(tmpl = null) {
+  editingId = tmpl ? tmpl.id : null;
+  document.getElementById('modalTitle').textContent = tmpl ? 'Vorlage bearbeiten' : 'Neue Vorlage';
+  document.getElementById('fName').value   = tmpl?.name || '';
+  document.getElementById('fDesc').value   = tmpl?.description || '';
+  document.getElementById('fDefault').checked = tmpl?.is_default || false;
+  document.getElementById('modalErr').style.display = 'none';
+  fields = tmpl?.fields ? tmpl.fields.map(f => ({...f})) : [];
+  renderFields();
+  document.getElementById('modal').classList.add('on');
+  setTimeout(() => document.getElementById('fName').focus(), 200);
+}
+
+async function openEditModal(id) {
+  try {
+    const r = await fetch(`${API}/timesheet-templates/${id}`, { credentials: 'include' });
+    if (!r.ok) throw new Error('Ladefehler');
+    const tmpl = await r.json();
+    openModal(tmpl);
+  } catch(e) { toast(e.message, 'error'); }
+}
+
+function closeModal() {
+  document.getElementById('modal').classList.remove('on');
+  editingId = null;
+  fields = [];
+}
+
+function addField() {
+  fields.push({
+    field_key:  'field_' + Date.now(),
+    label:      '',
+    field_type: 'text',
+    is_required: false,
+    is_visible:  true,
+    sort_order:  fields.length
+  });
+  renderFields();
+}
+
+function removeField(idx) {
+  fields.splice(idx, 1);
+  renderFields();
+}
+
+function renderFields() {
+  const list = document.getElementById('fieldList');
+  const noF  = document.getElementById('noFields');
+  if (!fields.length) { list.innerHTML = ''; noF.style.display = ''; return; }
+  noF.style.display = 'none';
+  list.innerHTML = fields.map((f, i) => `
+    <div class="field-row">
+      <input type="text" class="form-input" placeholder="Label (z.B. Kostenstelle)" value="${esc(f.label||'')}"
+             oninput="fields[${i}].label=this.value" style="grid-column:1">
+      <select class="form-select" onchange="fields[${i}].field_type=this.value" style="grid-column:2">
+        ${['text','number','time','date','boolean','select'].map(ft =>
+          `<option value="${ft}"${f.field_type===ft?' selected':''}>${ft}</option>`
+        ).join('')}
+      </select>
+      <label style="font-size:.78rem;display:flex;align-items:center;gap:4px;color:#8d9bba;grid-column:3">
+        <input type="checkbox" ${f.is_required?'checked':''} onchange="fields[${i}].is_required=this.checked"> Pflicht
+      </label>
+      <button class="btn btn-sm btn-danger" onclick="removeField(${i})" style="grid-column:4">✕</button>
+    </div>`).join('');
+}
+
+async function saveTemplate() {
+  const name = document.getElementById('fName').value.trim();
+  const err  = document.getElementById('modalErr');
+  if (!name) { err.textContent = 'Name ist erforderlich.'; err.style.display = 'block'; return; }
+
+  const payload = {
+    name,
+    description: document.getElementById('fDesc').value.trim() || null,
+    is_default:  document.getElementById('fDefault').checked,
+    fields:      fields.map((f, i) => ({
+      field_key:   f.field_key || 'field_' + i,
+      label:       f.label || 'Feld ' + (i+1),
+      field_type:  f.field_type || 'text',
+      is_required: !!f.is_required,
+      is_visible:  true,
+      sort_order:  i
+    }))
+  };
+
+  const btn = document.getElementById('saveBtn');
+  btn.disabled = true; btn.textContent = 'Wird gespeichert…'; err.style.display = 'none';
+  try {
+    const csrf = await getCsrf();
+    const url    = editingId ? `${API}/timesheet-templates/${editingId}` : `${API}/timesheet-templates`;
+    const method = editingId ? 'PATCH' : 'POST';
+    const r = await fetch(url, { method, credentials: 'include',
+      headers: { 'Content-Type': 'application/json', 'x-csrf-token': csrf },
+      body: JSON.stringify(payload)
+    });
+    const d = await r.json();
+    if (!r.ok) throw new Error(d.error || d.message || 'Fehler');
+    toast(editingId ? 'Vorlage gespeichert ✓' : 'Vorlage erstellt ✓', 'success');
+    closeModal();
+    await loadTemplates();
+  } catch(e) {
+    err.textContent = e.message;
+    err.style.display = 'block';
+  } finally {
+    btn.disabled = false; btn.textContent = 'Speichern';
+  }
+}
+
+async function toggleActive(id, activate) {
+  try {
+    const csrf = await getCsrf();
+    const r = await fetch(`${API}/timesheet-templates/${id}`, {
+      method: 'PATCH', credentials: 'include',
+      headers: { 'Content-Type': 'application/json', 'x-csrf-token': csrf },
+      body: JSON.stringify({ is_active: activate })
+    });
+    if (!r.ok) throw new Error('Fehler');
+    toast(activate ? 'Aktiviert' : 'Deaktiviert', 'success');
+    await loadTemplates();
+  } catch(e) { toast(e.message, 'error'); }
+}
+
+async function deleteTemplate(id) {
+  if (!confirm('Vorlage wirklich löschen? (Nur möglich wenn keine Einsätze zugewiesen)')) return;
+  try {
+    const csrf = await getCsrf();
+    const r = await fetch(`${API}/timesheet-templates/${id}`, {
+      method: 'DELETE', credentials: 'include',
+      headers: { 'x-csrf-token': csrf }
+    });
+    const d = await r.json();
+    if (!r.ok) {
+      if (d.error === 'TEMPLATE_IN_USE') throw new Error(`Vorlage ist ${d.count} Einsätzen zugewiesen. Zuweisung zuerst entfernen.`);
+      throw new Error(d.error || 'Fehler');
+    }
+    toast('Vorlage gelöscht', 'success');
+    await loadTemplates();
+  } catch(e) { toast(e.message, 'error'); }
+}
+
+// Tastatur-Shortcut: Escape schließt Modal
+document.addEventListener('keydown', e => { if (e.key === 'Escape') closeModal(); });
+</script>
+<script src="/public/js/demoBanner.js" defer></script>
+<script src="/public/js/onboardingWizard.js" defer></script><script src="/public/js/breadcrumb.js" defer></script>
+</body>
+</html>

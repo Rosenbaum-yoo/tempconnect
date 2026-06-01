@@ -3,9 +3,15 @@
 <head>
   <meta charset="utf-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
-  <title>Systemstatus – TempConnect</title>
+  <script src="/public/js/theme.js"></script>
+  <title>Systemstatus – TempConnect Trust Center</title>
   <link rel="stylesheet" href="/public/css/design-system.css"/>
   <style>
+    .trust-nav { display: flex; gap: var(--ds-space-3); padding: var(--ds-space-3) 0; border-bottom: 1px solid var(--ds-border); margin-bottom: var(--ds-space-5); flex-wrap: wrap; }
+    .trust-nav a { font-size: 13px; font-weight: 600; color: var(--ds-text-secondary); text-decoration: none; padding: var(--ds-space-1) var(--ds-space-3); border-radius: var(--ds-radius-md); transition: background .15s, color .15s; }
+    .trust-nav a:hover { background: rgba(255,255,255,0.06); color: var(--ds-text-primary); }
+    .trust-nav a.active { background: var(--ds-brand); color: #fff; }
+
     .status-hero { text-align: center; padding: var(--ds-space-6) 0; }
     .status-indicator { display: inline-flex; align-items: center; gap: var(--ds-space-2); padding: var(--ds-space-3) var(--ds-space-5); border-radius: var(--ds-radius-full); font-size: 16px; font-weight: 700; }
     .status-indicator--ok { background: var(--ds-success-muted); border: 1px solid rgba(52,211,153,.35); color: #a7f3d0; }
@@ -25,6 +31,7 @@
     .service-row__dot--warn { background: var(--ds-warning); }
     .service-row__dot--down { background: var(--ds-danger); }
     .service-row__dot--loading { background: var(--ds-text-tertiary); }
+    .service-row__latency { font-size: 12px; color: var(--ds-text-tertiary); margin-left: var(--ds-space-2); font-weight: 400; }
 
     .uptime-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: var(--ds-space-3); margin-top: var(--ds-space-4); }
     .uptime-card { border: 1px solid var(--ds-border); border-radius: var(--ds-radius-lg); padding: var(--ds-space-5); background: rgba(255,255,255,0.02); text-align: center; }
@@ -39,22 +46,37 @@
 </head>
 <body>
   <div class="ds-wrap">
-    <nav class="ds-topbar">
-      <div class="ds-topbar__brand"><span class="ds-topbar__brand-dot"></span> TempConnect</div>
+    <nav class="ds-topbar" data-notif-topbar>
+      <div class="ds-topbar__brand"><span class="ds-topbar__brand-dot"></span>TempConnect</div>
       <div class="ds-topbar__nav">
-        <a href="/" class="ds-nav-link">Startseite</a>
-        <a href="/public/trust/security.html" class="ds-nav-link">Sicherheit</a>
-        <a href="/public/trust/compliance.html" class="ds-nav-link">Compliance</a>
-        <a href="/public/trust/platform-sla.html" class="ds-nav-link">Plattform-SLA</a>
-        <span class="ds-topbar__separator"></span>
-        <a href="/app" class="ds-btn">Anmelden</a>
+        <a href="/public/enterprise.html" class="ds-nav-link">Übersicht</a>
+        <a href="/public/capacity_exchange_feed.html" class="ds-nav-link">Vermittlung</a>
+        <a href="/public/executive_dashboard.html" class="ds-nav-link">Dashboard</a>
+        <a href="/public/hilfe.html" class="ds-nav-link" title="Help Center" style="font-size:16px;text-decoration:none">&#10067;</a>
+
+
+        <!-- User Profile Dropdown -->
+        <div id="tc-user-profile" style="position:relative;display:inline-flex;align-items:center;margin-left:6px">
+          <button id="tc-user-btn" type="button" title="Profil &amp; Konto" style="width:34px;height:34px;border-radius:50%;border:1.5px solid rgba(74,158,255,.35);background:rgba(74,158,255,.12);color:#4a9eff;font-size:15px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:border-color .15s,background .15s,box-shadow .15s">&#128100;</button>
+          <div id="tc-user-dropdown" style="display:none;position:absolute;top:calc(100% + 10px);right:0;width:260px;border:1px solid var(--line,rgba(255,255,255,.12));border-radius:14px;background:var(--card,#1a1d24);box-shadow:0 8px 32px rgba(0,0,0,.55);z-index:9999;padding:16px">
+            <div id="tc-user-dd-content" style="text-align:center;color:var(--muted,#8d9bba);font-size:13px;padding:8px 0">Lade Profil&hellip;</div>
+          </div>
+        </div>
       </div>
     </nav>
+
+    <!-- Trust Center Navigation -->
+    <div class="trust-nav">
+      <a href="/public/trust/security.html">&#128274; Sicherheit</a>
+      <a href="/public/trust/compliance.html">&#128220; Compliance</a>
+      <a href="/public/trust/status.html" class="active">&#128994; Systemstatus</a>
+      <a href="/public/trust/platform-sla.html">&#128196; SLA</a>
+    </div>
 
     <div class="ds-page-header">
       <div class="ds-page-header__content">
         <h1 class="ds-page-title">Systemstatus</h1>
-        <p class="ds-page-subtitle">Aktuelle Verfuegbarkeit der TempConnect-Plattform und ihrer Dienste.</p>
+        <p class="ds-page-subtitle">Aktuelle Verfuegbarkeit der TempConnect-Plattform und ihrer Dienste. Automatische Aktualisierung alle 60 Sekunden.</p>
       </div>
     </div>
 
@@ -84,8 +106,24 @@
           <div class="service-row__status" id="svcDb"><span class="service-row__dot service-row__dot--loading"></span> Pruefe…</div>
         </div>
         <div class="service-row">
+          <div class="service-row__name">&#129302; Matching Engine</div>
+          <div class="service-row__status" id="svcMatching"><span class="service-row__dot service-row__dot--loading"></span> Pruefe…</div>
+        </div>
+        <div class="service-row">
+          <div class="service-row__name">&#128203; Stundenzettel-Verarbeitung</div>
+          <div class="service-row__status" id="svcTimesheet"><span class="service-row__dot service-row__dot--loading"></span> Pruefe…</div>
+        </div>
+        <div class="service-row">
+          <div class="service-row__name">&#128276; Benachrichtigungssystem</div>
+          <div class="service-row__status" id="svcNotification"><span class="service-row__dot service-row__dot--loading"></span> Pruefe…</div>
+        </div>
+        <div class="service-row">
           <div class="service-row__name">&#128338; Hintergrunddienste</div>
           <div class="service-row__status" id="svcBg"><span class="service-row__dot service-row__dot--loading"></span> Pruefe…</div>
+        </div>
+        <div class="service-row">
+          <div class="service-row__name">&#128269; Suchdienst</div>
+          <div class="service-row__status" id="svcSearch"><span class="service-row__dot service-row__dot--loading"></span> Pruefe…</div>
         </div>
       </div>
     </section>
@@ -96,7 +134,7 @@
       <div class="uptime-grid">
         <div class="uptime-card">
           <div class="uptime-card__value">99,5 %</div>
-          <div class="uptime-card__label">Ziel-Verfuegbarkeit (Enterprise)</div>
+          <div class="uptime-card__label">Ziel-Verfuegbarkeit (Individueller Tarif)</div>
         </div>
         <div class="uptime-card">
           <div class="uptime-card__value">99,0 %</div>
@@ -135,46 +173,105 @@
   <script src="/public/js/footer.js"></script>
   <script>
     (function() {
-      function setService(id, ok, label) {
+      var COMPONENT_MAP = {
+        api:                   { id: 'svcApi',          label: 'API-Server' },
+        database:              { id: 'svcDb',           label: 'Datenbank' },
+        matching_engine:       { id: 'svcMatching',     label: 'Matching Engine' },
+        timesheet_processing:  { id: 'svcTimesheet',    label: 'Stundenzettel' },
+        notification_system:   { id: 'svcNotification', label: 'Benachrichtigungen' },
+        background_services:   { id: 'svcBg',           label: 'Hintergrunddienste' },
+        search:                { id: 'svcSearch',       label: 'Suchdienst' }
+      };
+
+      function setService(id, status, latencyMs) {
         var el = document.getElementById(id);
         if (!el) return;
-        var dotCls = ok ? 'service-row__dot--ok' : 'service-row__dot--down';
-        var statusText = ok ? 'Betriebsbereit' : 'Nicht erreichbar';
-        el.innerHTML = '<span class="service-row__dot ' + dotCls + '"></span> ' + (label || statusText);
+        var dotCls, text;
+        if (status === 'ok') {
+          dotCls = 'service-row__dot--ok';
+          text = 'Betriebsbereit';
+        } else if (status === 'degraded' || status === 'partial') {
+          dotCls = 'service-row__dot--warn';
+          text = 'Eingeschraenkt';
+        } else {
+          dotCls = 'service-row__dot--down';
+          text = 'Nicht erreichbar';
+        }
+        var latencyHtml = (typeof latencyMs === 'number' && latencyMs >= 0)
+          ? ' <span class="service-row__latency">' + latencyMs + ' ms</span>'
+          : '';
+        el.innerHTML = '<span class="service-row__dot ' + dotCls + '"></span> ' + text + latencyHtml;
       }
 
       function checkHealth() {
-        var allOk = true;
-        // Check API health
-        fetch('/health', { cache: 'no-store' })
-          .then(function(r) {
-            var apiOk = r.ok;
-            setService('svcApi', apiOk);
-            setService('svcDb', apiOk, apiOk ? 'Betriebsbereit' : 'Unbekannt');
-            setService('svcBg', apiOk, apiOk ? 'Betriebsbereit' : 'Unbekannt');
-            if (!apiOk) allOk = false;
-            return apiOk;
-          })
-          .catch(function() {
-            setService('svcApi', false);
-            setService('svcDb', false, 'Unbekannt');
-            setService('svcBg', false, 'Unbekannt');
-            allOk = false;
-          })
-          .finally(function() {
-            // Web is always ok if we rendered this page
-            setService('svcWeb', true);
+        // Web is always ok if this page rendered
+        setService('svcWeb', 'ok');
 
-            var overall = document.getElementById('overallStatus');
-            var text = document.getElementById('overallText');
-            if (allOk) {
-              overall.className = 'status-indicator status-indicator--ok';
-              text.textContent = 'Alle Systeme betriebsbereit';
-            } else {
-              overall.className = 'status-indicator status-indicator--warn';
-              text.textContent = 'Einige Dienste eingeschraenkt';
+        fetch('/api/public/system-status', { cache: 'no-store' })
+          .then(function(r) { return r.json(); })
+          .then(function(data) {
+            var components = data.components || {};
+            var keys = Object.keys(COMPONENT_MAP);
+            for (var i = 0; i < keys.length; i++) {
+              var key = keys[i];
+              var mapping = COMPONENT_MAP[key];
+              var comp = components[key];
+              if (comp) {
+                setService(mapping.id, comp.status, comp.latency_ms);
+              } else {
+                setService(mapping.id, 'ok');
+              }
             }
 
+            // Overall status
+            var overall = document.getElementById('overallStatus');
+            var text = document.getElementById('overallText');
+            if (data.status === 'ok') {
+              overall.className = 'status-indicator status-indicator--ok';
+              text.textContent = 'Alle Systeme betriebsbereit';
+            } else if (data.status === 'partial' || data.status === 'degraded') {
+              overall.className = 'status-indicator status-indicator--warn';
+              text.textContent = 'Einige Dienste eingeschraenkt';
+            } else {
+              overall.className = 'status-indicator status-indicator--down';
+              text.textContent = 'Stoerung erkannt';
+            }
+          })
+          .catch(function() {
+            // Fallback: try simple /health
+            fetch('/health', { cache: 'no-store' })
+              .then(function(r) {
+                var ok = r.ok;
+                setService('svcApi', ok ? 'ok' : 'error');
+                setService('svcDb', ok ? 'ok' : 'error');
+                setService('svcMatching', ok ? 'ok' : 'error');
+                setService('svcTimesheet', ok ? 'ok' : 'error');
+                setService('svcNotification', ok ? 'ok' : 'error');
+                setService('svcBg', ok ? 'ok' : 'error');
+                setService('svcSearch', ok ? 'ok' : 'error');
+
+                var overall = document.getElementById('overallStatus');
+                var text = document.getElementById('overallText');
+                if (ok) {
+                  overall.className = 'status-indicator status-indicator--ok';
+                  text.textContent = 'Alle Systeme betriebsbereit';
+                } else {
+                  overall.className = 'status-indicator status-indicator--down';
+                  text.textContent = 'Stoerung erkannt';
+                }
+              })
+              .catch(function() {
+                var keys = Object.keys(COMPONENT_MAP);
+                for (var i = 0; i < keys.length; i++) {
+                  setService(COMPONENT_MAP[keys[i]].id, 'error');
+                }
+                var overall = document.getElementById('overallStatus');
+                var text = document.getElementById('overallText');
+                overall.className = 'status-indicator status-indicator--down';
+                text.textContent = 'Plattform nicht erreichbar';
+              });
+          })
+          .finally(function() {
             var now = new Date();
             document.getElementById('lastCheck').textContent =
               'Letzte Pruefung: ' + now.toLocaleDateString('de-DE') + ' ' + now.toLocaleTimeString('de-DE');
@@ -182,8 +279,13 @@
       }
 
       checkHealth();
-      setInterval(checkHealth, 60000); // refresh every 60s
+      setInterval(checkHealth, 60000);
     })();
   </script>
+  <script src="/public/js/demoBanner.js" defer></script>
+  <script src="/public/js/onboardingWizard.js" defer></script>
+  <script src="/public/js/notifications.js" defer></script>
+  <script src="/public/js/userDropdown.js"></script>
+<script src="/public/js/breadcrumb.js" defer></script>
 </body>
 </html>

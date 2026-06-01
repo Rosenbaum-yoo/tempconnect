@@ -1,0 +1,269 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <script src="/public/js/theme.js"></script>
+  <title>Activity Center – TempConnect</title>
+  <link rel="stylesheet" href="/public/css/enterprise.css"/>
+  <style>
+    /* ── Tabs ─────────────────────────────────────── */
+    .ac-tabs { display: flex; gap: 0; border-bottom: 2px solid var(--ds-border, rgba(255,255,255,.08)); margin-bottom: var(--ds-space-4); }
+    .ac-tab {
+      padding: 10px 20px; font-size: 13px; font-weight: 700; color: var(--ds-text-secondary);
+      border: none; background: none; cursor: pointer; position: relative; transition: color .15s;
+      border-bottom: 2px solid transparent; margin-bottom: -2px;
+    }
+    .ac-tab:hover { color: var(--ds-text); }
+    .ac-tab--active { color: var(--ds-brand, #4a9eff); border-bottom-color: var(--ds-brand, #4a9eff); }
+    .ac-tab__badge {
+      display: inline-flex; align-items: center; justify-content: center;
+      min-width: 18px; height: 18px; border-radius: 99px; background: var(--ds-brand); color: #fff;
+      font-size: 10px; font-weight: 800; padding: 0 5px; margin-left: 6px; vertical-align: middle;
+    }
+    .ac-tab__badge:empty { display: none; }
+    .ac-pane { display: none; }
+    .ac-pane--active { display: block; }
+
+    /* ── Filter Bar ──────────────────────────────── */
+    .ac-filter-bar { display: flex; gap: 8px; margin-bottom: var(--ds-space-4); flex-wrap: wrap; align-items: center; }
+    .ac-filter-btn {
+      padding: 5px 12px; border-radius: 8px; border: 1px solid var(--ds-border); background: rgba(255,255,255,.03);
+      color: var(--ds-text-secondary); font-size: 12px; font-weight: 600; cursor: pointer; transition: all .15s;
+    }
+    .ac-filter-btn:hover { border-color: var(--ds-border-hover); color: var(--ds-text); }
+    .ac-filter-btn--active { background: var(--ds-brand-muted); border-color: var(--ds-brand); color: var(--ds-brand); }
+    .ac-filter-sep { width: 1px; height: 24px; background: var(--ds-border); margin: 0 4px; flex-shrink: 0; }
+
+    /* ── Notification List ────────────────────────── */
+    .ac-list { display: flex; flex-direction: column; gap: 2px; }
+    .ac-date-group { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; color: var(--ds-text-tertiary); padding: 16px 0 6px; }
+    .ac-item {
+      display: flex; align-items: flex-start; gap: 12px; padding: 14px 16px;
+      border: 1px solid var(--ds-border); border-radius: var(--ds-radius-md);
+      background: rgba(255,255,255,.02); cursor: pointer; transition: all .15s; text-decoration: none; color: inherit;
+    }
+    .ac-item:hover { border-color: var(--ds-border-hover); background: rgba(255,255,255,.04); transform: translateY(-1px); }
+    .ac-item--unread { border-left: 3px solid var(--ds-brand); background: rgba(74,158,255,.03); }
+    .ac-item--read { opacity: .7; }
+
+    .ac-icon {
+      width: 36px; height: 36px; border-radius: 8px; display: flex; align-items: center; justify-content: center;
+      font-size: 16px; flex-shrink: 0; background: rgba(255,255,255,.04); border: 1px solid var(--ds-border);
+    }
+    .ac-icon--info    { background: var(--ds-brand-muted); }
+    .ac-icon--success { background: var(--ds-success-muted); }
+    .ac-icon--warning { background: var(--ds-warning-muted); }
+    .ac-icon--error   { background: var(--ds-danger-muted); }
+    .ac-icon--urgent  { background: var(--ds-danger-muted); border-color: var(--ds-danger, #f87171); }
+
+    .ac-body { flex: 1; min-width: 0; }
+    .ac-title { font-size: 14px; font-weight: 600; margin: 0 0 2px; }
+    .ac-msg { font-size: 12px; color: var(--ds-text-secondary); margin: 0 0 4px; line-height: 1.4; }
+    .ac-meta { font-size: 11px; color: var(--ds-text-tertiary); display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
+    .ac-cat-badge {
+      display: inline-block; font-size: 10px; font-weight: 700; padding: 2px 8px; border-radius: 99px;
+      border: 1px solid var(--ds-border); color: var(--ds-text-secondary); background: rgba(255,255,255,.03);
+    }
+    .ac-arrow { flex-shrink: 0; color: var(--ds-text-tertiary); font-size: 14px; margin-top: 2px; }
+
+    /* ── Empty / Loading / Error ──────────────────── */
+    .ac-empty { padding: 48px 24px; text-align: center; color: var(--ds-text-secondary); }
+    .ac-empty__icon { font-size: 40px; margin-bottom: 12px; opacity: .5; }
+    .ac-empty__text { font-size: 14px; }
+
+    /* ── Load More ────────────────────────────────── */
+    .ac-load-more {
+      display: block; width: 100%; padding: 12px; margin-top: 8px; text-align: center;
+      border: 1px solid var(--ds-border); border-radius: var(--ds-radius-md);
+      background: rgba(255,255,255,.02); color: var(--ds-text-secondary); font-size: 13px;
+      font-weight: 600; cursor: pointer; transition: all .15s;
+    }
+    .ac-load-more:hover { border-color: var(--ds-border-hover); color: var(--ds-text); }
+
+    /* ── Header ───────────────────────────────────── */
+    .ac-header-actions { display: flex; gap: 8px; align-items: center; }
+    .ac-count-badge {
+      display: inline-flex; align-items: center; justify-content: center;
+      min-width: 22px; height: 22px; border-radius: 99px; background: var(--ds-brand);
+      color: #fff; font-size: 11px; font-weight: 800; padding: 0 6px;
+    }
+
+    /* ── Settings Panel ──────────────────────────── */
+    .ac-settings { display: none; margin-top: var(--ds-space-4); padding: var(--ds-space-4); border: 1px solid var(--ds-border); border-radius: var(--ds-radius-lg, 12px); background: rgba(255,255,255,.015); }
+    .ac-settings--open { display: block; }
+    .ac-settings h3 { margin: 0 0 var(--ds-space-3); font-size: 14px; text-transform: uppercase; letter-spacing: .04em; color: var(--ds-text-secondary); font-weight: 700; }
+    .ac-pref-row {
+      display: flex; align-items: center; justify-content: space-between; padding: 10px 0;
+      border-bottom: 1px solid rgba(255,255,255,.04); font-size: 13px;
+    }
+    .ac-pref-row:last-child { border-bottom: none; }
+    .ac-pref-toggles { display: flex; gap: 16px; }
+    .ac-toggle { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--ds-text-secondary); cursor: pointer; }
+    .ac-toggle input[type="checkbox"] { accent-color: var(--ds-brand, #4a9eff); width: 16px; height: 16px; cursor: pointer; }
+
+    /* ── Activity Timeline ────────────────────────── */
+    .ac-timeline-item {
+      display: flex; gap: 12px; padding: 12px 0; border-bottom: 1px solid rgba(255,255,255,.04); align-items: flex-start;
+    }
+    .ac-timeline-icon { font-size: 20px; flex-shrink: 0; width: 32px; text-align: center; }
+    .ac-timeline-body { flex: 1; min-width: 0; }
+    .ac-timeline-label { font-size: 13px; font-weight: 600; }
+    .ac-timeline-actor { font-size: 11px; color: var(--ds-text-secondary); }
+    .ac-timeline-time { font-size: 11px; color: var(--ds-text-tertiary); margin-top: 2px; }
+
+    /* ── Activity Filter ─────────────────────────── */
+    .ac-select {
+      padding: 5px 10px; border-radius: 8px; border: 1px solid var(--ds-border);
+      background: rgba(255,255,255,.03); color: var(--ds-text); font-size: 12px; font-weight: 600;
+    }
+    .ac-select option { background: var(--ds-bg, #0d1117); }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div id="tc-shell"></div>
+
+    <!-- ── Page Header ──────────────────────────── -->
+    <div class="ds-page-header">
+      <div class="ds-page-header__content">
+        <h1 class="ds-page-title">&#128276; Activity Center <span id="unread-badge" class="ac-count-badge" style="display:none"></span></h1>
+        <p class="ds-page-subtitle">Benachrichtigungen, Plattform-Aktivit&auml;ten und Match-Alerts &ndash; alles an einem Ort.</p>
+      </div>
+      <div class="ds-page-header__actions ac-header-actions">
+        <button id="btn-settings-toggle" class="ds-btn ds-btn--sm ds-btn--outline" title="Einstellungen">&#9881; Einstellungen</button>
+        <button id="btn-read-all" class="ds-btn ds-btn--sm" title="Alle als gelesen markieren">&#10003; Alle gelesen</button>
+      </div>
+    </div>
+
+    <!-- Onboarding Checklist -->
+    <div id="onboarding-checklist" style="display:none;margin-bottom:var(--ds-space-4)">
+      <div style="border:1px solid rgba(74,158,255,.15);border-radius:12px;background:rgba(74,158,255,.03);overflow:hidden">
+        <div style="display:flex;align-items:center;gap:10px;padding:10px 16px;cursor:pointer" onclick="toggleOnboarding()">
+          <span style="font-size:15px">&#128640;</span>
+          <span style="font-weight:700;font-size:14px;white-space:nowrap">Plattform einrichten</span>
+          <span id="onboarding-subtitle" style="font-size:12px;color:var(--ds-text-secondary,var(--muted));white-space:nowrap;overflow:hidden;text-overflow:ellipsis;flex-shrink:1;min-width:0"></span>
+          <div style="flex:1;min-width:40px;max-width:160px;height:4px;border-radius:2px;background:rgba(255,255,255,.08);overflow:hidden">
+            <div id="onboarding-progress-bar" style="height:100%;border-radius:2px;background:var(--ds-brand,#4a9eff);transition:width .4s ease;width:0%"></div>
+          </div>
+          <button id="onboarding-toggle-btn" type="button" style="background:none;border:none;color:var(--ds-text-secondary,var(--muted));cursor:pointer;font-size:10px;padding:2px 6px;transition:transform .25s;transform:rotate(0deg)" title="Auf-/Zuklappen" onclick="event.stopPropagation();toggleOnboarding()">&#9660;</button>
+          <button id="onboarding-dismiss-btn" type="button" onclick="event.stopPropagation();dismissOnboarding()" style="background:none;border:none;color:var(--ds-text-secondary,var(--muted));cursor:pointer;font-size:18px;padding:2px 6px;line-height:1" title="Ausblenden">&times;</button>
+        </div>
+        <div id="onboarding-body" style="max-height:0;overflow:hidden;transition:max-height .3s ease">
+          <div style="padding:0 16px 14px">
+            <div id="onboarding-steps"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── Tabs ───────────────────────────────────── -->
+    <div class="ac-tabs">
+      <button class="ac-tab ac-tab--active" data-tab="notifications">&#128276; Benachrichtigungen <span id="tab-notif-badge" class="ac-tab__badge"></span></button>
+      <button class="ac-tab" data-tab="activity">&#128200; Aktivit&auml;ten</button>
+      <button class="ac-tab" data-tab="alerts">&#11088; Match-Alerts <span id="tab-alerts-badge" class="ac-tab__badge"></span></button>
+    </div>
+
+    <!-- ══════════════════════════════════════════ -->
+    <!-- TAB 1: Benachrichtigungen                 -->
+    <!-- ══════════════════════════════════════════ -->
+    <div id="pane-notifications" class="ac-pane ac-pane--active">
+      <!-- Filter: Kategorie -->
+      <div class="ac-filter-bar">
+        <button class="ac-filter-btn ac-filter-btn--active" data-cat="all">Alle</button>
+        <button class="ac-filter-btn" data-cat="requisition">Arbeitsplatzangebote</button>
+        <button class="ac-filter-btn" data-cat="offer">Angebote</button>
+        <button class="ac-filter-btn" data-cat="compliance">Compliance</button>
+        <button class="ac-filter-btn" data-cat="capacity">Personal</button>
+        <button class="ac-filter-btn" data-cat="deal">Deals</button>
+        <button class="ac-filter-btn" data-cat="timesheet">Timesheets</button>
+        <button class="ac-filter-btn" data-cat="system">System</button>
+        <div class="ac-filter-sep"></div>
+        <button class="ac-filter-btn" data-sev="all">Alle Stufen</button>
+        <button class="ac-filter-btn" data-sev="unread">Ungelesen</button>
+        <button class="ac-filter-btn" data-sev="info">Info</button>
+        <button class="ac-filter-btn" data-sev="success">Erfolg</button>
+        <button class="ac-filter-btn" data-sev="warning">Warnung</button>
+        <button class="ac-filter-btn" data-sev="error">Fehler</button>
+      </div>
+
+      <div id="notif-list" class="ac-list">
+        <div class="ac-empty"><div class="ac-empty__icon">&#128276;</div><div class="ac-empty__text">Lade Benachrichtigungen&hellip;</div></div>
+      </div>
+      <button id="btn-load-more" class="ac-load-more" style="display:none">Weitere laden&hellip;</button>
+    </div>
+
+    <!-- ══════════════════════════════════════════ -->
+    <!-- TAB 2: Aktivitäten (Activity Feed)        -->
+    <!-- ══════════════════════════════════════════ -->
+    <div id="pane-activity" class="ac-pane">
+      <div class="ac-filter-bar">
+        <select id="af-type-filter" class="ac-select">
+          <option value="">Alle Event-Typen</option>
+          <option value="supplier_invited">Lieferant eingeladen</option>
+          <option value="supplier_approved">Lieferant freigeschaltet</option>
+          <option value="requisition_created">Arbeitsplatzangebot erstellt</option>
+          <option value="requisition_filled">Arbeitsplatzangebot besetzt</option>
+          <option value="offer_submitted">Angebot eingereicht</option>
+          <option value="offer_accepted">Angebot angenommen</option>
+          <option value="offer_rejected">Angebot abgelehnt</option>
+          <option value="deal_completed">Deal abgeschlossen</option>
+          <option value="capacity_published">Personal eingestellt</option>
+          <option value="capacity_interest">Interesse an Personal</option>
+          <option value="assignment_started">Einsatz gestartet</option>
+          <option value="assignment_completed">Einsatz abgeschlossen</option>
+          <option value="document_uploaded">Dokument hochgeladen</option>
+          <option value="document_verified">Dokument verifiziert</option>
+          <option value="match_found">Match gefunden</option>
+          <option value="member_added">Mitglied hinzugef&uuml;gt</option>
+          <option value="login">Anmeldung</option>
+        </select>
+        <select id="af-range-filter" class="ac-select">
+          <option value="7">Letzte 7 Tage</option>
+          <option value="30" selected>Letzte 30 Tage</option>
+          <option value="90">Letzte 90 Tage</option>
+        </select>
+      </div>
+      <div id="activity-list">
+        <div class="ac-empty"><div class="ac-empty__icon">&#128200;</div><div class="ac-empty__text">Lade Aktivit&auml;ten&hellip;</div></div>
+      </div>
+    </div>
+
+    <!-- ══════════════════════════════════════════ -->
+    <!-- TAB 3: Match-Alerts                       -->
+    <!-- ══════════════════════════════════════════ -->
+    <div id="pane-alerts" class="ac-pane">
+      <div class="ac-filter-bar">
+        <button class="ac-filter-btn ac-filter-btn--active" data-ma="all">Alle</button>
+        <button class="ac-filter-btn" data-ma="unread">Ungelesen</button>
+      </div>
+      <div id="alerts-list" class="ac-list">
+        <div class="ac-empty"><div class="ac-empty__icon">&#11088;</div><div class="ac-empty__text">Lade Match-Alerts&hellip;</div></div>
+      </div>
+      <button id="btn-alerts-more" class="ac-load-more" style="display:none">Weitere laden&hellip;</button>
+    </div>
+
+    <!-- ══════════════════════════════════════════ -->
+    <!-- Settings Panel                            -->
+    <!-- ══════════════════════════════════════════ -->
+    <div id="settings-panel" class="ac-settings">
+      <h3>&#9881; Benachrichtigungs-Einstellungen</h3>
+      <p style="font-size:12px;color:var(--ds-text-secondary);margin:0 0 16px">W&auml;hlen Sie, welche Benachrichtigungen Sie In-App und per E-Mail erhalten m&ouml;chten.</p>
+      <div id="prefs-list">
+        <div class="ac-empty"><div class="ac-empty__text">Lade Einstellungen&hellip;</div></div>
+      </div>
+      <div style="margin-top:12px;text-align:right">
+        <button id="btn-save-prefs" class="ds-btn ds-btn--sm">Einstellungen speichern</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="/public/js/demoBanner.js" defer></script>
+  <script src="/public/js/onboardingWizard.js" defer></script>
+  <script src="/public/js/notifications.js" defer></script>
+  <script src="/public/js/pages/activity.js"></script>
+  <script src="/public/js/contextHints.js"></script>
+  <script src="/public/js/onboardingChecklist.js" defer></script>
+<script src="/public/js/breadcrumb.js" defer></script>
+</body>
+</html>

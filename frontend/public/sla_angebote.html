@@ -3,6 +3,7 @@
 <head>
   <meta charset="utf-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <script src="/public/js/theme.js"></script>
   <title>Angebote erstellen (Pulse-sicher) – TempConnect</title>
   <link rel="stylesheet" href="/public/css/enterprise.css"/>
   <style>
@@ -19,7 +20,7 @@
 </head>
 <body data-sla-guard="sla_offers_create">
   <div id="paywall" class="wrap" style="display:none">
-    <div class="topbar"><span class="brand">TempConnect</span><a href="/" class="btn">Startseite</a></div>
+    <nav class="ds-topbar"><div class="ds-topbar__brand"><span class="ds-topbar__brand-dot"></span>TempConnect</div><div class="ds-topbar__nav"><a href="/" class="ds-btn">Startseite</a></div></nav>
     <div class="paywall-box">
       <h2>Bereich nicht verfügbar</h2>
       <p>Das Feature &quot;<span id="paywall-feature-name">Angebote erstellen</span>&quot; ist mit deinem aktuellen Plan nicht nutzbar.</p>
@@ -28,20 +29,14 @@
     </div>
   </div>
   <div id="main-content" class="wrap">
-    <div class="topbar" data-notif-topbar>
-      <span class="brand">TempConnect – Angebote (Pulse-sicher)</span>
-      <a href="/" class="btn">Startseite</a>
-      <a href="/public/enterprise.html" class="btn">Übersicht</a>
-      <a href="/public/capacity_search.html" class="btn">Kapazitätssuche</a>
-      <a href="/public/sla_search_jobs_list.html" class="btn">Suchaufträge</a>
-    </div>
+    <div id="tc-shell"></div>
     <h1>Angebote erstellen (Pulse-sicher)</h1>
-    <p style="color:var(--muted);margin:0 0 16px">Kapazitätsangebote mit Best-effort-Vorlagen. Fehlende Informationen werden als „Bitte prüfen" markiert.</p>
+    <p style="color:var(--muted);margin:0 0 16px">Personalangebote mit Best-effort-Vorlagen. Fehlende Informationen werden als „Bitte prüfen" markiert.</p>
 
     <form id="offerForm">
-      <!-- Request / Kapazität -->
+      <!-- Request / Personalangebot -->
       <div class="card">
-        <h3 class="section-title" style="margin-top:0">Anfrage / Kapazität</h3>
+        <h3 class="section-title" style="margin-top:0">Anfrage / Personalangebot</h3>
         <div class="form-grid">
           <div>
             <label for="of_demand_id">Anfrage auswählen</label>
@@ -243,9 +238,12 @@
       });
     };
   </script>
+  <script src="/public/js/terminologyLabels.js"></script>
+  <script src="/public/js/pageShell.js"></script>
   <script src="/public/js/notifications.js"></script>
   <div id="tc-footer" data-tc-footer></div>
   <script src="/public/js/footer.js"></script>
-  <script src="/public/js/logout-btn.js"></script>
+<script src="/public/js/demoBanner.js" defer></script>
+<script src="/public/js/onboardingWizard.js" defer></script><script src="/public/js/breadcrumb.js" defer></script>
 </body>
 </html>

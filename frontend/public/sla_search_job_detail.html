@@ -3,6 +3,7 @@
 <head>
   <meta charset="utf-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <script src="/public/js/theme.js"></script>
   <title>Suchauftrag – TempConnect</title>
   <link rel="stylesheet" href="/public/css/enterprise.css"/>
   <style>
@@ -21,10 +22,7 @@
 </head>
 <body data-sla-guard="sla_access">
   <div id="paywall" class="wrap" style="display:none">
-    <div class="topbar">
-      <span class="brand">TempConnect</span>
-      <a href="/" class="btn">Startseite</a>
-    </div>
+    <nav class="ds-topbar"><div class="ds-topbar__brand"><span class="ds-topbar__brand-dot"></span>TempConnect</div><div class="ds-topbar__nav"><a href="/" class="ds-btn">Startseite</a></div></nav>
     <div class="paywall-box">
       <h2>Bereich nicht verfügbar</h2>
       <p>Das Feature &quot;<span id="paywall-feature-name">Pulse-Bereich</span>&quot; ist mit deinem aktuellen Plan nicht nutzbar.</p>
@@ -34,13 +32,7 @@
   </div>
 
   <div id="main-content" class="wrap" style="display:none">
-    <div class="topbar" data-notif-topbar>
-      <span class="brand">TempConnect – Suchauftrag</span>
-      <a href="/" class="btn">Startseite</a>
-      <a href="/public/enterprise.html" class="btn">Übersicht</a>
-      <a href="/public/capacity_search.html" class="btn">Kapazitätssuche</a>
-      <a href="/public/sla_search_jobs_list.html" class="btn">Suchaufträge</a>
-    </div>
+    <div id="tc-shell"></div>
     <div id="root"><p class="empty">Lade Suchauftrag…</p></div>
   </div>
 
@@ -132,7 +124,7 @@
       html += "<p style=\"margin:0;color:var(--muted)\"><span class=\"status-badge " + statusCls + "\">" + esc(status) + "</span>";
       if (slaStatus) html += " <span class=\"sla-badge " + slaCls + "\">Pulse " + esc(slaStatus) + "</span>";
       html += "</p>";
-      html += "<p style=\"margin:8px 0 0\"><strong>Typ:</strong> " + esc(job.target_type || "–") + " · <strong>Rolle:</strong> " + esc(job.role || "–") + " · <strong>Ort:</strong> " + esc(job.location_city || "–") + " · <strong>Radius:</strong> " + (job.radius_km != null ? job.radius_km + " km" : "–") + "</p>";
+      html += "<p style=\"margin:8px 0 0\"><strong>Typ:</strong> " + esc(job.target_type || "–") + " – <strong>Rolle:</strong> " + esc(job.role || "–") + " – <strong>Ort:</strong> " + esc(job.location_city || "–") + " – <strong>Radius:</strong> " + (job.radius_km != null ? job.radius_km + " km" : "–") + "</p>";
       if (job.sla_started_at) html += "<p style=\"margin:4px 0 0;font-size:13px;color:var(--muted)\">Pulse gestartet: " + new Date(job.sla_started_at).toLocaleString("de-DE") + "</p>";
       if (job.sla_due_at) html += "<p style=\"margin:2px 0 0;font-size:13px;color:var(--muted)\">Pulse bis: " + new Date(job.sla_due_at).toLocaleString("de-DE") + "</p>";
 
@@ -177,7 +169,7 @@
           var role = m.capacity_role || m.demand_role || "–";
           var city = m.capacity_city || m.demand_city || "–";
           var score = m.match_score != null ? m.match_score : "–";
-          html += "<div class=\"match-row\"><span class=\"match-score\">" + esc(String(score)) + "</span> <span>" + esc(title) + " · " + esc(role) + " · " + esc(city) + "</span></div>";
+          html += "<div class=\"match-row\"><span class=\"match-score\">" + esc(String(score)) + "</span> <span>" + esc(title) + " – " + esc(role) + " – " + esc(city) + "</span></div>";
         });
       }
       html += "</div>";
@@ -303,11 +295,15 @@
         render(job, userId, showNudges);
       });
     }
-    load();
+    // Warte auf slaGuardPassed bevor wir laden
+    document.addEventListener("slaGuardPassed", function(ev) {
+      if (ev.detail && ev.detail.passed) load();
+    });
   </script>
-  <script src="/public/js/notifications.js"></script>
+  <script src="/public/js/pageShell.js"></script>`n  <script src="/public/js/notifications.js"></script>
   <div id="tc-footer" data-tc-footer></div>
   <script src="/public/js/footer.js"></script>
-  <script src="/public/js/logout-btn.js"></script>
+<script src="/public/js/demoBanner.js" defer></script>
+<script src="/public/js/onboardingWizard.js" defer></script><script src="/public/js/breadcrumb.js" defer></script>
 </body>
 </html>

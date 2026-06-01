@@ -1,0 +1,571 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <script src="/public/js/theme.js"></script>
+  <title>Meine Deals - TempConnect</title>
+  <link rel="stylesheet" href="/public/css/enterprise.css"/>
+  <style>
+    /* ── KPI Row ── */
+    .dm-kpi{display:grid;grid-template-columns:repeat(4,1fr);gap:var(--ds-space-3);margin-bottom:var(--ds-space-5)}
+    @media(max-width:768px){.dm-kpi{grid-template-columns:repeat(2,1fr)}}
+    .dm-kpi-tile{padding:var(--ds-space-4);border:1px solid var(--ds-border);border-radius:var(--ds-radius-lg);background:var(--tc-kpi-bg);text-align:center;transition:border-color .2s}
+    .dm-kpi-tile:hover{border-color:var(--ds-border-hover)}
+    .dm-kpi-tile__value{font-size:28px;font-weight:800;line-height:1;margin-bottom:4px}
+    .dm-kpi-tile__value--brand{color:var(--ds-brand)}
+    .dm-kpi-tile__value--success{color:var(--ds-success)}
+    .dm-kpi-tile__value--warning{color:var(--ds-warning)}
+    .dm-kpi-tile__value--accent{color:var(--ds-accent)}
+    .dm-kpi-tile__label{font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.04em;color:var(--ds-text-tertiary)}
+
+    /* ── Tabs ── */
+    .dm-tabs{display:flex;gap:var(--ds-space-1);margin-bottom:var(--ds-space-4);border-bottom:1px solid var(--ds-border);padding-bottom:var(--ds-space-2)}
+    .dm-tab{padding:var(--ds-space-2) var(--ds-space-4);border-radius:var(--ds-radius-md);font-size:13px;font-weight:600;cursor:pointer;border:none;background:transparent;color:var(--ds-text-secondary);transition:all .15s}
+    .dm-tab:hover{background:var(--tc-nav-hover-bg)}
+    .dm-tab--active{background:var(--ds-brand-muted);color:var(--ds-brand)}
+    .dm-tab__count{margin-left:6px;font-size:11px;opacity:.7}
+    .dm-toolbar{display:flex;justify-content:space-between;align-items:center;gap:var(--ds-space-3);margin-bottom:var(--ds-space-4);flex-wrap:wrap}
+    .dm-results{font-size:12px;color:var(--ds-text-secondary)}
+    .dm-search{display:flex;gap:var(--ds-space-2);align-items:center;flex-wrap:wrap}
+    .dm-search__input{min-width:min(340px,100%);padding:10px 12px;border:1px solid var(--ds-border);border-radius:var(--ds-radius-md);background:var(--tc-search-muted-bg);color:var(--ds-text)}
+    .dm-search__input:focus{outline:none;border-color:var(--ds-brand);box-shadow:0 0 0 3px rgba(74,158,255,.12)}
+
+    /* ── Deal Cards ── */
+    .dm-list{display:flex;flex-direction:column;gap:var(--ds-space-3)}
+    .dm-card{padding:var(--ds-space-4) var(--ds-space-5);border:1px solid var(--ds-border);border-radius:var(--ds-radius-lg);background:var(--tc-card-surface);cursor:pointer;transition:border-color .2s,transform .15s,box-shadow .2s;display:grid;grid-template-columns:1fr auto;gap:var(--ds-space-4);align-items:start}
+    .dm-card:hover{border-color:var(--ds-border-hover);transform:translateY(-1px);box-shadow:var(--ds-shadow-md)}
+    .dm-card--action{border-left:3px solid var(--ds-warning)}
+    .dm-card--done{border-left:3px solid var(--ds-success);opacity:.85}
+    .dm-card--cancelled{border-left:3px solid rgba(248,113,113,.5);opacity:.6}
+    .dm-card__main{min-width:0}
+    .dm-card__head{display:flex;align-items:center;gap:var(--ds-space-2);margin-bottom:4px;flex-wrap:wrap}
+    .dm-card__title{font-size:15px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:400px}
+    .dm-card__ref{font-size:11px;font-weight:600;color:var(--ds-brand);background:var(--ds-brand-muted);padding:2px 8px;border-radius:4px}
+    .dm-card__counterparty{font-size:12px;color:var(--ds-text-secondary);margin-bottom:var(--ds-space-2)}
+    .dm-card__meta{display:flex;flex-wrap:wrap;gap:var(--ds-space-3);font-size:12px;color:var(--ds-text-secondary);margin-bottom:var(--ds-space-2)}
+    .dm-card__meta-item{display:flex;align-items:center;gap:4px}
+    .dm-card__context{display:flex;flex-wrap:wrap;gap:var(--ds-space-1);margin-top:var(--ds-space-2)}
+    .dm-card__nextstep{font-size:12px;color:var(--ds-text-secondary);padding:8px 12px;background:var(--tc-filter-surface);border:1px solid var(--ds-border);border-radius:var(--ds-radius-md);margin-top:var(--ds-space-2)}
+    .dm-card__nextstep strong{color:var(--ds-text)}
+    .dm-card__sidebar{display:flex;flex-direction:column;align-items:flex-end;gap:var(--ds-space-2);min-width:140px}
+    .dm-card__badges{display:flex;flex-wrap:wrap;gap:var(--ds-space-1);justify-content:flex-end}
+    .dm-badge{display:inline-flex;align-items:center;padding:3px 10px;border-radius:var(--ds-radius-full);font-size:11px;font-weight:700}
+    .dm-badge--action{background:var(--ds-warning-muted);color:var(--ds-warning)}
+    .dm-badge--waiting{background:var(--ds-brand-muted);color:var(--ds-brand)}
+    .dm-badge--done{background:var(--ds-success-muted);color:var(--ds-success)}
+    .dm-badge--danger{background:var(--ds-danger-muted);color:var(--ds-danger)}
+    .dm-badge--neutral{background:var(--tc-badge-neutral-bg);color:var(--ds-text-secondary)}
+    .dm-badge--subject-capacity{background:var(--ds-accent-muted);color:var(--ds-accent)}
+    .dm-badge--subject-demand{background:var(--ds-brand-muted);color:var(--ds-brand)}
+    .dm-badge--capacity-open{background:var(--ds-success-muted);color:var(--ds-success)}
+    .dm-badge--capacity-partial{background:var(--ds-warning-muted);color:var(--ds-warning)}
+    .dm-badge--capacity-reserved{background:var(--tc-badge-neutral-bg);color:var(--ds-text-secondary)}
+    .dm-progress{height:4px;border-radius:2px;background:var(--tc-progress-track-bg);overflow:hidden;width:100%}
+    .dm-progress__fill{height:100%;border-radius:2px;background:var(--ds-success);transition:width .3s}
+    .dm-pct{font-size:20px;font-weight:800;color:var(--ds-success);line-height:1}
+    .dm-empty{text-align:center;padding:var(--ds-space-8);color:var(--ds-text-secondary)}
+    .dm-empty__icon{font-size:40px;margin-bottom:var(--ds-space-3)}
+    .dm-pagination{display:flex;justify-content:space-between;align-items:center;gap:var(--ds-space-3);margin-top:var(--ds-space-4);flex-wrap:wrap}
+    .dm-pagination__info{font-size:12px;color:var(--ds-text-secondary)}
+  </style>
+</head>
+<body data-sla-guard="sla_access">
+  <div id="paywall" class="wrap" style="display:none">
+    <nav class="ds-topbar"><div class="ds-topbar__brand"><span class="ds-topbar__brand-dot"></span>TempConnect</div></nav>
+    <div class="paywall-box">
+      <h2>Bereich nicht verfuegbar</h2>
+      <p>Aktueller Plan: <span id="paywall-current-plan" class="paywall-plan">?</span></p>
+      <a id="paywall-cta" href="/public/sla_abo.html" class="btn primary">Abo ansehen</a>
+    </div>
+  </div>
+
+  <div id="main-content" class="ds-wrap">
+    <div id="tc-shell"></div>
+
+    <div class="ds-page-header">
+      <div class="ds-page-header__content">
+        <h1 class="ds-page-title">Meine Deals</h1>
+        <p class="ds-page-subtitle">Einsatzvereinbarungen, Verhandlungen und Dealakten &mdash; gegenseitenorientiert, aktionszentriert und pilotkritisch bis zur Aktivierung.</p>
+      </div>
+    </div>
+
+    <div class="tc-priority-banner tc-priority-banner--pilot">
+      <div class="tc-priority-banner__main">
+        <div class="tc-priority-banner__eyebrow">Pilot-Standard</div>
+        <div class="tc-priority-banner__title">Dealabschluss muss hier ohne Interpretationsspielraum funktionieren</div>
+        <p class="tc-priority-banner__text">Angebote, Vereinbarung, Aktivierung und der naechste Verantwortliche muessen fuer beide Seiten sofort klar sein. Dieser Bereich ist die Bruecke vom Interesse zum laufenden Einsatz.</p>
+      </div>
+      <div class="tc-priority-banner__aside">
+        <div class="tc-priority-banner__aside-title">Pilot-Mindestflow</div>
+        <div class="tc-priority-banner__aside-text">Arbeitsplatzangebot oder Personal → Deal → Einsatzvereinbarung → Aktivierung</div>
+      </div>
+    </div>
+
+    <!-- KPI Tiles -->
+    <div class="dm-kpi" id="dm-kpi">
+      <div class="dm-kpi-tile"><div class="dm-kpi-tile__value dm-kpi-tile__value--brand" id="kpi-active">-</div><div class="dm-kpi-tile__label">Aktive Deals</div></div>
+      <div class="dm-kpi-tile"><div class="dm-kpi-tile__value dm-kpi-tile__value--warning" id="kpi-action">-</div><div class="dm-kpi-tile__label">Aktion erforderlich</div></div>
+      <div class="dm-kpi-tile"><div class="dm-kpi-tile__value dm-kpi-tile__value--success" id="kpi-completed">-</div><div class="dm-kpi-tile__label">Abgeschlossen</div></div>
+      <div class="dm-kpi-tile"><div class="dm-kpi-tile__value dm-kpi-tile__value--accent" id="kpi-volume">-</div><div class="dm-kpi-tile__label">Gesamtpersonen</div></div>
+    </div>
+
+    <div class="dm-tabs" id="dm-tabs">
+      <button class="dm-tab dm-tab--active" data-filter="active">Aktive Deals <span class="dm-tab__count" id="cnt-active"></span></button>
+      <button class="dm-tab" data-filter="completed">Abgeschlossen <span class="dm-tab__count" id="cnt-completed"></span></button>
+      <button class="dm-tab" data-filter="cancelled">Storniert <span class="dm-tab__count" id="cnt-cancelled"></span></button>
+      <button class="dm-tab" data-filter="">Alle <span class="dm-tab__count" id="cnt-all"></span></button>
+    </div>
+    <div class="dm-toolbar">
+      <div id="dm-results" class="dm-results"></div>
+      <form id="dm-search" class="dm-search">
+        <input id="dm-search-input" class="dm-search__input" type="search" placeholder="Deals, Referenz, Rolle oder Gegenseite durchsuchen"/>
+        <button type="submit" class="btn">Suchen</button>
+        <button type="button" id="dm-search-clear" class="btn" style="display:none">Zuruecksetzen</button>
+      </form>
+    </div>
+
+    <div id="dm-loading">
+      <div class="ds-skeleton ds-skeleton--card" style="height:80px"></div>
+      <div class="ds-skeleton ds-skeleton--card" style="height:80px"></div>
+    </div>
+
+    <div id="dm-list" class="dm-list" style="display:none"></div>
+
+    <div id="dm-empty" class="dm-empty" style="display:none">
+      <div class="dm-empty__icon">&#128203;</div>
+      <div>Keine Deals in dieser Kategorie.</div>
+    </div>
+    <div id="dm-pagination" class="dm-pagination" style="display:none">
+      <div id="dm-pagination-info" class="dm-pagination__info"></div>
+      <button id="dm-load-more" type="button" class="btn">Mehr laden</button>
+    </div>
+  </div>
+
+  <script src="/public/js/api.js"></script>
+  <script src="/public/js/planFeatures.js"></script>
+  <script src="/public/js/slaGuard.js"></script>
+  <script>
+  (function() {
+    'use strict';
+    var currentDeals = [];
+    var currentFilter = 'active';
+    var currentQuery = '';
+    var currentCounts = { active: 0, completed: 0, cancelled: 0, all: 0 };
+    var currentHeadcounts = { active: 0, completed: 0, cancelled: 0, all: 0 };
+    var currentKpis = { action_required: 0 };
+    var currentPagination = { limit: 25, offset: 0, returned: 0, total: 0, has_more: false };
+    var requestSeq = 0;
+    var PAGE_SIZE = 25;
+    var FILTER_LABELS = {
+      active: 'aktive Deals',
+      completed: 'abgeschlossene Deals',
+      cancelled: 'stornierte Deals',
+      all: 'Deals'
+    };
+    var loadingEl = document.getElementById('dm-loading');
+    var listEl = document.getElementById('dm-list');
+    var emptyEl = document.getElementById('dm-empty');
+    var paginationEl = document.getElementById('dm-pagination');
+    var paginationInfoEl = document.getElementById('dm-pagination-info');
+    var loadMoreBtn = document.getElementById('dm-load-more');
+    var resultsEl = document.getElementById('dm-results');
+    var searchForm = document.getElementById('dm-search');
+    var searchInput = document.getElementById('dm-search-input');
+    var searchClearBtn = document.getElementById('dm-search-clear');
+    var defaultLoadingMarkup = loadingEl.innerHTML;
+
+    function esc(s) { return s == null ? '' : String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/\"/g,'&quot;'); }
+    function fmtDate(d) { return d ? String(d).substring(0,10) : '\u2014'; }
+    function fmtMoney(v) { return v == null ? '\u2014' : Number(v).toFixed(2) + ' EUR/h'; }
+    function toInt(value, fallback) {
+      var num = Number(value);
+      return isFinite(num) ? Math.max(0, Math.trunc(num)) : fallback;
+    }
+    function countFor(key) { return toInt(currentCounts[key], 0); }
+    function headcountFor(key) { return toInt(currentHeadcounts[key], 0); }
+    function selectedFilterKey() { return currentFilter || 'all'; }
+    function selectedFilterLabel() { return FILTER_LABELS[selectedFilterKey()] || FILTER_LABELS.all; }
+
+    var STATUS_LABELS = {
+      draft:'Entwurf', sent:'Gesendet', countered:'Gegenangebot', accepted:'Angenommen',
+      rejected:'Abgelehnt', withdrawn:'Zurueckgezogen'
+    };
+    var AGR_LABELS = {
+      none:'Offen', pending_confirmation:'Vereinbarung erstellt', confirmed:'Bestaetigt',
+      activated:'Einsatz aktiviert', cancelled:'Storniert', expired:'Abgelaufen'
+    };
+    var ACTION_META = {
+      action_required: { text:'Aktion erforderlich', cls:'dm-badge--action' },
+      waiting: { text:'Warten auf Gegenseite', cls:'dm-badge--waiting' },
+      completed: { text:'Abgeschlossen', cls:'dm-badge--done' },
+      cancelled: { text:'Storniert', cls:'dm-badge--danger' },
+      expired: { text:'Abgelaufen', cls:'dm-badge--danger' },
+      closed: { text:'Geschlossen', cls:'dm-badge--neutral' }
+    };
+
+    function progressPct(deal) {
+      var agr = deal.agreement_status || 'none';
+      if (agr === 'activated') return 100;
+      if (agr === 'confirmed') return 75;
+      if (agr === 'pending_confirmation') return 60;
+      if (deal.status === 'accepted') return 50;
+      if (deal.status === 'sent' || deal.status === 'countered') return 25;
+      if (deal.status === 'rejected' || deal.status === 'withdrawn') return 0;
+      if (agr === 'cancelled' || agr === 'expired') return 0;
+      return 10;
+    }
+
+    var NEXT_STEP = {
+      action_required: 'Sie muessen handeln \u2013 naechsten Schritt ausfuehren.',
+      waiting: 'Warten auf Gegenseite \u2013 die andere Partei ist am Zug.',
+      completed: 'Deal abgeschlossen \u2013 Einsatz aktiviert.',
+      cancelled: 'Vorgang storniert.',
+      expired: 'Vereinbarung abgelaufen.',
+      closed: 'Vorgang geschlossen.'
+    };
+
+    var NEXT_ACTION_DETAIL = {
+      'sent.supplier': 'Angebot pruefen und annehmen oder ablehnen',
+      'sent.requester': 'Warten auf Rueckmeldung der Zeitarbeitsfirma',
+      'accepted.requester': 'Einsatzvereinbarung erstellen',
+      'accepted.supplier': 'Warten auf Vereinbarungserstellung',
+      'pending_confirmation.supplier': 'Einsatzvereinbarung bestaetigen',
+      'pending_confirmation.requester': 'Warten auf Bestaetigung durch Agentur',
+      'confirmed.requester': 'Einsatz aktivieren und Worker-Zuweisung starten',
+      'confirmed.supplier': 'Warten auf Aktivierung durch Auftraggeber'
+    };
+
+    function subjectTitle(d) {
+      return d.subject_title || d.capacity_title || d.demand_title || d.demand_role || 'Deal';
+    }
+
+    function roleLabel(d) {
+      return d.capacity_role || d.demand_role || '\u2014';
+    }
+
+    function locationLabel(d) {
+      return d.capacity_location || d.demand_location || '\u2014';
+    }
+
+    function availabilityStart(d) {
+      return d.capacity_availability_from || d.start_confirmed || d.demand_start || null;
+    }
+
+    function availabilityEnd(d) {
+      return d.capacity_availability_to || d.end_date || d.demand_end || null;
+    }
+
+    function availabilityLabel(d) {
+      var start = availabilityStart(d);
+      var end = availabilityEnd(d);
+      return fmtDate(start) + (end ? ' \u2013 ' + fmtDate(end) : '');
+    }
+
+    function dealHeadcount(d) {
+      return toInt(
+        d.deal_headcount != null ? d.deal_headcount
+          : d.offered_quantity != null ? d.offered_quantity
+            : d.demand_headcount,
+        0
+      );
+    }
+
+    function totalCapacity(d) {
+      return Math.max(1, toInt(d.capacity_headcount, 1));
+    }
+
+    function remainingCapacity(d) {
+      if (d.capacity_remaining_headcount != null) return Math.max(0, toInt(d.capacity_remaining_headcount, 0));
+      return d.capacity_post_id ? totalCapacity(d) : 0;
+    }
+
+    function committedCapacity(d) {
+      if (d.capacity_committed_headcount != null) return Math.max(0, toInt(d.capacity_committed_headcount, 0));
+      return d.capacity_post_id ? dealHeadcount(d) : 0;
+    }
+
+    function capacityStatusKey(d) {
+      return d.capacity_commercial_status || d.capacity_status || 'active';
+    }
+
+    function capacityStatusLabel(d) {
+      var status = capacityStatusKey(d);
+      if (status === 'reserved') return 'Reserviert';
+      if (status === 'partially_committed') return 'Teilgebunden';
+      if (status === 'open' || status === 'active') return 'Offen';
+      return status || '\u2014';
+    }
+
+    function capacityStatusBadgeClass(d) {
+      var status = capacityStatusKey(d);
+      if (status === 'reserved') return 'dm-badge--capacity-reserved';
+      if (status === 'partially_committed') return 'dm-badge--capacity-partial';
+      return 'dm-badge--capacity-open';
+    }
+
+    function capacitySummary(d) {
+      if (!d.capacity_post_id) return null;
+      var total = totalCapacity(d);
+      var remaining = remainingCapacity(d);
+      var committed = committedCapacity(d);
+      if (capacityStatusKey(d) === 'reserved' || remaining === 0) {
+        return '0 frei / ' + total + ' gesamt' + (committed > 0 ? ' · ' + committed + ' dealgebunden' : '');
+      }
+      if (committed > 0 || remaining !== total) {
+        return remaining + ' frei / ' + total + ' gesamt' + (committed > 0 ? ' · ' + committed + ' dealgebunden' : '');
+      }
+      return total + ' frei verfuegbar';
+    }
+
+    function dealQuantityLabel(d) {
+      var qty = dealHeadcount(d);
+      return qty ? qty + ' Pers. im Deal' : '\u2014';
+    }
+
+    function subjectTypeLabel(d) {
+      return d.subject_type === 'capacity' ? 'Personaldeal' : 'Arbeitsplatzangebotsdeal';
+    }
+
+    function subjectTypeBadgeClass(d) {
+      return d.subject_type === 'capacity' ? 'dm-badge--subject-capacity' : 'dm-badge--subject-demand';
+    }
+
+    function subjectContextLabel(d) {
+      return d.subject_type === 'capacity' ? 'Personalangebot' : 'Arbeitsplatzangebot';
+    }
+
+    function getNextActionDetail(d) {
+      var agr = d.agreement_status || 'none';
+      var key = (agr !== 'none' ? agr : d.status) + '.' + d.viewer_role;
+      return NEXT_ACTION_DETAIL[key] || NEXT_STEP[d.action_required] || null;
+    }
+
+    function renderDeal(d) {
+      var pct = progressPct(d);
+      var agr = d.agreement_status || 'none';
+      var am = ACTION_META[d.action_required] || null;
+      var isAction = d.deal_history_bucket === 'active' && d.action_required === 'action_required';
+      var isDone = d.deal_history_bucket === 'completed';
+      var isCancelled = d.deal_history_bucket === 'cancelled';
+      var cardCls = 'dm-card' + (isAction ? ' dm-card--action' : '') + (isDone ? ' dm-card--done' : '') + (isCancelled ? ' dm-card--cancelled' : '');
+      var nextDetail = getNextActionDetail(d);
+
+      var html = '<div class="' + cardCls + '" onclick="location.href=\'/public/offer_detail.html?id=' + esc(d.id) + '\'">';
+      html += '<div class="dm-card__main">';
+      html += '<div class="dm-card__head">';
+      html += '<div class="dm-card__title">' + esc(subjectTitle(d)) + '</div>';
+      html += '<span class="dm-badge ' + subjectTypeBadgeClass(d) + '">' + esc(subjectTypeLabel(d)) + '</span>';
+      if (d.agreement_ref) html += '<span class="dm-card__ref">' + esc(d.agreement_ref) + '</span>';
+      html += '</div>';
+      html += '<div class="dm-card__counterparty">Gegenseite: <strong>' + esc(d.counterparty_name || '\u2014') + '</strong> \u00b7 Ihre Rolle: ' + (d.viewer_role === 'supplier' ? 'Lieferant' : 'Auftraggeber') + '</div>';
+      html += '<div class="dm-card__meta">';
+      html += '<span class="dm-card__meta-item">&#128100; ' + esc(roleLabel(d)) + '</span>';
+      html += '<span class="dm-card__meta-item">&#128205; ' + esc(locationLabel(d)) + '</span>';
+      html += '<span class="dm-card__meta-item">&#128197; ' + esc(availabilityLabel(d)) + '</span>';
+      html += '<span class="dm-card__meta-item">&#128101; ' + esc(dealQuantityLabel(d)) + '</span>';
+      if (d.offered_hourly_rate != null) html += '<span class="dm-card__meta-item">&#128176; ' + esc(fmtMoney(d.offered_hourly_rate)) + '</span>';
+      html += '</div>';
+      if (d.capacity_post_id) {
+        html += '<div class="dm-card__context">';
+        html += '<span class="dm-badge dm-badge--neutral">' + esc(subjectContextLabel(d)) + '</span>';
+        html += '<span class="dm-badge ' + capacityStatusBadgeClass(d) + '">' + esc(capacityStatusLabel(d)) + '</span>';
+        html += '<span class="dm-badge dm-badge--neutral">' + esc(capacitySummary(d) || '\u2014') + '</span>';
+        html += '</div>';
+      }
+      if (nextDetail && !isCancelled) {
+        html += '<div class="dm-card__nextstep"><strong>' + (isAction ? '\u25b6 Naechster Schritt: ' : '\u23f3 ') + '</strong>' + esc(nextDetail) + '</div>';
+      }
+      html += '</div>';
+
+      html += '<div class="dm-card__sidebar">';
+      html += '<div class="dm-card__badges">';
+      if (am) html += '<span class="dm-badge ' + am.cls + '">' + esc(am.text) + '</span>';
+      if (d.capacity_post_id) html += '<span class="dm-badge ' + capacityStatusBadgeClass(d) + '">' + esc(capacityStatusLabel(d)) + '</span>';
+      html += '<span class="dm-badge dm-badge--neutral">' + esc(AGR_LABELS[agr] || STATUS_LABELS[d.status] || d.status) + '</span>';
+      html += '</div>';
+      html += '<div class="dm-pct">' + pct + '%</div>';
+      html += '<div class="dm-progress"><div class="dm-progress__fill" style="width:' + pct + '%"></div></div>';
+      html += '</div>';
+
+      html += '</div>';
+      return html;
+    }
+
+    function updateCounts() {
+      document.getElementById('cnt-active').textContent = '(' + countFor('active') + ')';
+      document.getElementById('cnt-completed').textContent = '(' + countFor('completed') + ')';
+      document.getElementById('cnt-cancelled').textContent = '(' + countFor('cancelled') + ')';
+      document.getElementById('cnt-all').textContent = '(' + countFor('all') + ')';
+    }
+
+    function updateKPIs() {
+      document.getElementById('kpi-active').textContent = countFor('active');
+      document.getElementById('kpi-action').textContent = toInt(currentKpis.action_required, 0);
+      document.getElementById('kpi-completed').textContent = countFor('completed');
+      document.getElementById('kpi-volume').textContent = headcountFor('all');
+    }
+
+    function updateSearchUi() {
+      var hasSearch = !!(currentQuery || searchInput.value.trim());
+      searchClearBtn.style.display = hasSearch ? 'inline-flex' : 'none';
+    }
+
+    function renderResultsMeta() {
+      var label = selectedFilterLabel();
+      var total = toInt(currentPagination.total, 0);
+      var loaded = currentDeals.length;
+      var people = headcountFor(selectedFilterKey());
+      if (!total) {
+        resultsEl.textContent = currentQuery
+          ? 'Keine ' + label + ' fuer die Suche "' + currentQuery + '".'
+          : 'Keine ' + label + ' vorhanden.';
+        return;
+      }
+      var parts = [];
+      if (loaded < total) parts.push(loaded + ' von ' + total + ' ' + label + ' geladen');
+      else parts.push(total + ' ' + label);
+      if (people > 0) parts.push(people + ' Personen');
+      if (currentQuery) parts.push('Suche: "' + currentQuery + '"');
+      resultsEl.textContent = parts.join(' · ');
+    }
+
+    function renderPagination() {
+      var total = toInt(currentPagination.total, 0);
+      if (!currentDeals.length) {
+        paginationEl.style.display = 'none';
+        return;
+      }
+      paginationEl.style.display = 'flex';
+      paginationInfoEl.textContent = currentDeals.length + ' von ' + total + ' ' + selectedFilterLabel() + ' sichtbar';
+      loadMoreBtn.style.display = currentPagination.has_more ? 'inline-flex' : 'none';
+      loadMoreBtn.disabled = false;
+      loadMoreBtn.textContent = 'Mehr laden';
+    }
+
+    function emptyStateMessage() {
+      var label = selectedFilterLabel();
+      if (currentQuery) return 'Keine ' + label + ' fuer diese Suche gefunden.';
+      if (selectedFilterKey() === 'completed') return 'Noch keine abgeschlossenen Deals vorhanden.';
+      if (selectedFilterKey() === 'cancelled') return 'Keine stornierten Deals vorhanden.';
+      if (selectedFilterKey() === 'active') return 'Keine aktiven Deals vorhanden.';
+      return 'Keine Deals in dieser Kategorie.';
+    }
+
+    function render() {
+      renderResultsMeta();
+      renderPagination();
+      if (!currentDeals.length) {
+        listEl.style.display = 'none';
+        emptyEl.style.display = 'block';
+        emptyEl.innerHTML = '<div class="dm-empty__icon">&#128203;</div><div>' + esc(emptyStateMessage()) + '</div>';
+        paginationEl.style.display = 'none';
+        return;
+      }
+      emptyEl.style.display = 'none';
+      listEl.style.display = 'flex';
+      var html = '';
+      currentDeals.forEach(function(d) { html += renderDeal(d); });
+      listEl.innerHTML = html;
+    }
+
+    function setLoading(append) {
+      if (append) {
+        loadMoreBtn.disabled = true;
+        loadMoreBtn.textContent = 'Laedt...';
+        return;
+      }
+      loadingEl.innerHTML = defaultLoadingMarkup;
+      loadingEl.style.display = 'block';
+      listEl.style.display = 'none';
+      emptyEl.style.display = 'none';
+      paginationEl.style.display = 'none';
+    }
+
+    function showLoadError(append) {
+      if (append) {
+        loadMoreBtn.disabled = false;
+        loadMoreBtn.textContent = 'Mehr laden';
+        paginationInfoEl.textContent = 'Weitere Deals konnten nicht geladen werden.';
+        paginationEl.style.display = 'flex';
+        return;
+      }
+      loadingEl.innerHTML = '<div class="ds-alert ds-alert--danger">Fehler beim Laden der Deals.</div>';
+    }
+
+    function loadDeals(opts) {
+      var append = !!(opts && opts.append);
+      var nextOffset = append ? currentDeals.length : 0;
+      var seq = ++requestSeq;
+      setLoading(append);
+      var path = '/marketplace/my-deals?include_meta=1&limit=' + PAGE_SIZE + '&offset=' + nextOffset;
+      if (selectedFilterKey() !== 'all') path += '&status=' + encodeURIComponent(selectedFilterKey());
+      if (currentQuery) path += '&q=' + encodeURIComponent(currentQuery);
+      TC.api.get(path).then(function(data) {
+        if (seq !== requestSeq) return;
+        var items = Array.isArray(data && data.items) ? data.items : [];
+        currentDeals = append ? currentDeals.concat(items) : items;
+        currentCounts = data && data.counts ? data.counts : currentCounts;
+        currentHeadcounts = data && data.headcounts ? data.headcounts : currentHeadcounts;
+        currentKpis = data && data.kpis ? data.kpis : currentKpis;
+        currentPagination = data && data.pagination ? data.pagination : {
+          limit: PAGE_SIZE,
+          offset: nextOffset,
+          returned: items.length,
+          total: items.length,
+          has_more: false
+        };
+        loadingEl.style.display = 'none';
+        updateCounts();
+        updateKPIs();
+        updateSearchUi();
+        render();
+      }).catch(function() {
+        if (seq !== requestSeq) return;
+        showLoadError(append);
+      });
+    }
+
+    document.getElementById('dm-tabs').addEventListener('click', function(ev) {
+      var btn = ev.target.closest('.dm-tab');
+      if (!btn) return;
+      document.querySelectorAll('.dm-tab').forEach(function(t) { t.classList.remove('dm-tab--active'); });
+      btn.classList.add('dm-tab--active');
+      currentFilter = btn.getAttribute('data-filter') || '';
+      loadDeals({ append: false });
+    });
+
+    searchForm.addEventListener('submit', function(ev) {
+      ev.preventDefault();
+      currentQuery = searchInput.value.trim();
+      updateSearchUi();
+      loadDeals({ append: false });
+    });
+
+    searchInput.addEventListener('input', updateSearchUi);
+
+    searchClearBtn.addEventListener('click', function() {
+      if (!currentQuery && !searchInput.value.trim()) return;
+      currentQuery = '';
+      searchInput.value = '';
+      updateSearchUi();
+      loadDeals({ append: false });
+    });
+
+    loadMoreBtn.addEventListener('click', function() {
+      if (!currentPagination.has_more) return;
+      loadDeals({ append: true });
+    });
+
+    updateSearchUi();
+    loadDeals({ append: false });
+  })();
+  </script>
+  <script src="/public/js/pageShell.js"></script>
+  <script src="/public/js/notifications.js"></script>
+  <div id="tc-footer" data-tc-footer></div>
+  <script src="/public/js/footer.js"></script>
+  <script src="/public/js/demoBanner.js" defer></script>
+  <script src="/public/js/breadcrumb.js" defer></script>
+</body>
+</html>

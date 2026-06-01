@@ -1,0 +1,692 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <script src="/public/js/theme.js"></script>
+  <title>Angebotsdetail – TempConnect</title>
+  <link rel="stylesheet" href="/public/css/enterprise.css"/>
+  <style>
+    .od-hero{padding:var(--ds-space-5);border-radius:var(--ds-radius-xl);border:1px solid var(--ds-border);background:rgba(255,255,255,.02);margin-bottom:var(--ds-space-4)}
+    .od-hero--emergency{border-color:rgba(255,92,122,.3);background:rgba(255,92,122,.03)}
+    .od-hero__top{display:flex;justify-content:space-between;align-items:flex-start;gap:var(--ds-space-4);flex-wrap:wrap}
+    .od-hero__title{font-size:20px;font-weight:800;margin-bottom:4px}
+    .od-hero__meta{font-size:12px;color:var(--ds-text-secondary)}
+    .od-badge{display:inline-block;padding:3px 10px;border-radius:6px;font-size:11px;font-weight:700}
+    .od-badge--action{background:rgba(255,204,0,.15);color:#ffd700}
+    .od-badge--waiting{background:rgba(74,158,255,.12);color:var(--ds-brand)}
+    .od-badge--done{background:rgba(57,217,138,.12);color:var(--ds-success)}
+    .od-badge--emergency{background:rgba(255,92,122,.15);color:#ff5c7a}
+    .od-badge--status{background:rgba(255,255,255,.06);color:var(--ds-text-secondary)}
+    .od-progress{padding:var(--ds-space-5);border-radius:var(--ds-radius-xl);border:1px solid rgba(74,158,255,.2);background:rgba(74,158,255,.02);margin-bottom:var(--ds-space-4)}
+    .od-progress--emergency{border-color:rgba(255,92,122,.2);background:rgba(255,92,122,.02)}
+    .od-progress__header{display:flex;justify-content:space-between;align-items:center;margin-bottom:var(--ds-space-3)}
+    .od-progress__title{font-size:15px;font-weight:800}
+    .od-progress__counter{font-size:13px;color:var(--ds-text-secondary)}
+    .od-progress__bar{height:6px;border-radius:3px;background:rgba(255,255,255,.08);margin-bottom:var(--ds-space-4);overflow:hidden}
+    .od-progress__fill{height:100%;border-radius:3px;background:var(--ds-success);transition:width .3s}
+    .od-steps{display:flex;flex-direction:column;gap:var(--ds-space-2)}
+    .od-step{display:flex;align-items:flex-start;gap:var(--ds-space-3);padding:var(--ds-space-2) var(--ds-space-3);border-radius:var(--ds-radius-md)}
+    .od-step--current{background:rgba(74,158,255,.06);border:1px solid rgba(74,158,255,.15)}
+    .od-step--emergency.od-step--current{background:rgba(255,92,122,.06);border-color:rgba(255,92,122,.15)}
+    .od-step__icon{width:24px;height:24px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;flex-shrink:0;margin-top:1px}
+    .od-step__icon--done{background:rgba(57,217,138,.15);color:var(--ds-success)}
+    .od-step__icon--current{background:rgba(74,158,255,.15);color:var(--ds-brand)}
+    .od-step__icon--future{background:rgba(255,255,255,.06);color:var(--ds-text-tertiary)}
+    .od-grid{display:grid;grid-template-columns:1fr 1fr;gap:var(--ds-space-4);margin-bottom:var(--ds-space-4)}
+    @media(max-width:768px){.od-grid{grid-template-columns:1fr}}
+    .od-card{padding:var(--ds-space-4);border-radius:var(--ds-radius-lg);border:1px solid var(--ds-border);background:rgba(255,255,255,.02)}
+    .od-card__title{font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:var(--ds-text-secondary);margin-bottom:var(--ds-space-3)}
+    .od-field{margin-bottom:var(--ds-space-2)}
+    .od-field__label{font-size:11px;color:var(--ds-text-tertiary);text-transform:uppercase;letter-spacing:.04em}
+    .od-field__value{font-weight:600;font-size:14px}
+    .od-docs{display:flex;gap:var(--ds-space-2);flex-wrap:wrap;margin-top:var(--ds-space-3)}
+    .od-doc-btn{display:inline-flex;align-items:center;gap:6px;padding:8px 16px;border-radius:8px;border:1px solid var(--ds-border);background:rgba(255,255,255,.03);color:var(--ds-text);font-size:12px;font-weight:600;text-decoration:none;transition:all .15s}
+    .od-doc-btn:hover{background:rgba(255,255,255,.08);border-color:var(--ds-border-hover)}
+    .od-actions{display:flex;gap:var(--ds-space-2);flex-wrap:wrap;margin-top:var(--ds-space-3)}
+    .od-list{display:flex;flex-direction:column;gap:var(--ds-space-2)}
+    .od-list__item{padding:12px 14px;border-radius:10px;border:1px solid var(--ds-border);background:rgba(255,255,255,.02)}
+    .od-list__top{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap}
+    .od-list__title{font-weight:700;font-size:13px}
+    .od-list__meta{font-size:11px;color:var(--ds-text-secondary);margin-top:4px}
+    .od-tag{display:inline-flex;align-items:center;padding:3px 8px;border-radius:999px;background:rgba(255,255,255,.06);font-size:11px;color:var(--ds-text-secondary)}
+    .od-upload{margin-top:var(--ds-space-3);padding:12px;border:1px dashed var(--ds-border);border-radius:10px;background:rgba(255,255,255,.02)}
+    .od-upload__row{display:flex;gap:var(--ds-space-2);flex-wrap:wrap;align-items:center}
+    .od-upload__hint{font-size:11px;color:var(--ds-text-secondary);margin-top:8px}
+    .od-timeline{display:flex;flex-direction:column;gap:var(--ds-space-2)}
+    .od-timeline__item{padding:12px 14px;border-left:3px solid rgba(74,158,255,.3);background:rgba(74,158,255,.04);border-radius:8px}
+    .od-timeline__title{font-weight:700;font-size:13px}
+    .od-timeline__meta{font-size:11px;color:var(--ds-text-secondary);margin-top:4px}
+    .od-timeline__details{font-size:12px;color:var(--ds-text-secondary);margin-top:6px}
+    .od-empty{font-size:13px;color:var(--ds-text-secondary)}
+    .od-note{font-size:12px;color:var(--ds-text-secondary);margin-top:8px}
+    .od-list__actions{display:flex;gap:var(--ds-space-2);flex-wrap:wrap;margin-top:10px}
+    .od-card--full{margin-bottom:var(--ds-space-4)}
+    .od-status-line{display:flex;gap:var(--ds-space-2);flex-wrap:wrap;align-items:center;margin-bottom:var(--ds-space-3)}
+    .od-pill{display:inline-flex;align-items:center;padding:4px 10px;border-radius:999px;font-size:11px;font-weight:700}
+    .od-pill--neutral{background:rgba(255,255,255,.06);color:var(--ds-text-secondary)}
+    .od-pill--success{background:rgba(57,217,138,.12);color:var(--ds-success)}
+    .od-pill--warn{background:rgba(255,204,0,.15);color:#ffd700}
+    .od-pill--danger{background:rgba(255,92,122,.15);color:#ff7d97}
+  </style>
+</head>
+<body data-sla-guard="sla_access">
+  <div class="wrap">
+    <div id="tc-shell"></div>
+    <div id="od-loading" style="text-align:center;padding:var(--ds-space-10);color:var(--ds-text-secondary)">Lade Angebotsdetails&#x2026;</div>
+    <div id="od-content" style="display:none"></div>
+  </div>
+  <script src="/public/js/planFeatures.js"></script>
+  <script src="/public/js/slaGuard.js"></script>
+  <script src="/public/js/pageShell.js"></script>
+  <script>
+  (async function() {
+    var API = '/api';
+    var params = new URLSearchParams(location.search);
+    var offerId = params.get('id');
+    if (!offerId) { document.getElementById('od-loading').textContent = 'Keine Angebots-ID.'; return; }
+
+    function esc(value) {
+      var d = document.createElement('div');
+      d.textContent = value == null ? '' : String(value);
+      return d.innerHTML;
+    }
+    function fmtDate(value) {
+      if (!value) return '\u2014';
+      try { return new Date(value).toLocaleDateString('de-DE'); } catch (e) { return '\u2014'; }
+    }
+    function fmtDateTime(value) {
+      if (!value) return '\u2014';
+      try { return new Date(value).toLocaleString('de-DE'); } catch (e) { return '\u2014'; }
+    }
+    function fmtMoney(value, suffix) {
+      if (value == null || value === '') return '\u2014';
+      var num = Number(value);
+      if (!isFinite(num)) return String(value);
+      return num.toLocaleString('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + (suffix ? ' ' + suffix : '');
+    }
+    function fmtInt(value, suffix) {
+      if (value == null || value === '') return '\u2014';
+      return esc(String(value)) + (suffix ? ' ' + esc(suffix) : '');
+    }
+    function field(label, value) {
+      return '<div class="od-field"><div class="od-field__label">' + esc(label) + '</div><div class="od-field__value">' + (value == null || value === '' ? '\u2014' : String(value)) + '</div></div>';
+    }
+    function toCount(value, fallback) {
+      var num = Number(value);
+      return isFinite(num) ? Math.max(0, Math.trunc(num)) : fallback;
+    }
+    function capacityStatusLabel(status) {
+      return {
+        open: 'Offen',
+        partially_committed: 'Teilweise dealgebunden',
+        reserved: 'Reserviert',
+        active: 'Aktiv'
+      }[status] || status || '\u2014';
+    }
+    function capacityHeadcountSummary(offer) {
+      if (!offer || !offer.capacity_post_id) return '\u2014';
+      var total = Math.max(1, toCount(offer.capacity_headcount, 1));
+      var remaining = offer.capacity_remaining_headcount != null ? Math.max(0, toCount(offer.capacity_remaining_headcount, 0)) : total;
+      var committed = offer.capacity_committed_headcount != null ? Math.max(0, toCount(offer.capacity_committed_headcount, 0)) : 0;
+      if (offer.capacity_commercial_status || committed > 0 || remaining !== total) {
+        return remaining + ' frei / ' + total + ' gesamt' + (committed > 0 ? ' · ' + committed + ' dealgebunden' : '');
+      }
+      return total + ' gesamt';
+    }
+    function agreementStatusLabel(status) {
+      return {
+        none: 'Keine Vereinbarung',
+        pending_confirmation: 'Wartet auf Bestätigung',
+        confirmed: 'Bestätigt',
+        activated: 'Aktiviert',
+        cancelled: 'Storniert',
+        expired: 'Abgelaufen'
+      }[status || 'none'] || (status || '\u2014');
+    }
+    function signatureStatusLabel(required, status) {
+      if (!required || status === 'not_required' || !status) return 'Nicht erforderlich';
+      return {
+        pending: 'Vorbereitet / ausstehend',
+        partially_signed: 'Teilweise signiert',
+        fully_signed: 'Vollständig signiert',
+        failed: 'Fehlgeschlagen',
+        expired: 'Abgelaufen'
+      }[status] || status;
+    }
+    function actionStateMeta(actionState) {
+      if (actionState === 'action_required') return { text: 'Aktion erforderlich', cls: 'od-badge--action' };
+      if (actionState === 'waiting') return { text: 'Warten auf Gegenseite', cls: 'od-badge--waiting' };
+      if (actionState === 'completed') return { text: 'Abgeschlossen', cls: 'od-badge--done' };
+      if (actionState === 'cancelled') return { text: 'Storniert', cls: 'od-badge--status' };
+      if (actionState === 'expired') return { text: 'Abgelaufen', cls: 'od-badge--status' };
+      if (actionState === 'closed') return { text: 'Geschlossen', cls: 'od-badge--status' };
+      return null;
+    }
+    function docTypeLabel(type) {
+      return {
+        conditions_sheet: 'Konditionsblatt',
+        agreement: 'Einsatzvereinbarung',
+        summary: 'Zusammenfassung',
+        amendment: 'Nachtrag',
+        cancellation: 'Stornierung'
+      }[type] || type || 'Dokument';
+    }
+    function pillClass(status) {
+      if (status === 'current' || status === 'activated' || status === 'confirmed') return 'od-pill--success';
+      if (status === 'superseded' || status === 'pending_confirmation' || status === 'pending') return 'od-pill--warn';
+      if (status === 'cancelled' || status === 'expired' || status === 'failed' || status === 'archived') return 'od-pill--danger';
+      return 'od-pill--neutral';
+    }
+    function assetUrl(path) {
+      if (!path) return null;
+      if (/^https?:\/\//i.test(path)) return path;
+      return '/' + String(path).replace(/^\/+/, '');
+    }
+    function documentUrl(doc) {
+      if (!doc) return null;
+      if (doc.document_type === 'conditions_sheet') return API + '/marketplace/offers/' + offerId + '/document?type=conditions';
+      if (doc.document_type === 'agreement') return API + '/marketplace/offers/' + offerId + '/document?type=agreement';
+      if (doc.asset_file_path) return assetUrl(doc.asset_file_path);
+      return null;
+    }
+    function timelineTitle(action) {
+      return {
+        'deal.agreement_created': 'Vereinbarung erstellt',
+        'deal.agreement_confirmed': 'Vereinbarung bestätigt',
+        'deal.agreement_activated': 'Einsatz aktiviert',
+        'deal.agreement_cancelled': 'Vereinbarung storniert',
+        'deal.agreement_expired': 'Vereinbarung abgelaufen',
+        'deal.agreement_signature_prepared': 'Signaturstrecke vorbereitet',
+        'offer_asset.upload': 'Dokument hochgeladen',
+        'offer_asset.delete': 'Dokument entfernt',
+        'state_machine.transition': 'Statusübergang'
+      }[action] || action;
+    }
+    function timelineDetail(details) {
+      if (!details) return '';
+      if (details.from || details.to) {
+        return [details.from || '\u2014', details.to || '\u2014'].join(' \u2192 ');
+      }
+      if (details.signature_provider || details.signature_reference) {
+        return [details.signature_provider, details.signature_reference].filter(Boolean).join(' \u00b7 ');
+      }
+      if (details.asset_type || details.mime_type) {
+        return [details.asset_type, details.mime_type].filter(Boolean).join(' \u00b7 ');
+      }
+      if (details.reason) return details.reason;
+      if (details.agreement_ref) return details.agreement_ref;
+      return '';
+    }
+    function renderDocumentList(items, emptyText, allowGeneratedFallback) {
+      if (!items || !items.length) return '<div class="od-empty">' + esc(emptyText) + '</div>';
+      var html = '<div class="od-list">';
+      items.forEach(function(item) {
+        var title = item.title || item.asset_original_name || item.original_name || docTypeLabel(item.document_type);
+        var url = documentUrl(item);
+        if (!url && allowGeneratedFallback && item.document_type === 'conditions_sheet') url = API + '/marketplace/offers/' + offerId + '/document?type=conditions';
+        if (!url && allowGeneratedFallback && item.document_type === 'agreement') url = API + '/marketplace/offers/' + offerId + '/document?type=agreement';
+        var meta = [];
+        if (item.document_type) meta.push(docTypeLabel(item.document_type));
+        if (item.version != null) meta.push('Version ' + item.version);
+        if (item.generated_at) meta.push(fmtDateTime(item.generated_at));
+        if (item.created_at && !item.generated_at) meta.push(fmtDateTime(item.created_at));
+        html += '<div class="od-list__item">';
+        html += '<div class="od-list__top"><div><div class="od-list__title">' + esc(title) + '</div><div class="od-list__meta">' + esc(meta.join(' \u00b7 ')) + '</div></div>';
+        html += '<span class="od-pill ' + pillClass(item.status) + '">' + esc(item.status || 'current') + '</span></div>';
+        if (item.content_hash) {
+          html += '<div class="od-note">Hash: <code>' + esc(String(item.content_hash).slice(0, 16)) + '</code></div>';
+        }
+        if (url) {
+          html += '<div class="od-list__actions"><a href="' + esc(url) + '" target="_blank" class="od-doc-btn">Öffnen</a></div>';
+        }
+        html += '</div>';
+      });
+      html += '</div>';
+      return html;
+    }
+    function renderAssetList(items, emptyText) {
+      if (!items || !items.length) return '<div class="od-empty">' + esc(emptyText) + '</div>';
+      var html = '<div class="od-list">';
+      items.forEach(function(item) {
+        var url = assetUrl(item.file_path);
+        var meta = [];
+        if (item.mime_type) meta.push(item.mime_type);
+        if (item.created_at) meta.push(fmtDateTime(item.created_at));
+        html += '<div class="od-list__item">';
+        html += '<div class="od-list__top"><div><div class="od-list__title">' + esc(item.original_name || 'Anlage') + '</div><div class="od-list__meta">' + esc(meta.join(' \u00b7 ')) + '</div></div>';
+        html += '<span class="od-pill od-pill--neutral">Anlage</span></div>';
+        if (url) {
+          html += '<div class="od-list__actions"><a href="' + esc(url) + '" target="_blank" class="od-doc-btn">Öffnen</a></div>';
+        }
+        html += '</div>';
+      });
+      html += '</div>';
+      return html;
+    }
+
+    async function getCsrf() {
+      var r = await fetch(API + '/csrf', { credentials: 'include' });
+      var d = await r.json();
+      return d.token || '';
+    }
+    async function apiPost(path, body, isFormData) {
+      var csrf = await getCsrf();
+      var headers = { 'X-CSRF-Token': csrf };
+      if (!isFormData) headers['Content-Type'] = 'application/json';
+      return fetch(API + path, {
+        method: 'POST',
+        credentials: 'include',
+        headers: headers,
+        body: isFormData ? body : JSON.stringify(body || {})
+      });
+    }
+
+    try {
+      var detailResponse = await fetch(API + '/marketplace/offers/' + offerId + '/detail', { credentials: 'include' });
+      if (!detailResponse.ok) {
+        document.getElementById('od-loading').textContent = detailResponse.status === 403 ? 'Keine Berechtigung für dieses Angebot.' : 'Angebot nicht gefunden.';
+        return;
+      }
+      var dossierResponse = await fetch(API + '/marketplace/offers/' + offerId + '/dossier', { credentials: 'include' });
+      var o = await detailResponse.json();
+      var dossier = dossierResponse.ok ? await dossierResponse.json() : null;
+
+      document.getElementById('od-loading').style.display = 'none';
+      var root = document.getElementById('od-content');
+      root.style.display = 'block';
+
+      var isEmergency = o.urgency === 'notdienst' || o.urgency === 'critical' || o.urgency === 'urgent';
+      var agSt = o.agreement_status || 'none';
+      var actionMeta = actionStateMeta(o.action_required);
+      var signature = dossier && dossier.signature ? dossier.signature : {
+        required: o.signature_required,
+        status: o.signature_status,
+        provider: o.signature_provider,
+        reference: o.signature_reference
+      };
+      var generatedDocs = dossier && dossier.documents ? dossier.documents.generated || [] : [];
+      var uploadedDocs = dossier && dossier.documents ? dossier.documents.uploaded || [] : [];
+      var attachments = dossier && dossier.documents ? dossier.documents.attachments || [] : [];
+      var timeline = dossier && dossier.timeline ? dossier.timeline : [];
+      var terminal = agSt === 'cancelled' || agSt === 'expired' || o.action_required === 'closed';
+
+      var steps = isEmergency ? [
+        { key: 'committed', label: 'Teilzusage eingegangen', done: true },
+        { key: 'agreement', label: 'Sofortvereinbarung erstellt', done: agSt !== 'none', action: agSt === 'none' && o.status === 'accepted' && o.action_required === 'action_required' ? 'create-agreement' : null, actionLabel: 'Sofortvereinbarung erstellen' },
+        { key: 'confirmed', label: 'Gegenseite bestätigt', done: ['confirmed', 'activated'].indexOf(agSt) !== -1, action: agSt === 'pending_confirmation' && o.action_required === 'action_required' ? 'confirm-agreement' : null, actionLabel: 'Sofort bestätigen' },
+        { key: 'activated', label: 'Einsatz aktiviert / Dispatch', done: agSt === 'activated', action: agSt === 'confirmed' && o.action_required === 'action_required' ? 'activate' : null, actionLabel: 'Einsatz aktivieren' }
+      ] : [
+        { key: 'created', label: 'Angebot erstellt', done: true },
+        { key: 'sent', label: 'Angebot gesendet', done: o.status !== 'draft' },
+        { key: 'accepted', label: 'Konditionen akzeptiert', done: o.status === 'accepted' },
+        { key: 'agreement', label: 'Einsatzvereinbarung erstellt', done: agSt !== 'none', action: agSt === 'none' && o.status === 'accepted' && o.action_required === 'action_required' ? 'create-agreement' : null, actionLabel: 'Einsatzvereinbarung erstellen' },
+        { key: 'confirmed', label: 'Gegenseite bestätigt', done: ['confirmed', 'activated'].indexOf(agSt) !== -1, action: agSt === 'pending_confirmation' && o.action_required === 'action_required' ? 'confirm-agreement' : null, actionLabel: 'Vereinbarung bestätigen' },
+        { key: 'activated', label: 'Einsatz aktiviert', done: agSt === 'activated', action: agSt === 'confirmed' && o.action_required === 'action_required' ? 'activate' : null, actionLabel: 'Einsatz aktivieren' }
+      ];
+      var doneCount = steps.filter(function(s) { return s.done; }).length;
+      var totalSteps = steps.length;
+      var progressPct = Math.round((doneCount / totalSteps) * 100);
+
+      var canCreateAgreement = agSt === 'none' && o.status === 'accepted' && o.action_required === 'action_required';
+      var canConfirm = agSt === 'pending_confirmation' && o.action_required === 'action_required';
+      var canActivate = agSt === 'confirmed' && o.action_required === 'action_required';
+      var canPrepareSignature = agSt === 'confirmed' && o.action_required === 'action_required' && ['pending', 'fully_signed'].indexOf(signature.status || '') === -1;
+      var canCancel = agSt === 'pending_confirmation' || agSt === 'confirmed';
+
+      var h = '';
+
+      h += '<div class="od-hero' + (isEmergency ? ' od-hero--emergency' : '') + '">';
+      h += '<div class="od-hero__top"><div>';
+      h += '<div class="od-hero__title">' + esc(o.capacity_title || o.demand_title || o.demand_role || 'Angebot') + '</div>';
+      h += '<div class="od-hero__meta">' + esc((o.capacity_location || o.demand_location || '')) + ' \u00b7 ' + esc(o.supplier_company_name || '') + ' \u2192 ' + esc(o.requester_company_name || '') + '</div>';
+      h += '</div><div style="text-align:right;display:flex;gap:6px;flex-wrap:wrap;align-items:center">';
+      if (isEmergency) h += '<span class="od-badge od-badge--emergency">\u26a0 Notdienst</span>';
+      if (actionMeta) h += '<span class="od-badge ' + actionMeta.cls + '">' + esc(actionMeta.text) + '</span>';
+      h += '<span class="od-badge od-badge--status">' + esc(o.status) + '</span>';
+      if (o.capacity_post_id) h += '<span class="od-badge od-badge--status">' + esc(capacityStatusLabel(o.capacity_commercial_status || o.capacity_status)) + '</span>';
+      if (o.agreement_ref) h += '<span class="od-badge od-badge--status">' + esc(o.agreement_ref) + '</span>';
+      h += '</div></div></div>';
+
+      h += '<div class="od-progress' + (isEmergency ? ' od-progress--emergency' : '') + '">';
+      h += '<div class="od-progress__header">';
+      h += '<div class="od-progress__title">' + (isEmergency ? '\u26a1 Notdienst-Sofortpfad' : '\ud83d\udccb Deal-Fortschritt') + '</div>';
+      h += '<div class="od-progress__counter">' + doneCount + ' von ' + totalSteps + ' Schritten erledigt</div>';
+      h += '</div>';
+      h += '<div class="od-progress__bar"><div class="od-progress__fill" style="width:' + progressPct + '%"></div></div>';
+      if (agSt === 'cancelled') h += '<div class="od-note">Die Vereinbarung wurde storniert. Der operative Pfad ist beendet.</div>';
+      if (agSt === 'expired') h += '<div class="od-note">Die Vereinbarung ist abgelaufen und muss neu aufgesetzt werden.</div>';
+      h += '<div class="od-steps">';
+      var foundCurrent = false;
+      steps.forEach(function(s) {
+        var isCurrent = !terminal && !s.done && !foundCurrent;
+        if (isCurrent) foundCurrent = true;
+        var iconCls = s.done ? 'od-step__icon--done' : isCurrent ? 'od-step__icon--current' : 'od-step__icon--future';
+        var iconText = s.done ? '\u2713' : isCurrent ? '\u25b6' : '\u25cb';
+        var stepCls = 'od-step' + (isCurrent ? ' od-step--current' + (isEmergency ? ' od-step--emergency' : '') : '');
+        h += '<div class="' + stepCls + '">';
+        h += '<div class="od-step__icon ' + iconCls + '">' + iconText + '</div>';
+        h += '<div><div class="od-step__label">' + esc(s.label) + '</div>';
+        if (isCurrent && s.action) {
+          h += '<div style="font-size:11px;color:var(--ds-text-secondary);margin-top:2px">Dieser Schritt erfordert Ihre Aktion.</div>';
+          h += '<div style="margin-top:8px"><button class="ds-btn ds-btn--primary" onclick="doAction(\'' + s.action + '\', this)">' + esc(s.actionLabel) + '</button></div>';
+        } else if (isCurrent) {
+          h += '<div style="font-size:11px;color:var(--ds-text-secondary);margin-top:2px">Warten auf Gegenseite.</div>';
+        } else if (s.done && s.key === 'activated' && o.assignment_id) {
+          h += '<div style="font-size:11px;color:var(--ds-success);margin-top:2px">Assignment: ' + esc(o.assignment_id) + '</div>';
+        }
+        h += '</div></div>';
+      });
+      h += '</div></div>';
+
+      h += '<div class="od-grid">';
+      h += '<div class="od-card"><div class="od-card__title">Arbeitsplatzangebot</div>';
+      h += field('Rolle', esc(o.demand_role || '\u2014'));
+      h += field('Einsatzort', esc(o.demand_location || '\u2014'));
+      h += field('Zeitraum', esc(fmtDate(o.demand_start) + ' \u2014 ' + fmtDate(o.demand_end)));
+      h += field('Menge', esc(o.demand_headcount || '\u2014'));
+      h += field('Unternehmen', esc(o.requester_company_name || '\u2014'));
+      h += '</div>';
+      h += '<div class="od-card"><div class="od-card__title">Konditionen</div>';
+      h += field('Angebotene Menge', esc(o.offered_quantity || '\u2014'));
+      h += field('Stundensatz', esc(fmtMoney(o.offered_hourly_rate, 'EUR/h')));
+      h += field('Start', esc(fmtDate(o.start_confirmed)));
+      h += field('Ende', esc(fmtDate(o.end_date)));
+      h += field('Abrechnung', esc(o.billing_unit || '\u2014'));
+      h += field('Reaktionszeit', fmtInt(o.response_time_minutes, 'Min'));
+      h += field('Ersatzstellung', fmtInt(o.replacement_sla_minutes, 'Min'));
+      h += '</div>';
+      if (o.capacity_post_id) {
+        h += '<div class="od-card"><div class="od-card__title">Personalangebot (Quelle)</div>';
+        h += field('Personal', esc(o.capacity_title || '\u2014'));
+        h += field('Rolle', esc(o.capacity_role || '\u2014'));
+        h += field('Standort', esc(o.capacity_location || '\u2014'));
+        h += field('Status', esc(capacityStatusLabel(o.capacity_commercial_status || o.capacity_status)));
+        h += field('Verfuegbar', esc(capacityHeadcountSummary(o)));
+        h += '</div>';
+      }
+      h += '</div>';
+
+      h += '<div class="od-card od-card--full">';
+      h += '<div class="od-card__title">Einsatzvereinbarung &amp; Aktionen</div>';
+      h += '<div class="od-status-line">';
+      h += '<span class="od-pill ' + pillClass(agSt) + '">' + esc(agreementStatusLabel(agSt)) + '</span>';
+      h += '<span class="od-pill ' + pillClass(signature.status) + '">' + esc(signatureStatusLabel(signature.required, signature.status)) + '</span>';
+      if (o.capacity_post_id) h += '<span class="od-pill od-pill--neutral">' + esc(capacityHeadcountSummary(o)) + '</span>';
+      if (dossier && dossier.document_count != null) h += '<span class="od-pill od-pill--neutral">' + esc(String(dossier.document_count)) + ' Dokumente</span>';
+      h += '</div>';
+      if (agSt === 'none') {
+        h += '<div class="od-empty">Noch keine Einsatzvereinbarung erstellt.</div>';
+      } else {
+        h += '<div class="od-grid" style="margin:0 0 var(--ds-space-3)">';
+        h += '<div>';
+        h += field('Referenz', esc(o.agreement_ref || '\u2014'));
+        h += field('Status', esc(agreementStatusLabel(agSt)));
+        h += field('Version', esc(o.agreement_version || '\u2014'));
+        h += '</div><div>';
+        h += field('Bestätigt', esc(o.confirmed_at ? fmtDateTime(o.confirmed_at) : 'Ausstehend'));
+        h += field('Aktiviert', esc(o.activated_at ? fmtDateTime(o.activated_at) : 'Ausstehend'));
+        if (o.assignment_id) h += field('Assignment', esc(o.assignment_id));
+        h += '</div></div>';
+      }
+      h += '<div class="od-docs">';
+      h += '<a href="' + API + '/marketplace/offers/' + offerId + '/document?type=conditions" target="_blank" class="od-doc-btn">Konditionsblatt öffnen</a>';
+      if (agSt !== 'none') h += '<a href="' + API + '/marketplace/offers/' + offerId + '/document?type=agreement" target="_blank" class="od-doc-btn">Vereinbarung öffnen</a>';
+      h += '</div>';
+      if (canCreateAgreement || canConfirm || canActivate || canPrepareSignature || canCancel) {
+        h += '<div class="od-actions">';
+        if (canCreateAgreement) h += '<button class="ds-btn ds-btn--primary" onclick="doAction(\'create-agreement\', this)">Einsatzvereinbarung erstellen</button>';
+        if (canConfirm) h += '<button class="ds-btn ds-btn--primary" onclick="doAction(\'confirm-agreement\', this)">Vereinbarung bestätigen</button>';
+        if (canActivate) h += '<button class="ds-btn ds-btn--primary" onclick="doAction(\'activate\', this)">Einsatz aktivieren</button>';
+        if (canPrepareSignature) h += '<button class="ds-btn ds-btn--secondary" onclick="doAction(\'prepare-signature\', this)">Signatur vorbereiten</button>';
+        if (canCancel) h += '<button class="ds-btn ds-btn--ghost" onclick="doAction(\'cancel-agreement\', this)">Vereinbarung stornieren</button>';
+        h += '</div>';
+      }
+      h += '</div>';
+
+      h += '<div class="od-grid">';
+      h += '<div class="od-card"><div class="od-card__title">Generierte Dokumente</div>';
+      h += renderDocumentList(generatedDocs, 'Noch keine generierten Dokumente in der Dealakte.', true);
+      h += '</div>';
+      h += '<div class="od-card"><div class="od-card__title">Hochgeladene Deal-Dokumente</div>';
+      h += renderDocumentList(uploadedDocs, 'Noch keine hochgeladenen Deal-Dokumente vorhanden.', false);
+      h += '<div class="od-upload">';
+      h += '<div class="od-upload__row"><input id="od-upload-file" type="file" accept=".pdf,.png,.jpg,.jpeg,.webp"/><button class="ds-btn ds-btn--secondary" onclick="uploadDealDocument(this)">Dokument hochladen</button></div>';
+      h += '<div class="od-upload__hint">Erlaubt: PDF, PNG, JPG, WEBP bis 5 MB. Uploads werden der Dealakte zugeordnet.</div>';
+      h += '</div></div>';
+      h += '</div>';
+
+      h += '<div class="od-grid">';
+      h += '<div class="od-card"><div class="od-card__title">Signaturstatus</div>';
+      h += field('Pflicht', esc(signature.required ? 'Ja' : 'Nein'));
+      h += field('Status', esc(signatureStatusLabel(signature.required, signature.status)));
+      h += field('Provider', esc(signature.provider || '\u2014'));
+      h += field('Referenz', esc(signature.reference || o.signature_reference || '\u2014'));
+      h += field('Signiert am', esc(fmtDateTime(signature.signed_at)));
+      h += '</div>';
+      h += '<div class="od-card"><div class="od-card__title">Weitere Anlagen</div>';
+      h += renderAssetList(attachments, 'Keine zusätzlichen Anlagen vorhanden.');
+      h += '</div>';
+      h += '</div>';
+
+      // Welle 7 – Phase 6+7+8: Einsatzbesetzung-Block in der Dealakte.
+      h += '<div class="od-card od-card--full" id="od-staffing-block" data-staffing-state="loading">';
+      h += '<div class="od-card__title">Einsatzbesetzung</div>';
+      h += '<div class="od-empty" id="od-staffing-body">Staffing-Kontext wird geladen\u2026</div>';
+      h += '</div>';
+
+      h += '<div class="od-card od-card--full">';
+      h += '<div class="od-card__title">Timeline / Dealakte</div>';
+      if (!timeline.length) {
+        h += '<div class="od-empty">Noch keine Timeline-Ereignisse vorhanden.</div>';
+      } else {
+        h += '<div class="od-timeline">';
+        timeline.forEach(function(item) {
+          var detailText = timelineDetail(item.details || {});
+          h += '<div class="od-timeline__item">';
+          h += '<div class="od-timeline__title">' + esc(timelineTitle(item.action)) + '</div>';
+          h += '<div class="od-timeline__meta">' + esc(fmtDateTime(item.at)) + '</div>';
+          if (detailText) h += '<div class="od-timeline__details">' + esc(detailText) + '</div>';
+          h += '</div>';
+        });
+        h += '</div>';
+      }
+      h += '</div>';
+
+      root.innerHTML = h;
+      renderStaffingBlock(o).catch(function () { /* non-critical */ });
+    } catch (e) {
+      document.getElementById('od-loading').textContent = 'Fehler: ' + e.message;
+    }
+
+    // Welle 7 – Phase 6+7+8: Staffing-Kontext + One-click-/Bulk-Zuweisung.
+    async function renderStaffingBlock(offerRow) {
+      var block = document.getElementById('od-staffing-block');
+      var body = document.getElementById('od-staffing-body');
+      if (!block || !body) return;
+      if (!offerRow || offerRow.agreement_status === 'none' || offerRow.agreement_status === 'cancelled' || offerRow.agreement_status === 'expired') {
+        block.style.display = 'none';
+        return;
+      }
+      try {
+        var r = await fetch(API + '/marketplace/offers/' + offerId + '/staffing-context', { credentials: 'include' });
+        if (!r.ok) {
+          body.textContent = r.status === 403
+            ? 'Staffing-Kontext ist fuer Ihre Rolle nicht freigeschaltet.'
+            : 'Staffing-Kontext konnte nicht geladen werden.';
+          return;
+        }
+        var ctx = await r.json();
+        if (!ctx || !ctx.assignment) {
+          body.textContent = 'Sobald der Einsatz aktiviert ist, erscheinen hier Staffing-Kandidaten und der Fast-Track.';
+          return;
+        }
+        var asg = ctx.assignment;
+        var requested = Number(asg.requested_quantity || 0);
+        var filled = Number(asg.filled_quantity || 0);
+        var reserved = Number(asg.reserved_quantity || 0);
+        var open = Number(asg.open_quantity != null ? asg.open_quantity : Math.max(requested - filled - reserved, 0));
+        var isSupplier = !!ctx.is_supplier;
+        var safeCandidates = Array.isArray(ctx.safe_candidates) ? ctx.safe_candidates : [];
+
+        var html = '';
+        html += '<div class="od-status-line">';
+        html += '<span class="od-pill od-pill--neutral">Assignment ' + esc(String(asg.id).substring(0, 8)) + '</span>';
+        html += '<span class="od-pill ' + (open > 0 ? "od-pill--warn" : "od-pill--success") + '">' + (open > 0 ? open + ' offen' : 'Voll besetzt') + '</span>';
+        html += '<span class="od-pill od-pill--neutral">' + filled + ' besetzt / ' + requested + ' gesamt</span>';
+        if (reserved > 0) html += '<span class="od-pill od-pill--neutral">' + reserved + ' reserviert</span>';
+        html += '</div>';
+
+        if (!isSupplier) {
+          html += '<div class="od-note">Diese Sicht fasst den aktuellen Staffing-Stand Ihres Lieferanten zusammen. Operative Zuweisungen erfolgen beim Lieferanten.</div>';
+          body.innerHTML = html;
+          return;
+        }
+
+        if (open <= 0) {
+          html += '<div class="od-empty" style="margin-top:var(--ds-space-3)">Der Einsatz ist vollstaendig besetzt. Stundenzettel und Freigaben laufen ueber den Agentur-Arbeitsplatz.</div>';
+          if (ctx.staffing_ready_link) {
+            html += '<div class="od-actions"><a class="ds-btn ds-btn--secondary" href="' + esc(ctx.staffing_ready_link) + '">Zum Einsatzleitstand</a></div>';
+          }
+          body.innerHTML = html;
+          return;
+        }
+
+        if (safeCandidates.length === 0) {
+          html += '<div class="od-empty" style="margin-top:var(--ds-space-3)">Aktuell keine sicheren One-click-Kandidaten. Bitte im Einsatzleitstand Vorschlaege pruefen oder Einladungen verschicken.</div>';
+          html += '<div class="od-actions">';
+          if (ctx.staffing_ready_link) html += '<a class="ds-btn ds-btn--primary" href="' + esc(ctx.staffing_ready_link) + '">Zum Staffing-Arbeitsplatz</a>';
+          html += '</div>';
+          body.innerHTML = html;
+          return;
+        }
+
+        html += '<div class="od-note" style="margin-top:var(--ds-space-3)">';
+        html += esc(Math.min(safeCandidates.length, open)) + ' sichere Kandidat(en) \u2013 alle hard-match und aktuell verfuegbar. Auswahl pruefen, dann direkt zuweisen.';
+        html += '</div>';
+        html += '<div class="od-list" style="margin-top:var(--ds-space-3)">';
+        safeCandidates.forEach(function (entry) {
+          var label = [entry.first_name, entry.last_name].filter(Boolean).join(' ') || 'Worker';
+          var sub = entry.personnel_number ? 'Personalnr. ' + entry.personnel_number : '';
+          if (entry.match_score != null) sub = (sub ? sub + ' \u00b7 ' : '') + 'Match ' + Math.round(Number(entry.match_score));
+          html += '<label class="od-list__item" style="display:flex;gap:10px;align-items:center;cursor:pointer">';
+          html += '<input type="checkbox" class="od-staffing-candidate" value="' + esc(entry.worker_user_id) + '" checked />';
+          html += '<div style="flex:1;min-width:0"><div class="od-list__title">' + esc(label) + '</div>';
+          if (sub) html += '<div class="od-list__meta">' + esc(sub) + '</div>';
+          html += '</div>';
+          html += '<span class="od-pill od-pill--success">Direkt safe</span>';
+          html += '</label>';
+        });
+        html += '</div>';
+
+        html += '<div class="od-actions" style="margin-top:var(--ds-space-3)">';
+        html += '<button id="od-staffing-assign-btn" class="ds-btn ds-btn--primary" onclick="quickAssignFromDeal(this)">Ausgewaehlte direkt zuweisen</button>';
+        if (ctx.staffing_ready_link) html += '<a class="ds-btn ds-btn--secondary" href="' + esc(ctx.staffing_ready_link) + '">Vollansicht im Staffing-Leitstand</a>';
+        html += '</div>';
+        html += '<div id="od-staffing-result" style="margin-top:var(--ds-space-3);display:none"></div>';
+        body.innerHTML = html;
+      } catch (err) {
+        body.textContent = 'Staffing-Kontext konnte nicht geladen werden: ' + (err && err.message ? err.message : 'Fehler');
+      }
+    }
+
+    window.quickAssignFromDeal = async function (btn) {
+      var boxes = document.querySelectorAll('#od-staffing-block .od-staffing-candidate:checked');
+      var ids = Array.prototype.map.call(boxes, function (b) { return b.value; }).filter(Boolean);
+      if (!ids.length) {
+        alert('Bitte mindestens einen Kandidaten auswaehlen.');
+        return;
+      }
+      var originalText = btn.textContent;
+      btn.disabled = true;
+      btn.textContent = 'Wird zugewiesen\u2026';
+      try {
+        var r = await apiPost('/marketplace/offers/' + offerId + '/quick-assign-to-deal', { worker_user_ids: ids }, false);
+        var d = await r.json();
+        if (!r.ok) {
+          alert('Fehler: ' + (d.message || d.error || r.status));
+          btn.disabled = false;
+          btn.textContent = originalText;
+          return;
+        }
+        var resultBox = document.getElementById('od-staffing-result');
+        if (resultBox) {
+          var summary = d.summary || {};
+          var msg = (summary.assigned_count || 0) + ' direkt zugewiesen, ' + (summary.skipped_count || 0) + ' uebersprungen. Noch offen: ' + (summary.open_quantity_after || 0) + '.';
+          resultBox.className = 'od-note';
+          resultBox.style.display = 'block';
+          resultBox.textContent = msg;
+        }
+        setTimeout(function () { location.reload(); }, 1500);
+      } catch (e) {
+        alert('Fehler: ' + e.message);
+        btn.disabled = false;
+        btn.textContent = originalText;
+      }
+    };
+
+    window.doAction = async function(action, btn) {
+      if (!btn) return;
+      var originalText = btn.textContent;
+      var body = {};
+      if (action === 'cancel-agreement') {
+        var reason = window.prompt('Grund für die Stornierung (optional):', '');
+        if (reason === null) return;
+        body.reason = reason;
+      }
+      btn.disabled = true;
+      btn.textContent = 'Wird ausgeführt…';
+      try {
+        var r = await apiPost('/marketplace/offers/' + offerId + '/' + action, body, false);
+        var d = await r.json();
+        if (!r.ok) {
+          alert('Fehler: ' + (d.message || d.error || r.status));
+          btn.disabled = false;
+          btn.textContent = originalText;
+          return;
+        }
+        location.reload();
+      } catch (e) {
+        alert('Fehler: ' + e.message);
+        btn.disabled = false;
+        btn.textContent = originalText;
+      }
+    };
+
+    window.uploadDealDocument = async function(btn) {
+      var input = document.getElementById('od-upload-file');
+      if (!input || !input.files || !input.files.length) {
+        alert('Bitte zuerst eine Datei auswählen.');
+        return;
+      }
+      var originalText = btn.textContent;
+      btn.disabled = true;
+      btn.textContent = 'Upload läuft…';
+      try {
+        var form = new FormData();
+        form.append('file', input.files[0]);
+        form.append('asset_type', 'deal_document');
+        var r = await apiPost('/offer-assets/' + offerId + '/upload', form, true);
+        var d = await r.json();
+        if (!r.ok || d.success === false) {
+          alert('Fehler: ' + ((d && d.message) || (d && d.error) || r.status));
+          btn.disabled = false;
+          btn.textContent = originalText;
+          return;
+        }
+        location.reload();
+      } catch (e) {
+        alert('Fehler: ' + e.message);
+        btn.disabled = false;
+        btn.textContent = originalText;
+      }
+    };
+  })();
+  </script>
+  <div id="tc-footer" data-tc-footer></div>
+  <script src="/public/js/footer.js"></script>
+  <script src="/public/js/notifications.js"></script>
+  <script src="/public/js/demoBanner.js" defer></script>
+  <script src="/public/js/breadcrumb.js" defer></script>
+</body>
+</html>

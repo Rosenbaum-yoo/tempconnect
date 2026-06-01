@@ -1,51 +1,359 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="de">
 <head>
   <meta charset="utf-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
-  <title>Hilfe – TempConnect</title>
+  <script src="/public/js/theme.js"></script>
+  <title>Hilfe und Anleitung – TempConnect</title>
   <link rel="stylesheet" href="/public/css/enterprise.css"/>
+  <style>
+    .help-grid { display: grid; grid-template-columns: 260px 1fr; gap: var(--ds-space-6, 24px); align-items: start; }
+    @media (max-width: 860px) { .help-grid { grid-template-columns: 1fr; } }
+    .help-nav { position: sticky; top: 80px; }
+    .help-nav a { display: block; padding: 8px 12px; font-size: 13px; color: var(--muted, #8d9bba); text-decoration: none; border-left: 2px solid transparent; transition: border-color .2s, color .2s; }
+    .help-nav a:hover, .help-nav a.active { color: var(--fg, #e4e8f1); border-left-color: #3b82f6; }
+    .help-section { margin-bottom: 32px; scroll-margin-top: 80px; }
+    .help-section h2 { font-size: 20px; font-weight: 700; margin: 0 0 12px; padding-bottom: 8px; border-bottom: 1px solid var(--line, rgba(255,255,255,.08)); }
+    .help-section h3 { font-size: 15px; font-weight: 600; margin: 16px 0 8px; color: var(--fg, #e4e8f1); }
+    .help-section p, .help-section li { font-size: 14px; line-height: 1.6; color: var(--muted, #8d9bba); }
+    .help-section ul { padding-left: 20px; margin: 8px 0; }
+    .help-section li { margin-bottom: 4px; }
+    .help-card { padding: 16px; border: 1px solid var(--line, rgba(255,255,255,.08)); border-radius: var(--radius, 8px); background: rgba(255,255,255,.02); margin-bottom: 12px; }
+    .help-card__title { font-size: 14px; font-weight: 600; margin: 0 0 6px; color: var(--fg, #e4e8f1); }
+    .help-card__text { font-size: 13px; color: var(--muted, #8d9bba); margin: 0; line-height: 1.5; }
+    .help-roles { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 12px; margin: 12px 0; }
+    .help-role-card { padding: 14px; border: 1px solid var(--line, rgba(255,255,255,.08)); border-radius: var(--radius, 8px); background: rgba(255,255,255,.02); }
+    .help-role-card__name { font-size: 14px; font-weight: 700; margin: 0 0 4px; }
+    .help-role-card__desc { font-size: 12px; color: var(--muted, #8d9bba); margin: 0; }
+    .help-flow { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin: 12px 0; }
+    .help-flow__step { padding: 6px 12px; border-radius: 6px; background: rgba(59,130,246,.1); color: #93c5fd; font-size: 12px; font-weight: 600; }
+    .help-flow__arrow { color: var(--muted, #8d9bba); font-size: 14px; }
+    .plan-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 12px; margin: 12px 0; }
+    .plan-card { padding: 14px; border: 1px solid var(--line, rgba(255,255,255,.08)); border-radius: var(--radius, 8px); text-align: center; }
+    .plan-card__name { font-size: 15px; font-weight: 700; margin: 0 0 6px; }
+    .plan-card__features { font-size: 12px; color: var(--muted); margin: 0; line-height: 1.6; }
+    .faq-item { padding: 12px 0; border-bottom: 1px solid var(--line, rgba(255,255,255,.05)); }
+    .faq-item:last-child { border-bottom: none; }
+    .faq-item__q { font-size: 14px; font-weight: 600; color: var(--fg, #e4e8f1); margin: 0 0 4px; }
+    .faq-item__a { font-size: 13px; color: var(--muted, #8d9bba); margin: 0; line-height: 1.5; }
+  </style>
 </head>
-<body data-sla-guard="sla_help">
-  <div id="paywall" class="wrap" style="display:none">
-    <div class="topbar"><span class="brand">TempConnect</span><a href="/" class="btn">Startseite</a></div>
-    <div class="paywall-box">
-      <h2>Bereich nicht verfuegbar</h2>
-      <p>Das Feature Hilfe ist mit deinem aktuellen Plan nicht nutzbar.</p>
-      <p>Aktueller Plan: <span id="paywall-current-plan" class="paywall-plan">–</span></p>
-      <a id="paywall-cta" href="/public/sla_abo.html" class="btn primary">Abo ansehen</a>
-    </div>
-  </div>
+<body>
   <div id="main-content" class="wrap">
-    <div class="topbar" data-notif-topbar>
-      <span class="brand">TempConnect – Hilfe</span>
-      <a href="/" class="btn">Startseite</a>
-      <a href="/public/enterprise.html" class="btn">Übersicht</a>
-      <a href="/public/capacity_search.html" class="btn">Kapazitätssuche</a>
-      <a href="/public/sla_search_jobs_list.html" class="btn">Suchaufträge</a>
+    <div id="tc-shell"></div>
+
+    <h1 style="margin-bottom:4px">Hilfe und Anleitung</h1>
+    <p style="color:var(--muted);margin:0 0 24px;font-size:14px">Alles Wichtige zu den Bereichen und Ablaeufen in TempConnect.</p>
+
+    <div class="help-grid">
+      <nav class="help-nav">
+        <a href="#ueberblick">Ueberblick</a>
+        <a href="#rollen">Rollen in TempConnect</a>
+        <a href="#Marktplatz">Vermittlung</a>
+        <a href="#marketplace">Marketplace (Nachfragen)</a>
+        <a href="#suchauftraege">Suchauftraege</a>
+        <a href="#matching">Matching und Pulse</a>
+        <a href="#angebote">Angebote und Deals</a>
+        <a href="#zuweisung">Zuweisung und Einsatz</a>
+        <a href="#einsatzportal">Einsatzportal</a>
+        <a href="#stundenzettel">Stundenzettel</a>
+        <a href="#nachweise">Nachweise und Compliance</a>
+        <a href="#plaene">Tarife und Plaene</a>
+        <a href="#faq">Haeufige Fragen</a>
+        <a href="#kontakt">Kontakt</a>
+      </nav>
+
+      <div>
+        <div class="help-section" id="ueberblick">
+          <h2>Ueberblick</h2>
+          <p>TempConnect ist eine B2B-Plattform fuer die Vermittlung von Zeitarbeitskraeften und verfügbarem Personal. Sie verbindet Unternehmen mit Personalbedarf und Zeitarbeitsfirmen mit verfügbarem Personal.</p>
+          <p>Die Plattform umfasst:</p>
+          <ul>
+            <li><strong>Vermittlung</strong> &ndash; Anbieter stellen verfügbares Personal ein, Unternehmen suchen und kontaktieren passende Angebote.</li>
+            <li><strong>Marketplace</strong> &ndash; Unternehmen erstellen Personalbedarfe (Nachfragen), TempConnect matched automatisch passende Anbieter.</li>
+            <li><strong>Suchauftraege</strong> &ndash; Persistente Suchen mit automatischem Matching und Benachrichtigung.</li>
+            <li><strong>Pulse-System</strong> &ndash; Prozessnachweis, der dokumentiert, wann Matching-Versuche und Benachrichtigungen erfolgt sind.</li>
+            <li><strong>Einsatzportal</strong> &ndash; Verwaltung von Zuweisungen, Einsaetzen und Stundenzetteln fuer Worker.</li>
+          </ul>
+        </div>
+
+        <div class="help-section" id="rollen">
+          <h2>Rollen in TempConnect</h2>
+          <p>Jeder Account hat eine Hauptrolle, die bestimmt, welche Bereiche und Aktionen verfuegbar sind.</p>
+          <div class="help-roles">
+            <div class="help-role-card">
+              <div class="help-role-card__name">Unternehmen</div>
+              <div class="help-role-card__desc">Erstellt Personalbedarfe (Nachfragen), sucht Personal, nimmt Angebote an, verwaltet Zuweisungen und Stundenzettel.</div>
+            </div>
+            <div class="help-role-card">
+              <div class="help-role-card__name">Zeitarbeitsfirma</div>
+              <div class="help-role-card__desc">Stellt verfügbares Personal ein, reagiert auf Nachfragen, erstellt Angebote, koordiniert Worker-Einsaetze.</div>
+            </div>
+            <div class="help-role-card">
+              <div class="help-role-card__name">Worker</div>
+              <div class="help-role-card__desc">Sieht zugewiesene Einsaetze im Einsatzportal, erfasst Stundenzettel, laedt Nachweise hoch.</div>
+            </div>
+            <div class="help-role-card">
+              <div class="help-role-card__name">Admin</div>
+              <div class="help-role-card__desc">Plattform-Administration, Nutzerverwaltung, Compliance-Uebersicht, Reporting.</div>
+            </div>
+          </div>
+          <h3>Org-Rollen (innerhalb einer Organisation)</h3>
+          <p>Innerhalb einer Organisation koennen Mitgliedern spezifische Rollen zugewiesen werden: Owner, Admin, Programm-Manager, Hiring-Manager, Supplier-Manager, Finanzen, Recruiter, Dispatcher, Viewer. Jede Rolle hat unterschiedliche Berechtigungen.</p>
+        </div>
+
+        <div class="help-section" id="Marktplatz">
+          <h2>Vermittlung</h2>
+          <p>Die Vermittlung ist der zentrale Bereich für verfügbares Personal.</p>
+          <h3>Fuer Zeitarbeitsfirmen (Anbieter)</h3>
+          <div class="help-card">
+            <div class="help-card__title">Personal einstellen</div>
+            <div class="help-card__text">Ueber &laquo;Personal verwalten&raquo; erstellen Sie Eintraege mit Rolle, Standort, Verfuegbarkeit, Anzahl und Konditionen. Neue Eintraege starten als Entwurf und muessen aktiviert werden.</div>
+          </div>
+          <div class="help-card">
+            <div class="help-card__title">Aktualitaet bestaetigen</div>
+            <div class="help-card__text">Aktive Eintraege sollten regelmaessig bestaetigt werden. Nicht bestaetigte Eintraege (ueber 96h) werden als &laquo;veraltet&raquo; markiert und erhalten weniger Sichtbarkeit.</div>
+          </div>
+          <div class="help-card">
+            <div class="help-card__title">Status-Uebergaenge</div>
+            <div class="help-card__text">Entwurf &rarr; Aktiv &rarr; Pausiert / Besetzt / Archiviert. Abgelaufene Eintraege koennen reaktiviert werden.</div>
+          </div>
+          <h3>Fuer Unternehmen (Suchende)</h3>
+          <div class="help-card">
+            <div class="help-card__title">Personalsuche</div>
+            <div class="help-card__text">Im Feed sehen Sie alle aktiven Personalangebote. Filtern Sie nach Rolle, Standort und Verfuegbarkeit. Klicken Sie auf einen Eintrag fuer Details und Kontaktmoeglichkeiten.</div>
+          </div>
+          <div class="help-card">
+            <div class="help-card__title">Interaktionen</div>
+            <div class="help-card__text">Bei Interesse: Interesse bekunden, Angebot anfragen, Frage stellen oder direkt Kontakt aufnehmen. Der Anbieter wird ueber jede Interaktion benachrichtigt.</div>
+          </div>
+        </div>
+
+        <div class="help-section" id="marketplace">
+          <h2>Marketplace (Nachfragen)</h2>
+          <p>Der Marketplace ermoeglicht es Unternehmen, konkrete Personalbedarfe einzustellen. TempConnect matched automatisch mit passendem Personal.</p>
+          <h3>Typischer Ablauf</h3>
+          <div class="help-flow">
+            <span class="help-flow__step">Nachfrage erstellen</span>
+            <span class="help-flow__arrow">&rarr;</span>
+            <span class="help-flow__step">Automatisches Matching</span>
+            <span class="help-flow__arrow">&rarr;</span>
+            <span class="help-flow__step">Anbieter benachrichtigt</span>
+            <span class="help-flow__arrow">&rarr;</span>
+            <span class="help-flow__step">Angebote erhalten</span>
+            <span class="help-flow__arrow">&rarr;</span>
+            <span class="help-flow__step">Angebot annehmen</span>
+            <span class="help-flow__arrow">&rarr;</span>
+            <span class="help-flow__step">Zuweisung</span>
+          </div>
+          <div class="help-card">
+            <div class="help-card__title">Nachfrage erstellen</div>
+            <div class="help-card__text">Geben Sie Rolle, Standort, Zeitraum, Anzahl und Dringlichkeit an. Optional: Skills, Budget und PLZ. Nach Absenden startet das automatische Matching.</div>
+          </div>
+          <div class="help-card">
+            <div class="help-card__title">Matches und Angebote</div>
+            <div class="help-card__text">Passende Anbieter werden automatisch ermittelt und benachrichtigt. Angebote koennen angenommen oder abgelehnt werden. Bei Annahme wird automatisch eine Zuweisung erstellt.</div>
+          </div>
+        </div>
+
+        <div class="help-section" id="suchauftraege">
+          <h2>Suchauftraege</h2>
+          <p>Persistente Suchen, die im Hintergrund laufen und bei neuen Treffern automatisch benachrichtigen.</p>
+          <div class="help-card">
+            <div class="help-card__title">Suchauftrag anlegen</div>
+            <div class="help-card__text">Definieren Sie Suchtyp (Personalangebot oder Nachfrage), Rolle, Standort und Dringlichkeit. Sofort nach Anlage wird ein erstes Matching durchgefuehrt.</div>
+          </div>
+          <div class="help-card">
+            <div class="help-card__title">Verwaltung</div>
+            <div class="help-card__text">Suchauftraege koennen pausiert, fortgesetzt, bearbeitet oder geschlossen werden. In der Detailansicht sehen Sie Treffer, Pulse-Events und koennen den Report exportieren.</div>
+          </div>
+        </div>
+
+        <div class="help-section" id="matching">
+          <h2>Matching und Pulse-System</h2>
+          <p>Das Pulse-System ist der Prozessnachweis von TempConnect. Es dokumentiert transparent, wann und wie Matching-Versuche und Benachrichtigungen stattgefunden haben.</p>
+          <h3>Was dokumentiert Pulse?</h3>
+          <ul>
+            <li>Zeitpunkt des Matching-Starts</li>
+            <li>Anzahl gepruefter Kandidaten und gefundener Treffer</li>
+            <li>Zeitpunkt und Anzahl versendeter Benachrichtigungen</li>
+            <li>Ob die Pulse-Frist eingehalten (MET) oder ueberschritten (BREACHED) wurde</li>
+          </ul>
+          <h3>Pulse-Status</h3>
+          <div class="help-card">
+            <div class="help-card__text"><strong>RUNNING</strong> &ndash; Pulse laeuft, Frist noch offen.<br><strong>MET</strong> &ndash; Matching und Benachrichtigung innerhalb der Frist erfolgt.<br><strong>BREACHED</strong> &ndash; Frist ueberschritten.</div>
+          </div>
+          <p><strong>Wichtig:</strong> Pulse ist ein Prozessnachweis. Es wird kein Vermittlungserfolg zugesagt oder garantiert.</p>
+        </div>
+
+        <div class="help-section" id="angebote">
+          <h2>Angebote und Deals</h2>
+          <p>Wenn ein Anbieter auf eine Nachfrage reagiert, erstellt er ein Angebot mit Konditionen.</p>
+          <div class="help-card">
+            <div class="help-card__title">Angebot erstellen (Anbieter)</div>
+            <div class="help-card__text">Stundensatz, angebotene Anzahl, Startzeitpunkt, Zuschlaege und Konditionen definieren.</div>
+          </div>
+          <div class="help-card">
+            <div class="help-card__title">Angebot annehmen (Unternehmen)</div>
+            <div class="help-card__text">Pruefen, annehmen oder ablehnen. Bei Annahme wird automatisch eine geplante Zuweisung erstellt.</div>
+          </div>
+          <div class="help-card">
+            <div class="help-card__title">Gegenangebot</div>
+            <div class="help-card__text">Wenn Konditionen nicht passen, koennen Sie ein Gegenangebot senden.</div>
+          </div>
+        </div>
+
+        <div class="help-section" id="zuweisung">
+          <h2>Zuweisung und Einsatz</h2>
+          <p>Nach Annahme eines Angebots wird eine Zuweisung (Assignment) erstellt.</p>
+          <div class="help-flow">
+            <span class="help-flow__step">Geplant</span>
+            <span class="help-flow__arrow">&rarr;</span>
+            <span class="help-flow__step">Bestaetigt</span>
+            <span class="help-flow__arrow">&rarr;</span>
+            <span class="help-flow__step">Aktiv</span>
+            <span class="help-flow__arrow">&rarr;</span>
+            <span class="help-flow__step">Abgeschlossen</span>
+          </div>
+          <p>Die Zuweisung enthaelt Worker-Beschreibung, Anzahl, Zeitraum, Stundensatz und Notizen. Der Anbieter kann konkrete Worker zuweisen.</p>
+        </div>
+
+        <div class="help-section" id="einsatzportal">
+          <h2>Einsatzportal (Worker Self Service)</h2>
+          <p>Der Bereich fuer Worker (Zeitarbeitskraefte):</p>
+          <ul>
+            <li><strong>Dashboard</strong> &ndash; Uebersicht ueber aktuelle Einsaetze und wichtige Informationen.</li>
+            <li><strong>Einsaetze</strong> &ndash; Liste aller zugewiesenen Einsaetze mit Details zu Ort, Zeitraum und Ansprechpartner.</li>
+            <li><strong>Einsatzplan</strong> &ndash; Kalender-/Planansicht der eigenen Einsaetze.</li>
+            <li><strong>Stundenzettel</strong> &ndash; Erfassung und Uebersicht der geleisteten Stunden.</li>
+            <li><strong>Profil</strong> &ndash; Eigene Stammdaten und Qualifikationen verwalten.</li>
+            <li><strong>Benachrichtigungen</strong> &ndash; Informationen zu neuen Einsaetzen und Aenderungen.</li>
+            <li><strong>Kontakt</strong> &ndash; Direkter Kontakt zum Disponenten oder Ansprechpartner.</li>
+          </ul>
+        </div>
+
+        <div class="help-section" id="stundenzettel">
+          <h2>Stundenzettel</h2>
+          <p>Stundenzettel werden pro Zuweisung und Abrechnungsperiode erfasst.</p>
+          <div class="help-card">
+            <div class="help-card__title">Ablauf</div>
+            <div class="help-card__text">Worker erfasst Stunden &rarr; Stundenzettel eingereicht &rarr; Pruefer genehmigt oder lehnt ab &rarr; Abrechnung.</div>
+          </div>
+          <p>Stundenzettel-Vorlagen koennen vom Unternehmen definiert werden fuer einheitliche Erfassung.</p>
+        </div>
+
+        <div class="help-section" id="nachweise">
+          <h2>Nachweise und Compliance</h2>
+          <div class="help-card">
+            <div class="help-card__title">Nachweise hochladen</div>
+            <div class="help-card__text">Unter &laquo;Nachweise&raquo; koennen Sie Gewerbeanmeldung, AUeG-Erlaubnis, Versicherungsnachweise und Zertifikate hochladen.</div>
+          </div>
+          <div class="help-card">
+            <div class="help-card__title">Compliance-Status</div>
+            <div class="help-card__text">Automatisch ermittelt: Unbekannt, In Pruefung, Teilweise, Vollstaendig. Vollstaendige Compliance erhoeht Vertrauen und Sichtbarkeit.</div>
+          </div>
+          <div class="help-card">
+            <div class="help-card__title">Vertrauenssignale</div>
+            <div class="help-card__text">In der Detailansicht sehen Suchende: Verifizierung, Compliance-Status, Anzahl Deals, Profilvollstaendigkeit und Reputations-Score.</div>
+          </div>
+        </div>
+
+        <div class="help-section" id="plaene">
+          <h2>Tarife und Plaene</h2>
+          <div class="plan-grid">
+            <div class="plan-card">
+              <div class="plan-card__name" style="color:#8d9bba">DEMO</div>
+              <div class="plan-card__features">14-Tage-Testzugang, grundlegende Plattformnutzung</div>
+            </div>
+            <div class="plan-card">
+              <div class="plan-card__name" style="color:#4a9eff">BASIS</div>
+              <div class="plan-card__features">Erweiterte Funktionen, grundlegendes Matching</div>
+            </div>
+            <div class="plan-card">
+              <div class="plan-card__name" style="color:#34d399">PLUS</div>
+              <div class="plan-card__features">Voller SLA-Zugang, Vermittlung, Marketplace, Pulse</div>
+            </div>
+            <div class="plan-card">
+              <div class="plan-card__name" style="color:#a855f7">PRO</div>
+              <div class="plan-card__features">Alle PLUS-Features plus Notdienst, Priority-Matching</div>
+            </div>
+            <div class="plan-card">
+              <div class="plan-card__name" style="color:#f43f5e">INDIVIDUELLER TARIF</div>
+              <div class="plan-card__features">Individuelle Konfiguration, API-Zugang, dedizierter Support</div>
+            </div>
+          </div>
+          <p><a href="/public/sla_abo.html" style="color:#3b82f6;text-decoration:underline">Tarife und Preise ansehen</a></p>
+        </div>
+
+        <div class="help-section" id="faq">
+          <h2>Haeufige Fragen</h2>
+          <div class="faq-item">
+            <div class="faq-item__q">Wie finde ich passendes Personal?</div>
+            <div class="faq-item__a">Nutzen Sie die <a href="/public/capacity_exchange_feed.html" style="color:#3b82f6">Vermittlung</a> und filtern nach Rolle, Standort und Verfuegbarkeit. Oder erstellen Sie eine <a href="/public/marketplace_demand_create.html" style="color:#3b82f6">Nachfrage</a> fuer automatisches Matching.</div>
+          </div>
+          <div class="faq-item">
+            <div class="faq-item__q">Was bedeutet der Pulse-Timer?</div>
+            <div class="faq-item__a">Die Zeitspanne, in der TempConnect einen Matching-Versuch und Benachrichtigung durchfuehrt. Prozessnachweis, kein Vermittlungsversprechen.</div>
+          </div>
+          <div class="faq-item">
+            <div class="faq-item__q">Wer kann Nachfragen erstellen?</div>
+            <div class="faq-item__a">Accounts mit Rolle &laquo;Unternehmen&raquo; und mindestens PLUS-Plan.</div>
+          </div>
+          <div class="faq-item">
+            <div class="faq-item__q">Wer kann Personal einstellen?</div>
+            <div class="faq-item__a">Accounts mit Rolle &laquo;Zeitarbeitsfirma&raquo; und mindestens PLUS-Plan.</div>
+          </div>
+          <div class="faq-item">
+            <div class="faq-item__q">Was passiert nach Annahme eines Angebots?</div>
+            <div class="faq-item__a">Es wird automatisch eine Zuweisung (Assignment) erstellt. Der Anbieter kann dann Worker zuweisen.</div>
+          </div>
+          <div class="faq-item">
+            <div class="faq-item__q">Wie funktionieren Org-Mitgliedschaften?</div>
+            <div class="faq-item__a">Organisationen koennen mehrere Mitglieder mit verschiedenen Rollen haben. Mitglieder koennen auf Nachfragen und Personalangebote der Organisation zugreifen.</div>
+          </div>
+          <div class="faq-item">
+            <div class="faq-item__q">Wie erfasse ich Stundenzettel?</div>
+            <div class="faq-item__a">Worker im <a href="/public/einsatzportal-stundenzettel.html" style="color:#3b82f6">Einsatzportal</a>. Unternehmen pruefen und genehmigen unter &laquo;Stundenzettel&raquo;.</div>
+          </div>
+          <div class="faq-item">
+            <div class="faq-item__q">Wo finde ich Compliance-Dokumente?</div>
+            <div class="faq-item__a">Unter <a href="/public/sla_nachweise.html" style="color:#3b82f6">Nachweise</a> Dokumente hochladen und verwalten.</div>
+          </div>
+          <div class="faq-item">
+            <div class="faq-item__q">Garantiert TempConnect Vermittlungserfolg?</div>
+            <div class="faq-item__a">Nein. TempConnect unterstuetzt den Vermittlungsprozess und dokumentiert diesen transparent (Pulse). Kein Vermittlungserfolg garantiert.</div>
+          </div>
+        </div>
+
+        <div class="help-section" id="kontakt">
+          <h2>Kontakt und Support</h2>
+          <div class="help-card">
+            <div class="help-card__title">E-Mail-Support</div>
+            <div class="help-card__text"><a href="mailto:support@tempconnect.example.com" style="color:#3b82f6">support@tempconnect.example.com</a></div>
+          </div>
+          <div class="help-card">
+            <div class="help-card__title">Weitere Ressourcen</div>
+            <div class="help-card__text">
+              <a href="/public/sla_abo.html" style="color:#3b82f6;margin-right:16px">Abo-Modelle</a>
+              <a href="/public/sla_profil.html" style="color:#3b82f6;margin-right:16px">Firmenprofil</a>
+              <a href="/public/sla_nachweise.html" style="color:#3b82f6;margin-right:16px">Nachweise</a>
+              <a href="/public/sla_angebote.html" style="color:#3b82f6">Angebote</a>
+            </div>
+          </div>
+          <p style="color:var(--muted);font-size:12px;margin-top:16px">Support-Prioritaeten orientieren sich an den Tarifen. PRO- und Kunden mit individuellem Tarif erhalten bevorzugten Support.</p>
+        </div>
+      </div>
     </div>
-    <h1>Hilfe und Anleitung</h1>
-    <div class="card">
-      <h2 style="margin:0 0 10px">Was ist Pulse-safe?</h2>
-      <p style="color:var(--muted);margin:0">Im Pulse-Bereich verwenden wir Best effort, Entwurf und Vorlage. Inhalte dienen der Unterstuetzung und ersetzen keine rechtliche Pruefung. Angaben ohne Gewaehr. Support-Prioritaeten orientieren sich an den Tarifen.</p>
-    </div>
-    <div class="card">
-      <h2 style="margin:0 0 10px">FAQ</h2>
-      <p><strong>Wie sende ich eine Kapazitaetsanfrage?</strong> Kapazitaetssuche – Filter setzen – Kapazitaet anfragen.</p>
-      <p><strong>Was bedeutet der Pulse-Timer?</strong> Zeitspanne fuer Antwort des Anbieters.</p>
-      <p><strong>Wo finde ich Abo-Modelle?</strong> <a href="/public/sla_abo.html">Abo-Modelle</a></p>
-    </div>
-    <div class="card">
-      <h2 style="margin:0 0 10px">Kontakt</h2>
-      <p style="color:var(--muted);margin:0">Support: <a href="mailto:support@tempconnect.example.com">support@tempconnect.example.com</a></p>
-    </div>
-    <p class="sla-disclaimer">Hinweis: Inhalte dienen der Unterstuetzung und ersetzen keine rechtliche Pruefung. Angaben ohne Gewaehr.</p>
+
+    <p class="sla-disclaimer">Hinweis: Inhalte dienen der Unterstuetzung und ersetzen keine rechtliche Pruefung. Angaben ohne Gewaehr. TempConnect garantiert keinen Vermittlungserfolg.</p>
   </div>
+
   <script src="/public/js/planFeatures.js"></script>
   <script src="/public/js/slaGuard.js"></script>
-  <script src="/public/js/notifications.js"></script>
+  <script src="/public/js/pageShell.js"></script>`n  <script src="/public/js/notifications.js"></script>
   <div id="tc-footer" data-tc-footer></div>
   <script src="/public/js/footer.js"></script>
-  <script src="/public/js/logout-btn.js"></script>
+<script src="/public/js/demoBanner.js" defer></script>
+<script src="/public/js/onboardingWizard.js" defer></script><script src="/public/js/breadcrumb.js" defer></script>
 </body>
 </html>

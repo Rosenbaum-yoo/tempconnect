@@ -6,9 +6,8 @@
  */
 "use strict";
 
-// eslint-disable-next-line no-unused-vars
 var NAV_ITEMS = [
-  { key: "enterprise",   label: "Kapazitätssuche",    href: "/public/enterprise.html", icon: "⚡", description: "Live-Kapazitäten, Pulse-Timer, Compliance" },
+  { key: "enterprise",   label: "Operations-Hub",      href: "/public/enterprise.html", icon: "⚡", description: "Einsätze, Pulse-Timer, Compliance" },
   { key: "dashboard",    label: "Suche",              href: "/#dashboard",    icon: "🔍", description: "Marketplace durchsuchen und Anfragen senden" },
   { key: "profile",      label: "Anbieten",           href: "/#profile",      icon: "📋", description: "Eigene Angebote anlegen und verwalten" },
   { key: "requests",     label: "Anfragen",           href: "/#requests",     icon: "📨", description: "Status und Verlauf aller Anfragen" },

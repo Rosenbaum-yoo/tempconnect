@@ -1,0 +1,215 @@
+/* ═══════════════════════════════════════════════════════
+   Marketplace Feed — Page-Specific Styles
+   ═══════════════════════════════════════════════════════ */
+
+/* ── Feed Layout ──────────────────────────────────────── */
+.ce-feed {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ds-space-4);
+}
+
+/* ── Filter Expander ──────────────────────────────────── */
+.ce-filter {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ds-space-2);
+  margin-bottom: var(--ds-space-3);
+}
+.ce-filter__primary {
+  align-items: flex-end;
+}
+.ce-filter__actions {
+  align-self: flex-end;
+  display: flex;
+  gap: var(--ds-space-2);
+}
+.ce-filter__actions .ds-btn {
+  white-space: nowrap;
+}
+.ce-filter__advanced {
+  padding: var(--ds-space-3);
+  border: 1px solid var(--ds-border);
+  border-radius: var(--ds-radius-lg);
+  background: rgba(255, 255, 255, .02);
+}
+[data-theme="light"] .ce-filter__advanced {
+  background: #ffffff;
+}
+.ce-checkbox {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--ds-text-secondary);
+  cursor: pointer;
+  user-select: none;
+}
+.ce-checkbox input[type="checkbox"] {
+  width: 16px;
+  height: 16px;
+  margin: 0;
+  padding: 0;
+}
+
+/* ── Capacity Card ────────────────────────────────────── */
+.ce-card {
+  padding: var(--ds-space-5);
+  border: 1px solid var(--ds-border);
+  border-radius: var(--ds-radius-lg);
+  background: rgba(255, 255, 255, .025);
+  transition: border-color .2s, transform .15s, box-shadow .2s;
+  cursor: pointer;
+}
+.ce-card:hover {
+  border-color: var(--ds-border-hover);
+  transform: translateY(-1px);
+  box-shadow: var(--ds-shadow-md);
+}
+.ce-card__layout {
+  display: grid;
+  grid-template-columns: 120px 1fr;
+  gap: var(--ds-space-4);
+  align-items: start;
+}
+@media (max-width: 780px) {
+  .ce-card__layout {
+    grid-template-columns: 92px 1fr;
+  }
+}
+.ce-card__preview {
+  width: 120px;
+  height: 96px;
+  border-radius: var(--ds-radius-md);
+  border: 1px solid var(--ds-border);
+  background: rgba(255, 255, 255, .03);
+  overflow: hidden;
+  flex-shrink: 0;
+}
+@media (max-width: 780px) {
+  .ce-card__preview {
+    width: 92px;
+    height: 76px;
+  }
+}
+.ce-card__preview-image {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+.ce-card__preview-fallback {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  color: var(--ds-text-tertiary);
+}
+.ce-card__preview-fallback-icon {
+  font-size: 18px;
+  line-height: 1;
+}
+.ce-card__preview-fallback-label {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: .02em;
+}
+.ce-card__content {
+  min-width: 0;
+}
+.ce-card__head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: var(--ds-space-3);
+  margin-bottom: var(--ds-space-3);
+}
+.ce-card__title { font-size: 16px; font-weight: 700; margin: 0 0 2px; }
+.ce-card__role  { font-size: 13px; color: var(--ds-text-secondary); }
+.ce-card__meta  {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--ds-space-4);
+  font-size: 13px;
+  color: var(--ds-text-secondary);
+  margin-bottom: var(--ds-space-3);
+}
+.ce-card__meta-item { display: flex; align-items: center; gap: 4px; }
+.ce-card__trust     { display: flex; flex-wrap: wrap; gap: var(--ds-space-2); }
+
+/* ── Freshness Indicator ──────────────────────────────── */
+.ce-freshness     { display: inline-flex; align-items: center; gap: 4px; font-size: 12px; }
+.ce-freshness__dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+.ce-freshness__dot--fresh { background: var(--ds-success); box-shadow: 0 0 6px rgba(52, 211, 153, .3); }
+.ce-freshness__dot--aging { background: var(--ds-warning); box-shadow: 0 0 6px rgba(251, 191, 36, .3); }
+.ce-freshness__dot--stale { background: rgba(255, 255, 255, .15); }
+
+/* ── Pagination ───────────────────────────────────────── */
+.ce-pagination {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--ds-space-3);
+  margin-top: var(--ds-space-6);
+}
+.ce-pagination__info { font-size: 13px; color: var(--ds-text-secondary); }
+
+/* ── Save / Bookmark Button ───────────────────────────── */
+.ce-card__save {
+  background: none;
+  border: 1px solid var(--ds-border);
+  border-radius: var(--ds-radius-md);
+  padding: 4px 8px;
+  cursor: pointer;
+  color: var(--ds-text-secondary);
+  font-size: 12px;
+  transition: color .2s, border-color .2s;
+}
+.ce-card__save:hover  { color: var(--ds-brand); border-color: var(--ds-brand); }
+.ce-card__save.saved  { color: var(--ds-brand); border-color: var(--ds-brand); }
+
+/* ── Type Badge ───────────────────────────────────────── */
+.ce-type-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 8px;
+  border-radius: 6px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: .3px;
+}
+.ce-type-badge--supply { background: rgba(52, 211, 153, .12); color: #34d399; }
+.ce-type-badge--demand { background: rgba(251, 146, 60, .12); color: #fb923c; }
+
+/* ── Premium Card Styling ─────────────────────────────── */
+.ce-card--premium-plus       { border: 2px solid rgba(234, 179, 8, .35); background: rgba(234, 179, 8, .02); }
+.ce-card--premium-pro        { border: 2px solid #eab308; background: rgba(234, 179, 8, .04); box-shadow: 0 0 12px rgba(234, 179, 8, .08); }
+.ce-card--premium-enterprise { border: 2px solid #eab308; background: rgba(234, 179, 8, .06); box-shadow: 0 0 18px rgba(234, 179, 8, .12); }
+
+/* ── Premium Badge ────────────────────────────────────── */
+.ce-premium-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 2px 8px;
+  border-radius: 6px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: .3px;
+}
+.ce-premium-badge--plus       { background: rgba(234, 179, 8, .10); color: #ca8a04; }
+.ce-premium-badge--pro        { background: rgba(234, 179, 8, .15); color: #eab308; }
+.ce-premium-badge--enterprise { background: linear-gradient(135deg, rgba(234, 179, 8, .20), rgba(168, 85, 247, .15)); color: #eab308; }
+
+/* Light theme */
+[data-theme="light"] .ce-card {
+  background: #ffffff;
+}
+[data-theme="light"] .ce-freshness__dot--stale {
+  background: #94a3b8;
+}
+[data-theme="light"] .ce-card__preview {
+  background: rgba(15, 23, 42, 0.04);
+}

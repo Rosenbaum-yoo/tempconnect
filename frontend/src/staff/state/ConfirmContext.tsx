@@ -55,9 +55,16 @@ export function ConfirmProvider({ children }: { children: ReactNode }) {
     <Ctx.Provider value={{ confirm }}>
       {children}
       {opts && (
-        <div className="scc-modal" onClick={(e) => { if (e.target === e.currentTarget) close(); }}>
+        <div
+          className="scc-modal"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="scc-confirm-title"
+          onClick={(e) => { if (e.target === e.currentTarget) close(); }}
+          onKeyDown={(e) => { if (e.key === "Escape") close(); }}
+        >
           <div className="scc-modal__box">
-            <div className="scc-modal__title">{opts.title}</div>
+            <div className="scc-modal__title" id="scc-confirm-title">{opts.title}</div>
             {opts.hint && <div className="scc-modal__hint">{opts.hint}</div>}
             <div className="scc-label" style={{ marginBottom: 8 }}>
               <span>Begründung (min. 10 Zeichen)</span>
@@ -67,9 +74,10 @@ export function ConfirmProvider({ children }: { children: ReactNode }) {
                 onChange={(e) => setReason(e.target.value)}
                 placeholder="Warum wird diese Aktion durchgeführt?"
                 autoFocus
+                aria-label="Begründung für die Aktion"
               />
             </div>
-            {err && <div className="scc-error-inline">{err}</div>}
+            {err && <div className="scc-error-inline" role="alert">{err}</div>}
             <div className="scc-modal__actions">
               <button className="scc-btn" onClick={close} disabled={busy}>Abbrechen</button>
               <button

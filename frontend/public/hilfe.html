@@ -3,7 +3,8 @@
 <head>
   <meta charset="utf-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
-  <title>Hilfe-Center – TempConnect</title>
+  <script src="/public/js/theme.js"></script>
+  <title>Help Center – TempConnect</title>
   <link rel="stylesheet" href="/public/css/design-system.css"/>
   <style>
     .help-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: var(--ds-space-3); margin-bottom: var(--ds-space-6); }
@@ -26,22 +27,60 @@
 </head>
 <body>
   <div class="ds-wrap">
-    <nav class="ds-topbar">
-      <div class="ds-topbar__brand"><span class="ds-topbar__brand-dot"></span> TempConnect</div>
-      <div class="ds-topbar__nav">
-        <a href="/" class="ds-nav-link">Startseite</a>
-        <a href="/public/pricing.html" class="ds-nav-link">Tarife</a>
-        <a href="/public/onboarding.html" class="ds-nav-link">Erste Schritte</a>
-        <span class="ds-topbar__separator"></span>
-        <a href="/app" class="ds-btn">Anmelden</a>
-        <a href="/app" class="ds-btn ds-btn--primary">Kostenlos starten</a>
-      </div>
-    </nav>
+    <div id="tc-shell"></div>
 
     <div class="ds-page-header">
       <div class="ds-page-header__content">
-        <h1 class="ds-page-title">Hilfe-Center</h1>
-        <p class="ds-page-subtitle">Antworten auf haeufige Fragen, Anleitungen und Support-Kontakt.</p>
+        <h1 class="ds-page-title">Help Center</h1>
+        <p class="ds-page-subtitle">Hilfe, Anleitungen, FAQ und Support-Kontakt &ndash; alles an einem Ort.</p>
+      </div>
+    </div>
+
+    <!-- Onboarding Checklist -->
+    <div id="onboarding-checklist" style="display:none;margin-bottom:var(--ds-space-4)">
+      <div style="border:1px solid rgba(74,158,255,.15);border-radius:12px;background:rgba(74,158,255,.03);overflow:hidden">
+        <div style="display:flex;align-items:center;gap:10px;padding:10px 16px;cursor:pointer" onclick="toggleOnboarding()">
+          <span style="font-size:15px">&#128640;</span>
+          <span style="font-weight:700;font-size:14px;white-space:nowrap">Plattform einrichten</span>
+          <span id="onboarding-subtitle" style="font-size:12px;color:var(--ds-text-secondary,var(--muted));white-space:nowrap;overflow:hidden;text-overflow:ellipsis;flex-shrink:1;min-width:0"></span>
+          <div style="flex:1;min-width:40px;max-width:160px;height:4px;border-radius:2px;background:rgba(255,255,255,.08);overflow:hidden">
+            <div id="onboarding-progress-bar" style="height:100%;border-radius:2px;background:var(--ds-brand,#4a9eff);transition:width .4s ease;width:0%"></div>
+          </div>
+          <button id="onboarding-toggle-btn" type="button" style="background:none;border:none;color:var(--ds-text-secondary,var(--muted));cursor:pointer;font-size:10px;padding:2px 6px;transition:transform .25s;transform:rotate(0deg)" title="Auf-/Zuklappen" onclick="event.stopPropagation();toggleOnboarding()">&#9660;</button>
+          <button id="onboarding-dismiss-btn" type="button" onclick="event.stopPropagation();dismissOnboarding()" style="background:none;border:none;color:var(--ds-text-secondary,var(--muted));cursor:pointer;font-size:18px;padding:2px 6px;line-height:1" title="Ausblenden">&times;</button>
+        </div>
+        <div id="onboarding-body" style="max-height:0;overflow:hidden;transition:max-height .3s ease">
+          <div style="padding:0 16px 14px">
+            <div id="onboarding-steps"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Help Center Hub Grid -->
+    <div class="ds-section" style="padding-top:0;margin-bottom:var(--ds-space-4)">
+      <div class="ds-hub-grid">
+        <div class="ds-hub-card ds-hub-card--current ds-hub-card--success" aria-current="page">
+          <div class="ds-hub-card__icon">&#10067;</div>
+          <div class="ds-hub-card__content">
+            <div class="ds-hub-card__title">Help Center</div>
+            <p class="ds-hub-card__desc">Sie befinden sich im Help Center.</p>
+          </div>
+        </div>
+        <a href="/public/sla_hilfe.html" class="ds-hub-card">
+          <div class="ds-hub-card__icon">&#128214;</div>
+          <div class="ds-hub-card__content">
+            <div class="ds-hub-card__title">Hilfe und Anleitung</div>
+            <p class="ds-hub-card__desc">Schritt-f&uuml;r-Schritt-Anleitungen und Dokumentation.</p>
+          </div>
+        </a>
+        <a href="/public/legal/kontakt.html" class="ds-hub-card">
+          <div class="ds-hub-card__icon">&#128222;</div>
+          <div class="ds-hub-card__content">
+            <div class="ds-hub-card__title">Support und Kontakt</div>
+            <p class="ds-hub-card__desc">Kontaktformular, E-Mail-Support und Hilfe vom Team.</p>
+          </div>
+        </a>
       </div>
     </div>
 
@@ -49,7 +88,7 @@
     <div class="help-grid">
       <a href="#erste-schritte" class="help-card" style="text-decoration:none;color:inherit">
         <h3>&#128640; Erste Schritte</h3>
-        <p>Registrierung, Profil, erste Anfrage oder Kapazitaet einstellen.</p>
+        <p>Registrierung, Profil, erste Anfrage oder Personal einstellen.</p>
       </a>
       <a href="#deals" class="help-card" style="text-decoration:none;color:inherit">
         <h3>&#129309; So funktionieren Deals</h3>
@@ -57,7 +96,7 @@
       </a>
       <a href="#unternehmen" class="help-card" style="text-decoration:none;color:inherit">
         <h3>&#127970; Fuer Unternehmen</h3>
-        <p>Kapazitaetssuche, Suchauftraege, Matching und Beschaffung.</p>
+        <p>Personalsuche, Suchaufträge, Matching und Beschaffung.</p>
       </a>
       <a href="#dienstleister" class="help-card" style="text-decoration:none;color:inherit">
         <h3>&#128188; Fuer Personaldienstleister</h3>
@@ -71,9 +110,9 @@
         <h3>&#128179; Abrechnung &amp; Tarife</h3>
         <p>Plan-Wechsel, Zahlungsmethoden, Rechnungen, Kuendigung.</p>
       </a>
-      <a href="#kapazitaetsboerse" class="help-card" style="text-decoration:none;color:inherit">
-        <h3>&#128259; Kapazitaetsboerse</h3>
-        <p>Kapazitaeten einstellen, Boerse durchsuchen, Deals abschliessen, Sichtbarkeit erhoehen.</p>
+      <a href="#Marktplatz" class="help-card" style="text-decoration:none;color:inherit">
+        <h3>&#128259; Vermittlung</h3>
+        <p>Personal einstellen, Vermittlung nutzen, Deals abschließen, Sichtbarkeit erhöhen.</p>
       </a>
     </div>
 
@@ -92,7 +131,7 @@
       </div>
       <div class="faq-item">
         <div class="faq-q" onclick="this.parentElement.classList.toggle('open')"><span>Was sind die ersten Schritte nach der Registrierung?</span><span class="arrow">&#9660;</span></div>
-        <div class="faq-a">1) Profil vervollstaendigen, 2) Rolle waehlen (Unternehmen oder Dienstleister), 3) Erste Suchanfrage erstellen oder Kapazitaet einstellen. Eine ausfuehrliche Anleitung finden Sie unter <a href="/public/onboarding.html" style="color:var(--ds-brand)">Erste Schritte</a>.</div>
+        <div class="faq-a">1) Profil vervollstaendigen, 2) Rolle waehlen (Unternehmen oder Dienstleister), 3) Erste Suchanfrage erstellen oder Personal einstellen. Eine ausfuehrliche Anleitung finden Sie unter <a href="/public/onboarding.html" style="color:var(--ds-brand)">Erste Schritte</a>.</div>
       </div>
     </div>
 
@@ -115,20 +154,20 @@
     <div class="faq-section" id="unternehmen">
       <h2>&#127970; Fuer Unternehmen</h2>
       <div class="faq-item">
-        <div class="faq-q" onclick="this.parentElement.classList.toggle('open')"><span>Wie sende ich eine Kapazitaetsanfrage?</span><span class="arrow">&#9660;</span></div>
-        <div class="faq-a">Gehen Sie zur Kapazitaetssuche, filtern Sie nach Rolle, Region und Verfuegbarkeit, und klicken Sie bei einem passenden Angebot auf „Anfragen". Je nach Tarif haben Sie eine begrenzte oder unbegrenzte Anzahl an Anfragen pro Monat.</div>
+        <div class="faq-q" onclick="this.parentElement.classList.toggle('open')"><span>Wie sende ich eine Personalanfrage?</span><span class="arrow">&#9660;</span></div>
+        <div class="faq-a">Gehen Sie zur Personalsuche, filtern Sie nach Rolle, Region und Verfuegbarkeit, und klicken Sie bei einem passenden Angebot auf „Anfragen". Je nach Tarif haben Sie eine begrenzte oder unbegrenzte Anzahl an Anfragen pro Monat.</div>
       </div>
       <div class="faq-item">
         <div class="faq-q" onclick="this.parentElement.classList.toggle('open')"><span>Was ist ein persistenter Suchauftrag?</span><span class="arrow">&#9660;</span></div>
-        <div class="faq-a">Ab dem PLUS-Tarif koennen Sie Suchauftraege speichern. Die Plattform sucht dann kontinuierlich nach passenden Kapazitaeten und benachrichtigt Sie bei neuen Treffern.</div>
+        <div class="faq-a">Ab dem PLUS-Tarif koennen Sie Suchauftraege speichern. Die Plattform sucht dann kontinuierlich nach passendem Personal und benachrichtigt Sie bei neuen Treffern.</div>
       </div>
     </div>
 
     <div class="faq-section" id="dienstleister">
       <h2>&#128188; Fuer Personaldienstleister</h2>
       <div class="faq-item">
-        <div class="faq-q" onclick="this.parentElement.classList.toggle('open')"><span>Wie stelle ich Kapazitaeten ein?</span><span class="arrow">&#9660;</span></div>
-        <div class="faq-a">Nutzen Sie die Funktion „Kapazitaet erstellen" im Marketplace-Bereich. Geben Sie Rolle, Anzahl, Region, Verfuegbarkeit und Stundensatz an. Ihre Kapazitaeten werden dann fuer suchende Unternehmen sichtbar.</div>
+        <div class="faq-q" onclick="this.parentElement.classList.toggle('open')"><span>Wie stelle ich Personal ein?</span><span class="arrow">&#9660;</span></div>
+        <div class="faq-a">Nutzen Sie die Funktion „Personal einstellen" im Vermittlungsbereich. Geben Sie Rolle, Anzahl, Region, Verfuegbarkeit und Stundensatz an. Ihr Personal wird dann fuer suchende Unternehmen sichtbar.</div>
       </div>
       <div class="faq-item">
         <div class="faq-q" onclick="this.parentElement.classList.toggle('open')"><span>Wie reagiere ich auf Anfragen?</span><span class="arrow">&#9660;</span></div>
@@ -148,27 +187,27 @@
       </div>
     </div>
 
-    <div class="faq-section" id="kapazitaetsboerse">
-      <h2>&#128259; Kapazitaetsboerse</h2>
+    <div class="faq-section" id="Marktplatz">
+      <h2>&#128259; Vermittlung</h2>
       <div class="faq-item">
-        <div class="faq-q" onclick="this.parentElement.classList.toggle('open')"><span>Was ist die Kapazitaetsboerse?</span><span class="arrow">&#9660;</span></div>
-        <div class="faq-a">Die Kapazitaetsboerse ist ein Modul der TempConnect-Plattform, auf dem Personaldienstleister ihre verfuegbaren Mitarbeiterkapazitaeten einstellen koennen. Unternehmen durchsuchen die Boerse, um passende Kapazitaeten zu finden, Interesse zu bekunden und Angebote anzufordern. Ziel ist die schnellere Koordination von Personalangebot und -nachfrage.</div>
+        <div class="faq-q" onclick="this.parentElement.classList.toggle('open')"><span>Was ist die Vermittlung?</span><span class="arrow">&#9660;</span></div>
+        <div class="faq-a">Die Vermittlung ist ein Modul der TempConnect-Plattform, auf dem Personaldienstleister ihr verfügbares Personal einstellen können. Unternehmen durchsuchen den Feed, um passendes Personal zu finden, Interesse zu bekunden und Angebote anzufordern. Ziel ist die schnellere Koordination von Personalangebot und -nachfrage.</div>
       </div>
       <div class="faq-item">
-        <div class="faq-q" onclick="this.parentElement.classList.toggle('open')"><span>Wie stelle ich verfuegbare Kapazitaeten ein?</span><span class="arrow">&#9660;</span></div>
-        <div class="faq-a">Gehen Sie zu „Kapazitaet einstellen" oder klicken Sie im Enterprise-Dashboard auf „Kapazitaeten verwalten" und dann auf „Neu einstellen". Geben Sie Rolle, Anzahl, Region, Verfuegbarkeit, Qualifikationen und Konditionen an. Sie koennen den Eintrag als Entwurf speichern oder direkt aktivieren. Aktive Eintraege erscheinen sofort in der Boerse.</div>
+        <div class="faq-q" onclick="this.parentElement.classList.toggle('open')"><span>Wie stelle ich verfügbares Personal ein?</span><span class="arrow">&#9660;</span></div>
+        <div class="faq-a">Gehen Sie zu „Personal einstellen" oder klicken Sie im Plattform-Dashboard auf „Personal verwalten" und dann auf „Neu einstellen". Geben Sie Rolle, Anzahl, Region, Verfuegbarkeit, Qualifikationen und Konditionen an. Sie koennen den Eintrag als Entwurf speichern oder direkt aktivieren. Aktive Eintraege erscheinen sofort im Vermittlungs-Feed.</div>
       </div>
       <div class="faq-item">
         <div class="faq-q" onclick="this.parentElement.classList.toggle('open')"><span>Wie finden Unternehmen verfuegbare Mitarbeiter?</span><span class="arrow">&#9660;</span></div>
-        <div class="faq-a">In der Kapazitaetsboerse koennen Unternehmen nach Rolle, Stadt, Kategorie, Schichtmodell, Compliance-Status und Verfuegbarkeitsdatum filtern. Jede Kapazitaetskarte zeigt Vertrauenssignale (verifiziert, Compliance, Deals) und Frische-Indikatoren. Per Klick koennen Sie Interesse bekunden, ein Angebot anfragen oder eine Frage stellen.</div>
+        <div class="faq-a">Im Vermittlungs-Feed koennen Unternehmen nach Rolle, Stadt, Kategorie, Schichtmodell, Compliance-Status und Verfuegbarkeitsdatum filtern. Jede Personalkarte zeigt Vertrauenssignale (verifiziert, Compliance, Deals) und Frische-Indikatoren. Per Klick koennen Sie Interesse bekunden, ein Angebot anfragen oder eine Frage stellen.</div>
       </div>
       <div class="faq-item">
-        <div class="faq-q" onclick="this.parentElement.classList.toggle('open')"><span>Wie funktionieren Deals in der Kapazitaetsboerse?</span><span class="arrow">&#9660;</span></div>
-        <div class="faq-a">Ein Unternehmen bekundet Interesse an einem Kapazitaetseintrag. Der Dienstleister erhaelt eine Benachrichtigung und kann ein Angebot senden. Wenn beide Seiten einverstanden sind, wird ein Deal abgeschlossen. Erst dann werden Kontaktdaten freigegeben. Der gesamte Prozess wird auf der Plattform dokumentiert.</div>
+        <div class="faq-q" onclick="this.parentElement.classList.toggle('open')"><span>Wie funktionieren Deals in der Vermittlung?</span><span class="arrow">&#9660;</span></div>
+        <div class="faq-a">Ein Unternehmen bekundet Interesse an einem Personalangebot. Der Dienstleister erhaelt eine Benachrichtigung und kann ein Angebot senden. Wenn beide Seiten einverstanden sind, wird ein Deal abgeschlossen. Erst dann werden Kontaktdaten freigegeben. Der gesamte Prozess wird auf der Plattform dokumentiert.</div>
       </div>
       <div class="faq-item">
         <div class="faq-q" onclick="this.parentElement.classList.toggle('open')"><span>Wie erhoehe ich meine Sichtbarkeit auf TempConnect?</span><span class="arrow">&#9660;</span></div>
-        <div class="faq-a">Drei Faktoren verbessern Ihre Sichtbarkeit: 1) Vollstaendiges Firmenprofil – Profile mit allen Feldern erhalten mehr Anfragen. 2) Aktualitaet – Bestaetigen Sie Ihre Eintraege regelmaessig. Frische Eintraege werden bevorzugt angezeigt. 3) Mehrere Eintraege – Stellen Sie Kapazitaeten fuer verschiedene Rollen und Regionen ein, um in mehr Suchergebnissen zu erscheinen.</div>
+        <div class="faq-a">Drei Faktoren verbessern Ihre Sichtbarkeit: 1) Vollstaendiges Firmenprofil – Profile mit allen Feldern erhalten mehr Anfragen. 2) Aktualitaet – Bestaetigen Sie Ihre Eintraege regelmaessig. Frische Eintraege werden bevorzugt angezeigt. 3) Mehrere Eintraege – Stellen Sie Personal fuer verschiedene Rollen und Regionen ein, um in mehr Suchergebnissen zu erscheinen.</div>
       </div>
     </div>
 
@@ -180,13 +219,24 @@
       </div>
       <div class="faq-item">
         <div class="faq-q" onclick="this.parentElement.classList.toggle('open')"><span>Wie kuendige ich mein Abo?</span><span class="arrow">&#9660;</span></div>
-        <div class="faq-a">Unter Abo-Modelle koennen Sie Ihr Abo jederzeit kuendigen. Sie wechseln dann automatisch zum kostenlosen FREE-Plan. Ihre Daten bleiben erhalten.</div>
+        <div class="faq-a">Unter Abo-Modelle koennen Sie Ihr Abo jederzeit kuendigen. Sie wechseln dann automatisch zum kostenlosen DEMO-Zugang (14 Tage). Ihre Daten bleiben erhalten.</div>
       </div>
       <div class="faq-item">
         <div class="faq-q" onclick="this.parentElement.classList.toggle('open')"><span>Was bedeutet Pulse-Timer?</span><span class="arrow">&#9660;</span></div>
-        <div class="faq-a">Der Pulse-Timer ist die maximale Zeitspanne, innerhalb derer die Plattform einen dokumentierten Matching-Versuch fuer Ihre Anfrage unternimmt. Dies ist ein Prozessnachweis (kein Vermittlungsversprechen). Die Zeitspanne haengt vom Tarif ab (PLUS: 120 Min, PRO: 60 Min, ENTERPRISE: 30 Min).</div>
+        <div class="faq-a">Der Pulse-Timer ist die maximale Zeitspanne, innerhalb derer die Plattform einen dokumentierten Matching-Versuch fuer Ihre Anfrage unternimmt. Dies ist ein Prozessnachweis (kein Vermittlungsversprechen). Die Zeitspanne haengt vom Tarif ab (PLUS: 120 Min, PRO: 60 Min, Individueller Tarif: 30 Min).</div>
       </div>
     </div>
+
+    <hr class="ds-divider"/>
+
+    <!-- Onboarding erneut starten -->
+    <section style="text-align:center;padding:var(--ds-space-4) 0">
+      <h2 style="font-size:18px;font-weight:700;margin:0 0 var(--ds-space-2)">Onboarding-Assistent</h2>
+      <p style="color:var(--ds-text-secondary);font-size:14px;margin:0 0 var(--ds-space-3);max-width:500px;margin-left:auto;margin-right:auto;line-height:1.6">Sie moechten die Einfuehrung in die Plattform erneut durchlaufen?</p>
+      <button class="ds-btn" onclick="fetch('/api/me/onboarding-reset',{method:'POST',credentials:'include',headers:{'Content-Type':'application/json'}}).then(function(){window.location.reload()}).catch(function(){alert('Fehler beim Zuruecksetzen.')})">
+        Onboarding erneut starten
+      </button>
+    </section>
 
     <hr class="ds-divider"/>
 
@@ -204,7 +254,11 @@
       Inhalte dienen der Unterstuetzung und ersetzen keine rechtliche Pruefung. Angaben ohne Gewaehr.
     </div>
   </div>
-  <div id="tc-footer" data-tc-footer></div>
+  <script src="/public/js/pageShell.js"></script>`n  <div id="tc-footer" data-tc-footer></div>
   <script src="/public/js/footer.js"></script>
+<script src="/public/js/demoBanner.js" defer></script>
+<script src="/public/js/onboardingWizard.js" defer></script><script src="/public/js/notifications.js" defer></script>
+  <script src="/public/js/onboardingChecklist.js" defer></script>
+<script src="/public/js/breadcrumb.js" defer></script>
 </body>
 </html>

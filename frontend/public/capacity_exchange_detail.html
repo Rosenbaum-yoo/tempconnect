@@ -1,9 +1,10 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="de">
 <head>
   <meta charset="utf-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
-  <title>Kapazitaet – TempConnect</title>
+  <script src="/public/js/theme.js"></script>
+  <title>Personalangebot / Anfrage – TempConnect</title>
   <link rel="stylesheet" href="/public/css/enterprise.css"/>
   <style>
     .ce-detail { display: grid; grid-template-columns: 1fr 340px; gap: var(--ds-space-6); align-items: start; }
@@ -35,11 +36,133 @@
     .ce-completeness__label { font-size: 12px; color: var(--ds-text-secondary); margin-top: 4px; }
     .ce-action-row { display: flex; gap: var(--ds-space-2); flex-wrap: wrap; }
     .ce-action-row .ds-btn--sm { font-size: 12px; }
+    .ce-hero {
+      margin-bottom: var(--ds-space-4);
+      border: 1px solid var(--ds-border);
+      border-radius: var(--ds-radius-lg);
+      overflow: hidden;
+      background: rgba(255,255,255,.02);
+      position: relative;
+    }
+    .ce-hero__media {
+      width: 100%;
+      aspect-ratio: 16 / 5;
+      object-fit: cover;
+      display: block;
+    }
+    .ce-hero__fallback {
+      width: 100%;
+      aspect-ratio: 16 / 5;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--ds-text-tertiary);
+      font-size: 14px;
+      font-weight: 600;
+      letter-spacing: .02em;
+    }
+    .ce-hero__badge {
+      position: absolute;
+      left: var(--ds-space-3);
+      bottom: var(--ds-space-3);
+      background: rgba(15, 23, 42, .55);
+      color: #fff;
+      border: 1px solid rgba(255,255,255,.2);
+      border-radius: 999px;
+      padding: 4px 10px;
+      font-size: 12px;
+      backdrop-filter: blur(2px);
+    }
+    /* ── Offer Assets ──────────────────────────── */
+    .ce-logo-area { display: flex; align-items: center; gap: var(--ds-space-4); margin-bottom: var(--ds-space-4); }
+    .ce-logo-area img { width: 80px; height: 80px; border-radius: var(--ds-radius-lg); object-fit: cover; border: 1px solid var(--ds-border); background: rgba(255,255,255,.04); }
+    .ce-gallery-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: var(--ds-space-3); }
+    @media (max-width: 600px) { .ce-gallery-grid { grid-template-columns: repeat(2, 1fr); } }
+    .ce-gallery-grid img { width: 100%; aspect-ratio: 4/3; object-fit: cover; border-radius: var(--ds-radius-md); border: 1px solid var(--ds-border); cursor: pointer; transition: transform .2s; }
+    .ce-gallery-grid img:hover { transform: scale(1.03); }
+    .ce-doc-list { list-style: none; padding: 0; margin: 0; }
+    .ce-doc-item { display: flex; align-items: center; gap: var(--ds-space-3); padding: var(--ds-space-3) 0; border-bottom: 1px solid rgba(255,255,255,.04); font-size: 13px; }
+    .ce-doc-item:last-child { border-bottom: none; }
+    .ce-doc-icon { font-size: 18px; flex-shrink: 0; }
+    .ce-doc-meta { flex: 1; min-width: 0; }
+    .ce-doc-name { font-weight: 600; color: var(--ds-text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .ce-doc-sub { font-size: 11px; color: var(--ds-text-tertiary); }
+    .ce-upload-row { display: flex; flex-wrap: wrap; gap: var(--ds-space-2); margin-top: var(--ds-space-3); }
+    .ce-upload-btn { font-size: 12px; cursor: pointer; }
+    .ce-upload-btn input[type=file] { display: none; }
+    .ce-lightbox { position: fixed; inset: 0; background: rgba(0,0,0,.85); z-index: 9999; display: flex; align-items: center; justify-content: center; cursor: pointer; }
+    .ce-lightbox img { max-width: 90vw; max-height: 90vh; border-radius: var(--ds-radius-lg); }
+    .ce-action-zone { display: flex; flex-direction: column; gap: var(--ds-space-3); }
+    .ce-action-zone__lead { font-size: 13px; color: var(--ds-text-secondary); margin: 0; }
+    .ce-action-zone__grid { display: grid; grid-template-columns: 1fr; gap: var(--ds-space-2); }
+    .ce-action-btn {
+      width: 100%;
+      justify-content: flex-start;
+      text-align: left;
+      min-height: 42px;
+      display: inline-flex;
+      align-items: center;
+      gap: var(--ds-space-2);
+    }
+    .ce-action-btn__meta { font-size: 11px; color: var(--ds-text-tertiary); margin-left: auto; }
+    .ce-action-zone__steps {
+      margin: 0;
+      padding-left: 16px;
+      display: grid;
+      gap: 4px;
+      color: var(--ds-text-secondary);
+      font-size: 12px;
+    }
+    .ce-action-status {
+      border: 1px solid var(--ds-border);
+      border-radius: var(--ds-radius-md);
+      background: rgba(255,255,255,.02);
+      padding: var(--ds-space-3);
+      font-size: 12px;
+      color: var(--ds-text-secondary);
+      display: none;
+    }
+    .ce-modal-backdrop {
+      position: fixed;
+      inset: 0;
+      background: rgba(2, 6, 23, .65);
+      z-index: 15000;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      padding: var(--ds-space-4);
+    }
+    .ce-modal {
+      width: min(720px, 100%);
+      max-height: 88vh;
+      overflow: auto;
+      border: 1px solid var(--ds-border);
+      border-radius: var(--ds-radius-lg);
+      background: var(--ds-bg, #0b1220);
+      box-shadow: var(--ds-shadow-lg);
+      padding: var(--ds-space-5);
+    }
+    .ce-modal__head { display: flex; justify-content: space-between; gap: var(--ds-space-3); margin-bottom: var(--ds-space-3); }
+    .ce-modal__title { margin: 0; font-size: 18px; }
+    .ce-modal__subtitle { margin: 4px 0 0; font-size: 13px; color: var(--ds-text-secondary); }
+    .ce-modal__summary {
+      border: 1px solid var(--ds-border);
+      border-radius: var(--ds-radius-md);
+      background: rgba(255,255,255,.02);
+      padding: var(--ds-space-3);
+      font-size: 12px;
+      color: var(--ds-text-secondary);
+      margin-bottom: var(--ds-space-3);
+    }
+    .ce-modal__grid { display: grid; grid-template-columns: 1fr 1fr; gap: var(--ds-space-3); }
+    @media (max-width: 720px) { .ce-modal__grid { grid-template-columns: 1fr; } }
+    .ce-modal__actions { display: flex; justify-content: flex-end; gap: var(--ds-space-2); margin-top: var(--ds-space-4); }
+    .ce-modal-open { overflow: hidden; }
   </style>
 </head>
 <body data-sla-guard="sla_access">
   <div id="paywall" class="wrap" style="display:none">
-    <div class="topbar"><span class="brand">TempConnect</span><a href="/" class="btn">Startseite</a></div>
+    <nav class="ds-topbar"><div class="ds-topbar__brand"><span class="ds-topbar__brand-dot"></span>TempConnect</div><div class="ds-topbar__nav"><a href="/" class="ds-btn">Startseite</a></div></nav>
     <div class="paywall-box">
       <h2>Bereich nicht verfuegbar</h2>
       <p>Aktueller Plan: <span id="paywall-current-plan" class="paywall-plan">–</span></p>
@@ -48,15 +171,7 @@
   </div>
 
   <div id="main-content" class="ds-wrap">
-    <div class="ds-topbar">
-      <div class="ds-topbar__brand"><span class="ds-topbar__brand-dot"></span>TempConnect</div>
-      <nav class="ds-topbar__nav">
-        <a href="/public/enterprise.html" class="ds-nav-link">Uebersicht</a>
-        <span class="ds-topbar__separator"></span>
-        <a href="/public/capacity_exchange_manage.html" class="ds-nav-link">Meine Kapazitaeten</a>
-        <a href="/public/capacity_exchange_feed.html" class="ds-nav-link">Kapazitaetsboerse</a>
-      </nav>
-    </div>
+    <div id="tc-shell"></div>
 
     <!-- Loading state -->
     <div id="loading">
@@ -66,11 +181,23 @@
 
     <!-- Detail content (hidden until loaded) -->
     <div id="detail" style="display:none">
+      <div id="sect-hero" class="ce-hero">
+        <img id="d-hero-img" class="ce-hero__media" style="display:none" alt="Eintragsvorschau"/>
+        <div id="d-hero-fallback" class="ce-hero__fallback">Kein Eintragsbild vorhanden</div>
+        <div class="ce-hero__badge">Eintragsvorschau</div>
+      </div>
+
+      <!-- Logo Area (filled by JS) -->
+      <div id="sect-logo" class="ce-logo-area" style="display:none">
+        <img id="d-logo-img" src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7" alt="Firmenlogo"/>
+        <div id="d-logo-upload" style="display:none"></div>
+      </div>
+
       <!-- Page Header -->
       <div class="ds-page-header">
         <div class="ds-page-header__content">
-          <h1 class="ds-page-title" id="d-title">–</h1>
-          <p class="ds-page-subtitle" id="d-subtitle">–</p>
+          <h1 class="ds-page-title" id="d-title"></h1>
+          <p class="ds-page-subtitle" id="d-subtitle"></p>
         </div>
         <div class="ds-page-header__actions" id="d-header-actions"></div>
       </div>
@@ -84,7 +211,7 @@
 
           <!-- Workforce -->
           <div class="ce-section">
-            <div class="ce-section__title">Personalangebot</div>
+            <div class="ce-section__title">Personalangebot <span style="font-weight:400;font-size:11px;text-transform:none;letter-spacing:0;color:var(--ds-text-secondary)">&mdash; Welches Personal wird angeboten?</span></div>
             <div class="ce-fields-grid">
               <div class="ce-field"><div class="ce-field__label">Rolle</div><div class="ce-field__value" id="d-role">–</div></div>
               <div class="ce-field"><div class="ce-field__label">Kategorie</div><div class="ce-field__value" id="d-category">–</div></div>
@@ -95,7 +222,7 @@
 
           <!-- Timing -->
           <div class="ce-section">
-            <div class="ce-section__title">Zeitraum &amp; Einsatzmodell</div>
+            <div class="ce-section__title">Zeitraum &amp; Einsatzmodell <span style="font-weight:400;font-size:11px;text-transform:none;letter-spacing:0;color:var(--ds-text-secondary)">&mdash; Wann und wie wird eingesetzt?</span></div>
             <div class="ce-fields-grid">
               <div class="ce-field"><div class="ce-field__label">Verfuegbarkeit</div><div class="ce-field__value" id="d-dates">–</div></div>
               <div class="ce-field"><div class="ce-field__label">Typ</div><div class="ce-field__value" id="d-avail-type">–</div></div>
@@ -106,7 +233,7 @@
 
           <!-- Location -->
           <div class="ce-section">
-            <div class="ce-section__title">Standort</div>
+            <div class="ce-section__title">Standort <span style="font-weight:400;font-size:11px;text-transform:none;letter-spacing:0;color:var(--ds-text-secondary)">&mdash; Wo ist der Einsatzort?</span></div>
             <div class="ce-fields-grid">
               <div class="ce-field"><div class="ce-field__label">Stadt / PLZ</div><div class="ce-field__value" id="d-location">–</div></div>
               <div class="ce-field"><div class="ce-field__label">Einsatzradius</div><div class="ce-field__value" id="d-radius">–</div></div>
@@ -124,8 +251,29 @@
 
           <!-- Commercial -->
           <div class="ce-section" id="sect-price" style="display:none">
-            <div class="ce-section__title">Konditionen</div>
+            <div class="ce-section__title">Konditionen <span style="font-weight:400;font-size:11px;text-transform:none;letter-spacing:0;color:var(--ds-text-secondary)">&mdash; Preis und Vergütungsdetails</span></div>
             <div class="ce-fields-grid" id="d-price-fields"></div>
+          </div>
+
+          <!-- Sicherheitshinweise (Bilder) -->
+          <div id="sect-safety" class="ce-section" style="display:none">
+            <div class="ce-section__title">Sicherheitshinweise</div>
+            <div id="d-safety-images" class="ce-gallery-grid"></div>
+            <div id="d-safety-upload" class="ce-upload-row" style="display:none"></div>
+          </div>
+
+          <!-- Angebotsbilder (Galerie) -->
+          <div id="sect-gallery" class="ce-section" style="display:none">
+            <div class="ce-section__title">Angebotsbilder</div>
+            <div id="d-gallery-images" class="ce-gallery-grid"></div>
+            <div id="d-gallery-upload" class="ce-upload-row" style="display:none"></div>
+          </div>
+
+          <!-- Compliance-Dokumente -->
+          <div id="sect-compliance-docs" class="ce-section" style="display:none">
+            <div class="ce-section__title">Compliance-Dokumente</div>
+            <ul id="d-compliance-docs" class="ce-doc-list"></ul>
+            <div id="d-compliance-upload" class="ce-upload-row" style="display:none"></div>
           </div>
 
           <!-- Owner: Matches -->
@@ -149,7 +297,7 @@
         <div class="ce-detail__sidebar">
           <!-- Trust Signals -->
           <div class="ce-section" id="sect-trust">
-            <div class="ce-section__title">Vertrauenssignale</div>
+            <div class="ce-section__title">Vertrauenssignale <span style="font-weight:400;font-size:11px;text-transform:none;letter-spacing:0;color:var(--ds-text-secondary)">&mdash; Bewertung des Anbieters</span></div>
             <div id="d-trust" style="display:flex;flex-wrap:wrap;gap:var(--ds-space-2)">
               <span class="ds-text-sm ds-text-muted">–</span>
             </div>
@@ -157,7 +305,7 @@
 
           <!-- Compliance -->
           <div class="ce-section">
-            <div class="ce-section__title">Compliance</div>
+            <div class="ce-section__title">Compliance <span style="font-weight:400;font-size:11px;text-transform:none;letter-spacing:0;color:var(--ds-text-secondary)">&mdash; Nachweis- und Dokumentenstatus</span></div>
             <div id="d-compliance-display" style="display:flex;align-items:center;gap:6px;font-size:14px">–</div>
             <div id="d-completeness" class="ce-completeness" style="display:none">
               <div class="ce-completeness__bar"><div class="ce-completeness__fill" id="d-completeness-fill" style="width:0"></div></div>
@@ -169,24 +317,45 @@
           <div class="ce-section" id="sect-buyer-actions" style="display:none">
             <div class="ce-section__title">Schnellaktionen</div>
             <div class="ce-action-row">
-              <button class="ds-btn ds-btn--sm" id="btn-save-entry" title="Kapazitaet merken">&#9734; Merken</button>
+              <button class="ds-btn ds-btn--sm" id="btn-save-entry" title="Personalangebot merken">&#9734; Merken</button>
               <button class="ds-btn ds-btn--sm ds-btn--ghost" id="btn-share-entry" title="Link kopieren">&#128279; Link kopieren</button>
             </div>
           </div>
 
           <!-- Interaction Panel (buyer view) -->
           <div class="ce-section" id="sect-interact" style="display:none">
-            <div class="ce-section__title">Kontakt aufnehmen</div>
-            <div class="ce-interact-form">
-              <div class="ce-interact-btns">
-                <button class="ds-btn ds-btn--sm ds-btn--primary" data-itype="interest">Interesse bekunden</button>
-                <button class="ds-btn ds-btn--sm" data-itype="offer_request">Angebot anfragen</button>
-                <button class="ds-btn ds-btn--sm" data-itype="question">Frage stellen</button>
-                <button class="ds-btn ds-btn--sm ds-btn--ghost" data-itype="contact">Kontakt</button>
+            <div class="ce-section__title" id="interact-title">Naechste Schritte</div>
+            <div class="ce-action-zone">
+              <p class="ce-action-zone__lead" id="action-zone-lead">Reagieren Sie auf dieses Angebot der Zeitarbeitsfirma.</p>
+
+              <div class="ce-action-zone__grid">
+                <button class="ds-btn ds-btn--primary ce-action-btn" id="btn-emergency-commit" data-open-action="emergency_commit" style="display:none;font-weight:700">
+                  <span>&#9889; Notdienst-Zusage senden</span>
+                  <span class="ce-action-btn__meta" id="btn-emergency-commit-meta">–</span>
+                </button>
+                <button class="ds-btn ds-btn--primary ce-action-btn" data-open-action="deal_accept" style="font-weight:700">
+                  &#10003; Konditionen zustimmen
+                </button>
+                <button class="ds-btn ce-action-btn" data-open-action="deal_negotiate" style="font-weight:600;background:transparent;color:var(--ds-brand);border:1px solid var(--ds-brand)">
+                  &#9998; Um Verhandlung bitten
+                </button>
               </div>
-              <textarea id="interact-msg" class="ds-textarea" placeholder="Optionale Nachricht…" maxlength="2000" rows="3"></textarea>
-              <div id="interact-feedback" style="display:none"></div>
+
+              <div style="display:flex;flex-wrap:wrap;gap:var(--ds-space-2);margin-top:var(--ds-space-3)">
+                <button class="ds-btn ds-btn--sm" id="btn-interact-save" title="Merken">&#9734; Merken</button>
+                <button class="ds-btn ds-btn--sm ds-btn--ghost" id="btn-interact-share" title="Link kopieren">&#128279; Link kopieren</button>
+                <button class="ds-btn ds-btn--sm ds-btn--ghost" data-open-action="question">&#10067; Frage stellen</button>
+              </div>
+              <div id="action-zone-status" class="ce-action-status" aria-live="polite"></div>
+              <!-- Hidden: behalten fuer JS-Kompatibilitaet -->
+              <ol id="action-zone-steps" style="display:none"></ol>
             </div>
+          </div>
+
+          <!-- Zuletzt angesehen -->
+          <div class="ce-section" id="sect-recently-viewed" style="display:none">
+            <div class="ce-section__title">Zuletzt angesehen</div>
+            <div id="d-recently-viewed"></div>
           </div>
 
           <!-- Owner Actions -->
@@ -202,297 +371,145 @@
   </div>
 
   <div id="toast" class="ds-toast" role="status" aria-live="polite"></div>
+  <div id="interaction-modal-backdrop" class="ce-modal-backdrop" aria-hidden="true">
+    <div class="ce-modal" role="dialog" aria-modal="true" aria-labelledby="interaction-modal-title">
+      <div class="ce-modal__head">
+        <div>
+          <h3 id="interaction-modal-title" class="ce-modal__title">Interaktion senden</h3>
+          <p id="interaction-modal-subtitle" class="ce-modal__subtitle"></p>
+        </div>
+        <button type="button" id="interaction-modal-close" class="ds-btn ds-btn--ghost ds-btn--sm">Schliessen</button>
+      </div>
+      <div id="interaction-modal-summary" class="ce-modal__summary"></div>
+      <form id="interaction-modal-form">
+        <div class="ce-modal__grid">
+          <div class="ce-field">
+            <label class="ds-label" for="im-start">Gewuenschter Start</label>
+            <input id="im-start" type="date" class="ds-input"/>
+          </div>
+          <div class="ce-field">
+            <label class="ds-label" for="im-end">Gewuenschter Endtermin</label>
+            <input id="im-end" type="date" class="ds-input"/>
+          </div>
+          <div class="ce-field">
+            <label class="ds-label" for="im-headcount">Anzahl / Umfang</label>
+            <input id="im-headcount" type="number" min="1" class="ds-input" placeholder="z.B. 5"/>
+          </div>
+          <div class="ce-field">
+            <label class="ds-label" for="im-location">Standortbezug</label>
+            <input id="im-location" type="text" class="ds-input" placeholder="z.B. Stuttgart, 25 km"/>
+          </div>
+          <div class="ce-field">
+            <label class="ds-label" for="im-response-deadline">Rueckmeldung bis</label>
+            <input id="im-response-deadline" type="date" class="ds-input"/>
+          </div>
+          <div class="ce-field">
+            <label class="ds-label" for="im-contact-pref">Kontaktpraeferenz</label>
+            <select id="im-contact-pref" class="ds-select">
+              <option value="">Standard ueber Plattform</option>
+              <option value="platform">Nur Plattformnachricht</option>
+              <option value="email">E-Mail bevorzugt</option>
+              <option value="call">Rueckruf gewuenscht</option>
+            </select>
+          </div>
+        </div>
+        <!-- Preis-Felder fuer Verhandlung (Phase 6) -->
+        <div id="im-price-wrap" style="display:none;margin-top:var(--ds-space-3)">
+          <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:var(--ds-text-tertiary);margin-bottom:var(--ds-space-2)">Preisvorstellung</div>
+          <div class="ce-modal__grid">
+            <div class="ce-field">
+              <label class="ds-label" for="im-price-min">Min. Stundensatz (EUR)</label>
+              <input id="im-price-min" type="number" step="0.01" min="0" class="ds-input" placeholder="z.B. 18.50"/>
+            </div>
+            <div class="ce-field">
+              <label class="ds-label" for="im-price-max">Max. Stundensatz (EUR)</label>
+              <input id="im-price-max" type="number" step="0.01" min="0" class="ds-input" placeholder="z.B. 25.00"/>
+            </div>
+          </div>
+        </div>
+        <div class="ce-field" id="im-topic-wrap" style="display:none;margin-top:var(--ds-space-3)">
+          <label class="ds-label" for="im-topic">Betreff / Thema</label>
+          <select id="im-topic" class="ds-select">
+            <option value="scope">Leistungsumfang</option>
+            <option value="availability">Verfuegbarkeit</option>
+            <option value="compliance">Compliance/Nachweise</option>
+            <option value="pricing">Konditionen/Preisrahmen</option>
+            <option value="operations">Operativer Ablauf</option>
+          </select>
+        </div>
+        <div class="ce-field" style="margin-top:var(--ds-space-3)">
+          <label class="ds-label" for="im-requirements">Besondere Anforderungen</label>
+          <input id="im-requirements" type="text" class="ds-input" placeholder="z.B. Schicht, Zertifikate, Startfenster"/>
+        </div>
+        <div class="ce-field" style="margin-top:var(--ds-space-3)">
+          <label class="ds-label" for="im-message">Nachricht</label>
+          <textarea id="im-message" class="ds-textarea" rows="4" maxlength="2000" placeholder="Kurze, konkrete Nachricht mit den wichtigsten Eckdaten"></textarea>
+          <div class="ds-helper" id="im-next-step-hint">Nach dem Senden wird die Gegenseite benachrichtigt und der Vorgang ist nachvollziehbar in den Interaktionen dokumentiert.</div>
+        </div>
+        <div id="interaction-modal-feedback" style="display:none"></div>
+        <div class="ce-modal__actions">
+          <button type="button" id="interaction-modal-cancel" class="ds-btn ds-btn--ghost">Abbrechen</button>
+          <button type="submit" id="interaction-modal-submit" class="ds-btn ds-btn--primary">Senden</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Einsatzbestaetigungs-Modal: professionelle Erfolgsansicht -->
+  <div id="agreement-modal-backdrop" class="ce-modal-backdrop" aria-hidden="true">
+    <div class="ce-modal" role="dialog" aria-modal="true" style="max-width:680px">
+      <!-- Success Header -->
+      <div id="agreement-modal-header" style="text-align:center;padding:var(--ds-space-5) var(--ds-space-5) 0">
+        <div style="width:64px;height:64px;border-radius:50%;background:linear-gradient(135deg,rgba(52,211,153,.15),rgba(52,211,153,.08));display:flex;align-items:center;justify-content:center;margin:0 auto var(--ds-space-3);font-size:28px">&#10003;</div>
+        <h3 class="ce-modal__title" style="font-size:20px;margin-bottom:4px">Deal erfolgreich gestartet</h3>
+        <p class="ce-modal__subtitle" id="agreement-modal-ref" style="margin-bottom:0"></p>
+      </div>
+
+      <div style="padding:var(--ds-space-4) var(--ds-space-5)">
+        <!-- Status Alert -->
+        <div id="agreement-modal-status" style="margin-bottom:var(--ds-space-3)"></div>
+
+        <!-- Konditions-Summary (inline statt iframe) -->
+        <div id="agreement-modal-summary" style="background:rgba(255,255,255,.03);border:1px solid var(--ds-border);border-radius:var(--ds-radius-lg);padding:var(--ds-space-4);margin-bottom:var(--ds-space-4)">
+          <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:var(--ds-text-tertiary);margin-bottom:var(--ds-space-2)">Vereinbarte Konditionen</div>
+          <div id="agreement-modal-conditions-grid" style="display:grid;grid-template-columns:1fr 1fr;gap:8px 24px;font-size:13px">
+            <div style="text-align:center;padding:var(--ds-space-3);color:var(--ds-text-secondary)">Wird geladen&hellip;</div>
+          </div>
+        </div>
+
+        <!-- Dokument-Preview (kompakt) -->
+        <div id="agreement-modal-doc" style="border:1px solid var(--ds-border);border-radius:var(--ds-radius-md);background:#fff;color:#1a1d24;padding:0;height:300px;overflow:auto;margin-bottom:var(--ds-space-4)">
+          <div style="text-align:center;padding:var(--ds-space-6);color:#94a3b8">Einsatzvereinbarung wird geladen&hellip;</div>
+        </div>
+
+        <!-- Aktions-Buttons (prominent) -->
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:var(--ds-space-2);margin-bottom:var(--ds-space-3)">
+          <a id="agreement-modal-download" href="#" target="_blank" class="ds-btn ds-btn--primary" style="display:none;justify-content:center;min-height:42px;font-weight:700">&#128196; Vereinbarung oeffnen</a>
+          <a id="agreement-modal-conditions" href="#" target="_blank" class="ds-btn" style="display:none;justify-content:center;min-height:42px">&#128203; Konditionsblatt</a>
+        </div>
+        <a id="agreement-modal-deal" href="#" class="ds-btn ds-btn--primary" style="display:none;width:100%;justify-content:center;min-height:44px;font-weight:700">&#128203; Zur Dealakte &amp; naechste Schritte</a>
+
+        <!-- Info -->
+        <div style="margin-top:var(--ds-space-3);font-size:12px;color:var(--ds-text-secondary);text-align:center">
+          Das Angebot wurde aus der Vermittlung entfernt und reserviert.<br>
+          Die Zeitarbeitsfirma wurde per E-Mail und In-App benachrichtigt.
+        </div>
+      </div>
+
+      <div style="padding:0 var(--ds-space-5) var(--ds-space-4);text-align:right">
+        <button type="button" id="agreement-modal-close" class="ds-btn ds-btn--ghost ds-btn--sm">Schliessen</button>
+      </div>
+    </div>
+  </div>
 
   <script src="/public/js/planFeatures.js"></script>
   <script src="/public/js/slaGuard.js"></script>
-  <script>
-  (function() {
-    var API = "/api";
-    var params = new URLSearchParams(window.location.search);
-    var entryId = params.get("id");
-    var isOwner = params.get("owner") === "1";
-
-    if (!entryId) { window.location.href = "/public/capacity_exchange_feed.html"; return; }
-
-    function esc(s) { return s == null ? "" : String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;"); }
-    function fmtDate(d) { return d ? String(d).substring(0,10) : "–"; }
-
-    function toast(msg, type) {
-      var el = document.getElementById("toast");
-      el.textContent = msg;
-      el.className = "ds-toast ds-alert ds-alert--" + (type || "info") + " show";
-      clearTimeout(el._t);
-      el._t = setTimeout(function() { el.classList.remove("show"); }, 3500);
-    }
-
-    function getCsrf() {
-      return fetch(API + "/csrf", { credentials: "include" }).then(function(r) { return r.ok ? r.json() : {}; });
-    }
-
-    function apiFetch(path, opts) {
-      opts = opts || {};
-      var headers = { "Content-Type": "application/json" };
-      if (opts.csrf) headers["X-CSRF-Token"] = opts.csrf;
-      if (opts.method && opts.method !== "GET") {
-        headers["Idempotency-Key"] = (crypto.randomUUID ? crypto.randomUUID() : "x-" + Math.random().toString(36).slice(2) + "-" + Date.now());
-      }
-      return fetch(API + path, { method: opts.method || "GET", headers: headers, body: opts.body ? JSON.stringify(opts.body) : undefined, credentials: "include" });
-    }
-
-    var STATUS_MAP = {
-      draft: { label:"Entwurf", css:"ds-badge--neutral" }, active: { label:"Aktiv", css:"ds-badge--success" },
-      paused: { label:"Pausiert", css:"ds-badge--warning" }, expired: { label:"Abgelaufen", css:"ds-badge--danger" },
-      filled: { label:"Besetzt", css:"ds-badge--accent" }, archived: { label:"Archiviert", css:"ds-badge--neutral" }
-    };
-    var SHIFT_LABELS = { day:"Tagschicht", night:"Nachtschicht", rotating:"Wechselschicht", flexible:"Flexibel", weekend:"Wochenende", on_call:"Bereitschaft" };
-    var EMPLOYMENT_LABELS = { temporary:"ANUe", contract:"Werkvertrag", temp_to_perm:"Temp-to-Perm", project:"Projekt", on_call:"Abruf" };
-    var AVAIL_LABELS = { immediate:"Sofort", scheduled:"Geplant", flexible:"Flexibel" };
-    var COMPLIANCE_MAP = { unknown:{ label:"Unbekannt", color:"--grey" }, pending:{ label:"In Pruefung", color:"--yellow" }, partial:{ label:"Teilweise", color:"--yellow" }, complete:{ label:"Vollstaendig", color:"--green" } };
-    var INTERACTION_LABELS = { interest:"Interesse", offer_request:"Angebotsanfrage", question:"Frage", save:"Gespeichert", requisition_link:"Verknuepfung", deal_start:"Deal", contact:"Kontakt" };
-
-    function freshnessHtml(ts) {
-      if (!ts) return '<span class="ce-freshness"><span class="ce-freshness__dot ce-freshness__dot--stale"></span>Nicht bestaetigt</span>';
-      var h = (Date.now() - new Date(ts).getTime()) / 36e5;
-      if (h < 48) return '<span class="ce-freshness"><span class="ce-freshness__dot ce-freshness__dot--fresh"></span>Aktuell – ' + fmtDate(ts) + '</span>';
-      if (h < 96) return '<span class="ce-freshness"><span class="ce-freshness__dot ce-freshness__dot--aging"></span>Altert – ' + fmtDate(ts) + '</span>';
-      return '<span class="ce-freshness"><span class="ce-freshness__dot ce-freshness__dot--stale"></span>Veraltet – ' + fmtDate(ts) + '</span>';
-    }
-
-    function trustBadgesHtml(ts) {
-      if (!ts) return '<span class="ds-text-sm ds-text-muted">Keine Signale</span>';
-      var html = "";
-      if (ts.supplier_verified) html += '<span class="ds-trust-badge ds-trust-badge--verified">&#10003; Verifiziert</span>';
-      if (ts.compliance_complete) html += '<span class="ds-trust-badge ds-trust-badge--compliance">Compliance vollst.</span>';
-      if (ts.active_subscriber) html += '<span class="ds-trust-badge ds-trust-badge--active">Aktiver Abonnent</span>';
-      if (ts.completed_deals > 0) html += '<span class="ds-trust-badge ds-trust-badge--deals">' + ts.completed_deals + ' Deals</span>';
-      if (ts.recently_confirmed) html += '<span class="ds-trust-badge ds-trust-badge--response">Kuerzlich bestaetigt</span>';
-      if (ts.profile_completeness != null) html += '<span class="ds-trust-badge">Profil ' + Math.round(ts.profile_completeness * 100) + '%</span>';
-      return html || '<span class="ds-text-sm ds-text-muted">Keine Signale</span>';
-    }
-
-    // Load entry
-    var endpoint = isOwner ? "/capacity-exchange/entries/" + entryId : "/capacity-exchange/feed/" + entryId;
-    apiFetch(endpoint).then(function(r) {
-      if (r.status === 401) { window.location.href = "/"; return null; }
-      if (r.status === 404) { toast("Eintrag nicht gefunden", "danger"); return null; }
-      if (!r.ok) { toast("Fehler beim Laden", "danger"); return null; }
-      return r.json();
-    }).then(function(e) {
-      if (!e) return;
-      document.getElementById("loading").style.display = "none";
-      document.getElementById("detail").style.display = "block";
-      document.title = esc(e.title) + " – TempConnect";
-
-      // Header
-      document.getElementById("d-title").textContent = e.title;
-      document.getElementById("d-subtitle").textContent = e.role + (e.worker_category ? " · " + e.worker_category : "") + " · " + (e.location_city || "–");
-
-      // Header actions
-      var ha = document.getElementById("d-header-actions");
-      if (isOwner) {
-        ha.innerHTML = '<a href="/public/capacity_exchange_form.html?id=' + esc(e.id) + '" class="ds-btn">Bearbeiten</a><a href="/public/capacity_exchange_manage.html" class="ds-btn ds-btn--ghost">Zur Liste</a>';
-      } else {
-        ha.innerHTML = '<a href="/public/capacity_exchange_feed.html" class="ds-btn">Zurueck zur Boerse</a>';
-      }
-
-      // Status bar
-      var sm = STATUS_MAP[e.status] || { label: e.status, css: "ds-badge--neutral" };
-      var sb = document.getElementById("d-status-bar");
-      sb.innerHTML = '<span class="ds-badge ' + sm.css + '">' + esc(sm.label) + '</span>' + freshnessHtml(e.last_confirmed_at);
-      if (e.valid_until) sb.innerHTML += '<span class="ds-text-sm ds-text-muted">Gueltig bis: ' + fmtDate(e.valid_until) + '</span>';
-
-      // Workforce fields
-      document.getElementById("d-role").textContent = e.role || "–";
-      document.getElementById("d-category").textContent = e.worker_category || "–";
-      document.getElementById("d-headcount").textContent = (e.headcount || 1) + " Personen";
-      document.getElementById("d-skills").textContent = Array.isArray(e.skill_tags) && e.skill_tags.length ? e.skill_tags.join(", ") : "–";
-
-      // Timing
-      document.getElementById("d-dates").textContent = fmtDate(e.availability_from) + (e.availability_to ? " – " + fmtDate(e.availability_to) : " (offen)");
-      document.getElementById("d-avail-type").textContent = AVAIL_LABELS[e.availability_type] || e.availability_type || "–";
-      document.getElementById("d-shift").textContent = SHIFT_LABELS[e.shift_model] || e.shift_model || "–";
-      var empLabel = EMPLOYMENT_LABELS[e.employment_type] || e.employment_type || "–";
-      document.getElementById("d-employment").innerHTML = esc(empLabel) + (e.employment_type ? ' <span class="ds-badge ds-badge--neutral" style="font-size:11px;vertical-align:middle">' + esc(empLabel) + '</span>' : "");
-
-      // Location
-      document.getElementById("d-location").textContent = (e.location_city || "–") + (e.location_postal ? " " + e.location_postal : "");
-      document.getElementById("d-radius").textContent = (e.radius_km || 25) + " km";
-      document.getElementById("d-country").textContent = e.country || "DE";
-      if (e.mobility_notes) {
-        document.getElementById("d-mobility-wrap").style.display = "block";
-        document.getElementById("d-mobility").textContent = e.mobility_notes;
-      }
-
-      // Qualifications
-      if (e.qualification_summary || e.certifications_summary) {
-        document.getElementById("sect-qual").style.display = "block";
-        if (e.qualification_summary) { document.getElementById("d-qual-wrap").style.display = "block"; document.getElementById("d-qualifications").textContent = e.qualification_summary; }
-        if (e.certifications_summary) { document.getElementById("d-cert-wrap").style.display = "block"; document.getElementById("d-certifications").textContent = e.certifications_summary; }
-      }
-
-      // Commercial
-      if (e.price_type || e.price_min != null || e.price_max != null || e.price_hint) {
-        document.getElementById("sect-price").style.display = "block";
-        var ph = "";
-        if (e.price_type) ph += '<div class="ce-field"><div class="ce-field__label">Preistyp</div><div class="ce-field__value">' + esc(e.price_type) + '</div></div>';
-        if (e.price_min != null) ph += '<div class="ce-field"><div class="ce-field__label">Min</div><div class="ce-field__value">' + Number(e.price_min).toFixed(2) + ' EUR</div></div>';
-        if (e.price_max != null) ph += '<div class="ce-field"><div class="ce-field__label">Max</div><div class="ce-field__value">' + Number(e.price_max).toFixed(2) + ' EUR</div></div>';
-        if (e.price_hint) ph += '<div class="ce-field" style="grid-column:1/-1"><div class="ce-field__label">Hinweis</div><div class="ce-field__value">' + esc(e.price_hint) + '</div></div>';
-        document.getElementById("d-price-fields").innerHTML = ph;
-      }
-
-      // Trust sidebar
-      document.getElementById("d-trust").innerHTML = trustBadgesHtml(e.trust_signals);
-
-      // Compliance
-      var comp = COMPLIANCE_MAP[e.compliance_status] || { label: "–", color: "--grey" };
-      document.getElementById("d-compliance-display").innerHTML = '<span class="ds-traffic-light ds-traffic-light' + comp.color + '"></span>' + esc(comp.label);
-
-      // Profile completeness bar
-      var pc = e.trust_signals && e.trust_signals.profile_completeness;
-      if (pc != null) {
-        var pct = Math.round(pc * 100);
-        document.getElementById("d-completeness").style.display = "block";
-        document.getElementById("d-completeness-fill").style.width = pct + "%";
-        document.getElementById("d-completeness-fill").style.background = pct >= 80 ? "var(--ds-success)" : pct >= 50 ? "var(--ds-warning)" : "var(--ds-danger)";
-        document.getElementById("d-completeness-label").textContent = "Profilvollstaendigkeit: " + pct + "%";
-      }
-
-      // Buyer quick actions (save + share)
-      if (!isOwner && e.status === "active") {
-        document.getElementById("sect-buyer-actions").style.display = "block";
-        document.getElementById("btn-save-entry").addEventListener("click", function() {
-          var btn = this;
-          btn.disabled = true;
-          getCsrf().then(function(c) {
-            return apiFetch("/capacity-exchange/entries/" + entryId + "/interactions", {
-              method: "POST", csrf: c.csrfToken || c.token, body: { interaction_type: "save", message: null }
-            });
-          }).then(function(r) {
-            btn.disabled = false;
-            if (r.ok) { btn.innerHTML = "&#9733; Gemerkt"; toast("Kapazitaet gemerkt", "success"); }
-          }).catch(function() { btn.disabled = false; });
-        });
-        document.getElementById("btn-share-entry").addEventListener("click", function() {
-          var url = window.location.href;
-          if (navigator.clipboard && navigator.clipboard.writeText) {
-            navigator.clipboard.writeText(url).then(function() { toast("Link kopiert", "success"); });
-          } else {
-            var inp = document.createElement("input"); inp.value = url; document.body.appendChild(inp); inp.select(); document.execCommand("copy"); document.body.removeChild(inp);
-            toast("Link kopiert", "success");
-          }
-        });
-      }
-
-      // Buyer: show interaction panel
-      if (!isOwner && e.status === "active") {
-        document.getElementById("sect-interact").style.display = "block";
-        document.querySelectorAll("[data-itype]").forEach(function(btn) {
-          btn.addEventListener("click", function() { sendInteraction(btn.getAttribute("data-itype"), btn); });
-        });
-      }
-
-      // Owner: show actions + matches + interactions
-      if (isOwner) {
-        showOwnerActions(e);
-        loadMatches();
-        loadInteractions();
-      }
-    }).catch(function(err) {
-      document.getElementById("loading").innerHTML = '<div class="ds-alert ds-alert--danger">Fehler beim Laden des Eintrags.</div>';
-    });
-
-    function sendInteraction(type, btn) {
-      var msg = document.getElementById("interact-msg").value.trim();
-      var fb = document.getElementById("interact-feedback");
-      btn.disabled = true;
-      getCsrf().then(function(c) {
-        return apiFetch("/capacity-exchange/entries/" + entryId + "/interactions", {
-          method: "POST", csrf: c.csrfToken || c.token,
-          body: { interaction_type: type, message: msg || null }
-        });
-      }).then(function(r) {
-        if (!r.ok) return r.json().then(function(d) { throw new Error(d.error || "Fehler"); });
-        return r.json();
-      }).then(function() {
-        fb.className = "ds-alert ds-alert--success";
-        fb.textContent = (INTERACTION_LABELS[type] || type) + " erfolgreich gesendet.";
-        fb.style.display = "flex";
-        document.getElementById("interact-msg").value = "";
-        toast("Nachricht gesendet", "success");
-      }).catch(function(e) {
-        fb.className = "ds-alert ds-alert--danger";
-        fb.textContent = e.message || "Fehler";
-        fb.style.display = "flex";
-      }).finally(function() { btn.disabled = false; });
-    }
-
-    function showOwnerActions(e) {
-      document.getElementById("sect-owner-actions").style.display = "block";
-      var el = document.getElementById("d-owner-actions");
-      var h = "", s = e.status;
-      if (s === "draft") h += '<button class="ds-btn ds-btn--success" data-oa="activate">Aktivieren</button>';
-      if (s === "active") h += '<button class="ds-btn" data-oa="confirm">Aktualitaet bestaetigen</button>';
-      if (s === "active") h += '<button class="ds-btn ds-btn--ghost" data-oa="pause">Pausieren</button>';
-      if (s === "paused" || s === "expired") h += '<button class="ds-btn ds-btn--success" data-oa="reactivate">Reaktivieren</button>';
-      if (s === "active" || s === "paused") h += '<button class="ds-btn ds-btn--ghost" data-oa="fill">Als besetzt markieren</button>';
-      if (s !== "archived") h += '<button class="ds-btn ds-btn--ghost" data-oa="archive" style="color:var(--ds-text-tertiary)">Archivieren</button>';
-      el.innerHTML = h;
-      el.querySelectorAll("[data-oa]").forEach(function(btn) {
-        btn.addEventListener("click", function() {
-          var action = btn.getAttribute("data-oa");
-          if (action === "archive" && !confirm("Archivieren?")) return;
-          btn.disabled = true;
-          getCsrf().then(function(c) {
-            return apiFetch("/capacity-exchange/entries/" + entryId + "/" + action, { method: "POST", csrf: c.csrfToken || c.token });
-          }).then(function(r) {
-            if (!r.ok) return r.json().then(function(d) { throw new Error(d.error || "Fehler"); });
-            toast("Aktion ausgefuehrt", "success");
-            setTimeout(function() { window.location.reload(); }, 800);
-          }).catch(function(e) { toast(e.message, "danger"); btn.disabled = false; });
-        });
-      });
-    }
-
-    function loadMatches() {
-      document.getElementById("sect-matches").style.display = "block";
-      apiFetch("/capacity-exchange/entries/" + entryId + "/matches").then(function(r) { return r.ok ? r.json() : []; }).then(function(matches) {
-        var el = document.getElementById("d-matches");
-        if (!matches || !matches.length) { el.innerHTML = '<span class="ds-text-sm ds-text-muted">Keine passenden Anfragen gefunden.</span>'; return; }
-        var h = "";
-        matches.forEach(function(m) {
-          h += '<div class="ce-match-card"><strong>' + esc(m.title || m.role || "Anfrage") + '</strong>';
-          if (m.location_city) h += ' · ' + esc(m.location_city);
-          if (m.match_score != null) h += ' <span class="ds-badge ds-badge--brand">Score ' + m.match_score + '</span>';
-          h += '</div>';
-        });
-        el.innerHTML = h;
-      }).catch(function() {
-        document.getElementById("d-matches").innerHTML = '<span class="ds-text-sm ds-text-muted">Matching nicht verfuegbar.</span>';
-      });
-    }
-
-    function loadInteractions() {
-      document.getElementById("sect-interactions").style.display = "block";
-      apiFetch("/capacity-exchange/entries/" + entryId + "/interactions").then(function(r) { return r.ok ? r.json() : []; }).then(function(items) {
-        var el = document.getElementById("d-interactions");
-        if (!items || !items.length) { el.innerHTML = '<span class="ds-text-sm ds-text-muted">Noch keine Interaktionen.</span>'; return; }
-        var h = "";
-        items.forEach(function(i) {
-          var label = INTERACTION_LABELS[i.interaction_type] || i.interaction_type;
-          h += '<div class="ce-interaction-item"><span class="ds-badge ds-badge--brand" style="margin-right:6px">' + esc(label) + '</span>';
-          if (i.message) h += '<span class="ds-text-sm">' + esc(i.message) + '</span>';
-          h += '<br><span class="ds-text-xs ds-text-muted">' + fmtDate(i.created_at) + '</span></div>';
-        });
-        el.innerHTML = h;
-      }).catch(function() {
-        document.getElementById("d-interactions").innerHTML = '<span class="ds-text-sm ds-text-muted">Fehler beim Laden.</span>';
-      });
-    }
-  })();
-  </script>
+  <script defer src="/public/js/pages/capacityExchangeDetail.js"></script>
+  <script src="/public/js/pageShell.js"></script>
   <div id="tc-footer" data-tc-footer></div>
   <script src="/public/js/footer.js"></script>
-  <script src="/public/js/logout-btn.js"></script>
+<script src="/public/js/demoBanner.js" defer></script>
+<script src="/public/js/onboardingWizard.js" defer></script><script src="/public/js/notifications.js" defer></script>
+<script src="/public/js/breadcrumb.js" defer></script>
 </body>
 </html>

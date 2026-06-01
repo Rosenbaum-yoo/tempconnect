@@ -1,8 +1,9 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="de">
 <head>
   <meta charset="utf-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <script src="/public/js/theme.js"></script>
   <title>Nachfrage Detail – TempConnect Marketplace</title>
   <link rel="stylesheet" href="/public/css/enterprise.css"/>
   <style>
@@ -34,25 +35,25 @@
     .btn-group { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 12px; }
     .tags { display: flex; gap: 4px; flex-wrap: wrap; margin-top: 4px; }
     .tag { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 11px; background: rgba(255,255,255,.08); color: var(--muted); }
+    .coverage-grid { display: grid; grid-template-columns: repeat(auto-fit,minmax(170px,1fr)); gap: 8px; margin-bottom: 12px; }
+    .coverage-box { border: 1px solid var(--line); border-radius: var(--radius); padding: 10px; background: rgba(255,255,255,.02); }
+    .coverage-box .k { color: var(--muted); font-size: 12px; }
+    .coverage-box .v { font-size: 18px; font-weight: 700; margin-top: 2px; }
   </style>
 </head>
 <body data-sla-guard="sla_access">
   <div id="paywall" class="wrap" style="display:none">
-    <div class="topbar"><span class="brand">TempConnect</span><a href="/" class="btn">Startseite</a></div>
+    <nav class="ds-topbar"><div class="ds-topbar__brand"><span class="ds-topbar__brand-dot"></span>TempConnect</div><div class="ds-topbar__nav"><a href="/" class="ds-btn">Startseite</a></div></nav>
     <div class="paywall-box">
       <h2>Bereich nicht verfuegbar</h2>
-      <p>Die Detailansicht erfordert einen PLUS- oder NOTDIENST-Plan.</p>
+      <p>Die Detailansicht erfordert einen PLUS- oder PRO-Plan.</p>
       <p>Aktueller Plan: <span id="paywall-current-plan" class="paywall-plan">–</span></p>
       <a id="paywall-cta" href="/public/sla_abo.html" class="btn primary">Abo ansehen</a>
     </div>
   </div>
 
   <div id="main-content" class="wrap">
-    <div class="topbar">
-      <span class="brand">TempConnect – Nachfrage Detail</span>
-      <a href="/" class="btn">Startseite</a>
-      <a href="/public/enterprise.html" class="btn">Uebersicht</a>
-    </div>
+    <div id="tc-shell"></div>
 
     <div id="loading" style="padding:40px 0;color:var(--muted)">Lade Nachfrage...</div>
 
@@ -92,8 +93,23 @@
 
       <!-- Offers Section -->
       <div class="section">
-        <h2>Angebote (<span id="offer-count">0</span>)</h2>
+        <h2>Eingegangene Angebote (<span id="offer-count">0</span>)</h2>
+        <p style="font-size:13px;color:var(--muted);margin:0 0 12px">Angebote von Zeitarbeitsfirmen auf Ihr Arbeitsplatzangebot &mdash; gegenseitenorientiert nach Aktionsstatus sortiert.</p>
         <div id="offers-list"></div>
+        <div style="margin-top:16px;padding:12px 16px;background:rgba(74,158,255,.04);border:1px solid rgba(74,158,255,.15);border-radius:8px;font-size:12px;color:var(--muted)">
+          <strong>Dealabschluss-Flow:</strong> Angebot annehmen &rarr; Einsatzvereinbarung wird erstellt &rarr; Deal landet in <a href="/public/deal_management.html" style="color:#4a9eff">Meine Deals</a>.
+        </div>
+      </div>
+
+      <!-- Partial Commitments -->
+      <div class="section">
+        <h2>Teilerfuellung / Zusagen (<span id="commitment-count">0</span>)</h2>
+        <div class="coverage-grid">
+          <div class="coverage-box"><div class="k">Stellen gesamt</div><div class="v" id="c-required">–</div></div>
+          <div class="coverage-box"><div class="k">Zugesagt</div><div class="v" id="c-committed">–</div></div>
+          <div class="coverage-box"><div class="k">Noch offen</div><div class="v" id="c-open">–</div></div>
+        </div>
+        <div id="commitments-list"></div>
       </div>
     </div>
 
@@ -103,11 +119,38 @@
       <a href="/public/enterprise.html" class="btn">Zurueck zur Uebersicht</a>
     </div>
 
+    <!-- Agreement-Modal: professioneller Deal-Abschluss -->
+    <div id="agr-modal-backdrop" style="display:none;position:fixed;inset:0;background:rgba(2,6,23,.65);z-index:15000;align-items:center;justify-content:center;padding:16px">
+      <div style="width:min(680px,100%);max-height:88vh;overflow:auto;border:1px solid var(--line);border-radius:16px;background:var(--bg,#0b1220);box-shadow:0 20px 60px rgba(0,0,0,.4);padding:0">
+        <div style="text-align:center;padding:32px 24px 0">
+          <div style="width:64px;height:64px;border-radius:50%;background:linear-gradient(135deg,rgba(52,211,153,.15),rgba(52,211,153,.08));display:flex;align-items:center;justify-content:center;margin:0 auto 12px;font-size:28px">&#10003;</div>
+          <h3 style="font-size:20px;font-weight:800;margin:0 0 4px">Deal erfolgreich gestartet</h3>
+          <p id="agr-modal-ref" style="font-size:13px;color:var(--muted);margin:0 0 16px"></p>
+        </div>
+        <div style="padding:0 24px 8px">
+          <div style="padding:12px 16px;border-radius:8px;background:rgba(52,211,153,.08);border:1px solid rgba(52,211,153,.2);text-align:center;font-size:13px;color:#34d399;font-weight:600;margin-bottom:16px">Einsatzvereinbarung erstellt &mdash; Nachfrage reserviert</div>
+          <div id="agr-modal-doc" style="border:1px solid var(--line);border-radius:8px;background:#fff;color:#1a1d24;height:280px;overflow:auto;margin-bottom:16px">
+            <div style="text-align:center;padding:32px;color:#94a3b8">Dokument wird geladen&hellip;</div>
+          </div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px">
+            <a id="agr-modal-download" href="#" target="_blank" class="btn primary" style="display:none;text-align:center;text-decoration:none">&#128196; Vereinbarung oeffnen</a>
+            <a id="agr-modal-conditions" href="#" target="_blank" class="btn" style="display:none;text-align:center;text-decoration:none">&#128203; Konditionsblatt</a>
+          </div>
+          <a id="agr-modal-deal" href="#" class="btn primary" style="display:none;width:100%;text-align:center;text-decoration:none;font-weight:700">&#128203; Zur Dealakte &amp; naechste Schritte</a>
+          <p style="font-size:12px;color:var(--muted);text-align:center;margin:12px 0 0">Die Zeitarbeitsfirma wurde per E-Mail und In-App benachrichtigt.</p>
+        </div>
+        <div style="padding:0 24px 20px;text-align:right">
+          <button type="button" class="btn" onclick="closeAgrModal()">Schliessen</button>
+        </div>
+      </div>
+    </div>
+
     <p class="sla-disclaimer">Hinweis: Pulse = Prozessnachweis (Matching-Versuch, Benachrichtigung). Kein Vermittlungserfolg garantiert. Angaben ohne Gewaehr.</p>
   </div>
 
   <script src="/public/js/planFeatures.js"></script>
   <script src="/public/js/slaGuard.js"></script>
+  <script src="/public/js/api.js"></script>
   <script>
   var demandId = new URLSearchParams(window.location.search).get("id");
   var demandData = null;
@@ -184,42 +227,218 @@
       else if (o.price_min || o.price_max) price = (o.price_min || "–") + " – " + (o.price_max || "–") + " EUR";
       if (o.price_type) price += " (" + o.price_type + ")";
 
-      var html = '<div><b>' + (o.supplier_company_name || "Anbieter") + '</b></div>';
-      html += '<div class="meta" style="margin-top:4px">';
-      html += 'Status: <span class="status ' + o.status + '">' + o.status.toUpperCase() + '</span>';
-      if (price) html += ' – Preis: ' + price;
-      html += ' – ' + fmtDate(o.created_at);
+      var html = '<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px"><div>';
+      html += '<b>' + (o.supplier_company_name || "Zeitarbeitsfirma") + '</b>';
+      html += '</div><div style="display:flex;gap:6px;flex-wrap:wrap">';
+      var statusLabels = {draft:"Entwurf",sent:"Neues Angebot",accepted:"Angenommen",rejected:"Abgelehnt",countered:"Gegenangebot",withdrawn:"Zurueckgezogen"};
+      var statusColors = {sent:"background:rgba(255,204,0,.15);color:#ffd700",accepted:"background:rgba(52,211,153,.12);color:#34d399",rejected:"background:rgba(248,113,113,.12);color:#fca5a5",countered:"background:rgba(74,158,255,.12);color:#4a9eff"};
+      html += '<span class="tag" style="padding:3px 10px;border-radius:6px;font-size:11px;font-weight:700;' + (statusColors[o.status] || '') + '">' + (statusLabels[o.status] || o.status) + '</span>';
+      if (o.next_action) {
+        var vLabel = o.next_action.viewer_state === "action_required" ? "Ihre Aktion" : (o.next_action.viewer_state === "waiting_on_counterparty" ? "Warten auf Gegenseite" : "");
+        var vCls = o.next_action.viewer_state === "action_required" ? "background:rgba(255,204,0,.15);color:#ffd700" : "background:rgba(74,158,255,.08);color:#64a0ff";
+        if (vLabel) html += '<span class="tag" style="padding:3px 10px;border-radius:6px;font-size:11px;font-weight:700;' + vCls + '">' + vLabel + '</span>';
+      }
+      html += '</div></div>';
+      // Konditionen-Zusammenfassung
+      html += '<div class="meta" style="margin-top:8px;display:flex;gap:16px;flex-wrap:wrap">';
+      if (price) html += '<span>Preis: <b>' + price + '</b></span>';
+      if (o.offered_quantity) html += '<span>Menge: <b>' + o.offered_quantity + '</b></span>';
+      if (o.start_confirmed) html += '<span>Start: <b>' + o.start_confirmed.substring(0,10) + '</b></span>';
+      html += '<span>Eingegangen: ' + fmtDate(o.created_at) + '</span>';
       html += '</div>';
-      if (o.notes) html += '<div style="margin-top:4px;font-size:13px;color:var(--muted)">' + o.notes + '</div>';
+      if (o.notes) html += '<div style="margin-top:6px;font-size:13px;color:var(--muted);padding:8px 12px;background:rgba(255,255,255,.02);border:1px solid var(--line);border-radius:6px">' + o.notes + '</div>';
 
-      // Accept / Reject buttons for requester on "sent" offers
-      if (o.status === "sent" && demandData && demandData.requester_company_id) {
-        html += '<div class="offer-actions">';
-        html += '<button class="btn primary" onclick="updateOffer(\'' + o.id + '\',\'accepted\')">Annehmen</button>';
-        html += '<button class="btn" onclick="updateOffer(\'' + o.id + '\',\'rejected\')">Ablehnen</button>';
+      // Aktions-Buttons: gegenseitenorientiert
+      var acts = (o.next_action && Array.isArray(o.next_action.actions)) ? o.next_action.actions : [];
+      if (o.status === "accepted") {
+        // Deal abgeschlossen: Link zur Dealakte + Meine Deals
+        html += '<div class="offer-actions" style="margin-top:12px;display:flex;gap:8px;flex-wrap:wrap">';
+        html += '<a href="/public/offer_detail.html?id=' + o.id + '" class="btn primary" style="text-decoration:none">&#128203; Zur Dealakte</a>';
+        html += '<a href="/public/deal_management.html" class="btn" style="text-decoration:none">Meine Deals</a>';
+        if (o.agreement_ref) html += '<span style="font-size:12px;color:var(--muted);align-self:center">' + o.agreement_ref + '</span>';
         html += '</div>';
+      } else if (acts.length) {
+        var btns = [];
+        if (acts.includes("accept")) btns.push('<button class="btn primary" style="font-weight:700" onclick="updateOffer(\'' + o.id + '\',\'accepted\')">&#10003; Konditionen zustimmen</button>');
+        if (acts.includes("reject")) btns.push('<button class="btn" onclick="updateOffer(\'' + o.id + '\',\'rejected\')">Ablehnen</button>');
+        if (acts.includes("counter")) btns.push('<button class="btn" onclick="counterOfferPrompt(\'' + o.id + '\')">&#9998; Gegenangebot</button>');
+        if (acts.includes("send")) btns.push('<button class="btn primary" onclick="updateOffer(\'' + o.id + '\',\'sent\')">Erneut senden</button>');
+        if (acts.includes("withdraw")) btns.push('<button class="btn" onclick="withdrawOffer(\'' + o.id + '\')">Zurueckziehen</button>');
+        if (btns.length) html += '<div class="offer-actions" style="margin-top:12px">' + btns.join(" ") + '</div>';
       }
       div.innerHTML = html;
       el.appendChild(div);
     });
   }
 
+  function renderCommitments(data) {
+    var commitments = data && data.commitments ? data.commitments : [];
+    document.getElementById("commitment-count").textContent = commitments.length;
+    document.getElementById("c-required").textContent = data && data.required_total_count != null ? data.required_total_count : (demandData ? (demandData.required_total_count || demandData.headcount || 1) : "–");
+    document.getElementById("c-committed").textContent = data && data.currently_committed_count != null ? data.currently_committed_count : (demandData ? (demandData.currently_committed_count || 0) : "–");
+    document.getElementById("c-open").textContent = data && data.remaining_open_count != null ? data.remaining_open_count : (demandData ? (demandData.remaining_open_count || 0) : "–");
+
+    var el = document.getElementById("commitments-list");
+    if (!commitments.length) {
+      el.innerHTML = '<div class="empty-state">Noch keine verbindlichen Teilzusagen.</div>';
+      return;
+    }
+    el.innerHTML = "";
+    commitments.forEach(function(c) {
+      var div = document.createElement("div");
+      div.className = "offer-card";
+      var html = '<div><b>' + (c.supplier_company_name || "Anbieter") + "</b></div>";
+      html += '<div class="meta" style="margin-top:4px">Menge: <b>' + c.committed_quantity + '</b> – Status: <span class="status ' + c.status + '">' + String(c.status || "").toUpperCase() + '</span> – ' + fmtDate(c.committed_at) + "</div>";
+      if (c.note) html += '<div style="margin-top:4px;font-size:13px;color:var(--muted)">' + c.note + "</div>";
+      div.innerHTML = html;
+      el.appendChild(div);
+    });
+  }
+
+  // Agreement-Modal Steuerung
+  function showAgrModal(result) {
+    var backdrop = document.getElementById("agr-modal-backdrop");
+    if (!backdrop) return;
+    var refEl = document.getElementById("agr-modal-ref");
+    if (refEl) refEl.textContent = result.agreement_ref ? "Einsatzvereinbarung " + result.agreement_ref + " erstellt" : "Einsatzbestaetigung erstellt";
+    var docEl = document.getElementById("agr-modal-doc");
+    if (docEl && result.document_url) {
+      docEl.innerHTML = '<iframe src="' + result.document_url + '" style="width:100%;height:100%;border:none" title="Einsatzvereinbarung"></iframe>';
+    }
+    var dlBtn = document.getElementById("agr-modal-download");
+    if (dlBtn && result.document_url) { dlBtn.href = result.document_url; dlBtn.style.display = "block"; }
+    var condBtn = document.getElementById("agr-modal-conditions");
+    if (condBtn && result.conditions_url) { condBtn.href = result.conditions_url; condBtn.style.display = "block"; }
+    var dealBtn = document.getElementById("agr-modal-deal");
+    if (dealBtn && result.offer && result.offer.id) { dealBtn.href = "/public/offer_detail.html?id=" + result.offer.id; dealBtn.style.display = "block"; }
+    backdrop.style.display = "flex";
+    backdrop.onclick = function(ev) { if (ev.target === backdrop) closeAgrModal(); };
+  }
+  window.closeAgrModal = function() {
+    var backdrop = document.getElementById("agr-modal-backdrop");
+    if (backdrop) backdrop.style.display = "none";
+    loadDetail(); // Seite neu laden um Status-Update zu zeigen
+  };
+
   function updateOffer(offerId, newStatus) {
-    fetch("/api/marketplace/offers/" + offerId + "/status", {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      credentials: "include",
-      body: JSON.stringify({ status: newStatus })
-    })
-    .then(function(r) { return r.json().then(function(d) { return { ok: r.ok, data: d }; }); })
-    .then(function(res) {
-      if (res.ok) {
-        loadDetail(); // reload everything
-      } else {
-        alert("Fehler: " + (res.data.error || "Unbekannt"));
-      }
-    })
-    .catch(function() { alert("Netzwerkfehler"); });
+    var useTc = window.TC && TC.api;
+    var p;
+    if (newStatus === "accepted") {
+      // Accept: Agreement + Einsatzbestaetigung erzeugen, Modal oeffnen
+      p = (useTc && typeof TC.api.post === "function")
+        ? TC.api.post("/marketplace/offers/" + offerId + "/accept", {})
+        : fetch("/api/marketplace/offers/" + offerId + "/accept", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            credentials: "include",
+            body: "{}"
+          }).then(function(r) {
+            return r.json().then(function(d) {
+              if (!r.ok) {
+                var err = new Error((d && (d.message || d.error)) || "API_ERROR");
+                err.code = d && d.error;
+                throw err;
+              }
+              return d;
+            });
+          });
+      p.then(function(result) {
+        // Professionelles Agreement-Modal oeffnen
+        showAgrModal(result);
+      }).catch(function(e) {
+        var code = e && (e.code || e.error);
+        var msg = code === "CSRF_INVALID"
+          ? "Sitzung abgelaufen. Bitte Seite neu laden und erneut versuchen."
+          : (e && e.message) ? e.message : "Netzwerkfehler";
+        alert("Fehler: " + msg);
+      });
+      return;
+    }
+
+    // Andere Statusaenderungen (reject, etc.)
+    p = (useTc && typeof TC.api.patch === "function")
+      ? TC.api.patch("/marketplace/offers/" + offerId + "/status", { status: newStatus })
+      : fetch("/api/marketplace/offers/" + offerId + "/status", {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          credentials: "include",
+          body: JSON.stringify({ status: newStatus })
+        }).then(function(r) {
+          return r.json().then(function(d) {
+            if (!r.ok) {
+              var err = new Error((d && (d.message || d.error)) || "API_ERROR");
+              err.code = d && d.error;
+              throw err;
+            }
+            return d;
+          });
+        });
+    p.then(function() { loadDetail(); })
+     .catch(function(e) {
+        var code = e && (e.code || e.error);
+        var msg = code === "CSRF_INVALID"
+          ? "Sitzung abgelaufen. Bitte Seite neu laden und erneut versuchen."
+          : (e && e.message) ? e.message : "Netzwerkfehler";
+        alert("Fehler: " + msg);
+     });
+  }
+
+  function counterOfferPrompt(offerId) {
+    var note = prompt("Gegenangebot / Hinweis (optional):", "");
+    if (note == null) return;
+    var useTc = window.TC && TC.api;
+    var p = (useTc && typeof TC.api.post === "function")
+      ? TC.api.post("/marketplace/offers/" + offerId + "/counter", { notes: note })
+      : fetch("/api/marketplace/offers/" + offerId + "/counter", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          credentials: "include",
+          body: JSON.stringify({ notes: note })
+        }).then(function(r) {
+          return r.json().then(function(d) {
+            if (!r.ok) {
+              var err = new Error((d && (d.message || d.error)) || "API_ERROR");
+              err.code = d && d.error;
+              throw err;
+            }
+            return d;
+          });
+        });
+    p.then(function() { loadDetail(); }).catch(function(e) {
+      var code = e && (e.code || e.error);
+      var msg = code === "CSRF_INVALID"
+        ? "Sitzung abgelaufen. Bitte Seite neu laden und erneut versuchen."
+        : (e && e.message) ? e.message : "Netzwerkfehler";
+      alert("Fehler: " + msg);
+    });
+  }
+
+  function withdrawOffer(offerId) {
+    var useTc = window.TC && TC.api;
+    var p = (useTc && typeof TC.api.post === "function")
+      ? TC.api.post("/marketplace/offers/" + offerId + "/withdraw", {})
+      : fetch("/api/marketplace/offers/" + offerId + "/withdraw", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          credentials: "include",
+          body: "{}"
+        }).then(function(r) {
+          return r.json().then(function(d) {
+            if (!r.ok) {
+              var err = new Error((d && (d.message || d.error)) || "API_ERROR");
+              err.code = d && d.error;
+              throw err;
+            }
+            return d;
+          });
+        });
+    p.then(function() { loadDetail(); }).catch(function(e) {
+      var code = e && (e.code || e.error);
+      var msg = code === "CSRF_INVALID"
+        ? "Sitzung abgelaufen. Bitte Seite neu laden und erneut versuchen."
+        : (e && e.message) ? e.message : "Netzwerkfehler";
+      alert("Fehler: " + msg);
+    });
   }
 
   function exportSlaReport() {
@@ -242,7 +461,12 @@
 
     fetch("/api/marketplace/demand-requests/" + demandId, { credentials: "include" })
     .then(function(r) {
-      if (!r.ok) throw new Error(r.status === 404 ? "Nachfrage nicht gefunden." : "Fehler beim Laden.");
+      if (!r.ok) {
+        if (r.status === 401) { window.location.href = "/"; return Promise.reject(null); }
+        if (r.status === 403) return Promise.reject(new Error("Zugriff verweigert – diese Nachfrage gehoert nicht deinem Konto."));
+        if (r.status === 404) return Promise.reject(new Error("Nachfrage nicht gefunden."));
+        return Promise.reject(new Error("Serverfehler beim Laden (HTTP " + r.status + ")."));
+      }
       return r.json();
     })
     .then(function(data) {
@@ -281,14 +505,29 @@
       .then(function(r) { return r.ok ? r.json() : []; })
       .then(function(offers) { renderOffers(offers); })
       .catch(function() { renderOffers([]); });
+
+      fetch("/api/emergency/" + demandId + "/commitments", { credentials: "include" })
+      .then(function(r) { return r.ok ? r.json() : null; })
+      .then(function(cData) { renderCommitments(cData || {}); })
+      .catch(function() { renderCommitments({}); });
     })
-    .catch(function(err) { showError(err.message); });
+    .catch(function(err) {
+      if (err === null) return; // 401 redirect
+      console.error("[demand-detail] Ladefehler:", err);
+      showError(err.message);
+    });
   }
 
-  loadDetail();
+  // Warte auf slaGuardPassed bevor wir laden
+  document.addEventListener("slaGuardPassed", function(ev) {
+    if (ev.detail && ev.detail.passed) loadDetail();
+  });
   </script>
+  <script src="/public/js/pageShell.js"></script>
   <div id="tc-footer" data-tc-footer></div>
   <script src="/public/js/footer.js"></script>
-  <script src="/public/js/logout-btn.js"></script>
+<script src="/public/js/demoBanner.js" defer></script>
+<script src="/public/js/onboardingWizard.js" defer></script><script src="/public/js/notifications.js" defer></script>
+<script src="/public/js/breadcrumb.js" defer></script>
 </body>
 </html>

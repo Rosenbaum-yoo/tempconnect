@@ -1,0 +1,256 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <script src="/public/js/theme.js"></script>
+  <title>Integrationen &mdash; TempConnect</title>
+  <link rel="stylesheet" href="/public/css/enterprise.css"/>
+  <style>
+    .int-grid{display:grid;gap:var(--ds-space-4);grid-template-columns:repeat(auto-fill,minmax(340px,1fr));margin-top:var(--ds-space-4)}
+    .int-card{border:1px solid var(--ds-border,var(--line));border-radius:var(--ds-radius-lg,12px);padding:var(--ds-space-5);background:rgba(255,255,255,.02);transition:border-color .15s}
+    .int-card:hover{border-color:var(--ds-brand)}
+    .int-card__head{display:flex;align-items:center;gap:var(--ds-space-3);margin-bottom:var(--ds-space-3)}
+    .int-card__provider{font-size:28px}
+    .int-card__label{font-weight:700;font-size:15px;flex:1}
+    .int-card__status{font-size:11px;font-weight:700;padding:2px 10px;border-radius:999px}
+    .int-card__status--active{background:rgba(52,211,153,.15);color:#34d399;border:1px solid rgba(52,211,153,.3)}
+    .int-card__status--inactive{background:rgba(251,191,36,.12);color:#fbbf24;border:1px solid rgba(251,191,36,.3)}
+    .int-card__url{font-size:12px;color:var(--ds-text-secondary,var(--muted));margin-bottom:var(--ds-space-2);word-break:break-all}
+    .int-card__events{display:flex;flex-wrap:wrap;gap:4px;margin-bottom:var(--ds-space-3)}
+    .int-card__evt{font-size:10px;padding:2px 8px;border-radius:6px;background:rgba(74,158,255,.1);color:var(--ds-brand);border:1px solid rgba(74,158,255,.2)}
+    .int-card__actions{display:flex;gap:var(--ds-space-2)}
+    .int-card__actions .ds-btn{font-size:12px;padding:4px 12px}
+    .int-card__last{font-size:11px;color:var(--ds-text-secondary,var(--muted));margin-top:var(--ds-space-2)}
+    .int-card__error{font-size:11px;color:#f87171;margin-top:4px}
+
+    /* Form modal */
+    .int-modal-bg{position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:900;display:none;align-items:center;justify-content:center}
+    .int-modal-bg.open{display:flex}
+    .int-modal{width:540px;max-width:95vw;max-height:90vh;overflow-y:auto;background:var(--ds-surface,#0d1117);border:1px solid var(--ds-border,var(--line));border-radius:14px;padding:var(--ds-space-6)}
+    .int-modal h3{margin:0 0 var(--ds-space-4);font-size:18px;font-weight:800}
+    .int-modal label{display:block;font-size:12px;font-weight:700;margin-bottom:4px;color:var(--ds-text-secondary,var(--muted))}
+    .int-modal input,.int-modal select{width:100%;margin-bottom:var(--ds-space-3)}
+    .int-modal__events{display:grid;grid-template-columns:1fr 1fr;gap:4px 12px;margin-bottom:var(--ds-space-4)}
+    .int-modal__events label{font-weight:400;display:flex;align-items:center;gap:6px;cursor:pointer;font-size:13px;margin-bottom:0}
+    .int-modal__footer{display:flex;justify-content:flex-end;gap:var(--ds-space-2);margin-top:var(--ds-space-4)}
+    .toast{position:fixed;top:20px;right:20px;padding:12px 20px;border-radius:10px;font-size:13px;font-weight:600;z-index:999;opacity:0;transition:opacity .3s}
+    .toast.show{opacity:1}
+    .toast--ok{background:rgba(52,211,153,.15);border:1px solid rgba(52,211,153,.3);color:#34d399}
+    .toast--err{background:rgba(248,113,113,.15);border:1px solid rgba(248,113,113,.3);color:#f87171}
+
+    @media(max-width:600px){.int-grid{grid-template-columns:1fr}.int-modal__events{grid-template-columns:1fr}}
+  </style>
+</head>
+<body data-sla-guard="sla_access">
+  <div class="wrap">
+    <div id="tc-shell"></div>
+
+    <div class="ds-page-header">
+      <div class="ds-page-header__content">
+        <h1 class="ds-page-title">Slack &amp; Teams Integrationen</h1>
+        <p class="ds-page-subtitle">Webhook-Integrationen konfigurieren, um Plattform-Events in Echtzeit in Slack oder Microsoft Teams zu empfangen.</p>
+      </div>
+    </div>
+
+    <div style="display:flex;justify-content:flex-end;margin-bottom:var(--ds-space-2)">
+      <button class="btn primary" id="btnAdd" data-feature-key="integrations" onclick="openModal()">+ Integration hinzuf&uuml;gen</button>
+    </div>
+
+    <div id="list" class="int-grid">
+      <p style="color:var(--ds-text-secondary,var(--muted));font-size:13px;grid-column:1/-1">Lade Integrationen&hellip;</p>
+    </div>
+  </div>
+
+  <!-- Create/Edit Modal -->
+  <div class="int-modal-bg" id="modal">
+    <div class="int-modal">
+      <h3 id="modalTitle">Neue Integration</h3>
+      <input type="hidden" id="editId"/>
+      <label>Provider</label>
+      <select id="fProvider"><option value="slack">Slack</option><option value="teams">Microsoft Teams</option></select>
+      <label>Label (optional)</label>
+      <input id="fLabel" placeholder="z.B. #recruiting-channel"/>
+      <label>Webhook-URL</label>
+      <input id="fUrl" placeholder="https://hooks.slack.com/services/..."/>
+      <label style="margin-bottom:var(--ds-space-2)">Events</label>
+      <div class="int-modal__events" id="eventCheckboxes"></div>
+      <div class="int-modal__footer">
+        <button class="btn" onclick="closeModal()">Abbrechen</button>
+        <button class="btn primary" id="btnSave" data-feature-key="integrations" onclick="saveIntegration()">Speichern</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="toast" id="toast"></div>
+
+  <script src="/public/js/planFeatures.js"></script>
+  <script src="/public/js/slaGuard.js"></script>
+  <script src="/public/js/entitlements.js"></script>
+  <script>
+    const API = '/api';
+    let csrf = '';
+    let allEvents = [];
+
+    async function getCSRF() {
+      if (csrf) return csrf;
+      try { const r = await fetch(API + '/csrf', { credentials: 'include' }); const d = await r.json(); csrf = d.csrfToken || ''; } catch {}
+      return csrf;
+    }
+    function applyIntegrationDomLocks(root) {
+      if (window.TC && window.TC.entitlements && typeof window.TC.entitlements.applyDomLocks === 'function') {
+        window.TC.entitlements.applyDomLocks(root || document).catch(function() {});
+      }
+    }
+
+    function toast(msg, ok) {
+      const t = document.getElementById('toast');
+      t.textContent = msg;
+      t.className = 'toast show ' + (ok ? 'toast--ok' : 'toast--err');
+      setTimeout(() => t.classList.remove('show'), 3200);
+    }
+
+    async function loadEvents() {
+      try {
+        const r = await fetch(API + '/integrations/events', { credentials: 'include' });
+        const d = await r.json();
+        allEvents = d.events || [];
+      } catch { allEvents = []; }
+      renderEventCheckboxes();
+    }
+
+    function renderEventCheckboxes(selected) {
+      const sel = new Set(selected || []);
+      const c = document.getElementById('eventCheckboxes');
+      c.innerHTML = allEvents.map(e =>
+        `<label><input type="checkbox" value="${e}" ${sel.has(e)?'checked':''}> ${e.replace(/\./g,' &rsaquo; ')}</label>`
+      ).join('');
+    }
+
+    function getSelectedEvents() {
+      return [...document.querySelectorAll('#eventCheckboxes input:checked')].map(i => i.value);
+    }
+
+    function openModal(item) {
+      document.getElementById('editId').value = item ? item.id : '';
+      document.getElementById('modalTitle').textContent = item ? 'Integration bearbeiten' : 'Neue Integration';
+      document.getElementById('fProvider').value = item ? item.provider : 'slack';
+      document.getElementById('fLabel').value = item ? item.label || '' : '';
+      document.getElementById('fUrl').value = item ? '' : ''; // URL masked — leave blank for edits
+      if (item) document.getElementById('fUrl').placeholder = item.webhook_url || 'Webhook-URL eingeben';
+      else document.getElementById('fUrl').placeholder = 'https://hooks.slack.com/services/...';
+      renderEventCheckboxes(item ? item.enabled_events : allEvents);
+      document.getElementById('modal').classList.add('open');
+    }
+
+    function closeModal() { document.getElementById('modal').classList.remove('open'); }
+
+    async function saveIntegration() {
+      const id = document.getElementById('editId').value;
+      const tok = await getCSRF();
+      const body = {
+        provider: document.getElementById('fProvider').value,
+        label: document.getElementById('fLabel').value,
+        enabled_events: getSelectedEvents()
+      };
+      const url = document.getElementById('fUrl').value.trim();
+      if (url) body.webhook_url = url;
+      if (!id && !url) { toast('Webhook-URL erforderlich', false); return; }
+
+      const method = id ? 'PATCH' : 'POST';
+      const endpoint = id ? API + '/integrations/' + id : API + '/integrations';
+      try {
+        const r = await fetch(endpoint, {
+          method, credentials: 'include',
+          headers: { 'Content-Type': 'application/json', 'x-csrf-token': tok },
+          body: JSON.stringify(body)
+        });
+        if (!r.ok) { const e = await r.json().catch(() => ({})); toast(e.error || 'Fehler', false); return; }
+        toast(id ? 'Integration aktualisiert' : 'Integration erstellt', true);
+        closeModal();
+        loadList();
+      } catch (e) { toast('Netzwerkfehler', false); }
+    }
+
+    async function deleteIntegration(id) {
+      if (!confirm('Integration wirklich loeschen?')) return;
+      const tok = await getCSRF();
+      try {
+        await fetch(API + '/integrations/' + id, { method: 'DELETE', credentials: 'include', headers: { 'x-csrf-token': tok } });
+        toast('Geloescht', true);
+        loadList();
+      } catch { toast('Fehler', false); }
+    }
+
+    async function testIntegration(id) {
+      const tok = await getCSRF();
+      try {
+        const r = await fetch(API + '/integrations/' + id + '/test', { method: 'POST', credentials: 'include', headers: { 'x-csrf-token': tok } });
+        const d = await r.json();
+        toast(d.ok ? 'Test erfolgreich — Nachricht gesendet!' : 'Test fehlgeschlagen: ' + (d.error || 'Unbekannt'), d.ok);
+      } catch { toast('Netzwerkfehler', false); }
+    }
+
+    async function toggleActive(id, isActive) {
+      const tok = await getCSRF();
+      try {
+        await fetch(API + '/integrations/' + id, {
+          method: 'PATCH', credentials: 'include',
+          headers: { 'Content-Type': 'application/json', 'x-csrf-token': tok },
+          body: JSON.stringify({ is_active: !isActive })
+        });
+        loadList();
+      } catch { toast('Fehler', false); }
+    }
+
+    async function loadList() {
+      const c = document.getElementById('list');
+      try {
+        const r = await fetch(API + '/integrations', { credentials: 'include' });
+        if (!r.ok) { c.innerHTML = '<p style="color:#f87171">Fehler beim Laden.</p>'; return; }
+        const d = await r.json();
+        const items = d.items || [];
+        if (!items.length) {
+          c.innerHTML = '<div style="text-align:center;padding:var(--ds-space-6);grid-column:1/-1"><p style="font-size:48px;margin-bottom:var(--ds-space-3)">&#128268;</p><p style="font-size:15px;font-weight:700">Noch keine Integrationen</p><p style="font-size:13px;color:var(--ds-text-secondary,var(--muted))">Erstellen Sie eine Slack- oder Teams-Integration, um Plattform-Events in Echtzeit zu empfangen.</p></div>';
+          applyIntegrationDomLocks(document);
+          return;
+        }
+        c.innerHTML = items.map(it => {
+          const icon = it.provider === 'slack' ? '&#128172;' : '&#128187;';
+          const active = it.is_active;
+          const events = (it.enabled_events || []).slice(0, 6);
+          const moreCount = (it.enabled_events || []).length - 6;
+          return `<div class="int-card">
+            <div class="int-card__head">
+              <span class="int-card__provider">${icon}</span>
+              <span class="int-card__label">${esc(it.label || it.provider.toUpperCase())}</span>
+              <span class="int-card__status ${active?'int-card__status--active':'int-card__status--inactive'}">${active?'Aktiv':'Inaktiv'}</span>
+            </div>
+            <div class="int-card__url">${esc(it.webhook_url)}</div>
+            <div class="int-card__events">${events.map(e=>`<span class="int-card__evt">${esc(e)}</span>`).join('')}${moreCount>0?`<span class="int-card__evt">+${moreCount}</span>`:''}</div>
+            <div class="int-card__actions">
+              <button class="ds-btn ds-btn--sm" data-feature-key="integrations" onclick='testIntegration("${it.id}")'>&#9889; Test</button>
+              <button class="ds-btn ds-btn--sm" data-feature-key="integrations" onclick='openModal(${JSON.stringify(it).replace(/'/g,"&#39;")})'>&#9998; Bearbeiten</button>
+              <button class="ds-btn ds-btn--sm" data-feature-key="integrations" onclick='toggleActive("${it.id}",${active})'>${active?'Deaktivieren':'Aktivieren'}</button>
+              <button class="ds-btn ds-btn--sm" data-feature-key="integrations" style="color:#f87171" onclick='deleteIntegration("${it.id}")'>&#128465;</button>
+            </div>
+            ${it.last_success_at?`<div class="int-card__last">Letzter Erfolg: ${new Date(it.last_success_at).toLocaleString('de-DE')}</div>`:''}
+            ${it.last_error?`<div class="int-card__error">Letzter Fehler: ${esc(it.last_error)}</div>`:''}
+          </div>`;
+        }).join('');
+        applyIntegrationDomLocks(document);
+      } catch { c.innerHTML = '<p style="color:#f87171">Netzwerkfehler.</p>'; }
+    }
+
+    function esc(s) { if (!s) return ''; const d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
+
+    // Init
+    (async function() {
+      await loadEvents();
+      await loadList();
+      applyIntegrationDomLocks(document);
+    })();
+  </script>
+<script src="/public/js/breadcrumb.js" defer></script>
+</body>
+</html>

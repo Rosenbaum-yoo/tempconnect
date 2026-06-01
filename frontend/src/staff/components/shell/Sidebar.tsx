@@ -4,18 +4,22 @@ import { useBootstrap } from "@scc/state/BootstrapContext";
 export type AreaKey =
   | "commercial-inbox"
   | "customer-requests"
+  | "customer-operations"
   | "subscription-requests"
   | "audit-report"
   | "executive"
   | "platform"
   | "revenue"
+  | "billing"
   | "support"
   | "operations"
   | "hetzner"
   | "risk-trust"
   | "audit-decisions"
   | "data-explorer"
-  | "automation";
+  | "automation"
+  | "staff-access"
+  | "marketplace-visibility";
 
 interface NavItem {
   key: AreaKey;
@@ -26,11 +30,13 @@ interface NavItem {
 export const AREAS: NavItem[] = [
   { key: "commercial-inbox",      label: "Commercial Inbox",     group: "Arbeitsplatz" },
   { key: "customer-requests",     label: "Kundenanfragen",       group: "Arbeitsplatz" },
+  { key: "customer-operations",   label: "Customer Operations",  group: "Arbeitsplatz" },
   { key: "subscription-requests", label: "Abo / Tarif-Anfragen", group: "Arbeitsplatz" },
   { key: "audit-report",          label: "Audit Report",         group: "Governance" },
   { key: "executive",             label: "Executive",            group: "Strategie" },
   { key: "platform",              label: "Platform",             group: "Strategie" },
   { key: "revenue",               label: "Revenue",              group: "Strategie" },
+  { key: "billing",               label: "Billing",              group: "Strategie" },
   { key: "support",               label: "Support",              group: "Operations" },
   { key: "operations",            label: "Operations",           group: "Operations" },
   { key: "hetzner",               label: "Hetzner",              group: "Operations" },
@@ -38,6 +44,8 @@ export const AREAS: NavItem[] = [
   { key: "audit-decisions",       label: "Audit / Decisions",    group: "Governance" },
   { key: "data-explorer",         label: "Data Explorer",        group: "Governance" },
   { key: "automation",            label: "Automation",           group: "Automation" },
+  { key: "staff-access",          label: "Staff Access",         group: "Administration" },
+  { key: "marketplace-visibility", label: "Marketplace Visibility", group: "Marketplace" },
 ];
 
 interface SidebarProps {

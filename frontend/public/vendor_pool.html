@@ -1,56 +1,103 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="de">
 <head>
   <meta charset="utf-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
-  <title>Vendor Pool – TempConnect</title>
+  <script src="/public/js/theme.js"></script>
+  <title>Lieferantensteuerung – TempConnect</title>
   <link rel="stylesheet" href="/public/css/enterprise.css"/>
   <style>
     .filter-row { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 16px; align-items: center; }
     .filter-row select { width: auto; margin: 0; min-width: 140px; }
     .tier-badge { font-size: 11px; font-weight: 700; padding: 4px 10px; border-radius: 999px; display: inline-block; text-transform: uppercase; }
-    .tb-PREFERRED { color: #c8ffe7; border: 1px solid rgba(57,217,138,.4); background: rgba(57,217,138,.1); }
-    .tb-SECONDARY { color: #c2e0ff; border: 1px solid rgba(74,163,255,.4); background: rgba(74,163,255,.1); }
-    .tb-TRIAL { color: #fff3c2; border: 1px solid rgba(255,204,0,.4); background: rgba(255,204,0,.1); }
-    .tb-RESTRICTED { color: #ffd0d8; border: 1px solid rgba(255,92,122,.4); background: rgba(255,92,122,.1); }
-    .tb-BLOCKED { color: #ffd0d8; border: 1px solid rgba(255,92,122,.6); background: rgba(255,92,122,.2); }
+    .tb-PREFERRED { color: var(--ds-success); border: 1px solid rgba(52,211,153,.4); background: var(--ds-success-muted); }
+    .tb-SECONDARY { color: var(--ds-brand); border: 1px solid rgba(74,158,255,.4); background: var(--ds-brand-muted); }
+    .tb-TRIAL { color: var(--ds-warning); border: 1px solid rgba(251,191,36,.4); background: var(--ds-warning-muted); }
+    .tb-RESTRICTED { color: var(--ds-danger); border: 1px solid rgba(248,113,113,.4); background: var(--ds-danger-muted); }
+    .tb-BLOCKED { color: var(--ds-danger); border: 1px solid rgba(248,113,113,.6); background: rgba(248,113,113,.18); }
     .stat-row { display: flex; gap: 12px; margin-bottom: 16px; flex-wrap: wrap; }
-    .stat-tile { padding: 12px 16px; border-radius: var(--radius); border: 1px solid var(--line); background: rgba(255,255,255,.03); text-align: center; min-width: 100px; }
+    .stat-tile { padding: 12px 16px; border-radius: var(--radius); border: 1px solid var(--line); background: var(--tc-stat-tile-bg); text-align: center; min-width: 100px; }
     .stat-tile b { display: block; font-size: 22px; margin-bottom: 2px; }
     .stat-tile span { font-size: 11px; color: var(--muted); text-transform: uppercase; }
     .vp-row { transition: background .15s; }
-    .vp-row:hover { background: rgba(255,255,255,.04); }
+    .vp-row:hover { background: var(--tc-table-hover-bg); }
     .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0 16px; }
     .form-full { grid-column: 1 / -1; }
+    .link-row { display:flex; gap:8px; flex-wrap:wrap; margin: 0 0 14px; }
+    .management-row { display: flex; gap: 12px; margin-bottom: 16px; flex-wrap: wrap; }
+    .management-tile { padding: 12px 16px; border-radius: var(--radius); border: 1px solid var(--line); background: var(--tc-card-surface); min-width: 130px; }
+    .management-tile b { display:block; font-size:22px; margin-bottom:4px; }
+    .management-tile span { font-size:11px; color: var(--muted); text-transform: uppercase; }
+    .insight-grid { display:grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-bottom: 18px; }
+    .insight-card { padding: 16px; border: 1px solid var(--line); border-radius: var(--radius); background: var(--tc-card-surface); }
+    .insight-card h3 { margin: 0 0 12px; font-size: 13px; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); }
+    .insight-list { display:flex; flex-direction:column; gap:10px; }
+    .insight-item { display:flex; justify-content:space-between; gap:10px; align-items:flex-start; font-size:12px; padding-bottom:10px; border-bottom:1px solid var(--tc-table-row-border); }
+    .insight-item:last-child { border-bottom:none; padding-bottom:0; }
+    .table-meta { margin-top: 4px; font-size: 11px; color: var(--muted); }
+    .metric-stack { display:flex; flex-direction:column; gap:4px; font-size:12px; }
+    .metric-chip { display:inline-flex; align-items:center; gap:6px; padding:4px 8px; border-radius:999px; font-size:11px; font-weight:700; background: var(--tc-btn-secondary-bg); border:1px solid var(--ds-border-hover); width:fit-content; }
+    .metric-chip.good { color: var(--ds-success); border-color: rgba(52,211,153,.3); background: var(--ds-success-muted); }
+    .metric-chip.warn { color: var(--ds-warning); border-color: rgba(251,191,36,.35); background: var(--ds-warning-muted); }
+    .metric-chip.bad { color: var(--ds-danger); border-color: rgba(248,113,113,.35); background: var(--ds-danger-muted); }
+    .quick-links { display:flex; gap:6px; flex-wrap:wrap; }
+    .empty-mini { font-size:12px; color: var(--muted); }
+    /* .page-state canonical definitions live in design-system.css (WAVE_10) */
+    .section-note { font-size: 12px; color: var(--muted); padding: 10px 12px; border: 1px dashed var(--line); border-radius: 8px; background: var(--tc-filter-surface); }
+    @media (max-width: 980px) {
+      .insight-grid { grid-template-columns: 1fr; }
+    }
   </style>
 </head>
 <body>
   <div class="wrap">
-    <div class="topbar" data-notif-topbar>
-      <span class="brand"><span style="width:10px;height:10px;border-radius:50%;background:linear-gradient(135deg,var(--brand),var(--brand2));display:inline-block;margin-right:8px"></span>TempConnect</span>
-      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
-        <a href="/public/executive_dashboard.html" class="btn">Dashboard</a>
-        <a href="/public/enterprise.html" class="btn">Hub</a>
-        <a href="/public/requisitions.html" class="btn">Requisitions</a>
-        <a href="/public/compliance_overview.html" class="btn">Compliance</a>
-      </div>
-    </div>
+    <div id="tc-shell"></div>
 
     <div class="ds-page-header">
       <div class="ds-page-header__content">
-        <h1 class="ds-page-title">Vendor Pool</h1>
-        <p class="ds-page-subtitle">Lieferanten-Beziehungen verwalten, Tiers zuweisen und Performance bewerten.</p>
+        <h1 class="ds-page-title">Lieferantenpool</h1>
+        <p class="ds-page-subtitle">Bevorzugte Lieferanten, Tier-Stufen und Performance als nachgelagerte Steuerungsschicht fuer wiederkehrende Arbeitsplatzangebote steuern.</p>
       </div>
       <div class="ds-page-header__actions">
-        <button class="btn primary" onclick="showAdd()">+ Supplier hinzufuegen</button>
+        <button id="vendorPoolAddButton" class="btn primary" data-feature-key="supplier_management" onclick="showAdd()">+ Lieferant hinzufuegen</button>
+      </div>
+    </div>
+    <div class="tc-priority-banner tc-priority-banner--supporting">
+      <div class="tc-priority-banner__main">
+        <div class="tc-priority-banner__eyebrow">Steuerungsschicht</div>
+        <div class="tc-priority-banner__title">Lieferantensteuerung verbessert den Pilotkern, ersetzt ihn aber nicht</div>
+        <p class="tc-priority-banner__text">Nutzen Sie den Pool, um Coverage, Preferred Vendors und Preisdisziplin rund um echte Arbeitsplatzangebote zu verbessern. Der operative Kern bleibt trotzdem Arbeitsplatzangebot, Deal, Besetzung und Zeiten.</p>
+      </div>
+      <div class="tc-priority-banner__aside">
+        <div class="tc-priority-banner__aside-title">Bewusste Reihenfolge</div>
+        <div class="tc-priority-banner__aside-text">Erst Kernflows glattziehen, danach Tiering, Bewertungen und Spend tiefer optimieren.</div>
+      </div>
+    </div>
+    <div class="link-row">
+      <a class="btn" href="/public/requisitions.html">Angebote</a>
+      <a id="vendorPoolRateCardLink" class="btn" data-feature-key="rate_card_management" href="/public/rate-cards.html">Preisrahmen</a>
+      <a class="btn" data-feature-key="supplier_ratings" href="/public/supplier_scorecard.html">Lieferantenbewertung</a>
+      <a id="vendorPoolSpendLink" class="btn" data-feature-key="spend_analytics" href="/public/spend-analytics.html">Spend &amp; Kosten</a>
+    </div>
+    <div id="poolState" class="page-state" aria-live="polite"></div>
+    <div id="poolContext" class="section-note" style="display:none;margin:0 0 14px"></div>
+
+    <div class="stat-row" id="statsRow"></div>
+    <div class="management-row" id="managementRow"></div>
+    <div class="insight-grid">
+      <div class="insight-card">
+        <h3 id="topPerformersTitle">Top-Lieferanten im Pool</h3>
+        <div id="topPerformersBox" class="empty-mini">Lade Management-KPIs…</div>
+      </div>
+      <div class="insight-card">
+        <h3 id="recentChangesTitle">Letzte Änderungen</h3>
+        <div id="recentChangesBox" class="empty-mini">Lade Änderungsverlauf…</div>
       </div>
     </div>
 
-    <div class="stat-row" id="statsRow"></div>
-
     <div class="filter-row">
-      <label style="margin:0">Client Org ID:</label>
-      <input id="fClientOrg" style="width:260px;margin:0" placeholder="UUID der Client-Organisation"/>
+      <label style="margin:0">Organisation:</label>
+      <input id="fClientOrg" style="width:260px;margin:0" placeholder="Wird automatisch aus Ihrem Kontext geladen" readonly/>
       <select id="fTier"><option value="">Alle Tiers</option>
         <option>PREFERRED</option><option>SECONDARY</option><option>TRIAL</option>
         <option>RESTRICTED</option><option>BLOCKED</option>
@@ -59,13 +106,13 @@
     </div>
 
     <table class="table">
-      <thead><tr><th>Supplier</th><th>Tier</th><th>Kategorie</th><th>Status</th><th>Gueltig bis</th><th>Aktionen</th></tr></thead>
+      <thead><tr><th>Lieferant</th><th>Tier</th><th>Kategorie</th><th>Status</th><th>Performance</th><th>Steuerung</th><th>Aktionen</th></tr></thead>
       <tbody id="poolBody"></tbody>
     </table>
     <div id="emptyMsg" class="ds-empty" style="display:none">
       <div class="ds-empty__icon">&#129309;</div>
-      <div class="ds-empty__title">Keine Vendor-Pool-Eintraege</div>
-      <div class="ds-empty__text">Geben Sie eine Client Org ID ein und klicken Sie Laden, oder fuegen Sie einen neuen Supplier hinzu.</div>
+      <div class="ds-empty__title" id="poolEmptyTitle">Keine Lieferanten im Pool</div>
+      <div class="ds-empty__text" id="poolEmptyText">Noch keine Lieferantenbeziehung vorhanden. Fuegen Sie jetzt einen Lieferanten hinzu.</div>
     </div>
   </div>
 
@@ -73,13 +120,20 @@
   <div class="modal" id="addModal">
     <div class="panel" style="max-width:520px">
       <div style="display:flex;justify-content:space-between;align-items:center">
-        <h2 style="margin:0">Supplier zum Pool hinzufuegen</h2>
+        <h2 style="margin:0">Lieferanten zum Pool hinzufuegen</h2>
         <button class="btn" onclick="closeAdd()">Abbrechen</button>
       </div>
       <form id="addForm" style="margin-top:16px" onsubmit="submitAdd(event)">
         <div class="form-grid">
-          <div class="form-full"><label>Client Org ID *</label><input id="aClientOrg" required/></div>
-          <div class="form-full"><label>Supplier Org ID *</label><input id="aSupplierOrg" required/></div>
+          <div class="form-full"><label>Client Org ID *</label><input id="aClientOrg" required readonly/></div>
+          <div class="form-full"><label>Lieferant suchen *</label>
+            <div style="display:flex;gap:8px;align-items:center">
+              <input id="aSupplierSearch" placeholder="Lieferantenname oder Organisation eingeben (mind. 2 Zeichen)"/>
+              <button type="button" class="btn" data-feature-key="supplier_management" onclick="lookupSuppliers()">Suchen</button>
+            </div>
+            <div id="supplierLookupResults" style="margin-top:8px"></div>
+          </div>
+          <div class="form-full"><label>Lieferanten-Org-ID *</label><input id="aSupplierOrg" required/></div>
           <div><label>Tier</label>
             <select id="aTier"><option value="SECONDARY">SECONDARY</option><option value="PREFERRED">PREFERRED</option><option value="TRIAL">TRIAL</option><option value="RESTRICTED">RESTRICTED</option></select>
           </div>
@@ -89,107 +143,22 @@
           <div class="form-full"><label>Grund</label><textarea id="aReason" rows="2" maxlength="2000"></textarea></div>
         </div>
         <div style="margin-top:12px;display:flex;gap:8px">
-          <button type="submit" class="btn primary">Hinzufuegen</button>
+          <button type="submit" class="btn primary" data-feature-key="supplier_management">Hinzufuegen</button>
           <button type="button" class="btn" onclick="closeAdd()">Abbrechen</button>
         </div>
       </form>
     </div>
   </div>
 
-  <script>
-    function esc(s){var d=document.createElement('div');d.textContent=s;return d.innerHTML;}
-    var csrfToken='';
-    async function apiGet(p){var r=await fetch('/api'+p,{credentials:'include'});if(r.status===401){location.href='/public/login.html';return null;}return r.ok?r.json():null;}
-    async function apiMut(method,p,b){var r=await fetch('/api'+p,{method:method,credentials:'include',headers:{'Content-Type':'application/json','x-csrf-token':csrfToken},body:JSON.stringify(b)});if(r.status===401){location.href='/public/login.html';return null;}return r.json();}
-
-    async function init(){
-      var csrf=await fetch('/api/csrf-token',{credentials:'include'});
-      if(csrf.ok){var d=await csrf.json();csrfToken=d.csrfToken||'';}
-    }
-
-    async function loadPool(){
-      var clientOrg=document.getElementById('fClientOrg').value.trim();
-      if(!clientOrg){alert('Bitte Client Org ID eingeben');return;}
-      var tier=document.getElementById('fTier').value;
-      var qs='client_org_id='+encodeURIComponent(clientOrg);
-      if(tier)qs+='&tier='+tier;
-
-      var stats=await apiGet('/vendor-pool/stats?client_org_id='+encodeURIComponent(clientOrg));
-      if(stats){
-        document.getElementById('statsRow').innerHTML=
-          ['PREFERRED','SECONDARY','TRIAL','RESTRICTED','BLOCKED'].map(function(t){
-            return '<div class="stat-tile"><b>'+(stats[t]||0)+'</b><span class="tier-badge tb-'+t+'">'+t+'</span></div>';
-          }).join('')+'<div class="stat-tile"><b>'+(stats.total||0)+'</b><span>Gesamt</span></div>';
-      }
-
-      var data=await apiGet('/vendor-pool?'+qs);
-      if(!data)return;
-      var items=data.items||[];
-      var tbody=document.getElementById('poolBody');
-      var empty=document.getElementById('emptyMsg');
-      if(!items.length){tbody.innerHTML='';empty.style.display='';return;}
-      empty.style.display='none';
-      tbody.innerHTML=items.map(function(v){
-        return '<tr class="vp-row">'+
-          '<td>'+esc(v.supplier_org_name||v.supplier_org_id)+'</td>'+
-          '<td><span class="tier-badge tb-'+v.tier+'">'+esc(v.tier)+'</span></td>'+
-          '<td>'+esc(v.category||'–')+'</td>'+
-          '<td>'+esc(v.status)+'</td>'+
-          '<td style="font-size:12px;color:var(--muted)">'+(v.valid_until||'–')+'</td>'+
-          '<td>'+
-            '<select onchange="changeTier(\''+v.id+'\',this.value)" style="width:auto;margin:0;padding:4px 8px;font-size:12px">'+
-            ['PREFERRED','SECONDARY','TRIAL','RESTRICTED','BLOCKED'].map(function(t){
-              return '<option'+(t===v.tier?' selected':'')+'>'+t+'</option>';
-            }).join('')+'</select> '+
-            (v.status==='active'?'<button class="btn bad" style="padding:4px 8px;font-size:11px" onclick="suspendEntry(\''+v.id+'\')">Sperren</button>':
-             '<button class="btn good" style="padding:4px 8px;font-size:11px" onclick="activateEntry(\''+v.id+'\')">Aktivieren</button>')+
-          '</td></tr>';
-      }).join('');
-    }
-
-    async function changeTier(id,tier){
-      var reason=prompt('Grund fuer Tier-Aenderung (optional):');
-      await apiMut('PATCH','/vendor-pool/'+id+'/tier',{tier:tier,reason:reason||null});
-      loadPool();
-    }
-    async function suspendEntry(id){
-      await apiMut('PATCH','/vendor-pool/'+id+'/status',{status:'suspended',reason:'Manuell gesperrt'});
-      loadPool();
-    }
-    async function activateEntry(id){
-      await apiMut('PATCH','/vendor-pool/'+id+'/status',{status:'active'});
-      loadPool();
-    }
-
-    function showAdd(){document.getElementById('addModal').classList.add('show');}
-    function closeAdd(){document.getElementById('addModal').classList.remove('show');}
-
-    async function submitAdd(e){
-      e.preventDefault();
-      var body={
-        client_org_id:document.getElementById('aClientOrg').value.trim(),
-        supplier_org_id:document.getElementById('aSupplierOrg').value.trim(),
-        tier:document.getElementById('aTier').value,
-        category:document.getElementById('aCategory').value||null,
-        valid_from:document.getElementById('aFrom').value||null,
-        valid_until:document.getElementById('aUntil').value||null,
-        reason:document.getElementById('aReason').value||null
-      };
-      var result=await apiMut('POST','/vendor-pool',body);
-      if(result&&result.id){
-        closeAdd();document.getElementById('addForm').reset();
-        document.getElementById('fClientOrg').value=body.client_org_id;
-        loadPool();
-      }else{
-        alert('Fehler: '+JSON.stringify(result?.error||result?.details||'Unbekannt'));
-      }
-    }
-
-    init();
-  </script>
+  <script src="/public/js/surfaceAccess.js"></script>
+  <script src="/public/js/entitlements.js"></script>
+  <script src="/public/js/pages/vendorPool.js"></script>
+  <script src="/public/js/pageShell.js"></script>
   <script src="/public/js/notifications.js"></script>
   <div id="tc-footer" data-tc-footer></div>
   <script src="/public/js/footer.js"></script>
-  <script src="/public/js/logout-btn.js"></script>
+<script src="/public/js/demoBanner.js" defer></script>
+<script src="/public/js/onboardingWizard.js" defer></script><script src="/public/js/contextHints.js"></script>
+<script src="/public/js/breadcrumb.js" defer></script>
 </body>
 </html>

@@ -1,0 +1,340 @@
+/* ═══════════════════════════════════════════════════════
+   Executive Dashboard — Page-Specific Styles
+   ═══════════════════════════════════════════════════════ */
+
+/* ── KPI Grid & Tiles ─────────────────────────────────── */
+.kpi-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+  gap: var(--ds-space-3);
+  margin-bottom: var(--ds-space-5);
+}
+.kpi-tile {
+  padding: var(--ds-space-4);
+  border-radius: var(--ds-radius-lg);
+  border: 1px solid var(--ds-border);
+  background: rgba(255, 255, 255, .02);
+  text-align: center;
+  transition: border-color 0.2s;
+}
+.kpi-tile:hover { border-color: var(--ds-border-hover); }
+.kpi-tile .kpi-val {
+  font-size: 28px;
+  font-weight: 800;
+  display: block;
+  margin-bottom: 4px;
+  font-variant-numeric: tabular-nums;
+}
+.kpi-tile .kpi-label {
+  font-size: 11px;
+  color: var(--ds-text-secondary);
+  text-transform: uppercase;
+  letter-spacing: .05em;
+  font-weight: 600;
+}
+
+/* ── Dashboard Section ────────────────────────────────── */
+.dash-section {
+  margin-bottom: var(--ds-space-8);
+  padding: var(--ds-space-5);
+  border: 1px solid var(--ds-border);
+  border-radius: var(--ds-radius-lg);
+  background: rgba(255, 255, 255, .015);
+}
+.dash-section h3 {
+  margin: 0 0 var(--ds-space-4);
+  font-size: 14px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--ds-text-secondary);
+  font-weight: 700;
+}
+
+/* ── Bar Chart ────────────────────────────────────────── */
+.bar-chart {
+  display: flex;
+  align-items: flex-end;
+  gap: 4px;
+  height: 120px;
+  padding: 8px 0;
+}
+.bar-col {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-end;
+}
+.bar-col .bar {
+  width: 100%;
+  min-height: 2px;
+  border-radius: 4px 4px 0 0;
+  background: var(--brand);
+  transition: height .3s;
+}
+.bar-col .bar-label {
+  font-size: 10px;
+  color: var(--muted);
+  margin-top: 4px;
+  white-space: nowrap;
+}
+
+/* ── Compliance Bar ───────────────────────────────────── */
+.compliance-bar {
+  display: flex;
+  gap: 2px;
+  height: 10px;
+  border-radius: var(--ds-radius-full);
+  overflow: hidden;
+  margin-top: 8px;
+}
+.compliance-bar span { display: block; height: 100%; }
+.cb-green  { background: var(--good); }
+.cb-yellow { background: var(--warn); }
+.cb-red    { background: var(--bad); }
+.cb-grey   { background: rgba(255, 255, 255, .1); }
+
+/* ── Legend ────────────────────────────────────────────── */
+.legend {
+  display: flex;
+  gap: 16px;
+  margin-top: 6px;
+  font-size: 11px;
+  color: var(--muted);
+}
+.legend span::before {
+  content: '';
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  border-radius: 3px;
+  margin-right: 4px;
+  vertical-align: middle;
+}
+.legend .l-green::before  { background: var(--good); }
+.legend .l-yellow::before { background: var(--warn); }
+.legend .l-red::before    { background: var(--bad); }
+.legend .l-grey::before   { background: rgba(255, 255, 255, .15); }
+
+/* ── Filter Row ───────────────────────────────────────── */
+.dash-filter-row {
+  display: flex;
+  gap: var(--ds-space-3);
+  margin-bottom: var(--ds-space-5);
+  align-items: flex-end;
+  flex-wrap: wrap;
+  padding: var(--ds-space-4);
+  border: 1px solid var(--ds-border);
+  border-radius: var(--ds-radius-lg);
+  background: rgba(255, 255, 255, .015);
+}
+.dash-filter-row select,
+.dash-filter-row input { width: auto; margin: 0; }
+
+/* ── Activity Timeline ────────────────────────────────── */
+.timeline-item {
+  display: flex;
+  gap: 10px;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--ds-border);
+  font-size: 13px;
+}
+.timeline-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--brand);
+  margin-top: 5px;
+  flex-shrink: 0;
+}
+.timeline-time { color: var(--muted); font-size: 11px; margin-top: 2px; }
+
+/* ── Onboarding Banner ────────────────────────────────── */
+.dash-onboarding-banner {
+  padding: 16px 20px;
+  border-radius: 12px;
+  border: 1px solid rgba(74, 163, 255, .25);
+  background: linear-gradient(135deg, rgba(74, 163, 255, .06), rgba(124, 92, 255, .06));
+  margin-bottom: var(--ds-space-4);
+}
+.dash-onboarding-banner__layout {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.dash-onboarding-banner__title {
+  font-weight: 700;
+  font-size: 15px;
+  margin-bottom: 4px;
+}
+.dash-onboarding-banner__text {
+  font-size: 13px;
+  color: var(--muted);
+}
+.dash-onboarding-banner__actions {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+.dash-onboarding-banner__pct {
+  font-size: 12px;
+  color: var(--muted);
+}
+
+/* ── Section Link ─────────────────────────────────────── */
+.dash-section__link {
+  font-size: 11px;
+  font-weight: 400;
+  text-transform: none;
+  letter-spacing: 0;
+  color: var(--brand);
+  margin-left: 8px;
+}
+
+.page-state {
+  display: none;
+  margin-bottom: var(--ds-space-4);
+  padding: 12px 14px;
+  border-radius: 10px;
+  border: 1px solid transparent;
+}
+.page-state--info {
+  display: block;
+  background: rgba(74, 158, 255, .08);
+  border-color: rgba(74, 158, 255, .22);
+}
+.page-state--warn {
+  display: block;
+  background: rgba(255, 204, 0, .10);
+  border-color: rgba(255, 204, 0, .24);
+}
+.page-state--bad {
+  display: block;
+  background: rgba(255, 92, 122, .10);
+  border-color: rgba(255, 92, 122, .22);
+}
+.page-state__title {
+  font-size: 13px;
+  font-weight: 700;
+  margin-bottom: 4px;
+}
+.page-state__text {
+  font-size: 12px;
+  color: var(--ds-text-secondary);
+}
+
+/* ── Procurement Pulse ────────────────────────────────── */
+.procurement-pulse {
+  position: relative;
+}
+.procurement-pulse__hint {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  border: 1px solid var(--ds-border);
+  color: var(--ds-text-secondary);
+  font-size: 10px;
+  line-height: 14px;
+  text-align: center;
+  background: rgba(255, 255, 255, .04);
+}
+.procurement-pulse--warn {
+  border-color: rgba(255, 204, 0, .35);
+  background: rgba(255, 204, 0, .05);
+}
+.procurement-pulse--risk {
+  border-color: rgba(255, 92, 122, .45);
+  background: rgba(255, 92, 122, .07);
+}
+
+/* ── Critical Staffing Pressure ──────────────────────── */
+.critical-pressure-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 14px 16px;
+  border-radius: 12px;
+  border: 1px solid var(--ds-border);
+  background: rgba(255, 255, 255, .02);
+  color: inherit;
+  text-decoration: none;
+  margin-bottom: 10px;
+  transition: border-color .2s, background .2s;
+}
+.critical-pressure-row:hover {
+  border-color: var(--ds-border-hover);
+}
+.critical-pressure-row--warn {
+  border-color: rgba(255, 204, 0, .25);
+  background: rgba(255, 204, 0, .04);
+}
+.critical-pressure-row--risk {
+  border-color: rgba(255, 92, 122, .28);
+  background: rgba(255, 92, 122, .06);
+}
+.critical-pressure-row__main {
+  flex: 1;
+  min-width: 0;
+}
+.critical-pressure-row__title {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--ds-text-primary, var(--text));
+}
+.critical-pressure-row__meta {
+  margin-top: 4px;
+  font-size: 12px;
+  color: var(--ds-text-secondary, var(--muted));
+}
+.critical-pressure-row__reasons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 10px;
+}
+.critical-pressure-chip {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 8px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, .08);
+  background: rgba(255, 255, 255, .05);
+  font-size: 11px;
+  color: var(--ds-text-secondary, var(--muted));
+}
+.critical-pressure-row__stats {
+  min-width: 110px;
+  text-align: right;
+}
+.critical-pressure-row__score {
+  font-size: 24px;
+  font-weight: 800;
+  line-height: 1;
+}
+.critical-pressure-row__score-label {
+  margin-top: 6px;
+  font-size: 11px;
+  color: var(--ds-text-secondary, var(--muted));
+  text-transform: uppercase;
+  letter-spacing: .04em;
+}
+
+/* Light theme */
+[data-theme="light"] .kpi-tile,
+[data-theme="light"] .dash-section {
+  background: #ffffff;
+}
+[data-theme="light"] .dash-filter-row {
+  background: #ffffff;
+}
+[data-theme="light"] .cb-grey {
+  background: #cbd5e1;
+}
+[data-theme="light"] .legend .l-grey::before {
+  background: #94a3b8;
+}

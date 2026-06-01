@@ -3,7 +3,8 @@
 <head>
   <meta charset="utf-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
-  <title>Tarife &amp; Preise – TempConnect</title>
+  <script src="/public/js/theme.js"></script>
+  <title>Tarife für Zeitarbeitssteuerung – TempConnect</title>
   <link rel="stylesheet" href="/public/css/design-system.css"/>
   <style>
     body { background: radial-gradient(ellipse 1100px 600px at 15% -5%, rgba(74,158,255,.14), transparent 60%),
@@ -40,9 +41,9 @@
     .plan-card__desc { font-size: 13px; color: var(--ds-text-secondary); line-height: 1.5; margin-bottom: var(--ds-space-4); min-height: 40px; }
     .plan-card__features { list-style: none; padding: 0; margin: 0 0 var(--ds-space-5); flex: 1; }
     .plan-card__features li { padding: var(--ds-space-1) 0; font-size: 13px; line-height: 1.5; display: flex; gap: 8px; align-items: flex-start; }
-    .plan-card__features li::before { content: "✓"; color: var(--ds-success); font-weight: 700; flex-shrink: 0; }
+    .plan-card__features li::before { content: "\2713"; color: var(--ds-success); font-weight: 700; flex-shrink: 0; }
     .plan-card__features li.excluded { color: var(--ds-text-tertiary); }
-    .plan-card__features li.excluded::before { content: "—"; color: var(--ds-text-tertiary); }
+    .plan-card__features li.excluded::before { content: "×"; color: var(--ds-text-tertiary); }
     .plan-card__cta { margin-top: auto; }
     .plan-card__cta .ds-btn { width: 100%; }
 
@@ -68,130 +69,171 @@
     .faq-item.open .faq-q .arrow { transform: rotate(180deg); }
     .faq-a { display: none; padding: 0 var(--ds-space-4) var(--ds-space-4); font-size: 13px; color: var(--ds-text-secondary); line-height: 1.6; }
     .faq-item.open .faq-a { display: block; }
+
+    /* Value Props */
+    .value-props { display: grid; grid-template-columns: repeat(3, 1fr); gap: var(--ds-space-4); margin-top: var(--ds-space-6); }
+    @media (max-width: 900px) { .value-props { grid-template-columns: repeat(2, 1fr); } }
+    @media (max-width: 600px) { .value-props { grid-template-columns: 1fr; } }
+    .vp-card {
+      padding: var(--ds-space-4) var(--ds-space-5); border-radius: var(--ds-radius-md);
+      border: 1px solid var(--ds-border); background: rgba(255,255,255,0.015);
+      transition: border-color .2s, transform .15s;
+    }
+    .vp-card:hover { transform: translateY(-2px); border-color: var(--ds-border-hover); }
+    .vp-card__icon { font-size: 22px; margin-bottom: var(--ds-space-2); }
+    .vp-card__title { font-size: 14px; font-weight: 700; margin-bottom: var(--ds-space-1); }
+    .vp-card__desc { font-size: 13px; color: var(--ds-text-secondary); line-height: 1.55; }
+    .vp-card__tag { display: inline-block; margin-top: var(--ds-space-2); font-size: 11px; font-weight: 600; color: var(--ds-brand); background: rgba(74,158,255,.08); padding: 2px 8px; border-radius: 4px; }
+
+    .audience-toggle { display: flex; gap: var(--ds-space-2); justify-content: center; margin-bottom: var(--ds-space-4); }
+    .audience-toggle__btn { padding: 6px 16px; border-radius: var(--ds-radius-sm); font-size: 13px; font-weight: 600; border: 1px solid var(--ds-border); background: transparent; color: var(--ds-text-secondary); cursor: pointer; transition: all .15s; }
+    .audience-toggle__btn:hover { border-color: var(--ds-border-hover); color: var(--ds-text); }
+    .audience-toggle__btn--active { background: rgba(74,158,255,.1); border-color: var(--ds-brand); color: var(--ds-brand); }
+
+    .pilot-standard-band {
+      margin-top: var(--ds-space-5);
+      padding: var(--ds-space-5);
+      border-radius: var(--ds-radius-xl);
+      border: 1px solid rgba(74,158,255,.22);
+      background: linear-gradient(135deg, rgba(74,158,255,.06), rgba(124,92,255,.03));
+    }
+    .pilot-standard-band__title { font-size: 20px; font-weight: 800; margin: 0 0 var(--ds-space-2); }
+    .pilot-standard-band__text { font-size: 14px; line-height: 1.6; color: var(--ds-text-secondary); max-width: 760px; margin: 0; }
+    .pilot-standard-grid { display:grid; grid-template-columns:repeat(4,1fr); gap:var(--ds-space-3); margin-top:var(--ds-space-4); }
+    @media (max-width: 900px) { .pilot-standard-grid { grid-template-columns:repeat(2,1fr); } }
+    @media (max-width: 520px) { .pilot-standard-grid { grid-template-columns:1fr; } }
+    .pilot-standard-item {
+      padding: var(--ds-space-4);
+      border-radius: var(--ds-radius-lg);
+      border: 1px solid rgba(255,255,255,.08);
+      background: rgba(255,255,255,.03);
+    }
+    .pilot-standard-item__eyebrow {
+      font-size: 10px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: .08em;
+      color: var(--ds-brand);
+      margin-bottom: 6px;
+    }
+    .pilot-standard-item__title { font-size: 15px; font-weight: 800; margin-bottom: 4px; }
+    .pilot-standard-item__desc { font-size: 13px; line-height: 1.55; color: var(--ds-text-secondary); }
+
+    /* Loading / Empty / Error States fuer Catalog-Renderer */
+    .pricing-loading { padding: var(--ds-space-6); text-align: center; color: var(--ds-text-secondary); font-size: 14px; grid-column: 1 / -1; }
+    .pricing-empty { padding: var(--ds-space-4); text-align: center; color: var(--ds-text-secondary); font-size: 13px; }
+    .pricing-error { padding: var(--ds-space-5); text-align: center; border: 1px solid rgba(255,92,122,.25); background: rgba(255,92,122,.04); border-radius: var(--ds-radius-lg); grid-column: 1 / -1; }
+    .pricing-error__title { font-weight: 800; margin-bottom: var(--ds-space-2); color: #ffd0d8; }
+    .pricing-error__sub { font-size: 13px; color: var(--ds-text-secondary); margin-bottom: var(--ds-space-3); }
+
+    /* Tier-Grid (S/M/L/Enterprise) */
+    .pricing-tier-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: var(--ds-space-3); }
+    @media (max-width: 900px) { .pricing-tier-grid { grid-template-columns: repeat(2, 1fr); } }
+    @media (max-width: 520px) { .pricing-tier-grid { grid-template-columns: 1fr; } }
+    .pricing-tier-card { padding: var(--ds-space-4); border: 1px solid var(--ds-border); border-radius: var(--ds-radius-lg); background: rgba(255,255,255,0.02); display: flex; flex-direction: column; gap: 6px; }
+    .pricing-tier-card__title { font-weight: 800; font-size: 16px; }
+    .pricing-tier-card__bounds { font-size: 12px; color: var(--ds-text-secondary); }
+    .pricing-tier-card__price { font-size: 20px; font-weight: 900; margin-top: 4px; }
+    .pricing-tier-card__sub { font-size: 11px; color: var(--ds-text-tertiary); }
+    .pricing-tier-card__desc { font-size: 12px; color: var(--ds-text-secondary); line-height: 1.5; min-height: 36px; margin-top: 4px; }
+    .pricing-tier-card .ds-btn { margin-top: var(--ds-space-2); }
   </style>
 </head>
 <body>
   <div class="ds-wrap">
-    <nav class="ds-topbar">
-      <div class="ds-topbar__brand">
-        <span class="ds-topbar__brand-dot"></span>
-        TempConnect
-      </div>
-      <div class="ds-topbar__nav">
-        <a href="/" class="ds-nav-link">Startseite</a>
-        <a href="/public/trust/security.html" class="ds-nav-link">Sicherheit</a>
-        <a href="/public/hilfe.html" class="ds-nav-link">Hilfe</a>
-        <span class="ds-topbar__separator"></span>
-        <a href="/app" class="ds-btn">Anmelden</a>
-        <a href="/app" class="ds-btn ds-btn--primary">Kostenlos starten</a>
-      </div>
-    </nav>
+    <div id="tc-shell"></div>
 
     <!-- Hero -->
-    <section style="text-align:center;padding:var(--ds-space-10) 0 var(--ds-space-6)">
+    <section style="text-align:center;padding:var(--ds-space-10) 0 var(--ds-space-4)">
       <div class="section-label">Tarife &amp; Preise</div>
-      <h1 class="section-heading" style="font-size:clamp(26px,4vw,38px)">Transparente Preise fuer jede Unternehmensgroesse</h1>
-      <p class="section-desc" style="margin:var(--ds-space-2) auto 0">Starten Sie kostenlos. Upgraden Sie, wenn Sie mehr Reichweite, Compliance oder Enterprise-Funktionen benoetigen. Alle Tarife monatlich kuendbar.</p>
+      <h1 class="section-heading" style="font-size:clamp(26px,4vw,38px)">Tarife für Einsatzunternehmen mit wiederkehrenden Zeitarbeitsbedarfen</h1>
+      <p class="section-desc" style="margin:var(--ds-space-2) auto 0">TempConnect ist buyer-first: Arbeitsplatzangebote, Lieferantensteuerung, Preisrahmen, Einsaetze und Stundenzettel laufen in einer Plattform. Personaldienstleister arbeiten auf derselben Plattform als Ausbau-ICP und Supply-Seite mit.</p>
+      <div class="audience-toggle" style="margin-top:var(--ds-space-4)">
+        <button type="button" class="audience-toggle__btn audience-toggle__btn--active">Primärer ICP: Einsatzunternehmen</button>
+        <button type="button" class="audience-toggle__btn">Ausbau-ICP: Personaldienstleister</button>
+      </div>
+      <div class="pilot-standard-band">
+        <div class="section-label" style="color:var(--ds-success);margin-bottom:6px">Pilot-ready</div>
+        <h2 class="pilot-standard-band__title">Voller Pilot-Mindeststandard ab PLUS, Steuerungsschicht im individuellen Tarif</h2>
+        <p class="pilot-standard-band__text">BASIS validiert erste Arbeitsplatzangebote und Deals. PLUS deckt den Kern fuer die ersten echten Pilotkunden ab: Arbeitsplatzangebot, Deal, Einsatz und digitale Zeiten. Der individuelle Tarif erweitert diese Basis um Lieferantensteuerung, Governance und Rollout-Tiefe.</p>
+        <div class="pilot-standard-grid">
+          <div class="pilot-standard-item">
+            <div class="pilot-standard-item__eyebrow">ab BASIS</div>
+            <div class="pilot-standard-item__title">Arbeitsplatzangebot &amp; Deal</div>
+            <div class="pilot-standard-item__desc">Erste Arbeitsplatzangebote, Marktreaktionen und digitale Deals fuer kleinere Volumina.</div>
+          </div>
+          <div class="pilot-standard-item">
+            <div class="pilot-standard-item__eyebrow">ab PLUS</div>
+            <div class="pilot-standard-item__title">Zeiten &amp; Freigaben</div>
+            <div class="pilot-standard-item__desc">Digitale Stundenzettel, Freigaben und Folgeprozesse fuer echte Pilotabwicklung.</div>
+          </div>
+          <div class="pilot-standard-item">
+            <div class="pilot-standard-item__eyebrow">ab PLUS</div>
+            <div class="pilot-standard-item__title">Demo-Reife</div>
+            <div class="pilot-standard-item__desc">Buyer-first Kernstory, Notdienst-Signale und klare CTA fuer den Sales-Funnel.</div>
+          </div>
+          <div class="pilot-standard-item">
+            <div class="pilot-standard-item__eyebrow">Individueller Tarif</div>
+            <div class="pilot-standard-item__title">Steuerung &amp; Rollout</div>
+            <div class="pilot-standard-item__desc">Vendor Pool, Preisrahmen, Freigabe-Workflows, Audit und Multi-Team-Steuerung.</div>
+          </div>
+        </div>
+      </div>
     </section>
 
-    <!-- Plan Cards -->
-    <div class="plan-grid">
-      <!-- FREE -->
-      <div class="plan-card">
-        <div class="plan-card__name">FREE</div>
-        <div class="plan-card__price">0 EUR <span>/Monat</span></div>
-        <div class="plan-card__desc">Einstieg in den Marktplatz. Kapazitaeten ansehen, Plattform kennenlernen.</div>
-        <ul class="plan-card__features">
-          <li>Marketplace durchsuchen</li>
-          <li>Basis-Unternehmensprofil</li>
-          <li>Eingeschraenkte Sichtbarkeit</li>
-          <li class="excluded">Keine Anfragen senden</li>
-          <li class="excluded">Kein Matching</li>
-        </ul>
-        <div class="plan-card__cta">
-          <a href="/app" class="ds-btn ds-w-full">Kostenlos starten</a>
-        </div>
+    <!-- Value Proposition Grid -->
+    <div class="value-props">
+      <div class="vp-card">
+        <div class="vp-card__icon">&#9889;</div>
+        <div class="vp-card__title">Arbeitsplatzangebote &amp; Lieferantensteuerung</div>
+        <div class="vp-card__desc">Wiederkehrende Arbeitsplatzangebote platzieren, Preferred Vendors priorisieren und Reaktionen transparent steuern &mdash; statt Mail, Excel und Nachtelefonieren.</div>
+        <span class="vp-card__tag">ab BASIS</span>
       </div>
-
-      <!-- BASIS -->
-      <div class="plan-card">
-        <div class="plan-card__name">BASIS</div>
-        <div class="plan-card__price">150 EUR <span>/Monat</span></div>
-        <div class="plan-card__desc">Voller Marketplace-Zugang mit Anfragen, Angeboten und Deal-Teilnahme.</div>
-        <ul class="plan-card__features">
-          <li>Voller Marketplace-Zugang</li>
-          <li>5 Anfragen / Monat</li>
-          <li>5 Angebote erstellen</li>
-          <li>Profil-Listing im Verzeichnis</li>
-          <li>E-Mail-Support</li>
-        </ul>
-        <div class="plan-card__cta">
-          <a href="/app" class="ds-btn ds-w-full">Plan waehlen</a>
-        </div>
+      <div class="vp-card">
+        <div class="vp-card__icon">&#128203;</div>
+        <div class="vp-card__title">Digitale Stundenzettel</div>
+        <div class="vp-card__desc">Vorbefuellt, digital unterschrieben, per Klick genehmigt. ArbZG-konform mit automatischer Pausenvalidierung.</div>
+        <span class="vp-card__tag">ab PLUS</span>
       </div>
-
-      <!-- PLUS (recommended) -->
-      <div class="plan-card plan-card--recommended">
-        <div class="plan-card__badge">
-          <span class="ds-badge ds-badge--brand">Empfohlen</span>
-        </div>
-        <div class="plan-card__name" style="color:var(--ds-brand)">PLUS</div>
-        <div class="plan-card__price">499 EUR <span>/Monat</span></div>
-        <div class="plan-card__desc">Persistente Suchauftraege, Pulse-Schutz, erweiterte Sichtbarkeit und Compliance.</div>
-        <ul class="plan-card__features">
-          <li>20 Anfragen / Monat</li>
-          <li>Persistente Suchauftraege</li>
-          <li>Pulse-Timer (120 Min)</li>
-          <li>Enterprise-Dashboard</li>
-          <li>Compliance-Ampel &amp; Scorecard</li>
-          <li>Erhoehte Sichtbarkeit</li>
-          <li>Erweitertes Profil</li>
-        </ul>
-        <div class="plan-card__cta">
-          <a href="/app" class="ds-btn ds-btn--primary ds-w-full">Plan waehlen</a>
-        </div>
+      <div class="vp-card">
+        <div class="vp-card__icon">&#128176;</div>
+        <div class="vp-card__title">Preisrahmen &amp; Kostenkontrolle</div>
+        <div class="vp-card__desc">Genehmigte Stunden, Ziel- und Max-Saetze sowie Ausgaben bleiben in einem operativen Steuerungsbild verbunden.</div>
+        <span class="vp-card__tag">ab PLUS</span>
       </div>
-
-      <!-- PRO -->
-      <div class="plan-card">
-        <div class="plan-card__name">PRO</div>
-        <div class="plan-card__price">799 EUR <span>/Monat</span></div>
-        <div class="plan-card__desc">Erweiterte Analysen, Prioritaets-Platzierung und Lieferanten-Bewertung.</div>
-        <ul class="plan-card__features">
-          <li>Unbegrenzte Anfragen</li>
-          <li>Erweiterte Analysen</li>
-          <li>Prioritaets-Platzierung</li>
-          <li>Lieferanten-Bewertungen</li>
-          <li>Erweitertes Matching</li>
-          <li>Alles aus PLUS</li>
-        </ul>
-        <div class="plan-card__cta">
-          <a href="/app" class="ds-btn ds-w-full">Plan waehlen</a>
-        </div>
+      <div class="vp-card">
+        <div class="vp-card__icon">&#128680;</div>
+        <div class="vp-card__title">Notdienst fuer kritische Arbeitsplatzangebote</div>
+        <div class="vp-card__desc">30 Minuten statt 3 Stunden. Kritische Ausfaelle werden mit priorisiertem Matching und automatischer Eskalation abgefedert.</div>
+        <span class="vp-card__tag">ab PLUS</span>
       </div>
-
-      <!-- ENTERPRISE -->
-      <div class="plan-card plan-card--enterprise">
-        <div class="plan-card__badge">
-          <span class="ds-badge ds-badge--accent">Enterprise</span>
-        </div>
-        <div class="plan-card__name" style="color:var(--ds-accent)">ENTERPRISE</div>
-        <div class="plan-card__price">Individuell</div>
-        <div class="plan-card__desc">Multi-Abteilungs-Management, Freigabe-Workflows, Vertragsmanagement und Reporting.</div>
-        <ul class="plan-card__features">
-          <li>Multi-Abteilungen &amp; Teams</li>
-          <li>Freigabe-Workflows</li>
-          <li>Compliance-Management</li>
-          <li>Vertragsmanagement</li>
-          <li>Vendor Pool Management</li>
-          <li>Enterprise-Reporting</li>
-          <li>Dedizierter Ansprechpartner</li>
-        </ul>
-        <div class="plan-card__cta">
-          <a href="/public/legal/kontakt.html" class="ds-btn ds-w-full">Kontakt aufnehmen</a>
-        </div>
+      <div class="vp-card">
+        <div class="vp-card__icon">&#127942;</div>
+        <div class="vp-card__title">Lieferantenbewertung</div>
+        <div class="vp-card__desc">Tier-System, Performance-Dashboard und Coverage-Analyse machen Ihre besten Lieferanten sichtbar und steuerbar.</div>
+        <span class="vp-card__tag">INDIVIDUELLER TARIF</span>
+      </div>
+      <div class="vp-card">
+        <div class="vp-card__icon">&#128200;</div>
+        <div class="vp-card__title">Spend &amp; Marktpreise</div>
+        <div class="vp-card__desc">Was kostet ein Schweisser in Berlin? Datenbasierte Preisspannen und Spend-Sicht statt Bauchgefühl und Preisdrift.</div>
+        <span class="vp-card__tag">ab PLUS</span>
       </div>
     </div>
+
+    <hr class="ds-divider"/>
+
+    <!-- Plan Cards (dynamisch aus /api/public/catalog) -->
+    <div class="plan-grid" id="pricingPlanGrid" aria-busy="true"></div>
+    <noscript>
+      <div class="pricing-error">
+        <div class="pricing-error__title">JavaScript benötigt</div>
+        <div class="pricing-error__sub">Die Tarif-Übersicht lädt aus dem TempConnect-Tarifkatalog. Bitte JavaScript aktivieren oder Vertrieb kontaktieren.</div>
+      </div>
+    </noscript>
+    <!-- LEGACY-BLOCK ENTFERNT (Welle 8 Schritt 6): Plan-Karten DEMO/BASIS/PLUS/PRO/INDIVIDUELL waren hartcodiert mit Preisen 150/499/799 EUR. Quelle ist jetzt /api/public/catalog (api/config/planCatalog.js).
+
+         Dieser Block bleibt nur als Kommentar als Erinnerung an die Migration. -->
 
     <!-- Trust Row -->
     <div class="ds-trust-row" style="margin-top:var(--ds-space-6)">
@@ -201,77 +243,148 @@
       <div class="ds-trust-item"><span class="ds-trust-item__icon">&#9989;</span> Kein Lock-in</div>
     </div>
 
+    <!-- Pilotpfad -->
+    <div style="margin-top:var(--ds-space-5)">
+      <div style="padding:var(--ds-space-5);border:1px solid rgba(57,217,138,.25);border-radius:var(--ds-radius-xl);background:linear-gradient(135deg,rgba(57,217,138,.04),rgba(74,158,255,.03))">
+        <div style="display:flex;align-items:center;gap:var(--ds-space-4);flex-wrap:wrap">
+          <div style="flex-shrink:0;width:56px;height:56px;border-radius:50%;background:rgba(57,217,138,.12);display:flex;align-items:center;justify-content:center;font-size:28px">&#128640;</div>
+          <div style="flex:1;min-width:260px">
+            <div style="font-size:18px;font-weight:800;margin-bottom:4px">Pilotpfad für Einsatzunternehmen</div>
+            <div style="font-size:14px;color:var(--ds-text-secondary);line-height:1.6">
+              Kein eigener Sondertarif, kein CTA-Chaos: Der Standard-Pilot fuer den primären ICP läuft über <strong style="color:var(--ds-success)">PLUS</strong>.
+              Größere Organisationen mit mehreren Standorten, Lieferanten oder Freigabe-Workflows gehen direkt in den <strong>individuellen Tarif</strong>.
+              BASIS bleibt der Einstieg für kleinere Volumina, PRO ist ein Ausbaupfad &mdash; nicht die erste Verkaufsgeschichte.
+            </div>
+          </div>
+          <div style="flex-shrink:0;text-align:center">
+            <div style="display:flex;gap:var(--ds-space-2);flex-wrap:wrap;justify-content:center">
+              <button type="button" onclick="selectPlan('PLUS')" class="ds-btn ds-btn--success" style="white-space:nowrap">PLUS als Pilot starten</button>
+              <button type="button" onclick="selectPlan('INDIVIDUELL')" class="ds-btn" style="white-space:nowrap">Individuellen Tarif anfragen</button>
+            </div>
+            <div style="font-size:11px;color:var(--ds-text-tertiary);margin-top:6px">PLUS = Standard-Pilot, individueller Tarif = Direct-/Enterprise-Pfad</div>
+          </div>
+        </div>
+        <div style="display:flex;gap:var(--ds-space-5);margin-top:var(--ds-space-4);padding-top:var(--ds-space-3);border-top:1px solid rgba(57,217,138,.12);flex-wrap:wrap">
+          <div style="display:flex;align-items:center;gap:8px;font-size:13px"><span style="color:var(--ds-success);font-weight:700">&#10003;</span> DEMO prueft die Story, PLUS prueft den echten operativen Pilotkern</div>
+          <div style="display:flex;align-items:center;gap:8px;font-size:13px"><span style="color:var(--ds-success);font-weight:700">&#10003;</span> Individueller Tarif erst bei Multi-Standort-, Governance- oder Lieferantensteuerungs-Tiefe</div>
+          <div style="display:flex;align-items:center;gap:8px;font-size:13px"><span style="color:var(--ds-success);font-weight:700">&#10003;</span> BASIS bleibt für kleinere Volumina, PRO für Skalierung zwischen PLUS und Enterprise</div>
+          <div style="display:flex;align-items:center;gap:8px;font-size:13px"><span style="color:var(--ds-success);font-weight:700">&#10003;</span> Keine parallelen Pilotgeschichten neben dem buyer-first Kernpfad</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- INDIVIDUELL Groessenklassen S/M/L/Enterprise (NEUE Schwellen 50/150/350) -->
+    <div style="margin-top:var(--ds-space-5)">
+      <div style="padding:var(--ds-space-5);border:1px solid rgba(124,92,255,.2);border-radius:var(--ds-radius-xl);background:rgba(124,92,255,.02)">
+        <div id="pricingTierGrid"></div>
+      </div>
+    </div>
+
     <hr class="ds-divider"/>
 
     <!-- Feature Comparison Table -->
     <section class="ds-section" style="text-align:center">
       <div class="section-label">Vergleich</div>
       <h2 class="section-heading">Alle Features im Detail</h2>
-      <p class="section-desc" style="margin:0 auto var(--ds-space-4)">Detaillierter Vergleich aller Funktionen nach Tarif.</p>
+      <p class="section-desc" style="margin:0 auto var(--ds-space-4)">Detaillierter Vergleich aller Funktionen nach Tarif. Primärer Einsatz: Einsatzunternehmen ab PLUS und individueller Tarif; Personaldienstleister wachsen über dieselbe Plattform mit.</p>
     </section>
 
     <div class="comparison-wrap">
       <table class="comparison-table">
-        <thead>
-          <tr>
-            <th>Funktion</th>
-            <th>FREE</th>
-            <th>BASIS</th>
-            <th class="highlight">PLUS</th>
-            <th>PRO</th>
-            <th>ENTERPRISE</th>
-          </tr>
-        </thead>
-        <tbody>
-          <!-- Marketplace -->
-          <tr class="group-row"><td colspan="6">Marketplace</td></tr>
-          <tr><td>Marketplace durchsuchen</td><td class="check">&#10003;</td><td class="check">&#10003;</td><td class="check">&#10003;</td><td class="check">&#10003;</td><td class="check">&#10003;</td></tr>
-          <tr><td>Anfragen senden</td><td class="cross">—</td><td class="value">5 / Monat</td><td class="value">20 / Monat</td><td class="value">Unbegrenzt</td><td class="value">Unbegrenzt</td></tr>
-          <tr><td>Anfragen empfangen</td><td class="cross">—</td><td class="value">5 / Monat</td><td class="value">20 / Monat</td><td class="value">Unbegrenzt</td><td class="value">Unbegrenzt</td></tr>
-          <tr><td>Angebote erstellen</td><td class="cross">—</td><td class="value">5 / Monat</td><td class="value">20 / Monat</td><td class="value">Unbegrenzt</td><td class="value">Unbegrenzt</td></tr>
-          <tr><td>Profil-Listing</td><td class="cross">—</td><td class="check">&#10003;</td><td class="check">&#10003;</td><td class="check">&#10003;</td><td class="check">&#10003;</td></tr>
-          <tr><td>Erhoehte Sichtbarkeit</td><td class="cross">—</td><td class="cross">—</td><td class="check">&#10003;</td><td class="check">&#10003;</td><td class="check">&#10003;</td></tr>
-          <tr><td>Prioritaets-Platzierung</td><td class="cross">—</td><td class="cross">—</td><td class="cross">—</td><td class="check">&#10003;</td><td class="check">&#10003;</td></tr>
+        <thead id="pricingComparisonHead"></thead>
+        <tbody id="pricingComparisonBody">
+          <tr><td colspan="6" class="pricing-empty">Lade Featurevergleich&hellip;</td></tr>
+        </tbody>
+      </table>
+    </div>
 
-          <!-- Kapazitaetsboerse -->
-          <tr class="group-row"><td colspan="6">Kapazitaetsboerse</td></tr>
+    <!-- LEGACY: Hartcodierte Vergleichstabelle entfernt (Welle 8 Schritt 6) -->
+    <div hidden>
+          <!-- Marketplace -->
+          <tr class="group-row"><td colspan="6">Vermittlung &amp; Anfragen</td></tr>
+          <tr><td>Vermittlung durchsuchen</td><td class="check">&#10003;</td><td class="check">&#10003;</td><td class="check">&#10003;</td><td class="check">&#10003;</td><td class="check">&#10003;</td></tr>
+          <tr><td>Anfragen senden</td><td class="cross">&times;</td><td class="value">5 / Monat</td><td class="value">20 / Monat</td><td class="value">Unbegrenzt</td><td class="value">Unbegrenzt</td></tr>
+          <tr><td>Anfragen empfangen</td><td class="cross">&times;</td><td class="value">5 / Monat</td><td class="value">20 / Monat</td><td class="value">Unbegrenzt</td><td class="value">Unbegrenzt</td></tr>
+          <tr><td>Angebote erstellen</td><td class="cross">&times;</td><td class="value">5 / Monat</td><td class="value">20 / Monat</td><td class="value">Unbegrenzt</td><td class="value">Unbegrenzt</td></tr>
+          <tr><td>Profil-Listing</td><td class="cross">&times;</td><td class="check">&#10003;</td><td class="check">&#10003;</td><td class="check">&#10003;</td><td class="check">&#10003;</td></tr>
+          <tr><td>Erhoehte Sichtbarkeit</td><td class="cross">&times;</td><td class="cross">&times;</td><td class="check">&#10003;</td><td class="check">&#10003;</td><td class="check">&#10003;</td></tr>
+          <tr><td>Prioritaets-Platzierung</td><td class="cross">&times;</td><td class="cross">&times;</td><td class="cross">&times;</td><td class="check">&#10003;</td><td class="check">&#10003;</td></tr>
+
+          <!-- Vermittlung -->
+          <tr class="group-row"><td colspan="6">Vermittlung</td></tr>
           <tr><td>Boerse durchsuchen</td><td class="check">&#10003;</td><td class="check">&#10003;</td><td class="check">&#10003;</td><td class="check">&#10003;</td><td class="check">&#10003;</td></tr>
-          <tr><td>Kapazitaeten einstellen</td><td class="cross">—</td><td class="value">3 Eintraege</td><td class="value">20 Eintraege</td><td class="value">Unbegrenzt</td><td class="value">Unbegrenzt</td></tr>
-          <tr><td>Interesse bekunden / Deals</td><td class="cross">—</td><td class="value">5 / Monat</td><td class="value">20 / Monat</td><td class="value">Unbegrenzt</td><td class="value">Unbegrenzt</td></tr>
-          <tr><td>Vertrauenssignale &amp; Badges</td><td class="cross">—</td><td class="cross">—</td><td class="check">&#10003;</td><td class="check">&#10003;</td><td class="check">&#10003;</td></tr>
-          <tr><td>Aktivitaets-Statistiken</td><td class="cross">—</td><td class="cross">—</td><td class="check">&#10003;</td><td class="check">&#10003;</td><td class="check">&#10003;</td></tr>
+          <tr><td>Personal einstellen</td><td class="cross">&times;</td><td class="value">3 Eintraege</td><td class="value">20 Eintraege</td><td class="value">Unbegrenzt</td><td class="value">Unbegrenzt</td></tr>
+          <tr><td>Interesse bekunden / Deals</td><td class="cross">&times;</td><td class="value">5 / Monat</td><td class="value">20 / Monat</td><td class="value">Unbegrenzt</td><td class="value">Unbegrenzt</td></tr>
+          <tr><td>Vertrauenssignale &amp; Badges</td><td class="cross">&times;</td><td class="cross">&times;</td><td class="check">&#10003;</td><td class="check">&#10003;</td><td class="check">&#10003;</td></tr>
+          <tr><td>Aktivitaets-Statistiken</td><td class="cross">&times;</td><td class="cross">&times;</td><td class="check">&#10003;</td><td class="check">&#10003;</td><td class="check">&#10003;</td></tr>
+
+          <!-- Matching -->
+          <tr class="group-row"><td colspan="6">Matching &amp; Scoring</td></tr>
+          <tr><td>Basis-Matching (Rolle, Skills, Standort)</td><td class="cross">&times;</td><td class="check">&#10003;</td><td class="check">&#10003;</td><td class="check">&#10003;</td><td class="check">&#10003;</td></tr>
+          <tr><td>Instant Match (13-Faktor-Scoring)</td><td class="cross">&times;</td><td class="cross">&times;</td><td class="check">&#10003;</td><td class="check">&#10003;</td><td class="check">&#10003;</td></tr>
+          <tr><td>Smart Ranking (AI-gestuetzte Signale)</td><td class="cross">&times;</td><td class="cross">&times;</td><td class="cross">&times;</td><td class="check">&#10003;</td><td class="check">&#10003;</td></tr>
+          <tr><td>Erklaerbares Ranking (Breakdown)</td><td class="cross">&times;</td><td class="cross">&times;</td><td class="cross">&times;</td><td class="check">&#10003;</td><td class="check">&#10003;</td></tr>
+          <tr><td>Match-Alerts &amp; Benachrichtigungen</td><td class="cross">&times;</td><td class="cross">&times;</td><td class="check">&#10003;</td><td class="check">&#10003;</td><td class="check">&#10003;</td></tr>
+          <tr><td>Preferred-First-Boost im Matching</td><td class="cross">&times;</td><td class="cross">&times;</td><td class="cross">&times;</td><td class="cross">&times;</td><td class="check">&#10003;</td></tr>
+
+          <!-- Operative Workflows -->
+          <tr class="group-row"><td colspan="6">Operative Workflows</td></tr>
+          <tr><td>Digitale Stundenzettel</td><td class="cross">&times;</td><td class="cross">&times;</td><td class="check">&#10003;</td><td class="check">&#10003;</td><td class="check">&#10003;</td></tr>
+          <tr><td>ArbZG-Pausenvalidierung</td><td class="cross">&times;</td><td class="cross">&times;</td><td class="check">&#10003;</td><td class="check">&#10003;</td><td class="check">&#10003;</td></tr>
+          <tr><td>Digitale Unterschrift</td><td class="cross">&times;</td><td class="cross">&times;</td><td class="check">&#10003;</td><td class="check">&#10003;</td><td class="check">&#10003;</td></tr>
+          <tr><td>Batch-Genehmigung (Stundenzettel)</td><td class="cross">&times;</td><td class="cross">&times;</td><td class="check">&#10003;</td><td class="check">&#10003;</td><td class="check">&#10003;</td></tr>
+          <tr><td>Operative Rechnungsstellung</td><td class="cross">&times;</td><td class="cross">&times;</td><td class="check">&#10003;</td><td class="check">&#10003;</td><td class="check">&#10003;</td></tr>
+          <tr><td>Rechnungs-KPI-Dashboard</td><td class="cross">&times;</td><td class="cross">&times;</td><td class="check">&#10003;</td><td class="check">&#10003;</td><td class="check">&#10003;</td></tr>
+          <tr><td>CSV-Export (Rechnungen)</td><td class="cross">&times;</td><td class="cross">&times;</td><td class="check">&#10003;</td><td class="check">&#10003;</td><td class="check">&#10003;</td></tr>
+
+          <!-- Emergency & Pricing -->
+          <tr class="group-row"><td colspan="6">Notdienst &amp; Preisvorschlaege</td></tr>
+          <tr><td>Emergency Staffing / Notdienst</td><td class="cross">&times;</td><td class="cross">&times;</td><td class="check">&#10003;</td><td class="check">&#10003;</td><td class="check">&#10003;</td></tr>
+          <tr><td>5-Stufen-Urgency-Modell</td><td class="cross">&times;</td><td class="cross">&times;</td><td class="check">&#10003;</td><td class="check">&#10003;</td><td class="check">&#10003;</td></tr>
+          <tr><td>Auto-Eskalation</td><td class="cross">&times;</td><td class="cross">&times;</td><td class="cross">&times;</td><td class="check">&#10003;</td><td class="check">&#10003;</td></tr>
+          <tr><td>Smart Pricing (Preisvorschlaege)</td><td class="cross">&times;</td><td class="cross">&times;</td><td class="check">&#10003;</td><td class="check">&#10003;</td><td class="check">&#10003;</td></tr>
+
+          <!-- Reputation -->
+          <tr class="group-row"><td colspan="6">Reputation &amp; Bewertung</td></tr>
+          <tr><td>Reputation-Score &amp; Grade</td><td class="cross">&times;</td><td class="cross">&times;</td><td class="check">&#10003;</td><td class="check">&#10003;</td><td class="check">&#10003;</td></tr>
+          <tr><td>Lieferanten-Bewertungen</td><td class="cross">&times;</td><td class="cross">&times;</td><td class="cross">&times;</td><td class="check">&#10003;</td><td class="check">&#10003;</td></tr>
+          <tr><td>Top-Supplier Leaderboard</td><td class="cross">&times;</td><td class="cross">&times;</td><td class="cross">&times;</td><td class="check">&#10003;</td><td class="check">&#10003;</td></tr>
 
           <!-- Pulse & SLA -->
           <tr class="group-row"><td colspan="6">Pulse &amp; SLA</td></tr>
-          <tr><td>Persistente Suchauftraege</td><td class="cross">—</td><td class="cross">—</td><td class="check">&#10003;</td><td class="check">&#10003;</td><td class="check">&#10003;</td></tr>
-          <tr><td>Pulse-Timer</td><td class="cross">—</td><td class="cross">—</td><td class="value">120 Min</td><td class="value">60 Min</td><td class="value">30 Min</td></tr>
-          <tr><td>Eskalation</td><td class="cross">—</td><td class="cross">—</td><td class="cross">—</td><td class="check">&#10003;</td><td class="check">&#10003;</td></tr>
+          <tr><td>Persistente Suchauftraege</td><td class="cross">&times;</td><td class="cross">&times;</td><td class="check">&#10003;</td><td class="check">&#10003;</td><td class="check">&#10003;</td></tr>
+          <tr><td>Pulse-Timer</td><td class="cross">&times;</td><td class="cross">&times;</td><td class="value">120 Min</td><td class="value">60 Min</td><td class="value">30 Min</td></tr>
           <tr><td>Plattformverfuegbarkeit</td><td class="value">Best Effort</td><td class="value">Best Effort</td><td class="value">99 %</td><td class="value">99 %</td><td class="value">99,5 %</td></tr>
 
           <!-- Analytics & Tools -->
           <tr class="group-row"><td colspan="6">Analysen &amp; Tools</td></tr>
-          <tr><td>Enterprise-Dashboard</td><td class="cross">—</td><td class="cross">—</td><td class="check">&#10003;</td><td class="check">&#10003;</td><td class="check">&#10003;</td></tr>
-          <tr><td>Compliance-Ampel</td><td class="cross">—</td><td class="cross">—</td><td class="check">&#10003;</td><td class="check">&#10003;</td><td class="check">&#10003;</td></tr>
-          <tr><td>Lieferanten-Scorecard</td><td class="cross">—</td><td class="cross">—</td><td class="check">&#10003;</td><td class="check">&#10003;</td><td class="check">&#10003;</td></tr>
-          <tr><td>Erweiterte Analysen</td><td class="cross">—</td><td class="cross">—</td><td class="cross">—</td><td class="check">&#10003;</td><td class="check">&#10003;</td></tr>
-          <tr><td>Erweitertes Matching</td><td class="cross">—</td><td class="cross">—</td><td class="cross">—</td><td class="check">&#10003;</td><td class="check">&#10003;</td></tr>
+          <tr><td>Dashboard individueller Tarife</td><td class="cross">&times;</td><td class="cross">&times;</td><td class="check">&#10003;</td><td class="check">&#10003;</td><td class="check">&#10003;</td></tr>
+          <tr><td>Compliance-Ampel &amp; Scorecard</td><td class="cross">&times;</td><td class="cross">&times;</td><td class="check">&#10003;</td><td class="check">&#10003;</td><td class="check">&#10003;</td></tr>
+          <tr><td>Erweiterte Analysen</td><td class="cross">&times;</td><td class="cross">&times;</td><td class="cross">&times;</td><td class="check">&#10003;</td><td class="check">&#10003;</td></tr>
 
-          <!-- Enterprise -->
-          <tr class="group-row"><td colspan="6">Enterprise-Funktionen</td></tr>
-          <tr><td>Multi-Abteilungen</td><td class="cross">—</td><td class="cross">—</td><td class="cross">—</td><td class="cross">—</td><td class="check">&#10003;</td></tr>
-          <tr><td>Freigabe-Workflows</td><td class="cross">—</td><td class="cross">—</td><td class="cross">—</td><td class="cross">—</td><td class="check">&#10003;</td></tr>
-          <tr><td>Vertragsmanagement</td><td class="cross">—</td><td class="cross">—</td><td class="cross">—</td><td class="cross">—</td><td class="check">&#10003;</td></tr>
-          <tr><td>Vendor Pool Management</td><td class="cross">—</td><td class="cross">—</td><td class="cross">—</td><td class="cross">—</td><td class="check">&#10003;</td></tr>
-          <tr><td>Enterprise-Reporting</td><td class="cross">—</td><td class="cross">—</td><td class="cross">—</td><td class="cross">—</td><td class="check">&#10003;</td></tr>
+
+          <!-- Sicherheit & Authentifizierung -->
+          <tr class="group-row"><td colspan="6">Sicherheit &amp; Authentifizierung</td></tr>
+          <tr><td>MFA / TOTP (2-Faktor)</td><td class="cross">&times;</td><td class="cross">&times;</td><td class="check">&#10003;</td><td class="check">&#10003;</td><td class="check">&#10003;</td></tr>
+          <tr><td>SSO / SAML Login</td><td class="cross">&times;</td><td class="cross">&times;</td><td class="cross">&times;</td><td class="check">&#10003;</td><td class="check">&#10003;</td></tr>
+          <tr><td>SSO Admin-Konfiguration</td><td class="cross">&times;</td><td class="cross">&times;</td><td class="cross">&times;</td><td class="check">&#10003;</td><td class="check">&#10003;</td></tr>
+          <tr><td>Enforce SSO (Passwort-Login blockieren)</td><td class="cross">&times;</td><td class="cross">&times;</td><td class="cross">&times;</td><td class="cross">&times;</td><td class="check">&#10003;</td></tr>
+          <tr><td>SP Metadata &amp; IDP-Integration</td><td class="cross">&times;</td><td class="cross">&times;</td><td class="cross">&times;</td><td class="check">&#10003;</td><td class="check">&#10003;</td></tr>
+          <!-- Individueller Tarif -->
+          <tr class="group-row"><td colspan="6">Funktionen des individuellen Tarifs</td></tr>
+          <tr><td>Vendor Pool Management</td><td class="cross">&times;</td><td class="cross">&times;</td><td class="cross">&times;</td><td class="cross">&times;</td><td class="check">&#10003;</td></tr>
+          <tr><td>Preferred-First &amp; Coverage-Analyse</td><td class="cross">&times;</td><td class="cross">&times;</td><td class="cross">&times;</td><td class="cross">&times;</td><td class="check">&#10003;</td></tr>
+          <tr><td>Multi-Abteilungen &amp; Teams</td><td class="cross">&times;</td><td class="cross">&times;</td><td class="cross">&times;</td><td class="cross">&times;</td><td class="check">&#10003;</td></tr>
+          <tr><td>Freigabe-Workflows</td><td class="cross">&times;</td><td class="cross">&times;</td><td class="cross">&times;</td><td class="cross">&times;</td><td class="check">&#10003;</td></tr>
+          <tr><td>Vertragsmanagement</td><td class="cross">&times;</td><td class="cross">&times;</td><td class="cross">&times;</td><td class="cross">&times;</td><td class="check">&#10003;</td></tr>
+          <tr><td>Reporting fuer individuelle Tarife &amp; Audit</td><td class="cross">&times;</td><td class="cross">&times;</td><td class="cross">&times;</td><td class="cross">&times;</td><td class="check">&#10003;</td></tr>
 
           <!-- Support -->
           <tr class="group-row"><td colspan="6">Support</td></tr>
-          <tr><td>E-Mail-Support</td><td class="cross">—</td><td class="check">&#10003;</td><td class="check">&#10003;</td><td class="check">&#10003;</td><td class="check">&#10003;</td></tr>
-          <tr><td>Priorisierter Support</td><td class="cross">—</td><td class="cross">—</td><td class="cross">—</td><td class="check">&#10003;</td><td class="check">&#10003;</td></tr>
-          <tr><td>Dedizierter Ansprechpartner</td><td class="cross">—</td><td class="cross">—</td><td class="cross">—</td><td class="cross">—</td><td class="check">&#10003;</td></tr>
-        </tbody>
-      </table>
-    </div>
+          <tr><td>E-Mail-Support</td><td class="cross">&times;</td><td class="check">&#10003;</td><td class="check">&#10003;</td><td class="check">&#10003;</td><td class="check">&#10003;</td></tr>
+          <tr><td>Priorisierter Support</td><td class="cross">&times;</td><td class="cross">&times;</td><td class="cross">&times;</td><td class="check">&#10003;</td><td class="check">&#10003;</td></tr>
+          <tr><td>Dedizierter Ansprechpartner</td><td class="cross">&times;</td><td class="cross">&times;</td><td class="cross">&times;</td><td class="cross">&times;</td><td class="check">&#10003;</td></tr>
+    </div><!-- /LEGACY hidden block -->
 
     <hr class="ds-divider"/>
 
@@ -285,6 +398,27 @@
       <div class="faq-list" id="faqList">
         <div class="faq-item">
           <div class="faq-q" onclick="this.parentElement.classList.toggle('open')">
+            <span>Wie funktioniert das Matching?</span>
+            <span class="arrow">&#9660;</span>
+          </div>
+          <div class="faq-a">TempConnect bewertet verfuegbare Dienstleister anhand von 13 Faktoren: Rolle, Skills, Standort (GPS-genau), Verfuegbarkeit, Verifizierung, Vendor-Pool-Tier, Compliance, Stundensatz, Dringlichkeit, Personal, Reputation, Preferred-First-Status und Smart Ranking. Jeder Faktor ist transparent &mdash; Sie sehen genau, warum ein Dienstleister passt. Kein Blackbox.</div>
+        </div>
+        <div class="faq-item">
+          <div class="faq-q" onclick="this.parentElement.classList.toggle('open')">
+            <span>Was beinhalten die digitalen Stundenzettel?</span>
+            <span class="arrow">&#9660;</span>
+          </div>
+          <div class="faq-a">Stundenzettel werden automatisch aus dem Einsatz vorbefuellt (Rolle, Schicht, Arbeitszeit). Mitarbeiter unterschreiben digital, Sie genehmigen per Klick oder als Batch. Die Plattform prueft automatisch die Einhaltung von ArbZG &sect;4 (Pausenregelung bei &gt;6h / &gt;9h). Genehmigte Stundenzettel koennen direkt zur Rechnung werden.</div>
+        </div>
+        <div class="faq-item">
+          <div class="faq-q" onclick="this.parentElement.classList.toggle('open')">
+            <span>Was ist der Notdienst-Modus?</span>
+            <span class="arrow">&#9660;</span>
+          </div>
+          <div class="faq-a">Emergency Staffing fuer dringende Personalbedarfe. 5 Stufen (Normal bis Notdienst) mit automatischer SLA-Ueberwachung. Bei Notdienst: 30-Minuten-SLA, sofortiges Matching, erzwungene E-Mail-Benachrichtigung an alle passenden Dienstleister, automatische Eskalation nach 10/20 Minuten bei Nicht-Reaktion.</div>
+        </div>
+        <div class="faq-item">
+          <div class="faq-q" onclick="this.parentElement.classList.toggle('open')">
             <span>Kann ich jederzeit upgraden oder downgraden?</span>
             <span class="arrow">&#9660;</span>
           </div>
@@ -295,7 +429,7 @@
             <span>Gibt es eine Vertragslaufzeit?</span>
             <span class="arrow">&#9660;</span>
           </div>
-          <div class="faq-a">Nein. Alle Tarife sind monatlich kuendbar. Es gibt keine Mindestlaufzeit und keinen Lock-in. Bei Kuendigung wechseln Sie automatisch zum FREE-Plan.</div>
+          <div class="faq-a">Nein. Alle Tarife sind monatlich kuendbar. Es gibt keine Mindestlaufzeit und keinen Lock-in.</div>
         </div>
         <div class="faq-item">
           <div class="faq-q" onclick="this.parentElement.classList.toggle('open')">
@@ -309,21 +443,21 @@
             <span>Was passiert mit meinen Daten bei Kuendigung?</span>
             <span class="arrow">&#9660;</span>
           </div>
-          <div class="faq-a">Bei einem Downgrade auf FREE bleiben Ihr Konto und Ihre Daten erhalten. Sie verlieren lediglich den Zugang zu den erweiterten Funktionen Ihres bisherigen Tarifs. Deals und abgeschlossene Vorgaenge bleiben dokumentiert.</div>
+          <div class="faq-a">Bei einer Kuendigung bleiben Ihr Konto und Ihre Daten erhalten. Sie verlieren lediglich den Zugang zu den erweiterten Funktionen Ihres bisherigen Tarifs. Deals und abgeschlossene Vorgaenge bleiben dokumentiert. Sie koennen jederzeit einen neuen Demo-Zugang anfordern.</div>
         </div>
         <div class="faq-item">
           <div class="faq-q" onclick="this.parentElement.classList.toggle('open')">
             <span>Was bedeutet Pulse-Timer?</span>
             <span class="arrow">&#9660;</span>
           </div>
-          <div class="faq-a">Der Pulse-Timer gibt die Zeitspanne an, innerhalb derer die Plattform einen dokumentierten Matching-Versuch fuer Ihre Anfrage unternimmt. Dies ist ein Prozessnachweis – kein Vermittlungsversprechen. PLUS-Kunden erhalten 120 Minuten, PRO-Kunden 60 Minuten, ENTERPRISE-Kunden 30 Minuten.</div>
+          <div class="faq-a">Der Pulse-Timer gibt die Zeitspanne an, innerhalb derer die Plattform einen dokumentierten Matching-Versuch fuer Ihre Anfrage unternimmt. Dies ist ein Prozessnachweis – kein Vermittlungsversprechen. PLUS-Kunden erhalten 120 Minuten, PRO-Kunden 60 Minuten, Kunden mit individuellem Tarif 30 Minuten.</div>
         </div>
         <div class="faq-item">
           <div class="faq-q" onclick="this.parentElement.classList.toggle('open')">
-            <span>Wie funktioniert der ENTERPRISE-Tarif?</span>
+            <span>Wie funktioniert der individuelle Tarif?</span>
             <span class="arrow">&#9660;</span>
           </div>
-          <div class="faq-a">Der ENTERPRISE-Tarif wird individuell auf Ihre Anforderungen zugeschnitten. Kontaktieren Sie uns fuer ein Gespraech ueber Multi-Abteilungs-Management, Freigabe-Workflows, dedizierte Betreuung und individuelle SLA-Vereinbarungen.</div>
+          <div class="faq-a">Der individuelle Tarif wird auf Ihre Anforderungen zugeschnitten. Ueber unseren <a href="/public/enterprise_anfrage.html" style="color:var(--ds-accent)">Konfigurator fuer individuelle Tarife</a> koennen Sie Zusatzmodule auswaehlen und eine Live-Kostenvorschau einsehen. Unser Team erstellt Ihnen daraufhin ein verbindliches Angebot.</div>
         </div>
         <div class="faq-item">
           <div class="faq-q" onclick="this.parentElement.classList.toggle('open')">
@@ -340,18 +474,27 @@
       <h2 class="section-heading">Bereit fuer professionelle Personalkoordination?</h2>
       <p class="section-desc" style="margin:var(--ds-space-2) auto var(--ds-space-5)">Starten Sie kostenlos und entdecken Sie, wie TempConnect Ihre Zeitarbeitskoordination vereinfacht.</p>
       <div style="display:flex;gap:var(--ds-space-3);justify-content:center;flex-wrap:wrap">
-        <a href="/app" class="ds-btn ds-btn--primary ds-btn--lg">Jetzt kostenlos starten</a>
+        <button type="button" class="ds-btn ds-btn--primary ds-btn--lg" onclick="selectPlan('PLUS')">PLUS als Pilot starten</button>
+        <button type="button" class="ds-btn ds-btn--lg" onclick="requestPilot()">Pilot anfragen</button>
+        <button type="button" class="ds-btn ds-btn--lg" onclick="selectIndividuellTier('')">Individuell anfragen</button>
         <a href="/public/legal/kontakt.html" class="ds-btn ds-btn--lg">Vertrieb kontaktieren</a>
       </div>
     </section>
 
-    <!-- Disclaimer -->
-    <div class="ds-disclaimer">
-      Alle Preise verstehen sich in EUR netto zzgl. gesetzlicher MwSt. TempConnect ist ein Plattformdienst zur Unterstuetzung des Matching-Prozesses. Es wird kein Vermittlungserfolg garantiert. Alle Angaben ohne Gewaehr.
+    <!-- Disclaimer (Inhalt wird von pricing.js mit Catalog-Version befuellt) -->
+    <div class="ds-disclaimer" id="pricingDisclaimer">
+      Alle Preise verstehen sich in EUR netto zzgl. gesetzlicher MwSt. TempConnect ist eine Plattform zur Unterstuetzung der Bedarfs-, Angebots- und Einsatzkoordination &mdash; <strong>keine Zeitarbeitsfirma</strong> &mdash; und garantiert keinen Vermittlungserfolg.
     </div>
   </div>
 
+  <script src="/public/js/authIntent.js"></script>
+  <script src="/public/js/catalogRenderer.js"></script>
+  <script src="/public/js/pages/pricing.js"></script>
+  <script src="/public/js/pageShell.js"></script>
   <div id="tc-footer" data-tc-footer></div>
   <script src="/public/js/footer.js"></script>
+  <script src="/public/js/demoBanner.js" defer></script>
+  <script src="/public/js/onboardingWizard.js" defer></script>
+<script src="/public/js/breadcrumb.js" defer></script>
 </body>
 </html>

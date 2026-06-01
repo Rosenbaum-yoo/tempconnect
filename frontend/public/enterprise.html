@@ -1,632 +1,267 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="de">
 <head>
   <meta charset="utf-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
-  <title>Übersicht – TempConnect</title>
+  <script src="/public/js/theme.js"></script>
+  <title>Operations-Hub – TempConnect</title>
   <link rel="stylesheet" href="/public/css/enterprise.css"/>
-  <style>
-    .section-label { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; color: var(--ds-brand); margin-bottom: var(--ds-space-2); }
-
-    /* Locked-Card Refinement — dezenter, hochwertiger Lock-State */
-    .ds-hub-card--locked {
-      opacity: 1;
-      pointer-events: none;
-      position: relative;
-      background: rgba(255,255,255,0.012);
-    }
-    .ds-hub-card--locked .ds-hub-card__icon,
-    .ds-hub-card--locked .ds-hub-card__title,
-    .ds-hub-card--locked .ds-hub-card__desc { opacity: 0.45; }
-    .ds-hub-card--locked:hover { transform: none; box-shadow: none; }
-    .ds-hub-card--locked .ds-hub-card__lock {
-      position: absolute;
-      top: var(--ds-space-3);
-      right: var(--ds-space-3);
-      font-size: 13px;
-      opacity: 0.5;
-    }
-    .ds-hub-card--locked .ds-hub-card__meta {
-      display: flex;
-      align-items: center;
-      gap: var(--ds-space-2);
-      margin-top: var(--ds-space-2);
-      font-size: 11px;
-      color: var(--ds-text-secondary);
-      opacity: 0.7;
-    }
-    .ds-hub-card--locked .ds-hub-card__upgrade {
-      pointer-events: auto;
-      display: inline-block;
-      margin-top: var(--ds-space-2);
-      font-size: 11px;
-      font-weight: 600;
-      color: var(--ds-brand);
-      text-decoration: none;
-      opacity: 0.85;
-      transition: opacity 0.15s;
-    }
-    .ds-hub-card--locked .ds-hub-card__upgrade:hover { opacity: 1; text-decoration: underline; }
-  </style>
 </head>
 <body data-sla-guard="sla_access">
   <div id="paywall" class="wrap" style="display:none">
-    <div class="topbar">
-      <span class="brand">TempConnect</span>
-      <a href="/" class="btn">Startseite</a>
-    </div>
+    <nav class="ds-topbar"><div class="ds-topbar__brand"><span class="ds-topbar__brand-dot"></span>TempConnect</div><div class="ds-topbar__nav"><a href="/" class="ds-btn">Startseite</a></div></nav>
     <div class="paywall-box">
       <h2>Bereich nicht verfügbar</h2>
       <p>Das Feature &quot;<span id="paywall-feature-name">Pulse-Bereich</span>&quot; ist mit deinem aktuellen Plan nicht nutzbar.</p>
       <p>Aktueller Plan: <span id="paywall-current-plan" class="paywall-plan">–</span></p>
-      <p>Für den Pulse-Bereich benötigst du einen PLUS- oder NOTDIENST-Plan.</p>
+      <p>Für diesen Bereich benötigst du mindestens einen PLUS-Plan.</p>
       <a id="paywall-cta" href="/public/sla_abo.html" class="btn primary">Abo ansehen</a>
     </div>
   </div>
 
   <div id="main-content" class="wrap">
-    <div class="topbar" data-notif-topbar>
-      <span class="brand"><span style="width:10px;height:10px;border-radius:50%;background:linear-gradient(135deg,var(--brand),var(--brand2));display:inline-block;margin-right:8px"></span>TempConnect</span>
-      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
-        <a href="/" class="btn">Startseite</a>
-        <a href="/public/capacity_search.html" class="btn">Kapazitätssuche</a>
-        <a href="/public/sla_search_jobs_list.html" class="btn">Suchaufträge</a>
-        <a href="/public/company_requests.html" class="btn">Meine Anfragen</a>
-        <a href="/public/agency_inbox.html" class="btn">Eingang</a>
-        <a href="/public/capacity_exchange_feed.html" class="btn">Kapazitaetsboerse</a>
-        <a href="/public/timesheets.html" class="btn" style="background:rgba(74,158,255,.08);border-color:rgba(74,158,255,.25)">&#128336; Stundenzettel</a>
-      </div>
-    </div>
+    <div id="tc-shell"></div>
 
-    <div class="ds-page-header">
+    <!-- Search Bar -->
+    <div class="tc-search-bar">
+      <input id="globalSearchInput" type="text" class="tc-search-bar__input" placeholder="Arbeitsplatzangebote, Deals, Lieferanten, Einsätze und Skills durchsuchen…" onkeydown="if(event.key==='Enter')runGlobalSearch()"/>
+      <select id="globalSearchType" class="tc-search-bar__select">
+        <option value="all">Alle</option>
+        <option value="companies">Unternehmen</option>
+        <option value="suppliers">Lieferanten</option>
+        <option value="capacity_posts">Verfügbares Personal</option>
+        <option value="requisitions">Arbeitsplatzangebote</option>
+        <option value="skills">Skills</option>
+      </select>
+      <button class="btn primary tc-search-bar__btn" onclick="runGlobalSearch()">Suchen</button>
+    </div>
+    <div id="searchResults" class="tc-search-results"></div>
+
+
+    <div class="ds-page-header" style="margin-bottom:var(--ds-space-3)">
       <div class="ds-page-header__content">
-        <h1 class="ds-page-title">Plattform-Übersicht</h1>
-        <p class="ds-page-subtitle">Kapazitätssuche, Suchaufträge, Pulse-Compliance, Lieferanten-Bewertung und VMS Enterprise.</p>
+        <h1 class="ds-page-title" style="font-size:20px">Operations-Hub fuer Zeitarbeit</h1>
+        <p class="ds-page-subtitle" style="margin:6px 0 0">Pilot-ready heisst hier: Arbeitsplatzangebote platzieren, Deals abschliessen, Besetzungen fuehren und Einsaetze mit digitalen Stundenzetteln glatt abwickeln.</p>
       </div>
     </div>
 
-    <!-- First-Action Guidance (shown for new users) -->
-    <div id="first-action-guide" style="display:none;margin-bottom:var(--ds-space-6)">
-      <div style="padding:var(--ds-space-5);border:1px solid rgba(74,158,255,.2);border-radius:14px;background:rgba(74,158,255,.04)">
-        <h2 style="font-size:18px;font-weight:800;margin:0 0 var(--ds-space-2)">&#128075; Willkommen bei TempConnect!</h2>
-        <p style="font-size:14px;color:var(--ds-text-secondary,var(--muted));margin:0 0 var(--ds-space-4);line-height:1.6">Starten Sie mit Ihrer ersten Aktion auf der Plattform:</p>
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:var(--ds-space-3)">
-          <a href="/public/capacity_exchange_feed.html" style="display:block;padding:var(--ds-space-4);border:1px solid var(--ds-border,var(--line));border-radius:12px;background:rgba(255,255,255,.02);text-decoration:none;color:inherit;transition:border-color .15s">
-            <div style="font-size:18px;margin-bottom:6px">&#128269;</div>
-            <div style="font-weight:700;font-size:14px;margin-bottom:4px">Kapazitaetsboerse durchsuchen</div>
-            <div style="font-size:12px;color:var(--ds-text-secondary,var(--muted))">Verfuegbare Personalkapazitaeten nach Rolle, Region und Verfuegbarkeit finden.</div>
-          </a>
-          <a href="/public/capacity_exchange_form.html" style="display:block;padding:var(--ds-space-4);border:1px solid var(--ds-border,var(--line));border-radius:12px;background:rgba(255,255,255,.02);text-decoration:none;color:inherit;transition:border-color .15s">
-            <div style="font-size:18px;margin-bottom:6px">&#128203;</div>
-            <div style="font-weight:700;font-size:14px;margin-bottom:4px">Erste Kapazitaet einstellen</div>
-            <div style="font-size:12px;color:var(--ds-text-secondary,var(--muted))">Verfuegbare Mitarbeiter mit Rolle, Region und Zeitraum erfassen.</div>
-          </a>
-          <a href="/public/capacity_search.html" style="display:block;padding:var(--ds-space-4);border:1px solid var(--ds-border,var(--line));border-radius:12px;background:rgba(255,255,255,.02);text-decoration:none;color:inherit;transition:border-color .15s">
-            <div style="font-size:18px;margin-bottom:6px">&#127970;</div>
-            <div style="font-weight:700;font-size:14px;margin-bottom:4px">Kapazitaetssuche (klassisch)</div>
-            <div style="font-size:12px;color:var(--ds-text-secondary,var(--muted))">Zeitarbeitskraefte ueber die klassische Suche finden.</div>
-          </a>
-          <a href="/public/sla_profil.html" style="display:block;padding:var(--ds-space-4);border:1px solid var(--ds-border,var(--line));border-radius:12px;background:rgba(255,255,255,.02);text-decoration:none;color:inherit;transition:border-color .15s">
-            <div style="font-size:18px;margin-bottom:6px">&#128100;</div>
-            <div style="font-weight:700;font-size:14px;margin-bottom:4px">Firmenprofil vervollstaendigen</div>
-            <div style="font-size:12px;color:var(--ds-text-secondary,var(--muted))">Vollstaendige Profile erhalten mehr Anfragen und schaffen Vertrauen.</div>
-          </a>
+    <div class="tc-priority-banner tc-priority-banner--pilot">
+      <div class="tc-priority-banner__main">
+        <div class="tc-priority-banner__eyebrow">Pilot-Standard jetzt</div>
+        <div class="tc-priority-banner__title">Arbeitsplatzangebot → Deal → Besetzung/Einsatz → Zeiten ist der Massstab fuer die ersten 5 Pilotkunden</div>
+        <p class="tc-priority-banner__text">Diese Plattform priorisiert bewusst Demo-Reife, klare Bedienbarkeit und robuste Kernflows. Steuerungs-, Trust- und Admin-Bereiche bleiben sichtbar, werden aber dem operativen Pilotkern nachgeordnet.</p>
+        <div class="tc-priority-banner__list">
+          <span class="tc-priority-pill">Angebote &amp; Vermittlung</span>
+          <span class="tc-priority-pill">Dealabschluss</span>
+          <span class="tc-priority-pill">Worker-Zuweisung</span>
+          <span class="tc-priority-pill">Stundenzettel &amp; Freigabe</span>
         </div>
-        <div style="margin-top:var(--ds-space-3);text-align:right">
-          <a href="/public/onboarding.html" style="font-size:12px;color:var(--ds-brand,var(--brand));font-weight:600">Alle Erste-Schritte ansehen &rarr;</a>
-        </div>
+      </div>
+      <div class="tc-priority-banner__aside">
+        <div class="tc-priority-banner__aside-title">Bewusst nachgelagert</div>
+        <div class="tc-priority-banner__aside-text">Executive, Trust, Admin und breitere Ausbauflächen staerken Vertrieb und Betrieb, ersetzen aber nicht den Pilotstandard. Neue Themen ziehen nur vor, wenn sie Abschluss, Demo oder Robustheit direkt verbessern.</div>
       </div>
     </div>
 
-    <!-- CE Activation Nudge (shown when user has 0 CE entries) -->
-    <div id="ce-activation-nudge" style="display:none;margin-bottom:var(--ds-space-6)">
-      <div style="padding:var(--ds-space-5);border:1px solid rgba(52,211,153,.2);border-radius:14px;background:rgba(52,211,153,.04)">
-        <div style="display:flex;align-items:flex-start;gap:var(--ds-space-4)">
-          <div style="font-size:28px;flex-shrink:0">&#128640;</div>
-          <div style="flex:1">
-            <h3 style="font-size:16px;font-weight:700;margin:0 0 var(--ds-space-2)">Starten Sie mit der Kapazitaetsboerse</h3>
-            <p style="font-size:14px;color:var(--ds-text-secondary,var(--muted));margin:0 0 var(--ds-space-3);line-height:1.6" id="ce-nudge-text">Stellen Sie Ihre erste verfuegbare Personalkapazitaet ein, um Anfragen von Unternehmen zu erhalten.</p>
-            <div style="display:flex;gap:var(--ds-space-2);flex-wrap:wrap">
-              <a href="/public/capacity_exchange_form.html" class="ds-btn ds-btn--success ds-btn--sm">Kapazitaet einstellen</a>
-              <a href="/public/capacity_exchange.html" class="ds-btn ds-btn--sm">Mehr erfahren</a>
-            </div>
+    <div id="tc-release-strip-host" class="wrap" style="max-width:1180px;margin:0 auto"></div>
+
+    <!-- Onboarding Checklist -->
+    <div id="onboarding-checklist" class="tc-onboarding">
+      <div class="tc-onboarding__box">
+        <div class="tc-onboarding__header" onclick="toggleOnboarding()">
+          <span class="tc-onboarding__icon">&#9881;</span>
+          <span class="tc-onboarding__label">Plattform einrichten</span>
+          <span id="onboarding-subtitle" class="tc-onboarding__subtitle"></span>
+          <div class="tc-onboarding__progress">
+            <div id="onboarding-progress-bar" class="tc-onboarding__progress-bar"></div>
+          </div>
+          <button id="onboarding-toggle-btn" type="button" class="tc-onboarding__toggle" title="Auf-/Zuklappen" onclick="event.stopPropagation();toggleOnboarding()">&#9660;</button>
+          <button id="onboarding-dismiss-btn" type="button" class="tc-onboarding__dismiss" title="Ausblenden" onclick="event.stopPropagation();dismissOnboarding()">&times;</button>
+        </div>
+        <div id="onboarding-body" class="tc-onboarding__body">
+          <div class="tc-onboarding__steps">
+            <div id="onboarding-steps"></div>
           </div>
         </div>
       </div>
     </div>
 
-    <!-- CE Publish-More Nudge (shown when user has <3 entries) -->
-    <div id="ce-publish-nudge" style="display:none;margin-bottom:var(--ds-space-6)">
-      <div style="padding:var(--ds-space-4);border:1px solid rgba(74,158,255,.15);border-radius:14px;background:rgba(74,158,255,.03);display:flex;align-items:center;gap:var(--ds-space-4)">
-        <span style="font-size:20px">&#128200;</span>
-        <div style="flex:1;font-size:13px;color:var(--ds-text-secondary,var(--muted));line-height:1.5">
-          <strong style="color:var(--ds-text)">Sichtbarkeit erhoehen:</strong> Stellen Sie weitere Kapazitaeten ein, um mehr Anfragen zu erhalten. Mehrere aktive Eintraege verbessern Ihr Matching.
+    <!-- Erfolgs-Report: kompakte Inline-Leiste -->
+    <div id="value-report-widget" style="margin-bottom:var(--ds-space-4)">
+      <div style="display:flex;align-items:center;gap:var(--ds-space-4);padding:var(--ds-space-3) var(--ds-space-5);border:1px solid var(--ds-border);border-radius:var(--ds-radius-lg);background:rgba(255,255,255,.025);flex-wrap:wrap">
+        <div style="font-size:13px;font-weight:700;color:var(--ds-text-secondary);white-space:nowrap">Operativer Status</div>
+        <div style="display:flex;gap:var(--ds-space-5);flex-wrap:wrap;flex:1">
+          <div style="text-align:center"><div id="vr-matches" style="font-size:18px;font-weight:800;color:var(--ds-success)">–</div><div style="font-size:10px;color:var(--ds-text-tertiary)">Matches</div></div>
+          <div style="text-align:center"><div id="vr-fill-hours" style="font-size:18px;font-weight:800;color:var(--ds-brand)">–</div><div style="font-size:10px;color:var(--ds-text-tertiary)">Besetzungszeit</div></div>
+          <div style="text-align:center"><div id="vr-hours-saved" style="font-size:18px;font-weight:800;color:var(--ds-accent)">–</div><div style="font-size:10px;color:var(--ds-text-tertiary)">Std. gespart</div></div>
+          <div style="text-align:center"><div id="vr-member-since" style="font-size:18px;font-weight:800">–</div><div style="font-size:10px;color:var(--ds-text-tertiary)">Mitglied seit</div></div>
+          <div style="text-align:center"><div id="vr-discount" style="font-size:18px;font-weight:800;color:var(--ds-success)">–</div><div style="font-size:10px;color:var(--ds-text-tertiary)">Bounty</div></div>
         </div>
-        <a href="/public/capacity_exchange_form.html" class="ds-btn ds-btn--sm">Weitere Kapazitaet einstellen</a>
+        <a href="/public/bounties.html" style="font-size:12px;color:var(--ds-brand);text-decoration:none;white-space:nowrap">Details &rarr;</a>
       </div>
     </div>
 
+    <!-- Hero CTA Card: Zentrale Aktion -->
+    <div id="ce-activation-nudge" style="margin-bottom:var(--ds-space-5)">
+      <div style="padding:var(--ds-space-5) var(--ds-space-6);border:2px solid rgba(74,158,255,.2);border-radius:var(--ds-radius-xl);background:linear-gradient(135deg,rgba(74,158,255,.04),rgba(124,92,255,.03))">
+        <div style="display:flex;align-items:center;gap:var(--ds-space-5);flex-wrap:wrap">
+          <div style="width:48px;height:48px;border-radius:var(--ds-radius-lg);background:linear-gradient(135deg,var(--ds-brand),var(--ds-accent));display:flex;align-items:center;justify-content:center;font-size:22px;color:#fff;flex-shrink:0">+</div>
+          <div style="flex:1;min-width:200px">
+            <h3 style="margin:0 0 4px;font-size:16px;font-weight:800" id="ce-nudge-title">Pilot-Standard starten: Arbeitsplatzangebot platzieren oder Personal anbieten</h3>
+            <p style="margin:0;font-size:13px;color:var(--ds-text-secondary)" id="ce-nudge-text">Starten Sie den Kernflow der Plattform: Arbeitsplatzangebot erfassen, Personal veroeffentlichen und ohne Medienbruch zum belastbaren Deal gelangen.</p>
+          </div>
+          <div style="display:flex;gap:var(--ds-space-2);flex-shrink:0">
+            <a href="/public/capacity_exchange_form.html" id="ce-nudge-cta-1" class="ds-btn ds-btn--primary ds-btn--sm" data-cta-write="true">Personal einstellen</a>
+            <a href="/public/marketplace_demand_create.html" id="ce-nudge-cta-2" class="ds-btn ds-btn--sm" data-cta-write="true">Arbeitsplatz anbieten</a>
+            <a href="/public/capacity_exchange_feed.html" class="ds-btn ds-btn--sm ds-btn--ghost" id="ce-nudge-cta-marketplace">Personal finden</a>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Publish-More Nudge (kompakt) -->
+    <div id="ce-publish-nudge" class="tc-nudge tc-nudge--publish">
+      <div class="tc-nudge__box">
+        <span class="tc-nudge__icon tc-nudge__icon--sm" style="font-size:16px">&#9650;</span>
+        <div class="tc-nudge__text--inline">
+          <strong style="color:var(--ds-text)">Sichtbarkeit erhöhen:</strong> Weiteres Personal verbessert Ihr Matching und Ihre Angebotschancen.
+        </div>
+        <a href="/public/capacity_exchange_form.html" class="ds-btn ds-btn--sm" data-cta-write="true">Weitere einstellen</a>
+      </div>
+    </div>
+
+    <!-- ═══════ Platform Hub Grid ═══════ -->
     <div class="ds-section">
-      <div class="section-label">Marketplace</div>
-      <h2 class="ds-h2" style="margin-bottom:var(--ds-space-4)">Kapazitäten &amp; Anfragen</h2>
       <div class="ds-hub-grid" id="hub-grid">
-        <a href="/public/capacity_search.html" class="ds-hub-card ds-hub-card--brand">
-          <div class="ds-hub-card__icon">&#128269;</div>
+        <!-- Kernfluss -->
+        <a href="/public/capacity_exchange_feed.html" class="ds-hub-card ds-hub-card--success" data-surface="marketplace">
+          <div class="ds-hub-card__icon" style="font-size:22px;font-weight:800;font-family:system-ui">M</div>
           <div class="ds-hub-card__content">
-            <div class="ds-hub-card__title">Kapazitätssuche</div>
-            <p class="ds-hub-card__desc">Nach Rolle, Region und Datum suchen und Kapazität anfragen.</p>
+            <div class="ds-hub-card__eyebrow">Pilot-Standard</div>
+            <div class="ds-hub-card__title" id="hub-card-marketplace-title">Personal finden</div>
+            <p class="ds-hub-card__desc">Verfuegbares Personal, Angebote, Matching und Suchauftraege im offenen Markt.</p>
+            <div class="ds-hub-card__footer-note">Frueher Einstieg fuer Personalsuche, Reaktion und Match &mdash; ohne glatten Start kippt auch der Dealflow.</div>
           </div>
         </a>
-        <a href="/public/company_requests.html" class="ds-hub-card" data-feature="capacity_exchange_basic">
-          <div class="ds-hub-card__icon">&#128228;</div>
+        <a href="/public/requisitions.html" class="ds-hub-card ds-hub-card--accent" data-surface="requisitions">
+          <div class="ds-hub-card__icon" style="font-size:22px;font-weight:800;font-family:system-ui">B</div>
           <div class="ds-hub-card__content">
-            <div class="ds-hub-card__title">Meine Anfragen</div>
-            <p class="ds-hub-card__desc">Gesendete Anfragen mit Pulse- und Compliance-Badge.</p>
+            <div class="ds-hub-card__eyebrow">Pilot-Standard</div>
+            <div class="ds-hub-card__title">Arbeitsplatzangebote</div>
+            <p class="ds-hub-card__desc">Arbeitsplatzangebote erfassen, priorisieren und mit Lieferanten- sowie Preissteuerung verzahnen.</p>
+            <div class="ds-hub-card__footer-note">Muss vor Pilotkunden ohne Rueckfragen vom ersten Angebot bis zur klaren Priorisierung bedienbar sein.</div>
           </div>
         </a>
-        <a href="/public/agency_inbox.html" class="ds-hub-card" data-feature="capacity_exchange_basic">
-          <div class="ds-hub-card__icon">&#128229;</div>
+        <a href="/public/deal_management.html" class="ds-hub-card ds-hub-card--brand" data-surface="deals">
+          <div class="ds-hub-card__icon" style="font-size:22px;font-weight:800;font-family:system-ui">D</div>
           <div class="ds-hub-card__content">
-            <div class="ds-hub-card__title">Eingang</div>
-            <p class="ds-hub-card__desc">Eingegangene Anfragen beantworten (Annehmen/Ablehnen).</p>
+            <div class="ds-hub-card__eyebrow">Pilot-Standard</div>
+            <div class="ds-hub-card__title">Meine Deals</div>
+            <p class="ds-hub-card__desc">Angebote, Einsatzvereinbarungen, Verhandlungen und Dealstatus bis zur Aktivierung.</p>
+            <div class="ds-hub-card__footer-note">Pilotkritisch fuer Abschluss, Vereinbarung, naechsten Verantwortlichen und Aktivierung.</div>
           </div>
         </a>
-        <a href="/public/supplier_scorecard.html" class="ds-hub-card" data-feature="supplier_ratings">
-          <div class="ds-hub-card__icon">&#11088;</div>
+        <a href="/public/worker-submissions-review.html" class="ds-hub-card" data-surface="assignments" id="assignmentsHubCard">
+          <div class="ds-hub-card__icon" style="font-size:22px;font-weight:800;font-family:system-ui">E</div>
           <div class="ds-hub-card__content">
-            <div class="ds-hub-card__title">Lieferanten-Bewertung</div>
-            <p class="ds-hub-card__desc">Fill Rate, Pünktlichkeit, Pulse-Brüche, Note (A/B/C).</p>
+            <div class="ds-hub-card__eyebrow" id="assignmentsCardEyebrow">Pilot-Standard</div>
+            <div class="ds-hub-card__title" id="assignmentsCardTitle">Einsaetze &amp; Zeiten</div>
+            <p class="ds-hub-card__desc" id="assignmentsCardDesc">Einsatzkraefte, Stundenzettel, Freigaben und laufende Einsaetze operativ steuern.</p>
+            <div class="ds-hub-card__footer-note" id="assignmentsCardNote">Hier entscheidet sich, ob Besetzung, Kundenfreigabe und Folgeprozesse operativ belastbar laufen.</div>
           </div>
         </a>
-        <a href="/public/capacity_exchange_feed.html" class="ds-hub-card ds-hub-card--success" data-feature="capacity_exchange_basic">
-          <div class="ds-hub-card__icon">&#128259;</div>
+        <a href="/public/vendor_pool.html" class="ds-hub-card" data-surface="vendor_pool">
+          <div class="ds-hub-card__icon" style="font-size:22px;font-weight:800;font-family:system-ui">L</div>
           <div class="ds-hub-card__content">
-            <div class="ds-hub-card__title">Kapazitätsbörse</div>
-            <p class="ds-hub-card__desc">Verfügbare Personalkapazitäten von Dienstleistern durchsuchen und anfragen.</p>
+            <div class="ds-hub-card__eyebrow">Pilot-Stabilisierung</div>
+            <div class="ds-hub-card__title">Lieferantensteuerung</div>
+            <p class="ds-hub-card__desc" id="supplierGovernanceDesc">Lieferantenpool, Bewertung und Spend auf Erfuellung ausrichten.</p>
+            <div class="ds-hub-card__footer-note" id="supplierGovernanceNote">Staerkt Abschlussquote und Steuerbarkeit, bleibt aber hinter Angeboten, Deals und Zeiten nachgelagert.</div>
           </div>
         </a>
-        <a href="/public/capacity_exchange_manage.html" class="ds-hub-card ds-hub-card--accent" data-feature="capacity_exchange_basic">
-          <div class="ds-hub-card__icon">&#128188;</div>
+        <!-- Plattform- und Enterprise-Schicht -->
+        <a href="/public/sla_profil.html" class="ds-hub-card ds-hub-card--accent ds-hub-card--supporting" data-surface="my_company">
+          <div class="ds-hub-card__icon" style="font-size:22px;font-weight:800;font-family:system-ui">U</div>
           <div class="ds-hub-card__content">
-            <div class="ds-hub-card__title">Kapazitäten verwalten</div>
-            <p class="ds-hub-card__desc">Eigene Personalkapazitäten einstellen, aktivieren und steuern.</p>
+            <div class="ds-hub-card__eyebrow">Onboarding</div>
+            <div class="ds-hub-card__title">Mein Unternehmen</div>
+            <p class="ds-hub-card__desc">Profil, Organisation, Abos und Plattform-Einrichtung.</p>
+            <div class="ds-hub-card__footer-note">Wichtig fuer sauberes Setup, aber nicht der Tagesprozess nach Livegang.</div>
           </div>
         </a>
-        <a href="/public/sla_search_jobs_list.html" class="ds-hub-card" id="search-jobs-card" data-feature="persistent_requisitions">
-          <div class="ds-hub-card__icon">&#128203;</div>
+        <a href="/public/activity.html" class="ds-hub-card ds-hub-card--supporting" data-surface="activity">
+          <div class="ds-hub-card__icon" style="font-size:22px;font-weight:800;font-family:system-ui">A</div>
           <div class="ds-hub-card__content">
-            <div class="ds-hub-card__title">Gespeicherte Suchaufträge</div>
-            <p class="ds-hub-card__desc">Laufende Suchaufträge anzeigen und verwalten.</p>
+            <div class="ds-hub-card__eyebrow">Pilotbetrieb</div>
+            <div class="ds-hub-card__title">Activity Center</div>
+            <p class="ds-hub-card__desc">Benachrichtigungen zu Arbeitsplatzangeboten, Deals, Einsaetzen, Freigaben und Match-Alerts.</p>
+            <div class="ds-hub-card__footer-note">Unterstuetzt den Pilotkern, ist aber Begleitflaeche statt Primär-Einstieg.</div>
           </div>
         </a>
-        <a href="/public/angebote_verwalten.html" class="ds-hub-card" data-feature="capacity_exchange_basic">
-          <div class="ds-hub-card__icon">&#128176;</div>
+        <a href="/public/bounties.html" class="ds-hub-card ds-hub-card--success ds-hub-card--supporting" data-surface="bounties">
+          <div class="ds-hub-card__icon" style="font-size:22px;font-weight:800;font-family:system-ui">R</div>
           <div class="ds-hub-card__content">
-            <div class="ds-hub-card__title">Angebote verwalten</div>
-            <p class="ds-hub-card__desc">Gesendete und erhaltene Angebote einsehen, annehmen oder ablehnen.</p>
+            <div class="ds-hub-card__eyebrow">Reputation</div>
+            <div class="ds-hub-card__title">Bounty &amp; Reputation</div>
+            <p class="ds-hub-card__desc">Status, Bounty-Rabatte, Meilensteine und Reputation transparent einsehen.</p>
+            <div class="ds-hub-card__footer-note">Sichtbar fuer Unternehmen und Zeitarbeitsfirmen; belohnt robuste Plattformnutzung ohne zusaetzliche Freischaltung.</div>
           </div>
         </a>
-        <a href="/public/matching_results.html" class="ds-hub-card ds-hub-card--accent" data-feature="capacity_exchange_matching">
-          <div class="ds-hub-card__icon">&#11088;</div>
+        <a href="/public/data-governance.html" class="ds-hub-card ds-hub-card--supporting" data-surface="trust_center">
+          <div class="ds-hub-card__icon" style="font-size:22px;font-weight:800;font-family:system-ui">T</div>
           <div class="ds-hub-card__content">
-            <div class="ds-hub-card__title">Matching-Engine</div>
-            <p class="ds-hub-card__desc">Multi-Faktor-Scoring für Kapazitäten und Nachfragen visualisieren.</p>
+            <div class="ds-hub-card__eyebrow">Vertrauensschicht</div>
+            <div class="ds-hub-card__title">Trust Center</div>
+            <p class="ds-hub-card__desc">Datenschutz, Sicherheit, DSGVO-Governance und API-Dokumentation.</p>
+            <div class="ds-hub-card__footer-note">Staerkt Vertrauen und Enterprise-Reife, ersetzt aber keinen operativen Kernflow.</div>
           </div>
         </a>
-        <a href="/public/sla_profil.html" class="ds-hub-card">
-          <div class="ds-hub-card__icon">&#127970;</div>
+        <a href="/public/executive_dashboard.html" class="ds-hub-card ds-hub-card--brand ds-hub-card--supporting" data-surface="executive_dashboard">
+          <div class="ds-hub-card__icon" style="font-size:22px;font-weight:800;font-family:system-ui">S</div>
           <div class="ds-hub-card__content">
-            <div class="ds-hub-card__title">Unternehmensprofil</div>
-            <p class="ds-hub-card__desc">Firmenprofil, Standorte, Zertifizierungen und Kompetenzen verwalten.</p>
+            <div class="ds-hub-card__eyebrow">Steuerungsschicht</div>
+            <div class="ds-hub-card__title">Steuerung &amp; Analytik</div>
+            <p class="ds-hub-card__desc">KPIs, Besetzungsdruck, Spend, Plattformzustand und Managementsicht.</p>
+            <div class="ds-hub-card__footer-note">Nachgelagerte Managementsicht &mdash; erst operative Signale, dann KPI-Aggregation.</div>
           </div>
         </a>
-        <a href="/public/sla_abo.html" class="ds-hub-card">
-          <div class="ds-hub-card__icon">&#128142;</div>
+        <!-- Admin -->
+        <a href="/public/admin_panel.html" class="ds-hub-card ds-hub-card--supporting" data-surface="admin_panel">
+          <div class="ds-hub-card__icon" style="font-size:22px;font-weight:800;font-family:system-ui">X</div>
           <div class="ds-hub-card__content">
-            <div class="ds-hub-card__title">Abo-Modelle</div>
-            <p class="ds-hub-card__desc">FREE, BASIS, PLUS, NOTDIENST &ndash; Tarife und Features.</p>
+            <div class="ds-hub-card__eyebrow">Ausbau nach Pilot</div>
+            <div class="ds-hub-card__title">Admin</div>
+            <p class="ds-hub-card__desc">Benutzer, Organisationen, Audit-Log, Metriken und Plattform-Workflows.</p>
+            <div class="ds-hub-card__footer-note">Wichtig fuer Kontrolle und Governance, aber bewusst nicht der aktuelle Kernhebel fuer Pilotabschluss.</div>
           </div>
         </a>
-      </div>
-    </div>
-
-    <hr class="ds-divider"/>
-
-    <div class="ds-section">
-      <div class="section-label">VMS Enterprise</div>
-      <h2 class="ds-h2" style="margin-bottom:var(--ds-space-4)">Requisitions, Compliance &amp; Steuerung</h2>
-      <div class="ds-hub-grid">
-        <a href="/public/executive_dashboard.html" class="ds-hub-card ds-hub-card--brand" data-feature="basic_analytics">
-          <div class="ds-hub-card__icon">&#128202;</div>
+        <!-- Standorte / Multi-Location -->
+        <a href="/public/organization.html" class="ds-hub-card ds-hub-card--supporting" data-surface="location_management">
+          <div class="ds-hub-card__icon" style="font-size:22px;font-weight:800;font-family:system-ui">L</div>
           <div class="ds-hub-card__content">
-            <div class="ds-hub-card__title">Executive Dashboard</div>
-            <p class="ds-hub-card__desc">KPIs, SLA-Compliance, Requisition-Status, Plattform-Statistik.</p>
+            <div class="ds-hub-card__eyebrow">Org-Einstellungen</div>
+            <div class="ds-hub-card__title">Standorte &amp; Struktur</div>
+            <p class="ds-hub-card__desc">Standorte verwalten, Abteilungen anlegen und Org-Struktur pflegen.</p>
           </div>
         </a>
-        <a href="/public/requisitions.html" class="ds-hub-card ds-hub-card--accent" data-feature="persistent_requisitions">
-          <div class="ds-hub-card__icon">&#128196;</div>
-          <div class="ds-hub-card__content">
-            <div class="ds-hub-card__title">Requisitions</div>
-            <p class="ds-hub-card__desc">Bedarfsanforderungen erstellen, verwalten, Freigabe-Workflow.</p>
-          </div>
-        </a>
-        <a href="/public/vendor_pool.html" class="ds-hub-card ds-hub-card--success" data-feature="supplier_management">
-          <div class="ds-hub-card__icon">&#129309;</div>
-          <div class="ds-hub-card__content">
-            <div class="ds-hub-card__title">Vendor Pool</div>
-            <p class="ds-hub-card__desc">Lieferanten-Tiers verwalten (Preferred, Secondary, Trial, Blocked).</p>
-          </div>
-        </a>
-        <a href="/public/compliance_overview.html" class="ds-hub-card ds-hub-card--warning" data-feature="compliance">
-          <div class="ds-hub-card__icon">&#128737;</div>
-          <div class="ds-hub-card__content">
-            <div class="ds-hub-card__title">Compliance</div>
-            <p class="ds-hub-card__desc">Dokumente mit Ampellogik, Ablauf-Übersicht, Verifizierung.</p>
-          </div>
-        </a>
-        <!-- Zeitarbeit-Hub: 4 Karten — sichtbar ab worker_module-Plan -->
-        <div id="zeitarbeit-hub" style="display:contents"></div>
-      </div>
-    </div>
-
-    <hr class="ds-divider"/>
-
-    <!-- Globale Plattform-Suche -->
-    <div class="ds-section" id="search-section">
-      <div class="section-label">Enterprise Search</div>
-      <h2 class="ds-h2" style="margin-bottom:var(--ds-space-4)">Plattform-Suche</h2>
-      <div style="display:flex;gap:var(--ds-space-2);margin-bottom:var(--ds-space-4)">
-        <input id="globalSearchInput" type="text" placeholder="Unternehmen, Lieferanten, Kapazitaeten, Requisitions, Skills durchsuchen…" style="flex:1;min-width:0" onkeydown="if(event.key==='Enter')runGlobalSearch()"/>
-        <select id="globalSearchType" style="width:auto;min-width:100px">
-          <option value="all">Alle</option>
-          <option value="companies">Unternehmen</option>
-          <option value="suppliers">Lieferanten</option>
-          <option value="capacity_posts">Kapazitaeten</option>
-          <option value="requisitions">Requisitions</option>
-          <option value="skills">Skills</option>
-        </select>
-        <button class="btn primary" onclick="runGlobalSearch()">Suchen</button>
-      </div>
-      <div id="searchResults" style="display:none;border:1px solid var(--ds-border,var(--line));border-radius:var(--ds-radius-lg,12px);padding:var(--ds-space-4);background:rgba(255,255,255,.015);max-height:400px;overflow-y:auto"></div>
-    </div>
-
-    <hr class="ds-divider"/>
-
-    <!-- Activity Feed Timeline -->
-    <div class="ds-section" id="activity-section">
-      <div class="section-label">Activity Feed</div>
-      <h2 class="ds-h2" style="margin-bottom:var(--ds-space-4)">Letzte Aktivitaeten</h2>
-      <div id="activityTimeline" style="border:1px solid var(--ds-border,var(--line));border-radius:var(--ds-radius-lg,12px);padding:var(--ds-space-4);background:rgba(255,255,255,.015);max-height:420px;overflow-y:auto">
-        <p style="color:var(--ds-text-secondary,var(--muted));font-size:13px">Lade Aktivitaeten&hellip;</p>
-      </div>
-    </div>
-
-    <hr class="ds-divider"/>
-
-    <!-- Operations & Intelligence -->
-    <div class="ds-section">
-      <div class="section-label">Operations &amp; Intelligence</div>
-      <h2 class="ds-h2" style="margin-bottom:var(--ds-space-4)">Plattform-Status, Suche &amp; Workflows</h2>
-      <div class="ds-hub-grid">
-        <a href="#search-section" class="ds-hub-card ds-hub-card--brand" onclick="document.getElementById('globalSearchInput').focus();return false;">
-          <div class="ds-hub-card__icon">&#128269;</div>
-          <div class="ds-hub-card__content">
-            <div class="ds-hub-card__title">Plattform-Suche</div>
-            <p class="ds-hub-card__desc">Unternehmen, Lieferanten, Kapazitaeten, Requisitions und Skills durchsuchen.</p>
-          </div>
-        </a>
-        <div class="ds-hub-card ds-hub-card--success" style="cursor:pointer" onclick="loadPlatformHealth()">
-          <div class="ds-hub-card__icon">&#128154;</div>
-          <div class="ds-hub-card__content">
-            <div class="ds-hub-card__title">Platform Health</div>
-            <p class="ds-hub-card__desc" id="healthSummary">Klicken fuer Live-Status: DB, Memory, Uptime, Search-Engine.</p>
-          </div>
-        </div>
-        <div class="ds-hub-card ds-hub-card--accent" id="workflowCard">
-          <div class="ds-hub-card__icon">&#9881;</div>
-          <div class="ds-hub-card__content">
-            <div class="ds-hub-card__title">Workflows &amp; State Machines</div>
-            <p class="ds-hub-card__desc">7 State Machines: Deal, Requisition, Approval, Offer, Compliance, Submission, Vendor-Pool.</p>
-          </div>
-        </div>
-        <a href="/public/admin_panel.html" class="ds-hub-card ds-hub-card--warning">
-          <div class="ds-hub-card__icon">&#128736;</div>
-          <div class="ds-hub-card__content">
-            <div class="ds-hub-card__title">Admin Panel</div>
-            <p class="ds-hub-card__desc">Benutzer, Organisationen, Audit-Log und Plattform-Metriken verwalten.</p>
-          </div>
-        </a>
-      </div>
-
-      <!-- Health-Details (versteckt, wird bei Klick geladen) -->
-      <div id="healthDetails" style="display:none;margin-top:var(--ds-space-4);padding:var(--ds-space-4);border:1px solid var(--ds-border,var(--line));border-radius:var(--ds-radius-lg,12px);background:rgba(255,255,255,.015)">
-        <h3 style="margin:0 0 var(--ds-space-3);font-size:14px;text-transform:uppercase;letter-spacing:0.04em;color:var(--ds-text-secondary,var(--muted));font-weight:700">Platform Health Dashboard</h3>
-        <div id="healthGrid" class="ds-hub-grid" style="grid-template-columns:repeat(auto-fill,minmax(140px,1fr))"></div>
       </div>
     </div>
   </div>
+  <script src="/public/js/terminologyLabels.js"></script>
   <script src="/public/js/planFeatures.js"></script>
+  <script src="/public/js/hubVisibility.js"></script>
   <script src="/public/js/slaGuard.js"></script>
-  <script>
-    (function() {
-      var grid = document.getElementById("hub-grid");
-      if (!grid) return;
-      var items = [
-        { feature: "sla_help", href: "/public/sla_hilfe.html", icon: "&#128161;", title: "Hilfe", desc: "FAQ, Kontakt und Was ist Pulse-safe?" },
-        { feature: "sla_proofs", href: "/public/sla_nachweise.html", icon: "&#128206;", title: "Nachweise", desc: "Upload und Verwaltung von Nachweisen." }
-      ];
-      /* ── Lock static [data-feature] hub cards ───────────── */
-      function applyStaticCardLocks(plan) {
-        document.querySelectorAll('[data-feature]').forEach(function(card) {
-          var feat = card.getAttribute('data-feature');
-          if (!feat) return;
-          if (PlanFeatures.hasFeature(plan, feat)) return; // plan has access
-          // Apply locked state
-          card.classList.add('ds-hub-card--locked');
-          // Lock icon (insert before first child)
-          if (!card.querySelector('.ds-hub-card__lock')) {
-            var lock = document.createElement('span');
-            lock.className = 'ds-hub-card__lock';
-            lock.setAttribute('aria-hidden', 'true');
-            lock.innerHTML = '&#128274;';
-            card.insertBefore(lock, card.firstChild);
-          }
-          // Meta text + upgrade link inside __content
-          var content = card.querySelector('.ds-hub-card__content');
-          if (content && !content.querySelector('.ds-hub-card__meta')) {
-            var allowed = PlanFeatures.getAllowedPlans(feat);
-            var minPlan = allowed.length ? allowed[0] : 'PLUS';
-            var meta = document.createElement('div');
-            meta.className = 'ds-hub-card__meta';
-            meta.textContent = 'Verf\u00fcgbar ab ' + minPlan;
-            var upg = document.createElement('a');
-            upg.href = '/public/sla_abo.html';
-            upg.className = 'ds-hub-card__upgrade';
-            upg.innerHTML = 'Upgrade ansehen &rarr;';
-            content.appendChild(meta);
-            content.appendChild(upg);
-          }
-        });
-      }
-
-      function render() {
-        var plan = window._slaPlan || "FREE";
-        PlanFeatures.load().then(function() {
-          applyStaticCardLocks(plan);
-          items.forEach(function(it) {
-            var has = PlanFeatures.hasFeature(plan, it.feature);
-            var el;
-            if (has) {
-              el = document.createElement("a");
-              el.href = it.href;
-              el.className = "ds-hub-card";
-              el.innerHTML =
-                '<div class="ds-hub-card__icon">' + it.icon + '</div>' +
-                '<div class="ds-hub-card__content">' +
-                  '<div class="ds-hub-card__title">' + it.title + '</div>' +
-                  '<p class="ds-hub-card__desc">' + it.desc + '</p>' +
-                '</div>';
-            } else {
-              var allowed = PlanFeatures.getAllowedPlans(it.feature);
-              var minPlan = allowed.length ? allowed[0] : "PLUS";
-              el = document.createElement("div");
-              el.className = "ds-hub-card ds-hub-card--locked";
-              el.innerHTML =
-                '<span class="ds-hub-card__lock" aria-hidden="true">&#128274;</span>' +
-                '<div class="ds-hub-card__icon">' + it.icon + '</div>' +
-                '<div class="ds-hub-card__content">' +
-                  '<div class="ds-hub-card__title">' + it.title + '</div>' +
-                  '<p class="ds-hub-card__desc">' + it.desc + '</p>' +
-                  '<div class="ds-hub-card__meta">Verfügbar ab ' + minPlan + '</div>' +
-                  '<a href="/public/sla_abo.html" class="ds-hub-card__upgrade">Upgrade ansehen &rarr;</a>' +
-                '</div>';
-            }
-            grid.appendChild(el);
-          });
-          var searchCard = document.getElementById("search-jobs-card");
-          if (searchCard && searchCard.parentNode) searchCard.parentNode.appendChild(searchCard);
-        });
-      }
-      fetch("/api/me", { credentials: "include" }).then(function(r) { return r.ok ? r.json() : null; }).then(function(me) {
-        window._slaPlan = (me && me.plan) ? me.plan : "FREE";
-        render();
-        // Zeitarbeit-Hub: 4 Karten (worker_module feature)
-        PlanFeatures.load().then(function() {
-          var hub = document.getElementById("zeitarbeit-hub");
-          if (!hub) return;
-          var hasWm = PlanFeatures.hasFeature(window._slaPlan, "worker_module");
-          var zeitarbeitCards = [
-            {
-              href: "/public/worker-submissions-review.html",
-              icon: "&#128197;",
-              title: "Einsatzplanung",
-              desc: "Worker Eins&auml;tze anlegen, Schichtzeiten pflegen, Assignments verwalten.",
-              cls:  "ds-hub-card--accent"
-            },
-            {
-              href: "/public/timesheet-templates.html",
-              icon: "&#128462;",
-              title: "Stundenzettel-Templates",
-              desc: "Vorlagen f&uuml;r Stundenzettel erstellen und Eins&auml;tzen zuweisen.",
-              cls:  "ds-hub-card--brand"
-            },
-            {
-              href: "/public/worker-submissions-review.html",
-              icon: "&#9989;",
-              title: "Einreichungen &amp; Freigaben",
-              desc: "Einreichungen pr&uuml;fen, intern genehmigen, an Kunden senden, in Abrechnung &uuml;bernehmen.",
-              cls:  "ds-hub-card--success"
-            },
-            {
-              href: "/public/workers.html",
-              icon: "&#128100;",
-              title: "Worker verwalten",
-              desc: "Arbeitnehmer anlegen, einladen, Profile und Dokumente verwalten.",
-              cls:  ""
-            }
-          ];
-          var frag = document.createDocumentFragment();
-          var wAllowed = PlanFeatures.getAllowedPlans("worker_module");
-          var wMin = wAllowed.length ? wAllowed[0] : "PLUS";
-          zeitarbeitCards.forEach(function(c) {
-            var el;
-            if (hasWm) {
-              el = document.createElement("a");
-              el.href = c.href;
-              el.className = "ds-hub-card " + (c.cls || "");
-              el.innerHTML =
-                '<div class="ds-hub-card__icon">' + c.icon + '</div>' +
-                '<div class="ds-hub-card__content">' +
-                  '<div class="ds-hub-card__title">' + c.title + '</div>' +
-                  '<p class="ds-hub-card__desc">' + c.desc + '</p>' +
-                '</div>';
-            } else {
-              el = document.createElement("div");
-              el.className = "ds-hub-card ds-hub-card--locked";
-              el.innerHTML =
-                '<span class="ds-hub-card__lock" aria-hidden="true">&#128274;</span>' +
-                '<div class="ds-hub-card__icon">' + c.icon + '</div>' +
-                '<div class="ds-hub-card__content">' +
-                  '<div class="ds-hub-card__title">' + c.title + '</div>' +
-                  '<p class="ds-hub-card__desc">' + c.desc + '</p>' +
-                  '<div class="ds-hub-card__meta">Verf&uuml;gbar ab ' + wMin + '</div>' +
-                  '<a href="/public/sla_abo.html" class="ds-hub-card__upgrade">Upgrade ansehen &rarr;</a>' +
-                '</div>';
-            }
-            frag.appendChild(el);
-          });
-          // display:contents ersetzt den Wrapper transparent
-          hub.replaceWith(frag);
-        });
-        // Show first-action guide for FREE plan users
-        if (me && me.plan === "FREE") {
-          var guide = document.getElementById("first-action-guide");
-          if (guide) guide.style.display = "block";
-        }
-        // CE activation nudges
-        if (me) {
-          fetch("/api/capacity-exchange/stats", { credentials: "include" })
-            .then(function(r) { return r.ok ? r.json() : null; })
-            .then(function(stats) {
-              if (!stats) return;
-              var total = stats.total || 0;
-              if (total === 0) {
-                var nudge = document.getElementById("ce-activation-nudge");
-                if (nudge) nudge.style.display = "block";
-              } else if (total < 3 && total > 0) {
-                var pubNudge = document.getElementById("ce-publish-nudge");
-                if (pubNudge) pubNudge.style.display = "block";
-              }
-            }).catch(function() {});
-        }
-      }).catch(function() { window._slaPlan = "FREE"; render(); });
-    })();
-  </script>
-  <script>
-    // ── Globale Suche (Enterprise Search) ─────────────────────
-    function esc(s) { var d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
-
-    async function runGlobalSearch() {
-      var q = document.getElementById('globalSearchInput').value.trim();
-      if (!q || q.length < 2) { alert('Bitte mindestens 2 Zeichen eingeben.'); return; }
-      var type = document.getElementById('globalSearchType').value;
-      var box = document.getElementById('searchResults');
-      box.style.display = 'block';
-      box.innerHTML = '<p style="color:var(--ds-text-secondary,var(--muted))">Suche laeuft...</p>';
-      try {
-        var r = await fetch('/api/search?q=' + encodeURIComponent(q) + '&type=' + type + '&limit=20', { credentials: 'include' });
-        if (!r.ok) { box.innerHTML = '<p style="color:var(--bad,#f87171)">Fehler: ' + r.status + '</p>'; return; }
-        var data = await r.json();
-        var results = (data.data && data.data.results) || data.results || [];
-        var total = (data.data && data.data.total) || data.total || 0;
-        var source = (data.data && data.data.source) || data.source || '';
-        if (!results.length) { box.innerHTML = '<p style="color:var(--ds-text-secondary,var(--muted))">Keine Ergebnisse fuer &quot;' + esc(q) + '&quot;</p>'; return; }
-        var html = '<div style="margin-bottom:8px;font-size:12px;color:var(--ds-text-secondary,var(--muted))">' + esc(String(total)) + ' Treffer (Quelle: ' + esc(source) + ')</div>';
-        results.forEach(function(item) {
-          var title = item.company_name || item.name || item.title || item.role || item.skill_name || 'Unbekannt';
-          var sub = item._index || item.type || '';
-          var extra = item.city || item.location_city || item.region || '';
-          html += '<div style="padding:8px 0;border-bottom:1px solid rgba(255,255,255,.06);display:flex;justify-content:space-between;align-items:center">';
-          html += '<div><strong style="font-size:14px">' + esc(title) + '</strong>';
-          if (extra) html += ' <span style="font-size:12px;color:var(--ds-text-secondary,var(--muted))">' + esc(extra) + '</span>';
-          html += '</div>';
-          if (sub) html += '<span style="font-size:10px;padding:2px 8px;border-radius:999px;border:1px solid var(--ds-border,var(--line));color:var(--ds-text-secondary,var(--muted))">' + esc(sub) + '</span>';
-          html += '</div>';
-        });
-        box.innerHTML = html;
-      } catch (e) {
-        box.innerHTML = '<p style="color:var(--bad,#f87171)">Suche fehlgeschlagen: ' + esc(e.message) + '</p>';
-      }
-    }
-
-    // ── Platform Health (Operations & Intelligence) ───────────
-    async function loadPlatformHealth() {
-      var details = document.getElementById('healthDetails');
-      var grid = document.getElementById('healthGrid');
-      var summary = document.getElementById('healthSummary');
-      details.style.display = 'block';
-      grid.innerHTML = '<p style="color:var(--ds-text-secondary,var(--muted))">Lade Status...</p>';
-      try {
-        // Versuche Search-Status (benoetigt kein Admin-Secret)
-        var searchR = await fetch('/api/search/status', { credentials: 'include' });
-        var searchData = searchR.ok ? await searchR.json() : null;
-        var search = (searchData && searchData.data) || searchData || {};
-
-        // Health-Endpoint (versuche ohne Secret — zeigt basale Infos)
-        var healthR = await fetch('/api/health', { credentials: 'include' });
-        var health = healthR.ok ? await healthR.json() : { ok: false };
-
-        var tiles = [
-          { label: 'Datenbank', val: health.ok ? 'Online' : 'Offline', color: health.ok ? 'var(--good,#34d399)' : 'var(--bad,#f87171)' },
-          { label: 'Search Engine', val: search.available ? (search.engine || 'Active') : 'Fallback (DB)', color: search.available ? 'var(--good,#34d399)' : 'var(--warn,#fbbf24)' },
-          { label: 'Indexes', val: (search.availableIndexes || []).length || '–', color: 'var(--brand,#4a9eff)' },
-          { label: 'API', val: 'Online', color: 'var(--good,#34d399)' }
-        ];
-        grid.innerHTML = tiles.map(function(t) {
-          return '<div style="padding:12px;border-radius:var(--ds-radius-lg,12px);border:1px solid var(--ds-border,var(--line));background:rgba(255,255,255,.02);text-align:center">' +
-            '<div style="font-size:20px;font-weight:800;color:' + t.color + ';margin-bottom:4px">' + esc(String(t.val)) + '</div>' +
-            '<div style="font-size:11px;color:var(--ds-text-secondary,var(--muted));text-transform:uppercase;font-weight:600;letter-spacing:.05em">' + esc(t.label) + '</div></div>';
-        }).join('');
-        summary.textContent = 'DB: ' + (health.ok ? 'OK' : 'Down') + ' | Search: ' + (search.available ? search.engine || 'Active' : 'Fallback') + ' | API: Online';
-      } catch (e) {
-        grid.innerHTML = '<p style="color:var(--bad,#f87171)">Status konnte nicht geladen werden: ' + esc(e.message) + '</p>';
-      }
-    }
-  </script>
-  <script>
-    // ── Activity Feed Timeline ──────────────────────────
-    (async function loadActivityFeed() {
-      var el = document.getElementById('activityTimeline');
-      if (!el) return;
-      try {
-        var r = await fetch('/api/activity-feed?limit=25', { credentials: 'include' });
-        if (!r.ok) { el.innerHTML = '<p style="color:var(--muted)">Feed nicht verfuegbar.</p>'; return; }
-        var d = await r.json();
-        var items = (d.data && d.data.items) || [];
-        if (!items.length) { el.innerHTML = '<p style="color:var(--muted)">Noch keine Aktivitaeten vorhanden.</p>'; return; }
-        el.innerHTML = items.map(function(ev) {
-          var ts = new Date(ev.created_at || ev.timestamp);
-          var ago = relTimeShort(ts);
-          return '<div style="display:flex;gap:12px;padding:10px 0;border-bottom:1px solid rgba(255,255,255,.04);align-items:flex-start">' +
-            '<span style="font-size:18px;flex-shrink:0">' + (ev.icon || '&#128308;') + '</span>' +
-            '<div style="flex:1;min-width:0">' +
-            '<div style="font-size:13px;font-weight:600">' + esc(ev.label || ev.event_type) + '</div>' +
-            '<div style="font-size:11px;color:var(--muted);margin-top:2px">' + ago + '</div>' +
-            '</div></div>';
-        }).join('');
-      } catch(e) { el.innerHTML = '<p style="color:var(--bad,#f87171)">Fehler: ' + esc(e.message) + '</p>'; }
-    })();
-    function relTimeShort(d) {
-      var s = (Date.now() - d.getTime()) / 1000;
-      if (s < 60) return 'gerade eben';
-      if (s < 3600) return Math.floor(s/60) + ' Min.';
-      if (s < 86400) return Math.floor(s/3600) + ' Std.';
-      return Math.floor(s/86400) + ' Tg.';
-    }
-  </script>
+  <script defer src="/public/js/pages/enterpriseHub.js"></script>
+  <script src="/public/js/pageShell.js"></script>
+  <script src="/public/js/productUpdates.js"></script>
   <script src="/public/js/notifications.js"></script>
   <div id="tc-footer" data-tc-footer></div>
   <script src="/public/js/footer.js"></script>
-  <script src="/public/js/logout-btn.js"></script>
+  <script src="/public/js/onboardingChecklist.js" defer></script>
+  <script src="/public/js/demoBanner.js" defer></script>
+  <script src="/public/js/onboardingWizard.js" defer></script>
+  <script src="/public/js/contextHints.js"></script>
+<script src="/public/js/breadcrumb.js" defer></script>
+<script src="/public/js/milestoneToasts.js" defer></script>
 </body>
 </html>

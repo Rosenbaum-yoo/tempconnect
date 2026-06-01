@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <script src="/public/js/theme.js"></script>
+  <title>Was ist neu – TempConnect</title>
+  <link rel="stylesheet" href="/public/css/enterprise.css"/>
+</head>
+<body>
+  <div id="main-content" class="wrap">
+    <div id="tc-shell"></div>
+
+    <div class="ds-page-header">
+      <div class="ds-page-header__content">
+        <h1 class="ds-page-title">Produkt-Updates</h1>
+        <p class="ds-page-subtitle">Release Notes und relevante Neuerungen f&uuml;r Ihre Rolle und Ihren Plan &mdash; ohne Newsletter, ohne Spam.</p>
+      </div>
+    </div>
+
+    <div id="tc-pu-loading" class="ds-section" style="color:var(--ds-text-secondary,#8d9bba)">Lade Eintr&auml;ge&hellip;</div>
+    <div id="tc-pu-empty" class="ds-section" style="display:none;color:var(--ds-text-secondary,#8d9bba)">
+      Aktuell keine Eintr&auml;ge, die f&uuml;r Ihr Konto sichtbar sind.
+    </div>
+    <div id="tc-pu-list" class="ds-section" style="display:none;padding-top:0"></div>
+  </div>
+
+  <script src="/public/js/pageShell.js"></script>
+  <script src="/public/js/api.js"></script>
+  <script src="/public/js/productUpdates.js"></script>
+  <script src="/public/js/notifications.js"></script>
+  <div id="tc-footer" data-tc-footer></div>
+  <script src="/public/js/footer.js"></script>
+  <script src="/public/js/breadcrumb.js" defer></script>
+  <script>
+  (function () {
+    function esc(s) {
+      var d = document.createElement("div");
+      d.textContent = s;
+      return d.innerHTML;
+    }
+    function fmtDate(iso) {
+      if (!iso) return "";
+      try {
+        return new Date(iso).toLocaleDateString("de-DE", { year: "numeric", month: "long", day: "numeric" });
+      } catch (e) { return ""; }
+    }
+    function render(items) {
+      var load = document.getElementById("tc-pu-loading");
+      var empty = document.getElementById("tc-pu-empty");
+      var list = document.getElementById("tc-pu-list");
+      load.style.display = "none";
+      if (!items.length) {
+        empty.style.display = "block";
+        return;
+      }
+      list.style.display = "block";
+      var h = "";
+      items.forEach(function (e) {
+        var draft = e.status === "draft" ? '<span class="tag" style="margin-left:8px;background:rgba(251,191,36,.2);color:#fbbf24;font-size:11px">Entwurf</span>' : "";
+        var internal = e.visibility === "internal" ? '<span class="tag" style="margin-left:8px;font-size:11px">Intern</span>' : "";
+        h += '<article class="tc-pu-card" style="margin-bottom:20px;padding:22px 24px;border-radius:14px;border:1px solid var(--line,rgba(255,255,255,.1));background:var(--card,#1a1d24)">';
+        h += '<div style="font-size:12px;color:var(--ds-text-secondary,#8d9bba);margin-bottom:6px">' + esc(fmtDate(e.published_at || e.created_at)) + draft + internal + "</div>";
+        h += "<h2 style=\"margin:0 0 10px;font-size:1.15rem;line-height:1.35\">" + esc(e.title || "") + "</h2>";
+        if (e.summary) h += "<p style=\"margin:0 0 12px;color:var(--ds-text-secondary,#b8c3d9);line-height:1.55;font-size:14px\">" + esc(e.summary) + "</p>";
+        if (e.body) h += "<div style=\"font-size:14px;line-height:1.6;color:var(--text,#e8eaef);white-space:pre-wrap\">" + esc(e.body) + "</div>";
+        if (e.feature_key) h += "<div style=\"margin-top:14px;font-size:12px;color:var(--ds-text-secondary,#6b7a90)\">Feature: <code style=\"font-size:11px\">" + esc(e.feature_key) + "</code></div>";
+        h += "</article>";
+      });
+      list.innerHTML = h;
+    }
+    TC.api.get("/product-releases")
+      .then(function (d) {
+        var items = (d && d.data && d.data.items) || [];
+        render(items);
+        return TC.api.post("/product-releases/mark-all-seen", {});
+      })
+      .catch(function () {
+        document.getElementById("tc-pu-loading").textContent = "Eintr\u00e4ge konnten nicht geladen werden.";
+      });
+  })();
+  </script>
+</body>
+</html>

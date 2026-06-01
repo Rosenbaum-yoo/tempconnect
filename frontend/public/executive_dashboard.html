@@ -1,341 +1,269 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="de">
 <head>
   <meta charset="utf-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
-  <title>Executive Dashboard – TempConnect</title>
+  <script src="/public/js/theme.js"></script>
+  <title>Steuerung & Analytik – TempConnect</title>
   <link rel="stylesheet" href="/public/css/enterprise.css"/>
-  <style>
-    .kpi-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: var(--ds-space-3); margin-bottom: var(--ds-space-5); }
-    .kpi-tile { padding: var(--ds-space-4); border-radius: var(--ds-radius-lg); border: 1px solid var(--ds-border); background: rgba(255,255,255,.02); text-align: center; transition: border-color 0.2s; }
-    .kpi-tile:hover { border-color: var(--ds-border-hover); }
-    .kpi-tile .kpi-val { font-size: 28px; font-weight: 800; display: block; margin-bottom: 4px; font-variant-numeric: tabular-nums; }
-    .kpi-tile .kpi-label { font-size: 11px; color: var(--ds-text-secondary); text-transform: uppercase; letter-spacing: .05em; font-weight: 600; }
-    .section { margin-bottom: var(--ds-space-8); padding: var(--ds-space-5); border: 1px solid var(--ds-border); border-radius: var(--ds-radius-lg); background: rgba(255,255,255,.015); }
-    .section h3 { margin: 0 0 var(--ds-space-4); font-size: 14px; text-transform: uppercase; letter-spacing: 0.04em; color: var(--ds-text-secondary); font-weight: 700; }
-    .bar-chart { display: flex; align-items: flex-end; gap: 4px; height: 120px; padding: 8px 0; }
-    .bar-col { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: flex-end; }
-    .bar-col .bar { width: 100%; min-height: 2px; border-radius: 4px 4px 0 0; background: var(--brand); transition: height .3s; }
-    .bar-col .bar-label { font-size: 10px; color: var(--muted); margin-top: 4px; white-space: nowrap; }
-    .compliance-bar { display: flex; gap: 2px; height: 20px; border-radius: 6px; overflow: hidden; margin-top: 8px; }
-    .compliance-bar span { display: block; height: 100%; }
-    .cb-green { background: var(--good); }
-    .cb-yellow { background: var(--warn); }
-    .cb-red { background: var(--bad); }
-    .cb-grey { background: rgba(255,255,255,.1); }
-    .legend { display: flex; gap: 16px; margin-top: 6px; font-size: 11px; color: var(--muted); }
-    .legend span::before { content: ''; display: inline-block; width: 10px; height: 10px; border-radius: 3px; margin-right: 4px; vertical-align: middle; }
-    .legend .l-green::before { background: var(--good); }
-    .legend .l-yellow::before { background: var(--warn); }
-    .legend .l-red::before { background: var(--bad); }
-    .legend .l-grey::before { background: rgba(255,255,255,.15); }
-    .filter-row { display: flex; gap: var(--ds-space-3); margin-bottom: var(--ds-space-5); align-items: flex-end; flex-wrap: wrap; padding: var(--ds-space-4); border: 1px solid var(--ds-border); border-radius: var(--ds-radius-lg); background: rgba(255,255,255,.015); }
-    .filter-row select, .filter-row input { width: auto; margin: 0; }
-    .compliance-bar { height: 10px; border-radius: var(--ds-radius-full); }
-    .timeline-item { display:flex;gap:10px;padding:8px 0;border-bottom:1px solid var(--ds-border);font-size:13px }
-    .timeline-dot { width:8px;height:8px;border-radius:50%;background:var(--brand);margin-top:5px;flex-shrink:0 }
-    .timeline-time { color:var(--muted);font-size:11px;margin-top:2px }
-  </style>
+  <link rel="stylesheet" href="/public/css/pages/executive-dashboard.css"/>
 </head>
 <body>
   <div class="wrap">
-    <div class="topbar" data-notif-topbar>
-      <span class="brand"><span style="width:10px;height:10px;border-radius:50%;background:linear-gradient(135deg,var(--brand),var(--brand2));display:inline-block;margin-right:8px"></span>TempConnect</span>
-      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
-        <a href="/public/enterprise.html" class="btn">Hub</a>
-        <a href="/public/requisitions.html" class="btn">Requisitions</a>
-        <a href="/public/vendor_pool.html" class="btn">Vendor Pool</a>
-        <a href="/public/compliance_overview.html" class="btn">Compliance</a>
-      </div>
-    </div>
+    <div id="tc-shell"></div>
 
     <div class="ds-page-header">
       <div class="ds-page-header__content">
-        <h1 class="ds-page-title">Executive Dashboard</h1>
-        <p class="ds-page-subtitle">KPIs, SLA-Compliance und Plattform-Übersicht auf einen Blick.</p>
+        <h1 class="ds-page-title">Steuerung &amp; Analytik</h1>
+        <p class="ds-page-subtitle">Lieferantenleistung, Besetzungsdruck, Spend, Qualit&auml;t und Plattformzustand als nachgelagerte Managementsicht im Blick.</p>
       </div>
       <div class="ds-page-header__actions">
         <div style="display:flex;gap:8px;align-items:center">
-          <input id="quickSearch" type="text" placeholder="Schnellsuche…" style="width:200px;margin:0" onkeydown="if(event.key==='Enter')runQuickSearch()"/>
-          <button class="btn" onclick="runQuickSearch()">&#128269;</button>
-          <button class="btn primary" onclick="loadDashboard()">Aktualisieren</button>
+          <input id="quickSearch" type="text" placeholder="Schnellsuche&hellip;" style="width:200px;margin:0" onkeydown="if(event.key==='Enter')runQuickSearch()"/>
+          <button class="btn" data-feature-key="enterprise_analytics" onclick="runQuickSearch()">Suchen</button>
+          <button class="btn primary" data-feature-key="enterprise_analytics" onclick="loadDashboard()">Aktualisieren</button>
         </div>
       </div>
     </div>
 
-    <div class="filter-row">
+    <div class="tc-priority-banner tc-priority-banner--supporting">
+      <div class="tc-priority-banner__main">
+        <div class="tc-priority-banner__eyebrow">Steuerungsschicht</div>
+        <div class="tc-priority-banner__title">Diese Sicht aggregiert den Pilotbetrieb &mdash; sie ersetzt nicht den operativen Einstieg</div>
+        <p class="tc-priority-banner__text">Executive-KPIs, Spend und Lieferantenleistung helfen bei Priorisierung und Vertrieb, muessen aber dem operativen Kern folgen. Erst wenn Arbeitsplatzangebote, Deals und Zeiten sauber laufen, haben diese Kennzahlen die richtige Wirkung.</p>
+      </div>
+      <div class="tc-priority-banner__aside">
+        <div class="tc-priority-banner__aside-title">Bewusst nachgelagert</div>
+        <div class="tc-priority-banner__aside-text">Nutzen Sie diese Seite fuer Managemententscheidungen, nicht als Ersatz fuer Arbeitsplatzangebots-, Deal- oder Einsatzarbeit.</div>
+      </div>
+    </div>
+    <div id="executiveState" class="page-state"></div>
+
+    <!-- Onboarding Checklist -->
+    <div id="onboarding-checklist" class="tc-onboarding">
+      <div class="tc-onboarding__box">
+        <div class="tc-onboarding__header" onclick="toggleOnboarding()">
+          <span class="tc-onboarding__icon">&#128640;</span>
+          <span class="tc-onboarding__label">Plattform einrichten</span>
+          <span id="onboarding-subtitle" class="tc-onboarding__subtitle"></span>
+          <div class="tc-onboarding__progress">
+            <div id="onboarding-progress-bar" class="tc-onboarding__progress-bar"></div>
+          </div>
+          <button id="onboarding-toggle-btn" type="button" class="tc-onboarding__toggle" title="Auf-/Zuklappen" onclick="event.stopPropagation();toggleOnboarding()">&#9660;</button>
+          <button id="onboarding-dismiss-btn" type="button" class="tc-onboarding__dismiss" title="Ausblenden" onclick="event.stopPropagation();dismissOnboarding()">&times;</button>
+        </div>
+        <div id="onboarding-body" class="tc-onboarding__body">
+          <div class="tc-onboarding__steps">
+            <div id="onboarding-steps"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Überwachung Hub Grid -->
+    <div class="ds-section" style="padding-top:0;margin-bottom:var(--ds-space-4)">
+      <div class="ds-hub-grid">
+        <div class="ds-hub-card ds-hub-card--current ds-hub-card--brand" aria-current="page">
+          <div class="ds-hub-card__icon">&#128202;</div>
+          <div class="ds-hub-card__content">
+            <div class="ds-hub-card__title">Steuerung &amp; Analytik</div>
+            <p class="ds-hub-card__desc">Sie befinden sich im Management- und Steuerungsbereich.</p>
+          </div>
+        </div>
+        <a href="#kpiGrid" class="ds-hub-card" onclick="document.getElementById('kpiGrid').scrollIntoView({behavior:'smooth'});return false;">
+          <div class="ds-hub-card__icon">&#128200;</div>
+          <div class="ds-hub-card__content">
+            <div class="ds-hub-card__title">Management-KPIs</div>
+            <p class="ds-hub-card__desc">KPIs, SLA-Compliance und Plattform-&Uuml;bersicht.</p>
+          </div>
+        </a>
+        <a href="/public/vendor_pool.html" class="ds-hub-card" data-feature-key="supplier_management">
+          <div class="ds-hub-card__icon">&#128101;</div>
+          <div class="ds-hub-card__content">
+            <div class="ds-hub-card__title">Lieferantenpool</div>
+            <p class="ds-hub-card__desc">Lieferantenpool verwalten und für Arbeitsplatzangebote qualifizieren.</p>
+          </div>
+        </a>
+        <a href="/public/supplier_scorecard.html" class="ds-hub-card" data-feature-key="supplier_ratings">
+          <div class="ds-hub-card__icon">&#11088;</div>
+          <div class="ds-hub-card__content">
+            <div class="ds-hub-card__title">Lieferanten-Bewertung</div>
+            <p class="ds-hub-card__desc">Scorecard, Performance und Qualit&auml;tskennzahlen.</p>
+          </div>
+        </a>
+        <a id="executiveRateCardHubLink" href="/public/rate-cards.html" class="ds-hub-card ds-hub-card--accent" data-feature-key="rate_card_management">
+          <div class="ds-hub-card__icon">&#128179;</div>
+          <div class="ds-hub-card__content">
+            <div class="ds-hub-card__title">Preisrahmen</div>
+            <p class="ds-hub-card__desc">Stundensatz-Tabellen und Preisvereinbarungen.</p>
+          </div>
+        </a>
+        <a href="/public/spend-analytics.html" class="ds-hub-card" data-feature-key="spend_analytics">
+          <div class="ds-hub-card__icon">&#128176;</div>
+          <div class="ds-hub-card__content">
+            <div class="ds-hub-card__title">Spend &amp; Kosten</div>
+            <p class="ds-hub-card__desc">Ausgabenanalyse, Budgets und Kostentrends.</p>
+          </div>
+        </a>
+        <a href="/public/system-health.html" class="ds-hub-card ds-hub-card--success">
+          <div class="ds-hub-card__icon">&#128154;</div>
+          <div class="ds-hub-card__content">
+            <div class="ds-hub-card__title">System &amp; Plattform Health</div>
+            <p class="ds-hub-card__desc">System-Status, Verf&uuml;gbarkeit, Plattform-Metriken und Infrastruktur.</p>
+          </div>
+        </a>
+        <a href="/public/requisitions.html" class="ds-hub-card">
+          <div class="ds-hub-card__icon">&#128203;</div>
+          <div class="ds-hub-card__content">
+            <div class="ds-hub-card__title">Arbeitsplatzangebote</div>
+            <p class="ds-hub-card__desc">Personalanforderungen und Angebotserfassung.</p>
+          </div>
+        </a>
+        <a href="/public/compliance_overview.html" class="ds-hub-card ds-hub-card--warning" data-feature-key="data_governance">
+          <div class="ds-hub-card__icon">&#128737;</div>
+          <div class="ds-hub-card__content">
+            <div class="ds-hub-card__title">Compliance</div>
+            <p class="ds-hub-card__desc">Regelkonformit&auml;t, Audits und Dokumentenstatus.</p>
+          </div>
+        </a>
+      </div>
+    </div>
+
+    <div class="dash-filter-row">
       <div class="ds-filter-item">
         <label style="margin:0">Organisation</label>
         <select id="orgFilter" style="width:220px;margin:0"><option value="">Alle Organisationen</option></select>
       </div>
     </div>
 
+    <!-- Onboarding Banner (hidden by default) -->
+    <div id="onboardingBanner" class="dash-onboarding-banner" style="display:none">
+      <div class="dash-onboarding-banner__layout">
+        <div>
+          <div class="dash-onboarding-banner__title">Onboarding fortsetzen</div>
+          <div class="dash-onboarding-banner__text" id="onboardingBannerText">Vervollstaendigen Sie Ihr Profil, um alle Funktionen nutzen zu koennen.</div>
+        </div>
+        <div class="dash-onboarding-banner__actions">
+          <div class="dash-onboarding-banner__pct" id="onboardingBannerPct"></div>
+          <button class="btn primary" onclick="location.href='/public/onboarding.html'">Weiter einrichten</button>
+          <button class="btn" onclick="dismissOnboardingBanner()" title="Ausblenden">&#10005;</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- SLA & Staffing Alert Banner (wird dynamisch befuellt) -->
+    <div id="slaAlertBanner" style="display:none;margin-bottom:16px"></div>
+
     <!-- KPI Tiles -->
     <div class="kpi-grid" id="kpiGrid"></div>
 
-    <!-- Requisition Status -->
-    <div class="section">
-      <h3>Requisitions nach Status</h3>
+    <!-- Procurement Pulse -->
+    <div class="dash-section">
+      <h3>Procurement Pulse (30 Tage)</h3>
+      <div class="kpi-grid" id="procurementPulseGrid" style="grid-template-columns:repeat(auto-fill,minmax(180px,1fr))"></div>
+    </div>
+
+    <!-- Kritischer Besetzungsdruck (Arbeitsplatzangebote) -->
+    <div class="dash-section">
+      <h3>Kritischer Besetzungsdruck <a href="/public/requisitions.html?status_group=backlog" class="dash-section__link">Backlog &rarr;</a></h3>
+      <div id="criticalReqSection"><p class="ds-text-sm ds-text-muted">Lade&hellip;</p></div>
+    </div>
+
+    <!-- Arbeitsplatzangebote nach Status -->
+    <div class="dash-section">
+      <h3>Arbeitsplatzangebote nach Status <a href="/public/requisitions.html" class="dash-section__link">Alle Angebote &rarr;</a></h3>
       <div class="bar-chart" id="reqChart"></div>
     </div>
 
     <!-- SLA Compliance -->
-    <div class="section">
+    <div class="dash-section">
       <h3>SLA Compliance (30 Tage)</h3>
       <div id="slaSection"></div>
     </div>
 
     <!-- Compliance Dokumente -->
-    <div class="section">
+    <div class="dash-section">
       <h3>Compliance Dokumente</h3>
       <div id="compSection"></div>
     </div>
 
     <!-- Plattform-Statistik -->
-    <div class="section">
+    <div class="dash-section">
       <h3>Plattform</h3>
       <div class="kpi-grid" id="platformGrid"></div>
     </div>
 
     <!-- Quick-Search Ergebnisse (versteckt) -->
-    <div class="section" id="quickSearchSection" style="display:none">
+    <div class="dash-section" id="quickSearchSection" style="display:none">
       <h3>Suchergebnisse</h3>
       <div id="quickSearchResults"></div>
     </div>
 
-    <!-- Capacity Exchange Stats -->
-    <div class="section">
-      <h3>Capacity Exchange</h3>
+    <!-- Spend Overview -->
+    <div class="dash-section">
+      <h3>Spend Overview (30 Tage) <a href="/public/spend-analytics.html" class="dash-section__link" data-feature-key="spend_analytics">Details →</a></h3>
+      <div class="kpi-grid" id="spendGrid" style="grid-template-columns:repeat(auto-fill,minmax(140px,1fr))"></div>
+    </div>
+
+    <div class="dash-section">
+      <h3>Finance Truth <a href="/public/admin_panel.html" class="dash-section__link">Revenue-Konsole →</a></h3>
+      <div style="display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:10px">
+        <button class="btn" type="button" data-feature-key="basic_analytics" onclick="exportExecutiveFinanceTruth('csv')">Export CSV</button>
+        <button class="btn" type="button" data-feature-key="basic_analytics" onclick="exportExecutiveFinanceTruth('json')">Export JSON</button>
+        <span id="financeExportStatus" class="ds-text-sm ds-text-muted" aria-live="polite"></span>
+      </div>
+      <div class="kpi-grid" id="financeGrid" style="grid-template-columns:repeat(auto-fill,minmax(160px,1fr))"></div>
+      <div id="financeDetail"></div>
+    </div>
+
+    <div class="dash-section">
+      <h3>SaaS Retention &amp; Usage Truth <a href="/public/admin_panel.html?tab=revenue" class="dash-section__link">Revenue-Drilldown →</a></h3>
+      <div class="kpi-grid" id="retentionGrid" style="grid-template-columns:repeat(auto-fill,minmax(160px,1fr))"></div>
+      <div id="retentionDetail"></div>
+    </div>
+
+    <div class="dash-section">
+      <h3>Pilot &amp; Conversion Truth <a href="/public/admin_panel.html?tab=revenue" class="dash-section__link">Funnel-Drilldown →</a></h3>
+      <div class="kpi-grid" id="pilotConversionGrid" style="grid-template-columns:repeat(auto-fill,minmax(160px,1fr))"></div>
+      <div id="pilotConversionDetail"></div>
+    </div>
+
+    <!-- Vermittlungsaktivität -->
+    <div class="dash-section">
+      <h3>Vermittlungsaktivität</h3>
       <div class="kpi-grid" id="ceGrid" style="grid-template-columns:repeat(auto-fill,minmax(140px,1fr))"></div>
     </div>
 
     <!-- Activity Feed Mini-Timeline -->
-    <div class="section">
+    <div class="dash-section">
       <h3>Letzte Aktivitäten</h3>
-      <div id="activityTimeline"><p style="color:var(--muted);font-size:13px">Lade…</p></div>
+      <div id="activityTimeline"><p class="ds-text-sm ds-text-muted">Lade…</p></div>
+    </div>
+
+    <!-- DSGVO Compliance -->
+    <div class="dash-section">
+      <h3>DSGVO Compliance <a href="/public/data-governance.html" class="dash-section__link" data-feature-key="data_governance">Governance &rarr;</a></h3>
+      <div class="kpi-grid" id="dsgvoGrid" style="grid-template-columns:repeat(auto-fill,minmax(140px,1fr))"></div>
     </div>
 
     <!-- Platform Health (Live-Status) -->
-    <div class="section">
-      <h3>Platform Health</h3>
+    <div class="dash-section">
+      <h3>Platform Health <a href="/public/system-health.html" class="dash-section__link">Details &rarr;</a></h3>
       <div class="kpi-grid" id="healthGrid" style="grid-template-columns:repeat(auto-fill,minmax(140px,1fr))"></div>
     </div>
   </div>
 
-  <script>
-    function esc(s) { var d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
-    var csrfToken = '';
+  <script src="/public/js/api.js"></script>
+  <script src="/public/js/surfaceAccess.js"></script>
+  <script src="/public/js/entitlements.js"></script>
+  <script src="/public/js/pages/executiveDashboard.js"></script>
 
-    async function api(path) {
-      var r = await fetch('/api' + path, { credentials: 'include' });
-      if (r.status === 401) { location.href = '/public/login.html'; return null; }
-      return r.ok ? r.json() : null;
-    }
-
-    async function init() {
-      var csrf = await fetch('/api/csrf-token', { credentials: 'include' });
-      if (csrf.ok) { var d = await csrf.json(); csrfToken = d.csrfToken || ''; }
-      loadDashboard();
-    }
-
-    async function loadDashboard() {
-      var orgId = document.getElementById('orgFilter').value;
-      var qs = orgId ? '?org_id=' + encodeURIComponent(orgId) : '';
-      var data = await api('/reporting/dashboard' + qs);
-      if (!data) return;
-
-      renderKpis(data.requisitions);
-      renderReqChart(data.requisitions);
-      renderSla(data.sla);
-      renderCompliance(data.compliance);
-      renderPlatform(data.platform);
-    }
-
-    function renderKpis(r) {
-      if (!r) return;
-      var tiles = [
-        { label: 'Gesamt', val: r.total || 0, color: 'var(--text)' },
-        { label: 'Offen', val: r.open || 0, color: 'var(--brand)' },
-        { label: 'In Pruefung', val: r.in_review || 0, color: 'var(--warn)' },
-        { label: 'Shortlisted', val: r.shortlisted || 0, color: '#7c5cff' },
-        { label: 'Besetzt', val: r.filled || 0, color: 'var(--good)' },
-        { label: 'Storniert', val: r.cancelled || 0, color: 'var(--bad)' },
-        { label: 'Dringend offen', val: r.urgent_open || 0, color: 'var(--bad)' },
-        { label: 'Avg Time-to-Fill', val: (r.avg_time_to_fill_hours || '–') + 'h', color: 'var(--muted)' }
-      ];
-      document.getElementById('kpiGrid').innerHTML = tiles.map(function(t) {
-        return '<div class="kpi-tile"><span class="kpi-val" style="color:' + t.color + '">' + esc(String(t.val)) + '</span><span class="kpi-label">' + esc(t.label) + '</span></div>';
-      }).join('');
-    }
-
-    function renderReqChart(r) {
-      if (!r) return;
-      var statuses = [
-        { key: 'draft', label: 'Draft', color: 'var(--muted)' },
-        { key: 'pending_approval', label: 'Freigabe', color: 'var(--warn)' },
-        { key: 'open', label: 'Offen', color: 'var(--brand)' },
-        { key: 'in_review', label: 'Pruefung', color: '#7c5cff' },
-        { key: 'shortlisted', label: 'Shortlist', color: '#9b6dff' },
-        { key: 'filled', label: 'Besetzt', color: 'var(--good)' },
-        { key: 'closed', label: 'Closed', color: 'rgba(255,255,255,.2)' },
-        { key: 'cancelled', label: 'Storniert', color: 'var(--bad)' }
-      ];
-      var max = Math.max(1, ...statuses.map(function(s) { return r[s.key] || 0; }));
-      document.getElementById('reqChart').innerHTML = statuses.map(function(s) {
-        var v = r[s.key] || 0;
-        var h = Math.max(2, (v / max) * 100);
-        return '<div class="bar-col"><div class="bar" style="height:' + h + '%;background:' + s.color + '" title="' + esc(s.label) + ': ' + v + '"></div><div class="bar-label">' + esc(s.label) + '<br>' + v + '</div></div>';
-      }).join('');
-    }
-
-    function renderSla(s) {
-      if (!s) return;
-      var el = document.getElementById('slaSection');
-      var pct = s.sla_compliance_pct != null ? s.sla_compliance_pct + '%' : '–';
-      el.innerHTML =
-        '<div class="kpi-grid" style="grid-template-columns:repeat(4,1fr)">' +
-        '<div class="kpi-tile"><span class="kpi-val" style="color:var(--good)">' + esc(String(s.sla_met || 0)) + '</span><span class="kpi-label">SLA Met</span></div>' +
-        '<div class="kpi-tile"><span class="kpi-val" style="color:var(--bad)">' + esc(String(s.sla_breached || 0)) + '</span><span class="kpi-label">SLA Breached</span></div>' +
-        '<div class="kpi-tile"><span class="kpi-val" style="color:var(--warn)">' + esc(String(s.sla_running || 0)) + '</span><span class="kpi-label">Running</span></div>' +
-        '<div class="kpi-tile"><span class="kpi-val">' + esc(pct) + '</span><span class="kpi-label">Compliance %</span></div>' +
-        '</div>';
-    }
-
-    function renderCompliance(c) {
-      if (!c) return;
-      var el = document.getElementById('compSection');
-      var total = Math.max(1, c.total_documents || 1);
-      var pcts = {
-        verified: ((c.verified || 0) / total * 100).toFixed(0),
-        pending: ((c.pending || 0) / total * 100).toFixed(0),
-        rejected: ((c.rejected || 0) / total * 100).toFixed(0),
-        expired: ((c.expired || 0) / total * 100).toFixed(0)
-      };
-      el.innerHTML =
-        '<div class="compliance-bar">' +
-        '<span class="cb-green" style="width:' + pcts.verified + '%"></span>' +
-        '<span class="cb-yellow" style="width:' + pcts.pending + '%"></span>' +
-        '<span class="cb-red" style="width:' + pcts.expired + '%"></span>' +
-        '<span class="cb-grey" style="width:' + pcts.rejected + '%"></span>' +
-        '</div>' +
-        '<div class="legend">' +
-        '<span class="l-green">Verifiziert: ' + (c.verified || 0) + '</span>' +
-        '<span class="l-yellow">Ausstehend: ' + (c.pending || 0) + '</span>' +
-        '<span class="l-red">Abgelaufen: ' + (c.expired || 0) + '</span>' +
-        '<span class="l-grey">Abgelehnt: ' + (c.rejected || 0) + '</span>' +
-        '</div>' +
-        (c.expiring_soon > 0 ? '<p style="color:var(--warn);margin:8px 0 0;font-size:13px">⚠ ' + c.expiring_soon + ' Dokument(e) laufen in 30 Tagen ab</p>' : '');
-    }
-
-    function renderPlatform(p) {
-      if (!p) return;
-      var tiles = [
-        { label: 'Nutzer', val: p.total_users || 0 },
-        { label: 'Organisationen', val: p.total_orgs || 0 },
-        { label: 'Aktive Kapazitaeten', val: p.active_capacity_posts || 0 },
-        { label: 'Offene Demands', val: p.open_demands || 0 },
-        { label: 'Vendor Eintraege', val: p.active_vendor_entries || 0 }
-      ];
-      document.getElementById('platformGrid').innerHTML = tiles.map(function(t) {
-        return '<div class="kpi-tile"><span class="kpi-val">' + esc(String(t.val)) + '</span><span class="kpi-label">' + esc(t.label) + '</span></div>';
-      }).join('');
-    }
-
-    // ── Quick-Search ──────────────────────────────
-    async function runQuickSearch() {
-      var q = document.getElementById('quickSearch').value.trim();
-      if (!q || q.length < 2) return;
-      var sec = document.getElementById('quickSearchSection');
-      var box = document.getElementById('quickSearchResults');
-      sec.style.display = '';
-      box.innerHTML = '<p style="color:var(--muted)">Suche laeuft...</p>';
-      try {
-        var r = await fetch('/api/search?q=' + encodeURIComponent(q) + '&type=all&limit=10', { credentials: 'include' });
-        if (!r.ok) { box.innerHTML = '<p style="color:var(--bad)">Fehler: ' + r.status + '</p>'; return; }
-        var data = await r.json();
-        var results = (data.data && data.data.results) || data.results || [];
-        var total = (data.data && data.data.total) || data.total || 0;
-        if (!results.length) { box.innerHTML = '<p style="color:var(--muted)">Keine Treffer</p>'; return; }
-        var html = '<div style="font-size:12px;color:var(--muted);margin-bottom:8px">' + total + ' Treffer</div>';
-        results.forEach(function(item) {
-          var title = item.company_name || item.name || item.title || item.role || item.skill_name || 'Unbekannt';
-          var idx = item._index || '';
-          html += '<div style="padding:6px 0;border-bottom:1px solid var(--line);font-size:13px">' +
-            '<strong>' + esc(title) + '</strong>' +
-            (idx ? ' <span style="font-size:10px;color:var(--muted)">[' + esc(idx) + ']</span>' : '') + '</div>';
-        });
-        box.innerHTML = html;
-      } catch (e) {
-        box.innerHTML = '<p style="color:var(--bad)">Fehler: ' + esc(e.message) + '</p>';
-      }
-    }
-
-    // ── Platform Health laden ─────────────────────
-    async function loadHealth() {
-      var grid = document.getElementById('healthGrid');
-      try {
-        var healthR = await fetch('/api/health', { credentials: 'include' });
-        var health = healthR.ok ? await healthR.json() : { ok: false };
-
-        var searchR = await fetch('/api/search/status', { credentials: 'include' });
-        var searchData = searchR.ok ? await searchR.json() : null;
-        var search = (searchData && searchData.data) || searchData || {};
-
-        var tiles = [
-          { label: 'Datenbank', val: health.ok ? 'Online' : 'Offline', color: health.ok ? 'var(--good)' : 'var(--bad)' },
-          { label: 'API Service', val: health.service || 'api', color: 'var(--good)' },
-          { label: 'Search Engine', val: search.available ? (search.engine || 'Active') : 'Fallback', color: search.available ? 'var(--good)' : 'var(--warn)' },
-          { label: 'Search Indexes', val: (search.availableIndexes || []).length || 0, color: 'var(--brand)' }
-        ];
-        grid.innerHTML = tiles.map(function(t) {
-          return '<div class="kpi-tile"><span class="kpi-val" style="color:' + t.color + ';font-size:20px">' + esc(String(t.val)) + '</span><span class="kpi-label">' + esc(t.label) + '</span></div>';
-        }).join('');
-      } catch (e) {
-        grid.innerHTML = '<p style="color:var(--bad);font-size:13px">Health-Status konnte nicht geladen werden</p>';
-      }
-    }
-
-    // ── Capacity Exchange stats ──────────────────
-    async function loadCeStats() {
-      var grid = document.getElementById('ceGrid');
-      try {
-        var r = await fetch('/api/capacity-exchange/feed?limit=1', { credentials: 'include' });
-        var sR = await fetch('/api/marketplace/search-jobs?limit=1', { credentials: 'include' });
-        var feed = r.ok ? await r.json() : {};
-        var sj = sR.ok ? await sR.json() : {};
-        var posts = (feed.data && feed.data.pagination) ? feed.data.pagination.total : (feed.total || '–');
-        var jobs = (sj.data && sj.data.pagination) ? sj.data.pagination.total : (sj.total || '–');
-        grid.innerHTML = [
-          {label:'Kapazitäts-Posts',val:posts,color:'var(--brand)'},
-          {label:'Such-Aufträge',val:jobs,color:'#7c5cff'},
-        ].map(function(t){return '<div class="kpi-tile"><span class="kpi-val" style="color:'+t.color+'">'+esc(String(t.val))+'</span><span class="kpi-label">'+esc(t.label)+'</span></div>'}).join('');
-      } catch(e) { grid.innerHTML = '<p style="color:var(--muted);font-size:13px">Keine CE-Daten</p>'; }
-    }
-
-    // ── Activity Feed mini-timeline ────────────────
-    async function loadActivityFeed() {
-      var box = document.getElementById('activityTimeline');
-      try {
-        var r = await fetch('/api/activity-feed?limit=8', { credentials: 'include' });
-        if (!r.ok) { box.innerHTML = '<p style="color:var(--muted);font-size:13px">–</p>'; return; }
-        var data = await r.json();
-        var items = (data.data && data.data.items) || data.items || [];
-        if (!items.length) { box.innerHTML = '<p style="color:var(--muted);font-size:13px">Keine Aktivitäten</p>'; return; }
-        box.innerHTML = items.map(function(ev) {
-          var when = ev.created_at ? new Date(ev.created_at).toLocaleString('de-DE',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}) : '';
-          return '<div class="timeline-item"><div class="timeline-dot"></div><div><div>'+esc(ev.description||ev.event_type||'Aktion')+'</div><div class="timeline-time">'+when+'</div></div></div>';
-        }).join('');
-      } catch(e) { box.innerHTML = '<p style="color:var(--muted);font-size:13px">Fehler</p>'; }
-    }
-
-    init();
-    loadHealth();
-    loadCeStats();
-    loadActivityFeed();
-  </script>
+  <script src="/public/js/pageShell.js"></script>
   <script src="/public/js/notifications.js"></script>
-  <div id="tc-footer" data-tc-footer></div>
-  <script src="/public/js/footer.js"></script>
-  <script src="/public/js/logout-btn.js"></script>
+  <script src="/public/js/onboardingChecklist.js" defer></script>
+<script src="/public/js/footer.js"></script>
+<script src="/public/js/demoBanner.js" defer></script>
+<script src="/public/js/onboardingWizard.js" defer></script>
+<script src="/public/js/breadcrumb.js" defer></script>
 </body>
 </html>

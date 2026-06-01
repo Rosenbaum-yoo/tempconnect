@@ -3,13 +3,14 @@
 <head>
   <meta charset="utf-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <script src="/public/js/theme.js"></script>
   <title>Gespeicherte Suchaufträge – TempConnect</title>
   <link rel="stylesheet" href="/public/css/enterprise.css"/>
   <style>.item-row{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;padding:12px 0;border-bottom:1px solid var(--line);}.item-row:last-child{border-bottom:none;}</style>
 </head>
 <body data-sla-guard="sla_access">
   <div id="paywall" class="wrap" style="display:none">
-    <div class="topbar"><span class="brand">TempConnect</span><a href="/" class="btn">Startseite</a></div>
+    <nav class="ds-topbar"><div class="ds-topbar__brand"><span class="ds-topbar__brand-dot"></span>TempConnect</div><div class="ds-topbar__nav"><a href="/" class="ds-btn">Startseite</a></div></nav>
     <div class="paywall-box">
       <h2>Bereich nicht verfügbar</h2>
       <p>Das Feature &quot;<span id="paywall-feature-name">Pulse-Bereich</span>&quot; ist mit deinem aktuellen Plan nicht nutzbar.</p>
@@ -18,13 +19,7 @@
     </div>
   </div>
   <div id="main-content" class="wrap">
-    <div class="topbar" data-notif-topbar>
-      <span class="brand">TempConnect – Gespeicherte Suchaufträge</span>
-      <a href="/" class="btn">Startseite</a>
-      <a href="/public/enterprise.html" class="btn">Übersicht</a>
-      <a href="/public/capacity_search.html" class="btn">Kapazitätssuche</a>
-      <a href="/public/company_requests.html" class="btn">Meine Anfragen</a>
-    </div>
+    <div id="tc-shell"></div>
     <h1>Gespeicherte Suchaufträge</h1>
     <p style="color:var(--muted);margin:0 0 16px">Laufende Suchaufträge – Detail ansehen oder neuen anlegen.</p>
     <div id="list"></div>
@@ -43,14 +38,14 @@
       var list = document.getElementById("list");
       if (!list) return;
       if (!Array.isArray(jobs) || jobs.length === 0) {
-        list.innerHTML = "<div class=\"empty\">Noch keine Suchaufträge. <a href=\"/public/capacity_search.html\">Kapazitätssuche</a> &rarr; Suchauftrag anlegen.</div>";
+        list.innerHTML = "<div class=\"empty\">Noch keine Suchaufträge. <a href=\"/public/capacity_search.html\">Personal finden</a> &rarr; Suchauftrag anlegen.</div>";
         return;
       }
       var html = "";
       jobs.forEach(function(j) {
         var title = esc(j.title || "Suchauftrag");
         var status = (j.status || "open");
-        var sla = j.sla_status ? " · " + esc(j.sla_status) : "";
+        var sla = j.sla_status ? " – " + esc(j.sla_status) : "";
         html += "<div class=\"card\"><div class=\"item-row\"><div><strong>" + title + "</strong> <span class=\"tag muted\">" + status + sla + "</span></div><a href=\"/public/sla_search_job_detail.html?id=" + encodeURIComponent(j.id) + "\" class=\"btn primary\">Details</a></div></div>";
       });
       list.innerHTML = html;
@@ -59,9 +54,10 @@
       if (list) list.innerHTML = "<div class=\"empty\">Suchaufträge konnten nicht geladen werden.</div>";
     });
   </script>
-  <script src="/public/js/notifications.js"></script>
+  <script src="/public/js/pageShell.js"></script>`n  <script src="/public/js/notifications.js"></script>
   <div id="tc-footer" data-tc-footer></div>
   <script src="/public/js/footer.js"></script>
-  <script src="/public/js/logout-btn.js"></script>
+<script src="/public/js/demoBanner.js" defer></script>
+<script src="/public/js/onboardingWizard.js" defer></script><script src="/public/js/breadcrumb.js" defer></script>
 </body>
 </html>

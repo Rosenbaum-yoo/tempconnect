@@ -1,0 +1,252 @@
+/* ═══════════════════════════════════════════════════════
+   Timesheets — Page-Specific Styles
+   ═══════════════════════════════════════════════════════ */
+
+/* ── Status Badges ────────────────────────────────────── */
+.ts-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 10px;
+  border-radius: 20px;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+.ts-badge--draft     { background: rgba(148, 163, 184, .15); color: #94a3b8; }
+.ts-badge--submitted { background: rgba(251, 191, 36, .12);  color: #f59e0b; }
+.ts-badge--approved  { background: rgba(52, 211, 153, .12);  color: #10b981; }
+.ts-badge--rejected  { background: rgba(248, 113, 113, .12); color: #ef4444; }
+.ts-badge--cancelled { background: rgba(148, 163, 184, .08); color: #64748b; }
+
+/* ── Table ────────────────────────────────────────────── */
+.ts-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+.ts-table th {
+  padding: 10px 14px;
+  text-align: left;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  color: var(--ds-text-secondary, var(--muted));
+  border-bottom: 1px solid var(--ds-border, var(--line));
+}
+.ts-table td {
+  padding: 12px 14px;
+  border-bottom: 1px solid rgba(255, 255, 255, .04);
+  vertical-align: top;
+}
+.ts-table tr:last-child td { border-bottom: none; }
+.ts-table tr:hover td      { background: rgba(255, 255, 255, .025); }
+.ts-worker  { font-weight: 600; font-size: 13px; }
+.ts-period  { font-size: 12px; color: var(--ds-text-secondary, var(--muted)); margin-top: 2px; }
+.ts-hours   { font-weight: 700; font-size: 15px; }
+.ts-hours-ot { font-size: 11px; color: var(--ds-text-secondary); }
+.ts-actions  { display: flex; gap: 6px; flex-wrap: wrap; }
+
+/* ── Filter Bar ───────────────────────────────────────── */
+.ts-filter-bar {
+  display: flex;
+  gap: var(--ds-space-2);
+  flex-wrap: wrap;
+  align-items: flex-end;
+  margin-bottom: var(--ds-space-4);
+}
+.ts-filter-bar label {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--ds-text-secondary);
+}
+.ts-filter-bar input,
+.ts-filter-bar select { font-size: 13px; padding: 7px 10px; }
+
+/* ── Toolbar ──────────────────────────────────────────── */
+.ts-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: var(--ds-space-4);
+  flex-wrap: wrap;
+  gap: var(--ds-space-2);
+}
+.ts-total-bar {
+  display: flex;
+  gap: var(--ds-space-4);
+  margin-bottom: var(--ds-space-3);
+  flex-wrap: wrap;
+}
+.ts-kpi {
+  background: rgba(255, 255, 255, .03);
+  border: 1px solid var(--ds-border, var(--line));
+  border-radius: 10px;
+  padding: var(--ds-space-3) var(--ds-space-4);
+  min-width: 120px;
+}
+.ts-kpi__val   { font-size: 24px; font-weight: 800; }
+.ts-kpi__label { font-size: 11px; color: var(--ds-text-secondary); margin-top: 2px; }
+
+/* ── Modal ────────────────────────────────────────────── */
+.modal-overlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, .6);
+  z-index: 1000;
+  align-items: center;
+  justify-content: center;
+}
+.modal-overlay.active { display: flex; }
+.modal-box {
+  background: var(--ds-bg, var(--bg));
+  border: 1px solid var(--ds-border, var(--line));
+  border-radius: 16px;
+  padding: var(--ds-space-6);
+  max-width: 600px;
+  width: 100%;
+  max-height: 90vh;
+  overflow-y: auto;
+}
+.modal-box--wide { max-width: 720px; }
+.modal-box h3 {
+  margin: 0 0 var(--ds-space-4);
+  font-size: 16px;
+  font-weight: 800;
+}
+.form-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--ds-space-3);
+}
+.form-field {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  margin-bottom: var(--ds-space-3);
+}
+.form-field label {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--ds-text-secondary);
+}
+.form-field input,
+.form-field select,
+.form-field textarea { font-size: 13px; padding: 8px 12px; }
+.modal-actions {
+  display: flex;
+  gap: var(--ds-space-2);
+  justify-content: flex-end;
+  margin-top: var(--ds-space-4);
+  padding-top: var(--ds-space-4);
+  border-top: 1px solid var(--ds-border, var(--line));
+}
+
+/* ── Entry Cards ──────────────────────────────────────── */
+.entry-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: var(--ds-space-2);
+  margin-top: var(--ds-space-3);
+}
+.entry-card {
+  background: rgba(255, 255, 255, .03);
+  border: 1px solid var(--ds-border, var(--line));
+  border-radius: 10px;
+  padding: var(--ds-space-3);
+}
+.entry-card__date   { font-weight: 700; font-size: 13px; margin-bottom: 6px; }
+.entry-card__hours  { font-size: 22px; font-weight: 800; }
+.entry-card__detail { font-size: 11px; color: var(--ds-text-secondary); margin-top: 2px; }
+
+/* ── Locked State ─────────────────────────────────────── */
+.locked-overlay { text-align: center; padding: var(--ds-space-8) var(--ds-space-6); }
+.locked-overlay .lock-icon {
+  font-size: 48px;
+  opacity: 0.3;
+  margin-bottom: var(--ds-space-4);
+}
+.locked-overlay h2 {
+  font-size: 22px;
+  font-weight: 800;
+  margin: 0 0 var(--ds-space-3);
+}
+.locked-overlay p {
+  font-size: 14px;
+  color: var(--ds-text-secondary);
+  max-width: 480px;
+  margin: 0 auto var(--ds-space-5);
+  line-height: 1.7;
+}
+
+/* ── Empty State ──────────────────────────────────────── */
+.ts-empty {
+  text-align: center;
+  padding: var(--ds-space-8);
+  color: var(--ds-text-secondary);
+}
+.ts-empty__icon {
+  font-size: 40px;
+  opacity: 0.3;
+  margin-bottom: var(--ds-space-3);
+}
+
+/* ── Table Wrap ───────────────────────────────────────── */
+.ts-table-wrap {
+  border: 1px solid var(--ds-border, var(--line));
+  border-radius: var(--ds-radius-lg, 12px);
+  overflow: hidden;
+}
+
+/* ── Reject Form ──────────────────────────────────────── */
+.ts-reject-form {
+  margin-top: var(--ds-space-3);
+  border: 1px solid rgba(248, 113, 113, .3);
+  border-radius: 10px;
+  padding: var(--ds-space-4);
+}
+
+/* ── Entry Inline Form ────────────────────────────────── */
+.ts-entry-form {
+  display: none;
+  margin-top: var(--ds-space-3);
+  border: 1px solid var(--ds-border, var(--line));
+  border-radius: 10px;
+  padding: var(--ds-space-4);
+}
+
+/* ── Action Buttons (contextual) ──────────────────────── */
+.btn--approve {
+  background: rgba(52, 211, 153, .15);
+  color: #10b981;
+  border-color: rgba(52, 211, 153, .3);
+}
+.btn--reject {
+  background: rgba(248, 113, 113, .1);
+  color: #ef4444;
+  border-color: rgba(248, 113, 113, .3);
+}
+.btn--delete-entry {
+  margin-top: 8px;
+  font-size: 11px;
+  padding: 3px 8px;
+  color: #ef4444;
+  border-color: rgba(248, 113, 113, .3);
+}
+
+/* Light theme */
+[data-theme="light"] .ts-table td {
+  border-bottom-color: rgba(15, 23, 42, 0.08);
+}
+[data-theme="light"] .ts-table tr:hover td {
+  background: rgba(15, 23, 42, 0.04);
+}
+[data-theme="light"] .ts-kpi,
+[data-theme="light"] .entry-card {
+  background: #ffffff;
+}
+[data-theme="light"] .modal-overlay {
+  background: rgba(15, 23, 42, 0.45);
+}

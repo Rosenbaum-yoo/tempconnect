@@ -1,0 +1,308 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <script src="/public/js/theme.js"></script>
+  <title>Offene Freigaben &ndash; TempConnect</title>
+  <link rel="stylesheet" href="/public/css/enterprise.css"/>
+  <link rel="stylesheet" href="/public/css/approval-badges.css"/>
+</head>
+<body>
+  <div class="wrap">
+    <div id="tc-shell"></div>
+
+    <div class="ds-page-header">
+      <div class="ds-page-header__content">
+        <h1 class="ds-page-title">Offene Freigaben <span id="total-badge" class="approval-badge approval-badge--pending" style="display:none;font-size:13px;vertical-align:middle"></span></h1>
+        <p class="ds-page-subtitle">Alle Vorg&auml;nge, die auf Ihre Entscheidung warten &ndash; Freigaben, Einreichungen, Anfragen und Einsatzbest&auml;tigungen.</p>
+      </div>
+      <div class="ds-page-header__actions">
+        <button id="btn-refresh" class="ds-btn ds-btn--sm" title="Aktualisieren">&#8635; Aktualisieren</button>
+      </div>
+    </div>
+
+    <!-- KPI Strip -->
+    <div class="approval-kpi-strip" id="kpi-strip">
+      <div class="approval-kpi"><span class="approval-kpi__value" id="kpi-total">-</span><span class="approval-kpi__label">Gesamt offen</span></div>
+      <div class="approval-kpi"><span class="approval-kpi__value" id="kpi-approvals" style="color:var(--ds-warning)">-</span><span class="approval-kpi__label">Freigaben</span></div>
+      <div class="approval-kpi"><span class="approval-kpi__value" id="kpi-submissions" style="color:var(--ds-brand)">-</span><span class="approval-kpi__label">Einreichungen</span></div>
+      <div class="approval-kpi"><span class="approval-kpi__value" id="kpi-requests" style="color:var(--ds-accent)">-</span><span class="approval-kpi__label">Anfragen</span></div>
+      <div class="approval-kpi"><span class="approval-kpi__value" id="kpi-assignments" style="color:var(--ds-success)">-</span><span class="approval-kpi__label">Eins&auml;tze</span></div>
+    </div>
+
+    <!-- Filters -->
+    <div class="approval-filters" id="filters">
+      <button class="approval-filter-pill approval-filter-pill--active" data-filter="all">Alle</button>
+      <button class="approval-filter-pill" data-filter="approval_request">Freigaben</button>
+      <button class="approval-filter-pill" data-filter="submission">Einreichungen</button>
+      <button class="approval-filter-pill" data-filter="request">Anfragen</button>
+      <button class="approval-filter-pill" data-filter="assignment_confirmation">Eins&auml;tze</button>
+    </div>
+
+    <!-- Items list -->
+    <div id="items-list" style="display:flex;flex-direction:column;gap:8px">
+      <div class="empty" style="padding:48px 24px;text-align:center">
+        <div style="font-size:13px;color:var(--ds-text-secondary)">Lade offene Freigaben&hellip;</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Decision Modal -->
+  <div class="modal" id="decision-modal">
+    <div class="panel" style="max-width:440px">
+      <h2 id="modal-title" style="font-size:16px;margin:0 0 12px">Entscheidung</h2>
+      <p id="modal-desc" style="font-size:13px;color:var(--ds-text-secondary);margin:0 0 14px"></p>
+      <label style="font-size:12px;color:var(--ds-text-secondary);font-weight:700">Begr&uuml;ndung (optional)</label>
+      <textarea id="modal-reason" class="approval-reason" placeholder="Optionale Begr&uuml;ndung&hellip;"></textarea>
+      <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:12px">
+        <button class="ds-btn ds-btn--sm" id="modal-cancel">Abbrechen</button>
+        <button class="approval-btn approval-btn--reject ds-btn--sm" id="modal-reject" style="display:none">Ablehnen</button>
+        <button class="approval-btn approval-btn--approve ds-btn--sm" id="modal-approve" style="display:none">Freigeben</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- History / Audit Drawer -->
+  <div class="modal" id="history-modal">
+    <div class="panel" style="max-width:520px;max-height:80vh;overflow-y:auto">
+      <h2 style="font-size:16px;margin:0 0 14px">Freigabe-Historie</h2>
+      <div id="history-list" style="font-size:13px;color:var(--ds-text-secondary)">Lade&hellip;</div>
+      <div style="text-align:right;margin-top:14px"><button class="ds-btn ds-btn--sm" id="history-close">Schlie&szlig;en</button></div>
+    </div>
+  </div>
+
+  <script src="/public/js/notifications.js" defer></script>
+  <script src="/public/js/demoBanner.js" defer></script>
+  <script src="/public/js/onboardingWizard.js" defer></script>
+  <script src="/public/js/pageShell.js"></script>
+  <script src="/public/js/footer.js"></script>
+  <script>
+  (function() {
+    "use strict";
+
+    var _csrf = null;
+    var _items = [];
+    var _filter = "all";
+
+    /* ── Helpers ──────────────────────────────────────────── */
+    function esc(s) { var d = document.createElement("div"); d.textContent = s; return d.innerHTML; }
+    function relTime(iso) {
+      var s = (Date.now() - new Date(iso).getTime()) / 1000;
+      if (s < 60) return "gerade eben";
+      if (s < 3600) return Math.floor(s / 60) + " Min.";
+      if (s < 86400) return Math.floor(s / 3600) + " Std.";
+      return Math.floor(s / 86400) + " Tg.";
+    }
+    function getCsrf() {
+      if (_csrf) return Promise.resolve(_csrf);
+      return fetch("/api/csrf", { credentials: "include" })
+        .then(function(r) { return r.ok ? r.json() : {}; })
+        .then(function(d) { _csrf = d.csrfToken || d.token || null; return _csrf; });
+    }
+
+    /* ── KPI ──────────────────────────────────────────────── */
+    function updateKpis(summary) {
+      document.getElementById("kpi-total").textContent = summary.total;
+      document.getElementById("kpi-approvals").textContent = summary.approval_requests;
+      document.getElementById("kpi-submissions").textContent = summary.submissions;
+      document.getElementById("kpi-requests").textContent = summary.requests;
+      document.getElementById("kpi-assignments").textContent = summary.assignments;
+      var badge = document.getElementById("total-badge");
+      if (summary.total > 0) {
+        badge.textContent = summary.total;
+        badge.style.display = "inline-flex";
+      } else {
+        badge.style.display = "none";
+      }
+    }
+
+    /* ── Render ───────────────────────────────────────────── */
+    function render() {
+      var list = document.getElementById("items-list");
+      var filtered = _filter === "all" ? _items : _items.filter(function(i) { return i.type === _filter; });
+
+      if (!filtered.length) {
+        var msg = _items.length ? "Keine Eintr\u00e4ge in dieser Kategorie." : "Keine offenen Freigaben \u2014 alles erledigt!";
+        list.innerHTML =
+          '<div style="padding:48px 24px;text-align:center">' +
+            '<div style="font-size:36px;margin-bottom:12px;opacity:.5">&#10003;</div>' +
+            '<div style="color:var(--ds-text-secondary);font-size:14px">' + esc(msg) + '</div>' +
+          '</div>';
+        return;
+      }
+
+      list.innerHTML = filtered.map(function(item) {
+        var badge = '<span class="approval-badge approval-badge--' + esc(item.badge) + '">' +
+                    '<span class="approval-badge__dot"></span>' + esc(item.status_label) + '</span>';
+
+        var actions = '';
+        if (item.type === "approval_request" && item.can_decide) {
+          actions =
+            '<button class="approval-btn approval-btn--approve" data-action="approve" data-id="' + esc(item.id) + '" title="Freigeben">&#10003;</button>' +
+            '<button class="approval-btn approval-btn--reject" data-action="reject" data-id="' + esc(item.id) + '" title="Ablehnen">&#10007;</button>';
+        } else if (item.link_path) {
+          actions = '<a href="' + esc(item.link_path) + '" class="approval-btn approval-btn--review">&ouml;ffnen &rarr;</a>';
+        }
+
+        var historyBtn = item.type === "approval_request"
+          ? ' <button class="approval-btn" data-history="' + esc(item.entity_type) + ':' + esc(item.entity_id) + '" style="padding:4px 8px;font-size:11px" title="Historie">&#128337;</button>'
+          : '';
+
+        return '<div class="approval-item" data-item-id="' + esc(item.id) + '">' +
+          '<div class="approval-item__icon">' + (item.icon || '&#128203;') + '</div>' +
+          '<div class="approval-item__body">' +
+            '<p class="approval-item__title">' + esc(item.title) + '</p>' +
+            '<p class="approval-item__meta">' +
+              badge +
+              '<span>' + esc(item.subtitle || '') + '</span>' +
+              '<span>' + relTime(item.created_at) + '</span>' +
+              (item.total_hours ? '<span>' + item.total_hours + ' Std.</span>' : '') +
+              (item.sla_status && item.sla_status !== 'OK' ? '<span class="approval-badge approval-badge--rejected" style="font-size:10px">' + esc(item.sla_status) + '</span>' : '') +
+            '</p>' +
+          '</div>' +
+          '<div class="approval-item__actions">' + actions + historyBtn + '</div>' +
+        '</div>';
+      }).join("");
+    }
+
+    /* ── Fetch ────────────────────────────────────────────── */
+    function load() {
+      fetch("/api/approvals/my-pending", { credentials: "include" })
+        .then(function(r) {
+          if (r.status === 401) { window.location.href = "/"; return null; }
+          return r.ok ? r.json() : null;
+        })
+        .then(function(data) {
+          if (!data) return;
+          _items = data.items || [];
+          updateKpis(data.summary || { total: 0, approval_requests: 0, submissions: 0, requests: 0, assignments: 0 });
+          render();
+        })
+        .catch(function(e) {
+          document.getElementById("items-list").innerHTML =
+            '<div class="empty" style="padding:24px;text-align:center;color:var(--ds-danger)">' +
+            'Fehler beim Laden: ' + esc(e.message) + '</div>';
+        });
+    }
+
+    /* ── Filters ──────────────────────────────────────────── */
+    document.getElementById("filters").addEventListener("click", function(e) {
+      var btn = e.target.closest("[data-filter]");
+      if (!btn) return;
+      _filter = btn.dataset.filter;
+      document.querySelectorAll(".approval-filter-pill").forEach(function(p) {
+        p.classList.toggle("approval-filter-pill--active", p.dataset.filter === _filter);
+      });
+      render();
+    });
+
+    /* ── Inline Approve/Reject (approval_requests) ───────── */
+    var _pendingAction = null;
+    var _pendingId = null;
+
+    document.getElementById("items-list").addEventListener("click", function(e) {
+      var actionBtn = e.target.closest("[data-action]");
+      if (actionBtn) {
+        _pendingAction = actionBtn.dataset.action;
+        _pendingId = actionBtn.dataset.id;
+        var modal = document.getElementById("decision-modal");
+        var item = _items.find(function(i) { return i.id === _pendingId; });
+        document.getElementById("modal-title").textContent = _pendingAction === "approve" ? "Freigeben" : "Ablehnen";
+        document.getElementById("modal-desc").textContent = item ? item.title + " \u2014 " + item.subtitle : "";
+        document.getElementById("modal-reason").value = "";
+        document.getElementById("modal-approve").style.display = _pendingAction === "approve" ? "inline-flex" : "none";
+        document.getElementById("modal-reject").style.display = _pendingAction === "reject" ? "inline-flex" : "none";
+        modal.classList.add("show");
+        return;
+      }
+      // History button
+      var histBtn = e.target.closest("[data-history]");
+      if (histBtn) {
+        var parts = histBtn.dataset.history.split(":");
+        loadHistory(parts[0], parts[1]);
+      }
+    });
+
+    document.getElementById("modal-cancel").addEventListener("click", function() {
+      document.getElementById("decision-modal").classList.remove("show");
+    });
+
+    function executeDecision(action) {
+      if (!_pendingId) return;
+      var reason = document.getElementById("modal-reason").value.trim() || null;
+      getCsrf().then(function(csrf) {
+        return fetch("/api/approvals/" + encodeURIComponent(_pendingId) + "/" + action, {
+          method: "POST",
+          credentials: "include",
+          headers: { "Content-Type": "application/json", "x-csrf-token": csrf },
+          body: JSON.stringify({ reason: reason })
+        });
+      }).then(function(r) {
+        if (!r.ok) throw new Error("Fehler: " + r.status);
+        document.getElementById("decision-modal").classList.remove("show");
+        // Remove item from list
+        _items = _items.filter(function(i) { return i.id !== _pendingId; });
+        _pendingId = null;
+        _pendingAction = null;
+        var summary = {
+          total: _items.length,
+          approval_requests: _items.filter(function(i) { return i.type === "approval_request"; }).length,
+          submissions: _items.filter(function(i) { return i.type === "submission"; }).length,
+          requests: _items.filter(function(i) { return i.type === "request"; }).length,
+          assignments: _items.filter(function(i) { return i.type === "assignment_confirmation"; }).length
+        };
+        updateKpis(summary);
+        render();
+      }).catch(function(e) {
+        alert("Aktion fehlgeschlagen: " + e.message);
+      });
+    }
+
+    document.getElementById("modal-approve").addEventListener("click", function() { executeDecision("approve"); });
+    document.getElementById("modal-reject").addEventListener("click", function() { executeDecision("reject"); });
+
+    /* ── History ──────────────────────────────────────────── */
+    function loadHistory(entityType, entityId) {
+      var modal = document.getElementById("history-modal");
+      var list = document.getElementById("history-list");
+      list.innerHTML = "Lade&hellip;";
+      modal.classList.add("show");
+      fetch("/api/approvals/history/" + encodeURIComponent(entityType) + "/" + encodeURIComponent(entityId), { credentials: "include" })
+        .then(function(r) { return r.ok ? r.json() : { items: [] }; })
+        .then(function(data) {
+          var items = data.items || [];
+          if (!items.length) { list.innerHTML = "Keine Historie vorhanden."; return; }
+          list.innerHTML = items.map(function(h) {
+            var badge = h.status === "approved" ? "approved" : h.status === "rejected" ? "rejected" : h.status === "expired" ? "expired" : "pending";
+            return '<div style="padding:8px 0;border-bottom:1px solid rgba(255,255,255,.06)">' +
+              '<span class="approval-badge approval-badge--' + badge + '" style="margin-right:8px">' +
+                '<span class="approval-badge__dot"></span>' + esc(h.status) +
+              '</span>' +
+              '<span style="font-size:12px">' + esc(h.requested_by_email || '') + '</span>' +
+              (h.approved_by_email ? ' &rarr; <span style="font-size:12px">' + esc(h.approved_by_email) + '</span>' : '') +
+              (h.reason ? '<div style="font-size:11px;color:var(--ds-text-tertiary);margin-top:2px">' + esc(h.reason) + '</div>' : '') +
+              '<div style="font-size:10px;color:var(--ds-text-tertiary)">' + new Date(h.created_at).toLocaleString("de-DE") + '</div>' +
+            '</div>';
+          }).join("");
+        })
+        .catch(function() { list.innerHTML = "Fehler beim Laden der Historie."; });
+    }
+
+    document.getElementById("history-close").addEventListener("click", function() {
+      document.getElementById("history-modal").classList.remove("show");
+    });
+
+    /* ── Refresh ──────────────────────────────────────────── */
+    document.getElementById("btn-refresh").addEventListener("click", load);
+
+    /* ── Auto-Refresh (60s) ──────────────────────────────── */
+    setInterval(load, 60000);
+
+    /* ── Init ─────────────────────────────────────────────── */
+    load();
+  })();
+  </script>
+<script src="/public/js/breadcrumb.js" defer></script>
+</body>
+</html>

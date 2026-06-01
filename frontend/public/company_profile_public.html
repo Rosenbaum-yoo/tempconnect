@@ -1,8 +1,9 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="de">
 <head>
   <meta charset="utf-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <script src="/public/js/theme.js"></script>
   <title>Firmenprofil – TempConnect</title>
   <link rel="stylesheet" href="/public/css/enterprise.css"/>
   <style>
@@ -27,32 +28,150 @@
     .pp-kpi .l{font-size:10px;color:var(--ds-text-secondary);text-transform:uppercase;letter-spacing:.06em}
     .pp-empty{color:var(--ds-text-tertiary);font-size:13px;padding:var(--ds-space-3) 0}
     .pp-loading{text-align:center;padding:var(--ds-space-10);color:var(--ds-text-secondary)}
+    /* M-08: Marketplace Visibility Badges */
+    .pp-marketplace-badge{display:inline-flex;align-items:center;gap:5px;font-size:10px;font-weight:700;padding:3px 10px;border-radius:var(--ds-radius-full);text-transform:uppercase;letter-spacing:.05em;background:rgba(57,217,138,.12);color:var(--ds-success);border:1px solid rgba(57,217,138,.25);white-space:nowrap}
+    .pp-featured-badge{display:inline-flex;align-items:center;gap:5px;font-size:10px;font-weight:700;padding:3px 10px;border-radius:var(--ds-radius-full);text-transform:uppercase;letter-spacing:.05em;background:rgba(251,191,36,.12);color:#f5b43e;border:1px solid rgba(251,191,36,.25);white-space:nowrap}
+
+    /* Strategic collaboration CTA (public profile) */
+    .scr-cta-card{margin:var(--ds-space-6) 0 var(--ds-space-6);border:1px solid var(--ds-border);border-radius:var(--ds-radius-lg);background:rgba(255,255,255,.02);padding:var(--ds-space-5)}
+    .scr-cta-title{font-size:14px;font-weight:800;text-transform:uppercase;letter-spacing:.05em;color:var(--ds-text-secondary);margin-bottom:var(--ds-space-3)}
+    .scr-cta-desc{font-size:13px;color:var(--ds-text-secondary);line-height:1.6;margin:0 0 var(--ds-space-3)}
+    .scr-modal-backdrop{position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:1000;display:none}
+    .scr-modal{position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);width:min(860px, calc(100vw - 24px));max-height:calc(100vh - 24px);overflow:auto;z-index:1001;display:none;border:1px solid var(--ds-border);border-radius:var(--ds-radius-lg);background:var(--ds-bg-surface);padding:var(--ds-space-5)}
+    .scr-modal-header{display:flex;justify-content:space-between;align-items:flex-start;gap:var(--ds-space-4);margin-bottom:var(--ds-space-4)}
+    .scr-modal-header h3{margin:0;font-size:18px;font-weight:900}
+    .scr-modal-header p{margin:4px 0 0;font-size:12px;color:var(--ds-text-secondary);line-height:1.5;max-width:560px}
+    .scr-grid{display:grid;grid-template-columns:1fr 1fr;gap:var(--ds-space-3)}
+    @media(max-width:720px){.scr-grid{grid-template-columns:1fr}}
+    .scr-field{display:flex;flex-direction:column;gap:6px}
+    .scr-label{font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.04em;color:var(--ds-text-secondary)}
+    .scr-input,.scr-textarea{padding:10px 12px;border-radius:var(--ds-radius-sm);border:1px solid var(--ds-border);background:rgba(255,255,255,.04);color:var(--ds-text);font-size:14px;font-family:inherit}
+    .scr-input:focus,.scr-textarea:focus{border-color:var(--ds-accent);outline:none;background:rgba(124,92,255,.04)}
+    .scr-textarea{resize:vertical;min-height:90px}
+    .scr-row-full{grid-column:1/-1}
+    .scr-actions{display:flex;justify-content:space-between;align-items:center;gap:var(--ds-space-3);margin-top:var(--ds-space-4);border-top:1px solid var(--ds-border);padding-top:var(--ds-space-3);flex-wrap:wrap}
+    .scr-hint{font-size:12px;color:var(--ds-text-secondary);line-height:1.5;max-width:520px}
   </style>
 </head>
 <body>
   <div class="wrap">
-    <div class="topbar">
-      <span class="brand"><span style="width:10px;height:10px;border-radius:50%;background:linear-gradient(135deg,var(--brand),var(--brand2));display:inline-block;margin-right:8px"></span>TempConnect</span>
-      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
-        <a href="/" class="btn">Startseite</a>
-        <a href="/public/enterprise.html" class="btn">Übersicht</a>
-        <a href="/public/sla_profil.html" class="btn">Mein Profil</a>
-      </div>
-    </div>
+    <div id="tc-shell"></div>
 
-    <div id="pp-loading" class="pp-loading">Profil wird geladen …</div>
+    <div id="pp-loading" class="pp-loading">Profil wird geladen –</div>
     <div id="pp-main" style="display:none">
       <!-- Hero -->
       <div class="pp-hero" id="pp-hero"></div>
+      <!-- M-08: Marketplace Visibility Badge (injected after visibility check) -->
+      <div id="pp-vis-badge-area" style="display:none;margin:-12px 0 var(--ds-space-4);padding-left:4px"></div>
 
       <!-- Completeness -->
       <div id="pp-completeness" style="display:none;margin-bottom:var(--ds-space-6)"></div>
+
+      <!-- Strategic collaboration CTA -->
+      <div id="scr-cooperation-cta" style="display:none">
+        <div class="scr-cta-card">
+          <div class="scr-cta-title">Interesse an strategischer Zusammenarbeit</div>
+          <p class="scr-cta-desc">
+            Hier koennen Sie qualifiziertes Kooperationsinteresse an eine moegliche Rahmenkondition anfragen —
+            ohne sofortigen Vertragsabschluss.
+          </p>
+          <button id="scr-cooperation-open" class="ds-btn" style="max-width:420px;width:100%" disabled>
+            Anfrage starten
+          </button>
+          <div id="scr-cooperation-hint" style="margin-top:var(--ds-space-2);font-size:12px;color:var(--ds-text-secondary)"></div>
+        </div>
+      </div>
 
       <!-- Grid -->
       <div class="pp-grid" id="pp-grid"></div>
 
       <!-- Scorecard -->
       <div id="pp-scorecard" style="display:none;margin-top:var(--ds-space-6)"></div>
+
+      <!-- Bounty Badges -->
+      <div id="pp-bounty-badges" style="display:none;margin-top:var(--ds-space-4)"></div>
+
+    <!-- Strategic collaboration modal -->
+    <div id="scr-modal-backdrop" class="scr-modal-backdrop"></div>
+    <div id="scr-modal" class="scr-modal" role="dialog" aria-modal="true" aria-labelledby="scr-modal-title">
+      <div class="scr-modal-header">
+        <div>
+          <h3 id="scr-modal-title">Kooperationsinteresse fuer individuellen Tarif senden</h3>
+          <p>
+            Ihre Anfrage dient der qualifizierten Anbahnung. TempConnect schliesst hier keinen Rahmenvertrag direkt fuer Sie ab.
+          </p>
+        </div>
+        <button id="scr-modal-close" class="ds-btn ds-btn--ghost" style="font-size:12px">Schliessen</button>
+      </div>
+
+      <form id="scr-modal-form" autocomplete="off">
+        <div class="scr-grid">
+          <div class="scr-field">
+            <div class="scr-label">Anfrage-Unternehmen</div>
+            <input class="scr-input" id="scr-requester-company" disabled />
+          </div>
+          <div class="scr-field">
+            <div class="scr-label">Ansprechpartner</div>
+            <input class="scr-input" id="scr-requester-contact" disabled />
+          </div>
+          <div class="scr-field">
+            <div class="scr-label">E-Mail</div>
+            <input class="scr-input" id="scr-requester-email" disabled />
+          </div>
+          <div class="scr-field">
+            <div class="scr-label">Telefon (optional)</div>
+            <input class="scr-input" id="scr-requester-phone" />
+          </div>
+
+          <div class="scr-field">
+            <div class="scr-label">Region / Scope (optional)</div>
+            <input class="scr-input" id="scr-region-scope" placeholder="z.B. DACH, EU, mehrere Regionen" />
+          </div>
+          <div class="scr-field">
+            <div class="scr-label">Anzahl Standorte (optional)</div>
+            <input class="scr-input" id="scr-site-count" type="number" min="1" max="10000" placeholder="z.B. 12" />
+          </div>
+
+          <div class="scr-field scr-row-full">
+            <div class="scr-label">Erwartetes Anfragevolumen (optional)</div>
+            <input class="scr-input" id="scr-expected-volume" placeholder="Kurz beschreiben (z.B. 50+ Stellen/Monat)" />
+          </div>
+
+          <div class="scr-field scr-row-full">
+            <div class="scr-label">Interessen / Rahmenkonditionen</div>
+            <label style="display:flex;gap:10px;align-items:flex-start;margin-top:6px;font-size:13px;color:var(--ds-text-secondary)">
+              <input type="checkbox" id="scr-interest-framework" checked />
+              <span>Interesse an Rahmenkonditionen / strategischer Zusammenarbeit im individuellen Tarif</span>
+            </label>
+            <label style="display:flex;gap:10px;align-items:flex-start;margin-top:10px;font-size:13px;color:var(--ds-text-secondary)">
+              <input type="checkbox" id="scr-interest-strategic" checked />
+              <span>Interesse an strategischer Kooperation (qualifizierte Anbahnung)</span>
+            </label>
+            <label style="display:flex;gap:10px;align-items:flex-start;margin-top:10px;font-size:13px;color:var(--ds-text-secondary)">
+              <input type="checkbox" id="scr-interest-multi-site" checked />
+              <span>Multi-Standort / zentrale Betreuung (Setup fuer individuellen Tarif)</span>
+            </label>
+          </div>
+
+          <div class="scr-field scr-row-full">
+            <div class="scr-label">Kurzbeschreibung / Kontext (optional)</div>
+            <textarea class="scr-textarea" id="scr-message" placeholder="Worum geht es konkret? Welche Eckdaten helfen fuer die qualifizierte Rueckmeldung?"></textarea>
+          </div>
+        </div>
+
+        <div class="scr-actions">
+          <div class="scr-hint">
+            Nach dem Absenden wird die Anfrage im System qualifiziert und zur Bearbeitung im Umfeld des individuellen Tarifs bereitgestellt.
+          </div>
+          <div style="display:flex;gap:var(--ds-space-3);align-items:center">
+            <button type="button" id="scr-modal-cancel" class="ds-btn ds-btn--ghost">Abbrechen</button>
+            <button type="submit" id="scr-modal-submit" class="ds-btn">Senden</button>
+          </div>
+        </div>
+
+        <div id="scr-modal-error" style="display:none;margin-top:var(--ds-space-3);font-size:12px;color:var(--ds-danger)"></div>
+      </form>
+    </div>
     </div>
   </div>
 
@@ -78,6 +197,10 @@
         $("pp-loading").style.display="none";
         $("pp-main").style.display="block";
         render(data);
+        // M-08: fire analytics view (soft-fail, only tracked for approved+public profiles)
+        fireAnalyticsView(data);
+        // M-08: show marketplace visibility badge when viewing another org's profile
+        if (targetId) loadVisibilityBadge(targetId);
       }catch(e){
         $("pp-loading").innerHTML="<p style='color:var(--ds-danger)'>Profil konnte nicht geladen werden.</p>";
       }
@@ -135,7 +258,7 @@
       if(locs.length){
         var locHtml="";
         locs.forEach(function(l){
-          locHtml+="<div class='pp-row'><span>"+esc(l.city||"–")+(l.is_headquarters?" <span class='pp-badge' style='background:var(--ds-success-muted);color:var(--ds-success)'>HQ</span>":"")+"</span><span class='lbl'>"+esc(l.country||"")+(l.radius_km?" · "+l.radius_km+" km":"")+"</span></div>";
+          locHtml+="<div class='pp-row'><span>"+esc(l.city||"–")+(l.is_headquarters?" <span class='pp-badge' style='background:var(--ds-success-muted);color:var(--ds-success)'>HQ</span>":"")+"</span><span class='lbl'>"+esc(l.country||"")+(l.radius_km?" – "+l.radius_km+" km":"")+"</span></div>";
         });
         gridHtml+="<div class='pp-card'><div class='pp-card-title'>Standorte</div>"+locHtml+"</div>";
       }
@@ -180,13 +303,276 @@
         $("pp-scorecard").innerHTML=scHtml;
         $("pp-scorecard").style.display="block";
       }
+
+      // Bounty Badges
+      loadBountyBadges(targetId);
+
+      // Strategic collaboration CTA
+      setupStrategicCollaborationCTA(d);
+    }
+
+    async function setupStrategicCollaborationCTA(profileData){
+      var ctaWrap = $("scr-cooperation-cta");
+      var openBtn = $("scr-cooperation-open");
+      var hintEl = $("scr-cooperation-hint");
+      if (!ctaWrap || !openBtn) return;
+
+      // Only show for authenticated users
+      var me = null;
+      try {
+        var r = await fetch("/api/me", { credentials: "include" });
+        if (!r.ok) { ctaWrap.style.display = "none"; return; }
+        me = await r.json();
+      } catch (e) { ctaWrap.style.display = "none"; return; }
+
+      // Hide when viewing own profile only (no target to cooperate with)
+      if (!targetId) { ctaWrap.style.display = "none"; return; }
+      if (me && targetId && String(me.id) === String(targetId)) { ctaWrap.style.display = "none"; return; }
+
+      // Trust/verification gating
+      var eligibility = null;
+      try {
+        var er = await fetch("/api/strategic-collaboration/eligibility", { credentials: "include" });
+        eligibility = er.ok ? await er.json() : null;
+      } catch (_e) {}
+
+      if (!eligibility || eligibility.allowed !== true) {
+        openBtn.disabled = true;
+        hintEl.textContent = (eligibility && eligibility.reasons && eligibility.reasons.length) ? eligibility.reasons[0] : "Freigabe erforderlich.";
+        ctaWrap.style.display = "block";
+        return;
+      }
+
+      openBtn.disabled = false;
+      hintEl.textContent = "Freigabe vorhanden. Anfrage startet qualifiziert und enterprise-nah.";
+      ctaWrap.style.display = "block";
+
+      openBtn.onclick = function() {
+        openStrategicCollabModal(me, profileData);
+      };
+    }
+
+    function getCsrfToken() {
+      return fetch("/api/csrf", { credentials: "include" }).then(function(r){ return r.ok ? r.json() : { token: "" }; })
+        .then(function(csrf){ return csrf.csrfToken || csrf.token || ""; });
+    }
+
+    function openStrategicCollabModal(me, profileData){
+      var modal = $("scr-modal");
+      var backdrop = $("scr-modal-backdrop");
+      var errEl = $("scr-modal-error");
+      var form = $("scr-modal-form");
+      if (!modal || !backdrop || !form) return;
+
+      errEl.style.display = "none";
+      errEl.textContent = "";
+
+      $("scr-requester-company").value = me.company_name || "";
+      $("scr-requester-contact").value = me.contact_person || "";
+      $("scr-requester-email").value = me.email || "";
+      $("scr-requester-phone").value = me.phone || "";
+
+      // Store modal target in closure
+      var targetUserId = targetId ? String(targetId) : null;
+
+      form.onsubmit = function(ev){
+        ev.preventDefault();
+        errEl.style.display = "none";
+
+        var submitBtn = $("scr-modal-submit");
+        submitBtn.disabled = true;
+
+        var payload = {
+          source_context: "public_profile",
+          target_user_id: targetUserId,
+          target_org_id: null,
+          requester_company_name: String(me.company_name || "").trim(),
+          contact_name: String(me.contact_person || "").trim(),
+          contact_email: String(me.email || "").trim(),
+          contact_phone: (String($("scr-requester-phone").value || "").trim() || null),
+          region_scope: (String($("scr-region-scope").value || "").trim() || null),
+          site_count: (String($("scr-site-count").value || "").trim() ? Number($("scr-site-count").value) : null),
+          expected_volume: (String($("scr-expected-volume").value || "").trim() || null),
+          needs_enterprise_multi_site: $("scr-interest-multi-site").checked === true,
+          interest_enterprise_support: true,
+          interest_framework_conditions: $("scr-interest-framework").checked === true,
+          interest_strategic_cooperation: $("scr-interest-strategic").checked === true,
+          requested_modules: [],
+          message: (String($("scr-message").value || "").trim() || null)
+        };
+
+        getCsrfToken().then(function(csrfToken){
+          return fetch("/api/strategic-collaboration/interest", {
+            method: "POST",
+            headers: { "Content-Type": "application/json", "x-csrf-token": csrfToken },
+            credentials: "include",
+            body: JSON.stringify(payload)
+          });
+        }).then(function(r){
+          return r.json().then(function(data){ return { ok: r.ok, status: r.status, data }; });
+        }).then(function(resp){
+          if (!resp.ok) {
+            var msg = (resp.data && resp.data.reasons && resp.data.reasons.length) ? String(resp.data.reasons[0])
+              : (resp.data && resp.data.error && resp.data.error.message) ? resp.data.error.message
+              : (resp.data && resp.data.error) ? String(resp.data.error)
+              : ("Fehler (HTTP " + resp.status + ")");
+            errEl.textContent = msg;
+            errEl.style.display = "block";
+            return;
+          }
+          errEl.textContent = "Interessenanfrage gesendet. Wir melden uns."; 
+          errEl.style.color = "var(--ds-success)";
+          errEl.style.display = "block";
+          setTimeout(function() { closeStrategicCollabModal(); }, 650);
+        }).catch(function(e){
+          errEl.textContent = e && e.message ? e.message : "Senden fehlgeschlagen.";
+          errEl.style.display = "block";
+        }).finally(function(){
+          submitBtn.disabled = false;
+        });
+      };
+
+      backdrop.style.display = "block";
+      modal.style.display = "block";
+      backdrop.onclick = function(){ closeStrategicCollabModal(); };
+      $("scr-modal-close").onclick = function(){ closeStrategicCollabModal(); };
+      $("scr-modal-cancel").onclick = function(){ closeStrategicCollabModal(); };
+    }
+
+    function closeStrategicCollabModal(){
+      var modal = $("scr-modal");
+      var backdrop = $("scr-modal-backdrop");
+      if (backdrop) backdrop.style.display = "none";
+      if (modal) modal.style.display = "none";
+    }
+
+    /* ── M-08: Analytics View Tracking ───────────────────────
+     * Fires POST /api/profile-analytics/events silently.
+     * Backend hashes IP/UA — no plaintext stored.
+     * Soft-fail: never blocks page or alerts the user.
+     * Only fires for approved+public profiles (backend enforces).
+     */
+    function fireAnalyticsView(d) {
+      try {
+        var orgId = (d.user && d.user.org_id) ? String(d.user.org_id) : null;
+        if (!orgId) return;
+        // Fire-and-forget — no await, no UI feedback
+        fetch("/api/profile-analytics/events", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          credentials: "include",
+          body: JSON.stringify({ org_id: orgId, section: "profile" })
+        }).catch(function() {});
+      } catch(e) {}
+    }
+
+    /* ── M-08: Visibility Badge ───────────────────────────────
+     * Checks if this org's profile is publicly listed in the
+     * Marketplace Visibility Center (status=approved, is_public=true).
+     * Injects badge into #pp-vis-badge-area on success, silent on 404.
+     */
+    function loadVisibilityBadge(userId) {
+      if (!userId) return;
+      fetch("/api/profile-visibility/public/" + encodeURIComponent(userId), {
+        credentials: "include"
+      }).then(function(r) {
+        if (!r.ok) return null;
+        return r.json();
+      }).then(function(res) {
+        if (!res || !res.success) return;
+        var area = $("pp-vis-badge-area");
+        if (!area) return;
+        var html = "<span class='pp-marketplace-badge'>";
+        html += "<svg width='10' height='10' viewBox='0 0 10 10' fill='currentColor' aria-hidden='true'><path d='M5 0L6.12 3.38H9.51L6.88 5.47L7.94 8.09L5 6.18L2.06 8.09L3.12 5.47L.49 3.38H3.88Z'/></svg>";
+        html += "Im Marketplace gelistet</span>";
+        // Featured badge — only if backend signals it (maturity-gated: currently always false)
+        if (res.data && res.data.is_featured) {
+          html += " <span class='pp-featured-badge'>Featured</span>";
+        }
+        area.innerHTML = html;
+        area.style.display = "block";
+      }).catch(function() {});
+    }
+
+    function loadBountyBadges(userId) {
+      var url = userId
+        ? "/api/bounties/me?user_id=" + encodeURIComponent(userId)
+        : "/api/bounties/me";
+      fetch(url, { credentials: "include" })
+        .then(function(r) { return r.ok ? r.json() : null; })
+        .then(function(data) {
+          if (!data || !data.items) return;
+          var earned = data.items.filter(function(b) { return b.status === "earned"; });
+          if (!earned.length && !data.tier) return;
+          var el = $("pp-bounty-badges");
+          var html = "<div class='pp-card' style='grid-column:1/-1'>";
+          html += "<div class='pp-card-title'>Bounty-Abzeichen &amp; Status</div>";
+
+          // ── Tier Status Badge (prominent) ────────────────
+          var t = data.tier;
+          if (t) {
+            html += "<div style='display:flex;align-items:center;gap:14px;padding:14px 18px;border-radius:14px;border:1.5px solid " + (t.color || "#999") + ";background:" + (t.bg_color || "rgba(255,255,255,.03)") + ";margin-bottom:14px'>";
+            html += "<span style='font-size:36px'>" + (t.icon || "") + "</span>";
+            html += "<div>";
+            html += "<div style='font-size:18px;font-weight:900;color:" + (t.color || "#fff") + "'>" + esc(t.name_de) + "-Status</div>";
+            html += "<div style='font-size:12px;color:var(--ds-text-secondary)'>Max. Rewards-Ersparnis: <strong>" + t.max_discount_pct + "%</strong></div>";
+            html += "</div>";
+            // Tier progress bar (visual: sort_order / 5)
+            var tierPct = { bronze: 20, silver: 40, gold: 60, platinum: 80, diamond: 100 };
+            var pct = tierPct[t.key] || 20;
+            html += "<div style='flex:1;min-width:60px;max-width:180px'>";
+            html += "<div style='height:6px;border-radius:3px;background:rgba(255,255,255,.08);overflow:hidden'>";
+            html += "<div style='height:100%;width:" + pct + "%;border-radius:3px;background:" + (t.color || "#999") + ";transition:width .5s'></div>";
+            html += "</div>";
+            html += "<div style='display:flex;justify-content:space-between;margin-top:3px;font-size:9px;color:var(--ds-text-tertiary)'>";
+            html += "<span>\u{1F949}</span><span>\u{1F948}</span><span>\u{1F947}</span><span>\u{1F4A0}</span><span>\u{1F48E}</span>";
+            html += "</div></div>";
+            html += "</div>";
+          }
+
+          // ── Discount Summary ─────────────────────────────
+          if (data.total_discount_pct > 0) {
+            html += "<div style='font-size:12px;color:var(--ds-text-secondary);margin-bottom:10px'>";
+            html += "Aktuelle Ersparnis: <strong style='color:var(--ds-success)'>" + data.total_discount_pct + "%</strong>";
+            html += " / max. " + data.max_discount_pct + "%";
+            html += "</div>";
+          }
+
+          // ── Individual Bounty Badges ─────────────────────
+          if (earned.length) {
+            html += "<div style='display:flex;flex-wrap:wrap;gap:8px'>";
+            earned.forEach(function(b) {
+              var catColors = {
+                performance: { border: "rgba(74,158,255,.3)", bg: "rgba(74,158,255,.06)" },
+                activity:    { border: "rgba(251,191,36,.3)", bg: "rgba(251,191,36,.06)" },
+                loyalty:     { border: "rgba(168,85,247,.3)", bg: "rgba(168,85,247,.06)" },
+                community:   { border: "rgba(57,217,138,.3)", bg: "rgba(57,217,138,.06)" }
+              };
+              var cc = catColors[b.category] || catColors.performance;
+              html += "<div title='" + esc(b.description_de || "") + "' style='display:flex;flex-direction:column;align-items:center;gap:4px;padding:10px 14px;border-radius:12px;border:1px solid " + cc.border + ";background:" + cc.bg + ";min-width:72px;text-align:center;cursor:default;transition:transform .15s' onmouseover='this.style.transform=\"scale(1.05)\"' onmouseout='this.style.transform=\"scale(1)\"'>";
+              html += "<span style='font-size:24px'>" + (b.icon || "\u{1F3C6}") + "</span>";
+              html += "<span style='font-size:10px;font-weight:700;line-height:1.2;max-width:90px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap'>" + esc(b.name_de) + "</span>";
+              html += "<span style='font-size:9px;color:var(--ds-text-tertiary)'>-" + b.discount_pct + "%</span>";
+              html += "</div>";
+            });
+            html += "</div>";
+          }
+
+          html += "</div>";
+          el.innerHTML = html;
+          el.style.display = "block";
+        })
+        .catch(function() {});
     }
 
     load();
   })();
   </script>
-  <div id="tc-footer" data-tc-footer></div>
+  <script src="/public/js/pageShell.js"></script>`n  <div id="tc-footer" data-tc-footer></div>
   <script src="/public/js/footer.js"></script>
-  <script src="/public/js/logout-btn.js"></script>
+<script src="/public/js/demoBanner.js" defer></script>
+<script src="/public/js/onboardingWizard.js" defer></script><script src="/public/js/notifications.js" defer></script>
+<script src="/public/js/breadcrumb.js" defer></script>
+<script src="/public/js/milestoneToasts.js" defer></script>
 </body>
 </html>

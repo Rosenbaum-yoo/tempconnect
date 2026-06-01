@@ -5,14 +5,55 @@
  *  - Hub-Cards auf `/public/enterprise.html` (via data-surface="...")
  *  - Topbar-Nav-Links in pageShell.js
  *
- * Zustaende pro Bereich:
- *   full        - voll nutzbar, Card sichtbar
- *   read_only   - sichtbar, aber lesend (nutzt surface_access read_only)
- *   hidden_*    - Card wird ausgeblendet (triggert keine Folge-Requests)
+ * ═══════════════════════════════════════════════════════════════════════════
+ * VISIBILITY MATRIX — Dimensionen: org_type × org_role × plan × location
+ * ═══════════════════════════════════════════════════════════════════════════
  *
- * Location-Awareness (seit Multi-Location-Paket):
- *   resolveLocationScope() — gibt den aktiven Standortkontext zurueck.
- *   Seiten koennen damit z.B. Filterbadges oder Scope-Chips rendern.
+ * Org-Type × Surface:
+ *   marketplace         company ✓  agency ✓   worker ✗
+ *   requisitions        company ✓  agency ✗   worker ✗
+ *   deals               company ✓  agency ✓   worker ✗
+ *   assignments         company ✓  agency ✓   worker ✗
+ *   my_company          company ✓  agency ✓   worker ✗
+ *   activity            company ✓  agency ✓   worker ✗
+ *   bounties            company ✓  agency ✓   worker ✗
+ *   trust_center        company ✓  agency ✓   worker ✗
+ *   vendor_pool         company ✓  agency ✗   worker ✗
+ *   executive_dashboard company ✓  agency ✗   worker ✗
+ *   admin_panel         company ✓  agency ✓   worker ✗  (+ orgRoles-Whitelist)
+ *   location_management company ✓  agency ✓   worker ✗  (+ orgRoles-Whitelist)
+ *
+ * Rollen × Surface (company-intern):
+ *   Surface             owner admin prog_mgr hire_mgr supp_mgr finance disp recr member supp_user viewer
+ *   vendor_pool           ✓    ✓      ✓        ✗        ✓       ✓      ✗    ✗    ✗      ✗        ✗
+ *   executive_dashboard   ✓    ✓      ✓        ✗        ✗       ✓      ✗    ✗    ✗      ✗        ✗
+ *   admin_panel           ✓    ✓      ✗        ✗        ✗       ✗      ✗    ✗    ✗      ✗        ✗
+ *   marketplace           ✓    ✓      ✓        ✓        ✓       ✓      ✓    ✓    ✓      ✓        ✓
+ *   requisitions          ✓    ✓      ✓        ✓        ✓       ✓      ✓    ✓    ✓      ✓        ✓
+ *   assignments           ✓    ✓      ✓        ✓        ✓       ✓      ✓    ✓    ✓      ✓        ✓
+ *   (alle anderen)        ✓    ✓      ✓        ✓        ✓       ✓      ✓    ✓    ✓      ✓        ✓
+ *
+ * Plan-/Feature-Gating (ueber surface_access / plan_locked-Mode):
+ *   vendor_pool         ab PRO/INDIVIDUELL → surfaceKey → hiddenFromSurface
+ *   executive_dashboard ab INDIVIDUELL → surfaceKey → hiddenFromSurface
+ *
+ * Location-Scope (org-weite Dashboards bei standortgebundenem Nutzer):
+ *   executive_dashboard  orgWideOnly: true — hidden_location_scope wenn me.active_location_id
+ *
+ * Schreib-CTAs (in enterpriseHub.js gesteuert, nicht hier):
+ *   viewer, finance       → keine "Bedarf erfassen" / "Kapazitaet anbieten" CTAs
+ *
+ * Zustaende:
+ *   full                  voll nutzbar, Card sichtbar
+ *   read_only             sichtbar, lesend (surface_access canWrite=false)
+ *   hidden_anonymous      nicht angemeldet
+ *   hidden_worker         Worker sehen kein Enterprise-Hub
+ *   hidden_wrong_side     Org-Type passt nicht zur Surface
+ *   hidden_role           Rolle nicht fuer diese Surface vorgesehen
+ *   hidden_plan_locked    Plan reicht nicht aus
+ *   hidden_org_locked     Org-Type gesperrt
+ *   hidden_role_locked    Rolle durch surface_access gesperrt
+ *   hidden_location_scope Standortgebundener Nutzer, org-weite Surface verborgen
  *
  * Namespace: TC.hubVisibility
  */
@@ -27,15 +68,24 @@
    */
   var HUB_SURFACES = {
     marketplace:          { orgTypes: ["company", "agency"] },
-    requisitions:         { orgTypes: ["company", "agency"] },
+    requisitions:         { orgTypes: ["company"] },
     deals:                { orgTypes: ["company", "agency"] },
     assignments:          { orgTypes: ["company", "agency"] },
     my_company:           { orgTypes: ["company", "agency"] },
     activity:             { orgTypes: ["company", "agency"] },
     bounties:             { orgTypes: ["company", "agency"] },
     trust_center:         { orgTypes: ["company", "agency"] },
-    vendor_pool:          { orgTypes: ["company"], surfaceKey: "vendor_pool" },
-    executive_dashboard:  { orgTypes: ["company"], surfaceKey: "executive_dashboard" },
+    vendor_pool: {
+      orgTypes: ["company"],
+      surfaceKey: "vendor_pool",
+      hiddenRoles: ["hiring_manager", "dispatcher", "recruiter", "member", "supplier_user", "viewer"]
+    },
+    executive_dashboard: {
+      orgTypes: ["company"],
+      surfaceKey: "executive_dashboard",
+      orgWideOnly: true,
+      hiddenRoles: ["hiring_manager", "supplier_manager", "dispatcher", "recruiter", "member", "supplier_user", "viewer"]
+    },
     admin_panel: {
       orgTypes: ["company", "agency"],
       orgRoles: ["platform_admin", "owner", "admin"],
@@ -62,7 +112,7 @@
   var NAV_RULES = {
     uebersicht:        { hideForOrgTypes: ["worker"] },
     marktplatz:        { hideForOrgTypes: ["worker"] },
-    bedarfe:           { hideForOrgTypes: ["worker"] },
+    bedarfe:           { hideForOrgTypes: ["worker", "agency"] },
     deals_einsaetze:   { hideForOrgTypes: ["worker"] },
     steuerung:         { hideForOrgTypes: ["worker"], hideSurfaceKey: "executive_dashboard" },
     help:              {}
@@ -130,6 +180,18 @@
       if (!roleAllowed) {
         return { visible: false, state: "hidden_role", reason: "Nur fuer freigegebene Administrationsrollen sichtbar." };
       }
+    }
+
+    // Blacklist: Rollen, fuer die der Bereich explizit ausgeblendet wird.
+    // Komplement zur orgRoles-Whitelist — deckt granulare Rollen-Ausschluesse ab.
+    if (def.hiddenRoles && orgRole && def.hiddenRoles.indexOf(orgRole) !== -1) {
+      return { visible: false, state: "hidden_role", reason: "Dieser Bereich ist fuer Ihre Rolle nicht vorgesehen." };
+    }
+
+    // Location-Scope: org-weite Dashboards (orgWideOnly) werden fuer standort-
+    // gebundene Nutzer ausgeblendet. active_location_id signalisiert den Scope.
+    if (def.orgWideOnly && me.active_location_id) {
+      return { visible: false, state: "hidden_location_scope", reason: "Dieser Bereich erfordert eine org-weite Sicht. Wechseln Sie den Standortkontext um fortzufahren." };
     }
 
     if (def.surfaceKey) {
@@ -221,7 +283,9 @@
 
   // Node/CJS (Tests via vm-Sandbox lesen trotzdem die globale TC-Anbindung);
   // Exportieren als Default fuer optionale direkte ESM/CJS-Konsumenten.
+  // eslint-disable-next-line no-undef
   if (typeof module !== "undefined" && module && module.exports) {
+    // eslint-disable-next-line no-undef
     module.exports = api;
   }
 })(typeof window !== "undefined" ? window : (typeof globalThis !== "undefined" ? globalThis : this));

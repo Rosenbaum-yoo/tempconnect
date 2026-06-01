@@ -1,9 +1,10 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="de">
 <head>
   <meta charset="utf-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
-  <title>Kapazitaet einstellen – TempConnect</title>
+  <script src="/public/js/theme.js"></script>
+  <title>Personal einstellen – TempConnect</title>
   <link rel="stylesheet" href="/public/css/enterprise.css"/>
   <style>
     .ce-form-actions { display: flex; gap: var(--ds-space-3); flex-wrap: wrap; margin-top: var(--ds-space-6); }
@@ -16,11 +17,31 @@
     .ce-char-count { font-size: 11px; color: var(--ds-text-tertiary); text-align: right; margin-top: 2px; }
     .ce-char-count--warn { color: var(--ds-warning); }
     .ce-char-count--limit { color: var(--ds-danger); }
+    .ce-media-grid { display: grid; grid-template-columns: 1fr 1fr; gap: var(--ds-space-4); }
+    @media (max-width: 860px) { .ce-media-grid { grid-template-columns: 1fr; } }
+    .ce-media-drop {
+      border: 1px dashed var(--ds-border);
+      border-radius: var(--ds-radius-md);
+      padding: var(--ds-space-3);
+      background: rgba(255,255,255,.02);
+    }
+    .ce-media-preview {
+      width: 100%;
+      max-width: 220px;
+      aspect-ratio: 4 / 3;
+      object-fit: cover;
+      border-radius: var(--ds-radius-md);
+      border: 1px solid var(--ds-border);
+      display: none;
+      margin-top: var(--ds-space-2);
+    }
+    .ce-media-helper { font-size: 12px; color: var(--ds-text-tertiary); margin-top: 6px; }
+    .ce-media-actions { display: flex; gap: var(--ds-space-2); margin-top: var(--ds-space-2); flex-wrap: wrap; }
   </style>
 </head>
 <body data-sla-guard="sla_access">
   <div id="paywall" class="wrap" style="display:none">
-    <div class="topbar"><span class="brand">TempConnect</span><a href="/" class="btn">Startseite</a></div>
+    <nav class="ds-topbar"><div class="ds-topbar__brand"><span class="ds-topbar__brand-dot"></span>TempConnect</div><div class="ds-topbar__nav"><a href="/" class="ds-btn">Startseite</a></div></nav>
     <div class="paywall-box">
       <h2>Bereich nicht verfuegbar</h2>
       <p>Aktueller Plan: <span id="paywall-current-plan" class="paywall-plan">–</span></p>
@@ -29,21 +50,12 @@
   </div>
 
   <div id="main-content" class="ds-wrap">
-    <div class="ds-topbar">
-      <div class="ds-topbar__brand"><span class="ds-topbar__brand-dot"></span>TempConnect</div>
-      <nav class="ds-topbar__nav">
-        <a href="/public/enterprise.html" class="ds-nav-link">Uebersicht</a>
-        <span class="ds-topbar__separator"></span>
-        <a href="/public/capacity_exchange_manage.html" class="ds-nav-link">Meine Kapazitaeten</a>
-        <a href="/public/capacity_exchange_form.html" class="ds-nav-link ds-nav-link--active">Neu einstellen</a>
-        <a href="/public/capacity_exchange_feed.html" class="ds-nav-link">Kapazitaetsboerse</a>
-      </nav>
-    </div>
+    <div id="tc-shell"></div>
 
     <div class="ds-page-header">
       <div class="ds-page-header__content">
-        <h1 class="ds-page-title" id="page-title">Kapazitaet einstellen</h1>
-        <p class="ds-page-subtitle" id="page-subtitle">Erfassen Sie Ihre verfuegbare Personalkapazitaet. Pflichtfelder sind mit * markiert.</p>
+        <h1 class="ds-page-title" id="page-title">Personal einstellen</h1>
+        <p class="ds-page-subtitle" id="page-subtitle">Erfassen Sie Ihr verfügbares Personal. Pflichtfelder sind mit * markiert.</p>
       </div>
       <div class="ds-page-header__actions">
         <a href="/public/capacity_exchange_manage.html" class="ds-btn">Zurueck zur Liste</a>
@@ -93,7 +105,7 @@
           <div class="ds-form-group">
             <label class="ds-label" for="f-availability-type">Verfuegbarkeitstyp</label>
             <select id="f-availability-type" class="ds-select">
-              <option value="immediate">Sofort verfuegbar</option>
+              <option value="immediate">Sofort verfuegbar (heute oder morgen)</option>
               <option value="scheduled">Geplant</option>
               <option value="flexible">Flexibel</option>
             </select>
@@ -255,6 +267,28 @@
         </div>
       </div>
 
+      <!-- Section 7: Bildvorschau (optional) -->
+      <div class="ds-form-section">
+        <div class="ds-form-section__title">Vorschaubild (optional)</div>
+        <div class="ce-media-grid">
+          <div class="ce-media-drop">
+            <label class="ds-label" for="f-listing-image">Eintragsbild</label>
+            <input type="file" id="f-listing-image" class="ds-input" accept="image/png,image/jpeg,image/webp"/>
+            <div class="ce-media-helper">PNG/JPG/WEBP, max. 5 MB. Wird im Feed und in der Detailansicht bevorzugt.</div>
+            <img id="f-listing-image-preview" class="ce-media-preview" alt="Vorschau Eintragsbild"/>
+            <div class="ce-media-actions">
+              <button type="button" class="ds-btn ds-btn--sm ds-btn--ghost" id="btn-remove-listing-image">Bild entfernen</button>
+            </div>
+          </div>
+          <div class="ce-media-drop">
+            <label class="ds-label">Logo-Fallback</label>
+            <div class="ce-media-helper">
+              Wenn kein Eintragsbild gesetzt wird, verwendet TempConnect automatisch das Firmenlogo aus dem bestehenden Profil. Falls dort kein Logo hinterlegt ist, wird ein neutraler Placeholder angezeigt.
+            </div>
+          </div>
+        </div>
+      </div>
+
       <!-- Actions -->
       <div class="ce-form-actions">
         <button type="submit" class="ds-btn" id="btn-draft" data-target="draft">Als Entwurf speichern</button>
@@ -271,258 +305,11 @@
 
   <script src="/public/js/planFeatures.js"></script>
   <script src="/public/js/slaGuard.js"></script>
-  <script>
-  (function() {
-    var API = "/api";
-    var editId = new URLSearchParams(window.location.search).get("id");
-    var isEdit = !!editId;
-
-    function toast(msg, type) {
-      var el = document.getElementById("toast");
-      el.textContent = msg;
-      el.className = "ds-toast ds-alert ds-alert--" + (type || "info") + " show";
-      clearTimeout(el._t);
-      el._t = setTimeout(function() { el.classList.remove("show"); }, 3500);
-    }
-
-    function getCsrf() {
-      return fetch(API + "/csrf", { credentials: "include" }).then(function(r) { return r.ok ? r.json() : {}; });
-    }
-
-    function apiFetch(path, opts) {
-      opts = opts || {};
-      var headers = { "Content-Type": "application/json" };
-      if (opts.csrf) headers["X-CSRF-Token"] = opts.csrf;
-      if (opts.method && opts.method !== "GET") {
-        headers["Idempotency-Key"] = (crypto.randomUUID ? crypto.randomUUID() : "x-" + Math.random().toString(36).slice(2) + "-" + Date.now());
-      }
-      return fetch(API + path, { method: opts.method || "GET", headers: headers, body: opts.body ? JSON.stringify(opts.body) : undefined, credentials: "include" });
-    }
-
-    // Geocode helper
-    function geocode(city, postal) {
-      var q = postal
-        ? "/geo/coordinates?postal_code=" + encodeURIComponent(postal) + "&city=" + encodeURIComponent(city)
-        : "/geo/coordinates?q=" + encodeURIComponent(city);
-      return fetch(API + q, { credentials: "include" }).then(function(r) { return r.ok ? r.json() : null; }).catch(function() { return null; });
-    }
-
-    // Populate form for edit mode
-    if (isEdit) {
-      document.getElementById("page-title").textContent = "Kapazitaet bearbeiten";
-      document.getElementById("page-subtitle").textContent = "Aendern Sie die Angaben und speichern Sie.";
-      apiFetch("/capacity-exchange/entries/" + editId).then(function(r) {
-        if (r.status === 401) { window.location.href = "/"; return null; }
-        if (!r.ok) { toast("Eintrag nicht gefunden", "danger"); return null; }
-        return r.json();
-      }).then(function(e) {
-        if (!e) return;
-        var val = function(id, v) { var el = document.getElementById(id); if (el && v != null) el.value = v; };
-        val("f-title", e.title);
-        val("f-role", e.role);
-        val("f-worker-category", e.worker_category || "");
-        val("f-headcount", e.headcount || 1);
-        val("f-skills", Array.isArray(e.skill_tags) ? e.skill_tags.join(", ") : "");
-        val("f-availability-type", e.availability_type || "immediate");
-        val("f-from", e.availability_from ? String(e.availability_from).substring(0,10) : "");
-        val("f-to", e.availability_to ? String(e.availability_to).substring(0,10) : "");
-        val("f-shift", e.shift_model || "");
-        val("f-employment", e.employment_type || "temporary");
-        val("f-city", e.location_city);
-        val("f-postal", e.location_postal || "");
-        val("f-radius", e.radius_km || 25);
-        val("f-country", e.country || "DE");
-        val("f-mobility", e.mobility_notes || "");
-        val("f-qualifications", e.qualification_summary || "");
-        val("f-certifications", e.certifications_summary || "");
-        val("f-compliance", e.compliance_status || "unknown");
-        val("f-price-type", e.price_type || "");
-        val("f-price-min", e.price_min != null ? e.price_min : "");
-        val("f-price-max", e.price_max != null ? e.price_max : "");
-        val("f-price-hint", e.price_hint || "");
-        val("f-notes", e.notes || "");
-        val("f-visibility", e.visibility_status || "public");
-        val("f-priority", e.priority_level || "normal");
-        val("f-valid-until", e.valid_until ? String(e.valid_until).substring(0,10) : "");
-        if (e.is_search_agent) document.getElementById("f-search-agent").checked = true;
-
-        // In edit mode, adjust button labels
-        document.getElementById("btn-draft").textContent = "Aenderungen speichern";
-        document.getElementById("btn-activate").textContent = "Speichern & aktivieren";
-      });
-    }
-
-    // Collect form data
-    function collectData() {
-      var tags = document.getElementById("f-skills").value.split(",").map(function(t) { return t.trim(); }).filter(Boolean);
-      return {
-        title: document.getElementById("f-title").value.trim(),
-        role: document.getElementById("f-role").value.trim(),
-        worker_category: document.getElementById("f-worker-category").value || null,
-        headcount: parseInt(document.getElementById("f-headcount").value, 10) || 1,
-        skill_tags: tags,
-        availability_type: document.getElementById("f-availability-type").value,
-        availability_from: document.getElementById("f-from").value,
-        availability_to: document.getElementById("f-to").value || null,
-        shift_model: document.getElementById("f-shift").value || null,
-        employment_type: document.getElementById("f-employment").value || "temporary",
-        location_city: document.getElementById("f-city").value.trim(),
-        location_postal: document.getElementById("f-postal").value.trim() || null,
-        radius_km: parseInt(document.getElementById("f-radius").value, 10) || 25,
-        country: document.getElementById("f-country").value || "DE",
-        mobility_notes: document.getElementById("f-mobility").value.trim() || null,
-        qualification_summary: document.getElementById("f-qualifications").value.trim() || null,
-        certifications_summary: document.getElementById("f-certifications").value.trim() || null,
-        compliance_status: document.getElementById("f-compliance").value || "unknown",
-        price_type: document.getElementById("f-price-type").value || null,
-        price_min: parseFloat(document.getElementById("f-price-min").value) || null,
-        price_max: parseFloat(document.getElementById("f-price-max").value) || null,
-        price_hint: document.getElementById("f-price-hint").value.trim() || null,
-        notes: document.getElementById("f-notes").value.trim() || null,
-        visibility_status: document.getElementById("f-visibility").value || "public",
-        priority_level: document.getElementById("f-priority").value || "normal",
-        valid_until: document.getElementById("f-valid-until").value || null,
-        is_search_agent: document.getElementById("f-search-agent").checked
-      };
-    }
-
-    var targetStatus = "draft";
-    var formDirty = false;
-
-    // Track dirty state
-    document.getElementById("ce-form").addEventListener("input", function() { formDirty = true; });
-    document.getElementById("ce-form").addEventListener("change", function() { formDirty = true; });
-    window.addEventListener("beforeunload", function(ev) {
-      if (formDirty) { ev.preventDefault(); ev.returnValue = ""; }
-    });
-
-    // Character counters on textareas
-    document.querySelectorAll("#ce-form .ds-textarea[maxlength]").forEach(function(ta) {
-      var max = parseInt(ta.getAttribute("maxlength"), 10);
-      var counter = document.createElement("div");
-      counter.className = "ce-char-count";
-      counter.textContent = "0 / " + max;
-      ta.parentNode.appendChild(counter);
-      ta.addEventListener("input", function() {
-        var len = ta.value.length;
-        counter.textContent = len + " / " + max;
-        counter.className = "ce-char-count" + (len >= max ? " ce-char-count--limit" : len >= max * 0.9 ? " ce-char-count--warn" : "");
-      });
-    });
-
-    // Prefill today for availability_from in create mode
-    if (!isEdit) {
-      var today = new Date().toISOString().substring(0, 10);
-      var fromEl = document.getElementById("f-from");
-      if (!fromEl.value) fromEl.value = today;
-    }
-
-    // Inline validation
-    function validateForm() {
-      var ok = true;
-      document.querySelectorAll(".ds-input--error, .ds-textarea--error").forEach(function(el) {
-        el.classList.remove("ds-input--error", "ds-textarea--error");
-      });
-      document.querySelectorAll(".ds-field-error").forEach(function(el) { el.remove(); });
-
-      function markErr(id, msg) {
-        var el = document.getElementById(id);
-        if (!el) return;
-        el.classList.add(el.tagName === "TEXTAREA" ? "ds-textarea--error" : "ds-input--error");
-        var span = document.createElement("div");
-        span.className = "ds-field-error";
-        span.textContent = msg;
-        el.parentNode.appendChild(span);
-        ok = false;
-      }
-
-      if (!document.getElementById("f-title").value.trim()) markErr("f-title", "Titel ist erforderlich");
-      if (!document.getElementById("f-role").value.trim()) markErr("f-role", "Rolle ist erforderlich");
-      if (!document.getElementById("f-from").value) markErr("f-from", "Datum ist erforderlich");
-      if (!document.getElementById("f-city").value.trim()) markErr("f-city", "Stadt ist erforderlich");
-
-      var pMin = parseFloat(document.getElementById("f-price-min").value);
-      var pMax = parseFloat(document.getElementById("f-price-max").value);
-      if (!isNaN(pMin) && !isNaN(pMax) && pMin > pMax) markErr("f-price-max", "Max darf nicht kleiner als Min sein");
-
-      if (!ok) {
-        var first = document.querySelector(".ds-input--error, .ds-textarea--error");
-        if (first) first.scrollIntoView({ behavior: "smooth", block: "center" });
-      }
-      return ok;
-    }
-
-    document.getElementById("btn-draft").addEventListener("click", function() { targetStatus = "draft"; });
-    document.getElementById("btn-activate").addEventListener("click", function() { targetStatus = "active"; });
-
-    document.getElementById("ce-form").addEventListener("submit", function(ev) {
-      ev.preventDefault();
-      if (!validateForm()) return;
-      var data = collectData();
-      var geoEl = document.getElementById("geo-status");
-
-      var btns = document.querySelectorAll(".ce-form-actions button");
-      btns.forEach(function(b) { b.disabled = true; });
-
-      // Geocode first
-      geocode(data.location_city, data.location_postal).then(function(coords) {
-        if (coords && coords.lat != null && coords.lng != null) {
-          data.location_lat = coords.lat;
-          data.location_lng = coords.lng;
-          geoEl.textContent = "Standort georeferenziert (" + coords.lat.toFixed(4) + ", " + coords.lng.toFixed(4) + ")";
-          geoEl.className = "ds-alert ds-alert--success";
-          geoEl.style.display = "flex";
-        } else {
-          geoEl.textContent = "Standort konnte nicht georeferenziert werden – Umkreissuche ggf. eingeschraenkt.";
-          geoEl.className = "ds-alert ds-alert--warning";
-          geoEl.style.display = "flex";
-        }
-
-        return getCsrf();
-      }).then(function(csrf) {
-        var token = csrf.csrfToken || csrf.token;
-
-        if (isEdit) {
-          // PATCH update
-          return apiFetch("/capacity-exchange/entries/" + editId, {
-            method: "PATCH", csrf: token, body: data
-          }).then(function(r) {
-            if (!r.ok) return r.json().then(function(d) { throw new Error(d.error || "Fehler"); });
-            return r.json();
-          }).then(function(entry) {
-            // If target is active and current status is draft, also activate
-            if (targetStatus === "active" && entry.status === "draft") {
-              return apiFetch("/capacity-exchange/entries/" + editId + "/activate", { method: "POST", csrf: token }).then(function(r2) {
-                return r2.ok ? r2.json() : entry;
-              });
-            }
-            return entry;
-          });
-        } else {
-          // POST create
-          data.status = targetStatus;
-          return apiFetch("/capacity-exchange/entries", {
-            method: "POST", csrf: token, body: data
-          }).then(function(r) {
-            if (!r.ok) return r.json().then(function(d) { throw new Error(d.error || d.message || "Fehler"); });
-            return r.json();
-          });
-        }
-      }).then(function(entry) {
-        formDirty = false;
-        toast(isEdit ? "Aenderungen gespeichert" : "Kapazitaet erstellt", "success");
-        setTimeout(function() {
-          window.location.href = "/public/capacity_exchange_manage.html";
-        }, 1200);
-      }).catch(function(e) {
-        toast(e.message || "Fehler beim Speichern", "danger");
-        btns.forEach(function(b) { b.disabled = false; });
-      });
-    });
-  })();
-  </script>
-  <div id="tc-footer" data-tc-footer></div>
+  <script src="/public/js/pages/capacityExchangeForm.js"></script>
+  <script src="/public/js/pageShell.js"></script>`n  <div id="tc-footer" data-tc-footer></div>
   <script src="/public/js/footer.js"></script>
-  <script src="/public/js/logout-btn.js"></script>
+<script src="/public/js/demoBanner.js" defer></script>
+<script src="/public/js/onboardingWizard.js" defer></script><script src="/public/js/notifications.js" defer></script>
+<script src="/public/js/breadcrumb.js" defer></script>
 </body>
 </html>

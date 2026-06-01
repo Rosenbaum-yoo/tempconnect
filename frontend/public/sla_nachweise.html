@@ -3,12 +3,13 @@
 <head>
   <meta charset="utf-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <script src="/public/js/theme.js"></script>
   <title>Nachweise – TempConnect</title>
   <link rel="stylesheet" href="/public/css/enterprise.css"/>
 </head>
 <body data-sla-guard="sla_proofs">
   <div id="paywall" class="wrap" style="display:none">
-    <div class="topbar"><span class="brand">TempConnect</span><a href="/" class="btn">Startseite</a></div>
+    <nav class="ds-topbar"><div class="ds-topbar__brand"><span class="ds-topbar__brand-dot"></span>TempConnect</div><div class="ds-topbar__nav"><a href="/" class="ds-btn">Startseite</a></div></nav>
     <div class="paywall-box">
       <h2>Bereich nicht verfuegbar</h2>
       <p>Das Feature Nachweise ist mit deinem aktuellen Plan nicht nutzbar.</p>
@@ -17,13 +18,7 @@
     </div>
   </div>
   <div id="main-content" class="wrap">
-    <div class="topbar" data-notif-topbar>
-      <span class="brand">TempConnect – Nachweise</span>
-      <a href="/" class="btn">Startseite</a>
-      <a href="/public/enterprise.html" class="btn">Übersicht</a>
-      <a href="/public/capacity_search.html" class="btn">Kapazitätssuche</a>
-      <a href="/public/sla_search_jobs_list.html" class="btn">Suchaufträge</a>
-    </div>
+    <div id="tc-shell"></div>
     <h1>Nachweise</h1>
     <p style="color:var(--muted);margin:0 0 16px">Upload und Verwaltung von Nachweisen (Pulse-safe).</p>
     <div class="card">
@@ -37,9 +32,10 @@
   </div>
   <script src="/public/js/planFeatures.js"></script>
   <script src="/public/js/slaGuard.js"></script>
-  <script src="/public/js/notifications.js"></script>
+  <script src="/public/js/pageShell.js"></script>`n  <script src="/public/js/notifications.js"></script>
   <div id="tc-footer" data-tc-footer></div>
   <script src="/public/js/footer.js"></script>
-  <script src="/public/js/logout-btn.js"></script>
+<script src="/public/js/demoBanner.js" defer></script>
+<script src="/public/js/onboardingWizard.js" defer></script><script src="/public/js/breadcrumb.js" defer></script>
 </body>
 </html>

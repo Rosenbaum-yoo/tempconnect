@@ -26,9 +26,9 @@
   var BRAND = "TempConnect";
 
   var NAV_LINKS = [
-    { label: "\u00dcbersicht", key: "uebersicht", href: "/public/enterprise.html", match: ["/public/enterprise.html"], desc: "Pilot-Standard und naechste Schritte im Blick: Bedarf, Deal, Besetzung und Zeiten vor Ausbauflächen." },
-    { label: "Marktplatz", key: "marktplatz", href: "/public/capacity_exchange_feed.html", match: ["/public/capacity_exchange_feed.html", "/public/capacity_exchange", "/public/capacity_search", "/public/agency_inbox", "/public/angebote_verwalten", "/public/matching_results", "/public/marketplace_capacity", "/public/sla_search_jobs", "/public/sla_angebote"], desc: "Pilot-Standard: Kapazitaeten anbieten, Angebote finden und Marktreaktionen ohne Medienbruch steuern." },
-    { label: "Bedarfe", key: "bedarfe", href: "/public/requisitions.html", match: ["/public/requisitions", "/public/company_requests", "/public/demand_create", "/public/request_detail", "/public/marketplace_demand_"], desc: "Pilot-Standard: Zeitarbeits-Bedarfe anlegen, priorisieren und gezielt in belastbare Angebote ueberfuehren." },
+    { label: "\u00dcbersicht", key: "uebersicht", href: "/public/enterprise.html", match: ["/public/enterprise.html"], desc: "Pilot-Standard und naechste Schritte im Blick: Angebot, Deal, Besetzung und Zeiten vor Ausbauflächen." },
+    { label: "Personal finden", key: "marktplatz", termKey: "navMarketplace", href: "/public/capacity_exchange_feed.html", match: ["/public/capacity_exchange_feed.html", "/public/capacity_exchange", "/public/capacity_search", "/public/agency_inbox", "/public/angebote_verwalten", "/public/matching_results", "/public/marketplace_capacity", "/public/sla_search_jobs", "/public/sla_angebote"], desc: "Pilot-Standard: Personal anbieten, Arbeitsplatzangebote finden und Vermittlungsreaktionen ohne Medienbruch steuern." },
+    { label: "Arbeitsplatzangebote", key: "bedarfe", termKey: "navDemands", href: "/public/requisitions.html", match: ["/public/requisitions", "/public/company_requests", "/public/demand_create", "/public/request_detail", "/public/marketplace_demand_"], desc: "Pilot-Standard: Arbeitsplatzangebote anlegen, priorisieren und gezielt in belastbare Angebote ueberfuehren." },
     { label: "Deals & Einsaetze", key: "deals_einsaetze", href: "/public/deal_management.html", match: ["/public/deal_management", "/public/offer_detail", "/public/worker-submissions-review", "/public/timesheets", "/public/mitarbeiter", "/public/approvals", "/public/sla_nachweise"], desc: "Pilot-Standard: Deals abschliessen, Besetzungen fuehren, Stundenzettel freigeben und Folgeprozesse sauber halten." },
     { label: "Steuerung", key: "steuerung", href: "/public/executive_dashboard.html", match: ["/public/executive_dashboard", "/public/vendor_pool", "/public/supplier_scorecard", "/public/rate-cards", "/public/spend-analytics", "/public/system-health", "/public/compliance_overview", "/public/admin_panel", "/public/organization", "/public/integrations", "/public/sso_config", "/public/sla_profil", "/public/sla_abo"], desc: "Nachgelagerte Steuerungs- und Ausbauflaeche fuer Lieferantenleistung, Spend, Executive-Sicht und Governance." },
     { label: "\u2753", key: "help", href: "/public/hilfe.html", match: ["/public/hilfe.html", "/public/sla_hilfe"], desc: "FAQ, Anleitungen, Support-Kontakt und Onboarding-Assistent.", isIcon: true }
@@ -199,6 +199,25 @@
     tooltip.textContent = desc || "";
   }
 
+  /* ── Terminologie-Update nach Rollenermittlung (Track C) ───────────────
+   * Aktualisiert Nav-Labels rollenabhaengig sobald me.org_type bekannt ist.
+   * Benoetigt: terminologyLabels.js (TC.terminology)
+   * Quelle: docs/product/TERMINOLOGY_GUIDE.md
+   */
+  function updateNavLabels(orgType) {
+    if (!orgType || !window.TC || !window.TC.terminology) return;
+    for (var i = 0; i < NAV_LINKS.length; i++) {
+      var item = NAV_LINKS[i];
+      if (!item.termKey) continue;
+      var label = window.TC.terminology.get(item.termKey, orgType, null);
+      if (!label) continue;
+      var wrap = document.querySelector('[data-nav-key="' + item.key + '"]');
+      if (!wrap) continue;
+      var link = wrap.querySelector("a");
+      if (link) link.textContent = label;
+    }
+  }
+
   function dispatchShellContext(detail) {
     try {
       document.dispatchEvent(new CustomEvent("tc:shell-context", { detail: detail }));
@@ -252,6 +271,7 @@
       window.TC.shell.context = { me: me || null, rateCardAccess: access };
     }
     updateNavLinkDescription("steuerung", getSteeringNavDescription(access));
+    if (me && me.org_type) updateNavLabels(me.org_type);
     ensureHubVisibilityLoaded(function () { applyNavVisibility(me); });
     dispatchShellContext({ me: me || null, rateCardAccess: access });
   }
@@ -292,14 +312,14 @@
     }
 
     /* Notification bell with badge */
-    h += '<a href="/public/activity.html" class="tc-shell-notif-bell" id="tc-notif-bell" title="Benachrichtigungen" style="position:relative;display:inline-flex;align-items:center;justify-content:center;width:34px;height:34px;font-size:18px;text-decoration:none;color:var(--ds-text-secondary,#8d9bba);cursor:pointer;flex-shrink:0">';
+    h += '<a href="/public/activity.html" class="tc-shell-notif-bell" id="tc-notif-bell" title="Benachrichtigungen" aria-label="Benachrichtigungen" style="position:relative;display:inline-flex;align-items:center;justify-content:center;width:34px;height:34px;font-size:18px;text-decoration:none;color:var(--ds-text-secondary,#8d9bba);cursor:pointer;flex-shrink:0">';
     h += '\uD83D\uDD14'; /* 🔔 */
     h += '<span id="tc-notif-badge" style="display:none;position:absolute;top:2px;right:2px;min-width:16px;height:16px;border-radius:8px;background:#f43f5e;color:#fff;font-size:10px;font-weight:700;line-height:16px;text-align:center;padding:0 4px">0</span>';
     h += '</a>';
 
     /* User profile dropdown */
     h += '<div class="tc-shell-user" id="tc-user-profile">';
-    h += '<button class="tc-shell-user__btn" id="tc-user-btn" type="button" title="Profil &amp; Konto" aria-haspopup="true" aria-expanded="false">';
+    h += '<button class="tc-shell-user__btn" id="tc-user-btn" type="button" title="Profil &amp; Konto" aria-label="Profil &amp; Konto" aria-haspopup="true" aria-expanded="false">';
     h += '\uD83D\uDC64'; /* 👤 */
     h += '</button>';
     h += '<div class="tc-shell-user__dropdown" id="tc-user-dropdown" role="menu">';
@@ -431,6 +451,15 @@
     if (orgName) {
       h += '<div class="tc-shell-user__row"><span>Organisation</span><span class="ds-fw-700 ds-truncate">' + esc(orgName) + '</span></div>';
     }
+    var locName = me.location_name || (function() {
+      try { return sessionStorage.getItem("tc.activeLocationName"); } catch (_e) { return null; }
+    })();
+    if (locName) {
+      h += '<div class="tc-shell-user__row"><span>Standort</span><span class="ds-fw-700 ds-truncate">' + esc(locName) + '</span></div>';
+    }
+    if (me.department_name) {
+      h += '<div class="tc-shell-user__row"><span>Abteilung</span><span class="ds-fw-700 ds-truncate">' + esc(me.department_name) + '</span></div>';
+    }
     h += '</div>';
     if (memberships.length > 1) {
       h += '<div class="tc-shell-user__org-switch">';
@@ -475,6 +504,10 @@
         };
         var finish = function (resp) {
           try {
+            // Org-Wechsel invalidiert Standortkontext — explizit leeren
+            if (window.TC && TC.api && typeof TC.api.setActiveLocationId === "function") {
+              TC.api.setActiveLocationId(null);
+            }
             if (window.TC && TC.api && typeof TC.api.setActiveOrgId === "function") {
               TC.api.setActiveOrgId((resp && resp.active_org_id) || nextOrgId);
             }
@@ -546,7 +579,7 @@
     fetch("/api/me/active-location", fetchOpts)
       .then(function (r) { return r.ok ? r.json() : null; })
       .then(function (data) {
-        if (!data || !Array.isArray(data.locations) || data.locations.length < 2) return;
+        if (!data || !Array.isArray(data.locations) || data.locations.length === 0) return;
 
         // Sync sessionStorage (locationId + locationName fuer hubVisibility.resolveLocationScope)
         try {
@@ -562,10 +595,24 @@
 
         var activeLocId = data.location_id || "";
         var locs = data.locations;
+        var h;
 
-        var h = '<div class="tc-shell-user__org-switch">';
+        if (locs.length === 1) {
+          // Location-bound: Badge, kein Select
+          var boundLabel = locs[0].name + (locs[0].is_hq ? " (HQ)" : "") + (locs[0].city ? " · " + locs[0].city : "");
+          h = '<div class="tc-shell-user__org-switch">';
+          h += '<div class="tc-shell-user__org-label">Standort</div>';
+          h += '<div style="font-size:12px;font-weight:600;padding:4px 0">' + esc(boundLabel) + '</div>';
+          h += '</div>';
+          wrap.innerHTML = h;
+          return;
+        }
+
+        // Multi-location: Select mit "Alle Standorte" als erste Option
+        h = '<div class="tc-shell-user__org-switch">';
         h += '<label class="tc-shell-user__org-label" for="tc-location-switch">Standort wechseln</label>';
         h += '<select id="tc-location-switch" class="tc-shell-user__org-select" aria-label="Standort wechseln">';
+        h += '<option value=""' + (!activeLocId ? " selected" : "") + '>Alle Standorte</option>';
         for (var i = 0; i < locs.length; i++) {
           var loc = locs[i];
           var label = loc.name + (loc.is_hq ? " (HQ)" : "") + (loc.city ? " · " + loc.city : "");
@@ -580,13 +627,13 @@
 
         select.addEventListener("change", function () {
           var nextLocId = String(select.value || "").trim();
-          if (!nextLocId || nextLocId === String(activeLocId)) return;
+          if (nextLocId === String(activeLocId)) return;
           select.disabled = true;
-          var restore = function () { select.value = activeLocId; select.disabled = false; };
+          var restore = function () { select.value = activeLocId || ""; select.disabled = false; };
 
           var doSwitch = function () {
             if (window.TC && TC.api && typeof TC.api.post === "function") {
-              return TC.api.post("/me/active-location", { location_id: nextLocId });
+              return TC.api.post("/me/active-location", { location_id: nextLocId || null });
             }
             return fetch("/api/csrf", { credentials: "include" })
               .then(function (r) { return r.ok ? r.json() : null; })
@@ -598,7 +645,7 @@
                     "Content-Type": "application/json",
                     "x-csrf-token": (d && d.token) || ""
                   },
-                  body: JSON.stringify({ location_id: nextLocId })
+                  body: JSON.stringify({ location_id: nextLocId || null })
                 });
               })
               .then(function (r) { return r && r.ok ? r.json() : Promise.reject(new Error("switch failed")); });
@@ -608,7 +655,7 @@
             .then(function (resp) {
               try {
                 if (window.TC && TC.api && typeof TC.api.setActiveLocationId === "function") {
-                  TC.api.setActiveLocationId((resp && resp.location_id) || nextLocId);
+                  TC.api.setActiveLocationId((resp && resp.location_id) || null);
                 }
               } catch (_err) { /* ignore */ }
               window.location.reload();
@@ -757,6 +804,37 @@
       }
 
       injectStyles();
+
+      /* ── Skip-to-main link (Keyboard / Screen Reader) ─────────────
+       * Injected once at the very start of <body> — visually hidden
+       * until focused (Tab key). Gives keyboard users a way to bypass
+       * the navigation and jump to the page content directly.
+       */
+      if (!document.getElementById("tc-skip-main")) {
+        var skipLink = document.createElement("a");
+        skipLink.id = "tc-skip-main";
+        skipLink.href = "#tc-main-content";
+        skipLink.textContent = "Zum Hauptinhalt springen";
+        skipLink.className = "tc-skip-link";
+        document.body.insertBefore(skipLink, document.body.firstChild);
+
+        /* Add skip-link styles once */
+        var skipStyle = document.createElement("style");
+        skipStyle.id = "tc-skip-link-styles";
+        skipStyle.textContent = ".tc-skip-link{position:absolute;top:-100%;left:var(--ds-space-3,12px);z-index:99999;padding:8px 16px;border-radius:var(--ds-radius-md,8px);background:var(--ds-brand,#4a9eff);color:#fff;font-size:14px;font-weight:700;text-decoration:none;white-space:nowrap;transition:top .15s}.tc-skip-link:focus{top:var(--ds-space-3,12px)}";
+        document.head.appendChild(skipStyle);
+
+        /* Mark first main-content div (ds-wrap) as landmark if present */
+        var mainWrap = document.querySelector(".ds-wrap:not(#tc-shell .ds-wrap)");
+        if (!mainWrap) mainWrap = document.querySelector(".ds-wrap");
+        if (mainWrap && !mainWrap.id) {
+          mainWrap.id = "tc-main-content";
+          if (!mainWrap.getAttribute("role")) mainWrap.setAttribute("role", "main");
+        } else if (mainWrap && mainWrap.id && !mainWrap.getAttribute("role")) {
+          mainWrap.setAttribute("role", "main");
+        }
+      }
+
       container.innerHTML = buildTopbar();
       if (window.TC && TC.theme && typeof TC.theme.mountIntoNav === "function") {
         var shellNav = container.querySelector(".ds-topbar__nav");

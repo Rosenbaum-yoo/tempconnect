@@ -1,8 +1,9 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="de">
 <head>
   <meta charset="utf-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <script src="/public/js/theme.js"></script>
   <title>Erste Schritte – TempConnect</title>
   <link rel="stylesheet" href="/public/css/design-system.css"/>
   <style>
@@ -38,87 +39,69 @@
         <a href="/public/pricing.html" class="ds-nav-link">Tarife</a>
         <a href="/public/hilfe.html" class="ds-nav-link">Hilfe</a>
         <span class="ds-topbar__separator"></span>
-        <a href="/app" class="ds-btn">Anmelden</a>
-        <a href="/app" class="ds-btn ds-btn--primary">Kostenlos starten</a>
+        <a href="/" class="ds-btn">Anmelden</a>
+        <a href="/" class="ds-btn ds-btn--primary">Kostenlos starten</a>
       </div>
     </nav>
 
     <div class="ds-page-header">
       <div class="ds-page-header__content">
         <h1 class="ds-page-title">Erste Schritte mit TempConnect</h1>
-        <p class="ds-page-subtitle">In fuenf Schritten zur professionellen Personalkoordination. Starten Sie kostenlos und finden Sie sofort passende Partner.</p>
+        <p class="ds-page-subtitle">In drei Schritten zur professionellen Personalkoordination. Starten Sie kostenlos und finden Sie sofort passende Partner.</p>
       </div>
     </div>
 
+    <!-- Step 1: Rolle waehlen & Konto erstellen -->
     <div class="ob-steps">
       <div class="ob-step">
         <div class="ob-step__num"></div>
         <div>
-          <h3>Konto erstellen</h3>
-          <p>Registrieren Sie sich mit Ihrer geschaeftlichen E-Mail-Adresse. Die Registrierung ist kostenlos und dauert weniger als 2 Minuten. Nach der E-Mail-Bestaetigung ist Ihr Konto sofort aktiv.</p>
-          <a href="/app" class="ds-btn ds-btn--primary ds-btn--sm">Jetzt registrieren</a>
-        </div>
-      </div>
-
-      <div class="ob-step">
-        <div class="ob-step__num"></div>
-        <div>
-          <h3>Firmenprofil vervollstaendigen</h3>
-          <p>Fuellen Sie Ihr Unternehmensprofil aus: Firmenname, Ansprechpartner, Kontaktdaten, Standort und Branche. Ein vollstaendiges Profil erhoet Ihre Sichtbarkeit und schafft Vertrauen bei anderen Teilnehmern.</p>
-          <a href="/public/sla_profil.html" class="ds-btn ds-btn--sm">Zum Profil</a>
-        </div>
-      </div>
-
-      <div class="ob-step">
-        <div class="ob-step__num"></div>
-        <div>
-          <h3>Rolle waehlen</h3>
-          <p>Sind Sie ein <strong>Unternehmen</strong>, das Zeitarbeitskraefte sucht, oder ein <strong>Personaldienstleister</strong>, der Kapazitaeten anbietet? Ihre Rolle bestimmt, welche Funktionen und Ansichten fuer Sie relevant sind.</p>
-        </div>
-      </div>
-
-      <div class="ob-step">
-        <div class="ob-step__num"></div>
-        <div>
-          <h3>Erste Aktion durchfuehren</h3>
-          <p>Starten Sie direkt mit einer konkreten Aktion – je nach Ihrer Rolle:</p>
+          <h3>Rolle waehlen &amp; Konto erstellen</h3>
+          <p>Waehlen Sie Ihre Rolle und registrieren Sie sich kostenlos mit Ihrer geschaeftlichen E-Mail. Die Registrierung dauert weniger als 1 Minute.</p>
           <div class="role-split" style="margin-top:var(--ds-space-3)">
             <div class="role-card" style="border-color:rgba(74,158,255,.2)">
-              <h3>&#127970; Als Unternehmen</h3>
-              <p>Durchsuchen Sie die Kapazitaetsboerse nach verfuegbarem Personal oder erstellen Sie eine Bedarfsmeldung.</p>
+              <h3>&#127970; Unternehmen</h3>
+              <p>Sie suchen qualifizierte Zeitarbeitskraefte und moechten Personaldienstleister vergleichen.</p>
               <ul>
-                <li>Kapazitaetsboerse durchsuchen</li>
-                <li>Bedarfsmeldung erstellen</li>
-                <li>Dienstleister einladen</li>
+                <li>Personalanfragen erstellen</li>
+                <li>Angebote erhalten und vergleichen</li>
+                <li>Dienstleister-Pool aufbauen</li>
               </ul>
-              <a href="/public/capacity_exchange_feed.html" class="ds-btn ds-btn--sm">Kapazitaetsboerse oeffnen</a>
+              <a href="/?role=company" class="ds-btn ds-btn--primary ds-btn--sm">Als Unternehmen starten</a>
             </div>
             <div class="role-card" style="border-color:rgba(124,92,255,.2)">
-              <h3>&#128188; Als Personaldienstleister</h3>
-              <p>Stellen Sie Ihre erste verfuegbare Kapazitaet in der Boerse ein und erreichen Sie suchende Unternehmen.</p>
+              <h3>&#128188; Personaldienstleister</h3>
+              <p>Sie bieten Zeitarbeitskraefte an und moechten neue Kunden erreichen.</p>
               <ul>
-                <li>Kapazitaetseintrag erstellen</li>
-                <li>Firmenprofil vervollstaendigen</li>
-                <li>Einsatzregionen festlegen</li>
+                <li>Personal einstellen</li>
+                <li>Auf Anfragen reagieren</li>
+                <li>Deals und Einsaetze verwalten</li>
               </ul>
-              <a href="/public/capacity_exchange_form.html" class="ds-btn ds-btn--sm">Kapazitaet einstellen</a>
+              <a href="/?role=agency" class="ds-btn ds-btn--primary ds-btn--sm">Als Dienstleister starten</a>
             </div>
           </div>
         </div>
       </div>
 
+      <!-- Step 2: Profil vervollstaendigen -->
       <div class="ob-step">
         <div class="ob-step__num"></div>
         <div>
-          <h3>Marketplace-Grundlagen verstehen</h3>
-          <p>Lernen Sie die Kernkonzepte der Plattform kennen:</p>
-          <ul style="padding-left:18px;margin:var(--ds-space-2) 0">
-            <li style="font-size:13px;color:var(--ds-text-secondary);padding:2px 0"><strong>Anfragen:</strong> Senden Sie eine Anfrage an einen oder mehrere Anbieter.</li>
-            <li style="font-size:13px;color:var(--ds-text-secondary);padding:2px 0"><strong>Angebote:</strong> Personaldienstleister koennen auf Anfragen mit Angeboten reagieren.</li>
-            <li style="font-size:13px;color:var(--ds-text-secondary);padding:2px 0"><strong>Deals:</strong> Wenn beide Seiten einverstanden sind, entsteht ein Deal – erst dann werden Kontaktdaten freigegeben.</li>
-            <li style="font-size:13px;color:var(--ds-text-secondary);padding:2px 0"><strong>Pulse:</strong> Ab dem PLUS-Tarif dokumentiert die Plattform jeden Matching-Versuch mit Zeitstempel.</li>
-          </ul>
-          <a href="/public/hilfe.html" class="ds-btn ds-btn--sm">Zum Hilfe-Center</a>
+          <h3>Profil vervollstaendigen</h3>
+          <p>Fuellen Sie Firmenname, Ansprechpartner, Stadt und Telefon aus. Der integrierte Onboarding-Assistent fuehrt Sie Schritt fuer Schritt. Ein vollstaendiges Profil erhoet Ihre Sichtbarkeit und schafft Vertrauen.</p>
+        </div>
+      </div>
+
+      <!-- Step 3: Erste Aktion durchfuehren -->
+      <div class="ob-step">
+        <div class="ob-step__num"></div>
+        <div>
+          <h3>Erste Aktion durchfuehren</h3>
+          <p>Starten Sie direkt mit einer konkreten Aktion – je nach Ihrer Rolle: Erstellen Sie Ihre erste Personalanfrage oder stellen Sie Personal in der Vermittlung ein. Danach sind Sie startklar.</p>
+          <div style="display:flex;gap:var(--ds-space-3);margin-top:var(--ds-space-3);flex-wrap:wrap">
+            <a href="/public/capacity_exchange_feed.html" class="ds-btn ds-btn--sm">Vermittlung öffnen</a>
+            <a href="/public/hilfe.html" class="ds-btn ds-btn--sm">Hilfe-Center</a>
+          </div>
         </div>
       </div>
     </div>
@@ -143,7 +126,7 @@
         <div style="text-align:center;padding:var(--ds-space-4);border:1px solid var(--ds-border);border-radius:var(--ds-radius-md);background:rgba(255,255,255,.02)">
           <div style="font-size:20px;margin-bottom:6px">&#128203;</div>
           <strong style="font-size:13px">3. Einstellen</strong>
-          <div style="font-size:12px;color:var(--ds-text-secondary);margin-top:4px">Kapazitaeten erfassen</div>
+          <div style="font-size:12px;color:var(--ds-text-secondary);margin-top:4px">Personal einstellen</div>
         </div>
         <div style="text-align:center;padding:var(--ds-space-4);border:1px solid var(--ds-border);border-radius:var(--ds-radius-md);background:rgba(255,255,255,.02)">
           <div style="font-size:20px;margin-bottom:6px">&#129309;</div>
@@ -158,7 +141,7 @@
     <section style="text-align:center;padding:var(--ds-space-6) 0">
       <h2 style="font-size:20px;font-weight:700;margin:0 0 var(--ds-space-2)">Bereit?</h2>
       <p style="color:var(--ds-text-secondary);font-size:14px;margin:0 0 var(--ds-space-4)">Registrieren Sie sich kostenlos und beginnen Sie sofort mit der Personalkoordination.</p>
-      <a href="/app" class="ds-btn ds-btn--primary ds-btn--lg">Kostenlos starten</a>
+      <a href="/" class="ds-btn ds-btn--primary ds-btn--lg">Kostenlos starten</a>
     </section>
 
     <div class="ds-disclaimer">
@@ -167,5 +150,7 @@
   </div>
   <div id="tc-footer" data-tc-footer></div>
   <script src="/public/js/footer.js"></script>
+<script src="/public/js/demoBanner.js" defer></script>
+<script src="/public/js/onboardingWizard.js" defer></script><script src="/public/js/breadcrumb.js" defer></script>
 </body>
 </html>

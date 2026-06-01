@@ -1,0 +1,868 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <script src="/public/js/theme.js"></script>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Einsätze & Zeiten – TempConnect</title>
+  <link rel="stylesheet" href="/public/css/enterprise.css">
+  <link rel="stylesheet" href="worker.css">
+  <style>
+    :root {
+      --hub-sidebar:360px;
+      --hub-accent:var(--ds-brand);
+      --wk-primary:var(--ds-brand);
+      --wk-primary-d:var(--ds-brand-hover);
+      --wk-bg:var(--ds-bg);
+      --wk-surface:var(--ds-bg-surface);
+      --wk-border:var(--ds-border);
+      --wk-text:var(--ds-text);
+      --wk-text-muted:var(--ds-text-secondary);
+      --wk-shadow:var(--ds-shadow-md);
+      --wk-shadow-md:var(--ds-shadow-lg);
+      --wk-success:var(--ds-success);
+      --wk-warning:var(--ds-warning);
+      --wk-danger:var(--ds-danger);
+    }
+    body { background:var(--wk-bg); color:var(--wk-text); }
+    .wk-layout { background:linear-gradient(180deg,var(--wk-bg),var(--ds-bg-raised)); }
+    .wk-header {
+      background:var(--tc-topbar-bg)!important;
+      border:1px solid var(--wk-border)!important;
+      border-radius:999px;
+      box-shadow:none!important;
+      margin:14px auto 0;
+      max-width:1340px;
+      width:calc(100% - 40px);
+      padding:12px 18px!important;
+      height:auto!important;
+      backdrop-filter: blur(10px);
+    }
+    .wk-logo { background:linear-gradient(135deg,var(--hub-accent),var(--ds-accent))!important; }
+
+    /* Tab Navigation */
+    .hub-tabs { display:flex; border-bottom:2px solid var(--wk-border); margin-bottom:24px; }
+    .hub-tab {
+      padding:12px 20px; font-size:.9rem; font-weight:600;
+      color:var(--wk-text-muted); cursor:pointer; border:none; background:none;
+      border-bottom:2px solid transparent; margin-bottom:-2px;
+      transition:color .15s,border-color .15s; display:flex; align-items:center; gap:6px;
+    }
+    .hub-tab:hover { color:var(--wk-text); }
+    .hub-tab.active { color:var(--hub-accent); border-bottom-color:var(--hub-accent); }
+    .hub-tab .tc {
+      background:var(--tc-surface-subtle); border:1px solid var(--wk-border); border-radius:20px;
+      padding:1px 7px; font-size:.74rem; font-weight:700; color:var(--wk-text-muted);
+    }
+    .hub-tab.active .tc { background:var(--tc-tone-brand-bg); border-color:var(--tc-tone-brand-border); color:var(--hub-accent); }
+    .hub-tab-panel { display:none; }
+    .hub-tab-panel.active { display:block; }
+
+    /* KPI Strip */
+    .hub-kpis { display:grid; grid-template-columns:repeat(2,1fr); gap:12px; margin-bottom:20px; }
+    @media(min-width:600px){ .hub-kpis{ grid-template-columns:repeat(4,1fr); } }
+    .hub-kpi {
+      background:var(--wk-surface); border:1px solid var(--wk-border);
+      border-radius:var(--wk-radius-sm); padding:16px 14px; text-align:center;
+      box-shadow:var(--wk-shadow); transition:box-shadow .15s;
+    }
+    .hub-kpi:hover { box-shadow:var(--wk-shadow-md); }
+    .hub-kpi-num { font-size:1.8rem; font-weight:800; line-height:1; color:var(--hub-accent); }
+    .hub-kpi-num.g { color:var(--wk-success); }
+    .hub-kpi-num.o { color:var(--wk-warning); }
+    .hub-kpi-num.r { color:var(--wk-danger); }
+    .hub-kpi-label { font-size:.7rem; text-transform:uppercase; letter-spacing:.5px; color:var(--wk-text-muted); margin-top:5px; }
+
+    /* Split Layout */
+    @media(min-width:900px){
+      .rev-layout { display:grid; grid-template-columns:var(--hub-sidebar) 1fr; gap:20px; align-items:start; }
+      .rev-list-col { position:sticky; top:76px; max-height:calc(100vh - 96px); overflow-y:auto; }
+    }
+
+    /* Filter pills */
+    .rev-filters { display:flex; gap:6px; flex-wrap:wrap; margin-bottom:12px; }
+    .rev-pill {
+      padding:5px 13px; border-radius:20px; border:1.5px solid var(--wk-border);
+      background:var(--wk-surface); font-size:.78rem; font-weight:500;
+      cursor:pointer; transition:all .12s; color:var(--wk-text-muted);
+    }
+    .rev-pill:hover { border-color:var(--hub-accent); color:var(--hub-accent); }
+    .rev-pill.on { background:var(--hub-accent); color:white; border-color:var(--hub-accent); }
+
+    /* Submission list */
+    .rev-item {
+      padding:13px 14px; border:1.5px solid var(--wk-border);
+      border-radius:var(--wk-radius-sm); background:var(--wk-surface);
+      margin-bottom:6px; cursor:pointer; transition:all .12s;
+    }
+    .rev-item:hover { border-color:var(--hub-accent); box-shadow:var(--wk-shadow); }
+    .rev-item.sel { border-color:var(--hub-accent); background:var(--tc-selected-bg); box-shadow:0 0 0 3px var(--tc-selected-ring); }
+    .rev-ihead { display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:3px; }
+    .rev-iname { font-weight:600; font-size:.875rem; }
+    .rev-isub  { font-size:.78rem; color:var(--wk-text-muted); }
+    .rev-ifoot { display:flex; justify-content:space-between; align-items:center; margin-top:6px; }
+    .rev-ihours{ font-weight:800; font-size:.95rem; color:var(--hub-accent); }
+
+    /* Detail panel */
+    .rev-detail {
+      background:var(--wk-surface); border:1px solid var(--wk-border);
+      border-radius:var(--wk-radius); padding:22px; box-shadow:var(--wk-shadow);
+    }
+    .rev-dhead { padding-bottom:16px; border-bottom:1px solid var(--wk-border); margin-bottom:18px; }
+    .rev-dname { font-size:1.1rem; font-weight:800; margin-bottom:3px; }
+    .rev-dmeta { font-size:.83rem; color:var(--wk-text-muted); }
+    .rev-stats { display:flex; gap:24px; margin-top:12px; flex-wrap:wrap; }
+    .rev-stat-label { font-size:.72rem; text-transform:uppercase; letter-spacing:.4px; color:var(--wk-text-muted); }
+    .rev-stat-val { font-size:1.25rem; font-weight:800; margin-top:2px; }
+    .rev-cbox { padding:10px 12px; border-radius:8px; font-size:.84rem; margin-top:10px; line-height:1.5; }
+    .rev-cbox.wkr { background:var(--tc-tone-neutral-bg); border-left:3px solid var(--tc-tone-neutral-text); }
+    .rev-cbox.rev { background:var(--tc-tone-warning-bg); border-left:3px solid var(--wk-warning); }
+    .rev-etable { width:100%; border-collapse:collapse; font-size:.84rem; }
+    .rev-etable th { text-align:left; padding:7px 8px; font-size:.72rem; text-transform:uppercase; letter-spacing:.4px; color:var(--wk-text-muted); border-bottom:1px solid var(--wk-border); }
+    .rev-etable td { padding:8px; border-bottom:1px solid var(--tc-row-divider); }
+    .rev-etable tr:last-child td { border-bottom:none; }
+    .rev-etable tr:hover td { background:var(--tc-hover-soft); }
+    .rev-stitle { font-size:.72rem; text-transform:uppercase; letter-spacing:.5px; color:var(--wk-text-muted); font-weight:700; margin:16px 0 8px; }
+    .rev-actions { display:flex; gap:8px; flex-wrap:wrap; margin-top:18px; padding-top:16px; border-top:1px solid var(--wk-border); }
+    .rev-actions .wk-btn { flex:1; min-width:130px; }
+    .rev-notebox { display:none; margin-top:10px; }
+    .rev-notebox.on { display:block; }
+
+    /* Event timeline */
+    .ev-row { display:flex; gap:10px; padding:7px 0; border-bottom:1px solid var(--tc-row-divider); font-size:.82rem; }
+    .ev-row:last-child { border-bottom:none; }
+    .ev-dot { width:8px; height:8px; border-radius:50%; background:var(--wk-border); flex-shrink:0; margin-top:5px; }
+    .ev-dot.g { background:var(--wk-success); }
+    .ev-dot.b { background:var(--hub-accent); }
+    .ev-dot.o { background:var(--wk-warning); }
+    .ev-dot.r { background:var(--wk-danger); }
+
+    /* Worker tab */
+    .wk-toolbar { display:flex; justify-content:space-between; align-items:center; margin-bottom:16px; gap:12px; flex-wrap:wrap; }
+    .wk-search { flex:1; min-width:200px; max-width:320px; position:relative; }
+    .wk-search input {
+      width:100%; padding:8px 12px 8px 34px; border:1.5px solid var(--wk-border);
+      border-radius:8px; font-size:.875rem; background:var(--wk-surface); color:var(--wk-text); transition:border-color .15s, box-shadow .15s;
+    }
+    .wk-search input:focus { outline:none; border-color:var(--hub-accent); box-shadow:0 0 0 3px var(--tc-input-focus-ring); }
+    .wk-search::before { content:'??'; position:absolute; left:10px; top:50%; transform:translateY(-50%); font-size:13px; pointer-events:none; }
+
+    .wk-table-wrap { background:var(--wk-surface); border:1px solid var(--wk-border); border-radius:var(--wk-radius); box-shadow:var(--wk-shadow); overflow:hidden; }
+    .wk-table { width:100%; border-collapse:collapse; font-size:.875rem; }
+    .wk-table th { text-align:left; padding:10px 14px; font-size:.72rem; text-transform:uppercase; letter-spacing:.5px; font-weight:700; color:var(--wk-text-muted); background:var(--wk-bg); border-bottom:1px solid var(--wk-border); }
+    .wk-table td { padding:12px 14px; border-bottom:1px solid var(--tc-row-divider); vertical-align:middle; }
+    .wk-table tr:last-child td { border-bottom:none; }
+    .wk-table tr:hover td { background:var(--tc-hover-soft); }
+    .wk-avatar { width:34px; height:34px; border-radius:50%; color:white; font-weight:700; font-size:.8rem; display:flex; align-items:center; justify-content:center; flex-shrink:0; }
+    .wk-namecell { display:flex; align-items:center; gap:10px; }
+    .wk-nname { font-weight:600; font-size:.875rem; }
+    .wk-nemail { font-size:.78rem; color:var(--wk-text-muted); }
+
+    .pill { display:inline-flex; align-items:center; gap:4px; padding:3px 9px; border-radius:20px; font-size:.74rem; font-weight:600; white-space:nowrap; }
+    .pill::before { content:''; width:6px; height:6px; border-radius:50%; background:currentColor; }
+    .pill-act { background:var(--tc-tone-success-bg); color:var(--tc-tone-success-strong-text); }
+    .pill-off { background:var(--tc-tone-neutral-bg); color:var(--tc-tone-neutral-text); }
+    .pill-pnd { background:var(--tc-tone-brand-bg); color:var(--tc-tone-brand-text); }
+    .pill-warn { background:var(--tc-tone-warning-bg); color:var(--tc-tone-warning-text); }
+    .pill-danger { background:var(--tc-tone-danger-bg); color:var(--tc-tone-danger-text); }
+    .pill-accent { background:var(--tc-tone-accent-bg); color:var(--tc-tone-accent-text); }
+
+    .inv-section { margin-top:24px; }
+    .inv-stitle { font-size:.78rem; text-transform:uppercase; letter-spacing:.5px; font-weight:700; color:var(--wk-text-muted); margin-bottom:10px; }
+    .inv-list { display:flex; flex-direction:column; gap:8px; }
+    .inv-item { display:flex; align-items:center; gap:12px; padding:12px 14px; background:var(--wk-surface); border:1px solid var(--wk-border); border-radius:var(--wk-radius-sm); box-shadow:var(--wk-shadow); }
+    .inv-item:hover { box-shadow:var(--wk-shadow-md); }
+    .inv-ava { width:32px; height:32px; border-radius:50%; background:var(--tc-tone-neutral-bg); border:2px dashed var(--tc-tone-neutral-border); display:flex; align-items:center; justify-content:center; font-size:.9rem; flex-shrink:0; }
+    .inv-info { flex:1; min-width:0; }
+    .inv-name { font-weight:600; font-size:.875rem; }
+    .inv-meta { font-size:.77rem; color:var(--wk-text-muted); }
+    .inv-acts { display:flex; gap:6px; }
+
+    /* Drawer */
+    .drw-overlay { position:fixed; inset:0; background:var(--tc-modal-scrim); z-index:200; opacity:0; pointer-events:none; transition:opacity .2s; }
+    .drw-overlay.on { opacity:1; pointer-events:auto; }
+    .drw { position:fixed; right:0; top:0; bottom:0; width:100%; max-width:420px; background:var(--wk-surface); box-shadow:var(--ds-shadow-xl); z-index:201; transform:translateX(100%); transition:transform .25s cubic-bezier(.4,0,.2,1); display:flex; flex-direction:column; }
+    .drw.on { transform:translateX(0); }
+    .drw-head { padding:20px 22px 16px; border-bottom:1px solid var(--wk-border); display:flex; align-items:center; justify-content:space-between; }
+    .drw-title { font-size:1rem; font-weight:800; }
+    .drw-body { flex:1; overflow-y:auto; padding:22px; }
+    .drw-foot { padding:16px 22px; border-top:1px solid var(--wk-border); display:flex; gap:10px; }
+    .drw-close { width:32px; height:32px; border-radius:8px; border:1.5px solid var(--wk-border); background:none; cursor:pointer; display:flex; align-items:center; justify-content:center; font-size:1rem; color:var(--wk-text-muted); transition:background .12s; }
+    .drw-close:hover { background:var(--tc-surface-subtle); }
+
+    /* Empty / Skeleton */
+    .hub-empty { text-align:center; padding:48px 20px; color:var(--wk-text-muted); }
+    .hub-empty .icon { font-size:2.5rem; margin-bottom:12px; }
+    .hub-empty h3 { font-size:1rem; font-weight:700; margin-bottom:6px; color:var(--wk-text); }
+    .hub-empty p { font-size:.875rem; }
+    .skel { height:58px; border-radius:8px; background:linear-gradient(90deg,var(--tc-skeleton-a) 25%,var(--tc-skeleton-b) 50%,var(--tc-skeleton-a) 75%); background-size:200% 100%; animation:sk 1.4s infinite; margin-bottom:6px; }
+    @keyframes sk { 0%{background-position:200% 0} 100%{background-position:-200% 0} }
+
+    /* -- Badge overrides (dark) -- override worker.css hardcoded light colors */
+    .wk-badge-draft              { background:var(--tc-tone-neutral-bg); color:var(--tc-tone-neutral-text); }
+    .wk-badge-submitted          { background:var(--tc-tone-brand-bg);  color:var(--tc-tone-brand-text); }
+    .wk-badge-under-review       { background:var(--tc-tone-warning-bg);  color:var(--tc-tone-warning-text); }
+    .wk-badge-needs-correction   { background:var(--tc-tone-warning-bg-strong);  color:var(--tc-tone-warning-text); }
+    .wk-badge-accepted           { background:var(--tc-tone-success-bg);  color:var(--tc-tone-success-strong-text); }
+    .wk-badge-rejected           { background:var(--tc-tone-danger-bg); color:var(--tc-tone-danger-strong-text); }
+    .wk-badge-superseded         { background:var(--tc-tone-neutral-bg);  color:var(--tc-tone-neutral-text); }
+    /* Neue Zeitarbeit-Status-Badges */
+    .wk-badge-approved-internal  { background:var(--tc-tone-success-bg);  color:var(--tc-tone-success-text); }
+    .wk-badge-sent-to-customer   { background:var(--tc-tone-brand-bg);  color:var(--tc-tone-brand-strong-text); }
+    .wk-badge-cust-confirmed     { background:var(--tc-tone-success-bg-strong);  color:var(--tc-tone-success-strong-text); font-weight:700; }
+    .wk-badge-cust-rejected      { background:var(--tc-tone-warning-bg-strong);  color:var(--tc-tone-warning-strong-text); }
+    .wk-badge-posted             { background:var(--tc-tone-success-bg-strong);  color:var(--tc-tone-success-strong-text); font-weight:700; }
+    /* Planvergleich-Box */
+    .plan-vs { display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-top:8px; }
+    .plan-vs-item { background:var(--tc-surface-emphasis); border:1px solid var(--wk-border); border-radius:8px; padding:10px 12px; font-size:.8rem; }
+    .plan-vs-label { color:var(--wk-text-muted); font-size:.72rem; text-transform:uppercase; letter-spacing:.04em; margin-bottom:3px; }
+    .plan-vs-val { font-weight:700; }
+    .plan-vs-diff { font-size:.72rem; margin-top:2px; }
+    .plan-vs-diff.ok  { color:var(--wk-success); }
+    .plan-vs-diff.warn { color:var(--wk-warning); }
+    /* Kundensection */
+    .cust-info { background:var(--tc-tone-brand-bg); border:1px solid var(--tc-tone-brand-border); border-radius:10px; padding:12px 14px; margin-top:10px; font-size:.84rem; }
+
+    /* -- Alert overrides (dark) -- */
+    .wk-alert-info    { background:var(--tc-tone-brand-bg);  color:var(--tc-tone-brand-strong-text); border-left:3px solid var(--hub-accent); }
+    .wk-alert-success { background:var(--tc-tone-success-bg);  color:var(--tc-tone-success-text); border-left:3px solid var(--wk-success); }
+    .wk-alert-warning { background:var(--tc-tone-warning-bg);  color:var(--tc-tone-warning-strong-text); border-left:3px solid var(--wk-warning); }
+    .wk-alert-danger  { background:var(--tc-tone-danger-bg); color:var(--tc-tone-danger-text); border-left:3px solid var(--wk-danger); }
+
+    /* -- Input focus ring (dark) -- */
+    .wk-input:focus, .wk-select:focus, .wk-textarea:focus {
+      border-color:var(--hub-accent); box-shadow:0 0 0 3px var(--tc-input-focus-ring);
+    }
+    /* -- Inputs / Search bg -- */
+    .wk-input, .wk-select, .wk-textarea {
+      background:var(--wk-surface); color:var(--wk-text);
+      border-color:var(--wk-border);
+    }
+    .wk-input::placeholder, .wk-textarea::placeholder { color:var(--wk-text-muted); }
+
+    /* -- Assignment-Link Edit Drawer: wider + sectioned forms -- */
+    .drw-lg { max-width:540px; }
+    .drw-section { margin-bottom:20px; }
+    .drw-section-title {
+      font-size:.72rem; font-weight:700; letter-spacing:.07em;
+      text-transform:uppercase; color:var(--wk-text-muted);
+      margin-bottom:10px; padding-bottom:6px;
+      border-bottom:1px solid var(--wk-border);
+    }
+    .drw-grid-2 { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+
+    /* -- Einsätze Tab: Card Grid -- */
+    .asgn-filter-bar { display:flex; gap:10px; align-items:center; flex-wrap:wrap; margin-bottom:18px; }
+    .asgn-filter-bar .wk-search { max-width:320px; }
+    .asgn-status-btns { display:flex; gap:6px; }
+    .asgn-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(340px,1fr)); gap:14px; }
+    .asgn-card {
+      background:var(--wk-surface); border:1.5px solid var(--wk-border);
+      border-radius:12px; padding:18px 20px; display:flex; flex-direction:column;
+      transition:border-color .18s, box-shadow .18s;
+    }
+    .asgn-card:hover { border-color:var(--tc-tone-brand-border); box-shadow:var(--ds-shadow-sm); }
+    .asgn-card-head { display:flex; align-items:center; gap:12px; margin-bottom:12px; }
+    .asgn-card-name { font-weight:700; font-size:.92rem; }
+    .asgn-card-sub  { font-size:.76rem; color:var(--wk-text-muted); margin-top:2px; }
+    .asgn-fields { flex:1; display:flex; flex-direction:column; margin-bottom:14px; }
+    .asgn-field-row {
+      display:flex; align-items:flex-start; gap:8px;
+      font-size:.8rem; padding:5px 0; border-bottom:1px solid var(--tc-row-divider);
+    }
+    .asgn-field-row:last-child { border-bottom:none; }
+    .asgn-field-icon  { width:16px; flex-shrink:0; color:var(--wk-text-muted); text-align:center; }
+    .asgn-field-label { flex:0 0 88px; color:var(--wk-text-muted); font-size:.77rem; }
+    .asgn-field-val   { flex:1; font-weight:500; word-break:break-word; }
+    .asgn-field-val.empty { color:var(--wk-text-muted); font-style:italic; font-weight:400; }
+    .asgn-card-foot { border-top:1px solid var(--wk-border); padding-top:12px; display:flex; justify-content:flex-end; gap:8px; }
+  </style>
+</head>
+<body>
+<div class="wk-layout">
+
+  <!-- Topbar -->
+  <div id="tc-shell"></div>
+
+  <main style="flex:1;padding:20px;max-width:1340px;margin:0 auto;width:100%">
+
+    <div class="ds-page-header">
+      <div class="ds-page-header__content">
+        <h1 class="ds-page-title">Einsätze &amp; Zeiten</h1>
+        <p class="ds-page-subtitle">Einsatzkraefte, Stundenzettel, Kundenfreigaben und Nachweise &ndash; im Pilotkern zentral steuern.</p>
+      </div>
+    </div>
+
+    <div class="tc-priority-banner tc-priority-banner--pilot">
+      <div class="tc-priority-banner__main">
+        <div class="tc-priority-banner__eyebrow">Pilot-Standard</div>
+        <div class="tc-priority-banner__title">Besetzung, Kundenversand und Freigaben muessen hier reibungsfrei sitzen</div>
+        <p class="tc-priority-banner__text">Dieser Bereich traegt die operative Reife nach dem Dealabschluss: Worker-Zuweisung, laufender Einsatz, Stundenzettel-Freigabe und der sichtbare naechste Schritt fuer Buyer und Supplier.</p>
+      </div>
+      <div class="tc-priority-banner__aside">
+        <div class="tc-priority-banner__aside-title">Fokus jetzt</div>
+        <div class="tc-priority-banner__aside-text">Offene Einreichungen, Kundenfreigaben und Besetzungsstatus zuerst glattziehen; Begleit- und Dokumententhemen bleiben nachrangig.</div>
+      </div>
+    </div>
+
+    <!-- Onboarding Checklist -->
+    <div id="onboarding-checklist" style="display:none;margin-bottom:var(--ds-space-4)">
+      <div style="border:1px solid var(--tc-tone-brand-border);border-radius:12px;background:var(--tc-tone-brand-bg);overflow:hidden">
+        <div style="display:flex;align-items:center;gap:10px;padding:10px 16px;cursor:pointer" onclick="toggleOnboarding()">
+          <span style="font-size:15px">&#128640;</span>
+          <span style="font-weight:700;font-size:14px;white-space:nowrap">Plattform einrichten</span>
+          <span id="onboarding-subtitle" style="font-size:12px;color:var(--ds-text-secondary,var(--wk-text-muted));white-space:nowrap;overflow:hidden;text-overflow:ellipsis;flex-shrink:1;min-width:0"></span>
+          <div style="flex:1;min-width:40px;max-width:160px;height:4px;border-radius:2px;background:var(--tc-progress-track);overflow:hidden">
+            <div id="onboarding-progress-bar" style="height:100%;border-radius:2px;background:var(--ds-brand);transition:width .4s ease;width:0%"></div>
+          </div>
+          <button id="onboarding-toggle-btn" type="button" style="background:none;border:none;color:var(--ds-text-secondary,var(--wk-text-muted));cursor:pointer;font-size:10px;padding:2px 6px;transition:transform .25s;transform:rotate(0deg)" title="Auf-/Zuklappen" onclick="event.stopPropagation();toggleOnboarding()">&#9660;</button>
+          <button id="onboarding-dismiss-btn" type="button" onclick="event.stopPropagation();dismissOnboarding()" style="background:none;border:none;color:var(--ds-text-secondary,var(--wk-text-muted));cursor:pointer;font-size:18px;padding:2px 6px;line-height:1" title="Ausblenden">&times;</button>
+        </div>
+        <div id="onboarding-body" style="max-height:0;overflow:hidden;transition:max-height .3s ease">
+          <div style="padding:0 16px 14px">
+            <div id="onboarding-steps"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Verwaltung Hub Grid -->
+    <div class="ds-section" style="padding-top:0;margin-bottom:var(--ds-space-4)">
+      <div class="ds-hub-grid">
+        <div class="ds-hub-card ds-hub-card--current ds-hub-card--accent" aria-current="page">
+          <div class="ds-hub-card__icon">&#128203;</div>
+          <div class="ds-hub-card__content">
+            <div class="ds-hub-card__title">Einsätze &amp; Zeiten</div>
+            <p class="ds-hub-card__desc">Sie befinden sich im operativen Einsatz- und Zeitbereich.</p>
+          </div>
+        </div>
+        <a href="#panel-subs" class="ds-hub-card" onclick="switchTab('subs');this.blur();return false;">
+          <div class="ds-hub-card__icon">&#9989;</div>
+          <div class="ds-hub-card__content">
+            <div class="ds-hub-card__title">Stundenzettel &amp; Freigaben</div>
+            <p class="ds-hub-card__desc">Einreichungen pruefen, an Kunden senden und Freigaben sauber steuern.</p>
+          </div>
+        </a>
+        <a href="/public/mitarbeiter.html" class="ds-hub-card">
+          <div class="ds-hub-card__icon">&#128101;</div>
+          <div class="ds-hub-card__content">
+            <div class="ds-hub-card__title">Einsatzkraefte</div>
+            <p class="ds-hub-card__desc">Einsatzkraefte, Einladungen und operative Stammdaten pflegen.</p>
+          </div>
+        </a>
+        <a href="/public/approvals.html" class="ds-hub-card">
+          <div class="ds-hub-card__icon">&#9989;</div>
+          <div class="ds-hub-card__content">
+            <div class="ds-hub-card__title">Freigabe-Queue</div>
+            <p class="ds-hub-card__desc">Ausstehende Genehmigungen ueber Einsaetze, Zeiten und Nachweise hinweg.</p>
+          </div>
+        </a>
+        <a href="/public/timesheets.html" class="ds-hub-card">
+          <div class="ds-hub-card__icon">&#128336;</div>
+          <div class="ds-hub-card__content">
+            <div class="ds-hub-card__title">Stundenzettel</div>
+            <p class="ds-hub-card__desc">Zeiterfassung, Freigabe und Abrechnungsgrundlage im Detail.</p>
+          </div>
+        </a>
+        <a href="/public/sla_nachweise.html" class="ds-hub-card">
+          <div class="ds-hub-card__icon">&#128206;</div>
+          <div class="ds-hub-card__content">
+            <div class="ds-hub-card__title">Nachweise &amp; Dokumente</div>
+            <p class="ds-hub-card__desc">Dokumente, Zertifikate und Nachweise einsatznah verwalten.</p>
+          </div>
+        </a>
+      </div>
+    </div>
+
+    <!-- Tab nav -->
+    <div class="hub-tabs" id="hubTabs">
+      <button class="hub-tab active" onclick="switchTab('subs')" id="tab-subs">
+        Stundenzettel-Freigaben <span class="tc" id="tc-subs">–</span>
+      </button>
+      <button class="hub-tab" onclick="switchTab('wrks')" id="tab-wrks">
+        Einsatzkraefte <span class="tc" id="tc-wrks">–</span>
+      </button>
+      <button class="hub-tab" onclick="switchTab('asgn')" id="tab-asgn">
+        Einsätze <span class="tc" id="tc-asgn">–</span>
+      </button>
+    </div>
+    <div id="pageAccessState" class="hub-empty" style="display:none"></div>
+
+    <!-- ===== TAB: EINREICHUNGEN ===== -->
+    <div class="hub-tab-panel active" id="panel-subs">
+      <div id="subsStateNotice" class="wk-alert wk-alert-info" style="display:none;margin-bottom:14px"></div>
+      <div class="ds-section" style="padding-top:0;margin-bottom:14px">
+        <!-- Kundenversand-Zentrale Card -->
+        <div class="ds-card" style="padding:16px 18px;margin-bottom:14px">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+            <div>
+              <strong style="font-size:.95rem">Kundenversand Stundenzettel</strong>
+              <div style="font-size:.76rem;color:var(--wk-text-muted);margin-top:2px">Status aller Kundenversand-Vorgaenge auf einen Blick</div>
+            </div>
+            <span id="custFlowBadge" class="pill pill-pnd">Kundenflow</span>
+          </div>
+          <!-- Micro-KPIs -->
+          <div style="display:grid;grid-template-columns:repeat(6,1fr);gap:8px;margin-bottom:14px" id="custKpiGrid">
+            <div style="text-align:center;padding:8px 4px;background:var(--tc-surface-muted);border:1px solid var(--wk-border);border-radius:8px">
+              <div style="font-size:1.15rem;font-weight:800;color:var(--tc-tone-success-text)" id="ck-ready">-</div>
+              <div style="font-size:.65rem;color:var(--wk-text-muted);margin-top:2px">Versandbereit</div>
+            </div>
+            <div style="text-align:center;padding:8px 4px;background:var(--tc-surface-muted);border:1px solid var(--wk-border);border-radius:8px">
+              <div style="font-size:1.15rem;font-weight:800;color:var(--tc-tone-brand-text)" id="ck-sent">-</div>
+              <div style="font-size:.65rem;color:var(--wk-text-muted);margin-top:2px">Gesendet</div>
+            </div>
+            <div style="text-align:center;padding:8px 4px;background:var(--tc-surface-muted);border:1px solid var(--wk-border);border-radius:8px">
+              <div style="font-size:1.15rem;font-weight:800;color:var(--wk-warning)" id="ck-open">-</div>
+              <div style="font-size:.65rem;color:var(--wk-text-muted);margin-top:2px">Beim Kunden</div>
+            </div>
+            <div style="text-align:center;padding:8px 4px;background:var(--tc-surface-muted);border:1px solid var(--wk-border);border-radius:8px">
+              <div style="font-size:1.15rem;font-weight:800;color:var(--wk-success)" id="ck-confirmed">-</div>
+              <div style="font-size:.65rem;color:var(--wk-text-muted);margin-top:2px">Bestaetigt</div>
+            </div>
+            <div style="text-align:center;padding:8px 4px;background:var(--tc-surface-muted);border:1px solid var(--wk-border);border-radius:8px">
+              <div style="font-size:1.15rem;font-weight:800;color:var(--wk-danger)" id="ck-rejected">-</div>
+              <div style="font-size:.65rem;color:var(--wk-text-muted);margin-top:2px">Abgelehnt</div>
+            </div>
+            <div style="text-align:center;padding:8px 4px;background:var(--tc-surface-muted);border:1px solid var(--wk-border);border-radius:8px">
+              <div style="font-size:1.15rem;font-weight:800;color:var(--tc-tone-success-strong-text)" id="ck-posted">-</div>
+              <div style="font-size:.65rem;color:var(--wk-text-muted);margin-top:2px">Abrechnung</div>
+            </div>
+          </div>
+          <!-- Handlungsbedarf / Status-Hinweis -->
+          <div id="custFlowHint" style="padding:8px 12px;border-radius:8px;font-size:.82rem;margin-bottom:12px;display:none"></div>
+          <!-- Aktionen -->
+          <div style="display:flex;gap:8px;flex-wrap:wrap">
+            <button class="wk-btn wk-btn-primary wk-btn-sm" id="custBtnSend" onclick="scrollToBundlePreview()" disabled>Versandbereite Positionen anzeigen</button>
+            <button class="wk-btn wk-btn-outline wk-btn-sm" onclick="scrollToBundleSent()">Gesendete Bundles oeffnen</button>
+            <button class="wk-btn wk-btn-ghost wk-btn-sm" onclick="setFilter('sent_to_customer')">Beim Kunden filtern</button>
+            <button class="wk-btn wk-btn-ghost wk-btn-sm" onclick="setFilter('customer_rejected')">Ablehnungen zeigen</button>
+          </div>
+        </div>
+
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:12px">
+          <div class="ds-card" style="padding:14px">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+              <strong>Sammelversand vorbereiten</strong>
+              <div style="display:flex;gap:8px;align-items:center">
+                <select id="bundlePeriodMode" class="wk-input" style="font-size:12px;padding:4px 8px;width:120px" onchange="onBundlePeriodModeChange()">
+                  <option value="week" selected>Woche</option>
+                  <option value="month">Monat</option>
+                </select>
+                <span class="pill pill-pnd">Nur intern freigegeben</span>
+              </div>
+            </div>
+            <div id="bundlePreviewList"></div>
+          </div>
+          <div class="ds-card" style="padding:14px">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+              <strong>Gesendete Bundles</strong>
+              <span class="pill pill-act">Kundenflow</span>
+            </div>
+            <div id="bundleSentList"></div>
+          </div>
+        </div>
+      </div>
+      <div class="hub-kpis" style="grid-template-columns:repeat(8,1fr)">
+        <div class="hub-kpi"><div class="hub-kpi-num" id="k1">–</div><div class="hub-kpi-label">Eingereicht</div></div>
+        <div class="hub-kpi"><div class="hub-kpi-num o" id="k2">–</div><div class="hub-kpi-label">In Prüfung</div></div>
+        <div class="hub-kpi"><div class="hub-kpi-num r" id="k3">–</div><div class="hub-kpi-label">Korrektur nötig</div></div>
+        <div class="hub-kpi"><div class="hub-kpi-num" id="k4" style="color:var(--tc-tone-success-text)">–</div><div class="hub-kpi-label">Intern geprüft</div></div>
+        <div class="hub-kpi"><div class="hub-kpi-num" id="k5" style="color:var(--tc-tone-brand-text)">–</div><div class="hub-kpi-label">Beim Kunden</div></div>
+        <div class="hub-kpi"><div class="hub-kpi-num g" id="k6">–</div><div class="hub-kpi-label">? Bestätigt</div></div>
+        <div class="hub-kpi"><div class="hub-kpi-num o" id="k7">–</div><div class="hub-kpi-label">? Kd. abgelehnt</div></div>
+        <div class="hub-kpi"><div class="hub-kpi-num g" id="k8" style="color:var(--tc-tone-success-strong-text);font-size:1.5rem">–</div><div class="hub-kpi-label">? In Abrechnung</div></div>
+      </div>
+      <div id="ldSubs"><div class="skel"></div><div class="skel" style="opacity:.7"></div><div class="skel" style="opacity:.4"></div></div>
+      <div id="ctSubs" style="display:none" class="rev-layout">
+        <div class="rev-list-col">
+          <div class="rev-filters">
+            <button class="rev-pill on" onclick="setFilter('pending')" id="fp">Ausstehend</button>
+            <button class="rev-pill" onclick="setFilter('under_review')" id="fu">In Prüfung</button>
+            <button class="rev-pill" onclick="setFilter('needs_correction')" id="fc">Korrektur</button>
+            <button class="rev-pill" onclick="setFilter('approved_internal')" id="fai">Intern ?</button>
+            <button class="rev-pill" onclick="setFilter('sent_to_customer')" id="fsc">Beim Kunden</button>
+            <button class="rev-pill" onclick="setFilter('customer_confirmed')" id="fcc">? Bestätigt</button>
+            <button class="rev-pill" onclick="setFilter('customer_rejected')" id="fcr">? Abgelehnt</button>
+            <button class="rev-pill" onclick="setFilter('posted_to_timesheet')" id="fpt">? Abrechnung</button>
+            <button class="rev-pill" onclick="setFilter('')" id="fall">Alle</button>
+          </div>
+          <div id="subList"></div>
+        </div>
+        <div id="detPanel">
+          <div class="hub-empty" id="detEmpty">
+            <div class="icon">??</div>
+            <h3>Einreichung auswählen</h3>
+            <p>Wählen Sie links eine Einreichung aus,<br>um Details und Aktionen anzuzeigen.</p>
+          </div>
+          <div id="detContent" style="display:none" class="rev-detail"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ===== TAB: MITARBEITER ===== -->
+    <div class="hub-tab-panel" id="panel-wrks">
+      <div id="wrksStateNotice" class="wk-alert wk-alert-info" style="display:none;margin-bottom:14px"></div>
+      <div class="hub-kpis">
+        <div class="hub-kpi"><div class="hub-kpi-num g" id="kw1">–</div><div class="hub-kpi-label">Aktive Mitarbeiter</div></div>
+        <div class="hub-kpi"><div class="hub-kpi-num" id="kw2">–</div><div class="hub-kpi-label">Offene Einladungen</div></div>
+        <div class="hub-kpi"><div class="hub-kpi-num o" id="kw3">–</div><div class="hub-kpi-label">Inaktive Accounts</div></div>
+        <div class="hub-kpi"><div class="hub-kpi-num" id="kw4">–</div><div class="hub-kpi-label">Gesamt</div></div>
+      </div>
+      <div class="wk-toolbar">
+        <div class="wk-search">
+          <input type="text" id="wSearch" placeholder="Mitarbeiter suchen…" oninput="filterW()">
+        </div>
+        <button class="wk-btn wk-btn-primary" id="wrksInviteBtn" onclick="openDrw()">+ Einladen</button>
+        <button class="wk-btn wk-btn-outline" id="wrksCreateBtn" onclick="openCreateDrw()">+ Manuell anlegen</button>
+        <a id="mailpitLink" href="//localhost:8025" target="_blank" class="wk-btn wk-btn-ghost wk-btn-sm" style="display:none">? Mailpit</a>
+      </div>
+      <div id="wrksManageNotice" class="wk-alert wk-alert-info" style="display:none;margin-bottom:14px"></div>
+      <div id="ldWrks"><div class="wk-table-wrap" style="padding:20px"><div class="skel"></div><div class="skel" style="opacity:.7"></div><div class="skel" style="opacity:.4"></div></div></div>
+      <div id="ctWrks" style="display:none">
+        <div class="wk-table-wrap">
+          <table class="wk-table">
+            <thead><tr>
+              <th>Mitarbeiter</th><th>Personalnr.</th><th>Status</th>
+              <th>Dabei seit</th><th style="text-align:right">Aktionen</th>
+            </tr></thead>
+            <tbody id="wkTbody"></tbody>
+          </table>
+        </div>
+        <div id="wkEmpty" class="hub-empty" style="display:none">
+          <div class="icon">??</div>
+          <h3>Noch keine Mitarbeiter</h3>
+          <p>Laden Sie Ihre ersten Arbeitnehmer ein, damit diese<br>ihre Stundenzettel digital einreichen können.</p>
+          <button class="wk-btn wk-btn-primary" style="margin-top:14px" onclick="openDrw()">+ Ersten Mitarbeiter einladen</button>
+        </div>
+        <div id="invSection" class="inv-section" style="display:none">
+          <div class="inv-stitle">Offene Einladungen</div>
+          <div class="inv-list" id="invList"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ===== TAB: EINSÄTZE ===== -->
+    <div class="hub-tab-panel" id="panel-asgn">
+      <div id="asgnStateNotice" class="wk-alert wk-alert-info" style="display:none;margin-bottom:14px"></div>
+      <div id="staffingFastTrackNotice" class="wk-alert wk-alert-info" style="display:none;margin-bottom:14px"></div>
+      <div class="hub-kpis">
+        <div class="hub-kpi"><div class="hub-kpi-num g" id="ka1">–</div><div class="hub-kpi-label">Aktive Einsätze</div></div>
+        <div class="hub-kpi"><div class="hub-kpi-num"  id="ka2">–</div><div class="hub-kpi-label">Konfiguriert</div></div>
+        <div class="hub-kpi"><div class="hub-kpi-num o" id="ka3">–</div><div class="hub-kpi-label">Ohne Anweisungen</div></div>
+        <div class="hub-kpi"><div class="hub-kpi-num"  id="ka4">–</div><div class="hub-kpi-label">Mitarbeiter</div></div>
+      </div>
+      <div class="asgn-filter-bar">
+        <div class="wk-search" style="flex:1;min-width:200px;max-width:320px">
+          <input type="text" id="aSearch" placeholder="Mitarbeiter oder Kunden suchen…" oninput="filterAsgn()">
+        </div>
+        <button class="wk-btn wk-btn-primary wk-btn-sm" id="asgnAssignBtn" onclick="openAssignDrw()">+ Personal zuweisen</button>
+        <div class="asgn-status-btns">
+          <button class="rev-pill on" onclick="setAsgnFilter('active',this)">Aktiv</button>
+          <button class="rev-pill" onclick="setAsgnFilter('archived',this)">Archiv</button>
+          <button class="rev-pill" onclick="setAsgnFilter('all',this)">Alle</button>
+        </div>
+      </div>
+      <div id="asgnEditNotice" class="wk-alert wk-alert-info" style="display:none;margin-bottom:14px"></div>
+      <!-- Deal-Einsätze: offene Deals ohne Worker -->
+      <div id="dealAsgnSection" style="display:none;margin-bottom:24px">
+        <div style="display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;align-items:center;margin-bottom:10px">
+          <h3 style="font-size:14px;font-weight:700;margin:0;color:var(--hub-accent)">&#128279; Deal-Einsätze (Worker zuweisen)</h3>
+          <button class="wk-btn wk-btn-outline wk-btn-sm" id="dealChoiceSetBtn" onclick="openChoiceSetDrw()">+ Auswahlphase anlegen</button>
+        </div>
+        <div class="asgn-grid" id="dealAsgnGrid"></div>
+      </div>
+
+      <!-- Welle 7 Phase 3+4: Abgeschlossene Deals hart verfuegbar -->
+      <div id="closedDealAsgnSection" style="display:none;margin-bottom:24px">
+        <div style="display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;align-items:center;margin-bottom:10px">
+          <h3 style="font-size:14px;font-weight:700;margin:0;color:var(--wk-text)">&#9989; Abgeschlossene Deals <span id="closedDealAsgnCount" style="font-weight:500;color:var(--wk-text-muted);font-size:12px"></span></h3>
+          <div style="font-size:12px;color:var(--wk-text-muted)">Vollstaendig besetzte, beendete oder stornierte Deals bleiben hier fuer Nachbearbeitung sichtbar.</div>
+        </div>
+        <div class="asgn-grid" id="closedDealAsgnGrid"></div>
+      </div>
+      <div id="ldAsgn"><div class="skel"></div><div class="skel" style="opacity:.7"></div><div class="skel" style="opacity:.4"></div></div>
+      <div id="ctAsgn" style="display:none">
+        <div class="asgn-grid" id="asgnGrid"></div>
+        <div id="asgnEmpty" class="hub-empty" style="display:none">
+          <div class="icon">??</div>
+          <h3>Keine Einsatz-Konfigurationen</h3>
+          <p>Sobald Arbeitnehmer Einsätzen zugeordnet werden,<br>erscheinen sie hier zur Konfiguration.</p>
+        </div>
+      </div>
+    </div>
+
+  </main>
+</div>
+
+<div id="wk-toast"></div>
+
+<!-- Bundle Detail Modal -->
+<div class="drw-overlay" id="bundleModalOverlay" onclick="closeBundleModal()"></div>
+<div class="drw drw-lg" id="bundleModal">
+  <div class="drw-head">
+    <div>
+      <div class="drw-title">Bundle-Details</div>
+      <div style="font-size:.8rem;color:var(--wk-text-muted);margin-top:2px">Status und Abrechnungsmarker pro Position</div>
+    </div>
+    <button class="drw-close" onclick="closeBundleModal()">&#x2715;</button>
+  </div>
+  <div class="drw-body" id="bundleModalBody"></div>
+  <div class="drw-foot">
+    <button class="wk-btn wk-btn-ghost" onclick="closeBundleModal()" style="flex:1">Schließen</button>
+  </div>
+</div>
+
+<!-- Invite Drawer -->
+<div class="drw-overlay" id="drwOvl" onclick="closeDrw()"></div>
+<div class="drw" id="drw">
+  <div class="drw-head">
+    <div>
+      <div class="drw-title">Arbeitnehmer einladen</div>
+      <div style="font-size:.8rem;color:var(--wk-text-muted);margin-top:2px">Einladungs-E-Mail wird automatisch versendet</div>
+    </div>
+    <button class="drw-close" onclick="closeDrw()">?</button>
+  </div>
+  <div class="drw-body">
+    <div style="padding:12px 14px;background:var(--tc-tone-brand-bg);border-radius:8px;margin-bottom:20px;font-size:.84rem;color:var(--tc-tone-brand-strong-text);border-left:3px solid var(--hub-accent);line-height:1.6">
+      <strong>So funktioniert's:</strong> Der Arbeitnehmer erhält einen Einladungs-Link per E-Mail. Dort setzt er sein Passwort und kann sofort seine Stundenzettel digital einreichen – kein App-Download, kein kompliziertes Setup.
+    </div>
+    <div class="wk-form-group">
+      <label class="wk-label">Vorname <span class="required">*</span></label>
+      <input type="text" class="wk-input" id="ifn" placeholder="z.B. Anna">
+    </div>
+    <div class="wk-form-group">
+      <label class="wk-label">Nachname <span class="required">*</span></label>
+      <input type="text" class="wk-input" id="iln" placeholder="z.B. Kraft">
+    </div>
+    <div class="wk-form-group">
+      <label class="wk-label">E-Mail-Adresse <span class="required">*</span></label>
+      <input type="email" class="wk-input" id="iem" placeholder="anna.kraft@beispiel.de">
+    </div>
+    <div class="wk-form-group">
+      <label class="wk-label">Personalnummer <span style="font-weight:400;color:var(--wk-text-muted)">(optional)</span></label>
+      <input type="text" class="wk-input" id="ipn" placeholder="z.B. W-0042">
+    </div>
+    <div class="wk-form-group">
+      <label class="wk-label">Telefon <span style="font-weight:400;color:var(--wk-text-muted)">(optional)</span></label>
+      <input type="tel" class="wk-input" id="iph" placeholder="+49 170 …">
+    </div>
+    <div id="invErr" style="display:none;padding:10px 12px;background:var(--tc-tone-danger-bg);border-radius:8px;font-size:.83rem;color:var(--tc-tone-danger-text);border-left:3px solid var(--wk-danger);margin-top:8px"></div>
+  </div>
+  <div class="drw-foot">
+    <button class="wk-btn wk-btn-ghost" onclick="closeDrw()" style="flex:0 0 auto">Abbrechen</button>
+    <button class="wk-btn wk-btn-primary" onclick="sendInv()" id="invBtn" style="flex:1">Einladung senden ?</button>
+  </div>
+</div>
+
+<!-- Create Worker Drawer -->
+<div class="drw-overlay" id="crtDrwOvl" onclick="closeCreateDrw()"></div>
+<div class="drw drw-lg" id="crtDrw">
+  <div class="drw-head">
+    <div>
+      <div class="drw-title">Mitarbeiter manuell anlegen</div>
+      <div style="font-size:.8rem;color:var(--wk-text-muted);margin-top:2px">Account wird sofort aktiv – kein Einladungslink n&ouml;tig</div>
+    </div>
+    <button class="drw-close" onclick="closeCreateDrw()">&#x2715;</button>
+  </div>
+  <div class="drw-body">
+    <div style="padding:12px 14px;background:var(--tc-tone-success-bg);border-radius:8px;margin-bottom:20px;font-size:.84rem;color:var(--tc-tone-success-text);border-left:3px solid var(--wk-success);line-height:1.6">
+      <strong>Direkte Erstellung:</strong> Der Account ist sofort aktiv. Der Mitarbeiter kann sich mit E-Mail und dem hier gesetzten Passwort im Einsatzportal anmelden.
+    </div>
+    <div class="drw-grid-2">
+      <div class="wk-form-group"><label class="wk-label">Vorname <span class="required">*</span></label>
+        <input type="text" class="wk-input" id="cfn" placeholder="z.B. Max"></div>
+      <div class="wk-form-group"><label class="wk-label">Nachname <span class="required">*</span></label>
+        <input type="text" class="wk-input" id="cln" placeholder="z.B. M&uuml;ller"></div>
+    </div>
+    <div class="wk-form-group"><label class="wk-label">E-Mail-Adresse <span class="required">*</span></label>
+      <input type="email" class="wk-input" id="cem" placeholder="max.mueller@beispiel.de"></div>
+    <div class="wk-form-group"><label class="wk-label">Passwort <span class="required">*</span></label>
+      <input type="password" class="wk-input" id="cpw" placeholder="Mind. 8 Zeichen" minlength="8"></div>
+    <div class="drw-grid-2">
+      <div class="wk-form-group"><label class="wk-label">Personalnummer</label>
+        <input type="text" class="wk-input" id="cpn" placeholder="z.B. W-0042"></div>
+      <div class="wk-form-group"><label class="wk-label">Telefon</label>
+        <input type="tel" class="wk-input" id="cph" placeholder="+49 170 …"></div>
+    </div>
+    <div class="wk-form-group"><label class="wk-label">Stra&szlig;e</label>
+      <input type="text" class="wk-input" id="cst" placeholder="z.B. Musterstr. 12"></div>
+    <div class="drw-grid-2">
+      <div class="wk-form-group"><label class="wk-label">PLZ</label>
+        <input type="text" class="wk-input" id="cplz" placeholder="z.B. 80331"></div>
+      <div class="wk-form-group"><label class="wk-label">Stadt</label>
+        <input type="text" class="wk-input" id="cci" placeholder="z.B. M&uuml;nchen"></div>
+    </div>
+    <div id="crtErr" style="display:none;padding:10px 12px;background:var(--tc-tone-danger-bg);border-radius:8px;font-size:.83rem;color:var(--tc-tone-danger-text);border-left:3px solid var(--wk-danger);margin-top:8px"></div>
+  </div>
+  <div class="drw-foot">
+    <button class="wk-btn wk-btn-ghost" onclick="closeCreateDrw()" style="flex:0 0 auto">Abbrechen</button>
+    <button class="wk-btn wk-btn-primary" onclick="submitCreate()" id="crtBtn" style="flex:1">Mitarbeiter anlegen ?</button>
+  </div>
+</div>
+
+<!-- Choice-Set Drawer -->
+<div class="drw-overlay" id="choiceSetDrwOvl" onclick="closeChoiceSetDrw()"></div>
+<div class="drw drw-lg" id="choiceSetDrw">
+  <div class="drw-head">
+    <div>
+      <div class="drw-title">Worker-Auswahlphase anlegen</div>
+      <div style="font-size:.8rem;color:var(--wk-text-muted);margin-top:2px">Mehrere offene Einsätze für einen Worker als kontrollierte Auswahlgruppe freigeben</div>
+    </div>
+    <button class="drw-close" onclick="closeChoiceSetDrw()">&#x2715;</button>
+  </div>
+  <div class="drw-body">
+    <div style="padding:12px 14px;background:var(--tc-tone-brand-bg);border-radius:8px;margin-bottom:18px;font-size:.84rem;color:var(--tc-tone-brand-strong-text);border-left:3px solid var(--hub-accent);line-height:1.6">
+      Der bestehende Staffing-Flow bleibt führend. Sie geben hier nur eine zusätzliche Präferenz- oder Auswahlphase frei; die finale Zuweisung bleibt weiterhin kontrolliert in Ihrer Hand.
+    </div>
+    <div class="wk-form-group">
+      <label class="wk-label">Worker <span class="required">*</span></label>
+      <select class="wk-input" id="choiceSetWorker"><option value="">– Bitte wählen –</option></select>
+    </div>
+    <div class="drw-grid-2">
+      <div class="wk-form-group">
+        <label class="wk-label">Modus <span class="required">*</span></label>
+        <select class="wk-input" id="choiceSetMode">
+          <option value="preference_only">Nur Präferenz</option>
+          <option value="ranked_choice">Priorisierte Auswahl</option>
+          <option value="free_choice">Freie Wahl innerhalb freigegebener Optionen</option>
+        </select>
+      </div>
+      <div class="wk-form-group">
+        <label class="wk-label">Antwortfrist</label>
+        <input type="datetime-local" class="wk-input" id="choiceSetDeadline">
+      </div>
+    </div>
+    <div class="wk-form-group">
+      <label class="wk-label">Titel</label>
+      <input type="text" class="wk-input" id="choiceSetTitle" placeholder="z.B. Auswahl möglicher Einsätze für nächste Woche">
+    </div>
+    <div class="wk-form-group">
+      <label class="wk-label">Nachricht an den Worker</label>
+      <textarea class="wk-textarea" id="choiceSetMessage" rows="3" placeholder="Kurzer Hinweis, worauf der Worker bei der Auswahl achten soll…"></textarea>
+    </div>
+    <div class="wk-form-group">
+      <label class="wk-label">Freigegebene Einsatzoptionen <span class="required">*</span></label>
+      <div id="choiceSetAssignments" style="display:grid;gap:8px;max-height:300px;overflow:auto;padding-right:4px"></div>
+    </div>
+    <div id="choiceSetErr" style="display:none;padding:10px 12px;background:var(--tc-tone-danger-bg);border-radius:8px;font-size:.83rem;color:var(--tc-tone-danger-text);border-left:3px solid var(--wk-danger);margin-top:8px"></div>
+  </div>
+  <div class="drw-foot">
+    <button class="wk-btn wk-btn-ghost" onclick="closeChoiceSetDrw()" style="flex:0 0 auto">Abbrechen</button>
+    <button class="wk-btn wk-btn-primary" onclick="submitChoiceSet()" id="choiceSetBtn" style="flex:1">Auswahlphase anlegen</button>
+  </div>
+</div>
+
+<!-- Worker Direct Assignment Drawer -->
+<div class="drw-overlay" id="wrkAssignDrwOvl" onclick="closeWorkerAssignDrw()"></div>
+<div class="drw drw-lg" id="wrkAssignDrw">
+  <div class="drw-head">
+    <div>
+      <div class="drw-title" id="wrkAssignTitle">Einsatz direkt zuweisen</div>
+      <div style="font-size:.8rem;color:var(--wk-text-muted);margin-top:2px" id="wrkAssignSubtitle">Worker-Kontext wird geladen</div>
+    </div>
+    <button class="drw-close" onclick="closeWorkerAssignDrw()">&#x2715;</button>
+  </div>
+  <div class="drw-body">
+    <div style="padding:12px 14px;background:var(--tc-tone-brand-bg);border-radius:8px;margin-bottom:18px;font-size:.84rem;color:var(--tc-tone-brand-strong-text);border-left:3px solid var(--hub-accent);line-height:1.6">
+      Sie bleiben im operativen Worker-Bereich. Der bestehende Assignment-Flow bleibt führend; hier wird nur der direkte Einstieg mit bereits ausgewähltem Worker aktiviert.
+    </div>
+    <div id="wrkAssignWorkerSummary"></div>
+    <div id="wrkAssignLoading" style="display:none;padding:18px 0;color:var(--wk-text-muted);font-size:.84rem">Offene Deal-Einsätze und Staffing-Kontext werden geladen…</div>
+    <div id="wrkAssignErr" style="display:none;padding:10px 12px;background:var(--tc-tone-danger-bg);border-radius:8px;font-size:.83rem;color:var(--tc-tone-danger-text);border-left:3px solid var(--wk-danger);margin-bottom:12px"></div>
+    <div id="wrkAssignEmpty" class="hub-empty" style="display:none;padding:28px 12px">
+      <div class="icon">&#128683;</div>
+      <h3>Keine offenen Deal-Einsätze</h3>
+      <p>Für diesen Worker gibt es aktuell keine offenen Deal-basierten Einsatzoptionen zur direkten Zuweisung.</p>
+    </div>
+    <div id="wrkAssignList" style="display:grid;gap:12px"></div>
+  </div>
+  <div class="drw-foot">
+    <button class="wk-btn wk-btn-ghost" onclick="closeWorkerAssignDrw()" style="flex:1">Schließen</button>
+  </div>
+</div>
+<!-- Assign Capacity Drawer -->
+<div class="drw-overlay" id="asgDrwOvl" onclick="closeAssignDrw()"></div>
+<div class="drw drw-lg" id="asgDrw">
+  <div class="drw-head">
+    <div>
+      <div class="drw-title">Manuelle Zuweisung &rarr; Worker</div>
+      <div style="font-size:.8rem;color:var(--wk-text-muted);margin-top:2px">Personalangebot oder Deal-Einsatz einem Mitarbeiter zuweisen (Schichtzeiten, Kunde, Notizen)</div>
+    </div>
+    <button class="drw-close" onclick="closeAssignDrw()">&#x2715;</button>
+  </div>
+  <div class="drw-body" id="asgDrwBody">
+    <div style="padding:10px 12px;background:var(--tc-tone-brand-bg);border-left:3px solid var(--hub-accent);border-radius:8px;margin-bottom:14px;font-size:.82rem;color:var(--tc-tone-brand-strong-text);line-height:1.5">
+      F&uuml;r Bulk-/Sofortzuweisung ohne Detailpflege nutzen Sie weiterhin die <strong>Deal-Eins&auml;tze (Worker zuweisen)</strong>-Sektion weiter unten. Dieser Drawer ist bewusst der manuelle Detailpfad.
+    </div>
+    <div id="asgLoading" style="padding:32px;text-align:center;color:var(--wk-text-muted)">Lade verfügbares Personal und Deal-Einsätze&hellip;</div>
+    <div id="asgContent" style="display:none">
+      <div class="wk-form-group">
+        <label class="wk-label">Personal oder Deal-Einsatz <span class="required">*</span></label>
+        <select class="wk-input" id="asgCap" onchange="onCapSelect()"><option value="">– Bitte w&auml;hlen –</option></select>
+      </div>
+      <div id="asgCapInfo" style="display:none;padding:12px;background:var(--tc-tone-brand-bg);border:1px solid var(--tc-tone-brand-border);border-radius:10px;margin-bottom:14px;font-size:.83rem"></div>
+      <div class="wk-form-group">
+        <label class="wk-label">Mitarbeiter <span class="required">*</span></label>
+        <select class="wk-input" id="asgWkr"><option value="">– Bitte w&auml;hlen –</option></select>
+      </div>
+      <div class="drw-grid-2">
+        <div class="wk-form-group"><label class="wk-label">Startdatum <span class="required">*</span></label>
+          <input type="date" class="wk-input" id="asgStart"></div>
+        <div class="wk-form-group"><label class="wk-label">Enddatum</label>
+          <input type="date" class="wk-input" id="asgEnd"></div>
+      </div>
+      <div class="drw-grid-2">
+        <div class="wk-form-group"><label class="wk-label">Stunden / Tag</label>
+          <input type="number" class="wk-input" id="asgHpd" value="8" min="0.5" max="24" step="0.5"></div>
+        <div class="wk-form-group"><label class="wk-label">Pause (Min.)</label>
+          <input type="number" class="wk-input" id="asgBrk" value="30" min="0" max="120" step="5"></div>
+      </div>
+      <div class="drw-grid-2">
+        <div class="wk-form-group"><label class="wk-label">Schichtbeginn</label>
+          <input type="time" class="wk-input" id="asgShStart"></div>
+        <div class="wk-form-group"><label class="wk-label">Schichtende</label>
+          <input type="time" class="wk-input" id="asgShEnd"></div>
+      </div>
+      <div class="wk-form-group"><label class="wk-label">Kundenname</label>
+        <input type="text" class="wk-input" id="asgClient" placeholder="z.B. BMW AG"></div>
+      <div class="wk-form-group"><label class="wk-label">Notizen</label>
+        <textarea class="wk-textarea" id="asgNotes" rows="2" placeholder="Interne Hinweise…"></textarea></div>
+    </div>
+    <div id="asgEmpty" style="display:none" class="hub-empty">
+      <div class="icon">&#9888;</div><h3>Nichts manuell Zuweisbares</h3>
+      <p>Aktuell gibt es weder verfügbares Personal noch Deal-Einsätze mit freien Plätzen in Ihrem Verantwortungsbereich.</p>
+    </div>
+    <div id="asgErr" style="display:none;padding:10px 12px;background:var(--tc-tone-danger-bg);border-radius:8px;font-size:.83rem;color:var(--tc-tone-danger-text);border-left:3px solid var(--wk-danger);margin-top:8px"></div>
+  </div>
+  <div class="drw-foot">
+    <button class="wk-btn wk-btn-ghost" onclick="closeAssignDrw()" style="flex:0 0 auto">Abbrechen</button>
+    <button class="wk-btn wk-btn-primary" onclick="submitAssign()" id="asgBtn" style="flex:1">Zuweisen &amp; benachrichtigen</button>
+  </div>
+</div>
+
+<!-- Assignment-Link Edit Drawer -->
+<div class="drw-overlay" id="lnkDrwOvl" onclick="closeLnkDrw()"></div>
+<div class="drw drw-lg" id="lnkDrw">
+  <div class="drw-head">
+    <div>
+      <div class="drw-title" id="lnkDrwTitle">Einsatz konfigurieren</div>
+      <div style="font-size:.8rem;color:var(--wk-text-muted);margin-top:2px" id="lnkDrwSub"></div>
+    </div>
+    <button class="drw-close" onclick="closeLnkDrw()">&#x2715;</button>
+  </div>
+  <div class="drw-body" id="lnkDrwBody">
+    <!-- Wird dynamisch befüllt -->
+  </div>
+  <div class="drw-foot">
+    <button class="wk-btn wk-btn-ghost" onclick="closeLnkDrw()" style="flex:0 0 auto">Abbrechen</button>
+    <button class="wk-btn wk-btn-primary" onclick="saveLnkEdit()" id="lnkSaveBtn" style="flex:1">Änderungen speichern</button>
+  </div>
+</div>
+
+<script src="/public/js/pageShell.js"></script>
+<script defer src="/public/js/pages/workerSubmissionsReview.js"></script>
+<script src="/public/js/demoBanner.js" defer></script>
+<script src="/public/js/onboardingChecklist.js" defer></script>
+<script src="/public/js/breadcrumb.js" defer></script>
+</body>
+</html>

@@ -1,0 +1,642 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <script src="/public/js/theme.js"></script>
+  <title>TempConnect – Einsatzportal</title>
+  <link rel="stylesheet" href="einsatzportal.css">
+  <style>
+    .ep-doc-banner {
+      display:none;
+      border-radius:12px;
+      padding:16px 18px;
+      margin-bottom:14px;
+      border:1px solid rgba(74,158,255,.22);
+      background:rgba(74,158,255,.08);
+    }
+    .ep-doc-banner[data-state="warning"] {
+      border-color:rgba(245,158,11,.24);
+      background:rgba(245,158,11,.09);
+    }
+    .ep-doc-banner[data-state="critical"] {
+      border-color:rgba(239,68,68,.22);
+      background:rgba(239,68,68,.08);
+    }
+    .ep-doc-banner-title {
+      font-weight:700;
+      font-size:.92rem;
+      margin-bottom:4px;
+    }
+    .ep-doc-banner-text {
+      font-size:.84rem;
+      color:var(--ep-text-sub,var(--ep-text-muted));
+      margin-bottom:10px;
+      line-height:1.45;
+    }
+    .ep-doc-summary {
+      display:grid;
+      grid-template-columns:repeat(auto-fit,minmax(120px,1fr));
+      gap:10px;
+      margin-bottom:14px;
+    }
+    .ep-doc-summary-item {
+      border:1px solid var(--ep-border);
+      border-radius:12px;
+      background:var(--ep-surface-alt,rgba(255,255,255,.03));
+      padding:12px 14px;
+    }
+    .ep-doc-summary-item strong {
+      display:block;
+      font-size:1rem;
+      margin-bottom:2px;
+    }
+    .ep-doc-summary-item small {
+      color:var(--ep-text-muted);
+      font-size:.74rem;
+    }
+    .ep-doc-list {
+      display:grid;
+      gap:10px;
+    }
+    .ep-doc-item {
+      border:1px solid var(--ep-border);
+      border-radius:12px;
+      background:var(--ep-surface-alt,rgba(255,255,255,.02));
+      padding:12px 14px;
+    }
+    .ep-doc-item-head {
+      display:flex;
+      align-items:flex-start;
+      justify-content:space-between;
+      gap:10px;
+    }
+    .ep-doc-item-title {
+      font-weight:700;
+      font-size:.86rem;
+      line-height:1.35;
+    }
+    .ep-doc-item-meta {
+      font-size:.78rem;
+      color:var(--ep-text-muted);
+      line-height:1.45;
+      margin-top:4px;
+    }
+    .ep-doc-item-note {
+      margin-top:8px;
+      font-size:.78rem;
+      color:var(--ep-text-sub,var(--ep-text-muted));
+      line-height:1.45;
+    }
+    .ep-doc-badge {
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+      border-radius:999px;
+      padding:4px 10px;
+      font-size:.72rem;
+      font-weight:700;
+      white-space:nowrap;
+      border:1px solid transparent;
+    }
+    .ep-doc-badge.ok {
+      color:#0f9f6e;
+      background:rgba(16,185,129,.12);
+      border-color:rgba(16,185,129,.18);
+    }
+    .ep-doc-badge.warn {
+      color:#b7791f;
+      background:rgba(245,158,11,.12);
+      border-color:rgba(245,158,11,.2);
+    }
+    .ep-doc-badge.bad {
+      color:#dc2626;
+      background:rgba(239,68,68,.1);
+      border-color:rgba(239,68,68,.18);
+    }
+    .ep-doc-badge.info {
+      color:var(--ep-brand);
+      background:rgba(74,158,255,.12);
+      border-color:rgba(74,158,255,.2);
+    }
+  </style>
+</head>
+<body>
+
+<!-- ── Desktop Sidebar ──────────────────────────────────────────────────── -->
+<aside class="ep-sidebar">
+  <div class="ep-sidebar-brand">
+    <div class="ep-sidebar-logo">TC</div>
+    <div>
+      <div style="font-weight:800;font-size:.95rem">Einsatzportal</div>
+      <div style="font-size:.7rem;color:var(--ep-text-muted);font-weight:400">TempConnect</div>
+    </div>
+  </div>
+  <nav class="ep-sidebar-nav">
+    <a class="ep-sidebar-item active" href="einsatzportal-dashboard.html">
+      <span class="icon">🏠</span> Dashboard
+    </a>
+    <a class="ep-sidebar-item" href="einsatzportal-einsaetze.html">
+      <span class="icon">📋</span> Meine Einsätze
+    </a>
+    <a class="ep-sidebar-item" href="einsatzportal-plan.html">
+      <span class="icon">📅</span> Einsatzplan
+    </a>
+    <a class="ep-sidebar-item" href="einsatzportal-stundenzettel.html">
+      <span class="icon">⏱</span> Stundenzettel
+    </a>
+    <a class="ep-sidebar-item" href="/public/whats-new.html">
+      <span class="icon">✨</span> Was ist neu
+    </a>
+    <a class="ep-sidebar-item" href="einsatzportal-benachrichtigungen.html" id="sb-notif">
+      <span class="icon">🔔</span> Benachrichtigungen
+      <span class="ep-sidebar-badge" id="sb-badge" style="display:none">0</span>
+    </a>
+    <a class="ep-sidebar-item" href="einsatzportal-kontakt.html">
+      <span class="icon">💬</span> Kontakt &amp; Hilfe
+    </a>
+    <a class="ep-sidebar-item" href="einsatzportal-profil.html"><span class="icon">👤</span> Mein Profil</a>
+  </nav>
+  <div class="ep-sidebar-footer">
+    <div class="ep-sidebar-user">
+      <div class="ep-sidebar-avatar" id="sd-ava">?</div>
+      <div>
+        <div class="ep-sidebar-name" id="sd-name">Wird geladen…</div>
+        <div class="ep-sidebar-role">Arbeitnehmer</div>
+      </div>
+    </div>
+    <button class="ep-sidebar-item" onclick="doLogout()" style="margin-top:4px;color:var(--ep-text-muted)">
+      <span class="icon">↩</span> Abmelden
+    </button>
+  </div>
+</aside>
+
+<!-- ── Mobile Topbar ─────────────────────────────────────────────────────── -->
+<header class="ep-topbar">
+  <a class="ep-topbar-brand" href="einsatzportal-dashboard.html" aria-label="Zur Einsatzportal-Übersicht">
+    <div class="ep-topbar-logo">TC</div>
+    Einsatzportal
+  </a>
+  <div class="ep-topbar-actions">
+    <a class="ep-bell" href="einsatzportal-benachrichtigungen.html" id="mob-bell">
+      🔔
+      <span class="ep-bell-badge" id="mob-badge" style="display:none">0</span>
+    </a>
+  </div>
+</header>
+
+<!-- ── Main ──────────────────────────────────────────────────────────────── -->
+<main class="ep-main">
+  <div class="ep-content">
+
+    <!-- Loading -->
+    <div id="loading">
+      <div class="ep-skel" style="height:120px;margin-bottom:14px"></div>
+      <div class="ep-skel ep-skel-sm"></div>
+      <div class="ep-skel ep-skel-sm" style="opacity:.7"></div>
+      <div class="ep-skel ep-skel-sm" style="opacity:.4"></div>
+    </div>
+
+    <!-- Content -->
+    <div id="content" style="display:none">
+
+      <!-- Pending-Confirmation-Banner -->
+      <div id="pendBanner" style="display:none;background:rgba(74,158,255,.08);border:1px solid rgba(74,158,255,.22);border-radius:12px;padding:16px 18px;margin-bottom:14px">
+        <div style="font-weight:700;font-size:.92rem;margin-bottom:4px">⏳ Einsatz-Bestätigung offen</div>
+        <div style="font-size:.84rem;color:var(--ep-text-sub,var(--ep-text-muted));margin-bottom:10px" id="pendMsg">Ihr Disponent hat Ihnen einen neuen Einsatz zugewiesen.</div>
+        <a href="einsatzportal-einsaetze.html" class="ep-btn ep-btn-primary ep-btn-sm">Einsatz ansehen →</a>
+      </div>
+
+      <!-- Korrektur-Banner -->
+      <div class="ep-correction-banner" id="corrBanner" style="display:none">
+        <div class="ep-correction-title">⚠️ Korrektur erforderlich</div>
+        <div class="ep-correction-note" id="corrNote">Ihr Stundenzettel wurde zur Korrektur zurückgegeben.</div>
+        <a id="corrLink" href="einsatzportal-stundenzettel.html" class="ep-btn ep-btn-outline ep-btn-sm" style="margin-top:10px;display:inline-flex">Jetzt korrigieren →</a>
+      </div>
+
+      <div class="ep-doc-banner" id="docBanner" data-state="warning">
+        <div class="ep-doc-banner-title" id="docBannerTitle">Nachweise im Blick behalten</div>
+        <div class="ep-doc-banner-text" id="docBannerText">Dokumente mit Frist oder Prüfstatus werden hier angezeigt.</div>
+        <a href="einsatzportal-profil.html#documents" class="ep-btn ep-btn-outline ep-btn-sm">Zum Dokumentbereich →</a>
+      </div>
+
+      <!-- Begrüßung -->
+      <div class="ep-page-header">
+        <h1 class="ep-page-title" id="greeting">Guten Tag!</h1>
+        <p class="ep-page-sub" id="greetingSub">Willkommen im Einsatzportal.</p>
+      </div>
+
+      <!-- Hero: Nächster Einsatz -->
+      <div class="ep-hero" id="heroCard">
+        <div class="ep-hero-label">Ihr nächster Einsatz</div>
+        <div class="ep-hero-empty">
+          <div class="icon">📋</div>
+          <p>Kein aktiver Einsatz gefunden.<br>Ihr Disponent wird Sie benachrichtigen.</p>
+        </div>
+      </div>
+
+      <!-- Stats Strip -->
+      <div class="ep-stats" id="statsStrip">
+        <div class="ep-stat"><div class="ep-stat-val" id="s1">–</div><div class="ep-stat-label">Einsätze</div></div>
+        <div class="ep-stat"><div class="ep-stat-val o" id="s2">–</div><div class="ep-stat-label">Ausstehend</div></div>
+        <div class="ep-stat"><div class="ep-stat-val g" id="s3">–</div><div class="ep-stat-label">Angenommen</div></div>
+        <div class="ep-stat"><div class="ep-stat-val" id="s4">–</div><div class="ep-stat-label">Entwürfe</div></div>
+      </div>
+
+      <div class="ep-card">
+        <div class="ep-card-head">
+          <div class="ep-card-title"><span class="icon">🗂️</span> Nachweise &amp; Dokumente</div>
+          <a href="einsatzportal-profil.html#documents" class="ep-card-link">Profil öffnen →</a>
+        </div>
+        <div id="docHubContent">
+          <div class="ep-skel ep-skel-sm"></div>
+        </div>
+      </div>
+
+      <!-- Aktuelle Woche -->
+      <div class="ep-card">
+        <div class="ep-card-head">
+          <div class="ep-card-title"><span class="icon">⏱</span> Diese Woche</div>
+          <a href="einsatzportal-stundenzettel.html" class="ep-card-link">Alle ansehen →</a>
+        </div>
+        <div id="weekContent">
+          <div class="ep-skel ep-skel-sm"></div>
+        </div>
+      </div>
+
+      <!-- Letzte Einreichungen -->
+      <div class="ep-card">
+        <div class="ep-card-head">
+          <div class="ep-card-title"><span class="icon">📄</span> Letzte Stundenzettel</div>
+          <a href="einsatzportal-stundenzettel.html" class="ep-card-link">Alle →</a>
+        </div>
+        <div id="subsList"></div>
+      </div>
+
+      <!-- Kontaktkarte -->
+      <div id="contactCard" style="display:none">
+        <div class="ep-section-label">Ihr Ansprechpartner</div>
+        <div class="ep-contact-card" id="contactInner"></div>
+      </div>
+
+    </div>
+  </div>
+</main>
+
+<!-- Mobile Bottom Nav -->
+<nav class="ep-bottom-nav">
+  <a class="ep-bn-item active" href="einsatzportal-dashboard.html"><span class="icon">🏠</span>Start</a>
+  <a class="ep-bn-item" href="einsatzportal-einsaetze.html"><span class="icon">📋</span>Einsätze</a>
+  <a class="ep-bn-item" href="einsatzportal-plan.html"><span class="icon">📅</span>Plan</a>
+  <a class="ep-bn-item" href="einsatzportal-stundenzettel.html"><span class="icon">⏱</span>Stunden</a>
+  <a class="ep-bn-item" href="einsatzportal-benachrichtigungen.html" id="bn-notif"><span class="icon">🔔</span>Info<span class="ep-bn-dot" id="bn-dot" style="display:none"></span></a>
+  <a class="ep-bn-item" href="einsatzportal-profil.html"><span class="icon">👤</span>Profil</a>
+</nav>
+
+<div id="ep-toast"></div>
+
+<script src="/public/js/workerPortal/portalApi.js"></script>
+<script src="/public/js/workerPortal/portalShell.js"></script>
+<script src="/public/js/workerPortal/portalStatus.js"></script>
+<script>
+let assignments = [], submissions = [], dashboard = null;
+function esc(s) { return PortalShell.esc(s); }
+
+(async () => {
+  try {
+    const me = await PortalShell.initShell();
+    await Promise.all([loadAssignments(), loadSubmissions(), loadDashboard()]);
+    render(me);
+  } catch(e) {
+    const code = e.code || e.message;
+    if (code === 'NOT_AUTH') { location.href = 'worker-login.html'; return; }
+    PortalShell.showError('Daten konnten nicht geladen werden. Bitte laden Sie die Seite neu.');
+  }
+})();
+async function loadAssignments() {
+  const d = await PortalApi.get('/worker/assignments');
+  assignments = d.items || [];
+}
+async function loadSubmissions() {
+  const d = await PortalApi.get('/worker/submissions', { limit: '20' });
+  submissions = d.items || [];
+}
+async function loadDashboard() {
+  try {
+    dashboard = await PortalApi.get('/worker/dashboard');
+  } catch {
+    dashboard = { document_hub: { summary: {}, recent_documents: [] } };
+  }
+}
+function todayIso() {
+  return new Date().toISOString().slice(0,10);
+}
+function getAssignmentLifecycleBucket(a) {
+  if (a?.assignment_lifecycle_bucket === 'active' || a?.assignment_lifecycle_bucket === 'history') {
+    return a.assignment_lifecycle_bucket;
+  }
+  if (a?.assignment_status === 'completed' || a?.assignment_status === 'cancelled') return 'history';
+  const end = a?.assignment_effective_end_date || a?.end_date || a?.asg_end || null;
+  return end && end < todayIso() ? 'history' : 'active';
+}
+function isCurrentAssignment(a) {
+  if (typeof a?.assignment_is_current === 'boolean') return a.assignment_is_current;
+  return getAssignmentLifecycleBucket(a) === 'active';
+}
+
+function render(me) {
+  document.getElementById('loading').style.display = 'none';
+  document.getElementById('content').style.display = '';
+
+  // Begrüßung
+  const h = new Date().getHours();
+  const greet = h < 12 ? 'Guten Morgen' : h < 18 ? 'Guten Tag' : 'Guten Abend';
+  document.getElementById('greeting').textContent = `${greet}, ${me.first_name || 'Willkommen'}!`;
+  document.getElementById('greetingSub').textContent =
+    me.supplier_org_id ? 'Willkommen in Ihrem Einsatzportal.' : 'Willkommen im TempConnect-Portal.';
+
+  // Pending-Confirmation-Banner
+  const pend = assignments.filter(a => isCurrentAssignment(a) && a.worker_confirmation_status === 'pending_confirmation');
+  if (pend.length > 0) {
+    const client = pend[0].client_display_name || pend[0].client_name || '';
+    document.getElementById('pendMsg').textContent = pend.length === 1
+      ? `Ihr Disponent hat Ihnen den Einsatz${client ? ' bei ' + client : ''} zugewiesen. Bitte best\u00e4tigen Sie.`
+      : `Sie haben ${pend.length} offene Einsatz-Best\u00e4tigungen.`;
+    document.getElementById('pendBanner').style.display = '';
+  }
+
+  // Korrektur-Banner
+  const corr = submissions.find(s => s.status === 'needs_correction');
+  if (corr) {
+    document.getElementById('corrNote').textContent = corr.correction_note || 'Bitte \u00fcberpr\u00fcfen Sie Ihre Einreichung und korrigieren Sie die Angaben.';
+    document.getElementById('corrLink').href = `einsatzportal-stundenzettel.html?id=${corr.id}`;
+    document.getElementById('corrBanner').style.display = '';
+  }
+
+  // Stats
+  const active = assignments.filter(a => isCurrentAssignment(a)).length;
+  const pending = submissions.filter(s => ['submitted','under_review'].includes(s.status)).length;
+  const accepted = submissions.filter(s => ['accepted_into_timesheet','posted_to_timesheet','customer_confirmed'].includes(s.status)).length;
+  const draft = submissions.filter(s => s.status === 'draft').length;
+  document.getElementById('s1').textContent = active;
+  document.getElementById('s2').textContent = pending;
+  document.getElementById('s3').textContent = accepted;
+  document.getElementById('s4').textContent = draft;
+
+  // Hero
+  renderHero();
+  // Aktuelle Woche
+  renderWeek();
+  // Letzte Einreichungen
+  renderSubs();
+  // Kontakt
+  renderContact();
+  // Dokumente
+  renderDocumentHub();
+}
+
+function renderHero() {
+  const el = document.getElementById('heroCard');
+  const active = assignments.filter(a => isCurrentAssignment(a));
+  if (!active.length) return;
+
+  const a = active[0];
+  const clientName = a.client_display_name || a.client_name || 'Ihr Einsatz';
+  const desc = a.worker_description || a.assignment_notes || '';
+  const shiftStart = a.default_shift_start ? a.default_shift_start.slice(0,5) : null;
+  const shiftEnd   = a.default_shift_end   ? a.default_shift_end.slice(0,5)   : null;
+  const startDate  = a.asg_start ? fmtDate(a.asg_start) : null;
+  const endDate    = a.asg_end   ? fmtDate(a.asg_end)   : null;
+
+  el.innerHTML = `
+    <div class="ep-hero-label">Ihr aktiver Einsatz</div>
+    <div class="ep-hero-client">${esc(clientName)}</div>
+    ${desc ? `<div class="ep-hero-desc">${esc(desc)}</div>` : ''}
+    <div class="ep-hero-meta">
+      ${startDate ? `<div class="ep-hero-chip"><span class="ci">📅</span> ab ${startDate}${endDate ? ` – ${endDate}` : ''}</div>` : ''}
+      ${shiftStart ? `<div class="ep-hero-chip"><span class="ci">🕐</span> ${shiftStart}${shiftEnd ? ` – ${shiftEnd}` : ''} Uhr</div>` : ''}
+      ${a.location_address ? `<div class="ep-hero-chip"><span class="ci">📍</span> ${esc(a.location_address.split(',')[0])}</div>` : ''}
+    </div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap">
+      <a href="einsatzportal-einsaetze.html" class="ep-btn ep-btn-outline ep-btn-sm">Details ansehen</a>
+      <a href="einsatzportal-plan.html" class="ep-btn ep-btn-ghost ep-btn-sm">Einsatzplan →</a>
+    </div>`;
+}
+
+function renderWeek() {
+  const el = document.getElementById('weekContent');
+  const { weekStart, weekEnd } = getCurWeek();
+  const thisWeek = submissions.find(s => s.week_start === weekStart);
+
+  if (!thisWeek) {
+    const active = assignments.filter(a => isCurrentAssignment(a));
+    if (!active.length) {
+      el.innerHTML = `<div class="ep-alert ep-alert-info"><span>ℹ️</span><span>Kein aktiver Einsatz. Ihr Disponent richtet Sie ein.</span></div>`;
+      return;
+    }
+    el.innerHTML = `
+      <p style="font-size:.875rem;color:var(--ep-text-sub);margin-bottom:12px">
+        Noch keine Stunden für KW ${getKW(new Date(weekStart))} erfasst.
+      </p>
+      <a href="einsatzportal-stundenzettel.html" class="ep-btn ep-btn-primary ep-btn-full">
+        ✏️ Stundenzettel für diese Woche anlegen
+      </a>`;
+  } else if (thisWeek.status === 'draft') {
+    el.innerHTML = `
+      <div class="ep-alert ep-alert-warning" style="margin-bottom:10px">
+        <span>✏️</span><span>Entwurf für KW ${getKW(new Date(weekStart))} — noch nicht eingereicht.</span>
+      </div>
+      <a href="einsatzportal-stundenzettel.html?id=${thisWeek.id}" class="ep-btn ep-btn-outline ep-btn-full">
+        Entwurf fortsetzen →
+      </a>`;
+  } else if (thisWeek.status === 'needs_correction') {
+    el.innerHTML = `
+      <div class="ep-alert ep-alert-danger" style="margin-bottom:10px">
+        <span>⚠️</span><span>Korrektur erforderlich für KW ${getKW(new Date(weekStart))}.</span>
+      </div>
+      <a href="einsatzportal-stundenzettel.html?id=${thisWeek.id}" class="ep-btn ep-btn-danger ep-btn-full">
+        Jetzt korrigieren →
+      </a>`;
+  } else {
+    const lbls = { submitted:'Eingereicht – wird geprüft', under_review:'In Prüfung', accepted_into_timesheet:'✓ Angenommen', rejected:'Abgelehnt' };
+    const cls  = { submitted:'info', under_review:'warning', accepted_into_timesheet:'success', rejected:'danger' };
+    el.innerHTML = `
+      <div class="ep-alert ep-alert-${cls[thisWeek.status] || 'info'}">
+        <span>📄</span>
+        <span>KW ${getKW(new Date(weekStart))}: <strong>${lbls[thisWeek.status] || thisWeek.status}</strong> · ${parseFloat(thisWeek.total_hours||0).toFixed(1)} h</span>
+      </div>`;
+  }
+}
+
+function renderSubs() {
+  const el = document.getElementById('subsList');
+  const recent = submissions.slice(0, 5);
+  if (!recent.length) {
+    el.innerHTML = `<div class="ep-empty" style="padding:24px 0"><div class="icon">📄</div><p>Noch keine Einreichungen</p></div>`;
+    return;
+  }
+  el.innerHTML = recent.map(s => `
+    <a class="ep-sub-item${s.status==='needs_correction'?' urgent':''}" href="einsatzportal-stundenzettel.html?id=${s.id}">
+      <div class="ep-sub-head">
+        <div class="ep-sub-week">${fmtWeek(s.week_start, s.week_end)}</div>
+        ${PortalStatus.submissionBadgeHtml(s.status)}
+      </div>
+      <div class="ep-sub-meta">${esc(s.client_name || s.supplier_name || '')}</div>
+      <div class="ep-sub-foot">
+        <span style="font-size:.78rem;color:var(--ep-text-muted)">${s.submitted_at ? fmtDate(s.submitted_at) : 'Entwurf'}</span>
+        <span class="ep-sub-hours">${parseFloat(s.total_hours||0).toFixed(1)} h</span>
+      </div>
+    </a>`).join('');
+}
+
+function renderContact() {
+  const el = document.getElementById('contactCard');
+  const ci = document.getElementById('contactInner');
+  const a  = assignments.find(x => isCurrentAssignment(x) && (x.dispatcher_name || x.contact_name))
+    || assignments.find(x => x.dispatcher_name || x.contact_name);
+  if (!a) return;
+  el.style.display = '';
+  const who = a.dispatcher_name || a.contact_name;
+  const phone = a.dispatcher_phone || a.contact_phone;
+  const email = a.dispatcher_email || a.contact_email;
+  ci.innerHTML = `
+    <div class="ep-contact-label">${a.dispatcher_name ? 'Ihr Disponent' : 'Ansprechpartner'}</div>
+    <div class="ep-contact-head">
+      <div class="ep-contact-avatar">👤</div>
+      <div>
+        <div class="ep-contact-name">${esc(who)}</div>
+        <div class="ep-contact-role">${a.dispatcher_name ? 'Disponent' : 'Ansprechpartner vor Ort'}</div>
+      </div>
+    </div>
+    <div class="ep-contact-actions">
+      ${phone ? `<a class="ep-contact-action primary" href="tel:${esc(phone)}">📞 ${esc(phone)}</a>` : ''}
+      ${email ? `<a class="ep-contact-action" href="mailto:${esc(email)}">✉️ E-Mail</a>` : ''}
+      <a class="ep-contact-action" href="einsatzportal-kontakt.html">Alle Kontakte →</a>
+    </div>`;
+}
+
+function renderDocumentHub() {
+  const el = document.getElementById('docHubContent');
+  const banner = document.getElementById('docBanner');
+  const bannerTitle = document.getElementById('docBannerTitle');
+  const bannerText = document.getElementById('docBannerText');
+  const hub = dashboard?.document_hub || {};
+  const summary = hub.summary || {};
+  const items = hub.recent_documents || [];
+  const expired = Number(summary.expired || 0);
+  const rejected = Number(summary.rejected || 0);
+  const expiringSoon = Number(summary.expiring_soon || 0);
+  const actionRequired = Number(summary.action_required || 0);
+  const nextExpiry = summary.next_expiry ? fmtDate(summary.next_expiry) : null;
+
+  if (banner && bannerTitle && bannerText) {
+    if (expired > 0 || rejected > 0) {
+      banner.dataset.state = 'critical';
+      bannerTitle.textContent = 'Sofortiger Handlungsbedarf bei Nachweisen';
+      bannerText.textContent = expired > 0
+        ? `${expired} Nachweis(e) sind bereits abgelaufen. Bitte laden Sie umgehend gültigen Ersatz hoch.`
+        : `${rejected} Nachweis(e) wurden abgelehnt. Bitte prüfen Sie die Hinweise und ersetzen Sie die Datei.`;
+      banner.style.display = '';
+    } else if (actionRequired > 0 || expiringSoon > 0) {
+      banner.dataset.state = 'warning';
+      bannerTitle.textContent = 'Nachweise laufen bald ab';
+      bannerText.textContent = `${expiringSoon || actionRequired} Nachweis(e) benötigen bald Aufmerksamkeit${nextExpiry ? `, nächste Frist am ${nextExpiry}` : ''}.`;
+      banner.style.display = '';
+    } else {
+      banner.style.display = 'none';
+    }
+  }
+
+  const summaryTiles = [
+    { value: summary.total || 0, label: 'Gesamt' },
+    { value: summary.verified || 0, label: 'Verifiziert' },
+    { value: summary.pending_review || 0, label: 'In Prüfung' },
+    { value: summary.expiring_soon || 0, label: 'Fristkritisch' },
+    { value: summary.action_required || 0, label: 'Aktion nötig' }
+  ];
+
+  if (!el) return;
+  if (!items.length) {
+    el.innerHTML = `
+      <div class="ep-doc-summary">
+        ${summaryTiles.map(item => `
+          <div class="ep-doc-summary-item">
+            <strong>${esc(String(item.value))}</strong>
+            <small>${esc(item.label)}</small>
+          </div>
+        `).join('')}
+      </div>
+      <div class="ep-empty" style="padding:24px 0">
+        <div class="icon">🗂️</div>
+        <p>Noch keine Nachweise hinterlegt.</p>
+      </div>`;
+    return;
+  }
+
+  el.innerHTML = `
+    <div class="ep-doc-summary">
+      ${summaryTiles.map(item => `
+        <div class="ep-doc-summary-item">
+          <strong>${esc(String(item.value))}</strong>
+          <small>${esc(item.label)}</small>
+        </div>
+      `).join('')}
+    </div>
+    <div class="ep-doc-list">
+      ${items.map(doc => {
+        const meta = [
+          PortalStatus.documentCategoryLabel(doc.category),
+          doc.qualification_name || null,
+          doc.issuer || null,
+          doc.valid_until ? `Gültig bis ${fmtDate(doc.valid_until)}` : null
+        ].filter(Boolean).join(' · ');
+        let note = doc.review_note || doc.notes || '';
+        if (doc.effective_status === 'expired' && doc.valid_until) {
+          note = `Seit ${fmtDate(doc.valid_until)} abgelaufen.${note ? ' · ' + note : ''}`;
+        } else if (doc.is_expiring_soon && doc.days_until_expiry != null) {
+          note = `Läuft in ${doc.days_until_expiry} Tagen ab.${note ? ' · ' + note : ''}`;
+        }
+        return `
+          <div class="ep-doc-item">
+            <div class="ep-doc-item-head">
+              <div>
+                <div class="ep-doc-item-title">${esc(doc.title || doc.original_name || 'Dokument')}</div>
+                <div class="ep-doc-item-meta">${esc(meta || 'Ohne Zusatzangaben')}</div>
+              </div>
+              <span class="ep-doc-badge ${PortalStatus.documentBadgeState(doc)}">${esc(PortalStatus.documentBadgeLabel(doc))}</span>
+            </div>
+            ${note ? `<div class="ep-doc-item-note">${esc(note)}</div>` : ''}
+          </div>`;
+      }).join('')}
+    </div>`;
+}
+
+/* ── Utils ────────────────────────────────────────────────────────── */
+function getCurWeek() {
+  const now = new Date(), day = now.getDay();
+  const mon = new Date(now); mon.setDate(now.getDate() - (day===0?6:day-1));
+  const sun = new Date(mon); sun.setDate(mon.getDate()+6);
+  return { weekStart: mon.toISOString().slice(0,10), weekEnd: sun.toISOString().slice(0,10) };
+}
+function getKW(d) {
+  const t = new Date(Date.UTC(d.getFullYear(),d.getMonth(),d.getDate()));
+  const day = t.getUTCDay()||7; t.setUTCDate(t.getUTCDate()+4-day);
+  const y = t.getUTCFullYear();
+  return Math.floor((t-new Date(Date.UTC(y,0,1)))/604800000)+1;
+}
+function fmtDate(d) {
+  return new Date(d).toLocaleDateString('de-DE', { day:'2-digit', month:'2-digit', year:'numeric' });
+}
+function fmtWeek(st, en) {
+  if (!st) return '';
+  const s=new Date(st),e=new Date(en||st);
+  const fmt = d=>d.toLocaleDateString('de-DE',{day:'2-digit',month:'2-digit'});
+  return `KW ${getKW(s)} · ${fmt(s)} – ${fmt(e)}`;
+}
+
+</script>
+<script src="/public/js/productUpdates.js" defer></script>
+<script src="/public/js/demoBanner.js" defer></script>
+<script src="/public/js/breadcrumb.js" defer></script>
+</body>
+</html>

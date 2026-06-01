@@ -3,229 +3,212 @@
 <head>
   <meta charset="utf-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <script src="/public/js/theme.js"></script>
   <title>Compliance – TempConnect</title>
   <link rel="stylesheet" href="/public/css/enterprise.css"/>
   <style>
-    .filter-row { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 16px; align-items: center; }
-    .filter-row select, .filter-row input { width: auto; margin: 0; min-width: 140px; }
-    .tl { display: inline-block; width: 12px; height: 12px; border-radius: 50%; margin-right: 6px; vertical-align: middle; }
-    .tl-green { background: var(--good); }
-    .tl-yellow { background: var(--warn); }
-    .tl-red { background: var(--bad); }
-    .tl-grey { background: rgba(255,255,255,.2); }
-    .doc-status { font-size: 11px; font-weight: 700; padding: 3px 8px; border-radius: 999px; display: inline-block; }
-    .ds-verified { color: #c8ffe7; border: 1px solid rgba(57,217,138,.4); background: rgba(57,217,138,.1); }
-    .ds-pending { color: #fff3c2; border: 1px solid rgba(255,204,0,.4); background: rgba(255,204,0,.1); }
-    .ds-rejected { color: #ffd0d8; border: 1px solid rgba(255,92,122,.4); background: rgba(255,92,122,.1); }
-    .ds-expired { color: #ffd0d8; border: 1px solid rgba(255,92,122,.6); background: rgba(255,92,122,.2); }
-    .stat-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 10px; margin-bottom: 16px; }
-    .stat-cell { padding: 12px; border-radius: var(--radius); border: 1px solid var(--line); background: rgba(255,255,255,.03); text-align: center; }
-    .stat-cell b { display: block; font-size: 20px; margin-bottom: 2px; }
-    .stat-cell span { font-size: 11px; color: var(--muted); }
-    .doc-row { transition: background .15s; }
-    .doc-row:hover { background: rgba(255,255,255,.04); }
-    .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0 16px; }
-    .form-full { grid-column: 1 / -1; }
+    .filter-row { display:flex; gap:10px; flex-wrap:wrap; margin-bottom:16px; align-items:center; }
+    .filter-row select { width:auto; margin:0; min-width:140px; }
+    .tl { display:inline-block; width:12px; height:12px; border-radius:50%; margin-right:6px; vertical-align:middle; }
+    .tl-green { background:#34d399; box-shadow:0 0 6px rgba(52,211,153,.4); }
+    .tl-yellow { background:#fbbf24; box-shadow:0 0 6px rgba(251,191,36,.4); }
+    .tl-red { background:#f87171; box-shadow:0 0 6px rgba(248,113,113,.4); }
+    .tl-grey { background:rgba(255,255,255,.2); }
+    .doc-status { font-size:11px; font-weight:700; padding:3px 8px; border-radius:999px; display:inline-block; }
+    .ds-verified { color:#c8ffe7; border:1px solid rgba(57,217,138,.4); background:rgba(57,217,138,.1); }
+    .ds-pending { color:#fff3c2; border:1px solid rgba(255,204,0,.4); background:rgba(255,204,0,.1); }
+    .ds-rejected { color:#ffd0d8; border:1px solid rgba(255,92,122,.4); background:rgba(255,92,122,.1); }
+    .ds-expired { color:#ffd0d8; border:1px solid rgba(255,92,122,.6); background:rgba(255,92,122,.2); }
+    .stat-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(130px,1fr)); gap:10px; margin-bottom:16px; }
+    .stat-cell { padding:14px; border-radius:10px; border:1px solid rgba(255,255,255,.08); background:rgba(255,255,255,.03); text-align:center; }
+    .stat-cell b { display:block; font-size:22px; margin-bottom:2px; }
+    .stat-cell span { font-size:11px; color:var(--ds-text-secondary,#8d9bba); }
+    .doc-row { transition:background .15s; } .doc-row:hover { background:rgba(255,255,255,.04); }
+    .form-grid { display:grid; grid-template-columns:1fr 1fr; gap:0 16px; }
+    .form-full { grid-column:1/-1; }
+    .act-btn { padding:4px 10px; border-radius:6px; border:1px solid rgba(255,255,255,.1); background:rgba(255,255,255,.04); color:#eaeff8; font-size:11px; font-weight:600; cursor:pointer; transition:all .15s; margin-right:4px; }
+    .act-btn:hover { background:rgba(255,255,255,.1); }
+    .act-btn.good { border-color:rgba(52,211,153,.3); color:#34d399; }
+    .act-btn.bad { border-color:rgba(248,113,113,.3); color:#f87171; }
+    .act-btn.dl { border-color:rgba(74,158,255,.3); color:#4a9eff; }
+    .context-badge { display:none; background:rgba(74,158,255,.08); border:1px solid rgba(74,158,255,.2); border-radius:8px; padding:10px 14px; font-size:13px; margin:0 0 16px; color:var(--ds-text-secondary); }
+    .page-state { display:none; margin:0 0 16px; padding:12px 14px; border-radius:10px; border:1px solid transparent; }
+    .page-state--info { display:block; background:rgba(74,158,255,.08); border-color:rgba(74,158,255,.22); }
+    .page-state--warn { display:block; background:rgba(255,204,0,.10); border-color:rgba(255,204,0,.24); }
+    .page-state--bad { display:block; background:rgba(255,92,122,.10); border-color:rgba(255,92,122,.22); }
+    .page-state--good { display:block; background:rgba(52,211,153,.10); border-color:rgba(52,211,153,.22); }
+    .page-state__title { font-size:13px; font-weight:700; margin-bottom:4px; }
+    .page-state__text { font-size:12px; color:var(--ds-text-secondary); }
+    .section-note { padding:12px 14px; border-radius:10px; border:1px dashed rgba(255,255,255,.12); color:var(--ds-text-secondary); font-size:12px; background:rgba(255,255,255,.02); }
+    .risk-summary { margin-bottom:16px; padding:14px; border-radius:10px; border:1px solid rgba(255,255,255,.08); background:rgba(255,255,255,.03); }
+    .risk-summary__actions { display:flex; gap:8px; flex-wrap:wrap; margin-top:12px; }
+    .file-drop { border:2px dashed rgba(255,255,255,.12); border-radius:10px; padding:20px; text-align:center; cursor:pointer; transition:border-color .2s; margin-top:8px; }
+    .file-drop:hover { border-color:#4a9eff; }
+    .file-drop .name { font-weight:700; color:#34d399; margin-top:6px; font-size:13px; }
+    .modal { display:none; position:fixed; inset:0; background:rgba(0,0,0,.7); z-index:100; align-items:center; justify-content:center; }
+    .modal.show { display:flex; }
+    .panel { background:var(--ds-bg,#0d1117); border:1px solid rgba(255,255,255,.1); border-radius:16px; padding:24px; }
   </style>
 </head>
 <body>
   <div class="wrap">
-    <div class="topbar" data-notif-topbar>
-      <span class="brand"><span style="width:10px;height:10px;border-radius:50%;background:linear-gradient(135deg,var(--brand),var(--brand2));display:inline-block;margin-right:8px"></span>TempConnect</span>
-      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
-        <a href="/public/executive_dashboard.html" class="btn">Dashboard</a>
-        <a href="/public/enterprise.html" class="btn">Hub</a>
-        <a href="/public/requisitions.html" class="btn">Requisitions</a>
-        <a href="/public/vendor_pool.html" class="btn">Vendor Pool</a>
-      </div>
-    </div>
-
+    <div id="tc-shell"></div>
     <div class="ds-page-header">
       <div class="ds-page-header__content">
-        <h1 class="ds-page-title">Compliance</h1>
+        <h1 class="ds-page-title">&#128737; Compliance</h1>
         <p class="ds-page-subtitle">Dokumente mit Ampellogik verwalten, Ablauftermine ueberwachen und Verifizierungen durchfuehren.</p>
       </div>
       <div class="ds-page-header__actions">
-        <button class="btn primary" onclick="showUpload()">+ Dokument hochladen</button>
+        <button id="complianceUploadButton" class="ds-btn ds-btn--primary" onclick="showUpload()">+ Dokument hochladen</button>
       </div>
     </div>
-
-    <div class="stat-grid" id="statsGrid"></div>
-
+    <div id="complianceContextBadge" class="context-badge"></div>
+    <div id="complianceState" class="page-state"></div>
+    <div id="rateCardRiskBox"></div>
+    <div class="stat-grid" id="statsGrid"><div class="stat-cell"><b>&ndash;</b><span>Lade&hellip;</span></div></div>
     <div class="filter-row">
-      <label style="margin:0">Org ID:</label>
-      <input id="fOrgId" style="width:260px;margin:0" placeholder="UUID der Organisation"/>
-      <select id="fDocType"><option value="">Alle Typen</option>
-        <option value="aueg_erlaubnis">AUeG-Erlaubnis</option>
-        <option value="unbedenklichkeit">Unbedenklichkeit</option>
-        <option value="uvv_nachweis">UVV-Nachweis</option>
-        <option value="versicherung">Versicherung</option>
-        <option value="zertifikat">Zertifikat</option>
-        <option value="gewerbeanmeldung">Gewerbeanmeldung</option>
-        <option value="handelsregister">Handelsregister</option>
-        <option value="datenschutz">Datenschutz</option>
-        <option value="arbeitssicherheit">Arbeitssicherheit</option>
-        <option value="qualifikation">Qualifikation</option>
-        <option value="sonstige">Sonstige</option>
-      </select>
-      <select id="fDocStatus"><option value="">Alle Status</option>
-        <option>pending</option><option>verified</option><option>rejected</option><option>expired</option>
-      </select>
-      <button class="btn" onclick="loadDocs()">Laden</button>
+      <select id="fDocType" onchange="loadDocs()"><option value="">Alle Typen</option><option value="aueg_erlaubnis">AUeG-Erlaubnis</option><option value="unbedenklichkeit">Unbedenklichkeit</option><option value="uvv_nachweis">UVV-Nachweis</option><option value="versicherung">Versicherung</option><option value="zertifikat">Zertifikat</option><option value="gewerbeanmeldung">Gewerbeanmeldung</option><option value="handelsregister">Handelsregister</option><option value="datenschutz">Datenschutz</option><option value="arbeitssicherheit">Arbeitssicherheit</option><option value="qualifikation">Qualifikation</option><option value="sonstige">Sonstige</option></select>
+      <select id="fDocStatus" onchange="loadDocs()"><option value="">Alle Status</option><option value="pending">Ausstehend</option><option value="verified">Verifiziert</option><option value="rejected">Abgelehnt</option><option value="expired">Abgelaufen</option></select>
     </div>
-
-    <table class="table">
-      <thead><tr><th>Ampel</th><th>Typ</th><th>Name</th><th>Status</th><th>Gueltig bis</th><th>Aktionen</th></tr></thead>
-      <tbody id="docBody"></tbody>
-    </table>
-    <div id="emptyMsg" class="ds-empty" style="display:none">
-      <div class="ds-empty__icon">&#128737;</div>
-      <div class="ds-empty__title">Keine Compliance-Dokumente</div>
-      <div class="ds-empty__text">Geben Sie eine Org ID ein und klicken Sie Laden, oder laden Sie ein neues Dokument hoch.</div>
-    </div>
+    <table class="table"><thead><tr><th>Ampel</th><th>Typ</th><th>Name</th><th>Status</th><th>Gueltig bis</th><th>Organisation</th><th>Aktionen</th></tr></thead><tbody id="docBody"><tr><td colspan="7" style="text-align:center;padding:24px;color:var(--ds-text-secondary)">Lade&hellip;</td></tr></tbody></table>
+    <div id="emptyMsg" class="ds-empty" style="display:none"><div class="ds-empty__icon">&#128737;</div><div class="ds-empty__title">Keine Compliance-Dokumente</div><div class="ds-empty__text">Laden Sie Ihr erstes Dokument hoch.</div><button id="emptyUploadAction" class="ds-btn ds-btn--primary" onclick="showUpload()" style="margin-top:12px">+ Dokument hochladen</button></div>
   </div>
 
   <!-- Upload Modal -->
-  <div class="modal" id="uploadModal">
-    <div class="panel" style="max-width:520px">
-      <div style="display:flex;justify-content:space-between;align-items:center">
-        <h2 style="margin:0">Dokument hochladen</h2>
-        <button class="btn" onclick="closeUpload()">Abbrechen</button>
-      </div>
-      <form id="uploadForm" style="margin-top:16px" onsubmit="submitUpload(event)">
+  <div class="modal" id="uploadModal" onclick="if(event.target===this)closeUpload()">
+    <div class="panel" style="max-width:520px;width:92vw">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px"><h2 style="margin:0;font-size:18px">&#128196; Dokument hochladen</h2><button onclick="closeUpload()" style="background:none;border:none;color:var(--ds-text-secondary);font-size:18px;cursor:pointer">&times;</button></div>
+      <form id="uploadForm" onsubmit="submitUpload(event)">
         <div class="form-grid">
-          <div class="form-full"><label>Org ID *</label><input id="uOrgId" required/></div>
-          <div><label>Dokumenttyp *</label>
-            <select id="uDocType" required>
-              <option value="aueg_erlaubnis">AUeG-Erlaubnis</option>
-              <option value="unbedenklichkeit">Unbedenklichkeit</option>
-              <option value="uvv_nachweis">UVV-Nachweis</option>
-              <option value="versicherung">Versicherung</option>
-              <option value="zertifikat">Zertifikat</option>
-              <option value="gewerbeanmeldung">Gewerbeanmeldung</option>
-              <option value="handelsregister">Handelsregister</option>
-              <option value="datenschutz">Datenschutz</option>
-              <option value="arbeitssicherheit">Arbeitssicherheit</option>
-              <option value="qualifikation">Qualifikation</option>
-              <option value="sonstige">Sonstige</option>
-            </select>
-          </div>
-          <div><label>Dokumentname *</label><input id="uDocName" required maxlength="200"/></div>
+          <div><label>Dokumenttyp *</label><select id="uDocType" required><option value="">Bitte waehlen</option><option value="aueg_erlaubnis">AUeG-Erlaubnis</option><option value="unbedenklichkeit">Unbedenklichkeit</option><option value="uvv_nachweis">UVV-Nachweis</option><option value="versicherung">Versicherung</option><option value="zertifikat">Zertifikat</option><option value="gewerbeanmeldung">Gewerbeanmeldung</option><option value="handelsregister">Handelsregister</option><option value="datenschutz">Datenschutz</option><option value="arbeitssicherheit">Arbeitssicherheit</option><option value="qualifikation">Qualifikation</option><option value="sonstige">Sonstige</option></select></div>
+          <div><label>Name *</label><input id="uDocName" required maxlength="200" placeholder="z.B. AUeG 2026"/></div>
           <div><label>Gueltig von</label><input id="uFrom" type="date"/></div>
           <div><label>Gueltig bis</label><input id="uUntil" type="date"/></div>
-          <div class="form-full"><label>Notizen</label><textarea id="uNotes" rows="2" maxlength="2000"></textarea></div>
+          <div class="form-full"><label>Datei (PDF, PNG, JPG &mdash; max. 10 MB)</label><div class="file-drop" id="fileDrop" onclick="document.getElementById('uFile').click()"><div style="font-size:28px">&#128196;</div><div style="font-size:13px;color:var(--ds-text-secondary)">Klicken oder Datei ziehen</div><div class="name" id="fileName" style="display:none"></div></div><input type="file" id="uFile" accept=".pdf,.png,.jpg,.jpeg,.webp" style="display:none" onchange="onFileSelect(this)"/></div>
+          <div class="form-full"><label>Notizen</label><textarea id="uNotes" rows="2" maxlength="2000" placeholder="Optional&hellip;"></textarea></div>
         </div>
-        <div style="margin-top:12px;display:flex;gap:8px">
-          <button type="submit" class="btn primary">Hochladen</button>
-          <button type="button" class="btn" onclick="closeUpload()">Abbrechen</button>
-        </div>
+        <div style="margin-top:16px;display:flex;gap:8px;justify-content:flex-end"><button type="button" class="ds-btn" onclick="closeUpload()">Abbrechen</button><button type="submit" class="ds-btn ds-btn--primary" id="btnUpload">Hochladen</button></div>
       </form>
     </div>
   </div>
 
-  <script>
-    function esc(s){var d=document.createElement('div');d.textContent=s;return d.innerHTML;}
-    var csrfToken='';
-    async function apiGet(p){var r=await fetch('/api'+p,{credentials:'include'});if(r.status===401){location.href='/public/login.html';return null;}return r.ok?r.json():null;}
-    async function apiMut(method,p,b){var r=await fetch('/api'+p,{method:method,credentials:'include',headers:{'Content-Type':'application/json','x-csrf-token':csrfToken},body:JSON.stringify(b)});if(r.status===401){location.href='/public/login.html';return null;}return r.json();}
+<script src="/public/js/surfaceAccess.js"></script>
+<script>
+'use strict';
+var _csrf='',_orgId=null,activeStatusGroup='',currentMe=null,complianceAccess={canRead:false,canWrite:false,canUpload:false,canVerify:false,canDelete:false,canManage:false,mode:'hidden',reason:''},rateCardAccess={canRead:false,canWrite:false,mode:'hidden',reason:''};
+var COMPLIANCE_FILTER_STORAGE_KEY='tc.compliance.filters.v1';
+var TL={aueg_erlaubnis:'AUeG-Erlaubnis',unbedenklichkeit:'Unbedenklichkeit',uvv_nachweis:'UVV-Nachweis',versicherung:'Versicherung',zertifikat:'Zertifikat',gewerbeanmeldung:'Gewerbeanmeldung',handelsregister:'Handelsregister',datenschutz:'Datenschutz',arbeitssicherheit:'Arbeitssicherheit',qualifikation:'Qualifikation',sonstige:'Sonstige'};
+var SL={verified:'Verifiziert',pending:'Ausstehend',rejected:'Abgelehnt',expired:'Abgelaufen'};
+function readStoredComplianceFilters(){try{var raw=sessionStorage.getItem(COMPLIANCE_FILTER_STORAGE_KEY);if(!raw)return {};var parsed=JSON.parse(raw);return parsed&&typeof parsed==='object'?parsed:{};}catch(e){return {};}}
+function writeStoredComplianceFilters(filters){try{sessionStorage.setItem(COMPLIANCE_FILTER_STORAGE_KEY,JSON.stringify(filters||{}));}catch(e){}}
+function readUrlComplianceFilters(){var params=new URLSearchParams(window.location.search||'');var filters={};if(params.has('doc_type'))filters.docType=params.get('doc_type')||'';if(params.has('status'))filters.docStatus=params.get('status')||'';if(params.has('doc_status'))filters.docStatus=params.get('doc_status')||'';if(params.has('status_group'))filters.statusGroup=params.get('status_group')||'';return filters;}
+function applyComplianceFilterDefaults(){var urlFilters=readUrlComplianceFilters();var hasUrlFilters=Object.keys(urlFilters).length>0;var stored=hasUrlFilters?{}:readStoredComplianceFilters();var docType=urlFilters.docType||stored.docType||'';var docStatus=urlFilters.docStatus||stored.docStatus||'';var typeEl=document.getElementById('fDocType');var statusEl=document.getElementById('fDocStatus');if(typeEl)typeEl.value=docType||'';if(statusEl)statusEl.value=docStatus||'';}
+function esc(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
+function resolveSurfaceAccess(me,key){if(window.TC&&window.TC.surfaceAccess&&typeof window.TC.surfaceAccess.resolve==='function'){return window.TC.surfaceAccess.resolve(me,key)||{canRead:false,canWrite:false,mode:'hidden',reason:''};}return {canRead:false,canWrite:false,mode:'hidden',reason:''};}
+function renderPageState(tone,title,text){var el=document.getElementById('complianceState');if(!el)return;if(!title&&!text){el.className='page-state';el.innerHTML='';el.style.display='none';return;}el.className='page-state page-state--'+(tone||'info');el.innerHTML='<div class="page-state__title">'+esc(title||'')+'</div><div class="page-state__text">'+esc(text||'')+'</div>';el.style.display='';}
+function showComplianceState(tone,title,text){renderPageState(tone,title,text);}
+function clearComplianceState(){renderPageState();}
+function sectionNote(text){return '<div class="section-note">'+esc(text)+'</div>';}
+function describeComplianceAccess(access){if(!access||access.canRead)return '';return access.reason||'Compliance bleibt fuer diese Rolle derzeit ausgeblendet.';}
+function applyComplianceAccess(){var uploadButton=document.getElementById('complianceUploadButton');if(uploadButton)uploadButton.style.display=complianceAccess.canUpload?'':'none';var uploadAction=document.getElementById('emptyUploadAction');if(uploadAction)uploadAction.style.display=complianceAccess.canUpload?'':'none';Array.prototype.forEach.call(document.querySelectorAll('#fDocType,#fDocStatus'),function(control){control.disabled=!complianceAccess.canRead;});}
+function isRiskWindowDrilldown(){return activeStatusGroup==='risk_window_30d';}
+function parseApiError(result,fallback){if(!result)return fallback;if(typeof result.error==='string'&&result.error)return result.error;if(typeof result.message==='string'&&result.message)return result.message;if(Array.isArray(result.details)&&result.details.length)return result.details.join(', ');if(typeof result.details==='string'&&result.details)return result.details;return fallback;}
+function setEmptyState(title,text,showUpload){var empty=document.getElementById('emptyMsg');if(!empty)return;var titleEl=empty.querySelector('.ds-empty__title');var textEl=empty.querySelector('.ds-empty__text');if(titleEl)titleEl.textContent=title||'';if(textEl)textEl.textContent=text||'';var upload=document.getElementById('emptyUploadAction');if(upload)upload.style.display=showUpload===false?'none':'';empty.style.display='';}
+function hideEmptyState(){var empty=document.getElementById('emptyMsg');if(empty)empty.style.display='none';}
+function renderContextBadge(){var badge=document.getElementById('complianceContextBadge');if(!badge)return;if(isRiskWindowDrilldown()){badge.style.display='';badge.innerHTML='&#128279; Executive-Risikofenster: '+(rateCardAccess.canRead?'Dokumentenrisiken und Rate-Card-Risiken':'Dokumentenrisiken')+' der kommenden bzw. letzten 30 Tage. <a href=\"/public/compliance_overview.html\" style=\"color:var(--brand);font-size:12px\">Filter zuruecksetzen &times;</a>';}else{badge.style.display='none';badge.innerHTML='';}}
+function riskWindowCutoff(){var d=new Date();d.setHours(23,59,59,999);d.setDate(d.getDate()+30);return d;}
+function isDocInRiskWindow(doc){if(!doc)return false;if(doc.status==='rejected'||doc.status==='expired')return true;if(doc.status!=='verified'||!doc.valid_until)return false;var until=new Date(doc.valid_until);if(Number.isNaN(until.getTime()))return false;return until.getTime()<=riskWindowCutoff().getTime();}
+function buildRiskWindowDocStats(items){var stats={total_risk:0,rejected:0,expired:0,expiring_soon:0};(items||[]).forEach(function(doc){if(!doc)return;stats.total_risk+=1;if(doc.status==='rejected')stats.rejected+=1;else if(doc.status==='expired')stats.expired+=1;else if(doc.status==='verified')stats.expiring_soon+=1;});return stats;}
+function renderDocStats(stats,options){var el=document.getElementById('statsGrid');if(!el)return;var opts=options||{};if(!stats){el.innerHTML=sectionNote(opts.message||'Dokumentenstatistik konnte derzeit nicht geladen werden.');return;}if(opts.riskWindow){el.innerHTML='<div class="stat-cell"><b>'+esc(String(stats.total_risk||0))+'</b><span>Dokumentenrisiken</span></div>'+'<div class="stat-cell"><b style="color:#f87171">'+esc(String(stats.rejected||0))+'</b><span>Abgelehnt</span></div>'+'<div class="stat-cell"><b style="color:#f87171">'+esc(String(stats.expired||0))+'</b><span>Abgelaufen</span></div>'+'<div class="stat-cell"><b style="color:#fbbf24">'+esc(String(stats.expiring_soon||0))+'</b><span>Bald ablaufend</span></div>';return;}el.innerHTML='<div class="stat-cell"><b>'+esc(String(stats.total||0))+'</b><span>Gesamt</span></div>'+'<div class="stat-cell"><b style="color:#34d399">'+esc(String(stats.verified||0))+'</b><span>Verifiziert</span></div>'+'<div class="stat-cell"><b style="color:#fbbf24">'+esc(String(stats.pending||0))+'</b><span>Ausstehend</span></div>'+'<div class="stat-cell"><b style="color:#f87171">'+esc(String(stats.rejected||0))+'</b><span>Abgelehnt</span></div>'+'<div class="stat-cell"><b style="color:#f87171">'+esc(String(stats.expired||0))+'</b><span>Abgelaufen</span></div>'+(stats.expiring_soon>0?'<div class="stat-cell"><b style="color:#fbbf24">'+esc(String(stats.expiring_soon))+'</b><span>Bald ablaufend</span></div>':'');}
+function renderRateCardRiskBox(stats){var box=document.getElementById('rateCardRiskBox');if(!box)return;if(!rateCardAccess.canRead){box.innerHTML='';box.style.display='none';return;}box.style.display='';if(!stats){box.innerHTML=sectionNote('Rate-Card-Risiken der letzten 30 Tage konnten derzeit nicht geladen werden.');return;}var comp=stats.compliance_30d||{};var riskTotal=Number(comp.warnings||0)+Number(comp.non_compliant||0);var intro=activeStatusGroup==='risk_window_30d'?'Dieser Block ergänzt das Executive-Risikofenster um Preisrahmen-Warnungen und Verstöße der letzten 30 Tage.':'Preisrahmen-Warnungen und Verstöße der letzten 30 Tage als ergänzende Compliance-Sicht.';box.innerHTML='<div class=\"risk-summary\"><div class=\"page-state__title\">Rate-Card-Risiken (30 Tage)</div><div class=\"page-state__text\">'+esc(intro)+'</div><div class=\"stat-grid\" style=\"margin:12px 0 0\"><div class=\"stat-cell\"><b>'+esc(String(comp.total_checks||0))+'</b><span>Geprüft</span></div><div class=\"stat-cell\"><b style=\"color:#fbbf24\">'+esc(String(comp.warnings||0))+'</b><span>Warnung</span></div><div class=\"stat-cell\"><b style=\"color:#f87171\">'+esc(String(comp.non_compliant||0))+'</b><span>Verstoß</span></div><div class=\"stat-cell\"><b style=\"color:'+(riskTotal>0?'#f87171':'#34d399')+'\">'+esc(String(riskTotal))+'</b><span>At Risk</span></div></div><div class=\"risk-summary__actions\"><a class=\"act-btn\" href=\"/public/rate-cards.html?compliance_status=at_risk\">Warnung / Verstoß öffnen</a><a class=\"act-btn\" href=\"/public/rate-cards.html?compliance_status=non_compliant\">Nur Verstöße</a></div></div>';}
+async function getCsrf(){if(_csrf)return _csrf;try{var r=await fetch('/api/csrf',{credentials:'include'});var d=await r.json();_csrf=d.token||'';}catch{}return _csrf;}
+async function apiGet(p){try{var r=await fetch('/api'+p,{credentials:'include'});if(r.status===401){location.href='/';return null;}return r.ok?r.json():null;}catch{return null;}}
+async function apiMut(m,p,b){try{var csrf=await getCsrf();var r=await fetch('/api'+p,{method:m,credentials:'include',headers:{'Content-Type':'application/json','x-csrf-token':csrf},body:JSON.stringify(b)});if(r.status===401){location.href='/';return null;}return await r.json();}catch{return { error:'Netzwerkfehler oder Server nicht erreichbar.' };}}
 
-    async function init(){
-      var csrf=await fetch('/api/csrf-token',{credentials:'include'});
-      if(csrf.ok){var d=await csrf.json();csrfToken=d.csrfToken||'';}
-    }
+(async function(){
+  var urlP=new URLSearchParams(window.location.search);
+  activeStatusGroup=urlP.get('status_group')||'';
+  applyComplianceFilterDefaults();
+  var me=await apiGet('/me');if(!me)return;
+  currentMe=me;complianceAccess=resolveSurfaceAccess(currentMe,'compliance_overview');rateCardAccess=resolveSurfaceAccess(currentMe,'rate_cards');applyComplianceAccess();renderContextBadge();
+  if(!complianceAccess.canRead){document.getElementById('docBody').innerHTML='';renderDocStats(null,{message:describeComplianceAccess(complianceAccess)});renderRateCardRiskBox(null);setEmptyState(complianceAccess.canUpload?'Upload ohne Cockpit-Zugriff':'Compliance ausgeblendet',complianceAccess.canUpload?'Dokument-Uploads bleiben moeglich, die interne Compliance-Sicht bleibt fuer diese Rolle jedoch ausgeblendet.':describeComplianceAccess(complianceAccess),complianceAccess.canUpload);showComplianceState('info','Compliance ausgeblendet',describeComplianceAccess(complianceAccess));return;}
+  if(me.org_id)_orgId=me.org_id;
+  else try{var o=await apiGet('/org/overview');if(o&&o.data&&o.data.organization)_orgId=o.data.organization.id;}catch{}
+  if(_orgId)loadDocs(false);
+  else{document.getElementById('docBody').innerHTML='';renderRateCardRiskBox(null);setEmptyState('Compliance-Kontext fehlt','Dem aktuellen Nutzer ist keine Organisation zugeordnet.',complianceAccess.canUpload);showComplianceState('warn','Organisation fehlt','Ohne Organisationskontext kann die Compliance-Sicht nicht geladen werden.');}
+})();
 
-    async function loadDocs(){
-      var orgId=document.getElementById('fOrgId').value.trim();
-      if(!orgId){alert('Bitte Org ID eingeben');return;}
-      var qs='org_id='+encodeURIComponent(orgId);
-      var docType=document.getElementById('fDocType').value;
-      var docStatus=document.getElementById('fDocStatus').value;
-      if(docType)qs+='&doc_type='+docType;
-      if(docStatus)qs+='&status='+docStatus;
+async function loadDocs(persist){
+  if(!complianceAccess.canRead||!_orgId)return;
+  var shouldPersist=persist!==false;
+  var allowPersist=shouldPersist&&!activeStatusGroup;
+  renderContextBadge();
+  showComplianceState('info','Compliance wird geladen',isRiskWindowDrilldown()?(rateCardAccess.canRead?'Dokumentenrisiken und Rate-Card-Risiken werden für das 30-Tage-Risikofenster geladen.':'Dokumentenrisiken werden für das 30-Tage-Risikofenster geladen.'):(rateCardAccess.canRead?'Dokumente, Kennzahlen und ergänzende Rate-Card-Risiken werden geladen.':'Dokumente und Kennzahlen werden geladen.'));
+  var qs='',dt=document.getElementById('fDocType').value,ds=document.getElementById('fDocStatus').value;
+  if(allowPersist)writeStoredComplianceFilters({docType:dt||'',docStatus:ds||''});
+  if(dt)qs+='&doc_type='+dt;if(ds)qs+='&status='+ds;
+  var partialIssues=[];
+  if(isRiskWindowDrilldown()){renderDocStats({total_risk:0,rejected:0,expired:0,expiring_soon:0},{riskWindow:true});}
+  else{
+    var stats=await apiGet('/compliance-documents/stats/'+encodeURIComponent(_orgId));
+    if(stats){renderDocStats(stats.data||stats);}
+    else{renderDocStats(null,{message:'Dokumentenstatistik konnte derzeit nicht geladen werden.'});partialIssues.push('Dokumentenstatistik');}
+  }
+  if(rateCardAccess.canRead){var rateCardStats=await apiGet('/rate-cards/stats');
+  if(rateCardStats&&(rateCardStats.data||rateCardStats.compliance_30d)){renderRateCardRiskBox(rateCardStats.data||rateCardStats);}
+  else{renderRateCardRiskBox(null);partialIssues.push('Rate-Card-Risiken');}}
+  else{renderRateCardRiskBox(null);}
+  var dd=await apiGet('/compliance-documents?'+qs.replace(/^&/,''));
+  var items=(dd&&dd.data&&dd.data.items)||(dd&&dd.items)||[];
+  if(!dd){document.getElementById('docBody').innerHTML='';if(isRiskWindowDrilldown())renderDocStats(null,{message:'Dokumentenrisiken im 30-Tage-Fenster konnten derzeit nicht geladen werden.'});setEmptyState('Compliance-Dokumente konnten nicht geladen werden','Die Dokumentliste ist derzeit nicht verfügbar.',false);showComplianceState('bad','Compliance derzeit nicht verfügbar','Die Dokumentliste konnte nicht geladen werden.'+(partialIssues.length?' Zusätzlich fehlen '+partialIssues.join(', ')+'.':''));return;}
+  if(isRiskWindowDrilldown()){items=items.filter(isDocInRiskWindow);renderDocStats(buildRiskWindowDocStats(items),{riskWindow:true});}
+  var tbody=document.getElementById('docBody'),empty=document.getElementById('emptyMsg');
+  if(!items.length){tbody.innerHTML='';if(isRiskWindowDrilldown()){setEmptyState('Keine Dokumentrisiken im 30-Tage-Fenster','Aktuell gibt es keine abgelehnten, abgelaufenen oder bald ablaufenden Dokumente.',false);}else{setEmptyState('Keine Compliance-Dokumente',complianceAccess.canUpload?'Laden Sie Ihr erstes Dokument hoch.':'In dieser Rolle sind keine dokumentbezogenen Schreibaktionen freigegeben.',complianceAccess.canUpload);}if(partialIssues.length)showComplianceState('warn','Teilweise Daten fehlen',partialIssues.join(' und ')+' konnten nicht geladen werden. Die Seite bleibt dennoch nutzbar.');else if(complianceAccess.mode==='read_only')showComplianceState('info','Compliance read-only',complianceAccess.reason||'Uploads und Änderungen bleiben in dieser Rolle gesperrt.');else clearComplianceState();return;}
+  hideEmptyState();
+  tbody.innerHTML=items.map(function(d){
+    var tl=d.traffic_light||'grey',sc=d.status==='verified'?'ds-verified':d.status==='pending'?'ds-pending':d.status==='rejected'?'ds-rejected':'ds-expired';
+    var until=d.valid_until?new Date(d.valid_until).toLocaleDateString('de-DE'):'–';
+    var act='';
+    if(d.file_ref)act+='<button class="act-btn dl" onclick="window.open(\'/api/compliance-documents/'+d.id+'/download\',\'_blank\')" title="Download">&#128229;</button>';
+    if(d.status==='pending'&&complianceAccess.canVerify){act+='<button class=\"act-btn good\" onclick=\"verifyDoc(\\''+d.id+'\\')\" title=\"Verifizieren\">&#10003;</button>';act+='<button class=\"act-btn bad\" onclick=\"rejectDoc(\\''+d.id+'\\')\" title=\"Ablehnen\">&#10007;</button>';}
+    if(complianceAccess.canDelete)act+='<button class=\"act-btn\" onclick=\"deleteDoc(\\''+d.id+'\\')\" title=\"Loeschen\" style=\"opacity:.4\">&#128465;</button>';
+    return '<tr class="doc-row"><td><span class="tl tl-'+tl+'"></span></td><td style="font-size:12px">'+esc(TL[d.doc_type]||d.doc_type)+'</td><td><strong>'+esc(d.doc_name||'–')+'</strong></td><td><span class="doc-status '+sc+'">'+esc(SL[d.status]||d.status)+'</span></td><td style="font-size:12px;color:var(--ds-text-secondary)">'+until+'</td><td style="font-size:12px;color:var(--ds-text-secondary)">'+esc(d.org_name||'–')+'</td><td style="white-space:nowrap">'+act+'</td></tr>';
+  }).join('');
+  if(partialIssues.length)showComplianceState('warn','Teilweise Daten fehlen',partialIssues.join(' und ')+' konnten nicht geladen werden. Die Seite bleibt dennoch nutzbar.');else if(complianceAccess.mode==='read_only')showComplianceState('info','Compliance read-only',complianceAccess.reason||'Uploads und Änderungen bleiben in dieser Rolle gesperrt.');else clearComplianceState();
+}
 
-      // Stats laden (ueber Compliance-Documents Stats-Endpoint)
-      var stats=await apiGet('/compliance-documents/stats/'+encodeURIComponent(orgId));
-      if(stats){
-        var s=stats.data||stats;
-        document.getElementById('statsGrid').innerHTML=
-          '<div class="stat-cell"><b>'+esc(String(s.total||0))+'</b><span>Gesamt</span></div>'+
-          '<div class="stat-cell"><b style="color:var(--good)">'+esc(String(s.verified||0))+'</b><span>Verifiziert</span></div>'+
-          '<div class="stat-cell"><b style="color:var(--warn)">'+esc(String(s.pending||0))+'</b><span>Ausstehend</span></div>'+
-          '<div class="stat-cell"><b style="color:var(--bad)">'+esc(String(s.expired||0))+'</b><span>Abgelaufen</span></div>'+
-          '<div class="stat-cell"><b style="color:var(--bad)">'+esc(String(s.rejected||0))+'</b><span>Abgelehnt</span></div>'+
-          (s.expiring_soon>0?'<div class="stat-cell"><b style="color:var(--warn)">'+s.expiring_soon+'</b><span>Bald ablaufend</span></div>':'');
-      }
+function showUpload(){if(!complianceAccess.canUpload){showComplianceState('info','Upload nicht freigegeben','Dokument-Uploads bleiben in dieser Rolle gesperrt.');return;}document.getElementById('uploadModal').classList.add('show');}
+function closeUpload(){document.getElementById('uploadModal').classList.remove('show');}
+function onFileSelect(i){var n=document.getElementById('fileName');if(i.files&&i.files[0]){n.textContent=i.files[0].name+' ('+(i.files[0].size/1024/1024).toFixed(1)+' MB)';n.style.display='';}else n.style.display='none';}
+(function(){var d=document.getElementById('fileDrop');if(!d)return;d.addEventListener('dragover',function(e){e.preventDefault();d.style.borderColor='#4a9eff';});d.addEventListener('dragleave',function(){d.style.borderColor='';});d.addEventListener('drop',function(e){e.preventDefault();d.style.borderColor='';var i=document.getElementById('uFile');if(e.dataTransfer.files.length){i.files=e.dataTransfer.files;onFileSelect(i);}});})();
 
-      // Dokumente ueber den Compliance-Documents Router laden
-      var docsData=await apiGet('/compliance-documents?'+qs);
-      var items=(docsData&&docsData.data&&docsData.data.items)||((docsData&&docsData.items)||[]);
-
-      var tbody=document.getElementById('docBody');
-      var empty=document.getElementById('emptyMsg');
-      if(!items.length){tbody.innerHTML='';empty.style.display='';return;}
-      empty.style.display='none';
-      tbody.innerHTML=items.map(function(d){
-        var tl=d.traffic_light||'grey';
-        var tlClass='tl-'+tl;
-        var stClass=d.status==='verified'?'ds-verified':d.status==='pending'?'ds-pending':d.status==='rejected'?'ds-rejected':'ds-expired';
-        var until=d.valid_until?new Date(d.valid_until).toLocaleDateString('de'):'–';
-        var actions='';
-        if(d.status==='pending'){
-          actions='<button class="btn good" style="padding:3px 8px;font-size:11px" onclick="verifyDoc(\''+d.id+'\')" title="Verifizieren">&#10003;</button> ';
-          actions+='<button class="btn bad" style="padding:3px 8px;font-size:11px" onclick="rejectDoc(\''+d.id+'\')" title="Ablehnen">&#10007;</button>';
-        }
-        return '<tr class="doc-row">'+
-          '<td><span class="tl '+tlClass+'"></span></td>'+
-          '<td>'+esc(d.doc_type||'–')+'</td>'+
-          '<td>'+esc(d.doc_name||'–')+'</td>'+
-          '<td><span class="doc-status '+stClass+'">'+esc(d.status)+'</span></td>'+
-          '<td style="font-size:12px;color:var(--muted)">'+until+'</td>'+
-          '<td>'+actions+'</td></tr>';
-      }).join('');
-    }
-
-    function showUpload(){document.getElementById('uploadModal').classList.add('show');}
-    function closeUpload(){document.getElementById('uploadModal').classList.remove('show');}
-
-    async function submitUpload(e){
-      e.preventDefault();
-      var body={
-        org_id:document.getElementById('uOrgId').value.trim(),
-        doc_type:document.getElementById('uDocType').value,
-        doc_name:document.getElementById('uDocName').value.trim(),
-        valid_from:document.getElementById('uFrom').value||null,
-        valid_until:document.getElementById('uUntil').value||null,
-        notes:document.getElementById('uNotes').value||null
-      };
-      if(!body.org_id||!body.doc_type||!body.doc_name){alert('Bitte Pflichtfelder ausfuellen');return;}
-      var result=await apiMut('POST','/compliance-documents',body);
-      if(result&&(result.id||(result.data&&result.data.id))){
-        closeUpload();document.getElementById('uploadForm').reset();
-        document.getElementById('fOrgId').value=body.org_id;
-        loadDocs();
-      }else{
-        alert('Fehler: '+JSON.stringify((result&&result.error)||'Unbekannt'));
-      }
-    }
-
-    // ── Verifizieren / Ablehnen ──────────────────────────
-    async function verifyDoc(id){
-      var result=await apiMut('POST','/compliance-documents/'+id+'/verify',{});
-      if(result&&!result.error)loadDocs();
-      else alert('Fehler: '+JSON.stringify((result&&result.error)||'Unbekannt'));
-    }
-    async function rejectDoc(id){
-      var reason=prompt('Ablehnungsgrund (optional):');
-      var result=await apiMut('POST','/compliance-documents/'+id+'/reject',{reason:reason||null});
-      if(result&&!result.error)loadDocs();
-      else alert('Fehler: '+JSON.stringify((result&&result.error)||'Unbekannt'));
-    }
-
-    init();
-  </script>
+async function submitUpload(e){
+  if(!complianceAccess.canUpload){showComplianceState('info','Upload nicht freigegeben','Dokument-Uploads bleiben in dieser Rolle gesperrt.');return;}
+  e.preventDefault();var csrf=await getCsrf();var fd=new FormData();
+  fd.append('doc_type',document.getElementById('uDocType').value);
+  fd.append('doc_name',document.getElementById('uDocName').value.trim());
+  var f=document.getElementById('uFrom').value,u=document.getElementById('uUntil').value,n=document.getElementById('uNotes').value;
+  if(f)fd.append('valid_from',f);if(u)fd.append('valid_until',u);if(n)fd.append('notes',n);
+  var fi=document.getElementById('uFile');if(fi.files[0])fd.append('file',fi.files[0]);
+  document.getElementById('btnUpload').disabled=true;document.getElementById('btnUpload').textContent='Wird hochgeladen\u2026';
+  try{var r=await fetch('/api/compliance-documents',{method:'POST',credentials:'include',headers:{'x-csrf-token':csrf},body:fd});
+    if(r.ok){closeUpload();document.getElementById('uploadForm').reset();document.getElementById('fileName').style.display='none';showComplianceState('good','Dokument hochgeladen','Das Compliance-Dokument wurde erfolgreich gespeichert.');loadDocs();}
+    else{var d=await r.json();showComplianceState('bad','Upload fehlgeschlagen',parseApiError(d,'Das Dokument konnte nicht hochgeladen werden.'));}
+  }catch(err){showComplianceState('bad','Upload fehlgeschlagen','Das Dokument konnte wegen eines Netzwerk- oder Serverfehlers nicht hochgeladen werden.');}
+  finally{document.getElementById('btnUpload').disabled=false;document.getElementById('btnUpload').textContent='Hochladen';}
+}
+async function verifyDoc(id){if(!complianceAccess.canVerify){showComplianceState('info','Verifizierung nicht freigegeben','Dokument-Verifikationen bleiben in dieser Rolle gesperrt.');return;}if(!confirm('Dokument verifizieren?'))return;var r=await apiMut('POST','/compliance-documents/'+id+'/verify',{});if(r&&!r.error){showComplianceState('good','Dokument verifiziert','Das Dokument wurde erfolgreich verifiziert.');loadDocs();}else showComplianceState('bad','Verifizierung fehlgeschlagen',parseApiError(r,'Das Dokument konnte nicht verifiziert werden.'));}
+async function rejectDoc(id){if(!complianceAccess.canVerify){showComplianceState('info','Ablehnung nicht freigegeben','Dokument-Ablehnungen bleiben in dieser Rolle gesperrt.');return;}var reason=prompt('Ablehnungsgrund (optional):');if(reason===null)return;var r=await apiMut('POST','/compliance-documents/'+id+'/reject',{reason:reason||null});if(r&&!r.error){showComplianceState('good','Dokument abgelehnt','Das Dokument wurde erfolgreich abgelehnt.');loadDocs();}else showComplianceState('bad','Ablehnung fehlgeschlagen',parseApiError(r,'Das Dokument konnte nicht abgelehnt werden.'));}
+async function deleteDoc(id){if(!complianceAccess.canDelete){showComplianceState('info','Löschen nicht freigegeben','Dokument-Löschungen bleiben in dieser Rolle gesperrt.');return;}if(!confirm('Dokument wirklich loeschen?'))return;var r=await apiMut('DELETE','/compliance-documents/'+id,{});if(r&&!r.error){showComplianceState('good','Dokument gelöscht','Das Dokument wurde erfolgreich entfernt.');loadDocs();}else showComplianceState('bad','Löschen fehlgeschlagen',parseApiError(r,'Das Dokument konnte nicht gelöscht werden.'));}
+</script>
+  <script src="/public/js/pageShell.js"></script>
   <script src="/public/js/notifications.js"></script>
+  <script src="/public/js/onboardingChecklist.js" defer></script>
   <div id="tc-footer" data-tc-footer></div>
   <script src="/public/js/footer.js"></script>
-  <script src="/public/js/logout-btn.js"></script>
+  <script src="/public/js/demoBanner.js" defer></script>
+  <script src="/public/js/onboardingWizard.js" defer></script>
+  <script src="/public/js/contextHints.js"></script>
+  <script src="/public/js/breadcrumb.js" defer></script>
 </body>
 </html>

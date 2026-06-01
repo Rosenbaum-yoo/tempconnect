@@ -3,15 +3,17 @@
 <head>
   <meta charset="utf-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
-  <title>Kapazitätssuche – TempConnect</title>
+  <script src="/public/js/theme.js"></script>
+  <title>Personal finden – TempConnect</title>
   <link rel="stylesheet" href="/public/css/enterprise.css"/>
+  <style>
+    .ce-checkbox { display:inline-flex; align-items:center; gap:6px; font-size:12px; color:var(--muted); cursor:pointer; user-select:none; }
+    .ce-checkbox input[type="checkbox"] { width:16px; height:16px; margin:0; padding:0; }
+  </style>
 </head>
 <body data-sla-guard="sla_access">
   <div id="paywall" class="wrap" style="display:none">
-    <div class="topbar">
-      <span class="brand">TempConnect</span>
-      <a href="/" class="btn">Startseite</a>
-    </div>
+    <nav class="ds-topbar"><div class="ds-topbar__brand"><span class="ds-topbar__brand-dot"></span>TempConnect</div><div class="ds-topbar__nav"><a href="/" class="ds-btn">Startseite</a></div></nav>
     <div class="paywall-box">
       <h2>Bereich nicht verfügbar</h2>
       <p>Das Feature &quot;<span id="paywall-feature-name">Pulse-Bereich</span>&quot; ist mit deinem aktuellen Plan nicht nutzbar.</p>
@@ -20,15 +22,30 @@
     </div>
   </div>
   <div id="main-content" class="wrap">
-    <div class="topbar">
-      <span class="brand">TempConnect – Kapazitätssuche</span>
-      <a href="/" class="btn">Startseite</a>
-      <a href="/public/enterprise.html" class="btn">Übersicht</a>
-      <a href="/public/sla_search_jobs_list.html" class="btn">Suchaufträge</a>
-      <a href="/public/company_requests.html" class="btn">Meine Anfragen</a>
-    </div>
-    <h1>Kapazitäten suchen</h1>
-    <p style="color:var(--muted);margin:0 0 12px">Jede Suche wird automatisch als persistenter Suchauftrag gespeichert und sofort gematcht. Neue Treffer werden laufend benachrichtigt.</p>
+    <div id="tc-shell"></div>
+    <h1>Personal finden</h1>
+    <p style="color:var(--muted);margin:0 0 12px">Automatisches Matching & Notdienst
+
+Einmal Arbeitsplatzangebot definieren – passende Vorschläge kommen automatisch zu dir.
+
+Erstelle eine Suche für deinen Personalbedarf, z. B. „Staplerfahrer in Hamburg“, mit Startdatum und Einsatzdauer.
+Ab diesem Moment übernimmt das System:
+
+Neue passende Angebote werden automatisch erkannt
+
+Du erhältst sofort Benachrichtigungen bei relevanten Matches
+
+Kein manuelles Suchen mehr – nur noch entscheiden.<br><br>
+Wenn es schnell gehen muss:
+
+Erstelle eine Notfall-Anfrage in wenigen Sekunden
+
+Das System informiert automatisch passende Anbieter in deinem Netzwerk
+
+Erste Rückmeldungen kommen in Echtzeit
+
+So kannst du kurzfristige Ausfälle oder Engpässe sofort abdecken – ohne Telefonketten oder E-Mail-Chaos.<br><br>
+Jede Suche wird automatisch als persistenter Suchauftrag gespeichert und sofort gematcht. Neue Treffer werden laufend benachrichtigt.</p>
     <form id="searchForm" class="card" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:12px;align-items:end">
       <div>
         <label for="role">Rolle</label>
@@ -52,6 +69,13 @@
       <div>
         <label for="available_from">Verfügbar ab (Datum)</label>
         <input type="date" id="available_from" name="available_from"/>
+      </div>
+      <div>
+        <label for="available_window_immediate">Sofort verfügbar</label>
+        <label class="ce-checkbox" for="available_window_immediate">
+          <input type="checkbox" id="available_window_immediate"/>
+          <span>Heute oder morgen</span>
+        </label>
       </div>
       <div>
         <label for="available_min">Mind. verfügbar (Anzahl)</label>
@@ -223,6 +247,12 @@
     function getCsrf() {
       return fetch(API + "/csrf", { credentials: "include" }).then(function(r) { return r.ok ? r.json() : null; });
     }
+    function getLocHeader() {
+      try { return (window.TC && TC.api && typeof TC.api.getActiveLocationId === "function") ? TC.api.getActiveLocationId() : null; } catch (_e) { return null; }
+    }
+    function getLocLabel() {
+      try { return sessionStorage.getItem("tc.activeLocationName") || null; } catch (_e) { return null; }
+    }
     function api(path, opts) {
       opts = opts || {};
       var method = opts.method || "GET";
@@ -231,6 +261,8 @@
         headers["X-CSRF-Token"] = opts.csrf || "";
         headers["Idempotency-Key"] = idempotencyKey();
       }
+      var locId = getLocHeader();
+      if (locId) headers["X-Location-Id"] = locId;
       return fetch(API + path, {
         method: method,
         headers: headers,
@@ -242,12 +274,59 @@
       if (r.status === 401) { window.location.href = "/"; return false; }
       return true;
     }
+    function todayDateString() {
+      var now = new Date();
+      var year = now.getFullYear();
+      var month = String(now.getMonth() + 1).padStart(2, "0");
+      var day = String(now.getDate()).padStart(2, "0");
+      return year + "-" + month + "-" + day;
+    }
+
+    function setImmediateState(enabled, opts) {
+      var toggle = document.getElementById("available_window_immediate");
+      var dateEl = document.getElementById("available_from");
+      if (!toggle || !dateEl) return;
+      var skipRemember = opts && opts.skipRemember;
+      if (enabled) {
+        if (!skipRemember && !dateEl.disabled) {
+          dateEl.dataset.prevValue = dateEl.value || "";
+        }
+        var anchor = (opts && opts.anchor) || dateEl.value;
+        if (!anchor || !/^\d{4}-\d{2}-\d{2}$/.test(String(anchor))) {
+          anchor = todayDateString();
+        }
+        dateEl.value = anchor;
+        dateEl.disabled = true;
+        toggle.checked = true;
+      } else {
+        toggle.checked = false;
+        dateEl.disabled = false;
+        if (!skipRemember && dateEl.dataset.prevValue != null) {
+          dateEl.value = dateEl.dataset.prevValue;
+          delete dateEl.dataset.prevValue;
+        }
+      }
+    }
+
+    (function initImmediateToggle() {
+      var toggle = document.getElementById("available_window_immediate");
+      if (!toggle) return;
+      setImmediateState(toggle.checked, { skipRemember: true });
+      toggle.addEventListener("change", function() {
+        setImmediateState(toggle.checked);
+      });
+    })();
 
     document.getElementById("searchForm").onsubmit = function(e) {
       e.preventDefault();
       var role = document.getElementById("role").value.trim() || "";
       var region = document.getElementById("region").value.trim() || "";
       var available_from = document.getElementById("available_from").value || null;
+      var immediate = document.getElementById("available_window_immediate").checked;
+      if (immediate && (!available_from || !/^\d{4}-\d{2}-\d{2}$/.test(String(available_from)))) {
+        available_from = todayDateString();
+        document.getElementById("available_from").value = available_from;
+      }
       var available_min = document.getElementById("available_min").value ? parseInt(document.getElementById("available_min").value, 10) : 1;
       var pulseMin = parseInt(document.getElementById("sla_minutes").value, 10) || 60;
       var priority = document.getElementById("priority").value || "NORMAL";
@@ -286,25 +365,37 @@
           });
         }).then(function(r) {
           if (!checkAuth(r)) return null;
-          if (!r.ok) { resultsEl.innerHTML = '<div class="empty">Suche fehlgeschlagen.</div>'; return null; }
+          if (!r.ok) {
+            return r.json().catch(function() { return {}; }).then(function(errBody) {
+              var code = (errBody && (errBody.error || errBody.code)) || '';
+              var msg;
+              if (code === 'FEATURE_NOT_ALLOWED') msg = 'Dieser Bereich ist in deinem aktuellen Tarif' + (errBody.plan ? ' (' + esc(errBody.plan) + ')' : '') + ' nicht freigeschaltet. Bitte Tarif upgraden.';
+              else if (code === 'NOT_AUTHENTICATED') msg = 'Du bist nicht mehr eingeloggt. <a href="/">Bitte neu anmelden.</a>';
+              else if (code === 'COMPANY_ONLY') msg = 'Nur Unternehmen k\u00f6nnen Suchen anlegen.';
+              else msg = 'Suche fehlgeschlagen' + (code ? ' (' + esc(code) + ')' : '') + '.';
+              resultsEl.innerHTML = '<div class="empty">' + msg + '</div>';
+              return null;
+            });
+          }
           return r.json();
         }).then(function(data) {
           if (!data) return;
           var matches = data.matches || [];
           var job = data.job || {};
           var html = '<h2 style="margin:24px 0 12px">Suchauftrag gespeichert – ' + matches.length + ' Matches (von ' + (data.candidateCount || 0) + ' Kandidaten)</h2>';
-          html += '<div class="card" style="margin-bottom:12px;padding:12px"><span style="color:var(--muted);font-size:13px">Suchauftrag: <strong>' + esc(job.title || '–') + '</strong> · Status: ' + esc(job.status || 'open') + (job.sla_status ? ' · Pulse: ' + esc(job.sla_status) : '') + '</span></div>';
+          html += '<div class="card" style="margin-bottom:12px;padding:12px"><span style="color:var(--muted);font-size:13px">Suchauftrag: <strong>' + esc(job.title || '–') + '</strong> – Status: ' + esc(job.status || 'open') + (job.sla_status ? ' – Pulse: ' + esc(job.sla_status) : '') + '</span></div>';
           if (matches.length === 0) {
-            html += '<div class="empty">Keine Matches gefunden. Der Suchauftrag läuft weiter – Sie werden bei neuen Matches benachrichtigt.</div>';
+            var matchLocLbl = getLocLabel();
+            html += '<div class="empty">' + (matchLocLbl ? 'Keine Matches für Standort ' + matchLocLbl + '. Der Suchauftrag läuft weiter – Sie werden bei neuen Matches benachrichtigt.' : 'Keine Matches gefunden. Der Suchauftrag läuft weiter – Sie werden bei neuen Matches benachrichtigt.') + '</div>';
           } else {
             matches.forEach(function(m) {
               var name = esc(m.capacity_title || m.demand_title || '–');
               var mRole = esc(m.capacity_role || m.demand_role || '–');
               var city = esc(m.capacity_city || m.demand_city || '–');
               var score = m.match_score != null ? m.match_score : '–';
-              var distHtml = m.distance_km != null ? ' · <span style="color:var(--brand);font-weight:600">' + m.distance_km + ' km</span>' : '';
+              var distHtml = m.distance_km != null ? ' – <span style="color:var(--brand);font-weight:600">' + m.distance_km + ' km</span>' : '';
               html += '<div class="card" style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px">';
-              html += '<div><strong>' + name + '</strong> · ' + mRole + ' · ' + city + distHtml;
+              html += '<div><strong>' + name + '</strong> – ' + mRole + ' – ' + city + distHtml;
               html += '<br><span style="color:var(--muted);font-size:13px">Score: ' + score + '</span></div>';
               html += '<div style="display:flex;gap:6px">';
               if (m.capacity_post_id) {
@@ -332,6 +423,7 @@
           var geoQuery = "/capacities?latitude=" + coords.lat + "&longitude=" + coords.lng + "&radius_km=" + radiusKm;
           if (role) geoQuery += "&role=" + encodeURIComponent(role);
           if (available_from) geoQuery += "&available_from=" + encodeURIComponent(available_from);
+          if (immediate) geoQuery += "&availability_window=immediate";
           if (available_min > 1) geoQuery += "&available_min=" + available_min;
           geoQuery += "&limit=50";
 
@@ -341,7 +433,7 @@
             return r.json();
           }).then(function(data) {
             if (!data || !data.items || data.items.length === 0) {
-              geoResultsEl.innerHTML = '<div class="card" style="margin-top:24px;padding:16px"><h3 style="margin:0 0 8px">Umkreissuche: ' + esc(region) + ' (' + radiusKm + ' km)</h3><div class="empty">Keine Kapazitäten im Umkreis gefunden.</div></div>';
+              geoResultsEl.innerHTML = '<div class="card" style="margin-top:24px;padding:16px"><h3 style="margin:0 0 8px">Umkreissuche: ' + esc(region) + ' (' + radiusKm + ' km)</h3><div class="empty">Kein passendes Personal im Umkreis gefunden.</div></div>';
               return;
             }
             var gh = '<div style="margin-top:24px">';
@@ -357,10 +449,10 @@
               gh += '<div>';
               gh += '<strong>' + esc(c.role || '–') + '</strong>' + distBadge;
               gh += '<br><span style="color:var(--muted);font-size:13px">' + loc;
-              if (c.agency_company_name) gh += ' · ' + esc(c.agency_company_name);
-              gh += ' · Verfügbar: ' + effLabel;
-              if (c.available_from) gh += ' · ab ' + esc(String(c.available_from).substring(0, 10));
-              if (c.hourly_rate_cents) gh += ' · ' + (c.hourly_rate_cents / 100).toFixed(2) + ' €/h';
+              if (c.agency_company_name) gh += ' – ' + esc(c.agency_company_name);
+              gh += ' – Verfügbar: ' + effLabel;
+              if (c.available_from) gh += ' – ab ' + esc(String(c.available_from).substring(0, 10));
+              if (c.hourly_rate_cents) gh += ' – ' + (c.hourly_rate_cents / 100).toFixed(2) + ' €/h';
               gh += '</span></div>';
               gh += '<div style="display:flex;gap:6px">';
               gh += '<button type="button" class="btn" data-geo-cap-id="' + esc(c.id) + '" data-role="' + esc(c.role || '') + '" data-region="' + esc(c.city || c.region || '') + '">Anfragen</button>';
@@ -429,8 +521,13 @@
         if (!r) return;
         if (!checkAuth(r)) return;
         if (!r.ok) {
-          r.json().catch(function(){ return {}; }).then(function(err) {
-            alert((err && err.error) ? err.error : "Suchauftrag konnte nicht angelegt werden.");
+          r.json().catch(function(){ return {}; }).then(function(errBody) {
+            var code = (errBody && (errBody.error || errBody.code)) || '';
+            var msg;
+            if (code === 'FEATURE_NOT_ALLOWED') msg = 'Der Suchauftrags-Bereich ist in deinem aktuellen Tarif' + (errBody.plan ? ' (' + errBody.plan + ')' : '') + ' nicht freigeschaltet.';
+            else if (code === 'NOT_AUTHENTICATED') msg = 'Nicht eingeloggt. Bitte neu anmelden.';
+            else msg = (code || 'Suchauftrag konnte nicht angelegt werden.');
+            alert(msg);
           });
           return;
         }
@@ -448,7 +545,7 @@
       if (isNotdienst) document.getElementById("sla_minutes").value = "30";
     });
 
-    /* ── Gespeicherte Suchaufträge + Match-Alerts ── */
+    /* -- Gespeicherte Suchaufträge + Match-Alerts -- */
     function loadSavedJobs() {
       api("/sla/search-jobs").then(function(r) {
         if (!checkAuth(r)) return null;
@@ -457,19 +554,20 @@
         var el = document.getElementById("savedJobs");
         if (!el) return;
         if (!Array.isArray(jobs) || jobs.length === 0) {
-          el.innerHTML = '<div class="empty">Noch keine Suchaufträge.</div>';
+          var sjLocLbl = getLocLabel();
+          el.innerHTML = '<div class="empty">' + (sjLocLbl ? 'Noch keine Suchaufträge für Standort ' + sjLocLbl + '.' : 'Noch keine Suchaufträge.') + '</div>';
           return;
         }
         var html = '';
         jobs.forEach(function(j) {
           var st = (j.status || 'open').toUpperCase();
           var cls = st === 'OPEN' ? 'good' : st === 'PAUSED' ? 'warn' : 'muted';
-          var sla = j.sla_status ? ' · ' + esc(j.sla_status) : '';
+          var sla = j.sla_status ? ' – ' + esc(j.sla_status) : '';
           html += '<div class="card" style="margin-bottom:8px">';
           html += '<div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px">';
           html += '<div><strong>' + esc(j.title || 'Suchauftrag') + '</strong>';
           html += ' <span class="tag ' + cls + '">' + st + sla + '</span>';
-          if (j.role) html += '<br><span style="color:var(--muted);font-size:13px">' + esc(j.role) + (j.location_city ? ' · ' + esc(j.location_city) : '') + '</span>';
+          if (j.role) html += '<br><span style="color:var(--muted);font-size:13px">' + esc(j.role) + (j.location_city ? ' – ' + esc(j.location_city) : '') + '</span>';
           html += '</div><div style="display:flex;gap:6px;flex-wrap:wrap">';
           if (st === 'OPEN') {
             html += '<button class="btn" data-job-action="pause" data-job-id="' + esc(j.id) + '">Pause</button>';
@@ -579,7 +677,7 @@
           var city = esc(m.capacity_city || m.demand_city || '–');
           var score = m.match_score != null ? m.match_score : '–';
           html += '<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid var(--line)">';
-          html += '<div><strong>' + name + '</strong> · ' + role + ' · ' + city + ' <span style="color:var(--muted);font-size:12px">(Score: ' + score + ')</span></div>';
+          html += '<div><strong>' + name + '</strong> – ' + role + ' – ' + city + ' <span style="color:var(--muted);font-size:12px">(Score: ' + score + ')</span></div>';
           html += '<div style="display:flex;gap:6px">';
           if (m.capacity_post_id) {
             html += '<button class="btn" onclick="openRequestModal(\'' + esc(m.capacity_post_id) + '\',\'' + esc(m.capacity_role || '') + '\',\'' + esc(m.capacity_city || '') + '\')">Anfragen</button>';
@@ -603,7 +701,7 @@
       document.getElementById("req_capacity_id").value = capacityId;
       document.getElementById("req_role").value = role || "";
       document.getElementById("req_region").value = region || "";
-      document.getElementById("modalCapacityInfo").textContent = "Kapazität: " + (role || "–") + ", " + (region || "–");
+      document.getElementById("modalCapacityInfo").textContent = "Personal: " + (role || "–") + ", " + (region || "–");
       document.getElementById("requestModal").classList.add("show");
       document.getElementById("requestModal").setAttribute("aria-hidden", "false");
     }
@@ -649,8 +747,12 @@
       });
     };
   </script>
+  <script src="/public/js/terminologyLabels.js"></script>
+  <script src="/public/js/pageShell.js"></script>
   <div id="tc-footer" data-tc-footer></div>
   <script src="/public/js/footer.js"></script>
-  <script src="/public/js/logout-btn.js"></script>
+<script src="/public/js/demoBanner.js" defer></script>
+<script src="/public/js/onboardingWizard.js" defer></script><script src="/public/js/notifications.js" defer></script>
+<script src="/public/js/breadcrumb.js" defer></script>
 </body>
 </html>

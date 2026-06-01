@@ -1,224 +1,13 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="de">
 <head>
   <meta charset="utf-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
-  <title>TempConnect – Professionelles Workforce Management für Zeitarbeit</title>
-  <meta name="description" content="TempConnect verbindet Unternehmen und Personaldienstleister auf einer sicheren, DSGVO-konformen Plattform. Kapazitäten in Echtzeit finden, Deals transparent abschließen, Qualität messbar sichern."/>
+  <script src="/public/js/theme.js"></script>
+  <title>TempConnect – Zeitarbeits-Bedarfe für Einsatzunternehmen steuern</title>
+  <meta name="description" content="TempConnect ist das buyer-first VMS-light für Einsatzunternehmen mit wiederkehrenden Zeitarbeits-Bedarfen, Lieferantensteuerung, Deals, Einsätzen und digitalen Stundenzetteln."/>
   <link rel="stylesheet" href="/public/css/design-system.css"/>
-  <style>
-    body {
-      background:
-        radial-gradient(ellipse 1100px 600px at 15% -5%, rgba(74,158,255,.16), transparent 60%),
-        radial-gradient(ellipse 800px 500px at 90% -2%, rgba(124,92,255,.10), transparent 55%),
-        var(--ds-bg);
-    }
-
-    /* ── Hero ─────────────────────────────────────────────── */
-    .hero { padding: var(--ds-space-16) 0 var(--ds-space-12); text-align: center; }
-    .hero h1 {
-      font-size: clamp(28px, 5vw, 48px); font-weight: 800; line-height: 1.12;
-      margin: 0 auto var(--ds-space-5); max-width: 760px; letter-spacing: -0.03em;
-    }
-    .hero h1 em {
-      font-style: normal;
-      background: linear-gradient(135deg, var(--ds-brand), var(--ds-accent));
-      -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
-    }
-    .hero p {
-      color: var(--ds-text-secondary); font-size: 17px; line-height: 1.65;
-      max-width: 640px; margin: 0 auto var(--ds-space-8);
-    }
-    .hero-cta { display: flex; gap: var(--ds-space-3); justify-content: center; flex-wrap: wrap; }
-    .hero-cta .ds-btn--lg { padding: 14px 32px; font-size: 15px; }
-
-    /* ── Section titles ───────────────────────────────────── */
-    .section-label {
-      font-size: 11px; font-weight: 700; text-transform: uppercase;
-      letter-spacing: 0.08em; color: var(--ds-brand); margin-bottom: var(--ds-space-2);
-    }
-    .section-heading {
-      font-size: clamp(22px, 3vw, 30px); font-weight: 800;
-      letter-spacing: -0.02em; margin: 0 0 var(--ds-space-2);
-    }
-    .section-desc {
-      color: var(--ds-text-secondary); font-size: 15px;
-      max-width: 580px; line-height: 1.6; margin: 0;
-    }
-
-    /* ── How it works ─────────────────────────────────────── */
-    .steps-grid {
-      display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-      gap: var(--ds-space-4); counter-reset: step;
-    }
-    .step {
-      padding: var(--ds-space-5); border: 1px solid var(--ds-border);
-      border-radius: var(--ds-radius-lg); background: rgba(255,255,255,0.02);
-      text-align: center; counter-increment: step;
-    }
-    .step::before {
-      content: counter(step); display: flex; align-items: center; justify-content: center;
-      width: 36px; height: 36px; margin: 0 auto var(--ds-space-3); border-radius: 50%;
-      font-size: 15px; font-weight: 800; background: var(--ds-brand-muted);
-      border: 1px solid rgba(74,158,255,0.25); color: var(--ds-brand);
-    }
-    .step h3 { font-size: 14px; font-weight: 700; margin: 0 0 var(--ds-space-1); }
-    .step p { font-size: 13px; color: var(--ds-text-secondary); margin: 0; line-height: 1.5; }
-
-    /* ── Audience ─────────────────────────────────────────── */
-    .audience-grid { display: grid; grid-template-columns: 1fr 1fr; gap: var(--ds-space-4); }
-    .audience-card {
-      padding: var(--ds-space-6); border-radius: var(--ds-radius-lg);
-      border: 1px solid var(--ds-border); background: rgba(255,255,255,0.02);
-    }
-    .audience-card h3 {
-      font-size: 17px; font-weight: 700; margin: 0 0 var(--ds-space-3);
-      display: flex; align-items: center; gap: var(--ds-space-2);
-    }
-    .audience-card ul { padding-left: 18px; margin: 0 0 var(--ds-space-4); }
-    .audience-card li {
-      font-size: 13px; color: var(--ds-text-secondary);
-      padding: var(--ds-space-1) 0; line-height: 1.5;
-    }
-
-    /* ── Auth Modal ───────────────────────────────────────── */
-    .am-overlay {
-      position: fixed; inset: 0; background: rgba(0,0,0,.72); z-index: 200;
-      display: none; align-items: center; justify-content: center; padding: 16px;
-      backdrop-filter: blur(4px);
-    }
-    .am-overlay.open { display: flex; }
-    .am-panel {
-      width: min(500px, 100%); padding: 28px; border-radius: 20px;
-      border: 1px solid rgba(255,255,255,.12);
-      background: rgba(10,16,30,.98);
-      box-shadow: 0 32px 80px rgba(0,0,0,.65);
-      max-height: 92vh; overflow-y: auto;
-    }
-    .am-header {
-      display: flex; justify-content: space-between; align-items: center; margin-bottom: 22px;
-    }
-    .am-header h2 { margin: 0; font-size: 18px; font-weight: 800; letter-spacing: -0.02em; }
-    .am-close {
-      background: none; border: 1px solid rgba(255,255,255,.1); color: rgba(255,255,255,.4);
-      width: 32px; height: 32px; border-radius: 8px; cursor: pointer; font-size: 15px;
-      display: flex; align-items: center; justify-content: center; transition: all .15s; flex-shrink: 0;
-    }
-    .am-close:hover { border-color: rgba(255,255,255,.25); color: rgba(255,255,255,.7); }
-    .am-tabs {
-      display: flex; gap: 4px; margin-bottom: 22px;
-      background: rgba(255,255,255,.04); border-radius: 10px; padding: 4px;
-    }
-    .am-tab {
-      flex: 1; padding: 9px 12px; border-radius: 8px; border: none;
-      background: none; color: rgba(255,255,255,.4); font-weight: 700;
-      font-size: 13px; cursor: pointer; transition: all .15s;
-    }
-    .am-tab.active { background: rgba(255,255,255,.1); color: #fff; }
-    .am-pane { display: none; }
-    .am-pane.active { display: block; }
-    .am-field { margin-bottom: 14px; }
-    .am-field label {
-      display: block; font-size: 11px; font-weight: 700; color: rgba(255,255,255,.4);
-      text-transform: uppercase; letter-spacing: .06em; margin-bottom: 6px;
-    }
-    .am-input {
-      width: 100%; padding: 11px 14px; border-radius: 10px;
-      border: 1px solid rgba(255,255,255,.1); background: rgba(255,255,255,.05);
-      color: #eaeff8; font-size: 14px; outline: none; transition: border-color .15s;
-      box-sizing: border-box; font-family: inherit;
-    }
-    .am-input:focus { border-color: rgba(74,158,255,.5); background: rgba(74,158,255,.05); }
-    .am-input::placeholder { color: rgba(255,255,255,.2); }
-    select.am-input option { background: #0d1527; color: #eaeff8; }
-    .am-row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
-    .am-btn {
-      display: block; width: 100%; padding: 13px 20px; border-radius: 10px;
-      border: none; font-weight: 700; font-size: 14px; cursor: pointer;
-      transition: all .15s; font-family: inherit; letter-spacing: .01em;
-    }
-    .am-btn + .am-btn { margin-top: 8px; }
-    .am-btn-primary {
-      background: linear-gradient(135deg, #4a9eff, #7c5cff); color: #fff;
-    }
-    .am-btn-primary:hover:not(:disabled) { opacity: .9; transform: translateY(-1px); }
-    .am-btn-primary:disabled { opacity: .45; cursor: not-allowed; transform: none; }
-    .am-btn-ghost {
-      background: rgba(255,255,255,.05); border: 1px solid rgba(255,255,255,.1);
-      color: rgba(255,255,255,.6);
-    }
-    .am-btn-ghost:hover { background: rgba(255,255,255,.08); }
-    .am-link {
-      color: #4a9eff; font-size: 13px; cursor: pointer; background: none;
-      border: none; padding: 0; font-weight: 600; font-family: inherit;
-    }
-    .am-link:hover { text-decoration: underline; }
-    .am-error {
-      background: rgba(255,92,122,.1); border: 1px solid rgba(255,92,122,.3);
-      border-radius: 8px; padding: 10px 14px; font-size: 13px; color: #ffd0d8;
-      margin-bottom: 16px; display: none; line-height: 1.5;
-    }
-    .am-error.visible { display: block; }
-    .am-success {
-      background: rgba(57,217,138,.1); border: 1px solid rgba(57,217,138,.3);
-      border-radius: 8px; padding: 10px 14px; font-size: 13px; color: #c8ffe7;
-      margin-bottom: 16px; display: none; line-height: 1.5;
-    }
-    .am-success.visible { display: block; }
-    .am-hint { font-size: 12px; color: rgba(255,255,255,.3); margin-top: 10px; line-height: 1.5; }
-    .am-divider {
-      text-align: center; color: rgba(255,255,255,.15); font-size: 12px;
-      margin: 18px 0; letter-spacing: .08em;
-    }
-    .am-checkbox-row { display: flex; gap: 10px; align-items: flex-start; }
-    .am-checkbox-row input[type="checkbox"] {
-      width: 16px; height: 16px; margin-top: 2px; flex-shrink: 0;
-      cursor: pointer; accent-color: #4a9eff;
-    }
-    .am-checkbox-row span { font-size: 13px; color: rgba(255,255,255,.45); line-height: 1.5; }
-    .am-checkbox-row a { color: #4a9eff; }
-    .am-bottom-link { text-align: center; margin-top: 14px; }
-
-    /* ── Toast ────────────────────────────────────────────── */
-    .tc-toast {
-      position: fixed; bottom: 24px; right: 24px; z-index: 300;
-      padding: 14px 18px; border-radius: 12px; border: 1px solid rgba(255,255,255,.1);
-      background: rgba(10,16,30,.97); backdrop-filter: blur(12px);
-      max-width: 380px; font-size: 14px; font-weight: 600;
-      transform: translateY(16px); opacity: 0; transition: all .25s;
-      pointer-events: none; line-height: 1.5;
-    }
-    .tc-toast.visible { transform: translateY(0); opacity: 1; }
-    .tc-toast.success { border-color: rgba(57,217,138,.4); color: #c8ffe7; }
-    .tc-toast.error   { border-color: rgba(255,92,122,.4); color: #ffd0d8; }
-    .tc-toast.info    { border-color: rgba(74,158,255,.4);  color: #c2e0ff; }
-
-    /* ── Footer ───────────────────────────────────────────── */
-    .tc-footer {
-      margin-top: 64px; padding: 28px 0 40px;
-      border-top: 1px solid var(--ds-border);
-    }
-    .tc-footer-links {
-      display: flex; justify-content: center; gap: 24px; flex-wrap: wrap;
-      font-size: 13px; margin-bottom: 14px;
-    }
-    .tc-footer-links a {
-      color: var(--ds-text-secondary); text-decoration: none; transition: color .15s;
-    }
-    .tc-footer-links a:hover { color: var(--ds-brand); }
-    .tc-footer-copy { text-align: center; font-size: 12px; color: rgba(255,255,255,.2); }
-
-    /* ── Responsive ───────────────────────────────────────── */
-    @media (max-width: 768px) {
-      .audience-grid { grid-template-columns: 1fr; }
-      .hero { padding: var(--ds-space-10) 0 var(--ds-space-8); }
-      .am-row2 { grid-template-columns: 1fr; }
-    }
-    @media (max-width: 480px) {
-      .am-panel { padding: 22px 16px; }
-      .hero-cta { flex-direction: column; align-items: center; }
-    }
-  </style>
+  <link rel="stylesheet" href="/public/css/pages/landing.css"/>
 </head>
 <body>
   <div class="ds-wrap">
@@ -232,19 +21,31 @@
       <div class="ds-topbar__nav">
         <a href="/public/pricing.html" class="ds-nav-link">Tarife</a>
         <a href="/public/about.html"   class="ds-nav-link">Über uns</a>
+        <a href="/demo.html"           class="ds-nav-link">Demo</a>
         <span class="ds-topbar__separator"></span>
-        <button onclick="openAuth('login')"    class="ds-btn">Anmelden</button>
-        <button onclick="openAuth('register')" class="ds-btn ds-btn--primary">Kostenlos starten</button>
+        <!-- Ausgeloggt: Auth-Buttons -->
+        <span id="tc-landing-guest">
+          <button onclick="openAuth('login')"    class="ds-btn">Anmelden</button>
+          <button onclick="openAuth('register')" class="ds-btn ds-btn--primary">Jetzt registrieren</button>
+          <button onclick="openAuth('register')" class="ds-btn" style="background:linear-gradient(135deg,#39d98a,#4a9eff);color:#fff;border:none;font-weight:700">&#128640; Pilot-Zugang</button>
+        </span>
+        <!-- Eingeloggt: Status + Dashboard -->
+        <span id="tc-landing-user" style="display:none;align-items:center;gap:8px">
+          <span id="tc-landing-user-label" style="font-size:13px;color:var(--ds-text-secondary)"></span>
+          <a href="/public/enterprise.html" class="ds-btn ds-btn--primary">Zur Plattform</a>
+          <button id="tc-landing-logout" class="ds-btn" style="font-size:12px;border-color:rgba(255,92,122,.3);color:rgba(255,160,140,.9)">Abmelden</button>
+        </span>
       </div>
     </nav>
 
     <!-- ── Hero ──────────────────────────────────────────── -->
     <section class="hero">
-      <h1>Die B2B-Plattform für<br/><em>professionelles Workforce Management</em></h1>
-      <p>TempConnect verbindet Unternehmen und Personaldienstleister auf einer sicheren, SLA-gestützten Plattform. Kapazitäten in Echtzeit finden, Deals transparent abschließen, Qualität messbar sichern.</p>
+      <h1>Wiederkehrende Zeitarbeits-Bedarfe<br/><em>zentral steuern und freigeben</em></h1>
+      <p>TempConnect ist das buyer-first VMS-light für Einsatzunternehmen mit wiederkehrenden temporären Bedarfen: Lieferantenpool, Preisrahmen, Dealabschluss, Einsaetze und digitale Stundenzettel in einer Plattform.</p>
       <div class="hero-cta">
-        <button onclick="openAuth('register')" class="ds-btn ds-btn--primary ds-btn--lg">Jetzt kostenlos starten</button>
-        <a href="/public/pricing.html"         class="ds-btn ds-btn--lg">Tarife vergleichen</a>
+        <button onclick="selectLandingPlan('PLUS','company')" class="ds-btn ds-btn--primary ds-btn--lg">Als Einsatzunternehmen starten</button>
+        <a href="/demo.html"                   class="ds-btn ds-btn--lg" style="border-color:rgba(57,217,138,.35);color:var(--ds-success)">Demo fuer Einsatzunternehmen</a>
+        <a href="/public/pricing.html"         class="ds-btn ds-btn--lg">Tarife fuer Einsatzunternehmen</a>
       </div>
     </section>
 
@@ -261,13 +62,63 @@
     <!-- ── How it works ──────────────────────────────────── -->
     <section class="ds-section" style="text-align:center">
       <div class="section-label">Wie es funktioniert</div>
-      <h2 class="section-heading" style="margin-bottom:var(--ds-space-6)">In 5 Schritten zum Deal</h2>
+      <h2 class="section-heading" style="margin-bottom:var(--ds-space-6)">In 5 Schritten zum einsatzbereiten Deal</h2>
       <div class="steps-grid">
-        <div class="step"><h3>Registrieren</h3><p>E-Mail bestätigen und Unternehmensprofil anlegen</p></div>
-        <div class="step"><h3>Suchen</h3><p>Kapazitäten nach Rolle, Region und Verfügbarkeit filtern</p></div>
-        <div class="step"><h3>Anfragen</h3><p>Passende Anbieter kontaktieren oder Broadcast senden</p></div>
-        <div class="step"><h3>Deal</h3><p>Bestes Angebot wählen und Deal bestätigen</p></div>
-        <div class="step"><h3>Kontakt</h3><p>Kontaktdaten werden erst nach Deal-Abschluss freigegeben</p></div>
+        <div class="step"><h3>Bedarf erfassen</h3><p>Rolle, Zeitraum, Headcount und Dringlichkeit strukturiert anlegen</p></div>
+        <div class="step"><h3>Angebote bündeln</h3><p>Kapazitaeten und Lieferanten im Marktplatz gezielt ansprechen</p></div>
+        <div class="step"><h3>Deal abschliessen</h3><p>Angebote vergleichen, Konditionen abstimmen und Vereinbarung schliessen</p></div>
+        <div class="step"><h3>Einsatz steuern</h3><p>Besetzung, Start und Freigaben im operativen Flow fuehren</p></div>
+        <div class="step"><h3>Stundenzettel freigeben</h3><p>Zeiten digital einreichen, pruefen und fuer Folgeprozesse nutzen</p></div>
+      </div>
+    </section>
+
+    <section class="ds-section">
+      <div style="text-align:center;margin-bottom:var(--ds-space-8)">
+        <div class="section-label">Pilot-Mindeststandard</div>
+        <h2 class="section-heading">Diese 4 Flows muessen vor Pilotkunden sitzen</h2>
+        <p class="section-desc" style="margin:var(--ds-space-2) auto 0;text-align:center">TempConnect priorisiert jetzt nicht Breite, sondern Reife: Alles, was vor die ersten 5 Pilotkunden geht, muss direkt Abschluss, Demo oder operative Robustheit verbessern.</p>
+      </div>
+      <div class="pilot-flow-grid">
+        <div class="pilot-flow-card">
+          <div class="pilot-flow-card__eyebrow">Pilot-Standard</div>
+          <div class="pilot-flow-card__title">Bedarf &amp; Reaktion</div>
+          <p class="pilot-flow-card__desc">Bedarfe sauber anlegen, priorisieren und ohne Umwege in sichtbare Marktreaktionen oder Lieferantenansprache ueberfuehren.</p>
+        </div>
+        <div class="pilot-flow-card">
+          <div class="pilot-flow-card__eyebrow">Pilot-Standard</div>
+          <div class="pilot-flow-card__title">Dealabschluss</div>
+          <p class="pilot-flow-card__desc">Angebote, Verhandlungen, Vereinbarung und der naechste Verantwortliche muessen fuer beide Seiten glasklar sein.</p>
+        </div>
+        <div class="pilot-flow-card">
+          <div class="pilot-flow-card__eyebrow">Pilot-Standard</div>
+          <div class="pilot-flow-card__title">Besetzung &amp; Einsatz</div>
+          <p class="pilot-flow-card__desc">Worker-Zuweisung, Start und operative Bestaetigung muessen nachvollziehbar und ohne Statusbruch laufen.</p>
+        </div>
+        <div class="pilot-flow-card">
+          <div class="pilot-flow-card__eyebrow">Pilot-Standard</div>
+          <div class="pilot-flow-card__title">Zeiten &amp; Freigabe</div>
+          <p class="pilot-flow-card__desc">Stundenzettel, Kundenfreigabe und Abrechnungsvorbereitung muessen digital, sichtbar und belastbar zusammenhaengen.</p>
+        </div>
+      </div>
+      <div class="pilot-focus-split">
+        <div class="pilot-focus-panel">
+          <h3>Jetzt priorisiert</h3>
+          <p>Buyer-first Kernflows, Demo-Reife, klare CTA und operative Vertrauensbasis gehen vor weiterer Modulbreite.</p>
+          <ul class="pilot-focus-list">
+            <li>Landing → Demo → Enterprise-Anfrage ohne tote Wege</li>
+            <li>Bedarf → Deal → Besetzung → Zeiten als durchgaengige Produktgeschichte</li>
+            <li>Lieferantensteuerung nur dort vertiefen, wo sie die Erfuellung direkt verbessert</li>
+          </ul>
+        </div>
+        <div class="pilot-focus-panel pilot-focus-panel--later">
+          <h3>Bewusst nachgelagert</h3>
+          <p>Executive-, Trust-, Admin- und tiefere Analytics-Flaechen bleiben wichtig, werden aber dem Pilotkern untergeordnet.</p>
+          <ul class="pilot-focus-list">
+            <li>breitere Steuerungs- und Reporting-Tiefe</li>
+            <li>zusätzliche Komfort- und Ausbaufeatures</li>
+            <li>Module ohne direkten Einfluss auf Pilotabschluss oder Kernrobustheit</li>
+          </ul>
+        </div>
       </div>
     </section>
 
@@ -277,32 +128,33 @@
     <section class="ds-section">
       <div style="text-align:center;margin-bottom:var(--ds-space-8)">
         <div class="section-label">Für wen</div>
-        <h2 class="section-heading">Zwei Seiten, eine Plattform</h2>
+        <h2 class="section-heading">Dominanter Einstieg: Einsatzunternehmen</h2>
+        <p class="section-desc" style="margin:var(--ds-space-2) auto 0;text-align:center">Personaldienstleister bleiben zentral für das Netzwerk, werden in Website, Demo und Sales aber als sekundärer Ausbau-ICP geführt.</p>
       </div>
       <div class="audience-grid">
         <div class="audience-card" style="border-color:rgba(74,158,255,0.2)">
           <h3><span style="font-size:22px">🏢</span> Unternehmen</h3>
-          <p style="color:var(--ds-text-secondary);font-size:14px;margin:0 0 var(--ds-space-3)">Sie benötigen kurzfristig qualifiziertes Personal?</p>
+          <p style="color:var(--ds-text-secondary);font-size:14px;margin:0 0 var(--ds-space-3)">Primärer ICP: Sie muessen wiederkehrende Zeitarbeits-Bedarfe schnell, sauber und steuerbar besetzen?</p>
           <ul>
-            <li>Live-Kapazitäten durchsuchen und direkt anfragen</li>
-            <li>Automatisches Matching nach Rolle, Standort und Verfügbarkeit</li>
-            <li>Pulse-Prozessnachweis: jeder Matching-Versuch dokumentiert</li>
-            <li>Compliance-Ampel und Lieferanten-Bewertung</li>
-            <li>Kontaktdaten erst nach Deal-Abschluss</li>
+            <li>Bedarfe strukturiert platzieren und priorisieren</li>
+            <li>Angebote und Lieferanten zentral vergleichen</li>
+            <li>Deals, Einsaetze und Stundenzettel ohne Medienbruch steuern</li>
+            <li>Preisrahmen, Compliance und Lieferantenleistung transparent sehen</li>
+            <li>Matching und Reaktionswege nachvollziehbar dokumentieren</li>
           </ul>
-          <button onclick="openAuth('register','company')" class="ds-btn ds-btn--primary" style="font-size:13px">Als Unternehmen registrieren</button>
+          <button onclick="selectLandingPlan('PLUS','company')" class="ds-btn ds-btn--primary" style="font-size:13px">Als Einsatzunternehmen registrieren</button>
         </div>
         <div class="audience-card" style="border-color:rgba(124,92,255,0.2)">
           <h3><span style="font-size:22px">💼</span> Personaldienstleister</h3>
-          <p style="color:var(--ds-text-secondary);font-size:14px;margin:0 0 var(--ds-space-3)">Sie haben freie Kapazitäten und suchen Aufträge?</p>
+          <p style="color:var(--ds-text-secondary);font-size:14px;margin:0 0 var(--ds-space-3)">Sekundärer Ausbau-ICP: Sie wollen buyer-seitige Bedarfe schneller bedienen und Kapazitaeten bis zum Einsatz digital steuern?</p>
           <ul>
-            <li>Kapazitätsangebote einstellen und Sichtbarkeit erhöhen</li>
-            <li>Anfragen direkt im Posteingang empfangen</li>
-            <li>Bewertungssystem für Zuverlässigkeit und Qualität</li>
-            <li>Compliance-Dokumente hochladen und verifizieren lassen</li>
-            <li>Notdienst-Badge für priorisierte Sichtbarkeit</li>
+            <li>Kapazitaeten gezielt veroeffentlichen und auf Bedarfe reagieren</li>
+            <li>Angebote und Gegenangebote strukturiert steuern</li>
+            <li>Einsaetze, Einsatzkraefte und Stundenzettel digital begleiten</li>
+            <li>Leistungs- und Compliance-Signale sichtbar machen</li>
+            <li>Notdienst- und Prioritaetschancen gezielt nutzen</li>
           </ul>
-          <button onclick="openAuth('register','agency')" class="ds-btn" style="font-size:13px;border-color:rgba(124,92,255,0.3)">Als Personaldienstleister registrieren</button>
+          <button onclick="selectLandingPlan('BASIS','agency')" class="ds-btn" style="font-size:13px;border-color:rgba(124,92,255,0.3)">Als Personaldienstleister registrieren</button>
         </div>
       </div>
     </section>
@@ -312,131 +164,369 @@
     <!-- ── Features ───────────────────────────────────────── -->
     <section class="ds-section">
       <div style="text-align:center;margin-bottom:var(--ds-space-8)">
-        <div class="section-label">Plattform-Funktionen</div>
-        <h2 class="section-heading">Alles für professionelle Personalkoordination</h2>
+        <div class="section-label">Produktkern</div>
+        <h2 class="section-heading">Der operative Kern von TempConnect</h2>
       </div>
       <div class="ds-grid ds-grid--auto">
         <div class="ds-card">
           <div class="ds-card__icon" style="margin-bottom:var(--ds-space-3)">🔍</div>
-          <div class="ds-card__title" style="margin-bottom:var(--ds-space-1)">Echtzeit-Kapazitäten</div>
-          <p class="ds-text-sm ds-text-muted">Sehen Sie sofort, welche Anbieter verfügbare Mitarbeiter in Ihrer Region haben.</p>
+          <div class="ds-card__title" style="margin-bottom:var(--ds-space-1)">Bedarfe &amp; Marktplatz</div>
+          <p class="ds-text-sm ds-text-muted">Bedarfe platzieren, Kapazitaeten finden und Marktreaktionen in einem operativen Einstieg steuern.</p>
         </div>
         <div class="ds-card">
           <div class="ds-card__icon" style="margin-bottom:var(--ds-space-3)">⚡</div>
-          <div class="ds-card__title" style="margin-bottom:var(--ds-space-1)">Automatisches Matching</div>
-          <p class="ds-text-sm ds-text-muted">Beschreiben Sie Ihren Bedarf – TempConnect matched passende Anbieter automatisch.</p>
+          <div class="ds-card__title" style="margin-bottom:var(--ds-space-1)">Angebotsabwicklung</div>
+          <p class="ds-text-sm ds-text-muted">Anfragen, Angebote und Gegenangebote laufen in einem strukturierten Flow statt ueber Mail und Excel.</p>
         </div>
         <div class="ds-card">
           <div class="ds-card__icon" style="margin-bottom:var(--ds-space-3)">📊</div>
-          <div class="ds-card__title" style="margin-bottom:var(--ds-space-1)">Pulse-Prozessnachweis</div>
-          <p class="ds-text-sm ds-text-muted">PLUS- und NOTDIENST-Tarife dokumentieren jeden Matching-Versuch mit Zeitstempel.</p>
+          <div class="ds-card__title" style="margin-bottom:var(--ds-space-1)">Dealabschluss</div>
+          <p class="ds-text-sm ds-text-muted">Dealstatus, Einsatzvereinbarungen und naechste Schritte bleiben fuer beide Seiten transparent.</p>
         </div>
         <div class="ds-card">
           <div class="ds-card__icon" style="margin-bottom:var(--ds-space-3)">🛡</div>
-          <div class="ds-card__title" style="margin-bottom:var(--ds-space-1)">Compliance &amp; Bewertung</div>
-          <p class="ds-text-sm ds-text-muted">Compliance-Ampel, Lieferanten-Scorecard, Dokumentenmanagement mit Ablaufüberwachung.</p>
+          <div class="ds-card__title" style="margin-bottom:var(--ds-space-1)">Lieferantensteuerung</div>
+          <p class="ds-text-sm ds-text-muted">Lieferantenpool, Bewertung, Preisrahmen und Coverage unterstuetzen die Erfuellung Ihrer Bedarfe.</p>
         </div>
         <div class="ds-card">
           <div class="ds-card__icon" style="margin-bottom:var(--ds-space-3)">💰</div>
-          <div class="ds-card__title" style="margin-bottom:var(--ds-space-1)">Faire Tarife</div>
-          <p class="ds-text-sm ds-text-muted">Von FREE bis ENTERPRISE – wählen Sie den Tarif, der zu Ihrem Bedarf passt.</p>
+          <div class="ds-card__title" style="margin-bottom:var(--ds-space-1)">Einsaetze &amp; Stundenzettel</div>
+          <p class="ds-text-sm ds-text-muted">Einsatzkraefte, Freigaben und digitale Stundenzettel halten die operative Abwicklung zusammen.</p>
         </div>
         <div class="ds-card">
           <div class="ds-card__icon" style="margin-bottom:var(--ds-space-3)">🔒</div>
-          <div class="ds-card__title" style="margin-bottom:var(--ds-space-1)">Sicher &amp; DSGVO-konform</div>
-          <p class="ds-text-sm ds-text-muted">Hosting in Deutschland, verschlüsselte Verbindungen, keine Weitergabe an Dritte.</p>
+          <div class="ds-card__title" style="margin-bottom:var(--ds-space-1)">Enterprise-Steuerung</div>
+          <p class="ds-text-sm ds-text-muted">Compliance, KPI-, Audit- und Admin-Schichten verstaerken den Kern statt ihn zu ersetzen.</p>
         </div>
       </div>
     </section>
 
     <hr class="ds-divider"/>
 
-    <!-- ── Plans teaser ───────────────────────────────────── -->
+    <!-- ── Plans ────────────────────────────────────────── -->
     <section class="ds-section" style="text-align:center">
+      <style>.plan-card{text-align:left}.plan-card__cta{text-align:center}</style>
       <div class="section-label">Tarife</div>
-      <h2 class="section-heading">Starten Sie kostenlos</h2>
-      <p class="section-desc" style="margin:0 auto var(--ds-space-6)">Upgraden Sie, wenn Sie mehr brauchen. Alle Tarife monatlich kündbar.</p>
-      <div class="ds-plan-grid" style="max-width:980px;margin:0 auto">
-        <div class="ds-plan-card">
-          <div class="ds-plan-card__name">FREE</div>
-          <div class="ds-plan-card__price">0 EUR <span>/Monat</span></div>
-          <ul class="ds-plan-card__features">
-            <li>Marketplace durchsuchen</li>
-            <li>Kapazitäten ansehen</li>
-            <li class="ds-plan--disabled">Keine Anfragen senden</li>
+      <h2 class="section-heading">Tarife passend zum Einsatzvolumen</h2>
+      <p class="section-desc" style="margin:0 auto var(--ds-space-4)">Für den primären ICP dominieren PLUS und der individuelle Tarif. Personaldienstleister wachsen parallel über BASIS und PRO in denselben operativen Flow hinein.</p>
+      <p style="font-size:12px;color:var(--ds-text-tertiary);margin:0 auto var(--ds-space-6)">Zur Nutzung der Plattform ist ein Benutzerkonto erforderlich. Nach Auswahl eines Tarifs fuehren wir Sie zur Registrierung.</p>
+
+      <div class="plan-grid">
+        <!-- DEMO -->
+        <div class="plan-card">
+          <div class="plan-card__name">DEMO</div>
+          <div class="plan-card__price">0 EUR <span>/ 14 Tage</span></div>
+          <div class="plan-card__desc">Buyer-first Demo 14 Tage kostenlos testen. Bedarf, Lieferantensteuerung und operative Folgeprozesse kennenlernen.</div>
+          <ul class="plan-card__features">
+            <li>Marktplatz durchsuchen</li>
+            <li>Basis-Unternehmensprofil</li>
+            <li>Eingeschraenkte Sichtbarkeit</li>
+            <li class="excluded">Keine Anfragen senden/empfangen</li>
+            <li class="excluded">Kein Matching</li>
+            <li class="excluded">Keine Stundenzettel</li>
           </ul>
-          <button onclick="openAuth('register')" class="ds-btn ds-w-full">Kostenlos starten</button>
+          <div class="plan-card__cta">
+            <a href="/demo.html" class="ds-btn">Demo starten</a>
+          </div>
         </div>
-        <div class="ds-plan-card">
-          <div class="ds-plan-card__name">BASIS</div>
-          <div class="ds-plan-card__price">150 EUR <span>/Monat</span></div>
-          <ul class="ds-plan-card__features">
-            <li>5 Anfragen / Monat</li>
-            <li>5 Angebote erstellen</li>
+
+        <!-- BASIS -->
+        <div class="plan-card">
+          <div class="plan-card__name">BASIS</div>
+          <div class="plan-card__price">150 EUR <span>/Monat</span></div>
+          <div class="plan-card__desc">Operativer Einstieg fuer erste Bedarfe, Angebote und Deals bei kleinerem Volumen.</div>
+          <ul class="plan-card__features">
+            <li>5 Bedarfe / Anfragen senden &amp; empfangen / Monat</li>
+            <li>5 Kapazitaeten einstellen</li>
+            <li>Marktplatz nutzen</li>
+            <li>Profil-Listing im Verzeichnis</li>
+            <li>E-Mail-Benachrichtigungen</li>
             <li>E-Mail-Support</li>
+            <li class="excluded">Keine Stundenzettel / Abrechnung</li>
           </ul>
-          <button onclick="openAuth('register')" class="ds-btn ds-w-full">Plan wählen</button>
+          <div class="plan-card__cta">
+            <button onclick="selectLandingPlan('BASIS','company')" class="ds-btn" style="width:100%">Plan waehlen</button>
+          </div>
         </div>
-        <div class="ds-plan-card ds-plan-card--recommended">
-          <div class="ds-badge ds-badge--brand" style="margin-bottom:var(--ds-space-2)">Empfohlen</div>
-          <div class="ds-plan-card__name">PLUS</div>
-          <div class="ds-plan-card__price">499 EUR <span>/Monat</span></div>
-          <ul class="ds-plan-card__features">
+
+        <!-- PLUS -->
+        <div class="plan-card plan-card--recommended">
+          <div class="plan-card__badge">
+            <span class="ds-badge ds-badge--brand">Empfohlen</span>
+          </div>
+          <div class="plan-card__name" style="color:var(--ds-brand)">PLUS</div>
+          <div class="plan-card__price">499 EUR <span>/Monat</span></div>
+          <div class="plan-card__desc">Für Einsatzunternehmen mit wiederkehrenden Bedarfen, digitalen Stundenzetteln und mehr Kostenkontrolle.</div>
+          <ul class="plan-card__features">
             <li>20 Anfragen / Monat</li>
-            <li>Pulse 120 Min</li>
-            <li>Enterprise-Dashboard</li>
-            <li>Compliance &amp; Scorecard</li>
+            <li>Digitale Stundenzettel (ArbZG-konform)</li>
+            <li>Automatische Abrechnung (Timesheet&rarr;Rechnung)</li>
+            <li>Emergency Staffing / Notdienst</li>
+            <li>Smart Pricing &mdash; Preisvorschlaege</li>
+            <li>Persistente Suchauftraege &amp; Alerts</li>
+            <li>Compliance-Ampel &amp; Dashboard</li>
+            <li>Pulse-Timer (120 Min)</li>
           </ul>
-          <button onclick="openAuth('register')" class="ds-btn ds-btn--primary ds-w-full">Plan wählen</button>
+          <div class="plan-card__cta">
+            <button onclick="selectLandingPlan('PLUS','company')" class="ds-btn ds-btn--primary" style="width:100%">Plan waehlen</button>
+          </div>
         </div>
-        <div class="ds-plan-card ds-plan-card--premium">
-          <div class="ds-badge ds-badge--accent" style="margin-bottom:var(--ds-space-2)">Enterprise</div>
-          <div class="ds-plan-card__name">ENTERPRISE</div>
-          <div class="ds-plan-card__price">Individuell</div>
-          <ul class="ds-plan-card__features">
-            <li>Unbegrenzte Nutzung</li>
-            <li>Multi-Abteilungen</li>
-            <li>Freigabe-Workflows</li>
-            <li>Dedizierte Betreuung</li>
+
+        <!-- PRO -->
+        <div class="plan-card">
+          <div class="plan-card__name">PRO</div>
+          <div class="plan-card__price">799 EUR <span>/Monat</span></div>
+          <div class="plan-card__desc">Für höheres Volumen, Lieferantenbewertung und priorisierte Steuerung mehrerer Partner.</div>
+          <ul class="plan-card__features">
+            <li>Unbegrenzte Anfragen</li>
+            <li>Erweitertes 13-Faktor-Matching</li>
+            <li>Smart Ranking (AI-gestuetzt)</li>
+            <li>Lieferanten-Bewertungen &amp; Reputation</li>
+            <li>Prioritaets-Platzierung</li>
+            <li>Erweiterte Analysen</li>
+            <li>Priorisierter Support</li>
+            <li>Alles aus PLUS</li>
           </ul>
-          <a href="/public/legal/kontakt.html" class="ds-btn ds-w-full">Kontakt aufnehmen</a>
+          <div class="plan-card__cta">
+            <button onclick="selectLandingPlan('PRO','company')" class="ds-btn" style="width:100%">Plan waehlen</button>
+          </div>
+        </div>
+
+        <!-- INDIVIDUELLER TARIF -->
+        <div class="plan-card plan-card--enterprise">
+          <div class="plan-card__badge">
+            <span class="ds-badge ds-badge--accent">Individueller Tarif</span>
+          </div>
+          <div class="plan-card__name" style="color:var(--ds-accent)">INDIVIDUELLER TARIF</div>
+          <div class="plan-card__price">Individuell</div>
+          <div class="plan-card__desc">Für Lieferantensteuerung, Preisrahmen, Multi-Standorte und Freigabe-Workflows auf VMS-light-Niveau.</div>
+          <ul class="plan-card__features">
+            <li>Vendor Pool Management &amp; Preferred First</li>
+            <li>Multi-Abteilungen &amp; Teams</li>
+            <li>Freigabe-Workflows</li>
+            <li>Vertragsmanagement</li>
+            <li>Compliance-Management</li>
+            <li>Reporting fuer individuelle Tarife &amp; Audit</li>
+            <li>Dedizierter Ansprechpartner</li>
+            <li>Alles aus PRO</li>
+          </ul>
+          <div class="plan-card__cta">
+            <button onclick="selectLandingPlan('INDIVIDUELL','company')" class="ds-btn" style="width:100%">Individuellen Tarif konfigurieren</button>
+          </div>
         </div>
       </div>
-      <div style="margin-top:var(--ds-space-5)">
-        <a href="/public/pricing.html" class="ds-btn ds-btn--primary">Alle Tarife und Features vergleichen</a>
+
+      <!-- Trust Row -->
+      <div class="ds-trust-row" style="margin-top:var(--ds-space-6)">
+        <div class="ds-trust-item"><span class="ds-trust-item__icon">&#128274;</span> DSGVO-konform</div>
+        <div class="ds-trust-item"><span class="ds-trust-item__icon">&#127465;&#127466;</span> Hosting in Deutschland</div>
+        <div class="ds-trust-item"><span class="ds-trust-item__icon">&#128197;</span> Monatlich kuendbar</div>
+        <div class="ds-trust-item"><span class="ds-trust-item__icon">&#9989;</span> Kein Lock-in</div>
       </div>
     </section>
+
+    <hr class="ds-divider"/>
+
+    <!-- ── Feature Comparison Table ────────────────────────── -->
+    <section class="ds-section" style="text-align:center">
+      <div class="section-label">Vergleich</div>
+      <h2 class="section-heading">Alle Features im Detail</h2>
+      <p class="section-desc" style="margin:0 auto var(--ds-space-4)">Detaillierter Vergleich aller Funktionen nach Tarif. Für die buyer-first Hauptstory führen PLUS und der individuelle Tarif; BASIS bleibt der kleinere Einstiegspfad.</p>
+    </section>
+
+    <div class="comparison-wrap">
+      <table class="comparison-table">
+        <thead>
+          <tr>
+            <th>Funktion</th>
+            <th>DEMO</th>
+            <th>BASIS</th>
+            <th class="highlight">PLUS</th>
+            <th>PRO</th>
+            <th>INDIVIDUELLER TARIF</th>
+          </tr>
+          <tr><td>Arbeiter pro Deal / Anfrage</td><td class="cross">&times;</td><td class="value">3</td><td class="value">10</td><td class="value">20</td><td class="value">Unbegrenzt</td></tr>
+        </thead>
+        <tbody>
+          <tr class="group-row"><td colspan="6">Marktplatz &amp; Anfragen</td></tr>
+          <tr><td>Marktplatz durchsuchen</td><td class="check">&#10003;</td><td class="check">&#10003;</td><td class="check">&#10003;</td><td class="check">&#10003;</td><td class="check">&#10003;</td></tr>
+          <tr><td>Anfragen senden</td><td class="cross">&times;</td><td class="value">5 / Monat</td><td class="value">20 / Monat</td><td class="value">Unbegrenzt</td><td class="value">Unbegrenzt</td></tr>
+          <tr><td>Anfragen empfangen</td><td class="cross">&times;</td><td class="value">5 / Monat</td><td class="value">20 / Monat</td><td class="value">Unbegrenzt</td><td class="value">Unbegrenzt</td></tr>
+          <tr><td>Angebote erstellen</td><td class="cross">&times;</td><td class="value">5 / Monat</td><td class="value">20 / Monat</td><td class="value">Unbegrenzt</td><td class="value">Unbegrenzt</td></tr>
+          <tr><td>Profil-Listing</td><td class="cross">&times;</td><td class="check">&#10003;</td><td class="check">&#10003;</td><td class="check">&#10003;</td><td class="check">&#10003;</td></tr>
+          <tr><td>Erhoehte Sichtbarkeit</td><td class="cross">&times;</td><td class="cross">&times;</td><td class="check">&#10003;</td><td class="check">&#10003;</td><td class="check">&#10003;</td></tr>
+          <tr><td>Prioritaets-Platzierung</td><td class="cross">&times;</td><td class="cross">&times;</td><td class="cross">&times;</td><td class="check">&#10003;</td><td class="check">&#10003;</td></tr>
+
+          <tr class="group-row"><td colspan="6">Marktplatz</td></tr>
+          <tr><td>Boerse durchsuchen</td><td class="check">&#10003;</td><td class="check">&#10003;</td><td class="check">&#10003;</td><td class="check">&#10003;</td><td class="check">&#10003;</td></tr>
+          <tr><td>Kapazitaeten einstellen</td><td class="cross">&times;</td><td class="value">3 Eintraege</td><td class="value">20 Eintraege</td><td class="value">Unbegrenzt</td><td class="value">Unbegrenzt</td></tr>
+          <tr><td>Interesse bekunden / Deals</td><td class="cross">&times;</td><td class="value">5 / Monat</td><td class="value">20 / Monat</td><td class="value">Unbegrenzt</td><td class="value">Unbegrenzt</td></tr>
+          <tr><td>Vertrauenssignale &amp; Badges</td><td class="cross">&times;</td><td class="cross">&times;</td><td class="check">&#10003;</td><td class="check">&#10003;</td><td class="check">&#10003;</td></tr>
+          <tr><td>Aktivitaets-Statistiken</td><td class="cross">&times;</td><td class="cross">&times;</td><td class="check">&#10003;</td><td class="check">&#10003;</td><td class="check">&#10003;</td></tr>
+
+          <tr class="group-row"><td colspan="6">Matching &amp; Scoring</td></tr>
+          <tr><td>Basis-Matching (Rolle, Skills, Standort)</td><td class="cross">&times;</td><td class="check">&#10003;</td><td class="check">&#10003;</td><td class="check">&#10003;</td><td class="check">&#10003;</td></tr>
+          <tr><td>Instant Match (13-Faktor-Scoring)</td><td class="cross">&times;</td><td class="cross">&times;</td><td class="check">&#10003;</td><td class="check">&#10003;</td><td class="check">&#10003;</td></tr>
+          <tr><td>Smart Ranking (AI-gestuetzte Signale)</td><td class="cross">&times;</td><td class="cross">&times;</td><td class="cross">&times;</td><td class="check">&#10003;</td><td class="check">&#10003;</td></tr>
+          <tr><td>Erklaerbares Ranking (Breakdown)</td><td class="cross">&times;</td><td class="cross">&times;</td><td class="cross">&times;</td><td class="check">&#10003;</td><td class="check">&#10003;</td></tr>
+          <tr><td>Match-Alerts &amp; Benachrichtigungen</td><td class="cross">&times;</td><td class="cross">&times;</td><td class="check">&#10003;</td><td class="check">&#10003;</td><td class="check">&#10003;</td></tr>
+          <tr><td>Preferred-First-Boost im Matching</td><td class="cross">&times;</td><td class="cross">&times;</td><td class="cross">&times;</td><td class="cross">&times;</td><td class="check">&#10003;</td></tr>
+
+          <tr class="group-row"><td colspan="6">Operative Workflows</td></tr>
+          <tr><td>Digitale Stundenzettel</td><td class="cross">&times;</td><td class="cross">&times;</td><td class="check">&#10003;</td><td class="check">&#10003;</td><td class="check">&#10003;</td></tr>
+          <tr><td>ArbZG-Pausenvalidierung</td><td class="cross">&times;</td><td class="cross">&times;</td><td class="check">&#10003;</td><td class="check">&#10003;</td><td class="check">&#10003;</td></tr>
+          <tr><td>Digitale Unterschrift</td><td class="cross">&times;</td><td class="cross">&times;</td><td class="check">&#10003;</td><td class="check">&#10003;</td><td class="check">&#10003;</td></tr>
+          <tr><td>Batch-Genehmigung (Stundenzettel)</td><td class="cross">&times;</td><td class="cross">&times;</td><td class="check">&#10003;</td><td class="check">&#10003;</td><td class="check">&#10003;</td></tr>
+          <tr><td>Operative Rechnungsstellung</td><td class="cross">&times;</td><td class="cross">&times;</td><td class="check">&#10003;</td><td class="check">&#10003;</td><td class="check">&#10003;</td></tr>
+          <tr><td>Rechnungs-KPI-Dashboard</td><td class="cross">&times;</td><td class="cross">&times;</td><td class="check">&#10003;</td><td class="check">&#10003;</td><td class="check">&#10003;</td></tr>
+          <tr><td>CSV-Export (Rechnungen)</td><td class="cross">&times;</td><td class="cross">&times;</td><td class="check">&#10003;</td><td class="check">&#10003;</td><td class="check">&#10003;</td></tr>
+
+          <tr class="group-row"><td colspan="6">Notdienst &amp; Preisvorschlaege</td></tr>
+          <tr><td>Emergency Staffing / Notdienst</td><td class="cross">&times;</td><td class="cross">&times;</td><td class="check">&#10003;</td><td class="check">&#10003;</td><td class="check">&#10003;</td></tr>
+          <tr><td>5-Stufen-Urgency-Modell</td><td class="cross">&times;</td><td class="cross">&times;</td><td class="check">&#10003;</td><td class="check">&#10003;</td><td class="check">&#10003;</td></tr>
+          <tr><td>Auto-Eskalation</td><td class="cross">&times;</td><td class="cross">&times;</td><td class="cross">&times;</td><td class="check">&#10003;</td><td class="check">&#10003;</td></tr>
+          <tr><td>Smart Pricing (Preisvorschlaege)</td><td class="cross">&times;</td><td class="cross">&times;</td><td class="check">&#10003;</td><td class="check">&#10003;</td><td class="check">&#10003;</td></tr>
+
+          <tr class="group-row"><td colspan="6">Reputation &amp; Bewertung</td></tr>
+          <tr><td>Reputation-Score &amp; Grade</td><td class="cross">&times;</td><td class="cross">&times;</td><td class="check">&#10003;</td><td class="check">&#10003;</td><td class="check">&#10003;</td></tr>
+          <tr><td>Lieferanten-Bewertungen</td><td class="cross">&times;</td><td class="cross">&times;</td><td class="cross">&times;</td><td class="check">&#10003;</td><td class="check">&#10003;</td></tr>
+          <tr><td>Top-Supplier Leaderboard</td><td class="cross">&times;</td><td class="cross">&times;</td><td class="cross">&times;</td><td class="check">&#10003;</td><td class="check">&#10003;</td></tr>
+
+          <tr class="group-row"><td colspan="6">Pulse &amp; SLA</td></tr>
+          <tr><td>Persistente Suchauftraege</td><td class="cross">&times;</td><td class="cross">&times;</td><td class="check">&#10003;</td><td class="check">&#10003;</td><td class="check">&#10003;</td></tr>
+          <tr><td>Pulse-Timer</td><td class="cross">&times;</td><td class="cross">&times;</td><td class="value">120 Min</td><td class="value">60 Min</td><td class="value">30 Min</td></tr>
+          <tr><td>Plattformverfuegbarkeit</td><td class="value">Best Effort</td><td class="value">Best Effort</td><td class="value">99 %</td><td class="value">99 %</td><td class="value">99,5 %</td></tr>
+
+          <tr class="group-row"><td colspan="6">Analysen &amp; Tools</td></tr>
+          <tr><td>Dashboard individueller Tarife</td><td class="cross">&times;</td><td class="cross">&times;</td><td class="check">&#10003;</td><td class="check">&#10003;</td><td class="check">&#10003;</td></tr>
+          <tr><td>Compliance-Ampel &amp; Scorecard</td><td class="cross">&times;</td><td class="cross">&times;</td><td class="check">&#10003;</td><td class="check">&#10003;</td><td class="check">&#10003;</td></tr>
+          <tr><td>Erweiterte Analysen</td><td class="cross">&times;</td><td class="cross">&times;</td><td class="cross">&times;</td><td class="check">&#10003;</td><td class="check">&#10003;</td></tr>
+
+          <!-- Sicherheit & Authentifizierung -->
+          <tr class="group-row"><td colspan="6">Sicherheit &amp; Authentifizierung</td></tr>
+          <tr><td>MFA / TOTP (2-Faktor)</td><td class="cross">&times;</td><td class="cross">&times;</td><td class="check">&#10003;</td><td class="check">&#10003;</td><td class="check">&#10003;</td></tr>
+          <tr><td>SSO / SAML Login</td><td class="cross">&times;</td><td class="cross">&times;</td><td class="cross">&times;</td><td class="check">&#10003;</td><td class="check">&#10003;</td></tr>
+          <tr><td>SSO Admin-Konfiguration</td><td class="cross">&times;</td><td class="cross">&times;</td><td class="cross">&times;</td><td class="check">&#10003;</td><td class="check">&#10003;</td></tr>
+          <tr><td>Enforce SSO (Passwort-Login blockieren)</td><td class="cross">&times;</td><td class="cross">&times;</td><td class="cross">&times;</td><td class="cross">&times;</td><td class="check">&#10003;</td></tr>
+          <tr><td>SP Metadata &amp; IDP-Integration</td><td class="cross">&times;</td><td class="cross">&times;</td><td class="cross">&times;</td><td class="check">&#10003;</td><td class="check">&#10003;</td></tr>
+
+          <tr class="group-row"><td colspan="6">Funktionen des individuellen Tarifs</td></tr>
+          <tr><td>Vendor Pool Management</td><td class="cross">&times;</td><td class="cross">&times;</td><td class="cross">&times;</td><td class="cross">&times;</td><td class="check">&#10003;</td></tr>
+          <tr><td>Preferred-First &amp; Coverage-Analyse</td><td class="cross">&times;</td><td class="cross">&times;</td><td class="cross">&times;</td><td class="cross">&times;</td><td class="check">&#10003;</td></tr>
+          <tr><td>Multi-Abteilungen &amp; Teams</td><td class="cross">&times;</td><td class="cross">&times;</td><td class="cross">&times;</td><td class="cross">&times;</td><td class="check">&#10003;</td></tr>
+          <tr><td>Freigabe-Workflows</td><td class="cross">&times;</td><td class="cross">&times;</td><td class="cross">&times;</td><td class="cross">&times;</td><td class="check">&#10003;</td></tr>
+          <tr><td>Vertragsmanagement</td><td class="cross">&times;</td><td class="cross">&times;</td><td class="cross">&times;</td><td class="cross">&times;</td><td class="check">&#10003;</td></tr>
+          <tr><td>Reporting fuer individuelle Tarife &amp; Audit</td><td class="cross">&times;</td><td class="cross">&times;</td><td class="cross">&times;</td><td class="cross">&times;</td><td class="check">&#10003;</td></tr>
+
+          <tr class="group-row"><td colspan="6">Support</td></tr>
+          <tr><td>E-Mail-Support</td><td class="cross">&times;</td><td class="check">&#10003;</td><td class="check">&#10003;</td><td class="check">&#10003;</td><td class="check">&#10003;</td></tr>
+          <tr><td>Priorisierter Support</td><td class="cross">&times;</td><td class="cross">&times;</td><td class="cross">&times;</td><td class="check">&#10003;</td><td class="check">&#10003;</td></tr>
+          <tr><td>Dedizierter Ansprechpartner</td><td class="cross">&times;</td><td class="cross">&times;</td><td class="cross">&times;</td><td class="cross">&times;</td><td class="check">&#10003;</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- ── Buyer-Fit & Pilotpfad ────────────────────────────── -->
+    <section class="ds-section">
+      <div style="text-align:center;margin-bottom:var(--ds-space-6)">
+        <div class="section-label">Buyer-Fit</div>
+        <h2 class="section-heading">Stark, wenn wiederkehrender Bedarf wirklich gesteuert werden muss</h2>
+        <p class="section-desc" style="margin:var(--ds-space-2) auto 0">TempConnect gewinnt dort, wo Einsatzunternehmen nicht nur eine Anfrage senden, sondern Lieferanten, Deals, Freigaben und Zeiten als zusammenhängenden operativen Prozess beherrschen müssen.</p>
+      </div>
+      <div class="ds-grid ds-grid--auto" style="margin-bottom:var(--ds-space-6)">
+        <div class="ds-card">
+          <div class="ds-card__title" style="margin-bottom:var(--ds-space-2)">Wiederkehrende Bedarfe statt Einzelaktionen</div>
+          <p class="ds-text-sm ds-text-muted">TempConnect ist stark, wenn Ihr Team laufend ähnliche Rollen, Zeiträume und Volumina koordinieren muss statt nur gelegentlich extern einzukaufen.</p>
+        </div>
+        <div class="ds-card">
+          <div class="ds-card__title" style="margin-bottom:var(--ds-space-2)">Mehrere Lieferanten in einem Steuerungsbild</div>
+          <p class="ds-text-sm ds-text-muted">Wenn Sie mehrere Personaldienstleister parallel steuern, werden Reaktion, Preisrahmen und Dealstatus in TempConnect deutlich belastbarer als in Mail und Excel.</p>
+        </div>
+        <div class="ds-card">
+          <div class="ds-card__title" style="margin-bottom:var(--ds-space-2)">Freigaben und Zeiten ohne Medienbruch</div>
+          <p class="ds-text-sm ds-text-muted">Sobald Einsatzstart, Kundenfreigabe und Stundenzettel relevant werden, entsteht der eigentliche Lock-in des Kernprodukts.</p>
+        </div>
+      </div>
+
+      <div style="border:1px solid rgba(74,158,255,.25);border-radius:var(--ds-radius-xl);background:linear-gradient(135deg,rgba(74,158,255,.05),rgba(124,92,255,.03));padding:var(--ds-space-6);margin-bottom:var(--ds-space-5)">
+        <div class="section-label" style="color:var(--ds-brand);margin-bottom:6px">Pilotpfad</div>
+        <h3 style="font-size:22px;font-weight:800;margin:0 0 var(--ds-space-2)">DEMO prueft die Story, PLUS prueft den echten Kernflow, der individuelle Tarif skaliert den Rollout</h3>
+        <p style="font-size:14px;color:var(--ds-text-secondary);margin:0 0 var(--ds-space-4);line-height:1.6">Kein Bonusprogramm und kein Sonderpfad sollen den nächsten Schritt verdecken. Für den primären ICP ist der Weg klar: Buyer-Story sehen, operativen Pilot in PLUS testen und erst bei echter Komplexität in den individuellen Tarif wechseln.</p>
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:var(--ds-space-3);margin-bottom:var(--ds-space-4)">
+          <div style="padding:var(--ds-space-4);border:1px solid rgba(255,255,255,.08);border-radius:var(--ds-radius-lg);background:rgba(255,255,255,.02)">
+            <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--ds-brand);margin-bottom:6px">Schritt 1</div>
+            <div style="font-size:16px;font-weight:800;margin-bottom:6px">DEMO</div>
+            <div style="font-size:13px;color:var(--ds-text-secondary);line-height:1.55">Den buyer-first Flow für Bedarf, Deal und Steuerung in realistischen Screens prüfen.</div>
+          </div>
+          <div style="padding:var(--ds-space-4);border:1px solid rgba(57,217,138,.18);border-radius:var(--ds-radius-lg);background:rgba(57,217,138,.04)">
+            <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--ds-success);margin-bottom:6px">Schritt 2</div>
+            <div style="font-size:16px;font-weight:800;margin-bottom:6px">PLUS</div>
+            <div style="font-size:13px;color:var(--ds-text-secondary);line-height:1.55">Bedarf, Deal, Einsatz und digitale Zeiten in einem echten Pilotbetrieb zusammenführen.</div>
+          </div>
+          <div style="padding:var(--ds-space-4);border:1px solid rgba(124,92,255,.18);border-radius:var(--ds-radius-lg);background:rgba(124,92,255,.04)">
+            <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--ds-accent);margin-bottom:6px">Schritt 3</div>
+            <div style="font-size:16px;font-weight:800;margin-bottom:6px">INDIVIDUELLER TARIF</div>
+            <div style="font-size:13px;color:var(--ds-text-secondary);line-height:1.55">Multi-Standorte, Lieferantensteuerung, Preisrahmen und Freigabe-Workflows für größere Rollouts absichern.</div>
+          </div>
+        </div>
+        <div style="display:flex;gap:var(--ds-space-3);justify-content:center;flex-wrap:wrap">
+          <a href="/demo.html" class="ds-btn ds-btn--lg" style="border-color:rgba(57,217,138,.35);color:var(--ds-success)">Demo fuer Einsatzunternehmen</a>
+          <button onclick="selectLandingPlan('PLUS','company')" class="ds-btn ds-btn--primary ds-btn--lg">PLUS als Pilot starten</button>
+          <button onclick="selectLandingPlan('INDIVIDUELL','company')" class="ds-btn ds-btn--lg">Individuellen Tarif anfragen</button>
+        </div>
+      </div>
+
+      <!-- Next Steps -->
+      <div style="margin-top:var(--ds-space-2)">
+        <h3 style="font-size:16px;font-weight:700;text-align:center;margin:0 0 var(--ds-space-3)">&#128204; Ihr buyer-first Einstieg</h3>
+        <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:var(--ds-space-3);counter-reset:nstep">
+          <div style="padding:var(--ds-space-4);border:1px solid var(--ds-border);border-radius:var(--ds-radius-lg);background:rgba(255,255,255,.02);text-align:center;counter-increment:nstep">
+            <div style="width:32px;height:32px;border-radius:50%;background:var(--ds-brand-muted);border:1px solid rgba(74,158,255,.25);color:var(--ds-brand);display:inline-flex;align-items:center;justify-content:center;font-size:14px;font-weight:800;margin-bottom:10px">1</div>
+            <h4 style="font-size:14px;font-weight:700;margin:0 0 4px">Bedarf und Scope klaeren</h4>
+            <p style="font-size:12px;color:var(--ds-text-secondary);margin:0;line-height:1.5">Prüfen Sie zuerst, ob wiederkehrender Bedarf, mehrere Lieferanten oder Freigabeaufwand die eigentlichen Schmerzpunkte sind.</p>
+          </div>
+          <div style="padding:var(--ds-space-4);border:1px solid var(--ds-border);border-radius:var(--ds-radius-lg);background:rgba(255,255,255,.02);text-align:center">
+            <div style="width:32px;height:32px;border-radius:50%;background:var(--ds-brand-muted);border:1px solid rgba(74,158,255,.25);color:var(--ds-brand);display:inline-flex;align-items:center;justify-content:center;font-size:14px;font-weight:800;margin-bottom:10px">2</div>
+            <h4 style="font-size:14px;font-weight:700;margin:0 0 4px">Buyer-Flow live sehen</h4>
+            <p style="font-size:12px;color:var(--ds-text-secondary);margin:0;line-height:1.5">Starten Sie mit der Demo und sehen Sie, wie Bedarf, Deal und Steuerung in derselben Produktgeschichte zusammenlaufen.</p>
+          </div>
+          <div style="padding:var(--ds-space-4);border:1px solid var(--ds-border);border-radius:var(--ds-radius-lg);background:rgba(255,255,255,.02);text-align:center">
+            <div style="width:32px;height:32px;border-radius:50%;background:var(--ds-brand-muted);border:1px solid rgba(74,158,255,.25);color:var(--ds-brand);display:inline-flex;align-items:center;justify-content:center;font-size:14px;font-weight:800;margin-bottom:10px">3</div>
+            <h4 style="font-size:14px;font-weight:700;margin:0 0 4px">PLUS im Pilot testen</h4>
+            <p style="font-size:12px;color:var(--ds-text-secondary);margin:0;line-height:1.5">Führen Sie Bedarf, Deal, Einsatz und Stundenzettel in einem echten operativen Pilot zusammen statt nur einzelne Screens zu betrachten.</p>
+          </div>
+          <div style="padding:var(--ds-space-4);border:1px solid var(--ds-border);border-radius:var(--ds-radius-lg);background:rgba(255,255,255,.02);text-align:center">
+            <div style="width:32px;height:32px;border-radius:50%;background:rgba(57,217,138,.12);border:1px solid rgba(57,217,138,.25);color:var(--ds-success);display:inline-flex;align-items:center;justify-content:center;font-size:14px;font-weight:800;margin-bottom:10px">4</div>
+            <h4 style="font-size:14px;font-weight:700;margin:0 0 4px">Bei Tiefe in Enterprise wechseln</h4>
+            <p style="font-size:12px;color:var(--ds-text-secondary);margin:0;line-height:1.5">Wenn mehrere Standorte, Lieferanten oder Freigabe-Workflows dominieren, führt der nächste Schritt in den individuellen Tarif.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <hr class="ds-divider"/>
 
     <!-- ── Final CTA ──────────────────────────────────────── -->
     <section class="ds-section" style="text-align:center;padding:var(--ds-space-8) 0">
       <div class="section-label">Jetzt starten</div>
-      <h2 class="section-heading">Bereit für professionelles Workforce Management?</h2>
-      <p class="section-desc" style="margin:var(--ds-space-2) auto var(--ds-space-5)">Registrieren Sie sich kostenlos und erleben Sie, wie TempConnect Ihre Personaldienstleister-Beziehungen transformiert.</p>
+      <h2 class="section-heading">Bereit, wiederkehrende Zeitarbeits-Bedarfe steuerbar zu machen?</h2>
+      <p class="section-desc" style="margin:var(--ds-space-2) auto var(--ds-space-5)">Registrieren Sie sich kostenlos und erleben Sie, wie TempConnect Bedarf, Lieferanten, Deal, Einsatz und Stundenzettel in einem buyer-first Flow verbindet.</p>
       <div style="display:flex;gap:var(--ds-space-3);justify-content:center;flex-wrap:wrap">
-        <button onclick="openAuth('register')" class="ds-btn ds-btn--primary ds-btn--lg">Kostenlos starten</button>
+        <button onclick="selectLandingPlan('PLUS','company')" class="ds-btn ds-btn--primary ds-btn--lg">Als Einsatzunternehmen starten</button>
+        <a href="/demo.html" class="ds-btn ds-btn--lg" style="border-color:rgba(57,217,138,.35);color:var(--ds-success)">Oder erst Demo testen</a>
         <a href="/public/about.html" class="ds-btn ds-btn--lg">Mehr erfahren</a>
       </div>
     </section>
 
     <!-- ── Disclaimer ─────────────────────────────────────── -->
     <div class="ds-disclaimer">
-      TempConnect ist ein Plattformdienst zur Unterstützung des Matching-Prozesses zwischen Unternehmen und Zeitarbeitsfirmen.
+      TempConnect ist ein Plattformdienst zur digitalen Steuerung von Zeitarbeits-Bedarfen, Angeboten, Deals und operativen Folgeprozessen zwischen Unternehmen und Zeitarbeitsfirmen.
       Es wird kein Vermittlungserfolg garantiert. Pulse-Angaben beziehen sich auf den dokumentierten Prozessnachweis,
       nicht auf das Zustandekommen eines Vertrags. Alle Angaben ohne Gewähr.
     </div>
 
-    <!-- ── Footer ─────────────────────────────────────────── -->
-    <footer class="tc-footer">
-      <div class="tc-footer-links">
-        <a href="/public/legal/impressum.html">Impressum</a>
-        <a href="/public/legal/datenschutz.html">Datenschutz</a>
-        <a href="/public/legal/agb.html">AGB</a>
-        <a href="/public/pricing.html">Tarife</a>
-        <a href="/public/about.html">Über uns</a>
-        <a href="/public/legal/kontakt.html">Kontakt</a>
-      </div>
-      <div class="tc-footer-copy">© 2026 TempConnect. Alle Rechte vorbehalten.</div>
-    </footer>
+    <!-- Footer: zentraler footer.js -->
+    <div id="tc-footer" data-tc-footer></div>
   </div><!-- /.ds-wrap -->
 
 
@@ -460,16 +550,29 @@
       <!-- ── Login ─── -->
       <div class="am-pane active" id="paneLogin">
         <div class="am-error" id="errLogin"></div>
+        <!-- SSO enforce banner (hidden by default) -->
+        <div class="am-sso-enforce" id="ssoEnforceBanner" style="display:none">
+          🔒 Ihre Organisation erfordert SSO-Anmeldung. Passwort-Login ist deaktiviert.
+        </div>
         <div class="am-field">
           <label>E-Mail-Adresse</label>
           <input class="am-input" id="loginEmail" type="email" autocomplete="email" placeholder="name@firma.de"/>
         </div>
-        <div class="am-field">
+        <div id="loginPasswordWrap" class="am-field">
           <label>Passwort</label>
           <input class="am-input" id="loginPassword" type="password" autocomplete="current-password" placeholder="Ihr Passwort"/>
         </div>
-        <div style="margin-top:18px">
+        <div id="loginBtnWrap" style="margin-top:18px">
           <button class="am-btn am-btn-primary" id="btnLogin" onclick="doLogin()">Anmelden</button>
+        </div>
+        <!-- SSO Login Section (always visible for enterprise customers) -->
+        <div class="am-sso visible" id="ssoSection">
+          <div class="am-divider">oder</div>
+          <button class="am-sso-btn" id="btnSSOLogin" onclick="doSSOLogin()">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+            <span id="ssoOrgLabel">Mit SSO anmelden</span>
+          </button>
+          <div class="am-sso-info" id="ssoInfo">Single Sign-On über Ihren Identity Provider</div>
         </div>
         <div class="am-divider">─ ─ ─ ─ ─</div>
         <div style="display:flex;justify-content:space-between;align-items:center">
@@ -506,12 +609,26 @@
           <div class="am-field">
             <label>Tarif wählen</label>
             <select class="am-input" id="regPlan">
-              <option value="FREE">FREE – kostenlos</option>
-              <option value="BASIS">BASIS – 150 €/Monat</option>
-              <option value="PLUS">PLUS – 499 €/Monat</option>
-              <option value="NOTDIENST">NOTDIENST – 999 €/Monat</option>
+              <option value="PLUS" selected>Plus – 499 €/Monat (Pilot-ready)</option>
+              <option value="BASIS">Basis – 150 €/Monat</option>
+              <option value="PRO">Pro – 799 €/Monat</option>
+              <option value="INDIVIDUELL_PILOT">Individueller Tarif – Pilotpfad</option>
+              <option value="INDIVIDUELL_DIRECT">Individueller Tarif – direkt anfragen</option>
+              <!-- DEMO entfernt: Demo-Zugang nur ueber Landing-CTA, nicht als regulaere Registrierungsoption -->
             </select>
           </div>
+        </div>
+        <div class="am-field" id="regEmployeeCountWrap" style="display:none">
+          <label>Unternehmensgröße <span style="font-weight:400;color:rgba(255,255,255,.4)">(Pflicht bei individuellem Tarif)</span></label>
+          <select class="am-input" id="regCompanySizeClass">
+            <option value="">– Bitte wählen –</option>
+            <option value="I">Klasse I — 1 bis 30 Beschäftigte</option>
+            <option value="II">Klasse II — 31 bis 250 Beschäftigte</option>
+            <option value="III">Klasse III — 251 bis 999 Beschäftigte</option>
+            <option value="IV">Klasse IV — ab 1.000 Beschäftigte</option>
+          </select>
+          <div id="regIndividualHint" style="font-size:11px;color:rgba(255,255,255,.35);margin-top:4px">Die Unternehmensgröße bestimmt automatisch die Tarifklasse.</div>
+          <div id="regDirectHint" style="font-size:11px;color:rgba(255,255,255,.35);margin-top:4px;display:none">Beim Direktpfad melden wir uns für die individuelle Vertragsabstimmung.</div>
         </div>
         <div class="am-row2">
           <div class="am-field">
@@ -533,6 +650,23 @@
             <input class="am-input" id="regPassword2" type="password" autocomplete="new-password"/>
           </div>
         </div>
+        <div class="am-field">
+          <label>Empfehlungscode (optional)</label>
+          <input class="am-input" id="regReferral" placeholder="z.B. ABC123" maxlength="32" style="font-family:monospace;letter-spacing:1px"/>
+        </div>
+        <script>
+          function updateIndividualFields() {
+            var val = document.getElementById('regPlan').value;
+            var isIndividual = val === 'INDIVIDUELL_PILOT' || val === 'INDIVIDUELL_DIRECT'
+                            || val === 'INDIVIDUELL' || val === 'INDIVIDUAL' || val === 'ENTERPRISE';
+            var isDirect = val === 'INDIVIDUELL_DIRECT';
+            document.getElementById('regEmployeeCountWrap').style.display = isIndividual ? 'block' : 'none';
+            document.getElementById('regIndividualHint').style.display = isDirect ? 'none' : 'block';
+            document.getElementById('regDirectHint').style.display = isDirect ? 'block' : 'none';
+          }
+          document.getElementById('regPlan').addEventListener('change', updateIndividualFields);
+          updateIndividualFields();
+        </script>
         <div class="am-field" style="margin-top:4px">
           <div class="am-checkbox-row">
             <input type="checkbox" id="regAgb"/>
@@ -601,282 +735,8 @@
   <!-- Toast -->
   <div class="tc-toast" id="tcToast"></div>
 
-  <script>
-    'use strict';
-    const API = '/api';
-    var _resetToken  = null;
-    var _csrfToken   = null;   // cached CSRF token
-
-    /* ── CSRF: Token holen (gecacht, einmalig pro Session) ─ */
-    async function getCsrf() {
-      if (_csrfToken) return _csrfToken;
-      try {
-        var r = await fetch('/api/csrf', { credentials: 'include' });
-        var d = await r.json();
-        _csrfToken = d.token || null;
-      } catch (e) { _csrfToken = null; }
-      return _csrfToken;
-    }
-
-    /* ── POST-Wrapper: Content-Type + CSRF automatisch ──── */
-    async function postJSON(url, body) {
-      var csrf = await getCsrf();
-      var headers = { 'Content-Type': 'application/json' };
-      if (csrf) headers['x-csrf-token'] = csrf;
-      var r = await fetch(url, {
-        method: 'POST', credentials: 'include',
-        headers: headers,
-        body: JSON.stringify(body)
-      });
-      if (r.status === 403) {
-        // CSRF-Token abgelaufen — einmal neu holen und nochmals versuchen
-        _csrfToken = null;
-        csrf = await getCsrf();
-        if (csrf) headers['x-csrf-token'] = csrf;
-        r = await fetch(url, {
-          method: 'POST', credentials: 'include',
-          headers: headers,
-          body: JSON.stringify(body)
-        });
-      }
-      return r;
-    }
-
-    /* ── Init: logged-in redirect + URL params ─────────── */
-    (async function init() {
-      var p      = new URLSearchParams(location.search);
-      var verify = p.get('verify');
-      var reset  = p.get('reset');
-
-      if (verify) { handleVerify(verify); return; }
-      if (reset)  { _resetToken = reset; openAuth('reset'); return; }
-
-      try {
-        var r = await fetch('/api/me', { credentials: 'include' });
-        if (r.ok) window.location.replace('/public/enterprise.html');
-      } catch (e) { /* nicht eingeloggt — Landing anzeigen */ }
-    })();
-
-    /* ── Email-Verifizierung ────────────────────────────── */
-    async function handleVerify(token) {
-      try {
-        var r = await fetch('/api/auth/verify/' + encodeURIComponent(token));
-        var d = await r.json();
-        if (r.ok && d.ok) {
-          openAuth('verified');
-        } else {
-          openAuth('login');
-          showErr('login', 'Der Bestätigungslink ist ungültig oder abgelaufen.');
-        }
-      } catch (e) {
-        openAuth('login');
-      }
-    }
-
-    /* ── Modal öffnen / schließen ───────────────────────── */
-    function openAuth(pane, role) {
-      document.getElementById('amOverlay').classList.add('open');
-      showPane(pane || 'login');
-      if (role) {
-        var sel = document.getElementById('regRole');
-        if (sel) sel.value = role;
-      }
-      setTimeout(function() {
-        var first = document.querySelector('.am-pane.active .am-input');
-        if (first) first.focus();
-      }, 60);
-    }
-
-    function closeAuth() {
-      document.getElementById('amOverlay').classList.remove('open');
-    }
-
-    function handleOverlayClick(e) {
-      if (e.target === document.getElementById('amOverlay')) closeAuth();
-    }
-
-    /* ── Pane wechseln ──────────────────────────────────── */
-    function showPane(pane) {
-      document.querySelectorAll('.am-pane').forEach(function(el) { el.classList.remove('active'); });
-      var id = 'pane' + pane.charAt(0).toUpperCase() + pane.slice(1);
-      var el = document.getElementById(id);
-      if (el) el.classList.add('active');
-
-      var tabPanes = ['login', 'register'];
-      document.getElementById('amTabs').style.display = tabPanes.indexOf(pane) >= 0 ? 'flex' : 'none';
-      var tabL = document.getElementById('amTabLogin');
-      var tabR = document.getElementById('amTabRegister');
-      if (tabL) tabL.classList.toggle('active', pane === 'login');
-      if (tabR) tabR.classList.toggle('active', pane === 'register');
-
-      var titles = { login:'Anmelden', register:'Konto erstellen', forgot:'Passwort vergessen', reset:'Neues Passwort setzen', verified:'E-Mail bestätigt' };
-      document.getElementById('amTitle').textContent = titles[pane] || '';
-    }
-
-    /* ── Error / Success helpers ────────────────────────── */
-    function showErr(pane, msg) {
-      var id = 'err' + pane.charAt(0).toUpperCase() + pane.slice(1);
-      var el = document.getElementById(id);
-      if (el) { el.textContent = msg; el.classList.add('visible'); }
-    }
-    function clearErr(pane) {
-      var id = 'err' + pane.charAt(0).toUpperCase() + pane.slice(1);
-      var el = document.getElementById(id);
-      if (el) { el.textContent = ''; el.classList.remove('visible'); }
-    }
-    function setBtn(id, loading, label) {
-      var b = document.getElementById(id);
-      if (!b) return;
-      b.disabled = loading;
-      b.textContent = loading ? '⏳ Bitte warten…' : label;
-    }
-
-    /* ── Redirect nach erfolgreicher Auth ───────────────── */
-    function redirectAfterAuth() {
-      window.location.replace('/public/enterprise.html');
-    }
-
-    /* ── LOGIN ──────────────────────────────────────────── */
-    async function doLogin() {
-      clearErr('login');
-      var email    = document.getElementById('loginEmail').value.trim();
-      var password = document.getElementById('loginPassword').value;
-      if (!email || !password) { showErr('login', 'Bitte E-Mail und Passwort eingeben.'); return; }
-
-      setBtn('btnLogin', true, 'Anmelden');
-      try {
-        var r = await postJSON('/api/auth/login', { email: email, password: password });
-        var d = await r.json();
-        if (!r.ok) {
-          var m = { INVALID_CREDENTIALS: 'E-Mail oder Passwort falsch.' };
-          showErr('login', m[d.error] || d.message || 'Anmeldung fehlgeschlagen.'); return;
-        }
-        redirectAfterAuth();
-      } catch (e) {
-        showErr('login', 'Verbindungsfehler. Bitte erneut versuchen.');
-      } finally {
-        setBtn('btnLogin', false, 'Anmelden');
-      }
-    }
-
-    /* ── REGISTER ───────────────────────────────────────── */
-    async function doRegister() {
-      clearErr('register');
-      var role       = document.getElementById('regRole').value;
-      var company    = document.getElementById('regCompany').value.trim();
-      var email      = document.getElementById('regEmail').value.trim();
-      var phone      = document.getElementById('regPhone').value.trim();
-      var plan       = document.getElementById('regPlan').value;
-      var postalCode = document.getElementById('regPostalCode').value.trim();
-      var city       = document.getElementById('regCity').value.trim();
-      var pw         = document.getElementById('regPassword').value;
-      var pw2        = document.getElementById('regPassword2').value;
-      var agb        = document.getElementById('regAgb').checked;
-
-      if (!email)        { showErr('register', 'Bitte E-Mail-Adresse eingeben.'); return; }
-      if (!pw)           { showErr('register', 'Bitte Passwort eingeben.'); return; }
-      if (pw.length < 8) { showErr('register', 'Passwort muss mindestens 8 Zeichen lang sein.'); return; }
-      if (pw !== pw2)    { showErr('register', 'Passwörter stimmen nicht überein.'); return; }
-      if (!agb)          { showErr('register', 'Bitte AGB und Datenschutzerklärung akzeptieren.'); return; }
-
-      setBtn('btnRegister', true, 'Konto anlegen');
-      try {
-        var r = await postJSON('/api/auth/register', {
-          role: role, email: email, password: pw,
-          company_name: company    || null,
-          phone:        phone      || null,
-          postal_code:  postalCode || null,
-          city:         city       || null,
-          plan:         plan
-        });
-        var d = await r.json();
-        if (!r.ok) {
-          var m = { EMAIL_EXISTS: 'Diese E-Mail ist bereits registriert.' };
-          showErr('register', m[d.error] || d.message || 'Registrierung fehlgeschlagen.'); return;
-        }
-        showToast('Willkommen bei TempConnect! Bitte bestätigen Sie Ihre E-Mail.', 'info');
-        setTimeout(redirectAfterAuth, 1200);
-      } catch (e) {
-        showErr('register', 'Verbindungsfehler. Bitte erneut versuchen.');
-      } finally {
-        setBtn('btnRegister', false, 'Konto anlegen');
-      }
-    }
-
-    /* ── FORGOT PASSWORD ────────────────────────────────── */
-    async function doForgotPassword() {
-      clearErr('forgot');
-      document.getElementById('okForgot').classList.remove('visible');
-      var email = document.getElementById('forgotEmail').value.trim();
-      if (!email) { showErr('forgot', 'Bitte E-Mail-Adresse eingeben.'); return; }
-
-      setBtn('btnForgot', true, 'Reset-Link senden');
-      try {
-        await postJSON('/api/auth/forgot-password', { email: email });
-        var ok = document.getElementById('okForgot');
-        ok.textContent = '✓ Falls ein Konto existiert, wurde ein Reset-Link gesendet.';
-        ok.classList.add('visible');
-        document.getElementById('forgotEmail').value = '';
-      } catch (e) {
-        showErr('forgot', 'Verbindungsfehler. Bitte erneut versuchen.');
-      } finally {
-        setBtn('btnForgot', false, 'Reset-Link senden');
-      }
-    }
-
-    /* ── RESET PASSWORD ─────────────────────────────────── */
-    async function doResetPassword() {
-      clearErr('reset');
-      document.getElementById('okReset').classList.remove('visible');
-      var pw  = document.getElementById('resetPassword').value;
-      var pw2 = document.getElementById('resetPassword2').value;
-      if (!pw || pw.length < 8) { showErr('reset', 'Passwort muss mindestens 8 Zeichen lang sein.'); return; }
-      if (pw !== pw2)            { showErr('reset', 'Passwörter stimmen nicht überein.'); return; }
-      if (!_resetToken)          { showErr('reset', 'Ungültiger Reset-Link. Bitte neu anfordern.'); return; }
-
-      setBtn('btnReset', true, 'Passwort speichern');
-      try {
-        var r = await postJSON('/api/auth/reset-password', { token: _resetToken, password: pw });
-        var d = await r.json();
-        if (r.ok || d.ok) {
-          var ok = document.getElementById('okReset');
-          ok.textContent = '✓ Passwort erfolgreich gesetzt. Sie können sich jetzt anmelden.';
-          ok.classList.add('visible');
-          _resetToken = null;
-          setTimeout(function() { showPane('login'); }, 2200);
-        } else {
-          var m = { TOKEN_EXPIRED: 'Der Reset-Link ist abgelaufen. Bitte neu anfordern.', PASSWORD_TOO_SHORT: 'Mindestens 8 Zeichen erforderlich.' };
-          showErr('reset', m[d.error] || d.message || 'Fehler beim Zurücksetzen.');
-        }
-      } catch (e) {
-        showErr('reset', 'Verbindungsfehler. Bitte erneut versuchen.');
-      } finally {
-        setBtn('btnReset', false, 'Passwort speichern');
-      }
-    }
-
-    /* ── Keyboard shortcuts ─────────────────────────────── */
-    document.addEventListener('keydown', function(e) {
-      if (e.key === 'Escape') { closeAuth(); return; }
-      if (e.key !== 'Enter') return;
-      if (e.target.tagName === 'TEXTAREA') return;
-      var active = document.querySelector('.am-pane.active');
-      if (!active) return;
-      var id = active.id;
-      if (id === 'paneLogin')    doLogin();
-      if (id === 'paneRegister') doRegister();
-      if (id === 'paneForgot')   doForgotPassword();
-      if (id === 'paneReset')    doResetPassword();
-    });
-
-    /* ── Toast ──────────────────────────────────────────── */
-    function showToast(msg, type) {
-      var el = document.getElementById('tcToast');
-      el.textContent = msg;
-      el.className = 'tc-toast visible' + (type ? ' ' + type : '');
-      clearTimeout(el._t);
-      el._t = setTimeout(function() { el.classList.remove('visible'); }, 4500);
-    }
-  </script>
+  <script src="/public/js/footer.js"></script>
+  <script src="/public/js/authIntent.js"></script>
+  <script src="/public/js/pages/landing.js"></script>
 </body>
 </html>

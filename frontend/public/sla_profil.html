@@ -1,9 +1,10 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="de">
 <head>
   <meta charset="utf-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
-  <title>Unternehmensprofil – TempConnect</title>
+  <script src="/public/js/theme.js"></script>
+  <title>Mein Unternehmen – TempConnect</title>
   <link rel="stylesheet" href="/public/css/enterprise.css"/>
   <style>
     .ep-grid{display:grid;grid-template-columns:280px 1fr;gap:var(--ds-space-6);align-items:flex-start}
@@ -74,11 +75,15 @@
     .ep-toast{position:fixed;bottom:24px;right:24px;padding:var(--ds-space-3) var(--ds-space-5);border-radius:var(--ds-radius-md);background:var(--ds-success);color:#fff;font-size:13px;font-weight:700;z-index:var(--ds-z-toast);transform:translateY(80px);opacity:0;transition:all .3s}
     .ep-toast.show{transform:translateY(0);opacity:1}
     .ep-loading{text-align:center;padding:var(--ds-space-10);color:var(--ds-text-secondary)}
+    /* M-09: Profilreichweite KPI cards */
+    .ep-kpi-card{border:1px solid var(--ds-border);border-radius:var(--ds-radius-md);background:rgba(255,255,255,.015);padding:var(--ds-space-3) var(--ds-space-4);text-align:center}
+    .ep-kpi-label{font-size:10px;text-transform:uppercase;letter-spacing:.06em;color:var(--ds-text-secondary);margin-bottom:4px}
+    .ep-kpi-value{font-size:24px;font-weight:900;color:var(--ds-text)}
   </style>
 </head>
 <body data-sla-guard="sla_profile">
   <div id="paywall" class="wrap" style="display:none">
-    <div class="topbar"><span class="brand">TempConnect</span><a href="/" class="btn">Startseite</a></div>
+    <nav class="ds-topbar"><div class="ds-topbar__brand"><span class="ds-topbar__brand-dot"></span>TempConnect</div><div class="ds-topbar__nav"><a href="/" class="ds-btn">Startseite</a></div></nav>
     <div class="paywall-box">
       <h2>Bereich nicht verfügbar</h2>
       <p>Das Feature &quot;<span id="paywall-feature-name">Profil</span>&quot; ist mit deinem aktuellen Plan nicht nutzbar.</p>
@@ -88,30 +93,84 @@
   </div>
 
   <div id="main-content" class="wrap">
-    <div class="topbar" data-notif-topbar>
-      <span class="brand"><span style="width:10px;height:10px;border-radius:50%;background:linear-gradient(135deg,var(--brand),var(--brand2));display:inline-block;margin-right:8px"></span>TempConnect</span>
-      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
-        <a href="/" class="btn">Startseite</a>
-        <a href="/public/enterprise.html" class="btn">&#220;bersicht</a>
-        <a href="/public/capacity_search.html" class="btn">Kapazitätssuche</a>
-        <a href="/public/sla_search_jobs_list.html" class="btn">Suchaufträge</a>
-      </div>
-    </div>
+    <div id="tc-shell"></div>
 
     <div class="ds-page-header">
       <div class="ds-page-header__content">
-        <h1 class="ds-page-title">Unternehmensprofil</h1>
-        <p class="ds-page-subtitle">Verwalten Sie Ihr Firmenprofil, Standorte, Zertifizierungen und Ansprechpartner. Ein vollstaendiges Profil erhoeht Ihre Sichtbarkeit.</p>
+        <h1 class="ds-page-title">Mein Unternehmen</h1>
+        <p class="ds-page-subtitle">Firmenprofil, Abo-Modelle, Organisation, Integrationen und Plattform-Einrichtung &ndash; zentral verwalten.</p>
       </div>
       <div class="ds-page-header__actions">
         <a href="/public/company_profile_public.html" class="ep-btn" id="preview-btn" style="display:none">&#128065; Oeffentliches Profil</a>
       </div>
     </div>
 
-    <div id="ep-loading" class="ep-loading">Profil wird geladen …</div>
+    <!-- Onboarding Checklist (reusable component, loaded by onboardingChecklist.js) -->
+    <div id="onboarding-checklist" style="display:none;margin-bottom:var(--ds-space-4)">
+      <div style="border:1px solid rgba(74,158,255,.15);border-radius:12px;background:rgba(74,158,255,.03);overflow:hidden">
+        <div style="display:flex;align-items:center;gap:10px;padding:10px 16px;cursor:pointer" onclick="toggleOnboarding()">
+          <span style="font-size:15px">&#128640;</span>
+          <span style="font-weight:700;font-size:14px;white-space:nowrap">Plattform einrichten</span>
+          <span id="onboarding-subtitle" style="font-size:12px;color:var(--ds-text-secondary,var(--muted));white-space:nowrap;overflow:hidden;text-overflow:ellipsis;flex-shrink:1;min-width:0"></span>
+          <div style="flex:1;min-width:40px;max-width:160px;height:4px;border-radius:2px;background:rgba(255,255,255,.08);overflow:hidden">
+            <div id="onboarding-progress-bar" style="height:100%;border-radius:2px;background:var(--ds-brand,#4a9eff);transition:width .4s ease;width:0%"></div>
+          </div>
+          <button id="onboarding-toggle-btn" type="button" style="background:none;border:none;color:var(--ds-text-secondary,var(--muted));cursor:pointer;font-size:10px;padding:2px 6px;transition:transform .25s;transform:rotate(0deg)" title="Auf-/Zuklappen" onclick="event.stopPropagation();toggleOnboarding()">&#9660;</button>
+          <button id="onboarding-dismiss-btn" type="button" onclick="event.stopPropagation();dismissOnboarding()" style="background:none;border:none;color:var(--ds-text-secondary,var(--muted));cursor:pointer;font-size:18px;padding:2px 6px;line-height:1" title="Ausblenden">&times;</button>
+        </div>
+        <div id="onboarding-body" style="max-height:0;overflow:hidden;transition:max-height .3s ease">
+          <div style="padding:0 16px 14px">
+            <div id="onboarding-steps"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Mein Unternehmen Hub Grid -->
+    <div class="ds-section" style="padding-top:0;margin-bottom:var(--ds-space-4)">
+      <div class="ds-hub-grid">
+        <div class="ds-hub-card ds-hub-card--current ds-hub-card--brand" aria-current="page">
+          <div class="ds-hub-card__icon">&#127970;</div>
+          <div class="ds-hub-card__content">
+            <div class="ds-hub-card__title">Mein Unternehmen</div>
+            <p class="ds-hub-card__desc">Sie befinden sich im Unternehmensbereich.</p>
+          </div>
+        </div>
+        <a href="#sec-overview" class="ds-hub-card" onclick="document.getElementById('sec-overview').scrollIntoView({behavior:'smooth'});return false;">
+          <div class="ds-hub-card__icon">&#128196;</div>
+          <div class="ds-hub-card__content">
+            <div class="ds-hub-card__title">Firmenprofil</div>
+            <p class="ds-hub-card__desc">Firmenprofil, Standorte, Zertifizierungen und Kompetenzen.</p>
+          </div>
+        </a>
+        <a href="/public/sla_abo.html" class="ds-hub-card">
+          <div class="ds-hub-card__icon">&#128142;</div>
+          <div class="ds-hub-card__content">
+            <div class="ds-hub-card__title">Abo-Modelle</div>
+            <p class="ds-hub-card__desc">DEMO, BASIS, PLUS, PRO, Individueller Tarif &ndash; Tarife und Features.</p>
+          </div>
+        </a>
+        <a href="/public/organization.html" class="ds-hub-card ds-hub-card--brand" data-feature="org_settings">
+          <div class="ds-hub-card__icon">&#128101;</div>
+          <div class="ds-hub-card__content">
+            <div class="ds-hub-card__title">Organisation</div>
+            <p class="ds-hub-card__desc">Mitglieder, API&nbsp;Keys, Webhooks, Audit-Log und Sicherheit.</p>
+          </div>
+        </a>
+        <a href="/public/integrations.html" class="ds-hub-card ds-hub-card--accent">
+          <div class="ds-hub-card__icon">&#128268;</div>
+          <div class="ds-hub-card__content">
+            <div class="ds-hub-card__title">Integrationen</div>
+            <p class="ds-hub-card__desc">Slack- und Teams-Webhooks konfigurieren, Events empfangen.</p>
+          </div>
+        </a>
+      </div>
+    </div>
+
+    <div id="ep-loading" class="ep-loading">Profil wird geladen &ndash;</div>
 
     <div id="ep-main" class="ep-grid" style="display:none">
-      <!-- ─── Sidebar ─────────────────────────────────────── -->
+      <!-- --- Sidebar --------------------------------------- -->
       <aside class="ep-sidebar">
         <div class="ep-card" style="padding:var(--ds-space-4)">
           <div class="ep-ring">
@@ -135,7 +194,7 @@
         </div>
       </aside>
 
-      <!-- ─── Main content ────────────────────────────────── -->
+      <!-- --- Main content ---------------------------------- -->
       <div id="ep-sections">
         <!-- Section 1: Overview -->
         <div class="ep-card" id="sec-overview">
@@ -145,6 +204,20 @@
           </div>
           <div id="overview-view"></div>
           <div id="overview-edit" style="display:none"></div>
+        </div>
+
+        <!-- Section: Company Photo -->
+        <div class="ep-card" id="sec-photo">
+          <div class="ep-card-head">
+            <div class="ep-card-title"><span class="icon">&#128247;</span> Firmenbild / Standort</div>
+          </div>
+          <p style="font-size:12px;color:var(--ds-text-secondary);margin:0 0 var(--ds-space-3)">Laden Sie ein Foto Ihres Firmengebaeudes oder Standorts hoch. Das Bild erscheint auf Ihrem oeffentlichen Profil.</p>
+          <div id="photo-preview" style="margin-bottom:var(--ds-space-3)"></div>
+          <div style="display:flex;gap:var(--ds-space-2);align-items:center">
+            <input type="file" id="photoInput" accept="image/png,image/jpeg,image/webp" style="display:none" onchange="uploadPhoto(this)"/>
+            <button class="ep-btn ep-btn--primary ep-btn--sm" onclick="document.getElementById('photoInput').click()">&#128247; Foto hochladen</button>
+            <span style="font-size:11px;color:var(--ds-text-tertiary)">PNG, JPG oder WebP &mdash; max. 5 MB</span>
+          </div>
         </div>
 
         <!-- Section 2: Basic User Data -->
@@ -205,6 +278,83 @@
           </div>
           <div id="compliance-body"></div>
         </div>
+
+        <!-- M-10: Promotions / Bounties (profile_bounties — INDIVIDUELL, maturity-gated) -->
+        <div class="ep-card" id="sec-promotions">
+          <div class="ep-card-head">
+            <div class="ep-card-title"><span class="icon">&#127381;</span> Promotions &amp; Sichtbarkeits-Boosts</div>
+            <span id="promo-status-badge" style="display:none;font-size:10px;font-weight:700;padding:2px 8px;border-radius:20px;text-transform:uppercase;background:rgba(57,217,138,.12);color:var(--ds-success);border:1px solid rgba(57,217,138,.25)"></span>
+          </div>
+          <!-- Coming-soon state (default — shown until feature is live) -->
+          <div id="promo-coming-soon">
+            <div style="display:flex;align-items:flex-start;gap:var(--ds-space-4);padding:var(--ds-space-4);border:1px solid rgba(251,191,36,.2);border-radius:var(--ds-radius-md);background:rgba(251,191,36,.04)">
+              <span style="font-size:28px;flex-shrink:0">&#9733;</span>
+              <div>
+                <div style="font-size:14px;font-weight:700;margin-bottom:var(--ds-space-1)">Demnächst verfügbar</div>
+                <p style="font-size:12px;color:var(--ds-text-secondary);line-height:1.6;margin:0 0 var(--ds-space-2)">
+                  Mit Promotions können Sie Ihr Profil gezielt hervorheben — durch Featured-Badge, Such-Boost oder Kategorie-Top-Platzierung.
+                  Alle Promotions werden von TempConnect geprüft und freigegeben.
+                </p>
+                <div style="font-size:11px;color:var(--ds-text-tertiary)">Verfügbar ab INDIVIDUELL-Plan &middot; Aktivierung durch TempConnect-Staff</div>
+              </div>
+            </div>
+          </div>
+          <!-- Active bounty UI (shown when feature is available) -->
+          <div id="promo-body" style="display:none">
+            <div id="promo-loading" style="font-size:13px;color:var(--ds-text-secondary)">Wird geladen&hellip;</div>
+            <div id="promo-list-area" style="display:none">
+              <div id="promo-list" style="margin-bottom:var(--ds-space-3)"></div>
+              <div style="border-top:1px solid var(--ds-border);padding-top:var(--ds-space-3);margin-top:var(--ds-space-2)">
+                <div style="font-size:12px;font-weight:700;margin-bottom:var(--ds-space-2)">Neuen Antrag stellen</div>
+                <div style="display:flex;gap:var(--ds-space-2);flex-wrap:wrap;align-items:center">
+                  <select id="promo-type-select" style="padding:6px 10px;border-radius:var(--ds-radius-sm);border:1px solid var(--ds-border);background:var(--ds-bg-raised);color:var(--ds-text);font-size:13px">
+                    <option value="featured_badge">Featured-Badge</option>
+                    <option value="search_boost">Such-Boost</option>
+                    <option value="category_top">Kategorie-Top</option>
+                  </select>
+                  <button class="ep-btn ep-btn--primary ep-btn--sm" id="promo-create-btn">Antrag erstellen</button>
+                </div>
+                <div id="promo-create-err" style="display:none;font-size:11px;color:var(--ds-danger);margin-top:4px"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- M-09: Profilreichweite (profile_analytics_basic — PRO/INDIVIDUELL, soft-gated) -->
+        <div class="ep-card" id="sec-profilreichweite" style="display:none">
+          <div class="ep-card-head">
+            <div class="ep-card-title"><span class="icon">&#128202;</span> Profilreichweite</div>
+            <span id="pr-vis-status" style="font-size:11px;color:var(--ds-text-secondary)"></span>
+          </div>
+          <div id="pr-loading" style="font-size:13px;color:var(--ds-text-secondary);padding:var(--ds-space-2) 0">Wird geladen&hellip;</div>
+          <div id="pr-body" style="display:none">
+            <!-- KPI row -->
+            <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:var(--ds-space-3);margin-bottom:var(--ds-space-4)" id="pr-kpis">
+              <div class="ep-kpi-card" id="pr-views7">
+                <div class="ep-kpi-label">Aufrufe (7 Tage)</div>
+                <div class="ep-kpi-value" id="pr-views7-val">–</div>
+              </div>
+              <div class="ep-kpi-card" id="pr-views30">
+                <div class="ep-kpi-label">Aufrufe (30 Tage)</div>
+                <div class="ep-kpi-value" id="pr-views30-val">–</div>
+              </div>
+              <div class="ep-kpi-card" id="pr-likes">
+                <div class="ep-kpi-label">Likes</div>
+                <div class="ep-kpi-value" id="pr-likes-val">–</div>
+              </div>
+            </div>
+            <!-- Ranking row -->
+            <div id="pr-rank-row" style="display:none;padding:var(--ds-space-3);border:1px solid var(--ds-border);border-radius:var(--ds-radius-md);background:rgba(255,255,255,.02)">
+              <div style="font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--ds-text-secondary);margin-bottom:4px">Marketplace-Ranking</div>
+              <div style="display:flex;align-items:center;gap:var(--ds-space-3)">
+                <span id="pr-rank-segment" style="font-size:16px;font-weight:900"></span>
+                <span id="pr-rank-position" style="font-size:12px;color:var(--ds-text-secondary)"></span>
+              </div>
+            </div>
+            <!-- Visibility hint -->
+            <div id="pr-vis-hint" style="margin-top:var(--ds-space-3);font-size:12px;color:var(--ds-text-secondary)"></div>
+          </div>
+        </div>
       </div>
     </div>
   </div>
@@ -213,460 +363,256 @@
 
   <script src="/public/js/planFeatures.js"></script>
   <script src="/public/js/slaGuard.js"></script>
+  <script defer src="/public/js/pages/slaProfil.js"></script>
+
+  <!-- M-10: Promotions — soft-gated by profile_bounties (INDIVIDUELL, maturity-gated) -->
   <script>
   (function(){
     "use strict";
-    var API = "/api/company-profile";
-    var data = null;
-    var csrfToken = "";
-
-    function esc(s){ var d=document.createElement("div"); d.textContent=s||""; return d.innerHTML; }
     function $(id){ return document.getElementById(id); }
-    function toast(msg, ok){
-      var t=$("ep-toast"); t.textContent=msg;
-      t.style.background=ok===false?"var(--ds-danger)":"var(--ds-success)";
-      t.classList.add("show"); setTimeout(function(){ t.classList.remove("show"); },2600);
-    }
-    async function api(path, opts){
-      if(!opts) opts={};
-      opts.credentials="include";
-      if(!opts.headers) opts.headers={};
-      if(csrfToken) opts.headers["x-csrf-token"]=csrfToken;
-      if(opts.body && typeof opts.body==="object" && !(opts.body instanceof FormData)){
-        opts.headers["Content-Type"]="application/json";
-        opts.body=JSON.stringify(opts.body);
+
+    var BOUNTY_TYPE_LABELS = {
+      featured_badge: "Featured-Badge",
+      search_boost:   "Such-Boost",
+      category_top:   "Kategorie-Top"
+    };
+    var STATUS_LABELS = {
+      draft:    "Entwurf", pending:   "In Prüfung", approved: "Genehmigt",
+      active:   "Aktiv",   rejected:  "Abgelehnt",  expired:  "Abgelaufen",
+      cancelled:"Storniert"
+    };
+    var STATUS_COLORS = {
+      draft:"var(--ds-text-secondary)", pending:"var(--ds-warning)", approved:"var(--ds-brand)",
+      active:"var(--ds-success)", rejected:"var(--ds-danger)", expired:"var(--ds-text-secondary)",
+      cancelled:"var(--ds-text-secondary)"
+    };
+
+    function renderBountyList(items) {
+      var el = $("promo-list");
+      if (!el) return;
+      if (!items || !items.length) {
+        el.innerHTML = "<div style='font-size:12px;color:var(--ds-text-secondary)'>Noch keine Anträge.</div>";
+        return;
       }
-      var r=await fetch(path, opts);
-      if(!r.ok) throw new Error("HTTP "+r.status);
-      return r.json();
-    }
-    function fieldVal(obj, key){
-      var v=(obj&&obj[key])||"";
-      if(Array.isArray(v)) return v.join(", ");
-      return String(v).trim();
-    }
-
-    async function fetchCsrf(){
-      try{ var r=await fetch("/api/csrf-token",{credentials:"include"}); var d=await r.json(); csrfToken=d.csrfToken||d.token||""; }catch(e){}
-    }
-
-    async function load(){
-      try{
-        await fetchCsrf();
-        var res=await api(API);
-        data=res.data||res;
-        $("ep-loading").style.display="none";
-        $("ep-main").style.display="grid";
-        $("preview-btn").style.display="inline-flex";
-        renderAll();
-      }catch(e){
-        $("ep-loading").innerHTML="<p style='color:var(--ds-danger)'>Profil konnte nicht geladen werden. Bitte einloggen.</p>";
-      }
-    }
-
-    function renderAll(){
-      renderCompleteness();
-      renderOverview();
-      renderBasic();
-      renderCapabilities();
-      renderLocations();
-      renderCerts();
-      renderContacts();
-      renderScorecard();
-      renderCompliance();
-    }
-
-    /* ── COMPLETENESS ────────────────────────────── */
-    function renderCompleteness(){
-      var c=data.completeness||{percentage:0,sections:[]};
-      var pct=c.percentage||0;
-      var circ=2*Math.PI*16;
-      var offset=circ-(pct/100)*circ;
-      $("ring-fg").setAttribute("stroke-dashoffset", offset);
-      $("ring-pct").textContent=pct+"%";
-      var nav=$("ep-nav");
-      var html="";
-      var secMap={overview:"sec-overview",capabilities:"sec-capabilities",locations:"sec-locations",certifications:"sec-certifications",contacts:"sec-contacts"};
-      (c.sections||[]).forEach(function(s){
-        var done=s.complete?"done":"";
-        var target=secMap[s.key]||"";
-        html+="<button class='ep-nav-item "+done+"' onclick=\"document.getElementById('"+target+"').scrollIntoView({behavior:'smooth',block:'start'})\">";
-        html+="<span class='ep-nav-check'>"+(s.complete?"&#10003;":"")+"</span>";
-        html+=esc(s.label)+"</button>";
-      });
-      nav.innerHTML=html;
-    }
-
-    /* ── OVERVIEW ────────────────────────────────── */
-    var overviewFields=[
-      {key:"legal_name",label:"Rechtlicher Name",full:false},
-      {key:"website",label:"Website",full:false},
-      {key:"company_description",label:"Beschreibung",full:true,type:"textarea"},
-      {key:"year_founded",label:"Gruendungsjahr",full:false},
-      {key:"company_size",label:"Unternehmensgroesse",full:false,type:"select",options:["","1-10","11-50","51-200","201-500","501-1000","1000+"]},
-      {key:"industry_focus",label:"Branchenfokus",full:false},
-      {key:"headquarters_city",label:"Hauptsitz Stadt",full:false},
-      {key:"headquarters_country",label:"Hauptsitz Land",full:false},
-      {key:"linkedin_url",label:"LinkedIn",full:false},
-      {key:"contact_email",label:"Kontakt-Email",full:false},
-      {key:"contact_phone",label:"Kontakt-Telefon",full:false},
-      {key:"logo_url",label:"Logo URL",full:false}
-    ];
-    function renderOverview(){
-      var p=data.profile||{};
-      var html="<div class='ep-form'>";
-      overviewFields.forEach(function(f){
-        var v=fieldVal(p,f.key)||fieldVal(data.user,f.key);
-        html+="<div class='ep-field "+(f.full?"full":"")+"'><label>"+esc(f.label)+"</label><div class='val'>"+(v?esc(v):"<span style='color:var(--ds-text-tertiary)'>–</span>")+"</div></div>";
-      });
-      html+="</div>";
-      $("overview-view").innerHTML=html;
-    }
-    function renderOverviewEdit(){
-      var p=data.profile||{};
-      var html="<div class='ep-form'>";
-      overviewFields.forEach(function(f){
-        var v=fieldVal(p,f.key)||fieldVal(data.user,f.key);
-        html+="<div class='ep-field "+(f.full?"full":"")+"'><label>"+esc(f.label)+"</label>";
-        if(f.type==="textarea") html+="<textarea id='ov-"+f.key+"'>"+esc(v)+"</textarea>";
-        else if(f.type==="select"){
-          html+="<select id='ov-"+f.key+"'>";
-          (f.options||[]).forEach(function(o){ html+="<option value='"+esc(o)+"'"+(o===v?" selected":"")+">"+esc(o||"Bitte waehlen")+"</option>"; });
-          html+="</select>";
-        } else html+="<input id='ov-"+f.key+"' value='"+esc(v)+"'/>";
-        html+="</div>";
-      });
-      html+="</div><div class='ep-actions'><button class='ep-btn' onclick='EP.toggleEdit(\"overview\")'>Abbrechen</button><button class='ep-btn ep-btn--primary' onclick='EP.saveOverview()'>Speichern</button></div>";
-      $("overview-edit").innerHTML=html;
-    }
-
-    /* ── BASIC ────────────────────────────────────── */
-    var basicFields=[
-      {key:"company_name",label:"Firmenname"},
-      {key:"contact_person",label:"Ansprechpartner"},
-      {key:"phone",label:"Telefon"},
-      {key:"street",label:"Strasse"},
-      {key:"postal_code",label:"PLZ"},
-      {key:"city",label:"Ort"},
-      {key:"vat_id",label:"USt-IdNr"},
-      {key:"handelsregister_number",label:"Handelsregister-Nr."}
-    ];
-    function renderBasic(){
-      var u=data.user||{};
-      var html="<div class='ep-form'>";
-      basicFields.forEach(function(f){
-        var v=fieldVal(u,f.key);
-        html+="<div class='ep-field'><label>"+esc(f.label)+"</label><div class='val'>"+(v?esc(v):"<span style='color:var(--ds-text-tertiary)'>–</span>")+"</div></div>";
-      });
-      html+="</div>";
-      $("basic-view").innerHTML=html;
-    }
-    function renderBasicEdit(){
-      var u=data.user||{};
-      var html="<div class='ep-form'>";
-      basicFields.forEach(function(f){
-        var v=fieldVal(u,f.key);
-        html+="<div class='ep-field'><label>"+esc(f.label)+"</label><input id='ba-"+f.key+"' value='"+esc(v)+"'/></div>";
-      });
-      html+="</div><div class='ep-actions'><button class='ep-btn' onclick='EP.toggleEdit(\"basic\")'>Abbrechen</button><button class='ep-btn ep-btn--primary' onclick='EP.saveBasic()'>Speichern</button></div>";
-      $("basic-edit").innerHTML=html;
-    }
-
-    /* ── CAPABILITIES ────────────────────────────── */
-    var capFields=[
-      {key:"staff_categories",label:"Personalkategorien"},
-      {key:"industries_served",label:"Branchen"},
-      {key:"typical_roles",label:"Typische Rollen"},
-      {key:"availability_regions",label:"Verfuegbarkeitsregionen"},
-      {key:"languages",label:"Sprachen"},
-      {key:"specializations",label:"Spezialisierungen"}
-    ];
-    function renderCapabilities(){
-      var c=data.capabilities||{};
-      var html="<div class='ep-form'>";
-      capFields.forEach(function(f){
-        var arr=c[f.key]||[];
-        html+="<div class='ep-field'><label>"+esc(f.label)+"</label>";
-        if(arr.length){
-          html+="<div class='ep-tags'>";
-          arr.forEach(function(t){ html+="<span class='ep-tag'>"+esc(t)+"</span>"; });
-          html+="</div>";
-        } else { html+="<div class='val'><span style='color:var(--ds-text-tertiary)'>–</span></div>"; }
-        html+="</div>";
-      });
-      html+="</div>";
-      $("capabilities-view").innerHTML=html;
-    }
-    var _capDraft={};
-    function initCapDraft(){
-      var c=data.capabilities||{};
-      _capDraft={};
-      capFields.forEach(function(f){ _capDraft[f.key]=(c[f.key]||[]).slice(); });
-    }
-    function renderCapabilitiesEdit(){
-      var html="<div class='ep-form'>";
-      capFields.forEach(function(f){
-        var arr=_capDraft[f.key]||[];
-        html+="<div class='ep-field'><label>"+esc(f.label)+" <span style='font-weight:400;text-transform:none;letter-spacing:0'>(Enter zum Hinzufuegen)</span></label>";
-        html+="<div class='ep-tags' id='tags-"+f.key+"'>";
-        arr.forEach(function(t,i){ html+="<span class='ep-tag'>"+esc(t)+"<span class='x' data-field='"+f.key+"' data-idx='"+i+"'>&times;</span></span>"; });
-        html+="<input class='ep-tag-input' data-field='"+f.key+"' placeholder='+' onkeydown='EP.tagKey(event)'/>";
-        html+="</div></div>";
-      });
-      html+="</div><div class='ep-actions'><button class='ep-btn' onclick='EP.toggleEdit(\"capabilities\")'>Abbrechen</button><button class='ep-btn ep-btn--primary' onclick='EP.saveCapabilities()'>Speichern</button></div>";
-      $("capabilities-edit").innerHTML=html;
-      $("capabilities-edit").querySelectorAll(".x").forEach(function(el){
-        el.onclick=function(){ EP._removeTag(el.dataset.field, parseInt(el.dataset.idx)); };
-      });
-    }
-
-    /* ── LOCATIONS ────────────────────────────────── */
-    function renderLocations(){
-      var locs=data.locations||[];
-      if(!locs.length){ $("locations-list").innerHTML="<div class='ep-empty'>Noch keine Standorte hinterlegt.</div>"; return; }
-      var html="";
-      locs.forEach(function(l){
-        html+="<div class='ep-list-item'><div class='ep-list-item__body'>";
-        html+="<div class='ep-list-item__title'>"+esc(l.city||"Standort")+(l.is_headquarters?" <span class='ep-badge ep-badge--ok'>HQ</span>":"")+"</div>";
-        html+="<div class='ep-list-item__sub'>"+(l.label?esc(l.label)+" · ":"")+(l.postal_code?esc(l.postal_code)+" ":"")+esc(l.country||"")+(l.radius_km?" · Radius: "+l.radius_km+" km":"")+"</div>";
-        html+="</div><div class='ep-list-item__actions'>";
-        html+="<button class='ep-btn ep-btn--sm ep-btn--danger' onclick='EP.removeLocation("+l.id+")'>&#128465;</button>";
-        html+="</div></div>";
-      });
-      $("locations-list").innerHTML=html;
-    }
-
-    /* ── CERTIFICATIONS ──────────────────────────── */
-    function renderCerts(){
-      var certs=data.certifications||[];
-      if(!certs.length){ $("certs-list").innerHTML="<div class='ep-empty'>Noch keine Zertifizierungen hinterlegt.</div>"; return; }
-      var html="";
-      certs.forEach(function(c){
-        var badge=c.is_expired?"ep-badge--miss":c.status==="active"?"ep-badge--ok":"ep-badge--warn";
-        var label=c.is_expired?"Abgelaufen":c.status==="active"?"Aktiv":esc(c.status||"");
-        html+="<div class='ep-list-item'><div class='ep-list-item__body'>";
-        html+="<div class='ep-list-item__title'>"+esc(c.cert_name)+" <span class='ep-badge "+badge+"'>"+label+"</span></div>";
-        html+="<div class='ep-list-item__sub'>"+(c.cert_type?esc(c.cert_type)+" · ":"")+(c.issuer?"Aussteller: "+esc(c.issuer):"")+(c.expires_at?" · Ablauf: "+new Date(c.expires_at).toLocaleDateString("de-DE"):"")+"</div>";
-        html+="</div><div class='ep-list-item__actions'>";
-        html+="<button class='ep-btn ep-btn--sm ep-btn--danger' onclick='EP.removeCert("+c.id+")'>&#128465;</button>";
-        html+="</div></div>";
-      });
-      $("certs-list").innerHTML=html;
-    }
-
-    /* ── CONTACTS ─────────────────────────────────── */
-    function renderContacts(){
-      var list=data.contacts||[];
-      if(!list.length){ $("contacts-list").innerHTML="<div class='ep-empty'>Noch keine Ansprechpartner hinterlegt.</div>"; return; }
-      var html="";
-      list.forEach(function(c){
-        html+="<div class='ep-list-item'><div class='ep-list-item__body'>";
-        html+="<div class='ep-list-item__title'>"+esc(c.name)+(c.is_primary?" <span class='ep-badge ep-badge--ok'>Primaer</span>":"")+"</div>";
-        html+="<div class='ep-list-item__sub'>"+(c.role_title?esc(c.role_title)+" · ":"")+(c.email?esc(c.email):"")+(c.phone?" · "+esc(c.phone):"")+"</div>";
-        html+="</div><div class='ep-list-item__actions'>";
-        html+="<button class='ep-btn ep-btn--sm ep-btn--danger' onclick='EP.removeContact("+c.id+")'>&#128465;</button>";
-        html+="</div></div>";
-      });
-      $("contacts-list").innerHTML=html;
-    }
-
-    /* ── SCORECARD ────────────────────────────────── */
-    function renderScorecard(){
-      var s=data.scorecard;
-      if(!s||!s.grade){ $("scorecard-widget").style.display="none"; return; }
-      var colors={A:"var(--ds-success)",B:"var(--ds-warning)",C:"var(--ds-danger)"};
-      var bg={A:"var(--ds-success-muted)",B:"var(--ds-warning-muted)",C:"var(--ds-danger-muted)"};
-      var html="<div class='ep-score'>";
-      html+="<div class='ep-score-grade' style='background:"+(bg[s.grade]||bg.C)+";color:"+(colors[s.grade]||colors.C)+"'>"+esc(s.grade)+"</div>";
-      html+="<div class='ep-score-kpis'>";
-      html+="<div class='ep-score-kpi'><div class='v'>"+Math.round((s.fill_rate||0)*100)+"%</div><div class='l'>Fill Rate</div></div>";
-      html+="<div class='ep-score-kpi'><div class='v'>"+Math.round((s.on_time_rate||0)*100)+"%</div><div class='l'>Puenktlichkeit</div></div>";
-      html+="<div class='ep-score-kpi'><div class='v'>"+(s.sla_breach_count||0)+"</div><div class='l'>SLA-Brueche</div></div>";
-      html+="</div></div>";
-      $("scorecard-body").innerHTML=html;
-      $("scorecard-widget").style.display="block";
-    }
-
-    /* ── COMPLIANCE ──────────────────────────────── */
-    function renderCompliance(){
-      var c=data.compliance;
-      if(!c){ $("sec-compliance").style.display="none"; return; }
-      $("sec-compliance").style.display="block";
-      var colors={green:"var(--ds-success)",yellow:"var(--ds-warning)",red:"var(--ds-danger)"};
-      var html="<div style='display:flex;gap:var(--ds-space-6);flex-wrap:wrap'>";
-      ["green","yellow","red"].forEach(function(k){
-        var count=c[k]||0;
-        html+="<div style='text-align:center'><div style='font-size:24px;font-weight:900;color:"+colors[k]+"'>"+count+"</div><div style='font-size:11px;color:var(--ds-text-secondary);text-transform:uppercase'>"+k+"</div></div>";
-      });
-      html+="</div>";
-      $("compliance-body").innerHTML=html;
-    }
-
-    /* ── TOGGLE EDIT ─────────────────────────────── */
-    function toggleEdit(sec){
-      var view=$(sec+"-view"), edit=$(sec+"-edit");
-      if(!view||!edit) return;
-      if(edit.style.display==="none"){
-        if(sec==="overview") renderOverviewEdit();
-        if(sec==="basic") renderBasicEdit();
-        if(sec==="capabilities"){ initCapDraft(); renderCapabilitiesEdit(); }
-        view.style.display="none"; edit.style.display="block";
-      } else {
-        view.style.display="block"; edit.style.display="none";
-      }
-    }
-
-    /* ── SAVE: Overview ──────────────────────────── */
-    async function saveOverview(){
-      var body={};
-      overviewFields.forEach(function(f){ body[f.key]=$("ov-"+f.key).value.trim(); });
-      try{
-        await api(API+"/overview",{method:"PUT",body:body});
-        var res=await api(API); data=res.data||res;
-        toggleEdit("overview");
-        renderAll();
-        toast("Firmenprofil gespeichert");
-      }catch(e){ toast("Speichern fehlgeschlagen",false); }
-    }
-
-    /* ── SAVE: Basic ─────────────────────────────── */
-    async function saveBasic(){
-      var body={};
-      basicFields.forEach(function(f){ body[f.key]=$("ba-"+f.key).value.trim(); });
-      try{
-        await api("/api/me/profile",{method:"PUT",body:body});
-        var res=await api(API); data=res.data||res;
-        toggleEdit("basic");
-        renderAll();
-        toast("Stammdaten gespeichert");
-      }catch(e){ toast("Speichern fehlgeschlagen",false); }
-    }
-
-    /* ── SAVE: Capabilities ──────────────────────── */
-    async function saveCapabilities(){
-      var body={};
-      capFields.forEach(function(f){
-        var tags=[];
-        var container=$("tags-"+f.key);
-        if(container){
-          container.querySelectorAll(".ep-tag").forEach(function(el){
-            var txt=el.childNodes[0];
-            if(txt) tags.push(txt.textContent.trim());
-          });
+      var html = "";
+      items.forEach(function(b) {
+        var label  = BOUNTY_TYPE_LABELS[b.bounty_type] || b.bounty_type;
+        var status = STATUS_LABELS[b.status] || b.status;
+        var color  = STATUS_COLORS[b.status] || "var(--ds-text)";
+        html += "<div style='display:flex;align-items:center;justify-content:space-between;padding:var(--ds-space-2) 0;border-bottom:1px solid rgba(255,255,255,.04)'>";
+        html += "<div>";
+        html += "<span style='font-size:13px;font-weight:600'>" + label + "</span>";
+        if (b.staff_note) {
+          html += "<div style='font-size:11px;color:var(--ds-text-secondary);margin-top:2px'>Hinweis Staff: " + b.staff_note.substring(0,80) + "</div>";
         }
-        body[f.key]=tags;
+        html += "</div>";
+        html += "<div style='display:flex;align-items:center;gap:var(--ds-space-2)'>";
+        html += "<span style='font-size:11px;font-weight:700;color:" + color + "'>" + status + "</span>";
+        if (b.status === "draft" || b.status === "pending") {
+          html += "<button class='ep-btn ep-btn--sm ep-btn--danger' onclick='promoCancel(\"" + b.id + "\")'>Stornieren</button>";
+        }
+        html += "</div></div>";
       });
-      try{
-        await api(API+"/capabilities",{method:"PUT",body:body});
-        var res=await api(API); data=res.data||res;
-        toggleEdit("capabilities");
-        renderAll();
-        toast("Kompetenzen gespeichert");
-      }catch(e){ toast("Speichern fehlgeschlagen",false); }
+      el.innerHTML = html;
     }
 
-    /* ── TAG INPUT ────────────────────────────────── */
-    function tagKey(e){
-      if(e.key!=="Enter") return;
-      e.preventDefault();
-      var inp=e.target, val=inp.value.trim();
-      if(!val) return;
-      var field=inp.dataset.field;
-      var container=$("tags-"+field);
-      var tag=document.createElement("span");
-      tag.className="ep-tag";
-      tag.innerHTML=esc(val)+"<span class='x'>&times;</span>";
-      tag.querySelector(".x").onclick=function(){ tag.remove(); };
-      container.insertBefore(tag, inp);
-      inp.value="";
-    }
-    function _removeTag(field, idx){
-      _capDraft[field].splice(idx,1);
-      renderCapabilitiesEdit();
+    async function loadPromotions() {
+      try {
+        var r = await fetch("/api/profile-bounties/me", { credentials: "include" });
+        if (r.status === 403) return; // Maturity-gated: keep coming-soon state
+        if (!r.ok) return;
+
+        var res = await r.json();
+        var items = res.data || [];
+
+        // Feature is available — switch to active UI
+        var cs = $("promo-coming-soon");
+        var body = $("promo-body");
+        var loading = $("promo-loading");
+        var listArea = $("promo-list-area");
+        var badge = $("promo-status-badge");
+        if (cs) cs.style.display = "none";
+        if (body) body.style.display = "block";
+        renderBountyList(items);
+        if (loading) loading.style.display = "none";
+        if (listArea) listArea.style.display = "block";
+        if (badge) { badge.textContent = "Aktiv"; badge.style.display = "inline-block"; }
+
+      } catch(e) {}
     }
 
-    /* ── ADD LOCATION ────────────────────────────── */
-    function showAddLocation(){
-      $("location-form").innerHTML="<div class='ep-form' style='margin-top:var(--ds-space-3)'><div class='ep-field'><label>Stadt *</label><input id='loc-city'/></div><div class='ep-field'><label>PLZ</label><input id='loc-postal'/></div><div class='ep-field'><label>Land</label><input id='loc-country' value='Deutschland'/></div><div class='ep-field'><label>Bezeichnung</label><input id='loc-label' placeholder='z.B. Hauptsitz, Filiale Nord'/></div><div class='ep-field'><label>Radius (km)</label><input id='loc-radius' type='number' value='50'/></div><div class='ep-field'><label>Hauptsitz?</label><select id='loc-hq'><option value='false'>Nein</option><option value='true'>Ja</option></select></div></div><div class='ep-actions'><button class='ep-btn' onclick='EP.hideForm(\"location-form\")'>Abbrechen</button><button class='ep-btn ep-btn--primary' onclick='EP.addLocation()'>Hinzufuegen</button></div>";
-      $("location-form").style.display="block";
-    }
-    async function addLocation(){
-      var body={city:$("loc-city").value.trim(),postal_code:$("loc-postal").value.trim(),country:$("loc-country").value.trim(),label:$("loc-label").value.trim(),radius_km:parseInt($("loc-radius").value)||50,is_headquarters:$("loc-hq").value==="true"};
-      if(!body.city){ toast("Stadt ist erforderlich",false); return; }
-      try{
-        await api(API+"/locations",{method:"POST",body:body});
-        var res=await api(API); data=res.data||res;
-        $("location-form").style.display="none";
-        renderAll(); toast("Standort hinzugefuegt");
-      }catch(e){ toast("Fehler beim Hinzufuegen",false); }
-    }
-    async function removeLocation(id){
-      if(!confirm("Standort wirklich entfernen?")) return;
-      try{
-        await api(API+"/locations/"+id,{method:"DELETE"});
-        var res=await api(API); data=res.data||res;
-        renderAll(); toast("Standort entfernt");
-      }catch(e){ toast("Fehler",false); }
+    // Expose cancel for inline onclick
+    window.promoCancel = async function(id) {
+      if (!id) return;
+      if (!confirm("Antrag wirklich stornieren?")) return;
+      try {
+        var csrfR = await fetch("/api/csrf-token", { credentials: "include" });
+        var csrfToken = "";
+        if (csrfR.ok) { var ct = await csrfR.json(); csrfToken = ct.token || ct.csrfToken || ""; }
+        var r = await fetch("/api/profile-bounties/" + encodeURIComponent(id), {
+          method: "DELETE",
+          headers: { "Content-Type": "application/json", "x-csrf-token": csrfToken },
+          credentials: "include"
+        });
+        if (r.ok) loadPromotions();
+      } catch(e) {}
+    };
+
+    // Create new bounty request
+    var createBtn = $("promo-create-btn");
+    if (createBtn) {
+      createBtn.addEventListener("click", async function() {
+        var typeEl = $("promo-type-select");
+        var errEl  = $("promo-create-err");
+        if (!typeEl) return;
+        createBtn.disabled = true;
+        if (errEl) errEl.style.display = "none";
+        try {
+          var csrfR = await fetch("/api/csrf-token", { credentials: "include" });
+          var csrfToken = "";
+          if (csrfR.ok) { var ct = await csrfR.json(); csrfToken = ct.token || ct.csrfToken || ""; }
+          var r = await fetch("/api/profile-bounties/me", {
+            method: "POST",
+            headers: { "Content-Type": "application/json", "x-csrf-token": csrfToken },
+            credentials: "include",
+            body: JSON.stringify({ bounty_type: typeEl.value })
+          });
+          var res = await r.json();
+          if (!r.ok) {
+            if (errEl) { errEl.textContent = (res.error && res.error.message) || "Antrag fehlgeschlagen."; errEl.style.display = "block"; }
+            return;
+          }
+          loadPromotions(); // Reload list
+        } catch(e) {
+          if (errEl) { errEl.textContent = "Netzwerkfehler."; errEl.style.display = "block"; }
+        } finally {
+          createBtn.disabled = false;
+        }
+      });
     }
 
-    /* ── ADD CERT ────────────────────────────────── */
-    function showAddCert(){
-      $("cert-form").innerHTML="<div class='ep-form' style='margin-top:var(--ds-space-3)'><div class='ep-field'><label>Zertifikatsname *</label><input id='cert-name'/></div><div class='ep-field'><label>Typ</label><select id='cert-type'><option value='iso'>ISO</option><option value='industry'>Branche</option><option value='safety'>Sicherheit</option><option value='quality'>Qualitaet</option><option value='other'>Sonstiges</option></select></div><div class='ep-field'><label>Aussteller</label><input id='cert-issuer'/></div><div class='ep-field'><label>Ablaufdatum</label><input id='cert-expires' type='date'/></div></div><div class='ep-actions'><button class='ep-btn' onclick='EP.hideForm(\"cert-form\")'>Abbrechen</button><button class='ep-btn ep-btn--primary' onclick='EP.addCert()'>Hinzufuegen</button></div>";
-      $("cert-form").style.display="block";
+    if (document.readyState === "loading") {
+      document.addEventListener("DOMContentLoaded", loadPromotions);
+    } else {
+      loadPromotions();
     }
-    async function addCert(){
-      var body={cert_name:$("cert-name").value.trim(),cert_type:$("cert-type").value,issuer:$("cert-issuer").value.trim(),expires_at:$("cert-expires").value||null};
-      if(!body.cert_name){ toast("Name ist erforderlich",false); return; }
-      try{
-        await api(API+"/certifications",{method:"POST",body:body});
-        var res=await api(API); data=res.data||res;
-        $("cert-form").style.display="none";
-        renderAll(); toast("Zertifikat hinzugefuegt");
-      }catch(e){ toast("Fehler",false); }
-    }
-    async function removeCert(id){
-      if(!confirm("Zertifikat wirklich entfernen?")) return;
-      try{
-        await api(API+"/certifications/"+id,{method:"DELETE"});
-        var res=await api(API); data=res.data||res;
-        renderAll(); toast("Zertifikat entfernt");
-      }catch(e){ toast("Fehler",false); }
+  })();
+  </script>
+
+  <!-- M-09: Profilreichweite — soft-gated by profile_analytics_basic (PRO/INDIVIDUELL) -->
+  <script>
+  (function(){
+    "use strict";
+    function $(id){ return document.getElementById(id); }
+    function fmt(n){ return (n == null || n === undefined) ? "–" : Number(n).toLocaleString("de-DE"); }
+
+    var SEGMENT_LABELS = {
+      UNRATED: "Nicht bewertet", BRONZE: "Bronze", SILVER: "Silber",
+      GOLD: "Gold", PLATINUM: "Platin"
+    };
+    var SEGMENT_COLORS = {
+      UNRATED: "var(--ds-text-secondary)", BRONZE: "#cd7f32",
+      SILVER: "#aab5c4", GOLD: "#f5b43e", PLATINUM: "#a78bfa"
+    };
+
+    async function loadProfilreichweite() {
+      try {
+        // Try to fetch analytics — will 403 if not on PRO/INDIVIDUELL plan
+        var r = await fetch("/api/profile-analytics/me", { credentials: "include" });
+        if (!r.ok) return; // Not available on this plan — keep section hidden
+
+        var res = await r.json();
+        var d = res.data || res;
+        if (!d) return;
+
+        // Populate KPIs
+        var v7 = $("pr-views7-val");
+        var v30 = $("pr-views30-val");
+        var lk  = $("pr-likes-val");
+        if (v7)  v7.textContent  = fmt(d.views_7d);
+        if (v30) v30.textContent = fmt(d.views_30d);
+        if (lk)  lk.textContent  = fmt(d.likes_count);
+
+        // Show ranking if available (marketplace_ranking_participation — PRO+)
+        try {
+          var rr = await fetch("/api/profile-rankings/me", { credentials: "include" });
+          if (rr.ok) {
+            var rankRes = await rr.json();
+            var rank = rankRes.data || rankRes;
+            var seg   = rank && rank.rank_segment ? String(rank.rank_segment) : null;
+            var pos   = rank && rank.rank_position != null ? Number(rank.rank_position) : null;
+            var rankRow = $("pr-rank-row");
+            var rankSeg = $("pr-rank-segment");
+            var rankPos = $("pr-rank-position");
+            if (seg && rankRow && rankSeg) {
+              rankSeg.textContent = SEGMENT_LABELS[seg] || seg;
+              rankSeg.style.color = SEGMENT_COLORS[seg] || "var(--ds-text)";
+              if (rankPos && pos != null) {
+                rankPos.textContent = "Platz #" + pos.toLocaleString("de-DE");
+              }
+              rankRow.style.display = "block";
+            }
+          }
+        } catch(e) {}
+
+        // Visibility hint (soft check — don't break if endpoint unavailable)
+        try {
+          var vr = await fetch("/api/profile-visibility/settings", { credentials: "include" });
+          if (vr.ok) {
+            var vres = await vr.json();
+            var vs = vres.data || vres;
+            var hint = $("pr-vis-hint");
+            var statusEl = $("pr-vis-status");
+            if (vs && hint) {
+              if (vs.status === "approved" && vs.is_public) {
+                hint.textContent = "Ihr Profil ist derzeit im Marketplace sichtbar.";
+                hint.style.color = "var(--ds-success)";
+                if (statusEl) { statusEl.textContent = "Sichtbar"; statusEl.style.color = "var(--ds-success)"; }
+              } else if (vs.status === "submitted") {
+                hint.textContent = "Ihr Profil wird gerade geprüft. Sie werden benachrichtigt.";
+                if (statusEl) { statusEl.textContent = "In Prüfung"; statusEl.style.color = "var(--ds-warning)"; }
+              } else if (vs.status === "draft" || !vs.status) {
+                hint.innerHTML = "Profil noch nicht eingereicht. <a href=\"/public/sla_profil.html\" style=\"color:var(--ds-brand)\">Jetzt einreichen &rarr;</a>";
+              } else if (vs.status === "rejected") {
+                hint.textContent = "Profil wurde abgelehnt. Bitte beheben Sie die angegebenen Mängel und reichen Sie erneut ein.";
+                hint.style.color = "var(--ds-danger)";
+                if (statusEl) { statusEl.textContent = "Abgelehnt"; statusEl.style.color = "var(--ds-danger)"; }
+              } else if (vs.status === "suspended") {
+                hint.textContent = "Profil ist derzeit suspendiert. Bitte kontaktieren Sie den Support.";
+                hint.style.color = "var(--ds-danger)";
+                if (statusEl) { statusEl.textContent = "Suspendiert"; statusEl.style.color = "var(--ds-danger)"; }
+              }
+            }
+          }
+        } catch(e) {}
+
+        // Show section and body
+        var loading = $("pr-loading");
+        var body = $("pr-body");
+        var sec = $("sec-profilreichweite");
+        if (loading) loading.style.display = "none";
+        if (body) body.style.display = "block";
+        if (sec) sec.style.display = "block";
+
+      } catch(e) {
+        // Soft-fail: section stays hidden, no console error shown to user
+      }
     }
 
-    /* ── ADD CONTACT ─────────────────────────────── */
-    function showAddContact(){
-      $("contact-form").innerHTML="<div class='ep-form' style='margin-top:var(--ds-space-3)'><div class='ep-field'><label>Name *</label><input id='con-name'/></div><div class='ep-field'><label>Rolle / Titel</label><input id='con-role'/></div><div class='ep-field'><label>E-Mail</label><input id='con-email' type='email'/></div><div class='ep-field'><label>Telefon</label><input id='con-phone'/></div><div class='ep-field'><label>Primaer-Kontakt?</label><select id='con-primary'><option value='false'>Nein</option><option value='true'>Ja</option></select></div></div><div class='ep-actions'><button class='ep-btn' onclick='EP.hideForm(\"contact-form\")'>Abbrechen</button><button class='ep-btn ep-btn--primary' onclick='EP.addContact()'>Hinzufuegen</button></div>";
-      $("contact-form").style.display="block";
+    // Run after DOM is ready (deferred via DOMContentLoaded)
+    if (document.readyState === "loading") {
+      document.addEventListener("DOMContentLoaded", loadProfilreichweite);
+    } else {
+      loadProfilreichweite();
     }
-    async function addContact(){
-      var body={name:$("con-name").value.trim(),role_title:$("con-role").value.trim(),email:$("con-email").value.trim(),phone:$("con-phone").value.trim(),is_primary:$("con-primary").value==="true"};
-      if(!body.name){ toast("Name ist erforderlich",false); return; }
-      try{
-        await api(API+"/contacts",{method:"POST",body:body});
-        var res=await api(API); data=res.data||res;
-        $("contact-form").style.display="none";
-        renderAll(); toast("Kontakt hinzugefuegt");
-      }catch(e){ toast("Fehler",false); }
-    }
-    async function removeContact(id){
-      if(!confirm("Kontakt wirklich entfernen?")) return;
-      try{
-        await api(API+"/contacts/"+id,{method:"DELETE"});
-        var res=await api(API); data=res.data||res;
-        renderAll(); toast("Kontakt entfernt");
-      }catch(e){ toast("Fehler",false); }
-    }
-
-    function hideForm(id){ $(id).style.display="none"; }
-
-    window.EP={toggleEdit:toggleEdit,saveOverview:saveOverview,saveBasic:saveBasic,saveCapabilities:saveCapabilities,tagKey:tagKey,_removeTag:_removeTag,showAddLocation:showAddLocation,addLocation:addLocation,removeLocation:removeLocation,showAddCert:showAddCert,addCert:addCert,removeCert:removeCert,showAddContact:showAddContact,addContact:addContact,removeContact:removeContact,hideForm:hideForm};
-    load();
   })();
   </script>
   <p class="sla-disclaimer" style="margin-top:var(--ds-space-6)">Hinweis: Inhalte dienen der Unterstützung und ersetzen keine rechtliche Prüfung. Angaben ohne Gewähr.</p>
-  <script src="/public/js/notifications.js"></script>
+  <script src="/public/js/pageShell.js"></script>`n  <script src="/public/js/notifications.js"></script>
   <div id="tc-footer" data-tc-footer></div>
   <script src="/public/js/footer.js"></script>
-  <script src="/public/js/logout-btn.js"></script>
+<script src="/public/js/onboardingChecklist.js" defer></script>
+<script src="/public/js/demoBanner.js" defer></script>
+<script src="/public/js/onboardingWizard.js" defer></script><script src="/public/js/breadcrumb.js" defer></script>
 </body>
 </html>

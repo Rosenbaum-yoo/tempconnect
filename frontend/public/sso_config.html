@@ -1,0 +1,308 @@
+﻿<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <script src="/public/js/theme.js"></script>
+  <title>SSO / SAML Konfiguration – TempConnect</title>
+  <link rel="stylesheet" href="/public/css/enterprise.css"/>
+  <style>
+    .sso-form { max-width: 720px; }
+    .sso-field { margin-bottom: var(--ds-space-4); }
+    .sso-field label { display: block; font-size: 12px; font-weight: 700; color: var(--ds-text-secondary); text-transform: uppercase; letter-spacing: .04em; margin-bottom: 6px; }
+    .sso-field input, .sso-field textarea, .sso-field select {
+      width: 100%; padding: 10px 14px; border-radius: var(--ds-radius-md, 10px);
+      border: 1px solid var(--ds-border, rgba(255,255,255,.1)); background: rgba(0,0,0,.25);
+      color: var(--ds-text, #e9eefc); font-size: 14px; outline: none;
+    }
+    .sso-field textarea { min-height: 120px; resize: vertical; font-family: monospace; font-size: 12px; }
+    .sso-field .hint { font-size: 11px; color: var(--ds-text-secondary); margin-top: 4px; }
+    .sso-toggle { display: flex; align-items: center; gap: 12px; padding: 12px 16px; border-radius: var(--ds-radius-md, 10px); border: 1px solid var(--ds-border, rgba(255,255,255,.1)); background: rgba(0,0,0,.15); margin-bottom: var(--ds-space-3); }
+    .sso-toggle input[type="checkbox"] { width: 18px; height: 18px; accent-color: var(--ds-brand, #4a9eff); }
+    .sso-toggle .toggle-label { font-weight: 700; font-size: 14px; }
+    .sso-toggle .toggle-desc { font-size: 12px; color: var(--ds-text-secondary); }
+    .sso-status { display: flex; gap: var(--ds-space-3); flex-wrap: wrap; margin-bottom: var(--ds-space-5); }
+    .sso-status-badge { padding: 8px 16px; border-radius: 999px; font-size: 12px; font-weight: 700; border: 1px solid; }
+    .sso-status-badge.active { color: #c8ffe7; border-color: rgba(57,217,138,.4); background: rgba(57,217,138,.12); }
+    .sso-status-badge.inactive { color: var(--ds-text-secondary); border-color: var(--ds-border); background: rgba(255,255,255,.03); }
+    .sso-status-badge.enforced { color: #ffd0a0; border-color: rgba(255,180,80,.4); background: rgba(255,180,80,.12); }
+    .sso-result { margin-top: var(--ds-space-4); padding: var(--ds-space-4); border-radius: var(--ds-radius-md); border: 1px solid var(--ds-border); }
+    .sso-result.ok { border-color: rgba(57,217,138,.35); background: rgba(57,217,138,.06); }
+    .sso-result.err { border-color: rgba(255,92,122,.35); background: rgba(255,92,122,.06); }
+    .sso-actions { display: flex; gap: var(--ds-space-2); flex-wrap: wrap; margin-top: var(--ds-space-4); }
+    .meta-box { padding: var(--ds-space-4); border-radius: var(--ds-radius-md); border: 1px solid rgba(74,158,255,.2); background: rgba(74,158,255,.04); margin-top: var(--ds-space-4); }
+    .meta-box code { font-size: 12px; word-break: break-all; color: var(--ds-brand); }
+  </style>
+</head>
+<body>
+  <div id="paywall" class="wrap" style="display:none">
+    <nav class="ds-topbar"><div class="ds-topbar__brand"><span class="ds-topbar__brand-dot"></span>TempConnect</div><div class="ds-topbar__nav"><a href="/public/enterprise.html" class="ds-btn">Startseite</a></div></nav>
+    <div class="paywall-box">
+      <h2 id="locked-title">Bereich nicht verfuegbar</h2>
+      <p id="locked-message">SSO-Konfiguration erfordert mindestens PRO-Plan.</p>
+      <a id="locked-action" href="/public/sla_abo.html" class="btn primary">Abo ansehen</a>
+    </div>
+  </div>
+
+  <div id="main-content" class="wrap">
+    <nav class="ds-topbar">
+      <div class="ds-topbar__brand"><span class="ds-topbar__brand-dot"></span>TempConnect</div>
+      <div class="ds-topbar__nav">
+        <a href="/public/enterprise.html" class="ds-nav-link">&larr; Uebersicht</a>
+      </div>
+    </nav>
+
+    <div class="ds-page-header">
+      <div class="ds-page-header__content">
+        <h1 class="ds-page-title">SSO / SAML Konfiguration</h1>
+        <p class="ds-page-subtitle">Konfigurieren Sie Single Sign-On fuer Ihre Organisation. Nutzer koennen sich ueber Ihren Identity Provider (IDP) anmelden.</p>
+      </div>
+    </div>
+
+    <!-- Status Badges -->
+    <div class="sso-status" id="ssoStatus">
+      <span class="sso-status-badge inactive" id="badgeConfigured">Nicht konfiguriert</span>
+      <span class="sso-status-badge inactive" id="badgeActive">Inaktiv</span>
+      <span class="sso-status-badge inactive" id="badgeEnforced">Enforce: Aus</span>
+      <span class="sso-status-badge inactive" id="badgeSaml">SAML: Stub-Modus</span>
+    </div>
+
+    <!-- Form -->
+    <div class="sso-form" id="ssoForm">
+      <div class="sso-field">
+        <label>IDP Entity ID</label>
+        <input id="cfgEntityId" placeholder="z.B. https://idp.example.com/saml/metadata"/>
+        <div class="hint">Die Entity ID Ihres Identity Providers (aus den IDP-Metadaten).</div>
+      </div>
+      <div class="sso-field">
+        <label>IDP SSO URL</label>
+        <input id="cfgSsoUrl" placeholder="z.B. https://idp.example.com/saml/sso"/>
+        <div class="hint">Die Single Sign-On URL (HTTP-Redirect oder HTTP-POST Binding).</div>
+      </div>
+      <div class="sso-field">
+        <label>IDP Zertifikat (PEM)</label>
+        <textarea id="cfgCertificate" placeholder="-----BEGIN CERTIFICATE-----&#10;MIIDx...&#10;-----END CERTIFICATE-----"></textarea>
+        <div class="hint">Das oeffentliche Zertifikat des IDP im PEM-Format. Kopieren Sie den gesamten Block inkl. BEGIN/END.</div>
+      </div>
+      <div class="sso-field">
+        <label>SP Entity ID (optional)</label>
+        <input id="cfgSpEntityId" placeholder="Wird automatisch generiert wenn leer"/>
+        <div class="hint">Eigene Service Provider Entity ID. Wenn leer, wird die Metadata-URL verwendet.</div>
+      </div>
+      <div class="sso-field">
+        <label>Attribut-Mapping (JSON)</label>
+        <textarea id="cfgAttrMapping" style="min-height:80px" placeholder='{"email":"email","firstName":"firstName","lastName":"lastName"}'></textarea>
+        <div class="hint">Zuordnung der SAML-Attribute zu TempConnect-Feldern. Standard: email, firstName, lastName.</div>
+      </div>
+
+      <!-- Toggles -->
+      <div class="sso-toggle">
+        <input type="checkbox" id="cfgActive"/>
+        <div>
+          <div class="toggle-label">SSO aktivieren</div>
+          <div class="toggle-desc">Wenn aktiv, koennen Nutzer sich ueber SSO/SAML anmelden.</div>
+        </div>
+      </div>
+      <div class="sso-toggle">
+        <input type="checkbox" id="cfgEnforce"/>
+        <div>
+          <div class="toggle-label">SSO erzwingen (Enforce)</div>
+          <div class="toggle-desc">Wenn aktiv, wird Passwort-Login fuer alle Org-Mitglieder blockiert. Nur SSO-Login moeglich.</div>
+        </div>
+      </div>
+
+      <!-- Actions -->
+      <div class="sso-actions">
+        <button class="ds-btn ds-btn--primary" onclick="saveConfig()">Konfiguration speichern</button>
+        <button class="ds-btn" onclick="testConfig()">Konfiguration testen</button>
+        <button class="ds-btn" style="color:#ffa0a0;border-color:rgba(255,92,122,.3)" onclick="deleteConfig()">Konfiguration loeschen</button>
+      </div>
+
+      <!-- Test Result -->
+      <div id="testResult" style="display:none"></div>
+
+      <!-- SP Metadata Info -->
+      <div class="meta-box" id="metaBox">
+        <div style="font-weight:700;margin-bottom:8px">Service Provider Informationen</div>
+        <div style="font-size:13px;color:var(--ds-text-secondary);line-height:2">
+          <div><strong>SP Entity ID:</strong> <code id="metaSpEntityId">–</code></div>
+          <div><strong>ACS URL (Callback):</strong> <code id="metaAcsUrl">–</code></div>
+          <div><strong>Metadata XML:</strong> <a id="metaXmlLink" href="#" target="_blank" style="color:var(--ds-brand)">Herunterladen</a></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="/public/js/planFeatures.js"></script>
+  <script src="/public/js/slaGuard.js"></script>
+  <script>
+  var SSO = { orgId: null, baseUrl: '' };
+  function showLockedState(title, message, href, label) {
+    document.getElementById('locked-title').textContent = title || 'Bereich nicht verfuegbar';
+    document.getElementById('locked-message').textContent = message || 'Dieser Bereich ist derzeit nicht freigeschaltet.';
+    var action = document.getElementById('locked-action');
+    action.href = href || '/public/enterprise.html';
+    action.textContent = label || 'Zur Übersicht';
+    document.getElementById('main-content').style.display = 'none';
+    document.getElementById('paywall').style.display = 'block';
+  }
+
+  (function boot() {
+    SSO.baseUrl = window.location.origin;
+    fetch('/api/admin/control-center', { credentials: 'include' }).then(function(r) {
+      if (!r.ok) { window.location.href = '/public/enterprise.html'; return null; }
+      return r.json();
+    }).then(function(resp) {
+      if (!resp || !resp.success) return;
+      var payload = resp.data || {};
+      var card = (payload.cards && payload.cards.sso_saml) || {};
+      var user = (payload.context && payload.context.user) || {};
+      if (card.state !== 'active') {
+        showLockedState('SSO / SAML kontrolliert gesperrt', card.access_message, card.primary_action && card.primary_action.href, card.primary_action && card.primary_action.label);
+        return;
+      }
+      SSO.orgId = user.org_id || null;
+      if (!SSO.orgId) {
+        showLockedState('Organisation erforderlich', 'SSO / SAML benötigt einen gültigen Organisationskontext.', '/public/enterprise.html', 'Zur Übersicht');
+        return;
+      }
+      updateMetaInfo();
+      loadConfig();
+    }).catch(function() {});
+  })();
+
+  function updateMetaInfo() {
+    var spId = SSO.baseUrl + '/api/sso/metadata/' + SSO.orgId;
+    var acsUrl = SSO.baseUrl + '/api/sso/callback';
+    document.getElementById('metaSpEntityId').textContent = spId;
+    document.getElementById('metaAcsUrl').textContent = acsUrl;
+    var xmlLink = document.getElementById('metaXmlLink');
+    xmlLink.href = '/api/sso/metadata/' + SSO.orgId;
+  }
+
+  function loadConfig() {
+    fetch('/api/sso/config/' + SSO.orgId, { credentials: 'include' })
+      .then(function(r) { return r.json(); })
+      .then(function(cfg) {
+        if (cfg.configured) {
+          document.getElementById('cfgEntityId').value = cfg.idp_entity_id || '';
+          document.getElementById('cfgSsoUrl').value = cfg.idp_sso_url || '';
+          // Certificate bleibt maskiert
+          document.getElementById('cfgCertificate').placeholder = cfg.idp_certificate === '***configured***' ? 'Zertifikat ist hinterlegt. Zum Aendern neues Zertifikat einfuegen.' : '-----BEGIN CERTIFICATE-----';
+          document.getElementById('cfgSpEntityId').value = cfg.sp_entity_id || '';
+          try {
+            var mapping = typeof cfg.attribute_mapping === 'string' ? JSON.parse(cfg.attribute_mapping) : cfg.attribute_mapping;
+            document.getElementById('cfgAttrMapping').value = JSON.stringify(mapping, null, 2);
+          } catch(e) {
+            document.getElementById('cfgAttrMapping').value = '{}';
+          }
+          document.getElementById('cfgActive').checked = !!cfg.is_active;
+          document.getElementById('cfgEnforce').checked = !!cfg.enforce_sso;
+          updateBadges(true, cfg.is_active, cfg.enforce_sso);
+        } else {
+          document.getElementById('cfgAttrMapping').value = '{"email":"email","firstName":"firstName","lastName":"lastName"}';
+          updateBadges(false, false, false);
+        }
+      }).catch(function() {});
+    // SAML-Verfuegbarkeit pruefen
+    fetch('/api/sso/test/' + SSO.orgId, { method: 'POST', credentials: 'include', headers: { 'Content-Type': 'application/json' } })
+      .then(function(r) { return r.json(); })
+      .then(function(d) {
+        var b = document.getElementById('badgeSaml');
+        if (d.saml_available) { b.textContent = 'SAML: Aktiv'; b.className = 'sso-status-badge active'; }
+        else { b.textContent = 'SAML: Stub-Modus'; b.className = 'sso-status-badge inactive'; }
+      }).catch(function() {});
+  }
+
+  function updateBadges(configured, active, enforced) {
+    var bc = document.getElementById('badgeConfigured');
+    var ba = document.getElementById('badgeActive');
+    var be = document.getElementById('badgeEnforced');
+    bc.textContent = configured ? 'Konfiguriert' : 'Nicht konfiguriert';
+    bc.className = 'sso-status-badge ' + (configured ? 'active' : 'inactive');
+    ba.textContent = active ? 'Aktiv' : 'Inaktiv';
+    ba.className = 'sso-status-badge ' + (active ? 'active' : 'inactive');
+    be.textContent = enforced ? 'Enforce: An' : 'Enforce: Aus';
+    be.className = 'sso-status-badge ' + (enforced ? 'enforced' : 'inactive');
+  }
+
+  function saveConfig() {
+    var data = {
+      idp_entity_id: document.getElementById('cfgEntityId').value.trim(),
+      idp_sso_url: document.getElementById('cfgSsoUrl').value.trim(),
+      idp_certificate: document.getElementById('cfgCertificate').value.trim() || undefined,
+      sp_entity_id: document.getElementById('cfgSpEntityId').value.trim() || null,
+      is_active: document.getElementById('cfgActive').checked,
+      enforce_sso: document.getElementById('cfgEnforce').checked
+    };
+    try { data.attribute_mapping = JSON.parse(document.getElementById('cfgAttrMapping').value || '{}'); }
+    catch(e) { alert('Attribut-Mapping ist kein gueltiges JSON.'); return; }
+
+    if (!data.idp_entity_id || !data.idp_sso_url) {
+      alert('IDP Entity ID und IDP SSO URL sind Pflichtfelder.');
+      return;
+    }
+
+    fetch('/api/csrf', { credentials: 'include' }).then(function(r) { return r.json(); }).then(function(csrf) {
+      return fetch('/api/sso/config/' + SSO.orgId, {
+        method: 'PUT', credentials: 'include',
+        headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': csrf.token },
+        body: JSON.stringify(data)
+      });
+    }).then(function(r) { return r.json(); }).then(function(res) {
+      if (res.ok) {
+        showResult('ok', 'Konfiguration gespeichert.');
+        loadConfig();
+      } else {
+        showResult('err', 'Fehler: ' + (res.error || 'Unbekannt'));
+      }
+    }).catch(function(e) { showResult('err', 'Fehler: ' + e.message); });
+  }
+
+  function testConfig() {
+    fetch('/api/sso/test/' + SSO.orgId, { method: 'POST', credentials: 'include', headers: { 'Content-Type': 'application/json' } })
+      .then(function(r) { return r.json(); })
+      .then(function(d) {
+        var html = '<div style="font-weight:700;margin-bottom:8px">' + (d.valid ? '&#10003; Konfiguration gueltig' : '&#10007; Konfiguration ungueltig') + '</div>';
+        if (d.errors && d.errors.length) html += '<div style="color:#ffa0a0;font-size:13px">' + d.errors.map(function(e){return '&#8226; '+e}).join('<br/>') + '</div>';
+        if (d.warnings && d.warnings.length) html += '<div style="color:#ffe680;font-size:13px;margin-top:6px">' + d.warnings.map(function(w){return '&#9888; '+w}).join('<br/>') + '</div>';
+        html += '<div style="font-size:12px;color:var(--ds-text-secondary);margin-top:8px">SAML Library: ' + (d.saml_available ? 'Verfuegbar' : 'Nicht installiert (Stub-Modus)') + '</div>';
+        var el = document.getElementById('testResult');
+        el.innerHTML = html;
+        el.className = 'sso-result ' + (d.valid ? 'ok' : 'err');
+        el.style.display = 'block';
+      }).catch(function(e) { showResult('err', 'Test fehlgeschlagen: ' + e.message); });
+  }
+
+  function deleteConfig() {
+    if (!confirm('SSO-Konfiguration wirklich loeschen? Alle SSO-Nutzer muessen sich dann per Passwort anmelden.')) return;
+    fetch('/api/csrf', { credentials: 'include' }).then(function(r) { return r.json(); }).then(function(csrf) {
+      return fetch('/api/sso/config/' + SSO.orgId, {
+        method: 'DELETE', credentials: 'include',
+        headers: { 'X-CSRF-Token': csrf.token }
+      });
+    }).then(function(r) { return r.json(); }).then(function(res) {
+      if (res.ok) {
+        showResult('ok', 'Konfiguration geloescht.');
+        document.getElementById('cfgEntityId').value = '';
+        document.getElementById('cfgSsoUrl').value = '';
+        document.getElementById('cfgCertificate').value = '';
+        document.getElementById('cfgActive').checked = false;
+        document.getElementById('cfgEnforce').checked = false;
+        updateBadges(false, false, false);
+      }
+    }).catch(function(e) { showResult('err', 'Fehler: ' + e.message); });
+  }
+
+  function showResult(type, msg) {
+    var el = document.getElementById('testResult');
+    el.innerHTML = '<div style="font-size:14px">' + msg + '</div>';
+    el.className = 'sso-result ' + type;
+    el.style.display = 'block';
+    setTimeout(function() { el.style.display = 'none'; }, 6000);
+  }
+  </script>
+  <div id="tc-footer" data-tc-footer></div>
+  <script src="/public/js/footer.js"></script>
+</body>
+</html>

@@ -1,0 +1,355 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <script src="/public/js/theme.js"></script>
+  <title>Meine Einsätze – Einsatzportal</title>
+  <link rel="stylesheet" href="einsatzportal.css">
+  <style>
+    @media(min-width:900px){
+      .asg-layout { display:grid; grid-template-columns:340px 1fr; gap:20px; align-items:start; }
+      .asg-list-col { position:sticky; top:20px; max-height:calc(100vh - 60px); overflow-y:auto; }
+    }
+  </style>
+</head>
+<body>
+
+<aside class="ep-sidebar">
+  <div class="ep-sidebar-brand"><div class="ep-sidebar-logo">TC</div><div><div style="font-weight:800;font-size:.95rem">Einsatzportal</div><div style="font-size:.7rem;color:var(--ep-text-muted);font-weight:400">TempConnect</div></div></div>
+  <nav class="ep-sidebar-nav">
+    <a class="ep-sidebar-item" href="einsatzportal-dashboard.html"><span class="icon">🏠</span> Dashboard</a>
+    <a class="ep-sidebar-item active" href="einsatzportal-einsaetze.html"><span class="icon">📋</span> Meine Einsätze</a>
+    <a class="ep-sidebar-item" href="einsatzportal-plan.html"><span class="icon">📅</span> Einsatzplan</a>
+    <a class="ep-sidebar-item" href="einsatzportal-stundenzettel.html"><span class="icon">⏱</span> Stundenzettel</a>
+    <a class="ep-sidebar-item" href="einsatzportal-benachrichtigungen.html"><span class="icon">🔔</span> Benachrichtigungen<span class="ep-sidebar-badge" id="sb-badge" style="display:none">0</span></a>
+    <a class="ep-sidebar-item" href="einsatzportal-kontakt.html"><span class="icon">💬</span> Kontakt &amp; Hilfe</a>
+    <a class="ep-sidebar-item" href="einsatzportal-profil.html"><span class="icon">👤</span> Mein Profil</a>
+  </nav>
+  <div class="ep-sidebar-footer">
+    <div class="ep-sidebar-user"><div class="ep-sidebar-avatar" id="sd-ava">?</div><div><div class="ep-sidebar-name" id="sd-name">Lädt…</div><div class="ep-sidebar-role">Arbeitnehmer</div></div></div>
+    <button class="ep-sidebar-item" onclick="doLogout()" style="margin-top:4px;color:var(--ep-text-muted)"><span class="icon">↩</span> Abmelden</button>
+  </div>
+</aside>
+
+<header class="ep-topbar">
+  <a class="ep-topbar-brand" href="einsatzportal-dashboard.html" aria-label="Zur Einsatzportal-Übersicht"><div class="ep-topbar-logo">TC</div>Meine Einsätze</a>
+  <div class="ep-topbar-actions"><a class="ep-bell" href="einsatzportal-benachrichtigungen.html">🔔<span class="ep-bell-badge" id="mob-badge" style="display:none">0</span></a></div>
+</header>
+
+<main class="ep-main">
+  <div class="ep-content">
+    <div class="ep-page-header">
+      <h1 class="ep-page-title">Meine Einsätze</h1>
+      <p class="ep-page-sub">Übersicht aller Ihrer aktuellen und vergangenen Einsätze</p>
+    </div>
+
+    <div id="loading">
+      <div class="ep-skel"></div><div class="ep-skel" style="opacity:.7"></div><div class="ep-skel" style="opacity:.4"></div>
+    </div>
+
+    <div id="content" style="display:none">
+      <!-- Segment Tabs -->
+      <div class="ep-segtabs">
+        <button class="ep-segtab active" onclick="setTab('active')" id="tab-active">Aktiv & Kommend</button>
+        <button class="ep-segtab" onclick="setTab('past')" id="tab-past">Vergangen</button>
+      </div>
+
+      <div class="asg-layout">
+        <!-- List -->
+        <div class="asg-list-col">
+          <div id="asgList"></div>
+        </div>
+        <!-- Detail -->
+        <div id="asgDetail">
+          <div class="ep-empty" id="detEmpty">
+            <div class="icon">👆</div>
+            <h3>Einsatz auswählen</h3>
+            <p>Wählen Sie links einen Einsatz, um alle Details zu sehen.</p>
+          </div>
+          <div id="detContent" style="display:none"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</main>
+
+<nav class="ep-bottom-nav">
+  <a class="ep-bn-item" href="einsatzportal-dashboard.html"><span class="icon">🏠</span>Start</a>
+  <a class="ep-bn-item active" href="einsatzportal-einsaetze.html"><span class="icon">📋</span>Einsätze</a>
+  <a class="ep-bn-item" href="einsatzportal-plan.html"><span class="icon">📅</span>Plan</a>
+  <a class="ep-bn-item" href="einsatzportal-stundenzettel.html"><span class="icon">⏱</span>Stunden</a>
+  <a class="ep-bn-item" href="einsatzportal-benachrichtigungen.html"><span class="icon">🔔</span>Info<span class="ep-bn-dot" id="bn-dot" style="display:none"></span></a>
+  <a class="ep-bn-item" href="einsatzportal-profil.html"><span class="icon">👤</span>Profil</a>
+</nav>
+<div id="ep-toast"></div>
+
+<script src="/public/js/workerPortal/portalApi.js"></script>
+<script src="/public/js/workerPortal/portalShell.js"></script>
+<script src="/public/js/workerPortal/portalStatus.js"></script>
+<script>
+let assignments = [], curTab = 'active', selId = null;
+
+function toast(msg, type) { PortalShell.toast(msg, type || ''); }
+function esc(s) { return PortalShell.esc(s); }
+
+(async () => {
+  try {
+    await PortalShell.initShell();
+    await load();
+  } catch(e) {
+    const code = e.code || e.message;
+    if (code === 'NOT_AUTH') { location.href = 'worker-login.html'; return; }
+    PortalShell.showError('Daten konnten nicht geladen werden. Bitte laden Sie die Seite neu.');
+  }
+})();
+
+async function load() {
+  const d = await PortalApi.get('/worker/assignments', { include_inactive: 'true' });
+  assignments = d.items || [];
+  document.getElementById('loading').style.display='none';
+  document.getElementById('content').style.display='';
+  renderList();
+}
+
+function setTab(t) {
+  curTab=t; selId=null;
+  document.querySelectorAll('.ep-segtab').forEach(b=>b.classList.remove('active'));
+  document.getElementById('tab-'+t).classList.add('active');
+  renderList();
+  document.getElementById('detEmpty').style.display='';
+  document.getElementById('detContent').style.display='none';
+}
+
+function todayIso() {
+  return new Date().toISOString().slice(0,10);
+}
+function getAssignmentLifecycleState(a) {
+  if (typeof a?.assignment_lifecycle_state === 'string' && a.assignment_lifecycle_state) {
+    return a.assignment_lifecycle_state;
+  }
+  if (a?.assignment_status === 'completed') return 'completed';
+  if (a?.assignment_status === 'cancelled') return 'cancelled';
+  if (a?.is_active === false) return 'archived';
+  const end = a?.assignment_effective_end_date || a?.end_date || a?.asg_end || null;
+  if (end && end < todayIso()) return 'expired';
+  if (end && end === todayIso()) return 'ends_today';
+  return 'active';
+}
+function getAssignmentLifecycleBucket(a) {
+  if (a?.assignment_lifecycle_bucket === 'active' || a?.assignment_lifecycle_bucket === 'history') {
+    return a.assignment_lifecycle_bucket;
+  }
+  const state = getAssignmentLifecycleState(a);
+  return state === 'active' || state === 'ends_today' ? 'active' : 'history';
+}
+function isCurrentAssignment(a) {
+  if (typeof a?.assignment_is_current === 'boolean') return a.assignment_is_current;
+  return getAssignmentLifecycleBucket(a) === 'active';
+}
+
+function getFiltered() {
+  return assignments.filter(a => curTab === 'active' ? isCurrentAssignment(a) : !isCurrentAssignment(a));
+}
+
+function renderList() {
+  const el = document.getElementById('asgList');
+  const list = getFiltered();
+  if (!list.length) {
+    el.innerHTML = `<div class="ep-empty"><div class="icon">${curTab==='active'?'📋':'📁'}</div><h3>${curTab==='active'?'Keine aktiven Einsätze':'Keine Einsätze im Verlauf'}</h3><p>${curTab==='active'?'Ihr Disponent richtet Ihre Einsätze ein.':'Hier erscheinen beendete, abgelaufene und archivierte Einsätze.'}</p></div>`;
+    return;
+  }
+  el.innerHTML = list.map(a => {
+    const client = a.client_display_name || a.client_name || 'Einsatz';
+    const startD = a.start_date ? fmtD(a.start_date) : (a.asg_start ? fmtD(a.asg_start) : '–');
+    const endD   = (a.end_date || a.asg_end) ? fmtD(a.end_date || a.asg_end) : 'offen';
+    const st     = a.assignment_status || 'planned';
+    const cs = a.worker_confirmation_status||'auto_confirmed';
+    return `
+      <div class="ep-asg-card${selId===a.id?' selected':''}" onclick="selAsg('${a.id}')">
+        <div class="ep-asg-head">
+          <div class="ep-asg-client">${esc(client)}</div>
+          <div style="display:flex;gap:4px;align-items:center;flex-wrap:wrap">${asgBadge(a)}${confBadge(cs)}</div>
+        </div>
+        ${a.worker_description ? `<div class="ep-asg-desc">${esc(a.worker_description)}</div>` : ''}
+        <div class="ep-asg-foot">
+          <span class="ep-asg-date">📅 ${startD} – ${endD}</span>
+          ${a.default_shift_start ? `<span class="ep-asg-date">🕐 ${a.default_shift_start.slice(0,5)}${a.default_shift_end?' – '+a.default_shift_end.slice(0,5):''} Uhr</span>` : ''}
+        </div>
+      </div>`;
+  }).join('');
+}
+
+async function selAsg(id) {
+  selId = id; renderList();
+  document.getElementById('detEmpty').style.display='none';
+  const dc = document.getElementById('detContent');
+  dc.style.display='';
+  dc.innerHTML = '<div class="ep-skel" style="height:200px"></div>';
+  try {
+    const a = await PortalApi.get(`/worker/assignments/${id}`);
+    renderDetail(a);
+  } catch {
+    dc.innerHTML = `<div class="ep-alert ep-alert-danger"><span>⚠️</span><span>Fehler beim Laden.</span></div>`;
+  }
+}
+
+function renderDetail(a) {
+  const dc = document.getElementById('detContent');
+  const client = a.client_display_name || a.client_name || 'Einsatz';
+  const startD = a.start_date ? fmtD(a.start_date) : (a.asg_start ? fmtD(a.asg_start) : '–');
+  const endD   = (a.end_date||a.asg_end) ? fmtD(a.end_date||a.asg_end) : 'offen';
+
+  dc.innerHTML = `
+    <div class="ep-detail">
+      <div class="ep-detail-head">
+        <div style="display:flex;justify-content:space-between;align-items:flex-start">
+          <div>
+            <div class="ep-detail-title">${esc(client)}</div>
+            <div class="ep-detail-sub">${startD} – ${endD}</div>
+          </div>
+          ${asgBadge(a)}
+        </div>
+      </div>
+      <div class="ep-detail-body">
+        ${infoRow('📅','Zeitraum', `${startD} bis ${endD}`)}
+        ${a.default_shift_start ? infoRow('🕐','Schichtzeit', `${a.default_shift_start.slice(0,5)}${a.default_shift_end?' – '+a.default_shift_end.slice(0,5):''} Uhr`) : ''}
+        ${a.default_hours_per_day ? infoRow('⏱','Stunden/Tag', `${a.default_hours_per_day} h`) : ''}
+        ${a.default_break_minutes ? infoRow('☕','Pause', `${a.default_break_minutes} Minuten`) : ''}
+        ${a.location_address ? infoRow('📍','Einsatzort', a.location_address) : ''}
+        ${a.meeting_point ? infoRow('🚪','Treffpunkt', a.meeting_point) : ''}
+        ${a.worker_description ? infoRow('📄','Tätigkeit', a.worker_description) : ''}
+        ${a.instructions ? `<div class="ep-section-label">Einsatzanweisungen</div><div style="background:rgba(74,158,255,.07);border-left:3px solid var(--ep-brand);border-radius:0 8px 8px 0;padding:12px 14px;font-size:.875rem;line-height:1.6;margin-bottom:12px">${esc(a.instructions)}</div>` : ''}
+        ${a.dress_code ? `<div class="ep-section-label">Kleidung / Ausrüstung</div><div style="background:rgba(251,191,36,.07);border-left:3px solid var(--ep-warning);border-radius:0 8px 8px 0;padding:10px 14px;font-size:.875rem;margin-bottom:12px">👷 ${esc(a.dress_code)}</div>` : ''}
+
+        ${a.contact_name || a.dispatcher_name ? `
+          <div class="ep-section-label">Ansprechpartner</div>
+          ${a.contact_name ? contactBlock(a.contact_name, 'Ansprechpartner vor Ort', a.contact_phone, a.contact_email) : ''}
+          ${a.dispatcher_name ? contactBlock(a.dispatcher_name, 'Ihr Disponent', a.dispatcher_phone, a.dispatcher_email) : ''}
+        ` : ''}
+
+        ${a.worker_confirmation_status==='pending_confirmation' && isCurrentAssignment(a) ? `
+        <div style="margin-top:16px;padding:14px;background:rgba(74,158,255,.07);border:1px solid rgba(74,158,255,.2);border-radius:10px">
+          <div style="font-weight:700;font-size:.88rem;margin-bottom:6px">⏳ Best\u00e4tigung erforderlich</div>
+          <div style="font-size:.82rem;color:var(--ep-text-sub,var(--ep-text-muted));margin-bottom:10px">Ihr Disponent hat Ihnen diesen Einsatz zugewiesen. Bitte best\u00e4tigen oder lehnen Sie ab.</div>
+          <div style="display:flex;gap:8px;flex-wrap:wrap">
+            <button class="ep-btn ep-btn-primary ep-btn-sm" onclick="confirmAsg('${a.id}')">\u2713 Einsatz best\u00e4tigen</button>
+            <button class="ep-btn ep-btn-ghost ep-btn-sm" onclick="toggleDeclineDetail()" style="color:var(--ep-danger,#ef4444)">\u2717 Ablehnen</button>
+          </div>
+          <div id="declineDetail" style="display:none;margin-top:10px">
+            <textarea class="ep-input" id="declineReason" rows="2" placeholder="Begr\u00fcndung (optional)\u2026" style="width:100%;margin-bottom:6px;font-size:.82rem;padding:8px;border:1px solid var(--ep-border);border-radius:6px"></textarea>
+            <button class="ep-btn ep-btn-outline ep-btn-sm" onclick="declineAsg('${a.id}')" style="color:var(--ep-danger,#ef4444)">Ablehnung absenden</button>
+          </div>
+        </div>` : `
+        <div style="margin-top:16px;display:flex;gap:8px;flex-wrap:wrap">
+          <a href="einsatzportal-stundenzettel.html${a.id?'?link_id='+a.id:''}" class="ep-btn ep-btn-primary ep-btn-sm">⏱ Stundenzettel →</a>
+          <a href="einsatzportal-plan.html" class="ep-btn ep-btn-ghost ep-btn-sm">📅 Im Plan ansehen</a>
+          ${canReportUnavailable(a) ? '<button class="ep-btn ep-btn-ghost ep-btn-sm" onclick="showUnavailableForm(\'' + a.id + '\')" style="color:var(--ep-danger,#ef4444)">⚠️ Abwesenheit melden</button>' : ''}
+        </div>
+        <div id="unavailableForm-${a.id}" style="display:none;margin-top:12px;padding:14px;background:rgba(239,68,68,.06);border:1px solid rgba(239,68,68,.15);border-radius:10px">
+          <div style="font-weight:700;font-size:.88rem;margin-bottom:6px">⚠️ Abwesenheit / Krankmeldung</div>
+          <div style="font-size:.82rem;color:var(--ep-text-muted);margin-bottom:10px">Melden Sie sich ab einem bestimmten Datum als nicht verf\u00fcgbar. Bereits geleistete Tage davor bleiben abrechenbar. Ihr Disponent wird automatisch informiert.</div>
+          <label style="font-size:.78rem;font-weight:600;margin-bottom:4px;display:block">Nicht verf\u00fcgbar ab *</label>
+          <input type="date" class="ep-input" id="unavailDate-${a.id}" style="margin-bottom:8px;padding:8px;font-size:.82rem" value="${new Date().toISOString().slice(0,10)}" />
+          <label style="font-size:.78rem;font-weight:600;margin-bottom:4px;display:block">Grund (optional)</label>
+          <textarea class="ep-input" id="unavailReason-${a.id}" rows="2" placeholder="z.B. Krankheit, pers\u00f6nliche Gr\u00fcnde\u2026" style="width:100%;margin-bottom:8px;font-size:.82rem;padding:8px;border:1px solid var(--ep-border);border-radius:6px"></textarea>
+          <div style="display:flex;gap:8px">
+            <button class="ep-btn ep-btn-outline ep-btn-sm" onclick="submitUnavailable('${a.id}')" style="color:var(--ep-danger,#ef4444)">⚠️ Abwesenheit best\u00e4tigen</button>
+            <button class="ep-btn ep-btn-ghost ep-btn-sm" onclick="hideUnavailableForm('${a.id}')">Abbrechen</button>
+          </div>
+        </div>`}
+      </div>
+    </div>`;
+}
+
+function infoRow(icon, label, val) {
+  return `<div class="ep-info-row"><div class="ep-info-icon">${icon}</div><div><div class="ep-info-label">${label}</div><div class="ep-info-val">${esc(String(val))}</div></div></div>`;
+}
+function contactBlock(name, role, phone, email) {
+  return `
+    <div class="ep-contact-card" style="margin-bottom:8px">
+      <div class="ep-contact-head">
+        <div class="ep-contact-avatar">👤</div>
+        <div><div class="ep-contact-name">${esc(name)}</div><div class="ep-contact-role">${esc(role)}</div></div>
+      </div>
+      <div class="ep-contact-actions">
+        ${phone ? `<a class="ep-contact-action primary" href="tel:${esc(phone)}">📞 ${esc(phone)}</a>` : ''}
+        ${email ? `<a class="ep-contact-action" href="mailto:${esc(email)}">✉️ E-Mail</a>` : ''}
+      </div>
+    </div>`;
+}
+function asgBadge(st) {
+  const assignment = typeof st === 'string' ? { assignment_status: st } : (st || {});
+  const lifecycleState = getAssignmentLifecycleState(assignment);
+  const lifecycleMap = {
+    ends_today: { cls: 'ep-badge-planned', label: 'Endet heute' },
+    expired: { cls: 'ep-badge-draft', label: 'Abgelaufen' },
+    completed: { cls: 'ep-badge-completed', label: 'Beendet' },
+    cancelled: { cls: 'ep-badge-draft', label: 'Storniert' },
+    archived: { cls: 'ep-badge-draft', label: 'Archiv' }
+  };
+  if (lifecycleState !== 'active' && lifecycleMap[lifecycleState]) {
+    return `<span class="ep-badge ${lifecycleMap[lifecycleState].cls}">${lifecycleMap[lifecycleState].label}</span>`;
+  }
+  const rawStatus = assignment.assignment_status || 'planned';
+  const m = { active:'ep-badge-active', planned:'ep-badge-planned', completed:'ep-badge-completed', cancelled:'ep-badge-draft', extended:'ep-badge-active' };
+  const l = { active:'Aktiv', planned:'Geplant', completed:'Abgeschlossen', cancelled:'Storniert', extended:'Verlängert' };
+  return `<span class="ep-badge ${m[rawStatus]||'ep-badge-draft'}">${l[rawStatus]||rawStatus}</span>`;
+}
+function confBadge(cs) {
+  if (!cs || cs==='auto_confirmed') return '';
+  const m = {
+    pending_confirmation:'<span class="ep-badge" style="background:rgba(251,191,36,.12);color:#f59e0b">\u23f3 Best\u00e4tigung offen</span>',
+    worker_confirmed:'<span class="ep-badge" style="background:rgba(16,185,129,.12);color:#10b981">\u2713 Best\u00e4tigt</span>',
+    worker_declined:'<span class="ep-badge" style="background:rgba(239,68,68,.12);color:#ef4444">\u2717 Abgelehnt</span>',
+    worker_unavailable:'<span class="ep-badge" style="background:rgba(239,68,68,.12);color:#ef4444">\u26a0\ufe0f Abwesend</span>'
+  };
+  return m[cs]||'';
+}
+function canReportUnavailable(a) {
+  const cs = a.worker_confirmation_status || 'auto_confirmed';
+  return (cs === 'worker_confirmed' || cs === 'auto_confirmed') && isCurrentAssignment(a);
+}
+function showUnavailableForm(linkId) {
+  const el = document.getElementById('unavailableForm-' + linkId);
+  if (el) el.style.display = 'block';
+}
+function hideUnavailableForm(linkId) {
+  const el = document.getElementById('unavailableForm-' + linkId);
+  if (el) el.style.display = 'none';
+}
+async function submitUnavailable(linkId) {
+  const dateVal = document.getElementById('unavailDate-' + linkId)?.value;
+  const reason = (document.getElementById('unavailReason-' + linkId)?.value || '').trim();
+  if (!dateVal) { toast('Bitte Datum angeben.', 'error'); return; }
+  try {
+    await PortalApi.post(`/worker/assignments/${linkId}/report-unavailable`, { unavailable_from: dateVal, reason });
+    toast('\u2713 Abwesenheit gemeldet \u2013 Ihr Disponent wurde informiert.');
+    await load();
+    if (selId) await selAsg(selId);
+  } catch(e) { toast(e.message || 'Fehler', 'error'); }
+}
+async function confirmAsg(linkId) {
+  try {
+    await PortalApi.post(`/worker/assignments/${linkId}/confirm`, {});
+    toast('\u2713 Einsatz best\u00e4tigt!'); await load();
+    if (selId) await selAsg(selId);
+  } catch(e) { toast(e.message||'Fehler', 'error'); }
+}
+function toggleDeclineDetail() {
+  const el = document.getElementById('declineDetail');
+  if (el) el.style.display = el.style.display==='none' ? 'block' : 'none';
+}
+async function declineAsg(linkId) {
+  const reason = (document.getElementById('declineReason')?.value||'').trim();
+  try {
+    await PortalApi.post(`/worker/assignments/${linkId}/decline`, { reason });
+    toast('Einsatz abgelehnt.'); await load();
+  } catch(e) { toast(e.message||'Fehler', 'error'); }
+}
+function fmtD(d){return new Date(d).toLocaleDateString('de-DE',{day:'2-digit',month:'2-digit',year:'numeric'});}
+</script>
+<script src="/public/js/demoBanner.js" defer></script>
+<script src="/public/js/breadcrumb.js" defer></script>
+</body>
+</html>

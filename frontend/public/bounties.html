@@ -1,0 +1,465 @@
+﻿<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <script src="/public/js/theme.js"></script>
+  <title>Bounties &amp; Belohnungen – TempConnect</title>
+  <link rel="stylesheet" href="/public/css/design-system.css"/>
+  <style>
+    body { background: radial-gradient(ellipse 1000px 500px at 20% -5%, rgba(57,217,138,.1), transparent 55%),
+                        radial-gradient(ellipse 700px 400px at 85% -2%, rgba(124,92,255,.08), transparent 50%),
+                        var(--ds-bg); }
+    .section-label { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; color: var(--ds-success); margin-bottom: var(--ds-space-2); }
+    .section-heading { font-size: clamp(22px, 3vw, 30px); font-weight: 800; letter-spacing: -0.02em; margin: 0 0 var(--ds-space-2); }
+
+    /* Discount Hero */
+    .discount-hero {
+      text-align: center; padding: var(--ds-space-6); margin: var(--ds-space-4) 0;
+      border: 1px solid rgba(57,217,138,.25); border-radius: var(--ds-radius-xl);
+      background: rgba(57,217,138,.04);
+    }
+    .discount-value { font-size: 56px; font-weight: 900; color: var(--ds-success); line-height: 1; }
+    .discount-value span { font-size: 24px; }
+    .discount-label { font-size: 14px; color: var(--ds-text-secondary); margin-top: var(--ds-space-1); }
+    .discount-bar-wrap { max-width: 400px; margin: var(--ds-space-3) auto 0; }
+    .discount-bar-bg { height: 8px; border-radius: 4px; background: rgba(255,255,255,.08); overflow: hidden; }
+    .discount-bar { height: 100%; border-radius: 4px; background: linear-gradient(90deg, var(--ds-success), var(--ds-accent)); transition: width .6s ease; }
+    .discount-cap { font-size: 11px; color: var(--ds-text-tertiary); margin-top: 6px; }
+
+    /* Category Tabs */
+    .cat-tabs { display: flex; gap: var(--ds-space-2); margin: var(--ds-space-5) 0 var(--ds-space-3); flex-wrap: wrap; }
+    .cat-tab {
+      padding: 8px 18px; border-radius: 20px; font-size: 13px; font-weight: 700;
+      border: 1px solid var(--ds-border); background: rgba(255,255,255,.02);
+      cursor: pointer; transition: all .15s; color: var(--ds-text-secondary);
+    }
+    .cat-tab:hover { border-color: var(--ds-border-hover); }
+    .cat-tab.active { background: rgba(57,217,138,.12); border-color: rgba(57,217,138,.4); color: var(--ds-success); }
+
+    /* Bounty Cards */
+    .bounty-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: var(--ds-space-3); }
+    .bounty-card {
+      padding: var(--ds-space-4); border: 1px solid var(--ds-border);
+      border-radius: var(--ds-radius-lg); background: rgba(255,255,255,.02);
+      display: flex; gap: var(--ds-space-3); align-items: flex-start;
+      transition: border-color .15s, background .15s;
+    }
+    .bounty-card:hover { border-color: var(--ds-border-hover); }
+    .bounty-card.earned { border-color: rgba(57,217,138,.4); background: rgba(57,217,138,.05); }
+    .bounty-card.earned .bounty-icon { box-shadow: 0 0 12px rgba(57,217,138,.3); }
+    .bounty-card.in_progress { border-color: rgba(74,158,255,.3); }
+    .bounty-icon {
+      width: 48px; height: 48px; border-radius: 12px; display: flex;
+      align-items: center; justify-content: center; font-size: 24px;
+      background: rgba(255,255,255,.04); flex-shrink: 0;
+    }
+    .bounty-body { flex: 1; min-width: 0; }
+    .bounty-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px; }
+    .bounty-name { font-size: 14px; font-weight: 700; }
+    .bounty-discount { font-size: 13px; font-weight: 800; color: var(--ds-success); white-space: nowrap; }
+    .bounty-desc { font-size: 12px; color: var(--ds-text-secondary); line-height: 1.4; margin-bottom: 8px; }
+    .bounty-progress-bg { height: 6px; border-radius: 3px; background: rgba(255,255,255,.08); overflow: hidden; }
+    .bounty-progress { height: 100%; border-radius: 3px; transition: width .5s ease; }
+    .bounty-card.earned .bounty-progress { background: var(--ds-success); }
+    .bounty-card.in_progress .bounty-progress { background: var(--ds-brand); }
+    .bounty-card.locked .bounty-progress { background: var(--ds-text-tertiary); }
+    .bounty-status-row { display: flex; justify-content: space-between; margin-top: 4px; font-size: 11px; }
+    .bounty-status { font-weight: 700; }
+    .bounty-card.earned .bounty-status { color: var(--ds-success); }
+    .bounty-card.in_progress .bounty-status { color: var(--ds-brand); }
+    .bounty-card.locked .bounty-status { color: var(--ds-text-tertiary); }
+    .bounty-pct { color: var(--ds-text-tertiary); }
+    .bounty-recurring { font-size: 10px; color: var(--ds-text-tertiary); margin-top: 4px; }
+
+    /* Milestones */
+    .milestone-row { display: flex; flex-wrap: wrap; gap: var(--ds-space-2); margin: var(--ds-space-3) 0; }
+    .milestone-badge {
+      display: inline-flex; align-items: center; gap: 6px; padding: 6px 14px;
+      border-radius: 20px; font-size: 12px; font-weight: 600;
+      border: 1px solid rgba(57,217,138,.25); background: rgba(57,217,138,.06);
+      color: var(--ds-text);
+    }
+    .milestone-badge .ms-icon { font-size: 16px; }
+    .milestone-badge .ms-date { font-size: 10px; color: var(--ds-text-tertiary); margin-left: 4px; }
+    .no-milestones { font-size: 13px; color: var(--ds-text-tertiary); padding: var(--ds-space-3) 0; }
+
+    /* Tier Cards */
+    .tier-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: var(--ds-space-3); margin: var(--ds-space-3) 0; }
+    @media (max-width: 900px) { .tier-grid { grid-template-columns: repeat(3, 1fr); } }
+    @media (max-width: 560px) { .tier-grid { grid-template-columns: repeat(2, 1fr); } }
+    .tier-card {
+      padding: var(--ds-space-4); border-radius: var(--ds-radius-lg);
+      border: 1px solid var(--ds-border); background: rgba(255,255,255,.02);
+      text-align: center; position: relative; transition: border-color .2s, background .2s;
+    }
+    .tier-card.current { border-width: 2px; }
+    .tier-card.locked { opacity: .55; }
+    .tier-card { cursor: pointer; }
+    .tier-card:hover { transform: translateY(-2px); box-shadow: 0 4px 20px rgba(0,0,0,.3); }
+    .tier-modal-bg { display:none; position:fixed; inset:0; background:rgba(0,0,0,.7); z-index:200; align-items:center; justify-content:center; }
+    .tier-modal-bg.show { display:flex; }
+    .tier-modal { width:min(480px,92vw); padding:var(--ds-space-5); border-radius:var(--ds-radius-xl); border:1px solid rgba(255,255,255,.12); background:var(--ds-bg,#0d1117); }
+    .tier-modal h3 { margin:0 0 var(--ds-space-3); font-size:20px; }
+    .tier-modal .req { padding:8px 0; border-bottom:1px solid rgba(255,255,255,.06); font-size:13px; display:flex; gap:8px; align-items:center; }
+    .tier-modal .req:last-child { border-bottom:none; }
+    .tier-icon { font-size: 40px; line-height: 1; margin-bottom: 8px; }
+    .tier-name { font-size: 16px; font-weight: 800; margin-bottom: 4px; }
+    .tier-max { font-size: 13px; font-weight: 700; margin-bottom: 10px; }
+    .tier-checks { text-align: left; font-size: 12px; line-height: 2; }
+    .tier-checks .done { color: var(--ds-success); }
+    .tier-checks .pending { color: var(--ds-text-tertiary); }
+    .tier-badge-current {
+      position: absolute; top: -10px; right: -10px; background: var(--ds-success);
+      color: #000; font-size: 10px; font-weight: 800; padding: 3px 10px;
+      border-radius: 12px; text-transform: uppercase; letter-spacing: .04em;
+    }
+    /* How it works */
+    .how-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: var(--ds-space-3); margin-top: var(--ds-space-3); }
+    .how-step {
+      padding: var(--ds-space-4); border: 1px solid var(--ds-border);
+      border-radius: var(--ds-radius-lg); background: rgba(255,255,255,.02);
+      text-align: center;
+    }
+    .how-step .hw-num {
+      width: 32px; height: 32px; border-radius: 50%; background: var(--ds-brand-muted);
+      border: 1px solid rgba(74,158,255,.25); color: var(--ds-brand);
+      display: inline-flex; align-items: center; justify-content: center;
+      font-size: 14px; font-weight: 800; margin-bottom: 10px;
+    }
+    .how-step h4 { font-size: 14px; font-weight: 700; margin: 0 0 4px; }
+    .how-step p { font-size: 12px; color: var(--ds-text-secondary); margin: 0; line-height: 1.5; }
+
+    /* Annual Calculator */
+    .calc-card {
+      margin-top: var(--ds-space-6); padding: var(--ds-space-5);
+      border: 1px solid rgba(124,92,255,.25); border-radius: var(--ds-radius-lg);
+      background: rgba(124,92,255,.04);
+    }
+    .calc-card h3 { margin: 0 0 var(--ds-space-3); font-size: 16px; font-weight: 700; }
+    .calc-row { display: flex; justify-content: space-between; padding: 6px 0; font-size: 14px; }
+    .calc-row .label { color: var(--ds-text-secondary); }
+    .calc-row .amount { font-weight: 700; font-variant-numeric: tabular-nums; }
+    .calc-row.strike .amount { text-decoration: line-through; color: var(--ds-text-tertiary); }
+    .calc-row.total { font-size: 20px; font-weight: 900; padding-top: var(--ds-space-2); border-top: 1px solid var(--ds-border); margin-top: var(--ds-space-2); }
+    .calc-row.total .amount { color: var(--ds-accent); }
+    .calc-row.savings .amount { color: var(--ds-success); }
+    .calc-note { font-size: 11px; color: var(--ds-text-tertiary); margin-top: var(--ds-space-2); }
+  </style>
+</head>
+<body>
+  <div class="ds-wrap">
+    <div id="tc-shell"></div>
+
+    <!-- Hero -->
+    <section style="text-align:center;padding:var(--ds-space-10) 0 0">
+      <div class="section-label">Bounties &amp; Belohnungen</div>
+      <h1 class="section-heading" style="font-size:clamp(26px,4vw,38px)">Verdienen Sie sich Ihren Rabatt</h1>
+      <p style="color:var(--ds-text-secondary);font-size:15px;max-width:600px;margin:var(--ds-space-2) auto 0;line-height:1.6">Gute Leistung wird belohnt. Sammeln Sie Bounties durch Performance, Aktivitaet und Treue &mdash; und senken Sie dauerhaft Ihren Abo-Preis.</p>
+    </section>
+
+    <!-- Discount Hero -->
+    <div class="discount-hero" id="discountHero">
+      <div class="discount-value" id="discountValue">0<span>%</span></div>
+      <div class="discount-label">Ihr aktueller Bounty-Rabatt</div>
+      <div class="discount-bar-wrap">
+        <div class="discount-bar-bg"><div class="discount-bar" id="discountBar" style="width:0%"></div></div>
+        <div class="discount-cap">Max. <span id="maxDiscount">25</span>% Rabatt moeglich</div>
+      </div>
+    </div>
+
+    <!-- ═══════ Status-Abzeichen / Tiers ═══════ -->
+    <div style="margin-top:var(--ds-space-6)">
+      <h3 style="font-size:16px;font-weight:700;margin:0 0 var(--ds-space-1)">&#127942; Ihr Status-Abzeichen</h3>
+      <p style="font-size:13px;color:var(--ds-text-secondary);margin:0 0 var(--ds-space-3)">Je mehr Bounties Sie verdienen, desto hoeher steigt Ihr Status &mdash; und Ihr maximaler Rabatt.</p>
+      <div class="tier-grid" id="tierGrid">
+        <!-- Bronze -->
+        <div class="tier-card locked" id="tierBronze" style="border-color:rgba(205,127,50,.35)" onclick="showTierModal('bronze')">
+          <div class="tier-icon">&#129351;</div>
+          <div class="tier-name" style="color:#cd7f32">Bronze</div>
+          <div class="tier-max" style="color:#cd7f32">max. 8% Rabatt</div>
+          <div class="tier-checks">
+            <div class="pending" data-check="bronze-bounties">&#9723; 1 Bounty verdienen</div>
+          </div>
+        </div>
+        <!-- Silber -->
+        <div class="tier-card locked" id="tierSilver" style="border-color:rgba(192,192,192,.35)" onclick="showTierModal('silver')">
+          <div class="tier-icon">&#129352;</div>
+          <div class="tier-name" style="color:#c0c0c0">Silber</div>
+          <div class="tier-max" style="color:#c0c0c0">max. 10% Rabatt</div>
+          <div class="tier-checks">
+            <div class="pending" data-check="silver-bounties">&#9723; 3 Bounties verdienen</div>
+            <div class="pending" data-check="silver-months">&#9723; 3 Monate Abo-Laufzeit</div>
+          </div>
+        </div>
+        <!-- Gold -->
+        <div class="tier-card locked" id="tierGold" style="border-color:rgba(255,215,0,.35)" onclick="showTierModal('gold')">
+          <div class="tier-icon">&#129351;</div>
+          <div class="tier-name" style="color:#ffd700">Gold</div>
+          <div class="tier-max" style="color:#ffd700">max. 15% Rabatt</div>
+          <div class="tier-checks">
+            <div class="pending" data-check="gold-bounties">&#9723; 5 Bounties verdienen</div>
+            <div class="pending" data-check="gold-months">&#9723; 6 Monate Abo-Laufzeit</div>
+            <div class="pending" data-check="gold-deals">&#9723; 10 abgeschlossene Deals</div>
+          </div>
+        </div>
+        <!-- Platin -->
+        <div class="tier-card locked" id="tierPlatinum" style="border-color:rgba(229,228,226,.3)" onclick="showTierModal('platinum')">
+          <div class="tier-icon">&#128160;</div>
+          <div class="tier-name" style="color:#e5e4e2">Platin</div>
+          <div class="tier-max" style="color:#e5e4e2">max. 20% Rabatt</div>
+          <div class="tier-checks">
+            <div class="pending" data-check="platin-bounties">&#9723; 8 Bounties verdienen</div>
+            <div class="pending" data-check="platin-months">&#9723; 18 Monate Abo-Laufzeit</div>
+            <div class="pending" data-check="platin-deals">&#9723; 50 abgeschlossene Deals</div>
+            <div class="pending" data-check="platin-rating">&#9723; &#216; 4.2 Bewertung</div>
+          </div>
+        </div>
+        <!-- Diamant -->
+        <div class="tier-card locked" id="tierDiamond" style="border-color:rgba(185,242,255,.3)" onclick="showTierModal('diamond')">
+          <div class="tier-icon">&#128142;</div>
+          <div class="tier-name" style="color:#b9f2ff">Diamant</div>
+          <div class="tier-max" style="color:#b9f2ff">max. 25% Rabatt</div>
+          <div class="tier-checks">
+            <div class="pending" data-check="diamant-bounties">&#9723; 10 Bounties verdienen</div>
+            <div class="pending" data-check="diamant-months">&#9723; 60 Monate (5 Jahre)</div>
+            <div class="pending" data-check="diamant-deals">&#9723; 100 abgeschlossene Deals</div>
+            <div class="pending" data-check="diamant-rating">&#9723; &#216; 4.5 Bewertung</div>
+            <div class="pending" data-check="diamant-complaints">&#9723; 0 Beschwerden (12M)</div>
+            <div class="pending" data-check="diamant-top">&#9723; Top 10% aller Anbieter</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ═══════ So funktioniert's ═══════ -->
+    <div style="margin-top:var(--ds-space-6)">
+      <h3 style="font-size:16px;font-weight:700;margin:0 0 var(--ds-space-1)">&#128161; So funktioniert das Bounty-System</h3>
+      <p style="font-size:13px;color:var(--ds-text-secondary);margin:0 0 var(--ds-space-2)">In 4 einfachen Schritten zu dauerhaften Rabatten auf Ihr Abo.</p>
+      <div class="how-grid">
+        <div class="how-step">
+          <div class="hw-num">1</div>
+          <h4>Plattform nutzen</h4>
+          <p>Stellen Sie Personal ein, bearbeiten Sie Anfragen zuverlaessig und schliessen Sie Deals ab.</p>
+        </div>
+        <div class="how-step">
+          <div class="hw-num">2</div>
+          <h4>Bounties verdienen</h4>
+          <p>Fuer gute Performance, Aktivitaet, Treue und Community-Engagement erhalten Sie automatisch Bounties.</p>
+        </div>
+        <div class="how-step">
+          <div class="hw-num">3</div>
+          <h4>Status aufsteigen</h4>
+          <p>Mit mehr Bounties steigen Sie von Bronze ueber Silber und Gold bis Platin oder Diamant auf.</p>
+        </div>
+        <div class="how-step">
+          <div class="hw-num">4</div>
+          <h4>Rabatt kassieren</h4>
+          <p>Jede Stufe erh&ouml;ht Ihren maximalen Rabatt &mdash; bis zu 25% auf den Jahresvertrag. Automatisch angerechnet.</p>
+        </div>
+      </div>
+      <div style="margin-top:var(--ds-space-4);padding:var(--ds-space-4);border:1px solid rgba(57,217,138,.2);border-radius:var(--ds-radius-lg);background:rgba(57,217,138,.04)">
+        <div style="font-weight:700;font-size:14px;margin-bottom:6px">&#128218; Bounty-Kategorien</div>
+        <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:var(--ds-space-3);font-size:13px;color:var(--ds-text-secondary)">
+          <div><strong style="color:var(--ds-text)">&#127942; Performance</strong><br/>Schnelle Reaktionszeiten, hohe Zuverlaessigkeit, gute Bewertungen</div>
+          <div><strong style="color:var(--ds-text)">&#9889; Aktivitaet</strong><br/>Regelmaessige Personaleintraege, Profil aktuell halten, aktive Teilnahme</div>
+          <div><strong style="color:var(--ds-text)">&#127873; Loyalitaet</strong><br/>Langfristige Abo-Laufzeit, Vertragstreue, wiederkehrende Zusammenarbeit</div>
+          <div><strong style="color:var(--ds-text)">&#129309; Community</strong><br/>Kunden werben, Feedback geben, Umfragen ausfuellen</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Milestones -->
+    <div style="margin-top:var(--ds-space-5)">
+      <h3 style="font-size:16px;font-weight:700;margin:0 0 var(--ds-space-2)">&#127942; Meilensteine</h3>
+      <div class="milestone-row" id="milestoneRow">
+        <div class="no-milestones">Lade Meilensteine&hellip;</div>
+      </div>
+    </div>
+
+    <!-- Category Tabs -->
+    <div class="cat-tabs" id="catTabs">
+      <button class="cat-tab active" data-cat="all">Alle</button>
+      <button class="cat-tab" data-cat="performance">&#127942; Performance</button>
+      <button class="cat-tab" data-cat="activity">&#9889; Aktivitaet</button>
+      <button class="cat-tab" data-cat="loyalty">&#127873; Loyalitaet</button>
+      <button class="cat-tab" data-cat="community">&#129309; Community</button>
+    </div>
+
+    <!-- Bounty Grid -->
+    <div class="bounty-grid" id="bountyGrid">
+      <div style="grid-column:1/-1;text-align:center;padding:var(--ds-space-6);color:var(--ds-text-secondary)">Lade Bounties&hellip;</div>
+    </div>
+
+    <!-- Annual Plan Calculator -->
+    <div class="calc-card" id="calcCard" style="display:none">
+      <h3>&#128200; Jahresplan-Rechner</h3>
+      <p style="font-size:13px;color:var(--ds-text-secondary);margin:0 0 var(--ds-space-3)">Wechseln Sie zum Jahresplan und kombinieren Sie Ihren Bounty-Rabatt.</p>
+      <div class="calc-row"><span class="label">Monatspreis</span><span class="amount" id="calcMonthly">–</span></div>
+      <div class="calc-row strike"><span class="label">Jahreszahlung (12 Monate)</span><span class="amount" id="calcYearly12">–</span></div>
+      <div class="calc-row"><span class="label">Jahresplan (10 Monate)</span><span class="amount" id="calcYearly10">–</span></div>
+      <div class="calc-row savings" id="calcBountyRow" style="display:none"><span class="label">Bounty-Rabatt (<span id="calcBountyPct">0</span>%)</span><span class="amount" id="calcBountyAmount">–</span></div>
+      <div class="calc-row total"><span class="label">Ihr Jahrespreis</span><span class="amount" id="calcTotal">–</span></div>
+      <div class="calc-row savings" id="calcSavingsRow"><span class="label">Ersparnis gegenueber monatlich</span><span class="amount" id="calcSavings">–</span></div>
+      <div class="calc-note">Preise in EUR netto. Bounty-Rabatt wird bei Jahresvertrag automatisch angerechnet.</div>
+    </div>
+
+    <!-- ═══════ Referral-Programm ═══════ -->
+    <div id="referralSection" style="margin-top:var(--ds-space-6)">
+      <div style="border:1px solid rgba(74,158,255,.25);border-radius:var(--ds-radius-xl);background:rgba(74,158,255,.03);padding:var(--ds-space-5)">
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:var(--ds-space-3)">
+          <span style="font-size:24px">&#129309;</span>
+          <h3 style="font-size:18px;font-weight:800;margin:0">Empfehlungsprogramm</h3>
+          <span id="refPilotBadge" style="display:none;font-size:11px;font-weight:700;background:rgba(57,217,138,.15);color:var(--ds-success);padding:3px 10px;border-radius:12px">Pilotkunde</span>
+        </div>
+
+        <!-- Pilot-Info -->
+        <div id="refPilotInfo" style="display:none;margin-bottom:var(--ds-space-4);padding:var(--ds-space-3);border:1px solid rgba(57,217,138,.2);border-radius:10px;background:rgba(57,217,138,.04)">
+          <div style="font-weight:700;font-size:14px;margin-bottom:4px">&#127873; Pilotkunden-Vorteile</div>
+          <div style="font-size:13px;color:var(--ds-text-secondary);line-height:1.6">
+            <strong>1 Monat gratis</strong> als Basis. Fuer jeden geworbenen Kunden + gelieferte Umfrage erhalten Sie <strong>1 weiteren Gratis-Monat</strong> (max. 6 Kunden = max. 7 Monate gratis).
+          </div>
+          <div style="display:flex;gap:var(--ds-space-4);margin-top:var(--ds-space-2);flex-wrap:wrap">
+            <div style="text-align:center"><div id="refFreeMonths" style="font-size:28px;font-weight:900;color:var(--ds-success)">1</div><div style="font-size:11px;color:var(--ds-text-tertiary)">Gratis-Monate</div></div>
+            <div style="text-align:center"><div id="refFreeRemaining" style="font-size:28px;font-weight:900;color:var(--ds-brand)">1</div><div style="font-size:11px;color:var(--ds-text-tertiary)">davon verbleibend</div></div>
+          </div>
+        </div>
+
+        <!-- Nicht-Pilot-Info -->
+        <div id="refCashbackInfo" style="display:none;margin-bottom:var(--ds-space-4);padding:var(--ds-space-3);border:1px solid rgba(124,92,255,.2);border-radius:10px;background:rgba(124,92,255,.04)">
+          <div style="font-weight:700;font-size:14px;margin-bottom:4px">&#128176; Cashback-Programm</div>
+          <div style="font-size:13px;color:var(--ds-text-secondary);line-height:1.6">
+            Werben Sie neue Kunden + Umfrage = <strong>1 Monat Geld zurueck</strong> (max. 6 Monate). Ihr erster Monat war bereits gratis!
+          </div>
+          <div style="display:flex;gap:var(--ds-space-4);margin-top:var(--ds-space-2);flex-wrap:wrap">
+            <div style="text-align:center"><div id="refCashbackEarned" style="font-size:28px;font-weight:900;color:var(--ds-accent)">0</div><div style="font-size:11px;color:var(--ds-text-tertiary)">Monate Cashback</div></div>
+            <div style="text-align:center"><div id="refCashbackMax" style="font-size:28px;font-weight:900;color:var(--ds-text-tertiary)">6</div><div style="font-size:11px;color:var(--ds-text-tertiary)">max. moeglich</div></div>
+          </div>
+        </div>
+
+        <!-- Referral-Code & Link -->
+        <div style="margin-bottom:var(--ds-space-4)">
+          <div style="font-weight:700;font-size:13px;margin-bottom:6px">Ihr Empfehlungscode</div>
+          <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+            <code id="refCode" style="font-size:20px;font-weight:900;letter-spacing:2px;background:rgba(255,255,255,.06);padding:8px 16px;border-radius:8px;border:1px solid var(--ds-border)">---</code>
+            <button onclick="copyRefLink()" class="ds-btn ds-btn--sm ds-btn--primary" style="white-space:nowrap">&#128279; Link kopieren</button>
+          </div>
+          <div id="refCopyMsg" style="display:none;font-size:12px;color:var(--ds-success);margin-top:4px">Link in die Zwischenablage kopiert!</div>
+        </div>
+
+        <!-- Einladung senden -->
+        <div style="margin-bottom:var(--ds-space-4)">
+          <div style="font-weight:700;font-size:13px;margin-bottom:6px">Kunden einladen</div>
+          <div style="display:flex;gap:8px;flex-wrap:wrap">
+            <input id="refInviteEmail" type="email" placeholder="E-Mail des Kontakts" style="flex:1;min-width:200px;padding:8px 12px;font-size:13px"/>
+            <button onclick="sendRefInvite()" class="ds-btn ds-btn--sm ds-btn--success" style="white-space:nowrap">Einladen</button>
+          </div>
+          <div id="refInviteMsg" style="display:none;font-size:12px;margin-top:4px"></div>
+          <div style="font-size:11px;color:var(--ds-text-tertiary);margin-top:4px">Verbleibende Einladungen: <span id="refRemaining">6</span> von 6</div>
+        </div>
+
+        <!-- Meine Referrals -->
+        <div id="refList" style="display:none">
+          <div style="font-weight:700;font-size:13px;margin-bottom:6px">Ihre Empfehlungen</div>
+          <div id="refListBody" style="display:flex;flex-direction:column;gap:6px"></div>
+        </div>
+
+        <!-- Umfrage (fuer geworbene Kunden) -->
+        <div id="refSurveySection" style="display:none;margin-top:var(--ds-space-4);padding:var(--ds-space-4);border:1px solid rgba(255,204,0,.3);border-radius:10px;background:rgba(255,204,0,.04)">
+          <div style="font-weight:700;font-size:14px;margin-bottom:8px">&#128221; Umfrage ausfuellen &amp; Bonus aktivieren</div>
+          <div style="font-size:13px;color:var(--ds-text-secondary);margin-bottom:var(--ds-space-3);line-height:1.5">
+            Fuellen Sie diese kurze Umfrage aus, damit Ihr Empfehler seinen Gratis-Monat erhaelt.
+          </div>
+          <div style="display:flex;flex-direction:column;gap:var(--ds-space-2)">
+            <label style="font-size:12px;font-weight:600">Wie bewerten Sie TempConnect? (1-5 Sterne)</label>
+            <div id="refSurveyStars" style="display:flex;gap:6px;font-size:24px;cursor:pointer">
+              <span data-star="1">&#9734;</span><span data-star="2">&#9734;</span><span data-star="3">&#9734;</span><span data-star="4">&#9734;</span><span data-star="5">&#9734;</span>
+            </div>
+            <label style="font-size:12px;font-weight:600;margin-top:8px">Feedback (optional)</label>
+            <textarea id="refSurveyFeedback" rows="2" placeholder="Was gefaellt Ihnen? Was koennen wir verbessern?" style="font-size:13px;padding:8px"></textarea>
+            <label style="font-size:12px;font-weight:600;margin-top:4px">Wie haben Sie von TempConnect erfahren?</label>
+            <input id="refSurveyHow" type="text" placeholder="z.B. Empfehlung, Google, Messe..." style="font-size:13px;padding:8px"/>
+            <button onclick="submitRefSurvey()" class="ds-btn ds-btn--primary ds-btn--sm" style="margin-top:8px;align-self:flex-start">Umfrage absenden</button>
+          </div>
+          <div id="refSurveyMsg" style="display:none;font-size:12px;margin-top:6px"></div>
+        </div>
+
+        <!-- Pilot werden -->
+        <div id="refBecomePilot" style="display:none;margin-top:var(--ds-space-3);text-align:center">
+          <button onclick="registerPilot()" class="ds-btn ds-btn--primary">&#128640; Als Pilotkunde registrieren &mdash; 1 Monat gratis</button>
+          <div style="font-size:11px;color:var(--ds-text-tertiary);margin-top:6px">Werben Sie bis zu 6 Kunden und erhalten Sie bis zu 7 Monate gratis.</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="ds-disclaimer" style="margin-top:var(--ds-space-6)">
+      Bounty-Rabatte werden bei Wechsel auf den Jahresvertrag angerechnet. Wiederkehrende Bounties (&#128260;) verfallen, wenn die Bedingung nicht mehr erfuellt ist. Maximaler Gesamtrabatt: 20%. Alle Angaben ohne Gewaehr.
+    </div>
+  </div>
+
+  <!-- Tier Info Modal -->
+  <div class="tier-modal-bg" id="tierModal" onclick="if(event.target===this)closeTierModal()">
+    <div class="tier-modal">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:var(--ds-space-3)">
+        <h3 id="tierModalTitle" style="margin:0"></h3>
+        <button onclick="closeTierModal()" style="background:none;border:none;color:var(--ds-text-secondary);font-size:20px;cursor:pointer">&times;</button>
+      </div>
+      <div id="tierModalBody"></div>
+      <div style="margin-top:var(--ds-space-4);text-align:right">
+        <button onclick="closeTierModal()" class="ds-btn ds-btn--sm">Verstanden</button>
+      </div>
+    </div>
+  </div>
+  <script>
+    var TIER_INFO = {
+      bronze: { icon: '\u{1F949}', name: 'Bronze', color: '#cd7f32', max: '8%', reqs: [
+        { text: 'Mindestens 1 Bounty verdienen', how: 'Deals abschliessen, Profil pflegen, Bewertungen erhalten' }
+      ]},
+      silver: { icon: '\u{1F948}', name: 'Silber', color: '#c0c0c0', max: '10%', reqs: [
+        { text: 'Mindestens 3 Bounties verdienen', how: 'Regelmaessig Personal einstellen und Deals abwickeln' },
+        { text: '3 Monate aktive Abo-Laufzeit', how: 'Einfach dabei bleiben und die Plattform nutzen' }
+      ]},
+      gold: { icon: '\u{1F947}', name: 'Gold', color: '#ffd700', max: '15%', reqs: [
+        { text: '5 Bounties verdienen', how: 'Performance-Bounties durch schnelle Reaktion und gute Bewertungen' },
+        { text: '6 Monate Abo-Laufzeit', how: 'Loyalitaets-Bounty wird automatisch gutgeschrieben' },
+        { text: '10 abgeschlossene Deals', how: 'Deals bis zum Abschluss bringen (nicht nur Anfragen)' }
+      ]},
+      platinum: { icon: '\u{1F4A0}', name: 'Platin', color: '#e5e4e2', max: '20%', reqs: [
+        { text: '8 Bounties verdienen', how: 'Kombination aus Performance, Aktivitaet und Community' },
+        { text: '18 Monate Abo-Laufzeit', how: 'Treue zaehlt sich aus' },
+        { text: '50 abgeschlossene Deals', how: 'Zeigt Ihre Zuverlaessigkeit als Partner' },
+        { text: 'Durchschnitt 4.2 Sterne Bewertung', how: 'Qualitaet in Kommunikation und Zusammenarbeit' }
+      ]},
+      diamond: { icon: '\u{1F48E}', name: 'Diamant', color: '#b9f2ff', max: '25%', reqs: [
+        { text: '10 Bounties verdienen', how: 'Alle Bounty-Kategorien abdecken' },
+        { text: '60 Monate (5 Jahre) Abo-Laufzeit', how: 'Langfristige Partnerschaft' },
+        { text: '100 abgeschlossene Deals', how: 'Top-Performer auf der Plattform' },
+        { text: 'Durchschnitt 4.5 Sterne', how: 'Exzellente Qualitaet und Zuverlaessigkeit' },
+        { text: '0 Beschwerden in 12 Monaten', how: 'Professionelle Abwicklung ohne Konflikte' },
+        { text: 'Top 10% aller Anbieter', how: 'Ranking basiert auf Gesamtperformance' }
+      ]}
+    };
+    function showTierModal(key) {
+      var t = TIER_INFO[key]; if (!t) return;
+      document.getElementById('tierModalTitle').innerHTML = t.icon + ' ' + t.name + ' <span style="font-size:14px;color:' + t.color + ';margin-left:8px">max. ' + t.max + ' Rabatt</span>';
+      var html = '<p style="font-size:13px;color:var(--ds-text-secondary);margin:0 0 var(--ds-space-3)">So erreichen Sie den ' + t.name + '-Status:</p>';
+      t.reqs.forEach(function(r) {
+        html += '<div class="req"><span style="font-size:16px">\u{2611}</span><div><div style="font-weight:600">' + r.text + '</div><div style="font-size:12px;color:var(--ds-text-secondary);margin-top:2px">' + r.how + '</div></div></div>';
+      });
+      document.getElementById('tierModalBody').innerHTML = html;
+      document.getElementById('tierModal').classList.add('show');
+    }
+    function closeTierModal() { document.getElementById('tierModal').classList.remove('show'); }
+  </script>
+
+  <script src="/public/js/pages/bounties.js"></script>
+
+  <script src="/public/js/pageShell.js"></script>`n  <script src="/public/js/notifications.js"></script>
+  <div id="tc-footer" data-tc-footer></div>
+  <script src="/public/js/footer.js"></script>
+  <script src="/public/js/demoBanner.js" defer></script>
+  <script src="/public/js/onboardingWizard.js" defer></script>
+  <script src="/public/js/breadcrumb.js" defer></script>
+  <script src="/public/js/milestoneToasts.js" defer></script>
+</body>
+</html>

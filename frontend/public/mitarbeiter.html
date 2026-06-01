@@ -1,0 +1,651 @@
+﻿<!DOCTYPE html>
+<html lang="de">
+<head>
+  <script src="/public/js/theme.js"></script>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>TempConnect – Mitarbeiter verwalten</title>
+  <link rel="stylesheet" href="/public/css/enterprise.css">
+  <style>
+    body { background: var(--wk-bg); color: var(--wk-text); }
+    .page-wrap { max-width: 1100px; margin: 0 auto; padding: 20px; }
+    .page-header { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin-bottom: 20px; }
+    .page-header h1 { margin: 0; font-size: 22px; font-weight: 900; }
+    .tabs { display: flex; gap: 4px; border-bottom: 2px solid var(--wk-border); margin-bottom: 20px; }
+    .tab-btn { padding: 10px 18px; font-size: 13px; font-weight: 700; color: var(--wk-text-muted); cursor: pointer; border: none; background: none; border-bottom: 2px solid transparent; margin-bottom: -2px; transition: all .15s; display: flex; align-items: center; gap: 6px; }
+    .tab-btn:hover { color: var(--wk-text); }
+    .tab-btn.active { color: var(--ds-brand); border-bottom-color: var(--ds-brand); }
+    .tab-btn .badge { background: var(--tc-tone-brand-bg); border: 1px solid var(--tc-tone-brand-border); color: var(--ds-brand); border-radius: 20px; padding: 1px 8px; font-size: 11px; font-weight: 800; }
+    .panel { display: none; }
+    .panel.active { display: block; }
+    .search-bar { display: flex; gap: 10px; margin-bottom: 16px; flex-wrap: wrap; }
+    .search-bar input { flex: 1; min-width: 200px; margin-bottom: 0; }
+    .w-table { width: 100%; border-collapse: collapse; }
+    .w-table th { padding: 8px 12px; text-align: left; font-size: 11px; font-weight: 700; color: var(--wk-text-muted); text-transform: uppercase; letter-spacing: .05em; border-bottom: 1px solid var(--wk-border); }
+    .w-table td { padding: 10px 12px; border-bottom: 1px solid var(--tc-row-divider); font-size: 13px; }
+    .w-table tr:hover td { background: var(--tc-hover-soft); }
+    .w-table .name { font-weight: 700; }
+    .w-table .meta { font-size: 11px; color: var(--wk-text-muted); }
+    .status-dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 6px; }
+    .status-dot.active { background: var(--wk-success); }
+    .status-dot.inactive { background: var(--wk-danger); }
+    .status-dot.pending { background: var(--wk-warning); }
+    .action-btn { padding: 5px 10px; border-radius: 8px; border: 1px solid var(--wk-border); background: var(--tc-surface-emphasis); color: var(--wk-text); font-size: 12px; font-weight: 600; cursor: pointer; transition: all .15s; }
+    .action-btn:hover { border-color: var(--ds-border-hover); background: var(--tc-hover-soft); }
+    .action-btn.danger { border-color: var(--tc-tone-danger-border); color: var(--tc-tone-danger-strong-text); }
+    .action-btn.danger:hover { background: var(--tc-tone-danger-bg); }
+    .action-btn.good { border-color: var(--tc-tone-success-border); color: var(--tc-tone-success-strong-text); }
+    .action-btn.good:hover { background: var(--tc-tone-success-bg); }
+    .form-card { background: var(--wk-surface); border: 1px solid var(--wk-border); border-radius: 16px; padding: 24px; box-shadow: var(--wk-shadow); }
+    .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0 16px; }
+    .form-grid .full { grid-column: 1 / -1; }
+    .form-actions { display: flex; gap: 10px; justify-content: flex-end; margin-top: 8px; }
+    .invite-item { display: flex; align-items: center; justify-content: space-between; padding: 12px 14px; border: 1px solid var(--wk-border); border-radius: 10px; margin-bottom: 8px; background: var(--tc-surface-muted); gap: 12px; flex-wrap: wrap; }
+    .invite-item .info { flex: 1; min-width: 200px; }
+    .invite-item .info .name { font-weight: 700; font-size: 14px; }
+    .invite-item .info .email { font-size: 12px; color: var(--wk-text-muted); }
+    .invite-item .actions { display: flex; gap: 6px; }
+    .empty-state { text-align: center; padding: 40px 20px; color: var(--wk-text-muted); }
+    .empty-state .icon { font-size: 40px; margin-bottom: 10px; }
+    .toast { position: fixed; bottom: 20px; right: 20px; padding: 12px 18px; border-radius: 10px; font-size: 13px; font-weight: 600; z-index: 9999; display: none; border: 1px solid var(--wk-border); background: var(--tc-topbar-bg); backdrop-filter: blur(10px); box-shadow: var(--wk-shadow-md); }
+    .toast.ok { border-color: var(--tc-tone-success-border); color: var(--tc-tone-success-strong-text); }
+    .toast.err { border-color: var(--tc-tone-danger-border); color: var(--tc-tone-danger-strong-text); }
+    .toast.show { display: block; }
+    .worker-upgrade-banner { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; margin-bottom: 16px; }
+    .worker-upgrade-body { flex: 1; min-width: 240px; }
+    .worker-upgrade-title { font-size: 14px; font-weight: 800; margin-bottom: 4px; }
+    .worker-upgrade-text { font-size: 13px; color: var(--wk-text-muted); line-height: 1.6; }
+    .worker-upgrade-list { margin: 8px 0 8px 18px; font-size: 12px; color: var(--wk-text-muted); line-height: 1.5; }
+    .worker-upgrade-meta { font-size: 11px; color: var(--wk-text-muted); }
+    .worker-upgrade-actions { display: flex; gap: 8px; flex-shrink: 0; align-items: center; }
+    .worker-upgrade-actions .btn { white-space: nowrap; }
+    /* Edit-Modal */
+    .modal-bg { position: fixed; inset: 0; background: var(--tc-modal-scrim); z-index: 100; display: none; place-items: center; backdrop-filter: blur(3px); }
+    .modal-bg.show { display: grid; }
+    .modal-panel { width: min(520px, 92vw); padding: 24px; border-radius: 18px; border: 1px solid var(--wk-border); background: var(--wk-surface); box-shadow: var(--ds-shadow-xl); }
+    .modal-panel h2 { margin: 0 0 16px; font-size: 18px; }
+    /* CSV-Wizard Steps */
+    .csv-step { flex:1;padding:10px 14px;border-radius:10px;background:var(--tc-surface-emphasis);font-size:12px;font-weight:700;color:var(--wk-text-muted);text-align:center;transition:all .2s;border:1px solid transparent; }
+    .csv-step--active { background:var(--tc-tone-brand-bg);color:var(--ds-brand);border-color:var(--tc-tone-brand-border); }
+    .csv-step--done { background:var(--tc-tone-success-bg);color:var(--tc-tone-success-strong-text);border-color:var(--tc-tone-success-border); }
+    .csv-step__num { display:inline-flex;align-items:center;justify-content:center;width:20px;height:20px;border-radius:50%;background:var(--tc-tone-neutral-bg);font-size:11px;margin-right:4px; }
+    .csv-step--active .csv-step__num { background:var(--tc-tone-brand-border); }
+    .csv-step--done .csv-step__num { background:var(--tc-tone-success-border); }
+    .csv-mapping-row { display:contents; }
+    .csv-mapping-row .csv-col-name { padding:8px 10px;border-radius:8px;background:var(--tc-surface-emphasis);font-size:13px;font-weight:600; }
+    .csv-mapping-row .csv-arrow { color:var(--wk-text-muted);font-size:16px;text-align:center; }
+    .csv-mapping-row select { margin-bottom:0;font-size:13px; }
+    .csv-val-ok { color:var(--tc-tone-success-strong-text); }
+    .csv-val-err { color:var(--tc-tone-danger-strong-text); }
+    .csv-val-dup { color:var(--tc-tone-warning-text); }
+    .csv-kpi { display:inline-flex;align-items:center;gap:6px;padding:8px 14px;border-radius:10px;border:1px solid var(--wk-border);font-size:13px;font-weight:700; background: var(--wk-surface); }
+    .csv-kpi .num { font-size:18px;font-weight:900; }
+    .csv-kpi.ok { border-color:var(--tc-tone-success-border);color:var(--tc-tone-success-strong-text); }
+    .csv-kpi.err { border-color:var(--tc-tone-danger-border);color:var(--tc-tone-danger-strong-text); }
+    .csv-kpi.dup { border-color:var(--tc-tone-warning-border);color:var(--tc-tone-warning-text); }
+    .csv-kpi.info { border-color:var(--tc-tone-brand-border);color:var(--ds-brand); }
+    .hub-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(280px,1fr)); gap:14px; }
+    .hub-card--wide { grid-column:1 / -1; }
+    .hub-hero { display:grid; grid-template-columns:minmax(0,1fr) auto; gap:16px; align-items:flex-start; padding:18px; border:1px solid var(--wk-border); border-radius:14px; background:linear-gradient(135deg,var(--tc-tone-brand-bg),var(--tc-tone-accent-bg)); margin-bottom:16px; }
+    .hub-hero-main { display:flex; gap:14px; min-width:0; }
+    .hub-avatar { width:52px; height:52px; border-radius:50%; background:linear-gradient(135deg,var(--ds-brand),var(--ds-accent)); display:flex; align-items:center; justify-content:center; font-size:20px; font-weight:900; color:var(--ds-text-inverse); flex-shrink:0; }
+    .hub-hero-title { font-size:18px; font-weight:900; margin:0; }
+    .hub-hero-meta { font-size:12px; color:var(--wk-text-muted); margin-top:4px; display:flex; flex-wrap:wrap; gap:10px; }
+    .hub-badges { display:flex; flex-wrap:wrap; gap:8px; margin-top:10px; }
+    .hub-badge { display:inline-flex; align-items:center; gap:6px; padding:6px 10px; border-radius:999px; font-size:12px; font-weight:700; border:1px solid var(--wk-border); background:var(--tc-surface-emphasis); }
+    .hub-badge.good { border-color:var(--tc-tone-success-border); color:var(--tc-tone-success-strong-text); background:var(--tc-tone-success-bg); }
+    .hub-badge.warn { border-color:var(--tc-tone-warning-border); color:var(--tc-tone-warning-text); background:var(--tc-tone-warning-bg); }
+    .hub-badge.info { border-color:var(--tc-tone-brand-border); color:var(--ds-brand); background:var(--tc-tone-brand-bg); }
+    .hub-hero-side { display:grid; grid-template-columns:repeat(2,minmax(90px,1fr)); gap:10px; min-width:220px; }
+    .hub-stat { padding:12px 14px; border-radius:12px; background:var(--tc-surface-emphasis); border:1px solid var(--wk-border); }
+    .hub-stat-label { font-size:11px; color:var(--wk-text-muted); text-transform:uppercase; letter-spacing:.06em; }
+    .hub-stat-value { font-size:20px; font-weight:900; margin-top:4px; }
+    .hub-list { display:flex; flex-direction:column; gap:8px; }
+    .hub-list-item { padding:10px 12px; border-radius:10px; border:1px solid var(--wk-border); background:var(--tc-surface-muted); }
+    .hub-list-head { display:flex; align-items:center; justify-content:space-between; gap:10px; }
+    .hub-list-title { font-size:13px; font-weight:700; }
+    .hub-list-meta { font-size:11px; color:var(--wk-text-muted); margin-top:4px; }
+    .hub-section-title { font-size:11px; font-weight:800; color:var(--wk-text-muted); text-transform:uppercase; letter-spacing:.08em; margin:0 0 8px; }
+    .hub-linkage { display:flex; flex-direction:column; gap:8px; }
+    .hub-linkage-row { display:flex; align-items:flex-start; justify-content:space-between; gap:12px; padding:8px 0; border-bottom:1px solid var(--tc-row-divider); font-size:13px; }
+    .hub-linkage-row:last-child { border-bottom:none; padding-bottom:0; }
+    .hub-linkage-row strong { display:block; font-size:11px; color:var(--wk-text-muted); text-transform:uppercase; letter-spacing:.06em; margin-bottom:4px; }
+    .hub-chip { display:inline-flex; align-items:center; gap:6px; padding:4px 10px; border-radius:999px; border:1px solid var(--tc-tone-brand-border); background:var(--tc-tone-brand-bg); color:var(--tc-tone-brand-text); font-size:12px; font-weight:700; }
+    .qualification-item { padding:10px 12px; border-radius:10px; border:1px solid var(--wk-border); background:var(--tc-surface-muted); display:flex; flex-direction:column; gap:6px; }
+    .qualification-meta { display:flex; flex-wrap:wrap; gap:8px; font-size:11px; color:var(--wk-text-muted); }
+    .public-field-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(170px,1fr)); gap:8px; margin-top:12px; }
+    .public-field-option { display:flex; align-items:flex-start; gap:8px; padding:10px 12px; border:1px solid var(--wk-border); border-radius:10px; background:var(--tc-surface-muted); font-size:12px; }
+    .public-share-box { margin-top:14px; padding:12px; border-radius:12px; border:1px solid var(--wk-border); background:var(--tc-surface-muted); }
+    .public-share-box input { margin:0; }
+    .hub-actions { display:flex; gap:10px; justify-content:flex-end; margin-top:14px; flex-wrap:wrap; }
+    .skill-catalog-toolbar { display:flex; gap:8px; flex-wrap:wrap; align-items:center; margin-bottom:12px; }
+    .skill-catalog-toolbar input { flex:1; min-width:220px; margin:0; }
+    .skill-catalog-meta { font-size:12px; color:var(--wk-text-muted); margin-bottom:12px; }
+    .skill-catalog-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(280px,1fr)); gap:12px; }
+    .skill-catalog-group { padding:12px; border-radius:12px; border:1px solid var(--wk-border); background:var(--tc-surface-muted); }
+    .skill-catalog-group__head { display:flex; align-items:flex-start; justify-content:space-between; gap:12px; margin-bottom:10px; }
+    .skill-catalog-group__meta { font-size:12px; color:var(--wk-text-muted); margin-top:4px; }
+    .skill-catalog-group__actions { display:flex; gap:6px; flex-wrap:wrap; }
+    .skill-checkbox-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:8px; }
+    .skill-checkbox-option { display:flex; align-items:flex-start; gap:8px; padding:10px 12px; border-radius:10px; border:1px solid var(--wk-border); background:var(--wk-surface); font-size:12px; cursor:pointer; }
+    .skill-checkbox-option input { margin:2px 0 0; }
+    .skill-selection-summary { font-size:12px; color:var(--wk-text-muted); margin:-4px 0 10px; }
+    .hub-chip.custom { border-color:var(--tc-tone-warning-border); background:var(--tc-tone-warning-bg); color:var(--tc-tone-warning-text); }
+    .skill-chip-note { font-size:10px; font-weight:800; text-transform:uppercase; letter-spacing:.06em; opacity:.85; }
+    @media(max-width:700px) {
+      .form-grid { grid-template-columns: 1fr; }
+      .page-header { flex-direction: column; align-items: flex-start; }
+      .w-table th:nth-child(n+4), .w-table td:nth-child(n+4) { display: none; }
+      #csv-steps { flex-wrap: wrap; }
+      #csv-mapping-grid { grid-template-columns: 1fr; }
+      .hub-hero { grid-template-columns:1fr; }
+      .hub-hero-side { min-width:0; grid-template-columns:repeat(2,minmax(0,1fr)); }
+    }
+  </style>
+</head>
+<body data-sla-guard="sla_access">
+  <div id="paywall" class="wrap" style="display:none">
+    <nav class="ds-topbar"><div class="ds-topbar__brand"><span class="ds-topbar__brand-dot"></span>TempConnect</div></nav>
+    <div class="paywall-box"><h2>Bereich nicht verf&uuml;gbar</h2><p>Aktueller Plan: <span id="paywall-current-plan" class="paywall-plan">&ndash;</span></p><a id="paywall-cta" href="/public/sla_abo.html" class="btn primary">Abo ansehen</a></div>
+  </div>
+  <div id="main-content" class="page-wrap">
+    <!-- pageShell ersetzt eigene Topbar -->
+    <div id="tc-shell"></div>
+    <div id="workerUpgradeBanner" class="ds-alert ds-alert--info worker-upgrade-banner" style="display:none">
+      <div class="worker-upgrade-body">
+        <div class="worker-upgrade-title" id="workerUpgradeTitle">Workforce-Hub freischalten</div>
+        <div class="worker-upgrade-text" id="workerUpgradeText"></div>
+        <ul class="worker-upgrade-list" id="workerUpgradeList"></ul>
+        <div class="worker-upgrade-meta" id="workerUpgradeMeta"></div>
+      </div>
+      <div class="worker-upgrade-actions">
+        <a id="workerUpgradeCta" class="btn primary" href="/public/sla_abo.html">Upgrade ansehen</a>
+      </div>
+    </div>
+
+    <div class="ds-page-header">
+      <div class="ds-page-header__content">
+        <h1 class="ds-page-title">Mitarbeiter</h1>
+        <p class="ds-page-subtitle">Workforce-Hub: Personalstammdaten, Skills, Qualifikationen und Einsatzhistorie.</p>
+      </div>
+      <div class="ds-page-header__actions">
+        <a class="btn" href="/public/worker-submissions-review.html">Worker Self-Service</a>
+        <button class="btn primary" onclick="showTab('create')">+ Anlegen</button>
+      </div>
+    </div>
+
+    <!-- Tabs -->
+    <div class="tabs">
+      <button class="tab-btn active" data-tab="list" onclick="showTab('list')">Mitarbeiter <span class="badge" id="workerCount">0</span></button>
+      <button class="tab-btn" data-tab="skills" onclick="showTab('skills')">Profil &amp; Talent Hub</button>
+      <button class="tab-btn" data-tab="create" onclick="showTab('create')">Manuell anlegen</button>
+      <button class="tab-btn" data-tab="invite" onclick="showTab('invite')">Einladen</button>
+      <button class="tab-btn" data-tab="invites" onclick="showTab('invites')">Einladungen <span class="badge" id="inviteCount">0</span></button>
+      <button class="tab-btn" data-tab="csvimport" onclick="showTab('csvimport')">&#128228; CSV-Import</button>
+    </div>
+
+    <!-- Panel: Mitarbeiter-Liste -->
+    <div id="panel-list" class="panel active">
+      <div class="search-bar">
+        <input type="text" id="searchInput" placeholder="Suche nach Name, E-Mail, Personalnr..." oninput="filterWorkers()">
+        <select id="filterStatus" style="width:auto;min-width:140px;margin-bottom:0" onchange="loadWorkers()">
+          <option value="">Alle</option>
+          <option value="true">Aktiv</option>
+          <option value="false">Inaktiv</option>
+        </select>
+      </div>
+      <div id="workerList">
+        <div class="empty-state"><div class="icon">&#128100;</div>Mitarbeiter werden geladen...</div>
+      </div>
+    </div>
+
+    <!-- Panel: Manuell anlegen -->
+    <div id="panel-create" class="panel">
+      <div class="form-card">
+        <h2 style="margin:0 0 16px;font-size:18px">Neuen Mitarbeiter anlegen</h2>
+        <p style="font-size:13px;color:var(--wk-text-muted);margin:0 0 20px">Der Mitarbeiter erhaelt einen Account und kann sich im Worker Self-Service Portal anmelden.</p>
+        <div class="form-grid">
+          <div>
+            <label>Vorname *</label>
+            <input type="text" id="cFirstName" placeholder="Max">
+          </div>
+          <div>
+            <label>Nachname *</label>
+            <input type="text" id="cLastName" placeholder="Mustermann">
+          </div>
+          <div>
+            <label>E-Mail *</label>
+            <input type="email" id="cEmail" placeholder="max@example.de">
+          </div>
+          <div>
+            <label>Personalnummer</label>
+            <input type="text" id="cPersonnelNr" placeholder="P-001">
+          </div>
+          <div>
+            <label>Telefon</label>
+            <input type="text" id="cPhone" placeholder="+49 ...">
+          </div>
+          <div>
+            <label>Stadt</label>
+            <input type="text" id="cCity" placeholder="Berlin">
+          </div>
+          <div>
+            <label>Strasse</label>
+            <input type="text" id="cStreet" placeholder="Musterstr. 1">
+          </div>
+          <div>
+            <label>PLZ</label>
+            <input type="text" id="cPostal" placeholder="10115">
+          </div>
+          <div class="full">
+            <label>Passwort (min. 8 Zeichen, optional — wird sonst generiert)</label>
+            <input type="password" id="cPassword" placeholder="Passwort fuer den Mitarbeiter">
+          </div>
+        </div>
+        <div class="form-actions">
+          <button class="btn" onclick="showTab('list')">Abbrechen</button>
+          <button class="btn primary" id="btnCreate" onclick="createWorker()">Mitarbeiter anlegen</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Panel: Einladen -->
+    <div id="panel-invite" class="panel">
+      <div class="form-card">
+        <h2 style="margin:0 0 16px;font-size:18px">Mitarbeiter per E-Mail einladen</h2>
+        <p style="font-size:13px;color:var(--wk-text-muted);margin:0 0 20px">Der Mitarbeiter erhaelt eine E-Mail mit einem Link zur Registrierung im Worker-Portal.</p>
+        <div class="form-grid">
+          <div>
+            <label>Vorname *</label>
+            <input type="text" id="iFirstName" placeholder="Max">
+          </div>
+          <div>
+            <label>Nachname *</label>
+            <input type="text" id="iLastName" placeholder="Mustermann">
+          </div>
+          <div>
+            <label>E-Mail *</label>
+            <input type="email" id="iEmail" placeholder="max@example.de">
+          </div>
+          <div>
+            <label>Personalnummer</label>
+            <input type="text" id="iPersonnelNr" placeholder="P-001">
+          </div>
+        </div>
+        <div class="form-actions">
+          <button class="btn" onclick="showTab('list')">Abbrechen</button>
+          <button class="btn primary" id="btnInvite" onclick="inviteWorker()">Einladung senden</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Panel: Profil & Talent Hub -->
+    <div id="panel-skills" class="panel">
+      <div style="background:var(--tc-tone-brand-bg);border:1px solid var(--tc-tone-brand-border);border-radius:12px;padding:16px 18px;margin-bottom:18px">
+        <strong style="font-size:14px">Profil &amp; Talent Hub</strong>
+        <p style="font-size:13px;color:var(--wk-text-muted);margin:6px 0 0">Der bestehende Worker-Bestand wird hier zum zentralen Mitarbeiterprofil ausgebaut: Stammdaten, Skills, Qualifikationen, interne Einsatzsicht und kontrollierte externe Freigabe in einer Ansicht.</p>
+      </div>
+      <div style="display:flex;gap:10px;margin-bottom:16px;flex-wrap:wrap;align-items:center">
+        <select id="skillsWorkerSelect" style="flex:1;min-width:240px;max-width:360px;margin:0" onchange="loadWorkerSkills()">
+          <option value="">Mitarbeiter ausw&auml;hlen...</option>
+        </select>
+        <button class="btn" onclick="populateSkillsWorkerSelect()">Aktualisieren</button>
+      </div>
+      <div id="skillsWorkerPanel" style="display:none">
+        <div id="skillsWorkerHeader"></div>
+        <div class="hub-grid">
+          <div class="form-card">
+            <h3 style="font-size:14px;font-weight:800;margin:0 0 12px">Stammdaten &amp; internes Profil</h3>
+            <div class="form-grid">
+              <div>
+                <label>Telefon</label>
+                <input type="text" id="profilePhone" placeholder="+49 ...">
+              </div>
+              <div>
+                <label>Geburtsdatum</label>
+                <input type="date" id="profileBirthDate">
+              </div>
+              <div>
+                <label>Stra&szlig;e</label>
+                <input type="text" id="profileStreet" placeholder="Musterstra&szlig;e 1">
+              </div>
+              <div>
+                <label>PLZ</label>
+                <input type="text" id="profilePostal" placeholder="10115">
+              </div>
+              <div>
+                <label>Stadt</label>
+                <input type="text" id="profileCity" placeholder="Berlin">
+              </div>
+              <div>
+                <label>Sprache / Locale</label>
+                <input type="text" id="profileLocale" placeholder="de">
+              </div>
+              <div class="full">
+                <label>Interne Verf&uuml;gbarkeitsnotiz</label>
+                <input type="text" id="availabilityNoteInput" placeholder="z.B. ab n&auml;chster Woche im Raum Hamburg verf&uuml;gbar">
+              </div>
+              <div class="full">
+                <label>Kurzprofil / Lebenslauftext</label>
+                <textarea id="profileTextarea" rows="5" placeholder="Freitext: Erfahrungen, Besonderheiten, Einsatzpr&auml;ferenzen, fachlicher Werdegang..."></textarea>
+              </div>
+              <div class="full">
+                <label>Interne Notizen</label>
+                <textarea id="profileNotes" rows="3" placeholder="Nur intern sichtbar"></textarea>
+              </div>
+            </div>
+          </div>
+          <div class="form-card">
+            <h3 style="font-size:14px;font-weight:800;margin:0 0 12px">Skills &amp; Kompetenzen</h3>
+            <div style="font-size:12px;color:var(--wk-text-muted);margin:0 0 12px">Breiter, einsatz- und matchingorientierter Skill-Katalog f&uuml;r alle typischen Workforce-Szenarien. Zertifikate, Scheine und formale Nachweise bitte weiterhin separat unter Qualifikationen pflegen.</div>
+            <div class="skill-catalog-toolbar">
+              <input type="text" id="skillCatalogSearch" placeholder="Skill-Katalog filtern (z.B. Logistik, Schweissen, Office)..." oninput="renderSkillCatalog()">
+              <button class="btn" type="button" onclick="clearAllSkills()">Auswahl leeren</button>
+            </div>
+            <div id="skillCatalogMeta" class="skill-catalog-meta"></div>
+            <div id="skillCatalogSections" class="skill-catalog-grid"></div>
+            <div class="hub-section-title" style="margin:16px 0 8px">Ausgew&auml;hlte Skills</div>
+            <div id="skillSelectionSummary" class="skill-selection-summary"></div>
+            <div id="skillTagsList" style="display:flex;flex-wrap:wrap;gap:6px;min-height:32px;margin-bottom:12px"></div>
+            <div class="hub-section-title" style="margin:0 0 8px">Zus&auml;tzlicher Spezial-Skill</div>
+            <div style="display:flex;gap:6px">
+              <input type="text" id="newSkillInput" placeholder="Skill eingeben (z.B. Schweissen)" style="flex:1;margin:0" onkeydown="if(event.key==='Enter'){event.preventDefault();addSkillTag();}">
+              <button class="btn primary" onclick="addSkillTag()">+ Hinzuf&uuml;gen</button>
+            </div>
+            <div style="margin-top:12px;font-size:12px;color:var(--wk-text-muted)">Sonderf&auml;lle, kundenspezifische Begriffe und seltene Nischen-Kompetenzen k&ouml;nnen hier erg&auml;nzt werden und bleiben zusammen mit der Checkbox-Auswahl in `skill_tags` gespeichert.</div>
+          </div>
+          <div class="form-card">
+            <h3 style="font-size:14px;font-weight:800;margin:0 0 12px">Qualifikationen &amp; Nachweise</h3>
+            <div id="qualificationsList" style="display:flex;flex-direction:column;gap:8px;min-height:32px;margin-bottom:12px"></div>
+            <div class="form-grid">
+              <div>
+                <label>Bezeichnung</label>
+                <input type="text" id="newQualName" placeholder="z.B. Staplerschein">
+              </div>
+              <div>
+                <label>Aussteller</label>
+                <input type="text" id="newQualIssuer" placeholder="T&Uuml;V / DEKRA / intern">
+              </div>
+              <div>
+                <label>G&uuml;ltig bis</label>
+                <input type="date" id="newQualExpiry">
+              </div>
+              <div>
+                <label>Nachweis / Dokument</label>
+                <input type="text" id="newQualDocument" placeholder="PDF / Scan / Referenz">
+              </div>
+              <div class="full">
+                <label>Notiz</label>
+                <input type="text" id="newQualNote" placeholder="Optionaler Hinweis">
+              </div>
+            </div>
+            <button class="btn" style="margin-top:6px;width:100%" onclick="addQualification()">+ Qualifikation hinzuf&uuml;gen</button>
+          </div>
+          <div class="form-card hub-card--wide">
+            <h3 style="font-size:14px;font-weight:800;margin:0 0 8px">Nachweisakte &amp; Dokumente</h3>
+            <p style="font-size:12px;color:var(--wk-text-muted);margin:0 0 12px">Seri&ouml;se Personalakten-Sicht: dokumentierte Nachweise, interne Pr&uuml;fung, G&uuml;ltigkeiten und Dateiablage direkt am Mitarbeiterprofil.</p>
+            <div id="workerDocumentStats" style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:14px"></div>
+            <div class="hub-grid">
+              <div>
+                <div class="hub-section-title">Hinterlegte Nachweise</div>
+                <div id="workerDocumentList" class="hub-list"></div>
+              </div>
+              <div>
+                <div class="hub-section-title">Neuen Nachweis hinterlegen</div>
+                <div class="form-grid">
+                  <div>
+                    <label>Kategorie</label>
+                    <select id="workerDocumentCategory">
+                      <option value="qualification">Qualifikation</option>
+                      <option value="identity">Identit&auml;t</option>
+                      <option value="permit">Erlaubnis</option>
+                      <option value="medical">Medizin</option>
+                      <option value="training">Training</option>
+                      <option value="other">Sonstiges</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label>Titel / Nachweis</label>
+                    <input type="text" id="workerDocumentTitle" placeholder="z.B. Staplerschein PDF">
+                  </div>
+                  <div>
+                    <label>Verkn&uuml;pfte Qualifikation</label>
+                    <input type="text" id="workerDocumentQualification" placeholder="z.B. Staplerschein">
+                  </div>
+                  <div>
+                    <label>Aussteller</label>
+                    <input type="text" id="workerDocumentIssuer" placeholder="DEKRA / T&Uuml;V / intern">
+                  </div>
+                  <div>
+                    <label>G&uuml;ltig ab</label>
+                    <input type="date" id="workerDocumentValidFrom">
+                  </div>
+                  <div>
+                    <label>G&uuml;ltig bis</label>
+                    <input type="date" id="workerDocumentValidUntil">
+                  </div>
+                  <div class="full">
+                    <label>Datei</label>
+                    <input type="file" id="workerDocumentFile" accept=".pdf,.png,.jpg,.jpeg,.webp,application/pdf,image/png,image/jpeg,image/webp">
+                  </div>
+                  <div class="full">
+                    <label>Interne Notiz</label>
+                    <textarea id="workerDocumentNotes" rows="3" placeholder="Pr&uuml;fhinweis, Einschr&auml;nkung, interne Einordnung"></textarea>
+                  </div>
+                </div>
+                <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px">
+                  <button class="btn primary" onclick="uploadWorkerDocument()">Nachweis hochladen</button>
+                </div>
+                <div style="margin-top:8px;font-size:12px;color:var(--wk-text-muted)">Erlaubt: PDF, PNG, JPG, WEBP bis 10 MB. Externe Freigabe bleibt davon strikt getrennt.</div>
+              </div>
+            </div>
+          </div>
+          <div class="form-card">
+            <h3 style="font-size:14px;font-weight:800;margin:0 0 12px">Account &amp; Einsatzportal</h3>
+            <div id="workerLinkageInfo" class="hub-linkage"></div>
+          </div>
+          <div class="form-card hub-card--wide">
+            <h3 style="font-size:14px;font-weight:800;margin:0 0 12px">Operativer Kontext</h3>
+            <div id="workerOpsStats" style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:14px"></div>
+            <div class="hub-grid">
+              <div>
+                <div class="hub-section-title">Eins&auml;tze &amp; Zuweisungen</div>
+                <div id="workerAssignmentTimeline" class="hub-list"></div>
+              </div>
+              <div>
+                <div class="hub-section-title">Submissions / Stundenzettel</div>
+                <div id="workerSubmissionTimeline" class="hub-list"></div>
+              </div>
+            </div>
+          </div>
+          <div class="form-card hub-card--wide">
+            <h3 style="font-size:14px;font-weight:800;margin:0 0 8px">Externe Profilfreigabe</h3>
+            <p style="font-size:12px;color:var(--wk-text-muted);margin:0 0 12px">Kein automatischer Public-Mode: Sichtbar werden ausschlie&szlig;lich die explizit freigegebenen Felder.</p>
+            <label style="font-size:13px;cursor:pointer;display:flex;align-items:center;gap:8px">
+              <input type="checkbox" id="profilePublic" onchange="updatePublicProfileControls()">
+              <span>Profil extern freigeben</span>
+            </label>
+            <div id="publicProfileFields" class="public-field-grid">
+              <label class="public-field-option"><input type="checkbox" data-public-field="name" onchange="updatePublicProfileControls()"><span><strong>Name</strong><br><span style="color:var(--wk-text-muted)">Vollst&auml;ndiger Name</span></span></label>
+              <label class="public-field-option"><input type="checkbox" data-public-field="city" onchange="updatePublicProfileControls()"><span><strong>Ort</strong><br><span style="color:var(--wk-text-muted)">Nur Stadt, keine genaue Adresse</span></span></label>
+              <label class="public-field-option"><input type="checkbox" data-public-field="skill_tags" onchange="updatePublicProfileControls()"><span><strong>Skills</strong><br><span style="color:var(--wk-text-muted)">Kompetenzen &amp; Tags</span></span></label>
+              <label class="public-field-option"><input type="checkbox" data-public-field="qualifications" onchange="updatePublicProfileControls()"><span><strong>Qualifikationen</strong><br><span style="color:var(--wk-text-muted)">Zertifikate &amp; Nachweise</span></span></label>
+              <label class="public-field-option"><input type="checkbox" data-public-field="profile_text" onchange="updatePublicProfileControls()"><span><strong>Kurzprofil</strong><br><span style="color:var(--wk-text-muted)">Freigegebener Beschreibungstext</span></span></label>
+              <label class="public-field-option"><input type="checkbox" data-public-field="availability_note" onchange="updatePublicProfileControls()"><span><strong>Verf&uuml;gbarkeit</strong><br><span style="color:var(--wk-text-muted)">Manuelle interne Freigabenotiz</span></span></label>
+            </div>
+            <div class="public-share-box">
+              <div class="hub-section-title">Share-Link</div>
+              <input type="text" id="publicProfileLink" readonly value="">
+              <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px">
+                <button class="btn" onclick="copyPublicProfileLink()">Link kopieren</button>
+                <a class="btn" id="publicProfilePreviewLink" href="#" target="_blank" rel="noopener">Vorschau &ouml;ffnen</a>
+              </div>
+              <div id="publicProfilePreviewSummary" style="margin-top:10px;font-size:12px;color:var(--wk-text-muted)"></div>
+            </div>
+          </div>
+        </div>
+        <div class="hub-actions">
+          <button class="btn" onclick="resetWorkerHubSelection()">Auswahl zur&uuml;cksetzen</button>
+          <button class="btn primary" onclick="saveWorkerHub()">Profil-Hub speichern</button>
+        </div>
+      </div>
+      <div id="skillsEmptyHint" style="text-align:center;padding:40px;color:var(--wk-text-muted)">
+        <div style="font-size:36px;margin-bottom:10px">&#128100;</div>
+        <div style="font-weight:700;margin-bottom:6px">Mitarbeiter ausw&auml;hlen</div>
+        <div style="font-size:13px">W&auml;hlen Sie oben einen Mitarbeiter aus, um Profil, Skills, Qualifikationen, Einsatzkontext und externe Freigabe zentral zu verwalten.</div>
+      </div>
+    </div>
+
+    <!-- Panel: Einladungen -->
+    <div id="panel-invites" class="panel">
+      <div id="inviteList">
+        <div class="empty-state"><div class="icon">&#128233;</div>Einladungen werden geladen...</div>
+      </div>
+    </div>
+
+    <!-- Panel: CSV-Import Wizard -->
+    <div id="panel-csvimport" class="panel">
+      <div class="form-card">
+        <!-- Wizard Step Indicator -->
+        <div style="display:flex;gap:4px;margin-bottom:20px" id="csv-steps">
+          <div class="csv-step csv-step--active" data-step="1"><span class="csv-step__num">1</span> Upload</div>
+          <div class="csv-step" data-step="2"><span class="csv-step__num">2</span> Mapping</div>
+          <div class="csv-step" data-step="3"><span class="csv-step__num">3</span> Validierung</div>
+          <div class="csv-step" data-step="4"><span class="csv-step__num">4</span> Import</div>
+        </div>
+
+        <!-- Step 1: Upload -->
+        <div id="csv-step-1" class="csv-wizard-step">
+          <h2 style="font-size:18px;font-weight:800;margin:0 0 8px">CSV-Datei hochladen</h2>
+          <p style="font-size:13px;color:var(--wk-text-muted);margin:0 0 16px">W&auml;hlen Sie eine CSV-Datei mit Ihren Mitarbeiterdaten. Unterst&uuml;tzte Trennzeichen: Komma, Semikolon, Tab.</p>
+          <div id="csv-dropzone" style="border:2px dashed var(--tc-dash-border);border-radius:14px;padding:40px 20px;text-align:center;cursor:pointer;transition:border-color .2s;background:var(--tc-surface-subtle)">
+            <div style="font-size:36px;margin-bottom:8px">&#128196;</div>
+            <div style="font-size:14px;font-weight:600;margin-bottom:4px">CSV-Datei hierher ziehen oder klicken</div>
+            <div style="font-size:12px;color:var(--wk-text-muted)">Max. 1000 Datens&auml;tze &bull; .csv Format</div>
+            <input type="file" id="csv-file-input" accept=".csv,.txt" style="display:none">
+          </div>
+          <div id="csv-file-info" style="display:none;margin-top:12px;padding:12px;border:1px solid var(--tc-tone-success-border);border-radius:10px;background:var(--tc-tone-success-bg)">
+            <span style="font-weight:700" id="csv-file-name"></span>
+            <span style="color:var(--wk-text-muted);font-size:12px;margin-left:8px" id="csv-file-meta"></span>
+          </div>
+          <div style="margin-top:8px;font-size:12px;color:var(--wk-text-muted)">
+            <details><summary style="cursor:pointer;font-weight:600">Beispiel-CSV</summary>
+              <pre style="background:var(--tc-input-bg);padding:10px;border-radius:8px;margin-top:6px;font-size:11px;overflow-x:auto;font-family:monospace">first_name;last_name;email;phone;city;personnel_number
+Max;Muster;max@example.com;0170123456;Berlin;P001
+Anna;Beispiel;anna@example.com;0157987654;M&uuml;nchen;P002</pre>
+            </details>
+          </div>
+        </div>
+
+        <!-- Step 2: Mapping -->
+        <div id="csv-step-2" class="csv-wizard-step" style="display:none">
+          <h2 style="font-size:18px;font-weight:800;margin:0 0 8px">Spalten zuordnen</h2>
+          <p style="font-size:13px;color:var(--wk-text-muted);margin:0 0 16px">Ordnen Sie die CSV-Spalten den TempConnect-Feldern zu. Pflichtfelder sind mit * markiert.</p>
+          <div id="csv-mapping-grid" style="display:grid;grid-template-columns:1fr auto 1fr;gap:8px 12px;align-items:center"></div>
+          <div style="margin-top:16px;display:flex;gap:8px;justify-content:flex-end">
+            <button class="btn" onclick="csvGoStep(1)">Zur&uuml;ck</button>
+            <button class="btn primary" onclick="csvGoStep(3)">Validierung starten &rarr;</button>
+          </div>
+        </div>
+
+        <!-- Step 3: Validation -->
+        <div id="csv-step-3" class="csv-wizard-step" style="display:none">
+          <h2 style="font-size:18px;font-weight:800;margin:0 0 8px">Validierung &amp; Vorschau</h2>
+          <div id="csv-validation-summary" style="display:flex;gap:12px;margin-bottom:16px;flex-wrap:wrap"></div>
+          <div style="margin-bottom:12px">
+            <label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer">
+              <span>Bei Duplikaten:</span>
+              <select id="csv-dup-strategy" style="width:auto;min-width:180px;margin-bottom:0">
+                <option value="skip">&Uuml;berspringen</option>
+                <option value="update">Aktualisieren</option>
+              </select>
+            </label>
+          </div>
+          <div id="csv-validation-table" style="max-height:350px;overflow-y:auto;border:1px solid var(--wk-border);border-radius:10px"></div>
+          <div id="csv-validation-errors" style="display:none;margin-top:12px"></div>
+          <div style="margin-top:16px;display:flex;gap:8px;justify-content:flex-end">
+            <button class="btn" onclick="csvGoStep(2)">Zur&uuml;ck</button>
+            <button class="btn primary" id="csv-btn-import" onclick="csvExecuteImport()" disabled>Import starten</button>
+          </div>
+        </div>
+
+        <!-- Step 4: Import Result -->
+        <div id="csv-step-4" class="csv-wizard-step" style="display:none">
+          <h2 style="font-size:18px;font-weight:800;margin:0 0 8px">Import-Ergebnis</h2>
+          <div id="csv-progress" style="display:none;margin-bottom:16px">
+            <div style="height:8px;border-radius:99px;background:var(--tc-progress-track);overflow:hidden">
+              <div id="csv-progress-bar" style="height:100%;border-radius:99px;background:linear-gradient(90deg,var(--ds-brand),var(--ds-success));width:0%;transition:width .3s"></div>
+            </div>
+            <div style="font-size:12px;color:var(--wk-text-muted);margin-top:4px" id="csv-progress-text">Importiere&hellip;</div>
+          </div>
+          <div id="csv-result-summary" style="margin-bottom:16px"></div>
+          <div id="csv-result-details" style="max-height:350px;overflow-y:auto"></div>
+          <div style="margin-top:16px;display:flex;gap:8px;justify-content:flex-end">
+            <button class="btn" onclick="csvReset()">Neuer Import</button>
+            <button class="btn primary" onclick="showTab('list');loadWorkers()">Zur Mitarbeiterliste</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Edit-Modal -->
+  <div class="modal-bg" id="editModal">
+    <div class="modal-panel">
+      <h2>Mitarbeiter bearbeiten</h2>
+      <div class="form-grid">
+        <div>
+          <label>Vorname</label>
+          <input type="text" id="eFirstName">
+        </div>
+        <div>
+          <label>Nachname</label>
+          <input type="text" id="eLastName">
+        </div>
+        <div>
+          <label>Personalnummer</label>
+          <input type="text" id="ePersonnelNr">
+        </div>
+        <div>
+          <label>Telefon</label>
+          <input type="text" id="ePhone">
+        </div>
+        <div>
+          <label>Stadt</label>
+          <input type="text" id="eCity">
+        </div>
+        <div>
+          <label>Strasse</label>
+          <input type="text" id="eStreet">
+        </div>
+        <div>
+          <label>PLZ</label>
+          <input type="text" id="ePostal">
+        </div>
+        <div>
+          <label>Notizen</label>
+          <input type="text" id="eNotes">
+        </div>
+      </div>
+      <div class="form-actions" style="margin-top:16px">
+        <button class="btn" onclick="closeEditModal()">Abbrechen</button>
+        <button class="btn primary" onclick="saveEdit()">Speichern</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast -->
+  <div class="toast" id="toast"></div>
+
+<script src="/public/js/planFeatures.js"></script>
+<script src="/public/js/slaGuard.js"></script>
+<script defer src="/public/js/pages/mitarbeiter.js"></script>
+<script src="/public/js/pageShell.js"></script>
+<script src="/public/js/notifications.js"></script>
+<div id="tc-footer" data-tc-footer></div>
+<script src="/public/js/footer.js"></script>
+<script src="/public/js/demoBanner.js" defer></script>
+<script src="/public/js/onboardingWizard.js" defer></script>
+<script src="/public/js/breadcrumb.js" defer></script>
+</body>
+</html>

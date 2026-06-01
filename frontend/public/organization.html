@@ -371,18 +371,68 @@
     function stat(v,l){return `<div class="occ-stat"><div class="occ-stat__value">${esc(v)}</div><div class="occ-stat__label">${esc(l)}</div></div>`;}
 
     /* ── Members ─────────────────────── */
+    function _mkLocOpts(selectedId){
+      return '<option value="">– kein –</option>'+_locations.map(function(l){return '<option value="'+esc(l.id)+'"'+(l.id===selectedId?' selected':'')+'>'+esc(l.name)+(l.city?' ('+esc(l.city)+')':'')+'</option>';}).join('');
+    }
+    function _mkDeptOpts(selectedId){
+      return '<option value="">– kein –</option>'+_departments.map(function(d){return '<option value="'+esc(d.id)+'"'+(d.id===selectedId?' selected':'')+'>'+esc(d.name)+'</option>';}).join('');
+    }
     async function loadMembers(){
       const d=await api('/org/members');
       if(!d||!d.success)return;
       const items=d.data.items;
       if(!items.length){document.getElementById('members-list').innerHTML='<div class="occ-empty">Keine Mitglieder</div>';return;}
-      let html='<table class="occ-table"><thead><tr><th>Name</th><th>E-Mail</th><th>Rolle</th><th>Status</th></tr></thead><tbody>';
+      if(!_locations.length){await loadLocations();}
+      if(!_departments.length){const dd=await api('/org/departments');if(dd&&dd.success)_departments=dd.data.items||[];}
+      let html='<table class="occ-table"><thead><tr><th>Name</th><th>E-Mail</th><th>Rolle</th><th>Standort</th><th>Abteilung</th><th>Scope</th><th>Status</th><th></th></tr></thead><tbody>';
       for(const m of items){
         const badge=m.is_active!==false?'<span class="occ-badge occ-badge--green">Aktiv</span>':'<span class="occ-badge occ-badge--red">Inaktiv</span>';
-        html+=`<tr><td>${esc(m.company_name||m.name||'–')}</td><td>${esc(m.email)}</td><td><span class="occ-badge occ-badge--gray">${esc(m.role_key)}</span></td><td>${badge}</td></tr>`;
+        let scopeBadge;
+        if(m.location_id){scopeBadge='<span class="occ-badge occ-badge--gray">Standortgebunden</span>';}
+        else if(m.department_id){scopeBadge='<span class="occ-badge occ-badge--gray">Abteilungsgebunden</span>';}
+        else{scopeBadge='<span class="occ-badge occ-badge--green">Alle Standorte</span>';}
+        const mid=esc(m.id);
+        html+='<tr>';
+        html+='<td>'+esc(m.company_name||m.name||'–')+'</td>';
+        html+='<td>'+esc(m.email)+'</td>';
+        html+='<td><span class="occ-badge occ-badge--gray">'+esc(m.role_key)+'</span></td>';
+        html+='<td>'+esc(m.location_name||'—')+'</td>';
+        html+='<td>'+esc(m.department_name||'—')+'</td>';
+        html+='<td>'+scopeBadge+'</td>';
+        html+='<td>'+badge+'</td>';
+        html+='<td><button class="occ-btn" style="font-size:11px;padding:4px 10px" onclick="toggleScopeEdit(\''+mid+'\')">&#9881; Scope</button></td>';
+        html+='</tr>';
+        html+='<tr id="scope-edit-'+mid+'" style="display:none">';
+        html+='<td colspan="8" style="padding:0">';
+        html+='<div class="occ-edit-row" style="margin:0;border-radius:0 0 8px 8px;display:block">';
+        html+='<div style="display:grid;grid-template-columns:1fr 1fr;gap:var(--ds-space-2);margin-bottom:var(--ds-space-2)">';
+        html+='<div><label style="font-size:11px;color:var(--ds-text-secondary);display:block;margin-bottom:3px">Standort</label>';
+        html+='<select id="scope-loc-'+mid+'" class="occ-input">'+_mkLocOpts(m.location_id)+'</select></div>';
+        html+='<div><label style="font-size:11px;color:var(--ds-text-secondary);display:block;margin-bottom:3px">Abteilung</label>';
+        html+='<select id="scope-dept-'+mid+'" class="occ-input">'+_mkDeptOpts(m.department_id)+'</select></div>';
+        html+='</div>';
+        html+='<div style="display:flex;justify-content:flex-end;gap:6px;align-items:center">';
+        html+='<span id="scope-err-'+mid+'" style="font-size:11px;color:#f87171"></span>';
+        html+='<button class="occ-btn" onclick="toggleScopeEdit(\''+mid+'\')">Abbrechen</button>';
+        html+='<button class="occ-btn occ-btn--primary" onclick="changeScope(\''+mid+'\')">Speichern</button>';
+        html+='</div></div></td></tr>';
       }
       html+='</tbody></table>';
       document.getElementById('members-list').innerHTML=html;
+    }
+    function toggleScopeEdit(mid){
+      const row=document.getElementById('scope-edit-'+mid);
+      if(!row)return;
+      row.style.display=row.style.display==='none'?'table-row':'none';
+    }
+    async function changeScope(membershipId){
+      const locId=document.getElementById('scope-loc-'+membershipId)?.value||null;
+      const deptId=document.getElementById('scope-dept-'+membershipId)?.value||null;
+      const errEl=document.getElementById('scope-err-'+membershipId);
+      if(errEl)errEl.textContent='';
+      const r=await api('/org/members/'+membershipId+'/scope',{method:'PATCH',body:JSON.stringify({location_id:locId||null,department_id:deptId||null})});
+      if(r&&r.success){loadMembers();}
+      else{if(errEl)errEl.textContent='Fehler: '+((r&&r.error&&r.error.code)||'Unbekannt');}
     }
 
     /* ── API Keys ────────────────────── */
@@ -490,8 +540,8 @@
       if(!d||!d.success){document.getElementById('usage-content').innerHTML='<div class="occ-empty">Usage-Daten nicht verfügbar</div>';return;}
       const u=d.data;
       let html='<div style=\"display:flex;flex-wrap:wrap;gap:8px;align-items:center;justify-content:flex-end;margin-bottom:12px\">'+
-        '<button class=\"occ-btn\" type=\"button\" data-feature-key=\"basic_analytics\" data-org-finance-export onclick=\"exportOrgFinanceTruth(\\'csv\\')\">Finance Snapshot CSV</button>'+
-        '<button class=\"occ-btn\" type=\"button\" data-feature-key=\"basic_analytics\" data-org-finance-export onclick=\"exportOrgFinanceTruth(\\'json\\')\">Finance Snapshot JSON</button>'+
+        '<button class=\"occ-btn\" type=\"button\" data-feature-key=\"basic_analytics\" data-org-finance-export onclick=\"exportOrgFinanceTruth(\'csv\')\">Finance Snapshot CSV</button>'+
+        '<button class=\"occ-btn\" type=\"button\" data-feature-key=\"basic_analytics\" data-org-finance-export onclick=\"exportOrgFinanceTruth(\'json\')\">Finance Snapshot JSON</button>'+
         '<span id=\"orgFinanceExportStatus\" style=\"font-size:12px;color:var(--ds-text-secondary)\">Auditfähiger Finance-Snapshot verfügbar.</span>'+
       '</div>';
       html+=`<div class=\"occ-stat-grid\">
@@ -533,10 +583,10 @@
         html+=`<div class="occ-security-item"><div class="occ-security-dot ${on?'occ-security-dot--on':'occ-security-dot--off'}"></div>${label}</div>`;
       }
       html+='</div></div>';
-      html+='<div class="occ-card"><div class="occ-card__title">Marktplatzmodus fuer individuellen Tarif</div>';
+      html+='<div class="occ-card"><div class="occ-card__title">Vermittlungsmodus fuer individuellen Tarif</div>';
       html+='<p style="font-size:12px;color:var(--ds-text-secondary);margin:0 0 var(--ds-space-3)">Optionaler Zusatzmodus fuer den individuellen Tarif: Zeitarbeitsfirmen koennen kontrolliert auch mit anderen Zeitarbeitsfirmen matchen.</p>';
       html+='<label style="display:flex;align-items:center;gap:8px;font-size:13px;margin-bottom:10px"><input type="checkbox" id="sec-inter-agency-enabled" '+(cfg.inter_agency_matching_enabled?'checked':'')+'/> Inter-Agency Matching aktivieren</label>';
-      html+='<label style="display:flex;align-items:center;gap:8px;font-size:13px;margin-bottom:10px"><input type="checkbox" id="sec-inter-agency-supply" '+(cfg.inter_agency_supply_visible?'checked':'')+'/> Kapazitaeten auch fuer Zeitarbeitsfirmen sichtbar machen</label>';
+      html+='<label style="display:flex;align-items:center;gap:8px;font-size:13px;margin-bottom:10px"><input type="checkbox" id="sec-inter-agency-supply" '+(cfg.inter_agency_supply_visible?'checked':'')+'/> Personal auch für Zeitarbeitsfirmen sichtbar machen</label>';
       html+='<div style="display:flex;justify-content:flex-end"><button class="occ-btn occ-btn--primary" data-feature-key="org_settings" onclick="saveInterAgencySettings()">Einstellungen speichern</button></div>';
       html+='</div>';
       document.getElementById('security-content').innerHTML=html;
@@ -596,24 +646,24 @@
       items.forEach(m=>{
         mHtml+='<tr><td>'+esc(m.company_name||m.name||'\u2013')+'</td><td style="font-size:12px">'+esc(m.email)+'</td>';
         mHtml+='<td><span class="occ-badge occ-badge--gray">'+esc(ROLE_LABELS[m.role_key]||m.role_key)+'</span></td>';
-        var uid=esc(m.user_id||m.id);
-        mHtml+='<td><select id="role-sel-'+uid+'" style="font-size:12px;padding:4px 8px;border-radius:6px;border:1px solid rgba(255,255,255,.1);background:rgba(0,0,0,.2);color:var(--ds-text)">';
+        var mid=esc(m.id);
+        mHtml+='<td><select id="role-sel-'+mid+'" style="font-size:12px;padding:4px 8px;border-radius:6px;border:1px solid rgba(255,255,255,.1);background:rgba(0,0,0,.2);color:var(--ds-text)">';
         ROLE_ORDER.slice(0,8).forEach(r=>{mHtml+='<option value="'+r+'"'+(r===m.role_key?' selected':'')+'>'+esc(ROLE_LABELS[r]||r)+'</option>';});
         mHtml+='</select></td>';
-        mHtml+='<td><button class="occ-btn" data-feature-key="org_settings" style="font-size:11px;padding:4px 10px" onclick="changeRole(\''+uid+'\',document.getElementById(\'role-sel-'+uid+'\').value)">Speichern</button></td></tr>';
+        mHtml+='<td><button class="occ-btn" data-feature-key="org_settings" style="font-size:11px;padding:4px 10px" onclick="changeRole(\''+mid+'\',document.getElementById(\'role-sel-'+mid+'\').value)">Speichern</button></td></tr>';
       });
       mHtml+='</tbody></table>';
       document.getElementById('roles-members').innerHTML=mHtml;
       applyOrgDomLocks(document.getElementById('roles-members'));
     }
-    async function changeRole(userId,newRole){
-      /* Fix: Route erwartet user_id (nicht membership_id), kein /role-Suffix */
-      const r=await api('/org/members/'+userId,{method:'PATCH',body:JSON.stringify({role_key:newRole})});
+    async function changeRole(membershipId,newRole){
+      const r=await api('/org/members/'+membershipId+'/role',{method:'PATCH',body:JSON.stringify({role_key:newRole})});
       if(r&&r.success){loadRoles();loadMembers();}else{alert('Fehler: '+((r&&r.error&&r.error.code)||r.error||'Unbekannt'));}
     }
 
     /* ── Locations ───────────────────── */
     let _locations=[];
+    let _departments=[];
     async function loadLocations(){
       const d=await api('/org/locations');
       if(!d||!d.success){document.getElementById('locations-list').innerHTML='<div class="occ-empty">Standorte konnten nicht geladen werden.</div>';return;}
@@ -725,6 +775,7 @@
       const d=await api('/org/departments');
       if(!d||!d.success){document.getElementById('departments-list').innerHTML='<div class="occ-empty">Abteilungen konnten nicht geladen werden.</div>';return;}
       const items=d.data.items||[];
+      _departments=items;
       document.getElementById('badge-departments').textContent=items.length;
       if(!items.length){document.getElementById('departments-list').innerHTML='<div class="occ-empty">Noch keine Abteilungen angelegt.</div>';return;}
       let html='';

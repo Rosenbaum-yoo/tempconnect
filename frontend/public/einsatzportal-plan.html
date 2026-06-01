@@ -1,0 +1,276 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <script src="/public/js/theme.js"></script>
+  <title>Einsatzplan – Einsatzportal</title>
+  <link rel="stylesheet" href="einsatzportal.css">
+  <style>
+    .week-nav {
+      display:flex; align-items:center; justify-content:space-between;
+      background:var(--ep-surface); border-radius:12px; padding:14px 18px;
+      margin-bottom:20px; border:1px solid var(--ep-border);
+    }
+    .week-nav-btn {
+      background:none; border:1px solid var(--ep-border); border-radius:8px;
+      color:var(--ep-text); cursor:pointer; padding:8px 14px; font-size:.95rem;
+      transition:all .15s;
+    }
+    .week-nav-btn:hover { background:var(--ep-surface-raised); border-color:var(--ep-brand); }
+    .week-label { font-weight:700; font-size:1rem; color:var(--ep-text); text-align:center; }
+    .week-kw { font-size:.75rem; color:var(--ep-text-muted); display:block; text-align:center; margin-top:2px; }
+    .plan-day {
+      background:var(--ep-surface); border-radius:12px; border:1px solid var(--ep-border);
+      margin-bottom:10px; overflow:hidden; transition:border-color .15s;
+    }
+    .plan-day.today { border-color:var(--ep-brand); box-shadow:0 0 0 1px var(--ep-brand); }
+    .plan-day-head {
+      display:flex; align-items:center; justify-content:space-between;
+      padding:12px 16px; border-bottom:1px solid var(--ep-border);
+    }
+    .plan-day.empty .plan-day-head { border-bottom:none; }
+    .plan-day-name { font-weight:700; font-size:.9rem; }
+    .plan-day-date { font-size:.8rem; color:var(--ep-text-muted); margin-left:8px; }
+    .plan-day-today-dot { width:7px; height:7px; border-radius:50%; background:var(--ep-brand); flex-shrink:0; }
+    .plan-day-empty-hint { padding:10px 16px 12px; font-size:.8rem; color:var(--ep-text-muted); }
+    .plan-shift {
+      padding:12px 16px;
+      border-top:1px solid var(--ep-border);
+      cursor:pointer; transition:background .15s;
+    }
+    .plan-shift:first-child { border-top:none; }
+    .plan-shift:hover { background:var(--ep-surface-raised); }
+    .plan-shift-client { font-weight:700; font-size:.9rem; margin-bottom:4px; }
+    .plan-shift-time { font-size:.8rem; color:var(--ep-brand); font-weight:600; }
+    .plan-shift-loc { font-size:.78rem; color:var(--ep-text-muted); margin-top:2px; }
+    .plan-shift-arrow { float:right; color:var(--ep-text-muted); font-size:.75rem; margin-top:2px; }
+    .plan-today-badge {
+      display:inline-flex; align-items:center; background:var(--ep-brand);
+      color:#fff; font-size:.65rem; font-weight:700; padding:2px 7px; border-radius:4px;
+      letter-spacing:.04em; text-transform:uppercase; margin-left:8px;
+    }
+    .week-summary {
+      display:flex; gap:12px; flex-wrap:wrap; margin-bottom:20px;
+    }
+    .week-stat {
+      flex:1; min-width:100px; background:var(--ep-surface); border-radius:10px;
+      border:1px solid var(--ep-border); padding:12px 16px; text-align:center;
+    }
+    .week-stat-val { font-size:1.4rem; font-weight:800; color:var(--ep-brand); }
+    .week-stat-lbl { font-size:.72rem; color:var(--ep-text-muted); margin-top:2px; }
+
+    /* Mobile: week nav compact, day rows tighter */
+    @media (max-width: 480px) {
+      .week-nav { padding:10px 12px; }
+      .week-nav-btn { padding:10px 12px; min-height:44px; font-size:.85rem; }
+      .week-label { font-size:.88rem; }
+      .plan-day-head { padding:10px 12px; }
+      .plan-shift { padding:10px 12px; }
+      .plan-shift-client { font-size:.85rem; }
+      .week-stat { padding:10px 12px; }
+      .week-stat-val { font-size:1.2rem; }
+    }
+  </style>
+</head>
+<body>
+
+<aside class="ep-sidebar">
+  <div class="ep-sidebar-brand"><div class="ep-sidebar-logo">TC</div><div><div style="font-weight:800;font-size:.95rem">Einsatzportal</div><div style="font-size:.7rem;color:var(--ep-text-muted);font-weight:400">TempConnect</div></div></div>
+  <nav class="ep-sidebar-nav">
+    <a class="ep-sidebar-item" href="einsatzportal-dashboard.html"><span class="icon">🏠</span> Dashboard</a>
+    <a class="ep-sidebar-item" href="einsatzportal-einsaetze.html"><span class="icon">📋</span> Meine Einsätze</a>
+    <a class="ep-sidebar-item active" href="einsatzportal-plan.html"><span class="icon">📅</span> Einsatzplan</a>
+    <a class="ep-sidebar-item" href="einsatzportal-stundenzettel.html"><span class="icon">⏱</span> Stundenzettel</a>
+    <a class="ep-sidebar-item" href="einsatzportal-benachrichtigungen.html"><span class="icon">🔔</span> Benachrichtigungen<span class="ep-sidebar-badge" id="sb-badge" style="display:none">0</span></a>
+    <a class="ep-sidebar-item" href="einsatzportal-kontakt.html"><span class="icon">💬</span> Kontakt &amp; Hilfe</a>
+    <a class="ep-sidebar-item" href="einsatzportal-profil.html"><span class="icon">👤</span> Mein Profil</a>
+  </nav>
+  <div class="ep-sidebar-footer">
+    <div class="ep-sidebar-user"><div class="ep-sidebar-avatar" id="sd-ava">?</div><div><div class="ep-sidebar-name" id="sd-name">Lädt…</div><div class="ep-sidebar-role">Arbeitnehmer</div></div></div>
+    <button class="ep-sidebar-item" onclick="doLogout()" style="margin-top:4px;color:var(--ep-text-muted)"><span class="icon">↩</span> Abmelden</button>
+  </div>
+</aside>
+
+<header class="ep-topbar">
+  <a class="ep-topbar-brand" href="einsatzportal-dashboard.html" aria-label="Zur Einsatzportal-Übersicht"><div class="ep-topbar-logo">TC</div>Einsatzplan</a>
+  <div class="ep-topbar-actions"><a class="ep-bell" href="einsatzportal-benachrichtigungen.html">🔔<span class="ep-bell-badge" id="mob-badge" style="display:none">0</span></a></div>
+</header>
+
+<main class="ep-main">
+  <div class="ep-content">
+    <div class="ep-page-header">
+      <h1 class="ep-page-title">Einsatzplan</h1>
+      <p class="ep-page-sub">Ihre Wochenübersicht mit allen geplanten Schichten</p>
+    </div>
+
+    <div id="loading">
+      <div class="ep-skel" style="height:60px;margin-bottom:12px"></div>
+      <div class="ep-skel" style="height:56px;margin-bottom:8px;opacity:.9"></div>
+      <div class="ep-skel" style="height:56px;margin-bottom:8px;opacity:.7"></div>
+      <div class="ep-skel" style="height:80px;margin-bottom:8px;opacity:.6"></div>
+      <div class="ep-skel" style="height:56px;margin-bottom:8px;opacity:.4"></div>
+    </div>
+
+    <div id="content" style="display:none">
+      <!-- Week Navigation -->
+      <div class="week-nav">
+        <button class="week-nav-btn" onclick="changeWeek(-1)">← Vorwoche</button>
+        <div>
+          <div class="week-label" id="weekLabel">…</div>
+          <span class="week-kw" id="weekKW"></span>
+        </div>
+        <button class="week-nav-btn" onclick="changeWeek(1)">Nächste →</button>
+      </div>
+
+      <!-- Week Summary -->
+      <div class="week-summary" id="weekSummary"></div>
+
+      <!-- Day rows -->
+      <div id="planDays"></div>
+    </div>
+  </div>
+</main>
+
+<nav class="ep-bottom-nav">
+  <a class="ep-bn-item" href="einsatzportal-dashboard.html"><span class="icon">🏠</span>Start</a>
+  <a class="ep-bn-item" href="einsatzportal-einsaetze.html"><span class="icon">📋</span>Einsätze</a>
+  <a class="ep-bn-item active" href="einsatzportal-plan.html"><span class="icon">📅</span>Plan</a>
+  <a class="ep-bn-item" href="einsatzportal-stundenzettel.html"><span class="icon">⏱</span>Stunden</a>
+  <a class="ep-bn-item" href="einsatzportal-benachrichtigungen.html"><span class="icon">🔔</span>Info<span class="ep-bn-dot" id="bn-dot" style="display:none"></span></a>
+  <a class="ep-bn-item" href="einsatzportal-profil.html"><span class="icon">👤</span>Profil</a>
+</nav>
+<div id="ep-toast"></div>
+
+<script src="/public/js/workerPortal/portalApi.js"></script>
+<script src="/public/js/workerPortal/portalShell.js"></script>
+<script src="/public/js/workerPortal/portalStatus.js"></script>
+<script>
+const DAY_NAMES = ['So','Mo','Di','Mi','Do','Fr','Sa'];
+const DAY_NAMES_FULL = ['Sonntag','Montag','Dienstag','Mittwoch','Donnerstag','Freitag','Samstag'];
+let weekOffset = 0, scheduleData = {};
+
+function esc(s) { return PortalShell.esc(s); }
+
+(async () => {
+  try {
+    await PortalShell.initShell();
+    await loadWeek();
+  } catch(e) {
+    const code = e.code || e.message;
+    if (code === 'NOT_AUTH') { location.href = 'worker-login.html'; return; }
+    PortalShell.toast(e.message || 'Fehler beim Laden', 'error');
+  }
+})();
+
+function getMonday(offset) {
+  const now = new Date();
+  const day = now.getDay(); // 0=Sun
+  const monday = new Date(now);
+  monday.setHours(0,0,0,0);
+  const diff = day === 0 ? -6 : 1 - day;
+  monday.setDate(now.getDate() + diff + offset * 7);
+  return monday;
+}
+
+function toISO(d) { return d.toISOString().slice(0,10); }
+
+function getKW(d) {
+  const jan4 = new Date(d.getFullYear(), 0, 4);
+  const startOfWeek = new Date(jan4);
+  startOfWeek.setDate(jan4.getDate() - (jan4.getDay() || 7) + 1);
+  const diff = d - startOfWeek;
+  return Math.ceil((diff / 86400000 + 1) / 7);
+}
+
+async function loadWeek() {
+  const monday = getMonday(weekOffset);
+  const sunday = new Date(monday); sunday.setDate(monday.getDate() + 6);
+  const from = toISO(monday), to = toISO(sunday);
+
+  const kw = getKW(monday);
+  document.getElementById('weekLabel').textContent = `${monday.toLocaleDateString('de-DE',{day:'2-digit',month:'long'})} – ${sunday.toLocaleDateString('de-DE',{day:'2-digit',month:'long',year:'numeric'})}`;
+  document.getElementById('weekKW').textContent = `KW ${kw} · ${monday.getFullYear()}`;
+
+  try {
+    const d = await PortalApi.get('/worker/schedule', { from, to });
+    // Build date-keyed schedule: for each day of the week, collect items that cover it
+    const items = d.items || [];
+    scheduleData = {};
+    for (let i = 0; i < 7; i++) {
+      const day = new Date(monday); day.setDate(monday.getDate() + i);
+      const iso = toISO(day);
+      scheduleData[iso] = items.filter(item =>
+        item.start_date <= iso && (!item.end_date || item.end_date >= iso)
+      );
+    }
+    document.getElementById('loading').style.display='none';
+    document.getElementById('content').style.display='';
+    renderWeek(monday);
+  } catch {
+    document.getElementById('loading').style.display='none';
+    document.getElementById('content').style.display='';
+    scheduleData = {};
+    renderWeek(monday);
+  }
+}
+
+function changeWeek(dir) {
+  weekOffset += dir;
+  document.getElementById('loading').style.display='';
+  document.getElementById('content').style.display='none';
+  loadWeek();
+}
+
+function renderWeek(monday) {
+  const today = toISO(new Date());
+  let totalDays = 0, totalHours = 0;
+
+  const rows = [];
+  for (let i = 0; i < 7; i++) {
+    const d = new Date(monday); d.setDate(monday.getDate() + i);
+    const iso = toISO(d);
+    const isToday = iso === today;
+    const dayShifts = scheduleData[iso] || [];
+    const hasShift = dayShifts.length > 0;
+
+    if (hasShift) { totalDays++; dayShifts.forEach(s => { totalHours += s.default_hours_per_day || 8; }); }
+
+    rows.push(`
+      <div class="plan-day${isToday?' today':''}${!hasShift?' empty':''}">
+        <div class="plan-day-head">
+          <div style="display:flex;align-items:center">
+            <span class="plan-day-name">${DAY_NAMES_FULL[d.getDay()]}</span>
+            <span class="plan-day-date">${d.toLocaleDateString('de-DE',{day:'2-digit',month:'2-digit'})}</span>
+            ${isToday ? '<span class="plan-today-badge">Heute</span>' : ''}
+          </div>
+          ${isToday ? '<div class="plan-day-today-dot"></div>' : ''}
+        </div>
+        ${hasShift ? dayShifts.map(s => {
+          const client = s.client_display_name || s.client_name || 'Einsatz';
+          const timeStr = s.shift_start ? `${s.shift_start.slice(0,5)}${s.shift_end?' – '+s.shift_end.slice(0,5):''} Uhr` : '';
+          return `
+            <div class="plan-shift" onclick="location.href='einsatzportal-einsaetze.html'">
+              <span class="plan-shift-arrow">›</span>
+              <div class="plan-shift-client">${esc(client)}</div>
+              ${timeStr ? `<div class="plan-shift-time">🕐 ${esc(timeStr)}</div>` : ''}
+              ${s.location_address ? `<div class="plan-shift-loc">📍 ${esc(s.location_address)}</div>` : ''}
+            </div>`;
+        }).join('') : `<div class="plan-day-empty-hint">Kein Einsatz geplant</div>`}
+      </div>`);
+  }
+
+  document.getElementById('planDays').innerHTML = rows.join('');
+
+  // Week summary
+  document.getElementById('weekSummary').innerHTML = `
+    <div class="week-stat"><div class="week-stat-val">${totalDays}</div><div class="week-stat-lbl">Einsatztage</div></div>
+    <div class="week-stat"><div class="week-stat-val">${totalHours}</div><div class="week-stat-lbl">Stunden geplant</div></div>
+    <div class="week-stat"><div class="week-stat-val">${weekOffset === 0 ? 'Diese' : weekOffset < 0 ? 'Vergangene' : 'Kommende'}</div><div class="week-stat-lbl">Woche</div></div>`;
+}
+
+</script>
+<script src="/public/js/demoBanner.js" defer></script>
+<script src="/public/js/breadcrumb.js" defer></script>
+</body>
+</html>

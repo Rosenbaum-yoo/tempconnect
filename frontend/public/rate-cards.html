@@ -1,0 +1,934 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <script src="/public/js/theme.js"></script>
+  <title>Preisrahmen – TempConnect</title>
+  <link rel="stylesheet" href="/public/css/enterprise.css"/>
+  <style>
+    .kpi-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: var(--ds-space-3); margin-bottom: var(--ds-space-5); }
+    .kpi-tile { padding: var(--ds-space-4); border-radius: var(--ds-radius-lg); border: 1px solid var(--ds-border); background: var(--tc-kpi-bg); text-align: center; }
+    .kpi-tile .kpi-val { font-size: 26px; font-weight: 800; display: block; margin-bottom: 4px; font-variant-numeric: tabular-nums; }
+    .kpi-tile .kpi-label { font-size: 11px; color: var(--ds-text-secondary); text-transform: uppercase; letter-spacing: .05em; font-weight: 600; }
+    .section { margin-bottom: var(--ds-space-6); padding: var(--ds-space-5); border: 1px solid var(--ds-border); border-radius: var(--ds-radius-lg); background: var(--tc-filter-surface); }
+    .section h3 { margin: 0 0 var(--ds-space-4); font-size: 14px; text-transform: uppercase; letter-spacing: 0.04em; color: var(--ds-text-secondary); font-weight: 700; }
+    .filter-row { display: flex; gap: var(--ds-space-3); margin-bottom: var(--ds-space-4); align-items: flex-end; flex-wrap: wrap; padding: var(--ds-space-3); border: 1px solid var(--ds-border); border-radius: var(--ds-radius-lg); background: var(--tc-filter-surface); }
+    .filter-row select, .filter-row input { width: auto; margin: 0; max-width: 180px; }
+    table { width: 100%; border-collapse: collapse; font-size: 13px; }
+    th { text-align: left; font-size: 11px; text-transform: uppercase; letter-spacing: .04em; color: var(--ds-text-secondary); padding: 8px 10px; border-bottom: 1px solid var(--ds-border); font-weight: 700; }
+    td { padding: 10px; border-bottom: 1px solid var(--tc-table-row-border); vertical-align: middle; }
+    tr:hover td { background: var(--tc-table-hover-bg); }
+    .badge { display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .03em; }
+    .badge-draft { background: var(--tc-badge-neutral-bg); color: var(--ds-text-secondary); }
+    .badge-active { background: var(--ds-success-muted); color: var(--good); }
+    .badge-expired { background: var(--ds-danger-muted); color: var(--bad); }
+    .badge-archived { background: var(--ds-warning-muted); color: var(--warn); }
+    .rate-display { font-variant-numeric: tabular-nums; font-weight: 600; }
+    .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,.6); z-index: 1000; display: flex; align-items: center; justify-content: center; }
+    .modal { background: var(--ds-bg-surface); border: 1px solid var(--ds-border); border-radius: var(--ds-radius-lg); padding: var(--ds-space-6); width: 560px; max-width: 95vw; max-height: 90vh; overflow-y: auto; }
+    .modal h2 { margin: 0 0 var(--ds-space-4); font-size: 18px; }
+    .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: var(--ds-space-3); }
+    .form-grid .full { grid-column: 1 / -1; }
+    .form-grid label { font-size: 12px; color: var(--ds-text-secondary); font-weight: 600; margin-bottom: 2px; display: block; }
+    .form-grid input, .form-grid select, .form-grid textarea { width: 100%; margin: 0; }
+    .btn-row { display: flex; gap: 8px; justify-content: flex-end; margin-top: var(--ds-space-4); }
+    .compliance-dot { width: 10px; height: 10px; border-radius: 50%; display: inline-block; margin-right: 4px; vertical-align: middle; }
+    .empty-state { text-align: center; padding: 40px; color: var(--ds-text-secondary); font-size: 14px; }
+    .link-row { display:flex; gap:8px; flex-wrap:wrap; margin: 0 0 var(--ds-space-4); }
+    .context-badge { display:none; background: var(--ds-brand-muted); border:1px solid rgba(74,158,255,.2); border-radius:8px; padding:10px 14px; font-size:13px; margin:0 0 var(--ds-space-4); color:var(--ds-text-secondary); }
+    /* .page-state canonical definitions live in design-system.css (WAVE_10) */
+    .section-note { padding: 12px 14px; border-radius: 10px; border: 1px dashed var(--ds-border); color: var(--ds-text-secondary); font-size: 12px; background: var(--tc-filter-surface); }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div id="tc-shell"></div>
+
+    <div class="ds-page-header">
+      <div class="ds-page-header__content">
+        <h1 class="ds-page-title">Preisrahmen</h1>
+        <p class="ds-page-subtitle">Ziel- und Maximalsaetze pro Rolle, Region und Lieferant steuern.</p>
+      </div>
+      <div class="ds-page-header__actions">
+        <button id="rateCardCreateBtn" class="btn primary" data-feature-key="rate_card_management" onclick="openCreateModal()">+ Neuer Preisrahmen</button>
+      </div>
+    </div>
+    <div class="link-row">
+      <a class="btn" data-feature-key="supplier_management" href="/public/vendor_pool.html">Lieferantenpool</a>
+      <a class="btn" href="/public/requisitions.html">Angebote</a>
+      <a class="btn" data-feature-key="spend_analytics" href="/public/spend-analytics.html">Spend &amp; Kosten</a>
+      <a class="btn" data-feature-key="supplier_ratings" href="/public/supplier_scorecard.html">Lieferantenbewertung</a>
+    </div>
+    <div id="rateCardContextBadge" class="context-badge"></div>
+    <div id="rateCardState" class="page-state"></div>
+
+    <!-- KPI Tiles -->
+    <div class="kpi-grid" id="kpiGrid"><div class="kpi-tile"><span class="kpi-val">–</span><span class="kpi-label">Lade…</span></div></div>
+
+    <!-- Filters -->
+    <div class="filter-row">
+      <div><label style="margin:0;font-size:11px;color:var(--ds-text-secondary)">Status</label>
+        <select id="fStatus" onchange="refreshRateCards()"><option value="">Alle</option><option value="active">Aktiv</option><option value="draft">Entwurf</option><option value="expired">Abgelaufen</option><option value="archived">Archiviert</option></select></div>
+      <div><label style="margin:0;font-size:11px;color:var(--ds-text-secondary)">Compliance (30 Tage)</label>
+        <select id="fComplianceStatus" onchange="refreshRateCards()"><option value="">Alle</option><option value="at_risk">Warnung / Verstoß</option><option value="warning">Nur Warnung</option><option value="non_compliant">Nur Verstoß</option></select></div>
+      <div><label style="margin:0;font-size:11px;color:var(--ds-text-secondary)">Rolle</label>
+        <input id="fRole" type="text" placeholder="z.B. Schweißer" onkeydown="if(event.key==='Enter')refreshRateCards()"/></div>
+      <div><label style="margin:0;font-size:11px;color:var(--ds-text-secondary)">Region</label>
+        <input id="fRegion" type="text" placeholder="z.B. München" onkeydown="if(event.key==='Enter')refreshRateCards()"/></div>
+      <div><label style="margin:0;font-size:11px;color:var(--ds-text-secondary)">Lieferant</label>
+        <select id="fSupplier" onchange="refreshRateCards()"><option value="">Alle Lieferanten</option></select></div>
+      <button class="btn" data-feature-key="rate_card_management" onclick="refreshRateCards()">Filtern</button>
+    </div>
+
+    <!-- Table -->
+    <div class="section">
+      <h3>Preisrahmen</h3>
+      <div id="tableWrap">
+        <table>
+          <thead><tr>
+            <th>Rolle</th><th>Region</th><th>Vendor</th><th>Ziel €/h</th><th>Max €/h</th><th>Gültig ab</th><th>Status</th><th>Aktionen</th>
+          </tr></thead>
+          <tbody id="tableBody"><tr><td colspan="8" class="empty-state">Lade…</td></tr></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Compliance Summary -->
+    <div class="section">
+      <h3>Preisrahmen-Compliance (30 Tage)</h3>
+      <div class="kpi-grid" id="complianceGrid" style="grid-template-columns:repeat(4,1fr)"></div>
+    </div>
+  </div>
+
+  <!-- Create/Edit Modal (hidden) -->
+  <div id="modalOverlay" class="modal-overlay" style="display:none" onclick="if(event.target===this)closeModal()">
+    <div class="modal">
+      <h2 id="modalTitle">Neuer Preisrahmen</h2>
+      <form id="rcForm" onsubmit="return saveCard(event)">
+        <input type="hidden" id="editId" value=""/>
+        <div class="form-grid">
+          <div><label>Rolle / Kategorie *</label><input id="fmRole" required placeholder="z.B. Schweißer"/></div>
+          <div><label>Region</label><input id="fmRegion" placeholder="Stadt / Bundesland"/></div>
+          <div class="full"><label>Lieferant (optional)</label><select id="fmSupplierOrg"><option value="">Alle Lieferanten</option></select></div>
+          <div><label>Ziel-Satz (Cent) *</label><input id="fmTarget" type="number" min="1" required placeholder="3500 = 35,00 €"/></div>
+          <div><label>Max-Satz (Cent) *</label><input id="fmMax" type="number" min="1" required placeholder="4500 = 45,00 €"/></div>
+          <div><label>Min-Satz (Cent)</label><input id="fmMin" type="number" min="0" placeholder="optional"/></div>
+          <div><label>Gültig ab *</label><input id="fmFrom" type="date" required/></div>
+          <div><label>Gültig bis</label><input id="fmTo" type="date"/></div>
+          <div><label>ÜZ-Zuschlag %</label><input id="fmOT" type="number" step="0.1" value="25.0"/></div>
+          <div class="full"><label>Notizen</label><textarea id="fmNotes" rows="2" placeholder="Interne Notiz…"></textarea></div>
+        </div>
+        <div class="btn-row">
+          <button type="button" class="btn" onclick="closeModal()">Abbrechen</button>
+          <button type="submit" class="btn primary" id="saveBtn" data-feature-key="rate_card_management">Speichern</button>
+        </div>
+      </form>
+    </div>
+  </div>
+  <script src="/public/js/planFeatures.js"></script>
+  <script src="/public/js/entitlements.js"></script>
+
+  <script>
+    var csrfToken = '';
+    var rateCardLoadVersion = 0;
+    var rateCardSupplierOptionsIssue = false;
+    var rateCardStatsIssue = false;
+    var rateCardQuery = new URLSearchParams(window.location.search || '');
+    var rateCardView = {
+      statusGroup: rateCardQuery.get('status_group') || '',
+      windowDateFrom: rateCardQuery.get('date_from') || '',
+      windowDateTo: rateCardQuery.get('date_to') || '',
+      lockedStatus: ''
+    };
+    var RATE_CARD_FILTER_STORAGE_KEY = 'tc.rateCards.filters.v1';
+    var currentMe = null;
+    var rateCardAccess = { mode: 'loading', canRead: false, canWrite: false };
+    var RATE_CARD_READ_ROLES = {
+      platform_admin: true,
+      owner: true,
+      admin: true,
+      program_manager: true,
+      hiring_manager: true,
+      supplier_manager: true,
+      finance: true,
+      viewer: true
+    };
+    var RATE_CARD_WRITE_ROLES = {
+      platform_admin: true,
+      owner: true,
+      admin: true,
+      program_manager: true,
+      finance: true
+    };
+    function applyRateCardDomLocks(root) {
+      if (window.TC && window.TC.entitlements && typeof window.TC.entitlements.applyDomLocks === 'function') {
+        window.TC.entitlements.applyDomLocks(root || document).catch(function() {});
+      }
+    }
+    if (rateCardView.statusGroup === 'window_overlap_30d') rateCardView.lockedStatus = 'active';
+    function normalizePlan(plan) {
+      var p = String(plan || 'DEMO').toUpperCase();
+      if (p === 'FREE') return 'DEMO';
+      if (p === 'ENTERPRISE' || p === 'INDIVIDUAL') return 'INDIVIDUELL';
+      return p;
+    }
+    function canReadRateCardsForMe(me) {
+      var orgRole = String(me && me.org_role || '').trim();
+      return !!RATE_CARD_READ_ROLES[orgRole];
+    }
+    function canWriteRateCardsForMe(me) {
+      var orgRole = String(me && me.org_role || '').trim();
+      return !!RATE_CARD_WRITE_ROLES[orgRole];
+    }
+    function resolveRateCardAccess(me) {
+      var plan = normalizePlan(me && me.plan);
+      var roleType = String(me && me.role || '').toLowerCase();
+      var planAllowed = typeof PlanFeatures !== 'undefined'
+        ? PlanFeatures.hasFeature(plan, 'rate_card_management')
+        : (plan === 'PRO' || plan === 'INDIVIDUELL');
+
+      if (!me) {
+        return {
+          mode: 'locked',
+          tone: 'warn',
+          canRead: false,
+          canWrite: false,
+          title: 'Preisrahmen derzeit nicht verfuegbar',
+          text: 'Der Nutzerkontext konnte nicht geladen werden. Bitte melden Sie sich erneut an oder aktualisieren Sie die Seite.'
+        };
+      }
+      if (!planAllowed) {
+        return {
+          mode: 'plan_locked',
+          tone: 'warn',
+          canRead: false,
+          canWrite: false,
+          title: 'Preisrahmen sind in Ihrem Tarif nicht freigeschaltet',
+          text: 'Die Preisrahmen-Steuerung ist ein Procurement-/Governance-Modul ab PRO bzw. Individuell.'
+        };
+      }
+      if (roleType === 'agency') {
+        return {
+          mode: 'org_locked',
+          tone: 'info',
+          canRead: false,
+          canWrite: false,
+          title: 'Preisrahmen sind aus Zeitarbeitsfirmen-Sicht bewusst gesperrt',
+          text: 'Dieser Bereich ist in TempConnect eine buyer-seitige Konditions- und Procurement-Steuerung fuer Einsatzunternehmen.'
+        };
+      }
+      if (!canReadRateCardsForMe(me)) {
+        return {
+          mode: 'role_locked',
+          tone: 'warn',
+          canRead: false,
+          canWrite: false,
+          title: 'Ihre Rolle hat keinen Zugriff auf Preisrahmen',
+          text: 'Preisrahmen bleiben fuer leseberechtigte Procurement-/Steuerungsrollen sichtbar und werden fuer andere Rollen bewusst nicht geoeffnet.'
+        };
+      }
+      if (!canWriteRateCardsForMe(me)) {
+        return {
+          mode: 'read_only',
+          tone: 'info',
+          canRead: true,
+          canWrite: false,
+          title: 'Preisrahmen im Read-only-Modus',
+          text: 'Ihre Rolle darf Preisrahmen lesen, aber nicht anlegen, aktivieren oder archivieren.'
+        };
+      }
+      return {
+        mode: 'full',
+        tone: 'good',
+        canRead: true,
+        canWrite: true,
+        title: '',
+        text: ''
+      };
+    }
+    function getRateCardBlockedPanel() {
+      var panel = document.getElementById('rateCardBlockedPanel');
+      if (panel) return panel;
+      panel = document.createElement('div');
+      panel.id = 'rateCardBlockedPanel';
+      panel.className = 'section';
+      panel.style.display = 'none';
+      var anchor = document.getElementById('rateCardState');
+      if (anchor && anchor.parentNode) {
+        anchor.parentNode.insertBefore(panel, anchor.nextSibling);
+      }
+      return panel;
+    }
+    function renderRateCardBlockedPanel(access) {
+      var panel = getRateCardBlockedPanel();
+      if (!panel) return;
+      var body = '<div class="section-note">' + esc(access && access.text || 'Preisrahmen sind derzeit nicht verfuegbar.') + '</div>';
+      var links = '';
+      if (access && access.mode === 'plan_locked') {
+        links =
+          '<div class="link-row" style="margin-top:14px">' +
+            '<a class="btn primary" href="/public/sla_abo.html">Tarif ansehen</a>' +
+            '<a class="btn" data-feature-key="supplier_management" href="/public/vendor_pool.html">Lieferantenpool</a>' +
+          '</div>';
+      } else if (access && access.mode === 'org_locked') {
+        links =
+          '<div class="link-row" style="margin-top:14px">' +
+            '<a class="btn primary" href="/public/capacity_exchange_feed.html">Zur Vermittlung</a>' +
+            '<a class="btn" href="/public/deal_management.html">Zu Deals &amp; Einsaetzen</a>' +
+          '</div>';
+      } else {
+        links =
+          '<div class="link-row" style="margin-top:14px">' +
+            '<a class="btn primary" href="/public/enterprise.html">Zur Uebersicht</a>' +
+            '<a class="btn" data-feature-key="supplier_management" href="/public/vendor_pool.html">Lieferantensteuerung</a>' +
+          '</div>';
+      }
+      panel.innerHTML =
+        '<h3>' + esc(access && access.title || 'Preisrahmen nicht verfuegbar') + '</h3>' +
+        body +
+        links;
+      panel.style.display = '';
+      applyRateCardDomLocks(panel);
+    }
+    function hideRateCardBlockedPanel() {
+      var panel = document.getElementById('rateCardBlockedPanel');
+      if (!panel) return;
+      panel.style.display = 'none';
+      panel.innerHTML = '';
+    }
+    function setRateCardContentVisibility(visible) {
+      var displayValue = visible ? '' : 'none';
+      var kpiGrid = document.getElementById('kpiGrid');
+      if (kpiGrid) kpiGrid.style.display = displayValue;
+      var contextBadge = document.getElementById('rateCardContextBadge');
+      if (contextBadge && !visible) contextBadge.style.display = 'none';
+      var linkRow = document.querySelector('.link-row');
+      if (linkRow) linkRow.style.display = displayValue;
+      var filterRow = document.querySelector('.filter-row');
+      if (filterRow) filterRow.style.display = visible ? 'flex' : 'none';
+      Array.prototype.forEach.call(document.querySelectorAll('.section'), function(section) {
+        if (section.id === 'rateCardBlockedPanel') return;
+        section.style.display = displayValue;
+      });
+      if (!visible) closeModal();
+    }
+    function applyRateCardAccess(access) {
+      var createBtn = document.getElementById('rateCardCreateBtn');
+      var saveBtn = document.getElementById('saveBtn');
+      if (createBtn) createBtn.style.display = access.canWrite ? '' : 'none';
+      if (saveBtn) {
+        saveBtn.disabled = !access.canWrite;
+        saveBtn.style.display = access.canWrite ? '' : 'none';
+      }
+      if (!access.canRead) {
+        setRateCardContentVisibility(false);
+        renderRateCardBlockedPanel(access);
+        showRateCardState(access.tone || 'warn', access.title || 'Preisrahmen nicht verfuegbar', access.text || '');
+        applyRateCardDomLocks(document);
+        return;
+      }
+      hideRateCardBlockedPanel();
+      setRateCardContentVisibility(true);
+      if (access.mode === 'read_only') {
+        showRateCardState(access.tone || 'info', access.title || 'Preisrahmen im Read-only-Modus', access.text || '');
+      }
+      applyRateCardDomLocks(document);
+    }
+    function ensureRateCardWriteAccess(actionLabel) {
+      if (rateCardAccess.canWrite) return true;
+      showRateCardState(
+        'warn',
+        'Preisrahmen sind fuer Ihre Rolle schreibgeschuetzt',
+        (actionLabel || 'Diese Aktion') + ' ist nur fuer Rollen mit Preisrahmen-Schreibrecht verfuegbar.'
+      );
+      return false;
+    }
+    function esc(s) { var d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
+    function centsToEur(c) { return c != null ? (c / 100).toFixed(2) : '–'; }
+    function formatDateDe(value) {
+      if (!value) return '';
+      var date = new Date(value);
+      if (Number.isNaN(date.getTime())) return value;
+      return date.toLocaleDateString('de-DE');
+    }
+    function isWindowOverlapDrilldown() {
+      return rateCardView.statusGroup === 'window_overlap_30d' && rateCardView.windowDateFrom && rateCardView.windowDateTo;
+    }
+    function applyRateCardContextDefaults() {
+      var statusEl = document.getElementById('fStatus');
+      if (!statusEl) return;
+      if (rateCardView.lockedStatus) {
+        statusEl.value = rateCardView.lockedStatus;
+        statusEl.disabled = true;
+        statusEl.title = 'Im Executive-Drilldown bleibt der Status auf aktive Preisrahmen begrenzt.';
+      } else {
+        statusEl.disabled = false;
+        statusEl.title = '';
+      }
+    }
+    function renderPageState(id, tone, title, text) {
+      var el = document.getElementById(id);
+      if (!el) return;
+      if (!title && !text) {
+        el.className = 'page-state';
+        el.innerHTML = '';
+        el.style.display = 'none';
+        return;
+      }
+      el.className = 'page-state page-state--' + (tone || 'info');
+      el.innerHTML = '<div class="page-state__title">' + esc(title || '') + '</div><div class="page-state__text">' + esc(text || '') + '</div>';
+      el.style.display = '';
+    }
+    function showRateCardState(tone, title, text) { renderPageState('rateCardState', tone, title, text); }
+    function clearRateCardState() { renderPageState('rateCardState'); }
+    function sectionNote(text) { return '<div class="section-note">' + esc(text) + '</div>'; }
+    function gridNote(text) { return '<div class="section-note" style="grid-column:1 / -1">' + esc(text) + '</div>'; }
+    function parseApiError(result, fallback) {
+      if (!result) return fallback;
+      if (typeof result.error === 'string' && result.error) return result.error;
+      if (Array.isArray(result.details) && result.details.length) return result.details.join(', ');
+      if (typeof result.details === 'string' && result.details) return result.details;
+      return fallback;
+    }
+    function readStoredRateCardFilters() {
+      try {
+        var raw = sessionStorage.getItem(RATE_CARD_FILTER_STORAGE_KEY);
+        if (!raw) return {};
+        var parsed = JSON.parse(raw);
+        return parsed && typeof parsed === 'object' ? parsed : {};
+      } catch (e) { return {}; }
+    }
+    function writeStoredRateCardFilters(filters) {
+      try { sessionStorage.setItem(RATE_CARD_FILTER_STORAGE_KEY, JSON.stringify(filters || {})); } catch (e) {}
+    }
+    function setStatsLoading() {
+      document.getElementById('kpiGrid').innerHTML = '<div class="kpi-tile"><span class="kpi-val">–</span><span class="kpi-label">Lade…</span></div>';
+      document.getElementById('complianceGrid').innerHTML = gridNote('Preisrahmen-Compliance wird geladen.');
+    }
+    function setRateCardLoading() {
+      document.getElementById('tableBody').innerHTML = '<tr><td colspan="8" class="empty-state">Lade…</td></tr>';
+    }
+    function collectRateCardIssues() {
+      var issues = [];
+      if (rateCardSupplierOptionsIssue) issues.push('Lieferantenfilter');
+      if (rateCardStatsIssue) issues.push('Preisrahmen-Statistik');
+      return issues;
+    }
+    function syncRateCardState(listFailed) {
+      if (!rateCardAccess.canRead) return;
+      var issues = collectRateCardIssues();
+      if (listFailed) {
+        showRateCardState('bad', 'Preisrahmen derzeit nicht verfügbar', 'Die Preisrahmenliste konnte nicht geladen werden.' + (issues.length ? ' Zusätzlich fehlen ' + issues.join(', ') + '.' : ''));
+        return;
+      }
+      if (rateCardView.statusGroup === 'window_overlap_30d' && !isWindowOverlapDrilldown()) {
+        showRateCardState('warn', 'Executive-Drilldown unvollständig', 'Das Zeitfenster für den KPI-Drilldown fehlt. Es werden nur die aktuell sichtbaren Filter angewendet.' + (issues.length ? ' Zusätzlich fehlen ' + issues.join(', ') + '.' : ''));
+        return;
+      }
+      if (issues.length) {
+        showRateCardState('warn', 'Teilweise Daten fehlen', issues.join(', ') + ' konnten nicht geladen werden. Die Preisrahmenliste bleibt verfügbar.');
+      } else if (rateCardAccess.mode === 'read_only') {
+        showRateCardState('info', 'Preisrahmen im Read-only-Modus', 'Ihre Rolle darf Preisrahmen lesen, aber nicht anlegen, aktivieren oder archivieren.');
+      } else {
+        clearRateCardState();
+      }
+    }
+    function renderPostMutationState(title, text) {
+      var issues = collectRateCardIssues();
+      if (issues.length) {
+        showRateCardState('warn', title, text + ' ' + issues.join(', ') + ' bleiben derzeit eingeschränkt.');
+      } else {
+        showRateCardState('good', title, text);
+      }
+    }
+    function buildScorecardUrl(supplierId, supplierName) {
+      return '/public/supplier_scorecard.html?agencyId=' + encodeURIComponent(supplierId || '') + '&agencyName=' + encodeURIComponent(supplierName || '');
+    }
+    function buildSpendUrl(supplierId, supplierName, role, region) {
+      var url = '/public/spend-analytics.html?vendor_id=' + encodeURIComponent(supplierId || '') + '&supplier=' + encodeURIComponent(supplierName || '');
+      if (role) url += '&category=' + encodeURIComponent(role);
+      if (region) url += '&region=' + encodeURIComponent(region);
+      return url;
+    }
+    function currentRateCardFilters() {
+      var filters = {
+        status: document.getElementById('fStatus').value || '',
+        complianceStatus: document.getElementById('fComplianceStatus').value || '',
+        role: document.getElementById('fRole').value.trim(),
+        region: document.getElementById('fRegion').value.trim(),
+        supplierOrgId: document.getElementById('fSupplier').value || '',
+        dateFrom: '',
+        dateTo: ''
+      };
+      if (isWindowOverlapDrilldown()) {
+        filters.status = rateCardView.lockedStatus || 'active';
+        filters.dateFrom = rateCardView.windowDateFrom;
+        filters.dateTo = rateCardView.windowDateTo;
+      }
+      return filters;
+    }
+    function buildRateCardQueryString(includeLimit) {
+      var filters = currentRateCardFilters();
+      var parts = [];
+      if (includeLimit) parts.push('limit=100');
+      if (filters.status) parts.push('status=' + encodeURIComponent(filters.status));
+      if (filters.complianceStatus) parts.push('compliance_status=' + encodeURIComponent(filters.complianceStatus));
+      if (filters.role) parts.push('role_category=' + encodeURIComponent(filters.role));
+      if (filters.region) parts.push('region=' + encodeURIComponent(filters.region));
+      if (filters.supplierOrgId) parts.push('supplier_org_id=' + encodeURIComponent(filters.supplierOrgId));
+      if (filters.dateFrom) parts.push('date_from=' + encodeURIComponent(filters.dateFrom));
+      if (filters.dateTo) parts.push('date_to=' + encodeURIComponent(filters.dateTo));
+      return parts.length ? ('?' + parts.join('&')) : '';
+    }
+    function ensureSelectOption(selectEl, value, label) {
+      if (!selectEl || !value) return;
+      for (var i = 0; i < selectEl.options.length; i += 1) {
+        if (selectEl.options[i].value === value) return;
+      }
+      var option = document.createElement('option');
+      option.value = value;
+      option.textContent = label || value;
+      selectEl.appendChild(option);
+    }
+    async function fetchCurrentMe() {
+      try {
+        var response = await fetch('/api/me', { credentials: 'include' });
+        if (response.status === 401) {
+          location.href = '/';
+          return null;
+        }
+        if (!response.ok) return null;
+        return await response.json();
+      } catch (err) {
+        return null;
+      }
+    }
+    function buildAccessFromApiError(result) {
+      if (!result || !result.error) return null;
+      if (result.error === 'RATE_CARD_NOT_AVAILABLE_FOR_ORG_TYPE') {
+        return {
+          mode: 'org_locked',
+          tone: 'info',
+          canRead: false,
+          canWrite: false,
+          title: 'Preisrahmen sind fuer diese Organisation nicht verfuegbar',
+          text: result.message || 'Preisrahmen stehen nur fuer Unternehmensorganisationen zur Verfuegung.'
+        };
+      }
+      if (result.error === 'FEATURE_NOT_ALLOWED' && result.feature === 'rate_card_management') {
+        return {
+          mode: 'plan_locked',
+          tone: 'warn',
+          canRead: false,
+          canWrite: false,
+          title: 'Preisrahmen sind in Ihrem Tarif nicht freigeschaltet',
+          text: 'Die Preisrahmen-Steuerung ist ab PRO bzw. Individuell verfuegbar.'
+        };
+      }
+      return null;
+    }
+    function applyRateCardApiErrorState(result) {
+      var access = buildAccessFromApiError(result);
+      if (!access) return false;
+      rateCardAccess = access;
+      applyRateCardAccess(rateCardAccess);
+      return true;
+    }
+
+    function getLocHeader() {
+      try { return (window.TC && TC.api && typeof TC.api.getActiveLocationId === 'function') ? TC.api.getActiveLocationId() : null; } catch (_e) { return null; }
+    }
+    function getLocLabel() {
+      try { return sessionStorage.getItem('tc.activeLocationName') || null; } catch (_e) { return null; }
+    }
+    async function api(path, opts) {
+      try {
+        var o = Object.assign({ credentials: 'include' }, opts || {});
+        if (o.body && typeof o.body === 'object' && !(o.body instanceof FormData)) {
+          o.headers = Object.assign({ 'Content-Type': 'application/json', 'x-csrf-token': csrfToken }, o.headers || {});
+          o.body = JSON.stringify(o.body);
+        }
+        var locId = getLocHeader();
+        if (locId) o.headers = Object.assign({}, o.headers || {}, { 'X-Location-Id': locId });
+        var r = await fetch('/api' + path, o);
+        if (r.status === 401) { location.href = '/'; return null; }
+        var text = await r.text();
+        var data = {};
+        if (text) {
+          try { data = JSON.parse(text); } catch (err) { data = {}; }
+        }
+        if (r.ok) return data;
+        if (!data.error) data.error = r.status === 403 ? 'Keine Berechtigung.' : 'HTTP ' + r.status;
+        return data;
+      } catch (e) {
+        return { error: 'Netzwerkfehler oder Server nicht erreichbar.' };
+      }
+    }
+
+    function selectedSupplierName() {
+      var sel = document.getElementById('fSupplier');
+      if (!sel || !sel.value || !sel.selectedOptions || !sel.selectedOptions[0]) return '';
+      return sel.selectedOptions[0].textContent || '';
+    }
+
+    function complianceStatusLabel(value) {
+      if (value === 'at_risk') return 'Warnung / Verstoß';
+      if (value === 'warning') return 'Nur Warnung';
+      if (value === 'non_compliant') return 'Nur Verstoß';
+      if (value === 'compliant') return 'Nur compliant';
+      return '';
+    }
+
+    function renderContextBadge(preSupplierName) {
+      var filters = currentRateCardFilters();
+      var supplierName = selectedSupplierName() || preSupplierName || '';
+      var parts = [];
+      var title = '';
+      var text = '';
+      // [P2-B] Standort-Kontext: Rate Cards gelten org-weit, kein Location-Scope-Filter
+      var locId = getLocHeader();
+      var locLbl = getLocLabel();
+      if (isWindowOverlapDrilldown()) {
+        title = 'Executive-Drilldown: Aktive Rate Cards';
+        text = 'Die Seite bleibt auf aktive Preisrahmen begrenzt, deren Gültigkeit das Dashboard-Zeitfenster ' + formatDateDe(rateCardView.windowDateFrom) + ' bis ' + formatDateDe(rateCardView.windowDateTo) + ' überlappt.';
+        parts.push('Zeitraum <strong>' + esc(formatDateDe(rateCardView.windowDateFrom) + ' – ' + formatDateDe(rateCardView.windowDateTo)) + '</strong>');
+        parts.push('Status <strong>active</strong>');
+      } else if (filters.status) {
+        parts.push('Status <strong>' + esc(filters.status) + '</strong>');
+      }
+      if (filters.complianceStatus) parts.push('Compliance <strong>' + esc(complianceStatusLabel(filters.complianceStatus)) + '</strong>');
+      if (filters.role) parts.push('Rolle <strong>' + esc(filters.role) + '</strong>');
+      if (filters.region) parts.push('Region <strong>' + esc(filters.region) + '</strong>');
+      if (filters.supplierOrgId) parts.push('Lieferant <strong>' + esc(supplierName) + '</strong>');
+      var badge = document.getElementById('rateCardContextBadge');
+      if (!title && !parts.length && !locId) {
+        badge.style.display = 'none';
+        badge.innerHTML = '';
+        return;
+      }
+      badge.style.display = 'block';
+      badge.innerHTML =
+        (title ? '<strong>' + esc(title) + '</strong>' : '') +
+        (text ? '<div style="margin-top:6px">' + esc(text) + '</div>' : '') +
+        (parts.length ? '<div style="margin-top:6px">&#128279; Aktiver Preisrahmen-Kontext: ' + parts.join(' &bull; ') + '</div>' : '') +
+        (locId ? '<div style="margin-top:8px;color:var(--ds-text-secondary);font-size:12px">Konditionsrahmen gelten org-weit – Standort „' + esc(locLbl || locId) + '“ hat keinen Einfluss auf Preisrahmen.</div>' : '') +
+        ((title || parts.length) ? '<div style="margin-top:6px"><a href="/public/rate-cards.html" style="color:var(--brand);font-size:12px">Filter zuruecksetzen &times;</a></div>' : '');
+    }
+    function renderKpiTiles(cards) {
+      var tiles;
+      if (isWindowOverlapDrilldown()) {
+        tiles = [
+          { label: 'Aktiv im Fenster', val: cards.total || cards.active || 0, color: 'var(--good)' },
+          { label: 'Rollen im Fenster', val: cards.role_categories || 0, color: 'var(--brand)' },
+          { label: 'Lieferantenspezifisch', val: cards.vendor_specific || 0, color: '#7c5cff' }
+        ];
+      } else {
+        tiles = [
+          { label: 'Gesamt', val: cards.total || 0, color: 'var(--text)' },
+          { label: 'Aktiv', val: cards.active || 0, color: 'var(--good)' },
+          { label: 'Entwurf', val: cards.draft || 0, color: 'var(--ds-text-secondary)' },
+          { label: 'Abgelaufen', val: cards.expired || 0, color: 'var(--bad)' },
+          { label: 'Rollen', val: cards.role_categories || 0, color: 'var(--brand)' },
+          { label: 'Lieferantenspezifisch', val: cards.vendor_specific || 0, color: '#7c5cff' }
+        ];
+      }
+      document.getElementById('kpiGrid').innerHTML = tiles.map(function(t) {
+        return '<div class="kpi-tile"><span class="kpi-val" style="color:' + t.color + '">' + esc(String(t.val)) + '</span><span class="kpi-label">' + esc(t.label) + '</span></div>';
+      }).join('');
+    }
+    function renderComplianceTiles(comp) {
+      document.getElementById('complianceGrid').innerHTML = [
+        { label: 'Geprüft', val: comp.total_checks || 0, color: 'var(--text)' },
+        { label: 'Compliant', val: comp.compliant || 0, color: 'var(--good)' },
+        { label: 'Warnung', val: comp.warnings || 0, color: 'var(--warn)' },
+        { label: 'Nicht konform', val: comp.non_compliant || 0, color: 'var(--bad)' }
+      ].map(function(t) {
+        return '<div class="kpi-tile"><span class="kpi-val" style="color:' + t.color + '">' + esc(String(t.val)) + '</span><span class="kpi-label">' + esc(t.label) + '</span></div>';
+      }).join('');
+    }
+    function buildRateCardLoadingText() {
+      return isWindowOverlapDrilldown()
+        ? 'Aktive Preisrahmen und gefilterte Kennzahlen fuer das Dashboard-Zeitfenster werden aktualisiert.'
+        : 'Liste und gefilterte Kennzahlen werden aktualisiert.';
+    }
+
+    async function init() {
+      showRateCardState('info', 'Preisrahmen werden geladen', 'Kontext, Filter und Kennzahlen werden vorbereitet.');
+      setStatsLoading();
+      setRateCardLoading();
+      currentMe = await fetchCurrentMe();
+      rateCardAccess = resolveRateCardAccess(currentMe);
+      applyRateCardAccess(rateCardAccess);
+      if (!rateCardAccess.canRead) return;
+      if (rateCardAccess.canWrite) {
+        try {
+          var csrf = await fetch('/api/csrf', { credentials: 'include' });
+          if (csrf.ok) { var d = await csrf.json(); csrfToken = d.csrfToken || ''; }
+        } catch (e) {
+          showRateCardState('warn', 'Initialisierung teilweise eingeschränkt', 'Das Sicherheitstoken konnte nicht geladen werden. Schreibaktionen koennen voruebergehend fehlschlagen.');
+        }
+      }
+      var hasUrlFilters = rateCardQuery.has('status_group') || rateCardQuery.has('date_from') || rateCardQuery.has('date_to') ||
+        rateCardQuery.has('status') || rateCardQuery.has('compliance_status') || rateCardQuery.has('role') || rateCardQuery.has('region') ||
+        rateCardQuery.has('supplier_org_id') || rateCardQuery.has('vendor_id') || rateCardQuery.has('supplier_name') || rateCardQuery.has('supplier');
+      var storedFilters = hasUrlFilters ? {} : readStoredRateCardFilters();
+      var preComplianceStatus = hasUrlFilters ? (rateCardQuery.get('compliance_status') || '') : (storedFilters.complianceStatus || '');
+      var preRole = hasUrlFilters ? (rateCardQuery.get('role') || '') : (storedFilters.role || '');
+      var preRegion = hasUrlFilters ? (rateCardQuery.get('region') || '') : (storedFilters.region || '');
+      var preSupplierId = hasUrlFilters
+        ? (rateCardQuery.get('supplier_org_id') || rateCardQuery.get('vendor_id') || '')
+        : (storedFilters.supplierOrgId || '');
+      var preSupplierName = rateCardQuery.get('supplier_name') || rateCardQuery.get('supplier') || '';
+      var preStatus = hasUrlFilters ? (rateCardQuery.get('status') || '') : (storedFilters.status || '');
+      if (preComplianceStatus) document.getElementById('fComplianceStatus').value = preComplianceStatus;
+      if (preRole) document.getElementById('fRole').value = preRole;
+      if (preRegion) document.getElementById('fRegion').value = preRegion;
+      if (!rateCardView.lockedStatus && preStatus) document.getElementById('fStatus').value = preStatus;
+      applyRateCardContextDefaults();
+      await loadSupplierOptions(preSupplierId, preSupplierName);
+      if (preSupplierId) document.getElementById('fSupplier').value = preSupplierId;
+      renderContextBadge(preSupplierName);
+      await refreshRateCards(preSupplierName, false);
+    }
+
+    async function loadSupplierOptions(preselectedId, preselectedName) {
+      if (!rateCardAccess.canRead) return;
+      var d = await api('/suppliers/enriched?limit=100');
+      var sel = document.getElementById('fmSupplierOrg');
+      var filterSel = document.getElementById('fSupplier');
+      if (!sel) return;
+      if (!d || d.error) {
+        rateCardSupplierOptionsIssue = true;
+        sel.innerHTML = '<option value="">Alle Lieferanten</option>';
+        if (filterSel) filterSel.innerHTML = '<option value="">Alle Lieferanten</option>';
+        return;
+      }
+      var items = (d && d.items) || [];
+      rateCardSupplierOptionsIssue = false;
+      var options = items.map(function(it){
+        var id = it.supplier_org_id || '';
+        var name = it.supplier_org_name || it.supplier_org_id || 'Lieferant';
+        return '<option value="' + esc(id) + '">' + esc(name) + '</option>';
+      }).join('');
+      sel.innerHTML = '<option value="">Alle Lieferanten</option>' + options;
+      if (filterSel) filterSel.innerHTML = '<option value="">Alle Lieferanten</option>' + options;
+      if (preselectedId) {
+        ensureSelectOption(sel, preselectedId, preselectedName || preselectedId);
+        ensureSelectOption(filterSel, preselectedId, preselectedName || preselectedId);
+      }
+    }
+
+    async function loadStats(loadId) {
+      if (!rateCardAccess.canRead) return { status: 'blocked' };
+      var d = await api('/rate-cards/stats' + buildRateCardQueryString(false));
+      if (loadId !== rateCardLoadVersion) return { status: 'stale' };
+      if (applyRateCardApiErrorState(d)) return { status: 'blocked' };
+      if (!d || d.error || !d.data) {
+        rateCardStatsIssue = true;
+        document.getElementById('kpiGrid').innerHTML = '<div class="kpi-tile"><span class="kpi-val">!</span><span class="kpi-label">Statistik nicht verfuegbar</span></div>';
+        document.getElementById('complianceGrid').innerHTML = gridNote('Preisrahmen-Compliance konnte derzeit nicht geladen werden.');
+        return { status: 'error' };
+      }
+      rateCardStatsIssue = false;
+      renderKpiTiles(d.data.cards || {});
+      renderComplianceTiles(d.data.compliance_30d || {});
+      return { status: 'ok' };
+    }
+
+    async function loadCards(loadId, preSupplierName) {
+      if (!rateCardAccess.canRead) return { status: 'blocked' };
+      var filters = currentRateCardFilters();
+      var qs = buildRateCardQueryString(true);
+      renderContextBadge(preSupplierName);
+      var d = await api('/rate-cards' + qs);
+      var body = document.getElementById('tableBody');
+      if (loadId !== rateCardLoadVersion) return { status: 'stale' };
+      if (applyRateCardApiErrorState(d)) {
+        body.innerHTML = '<tr><td colspan=\"8\" class=\"empty-state\">Preisrahmen sind fuer Ihren aktuellen Organisationskontext nicht verfuegbar.</td></tr>';
+        return { status: 'blocked' };
+      }
+      if (!d || d.error || !d.data || !d.data.items) {
+        body.innerHTML = '<tr><td colspan="8" class="empty-state">Die Preisrahmenliste konnte derzeit nicht geladen werden.</td></tr>';
+        return { status: 'error' };
+      }
+      if (!d.data.items.length) {
+        var hasScopedFilter = filters.complianceStatus || filters.role || filters.region || filters.supplierOrgId || (!isWindowOverlapDrilldown() && filters.status);
+        var locLbl = getLocLabel();
+        var emptyText = isWindowOverlapDrilldown()
+          ? (hasScopedFilter
+            ? 'Keine aktiven Preisrahmen ueberlappen das Dashboard-Zeitfenster fuer die aktuelle Auswahl.'
+            : 'Es gibt derzeit keine aktiven Preisrahmen, deren Gueltigkeit das Dashboard-Zeitfenster ueberlappt.')
+          : (hasScopedFilter
+            ? (locLbl ? 'Keine Preisrahmen fuer Standort ' + locLbl + ' und diese Auswahl vorhanden.' : 'Keine Preisrahmen fuer diese Auswahl vorhanden.')
+            : (locLbl ? 'Noch keine Preisrahmen fuer Standort ' + locLbl + '.' : 'Noch keine Preisrahmen vorhanden. Legen Sie jetzt den ersten Preisrahmen an.'));
+        body.innerHTML = '<tr><td colspan="8" class="empty-state">' + esc(emptyText) + '</td></tr>';
+        return { status: 'empty' };
+      }
+
+      body.innerHTML = d.data.items.map(function(rc) {
+        var badge = '<span class="badge badge-' + rc.status + '">' + esc(rc.status) + '</span>';
+        var vendor = rc.supplier_name && rc.supplier_org_id
+          ? '<a href="' + buildScorecardUrl(rc.supplier_org_id, rc.supplier_name) + '" style="color:inherit;text-decoration:underline;text-decoration-color:rgba(255,255,255,.2)" title="Lieferantenbewertung oeffnen">' + esc(rc.supplier_name) + '</a>'
+          : (rc.supplier_name || '<span style="color:var(--ds-text-secondary)">Alle</span>');
+        var regionLabel = rc.region || (rc.location_name || '<span style="color:var(--ds-text-secondary)">Global</span>');
+        var validFrom = rc.valid_from ? rc.valid_from.slice(0,10) : '–';
+        var actions = '';
+        if (rateCardAccess.canWrite && rc.status === 'draft') {
+          actions += '<button class="btn" data-feature-key="rate_card_management" style="padding:2px 8px;font-size:11px" onclick="activateCard(\''+rc.id+'\')">Aktivieren</button> ';
+        }
+        if (rateCardAccess.canWrite && (rc.status === 'draft' || rc.status === 'active')) {
+          actions += '<button class="btn" data-feature-key="rate_card_management" style="padding:2px 8px;font-size:11px" onclick="archiveCard(\''+rc.id+'\')">Archivieren</button>';
+        }
+        if (rc.supplier_org_id) {
+          actions += ' <a class="btn" data-feature-key="supplier_ratings" style="padding:2px 8px;font-size:11px" href="' + buildScorecardUrl(rc.supplier_org_id, rc.supplier_name || '') + '">Bewertung</a>';
+          actions += ' <a class="btn" data-feature-key="spend_analytics" style="padding:2px 8px;font-size:11px" href="' + buildSpendUrl(rc.supplier_org_id, rc.supplier_name || '', rc.role_category, rc.region || rc.location_name || '') + '">Kosten</a>';
+        }
+        return '<tr>'+
+          '<td><strong>'+esc(rc.role_category)+'</strong></td>'+
+          '<td>'+regionLabel+'</td>'+
+          '<td>'+vendor+'</td>'+
+          '<td class="rate-display">'+centsToEur(rc.target_rate_cents)+' €</td>'+
+          '<td class="rate-display">'+centsToEur(rc.max_rate_cents)+' €</td>'+
+          '<td>'+validFrom+'</td>'+
+          '<td>'+badge+'</td>'+
+          '<td>'+actions+'</td>'+
+          '</tr>';
+      }).join('');
+      applyRateCardDomLocks(body);
+      return { status: 'ok' };
+    }
+
+    async function refreshRateCards(preSupplierName, persist) {
+      if (!rateCardAccess.canRead) return { status: 'blocked' };
+      var shouldPersist = persist !== false;
+      if (shouldPersist) {
+        var stored = currentRateCardFilters();
+        writeStoredRateCardFilters({
+          status: rateCardView.lockedStatus ? '' : (stored.status || ''),
+          complianceStatus: stored.complianceStatus || '',
+          role: stored.role || '',
+          region: stored.region || '',
+          supplierOrgId: stored.supplierOrgId || ''
+        });
+      }
+      var loadId = ++rateCardLoadVersion;
+      renderContextBadge(preSupplierName);
+      showRateCardState('info', isWindowOverlapDrilldown() ? 'Executive-Drilldown wird geladen' : 'Preisrahmen werden geladen', buildRateCardLoadingText());
+      setStatsLoading();
+      setRateCardLoading();
+      var results = await Promise.all([loadStats(loadId), loadCards(loadId, preSupplierName)]);
+      if (loadId !== rateCardLoadVersion) return { status: 'stale' };
+      var listResult = results[1] || { status: 'error' };
+      if (listResult.status === 'blocked') return { status: 'blocked', stats: results[0], list: listResult };
+      syncRateCardState(listResult.status === 'error');
+      return { status: listResult.status, stats: results[0], list: listResult };
+    }
+
+    function openCreateModal() {
+      if (!ensureRateCardWriteAccess('Das Anlegen neuer Preisrahmen')) return;
+      document.getElementById('editId').value = '';
+      document.getElementById('modalTitle').textContent = 'Neuer Preisrahmen';
+      document.getElementById('rcForm').reset();
+      document.getElementById('fmOT').value = '25.0';
+      document.getElementById('fmRole').value = document.getElementById('fRole').value.trim();
+      document.getElementById('fmRegion').value = document.getElementById('fRegion').value.trim();
+      document.getElementById('fmSupplierOrg').value = document.getElementById('fSupplier').value || '';
+      document.getElementById('modalOverlay').style.display = '';
+    }
+
+    function closeModal() {
+      document.getElementById('modalOverlay').style.display = 'none';
+    }
+
+    async function saveCard(e) {
+      e.preventDefault();
+      if (!ensureRateCardWriteAccess('Das Speichern von Preisrahmen')) return false;
+      var target = parseInt(document.getElementById('fmTarget').value, 10);
+      var max = parseInt(document.getElementById('fmMax').value, 10);
+      if (target > max) {
+        showRateCardState('warn', 'Ungueltiger Preisrahmen', 'Ziel-Satz darf nicht ueber Max-Satz liegen.');
+        return false;
+      }
+
+      var payload = {
+        role_category: document.getElementById('fmRole').value.trim(),
+        region: document.getElementById('fmRegion').value.trim() || null,
+        supplier_org_id: document.getElementById('fmSupplierOrg').value || null,
+        target_rate_cents: target,
+        max_rate_cents: max,
+        min_rate_cents: parseInt(document.getElementById('fmMin').value, 10) || null,
+        valid_from: document.getElementById('fmFrom').value,
+        valid_to: document.getElementById('fmTo').value || null,
+        overtime_surcharge_pct: parseFloat(document.getElementById('fmOT').value) || 25.0,
+        notes: document.getElementById('fmNotes').value.trim() || null
+      };
+
+      var editId = document.getElementById('editId').value;
+      var result;
+      if (editId) {
+        result = await api('/rate-cards/' + editId, { method: 'PATCH', body: payload });
+      } else {
+        result = await api('/rate-cards', { method: 'POST', body: payload });
+      }
+      if (applyRateCardApiErrorState(result)) return false;
+      if (result && !result.error) {
+        closeModal();
+        var refreshResult = await refreshRateCards();
+        if (refreshResult && refreshResult.status === 'error') {
+          showRateCardState('warn', editId ? 'Preisrahmen aktualisiert' : 'Preisrahmen angelegt', 'Die Änderung wurde gespeichert, aber die aktualisierte Ansicht konnte nicht vollständig geladen werden.');
+        } else {
+          renderPostMutationState(editId ? 'Preisrahmen aktualisiert' : 'Preisrahmen angelegt', editId ? 'Der Preisrahmen wurde erfolgreich aktualisiert.' : 'Der Preisrahmen wurde erfolgreich angelegt.');
+        }
+      } else {
+        showRateCardState('bad', 'Speichern fehlgeschlagen', parseApiError(result, 'Der Preisrahmen konnte nicht gespeichert werden.'));
+      }
+      return false;
+    }
+
+    async function activateCard(id) {
+      if (!ensureRateCardWriteAccess('Das Aktivieren von Preisrahmen')) return;
+      if (!confirm('Preisrahmen aktivieren?')) return;
+      var result = await api('/rate-cards/' + id + '/activate', { method: 'POST', body: {} });
+      if (applyRateCardApiErrorState(result)) return;
+      if (result && !result.error) {
+        var refreshResult = await refreshRateCards();
+        if (refreshResult && refreshResult.status === 'error') {
+          showRateCardState('warn', 'Preisrahmen aktiviert', 'Die Aktivierung war erfolgreich, aber die aktualisierte Ansicht konnte nicht vollständig geladen werden.');
+        } else {
+          renderPostMutationState('Preisrahmen aktiviert', 'Der Preisrahmen wurde erfolgreich aktiviert.');
+        }
+      } else {
+        showRateCardState('bad', 'Aktivierung fehlgeschlagen', parseApiError(result, 'Der Preisrahmen konnte nicht aktiviert werden.'));
+      }
+    }
+
+    async function archiveCard(id) {
+      if (!ensureRateCardWriteAccess('Das Archivieren von Preisrahmen')) return;
+      if (!confirm('Preisrahmen archivieren?')) return;
+      var result = await api('/rate-cards/' + id + '/archive', { method: 'POST', body: {} });
+      if (applyRateCardApiErrorState(result)) return;
+      if (result && !result.error) {
+        var refreshResult = await refreshRateCards();
+        if (refreshResult && refreshResult.status === 'error') {
+          showRateCardState('warn', 'Preisrahmen archiviert', 'Die Archivierung war erfolgreich, aber die aktualisierte Ansicht konnte nicht vollständig geladen werden.');
+        } else {
+          renderPostMutationState('Preisrahmen archiviert', 'Der Preisrahmen wurde erfolgreich archiviert.');
+        }
+      } else {
+        showRateCardState('bad', 'Archivierung fehlgeschlagen', parseApiError(result, 'Der Preisrahmen konnte nicht archiviert werden.'));
+      }
+    }
+
+    init();
+  </script>
+<script src="/public/js/pageShell.js"></script>
+<script src="/public/js/notifications.js" defer></script>
+<div id="tc-footer" data-tc-footer></div>
+<script src="/public/js/footer.js"></script>
+<script src="/public/js/demoBanner.js" defer></script>
+<script src="/public/js/onboardingWizard.js" defer></script>
+<script src="/public/js/contextHints.js"></script>
+<script src="/public/js/breadcrumb.js" defer></script>
+</body>
+</html>

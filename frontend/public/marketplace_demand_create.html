@@ -1,8 +1,9 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="de">
 <head>
   <meta charset="utf-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <script src="/public/js/theme.js"></script>
   <title>Nachfrage erstellen – TempConnect Marketplace</title>
   <link rel="stylesheet" href="/public/css/enterprise.css"/>
   <style>
@@ -25,23 +26,19 @@
 </head>
 <body data-sla-guard="sla_access">
   <div id="paywall" class="wrap" style="display:none">
-    <div class="topbar"><span class="brand">TempConnect</span><a href="/" class="btn">Startseite</a></div>
+    <nav class="ds-topbar"><div class="ds-topbar__brand"><span class="ds-topbar__brand-dot"></span>TempConnect</div><div class="ds-topbar__nav"><a href="/" class="ds-btn">Startseite</a></div></nav>
     <div class="paywall-box">
       <h2>Bereich nicht verfuegbar</h2>
-      <p>Um Nachfragen im Marketplace zu erstellen, benoetigst du einen PLUS- oder NOTDIENST-Plan.</p>
+      <p>Um Nachfragen im Marketplace zu erstellen, benoetigst du einen PLUS- oder PRO-Plan.</p>
       <p>Aktueller Plan: <span id="paywall-current-plan" class="paywall-plan">–</span></p>
       <a id="paywall-cta" href="/public/sla_abo.html" class="btn primary">Abo ansehen</a>
     </div>
   </div>
 
   <div id="main-content" class="wrap">
-    <div class="topbar">
-      <span class="brand">TempConnect – Nachfrage erstellen</span>
-      <a href="/" class="btn">Startseite</a>
-      <a href="/public/enterprise.html" class="btn">Uebersicht</a>
-    </div>
+    <div id="tc-shell"></div>
     <h1>Nachfrage im Marketplace erstellen</h1>
-    <p style="color:var(--muted);margin:0 0 16px">Beschreibe deinen Personalbedarf. TempConnect matched automatisch passende Kapazitaeten und benachrichtigt Anbieter.</p>
+    <p style="color:var(--muted);margin:0 0 16px">Beschreibe deinen Personalbedarf. TempConnect matched automatisch passendes Personal und benachrichtigt Anbieter.</p>
 
     <form id="demandForm" class="card">
       <div class="form-grid">
@@ -88,7 +85,7 @@
             <option value="plus">Plus (Pulse 120 Min)</option>
             <option value="notdienst">Notdienst (Pulse 30 Min)</option>
           </select>
-          <p class="urgency-hint">Notdienst erfordert NOTDIENST-Plan. Pulse = Prozessnachweis, kein Erfolgsversprechen.</p>
+          <p class="urgency-hint">Notdienst erfordert PRO-Plan. Pulse = Prozessnachweis, kein Erfolgsversprechen.</p>
         </div>
         <div>
           <label for="budget_min">Budget min (EUR)</label>
@@ -118,12 +115,49 @@
     <p class="sla-disclaimer">Hinweis: TempConnect dokumentiert den Matching-Prozess (Pulse-Prozessnachweis). Es wird kein Vermittlungserfolg garantiert. Angaben ohne Gewaehr.</p>
   </div>
 
+  <script src="/public/js/api.js"></script>
   <script src="/public/js/planFeatures.js"></script>
   <script src="/public/js/slaGuard.js"></script>
   <script>
   (function() {
     var form = document.getElementById("demandForm");
     var msg = document.getElementById("msg");
+
+    function getCsrfToken() {
+      return fetch("/api/csrf", { credentials: "include" })
+        .then(function(r) { return r.ok ? r.json() : null; })
+        .then(function(d) { return (d && (d.token || d.csrfToken)) || ""; })
+        .catch(function() { return ""; });
+    }
+
+    function postDemand(body) {
+      // Prefer shared API client: includes CSRF lifecycle + retry on CSRF_INVALID.
+      if (window.TC && TC.api && typeof TC.api.post === "function") {
+        return TC.api.post("/marketplace/demand-requests", body);
+      }
+      // Fallback for safety.
+      return getCsrfToken().then(function(csrf) {
+        return fetch("/api/marketplace/demand-requests", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "x-csrf-token": csrf || ""
+          },
+          credentials: "include",
+          body: JSON.stringify(body)
+        }).then(function(r) {
+          return r.json().then(function(d) {
+            if (!r.ok) {
+              var err = new Error((d && (d.message || d.error)) || "API_ERROR");
+              err.code = d && d.error;
+              err.status = r.status;
+              throw err;
+            }
+            return d;
+          });
+        });
+      });
+    }
 
     form.addEventListener("submit", function(e) {
       e.preventDefault();
@@ -151,71 +185,81 @@
         budget_max: parseFloat(document.getElementById("budget_max").value) || null
       };
 
-      fetch("/api/marketplace/demand-requests", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include",
-        body: JSON.stringify(body)
-      })
-      .then(function(r) { return r.json().then(function(d) { return { ok: r.ok, status: r.status, data: d }; }); })
-      .then(function(res) {
+      postDemand(body).then(function(d) {
         btn.disabled = false;
         btn.textContent = "Nachfrage absenden";
-        if (res.ok) {
-          msg.className = "msg ok";
-          msg.textContent = "Nachfrage erfolgreich erstellt!";
-          msg.style.display = "block";
-          form.reset();
+        msg.className = "msg ok";
+        msg.textContent = "Nachfrage erfolgreich erstellt!";
+        msg.style.display = "block";
+        form.reset();
 
-          var d = res.data;
-          document.getElementById("res-id").textContent = d.id.substring(0, 8);
-          var slaEl = document.getElementById("res-sla");
-          if (d.sla_status) {
-            slaEl.innerHTML = '<span class="sla-badge ' + d.sla_status.toLowerCase() + '">' + d.sla_status + '</span>';
-            if (d.sla_due_at) slaEl.innerHTML += ' (Frist: ' + new Date(d.sla_due_at).toLocaleString("de-DE") + ')';
-          } else {
-            slaEl.textContent = "Kein Pulse";
-          }
-
-          var matchesEl = document.getElementById("res-matches");
-          matchesEl.innerHTML = "";
-          if (d.matches && d.matches.length > 0) {
-            matchesEl.innerHTML = "<h3>" + d.matches.length + " Matches gefunden</h3>";
-            d.matches.slice(0, 10).forEach(function(m) {
-              matchesEl.innerHTML += '<div class="match-item">' +
-                (m.supplier_company_name || "Anbieter") + ' – ' +
-                (m.capacity_title || m.capacity_role || "") + ' (' + (m.capacity_city || "") + ') – Score: ' + m.match_score +
-                '</div>';
-            });
-          } else {
-            matchesEl.innerHTML = "<p style='color:var(--muted)'>Noch keine Matches. Kapazitaeten werden laufend geprueft.</p>";
-          }
-
-          document.getElementById("res-detail-link").href = "/public/marketplace_demand_detail.html?id=" + d.id;
-          document.getElementById("result").style.display = "block";
+        document.getElementById("res-id").textContent = d.id.substring(0, 8);
+        var slaEl = document.getElementById("res-sla");
+        if (d.sla_status) {
+          slaEl.innerHTML = '<span class="sla-badge ' + d.sla_status.toLowerCase() + '">' + d.sla_status + '</span>';
+          if (d.sla_due_at) slaEl.innerHTML += ' (Frist: ' + new Date(d.sla_due_at).toLocaleString("de-DE") + ')';
         } else {
-          var errText = d.error === "COMPANY_ONLY"
-            ? "Nur Unternehmen koennen Nachfragen erstellen."
-            : d.error === "PLAN_REQUIRED_NOTDIENST"
-            ? "Notdienst-Dringlichkeit erfordert einen NOTDIENST-Plan."
-            : (res.data.error || "Unbekannter Fehler");
-          msg.className = "msg err";
-          msg.textContent = errText;
-          msg.style.display = "block";
+          slaEl.textContent = "Kein Pulse";
         }
+
+        var matchesEl = document.getElementById("res-matches");
+        matchesEl.innerHTML = "";
+        if (d.matches && d.matches.length > 0) {
+          matchesEl.innerHTML = "<h3>" + d.matches.length + " Matches gefunden</h3>";
+          d.matches.slice(0, 10).forEach(function(m) {
+            matchesEl.innerHTML += '<div class="match-item">' +
+              (m.supplier_company_name || "Anbieter") + ' – ' +
+              (m.capacity_title || m.capacity_role || "") + ' (' + (m.capacity_city || "") + ') – Score: ' + m.match_score +
+              '</div>';
+          });
+        } else {
+          matchesEl.innerHTML = "<p style='color:var(--muted)'>Noch keine Matches. Verfügbares Personal wird laufend geprüft.</p>";
+        }
+
+        document.getElementById("res-detail-link").href = "/public/marketplace_demand_detail.html?id=" + d.id + "&owner=1";
+        document.getElementById("result").style.display = "block";
       })
-      .catch(function() {
+      .catch(function(err) {
         btn.disabled = false;
         btn.textContent = "Nachfrage absenden";
         msg.className = "msg err";
-        msg.textContent = "Netzwerkfehler. Bitte erneut versuchen.";
+        var code = err && (err.code || err.error);
+        var errText;
+        switch (code) {
+          case "FEATURE_NOT_ALLOWED":
+            errText = "Der Marketplace-Bereich ist in deinem aktuellen Tarif" + (err.plan ? " (" + err.plan + ")" : "") + " nicht freigeschaltet. Bitte Tarif upgraden.";
+            break;
+          case "COMPANY_ONLY":
+            errText = "Nur Unternehmen koennen Nachfragen erstellen. Personaldienstleister nutzen bitte die Angebotsseite.";
+            break;
+          case "PLAN_REQUIRED_NOTDIENST":
+            errText = "Notdienst-Dringlichkeit erfordert einen PRO-Plan.";
+            break;
+          case "WORKER_LIMIT_EXCEEDED":
+            errText = "Die angeforderte Personenzahl" + (err.details && err.details.requested ? " (" + err.details.requested + ")" : "") + " ueberschreitet dein Plan-Limit" + (err.details && err.details.limit ? " (max. " + err.details.limit + ")" : "") + ". Bitte Tarif upgraden oder Anzahl reduzieren.";
+            break;
+          case "CSRF_INVALID":
+            errText = "Sitzung abgelaufen. Bitte Seite neu laden und erneut versuchen.";
+            break;
+          case "NOT_AUTHENTICATED":
+            errText = "Du bist nicht mehr eingeloggt. Bitte neu anmelden.";
+            break;
+          case "VALIDATION":
+            errText = "Bitte pruefe deine Eingaben." + (err.details ? " " + (err.details.map ? err.details.map(function(d) { return d.message || d.path; }).join(", ") : "") : "");
+            break;
+          default:
+            errText = (err && err.message && err.message !== code) ? err.message : "Netzwerkfehler. Bitte erneut versuchen.";
+        }
+        msg.textContent = errText;
         msg.style.display = "block";
       });
     });
   })();
   </script>
-  <div id="tc-footer" data-tc-footer></div>
+  <script src="/public/js/pageShell.js"></script>`n  <div id="tc-footer" data-tc-footer></div>
   <script src="/public/js/footer.js"></script>
-  <script src="/public/js/logout-btn.js"></script>
+<script src="/public/js/demoBanner.js" defer></script>
+<script src="/public/js/onboardingWizard.js" defer></script><script src="/public/js/notifications.js" defer></script>
+<script src="/public/js/breadcrumb.js" defer></script>
 </body>
 </html>

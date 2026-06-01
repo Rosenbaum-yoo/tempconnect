@@ -1,8 +1,9 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="de">
 <head>
   <meta charset="utf-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <script src="/public/js/theme.js"></script>
   <title>Matching-Ergebnisse – TempConnect</title>
   <link rel="stylesheet" href="/public/css/enterprise.css"/>
   <style>
@@ -23,7 +24,7 @@
 </head>
 <body data-sla-guard="sla_access">
   <div id="paywall" class="wrap" style="display:none">
-    <div class="topbar"><span class="brand">TempConnect</span><a href="/" class="btn">Startseite</a></div>
+    <nav class="ds-topbar"><div class="ds-topbar__brand"><span class="ds-topbar__brand-dot"></span>TempConnect</div><div class="ds-topbar__nav"><a href="/" class="ds-btn">Startseite</a></div></nav>
     <div class="paywall-box">
       <h2>Bereich nicht verfuegbar</h2>
       <p>Aktueller Plan: <span id="paywall-current-plan" class="paywall-plan">–</span></p>
@@ -32,14 +33,7 @@
   </div>
 
   <div id="main-content" class="wrap">
-    <div class="topbar">
-      <span class="brand">TempConnect – Matching</span>
-      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
-        <a href="/public/enterprise.html" class="btn">Uebersicht</a>
-        <a href="/public/capacity_exchange_feed.html" class="btn">Kapazitaetsboerse</a>
-        <a href="/public/company_requests.html" class="btn">Meine Anfragen</a>
-      </div>
-    </div>
+    <div id="tc-shell"></div>
 
     <div class="ds-page-header">
       <div class="ds-page-header__content">
@@ -60,8 +54,8 @@
     function esc(s){return s==null?"":String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;")}
     function fmtDate(d){return d?String(d).substring(0,10):"–"}
 
-    var FACTOR_LABELS={role:"Rolle",skills:"Skills",location:"Standort",availability:"Verfuegbarkeit",verified:"Verifiziert",vendorPool:"Vendor Pool"};
-    var FACTOR_MAX={role:30,skills:25,location:25,availability:10,verified:5,vendorPool:5};
+    var FACTOR_LABELS={role:"Rolle",skills:"Skills",location:"Standort",availability:"Verfuegbarkeit",verified:"Verifiziert",vendorPool:"Vendor Pool",urgency:"Notdienst/Dringlichkeit",reputation:"Reputation",smartRank:"Smart Rank",preferredFirst:"Preferred First",workerCount:"Personal"};
+    var FACTOR_MAX={role:30,skills:25,location:25,availability:10,verified:5,vendorPool:5,urgency:5,reputation:8,smartRank:10,preferredFirst:15,workerCount:3};
 
     function renderScoreBars(reasons){
       if(!reasons||!reasons.length)return"";
@@ -83,10 +77,10 @@
 
       var actions='';
       if(type==='capacity'){
-        // Viewing matches for a capacity entry → show requisitions/demands
+        // Viewing matches for a capacity entry ? show requisitions/demands
         actions='<a href="/public/company_requests.html" class="btn primary" style="font-size:12px;padding:6px 12px">Details</a>';
       }else{
-        // Viewing matches for a demand → show capacity posts
+        // Viewing matches for a demand ? show capacity posts
         var entryId=entity.id||'';
         actions='<a href="/public/capacity_exchange_feed.html" class="btn" style="font-size:12px;padding:6px 12px">Im Feed ansehen</a>';
         actions+=' <a href="/public/sla_angebote.html?demand_id='+encodeURIComponent(entryId)+'" class="btn primary" style="font-size:12px;padding:6px 12px">Angebot erstellen</a>';
@@ -111,12 +105,12 @@
       var url;
       if(type==="capacity"){
         url=API+"/capacity-exchange/entries/"+encodeURIComponent(id)+"/matches";
-        document.getElementById("pageTitle").textContent="Matching fuer Kapazitaet";
-        document.getElementById("pageSubtitle").textContent="Passende Requisitions und Nachfragen fuer Ihre Kapazitaet.";
+        document.getElementById("pageTitle").textContent="Matching fuer Personalangebot";
+        document.getElementById("pageSubtitle").textContent="Passende Arbeitsplatzangebote für Ihr Personalangebot.";
       }else{
         url=API+"/marketplace/demand-requests/"+encodeURIComponent(id)+"/matches";
         document.getElementById("pageTitle").textContent="Matching fuer Nachfrage";
-        document.getElementById("pageSubtitle").textContent="Passende Kapazitaeten fuer Ihre Nachfrage.";
+        document.getElementById("pageSubtitle").textContent="Passendes Personal für Ihre Anfrage.";
       }
 
       var container=document.getElementById("matches");
@@ -137,9 +131,11 @@
     }
     loadMatches();
   </script>
-  <script src="/public/js/notifications.js"></script>
+  <script src="/public/js/pageShell.js"></script>`n  <script src="/public/js/notifications.js"></script>
   <div id="tc-footer" data-tc-footer></div>
   <script src="/public/js/footer.js"></script>
-  <script src="/public/js/logout-btn.js"></script>
+<script src="/public/js/demoBanner.js" defer></script>
+<script src="/public/js/onboardingWizard.js" defer></script><script src="/public/js/contextHints.js"></script>
+<script src="/public/js/breadcrumb.js" defer></script>
 </body>
 </html>

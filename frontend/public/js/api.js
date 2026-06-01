@@ -53,6 +53,7 @@ TC.api = (function () {
         sessionStorage.removeItem(ACTIVE_ORG_KEY);
       }
     } catch (_err) { /* ignore */ }
+    setActiveLocationId(null);
     return _activeOrgId;
   }
 

@@ -4,17 +4,54 @@
  * 1:1 Port aus dem bestehenden staff.css mit React-Anpassungen.
  */
 :root {
-  --scc-bg:        #08090c;
-  --scc-panel:     #0f1218;
-  --scc-panel-2:   #141822;
-  --scc-line:      #1f2633;
-  --scc-text:      #eaf0f7;
-  --scc-muted:     #8b95a8;
-  --scc-accent:    #7cf1ff;
-  --scc-warn:      #f5b43e;
-  --scc-danger:    #ff6c72;
-  --scc-ok:        #34d39a;
-  --scc-critical:  #ff3e60;
+  --scc-bg:             #08090c;
+  --scc-panel:          #0f1218;
+  --scc-panel-2:        #141822;
+  --scc-line:           #1f2633;
+  --scc-text:           #eaf0f7;
+  --scc-muted:          #8b95a8;
+  --scc-accent:         #7cf1ff;
+  --scc-warn:           #f5b43e;
+  --scc-danger:         #ff6c72;
+  --scc-ok:             #34d39a;
+  --scc-critical:       #ff3e60;
+  /* Surface-specific tokens (overridable for light mode) */
+  --scc-topbar-bg:      #05070b;
+  --scc-table-head-bg:  #0b0d12;
+  --scc-modal-backdrop: rgba(2, 4, 7, 0.82);
+  --scc-msg-bg-tint:    rgba(124, 241, 255, 0.05);
+  --scc-msg-border-tint:rgba(124, 241, 255, 0.35);
+  --scc-msg-warn-tint:  rgba(245, 180, 62, 0.05);
+  --scc-msg-warn-bdr:   rgba(245, 180, 62, 0.35);
+  --scc-bulk-bg:        rgba(124, 241, 255, 0.03);
+  --scc-danger-zone-bg: rgba(255, 108, 114, 0.03);
+}
+
+/* ── Light Mode ─────────────────────────────────────────────
+   Aktivierung: document.documentElement.setAttribute('data-theme','light')
+   Persistenz:  localStorage.getItem('scc-theme')
+   ─────────────────────────────────────────────────────────── */
+[data-theme="light"] {
+  --scc-bg:             #f2f4f8;
+  --scc-panel:          #ffffff;
+  --scc-panel-2:        #e8ecf3;
+  --scc-line:           #c9d2e2;
+  --scc-text:           #0d1117;
+  --scc-muted:          #5c6880;
+  --scc-accent:         #007a98;
+  --scc-warn:           #9a6000;
+  --scc-danger:         #c42030;
+  --scc-ok:             #1a8962;
+  --scc-critical:       #a8001e;
+  --scc-topbar-bg:      #151f30;
+  --scc-table-head-bg:  #e8ecf3;
+  --scc-modal-backdrop: rgba(10, 15, 30, 0.6);
+  --scc-msg-bg-tint:    rgba(0, 122, 152, 0.05);
+  --scc-msg-border-tint:rgba(0, 122, 152, 0.3);
+  --scc-msg-warn-tint:  rgba(154, 96, 0, 0.05);
+  --scc-msg-warn-bdr:   rgba(154, 96, 0, 0.3);
+  --scc-bulk-bg:        rgba(0, 122, 152, 0.04);
+  --scc-danger-zone-bg: rgba(196, 32, 48, 0.04);
 }
 
 * { box-sizing: border-box; }
@@ -69,7 +106,7 @@ html, body {
   align-items: center;
   justify-content: space-between;
   padding: 0 18px;
-  background: #05070b;
+  background: var(--scc-topbar-bg);
   border-bottom: 1px solid var(--scc-line);
 }
 .scc-topbar__brand {
@@ -206,7 +243,7 @@ html, body {
   letter-spacing: 0.12em;
   text-transform: uppercase;
   color: var(--scc-muted);
-  background: #0b0d12;
+  background: var(--scc-table-head-bg);
 }
 .scc-table tr:last-child td { border-bottom: none; }
 
@@ -297,12 +334,12 @@ html, body {
   border-radius: 2px;
 }
 .scc-msg--internal {
-  background: rgba(245, 180, 62, 0.05);
-  border-color: rgba(245, 180, 62, 0.35);
+  background: var(--scc-msg-warn-tint);
+  border-color: var(--scc-msg-warn-bdr);
 }
 .scc-msg--customer {
-  background: rgba(124, 241, 255, 0.05);
-  border-color: rgba(124, 241, 255, 0.35);
+  background: var(--scc-msg-bg-tint);
+  border-color: var(--scc-msg-border-tint);
 }
 .scc-msg__head {
   font-size: 11px;
@@ -352,7 +389,7 @@ html, body {
 .scc-danger-zone {
   border: 1px dashed var(--scc-danger);
   padding: 18px;
-  background: rgba(255, 108, 114, 0.03);
+  background: var(--scc-danger-zone-bg);
   margin-top: 24px;
 }
 .scc-danger-zone__title {
@@ -366,7 +403,7 @@ html, body {
 .scc-modal {
   position: fixed;
   inset: 0;
-  background: rgba(2, 4, 7, 0.8);
+  background: var(--scc-modal-backdrop);
   display: grid;
   place-items: center;
   z-index: 1000;
@@ -458,7 +495,7 @@ input:focus, select:focus, textarea:focus { border-color: var(--scc-accent); }
   font-size: 12px;
   padding: 6px 12px;
   border-bottom: 1px solid var(--scc-line);
-  background: rgba(124, 241, 255, 0.03);
+  background: var(--scc-bulk-bg);
 }
 
 /* Login-Seite (falls Login noch vanilla bleibt) */
@@ -532,5 +569,329 @@ input:focus, select:focus, textarea:focus { border-color: var(--scc-accent); }
 .scc-empty-state__text {
   font-size: 13px;
   max-width: 320px;
+  line-height: 1.5;
+}
+
+/* ── Theme Toggle Switch ─────────────────────────────────── */
+.scc-theme-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  background: none;
+  border: none;
+  padding: 3px 0;
+  cursor: pointer;
+  user-select: none;
+  font-family: inherit;
+  line-height: 1;
+}
+.scc-theme-toggle__track {
+  position: relative;
+  width: 32px;
+  height: 17px;
+  border-radius: 9px;
+  background: var(--scc-line);
+  border: 1px solid var(--scc-muted);
+  transition: background 0.18s, border-color 0.18s;
+  flex-shrink: 0;
+}
+.scc-theme-toggle__track--on {
+  background: var(--scc-accent);
+  border-color: var(--scc-accent);
+}
+.scc-theme-toggle__thumb {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 11px;
+  height: 11px;
+  border-radius: 50%;
+  background: var(--scc-panel);
+  transition: left 0.15s;
+}
+.scc-theme-toggle__track--on .scc-theme-toggle__thumb {
+  left: 17px;
+  background: #001418;
+}
+.scc-theme-toggle__label {
+  font-size: 10px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--scc-muted);
+  min-width: 18px;
+}
+
+/* ── SCC WAVE 04: Toast Notifications ───────────────────── */
+.scc-toasts {
+  position: fixed;
+  bottom: 20px;
+  right: 20px;
+  z-index: 9999;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-width: 380px;
+  pointer-events: none; /* allow click-through except on the toasts themselves */
+}
+.scc-toast {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 10px 14px;
+  border-radius: 3px;
+  border-left: 3px solid;
+  background: var(--scc-panel-2);
+  font-size: 12px;
+  line-height: 1.4;
+  pointer-events: auto;
+  box-shadow: 0 2px 12px rgba(0,0,0,0.5);
+  animation: scc-toast-in 0.18s ease;
+}
+@keyframes scc-toast-in {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.scc-toast--success { border-color: var(--scc-ok);     color: var(--scc-ok); }
+.scc-toast--error   { border-color: var(--scc-danger); color: var(--scc-danger); }
+.scc-toast--warn    { border-color: var(--scc-warn);   color: var(--scc-warn); }
+.scc-toast--info    { border-color: var(--scc-accent); color: var(--scc-accent); }
+.scc-toast__msg { flex: 1; color: var(--scc-text); }
+.scc-toast__close {
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: var(--scc-muted);
+  font-size: 16px;
+  line-height: 1;
+  padding: 0 2px;
+  font-family: inherit;
+  flex-shrink: 0;
+}
+.scc-toast__close:hover { color: var(--scc-text); }
+
+/* ── SCC WAVE 04: Page Header Actions ───────────────────── */
+.scc-page-header__actions {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  flex-shrink: 0;
+}
+
+/* ── SCC WAVE 04: Empty State ───────────────────────────── */
+.scc-empty-state {
+  padding: 40px 20px;
+  text-align: center;
+  color: var(--scc-muted);
+}
+.scc-empty-state__msg {
+  font-size: 14px;
+  margin-bottom: 8px;
+}
+.scc-empty-state__hint {
+  font-size: 11px;
+  color: var(--scc-muted);
+  opacity: 0.7;
+}
+
+/* ── SCC WAVE 04: Error Banner ───────────────────────────── */
+.scc-error-banner {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 14px;
+  background: rgba(255, 108, 114, 0.06);
+  border: 1px solid var(--scc-danger);
+  border-radius: 3px;
+  color: var(--scc-danger);
+  font-size: 12px;
+  margin-bottom: 12px;
+}
+.scc-error-banner__msg { flex: 1; }
+.scc-error-banner__retry { border-color: var(--scc-danger); color: var(--scc-danger); }
+.scc-error-banner__retry:hover { background: var(--scc-danger); color: #fff; }
+
+/* ── SCC WAVE 04: Step-Up Modal specifics ───────────────── */
+.scc-stepup__box {
+  max-width: 400px;
+}
+.scc-input {
+  display: block;
+  width: 100%;
+  padding: 8px 10px;
+  background: var(--scc-bg);
+  border: 1px solid var(--scc-line);
+  border-radius: 2px;
+  color: var(--scc-text);
+  font-family: inherit;
+  font-size: 13px;
+  margin-top: 6px;
+}
+.scc-input:focus {
+  outline: none;
+  border-color: var(--scc-accent);
+}
+.scc-input:disabled { opacity: 0.5; cursor: not-allowed; }
+
+/* ── SCC WAVE 04: Loading State ─────────────────────────── */
+.scc-loading {
+  padding: 24px;
+  color: var(--scc-muted);
+  font-size: 12px;
+  letter-spacing: 0.08em;
+}
+
+/* ── SCC WAVE 04: Bootstrap Error ───────────────────────── */
+.scc-bootstrap-error {
+  padding: 40px;
+  h2 { color: var(--scc-danger); margin-bottom: 12px; }
+  pre { color: var(--scc-muted); font-size: 11px; }
+}
+
+/* ── SCC WAVE 04: Accessibility — Focus rings ───────────── */
+/* Sichtbare Fokus-Ringe fuer Tastatur-Navigation (WCAG 2.1 AA) */
+.scc-btn:focus-visible,
+.scc-nav-item:focus-visible,
+.scc-input:focus-visible,
+.scc-toast__close:focus-visible,
+.scc-inbox__filter:focus-visible,
+.scc-inbox__preset:focus-visible {
+  outline: 2px solid var(--scc-accent);
+  outline-offset: 2px;
+}
+/* Interaktive Elemente ohne sichtbaren Fokus-Ring bei Maus-Klick */
+.scc-btn:focus:not(:focus-visible),
+.scc-nav-item:focus:not(:focus-visible) {
+  outline: none;
+}
+
+/* ── SCC WAVE 05: Inbox Presets ─────────────────────────── */
+.scc-inbox__presets {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin-bottom: 10px;
+}
+.scc-inbox__preset {
+  font-size: 10px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  padding: 4px 10px;
+  border: 1px solid var(--scc-line);
+  border-radius: 999px;
+  cursor: pointer;
+  color: var(--scc-muted);
+  background: transparent;
+  font-family: inherit;
+  transition: border-color 0.12s, color 0.12s;
+}
+.scc-inbox__preset:hover {
+  border-color: var(--scc-accent);
+  color: var(--scc-accent);
+}
+
+/* ── SCC WAVE 05: Inbox selected-item highlight ─────────── */
+/* is-selected = currently open in detail pane */
+.scc-inbox__item.is-selected {
+  background: var(--scc-panel-2);
+  border-left: 2px solid var(--scc-accent);
+  outline: 1px solid var(--scc-accent);
+  outline-offset: -1px;
+}
+
+/* ── SCC WAVE 05: Pill warn variant ─────────────────────── */
+.scc-pill--warn {
+  border-color: var(--scc-warn);
+  color: var(--scc-warn);
+}
+
+/* ── SCC WAVE 05: Detail Pane ───────────────────────────── */
+.scc-inbox__detail-empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  min-height: 240px;
+  color: var(--scc-muted);
+  font-size: 12px;
+}
+.scc-inbox__detail-content {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+.scc-inbox__detail-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  padding-bottom: 14px;
+  margin-bottom: 14px;
+  border-bottom: 1px solid var(--scc-line);
+}
+
+/* ── SCC WAVE 05: Detail rows & labels ──────────────────── */
+.scc-detail-section {
+  padding: 10px 0;
+  border-bottom: 1px solid var(--scc-line);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.scc-detail-section:last-child {
+  border-bottom: none;
+}
+.scc-detail-row {
+  display: grid;
+  grid-template-columns: 130px 1fr;
+  gap: 8px;
+  align-items: baseline;
+  font-size: 12px;
+}
+.scc-detail-label {
+  font-size: 10px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--scc-muted);
+  white-space: nowrap;
+}
+.scc-detail-notes {
+  white-space: pre-wrap;
+  font-size: 12px;
+  color: var(--scc-text);
+  background: var(--scc-panel-2);
+  border: 1px solid var(--scc-line);
+  padding: 8px 10px;
+  border-radius: 2px;
+  line-height: 1.5;
+  max-height: 160px;
+  overflow-y: auto;
+}
+
+/* ── SCC WAVE 05: Thread messages ───────────────────────── */
+/* Renamed from .scc-msg to .scc-thread__msg to avoid collision */
+.scc-thread__msg {
+  border: 1px solid var(--scc-line);
+  padding: 10px 12px;
+  border-radius: 2px;
+  background: var(--scc-panel-2);
+}
+.scc-thread__msg--internal {
+  background: var(--scc-msg-warn-tint);
+  border-color: var(--scc-msg-warn-bdr);
+}
+.scc-thread__meta {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  font-size: 11px;
+  color: var(--scc-muted);
+  margin-bottom: 6px;
+  flex-wrap: wrap;
+}
+.scc-thread__body {
+  white-space: pre-wrap;
+  font-size: 12px;
+  color: var(--scc-text);
   line-height: 1.5;
 }

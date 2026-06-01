@@ -86,9 +86,121 @@
   --bad:    var(--ds-danger);
   --radius: var(--ds-radius-lg);
   --shadow: var(--ds-shadow-lg);
+
+  /* Themeable surfaces (dark default) — light values: see [data-theme="light"] block at file end */
+  --tc-topbar-bg:           rgba(255, 255, 255, 0.025);
+  --tc-nav-hover-bg:        rgba(255, 255, 255, 0.04);
+  --tc-nav-active-bg:       rgba(255, 255, 255, 0.06);
+  --tc-card-surface:        rgba(255, 255, 255, 0.025);
+  --tc-icon-box-bg:         rgba(255, 255, 255, 0.04);
+  --tc-btn-secondary-bg:    rgba(255, 255, 255, 0.04);
+  --tc-btn-secondary-hover: rgba(255, 255, 255, 0.07);
+  --tc-ghost-hover-bg:      rgba(255, 255, 255, 0.04);
+  --tc-trust-badge-bg:      rgba(255, 255, 255, 0.03);
+  --tc-badge-neutral-bg:    rgba(255, 255, 255, 0.03);
+  --tc-kpi-bg:              rgba(255, 255, 255, 0.02);
+  --tc-table-row-border:    rgba(255, 255, 255, 0.04);
+  --tc-table-hover-bg:      rgba(255, 255, 255, 0.03);
+  --tc-row-alt-bg:          rgba(255, 255, 255, 0.015);
+  --tc-filter-surface:      rgba(255, 255, 255, 0.015);
+  --tc-dash-border:         rgba(255, 255, 255, 0.1);
+  --tc-hub-tile-bg:         rgba(255, 255, 255, 0.02);
+  --tc-stat-tile-bg:        rgba(255, 255, 255, 0.035);
+  --tc-search-muted-bg:     rgba(255, 255, 255, 0.02);
+  --tc-traffic-grey:        rgba(255, 255, 255, 0.15);
+  --tc-compliance-grey:     rgba(255, 255, 255, 0.08);
+  --tc-legend-grey:         rgba(255, 255, 255, 0.15);
+  --tc-progress-track-bg:   rgba(255, 255, 255, 0.02);
+  --tc-footer-rule:         rgba(255, 255, 255, 0.04);
+  --tc-disclaimer-border:   rgba(255, 255, 255, 0.04);
+  --tc-disclaimer-bg:       rgba(255, 255, 255, 0.01);
+  --tc-skeleton-a:          rgba(255, 255, 255, 0.03);
+  --tc-skeleton-b:          rgba(255, 255, 255, 0.06);
+
+  /* Legacy enterprise.css (wrap / Model B) */
+  --tc-legacy-topbar:         rgba(255, 255, 255, 0.03);
+  --tc-legacy-btn:            rgba(255, 255, 255, 0.04);
+  --tc-legacy-btn-hover-line: rgba(255, 255, 255, 0.18);
+  --tc-legacy-card:           rgba(255, 255, 255, 0.03);
+  --tc-legacy-nav-card:       rgba(255, 255, 255, 0.03);
+  --tc-legacy-nav-card-hover: rgba(255, 255, 255, 0.2);
+  --tc-legacy-nav-active:     rgba(74, 163, 255, 0.08);
+  --tc-legacy-input:          rgba(0, 0, 0, 0.3);
+  --tc-legacy-modal-scrim:    rgba(0, 0, 0, 0.78);
+  --tc-legacy-paywall:        rgba(255, 255, 255, 0.04);
+  --tc-legacy-hub-cta-bg:     rgba(74, 163, 255, 0.2);
+  --tc-legacy-hub-cta-border: rgba(74, 163, 255, 0.4);
+  --tc-legacy-sla-box:        rgba(0, 0, 0, 0.2);
+  --tc-legacy-search-results: rgba(255, 255, 255, 0.015);
+  --tc-legacy-hub-locked:     rgba(255, 255, 255, 0.012);
+  --tc-legacy-modal-scrim:    rgba(0, 0, 0, 0.78);
+
+  /* Forms / modal scrim */
+  --tc-input-bg:        rgba(0, 0, 0, 0.25);
+  --tc-input-focus-ring: rgba(74, 158, 255, 0.15);
+  --tc-modal-scrim:     rgba(0, 0, 0, 0.75);
+
+  /* Workforce / operational bridge */
+  --wk-primary:         var(--ds-brand);
+  --wk-primary-d:       var(--ds-brand-hover);
+  --wk-success:         var(--ds-success);
+  --wk-warning:         var(--ds-warning);
+  --wk-danger:          var(--ds-danger);
+  --wk-neutral:         var(--ds-text-tertiary);
+  --wk-bg:              var(--ds-bg);
+  --wk-surface:         var(--ds-bg-surface);
+  --wk-border:          var(--ds-border);
+  --wk-text:            var(--ds-text);
+  --wk-text-muted:      var(--ds-text-secondary);
+  --wk-radius:          var(--ds-radius-lg);
+  --wk-radius-sm:       var(--ds-radius-md);
+  --wk-shadow:          var(--ds-shadow-md);
+  --wk-shadow-md:       var(--ds-shadow-lg);
+
+  /* Semantic tone helpers for inline-rendered UI */
+  --tc-tone-brand-bg:            rgba(74, 158, 255, 0.14);
+  --tc-tone-brand-border:        rgba(74, 158, 255, 0.26);
+  --tc-tone-brand-text:          #93c5fd;
+  --tc-tone-brand-strong-text:   #bfdbfe;
+  --tc-tone-accent-bg:           rgba(99, 102, 241, 0.14);
+  --tc-tone-accent-border:       rgba(99, 102, 241, 0.24);
+  --tc-tone-accent-text:         #c7d2fe;
+  --tc-tone-success-bg:          rgba(52, 211, 153, 0.14);
+  --tc-tone-success-bg-strong:   rgba(52, 211, 153, 0.22);
+  --tc-tone-success-border:      rgba(52, 211, 153, 0.3);
+  --tc-tone-success-text:        #6ee7b7;
+  --tc-tone-success-strong-text: #34d399;
+  --tc-tone-warning-bg:          rgba(251, 191, 36, 0.14);
+  --tc-tone-warning-bg-strong:   rgba(251, 191, 36, 0.18);
+  --tc-tone-warning-border:      rgba(251, 191, 36, 0.3);
+  --tc-tone-warning-text:        #fbbf24;
+  --tc-tone-warning-strong-text: #fde68a;
+  --tc-tone-danger-bg:           rgba(248, 113, 113, 0.14);
+  --tc-tone-danger-bg-strong:    rgba(248, 113, 113, 0.18);
+  --tc-tone-danger-border:       rgba(248, 113, 113, 0.3);
+  --tc-tone-danger-text:         #fca5a5;
+  --tc-tone-danger-strong-text:  #f87171;
+  --tc-tone-neutral-bg:          rgba(148, 163, 184, 0.12);
+  --tc-tone-neutral-border:      rgba(148, 163, 184, 0.18);
+  --tc-tone-neutral-text:        #94a3b8;
+  --tc-surface-subtle:           rgba(255, 255, 255, 0.02);
+  --tc-surface-muted:            rgba(255, 255, 255, 0.03);
+  --tc-surface-emphasis:         rgba(255, 255, 255, 0.04);
+  --tc-row-divider:              rgba(255, 255, 255, 0.05);
+  --tc-hover-soft:               rgba(255, 255, 255, 0.03);
+  --tc-selected-bg:              rgba(74, 158, 255, 0.09);
+  --tc-selected-ring:            rgba(74, 158, 255, 0.12);
+  --tc-progress-track:           rgba(148, 163, 184, 0.18);
+  --tc-progress-brand:           rgba(29, 78, 216, 0.35);
+  --tc-progress-success:         rgba(4, 120, 87, 0.45);
+  --tc-progress-success-strong:  rgba(4, 120, 87, 0.9);
+  --tc-link-accent:              #93c5fd;
+  --tc-link-accent-strong:       #bfdbfe;
 }
 
 /* ── 2. BASE RESET & TYPOGRAPHY ───────────────────────────────── */
+/* Standards-compliant: [hidden] must always win over display overrides (W3C spec) */
+[hidden] { display: none !important; }
 *, *::before, *::after { box-sizing: border-box; }
 
 body {
@@ -186,7 +298,7 @@ a:hover { color: var(--ds-brand-hover); }
   padding: var(--ds-space-3) var(--ds-space-5);
   border: 1px solid var(--ds-border);
   border-radius: var(--ds-radius-full);
-  background: rgba(255,255,255,0.025);
+  background: var(--tc-topbar-bg);
   backdrop-filter: blur(12px);
   margin-bottom: var(--ds-space-6);
 }
@@ -229,14 +341,14 @@ a:hover { color: var(--ds-brand-hover); }
   transition: color 0.15s, background 0.15s;
   white-space: nowrap;
 }
-.ds-nav-link:hover { color: var(--ds-text); background: rgba(255,255,255,0.04); }
-.ds-nav-link--active { color: var(--ds-text); background: rgba(255,255,255,0.06); }
+.ds-nav-link:hover { color: var(--ds-text); background: var(--tc-nav-hover-bg); }
+.ds-nav-link--active { color: var(--ds-text); background: var(--tc-nav-active-bg); }
 
 /* ── 5. CARDS ─────────────────────────────────────────────────── */
 .ds-card {
   border: 1px solid var(--ds-border);
   border-radius: var(--ds-radius-lg);
-  background: rgba(255,255,255,0.025);
+  background: var(--tc-card-surface);
   padding: var(--ds-space-5);
   transition: border-color 0.2s;
 }
@@ -286,7 +398,7 @@ a:hover { color: var(--ds-brand-hover); }
   align-items: center;
   justify-content: center;
   font-size: 20px;
-  background: rgba(255,255,255,0.04);
+  background: var(--tc-icon-box-bg);
   border: 1px solid var(--ds-border);
   flex-shrink: 0;
 }
@@ -304,7 +416,7 @@ a:hover { color: var(--ds-brand-hover); }
   line-height: 1.4;
   cursor: pointer;
   border: 1px solid var(--ds-border);
-  background: rgba(255,255,255,0.04);
+  background: var(--tc-btn-secondary-bg);
   color: var(--ds-text);
   transition: all 0.15s;
   white-space: nowrap;
@@ -312,7 +424,7 @@ a:hover { color: var(--ds-brand-hover); }
 }
 .ds-btn:hover {
   border-color: var(--ds-border-hover);
-  background: rgba(255,255,255,0.07);
+  background: var(--tc-btn-secondary-hover);
 }
 .ds-btn:focus-visible {
   outline: 2px solid var(--ds-border-focus);
@@ -351,7 +463,7 @@ a:hover { color: var(--ds-brand-hover); }
   border-color: transparent;
   color: var(--ds-text-secondary);
 }
-.ds-btn--ghost:hover { background: rgba(255,255,255,0.04); color: var(--ds-text); }
+.ds-btn--ghost:hover { background: var(--tc-ghost-hover-bg); color: var(--ds-text); }
 
 .ds-btn--sm { padding: var(--ds-space-1) var(--ds-space-3); font-size: 12px; }
 .ds-btn--lg { padding: var(--ds-space-3) var(--ds-space-6); font-size: 15px; }
@@ -373,7 +485,7 @@ a:hover { color: var(--ds-brand-hover); }
   font-weight: 600;
   white-space: nowrap;
   border: 1px solid var(--ds-border);
-  background: rgba(255,255,255,0.03);
+  background: var(--tc-trust-badge-bg);
   color: var(--ds-text-secondary);
 }
 .ds-trust-badge--verified {
@@ -423,7 +535,7 @@ a:hover { color: var(--ds-brand-hover); }
 .ds-badge--neutral {
   color: var(--ds-text-secondary);
   border: 1px solid var(--ds-border);
-  background: rgba(255,255,255,0.03);
+  background: var(--tc-badge-neutral-bg);
 }
 .ds-badge--brand {
   color: #bfdbfe;
@@ -496,7 +608,7 @@ a:hover { color: var(--ds-brand-hover); }
   padding: var(--ds-space-4) var(--ds-space-5);
   border-radius: var(--ds-radius-lg);
   border: 1px solid var(--ds-border);
-  background: rgba(255,255,255,0.02);
+  background: var(--tc-kpi-bg);
   text-align: center;
   transition: border-color 0.2s;
 }
@@ -553,14 +665,14 @@ a:hover { color: var(--ds-brand-hover); }
 }
 .ds-table td {
   padding: var(--ds-space-3) var(--ds-space-4);
-  border-bottom: 1px solid rgba(255,255,255,0.04);
+  border-bottom: 1px solid var(--tc-table-row-border);
   vertical-align: middle;
 }
 .ds-table tbody tr {
   transition: background 0.12s;
 }
 .ds-table tbody tr:hover {
-  background: rgba(255,255,255,0.03);
+  background: var(--tc-table-hover-bg);
 }
 .ds-table tbody tr:last-child td {
   border-bottom: none;
@@ -607,7 +719,7 @@ a:hover { color: var(--ds-brand-hover); }
   padding: var(--ds-space-2) var(--ds-space-3);
   border-radius: var(--ds-radius-md);
   border: 1px solid var(--ds-border);
-  background: rgba(0, 0, 0, 0.25);
+  background: var(--tc-input-bg);
   color: var(--ds-text);
   font-size: 14px;
   font-family: inherit;
@@ -619,7 +731,7 @@ a:hover { color: var(--ds-brand-hover); }
 .ds-select:focus,
 .ds-textarea:focus {
   border-color: var(--ds-brand);
-  box-shadow: 0 0 0 3px rgba(74, 158, 255, 0.15);
+  box-shadow: 0 0 0 3px var(--tc-input-focus-ring);
 }
 .ds-input::placeholder,
 .ds-textarea::placeholder {
@@ -640,7 +752,7 @@ a:hover { color: var(--ds-brand-hover); }
   padding: var(--ds-space-5);
   border: 1px solid var(--ds-border);
   border-radius: var(--ds-radius-lg);
-  background: rgba(255,255,255,0.015);
+  background: var(--tc-row-alt-bg);
   margin-bottom: var(--ds-space-4);
 }
 .ds-form-section__title {
@@ -660,7 +772,7 @@ a:hover { color: var(--ds-brand-hover); }
   padding: var(--ds-space-4);
   border: 1px solid var(--ds-border);
   border-radius: var(--ds-radius-lg);
-  background: rgba(255,255,255,0.015);
+  background: var(--tc-filter-surface);
   margin-bottom: var(--ds-space-4);
 }
 .ds-filter-bar .ds-input,
@@ -685,7 +797,7 @@ a:hover { color: var(--ds-brand-hover); }
   justify-content: center;
   text-align: center;
   padding: var(--ds-space-10) var(--ds-space-6);
-  border: 1px dashed rgba(255,255,255,0.10);
+  border: 1px dashed var(--tc-dash-border);
   border-radius: var(--ds-radius-lg);
   color: var(--ds-text-secondary);
 }
@@ -714,7 +826,7 @@ a:hover { color: var(--ds-brand-hover); }
   inset: 0;
   display: none;
   place-items: center;
-  background: rgba(0, 0, 0, 0.75);
+  background: var(--tc-modal-scrim);
   backdrop-filter: blur(4px);
   z-index: var(--ds-z-modal);
 }
@@ -780,6 +892,50 @@ a:hover { color: var(--ds-brand-hover); }
   color: #fecaca;
 }
 
+/* ── 14b. PAGE-STATE (inline page notices) ────────────────────── */
+/* Shared across all Enterprise/Workforce pages.
+   JS uses: el.className = 'page-state page-state--<tone>'
+   Tones: info | warn | bad | good                               */
+.page-state {
+  display: none;
+  margin: 0 0 var(--ds-space-4);
+  padding: var(--ds-space-3) var(--ds-space-4);
+  border-radius: var(--ds-radius-md);
+  border: 1px solid var(--ds-border);
+  font-size: 13px;
+  line-height: 1.5;
+}
+.page-state--info {
+  display: block;
+  background: var(--ds-brand-muted);
+  border-color: rgba(74, 158, 255, 0.25);
+}
+.page-state--warn {
+  display: block;
+  background: var(--ds-warning-muted);
+  border-color: rgba(251, 191, 36, 0.28);
+}
+.page-state--bad {
+  display: block;
+  background: var(--ds-danger-muted);
+  border-color: rgba(248, 113, 113, 0.30);
+}
+.page-state--good {
+  display: block;
+  background: var(--ds-success-muted);
+  border-color: rgba(52, 211, 153, 0.30);
+}
+.page-state__title {
+  font-size: 13px;
+  font-weight: 700;
+  margin: 0 0 var(--ds-space-1);
+}
+.page-state__text {
+  font-size: 12px;
+  color: var(--ds-text-secondary);
+  margin: 0;
+}
+
 /* ── 15. TOAST ────────────────────────────────────────────────── */
 .ds-toast {
   position: fixed;
@@ -807,7 +963,7 @@ a:hover { color: var(--ds-brand-hover); }
   padding: var(--ds-space-5);
   border: 1px solid var(--ds-border);
   border-radius: var(--ds-radius-lg);
-  background: rgba(255,255,255,0.02);
+  background: var(--tc-hub-tile-bg);
   color: inherit;
   text-decoration: none;
   transition: border-color 0.2s, transform 0.15s, box-shadow 0.2s;
@@ -830,7 +986,7 @@ a:hover { color: var(--ds-brand-hover); }
   align-items: center;
   justify-content: center;
   font-size: 22px;
-  background: rgba(255,255,255,0.035);
+  background: var(--tc-stat-tile-bg);
   border: 1px solid var(--ds-border);
   flex-shrink: 0;
 }
@@ -843,6 +999,21 @@ a:hover { color: var(--ds-brand-hover); }
 .ds-hub-card--accent { border-left: 3px solid var(--ds-accent); }
 .ds-hub-card--success{ border-left: 3px solid var(--ds-success); }
 .ds-hub-card--warning{ border-left: 3px solid var(--ds-warning); }
+/* Current context card ("you are here") */
+.ds-hub-card--current {
+  border-left: 3px solid var(--ds-brand);
+  border-color: rgba(74, 158, 255, 0.38);
+  background: rgba(74, 158, 255, 0.08);
+  box-shadow: inset 0 0 0 1px rgba(74, 158, 255, 0.12);
+  opacity: 0.92;
+  pointer-events: none;
+  cursor: default;
+}
+.ds-hub-card--current:hover {
+  transform: none;
+  box-shadow: inset 0 0 0 1px rgba(74, 158, 255, 0.12);
+  color: inherit;
+}
 
 /* Locked card */
 .ds-hub-card--locked {
@@ -876,7 +1047,7 @@ a:hover { color: var(--ds-brand-hover); }
   padding: var(--ds-space-3) var(--ds-space-5);
   border-radius: var(--ds-radius-lg);
   border: 1px solid var(--ds-border);
-  background: rgba(255,255,255,0.02);
+  background: var(--tc-search-muted-bg);
   text-align: center;
   min-width: 100px;
   flex: 1;
@@ -907,7 +1078,7 @@ a:hover { color: var(--ds-brand-hover); }
 .ds-traffic-light--green  { background: var(--ds-success); box-shadow: 0 0 6px rgba(52, 211, 153, 0.3); }
 .ds-traffic-light--yellow { background: var(--ds-warning); box-shadow: 0 0 6px rgba(251, 191, 36, 0.3); }
 .ds-traffic-light--red    { background: var(--ds-danger);  box-shadow: 0 0 6px rgba(248, 113, 113, 0.3); }
-.ds-traffic-light--grey   { background: rgba(255,255,255,0.15); }
+.ds-traffic-light--grey   { background: var(--tc-traffic-grey); }
 
 /* ── 19. PROGRESS / COMPLIANCE BAR ────────────────────────────── */
 .ds-compliance-bar {
@@ -916,13 +1087,13 @@ a:hover { color: var(--ds-brand-hover); }
   height: 8px;
   border-radius: var(--ds-radius-full);
   overflow: hidden;
-  background: rgba(255,255,255,0.04);
+  background: var(--tc-progress-track-bg);
 }
 .ds-compliance-bar__segment { height: 100%; border-radius: 1px; transition: width 0.3s; }
 .ds-compliance-bar__segment--green  { background: var(--ds-success); }
 .ds-compliance-bar__segment--yellow { background: var(--ds-warning); }
 .ds-compliance-bar__segment--red    { background: var(--ds-danger); }
-.ds-compliance-bar__segment--grey   { background: rgba(255,255,255,0.08); }
+.ds-compliance-bar__segment--grey   { background: var(--tc-compliance-grey); }
 
 .ds-compliance-legend {
   display: flex;
@@ -943,7 +1114,7 @@ a:hover { color: var(--ds-brand-hover); }
 .ds-compliance-legend__item--green::before  { background: var(--ds-success); }
 .ds-compliance-legend__item--yellow::before { background: var(--ds-warning); }
 .ds-compliance-legend__item--red::before    { background: var(--ds-danger); }
-.ds-compliance-legend__item--grey::before   { background: rgba(255,255,255,0.15); }
+.ds-compliance-legend__item--grey::before   { background: var(--tc-legend-grey); }
 
 /* ── 20. PLAN CARDS ───────────────────────────────────────────── */
 .ds-plan-grid {
@@ -955,7 +1126,7 @@ a:hover { color: var(--ds-brand-hover); }
   padding: var(--ds-space-6);
   border: 1px solid var(--ds-border);
   border-radius: var(--ds-radius-lg);
-  background: rgba(255,255,255,0.02);
+  background: var(--tc-hub-tile-bg);
   display: flex;
   flex-direction: column;
   transition: border-color 0.2s, transform 0.2s;
@@ -985,7 +1156,7 @@ a:hover { color: var(--ds-brand-hover); }
 }
 .ds-plan-card__features li {
   padding: var(--ds-space-2) 0;
-  border-bottom: 1px solid rgba(255,255,255,0.04);
+  border-bottom: 1px solid var(--tc-footer-rule);
   font-size: 13px;
   color: var(--ds-text-secondary);
 }
@@ -1080,13 +1251,13 @@ a:hover { color: var(--ds-brand-hover); }
   text-align: center;
   padding: var(--ds-space-4);
   border-radius: var(--ds-radius-md);
-  border: 1px solid rgba(255,255,255,0.04);
-  background: rgba(255,255,255,0.01);
+  border: 1px solid var(--tc-disclaimer-border);
+  background: var(--tc-disclaimer-bg);
 }
 
 /* ── 25. LOADING / SKELETON ───────────────────────────────────── */
 .ds-skeleton {
-  background: linear-gradient(90deg, rgba(255,255,255,0.03) 25%, rgba(255,255,255,0.06) 50%, rgba(255,255,255,0.03) 75%);
+  background: linear-gradient(90deg, var(--tc-skeleton-a) 25%, var(--tc-skeleton-b) 50%, var(--tc-skeleton-a) 75%);
   background-size: 200% 100%;
   animation: ds-shimmer 1.5s ease-in-out infinite;
   border-radius: var(--ds-radius-sm);
@@ -1153,3 +1324,573 @@ a:hover { color: var(--ds-brand-hover); }
 .ds-fw-700 { font-weight: 700; }
 .ds-fw-800 { font-weight: 800; }
 .ds-w-full { width: 100%; }
+
+/* Theme toggle control (paired with /public/js/theme.js) */
+.tc-theme-toggle-wrap {
+  display: inline-flex;
+  align-items: center;
+  margin-right: var(--ds-space-2);
+  flex-shrink: 0;
+}
+.tc-theme-toggle {
+  width: 36px;
+  height: 36px;
+  border-radius: var(--ds-radius-md);
+  border: 1px solid var(--ds-border);
+  background: var(--tc-btn-secondary-bg);
+  color: var(--ds-text-secondary);
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  font-size: 17px;
+  line-height: 1;
+  transition: background 0.15s, border-color 0.15s, color 0.15s, box-shadow 0.15s;
+  font-family: inherit;
+}
+.tc-theme-toggle:hover {
+  background: var(--tc-btn-secondary-hover);
+  border-color: var(--ds-border-hover);
+  color: var(--ds-text);
+}
+.tc-theme-toggle:focus-visible {
+  outline: 2px solid var(--ds-border-focus);
+  outline-offset: 2px;
+}
+.tc-theme-toggle[aria-pressed="true"] {
+  color: var(--ds-brand);
+  border-color: rgba(74, 158, 255, 0.35);
+}
+[data-theme="light"] .tc-theme-toggle[aria-pressed="true"] {
+  border-color: rgba(29, 78, 216, 0.35);
+  color: var(--ds-brand);
+}
+/* Floating fallback (worker / einsatzportal / pages without .ds-topbar) — JS adds #tc-theme-floating-root */
+.tc-theme-toggle-wrap--floating {
+  position: fixed;
+  bottom: max(16px, env(safe-area-inset-bottom));
+  right: max(16px, env(safe-area-inset-right));
+  z-index: 99999;
+  margin: 0 !important;
+}
+/* =============================================================================
+   Light theme — MUST follow :root (do not @import; cascade-safe)
+   ============================================================================= */
+/* =============================================================================
+   TempConnect — Light theme (html[data-theme="light"])
+   Loaded after design-system.css. Dark/default tokens remain in :root.
+   ============================================================================= */
+
+[data-theme="light"] {
+  color-scheme: light;
+
+  /* Core palette — calm B2B light */
+  --ds-bg:          #f1f5f9;
+  --ds-bg-raised:   #ffffff;
+  --ds-bg-surface:  #ffffff;
+  --ds-bg-overlay:  rgba(248, 250, 252, 0.94);
+
+  --ds-text:        #0f172a;
+  --ds-text-secondary: #475569;
+  --ds-text-tertiary:  #64748b;
+  --ds-text-inverse:   #ffffff;
+
+  --ds-brand:       #1d4ed8;
+  --ds-brand-hover: #2563eb;
+  --ds-brand-muted: rgba(29, 78, 216, 0.1);
+  --ds-accent:      #5b21b6;
+  --ds-accent-muted: rgba(91, 33, 182, 0.08);
+
+  --ds-success:     #047857;
+  --ds-success-muted: rgba(4, 120, 87, 0.1);
+  --ds-warning:     #b45309;
+  --ds-warning-muted: rgba(180, 83, 9, 0.1);
+  --ds-danger:      #b91c1c;
+  --ds-danger-muted: rgba(185, 28, 28, 0.08);
+
+  --ds-border:      rgba(15, 23, 42, 0.1);
+  --ds-border-hover: rgba(15, 23, 42, 0.18);
+  --ds-border-focus: rgba(29, 78, 216, 0.45);
+
+  --ds-shadow-sm:   0 1px 2px rgba(15, 23, 42, 0.06);
+  --ds-shadow-md:   0 4px 14px rgba(15, 23, 42, 0.08);
+  --ds-shadow-lg:   0 12px 32px rgba(15, 23, 42, 0.1);
+  --ds-shadow-xl:   0 24px 48px rgba(15, 23, 42, 0.12);
+
+  /* Legacy aliases (enterprise.css, inline) */
+  --bg:     var(--ds-bg);
+  --card:   var(--ds-bg-surface);
+  --text:   var(--ds-text);
+  --muted:  var(--ds-text-secondary);
+  --line:   var(--ds-border);
+  --brand:  var(--ds-brand);
+  --brand2: var(--ds-accent);
+  --good:   var(--ds-success);
+  --warn:   var(--ds-warning);
+  --bad:    var(--ds-danger);
+
+  /* Glass / surface tokens — mapped for light */
+  --tc-topbar-bg:           rgba(255, 255, 255, 0.92);
+  --tc-nav-hover-bg:        rgba(15, 23, 42, 0.06);
+  --tc-nav-active-bg:       rgba(15, 23, 42, 0.09);
+  --tc-card-surface:        #ffffff;
+  --tc-icon-box-bg:         rgba(15, 23, 42, 0.05);
+  --tc-btn-secondary-bg:    #ffffff;
+  --tc-btn-secondary-hover: rgba(15, 23, 42, 0.06);
+  --tc-ghost-hover-bg:      rgba(15, 23, 42, 0.06);
+  --tc-trust-badge-bg:      rgba(15, 23, 42, 0.04);
+  --tc-badge-neutral-bg:    rgba(15, 23, 42, 0.05);
+  --tc-kpi-bg:              #ffffff;
+  --tc-table-row-border:    rgba(15, 23, 42, 0.08);
+  --tc-table-hover-bg:      rgba(15, 23, 42, 0.04);
+  --tc-row-alt-bg:          rgba(15, 23, 42, 0.03);
+  --tc-filter-surface:      #ffffff;
+  --tc-dash-border:         rgba(15, 23, 42, 0.14);
+  --tc-hub-tile-bg:         #ffffff;
+  --tc-stat-tile-bg:        rgba(15, 23, 42, 0.04);
+  --tc-search-muted-bg:     #ffffff;
+  --tc-traffic-grey:        #94a3b8;
+  --tc-compliance-grey:     #cbd5e1;
+  --tc-legend-grey:         #94a3b8;
+  --tc-progress-track-bg:   rgba(15, 23, 42, 0.08);
+  --tc-footer-rule:         rgba(15, 23, 42, 0.1);
+  --tc-disclaimer-border:   rgba(15, 23, 42, 0.1);
+  --tc-disclaimer-bg:       rgba(255, 255, 255, 0.92);
+  --tc-skeleton-a:          rgba(15, 23, 42, 0.06);
+  --tc-skeleton-b:          rgba(15, 23, 42, 0.12);
+
+  --tc-legacy-topbar:         rgba(255, 255, 255, 0.95);
+  --tc-legacy-btn:            #ffffff;
+  --tc-legacy-btn-hover-line: rgba(15, 23, 42, 0.22);
+  --tc-legacy-card:           #ffffff;
+  --tc-legacy-nav-card:       #ffffff;
+  --tc-legacy-nav-card-hover: rgba(15, 23, 42, 0.18);
+  --tc-legacy-nav-active:     rgba(29, 78, 216, 0.1);
+  --tc-legacy-input:          #ffffff;
+  --tc-legacy-modal-scrim:    rgba(15, 23, 42, 0.45);
+  --tc-legacy-paywall:        #ffffff;
+  --tc-legacy-hub-cta-bg:     rgba(29, 78, 216, 0.12);
+  --tc-legacy-hub-cta-border: rgba(29, 78, 216, 0.35);
+  --tc-legacy-sla-box:        rgba(15, 23, 42, 0.04);
+  --tc-legacy-search-results: #ffffff;
+  --tc-legacy-hub-locked:     rgba(15, 23, 42, 0.03);
+
+  --tc-input-bg:         #ffffff;
+  --tc-input-focus-ring: rgba(29, 78, 216, 0.22);
+  --tc-modal-scrim:      rgba(15, 23, 42, 0.5);
+
+  --tc-tone-brand-bg:            rgba(29, 78, 216, 0.1);
+  --tc-tone-brand-border:        rgba(29, 78, 216, 0.18);
+  --tc-tone-brand-text:          #1d4ed8;
+  --tc-tone-brand-strong-text:   #1e40af;
+  --tc-tone-accent-bg:           rgba(91, 33, 182, 0.1);
+  --tc-tone-accent-border:       rgba(91, 33, 182, 0.18);
+  --tc-tone-accent-text:         #5b21b6;
+  --tc-tone-success-bg:          rgba(16, 185, 129, 0.12);
+  --tc-tone-success-bg-strong:   rgba(16, 185, 129, 0.18);
+  --tc-tone-success-border:      rgba(5, 150, 105, 0.22);
+  --tc-tone-success-text:        #047857;
+  --tc-tone-success-strong-text: #065f46;
+  --tc-tone-warning-bg:          rgba(245, 158, 11, 0.16);
+  --tc-tone-warning-bg-strong:   rgba(245, 158, 11, 0.22);
+  --tc-tone-warning-border:      rgba(217, 119, 6, 0.22);
+  --tc-tone-warning-text:        #b45309;
+  --tc-tone-warning-strong-text: #92400e;
+  --tc-tone-danger-bg:           rgba(254, 226, 226, 0.88);
+  --tc-tone-danger-bg-strong:    rgba(254, 202, 202, 0.95);
+  --tc-tone-danger-border:       rgba(220, 38, 38, 0.18);
+  --tc-tone-danger-text:         #b91c1c;
+  --tc-tone-danger-strong-text:  #991b1b;
+  --tc-tone-neutral-bg:          rgba(148, 163, 184, 0.14);
+  --tc-tone-neutral-border:      rgba(148, 163, 184, 0.2);
+  --tc-tone-neutral-text:        #64748b;
+  --tc-surface-subtle:           rgba(15, 23, 42, 0.03);
+  --tc-surface-muted:            rgba(15, 23, 42, 0.04);
+  --tc-surface-emphasis:         rgba(15, 23, 42, 0.06);
+  --tc-row-divider:              rgba(15, 23, 42, 0.08);
+  --tc-hover-soft:               rgba(15, 23, 42, 0.04);
+  --tc-selected-bg:              rgba(29, 78, 216, 0.08);
+  --tc-selected-ring:            rgba(29, 78, 216, 0.1);
+  --tc-progress-track:           rgba(148, 163, 184, 0.18);
+  --tc-progress-brand:           rgba(29, 78, 216, 0.28);
+  --tc-progress-success:         rgba(16, 185, 129, 0.32);
+  --tc-progress-success-strong:  rgba(4, 120, 87, 0.76);
+  --tc-link-accent:              #1d4ed8;
+  --tc-link-accent-strong:       #1e40af;
+}
+
+[data-theme="light"] .ds-topbar {
+  box-shadow: var(--ds-shadow-sm);
+}
+
+/* Accent cards — keep hue, adjust for light surfaces */
+[data-theme="light"] .ds-card--accent {
+  border-color: rgba(29, 78, 216, 0.22);
+  background: rgba(29, 78, 216, 0.06);
+}
+[data-theme="light"] .ds-card--success {
+  border-color: rgba(4, 120, 87, 0.22);
+  background: rgba(16, 185, 129, 0.08);
+}
+[data-theme="light"] .ds-card--warning {
+  border-color: rgba(180, 83, 9, 0.22);
+  background: rgba(245, 158, 11, 0.1);
+}
+
+/* Buttons — readable text on muted fills */
+[data-theme="light"] .ds-btn--success {
+  color: #065f46;
+  border-color: rgba(5, 150, 105, 0.35);
+  background: rgba(16, 185, 129, 0.14);
+}
+[data-theme="light"] .ds-btn--success:hover {
+  background: rgba(16, 185, 129, 0.22);
+}
+[data-theme="light"] .ds-btn--danger {
+  color: #991b1b;
+  border-color: rgba(220, 38, 38, 0.35);
+  background: rgba(254, 226, 226, 0.6);
+}
+[data-theme="light"] .ds-btn--danger:hover {
+  background: rgba(254, 202, 202, 0.85);
+}
+
+/* Badges */
+[data-theme="light"] .ds-badge--brand {
+  color: #1e40af;
+  border-color: rgba(29, 78, 216, 0.35);
+  background: rgba(29, 78, 216, 0.1);
+}
+[data-theme="light"] .ds-badge--accent {
+  color: #5b21b6;
+  border-color: rgba(91, 33, 182, 0.35);
+  background: rgba(91, 33, 182, 0.1);
+}
+[data-theme="light"] .ds-badge--success {
+  color: #065f46;
+  border-color: rgba(5, 150, 105, 0.35);
+  background: rgba(16, 185, 129, 0.12);
+}
+[data-theme="light"] .ds-badge--warning {
+  color: #92400e;
+  border-color: rgba(217, 119, 6, 0.35);
+  background: rgba(251, 191, 36, 0.18);
+}
+[data-theme="light"] .ds-badge--danger,
+[data-theme="light"] .ds-badge--danger-strong {
+  color: #991b1b;
+  border-color: rgba(220, 38, 38, 0.4);
+  background: rgba(254, 226, 226, 0.85);
+}
+[data-theme="light"] .ds-badge--verified {
+  color: #065f46;
+  border-color: rgba(5, 150, 105, 0.35);
+  background: rgba(16, 185, 129, 0.12);
+}
+[data-theme="light"] .ds-badge--plan {
+  color: #1d4ed8;
+  border-color: rgba(29, 78, 216, 0.3);
+  background: rgba(29, 78, 216, 0.08);
+}
+
+/* Trust badges */
+[data-theme="light"] .ds-trust-badge--verified {
+  color: #065f46;
+  border-color: rgba(5, 150, 105, 0.35);
+  background: rgba(16, 185, 129, 0.12);
+}
+[data-theme="light"] .ds-trust-badge--active {
+  color: #1e40af;
+  border-color: rgba(29, 78, 216, 0.35);
+  background: rgba(29, 78, 216, 0.1);
+}
+[data-theme="light"] .ds-trust-badge--top {
+  color: #92400e;
+  border-color: rgba(217, 119, 6, 0.35);
+  background: rgba(251, 191, 36, 0.18);
+}
+[data-theme="light"] .ds-trust-badge--deals {
+  color: #065f46;
+  border-color: rgba(5, 150, 105, 0.3);
+  background: rgba(16, 185, 129, 0.1);
+}
+[data-theme="light"] .ds-trust-badge--compliance {
+  color: #5b21b6;
+  border-color: rgba(91, 33, 182, 0.35);
+  background: rgba(91, 33, 182, 0.1);
+}
+[data-theme="light"] .ds-trust-badge--response {
+  color: #1e40af;
+  border-color: rgba(29, 78, 216, 0.3);
+  background: rgba(29, 78, 216, 0.08);
+}
+
+/* Hub “current” card */
+[data-theme="light"] .ds-hub-card--current {
+  border-color: rgba(29, 78, 216, 0.35);
+  background: rgba(29, 78, 216, 0.08);
+  box-shadow: inset 0 0 0 1px rgba(29, 78, 216, 0.12);
+}
+[data-theme="light"] .ds-hub-card--current:hover {
+  box-shadow: inset 0 0 0 1px rgba(29, 78, 216, 0.12);
+}
+
+/* Plan cards */
+[data-theme="light"] .ds-plan-card--recommended {
+  border-color: rgba(29, 78, 216, 0.38);
+  background: rgba(29, 78, 216, 0.06);
+}
+[data-theme="light"] .ds-plan-card--premium {
+  border-color: rgba(217, 119, 6, 0.38);
+  background: rgba(251, 191, 36, 0.12);
+}
+
+/* Enterprise legacy tags / buttons */
+[data-theme="light"] .btn.good {
+  color: #065f46;
+  background: rgba(16, 185, 129, 0.14);
+  border-color: rgba(5, 150, 105, 0.4);
+}
+[data-theme="light"] .btn.bad {
+  color: #991b1b;
+  background: rgba(254, 226, 226, 0.85);
+  border-color: rgba(220, 38, 38, 0.4);
+}
+[data-theme="light"] .tag.green {
+  color: #065f46;
+  border-color: rgba(5, 150, 105, 0.4);
+  background: rgba(16, 185, 129, 0.12);
+}
+[data-theme="light"] .tag.yellow {
+  color: #92400e;
+  border-color: rgba(217, 119, 6, 0.45);
+  background: rgba(251, 191, 36, 0.2);
+}
+[data-theme="light"] .tag.red {
+  color: #991b1b;
+  border-color: rgba(220, 38, 38, 0.45);
+  background: rgba(254, 226, 226, 0.9);
+}
+[data-theme="light"] .tag.blue {
+  color: #1e40af;
+  border-color: rgba(29, 78, 216, 0.4);
+  background: rgba(29, 78, 216, 0.1);
+}
+[data-theme="light"] .hub-card--locked .hub-card__cta {
+  color: #1e40af;
+}
+
+/* Alerts — light mode text + surface */
+[data-theme="light"] .ds-alert--info {
+  color: #1e40af;
+  background: rgba(29, 78, 216, 0.07);
+  border-color: rgba(29, 78, 216, 0.22);
+}
+[data-theme="light"] .ds-alert--success {
+  color: #065f46;
+  background: rgba(16, 185, 129, 0.08);
+  border-color: rgba(5, 150, 105, 0.22);
+}
+[data-theme="light"] .ds-alert--warning {
+  color: #92400e;
+  background: rgba(251, 191, 36, 0.12);
+  border-color: rgba(217, 119, 6, 0.24);
+}
+[data-theme="light"] .ds-alert--danger {
+  color: #991b1b;
+  background: rgba(220, 38, 38, 0.07);
+  border-color: rgba(220, 38, 38, 0.22);
+}
+
+/* Page-state — light mode */
+[data-theme="light"] .page-state--info {
+  background: rgba(29, 78, 216, 0.07);
+  border-color: rgba(29, 78, 216, 0.22);
+}
+[data-theme="light"] .page-state--warn {
+  background: rgba(251, 191, 36, 0.12);
+  border-color: rgba(217, 119, 6, 0.24);
+}
+[data-theme="light"] .page-state--bad {
+  background: rgba(220, 38, 38, 0.07);
+  border-color: rgba(220, 38, 38, 0.22);
+}
+[data-theme="light"] .page-state--good {
+  background: rgba(16, 185, 129, 0.08);
+  border-color: rgba(5, 150, 105, 0.22);
+}
+
+[data-theme="dark"] {
+  color-scheme: dark;
+}
+
+/* =============================================================================
+   Ultra Premium — refined "obsidian sapphire" dark (html[data-theme="ultra_premium"])
+   Phase J. Selectable, opt-in. Default (:root dark) stays unchanged.
+   Token-driven (no color inversion); deeper ground, sapphire-tinted glass,
+   stronger elevation hierarchy. Calm enterprise — no extra animations.
+   ============================================================================= */
+[data-theme="ultra_premium"] {
+  color-scheme: dark;
+
+  /* Core palette — deep obsidian ground, brighter text for clearer hierarchy */
+  --ds-bg:          #05080f;
+  --ds-bg-raised:   #0a1020;
+  --ds-bg-surface:  #0e1526;
+  --ds-bg-overlay:  rgba(5, 8, 15, 0.95);
+
+  --ds-text:        #f4f7fc;
+  --ds-text-secondary: #a2b1cf;
+  --ds-text-tertiary:  #6b7991;
+  --ds-text-inverse:   #05080f;
+
+  --ds-brand:       #5fa8ff;
+  --ds-brand-hover: #84bdff;
+  --ds-brand-muted: rgba(95, 168, 255, 0.14);
+  --ds-accent:      #a78bff;
+  --ds-accent-muted: rgba(167, 139, 255, 0.12);
+
+  --ds-success:     #3ddc97;
+  --ds-success-muted: rgba(61, 220, 151, 0.14);
+  --ds-warning:     #f5c451;
+  --ds-warning-muted: rgba(245, 196, 81, 0.12);
+  --ds-danger:      #fb7185;
+  --ds-danger-muted: rgba(251, 113, 133, 0.12);
+
+  /* Sapphire-tinted borders + deeper shadows = premium depth */
+  --ds-border:      rgba(140, 175, 230, 0.12);
+  --ds-border-hover: rgba(140, 175, 230, 0.22);
+  --ds-border-focus: rgba(95, 168, 255, 0.55);
+  --ds-shadow-sm:   0 1px 2px rgba(0, 0, 0, 0.4);
+  --ds-shadow-md:   0 6px 20px rgba(0, 0, 0, 0.5);
+  --ds-shadow-lg:   0 18px 48px rgba(0, 0, 0, 0.62);
+  --ds-shadow-xl:   0 30px 76px rgba(0, 0, 0, 0.72);
+
+  /* Legacy aliases */
+  --bg:     var(--ds-bg);
+  --card:   var(--ds-bg-surface);
+  --text:   var(--ds-text);
+  --muted:  var(--ds-text-secondary);
+  --line:   var(--ds-border);
+  --brand:  var(--ds-brand);
+  --brand2: var(--ds-accent);
+  --good:   var(--ds-success);
+  --warn:   var(--ds-warning);
+  --bad:    var(--ds-danger);
+
+  /* Glass / surface tokens — sapphire-tinted (not pure white) for a cooler, premium feel */
+  --tc-topbar-bg:           rgba(140, 175, 230, 0.04);
+  --tc-nav-hover-bg:        rgba(140, 175, 230, 0.06);
+  --tc-nav-active-bg:       rgba(140, 175, 230, 0.09);
+  --tc-card-surface:        rgba(140, 175, 230, 0.035);
+  --tc-icon-box-bg:         rgba(140, 175, 230, 0.06);
+  --tc-btn-secondary-bg:    rgba(140, 175, 230, 0.05);
+  --tc-btn-secondary-hover: rgba(140, 175, 230, 0.09);
+  --tc-ghost-hover-bg:      rgba(140, 175, 230, 0.06);
+  --tc-trust-badge-bg:      rgba(140, 175, 230, 0.04);
+  --tc-badge-neutral-bg:    rgba(140, 175, 230, 0.04);
+  --tc-kpi-bg:              rgba(140, 175, 230, 0.03);
+  --tc-table-row-border:    rgba(140, 175, 230, 0.06);
+  --tc-table-hover-bg:      rgba(140, 175, 230, 0.045);
+  --tc-row-alt-bg:          rgba(140, 175, 230, 0.022);
+  --tc-filter-surface:      rgba(140, 175, 230, 0.022);
+  --tc-dash-border:         rgba(140, 175, 230, 0.12);
+  --tc-hub-tile-bg:         rgba(140, 175, 230, 0.03);
+  --tc-stat-tile-bg:        rgba(140, 175, 230, 0.05);
+  --tc-search-muted-bg:     rgba(140, 175, 230, 0.028);
+  --tc-traffic-grey:        rgba(140, 175, 230, 0.18);
+  --tc-compliance-grey:     rgba(140, 175, 230, 0.1);
+  --tc-legend-grey:         rgba(140, 175, 230, 0.18);
+  --tc-progress-track-bg:   rgba(140, 175, 230, 0.03);
+  --tc-footer-rule:         rgba(140, 175, 230, 0.06);
+  --tc-disclaimer-border:   rgba(140, 175, 230, 0.06);
+  --tc-disclaimer-bg:       rgba(140, 175, 230, 0.015);
+  --tc-skeleton-a:          rgba(140, 175, 230, 0.04);
+  --tc-skeleton-b:          rgba(140, 175, 230, 0.08);
+
+  /* Legacy enterprise.css surfaces */
+  --tc-legacy-topbar:         rgba(140, 175, 230, 0.04);
+  --tc-legacy-btn:            rgba(140, 175, 230, 0.05);
+  --tc-legacy-btn-hover-line: rgba(140, 175, 230, 0.22);
+  --tc-legacy-card:           rgba(140, 175, 230, 0.035);
+  --tc-legacy-nav-card:       rgba(140, 175, 230, 0.035);
+  --tc-legacy-nav-card-hover: rgba(140, 175, 230, 0.24);
+  --tc-legacy-nav-active:     rgba(95, 168, 255, 0.1);
+  --tc-legacy-input:          rgba(0, 0, 0, 0.35);
+  --tc-legacy-modal-scrim:    rgba(0, 0, 0, 0.82);
+  --tc-legacy-paywall:        rgba(140, 175, 230, 0.05);
+  --tc-legacy-hub-cta-bg:     rgba(95, 168, 255, 0.22);
+  --tc-legacy-hub-cta-border: rgba(95, 168, 255, 0.42);
+  --tc-legacy-sla-box:        rgba(0, 0, 0, 0.25);
+  --tc-legacy-search-results: rgba(140, 175, 230, 0.018);
+  --tc-legacy-hub-locked:     rgba(140, 175, 230, 0.014);
+
+  /* Forms / modal scrim */
+  --tc-input-bg:         rgba(0, 0, 0, 0.3);
+  --tc-input-focus-ring: rgba(95, 168, 255, 0.18);
+  --tc-modal-scrim:      rgba(2, 4, 10, 0.8);
+
+  /* Semantic tones */
+  --tc-tone-brand-bg:            rgba(95, 168, 255, 0.16);
+  --tc-tone-brand-border:        rgba(95, 168, 255, 0.28);
+  --tc-tone-brand-text:          #9ecbff;
+  --tc-tone-brand-strong-text:   #c5ddff;
+  --tc-tone-accent-bg:           rgba(167, 139, 255, 0.16);
+  --tc-tone-accent-border:       rgba(167, 139, 255, 0.26);
+  --tc-tone-accent-text:         #cdbcff;
+  --tc-tone-success-bg:          rgba(61, 220, 151, 0.15);
+  --tc-tone-success-bg-strong:   rgba(61, 220, 151, 0.24);
+  --tc-tone-success-border:      rgba(61, 220, 151, 0.32);
+  --tc-tone-success-text:        #7eeab9;
+  --tc-tone-success-strong-text: #3ddc97;
+  --tc-tone-warning-bg:          rgba(245, 196, 81, 0.15);
+  --tc-tone-warning-bg-strong:   rgba(245, 196, 81, 0.2);
+  --tc-tone-warning-border:      rgba(245, 196, 81, 0.32);
+  --tc-tone-warning-text:        #f5c451;
+  --tc-tone-warning-strong-text: #fadd97;
+  --tc-tone-danger-bg:           rgba(251, 113, 133, 0.15);
+  --tc-tone-danger-bg-strong:    rgba(251, 113, 133, 0.2);
+  --tc-tone-danger-border:       rgba(251, 113, 133, 0.32);
+  --tc-tone-danger-text:         #fda4b0;
+  --tc-tone-danger-strong-text:  #fb7185;
+  --tc-tone-neutral-bg:          rgba(140, 175, 230, 0.12);
+  --tc-tone-neutral-border:      rgba(140, 175, 230, 0.2);
+  --tc-tone-neutral-text:        #9fb0cd;
+  --tc-surface-subtle:           rgba(140, 175, 230, 0.022);
+  --tc-surface-muted:            rgba(140, 175, 230, 0.035);
+  --tc-surface-emphasis:         rgba(140, 175, 230, 0.05);
+  --tc-row-divider:              rgba(140, 175, 230, 0.06);
+  --tc-hover-soft:               rgba(140, 175, 230, 0.035);
+  --tc-selected-bg:              rgba(95, 168, 255, 0.1);
+  --tc-selected-ring:            rgba(95, 168, 255, 0.14);
+  --tc-progress-track:           rgba(140, 175, 230, 0.18);
+  --tc-progress-brand:           rgba(95, 168, 255, 0.4);
+  --tc-progress-success:         rgba(61, 220, 151, 0.4);
+  --tc-progress-success-strong:  rgba(61, 220, 151, 0.9);
+  --tc-link-accent:              #9ecbff;
+  --tc-link-accent-strong:       #c5ddff;
+}
+
+/* Ultra Premium — restrained component refinements (depth + hierarchy, no animation) */
+[data-theme="ultra_premium"] body {
+  background:
+    radial-gradient(1200px 600px at 50% -12%, rgba(95, 168, 255, 0.05), transparent 60%),
+    radial-gradient(900px 520px at 100% 0%, rgba(167, 139, 255, 0.04), transparent 55%),
+    var(--ds-bg);
+  background-attachment: fixed;
+}
+[data-theme="ultra_premium"] .ds-h1,
+[data-theme="ultra_premium"] .ds-page-title { letter-spacing: -0.025em; }
+[data-theme="ultra_premium"] .ds-card { box-shadow: var(--ds-shadow-sm); }
+[data-theme="ultra_premium"] .ds-card--elevated { box-shadow: var(--ds-shadow-lg); }
+[data-theme="ultra_premium"] .ds-topbar {
+  background: linear-gradient(180deg, rgba(140, 175, 230, 0.06), rgba(140, 175, 230, 0.03));
+  box-shadow: var(--ds-shadow-md);
+}
+[data-theme="ultra_premium"] .ds-kpi,
+[data-theme="ultra_premium"] .ds-stat-tile { box-shadow: var(--ds-shadow-sm); }
+[data-theme="ultra_premium"] .tc-theme-toggle[aria-pressed="true"] {
+  color: var(--ds-accent);
+  border-color: rgba(167, 139, 255, 0.4);
+}

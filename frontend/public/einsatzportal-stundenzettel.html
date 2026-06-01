@@ -1,0 +1,1151 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <script src="/public/js/theme.js"></script>
+  <title>Stundenzettel – Einsatzportal</title>
+  <link rel="stylesheet" href="einsatzportal.css">
+  <style>
+    /* ── Submission list ─────────────────────────────────────────── */
+    .sub-filters { display:flex; gap:8px; flex-wrap:wrap; margin-bottom:20px; }
+    .sub-filter {
+      padding:7px 16px; border-radius:20px; border:1px solid var(--ep-border);
+      background:none; color:var(--ep-text-muted); cursor:pointer;
+      font-size:.8rem; font-weight:600; transition:all .15s;
+    }
+    .sub-filter.active { background:var(--ep-brand); color:#fff; border-color:var(--ep-brand); }
+    .sub-filter:hover:not(.active) { border-color:var(--ep-brand); color:var(--ep-text); }
+
+    .sub-card {
+      background:var(--ep-surface); border-radius:12px; border:1px solid var(--ep-border);
+      padding:16px; margin-bottom:10px; cursor:pointer; transition:all .15s;
+    }
+    .sub-card:hover { border-color:var(--ep-brand); background:var(--ep-surface-raised); }
+    .sub-card.selected { border-color:var(--ep-brand); box-shadow:0 0 0 1px var(--ep-brand); }
+    .sub-card-head { display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:8px; }
+    .sub-card-title { font-weight:700; font-size:.9rem; }
+    .sub-card-meta { font-size:.78rem; color:var(--ep-text-muted); margin-top:3px; }
+    .sub-card-foot { display:flex; align-items:center; gap:10px; margin-top:10px; font-size:.8rem; color:var(--ep-text-muted); }
+
+    /* ── Detail timeline ─────────────────────────────────────────── */
+    .sub-detail {
+      background:var(--ep-surface); border-radius:14px; border:1px solid var(--ep-border);
+      overflow:hidden; margin-top:20px;
+    }
+    .sub-detail-head { padding:18px 20px; background:var(--ep-surface-raised); border-bottom:1px solid var(--ep-border); }
+    .sub-detail-title { font-size:1.1rem; font-weight:800; margin-bottom:4px; }
+    .sub-detail-body { padding:20px; }
+
+    .status-timeline { display:flex; flex-direction:column; gap:0; margin:16px 0; }
+    .st-step { display:flex; align-items:flex-start; gap:12px; padding-bottom:16px; position:relative; }
+    .st-step:last-child { padding-bottom:0; }
+    .st-step::before { content:''; position:absolute; left:15px; top:28px; bottom:0; width:2px; background:var(--ep-border); }
+    .st-step:last-child::before { display:none; }
+    .st-dot {
+      width:32px; height:32px; border-radius:50%; flex-shrink:0;
+      display:flex; align-items:center; justify-content:center;
+      font-size:.85rem; border:2px solid var(--ep-border);
+      background:var(--ep-surface); z-index:1;
+    }
+    .st-dot.done { background:var(--ep-success); border-color:var(--ep-success); }
+    .st-dot.active { background:var(--ep-brand); border-color:var(--ep-brand); }
+    .st-dot.warn { background:var(--ep-warning); border-color:var(--ep-warning); }
+    .st-dot.err { background:var(--ep-danger); border-color:var(--ep-danger); }
+    .st-info { flex:1; }
+    .st-label { font-weight:600; font-size:.875rem; }
+    .st-date { font-size:.75rem; color:var(--ep-text-muted); margin-top:1px; }
+    .st-note { font-size:.8rem; color:var(--ep-text-muted); margin-top:4px; background:rgba(255,255,255,.04); border-radius:6px; padding:8px 10px; }
+
+    /* ── Layout split ────────────────────────────────────────────── */
+    @media(min-width:900px){
+      .sz-layout { display:grid; grid-template-columns:340px 1fr; gap:20px; align-items:start; }
+      .sz-list-col { position:sticky; top:20px; max-height:calc(100vh - 60px); overflow-y:auto; }
+    }
+    @media (max-width:480px){
+      .sub-filter { min-height:40px; padding:9px 14px; font-size:.8rem; }
+      .sub-card { padding:14px 12px; }
+    }
+
+    /* ── Editor panel ─────────────────────────────────────────────── */
+    .ed-head {
+      display:flex; align-items:center; gap:10px; padding-bottom:16px;
+      border-bottom:1px solid var(--ep-border); margin-bottom:16px; flex-wrap:wrap;
+    }
+    .ed-back-btn {
+      background:none; border:1px solid var(--ep-border); border-radius:8px;
+      padding:6px 12px; font-size:.82rem; cursor:pointer; color:var(--ep-text-muted);
+      transition:all .15s; flex-shrink:0;
+    }
+    .ed-back-btn:hover { border-color:var(--ep-brand); color:var(--ep-text); }
+    .ed-week-label { font-weight:800; font-size:1.05rem; flex:1; }
+
+    /* Week picker */
+    .ed-week-picker {
+      display:flex; align-items:center; gap:8px; background:var(--ep-surface-raised);
+      border:1px solid var(--ep-border); border-radius:10px; padding:10px 14px;
+      margin-bottom:14px; font-size:.84rem; flex-wrap:wrap;
+    }
+    .ed-week-nav {
+      background:none; border:1px solid var(--ep-border); border-radius:6px;
+      padding:5px 11px; cursor:pointer; font-size:.8rem; transition:all .15s;
+    }
+    .ed-week-nav:hover { border-color:var(--ep-brand); }
+    .ed-week-cur { font-weight:700; flex:1; text-align:center; }
+
+    /* Day grid */
+    .wk-day-row {
+      display:grid; grid-template-columns:60px 1fr;
+      gap:8px; align-items:start; padding:10px 0;
+      border-bottom:1px solid var(--ep-border);
+    }
+    .wk-day-row:last-child { border-bottom:none; }
+    .wk-day-row.has-data .wk-day-label { color:var(--ep-text); }
+    .wk-day-label { font-weight:700; font-size:.85rem; padding-top:10px; color:var(--ep-text-muted); line-height:1.3; }
+    .wk-day-label .date { font-size:.72rem; font-weight:400; margin-top:2px; }
+    .wk-day-inputs { display:flex; gap:5px; align-items:center; flex-wrap:wrap; }
+    .wk-input {
+      width:68px; padding:8px 10px; border:1px solid var(--ep-border);
+      border-radius:8px; background:var(--ep-surface); color:var(--ep-text);
+      font-size:.85rem; text-align:right; min-height:40px;
+      -moz-appearance:textfield; box-sizing:border-box;
+    }
+    .wk-input::-webkit-outer-spin-button,
+    .wk-input::-webkit-inner-spin-button { -webkit-appearance:none; }
+    .wk-input:focus { outline:none; border-color:var(--ep-brand); box-shadow:0 0 0 2px rgba(74,158,255,.15); }
+    .wk-input:disabled { opacity:.55; cursor:not-allowed; background:var(--ep-surface-raised); }
+    .wk-input.time { width:95px; text-align:left; }
+    .advanced-row { display:none; gap:5px; margin-top:5px; flex-wrap:wrap; }
+    .wk-input-hint { font-size:.68rem; color:var(--ep-text-muted); text-align:center; display:block; margin-top:2px; }
+
+    /* Totals */
+    .ed-totals {
+      display:flex; gap:16px; padding:12px 16px;
+      background:var(--ep-surface-raised); border-radius:10px;
+      border:1px solid var(--ep-border); margin:14px 0; flex-wrap:wrap;
+    }
+    .ed-total-item { display:flex; flex-direction:column; gap:2px; }
+    .ed-total-val { font-size:1.1rem; font-weight:800; color:var(--ep-text); }
+    .ed-total-label { font-size:.72rem; color:var(--ep-text-muted); }
+
+    /* CTA bar */
+    .ed-cta-bar {
+      display:flex; gap:8px; margin-top:18px; padding-top:16px;
+      border-top:1px solid var(--ep-border); flex-wrap:wrap;
+    }
+
+    /* Confirm overlay */
+    #ed-confirm-overlay {
+      position:fixed; inset:0; background:rgba(0,0,0,.55);
+      display:none; align-items:center; justify-content:center; z-index:9999; padding:20px;
+    }
+    #ed-confirm-overlay.open { display:flex; }
+    .ed-confirm-box {
+      background:var(--ep-surface); border-radius:16px; padding:28px 24px;
+      max-width:420px; width:100%; border:1px solid var(--ep-border);
+      box-shadow:0 8px 40px rgba(0,0,0,.3);
+    }
+    .ed-confirm-title { font-size:1.1rem; font-weight:800; margin-bottom:10px; }
+    .ed-confirm-text { font-size:.9rem; color:var(--ep-text-muted); margin-bottom:20px; line-height:1.5; }
+    .ed-confirm-actions { display:flex; gap:10px; justify-content:flex-end; }
+  </style>
+</head>
+<body>
+
+<aside class="ep-sidebar">
+  <div class="ep-sidebar-brand"><div class="ep-sidebar-logo">TC</div><div><div style="font-weight:800;font-size:.95rem">Einsatzportal</div><div style="font-size:.7rem;color:var(--ep-text-muted);font-weight:400">TempConnect</div></div></div>
+  <nav class="ep-sidebar-nav">
+    <a class="ep-sidebar-item" href="einsatzportal-dashboard.html"><span class="icon">🏠</span> Dashboard</a>
+    <a class="ep-sidebar-item" href="einsatzportal-einsaetze.html"><span class="icon">📋</span> Meine Einsätze</a>
+    <a class="ep-sidebar-item" href="einsatzportal-plan.html"><span class="icon">📅</span> Einsatzplan</a>
+    <a class="ep-sidebar-item active" href="einsatzportal-stundenzettel.html"><span class="icon">⏱</span> Stundenzettel</a>
+    <a class="ep-sidebar-item" href="einsatzportal-benachrichtigungen.html"><span class="icon">🔔</span> Benachrichtigungen<span class="ep-sidebar-badge" id="sb-badge" style="display:none">0</span></a>
+    <a class="ep-sidebar-item" href="einsatzportal-kontakt.html"><span class="icon">💬</span> Kontakt &amp; Hilfe</a>
+    <a class="ep-sidebar-item" href="einsatzportal-profil.html"><span class="icon">👤</span> Mein Profil</a>
+  </nav>
+  <div class="ep-sidebar-footer">
+    <div class="ep-sidebar-user"><div class="ep-sidebar-avatar" id="sd-ava">?</div><div><div class="ep-sidebar-name" id="sd-name">Lädt…</div><div class="ep-sidebar-role">Arbeitnehmer</div></div></div>
+    <button class="ep-sidebar-item" onclick="doLogout()" style="margin-top:4px;color:var(--ep-text-muted)"><span class="icon">↩</span> Abmelden</button>
+  </div>
+</aside>
+
+<header class="ep-topbar">
+  <a class="ep-topbar-brand" href="einsatzportal-dashboard.html" aria-label="Zur Einsatzportal-Übersicht"><div class="ep-topbar-logo">TC</div>Stundenzettel</a>
+  <div class="ep-topbar-actions"><a class="ep-bell" href="einsatzportal-benachrichtigungen.html">🔔<span class="ep-bell-badge" id="mob-badge" style="display:none">0</span></a></div>
+</header>
+
+<main class="ep-main">
+  <div class="ep-content">
+    <div class="ep-page-header" style="display:flex;justify-content:space-between;align-items:flex-end;flex-wrap:wrap;gap:10px">
+      <div>
+        <h1 class="ep-page-title">Stundenzettel</h1>
+        <p class="ep-page-sub">Ihre eingereichten Wochenberichte</p>
+      </div>
+      <button class="ep-btn ep-btn-primary ep-btn-sm" id="btnNew" onclick="openNewTimesheet()" style="display:none">
+        ✏️ Stunden digital eintragen
+      </button>
+    </div>
+
+    <div id="loading">
+      <div class="ep-skel"></div><div class="ep-skel" style="opacity:.7"></div><div class="ep-skel" style="opacity:.4"></div>
+    </div>
+
+    <div id="content" style="display:none">
+      <!-- Correction banner -->
+      <div id="correctionBanner" style="display:none"></div>
+
+      <!-- Filter pills -->
+      <div class="sub-filters">
+        <button class="sub-filter active" onclick="setFilter('all')" id="f-all">Alle</button>
+        <button class="sub-filter" onclick="setFilter('open')" id="f-open">Offen</button>
+        <button class="sub-filter" onclick="setFilter('correction')" id="f-correction">Korrektur</button>
+        <button class="sub-filter" onclick="setFilter('at_customer')" id="f-at_customer">Beim Kunden</button>
+        <button class="sub-filter" onclick="setFilter('done')" id="f-done">Abgeschlossen</button>
+        <button class="sub-filter" onclick="setFilter('rejected')" id="f-rejected">Abgelehnt</button>
+      </div>
+
+      <div class="sz-layout">
+        <!-- Left: list -->
+        <div class="sz-list-col">
+          <div id="subList"></div>
+        </div>
+
+        <!-- Right: detail / editor -->
+        <div id="subDetail">
+          <!-- Empty state -->
+          <div class="ep-empty" id="detEmpty">
+            <div class="icon">📋</div>
+            <h3>Stundenzettel wählen</h3>
+            <p>Wählen Sie links einen Eintrag oder erfassen Sie neue Stunden.</p>
+          </div>
+
+          <!-- Status-Timeline detail -->
+          <div id="detContent" style="display:none"></div>
+
+          <!-- ── Inline Editor Panel ─────────────────────────── -->
+          <div id="editorPanel" style="display:none">
+
+            <div class="ed-head">
+              <button class="ed-back-btn" onclick="closeEditor()">← Zurück</button>
+              <div class="ed-week-label" id="ed-week-label">—</div>
+              <span id="ed-status-badge"></span>
+            </div>
+
+            <!-- Wochen-Picker (nur bei neuer Submission via link_id) -->
+            <div class="ed-week-picker" id="ed-week-picker" style="display:none">
+              <button class="ed-week-nav" onclick="edShiftWeek(-1)">← Vorwoche</button>
+              <div class="ed-week-cur" id="ed-week-cur">—</div>
+              <button class="ed-week-nav" onclick="edShiftWeek(1)">Nächste →</button>
+            </div>
+
+            <!-- Korrektur-Banner -->
+            <div class="ep-alert ep-alert-danger" id="ed-correction-banner" style="display:none;margin-bottom:14px">
+              <span>⚠️</span>
+              <div>
+                <strong>Korrektur erforderlich</strong>
+                <div id="ed-correction-note" style="margin-top:3px;font-size:.85rem"></div>
+              </div>
+            </div>
+
+            <!-- Read-only-Banner -->
+            <div class="ep-alert ep-alert-info" id="ed-readonly-banner" style="display:none;margin-bottom:14px">
+              <span>🔒</span>
+              <span>Gesperrt: <strong id="ed-readonly-status"></strong></span>
+            </div>
+
+            <!-- Reviewer-Kommentar -->
+            <div class="ep-alert ep-alert-warning" id="ed-reviewer-comment" style="display:none;margin-bottom:14px">
+              <span>💬</span>
+              <div>
+                <strong>Anmerkung des Prüfers</strong>
+                <div id="ed-reviewer-note" style="margin-top:3px;font-size:.85rem"></div>
+              </div>
+            </div>
+
+            <!-- Einsatz-Info (aus Prefill) -->
+            <div id="ed-assignment-info" style="display:none;margin-bottom:14px;padding:10px 14px;background:var(--ep-surface-raised);border:1px solid var(--ep-border);border-radius:10px;font-size:.82rem">
+              <div style="font-weight:700;margin-bottom:4px">📋 Einsatz-Info</div>
+              <div id="ed-ai-description" style="color:var(--ep-text-muted)"></div>
+              <div id="ed-ai-dates" style="color:var(--ep-text-muted);margin-top:2px"></div>
+              <div id="ed-ai-shift" style="color:var(--ep-text-muted);margin-top:2px"></div>
+            </div>
+
+            <!-- Wochenraster Header -->
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+              <div style="font-size:.78rem;color:var(--ep-text-muted)">Std. · Überstd. · Pause(Min.)</div>
+              <button class="ep-btn ep-btn-ghost ep-btn-sm" onclick="edToggleAdvanced()" id="ed-toggle-details" style="font-size:.78rem">+ Schichtzeiten</button>
+            </div>
+
+            <!-- Wochenraster -->
+            <div id="ed-week-grid"></div>
+
+            <!-- Totals -->
+            <div class="ed-totals">
+              <div class="ed-total-item">
+                <div class="ed-total-val" id="ed-total-hours">0,0 h</div>
+                <div class="ed-total-label">Gesamt</div>
+              </div>
+              <div class="ed-total-item">
+                <div class="ed-total-val" id="ed-total-overtime">0,0 h</div>
+                <div class="ed-total-label">Überstunden</div>
+              </div>
+            </div>
+
+            <!-- Vollständigkeitshinweis -->
+            <div class="ep-alert" id="ed-completion-hint" style="display:none;margin-bottom:12px">
+              <span id="ed-completion-icon">ℹ️</span>
+              <span id="ed-completion-text"></span>
+            </div>
+
+            <!-- Kommentar -->
+            <div style="margin-top:12px">
+              <label style="font-size:.8rem;font-weight:700;color:var(--ep-text-muted);display:block;margin-bottom:6px">Kommentar (optional)</label>
+              <textarea id="ed-worker-comment" rows="2"
+                style="width:100%;padding:10px 12px;border:1px solid var(--ep-border);border-radius:10px;background:var(--ep-surface);color:var(--ep-text);font-size:.86rem;resize:vertical;box-sizing:border-box"
+                placeholder="Hinweise für den Prüfer…"></textarea>
+            </div>
+
+            <!-- Zuschläge -->
+            <div style="margin-top:8px">
+              <button class="ep-btn ep-btn-ghost ep-btn-sm" onclick="edToggleZuschlaege()" id="ed-btn-zuschlaege" style="font-size:.78rem">+ Zuschläge</button>
+              <div id="ed-zuschlaege" style="display:none;margin-top:8px;padding:12px;background:var(--ep-surface-raised);border:1px solid var(--ep-border);border-radius:10px">
+                <div style="font-size:.78rem;font-weight:700;color:var(--ep-text-muted);margin-bottom:8px">Zuschlagsarten</div>
+                <label style="display:flex;align-items:center;gap:8px;padding:5px 0;font-size:.84rem;cursor:pointer"><input type="checkbox" id="ed-zs-nacht"> Nachtschichtzuschlag</label>
+                <label style="display:flex;align-items:center;gap:8px;padding:5px 0;font-size:.84rem;cursor:pointer"><input type="checkbox" id="ed-zs-sonn"> Sonntagsarbeit</label>
+                <label style="display:flex;align-items:center;gap:8px;padding:5px 0;font-size:.84rem;cursor:pointer"><input type="checkbox" id="ed-zs-fei"> Feiertagsarbeit</label>
+                <label style="display:flex;align-items:center;gap:8px;padding:5px 0;font-size:.84rem;cursor:pointer"><input type="checkbox" id="ed-zs-bereit"> Bereitschaftsdienst</label>
+                <label style="display:flex;align-items:center;gap:8px;padding:5px 0;font-size:.84rem;cursor:pointer"><input type="checkbox" id="ed-zs-fahrt"> Fahrtkosten vereinbart</label>
+              </div>
+            </div>
+
+            <!-- CTA-Bar -->
+            <div class="ed-cta-bar" id="ed-cta-bar" style="display:none">
+              <button class="ep-btn ep-btn-outline ep-btn-sm" onclick="edSaveDraft()" id="ed-btn-save">💾 Speichern</button>
+              <button class="ep-btn ep-btn-primary" onclick="edSubmitFlow()" id="ed-btn-submit">📤 Einreichen</button>
+            </div>
+
+          </div><!-- /editorPanel -->
+        </div><!-- /subDetail -->
+      </div><!-- /sz-layout -->
+    </div><!-- /content -->
+  </div>
+</main>
+
+<!-- Editor Confirm Overlay -->
+<div id="ed-confirm-overlay" onclick="edCloseConfirm()">
+  <div class="ed-confirm-box" onclick="event.stopPropagation()">
+    <div class="ed-confirm-title">Stundenzettel einreichen?</div>
+    <p class="ed-confirm-text" id="ed-confirm-text">Einreichung bestätigen.</p>
+    <div class="ed-confirm-actions">
+      <button class="ep-btn ep-btn-outline ep-btn-sm" onclick="edCloseConfirm()">Abbrechen</button>
+      <button class="ep-btn ep-btn-primary" onclick="edDoSubmit()" id="ed-confirm-btn">Einreichen</button>
+    </div>
+  </div>
+</div>
+
+<nav class="ep-bottom-nav">
+  <a class="ep-bn-item" href="einsatzportal-dashboard.html"><span class="icon">🏠</span>Start</a>
+  <a class="ep-bn-item" href="einsatzportal-einsaetze.html"><span class="icon">📋</span>Einsätze</a>
+  <a class="ep-bn-item" href="einsatzportal-plan.html"><span class="icon">📅</span>Plan</a>
+  <a class="ep-bn-item active" href="einsatzportal-stundenzettel.html"><span class="icon">⏱</span>Stunden</a>
+  <a class="ep-bn-item" href="einsatzportal-benachrichtigungen.html"><span class="icon">🔔</span>Info<span class="ep-bn-dot" id="bn-dot" style="display:none"></span></a>
+  <a class="ep-bn-item" href="einsatzportal-profil.html"><span class="icon">👤</span>Profil</a>
+</nav>
+<div id="ep-toast"></div>
+
+<script src="/public/js/workerPortal/portalApi.js"></script>
+<script src="/public/js/workerPortal/portalShell.js"></script>
+<script src="/public/js/workerPortal/portalStatus.js"></script>
+<script>
+"use strict";
+
+/* ══════════════════════════════════════════════════════════════════
+   LIST / FILTER / DETAIL
+   ══════════════════════════════════════════════════════════════════ */
+const API = '/api';
+const DAYS = ['Mo','Di','Mi','Do','Fr','Sa','So'];
+const EDITABLE = ['draft','needs_correction'];
+const SURCHARGES = [
+  { id:'ed-zs-nacht',  tag:'[Nachtschicht]',  label:'Nachtschichtzuschlag' },
+  { id:'ed-zs-sonn',   tag:'[Sonntag]',        label:'Sonntagsarbeit' },
+  { id:'ed-zs-fei',    tag:'[Feiertag]',       label:'Feiertagsarbeit' },
+  { id:'ed-zs-bereit', tag:'[Bereitschaft]',   label:'Bereitschaftsdienst' },
+  { id:'ed-zs-fahrt',  tag:'[Fahrtkosten]',    label:'Fahrtkosten vereinbart' },
+];
+
+let subs = [], curFilter = 'all', selId = null, assignments = [];
+
+/* ── Init ──────────────────────────────────────────────────────── */
+(async () => {
+  try {
+    await PortalShell.initShell();
+    await load();
+
+    // Deep-link: ?id=xxx öffnet Editor / Detail; ?link_id=xxx öffnet neuen Editor
+    const params = new URLSearchParams(location.search);
+    const deepId  = params.get('id');
+    const deepLnk = params.get('link_id');
+    if (deepId) {
+      const sub = subs.find(s => String(s.id) === deepId);
+      if (sub) selSub(sub.id);
+    } else if (deepLnk) {
+      document.getElementById('btnNew').style.display = '';
+      await openEditorForLink(deepLnk);
+    }
+  } catch(e) {
+    const code = e.code || e.message;
+    if (code === 'NOT_AUTH') { location.href = 'worker-login.html'; return; }
+    PortalShell.showError('Daten konnten nicht geladen werden. Bitte laden Sie die Seite neu.');
+  }
+})();
+
+async function load() {
+  const [sd, ad] = await Promise.all([
+    PortalApi.get('/worker/submissions'),
+    PortalApi.get('/worker/assignments')
+  ]);
+  subs = sd.items || [];
+  assignments = ad.items || [];
+  document.getElementById('loading').style.display = 'none';
+  document.getElementById('content').style.display = '';
+  document.getElementById('btnNew').style.display = assignments.length ? '' : 'none';
+  renderList();
+  checkCorrectionBanner();
+}
+
+function checkCorrectionBanner() {
+  const corr = subs.filter(s => ['needs_correction','customer_rejected'].includes(s.status));
+  const el = document.getElementById('correctionBanner');
+  if (corr.length && el) {
+    el.innerHTML = `
+      <div class="ep-alert ep-alert-warn" style="margin-bottom:16px">
+        <span>⚠️</span>
+        <span><strong>${corr.length} Stundenzettel</strong> benötigen Aufmerksamkeit. Klicken Sie auf den jeweiligen Eintrag.</span>
+      </div>`;
+    el.style.display = '';
+  }
+}
+
+/* ── Filter ─────────────────────────────────────────────────────── */
+function setFilter(f) {
+  curFilter = f; selId = null;
+  document.querySelectorAll('.sub-filter').forEach(b => b.classList.remove('active'));
+  document.getElementById('f-' + f).classList.add('active');
+  renderList();
+  showPanel('empty');
+}
+
+function getFiltered() {
+  if (curFilter === 'all')         return subs;
+  if (curFilter === 'open')        return subs.filter(s => ['draft','submitted','under_review'].includes(s.status));
+  if (curFilter === 'correction')  return subs.filter(s => ['needs_correction','customer_rejected'].includes(s.status));
+  if (curFilter === 'at_customer') return subs.filter(s => ['approved_internal','sent_to_customer','customer_confirmed'].includes(s.status));
+  if (curFilter === 'done')        return subs.filter(s => ['posted_to_timesheet','accepted_into_timesheet'].includes(s.status));
+  return subs.filter(s => s.status === curFilter);
+}
+
+/* ── List render ────────────────────────────────────────────────── */
+function renderList() {
+  const el = document.getElementById('subList');
+  const list = getFiltered();
+  if (!list.length) {
+    el.innerHTML = `<div class="ep-empty"><div class="icon">📄</div><h3>Keine Einträge</h3><p>Keine Stundenzettel für diesen Filter.</p></div>`;
+    return;
+  }
+  el.innerHTML = list.map(s => {
+    const wk = s.week_label || fmtWeek(s.week_start);
+    const client = s.client_name || s.client_display_name || 'Einsatz';
+    return `
+      <div class="sub-card${selId === s.id ? ' selected' : ''}" onclick="selSub(${s.id})">
+        <div class="sub-card-head">
+          <div>
+            <div class="sub-card-title">${esc(wk)}</div>
+            <div class="sub-card-meta">${esc(client)}</div>
+          </div>
+          ${PortalStatus.submissionBadgeHtml(s.status)}
+        </div>
+        <div class="sub-card-foot">
+          ${s.total_hours ? `<span>⏱ ${s.total_hours} h</span>` : ''}
+          ${s.submitted_at ? `<span>📤 ${fmtDate(s.submitted_at)}</span>` : ''}
+        </div>
+      </div>`;
+  }).join('');
+}
+
+/* ── Panel helper ───────────────────────────────────────────────── */
+function showPanel(which) {
+  document.getElementById('detEmpty').style.display    = which === 'empty'  ? '' : 'none';
+  document.getElementById('detContent').style.display  = which === 'detail' ? '' : 'none';
+  document.getElementById('editorPanel').style.display = which === 'editor' ? '' : 'none';
+}
+
+/* ── Detail view ────────────────────────────────────────────────── */
+function selSub(id) {
+  selId = id;
+  renderList();
+  const dc = document.getElementById('detContent');
+  showPanel('detail');
+  dc.innerHTML = '<div class="ep-skel" style="height:220px"></div>';
+  const s = subs.find(x => x.id === id);
+  if (s) renderDetail(s);
+}
+
+function renderDetail(s) {
+  const dc  = document.getElementById('detContent');
+  const wk  = s.week_label || fmtWeek(s.week_start);
+  const client = s.client_name || s.client_display_name || 'Einsatz';
+  const steps = buildTimeline(s);
+  const editable = EDITABLE.includes(s.status);
+  const linkId = s.link_id || (assignments.length === 1 ? assignments[0].id : null);
+
+  dc.innerHTML = `
+    <div class="sub-detail">
+      <div class="sub-detail-head">
+        <div style="display:flex;justify-content:space-between;align-items:flex-start">
+          <div>
+            <div class="sub-detail-title">${esc(wk)}</div>
+            <div style="font-size:.8rem;color:var(--ep-text-muted)">${esc(client)}</div>
+          </div>
+          ${PortalStatus.submissionBadgeHtml(s.status)}
+        </div>
+      </div>
+      <div class="sub-detail-body">
+        <div class="ep-section-label">Status-Verlauf</div>
+        <div class="status-timeline">${steps}</div>
+
+        ${s.total_hours ? `
+          <div class="ep-section-label" style="margin-top:12px">Stundenübersicht</div>
+          <div style="display:flex;gap:4px;align-items:flex-end;height:80px;margin:8px 0 4px">
+            ${(s.entries||[]).map(e => {
+              const h = parseFloat(e.hours_regular||0) + parseFloat(e.hours_overtime||0);
+              const pct = Math.min(100, (h/12)*100);
+              const day = new Date(e.work_date).toLocaleDateString('de-DE',{weekday:'short'});
+              return '<div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:2px">' +
+                '<div style="font-size:10px;font-weight:700;color:var(--ep-text-muted)">' + h.toFixed(1) + 'h</div>' +
+                '<div style="width:100%;border-radius:4px 4px 0 0;background:linear-gradient(180deg,var(--ep-brand),rgba(74,158,255,.5));min-height:4px;height:' + pct + '%"></div>' +
+                '<div style="font-size:9px;color:var(--ep-text-muted)">' + day + '</div></div>';
+            }).join('')}
+          </div>
+          <div class="ep-info-row">
+            <div class="ep-info-icon">⏱</div>
+            <div><div class="ep-info-label">Gesamt</div><div class="ep-info-val">${s.total_hours} Stunden</div></div>
+          </div>
+        ` : ''}
+
+        ${s.reviewer_note ? `
+          <div class="ep-section-label" style="margin-top:12px">Anmerkung</div>
+          <div class="ep-alert ep-alert-warn"><span>💬</span><span>${esc(s.reviewer_note)}</span></div>
+        ` : ''}
+
+        <div style="margin-top:16px;display:flex;gap:8px;flex-wrap:wrap">
+          ${editable ? `
+            <button onclick="openEditorForSub(${s.id})" class="ep-btn ep-btn-primary ep-btn-sm">
+              ✏️ ${s.status === 'needs_correction' ? 'Korrektur einreichen' : 'Weiter ausfüllen'}
+            </button>
+          ` : ''}
+          ${linkId ? `
+            <button onclick="openEditorForLink('${esc(String(linkId))}')" class="ep-btn ep-btn-ghost ep-btn-sm">
+              📝 Neue Woche erfassen
+            </button>
+          ` : ''}
+        </div>
+      </div>
+    </div>`;
+}
+
+function buildTimeline(s) {
+  const steps = [];
+  const st = s.status;
+  if (st === 'draft') {
+    steps.push({ dot:'active', icon:'📝', label:'Entwurf erstellt', date: s.created_at ? fmtDate(s.created_at) : '' });
+    steps.push({ dot:'', icon:'⭕', label:'Noch nicht eingereicht', date:'' });
+  } else {
+    steps.push({ dot:'done', icon:'📤', label:'Eingereicht', date: s.submitted_at ? fmtDate(s.submitted_at) : '' });
+    if (st === 'submitted') {
+      steps.push({ dot:'active', icon:'🕐', label:'Warte auf Prüfung', date:'Offen' });
+    } else if (st === 'under_review') {
+      steps.push({ dot:'active', icon:'🔍', label:'In Prüfung', date: s.updated_at ? fmtDate(s.updated_at) : 'Läuft…' });
+      steps.push({ dot:'', icon:'⭕', label:'Ergebnis ausstehend', date:'' });
+    } else if (st === 'needs_correction') {
+      steps.push({ dot:'warn', icon:'⚠️', label:'Korrektur angefordert', date: s.updated_at ? fmtDate(s.updated_at) : '', note: s.reviewer_note || s.correction_note });
+      steps.push({ dot:'', icon:'⭕', label:'Warte auf Korrektur', date:'' });
+    } else if (st === 'approved_internal') {
+      steps.push({ dot:'done', icon:'✅', label:'Intern freigegeben', date: s.updated_at ? fmtDate(s.updated_at) : '' });
+      steps.push({ dot:'active', icon:'🏢', label:'Wird an Kunden weitergeleitet', date:'' });
+    } else if (st === 'sent_to_customer') {
+      steps.push({ dot:'done', icon:'✅', label:'Intern freigegeben', date:'' });
+      steps.push({ dot:'active', icon:'🏢', label:'Beim Kunden zur Prüfung', date: s.updated_at ? fmtDate(s.updated_at) : '' });
+      steps.push({ dot:'', icon:'⭕', label:'Warte auf Kundenrückmeldung', date:'' });
+    } else if (st === 'customer_confirmed') {
+      steps.push({ dot:'done', icon:'✅', label:'Intern freigegeben', date:'' });
+      steps.push({ dot:'done', icon:'🏢', label:'Vom Kunden bestätigt', date: s.updated_at ? fmtDate(s.updated_at) : '' });
+      steps.push({ dot:'', icon:'⭕', label:'Wird in Abrechnung übertragen', date:'' });
+    } else if (st === 'customer_rejected') {
+      steps.push({ dot:'done', icon:'✅', label:'Intern freigegeben', date:'' });
+      steps.push({ dot:'err', icon:'❌', label:'Vom Kunden abgelehnt', date: s.updated_at ? fmtDate(s.updated_at) : '', note: s.customer_note });
+    } else if (st === 'posted_to_timesheet' || st === 'accepted_into_timesheet') {
+      steps.push({ dot:'done', icon:'✅', label:'Intern freigegeben', date:'' });
+      steps.push({ dot:'done', icon:'🏢', label:'Vom Kunden bestätigt', date:'' });
+      steps.push({ dot:'done', icon:'💼', label:'In Abrechnung übernommen', date: s.updated_at ? fmtDate(s.updated_at) : '' });
+      steps.push({ dot:'done', icon:'🎉', label:'Abgeschlossen', date:'' });
+    } else if (st === 'rejected') {
+      steps.push({ dot:'err', icon:'❌', label:'Abgelehnt', date: s.updated_at ? fmtDate(s.updated_at) : '', note: s.reviewer_note });
+    }
+  }
+  return steps.map(step => `
+    <div class="st-step">
+      <div class="st-dot ${step.dot||''}">${step.icon}</div>
+      <div class="st-info">
+        <div class="st-label">${esc(step.label)}</div>
+        ${step.date ? `<div class="st-date">${esc(step.date)}</div>` : ''}
+        ${step.note ? `<div class="st-note">${esc(step.note)}</div>` : ''}
+      </div>
+    </div>`).join('');
+}
+
+/* ── "Neuer Stundenzettel" Button ───────────────────────────────── */
+function openNewTimesheet() {
+  if (assignments.length === 1) {
+    openEditorForLink(assignments[0].id);
+    return;
+  }
+  if (assignments.length > 1) {
+    // Auswahl anzeigen (in-page)
+    showPanel('detail');
+    document.getElementById('detContent').innerHTML = `
+      <div class="sub-detail">
+        <div class="sub-detail-head"><div class="sub-detail-title">Einsatz wählen</div></div>
+        <div class="sub-detail-body">
+          ${assignments.map(a => `
+            <button onclick="openEditorForLink('${esc(String(a.id))}')"
+              class="ep-btn ep-btn-outline" style="width:100%;margin-bottom:8px;text-align:left;padding:12px">
+              📋 ${esc(a.client_display_name || a.client_name || 'Einsatz')}
+              ${a.asg_start ? `<span style="font-size:.78rem;color:var(--ep-text-muted);margin-left:6px">ab ${fmtDate(a.asg_start)}</span>` : ''}
+            </button>`).join('')}
+        </div>
+      </div>`;
+  }
+}
+
+/* ══════════════════════════════════════════════════════════════════
+   EDITOR — Inline Stundenzettel-Erfassung
+   ══════════════════════════════════════════════════════════════════ */
+let edSub = null;
+let edEntries = {};
+let edLinkId = null;
+let edAssignmentData = null;
+let edPickedWeekStart = null;
+let edAdvancedVisible = false;
+let edPrefill = null;
+
+/* ── Editor öffnen für bestehende Submission ─────────────────────── */
+async function openEditorForSub(subId) {
+  showPanel('editor');
+  document.getElementById('ed-week-label').textContent = '⏳ Lädt…';
+  try {
+    await _edLoadSub(subId);
+    await _edLoadPrefill(subId);
+    edLinkId = null;
+    _edRender();
+  } catch(e) {
+    const code = e.code || e.message;
+    if (code === 'NOT_AUTH') { location.href = 'worker-login.html'; return; }
+    toast('Fehler beim Laden: ' + (e.message || code), 'error');
+    closeEditor();
+  }
+}
+
+/* ── Editor öffnen für neue Submission via link_id ───────────────── */
+async function openEditorForLink(linkId) {
+  edLinkId = linkId;
+  showPanel('editor');
+  document.getElementById('ed-week-label').textContent = '⏳ Erstelle Stundenzettel…';
+  try {
+    // Assignment-Daten laden
+    edAssignmentData = await PortalApi.get('/worker/assignments/' + linkId);
+    const { weekStart, weekEnd } = _getCurrentWeek();
+    edPickedWeekStart = weekStart;
+    await _edCreateForWeek(weekStart, weekEnd);
+    await _edLoadPrefill(String(edSub.id));
+    _edRender();
+  } catch(e) {
+    const code = e.code || e.message;
+    if (code === 'NOT_AUTH') { location.href = 'worker-login.html'; return; }
+    if (code === 'DUPLICATE_WEEK') {
+      toast('Für diese Woche existiert bereits ein Stundenzettel.', 'error');
+      closeEditor();
+      return;
+    }
+    toast('Fehler beim Erstellen: ' + (e.message || code), 'error');
+    closeEditor();
+  }
+}
+
+/* ── Woche wechseln (Week Picker) ────────────────────────────────── */
+async function edShiftWeek(dir) {
+  if (!edPickedWeekStart || !edAssignmentData) return;
+  const d = new Date(edPickedWeekStart);
+  d.setDate(d.getDate() + (dir * 7));
+  const sun = new Date(d); sun.setDate(d.getDate() + 6);
+  const newStart = d.toISOString().slice(0, 10);
+  const newEnd   = sun.toISOString().slice(0, 10);
+  document.getElementById('ed-week-label').textContent = '⏳ Lädt…';
+  try {
+    edPickedWeekStart = newStart;
+    await _edCreateForWeek(newStart, newEnd);
+    await _edLoadPrefill(String(edSub.id));
+    _edRender();
+  } catch(e) {
+    const code = e.code || e.message;
+    if (code === 'DUPLICATE_WEEK') {
+      // Versuche bestehende Submission zu laden
+      try {
+        const q = new URLSearchParams({ assignment_id: edAssignmentData.assignment_id, week_from: newStart, week_to: newStart, limit: '5' });
+        const d2 = await PortalApi.get('/worker/submissions?' + q.toString());
+        const items = d2.items || [];
+        const found = items.find(s => EDITABLE.includes(s.status)) || items[0];
+        if (found) {
+          await _edLoadSub(String(found.id));
+          await _edLoadPrefill(String(found.id));
+          _edRender();
+          return;
+        }
+      } catch { /* ignore */ }
+      toast('Für diese Woche existiert bereits ein gesperrter Stundenzettel.', 'error');
+      // Woche zurücksetzen
+      const rev = new Date(edPickedWeekStart); rev.setDate(rev.getDate() - (dir * 7));
+      edPickedWeekStart = rev.toISOString().slice(0, 10);
+      _edRender();
+    } else {
+      toast('Fehler: ' + (e.message || code), 'error');
+    }
+  }
+}
+
+/* ── Editor schließen ────────────────────────────────────────────── */
+function closeEditor() {
+  edSub = null; edEntries = {}; edLinkId = null; edAssignmentData = null;
+  edPickedWeekStart = null; edAdvancedVisible = false; edPrefill = null;
+  if (selId) {
+    const s = subs.find(x => x.id === selId);
+    if (s) { renderDetail(s); return; }
+  }
+  showPanel('empty');
+}
+
+/* ── Interne Hilfsfunktionen ─────────────────────────────────────── */
+async function _edLoadSub(subId) {
+  edSub = await PortalApi.get('/worker/submissions/' + subId);
+  edEntries = {};
+  (edSub.entries || []).forEach(e => { edEntries[e.work_date] = e; });
+}
+
+async function _edLoadPrefill(subId) {
+  try {
+    const r = await PortalApi.get('/worker/submissions/' + subId + '/prefill');
+    edPrefill = r.prefill || null;
+  } catch { edPrefill = null; }
+}
+
+async function _edCreateForWeek(weekStart, weekEnd) {
+  const body = {
+    worker_assignment_link_id: edLinkId,
+    org_id: edAssignmentData.org_id,
+    supplier_org_id: edAssignmentData.supplier_org_id,
+    assignment_id: edAssignmentData.assignment_id,
+    week_start: weekStart,
+    week_end: weekEnd
+  };
+  const d = await PortalApi.post('/worker/submissions', body);
+  await _edLoadSub(String(d.id));
+}
+
+/* ── Editor rendern ──────────────────────────────────────────────── */
+function _edRender() {
+  if (!edSub) return;
+  const editable = EDITABLE.includes(edSub.status);
+
+  // Header
+  document.getElementById('ed-week-label').textContent = fmtWeekRange(edSub.week_start, edSub.week_end);
+  document.getElementById('ed-status-badge').innerHTML = PortalStatus.submissionBadgeHtml(edSub.status);
+
+  // Week Picker (nur bei link_id-Flow)
+  const wp = document.getElementById('ed-week-picker');
+  if (edLinkId && edPickedWeekStart) {
+    document.getElementById('ed-week-cur').textContent = fmtWeekRange(edSub.week_start, edSub.week_end);
+    wp.style.display = '';
+  } else {
+    wp.style.display = 'none';
+  }
+
+  // Banners
+  _edSetById('ed-correction-banner', el => {
+    el.style.display = edSub.status === 'needs_correction' ? '' : 'none';
+    if (edSub.status === 'needs_correction') {
+      document.getElementById('ed-correction-note').textContent = edSub.correction_note || 'Bitte überprüfen Sie Ihre Angaben.';
+    }
+  });
+  _edSetById('ed-readonly-banner', el => {
+    el.style.display = !editable ? '' : 'none';
+    if (!editable) {
+      document.getElementById('ed-readonly-status').textContent = PortalStatus.submissionLabel(edSub.status);
+    }
+  });
+  _edSetById('ed-reviewer-comment', el => {
+    el.style.display = edSub.reviewer_comment ? '' : 'none';
+    if (edSub.reviewer_comment) {
+      document.getElementById('ed-reviewer-note').textContent = edSub.reviewer_comment;
+    }
+  });
+
+  // Einsatz-Info
+  if (edPrefill) {
+    const info = document.getElementById('ed-assignment-info');
+    if (info) {
+      const desc = edPrefill.worker_description || '';
+      const dates = [
+        edPrefill.start_date       ? 'Von: ' + fmtDate(edPrefill.start_date)         : '',
+        edPrefill.planned_end_date ? 'Bis: ' + fmtDate(edPrefill.planned_end_date)   : ''
+      ].filter(Boolean).join(' · ');
+      const shift = [
+        edPrefill.default_shift_start  ? 'Schicht: ' + edPrefill.default_shift_start  : '',
+        edPrefill.default_shift_end    ? '– '        + edPrefill.default_shift_end    : '',
+        edPrefill.default_break_minutes ? '· Pause: ' + edPrefill.default_break_minutes + ' Min.' : ''
+      ].filter(Boolean).join(' ');
+      if (desc) document.getElementById('ed-ai-description').textContent = desc;
+      if (dates) document.getElementById('ed-ai-dates').textContent = dates;
+      if (shift) document.getElementById('ed-ai-shift').textContent = shift;
+      if (desc || dates || shift) info.style.display = '';
+    }
+  }
+
+  // CTA-Bar
+  _edSetById('ed-cta-bar', el => { el.style.display = editable ? '' : 'none'; });
+
+  // Wochenraster aufbauen
+  _edBuildWeekGrid();
+
+  // Kommentar + Zuschläge
+  const commentEl = document.getElementById('ed-worker-comment');
+  if (commentEl) {
+    if (edSub.worker_comment) {
+      let clean = edSub.worker_comment;
+      SURCHARGES.forEach(s => { clean = clean.replace(s.tag, '').trim(); });
+      commentEl.value = clean;
+      _edLoadSurcharges();
+    }
+    commentEl.disabled = !editable;
+  }
+  SURCHARGES.forEach(s => {
+    const el = document.getElementById(s.id);
+    if (el) el.disabled = !editable;
+  });
+
+  _edUpdateTotals();
+  _edRenderCompletion();
+}
+
+/* ── Wochenraster ────────────────────────────────────────────────── */
+function _edBuildWeekGrid() {
+  const grid = document.getElementById('ed-week-grid');
+  if (!grid) return;
+  grid.innerHTML = '';
+  const start = new Date(edSub.week_start);
+  const editable = EDITABLE.includes(edSub.status);
+  const hasSaved = Object.keys(edEntries).length > 0;
+
+  for (let i = 0; i < 7; i++) {
+    const d = new Date(start); d.setDate(start.getDate() + i);
+    const dateStr  = d.toISOString().slice(0, 10);
+    const entry    = edEntries[dateStr] || {};
+    const isWorkday = i < 5;
+    const usePrefill = edPrefill && editable && !hasSaved && isWorkday;
+    const defHours = usePrefill ? (edPrefill.default_hours_per_day || '') : '';
+    const defBreak = usePrefill ? (edPrefill.default_break_minutes  || '') : '';
+    const defStart = usePrefill ? (edPrefill.default_shift_start    || '') : '';
+    const defEnd   = usePrefill ? (edPrefill.default_shift_end      || '') : '';
+    const hasEntry = !!edEntries[dateStr];
+
+    const row = document.createElement('div');
+    row.className = 'wk-day-row' + (hasEntry ? ' has-data' : '');
+    row.id = 'edrow-' + dateStr;
+    const dis = !editable ? ' disabled' : '';
+    row.innerHTML = `
+      <div class="wk-day-label">
+        ${DAYS[i]}<div class="date">${d.toLocaleDateString('de-DE',{day:'2-digit',month:'2-digit'})}</div>
+      </div>
+      <div>
+        <div class="wk-day-inputs">
+          <div style="display:flex;flex-direction:column;align-items:center">
+            <input type="number" min="0" max="24" step="0.5" class="wk-input"
+              id="ed-reg-${dateStr}" value="${entry.hours_regular || defHours}"
+              placeholder="Std."${dis} onchange="edOnChange('${dateStr}')">
+            <span class="wk-input-hint">Std.</span>
+          </div>
+          <div style="display:flex;flex-direction:column;align-items:center">
+            <input type="number" min="0" max="12" step="0.5" class="wk-input"
+              id="ed-ot-${dateStr}" value="${entry.hours_overtime || ''}"
+              placeholder="ÜS"${dis} onchange="edOnChange('${dateStr}')">
+            <span class="wk-input-hint">Über.</span>
+          </div>
+          <div style="display:flex;flex-direction:column;align-items:center">
+            <input type="number" min="0" max="120" step="5" class="wk-input"
+              id="ed-brk-${dateStr}" value="${entry.break_minutes || defBreak}"
+              placeholder="Min."${dis} style="width:60px" onchange="edOnChange('${dateStr}')">
+            <span class="wk-input-hint">Pause</span>
+          </div>
+        </div>
+        <div class="advanced-row" id="ed-adv-${dateStr}" style="display:${edAdvancedVisible ? 'flex' : 'none'}">
+          <input type="time" class="wk-input time" id="ed-st-${dateStr}"
+            value="${entry.shift_start || defStart}" placeholder="Von"${dis}
+            onchange="edOnChange('${dateStr}')">
+          <input type="time" class="wk-input time" id="ed-et-${dateStr}"
+            value="${entry.shift_end || defEnd}" placeholder="Bis"${dis}
+            onchange="edOnChange('${dateStr}')">
+        </div>
+      </div>`;
+    grid.appendChild(row);
+  }
+  _edUpdateTotals();
+}
+
+function edToggleAdvanced() {
+  edAdvancedVisible = !edAdvancedVisible;
+  const start = new Date(edSub.week_start);
+  for (let i = 0; i < 7; i++) {
+    const d = new Date(start); d.setDate(start.getDate() + i);
+    const adv = document.getElementById('ed-adv-' + d.toISOString().slice(0, 10));
+    if (adv) adv.style.display = edAdvancedVisible ? 'flex' : 'none';
+  }
+  const btn = document.getElementById('ed-toggle-details');
+  if (btn) btn.textContent = edAdvancedVisible ? '− Schichtzeiten' : '+ Schichtzeiten';
+}
+
+function edOnChange(dateStr) {
+  const row = document.getElementById('edrow-' + dateStr);
+  const reg = (document.getElementById('ed-reg-' + dateStr)?.value || '').trim();
+  const ot  = (document.getElementById('ed-ot-'  + dateStr)?.value || '').trim();
+  const brk = (document.getElementById('ed-brk-' + dateStr)?.value || '').trim();
+  const st  = (document.getElementById('ed-st-'  + dateStr)?.value || '').trim();
+  const et  = (document.getElementById('ed-et-'  + dateStr)?.value || '').trim();
+  if (row) row.classList.toggle('has-data', !!(reg || ot || brk || st || et));
+  _edUpdateTotals();
+  _edRenderCompletion();
+}
+
+function _edGetWeekDates() {
+  const dates = [];
+  const start = new Date(edSub.week_start);
+  for (let i = 0; i < 7; i++) {
+    const d = new Date(start); d.setDate(start.getDate() + i);
+    dates.push(d.toISOString().slice(0, 10));
+  }
+  return dates;
+}
+
+function _edUpdateTotals() {
+  let reg = 0, ot = 0;
+  _edGetWeekDates().forEach(ds => {
+    reg += parseFloat(document.getElementById('ed-reg-' + ds)?.value || 0);
+    ot  += parseFloat(document.getElementById('ed-ot-'  + ds)?.value || 0);
+  });
+  _edSetById('ed-total-hours',    el => { el.textContent = (reg + ot).toFixed(1).replace('.', ',') + ' h'; });
+  _edSetById('ed-total-overtime', el => { el.textContent = ot.toFixed(1).replace('.', ',') + ' h'; });
+}
+
+function _edComputeCompletion() {
+  const dates = _edGetWeekDates();
+  const missing = dates.filter(ds => {
+    const reg = (document.getElementById('ed-reg-' + ds)?.value || '').trim();
+    const ot  = (document.getElementById('ed-ot-'  + ds)?.value || '').trim();
+    const brk = (document.getElementById('ed-brk-' + ds)?.value || '').trim();
+    const st  = (document.getElementById('ed-st-'  + ds)?.value || '').trim();
+    const et  = (document.getElementById('ed-et-'  + ds)?.value || '').trim();
+    return !(reg || ot || brk || st || et);
+  });
+  return { total: dates.length, filled: dates.length - missing.length, missing, complete: missing.length === 0 };
+}
+
+function _edRenderCompletion() {
+  const c = _edComputeCompletion();
+  const hint = document.getElementById('ed-completion-hint');
+  const btn  = document.getElementById('ed-btn-submit');
+  if (hint) {
+    hint.style.display = 'flex';
+    hint.className = c.complete ? 'ep-alert ep-alert-success' : 'ep-alert ep-alert-info';
+    document.getElementById('ed-completion-icon').textContent = c.complete ? '✅' : 'ℹ️';
+    document.getElementById('ed-completion-text').textContent = c.complete
+      ? 'Woche vollständig. Sie können jetzt einreichen.'
+      : 'Noch offen: ' + c.missing.map(ds => new Date(ds).toLocaleDateString('de-DE',{weekday:'short'})).join(', ') + '. Alle Tage erfassen (auch 0 h).';
+  }
+  if (btn) { btn.disabled = !c.complete; btn.title = c.complete ? '' : 'Bitte alle 7 Tage erfassen oder mit 0 h bestätigen.'; }
+}
+
+/* ── Speichern (Entwurf) ─────────────────────────────────────────── */
+async function edSaveDraft() {
+  const btn = document.getElementById('ed-btn-save');
+  if (btn) { btn.disabled = true; btn.textContent = '⏳…'; }
+  try {
+    await _edUploadEntries();
+    const comment = _edBuildComment();
+    if (comment !== (edSub.worker_comment || '')) {
+      await PortalApi.post('/worker/submissions/' + edSub.id + '/comment', { note: comment });
+      edSub.worker_comment = comment;
+    }
+    toast('Entwurf gespeichert ✓', 'success');
+  } catch(e) {
+    toast('Fehler beim Speichern: ' + (e.message || e.code || ''), 'error');
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = '💾 Speichern'; }
+  }
+}
+
+/* ── Einreichen-Flow ─────────────────────────────────────────────── */
+function edSubmitFlow() {
+  const c = _edComputeCompletion();
+  if (!c.complete) {
+    toast('Bitte alle Tage erfassen (auch 0 h).', 'error');
+    return;
+  }
+  let reg = 0, ot = 0;
+  _edGetWeekDates().forEach(ds => {
+    reg += parseFloat(document.getElementById('ed-reg-' + ds)?.value || 0);
+    ot  += parseFloat(document.getElementById('ed-ot-'  + ds)?.value || 0);
+  });
+  const total = (reg + ot).toFixed(1).replace('.', ',');
+  const action = edSub.status === 'needs_correction' ? 'Korrektur einreichen' : 'Einreichen';
+  document.getElementById('ed-confirm-text').textContent =
+    `${action}: ${total} Stunden für ${fmtWeekRange(edSub.week_start, edSub.week_end)}. Sind Sie sicher?`;
+  document.getElementById('ed-confirm-overlay').classList.add('open');
+}
+
+function edCloseConfirm() {
+  document.getElementById('ed-confirm-overlay').classList.remove('open');
+}
+
+async function edDoSubmit() {
+  const btn = document.getElementById('ed-confirm-btn');
+  if (btn) { btn.disabled = true; btn.textContent = '⏳…'; }
+  try {
+    const c = _edComputeCompletion();
+    if (!c.complete) {
+      toast('Bitte alle ' + c.missing.length + ' fehlenden Tage ergänzen.', 'error');
+      edCloseConfirm();
+      if (btn) { btn.disabled = false; btn.textContent = 'Einreichen'; }
+      return;
+    }
+    await _edUploadEntries();
+    const comment = _edBuildComment();
+    if (comment !== (edSub.worker_comment || '')) {
+      await PortalApi.post('/worker/submissions/' + edSub.id + '/comment', { note: comment });
+    }
+    const action = edSub.status === 'needs_correction' ? 'correct' : 'submit';
+    await PortalApi.post('/worker/submissions/' + edSub.id + '/' + action, {});
+    edCloseConfirm();
+    toast('Stunden erfolgreich eingereicht! ✓', 'success');
+    // Liste neu laden und zur Detail-Ansicht wechseln
+    setTimeout(async () => {
+      const savedId = edSub.id;
+      closeEditor();
+      await load();
+      const s = subs.find(x => x.id === savedId);
+      if (s) selSub(s.id);
+    }, 1500);
+  } catch(e) {
+    const code = e.code || e.message;
+    if (code === 'INCOMPLETE_WEEK') { toast('Die Woche ist noch nicht vollständig.', 'error'); }
+    else if (code === 'NO_CHANGES_DETECTED') { toast('Keine Änderungen erkannt. Bitte Einträge anpassen.', 'error'); }
+    else { toast('Fehler beim Einreichen: ' + (code || ''), 'error'); }
+    edCloseConfirm();
+    if (btn) { btn.disabled = false; btn.textContent = 'Einreichen'; }
+  }
+}
+
+/* ── Einträge hochladen ──────────────────────────────────────────── */
+async function _edUploadEntries() {
+  for (const ds of _edGetWeekDates()) {
+    const reg = parseFloat(document.getElementById('ed-reg-' + ds)?.value) || 0;
+    const ot  = parseFloat(document.getElementById('ed-ot-'  + ds)?.value) || 0;
+    const brk = parseInt(document.getElementById('ed-brk-'  + ds)?.value) || 0;
+    const st  = document.getElementById('ed-st-' + ds)?.value || null;
+    const et  = document.getElementById('ed-et-' + ds)?.value || null;
+    await PortalApi.put('/worker/submissions/' + edSub.id + '/entries', {
+      work_date: ds,
+      hours_regular: reg, hours_overtime: ot,
+      break_minutes: brk,
+      shift_start: st || null, shift_end: et || null
+    });
+  }
+}
+
+/* ── Surcharge-Helpers ───────────────────────────────────────────── */
+function _edLoadSurcharges() {
+  const comment = edSub.worker_comment || '';
+  SURCHARGES.forEach(s => {
+    const el = document.getElementById(s.id);
+    if (el) el.checked = comment.includes(s.tag);
+  });
+}
+
+function _edBuildComment() {
+  const tags = SURCHARGES
+    .filter(s => { const el = document.getElementById(s.id); return el && el.checked; })
+    .map(s => s.tag);
+  const text = (document.getElementById('ed-worker-comment')?.value || '').trim();
+  return [...tags, text].filter(Boolean).join(' ').trim();
+}
+
+function edToggleZuschlaege() {
+  const el = document.getElementById('ed-zuschlaege');
+  const btn = document.getElementById('ed-btn-zuschlaege');
+  const visible = el && el.style.display !== 'none';
+  if (el)  el.style.display  = visible ? 'none' : 'block';
+  if (btn) btn.textContent   = visible ? '+ Zuschläge' : '− Zuschläge';
+}
+
+/* ══════════════════════════════════════════════════════════════════
+   UTILS
+   ══════════════════════════════════════════════════════════════════ */
+function _edSetById(id, fn) {
+  const el = document.getElementById(id);
+  if (el) fn(el);
+}
+function _getCurrentWeek() {
+  const now = new Date(), day = now.getDay();
+  const mon = new Date(now); mon.setDate(now.getDate() - (day === 0 ? 6 : day - 1));
+  const sun = new Date(mon); sun.setDate(mon.getDate() + 6);
+  return { weekStart: mon.toISOString().slice(0, 10), weekEnd: sun.toISOString().slice(0, 10) };
+}
+function fmtWeekRange(start, end) {
+  if (!start) return '';
+  const s = new Date(start), e = new Date(end || start);
+  const fmt = d => d.toLocaleDateString('de-DE', { day:'2-digit', month:'2-digit' });
+  const kw = getKW(s);
+  return `KW ${kw} · ${fmt(s)}–${fmt(e)}`;
+}
+function fmtWeek(d) {
+  if (!d) return '?';
+  const dt = new Date(d);
+  return `KW ${getKW(dt)} / ${dt.getFullYear()}`;
+}
+function getKW(d) {
+  const t = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
+  const day = t.getUTCDay() || 7; t.setUTCDate(t.getUTCDate() + 4 - day);
+  const y = t.getUTCFullYear();
+  return Math.floor((t - new Date(Date.UTC(y, 0, 1))) / 604800000) + 1;
+}
+function fmtDate(d) {
+  if (!d) return '';
+  return new Date(d).toLocaleDateString('de-DE', { day:'2-digit', month:'2-digit', year:'numeric' });
+}
+function esc(s) {
+  return String(s || '').replace(/[<>&"']/g, c => ({'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;',"'":'&#39;'}[c] || c));
+}
+function toast(msg, type) {
+  PortalShell.toast(msg, type || '');
+}
+</script>
+<script src="/public/js/demoBanner.js" defer></script>
+<script src="/public/js/breadcrumb.js" defer></script>
+</body>
+</html>

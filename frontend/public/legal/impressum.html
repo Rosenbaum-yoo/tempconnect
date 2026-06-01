@@ -3,29 +3,29 @@
 <head>
   <meta charset="utf-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <script src="/public/js/theme.js"></script>
   <title>Impressum – TempConnect</title>
   <link rel="stylesheet" href="/public/css/enterprise.css"/>
 </head>
 <body>
   <div class="wrap">
-    <div class="topbar">
-      <span class="brand"><span style="width:10px;height:10px;border-radius:50%;background:linear-gradient(135deg,var(--brand),var(--brand2));display:inline-block;margin-right:8px"></span>TempConnect</span>
-      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
-        <a href="/" class="btn">Startseite</a>
-        <a href="/public/legal/datenschutz.html" class="btn">Datenschutz</a>
-        <a href="/public/legal/agb.html" class="btn">AGB</a>
-        <a href="/public/legal/kontakt.html" class="btn">Kontakt</a>
+    <nav class="ds-topbar">
+      <div class="ds-topbar__brand"><span class="ds-topbar__brand-dot"></span>TempConnect</div>
+      <div class="ds-topbar__nav">
+        <a href="/public/pricing.html" class="ds-nav-link">Tarife</a>
+        <a href="/public/about.html" class="ds-nav-link">Über uns</a>
+        <a href="/public/legal/kontakt.html" class="ds-nav-link">Kontakt</a>
       </div>
-    </div>
+    </nav>
     <div class="ds-page-header">
       <div class="ds-page-header__content">
         <h1 class="ds-page-title">Impressum</h1>
-        <p class="ds-page-subtitle">Rechtliche Angaben nach § 5 TMG / DDG. Platzhalter bitte vor produktivem Einsatz mit echten Firmendaten ersetzen.</p>
+        <p class="ds-page-subtitle">Rechtliche Angaben nach – 5 TMG / DDG. Platzhalter bitte vor produktivem Einsatz mit echten Firmendaten ersetzen.</p>
       </div>
     </div>
     <main class="card">
 
-      <h2 style="margin-top:20px">Angaben gemäß § 5 TMG</h2>
+      <h2 style="margin-top:20px">Angaben gemäß – 5 TMG</h2>
       <p><strong>[Firmenname eintragen]</strong><br/>
         [Straße und Hausnummer]<br/>
         [PLZ und Ort]<br/>
@@ -48,11 +48,11 @@
       </p>
 
       <h2 style="margin-top:20px">Umsatzsteuer-ID</h2>
-      <p>Umsatzsteuer-Identifikationsnummer gemäß § 27 a Umsatzsteuergesetz:<br/>
+      <p>Umsatzsteuer-Identifikationsnummer gemäß – 27 a Umsatzsteuergesetz:<br/>
          [USt-IdNr.]
       </p>
 
-      <h2 style="margin-top:20px">Verantwortlich für den Inhalt nach § 55 Abs. 2 RStV</h2>
+      <h2 style="margin-top:20px">Verantwortlich für den Inhalt nach – 55 Abs. 2 RStV</h2>
       <p>[Name]<br/>
          [Anschrift]
       </p>
@@ -73,6 +73,8 @@
   <div id="tc-footer" data-tc-footer></div>
   <script src="/public/js/footer.js"></script>
   <script src="/public/js/logout-btn.js"></script>
+<script src="/public/js/demoBanner.js" defer></script>
+<script src="/public/js/onboardingWizard.js" defer></script><script src="/public/js/breadcrumb.js" defer></script>
 </body>
 </html>
 

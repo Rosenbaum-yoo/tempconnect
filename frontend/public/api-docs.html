@@ -1,0 +1,1761 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <script src="/public/js/theme.js"></script>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>TempConnect – API-Dokumentation</title>
+  <link rel="stylesheet" href="/public/css/enterprise.css">
+  <style>
+    :root { --sidebar-w: 280px; --code-bg: rgba(0,0,0,.35); --border: rgba(255,255,255,.08); --accent: #4a9eff; --green: #34d399; --red: #f87171; --yellow: #fbbf24; --muted: #8d9bba; }
+    * { box-sizing: border-box; }
+    body { background: #0a0f1e; color: #eaeff8; margin: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, sans-serif; }
+
+    /* ── Layout ──────────────────────────── */
+    .docs-layout { display: flex; min-height: 100vh; }
+    .docs-sidebar { width: var(--sidebar-w); position: fixed; top: 0; left: 0; height: 100vh; overflow-y: auto; background: rgba(10,15,30,.97); border-right: 1px solid var(--border); padding: 20px 0; z-index: 100; }
+    .docs-main { margin-left: var(--sidebar-w); flex: 1; padding: 40px 48px 80px; max-width: 960px; }
+
+    /* ── Sidebar ─────────────────────────── */
+    .sidebar-brand { padding: 0 20px 16px; display: flex; align-items: center; gap: 10px; font-weight: 900; font-size: 15px; border-bottom: 1px solid var(--border); margin-bottom: 12px; }
+    .sidebar-brand .dot { width: 12px; height: 12px; border-radius: 99px; background: linear-gradient(135deg,#4a9eff,#7c5cff); }
+    .sidebar-section { padding: 10px 20px 4px; font-size: 10px; font-weight: 800; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); }
+    .sidebar-link { display: block; padding: 6px 20px 6px 28px; font-size: 13px; color: #b0bdd4; text-decoration: none; transition: all .12s; border-left: 2px solid transparent; }
+    .sidebar-link:hover { color: #eaeff8; background: rgba(255,255,255,.03); }
+    .sidebar-link.active { color: var(--accent); border-left-color: var(--accent); background: rgba(74,158,255,.06); font-weight: 700; }
+    .sidebar-back { display: block; padding: 8px 20px; font-size: 12px; color: var(--muted); text-decoration: none; margin-top: 8px; }
+    .sidebar-back:hover { color: #eaeff8; }
+
+    /* ── Content ─────────────────────────── */
+    h1 { font-size: 28px; font-weight: 900; margin: 0 0 8px; }
+    h2 { font-size: 22px; font-weight: 800; margin: 48px 0 12px; padding-top: 20px; border-top: 1px solid var(--border); }
+    h2:first-of-type { border-top: none; margin-top: 24px; }
+    h3 { font-size: 16px; font-weight: 700; margin: 28px 0 8px; color: var(--accent); }
+    p, li { font-size: 14px; line-height: 1.7; color: #c5cfe0; }
+    a { color: var(--accent); }
+    code { font-family: 'SF Mono', 'Fira Code', 'Cascadia Code', monospace; font-size: 12.5px; }
+    :not(pre) > code { background: var(--code-bg); padding: 2px 6px; border-radius: 4px; font-size: 12px; color: #e2e8f0; }
+
+    /* ── Endpoint Card ───────────────────── */
+    .endpoint { margin: 20px 0; border: 1px solid var(--border); border-radius: 12px; overflow: hidden; background: rgba(255,255,255,.015); }
+    .endpoint-header { display: flex; align-items: center; gap: 10px; padding: 12px 16px; cursor: pointer; user-select: none; }
+    .endpoint-header:hover { background: rgba(255,255,255,.03); }
+    .method { display: inline-block; padding: 3px 8px; border-radius: 6px; font-size: 11px; font-weight: 800; font-family: monospace; min-width: 56px; text-align: center; }
+    .method.get { background: rgba(52,211,153,.12); color: var(--green); border: 1px solid rgba(52,211,153,.25); }
+    .method.post { background: rgba(74,158,255,.12); color: var(--accent); border: 1px solid rgba(74,158,255,.25); }
+    .method.patch, .method.put { background: rgba(251,191,36,.1); color: var(--yellow); border: 1px solid rgba(251,191,36,.25); }
+    .method.delete { background: rgba(248,113,113,.1); color: var(--red); border: 1px solid rgba(248,113,113,.25); }
+    .endpoint-path { font-family: monospace; font-size: 13px; font-weight: 600; }
+    .endpoint-desc { font-size: 12px; color: var(--muted); margin-left: auto; }
+    .endpoint-body { display: none; padding: 0 16px 16px; }
+    .endpoint.open .endpoint-body { display: block; }
+    .endpoint.open .endpoint-header { border-bottom: 1px solid var(--border); }
+
+    /* ── Code Block ──────────────────────── */
+    pre { background: var(--code-bg); border: 1px solid var(--border); border-radius: 10px; padding: 14px 16px; overflow-x: auto; font-size: 12px; line-height: 1.6; position: relative; }
+    pre .copy-btn { position: absolute; top: 8px; right: 8px; padding: 4px 10px; font-size: 10px; font-weight: 700; border-radius: 6px; border: 1px solid rgba(255,255,255,.12); background: rgba(255,255,255,.06); color: var(--muted); cursor: pointer; }
+    pre .copy-btn:hover { color: #eaeff8; background: rgba(255,255,255,.1); }
+
+    /* ── Tags / Badges ───────────────────── */
+    .tag { display: inline-block; padding: 2px 8px; border-radius: 6px; font-size: 10px; font-weight: 700; }
+    .tag.auth { background: rgba(248,113,113,.1); color: var(--red); border: 1px solid rgba(248,113,113,.2); }
+    .tag.public { background: rgba(52,211,153,.1); color: var(--green); border: 1px solid rgba(52,211,153,.2); }
+    .tag.plan { background: rgba(124,92,255,.1); color: #a78bfa; border: 1px solid rgba(124,92,255,.2); }
+    .tag.role { background: rgba(251,191,36,.1); color: var(--yellow); border: 1px solid rgba(251,191,36,.2); }
+    .param-table { width: 100%; border-collapse: collapse; margin: 8px 0 16px; }
+    .param-table th { text-align: left; font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; color: var(--muted); padding: 6px 10px; border-bottom: 1px solid var(--border); }
+    .param-table td { padding: 6px 10px; font-size: 12px; border-bottom: 1px solid rgba(255,255,255,.04); vertical-align: top; }
+    .param-table td:first-child { font-family: monospace; font-weight: 600; white-space: nowrap; color: var(--accent); }
+    .param-table .req { color: var(--red); font-weight: 700; }
+    .param-table .opt { color: var(--muted); }
+
+    /* ── Error Code Table ────────────────── */
+    .err-table { width: 100%; border-collapse: collapse; }
+    .err-table th { text-align: left; font-size: 11px; font-weight: 700; color: var(--muted); padding: 8px 10px; border-bottom: 1px solid var(--border); }
+    .err-table td { padding: 8px 10px; font-size: 13px; border-bottom: 1px solid rgba(255,255,255,.04); }
+    .err-table td:first-child { font-family: monospace; font-weight: 600; color: var(--red); white-space: nowrap; }
+
+    /* ── Callout / Note ──────────────────── */
+    .callout { padding: 12px 16px; border-radius: 10px; font-size: 13px; margin: 12px 0; }
+    .callout.info { background: rgba(74,158,255,.06); border: 1px solid rgba(74,158,255,.2); color: #93c5fd; }
+    .callout.warn { background: rgba(251,191,36,.06); border: 1px solid rgba(251,191,36,.2); color: #fcd34d; }
+    .callout.tip { background: rgba(52,211,153,.06); border: 1px solid rgba(52,211,153,.2); color: #6ee7b7; }
+
+    /* ── Version Badge ───────────────────── */
+    .version-badge { display: inline-block; padding: 4px 12px; border-radius: 20px; font-size: 11px; font-weight: 800; background: rgba(74,158,255,.1); border: 1px solid rgba(74,158,255,.3); color: var(--accent); margin-left: 10px; vertical-align: middle; }
+
+    /* ── Mobile ──────────────────────────── */
+    .sidebar-toggle { display: none; position: fixed; top: 12px; left: 12px; z-index: 200; padding: 8px 12px; border-radius: 8px; border: 1px solid var(--border); background: rgba(10,15,30,.95); color: #eaeff8; font-size: 18px; cursor: pointer; }
+    @media(max-width:860px) {
+      .docs-sidebar { transform: translateX(-100%); transition: transform .2s; }
+      .docs-sidebar.open { transform: translateX(0); }
+      .docs-main { margin-left: 0; padding: 20px 16px 60px; }
+      .sidebar-toggle { display: block; }
+      .endpoint-desc { display: none; }
+    }
+  </style>
+</head>
+<body>
+  <button class="sidebar-toggle" onclick="document.querySelector('.docs-sidebar').classList.toggle('open')">&#9776;</button>
+
+  <div class="docs-layout">
+    <!-- ── Sidebar ──────────────────────────────────── -->
+    <nav class="docs-sidebar" id="sidebar">
+      <div class="sidebar-brand">
+        <span class="dot"></span> TempConnect API
+      </div>
+      <a href="/public/enterprise.html" class="sidebar-back">&larr; Zur&uuml;ck zum Dashboard</a>
+
+      <div class="sidebar-section">Einf&uuml;hrung</div>
+      <a href="#overview" class="sidebar-link">&#220;berblick</a>
+      <a href="#auth" class="sidebar-link">Authentifizierung</a>
+      <a href="#roles" class="sidebar-link">Rollen &amp; Organisationen</a>
+      <a href="#errors" class="sidebar-link">Fehlercodes</a>
+      <a href="#pagination" class="sidebar-link">Pagination &amp; Filter</a>
+      <a href="#rate-limits" class="sidebar-link">Rate-Limits</a>
+      <a href="#plans" class="sidebar-link">Pl&auml;ne &amp; Features</a>
+
+      <div class="sidebar-section">Endpunkte</div>
+      <a href="#ep-auth" class="sidebar-link">Auth</a>
+      <a href="#ep-me" class="sidebar-link">Benutzer (Me)</a>
+      <a href="#ep-marketplace" class="sidebar-link">Marketplace</a>
+      <a href="#ep-capacities" class="sidebar-link">Kapazit&auml;ten</a>
+      <a href="#ep-requests" class="sidebar-link">Anfragen &amp; Deals</a>
+      <a href="#ep-organizations" class="sidebar-link">Organisationen</a>
+      <a href="#ep-company-profile" class="sidebar-link">Firmenprofil</a>
+      <a href="#ep-workers" class="sidebar-link">Mitarbeiter</a>
+      <a href="#ep-assignments" class="sidebar-link">Eins&auml;tze</a>
+      <a href="#ep-notifications" class="sidebar-link">Benachrichtigungen</a>
+      <a href="#ep-ratings" class="sidebar-link">Bewertungen</a>
+      <a href="#ep-search" class="sidebar-link">Suche</a>
+
+      <div class="sidebar-section">Individueller Tarif</div>
+      <a href="#ep-requisitions" class="sidebar-link">Requisitions (VMS)</a>
+      <a href="#ep-timesheets" class="sidebar-link">Stundenzettel</a>
+      <a href="#ep-contracts" class="sidebar-link">Vertr&auml;ge &amp; Rechnungen</a>
+      <a href="#ep-vendor-pool" class="sidebar-link">Vendor Pool</a>
+      <a href="#ep-compliance" class="sidebar-link">Compliance-Dokumente</a>
+      <a href="#ep-matching" class="sidebar-link">Matching Engine</a>
+      <a href="#ep-admin" class="sidebar-link">Admin &amp; Audit</a>
+      <a href="#ep-health" class="sidebar-link">Health &amp; Status</a>
+
+      <div class="sidebar-section">Referenz</div>
+      <a href="#openapi" class="sidebar-link">OpenAPI Spec</a>
+      <a href="#integration-notes" class="sidebar-link">Integrationshinweise</a>
+      <a href="#changelog" class="sidebar-link">Changelog</a>
+    </nav>
+
+    <!-- ── Main Content ────────────────────────────── -->
+    <main class="docs-main">
+
+      <!-- ────────────────────────────────────────── OVERVIEW -->
+      <section id="overview">
+        <h1>TempConnect API <span class="version-badge">v2.0</span></h1>
+        <p>
+          Die TempConnect Integration API erm&ouml;glicht programmatischen Zugriff auf die zentrale B2B-Plattform f&uuml;r tempor&auml;re Arbeitskr&auml;ftevermittlung.
+          Sie verbindet Kundenunternehmen (Companies) mit Personaldienstleistern (Agencies) &uuml;ber einen zweiseitigen Marketplace mit SLA-Garantien, Kapazit&auml;tsmanagement und vollst&auml;ndigem Deal-Workflow.
+        </p>
+        <p><strong>Base-URL:</strong> <code>https://&lt;ihre-instanz&gt;/api</code></p>
+        <p><strong>Datenformat:</strong> Alle Requests und Responses verwenden <code>application/json</code>.</p>
+        <p><strong>Zeichensatz:</strong> UTF-8</p>
+
+        <div class="callout info">
+          <strong>Hinweis:</strong> Die API verwendet aktuell session-basierte Authentifizierung (Cookie). Eine token-basierte API-Key-Authentifizierung f&uuml;r Server-zu-Server-Integrationen ist auf der Roadmap.
+        </div>
+      </section>
+
+      <!-- ────────────────────────────────────────── AUTH -->
+      <section id="auth">
+        <h2>Authentifizierung</h2>
+        <p>TempConnect nutzt <strong>session-basierte Authentifizierung</strong> mit HTTP-Only-Cookies und CSRF-Schutz.</p>
+
+        <h3>Auth-Flow</h3>
+        <ol>
+          <li><strong>CSRF-Token holen:</strong> <code>GET /api/csrf</code> &rarr; Session-Cookie wird automatisch gesetzt</li>
+          <li><strong>Login:</strong> <code>POST /api/auth/login</code> mit CSRF-Token im Header</li>
+          <li><strong>Authentifizierte Requests:</strong> Cookie <code>tc.sid</code> wird automatisch mitgesendet</li>
+          <li><strong>Mutierende Requests:</strong> Header <code>x-csrf-token</code> mit g&uuml;ltigem Token erforderlich</li>
+        </ol>
+
+        <h3>CSRF-Token abrufen</h3>
+        <div class="endpoint open">
+          <div class="endpoint-header">
+            <span class="method get">GET</span>
+            <span class="endpoint-path">/api/csrf</span>
+            <span class="tag public">Kein Auth</span>
+          </div>
+          <div class="endpoint-body">
+            <p>Gibt ein CSRF-Token zur&uuml;ck und initialisiert die Session.</p>
+            <p><strong>Response:</strong></p>
+<pre><code>{
+  "token": "a3f8c1e9b2d74..."
+}</code><button class="copy-btn" onclick="copyCode(this)">Kopieren</button></pre>
+            <div class="callout tip">
+              Dieses Token muss als <code>x-csrf-token</code> Header bei allen POST/PATCH/PUT/DELETE Requests mitgesendet werden.
+            </div>
+          </div>
+        </div>
+
+        <h3>Login</h3>
+        <div class="endpoint open">
+          <div class="endpoint-header">
+            <span class="method post">POST</span>
+            <span class="endpoint-path">/api/auth/login</span>
+            <span class="tag public">Kein Auth</span>
+          </div>
+          <div class="endpoint-body">
+            <p><strong>Request Body:</strong></p>
+            <table class="param-table">
+              <thead><tr><th>Parameter</th><th>Typ</th><th>Status</th><th>Beschreibung</th></tr></thead>
+              <tbody>
+                <tr><td>email</td><td>string</td><td class="req">Pflicht</td><td>E-Mail-Adresse</td></tr>
+                <tr><td>password</td><td>string</td><td class="req">Pflicht</td><td>Passwort (min. 1 Zeichen)</td></tr>
+              </tbody>
+            </table>
+<pre><code>POST /api/auth/login
+Content-Type: application/json
+x-csrf-token: &lt;token&gt;
+
+{
+  "email": "firma@example.de",
+  "password": "sicheresPasswort123"
+}</code><button class="copy-btn" onclick="copyCode(this)">Kopieren</button></pre>
+            <p><strong>Response (200):</strong></p>
+<pre><code>{
+  "id": "42",
+  "email": "firma@example.de",
+  "role": "company",
+  "company_name": "Muster GmbH",
+  "plan": "PLUS",
+  "is_verified": true,
+  "city": "Berlin",
+  "org_id": "550e8400-...",
+  "limits": { "listings": 20, "requests_send": 100, "notdienst": true },
+  "usage": { "listings_count": 5, "sent_count": 12 }
+}</code><button class="copy-btn" onclick="copyCode(this)">Kopieren</button></pre>
+            <p><strong>Fehler:</strong></p>
+            <table class="param-table">
+              <tbody>
+                <tr><td>401</td><td colspan="3"><code>INVALID_CREDENTIALS</code> &mdash; E-Mail oder Passwort falsch</td></tr>
+                <tr><td>400</td><td colspan="3"><code>VALIDATION</code> &mdash; Ung&uuml;ltige Eingabedaten</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <h3>Registrierung</h3>
+        <div class="endpoint">
+          <div class="endpoint-header" onclick="this.parentElement.classList.toggle('open')">
+            <span class="method post">POST</span>
+            <span class="endpoint-path">/api/auth/register</span>
+            <span class="endpoint-desc">Neues Konto erstellen</span>
+          </div>
+          <div class="endpoint-body">
+            <table class="param-table">
+              <thead><tr><th>Parameter</th><th>Typ</th><th>Status</th><th>Beschreibung</th></tr></thead>
+              <tbody>
+                <tr><td>role</td><td>string</td><td class="req">Pflicht</td><td><code>"company"</code> oder <code>"agency"</code></td></tr>
+                <tr><td>email</td><td>string</td><td class="req">Pflicht</td><td>E-Mail (max. 254 Zeichen)</td></tr>
+                <tr><td>password</td><td>string</td><td class="req">Pflicht</td><td>Passwort (min. 8 Zeichen)</td></tr>
+                <tr><td>company_name</td><td>string</td><td class="opt">Optional</td><td>Firmenname (max. 200)</td></tr>
+                <tr><td>phone</td><td>string</td><td class="opt">Optional</td><td>Telefonnummer</td></tr>
+                <tr><td>postal_code</td><td>string</td><td class="opt">Optional</td><td>PLZ (f&uuml;r Geo-Matching)</td></tr>
+                <tr><td>city</td><td>string</td><td class="opt">Optional</td><td>Stadt</td></tr>
+                <tr><td>plan</td><td>string</td><td class="opt">Optional</td><td>Plan-Key: DEMO, BASIS, PLUS, PRO, ENTERPRISE (Anzeige: Individueller Tarif) (Default: DEMO)</td></tr>
+              </tbody>
+            </table>
+            <p><strong>Fehler:</strong> <code>409 EMAIL_EXISTS</code> &mdash; E-Mail bereits registriert</p>
+          </div>
+        </div>
+
+        <h3>Weitere Auth-Endpunkte</h3>
+        <div class="endpoint">
+          <div class="endpoint-header" onclick="this.parentElement.classList.toggle('open')">
+            <span class="method post">POST</span>
+            <span class="endpoint-path">/api/auth/logout</span>
+            <span class="endpoint-desc">Session beenden</span>
+          </div>
+          <div class="endpoint-body">
+            <p>Zerst&ouml;rt die aktuelle Session. Response: <code>{ "ok": true }</code></p>
+          </div>
+        </div>
+
+        <div class="endpoint">
+          <div class="endpoint-header" onclick="this.parentElement.classList.toggle('open')">
+            <span class="method post">POST</span>
+            <span class="endpoint-path">/api/auth/forgot-password</span>
+            <span class="endpoint-desc">Passwort-Reset anfordern</span>
+          </div>
+          <div class="endpoint-body">
+            <p><strong>Body:</strong> <code>{ "email": "user@example.de" }</code></p>
+            <p>Sendet eine Reset-E-Mail. Gibt aus Sicherheitsgr&uuml;nden immer 200 zur&uuml;ck.</p>
+          </div>
+        </div>
+
+        <div class="endpoint">
+          <div class="endpoint-header" onclick="this.parentElement.classList.toggle('open')">
+            <span class="method post">POST</span>
+            <span class="endpoint-path">/api/auth/reset-password</span>
+            <span class="endpoint-desc">Neues Passwort setzen</span>
+          </div>
+          <div class="endpoint-body">
+            <p><strong>Body:</strong> <code>{ "token": "...", "password": "neuesPasswort" }</code></p>
+            <p>Token aus Reset-E-Mail. Passwort min. 8 Zeichen. G&uuml;ltigkeit: 1 Stunde.</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- ────────────────────────────────────────── ROLES -->
+      <section id="roles">
+        <h2>Rollen &amp; Organisationskontext</h2>
+        <h3>Benutzerrollen</h3>
+        <table class="param-table">
+          <thead><tr><th>Rolle</th><th>Beschreibung</th><th>Typische Aktionen</th></tr></thead>
+          <tbody>
+            <tr><td>company</td><td>Kundenunternehmen</td><td>Nachfragen erstellen, Angebote annehmen, Personal anfordern</td></tr>
+            <tr><td>agency</td><td>Personaldienstleister</td><td>Kapazit&auml;ten anbieten, Angebote senden, Mitarbeiter verwalten</td></tr>
+            <tr><td>worker</td><td>Zeitarbeitnehmer</td><td>Eins&auml;tze einsehen, Stundenzettel einreichen (Worker-Portal)</td></tr>
+          </tbody>
+        </table>
+        <h3>Organisationskontext</h3>
+        <p>
+          Jeder Benutzer geh&ouml;rt einer <strong>Organisation</strong> an. Der Org-Kontext wird serverseitig automatisch aufgel&ouml;st.
+          Viele Endpunkte (Workers, Assignments, Organizations) arbeiten im Kontext der aktuellen Organisation.
+        </p>
+        <h3>Org-Rollen (RBAC)</h3>
+        <p>Innerhalb einer Organisation existieren feingranulare Rollen:</p>
+        <p><code>owner</code> &middot; <code>admin</code> &middot; <code>program_manager</code> &middot; <code>hiring_manager</code> &middot; <code>supplier_manager</code> &middot; <code>finance</code> &middot; <code>member</code> &middot; <code>recruiter</code> &middot; <code>dispatcher</code> &middot; <code>viewer</code></p>
+      </section>
+
+      <!-- ────────────────────────────────────────── ERRORS -->
+      <section id="errors">
+        <h2>Fehlercodes</h2>
+        <p>Alle Fehler-Responses folgen einem einheitlichen Format:</p>
+<pre><code>{
+  "error": "ERROR_CODE",
+  "message": "Menschenlesbare Beschreibung"
+}</code><button class="copy-btn" onclick="copyCode(this)">Kopieren</button></pre>
+        <h3>Allgemeine HTTP-Statuscodes</h3>
+        <table class="err-table">
+          <thead><tr><th>Status</th><th>Code</th><th>Beschreibung</th></tr></thead>
+          <tbody>
+            <tr><td>400</td><td>VALIDATION</td><td>Ung&uuml;ltige Eingabedaten. <code>details</code>-Array mit Zod-Validierungsfehlern.</td></tr>
+            <tr><td>401</td><td>NOT_AUTHENTICATED</td><td>Keine g&uuml;ltige Session. Login erforderlich.</td></tr>
+            <tr><td>403</td><td>CSRF_INVALID</td><td>CSRF-Token fehlt oder ung&uuml;ltig. Neues Token via <code>GET /api/csrf</code> holen.</td></tr>
+            <tr><td>403</td><td>FORBIDDEN</td><td>Keine Berechtigung f&uuml;r diese Aktion.</td></tr>
+            <tr><td>403</td><td>FEATURE_NOT_ALLOWED</td><td>Feature nicht im aktuellen Plan verf&uuml;gbar.</td></tr>
+            <tr><td>403</td><td>LIMIT_REACHED</td><td>Plan-Limit erreicht (z.B. Listings, Anfragen).</td></tr>
+            <tr><td>404</td><td>NOT_FOUND</td><td>Ressource nicht gefunden.</td></tr>
+            <tr><td>409</td><td>EMAIL_EXISTS</td><td>E-Mail bereits registriert (bei Registrierung).</td></tr>
+            <tr><td>409</td><td>invalid_transition</td><td>Ung&uuml;ltiger Status-&Uuml;bergang (State Machine).</td></tr>
+            <tr><td>500</td><td>SERVER_ERROR</td><td>Interner Serverfehler.</td></tr>
+          </tbody>
+        </table>
+        <h3>Dom&auml;nenspezifische Fehlercodes</h3>
+        <table class="err-table">
+          <thead><tr><th>Code</th><th>Kontext</th><th>Beschreibung</th></tr></thead>
+          <tbody>
+            <tr><td>INVALID_CREDENTIALS</td><td>Auth</td><td>E-Mail oder Passwort falsch</td></tr>
+            <tr><td>AGENCY_ONLY</td><td>Marketplace</td><td>Nur Agencies k&ouml;nnen Kapazit&auml;ten anlegen</td></tr>
+            <tr><td>COMPANY_ONLY</td><td>Marketplace</td><td>Nur Companies k&ouml;nnen Nachfragen erstellen</td></tr>
+            <tr><td>ROLE_MISMATCH</td><td>Requests</td><td>Anfrage-Richtung stimmt nicht mit Rolle &uuml;berein</td></tr>
+            <tr><td>DEMAND_ALREADY_FULFILLED</td><td>Offers</td><td>Nachfrage bereits erf&uuml;llt</td></tr>
+            <tr><td>INSUFFICIENT_CAPACITY</td><td>Reservations</td><td>Nicht gen&uuml;gend verf&uuml;gbare Kapazit&auml;t</td></tr>
+            <tr><td>WORKER_LIMIT_EXCEEDED</td><td>Workers</td><td>Mitarbeiter-Limit des Plans erreicht</td></tr>
+            <tr><td>FEATURE_NOT_AVAILABLE</td><td>Workers</td><td>Worker-Modul nur in PLUS/PRO/Individuellem Tarif</td></tr>
+            <tr><td>ORG_BOUNDARY_VIOLATION</td><td>Assignments</td><td>Zugriff au&szlig;erhalb der eigenen Organisation</td></tr>
+            <tr><td>SLUG_EXISTS</td><td>Organizations</td><td>Org-Slug bereits vergeben</td></tr>
+          </tbody>
+        </table>
+      </section>
+
+      <!-- ────────────────────────────────────────── PAGINATION -->
+      <section id="pagination">
+        <h2>Pagination &amp; Filter</h2>
+        <p>Listen-Endpunkte unterst&uuml;tzen standardm&auml;&szlig;ig:</p>
+        <table class="param-table">
+          <thead><tr><th>Parameter</th><th>Typ</th><th>Default</th><th>Beschreibung</th></tr></thead>
+          <tbody>
+            <tr><td>limit</td><td>integer</td><td>50</td><td>Max. Ergebnisse pro Seite (typisch max. 100&ndash;200)</td></tr>
+            <tr><td>offset</td><td>integer</td><td>0</td><td>Offset f&uuml;r Pagination</td></tr>
+          </tbody>
+        </table>
+        <p>Listen-Responses folgen meist diesem Format:</p>
+<pre><code>{
+  "items": [ ... ],
+  "total": 42
+}</code><button class="copy-btn" onclick="copyCode(this)">Kopieren</button></pre>
+        <p>Spezifische Filter-Parameter sind bei den jeweiligen Endpunkten dokumentiert.</p>
+      </section>
+
+      <!-- ────────────────────────────────────────── RATE LIMITS -->
+      <section id="rate-limits">
+        <h2>Rate-Limits</h2>
+        <p>Die API verwendet gestaffelte Rate-Limits:</p>
+        <table class="param-table">
+          <thead><tr><th>Bereich</th><th>Limit</th><th>Fenster</th></tr></thead>
+          <tbody>
+            <tr><td>API allgemein</td><td>Konfigurierbar</td><td>Pro Minute / IP</td></tr>
+            <tr><td>Auth (Login/Register)</td><td>Eingeschr&auml;nkt</td><td>Brute-Force-Schutz</td></tr>
+            <tr><td>Anfragen senden</td><td>Plan-abh&auml;ngig</td><td>Per Session</td></tr>
+          </tbody>
+        </table>
+        <p>Bei &Uuml;berschreitung: <code>429 Too Many Requests</code></p>
+      </section>
+
+      <!-- ────────────────────────────────────────── PLANS -->
+      <section id="plans">
+        <h2>Pl&auml;ne &amp; Features</h2>
+        <p>Zugriff auf bestimmte API-Bereiche h&auml;ngt vom aktiven Plan ab:</p>
+        <table class="param-table">
+          <thead><tr><th>Feature</th><th>DEMO</th><th>BASIS</th><th>PLUS</th><th>PRO</th><th>INDIVIDUELLER TARIF</th></tr></thead>
+          <tbody>
+            <tr><td>Legacy Marketplace</td><td>&check;</td><td>&check;</td><td></td><td></td><td></td></tr>
+            <tr><td>SLA Marketplace</td><td></td><td></td><td>&check;</td><td>&check;</td><td>&check;</td></tr>
+            <tr><td>Worker-Modul</td><td></td><td></td><td>&check;</td><td>&check;</td><td>&check;</td></tr>
+            <tr><td>Timesheets</td><td></td><td></td><td>&check;</td><td>&check;</td><td>&check;</td></tr>
+            <tr><td>Advanced Matching</td><td></td><td></td><td></td><td>&check;</td><td>&check;</td></tr>
+            <tr><td>Assignments</td><td></td><td></td><td></td><td></td><td>&check;</td></tr>
+            <tr><td>Approval Workflows</td><td></td><td></td><td></td><td></td><td>&check;</td></tr>
+            <tr><td>Compliance &amp; Contracts</td><td></td><td></td><td></td><td></td><td>&check;</td></tr>
+          </tbody>
+        </table>
+        <div class="endpoint">
+          <div class="endpoint-header" onclick="this.parentElement.classList.toggle('open')">
+            <span class="method get">GET</span>
+            <span class="endpoint-path">/api/plans</span>
+            <span class="endpoint-desc">Plan-Limits abrufen</span>
+          </div>
+          <div class="endpoint-body">
+            <p><span class="tag public">Kein Auth</span> Gibt die vollst&auml;ndige Plan-Limit-Matrix zur&uuml;ck.</p>
+          </div>
+        </div>
+        <div class="endpoint">
+          <div class="endpoint-header" onclick="this.parentElement.classList.toggle('open')">
+            <span class="method get">GET</span>
+            <span class="endpoint-path">/api/plan-features</span>
+            <span class="endpoint-desc">Feature-Flags pro Plan</span>
+          </div>
+          <div class="endpoint-body">
+            <p><span class="tag public">Kein Auth</span> Gibt alle Feature-Keys mit ihren erlaubten Pl&auml;nen zur&uuml;ck.</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- ────────────────────────────────────────── EP: AUTH -->
+      <section id="ep-auth">
+        <h2>Auth-Endpunkte</h2>
+        <p>Siehe <a href="#auth">Authentifizierung</a> f&uuml;r Login, Register, Logout und Passwort-Management.</p>
+      </section>
+
+      <!-- ────────────────────────────────────────── EP: ME -->
+      <section id="ep-me">
+        <h2>Benutzer (Me)</h2>
+
+        <div class="endpoint">
+          <div class="endpoint-header" onclick="this.parentElement.classList.toggle('open')">
+            <span class="method get">GET</span>
+            <span class="endpoint-path">/api/me</span>
+            <span class="endpoint-desc">Aktuellen Benutzer abrufen</span>
+          </div>
+          <div class="endpoint-body">
+            <p><span class="tag auth">Auth</span> Gibt das vollst&auml;ndige Benutzerprofil inkl. Plan, Limits und Usage zur&uuml;ck.</p>
+<pre><code>{
+  "id": "42",
+  "email": "firma@example.de",
+  "role": "company",
+  "company_name": "Muster GmbH",
+  "plan": "PLUS",
+  "is_verified": true,
+  "phone": "+49 30 12345",
+  "city": "Berlin",
+  "postal_code": "10115",
+  "contact_person": "Max Muster",
+  "org_id": "550e8400-...",
+  "limits": { "listings": 20, "requests_send": 100, "notdienst": true },
+  "usage": { "listings_count": 5, "sent_count": 12 }
+}</code><button class="copy-btn" onclick="copyCode(this)">Kopieren</button></pre>
+          </div>
+        </div>
+
+        <div class="endpoint">
+          <div class="endpoint-header" onclick="this.parentElement.classList.toggle('open')">
+            <span class="method put">PUT</span>
+            <span class="endpoint-path">/api/me/profile</span>
+            <span class="endpoint-desc">Profil aktualisieren</span>
+          </div>
+          <div class="endpoint-body">
+            <p><span class="tag auth">Auth</span> Aktualisiert das Benutzerprofil. Geo-Koordinaten werden bei PLZ/Stadt automatisch berechnet.</p>
+            <table class="param-table">
+              <thead><tr><th>Parameter</th><th>Typ</th><th>Max</th></tr></thead>
+              <tbody>
+                <tr><td>company_name</td><td>string</td><td>200</td></tr>
+                <tr><td>phone</td><td>string</td><td>50</td></tr>
+                <tr><td>contact_person</td><td>string</td><td>120</td></tr>
+                <tr><td>street</td><td>string</td><td>200</td></tr>
+                <tr><td>postal_code</td><td>string</td><td>20</td></tr>
+                <tr><td>city</td><td>string</td><td>120</td></tr>
+                <tr><td>vat_id</td><td>string</td><td>30</td></tr>
+                <tr><td>handelsregister_number</td><td>string</td><td>50</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <div class="endpoint">
+          <div class="endpoint-header" onclick="this.parentElement.classList.toggle('open')">
+            <span class="method post">POST</span>
+            <span class="endpoint-path">/api/me/change-password</span>
+            <span class="endpoint-desc">Passwort &auml;ndern</span>
+          </div>
+          <div class="endpoint-body">
+            <p><span class="tag auth">Auth</span></p>
+            <p><strong>Body:</strong> <code>{ "currentPassword": "...", "newPassword": "..." }</code> (min. 8 Zeichen)</p>
+            <p><strong>Fehler:</strong> <code>400 INVALID_CURRENT_PASSWORD</code></p>
+          </div>
+        </div>
+      </section>
+
+      <!-- ────────────────────────────────────────── EP: MARKETPLACE -->
+      <section id="ep-marketplace">
+        <h2>Marketplace</h2>
+        <p>Der zweiseitige Marketplace verbindet Personalangebot (Agencies) mit Personalnachfrage (Companies).</p>
+
+        <h3>Nachfrage-Feed (Public)</h3>
+        <div class="endpoint">
+          <div class="endpoint-header" onclick="this.parentElement.classList.toggle('open')">
+            <span class="method get">GET</span>
+            <span class="endpoint-path">/api/marketplace/public/demand-requests</span>
+            <span class="endpoint-desc">Offene Nachfragen lesen</span>
+          </div>
+          <div class="endpoint-body">
+            <p><span class="tag auth">Auth</span> Gibt alle offenen Nachfragen zur&uuml;ck (gefilterte &ouml;ffentliche Felder).</p>
+            <table class="param-table">
+              <thead><tr><th>Query</th><th>Beschreibung</th></tr></thead>
+              <tbody>
+                <tr><td>limit</td><td>Max. Ergebnisse (Default: 50, Max: 100)</td></tr>
+              </tbody>
+            </table>
+<pre><code>[
+  {
+    "id": "d1a2b3c4-...",
+    "title": "10 Lagerhelfer f&uuml;r Weihnachtssaison",
+    "role": "Lagerhelfer",
+    "skill_tags": ["Stapler", "Kommissionierung"],
+    "headcount": 10,
+    "start_date": "2025-12-01",
+    "end_date": "2025-12-31",
+    "location_city": "Hamburg",
+    "urgency": "normal",
+    "requester_company_name": "Logistik GmbH",
+    "created_at": "2025-11-15T10:30:00Z"
+  }
+]</code><button class="copy-btn" onclick="copyCode(this)">Kopieren</button></pre>
+          </div>
+        </div>
+
+        <h3>Kapazit&auml;ts-Feed (Public)</h3>
+        <div class="endpoint">
+          <div class="endpoint-header" onclick="this.parentElement.classList.toggle('open')">
+            <span class="method get">GET</span>
+            <span class="endpoint-path">/api/marketplace/public/capacity-posts</span>
+            <span class="endpoint-desc">Verf&uuml;gbare Kapazit&auml;ten</span>
+          </div>
+          <div class="endpoint-body">
+            <p><span class="tag auth">Auth</span> Gibt alle Kapazit&auml;tsangebote zur&uuml;ck (öffentliche Felder, ohne Kontaktdaten).</p>
+            <table class="param-table">
+              <thead><tr><th>Query</th><th>Beschreibung</th></tr></thead>
+              <tbody>
+                <tr><td>city</td><td>Nach Stadt filtern</td></tr>
+                <tr><td>role</td><td>Nach Berufsrolle filtern</td></tr>
+                <tr><td>limit</td><td>Max. Ergebnisse (Default: 50, Max: 100)</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <h3>Nachfrage erstellen</h3>
+        <div class="endpoint">
+          <div class="endpoint-header" onclick="this.parentElement.classList.toggle('open')">
+            <span class="method post">POST</span>
+            <span class="endpoint-path">/api/marketplace/demand-requests</span>
+            <span class="endpoint-desc">Neue Nachfrage erstellen</span>
+          </div>
+          <div class="endpoint-body">
+            <p><span class="tag auth">Auth</span> <span class="tag role">company</span> <span class="tag plan">PLUS+</span></p>
+            <table class="param-table">
+              <thead><tr><th>Parameter</th><th>Typ</th><th>Status</th><th>Beschreibung</th></tr></thead>
+              <tbody>
+                <tr><td>title</td><td>string</td><td class="req">Pflicht</td><td>Titel (max. 200)</td></tr>
+                <tr><td>role</td><td>string</td><td class="req">Pflicht</td><td>Gesuchte Berufsrolle (max. 120)</td></tr>
+                <tr><td>headcount</td><td>integer</td><td class="opt">Optional</td><td>Anzahl ben&ouml;tigter Personen (1&ndash;999)</td></tr>
+                <tr><td>start_date</td><td>string</td><td class="req">Pflicht</td><td>Format: YYYY-MM-DD</td></tr>
+                <tr><td>end_date</td><td>string</td><td class="opt">Optional</td><td>Format: YYYY-MM-DD</td></tr>
+                <tr><td>location_city</td><td>string</td><td class="req">Pflicht</td><td>Einsatzort</td></tr>
+                <tr><td>skill_tags</td><td>string[]</td><td class="opt">Optional</td><td>Qualifikations-Tags</td></tr>
+                <tr><td>urgency</td><td>string</td><td class="opt">Optional</td><td><code>"normal"</code>, <code>"plus"</code>, <code>"notdienst"</code></td></tr>
+                <tr><td>budget_min</td><td>number</td><td class="opt">Optional</td><td>Mindestbudget</td></tr>
+                <tr><td>budget_max</td><td>number</td><td class="opt">Optional</td><td>Maximalbudget</td></tr>
+                <tr><td>sla_minutes</td><td>integer</td><td class="opt">Optional</td><td>SLA-Ziel in Minuten (15&ndash;10080)</td></tr>
+              </tbody>
+            </table>
+            <p>L&ouml;st automatisch Matching gegen vorhandene Kapazit&auml;ten aus und benachrichtigt passende Anbieter.</p>
+          </div>
+        </div>
+
+        <h3>Angebot auf Nachfrage</h3>
+        <div class="endpoint">
+          <div class="endpoint-header" onclick="this.parentElement.classList.toggle('open')">
+            <span class="method post">POST</span>
+            <span class="endpoint-path">/api/marketplace/demand-requests/:id/offers</span>
+            <span class="endpoint-desc">Angebot abgeben</span>
+          </div>
+          <div class="endpoint-body">
+            <p><span class="tag auth">Auth</span> <span class="tag plan">PLUS+</span></p>
+            <table class="param-table">
+              <thead><tr><th>Parameter</th><th>Typ</th><th>Beschreibung</th></tr></thead>
+              <tbody>
+                <tr><td>price_type</td><td>string</td><td><code>"hourly"</code>, <code>"daily"</code>, <code>"fixed"</code></td></tr>
+                <tr><td>offered_quantity</td><td>integer</td><td>Angebotene Anzahl Personen</td></tr>
+                <tr><td>offered_hourly_rate</td><td>number</td><td>Stundensatz</td></tr>
+                <tr><td>start_confirmed</td><td>string</td><td>Best&auml;tigter Starttermin (YYYY-MM-DD)</td></tr>
+                <tr><td>notes</td><td>string</td><td>Angebots-Notizen (max. 2000)</td></tr>
+                <tr><td>validity_until</td><td>string</td><td>G&uuml;ltig bis (Datum)</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <h3>Angebots-Lifecycle</h3>
+        <div class="endpoint">
+          <div class="endpoint-header" onclick="this.parentElement.classList.toggle('open')">
+            <span class="method post">POST</span>
+            <span class="endpoint-path">/api/marketplace/offers/:id/accept</span>
+            <span class="endpoint-desc">Angebot annehmen (Requester)</span>
+          </div>
+          <div class="endpoint-body"><p><span class="tag auth">Auth</span> <span class="tag plan">PLUS+</span> Erzeugt automatisch ein Assignment.</p></div>
+        </div>
+        <div class="endpoint">
+          <div class="endpoint-header" onclick="this.parentElement.classList.toggle('open')">
+            <span class="method post">POST</span>
+            <span class="endpoint-path">/api/marketplace/offers/:id/counter</span>
+            <span class="endpoint-desc">Gegenangebot (Requester)</span>
+          </div>
+          <div class="endpoint-body"><p><span class="tag auth">Auth</span> <span class="tag plan">PLUS+</span></p></div>
+        </div>
+        <div class="endpoint">
+          <div class="endpoint-header" onclick="this.parentElement.classList.toggle('open')">
+            <span class="method post">POST</span>
+            <span class="endpoint-path">/api/marketplace/offers/:id/withdraw</span>
+            <span class="endpoint-desc">Angebot zur&uuml;ckziehen (Supplier)</span>
+          </div>
+          <div class="endpoint-body"><p><span class="tag auth">Auth</span> <span class="tag plan">PLUS+</span></p></div>
+        </div>
+      </section>
+
+      <!-- ────────────────────────────────────────── EP: CAPACITIES -->
+      <section id="ep-capacities">
+        <h2>Kapazit&auml;ten</h2>
+
+        <div class="endpoint">
+          <div class="endpoint-header" onclick="this.parentElement.classList.toggle('open')">
+            <span class="method get">GET</span>
+            <span class="endpoint-path">/api/capacities</span>
+            <span class="endpoint-desc">Kapazit&auml;ten suchen</span>
+          </div>
+          <div class="endpoint-body">
+            <p><span class="tag auth">Auth</span> <span class="tag plan">PLUS+</span></p>
+            <table class="param-table">
+              <thead><tr><th>Query</th><th>Typ</th><th>Beschreibung</th></tr></thead>
+              <tbody>
+                <tr><td>region</td><td>string</td><td>Region filtern</td></tr>
+                <tr><td>role</td><td>string</td><td>Berufsrolle filtern</td></tr>
+                <tr><td>available_from</td><td>string</td><td>Verf&uuml;gbar ab (YYYY-MM-DD)</td></tr>
+                <tr><td>available_min</td><td>integer</td><td>Min. verf&uuml;gbare Workers</td></tr>
+                <tr><td>max_rate_cents</td><td>integer</td><td>Max. Stundensatz in Cent</td></tr>
+                <tr><td>tags</td><td>string</td><td>Komma-getrennte Skill-Tags</td></tr>
+                <tr><td>latitude</td><td>number</td><td>Geo-Suche: Breitengrad</td></tr>
+                <tr><td>longitude</td><td>number</td><td>Geo-Suche: L&auml;ngengrad</td></tr>
+                <tr><td>radius_km</td><td>integer</td><td>Suchradius in km</td></tr>
+                <tr><td>limit</td><td>integer</td><td>Max. Ergebnisse</td></tr>
+                <tr><td>page</td><td>integer</td><td>Seite</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <div class="endpoint">
+          <div class="endpoint-header" onclick="this.parentElement.classList.toggle('open')">
+            <span class="method post">POST</span>
+            <span class="endpoint-path">/api/capacities</span>
+            <span class="endpoint-desc">Kapazit&auml;t anlegen</span>
+          </div>
+          <div class="endpoint-body">
+            <p><span class="tag auth">Auth</span> <span class="tag role">agency</span> <span class="tag plan">PLUS+</span></p>
+            <table class="param-table">
+              <thead><tr><th>Parameter</th><th>Typ</th><th>Status</th><th>Beschreibung</th></tr></thead>
+              <tbody>
+                <tr><td>role</td><td>string</td><td class="req">Pflicht</td><td>Berufsrolle (max. 120)</td></tr>
+                <tr><td>region</td><td>string</td><td class="req">Pflicht</td><td>Region (max. 120)</td></tr>
+                <tr><td>available_from</td><td>string</td><td class="req">Pflicht</td><td>Format: YYYY-MM-DD</td></tr>
+                <tr><td>available_workers</td><td>integer</td><td class="opt">Optional</td><td>Anzahl (1&ndash;999, Default: 1)</td></tr>
+                <tr><td>tags</td><td>string[]</td><td class="opt">Optional</td><td>Qualifikations-Tags</td></tr>
+                <tr><td>hourly_rate_cents</td><td>integer</td><td class="opt">Optional</td><td>Stundensatz in Cent</td></tr>
+                <tr><td>note</td><td>string</td><td class="opt">Optional</td><td>Notizen (max. 2000)</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <!-- ────────────────────────────────────────── EP: REQUESTS -->
+      <section id="ep-requests">
+        <h2>Anfragen &amp; Deals</h2>
+
+        <div class="endpoint">
+          <div class="endpoint-header" onclick="this.parentElement.classList.toggle('open')">
+            <span class="method post">POST</span>
+            <span class="endpoint-path">/api/requests</span>
+            <span class="endpoint-desc">Anfrage senden</span>
+          </div>
+          <div class="endpoint-body">
+            <p><span class="tag auth">Auth</span> Sendet eine Anfrage an einen Listing- oder Kapazit&auml;ts-Besitzer.</p>
+            <p><strong>Variante A &ndash; Listing-basiert:</strong></p>
+<pre><code>{ "listing_id": "uuid", "message": "Interesse an ...", "priority": "NORMAL" }</code><button class="copy-btn" onclick="copyCode(this)">Kopieren</button></pre>
+            <p><strong>Variante B &ndash; Kapazit&auml;ts-basiert (PLUS+):</strong></p>
+<pre><code>{
+  "capacity_id": "uuid",
+  "role": "Produktionshelfer",
+  "quantity": 5,
+  "start_date": "2025-12-01",
+  "end_date": "2025-12-31",
+  "sla_minutes": 60,
+  "priority": "NORMAL"
+}</code><button class="copy-btn" onclick="copyCode(this)">Kopieren</button></pre>
+          </div>
+        </div>
+
+        <div class="endpoint">
+          <div class="endpoint-header" onclick="this.parentElement.classList.toggle('open')">
+            <span class="method get">GET</span>
+            <span class="endpoint-path">/api/my/requests/sent</span>
+            <span class="endpoint-desc">Gesendete Anfragen</span>
+          </div>
+          <div class="endpoint-body"><p><span class="tag auth">Auth</span> Alle eigenen gesendeten Anfragen.</p></div>
+        </div>
+
+        <div class="endpoint">
+          <div class="endpoint-header" onclick="this.parentElement.classList.toggle('open')">
+            <span class="method get">GET</span>
+            <span class="endpoint-path">/api/my/requests/received</span>
+            <span class="endpoint-desc">Empfangene Anfragen</span>
+          </div>
+          <div class="endpoint-body"><p><span class="tag auth">Auth</span> Alle an den Benutzer gerichteten Anfragen.</p></div>
+        </div>
+
+        <div class="endpoint">
+          <div class="endpoint-header" onclick="this.parentElement.classList.toggle('open')">
+            <span class="method get">GET</span>
+            <span class="endpoint-path">/api/requests/:id</span>
+            <span class="endpoint-desc">Anfrage-Details</span>
+          </div>
+          <div class="endpoint-body">
+            <p><span class="tag auth">Auth</span> Gibt vollst&auml;ndige Details inkl. Compliance-Status, SLA-Events und Supplier-Scorecard zur&uuml;ck. Nur f&uuml;r Requester oder Receiver sichtbar.</p>
+          </div>
+        </div>
+
+        <div class="endpoint">
+          <div class="endpoint-header" onclick="this.parentElement.classList.toggle('open')">
+            <span class="method patch">PATCH</span>
+            <span class="endpoint-path">/api/requests/:id/status</span>
+            <span class="endpoint-desc">Status &auml;ndern</span>
+          </div>
+          <div class="endpoint-body">
+            <p><span class="tag auth">Auth</span></p>
+            <p><strong>Body:</strong> <code>{ "status": "ACCEPTED" }</code></p>
+            <p><strong>M&ouml;gliche Status-&Uuml;berg&auml;nge:</strong></p>
+            <p><code>SENT</code> &rarr; <code>ACCEPTED</code> / <code>DECLINED</code> (Receiver)</p>
+            <p><code>ACCEPTED</code> &rarr; <code>FINALIZED</code> (Requester)</p>
+            <p><code>*</code> &rarr; <code>CANCELED</code> (Requester oder Receiver)</p>
+            <p>Bei <code>FINALIZED</code> werden Kontaktdaten ausgetauscht und verwandte Anfragen als <code>FILLED</code> markiert.</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- ────────────────────────────────────────── EP: ORGANIZATIONS -->
+      <section id="ep-organizations">
+        <h2>Organisationen</h2>
+
+        <div class="endpoint">
+          <div class="endpoint-header" onclick="this.parentElement.classList.toggle('open')">
+            <span class="method post">POST</span>
+            <span class="endpoint-path">/api/organizations</span>
+            <span class="endpoint-desc">Organisation erstellen</span>
+          </div>
+          <div class="endpoint-body">
+            <p><span class="tag auth">Auth</span></p>
+            <table class="param-table">
+              <thead><tr><th>Parameter</th><th>Typ</th><th>Status</th><th>Beschreibung</th></tr></thead>
+              <tbody>
+                <tr><td>name</td><td>string</td><td class="req">Pflicht</td><td>Name (2&ndash;200 Zeichen)</td></tr>
+                <tr><td>slug</td><td>string</td><td class="req">Pflicht</td><td>URL-Slug (a-z, 0-9, Bindestrich)</td></tr>
+                <tr><td>type</td><td>string</td><td class="req">Pflicht</td><td><code>"company"</code> oder <code>"agency"</code></td></tr>
+                <tr><td>billing_email</td><td>string</td><td class="opt">Optional</td><td>Rechnungs-E-Mail</td></tr>
+                <tr><td>tax_id</td><td>string</td><td class="opt">Optional</td><td>USt-ID</td></tr>
+                <tr><td>website</td><td>string</td><td class="opt">Optional</td><td>Webseite</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <div class="endpoint">
+          <div class="endpoint-header" onclick="this.parentElement.classList.toggle('open')">
+            <span class="method get">GET</span>
+            <span class="endpoint-path">/api/organizations/:id</span>
+            <span class="endpoint-desc">Organisation lesen</span>
+          </div>
+          <div class="endpoint-body"><p><span class="tag auth">Auth</span></p></div>
+        </div>
+
+        <div class="endpoint">
+          <div class="endpoint-header" onclick="this.parentElement.classList.toggle('open')">
+            <span class="method get">GET</span>
+            <span class="endpoint-path">/api/organizations/:id/members</span>
+            <span class="endpoint-desc">Mitglieder auflisten</span>
+          </div>
+          <div class="endpoint-body"><p><span class="tag auth">Auth</span> Gibt <code>{ "items": [...] }</code> zur&uuml;ck.</p></div>
+        </div>
+      </section>
+
+      <!-- ────────────────────────────────────────── EP: COMPANY PROFILE -->
+      <section id="ep-company-profile">
+        <h2>Firmenprofil</h2>
+
+        <div class="endpoint">
+          <div class="endpoint-header" onclick="this.parentElement.classList.toggle('open')">
+            <span class="method get">GET</span>
+            <span class="endpoint-path">/api/company-profile</span>
+            <span class="endpoint-desc">Eigenes Profil</span>
+          </div>
+          <div class="endpoint-body"><p><span class="tag auth">Auth</span> Vollst&auml;ndiges Firmenprofil inkl. Capabilities, Locations, Certifications, Contacts.</p></div>
+        </div>
+
+        <div class="endpoint">
+          <div class="endpoint-header" onclick="this.parentElement.classList.toggle('open')">
+            <span class="method get">GET</span>
+            <span class="endpoint-path">/api/company-profile/public/:userId</span>
+            <span class="endpoint-desc">&Ouml;ffentliches Profil</span>
+          </div>
+          <div class="endpoint-body"><p><span class="tag public">Kein Auth</span> Zeigt das &ouml;ffentliche Firmenprofil eines Benutzers.</p></div>
+        </div>
+
+        <div class="endpoint">
+          <div class="endpoint-header" onclick="this.parentElement.classList.toggle('open')">
+            <span class="method put">PUT</span>
+            <span class="endpoint-path">/api/company-profile/overview</span>
+            <span class="endpoint-desc">Profil-&Uuml;bersicht aktualisieren</span>
+          </div>
+          <div class="endpoint-body"><p><span class="tag auth">Auth</span> Aktualisiert Branche, Gr&ouml;&szlig;e, Beschreibung etc.</p></div>
+        </div>
+
+        <div class="endpoint">
+          <div class="endpoint-header" onclick="this.parentElement.classList.toggle('open')">
+            <span class="method get">GET</span>
+            <span class="endpoint-path">/api/company-profile/completeness</span>
+            <span class="endpoint-desc">Profil-Vollst&auml;ndigkeit</span>
+          </div>
+          <div class="endpoint-body"><p><span class="tag auth">Auth</span> Gibt Prozent-Score der Profilvollst&auml;ndigkeit zur&uuml;ck.</p></div>
+        </div>
+      </section>
+
+      <!-- ────────────────────────────────────────── EP: WORKERS -->
+      <section id="ep-workers">
+        <h2>Mitarbeiter <span class="tag plan">PLUS+</span></h2>
+        <p>Worker-Management f&uuml;r Agencies/Supplier. Erfordert Plan PLUS, PRO oder individuellen Tarif (Plan-Key: ENTERPRISE).</p>
+
+        <div class="endpoint">
+          <div class="endpoint-header" onclick="this.parentElement.classList.toggle('open')">
+            <span class="method get">GET</span>
+            <span class="endpoint-path">/api/workers</span>
+            <span class="endpoint-desc">Mitarbeiter auflisten</span>
+          </div>
+          <div class="endpoint-body">
+            <p><span class="tag auth">Auth</span> <span class="tag plan">PLUS+</span> Org-scoped.</p>
+            <table class="param-table">
+              <thead><tr><th>Query</th><th>Beschreibung</th></tr></thead>
+              <tbody>
+                <tr><td>is_active</td><td><code>true</code>/<code>false</code></td></tr>
+                <tr><td>search</td><td>Volltextsuche</td></tr>
+                <tr><td>limit</td><td>Default: 100</td></tr>
+                <tr><td>offset</td><td>Pagination-Offset</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <div class="endpoint">
+          <div class="endpoint-header" onclick="this.parentElement.classList.toggle('open')">
+            <span class="method post">POST</span>
+            <span class="endpoint-path">/api/workers</span>
+            <span class="endpoint-desc">Mitarbeiter anlegen</span>
+          </div>
+          <div class="endpoint-body">
+            <p><span class="tag auth">Auth</span> <span class="tag plan">PLUS+</span> Erstellt einen Worker-Account mit User + Profil + Org-Membership in einer Transaktion.</p>
+            <table class="param-table">
+              <thead><tr><th>Parameter</th><th>Typ</th><th>Status</th></tr></thead>
+              <tbody>
+                <tr><td>email</td><td>string</td><td class="req">Pflicht</td></tr>
+                <tr><td>first_name</td><td>string</td><td class="req">Pflicht</td></tr>
+                <tr><td>last_name</td><td>string</td><td class="req">Pflicht</td></tr>
+                <tr><td>personnel_number</td><td>string</td><td class="opt">Optional</td></tr>
+                <tr><td>phone</td><td>string</td><td class="opt">Optional</td></tr>
+                <tr><td>street</td><td>string</td><td class="opt">Optional</td></tr>
+                <tr><td>postal_code</td><td>string</td><td class="opt">Optional</td></tr>
+                <tr><td>city</td><td>string</td><td class="opt">Optional</td></tr>
+                <tr><td>password</td><td>string</td><td class="opt">Optional</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <div class="endpoint">
+          <div class="endpoint-header" onclick="this.parentElement.classList.toggle('open')">
+            <span class="method post">POST</span>
+            <span class="endpoint-path">/api/workers/import</span>
+            <span class="endpoint-desc">CSV-Bulk-Import</span>
+          </div>
+          <div class="endpoint-body">
+            <p><span class="tag auth">Auth</span> <span class="tag plan">PLUS+</span> Importiert bis zu 1000 Mitarbeiter mit Duplikat-Erkennung.</p>
+<pre><code>{
+  "workers": [
+    { "email": "max@example.de", "first_name": "Max", "last_name": "Muster" },
+    { "email": "anna@example.de", "first_name": "Anna", "last_name": "Beispiel", "city": "Berlin" }
+  ],
+  "on_duplicate": "skip"
+}</code><button class="copy-btn" onclick="copyCode(this)">Kopieren</button></pre>
+            <p><strong>on_duplicate:</strong> <code>"skip"</code> (Default) oder <code>"update"</code></p>
+            <p><strong>Response:</strong></p>
+<pre><code>{
+  "created": [{ "email": "max@example.de", "first_name": "Max", "last_name": "Muster" }],
+  "updated": [],
+  "skipped": [{ "email": "anna@example.de", "reason": "duplicate" }],
+  "errors": []
+}</code><button class="copy-btn" onclick="copyCode(this)">Kopieren</button></pre>
+          </div>
+        </div>
+      </section>
+
+      <!-- ────────────────────────────────────────── EP: ASSIGNMENTS -->
+      <section id="ep-assignments">
+        <h2>Eins&auml;tze <span class="tag plan">INDIVIDUELLER TARIF</span></h2>
+
+        <div class="endpoint">
+          <div class="endpoint-header" onclick="this.parentElement.classList.toggle('open')">
+            <span class="method get">GET</span>
+            <span class="endpoint-path">/api/assignments</span>
+            <span class="endpoint-desc">Eins&auml;tze auflisten</span>
+          </div>
+          <div class="endpoint-body">
+            <p><span class="tag auth">Auth</span></p>
+            <table class="param-table">
+              <thead><tr><th>Query</th><th>Beschreibung</th></tr></thead>
+              <tbody>
+                <tr><td>org_id</td><td>Organisations-ID (Default: eigene)</td></tr>
+                <tr><td>supplier_org_id</td><td>Supplier-Org filtern</td></tr>
+                <tr><td>status</td><td>planned, active, completed, cancelled</td></tr>
+                <tr><td>limit</td><td>Default: 100</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <div class="endpoint">
+          <div class="endpoint-header" onclick="this.parentElement.classList.toggle('open')">
+            <span class="method post">POST</span>
+            <span class="endpoint-path">/api/assignments/:id/transition</span>
+            <span class="endpoint-desc">Status-&Uuml;bergang</span>
+          </div>
+          <div class="endpoint-body">
+            <p><span class="tag auth">Auth</span></p>
+            <p><strong>Body:</strong> <code>{ "status": "active" }</code></p>
+            <p>M&ouml;gliche Ziel-Status: <code>active</code>, <code>completed</code>, <code>cancelled</code>, <code>extended</code></p>
+          </div>
+        </div>
+      </section>
+
+      <!-- ────────────────────────────────────────── EP: NOTIFICATIONS -->
+      <section id="ep-notifications">
+        <h2>Benachrichtigungen</h2>
+
+        <div class="endpoint">
+          <div class="endpoint-header" onclick="this.parentElement.classList.toggle('open')">
+            <span class="method get">GET</span>
+            <span class="endpoint-path">/api/notifications</span>
+            <span class="endpoint-desc">Benachrichtigungen abrufen</span>
+          </div>
+          <div class="endpoint-body">
+            <p><span class="tag auth">Auth</span></p>
+            <table class="param-table">
+              <thead><tr><th>Query</th><th>Beschreibung</th></tr></thead>
+              <tbody>
+                <tr><td>limit</td><td>Max. Ergebnisse (Default: 50, Max: 100)</td></tr>
+                <tr><td>offset</td><td>Pagination-Offset</td></tr>
+                <tr><td>unread</td><td><code>true</code> &mdash; nur ungelesene</td></tr>
+              </tbody>
+            </table>
+<pre><code>{
+  "items": [
+    {
+      "id": "a1b2c3-...",
+      "type": "request.received",
+      "title": "Neue Anfrage erhalten",
+      "message": "Muster GmbH hat eine Anfrage gesendet.",
+      "is_read": false,
+      "created_at": "2025-11-15T14:30:00Z"
+    }
+  ],
+  "unread_count": 3
+}</code><button class="copy-btn" onclick="copyCode(this)">Kopieren</button></pre>
+          </div>
+        </div>
+
+        <div class="endpoint">
+          <div class="endpoint-header" onclick="this.parentElement.classList.toggle('open')">
+            <span class="method patch">PATCH</span>
+            <span class="endpoint-path">/api/notifications/:id/read</span>
+            <span class="endpoint-desc">Als gelesen markieren</span>
+          </div>
+          <div class="endpoint-body"><p><span class="tag auth">Auth</span> Response: <code>{ "ok": true }</code></p></div>
+        </div>
+
+        <div class="endpoint">
+          <div class="endpoint-header" onclick="this.parentElement.classList.toggle('open')">
+            <span class="method post">POST</span>
+            <span class="endpoint-path">/api/notifications/read-all</span>
+            <span class="endpoint-desc">Alle als gelesen markieren</span>
+          </div>
+          <div class="endpoint-body"><p><span class="tag auth">Auth</span> Response: <code>{ "ok": true, "marked": 5 }</code></p></div>
+        </div>
+
+        <div class="endpoint">
+          <div class="endpoint-header" onclick="this.parentElement.classList.toggle('open')">
+            <span class="method get">GET</span>
+            <span class="endpoint-path">/api/notifications/unread-count</span>
+            <span class="endpoint-desc">Ungelesene z&auml;hlen</span>
+          </div>
+          <div class="endpoint-body"><p><span class="tag auth">Auth</span> Leichtgewichtiger Endpunkt. Response: <code>{ "count": 3 }</code></p></div>
+        </div>
+      </section>
+
+      <!-- ────────────────────────────────────────── EP: RATINGS -->
+      <section id="ep-ratings">
+        <h2>Bewertungen &amp; Reputation</h2>
+
+        <div class="endpoint">
+          <div class="endpoint-header" onclick="this.parentElement.classList.toggle('open')">
+            <span class="method post">POST</span>
+            <span class="endpoint-path">/api/ratings</span>
+            <span class="endpoint-desc">Bewertung abgeben</span>
+          </div>
+          <div class="endpoint-body">
+            <p><span class="tag auth">Auth</span> Nur f&uuml;r finalisierte Deals, innerhalb von 30 Tagen.</p>
+            <table class="param-table">
+              <thead><tr><th>Parameter</th><th>Typ</th><th>Status</th><th>Beschreibung</th></tr></thead>
+              <tbody>
+                <tr><td>request_id</td><td>UUID</td><td class="req">Pflicht</td><td>Finalisierter Deal</td></tr>
+                <tr><td>stars</td><td>1&ndash;5</td><td class="req">Pflicht</td><td>Gesamtbewertung</td></tr>
+                <tr><td>reliability</td><td>1&ndash;5</td><td class="req">Pflicht</td><td>Zuverl&auml;ssigkeit</td></tr>
+                <tr><td>communication</td><td>1&ndash;5</td><td class="req">Pflicht</td><td>Kommunikation</td></tr>
+                <tr><td>quality</td><td>1&ndash;5</td><td class="req">Pflicht</td><td>Qualit&auml;t</td></tr>
+                <tr><td>comment</td><td>string</td><td class="opt">Optional</td><td>Freitext (max. 500)</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <div class="endpoint">
+          <div class="endpoint-header" onclick="this.parentElement.classList.toggle('open')">
+            <span class="method get">GET</span>
+            <span class="endpoint-path">/api/users/:id/ratings</span>
+            <span class="endpoint-desc">Bewertungen eines Benutzers</span>
+          </div>
+          <div class="endpoint-body"><p><span class="tag public">Kein Auth</span> Gibt Bewertungsliste und Statistik (Durchschnitt, Anzahl) zur&uuml;ck.</p></div>
+        </div>
+
+        <div class="endpoint">
+          <div class="endpoint-header" onclick="this.parentElement.classList.toggle('open')">
+            <span class="method get">GET</span>
+            <span class="endpoint-path">/api/users/:id/reputation</span>
+            <span class="endpoint-desc">Reputations-Score</span>
+          </div>
+          <div class="endpoint-body"><p><span class="tag public">Kein Auth</span> Aggregierte Reputation aus Supplier-Metriken.</p></div>
+        </div>
+      </section>
+
+      <!-- ────────────────────────────────────────── EP: SEARCH -->
+      <section id="ep-search">
+        <h2>Suche</h2>
+
+        <div class="endpoint">
+          <div class="endpoint-header" onclick="this.parentElement.classList.toggle('open')">
+            <span class="method get">GET</span>
+            <span class="endpoint-path">/api/search</span>
+            <span class="endpoint-desc">Plattformweite Suche</span>
+          </div>
+          <div class="endpoint-body">
+            <p><span class="tag auth">Auth</span> Durchsucht Kapazit&auml;ten, Listings, Nachfragen und mehr.</p>
+            <table class="param-table">
+              <thead><tr><th>Query</th><th>Typ</th><th>Status</th><th>Beschreibung</th></tr></thead>
+              <tbody>
+                <tr><td>q</td><td>string</td><td class="req">Pflicht</td><td>Suchbegriff (min. 2 Zeichen)</td></tr>
+                <tr><td>type</td><td>string</td><td class="opt">Optional</td><td><code>"all"</code> (Default) oder spezifischer Index</td></tr>
+                <tr><td>limit</td><td>integer</td><td class="opt">Optional</td><td>Max. 100, Default: 20</td></tr>
+                <tr><td>offset</td><td>integer</td><td class="opt">Optional</td><td>Pagination-Offset</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <!-- ────────────────────────────────────────── EP: REQUISITIONS -->
+      <section id="ep-requisitions">
+        <h2>Requisitions (VMS) <span class="tag plan">PLUS+</span></h2>
+        <p>VMS-Requisitions bilden den strukturierten Personalbeschaffungsprozess ab: Erstellung, Genehmigung, Veröffentlichung, Review, Besetzung.</p>
+
+        <div class="endpoint">
+          <div class="endpoint-header" onclick="this.parentElement.classList.toggle('open')">
+            <span class="method get">GET</span>
+            <span class="endpoint-path">/api/requisitions</span>
+            <span class="endpoint-desc">Requisitions auflisten</span>
+          </div>
+          <div class="endpoint-body">
+            <p><span class="tag auth">Auth</span> Org-scoped Liste mit Filtern.</p>
+            <table class="param-table">
+              <thead><tr><th>Query</th><th>Typ</th><th>Beschreibung</th></tr></thead>
+              <tbody>
+                <tr><td>status</td><td>string</td><td>DRAFT, PENDING_APPROVAL, APPROVED, OPEN, IN_REVIEW, SHORTLISTED, FILLED, CLOSED, CANCELLED</td></tr>
+                <tr><td>urgency</td><td>string</td><td>normal, high, urgent, notdienst</td></tr>
+                <tr><td>mine</td><td>boolean</td><td>Nur eigene Requisitions</td></tr>
+                <tr><td>limit</td><td>integer</td><td>Max. 200, Default: 50</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <div class="endpoint">
+          <div class="endpoint-header" onclick="this.parentElement.classList.toggle('open')">
+            <span class="method post">POST</span>
+            <span class="endpoint-path">/api/requisitions</span>
+            <span class="endpoint-desc">Requisition erstellen</span>
+          </div>
+          <div class="endpoint-body">
+            <p><span class="tag auth">Auth</span> <span class="tag role">requisition.create</span></p>
+            <table class="param-table">
+              <thead><tr><th>Parameter</th><th>Typ</th><th>Status</th><th>Beschreibung</th></tr></thead>
+              <tbody>
+                <tr><td>title</td><td>string</td><td class="req">Pflicht</td><td>Titel (3&ndash;200 Zeichen)</td></tr>
+                <tr><td>role</td><td>string</td><td class="req">Pflicht</td><td>Gesuchte Berufsrolle</td></tr>
+                <tr><td>headcount</td><td>integer</td><td class="opt">Optional</td><td>Anzahl (Default: 1)</td></tr>
+                <tr><td>start_date</td><td>string</td><td class="opt">Optional</td><td>YYYY-MM-DD</td></tr>
+                <tr><td>end_date</td><td>string</td><td class="opt">Optional</td><td>YYYY-MM-DD</td></tr>
+                <tr><td>skill_tags</td><td>string[]</td><td class="opt">Optional</td><td>Qualifikationen</td></tr>
+                <tr><td>urgency</td><td>string</td><td class="opt">Optional</td><td>normal, high, urgent, notdienst</td></tr>
+                <tr><td>budget_min_cents</td><td>integer</td><td class="opt">Optional</td><td>Budget-Untergrenze in Cent</td></tr>
+                <tr><td>budget_max_cents</td><td>integer</td><td class="opt">Optional</td><td>Budget-Obergrenze in Cent</td></tr>
+                <tr><td>approval_required</td><td>boolean</td><td class="opt">Optional</td><td>Genehmigungsworkflow aktivieren</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <div class="endpoint">
+          <div class="endpoint-header" onclick="this.parentElement.classList.toggle('open')">
+            <span class="method post">POST</span>
+            <span class="endpoint-path">/api/requisitions/:id/transition</span>
+            <span class="endpoint-desc">Status-Übergang (State Machine)</span>
+          </div>
+          <div class="endpoint-body">
+            <p><span class="tag auth">Auth</span> <span class="tag role">requisition.edit</span> Zustandsübergang gemäss definierter State Machine.</p>
+            <p><strong>Body:</strong> <code>{ "status": "OPEN" }</code></p>
+            <p><strong>Erlaubte Übergänge:</strong></p>
+            <p><code>DRAFT → PENDING_APPROVAL → APPROVED → OPEN → IN_REVIEW → SHORTLISTED → FILLED</code></p>
+            <p><code>* → CANCELLED</code> (jederzeit möglich)</p>
+            <p><strong>Fehler:</strong> <code>409 INVALID_TRANSITION</code> bei ungültigem Übergang.</p>
+          </div>
+        </div>
+
+        <div class="endpoint">
+          <div class="endpoint-header" onclick="this.parentElement.classList.toggle('open')">
+            <span class="method post">POST</span>
+            <span class="endpoint-path">/api/requisitions/:id/approve</span>
+            <span class="endpoint-desc">Requisition genehmigen</span>
+          </div>
+          <div class="endpoint-body"><p><span class="tag auth">Auth</span> <span class="tag role">requisition.approve</span> PENDING_APPROVAL → APPROVED.</p></div>
+        </div>
+      </section>
+
+      <!-- ────────────────────────────────────────── EP: TIMESHEETS -->
+      <section id="ep-timesheets">
+        <h2>Stundenzettel <span class="tag plan">PLUS+</span></h2>
+        <p>Digitale Stundenzettel mit täglichen Einträgen, Genehmigungsworkflow und Audit Trail. Erfordert PLUS/PRO/Individuellen Tarif.</p>
+
+        <div class="endpoint">
+          <div class="endpoint-header" onclick="this.parentElement.classList.toggle('open')">
+            <span class="method get">GET</span>
+            <span class="endpoint-path">/api/timesheets</span>
+            <span class="endpoint-desc">Stundenzettel auflisten</span>
+          </div>
+          <div class="endpoint-body">
+            <p><span class="tag auth">Auth</span> <span class="tag plan">PLUS+</span></p>
+            <table class="param-table">
+              <thead><tr><th>Query</th><th>Typ</th><th>Beschreibung</th></tr></thead>
+              <tbody>
+                <tr><td>status</td><td>string</td><td>draft, submitted, approved, rejected, archived</td></tr>
+                <tr><td>week_start_from</td><td>date</td><td>Filter ab KW</td></tr>
+                <tr><td>week_start_to</td><td>date</td><td>Filter bis KW</td></tr>
+                <tr><td>supplier_org_id</td><td>UUID</td><td>Supplier-Filter</td></tr>
+                <tr><td>limit</td><td>integer</td><td>Max. 100</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <div class="endpoint">
+          <div class="endpoint-header" onclick="this.parentElement.classList.toggle('open')">
+            <span class="method post">POST</span>
+            <span class="endpoint-path">/api/timesheets</span>
+            <span class="endpoint-desc">Stundenzettel erstellen</span>
+          </div>
+          <div class="endpoint-body">
+            <p><span class="tag auth">Auth</span> <span class="tag plan">PLUS+</span></p>
+            <table class="param-table">
+              <thead><tr><th>Parameter</th><th>Typ</th><th>Status</th><th>Beschreibung</th></tr></thead>
+              <tbody>
+                <tr><td>org_id</td><td>UUID</td><td class="req">Pflicht</td><td>Auftraggeber-Org</td></tr>
+                <tr><td>supplier_org_id</td><td>UUID</td><td class="req">Pflicht</td><td>Lieferanten-Org</td></tr>
+                <tr><td>worker_name</td><td>string</td><td class="req">Pflicht</td><td>Mitarbeitername</td></tr>
+                <tr><td>week_start</td><td>date</td><td class="req">Pflicht</td><td>KW-Beginn (Montag)</td></tr>
+                <tr><td>week_end</td><td>date</td><td class="req">Pflicht</td><td>KW-Ende (Sonntag)</td></tr>
+                <tr><td>assignment_id</td><td>UUID</td><td class="opt">Optional</td><td>Verknüpfter Einsatz</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <div class="endpoint">
+          <div class="endpoint-header" onclick="this.parentElement.classList.toggle('open')">
+            <span class="method post">POST</span>
+            <span class="endpoint-path">/api/timesheets/:id/entries</span>
+            <span class="endpoint-desc">Tageseintrag hinzufügen</span>
+          </div>
+          <div class="endpoint-body">
+            <p><span class="tag auth">Auth</span> Fügt eine Tageszeile zum Stundenzettel hinzu.</p>
+            <table class="param-table">
+              <thead><tr><th>Parameter</th><th>Typ</th><th>Status</th></tr></thead>
+              <tbody>
+                <tr><td>work_date</td><td>date</td><td class="req">Pflicht</td></tr>
+                <tr><td>hours_regular</td><td>number</td><td class="opt">0&ndash;24</td></tr>
+                <tr><td>hours_overtime</td><td>number</td><td class="opt">0&ndash;24</td></tr>
+                <tr><td>break_minutes</td><td>integer</td><td class="opt">Min. 0</td></tr>
+                <tr><td>shift_start</td><td>string</td><td class="opt">HH:MM</td></tr>
+                <tr><td>shift_end</td><td>string</td><td class="opt">HH:MM</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <h3>Stundenzettel-Lifecycle</h3>
+        <div class="endpoint">
+          <div class="endpoint-header" onclick="this.parentElement.classList.toggle('open')">
+            <span class="method post">POST</span>
+            <span class="endpoint-path">/api/timesheets/:id/submit</span>
+            <span class="endpoint-desc">Einreichen (draft → submitted)</span>
+          </div>
+          <div class="endpoint-body"><p><span class="tag auth">Auth</span></p></div>
+        </div>
+        <div class="endpoint">
+          <div class="endpoint-header" onclick="this.parentElement.classList.toggle('open')">
+            <span class="method post">POST</span>
+            <span class="endpoint-path">/api/timesheets/:id/approve</span>
+            <span class="endpoint-desc">Genehmigen (submitted → approved)</span>
+          </div>
+          <div class="endpoint-body"><p><span class="tag auth">Auth</span> <span class="tag role">timesheet.approve</span></p></div>
+        </div>
+        <div class="endpoint">
+          <div class="endpoint-header" onclick="this.parentElement.classList.toggle('open')">
+            <span class="method post">POST</span>
+            <span class="endpoint-path">/api/timesheets/:id/reject</span>
+            <span class="endpoint-desc">Ablehnen mit Begründung</span>
+          </div>
+          <div class="endpoint-body">
+            <p><span class="tag auth">Auth</span> <span class="tag role">timesheet.reject</span></p>
+            <p><strong>Body:</strong> <code>{ "reason": "Fehlende Pausenzeiten" }</code></p>
+          </div>
+        </div>
+      </section>
+
+      <!-- ────────────────────────────────────────── EP: CONTRACTS & INVOICES -->
+      <section id="ep-contracts">
+        <h2>Verträge &amp; Rechnungen <span class="tag plan">INDIVIDUELLER TARIF</span></h2>
+
+        <h3>Verträge</h3>
+        <div class="endpoint">
+          <div class="endpoint-header" onclick="this.parentElement.classList.toggle('open')">
+            <span class="method get">GET</span>
+            <span class="endpoint-path">/api/contracts</span>
+            <span class="endpoint-desc">Verträge auflisten</span>
+          </div>
+          <div class="endpoint-body">
+            <p><span class="tag auth">Auth</span> Org-scoped. Filter: <code>status</code>, <code>supplier_org_id</code>, <code>limit</code>, <code>offset</code>.</p>
+          </div>
+        </div>
+        <div class="endpoint">
+          <div class="endpoint-header" onclick="this.parentElement.classList.toggle('open')">
+            <span class="method post">POST</span>
+            <span class="endpoint-path">/api/contracts</span>
+            <span class="endpoint-desc">Vertrag erstellen</span>
+          </div>
+          <div class="endpoint-body">
+            <p><span class="tag auth">Auth</span> <span class="tag role">contract.create</span> Erzeugt Vertrag mit Laufzeit, Konditionen und verknüpftem Assignment.</p>
+          </div>
+        </div>
+        <div class="endpoint">
+          <div class="endpoint-header" onclick="this.parentElement.classList.toggle('open')">
+            <span class="method post">POST</span>
+            <span class="endpoint-path">/api/contracts/:id/sign</span>
+            <span class="endpoint-desc">Vertrag unterzeichnen</span>
+          </div>
+          <div class="endpoint-body"><p><span class="tag auth">Auth</span> Setzt Status auf <code>signed</code>.</p></div>
+        </div>
+
+        <h3>Rechnungen</h3>
+        <div class="endpoint">
+          <div class="endpoint-header" onclick="this.parentElement.classList.toggle('open')">
+            <span class="method get">GET</span>
+            <span class="endpoint-path">/api/invoices</span>
+            <span class="endpoint-desc">Rechnungen auflisten</span>
+          </div>
+          <div class="endpoint-body">
+            <p><span class="tag auth">Auth</span> Org-scoped. Filter: <code>status</code> (draft, sent, paid, overdue, voided), <code>limit</code>, <code>offset</code>.</p>
+          </div>
+        </div>
+        <div class="endpoint">
+          <div class="endpoint-header" onclick="this.parentElement.classList.toggle('open')">
+            <span class="method post">POST</span>
+            <span class="endpoint-path">/api/invoices</span>
+            <span class="endpoint-desc">Rechnung erstellen</span>
+          </div>
+          <div class="endpoint-body">
+            <p><span class="tag auth">Auth</span> Rechnung basierend auf genehmigten Stundenzetteln. Automatische Berechnung aus Stundensatz &times; Stunden.</p>
+          </div>
+        </div>
+        <div class="endpoint">
+          <div class="endpoint-header" onclick="this.parentElement.classList.toggle('open')">
+            <span class="method post">POST</span>
+            <span class="endpoint-path">/api/invoices/:id/void</span>
+            <span class="endpoint-desc">Rechnung stornieren</span>
+          </div>
+          <div class="endpoint-body"><p><span class="tag auth">Auth</span> <span class="tag role">invoice.void</span> Setzt Status auf <code>voided</code>. Wird im Audit Log protokolliert.</p></div>
+        </div>
+      </section>
+
+      <!-- ────────────────────────────────────────── EP: VENDOR POOL -->
+      <section id="ep-vendor-pool">
+        <h2>Vendor Pool <span class="tag plan">PRO+</span></h2>
+        <p>Verwaltung bevorzugter und blockierter Lieferanten mit Tier-System (Preferred, Secondary, Trial, Blocked).</p>
+
+        <div class="endpoint">
+          <div class="endpoint-header" onclick="this.parentElement.classList.toggle('open')">
+            <span class="method get">GET</span>
+            <span class="endpoint-path">/api/vendor-pool</span>
+            <span class="endpoint-desc">Vendor Pool auflisten</span>
+          </div>
+          <div class="endpoint-body">
+            <p><span class="tag auth">Auth</span> Gibt alle Vendor-Einträge der Organisation zurück, inkl. Tier, Bewertung und Compliance-Status.</p>
+            <table class="param-table">
+              <thead><tr><th>Query</th><th>Beschreibung</th></tr></thead>
+              <tbody>
+                <tr><td>tier</td><td>preferred, approved, trial, blocked</td></tr>
+                <tr><td>limit</td><td>Default: 100</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+        <div class="endpoint">
+          <div class="endpoint-header" onclick="this.parentElement.classList.toggle('open')">
+            <span class="method post">POST</span>
+            <span class="endpoint-path">/api/vendor-pool</span>
+            <span class="endpoint-desc">Vendor hinzufügen</span>
+          </div>
+          <div class="endpoint-body">
+            <p><span class="tag auth">Auth</span></p>
+            <table class="param-table">
+              <thead><tr><th>Parameter</th><th>Typ</th><th>Status</th><th>Beschreibung</th></tr></thead>
+              <tbody>
+                <tr><td>supplier_org_id</td><td>UUID</td><td class="req">Pflicht</td><td>Lieferanten-Organisation</td></tr>
+                <tr><td>tier</td><td>string</td><td class="opt">Optional</td><td>preferred, approved, trial (Default: trial)</td></tr>
+                <tr><td>notes</td><td>string</td><td class="opt">Optional</td><td>Interne Notizen</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+        <div class="endpoint">
+          <div class="endpoint-header" onclick="this.parentElement.classList.toggle('open')">
+            <span class="method get">GET</span>
+            <span class="endpoint-path">/api/vendor-pool/tiers</span>
+            <span class="endpoint-desc">Tier-Statistiken</span>
+          </div>
+          <div class="endpoint-body"><p><span class="tag auth">Auth</span> Gibt Anzahl Vendors pro Tier zurück.</p></div>
+        </div>
+        <div class="endpoint">
+          <div class="endpoint-header" onclick="this.parentElement.classList.toggle('open')">
+            <span class="method post">POST</span>
+            <span class="endpoint-path">/api/vendor-pool/:id/rate</span>
+            <span class="endpoint-desc">Vendor bewerten</span>
+          </div>
+          <div class="endpoint-body"><p><span class="tag auth">Auth</span> <strong>Body:</strong> <code>{ "rating": 4, "notes": "Zuverlässige Lieferung" }</code></p></div>
+        </div>
+      </section>
+
+      <!-- ────────────────────────────────────────── EP: COMPLIANCE -->
+      <section id="ep-compliance">
+        <h2>Compliance-Dokumente</h2>
+        <p>Upload und Verwaltung von Compliance-Nachweisen (AÜG, Gewerbeanmeldung, Versicherungen) mit Ampelsystem und Ablaufüberwachung.</p>
+
+        <div class="endpoint">
+          <div class="endpoint-header" onclick="this.parentElement.classList.toggle('open')">
+            <span class="method get">GET</span>
+            <span class="endpoint-path">/api/compliance/documents</span>
+            <span class="endpoint-desc">Dokumente auflisten</span>
+          </div>
+          <div class="endpoint-body">
+            <p><span class="tag auth">Auth</span> Org-scoped. Gibt alle Compliance-Dokumente mit Status (valid, expiring, expired) zurück.</p>
+          </div>
+        </div>
+        <div class="endpoint">
+          <div class="endpoint-header" onclick="this.parentElement.classList.toggle('open')">
+            <span class="method post">POST</span>
+            <span class="endpoint-path">/api/compliance/documents</span>
+            <span class="endpoint-desc">Dokument hochladen</span>
+          </div>
+          <div class="endpoint-body">
+            <p><span class="tag auth">Auth</span> Upload mit Dokumenttyp, Gültigkeitsdatum und optionaler Beschreibung. Unterstützte Formate: PDF, PNG, JPG.</p>
+          </div>
+        </div>
+        <div class="endpoint">
+          <div class="endpoint-header" onclick="this.parentElement.classList.toggle('open')">
+            <span class="method patch">PATCH</span>
+            <span class="endpoint-path">/api/compliance/documents/:id/verify</span>
+            <span class="endpoint-desc">Dokument verifizieren</span>
+          </div>
+          <div class="endpoint-body"><p><span class="tag auth">Auth</span> <span class="tag role">admin</span> Setzt Verifikationsstatus. Wird im Audit Log protokolliert.</p></div>
+        </div>
+      </section>
+
+      <!-- ────────────────────────────────────────── EP: MATCHING -->
+      <section id="ep-matching">
+        <h2>Matching Engine <span class="tag plan">PLUS+</span></h2>
+        <p>Die Matching Engine verbindet Personalnachfrage mit verfügbaren Kapazitäten anhand eines gewichteten Scoring-Modells mit 13 Faktoren.</p>
+
+        <div class="endpoint">
+          <div class="endpoint-header" onclick="this.parentElement.classList.toggle('open')">
+            <span class="method get">GET</span>
+            <span class="endpoint-path">/api/matching/requisition/:id</span>
+            <span class="endpoint-desc">Matching für Requisition</span>
+          </div>
+          <div class="endpoint-body">
+            <p><span class="tag auth">Auth</span> Gibt sortierte Matching-Ergebnisse mit Score (0&ndash;100) und Erklärung je Faktor zurück.</p>
+<pre><code>{
+  "matches": [
+    {
+      "supplier_id": "...",
+      "score": 87,
+      "reasons": [
+        { "factor": "role", "points": 25, "max": 25, "detail": "Exakte Übereinstimmung" },
+        { "factor": "skills", "points": 18, "max": 20, "detail": "4 von 5 Tags" },
+        { "factor": "location", "points": 15, "max": 15, "detail": "12 km entfernt" },
+        { "factor": "availability", "points": 10, "max": 10, "detail": "Vollständig verfügbar" }
+      ]
+    }
+  ],
+  "total": 15
+}</code><button class="copy-btn" onclick="copyCode(this)">Kopieren</button></pre>
+          </div>
+        </div>
+
+        <div class="endpoint">
+          <div class="endpoint-header" onclick="this.parentElement.classList.toggle('open')">
+            <span class="method get">GET</span>
+            <span class="endpoint-path">/api/matching/smart-explain/:supplierId</span>
+            <span class="endpoint-desc">Smart Ranking Erklärung</span>
+          </div>
+          <div class="endpoint-body">
+            <p><span class="tag auth">Auth</span> <span class="tag plan">PRO+</span> Gibt die 6 Smart-Ranking-Signale für einen Supplier zurück:</p>
+            <p><code>fill_rate</code>, <code>avg_response_hours</code>, <code>sla_adherence</code>, <code>repeat_hire_ratio</code>, <code>rating_avg</code>, <code>recency_score</code></p>
+          </div>
+        </div>
+      </section>
+
+      <!-- ────────────────────────────────────────── EP: ADMIN -->
+      <section id="ep-admin">
+        <h2>Admin &amp; Audit <span class="tag role">Admin</span></h2>
+        <p>Administrative Endpunkte für Plattform-Management und Audit-Log-Abfragen. Erfordern Admin-Rechte oder Admin-Secret.</p>
+
+        <div class="endpoint">
+          <div class="endpoint-header" onclick="this.parentElement.classList.toggle('open')">
+            <span class="method get">GET</span>
+            <span class="endpoint-path">/api/admin/users</span>
+            <span class="endpoint-desc">Benutzer auflisten</span>
+          </div>
+          <div class="endpoint-body">
+            <p><span class="tag auth">Auth</span> <span class="tag role">Admin</span> Paginierte Benutzerliste mit Filtern: <code>limit</code>, <code>offset</code>, <code>role</code>, <code>plan</code>.</p>
+          </div>
+        </div>
+        <div class="endpoint">
+          <div class="endpoint-header" onclick="this.parentElement.classList.toggle('open')">
+            <span class="method patch">PATCH</span>
+            <span class="endpoint-path">/api/admin/users/:id</span>
+            <span class="endpoint-desc">Benutzer bearbeiten</span>
+          </div>
+          <div class="endpoint-body"><p><span class="tag auth">Auth</span> <span class="tag role">Admin</span> Rolle, Plan, Verifizierungsstatus ändern. Wird im Audit Log protokolliert.</p></div>
+        </div>
+        <div class="endpoint">
+          <div class="endpoint-header" onclick="this.parentElement.classList.toggle('open')">
+            <span class="method get">GET</span>
+            <span class="endpoint-path">/api/admin/audit-log</span>
+            <span class="endpoint-desc">Audit-Log abfragen</span>
+          </div>
+          <div class="endpoint-body">
+            <p><span class="tag auth">Auth</span> <span class="tag role">Admin</span> Vollständiger Audit Trail mit Filtern.</p>
+            <table class="param-table">
+              <thead><tr><th>Query</th><th>Beschreibung</th></tr></thead>
+              <tbody>
+                <tr><td>actor_id</td><td>Nach Akteur filtern</td></tr>
+                <tr><td>org_id</td><td>Nach Organisation filtern</td></tr>
+                <tr><td>entity_type</td><td>z.B. timesheet, requisition, user</td></tr>
+                <tr><td>action_type</td><td>CREATE, UPDATE, DELETE, APPROVAL, LOGIN, SECURITY, ...</td></tr>
+                <tr><td>status</td><td>SUCCESS, DENIED, FAILED</td></tr>
+                <tr><td>from / to</td><td>Zeitraum (ISO 8601)</td></tr>
+                <tr><td>limit</td><td>Max. 500, Default: 100</td></tr>
+              </tbody>
+            </table>
+<pre><code>{
+  "items": [
+    {
+      "id": "...",
+      "action": "timesheet.approve",
+      "action_type": "APPROVAL",
+      "status": "SUCCESS",
+      "entity_type": "timesheet",
+      "entity_id": "...",
+      "actor_email": "admin@firma.de",
+      "old_values": { "status": "submitted" },
+      "new_values": { "status": "approved" },
+      "created_at": "2026-03-16T08:30:00Z"
+    }
+  ],
+  "total": 142
+}</code><button class="copy-btn" onclick="copyCode(this)">Kopieren</button></pre>
+          </div>
+        </div>
+        <div class="endpoint">
+          <div class="endpoint-header" onclick="this.parentElement.classList.toggle('open')">
+            <span class="method get">GET</span>
+            <span class="endpoint-path">/api/admin/metrics</span>
+            <span class="endpoint-desc">Plattform-Metriken</span>
+          </div>
+          <div class="endpoint-body"><p><span class="tag auth">Auth</span> <span class="tag role">Admin</span> Geschützt via Admin-Secret. Gibt aggregierte Plattform-KPIs zurück.</p></div>
+        </div>
+      </section>
+
+      <!-- ────────────────────────────────────────── EP: HEALTH -->
+      <section id="ep-health">
+        <h2>Health &amp; Status</h2>
+
+        <div class="endpoint">
+          <div class="endpoint-header" onclick="this.parentElement.classList.toggle('open')">
+            <span class="method get">GET</span>
+            <span class="endpoint-path">/api/health</span>
+            <span class="endpoint-desc">Health Check</span>
+          </div>
+          <div class="endpoint-body">
+            <p><span class="tag public">Kein Auth</span> Einfacher Health-Check f&uuml;r Load-Balancer.</p>
+<pre><code>{ "ok": true, "service": "api" }</code><button class="copy-btn" onclick="copyCode(this)">Kopieren</button></pre>
+          </div>
+        </div>
+
+        <div class="endpoint">
+          <div class="endpoint-header" onclick="this.parentElement.classList.toggle('open')">
+            <span class="method get">GET</span>
+            <span class="endpoint-path">/api/service-status</span>
+            <span class="endpoint-desc">Komponentenstatus</span>
+          </div>
+          <div class="endpoint-body">
+            <p><span class="tag public">Kein Auth</span> Detaillierter Status aller Systemkomponenten.</p>
+<pre><code>{
+  "status": "ok",
+  "version": "2.0.0",
+  "uptime_s": 86400,
+  "components": {
+    "database": { "status": "ok", "latency_ms": 2 },
+    "redis": { "status": "ok", "latency_ms": 1 },
+    "smtp": { "status": "configured" },
+    "search": { "status": "ok", "engine": "postgres" }
+  }
+}</code><button class="copy-btn" onclick="copyCode(this)">Kopieren</button></pre>
+          </div>
+        </div>
+
+        <div class="endpoint">
+          <div class="endpoint-header" onclick="this.parentElement.classList.toggle('open')">
+            <span class="method get">GET</span>
+            <span class="endpoint-path">/api/public/system-status</span>
+            <span class="endpoint-desc">Trust Center Komponentenstatus</span>
+          </div>
+          <div class="endpoint-body">
+            <p><span class="tag public">Kein Auth</span> Strukturierter Status aller Geschäftskomponenten für die öffentliche Statusseite.</p>
+<pre><code>{
+  "status": "ok",
+  "checked_at": "2026-03-16T09:00:00Z",
+  "response_ms": 12,
+  "components": {
+    "api":                   { "status": "ok", "latency_ms": 0 },
+    "database":              { "status": "ok", "latency_ms": 3 },
+    "matching_engine":       { "status": "ok", "latency_ms": 2 },
+    "timesheet_processing":  { "status": "ok", "latency_ms": 1 },
+    "notification_system":   { "status": "ok" },
+    "background_services":   { "status": "ok" },
+    "search":                { "status": "ok", "latency_ms": 5 }
+  }
+}</code><button class="copy-btn" onclick="copyCode(this)">Kopieren</button></pre>
+          </div>
+        </div>
+      </section>
+
+      <!-- ────────────────────────────────────────── OPENAPI -->
+      <section id="openapi">
+        <h2>OpenAPI Spezifikation</h2>
+        <p>Die TempConnect API ist als OpenAPI 3.0.3 Spezifikation verfügbar. Die Spec-Datei kann für Client-Generierung, automatisierte Tests und Import in Postman/Insomnia verwendet werden.</p>
+        <div class="callout info">
+          <strong>Spec-Datei:</strong> <code>/api/openapi/spec.json</code> &mdash; OpenAPI 3.0.3, JSON-Format
+        </div>
+        <p>Die Spezifikation enthält:</p>
+        <ul>
+          <li>Alle öffentlichen Endpunkte mit Request/Response-Schemas</li>
+          <li>Komponentenschemas: User, Organization, Requisition, CapacityPost, Timesheet, TimesheetEntry, MatchResult, ServiceStatus, Error</li>
+          <li>Security-Schemes: Session-Cookie (<code>tc.sid</code>) + CSRF-Token</li>
+          <li>Server-Konfiguration für lokale Entwicklung und Produktion</li>
+        </ul>
+      </section>
+
+      <!-- ────────────────────────────────────────── INTEGRATION NOTES -->
+      <section id="integration-notes">
+        <h2>Integrationshinweise</h2>
+
+        <h3>Session-Management</h3>
+        <p>
+          Die API verwendet HTTP-Only-Cookies f&uuml;r die Authentifizierung. Bei server-seitigen Integrationen
+          muss der HTTP-Client Cookies speichern und bei Folge-Requests mitsenden (z.B. <code>credentials: "include"</code> bei Fetch,
+          oder ein Cookie-Jar bei cURL/Axios).
+        </p>
+
+        <h3>CSRF-Workflow f&uuml;r Integrationen</h3>
+<pre><code># 1. Session + CSRF-Token holen
+curl -c cookies.txt https://api.example.com/api/csrf
+
+# 2. Login
+curl -b cookies.txt -c cookies.txt \
+  -H "x-csrf-token: TOKEN_AUS_SCHRITT_1" \
+  -H "Content-Type: application/json" \
+  -d '{"email":"...", "password":"..."}' \
+  https://api.example.com/api/auth/login
+
+# 3. Authentifizierter Request
+curl -b cookies.txt \
+  https://api.example.com/api/me</code><button class="copy-btn" onclick="copyCode(this)">Kopieren</button></pre>
+
+        <h3>Was aktuell unterst&uuml;tzt wird</h3>
+        <ul>
+          <li>Session-basierte Authentifizierung (Cookie)</li>
+          <li>JSON-basierte REST-Endpunkte</li>
+          <li>Org-scoped Daten (automatischer Kontext)</li>
+          <li>Vollst&auml;ndiges CRUD f&uuml;r Marketplace, Workers, Assignments</li>
+          <li>Echtzeit-Notifications (Polling)</li>
+        </ul>
+
+        <h3>Was <em>nicht</em> unterst&uuml;tzt wird (Roadmap)</h3>
+        <ul>
+          <li>API-Key / Bearer-Token-Authentifizierung &mdash; <em>geplant</em></li>
+          <li>WebSocket-/SSE-basierte Echtzeit-Events &mdash; <em>geplant</em></li>
+          <li>Webhooks f&uuml;r Event-Benachrichtigungen &mdash; <em>geplant</em></li>
+          <li>Explizite API-Versionierung (v2, v3) &mdash; <em>bei Bedarf</em></li>
+        </ul>
+        <div class="callout warn">
+          <strong>Hinweis f&uuml;r Partner:</strong> Die aktuelle API ist prim&auml;r f&uuml;r browser-basierte Clients optimiert. Server-zu-Server-Integrationen funktionieren, erfordern aber Session-/Cookie-Management. Eine dedizierte API-Key-basierte Partner-API ist in Planung.
+        </div>
+      </section>
+
+      <!-- ────────────────────────────────────────── CHANGELOG -->
+      <section id="changelog">
+        <h2>Changelog</h2>
+        <h3>v2.0 &mdash; M&auml;rz 2026</h3>
+        <ul>
+          <li>Neue Sektionen: Requisitions (VMS), Stundenzettel, Vertr&auml;ge &amp; Rechnungen, Vendor Pool, Compliance-Dokumente, Matching Engine, Admin &amp; Audit</li>
+          <li>Trust Center System-Status-Endpunkt (<code>/api/public/system-status</code>)</li>
+          <li>OpenAPI Spezifikation verlinkt</li>
+          <li>Version-Upgrade auf v2.0</li>
+        </ul>
+        <h3>v1.0 &mdash; M&auml;rz 2026</h3>
+        <ul>
+          <li>Initiale &ouml;ffentliche API-Dokumentation</li>
+          <li>Kuratierte Endpunkte: Auth, Marketplace, Capacities, Requests, Notifications, Organizations, Company Profile, Workers, Assignments, Ratings, Search, Health</li>
+          <li>Session-basierte Authentifizierung mit CSRF-Schutz</li>
+          <li>Plan- und Feature-Gate-Dokumentation</li>
+        </ul>
+      </section>
+
+      <div style="margin-top:60px;padding-top:24px;border-top:1px solid var(--border);font-size:12px;color:var(--muted)">
+        TempConnect API-Dokumentation &middot; Bei Fragen: <a href="mailto:support@tempconnect.de">support@tempconnect.de</a>
+      </div>
+    </main>
+  </div>
+
+<script>
+"use strict";
+function copyCode(btn) {
+  var pre = btn.closest("pre");
+  var code = pre.querySelector("code");
+  if (!code) return;
+  navigator.clipboard.writeText(code.textContent).then(function() {
+    btn.textContent = "Kopiert!";
+    setTimeout(function() { btn.textContent = "Kopieren"; }, 1500);
+  });
+}
+
+// Sidebar active tracking
+var sections = document.querySelectorAll("section[id]");
+var links = document.querySelectorAll(".sidebar-link");
+function updateActive() {
+  var scrollY = window.scrollY + 80;
+  var current = "";
+  sections.forEach(function(s) {
+    if (s.offsetTop <= scrollY) current = s.id;
+  });
+  links.forEach(function(l) {
+    l.classList.toggle("active", l.getAttribute("href") === "#" + current);
+  });
+}
+window.addEventListener("scroll", updateActive, { passive: true });
+updateActive();
+
+// Close sidebar on mobile when link clicked
+links.forEach(function(l) {
+  l.addEventListener("click", function() {
+    document.querySelector(".docs-sidebar").classList.remove("open");
+  });
+});
+</script>
+<script src="/public/js/footer.js"></script>
+<script src="/public/js/breadcrumb.js" defer></script>
+</body>
+</html>

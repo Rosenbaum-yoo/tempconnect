@@ -1,0 +1,574 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <script src="/public/js/theme.js"></script>
+  <title>Mein Profil – Einsatzportal</title>
+  <link rel="stylesheet" href="einsatzportal.css">
+  <style>
+    .profil-card {
+      background:var(--ep-surface); border-radius:14px; border:1px solid var(--ep-border);
+      overflow:hidden; margin-bottom:16px;
+    }
+    .profil-card-head {
+      padding:18px 20px; background:var(--ep-surface-raised);
+      border-bottom:1px solid var(--ep-border);
+      display:flex; align-items:center; gap:14px;
+    }
+    .profil-avatar {
+      width:52px; height:52px; border-radius:50%; flex-shrink:0;
+      background:linear-gradient(135deg,var(--ep-brand),#7c5cff);
+      display:flex; align-items:center; justify-content:center;
+      font-size:1.2rem; font-weight:800; color:#fff;
+    }
+    .profil-head-name { font-size:1.05rem; font-weight:800; }
+    .profil-head-role { font-size:.75rem; color:var(--ep-brand); font-weight:600; margin-top:2px; }
+    .profil-head-email { font-size:.78rem; color:var(--ep-text-muted); margin-top:1px; }
+    .profil-card-body { padding:20px; }
+
+    .profil-field { margin-bottom:18px; }
+    .profil-field:last-child { margin-bottom:0; }
+    .profil-label {
+      font-size:.7rem; text-transform:uppercase; letter-spacing:.08em;
+      color:var(--ep-text-muted); font-weight:700; margin-bottom:5px;
+    }
+    .profil-val {
+      font-size:.9rem; color:var(--ep-text); padding:10px 12px;
+      background:var(--ep-surface-raised); border-radius:8px;
+      border:1px solid var(--ep-border);
+    }
+    .profil-val.muted { color:var(--ep-text-muted); font-style:italic; }
+
+    .ep-form-group { margin-bottom:16px; }
+    .ep-form-group:last-child { margin-bottom:0; }
+    .ep-form-label {
+      display:block; font-size:.8rem; font-weight:600; color:var(--ep-text);
+      margin-bottom:6px;
+    }
+    .ep-form-input {
+      width:100%; padding:10px 12px; border-radius:8px;
+      border:1.5px solid var(--ep-border); background:var(--ep-surface-raised);
+      color:var(--ep-text); font-size:.875rem; box-sizing:border-box;
+      transition:border-color .15s;
+    }
+    .ep-form-input:focus {
+      outline:none; border-color:var(--ep-brand);
+      box-shadow:0 0 0 3px rgba(74,158,255,.12);
+    }
+    .ep-form-input::placeholder { color:var(--ep-text-muted); }
+    .profil-save-row { display:flex; gap:10px; align-items:center; margin-top:20px; flex-wrap:wrap; }
+    .profil-success { font-size:.8rem; color:var(--ep-success); font-weight:600; display:none; }
+    .profil-doc-summary { display:flex; gap:8px; flex-wrap:wrap; margin-bottom:14px; }
+    .profil-doc-badge {
+      display:inline-flex; align-items:center; gap:6px;
+      padding:6px 10px; border-radius:999px; font-size:.75rem; font-weight:700;
+      border:1px solid var(--ep-border); background:var(--ep-surface-raised);
+    }
+    .profil-doc-badge.good { color:var(--ep-success); border-color:rgba(16,185,129,.2); background:rgba(16,185,129,.1); }
+    .profil-doc-badge.warn { color:var(--ep-warning,#f59e0b); border-color:rgba(245,158,11,.22); background:rgba(245,158,11,.1); }
+    .profil-doc-badge.bad { color:var(--ep-danger,#ef4444); border-color:rgba(239,68,68,.2); background:rgba(239,68,68,.08); }
+    .profil-doc-badge.info { color:var(--ep-brand); border-color:rgba(74,158,255,.2); background:rgba(74,158,255,.08); }
+    .profil-doc-form-grid { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+    .profil-doc-list { display:grid; gap:12px; margin-top:18px; }
+    .profil-doc-item {
+      border:1px solid var(--ep-border); border-radius:10px; background:var(--ep-surface-raised);
+      padding:14px 16px;
+    }
+    .profil-doc-head {
+      display:flex; align-items:flex-start; justify-content:space-between; gap:12px; margin-bottom:6px;
+    }
+    .profil-doc-title { font-size:.92rem; font-weight:700; color:var(--ep-text); }
+    .profil-doc-meta { font-size:.78rem; color:var(--ep-text-muted); line-height:1.5; }
+    .profil-doc-note { font-size:.78rem; color:var(--ep-text); margin-top:8px; line-height:1.5; }
+    .profil-doc-actions { display:flex; gap:8px; flex-wrap:wrap; margin-top:12px; }
+    .profil-doc-empty {
+      padding:18px 16px; border:1px dashed var(--ep-border); border-radius:10px;
+      color:var(--ep-text-muted); font-size:.82rem; text-align:center;
+    }
+    .profil-doc-upload-note { font-size:.78rem; color:var(--ep-text-muted); }
+
+    /* Mobile: stack 2-col grids */
+    @media (max-width: 480px) {
+      .profil-card-body > div[style*="grid-template-columns"] { display:block !important; }
+      .profil-card-body > div[style*="grid-template-columns"] > .profil-field,
+      .profil-card-body > div[style*="grid-template-columns"] > .ep-form-group { margin-bottom:12px; }
+      .profil-doc-form-grid { display:block; }
+      .ep-form-input { min-height:44px; padding:12px; font-size:16px; }
+      .profil-avatar { width:44px; height:44px; font-size:1rem; }
+    }
+  </style>
+</head>
+<body>
+
+<aside class="ep-sidebar">
+  <div class="ep-sidebar-brand"><div class="ep-sidebar-logo">TC</div><div><div style="font-weight:800;font-size:.95rem">Einsatzportal</div><div style="font-size:.7rem;color:var(--ep-text-muted);font-weight:400">TempConnect</div></div></div>
+  <nav class="ep-sidebar-nav">
+    <a class="ep-sidebar-item" href="einsatzportal-dashboard.html"><span class="icon">🏠</span> Dashboard</a>
+    <a class="ep-sidebar-item" href="einsatzportal-einsaetze.html"><span class="icon">📋</span> Meine Einsätze</a>
+    <a class="ep-sidebar-item" href="einsatzportal-plan.html"><span class="icon">📅</span> Einsatzplan</a>
+    <a class="ep-sidebar-item" href="einsatzportal-stundenzettel.html"><span class="icon">⏱</span> Stundenzettel</a>
+    <a class="ep-sidebar-item" href="einsatzportal-benachrichtigungen.html"><span class="icon">🔔</span> Benachrichtigungen<span class="ep-sidebar-badge" id="sb-badge" style="display:none">0</span></a>
+    <a class="ep-sidebar-item" href="einsatzportal-kontakt.html"><span class="icon">💬</span> Kontakt &amp; Hilfe</a>
+    <a class="ep-sidebar-item active" href="einsatzportal-profil.html"><span class="icon">👤</span> Mein Profil</a>
+  </nav>
+  <div class="ep-sidebar-footer">
+    <div class="ep-sidebar-user"><div class="ep-sidebar-avatar" id="sd-ava">?</div><div><div class="ep-sidebar-name" id="sd-name">Lädt…</div><div class="ep-sidebar-role">Arbeitnehmer</div></div></div>
+    <button class="ep-sidebar-item" onclick="doLogout()" style="margin-top:4px;color:var(--ep-text-muted)"><span class="icon">↩</span> Abmelden</button>
+  </div>
+</aside>
+
+<header class="ep-topbar">
+  <a class="ep-topbar-brand" href="einsatzportal-dashboard.html" aria-label="Zur Einsatzportal-Übersicht"><div class="ep-topbar-logo">TC</div>Mein Profil</a>
+  <div class="ep-topbar-actions"><a class="ep-bell" href="einsatzportal-benachrichtigungen.html">🔔<span class="ep-bell-badge" id="mob-badge" style="display:none">0</span></a></div>
+</header>
+
+<main class="ep-main">
+  <div class="ep-content">
+    <div class="ep-page-header">
+      <h1 class="ep-page-title">Mein Profil</h1>
+      <p class="ep-page-sub">Persönliche Daten und Kontaktinformationen</p>
+    </div>
+
+    <div id="loading">
+      <div class="ep-skel" style="height:100px;margin-bottom:12px"></div>
+      <div class="ep-skel" style="height:180px;opacity:.8"></div>
+    </div>
+
+    <div id="content" style="display:none">
+
+      <!-- Stammdaten (read-only) -->
+      <div class="profil-card">
+        <div class="profil-card-head">
+          <div class="profil-avatar" id="profAva">?</div>
+          <div>
+            <div class="profil-head-name" id="profName">–</div>
+            <div class="profil-head-role">Arbeitnehmer</div>
+            <div class="profil-head-email" id="profEmail">–</div>
+          </div>
+        </div>
+        <div class="profil-card-body">
+          <div class="profil-field">
+            <div class="profil-label">Personalnummer</div>
+            <div class="profil-val" id="profPN">–</div>
+          </div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+            <div class="profil-field">
+              <div class="profil-label">Vorname</div>
+              <div class="profil-val" id="profFirst">–</div>
+            </div>
+            <div class="profil-field">
+              <div class="profil-label">Nachname</div>
+              <div class="profil-val" id="profLast">–</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Bearbeitbare Felder -->
+      <div class="profil-card">
+        <div class="profil-card-head" style="padding:14px 20px">
+          <div>
+            <div style="font-weight:700;font-size:.9rem">Kontaktdaten bearbeiten</div>
+            <div style="font-size:.75rem;color:var(--ep-text-muted);margin-top:1px">Telefon und Adresse aktualisieren</div>
+          </div>
+        </div>
+        <div class="profil-card-body">
+          <div class="ep-form-group">
+            <label class="ep-form-label" for="fPhone">Telefonnummer</label>
+            <input type="tel" id="fPhone" class="ep-form-input" placeholder="+49 170 …">
+          </div>
+          <div class="ep-form-group">
+            <label class="ep-form-label" for="fStreet">Straße &amp; Hausnummer</label>
+            <input type="text" id="fStreet" class="ep-form-input" placeholder="Musterstraße 1">
+          </div>
+          <div style="display:grid;grid-template-columns:120px 1fr;gap:12px">
+            <div class="ep-form-group">
+              <label class="ep-form-label" for="fPLZ">PLZ</label>
+              <input type="text" id="fPLZ" class="ep-form-input" placeholder="12345" maxlength="10">
+            </div>
+            <div class="ep-form-group">
+              <label class="ep-form-label" for="fCity">Stadt</label>
+              <input type="text" id="fCity" class="ep-form-input" placeholder="Berlin">
+            </div>
+          </div>
+          <div class="profil-save-row">
+            <button class="ep-btn ep-btn-primary" id="saveBtn" onclick="saveProfile()">Änderungen speichern</button>
+            <span class="profil-success" id="saveOk">✓ Gespeichert</span>
+          </div>
+          <div class="ep-alert ep-alert-danger" id="saveErr" style="display:none;margin-top:10px">
+            <span>⚠️</span><span id="saveErrTxt">Fehler beim Speichern.</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="profil-card" id="documents">
+        <div class="profil-card-head" style="padding:14px 20px">
+          <div>
+            <div style="font-weight:700;font-size:.9rem">Nachweise &amp; Dokumente</div>
+            <div style="font-size:.75rem;color:var(--ep-text-muted);margin-top:1px">Eigene Nachweise hochladen, Status verfolgen und Fristen im Blick behalten</div>
+          </div>
+        </div>
+        <div class="profil-card-body">
+          <div class="ep-alert ep-alert-warning" id="docAlert" style="display:none;margin-bottom:12px">
+            <span>⚠️</span><span id="docAlertTxt">Bitte prüfen Sie Ihre Nachweise.</span>
+          </div>
+          <div class="profil-doc-summary" id="docSummary"></div>
+          <div class="profil-doc-form-grid">
+            <div class="ep-form-group">
+              <label class="ep-form-label" for="docCategory">Kategorie</label>
+              <select id="docCategory" class="ep-form-input">
+                <option value="qualification">Qualifikation</option>
+                <option value="identity">Identität</option>
+                <option value="permit">Erlaubnis</option>
+                <option value="medical">Medizinisch</option>
+                <option value="training">Schulung</option>
+                <option value="other">Sonstiges</option>
+              </select>
+            </div>
+            <div class="ep-form-group">
+              <label class="ep-form-label" for="docTitle">Titel</label>
+              <input type="text" id="docTitle" class="ep-form-input" placeholder="z. B. Staplerschein">
+            </div>
+            <div class="ep-form-group">
+              <label class="ep-form-label" for="docQualification">Qualifikation / Nachweistyp</label>
+              <input type="text" id="docQualification" class="ep-form-input" placeholder="Staplerschein, Aufenthaltstitel …">
+            </div>
+            <div class="ep-form-group">
+              <label class="ep-form-label" for="docIssuer">Aussteller</label>
+              <input type="text" id="docIssuer" class="ep-form-input" placeholder="DEKRA, Behörde …">
+            </div>
+            <div class="ep-form-group">
+              <label class="ep-form-label" for="docValidFrom">Gültig ab</label>
+              <input type="date" id="docValidFrom" class="ep-form-input">
+            </div>
+            <div class="ep-form-group">
+              <label class="ep-form-label" for="docValidUntil">Gültig bis</label>
+              <input type="date" id="docValidUntil" class="ep-form-input">
+            </div>
+          </div>
+          <div class="ep-form-group">
+            <label class="ep-form-label" for="docNotes">Hinweis</label>
+            <textarea id="docNotes" class="ep-form-input" rows="3" placeholder="Optionaler Hinweis für die interne Prüfung"></textarea>
+          </div>
+          <div class="ep-form-group">
+            <label class="ep-form-label" for="docFile">Datei</label>
+            <input type="file" id="docFile" class="ep-form-input" accept=".pdf,.png,.jpg,.jpeg,.webp,application/pdf,image/png,image/jpeg,image/webp">
+          </div>
+          <div class="profil-save-row">
+            <button class="ep-btn ep-btn-primary" id="docUploadBtn" onclick="uploadDocument()">Nachweis hochladen</button>
+            <span class="profil-doc-upload-note">PDF, PNG, JPG oder WEBP bis 10 MB. Verifizierte Dokumente bleiben nach der Freigabe geschützt.</span>
+          </div>
+          <div class="ep-alert ep-alert-danger" id="docErr" style="display:none;margin-top:10px">
+            <span>⚠️</span><span id="docErrTxt">Dokument konnte nicht gespeichert werden.</span>
+          </div>
+          <div class="profil-doc-list" id="docList"></div>
+        </div>
+      </div>
+
+      <!-- Sicherheit -->
+      <div class="profil-card">
+        <div class="profil-card-head" style="padding:14px 20px">
+          <div style="font-weight:700;font-size:.9rem">Sicherheit</div>
+        </div>
+        <div class="profil-card-body">
+          <div class="ep-info-row" style="display:flex;align-items:center;gap:12px">
+            <div class="ep-info-icon">🔒</div>
+            <div>
+              <div class="ep-info-label">Passwort ändern</div>
+              <div class="ep-info-val" style="font-size:.8rem;color:var(--ep-text-muted)">Passwort-Änderung über den „Passwort vergessen"-Link auf der Login-Seite</div>
+            </div>
+          </div>
+          <div style="margin-top:12px">
+            <a href="worker-login.html" class="ep-btn ep-btn-ghost ep-btn-sm">→ Zur Login-Seite</a>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</main>
+
+<nav class="ep-bottom-nav">
+  <a class="ep-bn-item" href="einsatzportal-dashboard.html"><span class="icon">🏠</span>Start</a>
+  <a class="ep-bn-item" href="einsatzportal-einsaetze.html"><span class="icon">📋</span>Einsätze</a>
+  <a class="ep-bn-item" href="einsatzportal-plan.html"><span class="icon">📅</span>Plan</a>
+  <a class="ep-bn-item" href="einsatzportal-stundenzettel.html"><span class="icon">⏱</span>Stunden</a>
+  <a class="ep-bn-item" href="einsatzportal-benachrichtigungen.html"><span class="icon">🔔</span>Info<span class="ep-bn-dot" id="bn-dot" style="display:none"></span></a>
+  <a class="ep-bn-item active" href="einsatzportal-profil.html"><span class="icon">👤</span>Profil</a>
+</nav>
+<div id="ep-toast"></div>
+
+<script src="/public/js/workerPortal/portalApi.js"></script>
+<script src="/public/js/workerPortal/portalShell.js"></script>
+<script src="/public/js/workerPortal/portalStatus.js"></script>
+<script>
+let me = null;
+let workerDocuments = { items: [], summary: {} };
+function esc(s) { return PortalShell.esc(s); }
+function toast(msg, type) { PortalShell.toast(msg, type || ''); }
+
+(async () => {
+  try {
+    me = await PortalShell.initShell();
+    fillProfile(me);
+    await loadWorkerDocuments().catch(function() {
+      workerDocuments = { items: [], summary: {} };
+      renderDocuments();
+    });
+    document.getElementById('loading').style.display = 'none';
+    document.getElementById('content').style.display = '';
+  } catch(e) {
+    const code = e.code || e.message;
+    if (code === 'NOT_AUTH') { location.href = 'worker-login.html'; return; }
+    PortalShell.showError(e.message || 'Fehler beim Laden');
+  }
+})();
+
+function fillProfile(p) {
+  const fullName = `${p.first_name||''} ${p.last_name||''}`.trim() || p.email;
+  const ini = ((p.first_name||'?')[0] + (p.last_name||'?')[0]).toUpperCase();
+
+  // Sidebar + topbar
+  const ava = document.getElementById('sd-ava'); if(ava) ava.textContent = ini;
+  const sn  = document.getElementById('sd-name'); if(sn) sn.textContent = fullName;
+
+  // Profile card
+  document.getElementById('profAva').textContent   = ini;
+  document.getElementById('profName').textContent  = fullName;
+  document.getElementById('profEmail').textContent = p.email || '–';
+  document.getElementById('profPN').textContent    = p.personnel_number || '–';
+  document.getElementById('profFirst').textContent = p.first_name || '–';
+  document.getElementById('profLast').textContent  = p.last_name  || '–';
+
+  // Editable fields
+  document.getElementById('fPhone').value  = p.phone        || '';
+  document.getElementById('fStreet').value = p.street       || '';
+  document.getElementById('fPLZ').value    = p.postal_code  || '';
+  document.getElementById('fCity').value   = p.city         || '';
+}
+
+function docStatusLabel(status) {
+  return {
+    pending_review: 'In Prüfung',
+    verified: 'Verifiziert',
+    rejected: 'Abgelehnt',
+    expired: 'Abgelaufen',
+    archived: 'Archiviert'
+  }[status] || status || 'Offen';
+}
+
+function docBadgeClass(status) {
+  if (status === 'verified') return 'good';
+  if (status === 'pending_review') return 'warn';
+  if (status === 'rejected' || status === 'expired') return 'bad';
+  return 'info';
+}
+
+function docCategoryLabel(category) {
+  return {
+    qualification: 'Qualifikation',
+    identity: 'Identität',
+    permit: 'Erlaubnis',
+    medical: 'Medizinisch',
+    training: 'Schulung',
+    other: 'Sonstiges'
+  }[category] || category || 'Dokument';
+}
+
+function formatDocDate(value) {
+  if (!value) return '–';
+  try {
+    return new Date(value).toLocaleDateString('de-DE', { day:'2-digit', month:'2-digit', year:'numeric' });
+  } catch {
+    return value;
+  }
+}
+
+function formatDocBytes(bytes) {
+  const num = Number(bytes || 0);
+  if (!num) return 'Datei';
+  if (num >= 1024 * 1024) return (num / (1024 * 1024)).toFixed(1).replace('.', ',') + ' MB';
+  if (num >= 1024) return Math.round(num / 1024) + ' KB';
+  return num + ' B';
+}
+
+async function loadWorkerDocuments() {
+  const d = await PortalApi.get('/worker/documents', { limit: '50' });
+  workerDocuments = { items: d.items || [], summary: d.summary || {} };
+  renderDocuments();
+}
+
+function renderDocuments() {
+  const summary = workerDocuments.summary || {};
+  const items = workerDocuments.items || [];
+  const summaryEl = document.getElementById('docSummary');
+  const listEl = document.getElementById('docList');
+  const alertEl = document.getElementById('docAlert');
+  const alertTxt = document.getElementById('docAlertTxt');
+  if (summaryEl) {
+    summaryEl.innerHTML = [
+      { label:'Gesamt', value: summary.total || 0, cls:'info' },
+      { label:'Verifiziert', value: summary.verified || 0, cls:'good' },
+      { label:'In Prüfung', value: summary.pending_review || 0, cls:'warn' },
+      { label:'Fristkritisch', value: summary.expiring_soon || 0, cls:(summary.expiring_soon || 0) ? 'warn' : 'info' },
+      { label:'Aktion nötig', value: summary.action_required || 0, cls:(summary.action_required || 0) ? 'bad' : 'info' }
+    ].map(function(item) {
+      return `<span class="profil-doc-badge ${item.cls}">${esc(item.label)}: ${esc(String(item.value))}</span>`;
+    }).join('');
+  }
+  if (alertEl && alertTxt) {
+    if ((summary.expired || 0) > 0) {
+      alertTxt.textContent = `${summary.expired} Nachweis(e) sind abgelaufen. Bitte laden Sie umgehend eine gültige Version hoch.`;
+      alertEl.style.display = '';
+    } else if ((summary.rejected || 0) > 0) {
+      alertTxt.textContent = `${summary.rejected} Nachweis(e) wurden abgelehnt. Bitte prüfen Sie die Hinweise und laden Sie Ersatz hoch.`;
+      alertEl.style.display = '';
+    } else if ((summary.expiring_soon || 0) > 0) {
+      alertTxt.textContent = `${summary.expiring_soon} Nachweis(e) laufen in den nächsten Tagen ab. Planen Sie die Verlängerung frühzeitig ein.`;
+      alertEl.style.display = '';
+    } else {
+      alertEl.style.display = 'none';
+    }
+  }
+  if (!listEl) return;
+  if (!items.length) {
+    listEl.innerHTML = '<div class="profil-doc-empty">Noch keine Nachweise hinterlegt. Laden Sie hier Ihre Dokumente für die interne Prüfung hoch.</div>';
+    return;
+  }
+  listEl.innerHTML = items.map(function(doc) {
+    const meta = [
+      docCategoryLabel(doc.category),
+      doc.qualification_name || null,
+      doc.issuer || null,
+      doc.valid_from ? 'ab ' + formatDocDate(doc.valid_from) : null,
+      doc.valid_until ? 'bis ' + formatDocDate(doc.valid_until) : null
+    ].filter(Boolean);
+    let note = doc.review_note || doc.notes || '';
+    if (doc.effective_status === 'verified' && doc.days_until_expiry != null && doc.days_until_expiry >= 0 && doc.days_until_expiry <= 30) {
+      note = (note ? note + ' · ' : '') + `Läuft in ${doc.days_until_expiry} Tagen ab.`;
+    }
+    if (doc.effective_status === 'expired' && doc.valid_until) {
+      note = (note ? note + ' · ' : '') + `Seit ${formatDocDate(doc.valid_until)} abgelaufen.`;
+    }
+    return `<div class="profil-doc-item">
+      <div class="profil-doc-head">
+        <div>
+          <div class="profil-doc-title">${esc(doc.title || doc.original_name || 'Dokument')}</div>
+          <div class="profil-doc-meta">${esc(meta.join(' · ')) || 'Ohne Zusatzangaben'}</div>
+          <div class="profil-doc-meta">${esc(formatDocBytes(doc.file_size_bytes))}${doc.original_name ? ' · ' + esc(doc.original_name) : ''}</div>
+        </div>
+        <span class="profil-doc-badge ${docBadgeClass(doc.effective_status || doc.status)}">${esc(docStatusLabel(doc.effective_status || doc.status))}</span>
+      </div>
+      ${note ? `<div class="profil-doc-note">${esc(note)}</div>` : ''}
+      <div class="profil-doc-actions">
+        ${doc.download_path ? `<button class="ep-btn ep-btn-ghost ep-btn-sm" onclick="downloadDocument('${esc(doc.id)}')">Download</button>` : ''}
+        ${doc.status !== 'verified' ? `<button class="ep-btn ep-btn-danger ep-btn-sm" onclick="deleteDocument('${esc(doc.id)}')">Löschen</button>` : ''}
+      </div>
+    </div>`;
+  }).join('');
+}
+
+async function uploadDocument() {
+  const btn = document.getElementById('docUploadBtn');
+  const errEl = document.getElementById('docErr');
+  const errTxt = document.getElementById('docErrTxt');
+  const fileInput = document.getElementById('docFile');
+  const file = fileInput && fileInput.files && fileInput.files[0];
+  const title = (document.getElementById('docTitle').value || '').trim();
+  if (!title) {
+    errTxt.textContent = 'Bitte einen Titel angeben.';
+    errEl.style.display = 'flex';
+    return;
+  }
+  if (!file) {
+    errTxt.textContent = 'Bitte eine Datei auswählen.';
+    errEl.style.display = 'flex';
+    return;
+  }
+  errEl.style.display = 'none';
+  btn.disabled = true;
+  btn.textContent = '⏳ Upload läuft…';
+  const formData = new FormData();
+  formData.append('category', document.getElementById('docCategory').value || 'qualification');
+  formData.append('title', title);
+  formData.append('qualification_name', (document.getElementById('docQualification').value || '').trim());
+  formData.append('issuer', (document.getElementById('docIssuer').value || '').trim());
+  formData.append('valid_from', document.getElementById('docValidFrom').value || '');
+  formData.append('valid_until', document.getElementById('docValidUntil').value || '');
+  formData.append('notes', (document.getElementById('docNotes').value || '').trim());
+  formData.append('file', file);
+  try {
+    await PortalApi.upload('/worker/documents', formData);
+    ['docTitle','docQualification','docIssuer','docValidFrom','docValidUntil','docNotes'].forEach(function(id) {
+      const el = document.getElementById(id);
+      if (el) el.value = '';
+    });
+    if (fileInput) fileInput.value = '';
+    await loadWorkerDocuments();
+    toast('Nachweis hochgeladen.');
+  } catch (e) {
+    errTxt.textContent = e.code === 'FILE_TOO_LARGE' ? 'Datei ist zu groß (max. 10 MB).'
+      : e.code === 'INVALID_MIME' ? (e.message || 'Dateityp nicht erlaubt.')
+      : e.code === 'VALIDATION' ? 'Bitte prüfen Sie Kategorie, Titel und Gültigkeitsdaten.'
+      : 'Dokument konnte nicht gespeichert werden.';
+    errEl.style.display = 'flex';
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'Nachweis hochladen';
+  }
+}
+
+function downloadDocument(documentId) {
+  window.open(`/api/worker/documents/${encodeURIComponent(documentId)}/download`, '_blank', 'noopener');
+}
+
+async function deleteDocument(documentId) {
+  if (!window.confirm('Dokument wirklich löschen?')) return;
+  try {
+    await PortalApi.del(`/worker/documents/${encodeURIComponent(documentId)}`);
+    await loadWorkerDocuments();
+    toast('Dokument gelöscht.');
+  } catch (e) {
+    toast(e.code === 'VERIFIED_DOCUMENT_LOCKED'
+      ? 'Verifizierte Dokumente können nicht selbst gelöscht werden.'
+      : 'Dokument konnte nicht gelöscht werden.', 'error');
+  }
+}
+
+async function saveProfile() {
+  const btn    = document.getElementById('saveBtn');
+  const okEl   = document.getElementById('saveOk');
+  const errEl  = document.getElementById('saveErr');
+  const errTxt = document.getElementById('saveErrTxt');
+
+  btn.disabled = true; btn.textContent = '⏳ Speichern…';
+  okEl.style.display = 'none'; errEl.style.display = 'none';
+
+  const data = {
+    phone:       document.getElementById('fPhone').value.trim() || null,
+    street:      document.getElementById('fStreet').value.trim() || null,
+    postal_code: document.getElementById('fPLZ').value.trim() || null,
+    city:        document.getElementById('fCity').value.trim() || null
+  };
+
+  try {
+    const d = await PortalApi.patch('/worker/me', data);
+    // Update cached profile
+    me = { ...me, ...data };
+    fillProfile({ ...me, ...d });
+    okEl.style.display = '';
+    setTimeout(() => { okEl.style.display = 'none'; }, 3000);
+  } catch(e) {
+    errTxt.textContent = e.code === 'VALIDATION' ? 'Ungültige Eingabe.' : 'Fehler beim Speichern. Bitte versuchen Sie es erneut.';
+    errEl.style.display = 'flex';
+  } finally {
+    btn.disabled = false; btn.textContent = 'Änderungen speichern';
+  }
+}
+
+</script>
+<script src="/public/js/demoBanner.js" defer></script>
+<script src="/public/js/breadcrumb.js" defer></script>
+</body>
+</html>

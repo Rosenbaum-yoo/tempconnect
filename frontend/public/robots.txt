@@ -1,0 +1,23 @@
+# robots.txt — TempConnect
+# Erstellt: 2026-05-28
+# Referenz: docs/NOINDEX_DECISIONS.md
+
+User-agent: *
+
+# Interne / Auth-geschuetzte Bereiche
+Disallow: /staff/
+Disallow: /owner-control/
+Disallow: /support-ops/
+Disallow: /public/admin_panel.html
+Disallow: /public/internal_control_center.html
+Disallow: /public/meine-agb.html
+
+# API-Endpunkte
+Disallow: /api/
+
+# Worker-Profile: noindex gesetzt (DSGVO Art. 6)
+# Zusaetzlich robots.txt als Absicherung
+Disallow: /public/worker-profile-public.html
+
+# Sitemap (optional — nach Go-Live ergaenzen)
+# Sitemap: https://www.tempconnect.de/sitemap.xml

@@ -3,9 +3,17 @@
 <head>
   <meta charset="utf-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
-  <title>Compliance – TempConnect</title>
+  <script src="/public/js/theme.js"></script>
+  <title>Compliance – TempConnect Trust Center</title>
   <link rel="stylesheet" href="/public/css/design-system.css"/>
   <style>
+    .trust-nav { display: flex; gap: var(--ds-space-3); padding: var(--ds-space-3) 0; border-bottom: 1px solid var(--ds-border); margin-bottom: var(--ds-space-5); flex-wrap: wrap; }
+    .trust-nav a { font-size: 13px; font-weight: 600; color: var(--ds-text-secondary); text-decoration: none; padding: var(--ds-space-1) var(--ds-space-3); border-radius: var(--ds-radius-md); transition: background .15s, color .15s; }
+    .trust-nav a:hover { background: rgba(255,255,255,0.06); color: var(--ds-text-primary); }
+    .trust-nav a.active { background: var(--ds-brand); color: #fff; }
+
+    .trust-section { margin-bottom: var(--ds-space-6); }
+    .trust-section h2 { font-size: 18px; font-weight: 700; margin: 0 0 var(--ds-space-3); padding-bottom: var(--ds-space-2); border-bottom: 1px solid var(--ds-border); }
     .trust-card { border: 1px solid var(--ds-border); border-radius: var(--ds-radius-lg); padding: var(--ds-space-5); background: rgba(255,255,255,0.02); margin-bottom: var(--ds-space-3); }
     .trust-card h3 { font-size: 16px; font-weight: 700; margin: 0 0 var(--ds-space-2); display: flex; align-items: center; gap: var(--ds-space-2); }
     .trust-card h3 .icon { font-size: 20px; }
@@ -17,17 +25,32 @@
 </head>
 <body>
   <div class="ds-wrap">
-    <nav class="ds-topbar">
-      <div class="ds-topbar__brand"><span class="ds-topbar__brand-dot"></span> TempConnect</div>
+    <nav class="ds-topbar" data-notif-topbar>
+      <div class="ds-topbar__brand"><span class="ds-topbar__brand-dot"></span>TempConnect</div>
       <div class="ds-topbar__nav">
-        <a href="/" class="ds-nav-link">Startseite</a>
-        <a href="/public/trust/security.html" class="ds-nav-link">Sicherheit</a>
-        <a href="/public/trust/platform-sla.html" class="ds-nav-link">Plattform-SLA</a>
-        <a href="/public/trust/status.html" class="ds-nav-link">Status</a>
-        <span class="ds-topbar__separator"></span>
-        <a href="/app" class="ds-btn">Anmelden</a>
+        <a href="/public/enterprise.html" class="ds-nav-link">Übersicht</a>
+        <a href="/public/capacity_exchange_feed.html" class="ds-nav-link">Vermittlung</a>
+        <a href="/public/executive_dashboard.html" class="ds-nav-link">Dashboard</a>
+        <a href="/public/hilfe.html" class="ds-nav-link" title="Help Center" style="font-size:16px;text-decoration:none">&#10067;</a>
+
+
+        <!-- User Profile Dropdown -->
+        <div id="tc-user-profile" style="position:relative;display:inline-flex;align-items:center;margin-left:6px">
+          <button id="tc-user-btn" type="button" title="Profil &amp; Konto" style="width:34px;height:34px;border-radius:50%;border:1.5px solid rgba(74,158,255,.35);background:rgba(74,158,255,.12);color:#4a9eff;font-size:15px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:border-color .15s,background .15s,box-shadow .15s">&#128100;</button>
+          <div id="tc-user-dropdown" style="display:none;position:absolute;top:calc(100% + 10px);right:0;width:260px;border:1px solid var(--line,rgba(255,255,255,.12));border-radius:14px;background:var(--card,#1a1d24);box-shadow:0 8px 32px rgba(0,0,0,.55);z-index:9999;padding:16px">
+            <div id="tc-user-dd-content" style="text-align:center;color:var(--muted,#8d9bba);font-size:13px;padding:8px 0">Lade Profil&hellip;</div>
+          </div>
+        </div>
       </div>
     </nav>
+
+    <!-- Trust Center Navigation -->
+    <div class="trust-nav">
+      <a href="/public/trust/security.html">&#128274; Sicherheit</a>
+      <a href="/public/trust/compliance.html" class="active">&#128220; Compliance</a>
+      <a href="/public/trust/status.html">&#128994; Systemstatus</a>
+      <a href="/public/trust/platform-sla.html">&#128196; SLA</a>
+    </div>
 
     <div class="ds-page-header">
       <div class="ds-page-header__content">
@@ -36,61 +59,185 @@
       </div>
     </div>
 
-    <div class="trust-grid">
-      <div class="trust-card">
-        <h3><span class="icon">&#128220;</span> DSGVO / GDPR</h3>
-        <p>TempConnect ist nach den Grundsaetzen der Datenschutz-Grundverordnung konzipiert. Die Plattform verarbeitet nur die fuer den Geschaeftsbetrieb erforderlichen Daten und stellt sicher, dass Betroffenenrechte jederzeit wahrgenommen werden koennen.</p>
-        <ul>
-          <li>Datenminimierung und Zweckbindung</li>
-          <li>Recht auf Auskunft, Berichtigung und Loeschung</li>
-          <li>Verarbeitungsverzeichnis gemaess Art. 30 DSGVO</li>
-        </ul>
-      </div>
+    <!-- Section: Datenschutz & DSGVO -->
+    <div class="trust-section">
+      <h2>&#128220; Datenschutz &amp; DSGVO</h2>
+      <div class="trust-grid">
+        <div class="trust-card">
+          <h3><span class="icon">&#128220;</span> DSGVO / GDPR</h3>
+          <p>TempConnect ist nach den Grundsaetzen der Datenschutz-Grundverordnung konzipiert. Die Plattform verarbeitet nur die fuer den Geschaeftsbetrieb erforderlichen Daten und stellt sicher, dass Betroffenenrechte jederzeit wahrgenommen werden koennen.</p>
+          <ul>
+            <li>Datenminimierung und Zweckbindung</li>
+            <li>Recht auf Auskunft, Berichtigung und Loeschung</li>
+            <li>Verarbeitungsverzeichnis gemaess Art. 30 DSGVO</li>
+            <li>Sensible Felder (Passwoerter, Tokens, IBAN) werden in Logs automatisch als [REDACTED] maskiert</li>
+          </ul>
+        </div>
 
-      <div class="trust-card">
-        <h3><span class="icon">&#128196;</span> Auftragsverarbeitung (AV-Vertrag)</h3>
-        <p>Mit allen Infrastruktur- und Dienstleistungspartnern bestehen Auftragsverarbeitungsvertraege gemaess Art. 28 DSGVO. Die Datenverarbeitung erfolgt ausschliesslich in Rechenzentren innerhalb der Europaeischen Union.</p>
+        <div class="trust-card">
+          <h3><span class="icon">&#128196;</span> Auftragsverarbeitung (AV-Vertrag)</h3>
+          <p>Mit allen Infrastruktur- und Dienstleistungspartnern bestehen Auftragsverarbeitungsvertraege gemaess Art. 28 DSGVO. Die Datenverarbeitung erfolgt ausschliesslich in Rechenzentren innerhalb der Europaeischen Union.</p>
+          <ul>
+            <li>AV-Vertraege mit Hosting-Provider (Hetzner, DE)</li>
+            <li>AV-Vertraege mit E-Mail-Dienstleister</li>
+            <li>Keine Datenuebermittlung in Drittstaaten</li>
+          </ul>
+        </div>
       </div>
+    </div>
 
-      <div class="trust-card">
-        <h3><span class="icon">&#9989;</span> Dokumentenverifikation</h3>
-        <p>TempConnect unterstuetzt die Ueberpruefung von Compliance-Dokumenten wie Gewerbeanmeldungen, AUeG-Genehmigungen und Versicherungsnachweisen. Dokumente werden mit Ablaufdaten versehen und in einer Compliance-Ampel visualisiert.</p>
-        <ul>
-          <li>Upload und Verwaltung von Nachweisdokumenten</li>
-          <li>Ablaufueberwachung mit automatischer Warnung</li>
-          <li>Ampellogik: Gruen (gueltig), Gelb (laeuft ab), Rot (abgelaufen)</li>
-        </ul>
+    <!-- Section: Dokumenten-Compliance -->
+    <div class="trust-section">
+      <h2>&#9989; Dokumentenverifikation &amp; Nachweise</h2>
+      <div class="trust-grid">
+        <div class="trust-card">
+          <h3><span class="icon">&#9989;</span> Dokumentenverifikation</h3>
+          <p>TempConnect unterstuetzt die Ueberpruefung von Compliance-Dokumenten wie Gewerbeanmeldungen, AUeG-Genehmigungen und Versicherungsnachweisen. Dokumente werden mit Ablaufdaten versehen und in einer Compliance-Ampel visualisiert.</p>
+          <ul>
+            <li>Upload und Verwaltung von Nachweisdokumenten</li>
+            <li>Ablaufueberwachung mit automatischer Warnung</li>
+            <li>Ampellogik: Gruen (gueltig), Gelb (laeuft ab), Rot (abgelaufen)</li>
+          </ul>
+        </div>
+
+        <div class="trust-card">
+          <h3><span class="icon">&#128101;</span> Lieferanten-Qualitaet</h3>
+          <p>TempConnect bewertet Lieferanten anhand objektiver Kriterien wie Fill Rate, Puenktlichkeit und SLA-Einhaltung. Die Lieferanten-Scorecard bietet Transparenz ueber die Zuverlaessigkeit von Personaldienstleistern.</p>
+          <ul>
+            <li>Scorecard mit Note (A / B / C)</li>
+            <li>Compliance-Status je Lieferant</li>
+            <li>Vendor Pool Tiers (Preferred, Secondary, Trial, Blocked)</li>
+            <li>Smart Ranking auf Basis von 6 objektiven Signalen</li>
+          </ul>
+        </div>
       </div>
+    </div>
 
-      <div class="trust-card">
-        <h3><span class="icon">&#128203;</span> Audit Trail &amp; Protokollierung</h3>
-        <p>Alle geschaeftsrelevanten Aktionen auf der Plattform werden mit Zeitstempel, Akteur und Kontext protokolliert. Dies umfasst Anfragen, Angebote, Deal-Abschluesse, Statusaenderungen und Administrative Aktionen.</p>
-        <ul>
-          <li>Vollstaendiger Audit Log fuer Enterprise-Kunden</li>
-          <li>Pulse-Prozessnachweis mit Zeitstempeln</li>
-          <li>Nachvollziehbarkeit aller Matching-Versuche</li>
-        </ul>
+    <!-- Section: Audit & Nachvollziehbarkeit -->
+    <div class="trust-section">
+      <h2>&#128203; Audit Trail &amp; Nachvollziehbarkeit</h2>
+      <div class="trust-grid">
+        <div class="trust-card">
+          <h3><span class="icon">&#128203;</span> Vollstaendiger Audit Trail</h3>
+          <p>Alle geschaeftsrelevanten Aktionen auf der Plattform werden mit Zeitstempel, Akteur und Kontext protokolliert. Dies umfasst Anfragen, Angebote, Deal-Abschluesse, Statusaenderungen und Administrative Aktionen.</p>
+          <ul>
+            <li>Append-only Audit Log — Eintraege koennen nicht geaendert oder geloescht werden</li>
+            <li>10+ Aktionstypen: CREATE, UPDATE, DELETE, APPROVAL, SUBMISSION, SECURITY u.a.</li>
+            <li>Pulse-Prozessnachweis mit Zeitstempeln</li>
+            <li>Nachvollziehbarkeit aller Matching-Versuche</li>
+            <li>Diff-Tracking: Alte und neue Werte werden bei Aenderungen gespeichert</li>
+          </ul>
+        </div>
+
+        <div class="trust-card">
+          <h3><span class="icon">&#128269;</span> Org-scoped Audit-Abfragen</h3>
+          <p>Jede Organisation sieht ausschliesslich eigene Audit-Events. Filter nach Akteur, Entitaetstyp, Aktion, Status und Zeitraum ermoeglichen gezielte Compliance-Reviews.</p>
+          <ul>
+            <li>Pagination fuer grosse Audit-Logs (bis zu 500 Eintraege pro Seite)</li>
+            <li>Export-Funktionen fuer interne und externe Audits</li>
+            <li>Admin-Panel mit Echtzeit-Filterung</li>
+          </ul>
+        </div>
       </div>
+    </div>
 
-      <div class="trust-card">
-        <h3><span class="icon">&#128101;</span> Lieferanten-Qualitaet</h3>
-        <p>TempConnect bewertet Lieferanten anhand objektiver Kriterien wie Fill Rate, Puenktlichkeit und SLA-Einhaltung. Die Lieferanten-Scorecard bietet Transparenz ueber die Zuverlaessigkeit von Personaldienstleistern.</p>
-        <ul>
-          <li>Scorecard mit Note (A / B / C)</li>
-          <li>Compliance-Status je Lieferant</li>
-          <li>Vendor Pool Tiers (Preferred, Secondary, Trial, Blocked)</li>
-        </ul>
+    <!-- Section: Backup & Datensicherung -->
+    <div class="trust-section">
+      <h2>&#128190; Backup &amp; Wiederherstellung</h2>
+      <div class="trust-grid">
+        <div class="trust-card">
+          <h3><span class="icon">&#128190;</span> Datensicherungsstrategie</h3>
+          <p>Datenbanken werden regelmaessig gesichert. Die Infrastruktur ist fuer Ausfallsicherheit konzipiert. Im Ernstfall koennen Daten aus Backups wiederhergestellt werden.</p>
+          <ul>
+            <li>Regelmaessige automatische Datenbank-Backups</li>
+            <li>Recovery Point Objective (RPO): minimaler Datenverlust bei Wiederherstellung</li>
+            <li>Recovery Time Objective (RTO): Wiederherstellung innerhalb von 4 Stunden</li>
+            <li>Wartungsfenster werden im Voraus angekuendigt</li>
+            <li>Getrennte Backup-Speicherung fuer Disaster Recovery</li>
+          </ul>
+        </div>
       </div>
+    </div>
 
-      <div class="trust-card">
-        <h3><span class="icon">&#127919;</span> Compliance-Roadmap</h3>
-        <p>TempConnect entwickelt die Compliance-Funktionen kontinuierlich weiter. Geplante Erweiterungen umfassen:</p>
-        <ul>
-          <li>Automatische Dokumentenvalidierung</li>
-          <li>Branchenspezifische Compliance-Templates</li>
-          <li>Export-Funktionen fuer interne Audits</li>
-          <li>Integration mit Beschaffungssystemen</li>
-        </ul>
+    <!-- Section: SLA & Verfuegbarkeit -->
+    <div class="trust-section">
+      <h2>&#128200; SLA &amp; Verfuegbarkeit</h2>
+      <div class="trust-grid">
+        <div class="trust-card">
+          <h3><span class="icon">&#128200;</span> Verfuegbarkeitsziele</h3>
+          <p>TempConnect definiert verbindliche Verfuegbarkeitsziele je nach Plan-Stufe. Detaillierte SLA-Bedingungen finden Sie auf der <a href="/public/trust/platform-sla.html" style="color:var(--ds-brand)">SLA-Seite</a>.</p>
+          <ul>
+            <li><strong>Individueller Tarif</strong>: 99,5 % monatliche Verfuegbarkeit</li>
+            <li><strong>PLUS / PRO</strong>: 99,0 % monatliche Verfuegbarkeit</li>
+            <li>Maximale Wiederherstellungszeit: &lt; 4 Stunden</li>
+            <li>24/7 Infrastruktur-Monitoring mit automatischen Alerts</li>
+          </ul>
+        </div>
+
+        <div class="trust-card">
+          <h3><span class="icon">&#128994;</span> Echtzeit-Systemstatus</h3>
+          <p>Die oeffentliche <a href="/public/trust/status.html" style="color:var(--ds-brand)">Statusseite</a> zeigt die aktuelle Verfuegbarkeit aller Plattform-Komponenten in Echtzeit. Health Checks werden automatisch alle 60 Sekunden durchgefuehrt.</p>
+          <ul>
+            <li>API-Server, Datenbank, Matching Engine, Stundenzettel-Verarbeitung</li>
+            <li>Benachrichtigungssystem, Suchdienst, Hintergrunddienste</li>
+            <li>Latenz-Messung pro Komponente</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+
+    <!-- Section: Organisatorische Massnahmen -->
+    <div class="trust-section">
+      <h2>&#127970; Organisatorische Massnahmen</h2>
+      <div class="trust-grid">
+        <div class="trust-card">
+          <h3><span class="icon">&#128274;</span> Zugangskontrolle</h3>
+          <p>Zugang zur Plattform ist ausschliesslich ueber authentifizierte Sessions moeglich. Verwaltungszugriffe auf Infrastruktur erfordern separate Credentials und Multi-Faktor-Authentifizierung.</p>
+          <ul>
+            <li>Session-basierte Authentifizierung mit sicheren Cookies</li>
+            <li>Brute-Force-Schutz durch Rate Limiting</li>
+            <li>Passwort-Hashing mit bcrypt (kein Klartext)</li>
+            <li>Admin-Endpunkte durch separates Admin-Secret geschuetzt</li>
+          </ul>
+        </div>
+
+        <div class="trust-card">
+          <h3><span class="icon">&#128274;</span> Weitergabekontrolle</h3>
+          <p>Personenbezogene Daten werden ausschliesslich verschluesselt uebertragen. Es erfolgt keine Weitergabe an Dritte ausserhalb der vertraglich vereinbarten Auftragsverarbeitung.</p>
+          <ul>
+            <li>TLS-Verschluesselung fuer alle Verbindungen</li>
+            <li>Kontaktdaten erst nach Deal-Abschluss freigegeben</li>
+            <li>Keine Datenweitergabe an Werbetreibende oder Analytik-Dienste</li>
+          </ul>
+        </div>
+
+        <div class="trust-card">
+          <h3><span class="icon">&#128221;</span> Eingabekontrolle</h3>
+          <p>Alle Datenaenderungen sind nachvollziehbar: Wer hat wann welche Daten eingegeben, geaendert oder geloescht.</p>
+          <ul>
+            <li>Audit Log mit Akteur, Zeitstempel und IP-Adresse</li>
+            <li>Diff-Tracking: Alte und neue Werte bei jeder Aenderung</li>
+            <li>Unveraenderliches Append-Only-Log fuer revisionssichere Nachweisfuehrung</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+
+    <!-- Section: Roadmap -->
+    <div class="trust-section">
+      <h2>&#127919; Compliance-Roadmap</h2>
+      <div class="trust-grid">
+        <div class="trust-card">
+          <h3><span class="icon">&#127919;</span> Geplante Erweiterungen</h3>
+          <p>TempConnect entwickelt die Compliance-Funktionen kontinuierlich weiter:</p>
+          <ul>
+            <li>Automatische Dokumentenvalidierung</li>
+            <li>Branchenspezifische Compliance-Templates</li>
+            <li>Export-Funktionen fuer interne Audits</li>
+            <li>Integration mit Beschaffungssystemen</li>
+            <li>SOC 2 Type II Zertifizierungsvorbereitung</li>
+          </ul>
+        </div>
       </div>
     </div>
 
@@ -98,10 +245,11 @@
 
     <section style="text-align:center;padding:var(--ds-space-6) 0">
       <h2 style="font-size:20px;font-weight:700;margin:0 0 var(--ds-space-2)">Compliance-Anforderungen besprechen</h2>
-      <p style="color:var(--ds-text-secondary);font-size:14px;margin:0 0 var(--ds-space-4)">Kontaktieren Sie uns fuer individuelle Compliance-Anforderungen oder Enterprise-Integrationen.</p>
+      <p style="color:var(--ds-text-secondary);font-size:14px;margin:0 0 var(--ds-space-4)">Kontaktieren Sie uns fuer individuelle Compliance-Anforderungen oder Integrationen fuer individuelle Tarife.</p>
       <div style="display:flex;gap:var(--ds-space-3);justify-content:center;flex-wrap:wrap">
         <a href="/public/legal/kontakt.html" class="ds-btn ds-btn--primary">Kontakt aufnehmen</a>
         <a href="/public/legal/datenschutz.html" class="ds-btn">Datenschutzerklaerung</a>
+        <a href="/public/trust/security.html" class="ds-btn">Sicherheit ansehen</a>
       </div>
     </section>
 
@@ -111,5 +259,10 @@
   </div>
   <div id="tc-footer" data-tc-footer></div>
   <script src="/public/js/footer.js"></script>
+  <script src="/public/js/demoBanner.js" defer></script>
+  <script src="/public/js/onboardingWizard.js" defer></script>
+  <script src="/public/js/notifications.js" defer></script>
+  <script src="/public/js/userDropdown.js"></script>
+<script src="/public/js/breadcrumb.js" defer></script>
 </body>
 </html>

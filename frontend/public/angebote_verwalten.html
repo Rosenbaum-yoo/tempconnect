@@ -1,9 +1,10 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="de">
 <head>
   <meta charset="utf-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
-  <title>Angebote verwalten – TempConnect</title>
+  <script src="/public/js/theme.js"></script>
+  <title>Mein Bereich – TempConnect</title>
   <link rel="stylesheet" href="/public/css/enterprise.css"/>
   <style>
     .tab-bar{display:flex;gap:4px;border-bottom:1px solid var(--line);margin-bottom:16px}
@@ -23,11 +24,14 @@
     .status-rejected{color:#ffd0d8;border:1px solid rgba(255,92,122,.35);background:rgba(255,92,122,.1)}
     .status-countered{color:#e8d5ff;border:1px solid rgba(168,85,247,.35);background:rgba(168,85,247,.1)}
     .status-withdrawn{color:var(--muted);border:1px solid var(--line);background:rgba(255,255,255,.03)}
+    .viewer-action-required{color:#fff;border:1px solid rgba(255,120,50,.6);background:rgba(255,120,50,.2);font-weight:800}
+    .viewer-waiting{color:#a5c8ff;border:1px solid rgba(100,160,255,.3);background:rgba(100,160,255,.1)}
+    .viewer-closed{color:var(--muted);border:1px solid var(--line);background:rgba(255,255,255,.03)}
   </style>
 </head>
 <body data-sla-guard="sla_access">
   <div id="paywall" class="wrap" style="display:none">
-    <div class="topbar"><span class="brand">TempConnect</span><a href="/" class="btn">Startseite</a></div>
+    <nav class="ds-topbar"><div class="ds-topbar__brand"><span class="ds-topbar__brand-dot"></span>TempConnect</div><div class="ds-topbar__nav"><a href="/" class="ds-btn">Startseite</a></div></nav>
     <div class="paywall-box">
       <h2>Bereich nicht verfuegbar</h2>
       <p>Aktueller Plan: <span id="paywall-current-plan" class="paywall-plan">–</span></p>
@@ -36,31 +40,63 @@
   </div>
 
   <div id="main-content" class="wrap">
-    <div class="topbar">
-      <span class="brand">TempConnect – Angebote</span>
-      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
-        <a href="/public/enterprise.html" class="btn">Uebersicht</a>
-        <a href="/public/sla_angebote.html" class="btn primary">Neues Angebot</a>
-      </div>
-    </div>
+    <div id="tc-shell"></div>
 
     <div class="ds-page-header">
       <div class="ds-page-header__content">
-        <h1 class="ds-page-title">Angebote verwalten</h1>
-        <p class="ds-page-subtitle">Gesendete und erhaltene Angebote einsehen und bearbeiten.</p>
+        <h1 class="ds-page-title">&#128100; Mein Bereich</h1>
+        <p class="ds-page-subtitle">Ihre pers&ouml;nlichen Anfragen, Eing&auml;nge, Matching-Ergebnisse und Angebote &ndash; zentral an einem Ort.</p>
+      </div>
+      <div class="ds-page-header__actions">
+        <a href="/public/capacity_exchange_feed.html" class="ds-btn">&larr; Zur Vermittlung</a>
       </div>
     </div>
 
-    <div class="tab-bar" id="tabBar">
-      <button class="tab-btn active" data-tab="sent">Meine Angebote</button>
-      <button class="tab-btn" data-tab="received">Erhaltene Angebote</button>
+    <!-- Quick-Access Cards -->
+    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:var(--ds-space-3,12px);margin-bottom:var(--ds-space-5,20px)">
+      <a href="/public/agency_inbox.html" style="padding:16px;border:1px solid var(--line);border-radius:12px;background:rgba(255,255,255,.025);text-decoration:none;color:inherit;transition:border-color .15s" onmouseover="this.style.borderColor='var(--brand)'" onmouseout="this.style.borderColor='var(--line)'">
+        <div style="font-size:20px;margin-bottom:6px">&#128229;</div>
+        <div style="font-size:14px;font-weight:700">Eingang</div>
+        <div style="font-size:12px;color:var(--muted);margin-top:2px">Neue Reaktionen und R&uuml;ckmeldungen pr&uuml;fen.</div>
+      </a>
+      <a href="/public/company_requests.html" style="padding:16px;border:1px solid var(--line);border-radius:12px;background:rgba(255,255,255,.025);text-decoration:none;color:inherit;transition:border-color .15s" onmouseover="this.style.borderColor='var(--brand)'" onmouseout="this.style.borderColor='var(--line)'">
+        <div style="font-size:20px;margin-bottom:6px">&#128228;</div>
+        <div style="font-size:14px;font-weight:700">Meine Anfragen</div>
+        <div style="font-size:12px;color:var(--muted);margin-top:2px">Laufende Arbeitsplatzangebote und Anfragen verwalten.</div>
+      </a>
+      <a href="/public/sla_search_jobs_list.html" style="padding:16px;border:1px solid var(--line);border-radius:12px;background:rgba(255,255,255,.025);text-decoration:none;color:inherit;transition:border-color .15s" onmouseover="this.style.borderColor='var(--brand)'" onmouseout="this.style.borderColor='var(--line)'">
+        <div style="font-size:20px;margin-bottom:6px">&#128203;</div>
+        <div style="font-size:14px;font-weight:700">Gespeicherte Suchauftr&auml;ge</div>
+        <div style="font-size:12px;color:var(--muted);margin-top:2px">Automatische Suchlogiken wiederfinden.</div>
+      </a>
+      <a href="/public/matching_results.html" style="padding:16px;border:1px solid var(--line);border-radius:12px;background:rgba(255,255,255,.025);text-decoration:none;color:inherit;transition:border-color .15s" onmouseover="this.style.borderColor='var(--brand)'" onmouseout="this.style.borderColor='var(--line)'">
+        <div style="font-size:20px;margin-bottom:6px">&#11088;</div>
+        <div style="font-size:14px;font-weight:700">Matching Engine</div>
+        <div style="font-size:12px;color:var(--muted);margin-top:2px">Passende Vorschl&auml;ge und Treffer nutzen.</div>
+      </a>
+      <a href="/public/deal_management.html" style="padding:16px;border:1px solid var(--line);border-radius:12px;background:rgba(255,255,255,.025);text-decoration:none;color:inherit;transition:border-color .15s" onmouseover="this.style.borderColor='var(--brand)'" onmouseout="this.style.borderColor='var(--line)'">
+        <div style="font-size:20px;margin-bottom:6px">D</div>
+        <div style="font-size:14px;font-weight:700">Meine Deals</div>
+        <div style="font-size:12px;color:var(--muted);margin-top:2px">Einsatzvereinbarungen, Verhandlungen und Dealakten.</div>
+      </a>
     </div>
 
-    <div class="tab-panel active" id="tab-sent">
-      <div id="sentOffers"><p style="color:var(--muted)">Lade Angebote...</p></div>
-    </div>
-    <div class="tab-panel" id="tab-received">
-      <div id="receivedOffers"><p style="color:var(--muted)">Lade Angebote...</p></div>
+    <!-- Angebote Section -->
+    <div style="border:1px solid var(--line);border-radius:12px;padding:20px;background:rgba(255,255,255,.015)">
+      <h2 style="font-size:16px;font-weight:700;margin:0 0 4px">&#128176; Angebote verwalten</h2>
+      <p style="font-size:12px;color:var(--muted);margin:0 0 16px">Gesendete und erhaltene Angebote einsehen und bearbeiten.</p>
+
+      <div class="tab-bar" id="tabBar">
+        <button class="tab-btn active" data-tab="received">Erhaltene Angebote</button>
+        <button class="tab-btn" data-tab="sent">Meine Angebote</button>
+      </div>
+
+      <div class="tab-panel active" id="tab-received">
+        <div id="receivedOffers"><p style="color:var(--muted)">Lade Angebote...</p></div>
+      </div>
+      <div class="tab-panel" id="tab-sent">
+        <div id="sentOffers"><p style="color:var(--muted)">Lade Angebote...</p></div>
+      </div>
     </div>
   </div>
 
@@ -75,10 +111,20 @@
 
     function getCsrf(){
       if(_csrf)return Promise.resolve(_csrf);
-      return fetch(API+"/csrf-token",{credentials:"include"}).then(function(r){return r.ok?r.json():{}}).then(function(d){_csrf=d.csrfToken||d.token;return _csrf});
+      return fetch(API+"/csrf",{credentials:"include"}).then(function(r){return r.ok?r.json():{}}).then(function(d){_csrf=d.csrfToken||d.token;return _csrf});
     }
 
     var STATUS_LABELS={draft:"Entwurf",sent:"Gesendet",accepted:"Angenommen",rejected:"Abgelehnt",countered:"Gegenangebot",withdrawn:"Zurueckgezogen"};
+    var VIEW_STATE_LABELS={
+      action_required:"Aktion erforderlich",
+      waiting_on_counterparty:"Warten auf Gegenseite",
+      closed:"Abgeschlossen"
+    };
+    var VIEW_STATE_CLASSES={
+      action_required:"viewer-action-required",
+      waiting_on_counterparty:"viewer-waiting",
+      closed:"viewer-closed"
+    };
 
     function statusBadge(s){
       var cls="status-"+(s||"draft");
@@ -87,13 +133,15 @@
 
     function offerActions(offer,mode){
       var btns=[];
+      var na=offer.next_action||{};
       if(mode==="sent"){
-        if(offer.status==="draft")btns.push('<button class="btn primary" style="font-size:12px;padding:6px 12px" onclick="changeStatus(\''+offer.id+'\',\'sent\')">Absenden</button>');
-        if(["draft","sent"].includes(offer.status))btns.push('<button class="btn bad" style="font-size:12px;padding:6px 12px" onclick="withdrawOffer(\''+offer.id+'\')">Zurueckziehen</button>');
+        if(na.actions&&na.actions.includes("send"))btns.push('<button class="btn primary" style="font-size:12px;padding:6px 12px" onclick="changeStatus(\''+offer.id+'\',\'sent\')">Absenden</button>');
+        if(na.actions&&na.actions.includes("withdraw"))btns.push('<button class="btn bad" style="font-size:12px;padding:6px 12px" onclick="withdrawOffer(\''+offer.id+'\')">Zurueckziehen</button>');
       }
       if(mode==="received"){
-        if(offer.status==="sent")btns.push('<button class="btn good" style="font-size:12px;padding:6px 12px" onclick="acceptOffer(\''+offer.id+'\')">Annehmen</button>');
-        if(offer.status==="sent")btns.push('<button class="btn bad" style="font-size:12px;padding:6px 12px" onclick="rejectOffer(\''+offer.id+'\')">Ablehnen</button>');
+        if(na.actions&&na.actions.includes("accept"))btns.push('<button class="btn good" style="font-size:12px;padding:6px 12px" onclick="acceptOffer(\''+offer.id+'\')">Annehmen</button>');
+        if(na.actions&&na.actions.includes("reject"))btns.push('<button class="btn bad" style="font-size:12px;padding:6px 12px" onclick="rejectOffer(\''+offer.id+'\')">Ablehnen</button>');
+        if(na.actions&&na.actions.includes("counter"))btns.push('<button class="btn" style="font-size:12px;padding:6px 12px" onclick="counterOfferPrompt(\''+offer.id+'\')">Gegenangebot</button>');
       }
       return btns.join(" ");
     }
@@ -103,7 +151,11 @@
       var counterparty=mode==="sent"?(o.requester_name||"–"):(o.supplier_name||"–");
       var cpLabel=mode==="sent"?"Auftraggeber":"Lieferant";
       var rate=o.offered_hourly_rate?fmtEur(o.offered_hourly_rate)+"/Std.":"–";
-      return '<div class="offer-card"><div class="offer-header"><div class="offer-title">'+esc(title)+' – '+esc(o.demand_role||"")+'</div>'+statusBadge(o.status)+'</div>'+
+      var na=o.next_action||{};
+      var vsCls=VIEW_STATE_CLASSES[na.viewer_state]||"viewer-closed";
+      var vsText=na.viewer_label||(VIEW_STATE_LABELS[na.viewer_state]||na.viewer_state||"–");
+      var vs=na.viewer_state?('<span class="status-badge '+vsCls+'" style="margin-left:6px">'+vsText+'</span>'):'';
+      return '<div class="offer-card"><div class="offer-header"><div class="offer-title">'+esc(title)+' – '+esc(o.demand_role||"")+'</div><div>'+statusBadge(o.status)+vs+'</div></div>'+
         '<div class="offer-meta"><span>'+cpLabel+': '+esc(counterparty)+'</span><span>Stadt: '+esc(o.demand_city||"–")+'</span><span>Rate: '+rate+'</span><span>Menge: '+(o.offered_quantity||1)+'</span><span>Erstellt: '+fmtDate(o.created_at)+'</span></div>'+
         '<div class="offer-actions">'+offerActions(o,mode)+'</div></div>';
     }
@@ -112,14 +164,14 @@
       try{
         var r=await fetch(API+"/marketplace/my-offers",{credentials:"include"});
         var d=await r.json();var items=(d.data&&d.data.items)||[];
-        document.getElementById("sentOffers").innerHTML=items.length?items.map(function(o){return renderOfferCard(o,"sent")}).join(""):'<p class="empty">Noch keine Angebote gesendet.</p>';
+        document.getElementById("sentOffers").innerHTML=items.length?items.map(function(o){return renderOfferCard(o,"sent")}).join(""):'<p class="empty">Sie haben noch keine Angebote gesendet.</p>';
       }catch(e){document.getElementById("sentOffers").innerHTML='<p class="empty">Fehler beim Laden.</p>';}
     }
     async function loadReceivedOffers(){
       try{
         var r=await fetch(API+"/marketplace/received-offers",{credentials:"include"});
         var d=await r.json();var items=(d.data&&d.data.items)||[];
-        document.getElementById("receivedOffers").innerHTML=items.length?items.map(function(o){return renderOfferCard(o,"received")}).join(""):'<p class="empty">Noch keine Angebote erhalten.</p>';
+        document.getElementById("receivedOffers").innerHTML=items.length?items.map(function(o){return renderOfferCard(o,"received")}).join(""):'<p class="empty">Keine offenen Angebote – alle erledigt.</p>';
       }catch(e){document.getElementById("receivedOffers").innerHTML='<p class="empty">Fehler beim Laden.</p>';}
     }
 
@@ -144,6 +196,15 @@
       loadReceivedOffers();
     }
 
+    async function counterOfferPrompt(id){
+      var note=prompt("Gegenangebot / Hinweis (optional):","");
+      if(note==null)return;
+      var token=await getCsrf();
+      await fetch(API+"/marketplace/offers/"+id+"/counter",{method:"POST",credentials:"include",headers:{"Content-Type":"application/json","x-csrf-token":token||""},body:JSON.stringify({notes:note})});
+      loadReceivedOffers();
+      loadSentOffers();
+    }
+
     // Tab switching
     document.getElementById("tabBar").addEventListener("click",function(e){
       var btn=e.target.closest(".tab-btn");if(!btn)return;
@@ -151,14 +212,17 @@
       document.querySelectorAll(".tab-panel").forEach(function(p){p.classList.remove("active")});
       btn.classList.add("active");
       document.getElementById("tab-"+btn.dataset.tab).classList.add("active");
-      if(btn.dataset.tab==="received")loadReceivedOffers();
+      if(btn.dataset.tab==="sent")loadSentOffers();
     });
 
+    // Counterparty-first: received offers are the primary action zone — load first and eagerly.
+    loadReceivedOffers();
     loadSentOffers();
   </script>
-  <script src="/public/js/notifications.js"></script>
+  <script src="/public/js/pageShell.js"></script>`n  <script src="/public/js/notifications.js"></script>
   <div id="tc-footer" data-tc-footer></div>
   <script src="/public/js/footer.js"></script>
-  <script src="/public/js/logout-btn.js"></script>
+<script src="/public/js/demoBanner.js" defer></script>
+<script src="/public/js/onboardingWizard.js" defer></script><script src="/public/js/breadcrumb.js" defer></script>
 </body>
 </html>

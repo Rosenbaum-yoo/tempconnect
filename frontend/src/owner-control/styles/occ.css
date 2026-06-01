@@ -1,0 +1,317 @@
+/* OCC Design Tokens — Owner Control Center */
+
+:root {
+  /* Hintergründe */
+  --occ-bg:       #06060f;
+  --occ-panel:    #0d0d1a;
+  --occ-panel-2:  #121224;
+  --occ-line:     #1a1a2e;
+
+  /* Farben */
+  --occ-accent:   #7c5cff;
+  --occ-text:     #e2e8f0;
+  --occ-text-2:   #8892a4;
+  --occ-ok:       #22c55e;
+  --occ-warn:     #f59e0b;
+  --occ-danger:   #ef4444;
+  --occ-critical: #dc2626;
+  --occ-muted:    #374151;
+
+  /* Layout */
+  --occ-sidebar-w: 220px;
+  --occ-topbar-h:  52px;
+}
+
+*, *::before, *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html, body, #root {
+  height: 100%;
+  font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+  font-size: 14px;
+  background: var(--occ-bg);
+  color: var(--occ-text);
+  -webkit-font-smoothing: antialiased;
+}
+
+/* ── Layout ─────────────────────────────────────────────────────────────────── */
+
+.occ-layout {
+  display: flex;
+  height: 100vh;
+  overflow: hidden;
+}
+
+.occ-sidebar {
+  width: var(--occ-sidebar-w);
+  flex-shrink: 0;
+  background: var(--occ-panel);
+  border-right: 1px solid var(--occ-line);
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto;
+}
+
+.occ-main-area {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.occ-topbar {
+  height: var(--occ-topbar-h);
+  flex-shrink: 0;
+  background: var(--occ-panel);
+  border-bottom: 1px solid var(--occ-line);
+  display: flex;
+  align-items: center;
+  padding: 0 20px;
+  gap: 12px;
+}
+
+.occ-content {
+  flex: 1;
+  overflow-y: auto;
+  padding: 24px;
+}
+
+/* ── Sidebar ────────────────────────────────────────────────────────────────── */
+
+.occ-sidebar-header {
+  padding: 16px;
+  border-bottom: 1px solid var(--occ-line);
+}
+
+.occ-sidebar-logo {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+  color: var(--occ-text-2);
+}
+
+.occ-sidebar-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--occ-text);
+  margin-top: 4px;
+}
+
+.occ-sidebar-nav {
+  padding: 8px 0;
+  list-style: none;
+  flex: 1;
+}
+
+.occ-sidebar-nav-item a {
+  display: block;
+  padding: 8px 16px;
+  font-size: 13px;
+  color: var(--occ-text-2);
+  text-decoration: none;
+  border-left: 3px solid transparent;
+  transition: color 0.15s, border-color 0.15s, background 0.15s;
+}
+
+.occ-sidebar-nav-item a:hover {
+  color: var(--occ-text);
+  background: var(--occ-panel-2);
+}
+
+.occ-sidebar-nav-item a.active {
+  color: var(--occ-accent);
+  border-left-color: var(--occ-accent);
+  background: rgba(124, 92, 255, .08);
+}
+
+.occ-sidebar-section {
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+  color: var(--occ-muted);
+  padding: 12px 16px 4px;
+}
+
+.occ-sidebar-footer {
+  border-top: 1px solid var(--occ-line);
+  padding: 12px 16px;
+}
+
+/* ── Topbar ─────────────────────────────────────────────────────────────────── */
+
+.occ-topbar-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--occ-text);
+  flex: 1;
+}
+
+.occ-topbar-status {
+  font-size: 11px;
+  font-weight: 500;
+  padding: 3px 8px;
+  border-radius: 4px;
+  letter-spacing: .04em;
+}
+
+.occ-topbar-status--healthy  { background: rgba(34,197,94,.12);  color: var(--occ-ok); }
+.occ-topbar-status--degraded { background: rgba(245,158,11,.12); color: var(--occ-warn); }
+.occ-topbar-status--critical { background: rgba(239,68,68,.12);  color: var(--occ-danger); }
+
+.occ-topbar-user {
+  font-size: 12px;
+  color: var(--occ-text-2);
+}
+
+.occ-topbar-btn {
+  font-size: 12px;
+  padding: 4px 10px;
+  background: none;
+  border: 1px solid var(--occ-line);
+  border-radius: 4px;
+  color: var(--occ-text-2);
+  cursor: pointer;
+  transition: color .15s, border-color .15s;
+}
+
+.occ-topbar-btn:hover {
+  color: var(--occ-text);
+  border-color: var(--occ-text-2);
+}
+
+/* ── Panels / Cards ─────────────────────────────────────────────────────────── */
+
+.occ-panel {
+  background: var(--occ-panel);
+  border: 1px solid var(--occ-line);
+  border-radius: 8px;
+  padding: 16px;
+}
+
+.occ-section-title {
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  color: var(--occ-text-2);
+  margin-bottom: 14px;
+}
+
+.occ-grid {
+  display: grid;
+  gap: 14px;
+}
+
+.occ-grid--kpi {
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+}
+
+.occ-grid--2 {
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+}
+
+/* ── KPI Card ───────────────────────────────────────────────────────────────── */
+
+.occ-kpi {
+  background: var(--occ-panel-2);
+  border: 1px solid var(--occ-line);
+  border-radius: 8px;
+  padding: 16px;
+}
+
+.occ-kpi__value {
+  font-size: 26px;
+  font-weight: 700;
+  line-height: 1;
+  margin-bottom: 6px;
+}
+
+.occ-kpi__label {
+  font-size: 11px;
+  color: var(--occ-text-2);
+  letter-spacing: .04em;
+}
+
+/* ── Signals ────────────────────────────────────────────────────────────────── */
+
+.occ-signal {
+  padding: 10px 14px;
+  border-radius: 6px;
+  font-size: 13px;
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+}
+
+.occ-signal--critical { background: rgba(220,38,38,.1);  border: 1px solid rgba(220,38,38,.25); }
+.occ-signal--warning  { background: rgba(245,158,11,.1); border: 1px solid rgba(245,158,11,.25); }
+
+.occ-signal__badge {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: .05em;
+  text-transform: uppercase;
+  padding: 2px 6px;
+  border-radius: 3px;
+  white-space: nowrap;
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+
+.occ-signal--critical .occ-signal__badge { background: rgba(220,38,38,.3); color: var(--occ-danger); }
+.occ-signal--warning  .occ-signal__badge { background: rgba(245,158,11,.3); color: var(--occ-warn); }
+
+.occ-signal__msg {
+  color: var(--occ-text);
+  line-height: 1.4;
+}
+
+/* ── Stub / Coming Soon ─────────────────────────────────────────────────────── */
+
+.occ-stub {
+  max-width: 480px;
+  margin: 60px auto;
+  text-align: center;
+}
+
+.occ-stub__label {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+  color: var(--occ-accent);
+  margin-bottom: 12px;
+}
+
+.occ-stub__title {
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--occ-text);
+  margin-bottom: 10px;
+}
+
+.occ-stub__desc {
+  font-size: 13px;
+  color: var(--occ-text-2);
+  line-height: 1.6;
+}
+
+/* ── Misc ────────────────────────────────────────────────────────────────────── */
+
+.occ-divider {
+  height: 1px;
+  background: var(--occ-line);
+  margin: 16px 0;
+}
+
+.occ-empty {
+  padding: 32px;
+  text-align: center;
+  color: var(--occ-text-2);
+  font-size: 13px;
+}

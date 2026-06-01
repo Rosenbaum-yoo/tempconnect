@@ -1,0 +1,397 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <script src="/public/js/theme.js"></script>
+  <title>Individuellen Tarif für Lieferantensteuerung konfigurieren – TempConnect</title>
+  <link rel="stylesheet" href="/public/css/design-system.css"/>
+  <style>
+    body { background: radial-gradient(ellipse 1100px 600px at 15% -5%, rgba(124,92,255,.14), transparent 60%),
+                        radial-gradient(ellipse 800px 500px at 90% -2%, rgba(74,158,255,.09), transparent 55%),
+                        var(--ds-bg); }
+
+    .section-label { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; color: var(--ds-accent); margin-bottom: var(--ds-space-2); }
+    .section-heading { font-size: clamp(22px, 3vw, 30px); font-weight: 800; letter-spacing: -0.02em; margin: 0 0 var(--ds-space-2); }
+    .section-desc { color: var(--ds-text-secondary); font-size: 15px; max-width: 600px; line-height: 1.6; margin: 0; }
+
+    /* Layout: 2-column — left config, right invoice */
+    .ent-layout { display: grid; grid-template-columns: 1fr 400px; gap: var(--ds-space-5); align-items: start; margin-top: var(--ds-space-6); }
+    @media (max-width: 1000px) { .ent-layout { grid-template-columns: 1fr; } }
+
+    /* Cards */
+    .ent-card {
+      border: 1px solid var(--ds-border); border-radius: var(--ds-radius-lg);
+      background: rgba(255,255,255,0.02); padding: var(--ds-space-5);
+    }
+    .ent-card h3 { margin: 0 0 var(--ds-space-3); font-size: 16px; font-weight: 700; }
+
+    /* Included features list */
+    .included-list { list-style: none; padding: 0; margin: 0; columns: 2; column-gap: var(--ds-space-4); }
+    @media (max-width: 700px) { .included-list { columns: 1; } }
+    .included-list li {
+      padding: 6px 0; font-size: 13px; line-height: 1.5;
+      display: flex; gap: 8px; align-items: flex-start; break-inside: avoid;
+    }
+    .included-list li::before { content: "\2713"; color: var(--ds-success); font-weight: 700; flex-shrink: 0; }
+
+    /* Add-on items */
+    .addon-grid { display: flex; flex-direction: column; gap: var(--ds-space-2); }
+    .addon-item {
+      display: grid; grid-template-columns: auto 1fr auto; gap: var(--ds-space-3); align-items: center;
+      padding: var(--ds-space-3) var(--ds-space-4); border: 1px solid var(--ds-border);
+      border-radius: var(--ds-radius-md); background: rgba(255,255,255,0.015);
+      transition: border-color .15s, background .15s; cursor: pointer;
+    }
+    .addon-item:hover { border-color: var(--ds-border-hover); background: rgba(255,255,255,0.03); }
+    .addon-item.selected { border-color: rgba(124,92,255,.5); background: rgba(124,92,255,.06); }
+    .addon-item input[type="checkbox"] {
+      width: 18px; height: 18px; accent-color: var(--ds-accent); cursor: pointer; flex-shrink: 0;
+    }
+    .addon-info { min-width: 0; }
+    .addon-name { font-size: 14px; font-weight: 700; margin-bottom: 2px; }
+    .addon-name .soon-tag {
+      display: inline-block; font-size: 10px; font-weight: 700; padding: 1px 7px;
+      border-radius: 8px; background: rgba(251,191,36,.15); color: #fbbf24;
+      margin-left: 8px; vertical-align: middle; letter-spacing: 0.03em;
+    }
+    .addon-desc { font-size: 12px; color: var(--ds-text-secondary); line-height: 1.4; }
+    .addon-price {
+      font-size: 15px; font-weight: 800; white-space: nowrap;
+      color: var(--ds-accent); text-align: right;
+    }
+    .addon-price span { display: block; font-size: 11px; font-weight: 500; color: var(--ds-text-secondary); }
+
+    /* Seat slider */
+    .seat-row { display: flex; align-items: center; gap: var(--ds-space-3); margin-top: var(--ds-space-2); }
+    .seat-row input[type="number"] {
+      width: 80px; padding: 8px 12px; border-radius: var(--ds-radius-sm);
+      border: 1px solid var(--ds-border); background: rgba(255,255,255,.05);
+      color: var(--ds-text); font-size: 14px; font-weight: 700; text-align: center;
+    }
+    .seat-row input[type="number"]:focus { border-color: var(--ds-accent); outline: none; }
+
+    /* Invoice panel (sticky) */
+    .invoice-panel { position: sticky; top: var(--ds-space-4); }
+    .invoice-panel .ent-card { border-color: rgba(124,92,255,.3); }
+    .invoice-header {
+      display: flex; justify-content: space-between; align-items: center;
+      padding-bottom: var(--ds-space-3); border-bottom: 1px solid var(--ds-border);
+      margin-bottom: var(--ds-space-3);
+    }
+    .invoice-header h3 { margin: 0; }
+    .invoice-header .badge {
+      font-size: 11px; font-weight: 700; padding: 3px 10px; border-radius: 20px;
+      background: rgba(124,92,255,.15); color: var(--ds-accent);
+    }
+    .invoice-line {
+      display: flex; justify-content: space-between; align-items: baseline;
+      padding: 6px 0; font-size: 13px;
+    }
+    .invoice-line .label { color: var(--ds-text-secondary); }
+    .invoice-line .amount { font-weight: 700; font-variant-numeric: tabular-nums; }
+    .invoice-line.base .amount { color: var(--ds-text); }
+    .invoice-line.addon .amount { color: var(--ds-accent); }
+    .invoice-line.addon .label { padding-left: 12px; }
+    .invoice-line.addon .label::before { content: "+"; margin-right: 6px; color: var(--ds-accent); font-weight: 700; }
+    .invoice-divider { border: none; border-top: 1px solid var(--ds-border); margin: var(--ds-space-2) 0; }
+    .invoice-total {
+      display: flex; justify-content: space-between; align-items: baseline;
+      padding: var(--ds-space-2) 0; font-size: 18px; font-weight: 900;
+    }
+    .invoice-total .amount { color: var(--ds-accent); }
+    .invoice-einmalig {
+      display: flex; justify-content: space-between; padding: 4px 0;
+      font-size: 13px; color: var(--ds-text-secondary);
+    }
+    .invoice-einmalig .amount { font-weight: 700; color: var(--ds-warning, #fbbf24); }
+    .invoice-note { font-size: 11px; color: var(--ds-text-tertiary); margin-top: var(--ds-space-2); line-height: 1.5; }
+
+    /* Contact form */
+    .contact-grid { display: grid; grid-template-columns: 1fr 1fr; gap: var(--ds-space-3); }
+    @media (max-width: 700px) { .contact-grid { grid-template-columns: 1fr; } }
+    .form-field { display: flex; flex-direction: column; gap: 6px; }
+    .form-field.full { grid-column: 1 / -1; }
+    .form-label {
+      font-size: 11px; font-weight: 700; text-transform: uppercase;
+      letter-spacing: 0.04em; color: var(--ds-text-secondary);
+    }
+    .form-input {
+      padding: 10px 14px; border-radius: var(--ds-radius-sm);
+      border: 1px solid var(--ds-border); background: rgba(255,255,255,.04);
+      color: var(--ds-text); font-size: 14px; font-family: inherit;
+    }
+    .form-input:focus { border-color: var(--ds-accent); outline: none; background: rgba(124,92,255,.04); }
+    .form-input::placeholder { color: var(--ds-text-tertiary); }
+    textarea.form-input { resize: vertical; min-height: 80px; }
+
+    /* Submit section */
+    .submit-section {
+      display: flex; justify-content: space-between; align-items: center;
+      padding-top: var(--ds-space-4); margin-top: var(--ds-space-4);
+      border-top: 1px solid var(--ds-border); gap: var(--ds-space-3); flex-wrap: wrap;
+    }
+    .submit-section .hint { font-size: 12px; color: var(--ds-text-secondary); line-height: 1.5; max-width: 360px; }
+    .btn-submit {
+      padding: 14px 32px; border-radius: var(--ds-radius-md); border: none;
+      background: linear-gradient(135deg, var(--ds-accent), var(--ds-brand));
+      color: #fff; font-size: 15px; font-weight: 700; cursor: pointer;
+      transition: opacity .15s, transform .15s; font-family: inherit;
+    }
+    .btn-submit:hover { opacity: .9; transform: translateY(-1px); }
+    .btn-submit:disabled { opacity: .4; cursor: not-allowed; transform: none; }
+
+    /* Success state */
+    .success-msg {
+      display: none; padding: var(--ds-space-5); border-radius: var(--ds-radius-lg);
+      background: rgba(57,217,138,.08); border: 1px solid rgba(57,217,138,.3);
+      text-align: center;
+    }
+    .success-msg.visible { display: block; }
+    .success-msg h3 { margin: 0 0 var(--ds-space-2); color: var(--ds-success); }
+    .success-msg p { margin: 0; font-size: 14px; color: var(--ds-text-secondary); line-height: 1.6; }
+  </style>
+</head>
+<body>
+  <div class="ds-wrap">
+    <div id="tc-shell"></div>
+
+    <!-- Hero -->
+    <section style="text-align:center;padding:var(--ds-space-10) 0 var(--ds-space-2)">
+      <div class="section-label">Individueller Tarif</div>
+      <h1 class="section-heading" style="font-size:clamp(26px,4vw,38px)">Konfigurieren Sie Ihren individuellen Tarif für Einsatzunternehmen</h1>
+      <p class="section-desc" style="margin:var(--ds-space-2) auto 0">Für wiederkehrende Zeitarbeitsbedarfe mit mehreren Lieferanten, Preisrahmen, Freigaben und Standorten. Waehlen Sie Zusatzmodule, die Ihre Lieferantensteuerung staerker machen.</p>
+    </section>
+
+    <div class="ent-layout" id="mainLayout">
+      <!-- LEFT: Configuration -->
+      <div>
+        <!-- Included Features -->
+        <div class="ent-card" style="margin-bottom:var(--ds-space-4)">
+          <h3>&#9989; Im Standard des individuellen Tarifs enthalten</h3>
+          <p style="font-size:13px;color:var(--ds-text-secondary);margin:0 0 var(--ds-space-3)">Alles aus PRO plus die buyer-first Steuerungsmodule für wiederkehrende Zeitarbeit &mdash; sofort verfuegbar.</p>
+          <ul class="included-list">
+            <li>Unbegrenzte Arbeitsplatzangebote &amp; Angebote</li>
+            <li>13-Faktor-Matching &amp; Ranking</li>
+            <li>Lieferantenpool &amp; Preferred First</li>
+            <li>Preisrahmen &amp; Rate Compliance</li>
+            <li>Spend &amp; Kostenanalytik</li>
+            <li>Multi-Abteilungen &amp; Standorte</li>
+            <li>Freigabe-Workflows</li>
+            <li>Vertragsmanagement</li>
+            <li>Compliance-Management</li>
+            <li>Audit- &amp; Executive-Reporting</li>
+            <li>Digitale Stundenzettel &amp; Rechnungsbezug</li>
+            <li>Emergency Staffing / Notdienst</li>
+            <li>Pulse-Timer (30 Min)</li>
+            <li>99,5 % Plattformverfuegbarkeit</li>
+            <li>Dedizierter Ansprechpartner</li>
+          </ul>
+        </div>
+
+        <!-- Add-ons -->
+        <div class="ent-card" style="margin-bottom:var(--ds-space-4)">
+          <h3>&#128296; Zusatzmodule hinzubuchen</h3>
+          <p style="font-size:13px;color:var(--ds-text-secondary);margin:0 0 var(--ds-space-3)">Optionale Erweiterungen &mdash; waehlen Sie nur, was Sie brauchen.</p>
+          <div class="addon-grid" id="addonGrid"></div>
+        </div>
+
+        <!-- Additional seats -->
+        <div class="ent-card" style="margin-bottom:var(--ds-space-4)">
+          <h3>&#128101; Benutzer-Kontingent</h3>
+          <p style="font-size:13px;color:var(--ds-text-secondary);margin:0 0 var(--ds-space-3)">Der Standard des individuellen Tarifs beinhaltet bis zu 50 Benutzer. Darueber hinaus: 29 EUR / Nutzer / Monat.</p>
+          <div class="seat-row">
+            <span style="font-size:13px;color:var(--ds-text-secondary)">Anzahl Benutzer:</span>
+            <input type="number" id="seatCount" min="1" max="9999" value="50" onchange="recalc()" oninput="recalc()"/>
+            <span id="seatCostLabel" style="font-size:13px;color:var(--ds-accent);font-weight:700"></span>
+          </div>
+        </div>
+        <!-- Context Banner -->
+        <div class="ent-card" id="contextBanner" style="margin-bottom:var(--ds-space-4);display:none">
+          <div class="section-label">Anfrage-Kontext</div>
+          <h3>Individueller Tarif auf Anfrage</h3>
+          <p class="section-desc" id="contextBannerText">Sie starten eine Anfrage fuer den individuellen Tarif. Unser Team begleitet Sie bis zum Angebot.</p>
+          <div id="contextBannerMeta" style="margin-top:var(--ds-space-3);font-size:12px;color:var(--ds-text-secondary)"></div>
+        </div>
+
+        <!-- Contact Form -->
+        <div class="ent-card" id="contactCard">
+          <h3>&#128231; Kontakt &amp; Rechnungsdaten</h3>
+          <p style="font-size:13px;color:var(--ds-text-secondary);margin:0 0 var(--ds-space-3)">Unser Tarif-Team meldet sich innerhalb von 24 Stunden bei Ihnen, um Standorte, Lieferanten und Bedarfsvolumen zu qualifizieren.</p>
+          <div class="contact-grid">
+            <div class="form-field">
+              <label class="form-label">Firma *</label>
+              <input class="form-input" id="fCompany" placeholder="Muster GmbH" required/>
+            </div>
+            <div class="form-field">
+              <label class="form-label">Ansprechpartner *</label>
+              <input class="form-input" id="fContact" placeholder="Max Mustermann" required/>
+            </div>
+            <div class="form-field">
+              <label class="form-label">E-Mail *</label>
+              <input class="form-input" id="fEmail" type="email" placeholder="tarif@firma.de" required/>
+            </div>
+            <div class="form-field">
+              <label class="form-label">Rolle / Funktion</label>
+              <input class="form-input" id="fContactRole" placeholder="z.B. Einkauf, HR, Geschäftsführung"/>
+            </div>
+            <div class="form-field">
+              <label class="form-label">Telefon</label>
+              <input class="form-input" id="fPhone" type="tel" placeholder="+49 30 12345678"/>
+            </div>
+            <div class="form-field">
+              <label class="form-label">Strasse &amp; Nr.</label>
+              <input class="form-input" id="fStreet" placeholder="Musterstrasse 1"/>
+            </div>
+            <div class="form-field">
+              <label class="form-label">PLZ / Ort</label>
+              <input class="form-input" id="fCity" placeholder="10115 Berlin"/>
+            </div>
+            <div class="form-field">
+              <label class="form-label">USt-IdNr.</label>
+              <input class="form-input" id="fVat" placeholder="DE123456789"/>
+            </div>
+            <div class="form-field">
+              <label class="form-label">Erwarteter Start</label>
+              <input class="form-input" id="fStart" type="date"/>
+            </div>
+            <!-- Technische Anforderungen -->
+            <div class="form-field full" style="margin-top:var(--ds-space-3)">
+              <label class="form-label">Technische Anforderungen (optional, Mehrfachauswahl)</label>
+              <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:10px 24px;margin-top:var(--ds-space-2)">
+                <label style="display:flex;align-items:flex-start;gap:8px;font-size:13px;color:var(--ds-text-secondary);cursor:pointer">
+                  <input type="checkbox" id="fReqSso" style="margin-top:2px;flex-shrink:0"/>
+                  <span><strong>SSO / SAML</strong><br><span style="font-size:12px;color:var(--ds-text-tertiary)">z.B. Azure AD, Okta, Keycloak</span></span>
+                </label>
+                <label style="display:flex;align-items:flex-start;gap:8px;font-size:13px;color:var(--ds-text-secondary);cursor:pointer">
+                  <input type="checkbox" id="fReqMfa" style="margin-top:2px;flex-shrink:0"/>
+                  <span><strong>MFA-Pflicht</strong><br><span style="font-size:12px;color:var(--ds-text-tertiary)">Zwei-Faktor fuer alle Admin-Nutzer</span></span>
+                </label>
+                <label style="display:flex;align-items:flex-start;gap:8px;font-size:13px;color:var(--ds-text-secondary);cursor:pointer">
+                  <input type="checkbox" id="fReqApi" style="margin-top:2px;flex-shrink:0"/>
+                  <span><strong>REST-API / Integration</strong><br><span style="font-size:12px;color:var(--ds-text-tertiary)">API-Keys, Webhooks, ERP-Anbindung</span></span>
+                </label>
+                <label style="display:flex;align-items:flex-start;gap:8px;font-size:13px;color:var(--ds-text-secondary);cursor:pointer">
+                  <input type="checkbox" id="fReqCompliance" style="margin-top:2px;flex-shrink:0"/>
+                  <span><strong>Compliance &amp; Audit</strong><br><span style="font-size:12px;color:var(--ds-text-tertiary)">Audit-Log, DSGVO-Export, Pruefpfade</span></span>
+                </label>
+              </div>
+            </div>
+
+            <div class="form-field full">
+              <label class="form-label">Anmerkungen / Anforderungen</label>
+              <textarea class="form-input" id="fNotes" placeholder="Besondere Anforderungen, Anzahl Standorte, aktive Lieferanten, Integrationen, Bedarfe pro Monat..."></textarea>
+            </div>
+
+            <div class="form-field full" style="margin-top:var(--ds-space-4)">
+              <label class="form-label">Interesse an strategischer Zusammenarbeit / Rahmenkonditionen</label>
+              <div style="display:flex;gap:10px;align-items:flex-start;margin-bottom:var(--ds-space-2);color:var(--ds-text-secondary);font-size:13px;line-height:1.5">
+                <input type="checkbox" id="fStrategicCollabInterest" onchange="toggleStrategicCollabBlock()" checked/>
+                <div>
+                  Ich moechte ein qualifiziertes Kooperationsinteresse fuer eine moegliche Zusammenarbeit im individuellen Tarif anfragen.
+                  <div style="font-size:12px;color:var(--ds-text-tertiary);margin-top:4px">
+                    Kein unmittelbarer Vertragsabschluss ueber die Plattform.
+                  </div>
+                </div>
+              </div>
+              <div class="contact-grid" style="grid-template-columns:1fr 1fr;gap:var(--ds-space-3)">
+                <div class="form-field">
+                  <label class="form-label">Anzahl Standorte (optional)</label>
+                  <input class="form-input" id="fStrategicCollabSiteCount" type="number" min="1" max="10000" placeholder="z.B. 12"/>
+                </div>
+                <div class="form-field">
+                  <label class="form-label">Region / Scope (optional)</label>
+                  <input class="form-input" id="fStrategicCollabRegionScope" placeholder="z.B. DACH, EU"/>
+                </div>
+                <div class="form-field full" style="grid-column:1/-1">
+                  <label class="form-label">Kontext (optional)</label>
+                  <textarea class="form-input" id="fStrategicCollabMessage" placeholder="Kurz: Worum geht es, welche Eckdaten helfen fuer eine qualifizierte Rueckmeldung?"></textarea>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="submit-section">
+            <div class="hint">Nach Absenden erhalten Sie eine Zusammenfassung per E-Mail. Unser Tarif-Team erstellt Ihnen ein verbindliches Angebot.</div>
+            <button class="btn-submit" id="btnSubmit" onclick="submitRequest()">Anfrage absenden</button>
+            <div id="submitError" style="display:none;width:100%;font-size:12px;color:var(--ds-danger);margin-top:var(--ds-space-2)"></div>
+          </div>
+        </div>
+
+        <!-- Success -->
+        <div class="success-msg" id="successMsg">
+          <h3>&#9989; Anfrage erfolgreich gesendet!</h3>
+          <p>Vielen Dank fuer Ihr Interesse am individuellen Tarif. Unser Team wird sich innerhalb von 24 Stunden bei Ihnen melden und ein individuelles Angebot erstellen.</p>
+          <div id="successActions" style="margin-top:var(--ds-space-4);display:none;justify-content:center;gap:var(--ds-space-2)">
+            <a id="successReturnLink" class="ds-btn ds-btn--primary" href="/public/sla_abo.html">Zurueck zu den Abo-Modellen</a>
+          </div>
+        </div>
+      </div>
+
+      <!-- RIGHT: Invoice Preview -->
+      <div class="invoice-panel">
+        <div class="ent-card">
+          <div class="invoice-header">
+            <h3>Kostenvorschau</h3>
+            <span class="badge">INDIVIDUELLER TARIF</span>
+          </div>
+
+          <!-- Base -->
+          <div class="invoice-line base">
+            <span class="label">Basispaket individueller Tarif</span>
+            <span class="amount">2.499 EUR</span>
+          </div>
+          <div style="font-size:11px;color:var(--ds-text-tertiary);margin-bottom:var(--ds-space-2)">Alle Standard-Features, bis 50 Nutzer</div>
+
+          <!-- Dynamic addon lines -->
+          <div id="invoiceAddons"></div>
+
+          <!-- Seat surcharge -->
+          <div id="invoiceSeatLine" style="display:none" class="invoice-line addon">
+            <span class="label">Zusaetzliche Nutzer (<span id="invoiceSeatQty">0</span>)</span>
+            <span class="amount" id="invoiceSeatAmount">0 EUR</span>
+          </div>
+
+          <hr class="invoice-divider"/>
+
+          <!-- Totals -->
+          <div class="invoice-total">
+            <span>Monatlich</span>
+            <span class="amount" id="invoiceMonthly">2.499 EUR</span>
+          </div>
+          <div id="invoiceEinmaligRow" class="invoice-einmalig" style="display:none">
+            <span>Einmalig</span>
+            <span class="amount" id="invoiceEinmalig">0 EUR</span>
+          </div>
+
+          <hr class="invoice-divider"/>
+
+          <div class="invoice-note">
+            Alle Preise in EUR netto zzgl. gesetzlicher MwSt. Dies ist eine unverbindliche Kostenvorschau. Das verbindliche Angebot erhalten Sie nach Pruefung durch unser Tarif-Team.
+          </div>
+
+          <!-- PDF download placeholder -->
+          <div style="margin-top:var(--ds-space-4);text-align:center">
+            <button class="ds-btn" style="width:100%;font-size:13px" onclick="printInvoice()">&#128424; Kostenvorschau drucken</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="ds-disclaimer" style="margin-top:var(--ds-space-6)">
+      Alle Preise verstehen sich in EUR netto zzgl. gesetzlicher MwSt. Die angezeigte Kostenvorschau ist unverbindlich. Das verbindliche Angebot wird nach individueller Pruefung erstellt. Alle Angaben ohne Gewaehr.
+    </div>
+  </div>
+
+  <script src="/public/js/catalogRenderer.js"></script>
+  <script src="/public/js/pages/enterpriseAnfrage.js"></script>
+
+  <script src="/public/js/pageShell.js"></script>
+  <script src="/public/js/notifications.js"></script>
+  <div id="tc-footer" data-tc-footer></div>
+  <script src="/public/js/footer.js"></script>
+  <script src="/public/js/demoBanner.js" defer></script>
+  <script src="/public/js/onboardingWizard.js" defer></script>
+  <script src="/public/js/breadcrumb.js" defer></script>
+</body>
+</html>

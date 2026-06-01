@@ -1,8 +1,9 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="de">
 <head>
   <meta charset="utf-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <script src="/public/js/theme.js"></script>
   <title>Lieferanten-Bewertung – TempConnect</title>
   <link rel="stylesheet" href="/public/css/enterprise.css"/>
   <style>
@@ -14,87 +15,480 @@
     .kpi div { padding: 12px; border-radius: 12px; background: rgba(0,0,0,.2); border: 1px solid var(--line); }
     .kpi b { display: block; font-size: 18px; }
     .kpi span { font-size: 12px; color: var(--muted); }
+    .helper { font-size: 12px; color: var(--muted); margin-top: 8px; }
+    .link-row { display:flex; gap:8px; flex-wrap:wrap; margin: 0 0 14px; }
+    .context-banner { display:none; background:rgba(74,158,255,.08); border:1px solid rgba(74,158,255,.2); border-radius:8px; padding:10px 14px; font-size:13px; margin-bottom:14px; color:var(--ds-text-secondary); }
+    .cockpit-grid { display:grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap:14px; margin-top:16px; }
+    .cockpit-card { padding:16px; border-radius:12px; border:1px solid var(--line); background:rgba(255,255,255,.02); }
+    .cockpit-card h3 { margin:0 0 12px; font-size:13px; text-transform:uppercase; letter-spacing:.04em; color:var(--muted); }
+    .metric-grid { display:grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap:10px; }
+    .metric-grid .metric { padding:12px; border-radius:12px; border:1px solid rgba(255,255,255,.08); background:rgba(0,0,0,.18); }
+    .metric-grid .metric b { display:block; font-size:18px; margin-bottom:4px; }
+    .metric-grid .metric span { font-size:11px; color:var(--muted); text-transform:uppercase; }
+    .list-stack { display:flex; flex-direction:column; gap:10px; }
+    .list-item { display:flex; justify-content:space-between; align-items:flex-start; gap:12px; padding-bottom:10px; border-bottom:1px solid rgba(255,255,255,.06); font-size:12px; }
+    .list-item:last-child { border-bottom:none; padding-bottom:0; }
+    .item-meta { font-size:11px; color:var(--muted); margin-top:4px; }
+    .note-form { margin:0 0 12px; }
+    .note-form textarea { width:100%; margin:0 0 8px; }
+    .empty-mini { font-size:12px; color:var(--muted); }
+    .action-row { display:flex; gap:8px; flex-wrap:wrap; margin-top:12px; }
+    .page-state { display:none; margin:0 0 14px; padding:12px 14px; border-radius:10px; border:1px solid transparent; }
+    .page-state--info { display:block; background:rgba(74,158,255,.08); border-color:rgba(74,158,255,.22); }
+    .page-state--warn { display:block; background:rgba(255,204,0,.10); border-color:rgba(255,204,0,.24); }
+    .page-state--bad { display:block; background:rgba(255,69,58,.10); border-color:rgba(255,69,58,.22); }
+    .page-state__title { font-size:13px; font-weight:700; margin-bottom:4px; }
+    .page-state__text { font-size:12px; color:var(--ds-text-secondary); }
+    @media (max-width: 900px) {
+      .cockpit-grid { grid-template-columns: 1fr; }
+      .metric-grid { grid-template-columns: 1fr 1fr; }
+    }
   </style>
 </head>
 <body data-sla-guard="sla_access">
   <div id="paywall" class="wrap" style="display:none">
-    <div class="topbar"><span class="brand">TempConnect</span><a href="/" class="btn">Startseite</a></div>
+    <nav class="ds-topbar"><div class="ds-topbar__brand"><span class="ds-topbar__brand-dot"></span>TempConnect</div><div class="ds-topbar__nav"><a href="/" class="ds-btn">Startseite</a></div></nav>
     <div class="paywall-box">
       <h2>Bereich nicht verfügbar</h2>
       <p>Das Feature &quot;<span id="paywall-feature-name">Pulse-Bereich</span>&quot; ist mit deinem aktuellen Plan nicht nutzbar.</p>
       <p>Aktueller Plan: <span id="paywall-current-plan" class="paywall-plan">–</span></p>
       <a id="paywall-cta" href="/public/sla_abo.html" class="btn primary">Abo ansehen</a>
     </div>
+    <div id="scorecardPaywallState" class="page-state"></div>
+    <div id="scorecardPaywallContext" class="context-banner"></div>
   </div>
   <div id="main-content" class="wrap">
-    <div class="topbar">
-      <span class="brand">TempConnect – Lieferanten-Bewertung</span>
-      <a href="/" class="btn">Startseite</a>
-      <a href="/public/enterprise.html" class="btn">Übersicht</a>
-      <a href="/public/capacity_search.html" class="btn">Kapazitätssuche</a>
-      <a href="/public/sla_search_jobs_list.html" class="btn">Suchaufträge</a>
+    <div id="tc-shell"></div>
+
+    <div class="ds-page-header">
+      <div class="ds-page-header__content">
+        <h1 class="ds-page-title">Lieferantenbewertung</h1>
+        <p class="ds-page-subtitle" id="scorecardSubtitle">Scorecard, Performance und Risiko-Signale je Lieferant im Lieferantenpool.</p>
+      </div>
+      <div class="ds-page-header__actions">
+        <a id="scorecardVendorPoolBackLink" class="btn" href="/public/vendor_pool.html">&larr; Lieferantensteuerung</a>
+      </div>
     </div>
+
+    <div class="link-row">
+      <a id="scorecardVendorPoolNavLink" class="btn" href="/public/vendor_pool.html">Lieferantenpool</a>
+      <a class="btn" href="/public/requisitions.html">Angebote</a>
+      <a id="scorecardRateCardNavLink" class="btn" href="/public/rate-cards.html">Preisrahmen</a>
+      <a id="scorecardSpendNavLink" class="btn" href="/public/spend-analytics.html">Spend &amp; Kosten</a>
+    </div>
+    <div id="scorecardState" class="page-state"></div>
+    <div id="scorecardContext" class="context-banner"></div>
+
     <div class="card">
-      <label for="window">Zeitraum (Tage)</label>
-      <select id="window" style="margin-bottom:12px">
-        <option value="30">30 Tage</option>
-        <option value="90">90 Tage</option>
-      </select>
-      <label for="agencyId">Anbieter-ID (UUID) – leer = eigene Bewertung</label>
-      <input type="text" id="agencyId" placeholder="Leer = eigene Bewertung"/>
-      <button type="button" class="btn primary" style="margin-top:12px" id="btnLoad">Bewertung laden</button>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px 20px;align-items:end">
+        <div>
+          <label for="window">Zeitraum</label>
+          <select id="window" style="margin-bottom:0">
+            <option value="30">30 Tage</option>
+            <option value="90">90 Tage</option>
+          </select>
+        </div>
+        <div>
+          <label for="supplierSelect">Lieferant aus Lieferantenpool</label>
+          <select id="supplierSelect" style="margin-bottom:0">
+            <option value="">Lieferant auswaehlen</option>
+          </select>
+        </div>
+        <div>
+          <label for="agencyId">Lieferanten-ID (manuell, optional)</label>
+          <input type="text" id="agencyId" placeholder="UUID" style="margin-bottom:0"/>
+        </div>
+        <div style="display:flex;gap:8px;align-items:flex-end">
+          <button type="button" class="btn primary" style="flex:1" id="btnLoad">Bewertung laden</button>
+          <a id="btnRateCardLink" class="btn" href="#" target="_blank" style="display:none" title="Lieferantenspezifische Preisrahmen">Preisrahmen &rarr;</a>
+          <a id="btnSpendLink" class="btn" href="#" target="_blank" style="display:none" title="Spend &amp; Kosten fuer diesen Lieferanten">Spend &amp; Kosten &rarr;</a>
+        </div>
+      </div>
+      <div class="action-row">
+        <a id="scorecardVendorPoolActionLink" class="btn" href="/public/vendor_pool.html">Lieferantenpool</a>
+      </div>
+      <p id="supplierScorecardHint" class="helper" style="margin-top:8px">Tipp: Lieferant aus dem Lieferantenpool waehlen oder URL-Parameter <code>?agencyId=uuid</code> nutzen. Aus dieser Sicht gelangen Sie direkt zu Preisrahmen und Spend &amp; Kosten fuer genau diesen Lieferanten.</p>
     </div>
     <div id="out">
-      <p class="empty">Zeitraum wählen und „Bewertung laden“ klicken.</p>
+      <p class="empty">Lieferant waehlen und „Bewertung laden“ klicken.</p>
     </div>
   </div>
-  </div>
   <script src="/public/js/planFeatures.js"></script>
+  <script src="/public/js/surfaceAccess.js"></script>
   <script src="/public/js/slaGuard.js"></script>
   <script>
     var API = "/api";
-    function api(path) {
-      return fetch(API + path, { credentials: "include" });
-    }
-    function checkAuth(r) { if (r.status === 401) { window.location.href = "/"; return false; } return true; }
+    var urlParams = new URLSearchParams(window.location.search);
+    var preselectedAgencyId = urlParams.get('agencyId') || '';
+    var preselectedAgencyName = urlParams.get('agencyName') || '';
+    var csrfToken = '';
+    var currentMe = null;
+    var currentProfile = null;
+    var scorecardAccess = { canRead: false, canWrite: false, canAnnotate: false, mode: 'hidden', reason: '' };
+    var vendorPoolAccess = { canRead: false, canWrite: false, mode: 'hidden', reason: '' };
+    var spendAnalyticsAccess = { canRead: false, canWrite: false, mode: 'hidden', reason: '' };
+    var rateCardAccess = { canRead: false, canWrite: false, mode: 'hidden', reason: '' };
 
-    document.getElementById("btnLoad").onclick = function() {
-      var windowDays = parseInt(document.getElementById("window").value, 10) || 30;
-      var agencyId = (document.getElementById("agencyId").value || "").trim();
-      api("/me").then(function(r) {
-        if (!checkAuth(r)) return;
-        return r.ok ? r.json() : null;
-      }).then(function(me) {
-        if (!me) return;
-        if (!agencyId) agencyId = me.id;
-        return api("/suppliers/" + encodeURIComponent(agencyId) + "/scorecard?window=" + windowDays);
-      }).then(function(r) {
-        if (!r) return;
-        if (!checkAuth(r)) return;
-        return r.ok ? r.json() : null;
-      }).then(function(data) {
-        var out = document.getElementById("out");
-        if (!data) { out.innerHTML = "<p class=\"empty\">Bewertung nicht verfügbar oder keine Berechtigung.</p>"; return; }
-        var g = (data.grade || "C").toUpperCase();
-        var cls = g === "A" ? "a" : g === "B" ? "b" : "c";
-        var html = "<div class=\"card\"><div class=\"grade " + cls + "\">" + (data.grade || "–") + "</div>";
-        html += "<p style=\"text-align:center;color:var(--muted);margin:0\">Zeitraum: " + windowDays + " Tage</p>";
-        html += "<div class=\"kpi\">";
-        html += "<div><b>" + (data.fill_rate != null ? (data.fill_rate * 100).toFixed(1) + "%" : "–") + "</b><span>Fill-rate</span></div>";
-        html += "<div><b>" + (data.on_time_rate != null ? (data.on_time_rate * 100).toFixed(1) + "%" : "–") + "</b><span>On-time</span></div>";
-        html += "<div><b>" + (data.sla_breach_rate != null ? (data.sla_breach_rate * 100).toFixed(1) + "%" : "–") + "</b><span>Pulse breach rate</span></div>";
-        html += "<div><b>" + (data.avg_rating != null ? data.avg_rating.toFixed(1) : "–") + "</b><span>Quality (avg rating)</span></div>";
-        html += "</div>";
-        if (data.totals) {
-          html += "<p style=\"margin-top:12px;font-size:13px;color:var(--muted)\">Anfragen erhalten: " + (data.totals.requests_received || 0) + ", angenommen: " + (data.totals.requests_accepted || 0) + ", abgeschlossen: " + (data.totals.requests_finalized || 0) + "</p>";
-        }
-        html += "</div>";
-        out.innerHTML = html;
+    function esc(s) {
+      var d = document.createElement('div');
+      d.textContent = s == null ? '' : String(s);
+      return d.innerHTML;
+    }
+    function pct(v) {
+      return v == null ? '–' : (Number(v) * 100).toFixed(1) + '%';
+    }
+    function fmtDate(v) {
+      if (!v) return '–';
+      try { return new Date(v).toLocaleDateString('de-DE'); } catch (e) { return v; }
+    }
+    function resolveSurfaceAccess(me, key) {
+      if (window.TC && window.TC.surfaceAccess && typeof window.TC.surfaceAccess.resolve === 'function') {
+        return window.TC.surfaceAccess.resolve(me, key) || { canRead: false, canWrite: false, mode: 'hidden', reason: '' };
+      }
+      return { canRead: false, canWrite: false, mode: 'hidden', reason: '' };
+    }
+    function renderScorecardState(tone, title, text) {
+      var el = document.getElementById('scorecardState');
+      if (!el) return;
+      if (!title && !text) {
+        el.className = 'page-state';
+        el.innerHTML = '';
+        el.style.display = 'none';
+        return;
+      }
+      el.className = 'page-state page-state--' + (tone || 'info');
+      el.innerHTML = '<div class="page-state__title">' + esc(title || '') + '</div><div class="page-state__text">' + esc(text || '') + '</div>';
+      el.style.display = '';
+    }
+    function describeScorecardAccess(access) {
+      if (!access || access.canRead) return '';
+      return access.reason || 'Die Lieferantenbewertung ist fuer diese Rolle derzeit nicht freigeschaltet.';
+    }
+    function updateScorecardHint() {
+      var hint = document.getElementById('supplierScorecardHint');
+      if (!hint) return;
+      if (!scorecardAccess.canRead) {
+        hint.textContent = describeScorecardAccess(scorecardAccess);
+        return;
+      }
+      if (!vendorPoolAccess.canRead) {
+        hint.textContent = 'Tipp: Die Scorecard kann direkt per Lieferanten-ID oder Deep-Link geoeffnet werden. Lieferantenpool-Auswahl und Beziehungsprofil bleiben fuer diese Rolle ausgeblendet.';
+        return;
+      }
+      if (!rateCardAccess.canRead) {
+        hint.textContent = 'Tipp: Lieferant aus dem Lieferantenpool waehlen oder URL-Parameter ?agencyId=uuid nutzen. Preisrahmen bleiben aus dieser Sicht buyer-seitig reserviert; Spend & Kosten kann weiter lieferantenspezifisch geoeffnet werden.';
+        return;
+      }
+      hint.innerHTML = 'Tipp: Lieferant aus dem Lieferantenpool waehlen oder URL-Parameter <code>?agencyId=uuid</code> nutzen. Aus dieser Sicht gelangen Sie direkt zu Preisrahmen und Spend &amp; Kosten fuer genau diesen Lieferanten.';
+    }
+    function applySurfaceAccess() {
+      var vendorLinks = [
+        document.getElementById('scorecardVendorPoolBackLink'),
+        document.getElementById('scorecardVendorPoolNavLink'),
+        document.getElementById('scorecardVendorPoolActionLink')
+      ];
+      vendorLinks.forEach(function(link) {
+        if (link) link.style.display = vendorPoolAccess.canRead ? '' : 'none';
       });
-    };
+      var supplierSelect = document.getElementById('supplierSelect');
+      if (supplierSelect) supplierSelect.disabled = !vendorPoolAccess.canRead;
+      var rateNavLink = document.getElementById('scorecardRateCardNavLink');
+      if (rateNavLink) rateNavLink.style.display = rateCardAccess.canRead ? '' : 'none';
+      var spendNavLink = document.getElementById('scorecardSpendNavLink');
+      if (spendNavLink) spendNavLink.style.display = spendAnalyticsAccess.canRead ? '' : 'none';
+      var loadBtn = document.getElementById('btnLoad');
+      if (loadBtn) loadBtn.disabled = !scorecardAccess.canRead;
+      updateScorecardHint();
+    }
+    async function api(path, opts) {
+      var options = Object.assign({ credentials: "include" }, opts || {});
+      if (options.body && typeof options.body === "object" && !(options.body instanceof FormData)) {
+        options.headers = Object.assign({ "Content-Type": "application/json", "x-csrf-token": csrfToken }, options.headers || {});
+        options.body = JSON.stringify(options.body);
+      }
+      var r = await fetch(API + path, options);
+      if (r.status === 401) { window.location.href = "/"; return null; }
+      return r.ok ? r.json() : null;
+    }
+
+    function fillSupplierDropdown(items) {
+      var sel = document.getElementById("supplierSelect");
+      var base = '<option value="">Lieferant auswaehlen</option>';
+      if (!items || !items.length) { sel.innerHTML = base; return; }
+      sel.innerHTML = base + items.map(function(it) {
+        var label = (it.supplier_org_name || it.supplier_org_id || 'Supplier');
+        if (it.tier) label += ' · ' + it.tier;
+        return '<option value="' + esc(it.supplier_org_id || '') + '">' + esc(label) + '</option>';
+      }).join("");
+    }
+
+    function findSupplierName(id) {
+      var sel = document.getElementById("supplierSelect");
+      if (sel && sel.value === id && sel.selectedOptions && sel.selectedOptions[0]) {
+        var label = sel.selectedOptions[0].textContent || '';
+        return label.split(' · ')[0];
+      }
+      return preselectedAgencyId === id ? preselectedAgencyName : '';
+    }
+
+    function updateActionLinks(id, name) {
+      var spendBtn = document.getElementById('btnSpendLink');
+      var rateBtn = document.getElementById('btnRateCardLink');
+      if (spendBtn) {
+        var canShowSpend = spendAnalyticsAccess.canRead && id;
+        spendBtn.style.display = canShowSpend ? '' : 'none';
+        spendBtn.href = canShowSpend ? '/public/spend-analytics.html?vendor_id=' + encodeURIComponent(id) + '&supplier=' + encodeURIComponent(name || '') : '#';
+      }
+      if (rateBtn) {
+        var canShowRate = rateCardAccess.canRead && id;
+        rateBtn.style.display = canShowRate ? '' : 'none';
+        rateBtn.href = canShowRate ? '/public/rate-cards.html?supplier_org_id=' + encodeURIComponent(id) + '&supplier_name=' + encodeURIComponent(name || '') : '#';
+      }
+    }
+
+    function renderContext(profile, supplierName) {
+      var box = document.getElementById('scorecardContext');
+      var parts = [];
+      if (supplierName) parts.push('Lieferant: <strong>' + esc(supplierName) + '</strong>');
+      if (!vendorPoolAccess.canRead && supplierName) {
+        parts.push('Lieferantenbeziehung: <strong>in dieser Rolle ausgeblendet</strong>');
+      }
+      if (profile && profile.vendor_pool) {
+        parts.push('Tier: <strong>' + esc(profile.vendor_pool.tier || '–') + '</strong>');
+        parts.push('Status: <strong>' + esc(profile.vendor_pool.status || '–') + '</strong>');
+        if (profile.vendor_pool.category) parts.push('Kategorie: <strong>' + esc(profile.vendor_pool.category) + '</strong>');
+      }
+      if (!parts.length) {
+        box.style.display = 'none';
+        box.innerHTML = '';
+        return;
+      }
+      box.innerHTML = '&#128279; ' + parts.join(' &bull; ');
+      box.style.display = '';
+    }
+
+    function renderCockpit(scorecard, profile, windowDays, supplierName) {
+      var out = document.getElementById("out");
+      var data = scorecard || (profile && profile.scorecard) || null;
+      if (!data && !profile) {
+        out.innerHTML = '<p class="empty">Bewertung nicht verfügbar oder keine Berechtigung.</p>';
+        return;
+      }
+
+      var g = ((data && data.grade) || "C").toUpperCase();
+      var cls = g === "A" ? "a" : g === "B" ? "b" : "c";
+      var vendor = profile && profile.vendor_pool ? profile.vendor_pool : null;
+      var compliance = profile && profile.compliance ? profile.compliance : null;
+      var reputation = profile && profile.reputation ? profile.reputation : null;
+      var contracts = profile && profile.contracts ? profile.contracts : [];
+      var history = profile && profile.history ? profile.history.slice(0, 5) : [];
+      var notes = profile && profile.notes ? profile.notes.slice(0, 5) : [];
+
+      var html = '<div class="cockpit-grid">';
+      html += '<div class="cockpit-card">';
+      html += '<h3>Leistungs-Scorecard</h3>';
+      html += '<div class="grade ' + cls + '">' + esc((data && data.grade) || "–") + '</div>';
+      html += '<p style="text-align:center;color:var(--muted);margin:0 0 14px">Zeitraum: ' + esc(String(windowDays)) + ' Tage' + (supplierName ? ' · ' + esc(supplierName) : '') + '</p>';
+      html += '<div class="kpi">';
+      html += '<div><b>' + (data ? pct(data.fill_rate) : '–') + '</b><span>Besetzungsquote</span></div>';
+      html += '<div><b>' + (data ? pct(data.on_time_rate) : '–') + '</b><span>Puenktlichkeit</span></div>';
+      html += '<div><b>' + (data ? pct(data.sla_breach_rate) : '–') + '</b><span>SLA-Bruchquote</span></div>';
+      html += '<div><b>' + (data && data.avg_rating != null ? Number(data.avg_rating).toFixed(1) : '–') + '</b><span>Qualitaet (Ø Rating)</span></div>';
+      html += '</div>';
+      if (data && data.totals) {
+        html += '<p class="helper">Anfragen erhalten: ' + (data.totals.requests_received || 0) + ', angenommen: ' + (data.totals.requests_accepted || 0) + ', abgeschlossen: ' + (data.totals.requests_finalized || 0) + '.</p>';
+      }
+      html += '</div>';
+
+      html += '<div class="cockpit-card">';
+      html += '<h3>Lieferantenbeziehung</h3>';
+      if (vendor) {
+        html += '<div class="metric-grid">';
+        html += '<div class="metric"><b>' + esc(vendor.tier || '–') + '</b><span>Tier</span></div>';
+        html += '<div class="metric"><b>' + esc(vendor.status || '–') + '</b><span>Status</span></div>';
+        html += '<div class="metric"><b>' + esc(vendor.category || '–') + '</b><span>Kategorie</span></div>';
+        html += '<div class="metric"><b>' + esc(String(profile.active_workers || 0)) + '</b><span>Aktive Einsatzkraefte</span></div>';
+        html += '</div>';
+        html += '<p class="helper">Gueltig von ' + fmtDate(vendor.valid_from) + ' bis ' + fmtDate(vendor.valid_until) + '.</p>';
+      } else {
+        html += '<p class="empty-mini">Dieser Lieferant ist in Ihrem Lieferantenpool noch nicht als konkrete Beziehung hinterlegt. Performance-Daten koennen trotzdem verfuegbar sein.</p>';
+      }
+      html += '</div>';
+
+      html += '<div class="cockpit-card">';
+      html += '<h3>Compliance & Vertraege</h3>';
+      html += '<div class="metric-grid">';
+      html += '<div class="metric"><b>' + esc(String((compliance && compliance.total) || 0)) + '</b><span>Dokumente gesamt</span></div>';
+      html += '<div class="metric"><b>' + esc(String((compliance && compliance.approved) || 0)) + '</b><span>Freigegeben</span></div>';
+      html += '<div class="metric"><b>' + esc(String((compliance && compliance.pending) || 0)) + '</b><span>Ausstehend</span></div>';
+      html += '<div class="metric"><b>' + esc(String(contracts.length || 0)) + '</b><span>Aktive Verträge</span></div>';
+      html += '</div>';
+      html += contracts.length ? '<div class="list-stack" style="margin-top:12px">' + contracts.slice(0, 4).map(function(c) {
+        return '<div class="list-item"><div><strong>' + esc(c.title || c.contract_type || 'Vertrag') + '</strong><div class="item-meta">' + esc(c.status || 'aktiv') + '</div></div><div style="text-align:right"><strong>' + fmtDate(c.valid_until) + '</strong><div class="item-meta">gueltig bis</div></div></div>';
+      }).join('') + '</div>' : '<p class="helper">Keine aktiven Verträge im konsolidierten Profil gefunden.</p>';
+      html += '</div>';
+
+      html += '<div class="cockpit-card">';
+      html += '<h3>Reputation & Wirtschaftlichkeit</h3>';
+      html += '<div class="metric-grid">';
+      html += '<div class="metric"><b>' + esc(String((reputation && reputation.reputation_score) != null && reputation && reputation.reputation_score != null ? reputation.reputation_score : '–')) + '</b><span>Reputation</span></div>';
+      html += '<div class="metric"><b>' + esc(reputation && reputation.grade ? reputation.grade : '–') + '</b><span>Reputation-Grad</span></div>';
+      html += '<div class="metric"><b>' + (reputation && reputation.avg_stars != null ? esc(Number(reputation.avg_stars).toFixed(1)) + ' ★' : '–') + '</b><span>Sterne</span></div>';
+      html += '<div class="metric"><b>' + esc(String(profile && profile.active_workers != null ? profile.active_workers : 0)) + '</b><span>Aktive Einsatzkraefte</span></div>';
+      html += '</div>';
+      html += '<div class=\"action-row\">'
+        + (vendorPoolAccess.canRead ? '<a class=\"btn\" href=\"/public/vendor_pool.html\">Lieferantenpool</a>' : '')
+        + '<a class=\"btn\" href=\"' + document.getElementById('btnRateCardLink').href + '\" target=\"_blank\" ' + (document.getElementById('btnRateCardLink').style.display === 'none' ? 'style=\"display:none\"' : '') + '>Preisrahmen &rarr;</a>'
+        + '<a class=\"btn\" href=\"' + document.getElementById('btnSpendLink').href + '\" target=\"_blank\" ' + (document.getElementById('btnSpendLink').style.display === 'none' ? 'style=\"display:none\"' : '') + '>Spend &amp; Kosten &rarr;</a>'
+        + '</div>';
+      html += '</div>';
+      html += '</div>';
+
+      html += '<div class="cockpit-grid">';
+      html += '<div class="cockpit-card">';
+      html += '<h3>Letzte Änderungen</h3>';
+      html += history.length ? '<div class="list-stack">' + history.map(function(item) {
+        return '<div class="list-item"><div><strong>' + esc(item.field_changed || 'Änderung') + '</strong><div class="item-meta">' + esc(item.old_value || '–') + ' → ' + esc(item.new_value || '–') + '</div></div><div style="text-align:right"><strong>' + fmtDate(item.created_at) + '</strong><div class="item-meta">' + esc(item.changed_by_name || item.changed_by_email || 'System') + '</div></div></div>';
+      }).join('') + '</div>' : '<div class="empty-mini">Noch keine dokumentierten Änderungen fuer diesen Lieferanten.</div>';
+      html += '</div>';
+
+      html += '<div class="cockpit-card">';
+      html += '<h3>Notizen</h3>';
+      if (scorecardAccess.canAnnotate && vendor && vendor.id) {
+        html += '<form class="note-form" onsubmit="return submitVendorNote(event)"><textarea id="newVendorNote" rows="3" maxlength="2000" placeholder="Operative Notiz, Steuerungs-Hinweis oder Gespraechsprotokoll"></textarea><button type="submit" class="btn primary">Notiz speichern</button></form>';
+      }
+      html += notes.length ? '<div class="list-stack">' + notes.map(function(item) {
+        return '<div class="list-item"><div><strong>' + esc(item.author_name || item.author_email || 'Team') + '</strong><div class="item-meta">' + esc(item.note_text || '') + '</div></div><div style="text-align:right"><strong>' + fmtDate(item.created_at) + '</strong></div></div>';
+      }).join('') + '</div>' : '<div class=\"empty-mini\">' + (scorecardAccess.canAnnotate && vendor && vendor.id ? 'Noch keine Notizen vorhanden.' : 'Notizen sind in dieser Rolle nicht pflegbar oder erst verfuegbar, sobald eine Vendor-Pool-Beziehung sichtbar ist.') + '</div>';
+      html += '</div>';
+      html += '</div>';
+
+      out.innerHTML = html;
+    }
+
+    async function loadSupplierOptions() {
+      if (!vendorPoolAccess.canRead) {
+        fillSupplierDropdown([]);
+        return;
+      }
+      var data = await api("/suppliers/enriched?limit=100");
+      fillSupplierDropdown((data && data.items) || []);
+    }
+
+    async function loadScorecard() {
+      if (!scorecardAccess.canRead) {
+        document.getElementById("out").innerHTML = '<p class="empty">' + esc(describeScorecardAccess(scorecardAccess)) + '</p>';
+        updateActionLinks('', '');
+        renderContext(null, '');
+        renderScorecardState('info', 'Lieferantenbewertung ausgeblendet', describeScorecardAccess(scorecardAccess));
+        return;
+      }
+      var windowDays = parseInt(document.getElementById("window").value, 10) || 30;
+      var agencyId = (document.getElementById("agencyId").value || "").trim() || (document.getElementById("supplierSelect").value || "").trim();
+      var supplierName = findSupplierName(agencyId) || agencyId;
+      if (!agencyId) {
+        document.getElementById("out").innerHTML = '<p class="empty">' + (vendorPoolAccess.canRead ? 'Bitte zunaechst einen Lieferanten auswaehlen oder manuell eine Lieferanten-ID eingeben.' : 'Bitte eine Lieferanten-ID eingeben oder einen Deep-Link mit ?agencyId=uuid verwenden.') + '</p>';
+        updateActionLinks('', '');
+        renderContext(null, '');
+        return;
+      }
+
+      updateActionLinks(agencyId, supplierName);
+      if (supplierName) {
+        var sub = document.getElementById('scorecardSubtitle');
+        if (sub) sub.textContent = 'Lieferantenbewertung fuer: ' + supplierName;
+      }
+
+      var scorecard = await api("/suppliers/" + encodeURIComponent(agencyId) + "/scorecard?window=" + windowDays);
+      var profile = null;
+      if (vendorPoolAccess.canRead && currentMe && currentMe.org_id) {
+        profile = await api("/suppliers/" + encodeURIComponent(currentMe.org_id) + "/" + encodeURIComponent(agencyId) + "/profile");
+      }
+      currentProfile = profile;
+      renderContext(profile, supplierName);
+      renderCockpit(scorecard, profile, windowDays, supplierName);
+    }
+
+    async function submitVendorNote(event) {
+      event.preventDefault();
+      if (!scorecardAccess.canAnnotate) return false;
+      if (!currentProfile || !currentProfile.vendor_pool || !currentProfile.vendor_pool.id) return false;
+      var text = (document.getElementById('newVendorNote').value || '').trim();
+      if (!text) return false;
+      var saved = await api('/suppliers/' + encodeURIComponent(currentProfile.vendor_pool.id) + '/notes', { method: 'POST', body: { text: text } });
+      if (saved) {
+        document.getElementById('newVendorNote').value = '';
+        await loadScorecard();
+      }
+      return false;
+    }
+    window.submitVendorNote = submitVendorNote;
+
+    document.getElementById("supplierSelect").addEventListener("change", function() {
+      var v = (this.value || "").trim();
+      document.getElementById("agencyId").value = v;
+      updateActionLinks(v, findSupplierName(v));
+      if (v) loadScorecard();
+    });
+
+    document.getElementById("agencyId").addEventListener("input", function() {
+      updateActionLinks((this.value || '').trim(), findSupplierName((this.value || '').trim()) || (this.value || '').trim());
+    });
+
+    document.getElementById("btnLoad").onclick = loadScorecard;
+
+    async function init() {
+      currentMe = await api('/me');
+      scorecardAccess = resolveSurfaceAccess(currentMe, 'supplier_scorecard');
+      vendorPoolAccess = resolveSurfaceAccess(currentMe, 'vendor_pool');
+      spendAnalyticsAccess = resolveSurfaceAccess(currentMe, 'spend_analytics');
+      rateCardAccess = resolveSurfaceAccess(currentMe, 'rate_cards');
+      applySurfaceAccess();
+
+      if (!scorecardAccess.canRead) {
+        document.getElementById("out").innerHTML = '<p class="empty">' + esc(describeScorecardAccess(scorecardAccess)) + '</p>';
+        renderScorecardState('info', 'Lieferantenbewertung ausgeblendet', describeScorecardAccess(scorecardAccess));
+        return;
+      }
+
+      if (scorecardAccess.canAnnotate) {
+        var csrf = await fetch('/api/csrf', { credentials: 'include' });
+        if (csrf.ok) {
+          var d = await csrf.json();
+          csrfToken = d.token || d.csrfToken || '';
+        }
+      }
+
+      if (!vendorPoolAccess.canRead) {
+        renderScorecardState('info', 'Lieferantenbewertung ohne Pool-Kontext', 'Die Scorecard bleibt lesbar. Lieferantenpool-Auswahl und Beziehungsprofil werden fuer diese Rolle bewusst nicht geladen.');
+      } else if (!scorecardAccess.canAnnotate) {
+        renderScorecardState('info', 'Lieferantenbewertung read-only', scorecardAccess.reason || 'Notizen und operative Pflege bleiben fuer diese Rolle gesperrt.');
+      } else {
+        renderScorecardState();
+      }
+
+      await loadSupplierOptions();
+
+      if (preselectedAgencyId) {
+        document.getElementById("agencyId").value = preselectedAgencyId;
+        var sel = document.getElementById("supplierSelect");
+        if (sel) sel.value = preselectedAgencyId;
+        updateActionLinks(preselectedAgencyId, preselectedAgencyName || findSupplierName(preselectedAgencyId));
+        if (preselectedAgencyName) {
+          var sub = document.getElementById('scorecardSubtitle');
+          if (sub) sub.textContent = 'Lieferantenbewertung fuer: ' + preselectedAgencyName;
+        }
+        await loadScorecard();
+      }
+    }
+    init();
   </script>
+  <script src="/public/js/pageShell.js"></script>
+  <script src="/public/js/notifications.js" defer></script>
   <div id="tc-footer" data-tc-footer></div>
   <script src="/public/js/footer.js"></script>
-  <script src="/public/js/logout-btn.js"></script>
+<script src="/public/js/demoBanner.js" defer></script>
+<script src="/public/js/onboardingWizard.js" defer></script>
+<script src="/public/js/breadcrumb.js" defer></script>
 </body>
 </html>

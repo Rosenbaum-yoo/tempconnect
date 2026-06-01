@@ -1,93 +1,31 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="de">
 <head>
   <meta charset="utf-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
-  <title>Stundenzettel – TempConnect</title>
+  <script src="/public/js/theme.js"></script>
+  <title>Einsätze & Zeiten – TempConnect</title>
   <link rel="stylesheet" href="/public/css/enterprise.css"/>
-  <style>
-    /* Status-Badges */
-    .ts-badge { display:inline-flex; align-items:center; gap:5px; padding:3px 10px; border-radius:20px; font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:0.06em; }
-    .ts-badge--draft     { background:rgba(148,163,184,.15); color:#94a3b8; }
-    .ts-badge--submitted { background:rgba(251,191,36,.12);  color:#f59e0b; }
-    .ts-badge--approved  { background:rgba(52,211,153,.12);  color:#10b981; }
-    .ts-badge--rejected  { background:rgba(248,113,113,.12); color:#ef4444; }
-    .ts-badge--cancelled { background:rgba(148,163,184,.08); color:#64748b; }
-
-    /* Tabelle */
-    .ts-table { width:100%; border-collapse:collapse; font-size:13px; }
-    .ts-table th { padding:10px 14px; text-align:left; font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:0.07em; color:var(--ds-text-secondary,var(--muted)); border-bottom:1px solid var(--ds-border,var(--line)); }
-    .ts-table td { padding:12px 14px; border-bottom:1px solid rgba(255,255,255,.04); vertical-align:top; }
-    .ts-table tr:last-child td { border-bottom:none; }
-    .ts-table tr:hover td { background:rgba(255,255,255,.025); }
-    .ts-worker { font-weight:600; font-size:13px; }
-    .ts-period { font-size:12px; color:var(--ds-text-secondary,var(--muted)); margin-top:2px; }
-    .ts-hours  { font-weight:700; font-size:15px; }
-    .ts-hours-ot { font-size:11px; color:var(--ds-text-secondary); }
-    .ts-actions { display:flex; gap:6px; flex-wrap:wrap; }
-
-    /* Filter-Bar */
-    .filter-bar { display:flex; gap:var(--ds-space-2); flex-wrap:wrap; align-items:flex-end; margin-bottom:var(--ds-space-4); }
-    .filter-bar label { display:flex; flex-direction:column; gap:4px; font-size:11px; font-weight:600; color:var(--ds-text-secondary); }
-    .filter-bar input, .filter-bar select { font-size:13px; padding:7px 10px; }
-
-    /* Toolbar */
-    .ts-toolbar { display:flex; align-items:center; justify-content:space-between; margin-bottom:var(--ds-space-4); flex-wrap:wrap; gap:var(--ds-space-2); }
-    .ts-total-bar { display:flex; gap:var(--ds-space-4); margin-bottom:var(--ds-space-3); flex-wrap:wrap; }
-    .ts-kpi { background:rgba(255,255,255,.03); border:1px solid var(--ds-border,var(--line)); border-radius:10px; padding:var(--ds-space-3) var(--ds-space-4); min-width:120px; }
-    .ts-kpi__val { font-size:24px; font-weight:800; }
-    .ts-kpi__label { font-size:11px; color:var(--ds-text-secondary); margin-top:2px; }
-
-    /* Modal */
-    .modal-overlay { display:none; position:fixed; inset:0; background:rgba(0,0,0,.6); z-index:1000; align-items:center; justify-content:center; }
-    .modal-overlay.active { display:flex; }
-    .modal-box { background:var(--ds-bg,var(--bg)); border:1px solid var(--ds-border,var(--line)); border-radius:16px; padding:var(--ds-space-6); max-width:600px; width:100%; max-height:90vh; overflow-y:auto; }
-    .modal-box h3 { margin:0 0 var(--ds-space-4); font-size:16px; font-weight:800; }
-    .form-row { display:grid; grid-template-columns:1fr 1fr; gap:var(--ds-space-3); }
-    .form-field { display:flex; flex-direction:column; gap:5px; margin-bottom:var(--ds-space-3); }
-    .form-field label { font-size:12px; font-weight:600; color:var(--ds-text-secondary); }
-    .form-field input, .form-field select, .form-field textarea { font-size:13px; padding:8px 12px; }
-    .modal-actions { display:flex; gap:var(--ds-space-2); justify-content:flex-end; margin-top:var(--ds-space-4); padding-top:var(--ds-space-4); border-top:1px solid var(--ds-border,var(--line)); }
-
-    /* Entries inline */
-    .entry-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(280px,1fr)); gap:var(--ds-space-2); margin-top:var(--ds-space-3); }
-    .entry-card { background:rgba(255,255,255,.03); border:1px solid var(--ds-border,var(--line)); border-radius:10px; padding:var(--ds-space-3); }
-    .entry-card__date { font-weight:700; font-size:13px; margin-bottom:6px; }
-    .entry-card__hours { font-size:22px; font-weight:800; }
-    .entry-card__detail { font-size:11px; color:var(--ds-text-secondary); margin-top:2px; }
-
-    /* Locked state */
-    .locked-overlay { text-align:center; padding:var(--ds-space-8) var(--ds-space-6); }
-    .locked-overlay .lock-icon { font-size:48px; opacity:0.3; margin-bottom:var(--ds-space-4); }
-    .locked-overlay h2 { font-size:22px; font-weight:800; margin:0 0 var(--ds-space-3); }
-    .locked-overlay p { font-size:14px; color:var(--ds-text-secondary); max-width:480px; margin:0 auto var(--ds-space-5); line-height:1.7; }
-
-    /* Empty state */
-    .empty-state { text-align:center; padding:var(--ds-space-8); color:var(--ds-text-secondary); }
-    .empty-state .empty-icon { font-size:40px; opacity:0.3; margin-bottom:var(--ds-space-3); }
-  </style>
+  <link rel="stylesheet" href="/public/css/pages/timesheets.css"/>
 </head>
 <body>
   <!-- Paywall (401) -->
   <div id="paywall" class="wrap" style="display:none">
-    <div class="topbar"><span class="brand">TempConnect</span><a href="/" class="btn">Startseite</a></div>
+    <nav class="ds-topbar"><div class="ds-topbar__brand"><span class="ds-topbar__brand-dot"></span>TempConnect</div><div class="ds-topbar__nav"><a href="/" class="ds-btn">Startseite</a></div></nav>
     <div class="paywall-box">
       <h2>Anmeldung erforderlich</h2>
-      <p>Bitte melde dich an, um Stundenzettel zu verwalten.</p>
-      <a href="/public/login.html" class="btn primary">Anmelden</a>
+      <p>Bitte melde dich an, um Einsaetze und Stundenzettel zu verwalten.</p>
+      <a href="/" class="btn primary">Anmelden</a>
     </div>
   </div>
 
   <!-- Feature-Lock (Plan zu niedrig) -->
   <div id="feature-lock" class="wrap" style="display:none">
-    <div class="topbar">
-      <span class="brand">TempConnect</span>
-      <a href="/public/enterprise.html" class="btn">Zur&#252;ck zur &#220;bersicht</a>
-    </div>
+    <div id="tc-shell-lock"></div>
     <div class="locked-overlay">
       <div class="lock-icon">&#128274;</div>
-      <h2>Stundenzettel</h2>
-      <p>Dieses Feature ist f&#252;r <strong>PLUS</strong> und <strong>NOTDIENST</strong> verf&#252;gbar.<br>
+      <h2>Eins&auml;tze &amp; Zeiten</h2>
+      <p>Dieses Feature ist f&#252;r <strong>PLUS</strong> und <strong>PRO</strong> verf&#252;gbar.<br>
       Erfasse, reiche ein und genehmige Stundenzettel f&#252;r laufende Zeitarbeitseins&#228;tze &#8211; direkt in der Plattform.</p>
       <p style="font-size:12px;color:var(--ds-text-secondary);margin-bottom:var(--ds-space-5)">Dein aktueller Plan: <strong id="lock-current-plan">&#8211;</strong></p>
       <a href="/public/sla_abo.html" class="btn primary" style="font-size:14px;padding:12px 28px">Jetzt upgraden &rarr;</a>
@@ -96,31 +34,37 @@
 
   <!-- Hauptinhalt -->
   <div id="main" class="wrap" style="display:none">
-    <div class="topbar" data-notif-topbar>
-      <span class="brand"><span style="width:10px;height:10px;border-radius:50%;background:linear-gradient(135deg,var(--brand),var(--brand2));display:inline-block;margin-right:8px"></span>TempConnect</span>
-      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
-        <a href="/public/enterprise.html" class="btn">&#8592; &#220;bersicht</a>
-        <a href="/public/company_requests.html" class="btn">Anfragen</a>
-      </div>
-    </div>
+    <div id="tc-shell"></div>
 
     <div class="ds-page-header">
       <div class="ds-page-header__content">
-        <h1 class="ds-page-title">&#128336; Stundenzettel</h1>
-        <p class="ds-page-subtitle">Zeiterfassung f&#252;r laufende Eins&#228;tze &#8211; erfassen, einreichen, freigeben.</p>
+        <h1 class="ds-page-title">&#128336; Eins&auml;tze &amp; Zeiten</h1>
+        <p class="ds-page-subtitle">Stundenzettel f&#252;r laufende Eins&#228;tze erfassen, einreichen, freigeben und f&#252;r Folgeprozesse vorbereiten.</p>
+      </div>
+    </div>
+
+    <div class="tc-priority-banner tc-priority-banner--pilot">
+      <div class="tc-priority-banner__main">
+        <div class="tc-priority-banner__eyebrow">Pilot-Standard</div>
+        <div class="tc-priority-banner__title">Stundenzettel → Kundenfreigabe → Abrechnungsvorbereitung ist der operative Mindeststandard</div>
+        <p class="tc-priority-banner__text">Statuses, Korrekturschleifen und Freigaben muessen fuer Pilotkunden sichtbar und nachvollziehbar bleiben. Genau hier wird aus einem Deal eine belastbare operative Abwicklung.</p>
+      </div>
+      <div class="tc-priority-banner__aside">
+        <div class="tc-priority-banner__aside-title">Fokus jetzt</div>
+        <div class="tc-priority-banner__aside-text">Keine verdeckten Korrekturschleifen, klare Editierbarkeit und saubere Uebergabe in Kunden- oder Abrechnungsprozesse.</div>
       </div>
     </div>
 
     <!-- KPI-Leiste -->
     <div class="ts-total-bar" id="kpiBar">
-      <div class="ts-kpi"><div class="ts-kpi__val" id="kpiTotal">&#8211;</div><div class="ts-kpi__label">Gesamt Stundenzettel</div></div>
+      <div class="ts-kpi"><div class="ts-kpi__val" id="kpiTotal">&#8211;</div><div class="ts-kpi__label">Stundenzettel gesamt</div></div>
       <div class="ts-kpi"><div class="ts-kpi__val" id="kpiPending" style="color:#f59e0b">&#8211;</div><div class="ts-kpi__label">Zur Freigabe</div></div>
       <div class="ts-kpi"><div class="ts-kpi__val" id="kpiApproved" style="color:#10b981">&#8211;</div><div class="ts-kpi__label">Freigegeben</div></div>
-      <div class="ts-kpi"><div class="ts-kpi__val" id="kpiHours">&#8211;</div><div class="ts-kpi__label">Gesamtstunden (genehmigt)</div></div>
+      <div class="ts-kpi"><div class="ts-kpi__val" id="kpiHours">&#8211;</div><div class="ts-kpi__label">Freigegebene Stunden</div></div>
     </div>
 
     <!-- Filter-Bar -->
-    <div class="filter-bar">
+    <div class="ts-filter-bar">
       <label>Status
         <select id="filterStatus" onchange="loadTimesheets()">
           <option value="">Alle</option>
@@ -137,8 +81,8 @@
       <label>Bis
         <input type="date" id="filterTo" onchange="loadTimesheets()"/>
       </label>
-      <label>Mitarbeiter
-        <input type="text" id="filterWorker" placeholder="Name suchen&#8230;" oninput="debounceLoad()"/>
+      <label>Einsatzkraft
+        <input type="text" id="filterWorker" placeholder="Einsatzkraft suchen&#8230;" oninput="debounceLoad()"/>
       </label>
       <label style="justify-content:flex-end">
         <button class="btn primary" onclick="openCreateModal()">+ Neuer Stundenzettel</button>
@@ -151,7 +95,7 @@
         <table class="ts-table">
           <thead>
             <tr>
-              <th>Mitarbeiter</th>
+              <th>Einsatzkraft</th>
               <th>Zeitraum</th>
               <th>Stunden</th>
               <th>Status</th>
@@ -175,11 +119,11 @@
     <div class="modal-box">
       <h3>&#128336; Neuer Stundenzettel</h3>
       <div class="form-field">
-        <label>Mitarbeitername *</label>
+        <label>Einsatzkraft *</label>
         <input type="text" id="fWorkerName" placeholder="Max Mustermann"/>
       </div>
       <div class="form-field">
-        <label>Mitarbeiter-ID / Personalnummer (optional)</label>
+        <label>Einsatzkraft-ID / Personalnummer (optional)</label>
         <input type="text" id="fWorkerIdent" placeholder="z.B. MA-12345"/>
       </div>
       <div class="form-row">
@@ -193,7 +137,7 @@
         </div>
       </div>
       <div class="form-field">
-        <label>Org-ID (Kundenunternehmen) *</label>
+        <label>Org-ID (Einsatzunternehmen) *</label>
         <input type="text" id="fOrgId" placeholder="UUID des Kundenunternehmens"/>
       </div>
       <div class="form-field">
@@ -201,7 +145,7 @@
         <input type="text" id="fSupplierOrgId" placeholder="UUID der Zeitarbeitsfirma"/>
       </div>
       <div class="form-field">
-        <label>Assignment-ID (optional)</label>
+        <label>Einsatz-ID (optional)</label>
         <input type="text" id="fAssignmentId" placeholder="UUID des Einsatzes"/>
       </div>
       <div class="form-field">
@@ -297,360 +241,18 @@
   </div>
 
   <script src="/public/js/planFeatures.js"></script>
+  <script src="/public/js/pages/timesheets.js"></script>
+
+  <script src="/public/js/pageShell.js"></script>
   <script>
-  /* ── State ────────────────────────────────────────────────────────── */
-  var _me = null;
-  var _timesheets = [];
-  var _currentTs = null;
-  var _debounceTimer = null;
-  var _csrf = null;
-
-  /* ── Init ─────────────────────────────────────────────────────────── */
-  async function init() {
-    // CSRF
-    try {
-      var cr = await fetch('/api/csrf-token', { credentials: 'include' });
-      if (cr.ok) { var cd = await cr.json(); _csrf = cd.csrfToken || cd.token || null; }
-    } catch(e) {}
-
-    // Session pruefen
-    var r = await fetch('/api/me', { credentials: 'include' });
-    if (!r.ok) {
-      document.getElementById('paywall').style.display = '';
-      return;
+    /* Feature-lock topbar (nur sichtbar wenn feature-lock div angezeigt wird) */
+    if (document.getElementById('tc-shell-lock')) {
+      TC.shell.init({ target: '#tc-shell-lock' });
     }
-    _me = await r.json();
-
-    // Feature-Gate
-    await PlanFeatures.load();
-    var plan = (_me && _me.plan) ? _me.plan : 'FREE';
-    if (!PlanFeatures.hasFeature(plan, 'timesheets')) {
-      document.getElementById('lock-current-plan').textContent = plan;
-      document.getElementById('feature-lock').style.display = '';
-      return;
-    }
-
-    document.getElementById('main').style.display = '';
-    loadTimesheets();
-  }
-
-  /* ── Timesheets laden ─────────────────────────────────────────────── */
-  async function loadTimesheets() {
-    var params = new URLSearchParams();
-    var st = document.getElementById('filterStatus').value;
-    var fr = document.getElementById('filterFrom').value;
-    var to = document.getElementById('filterTo').value;
-    var wn = document.getElementById('filterWorker').value;
-    if (st) params.set('status', st);
-    if (fr) params.set('week_start_from', fr);
-    if (to) params.set('week_start_to', to);
-    if (wn) params.set('worker_name', wn);
-    params.set('limit', '100');
-
-    try {
-      var r = await fetch('/api/timesheets?' + params.toString(), { credentials: 'include' });
-      if (!r.ok) { renderEmpty('Fehler beim Laden.'); return; }
-      var data = await r.json();
-      _timesheets = data.items || [];
-      renderTable(_timesheets);
-      updateKPIs(_timesheets);
-    } catch(e) { renderEmpty('Verbindungsfehler.'); }
-  }
-
-  function debounceLoad() {
-    clearTimeout(_debounceTimer);
-    _debounceTimer = setTimeout(loadTimesheets, 400);
-  }
-
-  /* ── Tabelle rendern ──────────────────────────────────────────────── */
-  function renderTable(list) {
-    var tbody = document.getElementById('tableBody');
-    if (!list.length) {
-      tbody.innerHTML = '<tr><td colspan="6"><div class="empty-state"><div class="empty-icon">&#128336;</div><p>Keine Stundenzettel gefunden.</p></div></td></tr>';
-      return;
-    }
-    tbody.innerHTML = list.map(function(ts) {
-      return '<tr>' +
-        '<td><div class="ts-worker">' + esc(ts.worker_name) + '</div>' +
-             (ts.worker_identifier ? '<div class="ts-period">' + esc(ts.worker_identifier) + '</div>' : '') +
-             '<div class="ts-period">' + esc(ts.supplier_org_name || ts.supplier_org_id) + '</div></td>' +
-        '<td><div>' + fmtDate(ts.week_start) + '</div><div class="ts-period">' + fmtDate(ts.week_end) + '</div></td>' +
-        '<td><div class="ts-hours">' + fmtH(ts.total_hours) + ' h</div>' +
-             (ts.overtime_hours > 0 ? '<div class="ts-hours-ot">&#214; ' + fmtH(ts.overtime_hours) + ' h</div>' : '') + '</td>' +
-        '<td>' + badge(ts.status) + '</td>' +
-        '<td style="font-size:12px;color:var(--ds-text-secondary)">' + (ts.submitted_at ? fmtDateTime(ts.submitted_at) : '&#8211;') + '</td>' +
-        '<td><div class="ts-actions">' +
-          '<button class="btn" style="font-size:11px;padding:4px 10px" onclick="openDetail(\'' + ts.id + '\')">Detail</button>' +
-        '</div></td>' +
-      '</tr>';
-    }).join('');
-  }
-
-  function updateKPIs(list) {
-    document.getElementById('kpiTotal').textContent = list.length;
-    document.getElementById('kpiPending').textContent = list.filter(function(t) { return t.status === 'submitted'; }).length;
-    document.getElementById('kpiApproved').textContent = list.filter(function(t) { return t.status === 'approved'; }).length;
-    var hrs = list.filter(function(t) { return t.status === 'approved'; }).reduce(function(s,t) { return s + parseFloat(t.total_hours||0); }, 0);
-    document.getElementById('kpiHours').textContent = fmtH(hrs) + ' h';
-  }
-
-  function renderEmpty(msg) {
-    document.getElementById('tableBody').innerHTML = '<tr><td colspan="6"><div class="empty-state"><p>' + esc(msg) + '</p></div></td></tr>';
-  }
-
-  /* ── Detail-Modal ─────────────────────────────────────────────────── */
-  async function openDetail(id) {
-    var r = await fetch('/api/timesheets/' + id, { credentials: 'include' });
-    if (!r.ok) { alert('Fehler beim Laden.'); return; }
-    _currentTs = await r.json();
-    renderDetail(_currentTs);
-    document.getElementById('detailModal').classList.add('active');
-  }
-
-  function renderDetail(ts) {
-    document.getElementById('detailTitle').textContent = '&#128336; ' + ts.worker_name;
-    document.getElementById('detailMeta').innerHTML =
-      '<strong>' + esc(ts.org_name || ts.org_id) + '</strong> &larr; ' +
-      esc(ts.supplier_org_name || ts.supplier_org_id) + ' &nbsp;|&nbsp; ' +
-      fmtDate(ts.week_start) + ' bis ' + fmtDate(ts.week_end);
-
-    document.getElementById('detailStatus').innerHTML = badge(ts.status) +
-      (ts.rejection_reason ? ' <span style="font-size:12px;color:#ef4444;margin-left:8px">Grund: ' + esc(ts.rejection_reason) + '</span>' : '');
-
-    // Eintraege
-    var grid = document.getElementById('entryGrid');
-    var entries = ts.entries || [];
-    if (!entries.length) {
-      grid.innerHTML = '<p style="font-size:13px;color:var(--ds-text-secondary)">Noch keine Tageseintraege.</p>';
-    } else {
-      grid.innerHTML = entries.map(function(e) {
-        return '<div class="entry-card">' +
-          '<div class="entry-card__date">' + fmtDate(e.work_date) + '</div>' +
-          '<div class="entry-card__hours">' + fmtH(parseFloat(e.hours_regular)+parseFloat(e.hours_overtime)) + ' h</div>' +
-          '<div class="entry-card__detail">Regulaer: ' + fmtH(e.hours_regular) + ' h' +
-            (parseFloat(e.hours_overtime) > 0 ? ' | &#220;berstunden: ' + fmtH(e.hours_overtime) + ' h' : '') +
-            (e.break_minutes > 0 ? ' | Pause: ' + e.break_minutes + ' min' : '') +
-          '</div>' +
-          (e.shift_start ? '<div class="entry-card__detail">&#128336; ' + e.shift_start + ' &ndash; ' + (e.shift_end || '?') + '</div>' : '') +
-          (e.notes ? '<div class="entry-card__detail" style="margin-top:4px;font-style:italic">' + esc(e.notes) + '</div>' : '') +
-          (ts.status === 'draft' ? '<button class="btn" style="margin-top:8px;font-size:11px;padding:3px 8px;color:#ef4444;border-color:rgba(248,113,113,.3)" onclick="deleteEntry(\'' + e.id + '\')">Loeschen</button>' : '') +
-        '</div>';
-      }).join('');
-    }
-
-    // Eintrag-Button nur im Draft
-    document.getElementById('addEntryBtn').style.display = ts.status === 'draft' ? '' : 'none';
-    document.getElementById('entryForm').style.display = 'none';
-
-    // Totals
-    document.getElementById('detailTotals').innerHTML =
-      '<div class="ts-kpi"><div class="ts-kpi__val">' + fmtH(ts.total_hours) + ' h</div><div class="ts-kpi__label">Gesamtstunden</div></div>' +
-      '<div class="ts-kpi"><div class="ts-kpi__val" style="color:#f59e0b">' + fmtH(ts.overtime_hours) + ' h</div><div class="ts-kpi__label">&#220;berstunden</div></div>';
-
-    // Aktionen
-    var acts = document.getElementById('detailActions');
-    var btns = [];
-    if (ts.status === 'draft' || ts.status === 'rejected') {
-      btns.push('<button class="btn primary" onclick="submitTs()">Einreichen</button>');
-    }
-    if (ts.status === 'submitted') {
-      btns.push('<button class="btn" style="background:rgba(52,211,153,.15);color:#10b981;border-color:rgba(52,211,153,.3)" onclick="approveTs()">Freigeben</button>');
-      btns.push('<button class="btn" style="background:rgba(248,113,113,.1);color:#ef4444;border-color:rgba(248,113,113,.3)" onclick="showRejectForm()">Ablehnen</button>');
-      btns.push('<button class="btn" onclick="returnToDraft()">Zur&#252;ck zu Entwurf</button>');
-    }
-    if (ts.status === 'draft' || ts.status === 'submitted') {
-      btns.push('<button class="btn" style="color:var(--ds-text-secondary)" onclick="cancelTs()">Stornieren</button>');
-    }
-    acts.innerHTML = btns.join('');
-    document.getElementById('rejectForm').style.display = 'none';
-  }
-
-  function closeDetailModal() {
-    document.getElementById('detailModal').classList.remove('active');
-    _currentTs = null;
-  }
-
-  /* ── Aktionen auf Timesheet ───────────────────────────────────────── */
-  async function action(path, body) {
-    var h = { 'Content-Type': 'application/json' };
-    if (_csrf) h['X-CSRF-Token'] = _csrf;
-    var r = await fetch('/api/timesheets/' + _currentTs.id + path, {
-      method: 'POST', credentials: 'include', headers: h,
-      body: body ? JSON.stringify(body) : undefined
-    });
-    if (!r.ok) {
-      var d = await r.json().catch(function() { return {}; });
-      alert((d.error || 'Fehler') + (d.message ? ': ' + d.message : ''));
-      return false;
-    }
-    return true;
-  }
-
-  async function submitTs() {
-    if (await action('/submit')) { await openDetail(_currentTs.id); loadTimesheets(); }
-  }
-  async function approveTs() {
-    if (await action('/approve')) { await openDetail(_currentTs.id); loadTimesheets(); }
-  }
-  async function cancelTs() {
-    if (!confirm('Stundenzettel stornieren?')) return;
-    if (await action('/cancel')) { await openDetail(_currentTs.id); loadTimesheets(); }
-  }
-  async function returnToDraft() {
-    if (await action('/return-to-draft')) { await openDetail(_currentTs.id); loadTimesheets(); }
-  }
-  function showRejectForm() {
-    document.getElementById('rejectForm').style.display = '';
-    document.getElementById('rejectReason').focus();
-  }
-  async function confirmReject() {
-    var reason = document.getElementById('rejectReason').value.trim();
-    var h = { 'Content-Type': 'application/json' };
-    if (_csrf) h['X-CSRF-Token'] = _csrf;
-    var r = await fetch('/api/timesheets/' + _currentTs.id + '/reject', {
-      method: 'POST', credentials: 'include', headers: h,
-      body: JSON.stringify({ reason: reason || null })
-    });
-    if (r.ok) { await openDetail(_currentTs.id); loadTimesheets(); }
-    else { var d = await r.json().catch(function(){ return {}; }); alert(d.error || 'Fehler'); }
-  }
-
-  /* ── Eintraege ────────────────────────────────────────────────────── */
-  function openAddEntry() {
-    document.getElementById('eDate').value = '';
-    document.getElementById('eRegular').value = '8';
-    document.getElementById('eOvertime').value = '0';
-    document.getElementById('eBreak').value = '30';
-    document.getElementById('eStart').value = '';
-    document.getElementById('eEnd').value = '';
-    document.getElementById('eNotes').value = '';
-    document.getElementById('entryError').style.display = 'none';
-    document.getElementById('entryForm').style.display = '';
-    document.getElementById('eDate').focus();
-  }
-
-  async function saveEntry() {
-    var h = { 'Content-Type': 'application/json' };
-    if (_csrf) h['X-CSRF-Token'] = _csrf;
-    var payload = {
-      work_date:      document.getElementById('eDate').value,
-      hours_regular:  parseFloat(document.getElementById('eRegular').value) || 0,
-      hours_overtime: parseFloat(document.getElementById('eOvertime').value) || 0,
-      break_minutes:  parseInt(document.getElementById('eBreak').value) || 0,
-      shift_start:    document.getElementById('eStart').value || null,
-      shift_end:      document.getElementById('eEnd').value || null,
-      notes:          document.getElementById('eNotes').value || null
-    };
-    if (!payload.work_date) {
-      document.getElementById('entryError').textContent = 'Datum ist erforderlich.';
-      document.getElementById('entryError').style.display = '';
-      return;
-    }
-    var r = await fetch('/api/timesheets/' + _currentTs.id + '/entries', {
-      method: 'POST', credentials: 'include', headers: h, body: JSON.stringify(payload)
-    });
-    if (r.ok) {
-      document.getElementById('entryForm').style.display = 'none';
-      await openDetail(_currentTs.id);
-    } else {
-      var d = await r.json().catch(function(){ return {}; });
-      document.getElementById('entryError').textContent = d.error || 'Fehler';
-      document.getElementById('entryError').style.display = '';
-    }
-  }
-
-  async function deleteEntry(entryId) {
-    if (!confirm('Eintrag loeschen?')) return;
-    var h = {};
-    if (_csrf) h['X-CSRF-Token'] = _csrf;
-    var r = await fetch('/api/timesheets/' + _currentTs.id + '/entries/' + entryId, {
-      method: 'DELETE', credentials: 'include', headers: h
-    });
-    if (r.ok) await openDetail(_currentTs.id);
-    else alert('Fehler beim Loeschen.');
-  }
-
-  /* ── Neuer Stundenzettel ──────────────────────────────────────────── */
-  function openCreateModal() {
-    // Wochenbeginn (Montag) vorbelegen
-    var now = new Date();
-    var day = now.getDay();
-    var diff = (day === 0) ? -6 : 1 - day;
-    var mon = new Date(now); mon.setDate(now.getDate() + diff);
-    var fri = new Date(mon); fri.setDate(mon.getDate() + 4);
-    document.getElementById('fWeekStart').value = fmtISO(mon);
-    document.getElementById('fWeekEnd').value = fmtISO(fri);
-    document.getElementById('fWorkerName').value = '';
-    document.getElementById('fWorkerIdent').value = '';
-    document.getElementById('fOrgId').value = '';
-    document.getElementById('fSupplierOrgId').value = '';
-    document.getElementById('fAssignmentId').value = '';
-    document.getElementById('fNotes').value = '';
-    document.getElementById('createError').style.display = 'none';
-    document.getElementById('createModal').classList.add('active');
-  }
-  function closeCreateModal() { document.getElementById('createModal').classList.remove('active'); }
-
-  async function createTimesheet() {
-    var payload = {
-      org_id:            document.getElementById('fOrgId').value.trim(),
-      supplier_org_id:   document.getElementById('fSupplierOrgId').value.trim(),
-      worker_name:       document.getElementById('fWorkerName').value.trim(),
-      worker_identifier: document.getElementById('fWorkerIdent').value.trim() || null,
-      week_start:        document.getElementById('fWeekStart').value,
-      week_end:          document.getElementById('fWeekEnd').value,
-      assignment_id:     document.getElementById('fAssignmentId').value.trim() || null,
-      notes:             document.getElementById('fNotes').value.trim() || null
-    };
-    if (!payload.org_id || !payload.supplier_org_id || !payload.worker_name || !payload.week_start || !payload.week_end) {
-      document.getElementById('createError').textContent = 'Bitte alle Pflichtfelder ausf&#252;llen.';
-      document.getElementById('createError').style.display = '';
-      return;
-    }
-    var h = { 'Content-Type': 'application/json' };
-    if (_csrf) h['X-CSRF-Token'] = _csrf;
-    var r = await fetch('/api/timesheets', { method: 'POST', credentials: 'include', headers: h, body: JSON.stringify(payload) });
-    if (r.ok) {
-      var ts = await r.json();
-      closeCreateModal();
-      loadTimesheets();
-      openDetail(ts.id);
-    } else {
-      var d = await r.json().catch(function(){ return {}; });
-      document.getElementById('createError').textContent = d.error || 'Fehler beim Anlegen.';
-      document.getElementById('createError').style.display = '';
-    }
-  }
-
-  /* ── Hilfsfunktionen ──────────────────────────────────────────────── */
-  function esc(v) {
-    if (v == null) return '';
-    return String(v).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
-  }
-  function fmtDate(d) {
-    if (!d) return '–';
-    var p = d.split('T')[0].split('-');
-    return p[2] + '.' + p[1] + '.' + p[0];
-  }
-  function fmtDateTime(d) {
-    if (!d) return '–';
-    var dt = new Date(d);
-    return dt.toLocaleDateString('de-DE') + ' ' + dt.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
-  }
-  function fmtH(v) { return parseFloat(v || 0).toFixed(2).replace('.00','').replace(/\.(\d)$/,'.$10'); }
-  function fmtISO(d) { return d.toISOString().split('T')[0]; }
-  function badge(status) {
-    var label = { draft:'Entwurf', submitted:'Eingereicht', approved:'Genehmigt', rejected:'Abgelehnt', cancelled:'Storniert' };
-    return '<span class="ts-badge ts-badge--' + status + '">' + (label[status] || status) + '</span>';
-  }
-
-  // Modal schliessen bei Klick auf Overlay
-  document.getElementById('createModal').addEventListener('click', function(e) { if (e.target === this) closeCreateModal(); });
-  document.getElementById('detailModal').addEventListener('click', function(e) { if (e.target === this) closeDetailModal(); });
-
-  init();
   </script>
   <script src="/public/js/notifications.js"></script>
-  <script src="/public/js/logout-btn.js"></script>
+<script src="/public/js/demoBanner.js" defer></script>
+<script src="/public/js/onboardingWizard.js" defer></script><script src="/public/js/contextHints.js"></script>
+<script src="/public/js/breadcrumb.js" defer></script>
 </body>
 </html>

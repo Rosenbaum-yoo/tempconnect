@@ -1,0 +1,347 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <script src="/public/js/theme.js"></script>
+  <title>TempConnect – Demo für Einsatzunternehmen starten</title>
+  <link rel="stylesheet" href="/public/css/design-system.css"/>
+  <style>
+    body{background:radial-gradient(1200px 700px at 10% -10%,rgba(74,163,255,.25),transparent 55%),
+         radial-gradient(900px 500px at 95% 0%,rgba(124,92,255,.20),transparent 55%), var(--ds-bg);}
+    .wrap{max-width:1100px;margin:0 auto;padding:24px}
+    .topbar{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:14px 18px;
+      border:1px solid var(--ds-border);border-radius:999px;background:rgba(255,255,255,.03);
+      backdrop-filter:blur(8px);box-shadow:var(--ds-shadow-lg)}
+    .brand{display:flex;align-items:center;gap:10px;font-weight:800;letter-spacing:.2px}
+    .dot{width:12px;height:12px;border-radius:99px;background:linear-gradient(135deg,var(--ds-brand),var(--ds-accent));
+      box-shadow:0 0 0 6px rgba(74,163,255,.08)}
+    .pill{display:inline-flex;align-items:center;gap:8px;padding:6px 10px;border:1px solid var(--ds-border);
+      border-radius:999px;color:var(--ds-text-secondary);font-weight:700;font-size:12px}
+    .btn{border:1px solid var(--ds-border);background:rgba(255,255,255,.04);color:var(--ds-text);
+      padding:10px 14px;border-radius:12px;cursor:pointer;font-weight:700;text-decoration:none;display:inline-flex;align-items:center;gap:6px;font-size:14px}
+    .btn:hover{border-color:rgba(255,255,255,.18)}
+    .btn.primary{background:linear-gradient(135deg,var(--ds-brand),var(--ds-accent));border-color:transparent;color:#fff}
+    .btn.primary:hover{filter:brightness(1.1)}
+    .btn.ghost{background:transparent}
+
+    /* ── Hero ─────────────────────────────────── */
+    .hero{text-align:center;margin-top:48px;padding:0 20px}
+    .hero h1{font-size:46px;font-weight:900;margin:0 0 14px;line-height:1.1;letter-spacing:-.5px}
+    .hero h1 span{background:linear-gradient(135deg,var(--ds-brand),var(--ds-accent));
+      -webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+    .hero .subtitle{color:var(--ds-text-secondary);font-size:17px;margin:0 auto 12px;max-width:640px;line-height:1.7}
+    .hero .stats{display:flex;justify-content:center;gap:32px;margin:24px 0 40px}
+    .hero .stat{text-align:center}
+    .hero .stat-val{font-size:28px;font-weight:900;background:linear-gradient(135deg,var(--ds-brand),var(--ds-accent));
+      -webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+    .hero .stat-label{font-size:12px;color:var(--ds-text-tertiary);font-weight:600;margin-top:2px}
+
+    /* ── Demo stories ─────────────────────────── */
+    .story-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:18px;margin:0 auto 44px;max-width:1000px}
+    .story-card{border:1px solid var(--ds-border);border-radius:18px;background:rgba(255,255,255,.03);padding:22px 20px;text-align:left}
+    .story-card__eyebrow{font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.08em;color:var(--ds-brand);margin-bottom:8px}
+    .story-card__title{font-size:18px;font-weight:900;margin:0 0 8px}
+    .story-card__desc{font-size:13px;color:var(--ds-text-secondary);line-height:1.6;margin:0 0 12px}
+    .story-card__list{margin:0;padding:0;list-style:none;display:flex;flex-direction:column;gap:8px}
+    .story-card__list li{display:flex;gap:8px;font-size:13px;color:var(--ds-text-secondary);line-height:1.5}
+    .story-card__list li::before{content:"✓";color:var(--ds-success);font-weight:900;flex-shrink:0}
+
+    /* ── Rollen-Karten (primär) ───────────────── */
+    .section-label{font-size:13px;font-weight:700;color:var(--ds-text-tertiary);text-transform:uppercase;
+      letter-spacing:1.5px;text-align:center;margin:0 0 20px}
+    .role-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:18px;margin:0 auto;max-width:1000px}
+    .role-card{border:1px solid var(--ds-border);border-radius:20px;background:rgba(255,255,255,.03);
+      padding:28px 24px;text-align:left;transition:border-color .2s, transform .2s, box-shadow .2s;
+      position:relative;overflow:hidden}
+    .role-card:hover{transform:translateY(-4px);border-color:rgba(255,255,255,.15);box-shadow:0 12px 40px rgba(0,0,0,.25)}
+    .role-card.featured{border-color:rgba(74,163,255,.4);background:rgba(74,163,255,.05)}
+    .role-card.featured::before{content:"Empfohlen";position:absolute;top:14px;right:14px;
+      font-size:10px;font-weight:800;padding:4px 12px;border-radius:99px;
+      background:linear-gradient(135deg,var(--ds-brand),var(--ds-accent));color:#fff}
+    .role-icon{width:48px;height:48px;border-radius:14px;display:flex;align-items:center;justify-content:center;
+      font-size:24px;margin-bottom:16px}
+    .role-icon.buyer{background:rgba(74,163,255,.15)}
+    .role-icon.agency{background:rgba(124,92,255,.15)}
+    .role-icon.admin{background:rgba(57,217,138,.15)}
+    .role-name{font-size:22px;font-weight:900;margin:0 0 4px}
+    .role-company{font-size:13px;color:var(--ds-text-secondary);font-weight:600;margin:0 0 6px}
+    .role-desc{font-size:14px;color:var(--ds-text-secondary);line-height:1.6;margin:0 0 18px}
+    .role-modules{margin:0 0 22px;font-size:13px;color:var(--ds-text-secondary);line-height:1.9}
+    .role-modules .mod{display:flex;align-items:flex-start;gap:8px;padding:2px 0}
+    .role-modules .mod::before{content:"✓";color:var(--ds-success);font-weight:900;flex-shrink:0}
+    .role-cta{width:100%;padding:12px 14px;font-size:14px}
+
+    /* ── Plan-Toggle ──────────────────────────── */
+    .plan-section{margin:48px auto 0;max-width:1000px}
+    .plan-toggle{display:flex;align-items:center;justify-content:center;gap:10px;cursor:pointer;
+      padding:12px 0;border:none;background:none;color:var(--ds-text-secondary);font-size:14px;
+      font-weight:700;width:100%;transition:color .2s}
+    .plan-toggle:hover{color:var(--ds-text)}
+    .plan-toggle .arrow{transition:transform .3s;font-size:10px}
+    .plan-toggle.open .arrow{transform:rotate(180deg)}
+    .plan-collapse{max-height:0;overflow:hidden;transition:max-height .4s ease}
+    .plan-collapse.open{max-height:800px}
+    .plan-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;padding:20px 0}
+    .plan-card{border:1px solid var(--ds-border);border-radius:16px;background:rgba(255,255,255,.03);
+      padding:20px;text-align:left;transition:border-color .2s, transform .2s}
+    .plan-card:hover{transform:translateY(-3px);border-color:rgba(255,255,255,.12)}
+    .plan-name{font-size:18px;font-weight:900;margin:0 0 3px}
+    .plan-type{font-size:11px;color:var(--ds-text-tertiary);font-weight:600;margin:0 0 10px;text-transform:uppercase;letter-spacing:.5px}
+    .plan-features{margin:12px 0 16px;font-size:12px;color:var(--ds-text-secondary);line-height:1.8}
+    .plan-features .feat{display:flex;align-items:flex-start;gap:7px;padding:2px 0}
+    .plan-features .feat::before{content:"✓";color:var(--ds-success);font-weight:900;flex-shrink:0}
+    .plan-cta{width:100%;padding:10px 12px;font-size:13px}
+
+    /* ── Info / Footer ────────────────────────── */
+    .info-bar{margin:40px auto 0;max-width:700px;padding:16px 20px;border-radius:14px;
+      background:rgba(57,217,138,.08);border:1px solid rgba(57,217,138,.25);text-align:center}
+    .info-bar b{color:var(--ds-success)}
+    .info-bar p{margin:4px 0 0;font-size:13px;color:var(--ds-text-secondary)}
+    .loading{display:none;text-align:center;margin-top:24px;color:var(--ds-text-secondary);font-size:14px}
+    .loading.visible{display:block}
+    .error-msg{display:none;text-align:center;margin-top:16px;padding:12px 16px;border-radius:12px;
+      background:rgba(248,113,113,.1);border:1px solid rgba(248,113,113,.3);color:#ffd0d8;font-size:14px}
+    .error-msg.visible{display:block}
+    .footer{text-align:center;margin-top:48px;padding:20px;font-size:13px;color:var(--ds-text-tertiary)}
+    .footer a{color:var(--ds-brand);font-weight:600}
+    @media(max-width:900px){.role-grid{grid-template-columns:1fr}.plan-grid{grid-template-columns:repeat(2,1fr)}.story-grid{grid-template-columns:1fr}}
+    @media(max-width:768px){.hero h1{font-size:32px}.hero .stats{gap:20px}.hero .stat-val{font-size:22px}}
+    @media(max-width:520px){.plan-grid{grid-template-columns:1fr}}
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="topbar">
+      <a href="/" class="brand" style="text-decoration:none"><span class="dot"></span> TempConnect <span class="pill">Demo-Modus</span></a>
+      <div style="display:flex;gap:10px">
+        <a href="/" class="btn ghost">Zurück zur Startseite</a>
+        <a href="/?action=register" class="btn primary">Jetzt registrieren</a>
+      </div>
+    </div>
+
+    <!-- ═══ HERO ═══ -->
+    <section class="hero">
+      <h1>Den <span>Einsatzunternehmen-Flow</span> live erleben</h1>
+      <p class="subtitle">
+        Starten Sie mit der Perspektive eines Einsatzunternehmens: Bedarf, Lieferantenpool, Preisrahmen, Deal, Einsatz und Stundenzettel.
+        Agentur- und Admin-Sicht sind ergänzend mit realistischen Testdaten verfügbar — ohne Registrierung.
+      </p>
+      <div class="stats">
+        <div class="stat"><div class="stat-val">3</div><div class="stat-label">Demo-Stories</div></div>
+        <div class="stat"><div class="stat-val">50+</div><div class="stat-label">Datensätze</div></div>
+        <div class="stat"><div class="stat-val">4</div><div class="stat-label">Pilot-Flows</div></div>
+      </div>
+    </section>
+
+    <div class="section-label">Pilot-Demo-Standard</div>
+    <div class="story-grid">
+      <div class="story-card">
+        <div class="story-card__eyebrow">Story 1</div>
+        <div class="story-card__title">Bedarf → Deal</div>
+        <p class="story-card__desc">Die Buyer-Story muss in Minuten zeigen, wie aus Bedarf eine belastbare Marktreaktion und ein klarer Deal wird.</p>
+        <ul class="story-card__list">
+          <li>Bedarf anlegen und priorisieren</li>
+          <li>Marktreaktionen oder Lieferantenansprache zeigen</li>
+          <li>Dealstatus und naechsten Schritt sichtbar machen</li>
+        </ul>
+      </div>
+      <div class="story-card">
+        <div class="story-card__eyebrow">Story 2</div>
+        <div class="story-card__title">Besetzung → Zeiten</div>
+        <p class="story-card__desc">Die operative Story beweist, dass TempConnect nicht nur vermittelt, sondern den laufenden Einsatz sauber fuehrt.</p>
+        <ul class="story-card__list">
+          <li>Worker-Zuweisung und Einsatzstatus erklaeren</li>
+          <li>Stundenzettel digital erfassen und freigeben</li>
+          <li>Folgeprozess fuer Kundenfreigabe sichtbar halten</li>
+        </ul>
+      </div>
+      <div class="story-card">
+        <div class="story-card__eyebrow">Story 3</div>
+        <div class="story-card__title">Lieferantensteuerung → Transparenz</div>
+        <p class="story-card__desc">Die Management-Story bleibt nachgelagert, muss aber zeigen, dass Lieferanten-, Preis- und Spend-Sicht den Pilotbetrieb staerken.</p>
+        <ul class="story-card__list">
+          <li>Vendor Pool und Preisrahmen als Steuerungsschicht zeigen</li>
+          <li>Executive-Sicht mit Besetzungsdruck und Spend einordnen</li>
+          <li>Keine Feature-Breite ohne klaren Pilotbezug versprechen</li>
+        </ul>
+      </div>
+    </div>
+
+    <!-- ═══ ROLLEN-KARTEN (primär) ═══ -->
+    <div class="section-label">Primäre Demo-Perspektive</div>
+    <div class="role-grid">
+
+      <!-- Buyer -->
+      <div class="role-card featured" data-role="buyer">
+        <div class="role-icon buyer">🏢</div>
+        <div class="role-name">Einsatzunternehmen / Disposition</div>
+        <div class="role-company">Nordbau Industrie GmbH · Primärer ICP</div>
+        <div class="role-desc">
+          Erleben Sie TempConnect als Einsatzunternehmen: Bedarf anlegen, Lieferanten steuern, Deals abschliessen und Stundenzettel freigeben.
+        </div>
+        <div class="role-modules">
+          <div class="mod">Bedarfe erstellen & priorisieren</div>
+          <div class="mod">Lieferantenpool & Preferred First steuern</div>
+          <div class="mod">Preisrahmen & Spend analysieren</div>
+          <div class="mod">Deals, Einsaetze & Freigaben fuehren</div>
+          <div class="mod">Stundenzettel & Bewertungen prüfen</div>
+        </div>
+        <button class="btn primary role-cta" onclick="Demo.start({role:'buyer'})">Als Einsatzunternehmen starten</button>
+      </div>
+
+      <!-- Agency -->
+      <div class="role-card" data-role="agency">
+        <div class="role-icon agency">👥</div>
+        <div class="role-name">Personaldienstleister</div>
+        <div class="role-company">ElektroStaff GmbH · Sekundärer Ausbau-ICP</div>
+        <div class="role-desc">
+          Sehen Sie die Agentur-Perspektive: Kapazitaeten anbieten, auf buyer-seitige Bedarfe reagieren und Einsaetze koordinieren.
+        </div>
+        <div class="role-modules">
+          <div class="mod">Kapazitätsangebote veröffentlichen</div>
+          <div class="mod">Bedarfe einsehen & Angebote abgeben</div>
+          <div class="mod">Timesheets einreichen</div>
+          <div class="mod">Compliance-Dokumente verwalten</div>
+          <div class="mod">Bewertungen & Firmenprofil</div>
+        </div>
+        <button class="btn role-cta" onclick="Demo.start({role:'agency'})">Als Agentur starten</button>
+      </div>
+
+      <!-- Admin -->
+      <div class="role-card" data-role="admin">
+        <div class="role-icon admin">⚙️</div>
+        <div class="role-name">Steuerung / Admin</div>
+        <div class="role-company">Nordbau Industrie GmbH · Kontrollschicht</div>
+        <div class="role-desc">
+          Verwalten Sie die Organisation: Benutzer, Freigaben, Compliance, Audit und Konfiguration als nachgelagerte Steuerungsschicht.
+        </div>
+        <div class="role-modules">
+          <div class="mod">Organisations-Verwaltung</div>
+          <div class="mod">Benutzer, Rollen & Berechtigungen</div>
+          <div class="mod">Compliance- & Audit-Uebersicht</div>
+          <div class="mod">DSGVO & Datenschutz</div>
+          <div class="mod">Benachrichtigungen & Genehmigungen</div>
+        </div>
+        <button class="btn role-cta" onclick="Demo.start({role:'admin'})">Als Admin starten</button>
+      </div>
+    </div>
+
+    <div class="loading" id="loading">Demo wird geladen …</div>
+    <div class="error-msg" id="errorMsg"></div>
+
+    <!-- ═══ PLAN-TOGGLE (sekundär) ═══ -->
+    <div class="plan-section">
+      <button class="plan-toggle" id="planToggle" onclick="document.getElementById('planCollapse').classList.toggle('open');this.classList.toggle('open')">
+        Oder alternative Rollen und Tarife testen <span class="arrow">▼</span>
+      </button>
+      <div class="plan-collapse" id="planCollapse">
+        <div class="plan-grid">
+
+          <div class="plan-card">
+            <div class="plan-name">BASIS</div>
+            <div class="plan-type">Einstieg · kleineres Volumen</div>
+            <div class="plan-features">
+              <div class="feat">5 Bedarfe / Angebote</div>
+              <div class="feat">Marktplatz-Zugang</div>
+              <div class="feat">Erste Deals digital fuehren</div>
+            </div>
+            <button class="btn plan-cta" onclick="Demo.start({plan:'BASIS'})">BASIS testen</button>
+          </div>
+
+          <div class="plan-card">
+            <div class="plan-name">PLUS</div>
+            <div class="plan-type">Buyer · wiederkehrende Bedarfe</div>
+            <div class="plan-features">
+              <div class="feat">20 Bedarfe / Angebote</div>
+              <div class="feat">Digitale Stundenzettel & Freigaben</div>
+              <div class="feat">Preisvorschlaege & Alerts</div>
+            </div>
+            <button class="btn plan-cta" onclick="Demo.start({plan:'PLUS'})">PLUS testen</button>
+          </div>
+
+          <div class="plan-card">
+            <div class="plan-name">PRO</div>
+            <div class="plan-type">Buyer / Agency · hohes Volumen</div>
+            <div class="plan-features">
+              <div class="feat">Unbegrenzt Bedarfe / Angebote</div>
+              <div class="feat">Notdienst-Modul</div>
+              <div class="feat">Lieferantenbewertung & Priorisierung</div>
+            </div>
+            <button class="btn plan-cta" onclick="Demo.start({plan:'PRO'})">PRO testen</button>
+          </div>
+
+          <div class="plan-card">
+            <div class="plan-name">INDIVIDUELLER TARIF</div>
+            <div class="plan-type">Buyer · Lieferantensteuerung</div>
+            <div class="plan-features">
+              <div class="feat">Alles aus PRO + Admin</div>
+              <div class="feat">Preisrahmen, Vendor Pool & Compliance</div>
+              <div class="feat">Freigabe-Workflows & Audit</div>
+            </div>
+            <button class="btn plan-cta" onclick="Demo.start({plan:'INDIVIDUELL'})">Individuellen Tarif testen</button>
+          </div>
+
+        </div>
+      </div>
+    </div>
+
+    <div class="info-bar">
+      <b>Sicher & isoliert</b>
+      <p>
+        Der Demo-Modus arbeitet mit isolierten Testdaten. Es werden keine echten E-Mails versendet.
+        Ihre echten Daten bleiben unberührt. Zum Verlassen einfach ausloggen.
+      </p>
+    </div>
+
+    <div class="footer">
+      <p>Überzeugt? <a href="/?action=register">Jetzt als Einsatzunternehmen kostenlos registrieren</a> und pilotieren.</p>
+    </div>
+    <div id="tc-footer" data-tc-footer></div>
+  </div>
+
+<script src="/public/js/footer.js"></script>
+<script>
+const Demo = {
+  async start(opts) {
+    const loading = document.getElementById('loading');
+    const errorMsg = document.getElementById('errorMsg');
+    loading.classList.add('visible');
+    errorMsg.classList.remove('visible');
+
+    // Alle Buttons deaktivieren
+    document.querySelectorAll('.role-cta, .plan-cta').forEach(b => { b.disabled = true; b.style.opacity = '.5'; });
+
+    try {
+      // 1) CSRF-Token holen
+      const csrfRes = await fetch('/api/csrf', { credentials: 'include' });
+      const csrfData = await csrfRes.json();
+      const csrfToken = csrfData.csrfToken || csrfData.token || '';
+
+      // 2) Demo-Login (role oder plan)
+      const res = await fetch('/api/auth/demo-login', {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': csrfToken },
+        body: JSON.stringify(opts)
+      });
+
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.message || err.error || 'Fehler ' + res.status);
+      }
+
+      // 3) Weiterleitung
+      window.location.href = '/';
+    } catch (e) {
+      errorMsg.textContent = 'Demo konnte nicht gestartet werden: ' + e.message;
+      errorMsg.classList.add('visible');
+      document.querySelectorAll('.role-cta, .plan-cta').forEach(b => { b.disabled = false; b.style.opacity = ''; });
+    } finally {
+      loading.classList.remove('visible');
+    }
+  }
+};
+</script>
+</body>
+</html>

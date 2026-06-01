@@ -1,81 +1,186 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="de">
 <head>
   <meta charset="utf-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <script src="/public/js/theme.js"></script>
   <title>Allgemeine Geschäftsbedingungen – TempConnect</title>
   <link rel="stylesheet" href="/public/css/enterprise.css"/>
 </head>
 <body>
   <div class="wrap">
-    <div class="topbar">
-      <span class="brand"><span style="width:10px;height:10px;border-radius:50%;background:linear-gradient(135deg,var(--brand),var(--brand2));display:inline-block;margin-right:8px"></span>TempConnect</span>
-      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
-        <a href="/" class="btn">Startseite</a>
-        <a href="/public/trust/security.html" class="btn">Sicherheit</a>
-        <a href="/public/legal/datenschutz.html" class="btn">Datenschutz</a>
-        <a href="/public/legal/kontakt.html" class="btn">Kontakt</a>
+    <nav class="ds-topbar" data-notif-topbar>
+      <div class="ds-topbar__brand"><span class="ds-topbar__brand-dot"></span>TempConnect</div>
+      <div class="ds-topbar__nav">
+        <a href="/public/pricing.html" class="ds-nav-link">Tarife</a>
+        <a href="/public/about.html" class="ds-nav-link">Über uns</a>
+        <a href="/public/legal/kontakt.html" class="ds-nav-link">Kontakt</a>
+        <a href="/public/hilfe.html" class="ds-nav-link" title="Help Center" style="font-size:16px;text-decoration:none">&#10067;</a>
+
+        <!-- User Profile Dropdown -->
+        <div id="tc-user-profile" style="position:relative;display:inline-flex;align-items:center;margin-left:6px">
+          <button id="tc-user-btn" type="button" title="Profil &amp; Konto" style="width:34px;height:34px;border-radius:50%;border:1.5px solid rgba(74,158,255,.35);background:rgba(74,158,255,.12);color:#4a9eff;font-size:15px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:border-color .15s,background .15s,box-shadow .15s">&#128100;</button>
+          <div id="tc-user-dropdown" style="display:none;position:absolute;top:calc(100% + 10px);right:0;width:260px;border:1px solid var(--line,rgba(255,255,255,.12));border-radius:14px;background:var(--card,#1a1d24);box-shadow:0 8px 32px rgba(0,0,0,.55);z-index:9999;padding:16px">
+            <div id="tc-user-dd-content" style="text-align:center;color:var(--muted,#8d9bba);font-size:13px;padding:8px 0">Lade Profil&hellip;</div>
+          </div>
+        </div>
       </div>
-    </div>
+    </nav>
     <div class="ds-page-header">
       <div class="ds-page-header__content">
         <h1 class="ds-page-title">Allgemeine Geschäftsbedingungen (AGB)</h1>
-        <p class="ds-page-subtitle">Muster-AGB für die Nutzung der TempConnect-Plattform. Bitte lassen Sie den Text vor Einsatz von einer Rechtsanwältin / einem Rechtsanwalt prüfen.</p>
+        <p class="ds-page-subtitle">Nutzungsbedingungen für die TempConnect-Plattform. Der Text beschreibt die technische und organisatorische Funktionsweise der Plattform; er ersetzt keine individuelle Rechtsberatung.</p>
       </div>
     </div>
     <main class="card">
 
       <h2 style="margin-top:20px">1. Geltungsbereich</h2>
-      <p>Diese Allgemeinen Geschäftsbedingungen gelten für alle Verträge zwischen <strong>[Firmenname]</strong> („TempConnect“) und den Nutzern der Plattform (Unternehmen und Zeitarbeitsfirmen), soweit nichts Abweichendes schriftlich vereinbart ist.</p>
+      <p>Diese Allgemeinen Geschäftsbedingungen regeln die Nutzung der TempConnect-Plattform (nachfolgend „TempConnect“ oder „Plattform“) durch registrierte Nutzer. Hierzu zählen insbesondere Unternehmen, Zeitarbeitsfirmen und Worker sowie berechtigte Administratoren. Abweichende Bedingungen der Nutzer gelten nur, wenn sie von TempConnect ausdrücklich in Textform bestätigt wurden.</p>
 
-      <h2 style="margin-top:20px">2. Vertragsgegenstand</h2>
-      <p>TempConnect stellt eine Online-Plattform zur Verfügung, über die Unternehmen und Zeitarbeitsfirmen Anfragen, Angebote und Kontakte verwalten können. Die Plattform unterstützt den Matching-Prozess zwischen Angebot und Nachfrage.</p>
-      <p><strong>Es wird kein bestimmter Vermittlungserfolg geschuldet.</strong> TempConnect schuldet insbesondere nicht das Zustandekommen eines Arbeits- oder Dienstvertrages, die Bereitstellung bestimmter Personen oder eine bestimmte Auslastung.</p>
-
-      <h2 style="margin-top:20px">3. Registrierung und Nutzerkonten</h2>
-      <p>Für die Nutzung ist eine Registrierung erforderlich. Die bei der Registrierung abgefragten Daten sind vollständig und wahrheitsgemäß anzugeben. Änderungen sind vom Nutzer unverzüglich zu aktualisieren.</p>
-
-      <h2 style="margin-top:20px">4. Abonnements und Tarife</h2>
-      <p>TempConnect bietet verschiedene Tarife (z.&nbsp;B. FREE, BASIS, PLUS, NOTDIENST) mit unterschiedlichen Funktionsumfängen an. Die jeweils aktuellen Leistungen und Preise ergeben sich aus der Abo-Übersicht auf der Plattform.</p>
-      <p>Der Wechsel zwischen Tarifen ist im Rahmen der auf der Plattform angebotenen Optionen möglich.</p>
-
-      <h2 style="margin-top:20px">5. Pflichten der Nutzer</h2>
+      <h2 style="margin-top:20px">2. Leistungsbeschreibung der Plattform</h2>
+      <p>TempConnect stellt eine Software-as-a-Service-Plattform zur Verfügung, über die Unternehmen und Zeitarbeitsfirmen Anfragen, Angebote und Einsätze rund um den Einsatz von externen Worker:innen (Zeitarbeitskräften) digital verwalten können.</p>
+      <p>Die Plattform umfasst insbesondere folgende Funktionsbereiche, soweit diese im jeweils gebuchten Tarif freigeschaltet sind:</p>
       <ul>
-        <li>Nutzer dürfen die Plattform ausschließlich zu legitimen, geschäftlichen Zwecken verwenden.</li>
-        <li>Die über die Plattform erhaltenen Kontaktdaten dürfen nur zur Anbahnung oder Durchführung von Verträgen im Zusammenhang mit dem jeweiligen Auftrag verwendet werden.</li>
-        <li>Es ist untersagt, Spam, diskriminierende Inhalte oder sonstige rechtswidrige Inhalte zu versenden.</li>
+        <li><strong>Marketplace / Marktplatz:</strong> Veröffentlichung und Suche von Kapazitätsangeboten und -anfragen, inkl. Matching-Funktionen auf Basis definierter Kriterien.</li>
+        <li><strong>Requests &amp; Offers:</strong> Erstellung, Versand und Verwaltung von Anfragen (Requests) und Angeboten (Offers) zwischen Unternehmen und Zeitarbeitsfirmen.</li>
+        <li><strong>Deal- und Einsatzverwaltung:</strong> Abbildung angenommener Angebote als Einsätze/Assignments zwischen beteiligten Organisationen.</li>
+        <li><strong>Worker Management:</strong> Verwaltung von Worker-Profilen und Einsätzen durch Zeitarbeitsfirmen sowie Self-Service-Zugänge für Worker.</li>
+        <li><strong>Timesheets / Stundenzettel:</strong> Erfassung, Einreichung, Prüfung und Freigabe von Stundenzetteln durch Zeitarbeitsfirmen, Worker und Unternehmen.</li>
+        <li><strong>Dokumente &amp; Compliance:</strong> Upload, Verwaltung und Statusverfolgung von Compliance-Dokumenten (z.&nbsp;B. Nachweise, Verträge) inklusive Ampel- und Hinweisfunktionen.</li>
+        <li><strong>Benachrichtigungen:</strong> In-App-Benachrichtigungen und E-Mail-Hinweise zu relevanten Ereignissen (z.&nbsp;B. neue Anfragen, Angebote, Einsätze, Timesheets, Dokumentstatus), soweit im System vorgesehen.</li>
+        <li><strong>Reports &amp; Schnittstellen:</strong> Auswertungen, Exporte (z.&nbsp;B. CSV) und – je nach Tarif – API-basierte Integrationen zu Drittsystemen.</li>
+      </ul>
+      <p>TempConnect stellt ausschließlich die technische Infrastruktur und Logik dieser Funktionen bereit. <strong>Ein konkreter Vermittlungserfolg, bestimmte Verfügbarkeiten von Personal oder der Abschluss bestimmter Verträge werden nicht geschuldet.</strong></p>
+
+      <h2 style="margin-top:20px">3. Nutzerrollen und Verantwortlichkeiten</h2>
+      <p>Die Plattform unterscheidet technisch mehrere Nutzerrollen mit unterschiedlichen Rechten. Die konkrete Berechtigung wird über organisationsbezogene Rollen (z.&nbsp;B. Owner, Admin, Program Manager, Recruiter, Dispatcher, Viewer) gesteuert.</p>
+      <ul>
+        <li><strong>Unternehmen (Buyer-Organisationen):</strong> Unternehmen nutzen TempConnect insbesondere zur Ausschreibung von Bedarfen, zum Anfragen von Kapazitäten, zur Auswahl von Zeitarbeitsfirmen, zur Freigabe von Stundenzetteln und zur Verwaltung von Einsätzen.</li>
+        <li><strong>Zeitarbeitsfirmen (Supplier-Organisationen):</strong> Zeitarbeitsfirmen nutzen TempConnect insbesondere zur Veröffentlichung von Kapazitätsangeboten, zur Abgabe von Angeboten auf Anfragen von Unternehmen, zur Verwaltung von Workern und Einsätzen sowie zur Erfassung und Einreichung von Stundenzetteln.</li>
+        <li><strong>Worker (Mitarbeiter:innen der Zeitarbeitsfirmen):</strong> Worker erhalten – sofern von der jeweiligen Zeitarbeitsfirma aktiviert – Zugang zu einem Self-Service-Portal zur Einsichtsnahme in Einsätze und zur Erfassung bzw. Bestätigung von Arbeitszeiten.</li>
+        <li><strong>Administratoren / Org-Rollen:</strong> Innerhalb der Organisationen können Administrationsrollen (z.&nbsp;B. Owner, Admin, Supplier Manager, Hiring Manager) weitere Nutzer einladen, Rollen vergeben und organisationseigene Einstellungen vornehmen.</li>
+      </ul>
+      <p>Die Einordnung als Unternehmen, Zeitarbeitsfirma oder Worker erfolgt bei der Registrierung bzw. Einladung und kann technisch die verfügbaren Funktionen beeinflussen.</p>
+
+      <h2 style="margin-top:20px">4. Registrierung, Account und Zugangsdaten</h2>
+      <p>Für die Nutzung der Plattform ist die Erstellung eines Nutzerkontos erforderlich. Die Registrierung erfolgt typischerweise über das Registrierungsformular der Plattform oder durch Einladung (insbesondere für Worker).</p>
+      <ul>
+        <li>Die bei der Registrierung abgefragten Daten (z.&nbsp;B. Name, E-Mail-Adresse, Rollenangabe, Unternehmensdaten) sind vollständig und wahrheitsgemäß anzugeben.</li>
+        <li>Änderungen relevanter Daten sind vom Nutzer bzw. der verantwortlichen Organisation im Profil bzw. in den Organisationseinstellungen unverzüglich zu aktualisieren.</li>
+        <li>Zugangsdaten wie Passwörter sind geheim zu halten und vor einem Zugriff durch Dritte zu schützen. Eine Weitergabe an unberechtigte Personen ist unzulässig.</li>
+        <li>Im Falle eines Verdachts auf Missbrauch oder unbefugten Zugriff ist TempConnect unverzüglich zu informieren, damit entsprechende Sicherheitsmaßnahmen ergriffen werden können (z.&nbsp;B. Zurücksetzen von Passwörtern, Sperrung von Sessions).</li>
       </ul>
 
-      <h2 style="margin-top:20px">6. Haftung</h2>
-      <p>TempConnect haftet unbeschränkt für Vorsatz und grobe Fahrlässigkeit sowie bei Verletzung von Leben, Körper oder Gesundheit. Bei einfacher Fahrlässigkeit haftet TempConnect nur bei Verletzung wesentlicher Vertragspflichten (Kardinalpflichten), beschränkt auf den vertragstypischen, vorhersehbaren Schaden.</p>
-
-      <h2 style="margin-top:20px">7. Verfügbarkeit der Plattform</h2>
-      <p>TempConnect betreibt die Plattform nach dem Stand der Technik. Es können jedoch Wartungsarbeiten, Weiterentwicklungen oder Störungen zu vorübergehenden Beeinträchtigungen führen. Näheres regelt die TempConnect Pulse™ SLA-Anlage (Anlage 1) für bestimmte kostenpflichtige Tarife.</p>
-
-      <h2 style="margin-top:20px">8. TempConnect Pulse™ SLA-Anlage (Anlage 1)</h2>
-      <p>Für Kunden der Tarife <strong>PLUS</strong> und <strong>NOTDIENST</strong> gilt ergänzend die <strong>TempConnect Pulse™ SLA-Anlage (Anlage 1)</strong>. Diese beschreibt insbesondere:</p>
+      <h2 style="margin-top:20px">5. Nutzung der Plattform und Rollenmodell</h2>
+      <p>Der Umfang der jeweils verfügbaren Funktionen richtet sich nach der Nutzerrolle (Unternehmen, Zeitarbeitsfirma, Worker, Administrator) und dem gebuchten Tarif. Auf Basis eines rollenbasierten Berechtigungssystems (Role-Based Access Control) werden Zugriffe auf Module wie Requests, Offers, Einsätze, Worker-Management, Compliance und Reporting gesteuert.</p>
+      <p>Die Nutzer verpflichten sich, die Plattform ausschließlich im Rahmen des vorgesehenen Zwecks zu verwenden, insbesondere für die Planung, Koordination und Abrechnung von Einsätzen externer Worker:innen.</p>
+      <p>Insbesondere gilt:</p>
       <ul>
-        <li>die Messung der Reaktionszeiten für Matchingversuche,</li>
-        <li>die Statusfelder und Ereignisse zur Nachvollziehbarkeit (z.&nbsp;B. SLA-Start, Matchingversuch, Benachrichtigung),</li>
-        <li>gegebenenfalls vorgesehene Servicegutschriften bei Verstößen.</li>
+        <li>Es dürfen keine rechtswidrigen Inhalte über die Plattform erstellt, gespeichert, übermittelt oder verlinkt werden.</li>
+        <li>Die über die Plattform bereitgestellten Kontakt- und Profildaten dürfen nur zur Anbahnung und Durchführung von Aufträgen im Zusammenhang mit der Plattformnutzung verwendet werden.</li>
+        <li>Die Verwendung automatisierter Verfahren (z.&nbsp;B. Scraping, unautorisierte Bots) ist unzulässig, sofern sie nicht ausdrücklich über die bereitgestellte API mit gültigen API-Schlüsseln und im Rahmen der dort definierten Nutzung erfolgt.</li>
       </ul>
-      <p>Die TempConnect Pulse™ SLA-Anlage konkretisiert die geschuldete <strong>Bemühung</strong> (Best-Effort Matching-Versuch) innerhalb definierter Fristen. <strong>Sie begründet keine Garantie für Vermittlungserfolg oder Personalbereitstellung.</strong></p>
-      <p>Die jeweils gültige Fassung der TempConnect Pulse™ SLA-Anlage ist unter <a href="/public/legal/sla.html">/public/legal/sla.html</a> einsehbar.</p>
 
-      <h2 style="margin-top:20px">9. Laufzeit und Kündigung</h2>
-      <p>Abonnements haben die im Bestellprozess angegebene Laufzeit und verlängern sich automatisch, sofern sie nicht fristgerecht gekündigt werden. Soweit nicht anders vereinbart, kann mit einer Frist zum Ende der jeweiligen Laufzeit ordentlich gekündigt werden.</p>
+      <h2 style="margin-top:20px">6. Vertragsverhältnisse zwischen den Nutzern</h2>
+      <p>TempConnect stellt eine technische Vermittlungs- und Verwaltungsplattform zur Verfügung. <strong>TempConnect ist nicht Vertragspartei der über die Plattform zwischen Unternehmen, Zeitarbeitsfirmen und Workern geschlossenen Verträge.</strong></p>
+      <p>Insbesondere gilt:</p>
+      <ul>
+        <li>Verträge über die Überlassung oder den Einsatz von Worker:innen kommen ausschließlich zwischen den beteiligten Unternehmen und Zeitarbeitsfirmen zustande.</li>
+        <li>Arbeitsverträge, Arbeitnehmerüberlassungsverträge, Dienst- oder Werkverträge werden außerhalb der Plattform zwischen den Nutzerorganisationen bzw. zwischen Zeitarbeitsfirma und Worker geschlossen.</li>
+        <li>Die Plattform bildet Vertragsbeziehungen technisch in Form von Anfragen, Angeboten, Deals, Einsätzen und Stundenzetteln ab, begründet aber selbst keine arbeitsrechtlichen oder sonstigen Vertragsverhältnisse.</li>
+      </ul>
+      <p>Die Nutzer sind selbst dafür verantwortlich, dass ihre Vertragsbeziehungen und eingesetzten Vertragsmuster den jeweils geltenden gesetzlichen Anforderungen (z.&nbsp;B. Arbeitnehmerüberlassungsrecht, Arbeitsrecht, Sozialversicherungsrecht, Datenschutzrecht) entsprechen.</p>
 
-      <h2 style="margin-top:20px">10. Schlussbestimmungen</h2>
-      <p>Es gilt deutsches Recht unter Ausschluss des UN-Kaufrechts. Gerichtsstand für Kaufleute ist – soweit zulässig – [Ort].</p>
+      <h2 style="margin-top:20px">7. Request–Offer–Contract–Flow</h2>
+      <p>Die Plattform stellt technische Abläufe bereit, um Anfragen, Angebote und Einsätze abzubilden:</p>
+      <ul>
+        <li><strong>Requests (Anfragen):</strong> Unternehmen können Bedarfe (z.&nbsp;B. Einsatzort, Zeitraum, Qualifikation, Umfang) als Requests erfassen und an geeignete Zeitarbeitsfirmen senden oder im Marketplace veröffentlichen.</li>
+        <li><strong>Offers (Angebote):</strong> Zeitarbeitsfirmen können auf Requests Angebote mit Vorschlägen zu Worker-Profilen, Zeiträumen und Konditionen abgeben und verwalten.</li>
+        <li><strong>Deals / Assignments:</strong> Akzeptiert ein Unternehmen ein Angebot, wird dies in der Plattform als Deal bzw. Einsatz/Assignment abgebildet. Der konkrete Vertragsinhalt und die rechtliche Ausgestaltung des Einsatzes richten sich nach den zwischen den Parteien außerhalb der Plattform geschlossenen Vereinbarungen.</li>
+      </ul>
+      <p>Die Matching-Funktionen der Plattform schlagen auf Basis der hinterlegten Daten und Konfigurationen mögliche passende Konstellationen vor (z.&nbsp;B. nach Qualifikation, Verfügbarkeit, Standort, Compliance-Status). <strong>Es besteht keine Gewähr für die Richtigkeit, Vollständigkeit oder Eignung dieser Vorschläge und insbesondere keine Garantie für einen erfolgreichen Abschluss.</strong></p>
+
+      <h2 style="margin-top:20px">8. Rolle der Plattform, kein Arbeitgeber</h2>
+      <p>TempConnect ist weder Arbeitgeber noch Auftraggeber der über die Plattform eingesetzten Worker:innen. Die Plattform übernimmt keine arbeitsvertraglichen Pflichten, keine Entgeltzahlung, keine Einsatzplanung im eigenen Namen und keine Verantwortung für die arbeitsrechtliche Einordnung oder sozialversicherungsrechtliche Behandlung der Einsätze.</p>
+      <p>Alle Pflichten im Zusammenhang mit dem Einsatz von Worker:innen – insbesondere gegenüber den Worker:innen selbst, gegenüber Sozialversicherungsträgern, Finanzbehörden und Aufsichtsbehörden – liegen bei den jeweils beteiligten Unternehmen und Zeitarbeitsfirmen.</p>
+
+      <h2 style="margin-top:20px">9. Timesheets und Arbeitszeiten</h2>
+      <p>Die Plattform stellt Funktionen zur Erfassung, Einreichung, Prüfung, Freigabe und Signatur von Stundenzetteln (Timesheets) sowie – je nach Tarif – Worker-Self-Service-Funktionen zur Verfügung.</p>
+      <ul>
+        <li>Zeitarbeitsfirmen und/oder Worker können Arbeitszeiten über die Plattform erfassen oder einreichen.</li>
+        <li>Unternehmen können eingereichte Stundenzettel prüfen, kommentieren, freigeben oder ablehnen.</li>
+        <li>Worker können – soweit vom jeweiligen Einsatzprozess vorgesehen – Stundenzettel digital bestätigen.</li>
+      </ul>
+      <p>Die Plattform bildet dabei die von den Nutzern eingegebenen Zeiten und Statusübergänge technisch ab, führt jedoch keine materielle Prüfung der Richtigkeit der Angaben durch. <strong>Die Verantwortung für die inhaltliche Richtigkeit, Vollständigkeit und rechtliche Zulässigkeit der erfassten Arbeitszeiten liegt allein bei den beteiligten Nutzerorganisationen und Workern.</strong></p>
+
+      <h2 style="margin-top:20px">10. Dokumente, Nachweise und Compliance</h2>
+      <p>TempConnect stellt Funktionen zum Upload, zur Verwaltung und zur Statusverfolgung von Dokumenten und Compliance-Nachweisen bereit (z.&nbsp;B. Verträge, Bescheinigungen, Genehmigungen). Die Plattform kann dabei Statusanzeigen (z.&nbsp;B. „hochgeladen“, „in Prüfung“, „verifiziert“, „abgelaufen“) und Hinweise erzeugen.</p>
+      <ul>
+        <li>Die tatsächliche Prüfung der Dokumente (z.&nbsp;B. inhaltliche Richtigkeit, Aktualität, rechtliche Wirksamkeit) erfolgt durch die jeweils zuständigen Nutzerorganisationen oder deren Beauftragte.</li>
+        <li>Automatische Bewertungen oder Ampeldarstellungen dienen ausschließlich der Unterstützung des Überblicks und ersetzen keine rechtliche Prüfung im Einzelfall.</li>
+        <li>Die Plattform kann keine Garantie für die inhaltliche Richtigkeit, Echtheit oder Vollständigkeit der hochgeladenen Dokumente oder für die Einhaltung gesetzlicher Anforderungen übernehmen.</li>
+      </ul>
+
+      <h2 style="margin-top:20px">11. Preise, Tarife und Abonnements</h2>
+      <p>TempConnect bietet unterschiedliche Tarife und Funktionspakete (z.&nbsp;B. Einstiegs- und individuelle Tarife) an. Die jeweils gültigen Leistungen, Funktionsumfänge und Preise werden in der Tariftabelle bzw. im Bestellprozess auf der Plattform dargestellt.</p>
+      <ul>
+        <li>Die Freischaltung bestimmter Funktionen (z.&nbsp;B. erweiterte Marketplace-Funktionen, Timesheets, Compliance-Module, Integrationen, Reporting) kann von einem kostenpflichtigen Tarif abhängen.</li>
+        <li>Wechsel zwischen Tarifen sind im Rahmen der auf der Plattform angebotenen Optionen möglich; ggf. gelten dabei Mindestlaufzeiten oder Umstellungszeitpunkte, die im Bestellprozess angezeigt werden.</li>
+        <li>Abonnements werden in der Regel für eine feste Laufzeit abgeschlossen und können sich automatisch verlängern, sofern sie nicht fristgerecht gekündigt werden. Die konkreten Laufzeiten und Kündigungsfristen ergeben sich aus dem jeweiligen Bestellvorgang oder Vertrag.</li>
+      </ul>
+
+      <h2 style="margin-top:20px">12. Pflichten der Nutzer und Verantwortlichkeit für Inhalte</h2>
+      <p>Die Nutzer sind für alle Inhalte, Daten und Dokumente, die sie über die Plattform erstellen, hochladen oder übermitteln, selbst verantwortlich.</p>
+      <ul>
+        <li>Nutzer gewährleisten, dass ihre Angaben (z.&nbsp;B. Unternehmensdaten, Konditionen, Einsatzbeschreibungen, Worker-Profile, Arbeitszeiten, Dokumente) zutreffend, aktuell und nicht irreführend sind.</li>
+        <li>Nutzer stellen sicher, dass sie zur Nutzung und Weitergabe der übermittelten Inhalte berechtigt sind und keine Rechte Dritter verletzen.</li>
+        <li>Nutzer sind dafür verantwortlich, dass alle gesetzlichen Anforderungen an den Einsatz von Worker:innen eingehalten werden (z.&nbsp;B. arbeitsrechtliche Höchstarbeitszeiten, Mindestlohn, sozialversicherungsrechtliche Vorgaben, AÜG-Vorgaben).</li>
+        <li>TempConnect ist nicht verpflichtet, Inhalte der Nutzer vorab zu prüfen, behält sich aber vor, offensichtlich rechtswidrige oder missbräuchliche Inhalte zu sperren oder zu entfernen.</li>
+      </ul>
+
+      <h2 style="margin-top:20px">13. Verfügbarkeit der Plattform</h2>
+      <p>TempConnect betreibt die Plattform nach dem Stand der Technik und ist bestrebt, eine hohe Verfügbarkeit zu erreichen. Technische Wartungsarbeiten, Weiterentwicklungen, notwendige Sicherheitsupdates oder unvorhergesehene Störungen können jedoch zu vorübergehenden Unterbrechungen oder Einschränkungen führen.</p>
+      <p>Für bestimmte kostenpflichtige Tarife gelten ergänzend service-spezifische Service Level (SLA), die u.&nbsp;a. Reaktionszeiten, Verfügbarkeitsziele und Monitoring-Mechanismen beschreiben. Diese Details sind in gesonderten SLA-Dokumenten geregelt.</p>
+
+      <h2 style="margin-top:20px">14. Haftung von TempConnect</h2>
+      <p>TempConnect stellt die Plattform als technische Infrastruktur zur Verfügung. Die inhaltliche Nutzung (z.&nbsp;B. Auswahl von Zeitarbeitsfirmen, Konditionen, Einsatzplanung, Vertragsinhalte, Zeiterfassung) liegt allein in der Verantwortung der Nutzer.</p>
+      <p>TempConnect haftet nicht für:</p>
+      <ul>
+        <li>die arbeitsvertragliche oder tatsächliche Leistungserbringung der über die Plattform vermittelten oder eingesetzten Worker:innen;</li>
+        <li>den Inhalt, die Wirksamkeit oder Durchführung der zwischen Nutzern geschlossenen Verträge;</li>
+        <li>die Richtigkeit, Vollständigkeit und Aktualität von Angaben, Profilen, Stundenzetteln oder Dokumenten, die von Nutzern eingestellt oder bereitgestellt werden;</li>
+        <li>Entscheidungen, die Nutzer auf Basis der in der Plattform angezeigten Daten, Auswertungen oder Vorschläge treffen.</li>
+      </ul>
+      <p>Eine weitergehende Haftung von TempConnect richtet sich nach den gesetzlichen Bestimmungen und gegebenenfalls ergänzenden individuellen Vereinbarungen. Zwingende Haftungstatbestände (etwa bei Vorsatz oder bestimmten Personenschäden) bleiben unberührt.</p>
+
+      <h2 style="margin-top:20px">15. Datenschutz-Hinweis</h2>
+      <p>Bei der Nutzung der Plattform werden personenbezogene Daten verarbeitet. TempConnect stellt hierfür technische Funktionen und Sicherheitsmechanismen bereit (z.&nbsp;B. Zugriffskontrollen, Protokollierung, Verschlüsselung). Art und Umfang der Datenverarbeitung ergeben sich aus der jeweils geltenden Datenschutzerklärung.</p>
+      <p>Die Datenschutzerklärung ist über die Plattform abrufbar und beschreibt insbesondere die Zwecke der Verarbeitung, die Kategorien betroffener Personen, die eingesetzten Dienstleister sowie die Rechte der Betroffenen. <strong>Diese AGB ersetzen keine Datenschutzinformation und enthalten keine abschließenden datenschutzrechtlichen Regelungen.</strong></p>
+
+      <h2 style="margin-top:20px">16. Laufzeit und Kündigung von Nutzungsverhältnissen</h2>
+      <p>Das Nutzungsverhältnis zwischen einer Organisation und TempConnect beginnt mit der erfolgreichen Registrierung bzw. mit dem Abschluss eines Abonnements und läuft für die vereinbarte Laufzeit.</p>
+      <p>Soweit im Bestellprozess oder in separaten Verträgen nichts Abweichendes geregelt ist, kann das Nutzungsverhältnis mit der dort genannten Frist zum Ende der jeweiligen Laufzeit ordentlich gekündigt werden. Das Recht zur außerordentlichen Kündigung aus wichtigem Grund bleibt unberührt.</p>
+
+      <h2 style="margin-top:20px">17. Änderungen der Plattform und der AGB</h2>
+      <p>TempConnect entwickelt die Plattform kontinuierlich weiter. Funktionen können erweitert, verändert oder – sofern zumutbar und sachlich gerechtfertigt – eingestellt werden. Wesentliche Änderungen, die Auswirkungen auf den vertraglich vereinbarten Leistungsumfang haben, werden den betroffenen Kunden in geeigneter Form mitgeteilt.</p>
+      <p>TempConnect kann diese AGB anpassen, sofern hierfür ein sachlicher Grund besteht (z.&nbsp;B. Änderungen gesetzlicher Anforderungen, Weiterentwicklung der Plattform, Anpassung von Sicherheitsstandards). Über wesentliche Änderungen der AGB werden die Nutzer rechtzeitig informiert. Sofern eine Zustimmung der Nutzer rechtlich erforderlich ist, wird diese vor dem Wirksamwerden der Änderungen eingeholt.</p>
+
+      <h2 style="margin-top:20px">18. Schlussbestimmungen</h2>
+      <p>Es gilt das Recht desjenigen Staates, in dem der Betreiber der Plattform seinen Sitz hat, soweit dem nicht zwingende gesetzliche Vorschriften entgegenstehen. Zwingende Verbraucherschutzvorschriften bleiben unberührt.</p>
+      <p>Sofern einzelne Bestimmungen dieser AGB unwirksam sein sollten oder werden, bleibt die Wirksamkeit der übrigen Bestimmungen unberührt. Anstelle der unwirksamen Bestimmung gilt eine Regelung als vereinbart, die dem wirtschaftlichen Zweck der unwirksamen Bestimmung möglichst nahekommt.</p>
 
       <div class="sla-disclaimer" style="margin-top:30px">
-        <strong>Hinweis:</strong> Diese AGB sind als Vorlage gedacht und ersetzen keine individuelle Rechtsberatung. Die TempConnect Pulse™ SLA-Anlage ist als Anlage 1 integraler Bestandteil der AGB für PLUS- und NOTDIENST-Tarife.
+        <strong>Hinweis:</strong> Diese AGB sind auf die in der TempConnect-Plattform implementierten technischen Abläufe und Rollenmodelle abgestimmt. Sie ersetzen keine individuelle Rechtsberatung und sollten vor verbindlicher Nutzung von einer qualifizierten Rechtsberatung geprüft und an das konkrete Geschäftsmodell sowie die Gesellschaftsdaten des Plattformbetreibers angepasst werden.
       </div>
     </main>
   </div>
   <div id="tc-footer" data-tc-footer></div>
   <script src="/public/js/footer.js"></script>
   <script src="/public/js/logout-btn.js"></script>
+  <script src="/public/js/userDropdown.js"></script>
+  <script src="/public/js/demoBanner.js" defer></script>
+  <script src="/public/js/onboardingWizard.js" defer></script>
+<script src="/public/js/breadcrumb.js" defer></script>
 </body>
 </html>
 

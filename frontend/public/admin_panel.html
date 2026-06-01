@@ -1,36 +1,18 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="de">
 <head>
   <meta charset="utf-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <script src="/public/js/theme.js"></script>
   <title>Admin Panel – TempConnect</title>
   <link rel="stylesheet" href="/public/css/enterprise.css"/>
-  <style>
-    .tab-bar{display:flex;gap:4px;border-bottom:1px solid var(--line);margin-bottom:var(--ds-space-4,16px);padding-bottom:0}
-    .tab-btn{padding:10px 18px;font-size:13px;font-weight:700;border:none;background:none;color:var(--muted);cursor:pointer;border-bottom:2px solid transparent;transition:color .15s,border-color .15s}
-    .tab-btn.active{color:var(--text);border-bottom-color:var(--brand)}
-    .tab-btn:hover{color:var(--text)}
-    .tab-panel{display:none}.tab-panel.active{display:block}
-    .admin-table{width:100%;border-collapse:collapse;font-size:13px}
-    .admin-table th,.admin-table td{padding:8px 10px;text-align:left;border-bottom:1px solid var(--line)}
-    .admin-table th{font-size:11px;text-transform:uppercase;letter-spacing:.04em;color:var(--muted);font-weight:700}
-    .metric-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:12px;margin-bottom:var(--ds-space-4,16px)}
-    .metric-tile{padding:16px;border:1px solid var(--line);border-radius:var(--ds-radius-lg,12px);background:rgba(255,255,255,.02);text-align:center}
-    .metric-tile .val{font-size:24px;font-weight:800;color:var(--brand)}
-    .metric-tile .lbl{font-size:11px;text-transform:uppercase;letter-spacing:.04em;color:var(--muted);margin-top:4px}
-    .search-bar{display:flex;gap:8px;margin-bottom:var(--ds-space-4,16px)}
-    .search-bar input{flex:1;min-width:0}
-  </style>
+  <link rel="stylesheet" href="/public/css/pages/admin-panel.css"/>
 </head>
 <body>
   <div class="wrap">
-    <div class="topbar">
-      <span class="brand">TempConnect Admin</span>
-      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
-        <a href="/public/enterprise.html" class="btn">Uebersicht</a>
-        <a href="/" class="btn">Startseite</a>
-      </div>
-    </div>
+    <div id="tc-shell"></div>
+    <script src="/public/js/pageShell.js"></script>
+    <script>TC.shell.init({ extraNav: [{ label: 'Admin', href: '/public/admin_panel.html', match: ['/public/admin_panel.html'] }] });</script>
 
     <div class="ds-page-header">
       <div class="ds-page-header__content">
@@ -39,18 +21,58 @@
       </div>
     </div>
 
-    <div id="access-denied" style="display:none;padding:32px;text-align:center;color:var(--bad,#f87171)">
-      <h2>Zugriff verweigert</h2>
-      <p>Sie benoetigen Administratorrechte fuer diesen Bereich.</p>
-      <a href="/public/enterprise.html" class="btn" style="margin-top:12px">Zurueck zur Uebersicht</a>
+    <!-- Onboarding Checklist -->
+    <div id="onboarding-checklist" class="tc-onboarding">
+      <div class="tc-onboarding__box">
+        <div class="tc-onboarding__header" onclick="toggleOnboarding()">
+          <span class="tc-onboarding__icon">&#128640;</span>
+          <span class="tc-onboarding__label">Plattform einrichten</span>
+          <span id="onboarding-subtitle" class="tc-onboarding__subtitle"></span>
+          <div class="tc-onboarding__progress">
+            <div id="onboarding-progress-bar" class="tc-onboarding__progress-bar"></div>
+          </div>
+          <button id="onboarding-toggle-btn" type="button" class="tc-onboarding__toggle" title="Auf-/Zuklappen" onclick="event.stopPropagation();toggleOnboarding()">&#9660;</button>
+          <button id="onboarding-dismiss-btn" type="button" class="tc-onboarding__dismiss" title="Ausblenden" onclick="event.stopPropagation();dismissOnboarding()">&times;</button>
+        </div>
+        <div id="onboarding-body" class="tc-onboarding__body">
+          <div class="tc-onboarding__steps">
+            <div id="onboarding-steps"></div>
+          </div>
+        </div>
+      </div>
     </div>
 
-    <div id="admin-content" style="display:none">
+    <div class="admin-center-top">
+      <div id="adminContextPanel" class="admin-context-panel"></div>
+      <div id="adminRoadmap" class="admin-roadmap-panel"></div>
+    </div>
+
+    <!-- Admin Hub Grid -->
+    <div class="ds-section" style="padding-top:0;margin-bottom:var(--ds-space-4)">
+      <div id="adminHubGrid" class="ds-hub-grid admin-hub-grid"></div>
+    </div>
+
+    <div id="adminStateBanner" class="admin-state-banner" hidden></div>
+
+    <div id="admin-content" class="admin-workspace" style="display:none">
+      <div class="admin-workspace__header">
+        <div>
+          <h2 class="admin-workspace__title">Plattform-Arbeitsbereich</h2>
+          <p class="admin-workspace__subtitle">Operative Plattformsteuerung für freigeschaltete Admin-Bereiche.</p>
+        </div>
+        <div id="adminWorkspaceMeta" class="admin-workspace__meta"></div>
+      </div>
       <div class="tab-bar" id="tabBar">
         <button class="tab-btn active" data-tab="users">Benutzer</button>
         <button class="tab-btn" data-tab="orgs">Organisationen</button>
+        <button class="tab-btn" data-tab="activity">Aktivitäten</button>
+        <button class="tab-btn" data-tab="requests">Requests</button>
         <button class="tab-btn" data-tab="audit">Audit-Log</button>
         <button class="tab-btn" data-tab="metrics">Metriken</button>
+        <button class="tab-btn" data-tab="strategic">Kooperationsanfragen</button>
+        <button class="tab-btn" data-tab="revenue">Revenue</button>
+        <button class="tab-btn" data-tab="features">Feature-Flags</button>
+        <button class="tab-btn" data-tab="releases">Produkt-Updates</button>
       </div>
 
       <!-- Users Tab -->
@@ -60,7 +82,7 @@
           <button class="btn primary" onclick="loadUsers()">Suchen</button>
         </div>
         <div id="usersTable"></div>
-        <div id="usersPaging" style="margin-top:8px;display:flex;gap:8px;justify-content:center"></div>
+        <div id="usersPaging" class="admin-paging"></div>
       </div>
 
       <!-- Organizations Tab -->
@@ -68,159 +90,225 @@
         <div id="orgsTable"></div>
       </div>
 
+      <!-- Activity Feed Tab -->
+      <div class="tab-panel" id="tab-activity">
+        <div class="search-bar">
+          <select id="actFeedType" style="width:auto;min-width:140px">
+            <option value="">Alle Aktionstypen</option>
+            <option value="CREATE">Erstellen</option>
+            <option value="UPDATE">Aktualisieren</option>
+            <option value="DELETE">Löschen</option>
+            <option value="APPROVAL">Freigabe</option>
+            <option value="SUBMISSION">Einreichung</option>
+            <option value="STATUS_CHANGE">Statusänderung</option>
+            <option value="LOGIN">Anmeldung</option>
+            <option value="ROLE_CHANGE">Rollenänderung</option>
+            <option value="SECURITY">Sicherheit</option>
+            <option value="CONFIG_CHANGE">Konfiguration</option>
+          </select>
+          <input id="actFeedFrom" type="date" title="Von"/>
+          <input id="actFeedTo" type="date" title="Bis"/>
+          <button class="btn primary" onclick="loadActivityFeed()">Filtern</button>
+        </div>
+        <div id="activityTimeline" class="admin-paging" style="margin-top:12px"></div>
+        <div id="activityPaging" class="admin-paging" style="margin-top:12px"></div>
+      </div>
+
+      <!-- Backoffice Requests Tab -->
+      <div class="tab-panel" id="tab-requests">
+        <div class="search-bar">
+          <select id="boReqStatus" style="width:auto;min-width:170px">
+            <option value="">Alle Status</option>
+            <option value="SENT">SENT</option>
+            <option value="ACCEPTED">ACCEPTED</option>
+            <option value="DECLINED">DECLINED</option>
+            <option value="FILLED">FILLED</option>
+            <option value="FINALIZED">FINALIZED</option>
+            <option value="CANCELED">CANCELED</option>
+          </select>
+          <button class="btn primary" onclick="loadBackofficeRequests()">Filtern</button>
+        </div>
+        <div id="boRequestsTable"></div>
+      </div>
+
       <!-- Audit Log Tab -->
       <div class="tab-panel" id="tab-audit">
         <div class="search-bar">
+          <input id="auditActor" type="text" placeholder="Benutzer / E-Mail…" style="max-width:180px"/>
+          <input id="auditOrg" type="text" placeholder="Organisation…" style="max-width:180px"/>
           <input id="auditEntity" type="text" placeholder="Entity Type…" style="max-width:160px"/>
           <input id="auditAction" type="text" placeholder="Action…" style="max-width:160px"/>
+          <select id="auditActionType" style="width:auto;min-width:140px">
+            <option value="">Alle Typen</option>
+            <option value="CREATE">Create</option>
+            <option value="UPDATE">Update</option>
+            <option value="DELETE">Delete</option>
+            <option value="STATUS_CHANGE">Statuswechsel</option>
+            <option value="LOGIN">Login</option>
+            <option value="ROLE_CHANGE">Rollenwechsel</option>
+            <option value="SECURITY">Security</option>
+            <option value="CONFIG_CHANGE">Config</option>
+          </select>
+          <select id="auditStatus" style="width:auto;min-width:130px">
+            <option value="">Alle Status</option>
+            <option value="SUCCESS">SUCCESS</option>
+            <option value="DENIED">DENIED</option>
+            <option value="FAILED">FAILED</option>
+          </select>
           <input id="auditFrom" type="date"/>
           <input id="auditTo" type="date"/>
           <button class="btn primary" onclick="loadAudit()">Filtern</button>
+          <a id="auditExportLink" class="btn" href="/api/admin/audit-log/export/csv">CSV Export</a>
         </div>
         <div id="auditTable"></div>
+        <div id="auditDetail" class="admin-detail-panel"></div>
       </div>
 
       <!-- Metrics Tab -->
       <div class="tab-panel" id="tab-metrics">
         <div id="metricsGrid" class="metric-grid"></div>
+        <div id="metricsDeepLinks" class="admin-link-grid"></div>
         <div id="metricsDetail"></div>
+      </div>
+
+      <!-- Revenue Tab -->
+      <div class="tab-panel" id="tab-revenue">
+        <div id="revenueGrid"></div>
+      </div>
+
+      <!-- Strategic Collaboration Requests Tab -->
+      <div class="tab-panel" id="tab-strategic">
+        <div class="search-bar">
+          <select id="scStatus" style="width:auto;min-width:190px">
+            <option value="">Alle Status</option>
+            <option value="eingegangen">Eingegangen</option>
+            <option value="rueckfrage_offen">Rückfrage offen</option>
+            <option value="angebot_erstellt">Angebot erstellt</option>
+            <option value="bestaetigt">Bestätigt</option>
+            <option value="aktiviert">Aktiviert</option>
+            <option value="abgelehnt">Abgelehnt</option>
+            <option value="abgeschlossen">Abgeschlossen</option>
+          </select>
+          <button class="btn primary" onclick="loadStrategicRequests()">Filtern</button>
+        </div>
+        <div id="strategicTable"></div>
+      </div>
+
+      <!-- Product releases (What's New) -->
+      <div class="tab-panel" id="tab-releases">
+        <p style="color:var(--ds-text-secondary,#8d9bba);max-width:720px;margin-bottom:16px">
+          Release Notes f&uuml;r Kunden und interne Tester. Zielgruppe &uuml;ber Rollen-Tags, optional Mindest-Plan und Feature-Key aus <code>planFeatures</code>.
+          Modal nur f&uuml;r gro&szlig;e Releases; E-Mail gezielt (Cap pro Lauf, kein Spam).
+        </p>
+        <form id="pr-form" class="fo-form" style="margin-bottom:28px">
+          <div class="fo-field fo-field--wide">
+            <label class="fo-label">Titel</label>
+            <input id="pr-title" type="text" required maxlength="500" class="ds-input" placeholder="Kurzer Release-Titel"/>
+          </div>
+          <div class="fo-field fo-field--wide">
+            <label class="fo-label">Kurzbeschreibung</label>
+            <textarea id="pr-summary" class="ds-input" rows="2" placeholder="Ein Satz f&uuml;r Inbox / E-Mail"></textarea>
+          </div>
+          <div class="fo-field fo-field--wide">
+            <label class="fo-label">Detail (optional)</label>
+            <textarea id="pr-body" class="ds-input" rows="4"></textarea>
+          </div>
+          <div class="fo-field">
+            <label class="fo-label">Feature-Key (Anzeige)</label>
+            <input id="pr-feature" type="text" class="ds-input" placeholder="z. B. capacity_exchange_matching"/>
+          </div>
+          <div class="fo-field">
+            <label class="fo-label">Pflicht-Feature (Gate)</label>
+            <input id="pr-req-feature" type="text" class="ds-input" placeholder="Nur Nutzer mit Plan-Zugriff"/>
+          </div>
+          <div class="fo-field">
+            <label class="fo-label">Mindest-Plan</label>
+            <select id="pr-min-plan" class="ds-select">
+              <option value="">Alle Pl&auml;ne</option>
+              <option value="DEMO">DEMO</option>
+              <option value="BASIS">BASIS</option>
+              <option value="PLUS">PLUS</option>
+              <option value="PRO">PRO</option>
+              <option value="ENTERPRISE">Individueller Tarif</option>
+            </select>
+          </div>
+          <div class="fo-field">
+            <label class="fo-label">Sichtbarkeit</label>
+            <select id="pr-visibility" class="ds-select">
+              <option value="public">&Ouml;ffentlich (Kunden)</option>
+              <option value="internal">Intern (Admin / platform_admin)</option>
+            </select>
+          </div>
+          <div class="fo-field">
+            <label class="fo-label">Status</label>
+            <select id="pr-status" class="ds-select">
+              <option value="draft">Entwurf</option>
+              <option value="published">Ver&ouml;ffentlicht</option>
+            </select>
+          </div>
+          <div class="fo-field">
+            <label class="fo-label">Priorit&auml;t (Modal-Sortierung)</label>
+            <input id="pr-priority" type="number" class="ds-input" value="0"/>
+          </div>
+          <div class="fo-field fo-field--wide">
+            <label class="fo-label">Zielgruppe (leer = alle Rollen)</label>
+            <div style="display:flex;flex-wrap:wrap;gap:12px;font-size:13px">
+              <label><input type="checkbox" name="pr-aud" value="worker"/> Worker</label>
+              <label><input type="checkbox" name="pr-aud" value="agency"/> Zeitarbeit</label>
+              <label><input type="checkbox" name="pr-aud" value="company"/> Unternehmen</label>
+              <label><input type="checkbox" name="pr-aud" value="supplier_user"/> Lieferant (Org-Rolle)</label>
+              <label><input type="checkbox" name="pr-aud" value="admin"/> Plattform-Admin</label>
+            </div>
+          </div>
+          <div class="fo-field fo-field--wide" style="display:flex;flex-wrap:wrap;gap:16px;align-items:center">
+            <label><input type="checkbox" id="pr-inapp" checked/> In-App (Badge / Strip)</label>
+            <label><input type="checkbox" id="pr-modal"/> Als Modal (einmal pro Session)</label>
+            <label><input type="checkbox" id="pr-email"/> E-Mail beim Publish</label>
+          </div>
+          <button type="submit" class="btn primary">Eintrag anlegen</button>
+        </form>
+        <div id="pr-table"></div>
+      </div>
+
+      <!-- Feature Overrides Tab -->
+      <div class="tab-panel" id="tab-features">
+        <div class="fo-form">
+          <div class="fo-field fo-field--wide">
+            <label class="fo-label">Feature-Key</label>
+            <select id="foFeatureKey"><option value="">Lade...</option></select>
+          </div>
+          <div class="fo-field">
+            <label class="fo-label">Org-ID (leer = global)</label>
+            <input id="foOrgId" type="number" placeholder="Alle Orgs"/>
+          </div>
+          <div class="fo-field">
+            <label class="fo-label">Aktiviert</label>
+            <select id="foEnabled"><option value="true">Ja</option><option value="false">Nein</option></select>
+          </div>
+          <div class="fo-field fo-field--reason">
+            <label class="fo-label">Grund</label>
+            <input id="foReason" type="text" placeholder="Optional"/>
+          </div>
+          <div class="fo-field fo-field--expires">
+            <label class="fo-label">Ablauf (optional)</label>
+            <input id="foExpires" type="datetime-local"/>
+          </div>
+          <button class="btn primary" onclick="saveFeatureOverride()">Override speichern</button>
+        </div>
+        <div id="foTable"></div>
       </div>
     </div>
   </div>
 
-  <script>
-    function esc(s){var d=document.createElement('div');d.textContent=s;return d.innerHTML}
-    var usersOffset=0,usersLimit=50;
-    var _csrf=null;
-    function getCsrf(){
-      if(_csrf)return Promise.resolve(_csrf);
-      return fetch('/api/csrf-token',{credentials:'include'}).then(function(r){return r.ok?r.json():{}}).then(function(d){_csrf=d.csrfToken||d.token;return _csrf});
-    }
-
-    // Tab switching
-    document.getElementById('tabBar').addEventListener('click',function(e){
-      var btn=e.target.closest('.tab-btn');if(!btn)return;
-      document.querySelectorAll('.tab-btn').forEach(function(b){b.classList.remove('active')});
-      document.querySelectorAll('.tab-panel').forEach(function(p){p.classList.remove('active')});
-      btn.classList.add('active');
-      document.getElementById('tab-'+btn.dataset.tab).classList.add('active');
-      if(btn.dataset.tab==='orgs'&&!document.getElementById('orgsTable').innerHTML)loadOrgs();
-      if(btn.dataset.tab==='metrics'&&!document.getElementById('metricsGrid').innerHTML)loadMetrics();
-    });
-
-    // Auth check
-    async function checkAdmin(){
-      try{
-        var r=await fetch('/api/admin/metrics',{credentials:'include'});
-        if(r.status===403){document.getElementById('access-denied').style.display='block';return}
-        document.getElementById('admin-content').style.display='block';
-        loadUsers();
-      }catch(e){document.getElementById('access-denied').style.display='block'}
-    }
-
-    // Users
-    async function loadUsers(offset){
-      usersOffset=offset||0;
-      var q=document.getElementById('userSearch').value.trim();
-      var url='/api/admin/users?limit='+usersLimit+'&offset='+usersOffset+(q?'&q='+encodeURIComponent(q):'');
-      var r=await fetch(url,{credentials:'include'});
-      var d=await r.json();var items=(d.data&&d.data.items)||[];var total=(d.data&&d.data.total)||0;
-      if(!items.length){document.getElementById('usersTable').innerHTML='<p class="empty">Keine Benutzer gefunden.</p>';document.getElementById('usersPaging').innerHTML='';return}
-      var html='<table class="admin-table"><thead><tr><th>ID</th><th>E-Mail</th><th>Firma</th><th>Rolle</th><th>Plan</th><th>Verifiziert</th><th>Aktionen</th></tr></thead><tbody>';
-      items.forEach(function(u){
-        var verified=u.is_verified?'<span class="tag green">Ja</span>':'<span class="tag red">Nein</span>';
-        var actions='<select onchange="adminEditUser('+u.id+',\'role\',this.value)" style="font-size:11px;padding:2px 4px;width:auto;min-width:80px;margin:0 2px 0 0">';
-        ['company','agency','admin','inactive'].forEach(function(r){actions+='<option'+(u.role===r?' selected':'')+'>'+r+'</option>'});
-        actions+='</select>';
-        actions+='<select onchange="adminEditUser('+u.id+',\'plan\',this.value)" style="font-size:11px;padding:2px 4px;width:auto;min-width:70px;margin:0 2px 0 0">';
-        ['FREE','BASIS','PLUS','NOTDIENST'].forEach(function(p){actions+='<option'+(u.plan===p?' selected':'')+'>'+p+'</option>'});
-        actions+='</select>';
-        if(!u.is_verified)actions+=' <button class="btn good" style="font-size:10px;padding:3px 8px" onclick="adminEditUser('+u.id+',\'is_verified\',true)">Verifizieren</button>';
-        if(u.role!=='inactive')actions+=' <button class="btn bad" style="font-size:10px;padding:3px 8px" onclick="adminDeactivate('+u.id+')">Deaktivieren</button>';
-        html+='<tr><td>'+u.id+'</td><td>'+esc(u.email||'')+'</td><td>'+esc(u.company_name||'')+'</td><td><span class="tag blue">'+esc(u.role||'')+'</span></td><td>'+esc(u.plan||'FREE')+'</td><td>'+verified+'</td><td style="white-space:nowrap">'+actions+'</td></tr>';
-      });
-      html+='</tbody></table>';
-      document.getElementById('usersTable').innerHTML=html;
-      // Paging
-      var pages=Math.ceil(total/usersLimit);
-      var pg='';for(var i=0;i<pages&&i<20;i++){
-        var cls=i*usersLimit===usersOffset?' primary':'';
-        pg+='<button class="btn'+cls+'" onclick="loadUsers('+i*usersLimit+')">'+( i+1)+'</button>';
-      }
-      document.getElementById('usersPaging').innerHTML=pg;
-    }
-
-    // Organizations
-    async function loadOrgs(){
-      var r=await fetch('/api/admin/organizations',{credentials:'include'});
-      var d=await r.json();var items=(d.data&&d.data.items)||[];
-      if(!items.length){document.getElementById('orgsTable').innerHTML='<p class="empty">Keine Organisationen.</p>';return}
-      var html='<table class="admin-table"><thead><tr><th>Name</th><th>Typ</th><th>Mitglieder</th><th>Standorte</th><th>Status</th><th>Erstellt</th></tr></thead><tbody>';
-      items.forEach(function(o){
-        var status=o.is_active?'<span class="tag green">Aktiv</span>':'<span class="tag red">Inaktiv</span>';
-        html+='<tr><td>'+esc(o.name||'')+'</td><td>'+esc(o.org_type||'')+'</td><td>'+( o.member_count||0)+'</td><td>'+(o.location_count||0)+'</td><td>'+status+'</td><td>'+(o.created_at?new Date(o.created_at).toLocaleDateString('de-DE'):'')+'</td></tr>';
-      });
-      html+='</tbody></table>';
-      document.getElementById('orgsTable').innerHTML=html;
-    }
-
-    // Audit Log
-    async function loadAudit(){
-      var params=[];
-      var et=document.getElementById('auditEntity').value.trim();if(et)params.push('entity_type='+encodeURIComponent(et));
-      var ac=document.getElementById('auditAction').value.trim();if(ac)params.push('action='+encodeURIComponent(ac));
-      var fr=document.getElementById('auditFrom').value;if(fr)params.push('from='+fr);
-      var to=document.getElementById('auditTo').value;if(to)params.push('to='+to);
-      params.push('limit=100');
-      var r=await fetch('/api/admin/audit-log?'+params.join('&'),{credentials:'include'});
-      var d=await r.json();var items=(d.data&&d.data.items)||[];
-      if(!items.length){document.getElementById('auditTable').innerHTML='<p class="empty">Keine Audit-Eintraege.</p>';return}
-      var html='<table class="admin-table"><thead><tr><th>Zeitpunkt</th><th>Akteur</th><th>Entity</th><th>Aktion</th><th>IP</th></tr></thead><tbody>';
-      items.forEach(function(a){
-        html+='<tr><td style="white-space:nowrap">'+(a.created_at?new Date(a.created_at).toLocaleString('de-DE'):'')+'</td><td>'+(a.actor_id||'–')+'</td><td>'+esc(a.entity_type||'')+' #'+(a.entity_id||'')+'</td><td><span class="tag muted">'+esc(a.action||'')+'</span></td><td>'+esc(a.ip_address||'–')+'</td></tr>';
-      });
-      html+='</tbody></table>';
-      document.getElementById('auditTable').innerHTML=html;
-    }
-
-    // Metrics
-    async function loadMetrics(){
-      var r=await fetch('/api/admin/metrics',{credentials:'include'});
-      var d=await r.json();var m=(d.data)||{};
-      var tiles=[
-        {lbl:'Benutzer gesamt',val:(m.users&&m.users.total)||0},
-        {lbl:'Neu (30 Tage)',val:(m.users&&m.users.last_30d)||0},
-        {lbl:'Organisationen',val:(m.organizations&&m.organizations.total)||0},
-        {lbl:'Aktive Kapazitaeten',val:(m.capacity_posts&&m.capacity_posts.active)||0}
-      ];
-      var reqMap=m.requisitions||{};
-      Object.keys(reqMap).forEach(function(k){tiles.push({lbl:'Req: '+k,val:reqMap[k]})});
-      var offMap=m.offers||{};
-      Object.keys(offMap).forEach(function(k){tiles.push({lbl:'Angebote: '+k,val:offMap[k]})});
-      document.getElementById('metricsGrid').innerHTML=tiles.map(function(t){
-        return '<div class="metric-tile"><div class="val">'+t.val+'</div><div class="lbl">'+esc(t.lbl)+'</div></div>';
-      }).join('');
-    }
-
-    // Admin user actions
-    async function adminEditUser(id,field,value){
-      var token=await getCsrf();
-      var body={};body[field]=value;
-      var r=await fetch('/api/admin/users/'+id,{method:'PATCH',credentials:'include',headers:{'Content-Type':'application/json','x-csrf-token':token||''},body:JSON.stringify(body)});
-      if(r.ok)loadUsers(usersOffset); else alert('Fehler: '+(await r.json()).error?.code||r.status);
-    }
-    async function adminDeactivate(id){
-      if(!confirm('Benutzer #'+id+' wirklich deaktivieren?'))return;
-      var token=await getCsrf();
-      var r=await fetch('/api/admin/users/'+id+'/deactivate',{method:'POST',credentials:'include',headers:{'Content-Type':'application/json','x-csrf-token':token||''}});
-      if(r.ok)loadUsers(usersOffset); else alert('Fehler');
-    }
-
-    checkAdmin();
-  </script>
+  <script src="/public/js/api.js"></script>
+  <script src="/public/js/pages/adminPanel.js"></script>
+  <script src="/public/js/pages/adminProductReleases.js"></script>
   <script src="/public/js/notifications.js"></script>
   <div id="tc-footer" data-tc-footer></div>
   <script src="/public/js/footer.js"></script>
-  <script src="/public/js/logout-btn.js"></script>
+<script src="/public/js/demoBanner.js" defer></script>
+<script src="/public/js/onboardingWizard.js" defer></script>
+<script src="/public/js/onboardingChecklist.js" defer></script>
+<script src="/public/js/breadcrumb.js" defer></script>
 </body>
 </html>

@@ -1,0 +1,998 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <script src="/public/js/theme.js"></script>
+  <title>Benachrichtigungen – Einsatzportal</title>
+  <link rel="stylesheet" href="einsatzportal.css">
+  <style>
+    .notif-toolbar {
+      display:flex; align-items:center; justify-content:space-between;
+      flex-wrap:wrap; gap:10px; margin-bottom:16px;
+    }
+    .notif-toggles { display:flex; gap:6px; }
+    .notif-toggle {
+      padding:6px 14px; border-radius:20px; border:1px solid var(--ep-border);
+      background:none; color:var(--ep-text-muted); cursor:pointer;
+      font-size:.78rem; font-weight:600; transition:all .15s;
+    }
+    .notif-toggle.active { background:var(--ep-brand); color:#fff; border-color:var(--ep-brand); }
+    .notif-toggle:hover:not(.active) { border-color:var(--ep-brand); color:var(--ep-text); }
+    .notif-read-all {
+      padding:6px 14px; border-radius:8px; border:1px solid var(--ep-border);
+      background:none; color:var(--ep-text-muted); cursor:pointer;
+      font-size:.78rem; transition:all .15s;
+    }
+    .notif-read-all:hover { border-color:var(--ep-brand); color:var(--ep-brand); }
+
+    .notif-item {
+      display:flex; gap:12px; align-items:flex-start;
+      background:var(--ep-surface); border-radius:12px; border:1px solid var(--ep-border);
+      padding:14px 16px; margin-bottom:8px; transition:all .15s;
+      position:relative;
+    }
+    .notif-item.unread { border-left:3px solid var(--ep-brand); }
+    .notif-item.unread::before {
+      content:''; position:absolute; top:14px; right:14px;
+      width:7px; height:7px; border-radius:50%; background:var(--ep-brand);
+    }
+    .notif-icon {
+      width:40px; height:40px; border-radius:50%; flex-shrink:0;
+      display:flex; align-items:center; justify-content:center;
+      font-size:1rem; border:1px solid var(--ep-border);
+    }
+    .notif-icon.new_assignment { background:rgba(74,158,255,.12); }
+    .notif-icon.correction { background:rgba(251,191,36,.12); }
+    .notif-icon.accepted { background:rgba(16,185,129,.12); }
+    .notif-icon.rejected { background:rgba(239,68,68,.12); }
+    .notif-icon.info { background:rgba(74,158,255,.08); }
+    .notif-body { flex:1; min-width:0; }
+    .notif-title { font-weight:700; font-size:.875rem; margin-bottom:2px; }
+    .notif-msg { font-size:.8rem; color:var(--ep-text-muted); line-height:1.5; }
+    .notif-time { font-size:.72rem; color:var(--ep-text-muted); margin-top:6px; }
+    .notif-actions { display:flex; gap:6px; margin-top:8px; flex-wrap:wrap; }
+    .notif-btn-link {
+      padding:5px 12px; border-radius:6px; background:rgba(74,158,255,.12);
+      color:var(--ep-brand); border:1px solid rgba(74,158,255,.2);
+      font-size:.75rem; font-weight:600; cursor:pointer; text-decoration:none;
+      transition:all .15s;
+    }
+    .notif-btn-link:hover { background:rgba(74,158,255,.2); }
+    .notif-btn-read {
+      padding:5px 12px; border-radius:6px; background:none;
+      color:var(--ep-text-muted); border:1px solid var(--ep-border);
+      font-size:.75rem; cursor:pointer; transition:all .15s;
+    }
+    .notif-btn-read:hover { color:var(--ep-text); border-color:var(--ep-brand); }
+    .notif-btn-confirm {
+      padding:5px 12px; border-radius:6px; background:rgba(16,185,129,.12);
+      color:var(--ep-success,#10b981); border:1px solid rgba(16,185,129,.2);
+      font-size:.75rem; font-weight:600; cursor:pointer; transition:all .15s;
+    }
+    .notif-btn-confirm:hover { background:rgba(16,185,129,.22); }
+    .notif-btn-decline {
+      padding:5px 12px; border-radius:6px; background:rgba(239,68,68,.08);
+      color:var(--ep-danger,#ef4444); border:1px solid rgba(239,68,68,.18);
+      font-size:.75rem; font-weight:600; cursor:pointer; transition:all .15s;
+    }
+    .notif-btn-decline:hover { background:rgba(239,68,68,.18); }
+    .notif-decline-box {
+      display:none; margin-top:8px; padding:10px 12px;
+      background:rgba(239,68,68,.06); border:1px solid rgba(239,68,68,.15);
+      border-radius:8px;
+    }
+    .notif-decline-box.open { display:block; }
+    .notif-decline-box textarea {
+      width:100%; padding:8px; border:1px solid var(--ep-border); border-radius:6px;
+      font-size:.82rem; resize:vertical; min-height:48px;
+      background:var(--ep-surface,#fff); color:var(--ep-text,#1a1a2e);
+    }
+    .notif-empty-state { text-align:center; padding:40px 20px; color:var(--ep-text-muted); }
+    .notif-count-badge {
+      display:inline-flex; align-items:center; justify-content:center;
+      background:var(--ep-brand); color:#fff; border-radius:10px;
+      font-size:.65rem; font-weight:700; padding:1px 6px; margin-left:6px;
+    }
+    .staffing-card { border-left:4px solid rgba(74,158,255,.45); }
+    .staffing-card.priority-high { border-left-color:#f59e0b; }
+    .staffing-card.priority-medium { border-left-color:#4a9eff; }
+    .staffing-card.priority-normal { border-left-color:rgba(148,163,184,.45); }
+    .staffing-topline, .staffing-grid, .staffing-meta-grid, .staffing-status-row {
+      display:grid; gap:10px;
+    }
+    .staffing-topline {
+      grid-template-columns: minmax(0,1fr) auto;
+      align-items:flex-start;
+      margin-bottom:8px;
+    }
+    .staffing-badges, .staffing-actions-secondary {
+      display:flex; gap:6px; flex-wrap:wrap;
+    }
+    .staffing-pill {
+      display:inline-flex; align-items:center; gap:4px;
+      padding:4px 9px; border-radius:999px; font-size:.7rem; font-weight:700;
+      border:1px solid transparent;
+    }
+    .staffing-pill.priority-high { background:rgba(245,158,11,.14); color:#fbbf24; border-color:rgba(245,158,11,.25); }
+    .staffing-pill.priority-medium { background:rgba(74,158,255,.12); color:#93c5fd; border-color:rgba(74,158,255,.22); }
+    .staffing-pill.priority-normal { background:rgba(148,163,184,.12); color:#cbd5e1; border-color:rgba(148,163,184,.2); }
+    .staffing-pill.status-accepted { background:rgba(16,185,129,.12); color:#6ee7b7; border-color:rgba(16,185,129,.24); }
+    .staffing-pill.status-expired { background:rgba(239,68,68,.08); color:#fca5a5; border-color:rgba(239,68,68,.2); }
+    .staffing-pill.status-interested { background:rgba(99,102,241,.12); color:#c7d2fe; border-color:rgba(99,102,241,.2); }
+    .staffing-grid {
+      grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+      margin:10px 0 8px;
+    }
+    .staffing-field {
+      background:rgba(255,255,255,.03); border:1px solid rgba(148,163,184,.12);
+      border-radius:10px; padding:10px;
+    }
+    .staffing-field-label {
+      font-size:.68rem; text-transform:uppercase; letter-spacing:.04em;
+      color:var(--ep-text-muted); margin-bottom:4px; font-weight:700;
+    }
+    .staffing-field-value { font-size:.82rem; color:var(--ep-text); line-height:1.45; }
+    .staffing-field-value strong { font-weight:700; }
+    .staffing-status-row {
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      margin:10px 0 8px;
+    }
+    .staffing-status-box {
+      padding:10px 12px; border-radius:10px; border:1px solid rgba(148,163,184,.12);
+      background:rgba(15,23,42,.16); font-size:.77rem; color:var(--ep-text-muted); line-height:1.5;
+    }
+    .staffing-status-box strong { color:var(--ep-text); }
+    .staffing-status-box.warn { border-color:rgba(245,158,11,.22); background:rgba(245,158,11,.08); color:#fde68a; }
+    .staffing-status-box.ok { border-color:rgba(16,185,129,.24); background:rgba(16,185,129,.08); color:#a7f3d0; }
+    .staffing-message-box {
+      margin-top:8px; padding:10px 12px; border-radius:10px;
+      background:rgba(74,158,255,.08); border:1px solid rgba(74,158,255,.16);
+      font-size:.78rem; line-height:1.5;
+    }
+    .staffing-conflict-list {
+      margin:8px 0 0; padding-left:18px; font-size:.76rem; line-height:1.5;
+    }
+    .staffing-conflict-list li { margin-bottom:4px; }
+    .staffing-inline-box {
+      display:none; margin-top:10px; padding:10px 12px; border-radius:10px;
+      border:1px solid rgba(148,163,184,.14); background:rgba(255,255,255,.03);
+    }
+    .staffing-inline-box.open { display:block; }
+    .staffing-inline-box textarea, .staffing-inline-box select {
+      width:100%; margin-top:8px; border-radius:8px; border:1px solid var(--ep-border);
+      background:var(--ep-surface,#fff); color:var(--ep-text,#1a1a2e); padding:9px 10px; font-size:.82rem;
+    }
+    .staffing-inline-box textarea { min-height:66px; resize:vertical; }
+    .notif-btn-neutral {
+      padding:5px 12px; border-radius:6px; background:none;
+      color:var(--ep-text-muted); border:1px solid var(--ep-border);
+      font-size:.75rem; font-weight:600; cursor:pointer; transition:all .15s;
+    }
+    .notif-btn-neutral:hover { color:var(--ep-text); border-color:var(--ep-brand); }
+    .notif-btn-neutral:disabled, .notif-btn-confirm:disabled, .notif-btn-decline:disabled {
+      opacity:.45; cursor:not-allowed;
+    }
+    /* Mobile: notification buttons larger, toggles taller */
+    @media (max-width: 480px) {
+      .notif-toggle { min-height:40px; padding:9px 14px; }
+      .notif-read-all { min-height:40px; padding:9px 14px; }
+      .notif-item { padding:12px 14px; }
+      .notif-btn-link, .notif-btn-read, .notif-btn-confirm, .notif-btn-decline, .notif-btn-neutral {
+        min-height:36px; padding:8px 14px; font-size:.78rem;
+      }
+      .notif-decline-box textarea { min-height:60px; font-size:16px; padding:10px; }
+    }
+  </style>
+</head>
+<body>
+
+<aside class="ep-sidebar">
+  <div class="ep-sidebar-brand"><div class="ep-sidebar-logo">TC</div><div><div style="font-weight:800;font-size:.95rem">Einsatzportal</div><div style="font-size:.7rem;color:var(--ep-text-muted);font-weight:400">TempConnect</div></div></div>
+  <nav class="ep-sidebar-nav">
+    <a class="ep-sidebar-item" href="einsatzportal-dashboard.html"><span class="icon">🏠</span> Dashboard</a>
+    <a class="ep-sidebar-item" href="einsatzportal-einsaetze.html"><span class="icon">📋</span> Meine Einsätze</a>
+    <a class="ep-sidebar-item" href="einsatzportal-plan.html"><span class="icon">📅</span> Einsatzplan</a>
+    <a class="ep-sidebar-item" href="einsatzportal-stundenzettel.html"><span class="icon">⏱</span> Stundenzettel</a>
+    <a class="ep-sidebar-item active" href="einsatzportal-benachrichtigungen.html"><span class="icon">🔔</span> Benachrichtigungen</a>
+    <a class="ep-sidebar-item" href="einsatzportal-kontakt.html"><span class="icon">💬</span> Kontakt &amp; Hilfe</a>
+    <a class="ep-sidebar-item" href="einsatzportal-profil.html"><span class="icon">👤</span> Mein Profil</a>
+  </nav>
+  <div class="ep-sidebar-footer">
+    <div class="ep-sidebar-user"><div class="ep-sidebar-avatar" id="sd-ava">?</div><div><div class="ep-sidebar-name" id="sd-name">Lädt…</div><div class="ep-sidebar-role">Arbeitnehmer</div></div></div>
+    <button class="ep-sidebar-item" onclick="doLogout()" style="margin-top:4px;color:var(--ep-text-muted)"><span class="icon">↩</span> Abmelden</button>
+  </div>
+</aside>
+
+<header class="ep-topbar">
+  <a class="ep-topbar-brand" href="einsatzportal-dashboard.html" aria-label="Zur Einsatzportal-Übersicht"><div class="ep-topbar-logo">TC</div>Benachrichtigungen</a>
+  <div class="ep-topbar-actions"><a class="ep-bell" href="einsatzportal-benachrichtigungen.html">🔔</a></div>
+</header>
+
+<main class="ep-main">
+  <div class="ep-content">
+    <div class="ep-page-header">
+      <h1 class="ep-page-title">Benachrichtigungen</h1>
+      <p class="ep-page-sub">Alle Hinweise und Updates zu Ihren Einsätzen</p>
+    </div>
+
+    <div id="loading">
+      <div class="ep-skel" style="height:72px;margin-bottom:8px"></div>
+      <div class="ep-skel" style="height:72px;margin-bottom:8px;opacity:.8"></div>
+      <div class="ep-skel" style="height:72px;margin-bottom:8px;opacity:.5"></div>
+    </div>
+
+    <div id="content" style="display:none">
+      <div class="notif-toolbar">
+        <div class="notif-toggles">
+          <button class="notif-toggle active" id="tog-unread" onclick="setView('unread')">Ungelesen <span class="notif-count-badge" id="unread-cnt" style="display:none">0</span></button>
+          <button class="notif-toggle" id="tog-all" onclick="setView('all')">Alle</button>
+        </div>
+        <button class="notif-read-all" onclick="markAllRead()">✓ Alle als gelesen markieren</button>
+      </div>
+      <div id="staffingChoiceWrap" style="display:none;margin-bottom:18px">
+        <div style="font-size:.8rem;font-weight:700;letter-spacing:.02em;margin-bottom:10px;color:var(--ep-text)">Auswahl freigegebener Einsatzoptionen</div>
+        <div id="staffingChoiceList"></div>
+      </div>
+      <div id="staffingReqWrap" style="display:none;margin-bottom:18px">
+        <div style="font-size:.8rem;font-weight:700;letter-spacing:.02em;margin-bottom:10px;color:var(--ep-text)">Offene Staffing-Anfragen</div>
+        <div id="staffingReqList"></div>
+      </div>
+
+      <div id="notifList"></div>
+    </div>
+  </div>
+</main>
+
+<nav class="ep-bottom-nav">
+  <a class="ep-bn-item" href="einsatzportal-dashboard.html"><span class="icon">🏠</span>Start</a>
+  <a class="ep-bn-item" href="einsatzportal-einsaetze.html"><span class="icon">📋</span>Einsätze</a>
+  <a class="ep-bn-item" href="einsatzportal-plan.html"><span class="icon">📅</span>Plan</a>
+  <a class="ep-bn-item" href="einsatzportal-stundenzettel.html"><span class="icon">⏱</span>Stunden</a>
+  <a class="ep-bn-item active" href="einsatzportal-benachrichtigungen.html"><span class="icon">🔔</span>Info</a>
+  <a class="ep-bn-item" href="einsatzportal-profil.html"><span class="icon">👤</span>Profil</a>
+</nav>
+<div id="ep-toast"></div>
+
+<script src="/public/js/workerPortal/portalApi.js"></script>
+<script src="/public/js/workerPortal/portalShell.js"></script>
+<script src="/public/js/workerPortal/portalStatus.js"></script>
+<script>
+let notifications = [], staffingRequests = [], staffingChoiceSets = [], curView = 'unread';
+
+// toast: bridges old calls (true) and new calls ('error') to PortalShell.toast
+function toast(msg, errOrType) {
+  const type = errOrType === true ? 'error' : (errOrType || '');
+  PortalShell.toast(msg, type);
+}
+function esc(s) { return PortalShell.esc(s); }
+
+function isStaffingNotificationType(type) {
+  return type === 'worker_staffing_request_new' || type === 'worker_staffing_request_reminder';
+}
+function isStaffingChoiceNotificationType(type) {
+  return type === 'worker_staffing_choice_request';
+}
+function isPortalManagedStaffingNotificationType(type) {
+  return isStaffingNotificationType(type) || isStaffingChoiceNotificationType(type);
+}
+
+(async () => {
+  try {
+    await PortalShell.initShell();
+    await load();
+  } catch(e) {
+    const code = e.code || e.message;
+    if (code === 'NOT_AUTH') { location.href = 'worker-login.html'; return; }
+    PortalShell.showError('Daten konnten nicht geladen werden. Bitte laden Sie die Seite neu.');
+  }
+})();
+
+async function load() {
+  // allSettled: staffing/choice endpoints may 404 if feature isn't active for this org — soft-fail
+  const [notifResult, staffingResult, choiceResult] = await Promise.allSettled([
+    PortalApi.get('/worker/notifications'),
+    PortalApi.get('/worker/staffing-requests', { mark_viewed: 'true' }),
+    PortalApi.get('/worker/staffing-choice-sets', { mark_viewed: 'true' })
+  ]);
+  notifications    = notifResult.status    === 'fulfilled' ? (notifResult.value?.items    || []) : [];
+  staffingRequests = staffingResult.status === 'fulfilled' ? (staffingResult.value?.items || []) : [];
+  staffingChoiceSets = choiceResult.status === 'fulfilled' ? (choiceResult.value?.items   || []) : [];
+
+  document.getElementById('loading').style.display='none';
+  document.getElementById('content').style.display='';
+
+  const unread = notifications.filter(n=>!n.is_read && !isPortalManagedStaffingNotificationType(n.type||n.notification_type)).length;
+  const uc = document.getElementById('unread-cnt');
+  if (unread > 0) { uc.textContent = unread > 9 ? '9+' : unread; uc.style.display=''; }
+  else { uc.style.display='none'; }
+  renderChoiceSets();
+  renderStaffingRequests();
+
+  renderList();
+}
+
+function setView(v) {
+  curView = v;
+  document.getElementById('tog-unread').classList.toggle('active', v==='unread');
+  document.getElementById('tog-all').classList.toggle('active', v==='all');
+  renderList();
+}
+
+function getFiltered() {
+  const filtered = notifications.filter(n => !isPortalManagedStaffingNotificationType(n.type||n.notification_type));
+  if (curView === 'unread') return filtered.filter(n=>!n.is_read);
+  return filtered;
+}
+
+function notifIcon(type) {
+  const icons = {
+    new_assignment:'📋', correction_requested:'⚠️', submission_accepted:'✅',
+    submission_rejected:'❌', submission_received:'📤', assignment_reminder:'⏰',
+    worker_assignment_pending_confirmation:'📋', worker_assignment_new:'📋',
+    worker_staffing_request_new:'📨',
+    worker_assignment_changed:'🔄', worker_submission_correction_requested:'⚠️',
+    worker_submission_accepted:'✅', worker_submission_rejected:'❌',
+    worker_document_verified:'🗂️', worker_document_rejected:'📎',
+    worker_document_expiring:'⏳', worker_document_expired:'🚨',
+    worker_shift_reminder:'⏰', worker_assignment_confirmed:'✅',
+    worker_assignment_declined:'❌',
+    system:'ℹ️', info:'ℹ️'
+  };
+  const cls = {
+    new_assignment:'new_assignment', correction_requested:'correction',
+    submission_accepted:'accepted', submission_rejected:'rejected',
+    worker_assignment_pending_confirmation:'new_assignment',
+    worker_assignment_new:'new_assignment',
+    worker_staffing_request_new:'new_assignment',
+    worker_submission_correction_requested:'correction',
+    worker_submission_accepted:'accepted', worker_submission_rejected:'rejected',
+    worker_document_verified:'accepted', worker_document_rejected:'rejected',
+    worker_document_expiring:'correction', worker_document_expired:'rejected'
+  };
+  return { icon: icons[type]||'🔔', cls: cls[type]||'info' };
+}
+
+function notifLink(n) {
+  const rawLink = n.link_path || '';
+  if (!rawLink) {
+    if (n.entity_type === 'assignment_staffing_invite') return 'einsatzportal-benachrichtigungen.html';
+    return n.entity_type === 'worker_profile_document' ? 'einsatzportal-profil.html#documents' : '';
+  }
+  if (rawLink.includes('einsatzportal-profil.html')) return 'einsatzportal-profil.html#documents';
+  if (rawLink.startsWith('/')) {
+    // Internal path — resolve to portal pages
+    if (rawLink.includes('submission')) return `einsatzportal-stundenzettel.html${rawLink.includes('?')?rawLink.slice(rawLink.indexOf('?')):''}`;
+    if (rawLink.includes('assignment')) return `einsatzportal-einsaetze.html`;
+    if (rawLink.includes('staffing')) return `einsatzportal-benachrichtigungen.html`;
+    if (rawLink.includes('worker_profile_document') || rawLink.includes('#documents')) return 'einsatzportal-profil.html#documents';
+  }
+  return rawLink;
+}
+
+function staffingRequestStatus(req) {
+  if (req.is_expired) return { label:'Abgelaufen', cls:'status-expired' };
+  if (req.status === 'accepted') return { label:'Angenommen', cls:'status-accepted' };
+  if (req.status === 'interested') return { label:'Rückfrage / Interesse', cls:'status-interested' };
+  if (req.status === 'viewed') return { label:'Gesehen', cls:'priority-normal' };
+  return { label:'Offen', cls:'priority-medium' };
+}
+function staffingPriority(req) {
+  const priority = req.priority || {};
+  const level = priority.level || 'normal';
+  return {
+    level,
+    label: priority.label || 'Offene Anfrage'
+  };
+}
+function staffingDemandRef(req) {
+  const ref = req?.request_context?.root_campaign_id || req?.root_campaign_id || req?.campaign_id || req?.id || '';
+  return ref ? String(ref).slice(0, 8).toUpperCase() : '–';
+}
+function staffingConflictText(item) {
+  const type = item.conflict_type === 'reservation' ? 'Reservierung' : 'Einsatz';
+  const title = item.title || 'Überschneidender Einsatz';
+  const from = item.start_date ? fmtDate(item.start_date) : '–';
+  const until = item.planned_end_date ? fmtDate(item.planned_end_date) : 'offen';
+  return `${type}: ${title} (${from} – ${until})`;
+}
+function staffingMessageSummary(req) {
+  const summary = req.message_summary || {};
+  if (!summary.total_messages) return '';
+  if (summary.latest_message_type === 'question') {
+    return `Letzte Rückfrage: ${summary.latest_body || 'ohne Text'}${summary.latest_message_at ? ` · ${fmtDateTime(summary.latest_message_at)}` : ''}`;
+  }
+  if (summary.latest_message_type === 'reminder_request') {
+    return `Erinnerung angefragt${summary.latest_message_at ? ` · ${fmtDateTime(summary.latest_message_at)}` : ''}`;
+  }
+  if (summary.latest_message_type === 'reminder_sent') {
+    return `Letzte Erinnerung gesendet${summary.latest_message_at ? ` · ${fmtDateTime(summary.latest_message_at)}` : ''}`;
+  }
+  return `Interaktionen: ${Number(summary.total_messages || 0)}`;
+}
+function closeStaffingBoxes(inviteId, except = null) {
+  ['decline','question','remind'].forEach(kind => {
+    if (kind === except) return;
+    const el = document.getElementById(`staffing-${kind}-${inviteId}`);
+    if (el) el.classList.remove('open');
+  });
+}
+function toggleStaffingBox(inviteId, kind, event) {
+  event.stopPropagation();
+  closeStaffingBoxes(inviteId, kind);
+  const box = document.getElementById(`staffing-${kind}-${inviteId}`);
+  if (box) box.classList.toggle('open');
+}
+function staffingChoiceStatus(choiceSet) {
+  const map = {
+    options_presented: { label:'Offen', cls:'priority-medium' },
+    preference_submitted: { label:'Präferenz gesendet', cls:'status-interested' },
+    preference_ranked: { label:'Ranking gesendet', cls:'status-interested' },
+    manual_override: { label:'Manuell entschieden', cls:'status-accepted' },
+    assigned: { label:'Final zugewiesen', cls:'status-accepted' },
+    declined: { label:'Abgelehnt', cls:'status-expired' },
+    expired: { label:'Abgelaufen', cls:'status-expired' },
+    cancelled: { label:'Geschlossen', cls:'status-expired' }
+  };
+  return map[choiceSet?.status] || { label:'Offen', cls:'priority-medium' };
+}
+function staffingChoiceOptionStatus(option) {
+  if (option?.promoted_link_id || option?.live_state === 'assigned') {
+    return { label:'Final zugewiesen', cls:'status-accepted' };
+  }
+  if (option?.reservation_status === 'reserved') {
+    return { label:'Reserviert', cls:'status-accepted' };
+  }
+  if (option?.worker_response === 'selected') {
+    return { label:'Von Ihnen gewählt', cls:'status-accepted' };
+  }
+  if (option?.worker_response === 'preferred') {
+    return { label:'Ihre Präferenz', cls:'status-interested' };
+  }
+  if (option?.worker_response === 'acceptable') {
+    return { label:'Auch möglich', cls:'priority-medium' };
+  }
+  if (Number.isFinite(Number(option?.worker_rank))) {
+    return { label:`Rang ${Number(option.worker_rank)}`, cls:'status-interested' };
+  }
+  if (option?.worker_response === 'declined' || option?.live_state === 'declined') {
+    return { label:'Abgelehnt', cls:'status-expired' };
+  }
+  if (option?.live_state === 'expired') {
+    return { label:'Abgelaufen', cls:'status-expired' };
+  }
+  if (option?.live_state === 'cancelled') {
+    return { label:'Geschlossen', cls:'status-expired' };
+  }
+  return { label:'Offen', cls:'priority-normal' };
+}
+function staffingChoiceModeHint(choiceSet) {
+  if (choiceSet?.choice_mode === 'free_choice') {
+    return 'Sie dürfen direkt einen der freigegebenen Einsätze wählen. Die finale Zuordnung erfolgt weiterhin kontrolliert durch den Disponenten.';
+  }
+  if (choiceSet?.choice_mode === 'ranked_choice') {
+    return 'Ordnen Sie die Optionen nach Ihrer Priorität. Rang 1 ist Ihr Favorit.';
+  }
+  return 'Markieren Sie Ihren Favoriten und optional weitere Einsätze, die ebenfalls für Sie passen.';
+}
+function staffingChoiceHasLockedSelection(choiceSet) {
+  return (choiceSet?.options || []).some(option =>
+    option?.worker_response === 'selected'
+    || option?.reservation_status === 'reserved'
+    || !!option?.promoted_link_id
+  );
+}
+function staffingChoiceCanInteract(choiceSet) {
+  return !['assigned','declined','expired','cancelled','manual_override'].includes(choiceSet?.status || '');
+}
+function staffingChoiceSelectedSummary(choiceSet) {
+  const selectedId = choiceSet?.summary?.selected_option_id || choiceSet?.final_choice_option_id || null;
+  const selected = (choiceSet?.options || []).find(option => option.id === selectedId)
+    || (choiceSet?.options || []).find(option => option.worker_response === 'selected')
+    || null;
+  if (!selected) return choiceSet?.summary?.dispatcher_summary || '';
+  const ctx = selected.request_context || {};
+  const parts = [ctx.title || ctx.role || 'Einsatz', ctx.client_org_name || '', ctx.duration_label || ''].filter(Boolean);
+  return parts.join(' · ');
+}
+function renderChoiceSets() {
+  const wrap = document.getElementById('staffingChoiceWrap');
+  const list = document.getElementById('staffingChoiceList');
+  if (!wrap || !list) return;
+  if (!staffingChoiceSets.length) {
+    wrap.style.display = 'none';
+    list.innerHTML = '';
+    return;
+  }
+  wrap.style.display = '';
+  list.innerHTML = staffingChoiceSets.map(choiceSet => {
+    const status = staffingChoiceStatus(choiceSet);
+    const canInteract = staffingChoiceCanInteract(choiceSet);
+    const hasLockedSelection = staffingChoiceHasLockedSelection(choiceSet);
+    const actionLocked = !canInteract || hasLockedSelection;
+    const selectedSummary = staffingChoiceSelectedSummary(choiceSet);
+    const options = Array.isArray(choiceSet.options) ? choiceSet.options : [];
+    const noteId = `choice-note-${choiceSet.id}`;
+    const optionsHtml = options.map((option, index) => {
+      const ctx = option.request_context || {};
+      const optionStatus = staffingChoiceOptionStatus(option);
+      const meta = [
+        ctx.client_org_name || '',
+        ctx.location_label || ctx.location_city || '',
+        ctx.duration_label || '',
+        ctx.pay_label || ''
+      ].filter(Boolean).join(' · ');
+      const staffingSnapshot = [
+        Number.isFinite(Number(ctx.filled_quantity)) ? `${Number(ctx.filled_quantity || 0)} besetzt` : '',
+        Number.isFinite(Number(ctx.reserved_quantity)) ? `${Number(ctx.reserved_quantity || 0)} reserviert` : '',
+        Number.isFinite(Number(ctx.open_quantity)) ? `${Number(ctx.open_quantity || 0)} offen` : ''
+      ].filter(Boolean).join(' · ');
+      const prefChecked = option.worker_response === 'preferred';
+      const acceptableChecked = option.worker_response === 'acceptable';
+      const controlDisabled = actionLocked || !option.is_actionable;
+      const rankOptions = options.map((_, rankIdx) => `<option value="${rankIdx + 1}" ${Number(option.worker_rank) === (rankIdx + 1) ? 'selected' : ''}>Rang ${rankIdx + 1}</option>`).join('');
+      let selectionControl = '';
+      if (choiceSet.choice_mode === 'free_choice') {
+        selectionControl = `<button class="notif-btn-confirm" ${controlDisabled ? 'disabled' : ''} onclick="selectStaffingChoiceOption('${choiceSet.id}','${option.id}',event)">${hasLockedSelection && option.worker_response === 'selected' ? '✓ Bereits gewählt' : 'Diesen Einsatz wählen'}</button>`;
+      } else if (choiceSet.choice_mode === 'ranked_choice') {
+        selectionControl = `
+          <label style="display:flex;align-items:center;gap:8px;font-size:.76rem;color:var(--ep-text-muted)">
+            Priorität
+            <select id="choice-rank-${choiceSet.id}-${option.id}" ${actionLocked ? 'disabled' : ''} style="border-radius:8px;border:1px solid var(--ep-border);background:var(--ep-surface,#fff);color:var(--ep-text,#1a1a2e);padding:6px 8px;font-size:.78rem">
+              <option value="">Nicht wählen</option>
+              ${rankOptions}
+            </select>
+          </label>`;
+      } else {
+        selectionControl = `
+          <label style="display:flex;align-items:center;gap:8px;font-size:.76rem;color:var(--ep-text-muted)">
+            <input type="radio" name="choice-primary-${choiceSet.id}" value="${option.id}" ${prefChecked ? 'checked' : ''} ${actionLocked ? 'disabled' : ''}>
+            Hauptpräferenz
+          </label>
+          <label style="display:flex;align-items:center;gap:8px;font-size:.76rem;color:var(--ep-text-muted)">
+            <input type="checkbox" id="choice-acceptable-${choiceSet.id}-${option.id}" ${acceptableChecked ? 'checked' : ''} ${actionLocked ? 'disabled' : ''}>
+            Ebenfalls möglich
+          </label>`;
+      }
+      return `
+        <div style="padding:10px 12px;border:1px solid rgba(148,163,184,.14);border-radius:10px;background:rgba(255,255,255,.03);margin-top:8px">
+          <div style="display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap;align-items:flex-start">
+            <div>
+              <div style="font-weight:700;font-size:.82rem;color:var(--ep-text)">${esc(ctx.title || ctx.role || `Option ${index + 1}`)}</div>
+              <div style="font-size:.76rem;color:var(--ep-text-muted);margin-top:2px">${esc(meta || 'Details folgen')}</div>
+            </div>
+            <div style="display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end">
+              <span class="staffing-pill ${optionStatus.cls}">${esc(optionStatus.label)}</span>
+              ${Number.isFinite(Number(option.worker_rank)) ? `<span class="staffing-pill status-interested">Rang ${Number(option.worker_rank)}</span>` : ''}
+            </div>
+          </div>
+          ${staffingSnapshot ? `<div style="font-size:.74rem;color:var(--ep-text-muted);margin-top:6px">${esc(staffingSnapshot)}</div>` : ''}
+          <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-top:10px">
+            ${selectionControl}
+            ${option.is_actionable ? `<button class="notif-btn-neutral" onclick="toggleStaffingBox('${option.invite_id}','question',event)">❓ Rückfrage</button>` : ''}
+          </div>
+          ${option.is_actionable ? `
+            <div class="staffing-inline-box" id="staffing-question-${option.invite_id}">
+              <div style="font-size:.77rem;color:var(--ep-text-muted)">Stellen Sie eine konkrete Rückfrage zu dieser Option.</div>
+              <textarea placeholder="Ihre Rückfrage…" id="staffing-question-text-${option.invite_id}"></textarea>
+              <button class="notif-btn-neutral" style="margin-top:6px" onclick="submitStaffingQuestion('${option.invite_id}',event)">Rückfrage senden</button>
+            </div>` : ''}
+        </div>`;
+    }).join('');
+    const choiceActionHtml = choiceSet.choice_mode === 'free_choice'
+      ? ''
+      : (choiceSet.choice_mode === 'ranked_choice'
+        ? `<button class="notif-btn-confirm" ${actionLocked ? 'disabled' : ''} onclick="submitStaffingChoiceRanking('${choiceSet.id}',event)">Ranking senden</button>`
+        : `<button class="notif-btn-confirm" ${actionLocked ? 'disabled' : ''} onclick="submitStaffingChoicePreferences('${choiceSet.id}',event)">Präferenzen senden</button>`);
+    return `
+      <div class="notif-item staffing-card priority-medium${choiceSet.viewed_at ? '' : ' unread'}" id="choice-${choiceSet.id}">
+        <div class="notif-icon new_assignment">🧭</div>
+        <div class="notif-body">
+          <div class="staffing-topline">
+            <div>
+              <div class="notif-title">${esc(choiceSet.title || 'Einsatzauswahl')}</div>
+              <div class="notif-msg">${esc(choiceSet.mode_label || 'Auswahl')} · ${options.length} Optionen${choiceSet.response_deadline_at ? ` · Antwort bis ${esc(fmtDateTime(choiceSet.response_deadline_at))}` : ''}</div>
+            </div>
+            <div class="staffing-badges">
+              <span class="staffing-pill ${status.cls}">${esc(status.label)}</span>
+            </div>
+          </div>
+          <div class="staffing-status-box" style="margin-bottom:8px">
+            <strong>Ablauf:</strong> ${esc(staffingChoiceModeHint(choiceSet))}
+          </div>
+          ${choiceSet.message ? `<div class="staffing-message-box"><strong>Nachricht:</strong> ${esc(choiceSet.message)}</div>` : ''}
+          ${selectedSummary ? `<div class="staffing-status-box ok" style="margin-top:8px"><strong>Aktueller Stand:</strong> ${esc(selectedSummary)}</div>` : ''}
+          <div style="margin-top:8px">${optionsHtml}</div>
+          <div class="staffing-inline-box open" style="display:block;margin-top:10px">
+            <div style="font-size:.77rem;color:var(--ep-text-muted)">Optionale Notiz für Ihren Disponenten.</div>
+            <textarea id="${noteId}" ${actionLocked ? 'disabled' : ''} placeholder="Hinweise, Präferenzbegründung oder Rückmeldung…">${esc(choiceSet.worker_note || '')}</textarea>
+            <div class="notif-actions" style="margin-top:8px">
+              ${choiceActionHtml}
+              <button class="notif-btn-decline" ${actionLocked ? 'disabled' : ''} onclick="declineStaffingChoiceSet('${choiceSet.id}',event)">Alle Optionen ablehnen</button>
+            </div>
+          </div>
+        </div>
+      </div>`;
+  }).join('');
+}
+function getChoiceSetNote(choiceSetId) {
+  return (document.getElementById(`choice-note-${choiceSetId}`)?.value || '').trim();
+}
+async function respondStaffingChoiceSet(choiceSetId, body, successMessage) {
+  const CHOICE_MSGS = {
+    CHOICE_SET_NOT_FOUND:'Auswahlgruppe nicht gefunden',
+    CHOICE_OPTION_NOT_FOUND:'Auswahloption nicht gefunden',
+    CHOICE_SET_MODE_MISMATCH:'Diese Aktion passt nicht zum gewählten Auswahlmodus',
+    CHOICE_SET_ALREADY_ASSIGNED:'Die Auswahlgruppe ist bereits final zugewiesen',
+    CHOICE_SET_ALREADY_DECLINED:'Die Auswahlgruppe wurde bereits abgelehnt',
+    CHOICE_SET_EXPIRED:'Die Auswahlgruppe ist abgelaufen',
+    CHOICE_SET_CANCELLED:'Die Auswahlgruppe wurde geschlossen',
+    CHOICE_SET_MANUAL_OVERRIDE:'Die Disposition hat bereits manuell entschieden',
+    CHOICE_SET_ALREADY_SELECTED:'Für diese Auswahl wurde bereits eine Option gesichert',
+    CHOICE_OPTION_NOT_AVAILABLE:'Diese Option ist nicht mehr verfügbar',
+    NO_PREFERENCE_SELECTED:'Bitte mindestens eine Option auswählen',
+    NO_RANKING_SELECTED:'Bitte mindestens eine Priorität vergeben',
+    INVITE_EXPIRED:'Eine Option ist bereits abgelaufen',
+    INVITE_NOT_ACTIONABLE:'Eine Option ist nicht mehr bearbeitbar',
+    ASSIGNMENT_FILLED:'Ein Einsatz ist bereits vollständig besetzt'
+  };
+  try {
+    const d = await PortalApi.post(`/worker/staffing-choice-sets/${choiceSetId}/respond`, body);
+    toast(successMessage);
+    await load();
+    return d;
+  } catch (e) {
+    const code = e.code || e.message;
+    const details = e.details || {};
+    if (code === 'SCHEDULE_CONFLICT' && Array.isArray(details.conflicts) && details.conflicts.length) {
+      toast(`Terminüberschneidung: ${staffingConflictText(details.conflicts[0])}`, true);
+      return null;
+    }
+    toast(CHOICE_MSGS[code] || code || 'Fehler', true);
+    return null;
+  }
+}
+async function submitStaffingChoicePreferences(choiceSetId, event) {
+  event.stopPropagation();
+  const choiceSet = staffingChoiceSets.find(item => item.id === choiceSetId);
+  if (!choiceSet) return;
+  const primaryOptionId = document.querySelector(`input[name="choice-primary-${choiceSetId}"]:checked`)?.value || null;
+  const acceptableOptionIds = (choiceSet.options || [])
+    .filter(option => option.id !== primaryOptionId)
+    .filter(option => document.getElementById(`choice-acceptable-${choiceSetId}-${option.id}`)?.checked)
+    .map(option => option.id);
+  await respondStaffingChoiceSet(choiceSetId, {
+    action:'submit_preferences',
+    primary_option_id: primaryOptionId,
+    acceptable_option_ids: acceptableOptionIds,
+    note: getChoiceSetNote(choiceSetId) || null
+  }, 'Präferenzen gespeichert');
+}
+async function submitStaffingChoiceRanking(choiceSetId, event) {
+  event.stopPropagation();
+  const choiceSet = staffingChoiceSets.find(item => item.id === choiceSetId);
+  if (!choiceSet) return;
+  const seenRanks = new Set();
+  const ranked = [];
+  for (const option of (choiceSet.options || [])) {
+    const raw = document.getElementById(`choice-rank-${choiceSetId}-${option.id}`)?.value || '';
+    if (!raw) continue;
+    const rank = Number(raw);
+    if (!Number.isFinite(rank)) continue;
+    if (seenRanks.has(rank)) {
+      toast('Jede Priorität darf nur einmal vergeben werden', true);
+      return;
+    }
+    seenRanks.add(rank);
+    ranked.push({ optionId: option.id, rank });
+  }
+  ranked.sort((left, right) => left.rank - right.rank);
+  await respondStaffingChoiceSet(choiceSetId, {
+    action:'submit_ranking',
+    ranked_option_ids: ranked.map(entry => entry.optionId),
+    note: getChoiceSetNote(choiceSetId) || null
+  }, 'Ranking gespeichert');
+}
+async function selectStaffingChoiceOption(choiceSetId, optionId, event) {
+  event.stopPropagation();
+  const choiceSet = staffingChoiceSets.find(item => item.id === choiceSetId);
+  const option = (choiceSet?.options || []).find(entry => entry.id === optionId);
+  if (!choiceSet || !option) return;
+  if (!confirm(`Diesen Einsatz jetzt auswählen?\n\n${option.request_context?.title || 'Einsatzoption'}`)) return;
+  await respondStaffingChoiceSet(choiceSetId, {
+    action:'select_option',
+    choice_option_id: optionId,
+    note: getChoiceSetNote(choiceSetId) || null
+  }, 'Auswahl gespeichert');
+}
+async function declineStaffingChoiceSet(choiceSetId, event) {
+  event.stopPropagation();
+  if (!confirm('Alle freigegebenen Optionen ablehnen?')) return;
+  await respondStaffingChoiceSet(choiceSetId, {
+    action:'decline_all',
+    note: getChoiceSetNote(choiceSetId) || null
+  }, 'Auswahlgruppe abgelehnt');
+}
+function renderStaffingRequests() {
+  const wrap = document.getElementById('staffingReqWrap');
+  const list = document.getElementById('staffingReqList');
+  if (!wrap || !list) return;
+  if (!staffingRequests.length) {
+    wrap.style.display = 'none';
+    list.innerHTML = '';
+    return;
+  }
+  wrap.style.display = '';
+  list.innerHTML = staffingRequests.map(req => {
+    const ctx = req.request_context || {};
+    const start = ctx.start_date ? fmtDate(ctx.start_date) : '–';
+    const requested = Number(ctx.requested_quantity || req.requested_quantity || 1);
+    const filled = Number(ctx.filled_quantity || req.filled_quantity || 0);
+    const reserved = Number(ctx.reserved_quantity || req.reserved_quantity || 0);
+    const open = Number(ctx.open_quantity || req.open_quantity || Math.max(requested - filled - reserved, 0));
+    const accepted = req.status === 'accepted';
+    const status = staffingRequestStatus(req);
+    const priority = staffingPriority(req);
+    const canAccept = !accepted && !req.is_expired && !(req.conflicts && req.conflicts.has_conflicts);
+    const messageSummary = staffingMessageSummary(req);
+    const reminderInfo = req.reminder?.is_requested && req.reminder?.remind_after
+      ? `Erinnerung geplant für ${fmtDateTime(req.reminder.remind_after)}`
+      : '';
+    return `
+      <div class="notif-item unread staffing-card priority-${priority.level}" id="sr-${req.id}">
+        <div class="notif-icon new_assignment">📨</div>
+        <div class="notif-body">
+          <div class="staffing-topline">
+            <div>
+              <div class="notif-title">${esc(ctx.title || req.request_title || req.worker_description || 'Einsatzanfrage')}</div>
+              <div class="notif-msg">${ctx.client_org_name ? `<strong>${esc(ctx.client_org_name)}</strong> · ` : ''}${esc(ctx.role || 'Rolle offen')} · Arbeitsplatzangebot ${esc(staffingDemandRef(req))}</div>
+            </div>
+            <div class="staffing-badges">
+              <span class="staffing-pill ${status.cls}">${esc(status.label)}</span>
+              <span class="staffing-pill priority-${priority.level}">${esc(priority.label)}</span>
+            </div>
+          </div>
+          <div class="staffing-grid">
+            <div class="staffing-field">
+              <div class="staffing-field-label">Ort</div>
+              <div class="staffing-field-value">${esc(ctx.location_label || ctx.location_city || 'Nicht angegeben')}</div>
+            </div>
+            <div class="staffing-field">
+              <div class="staffing-field-label">Start</div>
+              <div class="staffing-field-value">${esc(start)}</div>
+            </div>
+            <div class="staffing-field">
+              <div class="staffing-field-label">Dauer / Schicht</div>
+              <div class="staffing-field-value">${esc(ctx.duration_label || 'Offen')}${ctx.shift_label ? `<br><strong>${esc(ctx.shift_label)}</strong>` : ''}</div>
+            </div>
+            <div class="staffing-field">
+              <div class="staffing-field-label">Vergütung</div>
+              <div class="staffing-field-value">${esc(ctx.pay_label || 'Auf Anfrage')}</div>
+            </div>
+            <div class="staffing-field">
+              <div class="staffing-field-label">Antwortfrist</div>
+              <div class="staffing-field-value">${esc(ctx.response_deadline_label || 'Ohne feste Frist')}</div>
+            </div>
+            <div class="staffing-field">
+              <div class="staffing-field-label">Live-Besetzung</div>
+              <div class="staffing-field-value">${filled} besetzt · ${reserved} reserviert · ${open} offen</div>
+            </div>
+          </div>
+          ${ctx.personal_message ? `<div class="staffing-message-box"><strong>Nachricht:</strong> ${esc(ctx.personal_message)}</div>` : ''}
+          <div class="staffing-status-row">
+            <div class="staffing-status-box ${req.conflicts?.has_conflicts ? 'warn' : 'ok'}">
+              <strong>Konflikte:</strong> ${esc(req.conflicts?.label || 'Keine Konflikte')}
+              ${req.conflicts?.items?.length ? `<ul class="staffing-conflict-list">${req.conflicts.items.slice(0,3).map(item => `<li>${esc(staffingConflictText(item))}</li>`).join('')}</ul>` : ''}
+            </div>
+            <div class="staffing-status-box">
+              <strong>Kommunikation:</strong> ${esc(messageSummary || 'Noch keine Rückfrage oder Erinnerung erfasst.')}
+              ${reminderInfo ? `<div style="margin-top:4px">${esc(reminderInfo)}</div>` : ''}
+            </div>
+          </div>
+          <div class="notif-actions">
+            ${accepted ? `<span class="notif-btn-link" style="cursor:default">✓ Angenommen – wartet auf finale Zuordnung</span>` : `
+              <button class="notif-btn-confirm" ${canAccept ? '' : 'disabled'} onclick="respondStaffingRequest('${req.id}','accept',event)">✓ Annehmen</button>
+              <button class="notif-btn-decline" onclick="toggleStaffingBox('${req.id}','decline',event)">✗ Ablehnen</button>
+            `}
+            ${!accepted ? `<button class="notif-btn-neutral" onclick="toggleStaffingBox('${req.id}','question',event)">❓ Rückfrage</button>` : ''}
+            ${!accepted ? `<button class="notif-btn-neutral" onclick="toggleStaffingBox('${req.id}','remind',event)">⏰ Später erinnern</button>` : ''}
+            <a class="notif-btn-link" href="einsatzportal-einsaetze.html">→ Einsätze ansehen</a>
+          </div>
+          ${accepted ? '' : `
+            <div class="staffing-inline-box" id="staffing-decline-${req.id}">
+              <textarea placeholder="Begründung (optional)…" id="staffing-decline-reason-${req.id}"></textarea>
+              <button class="notif-btn-decline" style="margin-top:6px" onclick="submitStaffingDecline('${req.id}',event)">Ablehnung absenden</button>
+            </div>
+            <div class="staffing-inline-box" id="staffing-question-${req.id}">
+              <div style="font-size:.77rem;color:var(--ep-text-muted)">Stellen Sie eine konkrete Rückfrage zu Rolle, Ort, Schicht, Vergütung oder Ablauf.</div>
+              <textarea placeholder="Ihre Rückfrage…" id="staffing-question-text-${req.id}"></textarea>
+              <button class="notif-btn-neutral" style="margin-top:6px" onclick="submitStaffingQuestion('${req.id}',event)">Rückfrage senden</button>
+            </div>
+            <div class="staffing-inline-box" id="staffing-remind-${req.id}">
+              <div style="font-size:.77rem;color:var(--ep-text-muted)">Legen Sie fest, wann Sie erneut erinnert werden möchten.</div>
+              <select id="staffing-remind-minutes-${req.id}">
+                <option value="30">In 30 Minuten</option>
+                <option value="60">In 1 Stunde</option>
+                <option value="120" selected>In 2 Stunden</option>
+                <option value="240">In 4 Stunden</option>
+                <option value="720">Morgen früh</option>
+              </select>
+              <textarea placeholder="Optionaler Hinweis…" id="staffing-remind-note-${req.id}"></textarea>
+              <button class="notif-btn-neutral" style="margin-top:6px" onclick="submitStaffingReminder('${req.id}',event)">Erinnerung planen</button>
+            </div>
+          `}
+        </div>
+      </div>`;
+  }).join('');
+}
+
+async function submitStaffingDecline(inviteId, event) {
+  event.stopPropagation();
+  const note = (document.getElementById('staffing-decline-reason-' + inviteId)?.value || '').trim();
+  return respondStaffingRequest(inviteId, 'decline', event, note);
+}
+
+async function respondStaffingRequest(inviteId, action, event, note = '') {
+  event.stopPropagation();
+  try {
+    await PortalApi.post(`/worker/staffing-requests/${inviteId}/respond`, { action, note });
+    toast(action === 'accept' ? '✓ Anfrage angenommen' : 'Anfrage abgelehnt');
+    await load();
+  } catch (e) {
+    const code = e.code || e.message;
+    const details = e.details || {};
+    if (code === 'SCHEDULE_CONFLICT' && Array.isArray(details.conflicts) && details.conflicts.length) {
+      toast(`Terminüberschneidung: ${staffingConflictText(details.conflicts[0])}`, true);
+      return;
+    }
+    toast(e.message || 'Fehler', true);
+  }
+}
+async function submitStaffingQuestion(inviteId, event) {
+  event.stopPropagation();
+  try {
+    const question = (document.getElementById('staffing-question-text-' + inviteId)?.value || '').trim();
+    if (!question) throw new Error('Bitte eine Rückfrage eingeben');
+    await PortalApi.post(`/worker/staffing-requests/${inviteId}/question`, { question });
+    toast('Rückfrage gesendet');
+    await load();
+  } catch (e) {
+    toast(e.message || 'Fehler', true);
+  }
+}
+async function submitStaffingReminder(inviteId, event) {
+  event.stopPropagation();
+  try {
+    const remindAfterMinutes = Number(document.getElementById('staffing-remind-minutes-' + inviteId)?.value || 120);
+    const note = (document.getElementById('staffing-remind-note-' + inviteId)?.value || '').trim();
+    await PortalApi.post(`/worker/staffing-requests/${inviteId}/remind`, { remind_after_minutes: remindAfterMinutes, note });
+    toast('Erinnerung geplant');
+    await load();
+  } catch (e) {
+    toast(e.message || 'Fehler', true);
+  }
+}
+
+function renderList() {
+  const el = document.getElementById('notifList');
+  const list = getFiltered();
+
+  if (!list.length) {
+    el.innerHTML = `<div class="notif-empty-state"><div style="font-size:2.5rem;margin-bottom:12px">🔔</div><h3 style="color:var(--ep-text);margin-bottom:6px">${curView==='unread'?'Keine ungelesenen Nachrichten':'Keine Benachrichtigungen'}</h3><p style="font-size:.85rem">${curView==='unread'?'Sie sind auf dem neuesten Stand.':'Noch keine Benachrichtigungen vorhanden.'}</p></div>`;
+    return;
+  }
+
+  el.innerHTML = list.map(n => {
+    const {icon, cls} = notifIcon(n.type||n.notification_type);
+    const link = notifLink(n);
+    const age = fmtAge(n.created_at);
+    return `
+      <div class="notif-item${n.is_read?'':' unread'}" id="ni-${n.id}">
+        <div class="notif-icon ${cls}">${icon}</div>
+        <div class="notif-body">
+          <div class="notif-title">${esc(n.title||n.subject||'Benachrichtigung')}</div>
+          <div class="notif-msg">${esc(n.message||n.body||'')}</div>
+          <div class="notif-time">${age}</div>
+          <div class="notif-actions">
+            ${isPending(n) ? `
+              <button class="notif-btn-confirm" onclick="confirmAsg('${n.entity_id}','${n.id}',event)">✓ Bestätigen</button>
+              <button class="notif-btn-decline" onclick="toggleDecline('${n.id}',event)">✗ Ablehnen</button>
+            ` : ''}
+            ${link ? `<a class="notif-btn-link" href="${esc(link)}">→ Ansehen</a>` : ''}
+            ${!n.is_read ? `<button class="notif-btn-read" onclick="markRead('${n.id}',event)">Als gelesen markieren</button>` : ''}
+          </div>
+          ${isPending(n) ? `
+            <div class="notif-decline-box" id="decline-${n.id}">
+              <textarea placeholder="Begründung (optional)…" id="decline-reason-${n.id}"></textarea>
+              <button class="notif-btn-decline" style="margin-top:6px" onclick="declineAsg('${n.entity_id}','${n.id}',event)">Ablehnung absenden</button>
+            </div>
+          ` : ''}
+        </div>
+      </div>`;
+  }).join('');
+}
+
+async function markRead(id, event) {
+  event.stopPropagation();
+  try {
+    await PortalApi.patch(`/worker/notifications/${id}/read`, {});
+    const n = notifications.find(x=>x.id===id);
+    if (n) n.is_read=true;
+    renderList();
+    const unread = notifications.filter(n=>!n.is_read && !isPortalManagedStaffingNotificationType(n.type||n.notification_type)).length;
+    const uc=document.getElementById('unread-cnt');
+    if(unread>0){uc.textContent=unread>9?'9+':unread;uc.style.display='';}else{uc.style.display='none';}
+    toast('Als gelesen markiert');
+  } catch { toast('Fehler', true); }
+}
+
+async function markAllRead() {
+  try {
+    await PortalApi.patch('/worker/notifications/read-all', {});
+    notifications.forEach(n=>n.is_read=true);
+    renderList();
+    document.getElementById('unread-cnt').style.display='none';
+    toast('Alle als gelesen markiert ✓');
+  } catch { toast('Fehler', true); }
+}
+
+function fmtAge(d) {
+  if (!d) return '';
+  const diff = Date.now() - new Date(d).getTime();
+  const mins = Math.floor(diff/60000);
+  const hrs = Math.floor(mins/60);
+  const days = Math.floor(hrs/24);
+  if (mins < 2) return 'Gerade eben';
+  if (mins < 60) return `Vor ${mins} Minuten`;
+  if (hrs < 24) return `Vor ${hrs} Stunden`;
+  if (days === 1) return 'Gestern';
+  return new Date(d).toLocaleDateString('de-DE',{day:'2-digit',month:'2-digit',year:'numeric'});
+}
+function fmtDate(d) {
+  if (!d) return '';
+  return new Date(d).toLocaleDateString('de-DE',{day:'2-digit',month:'2-digit',year:'numeric'});
+}
+function fmtDateTime(d) {
+  if (!d) return '';
+  return new Date(d).toLocaleString('de-DE',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'});
+}
+
+function isPending(n) {
+  return (n.type||n.notification_type) === 'worker_assignment_pending_confirmation' && !n._handled;
+}
+
+async function confirmAsg(linkId, notifId, event) {
+  event.stopPropagation();
+  try {
+    await PortalApi.post(`/worker/assignments/${linkId}/confirm`, {});
+    const n = notifications.find(x=>x.id===notifId);
+    if (n) { n._handled = true; n.is_read = true; }
+    renderList();
+    toast('✓ Einsatz bestätigt!');
+    PortalApi.patch(`/worker/notifications/${notifId}/read`, {}).catch(()=>{});
+  } catch(e) { toast(e.message || 'Fehler', true); }
+}
+
+function toggleDecline(notifId, event) {
+  event.stopPropagation();
+  const box = document.getElementById('decline-' + notifId);
+  if (box) box.classList.toggle('open');
+}
+
+async function declineAsg(linkId, notifId, event) {
+  event.stopPropagation();
+  const reason = (document.getElementById('decline-reason-' + notifId)?.value || '').trim();
+  try {
+    await PortalApi.post(`/worker/assignments/${linkId}/decline`, { reason });
+    const n = notifications.find(x=>x.id===notifId);
+    if (n) { n._handled = true; n.is_read = true; }
+    renderList();
+    toast('Einsatz abgelehnt — Disponent wurde benachrichtigt.');
+    PortalApi.patch(`/worker/notifications/${notifId}/read`, {}).catch(()=>{});
+  } catch(e) { toast(e.message || 'Fehler', true); }
+}
+</script>
+<script src="/public/js/demoBanner.js" defer></script>
+<script src="/public/js/breadcrumb.js" defer></script>
+</body>
+</html>

@@ -37,7 +37,13 @@ export default function Executive() {
       <button className="scc-btn" onClick={reload} style={{ marginLeft: 8 }}>Retry</button>
     </div>
   );
-  if (!data) return null;
+  if (!data) return (
+    <div className="scc-empty-state">
+      <div className="scc-empty-state__icon">○</div>
+      <div className="scc-empty-state__text">Keine Executive-Daten verfügbar.</div>
+      <button className="scc-btn" onClick={reload} style={{ marginTop: 8 }}>Retry</button>
+    </div>
+  );
 
   const tone = statusTone(data.platform_status);
 

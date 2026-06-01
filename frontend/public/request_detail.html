@@ -3,6 +3,7 @@
 <head>
   <meta charset="utf-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <script src="/public/js/theme.js"></script>
   <title>Anfrage – TempConnect</title>
   <link rel="stylesheet" href="/public/css/enterprise.css"/>
   <style>
@@ -20,14 +21,7 @@
 </head>
 <body>
   <div class="wrap">
-    <div class="topbar">
-      <a href="/" class="btn">Startseite</a>
-      <a href="/public/enterprise.html" class="btn">Übersicht</a>
-      <a href="/public/company_requests.html" class="btn">Meine Anfragen</a>
-      <a href="/public/agency_inbox.html" class="btn">Eingang</a>
-      <a href="/public/capacity_search.html" class="btn">Kapazitätssuche</a>
-      <a href="/public/sla_search_jobs_list.html" class="btn">Suchaufträge</a>
-    </div>
+    <div id="tc-shell"></div>
     <div id="root"><p class="empty">Lade Anfrage…</p></div>
   </div>
   <script>
@@ -60,7 +54,7 @@
       return "green";
     }
     function timerText(respondBy, status) {
-      if (status === "BREACHED") return "Pulse überschritten";
+      if (status === "BREACHED") return "Pulse Überschritten";
       if (status === "RESOLVED") return "Erledigt";
       if (!respondBy) return "Pulse nicht konfiguriert";
       var min = Math.floor((new Date(respondBy).getTime() - Date.now()) / 60000);
@@ -104,7 +98,7 @@
       var showSlaBox = isRequester && req.status === "SENT";
       var slaBoxHtml = "";
       if (showSlaBox) {
-        slaBoxHtml = "<div class=\"card\" style=\"margin-top:12px\"><h3 style=\"margin:0 0 8px;font-size:14px\">Pulse ändern</h3>";
+        slaBoxHtml = "<div class=\"card\" style=\"margin-top:12px\"><h3 style=\"margin:0 0 8px;font-size:14px\">Pulse Ändern</h3>";
         slaBoxHtml += "<div style=\"display:flex;align-items:center;gap:10px;flex-wrap:wrap\">";
         slaBoxHtml += "<select id=\"sla_select\" style=\"max-width:120px\"><option value=\"30\">30 min</option><option value=\"60\">60 min</option><option value=\"120\">120 min</option><option value=\"240\">240 min</option><option value=\"480\">480 min</option></select>";
         slaBoxHtml += "<button type=\"button\" class=\"btn primary\" id=\"slaSetBtn\">Pulse setzen</button></div></div>";
@@ -172,8 +166,10 @@
     }
     load();
   </script>
-  <div id="tc-footer" data-tc-footer></div>
+  <script src="/public/js/pageShell.js"></script>`n  <div id="tc-footer" data-tc-footer></div>
   <script src="/public/js/footer.js"></script>
-  <script src="/public/js/logout-btn.js"></script>
+<script src="/public/js/demoBanner.js" defer></script>
+<script src="/public/js/onboardingWizard.js" defer></script><script src="/public/js/notifications.js" defer></script>
+<script src="/public/js/breadcrumb.js" defer></script>
 </body>
 </html>

@@ -1,0 +1,264 @@
+/* ================================================================
+   TempConnect Approval Badge System
+   Consistent status visualization across all approval workflows.
+   Uses design-system.css tokens.
+   ================================================================ */
+
+/* ── Base badge ─────────────────────────────────────────── */
+.approval-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 11px;
+  font-weight: 700;
+  padding: 4px 10px;
+  border-radius: 999px;
+  line-height: 1.3;
+  white-space: nowrap;
+  letter-spacing: 0.02em;
+  border: 1px solid transparent;
+  vertical-align: middle;
+}
+.approval-badge__dot {
+  width: 6px; height: 6px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+/* ── Severity variants ──────────────────────────────────── */
+
+/* Pending / Ausstehend — amber */
+.approval-badge--pending {
+  color: #fff3c2;
+  background: rgba(251,191,36,0.12);
+  border-color: rgba(251,191,36,0.30);
+}
+.approval-badge--pending .approval-badge__dot { background: #fbbf24; }
+
+/* In Review / In Prüfung — blue */
+.approval-badge--in-review {
+  color: #c2e0ff;
+  background: rgba(74,158,255,0.12);
+  border-color: rgba(74,158,255,0.30);
+}
+.approval-badge--in-review .approval-badge__dot { background: #4a9eff; }
+
+/* Approved / Freigegeben — green */
+.approval-badge--approved {
+  color: #c8ffe7;
+  background: rgba(52,211,153,0.12);
+  border-color: rgba(52,211,153,0.30);
+}
+.approval-badge--approved .approval-badge__dot { background: #34d399; }
+
+/* Rejected / Abgelehnt — red */
+.approval-badge--rejected {
+  color: #ffd0d8;
+  background: rgba(248,113,113,0.12);
+  border-color: rgba(248,113,113,0.30);
+}
+.approval-badge--rejected .approval-badge__dot { background: #f87171; }
+
+/* Correction needed / Korrektur nötig — orange */
+.approval-badge--correction {
+  color: #ffe0b2;
+  background: rgba(255,152,0,0.12);
+  border-color: rgba(255,152,0,0.30);
+}
+.approval-badge--correction .approval-badge__dot { background: #ff9800; }
+
+/* Sent to customer / Beim Kunden — purple/accent */
+.approval-badge--customer {
+  color: #ddd0ff;
+  background: rgba(124,92,255,0.12);
+  border-color: rgba(124,92,255,0.30);
+}
+.approval-badge--customer .approval-badge__dot { background: #7c5cff; }
+
+/* Completed / Abgeschlossen — muted green-grey */
+.approval-badge--completed {
+  color: #b0c8b8;
+  background: rgba(52,211,153,0.06);
+  border-color: rgba(255,255,255,0.08);
+}
+.approval-badge--completed .approval-badge__dot { background: #6b9b83; }
+
+/* Expired / Abgelaufen — grey */
+.approval-badge--expired {
+  color: var(--ds-text-secondary, #8d9bba);
+  background: rgba(255,255,255,0.04);
+  border-color: rgba(255,255,255,0.08);
+}
+.approval-badge--expired .approval-badge__dot { background: #5f6d8a; }
+
+/* ── Status mapping helper (JS will use data-approval-status) ── */
+
+/* ── Approval action buttons ────────────────────────────── */
+.approval-actions {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+.approval-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 7px 14px;
+  border-radius: 10px;
+  font-size: 12px;
+  font-weight: 700;
+  border: 1px solid var(--ds-border, rgba(255,255,255,0.07));
+  background: rgba(255,255,255,0.04);
+  color: var(--ds-text, #eaeff8);
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+.approval-btn:hover { border-color: rgba(255,255,255,0.18); }
+.approval-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+.approval-btn--approve {
+  background: rgba(52,211,153,0.15);
+  border-color: rgba(52,211,153,0.35);
+  color: #c8ffe7;
+}
+.approval-btn--approve:hover { background: rgba(52,211,153,0.25); }
+
+.approval-btn--reject {
+  background: rgba(248,113,113,0.15);
+  border-color: rgba(248,113,113,0.35);
+  color: #ffd0d8;
+}
+.approval-btn--reject:hover { background: rgba(248,113,113,0.25); }
+
+.approval-btn--review {
+  background: rgba(74,158,255,0.15);
+  border-color: rgba(74,158,255,0.35);
+  color: #c2e0ff;
+}
+.approval-btn--review:hover { background: rgba(74,158,255,0.25); }
+
+/* ── Approval item card (for approval center list) ──────── */
+.approval-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+  padding: 14px 16px;
+  border: 1px solid var(--ds-border, rgba(255,255,255,0.07));
+  border-radius: var(--ds-radius-lg, 14px);
+  background: rgba(255,255,255,0.02);
+  transition: border-color 0.15s, background 0.15s;
+}
+.approval-item:hover {
+  border-color: rgba(255,255,255,0.12);
+  background: rgba(255,255,255,0.035);
+}
+.approval-item__icon {
+  font-size: 20px;
+  flex-shrink: 0;
+  width: 36px; height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 10px;
+  background: rgba(255,255,255,0.04);
+}
+.approval-item__body { flex: 1; min-width: 0; }
+.approval-item__title {
+  font-size: 14px;
+  font-weight: 700;
+  margin: 0 0 3px;
+  color: var(--ds-text, #eaeff8);
+}
+.approval-item__meta {
+  font-size: 12px;
+  color: var(--ds-text-secondary, #8d9bba);
+  margin: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.approval-item__actions {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  flex-shrink: 0;
+}
+
+/* ── KPI strip for approval center ──────────────────────── */
+.approval-kpi-strip {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  gap: 10px;
+  margin-bottom: 20px;
+}
+.approval-kpi {
+  padding: 14px;
+  border-radius: var(--ds-radius-lg, 14px);
+  border: 1px solid var(--ds-border, rgba(255,255,255,0.07));
+  background: rgba(255,255,255,0.02);
+  text-align: center;
+}
+.approval-kpi__value {
+  font-size: 22px;
+  font-weight: 800;
+  display: block;
+  font-variant-numeric: tabular-nums;
+}
+.approval-kpi__label {
+  font-size: 11px;
+  color: var(--ds-text-secondary, #8d9bba);
+  text-transform: uppercase;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  margin-top: 2px;
+}
+
+/* ── Filter pills for approval center ───────────────────── */
+.approval-filters {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin-bottom: 16px;
+}
+.approval-filter-pill {
+  padding: 6px 14px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 600;
+  border: 1px solid var(--ds-border, rgba(255,255,255,0.07));
+  background: rgba(255,255,255,0.03);
+  color: var(--ds-text-secondary, #8d9bba);
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+.approval-filter-pill:hover { border-color: rgba(255,255,255,0.15); color: var(--ds-text, #eaeff8); }
+.approval-filter-pill--active {
+  background: rgba(74,158,255,0.15);
+  border-color: rgba(74,158,255,0.40);
+  color: #c2e0ff;
+}
+
+/* ── Reason/comment textarea in decision modal ──────────── */
+.approval-reason {
+  width: 100%;
+  padding: 10px 12px;
+  border-radius: 10px;
+  border: 1px solid var(--ds-border, rgba(255,255,255,0.07));
+  background: rgba(0,0,0,0.3);
+  color: var(--ds-text, #eaeff8);
+  font-size: 13px;
+  resize: vertical;
+  min-height: 60px;
+  outline: none;
+  font-family: inherit;
+}
+.approval-reason:focus { border-color: rgba(74,158,255,0.5); }
+
+/* ── Responsive ─────────────────────────────────────────── */
+@media (max-width: 600px) {
+  .approval-item { flex-direction: column; gap: 10px; }
+  .approval-item__actions { width: 100%; justify-content: flex-end; }
+  .approval-kpi-strip { grid-template-columns: repeat(2, 1fr); }
+}

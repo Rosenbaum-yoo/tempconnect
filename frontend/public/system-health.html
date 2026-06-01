@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <script src="/public/js/theme.js"></script>
+  <title>System Health – TempConnect</title>
+  <link rel="stylesheet" href="/public/css/enterprise.css"/>
+  <style>
+    .sh-header { display:flex; align-items:center; gap:var(--ds-space-4); flex-wrap:wrap; margin-bottom:var(--ds-space-5); }
+    .sh-status-badge { display:inline-flex; align-items:center; gap:var(--ds-space-2); padding:6px 16px; border-radius:20px; font-weight:700; font-size:14px; }
+    .sh-status-badge--ok { background:rgba(52,211,153,.15); color:#34d399; }
+    .sh-status-badge--degraded { background:rgba(251,191,36,.15); color:#fbbf24; }
+    .sh-status-badge--critical { background:rgba(248,113,113,.15); color:#f87171; }
+    .sh-dot { width:10px; height:10px; border-radius:50%; }
+    .sh-dot--ok { background:#34d399; }
+    .sh-dot--degraded { background:#fbbf24; }
+    .sh-dot--critical { background:#f87171; }
+    .sh-dot--unconfigured { background:rgba(255,255,255,.2); }
+    .sh-dot--configured { background:rgba(74,158,255,.5); }
+    .sh-meta { font-size:12px; color:var(--ds-text-secondary); }
+    .sh-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(320px,1fr)); gap:var(--ds-space-4); margin-bottom:var(--ds-space-5); }
+    .sh-card { background:rgba(255,255,255,.03); border:1px solid rgba(255,255,255,.06); border-radius:12px; padding:var(--ds-space-4); }
+    .sh-card__header { display:flex; align-items:center; gap:var(--ds-space-2); margin-bottom:var(--ds-space-3); }
+    .sh-card__title { font-size:14px; font-weight:700; flex:1; }
+    .sh-metric { display:flex; justify-content:space-between; align-items:baseline; padding:4px 0; border-bottom:1px solid rgba(255,255,255,.04); font-size:13px; }
+    .sh-metric:last-child { border-bottom:none; }
+    .sh-metric__label { color:var(--ds-text-secondary); }
+    .sh-metric__value { font-weight:700; font-variant-numeric:tabular-nums; }
+    .sh-metric__value--warn { color:#fbbf24; }
+    .sh-metric__value--danger { color:#f87171; }
+    .sh-metric__value--ok { color:#34d399; }
+    .sh-bar { height:6px; border-radius:3px; background:rgba(255,255,255,.06); margin-top:var(--ds-space-2); overflow:hidden; }
+    .sh-bar__fill { height:100%; border-radius:3px; transition:width .3s; }
+    .sh-bar__fill--ok { background:#34d399; }
+    .sh-bar__fill--warn { background:#fbbf24; }
+    .sh-bar__fill--danger { background:#f87171; }
+    .sh-refresh { font-size:11px; color:var(--ds-text-secondary); margin-top:var(--ds-space-3); text-align:right; }
+    .sh-empty { text-align:center; padding:var(--ds-space-6); color:var(--ds-text-secondary); font-size:14px; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <nav class="ds-topbar">
+      <div class="ds-topbar__brand"><span class="ds-topbar__brand-dot"></span>TempConnect</div>
+      <div class="ds-topbar__nav">
+        <a href="/public/enterprise.html" class="ds-nav-link">Übersicht</a>
+        <a href="/public/executive_dashboard.html" class="ds-nav-link">Dashboard</a>
+        <a href="/public/organization.html" class="ds-nav-link">Organisation</a>
+        <a href="/public/system-health.html" class="ds-nav-link" style="color:var(--ds-brand)">System Health</a>
+        <a href="/public/data-governance.html" class="ds-nav-link">DSGVO</a>
+      </div>
+    </nav>
+
+    <div class="ds-page-header">
+      <div class="ds-page-header__content">
+        <h1 class="ds-page-title">System Health</h1>
+        <p class="ds-page-subtitle">Echtzeit-Diagnostik der Plattform-Komponenten.</p>
+      </div>
+    </div>
+
+    <!-- Status Header -->
+    <div class="sh-header" id="status-header">
+      <div class="sh-status-badge" id="overall-badge">Laden…</div>
+      <div class="sh-meta" id="meta-info"></div>
+    </div>
+
+    <!-- Component Cards -->
+    <div class="sh-grid" id="health-grid"></div>
+
+    <div class="sh-refresh" id="refresh-info"></div>
+  </div>
+
+  <script>
+    function esc(s){if(s==null)return'';return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
+    let _csrf='';
+    async function getCSRF(){if(_csrf)return _csrf;try{const r=await fetch('/api/csrf',{credentials:'include'});const d=await r.json();_csrf=d.csrfToken||'';return _csrf;}catch{return'';}}
+    async function api(path){
+      const r=await fetch('/api'+path,{credentials:'include',headers:{'Content-Type':'application/json'}});
+      if(r.status===401){location.href='/';return null;}
+      if(r.status===403){document.getElementById('health-grid').innerHTML='<div class="sh-empty">Zugriff verweigert. Administratorrechte erforderlich.</div>';return null;}
+      return r.json();
+    }
+
+    function statusClass(s){return s==='ok'?'ok':s==='degraded'?'degraded':'critical';}
+    function statusLabel(s){return s==='ok'?'Operational':s==='degraded'?'Degraded':'Critical';}
+    function dotHtml(s){return `<div class="sh-dot sh-dot--${statusClass(s)}"></div>`;}
+    function valClass(v,warnThresh,dangerThresh){if(v>=dangerThresh)return'sh-metric__value--danger';if(v>=warnThresh)return'sh-metric__value--warn';return'sh-metric__value--ok';}
+    function barHtml(pct){const cls=pct>80?'sh-bar__fill--danger':pct>50?'sh-bar__fill--warn':'sh-bar__fill--ok';return `<div class="sh-bar"><div class="sh-bar__fill ${cls}" style="width:${Math.min(100,pct)}%"></div></div>`;}
+    function metric(label,value,cls=''){return `<div class="sh-metric"><span class="sh-metric__label">${esc(label)}</span><span class="sh-metric__value ${cls}">${esc(String(value))}</span></div>`;}
+    function formatUptime(s){const d=Math.floor(s/86400);const h=Math.floor((s%86400)/3600);const m=Math.floor((s%3600)/60);return d>0?`${d}d ${h}h ${m}m`:`${h}h ${m}m`;}
+
+    async function loadHealth(){
+      const d=await api('/admin/system-health');
+      if(!d||!d.success)return;
+      const data=d.data;
+      const c=data.components;
+
+      // Overall Badge
+      const badge=document.getElementById('overall-badge');
+      badge.className=`sh-status-badge sh-status-badge--${statusClass(data.status)}`;
+      badge.innerHTML=`${dotHtml(data.status)} ${statusLabel(data.status)}`;
+
+      // Meta
+      document.getElementById('meta-info').innerHTML=
+        `v${esc(data.version)} · Geprüft: ${new Date(data.checked_at).toLocaleTimeString('de-DE')} · Response: ${data.response_ms}ms`;
+
+      let html='';
+
+      // ── API Card ──────────
+      if(c.api){
+        html+=`<div class="sh-card"><div class="sh-card__header">${dotHtml(c.api.status)}<div class="sh-card__title">API Server</div></div>`;
+        html+=metric('Requests Total',c.api.requests_total.toLocaleString('de-DE'));
+        html+=metric('In-Flight',c.api.requests_in_flight);
+        html+=metric('Error Rate',c.api.error_rate_pct+'%',valClass(c.api.error_rate_pct,2,5));
+        html+=metric('Latency p50',c.api.latency.p50_ms+'ms',valClass(c.api.latency.p50_ms,100,500));
+        html+=metric('Latency p95',c.api.latency.p95_ms+'ms',valClass(c.api.latency.p95_ms,250,1000));
+        html+=metric('Latency p99',c.api.latency.p99_ms+'ms',valClass(c.api.latency.p99_ms,500,2000));
+        html+='</div>';
+      }
+
+      // ── Database Card ──────
+      if(c.database){
+        const db=c.database;
+        html+=`<div class="sh-card"><div class="sh-card__header">${dotHtml(db.status)}<div class="sh-card__title">Database (PostgreSQL)</div></div>`;
+        html+=metric('Latency',db.latency_ms>=0?db.latency_ms+'ms':'–',db.latency_ms>=0?valClass(db.latency_ms,50,200):'');
+        if(db.pool){
+          html+=metric('Pool Total',db.pool.total);
+          html+=metric('Pool Idle',db.pool.idle);
+          html+=metric('Pool Waiting',db.pool.waiting,db.pool.waiting>0?'sh-metric__value--warn':'');
+          html+=metric('Utilization',db.pool.utilization_pct+'%',valClass(db.pool.utilization_pct,60,85));
+          html+=barHtml(db.pool.utilization_pct);
+        }
+        if(db.error)html+=metric('Error',db.error,'sh-metric__value--danger');
+        html+='</div>';
+      }
+
+      // ── Redis Card ──────
+      if(c.redis){
+        html+=`<div class="sh-card"><div class="sh-card__header">${dotHtml(c.redis.status)}<div class="sh-card__title">Redis / Queue</div></div>`;
+        html+=metric('Status',c.redis.status==='ok'?'Connected':c.redis.status==='unconfigured'?'Nicht konfiguriert':c.redis.status);
+        if(c.redis.latency_ms>=0)html+=metric('Latency',c.redis.latency_ms+'ms',valClass(c.redis.latency_ms,10,50));
+        if(c.redis.error)html+=metric('Error',c.redis.error,'sh-metric__value--danger');
+        html+='</div>';
+      }
+
+      // ── Process Card ──────
+      if(c.process){
+        const p=c.process;
+        html+=`<div class="sh-card"><div class="sh-card__header">${dotHtml(p.status)}<div class="sh-card__title">Node.js Process</div></div>`;
+        html+=metric('Uptime',formatUptime(p.uptime_s));
+        html+=metric('Node',p.node_version);
+        html+=metric('PID',p.pid);
+        html+=metric('RSS',p.memory.rss_mb+' MB',valClass(p.memory.rss_mb,256,512));
+        html+=metric('Heap Used',p.memory.heap_used_mb+' MB');
+        html+=metric('Heap Total',p.memory.heap_total_mb+' MB');
+        html+=metric('External',p.memory.external_mb+' MB');
+        html+=metric('CPU User',p.cpu.user_ms+'ms');
+        html+=metric('CPU System',p.cpu.system_ms+'ms');
+        const heapPct=p.memory.heap_total_mb>0?Math.round((p.memory.heap_used_mb/p.memory.heap_total_mb)*100):0;
+        html+=barHtml(heapPct);
+        html+='</div>';
+      }
+
+      document.getElementById('health-grid').innerHTML=html;
+      document.getElementById('refresh-info').textContent='Auto-Refresh alle 30 Sekunden';
+    }
+
+    loadHealth();
+    setInterval(loadHealth,30000);
+  </script>
+<script src="/public/js/breadcrumb.js" defer></script>
+</body>
+</html>

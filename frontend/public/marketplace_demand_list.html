@@ -1,0 +1,267 @@
+﻿<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <script src="/public/js/theme.js"></script>
+  <title>Nachfragen – TempConnect Marketplace</title>
+  <link rel="stylesheet" href="/public/css/enterprise.css"/>
+  <style>
+    .demand-cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(340px, 1fr)); gap: var(--ds-space-4, 16px); }
+    .demand-card { padding: 20px; border: 1px solid var(--line, rgba(255,255,255,.1)); border-radius: var(--radius, 8px); background: rgba(255,255,255,.03); cursor: pointer; transition: border-color .2s, box-shadow .2s; }
+    .demand-card:hover { border-color: rgba(59,130,246,.4); box-shadow: 0 2px 12px rgba(59,130,246,.08); }
+    .demand-card__title { font-size: 16px; font-weight: 600; margin: 0 0 6px; }
+    .demand-card__meta { font-size: 13px; color: var(--muted, #8d9bba); margin: 0 0 8px; }
+    .demand-card__meta span { margin-right: 12px; }
+    .demand-card__tags { display: flex; gap: 4px; flex-wrap: wrap; margin-top: 6px; }
+    .demand-card__tag { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 11px; background: rgba(255,255,255,.08); color: var(--muted, #8d9bba); }
+    .demand-card__status { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 11px; font-weight: 600; }
+    .demand-card__status.open { background: rgba(34,197,94,.15); color: #22c55e; }
+    .demand-card__status.matched { background: rgba(59,130,246,.15); color: #3b82f6; }
+    .demand-card__status.fulfilled { background: rgba(168,85,247,.15); color: #a855f7; }
+    .demand-card__status.expired { background: rgba(255,255,255,.08); color: var(--muted, #8d9bba); }
+    .filter-bar { display: flex; gap: 12px; align-items: flex-end; flex-wrap: wrap; margin-bottom: 20px; }
+    .filter-bar label { font-size: 12px; color: var(--muted, #8d9bba); display: block; margin-bottom: 4px; }
+    .filter-bar select, .filter-bar input { padding: 6px 10px; border: 1px solid var(--line, rgba(255,255,255,.1)); border-radius: var(--radius, 6px); background: rgba(255,255,255,.05); color: var(--fg, #e4e8f1); font-size: 13px; }
+    .empty-state { text-align: center; padding: 48px 20px; color: var(--muted, #8d9bba); }
+    .empty-state__icon { font-size: 48px; margin-bottom: 12px; }
+    .empty-state__title { font-size: 18px; font-weight: 600; margin-bottom: 8px; color: var(--fg, #e4e8f1); }
+    .sla-badge { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 11px; font-weight: 600; }
+    .sla-badge.running { background: var(--ds-brand-muted); color: var(--ds-brand); }
+    .sla-badge.met { background: var(--ds-success-muted); color: var(--ds-success); }
+    .sla-badge.breached { background: var(--ds-danger-muted); color: var(--ds-danger); }
+    .stats-row { display: flex; gap: 16px; margin-bottom: 20px; flex-wrap: wrap; }
+    .stat-tile { padding: 12px 16px; border: 1px solid var(--line, rgba(255,255,255,.1)); border-radius: var(--radius, 8px); background: var(--tc-stat-tile-bg); min-width: 100px; }
+    .stat-tile__value { font-size: 22px; font-weight: 700; display: block; }
+    .stat-tile__label { font-size: 12px; color: var(--muted, #8d9bba); }
+  </style>
+</head>
+<body data-sla-guard="sla_access">
+  <div id="paywall" class="wrap" style="display:none">
+    <nav class="ds-topbar"><div class="ds-topbar__brand"><span class="ds-topbar__brand-dot"></span>TempConnect</div><div class="ds-topbar__nav"><a href="/" class="ds-btn">Startseite</a></div></nav>
+    <div class="paywall-box">
+      <h2>Bereich nicht verfuegbar</h2>
+      <p>Der Marketplace erfordert einen PLUS- oder PRO-Plan.</p>
+      <p>Aktueller Plan: <span id="paywall-current-plan" class="paywall-plan">–</span></p>
+      <a id="paywall-cta" href="/public/sla_abo.html" class="btn primary">Abo ansehen</a>
+    </div>
+  </div>
+
+  <div id="main-content" class="wrap">
+    <div id="tc-shell"></div>
+
+    <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px;margin-bottom:16px">
+      <div>
+        <h1 style="margin:0 0 4px">Meine Nachfragen</h1>
+        <p style="margin:0;color:var(--muted,#8d9bba);font-size:14px">Uebersicht Ihrer Arbeitsplatzangebote im Marketplace.</p>
+      </div>
+      <a href="/public/marketplace_demand_create.html" class="btn primary">+ Neue Nachfrage</a>
+    </div>
+
+    <div class="stats-row" id="stats-row">
+      <div class="stat-tile"><span class="stat-tile__value" id="stat-total">–</span><span class="stat-tile__label">Gesamt</span></div>
+      <div class="stat-tile"><span class="stat-tile__value" id="stat-open" style="color:var(--ds-success)">–</span><span class="stat-tile__label">Offen</span></div>
+      <div class="stat-tile"><span class="stat-tile__value" id="stat-matched" style="color:var(--ds-brand)">–</span><span class="stat-tile__label">Gematcht</span></div>
+      <div class="stat-tile"><span class="stat-tile__value" id="stat-fulfilled" style="color:var(--ds-accent)">–</span><span class="stat-tile__label">Erfuellt</span></div>
+    </div>
+
+    <div class="filter-bar">
+      <div>
+        <label for="filter-status">Status</label>
+        <select id="filter-status">
+          <option value="">Alle</option>
+          <option value="open">Offen</option>
+          <option value="matched">Gematcht</option>
+          <option value="fulfilled">Erfuellt</option>
+          <option value="expired">Abgelaufen</option>
+        </select>
+      </div>
+      <div>
+        <label for="filter-role">Rolle</label>
+        <input type="text" id="filter-role" placeholder="z.B. Produktionshelfer" style="min-width:180px"/>
+      </div>
+      <div style="align-self:flex-end">
+        <button type="button" id="btn-filter" class="btn">Filtern</button>
+      </div>
+    </div>
+
+    <div id="result-count" style="font-size:13px;color:var(--muted);margin-bottom:12px"></div>
+
+    <div id="demand-list" class="demand-cards">
+      <div class="demand-card" style="opacity:.3"><div style="height:80px"></div></div>
+      <div class="demand-card" style="opacity:.3"><div style="height:80px"></div></div>
+      <div class="demand-card" style="opacity:.3"><div style="height:80px"></div></div>
+    </div>
+
+    <div id="empty-state" style="display:none" class="empty-state">
+      <div class="empty-state__icon">&#128203;</div>
+      <div class="empty-state__title">Noch keine Nachfragen erstellt</div>
+      <p>Erstellen Sie Ihren ersten Personalbedarf, damit TempConnect passende Anbieter fuer Sie finden kann.</p>
+      <a href="/public/marketplace_demand_create.html" class="btn primary">Erste Nachfrage erstellen</a>
+    </div>
+
+    <p class="sla-disclaimer">Hinweis: TempConnect dokumentiert den Matching-Prozess (Pulse-Prozessnachweis). Es wird kein Vermittlungserfolg garantiert. Angaben ohne Gewaehr.</p>
+  </div>
+
+  <script src="/public/js/planFeatures.js"></script>
+  <script src="/public/js/slaGuard.js"></script>
+  <script>
+  (function() {
+    var FILTER_STORAGE_KEY = "tc.marketplaceDemand.filters.v1";
+    function esc(s) { return s == null ? "" : String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;"); }
+    function fmtDate(d) { return d ? String(d).substring(0,10) : "–"; }
+    function readStoredFilters() {
+      try {
+        var raw = sessionStorage.getItem(FILTER_STORAGE_KEY);
+        if (!raw) return {};
+        var parsed = JSON.parse(raw);
+        return parsed && typeof parsed === "object" ? parsed : {};
+      } catch (e) { return {}; }
+    }
+
+    function writeStoredFilters(filters) {
+      try { sessionStorage.setItem(FILTER_STORAGE_KEY, JSON.stringify(filters || {})); } catch (e) {}
+    }
+
+    function readUrlFilters() {
+      var params = new URLSearchParams(window.location.search || "");
+      var filters = {};
+      if (params.has("status")) filters.status = params.get("status") || "";
+      if (params.has("role")) filters.role = params.get("role") || "";
+      return filters;
+    }
+
+    function applyFilterDefaults() {
+      var urlFilters = readUrlFilters();
+      var hasUrlFilters = Object.keys(urlFilters).length > 0;
+      var stored = hasUrlFilters ? {} : readStoredFilters();
+      var status = Object.prototype.hasOwnProperty.call(urlFilters, "status") ? urlFilters.status : (stored.status || "");
+      var role = Object.prototype.hasOwnProperty.call(urlFilters, "role") ? urlFilters.role : (stored.role || "");
+      var statusEl = document.getElementById("filter-status");
+      var roleEl = document.getElementById("filter-role");
+      if (statusEl) statusEl.value = status || "";
+      if (roleEl) roleEl.value = role || "";
+    }
+
+    function renderCards(demands) {
+      var el = document.getElementById("demand-list");
+      var emptyEl = document.getElementById("empty-state");
+
+      if (!demands || demands.length === 0) {
+        el.style.display = "none";
+        emptyEl.style.display = "block";
+        return;
+      }
+      el.style.display = "grid";
+      emptyEl.style.display = "none";
+
+      var html = "";
+      demands.forEach(function(d) {
+        var status = (d.status || "open").toLowerCase();
+        var slaHtml = "";
+        if (d.sla_status) {
+          slaHtml = ' <span class="sla-badge ' + esc(d.sla_status.toLowerCase()) + '">Pulse ' + esc(d.sla_status) + '</span>';
+        }
+
+        html += '<div class="demand-card" data-id="' + esc(d.id) + '">';
+        html += '<div class="demand-card__title">' + esc(d.title) + '</div>';
+        html += '<div class="demand-card__meta">';
+        html += '<span class="demand-card__status ' + esc(status) + '">' + esc(status.toUpperCase()) + '</span>';
+        html += slaHtml;
+        html += '</div>';
+        html += '<div class="demand-card__meta">';
+        html += '<span>Rolle: <b>' + esc(d.role || "–") + '</b></span>';
+        html += '<span>Ort: <b>' + esc(d.location_city || "–") + '</b></span>';
+        html += '<span>Anzahl: <b>' + (d.headcount || 1) + '</b></span>';
+        html += '</div>';
+        html += '<div class="demand-card__meta">';
+        html += '<span>Zeitraum: ' + fmtDate(d.start_date) + ' – ' + fmtDate(d.end_date) + '</span>';
+        html += '<span>Dringlichkeit: ' + esc((d.urgency || "normal").toUpperCase()) + '</span>';
+        html += '</div>';
+
+        if (d.skill_tags && d.skill_tags.length) {
+          html += '<div class="demand-card__tags">';
+          d.skill_tags.forEach(function(t) { html += '<span class="demand-card__tag">' + esc(t) + '</span>'; });
+          html += '</div>';
+        }
+        html += '</div>';
+      });
+      el.innerHTML = html;
+
+      // Click handler
+      el.querySelectorAll(".demand-card[data-id]").forEach(function(card) {
+        card.addEventListener("click", function() {
+          window.location.href = "/public/marketplace_demand_detail.html?id=" + card.getAttribute("data-id") + "&owner=1";
+        });
+      });
+    }
+
+    function updateStats(demands) {
+      var total = demands.length;
+      var open = demands.filter(function(d) { return (d.status || "open") === "open"; }).length;
+      var matched = demands.filter(function(d) { return d.status === "matched"; }).length;
+      var fulfilled = demands.filter(function(d) { return d.status === "fulfilled"; }).length;
+      document.getElementById("stat-total").textContent = total;
+      document.getElementById("stat-open").textContent = open;
+      document.getElementById("stat-matched").textContent = matched;
+      document.getElementById("stat-fulfilled").textContent = fulfilled;
+    }
+
+    function loadDemands(persist) {
+      var shouldPersist = persist !== false;
+      var statusFilter = document.getElementById("filter-status").value;
+      var roleRaw = document.getElementById("filter-role").value.trim();
+      var roleFilter = roleRaw.toLowerCase();
+      if (shouldPersist) {
+        writeStoredFilters({ status: statusFilter || "", role: roleRaw || "" });
+      }
+      var qs = statusFilter ? "?status=" + encodeURIComponent(statusFilter) : "";
+
+      fetch("/api/marketplace/demand-requests" + qs, { credentials: "include" })
+      .then(function(r) {
+        if (r.status === 401) { window.location.href = "/"; return null; }
+        if (!r.ok) { console.error("[demand-list] HTTP", r.status); return []; }
+        return r.json();
+      })
+      .then(function(demands) {
+        if (demands === null) return;
+        if (!Array.isArray(demands)) demands = [];
+
+        updateStats(demands);
+
+        if (roleFilter) {
+          demands = demands.filter(function(d) {
+            return ((d.role || "") + " " + (d.title || "")).toLowerCase().indexOf(roleFilter) >= 0;
+          });
+        }
+
+        document.getElementById("result-count").textContent = demands.length ? demands.length + " Nachfrage" + (demands.length === 1 ? "" : "n") : "";
+        renderCards(demands);
+      })
+      .catch(function(err) {
+        console.error("[demand-list] Ladefehler:", err);
+        document.getElementById("demand-list").innerHTML = '<div class="page-state page-state--bad"><div class="page-state__title">Nachfragen konnten nicht geladen werden</div><div class="page-state__text">Bitte Seite neu laden. Wenn das Problem bestehen bleibt, Plattform-Team kontaktieren.</div></div>';
+      });
+    }
+
+    // Filter
+    document.getElementById("btn-filter").addEventListener("click", function() { loadDemands(true); });
+    document.getElementById("filter-status").addEventListener("change", function() { loadDemands(true); });
+    document.getElementById("filter-role").addEventListener("keydown", function(e) { if (e.key === "Enter") loadDemands(true); });
+
+    // Warte auf slaGuardPassed
+    document.addEventListener("slaGuardPassed", function(ev) {
+      if (ev.detail && ev.detail.passed) {
+        applyFilterDefaults();
+        loadDemands(false);
+      }
+    });
+  })();
+  </script>
+  <script src="/public/js/pageShell.js"></script>`n  <script src="/public/js/notifications.js"></script>
+  <div id="tc-footer" data-tc-footer></div>
+  <script src="/public/js/footer.js"></script>
+<script src="/public/js/demoBanner.js" defer></script>
+<script src="/public/js/onboardingWizard.js" defer></script><script src="/public/js/breadcrumb.js" defer></script>
+</body>
+</html>
