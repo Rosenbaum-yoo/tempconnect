@@ -1,0 +1,57 @@
+{
+  "project": "TempConnect",
+  "version": 1,
+  "description": "PostHog insight templates for demo/pilot/live product diagnostics",
+  "insights": [
+    {
+      "key": "demo-core-activation-funnel",
+      "type": "funnel",
+      "name": "Demo: Signup -> Login -> Core Action",
+      "events": ["signup_started", "signup_completed", "login_success", "capacity_feed_viewed"],
+      "filters": { "customer_segment": "demo", "date_range_days": 14 }
+    },
+    {
+      "key": "pilot-enterprise-adoption-funnel",
+      "type": "funnel",
+      "name": "Pilot: Enterprise Setup -> Requisition -> Rate Card",
+      "events": ["enterprise_config_started", "requisition_created", "rate_card_created"],
+      "filters": { "customer_segment": "pilot", "date_range_days": 30 }
+    },
+    {
+      "key": "worker-lifecycle-funnel",
+      "type": "funnel",
+      "name": "Worker: Invite -> Register -> Timesheet Submit",
+      "events": ["worker_invite_sent", "worker_registered", "timesheet_started", "timesheet_submitted"],
+      "filters": { "customer_segment": "all", "date_range_days": 30 }
+    },
+    {
+      "key": "capacity-to-deal-funnel",
+      "type": "funnel",
+      "name": "Capacity: Feed -> Detail -> Interest -> Deal",
+      "events": ["capacity_feed_viewed", "capacity_detail_viewed", "interest_submitted", "deal_completed"],
+      "filters": { "customer_segment": "all", "date_range_days": 30 }
+    },
+    {
+      "key": "problem-pages-table",
+      "type": "trend",
+      "name": "Problem Signals: Form Abandon + Rage Click",
+      "events": ["form_abandoned", "rage_click_detected"],
+      "breakdown": "page_path",
+      "filters": { "customer_segment": "all", "date_range_days": 30 }
+    },
+    {
+      "key": "feature-usage-by-segment",
+      "type": "trend",
+      "name": "Feature Usage by Segment",
+      "events": [
+        "matching_results_viewed",
+        "requisition_created",
+        "rate_card_created",
+        "integration_connected",
+        "timesheet_submitted"
+      ],
+      "breakdown": "customer_segment",
+      "filters": { "date_range_days": 30 }
+    }
+  ]
+}

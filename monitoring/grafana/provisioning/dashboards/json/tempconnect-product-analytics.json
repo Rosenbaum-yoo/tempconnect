@@ -1,0 +1,168 @@
+{
+  "annotations": { "list": [] },
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 0,
+  "id": null,
+  "links": [],
+  "liveNow": false,
+  "panels": [
+    {
+      "type": "stat",
+      "title": "Events (Zeitraum)",
+      "gridPos": { "h": 4, "w": 6, "x": 0, "y": 0 },
+      "targets": [
+        {
+          "refId": "A",
+          "format": "table",
+          "rawSql": "SELECT COUNT(*)::bigint AS value FROM product_analytics_events WHERE occurred_at >= NOW() - ('${days}' || ' days')::interval AND ('${segment}' = 'all' OR customer_segment = '${segment}')",
+          "datasource": { "type": "postgres", "uid": "tempconnect-postgres" }
+        }
+      ],
+      "options": { "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false }, "orientation": "auto", "textMode": "auto" }
+    },
+    {
+      "type": "stat",
+      "title": "Sessions (Zeitraum)",
+      "gridPos": { "h": 4, "w": 6, "x": 6, "y": 0 },
+      "targets": [
+        {
+          "refId": "A",
+          "format": "table",
+          "rawSql": "SELECT COUNT(DISTINCT session_id)::bigint AS value FROM product_analytics_events WHERE occurred_at >= NOW() - ('${days}' || ' days')::interval AND ('${segment}' = 'all' OR customer_segment = '${segment}')",
+          "datasource": { "type": "postgres", "uid": "tempconnect-postgres" }
+        }
+      ],
+      "options": { "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false }, "orientation": "auto", "textMode": "auto" }
+    },
+    {
+      "type": "stat",
+      "title": "Aktive Nutzer (Zeitraum)",
+      "gridPos": { "h": 4, "w": 6, "x": 12, "y": 0 },
+      "targets": [
+        {
+          "refId": "A",
+          "format": "table",
+          "rawSql": "SELECT COUNT(DISTINCT user_id)::bigint AS value FROM product_analytics_events WHERE occurred_at >= NOW() - ('${days}' || ' days')::interval AND user_id IS NOT NULL AND ('${segment}' = 'all' OR customer_segment = '${segment}')",
+          "datasource": { "type": "postgres", "uid": "tempconnect-postgres" }
+        }
+      ],
+      "options": { "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false }, "orientation": "auto", "textMode": "auto" }
+    },
+    {
+      "type": "piechart",
+      "title": "Sessions nach Segment",
+      "gridPos": { "h": 4, "w": 6, "x": 18, "y": 0 },
+      "targets": [
+        {
+          "refId": "A",
+          "format": "table",
+          "rawSql": "SELECT customer_segment AS metric, COUNT(DISTINCT session_id)::bigint AS value FROM product_analytics_events WHERE occurred_at >= NOW() - ('${days}' || ' days')::interval GROUP BY customer_segment ORDER BY value DESC",
+          "datasource": { "type": "postgres", "uid": "tempconnect-postgres" }
+        }
+      ]
+    },
+    {
+      "type": "timeseries",
+      "title": "Event-Volumen pro Tag",
+      "gridPos": { "h": 7, "w": 12, "x": 0, "y": 4 },
+      "targets": [
+        {
+          "refId": "A",
+          "format": "time_series",
+          "rawSql": "SELECT $__timeGroupAlias(occurred_at, '1d'), COUNT(*)::bigint AS value FROM product_analytics_events WHERE $__timeFilter(occurred_at) AND ('${segment}' = 'all' OR customer_segment = '${segment}') GROUP BY 1 ORDER BY 1",
+          "datasource": { "type": "postgres", "uid": "tempconnect-postgres" }
+        }
+      ]
+    },
+    {
+      "type": "timeseries",
+      "title": "Form-Abbrüche vs. Rage Clicks",
+      "gridPos": { "h": 7, "w": 12, "x": 12, "y": 4 },
+      "targets": [
+        {
+          "refId": "A",
+          "format": "time_series",
+          "rawSql": "SELECT $__timeGroupAlias(occurred_at, '1d'), COUNT(*)::bigint AS value FROM product_analytics_events WHERE $__timeFilter(occurred_at) AND event_name = 'form_abandoned' AND ('${segment}' = 'all' OR customer_segment = '${segment}') GROUP BY 1 ORDER BY 1",
+          "datasource": { "type": "postgres", "uid": "tempconnect-postgres" }
+        },
+        {
+          "refId": "B",
+          "format": "time_series",
+          "rawSql": "SELECT $__timeGroupAlias(occurred_at, '1d'), COUNT(*)::bigint AS value FROM product_analytics_events WHERE $__timeFilter(occurred_at) AND event_name = 'rage_click_detected' AND ('${segment}' = 'all' OR customer_segment = '${segment}') GROUP BY 1 ORDER BY 1",
+          "datasource": { "type": "postgres", "uid": "tempconnect-postgres" }
+        }
+      ]
+    },
+    {
+      "type": "table",
+      "title": "Top Events",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 11 },
+      "targets": [
+        {
+          "refId": "A",
+          "format": "table",
+          "rawSql": "SELECT event_name, COUNT(*)::bigint AS count FROM product_analytics_events WHERE occurred_at >= NOW() - ('${days}' || ' days')::interval AND ('${segment}' = 'all' OR customer_segment = '${segment}') GROUP BY event_name ORDER BY count DESC LIMIT 20",
+          "datasource": { "type": "postgres", "uid": "tempconnect-postgres" }
+        }
+      ]
+    },
+    {
+      "type": "table",
+      "title": "Problemseiten (Zeit, Abbrüche, Rage Clicks)",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 11 },
+      "targets": [
+        {
+          "refId": "A",
+          "format": "table",
+          "rawSql": "SELECT page_path, COUNT(*) FILTER (WHERE event_name='page_view')::bigint AS page_views, ROUND(AVG((metadata->>'duration_ms')::numeric) FILTER (WHERE event_name='page_time_spent' AND metadata ? 'duration_ms'))::bigint AS avg_time_ms, COUNT(*) FILTER (WHERE event_name='form_abandoned')::bigint AS form_abandons, COUNT(*) FILTER (WHERE event_name='rage_click_detected')::bigint AS rage_clicks FROM product_analytics_events WHERE occurred_at >= NOW() - ('${days}' || ' days')::interval AND page_path IS NOT NULL AND ('${segment}' = 'all' OR customer_segment = '${segment}') GROUP BY page_path ORDER BY (COUNT(*) FILTER (WHERE event_name='form_abandoned') + COUNT(*) FILTER (WHERE event_name='rage_click_detected')) DESC, page_views DESC LIMIT 20",
+          "datasource": { "type": "postgres", "uid": "tempconnect-postgres" }
+        }
+      ]
+    },
+    {
+      "type": "table",
+      "title": "Funnel Conversion Snapshot",
+      "gridPos": { "h": 7, "w": 24, "x": 0, "y": 19 },
+      "targets": [
+        {
+          "refId": "A",
+          "format": "table",
+          "rawSql": "WITH base AS ( SELECT COUNT(DISTINCT session_id)::numeric AS signup_started FROM product_analytics_events WHERE event_name='signup_started' AND occurred_at >= NOW() - ('${days}' || ' days')::interval AND ('${segment}' = 'all' OR customer_segment = '${segment}') ), done AS ( SELECT COUNT(DISTINCT session_id)::numeric AS signup_completed FROM product_analytics_events WHERE event_name='signup_completed' AND occurred_at >= NOW() - ('${days}' || ' days')::interval AND ('${segment}' = 'all' OR customer_segment = '${segment}') ), login AS ( SELECT COUNT(DISTINCT session_id)::numeric AS login_success FROM product_analytics_events WHERE event_name='login_success' AND occurred_at >= NOW() - ('${days}' || ' days')::interval AND ('${segment}' = 'all' OR customer_segment = '${segment}') ), cfeed AS ( SELECT COUNT(DISTINCT session_id)::numeric AS capacity_feed_viewed FROM product_analytics_events WHERE event_name='capacity_feed_viewed' AND occurred_at >= NOW() - ('${days}' || ' days')::interval AND ('${segment}' = 'all' OR customer_segment = '${segment}') ), cdeal AS ( SELECT COUNT(DISTINCT session_id)::numeric AS deal_completed FROM product_analytics_events WHERE event_name='deal_completed' AND occurred_at >= NOW() - ('${days}' || ' days')::interval AND ('${segment}' = 'all' OR customer_segment = '${segment}') ) SELECT b.signup_started::bigint, d.signup_completed::bigint, l.login_success::bigint, CASE WHEN b.signup_started > 0 THEN ROUND((d.signup_completed / b.signup_started) * 100, 2) ELSE 0 END AS signup_conversion_pct, cf.capacity_feed_viewed::bigint, cd.deal_completed::bigint, CASE WHEN cf.capacity_feed_viewed > 0 THEN ROUND((cd.deal_completed / cf.capacity_feed_viewed) * 100, 2) ELSE 0 END AS capacity_to_deal_pct FROM base b CROSS JOIN done d CROSS JOIN login l CROSS JOIN cfeed cf CROSS JOIN cdeal cd",
+          "datasource": { "type": "postgres", "uid": "tempconnect-postgres" }
+        }
+      ]
+    }
+  ],
+  "refresh": "30s",
+  "schemaVersion": 39,
+  "style": "dark",
+  "tags": ["tempconnect", "product", "analytics"],
+  "templating": {
+    "list": [
+      {
+        "name": "days",
+        "type": "custom",
+        "query": "7,14,30,60,90",
+        "current": { "selected": true, "text": "30", "value": "30" },
+        "includeAll": false,
+        "multi": false
+      },
+      {
+        "name": "segment",
+        "type": "custom",
+        "query": "all,demo,pilot,live",
+        "current": { "selected": true, "text": "all", "value": "all" },
+        "includeAll": false,
+        "multi": false
+      }
+    ]
+  },
+  "time": { "from": "now-30d", "to": "now" },
+  "timepicker": {},
+  "timezone": "",
+  "title": "TempConnect - Product Analytics",
+  "uid": "tempconnect-product-analytics",
+  "version": 1,
+  "weekStart": ""
+}

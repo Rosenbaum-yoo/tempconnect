@@ -1,11 +1,70 @@
-# Root .dockerignore (falls später Images aus Projektroot gebaut werden)
-node_modules
-**/node_modules
+# =============================================================================
+# TempConnect — Root .dockerignore
+# =============================================================================
+# Gilt wenn Docker-Build-Context das Projektroot ist.
+# =============================================================================
+
+# VCS
+.git
+.gitignore
+
+# Environment / Secrets
 .env
 .env.*
 !.env.example
 !.env.dev.example
 !.env.prod.example
-.git
-*.md
-.gitignore
+
+# Dependencies
+node_modules/
+**/node_modules/
+
+# Tests & Coverage
+**/test/
+**/coverage/
+**/.c8_output/
+**/.c8rc.json
+**/.nyc_output/
+
+# Logs & Temp
+*.log
+npm-debug.log*
+tmp/
+**/tmp/
+*.tmp
+*.bak
+
+# Build-/Release-Artefakte
+*.tar.gz
+*.zip
+release/
+
+# OS / IDE
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+.warp/
+*.swp
+*.swo
+
+# Agenten / Claude Code / lokale AI-Workspaces
+.claude/
+.agents/
+.claire/
+.clone/
+.vercel/
+_zip_analysis/
+
+# Kryptographische Schlüssel
+*.pem
+*.key
+private_key
+private_key.*
+
+# Docker-Meta (kein rekursives Kopieren)
+Dockerfile
+**/Dockerfile
+.dockerignore
+**/.dockerignore
+docker-compose*.yml

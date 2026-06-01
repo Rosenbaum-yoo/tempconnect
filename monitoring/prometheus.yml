@@ -1,0 +1,44 @@
+# =============================================================================
+# TempConnect — Prometheus Configuration
+# =============================================================================
+# Scrape-Intervall: 15s (Standard, guter Kompromiss zwischen Aufloesung und Last)
+#
+# ADMIN_SECRET: Muss dem Wert in .env entsprechen, damit Prometheus
+# den /metrics Endpoint der API erreichen kann.
+# Austauschen: Entweder hier direkt oder via --web.config.file mit Secrets.
+# =============================================================================
+
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+
+# ── Alert Rules ─────────────────────────────────────────────────────────────
+rule_files:
+  - "/etc/prometheus/alerts.rules.yml"
+
+# ── Alertmanager ────────────────────────────────────────────────────────────
+alerting:
+  alertmanagers:
+    - static_configs:
+        - targets: ["alertmanager:9093"]
+
+scrape_configs:
+  # ── TempConnect API ──────────────────────────────────────────────────────
+  - job_name: "tempconnect-api"
+    metrics_path: "/metrics"
+    # ADMIN_SECRET als Query-Parameter (sicher im internen Docker-Netzwerk).
+    # Dieser Wert wird beim Start durch docker-compose.monitoring.yml via
+    # start-prometheus.sh aus der Umgebungsvariable PROMETHEUS_METRICS_SECRET
+    # substituiert. NICHT manuell bearbeiten — Template-Datei!
+    params:
+      secret: ["PROMETHEUS_METRICS_SECRET_PLACEHOLDER"]
+    static_configs:
+      - targets: ["api:3000"]
+        labels:
+          service: "tempconnect-api"
+          environment: "production"
+
+  # ── Prometheus Self-Monitoring ───────────────────────────────────────────
+  - job_name: "prometheus"
+    static_configs:
+      - targets: ["localhost:9090"]

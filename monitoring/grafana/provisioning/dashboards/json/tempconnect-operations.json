@@ -1,0 +1,269 @@
+{
+  "annotations": { "list": [] },
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 1,
+  "id": null,
+  "links": [],
+  "panels": [
+    {
+      "title": "Request Rate (req/s)",
+      "description": "HTTP Requests pro Sekunde — zeigt die aktuelle Last auf der API.",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 0 },
+      "targets": [
+        {
+          "expr": "sum(rate(http_requests_total{service=\"tempconnect-api\"}[5m]))",
+          "legendFormat": "Total req/s",
+          "refId": "A"
+        },
+        {
+          "expr": "sum(rate(http_requests_total{service=\"tempconnect-api\", status_code=~\"5..\"}[5m]))",
+          "legendFormat": "5xx Errors/s",
+          "refId": "B"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "reqps",
+          "custom": { "drawStyle": "line", "fillOpacity": 10 }
+        }
+      }
+    },
+    {
+      "title": "Error Rate (%)",
+      "description": "Anteil der 5xx-Responses an allen Requests.",
+      "type": "stat",
+      "gridPos": { "h": 4, "w": 6, "x": 12, "y": 0 },
+      "targets": [
+        {
+          "expr": "sum(rate(http_requests_total{service=\"tempconnect-api\", status_code=~\"5..\"}[5m])) / sum(rate(http_requests_total{service=\"tempconnect-api\"}[5m])) * 100",
+          "legendFormat": "",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "yellow", "value": 1 },
+              { "color": "red", "value": 5 }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "title": "In-Flight Requests",
+      "description": "Aktuell gleichzeitig verarbeitete Requests.",
+      "type": "stat",
+      "gridPos": { "h": 4, "w": 6, "x": 18, "y": 0 },
+      "targets": [
+        {
+          "expr": "http_requests_in_flight{service=\"tempconnect-api\"}",
+          "legendFormat": "",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "yellow", "value": 50 },
+              { "color": "red", "value": 100 }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "title": "Uptime",
+      "description": "API-Prozess Uptime.",
+      "type": "stat",
+      "gridPos": { "h": 4, "w": 6, "x": 12, "y": 4 },
+      "targets": [
+        {
+          "expr": "process_uptime_seconds{service=\"tempconnect-api\"}",
+          "legendFormat": "",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": { "unit": "s" }
+      }
+    },
+    {
+      "title": "Node.js Heap (MB)",
+      "description": "Heap-Speicher Used vs. Total.",
+      "type": "stat",
+      "gridPos": { "h": 4, "w": 6, "x": 18, "y": 4 },
+      "targets": [
+        {
+          "expr": "nodejs_heap_size_used_bytes{service=\"tempconnect-api\"} / 1024 / 1024",
+          "legendFormat": "Used",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": { "unit": "decmbytes" }
+      }
+    },
+    {
+      "title": "Response Latenz (p50 / p95 / p99)",
+      "description": "HTTP Request Duration Percentiles — zeigt wie schnell die API antwortet.",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 8 },
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.50, sum(rate(http_request_duration_seconds_bucket{service=\"tempconnect-api\"}[5m])) by (le))",
+          "legendFormat": "p50",
+          "refId": "A"
+        },
+        {
+          "expr": "histogram_quantile(0.95, sum(rate(http_request_duration_seconds_bucket{service=\"tempconnect-api\"}[5m])) by (le))",
+          "legendFormat": "p95",
+          "refId": "B"
+        },
+        {
+          "expr": "histogram_quantile(0.99, sum(rate(http_request_duration_seconds_bucket{service=\"tempconnect-api\"}[5m])) by (le))",
+          "legendFormat": "p99",
+          "refId": "C"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "custom": { "drawStyle": "line", "fillOpacity": 5 }
+        }
+      }
+    },
+    {
+      "title": "Top Routes by Request Rate",
+      "description": "Die meistaufgerufenen API-Routen.",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 8 },
+      "targets": [
+        {
+          "expr": "topk(10, sum(rate(http_requests_total{service=\"tempconnect-api\"}[5m])) by (route))",
+          "legendFormat": "{{ route }}",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "reqps",
+          "custom": { "drawStyle": "bars", "fillOpacity": 80 }
+        }
+      }
+    },
+    {
+      "title": "DB Connection Pool",
+      "description": "PostgreSQL Pool: Total / Idle / Wartend.",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 16 },
+      "targets": [
+        {
+          "expr": "db_pool_total_count{service=\"tempconnect-api\"}",
+          "legendFormat": "Total",
+          "refId": "A"
+        },
+        {
+          "expr": "db_pool_idle_count{service=\"tempconnect-api\"}",
+          "legendFormat": "Idle",
+          "refId": "B"
+        },
+        {
+          "expr": "db_pool_waiting_count{service=\"tempconnect-api\"}",
+          "legendFormat": "Waiting",
+          "refId": "C"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "custom": { "drawStyle": "line", "fillOpacity": 15 }
+        }
+      }
+    },
+    {
+      "title": "Event Loop Lag (s)",
+      "description": "Node.js Event Loop Lag — hohe Werte deuten auf CPU-Bottleneck hin.",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 16 },
+      "targets": [
+        {
+          "expr": "nodejs_eventloop_lag_seconds{service=\"tempconnect-api\"}",
+          "legendFormat": "Event Loop Lag",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "custom": { "drawStyle": "line", "fillOpacity": 10 }
+        }
+      }
+    },
+    {
+      "title": "Queue Job Rate (jobs/s)",
+      "description": "BullMQ Queue Throughput: abgeschlossene und fehlgeschlagene Jobs pro Sekunde.",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 24 },
+      "targets": [
+        {
+          "expr": "sum(rate(queue_jobs_completed_total{service=\"tempconnect-api\"}[5m])) by (queue)",
+          "legendFormat": "{{ queue }} completed/s",
+          "refId": "A"
+        },
+        {
+          "expr": "sum(rate(queue_jobs_failed_total{service=\"tempconnect-api\"}[5m])) by (queue)",
+          "legendFormat": "{{ queue }} failed/s",
+          "refId": "B"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "ops",
+          "custom": { "drawStyle": "line", "fillOpacity": 10 }
+        }
+      }
+    },
+    {
+      "title": "Queue Depth (Jobs)",
+      "description": "Aktuelle Queue-Tiefe: wartende und aktive Jobs pro Queue.",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 24 },
+      "targets": [
+        {
+          "expr": "queue_jobs_waiting{service=\"tempconnect-api\"}",
+          "legendFormat": "{{ queue }} waiting",
+          "refId": "A"
+        },
+        {
+          "expr": "queue_jobs_active{service=\"tempconnect-api\"}",
+          "legendFormat": "{{ queue }} active",
+          "refId": "B"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "custom": { "drawStyle": "line", "fillOpacity": 15 }
+        }
+      }
+    }
+  ],
+  "refresh": "30s",
+  "schemaVersion": 39,
+  "tags": ["tempconnect", "api", "operations"],
+  "templating": { "list": [] },
+  "time": { "from": "now-1h", "to": "now" },
+  "timepicker": {},
+  "timezone": "browser",
+  "title": "TempConnect — Operations",
+  "uid": "tempconnect-ops",
+  "version": 1
+}

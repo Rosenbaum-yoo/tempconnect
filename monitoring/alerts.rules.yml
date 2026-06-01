@@ -1,0 +1,185 @@
+# =============================================================================
+# TempConnect — Prometheus Alert Rules
+# =============================================================================
+# Drei Alert-Gruppen: API, Database, System
+# Severity-Labels: critical (sofort handeln), warning (beobachten)
+# =============================================================================
+
+groups:
+  # ── API Health ─────────────────────────────────────────────────────────
+  - name: tempconnect-api
+    rules:
+      - alert: HighErrorRate
+        expr: >
+          (
+            sum(rate(http_requests_total{service="tempconnect-api", status_code=~"5.."}[5m]))
+            /
+            sum(rate(http_requests_total{service="tempconnect-api"}[5m]))
+          ) * 100 > 5
+        for: 5m
+        labels:
+          severity: critical
+          service: tempconnect-api
+        annotations:
+          summary: "Hohe Fehlerrate (>5% 5xx)"
+          description: "{{ $value | printf \"%.1f\" }}% der Requests liefern 5xx-Responses seit 5 Minuten."
+          runbook: "docs/monitoring.md#higherrorrate"
+
+      - alert: HighLatencyP95
+        expr: >
+          histogram_quantile(0.95,
+            sum(rate(http_request_duration_seconds_bucket{service="tempconnect-api"}[5m])) by (le)
+          ) > 1
+        for: 5m
+        labels:
+          severity: warning
+          service: tempconnect-api
+        annotations:
+          summary: "P95-Latenz >1s"
+          description: "Die 95. Perzentile der Response-Zeit liegt bei {{ $value | printf \"%.2f\" }}s."
+          runbook: "docs/monitoring.md#highlatency"
+
+      - alert: HighLatencyP99
+        expr: >
+          histogram_quantile(0.99,
+            sum(rate(http_request_duration_seconds_bucket{service="tempconnect-api"}[5m])) by (le)
+          ) > 2.5
+        for: 5m
+        labels:
+          severity: critical
+          service: tempconnect-api
+        annotations:
+          summary: "P99-Latenz >2.5s"
+          description: "Die 99. Perzentile der Response-Zeit liegt bei {{ $value | printf \"%.2f\" }}s."
+          runbook: "docs/monitoring.md#highlatency"
+
+      - alert: ServiceDown
+        expr: up{job="tempconnect-api"} == 0
+        for: 1m
+        labels:
+          severity: critical
+          service: tempconnect-api
+        annotations:
+          summary: "TempConnect API ist nicht erreichbar"
+          description: "Prometheus kann die API seit 1 Minute nicht scrapen. Service moeglicherweise abgestuerzt."
+          runbook: "docs/monitoring.md#servicedown"
+
+      - alert: TooManyInFlightRequests
+        expr: http_requests_in_flight{service="tempconnect-api"} > 100
+        for: 2m
+        labels:
+          severity: warning
+          service: tempconnect-api
+        annotations:
+          summary: "Zu viele gleichzeitige Requests (>100)"
+          description: "{{ $value }} Requests werden gleichzeitig verarbeitet. Moeglicherweise Stau oder Slowloris."
+          runbook: "docs/monitoring.md#toomanyrequests"
+
+  # ── Database ───────────────────────────────────────────────────────────
+  - name: tempconnect-database
+    rules:
+      - alert: DbQueryErrorsHigh
+        expr: sum(rate(db_query_errors_total{service="tempconnect-api"}[3m])) > 0.5
+        for: 3m
+        labels:
+          severity: critical
+          service: tempconnect-api
+        annotations:
+          summary: "Hohe DB-Query-Fehlerrate (>0.5/s)"
+          description: "{{ $value | printf \"%.2f\" }} fehlgeschlagene Queries pro Sekunde in den letzten 3 Minuten."
+          runbook: "docs/monitoring.md#dbqueryerrors"
+
+      - alert: DbPoolExhausted
+        expr: db_pool_waiting_count{service="tempconnect-api"} > 5
+        for: 3m
+        labels:
+          severity: warning
+          service: tempconnect-api
+        annotations:
+          summary: "DB Pool Warteschlange >5"
+          description: "{{ $value }} Requests warten auf eine DB-Verbindung. Pool moeglicherweise ausgelastet."
+          runbook: "docs/monitoring.md#dbpoolexhausted"
+
+      - alert: DbPoolNoIdle
+        expr: db_pool_idle_count{service="tempconnect-api"} == 0
+        for: 5m
+        labels:
+          severity: warning
+          service: tempconnect-api
+        annotations:
+          summary: "Keine freien DB-Verbindungen"
+          description: "Alle Pool-Verbindungen sind seit 5 Minuten belegt. Pool-Groesse ueberpruefen."
+          runbook: "docs/monitoring.md#dbpoolexhausted"
+
+  # ── System Resources ───────────────────────────────────────────────────
+  - name: tempconnect-system
+    rules:
+      - alert: HighMemoryUsage
+        expr: nodejs_heap_size_used_bytes{service="tempconnect-api"} > 536870912
+        for: 5m
+        labels:
+          severity: warning
+          service: tempconnect-api
+        annotations:
+          summary: "Heap-Nutzung >512MB"
+          description: "Node.js nutzt {{ $value | humanize1024 }}B Heap-Speicher. Memory Leak moeglich."
+          runbook: "docs/monitoring.md#highmemory"
+
+      - alert: EventLoopLagHigh
+        expr: nodejs_eventloop_lag_seconds{service="tempconnect-api"} > 0.5
+        for: 2m
+        labels:
+          severity: warning
+          service: tempconnect-api
+        annotations:
+          summary: "Event Loop Lag >500ms"
+          description: "Event Loop verzoegert sich um {{ $value | printf \"%.3f\" }}s. CPU-Bottleneck moeglich."
+          runbook: "docs/monitoring.md#eventlooplag"
+
+  # ── Queue ───────────────────────────────────────────────────────────────────
+  - name: tempconnect-queue
+    rules:
+      - alert: QueueJobFailureRateHigh
+        expr: sum(rate(queue_jobs_failed_total{service="tempconnect-api"}[5m])) by (queue) > 0.1
+        for: 5m
+        labels:
+          severity: warning
+          service: tempconnect-api
+        annotations:
+          summary: "Hohe Queue-Fehlerrate ({{ $labels.queue }})"
+          description: "{{ $value | printf \"%.2f\" }} fehlgeschlagene Jobs/s in Queue '{{ $labels.queue }}' seit 5 Minuten."
+          runbook: "docs/monitoring.md#queuejobfailure"
+
+      - alert: QueueStalled
+        expr: queue_jobs_waiting{service="tempconnect-api"} > 50
+        for: 10m
+        labels:
+          severity: warning
+          service: tempconnect-api
+        annotations:
+          summary: "Queue '{{ $labels.queue }}' staut sich (>50 wartende Jobs)"
+          description: "{{ $value }} Jobs warten seit 10 Minuten in Queue '{{ $labels.queue }}'. Worker moeglicherweise gestoppt oder ueberlastet."
+          runbook: "docs/monitoring.md#queuestalled"
+
+  # ── Backup ──────────────────────────────────────────────────────────────────
+  # Hinweis: BackupTooOld nutzt einen externen Prüfmechanismus.
+  # backup.sh schreibt nach Erfolg den Unix-Timestamp in backups/last_success_epoch.
+  # Überwachung: Cron-basiertes Skript oder Node-Exporter Textfile-Collector.
+  # Beispiel-Check (Cron, alle 6h):
+  #   LAST=$(cat /opt/tempconnect/backups/last_success_epoch 2>/dev/null || echo 0)
+  #   AGE=$(( $(date +%s) - LAST ))
+  #   [ $AGE -gt 93600 ] && curl -X POST 'https://hooks.example.com/backup-too-old'
+  #
+  # Bei Nutzung von Prometheus Node Exporter mit Textfile-Collector:
+  # - name: tempconnect-backup
+  #   rules:
+  #     - alert: BackupTooOld
+  #       expr: (time() - backup_last_success_timestamp{job="node"}) > 93600
+  #       for: 30m
+  #       labels:
+  #         severity: critical
+  #         service: tempconnect-api
+  #       annotations:
+  #         summary: "Kein erfolgreiches Backup seit >26 Stunden"
+  #         description: "Letztes Backup ist {{ $value | humanizeDuration }} alt."
+  #         runbook: "docs/BACKUP_DISASTER_RECOVERY.md"

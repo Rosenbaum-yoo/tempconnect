@@ -1,5 +1,42 @@
 {
-  "dependencies": {
-    "cors": "^2.8.6"
+  "name": "tempconnect",
+  "version": "2.0.0",
+  "private": true,
+  "description": "TempConnect B2B SaaS Platform – Zeitarbeit-Marktplatz",
+  "scripts": {
+    "lint": "npm run lint --prefix api",
+    "lint:fix": "npm run lint:fix --prefix api",
+    "lint:frontend": "npm run lint --prefix frontend",
+    "lint:all": "npm run lint --prefix api && npm run lint --prefix frontend",
+    "test": "npm test --prefix api",
+    "test:unit": "npm run test:unit --prefix api",
+    "test:all": "npm run test:all --prefix api",
+    "test:integration": "npm run test:integration --prefix api",
+    "test:integration:commercial": "npm run test:integration:commercial --prefix api",
+    "test:coverage": "npm run test:coverage --prefix api",
+    "test:coverage:full": "npm run test:coverage:full --prefix api",
+    "test:coverage:check": "npm run test:coverage:check --prefix api",
+    "test:coverage:critical": "npm run test:coverage:critical --prefix api",
+    "test:coverage:report": "npm run test:coverage:report --prefix api",
+    "test:mutation:subscription": "npm run test:mutation:subscription --prefix api",
+    "perf:smoke": "npm run perf:smoke --prefix api",
+    "build": "npm run build --prefix api",
+    "qa": "npm run qa --prefix api && npm run lint --prefix frontend",
+    "typecheck": "npm run typecheck --prefix api",
+    "verify": "npm run verify --prefix api && npm run lint --prefix frontend",
+    "dev:reset-db": "bash scripts/dev/reset-db.sh",
+    "dev:seed": "bash scripts/dev/seed-data.sh",
+    "dev:worker": "bash scripts/dev/run-worker.sh",
+    "dev:logs": "bash scripts/dev/inspect-logs.sh",
+    "support-ops:sync": "bash scripts/sync-support-ops-artifacts.sh",
+    "dev:queue-status": "docker compose exec api node scripts/queue-status.js",
+    "dev:routes": "docker compose exec api node scripts/list-routes.js",
+    "posthog:import-insights": "node scripts/posthog/import-insights.mjs",
+    "test:e2e": "npx playwright test --config e2e/playwright.config.js",
+    "test:e2e:smoke": "npx playwright test --config e2e/playwright.config.js --grep @commercial-smoke",
+    "test:e2e:ui": "npx playwright test --config e2e/playwright.config.js --ui"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.58.2"
   }
 }

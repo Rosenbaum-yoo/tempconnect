@@ -1,0 +1,603 @@
+
+    /* ── Utilities ───────────────────── */
+    function esc(s){if(s==null)return'';return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
+    function applyOrgDomLocks(root){
+      if(window.TC&&window.TC.entitlements&&typeof window.TC.entitlements.applyDomLocks==='function'){
+        window.TC.entitlements.applyDomLocks(root||document).catch(function(){});
+      }
+    }
+    let _csrf='';
+    async function getCSRF(){if(_csrf)return _csrf;try{const r=await fetch('/api/csrf',{credentials:'include'});const d=await r.json();_csrf=d.token||'';return _csrf;}catch{return'';}}
+    async function api(path,opts={}){
+      const o={credentials:'include',...opts,headers:{'Content-Type':'application/json',...(opts.headers||{})}};
+      if(opts.method&&opts.method!=='GET'){o.headers['x-csrf-token']=await getCSRF();}
+      const r=await fetch('/api'+path,o);
+      if(r.status===401){location.href='/';return null;}
+      return r.json();
+    }
+    function setOrgFinanceExportStatus(message,tone){
+      const target=document.getElementById('orgFinanceExportStatus');
+      if(!target)return;
+      target.style.color=tone==='good'?'var(--good)':tone==='bad'?'var(--bad)':tone==='warn'?'var(--warn)':'var(--ds-text-secondary)';
+      target.textContent=message||'';
+    }
+    function setOrgFinanceExportButtonsDisabled(disabled){
+      Array.from(document.querySelectorAll('button[data-org-finance-export]')).forEach(btn=>{btn.disabled=!!disabled;});
+    }
+    function parseExportFileName(disposition,fallback){
+      if(!disposition)return fallback;
+      const m=/filename\\*=UTF-8''([^;]+)|filename=\"?([^\";]+)\"?/i.exec(disposition);
+      const raw=m?(m[1]||m[2]):null;
+      if(!raw)return fallback;
+      try{return decodeURIComponent(raw);}catch{return raw;}
+    }
+    function saveExportBlob(blob,name){
+      const link=document.createElement('a');
+      link.href=URL.createObjectURL(blob);
+      link.download=name;
+      link.style.display='none';
+      document.body.appendChild(link);
+      link.click();
+      setTimeout(()=>{URL.revokeObjectURL(link.href);link.remove();},1500);
+    }
+    async function exportOrgFinanceTruth(format){
+      const normalized=String(format||'').toLowerCase();
+      if(normalized!=='csv'&&normalized!=='json')return;
+      setOrgFinanceExportButtonsDisabled(true);
+      setOrgFinanceExportStatus('Finance-Export wird erstellt…','muted');
+      try{
+        if(normalized==='csv'){
+          const response=await fetch('/api/reporting/finance-truth/export?format=csv',{credentials:'include'});
+          if(response.status===401){location.href='/';return;}
+          if(!response.ok)throw new Error('HTTP '+response.status);
+          const blob=await response.blob();
+          const fileName=parseExportFileName(response.headers.get('content-disposition'),'finance-truth-'+new Date().toISOString().slice(0,10)+'.csv');
+          saveExportBlob(blob,fileName);
+        }else{
+          const payload=await api('/reporting/finance-truth/export?format=json');
+          if(!payload)throw new Error('Export derzeit nicht verfügbar');
+          const blob=new Blob([JSON.stringify(payload,null,2)],{type:'application/json;charset=utf-8'});
+          saveExportBlob(blob,'finance-truth-'+new Date().toISOString().slice(0,10)+'.json');
+        }
+        setOrgFinanceExportStatus('Finance-Export bereitgestellt.','good');
+      }catch(e){
+        setOrgFinanceExportStatus('Finance-Export fehlgeschlagen: '+((e&&e.message)||'Unbekannter Fehler'),'bad');
+      }finally{
+        setOrgFinanceExportButtonsDisabled(false);
+      }
+    }
+
+    /* ── Tab Switching ───────────────── */
+    function activateTab(tabName, updateUrl){
+      const tab=document.querySelector('.occ-tab[data-tab="'+tabName+'"]');
+      if(!tab)return;
+      document.querySelectorAll('.occ-tab').forEach(t=>t.classList.remove('occ-tab--active'));
+      document.querySelectorAll('.occ-panel').forEach(p=>p.classList.remove('occ-panel--active'));
+      tab.classList.add('occ-tab--active');
+      const panel=document.getElementById('panel-'+tab.dataset.tab);
+      if(panel)panel.classList.add('occ-panel--active');
+      if(updateUrl!==false){
+        const url=new URL(window.location.href);
+        url.searchParams.set('tab',tab.dataset.tab);
+        window.history.replaceState({},'',url.toString());
+      }
+      // Lazy-load
+      const loaders={members:loadMembers,locations:loadLocations,departments:loadDepartments,'api-keys':loadApiKeys,webhooks:loadWebhooks,audit:loadAudit,usage:loadUsage,security:loadSecurity,roles:loadRoles};
+      if(loaders[tab.dataset.tab])loaders[tab.dataset.tab]();
+      applyOrgDomLocks(document);
+    }
+    document.getElementById('occ-tabs').addEventListener('click',e=>{
+      const tab=e.target.closest('.occ-tab');
+      if(!tab)return;
+      e.preventDefault();
+      activateTab(tab.dataset.tab,true);
+    });
+
+    /* ── Overview ────────────────────── */
+    async function loadOverview(){
+      const d=await api('/org/overview');
+      if(!d||!d.success)return;
+      const o=d.data.organization;
+      const c=d.data.counts;
+      document.getElementById('org-title').textContent=esc(o.name)+' – Organisation';
+      document.getElementById('badge-members').textContent=c.members;
+      document.getElementById('badge-api-keys').textContent=c.api_keys;
+      document.getElementById('badge-webhooks').textContent=c.integrations;
+      document.getElementById('overview-stats').innerHTML=
+        stat(c.active_members,'Mitglieder')+stat(c.api_keys,'API Keys')+
+        stat(c.active_integrations,'Webhooks')+stat(c.locations,'Standorte')+stat(c.departments,'Abteilungen');
+    }
+    function stat(v,l){return `<div class="occ-stat"><div class="occ-stat__value">${esc(v)}</div><div class="occ-stat__label">${esc(l)}</div></div>`;}
+
+    /* ── Members ─────────────────────── */
+    function _mkLocOpts(selectedId){
+      return '<option value="">– kein –</option>'+_locations.map(function(l){return '<option value="'+esc(l.id)+'"'+(l.id===selectedId?' selected':'')+'>'+esc(l.name)+(l.city?' ('+esc(l.city)+')':'')+'</option>';}).join('');
+    }
+    function _mkDeptOpts(selectedId){
+      return '<option value="">– kein –</option>'+_departments.map(function(d){return '<option value="'+esc(d.id)+'"'+(d.id===selectedId?' selected':'')+'>'+esc(d.name)+'</option>';}).join('');
+    }
+    async function loadMembers(){
+      const d=await api('/org/members');
+      if(!d||!d.success)return;
+      const items=d.data.items;
+      if(!items.length){document.getElementById('members-list').innerHTML='<div class="occ-empty">Keine Mitglieder</div>';return;}
+      if(!_locations.length){await loadLocations();}
+      if(!_departments.length){const dd=await api('/org/departments');if(dd&&dd.success)_departments=dd.data.items||[];}
+      let html='<table class="occ-table"><thead><tr><th>Name</th><th>E-Mail</th><th>Rolle</th><th>Standort</th><th>Abteilung</th><th>Scope</th><th>Status</th><th></th></tr></thead><tbody>';
+      for(const m of items){
+        const badge=m.is_active!==false?'<span class="occ-badge occ-badge--green">Aktiv</span>':'<span class="occ-badge occ-badge--red">Inaktiv</span>';
+        let scopeBadge;
+        if(m.location_id){scopeBadge='<span class="occ-badge occ-badge--gray">Standortgebunden</span>';}
+        else if(m.department_id){scopeBadge='<span class="occ-badge occ-badge--gray">Abteilungsgebunden</span>';}
+        else{scopeBadge='<span class="occ-badge occ-badge--green">Alle Standorte</span>';}
+        const mid=esc(m.id);
+        html+='<tr>';
+        html+='<td>'+esc(m.company_name||m.name||'–')+'</td>';
+        html+='<td>'+esc(m.email)+'</td>';
+        html+='<td><span class="occ-badge occ-badge--gray">'+esc(m.role_key)+'</span></td>';
+        html+='<td>'+esc(m.location_name||'—')+'</td>';
+        html+='<td>'+esc(m.department_name||'—')+'</td>';
+        html+='<td>'+scopeBadge+'</td>';
+        html+='<td>'+badge+'</td>';
+        html+='<td><button class="occ-btn" style="font-size:11px;padding:4px 10px" onclick="toggleScopeEdit(\''+mid+'\')">&#9881; Scope</button></td>';
+        html+='</tr>';
+        html+='<tr id="scope-edit-'+mid+'" style="display:none">';
+        html+='<td colspan="8" style="padding:0">';
+        html+='<div class="occ-edit-row" style="margin:0;border-radius:0 0 8px 8px;display:block">';
+        html+='<div style="display:grid;grid-template-columns:1fr 1fr;gap:var(--ds-space-2);margin-bottom:var(--ds-space-2)">';
+        html+='<div><label style="font-size:11px;color:var(--ds-text-secondary);display:block;margin-bottom:3px">Standort</label>';
+        html+='<select id="scope-loc-'+mid+'" class="occ-input">'+_mkLocOpts(m.location_id)+'</select></div>';
+        html+='<div><label style="font-size:11px;color:var(--ds-text-secondary);display:block;margin-bottom:3px">Abteilung</label>';
+        html+='<select id="scope-dept-'+mid+'" class="occ-input">'+_mkDeptOpts(m.department_id)+'</select></div>';
+        html+='</div>';
+        html+='<div style="display:flex;justify-content:flex-end;gap:6px;align-items:center">';
+        html+='<span id="scope-err-'+mid+'" style="font-size:11px;color:#f87171"></span>';
+        html+='<button class="occ-btn" onclick="toggleScopeEdit(\''+mid+'\')">Abbrechen</button>';
+        html+='<button class="occ-btn occ-btn--primary" onclick="changeScope(\''+mid+'\')">Speichern</button>';
+        html+='</div></div></td></tr>';
+      }
+      html+='</tbody></table>';
+      document.getElementById('members-list').innerHTML=html;
+    }
+    function toggleScopeEdit(mid){
+      const row=document.getElementById('scope-edit-'+mid);
+      if(!row)return;
+      row.style.display=row.style.display==='none'?'table-row':'none';
+    }
+    async function changeScope(membershipId){
+      const locId=document.getElementById('scope-loc-'+membershipId)?.value||null;
+      const deptId=document.getElementById('scope-dept-'+membershipId)?.value||null;
+      const errEl=document.getElementById('scope-err-'+membershipId);
+      if(errEl)errEl.textContent='';
+      const r=await api('/org/members/'+membershipId+'/scope',{method:'PATCH',body:JSON.stringify({location_id:locId||null,department_id:deptId||null})});
+      if(r&&r.success){loadMembers();}
+      else{if(errEl)errEl.textContent='Fehler: '+((r&&r.error&&r.error.code)||'Unbekannt');}
+    }
+
+    /* ── API Keys ────────────────────── */
+    async function loadApiKeys(){
+      const d=await api('/org/api-keys');
+      if(!d||!d.success)return;
+      const items=d.data.items;
+      if(!items.length){document.getElementById('api-keys-list').innerHTML='<div class="occ-empty">Keine API Keys vorhanden</div>';return;}
+      let html='<table class="occ-table"><thead><tr><th>Label</th><th>Prefix</th><th>Scopes</th><th>Erstellt</th><th>Zuletzt genutzt</th><th>Status</th><th></th></tr></thead><tbody>';
+      for(const k of items){
+        const badge=k.is_active?'<span class="occ-badge occ-badge--green">Aktiv</span>':'<span class="occ-badge occ-badge--red">Widerrufen</span>';
+        const used=k.last_used_at?new Date(k.last_used_at).toLocaleDateString('de-DE'):'Nie';
+        const scopesTxt=(k.scopes&&k.scopes.length)?k.scopes.map(s=>`<span class="occ-badge occ-badge--gray">${esc(s)}</span>`).join(' '):'<span class="occ-badge occ-badge--gray">Voll</span>';
+        const btns=k.is_active?`<button class="occ-btn" data-feature-key="integrations" onclick="rotateKey('${esc(k.id)}')">Rotieren</button> <button class="occ-btn occ-btn--danger" data-feature-key="integrations" onclick="revokeKey('${esc(k.id)}')">Widerrufen</button>`:'';
+        html+=`<tr><td>${esc(k.label||'–')}</td><td><code>${esc(k.key_prefix)}••••</code></td><td>${scopesTxt}</td><td>${new Date(k.created_at).toLocaleDateString('de-DE')}</td><td>${esc(used)}</td><td>${badge}</td><td style="white-space:nowrap">${btns}</td></tr>`;
+      }
+      html+='</tbody></table>';
+      document.getElementById('api-keys-list').innerHTML=html;
+      applyOrgDomLocks(document.getElementById('api-keys-list'));
+    }
+    let _newKey='';
+    let _scopeList=[];
+    async function loadScopeList(){
+      const d=await api('/org/api-keys/scopes');
+      if(d&&d.success)_scopeList=d.data.scopes;
+    }
+    function renderScopeCheckboxes(){
+      const el=document.getElementById('ak-scopes');
+      if(!el)return;
+      el.innerHTML=_scopeList.map(s=>`<label style="font-size:12px;display:flex;align-items:center;gap:4px;cursor:pointer;padding:3px 8px;border-radius:6px;background:rgba(255,255,255,.04)"><input type="checkbox" value="${esc(s.key)}" style="accent-color:var(--ds-brand)"/> ${esc(s.key)}</label>`).join('');
+    }
+    function getSelectedScopes(){
+      return Array.from(document.querySelectorAll('#ak-scopes input:checked')).map(i=>i.value);
+    }
+    function showCreateKeyModal(){document.getElementById('api-key-modal').classList.add('show');document.getElementById('api-key-form').style.display='block';document.getElementById('api-key-result').style.display='none';document.getElementById('ak-label').value='';renderScopeCheckboxes();}
+    function hideCreateKeyModal(){document.getElementById('api-key-modal').classList.remove('show');}
+    async function createApiKey(){
+      const label=document.getElementById('ak-label').value.trim();
+      const scopes=getSelectedScopes();
+      const d=await api('/org/api-keys',{method:'POST',body:JSON.stringify({label,scopes})});
+      if(!d||!d.success)return alert('Fehler beim Erstellen');
+      _newKey=d.data.key;
+      document.getElementById('new-key-value').textContent=_newKey;
+      document.getElementById('api-key-form').style.display='none';
+      document.getElementById('api-key-result').style.display='block';
+      loadOverview();
+    }
+    function copyKey(){navigator.clipboard.writeText(_newKey).catch(()=>{});}
+    async function rotateKey(id){
+      if(!confirm('API Key rotieren? Der alte Key wird sofort ungueltig.'))return;
+      const d=await api('/org/api-keys/'+id+'/rotate',{method:'POST'});
+      if(!d||!d.success)return alert('Fehler bei Rotation');
+      _newKey=d.data.new_key.key;
+      document.getElementById('new-key-value').textContent=_newKey;
+      document.getElementById('api-key-modal').classList.add('show');
+      document.getElementById('api-key-form').style.display='none';
+      document.getElementById('api-key-result').style.display='block';
+      loadApiKeys();loadOverview();
+    }
+    async function revokeKey(id){
+      if(!confirm('API Key wirklich widerrufen?'))return;
+      await api('/org/api-keys/'+id,{method:'DELETE'});
+      loadApiKeys();loadOverview();
+    }
+
+    /* ── Webhooks ────────────────────── */
+    async function loadWebhooks(){
+      const d=await api('/org/webhooks');
+      if(!d||!d.success)return;
+      const items=d.data.items;
+      if(!items.length){document.getElementById('webhooks-list').innerHTML='<div class="occ-empty">Keine Webhooks konfiguriert</div>';return;}
+      let html='<table class="occ-table"><thead><tr><th>Provider</th><th>Label</th><th>URL</th><th>Status</th><th>Letzter Erfolg</th></tr></thead><tbody>';
+      for(const w of items){
+        const badge=w.is_active?'<span class="occ-badge occ-badge--green">Aktiv</span>':'<span class="occ-badge occ-badge--gray">Inaktiv</span>';
+        const last=w.last_success_at?new Date(w.last_success_at).toLocaleDateString('de-DE'):'–';
+        html+=`<tr><td>${esc(w.provider)}</td><td>${esc(w.label||'–')}</td><td><code>${esc(w.webhook_url_masked)}</code></td><td>${badge}</td><td>${esc(last)}</td></tr>`;
+      }
+      html+='</tbody></table>';
+      document.getElementById('webhooks-list').innerHTML=html;
+      applyOrgDomLocks(document.getElementById('webhooks-list'));
+    }
+
+    /* ── Audit Log ───────────────────── */
+    async function loadAudit(){
+      const actionType=document.getElementById('audit-action-type').value;
+      const q=actionType?`?action_type=${actionType}&limit=50`:'?limit=50';
+      const d=await api('/org/audit-log'+q);
+      if(!d||!d.success)return;
+      const items=d.data.items;
+      if(!items.length){document.getElementById('audit-list').innerHTML='<div class="occ-empty">Keine Einträge</div>';return;}
+      let html='<table class="occ-table"><thead><tr><th>Zeit</th><th>Aktion</th><th>Typ</th><th>Benutzer</th><th>Status</th></tr></thead><tbody>';
+      for(const a of items){
+        const time=new Date(a.created_at).toLocaleString('de-DE',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'});
+        const st=a.status==='SUCCESS'?'occ-badge--green':a.status==='DENIED'?'occ-badge--red':'occ-badge--gray';
+        html+=`<tr><td>${esc(time)}</td><td>${esc(a.action)}</td><td><span class="occ-badge occ-badge--gray">${esc(a.action_type||'–')}</span></td><td>${esc(a.actor_email||'–')}</td><td><span class="occ-badge ${st}">${esc(a.status||'–')}</span></td></tr>`;
+      }
+      html+='</tbody></table>';
+      if(d.data.total>50)html+=`<p style="font-size:12px;color:var(--ds-text-secondary);margin-top:var(--ds-space-2)">Zeige 50 von ${d.data.total} Einträgen</p>`;
+      document.getElementById('audit-list').innerHTML=html;
+    }
+
+    /* ── Usage ────────────────────────── */
+    async function loadUsage(){
+      const d=await api('/org/usage');
+      if(!d||!d.success){document.getElementById('usage-content').innerHTML='<div class="occ-empty">Usage-Daten nicht verfügbar</div>';return;}
+      const u=d.data;
+      let html='<div style=\"display:flex;flex-wrap:wrap;gap:8px;align-items:center;justify-content:flex-end;margin-bottom:12px\">'+
+        '<button class=\"occ-btn\" type=\"button\" data-feature-key=\"basic_analytics\" data-org-finance-export onclick=\"exportOrgFinanceTruth(\'csv\')\">Finance Snapshot CSV</button>'+
+        '<button class=\"occ-btn\" type=\"button\" data-feature-key=\"basic_analytics\" data-org-finance-export onclick=\"exportOrgFinanceTruth(\'json\')\">Finance Snapshot JSON</button>'+
+        '<span id=\"orgFinanceExportStatus\" style=\"font-size:12px;color:var(--ds-text-secondary)\">Auditfähiger Finance-Snapshot verfügbar.</span>'+
+      '</div>';
+      html+=`<div class=\"occ-stat-grid\">
+        ${stat(u.active_workers,'Aktive Worker')}${stat(u.active_assignments,'Aktive Einsätze')}
+        ${stat(u.plan_limits?.plan||'–','Plan')}${stat(u.plan_limits?.hard_blocked?'Ja':'Nein','Limit erreicht')}
+      </div>`;
+      if(u.plan_limits?.warnings?.length){
+        html+='<div class="occ-card"><div class="occ-card__title">⚠️ Warnungen</div>';
+        for(const w of u.plan_limits.warnings)html+=`<p style="font-size:13px;color:#fbbf24">${esc(w)}</p>`;
+        html+='</div>';
+      }
+      if(u.monthly_snapshots?.length){
+        html+='<div class="occ-card"><div class="occ-card__title">Monatliche Snapshots</div><table class="occ-table"><thead><tr><th>Monat</th><th>Worker</th><th>Seats</th><th>Timesheets</th><th>Plan</th></tr></thead><tbody>';
+        for(const s of u.monthly_snapshots){
+          html+=`<tr><td>${esc(s.snapshot_month)}</td><td>${esc(s.active_workers)}</td><td>${esc(s.active_seats)}</td><td>${esc(s.submitted_ts||0)}</td><td><span class="occ-badge occ-badge--gray">${esc(s.plan||'–')}</span></td></tr>`;
+        }
+        html+='</tbody></table></div>';
+      }
+      document.getElementById('usage-content').innerHTML=html;
+      applyOrgDomLocks(document.getElementById('usage-content'));
+    }
+
+    /* ── Security ─────────────────────── */
+    async function loadSecurity(){
+      const d=await api('/org/security');
+      if(!d||!d.success)return;
+      const s=d.data.security_summary;
+      const cfg=d.data.settings||{};
+      const items=[
+        ['RBAC erzwungen',s.rbac_enforced],['Audit Logging',s.audit_logging],['CSRF-Schutz',s.csrf_protection],
+        ['Rate Limiting',s.rate_limiting],['Verschlüsselung (Transit)',s.encryption_in_transit],
+        ['Verschlüsselung (Rest)',s.encryption_at_rest],['Approval Workflow',s.approval_workflow],
+        ['Preferred Suppliers Only',s.preferred_suppliers_only],['Auto-Match',s.auto_match],
+        ['Inter-Agency Matching',s.inter_agency_matching],['Inter-Agency Supply sichtbar',s.inter_agency_supply_visible],
+        ['Compliance-Stufe: '+esc(s.compliance_strictness),true]
+      ];
+      let html='<div class="occ-card"><div class="occ-card__title">Sicherheitsübersicht</div><div class="occ-security-grid">';
+      for(const [label,on] of items){
+        html+=`<div class="occ-security-item"><div class="occ-security-dot ${on?'occ-security-dot--on':'occ-security-dot--off'}"></div>${label}</div>`;
+      }
+      html+='</div></div>';
+      html+='<div class="occ-card"><div class="occ-card__title">Marktplatzmodus fuer individuellen Tarif</div>';
+      html+='<p style="font-size:12px;color:var(--ds-text-secondary);margin:0 0 var(--ds-space-3)">Optionaler Zusatzmodus fuer den individuellen Tarif: Zeitarbeitsfirmen koennen kontrolliert auch mit anderen Zeitarbeitsfirmen matchen.</p>';
+      html+='<label style="display:flex;align-items:center;gap:8px;font-size:13px;margin-bottom:10px"><input type="checkbox" id="sec-inter-agency-enabled" '+(cfg.inter_agency_matching_enabled?'checked':'')+'/> Inter-Agency Matching aktivieren</label>';
+      html+='<label style="display:flex;align-items:center;gap:8px;font-size:13px;margin-bottom:10px"><input type="checkbox" id="sec-inter-agency-supply" '+(cfg.inter_agency_supply_visible?'checked':'')+'/> Kapazitaeten auch fuer Zeitarbeitsfirmen sichtbar machen</label>';
+      html+='<div style="display:flex;justify-content:flex-end"><button class="occ-btn occ-btn--primary" data-feature-key="org_settings" onclick="saveInterAgencySettings()">Einstellungen speichern</button></div>';
+      html+='</div>';
+      document.getElementById('security-content').innerHTML=html;
+      applyOrgDomLocks(document.getElementById('security-content'));
+    }
+    async function saveInterAgencySettings(){
+      const enabled=!!document.getElementById('sec-inter-agency-enabled')?.checked;
+      const supplyVisible=!!document.getElementById('sec-inter-agency-supply')?.checked;
+      const r=await api('/org/security',{method:'PATCH',body:JSON.stringify({
+        inter_agency_matching_enabled:enabled,
+        inter_agency_supply_visible:enabled&&supplyVisible
+      })});
+      if(r&&r.success){loadSecurity();alert('Inter-Agency Einstellungen gespeichert.');}
+      else{alert('Speichern fehlgeschlagen.');}
+    }
+
+    /* ── Roles & Permissions ───────── */
+    const ROLE_LABELS={owner:'Owner',admin:'Admin',program_manager:'Programm-Manager',hiring_manager:'Hiring Manager',manager:'Manager',member:'Mitglied',viewer:'Betrachter',finance:'Finanzen',dispatcher:'Dispatcher',supplier_user:'Lieferant',worker:'Worker'};
+    const ROLE_ORDER=['owner','admin','program_manager','hiring_manager','manager','finance','dispatcher','member','viewer','supplier_user','worker'];
+    async function loadRoles(){
+      // Hierarchy
+      let hHtml='<div style="display:flex;flex-wrap:wrap;gap:8px;align-items:center">';
+      ROLE_ORDER.forEach((r,i)=>{
+        hHtml+='<span class="occ-badge occ-badge--gray" style="font-size:12px;padding:4px 12px">'+(ROLE_LABELS[r]||r)+'</span>';
+        if(i<ROLE_ORDER.length-1)hHtml+='<span style="color:var(--ds-text-tertiary);font-size:10px">&rarr;</span>';
+      });
+      hHtml+='</div>';
+      document.getElementById('roles-hierarchy').innerHTML=hHtml;
+
+      // Permissions matrix (from backend)
+      try{
+        const pd=await api('/org/roles-permissions');
+        if(pd&&pd.success){
+          const perms=pd.data.permissions||{};
+          const roles=pd.data.roles||ROLE_ORDER.slice(0,8);
+          let tHtml='<table class="occ-table" style="font-size:11px"><thead><tr><th>Berechtigung</th>';
+          roles.forEach(r=>{tHtml+='<th style="text-align:center">'+(ROLE_LABELS[r]||r)+'</th>';});
+          tHtml+='</tr></thead><tbody>';
+          Object.entries(perms).forEach(([perm,allowedRoles])=>{
+            tHtml+='<tr><td>'+esc(perm)+'</td>';
+            roles.forEach(r=>{tHtml+='<td style="text-align:center">'+(allowedRoles.includes(r)?'<span style="color:#34d399">&#10003;</span>':'<span style="color:rgba(255,255,255,.15)">&ndash;</span>')+'</td>';});
+            tHtml+='</tr>';
+          });
+          tHtml+='</tbody></table>';
+          document.getElementById('roles-permissions').innerHTML=tHtml;
+        }else{
+          document.getElementById('roles-permissions').innerHTML='<p style="color:var(--ds-text-secondary);font-size:13px">Berechtigungsmatrix wird geladen&hellip;</p>';
+        }
+      }catch{document.getElementById('roles-permissions').innerHTML='<p style="font-size:13px;color:var(--ds-text-secondary)">Rechte-&Uuml;bersicht nicht verf&uuml;gbar (Endpoint fehlt).</p>';}
+
+      // Members with role change
+      const md=await api('/org/members');
+      if(!md||!md.success)return;
+      const items=md.data.items||[];
+      if(!items.length){document.getElementById('roles-members').innerHTML='<div class="occ-empty">Keine Mitglieder</div>';return;}
+      let mHtml='<table class="occ-table"><thead><tr><th>Name</th><th>E-Mail</th><th>Aktuelle Rolle</th><th>Neue Rolle</th><th></th></tr></thead><tbody>';
+      items.forEach(m=>{
+        mHtml+='<tr><td>'+esc(m.company_name||m.name||'\u2013')+'</td><td style="font-size:12px">'+esc(m.email)+'</td>';
+        mHtml+='<td><span class="occ-badge occ-badge--gray">'+esc(ROLE_LABELS[m.role_key]||m.role_key)+'</span></td>';
+        var mid=esc(m.id);
+        mHtml+='<td><select id="role-sel-'+mid+'" style="font-size:12px;padding:4px 8px;border-radius:6px;border:1px solid rgba(255,255,255,.1);background:rgba(0,0,0,.2);color:var(--ds-text)">';
+        ROLE_ORDER.slice(0,8).forEach(r=>{mHtml+='<option value="'+r+'"'+(r===m.role_key?' selected':'')+'>'+esc(ROLE_LABELS[r]||r)+'</option>';});
+        mHtml+='</select></td>';
+        mHtml+='<td><button class="occ-btn" data-feature-key="org_settings" style="font-size:11px;padding:4px 10px" onclick="changeRole(\''+mid+'\',document.getElementById(\'role-sel-'+mid+'\').value)">Speichern</button></td></tr>';
+      });
+      mHtml+='</tbody></table>';
+      document.getElementById('roles-members').innerHTML=mHtml;
+      applyOrgDomLocks(document.getElementById('roles-members'));
+    }
+    async function changeRole(membershipId,newRole){
+      const r=await api('/org/members/'+membershipId+'/role',{method:'PATCH',body:JSON.stringify({role_key:newRole})});
+      if(r&&r.success){loadRoles();loadMembers();}else{alert('Fehler: '+((r&&r.error&&r.error.code)||r.error||'Unbekannt'));}
+    }
+
+    /* ── Locations ───────────────────── */
+    let _locations=[];
+    let _departments=[];
+    async function loadLocations(){
+      const d=await api('/org/locations');
+      if(!d||!d.success){document.getElementById('locations-list').innerHTML='<div class="occ-empty">Standorte konnten nicht geladen werden.</div>';return;}
+      _locations=d.data.items||[];
+      document.getElementById('badge-locations').textContent=_locations.length;
+      // Populate department location dropdown
+      const sel=document.getElementById('dept-location-id');
+      if(sel){
+        const cur=sel.value;
+        sel.innerHTML='<option value="">– kein Standort –</option>';
+        _locations.forEach(l=>{sel.innerHTML+=`<option value="${esc(l.id)}">${esc(l.name)}${l.city?' ('+esc(l.city)+')':''}</option>`;});
+        if(cur)sel.value=cur;
+      }
+      if(!_locations.length){document.getElementById('locations-list').innerHTML='<div class="occ-empty">Noch keine Standorte angelegt.</div>';return;}
+      let html='';
+      _locations.forEach(loc=>{
+        const hqBadge=loc.is_hq?'<span class="occ-badge occ-badge--green">HQ</span>':'';
+        const address=[loc.street,loc.postal_code?loc.postal_code+' '+loc.city:loc.city,loc.country&&loc.country!=='DE'?loc.country:''].filter(Boolean).join(', ');
+        html+=`<div class="occ-loc-card" id="loc-row-${esc(loc.id)}">
+          <div class="occ-loc-card__info">
+            <div class="occ-loc-card__name">${esc(loc.name)} ${hqBadge}</div>
+            <div class="occ-loc-card__meta">${esc(address)||'–'}</div>
+          </div>
+          <div class="occ-loc-card__actions">
+            <button class="occ-btn" data-feature-key="org_settings" style="font-size:11px;padding:4px 10px" onclick="toggleLocEdit('${esc(loc.id)}')">Bearbeiten</button>
+            <button class="occ-btn occ-btn--danger" data-feature-key="org_settings" style="font-size:11px;padding:4px 10px" onclick="deactivateLocation('${esc(loc.id)}','${esc(loc.name)}')">Deaktivieren</button>
+          </div>
+        </div>
+        <div class="occ-edit-row" id="loc-edit-${esc(loc.id)}">
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:var(--ds-space-2);margin-bottom:var(--ds-space-2)">
+            <div><label style="font-size:11px;color:var(--ds-text-secondary);display:block;margin-bottom:3px">Name</label>
+              <input type="text" id="loc-edit-name-${esc(loc.id)}" value="${esc(loc.name)}" class="occ-input"/></div>
+            <div><label style="font-size:11px;color:var(--ds-text-secondary);display:block;margin-bottom:3px">Stadt</label>
+              <input type="text" id="loc-edit-city-${esc(loc.id)}" value="${esc(loc.city||'')}" class="occ-input"/></div>
+            <div><label style="font-size:11px;color:var(--ds-text-secondary);display:block;margin-bottom:3px">Straße</label>
+              <input type="text" id="loc-edit-street-${esc(loc.id)}" value="${esc(loc.street||'')}" class="occ-input"/></div>
+            <div><label style="font-size:11px;color:var(--ds-text-secondary);display:block;margin-bottom:3px">PLZ</label>
+              <input type="text" id="loc-edit-postal-${esc(loc.id)}" value="${esc(loc.postal_code||'')}" class="occ-input"/></div>
+          </div>
+          <div style="display:flex;align-items:center;gap:var(--ds-space-3);justify-content:space-between">
+            <label style="display:flex;align-items:center;gap:6px;font-size:12px;cursor:pointer">
+              <input type="checkbox" id="loc-edit-hq-${esc(loc.id)}" ${loc.is_hq?'checked':''} style="accent-color:var(--ds-brand)"/> Hauptsitz (HQ)
+            </label>
+            <div style="display:flex;gap:6px">
+              <span id="loc-edit-err-${esc(loc.id)}" style="font-size:11px;color:#f87171;align-self:center"></span>
+              <button class="occ-btn" onclick="toggleLocEdit('${esc(loc.id)}')">Abbrechen</button>
+              <button class="occ-btn occ-btn--primary" data-feature-key="org_settings" onclick="saveLocation('${esc(loc.id)}')">Speichern</button>
+            </div>
+          </div>
+        </div>`;
+      });
+      document.getElementById('locations-list').innerHTML=html;
+      applyOrgDomLocks(document.getElementById('locations-list'));
+    }
+    function toggleLocEdit(id){
+      const row=document.getElementById('loc-edit-'+id);
+      if(!row)return;
+      row.style.display=row.style.display==='block'?'none':'block';
+    }
+    async function saveLocation(id){
+      const name=document.getElementById('loc-edit-name-'+id)?.value.trim();
+      const city=document.getElementById('loc-edit-city-'+id)?.value.trim();
+      const street=document.getElementById('loc-edit-street-'+id)?.value.trim()||null;
+      const postal_code=document.getElementById('loc-edit-postal-'+id)?.value.trim()||null;
+      const is_hq=!!document.getElementById('loc-edit-hq-'+id)?.checked;
+      const errEl=document.getElementById('loc-edit-err-'+id);
+      if(!name||!city){if(errEl)errEl.textContent='Name und Stadt sind Pflicht.';return;}
+      if(errEl)errEl.textContent='';
+      const r=await api('/org/locations/'+id,{method:'PATCH',body:JSON.stringify({name,city,street,postal_code,is_hq})});
+      if(r&&r.success){loadLocations();loadOverview();}
+      else{if(errEl)errEl.textContent='Fehler: '+((r&&r.error&&r.error.code)||'Unbekannt');}
+    }
+    async function deactivateLocation(id,name){
+      if(!confirm('Standort "'+name+'" wirklich deaktivieren?\n\nEr wird nicht mehr als Filterstandort angeboten.'))return;
+      const r=await api('/org/locations/'+id,{method:'DELETE'});
+      if(r&&r.success){loadLocations();loadOverview();}
+      else{alert('Fehler beim Deaktivieren.');}
+    }
+    async function createLocation(){
+      const name=document.getElementById('loc-name').value.trim();
+      const city=document.getElementById('loc-city').value.trim();
+      const street=document.getElementById('loc-street').value.trim()||null;
+      const postal_code=document.getElementById('loc-postal').value.trim()||null;
+      const country=document.getElementById('loc-country').value||'DE';
+      const is_hq=!!document.getElementById('loc-is-hq').checked;
+      const errEl=document.getElementById('loc-create-err');
+      if(!name||!city){if(errEl)errEl.textContent='Name und Stadt sind Pflicht.';return;}
+      if(errEl)errEl.textContent='';
+      const r=await api('/org/locations',{method:'POST',body:JSON.stringify({name,city,street,postal_code,country,is_hq})});
+      if(r&&r.success){
+        document.getElementById('loc-name').value='';document.getElementById('loc-city').value='';
+        document.getElementById('loc-street').value='';document.getElementById('loc-postal').value='';
+        document.getElementById('loc-is-hq').checked=false;
+        loadLocations();loadOverview();
+      }else{if(errEl)errEl.textContent='Fehler: '+((r&&r.error&&r.error.code)||'Unbekannt');}
+    }
+
+    /* ── Departments ─────────────────── */
+    async function loadDepartments(){
+      // Ensure locations are loaded for the dropdown
+      if(!_locations.length){await loadLocations();}else{
+        // Refresh location dropdown
+        const sel=document.getElementById('dept-location-id');
+        if(sel&&sel.options.length<2){
+          sel.innerHTML='<option value="">– kein Standort –</option>';
+          _locations.forEach(l=>{sel.innerHTML+=`<option value="${esc(l.id)}">${esc(l.name)}${l.city?' ('+esc(l.city)+')':''}</option>`;});
+        }
+      }
+      const d=await api('/org/departments');
+      if(!d||!d.success){document.getElementById('departments-list').innerHTML='<div class="occ-empty">Abteilungen konnten nicht geladen werden.</div>';return;}
+      const items=d.data.items||[];
+      _departments=items;
+      document.getElementById('badge-departments').textContent=items.length;
+      if(!items.length){document.getElementById('departments-list').innerHTML='<div class="occ-empty">Noch keine Abteilungen angelegt.</div>';return;}
+      let html='';
+      items.forEach(dept=>{
+        const locLabel=dept.location_name?`<span class="occ-badge occ-badge--gray">${esc(dept.location_name)}</span>`:'';
+        const cc=dept.cost_center?`<span style="font-size:11px;color:var(--ds-text-secondary)">KST ${esc(dept.cost_center)}</span>`:'';
+        html+=`<div class="occ-loc-card" id="dept-row-${esc(dept.id)}">
+          <div class="occ-loc-card__info">
+            <div class="occ-loc-card__name">${esc(dept.name)}</div>
+            <div class="occ-loc-card__meta" style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin-top:4px">${locLabel}${cc}</div>
+          </div>
+          <div class="occ-loc-card__actions">
+            <button class="occ-btn" data-feature-key="org_settings" style="font-size:11px;padding:4px 10px" onclick="toggleDeptEdit('${esc(dept.id)}')">Bearbeiten</button>
+            <button class="occ-btn occ-btn--danger" data-feature-key="org_settings" style="font-size:11px;padding:4px 10px" onclick="deactivateDept('${esc(dept.id)}','${esc(dept.name)}')">Deaktivieren</button>
+          </div>
+        </div>
+        <div class="occ-edit-row" id="dept-edit-${esc(dept.id)}">
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:var(--ds-space-2);margin-bottom:var(--ds-space-2)">
+            <div><label style="font-size:11px;color:var(--ds-text-secondary);display:block;margin-bottom:3px">Name</label>
+              <input type="text" id="dept-edit-name-${esc(dept.id)}" value="${esc(dept.name)}" class="occ-input"/></div>
+            <div><label style="font-size:11px;color:var(--ds-text-secondary);display:block;margin-bottom:3px">Kostenstelle</label>
+              <input type="text" id="dept-edit-cc-${esc(dept.id)}" value="${esc(dept.cost_center||'')}" class="occ-input"/></div>
+            <div><label style="font-size:11px;color:var(--ds-text-secondary);display:block;margin-bottom:3px">Standort</label>
+              <select id="dept-edit-loc-${esc(dept.id)}" class="occ-input">
+                <option value="">– kein Standort –</option>
+                ${_locations.map(l=>`<option value="${esc(l.id)}"${l.id===dept.location_id?' selected':''}>${esc(l.name)}${l.city?' ('+esc(l.city)+')':''}</option>`).join('')}
+              </select></div>
+          </div>
+          <div style="display:flex;justify-content:flex-end;gap:6px;align-items:center">
+            <span id="dept-edit-err-${esc(dept.id)}" style="font-size:11px;color:#f87171"></span>
+            <button class="occ-btn" onclick="toggleDeptEdit('${esc(dept.id)}')">Abbrechen</button>
+            <button class="occ-btn occ-btn--primary" data-feature-key="org_settings" onclick="saveDept('${esc(dept.id)}')">Speichern</button>
+          </div>
+        </div>`;
+      });
+      document.getElementById('departments-list').innerHTML=html;
+      applyOrgDomLocks(document.getElementById('departments-list'));
+    }
+    function toggleDeptEdit(id){
+      const row=document.getElementById('dept-edit-'+id);
+      if(!row)return;
+      row.style.display=row.style.display==='block'?'none':'block';
+    }
+    async function saveDept(id){
+      const name=document.getElementById('dept-edit-name-'+id)?.value.trim();
+      const cost_center=document.getElementById('dept-edit-cc-'+id)?.value.trim()||null;
+      const location_id=document.getElementById('dept-edit-loc-'+id)?.value||null;
+      const errEl=document.getElementById('dept-edit-err-'+id);
+      if(!name){if(errEl)errEl.textContent='Name ist Pflicht.';return;}
+      if(errEl)errEl.textContent='';
+      const r=await api('/org/departments/'+id,{method:'PATCH',body:JSON.stringify({name,cost_center,location_id:location_id||null})});
+      if(r&&r.success){loadDepartments();}
+      else{if(errEl)errEl.textContent='Fehler: '+((r&&r.error&&r.error.code)||'Unbekannt');}
+    }
+    async function deactivateDept(id,name){
+      if(!confirm('Abteilung "'+name+'" wirklich deaktivieren?'))return;
+      const r=await api('/org/departments/'+id,{method:'DELETE'});
+      if(r&&r.success){loadDepartments();loadOverview();}
+      else{alert('Fehler beim Deaktivieren.');}
+    }
+    async function createDepartment(){
+      const name=document.getElementById('dept-name').value.trim();
+      const cost_center=document.getElementById('dept-cost-center').value.trim()||null;
+      const location_id=document.getElementById('dept-location-id').value||null;
+      const errEl=document.getElementById('dept-create-err');
+      if(!name){if(errEl)errEl.textContent='Name ist Pflicht.';return;}
+      if(errEl)errEl.textContent='';
+      const r=await api('/org/departments',{method:'POST',body:JSON.stringify({name,cost_center,location_id:location_id||null})});
+      if(r&&r.success){
+        document.getElementById('dept-name').value='';document.getElementById('dept-cost-center').value='';
+        document.getElementById('dept-location-id').value='';
+        loadDepartments();loadOverview();
+      }else{if(errEl)errEl.textContent='Fehler: '+((r&&r.error&&r.error.code)||'Unbekannt');}
+    }
+
+    /* ── Init ─────────────────────── */
+    const requestedTab=new URLSearchParams(window.location.search).get('tab');
+    loadOverview();
+    if(requestedTab){
+      activateTab(requestedTab,false);
+    }else{
+      loadMembers();
+    }
+    loadScopeList();
+    applyOrgDomLocks(document);
+  

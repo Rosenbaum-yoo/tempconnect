@@ -1,0 +1,64 @@
+# =============================================================================
+# TempConnect — Alertmanager Configuration
+# =============================================================================
+# Routing: Alerts werden nach Severity gruppiert und an den passenden
+# Receiver weitergeleitet.
+#
+# Receiver anpassen:
+#   - webhook_url: URL des Alert-Empfaengers (z.B. Slack, PagerDuty, OpsGenie)
+#   - Fuer E-Mail: smtp_smarthost, smtp_from, etc. hinzufuegen
+#
+# Beispiel Slack:
+#   - name: 'slack-critical'
+#     slack_configs:
+#       - api_url: 'https://hooks.slack.com/services/T00/B00/XXX'
+#         channel: '#alerts-critical'
+# =============================================================================
+
+global:
+  resolve_timeout: 5m
+
+route:
+  receiver: default-webhook
+  group_by: [alertname, service, severity]
+  group_wait: 30s
+  group_interval: 5m
+  repeat_interval: 4h
+
+  routes:
+    # Critical alerts: kuerzere Wiederholung
+    - match:
+        severity: critical
+      receiver: critical-webhook
+      repeat_interval: 1h
+
+    # Warning alerts: Standard-Intervall
+    - match:
+        severity: warning
+      receiver: default-webhook
+      repeat_interval: 4h
+
+receivers:
+  # ── Default Receiver (Warning) ───────────────────────────────────────
+  - name: default-webhook
+    webhook_configs:
+      - url: "http://localhost:9095/webhook"
+        send_resolved: true
+        # ANPASSEN: URL des Alert-Empfaengers eintragen
+
+  # ── Critical Receiver ────────────────────────────────────────────────
+  - name: critical-webhook
+    webhook_configs:
+      - url: "http://localhost:9095/webhook"
+        send_resolved: true
+        # ANPASSEN: URL fuer kritische Alerts (z.B. PagerDuty, OpsGenie)
+
+# ── Silencing / Inhibition ──────────────────────────────────────────────
+# Wenn ServiceDown feuert, werden Warning-Alerts fuer denselben Service unterdrueckt
+inhibit_rules:
+  - source_match:
+      severity: critical
+      alertname: ServiceDown
+    target_match:
+      severity: warning
+    equal: [service]

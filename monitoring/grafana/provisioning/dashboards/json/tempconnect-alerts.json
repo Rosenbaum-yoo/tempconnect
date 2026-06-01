@@ -1,0 +1,282 @@
+{
+  "annotations": { "list": [] },
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 1,
+  "id": null,
+  "links": [
+    {
+      "asDropdown": false,
+      "icon": "external link",
+      "includeVars": false,
+      "keepTime": true,
+      "tags": ["tempconnect"],
+      "title": "Operations Dashboard",
+      "type": "link",
+      "url": "/d/tempconnect-ops"
+    }
+  ],
+  "panels": [
+    {
+      "title": "Error Budget — 5xx vs Total (24h)",
+      "description": "Anteil fehlerfreier Requests (Error Budget). Ziel: >99.5% erfolgreich.",
+      "type": "gauge",
+      "gridPos": { "h": 8, "w": 8, "x": 0, "y": 0 },
+      "targets": [
+        {
+          "expr": "1 - (sum(increase(http_requests_total{service=\"tempconnect-api\", status_code=~\"5..\"}[24h])) / sum(increase(http_requests_total{service=\"tempconnect-api\"}[24h])))",
+          "legendFormat": "",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit",
+          "min": 0.95,
+          "max": 1,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "red", "value": null },
+              { "color": "yellow", "value": 0.99 },
+              { "color": "green", "value": 0.995 }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "title": "Latenz-SLO — Requests <500ms (%)",
+      "description": "Anteil der Requests mit Antwortzeit unter 500ms. Ziel: >95%.",
+      "type": "gauge",
+      "gridPos": { "h": 8, "w": 8, "x": 8, "y": 0 },
+      "targets": [
+        {
+          "expr": "sum(rate(http_request_duration_seconds_bucket{service=\"tempconnect-api\", le=\"0.5\"}[5m])) / sum(rate(http_request_duration_seconds_count{service=\"tempconnect-api\"}[5m]))",
+          "legendFormat": "",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit",
+          "min": 0.8,
+          "max": 1,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "red", "value": null },
+              { "color": "yellow", "value": 0.9 },
+              { "color": "green", "value": 0.95 }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "title": "Service-Status",
+      "description": "up=1: erreichbar, up=0: nicht erreichbar.",
+      "type": "stat",
+      "gridPos": { "h": 4, "w": 4, "x": 16, "y": 0 },
+      "targets": [
+        {
+          "expr": "up{job=\"tempconnect-api\"}",
+          "legendFormat": "",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "mappings": [
+            { "type": "value", "options": { "0": { "text": "DOWN", "color": "red" }, "1": { "text": "UP", "color": "green" } } }
+          ],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "red", "value": null },
+              { "color": "green", "value": 1 }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "title": "Aktive Alerts",
+      "description": "Anzahl aktuell feuernder Alert-Regeln.",
+      "type": "stat",
+      "gridPos": { "h": 4, "w": 4, "x": 20, "y": 0 },
+      "targets": [
+        {
+          "expr": "count(ALERTS{alertstate=\"firing\", service=\"tempconnect-api\"}) or vector(0)",
+          "legendFormat": "",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "yellow", "value": 1 },
+              { "color": "red", "value": 2 }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "title": "DB Connection Errors/s",
+      "description": "Pool-Level Verbindungsfehler (z.B. verlorene Verbindung).",
+      "type": "stat",
+      "gridPos": { "h": 4, "w": 4, "x": 16, "y": 4 },
+      "targets": [
+        {
+          "expr": "rate(db_connection_errors_total{service=\"tempconnect-api\"}[5m])",
+          "legendFormat": "",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "ops",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "yellow", "value": 0.01 },
+              { "color": "red", "value": 0.1 }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "title": "5xx Rate vs 4xx Rate",
+      "description": "Fehlerraten im Vergleich. 5xx = Serverfehler, 4xx = Clientfehler.",
+      "type": "stat",
+      "gridPos": { "h": 4, "w": 4, "x": 20, "y": 4 },
+      "targets": [
+        {
+          "expr": "sum(rate(http_requests_total{service=\"tempconnect-api\", status_code=~\"5..\"}[5m]))",
+          "legendFormat": "5xx/s",
+          "refId": "A"
+        },
+        {
+          "expr": "sum(rate(http_requests_total{service=\"tempconnect-api\", status_code=~\"4..\"}[5m]))",
+          "legendFormat": "4xx/s",
+          "refId": "B"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "reqps"
+        }
+      }
+    },
+    {
+      "title": "DB Query Errors/s (nach Operation)",
+      "description": "Fehlgeschlagene DB-Queries pro Sekunde, aufgeschluesselt nach SQL-Operation.",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 8 },
+      "targets": [
+        {
+          "expr": "sum(rate(db_query_errors_total{service=\"tempconnect-api\"}[5m])) by (operation)",
+          "legendFormat": "{{ operation }}",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "ops",
+          "custom": { "drawStyle": "line", "fillOpacity": 15, "pointSize": 5 }
+        }
+      }
+    },
+    {
+      "title": "DB Query Duration (p50 / p95 / p99)",
+      "description": "Latenz der DB-Queries — zeigt Datenbank-Performance.",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 8 },
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.50, sum(rate(db_query_duration_seconds_bucket{service=\"tempconnect-api\"}[5m])) by (le))",
+          "legendFormat": "p50",
+          "refId": "A"
+        },
+        {
+          "expr": "histogram_quantile(0.95, sum(rate(db_query_duration_seconds_bucket{service=\"tempconnect-api\"}[5m])) by (le))",
+          "legendFormat": "p95",
+          "refId": "B"
+        },
+        {
+          "expr": "histogram_quantile(0.99, sum(rate(db_query_duration_seconds_bucket{service=\"tempconnect-api\"}[5m])) by (le))",
+          "legendFormat": "p99",
+          "refId": "C"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "custom": { "drawStyle": "line", "fillOpacity": 5 }
+        }
+      }
+    },
+    {
+      "title": "Error Rate Timeline (5xx%)",
+      "description": "Fehlerrate ueber Zeit — zeigt Trend und Korrelation mit Deployments.",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 16 },
+      "targets": [
+        {
+          "expr": "sum(rate(http_requests_total{service=\"tempconnect-api\", status_code=~\"5..\"}[5m])) / sum(rate(http_requests_total{service=\"tempconnect-api\"}[5m])) * 100",
+          "legendFormat": "Error Rate %",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "custom": { "drawStyle": "line", "fillOpacity": 10 },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "yellow", "value": 1 },
+              { "color": "red", "value": 5 }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "title": "DB Query Duration by Operation (p95)",
+      "description": "Langsamste DB-Operationen — hilft bei Query-Optimierung.",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 16 },
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.95, sum(rate(db_query_duration_seconds_bucket{service=\"tempconnect-api\"}[5m])) by (le, operation))",
+          "legendFormat": "{{ operation }} p95",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "custom": { "drawStyle": "bars", "fillOpacity": 60 }
+        }
+      }
+    }
+  ],
+  "refresh": "30s",
+  "schemaVersion": 39,
+  "tags": ["tempconnect", "alerts", "slo"],
+  "templating": { "list": [] },
+  "time": { "from": "now-3h", "to": "now" },
+  "timepicker": {},
+  "timezone": "browser",
+  "title": "TempConnect — Alerts & SLO",
+  "uid": "tempconnect-alerts",
+  "version": 1
+}

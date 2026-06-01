@@ -5,8 +5,17 @@ on:
     branches: [main, master, develop]
   pull_request:
     branches: [main, master, develop]
+  workflow_dispatch:
+  schedule:
+    - cron: '17 2 * * 1'
+
+# Cancel in-progress runs for the same branch to save minutes
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 env:
+  NODE_VERSION: '20'
   NODE_ENV: test
   POSTGRES_DB: tempconnect_test
   POSTGRES_USER: tempconnect
@@ -20,8 +29,172 @@ env:
   SMTP_FROM: test@tempconnect.local
 
 jobs:
-  build-and-test:
+  # ──────────────────────────────────────────
+  # Job 1: Lint + Type Check + Build
+  # ──────────────────────────────────────────
+  lint-typecheck:
+    name: Lint & Type Check & Build
     runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          cache-dependency-path: api/package-lock.json
+
+      - name: Install dependencies
+        working-directory: ./api
+        run: npm ci
+
+      - name: ESLint (zero warnings)
+        working-directory: ./api
+        run: npm run lint
+
+      - name: TypeScript type check
+        working-directory: ./api
+        run: npm run typecheck
+
+      - name: Build validation (syntax + types)
+        working-directory: ./api
+        run: npm run build
+
+  # ──────────────────────────────────────────
+  # Job 2: Frontend Lint (HTML + JS)
+  # ──────────────────────────────────────────
+  frontend-lint:
+    name: Frontend Lint
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install dependencies
+        working-directory: ./frontend
+        run: npm ci
+
+      - name: HTMLHint
+        working-directory: ./frontend
+        run: npm run lint:html
+
+      - name: ESLint (frontend JS)
+        working-directory: ./frontend
+        run: npm run lint:js
+
+  # ──────────────────────────────────────────
+  # Job 3: OCC React Build (Smoke — Phase 1)
+  # Playwright-Gates werden nach OCC Phase 3 ergänzt.
+  # ──────────────────────────────────────────
+  occ-build:
+    name: OCC React Build
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install dependencies
+        working-directory: ./frontend
+        run: npm ci
+
+      - name: Build OCC React Shell (Vite)
+        working-directory: ./frontend
+        run: npm run build:occ
+
+  # ──────────────────────────────────────────
+  # Job 3b: SCC React Build (Staff Control Center)
+  # ──────────────────────────────────────────
+  scc-build:
+    name: SCC React Build
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install dependencies
+        working-directory: ./frontend
+        run: npm ci
+
+      - name: Build SCC React Shell (Vite)
+        working-directory: ./frontend
+        run: npm run build:scc
+
+  # ──────────────────────────────────────────
+  # Job 4: Unit + Service tests (no DB needed)
+  # ──────────────────────────────────────────
+  unit-tests:
+    name: Unit & Service Tests
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          cache-dependency-path: api/package-lock.json
+
+      - name: Install dependencies
+        working-directory: ./api
+        run: npm ci
+
+      - name: Audit coverage check
+        working-directory: ./api
+        run: npm run audit:check
+
+      - name: Run unit tests with coverage
+        working-directory: ./api
+        run: npm run test:coverage
+
+      - name: Check coverage thresholds (unit)
+        working-directory: ./api
+        run: npm run test:coverage:check
+
+      - name: Upload coverage report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-unit
+          path: api/coverage/lcov.info
+          retention-days: 14
+
+  # ──────────────────────────────────────────
+  # Job 4: Integration tests (needs DB)
+  # ──────────────────────────────────────────
+  integration-tests:
+    name: Integration Tests
+    runs-on: ubuntu-latest
+    needs: [unit-tests, lint-typecheck, frontend-lint]
 
     services:
       postgres:
@@ -45,37 +218,66 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: ${{ env.NODE_VERSION }}
           cache: 'npm'
           cache-dependency-path: api/package-lock.json
 
-      - name: Install API dependencies
+      - name: Install dependencies
         working-directory: ./api
         run: npm ci
 
-      - name: Initialize Database
+      - name: Initialize database schema
         run: |
           PGPASSWORD=$POSTGRES_PASSWORD psql -h localhost -U $POSTGRES_USER -d $POSTGRES_DB -f sql/init.sql
 
-      - name: Start API Server
+      - name: Apply migrations (idempotent, with tracking)
+        run: |
+          PGPASSWORD=$POSTGRES_PASSWORD psql -h localhost -U $POSTGRES_USER -d $POSTGRES_DB -c "
+            CREATE TABLE IF NOT EXISTS _migrations (
+              id SERIAL PRIMARY KEY,
+              name TEXT NOT NULL UNIQUE,
+              applied_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+            );"
+          for f in $(ls sql/migrations/*.sql | sort); do
+            filename=$(basename "$f")
+            applied=$(PGPASSWORD=$POSTGRES_PASSWORD psql -t -h localhost -U $POSTGRES_USER -d $POSTGRES_DB -c "SELECT COUNT(*) FROM _migrations WHERE name='$filename'" | tr -d ' ')
+            if [ "$applied" = "0" ]; then
+              echo "Applying: $filename"
+              PGPASSWORD=$POSTGRES_PASSWORD psql -h localhost -U $POSTGRES_USER -d $POSTGRES_DB -f "$f"
+              PGPASSWORD=$POSTGRES_PASSWORD psql -h localhost -U $POSTGRES_USER -d $POSTGRES_DB -c "INSERT INTO _migrations (name) VALUES ('$filename')"
+            else
+              echo "Skip (already applied): $filename"
+            fi
+          done
+          echo "All migrations applied."
+
+      - name: Run all tests with coverage (unit + service + integration)
         working-directory: ./api
-        run: |
-          node server.js &
-          sleep 5
+        run: npm run test:coverage:full
 
-      - name: Health Check
-        run: |
-          curl -f http://localhost:3000/health || exit 1
+      - name: Check coverage thresholds
+        working-directory: ./api
+        run: npm run test:coverage:check
 
-      - name: API Smoke Test
-        run: |
-          # Test public endpoints
-          curl -f http://localhost:3000/listings || exit 1
-          echo "API smoke test passed"
+      - name: Critical commercial coverage gates
+        working-directory: ./api
+        run: npm run test:coverage:critical
 
+      - name: Upload coverage report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-full
+          path: api/coverage/lcov.info
+          retention-days: 14
+
+  # ──────────────────────────────────────────
+  # Job 5: Docker build (needs all previous)
+  # ──────────────────────────────────────────
   docker-build:
+    name: Docker Build
     runs-on: ubuntu-latest
-    needs: build-and-test
+    needs: [unit-tests, lint-typecheck, frontend-lint, occ-build, scc-build, integration-tests]
 
     steps:
       - name: Checkout
@@ -83,7 +285,7 @@ jobs:
 
       - name: Create .env file
         run: |
-          cat > .env << EOF
+          cat > .env << 'EOF'
           NODE_ENV=test
           POSTGRES_DB=tempconnect
           POSTGRES_USER=tempconnect
@@ -102,17 +304,346 @@ jobs:
           MAILPIT_SMTP_PORT=1025
           EOF
 
-      - name: Build and Start Docker Compose
+      - name: Build Docker images
+        run: docker compose build --no-cache
+
+      - name: Start Docker Compose
         run: |
-          docker compose --profile dev up -d --build
+          docker compose up -d
           sleep 30
 
-      - name: Check Services Health
+      - name: Check container health
         run: |
           docker compose ps
           curl -f http://localhost:8080/health || exit 1
           curl -f http://localhost:8080/api/health || exit 1
+          echo "All containers healthy"
+
+      - name: Collect logs on failure
+        if: failure()
+        run: docker compose logs --no-color
 
       - name: Stop Docker Compose
         if: always()
-        run: docker compose --profile dev down -v
+        run: docker compose down -v
+
+  # ──────────────────────────────────────────
+  # Job 6: Commercial browser E2E smoke (manual/nightly)
+  # ──────────────────────────────────────────
+  commercial-e2e-smoke:
+    name: Commercial E2E Smoke
+    runs-on: ubuntu-latest
+    if: github.event_name == 'workflow_dispatch' || github.event_name == 'schedule'
+    timeout-minutes: 30
+
+    env:
+      E2E_STAFF_EMAIL: ${{ secrets.E2E_STAFF_EMAIL }}
+      E2E_STAFF_PASSWORD: ${{ secrets.E2E_STAFF_PASSWORD }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          cache-dependency-path: package-lock.json
+
+      - name: Install root dependencies
+        run: npm ci
+
+      - name: Install Playwright browser
+        run: npx playwright install --with-deps chromium
+
+      - name: Create .env file
+        run: |
+          cat > .env << 'EOF'
+          NODE_ENV=test
+          POSTGRES_DB=tempconnect
+          POSTGRES_USER=tempconnect
+          POSTGRES_PASSWORD=tempconnect_pw
+          DATABASE_URL=postgres://tempconnect:tempconnect_pw@db:5432/tempconnect
+          SESSION_SECRET=ci_test_secret
+          CORS_ORIGIN=http://localhost:8080
+          BASE_URL=http://localhost:8080
+          SMTP_HOST=mailpit
+          SMTP_PORT=1025
+          SMTP_FROM=test@tempconnect.local
+          FRONTEND_PORT=8080
+          API_EXTERNAL_PORT=3000
+          DB_EXTERNAL_PORT=5432
+          MAILPIT_UI_PORT=8025
+          MAILPIT_SMTP_PORT=1025
+          EOF
+
+      - name: Start Docker Compose
+        run: |
+          docker compose up -d
+          sleep 30
+          curl -f http://localhost:8080/health
+          curl -f http://localhost:8080/api/health
+
+      - name: Run commercial Playwright smoke
+        run: npm run test:e2e:smoke
+
+      - name: Collect logs on failure
+        if: failure()
+        run: docker compose logs --no-color
+
+      - name: Stop Docker Compose
+        if: always()
+        run: docker compose down -v
+
+  # ──────────────────────────────────────────
+  # Job 7: Subscription mutation baseline (manual/nightly)
+  # ──────────────────────────────────────────
+  subscription-mutation:
+    name: Subscription Mutation Baseline
+    runs-on: ubuntu-latest
+    if: github.event_name == 'workflow_dispatch' || github.event_name == 'schedule'
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          cache-dependency-path: api/package-lock.json
+
+      - name: Install dependencies
+        working-directory: ./api
+        run: npm ci
+
+      - name: Run scoped subscription mutation baseline
+        working-directory: ./api
+        run: npm run test:mutation:subscription
+
+      - name: Upload mutation reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: mutation-subscription
+          path: api/reports/mutation/subscription
+          retention-days: 14
+
+  # ──────────────────────────────────────────
+  # Job 8: Commercial performance smoke (manual/nightly)
+  # ──────────────────────────────────────────
+  commercial-performance-smoke:
+    name: Commercial Performance Smoke
+    runs-on: ubuntu-latest
+    if: github.event_name == 'workflow_dispatch' || github.event_name == 'schedule'
+    timeout-minutes: 20
+
+    env:
+      PERF_P95_MS: 500
+      PERF_DURATION_SECONDS: 10
+      PERF_CONNECTIONS: 10
+      TC_PERF_EMAIL: ${{ secrets.TC_PERF_EMAIL }}
+      TC_PERF_PASSWORD: ${{ secrets.TC_PERF_PASSWORD }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          cache-dependency-path: api/package-lock.json
+
+      - name: Install dependencies
+        working-directory: ./api
+        run: npm ci
+
+      - name: Create .env file
+        run: |
+          cat > .env << 'EOF'
+          NODE_ENV=test
+          POSTGRES_DB=tempconnect
+          POSTGRES_USER=tempconnect
+          POSTGRES_PASSWORD=tempconnect_pw
+          DATABASE_URL=postgres://tempconnect:tempconnect_pw@db:5432/tempconnect
+          SESSION_SECRET=ci_test_secret
+          CORS_ORIGIN=http://localhost:8080
+          BASE_URL=http://localhost:8080
+          SMTP_HOST=mailpit
+          SMTP_PORT=1025
+          SMTP_FROM=test@tempconnect.local
+          FRONTEND_PORT=8080
+          API_EXTERNAL_PORT=3000
+          DB_EXTERNAL_PORT=5432
+          MAILPIT_UI_PORT=8025
+          MAILPIT_SMTP_PORT=1025
+          EOF
+
+      - name: Start Docker Compose
+        run: |
+          docker compose up -d
+          sleep 30
+          curl -f http://localhost:8080/health
+          curl -f http://localhost:8080/api/health
+
+      - name: Run autocannon smoke
+        working-directory: ./api
+        run: npm run perf:smoke
+
+      - name: Collect logs on failure
+        if: failure()
+        run: docker compose logs --no-color
+
+      - name: Stop Docker Compose
+        if: always()
+        run: docker compose down -v
+
+  # ──────────────────────────────────────────
+  # Job 9: Release artifact build + verification
+  # ──────────────────────────────────────────
+  release-artifact:
+    name: Release Artifact
+    runs-on: ubuntu-latest
+    needs: [docker-build]
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Build and verify release artifact from Git ref
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          verify_release_dir() {
+            local target_dir="$1"
+            local violations=0
+
+            check_required_file() {
+              local relative_path="$1"
+              if [ -f "${target_dir}/${relative_path}" ]; then
+                echo "[release-verify] required: ${relative_path}"
+              else
+                echo "[release-verify] MISSING: ${relative_path}" >&2
+                violations=$((violations + 1))
+              fi
+            }
+
+            check_forbidden_dir() {
+              local dirname="$1"
+              if find "$target_dir" -type d -name "$dirname" -print -quit | grep -q .; then
+                echo "[release-verify] FORBIDDEN DIRECTORY: ${dirname}" >&2
+                violations=$((violations + 1))
+              fi
+            }
+
+            check_required_file "docker-compose.prod.yml"
+            check_required_file "api/package.json"
+            check_required_file "scripts/prod-update.sh"
+            check_required_file "scripts/prod-up.sh"
+            check_required_file "scripts/backup.sh"
+            check_required_file "scripts/backup-verify.sh"
+            check_required_file "scripts/restore.sh"
+            check_required_file "scripts/restore-test.sh"
+            check_required_file "support-ops-dist/index.html"
+            check_required_file "README.md"
+
+            while IFS= read -r -d '' envfile; do
+              basename="$(basename "$envfile")"
+              relpath="${envfile#"$target_dir"/}"
+              if [[ "$basename" != *.example ]]; then
+                echo "[release-verify] FORBIDDEN SECRET FILE: ${relpath}" >&2
+                violations=$((violations + 1))
+              fi
+            done < <(find "$target_dir" -type f -name ".env*" -print0 2>/dev/null)
+
+            check_forbidden_dir ".git"
+            check_forbidden_dir ".github"
+            check_forbidden_dir "node_modules"
+            check_forbidden_dir "coverage"
+            check_forbidden_dir ".c8_output"
+            check_forbidden_dir ".nyc_output"
+            check_forbidden_dir ".claude"
+            check_forbidden_dir ".agents"
+            check_forbidden_dir ".claire"
+            check_forbidden_dir ".clone"
+            check_forbidden_dir ".vercel"
+            check_forbidden_dir "_zip_analysis"
+
+            for pattern in "*.log" "*.tmp" "*.bak" "*.pid" "*.tar.gz" "*.zip" "*.lnk" "*.dump" "*.sql.backup" "*.sql.gz"; do
+              if find "$target_dir" -type f -name "$pattern" -print -quit | grep -q .; then
+                echo "[release-verify] FORBIDDEN FILE PATTERN: ${pattern}" >&2
+                violations=$((violations + 1))
+              fi
+            done
+
+            # Size sanity check: release artefact must not exceed 100 MB
+            STAGING_SIZE_MB=$(du -sm "$target_dir" 2>/dev/null | cut -f1 || echo 0)
+            if [ "${STAGING_SIZE_MB:-0}" -gt 100 ]; then
+              echo "[release-verify] FORBIDDEN: staging dir too large: ${STAGING_SIZE_MB}MB (max 100MB)" >&2
+              violations=$((violations + 1))
+            fi
+
+            # Secret pattern check: FEATURE_GATE_BYPASS must not be set to true in any committed env file
+            if grep -r --include="*.env*" --include=".env*" "FEATURE_GATE_BYPASS=true" "$target_dir" 2>/dev/null | grep -q .; then
+              echo "[release-verify] FORBIDDEN: FEATURE_GATE_BYPASS=true found in release artefact" >&2
+              violations=$((violations + 1))
+            fi
+
+            if [ "$violations" -gt 0 ]; then
+              echo "[release-verify] validation failed with ${violations} issue(s)" >&2
+              return 1
+            fi
+          }
+
+          VERSION="ci-${GITHUB_SHA::7}"
+          ARCHIVE_NAME="tempconnect-${VERSION}"
+          RELEASE_DIR="${GITHUB_WORKSPACE}/release"
+          STAGING_DIR="${RELEASE_DIR}/${ARCHIVE_NAME}"
+          ARCHIVE_FILE="${RELEASE_DIR}/${ARCHIVE_NAME}.tar.gz"
+          MANIFEST_FILE="${RELEASE_DIR}/${ARCHIVE_NAME}.manifest.txt"
+
+          mkdir -p "$RELEASE_DIR"
+          rm -rf "$STAGING_DIR" "$ARCHIVE_FILE" "$MANIFEST_FILE"
+
+          git archive --format=tar --prefix="${ARCHIVE_NAME}/" "$GITHUB_SHA" | tar -xf - -C "$RELEASE_DIR"
+          rm -rf "${STAGING_DIR}/.github"
+
+          verify_release_dir "$STAGING_DIR"
+
+          tar --sort=name --mtime='UTC 1970-01-01' --owner=0 --group=0 --numeric-owner \
+            -czf "$ARCHIVE_FILE" -C "$RELEASE_DIR" "$ARCHIVE_NAME"
+
+          SHA="$(sha256sum "$ARCHIVE_FILE" | awk '{print $1}')"
+          {
+            echo "# TempConnect Release Manifest"
+            echo "# Built: $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+            echo "# Version: ${VERSION}"
+            echo ""
+            echo "Archive: ${ARCHIVE_NAME}.tar.gz"
+            echo "Source mode: git-archive"
+            echo "Source ref: ${GITHUB_SHA}"
+            echo "SHA-256: ${SHA}"
+            echo ""
+            echo "# Contents:"
+            tar -tzf "$ARCHIVE_FILE" | awk 'NR<=50 {print} END { if (NR > 50) print "..." }'
+          } > "$MANIFEST_FILE"
+
+          EXTRACT_DIR="$(mktemp -d)"
+          tar -xzf "$ARCHIVE_FILE" -C "$EXTRACT_DIR"
+          RELEASE_ROOT="$(find "$EXTRACT_DIR" -mindepth 1 -maxdepth 1 -type d | head -n 1)"
+          verify_release_dir "$RELEASE_ROOT"
+
+      - name: Upload release artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-artifact
+          path: |
+            release/*.tar.gz
+            release/*.manifest.txt
+          retention-days: 14
