@@ -65,11 +65,11 @@ describe("requireLocationBelongsToOrg — DB integration", () => {
     const ts = Date.now();
 
     const org1 = await pool.query(
-      "INSERT INTO organizations (name, slug, type, is_active) VALUES ($1,$2,$3,TRUE) RETURNING id",
+      "INSERT INTO organizations (name, slug, type, plan, is_active) VALUES ($1,$2,$3,'DEMO',TRUE) RETURNING id",
       ["Loc Test Org 1", `loc-test-org1-${ts}`, "company"]
     );
     const org2 = await pool.query(
-      "INSERT INTO organizations (name, slug, type, is_active) VALUES ($1,$2,$3,TRUE) RETURNING id",
+      "INSERT INTO organizations (name, slug, type, plan, is_active) VALUES ($1,$2,$3,'DEMO',TRUE) RETURNING id",
       ["Loc Test Org 2", `loc-test-org2-${ts}`, "company"]
     );
     orgId = org1.rows[0].id;
@@ -144,7 +144,7 @@ describe("assignmentService.listAssignments — location_id filter", () => {
 
     // Org
     const org = await pool.query(
-      "INSERT INTO organizations (name, slug, type, is_active) VALUES ($1,$2,$3,TRUE) RETURNING id",
+      "INSERT INTO organizations (name, slug, type, plan, is_active) VALUES ($1,$2,$3,'DEMO',TRUE) RETURNING id",
       ["Assignment Loc Test Org", `assign-loc-${ts}`, "company"]
     );
     orgId = org.rows[0].id;

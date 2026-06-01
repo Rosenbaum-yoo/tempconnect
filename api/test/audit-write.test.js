@@ -94,7 +94,7 @@ describe("auditWriteMiddleware", () => {
     assert.strictEqual(pool.written.length, 0, "Kein Audit fuer GET");
   });
 
-  it("skips audit for non-2xx responses", async () => {
+  it("logs DENIED audit for non-2xx responses when audit is set", async () => {
     const pool = mockPool();
     const mw = auditWriteMiddleware(pool, { logger: null });
     const req = mockReq("POST", "/api/contracts");
@@ -106,7 +106,10 @@ describe("auditWriteMiddleware", () => {
     res.emit("finish");
     await nextTick();
 
-    assert.strictEqual(pool.written.length, 0, "Kein Audit fuer 400-Response");
+    // Seit Audit-Trail-Erweiterung werden 4xx-Events als DENIED geloggt
+    assert.strictEqual(pool.written.length, 1, "Audit wird geschrieben mit DENIED-Status");
+    const params = pool.written[0].params;
+    assert.ok(params.includes("DENIED"), "Status ist DENIED");
   });
 
   it("logs warning for unmarked mutation (no res.locals.audit)", async () => {

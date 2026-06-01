@@ -108,6 +108,7 @@ describe("Idempotency integration (requires DB + migration 012)", { skip: !hasDb
   after(async () => {
     if (pool) {
       await pool.query("DELETE FROM idempotency_keys WHERE key LIKE 'test-key-%'").catch(() => {});
+      await pool.end();
     }
   });
 
@@ -126,7 +127,7 @@ describe("Idempotency integration (requires DB + migration 012)", { skip: !hasDb
     );
     assert.strictEqual(res.rows.length, 1);
     assert.strictEqual(res.rows[0].response_status, 201);
-    assert.strictEqual(JSON.parse(res.rows[0].response_body).id, "cap-1");
+    assert.strictEqual(res.rows[0].response_body.id, "cap-1");
   });
 
   it("different user + same key do not replay each other", async () => {

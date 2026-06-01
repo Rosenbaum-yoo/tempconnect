@@ -37,22 +37,28 @@ describe("orgBoundary.assertOrgOwnership", () => {
           }
     );
 
-    // Create test organizations
+    // Create test organizations (slug is NOT NULL + UNIQUE)
+    const ts = Date.now();
     const org1 = await pool.query(
-      "INSERT INTO organizations (name, type, is_active) VALUES ($1, $2, TRUE) RETURNING id",
-      ["Test Org 1", "company"]
+      "INSERT INTO organizations (name, slug, type, plan, is_active) VALUES ($1, $2, $3, 'DEMO', TRUE) RETURNING id",
+      ["Test Org 1", `test-org-1-${ts}`, "company"]
     );
     const org2 = await pool.query(
-      "INSERT INTO organizations (name, type, is_active) VALUES ($1, $2, TRUE) RETURNING id",
-      ["Test Org 2", "company"]
+      "INSERT INTO organizations (name, slug, type, plan, is_active) VALUES ($1, $2, $3, 'DEMO', TRUE) RETURNING id",
+      ["Test Org 2", `test-org-2-${ts}`, "company"]
     );
     testOrgId = org1.rows[0].id;
     otherOrgId = org2.rows[0].id;
 
-    // Create test requisition (has org_id)
+    // Create a test user for created_by (requisitions requires it)
+    const userRes = await pool.query("SELECT id FROM users LIMIT 1");
+    const testCreatorId = userRes.rows[0]?.id;
+    if (!testCreatorId) return; // no users → tests will skip
+
+    // Create test requisition (org_id, created_by, title, role are required)
     const req = await pool.query(
-      "INSERT INTO requisitions (client_org_id, title, status) VALUES ($1, $2, $3) RETURNING id",
-      [testOrgId, "Test Req", "OPEN"]
+      "INSERT INTO requisitions (org_id, created_by, title, role, status) VALUES ($1, $2, $3, $4, $5) RETURNING id",
+      [testOrgId, testCreatorId, "Test Req", "Tester", "OPEN"]
     );
     testEntityId = req.rows[0].id;
   });
@@ -78,7 +84,7 @@ describe("orgBoundary.assertOrgOwnership", () => {
       return;
     }
     try {
-      await orgBoundary.assertOrgOwnership(pool, "requisitions", testEntityId, testOrgId, { orgColumn: "client_org_id" });
+      await orgBoundary.assertOrgOwnership(pool, "requisitions", testEntityId, testOrgId, { orgColumn: "org_id" });
       // No error = pass
       assert.ok(true);
     } catch (e) {
@@ -92,7 +98,7 @@ describe("orgBoundary.assertOrgOwnership", () => {
       return;
     }
     try {
-      await orgBoundary.assertOrgOwnership(pool, "requisitions", testEntityId, otherOrgId, { orgColumn: "client_org_id" });
+      await orgBoundary.assertOrgOwnership(pool, "requisitions", testEntityId, otherOrgId, { orgColumn: "org_id" });
       assert.fail("Should have thrown ORG_BOUNDARY_VIOLATION");
     } catch (e) {
       assert.strictEqual(e.code, "ORG_BOUNDARY_VIOLATION");
@@ -106,7 +112,7 @@ describe("orgBoundary.assertOrgOwnership", () => {
       return;
     }
     try {
-      await orgBoundary.assertOrgOwnership(pool, "requisitions", "00000000-0000-0000-0000-000000000000", testOrgId, { orgColumn: "client_org_id" });
+      await orgBoundary.assertOrgOwnership(pool, "requisitions", "00000000-0000-0000-0000-000000000000", testOrgId, { orgColumn: "org_id" });
       assert.fail("Should have thrown NOT_FOUND");
     } catch (e) {
       assert.strictEqual(e.code, "NOT_FOUND");
@@ -149,10 +155,10 @@ describe("orgBoundary.assertUserOwnership", () => {
     testUserId = users.rows[0].id;
     otherUserId = users.rows[1].id;
 
-    // Create test listing (has uploaded_by/user_id)
+    // Create test listing (owner_id, type, category, region are required)
     const listing = await pool.query(
-      "INSERT INTO listings (uploaded_by, title, type, status) VALUES ($1, $2, $3, $4) RETURNING id",
-      [testUserId, "Test Listing", "job", "ACTIVE"]
+      "INSERT INTO listings (owner_id, type, category, region) VALUES ($1, $2, $3, $4) RETURNING id",
+      [testUserId, "supply", "Lager", "Berlin"]
     );
     testEntityId = listing.rows[0].id;
   });
@@ -172,7 +178,7 @@ describe("orgBoundary.assertUserOwnership", () => {
       return;
     }
     try {
-      await orgBoundary.assertUserOwnership(pool, "listings", testEntityId, testUserId, { userColumn: "uploaded_by" });
+      await orgBoundary.assertUserOwnership(pool, "listings", testEntityId, testUserId, { userColumn: "owner_id" });
       assert.ok(true);
     } catch (e) {
       assert.fail(`Should not throw for matching user: ${e.message}`);
@@ -185,7 +191,7 @@ describe("orgBoundary.assertUserOwnership", () => {
       return;
     }
     try {
-      await orgBoundary.assertUserOwnership(pool, "listings", testEntityId, otherUserId, { userColumn: "uploaded_by" });
+      await orgBoundary.assertUserOwnership(pool, "listings", testEntityId, otherUserId, { userColumn: "owner_id" });
       assert.fail("Should have thrown ORG_BOUNDARY_VIOLATION");
     } catch (e) {
       assert.strictEqual(e.code, "ORG_BOUNDARY_VIOLATION");
@@ -218,14 +224,15 @@ describe("Org-scoped request isolation (integration)", () => {
           }
     );
 
-    // Create 2 orgs
+    // Create 2 orgs (slug is NOT NULL + UNIQUE)
+    const ts = Date.now();
     const org1 = await pool.query(
-      "INSERT INTO organizations (name, type, is_active) VALUES ($1, $2, TRUE) RETURNING id",
-      ["Test Org Alpha", "company"]
+      "INSERT INTO organizations (name, slug, type, plan, is_active) VALUES ($1, $2, $3, 'DEMO', TRUE) RETURNING id",
+      ["Test Org Alpha", `test-org-alpha-${ts}`, "company"]
     );
     const org2 = await pool.query(
-      "INSERT INTO organizations (name, type, is_active) VALUES ($1, $2, TRUE) RETURNING id",
-      ["Test Org Beta", "company"]
+      "INSERT INTO organizations (name, slug, type, plan, is_active) VALUES ($1, $2, $3, 'DEMO', TRUE) RETURNING id",
+      ["Test Org Beta", `test-org-beta-${ts}`, "company"]
     );
     org1Id = org1.rows[0].id;
     org2Id = org2.rows[0].id;
@@ -258,16 +265,16 @@ describe("Org-scoped request isolation (integration)", () => {
       return;
     }
 
-    // Create requisition for org2
+    // Create requisition for org2 (created_by + role required)
     const req = await pool.query(
-      "INSERT INTO requisitions (client_org_id, title, status) VALUES ($1, $2, $3) RETURNING id",
-      [org2Id, "Secret Req", "OPEN"]
+      "INSERT INTO requisitions (org_id, created_by, title, role, status) VALUES ($1, $2, $3, $4, $5) RETURNING id",
+      [org2Id, user1Id, "Secret Req", "Tester", "OPEN"]
     );
     const reqId = req.rows[0].id;
 
     try {
       // User1 from org1 tries to assert ownership of org2's requisition
-      await orgBoundary.assertOrgOwnership(pool, "requisitions", reqId, org1Id, { orgColumn: "client_org_id" });
+      await orgBoundary.assertOrgOwnership(pool, "requisitions", reqId, org1Id, { orgColumn: "org_id" });
       assert.fail("Should have thrown ORG_BOUNDARY_VIOLATION");
     } catch (e) {
       assert.strictEqual(e.code, "ORG_BOUNDARY_VIOLATION");

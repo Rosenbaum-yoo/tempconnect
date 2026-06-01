@@ -7,11 +7,17 @@ import { fileURLToPath } from "node:url";
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
+// Skip guard: frontend files not mounted in Docker
+const ROOT = process.cwd();
+const HAS_API_SUBDIR = fs.existsSync(path.join(ROOT, "api"));
+const FRONTEND_AVAILABLE = HAS_API_SUBDIR && fs.existsSync(path.join(ROOT, "frontend/public/enterprise_anfrage.html"));
+const frontendSuite = FRONTEND_AVAILABLE ? describe : describe.skip;
+
 function readProjectFile(relativePath) {
   return fs.readFileSync(path.resolve(__dirname, "..", "..", relativePath), "utf8");
 }
 
-describe("enterprise form reuse and context wiring", () => {
+frontendSuite("enterprise form reuse and context wiring", () => {
   it("routes INDIVIDUELL CTA on SLA Abo to the enterprise form with context params", () => {
     const js = readProjectFile("frontend/public/js/pages/slaAbo.js");
     assert.match(js, /enterprise_anfrage\.html/);

@@ -72,7 +72,7 @@ describe("stateMachine.assertTransition", () => {
   });
 
   describe("OFFER", () => {
-    it("rejects any transition (no offers table)", () => {
+    it("rejects invalid from-status (pending is not in lifecycle)", () => {
       assert.throws(
         () => assertTransition("OFFER", "pending", "accepted"),
         (e) => e.entityType === "OFFER" && e.from === "pending" && e.to === "accepted"
@@ -111,7 +111,12 @@ describe("Allowed transitions maps", () => {
     assert.strictEqual(RESERVATION_TRANSITIONS.converted?.length, 0);
   });
 
-  it("OFFER_TRANSITIONS is empty", () => {
-    assert.strictEqual(Object.keys(OFFER_TRANSITIONS).length, 0);
+  it("OFFER_TRANSITIONS has full lifecycle", () => {
+    assert.ok(OFFER_TRANSITIONS.draft.includes("sent"));
+    assert.ok(OFFER_TRANSITIONS.sent.includes("accepted"));
+    assert.ok(OFFER_TRANSITIONS.sent.includes("rejected"));
+    assert.strictEqual(OFFER_TRANSITIONS.accepted?.length, 0);
+    assert.strictEqual(OFFER_TRANSITIONS.rejected?.length, 0);
+    assert.strictEqual(OFFER_TRANSITIONS.withdrawn?.length, 0);
   });
 });
