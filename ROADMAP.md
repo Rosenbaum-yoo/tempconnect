@@ -15,6 +15,10 @@
 - [x] Marktplatz durchsuchen (Filter: Region, Kategorie, Notdienst)
 - [x] Anfragen senden, annehmen, ablehnen
 - [x] Deal abschließen mit Kontaktaustausch
+- [x] Gegenseitenorientierter Angebotsflow (Counterparty-First)
+- [x] Perspektivische Statuslabels (Sender/Empfänger sehen unterschiedliche Texte)
+- [x] Gegenangebots-Flow mit vollständigem Status-Lifecycle
+- [x] Auto-Assignment nach Angebotsannahme
 - [x] Bewertungssystem (Sterne + Kategorien)
 - [x] Payment-System vorbereitet (Stripe + Demo-Modus)
 - [x] Docker-basiertes Deployment
@@ -369,6 +373,7 @@ Bei Fragen zur Implementierung:
 
 | Datum | Version | Änderungen |
 |-------|---------|------------|
+| 2026-03-27 | 1.2.0 | Gegenseitenorientierter Angebotsflow: perspektivische Labels, Counterparty-First-Sortierung, Notifications für Counter/Withdraw, State-Machine-Härtung, Badge-Farblogik, Unit-Tests |
 | 2026-02-19 | 0.9.5 | Account löschen, Rate Limiting, E-Mail-Benachrichtigungen erweitert |
 | 2026-02-19 | 0.9.2 | Passwort-Reset, DSGVO-Seiten (Impressum, Datenschutz, AGB), AGB-Checkbox |
 | 2026-02-19 | 0.9.0 | Abo-System, Payment (Stripe), Bewertungen |
@@ -377,56 +382,34 @@ Bei Fragen zur Implementierung:
 ---
 
 *Erstellt: 19.02.2026*  
-*Letzte Aktualisierung: 19.02.2026*
+*Letzte Aktualisierung: März 2026*
 
-# Umkreissuche mit hinzufügen
-       - damit umkreise bei Broadcast mit berücksichtigt werden 
+---
 
-## Passwort ändern 
-       - im Mein Profil 
+## Backlog (offen)
 
+### UX / Frontend
+- [ ] Landing Page: Testuser-Button entfernen, Texte marktreif formulieren
+- [ ] Landing Page: Registrierungs-Buttons für Unternehmen und Zeitarbeitsfirmen
+- [ ] Landing Page: Marketplace/Anfragen/Kontaktaustausch-Buttons → Login/Registrierung
+- [ ] Mobile-Responsive prüfen und verbessern
+- [ ] Login: "Daten merken" (Remember Me)
+- [ ] Support / Hilfe / FAQ-Seite einbinden
+- [ ] Angebote (ehem. Karteikarten) ein-/ausblendbar machen
 
-24.02.2026
+### Features
+- [ ] Passwort ändern im Bereich "Mein Profil"
+- [ ] Handelsregister-Eintrag: Profildaten ergänzen
+- [ ] Datenexport-Link bei Datenschutzbestimmungen platzieren
 
-
-## Landing Page design
-- Buttons zur Registrierung 
-       - für Unternehmen
-       - für Zeitarbeitsfirmen 
-
-## Landing page anpassen
-- Testuser einloggen Button entfernen
-- kasten für unternehmen anklickbar machen 
-- kasten fur zeitarbeiter anklickbar machen 
-- testuser daten entfernen
-- Marketplace Button einbauen leitet auf registration und login modal weiter
-- Anfragen button einbauen leitet auch auf register login weiter
-- kontaktaustausch button einbauen leitet auch auf register login weiter
-- Texte marktreif formulieren 
--  
-
-## Umkreissuche 
-- einbinden
-
-## Login 
-- Daten merken 
-
-## Support/ Hilfe/ FAQ´s
-- mit einbinden
--
-
-## Handelsregister eintrag
- - Mein Profil -> Daten ergänzen 
-
-
- ## Datenexport
- - bei datenschutzbestimmungen platzieren
-
- ## Karteikarten
- - heissen jetzt Angebote
-
-angebote bei anbieten ausblendbar machen und einblendbar 
-
-26.02.2026
-
+### Bereits umgesetzt ✅
+- [x] Umkreissuche mit Broadcast-Berücksichtigung
+- [x] Datenexport (DSGVO Art. 20): `GET /api/me/export`
+- [x] Gegenseitenorientierter Angebotsflow (Counterparty-First)
+- [x] Perspektivische Statuslabels für Offer-Views
+- [x] Counterparty-First Sortierung in Offer-Listen
+- [x] Notification-Events für Gegenangebot + Rückzug
+- [x] State-Machine-Integration für OFFER_TRANSITIONS
+- [x] Idempotente Accept-Logik + Race-Condition-Schutz
+- [x] Unit-Tests für Offer-Statusmodell (21 Tests)
 

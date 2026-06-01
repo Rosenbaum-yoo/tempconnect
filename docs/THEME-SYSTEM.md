@@ -1,0 +1,99 @@
+# TempConnect Theme System (Dark / Light)
+
+**Stand:** Produktiv im Frontend umgesetzt (Design System + Enterprise + Landing/Auth; siehe unten). `html[data-theme]` wird global gesetzt; Worker-/Einsatzportal-Seiten nutzen ein separates Stylesheet (siehe Abschnitt unten).
+
+## Overview
+
+- **Default / Dark:** The existing TempConnect look is preserved. It maps to `html[data-theme="dark"]` (and `:root` token defaults in `design-system.css`).
+- **Light:** A dedicated B2B light palette is applied when `html[data-theme="light"]` is set.
+- **Ultra Premium (opt-in):** A refined dark theme applied when `html[data-theme="ultra_premium"]` is set — deeper obsidian ground, sapphire-tinted glass surfaces, stronger elevation hierarchy and a subtle ambient depth. Token-driven like the others; **the default stays dark**, Ultra Premium is only active once the user selects it.
+- **No color inversion:** every theme is token-driven (`--ds-*`, `--tc-*`), not a filter.
+
+## Files
+
+| File | Role |
+|------|------|
+| `frontend/public/css/design-system.css` | Core tokens (`:root`), semantic aliases (`--bg`, `--card`, …), `--tc-*` surface tokens, components, **and** the full `[data-theme="light"] { … }` override block **at the end of the file** (after `:root`, cascade-safe — do not `@import` a separate light file before `:root`). |
+| `frontend/public/css/enterprise.css` | Legacy Model B / wrap styles; uses `--tc-legacy-*` tokens for surfaces that must track both themes. |
+| `frontend/public/css/pages/landing.css` | Marketing + auth modal; includes light overrides for `.am-*`, toasts, plan cards (loaded after `design-system.css` on the landing page). |
+| `frontend/public/js/theme.js` | Applies stored theme on load, exposes `TC.theme`, mounts the toggle in topbars (with retries + `load` fallback if the nav appears late). |
+| `frontend/public/js/pageShell.js` | After injecting the enterprise topbar, calls `TC.theme.mountIntoNav(nav)` so the toggle appears inside the shell. |
+
+> **Hinweis:** Früher lag Light in `theme-light.css` und wurde per `@import` **vor** dem `:root`-Block eingebunden — das konnte dazu führen, dass Dark-Tokens die Light-Palette überschrieben. Light-Regeln stehen jetzt **am Ende** von `design-system.css`.
+
+## Storage
+
+- **Key:** `localStorage["tempconnect-theme"]`
+- **Values:** `"dark"` | `"light"` | `"ultra_premium"`
+- **Default:** `dark` (when no valid/enabled key is present). System `prefers-color-scheme` is **not** auto-applied, so the product default stays the established dark UI until the user opts in.
+- **Fallback:** an unknown or disabled stored value (e.g. `ultra_premium` while its flag is off) resolves to `dark` on load.
+
+## Public API (`TC.theme`)
+
+```js
+TC.theme.get();                 // "dark" | "light" | "ultra_premium"
+TC.theme.set("ultra_premium");  // persist + set html[data-theme] (unknown/disabled -> default)
+TC.theme.list();                // [{ id, label }, …] — themes enabled right now
+TC.theme.cycle();               // advance to the next enabled theme (the toggle button uses this)
+TC.theme.toggle();              // backwards-compatible binary dark <-> light
+TC.theme.DEFAULT;               // "dark"
+TC.theme.STORAGE_KEY;           // constant key name
+TC.theme.mountIntoNav(navElement); // idempotent; used by page shell
+TC.theme.ensureToggleMounted();    // find .ds-topbar__nav and mount if still missing
+```
+
+Event: `tc-theme-change` on `document` with `detail.theme`.
+
+### Registry & feature flags
+
+The available themes live in a small registry inside `theme.js` (`dark`, `light`, `ultra_premium`).
+Availability can be gated **without editing the file** via an optional global set before `theme.js` loads:
+
+```html
+<script>window.__TC_THEME_FLAGS__ = { switcherEnabled: true, ultraPremiumEnabled: true };</script>
+```
+
+- `switcherEnabled: false` → the toggle is not mounted (a previously stored theme is still honored).
+- `ultraPremiumEnabled: false` → Ultra Premium drops out of `list()`/`cycle()`, and a stored `ultra_premium` falls back to `dark`.
+- Both default to **enabled** when the global is absent.
+
+> **Phase J / Block 2 (geplant):** the SCC **Theme Control** (Owner) exposes these as env flags
+> `THEME_SWITCHER_ENABLED` / `ULTRA_PREMIUM_THEME_ENABLED`, injects them into `window.__TC_THEME_FLAGS__`,
+> and adds per-scope (`platform` / `worker_portal` / `scc`) selection, preview, reset and audit.
+
+## Toggle UI
+
+- **Class:** `.tc-theme-toggle` inside `.tc-theme-toggle-wrap`
+- **Placement:** First item in `.ds-topbar__nav` when a design topbar exists. **Erkennung:** Shell (`#tc-shell`), Marketing (`.ds-wrap`), `main`, sonst **erste** `.ds-topbar__nav` (z. B. statische Legal-Seiten unter `.wrap`). Nav in einem **ausgeblendeten** `#paywall` wird übersprungen, bis die Shell injiziert ist.
+- **Ohne Topbar:** Seiten nur mit Worker-/Einsatzportal-Layout (kein `.ds-topbar__nav`, kein `#tc-shell`) bekommen einen **schwebenden** Button unten rechts (`#tc-theme-floating-root`); sobald eine echte Topbar erscheint, wird der Floating-Toggle entfernt.
+- **Behaviour:** one button that **cycles through all enabled themes** (dark → light → ultra_premium → dark). `toggle()` stays a binary dark/light helper for callers that need it.
+- **Icons:** Moon (☾) for dark, sun (☀) for light, sparkle (✦) for ultra_premium. `aria-pressed` is `true` whenever a non-default theme is active; `aria-label` announces the current theme and the next one.
+
+## Tokens (short guide)
+
+- **`--ds-*`:** Design-system semantic colors (background, text, brand, borders, shadows).
+- **`--tc-*`:** Themeable surfaces (glass / table / legacy enterprise wrappers) that must track both modes without per-page hacks.
+- **Legacy:** `--tc-legacy-*` is used by `enterprise.css` (`.topbar`, `.btn`, `.card`, `.modal`, inputs, paywall, etc.).
+
+## Building new UI
+
+1. Prefer `var(--ds-*)` and existing DS classes (`.ds-btn`, `.ds-card`, …).
+2. For one-off surfaces, add a `--tc-*` token in `:root` **and** assign a light value under `[data-theme="light"]` **in the light block at the end of** `design-system.css`.
+3. Avoid hard-coded `rgba(255,255,255,…)` in new CSS; it will not track light mode.
+
+## Troubleshooting
+
+- **Seite per Doppelklick (`file://`) geöffnet:** Skripte/CSS mit Pfaden wie `/public/js/theme.js` laden nicht zuverlässig. **Immer über HTTP** testen (z. B. Docker/nginx, `http://localhost:…`).
+- **Toggle fehlt:** `TC.theme.ensureToggleMounted()` in der Konsole; prüfen, ob `.ds-topbar__nav` existiert (Shell muss initialisiert sein).
+- **Light sieht aus wie Dark:** Hard-Reload (Cache); prüfen, ob nur **eine** Version von `design-system.css` geladen wird und der Light-Block **nach** `:root` steht.
+
+## QA checklist
+
+- [ ] Toggle on an enterprise page with `#tc-shell` (shell injects topbar).
+- [ ] Toggle on `landing.html` (static `.ds-wrap` topbar).
+- [ ] Reload: choice persists.
+- [ ] Forms, tables, modals, badges readable in both themes.
+
+## Worker / Einsatzportal
+
+Pages using `worker.css` only (einsatzportal, worker login) are a separate, already light visual stack. They load `theme.js` for consistency but do not use the DS topbar toggle pattern unless a `.ds-topbar` is added later.

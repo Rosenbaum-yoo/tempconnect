@@ -155,3 +155,24 @@ const PLAN_LIMITS = {
 ```
 
 `-1` bedeutet unbegrenzt.
+
+---
+
+## 7. Kommerzielle Wahrheitsdefinitionen (Billing/Finance)
+
+Fuer Due-Diligence-faehige Reporting-Sichten gilt folgende Trennung:
+
+- **Catalog MRR (theoretisch):** Katalog-/Tier-Referenzwert fuer aktive bezahlte Subscriptions.
+- **Contractual MRR (anerkannt):** MRR nach Preisquellen-Praezedenz je aktiver Subscription.
+- **Invoiced Revenue:** Summe von Rechnungen mit Status `issued`, `overdue` oder `paid`.
+- **Paid Revenue:** Summe von Rechnungen mit Status `paid`.
+- **Open Receivables:** Summe von Rechnungen mit Status `issued` oder `overdue`.
+- **Billable Uninvoiced Volume:** approved Timesheets ohne Invoice-Link (`invoice_id IS NULL`), bewertet mit Assignment-Rate.
+
+Preisquellen-Praezedenz fuer `INDIVIDUELL`:
+1. `custom_quote_pending` (keine Revenue-Anerkennung),
+2. `individual_contract_price_cents`,
+3. `pilot_price_cents`,
+4. Katalog-/Tierpreis.
+
+Damit wird verhindert, dass offene Angebotsphasen implizit als `0 € Umsatz` in KPI-Summen eingehen.

@@ -1,5 +1,7 @@
 # Vor Geldfluss – Checkliste (strategisch)
 
+> **Hinweis:** Diese Datei ist veraltet. Die aktuelle, konsolidierte Go-Live-Checkliste ist **[docs/GO_LIVE_FINAL.md](./docs/GO_LIVE_FINAL.md)**.
+
 Bevor Zahlungen fließen oder produktive Daten anfallen: Diese Punkte abarbeiten und abhaken.
 
 ---

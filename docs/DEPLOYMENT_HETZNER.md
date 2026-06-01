@@ -242,6 +242,7 @@ crontab -e
 */5 * * * * curl -sf -X POST -H "X-Internal-Secret: DEIN_CRON_SECRET" http://127.0.0.1:8080/api/internal/demand-sla-scan > /dev/null 2>&1
 */5 * * * * curl -sf -X POST -H "X-Internal-Secret: DEIN_CRON_SECRET" http://127.0.0.1:8080/api/internal/sla-search-scan > /dev/null 2>&1
 */5 * * * * curl -sf -X POST -H "X-Internal-Secret: DEIN_CRON_SECRET" http://127.0.0.1:8080/api/internal/sla-search-run > /dev/null 2>&1
+*/5 * * * * HOST_NAME="$(hostname -s)" INTERNAL_CRON_SECRET="DEIN_CRON_SECRET" BASE_URL="http://127.0.0.1:8080" /home/deploy/tempconnect/scripts/collect-infrastructure-snapshot.sh > /dev/null 2>&1
 ```
 
 ---

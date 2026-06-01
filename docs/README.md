@@ -1,4 +1,6 @@
 # TempConnect – Dokumentations-Übersicht
+Produktkern: TempConnect fokussiert Zeitarbeits-Bedarfe, Angebotsabwicklung, Dealabschluss, Lieferantensteuerung sowie digitale Einsatz- und Stundenzettelprozesse.
+Dominanter Einstiegs-ICP: groessere Einsatzunternehmen mit wiederkehrenden Zeitarbeitsbedarfen, Vendor-Steuerung sowie Freigabe- und Spend-Druck; Personaldienstleister sind der Ausbau-ICP.
 
 **Einstieg für KI und Menschen:** [ENTERPRISE-FEATURES-FOR-KI.md](ENTERPRISE-FEATURES-FOR-KI.md) – beschreibt, was gebaut wurde und wo es liegt (Backend, Frontend, Enterprise-Features, Navigation, Sicherheit).
 
@@ -10,6 +12,9 @@
 |----------|--------|
 | [ENTERPRISE-FEATURES-FOR-KI.md](ENTERPRISE-FEATURES-FOR-KI.md) | **KI-Infodatei:** Kontext, 3 Enterprise-Features, Backend/Frontend-Pfade, Schnellzugriff-Navigation, Referenzen, Schnell-Check. |
 | [FEATURE-SUMMARY.md](FEATURE-SUMMARY.md) | Kompakte Feature-Übersicht (Model B + Enterprise + Navigation + Infrastruktur-Readiness). |
+| [GO_LIVE_FINAL.md](GO_LIVE_FINAL.md) | Versionierte Go-Live-Checkliste mit Blockern, Betriebsreife und Smoke-Gates. |
+| [ENTERPRISE_GO_LIVE_GATE.md](ENTERPRISE_GO_LIVE_GATE.md) | Verbindlicher Enterprise-Go-Live-Entscheidungsvertrag (Hard-Gates G0-G7 + Evidenzsatz). |
+| [../DEPLOYMENT.md](../DEPLOYMENT.md) | Versionierter Release-, Artefakt-, Deployment-, Monitoring-, Rollback- und Backup/Restore-Pfad. |
 | [GO-LIVE-HETZNER.md](GO-LIVE-HETZNER.md) | **Go-Live Anleitung Hetzner:** PROD-Start (ohne override), UFW, Caddy, Deployment, Health/Monitoring, Repo-Hygiene, HA-Check, 10-Punkte-Checklist. |
 | [GO-LIVE-GAP-ANALYSE.md](GO-LIVE-GAP-ANALYSE.md) | Gap-Analyse: Was fertig ist (Code/Config), was noch fehlt (Blocker/Empfohlen/Nice-to-have) + Kosten. |
 | [DEVOPS-ZUSAMMENFASSUNG.md](DEVOPS-ZUSAMMENFASSUNG.md) | DevOps/Hardening-Log + Start-Befehle + ENV-Checkliste. |
@@ -24,6 +29,8 @@
 | [SENDGRID-EINRICHTEN.md](SENDGRID-EINRICHTEN.md) | SendGrid einrichten, API-Key, Sender, Domain (DNS). |
 | [SENDGRID-KURZ-ERKLAERT.md](SENDGRID-KURZ-ERKLAERT.md) | SendGrid kurz erklärt, .env-Beispiel (nur Platzhalter). |
 | [ENTERPRISE-HARDENING-PATCH.md](ENTERPRISE-HARDENING-PATCH.md) | Idempotency, Audit, Reserve-Lockdown, Status-Maschine, Cron; Idempotency Enterprise (Migration 012). |
+| [THEME-SYSTEM.md](THEME-SYSTEM.md) | Dark/Light-Theming: Tokens (`--ds-*`, `--tc-*`), `theme.js`, Toggle, Speicherung, Erweiterungshinweise. |
+| [ACCESS-AND-NAVIGATION-GUARDS.md](ACCESS-AND-NAVIGATION-GUARDS.md) | Harte Guards nach Logout, Marktplatz-Access-Absicherung, einheitliche Logo-Zielregel je Login/Rolle. |
 | **API-Docs (unter api/docs/)** | |
 | [api/docs/ENDPOINTS.md](api/docs/ENDPOINTS.md) | Vollständige API-Endpoint-Liste (nach Refactoring). |
 | [api/docs/IDEMPOTENCY-CURL.md](api/docs/IDEMPOTENCY-CURL.md) | Idempotency: Scope pro User, Ablauf 24h, Cleanup-Job, curl-Beispiele. |

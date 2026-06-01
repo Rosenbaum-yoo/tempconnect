@@ -1,5 +1,7 @@
 # TempConnect – Nächste Schritte (2–4 Wochen)
 
+> **Hinweis:** Diese Datei ist veraltet. Die aktuelle, konsolidierte Go-Live-Checkliste ist **[docs/GO_LIVE_FINAL.md](./docs/GO_LIVE_FINAL.md)**.
+
 Konkrete Prioritätenliste bis zum Launch. Abhaken, was erledigt ist.
 
 ---

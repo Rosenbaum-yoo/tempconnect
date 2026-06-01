@@ -72,6 +72,8 @@ All paths unchanged from original `server.js`. Base for API routes: `/api`.
 | POST | `/api/internal/recompute-supplier-metrics` | cronRateLimit + secret/IP |
 | POST | `/api/internal/recompute-compliance` | cronRateLimit + secret/IP |
 | POST | `/api/internal/cleanup-idempotency` | Delete expired idempotency rows (cronRateLimit + secret) |
+| POST | `/api/internal/infrastructure-snapshots/ingest` | Ingest host telemetry snapshot batch (CPU/RAM/Docker/TLS/Backup), updates `infrastructure_snapshots` + `warp_hosts` risk/status |
+| POST | `/api/internal/staffing-maintenance` | Expire staffing invites/reservations, dispatch due staffing reminders, then run opt-in auto-backfill (cronRateLimit + secret/IP) |
 
 ## Requests & Policies
 
@@ -86,6 +88,28 @@ All paths unchanged from original `server.js`. Base for API routes: `/api`.
 | GET | `/api/my/requests/sent` | Sent requests (requireAuth) |
 | GET | `/api/my/requests/received` | Received requests (requireAuth) |
 | PATCH | `/api/requests/:id/status` | Update status (requireAuth) |
+
+## Worker Dispatch & Staffing
+
+| Method | Path | Description |
+|--------|------|-------------|
+| GET | `/api/open-deal-assignments` | Open assignment-centric staffing containers for dispatchers |
+| GET | `/api/staffing-assignments/:id` | Live staffing overview incl. workers, reservations, invites, campaigns, waitlist |
+| GET | `/api/staffing-assignments/:id/suggestions` | Explainable worker suggestions (`hard_only`, `include_blocked`, `only_available`) |
+| POST | `/api/staffing-assignments/:id/campaigns` | Bulk staffing campaign / outreach wave |
+| POST | `/api/staffing-assignments/:id/waitlist` | Queue dispatcher-selected candidates on the staffing waitlist |
+| POST | `/api/staffing-assignments/:id/waitlist/next-wave` | Send the next invite wave from the waitlist first |
+| POST | `/api/staffing-reservations/:id/finalize` | Manually finalize a staffing reservation into a worker link |
+| POST | `/api/assign-deal-to-worker` | Manual single-worker assignment on the same slot-aware assignment container |
+
+## Worker Portal Staffing Requests
+
+| Method | Path | Description |
+|--------|------|-------------|
+| GET | `/api/worker/staffing-requests` | Structured worker-visible staffing requests with request snapshot, priority, conflicts, reminder/delivery state and message summary |
+| POST | `/api/worker/staffing-requests/:id/respond` | Worker accepts or declines a staffing request; accept path enforces assignment and reservation conflicts |
+| POST | `/api/worker/staffing-requests/:id/question` | Worker sends a request-bound question to dispatch while keeping the invite actionable |
+| POST | `/api/worker/staffing-requests/:id/remind` | Worker schedules a remind-later timestamp on the staffing invite for later re-delivery |
 
 ## Ratings & Reports
 

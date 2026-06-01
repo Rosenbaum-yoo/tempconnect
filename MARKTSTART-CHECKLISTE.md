@@ -1,5 +1,7 @@
 # Muss-To-dos vor Marktstart (wichtig)
 
+> **Hinweis:** Diese Datei ist veraltet. Die aktuelle, konsolidierte Go-Live-Checkliste ist **[docs/GO_LIVE_FINAL.md](./docs/GO_LIVE_FINAL.md)**.
+
 Checkliste in Reihenfolge: zuerst A (Sofort / Go-Live-Blocker), dann B (Skalierung).
 
 ---

@@ -61,7 +61,7 @@ docker compose ps
 - Organisationen, Audit-Log und Plattform-Metriken einsehen.
 
 ## 6. API-Dokumentation
-- `http://localhost:8080/public/api_docs.html`
+- `http://localhost:8080/public/api-docs.html`
 - Alle REST-Endpunkte mit Methode, Pfad und Auth-Anforderung.
 
 ## Architektur-Überblick
@@ -79,6 +79,6 @@ docker compose ps
 ```
 
 ## Hilfe
-- API-Docs: `/public/api_docs.html`
+- API-Docs: `/public/api-docs.html`
 - Admin Panel: `/public/admin_panel.html`
 - Enterprise Hub: `/public/enterprise.html`

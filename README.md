@@ -43,9 +43,42 @@ Frontend: http://localhost:8080 (oder konfigurierter Port). API: Port 3000 (oder
 
 ---
 
+## Release-Artefakte & Produktionspfad
+
+Produktions-Releases werden **nicht** aus dem laufenden Working Tree deployed, sondern aus einem verifizierten Release-Artefakt, das aus einem **Git-Ref** gebaut wurde.
+Der **kanonische** Artefaktpfad ist der CI-Job `release-artifact` in `.github/workflows/ci.yml`.
+
+### Kanonischer Artefaktpfad
+
+```text
+1. Git-Ref oder Release-Tag auswählen
+2. CI für diesen Stand vollständig grün laufen lassen
+3. Artefakt `release-artifact` aus GitHub Actions herunterladen
+```
+
+Die Pipeline baut das Artefakt direkt per `git archive` aus dem gewählten Git-Ref und validiert dabei dieselben Kernregeln: kein `.env`, kein `.git`, keine `.github`, keine `node_modules`, keine Coverage-/Temp-Artefakte sowie Pflichtdateien für den Produktionsbetrieb.
+
+### Kanonischer Produktionspfad
+
+1. Release-Tag oder Commit auswählen
+2. Release-Artefakt aus CI für diesen Git-Ref herunterladen
+3. Artefakt auf den Server kopieren und entpacken
+4. Im entpackten Release `.env` bereitstellen
+5. Deployment aus dem Artefaktverzeichnis starten:
+
+```bash
+./scripts/prod-update.sh
+```
+
+Damit bleibt der ausgelieferte Stand klar vom lokalen Arbeitsstand getrennt.
+
+---
+
 ## Weitere Doku
 
-- [docs/VOR-HETZNER-GO-LIVE.md](docs/VOR-HETZNER-GO-LIVE.md) – Go-Live-Checkliste
+- **[docs/GO_LIVE_FINAL.md](docs/GO_LIVE_FINAL.md)** – Versionierte Go-Live-Checkliste
+- [DEPLOYMENT.md](DEPLOYMENT.md) – Versionierter Release-, Deployment-, Monitoring-, Rollback- und Backup/Restore-Pfad
+- [`.github/workflows/ci.yml`](.github/workflows/ci.yml) – Kanonischer CI-Artefaktpfad (`release-artifact`)
 - [docs/SECURITY-CONFIG.md](docs/SECURITY-CONFIG.md) – Sichere Konfiguration, Schlüssel-Rotation
 - [docs/MODEL-B-IMPLEMENTATION.md](docs/MODEL-B-IMPLEMENTATION.md) – Kapazitäten, Reservierungen, API
 - [docs/ENTERPRISE-FEATURES-FOR-KI.md](docs/ENTERPRISE-FEATURES-FOR-KI.md) – Enterprise-Features (Pulse, Scorecard, Compliance)

@@ -93,8 +93,9 @@ Digitaler Marktplatz für Zeitarbeit: Unternehmen finden Agenturen, fragen Kapaz
 - **PLUS/NOTDIENST**: Vollzugriff auf Erstellen, Offers, Matching
 - Public-Endpoints: `GET /api/marketplace/public/capacity-posts`, `GET /api/marketplace/public/demand-requests` (nur Basisinfos, keine Kontaktdaten)
 
-### Marketplace Frontend (3 Seiten)
-- `marketplace_capacity_create.html` – Agency stellt Kapazitaet ein (Formular + slaGuard Paywall)
+### Marketplace Frontend (4 Seiten)
+- `capacity_exchange_form.html` – Agency stellt Kapazitaet ein (kanonisches Formular + slaGuard Paywall)
+- `marketplace_demand_list.html` – Company-Liste eigener Marketplace-Nachfragen mit Status, Pulse und Detail-Deep-Link
 - `marketplace_demand_create.html` – Company erstellt Nachfrage (zeigt Matches nach Erstellung)
 - `marketplace_demand_detail.html` – Detailseite mit SLA-Timeline, Matches, Offers (Accept/Reject), Pulse-Report-Export
 
@@ -172,22 +173,23 @@ Digitaler Marktplatz für Zeitarbeit: Unternehmen finden Agenturen, fragen Kapaz
 6. **Lieferanten-Bewertung** – Scorecard-Abfrage nach Agentur und Zeitraum
 7. **Schnellzugriff** – 8 Navigations-Karten (navConfig.js + enterpriseDashboard.js)
 
-### Marketplace UI (3 Seiten)
+### Marketplace UI (4 Seiten)
 8. **Kapazitaet einstellen** – Agency-Formular mit Such-Agent Toggle
-9. **Nachfrage erstellen** – Company-Formular mit Urgency-Auswahl, zeigt Matches
-10. **Nachfrage Detail** – SLA-Timeline, Matches, Offers mit Accept/Reject, Pulse-Report-Export
+9. **Meine Nachfragen** – Company-Liste eigener Marketplace-Nachfragen mit Status, Pulse und Detail-Deep-Links
+10. **Nachfrage erstellen** – Company-Formular mit Urgency-Auswahl, zeigt Matches
+11. **Nachfrage Detail** – SLA-Timeline, Matches, Offers mit Accept/Reject, Pulse-Report-Export
 
 ### Legal Pages (5 Seiten)
-11. **AGB** – inkl. TempConnect Pulse SLA-Anlage Verweis
-12. **Datenschutz** – DSGVO-MVP
-13. **Impressum** – TMG/DDG Template
-14. **Kontakt** – Best-Effort Support
-15. **TempConnect Pulse SLA-Anlage** – Prozessnachweis-Dokument
+12. **AGB** – inkl. TempConnect Pulse SLA-Anlage Verweis
+13. **Datenschutz** – DSGVO-MVP
+14. **Impressum** – TMG/DDG Template
+15. **Kontakt** – Best-Effort Support
+16. **TempConnect Pulse SLA-Anlage** – Prozessnachweis-Dokument
 
 ### Landing + SLA-Seiten
-16. **Public Landing** – Marketing-Seite mit Auto-Redirect
-17. **Abo-Uebersicht** – Tarife FREE/BASIS/PLUS/NOTDIENST
-18. **SLA Angebote** – Pulse-sichere Vorlagen
-19. **SLA Hilfe** – FAQ + Kontakt
-20. **SLA Profil** – Firmenprofil
-21. **SLA Nachweise** – Upload + Verwaltung
+17. **Public Landing** – Marketing-Seite mit Auto-Redirect
+18. **Abo-Uebersicht** – Tarife FREE/BASIS/PLUS/NOTDIENST
+19. **SLA Angebote** – Pulse-sichere Vorlagen
+20. **SLA Hilfe** – FAQ + Kontakt
+21. **SLA Profil** – Firmenprofil
+22. **SLA Nachweise** – Upload + Verwaltung

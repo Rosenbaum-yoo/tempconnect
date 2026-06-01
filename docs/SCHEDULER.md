@@ -14,6 +14,8 @@ Alle Endpoints erfordern `X-Internal-Secret` Header mit dem Wert von `INTERNAL_C
 | `POST /api/internal/expire-reservations` | alle 5 Min | Abgelaufene Reservierungen auf expired setzen |
 | `POST /api/internal/cleanup-idempotency` | alle 6h | Alte Idempotency-Keys löschen (>24h) |
 | `POST /api/internal/run-search-jobs` | alle 5 Min | Batch-Matching für offene Suchaufträge |
+| `POST /api/internal/worker-document-expiry-scan` | täglich | Verifizierte Worker-Nachweise auf Ablauf / Fristwarnung prüfen und Reminder versenden |
+| `POST /api/internal/infrastructure-snapshots/ingest` | alle 5 Min pro Host | Infrastruktur-Telemetrie (CPU/RAM/Docker/TLS/Backup) in `infrastructure_snapshots` schreiben |
 
 ## Optionen für den Scheduler
 
@@ -26,6 +28,8 @@ LB_URL="https://tempconnect.de"
 */5 * * * * curl -sf -X POST "$LB_URL/api/internal/sla-scan" -H "X-Internal-Secret: $CRON_SECRET" > /dev/null
 */5 * * * * curl -sf -X POST "$LB_URL/api/internal/expire-reservations" -H "X-Internal-Secret: $CRON_SECRET" > /dev/null
 */5 * * * * curl -sf -X POST "$LB_URL/api/internal/run-search-jobs" -H "X-Internal-Secret: $CRON_SECRET" > /dev/null
+*/5 * * * * HOST_NAME="$(hostname -s)" INTERNAL_CRON_SECRET="$CRON_SECRET" BASE_URL="$LB_URL" ./scripts/collect-infrastructure-snapshot.sh > /dev/null
+15 6 * * * curl -sf -X POST "$LB_URL/api/internal/worker-document-expiry-scan" -H "X-Internal-Secret: $CRON_SECRET" > /dev/null
 0 */6 * * * curl -sf -X POST "$LB_URL/api/internal/cleanup-idempotency" -H "X-Internal-Secret: $CRON_SECRET" > /dev/null
 ```
 
@@ -49,6 +53,8 @@ jobs:
           curl -sf -X POST "${{ secrets.LB_URL }}/api/internal/sla-scan" \
             -H "X-Internal-Secret: ${{ secrets.CRON_SECRET }}"
           curl -sf -X POST "${{ secrets.LB_URL }}/api/internal/run-search-jobs" \
+            -H "X-Internal-Secret: ${{ secrets.CRON_SECRET }}"
+          curl -sf -X POST "${{ secrets.LB_URL }}/api/internal/worker-document-expiry-scan" \
             -H "X-Internal-Secret: ${{ secrets.CRON_SECRET }}"
 ```
 

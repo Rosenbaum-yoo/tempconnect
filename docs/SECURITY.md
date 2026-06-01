@@ -72,3 +72,87 @@ Implementiert in `app.js`:
 - Docker Images: `npm ci --omit=dev` (keine devDependencies)
 - `docker-compose.override.yml` in `.gitignore` – existiert auf Prod nicht
 - Prod-Scripts nutzen immer explizite `-f` Flags
+
+---
+
+## Security Hardening (Go-Live Finalisierung)
+
+### SEC-001: Session Fixation Prevention
+Alle Login-Flows (Login, Register, Worker-Invite-Accept) regenerieren die Session (`req.session.regenerate()`) **vor** Setzen der userId. Verhindert Session-Fixation-Angriffe.
+
+### SEC-002: Org-Boundary Hardening
+- List-Endpoints (`/timesheets`, `/assignments`, `/contracts`) ignorieren client-seitige `org_id`-Query-Parameter und verwenden ausschließlich den server-resolved `req.orgId`.
+- `/assignments/:id/transition` und `/assignments/:id/complete` prüfen jetzt Org-Boundary vor Ausführung.
+
+### SEC-003: RBAC Response Sanitization
+403-Fehlermeldungen enthalten keine internen Rollennamen, Permissions oder Reason-Codes mehr. Nur generische Fehlermeldung an Client, Details werden serverseitig geloggt.
+
+### SEC-004: CORS Production Lockdown
+In `NODE_ENV=production` werden keine localhost-Origins mehr in die CORS-Allowlist aufgenommen. Nur `CORS_ORIGIN` aus ENV.
+
+### SEC-005: Permissions-Policy Header
+Neuer HTTP-Header `Permissions-Policy: camera=(), microphone=(), geolocation=(), payment=(), usb=()` auf allen Responses.
+
+### SEC-006: Error Code Sanitization
+5xx-Fehler geben immer `SERVER_ERROR` zurück, niemals interne System-Codes (ECONNREFUSED, ENOENT etc.).
+
+### SEC-007: bcrypt-Kosten-Konsistenz
+Alle Passwort-Hashing-Operationen (Register, Login, Change-Password, Reset) verwenden einheitlich bcrypt cost 12.
+
+### SEC-008: Demo-Login Rate Limiting
+`/auth/demo-login` ist jetzt durch `authLimiter` geschützt (max. 5 Versuche / 15 Min in Produktion).
+
+---
+
+## Enterprise Security Additions (Phase 10–12)
+
+### 9. Row-Level Security (RLS)
+
+PostgreSQL RLS policies enforce tenant isolation at the database layer, providing a second line of defence if application-layer org-boundary checks are bypassed.
+
+**Tables with RLS**: `requisitions`, `timesheets`, `invoices`, `org_memberships`, `vendor_pool_entries`, `compliance_documents`
+
+**Policy**: `USING (org_id = current_org_id())`
+
+**Activation**: Before each transaction, the API sets `SET LOCAL app.current_org_id = $1` using the resolved `req.orgId`. The `current_org_id()` function reads this session variable.
+
+**Bypass**: Only the `postgres` superuser and explicit `BYPASSRLS` roles can bypass. Application service user has no bypass privilege.
+
+### 10. Zod Request Validation (`api/middleware/validate.js`)
+
+All critical endpoints now have Zod schema validation:
+- Input sanitized and coerced before business logic executes
+- Unknown fields stripped by default (`strip` mode)
+- Validation errors return structured `400 VALIDATION_ERROR` with field-level messages
+- No user input reaches DB queries without schema validation
+
+**Pre-defined schemas**: `register`, `login`, `organizationCreate`, `requisitionCreate`, `capacityPostCreate`, `timesheetSubmit`, `invoiceCreate`, `paymentCheckout`, `dealCreate`, `inviteMember`
+
+### 11. Audit Trail
+
+Immutable audit log captures all create/update/delete actions:
+- `action`: dot-notation (e.g. `invoice.void`, `deal.accept`, `org.member.invite`)
+- `old_values` / `new_values`: JSONB diff for compliance
+- `user_id`, `org_id`, `ip_address`, `user_agent`
+- Set via `res.locals.audit` in route handlers; written post-response by `auditWriteMiddleware`
+- No UPDATE or DELETE on `audit_log` table exposed via API
+
+### 12. Security Rating Summary
+
+> **Vollständiger Audit-Report:** [docs/SECURITY_AUDIT.md](SECURITY_AUDIT.md) — Detaillierte Prüfung aller 7 Sicherheitsbereiche mit Findings und Fixes.
+
+| Category | Status | Score |
+|----------|--------|-------|
+| Authentication | Session-based, bcrypt(12), rolling TTL | A |
+| Authorization | RBAC + org-boundary + RLS | A |
+| Transport | TLS, HSTS, CORS allowlist | A |
+| Input Validation | Zod middleware on all critical routes | A- |
+| Injection Prevention | Parameterised queries, no dynamic SQL | A |
+| CSRF Protection | Double-submit token (crypto.randomBytes) | A |
+| Rate Limiting | 4-tier, per-IP, Redis-backed | A- |
+| Upload Security | MIME/ext whitelist, Helmet headers, dotfiles deny | B+ |
+| Audit & Monitoring | Audit log + Sentry + Prometheus + structured logs | A |
+| Secrets Management | Fail-fast validation, placeholder detection, log redaction | A |
+| **Overall** | | **A** |
+
+**Path to A+**: MFA for owner/admin, external pen-test, reset-token hashing, signed download URLs, SOC 2 prep.
