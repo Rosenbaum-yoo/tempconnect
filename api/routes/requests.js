@@ -8,6 +8,11 @@ import * as supplierMetricsService from "../services/supplierMetricsService.js";
 import * as auditLog from "../services/auditLog.js";
 import * as stateMachine from "../services/stateMachine.js";
 import * as requestService from "../services/requestService.js";
+import * as assignmentService from "../services/assignmentService.js";
+import * as rbacService from "../services/rbacService.js";
+import { trackProductEventFromRequest } from "../services/productAnalyticsService.js";
+import { requirePermission } from "../middleware/rbac.js";
+import { requireCompanyOrg } from "../middleware/orgAccess.js";
 
 const requestSchema = z.object({
   listing_id: z.string().uuid().optional(),
@@ -40,6 +45,11 @@ const requestCapacitySchema = z.object({
 export function createRequestsRouter(deps) {
   const { pool, getUserAndPlan, requireAuth, requestLimiter, sendMail, logger } = deps;
   const router = Router();
+  const rperm = (p) => requirePermission(p, { pool, logger });
+  const companyOrg = requireCompanyOrg(deps, {
+    errorCode: "SUPPLIER_SCORECARD_NOT_AVAILABLE_FOR_ORG_TYPE",
+    errorMessage: "Lieferantenbewertungen stehen nur fuer Unternehmensorganisationen zur Verfuegung."
+  });
 
   router.post("/requests", requireAuth, requestLimiter, async (req, res) => {
     const me = await getUserAndPlan(req.session.userId);
@@ -56,6 +66,11 @@ export function createRequestsRouter(deps) {
       if (!parsed.success) return res.status(400).json({ error: "VALIDATION", details: parsed.error.issues });
       const data = parsed.data;
       if (data.priority === "NOTDIENST" && !me.limits.notdienst) return res.status(403).json({ error: "PLAN_REQUIRED_NOTDIENST" });
+      // Worker-Limit pro Vermittlung
+      const wLimit = me.limits.max_workers_per_request;
+      if (wLimit !== undefined && wLimit !== -1 && (data.quantity || 1) > wLimit) {
+        return res.status(403).json({ error: "WORKER_LIMIT_EXCEEDED", limit: wLimit, requested: data.quantity || 1, plan: me.plan });
+      }
       const cap = await requestService.getActiveCapacity(pool, data.capacity_id);
       if (!cap) return res.status(404).json({ error: "CAPACITY_NOT_FOUND" });
       const receiver_id = cap.agency_id;
@@ -78,9 +93,9 @@ export function createRequestsRouter(deps) {
         if (receiver && sender) {
           const sent = await sendMail(
             receiver.email,
-            `TempConnect: Neue Kapazitätsanfrage${data.priority === "NOTDIENST" ? " [NOTDIENST]" : ""}`,
-            `<h2>Neue Kapazitätsanfrage erhalten</h2>
-             <p><b>${sender.company_name || sender.email}</b> fragt Kapazität an.</p>
+            `TempConnect: Neue Anfrage an Personalangebot${data.priority === "NOTDIENST" ? " [NOTDIENST]" : ""}`,
+            `<h2>Neue Anfrage an Personalangebot erhalten</h2>
+             <p><b>${sender.company_name || sender.email}</b> fragt Personalangebot an.</p>
              <p><b>Rolle/Region:</b> ${(capMeta?.role || data.role) || "–"} – ${(capMeta?.region || data.region) || "–"}</p>
              ${data.message ? `<p><b>Nachricht:</b> ${data.message}</p>` : ""}
              <p style="margin-top:20px">Bitte im Dashboard unter Eingang prüfen und annehmen oder ablehnen.</p>`
@@ -91,7 +106,7 @@ export function createRequestsRouter(deps) {
         logger.warn({ err: emailErr }, "E-Mail bei Kapazitätsanfrage fehlgeschlagen");
       }
       if (new Date() <= respondBy) await slaService.markSlaMet(pool, requestRow.id);
-      try { await complianceService.computeForRequest(pool, requestRow.id); } catch (_) {}
+      try { await complianceService.computeForRequest(pool, requestRow.id); } catch { /* non-critical */ }
       const { reservation } = await capacityService.reserve(pool, data.capacity_id, data.quantity ?? 1, requestRow.id);
       if (reservation) {
         await requestService.linkReservationToRequest(pool, requestRow.id, reservation.id);
@@ -172,7 +187,7 @@ export function createRequestsRouter(deps) {
     const { compliance_status, compliance_reasons, sla_events } = await requestService.getRequestComplianceAndEvents(pool, id);
     let scorecard = null;
     if (row.receiver_id && (row.requester_id === req.session.userId || row.receiver_id === req.session.userId)) {
-      try { scorecard = await supplierMetricsService.getScorecard(pool, row.receiver_id, 30); } catch (_) {}
+      try { scorecard = await supplierMetricsService.getScorecard(pool, row.receiver_id, 30); } catch { /* non-critical */ }
     }
     res.json({
       ...row,
@@ -223,11 +238,9 @@ export function createRequestsRouter(deps) {
     res.json(sla);
   });
 
-  router.get("/suppliers/:agencyId/scorecard", requireAuth, async (req, res) => {
+  router.get("/suppliers/:agencyId/scorecard", requireAuth, rperm("supplier.view"), companyOrg, async (req, res) => {
     const agencyId = String(req.params.agencyId);
     const window = Math.min(90, Math.max(7, parseInt(req.query.window, 10) || 30));
-    const me = await getUserAndPlan(req.session.userId);
-    if (me.role === "agency" && agencyId !== req.session.userId) return res.status(403).json({ error: "FORBIDDEN" });
     try {
       const scorecard = await supplierMetricsService.getScorecard(pool, agencyId, window);
       res.json(scorecard);
@@ -303,7 +316,7 @@ export function createRequestsRouter(deps) {
           }
           await stateMachine.logTransition(pool, { entityType: "REQUEST", from: req_data.status, to: "ACCEPTED", entity_id: id, request_id: id, capacity_id: req_data.capacity_id, actor_id: req.session.userId });
           await auditLog.writeAudit(pool, { action: "request.accept", entity_type: "request", entity_id: id, request_id: id, capacity_id: req_data.capacity_id, actor_id: req.session.userId, details: { from: "SENT", to: "ACCEPTED" } });
-          try { await slaService.markSlaResolved(pool, id); } catch (_) {}
+          try { await slaService.markSlaResolved(pool, id); } catch { /* non-critical */ }
           const [requester, receiver] = await Promise.all([
             requestService.getUserContact(pool, req_data.requester_id),
             requestService.getUserContact(pool, req_data.receiver_id)
@@ -312,6 +325,47 @@ export function createRequestsRouter(deps) {
             await sendMail(requester.email, "TempConnect: Deine Anfrage wurde angenommen!",
               `<h2>Gute Nachrichten!</h2><p><b>${receiver.company_name || receiver.email}</b> hat deine Anfrage angenommen.</p><p>Gehe in dein Dashboard unter "Anfragen & Status", um den Deal abzuschließen.</p>`);
           }
+          // ── Auto-Assignment: Aus angenommenem Deal wird offener Einsatz ──
+          try {
+            const [requesterOrg, receiverOrg] = await Promise.all([
+              rbacService.getPrimaryOrg(pool, req_data.requester_id),
+              rbacService.getPrimaryOrg(pool, req_data.receiver_id)
+            ]);
+            if (requesterOrg?.org_id && receiverOrg?.org_id) {
+              // Resolve worker_description from capacity post if available
+              let dealWorkerDesc = req_data.capacity_role || null;
+              if (req_data.capacity_id) {
+                try {
+                  const { rows: capRows } = await pool.query(
+                    'SELECT role, title FROM capacity_posts WHERE id = $1', [req_data.capacity_id]
+                  );
+                  if (capRows[0]) dealWorkerDesc = capRows[0].role || capRows[0].title || dealWorkerDesc;
+                } catch { /* non-critical */ }
+              }
+              await assignmentService.createAssignment(pool, {
+                org_id: requesterOrg.org_id,
+                supplier_org_id: receiverOrg.org_id,
+                deal_request_id: id,
+                worker_description: dealWorkerDesc,
+                worker_count: req_data.quantity || 1,
+                start_date: req_data.start_date || new Date().toISOString().slice(0, 10),
+                planned_end_date: req_data.end_date || null,
+                hourly_rate_cents: req_data.max_hourly_rate_cents || null,
+                notes: req_data.notes || null,
+                created_by: req.session.userId,
+                status: 'planned'
+              });
+              logger.info({ requestId: id }, "Auto-Assignment created from accepted deal");
+            }
+          } catch (assignErr) {
+            logger.warn({ err: assignErr?.message, requestId: id }, "Auto-Assignment bei Deal-Annahme fehlgeschlagen (non-critical)");
+          }
+          try {
+            await trackProductEventFromRequest(pool, req, "deal_started", {
+              flow_key: "capacity_to_deal",
+              metadata: { request_id: id, capacity_id: req_data.capacity_id || null }
+            });
+          } catch { /* analytics non-critical */ }
           return res.json(updated);
         }
         if (status === "DECLINED") {
@@ -331,10 +385,10 @@ export function createRequestsRouter(deps) {
             requestService.getUserContact(pool, req_data.receiver_id),
             requestService.getCapacityMeta(pool, req_data.capacity_id)
           ]);
-          try { await slaService.markSlaResolved(pool, id); } catch (_) {}
+          try { await slaService.markSlaResolved(pool, id); } catch { /* non-critical */ }
           if (requester && receiver && capMeta) {
             await sendMail(requester.email, "TempConnect: Anfrage wurde abgelehnt",
-              `<h2>Anfrage abgelehnt</h2><p>Leider hat <b>${receiver.company_name || receiver.email}</b> deine Anfrage abgelehnt.</p><p><b>Kapazität:</b> ${capMeta.role} - ${capMeta.region}</p>`);
+              `<h2>Anfrage abgelehnt</h2><p>Leider hat <b>${receiver.company_name || receiver.email}</b> deine Anfrage abgelehnt.</p><p><b>Personalangebot:</b> ${capMeta.role} - ${capMeta.region}</p>`);
           }
           return res.json(fullReq);
         }
@@ -354,6 +408,12 @@ export function createRequestsRouter(deps) {
             await sendMail(receiver.email, "TempConnect: Deal finalisiert",
               `<h2>Deal finalisiert!</h2><p><b>${requester.company_name || requester.email}</b> hat den Deal mit dir abgeschlossen.</p>`);
           }
+          try {
+            await trackProductEventFromRequest(pool, req, "deal_completed", {
+              flow_key: "capacity_to_deal",
+              metadata: { request_id: id, capacity_id: req_data.capacity_id || null }
+            });
+          } catch { /* analytics non-critical */ }
           return res.json(updated);
         }
         if (status === "CANCELED") {
@@ -386,7 +446,7 @@ export function createRequestsRouter(deps) {
       await stateMachine.logTransition(pool, { entityType: "REQUEST", from: req_data.status, to: status, entity_id: id, request_id: id, actor_id: req.session.userId });
       await auditLog.writeAudit(pool, { action: "request.status_change", entity_type: "request", entity_id: id, request_id: id, actor_id: req.session.userId, details: { from: req_data.status, to: status } });
       if (status === "ACCEPTED" || status === "DECLINED") {
-        try { await slaService.markSlaResolved(pool, id); } catch (_) {}
+        try { await slaService.markSlaResolved(pool, id); } catch { /* non-critical */ }
       }
       if (status === "FINALIZED") {
         await requestService.fillRelatedRequests(pool, req_data.listing_id, req.session.userId, id);
@@ -433,6 +493,24 @@ export function createRequestsRouter(deps) {
         });
       }
       logger.error({ err: e }, "Status-Update fehlgeschlagen");
+      res.status(500).json({ error: "SERVER_ERROR" });
+    }
+  });
+
+  /* GET /requests/export/csv — CSV-Export aller Deals/Requests (user-scoped) */
+  router.get("/requests/export/csv", requireAuth, async (req, res) => {
+    try {
+      const { exportDealsCsv } = await import("../services/exportService.js");
+      const sent = await requestService.getSentRequests(pool, req.session.userId);
+      const received = await requestService.getReceivedRequests(pool, req.session.userId);
+      const all = [...sent, ...received];
+      const csv = exportDealsCsv(all);
+      const filename = `deals-${new Date().toISOString().split("T")[0]}.csv`;
+      res.setHeader("Content-Type", "text/csv; charset=utf-8");
+      res.setHeader("Content-Disposition", `attachment; filename="${filename}"`);
+      res.send(csv);
+    } catch (e) {
+      logger.error({ err: e }, "GET /requests/export/csv");
       res.status(500).json({ error: "SERVER_ERROR" });
     }
   });

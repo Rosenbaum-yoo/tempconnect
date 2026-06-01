@@ -3,12 +3,6 @@
  * Ampellogik (gruen/gelb/rot), Ablauf-Reminder, Statistik pro Org.
  */
 
-const DOC_TYPES = [
-  'aueg_erlaubnis', 'unbedenklichkeit', 'uvv_nachweis', 'versicherung',
-  'zertifikat', 'gewerbeanmeldung', 'handelsregister', 'datenschutz',
-  'arbeitssicherheit', 'qualifikation', 'sonstige'
-];
-
 /** Ampelfarbe: Wie viele Tage bis Ablauf? */
 export function trafficLight(validUntil) {
   if (!validUntil) return 'grey';  // kein Ablaufdatum

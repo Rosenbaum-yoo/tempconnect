@@ -287,6 +287,34 @@ export async function deactivateMember(pool, orgId, userId) {
   return rowCount > 0;
 }
 
+/**
+ * Mitglied-Rolle per Membership-PK aendern (ohne user_id).
+ * Prueft org_id-Boundary in der WHERE-Clause.
+ */
+export async function updateMemberRoleByMembershipId(pool, orgId, membershipId, newRoleKey) {
+  const { rows } = await pool.query(
+    `UPDATE org_memberships SET role_key = $3, updated_at = NOW()
+     WHERE id = $1 AND org_id = $2 AND is_active = TRUE
+     RETURNING *`,
+    [membershipId, orgId, newRoleKey]
+  );
+  return rows[0] || null;
+}
+
+/**
+ * Mitglied-Scope (Standort + Abteilung) aendern — getrennt von der Rolle.
+ * Prueft org_id-Boundary in der WHERE-Clause.
+ */
+export async function updateMemberScope(pool, orgId, membershipId, { location_id, department_id }) {
+  const { rows } = await pool.query(
+    `UPDATE org_memberships SET location_id = $3, department_id = $4, updated_at = NOW()
+     WHERE id = $1 AND org_id = $2 AND is_active = TRUE
+     RETURNING *`,
+    [membershipId, orgId, location_id ?? null, department_id ?? null]
+  );
+  return rows[0] || null;
+}
+
 /* ═══════════════════════════════════════════════════════════
  *  Location Helpers (Multi-Location-Kontext)
  * ═══════════════════════════════════════════════════════════ */

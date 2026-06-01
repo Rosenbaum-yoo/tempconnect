@@ -12,11 +12,13 @@ const VALID_EVENT_TYPES = [
   'assignment_started', 'assignment_completed',
   // Enterprise Foundation (migration 025)
   'profile_updated', 'search_job_created', 'search_job_closed',
-  'offer_created', 'offer_accepted', 'offer_rejected', 'offer_withdrawn',
+  'offer_created', 'offer_accepted', 'offer_rejected', 'offer_withdrawn', 'offer_countered',
   'document_uploaded', 'document_verified', 'document_expired',
   'org_created', 'org_updated', 'member_added', 'member_removed',
   'role_changed', 'login', 'password_changed',
-  'capacity_interest', 'match_found', 'notification_sent'
+  'capacity_interest', 'match_found', 'notification_sent',
+  // Premium Inserat analytics (migration 045)
+  'listing_viewed', 'listing_clicked', 'listing_matched'
 ];
 
 /**

@@ -10,8 +10,8 @@ export function requireAuth(req, res, next) {
 
 export function csrfProtect(req, res, next) {
   if (["GET", "HEAD", "OPTIONS"].includes(req.method)) return next();
-  const path = (req.path || "").replace(/^\/api/, "") || "/";
-  if (path === "/csrf") return next();
+  const path = (req.path || "").replace(/^\/api(\/v\d+)?/, "") || "/";
+  if (path === "/csrf" || path === "/analytics/track-public") return next();
   const token = req.headers["x-csrf-token"];
   const sessionToken = req.session?.csrfToken;
   if (!sessionToken || token !== sessionToken) {

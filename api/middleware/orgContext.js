@@ -196,6 +196,18 @@ export function orgContextMiddleware(pool) {
       // Unexpected DB error — non-blocking, continue without location context
     }
 
+    // ── RLS-Helper: SET LOCAL für Transaktions-Clients ──────────────────────
+    // Services können req.setOrgContext(client) aufrufen um in einer bereits
+    // laufenden Transaktion den Org-Context zu setzen.
+    // Empfehlung: withOrgContext(pool, req.orgId, fn) aus utils/orgContext.js verwenden —
+    // das macht SET LOCAL automatisch am Transaction-Anfang.
+    if (req.orgId) {
+      req.setOrgContext = async (client) => {
+        await client.query("SET LOCAL app.current_org_id = $1", [req.orgId]);
+        await client.query("SET LOCAL app.rls_bypass = $1", [""]);
+      };
+    }
+
     next();
   };
 }

@@ -6,6 +6,7 @@
 import * as auditLog from "./auditLog.js";
 import { notifyAssignmentNew } from "./workerNotificationService.js";
 import { withTransaction } from "../utils/transaction.js";
+import { assertLocationBelongsToOrg, assertDepartmentBelongsToOrg } from "../utils/orgBoundary.js";
 import {
   buildAssignmentActivePredicateSql,
   buildAssignmentHistoryPredicateSql,
@@ -26,6 +27,10 @@ const VALID_TRANSITIONS = {
 /* ── CRUD ─────────────────────────────────────────────── */
 
 export async function createAssignment(pool, data) {
+  // Org-Boundary: Standort und Abteilung muessen zur eigenen Org gehoeren.
+  await assertLocationBelongsToOrg(pool, data.location_id, data.org_id);
+  await assertDepartmentBelongsToOrg(pool, data.department_id, data.org_id);
+
   const a = await withTransaction(pool, async (client) => {
     const requestedQuantity = Math.max(1, Number.parseInt(data.requested_quantity ?? data.worker_count ?? 1, 10) || 1);
     const staffingStatus = data.status === "cancelled"

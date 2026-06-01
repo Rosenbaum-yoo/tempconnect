@@ -5,14 +5,28 @@
  *   res.locals.audit = { action: 'payment.create', entity_type: 'payment_session', entity_id: session.id };
  *   res.locals.audit.old_values = { status: 'pending' };
  *   res.locals.audit.new_values = { status: 'completed' };
+ *   res.locals.audit.action_type = 'CREATE';  // optional, wird sonst auto-abgeleitet
+ *   res.locals.audit.status = 'DENIED';       // optional, wird aus HTTP-Status abgeleitet
  *
  * Die Middleware schreibt den Audit-Eintrag NACH dem Response (res 'finish' Event).
+ * Loggt SUCCESS (2xx), DENIED (4xx) und FAILED (5xx) Events.
  * Wenn res.locals.audit nicht gesetzt ist UND die Methode mutierend ist, wird ein Fallback-Log geschrieben.
  */
 
-import { writeAudit } from "../services/auditLog.js";
+import { writeAudit, deriveActionType } from "../services/auditLog.js";
 
 const MUTATING_METHODS = new Set(["POST", "PUT", "PATCH", "DELETE"]);
+
+/** Leitet Audit-Status aus HTTP-Statuscode ab */
+function deriveAuditStatus(httpStatus) {
+  if (httpStatus >= 200 && httpStatus < 300) return 'SUCCESS';
+  if (httpStatus >= 400 && httpStatus < 500) return 'DENIED';
+  if (httpStatus >= 500) return 'FAILED';
+  return 'SUCCESS';
+}
+
+/** Pfade die keine Audit-Warnung bei fehlender Markierung erzeugen */
+const SKIP_WARNING_PATHS = ["/api/csrf", "/health", "/api/health", "/metrics"];
 
 /**
  * @param {import('pg').Pool} pool
@@ -25,24 +39,30 @@ export function auditWriteMiddleware(pool, opts = {}) {
     if (!MUTATING_METHODS.has(req.method)) return next();
 
     res.on("finish", async () => {
-      // Nur bei erfolgreichen Mutationen loggen (2xx)
-      if (res.statusCode < 200 || res.statusCode >= 300) return;
-
       const audit = res.locals?.audit;
+
       if (!audit?.action) {
         // Fallback: unmarkierte Mutation warnen (Entwickler-Hinweis)
-        if (logger && req.path !== "/api/csrf" && !req.path.includes("/health")) {
-          logger.warn(
-            { method: req.method, path: req.originalUrl || req.path, userId: req.session?.userId },
-            "Mutation ohne Audit-Markierung (res.locals.audit fehlt)"
-          );
+        if (res.statusCode >= 200 && res.statusCode < 300) {
+          if (logger && !SKIP_WARNING_PATHS.some(p => req.path.includes(p))) {
+            logger.warn(
+              { method: req.method, path: req.originalUrl || req.path, userId: req.session?.userId },
+              "Mutation ohne Audit-Markierung (res.locals.audit fehlt)"
+            );
+          }
         }
         return;
       }
 
+      // Audit-Status: explizit gesetzt > aus HTTP-Code abgeleitet
+      const auditStatus = audit.status || deriveAuditStatus(res.statusCode);
+      const actionType = audit.action_type || deriveActionType(audit.action);
+
       try {
         await writeAudit(pool, {
           action: audit.action,
+          action_type: actionType,
+          status: auditStatus,
           entity_type: audit.entity_type || "unknown",
           entity_id: audit.entity_id ? String(audit.entity_id) : null,
           actor_id: req.session?.userId || null,

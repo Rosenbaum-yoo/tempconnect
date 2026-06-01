@@ -57,7 +57,7 @@ function scoreJobAgainstDemand(job, d) {
 /* ── CRUD für sla_search_jobs ────────────────────────────────── */
 
 export async function createSearchJob(pool, ownerId, ownerType, plan, payload) {
-  const useSla = plan === PLAN.PLUS || plan === PLAN.NOTDIENST;
+  const useSla = plan === PLAN.PLUS || plan === PLAN.PRO;
   const urgency = (payload.urgency || "normal").toLowerCase();
   const defaultMinutes = urgency === "notdienst" ? 30 : 120;
   const slaMinutes = useSla ? (payload.sla_minutes ?? defaultMinutes) : null;
@@ -362,25 +362,22 @@ export async function runSearchJobsBatch(pool, sendMail, batchSize) {
       for (const m of top) {
         try {
           let email = null;
-          let companyName = null;
           if (job.target_type === "CAPACITY" && m.cap) {
             const cap = m.cap;
-            const u = await pool.query("SELECT email, company_name FROM users WHERE id = $1", [cap.supplier_company_id]);
+            const u = await pool.query("SELECT email FROM users WHERE id = $1", [cap.supplier_company_id]);
             email = u.rows[0]?.email || null;
-            companyName = u.rows[0]?.company_name || null;
           } else if (job.target_type === "DEMAND" && m.demand) {
             const d = m.demand;
-            const u = await pool.query("SELECT email, company_name FROM users WHERE id = $1", [d.requester_company_id]);
+            const u = await pool.query("SELECT email FROM users WHERE id = $1", [d.requester_company_id]);
             email = u.rows[0]?.email || null;
-            companyName = u.rows[0]?.company_name || null;
           }
           if (!email) continue;
           const subject = job.target_type === "CAPACITY"
-            ? "TempConnect: Neuer Suchauftrag – Kapazität passt"
+            ? "TempConnect: Neuer Suchauftrag – Personal passt"
             : "TempConnect: Neuer Suchauftrag – Nachfrage passt";
           const html = job.target_type === "CAPACITY"
             ? `<h2>Suchauftrag eines Unternehmens</h2>
-               <p>Ein Suchauftrag passt zu einer deiner Kapazitäten.</p>
+               <p>Ein Suchauftrag passt zu einem deiner Personalangebote.</p>
                <p><b>Suchauftrag:</b> ${job.title} – ${job.role || ""}, ${job.location_city || ""}</p>
                <p style="margin-top:12px;font-size:13px;color:#9ca3af">Hinweis: Dies ist ein Matching-Versuch im Rahmen eines SLA-Prozesses. Es wird kein Vermittlungserfolg zugesagt.</p>`
             : `<h2>Suchauftrag einer Agentur</h2>

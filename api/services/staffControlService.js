@@ -79,7 +79,13 @@ export async function loadPlatformSnapshot(pool) {
 }
 
 export async function loadOperationsSnapshot(pool) {
-  const snapshot = { generated_at: new Date().toISOString(), recent_runs: [], errors: [] };
+  const snapshot = {
+    generated_at: new Date().toISOString(),
+    recent_runs: [],
+    infra_health: [],   // Letzter Snapshot pro Host (max. 24 h alt)
+    errors: []
+  };
+
   try {
     const { rows } = await pool.query(
       `SELECT runbook_key, status, started_at, finished_at
@@ -90,6 +96,24 @@ export async function loadOperationsSnapshot(pool) {
   } catch (err) {
     snapshot.errors.push({ area: "runbook_runs", error: String(err.code || err.message || err) });
   }
+
+  // Neuester Infra-Snapshot pro Host (infrastructure_snapshots — Migration 110)
+  try {
+    const { rows } = await pool.query(`
+      SELECT DISTINCT ON (host_name)
+        host_name, env,
+        cpu_percent, ram_percent, disk_percent,
+        docker_running_count, docker_unhealthy_count,
+        tls_days_remaining, backup_age_h,
+        deployment_version, deployment_status,
+        collected_at
+      FROM infrastructure_snapshots
+      WHERE collected_at > NOW() - INTERVAL '24 hours'
+      ORDER BY host_name, collected_at DESC
+    `);
+    snapshot.infra_health = rows;
+  } catch { /* Tabelle optional — Soft-Fail */ }
+
   return snapshot;
 }
 
@@ -108,28 +132,158 @@ export async function loadRevenueSnapshot(pool) {
 }
 
 export async function loadRiskSnapshot(pool) {
-  const snapshot = { generated_at: new Date().toISOString(), dsgvo_requests_open: 0, compliance_docs_expired: 0, errors: [] };
+  const snapshot = {
+    generated_at: new Date().toISOString(),
+    kpi: {
+      dsgvo_requests_open:        0,
+      compliance_docs_expired:    0,
+      compliance_docs_expiring_30d: 0,
+      high_risk_actions_7d:       0
+    },
+    dsgvo_recent:        [],  // Bis zu 10 offene DSGVO-Anfragen
+    compliance_expiring: [],  // Abgelaufen + läuft in 30 Tagen ab
+    high_risk_audit:     [],  // High/Critical Staff-Aktionen letzte 7 Tage
+    errors: []
+  };
+
+  // DSGVO-Anfragen KPI
   try {
     const { rows } = await pool.query(
       `SELECT COUNT(*)::int AS n FROM data_governance_requests WHERE status IN ('pending','in_progress')`
     );
-    snapshot.dsgvo_requests_open = Number(rows[0]?.n || 0);
-  } catch { /* optional */ }
+    snapshot.kpi.dsgvo_requests_open = Number(rows[0]?.n || 0);
+  } catch { /* Tabelle optional */ }
+
+  // DSGVO-Anfragen Liste (älteste zuerst → Fristen-Priorität)
   try {
-    const { rows } = await pool.query(
+    const { rows } = await pool.query(`
+      SELECT dgr.id, dgr.request_type, dgr.subject_type, dgr.status,
+             dgr.notes, dgr.created_at,
+             o.name AS org_name,
+             NULLIF(TRIM(COALESCE(u.first_name,'') || ' ' || COALESCE(u.last_name,'')), '') AS requested_by_name,
+             u.email AS requested_by_email
+      FROM   data_governance_requests dgr
+      LEFT JOIN organizations o ON o.id = dgr.org_id
+      LEFT JOIN users         u ON u.id = dgr.requested_by
+      WHERE  dgr.status IN ('pending','in_progress')
+      ORDER BY dgr.created_at ASC
+      LIMIT 10
+    `);
+    snapshot.dsgvo_recent = rows;
+  } catch { /* optional */ }
+
+  // Compliance-Dokumente KPI
+  try {
+    const { rows: exp } = await pool.query(
       `SELECT COUNT(*)::int AS n FROM compliance_documents WHERE valid_until IS NOT NULL AND valid_until < NOW()`
     );
-    snapshot.compliance_docs_expired = Number(rows[0]?.n || 0);
+    snapshot.kpi.compliance_docs_expired = Number(exp[0]?.n || 0);
   } catch { /* optional */ }
+
+  try {
+    const { rows: soon } = await pool.query(
+      `SELECT COUNT(*)::int AS n FROM compliance_documents
+       WHERE valid_until IS NOT NULL
+         AND valid_until >= NOW()
+         AND valid_until < NOW() + INTERVAL '30 days'`
+    );
+    snapshot.kpi.compliance_docs_expiring_30d = Number(soon[0]?.n || 0);
+  } catch { /* optional */ }
+
+  // Compliance-Dokumente Liste (abgelaufen + läuft ≤30T ab)
+  try {
+    const { rows } = await pool.query(`
+      SELECT cd.id, cd.doc_type, cd.doc_name, cd.status,
+             cd.valid_from, cd.valid_until,
+             o.name AS org_name
+      FROM   compliance_documents cd
+      LEFT JOIN organizations o ON o.id = cd.org_id
+      WHERE  cd.valid_until IS NOT NULL
+        AND  cd.valid_until < NOW() + INTERVAL '30 days'
+      ORDER BY cd.valid_until ASC
+      LIMIT 20
+    `);
+    snapshot.compliance_expiring = rows;
+  } catch { /* optional */ }
+
+  // High/Critical Staff-Aktionen letzte 7 Tage
+  try {
+    const { rows: auditKpi } = await pool.query(
+      `SELECT COUNT(*)::int AS n FROM staff_control_audit_log
+       WHERE risk_level IN ('high','critical')
+         AND created_at > NOW() - INTERVAL '7 days'`
+    );
+    snapshot.kpi.high_risk_actions_7d = Number(auditKpi[0]?.n || 0);
+  } catch { /* optional */ }
+
+  try {
+    const { rows } = await pool.query(`
+      SELECT id, actor_id, area, action, status, risk_level, reason, created_at
+      FROM   staff_control_audit_log
+      WHERE  risk_level IN ('high','critical')
+        AND  created_at > NOW() - INTERVAL '7 days'
+      ORDER BY created_at DESC
+      LIMIT 10
+    `);
+    snapshot.high_risk_audit = rows;
+  } catch { /* optional */ }
+
   return snapshot;
 }
 
-export function loadSupportSnapshot() {
-  return {
+export async function loadSupportSnapshot(pool) {
+  const snapshot = {
     generated_at: new Date().toISOString(),
+    kpi: { open_cases: 0, escalated_cases: 0, sla_breach_count: 0, critical_count: 0 },
     escalations: [],
-    impersonation: { allowed: false, reason: "Staff Control Center erlaubt keine Impersonation." }
+    impersonation: { allowed: false, reason: "Staff Control Center erlaubt keine Impersonation." },
+    errors: []
   };
+
+  // KPI aus support_cases
+  try {
+    const { rows } = await pool.query(`
+      SELECT
+        COUNT(*) FILTER (WHERE status NOT IN ('resolved','closed'))::int            AS open_cases,
+        COUNT(*) FILTER (WHERE is_escalated AND status NOT IN ('resolved','closed'))::int AS escalated_cases,
+        COUNT(*) FILTER (WHERE sla_resolution_deadline < NOW()
+                           AND status NOT IN ('resolved','closed'))::int            AS sla_breach_count,
+        COUNT(*) FILTER (WHERE priority = 'critical'
+                           AND status NOT IN ('resolved','closed'))::int            AS critical_count
+      FROM support_cases
+    `);
+    if (rows[0]) {
+      snapshot.kpi = {
+        open_cases:      Number(rows[0].open_cases      || 0),
+        escalated_cases: Number(rows[0].escalated_cases || 0),
+        sla_breach_count:Number(rows[0].sla_breach_count|| 0),
+        critical_count:  Number(rows[0].critical_count  || 0)
+      };
+    }
+  } catch { /* Tabelle optional — Soft-Fail */ }
+
+  // Offene Eskalationen (pending/acknowledged) mit Case-Kontext
+  try {
+    const { rows } = await pool.query(`
+      SELECT se.id, se.target, se.priority, se.summary, se.status, se.reason, se.created_at,
+             sc.case_number, sc.subject AS case_subject,
+             o.name AS org_name
+      FROM   support_escalations se
+      JOIN   support_cases sc ON sc.id = se.case_id
+      LEFT JOIN organizations o ON o.id = sc.reporter_org_id
+      WHERE  se.status IN ('pending','acknowledged')
+      ORDER BY
+        CASE WHEN se.priority = 'critical' THEN 0
+             WHEN se.priority = 'urgent'   THEN 1
+             WHEN se.priority = 'high'     THEN 2
+             ELSE 3 END,
+        se.created_at ASC
+      LIMIT 20
+    `);
+    snapshot.escalations = rows;
+  } catch { /* Tabelle optional — Soft-Fail */ }
+
+  return snapshot;
 }
 
 export async function loadAuditDecisionsSnapshot(pool) {

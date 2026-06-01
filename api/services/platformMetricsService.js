@@ -3,8 +3,6 @@
  * All queries are read-only and use COUNT/SUM aggregations.
  */
 
-import { logger } from "../config/index.js";
-
 /**
  * Returns a snapshot of key platform metrics.
  * @param {import('pg').Pool} pool
@@ -75,8 +73,8 @@ async function subscriptionMetrics(pool) {
         COUNT(*) FILTER (WHERE plan = 'FREE') AS free,
         COUNT(*) FILTER (WHERE plan = 'BASIS') AS basis,
         COUNT(*) FILTER (WHERE plan = 'PLUS') AS plus,
-        COUNT(*) FILTER (WHERE plan = 'NOTDIENST') AS notdienst,
-        COUNT(*) FILTER (WHERE status = 'active') AS active
+        COUNT(*) FILTER (WHERE plan = 'PRO') AS pro,
+        COUNT(*) FILTER (WHERE status IN ('active', 'past_due', 'canceling')) AS active
       FROM subscriptions
     `);
     return asNumbers(rows[0]);

@@ -1,0 +1,1041 @@
+{
+  "openapi": "3.0.3",
+  "x-drift-notice": "VERALTET: Dieser Snapshot entspricht dem Pilot-Launch (27 Pfade von ~350+). Aktuelle API-Dokumentation: docs/API_DOCUMENTATION.md und docs/OPENAPI_DRIFT_REPORT.md. Stand: 2026-05-28.",
+  "info": {
+    "title": "TempConnect API",
+    "version": "2.0.0",
+    "description": "B2B Workforce Marketplace API — VMS, Capacity Exchange, Timesheets, RBAC, Compliance.\n\nAuthentication: Session-cookie (`tc.sid`) + `X-CSRF-Token` header for mutating requests.\n\nGet a CSRF token via `GET /api/csrf` before any POST/PATCH/DELETE.\n\n⚠️ NOTICE: This spec covers only the initial pilot routes (27 of 350+ endpoints). See docs/API_DOCUMENTATION.md for current coverage.",
+    "contact": {
+      "name": "TempConnect Engineering",
+      "email": "tech@tempconnect.de"
+    },
+    "license": {
+      "name": "Proprietary"
+    }
+  },
+  "servers": [
+    { "url": "http://localhost:3000/api", "description": "Local development" },
+    { "url": "https://api.tempconnect.de/api", "description": "Production" }
+  ],
+  "tags": [
+    { "name": "auth", "description": "Authentication & session management" },
+    { "name": "me", "description": "Current user profile" },
+    { "name": "plans", "description": "Subscription plans" },
+    { "name": "payment", "description": "Checkout & billing" },
+    { "name": "organizations", "description": "Multi-org management, locations, departments, members" },
+    { "name": "requisitions", "description": "VMS requisition lifecycle" },
+    { "name": "capacities", "description": "Capacity post management" },
+    { "name": "marketplace", "description": "Matching & marketplace discovery" },
+    { "name": "vendor-pool", "description": "Vendor pool management" },
+    { "name": "timesheets", "description": "Timesheet & time entry management (PLUS+)" },
+    { "name": "workers", "description": "Worker profile management" },
+    { "name": "assignments", "description": "Worker assignments" },
+    { "name": "contracts", "description": "Contract management" },
+    { "name": "compliance", "description": "Compliance document management" },
+    { "name": "requests", "description": "Demand requests & deals" },
+    { "name": "notifications", "description": "In-app notifications" },
+    { "name": "health", "description": "Health & observability" }
+  ],
+  "components": {
+    "securitySchemes": {
+      "sessionCookie": {
+        "type": "apiKey",
+        "in": "cookie",
+        "name": "tc.sid",
+        "description": "HTTP-only session cookie set on login"
+      },
+      "csrfToken": {
+        "type": "apiKey",
+        "in": "header",
+        "name": "X-CSRF-Token",
+        "description": "CSRF token obtained from GET /api/csrf"
+      }
+    },
+    "schemas": {
+      "Error": {
+        "type": "object",
+        "properties": {
+          "error": { "type": "string", "example": "VALIDATION" },
+          "message": { "type": "string" },
+          "details": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "path": { "type": "array", "items": { "type": "string" } },
+                "message": { "type": "string" }
+              }
+            }
+          }
+        },
+        "required": ["error"]
+      },
+      "User": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string", "format": "uuid" },
+          "email": { "type": "string", "format": "email" },
+          "role": { "type": "string", "enum": ["company", "agency", "worker"] },
+          "company_name": { "type": "string", "nullable": true },
+          "phone": { "type": "string", "nullable": true },
+          "postal_code": { "type": "string", "nullable": true },
+          "city": { "type": "string", "nullable": true },
+          "country": { "type": "string", "default": "DE" },
+          "lat": { "type": "number", "nullable": true },
+          "lng": { "type": "number", "nullable": true },
+          "is_verified": { "type": "boolean" },
+          "org_id": { "type": "string", "format": "uuid", "nullable": true },
+          "plan": { "type": "string", "enum": ["FREE", "BASIS", "PLUS", "PRO", "ENTERPRISE"] },
+          "created_at": { "type": "string", "format": "date-time" }
+        }
+      },
+      "Organization": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string", "format": "uuid" },
+          "name": { "type": "string" },
+          "slug": { "type": "string" },
+          "type": { "type": "string", "enum": ["company", "agency", "platform"] },
+          "plan": { "type": "string", "enum": ["FREE", "BASIS", "PLUS", "PRO", "ENTERPRISE"] },
+          "billing_email": { "type": "string", "format": "email", "nullable": true },
+          "tax_id": { "type": "string", "nullable": true },
+          "website": { "type": "string", "nullable": true },
+          "is_active": { "type": "boolean" },
+          "is_verified": { "type": "boolean" },
+          "created_at": { "type": "string", "format": "date-time" }
+        }
+      },
+      "Requisition": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string", "format": "uuid" },
+          "org_id": { "type": "string", "format": "uuid" },
+          "title": { "type": "string" },
+          "role": { "type": "string" },
+          "description": { "type": "string", "nullable": true },
+          "skill_tags": { "type": "array", "items": { "type": "string" } },
+          "headcount": { "type": "integer", "minimum": 1 },
+          "start_date": { "type": "string", "format": "date", "nullable": true },
+          "end_date": { "type": "string", "format": "date", "nullable": true },
+          "location_city": { "type": "string", "nullable": true },
+          "location_postal": { "type": "string", "nullable": true },
+          "latitude": { "type": "number", "nullable": true },
+          "longitude": { "type": "number", "nullable": true },
+          "radius_km": { "type": "integer", "default": 50 },
+          "budget_min_cents": { "type": "integer", "nullable": true },
+          "budget_max_cents": { "type": "integer", "nullable": true },
+          "urgency": { "type": "string", "enum": ["normal", "high", "urgent", "notdienst"] },
+          "status": {
+            "type": "string",
+            "enum": ["DRAFT", "PENDING_APPROVAL", "APPROVED", "OPEN", "IN_REVIEW", "SHORTLISTED", "FILLED", "CLOSED", "CANCELLED"]
+          },
+          "approval_required": { "type": "boolean" },
+          "created_by": { "type": "string", "format": "uuid" },
+          "created_at": { "type": "string", "format": "date-time" },
+          "updated_at": { "type": "string", "format": "date-time" }
+        }
+      },
+      "CapacityPost": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string", "format": "uuid" },
+          "supplier_company_id": { "type": "string", "format": "uuid" },
+          "role": { "type": "string" },
+          "skill_tags": { "type": "array", "items": { "type": "string" } },
+          "headcount_available": { "type": "integer", "minimum": 1 },
+          "availability_from": { "type": "string", "format": "date", "nullable": true },
+          "availability_to": { "type": "string", "format": "date", "nullable": true },
+          "location_city": { "type": "string", "nullable": true },
+          "location_postal": { "type": "string", "nullable": true },
+          "location_lat": { "type": "number", "nullable": true },
+          "location_lng": { "type": "number", "nullable": true },
+          "radius_km": { "type": "integer" },
+          "hourly_rate_min_cents": { "type": "integer", "nullable": true },
+          "hourly_rate_max_cents": { "type": "integer", "nullable": true },
+          "description": { "type": "string", "nullable": true },
+          "status": { "type": "string", "enum": ["draft", "active", "paused", "filled", "expired", "archived"] },
+          "is_active": { "type": "boolean" },
+          "notdienst": { "type": "boolean" },
+          "created_at": { "type": "string", "format": "date-time" }
+        }
+      },
+      "Timesheet": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string", "format": "uuid" },
+          "org_id": { "type": "string", "format": "uuid" },
+          "supplier_org_id": { "type": "string", "format": "uuid" },
+          "assignment_id": { "type": "string", "format": "uuid", "nullable": true },
+          "worker_name": { "type": "string" },
+          "worker_identifier": { "type": "string", "nullable": true },
+          "week_start": { "type": "string", "format": "date" },
+          "week_end": { "type": "string", "format": "date" },
+          "total_hours": { "type": "number" },
+          "overtime_hours": { "type": "number" },
+          "status": { "type": "string", "enum": ["draft", "submitted", "approved", "rejected", "archived"] },
+          "notes": { "type": "string", "nullable": true },
+          "created_at": { "type": "string", "format": "date-time" }
+        }
+      },
+      "TimesheetEntry": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string", "format": "uuid" },
+          "timesheet_id": { "type": "string", "format": "uuid" },
+          "work_date": { "type": "string", "format": "date" },
+          "hours_regular": { "type": "number", "minimum": 0, "maximum": 24 },
+          "hours_overtime": { "type": "number", "minimum": 0, "maximum": 24 },
+          "break_minutes": { "type": "integer", "minimum": 0 },
+          "shift_start": { "type": "string", "pattern": "^\\d{2}:\\d{2}$", "nullable": true },
+          "shift_end": { "type": "string", "pattern": "^\\d{2}:\\d{2}$", "nullable": true },
+          "notes": { "type": "string", "nullable": true }
+        }
+      },
+      "MatchResult": {
+        "type": "object",
+        "properties": {
+          "score": { "type": "number", "minimum": 0, "maximum": 100 },
+          "reasons": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "factor": { "type": "string", "enum": ["role", "skills", "location", "availability", "verified", "vendorPool"] },
+                "points": { "type": "number" },
+                "max": { "type": "number" },
+                "detail": { "type": "string" }
+              }
+            }
+          }
+        }
+      },
+      "ServiceStatus": {
+        "type": "object",
+        "properties": {
+          "status": { "type": "string", "enum": ["healthy", "degraded", "down"] },
+          "components": {
+            "type": "object",
+            "properties": {
+              "database": {
+                "type": "object",
+                "properties": {
+                  "status": { "type": "string", "enum": ["ok", "error"] },
+                  "latency_ms": { "type": "number" }
+                }
+              },
+              "redis": {
+                "type": "object",
+                "properties": {
+                  "status": { "type": "string", "enum": ["ok", "error", "unconfigured"] }
+                }
+              },
+              "smtp": {
+                "type": "object",
+                "properties": {
+                  "status": { "type": "string", "enum": ["ok", "error", "unconfigured"] }
+                }
+              },
+              "stripe": {
+                "type": "object",
+                "properties": {
+                  "status": { "type": "string", "enum": ["ok", "unconfigured"] }
+                }
+              },
+              "queue": {
+                "type": "object",
+                "properties": {
+                  "status": { "type": "string" },
+                  "waiting": { "type": "integer" },
+                  "active": { "type": "integer" }
+                }
+              }
+            }
+          },
+          "version": { "type": "string" },
+          "environment": { "type": "string" }
+        }
+      }
+    }
+  },
+  "security": [
+    { "sessionCookie": [], "csrfToken": [] }
+  ],
+  "paths": {
+    "/health": {
+      "get": {
+        "tags": ["health"],
+        "summary": "Basic health check",
+        "security": [],
+        "responses": {
+          "200": {
+            "description": "Service is up",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": { "status": { "type": "string", "example": "ok" } }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/service-status": {
+      "get": {
+        "tags": ["health"],
+        "summary": "Detailed component health status",
+        "security": [],
+        "responses": {
+          "200": {
+            "description": "Component health",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ServiceStatus" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/csrf": {
+      "get": {
+        "tags": ["auth"],
+        "summary": "Get CSRF token",
+        "security": [],
+        "responses": {
+          "200": {
+            "description": "CSRF token",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": { "token": { "type": "string" } }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/auth/register": {
+      "post": {
+        "tags": ["auth"],
+        "summary": "Register a new company or agency account",
+        "security": [{ "csrfToken": [] }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["role", "email", "password"],
+                "properties": {
+                  "role": { "type": "string", "enum": ["company", "agency"] },
+                  "email": { "type": "string", "format": "email" },
+                  "password": { "type": "string", "minLength": 8 },
+                  "company_name": { "type": "string" },
+                  "phone": { "type": "string" },
+                  "postal_code": { "type": "string" },
+                  "city": { "type": "string" },
+                  "plan": { "type": "string", "enum": ["FREE", "BASIS", "PLUS", "PRO", "ENTERPRISE"], "default": "FREE" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "User registered successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    { "$ref": "#/components/schemas/User" },
+                    {
+                      "type": "object",
+                      "properties": { "verification_sent": { "type": "boolean" } }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "400": { "description": "Validation error", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } } },
+          "409": { "description": "Email already registered", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } } }
+        }
+      }
+    },
+    "/auth/login": {
+      "post": {
+        "tags": ["auth"],
+        "summary": "Login",
+        "security": [{ "csrfToken": [] }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["email", "password"],
+                "properties": {
+                  "email": { "type": "string", "format": "email" },
+                  "password": { "type": "string" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": { "description": "Logged in", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/User" } } } },
+          "401": { "description": "Invalid credentials", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } } }
+        }
+      }
+    },
+    "/auth/logout": {
+      "post": {
+        "tags": ["auth"],
+        "summary": "Logout and destroy session",
+        "responses": {
+          "200": { "description": "Logged out", "content": { "application/json": { "schema": { "type": "object", "properties": { "ok": { "type": "boolean" } } } } } }
+        }
+      }
+    },
+    "/auth/forgot-password": {
+      "post": {
+        "tags": ["auth"],
+        "summary": "Request password reset email",
+        "security": [{ "csrfToken": [] }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "type": "object", "required": ["email"], "properties": { "email": { "type": "string", "format": "email" } } }
+            }
+          }
+        },
+        "responses": {
+          "200": { "description": "Email sent (always 200 to prevent user enumeration)" }
+        }
+      }
+    },
+    "/auth/reset-password": {
+      "post": {
+        "tags": ["auth"],
+        "summary": "Set new password using reset token",
+        "security": [{ "csrfToken": [] }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["token", "password"],
+                "properties": {
+                  "token": { "type": "string" },
+                  "password": { "type": "string", "minLength": 8 }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": { "description": "Password reset" },
+          "400": { "description": "Token expired or password too short" }
+        }
+      }
+    },
+    "/me": {
+      "get": {
+        "tags": ["me"],
+        "summary": "Get current user with plan",
+        "responses": {
+          "200": { "description": "Current user", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/User" } } } },
+          "401": { "description": "Not authenticated" }
+        }
+      },
+      "patch": {
+        "tags": ["me"],
+        "summary": "Update current user profile",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "company_name": { "type": "string" },
+                  "phone": { "type": "string" },
+                  "postal_code": { "type": "string" },
+                  "city": { "type": "string" },
+                  "street": { "type": "string" },
+                  "vat_id": { "type": "string" },
+                  "contact_person": { "type": "string" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": { "description": "Updated user", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/User" } } } }
+        }
+      }
+    },
+    "/payment/config": {
+      "get": {
+        "tags": ["payment"],
+        "summary": "Get payment provider configuration",
+        "security": [],
+        "responses": {
+          "200": {
+            "description": "Payment config",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "mode": { "type": "string", "enum": ["demo", "live"] },
+                    "stripe_enabled": { "type": "boolean" },
+                    "stripe_publishable_key": { "type": "string", "nullable": true },
+                    "paypal_enabled": { "type": "boolean" },
+                    "plans": { "type": "object" }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/payment/checkout": {
+      "post": {
+        "tags": ["payment"],
+        "summary": "Initiate plan upgrade checkout",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["plan"],
+                "properties": {
+                  "plan": { "type": "string", "enum": ["BASIS", "PLUS", "PRO"] },
+                  "payment_method": { "type": "string", "enum": ["demo", "stripe", "paypal"], "default": "demo" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Checkout session created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "checkout_id": { "type": "string" },
+                    "mode": { "type": "string" },
+                    "redirect_url": { "type": "string", "nullable": true },
+                    "stripe_session_id": { "type": "string", "nullable": true },
+                    "plan": { "type": "string" },
+                    "amount": { "type": "number" }
+                  }
+                }
+              }
+            }
+          },
+          "400": { "description": "Invalid plan or payment method not available" }
+        }
+      }
+    },
+    "/payment/confirm": {
+      "post": {
+        "tags": ["payment"],
+        "summary": "Confirm a demo checkout session",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "type": "object", "required": ["checkout_id"], "properties": { "checkout_id": { "type": "string" } } }
+            }
+          }
+        },
+        "responses": {
+          "200": { "description": "Plan activated", "content": { "application/json": { "schema": { "type": "object", "properties": { "ok": { "type": "boolean" }, "user": { "$ref": "#/components/schemas/User" } } } } } },
+          "404": { "description": "Session not found" }
+        }
+      }
+    },
+    "/organizations": {
+      "post": {
+        "tags": ["organizations"],
+        "summary": "Create a new organization",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["name", "slug", "type"],
+                "properties": {
+                  "name": { "type": "string", "minLength": 2, "maxLength": 200 },
+                  "slug": { "type": "string", "pattern": "^[a-z0-9-]+$", "minLength": 2, "maxLength": 100 },
+                  "type": { "type": "string", "enum": ["company", "agency"] },
+                  "billing_email": { "type": "string", "format": "email" },
+                  "tax_id": { "type": "string" },
+                  "website": { "type": "string" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": { "description": "Organization created", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Organization" } } } },
+          "409": { "description": "Slug already taken" }
+        }
+      }
+    },
+    "/organizations/{id}": {
+      "get": {
+        "tags": ["organizations"],
+        "summary": "Get organization by ID",
+        "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "string", "format": "uuid" } }],
+        "responses": {
+          "200": { "description": "Organization", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Organization" } } } },
+          "404": { "description": "Not found" }
+        }
+      },
+      "patch": {
+        "tags": ["organizations"],
+        "summary": "Update organization (requires org.settings permission)",
+        "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "string", "format": "uuid" } }],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/Organization" }
+            }
+          }
+        },
+        "responses": {
+          "200": { "description": "Updated organization" },
+          "403": { "description": "Permission denied" }
+        }
+      }
+    },
+    "/organizations/{id}/members": {
+      "get": {
+        "tags": ["organizations"],
+        "summary": "List organization members",
+        "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "string", "format": "uuid" } }],
+        "responses": {
+          "200": {
+            "description": "Members list",
+            "content": {
+              "application/json": {
+                "schema": { "type": "object", "properties": { "items": { "type": "array", "items": { "type": "object" } } } }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": ["organizations"],
+        "summary": "Add member to organization (requires org.members permission)",
+        "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "string", "format": "uuid" } }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["user_id", "role_key"],
+                "properties": {
+                  "user_id": { "type": "string", "format": "uuid" },
+                  "role_key": { "type": "string", "enum": ["owner","admin","program_manager","hiring_manager","supplier_manager","finance","member","supplier_user","recruiter","dispatcher","viewer"] },
+                  "department_id": { "type": "string", "format": "uuid", "nullable": true },
+                  "location_id": { "type": "string", "format": "uuid", "nullable": true }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": { "description": "Member added" },
+          "403": { "description": "Permission denied" }
+        }
+      }
+    },
+    "/requisitions": {
+      "get": {
+        "tags": ["requisitions"],
+        "summary": "List requisitions",
+        "parameters": [
+          { "name": "org_id", "in": "query", "schema": { "type": "string", "format": "uuid" } },
+          { "name": "status", "in": "query", "schema": { "type": "string", "enum": ["DRAFT","PENDING_APPROVAL","APPROVED","OPEN","IN_REVIEW","SHORTLISTED","FILLED","CLOSED","CANCELLED"] } },
+          { "name": "urgency", "in": "query", "schema": { "type": "string" } },
+          { "name": "mine", "in": "query", "schema": { "type": "boolean" } },
+          { "name": "limit", "in": "query", "schema": { "type": "integer", "default": 50, "maximum": 200 } }
+        ],
+        "responses": {
+          "200": {
+            "description": "Requisitions list",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "items": { "type": "array", "items": { "$ref": "#/components/schemas/Requisition" } },
+                    "total": { "type": "integer" }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": ["requisitions"],
+        "summary": "Create a new requisition (requires requisition.create permission)",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["title", "role"],
+                "properties": {
+                  "title": { "type": "string", "minLength": 3, "maxLength": 200 },
+                  "role": { "type": "string" },
+                  "description": { "type": "string", "nullable": true },
+                  "skill_tags": { "type": "array", "items": { "type": "string" } },
+                  "headcount": { "type": "integer", "minimum": 1, "default": 1 },
+                  "start_date": { "type": "string", "format": "date" },
+                  "end_date": { "type": "string", "format": "date" },
+                  "location_city": { "type": "string" },
+                  "location_postal": { "type": "string" },
+                  "radius_km": { "type": "integer", "minimum": 1, "maximum": 500, "default": 50 },
+                  "budget_min_cents": { "type": "integer" },
+                  "budget_max_cents": { "type": "integer" },
+                  "urgency": { "type": "string", "enum": ["normal", "high", "urgent", "notdienst"], "default": "normal" },
+                  "approval_required": { "type": "boolean", "default": false }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": { "description": "Requisition created", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Requisition" } } } },
+          "403": { "description": "Permission denied" }
+        }
+      }
+    },
+    "/requisitions/{id}": {
+      "get": {
+        "tags": ["requisitions"],
+        "summary": "Get requisition by ID",
+        "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "string", "format": "uuid" } }],
+        "responses": {
+          "200": { "description": "Requisition", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Requisition" } } } },
+          "404": { "description": "Not found" }
+        }
+      },
+      "patch": {
+        "tags": ["requisitions"],
+        "summary": "Update requisition (requires requisition.edit permission)",
+        "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "string", "format": "uuid" } }],
+        "requestBody": {
+          "content": {
+            "application/json": { "schema": { "$ref": "#/components/schemas/Requisition" } }
+          }
+        },
+        "responses": {
+          "200": { "description": "Updated requisition" },
+          "409": { "description": "Invalid transition" }
+        }
+      }
+    },
+    "/requisitions/{id}/transition": {
+      "post": {
+        "tags": ["requisitions"],
+        "summary": "Transition requisition status via state machine",
+        "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "string", "format": "uuid" } }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["status"],
+                "properties": {
+                  "status": { "type": "string", "enum": ["PENDING_APPROVAL","APPROVED","OPEN","IN_REVIEW","SHORTLISTED","FILLED","CLOSED","CANCELLED"] },
+                  "cancel_reason": { "type": "string", "nullable": true }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": { "description": "Requisition updated", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Requisition" } } } },
+          "409": { "description": "Invalid transition", "content": { "application/json": { "schema": { "type": "object", "properties": { "error": { "type": "string", "example": "INVALID_TRANSITION" }, "from": { "type": "string" }, "to": { "type": "string" } } } } } }
+        }
+      }
+    },
+    "/requisitions/{id}/approve": {
+      "post": {
+        "tags": ["requisitions"],
+        "summary": "Approve requisition (requires requisition.approve permission)",
+        "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "string", "format": "uuid" } }],
+        "responses": {
+          "200": { "description": "Approved", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Requisition" } } } },
+          "403": { "description": "Permission denied" }
+        }
+      }
+    },
+    "/capacities": {
+      "get": {
+        "tags": ["capacities"],
+        "summary": "List capacity posts",
+        "parameters": [
+          { "name": "role", "in": "query", "schema": { "type": "string" } },
+          { "name": "city", "in": "query", "schema": { "type": "string" } },
+          { "name": "postal_code", "in": "query", "schema": { "type": "string" } },
+          { "name": "radius_km", "in": "query", "schema": { "type": "integer" } },
+          { "name": "status", "in": "query", "schema": { "type": "string" } },
+          { "name": "limit", "in": "query", "schema": { "type": "integer", "default": 50 } }
+        ],
+        "responses": {
+          "200": {
+            "description": "Capacity posts",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "items": { "type": "array", "items": { "$ref": "#/components/schemas/CapacityPost" } },
+                    "total": { "type": "integer" }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": ["capacities"],
+        "summary": "Create a capacity post (supplier)",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["role"],
+                "properties": {
+                  "role": { "type": "string" },
+                  "skill_tags": { "type": "array", "items": { "type": "string" } },
+                  "headcount_available": { "type": "integer", "minimum": 1, "default": 1 },
+                  "availability_from": { "type": "string", "format": "date" },
+                  "availability_to": { "type": "string", "format": "date" },
+                  "location_city": { "type": "string" },
+                  "location_postal": { "type": "string" },
+                  "radius_km": { "type": "integer", "default": 50 },
+                  "hourly_rate_min_cents": { "type": "integer" },
+                  "hourly_rate_max_cents": { "type": "integer" },
+                  "description": { "type": "string" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": { "description": "Created", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/CapacityPost" } } } }
+        }
+      }
+    },
+    "/timesheets": {
+      "get": {
+        "tags": ["timesheets"],
+        "summary": "List timesheets (PLUS/PRO plans only)",
+        "parameters": [
+          { "name": "org_id", "in": "query", "schema": { "type": "string", "format": "uuid" } },
+          { "name": "supplier_org_id", "in": "query", "schema": { "type": "string", "format": "uuid" } },
+          { "name": "status", "in": "query", "schema": { "type": "string", "enum": ["draft","submitted","approved","rejected","archived"] } },
+          { "name": "week_start_from", "in": "query", "schema": { "type": "string", "format": "date" } },
+          { "name": "week_start_to", "in": "query", "schema": { "type": "string", "format": "date" } },
+          { "name": "limit", "in": "query", "schema": { "type": "integer", "default": 100 } }
+        ],
+        "responses": {
+          "200": {
+            "description": "Timesheets",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "items": { "type": "array", "items": { "$ref": "#/components/schemas/Timesheet" } },
+                    "total": { "type": "integer" }
+                  }
+                }
+              }
+            }
+          },
+          "403": { "description": "Feature not available on current plan" }
+        }
+      },
+      "post": {
+        "tags": ["timesheets"],
+        "summary": "Create a new timesheet (PLUS/PRO plans only)",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["org_id", "supplier_org_id", "worker_name", "week_start", "week_end"],
+                "properties": {
+                  "org_id": { "type": "string", "format": "uuid" },
+                  "supplier_org_id": { "type": "string", "format": "uuid" },
+                  "assignment_id": { "type": "string", "format": "uuid", "nullable": true },
+                  "worker_name": { "type": "string" },
+                  "worker_identifier": { "type": "string" },
+                  "week_start": { "type": "string", "format": "date" },
+                  "week_end": { "type": "string", "format": "date" },
+                  "notes": { "type": "string", "nullable": true }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": { "description": "Timesheet created", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Timesheet" } } } },
+          "403": { "description": "Feature not available or org boundary violation" }
+        }
+      }
+    },
+    "/timesheets/{id}/entries": {
+      "post": {
+        "tags": ["timesheets"],
+        "summary": "Add daily entry to timesheet",
+        "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "string", "format": "uuid" } }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["work_date"],
+                "properties": {
+                  "work_date": { "type": "string", "format": "date" },
+                  "hours_regular": { "type": "number", "minimum": 0, "maximum": 24, "default": 0 },
+                  "hours_overtime": { "type": "number", "minimum": 0, "maximum": 24, "default": 0 },
+                  "break_minutes": { "type": "integer", "minimum": 0, "default": 0 },
+                  "shift_start": { "type": "string", "pattern": "^\\d{2}:\\d{2}$", "nullable": true },
+                  "shift_end": { "type": "string", "pattern": "^\\d{2}:\\d{2}$", "nullable": true },
+                  "notes": { "type": "string", "nullable": true }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": { "description": "Entry added", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/TimesheetEntry" } } } }
+        }
+      }
+    },
+    "/timesheets/{id}/submit": {
+      "post": {
+        "tags": ["timesheets"],
+        "summary": "Submit timesheet for approval (draft → submitted)",
+        "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "string", "format": "uuid" } }],
+        "responses": {
+          "200": { "description": "Submitted", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Timesheet" } } } }
+        }
+      }
+    },
+    "/timesheets/{id}/approve": {
+      "post": {
+        "tags": ["timesheets"],
+        "summary": "Approve timesheet (requires timesheet.approve permission)",
+        "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "string", "format": "uuid" } }],
+        "responses": {
+          "200": { "description": "Approved", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Timesheet" } } } }
+        }
+      }
+    },
+    "/timesheets/{id}/reject": {
+      "post": {
+        "tags": ["timesheets"],
+        "summary": "Reject timesheet (requires timesheet.reject permission)",
+        "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "string", "format": "uuid" } }],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": { "type": "object", "properties": { "reason": { "type": "string", "nullable": true } } }
+            }
+          }
+        },
+        "responses": {
+          "200": { "description": "Rejected", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Timesheet" } } } }
+        }
+      }
+    },
+    "/public/system-status": {
+      "get": {
+        "tags": ["health"],
+        "summary": "Public system status for Trust Center",
+        "description": "Returns structured component health for all business-level services. No authentication required.",
+        "security": [],
+        "responses": {
+          "200": {
+            "description": "Component health status",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": { "type": "string", "enum": ["ok", "partial", "degraded"] },
+                    "checked_at": { "type": "string", "format": "date-time" },
+                    "response_ms": { "type": "number" },
+                    "components": {
+                      "type": "object",
+                      "additionalProperties": {
+                        "type": "object",
+                        "properties": {
+                          "status": { "type": "string", "enum": ["ok", "degraded", "error"] },
+                          "latency_ms": { "type": "number" }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "503": { "description": "Database unreachable" }
+        }
+      }
+    },
+    "/listings": {
+      "get": {
+        "tags": ["marketplace"],
+        "summary": "Public listing of active capacity posts (anonymized)",
+        "security": [],
+        "parameters": [
+          { "name": "role", "in": "query", "schema": { "type": "string" } },
+          { "name": "city", "in": "query", "schema": { "type": "string" } },
+          { "name": "limit", "in": "query", "schema": { "type": "integer", "default": 50 } }
+        ],
+        "responses": {
+          "200": {
+            "description": "Public listings",
+            "content": {
+              "application/json": {
+                "schema": { "type": "object", "properties": { "items": { "type": "array", "items": { "type": "object" } }, "total": { "type": "integer" } } }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

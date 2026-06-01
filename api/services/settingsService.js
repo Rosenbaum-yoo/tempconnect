@@ -7,6 +7,8 @@ const DEFAULTS = {
   approval_required: false,
   preferred_supplier_only: false,
   auto_match_enabled: true,
+  inter_agency_matching_enabled: false,
+  inter_agency_supply_visible: false,
   default_radius_km: 25,
   compliance_strictness: 'standard',
   notification_preferences: {},
@@ -26,6 +28,7 @@ export async function getSettings(pool, orgId) {
 export async function updateSettings(pool, orgId, data) {
   const allowed = [
     'approval_required', 'preferred_supplier_only', 'auto_match_enabled',
+    'inter_agency_matching_enabled', 'inter_agency_supply_visible',
     'default_radius_km', 'compliance_strictness',
     'notification_preferences', 'branding'
   ];

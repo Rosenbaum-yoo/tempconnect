@@ -1,0 +1,61 @@
+{
+  "compilerOptions": {
+    /* ── Target & Module ────────────────────────────────── */
+    "target": "ES2022",
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    "lib": ["ES2022"],
+
+    /* ── JavaScript support ──────────────────────────────── */
+    /* allowJs: editor intelligence (go-to-def, autocomplete) */
+    /* checkJs: false — type-checking 130+ JS files in CI    */
+    /* would take minutes and produce false positives.        */
+    /* Syntax is validated by `node --check`; code quality   */
+    /* by ESLint. tsc here only validates types/*.d.ts.      */
+    "checkJs": false,
+    "allowJs": true,
+    "noEmit": true,
+
+    /* ── Strictness ─────────────────────────────────────── */
+    /* Start lenient; tighten as JS files are converted     */
+    "strict": false,
+    "noImplicitAny": false,
+    "strictNullChecks": true,
+    "noUnusedLocals": false,
+    "noUnusedParameters": false,
+
+    /* ── Resolution ─────────────────────────────────────── */
+    "rootDir": ".",
+    "paths": {
+      "#/*": ["./*"]
+    },
+    "resolveJsonModule": true,
+    "esModuleInterop": true,
+    "allowSyntheticDefaultImports": true,
+
+    /* ── Type declarations ──────────────────────────────── */
+    "typeRoots": ["./node_modules/@types", "./types"],
+    "types": ["node"],
+
+    /* ── Source maps ────────────────────────────────────── */
+    "sourceMap": false,
+    "declaration": false
+  },
+  "include": [
+    "*.js",
+    "config/**/*.js",
+    "db/**/*.js",
+    "middleware/**/*.js",
+    "routes/**/*.js",
+    "services/**/*.js",
+    "utils/**/*.js",
+    "workers/**/*.js",
+    "types/**/*.d.ts"
+  ],
+  "exclude": [
+    "node_modules",
+    "test",
+    "tests",
+    "scripts"
+  ]
+}

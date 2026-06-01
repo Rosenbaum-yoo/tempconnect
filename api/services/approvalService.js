@@ -4,6 +4,7 @@
  */
 
 import * as auditLog from "./auditLog.js";
+import { withTransaction } from "../utils/transaction.js";
 
 /* ── Create ────────────────────────────────────────────── */
 
@@ -22,45 +23,49 @@ export async function createApproval(pool, data) {
 /* ── Decide ────────────────────────────────────────────── */
 
 export async function approveEntity(pool, approvalId, approverId, reason) {
-  const { rows } = await pool.query(
-    `UPDATE approval_requests
-     SET status = 'approved', approved_by = $2, reason = COALESCE($3, reason), decided_at = NOW()
-     WHERE id = $1 AND status = 'pending'
-     RETURNING *`,
-    [approvalId, approverId, reason || null]
-  );
-  const approval = rows[0];
-  if (approval) {
-    await auditLog.writeAudit(pool, {
-      action: 'approval.approved',
-      entity_type: approval.entity_type,
-      entity_id: approval.entity_id,
-      actor_id: approverId,
-      details: { approval_id: approval.id, reason }
-    });
-  }
-  return approval || null;
+  return await withTransaction(pool, async (client) => {
+    const { rows } = await client.query(
+      `UPDATE approval_requests
+       SET status = 'approved', approved_by = $2, reason = COALESCE($3, reason), decided_at = NOW()
+       WHERE id = $1 AND status = 'pending'
+       RETURNING *`,
+      [approvalId, approverId, reason || null]
+    );
+    const approval = rows[0];
+    if (approval) {
+      await auditLog.writeAudit(client, {
+        action: 'approval.approved',
+        entity_type: approval.entity_type,
+        entity_id: approval.entity_id,
+        actor_id: approverId,
+        details: { approval_id: approval.id, reason }
+      });
+    }
+    return approval || null;
+  });
 }
 
 export async function rejectEntity(pool, approvalId, rejecterId, reason) {
-  const { rows } = await pool.query(
-    `UPDATE approval_requests
-     SET status = 'rejected', approved_by = $2, reason = $3, decided_at = NOW()
-     WHERE id = $1 AND status = 'pending'
-     RETURNING *`,
-    [approvalId, rejecterId, reason || null]
-  );
-  const approval = rows[0];
-  if (approval) {
-    await auditLog.writeAudit(pool, {
-      action: 'approval.rejected',
-      entity_type: approval.entity_type,
-      entity_id: approval.entity_id,
-      actor_id: rejecterId,
-      details: { approval_id: approval.id, reason }
-    });
-  }
-  return approval || null;
+  return await withTransaction(pool, async (client) => {
+    const { rows } = await client.query(
+      `UPDATE approval_requests
+       SET status = 'rejected', approved_by = $2, reason = $3, decided_at = NOW()
+       WHERE id = $1 AND status = 'pending'
+       RETURNING *`,
+      [approvalId, rejecterId, reason || null]
+    );
+    const approval = rows[0];
+    if (approval) {
+      await auditLog.writeAudit(client, {
+        action: 'approval.rejected',
+        entity_type: approval.entity_type,
+        entity_id: approval.entity_id,
+        actor_id: rejecterId,
+        details: { approval_id: approval.id, reason }
+      });
+    }
+    return approval || null;
+  });
 }
 
 /* ── Queries ───────────────────────────────────────────── */

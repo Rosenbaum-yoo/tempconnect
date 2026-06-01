@@ -3,16 +3,16 @@
  */
 
 /** Payment-Session erstellen. */
-export async function createPaymentSession(pool, { id, userId, plan, amount, method, stripeSessionId }) {
+export async function createPaymentSession(pool, { id, userId, plan, amount, method, stripeSessionId, orgId = null }) {
   if (stripeSessionId) {
     await pool.query(
-      "INSERT INTO payment_sessions (id, user_id, plan, amount, method, status, stripe_session_id, created_at) VALUES ($1, $2, $3, $4, $5, 'pending', $6, NOW())",
-      [id, userId, plan, amount, method, stripeSessionId]
+      "INSERT INTO payment_sessions (id, user_id, plan, amount, method, org_id, status, stripe_session_id, created_at) VALUES ($1, $2, $3, $4, $5, $6, 'pending', $7, NOW())",
+      [id, userId, plan, amount, method, orgId, stripeSessionId]
     );
   } else {
     await pool.query(
-      "INSERT INTO payment_sessions (id, user_id, plan, amount, method, status, created_at) VALUES ($1, $2, $3, $4, $5, 'pending', NOW())",
-      [id, userId, plan, amount, method]
+      "INSERT INTO payment_sessions (id, user_id, plan, amount, method, org_id, status, created_at) VALUES ($1, $2, $3, $4, $5, $6, 'pending', NOW())",
+      [id, userId, plan, amount, method, orgId]
     );
   }
 }
@@ -60,11 +60,39 @@ export async function getPaymentSessionByStripeSubscriptionId(pool, stripeSubscr
   return r.rows[0] || null;
 }
 
+/** Letzte Stripe-Checkout-Session fuer das Customer Portal finden. */
+export async function getLatestStripeSessionForCustomerPortal(pool, { userId, orgId = null }) {
+  const params = [userId];
+  let orgFilter = "";
+  if (orgId) {
+    params.push(orgId);
+    orgFilter = ` AND (org_id = $${params.length} OR org_id IS NULL)`;
+  }
+  const r = await pool.query(
+    `SELECT id, user_id, org_id, stripe_session_id, stripe_subscription_id
+       FROM payment_sessions
+      WHERE user_id = $1
+        AND method = 'stripe'
+        AND stripe_session_id IS NOT NULL
+        AND status = 'completed'
+        ${orgFilter}
+      ORDER BY completed_at DESC NULLS LAST, created_at DESC
+      LIMIT 1`,
+    params
+  );
+  return r.rows[0] || null;
+}
+
 /** Abo aktivieren (neuen Subscriptions-Eintrag). */
 export async function activatePlan(pool, userId, plan) {
+  let normalizedPlan = String(plan || "FREE").toUpperCase();
+  if (normalizedPlan === "DEMO") normalizedPlan = "FREE";
+  if (normalizedPlan === "ENTERPRISE" || normalizedPlan === "INDIVIDUAL") normalizedPlan = "INDIVIDUELL";
+  const interval = ["FREE", "DEMO"].includes(normalizedPlan) ? "14 days" : "1 month";
   await pool.query(
-    "INSERT INTO subscriptions (user_id, plan, status) VALUES ($1, $2, 'active')",
-    [userId, plan]
+    `INSERT INTO subscriptions (user_id, plan, status, current_period_start, current_period_end)
+     VALUES ($1, $2, 'active', NOW(), NOW() + INTERVAL '${interval}')`,
+    [userId, normalizedPlan]
   );
 }
 

@@ -8,6 +8,13 @@ import * as stateMachine from "../services/stateMachine.js";
 import * as idempotencyService from "../services/idempotencyService.js";
 import * as marketplaceService from "../services/marketplaceService.js";
 import * as slaSearchService from "../services/slaSearchService.js";
+import * as productAnalyticsService from "../services/productAnalyticsService.js";
+import * as workerService from "../services/workerService.js";
+import * as workerNotifications from "../services/workerNotificationService.js";
+import * as invoiceService from "../services/invoiceService.js";
+import * as assignmentStaffingService from "../services/assignmentStaffingService.js";
+import * as subscriptionLifecycle from "../services/subscriptionLifecycleService.js";
+import * as infrastructureSnapshotService from "../services/infrastructureSnapshotService.js";
 
 /**
  * @param {{ pool, config, cronRateLimit, logger, sendMail }} deps
@@ -16,6 +23,8 @@ export function createInternalRouter(deps) {
   const { pool, config, cronRateLimit, logger, sendMail } = deps;
   const cronAllowedIps = config.INTERNAL_CRON_ALLOWED_IPS || [];
   const cronSecret = config.INTERNAL_CRON_SECRET || "";
+  const infraSnapshotIngestEnabled = String(config.INFRA_SNAPSHOT_INGEST_ENABLED || "true").trim().toLowerCase() !== "false";
+  const infraSnapshotMaxBatch = Math.max(1, Math.min(500, Number(config.INFRA_SNAPSHOT_MAX_BATCH) || 50));
   const router = Router();
 
   function checkCronAuth(req, res, next) {
@@ -57,6 +66,25 @@ export function createInternalRouter(deps) {
       res.json({ ok: true, breached });
     } catch (e) {
       logger.error({ err: e, path: "sla-scan", clientIp }, "Cron sla-scan failed");
+      res.status(500).json({ error: "SERVER_ERROR" });
+    }
+  });
+
+  router.post("/internal/invoice-overdue-scan", cronRateLimit, checkCronAuth, async (req, res) => {
+    const clientIp = req.ip || req.socket?.remoteAddress || "unknown";
+    try {
+      const overdueMarked = await invoiceService.markOverdueInvoices(pool);
+      if (overdueMarked > 0) {
+        await auditLog.writeAudit(pool, {
+          action: "invoice.overdue_batch",
+          entity_type: "invoice",
+          details: { overdue_marked: overdueMarked }
+        });
+      }
+      logger.info({ path: "invoice-overdue-scan", clientIp, overdueMarked }, "Cron invoice-overdue-scan completed");
+      res.json({ ok: true, overdue_marked: overdueMarked });
+    } catch (e) {
+      logger.error({ err: e, path: "invoice-overdue-scan", clientIp }, "Cron invoice-overdue-scan failed");
       res.status(500).json({ error: "SERVER_ERROR" });
     }
   });
@@ -164,6 +192,264 @@ export function createInternalRouter(deps) {
       res.status(500).json({ error: "SERVER_ERROR" });
     }
   });
+
+  /* ── Webhook Retry ──────────────────── */
+  router.post("/internal/webhook-retry", cronRateLimit, checkCronAuth, async (req, res) => {
+    const clientIp = req.ip || req.socket?.remoteAddress || "unknown";
+    try {
+      const { retryFailedDeliveries } = await import("../services/integrationService.js");
+      const result = await retryFailedDeliveries(pool);
+      logger.info({ path: "webhook-retry", clientIp, ...result }, "Cron webhook-retry completed");
+      res.json({ ok: true, ...result });
+    } catch (e) {
+      logger.error({ err: e, path: "webhook-retry", clientIp }, "Cron webhook-retry failed");
+      res.status(500).json({ error: "SERVER_ERROR" });
+    }
+  });
+
+  /* ── Webhook Cleanup ────────────────── */
+  router.post("/internal/webhook-cleanup", cronRateLimit, checkCronAuth, async (req, res) => {
+    const clientIp = req.ip || req.socket?.remoteAddress || "unknown";
+    try {
+      const { cleanupOldDeliveries } = await import("../services/integrationService.js");
+      const daysOld = Math.min(365, Math.max(7, parseInt(req.body?.days_old, 10) || 30));
+      const deleted = await cleanupOldDeliveries(pool, daysOld);
+      logger.info({ path: "webhook-cleanup", clientIp, deleted, daysOld }, "Cron webhook-cleanup completed");
+      res.json({ ok: true, deleted });
+    } catch (e) {
+      logger.error({ err: e, path: "webhook-cleanup", clientIp }, "Cron webhook-cleanup failed");
+      res.status(500).json({ error: "SERVER_ERROR" });
+    }
+  });
+
+  router.post("/internal/product-analytics-rollup", cronRateLimit, checkCronAuth, async (req, res) => {
+    const clientIp = req.ip || req.socket?.remoteAddress || "unknown";
+    try {
+      const daysBack = Math.min(30, Math.max(1, parseInt(req.body?.days_back, 10) || 1));
+      const result = await productAnalyticsService.runDailyAnalyticsRollup(pool, { days_back: daysBack });
+      logger.info({ path: "product-analytics-rollup", clientIp, ...result }, "Cron product-analytics-rollup completed");
+      res.json({ ok: true, ...result });
+    } catch (e) {
+      logger.error({ err: e, path: "product-analytics-rollup", clientIp }, "Cron product-analytics-rollup failed");
+      res.status(500).json({ error: "SERVER_ERROR" });
+    }
+  });
+
+  router.post("/internal/product-analytics-retention", cronRateLimit, checkCronAuth, async (req, res) => {
+    const clientIp = req.ip || req.socket?.remoteAddress || "unknown";
+    try {
+      const retentionDays = Math.min(730, Math.max(30, parseInt(req.body?.retention_days, 10) || 180));
+      const rollupRetentionDays = Math.min(1825, Math.max(90, parseInt(req.body?.rollup_retention_days, 10) || 540));
+      const result = await productAnalyticsService.cleanupAnalyticsRetention(pool, {
+        retention_days: retentionDays,
+        rollup_retention_days: rollupRetentionDays
+      });
+      logger.info({ path: "product-analytics-retention", clientIp, ...result }, "Cron product-analytics-retention completed");
+      res.json({ ok: true, ...result });
+    } catch (e) {
+      logger.error({ err: e, path: "product-analytics-retention", clientIp }, "Cron product-analytics-retention failed");
+      res.status(500).json({ error: "SERVER_ERROR" });
+    }
+  });
+
+  /* ── Pilot Auto-Expiry ──────────────── */
+  router.post("/internal/pilot-expiry", cronRateLimit, checkCronAuth, async (req, res) => {
+    const clientIp = req.ip || req.socket?.remoteAddress || "unknown";
+    try {
+      const { expireStalePilots } = await import("../services/pilotPolicyService.js");
+      const result = await expireStalePilots(pool);
+      if (result.expired > 0) {
+        await auditLog.writeAudit(pool, {
+          action: "pilot.auto_expiry_batch",
+          entity_type: "organization",
+          details: { expired: result.expired, org_ids: result.ids }
+        });
+      }
+      logger.info({ path: "pilot-expiry", clientIp, expired: result.expired }, "Cron pilot-expiry completed");
+      res.json({ ok: true, expired: result.expired });
+    } catch (e) {
+      logger.error({ err: e, path: "pilot-expiry", clientIp }, "Cron pilot-expiry failed");
+      res.status(500).json({ error: "SERVER_ERROR" });
+    }
+  });
+
+  /* ── Usage Limit Enforcement ───────── */
+  router.post("/internal/usage-limit-scan", cronRateLimit, checkCronAuth, async (req, res) => {
+    const clientIp = req.ip || req.socket?.remoteAddress || "unknown";
+    try {
+      const { scanAndEnforceUsageLimits } = await import("../services/usageMeteringService.js");
+      const result = await scanAndEnforceUsageLimits(pool);
+      logger.info({ path: "usage-limit-scan", clientIp, ...result }, "Cron usage-limit-scan completed");
+      res.json({ ok: true, ...result });
+    } catch (e) {
+      logger.error({ err: e, path: "usage-limit-scan", clientIp }, "Cron usage-limit-scan failed");
+      res.status(500).json({ error: "SERVER_ERROR" });
+    }
+  });
+
+  router.post("/internal/worker-document-expiry-scan", cronRateLimit, checkCronAuth, async (req, res) => {
+    const clientIp = req.ip || req.socket?.remoteAddress || "unknown";
+    try {
+      const batchSize = Math.min(500, parseInt(req.body?.batch_size, 10) || 100);
+      const daysAhead = Math.min(180, Math.max(1, parseInt(req.body?.days_ahead, 10) || workerService.WORKER_DOCUMENT_EXPIRY_WARNING_DAYS));
+      const result = await workerService.scanWorkerDocumentDeadlines(pool, {
+        daysAhead,
+        limit: batchSize,
+        onExpiring: (document) => workerNotifications.notifyWorkerDocumentExpiring(
+          pool,
+          document.worker_user_id,
+          document.id,
+          document.title || document.original_name || "Nachweis",
+          document.valid_until,
+          document.days_until_expiry
+        ),
+        onExpired: (document) => workerNotifications.notifyWorkerDocumentExpired(
+          pool,
+          document.worker_user_id,
+          document.id,
+          document.title || document.original_name || "Nachweis",
+          document.valid_until
+        )
+      });
+      logger.info({ path: "worker-document-expiry-scan", clientIp, daysAhead, batchSize, ...result }, "Cron worker-document-expiry-scan completed");
+      res.json({ ok: true, ...result });
+    } catch (e) {
+      logger.error({ err: e, path: "worker-document-expiry-scan", clientIp }, "Cron worker-document-expiry-scan failed");
+      res.status(500).json({ error: "SERVER_ERROR" });
+    }
+  });
+
+  /* ── Subscription Lifecycle (Welle 8 Schritt 16) ──────────────
+   * Vereint die drei Cron-Phasen Expiry / Activation / Cancellation
+   * fuer subscription_requests in einem Tick. Idempotent: doppelte
+   * Aufrufe wirken wie Single-Aufrufe, da der Status-Filter den
+   * Datensatz nach erfolgreicher Verarbeitung aus dem Set entfernt.
+   * ───────────────────────────────────────────────────────────── */
+  router.post("/internal/subscription-lifecycle-tick", cronRateLimit, checkCronAuth, async (req, res) => {
+    const clientIp = req.ip || req.socket?.remoteAddress || "unknown";
+    try {
+      const batchSize = Math.min(500, Math.max(1, parseInt(req.body?.batch_size, 10) || 100));
+      const result = await subscriptionLifecycle.runLifecycleTick(pool, {
+        batchSize,
+        deps: { sendMail, logger }
+      });
+      const totalProcessed =
+        (result.expiry?.processed || 0) +
+        (result.activation?.processed || 0) +
+        (result.cancellation?.processed || 0);
+      if (totalProcessed > 0) {
+        await auditLog.writeAudit(pool, {
+          action: "subscription_request.lifecycle_tick",
+          entity_type: "subscription_request",
+          details: {
+            expired: result.expiry?.expired || 0,
+            activated: result.activation?.activated || 0,
+            cancellations_applied: result.cancellation?.revoked || 0,
+            failed_total:
+              (result.expiry?.failed?.length || 0) +
+              (result.activation?.failed?.length || 0) +
+              (result.cancellation?.failed?.length || 0),
+            batch_size: batchSize
+          }
+        });
+      }
+      logger.info({ path: "subscription-lifecycle-tick", clientIp, batchSize, ...result }, "Cron subscription-lifecycle-tick completed");
+      res.json({ ok: true, ...result });
+    } catch (e) {
+      logger.error({ err: e, path: "subscription-lifecycle-tick", clientIp }, "Cron subscription-lifecycle-tick failed");
+      res.status(500).json({ error: "SERVER_ERROR" });
+    }
+  });
+
+  router.post("/internal/staffing-maintenance", cronRateLimit, checkCronAuth, async (req, res) => {
+    const clientIp = req.ip || req.socket?.remoteAddress || "unknown";
+    try {
+      const limit = Math.min(100, Math.max(1, parseInt(req.body?.limit, 10) || 25));
+      const cooldownMinutes = Math.min(1440, Math.max(1, parseInt(req.body?.cooldown_minutes, 10) || 15));
+      const result = await assignmentStaffingService.runStaffingMaintenance(pool, { limit, cooldownMinutes });
+      if (
+        result.expired_invites > 0
+        || result.expired_reservations > 0
+        || result.campaigns_created > 0
+      ) {
+        await auditLog.writeAudit(pool, {
+          action: "assignment.staffing_maintenance_batch",
+          entity_type: "assignment_staffing_campaign",
+          details: {
+            expired_invites: result.expired_invites,
+            expired_reservations: result.expired_reservations,
+            assignments_considered: result.assignments_considered,
+            assignments_backfilled: result.assignments_backfilled,
+            campaigns_created: result.campaigns_created,
+            invited_workers: result.invited_workers,
+            skipped_no_candidates: result.skipped_no_candidates,
+            cooldown_minutes: cooldownMinutes,
+            limit
+          }
+        });
+      }
+      logger.info({ path: "staffing-maintenance", clientIp, limit, cooldownMinutes, ...result }, "Cron staffing-maintenance completed");
+      res.json({ ok: true, ...result });
+    } catch (e) {
+      logger.error({ err: e, path: "staffing-maintenance", clientIp }, "Cron staffing-maintenance failed");
+      res.status(500).json({ error: "SERVER_ERROR" });
+    }
+  });
+
+  const ingestInfrastructureSnapshots = async (req, res) => {
+    const clientIp = req.ip || req.socket?.remoteAddress || "unknown";
+    if (!infraSnapshotIngestEnabled) {
+      return res.status(404).json({ error: "NOT_FOUND" });
+    }
+    try {
+      const body = req.body;
+      let incomingSnapshots = [];
+      if (Array.isArray(body)) {
+        incomingSnapshots = body;
+      } else if (Array.isArray(body?.snapshots)) {
+        incomingSnapshots = body.snapshots;
+      } else if (body && typeof body === "object" && (body.host_name || body.host)) {
+        incomingSnapshots = [body];
+      }
+      if (!incomingSnapshots.length) {
+        return res.status(400).json({
+          error: "INVALID_PAYLOAD",
+          message: "Erwartet snapshots[] oder ein Snapshot-Objekt mit host_name."
+        });
+      }
+
+      const requestedBatchSize = Math.max(
+        1,
+        Math.min(infraSnapshotMaxBatch, Number.parseInt(String(body?.batch_size || ""), 10) || infraSnapshotMaxBatch)
+      );
+      const snapshots = incomingSnapshots.slice(0, requestedBatchSize);
+      const dropped = Math.max(0, incomingSnapshots.length - snapshots.length);
+      const source = String(body?.source || "internal_collector").trim() || "internal_collector";
+
+      const result = await infrastructureSnapshotService.ingestInfrastructureSnapshots(pool, snapshots, { source });
+      logger.info(
+        {
+          path: "infrastructure-snapshots-ingest",
+          clientIp,
+          source,
+          requested: incomingSnapshots.length,
+          accepted: snapshots.length,
+          dropped,
+          inserted: result.inserted,
+          failed: result.failed,
+          critical_hosts: result.critical_hosts
+        },
+        "Cron infrastructure-snapshots-ingest completed"
+      );
+      return res.json({ ok: true, source, dropped, ...result });
+    } catch (e) {
+      logger.error({ err: e, path: "infrastructure-snapshots-ingest", clientIp }, "Cron infrastructure-snapshots-ingest failed");
+      return res.status(500).json({ error: "SERVER_ERROR" });
+    }
+  };
+
+  router.post("/internal/infrastructure-snapshots/ingest", cronRateLimit, checkCronAuth, ingestInfrastructureSnapshots);
+  router.post("/internal/infrastructure-snapshot-ingest", cronRateLimit, checkCronAuth, ingestInfrastructureSnapshots);
 
   return router;
 }

@@ -1,0 +1,33 @@
+{
+  "all": true,
+  "src": ["."],
+  "include": [
+    "config/**",
+    "db/**",
+    "middleware/**",
+    "routes/**",
+    "services/**",
+    "utils/**",
+    "queue/**",
+    "workers/**",
+    "app.js"
+  ],
+  "exclude": [
+    "node_modules/**",
+    "test/**",
+    "scripts/**",
+    "eslint.config.js",
+    "server.js",
+    "coverage/**"
+  ],
+  "reporter": ["text", "text-summary", "json-summary", "lcov"],
+  "report-dir": "coverage",
+  "temp-directory": ".c8_output",
+  "clean": true,
+  "skip-full": false,
+  "check-coverage": true,
+  "lines": 40,
+  "branches": 70,
+  "functions": 60,
+  "statements": 40
+}

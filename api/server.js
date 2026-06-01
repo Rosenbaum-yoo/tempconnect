@@ -7,10 +7,20 @@ import { pool } from "./db/pool.js";
 import { initMonitoring, captureException } from "./utils/monitoring.js";
 import { startWorkers, stopWorkers } from "./workers/index.js";
 import { closeAll as closeQueues } from "./queue/queues.js";
+import { validateEnv } from "./config/envValidator.js";
 
 await initMonitoring({ environment: config.NODE_ENV });
 
-// Unhandled Rejection / Uncaught Exception – loggen statt stilles Abstuerzen
+// ── Zentrale ENV-Validierung (Zod) ──────────────────────────
+try {
+  validateEnv(logger);
+  logger.info("ENV-Validierung bestanden");
+} catch (e) {
+  logger.fatal(e.message);
+  process.exit(1);
+}
+
+// Unhandled Rejection / Uncaught Exception
 process.on("unhandledRejection", (reason) => {
   logger.error({ err: reason instanceof Error ? reason.message : String(reason) }, "Unhandled Promise Rejection");
   captureException(reason instanceof Error ? reason : new Error(String(reason)));

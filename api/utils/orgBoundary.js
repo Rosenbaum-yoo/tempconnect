@@ -36,7 +36,10 @@ const ALLOWED_TABLES = new Set([
   "compliance_documents", "notifications", "org_settings",
   "capacity_posts", "listings", "requests", "ratings",
   "payment_sessions", "vendor_pool", "platform_events",
-  "sla_search_jobs", "offers", "submissions"
+  "sla_search_jobs", "offers", "submissions",
+  "rate_cards", "rate_card_checks",
+  "data_governance_requests",
+  "org_locations", "org_departments"
 ]);
 
 export async function assertOrgOwnership(pool, tableName, resourceId, orgId, opts = {}) {
@@ -97,4 +100,44 @@ export function sendOrgBoundaryError(res, message) {
     success: false,
     error: { code: "ORG_BOUNDARY_VIOLATION", message: message || "Zugriff verweigert." }
   });
+}
+
+/**
+ * Wirft OrgBoundaryError wenn der Standort nicht zur Org gehoert oder inaktiv ist.
+ * Skip bei locationId=null (kein Standort zugewiesen → kein Fehler).
+ */
+export async function assertLocationBelongsToOrg(pool, locationId, orgId) {
+  if (!locationId) return;
+  const { rows } = await pool.query(
+    `SELECT 1 FROM org_locations WHERE id = $1 AND org_id = $2 AND is_active = TRUE`,
+    [locationId, orgId]
+  );
+  if (!rows.length) {
+    throw new OrgBoundaryError("Standort gehoert nicht zu Ihrer Organisation.");
+  }
+}
+
+/**
+ * Wirft OrgBoundaryError wenn die Abteilung nicht zur Org gehoert oder inaktiv ist.
+ * Skip bei departmentId=null.
+ */
+export async function assertDepartmentBelongsToOrg(pool, departmentId, orgId) {
+  if (!departmentId) return;
+  const { rows } = await pool.query(
+    `SELECT 1 FROM org_departments WHERE id = $1 AND org_id = $2 AND is_active = TRUE`,
+    [departmentId, orgId]
+  );
+  if (!rows.length) {
+    throw new OrgBoundaryError("Abteilung gehoert nicht zu Ihrer Organisation.");
+  }
+}
+
+/**
+ * Kombinierte Scope-Boundary-Pruefung fuer Member-Zuweisungen.
+ * Wirft OrgBoundaryError wenn location_id ODER department_id nicht zur Org gehoert.
+ * Null-Werte werden uebersprungen.
+ */
+export async function assertMemberScopeBelongsToOrg(pool, { location_id, department_id }, orgId) {
+  await assertLocationBelongsToOrg(pool, location_id, orgId);
+  await assertDepartmentBelongsToOrg(pool, department_id, orgId);
 }

@@ -7,6 +7,9 @@ import { Router } from "express";
 import * as requisitionService from "../services/requisitionService.js";
 import { requirePermission } from "../middleware/rbac.js";
 import { RequisitionTransitionError } from "../services/requisitionService.js";
+import { triggerRequisitionMatchAlerts } from "../services/matchAlertService.js";
+import { trackProductEventFromRequest } from "../services/productAnalyticsService.js";
+import { assertOrgOwnership, OrgBoundaryError } from "../utils/orgBoundary.js";
 
 const createSchema = z.object({
   org_id: z.string().uuid().optional().nullable(),
@@ -35,7 +38,8 @@ const createSchema = z.object({
 });
 
 const transitionSchema = z.object({
-  status: z.enum(["PENDING_APPROVAL", "APPROVED", "OPEN", "IN_REVIEW", "SHORTLISTED", "FILLED", "CLOSED", "CANCELLED"]),
+  // PARTIALLY_FILLED ergaenzt in WAVE_15: fehlte im Enum trotz gueltiger State-Machine-Unterstuetzung (Migration 113)
+  status: z.enum(["PENDING_APPROVAL", "APPROVED", "OPEN", "IN_REVIEW", "SHORTLISTED", "PARTIALLY_FILLED", "FILLED", "CLOSED", "CANCELLED"]),
   cancel_reason: z.string().max(2000).optional().nullable()
 });
 
@@ -66,8 +70,26 @@ export function createRequisitionsRouter(deps) {
     const parsed = createSchema.safeParse(req.body);
     if (!parsed.success) return res.status(400).json({ error: "VALIDATION", details: parsed.error.issues });
     try {
-      const requisition = await requisitionService.createRequisition(pool, req.session.userId, parsed.data);
+      // Worker-Limit pro Vermittlung
+      const me = await deps.getUserAndPlan(req.session.userId);
+      const wLimit = me?.limits?.max_workers_per_request;
+      if (wLimit !== undefined && wLimit !== -1 && (parsed.data.headcount || 1) > wLimit) {
+        return res.status(403).json({ error: "WORKER_LIMIT_EXCEEDED", limit: wLimit, requested: parsed.data.headcount || 1, plan: me.plan });
+      }
+      // Security: org_id muss immer vom Server kommen — body org_id wird ignoriert.
+      const dataWithOrg = { ...parsed.data, org_id: req.orgId || null };
+      const requisition = await requisitionService.createRequisition(pool, req.session.userId, dataWithOrg);
       res.locals.audit = { action: "requisition.create", entity_type: "requisition", entity_id: requisition.id, details: { title: parsed.data.title, role: parsed.data.role, urgency: parsed.data.urgency } };
+      try {
+        await trackProductEventFromRequest(pool, req, "requisition_created", {
+          flow_key: "enterprise_setup_to_ops",
+          metadata: { requisition_id: requisition.id, role: parsed.data.role, urgency: parsed.data.urgency || null }
+        });
+        await trackProductEventFromRequest(pool, req, "suchauftrag_created", {
+          flow_key: "enterprise_setup_to_ops",
+          metadata: { requisition_id: requisition.id }
+        });
+      } catch { /* analytics non-critical */ }
       res.status(201).json(requisition);
     } catch (err) {
       logger.error({ err: err.message }, "Requisition create failed");
@@ -76,9 +98,9 @@ export function createRequisitionsRouter(deps) {
   });
 
   /** GET /requisitions – Liste mit Filtern */
-  router.get("/requisitions", requireAuth, async (req, res) => {
+  router.get("/requisitions", requireAuth, requirePermission("requisition.view", { pool, logger }), async (req, res) => {
     const filters = {
-      org_id: req.query.org_id || null,
+      org_id: req.orgId || null, // F-004 fix: server-resolved org only
       created_by: req.query.mine === "true" ? req.session.userId : null,
       status: req.query.status || null,
       urgency: req.query.urgency || null,
@@ -90,9 +112,13 @@ export function createRequisitionsRouter(deps) {
   });
 
   /** GET /requisitions/:id – Detail */
-  router.get("/requisitions/:id", requireAuth, async (req, res) => {
+  router.get("/requisitions/:id", requireAuth, requirePermission("requisition.view", { pool, logger }), async (req, res) => {
     const requisition = await requisitionService.getRequisitionById(pool, req.params.id);
     if (!requisition) return res.status(404).json({ error: "NOT_FOUND" });
+    // F-004 fix: org-boundary check
+    if (req.orgId && requisition.org_id && requisition.org_id !== req.orgId) {
+      return res.status(403).json({ error: "ORG_BOUNDARY_VIOLATION" });
+    }
     res.json(requisition);
   });
 
@@ -107,10 +133,12 @@ export function createRequisitionsRouter(deps) {
   });
 
   /** POST /requisitions/:id/transition – Status aendern */
-  router.post("/requisitions/:id/transition", requireAuth, async (req, res) => {
+  router.post("/requisitions/:id/transition", requireAuth, async (req, res, next) => {
     const parsed = transitionSchema.safeParse(req.body);
     if (!parsed.success) return res.status(400).json({ error: "VALIDATION", details: parsed.error.issues });
     try {
+      // Org-Boundary: Transition nur auf eigene Requisitions erlaubt.
+      if (req.orgId) await assertOrgOwnership(pool, 'requisitions', req.params.id, req.orgId);
       const result = await requisitionService.transitionStatus(
         pool, req.params.id, req.session.userId, parsed.data.status,
         { cancel_reason: parsed.data.cancel_reason }
@@ -119,10 +147,13 @@ export function createRequisitionsRouter(deps) {
       res.locals.audit = { action: `requisition.transition.${parsed.data.status}`, entity_type: "requisition", entity_id: req.params.id, new_values: { status: parsed.data.status } };
       res.json(result.requisition);
     } catch (err) {
+      if (err instanceof OrgBoundaryError) {
+        return res.status(403).json({ error: "ORG_BOUNDARY_VIOLATION", message: err.message });
+      }
       if (err instanceof RequisitionTransitionError) {
         return res.status(409).json({ error: "INVALID_TRANSITION", from: err.from, to: err.to });
       }
-      throw err;
+      next(err); // Unbekannte Fehler an globalen Error-Handler weitergeben (verhindert haengende Verbindungen)
     }
   });
 
@@ -144,11 +175,30 @@ export function createRequisitionsRouter(deps) {
   /** POST /requisitions/:id/approve – Freigabe */
   router.post("/requisitions/:id/approve", requireAuth, requirePermission("requisition.approve", { pool, logger }), async (req, res) => {
     try {
+      // Org-Boundary: Freigabe nur auf eigene Requisitions erlaubt.
+      if (req.orgId) await assertOrgOwnership(pool, 'requisitions', req.params.id, req.orgId);
       const result = await requisitionService.approveRequisition(pool, req.params.id, req.session.userId);
       if (result.error) return res.status(404).json({ error: result.error });
       res.locals.audit = { action: "requisition.approve", entity_type: "requisition", entity_id: req.params.id, new_values: { status: "APPROVED" } };
+
+      // ── Match Alerts: notify matching capacity suppliers on approval ──
+      try {
+        const reqData = result.requisition;
+        triggerRequisitionMatchAlerts(pool, req.params.id, {
+          title: reqData.title, role: reqData.role,
+          skill_tags: reqData.skill_tags, location_city: reqData.location_city,
+          latitude: reqData.latitude, longitude: reqData.longitude,
+          radius_km: reqData.radius_km, start_date: reqData.start_date,
+          end_date: reqData.end_date, urgency: reqData.urgency,
+          org_id: reqData.org_id
+        }).catch(e => logger.warn({ err: e?.message, reqId: req.params.id }, 'Match alert dispatch failed (non-critical)'));
+      } catch (_e) { /* non-critical */ }
+
       res.json(result.requisition);
     } catch (err) {
+      if (err instanceof OrgBoundaryError) {
+        return res.status(403).json({ error: "ORG_BOUNDARY_VIOLATION", message: err.message });
+      }
       if (err instanceof RequisitionTransitionError) {
         return res.status(409).json({ error: "INVALID_TRANSITION", from: err.from, to: err.to });
       }
@@ -157,7 +207,7 @@ export function createRequisitionsRouter(deps) {
   });
 
   /** GET /requisitions/:id/events – Audit Trail */
-  router.get("/requisitions/:id/events", requireAuth, async (req, res) => {
+  router.get("/requisitions/:id/events", requireAuth, requirePermission("requisition.view", { pool, logger }), async (req, res) => {
     const events = await requisitionService.getRequisitionEvents(pool, req.params.id);
     res.json({ events });
   });
@@ -174,7 +224,7 @@ export function createRequisitionsRouter(deps) {
   /* ── Candidates / Shortlist ──────────────────────────────── */
 
   /** GET /requisitions/:id/candidates – Kandidatenliste */
-  router.get("/requisitions/:id/candidates", requireAuth, async (req, res) => {
+  router.get("/requisitions/:id/candidates", requireAuth, requirePermission("requisition.view", { pool, logger }), async (req, res) => {
     const candidates = await requisitionService.listCandidates(pool, req.params.id);
     res.json({ candidates });
   });

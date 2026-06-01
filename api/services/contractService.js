@@ -3,33 +3,33 @@
  */
 
 import * as auditLog from "./auditLog.js";
-
-const VALID_TYPES = ['msa', 'framework', 'sla', 'pricing', 'nda', 'other'];
-const VALID_STATUSES = ['draft', 'active', 'expired', 'terminated'];
+import { withTransaction } from "../utils/transaction.js";
 
 /* ── CRUD ─────────────────────────────────────────────── */
 
 export async function createContract(pool, data) {
-  const { rows } = await pool.query(
-    `INSERT INTO contracts
-     (buyer_org_id, supplier_org_id, contract_type, title, description,
-      status, terms_summary, file_ref, valid_from, valid_until,
-      internal_notes, created_by)
-     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12) RETURNING *`,
-    [
-      data.buyer_org_id, data.supplier_org_id, data.contract_type,
-      data.title, data.description || null,
-      data.status || 'draft', data.terms_summary || null,
-      data.file_ref || null, data.valid_from || null, data.valid_until || null,
-      data.internal_notes || null, data.created_by || null
-    ]
-  );
-  const c = rows[0];
-  await auditLog.writeAudit(pool, {
-    action: 'contract.created', entity_type: 'contract', entity_id: c.id,
-    actor_id: data.created_by, details: { title: c.title, type: c.contract_type }
+  return await withTransaction(pool, async (client) => {
+    const { rows } = await client.query(
+      `INSERT INTO contracts
+       (buyer_org_id, supplier_org_id, contract_type, title, description,
+        status, terms_summary, file_ref, valid_from, valid_until,
+        internal_notes, created_by)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12) RETURNING *`,
+      [
+        data.buyer_org_id, data.supplier_org_id, data.contract_type,
+        data.title, data.description || null,
+        data.status || 'draft', data.terms_summary || null,
+        data.file_ref || null, data.valid_from || null, data.valid_until || null,
+        data.internal_notes || null, data.created_by || null
+      ]
+    );
+    const c = rows[0];
+    await auditLog.writeAudit(client, {
+      action: 'contract.created', entity_type: 'contract', entity_id: c.id,
+      actor_id: data.created_by, details: { title: c.title, type: c.contract_type }
+    });
+    return c;
   });
-  return c;
 }
 
 export async function getContract(pool, id) {
@@ -105,26 +105,28 @@ export async function updateContract(pool, id, data, actorId) {
 
 /* ── Lifecycle ─────────────────────────────────────────── */
 
-export async function activateContract(pool, id, actorId) {
+export function activateContract(pool, id, actorId) {
   return updateContract(pool, id, { status: 'active' }, actorId);
 }
 
 export async function terminateContract(pool, id, actorId, reason) {
-  const { rows } = await pool.query(
-    `UPDATE contracts
-     SET status = 'terminated', terminated_by = $2, terminated_at = NOW(),
-         termination_reason = $3, updated_at = NOW()
-     WHERE id = $1 AND status IN ('draft','active')
-     RETURNING *`,
-    [id, actorId, reason || null]
-  );
-  if (rows[0]) {
-    await auditLog.writeAudit(pool, {
-      action: 'contract.terminated', entity_type: 'contract', entity_id: id,
-      actor_id: actorId, details: { reason }
-    });
-  }
-  return rows[0] || null;
+  return await withTransaction(pool, async (client) => {
+    const { rows } = await client.query(
+      `UPDATE contracts
+       SET status = 'terminated', terminated_by = $2, terminated_at = NOW(),
+           termination_reason = $3, updated_at = NOW()
+       WHERE id = $1 AND status IN ('draft','active')
+       RETURNING *`,
+      [id, actorId, reason || null]
+    );
+    if (rows[0]) {
+      await auditLog.writeAudit(client, {
+        action: 'contract.terminated', entity_type: 'contract', entity_id: id,
+        actor_id: actorId, details: { reason }
+      });
+    }
+    return rows[0] || null;
+  });
 }
 
 /** Batch: expire contracts past valid_until (for cron). */

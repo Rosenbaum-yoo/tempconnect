@@ -23,6 +23,9 @@ export function haversineKm(lat1, lng1, lat2, lng2) {
  * Gewichtungs-Konfiguration (anpassbar pro Use-Case)
  * Summe der max-Werte = 100
  */
+/** Preferred-First Boost: Extra-Punkte fuer PREFERRED-Vendors wenn aktiv */
+export const PREFERRED_FIRST_BOOST = 15;
+
 const DEFAULT_WEIGHTS = {
   role: 30,           // exakte Rollen-Uebereinstimmung
   skills: 25,         // Tag-Overlap (max 5 Tags je 5 Punkte)
@@ -126,7 +129,76 @@ export function scoreMatch(demand, cap, opts = {}) {
     reasons.push({ factor: 'vendorPool', points: tierBonus, max: weights.vendorPool, detail: `Vendor Pool Tier: ${opts.vendorPoolTier}` });
   }
 
+  // ── 7) Compliance Bonus (opt-in) ───────────────────────
+  if (opts.complianceScore != null && opts.complianceScore > 0) {
+    const maxPts = 7;
+    const pts = Math.min(maxPts, Math.round((opts.complianceScore / 100) * maxPts));
+    score += pts;
+    reasons.push({ factor: 'compliance', points: pts, max: maxPts, detail: `Compliance ${opts.complianceScore}% erfuellt` });
+  }
+
+  // ── 8) Rate-Kompatibilitaet (opt-in) ───────────────────
+  if (opts.rateCompatible === true) {
+    const pts = 5;
+    score += pts;
+    reasons.push({ factor: 'rate', points: pts, max: 5, detail: 'Stundensatz innerhalb Budget' });
+  } else if (opts.rateCompatible === false) {
+    reasons.push({ factor: 'rate', points: 0, max: 5, detail: 'Stundensatz ueber Budget' });
+  }
+
+  // ── 9) Urgency / Notdienst Boost (opt-in) ─────────────
+  if (opts.urgencyBoost) {
+    const pts = 5;
+    score += pts;
+    reasons.push({ factor: 'urgency', points: pts, max: 5, detail: 'Dringend / Notdienst — priorisiert' });
+  }
+
+  // ── 10) Worker Count Match (opt-in) ────────────────────
+  if (opts.workerCountMatch === true) {
+    const pts = 3;
+    score += pts;
+    reasons.push({ factor: 'workerCount', points: pts, max: 3, detail: 'Personalkapazitaet ausreichend' });
+  } else if (opts.workerCountMatch === false) {
+    reasons.push({ factor: 'workerCount', points: 0, max: 3, detail: 'Personalkapazitaet nicht ausreichend' });
+  }
+
+  // ── 11) Reputation Score (opt-in) ─────────────────────
+  if (opts.reputationScore != null && opts.reputationScore > 0) {
+    const maxPts = 8;
+    const pts = Math.min(maxPts, Math.round((opts.reputationScore / 100) * maxPts));
+    score += pts;
+    reasons.push({ factor: 'reputation', points: pts, max: maxPts, detail: `Reputation ${Math.round(opts.reputationScore)}/100` });
+  }
+
+  // ── 12) Preferred-First Boost (opt-in) ─────────────────
+  if (opts.preferredFirst && opts.vendorPoolTier === 'PREFERRED') {
+    const pts = PREFERRED_FIRST_BOOST;
+    score += pts;
+    reasons.push({ factor: 'preferredFirst', points: pts, max: pts, detail: 'Bevorzugter Dienstleister — Preferred-First aktiv' });
+  }
+
+  // ── 13) Smart Rank / AI Score (opt-in) ────────────────
+  if (opts.smartRankScore != null && opts.smartRankScore > 0) {
+    const maxPts = 10;
+    const pts = Math.min(maxPts, Math.round((opts.smartRankScore / 100) * maxPts));
+    score += pts;
+    const level = opts.smartRankLabel || (opts.smartRankScore >= 85 ? 'Exzellent' : opts.smartRankScore >= 70 ? 'Stark' : opts.smartRankScore >= 50 ? 'Solide' : 'Aufbauend');
+    reasons.push({ factor: 'smartRank', points: pts, max: maxPts, detail: `Smart Rank ${Math.round(opts.smartRankScore)}/100 (${level})` });
+  }
+
   return { score: Math.min(100, score), reasons };
+}
+
+/**
+ * Klassifiziert einen Match-Score in lesbares Quality Label.
+ * @param {number} score 0-100
+ * @returns {'excellent'|'good'|'fair'|'weak'}
+ */
+export function classifyMatch(score) {
+  if (score >= 80) return 'excellent';
+  if (score >= 60) return 'good';
+  if (score >= 40) return 'fair';
+  return 'weak';
 }
 
 /**
@@ -176,7 +248,7 @@ export async function autoMatchRequisition(pool, requisitionId, requisitionData,
     );
   }
 
-  return { candidateCount: caps?.length ?? 0, matchCount: matches.length, matches };
+  return { candidateCount: matches.length, matchCount: matches.length, matches };
 }
 
 /**
@@ -283,4 +355,139 @@ export async function findMatches(pool, requestId, opts = {}) {
   };
 
   return matchRequisition(pool, demand, opts);
+}
+
+/* ═══════════════════════════════════════════════════════════════
+ * Worker → Assignment Matching
+ * Matches a worker profile (from workers table) against open
+ * demand_requests and requisitions.
+ * ═══════════════════════════════════════════════════════════════ */
+
+/**
+ * Load reputation score for a supplier org from supplier_reputation.
+ * Returns 0-10 numeric value; 0 if not found.
+ */
+async function getReputationScore(pool, orgId) {
+  if (!orgId) return 0;
+  try {
+    const { rows } = await pool.query(
+      `SELECT overall_score FROM supplier_reputation WHERE org_id = $1 ORDER BY updated_at DESC LIMIT 1`,
+      [orgId]
+    );
+    return rows[0]?.overall_score ?? 0;
+  } catch {
+    return 0;
+  }
+}
+
+/**
+ * Match a worker (by ID) against open demand requests + requisitions.
+ * Worker profile is mapped to a capacity-like object; demands are scored.
+ * @param {import('pg').Pool} pool
+ * @param {string} workerId
+ * @param {Object} [opts] - { topN, minScore }
+ */
+export async function matchWorkerToAssignments(pool, workerId, opts = {}) {
+  const topN = opts.topN || 25;
+  const minScore = opts.minScore || 1;
+
+  // Load worker
+  const { rows: wRows } = await pool.query('SELECT * FROM workers WHERE id = $1', [workerId]);
+  const worker = wRows[0];
+  if (!worker) return [];
+
+  // Build capacity-like object from worker
+  const cap = {
+    role: worker.role || worker.position || '',
+    skill_tags: worker.skill_tags || worker.skills || [],
+    location_lat: worker.latitude ?? worker.location_lat,
+    location_lng: worker.longitude ?? worker.location_lng,
+    location_city: worker.city || worker.location_city || '',
+    radius_km: worker.radius_km || 50,
+    availability_from: worker.available_from || worker.availability_from,
+    availability_to: worker.available_to || worker.availability_to
+  };
+
+  // Reputation bonus for worker's org
+  const repScore = await getReputationScore(pool, worker.org_id || worker.supplier_org_id);
+  const repBonus = Math.round(repScore / 2); // 0-5 bonus points
+
+  // Load open demands + requisitions
+  const { rows: demands } = await pool.query(
+    `SELECT *, 'demand_request' AS _source FROM demand_requests WHERE status = 'open'`
+  );
+  const { rows: reqs } = await pool.query(
+    `SELECT *, 'requisition' AS _source FROM requisitions WHERE status IN ('OPEN','IN_REVIEW','SHORTLISTED')`
+  );
+
+  const scored = [];
+
+  for (const dr of demands) {
+    const demand = {
+      role: dr.role,
+      skill_tags: dr.skill_tags || [],
+      latitude: dr.location_lat, longitude: dr.location_lng,
+      location_city: dr.location_city, radius_km: dr.radius_km,
+      start_date: dr.start_date, end_date: dr.end_date
+    };
+    let { score, reasons } = scoreMatch(demand, cap, {});
+    if (repBonus > 0) {
+      score = Math.min(100, score + repBonus);
+      reasons.push({ factor: 'reputation', points: repBonus, max: 5, detail: `Reputation ${repScore}/10` });
+    }
+    if (score >= minScore) {
+      scored.push({ type: 'demand_request', entity: dr, score, reasons });
+    }
+  }
+
+  for (const req of reqs) {
+    const demand = {
+      role: req.role,
+      skill_tags: req.skill_tags || [],
+      latitude: req.latitude, longitude: req.longitude,
+      location_city: req.location_city, radius_km: req.radius_km,
+      start_date: req.start_date, end_date: req.end_date
+    };
+    let { score, reasons } = scoreMatch(demand, cap, {});
+    if (repBonus > 0) {
+      score = Math.min(100, score + repBonus);
+      reasons.push({ factor: 'reputation', points: repBonus, max: 5, detail: `Reputation ${repScore}/10` });
+    }
+    if (score >= minScore) {
+      scored.push({ type: 'requisition', entity: req, score, reasons });
+    }
+  }
+
+  scored.sort((a, b) => b.score - a.score);
+  return scored.slice(0, topN);
+}
+
+/* ═══════════════════════════════════════════════════════════════
+ * ML Match Logging
+ * Persists match attempts to match_logs for future model training.
+ * ═══════════════════════════════════════════════════════════════ */
+
+/**
+ * Log a match event to match_logs.
+ * @param {import('pg').Pool} pool
+ * @param {Object} entry - { match_type, source_id, target_id, score, reasons, outcome, org_id }
+ */
+export async function logMatch(pool, entry) {
+  try {
+    await pool.query(
+      `INSERT INTO match_logs (match_type, source_id, target_id, score, reasons, outcome, org_id)
+       VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+      [
+        entry.match_type || 'demand_capacity',
+        entry.source_id,
+        entry.target_id,
+        entry.score ?? 0,
+        JSON.stringify(entry.reasons || []),
+        entry.outcome || 'suggested',
+        entry.org_id || null
+      ]
+    );
+  } catch (_e) {
+    // Non-critical — don't break the flow
+  }
 }

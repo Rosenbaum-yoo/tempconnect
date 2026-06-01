@@ -9,6 +9,7 @@ export default [
       "node_modules/**",
       ".claude/**",       // git worktrees — checked-out copies, not part of this package
       "coverage/**",      // test coverage output
+      "frontend/**",      // browser-JS (var, document, window) — own ESLint environment, not Node
     ]
   },
   js.configs.recommended,

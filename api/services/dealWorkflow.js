@@ -14,9 +14,12 @@
  */
 
 import { assertTransition, logTransition } from "./stateMachine.js";
-import * as auditLog from "./auditLog.js";
 import * as eventTracking from "./eventTrackingService.js";
-import { logger } from "../config/index.js";
+import { dispatch } from "./notificationMatrix.js";
+import { createServiceLogger, domainLogger } from "../utils/logger.js";
+import { withTransaction } from "../utils/transaction.js";
+
+const logger = createServiceLogger("dealWorkflow");
 
 /**
  * Accept a request — transitions from SENT → ACCEPTED.
@@ -25,35 +28,35 @@ import { logger } from "../config/index.js";
  * @param {string} actorId - user performing the action
  * @param {Object} [opts] - { message }
  */
-export async function acceptRequest(pool, requestId, actorId, opts = {}) {
+export function acceptRequest(pool, requestId, actorId, opts = {}) {
   return transitionRequest(pool, requestId, "ACCEPTED", actorId, opts);
 }
 
 /**
  * Decline a request — transitions from SENT → DECLINED.
  */
-export async function declineRequest(pool, requestId, actorId, opts = {}) {
+export function declineRequest(pool, requestId, actorId, opts = {}) {
   return transitionRequest(pool, requestId, "DECLINED", actorId, opts);
 }
 
 /**
  * Mark a request as filled — transitions from ACCEPTED → FILLED.
  */
-export async function fillRequest(pool, requestId, actorId, opts = {}) {
+export function fillRequest(pool, requestId, actorId, opts = {}) {
   return transitionRequest(pool, requestId, "FILLED", actorId, opts);
 }
 
 /**
  * Finalize (close) a request — transitions from ACCEPTED → FINALIZED.
  */
-export async function finalizeRequest(pool, requestId, actorId, opts = {}) {
+export function finalizeRequest(pool, requestId, actorId, opts = {}) {
   return transitionRequest(pool, requestId, "FINALIZED", actorId, opts);
 }
 
 /**
  * Cancel a request — transitions from any non-terminal status → CANCELED.
  */
-export async function cancelRequest(pool, requestId, actorId, opts = {}) {
+export function cancelRequest(pool, requestId, actorId, opts = {}) {
   return transitionRequest(pool, requestId, "CANCELED", actorId, opts);
 }
 
@@ -62,35 +65,35 @@ export async function cancelRequest(pool, requestId, actorId, opts = {}) {
 /**
  * Create a new deal (transitions to CREATED status if not set).
  */
-export async function createDeal(pool, requestId, actorId, opts = {}) {
+export function createDeal(pool, requestId, actorId, opts = {}) {
   return transitionDeal(pool, requestId, "OFFER_SENT", actorId, opts);
 }
 
 /**
  * Send an offer — transitions from CREATED → OFFER_SENT.
  */
-export async function sendOffer(pool, requestId, actorId, opts = {}) {
+export function sendOffer(pool, requestId, actorId, opts = {}) {
   return transitionDeal(pool, requestId, "OFFER_SENT", actorId, opts);
 }
 
 /**
  * Confirm a deal — transitions from ACCEPTED → CONFIRMED.
  */
-export async function confirmDeal(pool, requestId, actorId, opts = {}) {
+export function confirmDeal(pool, requestId, actorId, opts = {}) {
   return transitionDeal(pool, requestId, "CONFIRMED", actorId, opts);
 }
 
 /**
  * Start assignment — transitions from CONFIRMED → ASSIGNMENT_STARTED.
  */
-export async function startAssignment(pool, requestId, actorId, opts = {}) {
+export function startAssignment(pool, requestId, actorId, opts = {}) {
   return transitionDeal(pool, requestId, "ASSIGNMENT_STARTED", actorId, opts);
 }
 
 /**
  * Complete a deal — transitions from ASSIGNMENT_STARTED → COMPLETED.
  */
-export async function completeDeal(pool, requestId, actorId, opts = {}) {
+export function completeDeal(pool, requestId, actorId, opts = {}) {
   return transitionDeal(pool, requestId, "COMPLETED", actorId, opts);
 }
 
@@ -116,22 +119,23 @@ async function transitionDeal(pool, requestId, toStatus, actorId, opts = {}) {
     assertTransition("REQUEST", fromStatus, toStatus);
   }
 
-  await pool.query(
-    "UPDATE requests SET status = $1, updated_at = NOW() WHERE id = $2",
-    [toStatus, requestId]
-  );
-
-  await logTransition(pool, {
-    entityType: "DEAL",
-    from: fromStatus,
-    to: toStatus,
-    entity_id: requestId,
-    actor_id: actorId,
-    request_id: requestId,
-    details: opts.message ? { message: opts.message } : undefined
+  await withTransaction(pool, async (client) => {
+    await client.query(
+      "UPDATE requests SET status = $1, updated_at = NOW() WHERE id = $2",
+      [toStatus, requestId]
+    );
+    await logTransition(client, {
+      entityType: "DEAL",
+      from: fromStatus,
+      to: toStatus,
+      entity_id: requestId,
+      actor_id: actorId,
+      request_id: requestId,
+      details: opts.message ? { message: opts.message } : undefined
+    });
   });
 
-  // Track platform event for key deal milestones
+  // Non-transactional side-effects (fire-and-forget)
   const eventMap = {
     OFFER_SENT: 'offer_submitted',
     COMPLETED: 'deal_completed',
@@ -148,11 +152,34 @@ async function transitionDeal(pool, requestId, toStatus, actorId, opts = {}) {
     }).catch(() => {});
   }
 
+  const requesterId = rows[0].requester_id;
+  const receiverId = rows[0].receiver_id;
+  const notifyMap = {
+    OFFER_SENT:         { event: 'deal.offer_sent',         recipients: [requesterId].filter(Boolean) },
+    ACCEPTED:           { event: 'deal.accepted',           recipients: [receiverId].filter(Boolean) },
+    CONFIRMED:          { event: 'deal.confirmed',          recipients: [requesterId, receiverId].filter(Boolean) },
+    ASSIGNMENT_STARTED: { event: 'deal.assignment_started',  recipients: [requesterId, receiverId].filter(Boolean) },
+    COMPLETED:          { event: 'deal.completed',          recipients: [requesterId, receiverId].filter(Boolean) }
+  };
+  const notify = notifyMap[toStatus];
+  if (notify && notify.recipients.length > 0) {
+    dispatch(pool, notify.event, {
+      recipientUserIds: [...new Set(notify.recipients)],
+      entityType: 'request',
+      entityId: requestId,
+      message: `Deal #${requestId.slice(0, 8)}: Status → ${toStatus}`
+    }).catch(err => logger.warn({ err: err?.message, requestId }, 'Deal notification dispatch failed'));
+  }
+
+  // Domain event logging for key milestones
+  if (toStatus === "COMPLETED") domainLogger.dealCompleted({ dealId: requestId, requestId, actorId });
+  if (toStatus === "OFFER_SENT") domainLogger.dealCreated({ dealId: requestId, requestId, actorId, status: toStatus });
+
   logger.info({ requestId, from: fromStatus, to: toStatus, actorId }, "Deal transition completed");
   return { requestId, from: fromStatus, to: toStatus };
 }
 
-/* ── Internal (Legacy) ────────────────────────────────── */
+/* ── Internal (Legacy) ──────────────────────────────────────── */
 
 async function transitionRequest(pool, requestId, toStatus, actorId, opts = {}) {
   const { rows } = await pool.query("SELECT status FROM requests WHERE id = $1", [requestId]);
@@ -163,21 +190,21 @@ async function transitionRequest(pool, requestId, toStatus, actorId, opts = {}) 
   // Validate via state machine
   assertTransition("REQUEST", fromStatus, toStatus);
 
-  // Perform the update
-  await pool.query(
-    "UPDATE requests SET status = $1, updated_at = NOW() WHERE id = $2",
-    [toStatus, requestId]
-  );
-
-  // Audit log
-  await logTransition(pool, {
-    entityType: "REQUEST",
-    from: fromStatus,
-    to: toStatus,
-    entity_id: requestId,
-    actor_id: actorId,
-    request_id: requestId,
-    details: opts.message ? { message: opts.message } : undefined
+  // Perform update + audit in a single transaction
+  await withTransaction(pool, async (client) => {
+    await client.query(
+      "UPDATE requests SET status = $1, updated_at = NOW() WHERE id = $2",
+      [toStatus, requestId]
+    );
+    await logTransition(client, {
+      entityType: "REQUEST",
+      from: fromStatus,
+      to: toStatus,
+      entity_id: requestId,
+      actor_id: actorId,
+      request_id: requestId,
+      details: opts.message ? { message: opts.message } : undefined
+    });
   });
 
   logger.info({ requestId, from: fromStatus, to: toStatus, actorId }, "Deal transition completed");

@@ -268,7 +268,8 @@ export async function setOfferDetails(pool, {
   desiredFeatures,
   desiredAddons,
   expectedStartDate,
-  expectedEndDate
+  expectedEndDate,
+  cancellationEffectiveAt
 }) {
   const fields = [];
   const params = [];
@@ -291,6 +292,8 @@ export async function setOfferDetails(pool, {
   }
   if (expectedStartDate !== undefined) add("expected_start_date", expectedStartDate || null);
   if (expectedEndDate !== undefined) add("expected_end_date", expectedEndDate || null);
+  // Kündigungswirksamkeitsdatum — nur relevant für request_type=cancellation
+  if (cancellationEffectiveAt !== undefined) add("cancellation_effective_at", cancellationEffectiveAt || null);
 
   if (!fields.length) return { ok: false, error: "NO_FIELDS" };
 

@@ -14,7 +14,7 @@
  *   await searchService.indexDocument('capacity_posts', { id: '...', title: '...' });
  */
 
-import { config, logger } from "../config/index.js";
+import { config } from "../config/index.js";
 import { createServiceLogger } from "../utils/logger.js";
 
 const log = createServiceLogger("searchService");

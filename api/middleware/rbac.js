@@ -7,6 +7,21 @@
 import * as rbacService from "../services/rbacService.js";
 
 /**
+ * Lightweight guard: ensures req.orgId was resolved by orgContextMiddleware.
+ * Returns 403 if no org context is available (user has no org membership).
+ * Use AFTER requireAuth and orgContextMiddleware in the middleware chain.
+ */
+export function requireOrgContext(req, res, next) {
+  if (!req.orgId) {
+    return res.status(403).json({
+      error: "NO_ORG_CONTEXT",
+      message: "Organisations-Kontext erforderlich."
+    });
+  }
+  next();
+}
+
+/**
  * Express-Middleware: pruefe ob der User die angegebene Permission hat.
  * org_id wird aus req.body.org_id, req.query.org_id oder req.params.org_id gelesen,
  * Fallback auf die primaere Org des Users.
@@ -21,7 +36,17 @@ export function requirePermission(permission, deps) {
     if (!req.session?.userId) {
       return res.status(401).json({ error: "NOT_AUTHENTICATED" });
     }
-    const orgId = req.body?.org_id || req.query?.org_id || req.params?.org_id;
+    const explicitOrg = req.body?.org_id || req.query?.org_id || req.params?.org_id;
+    if (req.orgId && explicitOrg && explicitOrg !== req.orgId) {
+      const roleKey = req.orgMembership?.role_key || req.orgRole || null;
+      if (roleKey !== "platform_admin") {
+        return res.status(403).json({
+          error: "ORG_CONTEXT_MISMATCH",
+          message: "Organisations-Kontext passt nicht zur Anfrage."
+        });
+      }
+    }
+    const orgId = req.orgId || explicitOrg;
     let membership;
 
     if (orgId) {
@@ -31,10 +56,10 @@ export function requirePermission(permission, deps) {
           { permission, userId: req.session.userId, orgId, reason: result.reason },
           "RBAC permission denied"
         );
+        // SEC-003: Sanitized response — no internal role/permission names
         return res.status(403).json({
           error: "PERMISSION_DENIED",
-          permission,
-          reason: result.reason
+          message: "Keine Berechtigung fuer diese Aktion."
         });
       }
       membership = result.membership;
@@ -47,14 +72,24 @@ export function requirePermission(permission, deps) {
             { permission, userId: req.session.userId, orgId: membership.org_id, role: membership.role_key },
             "RBAC permission denied (primary org)"
           );
+          // SEC-003: Sanitized response
           return res.status(403).json({
             error: "PERMISSION_DENIED",
-            permission,
-            reason: "PERMISSION_DENIED"
+            message: "Keine Berechtigung fuer diese Aktion."
           });
         }
+      } else {
+        // Kein Org-Membership = kein Zugriff auf org-geschuetzte Ressourcen
+        logger.warn(
+          { permission, userId: req.session.userId },
+          "RBAC denied: no org membership"
+        );
+        // SEC-003: Sanitized response
+        return res.status(403).json({
+          error: "NO_ORG_MEMBERSHIP",
+          message: "Organisations-Mitgliedschaft erforderlich."
+        });
       }
-      // Kein Org-Membership = Legacy-User, durchlassen (rueckwaertskompatibel)
     }
 
     // Membership-Daten an Request haengen fuer nachfolgende Handler
@@ -78,7 +113,17 @@ export function requireRole(allowedRoles, deps) {
     if (!req.session?.userId) {
       return res.status(401).json({ error: "NOT_AUTHENTICATED" });
     }
-    const orgId = req.body?.org_id || req.query?.org_id || req.params?.org_id;
+    const explicitOrg = req.body?.org_id || req.query?.org_id || req.params?.org_id;
+    if (req.orgId && explicitOrg && explicitOrg !== req.orgId) {
+      const roleKey = req.orgMembership?.role_key || req.orgRole || null;
+      if (roleKey !== "platform_admin") {
+        return res.status(403).json({
+          error: "ORG_CONTEXT_MISMATCH",
+          message: "Organisations-Kontext passt nicht zur Anfrage."
+        });
+      }
+    }
+    const orgId = req.orgId || explicitOrg;
     let membership;
 
     if (orgId) {
@@ -87,20 +132,32 @@ export function requireRole(allowedRoles, deps) {
       membership = await rbacService.getPrimaryOrg(pool, req.session.userId);
     }
 
-    if (membership && !allowedRoles.includes(membership.role_key)) {
+    if (!membership) {
       logger.warn(
-        { allowedRoles, userId: req.session.userId, orgId: membership?.org_id, role: membership?.role_key },
-        "RBAC role denied"
+        { allowedRoles, userId: req.session.userId, orgId: orgId || null },
+        "RBAC denied: no org membership"
       );
+      // SEC-003: Sanitized response
       return res.status(403).json({
-        error: "ROLE_DENIED",
-        required: allowedRoles,
-        current: membership?.role_key
+        error: "NO_ORG_MEMBERSHIP",
+        message: "Organisations-Mitgliedschaft erforderlich."
       });
     }
 
-    req.orgMembership = membership || null;
-    req.orgId = membership?.org_id || orgId || null;
+    if (!allowedRoles.includes(membership.role_key)) {
+      logger.warn(
+        { allowedRoles, userId: req.session.userId, orgId: membership.org_id, role: membership.role_key },
+        "RBAC role denied"
+      );
+      // SEC-003: Sanitized response — no internal role names
+      return res.status(403).json({
+        error: "ROLE_DENIED",
+        message: "Keine Berechtigung fuer diese Aktion."
+      });
+    }
+
+    req.orgMembership = membership;
+    req.orgId = membership.org_id || orgId || null;
     next();
   };
 }

@@ -10,7 +10,8 @@
 import { z } from "zod";
 import { Router } from "express";
 import { requirePermission, requireRole } from "../middleware/rbac.js";
-import { requireOrgFeature } from "../middleware/entitlementGuard.js";
+import { requireOrgFeature, requireOrgLimit } from "../middleware/entitlementGuard.js";
+import { assertMemberScopeBelongsToOrg, assertLocationBelongsToOrg, OrgBoundaryError } from "../utils/orgBoundary.js";
 import * as orgService from "../services/organizationService.js";
 import * as apiKeyService from "../services/apiKeyService.js";
 import * as integrationService from "../services/integrationService.js";
@@ -59,6 +60,11 @@ const departmentUpdateSchema = departmentCreateSchema.partial().extend({
   is_active: z.boolean().optional()
 });
 
+const memberScopeSchema = z.object({
+  location_id:   z.string().uuid().nullable().optional(),
+  department_id: z.string().uuid().nullable().optional()
+});
+
 const updateSecuritySchema = z.object({
   approval_required: z.boolean().optional(),
   preferred_supplier_only: z.boolean().optional(),
@@ -80,6 +86,7 @@ export function createOrgControlCenterRouter(deps) {
   const rperm = (p) => requirePermission(p, { pool, logger });
   const orgSettingsGate = requireOrgFeature("org_settings", { pool, logger });
   const integrationsGate = requireOrgFeature("integrations", { pool, logger });
+  const sitesLimitGate = requireOrgLimit("sites", { pool, logger });
 
   // Org-Kontext Pflicht fuer alle Endpoints
   const ensureOrg = (req, res, next) => {
@@ -421,7 +428,7 @@ export function createOrgControlCenterRouter(deps) {
     }
   );
 
-  router.post("/org/locations", requireAuth, ensureOrg, rperm("org.locations"),
+  router.post("/org/locations", requireAuth, ensureOrg, sitesLimitGate, rperm("org.locations"),
     async (req, res) => {
       try {
         const parsed = locationCreateSchema.safeParse(req.body);
@@ -446,14 +453,9 @@ export function createOrgControlCenterRouter(deps) {
         const parsed = locationUpdateSchema.safeParse(req.body);
         if (!parsed.success) return res.status(400).json({ success: false, error: { code: "VALIDATION", details: parsed.error.issues } });
 
-        // Verify ownership: location must belong to req.orgId
-        const { rows } = await pool.query(
-          "SELECT id FROM org_locations WHERE id = $1 AND org_id = $2",
-          [req.params.locId, req.orgId]
-        );
-        if (!rows.length) return res.status(404).json({ success: false, error: { code: "NOT_FOUND" } });
+        const updated = await orgService.updateLocation(pool, req.params.locId, req.orgId, parsed.data);
+        if (!updated) return res.status(404).json({ success: false, error: { code: "NOT_FOUND" } });
 
-        const updated = await orgService.updateLocation(pool, req.params.locId, parsed.data);
         res.locals.audit = {
           action: "org.location.update", entity_type: "org_location",
           entity_id: req.params.locId, details: { changed_fields: Object.keys(parsed.data) }
@@ -469,13 +471,9 @@ export function createOrgControlCenterRouter(deps) {
   router.delete("/org/locations/:locId", requireAuth, ensureOrg, rperm("org.locations"),
     async (req, res) => {
       try {
-        const { rows } = await pool.query(
-          "SELECT id FROM org_locations WHERE id = $1 AND org_id = $2",
-          [req.params.locId, req.orgId]
-        );
-        if (!rows.length) return res.status(404).json({ success: false, error: { code: "NOT_FOUND" } });
+        const deactivated = await orgService.updateLocation(pool, req.params.locId, req.orgId, { is_active: false });
+        if (!deactivated) return res.status(404).json({ success: false, error: { code: "NOT_FOUND" } });
 
-        await orgService.updateLocation(pool, req.params.locId, { is_active: false });
         res.locals.audit = {
           action: "org.location.deactivate", entity_type: "org_location",
           entity_id: req.params.locId, details: { org_id: req.orgId }
@@ -517,6 +515,9 @@ export function createOrgControlCenterRouter(deps) {
         };
         res.status(201).json({ success: true, data: dept });
       } catch (err) {
+        if (err instanceof OrgBoundaryError) {
+          return res.status(403).json({ success: false, error: { code: "LOCATION_NOT_IN_ORG", message: err.message } });
+        }
         logger.error({ err: err.message }, "org/departments create");
         res.status(500).json({ success: false, error: { code: "SERVER_ERROR" } });
       }
@@ -529,19 +530,22 @@ export function createOrgControlCenterRouter(deps) {
         const parsed = departmentUpdateSchema.safeParse(req.body);
         if (!parsed.success) return res.status(400).json({ success: false, error: { code: "VALIDATION", details: parsed.error.issues } });
 
-        const { rows } = await pool.query(
-          "SELECT id FROM org_departments WHERE id = $1 AND org_id = $2",
-          [req.params.deptId, req.orgId]
-        );
-        if (!rows.length) return res.status(404).json({ success: false, error: { code: "NOT_FOUND" } });
+        if (parsed.data.location_id) {
+          await assertLocationBelongsToOrg(pool, parsed.data.location_id, req.orgId);
+        }
 
-        const updated = await orgService.updateDepartment(pool, req.params.deptId, parsed.data);
+        const updated = await orgService.updateDepartment(pool, req.params.deptId, req.orgId, parsed.data);
+        if (!updated) return res.status(404).json({ success: false, error: { code: "NOT_FOUND" } });
+
         res.locals.audit = {
           action: "org.department.update", entity_type: "org_department",
           entity_id: req.params.deptId, details: { changed_fields: Object.keys(parsed.data) }
         };
         res.json({ success: true, data: updated });
       } catch (err) {
+        if (err instanceof OrgBoundaryError) {
+          return res.status(403).json({ success: false, error: { code: "LOCATION_NOT_IN_ORG", message: err.message } });
+        }
         logger.error({ err: err.message }, "org/departments update");
         res.status(500).json({ success: false, error: { code: "SERVER_ERROR" } });
       }
@@ -551,13 +555,9 @@ export function createOrgControlCenterRouter(deps) {
   router.delete("/org/departments/:deptId", requireAuth, ensureOrg, rperm("org.departments"),
     async (req, res) => {
       try {
-        const { rows } = await pool.query(
-          "SELECT id FROM org_departments WHERE id = $1 AND org_id = $2",
-          [req.params.deptId, req.orgId]
-        );
-        if (!rows.length) return res.status(404).json({ success: false, error: { code: "NOT_FOUND" } });
+        const deactivated = await orgService.updateDepartment(pool, req.params.deptId, req.orgId, { is_active: false });
+        if (!deactivated) return res.status(404).json({ success: false, error: { code: "NOT_FOUND" } });
 
-        await orgService.updateDepartment(pool, req.params.deptId, { is_active: false });
         res.locals.audit = {
           action: "org.department.deactivate", entity_type: "org_department",
           entity_id: req.params.deptId, details: { org_id: req.orgId }
@@ -565,6 +565,58 @@ export function createOrgControlCenterRouter(deps) {
         res.json({ success: true, data: { deactivated: true } });
       } catch (err) {
         logger.error({ err: err.message }, "org/departments delete");
+        res.status(500).json({ success: false, error: { code: "SERVER_ERROR" } });
+      }
+    }
+  );
+
+  /* ═══════════════════════════════════════════════════════
+   *  MEMBERS — Rolle per Membership-ID aendern
+   * ═══════════════════════════════════════════════════════ */
+
+  router.patch("/org/members/:membershipId/role", requireAuth, ensureOrg, rperm("org.members"),
+    async (req, res) => {
+      try {
+        const parsed = updateMemberSchema.safeParse(req.body);
+        if (!parsed.success) return res.status(400).json({ success: false, error: { code: "VALIDATION", details: parsed.error.issues } });
+
+        const updated = await orgService.updateMemberRoleByMembershipId(pool, req.orgId, req.params.membershipId, parsed.data.role_key);
+        if (!updated) return res.status(404).json({ success: false, error: { code: "NOT_FOUND" } });
+
+        res.locals.audit = {
+          action: "org.member.role_change", entity_type: "org_membership",
+          entity_id: req.params.membershipId, details: { org_id: req.orgId, new_role: parsed.data.role_key }
+        };
+        res.json({ success: true, data: updated });
+      } catch (err) {
+        logger.error({ err: err.message }, "org/members/:membershipId/role");
+        res.status(500).json({ success: false, error: { code: "SERVER_ERROR" } });
+      }
+    }
+  );
+
+  router.patch("/org/members/:membershipId/scope", requireAuth, ensureOrg, rperm("org.members"),
+    async (req, res) => {
+      try {
+        const parsed = memberScopeSchema.safeParse(req.body);
+        if (!parsed.success) return res.status(400).json({ success: false, error: { code: "VALIDATION", details: parsed.error.issues } });
+
+        await assertMemberScopeBelongsToOrg(pool, parsed.data, req.orgId);
+
+        const updated = await orgService.updateMemberScope(pool, req.orgId, req.params.membershipId, parsed.data);
+        if (!updated) return res.status(404).json({ success: false, error: { code: "NOT_FOUND" } });
+
+        res.locals.audit = {
+          action: "org.member.scope_change", entity_type: "org_membership",
+          entity_id: req.params.membershipId,
+          details: { org_id: req.orgId, location_id: parsed.data.location_id ?? null, department_id: parsed.data.department_id ?? null }
+        };
+        res.json({ success: true, data: updated });
+      } catch (err) {
+        if (err instanceof OrgBoundaryError) {
+          return res.status(403).json({ success: false, error: { code: "ORG_BOUNDARY_VIOLATION", message: err.message } });
+        }
+        logger.error({ err: err.message }, "org/members/:membershipId/scope");
         res.status(500).json({ success: false, error: { code: "SERVER_ERROR" } });
       }
     }

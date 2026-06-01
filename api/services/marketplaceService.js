@@ -4,6 +4,9 @@
  */
 
 import { PLAN } from "../config/planFeatures.js";
+import { withTransaction } from "../utils/transaction.js";
+import { assertTransition, TransitionError } from "./stateMachine.js";
+import * as capacityExchangeService from "./capacityExchangeService.js";
 
 /** Haversine distance in km */
 function haversineKm(lat1, lng1, lat2, lng2) {
@@ -50,9 +53,82 @@ export async function getVerifiedSupplierIds(pool) {
   return new Set(rows.map((r) => r.company_id));
 }
 
+const CAPACITY_COMMERCIAL_JOIN = `
+  LEFT JOIN LATERAL (
+    SELECT COALESCE(SUM(
+      CASE
+        WHEN o.status = 'accepted'
+          AND COALESCE(o.agreement_status, 'none') NOT IN ('cancelled', 'expired')
+        THEN GREATEST(COALESCE(o.offered_quantity, dr.headcount, 0), 0)
+        ELSE 0
+      END
+    ), 0)::int AS committed_headcount
+    FROM offers o
+    JOIN demand_requests dr ON dr.id = o.demand_request_id
+    WHERE o.capacity_post_id = cp.id
+  ) capacity_commitments ON TRUE
+`;
+
+const CAPACITY_REMAINING_HEADCOUNT_SQL = `GREATEST(cp.headcount - COALESCE(capacity_commitments.committed_headcount, 0), 0)`;
+const CAPACITY_COMMERCIAL_SELECT = `
+  COALESCE(capacity_commitments.committed_headcount, 0)::int AS committed_headcount,
+  ${CAPACITY_REMAINING_HEADCOUNT_SQL}::int AS remaining_headcount
+`;
+
+const EMPTY_DEMAND_COMMERCIAL_STATE = Object.freeze({
+  required_total_count: 1,
+  committed_headcount: 0,
+  remaining_open_count: 1,
+  active_offer_count: 0,
+  has_active_offer: false,
+  is_partially_covered: false,
+  is_fully_covered: false,
+  is_capacity_origin: false,
+  commercial_status: "open",
+  commercial_visibility: "public"
+});
+
+function toCommercialCount(value, fallback = 0) {
+  const num = Number(value);
+  return Number.isFinite(num) ? Math.max(0, Math.trunc(num)) : fallback;
+}
+
+function buildDemandCommercialState(demand, rawState = EMPTY_DEMAND_COMMERCIAL_STATE) {
+  const requiredTotalCount = Math.max(
+    1,
+    toCommercialCount(demand?.required_total_count ?? demand?.headcount, 1)
+  );
+  const committedHeadcount = Math.max(
+    0,
+    toCommercialCount(rawState?.committed_headcount, toCommercialCount(demand?.currently_committed_count, 0))
+  );
+  const remainingOpenCount = Math.max(requiredTotalCount - committedHeadcount, 0);
+  const activeOfferCount = Math.max(0, toCommercialCount(rawState?.active_offer_count, 0));
+  const hasActiveOffer = committedHeadcount > 0;
+  const isPartiallyCovered = hasActiveOffer && remainingOpenCount > 0;
+  const isFullyCovered = requiredTotalCount > 0 && remainingOpenCount === 0;
+  const isCapacityOrigin = rawState?.is_capacity_origin === true;
+
+  return {
+    required_total_count: requiredTotalCount,
+    committed_headcount: committedHeadcount,
+    remaining_open_count: remainingOpenCount,
+    active_offer_count: activeOfferCount,
+    has_active_offer: hasActiveOffer,
+    is_partially_covered: isPartiallyCovered,
+    is_fully_covered: isFullyCovered,
+    is_capacity_origin: isCapacityOrigin,
+    commercial_status: isFullyCovered ? "fulfilled" : isPartiallyCovered ? "partially_covered" : "open",
+    commercial_visibility: isCapacityOrigin ? "counterparty_only" : "public"
+  };
+}
+
 /* ── capacity_posts ─────────────────────────────────────────── */
 
 export async function createCapacityPost(pool, supplierId, payload) {
+  // Basis-INSERT mit den Spalten aus der originalen Migration (014).
+  // Neue Felder (shift_model, employment_type, etc.) werden per UPDATE nachgetragen,
+  // falls die Spalten per spaeterer Migration existieren.
   const { rows } = await pool.query(
     `INSERT INTO capacity_posts
      (supplier_company_id, title, role, skill_tags, headcount, availability_from, availability_to,
@@ -79,15 +155,45 @@ export async function createCapacityPost(pool, supplierId, payload) {
       !!payload.is_search_agent
     ]
   );
-  return rows[0];
+  const row = rows[0];
+
+  // Optionale Felder per UPDATE nachsetzen (fail-soft: ignoriert fehlende Spalten)
+  const extras = {
+    shift_model: payload.shift_model || null,
+    employment_type: payload.employment_type || null,
+    qualification_summary: payload.qualifications || null,
+    certifications_summary: payload.certifications || null,
+    description: payload.description || null
+  };
+  const setClauses = [];
+  const setParams = [row.id];
+  let idx = 2;
+  for (const [col, val] of Object.entries(extras)) {
+    if (val != null) { setClauses.push(`${col} = $${idx}`); setParams.push(val); idx++; }
+  }
+  if (setClauses.length) {
+    try {
+      await pool.query(`UPDATE capacity_posts SET ${setClauses.join(", ")}, updated_at = NOW() WHERE id = $1`, setParams);
+    } catch { /* Spalte existiert nicht — ignorieren (Migration noch nicht gelaufen) */ }
+  }
+
+  return row;
 }
 
 export async function listCapacityPosts(pool, opts = {}) {
   let q = `
-    SELECT cp.*, u.company_name AS supplier_company_name
+    SELECT cp.*, ${CAPACITY_COMMERCIAL_SELECT},
+           u.company_name AS supplier_company_name,
+           sr.grade AS reputation_grade,
+           sr.reputation_score AS reputation_score,
+           sr.avg_stars AS reputation_avg_stars,
+           sr.total_ratings AS reputation_total_ratings
     FROM capacity_posts cp
+    ${CAPACITY_COMMERCIAL_JOIN}
     JOIN users u ON u.id = cp.supplier_company_id
-    WHERE cp.is_active = TRUE
+    LEFT JOIN supplier_reputation sr ON sr.supplier_id = cp.supplier_company_id
+    WHERE cp.status = 'active'
+      AND ${CAPACITY_REMAINING_HEADCOUNT_SQL} > 0
   `;
   const params = [];
   let i = 1;
@@ -101,7 +207,12 @@ export async function listCapacityPosts(pool, opts = {}) {
 }
 
 export async function getCapacityPostById(pool, id, supplierId = null) {
-  let q = "SELECT cp.*, u.company_name AS supplier_company_name FROM capacity_posts cp JOIN users u ON u.id = cp.supplier_company_id WHERE cp.id = $1";
+  let q = `SELECT cp.*, ${CAPACITY_COMMERCIAL_SELECT},
+                  u.company_name AS supplier_company_name
+           FROM capacity_posts cp
+           ${CAPACITY_COMMERCIAL_JOIN}
+           JOIN users u ON u.id = cp.supplier_company_id
+           WHERE cp.id = $1`;
   const params = [id];
   if (supplierId) { q += " AND cp.supplier_company_id = $2"; params.push(supplierId); }
   const { rows } = await pool.query(q, params);
@@ -111,7 +222,7 @@ export async function getCapacityPostById(pool, id, supplierId = null) {
 /* ── demand_requests ──────────────────────────────────────── */
 
 export async function createDemandRequest(pool, requesterId, plan, payload) {
-  const useSla = plan === PLAN.PLUS || plan === PLAN.NOTDIENST;
+  const useSla = plan === PLAN.PLUS || plan === PLAN.PRO;
   const urgency = (payload.urgency || "normal").toLowerCase();
   const slaMinutes = useSla
     ? (payload.sla_minutes ?? (urgency === "notdienst" ? 30 : 120))
@@ -124,8 +235,9 @@ export async function createDemandRequest(pool, requesterId, plan, payload) {
      (requester_company_id, title, role, skill_tags, headcount, start_date, end_date,
       location_city, location_postal, location_lat, location_lng, radius_km,
       shifts, requirements, urgency, budget_min, budget_max,
-      sla_started_at, sla_minutes, sla_due_at, sla_status)
-     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21)
+      sla_started_at, sla_minutes, sla_due_at, sla_status,
+      required_total_count, remaining_open_count, currently_committed_count)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24)
      RETURNING *`,
     [
       requesterId,
@@ -148,7 +260,10 @@ export async function createDemandRequest(pool, requesterId, plan, payload) {
       useSla ? now : null,
       slaMinutes,
       slaDueAt,
-      useSla ? "RUNNING" : null
+      useSla ? "RUNNING" : null,
+      payload.headcount ?? 1,
+      payload.headcount ?? 1,
+      0
     ]
   );
   return rows[0];
@@ -156,7 +271,13 @@ export async function createDemandRequest(pool, requesterId, plan, payload) {
 
 export async function getDemandById(pool, id) {
   const { rows } = await pool.query(
-    `SELECT dr.*, u.company_name AS requester_company_name
+    `SELECT dr.*, u.company_name AS requester_company_name,
+            EXISTS (
+              SELECT 1
+              FROM offers o_origin
+              WHERE o_origin.demand_request_id = dr.id
+                AND o_origin.capacity_post_id IS NOT NULL
+            ) AS is_capacity_origin
      FROM demand_requests dr
      JOIN users u ON u.id = dr.requester_company_id
      WHERE dr.id = $1`,
@@ -165,9 +286,128 @@ export async function getDemandById(pool, id) {
   return rows[0] || null;
 }
 
+export async function getDemandCommercialStates(pool, demandRequestIds = []) {
+  const uniqueIds = [...new Set((demandRequestIds || []).filter(Boolean))];
+  if (uniqueIds.length === 0) {
+    return new Map();
+  }
+
+  const { rows } = await pool.query(
+    `SELECT
+       dr.id AS demand_request_id,
+       GREATEST(COALESCE(dr.required_total_count, dr.headcount, 1), 1)::int AS required_total_count,
+       COALESCE(SUM(
+         CASE
+           WHEN o.status = 'accepted'
+             AND COALESCE(o.agreement_status, 'none') NOT IN ('cancelled', 'expired')
+           THEN GREATEST(COALESCE(o.offered_quantity, dr.headcount, 0), 0)
+           ELSE 0
+         END
+       ), 0)::int AS committed_headcount,
+       COUNT(DISTINCT o.id) FILTER (
+         WHERE o.status = 'accepted'
+           AND COALESCE(o.agreement_status, 'none') NOT IN ('cancelled', 'expired')
+       )::int AS active_offer_count,
+       COALESCE(BOOL_OR(o.capacity_post_id IS NOT NULL), FALSE) AS is_capacity_origin
+     FROM demand_requests dr
+     LEFT JOIN offers o ON o.demand_request_id = dr.id
+     WHERE dr.id = ANY($1)
+     GROUP BY dr.id, GREATEST(COALESCE(dr.required_total_count, dr.headcount, 1), 1)`,
+    [uniqueIds]
+  );
+
+  const stateMap = new Map();
+  for (const row of rows) {
+    stateMap.set(row.demand_request_id, {
+      required_total_count: toCommercialCount(row.required_total_count, 1),
+      committed_headcount: toCommercialCount(row.committed_headcount, 0),
+      active_offer_count: toCommercialCount(row.active_offer_count, 0),
+      is_capacity_origin: row.is_capacity_origin === true
+    });
+  }
+  return stateMap;
+}
+
+export async function getDemandCommercialState(pool, demandRequestId) {
+  const { rows } = await pool.query(
+    `SELECT id, headcount, required_total_count, currently_committed_count, remaining_open_count
+     FROM demand_requests
+     WHERE id = $1`,
+    [demandRequestId]
+  );
+  const demand = rows[0];
+  if (!demand) {
+    return EMPTY_DEMAND_COMMERCIAL_STATE;
+  }
+  const stateMap = await getDemandCommercialStates(pool, [demandRequestId]);
+  return buildDemandCommercialState(demand, stateMap.get(demandRequestId));
+}
+
+export async function syncDemandCommercialState(pool, demandRequestId) {
+  const { rows } = await pool.query(
+    `SELECT *
+     FROM demand_requests
+     WHERE id = $1
+     FOR UPDATE`,
+    [demandRequestId]
+  );
+  const demand = rows[0];
+  if (!demand) return null;
+
+  const commercialState = buildDemandCommercialState(
+    demand,
+    await getDemandCommercialState(pool, demandRequestId)
+  );
+
+  if (!["open", "partially_covered", "fulfilled"].includes(demand.status)) {
+    return { ...demand, ...commercialState };
+  }
+
+  const nextStatus = commercialState.commercial_status;
+  const hasChanged =
+    demand.status !== nextStatus ||
+    toCommercialCount(demand.currently_committed_count, 0) !== commercialState.committed_headcount ||
+    toCommercialCount(demand.remaining_open_count, 0) !== commercialState.remaining_open_count ||
+    Math.max(1, toCommercialCount(demand.required_total_count ?? demand.headcount, 1)) !== commercialState.required_total_count;
+
+  if (!hasChanged) {
+    return { ...demand, ...commercialState };
+  }
+
+  const { rows: updatedRows } = await pool.query(
+    `UPDATE demand_requests
+     SET status = $2,
+         required_total_count = $3,
+         currently_committed_count = $4,
+         remaining_open_count = $5,
+         fulfilled_at = CASE
+           WHEN $2 = 'fulfilled' THEN COALESCE(fulfilled_at, NOW())
+           ELSE fulfilled_at
+         END,
+         updated_at = NOW()
+     WHERE id = $1
+     RETURNING *`,
+    [
+      demandRequestId,
+      nextStatus,
+      commercialState.required_total_count,
+      commercialState.committed_headcount,
+      commercialState.remaining_open_count
+    ]
+  );
+  const updatedDemand = updatedRows[0] || demand;
+  return { ...updatedDemand, ...buildDemandCommercialState(updatedDemand, commercialState) };
+}
+
 export async function listDemandRequests(pool, opts = {}) {
   let q = `
-    SELECT dr.*, u.company_name AS requester_company_name
+    SELECT dr.*, u.company_name AS requester_company_name,
+           EXISTS (
+             SELECT 1
+             FROM offers o_origin
+             WHERE o_origin.demand_request_id = dr.id
+               AND o_origin.capacity_post_id IS NOT NULL
+           ) AS is_capacity_origin
     FROM demand_requests dr
     JOIN users u ON u.id = dr.requester_company_id
     WHERE 1=1
@@ -176,6 +416,21 @@ export async function listDemandRequests(pool, opts = {}) {
   let i = 1;
   if (opts.requester_company_id) { q += ` AND dr.requester_company_id = $${i}`; params.push(opts.requester_company_id); i++; }
   if (opts.status) { q += ` AND dr.status = $${i}`; params.push(opts.status); i++; }
+  if (opts.commercially_open_only) {
+    q += ` AND dr.status IN ('open','partially_covered')
+           AND COALESCE(
+             dr.remaining_open_count,
+             GREATEST(COALESCE(dr.required_total_count, dr.headcount, 1) - COALESCE(dr.currently_committed_count, 0), 0)
+           ) > 0`;
+  }
+  if (opts.exclude_capacity_origin) {
+    q += ` AND NOT EXISTS (
+             SELECT 1
+             FROM offers o_origin
+             WHERE o_origin.demand_request_id = dr.id
+               AND o_origin.capacity_post_id IS NOT NULL
+           )`;
+  }
   q += ` ORDER BY dr.created_at DESC LIMIT $${i}`;
   params.push(opts.limit ?? 100);
   const { rows } = await pool.query(q, params);
@@ -249,8 +504,11 @@ export async function getDemandSlaEvents(pool, demandId) {
 
 export async function runInitialMatching(pool, demandRow, verifiedSupplierIds = new Set()) {
   const { rows: caps } = await pool.query(
-    `SELECT * FROM capacity_posts
-     WHERE is_active = TRUE
+    `SELECT cp.*, ${CAPACITY_COMMERCIAL_SELECT}
+     FROM capacity_posts cp
+     ${CAPACITY_COMMERCIAL_JOIN}
+     WHERE cp.status = 'active'
+       AND ${CAPACITY_REMAINING_HEADCOUNT_SQL} > 0
        AND availability_from <= $1
        AND (availability_to IS NULL OR availability_to >= $2)`,
     [demandRow.end_date || demandRow.start_date, demandRow.start_date]
@@ -424,9 +682,16 @@ export async function createOffer(pool, supplierCompanyId, demandRequestId, payl
 
 export async function listOffersForDemand(pool, demandRequestId) {
   const { rows } = await pool.query(
-    `SELECT o.*, u.company_name AS supplier_company_name
+    `SELECT o.*, u.company_name AS supplier_company_name,
+            dr.requester_company_id,
+            cp.title AS capacity_title,
+            cp.role AS capacity_role,
+            cp.location_city AS capacity_location,
+            cp.status AS capacity_status
      FROM offers o
      JOIN users u ON u.id = o.supplier_company_id
+     JOIN demand_requests dr ON dr.id = o.demand_request_id
+     LEFT JOIN capacity_posts cp ON cp.id = o.capacity_post_id
      WHERE o.demand_request_id = $1
      ORDER BY o.created_at DESC`,
     [demandRequestId]
@@ -434,63 +699,168 @@ export async function listOffersForDemand(pool, demandRequestId) {
   return rows;
 }
 
-export async function getOfferById(pool, offerId) {
+export async function getOfferById(pool, offerId, opts = {}) {
+  const forUpdate = opts.forUpdate === true;
   const { rows } = await pool.query(
     `SELECT o.*, u.company_name AS supplier_company_name,
-            dr.requester_company_id, dr.title AS demand_title
+            dr.requester_company_id, dr.title AS demand_title, dr.headcount AS demand_headcount,
+            cp.title AS capacity_title,
+            cp.role AS capacity_role,
+            cp.location_city AS capacity_location,
+            cp.status AS capacity_status,
+            cp.headcount AS capacity_headcount
      FROM offers o
      JOIN users u ON u.id = o.supplier_company_id
      JOIN demand_requests dr ON dr.id = o.demand_request_id
-     WHERE o.id = $1`,
+     LEFT JOIN capacity_posts cp ON cp.id = o.capacity_post_id
+     WHERE o.id = $1${forUpdate ? " FOR UPDATE OF o" : ""}`,
     [offerId]
   );
   return rows[0] || null;
 }
 
 /**
+ * Perspektivische Statuslabels: je nach Rolle sieht der Nutzer einen anderen Text.
+ * Schlüssel: `status.viewer_mode` (sender = Supplier, receiver = Requester).
+ */
+export const OFFER_VIEWER_LABELS = {
+  "draft.sender":      "Entwurf \u2013 noch nicht gesendet",
+  "draft.receiver":    "Entwurf",
+  "sent.sender":       "Angebot gesendet \u2013 wartet auf R\u00fcckmeldung",
+  "sent.receiver":     "Neues Angebot erhalten \u2013 Entscheidung ausstehend",
+  "countered.sender":  "Gegenangebot erhalten \u2013 Antwort erforderlich",
+  "countered.receiver": "Gegenangebot gesendet \u2013 wartet auf Entscheidung",
+  "accepted.sender":   "Angebot angenommen",
+  "accepted.receiver": "Angebot angenommen",
+  "rejected.sender":   "Angebot abgelehnt",
+  "rejected.receiver": "Angebot abgelehnt",
+  "withdrawn.sender":  "Angebot zur\u00fcckgezogen",
+  "withdrawn.receiver": "Angebot wurde zur\u00fcckgezogen"
+};
+
+/**
+ * Counterparty-first view model for offers.
+ * Encodes "who is next" and the actions for the CURRENT viewer.
+ *
+ * @param {object} offer - offer row including requester_company_id + supplier_company_id
+ * @param {string} viewerUserId
+ * @returns {{ actor_required: ('requester'|'supplier'|'none'), viewer_mode: ('sender'|'receiver'), viewer_state: string, viewer_label: string, actions: string[] }}
+ */
+export function computeOfferNextAction(offer, viewerUserId) {
+  const viewerIsSupplier = offer?.supplier_company_id === viewerUserId;
+  const viewerIsRequester = offer?.requester_company_id === viewerUserId;
+  const viewerMode = viewerIsSupplier ? "sender" : (viewerIsRequester ? "receiver" : "receiver");
+
+  const status = String(offer?.status || "draft");
+  const actorRequiredByStatus = {
+    draft: "supplier",
+    sent: "requester",
+    countered: "supplier",
+    accepted: "none",
+    rejected: "none",
+    withdrawn: "none"
+  };
+  const actor_required = actorRequiredByStatus[status] || "none";
+
+  const isMyTurn = (actor_required === "supplier" && viewerIsSupplier) || (actor_required === "requester" && viewerIsRequester);
+  const actions = [];
+
+  if (status === "draft" && viewerIsSupplier) actions.push("send", "withdraw");
+  if (status === "sent" && viewerIsRequester) actions.push("accept", "reject", "counter");
+  if (status === "sent" && viewerIsSupplier) actions.push("withdraw");
+  if (status === "countered" && viewerIsSupplier) actions.push("send", "withdraw");
+  if (status === "countered" && viewerIsRequester) actions.push("wait");
+
+  if (status === "accepted") actions.push("view_followup");
+  if (status === "rejected" || status === "withdrawn") actions.push("view");
+
+  let viewer_state = status;
+  if (isMyTurn) viewer_state = "action_required";
+  else if (actor_required !== "none") viewer_state = "waiting_on_counterparty";
+  else viewer_state = "closed";
+
+  const viewer_label = OFFER_VIEWER_LABELS[`${status}.${viewerMode}`] || status;
+
+  return { actor_required, viewer_mode: viewerMode, viewer_state, viewer_label, actions };
+}
+
+/**
  * Status transitions: draft->sent (supplier), sent->accepted|rejected|countered (requester).
- * On accept: demand_requests.status -> 'fulfilled', audit log.
+ * Uses stateMachine.assertTransition() for consistent guard logic.
+ * On accept: demand status is resynced from canonical committed quantity.
  */
 export async function updateOfferStatus(pool, offerId, newStatus, userId) {
-  const offer = await getOfferById(pool, offerId);
-  if (!offer) return { error: "NOT_FOUND" };
+  return await withTransaction(pool, async (client) => {
+    const offer = await getOfferById(client, offerId, { forUpdate: true });
+    if (!offer) return { error: "NOT_FOUND" };
 
-  const allowed = {
-    draft: ["sent", "withdrawn"],
-    sent: ["accepted", "rejected", "countered", "withdrawn"],
-    countered: ["sent", "withdrawn"]
-  };
-  if (!allowed[offer.status]?.includes(newStatus)) {
-    return { error: "INVALID_TRANSITION", current: offer.status, requested: newStatus };
-  }
+    // Idempotency: if already in the requested terminal state, return current state.
+    if (offer.status === newStatus) {
+      return { offer };
+    }
 
-  // draft/sent->sent/withdrawn: only supplier
-  if (newStatus === "sent" || newStatus === "withdrawn") {
-    if (offer.supplier_company_id !== userId) return { error: "FORBIDDEN" };
-  }
-  // accepted/rejected/countered: only requester
-  if (["accepted", "rejected", "countered"].includes(newStatus)) {
-    if (offer.requester_company_id !== userId) return { error: "FORBIDDEN" };
-  }
+    // Validate transition via central state machine
+    try {
+      assertTransition("OFFER", offer.status, newStatus);
+    } catch (e) {
+      if (e instanceof TransitionError) {
+        return { error: "INVALID_TRANSITION", current: offer.status, requested: newStatus };
+      }
+      throw e;
+    }
 
-  const { rows } = await pool.query(
-    `UPDATE offers SET status = $1, updated_at = NOW() WHERE id = $2 RETURNING *`,
-    [newStatus, offerId]
-  );
+    // Actor guards: who is allowed to trigger this transition?
+    if (newStatus === "sent" || newStatus === "withdrawn") {
+      if (offer.supplier_company_id !== userId) return { error: "FORBIDDEN" };
+    }
+    if (["accepted", "rejected", "countered"].includes(newStatus)) {
+      if (offer.requester_company_id !== userId) return { error: "FORBIDDEN" };
+    }
 
-  // On accept: mark demand as fulfilled
-  if (newStatus === "accepted") {
-    await pool.query(
-      `UPDATE demand_requests SET status = 'fulfilled', updated_at = NOW() WHERE id = $1`,
-      [offer.demand_request_id]
+    if (newStatus === "accepted" && offer.capacity_post_id) {
+      await client.query(
+        "SELECT id FROM capacity_posts WHERE id = $1 FOR UPDATE",
+        [offer.capacity_post_id]
+      );
+      const requestedHeadcount = Math.max(1, Number(offer.offered_quantity ?? offer.demand_headcount ?? 1) || 1);
+      const capacityState = await capacityExchangeService.getCapacityCommercialState(client, offer.capacity_post_id);
+      if (capacityState.remaining_headcount < requestedHeadcount) {
+        return {
+          error: "CAPACITY_UNAVAILABLE",
+          requested_headcount: requestedHeadcount,
+          remaining_headcount: capacityState.remaining_headcount
+        };
+      }
+    }
+
+    const { rows } = await client.query(
+      `UPDATE offers SET status = $1, updated_at = NOW() WHERE id = $2 AND status = $3 RETURNING *`,
+      [newStatus, offerId, offer.status]
     );
-  }
 
-  return { offer: rows[0] };
+    // Concurrent modification guard: if no rows updated, status changed between read and write.
+    if (!rows.length) {
+      const refreshed = await getOfferById(client, offerId);
+      return refreshed?.status === newStatus
+        ? { offer: refreshed }
+        : { error: "INVALID_TRANSITION", current: refreshed?.status, requested: newStatus };
+    }
+
+    // On accept: commercial lane is reserved, operational staffing still follows afterwards
+    if (newStatus === "accepted") {
+      const syncedDemand = await syncDemandCommercialState(client, offer.demand_request_id);
+      if (offer.capacity_post_id) {
+        await capacityExchangeService.syncCapacityCommercialState(client, offer.capacity_post_id);
+      }
+      return { offer: rows[0], demand: syncedDemand };
+    }
+
+    return { offer: rows[0] };
+  });
 }
 
 /** Accept offer: requester accepts, demand fulfilled, audit log */
-export async function acceptOffer(pool, offerId, userId) {
+export function acceptOffer(pool, offerId, userId) {
   return updateOfferStatus(pool, offerId, "accepted", userId);
 }
 

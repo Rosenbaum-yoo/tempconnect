@@ -22,6 +22,28 @@ function haversineKm(lat1, lng1, lat2, lng2) {
   return 2 * R * Math.asin(Math.sqrt(a));
 }
 
+function normalizeDateOnly(value) {
+  if (!value) return null;
+  const raw = String(value).trim();
+  const datePart = raw.length >= 10 ? raw.slice(0, 10) : raw;
+  return /^\d{4}-\d{2}-\d{2}$/.test(datePart) ? datePart : null;
+}
+
+function addDays(dateStr, days) {
+  const [year, month, day] = dateStr.split('-').map(Number);
+  const date = new Date(Date.UTC(year, month - 1, day));
+  date.setUTCDate(date.getUTCDate() + Number(days));
+  return date.toISOString().slice(0, 10);
+}
+
+function todayDateString() {
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = String(now.getMonth() + 1).padStart(2, '0');
+  const day = String(now.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
 /**
  * Search capacities with filters. available_effective = available_workers - SUM(quantity WHERE reservations.status = 'active').
  * @param {import('pg').Pool} pool
@@ -44,8 +66,14 @@ export async function searchCapacities(pool, opts = {}) {
     params.push(opts.role);
     where.push(`c.role = $${params.length}`);
   }
-  if (opts.available_from) {
-    params.push(opts.available_from);
+  const normalizedAvailableFrom = normalizeDateOnly(opts.available_from);
+  if (opts.availability_window === 'immediate') {
+    const anchor = normalizedAvailableFrom || todayDateString();
+    const windowEnd = addDays(anchor, 1);
+    params.push(windowEnd);
+    where.push(`c.available_from <= $${params.length}`);
+  } else if (normalizedAvailableFrom) {
+    params.push(normalizedAvailableFrom);
     where.push(`c.available_from >= $${params.length}`);
   }
   if (opts.max_rate_cents != null) {
@@ -62,7 +90,6 @@ export async function searchCapacities(pool, opts = {}) {
     havingClause.push("(c.available_workers - COALESCE(res.reserved, 0)) >= " + (params.length + 1));
     params.push(opts.available_min);
   }
-  const havingSql = havingClause.length ? " HAVING " + havingClause.join(" AND ") : "";
 
   const countParams = [...params];
   const countWhere = where.join(" AND ");
@@ -341,7 +368,7 @@ export async function acceptRequest(pool, requestId, receiverId, options = {}) {
     }
     try {
       stateMachine.assertTransition("REQUEST", req.status, "ACCEPTED");
-    } catch (e) {
+    } catch {
       await client.query("ROLLBACK");
       return { request: null, error: "INVALID_STATE" };
     }

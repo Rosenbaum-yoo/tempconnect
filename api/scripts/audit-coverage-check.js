@@ -15,7 +15,7 @@
  */
 
 import { readFileSync, readdirSync } from "node:fs";
-import { join, basename } from "node:path";
+import { join } from "node:path";
 
 const ROUTES_DIR = join(import.meta.dirname, "..", "routes");
 
@@ -39,6 +39,17 @@ const ALLOWLIST_FILES = new Set([
 const ALLOWLIST_ROUTES = new Set([
   "/payment/webhook/stripe",
   "/payment/webhook/paypal",
+  // No-Op Stub — kein State-Change, nur Logging
+  "/demo/reset",
+  // Read-Only POST — Duplikat-Check ohne Mutation
+  "/workers/check-duplicates",
+  // UI-Convenience — Benachrichtigungs-Lesemarkierung, keine Business-Mutation
+  "/worker/notifications/:id/read",
+  "/worker/notifications/read-all",
+  // Public telemetry ingest — kein User-Context, kein Business-State-Change (analytics.js)
+  "/analytics/track-public",
+  // Session-Cache-Reset — kein DB-Write, nur req.session._locationCache löschen (me.js)
+  "/me/active-location",
 ]);
 
 /** Regex-Muster zum Erkennen von Mutation-Route-Registrierungen */
@@ -49,7 +60,9 @@ const AUDIT_PATTERNS = [
   /res\.locals\.audit\s*=/,
   /writeAudit\s*\(/,
   /writeAuditEnhanced\s*\(/,
-  /audit\s*\(req\s*,/,   // Lokale audit(req, ...) Wrapper (z.B. companyProfile.js)
+  /audit\s*\(req\s*,/,          // Lokale audit(req, ...) Wrapper (z.B. companyProfile.js)
+  /writeStaffAudit\s*\(/,       // Staff Control Center — eigener Audit-Service (staffControlCenter.js)
+  /insertSupportAudit\s*\(/,    // Support Operations Center — direkte Audit-Log-Insertion (support.js)
 ];
 
 /**

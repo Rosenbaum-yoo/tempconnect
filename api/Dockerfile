@@ -10,13 +10,13 @@ WORKDIR /app
 
 # Dependencies deterministisch installieren (package-lock.json)
 COPY package.json package-lock.json ./
-RUN npm ci --omit=dev
+RUN npm ci --omit=dev --legacy-peer-deps
 
 # App-Code
 COPY . .
 
-# Dateiberechtigungen fuer non-root
-RUN chown -R appuser:appgroup /app
+# Uploads-Verzeichnis fuer Angebotsbilder/Dokumente
+RUN mkdir -p /app/uploads && chown -R appuser:appgroup /app
 
 ENV NODE_ENV=production
 

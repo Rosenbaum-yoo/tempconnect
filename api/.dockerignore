@@ -1,8 +1,56 @@
-node_modules
+# =============================================================================
+# TempConnect API — .dockerignore (Prod-Image)
+# =============================================================================
+# Alles hier wird beim "docker build" NICHT in das Image kopiert.
+# package.json + package-lock.json MUESSEN drin bleiben (npm ci).
+# =============================================================================
+
+# Dependencies (Docker macht npm ci --omit=dev)
+node_modules/
+
+# Environment / Secrets — NIEMALS ins Image
 .env
 .env.*
+!.env.example
+
+# Tests & Coverage — nicht im Prod-Image
+test/
+coverage/
+.c8_output/
+.c8rc.json
+.nyc_output/
+
+# Dev-/CI-/QA-Tools
+scripts/
+docs/
+eslint.config.js
+tsconfig.json
+
+# Dokumentation (nicht runtime-relevant)
 *.md
+CHANGELOG*
+LICENSE
+
+# VCS & Docker-Meta
 .git
 .gitignore
 Dockerfile
 .dockerignore
+
+# Logs & Temp
+*.log
+npm-debug.log*
+tmp/
+*.tmp
+*.bak
+*.swp
+*.swo
+
+# OS-Artefakte
+.DS_Store
+Thumbs.db
+
+# IDE
+.idea/
+.vscode/
+.warp/

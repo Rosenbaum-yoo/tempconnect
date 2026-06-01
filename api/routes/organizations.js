@@ -4,7 +4,9 @@
 import { z } from "zod";
 import { Router } from "express";
 import * as orgService from "../services/organizationService.js";
-import { requirePermission } from "../middleware/rbac.js";
+import { requirePermission, requireRole } from "../middleware/rbac.js";
+import { requireOrgFeature, requireOrgLimit } from "../middleware/entitlementGuard.js";
+import { queryOrgAuditLog, getRecentChanges } from "../services/auditLog.js";
 
 const createOrgSchema = z.object({
   name: z.string().min(2).max(200),
@@ -13,6 +15,7 @@ const createOrgSchema = z.object({
   billing_email: z.string().email().optional().nullable(),
   tax_id: z.string().max(50).optional().nullable(),
   website: z.string().max(300).optional().nullable(),
+  parent_org_id: z.string().uuid().optional().nullable(),
   legal_name: z.string().max(300).optional().nullable(),
   commercial_register: z.string().max(100).optional().nullable(),
   billing_contact: z.string().max(300).optional().nullable()
@@ -48,8 +51,26 @@ const memberSchema = z.object({
 export function createOrganizationsRouter(deps) {
   const { pool, requireAuth, logger } = deps;
   const router = Router();
+  const orgSettingsGate = requireOrgFeature("org_settings", { pool, logger });
+  const usersLimitGate = requireOrgLimit("users", { pool, logger });
+  const sitesLimitGate = requireOrgLimit("sites", { pool, logger });
+  const multiOrgSlotsGate = requireOrgLimit("multi_org_slots", { pool, logger });
 
-  router.post("/organizations", requireAuth, async (req, res) => {
+  const sameOrgParam = (req, res, next) => {
+    if (req.orgId && req.params.id !== req.orgId) return res.status(403).json({ error: "ORG_BOUNDARY_VIOLATION" });
+    next();
+  };
+  const parentOrgBoundary = (req, res, next) => {
+    if (!req.body?.parent_org_id) return next();
+    if (!req.orgId || req.body.parent_org_id !== req.orgId) return res.status(403).json({ error: "ORG_BOUNDARY_VIOLATION" });
+    next();
+  };
+  const whenParentOrg = (gate) => (req, res, next) => {
+    if (!req.body?.parent_org_id) return next();
+    return gate(req, res, next);
+  };
+
+  router.post("/organizations", requireAuth, parentOrgBoundary, whenParentOrg(orgSettingsGate), whenParentOrg(multiOrgSlotsGate), async (req, res) => {
     const parsed = createOrgSchema.safeParse(req.body);
     if (!parsed.success) return res.status(400).json({ error: "VALIDATION", details: parsed.error.issues });
     try {
@@ -64,6 +85,10 @@ export function createOrganizationsRouter(deps) {
   });
 
   router.get("/organizations/:id", requireAuth, async (req, res) => {
+    // F-001 fix: user must be member of the requested org
+    if (req.orgId && req.params.id !== req.orgId) {
+      return res.status(403).json({ error: "ORG_BOUNDARY_VIOLATION" });
+    }
     const org = await orgService.getOrganization(pool, req.params.id);
     if (!org) return res.status(404).json({ error: "NOT_FOUND" });
     res.json(org);
@@ -81,11 +106,14 @@ export function createOrganizationsRouter(deps) {
   /* ── Locations ─────────────────────────── */
 
   router.get("/organizations/:id/locations", requireAuth, async (req, res) => {
+    if (req.orgId && req.params.id !== req.orgId) {
+      return res.status(403).json({ error: "ORG_BOUNDARY_VIOLATION" });
+    }
     const locations = await orgService.listLocations(pool, req.params.id);
     res.json({ items: locations });
   });
 
-  router.post("/organizations/:id/locations", requireAuth, requirePermission("org.locations", { pool, logger }), async (req, res) => {
+  router.post("/organizations/:id/locations", requireAuth, sameOrgParam, sitesLimitGate, requirePermission("org.locations", { pool, logger }), async (req, res) => {
     const parsed = locationSchema.safeParse(req.body);
     if (!parsed.success) return res.status(400).json({ error: "VALIDATION", details: parsed.error.issues });
     const loc = await orgService.createLocation(pool, req.params.id, parsed.data);
@@ -93,9 +121,49 @@ export function createOrganizationsRouter(deps) {
     res.status(201).json(loc);
   });
 
+  router.get("/organizations/:id/locations/:locId", requireAuth, sameOrgParam, async (req, res) => {
+    try {
+      const loc = await orgService.getLocation(pool, req.params.locId, req.params.id);
+      if (!loc) return res.status(404).json({ error: "NOT_FOUND" });
+      res.json(loc);
+    } catch (err) {
+      logger.error({ err: err.message }, "location.get");
+      res.status(500).json({ error: "SERVER_ERROR" });
+    }
+  });
+
+  router.put("/organizations/:id/locations/:locId", requireAuth, sameOrgParam, requirePermission("org.locations", { pool, logger }), async (req, res) => {
+    const parsed = locationSchema.safeParse(req.body);
+    if (!parsed.success) return res.status(400).json({ error: "VALIDATION", details: parsed.error.issues });
+    try {
+      const loc = await orgService.updateLocation(pool, req.params.locId, req.params.id, parsed.data);
+      if (!loc) return res.status(404).json({ error: "NOT_FOUND" });
+      res.locals.audit = { action: "org.location.update", entity_type: "org_location", entity_id: req.params.locId, details: { org_id: req.params.id, city: parsed.data.city } };
+      res.json(loc);
+    } catch (err) {
+      logger.error({ err: err.message }, "location.update");
+      res.status(500).json({ error: "SERVER_ERROR" });
+    }
+  });
+
+  router.delete("/organizations/:id/locations/:locId", requireAuth, sameOrgParam, requirePermission("org.locations", { pool, logger }), async (req, res) => {
+    try {
+      const loc = await orgService.deleteLocation(pool, req.params.locId, req.params.id);
+      if (!loc) return res.status(404).json({ error: "NOT_FOUND" });
+      res.locals.audit = { action: "org.location.delete", entity_type: "org_location", entity_id: req.params.locId, details: { org_id: req.params.id } };
+      res.status(204).end();
+    } catch (err) {
+      logger.error({ err: err.message }, "location.delete");
+      res.status(500).json({ error: "SERVER_ERROR" });
+    }
+  });
+
   /* ── Departments ───────────────────────── */
 
   router.get("/organizations/:id/departments", requireAuth, async (req, res) => {
+    if (req.orgId && req.params.id !== req.orgId) {
+      return res.status(403).json({ error: "ORG_BOUNDARY_VIOLATION" });
+    }
     const depts = await orgService.listDepartments(pool, req.params.id);
     res.json({ items: depts });
   });
@@ -108,14 +176,54 @@ export function createOrganizationsRouter(deps) {
     res.status(201).json(dept);
   });
 
+  router.get("/organizations/:id/departments/:deptId", requireAuth, sameOrgParam, async (req, res) => {
+    try {
+      const dept = await orgService.getDepartment(pool, req.params.deptId, req.params.id);
+      if (!dept) return res.status(404).json({ error: "NOT_FOUND" });
+      res.json(dept);
+    } catch (err) {
+      logger.error({ err: err.message }, "department.get");
+      res.status(500).json({ error: "SERVER_ERROR" });
+    }
+  });
+
+  router.put("/organizations/:id/departments/:deptId", requireAuth, sameOrgParam, requirePermission("org.departments", { pool, logger }), async (req, res) => {
+    const parsed = deptSchema.safeParse(req.body);
+    if (!parsed.success) return res.status(400).json({ error: "VALIDATION", details: parsed.error.issues });
+    try {
+      const dept = await orgService.updateDepartment(pool, req.params.deptId, req.params.id, parsed.data);
+      if (!dept) return res.status(404).json({ error: "NOT_FOUND" });
+      res.locals.audit = { action: "org.department.update", entity_type: "org_department", entity_id: req.params.deptId, details: { org_id: req.params.id, name: parsed.data.name } };
+      res.json(dept);
+    } catch (err) {
+      logger.error({ err: err.message }, "department.update");
+      res.status(500).json({ error: "SERVER_ERROR" });
+    }
+  });
+
+  router.delete("/organizations/:id/departments/:deptId", requireAuth, sameOrgParam, requirePermission("org.departments", { pool, logger }), async (req, res) => {
+    try {
+      const dept = await orgService.deleteDepartment(pool, req.params.deptId, req.params.id);
+      if (!dept) return res.status(404).json({ error: "NOT_FOUND" });
+      res.locals.audit = { action: "org.department.delete", entity_type: "org_department", entity_id: req.params.deptId, details: { org_id: req.params.id } };
+      res.status(204).end();
+    } catch (err) {
+      logger.error({ err: err.message }, "department.delete");
+      res.status(500).json({ error: "SERVER_ERROR" });
+    }
+  });
+
   /* ── Members ───────────────────────────── */
 
   router.get("/organizations/:id/members", requireAuth, async (req, res) => {
+    if (req.orgId && req.params.id !== req.orgId) {
+      return res.status(403).json({ error: "ORG_BOUNDARY_VIOLATION" });
+    }
     const members = await orgService.listOrgMembers(pool, req.params.id);
     res.json({ items: members });
   });
 
-  router.post("/organizations/:id/members", requireAuth, requirePermission("org.members", { pool, logger }), async (req, res) => {
+  router.post("/organizations/:id/members", requireAuth, sameOrgParam, usersLimitGate, requirePermission("org.members", { pool, logger }), async (req, res) => {
     const parsed = memberSchema.safeParse(req.body);
     if (!parsed.success) return res.status(400).json({ error: "VALIDATION", details: parsed.error.issues });
     const member = await orgService.addMember(pool, req.params.id, parsed.data.user_id, parsed.data.role_key, {
@@ -124,6 +232,66 @@ export function createOrganizationsRouter(deps) {
     res.locals.audit = { action: "org.member.add", entity_type: "org_membership", entity_id: member.id, details: { org_id: req.params.id, user_id: parsed.data.user_id, role_key: parsed.data.role_key } };
     res.status(201).json(member);
   });
+
+  /* ── Org Audit Log (nur owner/admin) ───────────────── */
+
+  router.get("/organizations/:id/audit-log", requireAuth,
+    requireRole(["owner", "admin", "platform_admin"], { pool, logger }),
+    async (req, res) => {
+      try {
+        // Org-Boundary: nur eigene Org
+        if (req.orgId && req.params.id !== req.orgId) {
+          return res.status(403).json({ error: "ORG_BOUNDARY_VIOLATION" });
+        }
+        const limit  = Math.min(500, parseInt(req.query.limit) || 100);
+        const offset = parseInt(req.query.offset) || 0;
+        const result = await queryOrgAuditLog(pool, req.params.id, {
+          actor_id:    req.query.actor_id    || null,
+          entity_type: req.query.entity_type || null,
+          action:      req.query.action      || null,
+          action_type: req.query.action_type || null,
+          status:      req.query.status      || null,
+          from:        req.query.from        || null,
+          to:          req.query.to          || null,
+          limit,
+          offset
+        });
+        res.json({
+          items: result.items,
+          total: result.total,
+          page_size: limit,
+          offset
+        });
+      } catch (err) {
+        logger.error({ err: err.message }, "org audit-log");
+        res.status(500).json({ error: "SERVER_ERROR" });
+      }
+    }
+  );
+
+  /* ── Recent Changes fuer eine Ressource (org-scoped) ────────── */
+
+  router.get("/organizations/:id/audit-log/recent-changes", requireAuth,
+    requireRole(["owner", "admin", "platform_admin"], { pool, logger }),
+    async (req, res) => {
+      try {
+        if (req.orgId && req.params.id !== req.orgId) {
+          return res.status(403).json({ error: "ORG_BOUNDARY_VIOLATION" });
+        }
+        const entityType = req.query.entity_type;
+        const entityId   = req.query.entity_id;
+        if (!entityType || !entityId) {
+          return res.status(400).json({ error: "MISSING_PARAMS", message: "entity_type und entity_id erforderlich." });
+        }
+        const limit = Math.min(50, parseInt(req.query.limit) || 10);
+        const rows = await getRecentChanges(pool, entityType, entityId, limit);
+        res.json({ items: rows });
+      } catch (err) {
+        logger.error({ err: err.message }, "org recent-changes");
+        res.status(500).json({ error: "SERVER_ERROR" });
+      }
+    }
+  );
 
   return router;
 }

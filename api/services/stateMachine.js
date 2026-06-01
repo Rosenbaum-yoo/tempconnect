@@ -15,8 +15,15 @@ export const REQUEST_TRANSITIONS = {
   CANCELED: []
 };
 
-/** No offers table in schema; no transitions allowed. */
-export const OFFER_TRANSITIONS = {};
+/** Offer lifecycle: draft → sent ↔ countered → accepted|rejected|withdrawn. */
+export const OFFER_TRANSITIONS = {
+  draft:     ["sent", "withdrawn"],
+  sent:      ["accepted", "rejected", "countered", "withdrawn"],
+  countered: ["sent", "withdrawn"],
+  accepted:  [],
+  rejected:  [],
+  withdrawn: []
+};
 
 /** capacity_reservations: active -> converted | expired; converted/expired are terminal. */
 export const RESERVATION_TRANSITIONS = {
@@ -25,23 +32,27 @@ export const RESERVATION_TRANSITIONS = {
   expired: []
 };
 
-/** Requisition Lifecycle: DRAFT -> ... -> FILLED/CLOSED/CANCELLED */
+/** Requisition Lifecycle: DRAFT -> ... -> FILLED/CLOSED/CANCELLED
+ *  PARTIALLY_FILLED added in migration 113: some but not all headcount positions filled.
+ */
 export const REQUISITION_TRANSITIONS = {
   DRAFT:             ["PENDING_APPROVAL", "OPEN", "CANCELLED"],
   PENDING_APPROVAL:  ["APPROVED", "CANCELLED"],
   APPROVED:          ["OPEN", "CANCELLED"],
-  OPEN:              ["IN_REVIEW", "FILLED", "CLOSED", "CANCELLED"],
-  IN_REVIEW:         ["SHORTLISTED", "OPEN", "FILLED", "CLOSED", "CANCELLED"],
-  SHORTLISTED:       ["FILLED", "IN_REVIEW", "CLOSED", "CANCELLED"],
+  OPEN:              ["IN_REVIEW", "PARTIALLY_FILLED", "FILLED", "CLOSED", "CANCELLED"],
+  IN_REVIEW:         ["SHORTLISTED", "OPEN", "PARTIALLY_FILLED", "FILLED", "CLOSED", "CANCELLED"],
+  SHORTLISTED:       ["PARTIALLY_FILLED", "FILLED", "IN_REVIEW", "CLOSED", "CANCELLED"],
+  PARTIALLY_FILLED:  ["FILLED", "OPEN", "IN_REVIEW", "CLOSED", "CANCELLED"],
   FILLED:            ["CLOSED"],
   CLOSED:            [],
   CANCELLED:         []
 };
 
-/** Capacity Post Lifecycle: draft -> active -> paused/filled/expired -> archived */
+/** Capacity Post Lifecycle: draft -> active -> reserved/paused/filled/expired -> archived */
 export const CAPACITY_POST_TRANSITIONS = {
   draft:    ["active"],
-  active:   ["paused", "filled", "expired"],
+  active:   ["paused", "filled", "expired", "reserved"],
+  reserved: ["active", "filled", "archived"],
   paused:   ["active", "archived"],
   filled:   ["archived"],
   expired:  ["active", "archived"],
@@ -70,6 +81,24 @@ export const SUBMISSION_TRANSITIONS = {
   WITHDRAWN:    []
 };
 
+/**
+ * Agreement Lifecycle (auf offers.agreement_status):
+ *   none → pending_confirmation → confirmed → activated
+ *   pending_confirmation/confirmed → cancelled | expired
+ */
+export const AGREEMENT_TRANSITIONS = {
+  none:                  ["pending_confirmation"],
+  pending_confirmation:  ["confirmed", "cancelled", "expired"],
+  confirmed:             ["activated", "cancelled"],
+  // Welle 7 – Phase 9: Aktivierte Deals duerfen explizit storniert werden.
+  // Der Storno-Pfad dreht Staffing-Reservations/Invites und das Assignment
+  // zurueck (siehe dealAgreementService.cancelAgreement). Ohne diese
+  // Transition bleiben falsch aktivierte Deals operativ in Quarantaene.
+  activated:             ["cancelled"],
+  cancelled:             [],
+  expired:               []
+};
+
 const MAPS = {
   REQUEST: REQUEST_TRANSITIONS,
   OFFER: OFFER_TRANSITIONS,
@@ -77,7 +106,8 @@ const MAPS = {
   REQUISITION: REQUISITION_TRANSITIONS,
   CAPACITY_POST: CAPACITY_POST_TRANSITIONS,
   DEAL: DEAL_TRANSITIONS,
-  SUBMISSION: SUBMISSION_TRANSITIONS
+  SUBMISSION: SUBMISSION_TRANSITIONS,
+  AGREEMENT: AGREEMENT_TRANSITIONS
 };
 
 export class TransitionError extends Error {
@@ -124,12 +154,13 @@ export function assertTransition(entityType, fromStatus, toStatus) {
  */
 export async function logTransition(pool, opts) {
   const entityType = opts.entityType;
-  const entity_type =
-    entityType === "REQUEST"
-      ? "request"
-      : entityType === "RESERVATION"
-        ? "capacity_reservation"
-        : "request";
+  const ENTITY_TYPE_MAP = {
+    REQUEST: "request",
+    RESERVATION: "capacity_reservation",
+    AGREEMENT: "offer",
+    DEAL: "request"
+  };
+  const entity_type = ENTITY_TYPE_MAP[entityType] || "request";
   await auditLog.writeAudit(pool, {
     action: "state_machine.transition",
     entity_type,

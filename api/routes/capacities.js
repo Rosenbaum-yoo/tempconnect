@@ -3,6 +3,7 @@ import { Router } from "express";
 import * as capacityService from "../services/capacityService.js";
 import * as requestService from "../services/requestService.js";
 import * as auditLog from "../services/auditLog.js";
+import { requireOrgLimit } from "../middleware/entitlementGuard.js";
 
 const capacitySchema = z.object({
   role: z.string().min(1).max(120),
@@ -40,6 +41,7 @@ export function createCapacitiesRouter(deps) {
   const router = Router();
   const slaAccess = requireFeature("sla_access");
   const slaOffersCreate = requireFeature("sla_offers_create");
+  const listingsLimitGate = requireOrgLimit("listings", { pool, logger });
 
   router.get("/capacities", requireAuth, slaAccess, async (req, res) => {
     try {
@@ -47,6 +49,7 @@ export function createCapacitiesRouter(deps) {
         region: req.query.region || undefined,
         role: req.query.role || undefined,
         available_from: req.query.available_from || undefined,
+        availability_window: req.query.availability_window || undefined,
         available_min: req.query.available_min != null ? parseInt(req.query.available_min, 10) : undefined,
         max_rate_cents: req.query.max_rate_cents != null ? parseInt(req.query.max_rate_cents, 10) : undefined,
         latitude: req.query.latitude != null ? parseFloat(req.query.latitude) : undefined,
@@ -75,7 +78,7 @@ export function createCapacitiesRouter(deps) {
     }
   });
 
-  router.post("/capacities", requireAuth, slaAccess, slaOffersCreate, async (req, res) => {
+  router.post("/capacities", requireAuth, slaAccess, slaOffersCreate, listingsLimitGate, async (req, res) => {
     try {
       const me = req.user;
       if (me.role !== "agency") return res.status(403).json({ error: "AGENCY_ONLY" });

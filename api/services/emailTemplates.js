@@ -76,7 +76,7 @@ export function expiringSoon({ supplierName, entryTitle, expiryDate, entryId }) 
 /**
  * Nudge sent when a capacity entry has not been confirmed for over 96 hours.
  */
-export function staleEntry({ supplierName, entryTitle, lastConfirmedDate, entryId }) {
+export function staleEntry({ supplierName, entryTitle, lastConfirmedDate, entryId: _entryId }) {
   return {
     subject: `${PLATFORM}: Bitte bestaetigen Sie "${entryTitle}"`,
     text: [

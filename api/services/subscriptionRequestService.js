@@ -186,6 +186,22 @@ export async function createRequest(pool, input) {
     throw err;
   }
 
+  // Coming-Soon-Guard: Add-ons mit coming_soon=true duerfen nicht angefragt werden
+  if (Array.isArray(input.desired_addons) && input.desired_addons.length > 0) {
+    const addonKeys = input.desired_addons.map(a => (typeof a === "string" ? a : a.key)).filter(Boolean);
+    const comingSoonKeys = addonKeys.filter(k => {
+      const cat = ADDON_CATALOG.find(a => a.key === k);
+      return cat && cat.coming_soon === true;
+    });
+    if (comingSoonKeys.length > 0) {
+      const err = new Error("ADDON_NOT_AVAILABLE");
+      err.code = "ADDON_NOT_AVAILABLE";
+      err.status = 400;
+      err.details = { coming_soon: comingSoonKeys };
+      throw err;
+    }
+  }
+
   const initialStatus = String(input.status || STATUS.SUBMITTED);
   if (!Object.values(STATUS).includes(initialStatus)) {
     const err = new Error("INVALID_INITIAL_STATUS");

@@ -18,7 +18,7 @@ export async function geocode(postalCode, city) {
       return { lat: parseFloat(data[0].lat), lng: parseFloat(data[0].lon) };
     }
     return null;
-  } catch (e) {
+  } catch {
     return null;
   }
 }
@@ -33,7 +33,7 @@ export async function geocodeQuery(q) {
       return { lat: parseFloat(data[0].lat), lng: parseFloat(data[0].lon) };
     }
     return null;
-  } catch (e) {
+  } catch {
     return null;
   }
 }

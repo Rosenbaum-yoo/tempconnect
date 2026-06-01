@@ -2,6 +2,7 @@ import { z } from "zod";
 import { Router } from "express";
 import * as geoService from "../services/geoService.js";
 import * as listingService from "../services/listingService.js";
+import { requireOrgLimit } from "../middleware/entitlementGuard.js";
 
 const listingSchema = z.object({
   category: z.string().min(1).max(120),
@@ -21,6 +22,7 @@ export function createListingsRouter(deps) {
   const { pool, getUserAndPlan, requireAuth, requireFeature, logger } = deps;
   const router = Router();
   const legacyAccess = requireFeature("legacy_access");
+  const listingsLimitGate = requireOrgLimit("listings", { pool, logger });
 
   router.get("/listings", requireAuth, legacyAccess, async (req, res) => {
     const rows = await listingService.searchListings(pool, {
@@ -40,7 +42,7 @@ export function createListingsRouter(deps) {
     res.json(rows);
   });
 
-  router.post("/listings", requireAuth, legacyAccess, async (req, res) => {
+  router.post("/listings", requireAuth, legacyAccess, listingsLimitGate, async (req, res) => {
     const parsed = listingSchema.safeParse(req.body);
     if (!parsed.success) return res.status(400).json({ error: "VALIDATION", details: parsed.error.issues });
 
@@ -50,7 +52,7 @@ export function createListingsRouter(deps) {
     }
 
     const type = (me.role === "agency") ? "supply" : "demand";
-    const { category, region, qty, start_date, note, notdienst, postal_code, city } = parsed.data;
+    const { category, region, postal_code, city } = parsed.data;
     const listing = await listingService.createListing(pool, req.session.userId, type, parsed.data);
     res.locals.audit = { action: "listing.create", entity_type: "listing", entity_id: listing.id, details: { type, category, region } };
 

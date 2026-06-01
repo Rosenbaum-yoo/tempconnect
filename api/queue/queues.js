@@ -24,13 +24,14 @@ function getOrCreate(name, opts = {}) {
 export function emailQueue()    { return getOrCreate("email"); }
 export function matchQueue()    { return getOrCreate("match"); }
 export function capacityQueue() { return getOrCreate("capacity"); }
+export function staffingQueue() { return getOrCreate("staffing"); }
 
 /* ── Convenience: add a job if the queue is available ── */
 
 /**
  * Safely enqueue a job. Returns the Job or null if Redis is unavailable.
  */
-export async function enqueue(queueFn, jobName, data, opts = {}) {
+export function enqueue(queueFn, jobName, data, opts = {}) {
   const q = queueFn();
   if (!q) {
     logger.warn({ jobName }, "Queue unavailable — job not enqueued");

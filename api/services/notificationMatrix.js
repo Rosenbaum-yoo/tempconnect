@@ -4,7 +4,9 @@
  * Uses existing notifications table from migration 019 + BullMQ email queue.
  */
 
-import { logger } from "../config/index.js";
+import { createServiceLogger } from "../utils/logger.js";
+
+const logger = createServiceLogger("notificationMatrix");
 
 /* ── Event → Notification config ──────────────────────── */
 
@@ -13,85 +15,113 @@ const MATRIX = {
     type: 'requisition_approval',
     severity: 'info',
     title: 'Requisition zur Freigabe eingereicht',
-    recipientStrategy: 'org_approvers'
+    recipientStrategy: 'org_approvers',
+    linkPath: '/public/requisitions.html'
   },
   'requisition.approved': {
     type: 'requisition_approval',
     severity: 'success',
     title: 'Requisition freigegeben',
-    recipientStrategy: 'requisition_creator'
+    recipientStrategy: 'requisition_creator',
+    linkPath: '/public/requisitions.html'
   },
   'requisition.rejected': {
     type: 'requisition_approval',
     severity: 'warning',
     title: 'Requisition abgelehnt',
-    recipientStrategy: 'requisition_creator'
+    recipientStrategy: 'requisition_creator',
+    linkPath: '/public/requisitions.html'
   },
   'requisition.filled': {
     type: 'requisition_filled',
     severity: 'success',
     title: 'Requisition besetzt',
-    recipientStrategy: 'requisition_creator'
+    recipientStrategy: 'requisition_creator',
+    linkPath: '/public/requisitions.html'
   },
   'requisition.cancelled': {
     type: 'requisition_cancelled',
     severity: 'warning',
     title: 'Requisition storniert',
-    recipientStrategy: 'requisition_stakeholders'
+    recipientStrategy: 'requisition_stakeholders',
+    linkPath: '/public/requisitions.html'
   },
   'supplier.invited': {
     type: 'vendor_pool_change',
     severity: 'info',
     title: 'Einladung als Lieferant',
-    recipientStrategy: 'supplier_org_admins'
+    recipientStrategy: 'supplier_org_admins',
+    linkPath: '/public/vendor_pool.html'
   },
   'offer.received': {
     type: 'offer_received',
     severity: 'info',
     title: 'Neues Angebot eingegangen',
-    recipientStrategy: 'requisition_creator'
+    recipientStrategy: 'requisition_creator',
+    linkPath: '/public/angebote_verwalten.html'
   },
   'offer.accepted': {
     type: 'offer_accepted',
     severity: 'success',
     title: 'Angebot angenommen',
-    recipientStrategy: 'offer_supplier'
+    recipientStrategy: 'offer_supplier',
+    linkPath: '/public/angebote_verwalten.html'
   },
   'offer.rejected': {
     type: 'offer_rejected',
     severity: 'warning',
     title: 'Angebot abgelehnt',
-    recipientStrategy: 'offer_supplier'
+    recipientStrategy: 'offer_supplier',
+    linkPath: '/public/angebote_verwalten.html'
+  },
+  'offer.countered': {
+    type: 'offer_counter_received',
+    severity: 'info',
+    title: 'Gegenangebot erhalten',
+    recipientStrategy: 'offer_supplier',
+    linkPath: '/public/angebote_verwalten.html'
+  },
+  'offer.withdrawn': {
+    type: 'offer_withdrawn',
+    severity: 'warning',
+    title: 'Angebot zur\u00fcckgezogen',
+    recipientStrategy: 'offer_counterparty',
+    linkPath: '/public/angebote_verwalten.html'
   },
   'compliance.expiring': {
     type: 'compliance_expiring',
     severity: 'warning',
     title: 'Dokument läuft bald ab',
-    recipientStrategy: 'doc_owner_org_admins'
+    recipientStrategy: 'doc_owner_org_admins',
+    linkPath: '/public/compliance_overview.html'
   },
   'compliance.verified': {
     type: 'compliance_verified',
     severity: 'success',
     title: 'Dokument verifiziert',
-    recipientStrategy: 'doc_uploader'
+    recipientStrategy: 'doc_uploader',
+    linkPath: '/public/compliance_overview.html'
   },
   'contract.expiring': {
     type: 'general',
     severity: 'warning',
     title: 'Vertrag läuft bald ab',
-    recipientStrategy: 'contract_stakeholders'
+    recipientStrategy: 'contract_stakeholders',
+    linkPath: '/public/timesheets.html'
   },
   'assignment.starting_soon': {
     type: 'general',
     severity: 'info',
     title: 'Einsatz beginnt bald',
-    recipientStrategy: 'assignment_stakeholders'
+    recipientStrategy: 'assignment_stakeholders',
+    linkPath: '/public/timesheets.html'
   },
   'deal.completed': {
     type: 'general',
     severity: 'success',
     title: 'Deal abgeschlossen',
-    recipientStrategy: 'deal_participants'
+    recipientStrategy: 'deal_participants',
+    linkPath: '/public/company_requests.html'
   },
 
   // ── Capacity Exchange events ──
@@ -99,25 +129,121 @@ const MATRIX = {
     type: 'capacity_interest',
     severity: 'info',
     title: 'Neues Interesse an Kapazitaet',
-    recipientStrategy: 'capacity_supplier'
+    recipientStrategy: 'capacity_supplier',
+    linkPath: '/public/capacity_exchange_manage.html'
   },
   'capacity.expiring_soon': {
     type: 'capacity_expiring',
     severity: 'warning',
     title: 'Kapazitaetseintrag laeuft bald ab',
-    recipientStrategy: 'capacity_supplier'
+    recipientStrategy: 'capacity_supplier',
+    linkPath: '/public/capacity_exchange_manage.html'
   },
   'capacity.match_found': {
     type: 'capacity_match',
     severity: 'info',
     title: 'Neuer Match fuer Kapazitaet',
-    recipientStrategy: 'capacity_supplier'
+    recipientStrategy: 'capacity_supplier',
+    linkPath: '/public/capacity_exchange_feed.html'
   },
   'capacity.stale': {
     type: 'capacity_stale',
     severity: 'warning',
     title: 'Kapazitaetseintrag benoetigt Bestaetigung',
-    recipientStrategy: 'capacity_supplier'
+    recipientStrategy: 'capacity_supplier',
+    linkPath: '/public/capacity_exchange_manage.html'
+  },
+
+  // ── Demand matching events ──
+  'demand.match_found': {
+    type: 'demand_match',
+    severity: 'info',
+    title: 'Neues Kapazitaetsangebot passt zu Ihrer Nachfrage',
+    recipientStrategy: 'demand_creator',
+    linkPath: '/public/capacity_exchange_feed.html'
+  },
+
+  // ── Deal lifecycle events ──
+  'deal.offer_sent': {
+    type: 'deal_offer_sent',
+    severity: 'info',
+    title: 'Neues Angebot erhalten',
+    recipientStrategy: 'deal_requester',
+    linkPath: '/public/company_requests.html'
+  },
+  'deal.accepted': {
+    type: 'deal_accepted',
+    severity: 'success',
+    title: 'Angebot angenommen',
+    recipientStrategy: 'deal_supplier',
+    linkPath: '/public/company_requests.html'
+  },
+  'deal.confirmed': {
+    type: 'deal_confirmed',
+    severity: 'success',
+    title: 'Deal bestaetigt',
+    recipientStrategy: 'deal_participants',
+    linkPath: '/public/company_requests.html'
+  },
+  'deal.assignment_started': {
+    type: 'deal_assignment_started',
+    severity: 'info',
+    title: 'Einsatz gestartet',
+    recipientStrategy: 'deal_participants',
+    linkPath: '/public/company_requests.html'
+  },
+  'deal.staffing_ready': {
+    type: 'deal_staffing_ready',
+    severity: 'info',
+    title: 'Staffing bereit',
+    recipientStrategy: 'deal_supplier',
+    linkPath: '/public/worker-submissions-review.html#asgn'
+  },
+
+  // ── Emergency Staffing events ──
+  'emergency.request_created': {
+    type: 'emergency_request',
+    severity: 'urgent',
+    title: '\u{1F534} NOTDIENST: Dringender Personalbedarf',
+    recipientStrategy: 'matching_suppliers',
+    linkPath: '/public/marketplace.html'
+  },
+  'emergency.escalated': {
+    type: 'emergency_escalation',
+    severity: 'urgent',
+    title: '\u26A0\uFE0F Eskalation: Dringender Personalbedarf',
+    recipientStrategy: 'matching_suppliers',
+    linkPath: '/public/marketplace.html'
+  },
+
+  // ── Timesheet events ──
+  'timesheet.submitted': {
+    type: 'timesheet_submitted',
+    severity: 'info',
+    title: 'Stundenzettel eingereicht',
+    recipientStrategy: 'assignment_stakeholders',
+    linkPath: '/public/timesheets.html'
+  },
+  'timesheet.approved': {
+    type: 'timesheet_approved',
+    severity: 'success',
+    title: 'Stundenzettel genehmigt',
+    recipientStrategy: 'timesheet_worker',
+    linkPath: '/public/timesheets.html'
+  },
+  'timesheet.rejected': {
+    type: 'timesheet_rejected',
+    severity: 'warning',
+    title: 'Stundenzettel abgelehnt',
+    recipientStrategy: 'timesheet_worker',
+    linkPath: '/public/timesheets.html'
+  },
+  'timesheet.signed': {
+    type: 'timesheet_signed',
+    severity: 'info',
+    title: 'Stundenzettel digital unterschrieben',
+    recipientStrategy: 'assignment_stakeholders',
+    linkPath: '/public/timesheets.html'
   }
 };
 
@@ -125,9 +251,10 @@ const MATRIX = {
 
 /**
  * Dispatch a notification for a business event.
+ * Now preference-aware: checks notification_preferences before sending.
  * @param {import('pg').Pool} pool
  * @param {string} eventKey - e.g. 'requisition.approved'
- * @param {Object} context - { recipientUserIds, orgId, entityType, entityId, message, emailQueue }
+ * @param {Object} context - { recipientUserIds, orgId, entityType, entityId, message, emailQueue, _skipPreferenceCheck }
  */
 export async function dispatch(pool, eventKey, context = {}) {
   const config = MATRIX[eventKey];
@@ -144,24 +271,45 @@ export async function dispatch(pool, eventKey, context = {}) {
 
   let sent = 0;
   for (const userId of recipientIds) {
-    await pool.query(
-      `INSERT INTO notifications (user_id, org_id, type, title, message, entity_type, entity_id, severity)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
-      [
-        userId, context.orgId || null, config.type,
-        config.title, context.message || null,
-        context.entityType || null, context.entityId || null,
-        config.severity
-      ]
-    );
-    sent++;
-  }
+    // Check user preferences (unless caller already checked)
+    let prefInApp = true;
+    let prefEmail = context.emailQueue || false;
+    if (!context._skipPreferenceCheck) {
+      try {
+        const { getUserPreferences } = await import("./matchAlertService.js");
+        const prefs = await getUserPreferences(pool, userId, eventKey);
+        prefInApp = prefs.inApp;
+        prefEmail = context.emailQueue ? prefs.email : false;
+      } catch (_e) {
+        // Fallback: send in-app, respect explicit emailQueue flag
+      }
+    }
 
-  // Optionally enqueue email notifications
-  if (context.emailQueue && sent > 0) {
-    try {
-      const { enqueue, emailQueue } = await import("../queue/queues.js");
-      for (const userId of recipientIds) {
+    // In-app notification (if preference allows)
+    if (prefInApp) {
+      const linkPath = context.linkPath || config.linkPath || null;
+      const { rowCount } = await pool.query(
+        `INSERT INTO notifications (user_id, org_id, type, title, message, entity_type, entity_id, severity, link_path)
+         SELECT $1, $2, $3, $4, $5, $6, $7, $8, $9
+         WHERE NOT EXISTS (
+           SELECT 1 FROM notifications
+           WHERE user_id = $1 AND type = $3 AND entity_type = $6 AND entity_id = $7
+             AND created_at > NOW() - INTERVAL '1 hour'
+         )`,
+        [
+          userId, context.orgId || null, config.type,
+          config.title, context.message || null,
+          context.entityType || null, context.entityId || null,
+          config.severity, linkPath
+        ]
+      );
+      if (rowCount > 0) sent++;
+    }
+
+    // Email (if preference allows)
+    if (prefEmail) {
+      try {
+        const { enqueue, emailQueue } = await import("../queue/queues.js");
         const { rows } = await pool.query('SELECT email FROM users WHERE id = $1', [userId]);
         if (rows[0]?.email) {
           await enqueue(emailQueue, 'notification-email', {
@@ -170,9 +318,26 @@ export async function dispatch(pool, eventKey, context = {}) {
             text: context.message || config.title
           });
         }
+      } catch (e) {
+        logger.warn({ err: e.message }, 'Failed to enqueue notification email');
       }
+    }
+  }
+
+  // ── Fire-and-forget: dispatch to Slack/Teams integrations ──
+  if (context.orgId && sent > 0) {
+    try {
+      const { dispatchToIntegrations } = await import("./integrationService.js");
+      dispatchToIntegrations(pool, eventKey, {
+        orgId: context.orgId,
+        message: context.message || config.title,
+        entityType: context.entityType,
+        entityId: context.entityId,
+        severity: config.severity,
+        linkPath: context.linkPath || config.linkPath
+      }).catch(e => logger.warn({ err: e.message }, 'Integration dispatch failed (non-blocking)'));
     } catch (e) {
-      logger.warn({ err: e.message }, 'Failed to enqueue notification emails');
+      logger.warn({ err: e.message }, 'Integration module not available');
     }
   }
 

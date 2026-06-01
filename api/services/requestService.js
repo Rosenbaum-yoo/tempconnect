@@ -182,6 +182,39 @@ export async function getReceivedRequests(pool, userId) {
   return rows;
 }
 
+/** Admin/backoffice overview across all requests (tenant-agnostic admin view). */
+export async function listRequestsAdmin(pool, opts = {}) {
+  const limit = Math.min(200, Math.max(1, Number(opts.limit || 50)));
+  const offset = Math.max(0, Number(opts.offset || 0));
+  const status = opts.status ? String(opts.status).trim().toUpperCase() : null;
+
+  const params = [];
+  let where = "";
+  if (status) {
+    params.push(status);
+    where = `WHERE r.status = $${params.length}`;
+  }
+  params.push(limit, offset);
+  const limIdx = params.length - 1;
+  const offIdx = params.length;
+
+  const { rows } = await pool.query(
+    `SELECT r.id, r.status, r.priority, r.created_at, r.updated_at,
+            r.requester_id, r.receiver_id, r.listing_id, r.capacity_id,
+            r.role, r.quantity, r.region, r.start_date, r.end_date,
+            u_req.company_name AS requester_company, u_req.email AS requester_email,
+            u_recv.company_name AS receiver_company, u_recv.email AS receiver_email
+       FROM requests r
+       LEFT JOIN users u_req ON u_req.id = r.requester_id
+       LEFT JOIN users u_recv ON u_recv.id = r.receiver_id
+       ${where}
+      ORDER BY r.created_at DESC
+      LIMIT $${limIdx} OFFSET $${offIdx}`,
+    params
+  );
+  return rows;
+}
+
 /* ── Status-Updates ────────────────────────────────────────── */
 
 export async function updateRequestStatus(pool, id, status, contactEmail, contactPhone) {

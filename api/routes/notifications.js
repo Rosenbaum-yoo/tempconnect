@@ -9,6 +9,7 @@ export function createNotificationsRouter(deps) {
 
   router.get("/notifications", requireAuth, async (req, res) => {
     const limit = Math.min(100, parseInt(req.query.limit, 10) || 50);
+    const offset = Math.max(0, parseInt(req.query.offset, 10) || 0);
     const unreadOnly = req.query.unread === "true";
 
     const where = ["n.user_id = $1"];
@@ -16,13 +17,20 @@ export function createNotificationsRouter(deps) {
     let idx = 2;
     if (unreadOnly) { where.push("n.is_read = FALSE"); }
     if (req.query.org_id) { where.push(`n.org_id = $${idx}`); params.push(req.query.org_id); idx++; }
+    if (req.query.type) {
+      const types = req.query.type.split(",").map(t => t.trim()).filter(Boolean);
+      if (types.length) { where.push(`n.type = ANY($${idx}::text[])`); params.push(types); idx++; }
+    }
+    if (req.query.severity) { where.push(`n.severity = $${idx}`); params.push(req.query.severity); idx++; }
     params.push(limit);
+    const limitIdx = idx; idx++;
+    params.push(offset);
 
     const { rows } = await pool.query(
       `SELECT * FROM notifications n
        WHERE ${where.join(" AND ")}
        ORDER BY n.created_at DESC
-       LIMIT $${idx}`,
+       LIMIT $${limitIdx} OFFSET $${idx}`,
       params
     );
 
@@ -89,6 +97,58 @@ export function createNotificationsRouter(deps) {
       [req.session.userId]
     );
     res.json({ count: rows[0]?.count ?? 0 });
+  });
+
+  /* ── Match Alerts (general, beyond SLA search jobs) ─ */
+
+  router.get("/match-alerts", requireAuth, async (req, res) => {
+    try {
+      const { getMatchAlerts } = await import("../services/matchAlertService.js");
+      const opts = {
+        unreadOnly: req.query.unread === "true",
+        sourceType: req.query.source_type || undefined,
+        severity: req.query.severity || undefined,
+        limit: parseInt(req.query.limit, 10) || 50,
+        offset: parseInt(req.query.offset, 10) || 0
+      };
+      const result = await getMatchAlerts(pool, req.session.userId, opts);
+      res.json(result);
+    } catch (_e) {
+      res.status(500).json({ error: "SERVER_ERROR" });
+    }
+  });
+
+  router.get("/match-alerts/unread-count", requireAuth, async (req, res) => {
+    try {
+      const { getMatchAlertUnreadCount } = await import("../services/matchAlertService.js");
+      const count = await getMatchAlertUnreadCount(pool, req.session.userId);
+      res.json({ count });
+    } catch (_e) {
+      res.status(500).json({ error: "SERVER_ERROR" });
+    }
+  });
+
+  router.patch("/match-alerts/:id/read", requireAuth, async (req, res) => {
+    try {
+      const { markMatchAlertRead } = await import("../services/matchAlertService.js");
+      const alert = await markMatchAlertRead(pool, req.params.id, req.session.userId);
+      if (!alert) return res.status(404).json({ error: "NOT_FOUND" });
+      res.locals.audit = { action: "match_alert.read", entity_type: "match_alert", entity_id: req.params.id };
+      res.json(alert);
+    } catch (_e) {
+      res.status(500).json({ error: "SERVER_ERROR" });
+    }
+  });
+
+  router.post("/match-alerts/read-all", requireAuth, async (req, res) => {
+    try {
+      const { markAllMatchAlertsRead } = await import("../services/matchAlertService.js");
+      const result = await markAllMatchAlertsRead(pool, req.session.userId);
+      res.locals.audit = { action: "match_alert.read_all", entity_type: "match_alert", details: { marked: result.updated } };
+      res.json({ ok: true, marked: result.updated });
+    } catch (_e) {
+      res.status(500).json({ error: "SERVER_ERROR" });
+    }
   });
 
   return router;

@@ -1,12 +1,13 @@
 /**
  * SLA-Suchaufträge (Search Jobs) – API-Router.
- * Plan-Gating: Erstellung/Änderung nur mit sla_access (PLUS/NOTDIENST).
+ * Plan-Gating: Erstellung/Änderung nur mit sla_access (PLUS/PRO).
  * Lesen (Liste/Detail) für eingeloggte Nutzer erlaubt (Transparenz, kein SLA-Versprechen).
  */
 
 import { z } from "zod";
 import { Router } from "express";
 import * as slaSearchService from "../services/slaSearchService.js";
+import { canAccessAsOwner } from "../utils/ownerCheck.js";
 
 const createJobSchema = z.object({
   target_type: z.enum(["CAPACITY", "DEMAND"]),
@@ -48,7 +49,8 @@ export function createSlaSearchJobsRouter(deps) {
       const id = req.params.id;
       const job = await slaSearchService.getSearchJobById(pool, id);
       if (!job) return res.status(404).json({ error: "NOT_FOUND" });
-      if (job.owner_company_id !== req.session.userId) {
+      const allowed = await canAccessAsOwner(pool, job.owner_company_id, req.session.userId);
+      if (!allowed) {
         return res.status(403).json({ error: "FORBIDDEN" });
       }
       const events = await slaSearchService.getSearchSlaEvents(pool, id);
@@ -170,7 +172,6 @@ export function createSlaSearchJobsRouter(deps) {
       if (!me) return res.status(401).json({ error: "NOT_AUTHENTICATED" });
       const role = String(req.body.role || "").trim();
       const region = String(req.body.region || "").trim();
-      const availableFrom = req.body.available_from || null;
       const minAvailable = parseInt(req.body.min_available, 10) || 1;
       const pulseMinutes = parseInt(req.body.pulse_minutes, 10) || 60;
       const priority = (req.body.priority || "NORMAL").toUpperCase();
@@ -268,6 +269,26 @@ export function createSlaSearchJobsRouter(deps) {
       res.json(result);
     } catch (e) {
       logger.error({ err: e }, "POST /sla/match-alerts/read-all");
+      res.status(500).json({ error: "SERVER_ERROR" });
+    }
+  });
+
+  /* ── Batch trigger for cron (admin-only) ─────────── */
+  router.post("/sla/search-jobs/run-batch", requireAuth, async (req, res) => {
+    try {
+      // Admin secret or admin role required
+      const adminSecret = req.headers["x-admin-secret"];
+      const me = await getUserAndPlan(req.session.userId);
+      const isAdmin = me?.role === "admin" || (adminSecret && adminSecret === process.env.ADMIN_SECRET);
+      if (!isAdmin) return res.status(403).json({ error: "ADMIN_ONLY" });
+
+      const batchSize = parseInt(req.body?.batch_size, 10) || 50;
+      const sendMailFn = deps.sendMail || null;
+      const result = await slaSearchService.runSearchJobsBatch(pool, sendMailFn, batchSize);
+      res.locals.audit = { action: "sla_search_job.run_batch", entity_type: "sla_search_job", details: result };
+      res.json(result);
+    } catch (e) {
+      logger.error({ err: e }, "POST /sla/search-jobs/run-batch");
       res.status(500).json({ error: "SERVER_ERROR" });
     }
   });

@@ -3,14 +3,19 @@
  * Requisitions = Bedarfsanforderungen / Suchauftraege als First-Class Enterprise-Objekt.
  */
 
-/** Erlaubte Status-Uebergaenge */
+import { assertLocationBelongsToOrg, assertDepartmentBelongsToOrg } from "../utils/orgBoundary.js";
+
+/** Erlaubte Status-Uebergaenge
+ *  PARTIALLY_FILLED: Migration 113 — einige, aber nicht alle Headcount-Positionen besetzt.
+ */
 export const REQUISITION_TRANSITIONS = {
   DRAFT:             ['PENDING_APPROVAL', 'OPEN', 'CANCELLED'],
   PENDING_APPROVAL:  ['APPROVED', 'CANCELLED'],
   APPROVED:          ['OPEN', 'CANCELLED'],
-  OPEN:              ['IN_REVIEW', 'FILLED', 'CLOSED', 'CANCELLED'],
-  IN_REVIEW:         ['SHORTLISTED', 'OPEN', 'FILLED', 'CLOSED', 'CANCELLED'],
-  SHORTLISTED:       ['FILLED', 'IN_REVIEW', 'CLOSED', 'CANCELLED'],
+  OPEN:              ['IN_REVIEW', 'PARTIALLY_FILLED', 'FILLED', 'CLOSED', 'CANCELLED'],
+  IN_REVIEW:         ['SHORTLISTED', 'OPEN', 'PARTIALLY_FILLED', 'FILLED', 'CLOSED', 'CANCELLED'],
+  SHORTLISTED:       ['PARTIALLY_FILLED', 'FILLED', 'IN_REVIEW', 'CLOSED', 'CANCELLED'],
+  PARTIALLY_FILLED:  ['FILLED', 'OPEN', 'IN_REVIEW', 'CLOSED', 'CANCELLED'],
   FILLED:            ['CLOSED'],
   CLOSED:            [],
   CANCELLED:         []
@@ -45,8 +50,13 @@ async function writeEvent(pool, requisitionId, eventType, actorId, payload = nul
 /* ── CRUD ─────────────────────────────────────────────── */
 
 export async function createRequisition(pool, userId, data) {
+  // Org-Boundary: Standort und Abteilung muessen zur eigenen Org gehoeren.
+  await assertLocationBelongsToOrg(pool, data.location_id, data.org_id);
+  await assertDepartmentBelongsToOrg(pool, data.department_id, data.org_id);
+
   const approvalRequired = data.approval_required ?? false;
-  const initialStatus = approvalRequired ? 'DRAFT' : 'DRAFT';
+  // Alle neuen Requisitions starten in DRAFT — expliziter Uebergang nach OPEN oder PENDING_APPROVAL erforderlich.
+  const initialStatus = 'DRAFT';
   const { rows } = await pool.query(
     `INSERT INTO requisitions
      (org_id, created_by, assigned_to, location_id, department_id,
@@ -169,7 +179,8 @@ export async function transitionStatus(pool, id, userId, newStatus, payload = {}
 
   const extraFields = [];
   const extraValues = [];
-  let idx = 4;
+  // Params: $1=id, $2=newStatus, $3+=extraValues (userId was previously stray $2 — bug fixed)
+  let idx = 3;
 
   if (newStatus === 'PENDING_APPROVAL') {
     // Keine Extra-Felder
@@ -188,35 +199,45 @@ export async function transitionStatus(pool, id, userId, newStatus, payload = {}
     }
   }
 
-  const setClause = [`status = $3`, 'updated_at = NOW()', ...extraFields].join(', ');
+  const setClause = [`status = $2`, 'updated_at = NOW()', ...extraFields].join(', ');
   const { rows } = await pool.query(
     `UPDATE requisitions SET ${setClause} WHERE id = $1 RETURNING *`,
-    [id, userId, newStatus, ...extraValues]
+    [id, newStatus, ...extraValues]
   );
   if (!rows[0]) return { error: 'NOT_FOUND' };
 
-  const eventType = newStatus === 'PENDING_APPROVAL' ? 'SUBMITTED_FOR_APPROVAL'
-    : newStatus === 'APPROVED' ? 'APPROVED'
-    : newStatus;
+  // Statusnamen → Eventnamen (DB-Constraint erlaubt nur deklarierte Werte)
+  const STATUS_TO_EVENT = {
+    'PENDING_APPROVAL':  'SUBMITTED_FOR_APPROVAL',
+    'APPROVED':          'APPROVED',
+    'OPEN':              'OPENED',           // DB-Constraint hat 'OPENED', nicht 'OPEN'
+    'IN_REVIEW':         'IN_REVIEW',
+    'SHORTLISTED':       'SHORTLISTED',
+    'PARTIALLY_FILLED':  'PARTIALLY_FILLED', // WAVE_16: Migration 115 erweitert CHECK-Constraint
+    'FILLED':            'FILLED',
+    'CLOSED':            'CLOSED',
+    'CANCELLED':         'CANCELLED',
+  };
+  const eventType = STATUS_TO_EVENT[newStatus] || newStatus;
   await writeEvent(pool, id, eventType, userId, payload);
 
   return { requisition: rows[0] };
 }
 
 /** Freigabe-Kurzfunktion */
-export async function submitForApproval(pool, id, userId) {
+export function submitForApproval(pool, id, userId) {
   return transitionStatus(pool, id, userId, 'PENDING_APPROVAL');
 }
 
-export async function approveRequisition(pool, id, approverId) {
+export function approveRequisition(pool, id, approverId) {
   return transitionStatus(pool, id, approverId, 'APPROVED');
 }
 
-export async function openRequisition(pool, id, userId) {
+export function openRequisition(pool, id, userId) {
   return transitionStatus(pool, id, userId, 'OPEN');
 }
 
-export async function cancelRequisition(pool, id, userId, reason) {
+export function cancelRequisition(pool, id, userId, reason) {
   return transitionStatus(pool, id, userId, 'CANCELLED', { cancel_reason: reason });
 }
 

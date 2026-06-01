@@ -1,0 +1,31 @@
+{
+  "$schema": "./node_modules/@stryker-mutator/core/schema/stryker-schema.json",
+  "packageManager": "npm",
+  "testRunner": "command",
+  "coverageAnalysis": "off",
+  "mutate": [
+    "services/subscriptionRequestService.js"
+  ],
+  "commandRunner": {
+    "command": "node --test --test-force-exit test/subscriptionRequestService.test.js test/subscriptionRequests.routes.test.js"
+  },
+  "reporters": [
+    "clear-text",
+    "html",
+    "json"
+  ],
+  "htmlReporter": {
+    "fileName": "reports/mutation/subscription/index.html"
+  },
+  "jsonReporter": {
+    "fileName": "reports/mutation/subscription/mutation.json"
+  },
+  "thresholds": {
+    "high": 70,
+    "low": 50,
+    "break": 0
+  },
+  "concurrency": "50%",
+  "timeoutMS": 60000,
+  "cleanTempDir": "always"
+}

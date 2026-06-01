@@ -16,7 +16,7 @@ export function startEmailWorker() {
   if (!conn) return null;
 
   const worker = new Worker("email", async (job) => {
-    const { to, subject, html, text, templateName, templateData } = job.data;
+    const { to, subject, html, text, templateName } = job.data;
     logger.info({ jobId: job.id, to, subject, templateName }, "Processing email job");
     await emailService.sendMail({ to, subject, html, text });
   }, {

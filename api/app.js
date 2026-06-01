@@ -90,6 +90,12 @@ import { createOwnerControlCenterRouter } from "./routes/ownerControlCenter.js";
 import { createSupportRouter } from "./routes/support.js";
 import { createNotificationStreamRouter } from "./routes/notificationStream.js";
 import { createStaffControlCenterRouter, createStaffControlAuthRouter } from "./routes/staffControlCenter.js";
+import { staffApiCacheControl, staffSecurityHeaders, createStaffOriginGuard } from "./middleware/staffSecurity.js";
+// Marketplace Visibility Center (Phase 4 Track A — M-04 2026-05-30)
+import { createProfileVisibilityRouter } from "./routes/profileVisibility.js";
+import { createProfileAnalyticsRouter } from "./routes/profileAnalytics.js";
+import { createProfileRankingsRouter } from "./routes/profileRankings.js";
+import { createProfileBountiesRouter } from "./routes/profileBounties.js";
 import { apiKeyAuthMiddleware } from "./middleware/apiKeyAuth.js";
 import { correlationMiddleware } from "./utils/logger.js";
 import { metricsMiddleware, metricsEndpoint, registerDbPoolMetrics, wrapPoolWithMetrics } from "./utils/metrics.js";
@@ -353,6 +359,11 @@ export async function createApp() {
   v1.use(createStrategicCollaborationRouter(deps));
   v1.use(createInternalControlCenterRouter(deps));
   v1.use(createSupportRouter(deps));
+  // Marketplace Visibility Center (Phase 4 Track A — M-04 2026-05-30)
+  v1.use(createProfileVisibilityRouter(deps));
+  v1.use(createProfileAnalyticsRouter(deps));
+  v1.use(createProfileRankingsRouter(deps));
+  v1.use(createProfileBountiesRouter(deps));
 
   // 404 catch-all for unmatched API routes
   v1.use((req, res) => {
@@ -371,7 +382,15 @@ export async function createApp() {
   // Keine Verbindung zu /api-Middleware (csrfProtect/demoGuard/orgContext/api-key),
   // damit normale Plattform-Mechanismen den Team-Zugang nicht aufweichen.
   // Abo-Kunden, Org-Owner und Plattform-Admins haben hier KEINEN Zugriff.
-  const sccDeps = { pool, logger };
+  // SCC WAVE 03: Security-Middlewares VOR allen SCC-Routen
+  const sccIsLocalDev = !config.BASE_URL || /localhost|127\.0\.0\.1/.test(String(config.BASE_URL || "").toLowerCase());
+  const staffOriginGuard = createStaffOriginGuard({ baseUrl: config.BASE_URL, isLocalDev: sccIsLocalDev, logger });
+  app.use("/staff/api", staffApiCacheControl);
+  app.use("/staff/api", staffSecurityHeaders);
+  app.use("/staff/api", staffOriginGuard);
+  app.use("/staff/api", limiters.staffMutationLimiter);
+  // SCC WAVE 01: staffLoginLimiter aus createRateLimiters injizieren
+  const sccDeps = { pool, logger, staffLoginLimiter: limiters.staffLoginLimiter };
   app.use("/staff/api", createStaffControlAuthRouter(sccDeps));
   app.use("/staff/api", createStaffControlCenterRouter(sccDeps));
   app.use("/staff/api", (req, res) => {

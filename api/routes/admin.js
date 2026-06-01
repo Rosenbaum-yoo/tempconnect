@@ -3,19 +3,33 @@
  * Protected: requires platform_admin or owner role.
  */
 import { Router } from "express";
-import { queryAuditLog } from "../services/auditLog.js";
+import { queryAuditLog, getRecentChanges } from "../services/auditLog.js";
+import { queryActivityFeed, getActionTypes, formatFeedItem } from "../services/activityFeedService.js";
 import * as eventService from "../services/eventTrackingService.js";
+import { getSystemDiagnostics } from "../services/healthService.js";
+import * as strategicCollaborationService from "../services/strategicCollaborationService.js";
+import * as requestService from "../services/requestService.js";
+import * as stateMachine from "../services/stateMachine.js";
+import * as pilotPolicyService from "../services/pilotPolicyService.js";
+import { buildAdminControlCenter } from "../services/adminControlCenterService.js";
+import { buildAuditReport as buildVisibilityAuditReport } from "../services/visibilityAuditService.js";
 
 export function createAdminRouter(deps) {
-  const { pool, requireAuth, logger } = deps;
+  const { pool, requireAuth, logger, config, getUserAndPlan, requestLimiter } = deps;
+  // exportLimiter: applies to GETs (unlike apiLimiter which skips them).
+  const exportLimiter = requestLimiter || ((_req, _res, next) => next());
   const router = Router();
 
   /** Lightweight admin guard: owner, admin, or platform_admin */
   function requireAdmin(req, res, next) {
+    if (config?.ADMIN_PANEL_OPEN && req.session?.userId) {
+      logger.warn({ userId: req.session.userId, path: req.path }, "ADMIN_PANEL_OPEN: admin route allowed for authenticated user");
+      return next();
+    }
     const role = req.orgRole || req.orgMembership?.role_key;
     if (role && ["platform_admin", "owner", "admin"].includes(role)) return next();
     // Fallback: check user.role field for legacy admins
-    if (req.session?.userRole === "admin") return next();
+    if (req.session?.userRole && ["platform_admin", "owner", "admin"].includes(req.session.userRole)) return next();
     logger.warn({ userId: req.session?.userId, path: req.path }, "admin access denied");
     res.status(403).json({ success: false, error: { code: "ADMIN_REQUIRED", message: "Administratorrechte erforderlich." } });
   }
@@ -26,23 +40,142 @@ export function createAdminRouter(deps) {
     return str.slice(0, maxLen).replace(/[<>'";\\]/g, "").trim();
   }
 
+  function isLikelyUuid(value) {
+    return typeof value === "string" && /^[0-9a-f-]{36}$/i.test(value);
+  }
+
+  function parseIntegerParam(value, { defaultValue, min = Number.NEGATIVE_INFINITY, max = Number.POSITIVE_INFINITY }) {
+    const parsed = Number.parseInt(value, 10);
+    if (!Number.isFinite(parsed)) return defaultValue;
+    return Math.min(max, Math.max(min, parsed));
+  }
+
+  function isGlobalAdminScope(req) {
+    const role = req.orgRole || req.orgMembership?.role_key || null;
+    if (role === "platform_admin") return true;
+    return req.session?.userRole === "platform_admin"
+      || req.session?.userRole === "admin"
+      || req.session?.userRole === "owner";
+  }
+
+  function buildAdminUsersWhereClause({ search, scopedOrgId, paramOffset = 0 }) {
+    const values = [];
+    const clauses = [];
+    if (search) {
+      values.push(`%${search}%`);
+      const idx = paramOffset + values.length;
+      clauses.push(`(
+        u.email ILIKE $${idx}
+        OR u.company_name ILIKE $${idx}
+        OR u.contact_person ILIKE $${idx}
+        OR o.name ILIKE $${idx}
+        OR m.role_key ILIKE $${idx}
+        OR COALESCE(sub.plan, 'DEMO') ILIKE $${idx}
+      )`);
+    }
+    if (scopedOrgId) {
+      values.push(scopedOrgId);
+      const idx = paramOffset + values.length;
+      clauses.push(`(
+        u.org_id = $${idx}
+        OR EXISTS (
+          SELECT 1
+          FROM org_memberships om_scope
+          WHERE om_scope.user_id = u.id
+            AND om_scope.org_id = $${idx}
+            AND om_scope.is_active = TRUE
+        )
+      )`);
+    }
+    return {
+      where: clauses.length ? `WHERE ${clauses.join(" AND ")}` : "",
+      values
+    };
+  }
+
+  router.get("/admin/visibility-audit", requireAuth, requireAdmin, (_req, res) => {
+    try {
+      const report = buildVisibilityAuditReport();
+      res.json({ success: true, data: report });
+    } catch (e) {
+      logger.error({ err: e }, "admin visibility-audit");
+      res.status(500).json({ success: false, error: { code: "SERVER_ERROR" } });
+    }
+  });
+
+  router.get("/admin/control-center", requireAuth, requireAdmin, async (req, res) => {
+    try {
+      const viewer = await getUserAndPlan(req.session.userId);
+      if (!viewer) return res.status(401).json({ success: false, error: { code: "NOT_AUTHENTICATED" } });
+      const data = await buildAdminControlCenter(pool, viewer, {
+        orgId: req.orgId || viewer.org_id || null,
+        orgName: req.orgName || viewer.org_name || null,
+        orgRole: req.orgRole || viewer.org_role || null,
+        userRole: req.session?.userRole || viewer.role || null
+      });
+      res.json({ success: true, data });
+    } catch (e) {
+      logger.error({ err: e }, "admin control-center");
+      res.status(500).json({ success: false, error: { code: "SERVER_ERROR" } });
+    }
+  });
+
   /* ── Users ──────────────────────────────── */
   router.get("/admin/users", requireAuth, requireAdmin, async (req, res) => {
     try {
-      const limit = Math.min(500, parseInt(req.query.limit) || 100);
-      const offset = parseInt(req.query.offset) || 0;
+      const limit = parseIntegerParam(req.query.limit, { defaultValue: 50, min: 1, max: 200 });
+      const offset = parseIntegerParam(req.query.offset, { defaultValue: 0, min: 0, max: 500000 });
       const search = sanitize(req.query.q || "", 100);
-      const where = search ? "WHERE u.email ILIKE $3 OR u.company_name ILIKE $3 OR u.contact_person ILIKE $3" : "";
-      const params = search ? [limit, offset, `%${search}%`] : [limit, offset];
+      const scopedOrgId = isGlobalAdminScope(req) ? null : (req.orgId || req.orgMembership?.org_id || null);
+      if (!isGlobalAdminScope(req) && !scopedOrgId) {
+        return res.status(403).json({
+          success: false,
+          error: { code: "ORG_CONTEXT_REQUIRED", message: "Organisationskontext für Benutzerverwaltung erforderlich." }
+        });
+      }
+      const fromClause = `
+        FROM users u
+        LEFT JOIN LATERAL (
+          SELECT om.org_id, om.role_key
+          FROM org_memberships om
+          WHERE om.user_id = u.id AND om.is_active = TRUE
+          ORDER BY om.created_at ASC
+          LIMIT 1
+        ) m ON TRUE
+        LEFT JOIN organizations o ON o.id = COALESCE(m.org_id, u.org_id)
+        LEFT JOIN LATERAL (
+          SELECT s.plan, s.status
+          FROM subscriptions s
+          WHERE s.user_id = u.id
+          ORDER BY s.created_at DESC
+          LIMIT 1
+        ) sub ON TRUE
+      `;
+      const listFilter = buildAdminUsersWhereClause({ search, scopedOrgId, paramOffset: 2 });
+      const countFilter = buildAdminUsersWhereClause({ search, scopedOrgId, paramOffset: 0 });
+      const listParams = [limit, offset, ...listFilter.values];
       const { rows } = await pool.query(
-        `SELECT u.id, u.email, u.company_name, u.contact_person, u.role, u.plan, u.city, u.org_id, u.is_verified, u.created_at,
-                o.name AS org_name
-         FROM users u LEFT JOIN organizations o ON o.id = u.org_id
-         ${where} ORDER BY u.created_at DESC LIMIT $1 OFFSET $2`, params
+        `SELECT u.id, u.email, u.company_name, u.contact_person, u.role, u.city,
+                COALESCE(sub.plan, 'DEMO') AS plan,
+                sub.status AS subscription_status,
+                COALESCE(m.org_id, u.org_id) AS org_id,
+                o.name AS org_name,
+                m.role_key AS org_role,
+                (SELECT COUNT(*)::int FROM org_memberships om2 WHERE om2.user_id = u.id AND om2.is_active = TRUE) AS active_org_memberships,
+                u.is_verified, u.created_at
+         ${fromClause}
+         ${listFilter.where} ORDER BY u.created_at DESC, u.id DESC LIMIT $1 OFFSET $2`, listParams
       );
-      const { rows: countRows } = await pool.query(`SELECT COUNT(*)::int AS total FROM users u ${where}`, search ? [`%${search}%`] : []);
-      res.json({ success: true, data: { items: rows, total: countRows[0]?.total || 0 } });
-    } catch (e) { logger.error({ err: e }, "admin users"); res.status(500).json({ success: false, error: { code: "SERVER_ERROR" } }); }
+      const { rows: countRows } = await pool.query(
+        `SELECT COUNT(*)::int AS total ${fromClause} ${countFilter.where}`,
+        countFilter.values
+      );
+      const total = Number.parseInt(countRows[0]?.total || 0, 10) || 0;
+      res.json({ success: true, data: { items: rows, total, limit, offset } });
+    } catch (e) {
+      logger.error({ err: e }, "admin users");
+      res.status(500).json({ success: false, error: { code: "SERVER_ERROR", message: "Benutzer konnten nicht geladen werden." } });
+    }
   });
 
   /* ── Organizations ──────────────────────── */
@@ -58,20 +191,252 @@ export function createAdminRouter(deps) {
     } catch (e) { logger.error({ err: e }, "admin orgs"); res.status(500).json({ success: false, error: { code: "SERVER_ERROR" } }); }
   });
 
-  /* ── Audit Log ──────────────────────────── */
+  router.patch("/admin/organizations/:id/pilot-policy", requireAuth, requireAdmin, async (req, res) => {
+    try {
+      const orgId = String(req.params.id || "").trim();
+      const allowException = req.body?.allow_exception === true;
+      const reason = String(req.body?.reason || "").trim();
+      if (!orgId) return res.status(400).json({ success: false, error: { code: "INVALID_ORG_ID" } });
+      if (reason.length < 10) return res.status(400).json({ success: false, error: { code: "REASON_REQUIRED", message: "Dokumentierter Ausnahmegrund erforderlich." } });
+
+      const data = await pilotPolicyService.setPilotException(pool, {
+        orgId,
+        actorUserId: req.session.userId || null,
+        allowed: allowException,
+        reason
+      });
+      res.locals.audit = {
+        action: "admin.organization.pilot_policy.update",
+        entity_type: "organization",
+        entity_id: orgId,
+        details: {
+          allow_exception: allowException,
+          reason
+        }
+      };
+      res.json({ success: true, data });
+    } catch (e) {
+      if (e?.code === "PILOT_POLICY_SCHEMA_MISSING") {
+        return res.status(503).json({ success: false, error: { code: e.code, message: e.message } });
+      }
+      if (e?.code === "ORG_NOT_FOUND") return res.status(404).json({ success: false, error: { code: "NOT_FOUND" } });
+      if (e?.code === "PILOT_EXCEPTION_REASON_REQUIRED") {
+        return res.status(400).json({ success: false, error: { code: e.code, message: e.message } });
+      }
+      logger.error({ err: e }, "admin org pilot policy update");
+      res.status(500).json({ success: false, error: { code: "SERVER_ERROR" } });
+    }
+  });
+
+  /* ── Backoffice Requests (Admin) ───────────────────── */
+  router.get("/admin/requests", requireAuth, requireAdmin, async (req, res) => {
+    try {
+      const limit = Math.min(200, parseInt(req.query.limit) || 100);
+      const offset = Math.max(0, parseInt(req.query.offset) || 0);
+      const status = sanitize(req.query.status || "", 20) || null;
+      const items = await requestService.listRequestsAdmin(pool, { limit, offset, status });
+      res.json({ success: true, data: { items } });
+    } catch (e) {
+      logger.error({ err: e }, "admin requests list");
+      res.status(500).json({ success: false, error: { code: "SERVER_ERROR" } });
+    }
+  });
+
+  router.patch("/admin/requests/:id/status", requireAuth, requireAdmin, async (req, res) => {
+    try {
+      const id = String(req.params.id || "").trim();
+      const status = String(req.body?.status || "").trim().toUpperCase();
+      if (!id) return res.status(400).json({ success: false, error: { code: "INVALID_ID" } });
+      if (!["SENT", "ACCEPTED", "DECLINED", "FILLED", "FINALIZED", "CANCELED"].includes(status)) {
+        return res.status(400).json({ success: false, error: { code: "INVALID_STATUS" } });
+      }
+
+      // Mark audit attempt first (DENIED in case of non-2xx)
+      res.locals.audit = {
+        action: "admin.request.status_update_attempt",
+        entity_type: "request",
+        entity_id: id,
+        details: { requested_status: status }
+      };
+
+      const reqData = await requestService.getRequestById(pool, id);
+      if (!reqData) return res.status(404).json({ success: false, error: { code: "NOT_FOUND" } });
+
+      try {
+        stateMachine.assertTransition("REQUEST", reqData.status, status);
+      } catch (e) {
+        if (e.name === "TransitionError") {
+          return res.status(409).json({ success: false, error: { code: "INVALID_TRANSITION", from: e.from, to: e.to } });
+        }
+        throw e;
+      }
+
+      const updated = await requestService.updateRequestStatus(pool, id, status, "", "");
+      res.locals.audit = {
+        action: "admin.request.status_update",
+        entity_type: "request",
+        entity_id: id,
+        details: { from: reqData.status, to: status }
+      };
+      res.json({ success: true, data: updated });
+    } catch (e) {
+      logger.error({ err: e }, "admin request status update");
+      res.status(500).json({ success: false, error: { code: "SERVER_ERROR" } });
+    }
+  });
+
+  /* ── Strategic Collaboration Requests (Admin) ───────── */
+  router.get("/admin/strategic-collaboration/requests", requireAuth, requireAdmin, async (req, res) => {
+    try {
+      const limit = Math.min(200, parseInt(req.query.limit) || 50);
+      const offset = Math.max(0, parseInt(req.query.offset) || 0);
+      const status = sanitize(req.query.status || "", 40) || null;
+      const items = await strategicCollaborationService.listAllRequestsAdmin(pool, { limit, offset, status });
+      res.json({ success: true, data: { items } });
+    } catch (e) {
+      logger.error({ err: e }, "admin strategic-collaboration list");
+      res.status(500).json({ success: false, error: { code: "SERVER_ERROR" } });
+    }
+  });
+
+  router.patch("/admin/strategic-collaboration/requests/:id/status", requireAuth, requireAdmin, async (req, res) => {
+    try {
+      const id = String(req.params.id || "").trim();
+      const status = String(req.body?.status || "").trim();
+      if (!id) return res.status(400).json({ success: false, error: { code: "INVALID_ID" } });
+      if (!strategicCollaborationService.ALLOWED_STATUSES.includes(status)) {
+        return res.status(400).json({ success: false, error: { code: "INVALID_STATUS" } });
+      }
+      // Ensure audit marker also for denied/failed mutation paths
+      res.locals.audit = {
+        action: "admin.strategic_collaboration.status_update_attempt",
+        entity_type: "strategic_collaboration_request",
+        entity_id: id,
+        details: { requested_status: status }
+      };
+      const row = await strategicCollaborationService.updateStatusAsAdmin(pool, id, status, req.session.userId);
+      if (!row) return res.status(404).json({ success: false, error: { code: "NOT_FOUND" } });
+      res.locals.audit = {
+        action: "admin.strategic_collaboration.status_update",
+        entity_type: "strategic_collaboration_request",
+        entity_id: row.id,
+        details: { status: row.status }
+      };
+      res.json({ success: true, data: row });
+    } catch (e) {
+      logger.error({ err: e }, "admin strategic-collaboration status");
+      res.status(500).json({ success: false, error: { code: "SERVER_ERROR" } });
+    }
+  });
+
+  router.patch("/admin/strategic-collaboration/requests/:id/assign", requireAuth, requireAdmin, async (req, res) => {
+    try {
+      const id = String(req.params.id || "").trim();
+      if (!id) return res.status(400).json({ success: false, error: { code: "INVALID_ID" } });
+      let assignedTo = req.body?.assigned_to_user_id;
+      if (assignedTo === undefined) assignedTo = req.session.userId;
+      if (assignedTo === "me") assignedTo = req.session.userId;
+      if (assignedTo === "") assignedTo = null;
+      if (assignedTo !== null && !isLikelyUuid(String(assignedTo))) {
+        return res.status(400).json({ success: false, error: { code: "INVALID_ASSIGNEE" } });
+      }
+      res.locals.audit = {
+        action: "admin.strategic_collaboration.assign_attempt",
+        entity_type: "strategic_collaboration_request",
+        entity_id: id,
+        details: { assigned_to: assignedTo || null }
+      };
+      const row = await strategicCollaborationService.assignRequestAsAdmin(pool, id, assignedTo, req.session.userId);
+      if (!row) return res.status(404).json({ success: false, error: { code: "NOT_FOUND" } });
+      res.locals.audit = {
+        action: "admin.strategic_collaboration.assign",
+        entity_type: "strategic_collaboration_request",
+        entity_id: row.id,
+        details: { assigned_to: row.assigned_to_user_id || null }
+      };
+      res.json({ success: true, data: row });
+    } catch (e) {
+      logger.error({ err: e }, "admin strategic-collaboration assign");
+      res.status(500).json({ success: false, error: { code: "SERVER_ERROR" } });
+    }
+  });
+
+  router.patch("/admin/strategic-collaboration/requests/:id/notes", requireAuth, requireAdmin, async (req, res) => {
+    try {
+      const id = String(req.params.id || "").trim();
+      if (!id) return res.status(400).json({ success: false, error: { code: "INVALID_ID" } });
+      if (req.body?.ops_notes === undefined) {
+        return res.status(400).json({ success: false, error: { code: "MISSING_NOTES" } });
+      }
+      if (typeof req.body.ops_notes !== "string") {
+        return res.status(400).json({ success: false, error: { code: "INVALID_NOTES" } });
+      }
+      const trimmed = req.body.ops_notes.trim();
+      if (trimmed.length > 5000) {
+        return res.status(400).json({ success: false, error: { code: "INVALID_NOTES_LENGTH" } });
+      }
+      const notes = trimmed || null;
+      res.locals.audit = {
+        action: "admin.strategic_collaboration.ops_notes_update_attempt",
+        entity_type: "strategic_collaboration_request",
+        entity_id: id
+      };
+      const row = await strategicCollaborationService.updateOpsNotesAsAdmin(pool, id, notes);
+      if (!row) return res.status(404).json({ success: false, error: { code: "NOT_FOUND" } });
+      res.locals.audit = {
+        action: "admin.strategic_collaboration.ops_notes_update",
+        entity_type: "strategic_collaboration_request",
+        entity_id: row.id,
+        details: { has_notes: Boolean(row.ops_notes) }
+      };
+      res.json({ success: true, data: row });
+    } catch (e) {
+      logger.error({ err: e }, "admin strategic-collaboration ops-notes");
+      res.status(500).json({ success: false, error: { code: "SERVER_ERROR" } });
+    }
+  });
+
+  /* ── Audit Log (mit Pagination + erweiterten Filtern) ─────────── */
   router.get("/admin/audit-log", requireAuth, requireAdmin, async (req, res) => {
     try {
-      const rows = await queryAuditLog(pool, {
-        org_id: req.query.org_id || null,
-        actor_id: req.query.actor_id || null,
+      const limit = Math.min(500, parseInt(req.query.limit) || 100);
+      const offset = parseInt(req.query.offset) || 0;
+      const result = await queryAuditLog(pool, {
+        org_id:      req.query.org_id      || null,
+        actor_id:    req.query.actor_id    || null,
+        actor_search: sanitize(req.query.actor_search || "") || null,
+        org_search:   sanitize(req.query.org_search || "") || null,
         entity_type: sanitize(req.query.entity_type || "") || null,
-        action: sanitize(req.query.action || "") || null,
-        from: req.query.from || null,
-        to: req.query.to || null,
-        limit: req.query.limit || 100
+        action:      sanitize(req.query.action || "")      || null,
+        action_type: sanitize(req.query.action_type || "") || null,
+        status:      sanitize(req.query.status || "")      || null,
+        from:        req.query.from   || null,
+        to:          req.query.to     || null,
+        limit,
+        offset
       });
-      res.json({ success: true, data: { items: rows, count: rows.length } });
+      res.json({
+        success: true,
+        data: {
+          items: result.items.map((item) => ({ ...item, ...formatFeedItem(item) })),
+          total: result.total,
+          page_size: limit,
+          offset
+        }
+      });
     } catch (e) { logger.error({ err: e }, "admin audit"); res.status(500).json({ success: false, error: { code: "SERVER_ERROR" } }); }
+  });
+
+  /* ── Recent Changes (Resource-spezifisch, fuer UI-Transparenz) ────── */
+  router.get("/admin/audit-log/recent-changes", requireAuth, requireAdmin, async (req, res) => {
+    try {
+      const entityType = sanitize(req.query.entity_type || "");
+      const entityId   = sanitize(req.query.entity_id || "");
+      if (!entityType || !entityId) return res.status(400).json({ success: false, error: { code: "MISSING_PARAMS", message: "entity_type und entity_id erforderlich." } });
+      const limit = Math.min(50, parseInt(req.query.limit) || 10);
+      const rows = await getRecentChanges(pool, entityType, entityId, limit);
+      res.json({ success: true, data: { items: rows } });
+    } catch (e) { logger.error({ err: e }, "admin recent-changes"); res.status(500).json({ success: false, error: { code: "SERVER_ERROR" } }); }
   });
 
   /* ── Platform Metrics ───────────────────── */
@@ -87,6 +452,19 @@ export function createAdminRouter(deps) {
       ]);
       const reqMap = {}; (reqs.rows || []).forEach(r => { reqMap[r.status] = r.count; });
       const offMap = {}; (offers.rows || []).forEach(r => { offMap[r.status] = r.count; });
+      const requisitionBacklog =
+        (reqMap.PENDING_APPROVAL || 0)
+        + (reqMap.APPROVED || 0)
+        + (reqMap.OPEN || 0)
+        + (reqMap.IN_REVIEW || 0)
+        + (reqMap.SHORTLISTED || 0);
+      const activeOffers =
+        (offMap.sent || 0)
+        + (offMap.SENT || 0)
+        + (offMap.countered || 0)
+        + (offMap.COUNTERED || 0)
+        + (offMap.draft || 0)
+        + (offMap.DRAFT || 0);
       res.json({
         success: true,
         data: {
@@ -95,7 +473,19 @@ export function createAdminRouter(deps) {
           requisitions: reqMap,
           offers: offMap,
           events: events,
-          capacity_posts: caps.rows[0]
+          capacity_posts: caps.rows[0],
+          summary: {
+            requisition_backlog: requisitionBacklog,
+            active_offers: activeOffers,
+            event_total_30d: events.total || 0
+          },
+          drilldowns: {
+            executive_dashboard: "/public/executive_dashboard.html",
+            organization_center: "/public/organization.html?tab=usage",
+            system_health: "/public/system-health.html",
+            requisitions_backlog: "/public/requisitions.html?status_group=backlog",
+            activity_feed: "/public/admin_panel.html?tab=activity"
+          }
         }
       });
     } catch (e) { logger.error({ err: e }, "admin metrics"); res.status(500).json({ success: false, error: { code: "SERVER_ERROR" } }); }
@@ -104,7 +494,7 @@ export function createAdminRouter(deps) {
   /* ── User Actions ───────────────────── */
   router.patch("/admin/users/:id", requireAuth, requireAdmin, async (req, res) => {
     try {
-      const userId = parseInt(req.params.id, 10);
+      const userId = String(req.params.id || "").trim();
       if (!userId) return res.status(400).json({ success: false, error: { code: "INVALID_ID" } });
       const allowed = ["role", "plan", "is_verified"];
       const updates = [];
@@ -131,14 +521,14 @@ export function createAdminRouter(deps) {
           action: "admin.user.update", entity_type: "user", entity_id: String(userId),
           details: { changed_fields: Object.keys(req.body).filter(k => allowed.includes(k)) }
         });
-      } catch (_) {}
+      } catch { /* audit non-critical */ }
       res.json({ success: true, data: rows[0] });
     } catch (e) { logger.error({ err: e }, "admin patch user"); res.status(500).json({ success: false, error: { code: "SERVER_ERROR" } }); }
   });
 
   router.post("/admin/users/:id/deactivate", requireAuth, requireAdmin, async (req, res) => {
     try {
-      const userId = parseInt(req.params.id, 10);
+      const userId = String(req.params.id || "").trim();
       if (!userId) return res.status(400).json({ success: false, error: { code: "INVALID_ID" } });
       const { rows } = await pool.query(
         `UPDATE users SET is_verified = FALSE, role = 'inactive', updated_at = NOW() WHERE id = $1 RETURNING id, email, role`,
@@ -150,9 +540,157 @@ export function createAdminRouter(deps) {
         await writeAuditEnhanced(pool, req, {
           action: "admin.user.deactivate", entity_type: "user", entity_id: String(userId)
         });
-      } catch (_) {}
+      } catch { /* audit non-critical */ }
       res.json({ success: true, data: rows[0] });
     } catch (e) { logger.error({ err: e }, "admin deactivate user"); res.status(500).json({ success: false, error: { code: "SERVER_ERROR" } }); }
+  });
+
+  /* ── Admin Activity Feed (Governance Timeline) ──────── */
+  router.get("/admin/activity-feed", requireAuth, requireAdmin, async (req, res) => {
+    try {
+      const orgId = req.orgId || null;
+      const limit  = Math.min(200, parseInt(req.query.limit) || 50);
+      const offset = Math.max(0, parseInt(req.query.offset) || 0);
+      const result = await queryActivityFeed(pool, orgId, {
+        action_type: sanitize(req.query.action_type || "") || null,
+        from:        req.query.from || null,
+        to:          req.query.to   || null,
+        limit,
+        offset
+      });
+      res.json({
+        success: true,
+        data: {
+          items: result.items,
+          total: result.total,
+          limit,
+          offset
+        }
+      });
+    } catch (e) { logger.error({ err: e }, "admin activity-feed"); res.status(500).json({ success: false, error: { code: "SERVER_ERROR" } }); }
+  });
+
+  /* ── Activity Feed Meta (action types for filters) ───── */
+  router.get("/admin/activity-feed/action-types", requireAuth, requireAdmin, (_req, res) => {
+    res.json({ success: true, data: { action_types: getActionTypes() } });
+  });
+
+  /* ── Revenue / SaaS KPIs ──────────────── */
+  router.get("/admin/revenue", requireAuth, requireAdmin, async (req, res) => {
+    try {
+      const { getRevenueMetrics } = await import("../services/revenueMetricsService.js");
+      const metrics = await getRevenueMetrics(pool);
+      res.json({ success: true, data: metrics });
+    } catch (e) {
+      logger.error({ err: e }, "admin revenue");
+      res.status(500).json({ success: false, error: { code: "SERVER_ERROR" } });
+    }
+  });
+
+  /* ── System Health Diagnostics ──────────── */
+  router.get("/admin/system-health", requireAuth, requireAdmin, async (req, res) => {
+    try {
+      const diagnostics = await getSystemDiagnostics(pool);
+      res.json({ success: true, data: diagnostics });
+    } catch (e) {
+      logger.error({ err: e }, "admin system-health");
+      res.status(500).json({ success: false, error: { code: "SERVER_ERROR" } });
+    }
+  });
+
+  /* ── Audit Log CSV Export ────────────────── */
+  router.get("/admin/audit-log/export/csv", requireAuth, requireAdmin, exportLimiter, async (req, res) => {
+    try {
+      const { exportAuditLogCsv } = await import("../services/exportService.js");
+      const result = await queryAuditLog(pool, {
+        org_id:      req.query.org_id      || null,
+        actor_id:    req.query.actor_id    || null,
+        actor_search: sanitize(req.query.actor_search || "") || null,
+        org_search:   sanitize(req.query.org_search || "") || null,
+        entity_type: sanitize(req.query.entity_type || "") || null,
+        action:      sanitize(req.query.action || "")      || null,
+        action_type: sanitize(req.query.action_type || "") || null,
+        status:      sanitize(req.query.status || "")      || null,
+        from:        req.query.from   || null,
+        to:          req.query.to     || null,
+        limit:       500,
+        offset:      0
+      });
+      const csv = exportAuditLogCsv(result.items);
+      const filename = `audit-log-${new Date().toISOString().split("T")[0]}.csv`;
+      res.setHeader("Content-Type", "text/csv; charset=utf-8");
+      res.setHeader("Content-Disposition", `attachment; filename="${filename}"`);
+      res.send(csv);
+    } catch (e) { logger.error({ err: e }, "admin audit csv export"); res.status(500).json({ success: false, error: { code: "SERVER_ERROR" } }); }
+  });
+
+  /* ── Feature Overrides (Admin Feature Dashboard) ─────── */
+  router.get("/admin/feature-overrides", requireAuth, requireAdmin, async (req, res) => {
+    try {
+      const { listOverrides } = await import("../services/featureOverrideService.js");
+      const orgId = req.query.org_id ? parseInt(req.query.org_id, 10) : null;
+      const limit = Math.min(200, parseInt(req.query.limit) || 100);
+      const offset = parseInt(req.query.offset) || 0;
+      const result = await listOverrides(pool, { orgId, limit, offset });
+      res.json({ success: true, data: result });
+    } catch (e) { logger.error({ err: e }, "admin feature-overrides list"); res.status(500).json({ success: false, error: { code: "SERVER_ERROR" } }); }
+  });
+
+  router.put("/admin/feature-overrides", requireAuth, requireAdmin, async (req, res) => {
+    try {
+      const { upsertOverride } = await import("../services/featureOverrideService.js");
+      const { feature_key, org_id, enabled, reason, expires_at } = req.body;
+      if (!feature_key) return res.status(400).json({ success: false, error: { code: "MISSING_FEATURE_KEY" } });
+      const override = await upsertOverride(pool, {
+        featureKey: feature_key,
+        orgId: org_id || null,
+        enabled: enabled !== false,
+        reason: reason || null,
+        createdBy: req.session.userId,
+        expiresAt: expires_at || null
+      });
+      try {
+        const { writeAuditEnhanced } = await import("../services/auditLog.js");
+        await writeAuditEnhanced(pool, req, {
+          action: "admin.feature_override.upsert", entity_type: "feature_override", entity_id: String(override.id),
+          details: { feature_key, org_id, enabled }
+        });
+      } catch { /* audit non-critical */ }
+      res.json({ success: true, data: override });
+    } catch (e) { logger.error({ err: e }, "admin feature-override upsert"); res.status(500).json({ success: false, error: { code: "SERVER_ERROR" } }); }
+  });
+
+  router.delete("/admin/feature-overrides/:id", requireAuth, requireAdmin, async (req, res) => {
+    try {
+      const { deleteOverride } = await import("../services/featureOverrideService.js");
+      const id = parseInt(req.params.id, 10);
+      if (!id) return res.status(400).json({ success: false, error: { code: "INVALID_ID" } });
+      const deleted = await deleteOverride(pool, id);
+      if (!deleted) return res.status(404).json({ success: false, error: { code: "NOT_FOUND" } });
+      try {
+        const { writeAuditEnhanced } = await import("../services/auditLog.js");
+        await writeAuditEnhanced(pool, req, {
+          action: "admin.feature_override.delete", entity_type: "feature_override", entity_id: String(id)
+        });
+      } catch { /* audit non-critical */ }
+      res.json({ success: true });
+    } catch (e) { logger.error({ err: e }, "admin feature-override delete"); res.status(500).json({ success: false, error: { code: "SERVER_ERROR" } }); }
+  });
+
+  /** List all known feature keys (for dropdown in dashboard) */
+  router.get("/admin/feature-keys", requireAuth, requireAdmin, (_req, res) => {
+    try {
+      const { planFeatures } = require("../config/planFeatures.js");
+      const keys = Object.keys(planFeatures);
+      res.json({ success: true, data: { keys } });
+    } catch {
+      // ESM fallback
+      import("../config/planFeatures.js").then(m => {
+        res.json({ success: true, data: { keys: Object.keys(m.planFeatures) } });
+      }).catch(_e => {
+        res.status(500).json({ success: false, error: { code: "SERVER_ERROR" } });
+      });
+    }
   });
 
   return router;

@@ -18,7 +18,19 @@ export async function getProfile(pool, userId) {
   return rows[0] || null;
 }
 
+const VALID_COMPANY_SIZES = ['1-10', '11-50', '51-200', '201-500', '501-1000', '1001-5000', '5000+'];
+const VALID_CERT_TYPES = ['aueg_lizenz', 'iso_9001', 'iso_27001', 'iso_45001', 'tuev', 'dekra', 'branchenzertifikat', 'qualitaetssiegel', 'sonstige'];
+
 export async function upsertProfile(pool, userId, data) {
+  // Sanitize year_founded: empty string → null, otherwise parse to int
+  if (data.year_founded !== undefined) {
+    const yf = String(data.year_founded || '').trim();
+    data.year_founded = yf && !isNaN(Number(yf)) ? parseInt(yf, 10) : null;
+  }
+  // Sanitize company_size: must match DB constraint
+  if (data.company_size !== undefined) {
+    if (!VALID_COMPANY_SIZES.includes(data.company_size)) data.company_size = null;
+  }
   const fields = [
     "legal_name", "website", "company_description", "year_founded",
     "company_size", "industry_focus", "headquarters_city",
@@ -122,10 +134,12 @@ export async function listCertifications(pool, userId) {
 }
 
 export async function addCertification(pool, userId, data) {
+  // Sanitize cert_type: must match DB constraint
+  const certType = VALID_CERT_TYPES.includes(data.cert_type) ? data.cert_type : 'sonstige';
   const { rows } = await pool.query(
     `INSERT INTO company_certifications (user_id, cert_type, cert_name, issuer, issued_at, expires_at, status)
      VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING *`,
-    [userId, data.cert_type, data.cert_name, data.issuer || null,
+    [userId, certType, data.cert_name, data.issuer || null,
      data.issued_at || null, data.expires_at || null, data.status || "active"]
   );
   return rows[0];
@@ -240,7 +254,7 @@ export async function getPublicProfile(pool, userId) {
   const full = await getFullProfile(pool, userId);
   if (!full.user) return null;
   // Strip sensitive fields
-  const { email, ...safeUser } = full.user;
+  const { email: _email, ...safeUser } = full.user;
   return {
     user: safeUser,
     profile: full.profile,

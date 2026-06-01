@@ -32,6 +32,15 @@ import * as usageMetering from "./usageMeteringService.js";
 
 const OPEN_REQUEST_STATUSES = ["draft", "submitted", "under_review", "needs_clarification", "offered", "accepted"];
 
+/**
+ * Kulanzfrist nach faelligem Zahlungsausfall (WAVE_09 Billing).
+ * Innerhalb dieser Frist nach `current_period_end` bleibt der Zugang
+ * aktiv (Soft-Lock mit Warnbanner). Danach Hard-Lock (active=false).
+ *
+ * Exported fuer Unit-Tests und Config-Ueberblick.
+ */
+export const BILLING_GRACE_PERIOD_DAYS = 14;
+
 const ADDON_FEATURE_MAP = Object.freeze({
   api: ["integrations"],
   spend: ["spend_analytics"],
@@ -355,8 +364,25 @@ function computeSubscriptionStatus({ orgRow, subscription, plan, pilotActive }) 
       return { active: true, status: "canceling", pilot: false, cancel_at: subscription.cancel_at || null, reason: subscription.cancel_reason || null };
     case "canceled":
       return { active: false, status: "canceled", pilot: false, cancel_at: subscription.cancel_at || null, reason: subscription.cancel_reason || null };
-    case "past_due":
-      return { active: false, status: "past_due", pilot: false, cancel_at: null, reason: "Zahlung ueberfaellig" };
+    case "past_due": {
+      // Grace Period: innerhalb von BILLING_GRACE_PERIOD_DAYS nach current_period_end
+      // bleibt der Zugang aktiv (Soft-Lock). Danach Hard-Lock.
+      if (subscription.current_period_end) {
+        const graceMs = BILLING_GRACE_PERIOD_DAYS * 24 * 60 * 60 * 1000;
+        const graceCutoff = new Date(subscription.current_period_end).getTime() + graceMs;
+        if (graceCutoff > Date.now()) {
+          const cutoffDate = new Date(graceCutoff).toISOString().slice(0, 10);
+          return {
+            active: true,
+            status: "past_due_grace",
+            pilot: false,
+            cancel_at: null,
+            reason: "Zahlung ueberfaellig — Zugang aktiv bis " + cutoffDate + ". Bitte Zahlungsmethode aktualisieren."
+          };
+        }
+      }
+      return { active: false, status: "past_due", pilot: false, cancel_at: null, reason: "Zahlung ueberfaellig — Zugang gesperrt. Bitte Tarif-Team kontaktieren." };
+    }
     default:
       return { active: false, status: subscription.status || "unknown", pilot: false, cancel_at: null, reason: null };
   }

@@ -7,6 +7,9 @@ import { isQueueAvailable } from "../queue/connection.js";
 import { startEmailWorker } from "./emailWorker.js";
 import { startMatchWorker } from "./matchWorker.js";
 import { startCapacityWorker } from "./capacityWorker.js";
+import { startStaffingWorker } from "./staffingWorker.js";
+import { instrumentWorker, registerQueueMetrics } from "../utils/metrics.js";
+import { emailQueue, matchQueue, capacityQueue, staffingQueue } from "../queue/queues.js";
 import { logger } from "../config/index.js";
 
 const _workers = [];
@@ -18,13 +21,25 @@ export function startWorkers() {
   }
 
   const email = startEmailWorker();
-  if (email) _workers.push(email);
+  if (email) { instrumentWorker(email, "email"); _workers.push(email); }
 
   const match = startMatchWorker();
-  if (match) _workers.push(match);
+  if (match) { instrumentWorker(match, "match"); _workers.push(match); }
 
   const capacity = startCapacityWorker();
-  if (capacity) _workers.push(capacity);
+  if (capacity) { instrumentWorker(capacity, "capacity"); _workers.push(capacity); }
+
+  const staffing = startStaffingWorker();
+  if (staffing) { instrumentWorker(staffing, "staffing"); _workers.push(staffing); }
+
+  // Register queue gauges (waiting/active counts) for Prometheus scraping
+  const queues = [
+    { name: "email", queue: emailQueue() },
+    { name: "match", queue: matchQueue() },
+    { name: "capacity", queue: capacityQueue() },
+    { name: "staffing", queue: staffingQueue() }
+  ].filter(q => q.queue);
+  registerQueueMetrics(queues);
 
   logger.info({ count: _workers.length }, "Background workers started");
 }

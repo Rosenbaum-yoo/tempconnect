@@ -34,7 +34,7 @@ export function startCapacityWorker() {
                 entityId: entry.id,
                 message: "Ihr Kapazitaetseintrag ist abgelaufen"
               });
-            } catch (_) { /* non-critical */ }
+            } catch { /* non-critical */ }
           }
         }
 
@@ -58,7 +58,7 @@ export function startCapacityWorker() {
                 entityId: entry.id,
                 message: `"${entry.title}" benoetigt Bestaetigung`
               });
-            } catch (_) { /* non-critical */ }
+            } catch { /* non-critical */ }
           }
         }
 

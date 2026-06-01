@@ -52,9 +52,16 @@ export {
 
 /* ── Konstanten ────────────────────────────────────────────── */
 
-
 /** Maximale Items pro Cron-Tick — schuetzt vor Lastspitzen. */
 export const MAX_BATCH_SIZE = 500;
+
+/**
+ * Kulanzfrist in Tagen nach Ablauf der Testphase oder Zahlungsausfall
+ * (past_due → canceled). Entspricht `entitlementService.BILLING_GRACE_PERIOD_DAYS`.
+ * Beide Werte MUESSEN identisch sein – dieser hier steuert die DB-Transition,
+ * entitlementService.BILLING_GRACE_PERIOD_DAYS steuert den UI-Soft-Lock.
+ */
+export const BILLING_GRACE_PERIOD_DAYS = 14;
 
 /* ── Auto-Linking ──────────────────────────────────────────── */
 
@@ -511,11 +518,214 @@ export async function applyDueCancellations(pool, opts = {}) {
   return { processed, revoked, failed, batch_size: batch };
 }
 
+/* ── Cron 4: Trial-End Detection ─────────────────────────── */
+
+/**
+ * Findet aktive Trial-Subscriptions deren Testphase abgelaufen ist
+ * (`trial_mode=TRUE` + `trial_ends_at <= NOW()`) und setzt sie auf
+ * `past_due`. Die Kulanzfrist (BILLING_GRACE_PERIOD_DAYS) laeuft dann an;
+ * `entitlementService.computeSubscriptionStatus` zeigt dem Nutzer einen
+ * Warnbanner (Soft-Lock, active=true). Nach Ablauf der Kulanzfrist
+ * sperrt Cron 5 den Zugang hart.
+ *
+ * Idempotent: nach dem Wechsel zu `past_due` faellt der Datensatz aus
+ * dem WHERE-Filter (status='active') heraus.
+ *
+ * @param {import('pg').Pool} pool
+ * @param {{ batchSize?: number, now?: Date|string|null }} [opts]
+ */
+export async function applyTrialEnds(pool, opts = {}) {
+  const batch = clampBatch(opts.batchSize);
+  const nowTs = resolveNow(opts.now);
+
+  const { rows } = await pool.query(
+    `SELECT id, user_id, plan, trial_ends_at, current_period_end
+       FROM subscriptions
+      WHERE trial_mode = TRUE
+        AND trial_ends_at IS NOT NULL
+        AND trial_ends_at <= $1
+        AND status = 'active'
+      ORDER BY trial_ends_at ASC
+      LIMIT $2`,
+    [nowTs.toISOString(), batch]
+  );
+
+  let processed = 0;
+  let transitioned = 0;
+  const failed = [];
+
+  for (const s of rows) {
+    processed++;
+    try {
+      const { rowCount } = await pool.query(
+        `UPDATE subscriptions
+            SET status = 'past_due',
+                updated_at = NOW()
+          WHERE id = $1 AND status = 'active'`,
+        [s.id]
+      );
+      if (!rowCount) {
+        // Already transitioned by a concurrent cron run — idempotent skip.
+        continue;
+      }
+      try {
+        await auditLog.writeAudit(pool, {
+          action: "subscription.lifecycle.trial_ended",
+          entity_type: "subscription",
+          entity_id: s.id,
+          details: {
+            user_id: s.user_id,
+            plan: s.plan,
+            trial_ends_at: s.trial_ends_at,
+            grace_period_days: BILLING_GRACE_PERIOD_DAYS,
+            transitioned_to: "past_due",
+            auto: true
+          }
+        });
+      } catch { /* best-effort */ }
+      transitioned++;
+    } catch (e) {
+      failed.push({ id: s.id, error: e.message || "ERROR" });
+    }
+  }
+  return { processed, transitioned, failed, batch_size: batch };
+}
+
+/* ── Cron 5: Hard-Lock Enforcement ──────────────────────────── */
+
+/**
+ * Findet `past_due`-Subscriptions, deren Kulanzfrist abgelaufen ist
+ * (`current_period_end + BILLING_GRACE_PERIOD_DAYS <= NOW()`), und
+ * setzt sie final auf `canceled`:
+ *   - `subscriptions.status = 'canceled'` + `canceled_at = NOW()`
+ *   - `organizations.plan = 'DEMO'` (Owner-Org wird heruntergestuft)
+ *   - Audit-Eintrag mit Risk "high"
+ *
+ * Hinweis: `entitlementService.computeSubscriptionStatus` sperrt den
+ * Zugang bereits (active=false) wenn die Kulanzfrist abgelaufen ist,
+ * AUCH bevor dieser Cron laeuft. Die DB-Transition durch diesen Cron
+ * bereinigt lediglich den Status und loest die Org-Downgrade aus.
+ *
+ * Idempotent: nach dem Wechsel zu `canceled` faellt der Datensatz aus
+ * dem WHERE-Filter (status='past_due') heraus.
+ *
+ * @param {import('pg').Pool} pool
+ * @param {{ batchSize?: number, now?: Date|string|null, deps?: object }} [opts]
+ */
+export async function applyHardLocks(pool, opts = {}) {
+  const batch = clampBatch(opts.batchSize);
+  const nowTs = resolveNow(opts.now);
+  const deps = opts.deps || {};
+
+  // Grace cutoff: only past_due subs where current_period_end + 14d has passed.
+  const graceCutoffMs = BILLING_GRACE_PERIOD_DAYS * 24 * 60 * 60 * 1000;
+  const graceCutoffTs = new Date(nowTs.getTime() - graceCutoffMs);
+
+  const { rows } = await pool.query(
+    `SELECT id, user_id, plan, current_period_end
+       FROM subscriptions
+      WHERE status = 'past_due'
+        AND current_period_end IS NOT NULL
+        AND current_period_end <= $1
+      ORDER BY current_period_end ASC
+      LIMIT $2`,
+    [graceCutoffTs.toISOString(), batch]
+  );
+
+  let processed = 0;
+  let locked = 0;
+  const failed = [];
+
+  for (const s of rows) {
+    processed++;
+    try {
+      // 1) Resolve Owner-Org (schema-tolerant)
+      let orgId = null;
+      try {
+        const orgRes = await pool.query(
+          `SELECT o.id
+             FROM organizations o
+             JOIN org_members om ON om.org_id = o.id
+            WHERE om.user_id = $1
+              AND om.role = 'owner'
+            LIMIT 1`,
+          [s.user_id]
+        );
+        orgId = orgRes.rows[0]?.id || null;
+      } catch { /* schema-tolerant */ }
+
+      // 2) subscriptions -> canceled
+      const { rowCount } = await pool.query(
+        `UPDATE subscriptions
+            SET status = 'canceled',
+                canceled_at = NOW(),
+                updated_at = NOW()
+          WHERE id = $1 AND status = 'past_due'`,
+        [s.id]
+      );
+      if (!rowCount) {
+        // Concurrent cron already processed this row.
+        continue;
+      }
+
+      // 3) Org plan -> DEMO (best-effort)
+      if (orgId) {
+        try {
+          await pool.query(
+            "UPDATE organizations SET plan = 'DEMO', updated_at = NOW() WHERE id = $1",
+            [orgId]
+          );
+        } catch { /* schema-tolerant */ }
+      }
+
+      // 4) Audit (always-on, risk: high)
+      try {
+        await auditLog.writeAudit(pool, {
+          action: "subscription.lifecycle.hard_lock_applied",
+          entity_type: "subscription",
+          entity_id: s.id,
+          details: {
+            user_id: s.user_id,
+            org_id: orgId,
+            plan: s.plan,
+            current_period_end: s.current_period_end,
+            grace_expired_after_days: BILLING_GRACE_PERIOD_DAYS,
+            locked_at: nowTs.toISOString(),
+            auto: true
+          }
+        });
+      } catch { /* best-effort */ }
+
+      // 5) Customer Notification (fire-and-forget)
+      Promise.resolve()
+        .then(() => notifyRequestStatusChanged(pool, {
+          requestId: s.id,
+          toStatus: "cancelled",
+          fromStatus: "past_due",
+          requestType: "hard_lock_auto"
+        }, deps))
+        .catch(() => { /* swallowed */ });
+
+      locked++;
+    } catch (e) {
+      failed.push({ id: s.id, error: e.message || "ERROR" });
+    }
+  }
+  return { processed, locked, failed, batch_size: batch };
+}
+
 /* ── Orchestrierung ─────────────────────────────────────────── */
 
 /**
- * Fuehrt alle drei Cron-Phasen sequentiell aus. Stoppt nicht bei
+ * Fuehrt alle fuenf Cron-Phasen sequentiell aus. Stoppt nicht bei
  * Teilfehler — jeder Schritt liefert ein eigenes Ergebnis-Objekt.
+ *
+ * Phasenreihenfolge (Abhaengigkeit beachten):
+ *   1. expiry      – subscription_requests: offered/accepted -> expired
+ *   2. activation  – subscription_requests: accepted -> active (Plan aktivieren)
+ *   3. cancellation – subscription_requests: active cancellation -> expired + DEMO
+ *   4. trial_ends  – subscriptions: active+trial_mode -> past_due (WAVE_09)
+ *   5. hard_locks  – subscriptions: past_due+grace_expired -> canceled + DEMO (WAVE_09)
  *
  * @param {import('pg').Pool} pool
  * @param {{ batchSize?: number, now?: Date|string|null, deps?: object }} [opts]
@@ -530,12 +740,20 @@ export async function runLifecycleTick(pool, opts = {}) {
   const cancellation = await applyDueCancellations(pool, opts).catch((e) => ({
     processed: 0, revoked: 0, failed: [{ phase: "cancellation", error: e.message }]
   }));
+  const trialEnds = await applyTrialEnds(pool, opts).catch((e) => ({
+    processed: 0, transitioned: 0, failed: [{ phase: "trial_ends", error: e.message }]
+  }));
+  const hardLocks = await applyHardLocks(pool, opts).catch((e) => ({
+    processed: 0, locked: 0, failed: [{ phase: "hard_locks", error: e.message }]
+  }));
   return {
     ok: true,
     ts: new Date().toISOString(),
     expiry,
     activation,
-    cancellation
+    cancellation,
+    trial_ends: trialEnds,
+    hard_locks: hardLocks
   };
 }
 

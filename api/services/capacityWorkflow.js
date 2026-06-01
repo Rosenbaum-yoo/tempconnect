@@ -6,7 +6,8 @@
 /** Allowed capacity_post status transitions */
 export const CAPACITY_POST_TRANSITIONS = {
   draft:    ['active'],
-  active:   ['paused', 'filled', 'expired'],
+  active:   ['paused', 'filled', 'expired', 'reserved'],
+  reserved: ['active', 'filled', 'archived'],
   paused:   ['active', 'archived'],
   filled:   ['archived'],
   expired:  ['active', 'archived'],  // reactivation allowed from expired
