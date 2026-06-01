@@ -1,4 +1,8 @@
-# Environment (niemals committen – Secrets! Nicht ins ZIP/Deploy-Paket.)
+# =============================================================================
+# TempConnect — .gitignore
+# =============================================================================
+
+# Environment / Secrets — NIEMALS committen
 .env
 .env.local
 .env.*.local
@@ -10,47 +14,93 @@
 !.env.prod.example
 !.env.dev.example
 
-# Dependencies – nie mit ins Repo/ZIP (Docker macht npm ci)
+# Dependencies — Docker macht npm ci
 node_modules/
 **/node_modules/
 
 # Logs
 *.log
 npm-debug.log*
+*.pid
 
-# Builds / Coverage
+# Builds / Coverage / Test-Artefakte
 dist/
 build/
 coverage/
+**/coverage/
+.c8_output/
+**/.c8_output/
+.nyc_output/
+*.tsbuildinfo
 
 # OS
 .DS_Store
 Thumbs.db
+desktop.ini
 
 # IDE
 .idea/
 .vscode/
 *.swp
 *.swo
+*.bak
+*.tmp
+
+# Warp (Agent-Skills etc. — lokal)
+.warp/
+
+# Agenten / Claude Code / lokale AI-Workspaces
+.claude/
+.agents/
+.claire/
+.clone/
+
+# Release-Artefakte und ZIP-Analysen
+_zip_analysis/
+
+# Kryptographische Schlüssel (niemals committen)
+*.pem
+*.key
+private_key
+private_key.*
 
 # Docker
 docker-compose.override.yml
 
 # Database
 *.sql.backup
+*.dump
 
-# Persistent data volumes (niemals committen)
+# Persistent data volumes — niemals committen
 /data/
 /db-data/
 /redis-data/
 /backups/
 
-# Uploads / temp (niemals committen)
+# Uploads / temp — niemals committen
 uploads/
 tmp/
 **/uploads/
 **/tmp/
 
-# Deployment artifacts
+# Release / Deployment artifacts
 *.tar.gz
 *.zip
+release/
+.vercel
+.env*.local
+
+# OCC React Build-Output (Vite generiert, nicht committen)
+frontend/owner-control/
+support-ops-dist/*
+!support-ops-dist/index.html
+
+# Falsch benannte Env-Datei (enthaelt Secrets) — niemals committen
+.env.txt
+*.env.txt
+
+# Test-Runner-Output (Playwright etc.)
+test-results/
+
+# Versehentlich abgelegte Datei
+openai-1.pdf
