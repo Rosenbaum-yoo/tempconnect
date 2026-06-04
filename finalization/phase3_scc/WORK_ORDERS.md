@@ -105,6 +105,12 @@ github_pr_url: null     # füllt sich nach PR-Erstellung
 | `high` | Staff | Lead-Approval Pflicht | Claude Code PR + Review + CI |
 | `critical` | Staff | Two-Person-Approval | Claude Code PR + Review + CI + Owner |
 
+
+## weitere Regel 
+- Admin aus plattform sollte niemals den /Staff Bereich verwalten können ... 
+- Admins sind im /Staff Center ohne Rechte 
+- keine Weiterleitungen aus Plattform in den /Staff Bereich 
+? !
 ---
 
 ## 6. Hetzner Action Matrix (vollständig)

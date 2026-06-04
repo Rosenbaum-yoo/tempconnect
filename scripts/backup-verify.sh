@@ -161,8 +161,8 @@ if [ "$UPLOADS_INCLUDED" = "true" ]; then
     fi
 
     # tar Integrität
-    FILE_COUNT=$(tar -tzf "$UPLOADS_ARCHIVE" 2>/dev/null | wc -l | tr -d ' ')
-    if [ "$?" -eq 0 ]; then
+    if tar -tzf "$UPLOADS_ARCHIVE" >/dev/null 2>&1; then
+      FILE_COUNT=$(tar -tzf "$UPLOADS_ARCHIVE" 2>/dev/null | wc -l | tr -d ' ')
       pass "tar-Archiv valide ($FILE_COUNT Einträge)"
     else
       fail "tar-Archiv beschädigt oder nicht lesbar"

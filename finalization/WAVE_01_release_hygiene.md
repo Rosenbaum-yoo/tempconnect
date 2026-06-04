@@ -1,7 +1,7 @@
 # WAVE_01 — Release-Hygiene und Secret-Sicherheit
 
 > **Phase:** Foundation. **Prio:** P0. **Voraussetzung:** WAVE_00 abgeschlossen.
-> **Ausführungsagent:** Backend-Eingriff — Owner-Freigabe erforderlich, ggf. Warp/Oz delegieren
+> **Ausführungsagent:** Claude (gesamter Stack). Backend-Eingriff — Owner-Freigabe erforderlich.
 
 ---
 

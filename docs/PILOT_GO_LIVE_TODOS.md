@@ -1,7 +1,7 @@
 # TempConnect - Pilot/Go-Live TODOs
 Quelle: fundierte Projektbewertung April 2026, abgeleitet aus realem Ist-Zustand (65 Routes, 102 Services, 156 Tests, 98 Migrationen, 6-Job-CI, 289/290 Audit-Coverage).
 Dieses File wird automatisch gepflegt, solange die Regel in `AGENTS.md` ("Pilot-TODO-Pflege") aktiv ist. Erledigte Punkte wandern nach `## Done`. Neue Blocker, die in Sessions auftauchen, werden als P0/P1/P2 angelegt.
-Letzte Aktualisierung: 2026-05-28 (Phase-4-Tracking-Infrastruktur angelegt. PHASE_STATUS.md erstellt. Phase3 WAVES 07-13 + Phase4 Track B + Track C als P1/P2 eingetragen. Phase4 Track A als Verbesserungsvorschlag C.4 eingetragen. Enterprise Readiness Score ~88%. Verbleibende Blocker = Owner-Tasks: P0.4, E-01, I-01, G-01, G-COM-03).
+Letzte Aktualisierung: 2026-06-03 (Phase-5-Finalisierung: Provider-Abstraktion Billing/Email, ops_incidents Mig 121, Skalierungs-Index-Härtung Mig 122/123, N+1-Read/Write-Sweeps, Restore-Drill-Fidelity-Fix, Theme-System. Alle Diffs uncommitted = Owner-Gate. Details: `docs/finalization/`. Verbleibende Blocker bleiben Owner-Tasks: P0.4, P1.4-Live-Run, E-01, R2/R9 extern).
 ## Status-Legende
 - **P0** - harter Blocker, verhindert gruene CI oder stabile Produktion. Muss vor Go-Live weg.
 - **P1** - soll vor erstem Pilotkunden live sein (Vertrag, Sicherheit, Demo-Glaubwuerdigkeit).
@@ -87,11 +87,11 @@ Letzte Aktualisierung: 2026-05-28 (Phase-4-Tracking-Infrastruktur angelegt. PHAS
 - Status: ERLEDIGT (2026-05-24)
 - Ergebnis: `.env.example` setzt jetzt `FEATURE_GATE_BYPASS=false` als Default mit erklaerenden Kommentaren. Lokal per eigener `.env` ueberschreiben.
 ### P1.4 - Backup/Restore Dry-Run dokumentieren
-- Status: OFFEN
-- Fakt: `scripts/backup.sh`, `scripts/backup-verify.sh`, `scripts/restore.sh`, `scripts/restore-test.sh` vorhanden, aber kein nachweisbarer Live-Lauf.
+- Status: TEILWEISE (2026-06-03) — Skript-Fidelity-Bug behoben, Live-Lauf bleibt Owner
+- Fakt: `scripts/backup.sh`, `scripts/backup-verify.sh`, `scripts/restore.sh`, `scripts/restore-test.sh` vorhanden. **Drill-Fidelity-Bug gefunden+behoben (Triage: Bug):** `restore-test.sh` führte pg_restore OHNE `--single-transaction --exit-on-error` aus — ein nur teilweise eingespielter Dump konnte fälschlich „bestanden" melden (False-Confidence). Jetzt an echten `restore.sh` angeglichen. Zusätzlich Infra-Snapshot-Severity-Matrix (Backup-Staleness 12/24/48h) gepinnt (`infrastructureSnapshotService.test.js`, 36/36). Weiterhin kein nachweisbarer Live-Lauf.
 - Aktion: einmal gegen Staging durchziehen, Run-Log als `docs/OPS_RUNBOOK.md` oder als Artefakt in `release/`-Ordner ablegen.
-- Aufwand: 2 Stunden.
-- Verify: Run-Log zeigt erfolgreichen Restore in frische DB.
+- Aufwand: 2 Stunden (Owner/Ops, gegen reale Infra).
+- Verify: `bash -n scripts/restore-test.sh` OK; Run-Log zeigt erfolgreichen Restore in frische DB.
 ### P1.5 - Doku-Drift final schliessen
 - Status: TEILWEISE ERLEDIGT (2026-05-28) — Sofort-Fix + Drift-Dokumentation; vollständige Auto-Generierung = P2/post-launch
 - Was gemacht: (a) `docs/OPENAPI_DRIFT_REPORT.md` erstellt: vollständiges Gap-Assessment (27/747 Pfade abgedeckt, < 4 %), Route-Familien-Übersicht, 3 Lösungsstrategien (Auto-Gen / Manuell / Freeze). (b) `openapi/spec.json`: `x-drift-notice`-Warnung hinzugefügt, `/api/csrf-token` → `/api/csrf` korrigiert, Beschreibung als veraltet markiert. (c) Empfehlung Go-Live: Option C (Freeze + klarer Hinweis) jetzt aktiv; Option A (Auto-Gen via `@asteasolutions/zod-to-openapi`) als P2/A.2.
@@ -145,6 +145,28 @@ Letzte Aktualisierung: 2026-05-28 (Phase-4-Tracking-Infrastruktur angelegt. PHAS
 - Aktion: Mit EP-00 (Read-only Audit) starten. Masterprompt: `finalization/phase 4/MASTERPROMPTS.md` Abschnitt B. Branch: `release/enterprise-premium-market-ready`.
 - Aufwand: 11 Sessions (EP-00 bis EP-10). Kernblocker EP-02 ca. 1 Session, EP-03 ca. 0.5 Sessions.
 - Verify: Track-B-Gate aus `finalization/phase 4/GATES.md` (20 Kriterien), `npm run test:integration -- worker` gruen, Mobile-Abnahme, keine neuen Links auf `worker-timesheet.html`.
+### P1.7 - Entitlement-Leaks: als INDIVIDUELL verkaufte Features nur rollen-gegated
+- Status: ERLEDIGT (2026-06-03, Owner-Freigabe „alle, effizientester/zukunftssicherer Weg") — HIGH-Leaks geschlossen, MED/LOW als „open-by-design" geklaert (kein Doku-Drift). Diffs uncommitted bis Owner-Commit-Freigabe.
+- Befund (Audit): `visibilityMatrix.has_backend_guard:true` ist DOKU, nicht Laufzeit-Wahrheit. Nur Routen mit explizitem `requireFeature`/`requireOrgFeature` erzwingen den Plan-Gate; `rperm(...)` ist ROLLE, kein Plan. Cross-Check aller 12 `feature_key` gegen `routes/`.
+- **HIGH (Umsatzleck) — GESCHLOSSEN, pilot-bewusst:**
+  - `enterprise_analytics`: `requireOrgFeature("enterprise_analytics")` auf `reporting.js` `/reporting/dashboard` + `/reporting/finance-truth/export` (NUR die 2 `report.executive`-Routen; operationale Reports `report.operational` bewusst offen, da `sla_access` plan-uebergreifend gilt).
+  - `assignments`: `requireOrgFeature("assignments")` auf `assignments.js` NUR `POST /assignments` (create) + `PATCH /assignments/:id` (edit) = kaeufer-exklusive Schreibpfade. Lesen (view) + Lifecycle (transition/complete) bleiben offen, weil zweiseitig — `supplier_org_id` (Agentur/Lieferant, oft nicht INDIVIDUELL) ist dort legitim beteiligt.
+  - Guard ist pilot-aware (`getOrganizationEntitlements` → `effective_plan=INDIVIDUELL` fuer `pilot_status='active'`): aktive DEMO-Piloten behalten Zugang; nur zahlende Tarife < INDIVIDUELL erhalten `FEATURE_NOT_ENABLED`. Tests: `api/test/entitlementLeakGates.route.test.js` (12 Faelle: PRO=403 / INDIVIDUELL=ok / DEMO+Pilot=ok + Struktur-Checks ungegateter Routen). Bestehende `reporting.route.test.js` (28) regressionsfrei.
+- **MED/LOW — OPEN-BY-DESIGN (kein Leak, NICHT gaten):** rollenbasiert geprueft, bewusst offen:
+  - `persistent_requisitions` (`requisitions.js`): Requisition-CRUD ist Trial-Kernfluss (DEMO/BASIS legen Requisitionen an). Differenzierung laeuft ueber Limits/Retention, nicht ueber ein Create-Gate. Wholesale-Gate wuerde Trials brechen.
+  - `basic_analytics`: KEINE dedizierte API-Route (nur Config + Frontend-Entitlement-Anzeige). `reports.js` `/reports` ist Missbrauchsmeldung (spam/betrug), NICHT Analytics — fruehere Zuordnung war falsch. Operationale Reports bleiben korrekt auf `report.operational` RBAC.
+  - `supplier_ratings`: `ratings.js` `POST /ratings` ist ein ZWEISEITIGER Peer-Trust-Mechanismus (`isRequester || isReceiver`) — muss fuer alle Plaene offen bleiben, sonst kippt die Marktplatz-Reputation. Einziges theoretisches Gate-Ziel waere die Buyer-Scorecard (`requests.js` `/suppliers/:agencyId/scorecard`, companyOrg), aber Route→Feature-Mapping ist nicht durch Spec bestaetigt → kein spekulatives Gate.
+  - `deal_workflow`: keine dedizierte Backend-Route (Deals laufen ueber bereits gegatete Capacity-Exchange-Endpunkte) → nur client-seitig gegated.
+- Lektion: Zweiseitige Routen (view/transition/complete/peer-rating) NIE wholesale mit einem kaeuferseitigen Feature gaten — nur kaeufer-exklusive Schreibpfade. Sonst sperrt man die Lieferanten-/Agenturseite aus.
+### P1.8 - Benachrichtigungen auf Hub-Cards + Glocken-Konsolidierung
+- Status: ERLEDIGT (2026-06-04, Owner-Freigabe „Ja, voll bauen"). Diffs uncommitted bis Owner-Commit-Freigabe.
+- Befund: Enterprise-Shell zeigte ZWEI Glocken nebeneinander (beide im `[data-notif-topbar]`): die statische pageShell-Link-Glocke `#tc-notif-bell` (→ activity.html) und das reiche `notifications.js`-Dropdown (Deep-Links via `link_path`, Read-all, Mark-read). Redundanz. Hub-Cards trugen keine Ereigniszahl.
+- Umsetzung (bestehende Strukturen erweitert, keine Parallelstruktur):
+  - Backend: `notificationSurfaceMap.js` = einzige Wahrheitsquelle `notification.type → Hub-Surface` (deckt notificationMatrix/Mig-019/071/072 ab). Neuer read-only `GET /api/notifications/surface-summary` (user-scoped, EINE `GROUP BY type`-Query auf den vorhandenen Partial-Index, foldet auf `{surfaces,total}`; `total` bleibt Glocken-konsistent inkl. bell-only Typen).
+  - Frontend: `enterpriseHub.js` rendert kleine Zahl (≤99+) auf sichtbare `[data-surface]`-Cards; Card-href = „direkt da hin". `notifications.js` blendet die statische Alt-Glocke nach Mount plattformweit aus (guarded → strandet keine Seite; pageShell-SSE-Live-Toasts bleiben).
+  - Surface-Mapping: requisition_*→requisitions, offer_*/deal_*→deals, capacity_*/demand/emergency_*→marketplace, vendor_pool_*→vendor_pool, compliance_*→trust_center, sla_*→my_company, timesheet_*→assignments; general/system/worker-only→bell-only.
+- Tests: `notificationSurfaceMap.test.js` (15) + `notifications.surfaceSummary.route.test.js` (4) grün; bestehende notif-Suiten 120/120 regressionsfrei.
+- Verify (manuell, Browser offen): Hub-Card-Badge erscheint bei ungelesenen Ereignissen, Klick navigiert; nur EINE Glocke sichtbar; Worker-Portal (einsatzportal-*) unberührt.
 ## P2 - Erste Pilotwochen (Betriebshaertung)
 ### P2.0 - INDIVIDUELL Tier-Schwellen migrieren (W-01 aus WAVE_02)
 - Status: GEPLANT
@@ -186,6 +208,16 @@ Letzte Aktualisierung: 2026-05-28 (Phase-4-Tracking-Infrastruktur angelegt. PHAS
 - **C.3** Rollout-Playbook als Warp-Notebook ("Create Tenant", "Seed Demo", "Assign Program Manager"). Senkt Pilot-Onboarding von Stunden auf Minuten.
 - **C.4** Phase 4 Track A: Marketplace Visibility Center als Post-Launch-Premium-Feature fuer PRO/INDIVIDUELL. Kontrolliertes oeffentliches Anbieterprofil, anonymisierte Profil-Analytics, verifizierte Deal-basierte Bewertungen, kuratierte Rankings. 13 Wellen (M-00 bis M-13), Masterprompt: `finalization/phase 4/MASTERPROMPTS.md` Abschnitt A. NICHT vor Phase 3 WAVE 04 + Track C Phase 0+1 starten (Cross-Cutting-Abhaengigkeit).
 ## Done
+- **Phase-5-Finalisierung 2026-06-03 (10-300-Kunden-Härtung, alle Diffs uncommitted = Owner-Gate)**
+  - **Provider-Abstraktion Billing (Phase D):** `billingProviderService` (stripe/manual/disabled, manual-first), `BILLING_PROVIDER`-Env, Webhook-Dispatch über `mapStripeEvent`, `payment_failed`→Observability (kein Auto-Cancel), SCC-Billing-Sicht + Inkasso-Worklist. Tests: billingProviderService 26/26, payment.route 32/32, staffBillingOverview 8/8.
+  - **Provider-Abstraktion Email (Phase E):** `emailProviderService` (console/smtp/sendgrid/disabled, KEINE neue Dependency, SendGrid via SMTP-Relay), `emailService` provider-fähig (Default-Pfad byte-identisch), `EMAIL_PROVIDER`/`SENDGRID_API_KEY`-Env, System-Health + SCC-Mail-Sicht. Tests: emailProviderService 21/21, systemHealth 17/17, staffMailCenter 10/10.
+  - **Incident-Modell (R6, Owner-freigegeben):** Mig **121** `ops_incidents` + `staffIncidentService` (read-only Aggregat + open/ack/resolve mit strengen Übergängen via SELECT…FOR UPDATE) + 5 SCC-Routen (requireStaff·mfaGuard·requireStepUp·requireConfirmAndReason·Audit) + Signals-Feed (§6.2) + React-Modul. Tests: staffIncidents 25/25.
+  - **Skalierungs-Index-Härtung (Phase Q):** Mig **122** (5 Cron-Sweep-Partial-Indizes) + Mig **123** (BRIN `product_analytics_events(occurred_at)`). ALLE ~20 Sweeps in internal.js gegen „wächst unbegrenzt?"-Diskriminator geprüft, jede Lücke gegen Quell-Migration verifiziert. DB-gated Index-Test `scaling-indexes.flow.test.js`.
+  - **N+1-Write-Sweep:** `searchSlaScan`/`demandSlaScan`/`productReleaseService.markAllSeenForUser` auf set-based UPDATE + Bulk-UNNEST (verhaltensgleich). `createStaffingCampaignInternal` (INPUT-skaliert + withTransaction/RETURNING/per-Row-Audit) bewusst owner-gated. Tests: slaSearchService 4/4, marketplaceService grün.
+  - **N+1-Read-Sweep:** `GET /support/lookup/orgs` (bis 100 Round-Trips/Request) → EINE windowed Query `loadRecentOpenCasesByOrg` (ROW_NUMBER PARTITION BY, ANY($1::uuid[])). Gesamter routes/+services/-Sweep sonst sauber. Tests: support.recentCasesByOrg 6/6 (Anti-N+1-Zählung) + DB-gated SQL-Smoke.
+  - **Theme-System (Phase J):** `ultra_premium` + Registry + Tier-2-Flags (`THEME_SWITCHER_ENABLED`/`ULTRA_PREMIUM_THEME_ENABLED`) → /bootstrap → SCC-Topbar-Cycle. envValidator Fail-Fast. Tests: themeRegistry 9/9, themeFlags.config 4/4, envValidator 18/18.
+  - **Restore-Drill-Fidelity (Phase P, R8):** `restore-test.sh` += `--single-transaction --exit-on-error` (False-Confidence behoben). `infrastructureSnapshotService.test.js` 36/36 (Backup-Staleness-Schwellen gepinnt).
+  - **Verbleibend (alle Owner-gated/extern):** echte Stripe-Keys/Price-IDs (R2) + Lifecycle-Reaktivierung (R1), echte SendGrid-Keys (R3), platform/worker_portal-Theme-Injektion + Theme-Control-Modul (R4), Auto-Alert-Notify-Hook (R6), echter Restore-Drill gegen Infra (R8), finale Preise/Rechtstexte (R9), Flag-Konsolidierung (R10), AI-Unsafe-Classifier (R7 Hälfte B, erst bei AI-Code). Laut `99_GOLIVE_GATE.md` Teil 4 erklärt der **Owner** „fertig".
 - **Finalisierungswelle 2026-05-28 (Enterprise Pack + WAVE_08-15)**
   - Enterprise Pack 1.0.0 komplett (8 Dateien in `docs/enterprise_pack/`): SECURITY_OVERVIEW, TENANT_ISOLATION_TESTS, OBSERVABILITY_OVERVIEW, CSRF_RATE_LIMIT_COVERAGE, BACKUP_RESTORE_TEST (Template), SLA_OPERATIONAL_COVERAGE, VERSION, GAPS
   - WAVE_08: Referral + Credits Cross-Tenant — 12/12 Tests gruen (`wave08CrossTenant.test.js`)

@@ -108,14 +108,25 @@ done
 pass "PostgreSQL-Container gestartet (${WAIT_COUNT}s)"
 
 # ── 2. DB-Dump einspielen ───────────────────────────────────────────────────
-log "Spiele DB-Dump ein..."
+# WICHTIG (Drill-Fidelity): Der Drill MUSS dieselben pg_restore-Flags nutzen wie
+# der echte Restore (scripts/restore.sh) — sonst validiert er eine andere
+# Operation als die, die im Ernstfall läuft. --single-transaction macht den
+# Restore atomar und impliziert --exit-on-error: beim ERSTEN Fehler bricht
+# pg_restore ab und liefert non-zero (set -e schlägt an). Ohne diese Flags
+# überspringt pg_restore non-fatale Fehler und endet mit Exit 0 → der Drill
+# könnte einen nur TEILWEISE eingespielten Dump fälschlich als „bestanden"
+# melden (False-Confidence). --exit-on-error ist redundant zu --single-transaction,
+# wird aber explizit gesetzt, damit die Absicht im Skript sichtbar bleibt.
+log "Spiele DB-Dump ein (atomar, --single-transaction wie im echten Restore)..."
 docker cp "$DB_DUMP" "$TEST_CONTAINER:/tmp/db.dump"
 docker exec "$TEST_CONTAINER" \
   pg_restore /tmp/db.dump \
     --dbname="$PG_DB" \
     --username="$PG_USER" \
     --no-owner \
-    --no-privileges
+    --no-privileges \
+    --single-transaction \
+    --exit-on-error
 
 # ── 3. Tabellenstruktur validieren ──────────────────────────────────────────
 log "Validiere Tabellenstruktur..."

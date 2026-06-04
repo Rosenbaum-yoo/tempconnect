@@ -21,11 +21,28 @@ Bei Widerspruch gilt: User-Anweisung > `AGENTS.md` > Skill > `CLAUDE.md`.
 - Keine spekulativen Features. Was nicht im Ticket steht, wird nicht gebaut.
 - Token-Budget pro Ticket beachten: lieber zwei kleine Tickets als eins, das auf halber Strecke abbricht.
 
+### Wirtschaftlichkeits-Lernfeld (Phase 5)
+
+Claude Code achtet aktiv auf die Projekt-Ökonomie und erfasst wirtschaftlich
+relevante Erkenntnisse über die Lernschleife (Abschnitt 8.2):
+
+- **Ressourcenkosten pro Kunde:** Welche Features verursachen bei Skalierung
+  (10 → 300 Kunden) hohe Hetzner-/DB-/Mail-Kosten? Erfassen.
+- **Teure Pfade:** Welche Queries/Jobs sind die teuersten? Caching/Index prüfen.
+- **Verschwendung vermeiden:** Kein Code für Auto-Billing, solange manuelle
+  Rechnung Default ist. Keine Features bauen, die kein Kunde nutzt.
+- **Token-Ökonomie:** Eigene Arbeitsweise effizient halten (gezielt lesen,
+  Diffs statt Volldateien, Arbeitsdateien als Gedächtnis).
+- **Skalierungs-Schwellen:** Was bei 10 Kunden ok ist, kann bei 300 brechen.
+  Bei jeder Änderung die Gate-Stufe (10/50/100/300) mitdenken.
+
+Wirtschaftliche Erkenntnisse → Kategorie WIRTSCHAFTLICHKEIT in der Lernschleife.
+Brauchen Owner-Bestätigung vor CLAUDE.md-Übernahme.
+
 ---
 
-## Rollenaufteilung (Owner-Vorgabe, Stand: 2026-05-24)
-- **Claude** uebernimmt den gesamten Stack: Frontend, Backend, DB, Security, APIs, Tests, React, UX, API-Client, E2E.
-- **ChatGPT** uebernimmt: Prompt-/Task-Design, Scope-Definition, Akzeptanzkriterien, Testfall-Formulierung.
+## Rollenaufteilung (Owner-Vorgabe, Stand: 2026-06-01)
+- **Claude** ist der einzige KI-Agent im Stack und uebernimmt den gesamten Stack: Frontend, Backend, DB, Security, APIs, Tests, React, UX, API-Client, E2E — inkl. Prompt-/Task-Design, Scope-Definition, Akzeptanzkriterien und Testfall-Formulierung.
 - Architektur- und Sicherheitsentscheidungen mit grosser Tragweite: immer Owner-Freigabe einholen.
 
 ### Arbeitsweise mit dem Owner
@@ -366,17 +383,52 @@ Dieser Abschnitt wird **ausschliesslich nach expliziter Owner-Bestaetigung** erw
 Format pro Eintrag: `[YYYY-MM-DD] [Kategorie] Erkenntnis in 1-3 Saetzen.`
 Kategorien: Bug-Pattern | Architektur | Security | Test | Performance | Wiederverwendbarkeit | Process
 
-(Bisher keine bestaetigen Eintraege — wird nach erstem Ticket-Zyklus gefuellt.)
+[2026-06-03] [Architektur] Config-Taxonomie 3-Tier (Owner-approved): jedes Flag/jeder Provider/jede Per-Kunde-Fähigkeit gehört in genau eine Schicht — Tier-1 Provider-Wahl (BILLING_PROVIDER/EMAIL_PROVIDER, manual/console-first), Tier-2 Env-Kill-Switch (THEME_SWITCHER_ENABLED, default-AN), Tier-3 Entitlement (Plan/Org). Provider-Services rein funktional (resolve/describe), KEINE neue Dependency wenn Relay reicht (SendGrid via SMTP). (Quelle: Phase D/E, billing/emailProviderService)
+[2026-06-03] [Performance] Skalierungs-Defekt-Diskriminator „läuft bei 10, bricht bei 300": NUR Mengen, die unbegrenzt mit Kunden-/Datenwachstum skalieren, sind Defekte. Bounded (slice/festes Array), false-positive (Loop baut JS-State, Query danach), already-batched (ANY($n)), cron/customer-cardinality und email/IO-dominiert NICHT anfassen. (Quelle: N+1-Read/Write-Sweep, support.js/slaSearchService)
+[2026-06-03] [Wiederverwendbarkeit] N+1 → set-based: Read-Loop → EINE windowed Query (ROW_NUMBER PARTITION BY + WHERE = ANY($1::uuid[])); Write-Loop → Bulk-INSERT … UNNEST + UPDATE … RETURNING. Triage: INPUT-skaliert (User wählt N) ODER withTransaction/RETURNING/per-Row-Audit-verflochten → owner-gated, nicht autonom batchen. (Quelle: loadRecentOpenCasesByOrg, createStaffingCampaignInternal)
+[2026-06-03] [Test] Zwei-Schicht-Disziplin für Query-Helfer: (1) DB-freier Mock-Pool-Test zählt Query-ANZAHL (Anti-N+1) + SQL-Form, (2) billiger DB-gated Smoke (skip:!hasDb) führt Helfer mit nicht-existenter UUID aus → 0 Treffer, aber Postgres parst/plant die VOLLE Query → fängt Spalten-/Alias-Tippfehler, die der Mock durchlässt. (Quelle: support.recentCasesByOrg + integration/*.flow.test.js)
+[2026-06-03] [Performance] Cron-Sweep-Indizes: jede gescannte Menge gegen „wächst unbegrenzt?" prüfen, Lücke DIREKT gegen die Quell-Migration verifizieren (Sub-Agent-Audit war unzuverlässig). BRIN statt btree für append-only/zeitkorrelierte Spalten auf heißem Insert-Pfad (keine Write-Amplification). (Quelle: Mig 122/123)
+[2026-06-03] [Process] Reifes Repo = Verifikation, nicht Neubau. „Fertig" entscheidet laut 99_GOLIVE_GATE.md Teil 4 der Owner, nicht Claude. Phase-5-Diffs bleiben uncommitted bis explizite Owner-Freigabe; verbleibende Punkte sind ausschließlich owner-gated/extern (Keys/Preise/Rechtstexte/Infra-Drill). (Quelle: finalization/ Master-Spec)
 
 ---
 
-## Selbst-Update-Mechanik (so waechst diese Datei)
-Nach jedem abgeschlossenen Ticket fuehrt Claude diesen Reflexionsschritt aus:
+## 8. Self-Update- und Lern-Mechanik
 
-1. Gibt es neue Patterns / Erkenntnisse / Antipatterns aus diesem Ticket, die fuer zukuenftige Tickets in TempConnect oder die 20 Folgeprojekte relevant sind?
-2. Wenn ja: Formuliere einen Update-Vorschlag fuer den Abschnitt "Erkenntnisse" in maximal 3 Saetzen.
-3. Frage Owner: "Soll ich folgenden Eintrag in CLAUDE.md ergaenzen? [Vorschlag]"
-4. Schreibe **NUR** nach expliziter Bestaetigung.
-5. Bei Ablehnung: Eintrag verwerfen, nicht zweimal vorschlagen.
+Claude Code verbessert dieses Dokument kontrolliert und kontinuierlich. Es gibt zwei Wege:
 
-Diese Mechanik verhindert sowohl Stagnation (Datei veraltet) als auch Verschmutzung (Datei wird zugmuellet).
+### 8.1 Manuelle Ergänzung (wie bisher)
+Wenn Claude Code während der Arbeit eine wiederverwendbare Erkenntnis gewinnt:
+1. Update-Vorschlag formulieren (max 3 Sätze)
+2. Owner fragen: "Soll ich folgenden Eintrag in CLAUDE.md übernehmen?"
+3. Nur nach expliziter Bestätigung schreiben
+4. Bei Ablehnung verwerfen, nicht zweimal vorschlagen
+
+### 8.2 Lernschleife (Phase 5, getaktet)
+Claude Code betreibt eine kontrollierte Lernschleife für Wirtschaftlichkeit und Effizienz:
+
+**Während der Arbeit:**
+- Erkennt Claude Code eine wiederverwendbare Lektion, fügt es EINE Zeile zu
+  `.claude/learning/insights_inbox.md` hinzu (billig, kein CLAUDE.md-Write).
+- Drei Kategorien: EFFIZIENZ (Token/Zeit), WIRTSCHAFTLICHKEIT (Projekt-Ökonomie), TECHNIK.
+- Nur wiederverwendbare Lektionen. Keine Einzelbugs, kein Triviales, keine Spekulation.
+
+**Am Session-Ende:**
+- `/scc-learn-distill` destilliert die Inbox zu Vorschlägen in `.claude/learning/proposals.md`.
+
+**Review:**
+- `/scc-learn-apply` übernimmt bestätigte Vorschläge in Abschnitt 10 + 11.
+- Auto-Approve nur für Kategorie EFFIZIENZ (siehe `.claude/learning/config.md`).
+- WIRTSCHAFTLICHKEIT und TECHNIK brauchen Owner-Bestätigung.
+
+**Konsolidierung:**
+- `/scc-learn-consolidate` hält Abschnitt 10 + 11 unter Token-Budget (100/60 Zeilen).
+
+### 8.3 Eiserne Regeln der Lernschleife
+- KEIN Auto-Write bei jeder Nachricht. CLAUDE.md aktualisiert sich nur getaktet.
+- KEINE Erkenntnis ohne Quelle (Datei/Welle).
+- KEINE Erkenntnis, die einer bestehenden Regel widerspricht, ohne Owner-Entscheidung.
+- CLAUDE.md bleibt schlank. Wachstum nur gegen Konsolidierung.
+- Jede Übernahme wird in `.claude/learning/applied_log.md` auditiert.
+- `.claude/` gehört NIE ins externe Release-Artefakt.
+
+Vollständige Spezifikation: `finalization/phase5_scale/SELF_UPDATING_CLAUDE_MD.md`.

@@ -4,6 +4,16 @@
 > Grundlage: echte Repo-Inspektion (Routes, Services, Middleware, Migrationen bis 120, package.json, config/index.js). Keine erfundenen Strukturen.
 > Legende Ist-Zustand: **stabil** = produktiv & getestet · **teilweise** = vorhanden, Phase-5-Ziel nicht voll erreicht · **fehlt** = Neubau nötig.
 
+> **Status-Delta 2026-06-03** (Snapshot oben bleibt als Phase-A-Stand erhalten; Detail im `finalization_worklog.md` + `final_acceptance_report_*`):
+> - **Billing/Stripe (D):** Provider-Abstraktion (`BILLING_PROVIDER`) + Webhook-Härtung + SCC-Billing-Sicht + Dunning-Observability (Inkasso-Worklist, `payment_failed`-Naht) **gebaut**. Sichtbarkeits-Hälfte geschlossen. Offen bleibt nur echte Keys/Price-IDs + Lifecycle-Reaktivierung (Owner, R1/R2).
+> - **Email (E):** `emailProviderService` (console/smtp/sendgrid/disabled, KEINE neue Dependency) + provider-fähiger `emailService` + System-Health/SCC-Mail-Sicht **gebaut**. Offen nur echte Keys (Owner, R3).
+> - **Theme-System (J):** war „fehlt" → `ultra_premium`-Theme + Registry + Flag-Gating + SCC-Scope end-to-end (Tier-2-Flags→/bootstrap→Topbar-Cycle) **gebaut**. Offen: platform/worker_portal-Static-Page-Injektion + Theme-Control-Modul (owner-gated, R4).
+> - **Monitoring/Incidents (I):** operativer Incident-Lebenszyklus **gebaut** — Mig **121** `ops_incidents` + Service + 5 SCC-Routen + Signals-Feed (R6). Offen nur Auto-Alert-Notify-Hook (Owner).
+> - **Performance/Skalierung (Q) + Index-Review:** 4 Skalierungs-Achsen geschlossen (unbounded Listen→Pagination · N+1-Write→set-based/UNNEST · Cron-Sweep-Indizes Mig **122**+**123** · N+1-Read `loadRecentOpenCasesByOrg`). Siehe `open_risks` „Geschlossene Skalierungs-Achsen".
+> - **Deployment/Backup (P):** Restore-Drill-Fidelity-Bug behoben (`restore-test.sh --single-transaction --exit-on-error`) + Infra-Snapshot-Severity-Matrix gepinnt (R8). Offen nur echter Infra-Drill (Owner).
+> - **Provider-Env (R5):** `BILLING_PROVIDER`/`EMAIL_PROVIDER`/`SENDGRID_API_KEY`/`THEME_SWITCHER_ENABLED`/`ULTRA_PREMIUM_THEME_ENABLED` jetzt in allen 3 `.env*.example` + `envValidator` (Fail-Fast). Offen: INFRASTRUCTURE_PROVIDER/AI_OPS_ENABLED (erst bei Code-Verdrahtung).
+> - **Höchste Migration:** 120 → **123**. **Alle Phase-5-Diffs uncommitted (Owner-Gate).**
+
 | Bereich | Ist-Zustand | Bestehende Dateien (repräsentativ) | Ziel 10 | Ziel 50 | Ziel 100 | Ziel 300 | Risiko | Änderung (Phase) | Tests | Gate |
 |---|---|---|---|---|---|---|---|---|---|---|
 | Auth / Session | stabil | api/middleware/auth.js, services/authService.js, routes/auth.js, sso.js, mfa.js, totpService.js | ok | ok | ok | ok | niedrig | keine | vorhanden (authService.test) | 10 ✓ |

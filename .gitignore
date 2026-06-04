@@ -50,7 +50,16 @@ desktop.ini
 .warp/
 
 # Agenten / Claude Code / lokale AI-Workspaces
-.claude/
+# .claude/ ist NICHT mehr komplett ignoriert: Lern-Tooling wird versioniert
+# (commands/, hooks/, settings.json, learning/config.md + applied_log.md).
+# Volatile Lern-Dateien + lokale Workspaces (settings.local.json, worktrees/) bleiben ignoriert.
+.claude/*
+!.claude/commands/
+!.claude/hooks/
+!.claude/settings.json
+!.claude/learning/
+.claude/learning/insights_inbox.md
+.claude/learning/proposals.md
 .agents/
 .claire/
 .clone/

@@ -151,8 +151,8 @@ Wenn diese Fragen nicht beantwortet werden können → Stop-Regel 5/6 greift.
 ## 7. Agenten-Rollenaufteilung
 
 Aus `AGENTS.md` und `CLAUDE.md`:
-- **Claude / Claude Code:** primär Frontend, React, UX, API-Client, E2E
-- **Backend / DB / Security / APIs / Tests:** primär bei Warp/Oz, AUSSER der Owner hat ausdrücklich eine Ausnahme freigegeben
+- **Claude / Claude Code:** einziger KI-Agent im Stack — gesamter Stack (Frontend, React, UX, API-Client, E2E, Backend, DB, Security, APIs, Tests).
+- Keine Territory-Sperren mehr.
 
-Wenn Claude Code einen Backend-lastigen Prompt ausführt:
-→ am Antwort-Beginn markieren: `"Owner-Freigabe für Backend-Eingriff erforderlich"` ODER `"Owner-Freigabe liegt im Prompt vor"`
+Vor Architektur-/Security-/DB-Aenderungen mit grosser Tragweite gilt weiterhin:
+→ Owner-Freigabe einholen, bevor der Eingriff erfolgt.

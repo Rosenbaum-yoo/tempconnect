@@ -4,11 +4,9 @@ gelten. Detaillierter Projekt-Kontext (Architektur, Feature-Staende, Kern-Dateie
 UI-Entscheidungen, Procurement-Cluster etc.) steht im Skill:
 `.agents/skills/tempconnect-project/SKILL.md` - dieser Skill wird automatisch
 geladen, sobald in `tempconnect_docker` gearbeitet wird.
-## Dauerhafte Rollenaufteilung (Owner-Vorgabe)
-- Warp/Oz und/ oder Claude code uebernimmt ausschliesslich: **Backend / DB / Security / APIs / Tests**.
-- Claude uebernimmt ausschliesslich: **Frontend / React / UX / API-Client / E2E**.
-- Frontend-Implementierungen durch Warp/Oz nur bei expliziter Nutzerfreigabe.
-- Backend-/DB-Implementierungen durch Claude generell immer nicht nur bei expliziter Nutzerfreigabe.
+## Dauerhafte Rollenaufteilung (Owner-Vorgabe, Stand: 2026-06-01)
+- **Claude** ist der einzige KI-Agent im Stack und uebernimmt den **gesamten Stack**: Frontend, React, UX, API-Client, E2E, Backend, DB, Security, APIs, Tests.
+- Es gibt keine Territory-Sperren mehr. Vor Architektur-/Security-/DB-Aenderungen mit grosser Tragweite: Owner-Freigabe einholen.
 ## Arbeitshaltung
 - Du arbeitest seit Tag 1 an TempConnect. Kenne Zielbild, Architektur und Produktlogik.
 - Inkrementell arbeiten, bestehende Strukturen ZUERST pruefen und erweitern statt neu bauen.
@@ -19,7 +17,7 @@ geladen, sobald in `tempconnect_docker` gearbeitet wird.
 - Secrets NIE in Dateien; ausschliesslich Umgebungsvariablen.
 - SQL-Aenderungen IMMER als neue Migration unter `sql/migrations/`.
 - Kein Commit ohne explizite Aufforderung durch den Nutzer.
-- Bei Commits Co-Author-Line anhaengen: `Co-Authored-By: Oz <oz-agent@warp.dev>`.
+- Bei Commits Co-Author-Line anhaengen: `Co-Authored-By: Claude <noreply@anthropic.com>`.
 - Frontend: IMMER `esc()` fuer user-supplied Werte in `innerHTML`.
 - Backend ist fuehrend bei Berechtigungen, Frontend spiegelt nur wider.
 - Deutsche Kommentare im Code beibehalten.
@@ -66,6 +64,10 @@ Format:
 - Datum-/Monatsmarker beibehalten ("April 2026" etc.).
 - Keine Duplikate; veraltete Bullets ersetzen, nicht zusaetzlich eintragen.
 - Kein Commit der Skill-Aenderung - nur Datei-Update.
+## Skalierungs-Haertung (verbindlich, "laeuft bei 10, bricht bei 300")
+- Vor "Defekt" den Diskriminator anwenden: NUR Mengen, die UNBEGRENZT mit Kunden-/Datenwachstum skalieren, sind ein Skalierungs-Defekt. NICHT anfassen: bounded (`slice`/festes Array), false-positive (Loop baut JS-State, Query DANACH), already-batched (`ANY($n)`), cron/customer-cardinality, email/IO-dominiert.
+- N+1 set-based aufloesen: Read → EINE windowed Query (`ROW_NUMBER … PARTITION BY` + `= ANY($1::uuid[])`); Write → Bulk-`UNNEST` + `UPDATE … RETURNING`. ABER: INPUT-skaliert (User waehlt N) ODER `withTransaction`/`RETURNING`/per-Row-Audit-verflochten → owner-gated, nicht autonom batchen.
+- Reifes Repo = Verifikation, nicht Neubau. Index-Luecke direkt gegen die Quell-Migration pruefen (nicht gegen Sub-Agent-Audit). "Fertig" erklaert der Owner, nicht der Agent.
 ## Verifikation vor Abschluss
 - Bei Code-Aenderungen: `node --check` bzw. relevantes Lint/Typecheck laufen lassen.
 - Tests dort ausfuehren, wo betroffen; nicht blind "alle Tests" starten.

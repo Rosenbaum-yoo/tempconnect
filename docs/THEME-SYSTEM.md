@@ -57,9 +57,19 @@ Availability can be gated **without editing the file** via an optional global se
 - `ultraPremiumEnabled: false` → Ultra Premium drops out of `list()`/`cycle()`, and a stored `ultra_premium` falls back to `dark`.
 - Both default to **enabled** when the global is absent.
 
-> **Phase J / Block 2 (geplant):** the SCC **Theme Control** (Owner) exposes these as env flags
-> `THEME_SWITCHER_ENABLED` / `ULTRA_PREMIUM_THEME_ENABLED`, injects them into `window.__TC_THEME_FLAGS__`,
-> and adds per-scope (`platform` / `worker_portal` / `scc`) selection, preview, reset and audit.
+> **Phase J / Block 2 — Status (2026-06-03):** Die Env-Kill-Switches `THEME_SWITCHER_ENABLED` /
+> `ULTRA_PREMIUM_THEME_ENABLED` **sind umgesetzt** (Config-Taxonomie Tier-2, Default-AN; nur
+> `false/0/no/off` schaltet ab): `api/config/index.js` liest sie, `api/config/envValidator.js`
+> validiert sie gegen Boolean-Tokens (Fail-Fast bei Tippfehlern wie `=nein`), dokumentiert in
+> allen `.env*.example`.
+> **Geliefert wird bisher nur der SCC-Scope:** Die SCC-React-App (`frontend/src/staff/`) erhält die
+> Flags über ihr **eigenes** Bootstrap (`/staff/api/.../bootstrap` → `data.theme`) und nutzt einen
+> eigenen Topbar-Registry-Cycle + `localStorage["scc-theme"]` — **getrennt** von diesem
+> Static-Page-System hier (`window.TC.theme`, `localStorage["tempconnect-theme"]`).
+> **Owner-gated offen:** (a) Injektion derselben Flags in `window.__TC_THEME_FLAGS__` für die ~80
+> statischen Seiten (`platform` / `worker_portal` — braucht erst einen Runtime-Config-Auslieferungsweg,
+> kein Shared-Head/Bootstrap vorhanden); (b) das per-Scope **Theme-Control**-Modul (Vorschau / Reset /
+> Audit, eigener Settings-Store/Migration).
 
 ## Toggle UI
 
