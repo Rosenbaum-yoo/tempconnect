@@ -1,0 +1,8 @@
+{
+  "hooks": {
+    "Stop": [{
+      "matcher": "",
+      "hooks": [{"type": "command", "command": "bash .claude/hooks/session-end-distill.sh"}]
+    }]
+  }
+}
