@@ -118,7 +118,12 @@ export const config = {
   WARP_REMOTE_APP_DIR: process.env.WARP_REMOTE_APP_DIR || "/opt/tempconnect",
   WARP_REMOTE_HEALTH_URL: process.env.WARP_REMOTE_HEALTH_URL || "http://127.0.0.1:8080/health",
   INFRA_SNAPSHOT_INGEST_ENABLED: process.env.INFRA_SNAPSHOT_INGEST_ENABLED || "true",
-  INFRA_SNAPSHOT_MAX_BATCH: Number(process.env.INFRA_SNAPSHOT_MAX_BATCH) || 50
+  INFRA_SNAPSHOT_MAX_BATCH: Number(process.env.INFRA_SNAPSHOT_MAX_BATCH) || 50,
+  // Theme-System (Phase J). Tier-2 Env-Kill-Switch: standardmäßig AN, nur explizit
+  // "false/0/no/off" schaltet ab. THEME_SWITCHER_ENABLED steuert den Umschalter
+  // insgesamt, ULTRA_PREMIUM_THEME_ENABLED die Verfügbarkeit des Ultra-Premium-Themes.
+  THEME_SWITCHER_ENABLED: !["false", "0", "no", "off"].includes(String(process.env.THEME_SWITCHER_ENABLED || "").toLowerCase().trim()),
+  ULTRA_PREMIUM_THEME_ENABLED: !["false", "0", "no", "off"].includes(String(process.env.ULTRA_PREMIUM_THEME_ENABLED || "").toLowerCase().trim())
 };
 
 function hasPinoPretty() {

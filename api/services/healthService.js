@@ -5,6 +5,10 @@
 
 import { isQueueAvailable } from "../queue/connection.js";
 import { metricsRegistry } from "../utils/metrics.js";
+import { config } from "../config/index.js";
+import { describeBilling, BILLING_PROVIDERS } from "./billingProviderService.js";
+import { describeEmail, EMAIL_PROVIDERS } from "./emailProviderService.js";
+import { listFeatureFlags } from "../config/featureFlags.js";
 
 /* ── Basis-Checks ──────────────────────────────────────── */
 
@@ -24,6 +28,69 @@ export async function getMigrations(pool) {
   return r.rows;
 }
 
+/* ── Provider-Readiness (Phase I) ──────────────────────── */
+
+/** Zaehlt aktive (true) Capability-Flags ohne Secret-Leak. */
+function countTrue(obj) {
+  if (!obj || typeof obj !== "object") return 0;
+  return Object.values(obj).filter(Boolean).length;
+}
+
+/**
+ * Bildet die billingProviderService-Selbstauskunft auf einen Health-Component-Status ab.
+ * Semantik (Phase I): ein bewusster Fallback ohne externe Keys ("manual"/"disabled")
+ * ist `unconfigured` (NICHT "failed") — auch wenn der Provider informelle Hinweise
+ * liefert. Erst wenn der externe Provider (stripe) GEWAEHLT, aber nicht abrechnungs-
+ * faehig ist (Key/Webhook fehlt → Warnungen), ist der Status `degraded`; ein echt
+ * aktiver Stripe ohne Warnungen ist `ok`. Exponiert nur Provider-Name, Quelle,
+ * Booleans, Zaehler und die bereits secret-freien Warntexte — keine Schluesselwerte.
+ */
+function billingHealth(desc) {
+  const d = desc || {};
+  const warnings = Array.isArray(d.warnings) ? d.warnings : [];
+  const provider = d.provider || "unknown";
+  const automated = provider === BILLING_PROVIDERS.STRIPE && !!d.stripe_configured;
+  let status;
+  if (provider !== BILLING_PROVIDERS.STRIPE) status = "unconfigured"; // manual/disabled = bewusster Default
+  else if (automated && !warnings.length) status = "ok";
+  else status = "degraded"; // stripe gewaehlt, aber Key/Webhook fehlt
+  return {
+    status,
+    provider,
+    source: d.source || "derived",
+    automated,
+    capabilities_active: countTrue(d.capabilities),
+    warnings
+  };
+}
+
+/**
+ * Bildet die emailProviderService-Selbstauskunft auf einen Health-Component-Status ab.
+ * console/disabled = nur Logging (kein externer Transport) → immer `unconfigured`, auch
+ * mit Dev-Hinweis (kein Fehler). Ein externer Transport (smtp/sendgrid) ist `ok`, wenn
+ * lieferfaehig und warnungsfrei, sonst `degraded` (gewaehlt, aber Key fehlt).
+ */
+function emailHealth(desc) {
+  const d = desc || {};
+  const warnings = Array.isArray(d.warnings) ? d.warnings : [];
+  const provider = d.provider || "unknown";
+  const external = provider === EMAIL_PROVIDERS.SMTP || provider === EMAIL_PROVIDERS.SENDGRID;
+  const caps = d.capabilities || {};
+  const outbound = external && !!caps.outbound_delivery;
+  let status;
+  if (!external) status = "unconfigured"; // console/disabled = nur Logging
+  else if (outbound && !warnings.length) status = "ok";
+  else status = "degraded"; // externer Provider gewaehlt, aber nicht lieferfaehig
+  return {
+    status,
+    provider,
+    source: d.source || "derived",
+    outbound,
+    capabilities_active: countTrue(caps),
+    warnings
+  };
+}
+
 /* ── System Diagnostics ────────────────────────────────── */
 
 /**
@@ -32,10 +99,13 @@ export async function getMigrations(pool) {
  * Exponiert keine Secrets oder sensitive Pfade.
  *
  * @param {import('pg').Pool} pool
+ * @param {{ config?: object, env?: object }} [opts] - optionale Injektion (Tests); Default = globale config / process.env.
  * @returns {Promise<Object>}
  */
-export async function getSystemDiagnostics(pool) {
+export async function getSystemDiagnostics(pool, opts = {}) {
   const started = Date.now();
+  const cfg = opts.config || config;
+  const env = opts.env || process.env;
   const components = {};
 
   // ── Database ──────────────────────────────────────────
@@ -110,18 +180,44 @@ export async function getSystemDiagnostics(pool) {
     ...httpMetrics
   };
 
+  // ── Integrations / Provider-Readiness (Phase I) ───────
+  // describe*() ist rein funktional (kein IO) → keine neue Latenz/Fehlerquelle im
+  // Health-Pfad. Ein optionaler, nicht konfigurierter Provider ist "unconfigured"
+  // (wie redis) und zieht den Gesamtstatus NICHT; nur echte Fehlkonfiguration
+  // ("degraded") eskaliert. Exponiert keine Secrets.
+  try {
+    components.billing = billingHealth(describeBilling(cfg));
+    components.email = emailHealth(describeEmail(cfg));
+  } catch (_err) {
+    components.billing = { status: "unconfigured", provider: "unknown", warnings: [] };
+    components.email = { status: "unconfigured", provider: "unknown", warnings: [] };
+  }
+
   // ── Overall Status ────────────────────────────────────
   const statuses = Object.values(components).map(c => c.status);
   const hasCritical = statuses.includes("critical");
   const hasDegraded = statuses.includes("degraded");
   const overall = hasCritical ? "critical" : hasDegraded ? "degraded" : "ok";
 
+  // ── Plattform-Feature-Flags (Ebene B, Introspektion) ──
+  // Reine Konfig-Sicht aus dem typed Registry (config/featureFlags.js) — secret-frei
+  // (nur key/enabled/default/description/constraint). Bewusst NICHT in `components`:
+  // ein Kill-Switch an/aus ist Konfigurationszustand, kein Liveness-Signal und darf
+  // den Gesamtstatus nicht eskalieren. listFeatureFlags ist rein funktional (kein IO).
+  let feature_flags = [];
+  try {
+    feature_flags = listFeatureFlags(env);
+  } catch (_err) {
+    feature_flags = [];
+  }
+
   return {
     status: overall,
     checked_at: new Date().toISOString(),
     response_ms: Date.now() - started,
     version: process.env.npm_package_version || "1.0.0",
-    components
+    components,
+    feature_flags
   };
 }
 

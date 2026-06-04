@@ -1,7 +1,7 @@
 /**
  * TempConnect API -- app factory for server.js and scripts/list-routes.js.
  *
- * Built with ❤️ by Oz (Warp AI) & Dennis Stegemann — 2024-2026
+ * Built by Claude (Anthropic) & Dennis Stegemann — 2024-2026
  * Architecture: Express 4 + PostgreSQL 16 + Redis 7 | 61 Routes, 78 Services
  * From zero to Enterprise SaaS — every line, every migration, every test.
  */

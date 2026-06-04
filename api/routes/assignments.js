@@ -5,6 +5,7 @@ import { z } from "zod";
 import { Router } from "express";
 import * as assignmentService from "../services/assignmentService.js";
 import { requirePermission } from "../middleware/rbac.js";
+import { requireOrgFeature } from "../middleware/entitlementGuard.js";
 import { assertLocationBelongsToOrg, assertDepartmentBelongsToOrg, OrgBoundaryError } from "../utils/orgBoundary.js";
 
 const createSchema = z.object({
@@ -35,6 +36,13 @@ export function createAssignmentsRouter(deps) {
   const { pool, requireAuth, logger } = deps;
   const router = Router();
   const rperm = (p) => requirePermission(p, { pool, logger });
+  // Entitlement-Gate: Assignment-Management ist als INDIVIDUELL-Feature verkauft
+  // (planFeatures: assignments). Pilot-aware via requireOrgFeature.
+  // BEWUSST nur auf die KAEUFER-exklusiven Schreibpfade (create + edit) angewandt:
+  // Lesen (view) sowie Lifecycle (transition/complete) sind zweiseitig — die
+  // Lieferanten-/Agentur-Seite (supplier_org_id) ist dort legitim beteiligt und
+  // darf NICHT durch das kaeuferseitige Feature-Gate ausgesperrt werden.
+  const assignmentsGate = requireOrgFeature("assignments", { pool, logger });
 
   router.get("/assignments", requireAuth, rperm("assignment.view"), async (req, res) => {
     // SEC-002: Org-Scoping — server-resolved, both buyer AND supplier perspective
@@ -64,7 +72,7 @@ export function createAssignmentsRouter(deps) {
     res.json({ items, total: items.length });
   });
 
-  router.post("/assignments", requireAuth, rperm("assignment.create"), async (req, res) => {
+  router.post("/assignments", requireAuth, assignmentsGate, rperm("assignment.create"), async (req, res) => {
     const parsed = createSchema.safeParse(req.body);
     if (!parsed.success) return res.status(400).json({ error: "VALIDATION", details: parsed.error.issues });
     try {
@@ -93,7 +101,7 @@ export function createAssignmentsRouter(deps) {
     res.json(assignment);
   });
 
-  router.patch("/assignments/:id", requireAuth, rperm("assignment.edit"), async (req, res) => {
+  router.patch("/assignments/:id", requireAuth, assignmentsGate, rperm("assignment.edit"), async (req, res) => {
     const partial = createSchema.partial().safeParse(req.body);
     if (!partial.success) return res.status(400).json({ error: "VALIDATION", details: partial.error.issues });
     const existing = await assignmentService.getAssignment(pool, req.params.id);

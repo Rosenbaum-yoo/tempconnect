@@ -3,6 +3,8 @@
  * Liest bestehende Services + Tabellen. Dupliziert keine Business-Logik.
  */
 
+import { getSystemDiagnostics } from "./healthService.js";
+
 export async function loadExecutiveSnapshot(pool) {
   const snapshot = {
     generated_at: new Date().toISOString(),
@@ -83,6 +85,7 @@ export async function loadOperationsSnapshot(pool) {
     generated_at: new Date().toISOString(),
     recent_runs: [],
     infra_health: [],   // Letzter Snapshot pro Host (max. 24 h alt)
+    service_health: null, // Live-Diagnostics (DB/Redis/Process/API/Billing/Email) — Phase I Slice 2
     errors: []
   };
 
@@ -113,6 +116,17 @@ export async function loadOperationsSnapshot(pool) {
     `);
     snapshot.infra_health = rows;
   } catch { /* Tabelle optional — Soft-Fail */ }
+
+  // Live-Service-Health (Phase I Slice 2): wiederverwendet getSystemDiagnostics (db/redis/
+  // process/api/billing/email). Read-only, secret-frei. Soft-Fail: ein Diagnostics-Fehler
+  // darf den Operations-Snapshot nicht kippen — Operator sieht weiter Runbooks + Infra.
+  // BEWUSST als LETZTE pool-Berührung (SELECT 1 in getSystemDiagnostics) → bestehende
+  // Pool-Sequenz-Tests (runbook_runs, infra_health) bleiben index-gültig.
+  try {
+    snapshot.service_health = await getSystemDiagnostics(pool);
+  } catch (err) {
+    snapshot.errors.push({ area: "service_health", error: String(err.code || err.message || err) });
+  }
 
   return snapshot;
 }

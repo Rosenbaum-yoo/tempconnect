@@ -208,9 +208,15 @@ export async function ackModalDismissed(pool, userId, releaseId) {
 export async function markAllSeenForUser(pool, userId, getUserAndPlan) {
   const visible = await listVisibleForUser(pool, userId, getUserAndPlan, { inAppOnly: false });
   const publishedIds = visible.filter((i) => i.status === "published").map((i) => i.id);
-  for (const id of publishedIds) {
-    await ackSeen(pool, userId, id);
-  }
+  if (publishedIds.length === 0) return 0;
+  await pool.query(
+    `INSERT INTO user_product_release_ack (user_id, release_id, seen_at)
+     SELECT $1, rid, NOW()
+       FROM UNNEST($2::uuid[]) AS rid
+     ON CONFLICT (user_id, release_id)
+       DO UPDATE SET seen_at = COALESCE(user_product_release_ack.seen_at, NOW())`,
+    [userId, publishedIds]
+  );
   return publishedIds.length;
 }
 

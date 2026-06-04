@@ -278,8 +278,10 @@ export function createInternalRouter(deps) {
     const clientIp = req.ip || req.socket?.remoteAddress || "unknown";
     try {
       const { scanAndEnforceUsageLimits } = await import("../services/usageMeteringService.js");
-      const result = await scanAndEnforceUsageLimits(pool);
-      logger.info({ path: "usage-limit-scan", clientIp, ...result }, "Cron usage-limit-scan completed");
+      const limit = Math.min(500, parseInt(req.body?.batch_size, 10) || 100);
+      const offset = Math.max(0, parseInt(req.body?.offset, 10) || 0);
+      const result = await scanAndEnforceUsageLimits(pool, { limit, offset });
+      logger.info({ path: "usage-limit-scan", clientIp, limit, offset, ...result }, "Cron usage-limit-scan completed");
       res.json({ ok: true, ...result });
     } catch (e) {
       logger.error({ err: e, path: "usage-limit-scan", clientIp }, "Cron usage-limit-scan failed");

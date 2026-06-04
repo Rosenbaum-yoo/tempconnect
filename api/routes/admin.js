@@ -181,13 +181,18 @@ export function createAdminRouter(deps) {
   /* ── Organizations ──────────────────────── */
   router.get("/admin/organizations", requireAuth, requireAdmin, async (req, res) => {
     try {
+      const limit = parseIntegerParam(req.query.limit, { defaultValue: 50, min: 1, max: 200 });
+      const offset = parseIntegerParam(req.query.offset, { defaultValue: 0, min: 0, max: 500000 });
       const { rows } = await pool.query(
         `SELECT o.*,
                 (SELECT COUNT(*)::int FROM org_memberships WHERE org_id = o.id AND is_active = TRUE) AS member_count,
                 (SELECT COUNT(*)::int FROM org_locations WHERE org_id = o.id AND is_active = TRUE) AS location_count
-         FROM organizations o ORDER BY o.created_at DESC LIMIT 200`
+         FROM organizations o ORDER BY o.created_at DESC LIMIT $1 OFFSET $2`,
+        [limit, offset]
       );
-      res.json({ success: true, data: { items: rows } });
+      const { rows: countRows } = await pool.query(`SELECT COUNT(*)::int AS total FROM organizations`);
+      const total = Number.parseInt(countRows[0]?.total || 0, 10) || 0;
+      res.json({ success: true, data: { items: rows, total, limit, offset } });
     } catch (e) { logger.error({ err: e }, "admin orgs"); res.status(500).json({ success: false, error: { code: "SERVER_ERROR" } }); }
   });
 
@@ -234,8 +239,8 @@ export function createAdminRouter(deps) {
       const limit = Math.min(200, parseInt(req.query.limit) || 100);
       const offset = Math.max(0, parseInt(req.query.offset) || 0);
       const status = sanitize(req.query.status || "", 20) || null;
-      const items = await requestService.listRequestsAdmin(pool, { limit, offset, status });
-      res.json({ success: true, data: { items } });
+      const { items, total } = await requestService.listRequestsAdmin(pool, { limit, offset, status });
+      res.json({ success: true, data: { items, total, limit, offset } });
     } catch (e) {
       logger.error({ err: e }, "admin requests list");
       res.status(500).json({ success: false, error: { code: "SERVER_ERROR" } });
@@ -291,8 +296,8 @@ export function createAdminRouter(deps) {
       const limit = Math.min(200, parseInt(req.query.limit) || 50);
       const offset = Math.max(0, parseInt(req.query.offset) || 0);
       const status = sanitize(req.query.status || "", 40) || null;
-      const items = await strategicCollaborationService.listAllRequestsAdmin(pool, { limit, offset, status });
-      res.json({ success: true, data: { items } });
+      const { items, total } = await strategicCollaborationService.listAllRequestsAdmin(pool, { limit, offset, status });
+      res.json({ success: true, data: { items, total, limit, offset } });
     } catch (e) {
       logger.error({ err: e }, "admin strategic-collaboration list");
       res.status(500).json({ success: false, error: { code: "SERVER_ERROR" } });

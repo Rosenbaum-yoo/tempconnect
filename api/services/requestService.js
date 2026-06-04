@@ -212,7 +212,11 @@ export async function listRequestsAdmin(pool, opts = {}) {
       LIMIT $${limIdx} OFFSET $${offIdx}`,
     params
   );
-  return rows;
+  const { rows: countRows } = await pool.query(
+    `SELECT COUNT(*)::int AS total FROM requests r ${where}`,
+    status ? [status] : []
+  );
+  return { items: rows, total: countRows[0]?.total || 0 };
 }
 
 /* ── Status-Updates ────────────────────────────────────────── */

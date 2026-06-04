@@ -20,6 +20,9 @@ import * as combinedInbox from "../services/staffCombinedInboxService.js";
 import * as subLifecycle from "../services/subscriptionLifecycleService.js";
 import * as customerOps from "../services/staffCustomerOperationsService.js";
 import * as staffBilling from "../services/staffBillingOverviewService.js";
+import * as staffMail from "../services/staffMailCenterService.js";
+import * as staffIncidents from "../services/staffIncidentService.js";
+import { config } from "../config/index.js";
 import { withTransaction } from "../utils/transaction.js";
 import {
   notifyRequestStatusChanged,
@@ -121,6 +124,10 @@ export function createStaffControlCenterRouter(deps) {
           authorized_at: req.session?.sccAuthorizedAt || null
         },
         hetzner_mode: hetzner.HETZNER_MODE,
+        theme: {
+          switcher_enabled: config.THEME_SWITCHER_ENABLED,
+          ultra_premium_enabled: config.ULTRA_PREMIUM_THEME_ENABLED
+        },
         executive_summary: executive,
         platform_summary: platform
       }
@@ -585,6 +592,148 @@ export function createStaffControlCenterRouter(deps) {
 
   router.get("/billing/meta", requireStaff, (_req, res) => {
     res.json({ success: true, data: staffBilling.meta() });
+  });
+
+  // ── Mail Center (Phase E/F): read-only Operator-Sicht auf den Mailversand.
+  //    Provider-Status (describeEmail) + plattformweite Zustell-/Kanal-Summen
+  //    aus subscription_notification_log + letzte Notifications (PII-maskiert).
+  //    Aggregation only — keine Mutation, keine Migration, kein Versand.
+  router.get("/mail/overview", requireStaff, async (req, res) => {
+    try {
+      const data = await staffMail.getMailOverview(pool, {
+        status: req.query.status || null,
+        limit: req.query.limit
+      });
+      res.json({ success: true, data });
+    } catch (err) {
+      logger?.error({ err }, "SCC mail/overview error");
+      res.status(500).json({ success: false, error: { code: "SCC_INTERNAL_ERROR" } });
+    }
+  });
+
+  router.get("/mail/meta", requireStaff, (_req, res) => {
+    res.json({ success: true, data: staffMail.meta() });
+  });
+
+  // ── Operativer Incident-Track (SCC Operations) ────────────────────────────
+  //    ops_incidents (Mig 121): Operator eroeffnet/quittiert/schliesst Betriebs-
+  //    vorfaelle, die ueberdauern. Lesepfad read-only (Summen je status/severity +
+  //    Liste); Mutationen mit Step-Up (medium) + Confirm/Reason + Audit je Schritt.
+  //    Statusmaschine: open -> acknowledged -> resolved (keine Rueckspruenge).
+  router.get("/incidents", requireStaff, async (req, res) => {
+    try {
+      const data = await staffIncidents.listIncidents(pool, {
+        status: req.query.status || null,
+        severity: req.query.severity || null,
+        limit: req.query.limit
+      });
+      res.json({ success: true, data });
+    } catch (err) {
+      logger?.error({ err }, "SCC incidents/list error");
+      res.status(500).json({ success: false, error: { code: "SCC_INTERNAL_ERROR" } });
+    }
+  });
+
+  router.get("/incidents/meta", requireStaff, (_req, res) => {
+    res.json({ success: true, data: staffIncidents.meta() });
+  });
+
+  // Read-only: offene Betriebssignale OHNE Incident (Eroeffnungs-Vorschlaege).
+  router.get("/incidents/signals", requireStaff, async (req, res) => {
+    try {
+      const data = await staffIncidents.listOpenSignals(pool, {
+        window_hours: req.query.window_hours,
+        limit: req.query.limit
+      });
+      res.json({ success: true, data });
+    } catch (err) {
+      logger?.error({ err }, "SCC incidents/signals error");
+      res.status(500).json({ success: false, error: { code: "SCC_INTERNAL_ERROR" } });
+    }
+  });
+
+  router.post("/incidents", requireStaff, mfaGuard, requireStepUp, requireConfirmAndReason, async (req, res) => {
+    const result = await staffIncidents.openIncident(pool, {
+      title: req.body?.title,
+      severity: req.body?.severity,
+      source: req.body?.source,
+      signal_code: req.body?.signal_code,
+      org_id: req.body?.org_id,
+      details: req.body?.details,
+      opened_by: req.sccActorId,
+      opened_reason: req.sccReason
+    });
+    if (!result.ok) {
+      const code = result.error || "INCIDENT_OPEN_FAILED";
+      await writeStaffAudit(pool, {
+        actorId: req.sccActorId, area: "operations",
+        action: "staff_control.incident.open",
+        entityType: "ops_incident", entityId: null,
+        status: "error", reason: req.sccReason, confirmed: true, riskLevel: "medium",
+        ...auditContextFromReq(req), details: { error: code }
+      });
+      return res.status(400).json({ success: false, error: { code } });
+    }
+    await writeStaffAudit(pool, {
+      actorId: req.sccActorId, area: "operations",
+      action: "staff_control.incident.open",
+      entityType: "ops_incident", entityId: result.row.id,
+      status: "ok", reason: req.sccReason, confirmed: true, riskLevel: "medium",
+      ...auditContextFromReq(req),
+      details: { severity: result.row.severity, source: result.row.source, signal_code: result.row.signal_code }
+    });
+    res.status(201).json({ success: true, data: result.row });
+  });
+
+  router.post("/incidents/:id/acknowledge", requireStaff, mfaGuard, requireStepUp, requireConfirmAndReason, async (req, res) => {
+    const result = await staffIncidents.acknowledgeIncident(pool, req.params.id, { actorId: req.sccActorId });
+    if (!result.ok) {
+      const code = result.error || "INCIDENT_ACK_FAILED";
+      const status = code === "INCIDENT_NOT_FOUND" ? 404 : (code === "INVALID_TRANSITION" || code === "NO_CHANGE") ? 409 : 400;
+      await writeStaffAudit(pool, {
+        actorId: req.sccActorId, area: "operations",
+        action: "staff_control.incident.acknowledge",
+        entityType: "ops_incident", entityId: req.params.id,
+        status: "error", reason: req.sccReason, confirmed: true, riskLevel: "medium",
+        ...auditContextFromReq(req), details: { error: code, current: result.current || null }
+      });
+      return res.status(status).json({ success: false, error: { code, current: result.current || null } });
+    }
+    await writeStaffAudit(pool, {
+      actorId: req.sccActorId, area: "operations",
+      action: "staff_control.incident.acknowledge",
+      entityType: "ops_incident", entityId: req.params.id,
+      status: "ok", reason: req.sccReason, confirmed: true, riskLevel: "medium",
+      ...auditContextFromReq(req), details: { to: "acknowledged" }
+    });
+    res.json({ success: true, data: result.row });
+  });
+
+  router.post("/incidents/:id/resolve", requireStaff, mfaGuard, requireStepUp, requireConfirmAndReason, async (req, res) => {
+    const result = await staffIncidents.resolveIncident(pool, req.params.id, {
+      actorId: req.sccActorId,
+      note: req.body?.resolution_note
+    });
+    if (!result.ok) {
+      const code = result.error || "INCIDENT_RESOLVE_FAILED";
+      const status = code === "INCIDENT_NOT_FOUND" ? 404 : (code === "INVALID_TRANSITION" || code === "NO_CHANGE") ? 409 : 400;
+      await writeStaffAudit(pool, {
+        actorId: req.sccActorId, area: "operations",
+        action: "staff_control.incident.resolve",
+        entityType: "ops_incident", entityId: req.params.id,
+        status: "error", reason: req.sccReason, confirmed: true, riskLevel: "medium",
+        ...auditContextFromReq(req), details: { error: code, current: result.current || null }
+      });
+      return res.status(status).json({ success: false, error: { code, current: result.current || null } });
+    }
+    await writeStaffAudit(pool, {
+      actorId: req.sccActorId, area: "operations",
+      action: "staff_control.incident.resolve",
+      entityType: "ops_incident", entityId: req.params.id,
+      status: "ok", reason: req.sccReason, confirmed: true, riskLevel: "medium",
+      ...auditContextFromReq(req), details: { to: "resolved" }
+    });
+    res.json({ success: true, data: result.row });
   });
 
   router.get("/subscription-requests/:id", requireStaff, async (req, res) => {

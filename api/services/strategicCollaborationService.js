@@ -182,7 +182,11 @@ export async function listAllRequestsAdmin(pool, opts = {}) {
       LIMIT $${limitIdx} OFFSET $${offsetIdx}`,
     params
   );
-  return rows;
+  const { rows: countRows } = await pool.query(
+    `SELECT COUNT(*)::int AS total FROM strategic_collaboration_requests scr ${where}`,
+    status ? [status] : []
+  );
+  return { items: rows, total: countRows[0]?.total || 0 };
 }
 
 export async function updateStatusAsAdmin(pool, id, status, actorUserId) {

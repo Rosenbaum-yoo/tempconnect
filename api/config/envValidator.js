@@ -3,6 +3,18 @@
  * Fehlende Pflicht-Keys = sofortiger Crash mit klarer Meldung.
  */
 import { z } from "zod";
+import { BILLING_PROVIDERS } from "../services/billingProviderService.js";
+import { EMAIL_PROVIDERS } from "../services/emailProviderService.js";
+import { featureFlagFields, applyProductionFlagConstraints } from "./featureFlags.js";
+
+const BILLING_PROVIDER_VALUES = Object.values(BILLING_PROVIDERS);
+const EMAIL_PROVIDER_VALUES = Object.values(EMAIL_PROVIDERS);
+
+// Theme-Flags (Phase J, Tier-2 Env-Kill-Switch): dieselbe Default-AN-Semantik wie
+// config/index.js (nur false/0/no/off schaltet ab). Gegen bekannte Boolean-Tokens
+// validiert, damit ein Tippfehler wie THEME_SWITCHER_ENABLED=nein nicht still auf AN aufloest.
+const THEME_FLAG_KEYS = ["THEME_SWITCHER_ENABLED", "ULTRA_PREMIUM_THEME_ENABLED"];
+const THEME_FLAG_TOKENS = ["true", "false", "1", "0", "yes", "no", "on", "off"];
 
 const envSchema = z.object({
   // Required
@@ -26,20 +38,27 @@ const envSchema = z.object({
   ADMIN_SECRET:    z.string().optional(),
 
   // Email
+  EMAIL_PROVIDER:  z.string().optional(),
   SMTP_HOST:       z.string().optional(),
   SMTP_PORT:       z.string().optional(),
   SMTP_USER:       z.string().optional(),
   SMTP_PASS:       z.string().optional(),
   SMTP_FROM:       z.string().optional(),
+  SENDGRID_API_KEY: z.string().optional(),
 
   // Payment
+  BILLING_PROVIDER: z.string().optional(),
   PAYMENT_MODE:    z.enum(["demo", "live"]).default("demo"),
   STRIPE_SECRET_KEY: z.string().optional(),
   STRIPE_PUBLISHABLE_KEY: z.string().optional(),
   STRIPE_WEBHOOK_SECRET: z.string().optional(),
 
-  // Feature Gates — Default false; nur lokal explizit auf true setzen
-  FEATURE_GATE_BYPASS: z.enum(["true", "false"]).default("false"),
+  // Theme (Phase J, Tier-2 Env-Kill-Switch; leer = an, nur false/0/no/off schaltet ab)
+  THEME_SWITCHER_ENABLED: z.string().optional(),
+  ULTRA_PREMIUM_THEME_ENABLED: z.string().optional(),
+
+  // Feature Flags (Ebene B: Plattform-Kill-Switch) — Registry: config/featureFlags.js
+  ...featureFlagFields(),
 
   // Redis
   REDIS_URL:       z.string().optional(),
@@ -50,8 +69,6 @@ const envSchema = z.object({
   RATE_LIMIT_SUPPORT_MAX: z.string().optional(),
   RATE_LIMIT_WARP_EXEC_WINDOW_MS: z.string().optional(),
   RATE_LIMIT_WARP_EXEC_MAX: z.string().optional(),
-  SUPPORT_OPS_ENABLED: z.enum(["true", "false"]).optional(),
-  WARP_SSH_ENABLED: z.enum(["true", "false"]).optional(),
   WARP_SSH_USER: z.string().optional(),
   WARP_SSH_PORT: z.string().optional(),
   WARP_SSH_KEY_PATH: z.string().optional(),
@@ -60,7 +77,6 @@ const envSchema = z.object({
   WARP_SSH_STRICT_HOST_KEY_CHECKING: z.string().optional(),
   WARP_REMOTE_APP_DIR: z.string().optional(),
   WARP_REMOTE_HEALTH_URL: z.string().optional(),
-  INFRA_SNAPSHOT_INGEST_ENABLED: z.enum(["true", "false"]).optional(),
   INFRA_SNAPSHOT_MAX_BATCH: z.string().optional(),
 
   // Monitoring
@@ -78,6 +94,34 @@ const envSchema = z.object({
       path: ["DATABASE_URL"]
     });
   }
+  // Provider-Auswahl: leer = Auto-Derive (smtp/manual). Gesetzter Wert muss bekannt sein.
+  const emailProvider = (data.EMAIL_PROVIDER || "").trim().toLowerCase();
+  if (emailProvider && !EMAIL_PROVIDER_VALUES.includes(emailProvider)) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: `EMAIL_PROVIDER='${data.EMAIL_PROVIDER}' ist unbekannt. Erlaubt: ${EMAIL_PROVIDER_VALUES.join(", ")} (oder leer fuer Auto-Derive).`,
+      path: ["EMAIL_PROVIDER"]
+    });
+  }
+  const billingProvider = (data.BILLING_PROVIDER || "").trim().toLowerCase();
+  if (billingProvider && !BILLING_PROVIDER_VALUES.includes(billingProvider)) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: `BILLING_PROVIDER='${data.BILLING_PROVIDER}' ist unbekannt. Erlaubt: ${BILLING_PROVIDER_VALUES.join(", ")} (oder leer fuer Auto-Derive).`,
+      path: ["BILLING_PROVIDER"]
+    });
+  }
+  // Theme-Kill-Switches: gesetzter Wert muss ein bekannter Boolean-Token sein (leer = an).
+  for (const key of THEME_FLAG_KEYS) {
+    const raw = (data[key] || "").trim().toLowerCase();
+    if (raw && !THEME_FLAG_TOKENS.includes(raw)) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: `${key}='${data[key]}' ist kein gueltiger Boolean-Wert. Erlaubt: ${THEME_FLAG_TOKENS.join(", ")} (oder leer = an).`,
+        path: [key]
+      });
+    }
+  }
   // Stripe Live-Modus: Keys muessen gesetzt sein
   if (data.PAYMENT_MODE === "live") {
     if (!data.STRIPE_SECRET_KEY) {
@@ -92,15 +136,9 @@ const envSchema = z.object({
     ctx.addIssue({ code: z.ZodIssueCode.custom, message: "REDIS_URL ist Pflicht wenn RATE_LIMIT_STORE=redis", path: ["REDIS_URL"] });
   }
   // Production-Safety: harte Fehler verhindern unsicheren Produktionsstart
+  // Plattform-Flag-Constraints aus dem Register (z. B. FEATURE_GATE_BYPASS=true verboten)
+  applyProductionFlagConstraints(data, ctx);
   if (data.NODE_ENV === "production") {
-    if (data.FEATURE_GATE_BYPASS === "true") {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        message: "FEATURE_GATE_BYPASS=true ist in Produktion verboten — Feature Gates wuerde alle Plan-Beschraenkungen deaktivieren. Auf false setzen oder Variable entfernen.",
-        path: ["FEATURE_GATE_BYPASS"]
-      });
-    }
-
     // Bekannte schwache / Default-Werte fuer Secrets
     const KNOWN_WEAK_SECRETS = [
       "changeme", "secret", "password", "geheim", "test", "development",

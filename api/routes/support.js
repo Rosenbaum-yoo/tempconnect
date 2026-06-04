@@ -385,6 +385,48 @@ function createCaseBaseSelect() {
       ) reporter_orgs ON TRUE`;
 }
 
+// Laedt die juengsten offenen Faelle (max 10 je Org) fuer MEHRERE Orgs in EINER Query.
+// Ersetzt eine fruehere N+1-Read-Schleife im Org-Lookup (eine SELECT je Org → bei
+// per_page=100 bis zu 100 sequentielle Round-Trips pro Request). Ein ROW_NUMBER()-
+// Fenster partitioniert nach reporter_org_id und behaelt je Org die 10 nach
+// updated_at juengsten Faelle (id DESC nur als deterministischer Tie-Breaker).
+// Rueckgabe: Map<org_id, rawRow[]> (je Liste bereits juengste-zuerst). Masking/Shaping
+// bleibt beim Aufrufer, da caseSummaryFromRow die Rolle aus req braucht.
+export async function loadRecentOpenCasesByOrg(pool, orgIds, agent) {
+  const ids = Array.isArray(orgIds) ? orgIds.filter(Boolean) : [];
+  const byOrg = new Map();
+  if (ids.length === 0) return byOrg;
+
+  const params = [ ids ];
+  const where = [ "sc.reporter_org_id = ANY($1::uuid[])" ];
+  buildScope(agent, "sc", params, where);
+  where.push("sc.status NOT IN ('resolved', 'closed')");
+
+  const { rows } = await pool.query(
+    `SELECT ranked.* FROM (
+       SELECT base.*,
+              ROW_NUMBER() OVER (
+                PARTITION BY base.reporter_org_id
+                ORDER BY base.updated_at DESC, base.id DESC
+              ) AS rn
+         FROM (
+           ${createCaseBaseSelect()}
+           WHERE ${where.join(" AND ")}
+         ) base
+     ) ranked
+     WHERE ranked.rn <= 10
+     ORDER BY ranked.reporter_org_id, ranked.rn`,
+    params
+  );
+
+  for (const row of rows || []) {
+    const list = byOrg.get(row.reporter_org_id);
+    if (list) list.push(row);
+    else byOrg.set(row.reporter_org_id, [ row ]);
+  }
+  return byOrg;
+}
+
 async function loadCaseRow(db, caseId, agent) {
   const params = [caseId];
   const where = [ "sc.id = $1::uuid" ];
@@ -1203,20 +1245,12 @@ function buildSupportRouter(deps) {
       const hasMore = rows.length > perPage;
       const pageRows = hasMore ? rows.slice(0, perPage) : rows;
 
-      const items = [];
-      for (const row of pageRows) {
-        const recentCaseParams = [ row.id ];
-        const recentCaseWhere = [ "sc.reporter_org_id = $1::uuid" ];
-        buildScope(req.supportAgent, "sc", recentCaseParams, recentCaseWhere);
-        recentCaseWhere.push("sc.status NOT IN ('resolved', 'closed')");
-        const recentCasesResult = await pool.query(
-          `${createCaseBaseSelect()}
-            WHERE ${recentCaseWhere.join(" AND ")}
-            ORDER BY sc.updated_at DESC
-            LIMIT 10`,
-          recentCaseParams
-        );
-        const recentCases = (recentCasesResult.rows || []).map((caseRow) => caseSummaryFromRow(caseRow, req));
+      // Recent-Cases fuer ALLE Orgs der Seite in EINER Query (vormals N+1: eine
+      // SELECT je Org → bis zu per_page=100 Round-Trips/Request). Maskierung bleibt
+      // hier, da caseSummaryFromRow die Rolle aus req braucht.
+      const recentByOrg = await loadRecentOpenCasesByOrg(pool, pageRows.map((row) => row.id), req.supportAgent);
+      const items = pageRows.map((row) => {
+        const recentCases = (recentByOrg.get(row.id) || []).map((caseRow) => caseSummaryFromRow(caseRow, req));
         const context = {
           org_id_masked: maskOrgIdBySearch(row.id, req.supportAgent.role),
           org_name: row.name,
@@ -1225,13 +1259,13 @@ function buildSupportRouter(deps) {
           member_count: toInt(row.member_count, 0),
           created_at: toIso(row.created_at)
         };
-        items.push({
+        return {
           ...context,
           open_case_count: toInt(row.open_case_count, 0),
           context,
           recent_cases: recentCases
-        });
-      }
+        };
+      });
 
       await insertSupportAudit(pool, {
         agent_id: req.supportAgent.id,

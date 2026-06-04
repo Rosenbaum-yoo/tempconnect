@@ -316,29 +316,34 @@ export async function getSearchMatches(pool, jobId) {
 
 export async function searchSlaScan(pool, batchSize) {
   const size = Math.min(500, batchSize || 100);
-  const { rows } = await pool.query(
-    `SELECT id
-     FROM sla_search_jobs
-     WHERE status = 'open' AND sla_status = 'RUNNING' AND sla_due_at < NOW()
-     ORDER BY sla_due_at ASC
-     LIMIT $1`,
+  // Set-based statt N+1: ein einziges geschütztes UPDATE flippt den Batch und
+  // gibt nur die tatsächlich gewechselten Zeilen zurück. Der sla_status='RUNNING'-
+  // Guard steht bewusst AUF dem äußeren UPDATE (nicht nur im LIMIT-Subselect), damit
+  // bei überlappenden Cron-Läufen die zweite Runde bereits geflippte Zeilen nicht
+  // erneut trifft → keine doppelten SLA_BREACHED-Events.
+  const { rows: breachedRows } = await pool.query(
+    `UPDATE sla_search_jobs
+     SET sla_status = 'BREACHED', sla_breached_at = NOW(), updated_at = NOW()
+     WHERE sla_status = 'RUNNING'
+       AND id IN (
+         SELECT id
+         FROM sla_search_jobs
+         WHERE status = 'open' AND sla_status = 'RUNNING' AND sla_due_at < NOW()
+         ORDER BY sla_due_at ASC
+         LIMIT $1
+       )
+     RETURNING id`,
     [size]
   );
-  let breached = 0;
-  for (const row of rows) {
-    const r = await pool.query(
-      `UPDATE sla_search_jobs
-       SET sla_status = 'BREACHED', sla_breached_at = NOW(), updated_at = NOW()
-       WHERE id = $1 AND sla_status = 'RUNNING'
-       RETURNING id`,
-      [row.id]
+  if (breachedRows.length > 0) {
+    const ids = breachedRows.map((r) => r.id);
+    await pool.query(
+      `INSERT INTO sla_search_events (search_job_id, event_type, payload)
+       SELECT id, 'SLA_BREACHED', $2::jsonb FROM UNNEST($1::uuid[]) AS id`,
+      [ids, JSON.stringify({ at: new Date().toISOString() })]
     );
-    if (r.rowCount > 0) {
-      await writeSearchSlaEvent(pool, row.id, "SLA_BREACHED", { at: new Date().toISOString() });
-      breached++;
-    }
   }
-  return { breached };
+  return { breached: breachedRows.length };
 }
 
 export async function runSearchJobsBatch(pool, sendMail, batchSize) {

@@ -5,6 +5,7 @@ import { Router } from "express";
 import * as reportingService from "../services/reportingService.js";
 import { requirePermission } from "../middleware/rbac.js";
 import { requireCompanyOrg } from "../middleware/orgAccess.js";
+import { requireOrgFeature } from "../middleware/entitlementGuard.js";
 import { assertLocationBelongsToOrg, OrgBoundaryError } from "../utils/orgBoundary.js";
 
 export function createReportingRouter(deps) {
@@ -15,6 +16,12 @@ export function createReportingRouter(deps) {
     errorCode: "EXECUTIVE_REPORTING_NOT_AVAILABLE_FOR_ORG_TYPE",
     errorMessage: "Executive Reporting steht nur fuer Unternehmensorganisationen zur Verfuegung."
   });
+  // Entitlement-Gate: Executive-Reporting (Dashboard + Finance-Truth-Export) ist als
+  // INDIVIDUELL-Feature verkauft (planFeatures: enterprise_analytics). Pilot-aware via
+  // requireOrgFeature → aktive Piloten (effective_plan=INDIVIDUELL) behalten Zugang;
+  // zahlende Tarife unterhalb INDIVIDUELL erhalten korrekt FEATURE_NOT_ENABLED.
+  // Operationale Reports (report.operational) bleiben bewusst ungegated.
+  const enterpriseAnalyticsGate = requireOrgFeature("enterprise_analytics", { pool, logger });
 
   /**
    * Validiert optional location_id gegen die Org des Aufrufers.
@@ -35,7 +42,7 @@ export function createReportingRouter(deps) {
   }
 
   /** GET /reporting/dashboard – Executive Dashboard (kombinierte KPIs) */
-  router.get("/reporting/dashboard", requireAuth, rperm("report.executive"), companyOrg, async (req, res) => {
+  router.get("/reporting/dashboard", requireAuth, enterpriseAnalyticsGate, rperm("report.executive"), companyOrg, async (req, res) => {
     const orgId = req.orgId || null;
     const locationId = req.query.location_id || null;
     if (!await validateLocationScope(req, res, locationId)) return;
@@ -44,7 +51,7 @@ export function createReportingRouter(deps) {
   });
 
   /** GET /reporting/finance-truth/export – Executive Finance Truth Export (CSV/JSON) */
-  router.get("/reporting/finance-truth/export", requireAuth, rperm("report.executive"), companyOrg, async (req, res, next) => {
+  router.get("/reporting/finance-truth/export", requireAuth, enterpriseAnalyticsGate, rperm("report.executive"), companyOrg, async (req, res, next) => {
     try {
       const orgId = req.orgId || null;
       const format = String(req.query.format || "csv").toLowerCase();

@@ -89,18 +89,34 @@ export function requireUsageLimit(limitKey, deps) {
   };
 }
 
+// Batch-Grenzen fuer den Plan-Limit-Scan (Skalierung: 10 -> 300 Kunden).
+// Ein unbegrenzter Voll-Scan ueber alle Nutzer waechst linear mit der Kundenzahl;
+// der Cron paginiert stattdessen ueber LIMIT/OFFSET (Muster wie worker-document-expiry-scan).
+export const USAGE_SCAN_DEFAULT_LIMIT = 100;
+export const USAGE_SCAN_MAX_LIMIT = 500;
+
 /**
  * Batch scan: find users who are over their plan limits.
  * Called by /internal/usage-limit-scan cron for monitoring/alerting.
+ * Bounded by design: each invocation scans at most `limit` users (paginated via
+ * `offset`) so the cost stays O(batch) statt O(alle Nutzer) bei 300 Kunden.
  * @param {import('pg').Pool} pool
- * @returns {Promise<{scanned: number, over_limit: number}>}
+ * @param {{limit?: number, offset?: number}} [opts]
+ * @returns {Promise<{scanned: number, over_limit: number, has_more: boolean, next_offset: number}>}
  */
-export async function scanAndEnforceUsageLimits(pool) {
+export async function scanAndEnforceUsageLimits(pool, opts = {}) {
+  const limit = Math.min(
+    USAGE_SCAN_MAX_LIMIT,
+    Math.max(1, parseInt(opts.limit, 10) || USAGE_SCAN_DEFAULT_LIMIT)
+  );
+  const offset = Math.max(0, parseInt(opts.offset, 10) || 0);
+
   let scanned = 0;
   let overLimit = 0;
 
   try {
-    // Find users with active capacity_posts exceeding their plan limit
+    // Find users with active capacity_posts exceeding their plan limit.
+    // Stabile Sortierung (u.id) + LIMIT/OFFSET = deterministisches Paging.
     const { rows } = await pool.query(`
       SELECT u.id, s.plan,
              (SELECT COUNT(*)::int FROM capacity_posts cp WHERE cp.supplier_company_id = u.id AND cp.status = 'active') AS active_posts
@@ -109,7 +125,9 @@ export async function scanAndEnforceUsageLimits(pool) {
         SELECT plan FROM subscriptions WHERE user_id = u.id ORDER BY created_at DESC LIMIT 1
       ) s ON TRUE
       WHERE u.is_demo = FALSE
-    `);
+      ORDER BY u.id
+      LIMIT $1 OFFSET $2
+    `, [limit, offset]);
 
     for (const row of rows) {
       scanned++;
@@ -121,7 +139,10 @@ export async function scanAndEnforceUsageLimits(pool) {
         // Log overage — in production this would trigger a notification
       }
     }
+
+    const has_more = rows.length === limit;
+    return { scanned, over_limit: overLimit, has_more, next_offset: offset + scanned };
   } catch { /* table may not exist in test */ }
 
-  return { scanned, over_limit: overLimit };
+  return { scanned, over_limit: overLimit, has_more: false, next_offset: offset };
 }

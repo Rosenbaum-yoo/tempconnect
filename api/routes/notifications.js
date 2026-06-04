@@ -2,6 +2,7 @@
  * Notifications REST-Router: list, mark-read, read-all.
  */
 import { Router } from "express";
+import { summarizeBySurface } from "../services/notificationSurfaceMap.js";
 
 export function createNotificationsRouter(deps) {
   const { pool, requireAuth } = deps;
@@ -97,6 +98,23 @@ export function createNotificationsRouter(deps) {
       [req.session.userId]
     );
     res.json({ count: rows[0]?.count ?? 0 });
+  });
+
+  /* ── Per-surface unread summary (Enterprise-Hub Card-Badges) ─────────
+   * Gruppiert ungelesene Notifications nach type und faltet sie ueber
+   * notificationSurfaceMap auf Hub-Card-Surfaces. `total` bleibt mit der
+   * Glocke konsistent (zaehlt auch bell-only Typen), `surfaces` enthaelt nur
+   * routebare, positive Counts. User-scoped (kein Org-Leak). */
+  router.get("/notifications/surface-summary", requireAuth, async (req, res) => {
+    const { rows } = await pool.query(
+      `SELECT type, COUNT(*)::int AS n
+         FROM notifications
+        WHERE user_id = $1 AND is_read = FALSE
+        GROUP BY type`,
+      [req.session.userId]
+    );
+    const { surfaces, total } = summarizeBySurface(rows);
+    res.json({ surfaces, total, generated_at: new Date().toISOString() });
   });
 
   /* ── Match Alerts (general, beyond SLA search jobs) ─ */
