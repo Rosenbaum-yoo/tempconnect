@@ -7,8 +7,14 @@
   var controlCenter = null;
   var usersOffset = 0;
   var usersLimit = 50;
+  var orgsOffset = 0;
+  var orgsLimit = 50;
   var actOffset = 0;
   var actLimit = 50;
+  var boReqOffset = 0;
+  var boReqLimit = 50;
+  var scOffset = 0;
+  var scLimit = 50;
   var _foKeysLoaded = false;
   var currentAdminUserId = null;
 
@@ -75,11 +81,11 @@
     if (typeof max === 'number' && parsed > max) parsed = max;
     return parsed;
   }
-  function renderUsersPaging(total) {
-    var pages = Math.ceil((total || 0) / Math.max(usersLimit, 1));
+  function renderPaging(total, offset, limit, loadFn) {
+    var lim = Math.max(limit, 1);
+    var pages = Math.ceil((total || 0) / lim);
     if (!pages || pages <= 1) return '';
-    var currentPage = Math.floor(usersOffset / usersLimit) + 1;
-    currentPage = Math.max(1, Math.min(pages, currentPage));
+    var currentPage = Math.max(1, Math.min(pages, Math.floor(offset / lim) + 1));
     var windowSize = 7;
     var startPage = Math.max(1, currentPage - Math.floor(windowSize / 2));
     var endPage = Math.min(pages, startPage + windowSize - 1);
@@ -88,17 +94,29 @@
     }
     var paging = '';
     if (currentPage > 1) {
-      paging += '<button class="btn" onclick="loadUsers(' + Math.max(0, usersOffset - usersLimit) + ')">&laquo; Zurück</button>';
+      paging += '<button class="btn" onclick="' + loadFn + '(' + Math.max(0, offset - lim) + ')">&laquo; Zurück</button>';
     }
     for (var page = startPage; page <= endPage; page++) {
-      var pageOffset = (page - 1) * usersLimit;
+      var pageOffset = (page - 1) * lim;
       var cls = page === currentPage ? ' primary' : '';
-      paging += '<button class="btn' + cls + '" onclick="loadUsers(' + pageOffset + ')">' + page + '</button>';
+      paging += '<button class="btn' + cls + '" onclick="' + loadFn + '(' + pageOffset + ')">' + page + '</button>';
     }
     if (currentPage < pages) {
-      paging += '<button class="btn" onclick="loadUsers(' + (currentPage * usersLimit) + ')">Weiter &raquo;</button>';
+      paging += '<button class="btn" onclick="' + loadFn + '(' + (currentPage * lim) + ')">Weiter &raquo;</button>';
     }
     return paging;
+  }
+  function renderUsersPaging(total) {
+    return renderPaging(total, usersOffset, usersLimit, 'loadUsers');
+  }
+  function renderOrgsPaging(total) {
+    return renderPaging(total, orgsOffset, orgsLimit, 'loadOrgs');
+  }
+  function renderBackofficeRequestsPaging(total) {
+    return renderPaging(total, boReqOffset, boReqLimit, 'loadBackofficeRequests');
+  }
+  function renderStrategicPaging(total) {
+    return renderPaging(total, scOffset, scLimit, 'loadStrategicRequests');
   }
   function getRequestedTab() {
     return new URLSearchParams(window.location.search).get('tab') || '';
@@ -314,12 +332,12 @@
 
   function ensureTabLoaded(tab, force) {
     if (tab === 'users') return loadUsers(force ? 0 : usersOffset);
-    if (tab === 'orgs' && (force || !el('orgsTable').innerHTML)) return loadOrgs();
+    if (tab === 'orgs' && (force || !el('orgsTable').innerHTML)) return loadOrgs(force ? 0 : orgsOffset);
     if (tab === 'audit' && (force || !el('auditTable').innerHTML)) return loadAudit();
     if (tab === 'metrics' && (force || !el('metricsGrid').innerHTML)) return loadMetrics();
     if (tab === 'activity' && (force || !el('activityTimeline').innerHTML)) return loadActivityFeed();
-    if (tab === 'requests' && (force || !el('boRequestsTable').innerHTML)) return loadBackofficeRequests();
-    if (tab === 'strategic' && (force || !el('strategicTable').innerHTML)) return loadStrategicRequests();
+    if (tab === 'requests' && (force || !el('boRequestsTable').innerHTML)) return loadBackofficeRequests(force ? 0 : boReqOffset);
+    if (tab === 'strategic' && (force || !el('strategicTable').innerHTML)) return loadStrategicRequests(force ? 0 : scOffset);
     if (tab === 'revenue' && (force || !el('revenueGrid').innerHTML)) return loadRevenue();
     if (tab === 'features') return loadFeatureOverrides();
     if (tab === 'releases' && typeof window.loadProductReleases === 'function') return window.loadProductReleases();
@@ -383,31 +401,47 @@
     }
   }
 
-  async function loadOrgs() {
-    var d = await TC.api.get('/admin/organizations');
-    var items = (d.data && d.data.items) || [];
-    if (!items.length) {
-      el('orgsTable').innerHTML = emptyState('Keine Organisationen.');
-      return;
+  async function loadOrgs(offset) {
+    var orgsTable = el('orgsTable');
+    var orgsPaging = el('orgsPaging');
+    if (!orgsTable) return;
+    orgsOffset = toInteger(offset, 0, 0);
+    orgsTable.innerHTML = '<p class="ds-text-sm ds-text-muted">Lade Organisationen…</p>';
+    if (orgsPaging) orgsPaging.innerHTML = '';
+    try {
+      var d = await TC.api.get('/admin/organizations?limit=' + orgsLimit + '&offset=' + orgsOffset);
+      var payload = (d && d.data) || {};
+      orgsLimit = toInteger(payload.limit, orgsLimit, 1, 500);
+      orgsOffset = toInteger(payload.offset, orgsOffset, 0);
+      var items = Array.isArray(payload.items) ? payload.items : [];
+      var total = toInteger(payload.total, 0, 0);
+      if (!items.length) {
+        orgsTable.innerHTML = emptyState('Keine Organisationen.');
+        return;
+      }
+      var currentOrgId = ((((controlCenter || {}).context || {}).user || {}).org_id) || '';
+      var html = '<table class="admin-table"><thead><tr><th>Name</th><th>Typ</th><th>Plan</th><th>Mitglieder</th><th>Standorte</th><th>Status</th><th>Aktion</th></tr></thead><tbody>';
+      items.forEach(function (o) {
+        var currentLink = String(o.id || '') === String(currentOrgId || '')
+          ? '<a class="btn ds-btn--xs" href="/public/organization.html?tab=members">Org-Center</a>'
+          : '–';
+        html += '<tr>' +
+          '<td>' + esc(o.name || '') + '</td>' +
+          '<td>' + esc(o.org_type || '–') + '</td>' +
+          '<td>' + esc(displayPlanLabel(o.plan || 'DEMO')) + '</td>' +
+          '<td>' + (o.member_count || 0) + '</td>' +
+          '<td>' + (o.location_count || 0) + '</td>' +
+          '<td>' + (o.is_active ? '<span class="tag green">Aktiv</span>' : '<span class="tag red">Inaktiv</span>') + '</td>' +
+          '<td>' + currentLink + '</td>' +
+        '</tr>';
+      });
+      html += '</tbody></table>';
+      orgsTable.innerHTML = html;
+      if (orgsPaging) orgsPaging.innerHTML = renderOrgsPaging(total);
+    } catch (e) {
+      orgsTable.innerHTML = '<p class="ds-text-sm" style="color:var(--bad)">' + esc(describeError(e, 'Organisationen konnten nicht geladen werden.')) + '</p>';
+      if (orgsPaging) orgsPaging.innerHTML = '';
     }
-    var currentOrgId = ((((controlCenter || {}).context || {}).user || {}).org_id) || '';
-    var html = '<table class="admin-table"><thead><tr><th>Name</th><th>Typ</th><th>Plan</th><th>Mitglieder</th><th>Standorte</th><th>Status</th><th>Aktion</th></tr></thead><tbody>';
-    items.forEach(function (o) {
-      var currentLink = String(o.id || '') === String(currentOrgId || '')
-        ? '<a class="btn ds-btn--xs" href="/public/organization.html?tab=members">Org-Center</a>'
-        : '–';
-      html += '<tr>' +
-        '<td>' + esc(o.name || '') + '</td>' +
-        '<td>' + esc(o.org_type || '–') + '</td>' +
-        '<td>' + esc(displayPlanLabel(o.plan || 'DEMO')) + '</td>' +
-        '<td>' + (o.member_count || 0) + '</td>' +
-        '<td>' + (o.location_count || 0) + '</td>' +
-        '<td>' + (o.is_active ? '<span class="tag green">Aktiv</span>' : '<span class="tag red">Inaktiv</span>') + '</td>' +
-        '<td>' + currentLink + '</td>' +
-      '</tr>';
-    });
-    html += '</tbody></table>';
-    el('orgsTable').innerHTML = html;
   }
 
   function syncAuditExportLink(params) {
@@ -870,14 +904,22 @@
     }
   }
 
-  async function loadStrategicRequests() {
+  async function loadStrategicRequests(offset) {
     var status = el('scStatus') ? el('scStatus').value : '';
-    var qs = status ? ('?status=' + encodeURIComponent(status)) : '';
     var target = el('strategicTable');
+    var paging = el('strategicPaging');
+    if (!target) return;
+    scOffset = toInteger(offset, 0, 0);
     target.innerHTML = '<p class="ds-text-sm ds-text-muted">Lade Kooperationsanfragen…</p>';
+    if (paging) paging.innerHTML = '';
     try {
+      var qs = '?limit=' + scLimit + '&offset=' + scOffset + (status ? '&status=' + encodeURIComponent(status) : '');
       var d = await TC.api.get('/admin/strategic-collaboration/requests' + qs);
-      var items = (d.data && d.data.items) || [];
+      var payload = (d && d.data) || {};
+      scLimit = toInteger(payload.limit, scLimit, 1, 500);
+      scOffset = toInteger(payload.offset, scOffset, 0);
+      var total = toInteger(payload.total, 0, 0);
+      var items = Array.isArray(payload.items) ? payload.items : [];
       if (!items.length) { target.innerHTML = emptyState('Keine Kooperationsanfragen gefunden.'); return; }
       var statusOptions = ['eingegangen', 'rueckfrage_offen', 'angebot_erstellt', 'bestaetigt', 'aktiviert', 'abgelehnt', 'abgeschlossen'];
       var html = '<table class="admin-table"><thead><tr><th>Zeitpunkt</th><th>Status</th><th>Owner</th><th>Unternehmen</th><th>Kontakt</th><th>E-Mail</th><th>Scope</th><th>Typ</th><th>Aktion</th></tr></thead><tbody>';
@@ -927,8 +969,10 @@
       });
       html += '</tbody></table>';
       target.innerHTML = html;
+      if (paging) paging.innerHTML = renderStrategicPaging(total);
     } catch (e) {
       target.innerHTML = '<p class="ds-text-sm" style="color:var(--bad)">' + esc(e.message || 'Kooperationsanfragen nicht verfügbar') + '</p>';
+      if (paging) paging.innerHTML = '';
     }
   }
 
@@ -937,7 +981,7 @@
     if (!sel) return;
     try {
       await TC.api.patch('/admin/strategic-collaboration/requests/' + encodeURIComponent(id) + '/status', { status: sel.value });
-      loadStrategicRequests();
+      loadStrategicRequests(scOffset);
     } catch (e) {
       alert('Status-Update fehlgeschlagen: ' + (e.message || e.code || e.status || 'Unbekannt'));
     }
@@ -948,7 +992,7 @@
       await TC.api.patch('/admin/strategic-collaboration/requests/' + encodeURIComponent(id) + '/assign', {
         assigned_to_user_id: assignedToUserId
       });
-      loadStrategicRequests();
+      loadStrategicRequests(scOffset);
     } catch (e) {
       alert('Zuweisung fehlgeschlagen: ' + (e.message || e.code || e.status || 'Unbekannt'));
     }
@@ -961,7 +1005,7 @@
       await TC.api.patch('/admin/strategic-collaboration/requests/' + encodeURIComponent(id) + '/notes', {
         ops_notes: noteEl.value || ''
       });
-      loadStrategicRequests();
+      loadStrategicRequests(scOffset);
     } catch (e) {
       alert('Notiz-Update fehlgeschlagen: ' + (e.message || e.code || e.status || 'Unbekannt'));
     }
@@ -1042,14 +1086,22 @@
     }
   }
 
-  async function loadBackofficeRequests() {
+  async function loadBackofficeRequests(offset) {
     var status = el('boReqStatus') ? el('boReqStatus').value : '';
-    var qs = status ? ('?status=' + encodeURIComponent(status)) : '';
     var target = el('boRequestsTable');
+    var paging = el('boRequestsPaging');
+    if (!target) return;
+    boReqOffset = toInteger(offset, 0, 0);
     target.innerHTML = '<p class="ds-text-sm ds-text-muted">Lade Requests…</p>';
+    if (paging) paging.innerHTML = '';
     try {
+      var qs = '?limit=' + boReqLimit + '&offset=' + boReqOffset + (status ? '&status=' + encodeURIComponent(status) : '');
       var d = await TC.api.get('/admin/requests' + qs);
-      var items = (d.data && d.data.items) || [];
+      var payload = (d && d.data) || {};
+      boReqLimit = toInteger(payload.limit, boReqLimit, 1, 500);
+      boReqOffset = toInteger(payload.offset, boReqOffset, 0);
+      var total = toInteger(payload.total, 0, 0);
+      var items = Array.isArray(payload.items) ? payload.items : [];
       if (!items.length) { target.innerHTML = emptyState('Keine Requests gefunden.'); return; }
       var statuses = ['SENT', 'ACCEPTED', 'DECLINED', 'FILLED', 'FINALIZED', 'CANCELED'];
       var html = '<table class="admin-table"><thead><tr><th>Zeitpunkt</th><th>Status</th><th>Requester</th><th>Receiver</th><th>Rolle/Region</th><th>Statusänderung</th></tr></thead><tbody>';
@@ -1071,8 +1123,10 @@
       });
       html += '</tbody></table>';
       target.innerHTML = html;
+      if (paging) paging.innerHTML = renderBackofficeRequestsPaging(total);
     } catch (e) {
       target.innerHTML = '<p class="ds-text-sm" style="color:var(--bad)">' + esc(e.message || 'Requests nicht verfügbar') + '</p>';
+      if (paging) paging.innerHTML = '';
     }
   }
 
@@ -1082,7 +1136,7 @@
     if (!confirm('Request-Status wirklich auf "' + sel.value + '" setzen?')) return;
     try {
       await TC.api.patch('/admin/requests/' + encodeURIComponent(id) + '/status', { status: sel.value });
-      loadBackofficeRequests();
+      loadBackofficeRequests(boReqOffset);
     } catch (e) {
       alert('Statusänderung fehlgeschlagen: ' + (e.message || e.code || e.status || 'Unbekannt'));
     }

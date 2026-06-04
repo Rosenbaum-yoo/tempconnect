@@ -54,6 +54,36 @@
   --scc-danger-zone-bg: rgba(196, 32, 48, 0.04);
 }
 
+/* ── Ultra Premium (Obsidian Sapphire) ─────────────────────
+   Phase J. Opt-in, harmonisiert mit dem Plattform-Theme
+   [data-theme="ultra_premium"] (design-system.css): tieferer
+   Obsidian-Grund, Saphir-Akzent, ruhige Enterprise-Tiefe.
+   Aktivierung: document.documentElement.setAttribute('data-theme','ultra_premium')
+   Verfügbarkeit serverseitig: bootstrap.theme.ultra_premium_enabled
+   ─────────────────────────────────────────────────────────── */
+[data-theme="ultra_premium"] {
+  --scc-bg:             #05080f;
+  --scc-panel:          #0a1020;
+  --scc-panel-2:        #0e1526;
+  --scc-line:           #1c2742;
+  --scc-text:           #f4f7fc;
+  --scc-muted:          #93a3c2;
+  --scc-accent:         #5fa8ff;
+  --scc-warn:           #f5c451;
+  --scc-danger:         #fb7185;
+  --scc-ok:             #3ddc97;
+  --scc-critical:       #ff5470;
+  --scc-topbar-bg:      #03050b;
+  --scc-table-head-bg:  #080d1a;
+  --scc-modal-backdrop: rgba(3, 6, 14, 0.86);
+  --scc-msg-bg-tint:    rgba(95, 168, 255, 0.06);
+  --scc-msg-border-tint:rgba(95, 168, 255, 0.35);
+  --scc-msg-warn-tint:  rgba(245, 196, 81, 0.06);
+  --scc-msg-warn-bdr:   rgba(245, 196, 81, 0.35);
+  --scc-bulk-bg:        rgba(95, 168, 255, 0.04);
+  --scc-danger-zone-bg: rgba(251, 113, 133, 0.04);
+}
+
 * { box-sizing: border-box; }
 
 html, body {

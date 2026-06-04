@@ -29,8 +29,10 @@ const Executive            = lazy(() => import("@scc/modules/executive"));
 const Platform             = lazy(() => import("@scc/modules/platform"));
 const Revenue              = lazy(() => import("@scc/modules/revenue"));
 const Billing              = lazy(() => import("@scc/modules/billing"));
+const Mail                 = lazy(() => import("@scc/modules/mail"));
 const Support              = lazy(() => import("@scc/modules/support"));
 const Operations           = lazy(() => import("@scc/modules/operations"));
+const Incidents            = lazy(() => import("@scc/modules/incidents"));
 const Hetzner              = lazy(() => import("@scc/modules/hetzner"));
 const RiskTrust            = lazy(() => import("@scc/modules/risk-trust"));
 const AuditDecisions       = lazy(() => import("@scc/modules/audit-decisions"));
@@ -85,8 +87,10 @@ function ActiveModule({ active }: { active: AreaKey }) {
       {active === "platform"              && <Platform />}
       {active === "revenue"               && <Revenue />}
       {active === "billing"               && <Billing />}
+      {active === "mail"                  && <Mail />}
       {active === "support"               && <Support />}
       {active === "operations"            && <Operations />}
+      {active === "incidents"             && <Incidents />}
       {active === "hetzner"               && <Hetzner />}
       {active === "risk-trust"            && <RiskTrust />}
       {active === "audit-decisions"       && <AuditDecisions />}

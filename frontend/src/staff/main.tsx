@@ -7,7 +7,7 @@ import App from "./App";
 ;(function initTheme() {
   try {
     const saved = localStorage.getItem("scc-theme");
-    const theme = saved === "light" ? "light" : "dark";
+    const theme = (saved === "light" || saved === "ultra_premium") ? saved : "dark";
     document.documentElement.setAttribute("data-theme", theme);
   } catch { /* localStorage may be blocked in some contexts */ }
 })();

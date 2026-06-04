@@ -59,6 +59,8 @@ export interface StaffBootstrap {
   executive_summary: ExecutiveSummary;
   platform_summary?: PlatformSummary;
   hetzner_mode: "live" | "stub";
+  /** Theme-Verfügbarkeit (Phase J, Tier-2 Env-Kill-Switch; fehlt → beide an). */
+  theme?: { switcher_enabled: boolean; ultra_premium_enabled: boolean };
   allowed_modules?: string[];
   feature_flags?: Record<string, boolean>;
 }

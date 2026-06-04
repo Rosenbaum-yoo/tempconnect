@@ -116,6 +116,35 @@
     }
   }
 
+  /**
+   * Track C: Die Marktplatz-Hub-Card traegt rollenabhaengige Sprache.
+   * Unternehmen suchen Personal -> "Personal finden".
+   * Zeitarbeitsfirmen suchen Plaetze fuer ihr Personal -> "Arbeitsplatz finden".
+   * Spiegelt die bereits rollenbewusste Hauptnavigation (navMarketplace) und
+   * nutzt denselben Terminologie-Helfer (keine doppelten String-Konstanten).
+   */
+  function applyMarketplaceCopy(me) {
+    var orgType = String(me && me.org_type || "").toLowerCase();
+    if (!orgType) return; // unbekannte Rolle: HTML-Default ("Personal finden") belassen
+    var label = (window.TC && TC.terminology)
+      ? TC.terminology.get("marketplace", orgType, null)
+      : null;
+    if (label) {
+      // Hub-Card-Titel + Aktivierungs-Nudge-CTA fuehren auf denselben Marktplatz-Feed
+      var title = $("hub-card-marketplace-title");
+      if (title) title.textContent = label;
+      var nudgeCta = $("ce-nudge-cta-marketplace");
+      if (nudgeCta) nudgeCta.textContent = label;
+    }
+    // Agentur-Sicht: Beschreibung/Fussnote auf Arbeitsplatzsuche ausrichten
+    // (Company-Default bleibt unveraendert).
+    if (orgType !== "agency") return;
+    var desc = $("hub-card-marketplace-desc");
+    var note = $("hub-card-marketplace-note");
+    if (desc) desc.textContent = "Offene Arbeitsplatzangebote, passende Einsaetze und Vermittlungsreaktionen im offenen Markt.";
+    if (note) note.textContent = "Frueher Einstieg fuer Arbeitsplatzsuche, Reaktion und Match — ohne glatten Start kippt auch der Dealflow.";
+  }
+
   /* ── Plan-gated Card Locks ────────────────────────────────────── */
   function applyStaticCardLocks(plan) {
     document.querySelectorAll("[data-feature]").forEach(function (card) {
@@ -372,6 +401,41 @@
     });
   }
 
+  /* ── Notification-Badges pro Hub-Card ─────────────────────────────
+   * Zeigt ungelesene Benachrichtigungen als kleine Zahl direkt auf der
+   * jeweiligen Card. Klick auf die Card fuehrt ueber deren href dorthin
+   * ("direkt da hin leiten"). Ersetzt die zweite Glocke fuer routebare
+   * Ereignisse — bell-only Typen (general/system) bleiben in der Glocke. */
+  function injectSurfaceBadge(card, count) {
+    if (!card || !(count > 0)) return;
+    // Versteckte/ausgeblendete Cards bekommen kein Badge (Visibility-Entscheid achten).
+    if (card.getAttribute("aria-hidden") === "true" || card.style.display === "none") return;
+    var label = count > 99 ? "99+" : String(count);
+    var existing = card.querySelector(".tc-hub-card-notif");
+    if (existing) { existing.textContent = label; return; }
+    if (getComputedStyle(card).position === "static") card.style.position = "relative";
+    var badge = document.createElement("span");
+    badge.className = "tc-hub-card-notif";
+    badge.textContent = label;
+    badge.setAttribute("aria-label", count + " ungelesene Benachrichtigungen");
+    badge.style.cssText = "position:absolute;top:10px;right:10px;min-width:18px;height:18px;padding:0 5px;border-radius:9px;background:var(--ds-danger,#f43f5e);color:#fff;font-size:11px;font-weight:700;line-height:18px;text-align:center;box-shadow:0 1px 3px rgba(0,0,0,.3);pointer-events:none";
+    card.appendChild(badge);
+  }
+
+  function loadSurfaceBadges() {
+    fetch("/api/notifications/surface-summary", { credentials: "include" })
+      .then(function (r) { return r.ok ? r.json() : null; })
+      .then(function (data) {
+        if (!data || !data.surfaces) return;
+        Object.keys(data.surfaces).forEach(function (key) {
+          var count = data.surfaces[key] || 0;
+          if (!(count > 0)) return;
+          injectSurfaceBadge(grid.querySelector('[data-surface="' + key + '"]'), count);
+        });
+      })
+      .catch(function () { /* soft-fail: keine Badges, Glocke bleibt Quelle */ });
+  }
+
   /* ── Boot ────────────────────────────────────────────────────── */
   fetch("/api/me", { credentials: "include" })
     .then(function (r) { return r.ok ? r.json() : null; })
@@ -379,6 +443,7 @@
       window._slaPlan = (me && me.plan) ? me.plan : "DEMO";
       applySupplierGovernanceCopy(me);
       applyAssignmentsCopy(me);
+      applyMarketplaceCopy(me);
       applyHubVisibility(me);
       applyCTAVisibility(me);
       PlanFeatures.load().then(function (pf) {
@@ -389,12 +454,14 @@
         applyPilotLocks(me);
         loadCeNudges();
         loadValueReport();
+        loadSurfaceBadges();
       }
     })
     .catch(function () {
       window._slaPlan = "DEMO";
       applySupplierGovernanceCopy(null);
       applyAssignmentsCopy(null);
+      applyMarketplaceCopy(null);
       applyHubVisibility(null);
       PlanFeatures.load().then(function (pf) {
         applyStaticCardLocks("DEMO");

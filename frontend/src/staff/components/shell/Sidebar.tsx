@@ -11,8 +11,10 @@ export type AreaKey =
   | "platform"
   | "revenue"
   | "billing"
+  | "mail"
   | "support"
   | "operations"
+  | "incidents"
   | "hetzner"
   | "risk-trust"
   | "audit-decisions"
@@ -38,7 +40,9 @@ export const AREAS: NavItem[] = [
   { key: "revenue",               label: "Revenue",              group: "Strategie" },
   { key: "billing",               label: "Billing",              group: "Strategie" },
   { key: "support",               label: "Support",              group: "Operations" },
+  { key: "mail",                  label: "Mail & Notifications", group: "Operations" },
   { key: "operations",            label: "Operations",           group: "Operations" },
+  { key: "incidents",             label: "Incidents",            group: "Operations" },
   { key: "hetzner",               label: "Hetzner",              group: "Operations" },
   { key: "risk-trust",            label: "Risk / Trust",         group: "Governance" },
   { key: "audit-decisions",       label: "Audit / Decisions",    group: "Governance" },

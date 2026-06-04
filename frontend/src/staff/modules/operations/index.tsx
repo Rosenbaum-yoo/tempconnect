@@ -40,11 +40,90 @@ interface RunbookRun {
   finished_at: string | null;
 }
 
+// Live-Diagnostics (Phase I): lose typisiert — getSystemDiagnostics liefert je Komponente
+// nur secret-freie Felder (Status/Latenz/Booleans/Zähler/Provider-Name/Warntexte).
+interface HealthComponent {
+  status:              string;
+  latency_ms?:         number;
+  error?:              string;
+  provider?:           string;
+  automated?:          boolean;
+  outbound?:           boolean;
+  capabilities_active?: number;
+  warnings?:           string[];
+  error_rate_pct?:     number;
+  uptime_s?:           number;
+  pool?:    { total: number; idle: number; waiting: number; utilization_pct: number };
+  memory?:  { rss_mb: number; heap_used_mb: number; heap_total_mb: number; external_mb: number };
+  latency?: { p50_ms: number; p95_ms: number; p99_ms: number };
+}
+
+interface ServiceHealth {
+  status:      string;
+  checked_at?: string;
+  response_ms?: number;
+  version?:    string;
+  components:  Record<string, HealthComponent>;
+}
+
 interface OperationsData {
-  generated_at?: string;
-  infra_health:  InfraSnapshot[];
-  recent_runs:   RunbookRun[];
-  errors?:       Array<{ area: string; error: string }>;
+  generated_at?:   string;
+  infra_health:    InfraSnapshot[];
+  recent_runs:     RunbookRun[];
+  service_health?: ServiceHealth | null;
+  errors?:         Array<{ area: string; error: string }>;
+}
+
+// ─── Service-Health helpers (Phase I Slice 2) ────────────────
+
+const HEALTH_LABELS: Record<string, string> = {
+  database: "Datenbank", redis: "Redis / Queue", api: "API",
+  process: "Prozess",    billing: "Billing",     email: "E-Mail",
+};
+const HEALTH_ORDER = ["database", "redis", "api", "process", "billing", "email"];
+
+function healthTone(status: string): string {
+  if (status === "critical") return "danger";
+  if (status === "degraded") return "warn";
+  if (status === "ok")       return "ok";
+  return ""; // unconfigured / configured / unknown → neutral (kein Fehler)
+}
+
+function healthLabel(status: string): string {
+  const map: Record<string, string> = {
+    ok: "OK", degraded: "DEGRADIERT", critical: "KRITISCH",
+    unconfigured: "NICHT KONFIG.", configured: "KONFIG.",
+  };
+  return map[status] ?? status.toUpperCase();
+}
+
+function fmtUptime(s: number): string {
+  if (s < 60)    return `${s}s`;
+  if (s < 3600)  return `${Math.floor(s / 60)}m`;
+  if (s < 86400) return `${Math.floor(s / 3600)}h`;
+  return `${Math.floor(s / 86400)}d`;
+}
+
+function componentDetail(key: string, c: HealthComponent): string {
+  switch (key) {
+    case "database":
+      if (c.error) return c.error;
+      return `${c.latency_ms ?? "–"}ms${c.pool ? ` · Pool ${c.pool.utilization_pct}%` : ""}`;
+    case "redis":
+      if (c.status === "unconfigured") return "nicht konfiguriert";
+      if (c.error) return c.error;
+      return (c.latency_ms ?? -1) >= 0 ? `${c.latency_ms}ms` : c.status;
+    case "api":
+      return `Fehlerrate ${c.error_rate_pct ?? 0}%${c.latency ? ` · p95 ${c.latency.p95_ms}ms` : ""}`;
+    case "process":
+      return `Uptime ${c.uptime_s != null ? fmtUptime(c.uptime_s) : "–"}${c.memory ? ` · ${c.memory.rss_mb}MB RSS` : ""}`;
+    case "billing":
+      return `${c.provider ?? "–"}${c.automated ? " · automatisiert" : ""}`;
+    case "email":
+      return `${c.provider ?? "–"}${c.outbound ? " · Versand aktiv" : ""}`;
+    default:
+      return c.status;
+  }
 }
 
 // ─── Threshold helpers ───────────────────────────────────────
@@ -156,8 +235,9 @@ export default function Operations() {
     </div>
   );
 
-  const infra = data?.infra_health ?? [];
-  const runs  = data?.recent_runs  ?? [];
+  const infra  = data?.infra_health ?? [];
+  const runs   = data?.recent_runs  ?? [];
+  const health = data?.service_health ?? null;
 
   const successCount = runs.filter((r) => r.status === "success").length;
   const failedCount  = runs.filter((r) => r.status === "failed" || r.status === "error").length;
@@ -184,6 +264,50 @@ export default function Operations() {
           </button>
         </div>
       </div>
+
+      {/* ── Live-Service-Health (Phase I Slice 2) ───────────── */}
+      {health && (
+        <>
+          <div className="scc-section__header" style={{ marginTop: 0 }}>
+            <h2 className="scc-section__title" style={{ fontSize: 14 }}>Live-Service-Health</h2>
+            <span className="scc-muted" style={{ fontSize: 12, display: "inline-flex", alignItems: "center", gap: 8 }}>
+              <span className={`scc-status scc-status--${healthTone(health.status) || "ok"}`} style={{ fontSize: 10 }}>
+                {healthLabel(health.status)}
+              </span>
+              {health.response_ms != null && <span>{health.response_ms}ms</span>}
+            </span>
+          </div>
+
+          <div
+            className="scc-grid"
+            style={{ gridTemplateColumns: "repeat(auto-fill, minmax(210px, 1fr))", marginBottom: 28 }}
+          >
+            {HEALTH_ORDER.filter((k) => health.components?.[k]).map((k) => {
+              const c = health.components[k];
+              const tone = healthTone(c.status);
+              return (
+                <div key={k} className={`scc-card${tone ? ` scc-card--${tone}` : ""}`}>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
+                    <span style={{ fontWeight: 600, fontSize: 13 }}>{HEALTH_LABELS[k] ?? k}</span>
+                    <span className={`scc-status scc-status--${tone || "ok"}`} style={{ fontSize: 10 }}>
+                      {healthLabel(c.status)}
+                    </span>
+                  </div>
+                  <div className="scc-muted" style={{ fontSize: 11 }}>{componentDetail(k, c)}</div>
+                  {/* Provider-Warnungen (billing/email) — secret-frei aus Slice 1 */}
+                  {(c.warnings?.length ?? 0) > 0 && (
+                    <div style={{ marginTop: 6, display: "flex", flexDirection: "column", gap: 2 }}>
+                      {c.warnings!.map((w, i) => (
+                        <div key={i} style={{ fontSize: 10, color: "var(--scc-warn)", lineHeight: 1.35 }}>{w}</div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </>
+      )}
 
       {/* ── Infra-Health-Panel ──────────────────────────────── */}
       <div className="scc-section__header" style={{ marginTop: 0 }}>

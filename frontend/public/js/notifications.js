@@ -124,6 +124,13 @@
     var wrap = createBell();
     if (!wrap) return;
 
+    // Glocken-Konsolidierung: dieses Dropdown ersetzt die statische pageShell-
+    // Link-Glocke (#tc-notif-bell). Sobald unsere Glocke steht, blenden wir die
+    // Alt-Glocke plattformweit aus (guarded — strandet keine Seite ohne pageShell;
+    // pageShell-SSE-Toasts bleiben aktiv).
+    var legacyBell = document.getElementById("tc-notif-bell");
+    if (legacyBell) legacyBell.style.display = "none";
+
     var btn       = wrap.querySelector(".tc-notif-btn");
     var dropdown  = wrap.querySelector(".tc-notif-dropdown");
     var badge     = wrap.querySelector(".tc-notif-badge");
