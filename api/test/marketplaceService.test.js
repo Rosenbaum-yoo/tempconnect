@@ -766,35 +766,54 @@ describe("recordDemandNotificationSent — idempotent", () => {
 // demandSlaScan — cron: RUNNING → BREACHED
 // ═══════════════════════════════════════════════════════════════
 
-describe("demandSlaScan — batch SLA breach detection", () => {
-  it("breaches overdue demands", async () => {
-    const pool = sequencePool(
-      { rows: [{ id: UUID }, { id: UUID2 }] },       // SELECT overdue
-      { rows: [{ id: UUID }], rowCount: 1 },          // UPDATE #1
-      { rows: [] },                                    // writeSlaEvent #1
-      { rows: [{ id: UUID2 }], rowCount: 1 },         // UPDATE #2
-      { rows: [] }                                     // writeSlaEvent #2
+describe("demandSlaScan — batch SLA breach detection (set-based)", () => {
+  function recordingPool(...responses) {
+    const calls = [];
+    let idx = 0;
+    return {
+      calls,
+      query: async (sql, params) => {
+        calls.push({ sql, params });
+        return responses[idx++] ?? { rows: [], rowCount: 0 };
+      }
+    };
+  }
+
+  it("flips the batch in ONE guarded UPDATE + ONE bulk event insert (no N+1)", async () => {
+    const pool = recordingPool(
+      { rows: [{ id: UUID }, { id: UUID2 }], rowCount: 2 }, // UPDATE ... RETURNING
+      { rows: [], rowCount: 2 }                              // bulk INSERT ... UNNEST
     );
     const result = await demandSlaScan(pool, 100);
     assert.strictEqual(result.breached, 2);
+    // Exactly two round-trips regardless of batch size — proves the per-row loop is gone.
+    assert.strictEqual(pool.calls.length, 2);
+    // Query #1: guarded set-based UPDATE (concurrency-safe + batch-bounded).
+    const upd = pool.calls[0].sql;
+    assert.match(upd, /UPDATE demand_requests/);
+    assert.match(upd, /SET sla_status = 'BREACHED'/);
+    assert.match(upd, /WHERE sla_status = 'RUNNING'/); // guard on OUTER update → no duplicate events under overlapping crons
+    assert.match(upd, /LIMIT \$1/);                     // batch bound preserved
+    assert.match(upd, /RETURNING id/);
+    // Query #2: single bulk insert via UNNEST carrying exactly the flipped ids.
+    const ins = pool.calls[1].sql;
+    assert.match(ins, /INSERT INTO demand_sla_events/);
+    assert.match(ins, /UNNEST\(\$1::uuid\[\]\)/);
+    assert.match(ins, /'SLA_BREACHED'/);
+    assert.deepStrictEqual(pool.calls[1].params[0], [UUID, UUID2]);
   });
 
-  it("returns 0 when no overdue demands", async () => {
-    const pool = sequencePool({ rows: [] });
+  it("returns 0 and skips the event insert when nothing is overdue", async () => {
+    const pool = recordingPool({ rows: [], rowCount: 0 }); // UPDATE flips nothing
     const result = await demandSlaScan(pool, 100);
     assert.strictEqual(result.breached, 0);
+    assert.strictEqual(pool.calls.length, 1); // no second (event) query
   });
 
   it("caps batch size at 500", async () => {
-    let capturedLimit = null;
-    const pool = {
-      query: async (_sql, params) => {
-        if (capturedLimit === null) capturedLimit = params?.[0];
-        return { rows: [], rowCount: 0 };
-      }
-    };
+    const pool = recordingPool({ rows: [], rowCount: 0 });
     await demandSlaScan(pool, 9999);
-    assert.strictEqual(capturedLimit, 500);
+    assert.strictEqual(pool.calls[0].params[0], 500);
   });
 });
 

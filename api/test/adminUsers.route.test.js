@@ -231,3 +231,77 @@ describe("admin routes — GET /admin/users", () => {
     assert.equal(res._json.error.message, "Benutzer konnten nicht geladen werden.");
   });
 });
+
+function getOrgListHandler(router) {
+  for (const layer of router.stack) {
+    if (!layer.route || layer.route.path !== "/admin/organizations") continue;
+    if (!layer.route.methods.get) continue;
+    return layer.route.stack.map((stackLayer) => stackLayer.handle)[2];
+  }
+  throw new Error("GET /admin/organizations route not found");
+}
+
+describe("admin routes — GET /admin/organizations", () => {
+  it("returns paginated organizations with total and bounded LIMIT/OFFSET", async () => {
+    const pool = recordingSequencePool(
+      { rows: [{ id: "org-1", name: "Org One", org_type: "company", plan: "PRO", member_count: 3, location_count: 1, is_active: true }] },
+      { rows: [{ total: 1 }] }
+    );
+    const router = createAdminRouter(createDeps(pool));
+    const handler = getOrgListHandler(router);
+    const req = mockReq({ query: { limit: "50", offset: "0" } });
+    const res = mockRes();
+
+    await handler(req, res);
+
+    assert.equal(res._status, 200);
+    assert.equal(res._json.success, true);
+    assert.equal(res._json.data.total, 1);
+    assert.equal(res._json.data.limit, 50);
+    assert.equal(res._json.data.offset, 0);
+    assert.equal(res._json.data.items.length, 1);
+    assert.match(pool.calls[0].sql, /FROM organizations o ORDER BY o\.created_at DESC LIMIT \$1 OFFSET \$2/);
+    assert.doesNotMatch(pool.calls[0].sql, /LIMIT 200/);
+    assert.deepEqual(pool.calls[0].params, [50, 0]);
+    assert.match(pool.calls[1].sql, /SELECT COUNT\(\*\)::int AS total FROM organizations/);
+  });
+
+  it("clamps invalid pagination parameters to safe defaults", async () => {
+    const pool = recordingSequencePool({ rows: [] }, { rows: [{ total: 0 }] });
+    const router = createAdminRouter(createDeps(pool));
+    const handler = getOrgListHandler(router);
+    const req = mockReq({ query: { limit: "abc", offset: "-10" } });
+    const res = mockRes();
+
+    await handler(req, res);
+
+    assert.equal(res._status, 200);
+    assert.deepEqual(pool.calls[0].params, [50, 0]);
+  });
+
+  it("caps page size at 200 to bound platform-wide scans (300-customer safety)", async () => {
+    const pool = recordingSequencePool({ rows: [] }, { rows: [{ total: 0 }] });
+    const router = createAdminRouter(createDeps(pool));
+    const handler = getOrgListHandler(router);
+    const req = mockReq({ query: { limit: "5000", offset: "0" } });
+    const res = mockRes();
+
+    await handler(req, res);
+
+    assert.equal(pool.calls[0].params[0], 200);
+  });
+
+  it("returns stable server error envelope on query failure", async () => {
+    const pool = recordingSequencePool(new Error("relation organizations does not exist"));
+    const router = createAdminRouter(createDeps(pool));
+    const handler = getOrgListHandler(router);
+    const req = mockReq({});
+    const res = mockRes();
+
+    await handler(req, res);
+
+    assert.equal(res._status, 500);
+    assert.equal(res._json.success, false);
+    assert.equal(res._json.error.code, "SERVER_ERROR");
+  });
+});

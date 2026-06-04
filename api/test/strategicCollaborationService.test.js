@@ -132,12 +132,15 @@ describe("strategicCollaborationService", () => {
     assert.equal(row.status, "rueckfrage_offen");
   });
 
-  it("listAllRequestsAdmin returns rows", async () => {
-    const pool = sequencePool({ rows: [{ id: "req-1" }] });
-    const rows = await strategicSvc.listAllRequestsAdmin(pool, { limit: 10, offset: 0, status: "eingegangen" });
-    assert.equal(rows.length, 1);
-    assert.equal(rows[0].id, "req-1");
+  it("listAllRequestsAdmin returns paginated items with total and bounded count query", async () => {
+    const pool = sequencePool({ rows: [{ id: "req-1" }] }, { rows: [{ total: 3 }] });
+    const result = await strategicSvc.listAllRequestsAdmin(pool, { limit: 10, offset: 0, status: "eingegangen" });
+    assert.equal(result.items.length, 1);
+    assert.equal(result.items[0].id, "req-1");
+    assert.equal(result.total, 3);
     assert.ok(pool.calls[0].sql.includes("strategic_collaboration_requests"));
+    assert.match(pool.calls[1].sql, /COUNT\(\*\)::int AS total/);
+    assert.deepEqual(pool.calls[1].params, ["eingegangen"]);
   });
 
   it("updateStatusAsAdmin updates request status", async () => {

@@ -289,6 +289,38 @@ describe("loadOperationsSnapshot — runbook_runs + infra_health", () => {
     const snap = await loadOperationsSnapshot(pool);
     assert.deepEqual(snap.infra_health, []);
   });
+
+  // ── Phase I Slice 2: Live-Service-Health via getSystemDiagnostics ──
+  it("service_health wird via getSystemDiagnostics befüllt (db/billing/email-Komponenten)", async () => {
+    const pool = makePool(
+      { rows: [] },                  // runbook_runs
+      { rows: [] },                  // infra_health
+      { rows: [{ "?column?": 1 }] }  // getSystemDiagnostics: SELECT 1 (database)
+    );
+    const snap = await loadOperationsSnapshot(pool);
+    assert.ok(snap.service_health, "service_health soll befüllt sein");
+    assert.equal(typeof snap.service_health.status, "string");
+    assert.ok(snap.service_health.components, "components fehlen");
+    assert.ok(snap.service_health.components.database, "database-Komponente fehlt");
+    assert.ok(snap.service_health.components.billing, "billing-Komponente fehlt (Phase I Slice 1)");
+    assert.ok(snap.service_health.components.email, "email-Komponente fehlt (Phase I Slice 1)");
+  });
+
+  it("soft-fail: DB-Fehler in Live-Diagnostics kippt den Snapshot nicht (database = critical)", async () => {
+    const pool = makePool(
+      { rows: [] },                       // runbook_runs (unberührt)
+      { rows: [] },                       // infra_health (unberührt)
+      new Error("SELECT 1 unreachable")   // getSystemDiagnostics database-Ping schlägt fehl
+    );
+    const snap = await loadOperationsSnapshot(pool);
+    // Snapshot kommt ohne Throw zurück; Runbooks/Infra unberührt.
+    assert.deepEqual(snap.recent_runs, []);
+    assert.deepEqual(snap.infra_health, []);
+    // getSystemDiagnostics fängt den DB-Fehler intern → service_health bleibt befüllt,
+    // database-Komponente meldet critical (kein Secret, kein Throw nach oben).
+    assert.ok(snap.service_health, "service_health soll trotz DB-Fehler befüllt sein");
+    assert.equal(snap.service_health.components.database.status, "critical");
+  });
 });
 
 // ─────────────────────────────────────────────────────────────────

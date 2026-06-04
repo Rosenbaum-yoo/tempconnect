@@ -88,6 +88,44 @@ describe("requestService — lookup helpers", () => {
 });
 
 // ═══════════════════════════════════════════════════════════════
+// Admin pagination (platform-wide list — 300-customer safety)
+// ═══════════════════════════════════════════════════════════════
+
+describe("requestService — listRequestsAdmin (admin pagination)", () => {
+  function recordingPool(...responses) {
+    let idx = 0;
+    const calls = [];
+    return {
+      calls,
+      query: async (sql, params) => {
+        calls.push({ sql, params });
+        return responses[idx++] || { rows: [] };
+      }
+    };
+  }
+
+  it("returns { items, total } with a bounded COUNT query (status uppercased)", async () => {
+    const pool = recordingPool({ rows: [{ id: "r-1" }] }, { rows: [{ total: 5 }] });
+    const result = await svc.listRequestsAdmin(pool, { limit: 10, offset: 0, status: "sent" });
+    assert.equal(result.items.length, 1);
+    assert.equal(result.items[0].id, "r-1");
+    assert.equal(result.total, 5);
+    assert.match(pool.calls[0].sql, /FROM requests r/);
+    assert.match(pool.calls[0].sql, /LIMIT \$\d+ OFFSET \$\d+/);
+    assert.match(pool.calls[1].sql, /COUNT\(\*\)::int AS total/);
+    assert.deepEqual(pool.calls[1].params, ["SENT"]);
+  });
+
+  it("clamps oversized limit to 200 and omits status filter when absent", async () => {
+    const pool = recordingPool({ rows: [] }, { rows: [{ total: 0 }] });
+    const result = await svc.listRequestsAdmin(pool, { limit: 5000, offset: 0 });
+    assert.equal(result.total, 0);
+    assert.equal(pool.calls[0].params[0], 200);
+    assert.deepEqual(pool.calls[1].params, []);
+  });
+});
+
+// ═══════════════════════════════════════════════════════════════
 // Request CRUD
 // ═══════════════════════════════════════════════════════════════
 

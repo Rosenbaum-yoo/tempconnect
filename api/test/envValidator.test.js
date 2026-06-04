@@ -135,4 +135,117 @@ describe("envValidator", () => {
       "Should throw with FEATURE_GATE_BYPASS in the message"
     );
   });
+
+  it("throws when EMAIL_PROVIDER is an unknown value", () => {
+    setEnv({
+      SESSION_SECRET: "a_long_enough_secret_for_test",
+      DATABASE_URL: "postgres://localhost/test",
+      EMAIL_PROVIDER: "mailgun"
+    });
+    const logger = mockLogger();
+    assert.throws(() => validateEnv(logger), /EMAIL_PROVIDER/);
+  });
+
+  it("throws when BILLING_PROVIDER is an unknown value", () => {
+    setEnv({
+      SESSION_SECRET: "a_long_enough_secret_for_test",
+      DATABASE_URL: "postgres://localhost/test",
+      BILLING_PROVIDER: "paddle"
+    });
+    const logger = mockLogger();
+    assert.throws(() => validateEnv(logger), /BILLING_PROVIDER/);
+  });
+
+  it("passes with valid EMAIL_PROVIDER and BILLING_PROVIDER values", () => {
+    setEnv({
+      SESSION_SECRET: "a_long_enough_secret_for_test",
+      DATABASE_URL: "postgres://localhost/test",
+      EMAIL_PROVIDER: "sendgrid",
+      BILLING_PROVIDER: "manual"
+    });
+    const logger = mockLogger();
+    const result = validateEnv(logger);
+    assert.ok(result);
+  });
+
+  it("passes when provider vars are empty (auto-derive)", () => {
+    setEnv({
+      SESSION_SECRET: "a_long_enough_secret_for_test",
+      DATABASE_URL: "postgres://localhost/test",
+      EMAIL_PROVIDER: "",
+      BILLING_PROVIDER: ""
+    });
+    const logger = mockLogger();
+    const result = validateEnv(logger);
+    assert.ok(result);
+  });
+
+  it("normalizes provider values case-insensitively", () => {
+    setEnv({
+      SESSION_SECRET: "a_long_enough_secret_for_test",
+      DATABASE_URL: "postgres://localhost/test",
+      EMAIL_PROVIDER: "SMTP",
+      BILLING_PROVIDER: "Stripe"
+    });
+    const logger = mockLogger();
+    const result = validateEnv(logger);
+    assert.ok(result);
+  });
+
+  // ── Theme Tier-2 Env-Kill-Switches (Phase J) ──────────────
+  it("passes when theme flags are valid boolean tokens", () => {
+    setEnv({
+      SESSION_SECRET: "a_long_enough_secret_for_test",
+      DATABASE_URL: "postgres://localhost/test",
+      THEME_SWITCHER_ENABLED: "false",
+      ULTRA_PREMIUM_THEME_ENABLED: "off"
+    });
+    const logger = mockLogger();
+    const result = validateEnv(logger);
+    assert.ok(result);
+  });
+
+  it("passes when theme flags are empty (default on)", () => {
+    setEnv({
+      SESSION_SECRET: "a_long_enough_secret_for_test",
+      DATABASE_URL: "postgres://localhost/test",
+      THEME_SWITCHER_ENABLED: "",
+      ULTRA_PREMIUM_THEME_ENABLED: ""
+    });
+    const logger = mockLogger();
+    const result = validateEnv(logger);
+    assert.ok(result);
+  });
+
+  it("throws when THEME_SWITCHER_ENABLED is not a boolean token (silent-on footgun)", () => {
+    setEnv({
+      SESSION_SECRET: "a_long_enough_secret_for_test",
+      DATABASE_URL: "postgres://localhost/test",
+      THEME_SWITCHER_ENABLED: "nein"
+    });
+    const logger = mockLogger();
+    assert.throws(() => validateEnv(logger), /THEME_SWITCHER_ENABLED/);
+  });
+
+  it("throws when ULTRA_PREMIUM_THEME_ENABLED is an unknown value", () => {
+    setEnv({
+      SESSION_SECRET: "a_long_enough_secret_for_test",
+      DATABASE_URL: "postgres://localhost/test",
+      ULTRA_PREMIUM_THEME_ENABLED: "enabled"
+    });
+    const logger = mockLogger();
+    assert.throws(() => validateEnv(logger), /ULTRA_PREMIUM_THEME_ENABLED/);
+  });
+
+  it("normalizes theme flag tokens (trim + case-insensitive)", () => {
+    setEnv({
+      SESSION_SECRET: "a_long_enough_secret_for_test",
+      DATABASE_URL: "postgres://localhost/test",
+      THEME_SWITCHER_ENABLED: "  OFF  ",
+      ULTRA_PREMIUM_THEME_ENABLED: " No "
+    });
+    const logger = mockLogger();
+    const result = validateEnv(logger);
+    assert.ok(result);
+  });
 });
