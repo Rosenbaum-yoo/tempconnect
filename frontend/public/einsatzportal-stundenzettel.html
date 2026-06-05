@@ -748,11 +748,12 @@ async function _edLoadPrefill(subId) {
 }
 
 async function _edCreateForWeek(weekStart, weekEnd) {
+  // EP-03: org_id / supplier_org_id / assignment_id werden NICHT mitgesendet.
+  // Der Server leitet sie serverseitig aus worker_assignment_link_id ab
+  // (workerPortal.js POST /worker/submissions). Client-Werte wuerden ohnehin
+  // verworfen — sie hier wegzulassen haelt den Cross-Org-Vertrag eindeutig.
   const body = {
     worker_assignment_link_id: edLinkId,
-    org_id: edAssignmentData.org_id,
-    supplier_org_id: edAssignmentData.supplier_org_id,
-    assignment_id: edAssignmentData.assignment_id,
     week_start: weekStart,
     week_end: weekEnd
   };
