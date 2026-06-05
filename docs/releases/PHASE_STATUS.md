@@ -153,9 +153,14 @@ Finalisierung Einsatzportal von 68-72% auf 90%. 11 Wellen (EP-00 bis EP-10).
 | EP-09 | E2E / Smoke / Negative Tests | ✅ abgeschlossen | 2026-05-29 — workerPortalSmoke.ep09.test.js: 7 AUTH (→401), 7 SMOKE (→200+Shape), 3 XORG (Worker B sieht keine Worker-A-Daten). Cross-Org-Pflicht erfüllt. |
 | EP-10 | Accessibility / Mobile / Final Cleanup | ✅ abgeschlossen | 2026-05-29 — einsatzportal.css: :focus-visible, :focus:not(:focus-visible), .sr-only, prefers-reduced-motion. portalShell.js: _setupAccessibility() setzt aria-label auf ep-sidebar/ep-sidebar-nav/ep-bottom-nav/ep-bell + aria-hidden auf .ep-skel — deckt alle 7 Portal-Seiten automatisch ab. |
 
-**Gate:** `finalization/phase 4/GATES.md` Track-B-Gate (20 Kriterien)
+**Gate:** `finalization/phase4_vertical/GATES.md` Track-B-Gate (20 Kriterien)
 **Branch:** `release/enterprise-premium-market-ready`
 **Aktueller Score:** ✅ **92%** — Ziel ≥90% erreicht. Alle EP-00–10 abgeschlossen (2026-05-29).
+
+**Gate-Entscheidung (2026-06-05):** `docs/releases/EINSATZPORTAL_GO_LIVE_DECISION.md` — Verdikt **CONDITIONAL GO**, 17/20 Kriterien automatisiert verifiziert grün.
+- **NEU:** Echter Playwright-Browser-Smoke `e2e/tests/einsatzportal-worker-flow.spec.js` (8/8 grün) schließt Gate-Kriterium **#18** korrekt. Der EP-09-Eintrag oben kreditierte bisher nur den API-Level-Test `workerPortalSmoke.ep09.test.js` als „Smoke" — das ist kein echter Browser-Smoke i.S.d. Gates.
+- **Voraussetzungs-Fix (Worker-Provisionierung):** `authService.js` — Plan-Normalisierung via `normalizePlanKey` in `createSubscription`/`createOrgWithMembership` entkoppelt die Worker-Anlage von der `subscriptions_plan_check`-Constraint (Alt-Code mappte DEMO→FREE). _Migration 127 (`org_access_suspension`) ist ein separater Owner-Refactor (Kill-Switch), nicht Teil dieses Fixes — sie wurde nur angewandt, damit der laufende Entitlement-Umbau im Worker-Testlauf nicht auf `access_suspended_at` 500t._
+- **Offen (3 Restpunkte, nicht Claude-autonom abschließbar):** #13 Kontakt-Echtdaten (owner-manuell), #16 Integration 37/39 (2 agency-seitige Fails: Entitlement-Refactor + `FEATURE_GATE_BYPASS`-Artefakt, NICHT Portal), #20 Mobile-Sicht (owner-manuell). → Owner-Sign-off ausstehend.
 
 ---
 

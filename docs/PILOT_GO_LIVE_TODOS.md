@@ -152,11 +152,11 @@ Letzte Aktualisierung: 2026-06-05 (Go-Live-Haertung abgeschlossen, „drei wie e
 - Aufwand: 7 Sessions (je 1 Wave).
 - Verify: `npm run build:scc` 0 Errors, Phase-3-Gates A-E gruen, `staffControlCenter.test.js` durchgehend gruen.
 ### Phase4_TRACK_B - Einsatzportal auf Enterprise-Reife 90% (Pflicht fuer Marktstart)
-- Status: OFFEN — Track B ist Marktstart-Pflicht (GATES.md Track-B-Gate, 20 Kriterien)
-- Fakt: Einsatzportal aktuell 68-72% Enterprise-Reife. Groesster Engpass: Frontend-Verdrahtung + Stundenzettel native (EP-02). EP-03 Backend-Haertung (Worker darf org_id NICHT aus Body liefern, Backend leitet ab aus Session + Assignment-Link). Cross-Org-Negativtests fehlen. `worker-timesheet.html` = Legacy, kein neuer Link dorthin.
-- Aktion: Mit EP-00 (Read-only Audit) starten. Masterprompt: `finalization/phase 4/MASTERPROMPTS.md` Abschnitt B. Branch: `release/enterprise-premium-market-ready`.
-- Aufwand: 11 Sessions (EP-00 bis EP-10). Kernblocker EP-02 ca. 1 Session, EP-03 ca. 0.5 Sessions.
-- Verify: Track-B-Gate aus `finalization/phase 4/GATES.md` (20 Kriterien), `npm run test:integration -- worker` gruen, Mobile-Abnahme, keine neuen Links auf `worker-timesheet.html`.
+- Status: WORKER-SELF-SERVICE VERIFIZIERT GRÜN (2026-06-05) — Owner-Sign-off ausstehend (3 Restpunkte). Gate-Entscheidung: `docs/releases/EINSATZPORTAL_GO_LIVE_DECISION.md` (17/20 automatisiert grün).
+- Erledigt: EP-02 KERN-Blocker geschlossen (native Stundenzettel-Erfassung inline in `einsatzportal-stundenzettel.html`, keine Weiterleitung). EP-03 Backend-Haertung geschlossen (org_id serverseitig aus `worker_assignment_link_id` abgeleitet, Client-Felder aus POST-Body entfernt; `workerSubmissionOrgHardening.security` gruen). Cross-Org-Negativtests gruen (EP-09 XORG-Set). 0 Links auf Legacy-`worker-timesheet.html`. Browser-Smoke NEU: `e2e/tests/einsatzportal-worker-flow.spec.js` 8/8 gruen.
+- Voraussetzungs-Fixes (2026-06-05): Registrierungs-Blocker behoben (`authService.js` → `normalizePlanKey`, DEMO statt FREE), Migration 127 `org_access_suspension` angewandt.
+- Restpunkte (owner-/manuell-gated, NICHT Worker-Portal): (1) Gate 16 = 2 Agency-Review-Tests in `workerSubmissionsReview.access.flow.test.js` — Fehler A `worker_view`-Capability = in-flight Entitlement-Refaktorierung (entitlementService.js uncommitted, → Task #30/Item-3); Fehler B `worker_module`-Gate 200≠403 = `FEATURE_GATE_BYPASS=true` Container-Artefakt. (2) Gate 20 Mobile-Abnahme = Owner manuell. (3) Gate 13 Kontakt-Kontext = manuelle Sicht-Bestätigung empfohlen.
+- Verify (durchgeführt): `node --test test/integration/worker*` im Container → 37/39 pass (2 Fehler = Restpunkt 1, nicht Worker-Portal); `npx playwright test einsatzportal` → 8/8; `grep worker-timesheet.html einsatzportal-*.html` → leer.
 ### P1.7 - Entitlement-Leaks: als INDIVIDUELL verkaufte Features nur rollen-gegated
 - Status: ERLEDIGT (2026-06-03, Owner-Freigabe „alle, effizientester/zukunftssicherer Weg") — HIGH-Leaks geschlossen, MED/LOW als „open-by-design" geklaert (kein Doku-Drift). Diffs uncommitted bis Owner-Commit-Freigabe.
 - Befund (Audit): `visibilityMatrix.has_backend_guard:true` ist DOKU, nicht Laufzeit-Wahrheit. Nur Routen mit explizitem `requireFeature`/`requireOrgFeature` erzwingen den Plan-Gate; `rperm(...)` ist ROLLE, kein Plan. Cross-Check aller 12 `feature_key` gegen `routes/`.

@@ -2,6 +2,12 @@
 > Track B WAVE EP-00 | Erstellt: 2026-05-29 | Read-only — keine Codeänderungen
 > Ausgangspunkt für alle nachfolgenden EP-Wellen
 
+> **STATUS-UPDATE (2026-06-05):** Dieser EP-00-Audit ist historisch (Ausgangszustand).
+> Die EP-Wellen sind umgesetzt — Track-B-Gate ist zu 17/20 automatisiert verifiziert grün:
+> KERN-Blocker B-01/EP-02 (native Stundenzettel) geschlossen, B-02/EP-03 (Cross-Org `org_id`)
+> geschlossen, Browser-Smoke 8/8 grün. Aktueller Gate-Stand + 3 owner-/manuell-gated Restpunkte:
+> **`docs/releases/EINSATZPORTAL_GO_LIVE_DECISION.md`**.
+
 ---
 
 ## 1. Inventar — Frontend-Dateien
