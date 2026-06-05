@@ -85,11 +85,21 @@ CREATE POLICY om_staff_bypass ON org_memberships
 -- om_same_org: USING (org_id = current_org_id())
 
 -- ── vendor_pool_entries ───────────────────────────────────────────────────────
-
-DROP POLICY IF EXISTS vpe_no_ctx ON vendor_pool_entries;
-
-CREATE POLICY vpe_staff_bypass ON vendor_pool_entries
-  USING (is_staff_context());
+-- HINWEIS (2026-06-04): vendor_pool_entries wird nirgends angelegt (out of scope).
+-- Diese Migration ist transaktional — ungeschuetzt riss der Fehler hier die
+-- GESAMTE Deny-by-Default-RLS-Migration in den Rollback (frueher stumm maskiert).
+-- Guard -> No-Op solange die Tabelle fehlt; der Rest von 116 (Security-Backstop)
+-- wird dadurch ueberhaupt erst zuverlaessig angewandt.
+DO $$
+BEGIN
+  IF to_regclass('public.vendor_pool_entries') IS NOT NULL THEN
+    EXECUTE 'DROP POLICY IF EXISTS vpe_no_ctx ON vendor_pool_entries';
+    EXECUTE 'DROP POLICY IF EXISTS vpe_staff_bypass ON vendor_pool_entries';
+    EXECUTE 'CREATE POLICY vpe_staff_bypass ON vendor_pool_entries USING (is_staff_context())';
+  ELSE
+    RAISE NOTICE '116: vendor_pool_entries fehlt — Staff-Bypass-Policy uebersprungen (out of scope).';
+  END IF;
+END $$;
 
 -- Bestehende Org-Policy bleibt:
 -- vpe_same_org: USING (org_id = current_org_id() OR supplier_org_id = current_org_id())
@@ -102,18 +112,21 @@ CREATE POLICY cd_staff_bypass ON compliance_documents
   USING (is_staff_context());
 
 -- Bestehende Org-Policy bleibt:
--- cd_same_org: USING (org_id = current_org_id() OR supplier_org_id = current_org_id())
+-- cd_same_org: USING (org_id = current_org_id())
+--   (in 031 korrigiert: compliance_documents hat keine supplier_org_id-Spalte)
 
 -- ── Weitere kritische tenant-scoped Tabellen absichern ────────────────────────
 
--- subscriptions
-ALTER TABLE subscriptions ENABLE ROW LEVEL SECURITY;
-
-CREATE POLICY sub_staff_bypass ON subscriptions
-  USING (is_staff_context());
-
-CREATE POLICY sub_same_org ON subscriptions
-  USING (org_id = current_org_id());
+-- subscriptions: BEWUSST AUSSERHALB des org-RLS-Sets (Scope-Entscheidung, Owner-Review).
+-- HINWEIS (2026-06-04): subscriptions (init.sql) ist USER-skaliert — Spalte user_id,
+-- KEIN org_id (Legacy-Personentarife FREE/BASIS/PLUS/NOTDIENST). Das hier urspruenglich
+-- stehende "sub_same_org USING (org_id = current_org_id())" referenzierte eine nicht
+-- existente Spalte und riss die gesamte transaktionale 116-Migration in den Rollback —
+-- der eigentliche Grund, warum dieser Deny-by-Default-Backstop auf KEINER Bestands-DB
+-- je angewandt wurde. Org-Tenant-RLS ist fuer eine user-skalierte Tabelle das falsche
+-- Modell: eine Membership-Bruecke (user_id IN … org_memberships) wuerde persoenliche
+-- Abrechnungsdaten org-uebergreifend exponieren. Zugriffsschutz fuer subscriptions
+-- bleibt daher App-Layer (user-scoped), unveraendert zum Status quo.
 
 -- subscription_requests
 ALTER TABLE subscription_requests ENABLE ROW LEVEL SECURITY;
@@ -130,8 +143,13 @@ ALTER TABLE commercial_offers ENABLE ROW LEVEL SECURITY;
 CREATE POLICY co_staff_bypass ON commercial_offers
   USING (is_staff_context());
 
+-- HINWEIS (2026-06-04): commercial_offers (Mig 108, OCC-Modul) ist EIN-org-besitzt
+-- (Spalte org_id; org_name nur Denormalisierung). Es gibt KEINE buyer_org_id/
+-- seller_org_id — das zweiseitige Deal-Modell war eine falsche Annahme. Die
+-- urspruengliche Klausel referenzierte nicht existente Spalten -> ERROR riss die
+-- gesamte (transaktionale) 116-Migration in den Rollback. Korrekt: org_id-Isolation.
 CREATE POLICY co_same_org ON commercial_offers
-  USING (buyer_org_id = current_org_id() OR seller_org_id = current_org_id());
+  USING (org_id = current_org_id());
 
 -- audit_log: Staff liest alles; Org sieht nur eigene Einträge
 ALTER TABLE audit_log ENABLE ROW LEVEL SECURITY;

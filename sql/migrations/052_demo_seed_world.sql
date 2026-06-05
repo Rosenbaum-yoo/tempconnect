@@ -18,7 +18,20 @@
 --   demo-agency3@tempconnect.de  (agency  / BASIS / RheinWorker)
 -- =============================================================================
 
-BEGIN;
+-- prod-sicher GEGATET: Der gesamte Seed-Body laeuft als EIN PL/pgSQL-DO-Block und
+-- wird NUR ausgefuehrt, wenn die Session-GUC app.seed_demo_world = 'true' ist
+-- (gesetzt von sql/migrate.sh aus der Umgebungsvariable SEED_DEMO_WORLD; default
+-- 'false'). Auf Prod ist die Migration damit ein No-Op (wird sauber als applied
+-- verbucht), erzeugt aber KEINE Demo-Accounts mit oeffentlich dokumentiertem
+-- Passwort (DemoPass2026!). In dev/sales aktiviert docker-compose.override.yml
+-- SEED_DEMO_WORLD=true die volle Demo-Welt. Der DO-Block ist atomar: bei Fehler
+-- Rollback, ON_ERROR_STOP greift. (Ersetzt das fruehere explizite BEGIN/COMMIT.)
+DO $seed_demo_world$
+BEGIN
+  IF current_setting('app.seed_demo_world', true) IS DISTINCT FROM 'true' THEN
+    RAISE NOTICE '052_demo_seed_world.sql: SEED_DEMO_WORLD nicht aktiv – Demo-Welt wird NICHT geseedet (prod-sicher, No-Op).';
+    RETURN;
+  END IF;
 
 -- ═══════════════════════════════════════════════════════════════
 -- 1) DEMO-ACCOUNTS
@@ -598,8 +611,5 @@ VALUES
    NOW() - INTERVAL '15 days')
 ON CONFLICT (id) DO NOTHING;
 
-COMMIT;
-
-DO $$ BEGIN
   RAISE NOTICE '052_demo_seed_world.sql: Demo-Welt erfolgreich erzeugt (6 Accounts, 5 Orgs, volles Szenario).';
-END $$;
+END $seed_demo_world$;

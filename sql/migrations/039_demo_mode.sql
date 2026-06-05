@@ -19,6 +19,24 @@ WHERE email IN (
 -- Demo-Worker ebenfalls flaggen
 UPDATE users SET is_demo = TRUE WHERE email LIKE '%@demo.tempconnect.de';
 
+-- 3-6) Demo-Seed-Welt — entkoppelt vom Schema-Teil oben.
+-- HINWEIS (2026-06-04): Die vier Seed-INSERTs referenzieren die hartkodierten
+-- Demo-User-IDs a0000000-...-001..005, die NUR via sql/seeds/dev-data.sql
+-- (dev/Docker) existieren. Auf einer frischen Prod-DB ohne diese User brach der
+-- org_memberships-INSERT mit FK-Verletzung (org_memberships_user_id_fkey) die
+-- GESAMTE Transaktion ab — und riss damit auch die is_demo-Spalte (Schritt 1) in
+-- den Rollback. Folge: Kaskadenfehler in 040/041/052/074/081
+-- (column is_demo does not exist). Guard -> Seeds laufen nur, wenn die Demo-User
+-- vorhanden sind; sonst sauberer No-Op. is_demo (Schritt 1, ausserhalb des Guards)
+-- wird IMMER angelegt. Die Tabellen selbst existieren (frühere Migrationen) — daher
+-- direkte Statements + früher RETURN statt EXECUTE (kein Schema-Defekt, nur FK-Daten).
+DO $demo$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM users WHERE id = 'a0000000-0000-0000-0000-000000000001'::uuid) THEN
+    RAISE NOTICE '039: Demo-User a0000000-...-001 nicht vorhanden — Demo-Welt uebersprungen (kein dev-data.sql). users.is_demo wurde dennoch angelegt.';
+    RETURN;
+  END IF;
+
 -- 3) Demo-Organisationen (eine pro Rolle)
 INSERT INTO organizations (id, name, slug, type, plan, billing_email, is_active)
 VALUES
@@ -120,6 +138,8 @@ INSERT INTO demand_requests (
    CURRENT_DATE, CURRENT_DATE + INTERVAL '180 days',
    'Frankfurt', '60311', 50, 'notdienst', 85.00, 120.00, 'open')
 ON CONFLICT (id) DO NOTHING;
+
+END $demo$;
 
 COMMIT;
 

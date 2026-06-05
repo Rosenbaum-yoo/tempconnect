@@ -15,10 +15,26 @@
  * Run: node --test --test-force-exit test/entitlementLeakGates.route.test.js
  */
 
-import { describe, it } from "node:test";
+import { describe, it, before, after } from "node:test";
 import assert from "node:assert/strict";
 import { createReportingRouter } from "../routes/reporting.js";
 import { createAssignmentsRouter } from "../routes/assignments.js";
+
+// Diese Suite verifiziert das ENFORCE-Verhalten der Entitlement-Gates.
+// Im Docker/Dev ist FEATURE_GATE_BYPASS=true gesetzt — planFeatures.js gibt dann
+// pauschal true zurueck, das Gate liesse PRO faelschlich durch und die 403-Tests
+// schluegen fehl (kein echter Defekt, nur der Dev-Bypass). Wir pinnen den
+// Enforce-Modus fuer die Dauer dieser Datei, damit sie unabhaengig vom
+// Umgebungswert deterministisch gruen ist (Prod verbietet den Bypass ohnehin).
+let __prevGateBypass;
+before(() => {
+  __prevGateBypass = process.env.FEATURE_GATE_BYPASS;
+  process.env.FEATURE_GATE_BYPASS = "false";
+});
+after(() => {
+  if (__prevGateBypass === undefined) delete process.env.FEATURE_GATE_BYPASS;
+  else process.env.FEATURE_GATE_BYPASS = __prevGateBypass;
+});
 
 function mockLogger() {
   return { info() {}, warn() {}, error() {}, debug() {}, trace() {}, fatal() {} };

@@ -41,8 +41,21 @@ CREATE INDEX IF NOT EXISTS cap_role_active_idx
   WHERE is_active = TRUE;
 
 -- Full-text on role + description
-CREATE INDEX IF NOT EXISTS cap_fts_idx
-  ON capacity_posts USING GIN (to_tsvector('german', coalesce(role,'') || ' ' || coalesce(description,'')));
+-- HINWEIS (2026-06-04): capacity_posts.description existiert im Schema nicht
+-- (nie angelegt, keine App-Referenz). Ungeschuetzt brach der Index-Build die
+-- Migration ab (frueher stumm maskiert). Guard -> Index nur wenn die Spalte
+-- vorhanden ist; sonst sauberer No-Op (dieser FTS-Index wird nirgends genutzt).
+DO $$
+BEGIN
+  IF EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_name = 'capacity_posts' AND column_name = 'description'
+  ) THEN
+    EXECUTE $idx$CREATE INDEX IF NOT EXISTS cap_fts_idx ON capacity_posts USING GIN (to_tsvector('german', coalesce(role,'') || ' ' || coalesce(description,'')))$idx$;
+  ELSE
+    RAISE NOTICE '032: capacity_posts.description fehlt — cap_fts_idx uebersprungen (out of scope).';
+  END IF;
+END $$;
 
 -- ── worker_time_submissions ────────────────────────────────────────────────
 -- Reviewer queue: pending submissions per org
@@ -97,13 +110,31 @@ CREATE INDEX IF NOT EXISTS inv_overdue_idx
   WHERE status IN ('issued', 'overdue') AND due_at IS NOT NULL;
 
 -- ── deals / requests ─────────────────────────────────────────────────────
-CREATE INDEX IF NOT EXISTS deals_company_status_idx
-  ON deals (company_id, status, created_at DESC);
-
-CREATE INDEX IF NOT EXISTS deals_agency_status_idx
-  ON deals (agency_id, status, created_at DESC);
+-- HINWEIS (2026-06-04): Eine Tabelle "deals" wird im gesamten Migrations-Baum
+-- NIE angelegt. Das Domaenenkonzept lebt als commercial_offers (mit
+-- buyer_org_id/seller_org_id — andere Spalten, daher kein 1:1-Rename moeglich).
+-- Ungeschuetzt brachen diese Indizes die Migration ab (frueher stumm maskiert).
+-- Guard -> No-Op solange keine "deals"-Tabelle existiert; bringt ein Feature
+-- spaeter eine solche Tabelle mit, liefert es seine Indizes in eigener Migration.
+DO $$
+BEGIN
+  IF to_regclass('public.deals') IS NOT NULL THEN
+    CREATE INDEX IF NOT EXISTS deals_company_status_idx ON deals (company_id, status, created_at DESC);
+    CREATE INDEX IF NOT EXISTS deals_agency_status_idx  ON deals (agency_id, status, created_at DESC);
+  ELSE
+    RAISE NOTICE '032: Tabelle deals fehlt — deals_*_status_idx uebersprungen (Konzept lebt als commercial_offers, out of scope).';
+  END IF;
+END $$;
 
 -- ── vendor_pool_entries ───────────────────────────────────────────────────
--- Fast preferred-vendor lookup for matching engine
-CREATE INDEX IF NOT EXISTS vpe_org_tier_idx
-  ON vendor_pool_entries (org_id, tier, supplier_org_id);
+-- Fast preferred-vendor lookup for matching engine.
+-- HINWEIS (2026-06-04): vendor_pool_entries wird nirgends angelegt (out of scope,
+-- vgl. 031/116). Guard -> No-Op solange die Tabelle fehlt.
+DO $$
+BEGIN
+  IF to_regclass('public.vendor_pool_entries') IS NOT NULL THEN
+    CREATE INDEX IF NOT EXISTS vpe_org_tier_idx ON vendor_pool_entries (org_id, tier, supplier_org_id);
+  ELSE
+    RAISE NOTICE '032: vendor_pool_entries fehlt — vpe_org_tier_idx uebersprungen (out of scope).';
+  END IF;
+END $$;

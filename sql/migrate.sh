@@ -14,6 +14,24 @@ run_psql() {
 
 if [ -n "$DATABASE_URL" ]; then echo "Using DATABASE_URL (Managed DB / external)"; else echo "Using DB_HOST/POSTGRES_*"; fi
 
+# ─────────────────────────────────────────────────────────────────────────────
+# Demo-Seed-Welt (Migration 052) — prod-sicher standardmaessig AUS.
+# Aktivierung NUR in dev/sales via Umgebungsvariable SEED_DEMO_WORLD=true
+# (gesetzt in docker-compose.override.yml). Der normalisierte Wert wird als
+# Session-GUC `app.seed_demo_world` ueber PGOPTIONS an JEDE psql-Session
+# durchgereicht; Migration 052 liest ihn via current_setting() und seedet die
+# Demo-Welt NUR wenn er 'true' ist. Auf Prod laeuft 052 als No-Op durch und wird
+# sauber als applied verbucht (ehrliche _migrations-Buchhaltung), erzeugt aber
+# KEINE Demo-Accounts mit oeffentlich bekanntem Passwort. Dieselbe GUC gatet auch
+# die Remediation-Migration 125 (neutralisiert Demo-Accounts NUR auf Prod).
+SEED_DEMO_WORLD_NORM=$(printf '%s' "${SEED_DEMO_WORLD:-false}" | tr '[:upper:]' '[:lower:]')
+case "$SEED_DEMO_WORLD_NORM" in
+  1|true|yes|on) SEED_DEMO_WORLD_NORM=true ;;
+  *)             SEED_DEMO_WORLD_NORM=false ;;
+esac
+export PGOPTIONS="${PGOPTIONS:+$PGOPTIONS }-c app.seed_demo_world=$SEED_DEMO_WORLD_NORM"
+echo "Demo-Seed-Welt (052) / Remediation (125): app.seed_demo_world=$SEED_DEMO_WORLD_NORM"
+
 echo "Waiting for database..."
 until run_psql -c '\q' 2>/dev/null; do
   echo "Database not ready, waiting..."
@@ -38,9 +56,17 @@ for migration in $(ls /migrations/*.sql 2>/dev/null | sort); do
     applied=$(run_psql -t -c "SELECT COUNT(*) FROM _migrations WHERE name='$filename'" | tr -d ' ')
     if [ "$applied" = "0" ]; then
       echo "Applying: $filename"
-      run_psql -f "$migration"
-      run_psql -c "INSERT INTO _migrations (name) VALUES ('$filename')"
-      echo "Done: $filename"
+      # ON_ERROR_STOP=1: psql liefert sonst auch bei SQL-Fehlern Exit 0 -> eine
+      # fehlgeschlagene Migration wuerde faelschlich als "applied" verbucht
+      # (Silent-Failure-Maskierung, Ursache der Mig-122-Drift). Nur bei Erfolg
+      # in _migrations eintragen; sonst harter Abbruch (set -e + expliziter exit).
+      if run_psql -v ON_ERROR_STOP=1 -f "$migration"; then
+        run_psql -c "INSERT INTO _migrations (name) VALUES ('$filename')"
+        echo "Done: $filename"
+      else
+        echo "FEHLER: Migration $filename fehlgeschlagen — Abbruch (nicht als applied verbucht)." >&2
+        exit 1
+      fi
     else
       echo "Skip (already applied): $filename"
     fi

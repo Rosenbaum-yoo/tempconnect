@@ -58,11 +58,22 @@ SET client_min_messages TO WARNING;
 --    ORDER BY next_retry_at ASC LIMIT 100
 --    Bestand deckt nur status IN ('pending','retrying') ab -> 'failed' fehlt.
 -- ---------------------------------------------------------------------------
-CREATE INDEX IF NOT EXISTS webhook_deliveries_retry_failed_idx
-  ON webhook_deliveries(next_retry_at)
-  WHERE status = 'failed';
-COMMENT ON INDEX webhook_deliveries_retry_failed_idx
-  IS 'Stuetzt den webhook-retry-Sweep (status=failed, faellige Retries nach next_retry_at). Ergaenzt Mig 047, das nur pending/retrying partiell indiziert.';
+-- HINWEIS (2026-06-04): webhook_deliveries entsteht erst mit der (out-of-scope)
+-- Integrations-Webhook-Funktion (Mig 047, to_regclass-Guard). Fehlt die Tabelle,
+-- wuerde ein nacktes CREATE INDEX die gesamte Migration abbrechen — daher Guard.
+-- Die uebrigen vier Indizes (2-5) brauchen keinen Guard: ihre Tabellen existieren.
+DO $$
+BEGIN
+  IF to_regclass('public.webhook_deliveries') IS NOT NULL THEN
+    CREATE INDEX IF NOT EXISTS webhook_deliveries_retry_failed_idx
+      ON webhook_deliveries(next_retry_at)
+      WHERE status = 'failed';
+    COMMENT ON INDEX webhook_deliveries_retry_failed_idx
+      IS 'Stuetzt den webhook-retry-Sweep (status=failed, faellige Retries nach next_retry_at). Ergaenzt Mig 047, das nur pending/retrying partiell indiziert.';
+  ELSE
+    RAISE NOTICE '122: webhook_deliveries fehlt — webhook_deliveries_retry_failed_idx uebersprungen (out of go-live scope).';
+  END IF;
+END $$;
 
 -- ---------------------------------------------------------------------------
 -- 2) staffing-maintenance: expireStaleStaffingState (Invites)

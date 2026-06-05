@@ -164,7 +164,12 @@ check_table "users"
 check_table "organizations"
 check_table "org_memberships"
 check_table "subscriptions"
-check_table "deals"
+# HINWEIS (2026-06-04): zuvor check_table "deals" — eine Tabelle "deals" wird im
+# gesamten Migrations-Baum NIE angelegt (das Domaenenkonzept lebt als
+# commercial_offers, Mig 108). Der alte Check schlug daher IMMER fehl; in
+# Kombination mit dem frueheren silent-failure-Runner blieb dieses Gate de facto
+# nie gruen. Korrigiert auf die real existierende Tabelle.
+check_table "commercial_offers"
 check_table "assignments"
 check_table "timesheets"
 check_table "audit_log"
@@ -175,6 +180,40 @@ check_table "owner_access_grants"
 
 # Multi-location (migration 112)
 check_table "org_locations"
+
+# ── Security backstop checks (migration 116 — deny-by-default RLS) ────────────
+# Migration 116 etabliert die Mandanten-Isolation (Staff-Bypass + org-scoped
+# Policies, IS-NULL-Wildcards entfernt, FORCE RLS auf den kritischsten Tabellen).
+# 116 ist transaktional: brach EIN Statement, rollte die GESAMTE RLS zurueck —
+# und genau das passierte historisch unbemerkt (silent-failure-Runner + auf
+# nicht existente Spalten/Tabellen verweisende Policies). Diese Assertions stellen
+# sicher, dass der Sicherheits-Backstop nach einem Fresh-Install WIRKLICH aktiv ist
+# und nicht erneut still wegbricht.
+check_policy() {
+  TABLE="$1"; POLICY="$2"; WANT="$3"   # WANT = present | absent
+  RESULT=$(run_sql "SELECT COUNT(*) FROM pg_policies WHERE tablename='$TABLE' AND policyname='$POLICY';")
+  if [ "$WANT" = "present" ]; then
+    if [ "$RESULT" = "1" ]; then ok "RLS-Policy vorhanden: $TABLE.$POLICY"
+    else fail "RLS-Policy FEHLT: $TABLE.$POLICY — Migration 116 hat nicht angewandt"; fi
+  else
+    if [ "$RESULT" = "0" ]; then ok "RLS-Wildcard entfernt: $TABLE.$POLICY"
+    else fail "RLS-Wildcard NOCH VORHANDEN: $TABLE.$POLICY — Deny-by-Default nicht durchgesetzt"; fi
+  fi
+}
+
+check_force_rls() {
+  TABLE="$1"
+  RESULT=$(run_sql "SELECT relforcerowsecurity FROM pg_class WHERE relname='$TABLE';")
+  if [ "$RESULT" = "t" ]; then ok "FORCE RLS aktiv: $TABLE"
+  else fail "FORCE RLS NICHT aktiv: $TABLE — Superuser/Migrationsverbindung umgeht RLS"; fi
+}
+
+printf "\n${CYAN}--- Security-Backstop (Deny-by-Default RLS, Migration 116) ---${RESET}\n"
+check_policy "requisitions" "req_staff_bypass" "present"
+check_policy "requisitions" "req_no_ctx"       "absent"
+check_force_rls "requisitions"
+check_force_rls "timesheets"
+check_force_rls "invoices"
 
 # ── Final result ─────────────────────────────────────────────────────────────
 printf "\n"

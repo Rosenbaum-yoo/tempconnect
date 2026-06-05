@@ -66,6 +66,10 @@ services:
       POSTGRES_DB: ${POSTGRES_DB}
       POSTGRES_USER: ${POSTGRES_USER}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      # Demo-Seed-Welt (Migration 052): default AUS (prod-sicher). Der dev-Override
+      # (docker-compose.override.yml) setzt dies auf "true"; docker-compose.prod.yml
+      # pinnt "false". Wird in migrate.sh zur Session-GUC app.seed_demo_world.
+      SEED_DEMO_WORLD: ${SEED_DEMO_WORLD:-false}
     volumes:
       - ./sql/migrate.sh:/migrate.sh:ro
       - ./sql/migrations:/migrations:ro

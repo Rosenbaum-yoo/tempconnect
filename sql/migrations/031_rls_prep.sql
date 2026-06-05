@@ -63,13 +63,21 @@ CREATE POLICY om_same_org ON org_memberships
   USING (org_id = current_org_id());
 
 -- ── vendor_pool_entries ──────────────────────────────────────────────────────
-ALTER TABLE vendor_pool_entries ENABLE ROW LEVEL SECURITY;
-
-CREATE POLICY vpe_no_ctx ON vendor_pool_entries
-  USING (current_org_id() IS NULL);
-
-CREATE POLICY vpe_same_org ON vendor_pool_entries
-  USING (org_id = current_org_id() OR supplier_org_id = current_org_id());
+-- HINWEIS (2026-06-04): vendor_pool_entries wird im Migrations-Baum NIRGENDS
+-- angelegt (Feature out of scope, keine App-Referenz). Ungeschuetzt brach diese
+-- Stelle die gesamte Migration ab (frueher stumm maskiert). Guard -> No-Op
+-- solange die Tabelle fehlt; bringt das Feature spaeter seine Tabelle mit,
+-- greift die RLS-Praeparation in dessen eigener Migration.
+DO $$
+BEGIN
+  IF to_regclass('public.vendor_pool_entries') IS NOT NULL THEN
+    EXECUTE 'ALTER TABLE vendor_pool_entries ENABLE ROW LEVEL SECURITY';
+    EXECUTE 'CREATE POLICY vpe_no_ctx ON vendor_pool_entries USING (current_org_id() IS NULL)';
+    EXECUTE 'CREATE POLICY vpe_same_org ON vendor_pool_entries USING (org_id = current_org_id() OR supplier_org_id = current_org_id())';
+  ELSE
+    RAISE NOTICE '031: vendor_pool_entries fehlt — RLS-Prep uebersprungen (out of scope).';
+  END IF;
+END $$;
 
 -- ── compliance_documents ─────────────────────────────────────────────────────
 ALTER TABLE compliance_documents ENABLE ROW LEVEL SECURITY;
@@ -77,8 +85,15 @@ ALTER TABLE compliance_documents ENABLE ROW LEVEL SECURITY;
 CREATE POLICY cd_no_ctx ON compliance_documents
   USING (current_org_id() IS NULL);
 
+-- HINWEIS (2026-06-04): compliance_documents hat KEINE supplier_org_id-Spalte
+-- (Schema 019: org_id ist die einzige Eigentuemer-Dimension). Die urspruengliche
+-- "OR supplier_org_id = current_org_id()"-Klausel war ein Copy-Paste aus dem
+-- timesheets-Muster und referenzierte eine nicht existente Spalte -> ERROR brach
+-- die Migration ab (vom ungehaerteten Runner frueher stumm maskiert; cd_same_org
+-- wurde real nie angelegt). Korrekt: reine org_id-Isolation — jede Org sieht
+-- ausschliesslich ihre eigenen Compliance-Dokumente.
 CREATE POLICY cd_same_org ON compliance_documents
-  USING (org_id = current_org_id() OR supplier_org_id = current_org_id());
+  USING (org_id = current_org_id());
 
 -- ── Comment: how to wire this in the API ─────────────────────────────────────
 -- In api/middleware/orgContext.js, after setting req.orgId, add:

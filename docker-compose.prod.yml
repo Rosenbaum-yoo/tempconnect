@@ -19,6 +19,10 @@ services:
       POSTGRES_DB: ${POSTGRES_DB:-tempconnect}
       POSTGRES_USER: ${POSTGRES_USER:-tempconnect}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-}
+      # Demo-Seed-Welt (Migration 052) in PROD HART auf false gepinnt (override-t
+      # einen etwaigen .env-Wert) — niemals Demo-Accounts mit oeffentlichem Passwort
+      # auf Produktion. Remediation-Migration 125 neutralisiert evtl. Altbestand.
+      SEED_DEMO_WORLD: "false"
     volumes:
       - ./sql/migrate.sh:/migrate.sh:ro
       - ./sql/migrations:/migrations:ro
