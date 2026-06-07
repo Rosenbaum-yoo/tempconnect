@@ -43,7 +43,7 @@
 
 | ID | Punkt | Hinweis |
 |---|---|---|
-| C-01 | Bypass-aware Test-Guards für die 4 `FEATURE_GATE_BYPASS`-Fehler | wie die P1-B-Fixes; entkoppelt Test vom Docker-Env. Kein Produktcode. |
+| C-01 | Bypass-aware Test-Guards für die `FEATURE_GATE_BYPASS`-Integrationsfehler | **2026-06-07 verifiziert — naiver Env-Flip NICHT tragfähig** → reklassifiziert nach **B (refactor-gated, nach O-03)**. SLA/Capacities-Gate liest das Flag nicht zur Request-Zeit; Abschalten exponiert Harness-Plan-Resolution-Lücke (ENTERPRISE→DEMO). Korrekter Fix = assertion-level Bypass-Awareness. Siehe Korrektur-Note unten. |
 | C-02 | Querschnitt-Worker-Ausschluss-Guard auf `/payment/checkout` (+`/individuell`) | klein, aber refactor-nah → Owner-Freigabe nötig (berührt in-flight Refactor) |
 
 > **Befund-Kernsatz:** Bucket C ist bewusst dünn. Das ist die ehrliche Lage eines reifen Repos in
@@ -52,6 +52,7 @@
 ### Korrekturen zu Alt-Einträgen (2026-05-27 → 2026-06-05)
 - **RLS:** „116 aktiv auf 10 Kerntabellen" war faktisch nie scharf (P0.7-Root-Cause: `migrate.sh` ohne `ON_ERROR_STOP` maskierte den 116-Rollback). **Mig 126** repariert Deny-by-Default + FORCE RLS forward → aktiv beim nächsten migrate-Lauf gg. Managed-DB. W11-01 „Mig 117 geplant" ist damit durch den 126-Forward-Repair ersetzt.
 - **OCC-01:** OCC ist inzwischen vollständig (11/11 Module real implementiert, siehe CLAUDE.md-Empfehlungsliste P2-C/P3-B) — der Eintrag „Phase 2-15 ausstehend" ist überholt.
+- **C-01 (2026-06-07, verifiziert & reklassifiziert C→B):** Der ursprüngliche Plan „Env-Flip wie P1-B" ist **in-process nicht tragfähig**. Empirie (4 Integrationsdateien im Container, Baseline 21/11/10): `process.env.FEATURE_GATE_BYPASS="false"` auf Modul-Ebene wirkt **nicht** auf das SLA/Capacities-Gate (`requireFeature("sla_access")` wird zur Router-Build-Zeit gebunden → `GET /api/capacities` bleibt 200), wirkt aber auf das `worker_module`-Gate — und legt dort eine **Plan-Resolution-Lücke im Test-Harness** offen (ENTERPRISE-Owner kommt als `plan: DEMO` an → `worker_module=false` → **Regression** workerReview #1/#3). Beide Pfade hängen an `getUserAndPlan`/`entitlementService`, die im in-flight Phase-2-Refactor liegen. **Konsequenz:** verschoben auf **nach O-03** (Refactor-Commit); korrekter Fix = assertion-level `expect(BYPASS ? 200 : 403)` **oder** Harness-Plan-Resolution härten — **kein** naiver Env-Flip (Edits wurden getestet und sauber zurückgerollt, Working Tree unberührt). Präzise Artefakt-Liste: **5 echte Bypass-Treffer** = subscription.flow #2/#4/#7/#8 + workerSubmissionsReview #4; **separat** = subscription.flow #3/#5 (429 Rate-Limiter), CAN-1 (cancel #1), HTTP-6 (commerce #6), workerReview #2 (worker_view, refactor-gekoppelt).
 
 ---
 
