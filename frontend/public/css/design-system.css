@@ -1925,8 +1925,8 @@ a:hover { color: var(--ds-brand-hover); }
 [data-theme="editorial"] {
   color-scheme: light;
 
-  /* Core palette — warm paper ground */
-  --ds-bg:          #faf7ee;
+  /* Core palette — warm paper ground (slightly deeper per Owner-Request 2026-06-09) */
+  --ds-bg:          #f4efe4;
   --ds-bg-raised:   #fffdf6;
   --ds-bg-surface:  #fffdf6;
   --ds-bg-overlay:  rgba(244, 239, 228, 0.94);
@@ -2212,27 +2212,29 @@ a:hover { color: var(--ds-brand-hover); }
   background: rgba(31, 58, 46, 0.08);
 }
 
-/* P2.1: Hub-Cards — Ruhe dunkel (Forest), AKTIV (Aktivität wartet) dunkler + Gold-Glow + Zahl-Badge.
-   Option A: dunkles Forest für Hub-Kacheln; Inhalts-Karten bleiben creme (#ebe4d3). */
+/* P2.1 (rev 2026-06-09): Hub-Cards — Ruhe CREME wie Inhalts-Karten (#ebe4d3, dunkle Schrift);
+   nur AKTIV (Benachrichtigung wartet) -> dunkles Forest #15291f + Gold-Glow + Zahl-Badge (helle Schrift). */
 [data-theme="editorial"] .ds-hub-card {
-  background: #1c2a22;
-  border-color: rgba(244, 239, 228, 0.12);
-  color: #faf7ee;
+  background: #ebe4d3;
+  border-color: #d4cab3;
+  color: #14201a;
 }
-[data-theme="editorial"] .ds-hub-card .ds-hub-card__title { color: #faf7ee; }
-[data-theme="editorial"] .ds-hub-card .ds-hub-card__desc,
-[data-theme="editorial"] .ds-hub-card .ds-hub-card__footer-note { color: #ebe4d3; }
 [data-theme="editorial"] .ds-hub-card .ds-hub-card__eyebrow { color: #b8935a; }
-[data-theme="editorial"] .ds-hub-card .ds-hub-card__icon {
-  background: rgba(244, 239, 228, 0.08);
-  border-color: rgba(244, 239, 228, 0.16);
-  color: #faf7ee;
-}
-[data-theme="editorial"] .ds-hub-card:hover { border-color: rgba(184, 147, 90, 0.45); }
+[data-theme="editorial"] .ds-hub-card:hover { border-color: rgba(31, 58, 46, 0.3); }
 [data-theme="editorial"] .ds-hub-card--active {
   background: #15291f;
   border-color: #b8935a;
   box-shadow: 0 0 0 1px #b8935a, 0 4px 24px rgba(184, 147, 90, 0.28);
+  color: #faf7ee;
+}
+[data-theme="editorial"] .ds-hub-card--active .ds-hub-card__title { color: #faf7ee; }
+[data-theme="editorial"] .ds-hub-card--active .ds-hub-card__desc,
+[data-theme="editorial"] .ds-hub-card--active .ds-hub-card__footer-note { color: #ebe4d3; }
+[data-theme="editorial"] .ds-hub-card--active .ds-hub-card__eyebrow { color: #b8935a; }
+[data-theme="editorial"] .ds-hub-card--active .ds-hub-card__icon {
+  background: rgba(244, 239, 228, 0.08);
+  border-color: rgba(244, 239, 228, 0.16);
+  color: #faf7ee;
 }
 /* Activity badge (theme-agnostic; visible only when JS adds --active) */
 .ds-hub-card__badge {
@@ -2253,14 +2255,14 @@ a:hover { color: var(--ds-brand-hover); }
 }
 .ds-hub-card--active .ds-hub-card__badge { display: inline-block; }
 
-/* Hub "current" card — dark-compatible (gold "you-are-here" ring on the dark hub tile) */
+/* Hub "current" card — forest-tint "you-are-here" on the cream hub tile */
 [data-theme="editorial"] .ds-hub-card--current {
-  border-color: rgba(184, 147, 90, 0.5);
-  background: #15291f;
-  box-shadow: inset 0 0 0 1px rgba(184, 147, 90, 0.25);
+  border-color: rgba(31, 58, 46, 0.35);
+  background: rgba(31, 58, 46, 0.08);
+  box-shadow: inset 0 0 0 1px rgba(31, 58, 46, 0.12);
 }
 [data-theme="editorial"] .ds-hub-card--current:hover {
-  box-shadow: inset 0 0 0 1px rgba(184, 147, 90, 0.25);
+  box-shadow: inset 0 0 0 1px rgba(31, 58, 46, 0.12);
 }
 
 /* Plan cards */
