@@ -214,6 +214,16 @@
   background: rgba(15, 23, 42, 0.04);
 }
 
+/* ── Demand Card Accent (Arbeitsplatzangebot) ─────────────
+   Vormals Inline-Style in marketplaceFeed.js; als Klasse ausgelagert, damit pro
+   Theme uebersteuerbar. Werte unveraendert -> dark/light/ultra bleiben byte-identisch.
+   `.ce-card.ce-card--demand` (2 Klassen) schlaegt `[data-theme="light"] .ce-card`
+   per Quell-Reihenfolge, damit die Orange-Toenung in Light erhalten bleibt. */
+.ce-card.ce-card--demand {
+  border-left: 3px solid #fb923c;
+  background: rgba(251, 146, 60, .03);
+}
+
 /* Editorial theme — the supply/demand type badges use bright hues tuned for
    dark surfaces; on the cream editorial background they need darker text for
    readable contrast. Premium gold accents already harmonize with the LEX
@@ -228,6 +238,15 @@
   background: #ebe4d3;
   border-color: #d4cab3;
   box-shadow: 0 1px 2px rgba(40, 33, 20, 0.05), 0 4px 14px rgba(40, 33, 20, 0.06);
+}
+/* Demand-Karten (Arbeitsplatzangebot): gleiche geerdete Creme-Flaeche wie die
+   Angebotskarten (Owner-Request 2026-06-09). Neon-Orange-Inline-Akzent (#fb923c)
+   wird zu einem warmen Terrakotta-Rand, der zum Demand-Badge (#9a5b2a) passt –
+   Typ-Unterscheidung bleibt erhalten, ohne aus dem LEX-Theme auszubrechen. */
+[data-theme="editorial"] .ce-card.ce-card--demand {
+  background: #ebe4d3;
+  border-color: #d4cab3;
+  border-left-color: #9a5b2a;
 }
 [data-theme="editorial"] .ce-card:hover {
   border-color: rgba(31, 58, 46, 0.4);

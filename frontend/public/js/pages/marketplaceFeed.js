@@ -166,11 +166,13 @@
 
     var isDemandCard = e.feed_type === 'demand';
     var rankLabels = Array.isArray(e.rank_labels) ? e.rank_labels.slice(0, 3) : [];
-    var cardStyle = isDemandCard ? 'border-left:3px solid #fb923c;background:rgba(251,146,60,.03)' : '';
+    // Typ-Akzent (Arbeitsplatzangebot) als Klasse statt Inline-Style, damit das
+    // Editorial-Theme die Karte erden + de-orangen kann (siehe .ce-card--demand).
+    var demandCls = isDemandCard ? ' ce-card--demand' : '';
     var premCls = premiumCardClass(e);
     var demandRemaining = demandRemainingHeadcount(e);
     var demandCommitted = demandCommittedHeadcount(e);
-    var html = '<div class="ce-card' + premCls + '" data-id="' + esc(e.id) + '" data-feed-type="' + (e.feed_type || 'supply') + '"' + (cardStyle ? ' style="' + cardStyle + '"' : '') + '>';
+    var html = '<div class="ce-card' + premCls + demandCls + '" data-id="' + esc(e.id) + '" data-feed-type="' + (e.feed_type || 'supply') + '">';
     html += '<div class="ce-card__layout">';
     html += '<div class="ce-card__preview" data-logo-id="' + esc(e.id) + '">' + previewPlaceholderHtml(e) + '</div>';
     html += '<div class="ce-card__content">';
