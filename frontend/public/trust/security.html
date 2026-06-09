@@ -36,7 +36,7 @@
 
         <!-- User Profile Dropdown -->
         <div id="tc-user-profile" style="position:relative;display:inline-flex;align-items:center;margin-left:6px">
-          <button id="tc-user-btn" type="button" title="Profil &amp; Konto" style="width:34px;height:34px;border-radius:50%;border:1.5px solid rgba(74,158,255,.35);background:rgba(74,158,255,.12);color:#4a9eff;font-size:15px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:border-color .15s,background .15s,box-shadow .15s">&#128100;</button>
+          <button id="tc-user-btn" type="button" title="Profil &amp; Konto" style="width:34px;height:34px;border-radius:50%;border:1.5px solid var(--ds-brand-ring,rgba(74,158,255,.35));background:var(--ds-brand-muted,rgba(74,158,255,.12));color:var(--ds-brand,#4a9eff);font-size:15px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:border-color .15s,background .15s,box-shadow .15s">&#128100;</button>
           <div id="tc-user-dropdown" style="display:none;position:absolute;top:calc(100% + 10px);right:0;width:260px;border:1px solid var(--line,rgba(255,255,255,.12));border-radius:14px;background:var(--card,#1a1d24);box-shadow:0 8px 32px rgba(0,0,0,.55);z-index:9999;padding:16px">
             <div id="tc-user-dd-content" style="text-align:center;color:var(--muted,#8d9bba);font-size:13px;padding:8px 0">Lade Profil&hellip;</div>
           </div>
@@ -46,10 +46,10 @@
 
     <!-- Trust Center Navigation -->
     <div class="trust-nav">
-      <a href="/public/trust/security.html" class="active">&#128274; Sicherheit</a>
-      <a href="/public/trust/compliance.html">&#128220; Compliance</a>
-      <a href="/public/trust/status.html">&#128994; Systemstatus</a>
-      <a href="/public/trust/platform-sla.html">&#128196; SLA</a>
+      <a href="/public/trust/security.html" class="active">Sicherheit</a>
+      <a href="/public/trust/compliance.html">Compliance</a>
+      <a href="/public/trust/status.html">Systemstatus</a>
+      <a href="/public/trust/platform-sla.html">SLA</a>
     </div>
 
     <div class="ds-page-header">
@@ -61,29 +61,29 @@
 
     <!-- Trust Row -->
     <div class="ds-trust-row" style="margin-bottom:var(--ds-space-6)">
-      <div class="ds-trust-item"><span class="ds-trust-item__icon">&#128274;</span> DSGVO-konform</div>
-      <div class="ds-trust-item"><span class="ds-trust-item__icon">&#127465;&#127466;</span> Hosting in Deutschland</div>
-      <div class="ds-trust-item"><span class="ds-trust-item__icon">&#128272;</span> TLS-verschluesselt</div>
-      <div class="ds-trust-item"><span class="ds-trust-item__icon">&#128737;</span> Zugriffskontrolle</div>
-      <div class="ds-trust-item"><span class="ds-trust-item__icon">&#128065;</span> Echtzeit-Monitoring</div>
+      <div class="ds-trust-item">DSGVO-konform</div>
+      <div class="ds-trust-item">Hosting in Deutschland</div>
+      <div class="ds-trust-item">TLS-verschluesselt</div>
+      <div class="ds-trust-item">Zugriffskontrolle</div>
+      <div class="ds-trust-item">Echtzeit-Monitoring</div>
     </div>
 
     <!-- Section: Infrastruktur & Verschluesselung -->
     <div class="trust-section">
-      <h2>&#128272; Infrastruktur &amp; Verschluesselung</h2>
+      <h2>Infrastruktur &amp; Verschluesselung</h2>
       <div class="trust-grid">
         <div class="trust-card">
-          <h3><span class="icon">&#128272;</span> Transportverschluesselung</h3>
+          <h3>Transportverschluesselung</h3>
           <p>Alle Verbindungen zwischen Browser und Plattform werden ueber TLS (HTTPS) verschluesselt. Passwoerter werden mit bcrypt gehasht und niemals im Klartext gespeichert. Sensible Daten werden ausschliesslich verschluesselt uebertragen.</p>
         </div>
 
         <div class="trust-card">
-          <h3><span class="icon">&#127465;&#127466;</span> Hosting in Deutschland</h3>
+          <h3>Hosting in Deutschland</h3>
           <p>TempConnect wird in Rechenzentren der Hetzner Online GmbH in Deutschland betrieben. Alle Daten bleiben innerhalb der Europaeischen Union. Mit unseren Infrastruktur-Partnern bestehen Auftragsverarbeitungsvertraege (AV-Vertraege) gemaess Art. 28 DSGVO.</p>
         </div>
 
         <div class="trust-card">
-          <h3><span class="icon">&#128736;</span> Security Headers</h3>
+          <h3>Security Headers</h3>
           <p>Die Plattform setzt aktuelle HTTP-Security-Headers mittels Helmet.js:</p>
           <ul>
             <li>Strict-Transport-Security (HSTS) — erzwingt HTTPS</li>
@@ -99,10 +99,10 @@
 
     <!-- Section: Multi-Tenancy & Organisationsisolation -->
     <div class="trust-section">
-      <h2>&#127970; Multi-Tenancy &amp; Organisationsisolation</h2>
+      <h2>Multi-Tenancy &amp; Organisationsisolation</h2>
       <div class="trust-grid">
         <div class="trust-card">
-          <h3><span class="icon">&#127970;</span> Mandantentrennung</h3>
+          <h3>Mandantentrennung</h3>
           <p>TempConnect ist eine Multi-Tenant-Plattform, auf der konkurrierende Organisationen (Personaldienstleister, Entleiher) dieselbe Infrastruktur teilen. Strikte Datenisolation stellt sicher, dass Organisation A niemals Daten von Organisation B einsehen oder aendern kann.</p>
           <ul>
             <li>Jede Datenbankabfrage wird automatisch auf die aktive Organisation gefiltert (org_id Boundary)</li>
@@ -113,7 +113,7 @@
         </div>
 
         <div class="trust-card">
-          <h3><span class="icon">&#128737;</span> Ressourcen-Eigentum (IDOR-Schutz)</h3>
+          <h3>Ressourcen-Eigentum (IDOR-Schutz)</h3>
           <p>Jeder Zugriff auf eine Ressource (Anfrage, Angebot, Stundenzettel, Rechnung) wird gegen den Eigentuemer geprueft. Direkte Objektreferenzen (IDOR) werden durch Ownership-Checks auf Datenbankebene abgesichert.</p>
           <ul>
             <li>User B kann nicht auf Ressourcen von User A zugreifen, selbst wenn die ID bekannt ist</li>
@@ -126,10 +126,10 @@
 
     <!-- Section: RBAC -->
     <div class="trust-section">
-      <h2>&#128101; Rollenbasierte Zugriffskontrolle (RBAC)</h2>
+      <h2>Rollenbasierte Zugriffskontrolle (RBAC)</h2>
       <div class="trust-grid">
         <div class="trust-card">
-          <h3><span class="icon">&#128101;</span> Rollen &amp; Berechtigungen</h3>
+          <h3>Rollen &amp; Berechtigungen</h3>
           <p>TempConnect implementiert ein feingranulares RBAC-System mit ueber 15 Rollentypen. Jede Rolle definiert praezise, welche Aktionen ein Benutzer innerhalb seiner Organisation ausfuehren darf.</p>
           <ul>
             <li><strong>Owner</strong> — Vollzugriff inkl. Organisation verwalten, Mitglieder einladen</li>
@@ -141,7 +141,7 @@
         </div>
 
         <div class="trust-card">
-          <h3><span class="icon">&#128274;</span> Permission-basierte Middleware</h3>
+          <h3>Permission-basierte Middleware</h3>
           <p>Jeder API-Endpunkt ist durch eine oder mehrere RBAC-Middleware-Ebenen geschuetzt:</p>
           <ul>
             <li><strong>requireAuth</strong> — Session-Validierung (401 bei fehlender Authentifizierung)</li>
@@ -153,7 +153,7 @@
         </div>
 
         <div class="trust-card">
-          <h3><span class="icon">&#128683;</span> Eskalationsschutz</h3>
+          <h3>Eskalationsschutz</h3>
           <p>Vertikale und horizontale Privilegien-Eskalation werden aktiv verhindert:</p>
           <ul>
             <li>Viewer/Member koennen sich nicht zu Admin/Owner-Operationen eskalieren</li>
@@ -166,10 +166,10 @@
 
     <!-- Section: Audit Logging -->
     <div class="trust-section">
-      <h2>&#128203; Audit Logging &amp; Protokollierung</h2>
+      <h2>Audit Logging &amp; Protokollierung</h2>
       <div class="trust-grid">
         <div class="trust-card">
-          <h3><span class="icon">&#128203;</span> Append-Only Audit Log</h3>
+          <h3>Append-Only Audit Log</h3>
           <p>Alle geschaeftsrelevanten Aktionen werden in einem unveraenderlichen Audit Log mit Zeitstempel, Akteur, Organisation und Kontext protokolliert. Audit-Eintraege koennen weder aktualisiert noch geloescht werden.</p>
           <ul>
             <li>10+ Aktionstypen: CREATE, UPDATE, DELETE, STATUS_CHANGE, LOGIN, ROLE_CHANGE, PERMISSION_CHANGE, APPROVAL, SUBMISSION, SECURITY, CONFIG_CHANGE</li>
@@ -180,7 +180,7 @@
         </div>
 
         <div class="trust-card">
-          <h3><span class="icon">&#128274;</span> DSGVO-konforme Datenbereinigung</h3>
+          <h3>DSGVO-konforme Datenbereinigung</h3>
           <p>Vor dem Schreiben in den Audit Log werden sensible Daten automatisch gefiltert. Felder wie Passwoerter, Tokens, IBAN, Kreditkartennummern und Session-Daten werden als [REDACTED] maskiert — niemals im Klartext gespeichert.</p>
           <ul>
             <li>Regex-basierte Erkennung sensibler Schluesselwoerter</li>
@@ -190,7 +190,7 @@
         </div>
 
         <div class="trust-card">
-          <h3><span class="icon">&#128269;</span> Audit-Abfragen &amp; Transparenz</h3>
+          <h3>Audit-Abfragen &amp; Transparenz</h3>
           <p>Kunden mit individuellem Tarif erhalten Zugriff auf umfassende Audit-Abfragen mit Filtern nach Akteur, Organisation, Entitaetstyp, Aktion und Zeitraum. Pagination und Export-Funktionen ermoeglichen effiziente Compliance-Reviews.</p>
           <ul>
             <li>Org-scoped Queries — jede Organisation sieht nur eigene Events</li>
@@ -203,10 +203,10 @@
 
     <!-- Section: Monitoring & Alerting -->
     <div class="trust-section">
-      <h2>&#128065; Monitoring &amp; Alerting</h2>
+      <h2>Monitoring &amp; Alerting</h2>
       <div class="trust-grid">
         <div class="trust-card">
-          <h3><span class="icon">&#128065;</span> Sentry Error Monitoring</h3>
+          <h3>Sentry Error Monitoring</h3>
           <p>TempConnect nutzt Sentry v9 fuer Echtzeit-Fehlererkennung. Jeder unbehandelte Fehler wird automatisch erfasst, kategorisiert und dem Entwicklungsteam gemeldet.</p>
           <ul>
             <li>PII-Schutz: sendDefaultPii deaktiviert, Cookies/Auth-Header/CSRF-Tokens werden vor dem Versand entfernt</li>
@@ -217,7 +217,7 @@
         </div>
 
         <div class="trust-card">
-          <h3><span class="icon">&#128200;</span> Prometheus Metriken</h3>
+          <h3>Prometheus Metriken</h3>
           <p>Prometheus-kompatible Metriken werden ueber prom-client bereitgestellt. Dies ermoeglicht Echtzeit-Ueberwachung von Request-Latenz, Fehlerquoten, Datenbankverbindungen und Geschaeftsmetriken.</p>
           <ul>
             <li>HTTP-Request-Metriken: Dauer, Status-Codes, Endpunkt-Verteilung</li>
@@ -227,7 +227,7 @@
         </div>
 
         <div class="trust-card">
-          <h3><span class="icon">&#127899;</span> Service Health Checks</h3>
+          <h3>Service Health Checks</h3>
           <p>Automatisierte Health Checks ueberwachen alle Plattform-Komponenten in Echtzeit:</p>
           <ul>
             <li>API-Server: Erreichbarkeit und Antwortzeit</li>
@@ -242,10 +242,10 @@
 
     <!-- Section: Incident Response -->
     <div class="trust-section">
-      <h2>&#127384; Incident Response</h2>
+      <h2>Incident Response</h2>
       <div class="trust-grid">
         <div class="trust-card">
-          <h3><span class="icon">&#127384;</span> Incident-Response-Prozess</h3>
+          <h3>Incident-Response-Prozess</h3>
           <p>TempConnect folgt einem strukturierten Incident-Response-Prozess bei Sicherheitsvorfaellen:</p>
           <ul>
             <li><strong>Erkennung</strong> — Automatische Alerts ueber Sentry, Prometheus und Health Checks</li>
@@ -272,10 +272,10 @@
 
     <!-- Section: Upload Security -->
     <div class="trust-section">
-      <h2>&#128193; Upload-Sicherheit</h2>
+      <h2>Upload-Sicherheit</h2>
       <div class="trust-grid">
         <div class="trust-card">
-          <h3><span class="icon">&#128193;</span> Datei-Upload-Schutz</h3>
+          <h3>Datei-Upload-Schutz</h3>
           <p>Dokumente (Compliance-Nachweise, Stundenzetteln, Vertraege) werden ueber einen abgesicherten Upload-Prozess verarbeitet:</p>
           <ul>
             <li>Dateigroesse-Limits verhindern Denial-of-Service durch ueberdimensionierte Uploads</li>
@@ -290,10 +290,10 @@
 
     <!-- Section: Security by Design -->
     <div class="trust-section">
-      <h2>&#128736; Security by Design</h2>
+      <h2>Security by Design</h2>
       <div class="trust-grid">
         <div class="trust-card">
-          <h3><span class="icon">&#128736;</span> Architektur-Prinzipien</h3>
+          <h3>Architektur-Prinzipien</h3>
           <p>Sicherheit ist kein Zusatzfeature, sondern in die Architektur eingebaut:</p>
           <ul>
             <li><strong>Defense in Depth</strong> — Mehrere Sicherheitsschichten: TLS, Helmet, CSRF, RBAC, Org-Isolation</li>
@@ -305,7 +305,7 @@
         </div>
 
         <div class="trust-card">
-          <h3><span class="icon">&#128295;</span> Automatisierte Sicherheitstests</h3>
+          <h3>Automatisierte Sicherheitstests</h3>
           <p>Eine umfassende Security-Regression-Test-Suite schuetzt gegen die gefaehrlichsten Angriffsklassen:</p>
           <ul>
             <li><strong>Auth Security</strong> — Unauthentifizierter Zugriff auf geschuetzte Endpunkte</li>
@@ -319,7 +319,7 @@
         </div>
 
         <div class="trust-card">
-          <h3><span class="icon">&#128274;</span> DSGVO-Konformitaet</h3>
+          <h3>DSGVO-Konformitaet</h3>
           <p>TempConnect verarbeitet personenbezogene Daten ausschliesslich auf Grundlage der DSGVO. Wir erheben nur die fuer den Plattformbetrieb erforderlichen Daten.</p>
           <ul>
             <li>Datenminimierung als Grundprinzip</li>

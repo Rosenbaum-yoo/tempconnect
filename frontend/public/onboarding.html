@@ -28,6 +28,13 @@
       .ob-step__num { margin: 0 auto; }
       .ob-step { text-align: center; }
     }
+
+    /* EDITORIAL — de-blue + warm boxes (scoped; dark untouched) */
+    [data-theme="editorial"] .ob-step { background: #ebe4d3; border-color: #d4cab3; }
+    [data-theme="editorial"] .ob-step__num { border-color: rgba(31,58,46,.25); }
+    [data-theme="editorial"] .role-card { background: #fffdf6; border-color: #d4cab3 !important; }
+    /* invite tiles: bg+border are inline white-alpha → !important needed to beat inline style */
+    [data-theme="editorial"] .ob-invite-tile { background: #ebe4d3 !important; border-color: #d4cab3 !important; }
   </style>
 </head>
 <body>
@@ -60,7 +67,7 @@
           <p>Waehlen Sie Ihre Rolle und registrieren Sie sich kostenlos mit Ihrer geschaeftlichen E-Mail. Die Registrierung dauert weniger als 1 Minute.</p>
           <div class="role-split" style="margin-top:var(--ds-space-3)">
             <div class="role-card" style="border-color:rgba(74,158,255,.2)">
-              <h3>&#127970; Unternehmen</h3>
+              <h3>Unternehmen</h3>
               <p>Sie suchen qualifizierte Zeitarbeitskraefte und moechten Personaldienstleister vergleichen.</p>
               <ul>
                 <li>Personalanfragen erstellen</li>
@@ -70,7 +77,7 @@
               <a href="/?role=company" class="ds-btn ds-btn--primary ds-btn--sm">Als Unternehmen starten</a>
             </div>
             <div class="role-card" style="border-color:rgba(124,92,255,.2)">
-              <h3>&#128188; Personaldienstleister</h3>
+              <h3>Personaldienstleister</h3>
               <p>Sie bieten Zeitarbeitskraefte an und moechten neue Kunden erreichen.</p>
               <ul>
                 <li>Personal einstellen</li>
@@ -113,23 +120,19 @@
       <h2 style="font-size:18px;font-weight:700;margin:0 0 var(--ds-space-2)">Dienstleister einladen</h2>
       <p style="font-size:14px;color:var(--ds-text-secondary);line-height:1.6;margin:0 0 var(--ds-space-4)">Laden Sie Ihre bestehenden Personaldienstleister auf TempConnect ein. Der Onboarding-Prozess dauert nur wenige Minuten:</p>
       <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:var(--ds-space-3)">
-        <div style="text-align:center;padding:var(--ds-space-4);border:1px solid var(--ds-border);border-radius:var(--ds-radius-md);background:rgba(255,255,255,.02)">
-          <div style="font-size:20px;margin-bottom:6px">&#9993;</div>
+        <div class="ob-invite-tile" style="text-align:center;padding:var(--ds-space-4);border:1px solid var(--ds-border);border-radius:var(--ds-radius-md);background:rgba(255,255,255,.02)">
           <strong style="font-size:13px">1. Einladen</strong>
           <div style="font-size:12px;color:var(--ds-text-secondary);margin-top:4px">Per E-Mail oder Link</div>
         </div>
-        <div style="text-align:center;padding:var(--ds-space-4);border:1px solid var(--ds-border);border-radius:var(--ds-radius-md);background:rgba(255,255,255,.02)">
-          <div style="font-size:20px;margin-bottom:6px">&#128100;</div>
+        <div class="ob-invite-tile" style="text-align:center;padding:var(--ds-space-4);border:1px solid var(--ds-border);border-radius:var(--ds-radius-md);background:rgba(255,255,255,.02)">
           <strong style="font-size:13px">2. Registrieren</strong>
           <div style="font-size:12px;color:var(--ds-text-secondary);margin-top:4px">Konto und Profil anlegen</div>
         </div>
-        <div style="text-align:center;padding:var(--ds-space-4);border:1px solid var(--ds-border);border-radius:var(--ds-radius-md);background:rgba(255,255,255,.02)">
-          <div style="font-size:20px;margin-bottom:6px">&#128203;</div>
+        <div class="ob-invite-tile" style="text-align:center;padding:var(--ds-space-4);border:1px solid var(--ds-border);border-radius:var(--ds-radius-md);background:rgba(255,255,255,.02)">
           <strong style="font-size:13px">3. Einstellen</strong>
           <div style="font-size:12px;color:var(--ds-text-secondary);margin-top:4px">Personal einstellen</div>
         </div>
-        <div style="text-align:center;padding:var(--ds-space-4);border:1px solid var(--ds-border);border-radius:var(--ds-radius-md);background:rgba(255,255,255,.02)">
-          <div style="font-size:20px;margin-bottom:6px">&#129309;</div>
+        <div class="ob-invite-tile" style="text-align:center;padding:var(--ds-space-4);border:1px solid var(--ds-border);border-radius:var(--ds-radius-md);background:rgba(255,255,255,.02)">
           <strong style="font-size:13px">4. Matching</strong>
           <div style="font-size:12px;color:var(--ds-text-secondary);margin-top:4px">Anfragen und Deals</div>
         </div>

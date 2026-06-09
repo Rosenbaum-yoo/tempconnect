@@ -54,6 +54,22 @@
     .occ-loc-card__meta { font-size:12px; color:var(--ds-text-secondary); margin-top:2px; }
     .occ-loc-card__actions { display:flex; gap:6px; flex-shrink:0; }
     .occ-edit-row { display:none; padding:var(--ds-space-3) var(--ds-space-4); background:rgba(74,158,255,.06); border:1px solid rgba(74,158,255,.2); border-radius:10px; margin-top:-8px; margin-bottom:var(--ds-space-2); }
+
+    /* EDITORIAL — de-blue + warm boxes (scoped; dark untouched) */
+    [data-theme="editorial"] .occ-tab { background:#ebe4d3; color:var(--ds-text-secondary); }
+    [data-theme="editorial"] .occ-tab:hover { background:rgba(31,58,46,.05); color:var(--ds-text); }
+    [data-theme="editorial"] .occ-tab--active { background:rgba(31,58,46,.1); color:#1f3a2e; border-color:#1f3a2e; }
+    [data-theme="editorial"] .occ-tab__badge { background:rgba(31,58,46,.08); }
+    [data-theme="editorial"] .occ-card { background:#ebe4d3; border-color:#d4cab3; }
+    [data-theme="editorial"] .occ-stat { background:#ebe4d3; border-color:#d4cab3; }
+    [data-theme="editorial"] .occ-table th { border-bottom-color:rgba(31,58,46,.13); }
+    [data-theme="editorial"] .occ-table td { border-bottom-color:rgba(31,58,46,.05); }
+    [data-theme="editorial"] .occ-badge--gray { background:rgba(31,58,46,.08); }
+    [data-theme="editorial"] .occ-btn { background:#ebe4d3; border-color:#d4cab3; }
+    [data-theme="editorial"] .occ-btn:hover { background:rgba(31,58,46,.05); }
+    [data-theme="editorial"] .occ-security-dot--off { background:rgba(31,58,46,.2); }
+    [data-theme="editorial"] .occ-loc-card { background:#ebe4d3; border-color:#d4cab3; }
+    [data-theme="editorial"] .occ-edit-row { background:rgba(31,58,46,.06); border-color:rgba(31,58,46,.2); }
   </style>
 </head>
 <body>
@@ -81,15 +97,15 @@
 
     <!-- Tabs -->
     <div class="occ-tabs" id="occ-tabs">
-      <a class="occ-tab occ-tab--active" data-tab="members">👥 Mitglieder <span class="occ-tab__badge" id="badge-members">–</span></a>
-      <a class="occ-tab" data-tab="locations">📍 Standorte <span class="occ-tab__badge" id="badge-locations">–</span></a>
-      <a class="occ-tab" data-tab="departments">🏢 Abteilungen <span class="occ-tab__badge" id="badge-departments">–</span></a>
-      <a class="occ-tab" data-tab="api-keys">🔑 API Keys <span class="occ-tab__badge" id="badge-api-keys">–</span></a>
-      <a class="occ-tab" data-tab="webhooks">🔗 Webhooks <span class="occ-tab__badge" id="badge-webhooks">–</span></a>
-      <a class="occ-tab" data-tab="audit">📋 Audit Log</a>
-      <a class="occ-tab" data-tab="usage">📊 Usage</a>
-      <a class="occ-tab" data-tab="security">&#128274; Security</a>
-      <a class="occ-tab" data-tab="roles">&#128101; Rollen &amp; Rechte</a>
+      <a class="occ-tab occ-tab--active" data-tab="members">Mitglieder <span class="occ-tab__badge" id="badge-members">–</span></a>
+      <a class="occ-tab" data-tab="locations">Standorte <span class="occ-tab__badge" id="badge-locations">–</span></a>
+      <a class="occ-tab" data-tab="departments">Abteilungen <span class="occ-tab__badge" id="badge-departments">–</span></a>
+      <a class="occ-tab" data-tab="api-keys">API Keys <span class="occ-tab__badge" id="badge-api-keys">–</span></a>
+      <a class="occ-tab" data-tab="webhooks">Webhooks <span class="occ-tab__badge" id="badge-webhooks">–</span></a>
+      <a class="occ-tab" data-tab="audit">Audit Log</a>
+      <a class="occ-tab" data-tab="usage">Usage</a>
+      <a class="occ-tab" data-tab="security">Security</a>
+      <a class="occ-tab" data-tab="roles">Rollen &amp; Rechte</a>
     </div>
 
     <!-- Members Panel -->

@@ -129,35 +129,30 @@
     <div class="ds-section" style="padding-top:0;margin-bottom:var(--ds-space-4)">
       <div class="ds-hub-grid">
         <div class="ds-hub-card ds-hub-card--current ds-hub-card--brand" aria-current="page">
-          <div class="ds-hub-card__icon">&#127970;</div>
           <div class="ds-hub-card__content">
             <div class="ds-hub-card__title">Mein Unternehmen</div>
             <p class="ds-hub-card__desc">Sie befinden sich im Unternehmensbereich.</p>
           </div>
         </div>
         <a href="#sec-overview" class="ds-hub-card" onclick="document.getElementById('sec-overview').scrollIntoView({behavior:'smooth'});return false;">
-          <div class="ds-hub-card__icon">&#128196;</div>
           <div class="ds-hub-card__content">
             <div class="ds-hub-card__title">Firmenprofil</div>
             <p class="ds-hub-card__desc">Firmenprofil, Standorte, Zertifizierungen und Kompetenzen.</p>
           </div>
         </a>
         <a href="/public/sla_abo.html" class="ds-hub-card">
-          <div class="ds-hub-card__icon">&#128142;</div>
           <div class="ds-hub-card__content">
             <div class="ds-hub-card__title">Abo-Modelle</div>
             <p class="ds-hub-card__desc">DEMO, BASIS, PLUS, PRO, Individueller Tarif &ndash; Tarife und Features.</p>
           </div>
         </a>
         <a href="/public/organization.html" class="ds-hub-card ds-hub-card--brand" data-feature="org_settings">
-          <div class="ds-hub-card__icon">&#128101;</div>
           <div class="ds-hub-card__content">
             <div class="ds-hub-card__title">Organisation</div>
             <p class="ds-hub-card__desc">Mitglieder, API&nbsp;Keys, Webhooks, Audit-Log und Sicherheit.</p>
           </div>
         </a>
         <a href="/public/integrations.html" class="ds-hub-card ds-hub-card--accent">
-          <div class="ds-hub-card__icon">&#128268;</div>
           <div class="ds-hub-card__content">
             <div class="ds-hub-card__title">Integrationen</div>
             <p class="ds-hub-card__desc">Slack- und Teams-Webhooks konfigurieren, Events empfangen.</p>
@@ -208,7 +203,7 @@
         <!-- Section: Company Photo -->
         <div class="ep-card" id="sec-photo">
           <div class="ep-card-head">
-            <div class="ep-card-title"><span class="icon">&#128247;</span> Firmenbild / Standort</div>
+            <div class="ep-card-title">Firmenbild / Standort</div>
           </div>
           <p style="font-size:12px;color:var(--ds-text-secondary);margin:0 0 var(--ds-space-3)">Laden Sie ein Foto Ihres Firmengebaeudes oder Standorts hoch. Das Bild erscheint auf Ihrem oeffentlichen Profil.</p>
           <div id="photo-preview" style="margin-bottom:var(--ds-space-3)"></div>
@@ -222,7 +217,7 @@
         <!-- Section 2: Basic User Data -->
         <div class="ep-card" id="sec-basic">
           <div class="ep-card-head">
-            <div class="ep-card-title"><span class="icon">&#128100;</span> Kontakt &amp; Stammdaten</div>
+            <div class="ep-card-title">Kontakt &amp; Stammdaten</div>
             <button class="ep-btn ep-btn--sm" onclick="EP.toggleEdit('basic')">Bearbeiten</button>
           </div>
           <div id="basic-view"></div>
@@ -232,7 +227,7 @@
         <!-- Section 3: Capabilities -->
         <div class="ep-card" id="sec-capabilities">
           <div class="ep-card-head">
-            <div class="ep-card-title"><span class="icon">&#128736;</span> Kompetenzen &amp; Dienstleistungen</div>
+            <div class="ep-card-title">Kompetenzen &amp; Dienstleistungen</div>
             <button class="ep-btn ep-btn--sm" onclick="EP.toggleEdit('capabilities')">Bearbeiten</button>
           </div>
           <div id="capabilities-view"></div>
@@ -242,7 +237,7 @@
         <!-- Section 4: Locations -->
         <div class="ep-card" id="sec-locations">
           <div class="ep-card-head">
-            <div class="ep-card-title"><span class="icon">&#128205;</span> Standorte</div>
+            <div class="ep-card-title">Standorte</div>
             <button class="ep-btn ep-btn--sm ep-btn--primary" onclick="EP.showAddLocation()">+ Standort</button>
           </div>
           <div id="locations-list"></div>
@@ -252,7 +247,7 @@
         <!-- Section 5: Certifications -->
         <div class="ep-card" id="sec-certifications">
           <div class="ep-card-head">
-            <div class="ep-card-title"><span class="icon">&#127942;</span> Zertifizierungen</div>
+            <div class="ep-card-title">Zertifizierungen</div>
             <button class="ep-btn ep-btn--sm ep-btn--primary" onclick="EP.showAddCert()">+ Zertifikat</button>
           </div>
           <div id="certs-list"></div>
@@ -262,7 +257,7 @@
         <!-- Section 6: Contacts -->
         <div class="ep-card" id="sec-contacts">
           <div class="ep-card-head">
-            <div class="ep-card-title"><span class="icon">&#128101;</span> Ansprechpartner</div>
+            <div class="ep-card-title">Ansprechpartner</div>
             <button class="ep-btn ep-btn--sm ep-btn--primary" onclick="EP.showAddContact()">+ Kontakt</button>
           </div>
           <div id="contacts-list"></div>
@@ -272,7 +267,7 @@
         <!-- Compliance status -->
         <div class="ep-card" id="sec-compliance" style="display:none">
           <div class="ep-card-head">
-            <div class="ep-card-title"><span class="icon">&#128737;</span> Compliance-Status</div>
+            <div class="ep-card-title">Compliance-Status</div>
             <a href="/public/compliance_overview.html" class="ep-btn ep-btn--sm">Verwalten &rarr;</a>
           </div>
           <div id="compliance-body"></div>
@@ -281,7 +276,7 @@
         <!-- M-10: Promotions / Bounties (profile_bounties — INDIVIDUELL, maturity-gated) -->
         <div class="ep-card" id="sec-promotions">
           <div class="ep-card-head">
-            <div class="ep-card-title"><span class="icon">&#127381;</span> Promotions &amp; Sichtbarkeits-Boosts</div>
+            <div class="ep-card-title">Promotions &amp; Sichtbarkeits-Boosts</div>
             <span id="promo-status-badge" style="display:none;font-size:10px;font-weight:700;padding:2px 8px;border-radius:20px;text-transform:uppercase;background:rgba(57,217,138,.12);color:var(--ds-success);border:1px solid rgba(57,217,138,.25)"></span>
           </div>
           <!-- Coming-soon state (default — shown until feature is live) -->
@@ -322,7 +317,7 @@
         <!-- M-09: Profilreichweite (profile_analytics_basic — PRO/INDIVIDUELL, soft-gated) -->
         <div class="ep-card" id="sec-profilreichweite" style="display:none">
           <div class="ep-card-head">
-            <div class="ep-card-title"><span class="icon">&#128202;</span> Profilreichweite</div>
+            <div class="ep-card-title">Profilreichweite</div>
             <span id="pr-vis-status" style="font-size:11px;color:var(--ds-text-secondary)"></span>
           </div>
           <div id="pr-loading" style="font-size:13px;color:var(--ds-text-secondary);padding:var(--ds-space-2) 0">Wird geladen&hellip;</div>

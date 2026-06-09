@@ -39,6 +39,14 @@
     .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0 16px; }
     .form-full { grid-column: 1 / -1; }
     .link-row { display:flex; gap:8px; flex-wrap:wrap; margin: 0 0 14px; }
+
+    /* EDITORIAL — de-blue/de-purple status badges + warm filter card (scoped; dark untouched) */
+    [data-theme="editorial"] .sb-APPROVED { border-color: rgba(31,58,46,.4); }
+    [data-theme="editorial"] .sb-OPEN { border-color: rgba(31,58,46,.4); background: rgba(31,58,46,.1); }
+    [data-theme="editorial"] .sb-IN_REVIEW { border-color: rgba(31,58,46,.4); }
+    [data-theme="editorial"] .sb-SHORTLISTED { border-color: rgba(31,58,46,.4); }
+    /* filter card carries inline translucent-white bg → solid cream (needs !important to beat inline style) */
+    [data-theme="editorial"] .filter-row { background: #ebe4d3 !important; border-color: #d4cab3 !important; }
   </style>
 </head>
 <body>
@@ -83,7 +91,6 @@
       <tbody id="reqBody"></tbody>
     </table>
     <div id="emptyMsg" class="ds-empty" style="display:none">
-      <div class="ds-empty__icon">&#128196;</div>
       <div class="ds-empty__title" id="emptyTitle">Keine Arbeitsplatzangebote gefunden</div>
       <div class="ds-empty__text" id="emptyText">Sie haben noch keine Arbeitsplatzangebote erstellt oder passen Sie die Filterkriterien an.</div>
       <div id="emptyActions" style="margin-top:10px"><button class="btn primary" onclick="showCreate()">Jetzt Arbeitsplatz anbieten</button></div>

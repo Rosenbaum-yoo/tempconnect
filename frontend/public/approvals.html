@@ -146,11 +146,11 @@
         }
 
         var historyBtn = item.type === "approval_request"
-          ? ' <button class="approval-btn" data-history="' + esc(item.entity_type) + ':' + esc(item.entity_id) + '" style="padding:4px 8px;font-size:11px" title="Historie">&#128337;</button>'
+          ? ' <button class="approval-btn" data-history="' + esc(item.entity_type) + ':' + esc(item.entity_id) + '" style="padding:4px 8px;font-size:11px" title="Historie">Historie</button>'
           : '';
 
         return '<div class="approval-item" data-item-id="' + esc(item.id) + '">' +
-          '<div class="approval-item__icon">' + (item.icon || '&#128203;') + '</div>' +
+          '<div class="approval-item__icon">' + (item.icon || '') + '</div>' +
           '<div class="approval-item__body">' +
             '<p class="approval-item__title">' + esc(item.title) + '</p>' +
             '<p class="approval-item__meta">' +

@@ -39,6 +39,11 @@
     .context-badge { display:none; background: var(--ds-brand-muted); border:1px solid rgba(74,158,255,.2); border-radius:8px; padding:10px 14px; font-size:13px; margin:0 0 var(--ds-space-4); color:var(--ds-text-secondary); }
     /* .page-state canonical definitions live in design-system.css (WAVE_10) */
     .section-note { padding: 12px 14px; border-radius: 10px; border: 1px dashed var(--ds-border); color: var(--ds-text-secondary); font-size: 12px; background: var(--tc-filter-surface); }
+
+    /* EDITORIAL — de-blue context-badge border (surfaces use --ds/--tc tokens; scoped, dark untouched) */
+    [data-theme="editorial"] .context-badge { border-color: rgba(31,58,46,.2); }
+    /* JS-set purple stat color on .kpi-val (inline) → forest (attribute hook beats inline style) */
+    [data-theme="editorial"] .kpi-val[style*="#7c5cff"] { color: #1f3a2e !important; }
   </style>
 </head>
 <body>

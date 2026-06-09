@@ -181,7 +181,7 @@
       <button class="tab-btn" data-tab="create" onclick="showTab('create')">Manuell anlegen</button>
       <button class="tab-btn" data-tab="invite" onclick="showTab('invite')">Einladen</button>
       <button class="tab-btn" data-tab="invites" onclick="showTab('invites')">Einladungen <span class="badge" id="inviteCount">0</span></button>
-      <button class="tab-btn" data-tab="csvimport" onclick="showTab('csvimport')">&#128228; CSV-Import</button>
+      <button class="tab-btn" data-tab="csvimport" onclick="showTab('csvimport')">CSV-Import</button>
     </div>
 
     <!-- Panel: Mitarbeiter-Liste -->
@@ -195,7 +195,7 @@
         </select>
       </div>
       <div id="workerList">
-        <div class="empty-state"><div class="icon">&#128100;</div>Mitarbeiter werden geladen...</div>
+        <div class="empty-state">Mitarbeiter werden geladen...</div>
       </div>
     </div>
 
@@ -490,7 +490,6 @@
         </div>
       </div>
       <div id="skillsEmptyHint" style="text-align:center;padding:40px;color:var(--wk-text-muted)">
-        <div style="font-size:36px;margin-bottom:10px">&#128100;</div>
         <div style="font-weight:700;margin-bottom:6px">Mitarbeiter ausw&auml;hlen</div>
         <div style="font-size:13px">W&auml;hlen Sie oben einen Mitarbeiter aus, um Profil, Skills, Qualifikationen, Einsatzkontext und externe Freigabe zentral zu verwalten.</div>
       </div>
@@ -499,7 +498,7 @@
     <!-- Panel: Einladungen -->
     <div id="panel-invites" class="panel">
       <div id="inviteList">
-        <div class="empty-state"><div class="icon">&#128233;</div>Einladungen werden geladen...</div>
+        <div class="empty-state">Einladungen werden geladen...</div>
       </div>
     </div>
 
@@ -519,7 +518,6 @@
           <h2 style="font-size:18px;font-weight:800;margin:0 0 8px">CSV-Datei hochladen</h2>
           <p style="font-size:13px;color:var(--wk-text-muted);margin:0 0 16px">W&auml;hlen Sie eine CSV-Datei mit Ihren Mitarbeiterdaten. Unterst&uuml;tzte Trennzeichen: Komma, Semikolon, Tab.</p>
           <div id="csv-dropzone" style="border:2px dashed var(--tc-dash-border);border-radius:14px;padding:40px 20px;text-align:center;cursor:pointer;transition:border-color .2s;background:var(--tc-surface-subtle)">
-            <div style="font-size:36px;margin-bottom:8px">&#128196;</div>
             <div style="font-size:14px;font-weight:600;margin-bottom:4px">CSV-Datei hierher ziehen oder klicken</div>
             <div style="font-size:12px;color:var(--wk-text-muted)">Max. 1000 Datens&auml;tze &bull; .csv Format</div>
             <input type="file" id="csv-file-input" accept=".csv,.txt" style="display:none">

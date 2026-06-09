@@ -47,6 +47,9 @@
     @media (max-width: 980px) {
       .insight-grid { grid-template-columns: 1fr; }
     }
+
+    /* EDITORIAL — de-blue SECONDARY tier badge (tiles/cards use --tc tokens; scoped, dark untouched) */
+    [data-theme="editorial"] .tb-SECONDARY { border-color: rgba(31,58,46,.4); }
   </style>
 </head>
 <body>
@@ -110,7 +113,6 @@
       <tbody id="poolBody"></tbody>
     </table>
     <div id="emptyMsg" class="ds-empty" style="display:none">
-      <div class="ds-empty__icon">&#129309;</div>
       <div class="ds-empty__title" id="poolEmptyTitle">Keine Lieferanten im Pool</div>
       <div class="ds-empty__text" id="poolEmptyText">Noch keine Lieferantenbeziehung vorhanden. Fuegen Sie jetzt einen Lieferanten hinzu.</div>
     </div>

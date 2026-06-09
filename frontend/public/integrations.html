@@ -236,13 +236,11 @@
           return;
         }
         c.innerHTML = items.map(it => {
-          const icon = it.provider === 'slack' ? '&#128172;' : '&#128187;';
           const active = it.is_active;
           const events = (it.enabled_events || []).slice(0, 6);
           const moreCount = (it.enabled_events || []).length - 6;
           return `<div class="int-card">
             <div class="int-card__head">
-              <span class="int-card__provider">${icon}</span>
               <span class="int-card__label">${esc(it.label || it.provider.toUpperCase())}</span>
               <span class="int-card__status ${active?'int-card__status--active':'int-card__status--inactive'}">${active?'Aktiv':'Inaktiv'}</span>
             </div>

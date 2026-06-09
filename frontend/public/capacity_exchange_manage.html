@@ -117,18 +117,17 @@
 
     <!-- Nudge: Publish more -->
     <div id="nudge-publish-more" class="ds-alert ds-alert--info" style="display:none">
-      &#128200; <strong>Tipp:</strong> Dienstleister mit 3+ aktiven Einträgen erhalten im Durchschnitt mehr Anfragen. <a href="/public/capacity_exchange_form.html" style="color:var(--ds-brand);text-decoration:underline">Weiteres Personal einstellen</a>
+      <strong>Tipp:</strong> Dienstleister mit 3+ aktiven Einträgen erhalten im Durchschnitt mehr Anfragen. <a href="/public/capacity_exchange_form.html" style="color:var(--ds-brand);text-decoration:underline">Weiteres Personal einstellen</a>
     </div>
 
     <!-- Nudge: Profile completeness -->
     <div id="nudge-profile" class="ds-alert ds-alert--warning" style="display:none">
-      &#128100; <strong>Profil unvollstaendig:</strong> Ein vollstaendiges Firmenprofil erhoeht Ihre Vertrauenswuerdigkeit und Sichtbarkeit. <a href="/public/company_profile.html" style="color:var(--ds-brand);text-decoration:underline">Profil vervollstaendigen</a>
+      <strong>Profil unvollstaendig:</strong> Ein vollstaendiges Firmenprofil erhoeht Ihre Vertrauenswuerdigkeit und Sichtbarkeit. <a href="/public/company_profile.html" style="color:var(--ds-brand);text-decoration:underline">Profil vervollstaendigen</a>
     </div>
 
     <!-- Empty State (hidden by default) -->
     <div id="empty-state" style="display:none">
       <div class="ds-empty">
-        <div class="ds-empty__icon">&#128188;</div>
         <div class="ds-empty__title">Noch kein Personal eingestellt</div>
         <p class="ds-empty__text">Stellen Sie Ihr verfügbares Personal ein, damit Unternehmen Sie finden und anfragen können.</p>
         <a href="/public/capacity_exchange_form.html" class="ds-btn ds-btn--primary">Erstes Personal einstellen</a>
@@ -320,7 +319,7 @@
       var html = "";
       entries.forEach(function(e) {
         html += '<tr data-entry-id="' + esc(e.id) + '">';
-        html += '<td><span class="ce-tbl-logo-ph" data-logo-id="' + esc(e.id) + '">&#127970;</span></td>';
+        html += '<td><span class="ce-tbl-logo-ph" data-logo-id="' + esc(e.id) + '"></span></td>';
         html += '<td><strong>' + esc(e.title) + '</strong><br><span class="ds-text-sm ds-text-muted">' + esc(e.role) + '</span></td>';
         html += '<td>' + esc(e.location_city || "–") + (e.location_postal ? " " + esc(e.location_postal) : "") + '</td>';
         html += '<td style="font-variant-numeric:tabular-nums">' + esc(formatHeadcount(e)) + '</td>';

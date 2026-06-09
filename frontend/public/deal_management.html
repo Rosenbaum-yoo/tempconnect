@@ -68,6 +68,9 @@
     .dm-empty__icon{font-size:40px;margin-bottom:var(--ds-space-3)}
     .dm-pagination{display:flex;justify-content:space-between;align-items:center;gap:var(--ds-space-3);margin-top:var(--ds-space-4);flex-wrap:wrap}
     .dm-pagination__info{font-size:12px;color:var(--ds-text-secondary)}
+
+    /* EDITORIAL — de-blue focus ring (cards already use --ds/--tc tokens; scoped, dark untouched) */
+    [data-theme="editorial"] .dm-search__input:focus{border-color:#1f3a2e;box-shadow:0 0 0 3px rgba(31,58,46,.12)}
   </style>
 </head>
 <body data-sla-guard="sla_access">
@@ -133,7 +136,6 @@
     <div id="dm-list" class="dm-list" style="display:none"></div>
 
     <div id="dm-empty" class="dm-empty" style="display:none">
-      <div class="dm-empty__icon">&#128203;</div>
       <div>Keine Deals in dieser Kategorie.</div>
     </div>
     <div id="dm-pagination" class="dm-pagination" style="display:none">
@@ -360,11 +362,11 @@
       html += '</div>';
       html += '<div class="dm-card__counterparty">Gegenseite: <strong>' + esc(d.counterparty_name || '\u2014') + '</strong> \u00b7 Ihre Rolle: ' + (d.viewer_role === 'supplier' ? 'Lieferant' : 'Auftraggeber') + '</div>';
       html += '<div class="dm-card__meta">';
-      html += '<span class="dm-card__meta-item">&#128100; ' + esc(roleLabel(d)) + '</span>';
-      html += '<span class="dm-card__meta-item">&#128205; ' + esc(locationLabel(d)) + '</span>';
-      html += '<span class="dm-card__meta-item">&#128197; ' + esc(availabilityLabel(d)) + '</span>';
-      html += '<span class="dm-card__meta-item">&#128101; ' + esc(dealQuantityLabel(d)) + '</span>';
-      if (d.offered_hourly_rate != null) html += '<span class="dm-card__meta-item">&#128176; ' + esc(fmtMoney(d.offered_hourly_rate)) + '</span>';
+      html += '<span class="dm-card__meta-item">' + esc(roleLabel(d)) + '</span>';
+      html += '<span class="dm-card__meta-item">' + esc(locationLabel(d)) + '</span>';
+      html += '<span class="dm-card__meta-item">' + esc(availabilityLabel(d)) + '</span>';
+      html += '<span class="dm-card__meta-item">' + esc(dealQuantityLabel(d)) + '</span>';
+      if (d.offered_hourly_rate != null) html += '<span class="dm-card__meta-item">' + esc(fmtMoney(d.offered_hourly_rate)) + '</span>';
       html += '</div>';
       if (d.capacity_post_id) {
         html += '<div class="dm-card__context">';
@@ -458,7 +460,7 @@
       if (!currentDeals.length) {
         listEl.style.display = 'none';
         emptyEl.style.display = 'block';
-        emptyEl.innerHTML = '<div class="dm-empty__icon">&#128203;</div><div>' + esc(emptyStateMessage()) + '</div>';
+        emptyEl.innerHTML = '<div>' + esc(emptyStateMessage()) + '</div>';
         paginationEl.style.display = 'none';
         return;
       }
