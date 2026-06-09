@@ -61,6 +61,10 @@ Stand: 2026-06-08 · Branch: `release/enterprise-premium-market-ready` · Status
 > `rgba(255,255,255,.025)` = fast unsichtbar auf Creme → Editorial: `#fffdf6` Raised-Fläche (heller als Seite `#f4efe4`) +
 > warmer Layer-Schatten zum Abheben + Hover-Lift (`translateY(-2px)`, Forest-Akzent-Rand, stärkerer Schatten); Thumbnail-Slot
 > `.ce-card__preview` als `#f4efe4`-Inset. getComputedStyle-verifiziert (#fffdf6 + Schatten gegen #f4efe4-Seite).
+> **Angebots-Detailseite gleich behandelt (2026-06-09):** `capacity_exchange_detail.html` Inline-`<style>`: `.ce-section`
+> (alle Abschnitts-Karten PERSONALANGEBOT/ZEITRAUM/STANDORT/VERTRAUENSSIGNALE/COMPLIANCE…) `rgba(255,255,255,.025)` →
+> `#fffdf6` raised + gleicher warmer Schatten; `.ce-hero` → `#fffdf6`; `.ce-match-card` → `#f4efe4`-Inset; Hairlines/Track
+> (`.ce-interaction-item`, `.ce-completeness__bar`) → Forest-Alpha. Selber Look wie der Feed (Marktplatz-Flow konsistent).
 
 > **Default-Flip 2026-06-08 (Owner-Request):** Editorial ist jetzt der **plattformweite Default**
 > (vorher `dark`). Umgesetzt in `theme.js` über ein **Explicit-Choice-Modell**: Der Default wird

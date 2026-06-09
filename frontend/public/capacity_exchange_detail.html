@@ -158,6 +158,18 @@
     @media (max-width: 720px) { .ce-modal__grid { grid-template-columns: 1fr; } }
     .ce-modal__actions { display: flex; justify-content: flex-end; gap: var(--ds-space-2); margin-top: var(--ds-space-4); }
     .ce-modal-open { overflow: hidden; }
+
+    /* Editorial — Detail-Abschnitte deutlich vom Hintergrund abheben
+       (raised Creme #fffdf6 + warmer Schatten, wie die Marktplatz-Karten). War rgba(255,255,255,.025). */
+    [data-theme="editorial"] .ce-section {
+      background: #fffdf6;
+      border-color: #e6dfcd;
+      box-shadow: 0 1px 2px rgba(40, 33, 20, 0.05), 0 6px 18px rgba(40, 33, 20, 0.06);
+    }
+    [data-theme="editorial"] .ce-hero { background: #fffdf6; border-color: #e6dfcd; }
+    [data-theme="editorial"] .ce-match-card { background: #f4efe4; border-color: #e6dfcd; }
+    [data-theme="editorial"] .ce-interaction-item { border-bottom-color: rgba(31, 58, 46, 0.1); }
+    [data-theme="editorial"] .ce-completeness__bar { background: rgba(31, 58, 46, 0.1); }
   </style>
 </head>
 <body data-sla-guard="sla_access">
