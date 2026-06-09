@@ -136,6 +136,16 @@
       var nudgeCta = $("ce-nudge-cta-marketplace");
       if (nudgeCta) nudgeCta.textContent = label;
     }
+
+    // Rollenrichtige Create-CTA im Aktivierungs-Nudge (Fixplan 3.1):
+    // Einsatzunternehmen bieten Arbeitsplaetze an (kein "Personal einstellen");
+    // Personaldienstleister stellen Personal ein (kein "Arbeitsplatz anbieten").
+    // Nur UI-Sichtbarkeit ueber org_type — keine DB-/API-/Logik-Aenderung.
+    var ctaPostStaff = $("ce-nudge-cta-1");      // "Personal einstellen" — Dienstleister-Aktion
+    var ctaPostWorkplace = $("ce-nudge-cta-2");  // "Arbeitsplatz anbieten" — Unternehmens-Aktion
+    if (orgType === "company" && ctaPostStaff) ctaPostStaff.style.display = "none";
+    if (orgType === "agency" && ctaPostWorkplace) ctaPostWorkplace.style.display = "none";
+
     // Agentur-Sicht: Beschreibung/Fussnote auf Arbeitsplatzsuche ausrichten
     // (Company-Default bleibt unveraendert).
     if (orgType !== "agency") return;
