@@ -57,6 +57,10 @@ Stand: 2026-06-08 · Branch: `release/enterprise-premium-market-ready` · Status
 > relativ zum echten Seiteninhalt (Scroll-Test: hält bei `top:10px` nach 700px Scroll). Statische `.ds-topbar`-Seiten waren
 > schon ok (Topbar = direktes Kind des hohen `.wrap`). Außerdem enterprise.html: Inline-Blau-Boxen `#ce-activation-nudge`
 > (Blau/Lila-Gradient) → Forest→Wine-Tint, `#value-report-widget` (Weiß-Alpha) → Creme `#ebe4d3` (Parent-Hook + !important).
+> **Marktplatz-Karten stylischer (2026-06-09, Owner-Request):** `.ce-card` (capacity_exchange_feed, `marketplace-feed.css`) war
+> `rgba(255,255,255,.025)` = fast unsichtbar auf Creme → Editorial: `#fffdf6` Raised-Fläche (heller als Seite `#f4efe4`) +
+> warmer Layer-Schatten zum Abheben + Hover-Lift (`translateY(-2px)`, Forest-Akzent-Rand, stärkerer Schatten); Thumbnail-Slot
+> `.ce-card__preview` als `#f4efe4`-Inset. getComputedStyle-verifiziert (#fffdf6 + Schatten gegen #f4efe4-Seite).
 
 > **Default-Flip 2026-06-08 (Owner-Request):** Editorial ist jetzt der **plattformweite Default**
 > (vorher `dark`). Umgesetzt in `theme.js` über ein **Explicit-Choice-Modell**: Der Default wird

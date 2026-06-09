@@ -213,3 +213,27 @@
 [data-theme="light"] .ce-card__preview {
   background: rgba(15, 23, 42, 0.04);
 }
+
+/* Editorial theme — the supply/demand type badges use bright hues tuned for
+   dark surfaces; on the cream editorial background they need darker text for
+   readable contrast. Premium gold accents already harmonize with the LEX
+   palette and are intentionally left untouched. Additive, editorial-only. */
+[data-theme="editorial"] .ce-type-badge--supply { color: #1f5a3f; }
+[data-theme="editorial"] .ce-type-badge--demand { color: #9a5b2a; }
+
+/* Marktplatz-Angebotskarten — deutlich vom Hintergrund abheben + edler, warmer Schatten,
+   forest-akzentuierter Hover-Lift (Owner-Request 2026-06-09). War rgba(255,255,255,.025) = fast unsichtbar. */
+[data-theme="editorial"] .ce-card {
+  background: #fffdf6;
+  border-color: #e6dfcd;
+  box-shadow: 0 1px 2px rgba(40, 33, 20, 0.05), 0 6px 18px rgba(40, 33, 20, 0.06);
+}
+[data-theme="editorial"] .ce-card:hover {
+  border-color: rgba(31, 58, 46, 0.4);
+  transform: translateY(-2px);
+  box-shadow: 0 6px 16px rgba(40, 33, 20, 0.10), 0 16px 36px rgba(31, 58, 46, 0.12);
+}
+[data-theme="editorial"] .ce-card__preview {
+  background: #f4efe4;
+  border-color: #e6dfcd;
+}
