@@ -14,6 +14,22 @@ import { logger } from "../config/index.js";
 
 const _workers = [];
 
+/**
+ * Plant die wiederkehrenden Capacity-Sweeps (BullMQ Job Scheduler, idempotent via Scheduler-ID,
+ * ueberlebt Neustarts ohne Duplikate). Bisher gab es zwar den capacity-Worker, aber NICHTS
+ * hat die Jobs eingeplant -> Expiry lief nie. Taeglich 03:00:
+ *  - capacity-expiry: abgelaufene Angebote (Supply availability_to/valid_until + Demand end_date) -> status='expired'
+ *  - capacity-stale-check: ueberfaellige Eintraege zur Reconfirmation melden
+ */
+function scheduleCapacitySweeps() {
+  const q = capacityQueue();
+  if (!q || typeof q.upsertJobScheduler !== "function") return;
+  q.upsertJobScheduler("capacity-expiry-daily", { pattern: "0 3 * * *" }, { name: "capacity-expiry" })
+    .catch((e) => logger.warn({ err: e.message }, "Could not schedule capacity-expiry sweep"));
+  q.upsertJobScheduler("capacity-stale-daily", { pattern: "30 3 * * *" }, { name: "capacity-stale-check" })
+    .catch((e) => logger.warn({ err: e.message }, "Could not schedule capacity-stale sweep"));
+}
+
 export function startWorkers() {
   if (!isQueueAvailable()) {
     logger.info("Redis not configured — background workers disabled");
@@ -27,7 +43,11 @@ export function startWorkers() {
   if (match) { instrumentWorker(match, "match"); _workers.push(match); }
 
   const capacity = startCapacityWorker();
-  if (capacity) { instrumentWorker(capacity, "capacity"); _workers.push(capacity); }
+  if (capacity) {
+    instrumentWorker(capacity, "capacity");
+    _workers.push(capacity);
+    scheduleCapacitySweeps();
+  }
 
   const staffing = startStaffingWorker();
   if (staffing) { instrumentWorker(staffing, "staffing"); _workers.push(staffing); }

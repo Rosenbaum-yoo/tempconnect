@@ -19,9 +19,10 @@ export function startCapacityWorker() {
 
     switch (job.name) {
       case "capacity-expiry": {
-        const { expireStaleEntries } = await import("../services/capacityExchangeService.js");
+        const { expireStaleEntries, expireDemandRequests } = await import("../services/capacityExchangeService.js");
         const result = await expireStaleEntries(pool, job.data?.batchSize || 100);
-        logger.info({ jobId: job.id, expired: result.expired }, "Capacity expiry completed");
+        const demandResult = await expireDemandRequests(pool, job.data?.batchSize || 100);
+        logger.info({ jobId: job.id, expired: result.expired, demandExpired: demandResult.expired }, "Capacity expiry completed");
 
         // Notify suppliers of expired entries
         if (result.entries?.length > 0) {
@@ -38,7 +39,7 @@ export function startCapacityWorker() {
           }
         }
 
-        return result;
+        return { ...result, demandExpired: demandResult.expired };
       }
 
       case "capacity-stale-check": {

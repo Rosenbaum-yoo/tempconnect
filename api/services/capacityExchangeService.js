@@ -1179,16 +1179,38 @@ export async function computeTrustSignals(pool, supplierId) {
 /* ── AUTO-EXPIRY BATCH ────────────────────────────── */
 
 /**
- * Expire active entries past their valid_until date.
- * Called by background worker.
+ * Expire active capacity entries (Personalangebote) deren Listing-Gueltigkeit (valid_until)
+ * ODER deren Einsatz-Enddatum (availability_to) vorbei ist. So fallen abgelaufene Angebote
+ * nicht nur aus dem Feed (Query-Filter), sondern bekommen status='expired' -> aktive-Counts/Limits frei.
+ * Wird vom Background-Worker (capacity-expiry, taeglich) aufgerufen.
  */
 export async function expireStaleEntries(pool, batchSize = 100) {
   const { rows } = await pool.query(
     `UPDATE capacity_posts SET status = 'expired', is_active = FALSE, updated_at = NOW()
-     WHERE status = 'active' AND valid_until IS NOT NULL AND valid_until < NOW()
+     WHERE status = 'active'
+       AND (
+         (valid_until IS NOT NULL AND valid_until < NOW())
+         OR (availability_to IS NOT NULL AND availability_to < CURRENT_DATE)
+       )
      RETURNING id, supplier_company_id`,
   );
-  // Limit to batch size for safety
+  // batchSize begrenzt nur die Notification-Liste; expired werden alle (Status-Konsistenz).
+  const expired = rows.slice(0, batchSize);
+  return { expired: expired.length, entries: expired };
+}
+
+/**
+ * Expire offene Arbeitsplatzangebote (demand_requests) deren Einsatz-Enddatum (end_date) vorbei ist.
+ * Gegenstueck zu expireStaleEntries fuer die Nachfrage-Seite. status open/partially_covered -> expired.
+ * Wird vom Background-Worker (capacity-expiry, taeglich) aufgerufen.
+ */
+export async function expireDemandRequests(pool, batchSize = 100) {
+  const { rows } = await pool.query(
+    `UPDATE demand_requests SET status = 'expired', updated_at = NOW()
+     WHERE status IN ('open', 'partially_covered')
+       AND end_date IS NOT NULL AND end_date < CURRENT_DATE
+     RETURNING id, requester_company_id`,
+  );
   const expired = rows.slice(0, batchSize);
   return { expired: expired.length, entries: expired };
 }
