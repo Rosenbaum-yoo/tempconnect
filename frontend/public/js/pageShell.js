@@ -27,7 +27,7 @@
 
   var NAV_LINKS = [
     { label: "\u00dcbersicht", key: "uebersicht", href: "/public/enterprise.html", match: ["/public/enterprise.html"], desc: "Pilot-Standard und naechste Schritte im Blick: Angebot, Deal, Besetzung und Zeiten vor Ausbauflächen." },
-    { label: "Personal finden", key: "marktplatz", termKey: "navMarketplace", href: "/public/capacity_exchange_feed.html", match: ["/public/capacity_exchange_feed.html", "/public/capacity_exchange", "/public/capacity_search", "/public/agency_inbox", "/public/angebote_verwalten", "/public/matching_results", "/public/marketplace_capacity", "/public/sla_search_jobs", "/public/sla_angebote"], desc: "Pilot-Standard: Personal anbieten, Arbeitsplatzangebote finden und Vermittlungsreaktionen ohne Medienbruch steuern." },
+    { label: "Personal finden", key: "marktplatz", termKey: "navMarketplace", href: "/public/capacity_exchange_feed.html", match: ["/public/capacity_exchange_feed.html", "/public/capacity_exchange", "/public/capacity_search", "/public/agency_inbox", "/public/angebote_verwalten", "/public/matching_results", "/public/marketplace_capacity", "/public/sla_search_jobs", "/public/sla_angebote"], desc: "Pilot-Standard: Personal finden, passende Einsaetze und Vermittlungsreaktionen ohne Medienbruch steuern." },
     { label: "Arbeitsplatzangebote", key: "bedarfe", termKey: "navDemands", href: "/public/requisitions.html", match: ["/public/requisitions", "/public/company_requests", "/public/demand_create", "/public/request_detail", "/public/marketplace_demand_"], desc: "Pilot-Standard: Arbeitsplatzangebote anlegen, priorisieren und gezielt in belastbare Angebote ueberfuehren." },
     { label: "Deals & Einsaetze", key: "deals_einsaetze", href: "/public/deal_management.html", match: ["/public/deal_management", "/public/offer_detail", "/public/worker-submissions-review", "/public/timesheets", "/public/mitarbeiter", "/public/approvals", "/public/sla_nachweise"], desc: "Pilot-Standard: Deals abschliessen, Besetzungen fuehren, Stundenzettel freigeben und Folgeprozesse sauber halten." },
     { label: "Steuerung", key: "steuerung", href: "/public/executive_dashboard.html", match: ["/public/executive_dashboard", "/public/vendor_pool", "/public/supplier_scorecard", "/public/rate-cards", "/public/spend-analytics", "/public/system-health", "/public/compliance_overview", "/public/admin_panel", "/public/organization", "/public/integrations", "/public/sso_config", "/public/sla_profil", "/public/sla_abo"], desc: "Nachgelagerte Steuerungs- und Ausbauflaeche fuer Lieferantenleistung, Spend, Executive-Sicht und Governance." },
@@ -271,7 +271,15 @@
       window.TC.shell.context = { me: me || null, rateCardAccess: access };
     }
     updateNavLinkDescription("steuerung", getSteeringNavDescription(access));
-    if (me && me.org_type) updateNavLabels(me.org_type);
+    if (me && me.org_type) {
+      updateNavLabels(me.org_type);
+      // Marktplatz-Tooltip rollen-aware (Label ist es bereits): Agency bietet Personal an/sucht Arbeitsplaetze;
+      // Company sucht Personal/bietet Arbeitsplaetze an. Default-HTML = Company-Sicht (Mehrheitsrolle).
+      var _ot = String(me.org_type).toLowerCase();
+      updateNavLinkDescription("marktplatz", _ot === "agency"
+        ? "Pilot-Standard: Personal anbieten, Arbeitsplatzangebote finden und Vermittlungsreaktionen ohne Medienbruch steuern."
+        : "Pilot-Standard: Personal finden, passende Einsaetze und Vermittlungsreaktionen ohne Medienbruch steuern.");
+    }
     ensureHubVisibilityLoaded(function () { applyNavVisibility(me); });
     dispatchShellContext({ me: me || null, rateCardAccess: access });
   }
@@ -442,7 +450,7 @@
     h += '<div class="tc-shell-user__row"><span>Rolle</span><span class="ds-fw-700">' + esc(role) + '</span></div>';
     h += '<div class="tc-shell-user__row"><span>Plan</span><span class="ds-fw-700" style="color:' + planClr + '">' + esc(planLabel) + '</span></div>';
     if (featureBundle === "enterprise_full") {
-      h += '<div class="tc-shell-user__row"><span>Zugang</span><span class="ds-fw-700" style="color:#7c5cff">Enterprise</span></div>';
+      h += '<div class="tc-shell-user__row"><span>Zugang</span><span class="ds-fw-700" style="color:var(--ds-accent,#7c5cff)">Enterprise</span></div>';
     }
     if (me.individual_tier_auto) {
       var tierLabels = { individuell_s: "S (1\u201330)", individuell_m: "M (31\u2013250)", individuell_l: "L (251\u2013999)", individuell_enterprise: "Enterprise (1000+)" };
@@ -737,8 +745,8 @@
 
       /* User dropdown */
       ".tc-shell-user{position:relative;display:inline-flex;align-items:center;margin-left:var(--ds-space-1,4px)}",
-      ".tc-shell-user__btn{width:34px;height:34px;border-radius:50%;border:1.5px solid rgba(74,158,255,.35);background:rgba(74,158,255,.12);color:#4a9eff;font-size:15px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:border-color .15s,background .15s,box-shadow .15s}",
-      ".tc-shell-user__btn:hover{border-color:rgba(74,158,255,.6);box-shadow:0 0 0 3px rgba(74,158,255,.12)}",
+      ".tc-shell-user__btn{width:34px;height:34px;border-radius:50%;border:1.5px solid var(--ds-brand-ring,rgba(74,158,255,.35));background:var(--ds-brand-muted,rgba(74,158,255,.12));color:var(--ds-brand,#4a9eff);font-size:15px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:border-color .15s,background .15s,box-shadow .15s}",
+      ".tc-shell-user__btn:hover{border-color:var(--ds-brand,#4a9eff);box-shadow:0 0 0 3px var(--ds-brand-muted,rgba(74,158,255,.12))}",
       ".tc-shell-user__btn--loaded{font-size:14px}",
       ".tc-shell-user__dropdown{display:none;position:absolute;top:calc(100% + 10px);right:0;width:260px;border:1px solid var(--ds-border,rgba(255,255,255,.12));border-radius:14px;background:var(--ds-card,var(--card,#1a1d24));box-shadow:0 8px 32px rgba(0,0,0,.55);z-index:9999;padding:var(--ds-space-4,16px)}",
       ".tc-shell-user__dropdown--open{display:block}",
