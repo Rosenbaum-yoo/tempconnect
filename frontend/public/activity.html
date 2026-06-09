@@ -118,6 +118,21 @@
       background: rgba(255,255,255,.03); color: var(--ds-text); font-size: 12px; font-weight: 600;
     }
     .ac-select option { background: var(--ds-bg, #0d1117); }
+
+    /* EDITORIAL — de-blue + warm boxes (scoped; dark/light/ultra byte-identical) */
+    [data-theme="editorial"] .ac-filter-btn { background: #fffdf6; }
+    [data-theme="editorial"] .ac-item { background: #fffdf6; border-color: #e6dfcd; box-shadow: 0 1px 2px rgba(40,33,20,.04), 0 4px 12px rgba(40,33,20,.05); }
+    [data-theme="editorial"] .ac-item:hover { border-color: rgba(31,58,46,.3); box-shadow: 0 4px 12px rgba(40,33,20,.08), 0 10px 22px rgba(31,58,46,.10); }
+    [data-theme="editorial"] .ac-item--unread { background: #fffdf6; }
+    [data-theme="editorial"] .ac-icon { background: #fffdf6; }
+    [data-theme="editorial"] .ac-cat-badge { background: rgba(31,58,46,.08); }
+    [data-theme="editorial"] .ac-load-more { background: #fffdf6; }
+    [data-theme="editorial"] .ac-settings { background: #ebe4d3; }
+    [data-theme="editorial"] .ac-pref-row { border-bottom-color: rgba(31,58,46,.08); }
+    [data-theme="editorial"] .ac-timeline-item { border-bottom-color: rgba(31,58,46,.08); }
+    [data-theme="editorial"] .ac-select { background: #fffdf6; }
+    /* onboarding-checklist band: kill inline translucent-blue (needs !important to beat inline style) */
+    [data-theme="editorial"] #onboarding-checklist > div { border-color: rgba(31,58,46,.2) !important; background: rgba(31,58,46,.04) !important; }
   </style>
 </head>
 <body>
@@ -260,6 +275,7 @@
 
   <script src="/public/js/demoBanner.js" defer></script>
   <script src="/public/js/onboardingWizard.js" defer></script>
+  <script src="/public/js/pageShell.js"></script>
   <script src="/public/js/notifications.js" defer></script>
   <script src="/public/js/pages/activity.js"></script>
   <script src="/public/js/contextHints.js"></script>
