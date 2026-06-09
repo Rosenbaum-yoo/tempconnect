@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="de">
+<html lang="de" data-theme="editorial">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -24,6 +24,18 @@
     .qual-meta { display:flex; flex-wrap:wrap; gap:8px; color:#8d9bba; font-size:12px; }
     .empty, .error { text-align:center; padding:48px 20px; border:1px solid rgba(255,255,255,.08); border-radius:18px; background:rgba(255,255,255,.03); }
     .error { border-color:rgba(248,113,113,.25); color:#f87171; }
+
+    /* EDITORIAL — de-blue + warm boxes (scoped; dark untouched) */
+    [data-theme="editorial"] body { background:#faf7ee; color:#14201a; }
+    [data-theme="editorial"] .hero { background:#15291f; border-color:#15291f; }
+    [data-theme="editorial"] .hero h1 { color:#faf7ee; }
+    [data-theme="editorial"] .hero p { color:#ebe4d3; }
+    [data-theme="editorial"] .card { background:#ebe4d3; border-color:#d4cab3; }
+    [data-theme="editorial"] .chip { background:rgba(31,58,46,.08); border-color:rgba(31,58,46,.25); color:#1f3a2e; }
+    [data-theme="editorial"] .qual-item { background:#fffdf6; border-color:#d4cab3; }
+    [data-theme="editorial"] .qual-meta { color:#6b6457; }
+    [data-theme="editorial"] .empty { background:#ebe4d3; border-color:#d4cab3; }
+    [data-theme="editorial"] .error { background:#ebe4d3; }
   </style>
 </head>
 <body>

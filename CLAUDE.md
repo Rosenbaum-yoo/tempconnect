@@ -141,6 +141,10 @@ Naechster Schritt:
 - Keine hardcodierten Farbwerte auf Workforce-/Enterprise-Seiten; Token aus dem Design-System nutzen.
 - Keine Emojis/Raketen in produktiver UI.
 - Bestehende Page-Shell-/Visibility-/Surface-Patterns einhalten statt umgehen.
+- **End-to-End-Pflicht (Verdrahtung nie auslassen):** Ein UI-Feature gilt erst als fertig, wenn die ganze Kette steht: (1) Backend-Endpunkt vorhanden/erreichbar, (2) Frontend ruft ihn real auf (fetch mit `credentials:'include'`), (3) Antwort wird in echte DOM-Elemente gerendert, (4) Lade-/Leer-/Fehlerzustand behandelt, (5) Event-Handler (Klick/Submit) sind tatsächlich gebunden, (6) bei Live-Daten Polling/Refresh verdrahtet. Kein „TODO", kein toter Button, kein Platzhalter, der nichts tut.
+- **Vorhandenes Backend zuerst prüfen:** Bevor etwas als „fehlt" gilt, prüfen ob der Endpunkt/Service schon existiert (z. B. `/api/notifications/surface-summary`, `summarizeBySurface()`). Oft ist nur die Frontend-Verdrahtung offen — dann diese liefern, nicht neu bauen.
+- **Deep-Links statt Sackgassen:** Karten/Listen/Benachrichtigungen, die auf etwas verweisen, müssen direkt zum konkreten Ziel führen (Detailseite/gefilterte Liste), nicht auf eine allgemeine Übersicht.
+- **Jeder interaktive Zustand sichtbar:** Aktiv/Inaktiv, mit/ohne Daten, Badge an/aus — alle Zustände müssen real auslösbar und sichtbar sein, nicht nur im CSS definiert.
 
 ## Datenbank- und Planregeln
 - SQL-Aenderungen ausschliesslich als neue Migration unter `sql/migrations/`.
@@ -158,6 +162,9 @@ Naechster Schritt:
 - Mindestens Syntax-/Build-Check fuer geaenderte Artefakte (z. B. `node --check`, Build, zielgerichtete Tests).
 - Keine irrelevanten Full-Suite-Runs erzwingen, aber betroffene Pfade testen.
 - Bei RBAC-/Surface-Aenderungen: Boundary-Tests (z. B. OCC vs Support vs Staff) mitpruefen.
+- **Verdrahtungs-Check (Pflicht bei UI-Tickets):** Für jedes geänderte UI-Element nachweisen: Endpunkt wird real aufgerufen → Daten erscheinen im DOM → Klick/Action funktioniert → Lade-/Leer-/Fehlerfall geprüft. Stichprobe im Browser/Network-Tab, nicht nur Build-Check.
+- **Konsolen-sauber:** Geänderte Seiten dürfen keine JS-Konsolen-Fehler werfen (besonders `TypeError`/`is not a function`/401-Schleifen). Vor Abschluss Konsole prüfen.
+- **„Fertig"-Definition:** Ein Ticket ist erst erledigt, wenn das Feature für einen echten Nutzer end-to-end nutzbar ist — nicht wenn nur Markup/CSS oder nur der Endpunkt existiert. Im Zweifel: die in der Aufgabe genannte Akzeptanz wörtlich durchspielen.
 
 ## Dokumentationspflicht bei relevanten Aenderungen
 - `docs/PILOT_GO_LIVE_TODOS.md` aktualisieren, wenn neue reale Blocker/Erledigungen entstehen.

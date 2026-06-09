@@ -24,6 +24,7 @@
   --ds-brand:       #4a9eff;
   --ds-brand-hover: #6bb3ff;
   --ds-brand-muted: rgba(74, 158, 255, 0.12);
+  --ds-brand-ring:  rgba(74, 158, 255, 0.35);
   --ds-accent:      #7c5cff;
   --ds-accent-muted:rgba(124, 92, 255, 0.10);
 
@@ -380,6 +381,21 @@ a:hover { color: var(--ds-brand-hover); }
   border-color: rgba(251, 191, 36, 0.2);
   background: rgba(251, 191, 36, 0.04);
 }
+
+/* P1.2: reusable dark-forest signature card — the ONE source for the "dunkler Kasten"
+   (landing pilot/CTA look). Theme-agnostic: forest-deep ground, cream type, gold eyebrow. */
+.ds-card--forest {
+  background: #15291f;
+  border-color: #15291f;
+  color: #faf7ee;
+}
+.ds-card--forest .ds-card__title,
+.ds-card--forest h1, .ds-card--forest h2, .ds-card--forest h3 { color: #faf7ee; }
+.ds-card--forest .ds-card__eyebrow,
+.ds-card--forest .ds-eyebrow { color: #b8935a; }
+.ds-card--forest .ds-card__desc,
+.ds-card--forest p { color: #ebe4d3; }
+.ds-card--forest .ds-card__desc--muted { color: rgba(235, 228, 211, 0.7); }
 
 .ds-card__header {
   display: flex;
@@ -1399,6 +1415,7 @@ a:hover { color: var(--ds-brand-hover); }
   --ds-brand:       #1d4ed8;
   --ds-brand-hover: #2563eb;
   --ds-brand-muted: rgba(29, 78, 216, 0.1);
+  --ds-brand-ring:  rgba(29, 78, 216, 0.30);
   --ds-accent:      #5b21b6;
   --ds-accent-muted: rgba(91, 33, 182, 0.08);
 
@@ -1748,6 +1765,7 @@ a:hover { color: var(--ds-brand-hover); }
   --ds-brand:       #5fa8ff;
   --ds-brand-hover: #84bdff;
   --ds-brand-muted: rgba(95, 168, 255, 0.14);
+  --ds-brand-ring:  rgba(95, 168, 255, 0.38);
   --ds-accent:      #a78bff;
   --ds-accent-muted: rgba(167, 139, 255, 0.12);
 
@@ -1893,4 +1911,403 @@ a:hover { color: var(--ds-brand-hover); }
 [data-theme="ultra_premium"] .tc-theme-toggle[aria-pressed="true"] {
   color: var(--ds-accent);
   border-color: rgba(167, 139, 255, 0.4);
+}
+
+/* =============================================================================
+   Editorial — warm "LEX" editorial look (html[data-theme="editorial"])
+   Editorial Theme Rollout (Phase 0). Selectable, opt-in. Default (:root dark),
+   light and ultra_premium stay unchanged. Token-driven so every --ds- / --tc-
+   disciplined page inherits it automatically. Forest/cream/wine/gold palette,
+   serif display on headings, clean sans body (density/readability preserved).
+   Self-contained system fonts (no external request → CSP font-src 'self' safe).
+   ============================================================================= */
+[data-theme="editorial"] {
+  color-scheme: light;
+
+  /* Core palette — warm paper ground */
+  --ds-bg:          #faf7ee;
+  --ds-bg-raised:   #fffdf6;
+  --ds-bg-surface:  #fffdf6;
+  --ds-bg-overlay:  rgba(244, 239, 228, 0.94);
+
+  --ds-text:        #14201a;
+  --ds-text-secondary: #5b5447;
+  --ds-text-tertiary:  #8a8270;
+  --ds-text-inverse:   #faf7ee;
+
+  /* Brand = forest; accent = wine */
+  --ds-brand:       #1f3a2e;
+  --ds-brand-hover: #2d4f3f;
+  --ds-brand-muted: rgba(31, 58, 46, 0.10);
+  --ds-brand-ring:  rgba(31, 58, 46, 0.30);
+  --ds-accent:      #7a2e2e;
+  --ds-accent-muted: rgba(122, 46, 46, 0.09);
+
+  --ds-success:     #2d6a4f;
+  --ds-success-muted: rgba(45, 106, 79, 0.12);
+  --ds-warning:     #8a5f1a;
+  --ds-warning-muted: rgba(184, 147, 90, 0.16);
+  --ds-danger:      #8f2d2d;
+  --ds-danger-muted: rgba(143, 45, 45, 0.10);
+
+  --ds-border:      rgba(31, 58, 46, 0.13);
+  --ds-border-hover: rgba(31, 58, 46, 0.24);
+  --ds-border-focus: rgba(31, 58, 46, 0.5);
+
+  --ds-shadow-sm:   0 1px 2px rgba(40, 33, 20, 0.06);
+  --ds-shadow-md:   0 4px 14px rgba(40, 33, 20, 0.08);
+  --ds-shadow-lg:   0 12px 32px rgba(40, 33, 20, 0.10);
+  --ds-shadow-xl:   0 24px 48px rgba(40, 33, 20, 0.13);
+
+  /* Serif display for headings (editorial only) */
+  --ds-font-display: Georgia, "Iowan Old Style", "Palatino Linotype", Palatino, "Book Antiqua", "Times New Roman", serif;
+
+  /* Legacy aliases (enterprise.css, inline) */
+  --bg:     var(--ds-bg);
+  --card:   var(--ds-bg-surface);
+  --text:   var(--ds-text);
+  --muted:  var(--ds-text-secondary);
+  --line:   var(--ds-border);
+  --brand:  var(--ds-brand);
+  --brand2: var(--ds-accent);
+  --good:   var(--ds-success);
+  --warn:   var(--ds-warning);
+  --bad:    var(--ds-danger);
+
+  /* Glass / surface tokens — warm light */
+  --tc-topbar-bg:           rgba(250, 247, 238, 0.85);
+  --tc-nav-hover-bg:        rgba(31, 58, 46, 0.06);
+  --tc-nav-active-bg:       rgba(31, 58, 46, 0.09);
+  --tc-card-surface:        #ebe4d3;  /* P1.1: content cards cream-warm like landing (was #fffdf6) */
+  --tc-icon-box-bg:         rgba(31, 58, 46, 0.05);
+  --tc-btn-secondary-bg:    #fffdf6;
+  --tc-btn-secondary-hover: rgba(31, 58, 46, 0.06);
+  --tc-ghost-hover-bg:      rgba(31, 58, 46, 0.06);
+  --tc-trust-badge-bg:      rgba(31, 58, 46, 0.04);
+  --tc-badge-neutral-bg:    rgba(31, 58, 46, 0.05);
+  --tc-kpi-bg:              #ebe4d3;  /* P1.1: KPI/stat cards cream-warm (was #fffdf6) */
+  --tc-table-row-border:    rgba(31, 58, 46, 0.10);
+  --tc-table-hover-bg:      rgba(31, 58, 46, 0.04);
+  --tc-row-alt-bg:          rgba(31, 58, 46, 0.03);
+  --tc-filter-surface:      #fffdf6;
+  --tc-dash-border:         rgba(31, 58, 46, 0.16);
+  --tc-hub-tile-bg:         #fffdf6;
+  --tc-stat-tile-bg:        rgba(31, 58, 46, 0.04);
+  --tc-search-muted-bg:     #fffdf6;
+  --tc-traffic-grey:        #a89b80;
+  --tc-compliance-grey:     #cabfa3;
+  --tc-legend-grey:         #a89b80;
+  --tc-progress-track-bg:   rgba(31, 58, 46, 0.08);
+  --tc-footer-rule:         rgba(31, 58, 46, 0.10);
+  --tc-disclaimer-border:   rgba(31, 58, 46, 0.10);
+  --tc-disclaimer-bg:       rgba(250, 247, 238, 0.92);
+  --tc-skeleton-a:          rgba(31, 58, 46, 0.06);
+  --tc-skeleton-b:          rgba(31, 58, 46, 0.12);
+
+  /* Legacy enterprise.css surfaces */
+  --tc-legacy-topbar:         rgba(250, 247, 238, 0.95);
+  --tc-legacy-btn:            #fffdf6;
+  --tc-legacy-btn-hover-line: rgba(31, 58, 46, 0.22);
+  --tc-legacy-card:           #ebe4d3;  /* P1.1: legacy enterprise.css cards cream-warm (was #fffdf6) */
+  --tc-legacy-nav-card:       #fffdf6;
+  --tc-legacy-nav-card-hover: rgba(31, 58, 46, 0.18);
+  --tc-legacy-nav-active:     rgba(31, 58, 46, 0.10);
+  --tc-legacy-input:          #fffdf6;
+  --tc-legacy-modal-scrim:    rgba(20, 32, 26, 0.45);
+  --tc-legacy-paywall:        #fffdf6;
+  --tc-legacy-hub-cta-bg:     rgba(31, 58, 46, 0.12);
+  --tc-legacy-hub-cta-border: rgba(31, 58, 46, 0.35);
+  --tc-legacy-sla-box:        rgba(31, 58, 46, 0.04);
+  --tc-legacy-search-results: #fffdf6;
+  --tc-legacy-hub-locked:     rgba(31, 58, 46, 0.03);
+
+  /* Forms / modal scrim */
+  --tc-input-bg:         #fffdf6;
+  --tc-input-focus-ring: rgba(31, 58, 46, 0.18);
+  --tc-modal-scrim:      rgba(20, 32, 26, 0.5);
+
+  /* Semantic tones */
+  --tc-tone-brand-bg:            rgba(31, 58, 46, 0.10);
+  --tc-tone-brand-border:        rgba(31, 58, 46, 0.18);
+  --tc-tone-brand-text:          #1f3a2e;
+  --tc-tone-brand-strong-text:   #15291f;
+  --tc-tone-accent-bg:           rgba(122, 46, 46, 0.10);
+  --tc-tone-accent-border:       rgba(122, 46, 46, 0.18);
+  --tc-tone-accent-text:         #7a2e2e;
+  --tc-tone-success-bg:          rgba(45, 106, 79, 0.12);
+  --tc-tone-success-bg-strong:   rgba(45, 106, 79, 0.18);
+  --tc-tone-success-border:      rgba(45, 106, 79, 0.24);
+  --tc-tone-success-text:        #2d6a4f;
+  --tc-tone-success-strong-text: #1d4a36;
+  --tc-tone-warning-bg:          rgba(184, 147, 90, 0.18);
+  --tc-tone-warning-bg-strong:   rgba(184, 147, 90, 0.26);
+  --tc-tone-warning-border:      rgba(156, 107, 31, 0.30);
+  --tc-tone-warning-text:        #8a5f1a;
+  --tc-tone-warning-strong-text: #6f4d14;
+  --tc-tone-danger-bg:           rgba(143, 45, 45, 0.10);
+  --tc-tone-danger-bg-strong:    rgba(143, 45, 45, 0.16);
+  --tc-tone-danger-border:       rgba(143, 45, 45, 0.24);
+  --tc-tone-danger-text:         #8f2d2d;
+  --tc-tone-danger-strong-text:  #6f2222;
+  --tc-tone-neutral-bg:          rgba(107, 100, 87, 0.14);
+  --tc-tone-neutral-border:      rgba(107, 100, 87, 0.22);
+  --tc-tone-neutral-text:        #6b6457;
+  --tc-surface-subtle:           rgba(31, 58, 46, 0.03);
+  --tc-surface-muted:            rgba(31, 58, 46, 0.04);
+  --tc-surface-emphasis:         rgba(31, 58, 46, 0.06);
+  --tc-row-divider:              rgba(31, 58, 46, 0.08);
+  --tc-hover-soft:               rgba(31, 58, 46, 0.04);
+  --tc-selected-bg:              rgba(31, 58, 46, 0.08);
+  --tc-selected-ring:            rgba(31, 58, 46, 0.12);
+  --tc-progress-track:           rgba(107, 100, 87, 0.18);
+  --tc-progress-brand:           rgba(31, 58, 46, 0.30);
+  --tc-progress-success:         rgba(45, 106, 79, 0.34);
+  --tc-progress-success-strong:  rgba(29, 74, 54, 0.76);
+  --tc-link-accent:              #7a2e2e;
+  --tc-link-accent-strong:       #5f2424;
+}
+
+/* Serif display on headings — editorial only (body stays sans for density) */
+[data-theme="editorial"] h1,
+[data-theme="editorial"] h2,
+[data-theme="editorial"] h3,
+[data-theme="editorial"] .ds-h1,
+[data-theme="editorial"] .ds-h2,
+[data-theme="editorial"] .ds-page-title,
+[data-theme="editorial"] .ds-section__title {
+  font-family: var(--ds-font-display);
+  letter-spacing: -0.01em;
+}
+
+[data-theme="editorial"] .ds-topbar {
+  box-shadow: var(--ds-shadow-sm);
+  border-bottom: 1px solid var(--ds-border);
+}
+
+/* Brand dot glow — forest halo (was hardcoded blue) */
+[data-theme="editorial"] .ds-topbar__brand-dot {
+  box-shadow: 0 0 0 4px rgba(31, 58, 46, 0.08);
+}
+
+/* Accent cards — keep hue, adjust for warm surfaces */
+[data-theme="editorial"] .ds-card--accent {
+  border-color: rgba(122, 46, 46, 0.22);
+  background: rgba(122, 46, 46, 0.06);
+}
+[data-theme="editorial"] .ds-card--success {
+  border-color: rgba(45, 106, 79, 0.22);
+  background: rgba(45, 106, 79, 0.08);
+}
+[data-theme="editorial"] .ds-card--warning {
+  border-color: rgba(156, 107, 31, 0.24);
+  background: rgba(184, 147, 90, 0.12);
+}
+
+/* Buttons — readable text on muted fills */
+[data-theme="editorial"] .ds-btn--success {
+  color: #1d4a36;
+  border-color: rgba(45, 106, 79, 0.38);
+  background: rgba(45, 106, 79, 0.12);
+}
+[data-theme="editorial"] .ds-btn--success:hover {
+  background: rgba(45, 106, 79, 0.2);
+}
+[data-theme="editorial"] .ds-btn--danger {
+  color: #6f2222;
+  border-color: rgba(143, 45, 45, 0.38);
+  background: rgba(143, 45, 45, 0.1);
+}
+[data-theme="editorial"] .ds-btn--danger:hover {
+  background: rgba(143, 45, 45, 0.18);
+}
+
+/* P1.4: dropdowns / native selects — high-contrast on cream. The closed control is
+   ink-on-warm-paper; the option popup gets explicit ink-on-cream with a cream-warm
+   highlight on the chosen/hovered option (browsers otherwise render low-contrast popups). */
+[data-theme="editorial"] select,
+[data-theme="editorial"] .ds-select {
+  color: #14201a;
+  background-color: #fffdf6;
+}
+[data-theme="editorial"] select option,
+[data-theme="editorial"] .ds-select option {
+  color: #14201a;
+  background-color: #fffdf6;
+}
+[data-theme="editorial"] select option:checked,
+[data-theme="editorial"] select option:hover,
+[data-theme="editorial"] .ds-select option:checked {
+  color: #15291f;
+  background-color: #ebe4d3;
+}
+
+/* Badges */
+[data-theme="editorial"] .ds-badge--brand {
+  color: #15291f;
+  border-color: rgba(31, 58, 46, 0.32);
+  background: rgba(31, 58, 46, 0.1);
+}
+[data-theme="editorial"] .ds-badge--accent {
+  color: #5f2424;
+  border-color: rgba(122, 46, 46, 0.32);
+  background: rgba(122, 46, 46, 0.1);
+}
+[data-theme="editorial"] .ds-badge--success {
+  color: #1d4a36;
+  border-color: rgba(45, 106, 79, 0.34);
+  background: rgba(45, 106, 79, 0.12);
+}
+[data-theme="editorial"] .ds-badge--warning {
+  color: #6f4d14;
+  border-color: rgba(156, 107, 31, 0.34);
+  background: rgba(184, 147, 90, 0.18);
+}
+[data-theme="editorial"] .ds-badge--danger,
+[data-theme="editorial"] .ds-badge--danger-strong {
+  color: #6f2222;
+  border-color: rgba(143, 45, 45, 0.4);
+  background: rgba(143, 45, 45, 0.1);
+}
+[data-theme="editorial"] .ds-badge--verified {
+  color: #1d4a36;
+  border-color: rgba(45, 106, 79, 0.34);
+  background: rgba(45, 106, 79, 0.12);
+}
+[data-theme="editorial"] .ds-badge--plan {
+  color: #15291f;
+  border-color: rgba(31, 58, 46, 0.3);
+  background: rgba(31, 58, 46, 0.08);
+}
+
+/* Trust badges */
+[data-theme="editorial"] .ds-trust-badge--verified {
+  color: #1d4a36;
+  border-color: rgba(45, 106, 79, 0.34);
+  background: rgba(45, 106, 79, 0.12);
+}
+[data-theme="editorial"] .ds-trust-badge--active {
+  color: #15291f;
+  border-color: rgba(31, 58, 46, 0.32);
+  background: rgba(31, 58, 46, 0.1);
+}
+[data-theme="editorial"] .ds-trust-badge--top {
+  color: #6f4d14;
+  border-color: rgba(156, 107, 31, 0.34);
+  background: rgba(184, 147, 90, 0.18);
+}
+[data-theme="editorial"] .ds-trust-badge--deals {
+  color: #1d4a36;
+  border-color: rgba(45, 106, 79, 0.3);
+  background: rgba(45, 106, 79, 0.1);
+}
+[data-theme="editorial"] .ds-trust-badge--compliance {
+  color: #5f2424;
+  border-color: rgba(122, 46, 46, 0.32);
+  background: rgba(122, 46, 46, 0.1);
+}
+[data-theme="editorial"] .ds-trust-badge--response {
+  color: #15291f;
+  border-color: rgba(31, 58, 46, 0.3);
+  background: rgba(31, 58, 46, 0.08);
+}
+
+/* Hub "current" card */
+[data-theme="editorial"] .ds-hub-card--current {
+  border-color: rgba(31, 58, 46, 0.35);
+  background: rgba(31, 58, 46, 0.08);
+  box-shadow: inset 0 0 0 1px rgba(31, 58, 46, 0.12);
+}
+[data-theme="editorial"] .ds-hub-card--current:hover {
+  box-shadow: inset 0 0 0 1px rgba(31, 58, 46, 0.12);
+}
+
+/* Plan cards */
+[data-theme="editorial"] .ds-plan-card--recommended {
+  border-color: rgba(31, 58, 46, 0.4);
+  background: rgba(31, 58, 46, 0.06);
+}
+[data-theme="editorial"] .ds-plan-card--premium {
+  border-color: rgba(156, 107, 31, 0.4);
+  background: rgba(184, 147, 90, 0.12);
+}
+
+/* Enterprise legacy tags / buttons */
+[data-theme="editorial"] .btn.good {
+  color: #1d4a36;
+  background: rgba(45, 106, 79, 0.12);
+  border-color: rgba(45, 106, 79, 0.4);
+}
+[data-theme="editorial"] .btn.bad {
+  color: #6f2222;
+  background: rgba(143, 45, 45, 0.1);
+  border-color: rgba(143, 45, 45, 0.4);
+}
+[data-theme="editorial"] .tag.green {
+  color: #1d4a36;
+  border-color: rgba(45, 106, 79, 0.4);
+  background: rgba(45, 106, 79, 0.12);
+}
+[data-theme="editorial"] .tag.yellow {
+  color: #6f4d14;
+  border-color: rgba(156, 107, 31, 0.45);
+  background: rgba(184, 147, 90, 0.2);
+}
+[data-theme="editorial"] .tag.red {
+  color: #6f2222;
+  border-color: rgba(143, 45, 45, 0.45);
+  background: rgba(143, 45, 45, 0.1);
+}
+[data-theme="editorial"] .tag.blue {
+  color: #15291f;
+  border-color: rgba(31, 58, 46, 0.4);
+  background: rgba(31, 58, 46, 0.1);
+}
+[data-theme="editorial"] .hub-card--locked .hub-card__cta {
+  color: #15291f;
+}
+
+/* Alerts */
+[data-theme="editorial"] .ds-alert--info {
+  color: #15291f;
+  background: rgba(31, 58, 46, 0.07);
+  border-color: rgba(31, 58, 46, 0.22);
+}
+[data-theme="editorial"] .ds-alert--success {
+  color: #1d4a36;
+  background: rgba(45, 106, 79, 0.08);
+  border-color: rgba(45, 106, 79, 0.22);
+}
+[data-theme="editorial"] .ds-alert--warning {
+  color: #6f4d14;
+  background: rgba(184, 147, 90, 0.12);
+  border-color: rgba(156, 107, 31, 0.26);
+}
+[data-theme="editorial"] .ds-alert--danger {
+  color: #6f2222;
+  background: rgba(143, 45, 45, 0.07);
+  border-color: rgba(143, 45, 45, 0.22);
+}
+
+/* Page-state */
+[data-theme="editorial"] .page-state--info {
+  background: rgba(31, 58, 46, 0.07);
+  border-color: rgba(31, 58, 46, 0.22);
+}
+[data-theme="editorial"] .page-state--warn {
+  background: rgba(184, 147, 90, 0.12);
+  border-color: rgba(156, 107, 31, 0.26);
+}
+[data-theme="editorial"] .page-state--bad {
+  background: rgba(143, 45, 45, 0.07);
+  border-color: rgba(143, 45, 45, 0.22);
+}
+[data-theme="editorial"] .page-state--good {
+  background: rgba(45, 106, 79, 0.08);
+  border-color: rgba(45, 106, 79, 0.22);
+}
+
+/* Theme toggle — active state in editorial (gold ring) */
+[data-theme="editorial"] .tc-theme-toggle[aria-pressed="true"] {
+  color: var(--ds-accent);
+  border-color: rgba(184, 147, 90, 0.5);
 }

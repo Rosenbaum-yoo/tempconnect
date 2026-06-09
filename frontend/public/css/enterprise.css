@@ -5,7 +5,7 @@
 .brand { font-weight: 800; }
 .btn { padding: 10px 14px; border-radius: 12px; cursor: pointer; font-weight: 700; border: 1px solid var(--line); background: var(--tc-legacy-btn); color: var(--text); display: inline-block; font-size: 14px; }
 .btn:hover { border-color: var(--tc-legacy-btn-hover-line); }
-.btn.primary { background: linear-gradient(135deg, var(--brand), var(--brand2)); border-color: transparent; }
+.btn.primary { background: linear-gradient(135deg, var(--brand), var(--brand2)); border-color: transparent; color: #fff; }
 .btn.good { background: rgba(57,217,138,.15); border-color: rgba(57,217,138,.35); color: #c8ffe7; }
 .btn.bad { background: rgba(255,92,122,.15); border-color: rgba(255,92,122,.35); color: #ffd0d8; }
 .card { border: 1px solid var(--line); border-radius: var(--radius); background: var(--tc-legacy-card); padding: 18px; margin-bottom: 14px; }
@@ -248,3 +248,76 @@ input, select, textarea { width: 100%; padding: 10px 12px; border-radius: 12px; 
 .tc-onboarding__dismiss { background: none; border: none; color: var(--ds-text-secondary, var(--muted)); cursor: pointer; font-size: 18px; padding: 2px 6px; line-height: 1; }
 .tc-onboarding__body { max-height: 0; overflow: hidden; transition: max-height .3s ease; }
 .tc-onboarding__steps { padding: 0 16px 14px; }
+
+/* ════════════════════════════════════════════════════════════════════
+   EDITORIAL THEME — hub chrome on warm paper (forest / wine / cream)
+   Re-skins hub banners, pills and nudges so no blue/purple shimmers
+   through on the cream ground. All rules are scoped to
+   [data-theme="editorial"] → dark / light / ultra stay byte-identical.
+   The --pilot priority banner adopts the landing "dark forest inset"
+   signature (solid forest, cream text, gold eyebrow) = the platform
+   "dunklere Kästchen".
+   ════════════════════════════════════════════════════════════════════ */
+
+/* Locked-card upgrade CTA — forest text (surface already forest via legacy tokens) */
+[data-theme="editorial"] .hub-card--locked .hub-card__cta { color: #15291f; }
+[data-theme="editorial"] .hub-card--locked .hub-card__cta:hover { background: rgba(31, 58, 46, 0.16); }
+
+/* P1.3: legacy .good/.bad buttons — readable dark text on editorial tints
+   (base uses light #c8ffe7/#ffd0d8 which is invisible on cream). Mirrors .ds-btn--success/danger. */
+[data-theme="editorial"] .btn.good { color: #1d4a36; border-color: rgba(45, 106, 79, 0.38); background: rgba(45, 106, 79, 0.12); }
+[data-theme="editorial"] .btn.bad { color: #6f2222; border-color: rgba(143, 45, 45, 0.38); background: rgba(143, 45, 45, 0.10); }
+
+/* Priority banner — base surface on warm paper */
+[data-theme="editorial"] .tc-priority-banner { background: rgba(31, 58, 46, 0.04); }
+
+/* Priority banner --pilot — dark forest signature panel (LEX "dunklere Kästchen") */
+[data-theme="editorial"] .tc-priority-banner--pilot {
+  border-color: rgba(21, 41, 31, 0.5);
+  background: #15291f;
+}
+[data-theme="editorial"] .tc-priority-banner--pilot .tc-priority-banner__eyebrow { color: #b8935a; }
+[data-theme="editorial"] .tc-priority-banner--pilot .tc-priority-banner__title { color: #faf7ee; }
+[data-theme="editorial"] .tc-priority-banner--pilot .tc-priority-banner__text,
+[data-theme="editorial"] .tc-priority-banner--pilot .tc-priority-banner__aside-text { color: #ebe4d3; }
+[data-theme="editorial"] .tc-priority-banner--pilot .tc-priority-banner__aside-title { color: #faf7ee; }
+[data-theme="editorial"] .tc-priority-banner--pilot .tc-priority-banner__aside {
+  border-color: rgba(244, 239, 228, 0.2);
+  background: rgba(244, 239, 228, 0.06);
+}
+[data-theme="editorial"] .tc-priority-banner--pilot .tc-priority-pill {
+  border-color: rgba(244, 239, 228, 0.3);
+  background: rgba(244, 239, 228, 0.08);
+  color: #f4efe4;
+}
+
+/* Priority banner --supporting — wine tint (hierarchy below pilot) */
+[data-theme="editorial"] .tc-priority-banner--supporting {
+  border-color: rgba(122, 46, 46, 0.22);
+  background: linear-gradient(135deg, rgba(122, 46, 46, 0.06), rgba(31, 58, 46, 0.03));
+}
+
+/* Priority pill (light contexts) — forest tint */
+[data-theme="editorial"] .tc-priority-pill {
+  border-color: rgba(31, 58, 46, 0.2);
+  background: rgba(31, 58, 46, 0.07);
+}
+
+/* Priority banner aside (light contexts) — forest surface */
+[data-theme="editorial"] .tc-priority-banner__aside {
+  border-color: rgba(31, 58, 46, 0.14);
+  background: rgba(31, 58, 46, 0.04);
+}
+
+/* Publish nudge box — forest tint (was blue) */
+[data-theme="editorial"] .tc-nudge--publish .tc-nudge__box {
+  border-color: rgba(31, 58, 46, 0.18);
+  background: rgba(31, 58, 46, 0.05);
+}
+
+/* Onboarding checklist box — forest tint (was blue) */
+[data-theme="editorial"] .tc-onboarding__box {
+  border-color: rgba(31, 58, 46, 0.16);
+  background: rgba(31, 58, 46, 0.04);
+}
+[data-theme="editorial"] .tc-onboarding__progress { background: rgba(31, 58, 46, 0.1); }
