@@ -39,6 +39,12 @@ Stand: 2026-06-08 · Branch: `release/enterprise-premium-market-ready` · Status
 > - **Verifikation:** getComputedStyle (4178): Ruhe `#1c2a22`, Aktiv `#15291f`+Gold-Glow+Gold-Rand, Badge Gold `#b8935a`/Cream sichtbar bei
 >   `--active`. `node --test` notificationMatrix/SurfaceMap/SurfaceSummary/Integrations/matchAlerts = **116 grün**. Editorial-scoped → dark/light/ultra unberührt.
 
+> **P2 Farb-Revision (2026-06-09, Owner-Feedback Landing-Screenshot, Commit `9d73c2c`):** Hub-Kacheln ruhen jetzt im
+> Creme `#ebe4d3` wie ALLE Inhalts-Karten (dunkle Schrift) — das dunkle `#15291f` + Gold-Glow + Ziffer-Badge ist NUR noch
+> der Aktiv-/Benachrichtigungs-Zustand (helle Schrift, aktiv-gescoped). `--current` zurück auf Creme-Forest-Tint.
+> Seiten-Hintergrund `--ds-bg` editorial `#faf7ee`→`#f4efe4` (etwas dunkler, nur wenig). Seite `#f4efe4` bleibt heller als
+> die Karten `#ebe4d3` → Karten heben sich weiterhin als „dunklere Kästchen" ab.
+
 > **Default-Flip 2026-06-08 (Owner-Request):** Editorial ist jetzt der **plattformweite Default**
 > (vorher `dark`). Umgesetzt in `theme.js` über ein **Explicit-Choice-Modell**: Der Default wird
 > **ohne Persistierung** gesetzt; nur eine aktive Theme-Wahl schreibt `localStorage` (`tempconnect-theme`)
