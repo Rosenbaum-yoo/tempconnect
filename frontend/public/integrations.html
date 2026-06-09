@@ -250,7 +250,7 @@
               <button class="ds-btn ds-btn--sm" data-feature-key="integrations" onclick='testIntegration("${it.id}")'>&#9889; Test</button>
               <button class="ds-btn ds-btn--sm" data-feature-key="integrations" onclick='openModal(${JSON.stringify(it).replace(/'/g,"&#39;")})'>&#9998; Bearbeiten</button>
               <button class="ds-btn ds-btn--sm" data-feature-key="integrations" onclick='toggleActive("${it.id}",${active})'>${active?'Deaktivieren':'Aktivieren'}</button>
-              <button class="ds-btn ds-btn--sm" data-feature-key="integrations" style="color:#f87171" onclick='deleteIntegration("${it.id}")'>&#128465;</button>
+              <button class="ds-btn ds-btn--sm" data-feature-key="integrations" style="color:#f87171" onclick='deleteIntegration("${it.id}")'>&times;</button>
             </div>
             ${it.last_success_at?`<div class="int-card__last">Letzter Erfolg: ${new Date(it.last_success_at).toLocaleString('de-DE')}</div>`:''}
             ${it.last_error?`<div class="int-card__error">Letzter Fehler: ${esc(it.last_error)}</div>`:''}
