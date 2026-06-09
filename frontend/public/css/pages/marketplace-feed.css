@@ -221,12 +221,13 @@
 [data-theme="editorial"] .ce-type-badge--supply { color: #1f5a3f; }
 [data-theme="editorial"] .ce-type-badge--demand { color: #9a5b2a; }
 
-/* Marktplatz-Angebotskarten — deutlich vom Hintergrund abheben + edler, warmer Schatten,
-   forest-akzentuierter Hover-Lift (Owner-Request 2026-06-09). War rgba(255,255,255,.025) = fast unsichtbar. */
+/* Marktplatz-Angebotskarten — an die abhebenden Deal-Karten (.dm-card) angleichen:
+   warme Creme-Flaeche #ebe4d3 (dunkler als der #f4efe4-Hintergrund) + kraeftiger Rahmen #d4cab3
+   -> "geerdete", deutlich abgesetzte Karte statt fast-weiss-blendet (Owner-Request 2026-06-09, Screenshot-Vergleich). */
 [data-theme="editorial"] .ce-card {
-  background: #fffdf6;
-  border-color: #e6dfcd;
-  box-shadow: 0 1px 2px rgba(40, 33, 20, 0.05), 0 6px 18px rgba(40, 33, 20, 0.06);
+  background: #ebe4d3;
+  border-color: #d4cab3;
+  box-shadow: 0 1px 2px rgba(40, 33, 20, 0.05), 0 4px 14px rgba(40, 33, 20, 0.06);
 }
 [data-theme="editorial"] .ce-card:hover {
   border-color: rgba(31, 58, 46, 0.4);
