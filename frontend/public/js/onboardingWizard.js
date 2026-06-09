@@ -56,7 +56,7 @@
         ]
       },
       step3: {
-        icon: "🚀",
+        icon: "",
         title: "Starten Sie jetzt!",
         text: "Erstellen Sie Ihre erste Personalanfrage und erhalten Sie passende Angebote von Zeitarbeitsfirmen.",
         ctaText: "Erste Anfrage erstellen",
@@ -77,7 +77,7 @@
         ]
       },
       step3: {
-        icon: "🚀",
+        icon: "",
         title: "Starten Sie jetzt!",
         text: "Stellen Sie Ihr erstes Personal ein, damit Unternehmen Sie finden können.",
         ctaText: "Erstes Angebot erstellen",
@@ -97,7 +97,7 @@
         ]
       },
       step3: {
-        icon: "🚀",
+        icon: "",
         title: "Alles bereit!",
         text: "Sehen Sie Ihre aktuellen Einsätze ein und starten Sie direkt.",
         ctaText: "Meine Einsätze ansehen",
@@ -166,7 +166,37 @@
       "  .tcw-footer{padding:0 18px 16px}",
       "  .tcw-dismiss-row{padding:0 18px 10px}",
       "  .tcw-row{grid-template-columns:1fr}",
-      "}"
+      "}",
+      // Keine Rakete/Emojis (Owner-Regel) -> leeren Icon-Container global einklappen.
+      ".tcw-icon:empty{display:none}",
+      // Editorial-Variante: cremefarbenes Modal + Forest/Gold-Akzente. Dark/Light/Ultra bleiben unveraendert (navy).
+      "[data-theme=\"editorial\"] #" + BACKDROP_ID + "{background:rgba(20,32,26,.55)}",
+      "[data-theme=\"editorial\"] #" + WIZARD_ID + "{background:#faf7ee;border-color:#d4cab3;color:#14201a;box-shadow:0 32px 80px rgba(40,33,20,.22)}",
+      "[data-theme=\"editorial\"] .tcw-title{color:#14201a}",
+      "[data-theme=\"editorial\"] .tcw-subtitle{color:#b8935a}",
+      "[data-theme=\"editorial\"] .tcw-text{color:#5b5447}",
+      "[data-theme=\"editorial\"] .tcw-features li{color:#14201a;border-bottom-color:rgba(31,58,46,.1)}",
+      "[data-theme=\"editorial\"] .tcw-features li::before{color:#2d6a4f}",
+      "[data-theme=\"editorial\"] .tcw-field label{color:#5b5447}",
+      "[data-theme=\"editorial\"] .tcw-field input{background:#fffdf6;border-color:#d4cab3;color:#14201a}",
+      "[data-theme=\"editorial\"] .tcw-field input:focus{border-color:#1f3a2e}",
+      "[data-theme=\"editorial\"] .tcw-field input::placeholder{color:rgba(91,84,71,.5)}",
+      "[data-theme=\"editorial\"] .tcw-close{background:rgba(31,58,46,.06);color:#5b5447}",
+      "[data-theme=\"editorial\"] .tcw-close:hover{background:rgba(31,58,46,.12);color:#14201a}",
+      "[data-theme=\"editorial\"] .tcw-dot{background:rgba(31,58,46,.15)}",
+      "[data-theme=\"editorial\"] .tcw-dot.active{background:#1f3a2e;box-shadow:0 0 12px rgba(31,58,46,.3)}",
+      "[data-theme=\"editorial\"] .tcw-dot.done{background:#2d6a4f}",
+      "[data-theme=\"editorial\"] .tcw-bar.done{background:rgba(45,106,79,.4)}",
+      "[data-theme=\"editorial\"] .tcw-skip-hint{color:#2d6a4f;background:rgba(45,106,79,.08);border-color:rgba(45,106,79,.2)}",
+      "[data-theme=\"editorial\"] .tcw-cta-card{background:#ebe4d3;border-color:#d4cab3}",
+      "[data-theme=\"editorial\"] .tcw-cta-btn{background:#1f3a2e;color:#faf7ee}",
+      "[data-theme=\"editorial\"] .tcw-btn{background:#fffdf6;border-color:#d4cab3;color:#14201a}",
+      "[data-theme=\"editorial\"] .tcw-btn:hover{border-color:#1f3a2e;background:#f4efe4}",
+      "[data-theme=\"editorial\"] .tcw-btn.primary{background:#1f3a2e;border-color:transparent;color:#faf7ee}",
+      "[data-theme=\"editorial\"] .tcw-btn.ghost{background:transparent;border-color:transparent;color:#5b5447}",
+      "[data-theme=\"editorial\"] .tcw-dismiss-confirm{background:#7a2e2e;color:#faf7ee}",
+      "[data-theme=\"editorial\"] .tcw-progress-bar{background:rgba(31,58,46,.08)}",
+      "[data-theme=\"editorial\"] .tcw-progress-fill{background:linear-gradient(90deg,#1f3a2e,#b8935a)}"
     ].join("\n");
     document.head.appendChild(style);
   }
@@ -259,7 +289,7 @@
     } else if (currentStep === 1) {
       // Step 2: Profile — role-specific labels
       var isAgency = role === "agency";
-      html += '<div class="tcw-icon">📋</div>';
+      html += '<div class="tcw-icon"></div>';
       html += '<h2 class="tcw-title">' + (isAgency ? 'Agenturprofil vervollst\u00e4ndigen' : 'Firmenprofil vervollst\u00e4ndigen') + '</h2>';
       html += '<p class="tcw-text">' + (isAgency
         ? 'Ein vollst\u00e4ndiges Agenturprofil erh\u00f6ht Ihre Sichtbarkeit bei suchenden Unternehmen.'
