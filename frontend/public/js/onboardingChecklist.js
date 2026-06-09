@@ -65,7 +65,7 @@
   }
 
   /* ── Load & Render ──────────────────────────────────────── */
-  function loadOnboardingChecklist() {
+  function loadOnboardingChecklist(role) {
     var wrap = document.getElementById('onboarding-checklist');
     if (!wrap) return;
 
@@ -97,13 +97,23 @@
             var icon = done ? '&#9989;' : '&#9744;';
             var opacity = done ? '0.5' : '1';
             var link = STEP_LINKS[s.step_key] || '#';
+            var label = s.label;
+            // Rollen-aware Korrektur (Audit 3/4): first_request/first_capacity zeigten BEIDEN Rollen
+            // dieselbe rollen-falsche Zielseite. Einsatzunternehmen suchen Personal + bieten Arbeitsplaetze an;
+            // Personaldienstleister stellen Personal ein + bearbeiten eingehende Anfragen.
+            if (s.step_key === 'first_request' && role === 'agency') {
+              link = '/public/company_requests.html'; // Agency: eingehende Anfragen bearbeiten (statt "Personal finden")
+            } else if (s.step_key === 'first_capacity' && role === 'company') {
+              link = '/public/marketplace_demand_create.html'; // Company: Arbeitsplatzangebot erstellen (statt "Personal einstellen")
+              label = 'Erstes Arbeitsplatzangebot erstellen';
+            }
             var actionBtn = !done
               ? ' <a href="' + link + '" style="font-size:11px;color:var(--ds-brand,#4a9eff);font-weight:600;text-decoration:none;margin-left:8px">' + esc(s.cta || 'Starten') + ' &rarr;</a>'
               : '';
             return '<div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid rgba(255,255,255,.04);opacity:' + opacity + '">' +
               '<span style="font-size:16px;flex-shrink:0">' + icon + '</span>' +
               '<div style="flex:1;min-width:0">' +
-              '<div style="font-size:13px;font-weight:600">' + esc(s.label) + actionBtn + '</div>' +
+              '<div style="font-size:13px;font-weight:600">' + esc(label) + actionBtn + '</div>' +
               '<div style="font-size:11px;color:var(--ds-text-secondary,var(--muted));margin-top:1px">' + esc(s.hint || '') + '</div>' +
               '</div></div>';
           }).join('');
@@ -125,7 +135,7 @@
     fetch('/api/me', { credentials: 'include' })
       .then(function(r) { return r.ok ? r.json() : null; })
       .then(function(me) {
-        if (me) loadOnboardingChecklist();
+        if (me) loadOnboardingChecklist((me && (me.role || me.org_type)) || null);
       })
       .catch(function() {});
   }
