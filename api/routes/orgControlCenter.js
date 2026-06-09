@@ -19,6 +19,8 @@ import * as settingsService from "../services/settingsService.js";
 import * as billingMetrics from "../services/billingMetricsService.js";
 import { queryOrgAuditLog } from "../services/auditLog.js";
 import { PERMISSIONS, ROLE_HIERARCHY } from "../services/rbacService.js";
+import * as orgInviteService from "../services/orgInviteService.js";
+import { sendMail } from "../services/emailService.js";
 
 /* ── Zod Schemas ───────────────────────────────────────── */
 
@@ -190,6 +192,128 @@ export function createOrgControlCenterRouter(deps) {
         res.json({ success: true, data: { removed: true } });
       } catch (err) {
         logger.error({ err: err.message }, "org/members delete");
+        res.status(500).json({ success: false, error: { code: "SERVER_ERROR" } });
+      }
+    }
+  );
+
+  /* ═══════════════════════════════════════════════════════
+   *  MEMBER INVITATIONS (Fixplan 3.3) — einladen / annehmen
+   * ═══════════════════════════════════════════════════════ */
+
+  const inviteSchema = z.object({
+    email: z.string().email().max(320),
+    role_key: z.enum(["admin", "member"]).optional().default("member")
+  });
+  const inviteErrStatus = { ORG_REQUIRED: 400, INVALID_EMAIL: 400, INVALID_ROLE: 400, ALREADY_MEMBER: 409, INVITE_PENDING: 409, INVITE_INVALID: 400, EMAIL_MISMATCH: 403 };
+
+  // Mitglied einladen: Einladung anlegen, Link mailen, invite_url fuer manuelles Teilen zurueckgeben.
+  router.post("/org/members/invite", requireAuth, ensureOrg, rperm("org.members"),
+    async (req, res) => {
+      try {
+        const parsed = inviteSchema.safeParse(req.body);
+        if (!parsed.success) return res.status(400).json({ success: false, error: { code: "VALIDATION", details: parsed.error.issues } });
+
+        let result;
+        try {
+          result = await orgInviteService.createInvite(pool, {
+            orgId: req.orgId, email: parsed.data.email, roleKey: parsed.data.role_key, invitedBy: req.session.userId
+          });
+        } catch (e) {
+          if (inviteErrStatus[e.message]) return res.status(inviteErrStatus[e.message]).json({ success: false, error: { code: e.message } });
+          throw e;
+        }
+
+        const base = (process.env.PUBLIC_BASE_URL || process.env.APP_URL || "").replace(/\/$/, "");
+        const inviteUrl = `${base}/org-invite.html?token=${encodeURIComponent(result.rawToken)}`;
+        try {
+          await sendMail({
+            to: parsed.data.email,
+            subject: "Einladung zu Ihrer Organisation auf TempConnect",
+            text: `Sie wurden als ${parsed.data.role_key} eingeladen. Einladung annehmen: ${inviteUrl}\nDer Link ist ${orgInviteService.INVITE_TTL_DAYS} Tage gueltig.`,
+            html: `<p>Sie wurden als <strong>${parsed.data.role_key}</strong> in eine Organisation auf TempConnect eingeladen.</p>` +
+                  `<p><a href="${inviteUrl}">Einladung annehmen</a> (gueltig ${orgInviteService.INVITE_TTL_DAYS} Tage).</p>`
+          });
+        } catch (mailErr) { logger.warn({ err: mailErr.message }, "invite mail failed"); }
+
+        res.locals.audit = {
+          action: "org.member.invite", entity_type: "org_invitation", entity_id: result.invite.id,
+          details: { org_id: req.orgId, email: parsed.data.email, role_key: parsed.data.role_key, responsible_actor_user_id: req.session.userId }
+        };
+        res.status(201).json({ success: true, data: { invite: result.invite, invite_url: inviteUrl } });
+      } catch (err) {
+        logger.error({ err: err.message }, "org/members invite");
+        res.status(500).json({ success: false, error: { code: "SERVER_ERROR" } });
+      }
+    }
+  );
+
+  // Offene Einladungen listen.
+  router.get("/org/invitations", requireAuth, ensureOrg, rperm("org.members"),
+    async (req, res) => {
+      try {
+        const items = await orgInviteService.listInvites(pool, req.orgId);
+        res.json({ success: true, data: { items, total: items.length } });
+      } catch (err) {
+        logger.error({ err: err.message }, "org/invitations list");
+        res.status(500).json({ success: false, error: { code: "SERVER_ERROR" } });
+      }
+    }
+  );
+
+  // Einladung zuruecknehmen.
+  router.delete("/org/invitations/:id", requireAuth, ensureOrg, rperm("org.members"),
+    async (req, res) => {
+      try {
+        const ok = await orgInviteService.revokeInvite(pool, { orgId: req.orgId, inviteId: req.params.id });
+        if (!ok) return res.status(404).json({ success: false, error: { code: "NOT_FOUND" } });
+        res.locals.audit = {
+          action: "org.member.invite_revoke", entity_type: "org_invitation", entity_id: req.params.id,
+          details: { org_id: req.orgId, responsible_actor_user_id: req.session.userId }
+        };
+        res.json({ success: true, data: { revoked: true } });
+      } catch (err) {
+        logger.error({ err: err.message }, "org/invitations revoke");
+        res.status(500).json({ success: false, error: { code: "SERVER_ERROR" } });
+      }
+    }
+  );
+
+  // Einladung ansehen (eingeloggter Nutzer, vor Annahme). Kein ensureOrg/rperm — Eingeladener ist noch kein Mitglied.
+  router.get("/org/invitations/lookup", requireAuth,
+    async (req, res) => {
+      try {
+        const inv = await orgInviteService.getInviteByToken(pool, String(req.query.token || ""));
+        if (!inv) return res.status(404).json({ success: false, error: { code: "INVITE_INVALID" } });
+        res.json({ success: true, data: { org_name: inv.org_name, email: inv.email, role_key: inv.role_key, expires_at: inv.expires_at } });
+      } catch (err) {
+        logger.error({ err: err.message }, "org/invitations lookup");
+        res.status(500).json({ success: false, error: { code: "SERVER_ERROR" } });
+      }
+    }
+  );
+
+  // Einladung annehmen (eingeloggter Nutzer; Email muss zur Einladung passen).
+  router.post("/org/invitations/accept", requireAuth,
+    async (req, res) => {
+      try {
+        const token = String(req.body?.token || "").trim();
+        if (!token) return res.status(400).json({ success: false, error: { code: "MISSING_TOKEN" } });
+        const { rows } = await pool.query("SELECT email FROM users WHERE id = $1", [req.session.userId]);
+        let result;
+        try {
+          result = await orgInviteService.acceptInvite(pool, { rawToken: token, userId: req.session.userId, userEmail: rows[0]?.email });
+        } catch (e) {
+          if (inviteErrStatus[e.message]) return res.status(inviteErrStatus[e.message]).json({ success: false, error: { code: e.message } });
+          throw e;
+        }
+        res.locals.audit = {
+          action: "org.member.invite_accept", entity_type: "org_membership", entity_id: req.session.userId,
+          details: { org_id: result.org_id, role_key: result.role_key, responsible_actor_user_id: req.session.userId }
+        };
+        res.json({ success: true, data: result });
+      } catch (err) {
+        logger.error({ err: err.message }, "org/invitations accept");
         res.status(500).json({ success: false, error: { code: "SERVER_ERROR" } });
       }
     }
