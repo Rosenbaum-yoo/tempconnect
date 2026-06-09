@@ -40,6 +40,17 @@
     .toast--err{background:rgba(248,113,113,.15);border:1px solid rgba(248,113,113,.3);color:#f87171}
 
     @media(max-width:600px){.int-grid{grid-template-columns:1fr}.int-modal__events{grid-template-columns:1fr}}
+
+    /* ═══════════════════════════════════════════════════════════════
+       EDITORIAL THEME — match landing.html (forest / cream / wine / gold)
+       Scoped under [data-theme="editorial"] → dark/light/ultra stay
+       byte-identical. Cards become warm cream "darker boxes" (was
+       white-alpha) and the event chips lose their translucent blue.
+       ═══════════════════════════════════════════════════════════════ */
+    /* Integration cards → cream-warm "darker boxes" (was white-alpha) */
+    [data-theme="editorial"] .int-card{background:#ebe4d3;border-color:#d4cab3}
+    /* Event chips → forest tint (was translucent blue); --ds-brand text is already forest */
+    [data-theme="editorial"] .int-card__evt{background:rgba(31,58,46,.08);border-color:rgba(31,58,46,.2);color:#1f3a2e}
   </style>
 </head>
 <body data-sla-guard="sla_access">
@@ -119,12 +130,21 @@
       renderEventCheckboxes();
     }
 
+    // Events koennen als String ODER Objekt ({key,...}) vom Backend kommen.
+    // Robust auf einen String-Key normalisieren (Fix: "e.replace is not a function", Screenshot 5).
+    function eventKey(e) {
+      if (typeof e === 'string') return e;
+      if (e && typeof e === 'object') return e.key || e.event || e.type || e.name || '';
+      return e == null ? '' : String(e);
+    }
     function renderEventCheckboxes(selected) {
-      const sel = new Set(selected || []);
+      const sel = new Set((selected || []).map(eventKey).filter(Boolean));
       const c = document.getElementById('eventCheckboxes');
-      c.innerHTML = allEvents.map(e =>
-        `<label><input type="checkbox" value="${e}" ${sel.has(e)?'checked':''}> ${e.replace(/\./g,' &rsaquo; ')}</label>`
-      ).join('');
+      c.innerHTML = allEvents.map(e => {
+        const ev = eventKey(e);
+        if (!ev) return '';
+        return `<label><input type="checkbox" value="${esc(ev)}" ${sel.has(ev)?'checked':''}> ${esc(ev).replace(/\./g,' &rsaquo; ')}</label>`;
+      }).filter(Boolean).join('');
     }
 
     function getSelectedEvents() {
