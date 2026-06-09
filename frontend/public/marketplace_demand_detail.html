@@ -39,6 +39,20 @@
     .coverage-box { border: 1px solid var(--line); border-radius: var(--radius); padding: 10px; background: rgba(255,255,255,.02); }
     .coverage-box .k { color: var(--muted); font-size: 12px; }
     .coverage-box .v { font-size: 18px; font-weight: 700; margin-top: 2px; }
+
+    /* EDITORIAL — de-blue + warm "darker boxes" (scoped; dark/light/ultra byte-identical) */
+    [data-theme="editorial"] .sla-badge.running { background: rgba(31,58,46,.1); color: #1f3a2e; }
+    [data-theme="editorial"] .timeline li.active::before { background: #1f3a2e; }
+    [data-theme="editorial"] .match-card,
+    [data-theme="editorial"] .offer-card { background: #ebe4d3; border-color: #d4cab3; }
+    [data-theme="editorial"] .match-card .score { color: #1f3a2e; }
+    [data-theme="editorial"] .tag { background: rgba(31,58,46,.08); }
+    [data-theme="editorial"] .coverage-box { background: #fffdf6; }
+    /* Inline translucent-blue/white bands + JS status badges (need !important to beat inline style) */
+    [data-theme="editorial"] #offers-list + div { background: rgba(31,58,46,.04) !important; border-color: rgba(31,58,46,.2) !important; }
+    [data-theme="editorial"] .offer-card [style*="#4a9eff"] { background: rgba(31,58,46,.1) !important; color: #1f3a2e !important; }
+    [data-theme="editorial"] .offer-card [style*="#64a0ff"] { background: rgba(31,58,46,.06) !important; color: #1f3a2e !important; }
+    [data-theme="editorial"] .offer-card [style*="255,255,255,.02"] { background: #fffdf6 !important; }
   </style>
 </head>
 <body data-sla-guard="sla_access">
@@ -97,7 +111,7 @@
         <p style="font-size:13px;color:var(--muted);margin:0 0 12px">Angebote von Zeitarbeitsfirmen auf Ihr Arbeitsplatzangebot &mdash; gegenseitenorientiert nach Aktionsstatus sortiert.</p>
         <div id="offers-list"></div>
         <div style="margin-top:16px;padding:12px 16px;background:rgba(74,158,255,.04);border:1px solid rgba(74,158,255,.15);border-radius:8px;font-size:12px;color:var(--muted)">
-          <strong>Dealabschluss-Flow:</strong> Angebot annehmen &rarr; Einsatzvereinbarung wird erstellt &rarr; Deal landet in <a href="/public/deal_management.html" style="color:#4a9eff">Meine Deals</a>.
+          <strong>Dealabschluss-Flow:</strong> Angebot annehmen &rarr; Einsatzvereinbarung wird erstellt &rarr; Deal landet in <a href="/public/deal_management.html" style="color:var(--ds-brand,#4a9eff)">Meine Deals</a>.
         </div>
       </div>
 
@@ -321,6 +335,11 @@
   };
 
   function updateOffer(offerId, newStatus) {
+    // 6.3: Verbindliche Zustimmung gegen Verklicken absichern (zweite Bestaetigung).
+    if (newStatus === "accepted" &&
+        !window.confirm("Konditionen verbindlich zustimmen?\n\nDie Zeitarbeitsfirma wird sofort informiert; ein Agreement und eine Einsatzbestaetigung werden erzeugt.")) {
+      return;
+    }
     var useTc = window.TC && TC.api;
     var p;
     if (newStatus === "accepted") {
