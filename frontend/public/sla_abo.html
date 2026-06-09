@@ -150,6 +150,30 @@
     .action-row { display: flex; gap: var(--ds-space-2); flex-wrap: wrap; }
     .empty-block { padding: var(--ds-space-5); text-align: center; color: var(--ds-text-secondary); font-size: 13px; border: 1px dashed var(--ds-border); border-radius: var(--ds-radius-md); }
     .account-error { padding: var(--ds-space-5); border: 1px solid rgba(255,92,122,.25); background: rgba(255,92,122,.04); border-radius: var(--ds-radius-md); }
+
+    /* EDITORIAL — Tarif-Karten an landing.html angleichen: EMPFOHLEN = Dark-Forest-Signatur,
+       übrige Karten Creme-Warm, Individuell = Wine, Aktuell = Gold-Ring (scoped; dark byte-identisch). */
+    [data-theme="editorial"] .plan-card { background: #ebe4d3; border-color: #d4cab3; }
+    [data-theme="editorial"] .plan-card:hover { border-color: rgba(31,58,46,.3); }
+    [data-theme="editorial"] .plan-card--recommended {
+      background: #15291f; border-color: #15291f;
+      box-shadow: 0 0 0 1px rgba(184,147,90,.4), 0 18px 40px rgba(21,41,31,.22);
+    }
+    [data-theme="editorial"] .plan-card--recommended .plan-card__name,
+    [data-theme="editorial"] .plan-card--recommended .plan-card__price { color: #faf7ee; }
+    [data-theme="editorial"] .plan-card--recommended .plan-card__price span,
+    [data-theme="editorial"] .plan-card--recommended .plan-card__desc { color: #ebe4d3; }
+    [data-theme="editorial"] .plan-card--recommended .plan-card__features li { color: #f4efe4; }
+    [data-theme="editorial"] .plan-card--recommended .plan-card__features li::before { color: #b8935a; }
+    [data-theme="editorial"] .plan-card--recommended .plan-card__features li.excluded,
+    [data-theme="editorial"] .plan-card--recommended .plan-card__features li.excluded::before { color: rgba(235,228,211,.5); }
+    [data-theme="editorial"] .plan-card--recommended .ds-badge { background: #b8935a; color: #15291f; border-color: transparent; }
+    [data-theme="editorial"] .plan-card--recommended .plan-card__cta .ds-btn--primary { background: #faf7ee; border-color: transparent; color: #15291f; }
+    [data-theme="editorial"] .plan-card--recommended .plan-card__cta .ds-btn--primary:hover { background: #f4efe4; }
+    [data-theme="editorial"] .plan-card--enterprise { background: #f4efe4; border-color: rgba(122,46,46,.3); }
+    [data-theme="editorial"] .plan-card--enterprise .plan-card__name { color: #7a2e2e; }
+    [data-theme="editorial"] .plan-card--current { border-color: #b8935a; box-shadow: 0 0 0 1px rgba(184,147,90,.4); }
+    [data-theme="editorial"] .plan-card--highlight { border-color: rgba(31,58,46,.5); box-shadow: 0 0 0 2px rgba(31,58,46,.2); }
   </style>
 </head>
 <body>
