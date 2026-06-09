@@ -16,11 +16,15 @@ import { getDealHistoryBucket, normalizeDealHistoryBucket } from "../services/de
 // ── My-Deals Historienlogik ──
 
 describe("Deal Management: History-Buckets", () => {
+  // 6.5: 'aktiviert' zaehlt erst als abgeschlossen, wenn das Einsatz-Enddatum vorbei ist.
+  const PAST_END = "2000-01-01";    // Einsatz vorbei -> completed
+  const FUTURE_END = "2999-12-31";  // Einsatz laeuft noch -> active/in Prozess
   const deals = [
     { status: "sent", agreement_status: "none" },
     { status: "accepted", agreement_status: "pending_confirmation" },
     { status: "accepted", agreement_status: "confirmed" },
-    { status: "accepted", agreement_status: "activated" },
+    { status: "accepted", agreement_status: "activated", end_date: PAST_END },
+    { status: "accepted", agreement_status: "activated", end_date: FUTURE_END },
     { status: "rejected", agreement_status: "none" },
     { status: "accepted", agreement_status: "cancelled" },
     { status: "withdrawn", agreement_status: "none" }
@@ -30,15 +34,16 @@ describe("Deal Management: History-Buckets", () => {
     return deals.filter((deal) => getDealHistoryBucket(deal) === bucketName);
   }
 
-  it("active bucket excludes already activated deals", () => {
+  it("active bucket: nicht-terminale + laufende Einsaetze (aktiviert mit Zukunfts-Enddatum bleibt aktiv)", () => {
     const active = bucket("active");
-    assert.strictEqual(active.length, 3); // sent, pending_confirmation, confirmed
+    assert.strictEqual(active.length, 4); // sent, pending_confirmation, confirmed, activated+future-end
   });
 
-  it("completed bucket shows only activated deals", () => {
+  it("completed bucket: nur aktivierte Deals mit vergangenem Einsatz-Enddatum", () => {
     const completed = bucket("completed");
     assert.strictEqual(completed.length, 1);
     assert.strictEqual(completed[0].agreement_status, "activated");
+    assert.strictEqual(completed[0].end_date, PAST_END);
   });
 
   it("cancelled bucket shows rejected, withdrawn, cancelled, expired", () => {
@@ -53,6 +58,7 @@ describe("Deal Management: History-Buckets", () => {
       "active",
       "active",
       "completed",
+      "active",
       "cancelled",
       "cancelled",
       "cancelled"

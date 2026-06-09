@@ -14,11 +14,16 @@ export function normalizeDealHistoryBucket(value, fallback = null) {
   return DEAL_HISTORY_QUERY_BUCKETS.includes(normalized) ? normalized : fallback;
 }
 
-export function getDealHistoryBucket(deal) {
+export function getDealHistoryBucket(deal, nowMs = Date.now()) {
   if (!deal) return "active";
   const offerStatus = deal.status || null;
   const agreementStatus = deal.agreement_status || "none";
-  if (agreementStatus === "activated") return "completed";
+  if (agreementStatus === "activated") {
+    // 6.5: 'aktiviert' = der Einsatz laeuft noch. Erst 'abgeschlossen', wenn das
+    // Einsatz-Enddatum vorbei ist; vorher (oder ohne Enddatum) bleibt der Deal aktiv/in Prozess.
+    const endMs = deal.end_date ? new Date(deal.end_date).getTime() : NaN;
+    return (Number.isFinite(endMs) && endMs < nowMs) ? "completed" : "active";
+  }
   if (
     offerStatus === "rejected" ||
     offerStatus === "withdrawn" ||
@@ -34,14 +39,17 @@ export function buildDealHistoryBucketSql(bucket, { offerAlias = "o" } = {}) {
   const normalizedBucket = normalizeDealHistoryBucket(bucket, "all");
   const agreementStatus = agreementStatusSql(offerAlias);
   const offerStatus = `${offerAlias}.status`;
+  // 6.5: 'aktiviert' zaehlt erst als abgeschlossen, wenn das Einsatz-Enddatum vorbei ist.
+  // NULL-Enddatum -> nicht abgeschlossen (bleibt aktiv), damit nichts zwischen Buckets faellt.
+  const einsatzDone = `${agreementStatus} = 'activated' AND ${offerAlias}.end_date IS NOT NULL AND ${offerAlias}.end_date < NOW()`;
   if (normalizedBucket === "completed") {
-    return `${agreementStatus} = 'activated'`;
+    return `(${einsatzDone})`;
   }
   if (normalizedBucket === "cancelled") {
     return `(${offerStatus} IN ('rejected','withdrawn') OR ${agreementStatus} IN ('cancelled','expired'))`;
   }
   if (normalizedBucket === "active") {
-    return `(${offerStatus} NOT IN ('rejected','withdrawn') AND ${agreementStatus} NOT IN ('activated','cancelled','expired'))`;
+    return `(${offerStatus} NOT IN ('rejected','withdrawn') AND ${agreementStatus} NOT IN ('cancelled','expired') AND NOT (${einsatzDone}))`;
   }
   return "TRUE";
 }
