@@ -17,6 +17,7 @@
     var SEAT_INCLUDED = 50;
     var SEAT_PRICE = 29;
     var selectedAddons = {};
+    var ownedAddons = {};   // bereits gebuchte Add-on-Keys (Entitlements) -> ausgegraut, nicht doppelt buchbar
     var catalogReady = false;
     var catalogError = null;
     var lastEstimate = { monthly: BASE_PRICE, onetime: 0 };
@@ -77,15 +78,20 @@
         item.className = "addon-item";
         item.setAttribute("data-addon", a.id);
 
+        var owned = ownedAddons[a.id] === true;
+        if (owned) item.classList.add("addon-item--owned");
+
         var cb = document.createElement("input");
         cb.type = "checkbox";
-        cb.disabled = a.soon === true;
-        cb.onchange = function() { toggleAddon(a.id, cb.checked); };
+        cb.disabled = a.soon === true || owned;   // bereits gebucht -> nicht erneut buchbar
+        if (owned) cb.checked = true;
+        cb.onchange = function() { if (!owned) toggleAddon(a.id, cb.checked); };
 
         var info = document.createElement("div");
         info.className = "addon-info";
         var soonHtml = a.soon ? " <span class='soon-tag'>Bald verf\u00fcgbar</span>" : "";
-        info.innerHTML = "<div class='addon-name'>" + esc(a.name) + soonHtml + "</div><div class='addon-desc'>" + esc(a.desc) + "</div>";
+        var ownedHtml = owned ? " <span class='owned-tag'>Bereits gebucht</span>" : "";
+        info.innerHTML = "<div class='addon-name'>" + esc(a.name) + soonHtml + ownedHtml + "</div><div class='addon-desc'>" + esc(a.desc) + "</div>";
 
         var price = document.createElement("div");
         price.className = "addon-price";
@@ -637,6 +643,152 @@
     function esc(s) { return String(s || "").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;"); }
     function fmtPrice(n) { return n.toLocaleString("de-DE"); }
 
+    /* ── Self-Service Direktbuchung (Phase 2, Slice E) ──────────
+       Eingeloggte Org-Nutzer mit aktivem Stripe buchen den individuellen
+       Tarif direkt. Der Preis wird IMMER server-seitig gerechnet
+       (POST /api/payment/checkout/individuell) — ein Client-Preis wird ignoriert.
+       Der Server entscheidet den Folgepfad:
+         mode:"stripe"  → Redirect zur Stripe-Checkout-Session
+         mode:"inquiry" → freigabepflichtig/kein Stripe → Anfrage wurde erstellt
+         ok:false       → ungueltige Auswahl (Zero-State, kein Geldfluss)
+       Anonyme Besucher sehen weiter ausschliesslich die klassische Anfrage. */
+    var paymentConfig = null;
+
+    function loadPaymentConfig() { return fetchJson("/api/payment/config"); }
+
+    function isLoggedInWithOrg(me) {
+      if (!me) return false;
+      var orgId = me.org_id || me.orgId || null;
+      var hasIdentity = me.id || me.user_id || me.userId || me.email;
+      return !!(orgId && hasIdentity);
+    }
+
+    function applySelfServiceMode(me, cfg) {
+      var cta = document.getElementById("selfServiceCta");
+      var anfrageSection = document.getElementById("anfrageSubmitSection");
+      if (!cta) return;
+      var stripeReady = !!(cfg && cfg.stripe_enabled === true && cfg.mode !== "demo");
+      var eligible = stripeReady && isLoggedInWithOrg(me);
+      if (eligible) {
+        cta.classList.add("visible");
+        if (anfrageSection) anfrageSection.style.display = "none";
+      } else {
+        cta.classList.remove("visible");
+        if (anfrageSection) anfrageSection.style.display = "";
+      }
+    }
+
+    function showSelfServiceError(msg) {
+      var el = document.getElementById("selfServiceError");
+      if (!el) { alert(msg); return; }
+      el.textContent = msg;
+      el.style.display = "block";
+    }
+
+    function resetSelfServiceButton() {
+      var btn = document.getElementById("btnSelfServiceCheckout");
+      if (btn) { btn.disabled = false; btn.textContent = "Jetzt buchen & freischalten"; }
+    }
+
+    function describeQuoteErrors(errors) {
+      if (!Array.isArray(errors) || !errors.length) return "Bitte Auswahl pruefen.";
+      var codes = {
+        INVALID_SEATS: "Bitte eine gueltige Nutzeranzahl (mindestens 1) waehlen.",
+        UNKNOWN_ADDON: "Ein gewaehltes Zusatzmodul ist nicht verfuegbar. Bitte Seite neu laden.",
+        ADDON_INACTIVE: "Ein gewaehltes Zusatzmodul ist derzeit nicht buchbar.",
+        ADDON_COMING_SOON: "Ein gewaehltes Zusatzmodul ist noch nicht verfuegbar.",
+        ADDON_NOT_FOR_PLAN: "Ein gewaehltes Zusatzmodul ist fuer diesen Tarif nicht buchbar."
+      };
+      var first = errors[0] || {};
+      return codes[first.code] || "Bitte Auswahl pruefen.";
+    }
+
+    function describeCheckoutError(httpStatus, data) {
+      var code = data && data.error ? (data.error.code || data.error) : null;
+      if (code === "ORG_REQUIRED") return "Bitte melden Sie sich mit Ihrem Unternehmenskonto an, um direkt zu buchen.";
+      if (code === "QUOTE_FREEZE_FAILED") return "Der Preis konnte nicht fixiert werden. Bitte erneut versuchen.";
+      if (code === "STRIPE_ERROR") return "Die Zahlung konnte nicht gestartet werden. Bitte erneut versuchen.";
+      if (code === "CSRF_INVALID") return "Sicherheitstoken abgelaufen. Bitte Seite neu laden und erneut versuchen.";
+      if (httpStatus === 401 || httpStatus === 403) return "Zugriff verweigert. Bitte anmelden und ggf. die Zwei-Faktor-Authentifizierung abschliessen.";
+      if (httpStatus === 0) return "Verbindung fehlgeschlagen. Bitte erneut versuchen.";
+      if (httpStatus >= 500) return "Server nicht erreichbar. Bitte spaeter erneut versuchen.";
+      if (data && data.message) return data.message;
+      return "Buchung fehlgeschlagen. Bitte erneut versuchen.";
+    }
+
+    window.submitSelfServiceCheckout = function() {
+      var company = document.getElementById("fCompany").value.trim();
+      var contact = document.getElementById("fContact").value.trim();
+      var email   = document.getElementById("fEmail").value.trim();
+      if (!company || !contact || !email) {
+        showSelfServiceError("Bitte Firma, Ansprechpartner und E-Mail ausfuellen.");
+        return;
+      }
+      var errEl = document.getElementById("selfServiceError");
+      if (errEl) { errEl.style.display = "none"; errEl.textContent = ""; }
+      var btn = document.getElementById("btnSelfServiceCheckout");
+      if (btn) { btn.disabled = true; btn.textContent = "Wird vorbereitet…"; }
+
+      var seats = parseInt(document.getElementById("seatCount").value, 10) || 50;
+      if (seats < 1) seats = 1;
+      var addonKeys = [];
+      ADDONS.forEach(function(a) { if (selectedAddons[a.id]) addonKeys.push(a.id); });
+
+      var payload = {
+        // Server rechnet den Preis aus seats + addons neu (never trust client price).
+        seats: seats,
+        employee_count: seats,
+        addons: addonKeys,
+        company_name: company,
+        contact_name: contact,
+        contact_email: email
+      };
+
+      fetch("/api/csrf", { credentials: "include" })
+        .then(function(r) { return r.ok ? r.json() : {}; })
+        .then(function(csrf) {
+          return fetch("/api/payment/checkout/individuell", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              "x-csrf-token": csrf.csrfToken || csrf.token || ""
+            },
+            body: JSON.stringify(payload),
+            credentials: "include"
+          });
+        })
+        .then(function(resp) {
+          return resp.json().catch(function() { return null; }).then(function(data) {
+            return { status: resp.status, ok: resp.ok, data: data || {} };
+          });
+        })
+        .then(function(result) {
+          var data = result.data || {};
+          if (result.ok && data.ok && data.mode === "stripe" && data.redirect_url) {
+            if (btn) btn.textContent = "Weiterleitung zu Stripe…";
+            window.location.href = data.redirect_url;
+            return;
+          }
+          if (result.ok && data.ok && data.mode === "inquiry") {
+            // Server hat die Auswahl als freigabepflichtig eingestuft → Anfrage erstellt.
+            showSuccess(data);
+            return;
+          }
+          if (result.ok && data.ok === false) {
+            showSelfServiceError(describeQuoteErrors(data.errors));
+            resetSelfServiceButton();
+            return;
+          }
+          showSelfServiceError(describeCheckoutError(result.status, data));
+          resetSelfServiceButton();
+        })
+        .catch(function(e) {
+          showSelfServiceError(describeCheckoutError(0, null));
+          if (e && e.message && window.console) { window.console.warn("individuell checkout failed", e); }
+          resetSelfServiceButton();
+        });
+    };
+
     /* ── Init ─────────────────────────────────────── */
     function loadCatalogSafe() {
       if (!R()) {
@@ -652,6 +804,22 @@
       });
     }
 
+    /* Bereits gebuchte Add-ons der Org laden (Entitlements). 401/Fehler -> leer
+       (Neukunde sieht alle Add-ons buchbar). Verhindert Doppelbuchung beim Erweitern. */
+    function loadOwnedAddons() {
+      return fetch("/api/me/entitlements", { credentials: "include", headers: { Accept: "application/json" } })
+        .then(function (r) { return r.ok ? r.json() : null; })
+        .then(function (data) {
+          ownedAddons = {};
+          var list = data && Array.isArray(data.active_addons) ? data.active_addons : [];
+          list.forEach(function (aa) {
+            var key = aa && (aa.key || aa.addon_key || aa.id);
+            if (key) ownedAddons[String(key)] = true;
+          });
+        })
+        .catch(function () { /* still: keine Org-Session -> alle Add-ons buchbar */ });
+    }
+
     // Erste Render-Phase mit Defaults (Sockel/Seats), damit das Skelett da ist.
     renderAddons();
     window.toggleStrategicCollabBlock();
@@ -659,14 +827,19 @@
     applyContextBanner(requestContext);
     prepareSuccessReturn(requestContext);
 
-    // Catalog laden, dann erneut rendern + recalc.
-    loadCatalogSafe().then(function () {
+    // Catalog + bereits gebuchte Add-ons laden, dann erneut rendern + recalc.
+    Promise.all([loadCatalogSafe(), loadOwnedAddons()]).then(function () {
       applyBaselineToDom();
       renderAddons();
       window.recalc();
     });
 
-    prefillContactFields().then(function(result) {
+    Promise.all([
+      loadPaymentConfig(),
+      prefillContactFields().catch(function() { return null; })
+    ]).then(function(res) {
+      paymentConfig = res[0] || null;
+      var result = res[1];
       var me = result && result.me ? result.me : null;
       if (me && !requestContext.currentPlan) {
         var fallbackPlan = normalizePlanKey(me.plan || "");
@@ -677,5 +850,7 @@
       }
       applyContextBanner(requestContext);
       applyContextPrefill(requestContext);
+      // Self-Service-CTA nur fuer eingeloggte Org-Nutzer bei aktivem Stripe.
+      applySelfServiceMode(me, paymentConfig);
     });
   })();

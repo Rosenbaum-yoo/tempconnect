@@ -55,6 +55,14 @@
       border-radius: 8px; background: rgba(251,191,36,.15); color: #fbbf24;
       margin-left: 8px; vertical-align: middle; letter-spacing: 0.03em;
     }
+    /* Bereits gebuchte Add-ons: ausgegraut + Badge, nicht erneut buchbar (Doppelbuchungsschutz) */
+    .addon-name .owned-tag {
+      display: inline-block; font-size: 10px; font-weight: 700; padding: 1px 7px;
+      border-radius: 8px; background: rgba(45,106,79,.16); color: #2d6a4f;
+      margin-left: 8px; vertical-align: middle; letter-spacing: 0.03em;
+    }
+    .addon-item--owned { opacity: .55; cursor: default; }
+    .addon-item--owned:hover { transform: none; background: inherit; }
     .addon-desc { font-size: 12px; color: var(--ds-text-secondary); line-height: 1.4; }
     .addon-price {
       font-size: 15px; font-weight: 800; white-space: nowrap;
@@ -150,6 +158,34 @@
     .success-msg.visible { display: block; }
     .success-msg h3 { margin: 0 0 var(--ds-space-2); color: var(--ds-success); }
     .success-msg p { margin: 0; font-size: 14px; color: var(--ds-text-secondary); line-height: 1.6; }
+
+    /* Self-Service Direktbuchung (nur eingeloggte Org-Nutzer, wenn Stripe live) */
+    .self-service-cta {
+      display: none; border: 1px solid rgba(124,92,255,.35); border-radius: var(--ds-radius-lg);
+      background: rgba(124,92,255,.05); padding: var(--ds-space-5); margin-top: var(--ds-space-4);
+    }
+    .self-service-cta.visible { display: block; }
+    .self-service-cta .ss-headline { font-size: 17px; font-weight: 800; margin: 0 0 var(--ds-space-2); }
+    .self-service-cta .ss-desc { font-size: 13px; color: var(--ds-text-secondary); line-height: 1.6; margin: 0 0 var(--ds-space-3); }
+    .self-service-cta .ss-action { display: flex; align-items: center; gap: var(--ds-space-3); flex-wrap: wrap; }
+    .self-service-cta .ss-note { font-size: 11px; color: var(--ds-text-tertiary); margin-top: var(--ds-space-3); line-height: 1.5; }
+
+    /* EDITORIAL — de-blue + warm boxes (scoped; dark untouched) */
+    [data-theme="editorial"] body {
+      background: radial-gradient(ellipse 1100px 600px at 15% -5%, rgba(31,58,46,.06), transparent 60%),
+                  radial-gradient(ellipse 800px 500px at 90% -2%, rgba(184,147,90,.06), transparent 55%),
+                  var(--ds-bg);
+    }
+    [data-theme="editorial"] .ent-card { background: #ebe4d3; border-color: #d4cab3; }
+    [data-theme="editorial"] .addon-item { background: #fffdf6; border-color: #d4cab3; }
+    [data-theme="editorial"] .addon-item:hover { background: rgba(31,58,46,.05); }
+    [data-theme="editorial"] .addon-item.selected { border-color: #1f3a2e; background: rgba(31,58,46,.1); }
+    [data-theme="editorial"] .seat-row input[type="number"] { background: #fffdf6; }
+    [data-theme="editorial"] .invoice-panel .ent-card { border-color: rgba(31,58,46,.2); }
+    [data-theme="editorial"] .invoice-header .badge { background: rgba(31,58,46,.08); }
+    [data-theme="editorial"] .form-input { background: #fffdf6; }
+    [data-theme="editorial"] .form-input:focus { background: rgba(31,58,46,.04); }
+    [data-theme="editorial"] .self-service-cta { border-color: rgba(31,58,46,.2); background: linear-gradient(135deg, rgba(31,58,46,.06), rgba(122,46,46,.03)); }
   </style>
 </head>
 <body>
@@ -311,7 +347,20 @@
             </div>
           </div>
 
-          <div class="submit-section">
+          <!-- Self-Service Direktbuchung: erscheint NUR fuer eingeloggte Org-Nutzer,
+               wenn Stripe live ist. Der Server entscheidet stripe (Redirect) vs.
+               inquiry (freigabepflichtig) vs. ok:false (Auswahl korrigieren). -->
+          <div class="self-service-cta" id="selfServiceCta">
+            <div class="ss-headline">&#9889; Direkt buchen &amp; sofort freischalten</div>
+            <p class="ss-desc">Ihre Auswahl ergibt einen festen Monatspreis. Buchen Sie den individuellen Tarif direkt und sicher &uuml;ber unseren Zahlungsdienstleister &ndash; die Freischaltung erfolgt automatisch nach erfolgreicher Zahlung.</p>
+            <div class="ss-action">
+              <button class="btn-submit" id="btnSelfServiceCheckout" onclick="submitSelfServiceCheckout()">Jetzt buchen &amp; freischalten</button>
+            </div>
+            <div class="ss-note">Enth&auml;lt Ihre Auswahl Komponenten, die wir individuell f&uuml;r Sie ausarbeiten, leiten wir Sie automatisch in den Anfrage-Prozess &ndash; es wird dann nichts berechnet.</div>
+            <div id="selfServiceError" style="display:none;font-size:12px;color:var(--ds-danger);margin-top:var(--ds-space-2)"></div>
+          </div>
+
+          <div class="submit-section" id="anfrageSubmitSection">
             <div class="hint">Nach Absenden erhalten Sie eine Zusammenfassung per E-Mail. Unser Tarif-Team erstellt Ihnen ein verbindliches Angebot.</div>
             <button class="btn-submit" id="btnSubmit" onclick="submitRequest()">Anfrage absenden</button>
             <div id="submitError" style="display:none;width:100%;font-size:12px;color:var(--ds-danger);margin-top:var(--ds-space-2)"></div>
