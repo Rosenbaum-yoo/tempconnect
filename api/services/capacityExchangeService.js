@@ -534,7 +534,8 @@ export async function browseFeed(pool, opts = {}) {
         FROM offers o_origin
         WHERE o_origin.demand_request_id = dr.id
           AND o_origin.capacity_post_id IS NOT NULL
-      )${demandAvailabilityClause}`;
+      )
+      AND (dr.end_date IS NULL OR dr.end_date >= CURRENT_DATE)${demandAvailabilityClause}`;
 
   const params = [];
   const where = ["cp.visibility_status != 'private'"];
@@ -568,6 +569,11 @@ export async function browseFeed(pool, opts = {}) {
   } else {
     where.push("cp.status = 'active'");
   }
+
+  // Marktplatz zeigt nur AKTUELLE Angebote: abgelaufene (Einsatz-Enddatum vorbei) ausblenden.
+  // availability_to IS NULL = offenes Ende -> bleibt sichtbar. Reiner Query-Zeit-Filter:
+  // kein Loeschen, reversibel; Angebote "laufen ab", sobald ihr Enddatum < heute ist.
+  where.push("(cp.availability_to IS NULL OR cp.availability_to >= CURRENT_DATE)");
 
   if (opts.worker_category) {
     params.push(opts.worker_category);
