@@ -531,6 +531,13 @@ async function initializePage(){
       'Einsatzverfolgung (Unternehmenssicht)',
       'Dieser Arbeitsplatz ist der operative Einsatzleitstand Ihres Personaldienstleisters. Einsatzstatus, Zeitfreigaben und Abrechnungsstand sehen Sie als Unternehmen lesend ueber Deals und Activity.'
     );
+    // Audit 5: statische Dienstleister-Operator-Flaechen fuer Unternehmen ausblenden, damit die
+    // "nur lesend"-Notiz nicht durch Operator-Kacheln widerlegt wird (Banner "zentral steuern",
+    // Verwaltungs-Hub-Grid "an Kunden senden / Freigabe-Queue / Einsatzkraefte").
+    toggleElement('pilotPriorityBanner', false);
+    toggleElement('verwaltungHubSection', false);
+    var _sub = document.getElementById('pageSubtitle');
+    if (_sub) _sub.textContent = 'Einsatzstatus, Zeitfreigaben und Abrechnungsstand Ihres Personaldienstleisters – lesend ueber Deals und Activity.';
     return;
   }
 
