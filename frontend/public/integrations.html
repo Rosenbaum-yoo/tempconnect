@@ -231,7 +231,7 @@
         const d = await r.json();
         const items = d.items || [];
         if (!items.length) {
-          c.innerHTML = '<div style="text-align:center;padding:var(--ds-space-6);grid-column:1/-1"><p style="font-size:48px;margin-bottom:var(--ds-space-3)">&#128268;</p><p style="font-size:15px;font-weight:700">Noch keine Integrationen</p><p style="font-size:13px;color:var(--ds-text-secondary,var(--muted))">Erstellen Sie eine Slack- oder Teams-Integration, um Plattform-Events in Echtzeit zu empfangen.</p></div>';
+          c.innerHTML = '<div style="text-align:center;padding:var(--ds-space-6);grid-column:1/-1"><p style="font-size:15px;font-weight:700">Noch keine Integrationen</p><p style="font-size:13px;color:var(--ds-text-secondary,var(--muted))">Erstellen Sie eine Slack- oder Teams-Integration, um Plattform-Events in Echtzeit zu empfangen.</p></div>';
           applyIntegrationDomLocks(document);
           return;
         }

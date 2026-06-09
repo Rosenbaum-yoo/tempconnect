@@ -432,7 +432,7 @@
       var staleEl = document.getElementById("alert-stale");
       var bulkBtn = document.getElementById("btn-bulk-confirm");
       if (stale.length > 0) {
-        staleEl.innerHTML = "&#128337; <strong>" + stale.length + " aktive Eintrag" + (stale.length > 1 ? "e" : "") + "</strong> seit ueber 96h nicht bestaetigt. Regelmaessige Bestaetigung erhoeht Ihre Sichtbarkeit im Feed.";
+        staleEl.innerHTML = "<strong>" + stale.length + " aktive Eintrag" + (stale.length > 1 ? "e" : "") + "</strong> seit ueber 96h nicht bestaetigt. Regelmaessige Bestaetigung erhoeht Ihre Sichtbarkeit im Feed.";
         staleEl.style.display = "flex";
         bulkBtn.style.display = "inline-flex";
       } else { staleEl.style.display = "none"; bulkBtn.style.display = "none"; }

@@ -267,7 +267,7 @@
       if (o.status === "accepted") {
         // Deal abgeschlossen: Link zur Dealakte + Meine Deals
         html += '<div class="offer-actions" style="margin-top:12px;display:flex;gap:8px;flex-wrap:wrap">';
-        html += '<a href="/public/offer_detail.html?id=' + o.id + '" class="btn primary" style="text-decoration:none">&#128203; Zur Dealakte</a>';
+        html += '<a href="/public/offer_detail.html?id=' + o.id + '" class="btn primary" style="text-decoration:none">Zur Dealakte</a>';
         html += '<a href="/public/deal_management.html" class="btn" style="text-decoration:none">Meine Deals</a>';
         if (o.agreement_ref) html += '<span style="font-size:12px;color:var(--muted);align-self:center">' + o.agreement_ref + '</span>';
         html += '</div>';

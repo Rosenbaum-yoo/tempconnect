@@ -616,7 +616,7 @@
       badge.innerHTML =
         (title ? '<strong>' + esc(title) + '</strong>' : '') +
         (text ? '<div style="margin-top:6px">' + esc(text) + '</div>' : '') +
-        (parts.length ? '<div style="margin-top:6px">&#128279; Aktiver Preisrahmen-Kontext: ' + parts.join(' &bull; ') + '</div>' : '') +
+        (parts.length ? '<div style="margin-top:6px">Aktiver Preisrahmen-Kontext: ' + parts.join(' &bull; ') + '</div>' : '') +
         (locId ? '<div style="margin-top:8px;color:var(--ds-text-secondary);font-size:12px">Konditionsrahmen gelten org-weit – Standort „' + esc(locLbl || locId) + '“ hat keinen Einfluss auf Preisrahmen.</div>' : '') +
         ((title || parts.length) ? '<div style="margin-top:6px"><a href="/public/rate-cards.html" style="color:var(--brand);font-size:12px">Filter zuruecksetzen &times;</a></div>' : '');
     }

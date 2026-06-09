@@ -282,7 +282,7 @@
         <div id="slaRefCodeRow" style="display:none;margin-top:var(--ds-space-3);padding-top:var(--ds-space-3);border-top:1px solid rgba(74,158,255,.12);display:flex;align-items:center;gap:10px;flex-wrap:wrap">
           <span style="font-size:12px;color:var(--ds-text-secondary)">Ihr Code:</span>
           <code id="slaRefCode" style="font-size:16px;font-weight:900;letter-spacing:2px;background:rgba(255,255,255,.06);padding:4px 12px;border-radius:6px">---</code>
-          <button onclick="(function(){var c=document.getElementById('slaRefCode').textContent;navigator.clipboard.writeText(window.location.origin+'/?ref='+c);var b=document.getElementById('slaRefCopied');b.style.display='inline';setTimeout(function(){b.style.display='none'},2500)})()" class="ds-btn ds-btn--sm" style="font-size:11px;padding:3px 10px">&#128279; Link kopieren</button>
+          <button onclick="(function(){var c=document.getElementById('slaRefCode').textContent;navigator.clipboard.writeText(window.location.origin+'/?ref='+c);var b=document.getElementById('slaRefCopied');b.style.display='inline';setTimeout(function(){b.style.display='none'},2500)})()" class="ds-btn ds-btn--sm" style="font-size:11px;padding:3px 10px">Link kopieren</button>
           <span id="slaRefCopied" style="display:none;font-size:11px;color:var(--ds-success)">Kopiert!</span>
         </div>
       </div>
@@ -482,7 +482,7 @@
       <!-- Step 2: Alternatives -->
       <div id="dgStep2" style="display:none">
         <div style="padding:var(--ds-space-4);border-radius:var(--ds-radius-md);border:1px solid rgba(74,158,255,.2);background:rgba(74,158,255,.04);margin:var(--ds-space-3) 0">
-          <div id="dgAltTitle" style="font-weight:700;font-size:14px;margin-bottom:var(--ds-space-2);color:var(--ds-brand)">&#128161; Alternativen zum Downgrade</div>
+          <div id="dgAltTitle" style="font-weight:700;font-size:14px;margin-bottom:var(--ds-space-2);color:var(--ds-brand)">Alternativen zum Downgrade</div>
           <div style="font-size:13px;color:var(--ds-text-secondary);line-height:1.7">
             <div style="margin-bottom:8px"><strong>Wechsel auf niedrigeren Plan</strong> statt vollstaendiger Kuendigung &ndash; behalten Sie Basiszugang und Ihren Reputations-Score.</div>
             <div style="margin-bottom:8px" id="dgAltSuggestion"></div>

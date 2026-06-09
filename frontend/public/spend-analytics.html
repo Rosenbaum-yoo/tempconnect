@@ -44,6 +44,13 @@
     .link-row { display:flex; gap:8px; flex-wrap:wrap; margin: 0 0 var(--ds-space-4); }
     /* .page-state canonical definitions live in design-system.css (WAVE_10) */
     .section-note { padding: 12px 14px; border-radius: 10px; border: 1px dashed var(--ds-border); color: var(--ds-text-secondary); font-size: 12px; background: var(--tc-filter-surface); }
+
+    /* EDITORIAL — de-blue/de-purple (surfaces use --ds/--tc tokens; scoped; dark/light/ultra byte-identical) */
+    /* JS-set inline values need !important / attribute hooks to beat inline style */
+    [data-theme="editorial"] #spendContextBadge { background: rgba(31,58,46,.06) !important; border-color: rgba(31,58,46,.2) !important; }
+    [data-theme="editorial"] .kpi-val[style*="#7c5cff"] { color: #1f3a2e !important; }
+    [data-theme="editorial"] #categoryChart .bar-fill[style*="#7c5cff"] { background: #1f3a2e !important; }
+    [data-theme="editorial"] #vendorChart .bar-label a { text-decoration-color: rgba(31,58,46,.3) !important; }
   </style>
 </head>
 <body>
@@ -411,7 +418,7 @@
         return;
       }
       badge.style.cssText = 'display:block;background:rgba(74,158,255,.08);border:1px solid rgba(74,158,255,.2);border-radius:8px;padding:10px 14px;font-size:13px;margin-bottom:14px;color:var(--ds-text-secondary)';
-      badge.innerHTML = '&#128279; Drilldown-Filter: ' + contextParts.join(' &bull; ')
+      badge.innerHTML = 'Drilldown-Filter: ' + contextParts.join(' &bull; ')
         + ' &nbsp;<a href="/public/spend-analytics.html" style="color:var(--brand);font-size:12px">Filter zuruecksetzen &times;</a>';
     }
 

@@ -43,6 +43,22 @@
       .cockpit-grid { grid-template-columns: 1fr; }
       .metric-grid { grid-template-columns: 1fr 1fr; }
     }
+
+    /* ═══════════════════════════════════════════════════════════════
+       EDITORIAL THEME — match landing.html (forest / cream / wine / gold)
+       Scoped under [data-theme="editorial"] → dark/light/ultra stay
+       byte-identical. De-blues the context/info banners and turns the
+       white-alpha card surfaces (invisible on cream) into warm cream boxes.
+       ═══════════════════════════════════════════════════════════════ */
+    /* Cards → cream-warm "darker boxes" (was white-alpha, invisible on cream) */
+    [data-theme="editorial"] .cockpit-card { background: #ebe4d3; border-color: #d4cab3; }
+    /* Nested stat tiles → secondary cream + forest hairline (white-alpha border) */
+    [data-theme="editorial"] .metric-grid .metric { background: #fffdf6; border-color: rgba(31,58,46,.12); }
+    /* Row separators (white-alpha) → forest hairline */
+    [data-theme="editorial"] .list-item { border-bottom-color: rgba(31,58,46,.12); }
+    /* Context banner + info state → forest tint (was translucent blue) */
+    [data-theme="editorial"] .context-banner { background: rgba(31,58,46,.06); border-color: rgba(31,58,46,.2); }
+    [data-theme="editorial"] .page-state--info { background: rgba(31,58,46,.06); border-color: rgba(31,58,46,.25); }
   </style>
 </head>
 <body data-sla-guard="sla_access">
@@ -263,7 +279,7 @@
         box.innerHTML = '';
         return;
       }
-      box.innerHTML = '&#128279; ' + parts.join(' &bull; ');
+      box.innerHTML = parts.join(' &bull; ');
       box.style.display = '';
     }
 
