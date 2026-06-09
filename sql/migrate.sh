@@ -1,6 +1,12 @@
 #!/bin/sh
 set -e
 
+# Migrationsdateien sind UTF-8. Ohne explizites client_encoding nutzt psql die
+# Locale (im alpine-Container = C/POSIX -> kein UTF-8). Dadurch werden Umlaute/ß
+# in Seeds zu '?' zerstoert (Ursache der korrupten Demo-Titel "Elektrofachkr??fte").
+# UTF8 erzwingen -> Seed-Texte bleiben korrekt (libpq/psql respektiert PGCLIENTENCODING).
+export PGCLIENTENCODING=UTF8
+
 echo "=== TempConnect Database Migration ==="
 
 # Hetzner Managed DB / externe DB: DATABASE_URL; sonst DB_HOST/POSTGRES_*
