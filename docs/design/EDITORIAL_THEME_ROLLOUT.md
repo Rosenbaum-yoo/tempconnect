@@ -21,6 +21,24 @@ Stand: 2026-06-08 · Branch: `release/enterprise-premium-market-ready` · Status
 >   (`rgba(255,255,255,.02)` zurück); `.ds-card--forest` `#15291f`+Creme; `.btn.primary` Forest→Wine-Gradient + `#fff`;
 >   `select` Ink-auf-Creme; worker-profile Body `#faf7ee` + Hero `#15291f`.
 
+> **Fixplan Phase 2 — Lebendige Hub-Cards + Glocke (2026-06-09, Quelle `_TEMPCONNECT_PHASE2_DETAIL.md`, committed pro Phase):**
+> Backend war bereits da (`GET /api/notifications/surface-summary` → `{surfaces,total}`); Phase 2 = Frontend-Verdrahtung + 1 Backend-Bug-Fix.
+> - **P2.1** `design-system.css`: `.ds-hub-card` Editorial → Ruhe dunkel `#1c2a22` (Cream-Text, Gold-Eyebrow, helle Icon-Box), AKTIV
+>   `.ds-hub-card--active` `#15291f` + Gold-Glow (`box-shadow 0 0 0 1px #b8935a, 0 4px 24px rgba(184,147,90,.28)`) + Gold-Rand. Badge
+>   `.ds-hub-card__badge` (Gold-Pille, nur bei `--active`; `position:relative` am Base-Card für alle Themes). `--current` editorial
+>   dark-kompatibel gemacht (Gold-Ring auf `#15291f` statt hellem Blau-Tint — wird auf 5 Seiten genutzt).
+> - **P2.2/2.3** Neu `frontend/public/js/hubCardBadges.js`: holt `surface-summary` (credentials:'include'), markiert Cards mit count>0
+>   als `--active` + erzeugt/füllt Badge (Zahl, „99+"), 60s-Polling, 401/Fehler still. Badge per JS erzeugt (kein Markup-Duplikat über ~10 Cards).
+>   In `enterprise.html` nach `notifications.js` eingebunden.
+> - **P2.4** Deep-Link: aktive Card → `?filter=open&sort=newest` (idempotent via `data-base-href`; Ziel-Filter-Honorierung = inkrementeller Folgeschritt).
+> - **P2.5** Glocke verifiziert (keine Änderung): Badge = `unread-count` (Gesamt), `/notifications` `ORDER BY created_at DESC` (neueste oben),
+>   `resolveLink()` → Item-Detailseite (nicht Activity-Center).
+> - **P2.6 (Bug-Fix „Deal abgeschlossen → Card ohne Benachrichtigung"):** `deal.completed` emittierte `type:'general'` → mappte auf KEINE
+>   Surface. Fix: `type:'deal_completed'` (bereits im `notifications_type_check`, Mig 072 → KEINE Migration) + `linkPath` → `deal_management.html`
+>   + `deal_completed:"deals"` in `notificationSurfaceMap`. Jetzt: Deal-Abschluss → Deals-Card leuchtet + Glocke zählt + Klick → Deal.
+> - **Verifikation:** getComputedStyle (4178): Ruhe `#1c2a22`, Aktiv `#15291f`+Gold-Glow+Gold-Rand, Badge Gold `#b8935a`/Cream sichtbar bei
+>   `--active`. `node --test` notificationMatrix/SurfaceMap/SurfaceSummary/Integrations/matchAlerts = **116 grün**. Editorial-scoped → dark/light/ultra unberührt.
+
 > **Default-Flip 2026-06-08 (Owner-Request):** Editorial ist jetzt der **plattformweite Default**
 > (vorher `dark`). Umgesetzt in `theme.js` über ein **Explicit-Choice-Modell**: Der Default wird
 > **ohne Persistierung** gesetzt; nur eine aktive Theme-Wahl schreibt `localStorage` (`tempconnect-theme`)

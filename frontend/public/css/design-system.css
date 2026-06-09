@@ -979,6 +979,7 @@ a:hover { color: var(--ds-brand-hover); }
   padding: var(--ds-space-5);
   border: 1px solid var(--ds-border);
   border-radius: var(--ds-radius-lg);
+  position: relative; /* P2: hub activity-badge anchor (all themes) */
   background: var(--tc-hub-tile-bg);
   color: inherit;
   text-decoration: none;
@@ -2211,14 +2212,55 @@ a:hover { color: var(--ds-brand-hover); }
   background: rgba(31, 58, 46, 0.08);
 }
 
-/* Hub "current" card */
+/* P2.1: Hub-Cards — Ruhe dunkel (Forest), AKTIV (Aktivität wartet) dunkler + Gold-Glow + Zahl-Badge.
+   Option A: dunkles Forest für Hub-Kacheln; Inhalts-Karten bleiben creme (#ebe4d3). */
+[data-theme="editorial"] .ds-hub-card {
+  background: #1c2a22;
+  border-color: rgba(244, 239, 228, 0.12);
+  color: #faf7ee;
+}
+[data-theme="editorial"] .ds-hub-card .ds-hub-card__title { color: #faf7ee; }
+[data-theme="editorial"] .ds-hub-card .ds-hub-card__desc,
+[data-theme="editorial"] .ds-hub-card .ds-hub-card__footer-note { color: #ebe4d3; }
+[data-theme="editorial"] .ds-hub-card .ds-hub-card__eyebrow { color: #b8935a; }
+[data-theme="editorial"] .ds-hub-card .ds-hub-card__icon {
+  background: rgba(244, 239, 228, 0.08);
+  border-color: rgba(244, 239, 228, 0.16);
+  color: #faf7ee;
+}
+[data-theme="editorial"] .ds-hub-card:hover { border-color: rgba(184, 147, 90, 0.45); }
+[data-theme="editorial"] .ds-hub-card--active {
+  background: #15291f;
+  border-color: #b8935a;
+  box-shadow: 0 0 0 1px #b8935a, 0 4px 24px rgba(184, 147, 90, 0.28);
+}
+/* Activity badge (theme-agnostic; visible only when JS adds --active) */
+.ds-hub-card__badge {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  min-width: 20px;
+  height: 20px;
+  padding: 0 6px;
+  border-radius: 999px;
+  background: #b8935a;
+  color: #faf7ee;
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 20px;
+  text-align: center;
+  display: none;
+}
+.ds-hub-card--active .ds-hub-card__badge { display: inline-block; }
+
+/* Hub "current" card — dark-compatible (gold "you-are-here" ring on the dark hub tile) */
 [data-theme="editorial"] .ds-hub-card--current {
-  border-color: rgba(31, 58, 46, 0.35);
-  background: rgba(31, 58, 46, 0.08);
-  box-shadow: inset 0 0 0 1px rgba(31, 58, 46, 0.12);
+  border-color: rgba(184, 147, 90, 0.5);
+  background: #15291f;
+  box-shadow: inset 0 0 0 1px rgba(184, 147, 90, 0.25);
 }
 [data-theme="editorial"] .ds-hub-card--current:hover {
-  box-shadow: inset 0 0 0 1px rgba(31, 58, 46, 0.12);
+  box-shadow: inset 0 0 0 1px rgba(184, 147, 90, 0.25);
 }
 
 /* Plan cards */

@@ -117,11 +117,11 @@ const MATRIX = {
     linkPath: '/public/timesheets.html'
   },
   'deal.completed': {
-    type: 'general',
+    type: 'deal_completed',
     severity: 'success',
     title: 'Deal abgeschlossen',
     recipientStrategy: 'deal_participants',
-    linkPath: '/public/company_requests.html'
+    linkPath: '/public/deal_management.html'
   },
 
   // ── Capacity Exchange events ──

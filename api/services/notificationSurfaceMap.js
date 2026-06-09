@@ -32,6 +32,7 @@ const SURFACE_BY_TYPE = {
   deal_confirmed: "deals",
   deal_assignment_started: "deals",
   deal_staffing_ready: "deals",
+  deal_completed: "deals",
 
   // Marktplatz — Kapazitaetsboerse + Demand-Matching + Notdienst
   capacity_interest: "marketplace",
