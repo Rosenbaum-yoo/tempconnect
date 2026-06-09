@@ -52,6 +52,11 @@ Stand: 2026-06-08 · Branch: `release/enterprise-premium-market-ready` · Status
 > — exakt wie landing. Eine geteilte Regel → **alle** `.ds-topbar`-Seiten (≈ alle Plattformseiten) angeglichen; bg/Blur/Border
 > kamen schon aus dem Base-Token `--tc-topbar-bg`. Legacy `.topbar` (enterprise.css Pille) = auf keiner aktiven Seite genutzt;
 > `.ep-topbar` (Einsatzportal Mobile) = eigenes Design, bewusst unberührt. Editorial-scoped → dark/light/ultra unverändert.
+> **Sticky-Nachzug (2026-06-09):** Auf pageShell-Seiten saß die Topbar im kurzen `#tc-shell`-Mount → `sticky` löste sofort
+> (kurzer Wrapper = keine Klebe-Strecke). Fix: `[data-theme="editorial"] #tc-shell { display:contents }` → Topbar klebt jetzt
+> relativ zum echten Seiteninhalt (Scroll-Test: hält bei `top:10px` nach 700px Scroll). Statische `.ds-topbar`-Seiten waren
+> schon ok (Topbar = direktes Kind des hohen `.wrap`). Außerdem enterprise.html: Inline-Blau-Boxen `#ce-activation-nudge`
+> (Blau/Lila-Gradient) → Forest→Wine-Tint, `#value-report-widget` (Weiß-Alpha) → Creme `#ebe4d3` (Parent-Hook + !important).
 
 > **Default-Flip 2026-06-08 (Owner-Request):** Editorial ist jetzt der **plattformweite Default**
 > (vorher `dark`). Umgesetzt in `theme.js` über ein **Explicit-Choice-Modell**: Der Default wird

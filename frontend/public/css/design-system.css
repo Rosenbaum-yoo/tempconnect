@@ -2088,6 +2088,10 @@ a:hover { color: var(--ds-brand-hover); }
   border-radius: var(--ds-radius-lg);
   box-shadow: var(--ds-shadow-sm);
 }
+/* pageShell mount darf den sticky-Topbar nicht einsperren: der kurze #tc-shell-Wrapper
+   wuerde die Klebrigkeit sofort aufheben -> display:contents loest ihn auf, Topbar klebt
+   relativ zum tatsaechlichen Seiteninhalt. */
+[data-theme="editorial"] #tc-shell { display: contents; }
 
 /* Brand dot glow — forest halo (was hardcoded blue) */
 [data-theme="editorial"] .ds-topbar__brand-dot {

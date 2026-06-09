@@ -6,6 +6,15 @@
   <script src="/public/js/theme.js"></script>
   <title>Operations-Hub – TempConnect</title>
   <link rel="stylesheet" href="/public/css/enterprise.css"/>
+  <style>
+    /* Editorial — restliche andersfarbige Inline-Boxen an Creme/Forest angleichen
+       (Parent-Hook + !important, da Inline-Styles). */
+    [data-theme="editorial"] #ce-activation-nudge > div {
+      border-color: rgba(31, 58, 46, 0.25) !important;
+      background: linear-gradient(135deg, rgba(31, 58, 46, 0.05), rgba(122, 46, 46, 0.03)) !important;
+    }
+    [data-theme="editorial"] #value-report-widget > div { background: #ebe4d3 !important; }
+  </style>
 </head>
 <body data-sla-guard="sla_access">
   <div id="paywall" class="wrap" style="display:none">
