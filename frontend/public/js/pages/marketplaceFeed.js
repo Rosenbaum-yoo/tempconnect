@@ -570,6 +570,13 @@
       cta.innerHTML = '<a href="/public/capacity_exchange_form.html" class="ds-btn ds-btn--primary ds-btn--sm">Personal einstellen</a><a href="/public/capacity_exchange_manage.html" class="ds-btn ds-btn--sm ds-btn--ghost">Verfügbares Personal</a>';
     } else if (me.role === "company") {
       cta.innerHTML = '<a href="/public/marketplace_demand_create.html" class="ds-btn ds-btn--primary ds-btn--sm">Arbeitsplatz anbieten</a><a href="/public/marketplace_demand_list.html" class="ds-btn ds-btn--sm ds-btn--ghost">Meine Angebote</a>';
+      // Einsatzunternehmen bieten Arbeitsplaetze an (kein eigenes Personal): Karte 3 = Uebersicht der eigenen Arbeitsplatzangebote.
+      var c3 = document.getElementById("feed-nav-card3");
+      var c3t = document.getElementById("feed-nav-card3-title");
+      var c3d = document.getElementById("feed-nav-card3-desc");
+      if (c3) c3.href = "/public/marketplace_demand_list.html";
+      if (c3t) c3t.textContent = "Verfügbare Arbeitsplätze";
+      if (c3d) c3d.textContent = "Übersicht Ihrer Arbeitsplatzangebote.";
     }
   }).catch(function() {});
 })();
