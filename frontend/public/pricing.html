@@ -137,6 +137,80 @@
     .pricing-tier-card__sub { font-size: 11px; color: var(--ds-text-tertiary); }
     .pricing-tier-card__desc { font-size: 12px; color: var(--ds-text-secondary); line-height: 1.5; min-height: 36px; margin-top: 4px; }
     .pricing-tier-card .ds-btn { margin-top: var(--ds-space-2); }
+
+    /* ═══════════════════════════════════════════════════════════════
+       EDITORIAL THEME — match landing.html (forest / cream / wine / gold)
+       Scoped under [data-theme="editorial"] → dark/light/ultra stay
+       byte-identical. Removes the page's inline blue/purple + white-alpha
+       (which is invisible on cream) and brings the landing "darker boxes"
+       (cream-warm cards) + the dark-forest signature on the featured plan.
+       ═══════════════════════════════════════════════════════════════ */
+    /* Warm paper ground — forest/gold glow instead of blue/purple */
+    [data-theme="editorial"] body {
+      background:
+        radial-gradient(ellipse 1100px 600px at 15% -5%, rgba(31,58,46,.06), transparent 60%),
+        radial-gradient(ellipse 800px 500px at 90% -2%, rgba(184,147,90,.06), transparent 55%),
+        var(--ds-bg);
+    }
+    /* Cards → cream-warm "darker boxes" with forest hairline (was white-alpha) */
+    [data-theme="editorial"] .plan-card,
+    [data-theme="editorial"] .vp-card,
+    [data-theme="editorial"] .faq-item,
+    [data-theme="editorial"] .pricing-tier-card {
+      background: #ebe4d3;
+      border-color: #d4cab3;
+    }
+    [data-theme="editorial"] .faq-q:hover { background: rgba(31,58,46,.04); }
+    /* Featured plan → dark forest inset (LEX signature, like landing) */
+    [data-theme="editorial"] .plan-card--recommended {
+      background: #15291f;
+      border-color: #15291f;
+      box-shadow: 0 18px 40px rgba(21,41,31,.22);
+    }
+    [data-theme="editorial"] .plan-card--recommended .plan-card__name { color: #faf7ee; }
+    [data-theme="editorial"] .plan-card--recommended .plan-card__price { color: #faf7ee; }
+    [data-theme="editorial"] .plan-card--recommended .plan-card__price span,
+    [data-theme="editorial"] .plan-card--recommended .plan-card__desc { color: #ebe4d3; }
+    [data-theme="editorial"] .plan-card--recommended .plan-card__features li { color: #f4efe4; }
+    [data-theme="editorial"] .plan-card--recommended .plan-card__features li::before { color: #b8935a; }
+    [data-theme="editorial"] .plan-card--recommended .plan-card__features li.excluded,
+    [data-theme="editorial"] .plan-card--recommended .plan-card__features li.excluded::before { color: rgba(235,228,211,.55); }
+    [data-theme="editorial"] .plan-card--recommended .ds-badge { background: #b8935a; color: #15291f; border-color: transparent; }
+    [data-theme="editorial"] .plan-card--recommended .plan-card__cta .ds-btn--primary {
+      background: #faf7ee;
+      border-color: transparent;
+      color: #15291f;
+    }
+    [data-theme="editorial"] .plan-card--recommended .plan-card__cta .ds-btn--primary:hover { background: #f4efe4; }
+    /* Individual tariff → wine/gold accent on cream (like landing enterprise card) */
+    [data-theme="editorial"] .plan-card--enterprise {
+      background: #f4efe4;
+      border-color: rgba(122,46,46,.3);
+    }
+    [data-theme="editorial"] .plan-card--enterprise .plan-card__name { color: #7a2e2e; }
+    /* Comparison table → forest header row (like landing) */
+    [data-theme="editorial"] .comparison-table thead th { background: #1f3a2e; color: #f4efe4; }
+    [data-theme="editorial"] .comparison-table thead th.highlight { color: #b8935a; }
+    [data-theme="editorial"] .comparison-table tbody tr:hover { background: rgba(31,58,46,.04); }
+    [data-theme="editorial"] .comparison-table .group-row td { background: #ebe4d3; color: #15291f; }
+    /* Accents → forest (was blue) */
+    [data-theme="editorial"] .vp-card__tag { background: rgba(31,58,46,.08); color: #1f3a2e; }
+    [data-theme="editorial"] .audience-toggle__btn--active {
+      background: rgba(31,58,46,.1);
+      border-color: #1f3a2e;
+      color: #1f3a2e;
+    }
+    /* Pilot-standard band → forest→wine tint (was blue→purple) */
+    [data-theme="editorial"] .pilot-standard-band {
+      border-color: rgba(31,58,46,.2);
+      background: linear-gradient(135deg, rgba(31,58,46,.06), rgba(122,46,46,.03));
+    }
+    [data-theme="editorial"] .pilot-standard-item {
+      border-color: rgba(31,58,46,.12);
+      background: #faf7ee;
+    }
+    /* Error state title was a light-on-dark pink → readable wine on cream */
+    [data-theme="editorial"] .pricing-error__title { color: #6f2222; }
   </style>
 </head>
 <body>
@@ -247,7 +321,7 @@
     <div style="margin-top:var(--ds-space-5)">
       <div style="padding:var(--ds-space-5);border:1px solid rgba(57,217,138,.25);border-radius:var(--ds-radius-xl);background:linear-gradient(135deg,rgba(57,217,138,.04),rgba(74,158,255,.03))">
         <div style="display:flex;align-items:center;gap:var(--ds-space-4);flex-wrap:wrap">
-          <div style="flex-shrink:0;width:56px;height:56px;border-radius:50%;background:rgba(57,217,138,.12);display:flex;align-items:center;justify-content:center;font-size:28px">&#128640;</div>
+          <div style="flex-shrink:0;width:56px;height:56px;border-radius:50%;background:rgba(57,217,138,.12);display:flex;align-items:center;justify-content:center;font-size:28px"></div>
           <div style="flex:1;min-width:260px">
             <div style="font-size:18px;font-weight:800;margin-bottom:4px">Pilotpfad für Einsatzunternehmen</div>
             <div style="font-size:14px;color:var(--ds-text-secondary);line-height:1.6">

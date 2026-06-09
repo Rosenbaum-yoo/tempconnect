@@ -145,6 +145,29 @@
     .calc-row.total .amount { color: var(--ds-accent); }
     .calc-row.savings .amount { color: var(--ds-success); }
     .calc-note { font-size: 11px; color: var(--ds-text-tertiary); margin-top: var(--ds-space-2); }
+
+    /* EDITORIAL — de-blue/purple + warm boxes (scoped; dark/light/ultra byte-identical) */
+    [data-theme="editorial"] body {
+      background: radial-gradient(ellipse 1000px 500px at 20% -5%, rgba(45,106,79,.1), transparent 55%),
+                  radial-gradient(ellipse 700px 400px at 85% -2%, rgba(184,147,90,.08), transparent 50%),
+                  var(--ds-bg);
+    }
+    [data-theme="editorial"] .discount-bar-bg { background: rgba(31,58,46,.1); }
+    [data-theme="editorial"] .cat-tab { background: #fffdf6; }
+    [data-theme="editorial"] .bounty-card { background: #ebe4d3; border-color: #d4cab3; }
+    [data-theme="editorial"] .bounty-card.in_progress { border-color: rgba(31,58,46,.3); }
+    [data-theme="editorial"] .bounty-icon { background: #fffdf6; }
+    [data-theme="editorial"] .bounty-progress-bg { background: rgba(31,58,46,.1); }
+    [data-theme="editorial"] .tier-card { background: #ebe4d3; border-color: #d4cab3; }
+    [data-theme="editorial"] .tier-modal { border-color: rgba(31,58,46,.12); }
+    [data-theme="editorial"] .tier-modal .req { border-bottom-color: rgba(31,58,46,.08); }
+    [data-theme="editorial"] .how-step { background: #ebe4d3; border-color: #d4cab3; }
+    [data-theme="editorial"] .how-step .hw-num { border-color: rgba(31,58,46,.25); }
+    [data-theme="editorial"] .calc-card { border-color: rgba(31,58,46,.25); background: rgba(31,58,46,.04); }
+    /* Referral band: kill inline translucent blue/purple/white (needs !important to beat inline style) */
+    [data-theme="editorial"] #referralSection > div { border-color: rgba(31,58,46,.25) !important; background: rgba(31,58,46,.04) !important; }
+    [data-theme="editorial"] #refCashbackInfo { border-color: rgba(31,58,46,.2) !important; background: #fffdf6 !important; }
+    [data-theme="editorial"] #refCode { background: #fffdf6 !important; }
   </style>
 </head>
 <body>
@@ -386,7 +409,7 @@
 
         <!-- Pilot werden -->
         <div id="refBecomePilot" style="display:none;margin-top:var(--ds-space-3);text-align:center">
-          <button onclick="registerPilot()" class="ds-btn ds-btn--primary">&#128640; Als Pilotkunde registrieren &mdash; 1 Monat gratis</button>
+          <button onclick="registerPilot()" class="ds-btn ds-btn--primary">Als Pilotkunde registrieren &mdash; 1 Monat gratis</button>
           <div style="font-size:11px;color:var(--ds-text-tertiary);margin-top:6px">Werben Sie bis zu 6 Kunden und erhalten Sie bis zu 7 Monate gratis.</div>
         </div>
       </div>

@@ -195,7 +195,7 @@ function setStaffingFastTrackNotice(title,message,tone='info'){
     return;
   }
   el.className=`wk-alert wk-alert-${tone}`;
-  el.innerHTML=`<span>${tone==='danger'||tone==='warning'?'&#9888;':'&#128640;'}</span><span><strong>${esc(title||'')}</strong>${message?` ${esc(message)}`:''}</span>`;
+  el.innerHTML=`<span>${tone==='danger'||tone==='warning'?'&#9888;':''}</span><span><strong>${esc(title||'')}</strong>${message?` ${esc(message)}`:''}</span>`;
   el.style.display='';
 }
 function tonePillClass(tone){
