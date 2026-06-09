@@ -63,12 +63,14 @@ export const STEP_CATALOG = [
     }
   },
   {
+    // Audit Finding 4: war roles ['agency','company'] -> Unternehmen sahen die Dienstleister-Aktion
+    // (Personal einstellen auf capacity_exchange_form). Jetzt agency-only.
     key: "first_capacity",
-    label: "Erstes Angebot / Personal einstellen",
-    description: "Stellen Sie Ihr erstes Angebot oder Personal in der Vermittlung ein.",
-    icon: "📋",
+    label: "Personal einstellen",
+    description: "Stellen Sie Ihr erstes verfügbares Personal in der Vermittlung ein.",
+    icon: "",
     link: "/public/capacity_exchange_form.html",
-    roles: ["agency", "company"],
+    roles: ["agency"],
     order: 3,
     detect: async (pool, userId) => {
       // Check listings or capacity posts
@@ -80,6 +82,23 @@ export const STEP_CATALOG = [
         "SELECT 1 FROM capacity_posts WHERE user_id = $1 LIMIT 1", [userId]
       );
       return caps.length > 0;
+    }
+  },
+  {
+    // Audit Finding 4 (Wurzel): paralleler company-Schritt — Einsatzunternehmen bieten
+    // Arbeitsplaetze an (kein eigenes Personal). Ziel = marketplace_demand_create.html.
+    key: "first_demand",
+    label: "Erstes Arbeitsplatzangebot erstellen",
+    description: "Veröffentlichen Sie Ihr erstes Arbeitsplatzangebot, damit Personaldienstleister Sie finden.",
+    icon: "",
+    link: "/public/marketplace_demand_create.html",
+    roles: ["company"],
+    order: 3,
+    detect: async (pool, userId) => {
+      const { rows } = await pool.query(
+        "SELECT 1 FROM demand_requests WHERE requester_company_id = $1 LIMIT 1", [userId]
+      );
+      return rows.length > 0;
     }
   },
   {
@@ -309,7 +328,7 @@ export function toLegacyFormat(fullStatus) {
 
   const profileDone = stepMap.profile_complete?.completed || false;
   const orgDone = stepMap.org_configured?.completed || false;
-  const firstActionDone = stepMap.first_capacity?.completed || stepMap.first_request?.completed || false;
+  const firstActionDone = stepMap.first_capacity?.completed || stepMap.first_demand?.completed || stepMap.first_request?.completed || false;
 
   const steps = {
     profile_basics: {

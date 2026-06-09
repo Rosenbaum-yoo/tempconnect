@@ -412,8 +412,8 @@ describe("onboarding — edge cases", () => {
 // ═══════════════════════════════════════════════════════════════
 
 describe("onboardingService — STEP_CATALOG", () => {
-  it("has 7 steps", () => {
-    assert.strictEqual(STEP_CATALOG.length, 7);
+  it("has 8 steps (inkl. Rollen-Split first_capacity/first_demand)", () => {
+    assert.strictEqual(STEP_CATALOG.length, 8);
   });
 
   it("all steps have required fields", () => {
@@ -421,7 +421,7 @@ describe("onboardingService — STEP_CATALOG", () => {
       assert.ok(s.key, `step missing key`);
       assert.ok(s.label, `step ${s.key} missing label`);
       assert.ok(s.description, `step ${s.key} missing description`);
-      assert.ok(s.icon, `step ${s.key} missing icon`);
+      assert.ok(typeof s.icon === "string", `step ${s.key} icon muss String sein (darf leer sein — keine Emojis)`);
       assert.ok(s.link, `step ${s.key} missing link`);
       assert.ok(typeof s.order === "number", `step ${s.key} missing order`);
       assert.ok(typeof s.detect === "function", `step ${s.key} missing detect`);
@@ -433,11 +433,14 @@ describe("onboardingService — STEP_CATALOG", () => {
     assert.strictEqual(new Set(keys).size, keys.length);
   });
 
-  it("steps are ordered 1..7", () => {
+  it("orders sind nicht-fallend; rollen-exklusive first_capacity/first_demand teilen order 3", () => {
     const orders = STEP_CATALOG.map(s => s.order);
-    for (let i = 0; i < orders.length; i++) {
-      assert.strictEqual(orders[i], i + 1);
+    for (let i = 1; i < orders.length; i++) {
+      assert.ok(orders[i] >= orders[i - 1], `order nicht-fallend bei ${STEP_CATALOG[i].key}`);
     }
+    const cap = STEP_CATALOG.find(s => s.key === "first_capacity");
+    const dem = STEP_CATALOG.find(s => s.key === "first_demand");
+    assert.strictEqual(cap.order, dem.order, "agency/company-Erst-Aktion auf gleicher Position");
   });
 });
 
@@ -446,9 +449,11 @@ describe("onboardingService — STEP_CATALOG", () => {
 // ═══════════════════════════════════════════════════════════════
 
 describe("onboardingService — getStepsForRole", () => {
-  it("company sees profile_complete, org_configured, first_capacity, first_request, first_deal, team_invited, platform_explored", () => {
-    const steps = getStepsForRole("company");
-    assert.strictEqual(steps.length, 7);
+  it("company sieht first_demand statt first_capacity (Rollen-Split), 7 Schritte", () => {
+    const keys = getStepsForRole("company").map(s => s.key);
+    assert.strictEqual(keys.length, 7);
+    assert.ok(keys.includes("first_demand"), "company sieht first_demand");
+    assert.ok(!keys.includes("first_capacity"), "company sieht NICHT die agency-Personal-Form");
   });
 
   it("worker sees only profile_complete + platform_explored (roles=null)", () => {

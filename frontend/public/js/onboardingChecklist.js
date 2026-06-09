@@ -20,6 +20,7 @@
     profile_complete:  '/public/sla_profil.html',
     org_configured:    '/public/sla_profil.html',
     first_capacity:    '/public/capacity_exchange_form.html',
+    first_demand:      '/public/marketplace_demand_create.html',
     first_request:     '/public/capacity_search.html',
     first_deal:        '/public/angebote_verwalten.html',
     team_invited:      '/public/mitarbeiter.html',
@@ -96,16 +97,17 @@
             var done = s.completed;
             var icon = done ? '&#9989;' : '&#9744;';
             var opacity = done ? '0.5' : '1';
-            var link = STEP_LINKS[s.step_key] || '#';
+            // Die API liefert 'key' + 'link' + 'description' (frueher las das Frontend faelschlich
+            // step_key/hint -> STEP_LINKS[undefined] -> Links waren '#'). Backend-Katalog liefert die
+            // rollen-korrekten Links (s.link); STEP_LINKS nur noch als Fallback.
+            var key = s.key || s.step_key;
+            var link = s.link || STEP_LINKS[key] || '#';
             var label = s.label;
-            // Rollen-aware Korrektur (Audit 3/4): first_request/first_capacity zeigten BEIDEN Rollen
-            // dieselbe rollen-falsche Zielseite. Einsatzunternehmen suchen Personal + bieten Arbeitsplaetze an;
-            // Personaldienstleister stellen Personal ein + bearbeiten eingehende Anfragen.
-            if (s.step_key === 'first_request' && role === 'agency') {
-              link = '/public/company_requests.html'; // Agency: eingehende Anfragen bearbeiten (statt "Personal finden")
-            } else if (s.step_key === 'first_capacity' && role === 'company') {
-              link = '/public/marketplace_demand_create.html'; // Company: Arbeitsplatzangebot erstellen (statt "Personal einstellen")
-              label = 'Erstes Arbeitsplatzangebot erstellen';
+            // Finding 3: first_request zeigt im Katalog fuer BEIDE Rollen capacity_search ("Personal finden").
+            // Ein Dienstleister sucht kein Personal -> Agency auf eingehende Anfragen umlenken.
+            // (Finding 4 ist backend geloest: agency=first_capacity, company=first_demand mit korrektem s.link.)
+            if (key === 'first_request' && role === 'agency') {
+              link = '/public/company_requests.html';
             }
             var actionBtn = !done
               ? ' <a href="' + link + '" style="font-size:11px;color:var(--ds-brand,#4a9eff);font-weight:600;text-decoration:none;margin-left:8px">' + esc(s.cta || 'Starten') + ' &rarr;</a>'
@@ -114,7 +116,7 @@
               '<span style="font-size:16px;flex-shrink:0">' + icon + '</span>' +
               '<div style="flex:1;min-width:0">' +
               '<div style="font-size:13px;font-weight:600">' + esc(label) + actionBtn + '</div>' +
-              '<div style="font-size:11px;color:var(--ds-text-secondary,var(--muted));margin-top:1px">' + esc(s.hint || '') + '</div>' +
+              '<div style="font-size:11px;color:var(--ds-text-secondary,var(--muted));margin-top:1px">' + esc(s.hint || s.description || '') + '</div>' +
               '</div></div>';
           }).join('');
         }
