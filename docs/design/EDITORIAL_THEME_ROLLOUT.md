@@ -45,6 +45,14 @@ Stand: 2026-06-08 · Branch: `release/enterprise-premium-market-ready` · Status
 > Seiten-Hintergrund `--ds-bg` editorial `#faf7ee`→`#f4efe4` (etwas dunkler, nur wenig). Seite `#f4efe4` bleibt heller als
 > die Karten `#ebe4d3` → Karten heben sich weiterhin als „dunklere Kästchen" ab.
 
+> **Topbar an landing.html angeglichen (2026-06-09, Owner-Request):** Plattform- und Landing-Seiten nutzen DIESELBE
+> `.ds-topbar`-Komponente; sie sahen nur anders aus, weil landing.html `landing-lex.css` (flacher Radius + sticky) lädt,
+> die Plattform aber den Base-`.ds-topbar` (`border-radius: var(--ds-radius-full)` = Pille). Fix in `design-system.css`
+> Editorial-`.ds-topbar`: `border-radius` → `var(--ds-radius-lg)` (14px, keine Pille) + `position:sticky; top:10px; z-index:50`
+> — exakt wie landing. Eine geteilte Regel → **alle** `.ds-topbar`-Seiten (≈ alle Plattformseiten) angeglichen; bg/Blur/Border
+> kamen schon aus dem Base-Token `--tc-topbar-bg`. Legacy `.topbar` (enterprise.css Pille) = auf keiner aktiven Seite genutzt;
+> `.ep-topbar` (Einsatzportal Mobile) = eigenes Design, bewusst unberührt. Editorial-scoped → dark/light/ultra unverändert.
+
 > **Default-Flip 2026-06-08 (Owner-Request):** Editorial ist jetzt der **plattformweite Default**
 > (vorher `dark`). Umgesetzt in `theme.js` über ein **Explicit-Choice-Modell**: Der Default wird
 > **ohne Persistierung** gesetzt; nur eine aktive Theme-Wahl schreibt `localStorage` (`tempconnect-theme`)
