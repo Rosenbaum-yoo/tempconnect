@@ -6,6 +6,23 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>TempConnect – Worker Portal Login</title>
   <link rel="stylesheet" href="worker.css">
+  <style>
+    /* Editorial — Worker-Login an die Markenfarben angleichen. Nur Login-Scope (.wk-auth-page):
+       --wk-primary lokal auf Forest umdefiniert -> Logo/Button/Focus folgen automatisch; restliches
+       Worker-Portal bleibt unberührt. */
+    [data-theme="editorial"] .wk-auth-page {
+      --wk-primary: #1f3a2e;
+      --wk-primary-d: #15291f;
+      background: radial-gradient(ellipse 820px 520px at 50% -12%, rgba(31,58,46,.07), transparent 60%), #f4efe4;
+    }
+    [data-theme="editorial"] .wk-auth-box {
+      background: #fffdf6;
+      border-color: #e6dfcd;
+      box-shadow: 0 1px 2px rgba(40,33,20,.05), 0 16px 40px rgba(40,33,20,.12);
+    }
+    [data-theme="editorial"] .wk-auth-logo { box-shadow: 0 0 0 4px rgba(31,58,46,.08); }
+    [data-theme="editorial"] .wk-auth-page a { color: #7a2e2e; }
+  </style>
 </head>
 <body>
 <div class="wk-auth-page">
