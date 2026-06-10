@@ -190,6 +190,61 @@ describe("getOrganizationEntitlements", () => {
   });
 });
 
+// ── Betreiber-Kill-Switch (Suspension, Mig 127) ────────────────
+// access_suspended_at hat hoechste Prioritaet in computeSubscriptionStatus:
+// es ueberschreibt pilot, individual_contract und jeden subscription.status.
+// Soft-Lock: active=false (Features aus), Login/Session unberuehrt.
+describe("Org-Access-Suspension (Kill-Switch)", () => {
+  it("gesperrte Org -> active=false, status='suspended', Grund durchgereicht", async () => {
+    const pool = poolForOrg({ plan: "PRO", orgOverrides: {
+      access_suspended_at: "2026-06-05T00:00:00Z",
+      access_suspended_reason: "Nichtzahlung Rechnung #123"
+    } });
+    const snap = await ent.getOrganizationEntitlements(pool, "org-1");
+    assert.equal(snap.subscription.active, false);
+    assert.equal(snap.subscription.status, "suspended");
+    assert.equal(snap.subscription.pilot, false);
+    assert.equal(snap.subscription.reason, "Nichtzahlung Rechnung #123");
+  });
+
+  it("Suspension ueberschreibt aktiven Pilot (hoechste Prioritaet)", async () => {
+    const pool = poolForOrg({ plan: "DEMO", pilotStatus: "active", orgOverrides: {
+      access_suspended_at: "2026-06-05T00:00:00Z"
+    } });
+    const snap = await ent.getOrganizationEntitlements(pool, "org-1");
+    assert.equal(snap.subscription.status, "suspended", "Pilot darf Sperre nicht aushebeln");
+    assert.equal(snap.subscription.active, false);
+    assert.equal(snap.subscription.pilot, false);
+  });
+
+  it("Suspension ueberschreibt individual_contract", async () => {
+    const pool = poolForOrg({ plan: "INDIVIDUELL", billingMode: "individual_contract",
+      subscription: null, ownerId: "user-1", orgOverrides: {
+        access_suspended_at: "2026-06-05T00:00:00Z"
+      } });
+    const snap = await ent.getOrganizationEntitlements(pool, "org-1");
+    assert.equal(snap.subscription.status, "suspended");
+    assert.equal(snap.subscription.active, false);
+  });
+
+  it("Default-Grund wenn kein expliziter reason gesetzt", async () => {
+    const pool = poolForOrg({ plan: "PRO", orgOverrides: {
+      access_suspended_at: "2026-06-05T00:00:00Z", access_suspended_reason: null
+    } });
+    const snap = await ent.getOrganizationEntitlements(pool, "org-1");
+    assert.ok(/gesperrt/i.test(snap.subscription.reason), "Default-Sperr-Hinweis erwartet");
+  });
+
+  it("canUseFeature auf gesperrter Org -> SUBSCRIPTION_INACTIVE (Feature trotz Plan aus)", async () => {
+    const pool = poolForOrg({ plan: "PRO", orgOverrides: {
+      access_suspended_at: "2026-06-05T00:00:00Z"
+    } });
+    const r = await ent.canUseFeature(pool, "org-1", "advanced_matching");
+    assert.equal(r.allowed, false);
+    assert.equal(r.code, "SUBSCRIPTION_INACTIVE");
+  });
+});
+
 describe("getUsageAgainstLimits", () => {
   it("liefert harte Quota-Metriken fuer User, Sites, Listings, Supplier und Multi-Org-Slots", async () => {
     const orgRow = {

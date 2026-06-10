@@ -97,6 +97,49 @@ describe("staffCustomerOperationsService", () => {
     assert.equal(pool.calls[0].params[4], 50);
   });
 
+  it("listCustomers: suspended-Filter ist tri-state und bindet als $8", async () => {
+    for (const v of [true, "true", "1"]) {
+      const pool = fakePool(() => ({ rows: [] }));
+      await listCustomers(pool, { suspended: v });
+      assert.equal(pool.calls[0].params[7], true, `suspended=${JSON.stringify(v)} -> true`);
+    }
+    for (const v of [false, "false", "0"]) {
+      const pool = fakePool(() => ({ rows: [] }));
+      await listCustomers(pool, { suspended: v });
+      assert.equal(pool.calls[0].params[7], false, `suspended=${JSON.stringify(v)} -> false`);
+    }
+    for (const v of [undefined, null, "vielleicht"]) {
+      const pool = fakePool(() => ({ rows: [] }));
+      await listCustomers(pool, { suspended: v });
+      assert.equal(pool.calls[0].params[7], null, `suspended=${JSON.stringify(v)} -> null (alle)`);
+    }
+  });
+
+  it("listCustomers: WHERE-Guard prüft access_suspended_at gegen $8, scope spiegelt suspended", async () => {
+    const pool = fakePool(() => ({ rows: [] }));
+    const out = await listCustomers(pool, { suspended: true });
+    assert.match(pool.calls[0].sql, /access_suspended_at IS NOT NULL\)\s*=\s*\$8/);
+    assert.equal(out.scope.suspended, true);
+  });
+
+  it("listCustomers: mappt Sperr-Felder (suspended/suspended_at/suspended_kind)", async () => {
+    const pool = fakePool(() => ({
+      rows: [{
+        id: "org-x", name: "Locked GmbH", legal_name: null, plan: "PRO",
+        customer_stage: "live", pilot_status: null, onboarding_completed_at: "2026-01-01T00:00:00Z",
+        created_at: "2026-02-01T00:00:00Z", members_active: 2, open_requests: 0,
+        last_request_status: null, last_request_type: null, last_request_at: null,
+        risk_level: "none",
+        access_suspended_at: "2026-06-05T10:00:00.000Z", access_suspended_kind: "non_payment",
+        total_count: 1
+      }]
+    }));
+    const c = (await listCustomers(pool, {})).customers[0];
+    assert.equal(c.suspended, true);
+    assert.equal(c.suspended_at, "2026-06-05T10:00:00.000Z");
+    assert.equal(c.suspended_kind, "non_payment");
+  });
+
   it("getCustomerDetail: unbekannte Org gibt null (404)", async () => {
     const pool = fakePool((sql) => (sql.includes("FROM organizations") ? { rows: [] } : { rows: [] }));
     const out = await getCustomerDetail(pool, "11111111-1111-1111-1111-111111111111");
@@ -132,6 +175,50 @@ describe("staffCustomerOperationsService", () => {
     assert.equal(out.customer.risk_level, "elevated");
     assert.equal(out.subscription_requests.length, 2);
     assert.deepEqual(out.subscription_requests[0], { id: "r1", request_type: "upgrade", status: "active", at: "2026-03-02T00:00:00Z" });
+  });
+
+  it("getCustomerDetail: gesperrte Org — suspension-Block trägt vollen Sperr-Kontext", async () => {
+    const pool = fakePool((sql) => {
+      if (sql.includes("FROM organizations")) {
+        return { rows: [{
+          id: "org-s", name: "Suspended AG", legal_name: null, plan: "PRO",
+          customer_stage: "live", pilot_status: null, billing_contact: null,
+          onboarding_completed_at: "2026-01-01T00:00:00Z", created_at: "2026-01-10T00:00:00Z",
+          members_active: 5,
+          access_suspended_at: "2026-06-05T10:00:00.000Z",
+          access_suspended_reason: "Rechnung #123 seit 30 Tagen offen",
+          access_suspended_kind: "non_payment",
+          access_suspended_by: "staff-1"
+        }] };
+      }
+      return { rows: [] };
+    });
+    const out = await getCustomerDetail(pool, "00000000-0000-0000-0000-000000000009");
+    assert.deepEqual(out.customer.suspension, {
+      suspended: true,
+      suspended_at: "2026-06-05T10:00:00.000Z",
+      reason: "Rechnung #123 seit 30 Tagen offen",
+      kind: "non_payment",
+      suspended_by: "staff-1"
+    });
+  });
+
+  it("getCustomerDetail: aktive Org — suspension-Block ist leer (suspended:false)", async () => {
+    const pool = fakePool((sql) => {
+      if (sql.includes("FROM organizations")) {
+        return { rows: [{
+          id: "org-a", name: "Active GmbH", legal_name: null, plan: "BASIS",
+          customer_stage: "live", pilot_status: null, billing_contact: null,
+          onboarding_completed_at: "2026-01-01T00:00:00Z", created_at: "2026-01-10T00:00:00Z",
+          members_active: 3
+        }] };
+      }
+      return { rows: [] };
+    });
+    const out = await getCustomerDetail(pool, "00000000-0000-0000-0000-00000000000a");
+    assert.deepEqual(out.customer.suspension, {
+      suspended: false, suspended_at: null, reason: null, kind: null, suspended_by: null
+    });
   });
 
   it("deriveRiskLevel: konkrete Regeln (elevated/watch/none)", () => {

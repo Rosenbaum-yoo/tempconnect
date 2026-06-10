@@ -82,7 +82,12 @@ function mapRow(r) {
     last_request: r.last_request_status
       ? { status: r.last_request_status, request_type: r.last_request_type || null, at: r.last_request_at || null }
       : null,
-    risk_level: r.risk_level || "none"
+    risk_level: r.risk_level || "none",
+    // Betreiber-Kill-Switch (Mig 127): Monitoring-Sicht. Grund/Akteur nur im Detail
+    // (zu lang fuer die Roster-Zeile); hier nur ob + seit wann + Kategorie.
+    suspended: r.access_suspended_at != null,
+    suspended_at: r.access_suspended_at || null,
+    suspended_kind: r.access_suspended_kind || null
   };
 }
 
@@ -98,12 +103,18 @@ export async function listCustomers(pool, opts = {}) {
   const search = searchRaw ? `%${searchRaw}%` : null;
   const limit = clampLimit(opts.limit);
   const offset = clampOffset(opts.offset);
+  // Suspended-Filter (tri-state): null = alle, true = nur gesperrte, false = nur aktive.
+  const sv = opts.suspended;
+  const suspended = (sv === true || sv === "true" || sv === "1") ? true
+    : (sv === false || sv === "false" || sv === "0") ? false
+    : null;
 
   const sql = `
     WITH base AS (
       SELECT
         o.id, o.name, o.legal_name, o.plan, o.customer_stage, o.pilot_status,
         o.onboarding_completed_at, o.created_at,
+        o.access_suspended_at, o.access_suspended_kind,
         (SELECT COUNT(*) FROM org_memberships m WHERE m.org_id = o.id AND m.is_active)::int AS members_active,
         (SELECT COUNT(*) FROM subscription_requests sr
            WHERE sr.org_id = o.id AND sr.status = ANY($7::text[]))::int AS open_requests,
@@ -121,6 +132,7 @@ export async function listCustomers(pool, opts = {}) {
       WHERE ($1::text IS NULL OR o.customer_stage = $1)
         AND ($2::text IS NULL OR o.plan = $2)
         AND ($3::text IS NULL OR o.name ILIKE $3 OR o.legal_name ILIKE $3)
+        AND ($8::boolean IS NULL OR (o.access_suspended_at IS NOT NULL) = $8)
     ),
     scored AS (
       SELECT b.*, CASE
@@ -137,7 +149,7 @@ export async function listCustomers(pool, opts = {}) {
      ORDER BY s.created_at DESC NULLS LAST
      LIMIT $5 OFFSET $6
   `;
-  const params = [stage, plan, search, risk, limit, offset, OPEN_REQUEST_STATUSES];
+  const params = [stage, plan, search, risk, limit, offset, OPEN_REQUEST_STATUSES, suspended];
 
   const result = await pool.query(sql, params);
   const rows = result.rows || [];
@@ -147,7 +159,7 @@ export async function listCustomers(pool, opts = {}) {
     available: true,
     customers: rows.map(mapRow),
     total,
-    scope: { stage, plan, risk, search: searchRaw || null, limit, offset },
+    scope: { stage, plan, risk, search: searchRaw || null, suspended, limit, offset },
     generated_at: new Date().toISOString()
   };
 }
@@ -161,6 +173,8 @@ export async function getCustomerDetail(pool, orgId) {
   const orgRes = await pool.query(
     `SELECT o.id, o.name, o.legal_name, o.plan, o.customer_stage, o.pilot_status,
             o.billing_contact, o.onboarding_completed_at, o.created_at,
+            o.access_suspended_at, o.access_suspended_reason,
+            o.access_suspended_kind, o.access_suspended_by,
             (SELECT COUNT(*) FROM org_memberships m WHERE m.org_id = o.id AND m.is_active)::int AS members_active
        FROM organizations o
       WHERE o.id = $1`,
@@ -199,7 +213,15 @@ export async function getCustomerDetail(pool, orgId) {
       onboarding_completed_at: org.onboarding_completed_at || null,
       created_at: org.created_at || null,
       members_active: org.members_active || 0,
-      risk_level
+      risk_level,
+      // Betreiber-Kill-Switch (Mig 127): voller Sperr-Kontext im Detail.
+      suspension: {
+        suspended: org.access_suspended_at != null,
+        suspended_at: org.access_suspended_at || null,
+        reason: org.access_suspended_reason || null,
+        kind: org.access_suspended_kind || null,
+        suspended_by: org.access_suspended_by || null
+      }
     },
     subscription_requests: requests.map((r) => ({
       id: r.id, request_type: r.request_type, status: r.status, at: r.created_at

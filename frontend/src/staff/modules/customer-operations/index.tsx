@@ -1,18 +1,26 @@
 /**
- * CustomerOperations — SCC Phase B / Slice 2
- * Konsolidierter, read-only Kundenroster über bestehende Wahrheiten
+ * CustomerOperations — SCC Phase B / Slice 2 + Betreiber-Kill-Switch (Mig 127)
+ * Konsolidierter Kundenroster über bestehende Wahrheiten
  * (organizations.customer_stage/plan + subscription_requests + org_memberships).
  *
- * Reine Aggregations-/Ansichtsschicht: KEINE Mutation hier. Statuswechsel laufen
- * über das bestehende Modul "Abo / Tarif-Anfragen" (Step-up + Confirm + Reason + Audit) —
- * von hier per Drilldown erreichbar. "Domain owns truth, SCC owns aggregation."
+ * Aggregations-/Ansichtsschicht. Tarif-Statuswechsel laufen weiterhin über das
+ * Modul "Abo / Tarif-Anfragen" (Drilldown). AUSNAHME (owner-approved): der
+ * Betreiber-Kill-Switch — Sperren/Freigeben des Org-Zugangs bei Nicht-Zahlung
+ * o.ä. Das ist die EINZIGE Mutation hier und der bewusste Zweck dieses Moduls als
+ * Operator-Steuerstelle. Sperre = Soft-Lock (Enforcement in entitlementService),
+ * Login bleibt; Tarif-AKTIVIERUNG bleibt zahlungsgetrieben (Stripe), NICHT hier.
+ * Jede Aktion: Step-up + Confirm + Reason (>=10) + serverseitiges Audit.
  *
- * Endpunkte: GET /customers · /customers-meta · /customers/:orgId (alle requireStaff).
+ * Endpunkte: GET /customers · /customers-meta · /customers/:orgId ·
+ *   POST /customers/:orgId/suspend · POST /customers/:orgId/reactivate (alle requireStaff).
  */
 
 import { useState, useEffect, useCallback } from "react";
 import { sccApi } from "@scc/api/client";
 import { useNav } from "@scc/state/NavContext";
+import { useConfirm } from "@scc/state/ConfirmContext";
+import { useStepUp } from "@scc/state/StepUpContext";
+import { useToast } from "@scc/state/ToastContext";
 import { fmtDate, fmtDateShort, fmtNum, subStatusTone } from "@scc/utils/format";
 
 // ─── Types (Shapes = Backend staffCustomerOperationsService.js) ──
@@ -37,6 +45,9 @@ interface CustomerRow {
   open_requests: number;
   last_request: LastRequest | null;
   risk_level: string;
+  suspended: boolean;
+  suspended_at: string | null;
+  suspended_kind: string | null;
 }
 
 interface ListScope {
@@ -44,6 +55,7 @@ interface ListScope {
   plan: string | null;
   risk: string | null;
   search: string | null;
+  suspended: boolean | null;
   limit: number;
   offset: number;
 }
@@ -69,6 +81,13 @@ interface CustomerDetailData {
   created_at: string | null;
   members_active: number;
   risk_level: string;
+  suspension: {
+    suspended: boolean;
+    suspended_at: string | null;
+    reason: string | null;
+    kind: string | null;
+    suspended_by: string | null;
+  };
 }
 
 interface DetailRequest {
@@ -90,6 +109,8 @@ interface MetaResp {
   plans: string[];
   risk_levels: string[];
   open_request_statuses: string[];
+  suspension_kinds: string[];
+  min_reason_len: number;
 }
 
 // ─── Labels & Tones ──────────────────────────────────────
@@ -114,6 +135,22 @@ const TYPE_LABELS: Record<string, string> = {
   downgrade:      "Downgrade",
   cancellation:   "Kündigung",
 };
+
+// Sperr-Kategorien — Reihenfolge/Schlüssel = Backend-Whitelist (SUSPENSION_KINDS,
+// Mig 127). non_payment ist der Default-Anwendungsfall (Nicht-Zahlung).
+const KIND_LABELS: Record<string, string> = {
+  non_payment: "Nicht-Zahlung",
+  manual:      "Manuell",
+  compliance:  "Compliance",
+  security:    "Sicherheit",
+  other:       "Sonstiges",
+};
+const KIND_FALLBACK = ["non_payment", "manual", "compliance", "security", "other"];
+
+function kindLabel(kind: string | null): string {
+  if (!kind) return "–";
+  return KIND_LABELS[kind] ?? kind;
+}
 
 // Plan-Tonalität konsistent zu Abo/Tarif-Modul: BASIS/PLUS grün, PRO gelb, INDIVIDUELL rot, DEMO neutral.
 const PLAN_PILL: Record<string, string> = {
@@ -150,8 +187,16 @@ const PAGE_SIZE = 50;
 
 // ─── Detail Pane ─────────────────────────────────────────
 
-function CustomerDetailPane({ orgId }: { orgId: string }) {
+function CustomerDetailPane({ orgId, meta, onMutated }: {
+  orgId: string;
+  meta: MetaResp | null;
+  onMutated: () => void;
+}) {
   const nav = useNav();
+  const confirm = useConfirm();
+  const stepUp  = useStepUp();
+  const toast   = useToast();
+  const [kind, setKind] = useState("non_payment");
   const [detail,  setDetail]  = useState<CustomerDetailResp | null>(null);
   const [loading, setLoading] = useState(true);
   const [err,     setErr]     = useState<string | null>(null);
@@ -176,6 +221,40 @@ function CustomerDetailPane({ orgId }: { orgId: string }) {
 
   const c = detail.customer;
   const reqs = detail.subscription_requests;
+  const sus = c.suspension;
+
+  // ── Betreiber-Kill-Switch — die einzige Mutation hier (Step-up + Confirm + Reason + Audit) ──
+  const doSuspend = () => {
+    confirm({
+      title: `Zugang sperren: ${c.name}`,
+      hint: "Soft-Lock: Tarif/Features werden serverseitig deaktiviert. Login & Daten bleiben; "
+          + "der Kunde sieht die Sperre + Grund. Aktivierung bleibt zahlungsgetrieben (Stripe). "
+          + "Audit risk_level=high.",
+      dangerLabel: "Zugang sperren",
+      onConfirm: async (reason) => {
+        await stepUp();
+        await sccApi.post(`/customers/${encodeURIComponent(orgId)}/suspend`, { confirmed: true, reason, kind });
+        toast.success("Zugang gesperrt.");
+        await load();
+        onMutated();
+      },
+    });
+  };
+
+  const doReactivate = () => {
+    confirm({
+      title: `Zugang freigeben: ${c.name}`,
+      hint: "Hebt die Betreiber-Sperre auf. Die Tarif-Aktivierung selbst bleibt zahlungsgetrieben. "
+          + "Audit risk_level=medium.",
+      onConfirm: async (reason) => {
+        await stepUp();
+        await sccApi.post(`/customers/${encodeURIComponent(orgId)}/reactivate`, { confirmed: true, reason });
+        toast.success("Zugang freigegeben.");
+        await load();
+        onMutated();
+      },
+    });
+  };
 
   const kpis: Array<[string, string]> = [
     ["Aktive Nutzer",   fmtNum(c.members_active)],
@@ -201,6 +280,9 @@ function CustomerDetailPane({ orgId }: { orgId: string }) {
           )}
         </div>
         <div style={{ display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap" }}>
+          {sus.suspended && (
+            <span className="scc-pill scc-pill--danger" title={sus.reason ?? undefined}>Gesperrt</span>
+          )}
           <span className={`scc-status scc-status--${riskTone(c.risk_level)}`}>
             {RISK_LABELS[c.risk_level] ?? c.risk_level}
           </span>
@@ -217,6 +299,37 @@ function CustomerDetailPane({ orgId }: { orgId: string }) {
           )}
         </div>
       </div>
+
+      {/* ── Betreiber-Kill-Switch (Mig 127) ────────────── */}
+      {sus.suspended ? (
+        <div className="scc-card" style={{ borderColor: "var(--scc-danger)", marginBottom: 14 }}>
+          <div className="scc-card__eyebrow" style={{ color: "var(--scc-danger)" }}>● Zugang gesperrt</div>
+          <div style={{ fontSize: 13, margin: "4px 0" }}>
+            Seit {fmtDate(sus.suspended_at)} · Kategorie: {kindLabel(sus.kind)}
+          </div>
+          {sus.reason && (
+            <div style={{ fontSize: 12, color: "var(--scc-muted)" }}>Grund: {sus.reason}</div>
+          )}
+          <div style={{ marginTop: 10 }}>
+            <button className="scc-btn scc-btn--primary" onClick={doReactivate}>Zugang freigeben</button>
+          </div>
+        </div>
+      ) : (
+        <div className="scc-card" style={{ marginBottom: 14 }}>
+          <div className="scc-card__eyebrow">Betreiber-Kill-Switch</div>
+          <div style={{ fontSize: 12, color: "var(--scc-muted)", margin: "4px 0 8px" }}>
+            Soft-Lock bei Nicht-Zahlung o.ä. — Login &amp; Daten bleiben, Tarif/Features werden serverseitig deaktiviert.
+          </div>
+          <div style={{ display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap" }}>
+            <select value={kind} onChange={(e) => setKind(e.target.value)} aria-label="Sperr-Kategorie">
+              {(meta?.suspension_kinds ?? KIND_FALLBACK).map((k) => (
+                <option key={k} value={k}>{kindLabel(k)}</option>
+              ))}
+            </select>
+            <button className="scc-btn scc-btn--danger" onClick={doSuspend}>Zugang sperren</button>
+          </div>
+        </div>
+      )}
 
       {/* ── KPI grid ───────────────────────────────────── */}
       <div className="scc-grid" style={{ marginBottom: 14 }}>
@@ -263,7 +376,7 @@ function CustomerDetailPane({ orgId }: { orgId: string }) {
       </div>
 
       <div style={{ fontSize: 10, color: "var(--scc-muted)", marginTop: 14, borderTop: "1px solid var(--scc-line)", paddingTop: 8 }}>
-        Read-only Ansicht. Mutationen laufen über „Abo / Tarif-Anfragen" mit Audit.
+        Tarif-Statuswechsel laufen über „Abo / Tarif-Anfragen" (mit Audit). Hier mutiert nur der Betreiber-Kill-Switch.
         {" · "}Datenstand: {fmtDate(detail.generated_at)}
       </div>
     </div>
@@ -279,6 +392,7 @@ export default function CustomerOperations() {
   const [stage,  setStage]  = useState("");
   const [plan,   setPlan]   = useState("");
   const [risk,   setRisk]   = useState("");
+  const [suspended, setSuspended] = useState(""); // "" | "true" | "false" (tri-state)
   const [search, setSearch] = useState("");     // angewandt
   const [searchInput, setSearchInput] = useState(""); // getippt
   const [offset, setOffset] = useState(0);
@@ -307,6 +421,7 @@ export default function CustomerOperations() {
       if (stage)  qs.set("stage", stage);
       if (plan)   qs.set("plan", plan);
       if (risk)   qs.set("risk", risk);
+      if (suspended) qs.set("suspended", suspended);
       if (search) qs.set("search", search);
       qs.set("limit", String(PAGE_SIZE));
       qs.set("offset", String(offset));
@@ -317,7 +432,7 @@ export default function CustomerOperations() {
     } finally {
       setLoading(false);
     }
-  }, [stage, plan, risk, search, offset]);
+  }, [stage, plan, risk, suspended, search, offset]);
 
   useEffect(() => { void load(); }, [load]);
 
@@ -325,7 +440,7 @@ export default function CustomerOperations() {
   const onFilter = (setter: (v: string) => void) => (v: string) => { setter(v); setOffset(0); };
   const applySearch = () => { setSearch(searchInput.trim()); setOffset(0); };
   const resetFilters = () => {
-    setStage(""); setPlan(""); setRisk(""); setSearch(""); setSearchInput(""); setOffset(0);
+    setStage(""); setPlan(""); setRisk(""); setSuspended(""); setSearch(""); setSearchInput(""); setOffset(0);
   };
 
   const total   = resp?.total ?? 0;
@@ -334,7 +449,7 @@ export default function CustomerOperations() {
   const to      = Math.min(offset + PAGE_SIZE, total);
   const canPrev = offset > 0;
   const canNext = offset + PAGE_SIZE < total;
-  const hasFilter = !!(stage || plan || risk || search);
+  const hasFilter = !!(stage || plan || risk || suspended || search);
 
   return (
     <div>
@@ -364,6 +479,11 @@ export default function CustomerOperations() {
             <select value={risk} onChange={(e) => onFilter(setRisk)(e.target.value)} aria-label="Risiko filtern">
               <option value="">Risiko: alle</option>
               {(meta?.risk_levels ?? []).map((r) => <option key={r} value={r}>{RISK_LABELS[r] ?? r}</option>)}
+            </select>
+            <select value={suspended} onChange={(e) => onFilter(setSuspended)(e.target.value)} aria-label="Sperrstatus filtern">
+              <option value="">Zugang: alle</option>
+              <option value="true">Nur gesperrte</option>
+              <option value="false">Nur aktive</option>
             </select>
           </div>
           <div style={{ display: "flex", gap: 6, padding: "0 0 8px", flexWrap: "wrap" }}>
@@ -407,10 +527,11 @@ export default function CustomerOperations() {
               onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") setSelectedId(c.org_id); }}
             >
               <div className="scc-inbox__item-title">
-                {c.risk_level === "elevated" && <span style={{ color: "var(--scc-danger)", marginRight: 4 }}>●</span>}
+                {(c.suspended || c.risk_level === "elevated") && <span style={{ color: "var(--scc-danger)", marginRight: 4 }}>●</span>}
                 {c.name}
               </div>
               <div className="scc-inbox__item-meta">
+                {c.suspended && <span className="scc-pill scc-pill--danger" title="Zugang gesperrt">Gesperrt</span>}
                 <span className={`scc-status scc-status--${riskTone(c.risk_level)}`}>{RISK_LABELS[c.risk_level] ?? c.risk_level}</span>
                 {c.customer_stage && <span className="scc-pill">{stageLabel(c.customer_stage)}</span>}
                 {c.plan && (() => {
@@ -441,7 +562,7 @@ export default function CustomerOperations() {
         {/* ── Detail pane ───────────────────────────────── */}
         <div className="scc-inbox__detail" aria-label="Kunden-Detailansicht">
           {selectedId
-            ? <CustomerDetailPane key={selectedId} orgId={selectedId} />
+            ? <CustomerDetailPane key={selectedId} orgId={selectedId} meta={meta} onMutated={() => void load()} />
             : (
               <div style={{
                 display: "flex", alignItems: "center", justifyContent: "center",

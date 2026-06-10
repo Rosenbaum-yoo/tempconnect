@@ -19,6 +19,7 @@ import * as subDocs from "../services/subscriptionDocumentService.js";
 import * as combinedInbox from "../services/staffCombinedInboxService.js";
 import * as subLifecycle from "../services/subscriptionLifecycleService.js";
 import * as customerOps from "../services/staffCustomerOperationsService.js";
+import * as orgSuspension from "../services/orgAccessSuspensionService.js";
 import * as staffBilling from "../services/staffBillingOverviewService.js";
 import * as staffMail from "../services/staffMailCenterService.js";
 import * as staffIncidents from "../services/staffIncidentService.js";
@@ -558,6 +559,7 @@ export function createStaffControlCenterRouter(deps) {
       plan: req.query.plan || null,
       risk: req.query.risk || null,
       search: req.query.search || req.query.q || null,
+      suspended: req.query.suspended != null ? req.query.suspended : null,
       limit: req.query.limit,
       offset: req.query.offset
     });
@@ -565,13 +567,76 @@ export function createStaffControlCenterRouter(deps) {
   });
 
   router.get("/customers-meta", requireStaff, (_req, res) => {
-    res.json({ success: true, data: customerOps.meta() });
+    res.json({ success: true, data: { ...customerOps.meta(), ...orgSuspension.meta() } });
   });
 
   router.get("/customers/:orgId", requireStaff, async (req, res) => {
     const data = await customerOps.getCustomerDetail(pool, req.params.orgId);
     if (!data) return res.status(404).json({ success: false, error: { code: "CUSTOMER_NOT_FOUND" } });
     res.json({ success: true, data });
+  });
+
+  // ── Betreiber-Kill-Switch (Phase 1, Mig 127): Org-Zugang sperren / freigeben ──
+  //    Tarif-AKTIVIERUNG bleibt zahlungsgetrieben (Stripe) — der Staff steuert
+  //    NUR diesen Soft-Lock + Monitoring (/customers?suspended=true). Sperre ist
+  //    ein schwerer Kundeneingriff => High Step-up; Freigabe => Medium. Beide:
+  //    Confirm + Reason (>=10) + Audit. Enforcement liegt in entitlementService.
+  router.post("/customers/:orgId/suspend", requireStaff, mfaGuard, requireStepUpHigh, requireConfirmAndReason, async (req, res) => {
+    const kind = req.body?.kind || null;
+    const result = await orgSuspension.suspendOrgAccess(pool, {
+      orgId: req.params.orgId,
+      actorUserId: req.sccActorId,
+      reason: req.sccReason,
+      kind
+    });
+    if (!result.ok) {
+      const code = result.error || "SUSPEND_FAILED";
+      const status = code === "ORG_NOT_FOUND" ? 404 : code === "ALREADY_SUSPENDED" ? 409 : 400;
+      await writeStaffAudit(pool, {
+        actorId: req.sccActorId, area: "customer_operations",
+        action: "staff_control.customer.access_suspend",
+        entityType: "organization", entityId: req.params.orgId,
+        status: "error", reason: req.sccReason, confirmed: true, riskLevel: "high",
+        ...auditContextFromReq(req), details: { error: code, kind }
+      });
+      return res.status(status).json({ success: false, error: { code } });
+    }
+    await writeStaffAudit(pool, {
+      actorId: req.sccActorId, area: "customer_operations",
+      action: "staff_control.customer.access_suspend",
+      entityType: "organization", entityId: req.params.orgId,
+      status: "ok", reason: req.sccReason, confirmed: true, riskLevel: "high",
+      ...auditContextFromReq(req),
+      details: { suspended_kind: result.row.suspended_kind, suspended_at: result.row.suspended_at }
+    });
+    res.json({ success: true, data: result.row });
+  });
+
+  router.post("/customers/:orgId/reactivate", requireStaff, mfaGuard, requireStepUp, requireConfirmAndReason, async (req, res) => {
+    const result = await orgSuspension.reactivateOrgAccess(pool, {
+      orgId: req.params.orgId,
+      reason: req.sccReason
+    });
+    if (!result.ok) {
+      const code = result.error || "REACTIVATE_FAILED";
+      const status = code === "ORG_NOT_FOUND" ? 404 : code === "NOT_SUSPENDED" ? 409 : 400;
+      await writeStaffAudit(pool, {
+        actorId: req.sccActorId, area: "customer_operations",
+        action: "staff_control.customer.access_reactivate",
+        entityType: "organization", entityId: req.params.orgId,
+        status: "error", reason: req.sccReason, confirmed: true, riskLevel: "medium",
+        ...auditContextFromReq(req), details: { error: code }
+      });
+      return res.status(status).json({ success: false, error: { code } });
+    }
+    await writeStaffAudit(pool, {
+      actorId: req.sccActorId, area: "customer_operations",
+      action: "staff_control.customer.access_reactivate",
+      entityType: "organization", entityId: req.params.orgId,
+      status: "ok", reason: req.sccReason, confirmed: true, riskLevel: "medium",
+      ...auditContextFromReq(req), details: {}
+    });
+    res.json({ success: true, data: result.row });
   });
 
   // ── Billing Overview (Phase D Slice 2): read-only Operator-Sicht auf

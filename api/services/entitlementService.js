@@ -303,6 +303,7 @@ async function loadOrgRow(pool, orgId) {
             pilot_ended_at, converted_at, feature_bundle, account_type,
             individual_tier_auto, employee_count_approx, billing_mode, customer_stage,
             parent_org_id, is_active,
+            access_suspended_at, access_suspended_reason, access_suspended_kind,
             custom_limit_users, custom_limit_sites, custom_limit_listings,
             custom_limit_suppliers, custom_limit_multi_org_slots
        FROM organizations WHERE id = $1`,
@@ -339,6 +340,20 @@ async function loadOwnerSubscription(pool, orgId) {
 }
 
 function computeSubscriptionStatus({ orgRow, subscription, plan, pilotActive }) {
+  // Betreiber-Kill-Switch (Mig 127): manuelle Sperre durch Staff/Operator hat
+  // HOECHSTE Prioritaet — ueberschreibt pilot, individual_contract und jeden
+  // subscription.status. Soft-Lock: active=false blockt alle Feature-Pfade
+  // (evaluateFeature -> SUBSCRIPTION_INACTIVE), Login/Session bleiben unberuehrt.
+  if (orgRow && orgRow.access_suspended_at) {
+    return {
+      active: false,
+      status: "suspended",
+      pilot: false,
+      cancel_at: null,
+      reason: orgRow.access_suspended_reason
+        || "Zugang durch den Betreiber gesperrt. Bitte kontaktieren Sie das Tarif-Team."
+    };
+  }
   if (pilotActive) {
     return {
       active: true,
