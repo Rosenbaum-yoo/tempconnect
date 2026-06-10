@@ -61,6 +61,63 @@
     }
   }
 
+  // ── Deep-Link + Mark-Read beim Klick auf eine aktive (leuchtende) Card ──────
+  // Spiegel von api/services/notificationSurfaceMap.js — bei Aenderung dort synchron halten.
+  var TYPES_BY_SURFACE = {
+    deals: ["offer_received", "offer_accepted", "offer_rejected", "offer_counter_received", "offer_withdrawn", "deal_offer_sent", "deal_accepted", "deal_confirmed", "deal_assignment_started", "deal_staffing_ready", "deal_completed"],
+    requisitions: ["requisition_approval", "requisition_filled", "requisition_cancelled"],
+    marketplace: ["capacity_interest", "capacity_expiring", "capacity_match", "capacity_stale", "demand_match", "emergency_request", "emergency_escalation"],
+    vendor_pool: ["vendor_pool_change", "vendor_pool_blocked"],
+    trust_center: ["compliance_expiring", "compliance_expired", "compliance_verified"],
+    my_company: ["sla_warning", "sla_breached"],
+    assignments: ["timesheet_submitted", "timesheet_approved", "timesheet_rejected", "timesheet_signed"]
+  };
+
+  async function getCsrf() {
+    try { var r = await fetch("/api/csrf", { credentials: "include" }); var d = await r.json(); return d.csrfToken || d.token || ""; } catch (e) { return ""; }
+  }
+
+  function bindClicks() {
+    var cards = document.querySelectorAll(HUB_SELECTOR);
+    for (var i = 0; i < cards.length; i++) cards[i].addEventListener("click", onCardClick);
+  }
+
+  function onCardClick(e) {
+    if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button !== 0) return; // Neuer-Tab/Modifier normal lassen
+    var card = e.currentTarget;
+    if (!card.classList.contains("ds-hub-card--active")) return; // nur leuchtende Cards abfangen
+    var types = TYPES_BY_SURFACE[card.getAttribute("data-surface")];
+    if (!types || !types.length) return; // unbekannte Surface -> normale Navigation
+    e.preventDefault();
+    markReadAndGo(card, types);
+  }
+
+  // Holt die ungelesenen Notifications dieser Surface, springt zur konkreten Quelle
+  // (link_path der neuesten) und markiert alle als gelesen -> beim naechsten Mal kein Glow.
+  async function markReadAndGo(card, types) {
+    var fallback = card.getAttribute("data-base-href") || (card.getAttribute("href") || "").split("?")[0] || "/public/enterprise.html";
+    try {
+      var url = "/api/notifications?unread=true&limit=100&type=" + encodeURIComponent(types.join(","));
+      var pair = await Promise.all([
+        fetch(url, { credentials: "include", headers: { Accept: "application/json" } }),
+        getCsrf()
+      ]);
+      var res = pair[0], tok = pair[1];
+      var data = res && res.ok ? await res.json() : { items: [] };
+      var items = (data && data.items) || [];
+      var target = (items[0] && items[0].link_path) || fallback; // ORDER BY created_at DESC -> neueste zuerst
+      for (var i = 0; i < items.length; i++) {
+        fetch("/api/notifications/" + encodeURIComponent(items[i].id) + "/read", {
+          method: "PATCH", credentials: "include", keepalive: true,
+          headers: tok ? { "x-csrf-token": tok } : {}
+        });
+      }
+      window.location.href = target;
+    } catch (err) {
+      window.location.href = fallback;
+    }
+  }
+
   async function refresh() {
     try {
       var res = await fetch(SUMMARY_URL, {
@@ -77,6 +134,7 @@
 
   function start() {
     if (!document.querySelector(HUB_SELECTOR)) return; // nur auf Hub-Seiten aktiv
+    bindClicks();
     refresh();
     setInterval(refresh, POLL_MS);
     // Andere Flows (z. B. nach Deal-Abschluss) koennen sofort aktualisieren.
