@@ -2221,7 +2221,7 @@ a:hover { color: var(--ds-brand-hover); }
 }
 
 /* P2.1 (rev 2026-06-09): Hub-Cards — Ruhe CREME wie Inhalts-Karten (#ebe4d3, dunkle Schrift);
-   nur AKTIV (Benachrichtigung wartet) -> helle Raised-Creme #fffdf6 + dezenter Gold-Ring/Glow (sanfter Puls) + Zahl-Badge. */
+   nur AKTIV (Benachrichtigung wartet) -> etwas dunklere Creme #d8cba8 (dunkler als die Ruhe-Cards, nicht heller) + dezenter Gold-Ring/Glow (sanfter Puls) + Zahl-Badge. */
 [data-theme="editorial"] .ds-hub-card {
   background: #ebe4d3;
   border-color: #d4cab3;
@@ -2230,8 +2230,8 @@ a:hover { color: var(--ds-brand-hover); }
 [data-theme="editorial"] .ds-hub-card .ds-hub-card__eyebrow { color: #b8935a; }
 [data-theme="editorial"] .ds-hub-card:hover { border-color: rgba(31, 58, 46, 0.3); }
 [data-theme="editorial"] .ds-hub-card--active {
-  background: #fffdf6;
-  border-color: #c9a86a;
+  background: #d8cba8;
+  border-color: #bfa05f;
   box-shadow: 0 0 0 1.5px rgba(201, 168, 106, 0.55), 0 10px 30px -8px rgba(31, 58, 46, 0.16);
   animation: tcHubGlow 3.4s ease-in-out infinite;
 }
