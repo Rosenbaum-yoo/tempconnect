@@ -2221,7 +2221,7 @@ a:hover { color: var(--ds-brand-hover); }
 }
 
 /* P2.1 (rev 2026-06-09): Hub-Cards — Ruhe CREME wie Inhalts-Karten (#ebe4d3, dunkle Schrift);
-   nur AKTIV (Benachrichtigung wartet) -> etwas dunklere Creme #d8cba8 (dunkler als die Ruhe-Cards, nicht heller) + dezenter Gold-Ring/Glow (sanfter Puls) + Zahl-Badge. */
+   nur AKTIV (Benachrichtigung wartet) -> GLEICHE Creme wie Ruhe-Cards + Gold-Ring + dezenter Glow-Puls + staerkerer Hover + Zahl-Badge (Hover auf der Zahl zeigt den Inhalt). */
 [data-theme="editorial"] .ds-hub-card {
   background: #ebe4d3;
   border-color: #d4cab3;
@@ -2230,20 +2230,20 @@ a:hover { color: var(--ds-brand-hover); }
 [data-theme="editorial"] .ds-hub-card .ds-hub-card__eyebrow { color: #b8935a; }
 [data-theme="editorial"] .ds-hub-card:hover { border-color: rgba(31, 58, 46, 0.3); }
 [data-theme="editorial"] .ds-hub-card--active {
-  background: #d8cba8;
+  background: #ebe4d3;
   border-color: #bfa05f;
-  box-shadow: 0 0 0 1.5px rgba(201, 168, 106, 0.55), 0 10px 30px -8px rgba(31, 58, 46, 0.16);
-  animation: tcHubGlow 3.4s ease-in-out infinite;
+  box-shadow: 0 0 0 1.5px rgba(191, 160, 95, 0.5), 0 6px 20px -10px rgba(31, 58, 46, 0.12);
+  animation: tcHubGlow 3.6s ease-in-out infinite;
 }
-[data-theme="editorial"] .ds-hub-card--active .ds-hub-card__eyebrow { color: #9a7b3e; }
-[data-theme="editorial"] .ds-hub-card--active .ds-hub-card__icon {
-  background: rgba(201, 168, 106, 0.16);
-  border-color: rgba(201, 168, 106, 0.42);
-  color: #6b5424;
+/* AKTIV reagiert auf Hover spuerbar staerker als die Ruhe-Cards (die nur -2px heben). */
+[data-theme="editorial"] .ds-hub-card--active:hover {
+  animation: none;
+  transform: translateY(-5px) scale(1.012);
+  box-shadow: 0 0 0 1.5px rgba(191, 160, 95, 0.82), 0 16px 36px -8px rgba(31, 58, 46, 0.24);
 }
 @keyframes tcHubGlow {
-  0%, 100% { box-shadow: 0 0 0 1.5px rgba(201, 168, 106, 0.42), 0 8px 26px -10px rgba(31, 58, 46, 0.14); }
-  50%      { box-shadow: 0 0 0 1.5px rgba(201, 168, 106, 0.72), 0 12px 34px -8px rgba(31, 58, 46, 0.22); }
+  0%, 100% { box-shadow: 0 0 0 1.5px rgba(191, 160, 95, 0.38), 0 6px 18px -10px rgba(31, 58, 46, 0.10); }
+  50%      { box-shadow: 0 0 0 1.5px rgba(191, 160, 95, 0.62), 0 10px 26px -8px rgba(31, 58, 46, 0.18); }
 }
 @media (prefers-reduced-motion: reduce) {
   [data-theme="editorial"] .ds-hub-card--active { animation: none; }
