@@ -2,6 +2,8 @@
  * Auth-Service: SQL-Queries fuer Registrierung, Login, Verifizierung, Passwort-Reset.
  */
 
+import { normalizePlanKey } from "../config/planCatalog.js";
+
 /** Prueft ob E-Mail bereits existiert. */
 export async function emailExists(pool, email) {
   const r = await pool.query("SELECT 1 FROM users WHERE email=$1", [email]);
@@ -25,10 +27,11 @@ export async function setUserGeo(pool, userId, lat, lng) {
 
 /** Abo anlegen. */
 export async function createSubscription(pool, userId, plan) {
-  let normalizedPlan = String(plan || "FREE").toUpperCase();
-  if (normalizedPlan === "DEMO") normalizedPlan = "FREE";
-  if (normalizedPlan === "ENTERPRISE" || normalizedPlan === "INDIVIDUAL") normalizedPlan = "INDIVIDUELL";
-  const interval = ["FREE", "DEMO"].includes(normalizedPlan) ? "14 days" : "1 month";
+  // Kanonisierung ueber die zentrale Quelle (planCatalog). Liefert ausschliesslich
+  // DEMO/BASIS/PLUS/PRO/INDIVIDUELL — exakt die von `subscriptions_plan_check`
+  // (Migration 102) erlaubten Werte. FREE/""/TRIAL -> DEMO, ENTERPRISE/INDIVIDUAL -> INDIVIDUELL.
+  const normalizedPlan = normalizePlanKey(plan);
+  const interval = normalizedPlan === "DEMO" ? "14 days" : "1 month";
   await pool.query(
     `INSERT INTO subscriptions (user_id, plan, status, current_period_start, current_period_end)
      VALUES ($1, $2, 'active', NOW(), NOW() + INTERVAL '${interval}')`,
@@ -108,12 +111,9 @@ export async function createOrgWithMembership(pool, userId, { orgName, orgType, 
   let slug = (orgName || 'org').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
   slug = slug + '-' + Math.random().toString(36).substring(2, 8);
 
-  // Sichergestellt: plan muss in der CHECK-Constraint von organizations liegen.
-  // Constraint erlaubt: DEMO, BASIS, PLUS, PRO, INDIVIDUELL
-  const ALLOWED_ORG_PLANS = ['DEMO', 'BASIS', 'PLUS', 'PRO', 'INDIVIDUELL'];
-  const orgPlan = (plan && ALLOWED_ORG_PLANS.includes(String(plan).toUpperCase()))
-    ? String(plan).toUpperCase()
-    : 'DEMO';
+  // Plan kanonisieren ueber die zentrale Quelle (planCatalog). Ergebnis liegt immer
+  // in der CHECK-Constraint von organizations (DEMO/BASIS/PLUS/PRO/INDIVIDUELL).
+  const orgPlan = normalizePlanKey(plan);
 
   const client = await pool.connect();
   try {

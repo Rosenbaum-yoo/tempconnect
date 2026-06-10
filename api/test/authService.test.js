@@ -146,6 +146,28 @@ describe("createSubscription", () => {
     assert.ok(pool.queries[0].sql.includes("INSERT INTO subscriptions"));
     assert.deepStrictEqual(pool.queries[0].params, ["user-1", "PRO"]);
   });
+
+  // Regression (Plan-Normalisierung via normalizePlanKey): der alte Pfad mappte
+  // DEMO -> 'FREE' und schrieb 'FREE' in subscriptions.plan, was die CHECK-Constraint
+  // subscriptions_plan_check (Mig 102: nur DEMO/BASIS/PLUS/PRO/INDIVIDUELL) verletzt
+  // haette. Jetzt constraint-konform: FREE/''/DEMO/undefined -> 'DEMO' (14-Tage-Trial).
+  it("maps FREE/empty/DEMO/undefined to constraint-safe 'DEMO' with 14-day trial", async () => {
+    for (const input of ["FREE", "", "DEMO", undefined]) {
+      const pool = mockPool({ rowCount: 1 });
+      await createSubscription(pool, "user-1", input);
+      assert.strictEqual(pool.queries[0].params[1], "DEMO", `plan ${String(input)} -> DEMO`);
+      assert.ok(pool.queries[0].sql.includes("INTERVAL '14 days'"), "DEMO -> 14-Tage-Trial");
+    }
+  });
+
+  it("canonicalizes ENTERPRISE/INDIVIDUAL aliases to 'INDIVIDUELL' with 1-month interval", async () => {
+    for (const input of ["ENTERPRISE", "INDIVIDUAL", "individuell"]) {
+      const pool = mockPool({ rowCount: 1 });
+      await createSubscription(pool, "user-1", input);
+      assert.strictEqual(pool.queries[0].params[1], "INDIVIDUELL", `plan ${input} -> INDIVIDUELL`);
+      assert.ok(pool.queries[0].sql.includes("INTERVAL '1 month'"), "INDIVIDUELL -> Monatsintervall");
+    }
+  });
 });
 
 /* ═══════════════════════════════════════════════════════════
@@ -378,5 +400,25 @@ describe("createOrgWithMembership", () => {
       { message: "db_down" }
     );
     assert.strictEqual(released, true, "Client must be released even if ROLLBACK fails");
+  });
+
+  // Plan-Kanonisierung (normalizePlanKey): org.plan landet immer in der CHECK-Constraint
+  // von organizations (DEMO/BASIS/PLUS/PRO/INDIVIDUELL) — Aliase werden gemappt.
+  it("canonicalizes plan alias to a constraint-safe org plan (enterprise -> INDIVIDUELL)", async () => {
+    const pool = txPool("org-plan-1");
+    await createOrgWithMembership(pool, "user-1", {
+      orgName: "Plan GmbH", orgType: "company", roleKey: "owner", plan: "enterprise"
+    });
+    const insertOrg = pool.queries.find(q => q.sql.includes("INSERT INTO organizations"));
+    assert.ok(insertOrg.params.includes("INDIVIDUELL"), "enterprise -> INDIVIDUELL");
+  });
+
+  it("falls back to 'DEMO' for an unknown plan value (constraint-safe)", async () => {
+    const pool = txPool("org-plan-2");
+    await createOrgWithMembership(pool, "user-1", {
+      orgName: "X", orgType: "company", roleKey: "owner", plan: "voellig-unbekannt"
+    });
+    const insertOrg = pool.queries.find(q => q.sql.includes("INSERT INTO organizations"));
+    assert.ok(insertOrg.params.includes("DEMO"), "unbekannt -> DEMO");
   });
 });
