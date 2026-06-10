@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Einladung annehmen · TempConnect</title>
+  <link rel="stylesheet" href="/public/css/design-system.css">
+  <script src="/public/js/theme.js"></script>
+  <style>
+    body{background:var(--ds-bg);color:var(--ds-text);font-family:var(--ds-font-sans,system-ui,sans-serif);margin:0;min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px}
+    .inv-card{background:var(--ds-surface,var(--ds-raised,var(--ds-bg)));border:1px solid var(--ds-border);border-radius:16px;max-width:460px;width:100%;padding:32px;box-shadow:0 10px 40px rgba(20,32,26,.10)}
+    .inv-eyebrow{font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--ds-brand,#b8935a);font-weight:700;margin-bottom:8px}
+    .inv-title{font-size:22px;font-weight:800;margin:0 0 6px}
+    .inv-sub{font-size:14px;color:var(--ds-text-secondary);margin:0 0 20px;line-height:1.5}
+    .inv-row{display:flex;justify-content:space-between;gap:12px;padding:10px 0;border-bottom:1px solid var(--ds-border);font-size:14px}
+    .inv-row span:first-child{color:var(--ds-text-secondary)}
+    .inv-btn{display:block;width:100%;margin-top:20px;padding:12px;border:none;border-radius:10px;background:var(--ds-brand,#1f3a2e);color:var(--ds-text-inverse,#faf7ee);font-size:15px;font-weight:700;cursor:pointer;text-align:center;text-decoration:none;box-sizing:border-box}
+    .inv-btn:disabled{opacity:.5;cursor:not-allowed}
+    .inv-msg{margin-top:14px;font-size:13px;text-align:center}
+    .inv-link{color:var(--ds-brand,#1f3a2e);font-weight:600}
+  </style>
+</head>
+<body>
+  <div class="inv-card">
+    <div class="inv-eyebrow">TempConnect</div>
+    <h1 class="inv-title">Einladung</h1>
+    <div id="body"><p class="inv-sub">Einladung wird geladen …</p></div>
+  </div>
+  <script>
+    function esc(s){return s==null?'':String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
+    var token=new URLSearchParams(location.search).get('token')||'';
+    var _csrf='';
+    async function getCSRF(){if(_csrf)return _csrf;try{var r=await fetch('/api/csrf',{credentials:'include'});var d=await r.json();_csrf=d.token||'';return _csrf;}catch(e){return'';}}
+    var ROLE_LABEL={member:'Mitglied',admin:'Admin',program_manager:'Programm-Manager',hiring_manager:'Hiring-Manager',supplier_manager:'Supplier-Manager',finance:'Finanzen',recruiter:'Recruiter',dispatcher:'Dispatcher',supplier_user:'Lieferant',viewer:'Betrachter'};
+
+    async function load(){
+      var body=document.getElementById('body');
+      if(!token){body.innerHTML='<p class="inv-sub">Dieser Einladungslink ist unvollständig oder ungültig.</p>';return;}
+      var r;
+      try{r=await fetch('/api/org/invitations/lookup?token='+encodeURIComponent(token),{credentials:'include'});}
+      catch(e){body.innerHTML='<p class="inv-sub">Verbindungsfehler. Bitte später erneut versuchen.</p>';return;}
+      if(r.status===401){
+        body.innerHTML='<p class="inv-sub">Um die Einladung anzunehmen, melden Sie sich bitte zuerst mit der <strong>eingeladenen E-Mail-Adresse</strong> an (oder legen Sie ein Konto an) und öffnen Sie diesen Link danach erneut.</p>'+
+          '<a class="inv-btn" href="/">Zur Anmeldung</a>';
+        return;
+      }
+      var d=await r.json().catch(function(){return null;});
+      if(!r.ok||!d||!d.success){body.innerHTML='<p class="inv-sub">Diese Einladung ist ungültig, zurückgezogen oder abgelaufen.</p>';return;}
+      var inv=d.data;
+      body.innerHTML=
+        '<p class="inv-sub">Sie wurden eingeladen, einer Organisation auf TempConnect beizutreten.</p>'+
+        '<div class="inv-row"><span>Organisation</span><strong>'+esc(inv.org_name)+'</strong></div>'+
+        '<div class="inv-row"><span>Rolle</span><strong>'+esc(ROLE_LABEL[inv.role_key]||inv.role_key)+'</strong></div>'+
+        '<div class="inv-row"><span>E-Mail</span><strong>'+esc(inv.email)+'</strong></div>'+
+        '<button class="inv-btn" id="acceptBtn">Einladung annehmen</button>'+
+        '<div class="inv-msg" id="msg"></div>';
+      document.getElementById('acceptBtn').addEventListener('click',accept);
+    }
+
+    async function accept(){
+      var btn=document.getElementById('acceptBtn'),msg=document.getElementById('msg');
+      btn.disabled=true;msg.style.color='var(--ds-text-secondary)';msg.textContent='Wird angenommen …';
+      var r;
+      try{
+        r=await fetch('/api/org/invitations/accept',{method:'POST',credentials:'include',
+          headers:{'Content-Type':'application/json','x-csrf-token':await getCSRF()},body:JSON.stringify({token:token})});
+      }catch(e){msg.style.color='var(--ds-danger,#c0392b)';msg.textContent='Verbindungsfehler.';btn.disabled=false;return;}
+      var d=await r.json().catch(function(){return null;});
+      if(r.ok&&d&&d.success){
+        msg.style.color='var(--ds-success,#1f5a3f)';msg.textContent='Beigetreten! Sie werden weitergeleitet …';
+        setTimeout(function(){location.href='/public/enterprise.html';},1200);
+      }else{
+        var code=(d&&d.error&&d.error.code)||'Fehler';
+        var m={EMAIL_MISMATCH:'Bitte melden Sie sich mit der eingeladenen E-Mail-Adresse an.',INVITE_INVALID:'Diese Einladung ist ungültig oder abgelaufen.',MISSING_TOKEN:'Ungültiger Einladungslink.'}[code]||('Fehler: '+code);
+        msg.style.color='var(--ds-danger,#c0392b)';msg.textContent=m;btn.disabled=false;
+      }
+    }
+    load();
+  </script>
+</body>
+</html>

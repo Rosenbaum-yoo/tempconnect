@@ -203,7 +203,10 @@ export function createOrgControlCenterRouter(deps) {
 
   const inviteSchema = z.object({
     email: z.string().email().max(320),
-    role_key: z.enum(["admin", "member"]).optional().default("member")
+    role_key: z.enum([
+      "admin", "program_manager", "hiring_manager", "supplier_manager",
+      "finance", "recruiter", "dispatcher", "member", "supplier_user", "viewer"
+    ]).optional().default("member")
   });
   const inviteErrStatus = { ORG_REQUIRED: 400, INVALID_EMAIL: 400, INVALID_ROLE: 400, ALREADY_MEMBER: 409, INVITE_PENDING: 409, INVITE_INVALID: 400, EMAIL_MISMATCH: 403 };
 

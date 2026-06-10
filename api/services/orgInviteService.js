@@ -2,7 +2,8 @@
  * Org-Invitation-Service (Fixplan 3.3 / §0 Enterprise-Luecke): Org-Mitglieder per E-Mail-Token
  * einladen + annehmen. Sicherheit:
  *  - Token nur als SHA-256-Hash in der DB (Klartext nur einmalig fuer den Mail-Link).
- *  - Einladbare Rollen NUR admin/member -> kein 'owner'/'worker' per Invite (kein Privilege-Escalation).
+ *  - Einladbare Rollen: alle org-internen Rollen AUSSER owner/worker/platform_admin (siehe INVITABLE_ROLES)
+ *    -> kein Privilege-Escalation (Eigentuemerschaft/Worker/Plattform werden nie per Invite vergeben).
  *  - Single-Use + Ablauf (7 Tage); pro (org, email) max. 1 offene Einladung.
  *  - Accept verlangt Email-Match (annehmender Nutzer == eingeladene Adresse) + laeuft transaktional.
  */
@@ -10,7 +11,12 @@ import crypto from "node:crypto";
 import { withTransaction } from "../utils/transaction.js";
 
 export const INVITE_TTL_DAYS = 7;
-export const INVITABLE_ROLES = ["admin", "member"];
+// Deckungsgleich mit updateMemberSchema (orgControlCenter) minus 'owner' (kein Escalation).
+// owner/worker/platform_admin sind bewusst NICHT einladbar.
+export const INVITABLE_ROLES = [
+  "admin", "program_manager", "hiring_manager", "supplier_manager",
+  "finance", "recruiter", "dispatcher", "member", "supplier_user", "viewer"
+];
 
 function err(message, status) { const e = new Error(message); e.status = status; return e; }
 function hashToken(raw) { return crypto.createHash("sha256").update(String(raw)).digest("hex"); }

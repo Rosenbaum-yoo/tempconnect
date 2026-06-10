@@ -4,7 +4,7 @@
  */
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
-import { createInvite, acceptInvite, revokeInvite, getInviteByToken } from "../services/orgInviteService.js";
+import { createInvite, acceptInvite, revokeInvite, getInviteByToken, INVITABLE_ROLES } from "../services/orgInviteService.js";
 
 function capturePool(responder) {
   const calls = [];
@@ -12,10 +12,25 @@ function capturePool(responder) {
 }
 
 describe("orgInviteService — Sicherheit + Logik", () => {
-  it("createInvite lehnt owner/worker ab (kein Privilege-Escalation per Invite)", async () => {
+  it("createInvite lehnt owner/worker/platform_admin ab (kein Privilege-Escalation per Invite)", async () => {
     const pool = capturePool(() => ({ rows: [] }));
-    await assert.rejects(() => createInvite(pool, { orgId: "o1", email: "a@b.de", roleKey: "owner" }), /INVALID_ROLE/);
-    await assert.rejects(() => createInvite(pool, { orgId: "o1", email: "a@b.de", roleKey: "worker" }), /INVALID_ROLE/);
+    for (const role of ["owner", "worker", "platform_admin"]) {
+      await assert.rejects(() => createInvite(pool, { orgId: "o1", email: "a@b.de", roleKey: role }), /INVALID_ROLE/, `${role} muss abgelehnt werden`);
+    }
+  });
+
+  it("createInvite akzeptiert alle INVITABLE_ROLES (deckungsgleich mit Mitgliederverwaltung)", async () => {
+    for (const role of INVITABLE_ROLES) {
+      let storedRole = null;
+      const pool = capturePool((sql, params) => {
+        if (sql.includes("org_memberships")) return { rows: [] };
+        if (sql.includes("INSERT INTO org_invitations")) { storedRole = params[2]; return { rows: [{ id: "i1", role_key: role, status: "pending" }] }; }
+        return { rows: [] };
+      });
+      const { invite } = await createInvite(pool, { orgId: "o1", email: "a@b.de", roleKey: role });
+      assert.equal(storedRole, role, `role_key ${role} wird unveraendert gespeichert`);
+      assert.equal(invite.role_key, role);
+    }
   });
 
   it("createInvite lehnt ungueltige Email ab", async () => {

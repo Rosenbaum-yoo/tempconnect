@@ -110,6 +110,17 @@
 
     <!-- Members Panel -->
     <div class="occ-panel occ-panel--active" id="panel-members">
+      <div class="occ-card" style="margin-bottom:var(--ds-space-4)">
+        <div class="occ-card__title">Mitglied einladen</div>
+        <p style="font-size:12px;color:var(--ds-text-secondary);margin:0 0 var(--ds-space-3)">Per E-Mail einladen oder den Link manuell teilen. Zugang nach Annahme. Die Rolle bestimmt die Rechte nach Annahme &ndash; Owner-Rechte werden nie per Einladung vergeben.</p>
+        <div style="display:flex;flex-wrap:wrap;gap:var(--ds-space-2);align-items:flex-end">
+          <div style="flex:1;min-width:220px"><label style="font-size:11px;color:var(--ds-text-secondary);display:block;margin-bottom:3px">E-Mail</label><input type="email" id="invite-email" placeholder="name@firma.de" style="width:100%;padding:8px 10px;border:1px solid var(--ds-border);border-radius:var(--ds-radius-md);background:var(--ds-bg);color:var(--ds-text)"/></div>
+          <div><label style="font-size:11px;color:var(--ds-text-secondary);display:block;margin-bottom:3px">Rolle</label><select id="invite-role" style="padding:8px 10px;border:1px solid var(--ds-border);border-radius:var(--ds-radius-md);background:var(--ds-bg);color:var(--ds-text)"><option value="member">Mitglied</option><option value="admin">Admin</option><option value="program_manager">Programm-Manager</option><option value="hiring_manager">Hiring-Manager</option><option value="supplier_manager">Supplier-Manager</option><option value="finance">Finanzen</option><option value="recruiter">Recruiter</option><option value="dispatcher">Dispatcher</option><option value="supplier_user">Lieferant</option><option value="viewer">Betrachter</option></select></div>
+          <button class="occ-btn occ-btn--primary" onclick="inviteMember()">Einladen</button>
+        </div>
+        <div id="invite-feedback" style="margin-top:var(--ds-space-2);font-size:12px"></div>
+        <div id="invites-list" style="margin-top:var(--ds-space-3)"></div>
+      </div>
       <div id="members-list"></div>
     </div>
 
@@ -393,7 +404,45 @@
     function _mkDeptOpts(selectedId){
       return '<option value="">– kein –</option>'+_departments.map(function(d){return '<option value="'+esc(d.id)+'"'+(d.id===selectedId?' selected':'')+'>'+esc(d.name)+'</option>';}).join('');
     }
+    async function inviteMember(){
+      const email=(document.getElementById('invite-email').value||'').trim();
+      const role=document.getElementById('invite-role').value;
+      const fb=document.getElementById('invite-feedback');
+      if(!email){fb.style.color='var(--ds-danger,#c0392b)';fb.textContent='Bitte E-Mail angeben.';return;}
+      fb.style.color='var(--ds-text-secondary)';fb.textContent='Sende Einladung …';
+      const r=await api('/org/members/invite',{method:'POST',body:JSON.stringify({email:email,role_key:role})});
+      if(r&&r.success){
+        document.getElementById('invite-email').value='';
+        fb.style.color='var(--ds-success,#1f5a3f)';
+        fb.innerHTML='Einladung versendet. Link zum manuellen Teilen: <a href="'+esc(r.data.invite_url)+'">'+esc(r.data.invite_url)+'</a>';
+        loadInvites();
+      }else{
+        const code=(r&&r.error&&r.error.code)||'Fehler';
+        const msg={ALREADY_MEMBER:'Diese Person ist bereits Mitglied.',INVITE_PENDING:'Es existiert bereits eine offene Einladung.',INVALID_EMAIL:'Ungültige E-Mail-Adresse.',INVALID_ROLE:'Ungültige Rolle.'}[code]||('Fehler: '+code);
+        fb.style.color='var(--ds-danger,#c0392b)';fb.textContent=msg;
+      }
+    }
+    async function loadInvites(){
+      const el=document.getElementById('invites-list');if(!el)return;
+      const d=await api('/org/invitations');
+      if(!d||!d.success||!d.data.items.length){el.innerHTML='';return;}
+      let html='<div style="font-size:11px;color:var(--ds-text-secondary);margin-bottom:6px">Offene Einladungen</div>';
+      for(const i of d.data.items){
+        html+='<div style="display:flex;align-items:center;gap:10px;padding:6px 0;border-bottom:1px solid var(--ds-border)">';
+        html+='<span style="flex:1;min-width:0">'+esc(i.email)+' <span class="occ-badge occ-badge--gray">'+esc(i.role_key)+'</span></span>';
+        html+='<span style="font-size:11px;color:var(--ds-text-secondary)">läuft ab '+esc(String(i.expires_at||'').substring(0,10))+'</span>';
+        html+='<button class="occ-btn" style="font-size:11px;padding:4px 10px" onclick="revokeInvite(\''+esc(i.id)+'\')">Zurückziehen</button>';
+        html+='</div>';
+      }
+      el.innerHTML=html;
+    }
+    async function revokeInvite(id){
+      const r=await api('/org/invitations/'+encodeURIComponent(id),{method:'DELETE'});
+      if(r&&r.success){loadInvites();}
+    }
+
     async function loadMembers(){
+      loadInvites();
       const d=await api('/org/members');
       if(!d||!d.success)return;
       const items=d.data.items;
