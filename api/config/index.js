@@ -4,6 +4,7 @@
 
 import dotenv from "dotenv";
 import pino from "pino";
+import { describeBilling } from "../services/billingProviderService.js";
 
 dotenv.config();
 
@@ -184,6 +185,19 @@ export const logger = pino({
  * INTERNAL_CRON_SECRET ist für Cron-Jobs (expire-reservations, sla-scan, cleanup-idempotency) Pflicht.
  */
 export function runProductionValidation() {
+  // Billing-Startdiagnostik (alle Umgebungen ausser Tests): macht Stripe/Billing-
+  // Fehlkonfiguration beim Boot sichtbar (sonst in non-prod still). Leakt keine Secrets.
+  if (process.env.NODE_ENV !== "test") {
+    try {
+      const b = describeBilling(config);
+      if (b.warnings.length) {
+        logger.warn({ provider: b.provider, payment_mode: b.payment_mode }, "Billing-Konfiguration: " + b.warnings.join(" | "));
+      } else {
+        logger.info({ provider: b.provider, payment_mode: b.payment_mode, stripe_configured: b.stripe_configured }, "Billing-Provider aktiv");
+      }
+    } catch (e) { /* Diagnostik darf den Start nie blockieren */ }
+  }
+
   if (process.env.NODE_ENV !== "production") return;
   const fatal = (msg) => { logger.fatal(msg); process.exit(1); };
 

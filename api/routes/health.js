@@ -4,6 +4,7 @@ import * as platformMetrics from "../services/platformMetricsService.js";
 import * as searchService from "../services/searchService.js";
 import { isQueueAvailable } from "../queue/connection.js";
 import { isMonitoringActive, captureException } from "../utils/monitoring.js";
+import { describeBilling } from "../services/billingProviderService.js";
 
 /** LB health: no DB, just 200 OK. Register in server as app.get("/health", simpleHealthHandler). */
 export function simpleHealthHandler(req, res) {
@@ -80,6 +81,9 @@ export function createHealthRouter(deps) {
         uptime: Math.floor(process.uptime()),
         started_at: new Date(Date.now() - process.uptime() * 1000).toISOString(),
         migrations,
+        // Billing/Stripe-Selbstauskunft (placeholder-aware, KEINE Secrets): Provider,
+        // payment_mode, Capabilities + Warnungen bei Fehlkonfiguration (Key/Webhook fehlt).
+        billing: describeBilling(config),
         service: "api",
         ts: new Date().toISOString()
       });
@@ -135,10 +139,12 @@ export function createHealthRouter(deps) {
       : { status: "unconfigured", note: "SMTP_HOST not set — emails will be skipped" };
 
     // ── Stripe ─────────────────────────────────────────────
-    const stripeConfigured = !!(config.STRIPE_SECRET_KEY);
-    checks.stripe = stripeConfigured
-      ? { status: "configured", webhook_secret: !!(config.STRIPE_WEBHOOK_SECRET) }
-      : { status: "unconfigured", note: "running in demo payment mode" };
+    // Placeholder-aware: ein Platzhalter-Key (sk_test_demo o.ae.) zaehlt NICHT als
+    // konfiguriert. Gleiche Wahrheitsquelle wie /payment/config + Billing-Resolver.
+    const billing = describeBilling(config);
+    checks.stripe = billing.stripe_configured
+      ? { status: "configured", webhook_secret: billing.capabilities.webhooks }
+      : { status: "unconfigured", note: "Demo-Zahlungsmodus (kein echter Stripe-Key)" };
 
     // ── Search ─────────────────────────────────────────────
     try {
