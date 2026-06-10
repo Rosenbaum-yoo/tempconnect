@@ -27,6 +27,7 @@
     '<a href="' + LEGAL_BASE + 'sla.html" class="ds-footer__link" style="' + linkStyle + '">Pulse SLA</a>' +
     '<a href="/public/about.html" class="ds-footer__link" style="' + linkStyle + '">Ueber uns</a>' +
     '<a href="/public/capacity_exchange_feed.html" class="ds-footer__link" style="' + linkStyle + '">Vermittlung</a>' +
+    '<a href="#" class="ds-footer__link" style="' + linkStyle + '" onclick="event.preventDefault();window.TCConsent&&window.TCConsent.open()">Cookie-Einstellungen</a>' +
     '</div>' +
     '<div class="ds-footer__copy" style="text-align:center;font-size:11px;color:var(--ds-text-tertiary,#5f6d8a)">' +
     '&copy; 2026 TempConnect &middot; Die B2B-Plattform fuer professionelles Workforce Management &middot; Hosting in Deutschland' +
@@ -36,6 +37,12 @@
   function inject() {
     var el = document.getElementById("tc-footer") || document.querySelector("[data-tc-footer]");
     if (el) el.innerHTML = footerHtml;
+    // Cookie-Consent global einmalig nachladen (unabhaengig vom Footer-Platzhalter).
+    if (!document.getElementById("tc-cookie-consent-js")) {
+      var s = document.createElement("script");
+      s.id = "tc-cookie-consent-js"; s.src = "/public/js/cookieConsent.js"; s.defer = true;
+      (document.head || document.documentElement).appendChild(s);
+    }
   }
 
   if (document.readyState === "loading") {
