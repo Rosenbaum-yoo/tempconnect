@@ -182,7 +182,7 @@
         btn.disabled = false;
         return;
       }
-      toast("success", "Danke!", "Ihre Bewertung wurde gespeichert.");
+      toast("success", "Danke!", "Bewertung eingereicht — wird nach kurzer Pruefung freigegeben.");
       btn.disabled = false;
       close();
       if (state.onDone) state.onDone();

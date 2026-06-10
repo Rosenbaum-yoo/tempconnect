@@ -51,7 +51,7 @@ export async function getUserRatings(pool, userId) {
 /** Durchschnittswerte fuer einen User. */
 export async function getRatingStats(pool, userId) {
   const r = await pool.query(
-    "SELECT COUNT(*) AS count, ROUND(AVG(stars)::numeric, 1) AS avg_stars, ROUND(AVG(reliability)::numeric, 1) AS avg_reliability, ROUND(AVG(communication)::numeric, 1) AS avg_communication, ROUND(AVG(quality)::numeric, 1) AS avg_quality FROM ratings WHERE rated_id = $1",
+    "SELECT COUNT(*) AS count, ROUND(AVG(r.stars)::numeric, 1) AS avg_stars, ROUND(AVG(r.reliability)::numeric, 1) AS avg_reliability, ROUND(AVG(r.communication)::numeric, 1) AS avg_communication, ROUND(AVG(r.quality)::numeric, 1) AS avg_quality FROM ratings r LEFT JOIN profile_review_moderation prm ON prm.rating_id = r.id WHERE r.rated_id = $1 AND (prm.id IS NULL OR prm.status = 'approved')",
     [userId]
   );
   return r.rows[0];

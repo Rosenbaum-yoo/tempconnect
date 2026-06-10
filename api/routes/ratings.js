@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { Router } from "express";
 import * as ratingService from "../services/ratingService.js";
+import * as contentModeration from "../services/contentModerationService.js";
 
 const ratingSchema = z.object({
   request_id: z.string().uuid(),
@@ -34,12 +35,25 @@ export function createRatingsRouter(deps) {
       if (await ratingService.checkExistingRating(pool, request_id, req.session.userId)) {
         return res.status(409).json({ error: "ALREADY_RATED" });
       }
-      const rating = await ratingService.submitRating(pool, {
+      // Auto-Moderation: Kommentar auf Schimpfwoerter/Beleidigungen pruefen.
+      let mod = { flagged: false, matches: [], severity: "none" };
+      if (comment) {
+        try { mod = await contentModeration.moderateComment(comment); }
+        catch (e) { logger.warn({ err: e }, "moderateComment failed"); }
+      }
+      // Alle Bewertungen laufen ueber die Staff-Moderation (pending) und werden erst nach Freigabe oeffentlich.
+      const rating = await ratingService.submitRatingModerated(pool, {
         requestId: request_id, raterId: req.session.userId, ratedId: rated_id,
         stars, reliability, communication, quality, comment
       });
-      res.locals.audit = { action: "rating.submit", entity_type: "rating", entity_id: rating.id, details: { request_id, rated_id, stars } };
-      res.json(rating);
+      // Verdaechtige Kommentare automatisch flaggen -> Staff sieht sie priorisiert in der Review-Queue.
+      if (mod.flagged) {
+        try { await ratingService.flagRating(pool, rating.id, null, "AUTO-Filter: " + mod.matches.map((m) => m.word).join(", ")); }
+        catch (e) { logger.warn({ err: e }, "auto-flag failed"); }
+        logger.info({ ratingId: rating.id, severity: mod.severity, matches: mod.matches.map((m) => m.word) }, "Rating auto-flagged (profanity)");
+      }
+      res.locals.audit = { action: "rating.submit", entity_type: "rating", entity_id: rating.id, details: { request_id, rated_id, stars, auto_flagged: mod.flagged } };
+      res.json({ id: rating.id, status: "pending_moderation" });
     } catch (e) {
       logger.error({ err: e }, "POST /api/ratings");
       res.status(500).json({ error: "SERVER_ERROR" });
@@ -50,7 +64,7 @@ export function createRatingsRouter(deps) {
     const userId = String(req.params.id);
     try {
       const [ratings, stats] = await Promise.all([
-        ratingService.getUserRatings(pool, userId),
+        ratingService.getPublicRatings(pool, userId),
         ratingService.getRatingStats(pool, userId)
       ]);
       res.json({ ratings, stats });
