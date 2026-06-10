@@ -118,3 +118,19 @@ export async function findRetentionDue(pool, limit = 200) {
   );
   return rows;
 }
+
+/** Retention-Purge (Cron, DSGVO/GoBD): loescht atomar die faelligen Zeilen und gibt deren
+ *  file_refs zurueck, damit der Aufrufer die Dateien physisch entfernt (echte Loeschung). */
+export async function purgeRetentionDue(pool, { limit = 200 } = {}) {
+  const { rows } = await pool.query(
+    `DELETE FROM document_center
+     WHERE id IN (
+       SELECT id FROM document_center
+       WHERE retention_delete_at IS NOT NULL AND retention_delete_at < NOW()
+       ORDER BY retention_delete_at ASC LIMIT $1
+     )
+     RETURNING id, file_ref`,
+    [limit]
+  );
+  return { deleted: rows.length, file_refs: rows.filter((r) => r.file_ref).map((r) => r.file_ref) };
+}

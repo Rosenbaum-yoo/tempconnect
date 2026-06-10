@@ -15,6 +15,9 @@ import * as invoiceService from "../services/invoiceService.js";
 import * as assignmentStaffingService from "../services/assignmentStaffingService.js";
 import * as subscriptionLifecycle from "../services/subscriptionLifecycleService.js";
 import * as infrastructureSnapshotService from "../services/infrastructureSnapshotService.js";
+import * as documentCenterService from "../services/documentCenterService.js";
+import fs from "node:fs";
+import path from "node:path";
 
 /**
  * @param {{ pool, config, cronRateLimit, logger, sendMail }} deps
@@ -85,6 +88,27 @@ export function createInternalRouter(deps) {
       res.json({ ok: true, overdue_marked: overdueMarked });
     } catch (e) {
       logger.error({ err: e, path: "invoice-overdue-scan", clientIp }, "Cron invoice-overdue-scan failed");
+      res.status(500).json({ error: "SERVER_ERROR" });
+    }
+  });
+
+  /* Document-Center Retention-Sweep (DSGVO/GoBD): loescht Dokumente, deren
+     retention_delete_at abgelaufen ist — DB-Zeile UND physische Datei. */
+  router.post("/internal/document-center-retention-sweep", cronRateLimit, checkCronAuth, async (req, res) => {
+    const clientIp = req.ip || req.socket?.remoteAddress || "unknown";
+    try {
+      const batch = Math.min(500, parseInt(req.body?.batch_size, 10) || 200);
+      const { deleted, file_refs } = await documentCenterService.purgeRetentionDue(pool, { limit: batch });
+      for (const ref of file_refs) {
+        try { fs.unlinkSync(path.join(process.cwd(), String(ref).replace(/^\//, ""))); } catch (_e) { /* Datei evtl. schon weg */ }
+      }
+      if (deleted > 0) {
+        await auditLog.writeAudit(pool, { action: "document_center.retention_purge", entity_type: "document_center", details: { deleted, batch } });
+      }
+      logger.info({ path: "document-center-retention-sweep", clientIp, deleted }, "Cron document-center retention sweep completed");
+      res.json({ ok: true, deleted });
+    } catch (e) {
+      logger.error({ err: e, path: "document-center-retention-sweep", clientIp }, "Cron document-center retention sweep failed");
       res.status(500).json({ error: "SERVER_ERROR" });
     }
   });
