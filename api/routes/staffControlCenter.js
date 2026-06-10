@@ -1698,30 +1698,14 @@ export function createStaffControlCenterRouter(deps) {
   /* ── Data Governance / DSGVO (org-uebergreifende Read-Only-Sicht fuer Staff) ─── */
   router.get("/data-governance/requests", requireStaff, async (req, res) => {
     try {
-      const limit = Math.min(200, parseInt(req.query.limit, 10) || 100);
+      const svc = await import("../services/staffDataGovernanceService.js");
+      const limit = parseInt(req.query.limit, 10) || 100;
       const status = req.query.status ? String(req.query.status) : null;
-      const params = [];
-      let where = "";
-      if (status) { params.push(status); where = `WHERE dgr.status = $${params.length}`; }
-      params.push(limit);
-      const { rows } = await pool.query(
-        `SELECT dgr.id, dgr.org_id, dgr.request_type, dgr.subject_type, dgr.subject_id,
-                dgr.status, dgr.created_at, dgr.completed_at, dgr.notes,
-                o.name AS org_name, u.email AS requester_email
-         FROM data_governance_requests dgr
-         LEFT JOIN organizations o ON o.id = dgr.org_id
-         LEFT JOIN users u ON u.id = dgr.requested_by
-         ${where}
-         ORDER BY dgr.created_at DESC
-         LIMIT $${params.length}`,
-        params
-      );
-      const { rows: cnt } = await pool.query(
-        "SELECT status, COUNT(*)::int AS n FROM data_governance_requests GROUP BY status"
-      );
-      const counts = {};
-      cnt.forEach((c) => { counts[c.status] = c.n; });
-      res.json({ success: true, data: { requests: rows, total: rows.length, counts } });
+      const [requests, counts] = await Promise.all([
+        svc.listGovernanceRequests(pool, { limit, status }),
+        svc.getGovernanceStatusCounts(pool),
+      ]);
+      res.json({ success: true, data: { requests, total: requests.length, counts } });
     } catch (err) {
       logger?.error({ err }, "SCC data-governance requests");
       res.status(500).json({ success: false, error: { code: "SCC_INTERNAL_ERROR" } });
@@ -1730,14 +1714,8 @@ export function createStaffControlCenterRouter(deps) {
 
   router.get("/data-governance/requests.csv", requireStaff, async (req, res) => {
     try {
-      const { rows } = await pool.query(
-        `SELECT dgr.id, o.name AS org_name, dgr.request_type, dgr.subject_type, dgr.status,
-                u.email AS requester_email, dgr.created_at, dgr.completed_at
-         FROM data_governance_requests dgr
-         LEFT JOIN organizations o ON o.id = dgr.org_id
-         LEFT JOIN users u ON u.id = dgr.requested_by
-         ORDER BY dgr.created_at DESC LIMIT 5000`
-      );
+      const svc = await import("../services/staffDataGovernanceService.js");
+      const rows = await svc.listGovernanceRequestsForCsv(pool, { limit: 5000 });
       const esc = (v) => { const s = v == null ? "" : String(v); return /[",\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s; };
       const out = [["id", "org", "typ", "subjekt", "status", "anforderer", "erstellt", "abgeschlossen"].join(",")];
       for (const r of rows) {
