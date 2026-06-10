@@ -7,6 +7,7 @@ import * as vendorPoolService from "../services/vendorPoolService.js";
 import { requirePermission } from "../middleware/rbac.js";
 import { requireCompanyOrg } from "../middleware/orgAccess.js";
 import { requireOrgFeature, requireOrgLimit } from "../middleware/entitlementGuard.js";
+import { getDealHistoryBucket } from "../services/dealHistoryService.js";
 
 const addSchema = z.object({
   client_org_id: z.string().uuid(),
@@ -123,6 +124,53 @@ export function createVendorPoolRouter(deps) {
       details: { client_org_id: req.orgId, supplier_org_id: parsed.data.supplier_org_id }
     };
     res.status(201).json(entry);
+  });
+
+  /** POST /vendor-pool/from-deal/:offerId – Lieferant aus erfolgreich abgeschlossenem Deal als PREFERRED aufnehmen.
+   *  Ein "Deal" ist ein offer (+demand_request); Parteien sind User-IDs -> Org-Aufloesung via users.org_id.
+   *  Nur der Auftraggeber (Requester-Org) darf den Lieferanten in SEINEN Pool aufnehmen; nur abgeschlossene Deals. */
+  router.post("/vendor-pool/from-deal/:offerId", requireAuth, supplierManagementGate, supplierLimitGate, requirePermission("vendor_pool.manage", { pool, logger }), companyOrg, async (req, res) => {
+    if (!req.orgId) return res.status(400).json({ error: "ORG_CONTEXT_REQUIRED" });
+    try {
+      const { rows } = await pool.query(
+        `SELECT o.id, o.status, o.agreement_status, o.end_date,
+                su.org_id AS supplier_org_id, suorg.name AS supplier_org_name,
+                du.org_id AS requester_org_id
+         FROM offers o
+         JOIN demand_requests d ON d.id = o.demand_request_id
+         LEFT JOIN users su ON su.id = o.supplier_company_id
+         LEFT JOIN users du ON du.id = d.requester_company_id
+         LEFT JOIN organizations suorg ON suorg.id = su.org_id
+         WHERE o.id = $1`,
+        [req.params.offerId]
+      );
+      const deal = rows[0];
+      if (!deal) return res.status(404).json({ error: "DEAL_NOT_FOUND" });
+      // Org-Boundary: nur der Auftraggeber des Deals darf in seinen eigenen Pool aufnehmen.
+      if (deal.requester_org_id !== req.orgId) return res.status(403).json({ error: "NOT_DEAL_REQUESTER" });
+      // Nur erfolgreich abgeschlossene Deals (kanonische Bucket-Definition, byte-identisch zur Deal-Historie).
+      if (getDealHistoryBucket(deal) !== "completed") return res.status(409).json({ error: "DEAL_NOT_COMPLETED" });
+      if (!deal.supplier_org_id) return res.status(409).json({ error: "SUPPLIER_NO_ORG" });
+      if (deal.supplier_org_id === req.orgId) return res.status(409).json({ error: "CANNOT_ADD_SELF" });
+
+      const entry = await vendorPoolService.addToPool(pool, {
+        client_org_id: req.orgId,
+        supplier_org_id: deal.supplier_org_id,
+        tier: "PREFERRED",
+        reason: "Aus erfolgreichem Deal " + deal.id,
+        assigned_by: req.session.userId
+      });
+      res.locals.audit = {
+        action: "vendor_pool.add_from_deal",
+        entity_type: "vendor_pool",
+        entity_id: entry.id,
+        details: { client_org_id: req.orgId, supplier_org_id: deal.supplier_org_id, offer_id: deal.id, tier: "PREFERRED" }
+      };
+      res.status(201).json({ ...entry, supplier_org_name: deal.supplier_org_name });
+    } catch (e) {
+      logger.error({ err: e }, "POST /vendor-pool/from-deal");
+      res.status(500).json({ error: "SERVER_ERROR" });
+    }
   });
 
   /** PATCH /vendor-pool/:id/tier – Tier aendern */

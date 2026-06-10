@@ -343,6 +343,20 @@
       return NEXT_ACTION_DETAIL[key] || NEXT_STEP[d.action_required] || null;
     }
 
+    async function addSupplierToPool(offerId, btn){
+      btn.disabled = true; var orig = btn.innerHTML; btn.innerHTML = 'Wird aufgenommen…';
+      try{
+        var tok = '';
+        try{ var rc = await fetch('/api/csrf',{credentials:'include'}); var dc = await rc.json(); tok = dc.csrfToken || dc.token || ''; }catch(e){}
+        var r = await fetch('/api/vendor-pool/from-deal/' + encodeURIComponent(offerId), { method:'POST', credentials:'include', headers:{'Content-Type':'application/json','x-csrf-token':tok} });
+        if(r.ok){ btn.innerHTML = '✓ Im Lieferantenpool'; btn.style.opacity = '.7'; return; }
+        var e = await r.json().catch(function(){return {};});
+        var code = e.error || '';
+        var msg = {DEAL_NOT_COMPLETED:'Nur abgeschlossene Deals koennen aufgenommen werden.',NOT_DEAL_REQUESTER:'Nur der Auftraggeber kann den Lieferanten aufnehmen.',SUPPLIER_NO_ORG:'Der Lieferant hat keine Organisation hinterlegt.',CANNOT_ADD_SELF:'Eigene Organisation kann nicht aufgenommen werden.',VENDOR_POOL_NOT_AVAILABLE_FOR_ORG_TYPE:'Lieferantenpool steht nur Unternehmen zur Verfuegung.'}[code] || ('Konnte nicht aufnehmen (' + (code||r.status) + ').');
+        btn.disabled = false; btn.innerHTML = orig; alert(msg);
+      }catch(err){ btn.disabled = false; btn.innerHTML = orig; alert('Netzwerkfehler.'); }
+    }
+
     function renderDeal(d) {
       var pct = progressPct(d);
       var agr = d.agreement_status || 'none';
@@ -377,6 +391,10 @@
       }
       if (nextDetail && !isCancelled) {
         html += '<div class="dm-card__nextstep"><strong>' + (isAction ? '\u25b6 Naechster Schritt: ' : '\u23f3 ') + '</strong>' + esc(nextDetail) + '</div>';
+      }
+      // Aus erfolgreichem Deal: Auftraggeber kann den Lieferanten als PREFERRED in den Pool aufnehmen.
+      if (isDone && d.viewer_role !== 'supplier') {
+        html += '<div style="margin-top:10px"><button onclick="event.stopPropagation();addSupplierToPool(\'' + esc(d.id) + '\',this)" style="font-size:12px;padding:6px 12px;border-radius:8px;border:1px solid var(--ds-brand,#1f3a2e);background:var(--ds-brand,#1f3a2e);color:#fff;cursor:pointer;font-weight:600">+ In Lieferantenpool (Preferred)</button></div>';
       }
       html += '</div>';
 
