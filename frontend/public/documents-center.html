@@ -76,6 +76,7 @@
       <div class="dc-field" style="margin:0"><label>Typ</label><select id="flt-type"></select></div>
       <div class="dc-field" style="margin:0"><label>Kategorie</label><select id="flt-cat"></select></div>
       <div class="dc-field" style="margin:0"><label>Status</label><select id="flt-status"><option value="">Alle</option><option value="active">Aktiv</option><option value="archived">Archiviert</option></select></div>
+      <button class="ds-btn" onclick="exportZip()" style="margin-left:auto">Als ZIP exportieren</button>
     </div>
 
     <div class="dc-card" style="padding:0;overflow-x:auto">
@@ -188,6 +189,13 @@
       if(!confirm("Dokument unwiderruflich loeschen?")) return;
       var tok=await getCSRF();
       try{ var r=await fetch(API+"/document-center/"+id,{method:"DELETE",credentials:"include",headers:{"x-csrf-token":tok}}); if(r.ok){ toast("Geloescht.",true); loadStats(); loadDocs(); } else toast("Loeschen fehlgeschlagen.",false); }catch(e){ toast("Netzwerkfehler.",false); }
+    };
+
+    window.exportZip = function(){
+      var p=new URLSearchParams();
+      var t=document.getElementById("flt-type").value, c=document.getElementById("flt-cat").value, st=document.getElementById("flt-status").value;
+      if(t) p.set("document_type",t); if(c) p.set("content_category",c); if(st) p.set("status",st);
+      window.location.href = API+"/document-center/export/zip?"+p.toString();
     };
 
     // Init

@@ -20,6 +20,7 @@ import fs from "fs";
 import * as documentCenterService from "../services/documentCenterService.js";
 import { requirePermission } from "../middleware/rbac.js";
 import { ok, fail } from "../utils/response.js";
+import archiver from "archiver";
 
 const ALLOWED_MIMES = ["application/pdf", "image/png", "image/jpeg", "image/webp"];
 const MAX_FILE_SIZE = 15 * 1024 * 1024; // 15 MB
@@ -75,6 +76,38 @@ export function createDocumentCenterRouter(deps) {
       if (!req.orgId) return fail(res, "ORG_CONTEXT_REQUIRED", "Keine Organisation im Kontext", 400);
       const stats = await documentCenterService.centerStats(pool, req.orgId);
       return ok(res, stats);
+    } catch (err) { next(err); }
+  });
+
+  /* ── GET /document-center/export/zip — Bulk-Download als ZIP ─── */
+  router.get("/document-center/export/zip", requireAuth, rperm("document_center.view"), async (req, res, next) => {
+    try {
+      if (!req.orgId) return fail(res, "ORG_CONTEXT_REQUIRED", "Keine Organisation im Kontext", 400);
+      const filters = { org_id: req.orgId, limit: 500 };
+      if (req.query.document_type) filters.document_type = req.query.document_type;
+      if (req.query.content_category) filters.content_category = req.query.content_category;
+      if (req.query.status) filters.status = req.query.status;
+      const items = await documentCenterService.listDocuments(pool, filters);
+      const withFiles = items.filter((it) => it.file_ref);
+      if (!withFiles.length) return fail(res, "NO_FILES", "Keine herunterladbaren Dateien vorhanden", 404);
+
+      res.setHeader("Content-Type", "application/zip");
+      res.setHeader("Content-Disposition", `attachment; filename="dokumente-${new Date().toISOString().slice(0, 10)}.zip"`);
+      const archive = archiver("zip", { zlib: { level: 9 } });
+      archive.on("error", (err) => { logger.error({ err }, "document-center zip error"); try { res.destroy(); } catch (_e) {} });
+      archive.pipe(res);
+      const used = {};
+      for (const it of withFiles) {
+        const fp = path.join(process.cwd(), String(it.file_ref).replace(/^\//, ""));
+        if (!fs.existsSync(fp)) continue;
+        const ext = path.extname(fp);
+        const base = (String(it.title || "dokument").replace(/[^\w.\- ]+/g, "_").trim()) || "dokument";
+        let fname = base + ext, n = 1;
+        while (used[fname.toLowerCase()]) { fname = base + "-" + (++n) + ext; }
+        used[fname.toLowerCase()] = true;
+        archive.file(fp, { name: fname });
+      }
+      await archive.finalize();
     } catch (err) { next(err); }
   });
 
