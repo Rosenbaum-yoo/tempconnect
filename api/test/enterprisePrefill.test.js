@@ -28,11 +28,15 @@ function makeElement(initial = {}) {
     innerHTML: initial.innerHTML || "",
     style: initial.style || {},
     dataset: initial.dataset || {},
-    classList: {
-      add() {},
-      remove() {},
-      toggle() {}
-    },
+    classList: (function () {
+      const set = new Set(initial.classes || []);
+      return {
+        add(c) { set.add(c); },
+        remove(c) { set.delete(c); },
+        toggle(c) { if (set.has(c)) set.delete(c); else set.add(c); },
+        contains(c) { return set.has(c); }
+      };
+    })(),
     appendChild(child) {
       this.children = this.children || [];
       this.children.push(child);
@@ -92,7 +96,11 @@ function buildDom(prefill = {}) {
     "contextBannerText",
     "contextBannerMeta",
     "successActions",
-    "successReturnLink"
+    "successReturnLink",
+    "selfServiceCta",
+    "btnSelfServiceCheckout",
+    "selfServiceError",
+    "anfrageSubmitSection"
   ];
   const elements = {};
   ids.forEach((id) => {
@@ -106,8 +114,9 @@ function buildDom(prefill = {}) {
   return elements;
 }
 
-function createFetch(responses) {
+function createFetch(responses, calls) {
   return async function fetch(url) {
+    if (Array.isArray(calls)) calls.push(url);
     let data;
     if (Object.prototype.hasOwnProperty.call(responses, url)) {
       data = responses[url];
@@ -138,12 +147,14 @@ async function runScript({ responses, search = "", prefill = {} }) {
   const windowObj = {
     location: { search },
     scrollTo() {},
-    print() {}
+    print() {},
+    console: { warn() {}, error() {}, log() {} }
   };
+  const fetchedUrls = [];
   const sandbox = {
     window: windowObj,
     document,
-    fetch: createFetch(responses),
+    fetch: createFetch(responses, fetchedUrls),
     URLSearchParams,
     Promise,
     setTimeout,
@@ -154,6 +165,7 @@ async function runScript({ responses, search = "", prefill = {} }) {
   vm.runInContext(readScript(), sandbox, { filename: "frontend/public/js/pages/enterpriseAnfrage.js" });
   await new Promise((resolve) => setTimeout(resolve, 0));
   elements.__window = windowObj;
+  elements.__fetchedUrls = fetchedUrls;
   return elements;
 }
 
@@ -252,5 +264,135 @@ frontendSuite("enterprise request prefill", () => {
     assert.match(previewBlock.innerHTML, /KV-2026-000001/);
     assert.match(previewBlock.innerHTML, /Kostenvorschau herunterladen/);
     assert.match(previewBlock.innerHTML, /\/api\/subscription-documents\/doc-preview-1\/public-download/);
+  });
+});
+
+frontendSuite("enterprise self-service checkout (Slice E)", () => {
+  const ORG_USER = { org_id: "org-7", id: "user-7", plan: "PRO", org_role: "admin" };
+  const EMPTY_PROFILE = { data: { profile: {}, user: {}, contacts: [] } };
+
+  async function tick(n) {
+    for (let i = 0; i < n; i += 1) {
+      // eslint-disable-next-line no-await-in-loop
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    }
+  }
+
+  it("zeigt die Direktbuchungs-CTA nur fuer eingeloggte Org-Nutzer bei aktivem Stripe", async () => {
+    const elements = await runScript({
+      responses: {
+        "/api/payment/config": { stripe_enabled: true, mode: "live" },
+        "/api/me": ORG_USER,
+        "/api/company-profile": EMPTY_PROFILE,
+        "/api/organizations/:id": {}
+      }
+    });
+    assert.equal(elements.selfServiceCta.classList.contains("visible"), true);
+    assert.equal(elements.anfrageSubmitSection.style.display, "none");
+  });
+
+  it("bleibt im Demo-Modus dormant: keine CTA, klassische Anfrage sichtbar (kein toter Button)", async () => {
+    const elements = await runScript({
+      responses: {
+        "/api/payment/config": { stripe_enabled: true, mode: "demo" },
+        "/api/me": ORG_USER,
+        "/api/company-profile": EMPTY_PROFILE,
+        "/api/organizations/:id": {}
+      }
+    });
+    assert.equal(elements.selfServiceCta.classList.contains("visible"), false);
+    assert.equal(elements.anfrageSubmitSection.style.display, "");
+  });
+
+  it("bleibt fuer anonyme Besucher dormant, auch wenn Stripe live ist", async () => {
+    const elements = await runScript({
+      responses: {
+        "/api/payment/config": { stripe_enabled: true, mode: "live" },
+        "/api/me": {},
+        "/api/company-profile": EMPTY_PROFILE
+      }
+    });
+    assert.equal(elements.selfServiceCta.classList.contains("visible"), false);
+    assert.equal(elements.anfrageSubmitSection.style.display, "");
+  });
+
+  it("bleibt dormant, wenn Stripe nicht aktiv ist (stripe_enabled:false), obwohl Org-Nutzer eingeloggt", async () => {
+    const elements = await runScript({
+      responses: {
+        "/api/payment/config": { stripe_enabled: false, mode: "live" },
+        "/api/me": ORG_USER,
+        "/api/company-profile": EMPTY_PROFILE,
+        "/api/organizations/:id": {}
+      }
+    });
+    assert.equal(elements.selfServiceCta.classList.contains("visible"), false);
+    assert.equal(elements.anfrageSubmitSection.style.display, "");
+  });
+
+  it("leitet bei reiner Self-Service-Auswahl zur Stripe-Checkout-Session weiter", async () => {
+    const elements = await runScript({
+      prefill: { fCompany: "ACME GmbH", fContact: "Max Mustermann", fEmail: "max@acme.test" },
+      responses: {
+        "/api/payment/config": { stripe_enabled: true, mode: "live" },
+        "/api/me": {},
+        "/api/company-profile": EMPTY_PROFILE,
+        "/api/csrf": { csrfToken: "csrf-e2e" },
+        "/api/payment/checkout/individuell": { ok: true, mode: "stripe", redirect_url: "https://pay.stripe.test/session-1" }
+      }
+    });
+    elements.__window.submitSelfServiceCheckout();
+    await tick(4);
+    assert.equal(elements.__window.location.href, "https://pay.stripe.test/session-1");
+    assert.ok(elements.__fetchedUrls.includes("/api/payment/checkout/individuell"));
+  });
+
+  it("zeigt bei freigabepflichtiger Auswahl (mode:inquiry) die Bestaetigung statt Geldfluss", async () => {
+    const elements = await runScript({
+      prefill: { fCompany: "ACME GmbH", fContact: "Max Mustermann", fEmail: "max@acme.test" },
+      responses: {
+        "/api/payment/config": { stripe_enabled: true, mode: "live" },
+        "/api/me": {},
+        "/api/company-profile": EMPTY_PROFILE,
+        "/api/csrf": { csrfToken: "csrf-e2e" },
+        "/api/payment/checkout/individuell": { ok: true, mode: "inquiry" }
+      }
+    });
+    elements.__window.submitSelfServiceCheckout();
+    await tick(4);
+    assert.equal(elements.contactCard.style.display, "none");
+    assert.equal(elements.successMsg.classList.contains("visible"), true);
+    assert.equal(elements.__window.location.href, undefined);
+  });
+
+  it("zeigt bei ungueltiger Auswahl (ok:false) eine Fehlermeldung und loest KEINE Zahlung aus", async () => {
+    const elements = await runScript({
+      prefill: { fCompany: "ACME GmbH", fContact: "Max Mustermann", fEmail: "max@acme.test" },
+      responses: {
+        "/api/payment/config": { stripe_enabled: true, mode: "live" },
+        "/api/me": {},
+        "/api/company-profile": EMPTY_PROFILE,
+        "/api/csrf": { csrfToken: "csrf-e2e" },
+        "/api/payment/checkout/individuell": { ok: false, errors: [{ code: "INVALID_SEATS" }] }
+      }
+    });
+    elements.__window.submitSelfServiceCheckout();
+    await tick(4);
+    assert.equal(elements.selfServiceError.style.display, "block");
+    assert.match(elements.selfServiceError.textContent, /Nutzeranzahl/);
+    assert.equal(elements.__window.location.href, undefined);
+  });
+
+  it("blockt den Checkout bei fehlenden Pflichtfeldern, bevor ein Request rausgeht", async () => {
+    const elements = await runScript({
+      responses: {
+        "/api/payment/config": { stripe_enabled: true, mode: "live" },
+        "/api/me": {},
+        "/api/company-profile": EMPTY_PROFILE
+      }
+    });
+    elements.__window.submitSelfServiceCheckout();
+    await tick(2);
+    assert.match(elements.selfServiceError.textContent, /Firma/);
+    assert.equal(elements.__fetchedUrls.includes("/api/payment/checkout/individuell"), false);
   });
 });

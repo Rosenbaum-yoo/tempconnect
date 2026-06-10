@@ -458,8 +458,17 @@
         showDowngradeWarning('DEMO', false);
         return;
       }
-      // Individueller Tarif — Anfrageformular oeffnen
+      // Individueller Tarif.
       if (planKey === "INDIVIDUELL") {
+        // Self-Service: eingeloggt + Stripe live → in den Konfigurator leiten
+        // (deterministischer Preis + Direktbuchung; der Server entscheidet
+        // Stripe-Checkout vs. freigabepflichtige Anfrage).
+        var stripeSelfService = !!(paymentConfig && paymentConfig.stripe_enabled && paymentConfig.mode !== "demo");
+        if (meData && stripeSelfService) {
+          window.location.href = getIndividuellFormUrl();
+          return;
+        }
+        // Fallback (kein Stripe / Demo): heutige staff-vermittelte Upgrade-Anfrage.
         if (meData && window.TC && window.TC.accountSubscription && window.TC.accountSubscription.requestUpgrade) {
           window.TC.accountSubscription.requestUpgrade("INDIVIDUELL");
           return;

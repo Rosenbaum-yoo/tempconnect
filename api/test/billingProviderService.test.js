@@ -204,6 +204,33 @@ describe("mapStripeEvent", () => {
     assert.strictEqual(intent.stripe_payment_intent, null);
     assert.strictEqual(intent.stripe_subscription_id, null);
     assert.strictEqual(intent.stripe_invoice_id, null);
+    // Phase 2 (Slice B/C): neue additive Felder defaulten auf null.
+    assert.strictEqual(intent.request_id, null);
+    assert.strictEqual(intent.amount_total, null);
+    assert.strictEqual(intent.amount_subtotal, null);
+    assert.strictEqual(intent.currency, null);
+  });
+
+  it("activation carries request_id + bezahlte Betraege fuer den Manipulationsschutz (Slice B/C)", () => {
+    const intent = mapStripeEvent({
+      type: "checkout.session.completed",
+      data: {
+        object: {
+          metadata: { checkout_id: "ck-9", plan: "INDIVIDUELL", user_id: "42", org_id: "org-1", request_id: "req-7" },
+          amount_total: 362300,
+          amount_subtotal: 362300,
+          currency: "eur",
+          subscription: "sub_ind",
+          invoice: "in_ind"
+        }
+      }
+    });
+    assert.strictEqual(intent.kind, "activation");
+    assert.strictEqual(intent.request_id, "req-7");
+    assert.strictEqual(intent.amount_total, 362300);
+    assert.strictEqual(intent.amount_subtotal, 362300);
+    assert.strictEqual(intent.currency, "eur");
+    assert.strictEqual(intent.stripe_subscription_id, "sub_ind");
   });
 
   it("customer.subscription.deleted → cancellation", () => {

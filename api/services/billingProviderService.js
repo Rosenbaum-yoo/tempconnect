@@ -125,6 +125,16 @@ export function mapStripeEvent(event = {}) {
         plan: md.plan || null,
         user_id: md.user_id || null,
         org_id: md.org_id || null,
+        // Self-Service-INDIVIDUELL: verknuepft das Event mit der zugrunde
+        // liegenden subscription_request (Slice B/C). Fuer BASIS/PLUS/PRO bleibt
+        // dies null → der bestehende Aktivierungspfad ist unveraendert.
+        request_id: md.request_id || null,
+        // Bezahlte Betraege (in Cent) fuer den Manipulationsschutz: der Webhook
+        // verifiziert sie gegen den server-eingefrorenen Preis, bevor aktiviert
+        // wird. amount_subtotal = netto (ohne Steuer); amount_total inkl. Steuer.
+        amount_total: Number.isFinite(obj.amount_total) ? obj.amount_total : null,
+        amount_subtotal: Number.isFinite(obj.amount_subtotal) ? obj.amount_subtotal : null,
+        currency: obj.currency || null,
         stripe_payment_intent: obj.payment_intent || null,
         stripe_subscription_id: obj.subscription || null,
         stripe_invoice_id: obj.invoice || null

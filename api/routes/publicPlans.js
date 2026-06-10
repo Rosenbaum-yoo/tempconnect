@@ -22,6 +22,10 @@ import {
   listPublicAddons,
   buildCatalogResponse
 } from "../config/planCatalog.js";
+import {
+  computeIndividuellQuote,
+  describeIndividuellConfigurator
+} from "../services/individuellPricingService.js";
 
 /**
  * @param {{}} _deps
@@ -68,6 +72,39 @@ export function createPublicPlansRouter(_deps) {
   router.get("/public/catalog", (_req, res) => {
     setCacheHeaders(res);
     res.json(buildCatalogResponse());
+  });
+
+  /* ── INDIVIDUELL-Konfigurator (Phase 2) ──────────────────────────
+   * Read-only. Der Preis ist deterministisch (Owner-Lock „nicht
+   * verhandelbar") und wird IMMER server-seitig gerechnet — der Client
+   * liefert nur die Auswahl, nie den Preis. Diese Endpunkte mutieren
+   * nichts und bewegen kein Geld; die eigentliche Buchung (Stripe) ist
+   * ein separater, authentifizierter Slice.
+   * ───────────────────────────────────────────────────────────────── */
+
+  // Konfigurator-Optionen: Baseline/Tiers + buchbar-vs-Anfrage-Split.
+  router.get("/public/individuell/configurator", (_req, res) => {
+    setCacheHeaders(res);
+    res.json(describeIndividuellConfigurator());
+  });
+
+  // Live-Quote: deterministische Preisvorschau aus der Auswahl.
+  // seats=<int>, addons=<comma-separated keys | wiederholter Query-Param>.
+  // Ungueltige Auswahl => 200 mit ok:false + errors[] (Zero-State, kein 500).
+  router.get("/public/individuell/quote", (req, res) => {
+    const rawAddons = req.query.addons;
+    const addons = Array.isArray(rawAddons)
+      ? rawAddons
+      : typeof rawAddons === "string"
+        ? rawAddons.split(",").map((s) => s.trim()).filter(Boolean)
+        : [];
+    const quote = computeIndividuellQuote({
+      seats: req.query.seats,
+      addons,
+      employee_count: req.query.employee_count
+    });
+    res.setHeader("Cache-Control", "no-store");
+    res.json(quote);
   });
 
   return router;
