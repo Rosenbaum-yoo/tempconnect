@@ -63,6 +63,14 @@ test("normalize(): leetspeak + ß + repeats", () => {
   assert.equal(_internals.normalize("a@b5c"), "aabsc");
 });
 
+test("extended curated insults are caught", async () => {
+  for (const w of ["drecksau", "assi", "mistkerl", "bastard", "penner", "abschaum"]) {
+    const r = await moderateComment(`du ${w}, so eine Frechheit`);
+    assert.equal(r.flagged, true, `should flag: ${w}`);
+    assert.ok(r.matches.some((m) => m.word === w));
+  }
+});
+
 test("BADWORDS list is well-formed (word + valid severity)", () => {
   const valid = new Set(["low", "medium", "high", "critical"]);
   for (const bw of _internals.BADWORDS) {

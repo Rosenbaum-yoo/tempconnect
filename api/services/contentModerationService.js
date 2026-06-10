@@ -28,7 +28,13 @@ const BADWORDS = [
   { w: "spasti", s: "medium" }, { w: "spast", s: "medium" }, { w: "behindert", s: "medium" },
   { w: "trottel", s: "medium" }, { w: "vollpfosten", s: "medium" }, { w: "arsch", s: "medium" },
   // low — abwertend
-  { w: "bloedsinn", s: "low" }, { w: "loser", s: "low" }, { w: "versager", s: "low" }
+  { w: "bloedsinn", s: "low" }, { w: "loser", s: "low" }, { w: "versager", s: "low" },
+  { w: "dummkopf", s: "low" }, { w: "nichtskoenner", s: "low" },
+  // weitere kuratierte Beleidigungen (erweiterbar)
+  { w: "drecksau", s: "high" }, { w: "miststueck", s: "high" }, { w: "abschaum", s: "high" },
+  { w: "bastard", s: "high" }, { w: "dreckschwein", s: "high" },
+  { w: "assi", s: "medium" }, { w: "mistkerl", s: "medium" }, { w: "drecksack", s: "medium" },
+  { w: "penner", s: "medium" }, { w: "pisser", s: "medium" }, { w: "vollhorst", s: "medium" }
 ];
 
 const SEV_RANK = { none: 0, low: 1, medium: 2, high: 3, critical: 4 };
