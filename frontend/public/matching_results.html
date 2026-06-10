@@ -20,6 +20,11 @@
     .score-bar__pts{width:50px;font-weight:700;color:var(--text);font-size:11px}
     .match-meta{display:flex;flex-wrap:wrap;gap:10px;font-size:13px;color:var(--muted);margin-bottom:8px}
     .match-actions{display:flex;gap:8px;margin-top:10px}
+
+    /* EDITORIAL — warme Creme-Karten statt White-Alpha (dark/light/ultra byte-identisch) */
+    [data-theme="editorial"] .match-card{background:#ebe4d3;border-color:#d4cab3}
+    [data-theme="editorial"] .match-card:hover{border-color:rgba(31,58,46,.4)}
+    [data-theme="editorial"] .score-bar__track{background:rgba(31,58,46,.10)}
   </style>
 </head>
 <body data-sla-guard="sla_access">
@@ -96,11 +101,49 @@
         '</div>';
     }
 
+    // Kein ?id= -> Analyzer-Auswahl: eigene Eintraege rollenabhaengig laden, dann Matching.
+    async function renderPicker(){
+      document.getElementById("pageTitle").textContent="Matching-Analyzer";
+      document.getElementById("pageSubtitle").textContent="Waehlen Sie einen Ihrer Eintraege – wir berechnen die passendsten Treffer per Multi-Faktor-Scoring.";
+      var container=document.getElementById("matches");
+      container.innerHTML='<p style="color:var(--muted)">Lade Ihre Eintraege…</p>';
+      var me=null;
+      try{ var rm=await fetch(API+"/me",{credentials:"include"}); me=rm.ok?await rm.json():null; }catch(e){}
+      var role=me&&me.role, cfg;
+      if(role==="agency") cfg={type:"capacity",url:API+"/capacity-exchange/entries?limit=50",noun:"Personalangebot",create:"/public/capacity_exchange_form.html",createLabel:"Personal einstellen"};
+      else if(role==="company") cfg={type:"demand",url:API+"/marketplace/demand-requests?limit=50",noun:"Anfrage",create:"/public/marketplace_demand_create.html",createLabel:"Arbeitsplatz anbieten"};
+      else{ container.innerHTML='<p class="empty">Das Matching steht Unternehmen und Zeitarbeitsfirmen zur Verfuegung.</p>'; return; }
+      var rows=[];
+      try{ var r=await fetch(cfg.url,{credentials:"include"}); if(r.ok){ var d=await r.json(); rows=Array.isArray(d)?d:(d.items||(d.data&&d.data.items)||[]); } }catch(e){}
+      if(!rows.length){
+        container.innerHTML='<div class="empty" style="text-align:center;padding:var(--ds-space-6,24px)"><p style="font-size:15px;font-weight:700">Noch keine Eintraege</p><p style="font-size:13px;color:var(--muted);margin:6px 0 14px">Legen Sie zuerst ein '+esc(cfg.noun)+' an – dann zeigt der Analyzer die besten Treffer.</p><a href="'+cfg.create+'" class="btn primary">'+esc(cfg.createLabel)+'</a></div>';
+        return;
+      }
+      document.getElementById("matchInfo").innerHTML='<div style="font-size:13px;color:var(--muted)">Waehlen Sie ein/e '+esc(cfg.noun)+' fuer die Matching-Analyse:</div>';
+      container.innerHTML=rows.map(function(it){
+        var label=esc(it.title||it.role||"Eintrag"), sub=[];
+        if(it.role&&it.role!==it.title) sub.push(esc(it.role));
+        if(it.location_city) sub.push(esc(it.location_city));
+        if(it.status) sub.push(esc(it.status));
+        return '<button class="match-card" style="width:100%;text-align:left;cursor:pointer;display:block;font:inherit;color:inherit" onclick="pickEntry(\''+esc(it.id)+'\',\''+cfg.type+'\')">'+
+          '<div style="display:flex;justify-content:space-between;align-items:center;gap:12px">'+
+          '<div><div style="font-size:15px;font-weight:700">'+label+'</div>'+(sub.length?'<div class="match-meta" style="margin:4px 0 0"><span>'+sub.join(" · ")+'</span></div>':'')+'</div>'+
+          '<span class="btn primary" style="font-size:12px;padding:6px 12px;pointer-events:none">Matching ansehen →</span>'+
+          '</div></button>';
+      }).join("");
+    }
+    function pickEntry(id,type){
+      history.replaceState(null,"","?id="+encodeURIComponent(id)+"&type="+encodeURIComponent(type));
+      document.getElementById("matchInfo").innerHTML="";
+      document.getElementById("emptyState").style.display="none";
+      loadMatches();
+    }
+
     async function loadMatches(){
       var params=new URLSearchParams(window.location.search);
       var type=params.get("type")||"capacity"; // capacity or demand
       var id=params.get("id");
-      if(!id){document.getElementById("matches").innerHTML='<p class="empty">Keine ID angegeben.</p>';return;}
+      if(!id){renderPicker();return;}
 
       var url;
       if(type==="capacity"){
