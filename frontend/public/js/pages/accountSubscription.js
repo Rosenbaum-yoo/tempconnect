@@ -791,13 +791,14 @@
         ? (Number(r.total_cents) / 100).toLocaleString("de-DE", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + " EUR"
         : "–";
       var downloadUrl = "/api/invoices/" + encodeURIComponent(r.id) + "?format=html";
+      var pdfUrl = "/api/invoices/" + encodeURIComponent(r.id) + "?format=pdf";
       html += '<tr>' +
         '<td style="font-family:monospace;font-size:12px">' + esc(r.invoice_number || r.id.slice(0, 8) + "…") + '</td>' +
         '<td>' + esc(fmtDate(r.issued_at || r.created_at)) + '</td>' +
         '<td>' + esc(r.plan || "–") + '</td>' +
         '<td style="font-variant-numeric:tabular-nums">' + esc(totalEur) + '</td>' +
         '<td style="' + invoiceStatusStyle(r.status) + '">' + esc(invoiceStatusLabel(r.status)) + '</td>' +
-        '<td><a class="ds-btn ds-btn--sm" href="' + esc(downloadUrl) + '" target="_blank" rel="noopener">Anzeigen</a></td>' +
+        '<td><a class="ds-btn ds-btn--sm" href="' + esc(downloadUrl) + '" target="_blank" rel="noopener">Anzeigen</a> <a class="ds-btn ds-btn--sm ds-btn--primary" href="' + esc(pdfUrl) + '">PDF</a></td>' +
       '</tr>';
     });
     html += '</tbody></table>';

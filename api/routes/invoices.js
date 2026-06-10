@@ -11,7 +11,7 @@
 import { Router } from "express";
 import * as invoiceService from "../services/invoiceService.js";
 import * as opInvoice from "../services/operationalInvoiceService.js";
-import { renderInvoiceHtml, renderInvoiceText } from "../services/invoicePdfService.js";
+import { renderInvoiceHtml, renderInvoiceText, renderInvoicePdf } from "../services/invoicePdfService.js";
 import { requirePermission } from "../middleware/rbac.js";
 import { requireScope } from "../middleware/apiKeyAuth.js";
 
@@ -75,8 +75,14 @@ export function createInvoicesRouter(deps) {
         return res.status(403).json({ error: "ORG_BOUNDARY_VIOLATION" });
       }
 
-      // Format: ?format=html|text (default: json)
+      // Format: ?format=pdf|html|text (default: json)
       const format = String(req.query.format || "").toLowerCase();
+      if (format === "pdf") {
+        const pdf = await renderInvoicePdf(invoice);
+        res.setHeader("Content-Type", "application/pdf");
+        res.setHeader("Content-Disposition", `attachment; filename="${invoice.invoice_number}.pdf"`);
+        return res.send(Buffer.from(pdf));
+      }
       if (format === "html") {
         const html = renderInvoiceHtml(invoice);
         res.setHeader("Content-Type", "text/html; charset=utf-8");
