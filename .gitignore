@@ -67,6 +67,10 @@ desktop.ini
 # Release-Artefakte und ZIP-Analysen
 _zip_analysis/
 
+# Persoenliche Claude-Code Arbeits-/Planungsnotizen (kein Release-Artefakt;
+# dauerhafte Wahrheit lebt in docs/design/EDITORIAL_THEME_ROLLOUT.md)
+/_TEMPCONNECT_*
+
 # Kryptographische Schlüssel (niemals committen)
 *.pem
 *.key
