@@ -21,7 +21,8 @@ export type AreaKey =
   | "data-explorer"
   | "automation"
   | "staff-access"
-  | "marketplace-visibility";
+  | "marketplace-visibility"
+  | "data-governance";
 
 interface NavItem {
   key: AreaKey;
@@ -50,6 +51,7 @@ export const AREAS: NavItem[] = [
   { key: "automation",            label: "Automation",           group: "Automation" },
   { key: "staff-access",          label: "Staff Access",         group: "Administration" },
   { key: "marketplace-visibility", label: "Marketplace Visibility", group: "Marketplace" },
+  { key: "data-governance",       label: "DSGVO / Datenschutz",    group: "Governance" },
 ];
 
 interface SidebarProps {

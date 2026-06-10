@@ -40,6 +40,7 @@ const DataExplorer         = lazy(() => import("@scc/modules/data-explorer"));
 const Automation           = lazy(() => import("@scc/modules/automation"));
 const StaffAccess          = lazy(() => import("@scc/modules/staff-access"));
 const MarketplaceVisibility = lazy(() => import("@scc/modules/marketplace-visibility"));
+const DataGovernance        = lazy(() => import("@scc/modules/data-governance"));
 
 const VALID_AREAS = new Set<string>(AREAS.map((a) => a.key));
 const DEFAULT_AREA: AreaKey = "commercial-inbox";
@@ -98,6 +99,7 @@ function ActiveModule({ active }: { active: AreaKey }) {
       {active === "automation"            && <Automation />}
       {active === "staff-access"          && <StaffAccess />}
       {active === "marketplace-visibility" && <MarketplaceVisibility />}
+      {active === "data-governance"        && <DataGovernance />}
     </Suspense>
   );
 }
