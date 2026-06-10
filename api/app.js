@@ -54,6 +54,7 @@ import { createAnalyticsRouter } from "./routes/analytics.js";
 import { createCapacityDiscoveryRouter } from "./routes/capacityDiscovery.js";
 import { createSearchRouter } from "./routes/search.js";
 import { createComplianceDocsRouter } from "./routes/complianceDocs.js";
+import { createDocumentCenterRouter } from "./routes/documentCenter.js";
 import { createCompanyProfileRouter } from "./routes/companyProfile.js";
 import { createActivityFeedRouter } from "./routes/activityFeed.js";
 import { createAdminRouter } from "./routes/admin.js";
@@ -329,6 +330,7 @@ export async function createApp() {
   v1.use(createCapacityDiscoveryRouter(deps));
   v1.use(createSearchRouter(deps));
   v1.use(createComplianceDocsRouter(deps));
+  v1.use(createDocumentCenterRouter(deps));
   v1.use(createCompanyProfileRouter(deps));
   v1.use(createActivityFeedRouter(deps));
   v1.use(createAdminRouter(deps));

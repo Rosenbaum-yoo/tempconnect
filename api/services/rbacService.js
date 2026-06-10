@@ -52,6 +52,10 @@ export const PERMISSIONS = {
   'compliance.view':          ['owner','admin','supplier_manager','program_manager','hiring_manager','finance','member'],
   'compliance.upload':        ['owner','admin','supplier_user'],
 
+  // Document Center (PDF-Tresor): org-eigene Geschaeftsdokumente, beide org_types.
+  'document_center.view':     ['owner','admin','program_manager','hiring_manager','supplier_manager','finance','member'],
+  'document_center.manage':   ['owner','admin','finance'],
+
   // Reports
   'report.executive':         ['owner','admin','program_manager','finance'],
   'report.operational':       ['owner','admin','program_manager','hiring_manager','supplier_manager'],
