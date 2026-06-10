@@ -72,6 +72,7 @@
     deals:                { orgTypes: ["company", "agency"] },
     assignments:          { orgTypes: ["company", "agency"] },
     my_company:           { orgTypes: ["company", "agency"] },
+    documents_center:     { orgTypes: ["company", "agency"], hiddenRoles: ["supplier_user", "recruiter", "dispatcher", "viewer"] },
     activity:             { orgTypes: ["company", "agency"] },
     bounties:             { orgTypes: ["company", "agency"] },
     trust_center:         { orgTypes: ["company", "agency"] },

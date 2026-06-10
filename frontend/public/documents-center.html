@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <script src="/public/js/theme.js"></script>
+  <title>Dokumente &amp; PDFs &ndash; TempConnect</title>
+  <link rel="stylesheet" href="/public/css/design-system.css"/>
+  <style>
+    .dc-stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:var(--ds-space-3);margin:var(--ds-space-4) 0}
+    .dc-stat{border:1px solid var(--ds-border);border-radius:var(--ds-radius-lg);padding:var(--ds-space-4);background:rgba(255,255,255,.02)}
+    .dc-stat__num{font-size:24px;font-weight:800}
+    .dc-stat__label{font-size:12px;color:var(--ds-text-secondary);text-transform:uppercase;letter-spacing:.04em}
+    .dc-card{border:1px solid var(--ds-border);border-radius:var(--ds-radius-lg);background:rgba(255,255,255,.02);padding:var(--ds-space-5);margin-bottom:var(--ds-space-4)}
+    .dc-field{display:flex;flex-direction:column;gap:4px;margin-bottom:var(--ds-space-3)}
+    .dc-field label{font-size:12px;font-weight:700;color:var(--ds-text-secondary)}
+    .dc-field input,.dc-field select,.dc-field textarea{padding:8px 10px;border:1px solid var(--ds-border);border-radius:var(--ds-radius-md);background:var(--ds-bg);color:var(--ds-text);width:100%;font:inherit}
+    .dc-grid2{display:grid;grid-template-columns:1fr 1fr;gap:var(--ds-space-3)}
+    .dc-filters{display:flex;flex-wrap:wrap;gap:var(--ds-space-2);align-items:flex-end;margin-bottom:var(--ds-space-3)}
+    .dc-table{width:100%;border-collapse:collapse;font-size:14px}
+    .dc-table th{text-align:left;font-size:11px;text-transform:uppercase;letter-spacing:.04em;color:var(--ds-text-secondary);padding:8px 10px;border-bottom:1px solid var(--ds-border)}
+    .dc-table td{padding:10px;border-bottom:1px solid var(--ds-border);vertical-align:middle}
+    .dc-table tr:hover td{background:rgba(255,255,255,.02)}
+    .dc-badge{display:inline-block;font-size:11px;font-weight:700;padding:2px 8px;border-radius:6px;background:var(--ds-brand-muted);color:var(--ds-brand)}
+    .dc-badge--archived{background:rgba(138,95,26,.12);color:var(--ds-warning,#8a5f1a)}
+    .dc-actions a,.dc-actions button{font-size:12px;padding:4px 10px;border-radius:7px;border:1px solid var(--ds-border);background:none;color:var(--ds-text);cursor:pointer;text-decoration:none;margin-right:4px}
+    .dc-actions a:hover,.dc-actions button:hover{border-color:var(--ds-brand);color:var(--ds-brand)}
+    .toast{position:fixed;top:20px;right:20px;padding:12px 18px;border-radius:10px;font-size:13px;font-weight:600;z-index:999;opacity:0;transition:opacity .3s;max-width:340px}
+    .toast.show{opacity:1}
+    .toast--ok{background:rgba(45,106,79,.14);border:1px solid rgba(45,106,79,.32);color:var(--ds-success,#2d6a4f)}
+    .toast--err{background:rgba(143,45,45,.12);border:1px solid rgba(143,45,45,.32);color:var(--ds-danger,#8f2d2d)}
+    @media(max-width:640px){.dc-grid2{grid-template-columns:1fr}}
+
+    /* EDITORIAL — warme Creme-Flaechen statt White-Alpha (dark/light/ultra byte-identisch) */
+    [data-theme="editorial"] .dc-stat,[data-theme="editorial"] .dc-card{background:#ebe4d3;border-color:#d4cab3}
+    [data-theme="editorial"] .dc-table tr:hover td{background:rgba(31,58,46,.05)}
+  </style>
+</head>
+<body>
+  <div class="ds-wrap">
+    <div id="tc-shell"></div>
+
+    <div class="ds-page-header">
+      <div class="ds-page-header__content">
+        <h1 class="ds-page-title">Dokumente &amp; PDFs</h1>
+        <p class="ds-page-subtitle">Ihr zentraler Dokumenten-Tresor: Rechnungen, Vertraege, Policies und Nachweise sicher ablegen, verwalten und als PDF herunterladen.</p>
+      </div>
+      <div class="ds-page-header__actions">
+        <button class="ds-btn ds-btn--primary" id="btnNew" style="display:none" onclick="toggleUpload()">+ Dokument hochladen</button>
+      </div>
+    </div>
+
+    <div id="dc-stats" class="dc-stats"></div>
+
+    <!-- Upload -->
+    <div class="dc-card" id="uploadCard" style="display:none">
+      <h3 style="margin:0 0 var(--ds-space-3);font-size:16px;font-weight:700">Neues Dokument</h3>
+      <div class="dc-grid2">
+        <div class="dc-field"><label>Titel *</label><input id="f-title" placeholder="z.B. Rechnung Mai 2026"/></div>
+        <div class="dc-field"><label>Datei (PDF, Bild &middot; max. 15 MB)</label><input type="file" id="f-file" accept=".pdf,.png,.jpg,.jpeg,.webp"/></div>
+        <div class="dc-field"><label>Typ</label><select id="f-type"></select></div>
+        <div class="dc-field"><label>Kategorie</label><select id="f-cat"></select></div>
+        <div class="dc-field"><label>Gueltig bis (optional)</label><input type="date" id="f-valid"/></div>
+        <div class="dc-field"><label>Aufbewahrung bis (optional, DSGVO/GoBD)</label><input type="date" id="f-retention"/></div>
+      </div>
+      <div class="dc-field"><label>Notiz (optional)</label><textarea id="f-notes" rows="2"></textarea></div>
+      <div style="display:flex;gap:var(--ds-space-2);justify-content:flex-end">
+        <button class="ds-btn" onclick="toggleUpload()">Abbrechen</button>
+        <button class="ds-btn ds-btn--primary" id="btnUpload" onclick="uploadDoc()">Hochladen</button>
+      </div>
+      <div id="upMsg" style="margin-top:var(--ds-space-2);font-size:12px"></div>
+    </div>
+
+    <!-- Filter -->
+    <div class="dc-filters">
+      <div class="dc-field" style="margin:0"><label>Typ</label><select id="flt-type"></select></div>
+      <div class="dc-field" style="margin:0"><label>Kategorie</label><select id="flt-cat"></select></div>
+      <div class="dc-field" style="margin:0"><label>Status</label><select id="flt-status"><option value="">Alle</option><option value="active">Aktiv</option><option value="archived">Archiviert</option></select></div>
+    </div>
+
+    <div class="dc-card" style="padding:0;overflow-x:auto">
+      <table class="dc-table">
+        <thead><tr><th>Titel</th><th>Typ</th><th>Kategorie</th><th>Groesse</th><th>Datum</th><th>Status</th><th style="text-align:right">Aktionen</th></tr></thead>
+        <tbody id="dc-rows"><tr><td colspan="7" style="padding:var(--ds-space-5);color:var(--ds-text-secondary)">Lade Dokumente&hellip;</td></tr></tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="toast" id="toast"></div>
+  <script src="/public/js/pageShell.js"></script>
+  <div id="tc-footer" data-tc-footer></div>
+  <script src="/public/js/footer.js"></script>
+  <script src="/public/js/breadcrumb.js" defer></script>
+  <script>
+  (function(){
+    "use strict";
+    var API = "/api", csrf = "", CAN_MANAGE = false;
+    var TYPE_LABELS = { invoice:"Rechnung", contract:"Vertrag", policy:"Richtlinie", certificate:"Zertifikat/Nachweis", report:"Bericht", correspondence:"Korrespondenz", other:"Sonstiges" };
+    var CAT_LABELS  = { financial:"Finanzen", legal:"Rechtliches", operational:"Betrieb", hr:"Personal", other:"Sonstiges" };
+
+    function esc(s){ if(s==null) return ""; var d=document.createElement("div"); d.textContent=String(s); return d.innerHTML; }
+    function fmtBytes(b){ b=Number(b)||0; if(b<1024) return b+" B"; if(b<1048576) return (b/1024).toFixed(0)+" KB"; return (b/1048576).toFixed(1)+" MB"; }
+    function fmtDate(d){ return d ? String(d).substring(0,10) : "–"; }
+    function toast(msg, ok){ var t=document.getElementById("toast"); t.textContent=msg; t.className="toast show "+(ok?"toast--ok":"toast--err"); setTimeout(function(){t.classList.remove("show");},3500); }
+    async function getCSRF(){ if(csrf) return csrf; try{ var r=await fetch(API+"/csrf",{credentials:"include"}); var d=await r.json(); csrf=d.csrfToken||d.token||""; }catch(e){} return csrf; }
+    function opts(map, withAll){ var h = withAll ? '<option value="">Alle</option>' : ''; for(var k in map) h+='<option value="'+k+'">'+esc(map[k])+'</option>'; return h; }
+    function parseList(d){ return (d&&d.data&&d.data.items) || (d&&d.items) || (Array.isArray(d)?d:[]); }
+    function parseObj(d){ return (d&&d.data) || d || {}; }
+
+    function renderStats(s){
+      s = s || {};
+      var html = '';
+      html += '<div class="dc-stat"><div class="dc-stat__num">'+(s.total||0)+'</div><div class="dc-stat__label">Dokumente</div></div>';
+      html += '<div class="dc-stat"><div class="dc-stat__num">'+(s.active||0)+'</div><div class="dc-stat__label">Aktiv</div></div>';
+      html += '<div class="dc-stat"><div class="dc-stat__num">'+(s.archived||0)+'</div><div class="dc-stat__label">Archiviert</div></div>';
+      html += '<div class="dc-stat"><div class="dc-stat__num">'+fmtBytes(s.total_size_bytes)+'</div><div class="dc-stat__label">Speicher</div></div>';
+      document.getElementById("dc-stats").innerHTML = html;
+    }
+
+    function rowHtml(it){
+      var actions = '<a href="'+API+'/document-center/'+esc(it.id)+'/download">Download</a>';
+      if(CAN_MANAGE){
+        actions += '<button onclick="archiveDoc(\''+esc(it.id)+'\')">'+(it.status==="archived"?"Reaktivieren":"Archivieren")+'</button>';
+        actions += '<button onclick="deleteDoc(\''+esc(it.id)+'\')" style="color:var(--ds-danger,#8f2d2d)">Loeschen</button>';
+      }
+      var badge = it.status==="archived" ? '<span class="dc-badge dc-badge--archived">Archiviert</span>' : '<span class="dc-badge">Aktiv</span>';
+      return '<tr>'+
+        '<td><strong>'+esc(it.title)+'</strong>'+(it.original_name?'<div style="font-size:11px;color:var(--ds-text-secondary)">'+esc(it.original_name)+'</div>':'')+'</td>'+
+        '<td>'+esc(TYPE_LABELS[it.document_type]||it.document_type)+'</td>'+
+        '<td>'+esc(CAT_LABELS[it.content_category]||it.content_category)+'</td>'+
+        '<td>'+fmtBytes(it.file_size_bytes)+'</td>'+
+        '<td>'+fmtDate(it.created_at)+'</td>'+
+        '<td>'+badge+'</td>'+
+        '<td class="dc-actions" style="text-align:right;white-space:nowrap">'+actions+'</td>'+
+      '</tr>';
+    }
+
+    async function loadDocs(){
+      var p = new URLSearchParams();
+      var t=document.getElementById("flt-type").value, c=document.getElementById("flt-cat").value, st=document.getElementById("flt-status").value;
+      if(t) p.set("document_type",t); if(c) p.set("content_category",c); if(st) p.set("status",st);
+      var tb = document.getElementById("dc-rows");
+      try{
+        var r = await fetch(API+"/document-center?"+p.toString(),{credentials:"include"});
+        if(!r.ok){ tb.innerHTML='<tr><td colspan="7" style="padding:var(--ds-space-5);color:var(--ds-danger,#8f2d2d)">'+(r.status===403?"Kein Zugriff auf den Dokumenten-Tresor.":"Fehler beim Laden.")+'</td></tr>'; return; }
+        var items = parseList(await r.json());
+        if(!items.length){ tb.innerHTML='<tr><td colspan="7" style="padding:var(--ds-space-6);text-align:center;color:var(--ds-text-secondary)"><strong>Noch keine Dokumente</strong><br>'+(CAN_MANAGE?"Laden Sie Ihr erstes Dokument hoch.":"Hier erscheinen die Dokumente Ihrer Organisation.")+'</td></tr>'; return; }
+        tb.innerHTML = items.map(rowHtml).join("");
+      }catch(e){ tb.innerHTML='<tr><td colspan="7" style="padding:var(--ds-space-5);color:var(--ds-danger,#8f2d2d)">Netzwerkfehler.</td></tr>'; }
+    }
+
+    async function loadStats(){
+      try{ var r=await fetch(API+"/document-center/stats",{credentials:"include"}); if(r.ok) renderStats(parseObj(await r.json())); }catch(e){}
+    }
+
+    window.toggleUpload = function(){ var c=document.getElementById("uploadCard"); c.style.display = c.style.display==="none" ? "block" : "none"; };
+
+    window.uploadDoc = async function(){
+      var title=(document.getElementById("f-title").value||"").trim();
+      var file=document.getElementById("f-file").files[0];
+      var msg=document.getElementById("upMsg");
+      if(!title){ msg.style.color="var(--ds-danger,#8f2d2d)"; msg.textContent="Titel ist erforderlich."; return; }
+      var btn=document.getElementById("btnUpload"); btn.disabled=true; msg.style.color="var(--ds-text-secondary)"; msg.textContent="Lade hoch…";
+      var fd=new FormData();
+      fd.append("title",title);
+      fd.append("document_type",document.getElementById("f-type").value);
+      fd.append("content_category",document.getElementById("f-cat").value);
+      if(file) fd.append("file",file);
+      var vu=document.getElementById("f-valid").value; if(vu) fd.append("valid_until",vu);
+      var rt=document.getElementById("f-retention").value; if(rt) fd.append("retention_delete_at",rt);
+      var nt=document.getElementById("f-notes").value; if(nt) fd.append("notes",nt);
+      try{
+        var tok=await getCSRF();
+        var r=await fetch(API+"/document-center",{method:"POST",credentials:"include",headers:{"x-csrf-token":tok},body:fd});
+        if(!r.ok){ var e=await r.json().catch(function(){return{};}); msg.style.color="var(--ds-danger,#8f2d2d)"; msg.textContent="Fehler: "+((e.error&&(e.error.message||e.error))||r.status); btn.disabled=false; return; }
+        toast("Dokument hochgeladen.",true);
+        document.getElementById("f-title").value=""; document.getElementById("f-file").value=""; document.getElementById("f-notes").value=""; document.getElementById("f-valid").value=""; document.getElementById("f-retention").value="";
+        msg.textContent=""; btn.disabled=false; toggleUpload(); loadStats(); loadDocs();
+      }catch(e){ msg.style.color="var(--ds-danger,#8f2d2d)"; msg.textContent="Netzwerkfehler."; btn.disabled=false; }
+    };
+
+    window.archiveDoc = async function(id){
+      var tok=await getCSRF();
+      try{ var r=await fetch(API+"/document-center/"+id+"/archive",{method:"POST",credentials:"include",headers:{"x-csrf-token":tok}}); if(r.ok){ loadStats(); loadDocs(); } else toast("Aktion fehlgeschlagen.",false); }catch(e){ toast("Netzwerkfehler.",false); }
+    };
+
+    window.deleteDoc = async function(id){
+      if(!confirm("Dokument unwiderruflich loeschen?")) return;
+      var tok=await getCSRF();
+      try{ var r=await fetch(API+"/document-center/"+id,{method:"DELETE",credentials:"include",headers:{"x-csrf-token":tok}}); if(r.ok){ toast("Geloescht.",true); loadStats(); loadDocs(); } else toast("Loeschen fehlgeschlagen.",false); }catch(e){ toast("Netzwerkfehler.",false); }
+    };
+
+    // Init
+    document.getElementById("f-type").innerHTML = opts(TYPE_LABELS,false);
+    document.getElementById("f-cat").innerHTML = opts(CAT_LABELS,false);
+    document.getElementById("flt-type").innerHTML = opts(TYPE_LABELS,true);
+    document.getElementById("flt-cat").innerHTML = opts(CAT_LABELS,true);
+    ["flt-type","flt-cat","flt-status"].forEach(function(id){ document.getElementById(id).addEventListener("change",loadDocs); });
+
+    (async function(){
+      try{ var r=await fetch(API+"/me",{credentials:"include"}); var me=r.ok?await r.json():null; CAN_MANAGE = !!(me && ["owner","admin","finance"].indexOf(me.org_role)>=0); }catch(e){}
+      if(CAN_MANAGE) document.getElementById("btnNew").style.display="";
+      loadStats(); loadDocs();
+    })();
+  })();
+  </script>
+</body>
+</html>
