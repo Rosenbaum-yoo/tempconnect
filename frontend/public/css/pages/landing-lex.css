@@ -1,0 +1,409 @@
+/* ══════════════════════════════════════════════════════════════════
+   TempConnect – Landing "Editorial" Skin (LEX-inspired)
+   --------------------------------------------------------------------
+   ADDITIVE & FULLY SCOPED under [data-theme="editorial"] (set on <html>).
+   • When the attribute is something else (dark/light/ultra_premium), none
+     of these rules match → the original landing is preserved byte-for-byte.
+   • Theme choice is global: theme.js writes localStorage tempconnect-theme
+     and sets html[data-theme] before paint. No landing-specific switch.
+   • Loaded AFTER landing.css, so equal-specificity ties resolve here.
+
+   Note on !important: the classic markup carries many inline styles
+   (background/color/border). Inline always wins on specificity, so the
+   ONLY way to re-skin those elements without editing the classic markup
+   is scoped !important. Every such rule is gated by [data-theme="editorial"] and is
+   therefore inert in Classic mode — reversibility stays intact.
+
+   DSGVO: no external font requests. We use a self-contained editorial
+   system-font stack (serif display + clean sans + mono labels). If the
+   exact Instrument Serif / Geist faces are wanted later, self-host the
+   woff2 files and swap the --lex-serif / --lex-sans values below.
+   ══════════════════════════════════════════════════════════════════ */
+
+[data-theme="editorial"] {
+  --lex-forest:      #1f3a2e;
+  --lex-forest-deep: #15291f;
+  --lex-forest-soft: #2d4f3f;
+  --lex-cream:       #f4efe4;
+  --lex-cream-warm:  #ebe4d3;
+  --lex-paper:       #faf7ee;
+  --lex-wine:        #7a2e2e;
+  --lex-gold:        #b8935a;
+  --lex-ink:         #14201a;
+  --lex-muted:       #6b6457;
+  --lex-line:        #d4cab3;
+
+  --lex-serif: Georgia, "Iowan Old Style", "Palatino Linotype", Palatino, "Book Antiqua", "Times New Roman", serif;
+  --lex-sans:  system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --lex-mono:  ui-monospace, "SFMono-Regular", "Cascadia Mono", Menlo, Consolas, "Liberation Mono", monospace;
+}
+
+/* ── Surface ───────────────────────────────────────────────────── */
+[data-theme="editorial"] body {
+  background: var(--lex-paper) !important;
+  color: var(--lex-ink);
+  font-family: var(--lex-sans);
+}
+[data-theme="editorial"] .ds-divider { background: var(--lex-line); }
+
+/* Decorative emojis are removed in editorial (CLAUDE.md: keine Emojis) */
+[data-theme="editorial"] .tc-emoji,
+[data-theme="editorial"] .ds-trust-item__icon,
+[data-theme="editorial"] .ds-card__icon,
+[data-theme="editorial"] .audience-card h3 span { display: none !important; }
+[data-theme="editorial"] .audience-card h3 { gap: 0; }
+
+/* ── Topbar (sticky editorial bar) ─────────────────────────────── */
+[data-theme="editorial"] .ds-topbar {
+  position: sticky;
+  top: 10px;
+  z-index: 50;
+  background: rgba(250, 247, 238, 0.86);
+  backdrop-filter: blur(12px);
+  border: 1px solid var(--lex-line);
+  border-radius: var(--ds-radius-lg);
+}
+[data-theme="editorial"] .ds-topbar__brand { color: var(--lex-forest-deep); }
+[data-theme="editorial"] .ds-topbar__brand-dot {
+  background: var(--lex-forest);
+  box-shadow: 0 0 0 4px rgba(31, 58, 46, 0.08);
+}
+[data-theme="editorial"] .ds-topbar__separator { background: var(--lex-line); }
+[data-theme="editorial"] .ds-nav-link { color: var(--lex-muted); }
+[data-theme="editorial"] .ds-nav-link:hover { color: var(--lex-forest); background: rgba(31, 58, 46, 0.06); }
+[data-theme="editorial"] #tc-landing-user-label { color: var(--lex-muted) !important; }
+
+/* ── Buttons ───────────────────────────────────────────────────── */
+[data-theme="editorial"] .ds-btn {
+  background: var(--lex-cream-warm);
+  border: 1px solid var(--lex-line);
+  color: var(--lex-forest);
+  border-radius: var(--ds-radius-md);
+}
+[data-theme="editorial"] .ds-btn:hover {
+  background: var(--lex-cream);
+  border-color: var(--lex-gold);
+}
+[data-theme="editorial"] .ds-btn--primary {
+  background: var(--lex-forest);
+  border-color: var(--lex-forest-deep);
+  color: var(--lex-paper);
+}
+[data-theme="editorial"] .ds-btn--primary:hover {
+  background: var(--lex-forest-deep);
+  filter: none;
+}
+/* Secondary CTAs that carry an inline color/border (demo, pricing, …) */
+[data-theme="editorial"] .ds-btn[style]:not(.tc-pilot-btn):not(.ds-btn--primary) {
+  background: var(--lex-cream-warm) !important;
+  border-color: var(--lex-line) !important;
+  color: var(--lex-forest) !important;
+}
+/* Pilot access — gold-accented outline on forest, no rocket glyph */
+[data-theme="editorial"] .tc-pilot-btn {
+  background: var(--lex-gold) !important;
+  border: 1px solid var(--lex-gold) !important;
+  color: var(--lex-forest-deep) !important;
+  font-weight: 700;
+}
+[data-theme="editorial"] .tc-pilot-btn:hover { filter: brightness(1.04); }
+
+/* ── Hero ──────────────────────────────────────────────────────── */
+[data-theme="editorial"] .hero h1 {
+  font-family: var(--lex-serif);
+  font-weight: 400;
+  font-size: clamp(40px, 6vw, 92px);
+  line-height: 1.03;
+  letter-spacing: -0.02em;
+  color: var(--lex-forest-deep);
+  max-width: 920px;
+}
+[data-theme="editorial"] .hero h1 em {
+  font-style: italic;
+  font-family: var(--lex-serif);
+  background: none;
+  -webkit-text-fill-color: var(--lex-wine);
+  color: var(--lex-wine);
+}
+[data-theme="editorial"] .hero p {
+  color: var(--lex-muted);
+  font-size: 18px;
+  max-width: 620px;
+}
+
+/* ── Section headings ──────────────────────────────────────────── */
+[data-theme="editorial"] .section-label {
+  font-family: var(--lex-mono);
+  font-size: 11px;
+  letter-spacing: 0.16em;
+  color: var(--lex-gold);
+}
+[data-theme="editorial"] .section-heading {
+  font-family: var(--lex-serif);
+  font-weight: 400;
+  letter-spacing: -0.01em;
+  color: var(--lex-forest-deep);
+  font-size: clamp(26px, 3.4vw, 40px);
+}
+[data-theme="editorial"] .section-desc { color: var(--lex-muted); }
+
+/* ── Trust band ────────────────────────────────────────────────── */
+[data-theme="editorial"] .ds-trust-row {
+  background: var(--lex-cream-warm);
+  border: 1px solid var(--lex-line);
+  border-radius: var(--ds-radius-lg);
+}
+[data-theme="editorial"] .ds-trust-item { color: var(--lex-forest); }
+
+/* ── How it works (steps) ──────────────────────────────────────── */
+[data-theme="editorial"] .step {
+  background: var(--lex-cream-warm);
+  border: 1px solid var(--lex-line);
+}
+[data-theme="editorial"] .step::before {
+  background: var(--lex-forest);
+  border: 1px solid var(--lex-forest-deep);
+  color: var(--lex-paper);
+}
+[data-theme="editorial"] .step h3 { color: var(--lex-forest-deep); }
+[data-theme="editorial"] .step p { color: var(--lex-muted); }
+
+/* ── Pilot standard cards ──────────────────────────────────────── */
+[data-theme="editorial"] .pilot-flow-card {
+  background: var(--lex-cream-warm);
+  border: 1px solid var(--lex-line);
+}
+[data-theme="editorial"] .pilot-flow-card__eyebrow { font-family: var(--lex-mono); color: var(--lex-gold); }
+[data-theme="editorial"] .pilot-flow-card__title { color: var(--lex-forest-deep); }
+[data-theme="editorial"] .pilot-flow-card__desc { color: var(--lex-muted); }
+[data-theme="editorial"] .pilot-focus-panel {
+  background: var(--lex-cream-warm);
+  border: 1px solid var(--lex-line);
+}
+[data-theme="editorial"] .pilot-focus-panel--later {
+  background: var(--lex-cream);
+  border-color: rgba(122, 46, 46, 0.28);
+}
+[data-theme="editorial"] .pilot-focus-panel h3 { color: var(--lex-forest-deep); }
+[data-theme="editorial"] .pilot-focus-panel p,
+[data-theme="editorial"] .pilot-focus-list li { color: var(--lex-muted); }
+[data-theme="editorial"] .pilot-focus-list li::before { color: var(--lex-forest); }
+[data-theme="editorial"] .pilot-focus-panel--later .pilot-focus-list li::before { color: var(--lex-gold); }
+
+/* ── Audience cards ────────────────────────────────────────────── */
+[data-theme="editorial"] .audience-card {
+  background: var(--lex-cream-warm) !important;
+  border: 1px solid var(--lex-line) !important;
+}
+[data-theme="editorial"] .audience-card h3 { color: var(--lex-forest-deep); }
+[data-theme="editorial"] .audience-card p { color: var(--lex-muted) !important; }
+[data-theme="editorial"] .audience-card li { color: var(--lex-muted); }
+
+/* ── Feature cards ─────────────────────────────────────────────── */
+[data-theme="editorial"] .ds-card {
+  background: var(--lex-cream-warm);
+  border: 1px solid var(--lex-line);
+}
+[data-theme="editorial"] .ds-card__title { color: var(--lex-forest-deep); }
+[data-theme="editorial"] .ds-card .ds-text-muted { color: var(--lex-muted) !important; }
+
+/* ── Plans ─────────────────────────────────────────────────────── */
+[data-theme="editorial"] .plan-card {
+  background: var(--lex-cream-warm);
+  border: 1px solid var(--lex-line);
+}
+[data-theme="editorial"] .plan-card:hover { border-color: var(--lex-gold); }
+[data-theme="editorial"] .plan-card__name { color: var(--lex-forest-deep) !important; }
+[data-theme="editorial"] .plan-card__price { color: var(--lex-ink); }
+[data-theme="editorial"] .plan-card__price span { color: var(--lex-muted); }
+[data-theme="editorial"] .plan-card__desc { color: var(--lex-muted); }
+[data-theme="editorial"] .plan-card__features li { color: var(--lex-ink); }
+[data-theme="editorial"] .plan-card__features li::before { color: var(--lex-forest); }
+[data-theme="editorial"] .plan-card__features li.excluded { color: var(--lex-muted); }
+[data-theme="editorial"] .plan-card__features li.excluded::before { color: var(--lex-muted); }
+
+/* Featured PLUS card — forest inset, cream type (LEX signature) */
+[data-theme="editorial"] .plan-card--recommended {
+  background: var(--lex-forest) !important;
+  border-color: var(--lex-forest-deep) !important;
+  box-shadow: 0 18px 40px rgba(21, 41, 31, 0.22);
+}
+[data-theme="editorial"] .plan-card--recommended .plan-card__name { color: var(--lex-paper) !important; }
+[data-theme="editorial"] .plan-card--recommended .plan-card__price,
+[data-theme="editorial"] .plan-card--recommended .plan-card__desc,
+[data-theme="editorial"] .plan-card--recommended .plan-card__features li { color: var(--lex-cream); }
+[data-theme="editorial"] .plan-card--recommended .plan-card__price span { color: var(--lex-cream-warm); }
+[data-theme="editorial"] .plan-card--recommended .plan-card__features li::before { color: var(--lex-gold); }
+[data-theme="editorial"] .plan-card--recommended .plan-card__cta .ds-btn--primary {
+  background: var(--lex-paper);
+  border-color: transparent;
+  color: var(--lex-forest-deep);
+}
+[data-theme="editorial"] .plan-card--recommended .plan-card__cta .ds-btn--primary:hover { background: var(--lex-cream); }
+[data-theme="editorial"] .plan-card--recommended .ds-badge--brand {
+  background: var(--lex-gold);
+  color: var(--lex-forest-deep);
+  border-color: transparent;
+}
+
+/* Individual-tariff card — wine/gold accent on light */
+[data-theme="editorial"] .plan-card--enterprise {
+  background: var(--lex-cream) !important;
+  border-color: rgba(122, 46, 46, 0.3) !important;
+}
+[data-theme="editorial"] .plan-card--enterprise .plan-card__name { color: var(--lex-wine) !important; }
+[data-theme="editorial"] .plan-card--enterprise .ds-badge--accent {
+  background: rgba(122, 46, 46, 0.12);
+  color: var(--lex-wine);
+  border-color: rgba(122, 46, 46, 0.3);
+}
+
+/* ── Comparison table ──────────────────────────────────────────── */
+[data-theme="editorial"] .comparison-wrap { border: 1px solid var(--lex-line); }
+[data-theme="editorial"] .comparison-table th,
+[data-theme="editorial"] .comparison-table td { border-bottom: 1px solid var(--lex-line); }
+[data-theme="editorial"] .comparison-table thead th {
+  background: var(--lex-forest);
+  color: var(--lex-cream);
+}
+[data-theme="editorial"] .comparison-table thead th.highlight { color: var(--lex-gold); }
+[data-theme="editorial"] .comparison-table tbody tr:hover { background: rgba(31, 58, 46, 0.04); }
+[data-theme="editorial"] .comparison-table .check { color: var(--lex-forest); }
+[data-theme="editorial"] .comparison-table .cross { color: var(--lex-muted); }
+[data-theme="editorial"] .comparison-table .value { color: var(--lex-ink); }
+[data-theme="editorial"] .comparison-table .group-row td {
+  background: var(--lex-cream-warm);
+  color: var(--lex-forest-deep);
+  border-bottom: 1px solid var(--lex-line);
+}
+
+/* ── Buyer-Fit block (inline-style heavy → scoped neutralisation) ── */
+[data-theme="editorial"] .tc-buyerfit { color: var(--lex-ink); }
+[data-theme="editorial"] .tc-buyerfit .section-label { color: var(--lex-gold) !important; }
+[data-theme="editorial"] .tc-buyerfit h3,
+[data-theme="editorial"] .tc-buyerfit h4 { color: var(--lex-forest-deep) !important; }
+[data-theme="editorial"] .tc-buyerfit p { color: var(--lex-muted) !important; }
+[data-theme="editorial"] .tc-buyerfit [style*="color:var(--ds-text-secondary)"] { color: var(--lex-muted) !important; }
+[data-theme="editorial"] .tc-buyerfit div[style*="border:1px"] {
+  background: var(--lex-cream-warm) !important;
+  border-color: var(--lex-line) !important;
+}
+[data-theme="editorial"] .tc-buyerfit div[style*="linear-gradient"] {
+  background: var(--lex-paper) !important;
+  border-color: var(--lex-line) !important;
+}
+/* step eyebrows inside the pilot-path box */
+[data-theme="editorial"] .tc-buyerfit [style*="text-transform:uppercase"] { color: var(--lex-gold) !important; }
+/* numbered circles → forest marker */
+[data-theme="editorial"] .tc-buyerfit div[style*="border-radius:50%"] {
+  background: var(--lex-forest) !important;
+  border-color: var(--lex-forest-deep) !important;
+  color: var(--lex-paper) !important;
+}
+
+/* ── Final CTA (dark forest inset, LEX signature) ──────────────── */
+[data-theme="editorial"] .tc-final-cta {
+  background: var(--lex-forest-deep);
+  border-radius: var(--ds-radius-xl, 20px);
+  padding: var(--ds-space-12) var(--ds-space-6) !important;
+}
+[data-theme="editorial"] .tc-final-cta .section-label { color: var(--lex-gold); }
+[data-theme="editorial"] .tc-final-cta .section-heading { color: var(--lex-paper); }
+[data-theme="editorial"] .tc-final-cta .section-desc { color: var(--lex-cream-warm); }
+[data-theme="editorial"] .tc-final-cta .ds-btn--primary {
+  background: var(--lex-paper);
+  border-color: transparent;
+  color: var(--lex-forest-deep);
+}
+[data-theme="editorial"] .tc-final-cta .ds-btn--primary:hover { background: var(--lex-cream); }
+[data-theme="editorial"] .tc-final-cta .ds-btn[style]:not(.ds-btn--primary) {
+  background: transparent !important;
+  border-color: rgba(244, 239, 228, 0.4) !important;
+  color: var(--lex-cream) !important;
+}
+
+/* ── Disclaimer ────────────────────────────────────────────────── */
+[data-theme="editorial"] .ds-disclaimer {
+  background: var(--lex-cream-warm);
+  border: 1px solid var(--lex-line);
+  color: var(--lex-muted);
+}
+
+/* ── Footer (injected by footer.js → .tc-footer) ───────────────── */
+[data-theme="editorial"] .tc-footer { border-top: 1px solid var(--lex-line); }
+[data-theme="editorial"] .tc-footer-links a { color: var(--lex-muted); }
+[data-theme="editorial"] .tc-footer-links a:hover { color: var(--lex-forest); }
+[data-theme="editorial"] .tc-footer-copy { color: var(--lex-muted) !important; }
+
+/* ── Auth modal ────────────────────────────────────────────────── */
+[data-theme="editorial"] .am-overlay { background: rgba(20, 32, 26, 0.45); }
+[data-theme="editorial"] .am-panel {
+  background: var(--lex-paper);
+  border: 1px solid var(--lex-line);
+  box-shadow: 0 32px 80px rgba(20, 32, 26, 0.28);
+}
+[data-theme="editorial"] .am-header h2 { color: var(--lex-forest-deep); font-family: var(--lex-serif); font-weight: 400; }
+[data-theme="editorial"] .am-close {
+  border-color: var(--lex-line);
+  color: var(--lex-muted);
+}
+[data-theme="editorial"] .am-close:hover { border-color: var(--lex-gold); color: var(--lex-forest); }
+[data-theme="editorial"] .am-tabs { background: var(--lex-cream-warm); }
+[data-theme="editorial"] .am-tab { color: var(--lex-muted); }
+[data-theme="editorial"] .am-tab.active { background: var(--lex-paper); color: var(--lex-forest-deep); box-shadow: 0 1px 3px rgba(20, 32, 26, 0.12); }
+[data-theme="editorial"] .am-field label { font-family: var(--lex-mono); color: var(--lex-muted); }
+[data-theme="editorial"] .am-input {
+  background: #fff;
+  border: 1px solid var(--lex-line);
+  color: var(--lex-ink);
+}
+[data-theme="editorial"] .am-input:focus { border-color: var(--lex-forest); background: rgba(31, 58, 46, 0.03); }
+[data-theme="editorial"] .am-input::placeholder { color: var(--lex-muted); opacity: 0.7; }
+[data-theme="editorial"] select.am-input option { background: #fff; color: var(--lex-ink); }
+[data-theme="editorial"] .am-btn-primary { background: var(--lex-forest); color: var(--lex-paper); }
+[data-theme="editorial"] .am-btn-primary:hover:not(:disabled) { background: var(--lex-forest-deep); }
+[data-theme="editorial"] .am-btn-ghost {
+  background: var(--lex-cream-warm);
+  border-color: var(--lex-line);
+  color: var(--lex-forest);
+}
+[data-theme="editorial"] .am-btn-ghost:hover { background: var(--lex-cream); }
+[data-theme="editorial"] .am-link { color: var(--lex-wine); }
+[data-theme="editorial"] .am-hint,
+[data-theme="editorial"] .am-divider,
+[data-theme="editorial"] .am-sso-info { color: var(--lex-muted); }
+[data-theme="editorial"] .am-checkbox-row span { color: var(--lex-muted); }
+[data-theme="editorial"] .am-checkbox-row input[type="checkbox"] { accent-color: var(--lex-forest); }
+[data-theme="editorial"] .am-checkbox-row a,
+[data-theme="editorial"] .am-bottom-link .am-link { color: var(--lex-wine); }
+[data-theme="editorial"] .am-sso-btn {
+  background: var(--lex-cream-warm);
+  border-color: var(--lex-line);
+  color: var(--lex-forest);
+}
+[data-theme="editorial"] .am-sso-btn:hover { background: var(--lex-cream); border-color: var(--lex-gold); }
+[data-theme="editorial"] .am-sso-enforce {
+  background: rgba(184, 147, 90, 0.12);
+  border-color: rgba(184, 147, 90, 0.4);
+  color: var(--lex-forest-deep);
+}
+[data-theme="editorial"] .am-error {
+  background: rgba(122, 46, 46, 0.08);
+  border-color: rgba(122, 46, 46, 0.3);
+  color: var(--lex-wine);
+}
+[data-theme="editorial"] .am-success {
+  background: rgba(31, 58, 46, 0.08);
+  border-color: rgba(31, 58, 46, 0.3);
+  color: var(--lex-forest-deep);
+}
+
+/* ── Toast ─────────────────────────────────────────────────────── */
+[data-theme="editorial"] .tc-toast {
+  background: var(--lex-paper);
+  border: 1px solid var(--lex-line);
+  color: var(--lex-ink);
+}
+[data-theme="editorial"] .tc-toast.success { border-color: rgba(31, 58, 46, 0.4); color: var(--lex-forest-deep); }
+[data-theme="editorial"] .tc-toast.error { border-color: rgba(122, 46, 46, 0.4); color: var(--lex-wine); }
+[data-theme="editorial"] .tc-toast.info { border-color: var(--lex-gold); color: var(--lex-forest); }

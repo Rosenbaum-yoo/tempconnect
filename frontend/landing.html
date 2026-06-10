@@ -8,6 +8,9 @@
   <meta name="description" content="TempConnect ist das buyer-first VMS-light für Einsatzunternehmen mit wiederkehrenden Zeitarbeits-Bedarfen, Lieferantensteuerung, Deals, Einsätzen und digitalen Stundenzetteln."/>
   <link rel="stylesheet" href="/public/css/design-system.css"/>
   <link rel="stylesheet" href="/public/css/pages/landing.css"/>
+  <!-- Editorial skin — additive, scoped to [data-theme="editorial"]. Classic/Light bleiben unangetastet.
+       Theme-Wahl + FOUC-Guard global via theme.js (head). Kein landing-eigener Schalter mehr. -->
+  <link rel="stylesheet" href="/public/css/pages/landing-lex.css"/>
 </head>
 <body>
   <div class="ds-wrap">
@@ -27,7 +30,7 @@
         <span id="tc-landing-guest">
           <button onclick="openAuth('login')"    class="ds-btn">Anmelden</button>
           <button onclick="openAuth('register')" class="ds-btn ds-btn--primary">Jetzt registrieren</button>
-          <button onclick="openAuth('register')" class="ds-btn" style="background:linear-gradient(135deg,#39d98a,#4a9eff);color:#fff;border:none;font-weight:700">&#128640; Pilot-Zugang</button>
+          <button onclick="openAuth('register')" class="ds-btn tc-pilot-btn" style="background:linear-gradient(135deg,#39d98a,#4a9eff);color:#fff;border:none;font-weight:700"><span class="tc-emoji">&#128640;</span> Pilot-Zugang</button>
         </span>
         <!-- Eingeloggt: Status + Dashboard -->
         <span id="tc-landing-user" style="display:none;align-items:center;gap:8px">
@@ -427,7 +430,7 @@
     </div>
 
     <!-- ── Buyer-Fit & Pilotpfad ────────────────────────────── -->
-    <section class="ds-section">
+    <section class="ds-section tc-buyerfit">
       <div style="text-align:center;margin-bottom:var(--ds-space-6)">
         <div class="section-label">Buyer-Fit</div>
         <h2 class="section-heading">Stark, wenn wiederkehrender Bedarf wirklich gesteuert werden muss</h2>
@@ -478,7 +481,7 @@
 
       <!-- Next Steps -->
       <div style="margin-top:var(--ds-space-2)">
-        <h3 style="font-size:16px;font-weight:700;text-align:center;margin:0 0 var(--ds-space-3)">&#128204; Ihr buyer-first Einstieg</h3>
+        <h3 style="font-size:16px;font-weight:700;text-align:center;margin:0 0 var(--ds-space-3)"><span class="tc-emoji">&#128204;</span> Ihr buyer-first Einstieg</h3>
         <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:var(--ds-space-3);counter-reset:nstep">
           <div style="padding:var(--ds-space-4);border:1px solid var(--ds-border);border-radius:var(--ds-radius-lg);background:rgba(255,255,255,.02);text-align:center;counter-increment:nstep">
             <div style="width:32px;height:32px;border-radius:50%;background:var(--ds-brand-muted);border:1px solid rgba(74,158,255,.25);color:var(--ds-brand);display:inline-flex;align-items:center;justify-content:center;font-size:14px;font-weight:800;margin-bottom:10px">1</div>
@@ -507,7 +510,7 @@
     <hr class="ds-divider"/>
 
     <!-- ── Final CTA ──────────────────────────────────────── -->
-    <section class="ds-section" style="text-align:center;padding:var(--ds-space-8) 0">
+    <section class="ds-section tc-final-cta" style="text-align:center;padding:var(--ds-space-8) 0">
       <div class="section-label">Jetzt starten</div>
       <h2 class="section-heading">Bereit, wiederkehrende Zeitarbeits-Bedarfe steuerbar zu machen?</h2>
       <p class="section-desc" style="margin:var(--ds-space-2) auto var(--ds-space-5)">Registrieren Sie sich kostenlos und erleben Sie, wie TempConnect Bedarf, Lieferanten, Deal, Einsatz und Stundenzettel in einem buyer-first Flow verbindet.</p>
@@ -529,6 +532,7 @@
     <div id="tc-footer" data-tc-footer></div>
   </div><!-- /.ds-wrap -->
 
+  <!-- Theme-Wahl (Editorial/Classic/Light) global via theme.js-Umschalter — kein landing-eigener Schalter. -->
 
   <!-- ════════════════════════════════════════════════════════
        AUTH MODAL

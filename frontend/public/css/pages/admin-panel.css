@@ -779,7 +779,7 @@
   display: none;
 }
 
-/* ── Responsive ────────────────────────────────────────── */ 
+/* ── Responsive ────────────────────────────────────────── */
 @media (max-width: 980px) {
   .admin-center-top {
     grid-template-columns: 1fr;
@@ -787,4 +787,25 @@
   .admin-workspace__header {
     flex-direction: column;
   }
+}
+
+/* ── Editorial theme ───────────────────────────────────────
+   The active/restricted/enterprise card-state badges use pale "glow" text
+   colors tuned for the dark panel; on the cream editorial surface they wash
+   out. Darken the text for readable contrast — backgrounds/borders stay as
+   faint semantic tints. Additive and editorial-scoped (wins by specificity).
+   NOTE: this internal panel also uses legacy hardcoded rgba(255,255,255,…)
+   card surfaces that pre-date the light/editorial themes and flatten on both
+   light-family themes; that is a separate internal-tooling polish item, out
+   of scope for this additive theme pass. */
+[data-theme="editorial"] .admin-card-state--active { color: #1f5a3f; }
+[data-theme="editorial"] .admin-card-state--restricted,
+[data-theme="editorial"] .admin-card-state--enterprise_only { color: #7a5312; }
+
+/* Primary card action — forest tint (was blue; label already var(--brand)).
+   Removes the blue shimmer; the flat white-alpha card surfaces noted above
+   remain the separate, out-of-scope internal-tooling polish item. */
+[data-theme="editorial"] .admin-card-action--primary {
+  border-color: rgba(31, 58, 46, 0.32);
+  background: rgba(31, 58, 46, 0.1);
 }

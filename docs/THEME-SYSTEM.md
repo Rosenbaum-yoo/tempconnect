@@ -1,12 +1,13 @@
-# TempConnect Theme System (Dark / Light)
+# TempConnect Theme System (Editorial / Dark / Light / Ultra Premium)
 
-**Stand:** Produktiv im Frontend umgesetzt (Design System + Enterprise + Landing/Auth; siehe unten). `html[data-theme]` wird global gesetzt; Worker-/Einsatzportal-Seiten nutzen ein separates Stylesheet (siehe Abschnitt unten).
+**Stand:** Produktiv im Frontend umgesetzt (Design System + Enterprise + Landing/Auth; siehe unten). `html[data-theme]` wird global gesetzt; Worker-/Einsatzportal-Seiten nutzen ein separates Stylesheet (siehe Abschnitt unten). **Plattform-Default seit 2026-06-08: `editorial`** (LEX-Look) — siehe *Default & persistence*.
 
 ## Overview
 
-- **Default / Dark:** The existing TempConnect look is preserved. It maps to `html[data-theme="dark"]` (and `:root` token defaults in `design-system.css`).
+- **Editorial (Default):** The "LEX" editorial look (forest/cream/wine/gold, serif headlines, editorial layout) applied when `html[data-theme="editorial"]` is set. **This is the platform-wide default** — visitors who never picked a theme see it. Token-driven like the others, fully selectable and reversible (see *Default & persistence* and *Registry & feature flags*).
+- **Dark (Classic):** The original TempConnect look, `html[data-theme="dark"]` (and the `:root` token defaults in `design-system.css`). Still fully selectable; it is also the **safety fallback** if Editorial is gated off.
 - **Light:** A dedicated B2B light palette is applied when `html[data-theme="light"]` is set.
-- **Ultra Premium (opt-in):** A refined dark theme applied when `html[data-theme="ultra_premium"]` is set — deeper obsidian ground, sapphire-tinted glass surfaces, stronger elevation hierarchy and a subtle ambient depth. Token-driven like the others; **the default stays dark**, Ultra Premium is only active once the user selects it.
+- **Ultra Premium (opt-in):** A refined dark theme applied when `html[data-theme="ultra_premium"]` is set — deeper obsidian ground, sapphire-tinted glass surfaces, stronger elevation hierarchy and a subtle ambient depth. Only active once the user selects it.
 - **No color inversion:** every theme is token-driven (`--ds-*`, `--tc-*`), not a filter.
 
 ## Files
@@ -21,23 +22,28 @@
 
 > **Hinweis:** Früher lag Light in `theme-light.css` und wurde per `@import` **vor** dem `:root`-Block eingebunden — das konnte dazu führen, dass Dark-Tokens die Light-Palette überschrieben. Light-Regeln stehen jetzt **am Ende** von `design-system.css`.
 
-## Storage
+## Default & persistence
 
-- **Key:** `localStorage["tempconnect-theme"]`
-- **Values:** `"dark"` | `"light"` | `"ultra_premium"`
-- **Default:** `dark` (when no valid/enabled key is present). System `prefers-color-scheme` is **not** auto-applied, so the product default stays the established dark UI until the user opts in.
-- **Fallback:** an unknown or disabled stored value (e.g. `ultra_premium` while its flag is off) resolves to `dark` on load.
+- **Keys:** `localStorage["tempconnect-theme"]` (the chosen theme) **and** `localStorage["tempconnect-theme-explicit"]` (set to `"1"` only once the user actively picks a theme).
+- **Values:** `"editorial"` | `"dark"` | `"light"` | `"ultra_premium"`
+- **Default:** `editorial`. The default is applied **without persisting** — only an explicit toggle / `set()` is written to storage and marked. So a visitor who never chose a theme always follows the **live** default, even after it changes. A stale auto-persisted value from the previous controller (e.g. `"dark"`) is **ignored**, because it carries no explicit-choice marker — this is what made the platform-wide default flip reach returning visitors instead of being shadowed.
+- **Configurable:** `window.__TC_THEME_FLAGS__.defaultTheme` overrides the platform default (e.g. `"dark"`).
+- **Fallback:** an unknown/disabled stored value, or a configured default that is gated off (e.g. `editorial` while `editorialEnabled:false`), resolves to `dark` on load.
+- **Reset:** `TC.theme.resetToDefault()` clears the explicit choice so the visitor follows the platform default again.
+- System `prefers-color-scheme` is **not** auto-applied.
 
 ## Public API (`TC.theme`)
 
 ```js
-TC.theme.get();                 // "dark" | "light" | "ultra_premium"
-TC.theme.set("ultra_premium");  // persist + set html[data-theme] (unknown/disabled -> default)
+TC.theme.get();                 // "editorial" | "dark" | "light" | "ultra_premium"
+TC.theme.set("dark");           // explicit choice: persist + mark + set html[data-theme] (unknown/disabled -> default)
 TC.theme.list();                // [{ id, label }, …] — themes enabled right now
 TC.theme.cycle();               // advance to the next enabled theme (the toggle button uses this)
 TC.theme.toggle();              // backwards-compatible binary dark <-> light
-TC.theme.DEFAULT;               // "dark"
-TC.theme.STORAGE_KEY;           // constant key name
+TC.theme.resetToDefault();      // clear explicit choice -> follow the live platform default
+TC.theme.DEFAULT;               // resolved default ("editorial", or the fallback when gated off)
+TC.theme.STORAGE_KEY;           // "tempconnect-theme"
+TC.theme.CHOICE_KEY;            // "tempconnect-theme-explicit"
 TC.theme.mountIntoNav(navElement); // idempotent; used by page shell
 TC.theme.ensureToggleMounted();    // find .ds-topbar__nav and mount if still missing
 ```
@@ -46,16 +52,18 @@ Event: `tc-theme-change` on `document` with `detail.theme`.
 
 ### Registry & feature flags
 
-The available themes live in a small registry inside `theme.js` (`dark`, `light`, `ultra_premium`).
-Availability can be gated **without editing the file** via an optional global set before `theme.js` loads:
+The available themes live in a small registry inside `theme.js` (`dark`, `light`, `ultra_premium`, `editorial`).
+Availability **and the default** can be gated **without editing the file** via an optional global set before `theme.js` loads:
 
 ```html
-<script>window.__TC_THEME_FLAGS__ = { switcherEnabled: true, ultraPremiumEnabled: true };</script>
+<script>window.__TC_THEME_FLAGS__ = { switcherEnabled: true, ultraPremiumEnabled: true, editorialEnabled: true, defaultTheme: "editorial" };</script>
 ```
 
 - `switcherEnabled: false` → the toggle is not mounted (a previously stored theme is still honored).
-- `ultraPremiumEnabled: false` → Ultra Premium drops out of `list()`/`cycle()`, and a stored `ultra_premium` falls back to `dark`.
-- Both default to **enabled** when the global is absent.
+- `ultraPremiumEnabled: false` → Ultra Premium drops out of `list()`/`cycle()`, and a stored `ultra_premium` falls back to the default.
+- `editorialEnabled: false` → Editorial drops out of `list()`/`cycle()`, and the platform default **cleanly reverts to `dark`** (the documented rollback path).
+- `defaultTheme: "dark"` → pins a different platform default; an unknown or disabled value falls back to `dark`.
+- The booleans default to **enabled** and `defaultTheme` to **`editorial`** when the global is absent.
 
 > **Phase J / Block 2 — Status (2026-06-03):** Die Env-Kill-Switches `THEME_SWITCHER_ENABLED` /
 > `ULTRA_PREMIUM_THEME_ENABLED` **sind umgesetzt** (Config-Taxonomie Tier-2, Default-AN; nur

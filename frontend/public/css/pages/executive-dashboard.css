@@ -338,3 +338,9 @@
 [data-theme="light"] .legend .l-grey::before {
   background: #94a3b8;
 }
+
+/* Editorial — onboarding banner: forest→wine tint (was blue→purple) */
+[data-theme="editorial"] .dash-onboarding-banner {
+  border-color: rgba(31, 58, 46, 0.2);
+  background: linear-gradient(135deg, rgba(31, 58, 46, 0.06), rgba(122, 46, 46, 0.04));
+}

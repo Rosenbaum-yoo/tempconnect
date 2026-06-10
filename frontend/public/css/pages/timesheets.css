@@ -14,11 +14,11 @@
   text-transform: uppercase;
   letter-spacing: 0.06em;
 }
-.ts-badge--draft     { background: rgba(148, 163, 184, .15); color: #94a3b8; }
-.ts-badge--submitted { background: rgba(251, 191, 36, .12);  color: #f59e0b; }
-.ts-badge--approved  { background: rgba(52, 211, 153, .12);  color: #10b981; }
-.ts-badge--rejected  { background: rgba(248, 113, 113, .12); color: #ef4444; }
-.ts-badge--cancelled { background: rgba(148, 163, 184, .08); color: #64748b; }
+.ts-badge--draft     { background: rgba(148, 163, 184, .15); color: var(--ds-text-tertiary); }
+.ts-badge--submitted { background: rgba(251, 191, 36, .12);  color: var(--ds-warning); }
+.ts-badge--approved  { background: rgba(52, 211, 153, .12);  color: var(--ds-success); }
+.ts-badge--rejected  { background: rgba(248, 113, 113, .12); color: var(--ds-danger); }
+.ts-badge--cancelled { background: rgba(148, 163, 184, .08); color: var(--ds-text-tertiary); }
 
 /* ── Table ────────────────────────────────────────────── */
 .ts-table { width: 100%; border-collapse: collapse; font-size: 13px; }
@@ -220,19 +220,19 @@
 /* ── Action Buttons (contextual) ──────────────────────── */
 .btn--approve {
   background: rgba(52, 211, 153, .15);
-  color: #10b981;
+  color: var(--ds-success);
   border-color: rgba(52, 211, 153, .3);
 }
 .btn--reject {
   background: rgba(248, 113, 113, .1);
-  color: #ef4444;
+  color: var(--ds-danger);
   border-color: rgba(248, 113, 113, .3);
 }
 .btn--delete-entry {
   margin-top: 8px;
   font-size: 11px;
   padding: 3px 8px;
-  color: #ef4444;
+  color: var(--ds-danger);
   border-color: rgba(248, 113, 113, .3);
 }
 

@@ -30,3 +30,6 @@
 @media (max-width: 960px) {
   .icc-grid { grid-template-columns: repeat(2,minmax(0,1fr)); }
 }
+
+/* Editorial — active tab: forest tint (was blue; border already var(--ds-brand)) */
+[data-theme="editorial"] .icc-tab.active { background: rgba(31, 58, 46, 0.12); }

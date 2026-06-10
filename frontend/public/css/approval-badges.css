@@ -262,3 +262,110 @@
   .approval-item__actions { width: 100%; justify-content: flex-end; }
   .approval-kpi-strip { grid-template-columns: repeat(2, 1fr); }
 }
+
+/* ════════════════════════════════════════════════════════════════════
+   EDITORIAL THEME — approval workflow on warm paper (forest / wine / cream)
+   The base file ships light pastel text (#c2e0ff, #fff3c2 …) + blue/purple
+   states designed for dark surfaces; on the cream ground they wash out and
+   shimmer blue. These rules re-tone every badge text + surface for readable
+   contrast on cream and convert blue→forest, purple→wine. Scoped to
+   [data-theme="editorial"] → dark / light / ultra stay byte-identical.
+   ════════════════════════════════════════════════════════════════════ */
+
+/* Status badges — dark text on warm tints (keeps hue separation per state) */
+[data-theme="editorial"] .approval-badge--pending {
+  color: #6f4d14;
+  background: rgba(184, 147, 90, 0.18);
+  border-color: rgba(156, 107, 31, 0.34);
+}
+[data-theme="editorial"] .approval-badge--pending .approval-badge__dot { background: #8a5f1a; }
+
+[data-theme="editorial"] .approval-badge--in-review {
+  color: #15291f;
+  background: rgba(31, 58, 46, 0.1);
+  border-color: rgba(31, 58, 46, 0.32);
+}
+[data-theme="editorial"] .approval-badge--in-review .approval-badge__dot { background: #1f3a2e; }
+
+[data-theme="editorial"] .approval-badge--approved {
+  color: #1d4a36;
+  background: rgba(45, 106, 79, 0.12);
+  border-color: rgba(45, 106, 79, 0.34);
+}
+[data-theme="editorial"] .approval-badge--approved .approval-badge__dot { background: #2d6a4f; }
+
+[data-theme="editorial"] .approval-badge--rejected {
+  color: #6f2222;
+  background: rgba(143, 45, 45, 0.1);
+  border-color: rgba(143, 45, 45, 0.34);
+}
+[data-theme="editorial"] .approval-badge--rejected .approval-badge__dot { background: #8f2d2d; }
+
+[data-theme="editorial"] .approval-badge--correction {
+  color: #8a4b14;
+  background: rgba(180, 110, 40, 0.16);
+  border-color: rgba(160, 90, 25, 0.32);
+}
+[data-theme="editorial"] .approval-badge--correction .approval-badge__dot { background: #b5651d; }
+
+[data-theme="editorial"] .approval-badge--customer {
+  color: #5f2424;
+  background: rgba(122, 46, 46, 0.1);
+  border-color: rgba(122, 46, 46, 0.32);
+}
+[data-theme="editorial"] .approval-badge--customer .approval-badge__dot { background: #7a2e2e; }
+
+[data-theme="editorial"] .approval-badge--completed {
+  color: #4a5a50;
+  background: rgba(45, 106, 79, 0.06);
+  border-color: rgba(31, 58, 46, 0.14);
+}
+[data-theme="editorial"] .approval-badge--expired {
+  background: rgba(31, 58, 46, 0.04);
+  border-color: rgba(31, 58, 46, 0.12);
+}
+[data-theme="editorial"] .approval-badge--expired .approval-badge__dot { background: #8a8270; }
+
+/* Action buttons — warm fills, readable dark labels */
+[data-theme="editorial"] .approval-btn { background: rgba(31, 58, 46, 0.04); }
+[data-theme="editorial"] .approval-btn:hover { border-color: rgba(31, 58, 46, 0.2); }
+[data-theme="editorial"] .approval-btn--approve {
+  background: rgba(45, 106, 79, 0.12);
+  border-color: rgba(45, 106, 79, 0.34);
+  color: #1d4a36;
+}
+[data-theme="editorial"] .approval-btn--approve:hover { background: rgba(45, 106, 79, 0.2); }
+[data-theme="editorial"] .approval-btn--reject {
+  background: rgba(143, 45, 45, 0.1);
+  border-color: rgba(143, 45, 45, 0.34);
+  color: #6f2222;
+}
+[data-theme="editorial"] .approval-btn--reject:hover { background: rgba(143, 45, 45, 0.18); }
+[data-theme="editorial"] .approval-btn--review {
+  background: rgba(31, 58, 46, 0.1);
+  border-color: rgba(31, 58, 46, 0.32);
+  color: #15291f;
+}
+[data-theme="editorial"] .approval-btn--review:hover { background: rgba(31, 58, 46, 0.18); }
+
+/* Item rows / icons / KPI tiles — forest surfaces (were white-alpha → flat on cream) */
+[data-theme="editorial"] .approval-item { background: rgba(31, 58, 46, 0.02); }
+[data-theme="editorial"] .approval-item:hover {
+  border-color: rgba(31, 58, 46, 0.16);
+  background: rgba(31, 58, 46, 0.04);
+}
+[data-theme="editorial"] .approval-item__icon { background: rgba(31, 58, 46, 0.05); }
+[data-theme="editorial"] .approval-kpi { background: rgba(31, 58, 46, 0.03); }
+
+/* Filter pills */
+[data-theme="editorial"] .approval-filter-pill { background: rgba(31, 58, 46, 0.04); }
+[data-theme="editorial"] .approval-filter-pill:hover { border-color: rgba(31, 58, 46, 0.18); }
+[data-theme="editorial"] .approval-filter-pill--active {
+  background: rgba(31, 58, 46, 0.1);
+  border-color: rgba(31, 58, 46, 0.32);
+  color: #15291f;
+}
+
+/* Reason textarea — cream field, forest focus ring */
+[data-theme="editorial"] .approval-reason { background: #fffdf6; }
+[data-theme="editorial"] .approval-reason:focus { border-color: rgba(31, 58, 46, 0.5); }

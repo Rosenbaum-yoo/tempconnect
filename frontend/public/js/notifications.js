@@ -106,7 +106,7 @@
     container.innerHTML = list.map(function (n) {
       var link    = resolveLink(n);
       var bg      = n.is_read ? "transparent" : "rgba(74,158,255,.05)";
-      var border  = n.is_read ? "3px solid transparent" : "3px solid #4a9eff";
+      var border  = n.is_read ? "3px solid transparent" : "3px solid var(--ds-brand,#4a9eff)";
       var msg     = (n.message && n.message !== n.title) ? n.message : null;
       var arrow   = link ? '<span style="flex-shrink:0;color:var(--muted,#8d9bba);font-size:11px;margin-top:2px">→</span>' : "";
       return '<div style="padding:10px 14px;border-bottom:1px solid rgba(255,255,255,.04);background:' + bg + ';border-left:' + border + ';display:flex;align-items:flex-start;gap:8px;cursor:pointer;transition:background .1s"' +

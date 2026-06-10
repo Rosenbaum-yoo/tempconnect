@@ -37,6 +37,24 @@
     .sh-bar__fill--danger { background:#f87171; }
     .sh-refresh { font-size:11px; color:var(--ds-text-secondary); margin-top:var(--ds-space-3); text-align:right; }
     .sh-empty { text-align:center; padding:var(--ds-space-6); color:var(--ds-text-secondary); font-size:14px; }
+
+    /* ═══════════════════════════════════════════════════════════════
+       EDITORIAL THEME — match landing.html (forest / cream / wine / gold)
+       Scoped under [data-theme="editorial"] → dark/light/ultra stay
+       byte-identical. Turns the white-alpha card surfaces (invisible on
+       cream) into warm cream "darker boxes", de-blues the configured
+       status dot, and re-grounds the metric separators + bar tracks.
+       ═══════════════════════════════════════════════════════════════ */
+    /* Health cards → cream-warm "darker boxes" (was white-alpha bg + border) */
+    [data-theme="editorial"] .sh-card { background:#ebe4d3; border-color:#d4cab3; }
+    /* Metric row separators (white-alpha) → forest hairline */
+    [data-theme="editorial"] .sh-metric { border-bottom-color:rgba(31,58,46,.12); }
+    /* Progress-bar track (white-alpha, faint on cream) → forest-alpha */
+    [data-theme="editorial"] .sh-bar { background:rgba(31,58,46,.1); }
+    /* Configured status dot → forest (was translucent blue) */
+    [data-theme="editorial"] .sh-dot--configured { background:#1f3a2e; }
+    /* Unconfigured status dot → muted forest (was white-alpha, invisible on cream) */
+    [data-theme="editorial"] .sh-dot--unconfigured { background:rgba(31,58,46,.25); }
   </style>
 </head>
 <body>

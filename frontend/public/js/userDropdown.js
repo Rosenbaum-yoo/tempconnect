@@ -56,7 +56,7 @@
         if (!me) {
           if (content) content.innerHTML =
             '<div style="font-size:13px;color:var(--muted,#8d9bba);padding:4px 0">Nicht eingeloggt</div>' +
-            '<a href="/" style="display:block;margin-top:8px;font-size:12px;color:#4a9eff;font-weight:600;text-decoration:none;text-align:center">Zum Login &rarr;</a>';
+            '<a href="/" style="display:block;margin-top:8px;font-size:12px;color:var(--ds-brand,#4a9eff);font-weight:600;text-decoration:none;text-align:center">Zum Login &rarr;</a>';
           return;
         }
         populate(btn, content, me);
@@ -97,7 +97,7 @@
     h += '</div>';
 
     h += '<div style="margin-top:14px;padding-top:10px;border-top:1px solid var(--line,rgba(255,255,255,.07));text-align:center">';
-    h += '<a href="/public/sla_profil.html" style="font-size:12px;color:#4a9eff;font-weight:600;text-decoration:none">Profil bearbeiten \u2192</a>';
+    h += '<a href="/public/sla_profil.html" style="font-size:12px;color:var(--ds-brand,#4a9eff);font-weight:600;text-decoration:none">Profil bearbeiten \u2192</a>';
     h += '</div>';
 
     container.innerHTML = h;

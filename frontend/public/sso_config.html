@@ -32,6 +32,17 @@
     .sso-actions { display: flex; gap: var(--ds-space-2); flex-wrap: wrap; margin-top: var(--ds-space-4); }
     .meta-box { padding: var(--ds-space-4); border-radius: var(--ds-radius-md); border: 1px solid rgba(74,158,255,.2); background: rgba(74,158,255,.04); margin-top: var(--ds-space-4); }
     .meta-box code { font-size: 12px; word-break: break-all; color: var(--ds-brand); }
+
+    /* ═══════════════════════════════════════════════════════════════
+       EDITORIAL THEME — match landing.html (forest / cream / wine / gold)
+       Scoped under [data-theme="editorial"] → dark/light/ultra stay
+       byte-identical. De-blues the IDP meta-box and lifts the white-alpha
+       inactive-badge surface onto warm cream. (--ds-brand is already forest.)
+       ═══════════════════════════════════════════════════════════════ */
+    /* Meta / IDP info box → forest tint (was translucent blue) */
+    [data-theme="editorial"] .meta-box { border-color: rgba(31,58,46,.2); background: rgba(31,58,46,.06); }
+    /* Inactive status badge surface → secondary cream (was white-alpha) */
+    [data-theme="editorial"] .sso-status-badge.inactive { background: #fffdf6; }
   </style>
 </head>
 <body>
