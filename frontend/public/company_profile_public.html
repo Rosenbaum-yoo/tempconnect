@@ -96,6 +96,9 @@
       <!-- Scorecard -->
       <div id="pp-scorecard" style="display:none;margin-top:var(--ds-space-6)"></div>
 
+      <!-- Bewertungen -->
+      <div id="pp-ratings" style="display:none;margin-top:var(--ds-space-6)"></div>
+
       <!-- Bounty Badges -->
       <div id="pp-bounty-badges" style="display:none;margin-top:var(--ds-space-4)"></div>
 
@@ -186,7 +189,7 @@
   <script>
   (function(){
     "use strict";
-    function esc(s){ var d=document.createElement("div"); d.textContent=s||""; return d.innerHTML; }
+    function esc(s){ return String(s==null?"":s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;").replace(/'/g,"&#x27;"); }
     function $(id){ return document.getElementById(id); }
 
     // Get userId from URL ?id=X or show own profile
@@ -582,5 +585,7 @@
 <script src="/public/js/onboardingWizard.js" defer></script><script src="/public/js/notifications.js" defer></script>
 <script src="/public/js/breadcrumb.js" defer></script>
 <script src="/public/js/milestoneToasts.js" defer></script>
+  <script src="/public/js/ratingModal.js"></script>
+  <script>(function(){var id=new URLSearchParams(location.search).get("id");if(id&&window.TCRating)TCRating.mountProfile("pp-ratings",id);})();</script>
 </body>
 </html>

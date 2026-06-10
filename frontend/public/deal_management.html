@@ -105,6 +105,8 @@
       </div>
     </div>
 
+    <div id="dm-ratings-prompt" style="margin-bottom:var(--ds-space-5);display:none"></div>
+
     <!-- KPI Tiles -->
     <div class="dm-kpi" id="dm-kpi">
       <div class="dm-kpi-tile"><div class="dm-kpi-tile__value dm-kpi-tile__value--brand" id="kpi-active">-</div><div class="dm-kpi-tile__label">Aktive Deals</div></div>
@@ -587,5 +589,7 @@
   <script src="/public/js/footer.js"></script>
   <script src="/public/js/demoBanner.js" defer></script>
   <script src="/public/js/breadcrumb.js" defer></script>
+  <script src="/public/js/ratingModal.js"></script>
+  <script>if(window.TCRating)TCRating.mountPending("dm-ratings-prompt");</script>
 </body>
 </html>

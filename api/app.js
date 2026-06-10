@@ -56,6 +56,7 @@ import { createSearchRouter } from "./routes/search.js";
 import { createComplianceDocsRouter } from "./routes/complianceDocs.js";
 import { createDocumentCenterRouter } from "./routes/documentCenter.js";
 import { createCompanyProfileRouter } from "./routes/companyProfile.js";
+import { createRatingsRouter } from "./routes/ratings.js";
 import { createActivityFeedRouter } from "./routes/activityFeed.js";
 import { createAdminRouter } from "./routes/admin.js";
 import { createWorkersRouter } from "./routes/workers.js";
@@ -332,6 +333,7 @@ export async function createApp() {
   v1.use(createComplianceDocsRouter(deps));
   v1.use(createDocumentCenterRouter(deps));
   v1.use(createCompanyProfileRouter(deps));
+  v1.use(createRatingsRouter(deps));
   v1.use(createActivityFeedRouter(deps));
   v1.use(createAdminRouter(deps));
   v1.use(createWorkersRouter(deps));
