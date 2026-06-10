@@ -51,6 +51,8 @@
     [data-theme="editorial"] .int-card{background:#ebe4d3;border-color:#d4cab3}
     /* Event chips → forest tint (was translucent blue); --ds-brand text is already forest */
     [data-theme="editorial"] .int-card__evt{background:rgba(31,58,46,.08);border-color:rgba(31,58,46,.2);color:#1f3a2e}
+    /* Modal: warme Creme-Flaeche. Fallback var(--ds-surface) -> #0d1117 (dunkel), da editorial nur --ds-bg-surface kennt. */
+    [data-theme="editorial"] .int-modal{background:#fffdf6;border-color:#d4cab3}
   </style>
 </head>
 <body data-sla-guard="sla_access">
@@ -95,6 +97,7 @@
 
   <div class="toast" id="toast"></div>
 
+  <script src="/public/js/pageShell.js"></script>
   <script src="/public/js/planFeatures.js"></script>
   <script src="/public/js/slaGuard.js"></script>
   <script src="/public/js/entitlements.js"></script>
@@ -269,6 +272,8 @@
       applyIntegrationDomLocks(document);
     })();
   </script>
+  <div id="tc-footer" data-tc-footer></div>
+  <script src="/public/js/footer.js"></script>
 <script src="/public/js/breadcrumb.js" defer></script>
 </body>
 </html>
