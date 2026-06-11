@@ -102,8 +102,15 @@ describe("Worker submissions review access contract", { skip: !hasDb && "No data
   it("GET /api/agency/submissions enforces the worker_module feature gate", async () => {
     const res = await demoAgency.agent.get("/api/agency/submissions?limit=10");
 
-    assert.strictEqual(res.status, 403);
-    assert.strictEqual(res.body.error, "FEATURE_NOT_ALLOWED");
-    assert.strictEqual(res.body.feature, "worker_module");
+    // C-01: env-aware — FEATURE_GATE_BYPASS=true (Docker-Dev) oeffnet das Gate bewusst (200),
+    // strikte Envs (CI) erzwingen weiter das harte 403 inkl. Fehler-Shape. Kein Abschwaechen.
+    const GATE_BYPASS = String(process.env.FEATURE_GATE_BYPASS || "").trim().toLowerCase() === "true";
+    if (GATE_BYPASS) {
+      assert.strictEqual(res.status, 200, "Bypass-Env: Gate ist bewusst offen (FEATURE_GATE_BYPASS=true)");
+    } else {
+      assert.strictEqual(res.status, 403);
+      assert.strictEqual(res.body.error, "FEATURE_NOT_ALLOWED");
+      assert.strictEqual(res.body.feature, "worker_module");
+    }
   });
 });

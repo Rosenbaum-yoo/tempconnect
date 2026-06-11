@@ -23,8 +23,11 @@ const _ROOT_LOCAL = path.resolve(__dirname, "..", "..");
 const ROOT = fs.existsSync(path.join(_ROOT_CWD, _MARKER_REL)) ? _ROOT_CWD : _ROOT_LOCAL;
 const knownFeatureKeys = new Set(Object.keys(planFeatures));
 
-// Skip guard: frontend files not mounted in Docker
-const FRONTEND_AVAILABLE = fs.existsSync(path.join(ROOT, _MARKER_REL));
+// Skip guard: diese Suite liest js UND HTML-Seiten — im Docker ist nur
+// frontend/public/js gemountet, daher muessen BEIDE Ressourcen-Klassen existieren
+// (sonst laeuft die Suite an und faellt mit ENOENT auf den HTML-Reads).
+const FRONTEND_AVAILABLE = fs.existsSync(path.join(ROOT, _MARKER_REL))
+  && fs.existsSync(path.join(ROOT, "frontend", "public", "vendor_pool.html"));
 const frontendSuite = FRONTEND_AVAILABLE ? describe : describe.skip;
 
 function readProjectFile(relativePath) {

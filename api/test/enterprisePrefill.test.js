@@ -19,10 +19,9 @@ const FRONTEND_AVAILABLE = fs.existsSync(path.join(ROOT, MARKER_REL));
 const frontendSuite = FRONTEND_AVAILABLE ? describe : describe.skip;
 
 function readScript() {
-  return fs.readFileSync(
-    path.resolve(__dirname, "..", "..", "frontend", "public", "js", "pages", "enterpriseAnfrage.js"),
-    "utf8"
-  );
+  // Loader nutzt ROOT (nicht __dirname/../..): im Docker ist frontend/public/js nach
+  // /app/frontend/public/js gemountet, ein Repo-Root oberhalb von /app existiert nicht.
+  return fs.readFileSync(path.join(ROOT, MARKER_REL), "utf8");
 }
 
 function makeElement(initial = {}) {

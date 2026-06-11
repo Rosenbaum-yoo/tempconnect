@@ -22,6 +22,14 @@ import {
   ensureSubscription
 } from "./helpers.js";
 
+// C-01: FEATURE_GATE_BYPASS=true (Docker-Dev) macht Feature-Gates BEWUSST durchlaessig
+// (dokumentiertes Verhalten, vgl. CLAUDE.md P1-B). Die Gating-Assertions sind env-aware:
+// im Bypass-Env wird der Bypass-Kontrakt (200) exakt geprueft, in strikten Envs (CI)
+// bleibt das harte 403-Denial inkl. Fehler-Shape erzwungen. KEIN Abschwaechen —
+// beide Zweige asserten praezise. (Naiver Env-Flip wurde 2026-06-07 als nicht
+// tragfaehig verifiziert: Router-Build-Zeit-Gates lesen das Flag nicht zur Request-Zeit.)
+const GATE_BYPASS = String(process.env.FEATURE_GATE_BYPASS || "").trim().toLowerCase() === "true";
+
 describe("Subscription Feature-Gating Flow", { skip: !hasDb && "No database configured" }, () => {
   let pool;
   const createdEmails = [];
@@ -54,10 +62,14 @@ describe("Subscription Feature-Gating Flow", { skip: !hasDb && "No database conf
     createdEmails.push(email);
 
     const res = await agent.get("/api/capacities");
-    assert.strictEqual(res.status, 403, "FREE plan should NOT have sla_access");
-    assert.strictEqual(res.body.code, "FEATURE_NOT_ALLOWED");
-    assert.strictEqual(res.body.feature, "sla_access");
-    assert.strictEqual(res.body.plan, "FREE");
+    if (GATE_BYPASS) {
+      assert.strictEqual(res.status, 200, "Bypass-Env: Gate ist bewusst offen (FEATURE_GATE_BYPASS=true)");
+    } else {
+      assert.strictEqual(res.status, 403, "FREE plan should NOT have sla_access");
+      assert.strictEqual(res.body.code, "FEATURE_NOT_ALLOWED");
+      assert.strictEqual(res.body.feature, "sla_access");
+      assert.strictEqual(res.body.plan, "FREE");
+    }
   });
 
   it("FREE agency user gets 403 on POST /api/capacities", async () => {
@@ -84,9 +96,9 @@ describe("Subscription Feature-Gating Flow", { skip: !hasDb && "No database conf
     const { agent, email, user } = await registerAndLogin();
     createdEmails.push(email);
 
-    // Verify blocked before upgrade
+    // Verify blocked before upgrade (im Bypass-Env bewusst offen)
     const before = await agent.get("/api/capacities");
-    assert.strictEqual(before.status, 403, "Should be blocked before upgrade");
+    assert.strictEqual(before.status, GATE_BYPASS ? 200 : 403, "Should be blocked before upgrade (ausser Bypass-Env)");
 
     // Upgrade plan via DB
     await ensureSubscription(pool, user.id, "PLUS");
@@ -150,8 +162,12 @@ describe("Subscription Feature-Gating Flow", { skip: !hasDb && "No database conf
     // Downgrade
     await ensureSubscription(pool, user.id, "FREE");
     const revoked = await agent.get("/api/capacities");
-    assert.strictEqual(revoked.status, 403, "FREE should revoke sla_access");
-    assert.strictEqual(revoked.body.code, "FEATURE_NOT_ALLOWED");
+    if (GATE_BYPASS) {
+      assert.strictEqual(revoked.status, 200, "Bypass-Env: Gate ist bewusst offen (FEATURE_GATE_BYPASS=true)");
+    } else {
+      assert.strictEqual(revoked.status, 403, "FREE should revoke sla_access");
+      assert.strictEqual(revoked.body.code, "FEATURE_NOT_ALLOWED");
+    }
   });
 
   // ── PLUS user still has legacy_access ───────────────────────────────────
@@ -163,9 +179,9 @@ describe("Subscription Feature-Gating Flow", { skip: !hasDb && "No database conf
     await ensureSubscription(pool, user.id, "PLUS");
 
     // PLUS is NOT in the legacy_access plan list [FREE, BASIS]
-    // So listings should be blocked for PLUS users
+    // So listings should be blocked for PLUS users (im Bypass-Env bewusst offen)
     const res = await agent.get("/api/listings");
-    assert.strictEqual(res.status, 403,
-      "PLUS plan is not in legacy_access — listings should be blocked");
+    assert.strictEqual(res.status, GATE_BYPASS ? 200 : 403,
+      "PLUS plan is not in legacy_access — listings should be blocked (ausser Bypass-Env)");
   });
 });

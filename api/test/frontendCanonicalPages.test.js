@@ -16,11 +16,17 @@ const FRONTEND_MARKER = "frontend/public/js/pageShell.js";
 const _ROOT_CWD = process.cwd();
 const _ROOT_LOCAL = path.resolve(__dirname, "..", "..");
 const ROOT = fs.existsSync(path.join(_ROOT_CWD, FRONTEND_MARKER)) ? _ROOT_CWD : _ROOT_LOCAL;
-const FRONTEND_AVAILABLE = fs.existsSync(path.join(ROOT, FRONTEND_MARKER));
+// Diese Suite liest neben js auch HTML-Seiten + docs/ — im Docker ist NUR
+// frontend/public/js gemountet, daher muss der Guard ALLE gelesenen
+// Ressourcen-Klassen pruefen (sonst laeuft die Suite an und faellt mit ENOENT).
+const FRONTEND_AVAILABLE = fs.existsSync(path.join(ROOT, FRONTEND_MARKER))
+  && fs.existsSync(path.join(ROOT, "frontend", "public", "enterprise.html"))
+  && fs.existsSync(path.join(ROOT, "docs"));
 const frontendSuite = FRONTEND_AVAILABLE ? describe : describe.skip;
 
 function readProjectFile(relativePath) {
-  return fs.readFileSync(path.resolve(__dirname, "..", "..", relativePath), "utf8");
+  // Loader nutzt ROOT (nicht __dirname/../..): im Docker existiert kein Repo-Root oberhalb von /app.
+  return fs.readFileSync(path.join(ROOT, relativePath), "utf8");
 }
 
 function escapeRegex(value) {
