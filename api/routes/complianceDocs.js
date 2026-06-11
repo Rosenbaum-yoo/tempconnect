@@ -129,6 +129,19 @@ export function createComplianceDocsRouter(deps) {
         notes: notes || null
       });
       res.locals.audit = { action: "compliance_doc.upload", entity_type: "compliance_document", entity_id: doc.id, details: { org_id, doc_type } };
+      // Auto-Ablage: Spiegel im Dokumenten-Tresor (gleiches file_ref, fire-and-forget).
+      import("../services/documentIngestService.js").then((m) => m.ingestRecord(pool, {
+        org_id,
+        document_type: "certificate",
+        content_category: "legal",
+        title: doc_name,
+        file_ref,
+        original_name: req.file?.originalname || null,
+        mime_type: req.file?.mimetype || null,
+        file_size_bytes: req.file?.size || null,
+        source_ref: doc.id,
+        uploaded_by: req.session?.userId || null
+      })).catch(() => {});
       return ok(res, doc, 201);
     } catch (err) {
       if (req.file) fs.unlink(req.file.path, () => {});

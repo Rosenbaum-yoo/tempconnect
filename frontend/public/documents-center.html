@@ -119,14 +119,14 @@
     }
 
     function rowHtml(it){
-      var actions = '<a href="'+API+'/document-center/'+esc(it.id)+'/download">Download</a>';
+      var actions = it.file_ref ? '<a href="'+API+'/document-center/'+esc(it.id)+'/download">Download</a>' : '';
       if(CAN_MANAGE){
         actions += '<button onclick="archiveDoc(\''+esc(it.id)+'\')">'+(it.status==="archived"?"Reaktivieren":"Archivieren")+'</button>';
         actions += '<button onclick="deleteDoc(\''+esc(it.id)+'\')" style="color:var(--ds-danger,#8f2d2d)">Loeschen</button>';
       }
       var badge = it.status==="archived" ? '<span class="dc-badge dc-badge--archived">Archiviert</span>' : '<span class="dc-badge">Aktiv</span>';
       return '<tr>'+
-        '<td><strong>'+esc(it.title)+'</strong>'+(it.original_name?'<div style="font-size:11px;color:var(--ds-text-secondary)">'+esc(it.original_name)+'</div>':'')+'</td>'+
+        '<td><strong>'+esc(it.title)+'</strong>'+(it.source&&it.source!=="upload"?' <span class="dc-badge" title="Automatisch von der Plattform abgelegt">Auto</span>':'')+(it.original_name?'<div style="font-size:11px;color:var(--ds-text-secondary)">'+esc(it.original_name)+'</div>':'')+'</td>'+
         '<td>'+esc(TYPE_LABELS[it.document_type]||it.document_type)+'</td>'+
         '<td>'+esc(CAT_LABELS[it.content_category]||it.content_category)+'</td>'+
         '<td>'+fmtBytes(it.file_size_bytes)+'</td>'+

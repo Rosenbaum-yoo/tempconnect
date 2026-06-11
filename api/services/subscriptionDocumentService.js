@@ -160,6 +160,21 @@ export async function generateDocument(pool, input) {
       );
     } catch { /* non-critical */ }
   }
+
+  // Auto-Ablage: Abo-Dokument landet sofort im Dokumenten-Tresor (fire-and-forget).
+  if (orgId) {
+    import("./documentIngestService.js").then((m) => m.ingestContent(pool, {
+      content: html,
+      filename: `${documentNumber}.html`,
+      mime_type: "text/html",
+      org_id: orgId,
+      document_type: ["order_confirmation", "change_confirmation", "cancellation_confirmation"].includes(input.documentType) ? "contract" : "correspondence",
+      content_category: "financial",
+      title,
+      source_ref: row.id,
+      uploaded_by: input.actorUserId || null
+    })).catch(() => {});
+  }
   return { ok: true, row };
 }
 

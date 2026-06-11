@@ -146,6 +146,16 @@ export function createDataGovernanceRouter(deps) {
         entity_id: data?.id || null,
         details: { request_type, subject_type, subject_id: subject_id || null }
       };
+      // Auto-Ablage: DSGVO-Anfrage als Record im Dokumenten-Tresor (fire-and-forget).
+      import("../services/documentIngestService.js").then((m) => m.ingestRecord(pool, {
+        org_id: orgId,
+        document_type: "report",
+        content_category: "legal",
+        title: `DSGVO-Anfrage: ${request_type} (${subject_type})`,
+        source_ref: data?.id || null,
+        uploaded_by: req.session.userId,
+        notes: notes || null
+      })).catch(() => {});
       res.status(201).json({ success: true, data });
     } catch (e) {
       logger.error({ err: e }, "data-governance requests create");

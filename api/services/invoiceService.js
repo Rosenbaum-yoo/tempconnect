@@ -100,6 +100,10 @@ export async function createInvoice(pool, opts) {
     );
 
     return invoice;
+  }).then((invoice) => {
+    // Auto-Ablage: Rechnung landet sofort als PDF im Dokumenten-Tresor (fire-and-forget).
+    import("./documentIngestService.js").then((m) => m.ingestInvoicePdf(pool, invoice)).catch(() => {});
+    return invoice;
   });
 }
 

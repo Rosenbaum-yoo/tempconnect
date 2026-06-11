@@ -174,6 +174,10 @@ export async function createAgreement(pool, offerId, actorId) {
         contentHash: computeContentHash(agrHtml),
         generatedBy: actorId, agreementRef: ref, agreementVersion: updated[0].agreement_version
       });
+      // Auto-Ablage: beide Dokumente fuer BEIDE Partei-Orgs im Dokumenten-Tresor (fire-and-forget, eigener Pool).
+      import("./documentIngestService.js")
+        .then((m) => m.ingestAgreementDocs(pool, { offerId, agreementRef: ref, condHtml, agrHtml }))
+        .catch(() => {});
     } catch { /* Dokument-Record-Fehler ist non-critical */ }
 
     return { offer: updated[0], agreement_ref: ref, snapshot };
