@@ -167,6 +167,12 @@
         html += '<div class="demand-card__meta">';
         html += '<span class="demand-card__status ' + esc(status) + '">' + esc(status.toUpperCase()) + '</span>';
         html += slaHtml;
+        var isFeatured = d.featured_until && new Date(d.featured_until) > new Date();
+        if (isFeatured) {
+          html += ' <span style="font-size:10px;font-weight:800;padding:2px 8px;border-radius:999px;background:var(--ds-warning,#f59e0b);color:#1a1205" title="Premium aktiv bis ' + esc(String(d.featured_until).slice(0, 10)) + '">PREMIUM</span>';
+        } else if (status === "open") {
+          html += ' <button class="ds-btn ds-btn--sm" data-premium-id="' + esc(d.id) + '" style="border-color:var(--ds-warning,#f59e0b);color:var(--ds-warning,#f59e0b);font-weight:700;font-size:11px;padding:2px 8px" title="Angebot gegen einmalige Gebuehr priorisieren">Premium</button>';
+        }
         html += '</div>';
         html += '<div class="demand-card__meta">';
         html += '<span>Rolle: <b>' + esc(d.role || "–") + '</b></span>';
@@ -193,6 +199,46 @@
           window.location.href = "/public/marketplace_demand_detail.html?id=" + card.getAttribute("data-id") + "&owner=1";
         });
       });
+      // Premium-Buttons (stopPropagation: Karte navigiert sonst zur Detailseite)
+      el.querySelectorAll("[data-premium-id]").forEach(function(btn) {
+        btn.addEventListener("click", function(e) {
+          e.stopPropagation();
+          purchasePremiumDemand(btn, btn.getAttribute("data-premium-id"));
+        });
+      });
+    }
+
+    function getCsrf() {
+      return fetch("/api/csrf", { credentials: "include" }).then(function(r) { return r.json(); }).catch(function() { return {}; });
+    }
+
+    /* Premium-Anzeige (Unternehmen): Arbeitsplatzangebot priorisieren, Gebuehr auf Monatsrechnung. */
+    function purchasePremiumDemand(btn, id) {
+      fetch("/api/marketplace/premium/price", { credentials: "include" })
+        .then(function(r) { return r.ok ? r.json() : {}; })
+        .then(function(p) {
+          var label = p.price_cents != null ? (p.price_cents / 100).toFixed(2).replace(".", ",") + " EUR (einmalig, netto)" : "die einmalige Gebuehr";
+          var days = p.duration_days || 14;
+          if (!confirm("Premium-Anzeige aktivieren?\n\n" + days + " Tage priorisiert im Marktplatz fuer " + label + ".\nDie Gebuehr wird Ihrer naechsten Monatsrechnung hinzugefuegt.")) return;
+          btn.disabled = true;
+          getCsrf().then(function(csrf) {
+            return fetch("/api/marketplace/premium/feature", {
+              method: "POST", credentials: "include",
+              headers: { "Content-Type": "application/json", "x-csrf-token": csrf.csrfToken || csrf.token || "" },
+              body: JSON.stringify({ listing_type: "demand", listing_id: id, confirmed: true })
+            });
+          }).then(function(r) {
+            if (!r.ok) return r.json().then(function(d) {
+              throw new Error(d.error === "ALREADY_FEATURED" ? "Diese Anzeige ist bereits Premium." : (d.error || "Fehler"));
+            });
+            return r.json();
+          }).then(function() {
+            loadDemands(false);
+          }).catch(function(e) {
+            alert(e.message || "Premium konnte nicht aktiviert werden.");
+            btn.disabled = false;
+          });
+        });
     }
 
     function updateStats(demands) {
