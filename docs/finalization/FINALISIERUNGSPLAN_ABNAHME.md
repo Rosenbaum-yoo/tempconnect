@@ -7,7 +7,12 @@
 > **Detail-Begründungen bleiben in den Quell-Dokumenten — hier stehen nur Reihenfolge,
 > Verantwortung, Aufwand und Abnahmekriterium.** Status hier pflegen (Checkboxen).
 >
-> **Zieltermin:** ✅ **Mi, 01.07.2026 — erster zahlender Kunde** (Fallback: 15.07.2026).
+> **Zieltermin (aktualisiert 2026-06-11, Owner-Input):** ✅ **Di, 01.09.2026 — erster zahlender Kunde**
+> (Stretch-Ziel bei schneller Gründung: 17.08.2026). Grund: **UG-Gründung steht noch aus** —
+> Rechnungen brauchen rechtlich eine Steuernummer (§14 UStG) und das Impressum die HRB-Nummer;
+> die Gründungskette (Notar → Stammkapital-Konto → Handelsregister → Finanzamt) dauert
+> realistisch 8–11 Wochen und ist damit der kritische Pfad. Der Code-/Infra-Teil läuft
+> vollständig parallel und ist deutlich früher fertig.
 > **Abnahme-Regel (Gate Teil 4):** „Fertig" erklärt der **Owner**, nicht Claude.
 >
 > Erstellt: 2026-06-11 · Beweisbasis: Unit-Suite **4490/4490/0**, Audit-Gesamtnote **7,9/10**,
@@ -19,16 +24,20 @@
 
 | Welle | Zeitraum | Inhalt | Verantwortlich |
 |---|---|---|---|
-| **F0** | 11.–12.06. | Plan-Fixierung + Prioritäts-Freigabe | Owner + Claude |
-| **F1** | 12.–17.06. | Code-Schlussarbeiten (Audit-Quick-Wins, Harness-Folge) | Claude |
-| **F2** | 12.–19.06. (parallel) | Owner-Entscheidungen & Konten (Rechtstexte SOFORT!) | Owner |
-| **F3** | 16.–20.06. | Produktionsaufbau (Infra, Prod-DB, SCC, Monitoring, Drill) | Owner + Claude |
-| **F4** | 20.–27.06. | Burn-in ≥7 Tage + Abnahmetests | Owner + Claude |
-| **F5** | 29.–30.06. | **Finale Abnahme** (Gate Teil 1 A–H + Sign-off) | Owner |
-| **F6** | ab 01.07. | Marktstart + Hypercare + Gate-50-Vorbereitung | Owner + Claude |
+| **F0** | 11.–15.06. | Plan-Fixierung + Start Owner-Qualitätsphase | Owner + Claude |
+| **G** ⚠️ | **ab 12.06., kritischer Pfad** | **UG-Gründung:** Notar → Konto/Stammkapital → HR-Eintragung → Steuernummer | Owner (+ Notar/Bank/Amt) |
+| **F1** | 16.–24.06. | Code-Schlussarbeiten (Audit-Quick-Wins, Harness-Folge) | Claude |
+| **F2** | Juni (parallel) | Owner-Entscheidungen (Preise, Premium, MFA/SSO, Provider) | Owner |
+| **FQ** | Juni–Juli (laufend) | **Owner-Qualitätsphase:** freies Testen, Befunde → Claude fixt | Owner + Claude |
+| **F3** | Juli (KW 28–29) | Produktionsaufbau **Hetzner** (Infra, Prod-DB, SCC, Monitoring, Drill) | Owner + Claude |
+| **F4** | Aug (KW 32–33) | Burn-in ≥7 Tage + Abnahmetests | Owner + Claude |
+| **F2.1** | Aug (nach HR-Eintrag) | Rechtstexte **aus Plattform-Vorlagen** + echte Firmendaten (HRB, Steuernr.) | Owner + Claude |
+| **F5** | KW 35 (25.–28.08.) | **Finale Abnahme** (Gate Teil 1 A–H + Sign-off) | Owner |
+| **F6** | ab **01.09.** | Marktstart + Hypercare + Gate-50-Vorbereitung | Owner + Claude |
 
-**Kritischer Pfad:** F2.1 Rechtstexte (Anwalt, ~2 Wochen Vorlauf) → muss am **12.06.** beauftragt sein,
-sonst kippt der 01.07. Alles andere hat Puffer.
+**Kritischer Pfad = Welle G (Gründung):** Notartermin muss **diese Woche** gebucht werden —
+jede Woche Verzug schiebt den Marktstart 1:1. Code (F1), Qualität (FQ), Entscheidungen (F2)
+und Hetzner (F3) laufen vollständig parallel und warten am Ende NUR auf Steuernummer + Rechtstexte.
 
 ---
 
@@ -36,7 +45,7 @@ sonst kippt der 01.07. Alles andere hat Puffer.
 
 ### Phase F0.1 — Plan committen + Owner-Priorisierung
 - [x] Dieser Plan liegt im Repo (`docs/finalization/FINALISIERUNGSPLAN_ABNAHME.md`)
-- [ ] Owner liest F1–F5, streicht/ergänzt, bestätigt den 01.07. als Ziel
+- [ ] Owner liest G+F1–F5, streicht/ergänzt, bestätigt den 01.09. als Ziel (Stretch 17.08.)
 - **Abnahme:** Owner-Nachricht „Plan bestätigt" (ggf. mit Änderungen)
 
 ### Phase F0.2 — Beweisbasis dokumentiert (erledigt 11.06.)
@@ -47,7 +56,54 @@ sonst kippt der 01.07. Alles andere hat Puffer.
 
 ---
 
-## Welle F1 — Code-Schlussarbeiten (Claude · 12.–17.06. · ~3–4 PT)
+## Welle G ⚠️ — UG-Gründung & Firmendaten (Owner · ab 12.06. · KRITISCHER PFAD)
+
+> Ohne eingetragene Gesellschaft + Steuernummer keine rechtssichere Rechnung (§14 UStG)
+> und kein vollständiges Impressum (§5 DDG: Firma, HRB, Vertretungsberechtigte, USt-IdNr).
+> Realistische Gesamtdauer 8–11 Wochen — deshalb SOFORT starten, alles andere läuft parallel.
+
+### Phase G.1 — Notar (Ziel: Termin bis 20.06., Beurkundung bis 30.06.)
+- [ ] Notartermin **diese Woche buchen** (Wartezeit oft 1–2 Wochen)
+- [ ] **Musterprotokoll** nutzen (1 Gründer/Geschäftsführer, Standard-UG → schneller + günstiger als individuelle Satzung)
+- [ ] Firmenname vorab bei IHK auf Eintragungsfähigkeit prüfen lassen (kostenlos, vermeidet Notar-Schleife)
+- [ ] Stammkapital festlegen (Empfehlung: nicht 1 € — z. B. 500–1.000 € für Konto-/Geschäftsfähigkeit)
+- **Abnahme:** Beurkundung erfolgt → ab jetzt „UG (haftungsbeschränkt) i.G."
+
+### Phase G.2 — Konto & Einzahlung (parallel, Ziel: bis 04.07.)
+- [ ] Geschäftskonto eröffnen (Fintech wie Qonto/Finom = Tage statt Wochen; klassische Bank = 1–2 Wochen)
+- [ ] Stammkapital einzahlen, Einzahlungsbeleg an Notar → Notar meldet ans Handelsregister
+- **Abnahme:** HR-Anmeldung durch Notar raus
+
+### Phase G.3 — Eintragung & Ämter (Ziel: bis Ende Juli / Anfang August)
+- [ ] **HR-Eintragung** abwarten (typisch 2–4 Wochen) → HRB-Nummer
+- [ ] Gewerbeanmeldung (Tage) · IHK-Meldung kommt automatisch
+- [ ] **Steuerliche Erfassung SOFORT nach Beurkundung via ELSTER einreichen** (nicht auf HR warten — spart 2–4 Wochen!) → Steuernummer (typisch 3–6 Wochen) + USt-IdNr beantragen
+- [ ] Geschäftsführer-Basics: Geschäftsadresse, ggf. Transparenzregister-Eintrag (Pflicht!)
+- **Abnahme:** HRB-Nr. + Steuernummer liegen vor → Rechnungsstellung rechtlich möglich
+
+### Phase G.4 — Plattform-Übergabe der Firmendaten (Claude, 0,5 PT, nach G.3)
+- [ ] Firmendaten zentral einpflegen: `invoicePdfService.js` COMPANY-Block (Name/Adresse/USt-IdNr), Impressum, AGB-/DSE-Platzhalter, Footer, `subscriptionDocumentDisclaimer`
+- **Abnahme:** Rechnung-PDF + Impressum zeigen echte UG-Daten; grep auf Platzhalter = 0 Treffer
+
+---
+
+## Welle FQ — Owner-Qualitätsphase (Owner+Claude · Juni–Juli · laufend)
+
+> Owner-Wunsch: „lass mich noch etwas die Plattform auf Qualität prüfen."
+> Strukturierter Feedback-Loop statt Findings im Chat verlieren.
+
+### Phase FQ.1 — Freies Testen (Owner, laufend)
+- [ ] Owner testet frei (beide Rollen + Worker + Staff); Befunde als kurze Liste/Screenshots
+- [ ] Claude triagiert nach `00_RULES.md` (Bug/Sichtbarkeit/UX/Commercial) und fixt in Slices
+- **Abnahme:** Befundliste leer ODER Rest bewusst als Post-Launch markiert
+
+### Phase FQ.2 — Geführte Qualitäts-Drehbücher (je ~15 Min, Claude liefert Skripte auf Zuruf)
+- [ ] Kernflow Unternehmen · Kernflow Agentur (inkl. Notdienst+Premium) · Einsatzportal mobil · Staff-Tag (Moderation/DSGVO/Tresor/Incidents) · Themes/Konsole
+- **Abnahme:** alle Drehbücher einmal durchlaufen, Befunde geschlossen
+
+---
+
+## Welle F1 — Code-Schlussarbeiten (Claude · 16.–24.06. · ~3–4 PT)
 
 > Triage je Phase nach `00_RULES.md` Abschnitt 2; DoD nach `99_GOLIVE_GATE.md` Teil 2.
 > Jede Phase endet mit Tests + Commit (Owner-Commit-Freigabe gilt als erteilt für F1-Scope,
@@ -86,29 +142,35 @@ sonst kippt der 01.07. Alles andere hat Puffer.
 
 ---
 
-## Welle F2 — Owner-Entscheidungen & Konten (Owner · parallel 12.–19.06.)
+## Welle F2 — Owner-Entscheidungen & Konten (Owner · parallel Juni)
 
 > Quelle/Detail: `phase5_manual_tasks_checklist.md` (kanonische Status-Tabelle — dort abhaken!).
 > Hier nur Reihenfolge + was WANN blockiert.
 
-### Phase F2.1 — SOFORT (kritischer Pfad, 12.06.)
-- [ ] **Rechtstexte beauftragen** (Anwalt): Datenschutzerklärung, AGB/SaaS-Vertrag, AVV/DPA, TOMs, Subprocessor-Liste (Vorlagen: `docs/TOMS.md`, `docs/SUBPROCESSORS.md`, `docs/AVV_TEMPLATE.md`)
-- **Abnahme:** Beauftragung bestätigt, Liefertermin ≤26.06. zugesagt
+### Phase F2.1 — Rechtstexte AUS der Plattform (Owner-Entscheid 2026-06-11; Timing: August, nach G.3)
+> Owner: „Rechtstexte ziehen wir uns sauber aus der Plattform für die Plattform."
+> Basis existiert bereits im Repo: `docs/TOMS.md`, `docs/SUBPROCESSORS.md`, `docs/AVV_TEMPLATE.md`,
+> Disclaimer-Service, Trust-Center-Seiten. **Finalisierung erst nach HR-Eintrag möglich**
+> (Impressum braucht HRB + Vertretungsberechtigten, AGB/AVV die Firmierung).
+- [ ] Claude generiert Final-Entwürfe aus den Plattform-Vorlagen + echten UG-Daten (Impressum, Datenschutzerklärung, AGB/SaaS, AVV/DPA, TOMs, Subprocessor-Liste, Widerrufs-/B2B-Klauseln)
+- [ ] Owner-Review Wort für Wort; **Empfehlung (Risikohinweis, kein Muss): 1–2 h anwaltliche Kurzprüfung der AGB/AVV vor erstem zahlenden Kunden** — Claude liefert keine Rechtsberatung
+- [ ] Einbindung: Footer-Links, Registrierungs-Checkbox, noindex-Entscheide
+- **Abnahme:** alle Texte live verlinkt, mit echten Firmendaten, Owner-abgenommen
 
-### Phase F2.2 — Kommerzielle Festlegungen (bis 17.06.)
+### Phase F2.2 — Kommerzielle Festlegungen (bis 30.06.)
 - [ ] Planpreise final bestätigen (BASIS/PLUS/PRO + INDIVIDUELL-Tiers) → `planCatalog.js` ist Quelle
 - [ ] **Premium-Anzeige bestätigen:** 49 € netto / 14 Tage (oder Wert nennen → 1-Zeilen-Änderung)
 - [ ] Mindestlaufzeit/Kündigungsfrist + SLA-Level je Plan
-- [ ] Billing-Modus Start: **manual-first bestätigen** (empfohlen — Stripe-Keys sind dann KEIN 01.07.-Blocker; Stripe = Gate-50-Nachzug)
+- [ ] Billing-Modus Start: **manual-first bestätigen** (empfohlen — Stripe-Keys sind dann KEIN Marktstart-Blocker; Stripe = Gate-50-Nachzug)
 - **Abnahme:** Werte schriftlich fixiert; ggf. planCatalog-Anpassung durch Claude
 
-### Phase F2.3 — Secrets & Zugänge (bis 19.06.)
+### Phase F2.3 — Secrets & Zugänge (bis 30.06.)
 - [ ] Secret-Rotation **P0.4** Block A+B(+C) nach Checkliste in `PILOT_GO_LIVE_TODOS.md`
 - [ ] E-Mail: `EMAIL_PROVIDER=smtp` + Absender/Reply-To + DNS SPF/DKIM/DMARC
 - [ ] Sentry-Konto/DSN + `PROMETHEUS_METRICS_SECRET` (Prod-Werte)
 - **Abnahme:** Health 200 nach Rotation; Test-Mail zugestellt (SPF/DKIM pass)
 
-### Phase F2.4 — Produkt-Restentscheidungen (bis 19.06., nicht 01.07.-blockierend, aber festlegen)
+### Phase F2.4 — Produkt-Restentscheidungen (bis 11.07., festlegen)
 - [ ] MFA-Enforce-Modus owner/admin/finance (O-05): enforce ab wann + Enrollment-Frist
 - [ ] SSO: Option B (ehrlicher Soft-Lock, Status quo) für Marktstart bestätigen (O-06)
 - [ ] Notification-Polling-Intervall (Empf. 60s) + bell_priority-Schwellen (Track D)
@@ -118,7 +180,7 @@ sonst kippt der 01.07. Alles andere hat Puffer.
 
 ---
 
-## Welle F3 — Produktionsaufbau (Owner+Claude · 16.–20.06.)
+## Welle F3 — Produktionsaufbau HETZNER (Owner+Claude · Juli, KW 28–29)
 
 ### Phase F3.1 — Infrastruktur (Owner, Claude liefert Runbooks) — 1 PT
 - [ ] Hetzner-Server (Ziel-Setup lt. `GO-LIVE-GAP-ANALYSE.md`) + Domain + **TLS via Caddy** (`deploy/Caddyfile.example`) + Firewall (nur App→DB)
@@ -148,7 +210,7 @@ sonst kippt der 01.07. Alles andere hat Puffer.
 
 ---
 
-## Welle F4 — Burn-in & Abnahmetests (20.–27.06. · O-09/WAVE16)
+## Welle F4 — Burn-in & Abnahmetests (August, KW 32–33 · O-09/WAVE16)
 
 ### Phase F4.1 — Pre-Prod-Burn-in ≥7 Tage
 - [ ] Stack lt. `docs/releases/WAVE16_BURNIN_RUNBOOK.md` betreiben; tägliche Checks (Sentry, Logs, Health, Disk)
@@ -175,7 +237,7 @@ sonst kippt der 01.07. Alles andere hat Puffer.
 
 ---
 
-## Welle F5 — FINALE ABNAHME (29.–30.06.)
+## Welle F5 — FINALE ABNAHME (25.–28.08.)
 
 ### Phase F5.1 — Globales Go-Live-Gate (Teil 1 A–H) formal durchgehen
 > Owner + Claude gemeinsam, jede Zeile mit Evidenz-Verweis (Test/Screenshot/Log). Quelle: `99_GOLIVE_GATE.md`.
@@ -195,22 +257,22 @@ sonst kippt der 01.07. Alles andere hat Puffer.
 
 ### Phase F5.3 — Owner-Sign-off (Gate Teil 4) ✍️
 - [ ] Owner erklärt formal: „Finalisierungswelle abgeschlossen, Go-Live freigegeben" (Datum + Name in DIESER Datei unten)
-- [ ] **Go/No-Go 01.07.** — bei No-Go: Fallback 15.07. + konkrete Restliste
+- [ ] **Go/No-Go 01.09.** — bei No-Go: Fallback 15.09. + konkrete Restliste
 - **Abnahme:** Sign-off-Block unten ausgefüllt
 
 ---
 
-## Welle F6 — Marktstart & Pilotbetrieb (ab 01.07.)
+## Welle F6 — Marktstart & Pilotbetrieb (ab 01.09.)
 
-### Phase F6.1 — Erster zahlender Kunde (01.07.)
+### Phase F6.1 — Erster zahlender Kunde (01.09.)
 - [ ] Onboarding nach `docs/enterprise-readiness/PILOT_CUSTOMER_RUNBOOK.md`; Plan BASIS/PLUS, **manuelle Rechnung** (createInvoice inkl. Premium-Posten-Mechanik)
 - **Abnahme:** Kunde aktiv, erste Rechnung gestellt, Zahlungseingang terminiert
 
-### Phase F6.2 — Hypercare Woche 1 (01.–08.07., täglich 15 Min)
+### Phase F6.2 — Hypercare Woche 1 (01.–08.09., täglich 15 Min)
 - [ ] Sentry 0 neue Kritische · Inkasso-Worklist · SCC: Moderations-Queue + Dokumenten-Tresor-Monitor + Incidents-Feed · Backup-Status grün
 - **Abnahme:** tägliche Einzeiler im Burn-in-/Betriebsprotokoll
 
-### Phase F6.3 — P2-Härtung (Juli, rollierend)
+### Phase F6.3 — P2-Härtung (September, rollierend)
 - [ ] P2.0 Tier-Schwellen-Vereinheitlichung (50/150/350) · P2.1 Coverage-Anhebung Stufe 1 · P2.2 Load-Tests · P2.3 Chaos-Run
 - **Abnahme:** je Punkt PILOT_TODOS-Done-Eintrag
 
@@ -224,6 +286,10 @@ sonst kippt der 01.07. Alles andere hat Puffer.
 
 | Offener Punkt (Quelle) | Abgedeckt in |
 |---|---|
+| **UG-Gründung: Notar/Konto/HR/Steuernummer (Owner-Input 11.06.)** | **Welle G (kritischer Pfad)** |
+| Firmendaten in Plattform (Rechnung/Impressum/Footer) | G.4 |
+| Owner-Qualitätsphase („noch etwas auf Qualität prüfen") | Welle FQ |
+| Hetzner-Setup steht noch aus | F3 (Juli) |
 | O-01 Secret-Rotation / P0.4 | F2.3 |
 | O-02 SCC produktiv / P1.0 | F3.3 |
 | O-03 Rest (Live-Stripe-Durchstich) | F6.4 |
