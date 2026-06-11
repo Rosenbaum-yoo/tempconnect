@@ -39,7 +39,7 @@
 
     // ─── Kapazitäten / Personal ───────────────────────────────────────────────
     capacityCreate:     { company: null,                      agency: "Personal einstellen" },
-    capacityList:       { company: "Verfügbares Personal",    agency: "Verfügbares Personal" },
+    capacityList:       { company: "Verfügbares Personal",    agency: "Eingestelltes Personal" },
     capacitySearch:     { company: "Personal finden",         agency: "Personal finden" },
     capacityProfile:    { company: "Personalprofil",          agency: "Personalprofil" },
     capacityOffer:      { company: null,                      agency: "Personalangebot" },

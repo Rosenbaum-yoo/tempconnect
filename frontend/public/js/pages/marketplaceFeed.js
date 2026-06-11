@@ -569,7 +569,7 @@
     var cta = document.getElementById("feed-ctas");
     if (!cta) return;
     if (me.role === "agency") {
-      cta.innerHTML = '<a href="/public/capacity_exchange_form.html" class="ds-btn ds-btn--primary ds-btn--sm">Personal einstellen</a><a href="/public/capacity_exchange_manage.html" class="ds-btn ds-btn--sm ds-btn--ghost">Verfügbares Personal</a>';
+      cta.innerHTML = '<a href="/public/capacity_exchange_form.html" class="ds-btn ds-btn--primary ds-btn--sm">Personal einstellen</a><a href="/public/capacity_exchange_manage.html" class="ds-btn ds-btn--sm ds-btn--ghost">Eingestelltes Personal</a>';
       // Karte 2: ein Personal-Suchauftrag (capacity_search = "Personal finden") ist company-only.
       // Fuer Dienstleister stattdessen "Personal einstellen" (Create) -> passt zu Karte 3 (Personal verwalten).
       var ac2 = document.getElementById("feed-nav-card2");
@@ -577,7 +577,7 @@
       var ac2d = document.getElementById("feed-nav-card2-desc");
       if (ac2) ac2.href = "/public/capacity_exchange_form.html";
       if (ac2t) ac2t.textContent = "Personal einstellen";
-      if (ac2d) ac2d.textContent = "Verfügbares Personal gezielt veröffentlichen.";
+      if (ac2d) ac2d.textContent = "Eigenes Personal gezielt veröffentlichen.";
     } else if (me.role === "company") {
       cta.innerHTML = '<a href="/public/marketplace_demand_create.html" class="ds-btn ds-btn--primary ds-btn--sm">Arbeitsplatz anbieten</a><a href="/public/marketplace_demand_list.html" class="ds-btn ds-btn--sm ds-btn--ghost">Meine Angebote</a>';
       // Einsatzunternehmen bieten Arbeitsplaetze an (kein eigenes Personal): Karte 3 = Uebersicht der eigenen Arbeitsplatzangebote.
