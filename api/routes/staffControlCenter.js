@@ -1695,6 +1695,18 @@ export function createStaffControlCenterRouter(deps) {
     }
   );
 
+  /* ── Dokumenten-Tresor-Monitoring (org-uebergreifend, read-only) ─── */
+  router.get("/document-vault/overview", requireStaff, async (req, res) => {
+    try {
+      const svc = await import("../services/staffDocumentVaultService.js");
+      const data = await svc.getVaultOverview(pool, { limit: parseInt(req.query.limit, 10) || 50 });
+      res.json({ success: true, data });
+    } catch (err) {
+      logger?.error({ err }, "SCC document-vault overview");
+      res.status(500).json({ success: false, error: { code: "SCC_INTERNAL_ERROR" } });
+    }
+  });
+
   /* ── Data Governance / DSGVO (org-uebergreifende Read-Only-Sicht fuer Staff) ─── */
   router.get("/data-governance/requests", requireStaff, async (req, res) => {
     try {
