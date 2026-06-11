@@ -45,7 +45,7 @@ const createEntrySchema = z.object({
   compliance_status: z.enum(["unknown", "pending", "partial", "complete"]).optional().default("unknown"),
   notes: z.string().max(2000).optional().nullable(),
   visibility_status: z.enum(["public", "plan_gated", "vendor_pool_only", "private"]).optional().default("public"),
-  priority_level: z.enum(["normal", "elevated", "urgent"]).optional().default("normal"),
+  priority_level: z.enum(["normal", "elevated", "urgent", "notdienst"]).optional().default("normal"),
   valid_until: z.string().optional().nullable(),
   org_id: z.string().uuid().optional().nullable(),
   department_id: z.string().uuid().optional().nullable(),

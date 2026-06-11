@@ -569,7 +569,7 @@
     var cta = document.getElementById("feed-ctas");
     if (!cta) return;
     if (me.role === "agency") {
-      cta.innerHTML = '<a href="/public/capacity_exchange_form.html" class="ds-btn ds-btn--primary ds-btn--sm">Personal einstellen</a><a href="/public/capacity_exchange_manage.html" class="ds-btn ds-btn--sm ds-btn--ghost">Eingestelltes Personal</a>';
+      cta.innerHTML = '<a href="/public/capacity_exchange_form.html" class="ds-btn ds-btn--primary ds-btn--sm">Personal einstellen</a><a href="/public/capacity_exchange_notdienst.html" class="ds-btn ds-btn--sm" style="border-color:var(--ds-warning,#f59e0b);color:var(--ds-warning,#f59e0b);font-weight:700">Notdienst einstellen</a><a href="/public/capacity_exchange_manage.html" class="ds-btn ds-btn--sm ds-btn--ghost">Eingestelltes Personal</a>';
       // Karte 2: ein Personal-Suchauftrag (capacity_search = "Personal finden") ist company-only.
       // Fuer Dienstleister stattdessen "Personal einstellen" (Create) -> passt zu Karte 3 (Personal verwalten).
       var ac2 = document.getElementById("feed-nav-card2");

@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <script src="/public/js/theme.js"></script>
+  <title>Notdienst-Personal einstellen – TempConnect</title>
+  <link rel="stylesheet" href="/public/css/design-system.css"/>
+  <style>
+    .nd-card{max-width:640px;margin:0 auto;border:1px solid var(--ds-warning,#f59e0b);border-radius:var(--ds-radius-lg);background:var(--ds-bg-surface);padding:var(--ds-space-6)}
+    .nd-eyebrow{font-size:12px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:var(--ds-warning,#f59e0b);margin-bottom:6px}
+    .nd-field{display:flex;flex-direction:column;gap:4px;margin-bottom:var(--ds-space-4)}
+    .nd-field label{font-size:12px;font-weight:700;color:var(--ds-text-secondary)}
+    .nd-field input{padding:10px 12px;border:1px solid var(--ds-border);border-radius:var(--ds-radius-md);background:var(--ds-bg);color:var(--ds-text);font:inherit}
+    .nd-grid{display:grid;grid-template-columns:1fr 1fr;gap:var(--ds-space-3)}
+    @media(max-width:560px){.nd-grid{grid-template-columns:1fr}}
+    .nd-submit{width:100%;padding:13px;border:none;border-radius:var(--ds-radius-md);background:var(--ds-warning,#f59e0b);color:#1a1205;font-weight:800;font-size:15px;cursor:pointer}
+    .nd-submit:disabled{opacity:.55;cursor:default}
+    .nd-note{font-size:12px;color:var(--ds-text-secondary);line-height:1.5;margin-top:var(--ds-space-3)}
+    .nd-msg{margin-top:var(--ds-space-3);font-size:13px;font-weight:600;min-height:18px}
+    [data-theme="editorial"] .nd-card{background:#fffdf6;border-color:#bfa05f}
+    [data-theme="editorial"] .nd-field input{background:#faf7ee;border-color:#d4cab3}
+  </style>
+</head>
+<body>
+  <div class="ds-wrap">
+    <div id="tc-shell"></div>
+
+    <div class="ds-page-header">
+      <div class="ds-page-header__content">
+        <h1 class="ds-page-title">Notdienst-Personal einstellen</h1>
+        <p class="ds-page-subtitle">Schnellformular fuer dringend verfuegbares Personal — nur das Noetigste, sofort priorisiert im Marktplatz sichtbar.</p>
+      </div>
+      <div class="ds-page-header__actions">
+        <a href="/public/capacity_exchange_form.html" class="ds-btn">Normales Formular</a>
+      </div>
+    </div>
+
+    <div class="nd-card">
+      <div class="nd-eyebrow">Notdienst — sofort sichtbar, priorisiert</div>
+      <div class="nd-field">
+        <label for="nd-title">Titel *</label>
+        <input id="nd-title" maxlength="200" placeholder="z.B. 3 Elektriker ab sofort verfuegbar"/>
+      </div>
+      <div class="nd-grid">
+        <div class="nd-field">
+          <label for="nd-role">Rolle / Taetigkeit *</label>
+          <input id="nd-role" maxlength="120" placeholder="z.B. Elektriker"/>
+        </div>
+        <div class="nd-field">
+          <label for="nd-headcount">Anzahl Personen *</label>
+          <input id="nd-headcount" type="number" min="1" max="999" value="1"/>
+        </div>
+        <div class="nd-field">
+          <label for="nd-city">Stadt *</label>
+          <input id="nd-city" maxlength="120" placeholder="z.B. Hamburg"/>
+        </div>
+        <div class="nd-field">
+          <label for="nd-from">Verfuegbar ab *</label>
+          <input id="nd-from" type="date"/>
+        </div>
+      </div>
+      <button class="nd-submit" id="nd-submit" onclick="submitNotdienst()">Jetzt als Notdienst veroeffentlichen</button>
+      <div class="nd-msg" id="nd-msg"></div>
+      <div class="nd-note">
+        Der Eintrag geht <strong>sofort aktiv</strong> in den Marktplatz, traegt das <strong>NOTDIENST</strong>-Badge und wird
+        im Feed der Unternehmen <strong>priorisiert</strong> angezeigt. Details (Preise, Schichtmodell, Qualifikationen)
+        koennen Sie jederzeit unter „Eingestelltes Personal" nachtragen.
+      </div>
+    </div>
+  </div>
+
+  <script src="/public/js/pageShell.js"></script>
+  <script src="/public/js/notifications.js"></script>
+  <div id="tc-footer" data-tc-footer></div>
+  <script src="/public/js/footer.js"></script>
+  <script src="/public/js/breadcrumb.js" defer></script>
+  <script>
+  (function(){
+    "use strict";
+    document.getElementById("nd-from").value = new Date().toISOString().slice(0, 10);
+
+    async function getCsrf(){
+      try{ var r = await fetch("/api/csrf", { credentials: "include" }); var d = await r.json(); return d.csrfToken || d.token || ""; }catch(e){ return ""; }
+    }
+
+    window.submitNotdienst = async function(){
+      var msg = document.getElementById("nd-msg");
+      var title = (document.getElementById("nd-title").value || "").trim();
+      var role = (document.getElementById("nd-role").value || "").trim();
+      var city = (document.getElementById("nd-city").value || "").trim();
+      var from = document.getElementById("nd-from").value;
+      var headcount = parseInt(document.getElementById("nd-headcount").value, 10) || 1;
+      if (!title || !role || !city || !from) {
+        msg.style.color = "var(--ds-danger,#f87171)";
+        msg.textContent = "Bitte alle Pflichtfelder ausfuellen.";
+        return;
+      }
+      var btn = document.getElementById("nd-submit");
+      btn.disabled = true;
+      msg.style.color = "var(--ds-text-secondary)";
+      msg.textContent = "Veroeffentliche…";
+      try {
+        var tok = await getCsrf();
+        var r = await fetch("/api/capacity-exchange/entries", {
+          method: "POST", credentials: "include",
+          headers: { "Content-Type": "application/json", "x-csrf-token": tok },
+          body: JSON.stringify({
+            title: title, role: role, location_city: city,
+            availability_from: from, headcount: headcount,
+            priority_level: "notdienst", availability_type: "immediate", status: "active"
+          })
+        });
+        if (!r.ok) {
+          var e = await r.json().catch(function(){ return {}; });
+          var emap = {
+            AGENCY_ONLY: "Notdienst-Personal koennen nur Personaldienstleister einstellen.",
+            PLAN_LIMIT: "Ihr Tarif-Limit fuer aktive Eintraege ist erreicht.",
+            VALIDATION: "Bitte Eingaben pruefen (Titel, Rolle, Stadt, Datum)."
+          };
+          msg.style.color = "var(--ds-danger,#f87171)";
+          msg.textContent = emap[e.error] || ("Fehler: " + (e.error || r.status));
+          btn.disabled = false;
+          return;
+        }
+        msg.style.color = "var(--ds-success,#34d399)";
+        msg.innerHTML = 'Veroeffentlicht — Ihr Notdienst-Angebot ist live. <a href="/public/capacity_exchange_manage.html" style="color:var(--ds-brand)">Zur Uebersicht</a>';
+        document.getElementById("nd-title").value = "";
+        document.getElementById("nd-role").value = "";
+        btn.disabled = false;
+      } catch (err) {
+        msg.style.color = "var(--ds-danger,#f87171)";
+        msg.textContent = "Netzwerkfehler. Bitte erneut versuchen.";
+        btn.disabled = false;
+      }
+    };
+  })();
+  </script>
+</body>
+</html>
