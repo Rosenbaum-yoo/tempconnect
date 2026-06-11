@@ -295,6 +295,12 @@
       if (s === "active" || s === "paused") {
         html += '<button class="ds-btn ds-btn--sm ds-btn--ghost" data-action="fill" data-id="' + esc(entry.id) + '">Besetzt</button>';
       }
+      var isFeatured = entry.featured_until && new Date(entry.featured_until) > new Date();
+      if (s === "active" && !isFeatured) {
+        html += '<button class="ds-btn ds-btn--sm" data-action="premium" data-id="' + esc(entry.id) + '" style="border-color:var(--ds-warning,#f59e0b);color:var(--ds-warning,#f59e0b);font-weight:700" title="Anzeige gegen einmalige Gebuehr priorisieren">Premium</button>';
+      } else if (isFeatured) {
+        html += '<span class="ds-badge" style="background:var(--ds-warning,#f59e0b);color:#1a1205;font-weight:800" title="Premium aktiv bis ' + esc(String(entry.featured_until).slice(0, 10)) + '">PREMIUM</span>';
+      }
       if (s !== "archived") {
         html += '<button class="ds-btn ds-btn--sm ds-btn--ghost" data-action="archive" data-id="' + esc(entry.id) + '" style="color:var(--ds-text-tertiary)">Archiv</button>';
       }
@@ -371,6 +377,7 @@
     }
 
     function handleAction(action, id, btn) {
+      if (action === "premium") { purchasePremium(btn, id); return; }
       var actionMap = {
         activate: "/capacity-exchange/entries/" + id + "/activate",
         pause: "/capacity-exchange/entries/" + id + "/pause",
@@ -397,6 +404,36 @@
         toast(e.message || "Fehler bei Aktion", "danger");
         btn.disabled = false;
       });
+    }
+
+    /* Premium-Anzeige: einmalige Gebuehr, landet auf der naechsten Monatsrechnung. */
+    function purchasePremium(btn, id) {
+      fetch("/api/marketplace/premium/price", { credentials: "include" })
+        .then(function(r) { return r.ok ? r.json() : {}; })
+        .then(function(p) {
+          var label = p.price_cents != null ? (p.price_cents / 100).toFixed(2).replace(".", ",") + " EUR (einmalig, netto)" : "die einmalige Gebuehr";
+          var days = p.duration_days || 14;
+          if (!confirm("Premium-Anzeige aktivieren?\n\n" + days + " Tage priorisiert im Marktplatz fuer " + label + ".\nDie Gebuehr wird Ihrer naechsten Monatsrechnung hinzugefuegt.")) return;
+          btn.disabled = true;
+          getCsrf().then(function(csrf) {
+            return fetch("/api/marketplace/premium/feature", {
+              method: "POST", credentials: "include",
+              headers: { "Content-Type": "application/json", "x-csrf-token": csrf.csrfToken || csrf.token },
+              body: JSON.stringify({ listing_type: "capacity", listing_id: id, confirmed: true })
+            });
+          }).then(function(r) {
+            if (!r.ok) return r.json().then(function(d) {
+              throw new Error(d.error === "ALREADY_FEATURED" ? "Diese Anzeige ist bereits Premium." : (d.error || "Fehler"));
+            });
+            return r.json();
+          }).then(function() {
+            toast("Premium aktiviert — Anzeige wird priorisiert", "success");
+            loadEntries();
+          }).catch(function(e) {
+            toast(e.message || "Fehler", "danger");
+            btn.disabled = false;
+          });
+        });
     }
 
     function loadStats() {

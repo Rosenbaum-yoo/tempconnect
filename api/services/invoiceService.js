@@ -46,9 +46,6 @@ export async function createInvoice(pool, opts) {
   }
   const netAmountCents = Math.round(normalizedAmountCents);
 
-  const taxAmount = Math.round(netAmountCents * TAX_RATE_PCT / 100);
-  const totalCents = netAmountCents + taxAmount;
-
   const now = new Date();
   const periodStart = new Date(now.getFullYear(), now.getMonth(), 1);
   const periodEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0);
@@ -56,6 +53,15 @@ export async function createInvoice(pool, opts) {
 
   return await withTransaction(pool, async (client) => {
     const invoiceNumber = await nextInvoiceNumber(client);
+
+    // Premium-Anzeigen: offene Einmalgebuehren dieser Org werden auf die Monatsrechnung
+    // addiert (Owner-Modell; schema-tolerant — ohne Tabelle kommt [] zurueck).
+    const { lockPendingCharges, markChargesInvoiced } = await import("./premiumListingService.js");
+    const premiumCharges = orgId ? await lockPendingCharges(client, orgId) : [];
+    const premiumCents = premiumCharges.reduce((s, c) => s + (Number(c.amount_cents) || 0), 0);
+    const combinedNetCents = netAmountCents + premiumCents;
+    const taxAmount = Math.round(combinedNetCents * TAX_RATE_PCT / 100);
+    const totalCents = combinedNetCents + taxAmount;
 
     const { rows } = await client.query(
       `INSERT INTO invoices (
@@ -73,7 +79,7 @@ export async function createInvoice(pool, opts) {
         periodStart.toISOString().split("T")[0],
         periodEnd.toISOString().split("T")[0],
         plan,
-        netAmountCents,
+        combinedNetCents,
         TAX_RATE_PCT,
         taxAmount,
         totalCents,
@@ -98,6 +104,16 @@ export async function createInvoice(pool, opts) {
         netAmountCents
       ]
     );
+
+    // Premium-Anzeigen als eigene Rechnungspositionen + Posten als 'invoiced' markieren.
+    for (const c of premiumCharges) {
+      await client.query(
+        `INSERT INTO invoice_items (invoice_id, description, quantity, unit_amount_cents, total_cents)
+         VALUES ($1, $2, 1, $3, $4)`,
+        [invoice.id, c.description, c.amount_cents, c.amount_cents]
+      );
+    }
+    await markChargesInvoiced(client, premiumCharges.map((c) => c.id), invoice.id);
 
     return invoice;
   }).then((invoice) => {

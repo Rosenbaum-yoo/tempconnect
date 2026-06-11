@@ -654,6 +654,7 @@ export async function browseFeed(pool, opts = {}) {
       dr.location_city, dr.location_postal,
       dr.location_lat, dr.location_lng, dr.radius_km,
       dr.urgency AS priority_level,
+      dr.featured_until,
       dr.budget_min AS price_min, dr.budget_max AS price_max,
       NULL::text AS price_hint, NULL::text AS price_type,
       NULL::text AS shift_model, NULL::text AS employment_type,
@@ -908,6 +909,10 @@ export async function browseFeed(pool, opts = {}) {
     const placementRelevanceGate = matchScore >= 30 ? 1 : 0.3;
     const placementBoost = Math.round(placementRaw * placementRelevanceGate);
 
+    // Premium-Anzeige (einmalige In-App-Gebuehr): aktive Hervorhebung boostet im normalen Feed.
+    const featuredActive = !!(item.featured_until && new Date(item.featured_until).getTime() > now);
+    const featuredBoost = featuredActive ? 15 : 0;
+
     // Gesamtscore: hierarchisch aufgebaut
     item.rank_score = Math.max(0, Math.round(
       counterpartyScore +    // Stufe 1: max 45
@@ -916,6 +921,7 @@ export async function browseFeed(pool, opts = {}) {
       urgencyBoost +         // Dringlichkeit: max 12
       planPoints +           // Stufe 3: max 12
       placementBoost +       // Stufe 4: max 8 (gedeckelt!)
+      featuredBoost +        // Premium-Anzeige: 15
       recencyBoost           // Aktualitaet: max 10
     ));
     item.subscription_plan = plan;
@@ -923,6 +929,7 @@ export async function browseFeed(pool, opts = {}) {
     item.reputation_score = repScore;
     item.deal_success_rate = rep?.deal_success_rate != null ? Number(rep.deal_success_rate) : null;
 
+    if (featuredActive) badges.push("PREMIUM_PLACEMENT");
     if (item.priority_level === "notdienst") badges.push("NOTDIENST");
     if (item.priority_level === "urgent") badges.push("URGENT");
     if (['INDIVIDUELL', 'ENTERPRISE', 'PRO', 'PLUS'].includes(plan)) badges.push('PREMIUM');
@@ -932,6 +939,7 @@ export async function browseFeed(pool, opts = {}) {
 
     const rankLabels = [];
     if (item.counterparty_priority === "preferred") rankLabels.push("Fuer Sie priorisiert");
+    if (featuredActive) rankLabels.push("Premium-Anzeige");
     if (matchScore >= 70) rankLabels.push("Top-Treffer");
     else if (matchScore >= 40) rankLabels.push("Gute Passung");
     if (item.is_inter_agency) rankLabels.push("Inter-Agency");

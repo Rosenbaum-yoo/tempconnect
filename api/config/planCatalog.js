@@ -478,3 +478,12 @@ export function buildCatalogResponse() {
     maturity_gates: { ...MATURITY_GATES }
   };
 }
+
+/* ── Premium-Anzeige (Marktplatz) ─────────────────────────────
+   Einmalige In-App-Gebuehr je Anzeige; wird von createInvoice automatisch auf die
+   NAECHSTE Monatsrechnung addiert (manual-first, kein Sofort-Charge).
+   Preis/Laufzeit hier zentral pflegen (Owner-Entscheidung). */
+export const PREMIUM_LISTING = Object.freeze({
+  price_cents: 4900,   // 49,00 EUR netto je Anzeige
+  duration_days: 14    // Hervorhebungsdauer
+});

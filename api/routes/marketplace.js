@@ -360,6 +360,51 @@ export function createMarketplaceRouter(deps) {
     }
   });
 
+  /* ── Premium-Anzeige (einmalige In-App-Gebuehr, auf naechster Monatsrechnung) ─── */
+
+  router.get("/marketplace/premium/price", requireAuth, async (_req, res) => {
+    const { PREMIUM_LISTING } = await import("../config/planCatalog.js");
+    res.json({ price_cents: PREMIUM_LISTING.price_cents, duration_days: PREMIUM_LISTING.duration_days, currency: "EUR" });
+  });
+
+  router.post("/marketplace/premium/feature", requireAuth, slaAccess, async (req, res) => {
+    try {
+      const schema = z.object({
+        listing_type: z.enum(["capacity", "demand"]),
+        listing_id: z.string().uuid(),
+        confirmed: z.literal(true)
+      });
+      const parsed = schema.safeParse(req.body);
+      if (!parsed.success) return res.status(400).json({ error: "VALIDATION", details: parsed.error.issues });
+      const { featureListing } = await import("../services/premiumListingService.js");
+      const result = await featureListing(pool, {
+        listingType: parsed.data.listing_type,
+        listingId: parsed.data.listing_id,
+        userId: req.session.userId,
+        orgId: req.orgId || null
+      });
+      if (!result.ok) {
+        const statusMap = { NOT_FOUND: 404, ALREADY_FEATURED: 409, ORG_CONTEXT_REQUIRED: 400, VALIDATION: 400 };
+        return res.status(statusMap[result.error] || 400).json({ error: result.error, featured_until: result.featured_until || null });
+      }
+      res.locals.audit = {
+        action: "marketplace.premium_listing.purchase",
+        entity_type: parsed.data.listing_type === "capacity" ? "capacity_post" : "demand_request",
+        entity_id: parsed.data.listing_id,
+        details: { amount_cents: result.price_cents, charge_id: result.charge.id, featured_until: result.featured_until }
+      };
+      res.status(201).json({
+        success: true,
+        featured_until: result.featured_until,
+        amount_cents: result.price_cents,
+        billing: "Die Gebuehr wird Ihrer naechsten Monatsrechnung hinzugefuegt."
+      });
+    } catch (e) {
+      logger.error({ err: e }, "POST /marketplace/premium/feature");
+      res.status(500).json({ error: "SERVER_ERROR" });
+    }
+  });
+
   /* ── Capacity Deal: Zustimmung / Verhandlung (Company → Agency) ─── */
 
   /**

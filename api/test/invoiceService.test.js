@@ -64,6 +64,7 @@ describe("invoiceService — createInvoice", () => {
     };
     const pool = transactionPool([
       { rows: [{ seq: "1" }] },      // nextval
+      { rows: [{ t: null }] },        // to_regclass premium_listing_charges (Mock: Tabelle fehlt -> keine Premium-Posten)
       { rows: [invoiceRow] },         // INSERT invoice
       { rows: [] }                     // INSERT invoice_items
     ]);
