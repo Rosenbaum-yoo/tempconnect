@@ -16,10 +16,15 @@ import { fileURLToPath } from 'node:url';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-// Skip guard: frontend files not mounted in Docker
-const ROOT = process.cwd();
-const HAS_API_SUBDIR = fs.existsSync(path.join(ROOT, 'api'));
-const FRONTEND_AVAILABLE = HAS_API_SUBDIR && fs.existsSync(path.join(ROOT, 'frontend/public/requisitions.html'));
+// Skip guard: frontend files not mounted in Docker.
+// ROOT robust aufloesen: cwd zuerst (deckt Docker /app ab), sonst ueber die
+// Testdatei zwei Ebenen hoch zum Repo-Root (api/test/ -> <repo>). So bleibt der
+// Guard auch bei cwd=api WAHR und die Frontend-Suiten werden registriert.
+const MARKER_REL = 'frontend/public/requisitions.html';
+const _RD = process.cwd();
+const _RL = path.resolve(__dirname, '..', '..');
+const ROOT = fs.existsSync(path.join(_RD, MARKER_REL)) ? _RD : _RL;
+const FRONTEND_AVAILABLE = fs.existsSync(path.join(ROOT, MARKER_REL));
 const frontendSuite = FRONTEND_AVAILABLE ? describe : describe.skip;
 
 function readFrontendFile(relativePath) {

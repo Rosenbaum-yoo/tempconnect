@@ -17,18 +17,27 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
 import vm from "node:vm";
+import { fileURLToPath } from "node:url";
 
 import { VISIBILITY_MATRIX, GATING_STRATEGIES, listMatrixFeatureKeys, listMatrixSurfaces } from "../config/visibilityMatrix.js";
 import { buildAuditReport } from "../services/visibilityAuditService.js";
 import { planFeatures } from "../config/planFeatures.js";
 import { resolveEnterpriseSurfaceAccess } from "../services/enterpriseSurfaceAccessService.js";
 
-const ROOT = process.cwd();
+// Robuste Repo-Root-Aufloesung — NICHT allein aus process.cwd() (identisches
+// Idiom wie hubVisibility.test.js). Grund: Der offizielle Runner
+// (api/scripts/run-tests.js) startet `node --test` mit cwd=api/ (Docker: /app).
+// Frontend liegt je nach Layout anders: lokal <repo>/frontend, Docker-Mount
+// /app/frontend/public/js. Cwd-Pfad zuerst (deckt Docker ab), sonst Fallback
+// ueber die Testdatei zum Projekt-Root. So wird der hubVisibility-Block NIE
+// mehr still uebersprungen (Test-Integritaet, CLAUDE.md §0).
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const HUB_VISIBILITY_REL = "frontend/public/js/hubVisibility.js";
+const _ROOT_DOCKER = process.cwd();                         // /app im Docker-API-Container
+const _ROOT_LOCAL = path.resolve(__dirname, "..", "..");    // <repo> ueber api/test/
+const ROOT = fs.existsSync(path.join(_ROOT_DOCKER, HUB_VISIBILITY_REL)) ? _ROOT_DOCKER : _ROOT_LOCAL;
 
-// Pfad zur Frontend-JS-Datei — erreichbar wenn:
-//   (a) docker-compose.yml: ./frontend/public/js:/app/frontend/public/js:ro gemountet ODER
-//   (b) Tests lokal vom Projekt-Root (tempconnect_docker/) gestartet werden.
-const HUB_VISIBILITY_FILE = path.join(ROOT, "frontend/public/js/hubVisibility.js");
+const HUB_VISIBILITY_FILE = path.join(ROOT, HUB_VISIBILITY_REL);
 const HUB_VISIBILITY_AVAILABLE = fs.existsSync(HUB_VISIBILITY_FILE);
 
 function readProjectFile(relativePath) {
@@ -308,7 +317,19 @@ if (HUB_VISIBILITY_AVAILABLE) {
     });
   });
 } else {
-  describe.skip("hubVisibility tests — skipped (hubVisibility.js nicht unter process.cwd() erreichbar)", () => {
-    it("Frontend-Mount fehlt — im Docker-Container tests/docker ohne Frontend-Volume uebersprungen", () => {});
+  // Test-Integritaet (CLAUDE.md §0): KEIN stiller Skip. hubVisibility.js ist in
+  // jedem kanonischen Kontext erreichbar (lokal: <repo>/frontend, Docker-Mount:
+  // /app/frontend/public/js, npm test ueber die robuste ROOT-Aufloesung oben).
+  // Fehlt die Datei trotzdem, ist das eine echte Fehlkonfiguration (kaputter
+  // Mount / unvollstaendiger Checkout) und MUSS die Suite ROT faerben — nicht
+  // gruen durchrutschen, indem 13 reale Assertions lautlos verschwinden.
+  describe("hubVisibility tests — Verfuegbarkeit (Integritaets-Guard)", () => {
+    it("hubVisibility.js muss auffindbar sein, sonst ist die Abdeckung gelogen", () => {
+      assert.fail(
+        `hubVisibility.js nicht gefunden (gesucht: '${HUB_VISIBILITY_REL}' relativ zu ` +
+        `cwd=${_ROOT_DOCKER} und Projekt-Root=${_ROOT_LOCAL}). Frontend nicht ` +
+        `gemountet/ausgecheckt? Docker erwartet: ./frontend/public/js:/app/frontend/public/js:ro`
+      );
+    });
   });
 }

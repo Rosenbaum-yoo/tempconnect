@@ -8,10 +8,14 @@ import { fileURLToPath } from "node:url";
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-// Skip guard: frontend files not mounted in Docker
-const ROOT = process.cwd();
-const HAS_API_SUBDIR = fs.existsSync(path.join(ROOT, "api"));
-const FRONTEND_AVAILABLE = HAS_API_SUBDIR && fs.existsSync(path.join(ROOT, "frontend/public/js/pages/enterpriseAnfrage.js"));
+// Skip guard: frontend files not mounted in Docker.
+// Resolve project root robustly: cwd first (covers Docker /app), else via this
+// test file up two levels (api/test -> repo root). Both layouts covered.
+const MARKER_REL = "frontend/public/js/pages/enterpriseAnfrage.js";
+const _ROOT_CWD = process.cwd();
+const _ROOT_LOCAL = path.resolve(__dirname, "..", "..");
+const ROOT = fs.existsSync(path.join(_ROOT_CWD, MARKER_REL)) ? _ROOT_CWD : _ROOT_LOCAL;
+const FRONTEND_AVAILABLE = fs.existsSync(path.join(ROOT, MARKER_REL));
 const frontendSuite = FRONTEND_AVAILABLE ? describe : describe.skip;
 
 function readScript() {

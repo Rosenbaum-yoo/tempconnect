@@ -9,14 +9,22 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
 import vm from "node:vm";
+import { fileURLToPath } from "node:url";
 import { planFeatures } from "../config/planFeatures.js";
 
-const ROOT = process.cwd();
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+
+// Robuste Projekt-Root-Aufloesung: cwd-Zweig deckt Docker (/app) ab, in dem der
+// offizielle Runner "node --test" mit cwd=api startet; sonst Fallback ueber die
+// Testdatei nach api/test/ -> <repo>. Marker = eine real gelesene frontend-Datei.
+const _MARKER_REL = "frontend/public/js/entitlements.js";
+const _ROOT_CWD = process.cwd();
+const _ROOT_LOCAL = path.resolve(__dirname, "..", "..");
+const ROOT = fs.existsSync(path.join(_ROOT_CWD, _MARKER_REL)) ? _ROOT_CWD : _ROOT_LOCAL;
 const knownFeatureKeys = new Set(Object.keys(planFeatures));
 
 // Skip guard: frontend files not mounted in Docker
-const HAS_API_SUBDIR = fs.existsSync(path.join(ROOT, "api"));
-const FRONTEND_AVAILABLE = HAS_API_SUBDIR && fs.existsSync(path.join(ROOT, "frontend/public/js/entitlements.js"));
+const FRONTEND_AVAILABLE = fs.existsSync(path.join(ROOT, _MARKER_REL));
 const frontendSuite = FRONTEND_AVAILABLE ? describe : describe.skip;
 
 function readProjectFile(relativePath) {

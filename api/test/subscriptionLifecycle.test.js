@@ -46,9 +46,23 @@ import {
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
-// Docker: cwd=/app (api dir), no "api/" subdir → HAS_API_SUBDIR=false
-// Outside Docker: cwd=project root, has "api/" subdir → HAS_API_SUBDIR=true
-const ROOT = process.cwd();
+// Robuste ROOT-Aufloesung (Gold-Idiom, vgl. hubVisibility.test.js):
+// Docker: cwd=/app (api dir) → cwd-Zweig greift, kein "api/" subdir → HAS_API_SUBDIR=false.
+// Lokal (cwd=Repo-Root ODER cwd=api/): der Runner startet "node --test" mit cwd=api,
+// dann zeigt process.cwd() auf api/ und die alte "api"-Probe waere faelschlich false
+// (→ Migration-104-Suite + readFile-Pfade kippen still). Fallback ueber die Testdatei
+// (__dirname=<root>/api/test → ../.. = <root>) deckt beide lokalen Layouts ab.
+const _ROOT_CWD = process.cwd();
+const _ROOT_LOCAL = path.resolve(__dirname, "..", "..");
+// Repo-Root-Layout erkennen: existiert ein "api/" Subdir? Zuerst cwd pruefen
+// (cwd=Repo-Root), sonst ueber die Testdatei (cwd=api/, lokaler Runner).
+// Bleibt in beiden Faellen unauffindbar → echtes Docker (cwd=/app IST das api-dir):
+// dann ROOT=cwd, HAS_API_SUBDIR=false (Original-Verhalten, sql/ ist nicht gemountet).
+const ROOT = existsSync(path.join(_ROOT_CWD, "api"))
+  ? _ROOT_CWD
+  : existsSync(path.join(_ROOT_LOCAL, "api"))
+    ? _ROOT_LOCAL
+    : _ROOT_CWD;
 const HAS_API_SUBDIR = existsSync(path.join(ROOT, "api"));
 
 /* ── Pool-Mock (handler-basiert) ──────────────────────────────── */

@@ -18,8 +18,16 @@ import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
+import { fileURLToPath } from "node:url";
 
-const ROOT = process.cwd();
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+// Robuste Projekt-Root-Aufloesung: cwd-Zweig deckt Docker /app ab, sonst ueber
+// die Testdatei (api/test/*) zwei Ebenen hoch zum Repo-Root. Vermeidet, dass der
+// Runner (cwd=api) frontend/ nicht findet und die Suite still als skip laeuft.
+const MARKER_REL = "frontend/public/pricing.html";
+const _RD = process.cwd();
+const _RL = path.resolve(__dirname, "..", "..");
+const ROOT = fs.existsSync(path.join(_RD, MARKER_REL)) ? _RD : _RL;
 // Inside Docker the frontend directory is not mounted — skip gracefully.
 const HTML_PATH = path.join(ROOT, "frontend/public/pricing.html");
 const JS_PATH   = path.join(ROOT, "frontend/public/js/pages/pricing.js");

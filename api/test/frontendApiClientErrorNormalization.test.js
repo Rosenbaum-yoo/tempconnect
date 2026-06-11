@@ -9,9 +9,13 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 // Skip guard: frontend/public/js/api.js is not mounted in Docker
-const ROOT = process.cwd();
-const HAS_API_SUBDIR = fs.existsSync(path.join(ROOT, "api"));
-const FRONTEND_AVAILABLE = HAS_API_SUBDIR && fs.existsSync(path.join(ROOT, "frontend/public/js/api.js"));
+// Robuste ROOT-Aufloesung: cwd-Zweig deckt Docker /app, Fallback ueber Testdatei den lokalen Repo-Root
+// (run-tests.js startet node --test mit cwd=api/, dort wuerde process.cwd() den Guard faelschlich kippen).
+const API_CLIENT_REL = path.join("frontend", "public", "js", "api.js");
+const _RD = process.cwd();
+const _RL = path.resolve(__dirname, "..", "..");
+const ROOT = fs.existsSync(path.join(_RD, API_CLIENT_REL)) ? _RD : _RL;
+const FRONTEND_AVAILABLE = fs.existsSync(path.join(ROOT, API_CLIENT_REL));
 const frontendSuite = FRONTEND_AVAILABLE ? describe : describe.skip;
 
 function readApiClientSource() {

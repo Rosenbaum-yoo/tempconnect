@@ -19,8 +19,17 @@ import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
+import { fileURLToPath } from "node:url";
 
-const ROOT = process.cwd();
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+// Robust root resolution: the official runner starts node --test with cwd=api/
+// (Docker: /app), so process.cwd() alone misses <repo>/frontend. Prefer the cwd
+// branch (covers Docker /app where the volume is mounted), otherwise fall back
+// via this file's location (api/test/../.. → repo root).
+const _MARKER = "frontend/public/sla_abo.html";
+const _ROOT_CWD   = process.cwd();
+const _ROOT_LOCAL = path.resolve(__dirname, "..", "..");
+const ROOT = fs.existsSync(path.join(_ROOT_CWD, _MARKER)) ? _ROOT_CWD : _ROOT_LOCAL;
 // Inside Docker the frontend directory is not mounted — skip gracefully.
 const HTML_PATH = path.join(ROOT, "frontend/public/sla_abo.html");
 const JS_PATH   = path.join(ROOT, "frontend/public/js/pages/accountSubscription.js");

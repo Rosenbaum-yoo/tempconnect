@@ -56,9 +56,26 @@ import {
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
-// Docker: cwd=/app (api dir), no "api/" subdir → HAS_API_SUBDIR=false
-// Outside Docker: cwd=project root, has "api/" subdir → HAS_API_SUBDIR=true
-const ROOT = process.cwd();
+// Robuste Projekt-Root-Aufloesung (Gold-Idiom, vgl. hubVisibility.test.js).
+// Drei reale Layouts muessen abgedeckt sein:
+//   (A) cwd = Repo-Root            -> <cwd>/api/services/... existiert       -> ROOT = cwd
+//   (B) cwd = api/ (Host-Runner)   -> <cwd> ist api-Dir; ueber die Testdatei
+//       (api/test/) zwei Ebenen hoch == Repo-Root, dort liegt api/services   -> ROOT = fileRoot
+//   (C) Docker (/app, code direkt) -> kein api/-Unterverzeichnis, sql/ nicht
+//       gemountet                                                            -> ROOT = cwd, SQL skip
+// Marker = api/services/subscriptionNotificationService.js, die dieser Test ohnehin importiert.
+const _MARKER = path.join("api", "services", "subscriptionNotificationService.js");
+const _ROOT_CWD = process.cwd();
+const _ROOT_FILE = path.resolve(__dirname, "..", ".."); // aus api/test/ -> Repo-Root (lokal)
+const ROOT = existsSync(path.join(_ROOT_CWD, _MARKER))
+  ? _ROOT_CWD                                      // (A) cwd ist bereits Repo-Root
+  : existsSync(path.join(_ROOT_FILE, _MARKER))
+    ? _ROOT_FILE                                   // (B) cwd=api/ -> via Datei zum Repo-Root
+    : _ROOT_CWD;                                   // (C) Docker -> cwd (/app), kein api/-Subdir
+// HAS_API_SUBDIR steuert (1) ob "api/"-Praefix relativ zu ROOT aufgeloest wird
+// (Routes/Services) und (2) ob die SQL-Migration erreichbar ist (Docker mountet sql/ nicht).
+// Mit der robusten ROOT ist der Guard fuer (A)+(B) WAHR (Repo-Root hat api/) und
+// fuer (C) FALSCH (Docker hat kein api/-Subdir) -> SQL-Suite bleibt sauber uebersprungen.
 const HAS_API_SUBDIR = existsSync(path.join(ROOT, "api"));
 
 /* ───────────────────────────────────────────────────────────── *

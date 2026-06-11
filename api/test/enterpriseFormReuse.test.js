@@ -7,10 +7,14 @@ import { fileURLToPath } from "node:url";
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-// Skip guard: frontend files not mounted in Docker
-const ROOT = process.cwd();
-const HAS_API_SUBDIR = fs.existsSync(path.join(ROOT, "api"));
-const FRONTEND_AVAILABLE = HAS_API_SUBDIR && fs.existsSync(path.join(ROOT, "frontend/public/enterprise_anfrage.html"));
+// Skip guard: frontend files not mounted in Docker.
+// Resolve project ROOT robustly: try cwd first (covers Docker /app), else
+// fall back via this test file to the repo root (covers cwd=api locally).
+const MARKER_REL = "frontend/public/enterprise_anfrage.html";
+const _ROOT_CWD = process.cwd();
+const _ROOT_LOCAL = path.resolve(__dirname, "..", "..");
+const ROOT = fs.existsSync(path.join(_ROOT_CWD, MARKER_REL)) ? _ROOT_CWD : _ROOT_LOCAL;
+const FRONTEND_AVAILABLE = fs.existsSync(path.join(ROOT, MARKER_REL));
 const frontendSuite = FRONTEND_AVAILABLE ? describe : describe.skip;
 
 function readProjectFile(relativePath) {

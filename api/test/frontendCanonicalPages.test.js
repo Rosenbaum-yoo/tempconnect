@@ -7,10 +7,16 @@ import { fileURLToPath } from "node:url";
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-// Skip guard: frontend files not mounted in Docker
-const ROOT = process.cwd();
-const HAS_API_SUBDIR = fs.existsSync(path.join(ROOT, "api"));
-const FRONTEND_AVAILABLE = HAS_API_SUBDIR && fs.existsSync(path.join(ROOT, "frontend/public/js/pageShell.js"));
+// Skip guard: frontend files not mounted in Docker.
+// ROOT robust aufloesen: cwd zuerst (deckt Docker /app + Repo-Root ab),
+// sonst Fallback ueber die Testdatei zum Projekt-Root (deckt cwd=api ab,
+// wo der offizielle Runner "node --test" startet). MARKER ist eine Datei,
+// die die Suite tatsaechlich liest.
+const FRONTEND_MARKER = "frontend/public/js/pageShell.js";
+const _ROOT_CWD = process.cwd();
+const _ROOT_LOCAL = path.resolve(__dirname, "..", "..");
+const ROOT = fs.existsSync(path.join(_ROOT_CWD, FRONTEND_MARKER)) ? _ROOT_CWD : _ROOT_LOCAL;
+const FRONTEND_AVAILABLE = fs.existsSync(path.join(ROOT, FRONTEND_MARKER));
 const frontendSuite = FRONTEND_AVAILABLE ? describe : describe.skip;
 
 function readProjectFile(relativePath) {
