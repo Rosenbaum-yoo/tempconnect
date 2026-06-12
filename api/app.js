@@ -22,6 +22,7 @@ import { createRateLimiters } from "./middleware/rateLimit.js";
 import { idempotencyMiddleware } from "./middleware/idempotency.js";
 import * as userService from "./services/userService.js";
 import { simpleHealthHandler, createHealthRouter } from "./routes/health.js";
+import crypto from "node:crypto";
 import { createCsrfRouter } from "./routes/csrf.js";
 import { createAuthRouter } from "./routes/auth.js";
 import { createMeRouter } from "./routes/me.js";
@@ -228,7 +229,11 @@ export async function createApp() {
   // Laeuft VOR der Plattform-Session, aber die Plattform-Session ueberspringt
   // /staff-Pfade explizit, sodass req.session exklusiv der Staff-Session gehoert.
   const staffSessionStore = new PgSession({ pool, tableName: "staff_session", createTableIfMissing: true, ttl: 60 * 60 * 4 });
-  const staffSessionSecret = process.env.STAFF_SESSION_SECRET || (String(config.SESSION_SECRET || "") + ":staff");
+  // Fallback-Ableitung via HMAC-SHA256 (KDF) statt schwachem String-Concat (Audit F1.2):
+  // selbst wer das Plattform-Secret kennt, kann das Staff-Secret nicht trivial herleiten.
+  // Prod setzt STAFF_SESSION_SECRET ohnehin explizit (P1.0); Fallback ist Dev-Komfort.
+  const staffSessionSecret = process.env.STAFF_SESSION_SECRET
+    || crypto.createHmac("sha256", String(config.SESSION_SECRET || "")).update("tempconnect:staff-session:v1").digest("hex");
   app.use("/staff", session({
     name: "tc.staff.sid",
     secret: staffSessionSecret,

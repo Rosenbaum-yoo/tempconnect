@@ -5,6 +5,25 @@
 import rateLimit from "express-rate-limit";
 import RedisStore from "rate-limit-redis";
 import { createClient as createRedisClient } from "redis";
+import crypto from "node:crypto";
+
+/**
+ * Pro-API-Key-Limitierung (Audit F1.2): API-Key-Requests werden am KEY gezaehlt
+ * (SHA-256-Hash-Prefix, nie der Klartext-Key als Bucket-Name), nicht an der IP —
+ * ein geleakter Key kann das Limit nicht per IP-Rotation umgehen. Header-basiert,
+ * damit es unabhaengig von der Middleware-Reihenfolge (vor/nach apiKeyAuth) greift.
+ * Sessions/anonyme Requests bleiben IP-basiert (bisheriges Verhalten).
+ */
+export function apiKeyAwareKeyGenerator(req) {
+  const headers = req.headers || {};
+  const auth = String(headers.authorization || "");
+  const rawKey = headers["x-api-key"]
+    || (auth.toLowerCase().startsWith("bearer ") ? auth.slice(7) : "");
+  if (rawKey && String(rawKey).startsWith("tc_live_")) {
+    return "key:" + crypto.createHash("sha256").update(String(rawKey)).digest("hex").slice(0, 24);
+  }
+  return req.ip;
+}
 
 export async function createRateLimiters(config, logger) {
   const isLocalDev = !config.BASE_URL || /localhost|127\.0\.0\.1/.test(String(config.BASE_URL || "").toLowerCase());
@@ -71,6 +90,7 @@ export async function createRateLimiters(config, logger) {
     windowMs: REQUEST_WINDOW_MS,
     max: REQUEST_MAX,
     message: { error: "RATE_LIMIT", message: "Zu viele Anfragen. Bitte warte 10 Minuten." },
+    keyGenerator: apiKeyAwareKeyGenerator,
     ...commonLimiterConfig,
     ...makeStore("rl:req:")
   });
@@ -90,6 +110,7 @@ export async function createRateLimiters(config, logger) {
       if (p.startsWith("/analytics/track")) return true;
       return false;
     },
+    keyGenerator: apiKeyAwareKeyGenerator,
     ...commonLimiterConfig,
     ...makeStore("rl:api:")
   });
