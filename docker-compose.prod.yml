@@ -28,6 +28,11 @@ services:
       - ./sql/migrations:/migrations:ro
     command: sh /migrate.sh
     restart: "no"
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+          cpus: "0.5"
     logging:
       driver: "json-file"
       options:
@@ -39,6 +44,14 @@ services:
     container_name: tempconnect_redis
     restart: unless-stopped
     command: ["redis-server", "--maxmemory", "128mb", "--maxmemory-policy", "allkeys-lru"]
+    # Container-Limit > redis maxmemory (128mb) + Overhead — verhindert Host-Destabilisierung.
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+          cpus: "0.5"
+        reservations:
+          memory: 64M
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 10s
@@ -82,7 +95,12 @@ services:
       SMTP_USER: ${SMTP_USER}
       SMTP_PASS: ${SMTP_PASS}
       SMTP_FROM: ${SMTP_FROM}
-      PAYMENT_MODE: ${PAYMENT_MODE:-stripe}
+      # Sicherer Default 'demo' (Validator-Enum: demo|live; 'stripe' war ungueltig =
+      # Boot-Crash-Footgun). 'live' schaltet der Owner bewusst in .env, mit Stripe-Keys.
+      PAYMENT_MODE: ${PAYMENT_MODE:-demo}
+      # Feature-Gates in PROD HART aktiv (override-t einen etwaigen .env-Streuwert).
+      # Dev-Bypass (docker-compose.yml default-true) darf nie in Produktion gelangen.
+      FEATURE_GATE_BYPASS: "false"
       STRIPE_SECRET_KEY: ${STRIPE_SECRET_KEY:-}
       STRIPE_PUBLISHABLE_KEY: ${STRIPE_PUBLISHABLE_KEY:-}
       STRIPE_WEBHOOK_SECRET: ${STRIPE_WEBHOOK_SECRET:-}
@@ -92,6 +110,16 @@ services:
       REDIS_URL: ${REDIS_URL:-redis://redis:6379}
       LOG_LEVEL: ${LOG_LEVEL:-info}
     command: ["npm", "run", "start"]
+    # Limits verhindern OOM-Kill-Kaskaden/Host-Destabilisierung bei Lastspitzen
+    # (Node + BullMQ-Worker + pdf-lib). Reservations dokumentieren den Grundbedarf.
+    deploy:
+      resources:
+        limits:
+          memory: 768M
+          cpus: "1.5"
+        reservations:
+          memory: 256M
+          cpus: "0.25"
     healthcheck:
       test: ["CMD", "wget", "-q", "--spider", "http://localhost:3000/health"]
       interval: 30s
@@ -117,6 +145,13 @@ services:
       - ./frontend:/usr/share/nginx/html:ro
       - ./support-ops-dist:/usr/share/nginx/html/support-ops:ro
       - ./nginx/nginx.conf:/etc/nginx/conf.d/default.conf:ro
+    deploy:
+      resources:
+        limits:
+          memory: 128M
+          cpus: "0.5"
+        reservations:
+          memory: 32M
     healthcheck:
       test: ["CMD-SHELL", "wget -q --spider http://localhost:80/health || exit 1"]
       interval: 30s
