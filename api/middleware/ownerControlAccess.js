@@ -1,3 +1,4 @@
+import { swallow } from "../utils/logger.js";
 /**
  * ownerControlAccess.js - OCC Access Guard
  *
@@ -78,7 +79,7 @@ export function createOwnerControlAccessMiddleware(deps) {
       pool.query(
         "UPDATE tempconnect_owners SET last_access_at = NOW() WHERE user_id = $1",
         [userId]
-      ).catch(() => {});
+      ).catch(swallow("ownerControlAccess"));
 
       next();
     } catch (err) {

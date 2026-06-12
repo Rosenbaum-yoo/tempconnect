@@ -15,7 +15,7 @@
  */
 
 import { config } from "../config/index.js";
-import { createServiceLogger } from "../utils/logger.js";
+import { createServiceLogger, swallow } from "../utils/logger.js";
 
 const log = createServiceLogger("searchService");
 
@@ -135,7 +135,7 @@ async function initIndexes() {
     try {
       const index = _client.index(name);
       // Index erstellen falls nicht vorhanden
-      await _client.createIndex(name, { primaryKey: cfg.primaryKey }).catch(() => {});
+      await _client.createIndex(name, { primaryKey: cfg.primaryKey }).catch(swallow("searchService"));
 
       // Settings setzen
       await index.updateSettings({

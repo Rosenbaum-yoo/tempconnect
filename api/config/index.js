@@ -195,7 +195,7 @@ export function runProductionValidation() {
       } else {
         logger.info({ provider: b.provider, payment_mode: b.payment_mode, stripe_configured: b.stripe_configured }, "Billing-Provider aktiv");
       }
-    } catch (e) { /* Diagnostik darf den Start nie blockieren */ }
+    } catch { /* Diagnostik darf den Start nie blockieren */ }
   }
 
   if (process.env.NODE_ENV !== "production") return;

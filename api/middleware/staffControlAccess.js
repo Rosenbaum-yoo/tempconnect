@@ -1,3 +1,4 @@
+import { swallow } from "../utils/logger.js";
 /**
  * staffControlAccess.js - Staff Control Center (SCC) Access Guard
  *
@@ -79,7 +80,7 @@ export function createStaffControlAccessMiddleware(deps) {
       pool.query(
         "UPDATE tempconnect_staff SET last_access_at = NOW() WHERE user_id = $1",
         [userId]
-      ).catch(() => {});
+      ).catch(swallow("staffControlAccess"));
 
       next();
     } catch (err) {

@@ -7,6 +7,7 @@ import * as workerNotifications from "./workerNotificationService.js";
 import { sendMail } from "./emailService.js";
 import { timesheetSentToCustomerEmail } from "./emailHtmlTemplates.js";
 import { config } from "../config/index.js";
+import { swallow } from "../utils/logger.js";
 
 /* ── Statusübergänge ────────────────────────────────────────────────────────── */
 
@@ -712,7 +713,7 @@ export async function approveInternal(pool, submissionId, reviewerUserId, note) 
   if (result.ok && sub) {
     await workerNotifications.notifySubmissionAccepted(pool, sub.worker_user_id, submissionId,
       sub.week_start ? new Date(sub.week_start).toLocaleDateString('de-DE', { day:'2-digit', month:'2-digit', year:'numeric' }) : null
-    ).catch(() => {});
+    ).catch(swallow("workerSubmissionService"));
   }
   return result;
 }
@@ -923,7 +924,7 @@ export async function rejectByCustomer(pool, submissionId, actorUserId, {
       await workerNotifications.notifySubmissionCorrectionRequested(
         pool, sub.worker_user_id, submissionId,
         `Kundenseitig abgelehnt: ${note || 'Bitte Rücksprache mit Disponenten.'}`
-      ).catch(() => {});
+      ).catch(swallow("workerSubmissionService"));
     }
 
     await client.query('COMMIT');
@@ -1015,7 +1016,7 @@ export async function postToTimesheet(pool, submissionId, reviewerUserId) {
     await workerNotifications.notifySubmissionAccepted(
       pool, sub.worker_user_id, submissionId,
       sub.week_start ? new Date(sub.week_start).toLocaleDateString('de-DE', { day:'2-digit', month:'2-digit', year:'numeric' }) : null
-    ).catch(() => {});
+    ).catch(swallow("workerSubmissionService"));
 
     return { ok: true, timesheet: ts };
   } catch (err) {

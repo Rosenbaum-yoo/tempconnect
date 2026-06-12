@@ -1,5 +1,6 @@
 import { Router } from "express";
 import * as internalControlCenterService from "../services/internalControlCenterService.js";
+import { swallow } from "../utils/logger.js";
 import {
   requireSupportAccess,
   requireSupportFeature,
@@ -1092,7 +1093,7 @@ function buildSupportRouter(deps) {
         case: updatedRow ? caseDetailFromRow(updatedRow, req, notes, timeline) : null
       });
     } catch (err) {
-      await client.query("ROLLBACK").catch(() => {});
+      await client.query("ROLLBACK").catch(swallow("support"));
       logger?.error?.({ err, caseId: req.params.id, action }, "support case action failed");
       return res.status(500).json({ error: "SERVER_ERROR", message: "Action konnte nicht ausgeführt werden." });
     } finally {
@@ -1493,7 +1494,7 @@ function buildSupportRouter(deps) {
         target
       });
     } catch (err) {
-      await client.query("ROLLBACK").catch(() => {});
+      await client.query("ROLLBACK").catch(swallow("support"));
       logger?.error?.({ err, caseId, target }, "support escalation create failed");
       return res.status(500).json({ error: "SERVER_ERROR", message: "Eskalation konnte nicht erstellt werden." });
     } finally {

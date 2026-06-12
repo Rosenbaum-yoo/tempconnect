@@ -6,6 +6,7 @@
 import { Router } from "express";
 import * as dgSvc from "../services/dataGovernanceService.js";
 import { requirePermission } from "../middleware/rbac.js";
+import { swallow } from "../utils/logger.js";
 
 export function createDataGovernanceRouter(deps) {
   const { pool, requireAuth, requireFeature, logger } = deps;
@@ -155,7 +156,7 @@ export function createDataGovernanceRouter(deps) {
         source_ref: data?.id || null,
         uploaded_by: req.session.userId,
         notes: notes || null
-      })).catch(() => {});
+      })).catch(swallow("dataGovernance"));
       res.status(201).json({ success: true, data });
     } catch (e) {
       logger.error({ err: e }, "data-governance requests create");

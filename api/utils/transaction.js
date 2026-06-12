@@ -1,3 +1,4 @@
+import { swallow } from "./logger.js";
 /**
  * Transaction utility for safe multi-write operations.
  *
@@ -44,7 +45,7 @@ export async function withTransaction(pool, fn) {
     await client.query("COMMIT");
     return result;
   } catch (err) {
-    await client.query("ROLLBACK").catch(() => {});
+    await client.query("ROLLBACK").catch(swallow("transaction"));
     throw err;
   } finally {
     client.release();

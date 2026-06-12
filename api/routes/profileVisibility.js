@@ -23,6 +23,7 @@ import { Router } from "express";
 import * as visSvc from "../services/profileVisibilityService.js";
 import * as analyticsSvc from "../services/profileAnalyticsService.js";
 import { writeAudit } from "../services/auditLog.js";
+import { swallow } from "../utils/logger.js";
 
 export function createProfileVisibilityRouter(deps) {
   const { pool, requireAuth, requireFeature, logger } = deps;
@@ -35,7 +36,7 @@ export function createProfileVisibilityRouter(deps) {
 
   const audit = (req, action, entityType, entityId, details) =>
     writeAudit(pool, { action, entity_type: entityType, entity_id: entityId,
-      actor_id: uid(req), details }).catch(() => {});
+      actor_id: uid(req), details }).catch(swallow("profileVisibility"));
 
   const basic  = requireFeature("public_profile_basic");
   const visible = requireFeature("public_profile_visibility");
@@ -145,6 +146,7 @@ export function createProfileVisibilityRouter(deps) {
         likerOrgId: req.orgId
       });
       if (!result.ok) return fail(res, 400, result.reason, "Like konnte nicht gespeichert werden.");
+      res.locals.audit = { action: "profile_visibility.like", entity_type: "org_profile", entity_id: likedOrgId, details: { liker_org_id: req.orgId } };
       ok(res, { liked: true });
     } catch (e) {
       logger.error({ err: e }, "POST /profile-visibility/:orgId/like");
@@ -157,6 +159,7 @@ export function createProfileVisibilityRouter(deps) {
       const likedOrgId = String(req.params.orgId);
       if (!req.orgId) return fail(res, 403, "NO_ORG", "Keine aktive Organisation.");
       await analyticsSvc.unlikeProfile(pool, likedOrgId, uid(req));
+      res.locals.audit = { action: "profile_visibility.unlike", entity_type: "org_profile", entity_id: likedOrgId, details: null };
       ok(res, { liked: false });
     } catch (e) {
       logger.error({ err: e }, "DELETE /profile-visibility/:orgId/like");
@@ -181,6 +184,7 @@ export function createProfileVisibilityRouter(deps) {
         note
       });
       if (!result.ok) return fail(res, 400, result.reason, "Favorit konnte nicht gespeichert werden.");
+      res.locals.audit = { action: "profile_visibility.favorite_add", entity_type: "org_profile", entity_id: favOrgId, details: { has_note: !!note } };
       ok(res, { favorited: true });
     } catch (e) {
       logger.error({ err: e }, "POST /profile-visibility/:orgId/favorite");
@@ -192,6 +196,7 @@ export function createProfileVisibilityRouter(deps) {
     try {
       const favOrgId = String(req.params.orgId);
       await analyticsSvc.removeFavorite(pool, uid(req), favOrgId);
+      res.locals.audit = { action: "profile_visibility.favorite_remove", entity_type: "org_profile", entity_id: favOrgId, details: null };
       ok(res, { favorited: false });
     } catch (e) {
       logger.error({ err: e }, "DELETE /profile-visibility/:orgId/favorite");
@@ -250,7 +255,7 @@ export function createProfileVisibilityRouter(deps) {
         entity_id:    result.id || reportedOrgId,
         actor_id:     req.session.userId,
         details:      { reason: parsed.data.reason }
-      }).catch(() => {});
+      }).catch(swallow("profileVisibility"));
 
       ok(res, { reported: true });
     } catch (e) {

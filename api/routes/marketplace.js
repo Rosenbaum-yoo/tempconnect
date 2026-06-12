@@ -22,6 +22,7 @@ import * as dealDossierService from "../services/dealDossierService.js";
 import * as dealStaffingFastTrackService from "../services/dealStaffingFastTrackService.js";
 import * as assignmentStaffingService from "../services/assignmentStaffingService.js";
 import * as workerNotifications from "../services/workerNotificationService.js";
+import { swallow } from "../utils/logger.js";
 import {
   buildDealHistoryBucketSql,
   buildDealHistorySortSql,
@@ -1264,7 +1265,7 @@ export function createMarketplaceRouter(deps) {
       if (result.error) return res.status(400).json(result);
       res.locals.audit = { action: "marketplace.offer.counter", entity_type: "offer", entity_id: req.params.id };
       // Event tracking (fire-and-forget)
-      eventTracking.trackEvent(pool, { event_type: 'offer_countered', actor_id: req.session.userId, entity_type: 'offer', entity_id: req.params.id }).catch(() => {});
+      eventTracking.trackEvent(pool, { event_type: 'offer_countered', actor_id: req.session.userId, entity_type: 'offer', entity_id: req.params.id }).catch(swallow("marketplace"));
       try {
         const full = await marketplaceService.getOfferById(pool, req.params.id);
         await dispatch(pool, "offer.countered", {
@@ -1291,7 +1292,7 @@ export function createMarketplaceRouter(deps) {
       if (result.error) return res.status(400).json(result);
       res.locals.audit = { action: "marketplace.offer.withdraw", entity_type: "offer", entity_id: req.params.id };
       // Event tracking (fire-and-forget)
-      eventTracking.trackEvent(pool, { event_type: 'offer_withdrawn', actor_id: req.session.userId, entity_type: 'offer', entity_id: req.params.id }).catch(() => {});
+      eventTracking.trackEvent(pool, { event_type: 'offer_withdrawn', actor_id: req.session.userId, entity_type: 'offer', entity_id: req.params.id }).catch(swallow("marketplace"));
       // Counterparty notification: inform the requester about withdrawal
       try {
         const full = await marketplaceService.getOfferById(pool, req.params.id);
@@ -1571,7 +1572,7 @@ export function createMarketplaceRouter(deps) {
             capacity_status: result.capacity?.commercial_status || result.capacity?.status || null,
             capacity_remaining_headcount: result.capacity?.remaining_headcount ?? null
           }
-        }).catch(() => {});
+        }).catch(swallow("marketplace"));
       } catch { /* non-critical */ }
       res.json(result);
     } catch (e) {
@@ -1738,7 +1739,7 @@ export function createMarketplaceRouter(deps) {
           assigned.worker_user_id,
           assigned.link_id,
           parsed.data.client_name || offer.requester_company_name || null
-        ).catch(() => {});
+        ).catch(swallow("marketplace"));
       }
 
       res.locals.audit = {

@@ -89,7 +89,7 @@ export async function getPendingRatings(pool, userId) {
  * @param {{ requestId, raterId, ratedId, stars, reliability, communication, quality, comment }} ratingData
  * @returns {Promise<Object>} Die gespeicherte Bewertung
  */
-export async function submitRatingModerated(pool, ratingData) {
+export function submitRatingModerated(pool, ratingData) {
   const { requestId, raterId, ratedId, stars, reliability, communication, quality, comment } = ratingData;
   return withTransaction(pool, async (client) => {
     // 1. Rating einfuegen

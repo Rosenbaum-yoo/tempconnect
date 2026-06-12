@@ -4,6 +4,7 @@ import { enqueue, staffingQueue } from "../queue/queues.js";
 import { withTransaction } from "../utils/transaction.js";
 import { haversineKm } from "./matchingEngine.js";
 import { buildAssignmentActivePredicateSql } from "./assignmentLifecycleService.js";
+import { swallow } from "../utils/logger.js";
 
 const ASSIGNABLE_STATUSES = new Set(["planned", "active", "extended"]);
 const LIVE_INVITE_STATUSES = new Set(["sent", "viewed", "interested", "accepted"]);
@@ -646,7 +647,7 @@ async function deliverStaffingInviteNotification(db, inviteId, {
     await markInviteDeliveryOutcome(db, invite, {
       kind,
       errorMessage: String(error?.message || "DELIVERY_FAILED").slice(0, 500)
-    }).catch(() => {});
+    }).catch(swallow("assignmentStaffingService"));
     throw error;
   }
 }
@@ -2585,7 +2586,7 @@ async function createStaffingCampaignInternal(client, {
 
 async function queueStaffingCampaignInvites(pool, result) {
   if (result?.error || !Array.isArray(result?.invites)) return;
-  await queueStaffingInviteDeliveries(pool, result.invites, { kind: "initial" }).catch(() => {});
+  await queueStaffingInviteDeliveries(pool, result.invites, { kind: "initial" }).catch(swallow("assignmentStaffingService"));
 }
 
 export async function createStaffingCampaign(pool, {
@@ -3961,7 +3962,7 @@ export async function createStaffingChoiceSet(pool, {
       result.id,
       buildStaffingChoiceNotificationContext(result),
       { throwOnError: false }
-    ).catch(() => {});
+    ).catch(swallow("assignmentStaffingService"));
   }
 
   return result;
@@ -4110,7 +4111,7 @@ export async function submitStaffingChoicePreferences(pool, {
       result.id,
       buildWorkerName(result.worker),
       result.summary?.dispatcher_summary || null
-    ).catch(() => {});
+    ).catch(swallow("assignmentStaffingService"));
   }
   return result;
 }
@@ -4198,7 +4199,7 @@ export async function submitStaffingChoiceRanking(pool, {
       result.id,
       buildWorkerName(result.worker),
       result.summary?.dispatcher_summary || null
-    ).catch(() => {});
+    ).catch(swallow("assignmentStaffingService"));
   }
   return result;
 }
@@ -4314,14 +4315,14 @@ export async function selectStaffingChoiceOption(pool, {
         result.dispatcher_user_id,
         result.link.id,
         result.worker_name
-      ).catch(() => {});
+      ).catch(swallow("assignmentStaffingService"));
     } else {
       workerNotifications.notifyStaffingInviteAcceptedToDispatcher(
         pool,
         result.dispatcher_user_id,
         result.invite?.id || result.reservation?.invite_id || null,
         result.worker_name
-      ).catch(() => {});
+      ).catch(swallow("assignmentStaffingService"));
     }
   }
 
@@ -4448,7 +4449,7 @@ export async function declineStaffingChoiceSet(pool, {
       result.id,
       buildWorkerName(result.worker),
       normalizedNote
-    ).catch(() => {});
+    ).catch(swallow("assignmentStaffingService"));
   }
   return result;
 }
@@ -4530,7 +4531,7 @@ export async function askStaffingInviteQuestion(pool, {
       inviteId,
       result.worker_name,
       normalizedQuestion
-    ).catch(() => {});
+    ).catch(swallow("assignmentStaffingService"));
   }
 
   return result;
@@ -4617,7 +4618,7 @@ function notifyStaffingInviteWorkerAction(pool, normalizedAction, inviteId, resu
       result.invite?.id || inviteId,
       result.worker_name,
       note || null
-    ).catch(() => {});
+    ).catch(swallow("assignmentStaffingService"));
     return;
   }
   if (result.link?.id) {
@@ -4626,7 +4627,7 @@ function notifyStaffingInviteWorkerAction(pool, normalizedAction, inviteId, resu
       result.dispatcher_user_id,
       result.link.id,
       result.worker_name
-    ).catch(() => {});
+    ).catch(swallow("assignmentStaffingService"));
     return;
   }
   workerNotifications.notifyStaffingInviteAcceptedToDispatcher(
@@ -4634,7 +4635,7 @@ function notifyStaffingInviteWorkerAction(pool, normalizedAction, inviteId, resu
     result.dispatcher_user_id,
     result.invite?.id || inviteId,
     result.worker_name
-  ).catch(() => {});
+  ).catch(swallow("assignmentStaffingService"));
 }
 
 async function respondToStaffingInviteInternal(client, {

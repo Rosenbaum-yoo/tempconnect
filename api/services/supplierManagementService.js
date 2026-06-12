@@ -10,6 +10,7 @@ import * as auditLog from "./auditLog.js";
 import * as eventTracking from "./eventTrackingService.js";
 import * as supplierMetrics from "./supplierMetricsService.js";
 import * as reputationService from "./reputationService.js";
+import { swallow } from "../utils/logger.js";
 
 /* ── Invite ────────────────────────────────────────────── */
 
@@ -39,7 +40,7 @@ export async function inviteSupplier(pool, buyerOrgId, supplierOrgId, actorId, o
     target_org_id: supplierOrgId,
     entity_type: 'vendor_pool',
     entity_id: entry.id
-  }).catch(() => {});
+  }).catch(swallow("supplierManagementService"));
   return entry;
 }
 
@@ -63,7 +64,7 @@ export async function approveSupplier(pool, entryId, actorId, opts = {}) {
       entity_type: 'vendor_pool',
       entity_id: entryId,
       metadata: { tier: entry.tier }
-    }).catch(() => {});
+    }).catch(swallow("supplierManagementService"));
   }
   return entry;
 }

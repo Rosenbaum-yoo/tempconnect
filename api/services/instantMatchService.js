@@ -13,6 +13,7 @@
 
 import { scoreMatch, classifyMatch, logMatch } from "./matchingEngine.js";
 import { computeFillRateSignal, computeSlaComplianceSignal, computeRoleExpertiseSignal, computeRecencySignal, computeSmartRankScore, classifySmartRank, SMART_RANK_LABELS } from "./smartRankingService.js";
+import { swallow } from "../utils/logger.js";
 
 /* ── Batch-Loader ─────────────────────────────────────── */
 
@@ -331,7 +332,7 @@ export async function instantMatchFromParams(pool, demand, orgId, opts = {}) {
       reasons: m.reasons,
       outcome: "suggested",
       org_id: orgId || null
-    }).catch(() => {});
+    }).catch(swallow("instantMatchService"));
   }
 
   return {

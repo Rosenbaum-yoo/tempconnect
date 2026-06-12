@@ -1,5 +1,6 @@
 import { Router } from "express";
 import { isQueueAvailable, getConnectionOpts } from "../../queue/connection.js";
+import { swallow } from "../../utils/logger.js";
 
 function deriveSystemStatus(services = []) {
   const statuses = services.map((s) => s.status);
@@ -28,7 +29,7 @@ async function loadQueueStats() {
           paused: Number(counts.paused || 0)
         });
       } finally {
-        await queue.close().catch(() => {});
+        await queue.close().catch(swallow("operations"));
       }
     }
     return items;

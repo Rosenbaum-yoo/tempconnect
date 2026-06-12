@@ -5,6 +5,7 @@
  */
 
 import * as eventTracking from "./eventTrackingService.js";
+import { swallow } from "../utils/logger.js";
 
 const DEFAULT_STAGES = [
   { stage_number: 1, pool_tier: 'PREFERRED', label: 'Bevorzugte Dienstleister', auto_advance_hours: 24 },
@@ -56,7 +57,7 @@ export async function createDistributionPlan(pool, requisitionId, stages, actorI
     entity_type: 'requisition',
     entity_id: requisitionId,
     metadata: { stages: plan.length }
-  }).catch(() => {});
+  }).catch(swallow("supplierPoolService"));
 
   return rows;
 }
@@ -110,7 +111,7 @@ export async function advanceDistribution(pool, requisitionId, actorId) {
     entity_type: 'requisition',
     entity_id: requisitionId,
     metadata: { advanced_to_stage: nextStage.stage_number, tier: nextStage.pool_tier }
-  }).catch(() => {});
+  }).catch(swallow("supplierPoolService"));
 
   return { ...nextStage, status: 'active' };
 }

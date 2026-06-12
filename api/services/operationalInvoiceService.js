@@ -12,6 +12,7 @@
  */
 
 import * as auditLog from "./auditLog.js";
+import { swallow } from "../utils/logger.js";
 
 const DEFAULT_TAX_RATE = 19.0;
 const DEFAULT_OVERTIME_SURCHARGE_PCT = 25.0;
@@ -229,7 +230,7 @@ export async function generateFromTimesheets(pool, opts) {
 
     return { invoice, items: lineItems };
   } catch (e) {
-    await client.query("ROLLBACK").catch(() => {});
+    await client.query("ROLLBACK").catch(swallow("operationalInvoiceService"));
     throw e;
   } finally {
     client.release();

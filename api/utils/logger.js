@@ -181,6 +181,20 @@ class DomainEventLogger {
   }
 }
 
+/* ── Fire-and-forget-Fehlersenke (F1.3) ───────────────────
+ * Ersetzt stille `.catch(() => {})` an non-blocking Pfaden (Notifications,
+ * Analytics, Audit-Spiegel, touchLastUsed, ROLLBACK): der Geschaeftsfluss
+ * bleibt ungestoert, aber der Fehler ist im Log SICHTBAR statt verschluckt.
+ * Nutzung: somePromise.catch(swallow("kontext-label"));
+ */
+export function swallow(label) {
+  return (err) => {
+    try {
+      logger.warn({ err: err?.message || String(err) }, `${label}: non-blocking Fehler verschluckt`);
+    } catch { /* Logging darf nie werfen */ }
+  };
+}
+
 /** Singleton Domain Event Logger */
 export const domainLogger = new DomainEventLogger(logger);
 

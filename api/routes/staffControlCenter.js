@@ -79,7 +79,7 @@ import {
 // Marketplace Visibility Center — M-07 (2026-05-30)
 import * as visSvc from "../services/profileVisibilityService.js";
 import {
-  approveRating, rejectRating, flagRating, getPendingModerationQueue
+  approveRating, rejectRating, getPendingModerationQueue
 } from "../services/ratingService.js";
 import * as bountySvc from "../services/profileBountyService.js";
 

@@ -9,6 +9,7 @@
  */
 
 import { withTransaction } from "../utils/transaction.js";
+import { swallow } from "../utils/logger.js";
 
 const TAX_RATE_PCT = 19.0;
 
@@ -118,7 +119,7 @@ export async function createInvoice(pool, opts) {
     return invoice;
   }).then((invoice) => {
     // Auto-Ablage: Rechnung landet sofort als PDF im Dokumenten-Tresor (fire-and-forget).
-    import("./documentIngestService.js").then((m) => m.ingestInvoicePdf(pool, invoice)).catch(() => {});
+    import("./documentIngestService.js").then((m) => m.ingestInvoicePdf(pool, invoice)).catch(swallow("invoiceService"));
     return invoice;
   });
 }

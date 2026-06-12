@@ -7,6 +7,7 @@ import * as engine from "../services/matchingEngine.js";
 import * as instant from "../services/instantMatchService.js";
 import { computeFillRateSignal, computeSlaComplianceSignal, computeRoleExpertiseSignal, computeRecencySignal, computeSmartRankScore, classifySmartRank, SMART_RANK_WEIGHTS, SMART_RANK_LABELS } from "../services/smartRankingService.js";
 import { requirePermission } from "../middleware/rbac.js";
+import { swallow } from "../utils/logger.js";
 
 /**
  * @param {{ pool, requireAuth, logger }} deps
@@ -33,7 +34,7 @@ export function createMatchingRouter(deps) {
           reasons: m.reasons,
           outcome: "suggested",
           org_id: req.orgId || null
-        }).catch(() => {});
+        }).catch(swallow("matching"));
       }
       res.json({ demand_id: req.params.id, count: matches.length, matches });
     } catch (err) {
@@ -58,7 +59,7 @@ export function createMatchingRouter(deps) {
           reasons: m.reasons,
           outcome: "suggested",
           org_id: req.orgId || null
-        }).catch(() => {});
+        }).catch(swallow("matching"));
       }
       res.json({ capacity_post_id: req.params.id, count: matches.length, matches });
     } catch (err) {
@@ -83,7 +84,7 @@ export function createMatchingRouter(deps) {
           reasons: m.reasons,
           outcome: "suggested",
           org_id: req.orgId || null
-        }).catch(() => {});
+        }).catch(swallow("matching"));
       }
       res.json({ worker_id: req.params.id, count: matches.length, matches });
     } catch (err) {

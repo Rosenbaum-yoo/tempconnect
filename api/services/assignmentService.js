@@ -7,6 +7,7 @@ import * as auditLog from "./auditLog.js";
 import { notifyAssignmentNew } from "./workerNotificationService.js";
 import { withTransaction } from "../utils/transaction.js";
 import { assertLocationBelongsToOrg, assertDepartmentBelongsToOrg } from "../utils/orgBoundary.js";
+import { swallow } from "../utils/logger.js";
 import {
   buildAssignmentActivePredicateSql,
   buildAssignmentHistoryPredicateSql,
@@ -68,7 +69,7 @@ export async function createAssignment(pool, data) {
   // P12-4: Notify linked workers about new assignment (non-transactional, fire-and-forget)
   if (data.worker_user_ids && Array.isArray(data.worker_user_ids)) {
     for (const wId of data.worker_user_ids) {
-      notifyAssignmentNew(pool, wId, a.id, data.client_name || null).catch(() => {});
+      notifyAssignmentNew(pool, wId, a.id, data.client_name || null).catch(swallow("assignmentService"));
     }
   }
 

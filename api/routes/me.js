@@ -9,6 +9,7 @@ import * as pilotPolicyService from "../services/pilotPolicyService.js";
 import { getPlanDisplayLabel } from "../services/planDisplayService.js";
 import * as totpService from "../services/totpService.js";
 import * as entitlementService from "../services/entitlementService.js";
+import { swallow } from "../utils/logger.js";
 const PLAN_ORDER = ["DEMO", "BASIS", "PLUS", "PRO", "INDIVIDUELL"];
 function normalizePlanKey(plan) {
   let p = String(plan || "DEMO").toUpperCase();
@@ -616,7 +617,7 @@ export function createMeRouter(deps) {
           await userService.clearUserGeo(pool, req.session.userId);
         }
       } catch {
-        await userService.clearUserGeo(pool, req.session.userId).catch(() => {});
+        await userService.clearUserGeo(pool, req.session.userId).catch(swallow("me"));
       }
 
       const me = await getUserAndPlan(req.session.userId, { orgId: req.orgId || null });

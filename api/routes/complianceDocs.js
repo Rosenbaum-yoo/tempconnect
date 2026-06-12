@@ -18,6 +18,7 @@ import fs from "fs";
 import * as complianceDocService from "../services/complianceDocService.js";
 import { requirePermission } from "../middleware/rbac.js";
 import { ok, fail } from "../utils/response.js";
+import { swallow } from "../utils/logger.js";
 
 /* ── Upload config (reuses offerAssets pattern) ──────── */
 const ALLOWED_MIMES = ["image/png", "image/jpeg", "image/webp", "application/pdf"];
@@ -141,7 +142,7 @@ export function createComplianceDocsRouter(deps) {
         file_size_bytes: req.file?.size || null,
         source_ref: doc.id,
         uploaded_by: req.session?.userId || null
-      })).catch(() => {});
+      })).catch(swallow("complianceDocs"));
       return ok(res, doc, 201);
     } catch (err) {
       if (req.file) fs.unlink(req.file.path, () => {});

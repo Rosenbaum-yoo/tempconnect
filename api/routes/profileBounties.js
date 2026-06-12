@@ -21,6 +21,7 @@ import { z } from "zod";
 import { Router } from "express";
 import * as bountySvc from "../services/profileBountyService.js";
 import { writeAudit } from "../services/auditLog.js";
+import { swallow } from "../utils/logger.js";
 
 const createBountySchema = z.object({
   bounty_type: z.enum(["featured_badge", "search_boost", "category_top"])
@@ -37,7 +38,7 @@ export function createProfileBountiesRouter(deps) {
 
   const audit = (req, action, entityId, details) =>
     writeAudit(pool, { action, entity_type: "profile_bounty", entity_id: entityId,
-      actor_id: uid(req), details }).catch(() => {});
+      actor_id: uid(req), details }).catch(swallow("profileBounties"));
 
   // MATURITY_GATE: profile_bounties = false → requireFeature blockiert automatisch
   const bountyAccess = requireFeature("profile_bounties");

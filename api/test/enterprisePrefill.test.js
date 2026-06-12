@@ -276,7 +276,6 @@ frontendSuite("enterprise self-service checkout (Slice E)", () => {
 
   async function tick(n) {
     for (let i = 0; i < n; i += 1) {
-      // eslint-disable-next-line no-await-in-loop
       await new Promise((resolve) => setTimeout(resolve, 0));
     }
   }

@@ -3,6 +3,7 @@
  */
 
 import { normalizePlanKey } from "../config/planCatalog.js";
+import { swallow } from "../utils/logger.js";
 
 /** Prueft ob E-Mail bereits existiert. */
 export async function emailExists(pool, email) {
@@ -136,7 +137,7 @@ export async function createOrgWithMembership(pool, userId, { orgName, orgType, 
     await client.query('COMMIT');
     return orgId;
   } catch (e) {
-    await client.query('ROLLBACK').catch(() => {});
+    await client.query('ROLLBACK').catch(swallow("authService"));
     throw e;
   } finally {
     client.release();

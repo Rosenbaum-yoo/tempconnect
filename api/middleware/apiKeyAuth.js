@@ -17,6 +17,7 @@
  */
 
 import { hashKey, lookupByHash, touchLastUsed, hasScope } from "../services/apiKeyService.js";
+import { swallow } from "../utils/logger.js";
 
 const KEY_PREFIX = "tc_live_";
 
@@ -50,7 +51,7 @@ export function apiKeyAuthMiddleware(pool, { logger }) {
       req.isApiKeyAuth = true;
 
       // last_used_at async aktualisieren (non-blocking, Fehler ignorieren)
-      touchLastUsed(pool, record.id).catch(() => {});
+      touchLastUsed(pool, record.id).catch(swallow("apiKeyAuth"));
 
       next();
     } catch (err) {

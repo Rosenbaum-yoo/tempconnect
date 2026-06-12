@@ -16,7 +16,7 @@
 import { assertTransition, logTransition } from "./stateMachine.js";
 import * as eventTracking from "./eventTrackingService.js";
 import { dispatch } from "./notificationMatrix.js";
-import { createServiceLogger, domainLogger } from "../utils/logger.js";
+import { createServiceLogger, domainLogger, swallow } from "../utils/logger.js";
 import { withTransaction } from "../utils/transaction.js";
 
 const logger = createServiceLogger("dealWorkflow");
@@ -149,7 +149,7 @@ async function transitionDeal(pool, requestId, toStatus, actorId, opts = {}) {
       entity_type: 'request',
       entity_id: requestId,
       metadata: { from: fromStatus, to: toStatus }
-    }).catch(() => {});
+    }).catch(swallow("dealWorkflow"));
   }
 
   const requesterId = rows[0].requester_id;

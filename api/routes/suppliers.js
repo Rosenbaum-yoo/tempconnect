@@ -8,6 +8,7 @@ import * as supplierMgmt from "../services/supplierManagementService.js";
 import * as vendorPoolService from "../services/vendorPoolService.js";
 import { requirePermission } from "../middleware/rbac.js";
 import { requireCompanyOrg } from "../middleware/orgAccess.js";
+import { swallow } from "../utils/logger.js";
 
 const inviteSchema = z.object({
   buyer_org_id: z.string().uuid().optional(),
@@ -105,7 +106,7 @@ export function createSuppliersRouter(deps) {
         event_type: 'supplier_blocked', actor_id: req.session.userId,
         org_id: req.orgId, target_org_id: existing.supplier_org_id,
         entity_type: 'vendor_pool', metadata: { reason }
-      }).catch(() => {});
+      }).catch(swallow("suppliers"));
       res.locals.audit = { action: "supplier.block", entity_type: "vendor_pool", entity_id: req.params.id, details: { client_org_id: req.orgId, supplier_org_id: existing.supplier_org_id, reason } };
       res.json({ ok: true, blocked: rows.length });
     } catch (err) {

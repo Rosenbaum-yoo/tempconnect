@@ -18,7 +18,7 @@ const INGEST_DIR = "/uploads/document-center/system";
 function writeIngestFile(content, filename) {
   const dirAbs = path.join(process.cwd(), INGEST_DIR.replace(/^\//, ""));
   fs.mkdirSync(dirAbs, { recursive: true });
-  const safe = String(filename || "dokument").replace(/[^\w.\-]+/g, "_");
+  const safe = String(filename || "dokument").replace(/[^\w.-]+/g, "_");
   const unique = crypto.randomUUID().slice(0, 8) + "-" + safe;
   const rel = INGEST_DIR + "/" + unique;
   const buf = Buffer.isBuffer(content) ? content : Buffer.from(String(content));

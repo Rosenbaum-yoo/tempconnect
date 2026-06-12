@@ -131,7 +131,7 @@ export async function approveBounty(pool, bountyId, staffUserId, { expiresAt = n
  * @param {string} staffUserId
  * @returns {Promise<{ok: boolean, reason?: string, bounty?: Object}>}
  */
-export async function activateBounty(pool, bountyId, staffUserId) {
+export async function activateBounty(pool, bountyId, _staffUserId) {
   const bounty = await getBountyById(pool, bountyId);
   if (!bounty) return { ok: false, reason: 'NOT_FOUND' };
   if (!isBountyTransitionAllowed(bounty.status, 'active')) {

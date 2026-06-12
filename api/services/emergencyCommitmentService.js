@@ -1,4 +1,5 @@
 import { isEmergency } from "./emergencyStaffingService.js";
+import { swallow } from "../utils/logger.js";
 
 function mapDemandStatus(requiredTotal, committedTotal) {
   if (committedTotal <= 0) return { status: "open", remaining: requiredTotal };
@@ -133,7 +134,7 @@ export async function createCommitment(pool, { demandId, supplierCompanyId, quan
     await client.query("COMMIT");
     return { commitment, coverage };
   } catch (e) {
-    await client.query("ROLLBACK").catch(() => {});
+    await client.query("ROLLBACK").catch(swallow("emergencyCommitmentService"));
     throw e;
   } finally {
     client.release();
@@ -197,7 +198,7 @@ export async function updateCommitmentStatus(pool, { commitmentId, actorUserId, 
     await client.query("COMMIT");
     return { commitment: updated, coverage };
   } catch (e) {
-    await client.query("ROLLBACK").catch(() => {});
+    await client.query("ROLLBACK").catch(swallow("emergencyCommitmentService"));
     throw e;
   } finally {
     client.release();

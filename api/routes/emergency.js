@@ -12,6 +12,7 @@ import * as emergencyCommitmentService from "../services/emergencyCommitmentServ
 import * as dealAgreementService from "../services/dealAgreementService.js";
 import { dispatch } from "../services/notificationMatrix.js";
 import { canAccessAsOwner } from "../utils/ownerCheck.js";
+import { swallow } from "../utils/logger.js";
 
 const emergencyRequestSchema = z.object({
   title: z.string().min(1).max(200),
@@ -277,7 +278,7 @@ export function createEmergencyRouter(deps) {
           entityType: "demand_request",
           entityId: req.params.id,
           message: `Neue Teilzusage: ${parsed.data.committed_quantity} Personen zugesagt.`
-        }).catch(() => {});
+        }).catch(swallow("emergency"));
       }
 
       res.locals.audit = {
@@ -370,7 +371,7 @@ export function createEmergencyRouter(deps) {
           entityType: "offer",
           entityId: result.offer.id,
           message: `Notdienst-Sofortvereinbarung ${result.offer.agreement_ref} erstellt \u2013 Ihre Best\u00e4tigung wird erwartet.`
-        }).catch(() => {});
+        }).catch(swallow("emergency"));
       }
 
       res.locals.audit = {

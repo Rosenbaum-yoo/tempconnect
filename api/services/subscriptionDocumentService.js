@@ -28,6 +28,7 @@ import {
   renderPlatformNoticeHtml
 } from "./subscriptionDocumentDisclaimer.js";
 import { renderPdfFromHtml } from "./subscriptionDocumentPdfService.js";
+import { swallow } from "../utils/logger.js";
 import {
   computeContentHash,
   createSubscriptionDocumentStorageAdapter,
@@ -173,7 +174,7 @@ export async function generateDocument(pool, input) {
       title,
       source_ref: row.id,
       uploaded_by: input.actorUserId || null
-    })).catch(() => {});
+    })).catch(swallow("subscriptionDocumentService"));
   }
   return { ok: true, row };
 }

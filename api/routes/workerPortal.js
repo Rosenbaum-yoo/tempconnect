@@ -12,6 +12,7 @@ import * as assignmentStaffingService from "../services/assignmentStaffingServic
 import * as workerService from "../services/workerService.js";
 import * as submissionSvc from "../services/workerSubmissionService.js";
 import * as workerNotifications from "../services/workerNotificationService.js";
+import { swallow } from "../utils/logger.js";
 
 /* ── Schemas ─────────────────────────────────────────────────────────────────── */
 
@@ -740,7 +741,7 @@ export function createWorkerPortalRouter(deps) {
       if (result.link.created_by) {
         workerNotifications.notifyUnavailableReported(
           pool, result.link.created_by, result.link.id, workerName, unavailableFrom
-        ).catch(() => {});
+        ).catch(swallow("workerPortal"));
       }
 
       res.locals.audit = {

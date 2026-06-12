@@ -109,23 +109,23 @@ und Hetzner (F3) laufen vollständig parallel und warten am Ende NUR auf Steuern
 > Jede Phase endet mit Tests + Commit (Owner-Commit-Freigabe gilt als erteilt für F1-Scope,
 > sofern Owner in F0.1 bestätigt).
 
-### Phase F1.1 — Prod-Infra-Härtung (Audit: CI/CD kritisch/hoch) — 0,5 PT
-- [ ] `docker-compose.prod.yml`: `resources.limits` (memory/cpus) + `reservations` für api/redis/frontend
-- [ ] `docker-compose.prod.yml`: `FEATURE_GATE_BYPASS: "false"` hart pinnen (Defense-in-Depth zu envValidator)
-- [ ] `nginx/nginx.conf` + `deploy/README`: TLS-Pflicht-Hinweis prominent („MUSS hinter Caddy/TLS-Proxy")
-- **Abnahme:** `docker compose -f docker-compose.prod.yml config` zeigt Limits + Pin; Doku-Diff sichtbar
+### Phase F1.1 — Prod-Infra-Härtung (Audit: CI/CD kritisch/hoch) — 0,5 PT ✅ (12.06., Commit `9f37250`)
+- [x] `docker-compose.prod.yml`: `resources.limits` (memory/cpus) + `reservations` für api/redis/frontend
+- [x] `docker-compose.prod.yml`: `FEATURE_GATE_BYPASS: "false"` hart pinnen (Defense-in-Depth zu envValidator)
+- [x] `nginx/nginx.conf` + `deploy/README`: TLS-Pflicht-Hinweis prominent („MUSS hinter Caddy/TLS-Proxy")
+- **Abnahme:** ✅ `docker compose -f docker-compose.prod.yml config` zeigt Limits + Pin; Doku-Diff sichtbar
 
-### Phase F1.2 — Security-Quick-Wins (Audit: Security hoch) — 1 PT
-- [ ] OCC/Staff-Session-Secret-Fallback: String-Concat → HKDF/HMAC-SHA256-Ableitung (`app.js:231`)
-- [ ] API-Key-Scope-Enforcement: `requireScope()` (toter Code seit WAVE_06) auf Finance-/Export-Routen verdrahten + Tests
-- [ ] Rate-Limit pro API-Key-ID (Limiter-Key = apiKeyId statt nur IP) auf API-Key-Pfaden
-- **Abnahme:** neue Tests grün (Scope-Denial 403, KDF-Determinismus); volle Suite 0 Fehler
+### Phase F1.2 — Security-Quick-Wins (Audit: Security hoch) — 1 PT ✅ (12.06., Commit `1044343`)
+- [x] OCC/Staff-Session-Secret-Fallback: String-Concat → HKDF/HMAC-SHA256-Ableitung (`app.js:231`)
+- [x] API-Key-Scope-Enforcement: `requireScope()` (toter Code seit WAVE_06) auf Finance-/Export-Routen verdrahten + Tests
+- [x] Rate-Limit pro API-Key-ID (Limiter-Key = apiKeyId statt nur IP) auf API-Key-Pfaden
+- **Abnahme:** ✅ neue Tests grün (Scope-Denial 403, KDF-Determinismus); volle Suite 0 Fehler
 
-### Phase F1.3 — Betriebs-Sichtbarkeit & Hygiene (Audit: Backend hoch) — 1 PT
-- [ ] `.catch(() => {})`-Sweep: alle stillen Hook-Catches → `logger.warn` (assignmentStaffing, idempotency-Save u. a.; Muster `documentIngestService`)
-- [ ] `companyProfile.js`: Audit-Markierung auf `res.locals.audit`-Pattern migrieren
-- [ ] `CHANGELOG.md` anlegen (rückwirkend ab v2.0.0) + Semver-Tagging-Prozess in `docs/releases/` dokumentieren
-- **Abnahme:** `grep -r "catch(() => {})" api/services api/middleware` = 0 stille Treffer ohne Log; CHANGELOG committet
+### Phase F1.3 — Betriebs-Sichtbarkeit & Hygiene (Audit: Backend hoch) — 1 PT ✅ (12.06.)
+- [x] `.catch(() => {})`-Sweep: alle stillen Hook-Catches → `logger.warn` via `swallow()`-Helper (`utils/logger.js`); 0 stille Rest-Treffer
+- [x] `companyProfile.js`: Audit-Markierung auf `res.locals.audit`-Pattern migriert (Checker-konform)
+- [x] `CHANGELOG.md` (rückwirkend ab v2.0.0) + `docs/releases/RELEASE_PROCESS.md` (SemVer-Prozess)
+- **Abnahme:** ✅ grep = 0 stille Treffer; Lint 0/0; Audit-Gate 373 Endpunkte grün (5 Engagement-Routen mit echten Audit-Markern, Analytics-Ingest begründet allowlisted); volle Suite **4503/4503/0**
 
 ### Phase F1.4 — Test-Harness-Folge-Slice (Register-Status-Note 2026-06-11) — 1 PT
 - [ ] CAN-1: Harness-Plan-Resolution (`getUserAndPlan`-Pfad im Integrations-Setup: PLUS≠DEMO) härten

@@ -7,6 +7,7 @@
 import crypto from "crypto";
 import { logger } from "../config/index.js";
 import { sendIntegrationEvent } from "./integrationAdapters.js";
+import { swallow } from "../utils/logger.js";
 
 /* ── Supported Events ────────────────────────────────────── */
 
@@ -263,12 +264,12 @@ export async function dispatchToIntegrations(pool, eventKey, context = {}) {
           await pool.query(
             `UPDATE org_integrations SET last_success_at = NOW(), last_error = NULL, updated_at = NOW() WHERE id = $1`,
             [intg.id]
-          ).catch(() => {});
+          ).catch(swallow("integrationService"));
         } else {
           await pool.query(
             `UPDATE org_integrations SET last_error = $2, updated_at = NOW() WHERE id = $1`,
             [intg.id, (result.error || 'Unknown').slice(0, 500)]
-          ).catch(() => {});
+          ).catch(swallow("integrationService"));
         }
 
         return { integrationId: intg.id, provider: intg.provider, ...result };
@@ -361,7 +362,7 @@ export async function retryFailedDeliveries(pool) {
       await pool.query(
         `UPDATE org_integrations SET last_success_at = NOW(), last_error = NULL, updated_at = NOW() WHERE id = $1`,
         [row.integration_id]
-      ).catch(() => {});
+      ).catch(swallow("integrationService"));
     } else {
       failed++;
       const nextRetryMs = newAttempt * 60_000; // exponential: 2min, 3min, ...

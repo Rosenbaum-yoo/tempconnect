@@ -5,6 +5,7 @@
  */
 
 import crypto from "crypto";
+import { swallow } from "../utils/logger.js";
 
 const WRITE_METHODS = new Set(["POST", "PATCH", "PUT", "DELETE"]);
 const KEY_MAX_LEN = 128;
@@ -81,7 +82,7 @@ export function idempotencyMiddleware(pool, opts = {}) {
          VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
          ON CONFLICT (scope, key) DO NOTHING`,
         [scope, key, userId, method, path, hash, captured.status, JSON.stringify(captured.body), expiresAt]
-      ).catch(() => {});
+      ).catch(swallow("idempotency"));
     });
 
     next();

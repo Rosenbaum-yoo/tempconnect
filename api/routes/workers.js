@@ -18,6 +18,7 @@ import * as submissionSvc from "../services/workerSubmissionService.js";
 import * as billingMetrics from "../services/billingMetricsService.js";
 import * as workerNotifications from "../services/workerNotificationService.js";
 import { trackProductEventFromRequest } from "../services/productAnalyticsService.js";
+import { swallow } from "../utils/logger.js";
 
 /* ── Schemas ─────────────────────────────────────────────────────────────────── */
 
@@ -592,7 +593,7 @@ export function createWorkersRouter(deps) {
         req.params.userId,
         document.id,
         document.title || document.original_name || "Nachweis"
-      ).catch(() => {});
+      ).catch(swallow("workers"));
       res.json(document);
     } catch (err) { next(err); }
   });
@@ -621,7 +622,7 @@ export function createWorkersRouter(deps) {
         document.id,
         document.title || document.original_name || "Nachweis",
         parsed.data.note.trim()
-      ).catch(() => {});
+      ).catch(swallow("workers"));
       res.json(document);
     } catch (err) { next(err); }
   });

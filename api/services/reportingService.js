@@ -1191,7 +1191,7 @@ export async function executiveDashboard(pool, orgId = null, locationId = null) 
       alerts.push({
         code: "SLA_COMPLIANCE_LOW",
         severity: sla.sla_compliance_pct < 60 ? "critical" : "warning",
-        message: `SLA-Compliance bei ${sla.sla_compliance_pct} % — Schwellwert ${SLA_WARN_THRESHOLD} % unterschritten.`,
+        message: `SLA-Compliance bei ${sla.sla_compliance_pct} % — Schwellwert ${SLA_WARN_THRESHOLD} % unterschritten.`,
         pct: sla.sla_compliance_pct,
         threshold: SLA_WARN_THRESHOLD,
         detail_url: null

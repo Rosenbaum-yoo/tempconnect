@@ -48,6 +48,9 @@ const ALLOWLIST_ROUTES = new Set([
   "/worker/notifications/read-all",
   // Public telemetry ingest — kein User-Context, kein Business-State-Change (analytics.js)
   "/analytics/track-public",
+  // Anonyme Profil-View-Telemetrie (IP/UA nur gehasht, kein Akteur) — gleiche
+  // Begruendung wie track-public (profileAnalytics.js)
+  "/profile-analytics/events",
   // Session-Cache-Reset — kein DB-Write, nur req.session._locationCache löschen (me.js)
   "/me/active-location",
 ]);

@@ -6,6 +6,7 @@
  */
 
 import { assertLocationBelongsToOrg, assertDepartmentBelongsToOrg } from "../utils/orgBoundary.js";
+import { swallow } from "../utils/logger.js";
 
 export const VALID_TIERS = ['PREFERRED', 'SECONDARY', 'TRIAL', 'RESTRICTED', 'BLOCKED'];
 export const VALID_STATUSES = ['active', 'suspended', 'removed'];
@@ -60,7 +61,7 @@ export async function changeTier(pool, entryId, newTier, actorId, reason) {
     [entryId, newTier, actorId, reason || null]
   );
   if (rows[0] && oldTier !== newTier) {
-    await _writeHistory(pool, entryId, 'tier', oldTier, newTier, actorId, reason).catch(() => {});
+    await _writeHistory(pool, entryId, 'tier', oldTier, newTier, actorId, reason).catch(swallow("vendorPoolService"));
   }
   return rows[0] || null;
 }
@@ -76,7 +77,7 @@ export async function changeStatus(pool, entryId, newStatus, actorId, reason) {
     [entryId, newStatus, actorId, reason || null]
   );
   if (rows[0] && oldStatus !== newStatus) {
-    await _writeHistory(pool, entryId, 'status', oldStatus, newStatus, actorId, reason).catch(() => {});
+    await _writeHistory(pool, entryId, 'status', oldStatus, newStatus, actorId, reason).catch(swallow("vendorPoolService"));
   }
   return rows[0] || null;
 }

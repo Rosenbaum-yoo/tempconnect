@@ -94,7 +94,7 @@ export function createDocumentCenterRouter(deps) {
       res.setHeader("Content-Type", "application/zip");
       res.setHeader("Content-Disposition", `attachment; filename="dokumente-${new Date().toISOString().slice(0, 10)}.zip"`);
       const archive = archiver("zip", { zlib: { level: 9 } });
-      archive.on("error", (err) => { logger.error({ err }, "document-center zip error"); try { res.destroy(); } catch (_e) {} });
+      archive.on("error", (err) => { logger.error({ err }, "document-center zip error"); try { res.destroy(); } catch (_e) { /* Stream bereits beendet */ } });
       archive.pipe(res);
       const used = {};
       for (const it of withFiles) {

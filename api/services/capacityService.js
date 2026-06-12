@@ -6,6 +6,7 @@
  */
 
 import * as stateMachine from "./stateMachine.js";
+import { swallow } from "../utils/logger.js";
 
 const RESERVATION_TTL_MINUTES = 30;
 
@@ -337,7 +338,7 @@ export async function reserve(pool, capacityId, quantity, requestId = null) {
     await client.query("COMMIT");
     return { reservation: ins.rows[0], error: null };
   } catch (e) {
-    await client.query("ROLLBACK").catch(() => {});
+    await client.query("ROLLBACK").catch(swallow("capacityService"));
     throw e;
   } finally {
     client.release();
@@ -422,7 +423,7 @@ export async function acceptRequest(pool, requestId, receiverId, options = {}) {
     await client.query("COMMIT");
     return { request: updated.rows[0], error: null };
   } catch (e) {
-    await client.query("ROLLBACK").catch(() => {});
+    await client.query("ROLLBACK").catch(swallow("capacityService"));
     throw e;
   } finally {
     client.release();
@@ -470,7 +471,7 @@ export async function releaseReservationAndSetStatus(pool, requestId, newStatus,
     await client.query("COMMIT");
     return { ok: true, error: null };
   } catch (e) {
-    await client.query("ROLLBACK").catch(() => {});
+    await client.query("ROLLBACK").catch(swallow("capacityService"));
     throw e;
   } finally {
     client.release();
@@ -526,7 +527,7 @@ export async function finalizeRequest(pool, requestId, requesterId) {
     await client.query("COMMIT");
     return { request: updated.rows[0], error: null };
   } catch (e) {
-    await client.query("ROLLBACK").catch(() => {});
+    await client.query("ROLLBACK").catch(swallow("capacityService"));
     throw e;
   } finally {
     client.release();
@@ -563,7 +564,7 @@ export async function expireReservationsBatch(pool, batchSize = 100) {
     await client.query("COMMIT");
     return { expired: ids.length };
   } catch (e) {
-    await client.query("ROLLBACK").catch(() => {});
+    await client.query("ROLLBACK").catch(swallow("capacityService"));
     throw e;
   } finally {
     client.release();

@@ -52,9 +52,9 @@ function normalize(text) {
 
 /**
  * @param {string} text
- * @returns {Promise<{ flagged: boolean, matches: Array<{word:string, severity:string}>, severity: string }>}
+ * @returns {{ flagged: boolean, matches: Array<{word:string, severity:string}>, severity: string }}
  */
-export async function moderateComment(text) {
+export function moderateComment(text) {
   const norm = normalize(text);
   if (!norm) return { flagged: false, matches: [], severity: "none" };
   const matches = [];

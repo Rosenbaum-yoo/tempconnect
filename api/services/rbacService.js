@@ -1,3 +1,4 @@
+import { swallow } from "../utils/logger.js";
 /**
  * RBAC-Service: Rollen, Permissions, Org-Membership-Abfragen.
  * Rueckwaertskompatibel – bestehende company/agency Rollen funktionieren weiterhin.
@@ -240,7 +241,7 @@ export async function createOrganization(pool, userId, data) {
     await client.query("COMMIT");
     return org;
   } catch (e) {
-    await client.query("ROLLBACK").catch(() => {});
+    await client.query("ROLLBACK").catch(swallow("rbacService"));
     throw e;
   } finally {
     client.release();

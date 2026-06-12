@@ -15,6 +15,7 @@ import * as settingsService from "../services/settingsService.js";
 import { hasFeature } from "../config/planFeatures.js";
 import { canInteractWithCapacity } from "../services/capacityInteractionPolicy.js";
 import { requireOrgLimit } from "../middleware/entitlementGuard.js";
+import { swallow } from "../utils/logger.js";
 
 /* ── Zod Schemas ──────────────────────────────────── */
 
@@ -350,7 +351,7 @@ export function createCapacityExchangeRouter(deps) {
       entry.trust_signals = await capacityExchangeService.computeTrustSignals(pool, entry.supplier_company_id);
 
       // Track listing view for analytics (fire-and-forget)
-      listingAnalytics.recordView(pool, req.params.id, req.session.userId).catch(() => {});
+      listingAnalytics.recordView(pool, req.params.id, req.session.userId).catch(swallow("capacityExchange"));
 
       // Match Suggestions: top matching demands/requisitions for this capacity
       try {

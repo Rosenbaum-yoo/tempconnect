@@ -93,7 +93,7 @@ export async function getInviteByToken(pool, rawToken) {
  * Nimmt eine Einladung an: prueft Token (offen, nicht abgelaufen) + Email-Match,
  * legt org_membership an (idempotent), markiert Einladung als accepted. Transaktional.
  */
-export async function acceptInvite(pool, { rawToken, userId, userEmail }) {
+export function acceptInvite(pool, { rawToken, userId, userEmail }) {
   if (!rawToken || !userId) throw err("INVITE_INVALID", 400);
   return withTransaction(pool, async (client) => {
     const { rows } = await client.query(

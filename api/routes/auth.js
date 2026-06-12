@@ -9,7 +9,7 @@ import * as pilotPolicyService from "../services/pilotPolicyService.js";
 import { writeAudit } from "../services/auditLog.js";
 import { trackProductEvent, deriveCustomerSegment } from "../services/productAnalyticsService.js";
 import { catchAsync } from "../utils/routeHandler.js";
-import { domainLogger } from "../utils/logger.js";
+import { domainLogger, swallow } from "../utils/logger.js";
 import { isEnforceSSO } from "../services/ssoService.js";
 import * as totpService from "../services/totpService.js";
 
@@ -126,7 +126,7 @@ export function createAuthRouter(deps) {
                updated_at = NOW()
              WHERE id = $4`,
             [tierAuto, effectiveEmployeeCount, company_size_class || sizeClassObj?.class || null, orgId]
-          ).catch(() => {});
+          ).catch(swallow("auth"));
         }
 
         if (!isDirect) {
@@ -142,7 +142,7 @@ export function createAuthRouter(deps) {
             entity_id: orgId,
             actor_id: userId,
             details: { plan: "INDIVIDUELL", employee_count: effectiveEmployeeCount, company_size_class, signup_mode: "pilot" }
-          }).catch(() => {});
+          }).catch(swallow("auth"));
         } else {
           // ── DIRECT-FLOW: Kein Pilot, stattdessen Vertragsanfrage ──
           await pool.query(
@@ -159,7 +159,7 @@ export function createAuthRouter(deps) {
             entity_id: orgId,
             actor_id: userId,
             details: { plan: "INDIVIDUELL", employee_count: effectiveEmployeeCount, company_size_class, signup_mode: "direct" }
-          }).catch(() => {});
+          }).catch(swallow("auth"));
         }
       } catch (setupErr) {
         logger.warn({ err: setupErr?.message, code: setupErr?.code }, "Individuell-Setup bei Registrierung fehlgeschlagen");
