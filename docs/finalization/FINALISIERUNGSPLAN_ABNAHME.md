@@ -97,8 +97,9 @@ und Hetzner (F3) laufen vollständig parallel und warten am Ende NUR auf Steuern
 - [ ] Claude triagiert nach `00_RULES.md` (Bug/Sichtbarkeit/UX/Commercial) und fixt in Slices
 - **Abnahme:** Befundliste leer ODER Rest bewusst als Post-Launch markiert
 
-### Phase FQ.2 — Geführte Qualitäts-Drehbücher (je ~15 Min, Claude liefert Skripte auf Zuruf)
-- [ ] Kernflow Unternehmen · Kernflow Agentur (inkl. Notdienst+Premium) · Einsatzportal mobil · Staff-Tag (Moderation/DSGVO/Tresor/Incidents) · Themes/Konsole
+### Phase FQ.2 — Geführte Qualitäts-Drehbücher (je ~15 Min) ✅ geliefert (13.06.)
+- [x] **7 Drehbücher (A–G) geschrieben:** `docs/finalization/FQ_QUALITAETS_DREHBUECHER.md` — Kernflow Unternehmen · Kernflow Agentur (Notdienst+Premium) · Einsatzportal mobil · Bewertungen+Auto-Filter · Staff-Tag (Moderation/DSGVO/Tresor/Incidents) · Dokumenten-Tresor · Themes/Konsole. Mit echten Demo-Zugängen, Schritt-für-Schritt + erwartetem Ergebnis + Befund-Sammeltabelle
+- [ ] Owner läuft die Drehbücher durch (FQ.1), trägt Befunde ein → Claude triagiert + fixt
 - **Abnahme:** alle Drehbücher einmal durchlaufen, Befunde geschlossen
 
 ---
