@@ -181,12 +181,10 @@ Letzte Aktualisierung: 2026-06-13 — **Welle F1 (Code-Schlussarbeiten) abgeschl
 - Verify (manuell, Browser offen): Hub-Card-Badge erscheint bei ungelesenen Ereignissen, Klick navigiert; nur EINE Glocke sichtbar; Worker-Portal (einsatzportal-*) unberührt.
 ## P2 - Erste Pilotwochen (Betriebshaertung)
 ### P2.0 - INDIVIDUELL Tier-Schwellen migrieren (W-01 aus WAVE_02)
-- Status: GEPLANT
-- Fakt: `planFeatures.js` nutzt Schwellen 30/250/999, `planCatalog.js` die neuen Schwellen 50/150/350. Beide Funktionen existieren parallel (`getIndividualTierByEmployeeCount` vs `getIndividualTierByEmployeeCountV2`).
-- Risiko: Neu-Orgs koennen unterschiedlich eingestuft werden je nachdem welche Funktion aufgerufen wird.
-- Aktion: (a) Alle Aufrufer von `getIndividualTierByEmployeeCount` auf V2-Funktion umstellen, (b) TIER_THRESHOLDS in planFeatures.js auf 50/150/350 angleichen, (c) DB-Backfill: bestehende `individual_tier_auto`-Werte neu berechnen.
-- Aufwand: 1 Tag (inkl. DB-Migration + Tests).
-- Verify: `getIndividualTierByEmployeeCount(45)` == `individuell_s`, `getIndividualTierByEmployeeCount(100)` == `individuell_m`.
+- Status: ERLEDIGT (2026-06-13, Owner-bestaetigt, Commit `c80b74c`)
+- Loesung (echte Single Source statt nur Angleichung): kanonische Schwellen 50/150/350 leben jetzt NUR in `planFeatures.getIndividualTierByEmployeeCount`; `planCatalog` re-exportiert sie als `getIndividualTierByEmployeeCountV2` (Alias) — das abweichende `TIER_THRESHOLDS_V2`-Duplikat (Doppelwahrheit) entfernt. `auth.js` liefert dadurch automatisch kanonisch (kein Aufrufer-Change). Drift-Guard-Test (Funktion <-> INDIVIDUAL_TIER_CATALOG) verhindert kuenftige Divergenz. 3 stale-Tests kanonisch korrigiert (par. 0.9).
+- (c) DB-Backfill `individual_tier_auto`: **N/A pre-launch** (keine zahlenden Bestands-Orgs; Neu-Registrierungen erhalten kanonisch). Falls je noetig: einmaliges `UPDATE organizations SET individual_tier_auto = ...` (1-Zeiler).
+- Verify: `getIndividualTierByEmployeeCount(45)`==`individuell_s`, `(100)`==`individuell_m` ✓; tier/pricing/registration 115/115 + 149/149 gruen; Drift-Guard datengetrieben gegen den Katalog.
 ### P2.1 - Coverage-Schwellen schrittweise anheben
 - Status: GEPLANT
 - Ziel: von 35/75/55/35 -> 45/80/60/45 -> 55/85/70/55 in drei Schritten (monatlich).
