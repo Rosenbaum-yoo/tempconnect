@@ -7,9 +7,10 @@
  * "Enterprise" ist KEIN eigener Plan mehr — es ist ein Funktionsniveau
  * innerhalb von INDIVIDUELL bzw. des Pilotzugangs.
  *
- * Individuell-Unterklassen (nach Beschaeftigtenzahl):
- *   individuell_s (1-30), individuell_m (31-250),
- *   individuell_l (251-999), individuell_enterprise (1000+)
+ * Individuell-Unterklassen (nach Beschaeftigtenzahl) — KANONISCH, deckungsgleich mit
+ * INDIVIDUAL_TIER_CATALOG (planCatalog.js) = die Pricing-Wahrheit auf der Preisseite:
+ *   individuell_s (1-50), individuell_m (51-150),
+ *   individuell_l (151-350), individuell_enterprise (351+)
  */
 
 /* ── Plan-Konstanten ──────────────────────────────────── */
@@ -36,10 +37,14 @@ export const INDIVIDUAL_TIERS = {
   ENTERPRISE: "individuell_enterprise"
 };
 
+// Kanonische Schwellen — MUESSEN mit INDIVIDUAL_TIER_CATALOG (planCatalog.js,
+// min/max_employees) uebereinstimmen. planCatalog re-exportiert die Funktion unten als
+// getIndividualTierByEmployeeCountV2 (Single Source — kein Duplikat, keine Doppelwahrheit).
+// (P2.0, Owner-bestaetigt 2026-06-13: Registrierung folgt jetzt der Pricing-Seite.)
 const TIER_THRESHOLDS = [
-  { max: 30,   tier: INDIVIDUAL_TIERS.S },
-  { max: 250,  tier: INDIVIDUAL_TIERS.M },
-  { max: 999,  tier: INDIVIDUAL_TIERS.L }
+  { max: 50,  tier: INDIVIDUAL_TIERS.S },
+  { max: 150, tier: INDIVIDUAL_TIERS.M },
+  { max: 350, tier: INDIVIDUAL_TIERS.L }
 ];
 
 /**

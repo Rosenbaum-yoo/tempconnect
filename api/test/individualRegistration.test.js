@@ -78,22 +78,22 @@ describe("SIZE_TIERS structure", () => {
 // 2. Individual Tier Mapping (planFeatures)
 // ═══════════════════════════════════════════════════════════════════
 
-describe("getIndividualTierByEmployeeCount", () => {
-  it("15 → individuell_s", () => {
-    assert.strictEqual(getIndividualTierByEmployeeCount(15), "individuell_s");
-  });
-  it("100 → individuell_m", () => {
-    assert.strictEqual(getIndividualTierByEmployeeCount(100), "individuell_m");
-  });
-  it("500 → individuell_l", () => {
-    assert.strictEqual(getIndividualTierByEmployeeCount(500), "individuell_l");
-  });
-  it("2000 → individuell_enterprise", () => {
-    assert.strictEqual(getIndividualTierByEmployeeCount(2000), "individuell_enterprise");
-  });
-  it("0 → individuell_s (min 1)", () => {
-    assert.strictEqual(getIndividualTierByEmployeeCount(0), "individuell_s");
-  });
+// P2.0 (2026-06-13, Owner-bestaetigt): kanonische Schwellen 50/150/350, deckungsgleich mit
+// INDIVIDUAL_TIER_CATALOG (Pricing-Seite). Vorher kodierte dieser Test die STALE-Logik
+// 30/250/999 (u. a. 500→l) — eine Commercial-Doppelwahrheit vs. dem, was Kunden sehen.
+// Korrigiert auf die kanonischen Werte inkl. Schwellen-Grenzen (par. 0.9 Test-Integritaet).
+describe("getIndividualTierByEmployeeCount (kanonisch 50/150/350)", () => {
+  it("15 → individuell_s", () => assert.strictEqual(getIndividualTierByEmployeeCount(15), "individuell_s"));
+  it("50 → individuell_s (Grenze)", () => assert.strictEqual(getIndividualTierByEmployeeCount(50), "individuell_s"));
+  it("51 → individuell_m (Grenze)", () => assert.strictEqual(getIndividualTierByEmployeeCount(51), "individuell_m"));
+  it("100 → individuell_m", () => assert.strictEqual(getIndividualTierByEmployeeCount(100), "individuell_m"));
+  it("150 → individuell_m (Grenze)", () => assert.strictEqual(getIndividualTierByEmployeeCount(150), "individuell_m"));
+  it("151 → individuell_l (Grenze)", () => assert.strictEqual(getIndividualTierByEmployeeCount(151), "individuell_l"));
+  it("300 → individuell_l", () => assert.strictEqual(getIndividualTierByEmployeeCount(300), "individuell_l"));
+  it("350 → individuell_l (Grenze)", () => assert.strictEqual(getIndividualTierByEmployeeCount(350), "individuell_l"));
+  it("351 → individuell_enterprise (Grenze)", () => assert.strictEqual(getIndividualTierByEmployeeCount(351), "individuell_enterprise"));
+  it("2000 → individuell_enterprise", () => assert.strictEqual(getIndividualTierByEmployeeCount(2000), "individuell_enterprise"));
+  it("0 → individuell_s (min 1)", () => assert.strictEqual(getIndividualTierByEmployeeCount(0), "individuell_s"));
 });
 
 // ═══════════════════════════════════════════════════════════════════

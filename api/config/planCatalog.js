@@ -24,7 +24,7 @@
  *     auf die neuen Schwellen erfolgt in einer separaten Welle mit Backfill.
  */
 
-import { PLAN, INDIVIDUAL_TIERS, planFeatures, MATURITY_GATES } from "./planFeatures.js";
+import { PLAN, INDIVIDUAL_TIERS, planFeatures, MATURITY_GATES, getIndividualTierByEmployeeCount } from "./planFeatures.js";
 
 /* ── Versionierung ───────────────────────────────────────────────
  * Beim Aendern von Preisen/Features/Addons hochzaehlen. Frontend kann
@@ -156,25 +156,16 @@ export const INDIVIDUAL_TIER_CATALOG = [
   }
 ];
 
-const TIER_THRESHOLDS_V2 = [
-  { max: 50,  tier: INDIVIDUAL_TIERS.S },
-  { max: 150, tier: INDIVIDUAL_TIERS.M },
-  { max: 350, tier: INDIVIDUAL_TIERS.L }
-];
-
 /**
- * Klassifiziert einen Beschaeftigtenwert auf die NEUE Schwellenlogik
- * (50/150/350). Fuer Backward-Compat-Aufrufe bitte weiter
- * `getIndividualTierByEmployeeCount` aus planFeatures.js verwenden.
- *
+ * Tier-Erkennung nach Beschaeftigtenzahl. SINGLE SOURCE: die Logik + Schwellen
+ * (50/150/350, deckungsgleich mit INDIVIDUAL_TIER_CATALOG) leben in
+ * planFeatures.getIndividualTierByEmployeeCount. Frueher existierte hier eine zweite,
+ * abweichende Definition (30/250/999) = Commercial-Doppelwahrheit (P2.0) — entfernt.
+ * Dieser Alias bleibt fuer Bestandsaufrufer (z. B. individuellPricingService).
  * @param {number} employeeCount
  * @returns {string} Tier-Key (individuell_s / _m / _l / _enterprise)
  */
-export function getIndividualTierByEmployeeCountV2(employeeCount) {
-  const n = Math.max(1, Math.floor(Number(employeeCount) || 0));
-  for (const t of TIER_THRESHOLDS_V2) if (n <= t.max) return t.tier;
-  return INDIVIDUAL_TIERS.ENTERPRISE;
-}
+export const getIndividualTierByEmployeeCountV2 = getIndividualTierByEmployeeCount;
 
 /* ── Tarifarten ───────────────────────────────────────────────────
  * Steuern, wie eine Subscription/Order entstanden ist. Keine direkte

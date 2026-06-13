@@ -252,24 +252,26 @@ describe("planFeatures map integrity", () => {
 // Individual Tier Detection
 // ─────────────────────────────────────────────────────────────
 
-describe("getIndividualTierByEmployeeCount", () => {
-  it("1-30 => individuell_s", () => {
+// P2.0 (2026-06-13): kanonische Schwellen 50/150/350 (= INDIVIDUAL_TIER_CATALOG/Pricing-Seite).
+// Vorher stale 30/250/999 = Commercial-Doppelwahrheit; korrigiert (par. 0.9 Test-Integritaet).
+describe("getIndividualTierByEmployeeCount (kanonisch 50/150/350)", () => {
+  it("1-50 => individuell_s", () => {
     assert.strictEqual(getIndividualTierByEmployeeCount(1), INDIVIDUAL_TIERS.S);
     assert.strictEqual(getIndividualTierByEmployeeCount(15), INDIVIDUAL_TIERS.S);
-    assert.strictEqual(getIndividualTierByEmployeeCount(30), INDIVIDUAL_TIERS.S);
+    assert.strictEqual(getIndividualTierByEmployeeCount(50), INDIVIDUAL_TIERS.S);
   });
-  it("31-250 => individuell_m", () => {
-    assert.strictEqual(getIndividualTierByEmployeeCount(31), INDIVIDUAL_TIERS.M);
+  it("51-150 => individuell_m", () => {
+    assert.strictEqual(getIndividualTierByEmployeeCount(51), INDIVIDUAL_TIERS.M);
     assert.strictEqual(getIndividualTierByEmployeeCount(120), INDIVIDUAL_TIERS.M);
-    assert.strictEqual(getIndividualTierByEmployeeCount(250), INDIVIDUAL_TIERS.M);
+    assert.strictEqual(getIndividualTierByEmployeeCount(150), INDIVIDUAL_TIERS.M);
   });
-  it("251-999 => individuell_l", () => {
-    assert.strictEqual(getIndividualTierByEmployeeCount(251), INDIVIDUAL_TIERS.L);
-    assert.strictEqual(getIndividualTierByEmployeeCount(500), INDIVIDUAL_TIERS.L);
-    assert.strictEqual(getIndividualTierByEmployeeCount(999), INDIVIDUAL_TIERS.L);
+  it("151-350 => individuell_l", () => {
+    assert.strictEqual(getIndividualTierByEmployeeCount(151), INDIVIDUAL_TIERS.L);
+    assert.strictEqual(getIndividualTierByEmployeeCount(300), INDIVIDUAL_TIERS.L);
+    assert.strictEqual(getIndividualTierByEmployeeCount(350), INDIVIDUAL_TIERS.L);
   });
-  it(">=1000 => individuell_enterprise", () => {
-    assert.strictEqual(getIndividualTierByEmployeeCount(1000), INDIVIDUAL_TIERS.ENTERPRISE);
+  it(">=351 => individuell_enterprise", () => {
+    assert.strictEqual(getIndividualTierByEmployeeCount(351), INDIVIDUAL_TIERS.ENTERPRISE);
     assert.strictEqual(getIndividualTierByEmployeeCount(50000), INDIVIDUAL_TIERS.ENTERPRISE);
   });
   it("invalid/zero/negative => individuell_s (clamped to 1)", () => {

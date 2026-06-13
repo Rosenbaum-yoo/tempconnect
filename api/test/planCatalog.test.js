@@ -53,6 +53,23 @@ describe("getIndividualTierByEmployeeCountV2 (50/150/350)", () => {
   });
 });
 
+// ── P2.0: Single-Source-Drift-Guard (Funktion <-> Katalog) ─────────────────
+// Die Tier-Funktion (jetzt EINE Quelle in planFeatures, re-exportiert als V2) MUSS exakt
+// den Grenzen von INDIVIDUAL_TIER_CATALOG folgen — der Pricing-Wahrheit auf der Preisseite.
+// Datengetrieben: ein kuenftiges Auseinanderlaufen (Doppelwahrheit) bricht hier sofort.
+describe("P2.0: Tier-Funktion ist deckungsgleich mit INDIVIDUAL_TIER_CATALOG", () => {
+  for (const t of INDIVIDUAL_TIER_CATALOG) {
+    it(`${t.key}: min_employees=${t.min_employees} -> ${t.key}`, () => {
+      assert.equal(getIndividualTierByEmployeeCountV2(t.min_employees), t.key);
+    });
+    if (t.max_employees != null) {
+      it(`${t.key}: max_employees=${t.max_employees} -> ${t.key}`, () => {
+        assert.equal(getIndividualTierByEmployeeCountV2(t.max_employees), t.key);
+      });
+    }
+  }
+});
+
 describe("INDIVIDUAL_TIER_CATALOG", () => {
   it("hat genau 4 Eintraege (S/M/L/Enterprise)", () => {
     assert.equal(INDIVIDUAL_TIER_CATALOG.length, 4);
