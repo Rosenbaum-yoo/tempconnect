@@ -181,19 +181,36 @@ export async function cleanupUser(pool, email) {
  * @param {string} plan - e.g. 'FREE', 'BASIS', 'PLUS', 'PRO'
  */
 export async function ensureSubscription(pool, userId, plan) {
-  await pool.query(
-    `INSERT INTO subscriptions (user_id, plan, status)
-     VALUES ($1, $2, 'active')
-     ON CONFLICT (user_id) DO UPDATE SET plan = $2, status = 'active', updated_at = NOW()`,
-    [userId, plan]
-  ).catch(() => {
-    // Fallback: some schemas have unique constraint on (user_id), others don't
-    // If upsert fails, try update
-    return pool.query(
-      "UPDATE subscriptions SET plan = $1, status = 'active', updated_at = NOW() WHERE user_id = $2",
-      [plan, userId]
+  // Kanonisierung: subscriptions_plan_check/organizations kennen kein FREE — Alias auf DEMO
+  // (gleiche Semantik wie normalizePlanKey; Downgrade-Tests meinen den Einstiegsplan).
+  const p = plan === "FREE" ? "DEMO" : plan;
+
+  // 1) User-Subscription: UPDATE→INSERT statt ON CONFLICT — subscriptions hat KEINEN
+  //    Unique-Constraint auf user_id (nur btree-Index), ON CONFLICT (user_id) wirft daher
+  //    immer und wurde frueher still verschluckt (Plan blieb DEMO).
+  const upd = await pool.query(
+    "UPDATE subscriptions SET plan = $1, status = 'active', updated_at = NOW() WHERE user_id = $2",
+    [p, userId]
+  ).catch(() => ({ rowCount: 0 }));
+  if (!upd.rowCount) {
+    await pool.query(
+      "INSERT INTO subscriptions (user_id, plan, status) VALUES ($1, $2, 'active')",
+      [userId, p]
     ).catch(() => {});
-  });
+  }
+
+  // 2) Org-Plan: der EFFEKTIVE Plan ist org-first (userService: basePlan = org_plan || dbPlan)
+  //    — die Registrierung legt die Org mit plan=DEMO an; ohne diesen Schritt sieht die App
+  //    weiterhin DEMO, egal was in subscriptions steht (CAN-1-Root-Cause).
+  await pool.query(
+    `UPDATE organizations SET plan = $1
+      WHERE id IN (
+        SELECT org_id FROM org_memberships WHERE user_id = $2 AND is_active = TRUE
+        UNION
+        SELECT org_id FROM users WHERE id = $2 AND org_id IS NOT NULL
+      )`,
+    [p, userId]
+  ).catch(() => {});
 }
 
 /**

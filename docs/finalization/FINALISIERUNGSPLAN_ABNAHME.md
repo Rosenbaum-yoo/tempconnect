@@ -127,12 +127,12 @@ und Hetzner (F3) laufen vollständig parallel und warten am Ende NUR auf Steuern
 - [x] `CHANGELOG.md` (rückwirkend ab v2.0.0) + `docs/releases/RELEASE_PROCESS.md` (SemVer-Prozess)
 - **Abnahme:** ✅ grep = 0 stille Treffer; Lint 0/0; Audit-Gate 373 Endpunkte grün (5 Engagement-Routen mit echten Audit-Markern, Analytics-Ingest begründet allowlisted); volle Suite **4503/4503/0**
 
-### Phase F1.4 — Test-Harness-Folge-Slice (Register-Status-Note 2026-06-11) — 1 PT
-- [ ] CAN-1: Harness-Plan-Resolution (`getUserAndPlan`-Pfad im Integrations-Setup: PLUS≠DEMO) härten
-- [ ] HTTP-6: Staff-Step-up-Harness (428 statt 401) gegen committeten SCC-Stand fixen
-- [ ] workerReview #2: `worker_view`-Capability-Erwartung gegen Entitlement-Stand auflösen
-- [ ] FG-3/FG-5: Test-Env-Robustheit (Limiter-Kollision / Seed-Kontingent) — beheben ODER als dokumentierte Env-Artefakte mit Begründung im Test markieren
-- **Abnahme:** 4 Integrations-Dateien im Container **21/21** (oder dokumentierte Rest-Artefakte ≤2 mit Inline-Begründung)
+### Phase F1.4 — Test-Harness-Folge-Slice (Register-Status-Note 2026-06-11) — 1 PT ✅ (12.06.)
+- [x] CAN-1: Root-Cause = effektiver Plan ist **org-first** (`basePlan = org_plan || dbPlan`) + kaputtes `ON CONFLICT (user_id)` (kein Unique-Constraint) — Harness `ensureSubscription` setzt jetzt Subscription (UPDATE→INSERT) **und** Org-Plan, FREE→DEMO kanonisiert
+- [x] HTTP-6: **PRODUKTBUG gefunden+gefixt** — `requireMfa`-Identitäts-Precheck kannte die separierte Staff-Session (`staffUserId`) nicht → 401 auf allen 24 SCC-Mutationen trotz Audit-Only-Vertrag (`enforce:false` darf nie blockieren). Fix in `requireMfa.js` + 5 neue Middleware-Tests. Zusätzlich Harness: Step-up sendet jetzt Passwort (gehärteter Refactor-Kontrakt `STEP_UP_CREDENTIAL_REQUIRED`)
+- [x] workerReview #2: Root-Cause = Session-Org-Cache zeigt nach Test-Org-Umzug auf deaktivierte Alt-Membership → `org_role=null` → Capabilities false. Harness: Re-Login nach Umzug (spiegelt echtes Verhalten)
+- [x] FG-3/FG-5: das „429" war NICHT der Express-Limiter, sondern **Org-Limit** `PLAN_LIMIT_REACHED listings:0` der DEMO-Org hinter dem bypassten Gate. FG-5 durch Org-Plan-Harness-Fix geheilt; FG-3 bypass-aware (Bypass-Env: 429+PLAN_LIMIT exakt asserted, CI: 403+FEATURE_NOT_ALLOWED)
+- **Abnahme:** ✅ 4 Integrations-Dateien im Container **21/21/0** — null Rest-Artefakte
 
 ### Phase F1.5 — Schlussverifikation Welle F1 — 0,5 PT
 - [ ] Volle Unit-Suite (Container) 0 Fehler · `npm run lint` (api) 0 Warnings · `build:occ`+`build:scc`+`build:soc` grün

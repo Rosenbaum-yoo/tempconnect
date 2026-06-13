@@ -86,8 +86,16 @@ describe("Subscription Feature-Gating Flow", { skip: !hasDb && "No database conf
         available_workers: 5
       });
 
-    assert.strictEqual(res.status, 403, "FREE agency should not create capacities");
-    assert.strictEqual(res.body.code, "FEATURE_NOT_ALLOWED");
+    if (GATE_BYPASS) {
+      // Bypass-Env: das Feature-Gate ist bewusst offen — dahinter greift deterministisch
+      // das Org-Limit (DEMO-Org: listings-Kontingent 0) mit 429 PLAN_LIMIT_REACHED.
+      assert.strictEqual(res.status, 429, "Bypass-Env: Org-Limit statt Feature-Gate erwartet");
+      assert.strictEqual(res.body.error?.code, "PLAN_LIMIT_REACHED");
+      assert.strictEqual(res.body.error?.metric, "listings");
+    } else {
+      assert.strictEqual(res.status, 403, "FREE agency should not create capacities");
+      assert.strictEqual(res.body.code, "FEATURE_NOT_ALLOWED");
+    }
   });
 
   // ── Upgrade to PLUS: SLA access granted ─────────────────────────────────

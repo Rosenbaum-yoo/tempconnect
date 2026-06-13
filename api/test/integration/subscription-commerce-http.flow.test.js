@@ -281,9 +281,11 @@ describe("Subscription Commercial HTTP Roundtrip", { skip: !hasDb && "No databas
     assert.equal(blockedTransition.status, 428);
     assert.equal(blockedTransition.body.error.code, "SCC_STEP_UP_REQUIRED");
 
+    // Step-up verlangt seit dem Phase-2-Refactor Passwort-Re-Entry (gehaertet) —
+    // bloßes confirmed:true liefert bewusst 400 STEP_UP_CREDENTIAL_REQUIRED.
     const stepUp = await staffAgent
       .post("/staff/api/auth/step-up")
-      .send({ confirmed: true });
+      .send({ confirmed: true, password: staffPassword });
     assert.equal(stepUp.status, 200, JSON.stringify(stepUp.body));
 
     const transition = await staffAgent

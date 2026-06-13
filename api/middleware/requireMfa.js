@@ -26,7 +26,10 @@ export function requireMfa(opts = {}) {
   const enforce = opts.enforce !== false; // Standard: echte Blockierung
 
   return async function mfaGuard(req, res, next) {
-    const userId = req.session?.userId;
+    // Identitaet: Plattform-Session (userId) ODER separierte Staff-Session (staffUserId).
+    // Ohne den staffUserId-Zweig blockte der Precheck JEDE SCC-Mutation mit 401 —
+    // auch im Audit-Only-Modus (enforce:false), der laut Vertrag nie blockieren darf.
+    const userId = req.session?.userId || req.session?.staffUserId;
     if (!userId) {
       return res.status(401).json({ success: false, error: { code: "NOT_AUTHENTICATED" } });
     }

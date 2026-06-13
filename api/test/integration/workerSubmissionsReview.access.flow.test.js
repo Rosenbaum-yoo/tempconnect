@@ -46,6 +46,15 @@ describe("Worker submissions review access contract", { skip: !hasDb && "No data
       [reviewMember.user.id, ownerOrgId]
     );
     await pool.query("UPDATE users SET org_id = $1 WHERE id = $2", [ownerOrgId, reviewMember.user.id]);
+    // Org-Umzug nach Session-Erstellung: der Session-Org-Cache zeigt sonst auf die
+    // deaktivierte Alt-Membership -> org_role=null -> alle Role-Capabilities false.
+    // Frischer Login spiegelt das echte Nutzerverhalten nach einem Org-Wechsel.
+    const memberCsrf = (await reviewMember.agent.get("/api/csrf")).body.token;
+    await reviewMember.agent
+      .post("/api/auth/login")
+      .set("x-csrf-token", memberCsrf)
+      .send({ email: reviewMember.email, password: reviewMember.password })
+      .expect(200);
 
     demoAgency = await registerAndLoginAgency({
       company_name: "Worker Review Demo Agency GmbH"
