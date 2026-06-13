@@ -15,7 +15,7 @@
     try { var raw = localStorage.getItem(KEY); if (!raw) return null; var p = JSON.parse(raw); return (p && typeof p === "object") ? p : null; }
     catch (e) { return null; }
   }
-  function write(p) { try { localStorage.setItem(KEY, JSON.stringify(p)); } catch (e) {} }
+  function write(p) { try { localStorage.setItem(KEY, JSON.stringify(p)); } catch { /* localStorage nicht verfuegbar */ } }
   function consent() { var p = read(); return { necessary: true, analytics: !!(p && p.analytics), marketing: !!(p && p.marketing), set: !!p }; }
 
   // Oeffentliche API — kuenftige Analytics/Marketing-Skripte fragen hier ab, bevor sie laden.
@@ -28,7 +28,7 @@
   function save(prefs) {
     write({ necessary: true, analytics: !!prefs.analytics, marketing: !!prefs.marketing, ts: new Date().toISOString() });
     remove();
-    try { document.dispatchEvent(new CustomEvent("tc:consent", { detail: consent() })); } catch (e) {}
+    try { document.dispatchEvent(new CustomEvent("tc:consent", { detail: consent() })); } catch { /* CustomEvent nicht unterstuetzt */ }
   }
   function remove() { var el = document.getElementById("tc-cc"); if (el && el.parentNode) el.parentNode.removeChild(el); }
 

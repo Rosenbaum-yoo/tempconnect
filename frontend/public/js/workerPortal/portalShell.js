@@ -1,4 +1,7 @@
 "use strict";
+/* global PortalApi */
+// PortalApi ist ein externes Global aus portalApi.js (wird laut Lade-Reihenfolge ZUVOR
+// per <script> eingebunden) — Deklaration nur fuer eslint, kein Laufzeit-Effekt.
 
 /**
  * portalShell.js — Gemeinsame Shell für das Einsatzportal
