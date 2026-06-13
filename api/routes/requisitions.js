@@ -230,25 +230,40 @@ export function createRequisitionsRouter(deps) {
   });
 
   /** POST /requisitions/:id/candidates – Kandidat hinzufuegen */
-  router.post("/requisitions/:id/candidates", requireAuth, requirePermission("requisition.edit", { pool, logger }), async (req, res) => {
+  router.post("/requisitions/:id/candidates", requireAuth, requirePermission("requisition.edit", { pool, logger }), async (req, res, next) => {
     const parsed = candidateSchema.safeParse(req.body);
     if (!parsed.success) return res.status(400).json({ error: "VALIDATION", details: parsed.error.issues });
-    const candidate = await requisitionService.addCandidate(pool, req.params.id, parsed.data, req.session.userId);
-    res.locals.audit = { action: "requisition.candidate.add", entity_type: "requisition_candidate", entity_id: candidate.id, details: { requisition_id: req.params.id } };
-    res.status(201).json(candidate);
+    try {
+      // Org-Boundary: Kandidat nur an EIGENE Requisition haengen (sonst Cross-Org-IDOR).
+      if (req.orgId) await assertOrgOwnership(pool, 'requisitions', req.params.id, req.orgId);
+      const candidate = await requisitionService.addCandidate(pool, req.params.id, parsed.data, req.session.userId);
+      res.locals.audit = { action: "requisition.candidate.add", entity_type: "requisition_candidate", entity_id: candidate.id, details: { requisition_id: req.params.id } };
+      res.status(201).json(candidate);
+    } catch (err) {
+      if (err instanceof OrgBoundaryError) return res.status(403).json({ error: "ORG_BOUNDARY_VIOLATION", message: err.message });
+      next(err);
+    }
   });
 
   /** PATCH /requisitions/:reqId/candidates/:candId – Kandidaten-Status aendern */
-  router.patch("/requisitions/:reqId/candidates/:candId", requireAuth, requirePermission("requisition.edit", { pool, logger }), async (req, res) => {
+  router.patch("/requisitions/:reqId/candidates/:candId", requireAuth, requirePermission("requisition.edit", { pool, logger }), async (req, res, next) => {
     const parsed = candidateStatusSchema.safeParse(req.body);
     if (!parsed.success) return res.status(400).json({ error: "VALIDATION", details: parsed.error.issues });
-    const updated = await requisitionService.updateCandidateStatus(
-      pool, req.params.candId, req.session.userId, parsed.data.status,
-      { rejected_reason: parsed.data.rejected_reason, internal_notes: parsed.data.internal_notes }
-    );
-    if (!updated) return res.status(404).json({ error: "NOT_FOUND" });
-    res.locals.audit = { action: `requisition.candidate.${parsed.data.status}`, entity_type: "requisition_candidate", entity_id: req.params.candId, new_values: { status: parsed.data.status } };
-    res.json(updated);
+    try {
+      // Org-Boundary: nur Kandidaten der EIGENEN Requisition aendern; zusaetzlich bindet der
+      // Service den Kandidaten an reqId (verhindert fremde candId unter eigener reqId) — Cross-Org-IDOR-Schutz.
+      if (req.orgId) await assertOrgOwnership(pool, 'requisitions', req.params.reqId, req.orgId);
+      const updated = await requisitionService.updateCandidateStatus(
+        pool, req.params.candId, req.session.userId, parsed.data.status,
+        { rejected_reason: parsed.data.rejected_reason, internal_notes: parsed.data.internal_notes, requisitionId: req.params.reqId }
+      );
+      if (!updated) return res.status(404).json({ error: "NOT_FOUND" });
+      res.locals.audit = { action: `requisition.candidate.${parsed.data.status}`, entity_type: "requisition_candidate", entity_id: req.params.candId, new_values: { status: parsed.data.status } };
+      res.json(updated);
+    } catch (err) {
+      if (err instanceof OrgBoundaryError) return res.status(403).json({ error: "ORG_BOUNDARY_VIOLATION", message: err.message });
+      next(err);
+    }
   });
 
   return router;

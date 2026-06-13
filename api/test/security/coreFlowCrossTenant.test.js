@@ -287,6 +287,60 @@ describe("CORE-ISO: requisitions — GET /:id org-boundary", () => {
   });
 });
 
+// ── Requisition candidates: cross-org write (IDOR-Fix 2026-06-13) ─────────────
+// Regression fuer die im Cross-Org-Audit gefundenen Luecken: POST .../candidates und
+// PATCH .../candidates/:candId hatten kein assertOrgOwnership -> fremde Org konnte
+// Kandidaten an/in fremden Requisitions schreiben. Jetzt org-geprueft.
+
+function reqCandRouter(reqRow) {
+  return createRequisitionsRouter({
+    ...baseDeps(poolWith(reqRow)),
+    getUserAndPlan: async () => ({ plan: "PRO" })
+  });
+}
+
+describe("CORE-ISO: requisition candidates — POST org-boundary", () => {
+  it("cross-tenant: Org A blocked from adding candidate to Org B requisition", async () => {
+    const router = reqCandRouter({ id: "req-b-001", org_id: ORG_B });
+    const handler = findHandlerExact(router, "post", "/requisitions/:id/candidates");
+    const req = mockReq({ orgId: ORG_A, params: { id: "req-b-001" }, body: {}, session: { userId: USER_A } });
+    const res = mockRes();
+    await handler(req, res, noop);
+    assert.equal(res._status, 403, "Must block cross-org candidate add");
+    assert.equal(res._json.error, "ORG_BOUNDARY_VIOLATION");
+  });
+
+  it("own-org: adding candidate to own requisition is not org-blocked", async () => {
+    const router = reqCandRouter({ id: "req-a-001", org_id: ORG_A });
+    const handler = findHandlerExact(router, "post", "/requisitions/:id/candidates");
+    const req = mockReq({ orgId: ORG_A, params: { id: "req-a-001" }, body: {}, session: { userId: USER_A } });
+    const res = mockRes();
+    await handler(req, res, noop);
+    assert.notEqual(res._status, 403, "Own-org candidate add must not be blocked");
+  });
+});
+
+describe("CORE-ISO: requisition candidates — PATCH status org-boundary", () => {
+  it("cross-tenant: Org A blocked from changing Org B candidate status", async () => {
+    const router = reqCandRouter({ id: "req-b-001", org_id: ORG_B });
+    const handler = findHandlerExact(router, "patch", "/requisitions/:reqId/candidates/:candId");
+    const req = mockReq({ orgId: ORG_A, params: { reqId: "req-b-001", candId: "cand-b-001" }, body: { status: "shortlisted" }, session: { userId: USER_A } });
+    const res = mockRes();
+    await handler(req, res, noop);
+    assert.equal(res._status, 403, "Must block cross-org candidate status change");
+    assert.equal(res._json.error, "ORG_BOUNDARY_VIOLATION");
+  });
+
+  it("own-org: changing own candidate status is not org-blocked", async () => {
+    const router = reqCandRouter({ id: "req-a-001", org_id: ORG_A, requisition_id: "req-a-001", status: "shortlisted" });
+    const handler = findHandlerExact(router, "patch", "/requisitions/:reqId/candidates/:candId");
+    const req = mockReq({ orgId: ORG_A, params: { reqId: "req-a-001", candId: "cand-a-001" }, body: { status: "shortlisted" }, session: { userId: USER_A } });
+    const res = mockRes();
+    await handler(req, res, noop);
+    assert.notEqual(res._status, 403, "Own-org candidate status change must not be blocked");
+  });
+});
+
 // ── Contracts: GET /:id + PATCH /:id ────────────────────────────────────────
 //
 // contracts.js wraps all handlers with catchAsync(), which does NOT return a

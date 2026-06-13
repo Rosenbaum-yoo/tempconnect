@@ -318,9 +318,17 @@ export async function updateCandidateStatus(pool, candidateId, userId, newStatus
     values.push(payload.internal_notes); idx++;
   }
 
+  // Cross-Org-IDOR-Schutz: gibt die Route eine requisitionId mit, MUSS der Kandidat zu genau
+  // dieser (zuvor org-gepruefften) Requisition gehoeren — sonst trifft das UPDATE keine Zeile.
+  let reqScope = '';
+  if (payload.requisitionId) {
+    reqScope = ` AND requisition_id = $${idx}`;
+    values.push(payload.requisitionId); idx++;
+  }
+
   const setClause = [`status = $2`, 'updated_at = NOW()', ...extra].join(', ');
   const { rows } = await pool.query(
-    `UPDATE requisition_candidates SET ${setClause} WHERE id = $1 RETURNING *`,
+    `UPDATE requisition_candidates SET ${setClause} WHERE id = $1${reqScope} RETURNING *`,
     values
   );
   if (rows[0]) {
