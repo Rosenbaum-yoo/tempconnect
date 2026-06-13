@@ -401,3 +401,51 @@ KEIN Commit (Owner-Gate: erst bei 100%/Marktstart-Reife + persönlicher Owner-Ch
 - **C-02 war bereits erledigt:** beide `/payment/checkout`-Routen tragen `requireCompanyOrg` (committeter Refactor) — 2026-06-11 Code-verifiziert, Register aktualisiert.
 - **Regression aus der Test-Integritäts-Härtung gefunden + behoben (Voll-Suite 4519/4479/40 → Diagnose):** Die marker-basierte ROOT-Auflösung ließ 4 Frontend-Suiten im Container ANLAUFEN (js-Marker existiert, weil `frontend/public/js` nach `/app/frontend/public/js` gemountet ist), aber (a) drei Loader lasen weiter über `__dirname/../..` (= `/` im Container → ENOENT) und (b) zwei Guards prüften nur js, obwohl die Suite auch HTML/docs liest (nicht gemountet). Fix: Loader auf `path.join(ROOT, …)` umgestellt (enterprisePrefill, frontendApiClientErrorNormalization, frontendCanonicalPages) + Guards decken ALLE gelesenen Ressourcen-Klassen (frontendCanonicalPages: +enterprise.html+docs/; frontendEntitlementsCoverage: +vendor_pool.html). Verifikation: Container-Batch **40/40** (js-Suiten laufen jetzt sogar REAL im Docker — vorher skippten sie still), Host cwd=api **43/43**. dealWorkflow war im Batch grün (Voll-Suite-Eintrag war Kollateral/Load-Flake — im finalen Voll-Lauf beobachten).
 - LEHRE (für §0.9-Pattern): Guard-Marker muss JEDE Ressourcen-Klasse abdecken, die die Suite liest, und Loader müssen dieselbe ROOT-Konstante nutzen wie der Guard — sonst kippt „skippt still" in „läuft an und crasht mit ENOENT".
+
+## Abschlussbericht — WELLE F1 (Code-Schlussarbeiten) — 2026-06-13
+
+### 1. Geprüfte Repo-Bereiche
+- Dateien: `docker-compose.prod.yml`, `nginx/nginx.conf`, `deploy/README*`, `api/app.js`, `api/middleware/{requireMfa,apiKeyAuth,idempotency,ownerControlAccess,staffControlAccess}.js`, `api/utils/logger.js`, ~30 services/routes (catch-Sweep), `api/config/{index,envValidator}.js`, `CHANGELOG.md` (neu), `docs/releases/RELEASE_PROCESS.md` (neu).
+- Routen: `/payment/checkout(+/individuell)` (Scope/CompanyOrg), SCC-Mutationen (`/staff/api/subscription-requests/:id/transition|approve`, `/staff/api/auth/step-up`), `/api/capacities`, `/api/me/plan/cancel`, `/profile-visibility/:orgId/{like,favorite}` (Audit-Marker), `/profile-analytics/events` (Allowlist).
+- Services: `documentIngestService` (swallow-Muster-Quelle), `userService.getUserAndPlan` (org-first Plan-Auflösung), `rbacService.hasPermission` (worker.view-Matrix), `ratingService`/`orgInviteService`/`contentModerationService` (de-async).
+- Tests: 4 Integrations-Dateien (subscription.flow/.cancel.flow/-commerce-http.flow/workerSubmissionsReview.access.flow), neu `requireMfa.middleware.test.js` (5), bestehende Suite 4508.
+
+### 2. Getroffene Produktentscheidungen
+- **mfaGuard-Identität** (Bug, nicht Sichtbarkeit): Audit-Only-Vertrag (`enforce:false`) ist nicht verhandelbar — der Precheck MUSS beide Sessions kennen, sonst ist „Audit-Only" faktisch „401-für-alle". Fix am Code, nicht am Test.
+- **Test-Harness = Spezifikation** (§0.9): CAN-1/FG-5/workerReview#2 waren Harness-Defekte (org-first-Plan, deaktivierte Membership, kaputtes ON CONFLICT), KEINE Code-Bugs → Harness korrigiert, echte Assertions unverändert.
+- **FG-3 bypass-aware**: kein Abschwächen — beide Zweige asserten exakt (Bypass: 429 PLAN_LIMIT listings; CI: 403 FEATURE_NOT_ALLOWED).
+- **Prod-Defense-in-Depth**: `FEATURE_GATE_BYPASS:"false"` zusätzlich hart in prod.yml (nicht nur envValidator).
+
+### 3. Umgesetzte Änderungen
+- F1.1: prod-Container `resources.limits/reservations` (api/redis/frontend), BYPASS-Pin, TLS-Pflicht-Banner (nginx+deploy). Commit `9f37250`.
+- F1.2: OCC/Staff-Secret via HKDF statt String-Concat; `requireScope()` (toter Code) auf Finance/Export verdrahtet; Rate-Limit pro API-Key-ID. Commit `1044343`.
+- F1.3: `swallow(logger,ctx)`-Helper ersetzt ALLE stillen `.catch(()=>{})` (0 Rest); companyProfile auf `res.locals.audit`; CHANGELOG + RELEASE_PROCESS; 4 Lint-Errors + 7 Warnings → 0/0 (inkl. U+202F-whitespace). Commit `878b022`.
+- F1.4: **requireMfa-Produktbug** (staffUserId) + 5 Middleware-Tests; Harness org-first/Re-Login/Step-up-Passwort; FG-3 bypass-aware. Commit `845b6c9`.
+
+### 4. Aktualisierte Dokumente
+- `docs/finalization/FINALISIERUNGSPLAN_ABNAHME.md` (F1.1–F1.5 abgehakt), `CHANGELOG.md`, `docs/releases/RELEASE_PROCESS.md`, `docs/PILOT_GO_LIVE_TODOS.md` (Done), `docs/enterprise-readiness/ENTERPRISE_GAP_REGISTER.md` (Status-Note 13.06.), dieser Worklog.
+
+### 5. Tests und Checks
+- Befehl: `docker exec tempconnect_api npm run test:unit` → **4508 / pass 4508 / fail 0 / skipped 0**.
+- Befehl: `docker exec tempconnect_api npm run lint` → **0 errors, 0 warnings**.
+- Befehl: `docker exec tempconnect_api npm run audit:check` → **373 Endpunkte, exit 0**.
+- Befehl: 4 Integrations-Dateien (Container) → **21 / pass 21 / fail 0**.
+- Befehl: `npm --prefix frontend run build:all` → **OCC 51 / SOC 29 / SCC 66 Module, tsc clean, 3× ✓ built**.
+- Offene Fehler: keine. E2E: 6 Specs parse-valide, Full-Run = E-01 (CI).
+- Manuelle Prüfschritte: keine in F1 (reine Code-/Test-/Doku-Arbeit; Browser-Abnahme erst FQ/F4).
+
+### 6. P0/P1-Status
+- Gelöst: mfaGuard-SCC-Mutations-Blocker (war ein echter Betriebs-P1, jetzt fix+getestet); 4 Lint-Errors (CI-Blocker); 5 Audit-Coverage-Lücken; alle stillen Catches (Beobachtbarkeit).
+- Offen: keine NEUEN. Bestehende Owner-Tasks (O-01..O-11, E-01) unverändert.
+- Bewusst verschoben: E2E-Full-Run → F4.2/E-01 (CI); Frontend-Mittel-Funde (Breakpoints/localStorage) → FQ/F6.3.
+
+### 7. Risiken vor Pilot / Enterprise
+- **Niedrig**: F1-Änderungen sind additiv/defensiv (Logging, Limits, Guards). Der mfaGuard-Fix erweitert Identität (mehr Zugang im Audit-Modus), entschärft also einen Blocker statt neuen Zugang zu öffnen — Enforce-Pfad unverändert streng (428).
+- **Mittel (offen, owner)**: E2E erst in CI verifiziert (E-01) — bis dahin sind die Kernflows nur unit-/integration-, nicht browser-end-to-end gegen Prod-artige Infra geprüft.
+
+### 8. Welle-übergreifende Erkenntnisse (→ Owner, nicht selbst übernehmen)
+- Separierte Sessions (staffUserId/userId) sind eine wiederkehrende Fehlerquelle in Middleware-Prechecks — Kandidat für eine zentrale `resolveActorId(req)`-Helper-Regel in der SKILL.md.
+- „Audit-Only-Middleware, die 401 werfen kann" ist ein Vertragsbruch-Antipattern — als Review-Checkliste wert.
+
+### 9. Nächster sinnvoller Slice
+- **F1 ist abgeschlossen.** Code-seitig wartet alles auf Owner-Wellen (G Gründung, F2 Entscheidungen, F3 Hetzner). Der einzige claude-seitige Folge-Slice mit Wert OHNE Owner-Input ist **FQ.2** (geführte Qualitäts-Drehbücher schreiben), falls der Owner mit dem freien Testen (FQ.1) beginnen will.

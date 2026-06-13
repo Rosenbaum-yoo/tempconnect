@@ -59,6 +59,14 @@
 - **C-02 war durch den Refactor bereits erledigt** — `requireCompanyOrg` auf beiden Checkout-Routen (Code-verifiziert).
 - **Docker-Test-Resolution-Fix (Folgefehler der Test-Integritäts-Härtung vom 06-10/11):** Die marker-basierte ROOT-Auflösung ließ 4 Frontend-Suiten im Container anlaufen, deren **Loader** aber weiter über `__dirname/../..` lasen (im Container = `/`, ENOENT) bzw. deren Guards nur js prüften, während die Suite auch **HTML/docs** liest (im Container ist NUR `frontend/public/js` gemountet) → 40 Suite-Fehler. Fix: Loader auf `path.join(ROOT, …)`; Guards prüfen ALLE gelesenen Ressourcen-Klassen. Ergebnis: Container 40/40 (js-Suiten laufen real, HTML-Suiten skippen sauber), Host cwd=api 43/43 real. Lehre: **Guard-Marker muss jede Ressourcen-Klasse abdecken, die die Suite liest — und Loader müssen dieselbe ROOT-Konstante nutzen wie der Guard.**
 
+### Status-Note 2026-06-13 — Welle F1 abgeschlossen: die 5 Rest-Fehler von 06-11 sind ECHT geschlossen (21/21/0)
+- Die am 06-11 als „offene Folgepunkte" geführten 5 Fehler waren bei genauer Analyse: **1 Produktbug + 4 Harness-Defekte** (Tests=Spezifikation, Code blieb richtig):
+  - **HTTP-6 = PRODUKTBUG** (nicht Harness): `requireMfa.js`-Identitäts-Precheck las nur `session.userId`, nicht die separierte Staff-Session `session.staffUserId` → **401 statt 428** auf allen 24 SCC-Mutationen, sobald nicht zufällig auch plattform-eingeloggt — und das trotz `enforce:false` (Audit-Only-Vertrag). Fix `userId || staffUserId` + 5 Middleware-Tests. (Das 428≠401 vom 06-11 war also die Spitze eines echten Betriebsblockers, nicht „nur Test-Harness".)
+  - **CAN-1 + FG-5 = Harness**: effektiver Plan ist **org-first** (`basePlan = org_plan || dbPlan`), aber `ensureSubscription` setzte nur die User-Subscription — und das via `ON CONFLICT (user_id)`, das ohne Unique-Constraint immer warf + still verschluckt wurde. Fix: UPDATE→INSERT **plus** Org-Plan-Update, FREE→DEMO.
+  - **workerReview #2 = Harness**: Org-Umzug nach Session-Erstellung → Session-Org-Cache auf deaktivierter Alt-Membership → `org_role=null`. Fix: Re-Login im Setup.
+  - **FG-3 = bypass-aware**: das „429" war NICHT der Rate-Limiter, sondern das **Org-Limit** `PLAN_LIMIT_REACHED listings:0` der DEMO-Org hinter dem bypassten Gate; jetzt exakt asserted (Bypass: 429+metric, CI: 403+FEATURE_NOT_ALLOWED).
+- **Ergebnis:** 4 Integrations-Dateien **21/21/0** (null Rest-Artefakte), volle Unit-Suite **4508/4508/0**. Damit ist die 06-11-Aussage „bleiben auch nach O-03 rot" überholt — sie sind real geschlossen. Details: `finalization_worklog.md` Abschlussbericht Welle F1.
+
 ---
 
 ## Legende

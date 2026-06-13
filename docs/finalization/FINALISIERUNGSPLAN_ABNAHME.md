@@ -134,11 +134,11 @@ und Hetzner (F3) laufen vollständig parallel und warten am Ende NUR auf Steuern
 - [x] FG-3/FG-5: das „429" war NICHT der Express-Limiter, sondern **Org-Limit** `PLAN_LIMIT_REACHED listings:0` der DEMO-Org hinter dem bypassten Gate. FG-5 durch Org-Plan-Harness-Fix geheilt; FG-3 bypass-aware (Bypass-Env: 429+PLAN_LIMIT exakt asserted, CI: 403+FEATURE_NOT_ALLOWED)
 - **Abnahme:** ✅ 4 Integrations-Dateien im Container **21/21/0** — null Rest-Artefakte
 
-### Phase F1.5 — Schlussverifikation Welle F1 — 0,5 PT
-- [ ] Volle Unit-Suite (Container) 0 Fehler · `npm run lint` (api) 0 Warnings · `build:occ`+`build:scc`+`build:soc` grün
-- [ ] E2E lokal: `kernflow-*.spec.js` + `einsatzportal-*` + `occ-access-guards` grün
-- [ ] `PILOT_GO_LIVE_TODOS.md` + Gap-Register Status nachziehen
-- **Abnahme:** Abschlussbericht nach Gate-Teil-3-Format im Worklog
+### Phase F1.5 — Schlussverifikation Welle F1 — 0,5 PT ✅ (13.06.)
+- [x] Volle Unit-Suite (Container) **4508/4508/0** · `npm run lint` (api) **0/0** · `build:occ`+`build:scc`+`build:soc` grün (51/29/66 Module, `tsc --noEmit` clean)
+- [~] E2E: alle 6 Specs syntaktisch valide (Parse-Check), Chromium-Browser lokal vorhanden, API healthy — **Full-Run ist E-01** (Root-`npm install` für `@playwright/test` nötig; bewusst NICHT auf den OneDrive-Ordner; CI-Runner macht `npm ci`). Verschoben auf **F4.2/E-01** (CI-Gate)
+- [x] `PILOT_GO_LIVE_TODOS.md` (Done: mfaGuard-Produktbug) + Gap-Register (Status-Note 13.06.) nachgezogen
+- **Abnahme:** ✅ Abschlussbericht (Gate Teil 3) im `finalization_worklog.md` (Eintrag 2026-06-13)
 
 ---
 
