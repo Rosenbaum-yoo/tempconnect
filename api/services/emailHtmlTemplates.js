@@ -13,6 +13,9 @@
  *  - passwordResetEmail({ resetUrl, userName, expiresInMinutes })
  */
 
+// Firmenname aus zentraler Config (Single Source of Truth, G.4) — PLATZHALTER bis UG-Gründung.
+import { COMPANY } from "../config/company.js";
+
 // ─── Base layout wrapper ───────────────────────────────────────────────────────
 function baseLayout(title, bodyContent) {
   return `<!DOCTYPE html>
@@ -50,7 +53,7 @@ function baseLayout(title, bodyContent) {
           <tr>
             <td style="background:#f8fafc;padding:24px 40px;border-top:1px solid #e2e8f0;">
               <p style="margin:0;font-size:12px;color:#94a3b8;line-height:1.6;">
-                TempConnect GmbH &bull; Automatisch generierte E-Mail &bull; Bitte nicht antworten.<br>
+                ${COMPANY.name} &bull; Automatisch generierte E-Mail &bull; Bitte nicht antworten.<br>
                 Bei Fragen wenden Sie sich an <a href="mailto:support@tempconnect.de" style="color:#1a56db;text-decoration:none;">support@tempconnect.de</a>
               </p>
             </td>

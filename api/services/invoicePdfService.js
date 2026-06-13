@@ -8,16 +8,9 @@
  */
 
 import { PDFDocument, StandardFonts, rgb } from "pdf-lib";
-
-const COMPANY = {
-  name: "TempConnect GmbH",
-  street: "Musterstrasse 1",
-  city: "10115 Berlin",
-  country: "Deutschland",
-  vatId: "DE000000000",
-  email: "billing@tempconnect.de",
-  web: "https://tempconnect.de"
-};
+// Rechnungsabsender aus der zentralen Firmen-Config (Single Source of Truth, G.4).
+// PLATZHALTER bis UG-Gründung — siehe api/config/company.js + G4_FIRMENDATEN_CHECKLISTE.md.
+import { COMPANY } from "../config/company.js";
 
 /**
  * Render an invoice as plain-text receipt (PDF-ready).

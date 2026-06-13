@@ -81,8 +81,9 @@ und Hetzner (F3) laufen vollständig parallel und warten am Ende NUR auf Steuern
 - [ ] Geschäftsführer-Basics: Geschäftsadresse, ggf. Transparenzregister-Eintrag (Pflicht!)
 - **Abnahme:** HRB-Nr. + Steuernummer liegen vor → Rechnungsstellung rechtlich möglich
 
-### Phase G.4 — Plattform-Übergabe der Firmendaten (Claude, 0,5 PT, nach G.3)
-- [ ] Firmendaten zentral einpflegen: `invoicePdfService.js` COMPANY-Block (Name/Adresse/USt-IdNr), Impressum, AGB-/DSE-Platzhalter, Footer, `subscriptionDocumentDisclaimer`
+### Phase G.4 — Plattform-Übergabe der Firmendaten (Claude, nach G.3)
+- [x] **Vorlauf erledigt (13.06.):** Single-Source `api/config/company.js` (alle §14-UStG-/§5-DDG-Felder, `isPlaceholder`-Flag) angelegt; `invoicePdfService.js` + `emailHtmlTemplates.js` lesen jetzt von dort (verhaltensgleich, 4513/0). **Endliche Übergabe-Liste:** `docs/finalization/G4_FIRMENDATEN_CHECKLISTE.md` (1 Backend-Config + Impressum-`[…]`-Platzhalter + Footer + F2.1-Rechtstexte). Shape-Test `company.config.test.js` (4) verhindert Feld-Verlust
+- [ ] **Nach Gründung (Owner+Claude, ~30 Min):** echte UG-Daten in `company.js` + Impressum + Footer eintragen (Checkliste abarbeiten)
 - **Abnahme:** Rechnung-PDF + Impressum zeigen echte UG-Daten; grep auf Platzhalter = 0 Treffer
 
 ---
