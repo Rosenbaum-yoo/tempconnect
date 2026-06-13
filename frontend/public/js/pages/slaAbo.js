@@ -16,6 +16,7 @@
 
 /* ── Referral-Banner Widget ────────────────────────── */
     (function(){
+      function esc(s) { return String(s || "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;"); }
       fetch('/api/referral/status',{credentials:'include'}).then(function(r){return r.ok?r.json():null}).then(function(d){
         if(!d)return;
         document.getElementById('slaRefBanner').style.display='block';
@@ -30,12 +31,12 @@
 
         if(d.is_pilot){
           document.getElementById('slaRefPilotBadge').style.display='inline';
-          desc.innerHTML='<strong>'+d.free_months_total+' Gratis-Monate</strong> verdient ('+d.free_months_remaining+' verbleibend). Werben Sie weitere Kunden fuer mehr Gratis-Monate!';
-          stats.innerHTML='<div style="text-align:center"><div style="font-size:22px;font-weight:900;color:var(--ds-success)">'+d.free_months_total+'</div><div style="font-size:10px;color:var(--ds-text-tertiary)">Gratis</div></div>'+
-            '<div style="text-align:center"><div style="font-size:22px;font-weight:900;color:var(--ds-brand)">'+d.active_referrals+'/6</div><div style="font-size:10px;color:var(--ds-text-tertiary)">Referrals</div></div>';
+          desc.innerHTML='<strong>'+esc(d.free_months_total)+' Gratis-Monate</strong> verdient ('+esc(d.free_months_remaining)+' verbleibend). Werben Sie weitere Kunden fuer mehr Gratis-Monate!';
+          stats.innerHTML='<div style="text-align:center"><div style="font-size:22px;font-weight:900;color:var(--ds-success)">'+esc(d.free_months_total)+'</div><div style="font-size:10px;color:var(--ds-text-tertiary)">Gratis</div></div>'+
+            '<div style="text-align:center"><div style="font-size:22px;font-weight:900;color:var(--ds-brand)">'+esc(d.active_referrals)+'/6</div><div style="font-size:10px;color:var(--ds-text-tertiary)">Referrals</div></div>';
         } else {
-          desc.innerHTML='Werben Sie Kunden und erhalten Sie <strong>Geld zurueck</strong> &mdash; bis zu 6 Monate Cashback. <span style="color:var(--ds-accent);font-weight:600">'+d.cashback_months_earned+' Monate verdient</span>';
-          stats.innerHTML='<div style="text-align:center"><div style="font-size:22px;font-weight:900;color:var(--ds-accent)">'+d.cashback_months_earned+'</div><div style="font-size:10px;color:var(--ds-text-tertiary)">Cashback</div></div>'+
+          desc.innerHTML='Werben Sie Kunden und erhalten Sie <strong>Geld zurueck</strong> &mdash; bis zu 6 Monate Cashback. <span style="color:var(--ds-accent);font-weight:600">'+esc(d.cashback_months_earned)+' Monate verdient</span>';
+          stats.innerHTML='<div style="text-align:center"><div style="font-size:22px;font-weight:900;color:var(--ds-accent)">'+esc(d.cashback_months_earned)+'</div><div style="font-size:10px;color:var(--ds-text-tertiary)">Cashback</div></div>'+
             '<div style="text-align:center"><div style="font-size:22px;font-weight:900;color:var(--ds-text-tertiary)">6</div><div style="font-size:10px;color:var(--ds-text-tertiary)">Max</div></div>';
         }
       }).catch(function(){});
@@ -334,7 +335,7 @@
       dgIsCancel = isCancel;
       var losses = getDowngradeLosses(currentPlan, targetPlan);
       var list = document.getElementById('dgLossList');
-      list.innerHTML = losses.map(function(l) { return '<li style="padding:2px 0">' + l + '</li>'; }).join('');
+      list.innerHTML = losses.map(function(l) { return '<li style="padding:2px 0">' + esc(l) + '</li>'; }).join('');
       var lossTitle = document.getElementById('dgLossTitle');
       var altTitle = document.getElementById('dgAltTitle');
       var step2Btn = document.getElementById('dgStep2ConfirmBtn');

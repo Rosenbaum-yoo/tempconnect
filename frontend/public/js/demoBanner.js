@@ -9,6 +9,7 @@
   "use strict";
 
   const BANNER_ID = "tc-demo-banner";
+  const esc = (s) => { const d = document.createElement("div"); d.textContent = s == null ? "" : String(s); return d.innerHTML; };
 
   // Nicht doppelt einfügen
   if (document.getElementById(BANNER_ID)) return;
@@ -52,7 +53,7 @@
     banner.innerHTML = `
       <span style="display:flex;align-items:center;gap:6px">
         <span style="font-size:16px">&#9432;</span>
-        Demo-Modus · Plan: <strong>${plan}</strong> · Alle Daten sind Testdaten
+        Demo-Modus · Plan: <strong>${esc(plan)}</strong> · Alle Daten sind Testdaten
       </span>
       <a href="/?action=register"
          style="padding:6px 14px;border-radius:8px;background:rgba(255,255,255,.2);color:#fff;

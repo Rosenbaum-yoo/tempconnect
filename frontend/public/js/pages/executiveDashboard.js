@@ -561,7 +561,7 @@
     if (!r) {
       var locLbl = (function() { try { return sessionStorage.getItem('tc.activeLocationName') || null; } catch (_e) { return null; } })();
       document.getElementById('kpiGrid').innerHTML =
-        '<div class="kpi-tile"><span class="kpi-val">–</span><span class="kpi-label">' + (locLbl ? 'Keine KPI-Daten für Standort ' + locLbl : 'Keine KPI-Daten') + '</span></div>';
+        '<div class="kpi-tile"><span class="kpi-val">–</span><span class="kpi-label">' + (locLbl ? 'Keine KPI-Daten für Standort ' + esc(locLbl) : 'Keine KPI-Daten') + '</span></div>';
       return;
     }
     var tiles = [

@@ -198,6 +198,7 @@
   /* ── Referral-Programm Logic ───────────────────── */
   var refRating = 4;
   function loadReferralStatus() {
+    function esc(s) { return String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
     fetch('/api/referral/status', { credentials: 'include' }).then(function(r) { return r.ok ? r.json() : null; }).then(function(d) {
       if (!d) return;
       document.getElementById('refCode').textContent = d.referral_code || '---';
@@ -224,7 +225,7 @@
           var statusText = r.status === 'active' ? 'Aktiv (Umfrage erledigt)' : r.status === 'registered' ? 'Registriert (Umfrage ausstehend)' : r.status === 'pending' ? 'Eingeladen' : r.status;
           var el = document.createElement('div');
           el.style.cssText = 'display:flex;justify-content:space-between;align-items:center;padding:8px 12px;border:1px solid var(--ds-border);border-radius:8px;font-size:13px';
-          el.innerHTML = '<span>' + r.referred_email + '</span><span style="font-weight:600;color:' + statusColor + ';font-size:12px">' + statusText + '</span>';
+          el.innerHTML = '<span>' + esc(r.referred_email) + '</span><span style="font-weight:600;color:' + statusColor + ';font-size:12px">' + esc(statusText) + '</span>';
           body.appendChild(el);
         });
       }

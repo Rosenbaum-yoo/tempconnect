@@ -28,10 +28,10 @@
         h += '<td>' + (r.email_sent_at ? 'Gesendet' : (r.send_email_on_publish ? 'Bei Publish' : '—')) + '</td>';
         h += '<td style="white-space:nowrap">';
         if (r.status !== 'published') {
-          h += '<button class="btn good ds-btn--xs" onclick="adminPublishRelease(\'' + r.id + '\')">Publish</button> ';
+          h += '<button class="btn good ds-btn--xs" onclick="adminPublishRelease(\'' + esc(r.id) + '\')">Publish</button> ';
         }
-        h += '<button class="btn ds-btn--xs" onclick="adminSendReleaseEmail(\'' + r.id + '\')">E-Mail</button> ';
-        h += '<button class="btn bad ds-btn--xs" onclick="adminDeleteRelease(\'' + r.id + '\')">L\u00f6schen</button>';
+        h += '<button class="btn ds-btn--xs" onclick="adminSendReleaseEmail(\'' + esc(r.id) + '\')">E-Mail</button> ';
+        h += '<button class="btn bad ds-btn--xs" onclick="adminDeleteRelease(\'' + esc(r.id) + '\')">L\u00f6schen</button>';
         h += '</td></tr>';
       });
       h += '</tbody></table>';

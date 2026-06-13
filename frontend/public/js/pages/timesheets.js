@@ -119,7 +119,7 @@
     var tbody = document.getElementById('tableBody');
     if (!list.length) {
       var locLbl = (function() { try { return sessionStorage.getItem('tc.activeLocationName') || null; } catch (_e) { return null; } })();
-      var emptyMsg = locLbl ? 'Keine Stundenzettel für Standort ' + locLbl + '.' : 'Keine Stundenzettel gefunden.';
+      var emptyMsg = locLbl ? 'Keine Stundenzettel für Standort ' + esc(locLbl) + '.' : 'Keine Stundenzettel gefunden.';
       tbody.innerHTML = '<tr><td colspan="6"><div class="empty-state"><div class="empty-icon">&#128336;</div><p>' + emptyMsg + '</p></div></td></tr>';
       return;
     }

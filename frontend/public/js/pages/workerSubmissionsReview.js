@@ -3525,7 +3525,7 @@ function badge(s){
     accepted_into_timesheet:'<span class="wk-badge wk-badge-accepted">\u2713 Angenommen</span>',
     rejected:               '<span class="wk-badge wk-badge-rejected">Abgelehnt</span>'
   };
-  return m[s]||`<span class="wk-badge wk-badge-draft">${s}</span>`;
+  return m[s]||`<span class="wk-badge wk-badge-draft">${esc(s)}</span>`;
 }
 function stLbl(s){
   const m={

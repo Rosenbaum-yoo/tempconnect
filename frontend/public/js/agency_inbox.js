@@ -1,4 +1,5 @@
 var API = "/api";
+function esc(s){var d=document.createElement("div");d.textContent=s==null?"":String(s);return d.innerHTML;}
 function getCsrf() {
   return fetch(API + "/csrf", { credentials: "include" }).then(function(r) { return r.ok ? r.json() : null; });
 }
@@ -10,7 +11,7 @@ function api(path, opts) {
 }
 function checkAuth(r) { if (r.status === 401) { window.location.href = "/"; return false; } return true; }
 var STATUS_MAP={SENT:{badge:"pending",label:"Gesendet"},ACCEPTED:{badge:"approved",label:"Angenommen"},DECLINED:{badge:"rejected",label:"Abgelehnt"},FILLED:{badge:"completed",label:"Besetzt"},FINALIZED:{badge:"completed",label:"Abgeschlossen"},CANCELED:{badge:"expired",label:"Storniert"},OFFERED:{badge:"in-review",label:"Angebot gesendet"},CONFIRMED:{badge:"approved",label:"Best\u00e4tigt"}};
-function reqStatusBadge(s){var m=STATUS_MAP[s]||{badge:"pending",label:s||"?"};return '<span class="approval-badge approval-badge--'+m.badge+'"><span class="approval-badge__dot"></span>'+(m.label)+'</span>';}
+function reqStatusBadge(s){var m=STATUS_MAP[s]||{badge:"pending",label:s||"?"};return '<span class="approval-badge approval-badge--'+m.badge+'"><span class="approval-badge__dot"></span>'+esc(m.label)+'</span>';}
 function slaBadge(respondBy, status) {
   if (status === "BREACHED") return '<span class="approval-badge approval-badge--rejected"><span class="approval-badge__dot"></span>Pulse \u00fcberschritten</span>';
   if (!respondBy) return '';
@@ -38,7 +39,7 @@ function load() {
     function compBadge(s) {
       if (!s) return "";
       var c = (s + "").toUpperCase(), cls = c === "GREEN" ? "approved" : c === "YELLOW" ? "correction" : "rejected";
-      return '<span class="approval-badge approval-badge--' + cls + '"><span class="approval-badge__dot"></span>' + s + '</span> ';
+      return '<span class="approval-badge approval-badge--' + cls + '"><span class="approval-badge__dot"></span>' + esc(s) + '</span> ';
     }
     data.forEach(function(r) {
       var role = r.role || r.capacity_role || r.listing_category || "Anfrage";
@@ -46,7 +47,7 @@ function load() {
       var sla = slaBadge(r.sla_respond_by, r.sla_status);
       var comp = compBadge(r.compliance_status);
       html += '<div class="card"><div style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap">';
-      html += '<div>' + comp + sla + ' <strong>' + role + '</strong> von ' + from + ' ' + reqStatusBadge(r.status) + '</div>';
+      html += '<div>' + comp + sla + ' <strong>' + esc(role) + '</strong> von ' + esc(from) + ' ' + reqStatusBadge(r.status) + '</div>';
       html += '<div style="display:flex;gap:8px">';
       html += '<a href="/public/request_detail.html?id=' + r.id + '" class="btn">Details</a>';
       if (r.status === "SENT" || r.status === "OFFERED") {

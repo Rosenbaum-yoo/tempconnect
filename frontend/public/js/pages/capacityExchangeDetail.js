@@ -294,7 +294,7 @@
 
       // Dokument als iframe laden (kompakte Preview)
       if (docEl && result.document_url) {
-        docEl.innerHTML = '<iframe src="' + result.document_url + '" style="width:100%;height:100%;border:none" title="Einsatzvereinbarung"></iframe>';
+        docEl.innerHTML = '<iframe src="' + esc(result.document_url) + '" style="width:100%;height:100%;border:none" title="Einsatzvereinbarung"></iframe>';
       } else if (docEl) {
         docEl.innerHTML = '<div style="text-align:center;padding:var(--ds-space-6);color:#94a3b8">Dokument wird nach Bestaetigung finalisiert.</div>';
       }
@@ -598,14 +598,14 @@
             setActionZoneStatus("Deal abgeschlossen — " + acceptText, "success");
             // Offer-Detail-Seite verlinken
             if (result.offer && result.offer.id) {
-              fb.innerHTML += '<br><a href="/public/offer_detail.html?id=' + result.offer.id + '" class="ds-btn ds-btn--sm" style="margin-top:8px">Zur Einsatzvereinbarung</a>';
+              fb.innerHTML += '<br><a href="/public/offer_detail.html?id=' + esc(result.offer.id) + '" class="ds-btn ds-btn--sm" style="margin-top:8px">Zur Einsatzvereinbarung</a>';
             }
             toast("Konditionen zugestimmt — Deal gestartet", "success");
           } else {
             fb.innerHTML = '<strong>Verhandlung gestartet!</strong> Ihre Anpassungswuensche wurden an die Gegenseite uebermittelt.';
             setActionZoneStatus("Verhandlung gestartet — die Gegenseite wurde informiert.", "success");
             if (result.offer && result.offer.id) {
-              fb.innerHTML += '<br><a href="/public/offer_detail.html?id=' + result.offer.id + '" class="ds-btn ds-btn--sm" style="margin-top:8px">Zum Verhandlungsvorgang</a>';
+              fb.innerHTML += '<br><a href="/public/offer_detail.html?id=' + esc(result.offer.id) + '" class="ds-btn ds-btn--sm" style="margin-top:8px">Zum Verhandlungsvorgang</a>';
             }
             toast("Verhandlungsanfrage gesendet", "success");
           }

@@ -1,6 +1,7 @@
 "use strict";
 
 const API = '/api';
+const esc = (s) => { const d = document.createElement('div'); d.textContent = s == null ? '' : String(s); return d.innerHTML; };
 const params = new URLSearchParams(location.search);
 let subId = params.get('id');
 const linkId = params.get('link_id');
@@ -565,7 +566,7 @@ function badge(status) {
     accepted_into_timesheet: '<span class="wk-badge wk-badge-accepted">Angenommen</span>',
     rejected:                '<span class="wk-badge wk-badge-rejected">Abgelehnt</span>',
   };
-  return map[status] || `<span class="wk-badge wk-badge-draft">${status}</span>`;
+  return map[status] || `<span class="wk-badge wk-badge-draft">${esc(status)}</span>`;
 }
 function statusLabel(status) {
   const map = {

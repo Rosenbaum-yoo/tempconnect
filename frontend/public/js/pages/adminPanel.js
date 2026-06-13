@@ -880,7 +880,7 @@
         '</div>' +
         '<p class="ds-text-sm ds-text-muted" style="margin-top:8px">' +
           (pilotBottlenecks.length
-            ? ('Onboarding-Bottlenecks: ' + pilotBottlenecks.map(function (row) { return row.label + ' (' + row.blocked_pilots + ')'; }).join(' · '))
+            ? ('Onboarding-Bottlenecks: ' + pilotBottlenecks.map(function (row) { return esc(row.label) + ' (' + esc(row.blocked_pilots) + ')'; }).join(' · '))
             : 'Keine dominanten Onboarding-Bottlenecks identifiziert.') +
         '</p>' +
         (pilotModules.length ? '<div style="overflow:auto;margin-top:12px"><table class="admin-table"><thead><tr><th>Produktbereich</th><th>Pilot-Orgs</th><th>Active Pilots</th><th>Successful Usage</th><th>Events</th></tr></thead><tbody>' +
@@ -1058,7 +1058,7 @@
       };
       target.innerHTML = items.map(function (event) {
         return '<div class="act-timeline-item">' +
-          '<span class="act-timeline-icon">' + (event.icon || '&#128308;') + '</span>' +
+          '<span class="act-timeline-icon">' + (event.icon ? esc(event.icon) : '&#128308;') + '</span>' +
           '<div class="act-timeline-body">' +
             '<div class="act-timeline-head">' +
               '<span class="act-timeline-label">' + esc(event.action_label || event.action || '') + '</span>' +
