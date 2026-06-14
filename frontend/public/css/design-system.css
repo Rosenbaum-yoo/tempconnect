@@ -2368,3 +2368,32 @@ a:hover { color: var(--ds-brand-hover); }
   color: var(--ds-accent);
   border-color: rgba(184, 147, 90, 0.5);
 }
+
+/* ═══════════════════════════════════════════════════════
+   Scrollbar — premium & themed (dark / light / editorial / ultra_premium)
+   Ersetzt die Default-Browser-Scrollbar: duenn, abgerundet, transparenter
+   Track, dezenter Thumb (kraeftiger beim Hover), passt sich pro Theme an.
+   WebKit (scrollbar-Pseudo) + Firefox (scrollbar-color/-width). Additiv.
+   ═══════════════════════════════════════════════════════ */
+html { scrollbar-width: thin; scrollbar-color: rgba(255, 255, 255, 0.18) transparent; }
+[data-theme="light"]         { scrollbar-color: rgba(15, 23, 42, 0.22) transparent; }
+[data-theme="editorial"]     { scrollbar-color: #c9bfa6 transparent; }
+[data-theme="ultra_premium"] { scrollbar-color: rgba(184, 147, 90, 0.40) transparent; }
+
+::-webkit-scrollbar { width: 11px; height: 11px; }
+::-webkit-scrollbar-track,
+::-webkit-scrollbar-corner { background: transparent; }
+::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.18);
+  border-radius: 8px;
+  border: 3px solid transparent;
+  background-clip: padding-box;
+}
+::-webkit-scrollbar-thumb:hover { background: rgba(255, 255, 255, 0.30); }
+
+[data-theme="light"] ::-webkit-scrollbar-thumb        { background: rgba(15, 23, 42, 0.22); }
+[data-theme="light"] ::-webkit-scrollbar-thumb:hover  { background: rgba(15, 23, 42, 0.38); }
+[data-theme="editorial"] ::-webkit-scrollbar-thumb        { background: #c9bfa6; }
+[data-theme="editorial"] ::-webkit-scrollbar-thumb:hover  { background: #b8935a; }
+[data-theme="ultra_premium"] ::-webkit-scrollbar-thumb        { background: rgba(184, 147, 90, 0.40); }
+[data-theme="ultra_premium"] ::-webkit-scrollbar-thumb:hover  { background: rgba(184, 147, 90, 0.62); }

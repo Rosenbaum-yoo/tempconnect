@@ -925,3 +925,17 @@ input:focus, select:focus, textarea:focus { border-color: var(--scc-accent); }
   color: var(--scc-text);
   line-height: 1.5;
 }
+
+/* Scrollbar — passt sich den SCC-Themes an (--scc-line dezent, --scc-muted beim Hover).
+   Ersetzt die Default-Browser-Scrollbar: duenn, abgerundet, transparenter Track. */
+html { scrollbar-width: thin; scrollbar-color: var(--scc-line) transparent; }
+::-webkit-scrollbar { width: 11px; height: 11px; }
+::-webkit-scrollbar-track,
+::-webkit-scrollbar-corner { background: transparent; }
+::-webkit-scrollbar-thumb {
+  background: var(--scc-line);
+  border-radius: 8px;
+  border: 3px solid transparent;
+  background-clip: padding-box;
+}
+::-webkit-scrollbar-thumb:hover { background: var(--scc-muted); }
