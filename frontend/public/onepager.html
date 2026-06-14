@@ -1,0 +1,309 @@
+<!doctype html>
+<html lang="de" data-theme="editorial">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>TempConnect — Pilot Hamburg · Wo Bedarf auf Kapazität trifft</title>
+<meta name="description" content="TempConnect digitalisiert die Zeitarbeit: Einsatzunternehmen steuern wiederkehrende Bedarfe von der Anfrage bis zum Stundenzettel. Jetzt für den Pilot in Hamburg bewerben — 30 Plätze je Seite.">
+<meta name="robots" content="index,follow">
+<meta property="og:type" content="website">
+<meta property="og:title" content="TempConnect — Pilot Hamburg">
+<meta property="og:description" content="Wiederkehrende Zeitarbeits-Bedarfe zentral steuern und freigeben. Jetzt für den Pilot in Hamburg bewerben — limitiert auf 30 Einsatzunternehmen + 30 Personaldienstleister.">
+<meta property="og:locale" content="de_DE">
+<meta name="theme-color" content="#1f3a2e">
+<style>
+  :root{
+    --forest:#1f3a2e; --cream:#ebe4d3; --wine:#7a2e2e; --gold:#b8935a;
+    --paper:#f4efe4; --raised:#fffdf6; --line:#d4cab3; --ink:#14201a; --inv:#faf7ee;
+  }
+  *{box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  body{margin:0;background:var(--paper);color:var(--ink);
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    line-height:1.6;-webkit-font-smoothing:antialiased}
+  h1,h2,h3,.serif{font-family:Georgia,"Times New Roman",serif;letter-spacing:-.01em}
+  .wrap{max-width:980px;margin:0 auto;padding:0 24px}
+  a{color:var(--wine)}
+  .eyebrow{font-size:12px;letter-spacing:.16em;text-transform:uppercase;color:var(--gold);font-weight:700}
+  .btn{display:inline-block;border:none;border-radius:8px;padding:14px 26px;font-size:15px;font-weight:700;
+    cursor:pointer;text-decoration:none;transition:transform .12s,box-shadow .2s}
+  .btn--primary{background:var(--forest);color:var(--inv)}
+  .btn--primary:hover{transform:translateY(-1px);box-shadow:0 8px 22px rgba(31,58,46,.25)}
+  .btn--ghost{background:transparent;color:var(--forest);border:1px solid var(--line)}
+  .btn[disabled]{opacity:.5;cursor:not-allowed}
+
+  header.top{border-bottom:1px solid var(--line);background:var(--raised)}
+  .top__row{display:flex;justify-content:space-between;align-items:center;padding:16px 0}
+  .brand{font-family:Georgia,serif;font-weight:700;font-size:20px;color:var(--forest)}
+  .brand b{color:var(--wine)}
+  .top__claim{font-size:13px;color:#5b5347}
+
+  .hero{padding:72px 0 56px}
+  .hero h1{font-size:clamp(30px,5vw,52px);line-height:1.08;margin:14px 0 18px}
+  .hero p.lead{font-size:clamp(16px,2.2vw,20px);color:#3f3a30;max-width:60ch;margin:0 0 28px}
+  .hero__cta{display:flex;gap:12px;flex-wrap:wrap;align-items:center}
+  .hero__meta{margin-top:22px;font-size:13px;color:#5b5347}
+  .hero__meta b{color:var(--forest)}
+
+  section.band{padding:54px 0;border-top:1px solid var(--line)}
+  .band--dark{background:var(--forest);color:var(--inv);border:none}
+  .band--dark .eyebrow{color:var(--gold)}
+  h2.sec{font-size:clamp(24px,3.5vw,34px);margin:8px 0 28px}
+
+  .pillars{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:18px}
+  .pillar{background:var(--cream);border:1px solid var(--line);border-radius:12px;padding:22px;
+    box-shadow:0 1px 2px rgba(40,33,20,.05),0 4px 14px rgba(40,33,20,.06)}
+  .pillar h3{font-size:18px;margin:0 0 8px;color:var(--forest)}
+  .pillar p{font-size:14px;color:#4a4438;margin:0}
+
+  .pilot-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:18px;margin-top:24px}
+  .pilot-card{border:1px solid rgba(250,247,238,.2);border-radius:12px;padding:20px;background:rgba(250,247,238,.05)}
+  .pilot-card .n{font-family:Georgia,serif;font-size:26px;color:var(--gold)}
+  .pilot-card h3{font-size:16px;margin:6px 0 6px}
+  .pilot-card p{font-size:13px;color:rgba(250,247,238,.82);margin:0}
+
+  .counter{display:flex;gap:18px;flex-wrap:wrap;margin-top:8px}
+  .counter__box{flex:1;min-width:200px;background:var(--cream);border:1px solid var(--line);border-radius:12px;padding:20px;text-align:center}
+  .counter__num{font-family:Georgia,serif;font-size:40px;color:var(--forest);line-height:1}
+  .counter__lbl{font-size:13px;color:#5b5347;margin-top:6px}
+
+  .formcard{background:var(--raised);border:1px solid var(--line);border-radius:16px;padding:28px;
+    box-shadow:0 2px 6px rgba(40,33,20,.06),0 16px 40px rgba(40,33,20,.08)}
+  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+  @media(max-width:640px){.grid2{grid-template-columns:1fr}}
+  label.fld{display:block;font-size:13px;font-weight:600;color:#3f3a30;margin:0 0 6px}
+  .req{color:var(--wine)}
+  input,select,textarea{width:100%;padding:11px 12px;border:1px solid var(--line);border-radius:8px;
+    background:#fff;color:var(--ink);font-size:14px;font-family:inherit}
+  input:focus,select:focus,textarea:focus{outline:2px solid var(--gold);outline-offset:1px;border-color:var(--gold)}
+  textarea{min-height:84px;resize:vertical}
+  .sidetoggle{display:flex;gap:10px;margin-bottom:18px;flex-wrap:wrap}
+  .sideopt{flex:1;min-width:200px;border:1px solid var(--line);border-radius:10px;padding:14px;cursor:pointer;background:#fff}
+  .sideopt input{width:auto;margin-right:8px}
+  .sideopt.is-on{border-color:var(--forest);box-shadow:0 0 0 2px rgba(31,58,46,.12)}
+  .sideopt b{color:var(--forest)}
+  .sideopt span{display:block;font-size:12px;color:#5b5347;margin-top:2px}
+  .check{display:flex;gap:10px;align-items:flex-start;font-size:13px;color:#3f3a30}
+  .check input{width:auto;margin-top:3px}
+  .hp{position:absolute;left:-9999px;width:1px;height:1px;overflow:hidden}
+  .form__msg{margin-top:14px;font-size:14px;padding:12px 14px;border-radius:8px;display:none}
+  .form__msg.ok{display:block;background:#e8efe7;border:1px solid #a9c3a2;color:#2c4a2c}
+  .form__msg.err{display:block;background:#f3e3e1;border:1px solid #d4a39c;color:#7a2e2e}
+
+  .banner{background:var(--forest);color:var(--inv);text-align:center;padding:12px 16px;font-size:14px;display:none}
+  .banner.show{display:block}
+
+  footer.foot{border-top:1px solid var(--line);background:var(--raised);padding:28px 0;margin-top:8px}
+  .foot__row{display:flex;justify-content:space-between;gap:16px;flex-wrap:wrap;font-size:13px;color:#5b5347}
+  .foot a{margin-left:16px}
+</style>
+</head>
+<body>
+<div id="confirmBanner" class="banner">Danke — Ihre Voranmeldung ist bestätigt. Wir melden uns persönlich bei Ihnen.</div>
+
+<header class="top">
+  <div class="wrap top__row">
+    <div class="brand">Temp<b>Connect</b></div>
+    <div class="top__claim">Wo Bedarf auf Kapazität trifft.</div>
+  </div>
+</header>
+
+<main>
+  <section class="hero">
+    <div class="wrap">
+      <div class="eyebrow">Pilot · Einsatzort Hamburg &amp; Umland · Start 2026</div>
+      <h1>Wiederkehrende Zeitarbeits-Bedarfe zentral steuern und freigeben.</h1>
+      <p class="lead">Vom Bedarf über Lieferanten und Deal bis zu Einsatz und digitalen Stundenzetteln — für
+        Einsatzunternehmen mit echtem Besetzungs-, Freigabe- und Kostendruck. Und für Personaldienstleister,
+        die ihre Kapazität dort zeigen, wo gerade gesucht wird.</p>
+      <div class="hero__cta">
+        <a href="#bewerben" class="btn btn--primary">Pilotplatz anfragen</a>
+        <a id="landingLink" href="#" class="btn btn--ghost" aria-disabled="true">Volle Plattform — ab Marktstart</a>
+      </div>
+      <div class="hero__meta">Limitierter Pilot: <b>30 Einsatzunternehmen</b> + <b>30 Personaldienstleister</b> ·
+        je 10 aus Logistik, Pflege, Industrie · persönliche Begleitung statt Selbstbedienung.</div>
+    </div>
+  </section>
+
+  <section class="band">
+    <div class="wrap">
+      <div class="eyebrow">Was TempConnect leistet</div>
+      <h2 class="sec">Ein durchgehender Flow statt Telefon, Excel und PDF.</h2>
+      <div class="pillars">
+        <div class="pillar"><h3>Sehen, wer liefern kann</h3><p>Echtzeit-Marktplatz: Bedarf und verfügbare Kapazität treffen sich, statt herumtelefoniert zu werden.</p></div>
+        <div class="pillar"><h3>Wissen, mit wem</h3><p>Reputation, Verifizierung und AÜG-/Compliance-Status sichtbar — Risiko, bevor es teuer wird.</p></div>
+        <div class="pillar"><h3>Sicher, dass es zählt</h3><p>Revisionssichere Deals mit verbindlicher Konditions-Bestätigung und lückenlosem Audit.</p></div>
+        <div class="pillar"><h3>Steuern, was wirkt</h3><p>Spend-Überblick, SLA-Signale und Preisrahmen — vom Bauchgefühl zur Verhandlungsmacht.</p></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="band band--dark">
+    <div class="wrap">
+      <div class="eyebrow">Der Hamburg-Pilot</div>
+      <h2 class="sec">Kein leerer Marktplatz. Ab Tag eins liquide.</h2>
+      <div class="pilot-grid">
+        <div class="pilot-card"><div class="n">1</div><h3>Einsatzort Hamburg</h3><p>Firmen dürfen von überall kommen — besetzt und angeboten wird in Hamburg &amp; Umland. Dichte dort, wo der Match entsteht.</p></div>
+        <div class="pilot-card"><div class="n">2</div><h3>Kohorten-Start</h3><p>Alle Plätze gehen gemeinsam live. Der Marktplatz ist vom ersten Tag an gefüllt — kein leerer Raum.</p></div>
+        <div class="pilot-card"><div class="n">3</div><h3>Gründungspartner</h3><p>3 Monate kostenfrei, Mitgestaltung des Produkts, Nennung im ersten Hamburg-Marktreport.</p></div>
+        <div class="pilot-card"><div class="n">4</div><h3>Persönliche Begleitung</h3><p>Wir sorgen aktiv dafür, dass Ihr erster Bedarf gesehen wird und Reaktionen bekommt.</p></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="band">
+    <div class="wrap">
+      <div class="eyebrow">Verfügbarkeit</div>
+      <h2 class="sec">Plätze im Pilot</h2>
+      <div class="counter" id="counter">
+        <div class="counter__box"><div class="counter__num" id="cCompany">30</div><div class="counter__lbl">Plätze für Einsatzunternehmen (von 30)</div></div>
+        <div class="counter__box"><div class="counter__num" id="cAgency">30</div><div class="counter__lbl">Plätze für Personaldienstleister (von 30)</div></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="band" id="bewerben">
+    <div class="wrap">
+      <div class="eyebrow">Bewerbung</div>
+      <h2 class="sec">Für den Pilot voranmelden</h2>
+      <p style="max-width:60ch;color:#4a4438;margin-top:-12px">Wir kuratieren auf Passung — damit am Start jedes Unternehmen einen passenden Dienstleister findet und umgekehrt. Drei Felder entscheiden: Seite, Branche, Bedarf bzw. Kapazität.</p>
+      <div class="formcard" style="margin-top:18px">
+        <form id="prereg" novalidate>
+          <div class="sidetoggle" role="radiogroup" aria-label="Ihre Seite">
+            <label class="sideopt is-on"><input type="radio" name="side" value="company" checked><b>Einsatzunternehmen</b><span>Wir suchen Personal / bieten Arbeitsplätze in Hamburg.</span></label>
+            <label class="sideopt"><input type="radio" name="side" value="agency"><b>Personaldienstleister</b><span>Wir stellen Personal für Einsätze in Hamburg.</span></label>
+          </div>
+
+          <div class="grid2">
+            <div><label class="fld">Organisation <span class="req">*</span></label><input name="org_name" maxlength="200" required></div>
+            <div><label class="fld">Ansprechpartner:in <span class="req">*</span></label><input name="contact_name" maxlength="160" required></div>
+            <div><label class="fld">E-Mail <span class="req">*</span></label><input type="email" name="email" maxlength="320" required></div>
+            <div><label class="fld">Telefon</label><input name="phone" maxlength="60" placeholder="für den persönlichen Rückruf"></div>
+            <div><label class="fld">Branche</label>
+              <select name="sector"><option value="logistik">Logistik / Hafen</option><option value="pflege">Pflege</option><option value="industrie">Industrie / Gewerbe</option><option value="andere">Andere</option></select></div>
+            <div><label class="fld">Größe</label>
+              <select name="company_size"><option value="">—</option><option>1–9</option><option>10–49</option><option>50–249</option><option>250+</option></select></div>
+          </div>
+
+          <div style="margin-top:16px"><label class="fld" id="needLbl">Was suchen / bieten Sie konkret?</label>
+            <textarea name="capacity_or_need" maxlength="2000" placeholder="z. B. Bedarf an 10 Lagerfachkräften ab KW… / freie Kapazität: 8 Staplerfahrer"></textarea></div>
+
+          <div class="grid2" style="margin-top:16px">
+            <div><label class="fld">Empfohlen von (optional)</label><input name="referred_by" maxlength="200" placeholder="Slot-Priorität bei Empfehlung"></div>
+            <div></div>
+          </div>
+
+          <div class="check" style="margin-top:16px">
+            <input type="checkbox" id="eo" name="einsatzort_confirmed" required>
+            <label for="eo">Ich bestätige: Der <b>Einsatzort ist Hamburg &amp; Umland</b>. <span class="req">*</span></label>
+          </div>
+          <div class="check" style="margin-top:10px">
+            <input type="checkbox" id="consent" required>
+            <label for="consent">Ich bin einverstanden, zur Pilot-Voranmeldung per E-Mail und Telefon kontaktiert zu werden. <span class="req">*</span></label>
+          </div>
+
+          <!-- Honeypot: bleibt für Menschen unsichtbar -->
+          <div class="hp" aria-hidden="true"><label>Website (bitte leer lassen)<input name="website" tabindex="-1" autocomplete="off"></label></div>
+
+          <div style="margin-top:20px"><button type="submit" class="btn btn--primary" id="submitBtn">Voranmeldung absenden</button></div>
+          <div class="form__msg" id="formMsg" role="status"></div>
+        </form>
+      </div>
+    </div>
+  </section>
+</main>
+
+<footer class="foot">
+  <div class="wrap foot__row">
+    <div>© 2026 TempConnect · Pilot Hamburg</div>
+    <div><a href="/public/impressum.html">Impressum</a><a href="/public/datenschutz.html">Datenschutz</a></div>
+  </div>
+</footer>
+
+<script>
+(function(){
+  "use strict";
+  var $ = function(id){ return document.getElementById(id); };
+
+  // Confirmed-Banner aus ?confirmed=1
+  try {
+    var p = new URLSearchParams(location.search);
+    if (p.get("confirmed") === "1") { $("confirmBanner").classList.add("show"); }
+    else if (p.get("confirmed") === "0") {
+      var b = $("confirmBanner"); b.textContent = "Bestätigungslink ungültig oder abgelaufen. Bitte melden Sie sich erneut an."; b.classList.add("show");
+    }
+  } catch(e){}
+
+  // landing.html ist erst bei Marktstart aktiv → Link weich deaktiviert
+  $("landingLink").addEventListener("click", function(ev){ ev.preventDefault(); });
+
+  // Seiten-Toggle: aktiven Rahmen + Label anpassen
+  var opts = document.querySelectorAll(".sideopt");
+  function syncSide(){
+    var v = "company";
+    opts.forEach(function(o){
+      var on = o.querySelector("input").checked;
+      o.classList.toggle("is-on", on); if (on) v = o.querySelector("input").value;
+    });
+    $("needLbl").textContent = v === "agency" ? "Welche Kapazität bieten Sie an?" : "Welchen Bedarf haben Sie?";
+  }
+  opts.forEach(function(o){ o.querySelector("input").addEventListener("change", syncSide); });
+
+  // Zähler laden
+  fetch("/api/pilot-preregistration/counts", { credentials: "include" })
+    .then(function(r){ return r.ok ? r.json() : null; })
+    .then(function(j){
+      var d = j && (j.data || j); if (!d || !d.company) return;
+      $("cCompany").textContent = d.company.remaining;
+      $("cAgency").textContent = d.agency.remaining;
+    }).catch(function(){});
+
+  // CSRF-Token holen (anonyme Session) → POST
+  function getCsrf(){
+    return fetch("/api/csrf", { credentials: "include" }).then(function(r){ return r.json(); }).then(function(j){ return j.token; });
+  }
+
+  var form = $("prereg"), msg = $("formMsg"), btn = $("submitBtn");
+  function show(kind, text){ msg.className = "form__msg " + kind; msg.textContent = text; }
+
+  form.addEventListener("submit", function(ev){
+    ev.preventDefault();
+    if (!form.checkValidity()) { form.reportValidity(); return; }
+    var fd = new FormData(form);
+    var payload = {
+      side: fd.get("side"),
+      sector: fd.get("sector") || "andere",
+      org_name: (fd.get("org_name")||"").trim(),
+      contact_name: (fd.get("contact_name")||"").trim(),
+      email: (fd.get("email")||"").trim(),
+      phone: (fd.get("phone")||"").trim() || null,
+      company_size: fd.get("company_size") || null,
+      einsatzort_confirmed: $("eo").checked,
+      capacity_or_need: (fd.get("capacity_or_need")||"").trim() || null,
+      referred_by: (fd.get("referred_by")||"").trim() || null,
+      message: null,
+      source: "onepager",
+      website: (fd.get("website")||"")  // Honeypot
+    };
+    btn.disabled = true; show("", "");
+    getCsrf().then(function(token){
+      return fetch("/api/pilot-preregistration", {
+        method: "POST", credentials: "include",
+        headers: { "Content-Type": "application/json", "X-CSRF-Token": token },
+        body: JSON.stringify(payload)
+      });
+    }).then(function(r){
+      if (r.ok) {
+        form.reset(); syncSide();
+        show("ok", "Danke! Wir haben Ihnen eine Bestätigungs-Mail geschickt. Bitte bestätigen Sie Ihre Voranmeldung — dann melden wir uns persönlich.");
+      } else {
+        show("err", "Da ist etwas schiefgelaufen. Bitte prüfen Sie Ihre Eingaben und versuchen Sie es erneut.");
+      }
+    }).catch(function(){
+      show("err", "Verbindung fehlgeschlagen. Bitte später erneut versuchen.");
+    }).finally(function(){ btn.disabled = false; });
+  });
+})();
+</script>
+</body>
+</html>

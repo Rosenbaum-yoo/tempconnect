@@ -28,6 +28,7 @@ import { createAuthRouter } from "./routes/auth.js";
 import { createMeRouter } from "./routes/me.js";
 import { createPlansRouter } from "./routes/plans.js";
 import { createPublicPlansRouter } from "./routes/publicPlans.js";
+import { createPilotPreregistrationRouter } from "./routes/pilotPreregistration.js";
 import { createSubscriptionRequestsRouter } from "./routes/subscriptionRequests.js";
 import { createSubscriptionDocumentsRouter } from "./routes/subscriptionDocuments.js";
 import { createGeoRouter } from "./routes/geo.js";
@@ -311,6 +312,7 @@ export async function createApp() {
   v1.use(createMeRouter(deps));
   v1.use(createPlansRouter(deps));
   v1.use(createPublicPlansRouter(deps));
+  v1.use(createPilotPreregistrationRouter(deps));
   v1.use(createSubscriptionRequestsRouter(deps));
   v1.use(createSubscriptionDocumentsRouter(deps));
   v1.use(createGeoRouter(deps));

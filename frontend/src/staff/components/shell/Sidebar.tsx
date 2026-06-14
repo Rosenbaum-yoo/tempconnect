@@ -6,6 +6,8 @@ export type AreaKey =
   | "customer-requests"
   | "customer-operations"
   | "subscription-requests"
+  | "pilots"
+  | "preregistrations"
   | "audit-report"
   | "executive"
   | "platform"
@@ -36,6 +38,8 @@ export const AREAS: NavItem[] = [
   { key: "customer-requests",     label: "Kundenanfragen",       group: "Arbeitsplatz" },
   { key: "customer-operations",   label: "Customer Operations",  group: "Arbeitsplatz" },
   { key: "subscription-requests", label: "Abo / Tarif-Anfragen", group: "Arbeitsplatz" },
+  { key: "pilots",                label: "Pilot-Verwaltung",     group: "Arbeitsplatz" },
+  { key: "preregistrations",      label: "Voranmeldungen",       group: "Arbeitsplatz" },
   { key: "audit-report",          label: "Audit Report",         group: "Governance" },
   { key: "executive",             label: "Executive",            group: "Strategie" },
   { key: "platform",              label: "Platform",             group: "Strategie" },

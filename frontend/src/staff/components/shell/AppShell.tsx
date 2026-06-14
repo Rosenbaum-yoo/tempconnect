@@ -24,6 +24,8 @@ const CommercialInbox      = lazy(() => import("@scc/modules/commercial-inbox"))
 const CustomerRequests     = lazy(() => import("@scc/modules/customer-requests"));
 const CustomerOperations   = lazy(() => import("@scc/modules/customer-operations"));
 const SubscriptionRequests = lazy(() => import("@scc/modules/subscription-requests"));
+const Pilots               = lazy(() => import("@scc/modules/pilots"));
+const Preregistrations     = lazy(() => import("@scc/modules/preregistrations"));
 const AuditReport          = lazy(() => import("@scc/modules/audit-report"));
 const Executive            = lazy(() => import("@scc/modules/executive"));
 const Platform             = lazy(() => import("@scc/modules/platform"));
@@ -84,6 +86,8 @@ function ActiveModule({ active }: { active: AreaKey }) {
       {active === "customer-requests"     && <CustomerRequests />}
       {active === "customer-operations"   && <CustomerOperations />}
       {active === "subscription-requests" && <SubscriptionRequests />}
+      {active === "pilots"                && <Pilots />}
+      {active === "preregistrations"      && <Preregistrations />}
       {active === "audit-report"          && <AuditReport />}
       {active === "executive"             && <Executive />}
       {active === "platform"              && <Platform />}

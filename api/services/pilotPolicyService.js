@@ -242,7 +242,7 @@ export function assertValidPilotStatus(status) {
 
 /* ── Pilot Auto-Expiry (Cron) ─────────────────────────── */
 
-const PILOT_MAX_MONTHS = 6;
+const PILOT_MAX_MONTHS = 3; // Owner-Entscheid 2026-06-14: Pilot 3 Monate frei (war 6).
 
 /**
  * Beendet alle aktiven Piloten deren pilot_started_at > PILOT_MAX_MONTHS her ist.
@@ -267,6 +267,64 @@ export async function expireStalePilots(pool, _batchSize = 100) {
       [PILOT_MAX_MONTHS]
     );
     return { expired: rows.length, ids: rows.map(r => r.id) };
+  } catch (err) {
+    throw normalizePolicyError(err);
+  }
+}
+
+/* ── Plattformweite Pilot-Verwaltung (Staff Center) ───── */
+
+/**
+ * Listet ALLE Piloten plattformweit (alle Orgs) fuer die Staff-Center-Uebersicht.
+ * Berechnet Restlaufzeit (verbleibende Gratis-Tage) + Ablaufdatum aus PILOT_MAX_MONTHS.
+ * Referral-Gratismonate werden separat (referralProgramService) gefuehrt und hier bewusst NICHT
+ * eingerechnet (leise, GTM-Doktrin) — die Uebersicht zeigt den Pilot-Kern.
+ */
+export async function listAllPilots(pool, { limit = 500 } = {}) {
+  try {
+    const { rows } = await pool.query(
+      `SELECT o.id AS org_id, o.name AS org_name, o.pilot_status, o.customer_stage,
+              o.plan, o.billing_mode, o.has_used_pilot, o.pilot_exception_allowed,
+              o.pilot_started_at, o.pilot_ended_at, o.converted_at,
+              (o.pilot_started_at + ($1 || ' months')::interval) AS pilot_expires_at,
+              CASE WHEN o.pilot_status = 'active' AND o.pilot_started_at IS NOT NULL
+                   THEN GREATEST(0, CEIL(EXTRACT(EPOCH FROM (
+                          o.pilot_started_at + ($1 || ' months')::interval - NOW()
+                        )) / 86400.0))
+                   ELSE NULL END AS remaining_days
+       FROM organizations o
+       WHERE o.pilot_status IS NOT NULL AND o.pilot_status <> 'eligible'
+       ORDER BY (o.pilot_status = 'active') DESC, o.pilot_started_at DESC NULLS LAST
+       LIMIT $2`,
+      [PILOT_MAX_MONTHS, limit]
+    );
+    return rows;
+  } catch (err) {
+    throw normalizePolicyError(err);
+  }
+}
+
+/**
+ * Verlaengert einen aktiven Piloten um N Monate, indem pilot_started_at nach hinten geschoben wird
+ * (Auto-Ablauf = pilot_started_at + PILOT_MAX_MONTHS feuert entsprechend spaeter). KEIN Billing-Effekt.
+ */
+export async function extendPilotForOrganization(pool, { orgId, months = 1, actorUserId = null }) {
+  const m = Math.max(1, Math.min(12, parseInt(months, 10) || 1));
+  try {
+    const { rows } = await pool.query(
+      `UPDATE organizations
+       SET pilot_started_at = COALESCE(pilot_started_at, NOW()) + ($2 || ' months')::interval,
+           updated_at = NOW()
+       WHERE id = $1 AND pilot_status = 'active'
+       RETURNING id, pilot_status, pilot_started_at`,
+      [orgId, m]
+    );
+    if (!rows[0]) {
+      const current = await getOrganizationPilotState(pool, orgId);
+      if (!current) throw pilotError("ORG_NOT_FOUND", "Organisation nicht gefunden.");
+      throw pilotError("PILOT_NOT_ACTIVE", "Nur aktive Piloten koennen verlaengert werden.");
+    }
+    return { ...rows[0], extended_months: m, actor_user_id: actorUserId };
   } catch (err) {
     throw normalizePolicyError(err);
   }

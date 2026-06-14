@@ -23,6 +23,8 @@ import * as orgSuspension from "../services/orgAccessSuspensionService.js";
 import * as staffBilling from "../services/staffBillingOverviewService.js";
 import * as staffMail from "../services/staffMailCenterService.js";
 import * as staffIncidents from "../services/staffIncidentService.js";
+import * as pilotPolicy from "../services/pilotPolicyService.js";
+import * as prereg from "../services/pilotPreregistrationService.js";
 import { config } from "../config/index.js";
 import { withTransaction } from "../utils/transaction.js";
 import {
@@ -133,6 +135,111 @@ export function createStaffControlCenterRouter(deps) {
         platform_summary: platform
       }
     });
+  });
+
+  // ── Pilot-Verwaltung (plattformweit) ────────────────────────
+  // Owner-Wunsch 2026-06-14: alle Piloten zentral sehen + steuern, OHNE versehentliche Zahlung.
+  // Bewusst KEIN manuelles "convert" hier — Konversion zu bezahlt passiert nur im Payment-Flow.
+  router.get("/pilots", requireStaff, async (req, res) => {
+    try {
+      const items = await pilotPolicy.listAllPilots(pool);
+      res.json({ success: true, data: { items, total: items.length } });
+    } catch (err) {
+      logger.error({ err: err.message }, "scc pilots list");
+      res.status(500).json({ success: false, error: { code: "SERVER_ERROR" } });
+    }
+  });
+
+  router.post("/pilots/:orgId/extend", requireStaff, mfaGuard, requireStepUp, requireConfirmAndReason, async (req, res) => {
+    try {
+      const result = await pilotPolicy.extendPilotForOrganization(pool, {
+        orgId: req.params.orgId, months: Number(req.body?.months) || 1, actorUserId: req.sccActorId
+      });
+      await writeStaffAudit(pool, {
+        actorId: req.sccActorId, area: "pilots", action: "staff_control.pilot.extend",
+        entityType: "organization", entityId: req.params.orgId, status: "ok",
+        reason: req.sccReason, confirmed: true, riskLevel: "medium"
+      });
+      res.json({ success: true, data: result });
+    } catch (err) {
+      const status = err.code === "ORG_NOT_FOUND" ? 404 : err.code === "PILOT_NOT_ACTIVE" ? 409 : 500;
+      if (status >= 500) logger.error({ err: err.message }, "scc pilot extend");
+      res.status(status).json({ success: false, error: { code: err.code || "SERVER_ERROR" } });
+    }
+  });
+
+  router.post("/pilots/:orgId/end", requireStaff, mfaGuard, requireStepUp, requireConfirmAndReason, async (req, res) => {
+    try {
+      const result = await pilotPolicy.endPilotForOrganization(pool, {
+        orgId: req.params.orgId, actorUserId: req.sccActorId, reason: req.sccReason
+      });
+      await writeStaffAudit(pool, {
+        actorId: req.sccActorId, area: "pilots", action: "staff_control.pilot.end",
+        entityType: "organization", entityId: req.params.orgId, status: "ok",
+        reason: req.sccReason, confirmed: true, riskLevel: "medium"
+      });
+      res.json({ success: true, data: result });
+    } catch (err) {
+      const status = err.code === "ORG_NOT_FOUND" ? 404 : 500;
+      if (status >= 500) logger.error({ err: err.message }, "scc pilot end");
+      res.status(status).json({ success: false, error: { code: err.code || "SERVER_ERROR" } });
+    }
+  });
+
+  router.post("/pilots/:orgId/exception", requireStaff, mfaGuard, requireStepUpHigh, requireConfirmAndReason, async (req, res) => {
+    try {
+      const allowed = req.body?.allowed === true;
+      const result = await pilotPolicy.setPilotException(pool, {
+        orgId: req.params.orgId, actorUserId: req.sccActorId, allowed, reason: req.sccReason
+      });
+      await writeStaffAudit(pool, {
+        actorId: req.sccActorId, area: "pilots",
+        action: `staff_control.pilot.exception.${allowed ? "allow" : "block"}`,
+        entityType: "organization", entityId: req.params.orgId, status: "ok",
+        reason: req.sccReason, confirmed: true, riskLevel: "high"
+      });
+      res.json({ success: true, data: result });
+    } catch (err) {
+      const status = err.code === "ORG_NOT_FOUND" ? 404 : err.code === "PILOT_EXCEPTION_REASON_REQUIRED" ? 400 : 500;
+      if (status >= 500) logger.error({ err: err.message }, "scc pilot exception");
+      res.status(status).json({ success: false, error: { code: err.code || "SERVER_ERROR" } });
+    }
+  });
+
+  // ── Pilot-Voranmeldungen (Kuratierung) ──────────────────────
+  // Owner reviewt Bewerbungen (Telefon sichtbar fuer Outreach) + waehlt die 30+30 Paare.
+  router.get("/preregistrations", requireStaff, async (req, res) => {
+    try {
+      const items = await prereg.listPreregs(pool, {
+        cohort: req.query.cohort || undefined,
+        side: req.query.side || null,
+        status: req.query.status || null,
+      });
+      const counts = await prereg.getPublicCounts(pool, req.query.cohort || undefined);
+      res.json({ success: true, data: { items, total: items.length, counts } });
+    } catch (err) {
+      logger.error({ err: err.message }, "scc preregs list");
+      res.status(500).json({ success: false, error: { code: "SERVER_ERROR" } });
+    }
+  });
+
+  router.post("/preregistrations/:id/status", requireStaff, async (req, res) => {
+    try {
+      const status = String(req.body?.status || "");
+      const result = await prereg.setPreregStatus(pool, { id: req.params.id, status });
+      await writeStaffAudit(pool, {
+        actorId: req.sccActorId, area: "preregistrations",
+        action: `staff_control.prereg.status.${status}`,
+        entityType: "pilot_preregistration", entityId: req.params.id, status: "ok",
+        reason: req.body?.reason || null, confirmed: true, riskLevel: "low",
+      });
+      res.json({ success: true, data: result });
+    } catch (err) {
+      const code = err.code || "SERVER_ERROR";
+      const httpStatus = code === "NOT_FOUND" ? 404 : code === "INVALID_STATUS" ? 400 : 500;
+      if (httpStatus >= 500) logger.error({ err: err.message }, "scc prereg status");
+      res.status(httpStatus).json({ success: false, error: { code } });
+    }
   });
 
   // ── Step-up + Logout ────────────────────────────────────────
