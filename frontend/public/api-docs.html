@@ -1635,9 +1635,10 @@ x-csrf-token: &lt;token&gt;
       <!-- ────────────────────────────────────────── OPENAPI -->
       <section id="openapi">
         <h2>OpenAPI Spezifikation</h2>
-        <p>Die TempConnect API ist als OpenAPI 3.0.3 Spezifikation verfügbar. Die Spec-Datei kann für Client-Generierung, automatisierte Tests und Import in Postman/Insomnia verwendet werden.</p>
+        <p>Die TempConnect API ist als OpenAPI 3.0.3 Spezifikation verfügbar. Die Spec-Datei wird <strong>automatisch aus den echten Zod-Validierungs-Schemas generiert</strong> (kein Doku-Drift) und kann für Client-Generierung, automatisierte Tests und Import in Postman/Insomnia verwendet werden.</p>
         <div class="callout info">
-          <strong>Spec-Datei:</strong> <code>/api/openapi/spec.json</code> &mdash; OpenAPI 3.0.3, JSON-Format
+          <strong>🔎 Interaktiver Live-Explorer:</strong> <a href="/public/api-explorer.html"><code>/public/api-explorer.html</code></a> &mdash; durchsuchbar, gruppiert nach Bereich, mit Request-Schemas direkt aus der Validierung.<br>
+          <strong>Spec-Datei:</strong> <a href="/api/openapi/spec.json"><code>/api/openapi/spec.json</code></a> &mdash; OpenAPI 3.0.3, JSON-Format (auto-generiert via <code>npm run openapi:generate</code>)
         </div>
         <p>Die Spezifikation enthält:</p>
         <ul>

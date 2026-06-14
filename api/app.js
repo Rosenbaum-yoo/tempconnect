@@ -251,6 +251,12 @@ export async function createApp() {
     if (req.path.startsWith("/staff")) return next();
     return platformSessionMiddleware(req, res, next);
   });
+  // OpenAPI-Spezifikation (auto-generiert aus den Zod-Schemas, openapi/registry.js).
+  // Oeffentlich + VOR den /api-Guards: keine Auth/CSRF noetig, read-only statische Datei.
+  app.get("/api/openapi/spec.json", (req, res) => {
+    res.type("application/json").sendFile(path.join(process.cwd(), "openapi", "spec.json"));
+  });
+
   // CSRF + demoGuard apply to both /api/ and /api/v1/
   app.use("/api/", csrfProtect);
   app.use("/api/", demoGuard);

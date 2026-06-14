@@ -1,0 +1,165 @@
+/**
+ * openapi/registry.js — Single Source der API-Spezifikation: generiert OpenAPI 3.0.3
+ * DIREKT aus den echten Zod-Schemas (api/middleware/validate.js → Schemas). Damit kann
+ * die Doku NIE mehr von der Validierung driften (A.2, beendet den Doku-Drift strukturell).
+ *
+ * BUILD-TIME-ISOLIERT: Dieses Modul ruft extendZodWithOpenApi() und wird AUSSCHLIESSLICH
+ * vom Generator-Script (scripts/generate-openapi.js) und vom Drift-Test importiert —
+ * NIEMALS von app.js/server.js. Die laufende App serviert nur die fertige openapi/spec.json.
+ * → null Produktions-Runtime-Effekt, keine neue Runtime-Dependency.
+ *
+ * ZUKUNFTSSICHER: Neue Endpunkte hier in PATHS ergaenzen (oder neue Schemas in validate.js
+ * registrieren sich automatisch als Components). Coverage waechst inkrementell ohne Refactor.
+ */
+
+import { z } from "zod";
+import { extendZodWithOpenApi, OpenAPIRegistry, OpenApiGeneratorV3 } from "@asteasolutions/zod-to-openapi";
+import { Schemas } from "../middleware/validate.js";
+
+extendZodWithOpenApi(z);
+
+const CATALOG_VERSION = "2.0.0";
+
+/* ── Wiederverwendbare Fehler-Hülle (Plattform-Standard) ────────────────────── */
+const ErrorResponse = z.object({
+  error: z.string().openapi({ example: "VALIDATION" }),
+  message: z.string().optional(),
+  code: z.string().optional(),
+  details: z.array(z.unknown()).optional()
+}).openapi("ErrorResponse");
+
+/** Standard-Fehlerantworten für geschützte, mutierende Endpunkte. */
+function stdErrors(extra = {}) {
+  const base = {
+    400: { description: "Validierungsfehler", content: { "application/json": { schema: ErrorResponse } } },
+    401: { description: "Nicht authentifiziert", content: { "application/json": { schema: ErrorResponse } } },
+    403: { description: "Keine Berechtigung / Org-Boundary", content: { "application/json": { schema: ErrorResponse } } },
+    429: { description: "Rate-Limit erreicht", content: { "application/json": { schema: ErrorResponse } } }
+  };
+  return { ...base, ...extra };
+}
+
+/**
+ * Baut das vollständige OpenAPI-3.0.3-Dokument aus der Registry.
+ * @returns {object} OpenAPI-Dokument (JSON-serialisierbar)
+ */
+export function buildOpenApiDocument() {
+  const registry = new OpenAPIRegistry();
+
+  // ── Security-Schemes: 3 reale Auth-Wege der Plattform ──
+  const sessionCookie = registry.registerComponent("securitySchemes", "sessionCookie", {
+    type: "apiKey", in: "cookie", name: "tc.sid",
+    description: "Plattform-Session-Cookie (Login via POST /auth/login)."
+  });
+  const csrfToken = registry.registerComponent("securitySchemes", "csrfToken", {
+    type: "apiKey", in: "header", name: "x-csrf-token",
+    description: "CSRF-Token (GET /csrf) — Pflicht bei allen mutierenden Requests."
+  });
+  registry.registerComponent("securitySchemes", "apiKey", {
+    type: "http", scheme: "bearer",
+    description: "Maschinen-API-Key (Bearer) für Integrationen; Scopes default-deny."
+  });
+
+  // ── Components: ALLE zentralen Zod-Schemas automatisch registrieren ──
+  // Flach in validate.js → 1:1 als benannte Components. Neue Schemas erscheinen automatisch.
+  const components = {};
+  for (const [name, schema] of Object.entries(Schemas)) {
+    if (schema && typeof schema.safeParse === "function") {
+      const compName = name.charAt(0).toUpperCase() + name.slice(1);
+      components[name] = registry.register(compName, schema);
+    }
+  }
+
+  const sessionSec = [{ [sessionCookie.name]: [] }, { [csrfToken.name]: [] }];
+  const jsonBody = (schema) => ({ content: { "application/json": { schema } }, required: true });
+  const okJson = (desc, schema) => ({ description: desc, content: { "application/json": { schema: schema || z.object({}).openapi("OkResponse") } } });
+
+  // ── Pfade: kuratierte Kern-Endpunkte (referenzieren die echten Schemas) ──
+  // Zukunftssicher: weitere Pfade hier ergänzen; Request-Bodies bleiben an die Zod-Wahrheit gebunden.
+
+  registry.registerPath({
+    method: "post", path: "/auth/register", tags: ["Auth"], summary: "Registrierung (Unternehmen/Agentur/Worker)",
+    request: { body: jsonBody(components.register) },
+    responses: { 201: okJson("Registriert + eingeloggt"), ...stdErrors() }
+  });
+  registry.registerPath({
+    method: "post", path: "/auth/login", tags: ["Auth"], summary: "Login",
+    request: { body: jsonBody(components.login) },
+    responses: { 200: okJson("Eingeloggt"), ...stdErrors() }
+  });
+  registry.registerPath({
+    method: "post", path: "/me/password", tags: ["Auth"], summary: "Passwort ändern", security: sessionSec,
+    request: { body: jsonBody(components.passwordChange) },
+    responses: { 200: okJson("Passwort geändert"), ...stdErrors() }
+  });
+
+  registry.registerPath({
+    method: "post", path: "/organizations", tags: ["Organizations"], summary: "Organisation anlegen", security: sessionSec,
+    request: { body: jsonBody(components.organizationCreate) },
+    responses: { 201: okJson("Organisation angelegt"), ...stdErrors() }
+  });
+  registry.registerPath({
+    method: "post", path: "/org/members/invite", tags: ["Organizations"], summary: "Mitglied einladen", security: sessionSec,
+    request: { body: jsonBody(components.inviteMember) },
+    responses: { 201: okJson("Einladung versendet"), ...stdErrors() }
+  });
+
+  registry.registerPath({
+    method: "get", path: "/requisitions", tags: ["Requisitions"], summary: "Bedarfe auflisten", security: sessionSec,
+    request: { query: components.pagination },
+    responses: { 200: okJson("Liste der Bedarfe"), ...stdErrors() }
+  });
+  registry.registerPath({
+    method: "post", path: "/requisitions", tags: ["Requisitions"], summary: "Bedarf anlegen", security: sessionSec,
+    request: { body: jsonBody(components.requisitionCreate) },
+    responses: { 201: okJson("Bedarf angelegt"), ...stdErrors() }
+  });
+
+  registry.registerPath({
+    method: "post", path: "/capacity-exchange/entries", tags: ["Marketplace"], summary: "Personal/Kapazität einstellen", security: sessionSec,
+    request: { body: jsonBody(components.capacityPostCreate) },
+    responses: { 201: okJson("Kapazität veröffentlicht"), ...stdErrors() }
+  });
+  registry.registerPath({
+    method: "post", path: "/marketplace/capacity-posts/{id}/accept-deal", tags: ["Marketplace"], summary: "Deal-Konditionen zustimmen", security: sessionSec,
+    request: { params: z.object({ id: z.string().uuid() }).openapi("CapacityIdParam"), body: jsonBody(components.dealCreate) },
+    responses: { 200: okJson("Deal gestartet"), 404: { description: "Nicht gefunden", content: { "application/json": { schema: ErrorResponse } } }, ...stdErrors() }
+  });
+
+  registry.registerPath({
+    method: "post", path: "/timesheets", tags: ["Timesheets"], summary: "Stundenzettel einreichen", security: sessionSec,
+    request: { body: jsonBody(components.timesheetSubmit) },
+    responses: { 201: okJson("Stundenzettel angelegt"), ...stdErrors() }
+  });
+
+  registry.registerPath({
+    method: "post", path: "/payment/checkout", tags: ["Billing"], summary: "Plan buchen (Checkout)", security: sessionSec,
+    request: { body: jsonBody(components.paymentCheckout) },
+    responses: { 200: okJson("Checkout-Session erstellt"), ...stdErrors() }
+  });
+
+  const generator = new OpenApiGeneratorV3(registry.definitions);
+  return generator.generateDocument({
+    openapi: "3.0.3",
+    info: {
+      title: "TempConnect API",
+      version: CATALOG_VERSION,
+      description:
+        "B2B-Workforce-Management-Plattform (Zeitarbeit). Diese Spezifikation wird AUTOMATISCH " +
+        "aus den echten Zod-Validierungs-Schemas generiert (api/openapi/registry.js) — die " +
+        "Request-Bodies sind damit immer deckungsgleich mit der Laufzeit-Validierung (kein Drift). " +
+        "Alle mutierenden Endpunkte erfordern Session-Cookie + x-csrf-token."
+    },
+    servers: [{ url: "/api", description: "TempConnect API (relativ zur Plattform-Domain)" }],
+    tags: [
+      { name: "Auth", description: "Registrierung, Login, Passwort" },
+      { name: "Organizations", description: "Organisationen & Mitglieder" },
+      { name: "Requisitions", description: "Bedarfe (Stellenanforderungen)" },
+      { name: "Marketplace", description: "Kapazitäten, Angebote, Deals" },
+      { name: "Timesheets", description: "Stundenzettel" },
+      { name: "Billing", description: "Tarife & Zahlung" }
+    ]
+  });
+}
+
+export default buildOpenApiDocument;

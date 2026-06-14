@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <meta name="robots" content="noindex"/>
+  <script src="/public/js/theme.js"></script>
+  <title>API-Explorer – TempConnect</title>
+  <link rel="stylesheet" href="/public/css/design-system.css"/>
+  <style>
+    .ax-wrap{max-width:1100px;margin:0 auto;padding:var(--ds-space-6) var(--ds-space-4)}
+    .ax-hero{border:1px solid var(--ds-border);border-radius:var(--ds-radius-lg);background:var(--ds-bg-surface);padding:var(--ds-space-6);margin-bottom:var(--ds-space-5)}
+    .ax-badge{display:inline-block;font-size:11px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;padding:3px 10px;border-radius:999px;background:var(--ds-success-muted,rgba(57,217,138,.12));color:var(--ds-success,#39d98a);border:1px solid var(--ds-success,#39d98a)}
+    .ax-meta{display:flex;gap:18px;flex-wrap:wrap;margin-top:12px;font-size:13px;color:var(--ds-text-secondary)}
+    .ax-meta b{color:var(--ds-text)}
+    .ax-tag{margin-top:var(--ds-space-5)}
+    .ax-tag__h{font-size:15px;font-weight:800;margin:0 0 8px;display:flex;align-items:center;gap:8px}
+    .ax-tag__desc{font-size:12px;color:var(--ds-text-tertiary);font-weight:500}
+    .ax-op{border:1px solid var(--ds-border);border-radius:var(--ds-radius-md);margin-bottom:8px;overflow:hidden;background:var(--ds-bg)}
+    .ax-op__head{display:flex;align-items:center;gap:12px;padding:10px 14px;cursor:pointer;user-select:none}
+    .ax-op__head:hover{background:var(--ds-bg-surface)}
+    .ax-m{font-size:11px;font-weight:800;letter-spacing:.05em;padding:3px 9px;border-radius:5px;color:#fff;min-width:54px;text-align:center}
+    .ax-m.get{background:#2563eb}.ax-m.post{background:#16a34a}.ax-m.patch{background:#d97706}.ax-m.put{background:#7c3aed}.ax-m.delete{background:#dc2626}
+    .ax-path{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:13px;font-weight:700;color:var(--ds-text)}
+    .ax-sum{font-size:12px;color:var(--ds-text-secondary);margin-left:auto;text-align:right}
+    .ax-lock{font-size:11px;color:var(--ds-warning,#f59e0b)}
+    .ax-body{display:none;padding:0 14px 14px;border-top:1px solid var(--ds-border)}
+    .ax-op.open .ax-body{display:block}
+    .ax-sec{font-size:13px;font-weight:700;margin:14px 0 6px;color:var(--ds-text)}
+    table.ax-t{width:100%;border-collapse:collapse;font-size:12px}
+    .ax-t th,.ax-t td{text-align:left;padding:5px 8px;border-bottom:1px solid var(--ds-border)}
+    .ax-t th{color:var(--ds-text-tertiary);font-weight:700;font-size:11px;text-transform:uppercase;letter-spacing:.04em}
+    .ax-t code{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:12px}
+    .ax-req{color:var(--ds-danger,#dc2626);font-weight:700}
+    .ax-resp{display:flex;gap:8px;align-items:baseline;font-size:12px;padding:3px 0}
+    .ax-rc{font-family:ui-monospace,monospace;font-weight:800;min-width:36px}
+    .ax-rc.ok{color:var(--ds-success,#16a34a)}.ax-rc.err{color:var(--ds-danger,#dc2626)}
+    .ax-state{padding:var(--ds-space-6);text-align:center;color:var(--ds-text-secondary)}
+    [data-theme="editorial"] .ax-hero,[data-theme="editorial"] .ax-op{background:#fffdf6;border-color:#d4cab3}
+  </style>
+</head>
+<body>
+  <div class="ax-wrap">
+    <div id="tc-shell"></div>
+    <div class="ax-hero">
+      <span class="ax-badge">Auto-generiert aus Zod</span>
+      <h1 id="ax-title" style="margin:10px 0 4px;font-size:24px">API-Explorer</h1>
+      <p id="ax-desc" style="font-size:13px;color:var(--ds-text-secondary);line-height:1.55;margin:0;max-width:760px"></p>
+      <div class="ax-meta" id="ax-meta"></div>
+    </div>
+    <div id="ax-content"><div class="ax-state">Lade Spezifikation…</div></div>
+  </div>
+
+  <script src="/public/js/pageShell.js"></script>
+  <div id="tc-footer" data-tc-footer></div>
+  <script src="/public/js/footer.js"></script>
+  <script>
+  (function(){
+    "use strict";
+    function esc(s){ var d=document.createElement("div"); d.textContent=s==null?"":String(s); return d.innerHTML; }
+    var SPEC = "/api/openapi/spec.json";
+
+    function resolveRef(spec, schema){
+      if (schema && schema.$ref){
+        var name = schema.$ref.split("/").pop();
+        return (spec.components && spec.components.schemas && spec.components.schemas[name]) || {};
+      }
+      return schema || {};
+    }
+    function typeLabel(p){
+      if (!p) return "—";
+      if (p.$ref) return esc(p.$ref.split("/").pop());
+      if (p.enum) return "enum(" + p.enum.map(esc).join(", ") + ")";
+      var t = p.type || (p.anyOf ? "anyOf" : (p.allOf ? "allOf" : "object"));
+      if (t === "array" && p.items) t = "array&lt;" + (p.items.type || (p.items.$ref ? esc(p.items.$ref.split("/").pop()) : "?")) + "&gt;";
+      if (p.format) t += " (" + esc(p.format) + ")";
+      return t;
+    }
+    function propsTable(spec, schema){
+      var s = resolveRef(spec, schema);
+      if (!s.properties) return '<div style="font-size:12px;color:var(--ds-text-tertiary)">' + (s.type ? esc(s.type) : "kein strukturierter Body") + '</div>';
+      var req = s.required || [];
+      var rows = Object.keys(s.properties).map(function(k){
+        var p = s.properties[k];
+        return '<tr><td><code>' + esc(k) + '</code>' + (req.indexOf(k)>=0 ? ' <span class="ax-req">*</span>' : '') +
+          '</td><td>' + typeLabel(p) + '</td><td>' + (p.description ? esc(p.description) : "") + '</td></tr>';
+      }).join("");
+      return '<table class="ax-t"><thead><tr><th>Feld</th><th>Typ</th><th>Beschreibung</th></tr></thead><tbody>' + rows + '</tbody></table>';
+    }
+
+    function renderOp(spec, path, method, op){
+      var div = document.createElement("div");
+      div.className = "ax-op";
+      var secure = Array.isArray(op.security) && op.security.length > 0;
+      var head = '<div class="ax-op__head">' +
+        '<span class="ax-m ' + esc(method) + '">' + esc(method.toUpperCase()) + '</span>' +
+        '<span class="ax-path">' + esc(path) + '</span>' +
+        '<span class="ax-sum">' + (secure ? '<span class="ax-lock" title="Auth + CSRF erforderlich">&#128274; geschützt</span> &middot; ' : '') + esc(op.summary || "") + '</span></div>';
+      var body = '<div class="ax-body">';
+      var reqSchema = op.requestBody && op.requestBody.content && op.requestBody.content["application/json"] && op.requestBody.content["application/json"].schema;
+      if (reqSchema){ body += '<div class="ax-sec">Request-Body</div>' + propsTable(spec, reqSchema); }
+      var params = (op.parameters||[]).filter(function(p){return p.in==="query"||p.in==="path";});
+      if (params.length){
+        body += '<div class="ax-sec">Parameter</div><table class="ax-t"><thead><tr><th>Name</th><th>In</th><th>Typ</th></tr></thead><tbody>' +
+          params.map(function(p){return '<tr><td><code>'+esc(p.name)+'</code>'+(p.required?' <span class="ax-req">*</span>':'')+'</td><td>'+esc(p.in)+'</td><td>'+typeLabel(p.schema)+'</td></tr>';}).join("") + '</tbody></table>';
+      }
+      body += '<div class="ax-sec">Antworten</div>';
+      Object.keys(op.responses||{}).forEach(function(code){
+        var ok = code.charAt(0)==="2";
+        body += '<div class="ax-resp"><span class="ax-rc ' + (ok?"ok":"err") + '">' + esc(code) + '</span><span>' + esc((op.responses[code]||{}).description||"") + '</span></div>';
+      });
+      body += '</div>';
+      div.innerHTML = head + body;
+      div.querySelector(".ax-op__head").addEventListener("click", function(){ div.classList.toggle("open"); });
+      return div;
+    }
+
+    fetch(SPEC, { credentials: "include" }).then(function(r){
+      if (!r.ok) throw new Error("HTTP " + r.status);
+      return r.json();
+    }).then(function(spec){
+      document.getElementById("ax-title").textContent = (spec.info.title || "API") + " v" + (spec.info.version || "");
+      document.getElementById("ax-desc").textContent = spec.info.description || "";
+      var paths = spec.paths || {};
+      var opCount = 0; Object.keys(paths).forEach(function(p){ opCount += Object.keys(paths[p]).length; });
+      document.getElementById("ax-meta").innerHTML =
+        '<span><b>' + opCount + '</b> Endpunkte</span>' +
+        '<span><b>' + Object.keys(spec.components.schemas||{}).length + '</b> Schemas</span>' +
+        '<span>OpenAPI <b>' + esc(spec.openapi) + '</b></span>' +
+        '<span><a href="' + SPEC + '" style="color:var(--ds-brand)">spec.json</a></span>' +
+        '<span><a href="/public/api-docs.html" style="color:var(--ds-brand)">Prosa-Doku</a></span>';
+
+      // Nach Tags gruppieren
+      var byTag = {};
+      Object.keys(paths).forEach(function(p){
+        Object.keys(paths[p]).forEach(function(m){
+          var op = paths[p][m];
+          var tag = (op.tags && op.tags[0]) || "Sonstige";
+          (byTag[tag] = byTag[tag] || []).push({ path:p, method:m, op:op });
+        });
+      });
+      var tagMeta = {}; (spec.tags||[]).forEach(function(t){ tagMeta[t.name]=t.description; });
+      var content = document.getElementById("ax-content");
+      content.innerHTML = "";
+      Object.keys(byTag).sort().forEach(function(tag){
+        var sec = document.createElement("div");
+        sec.className = "ax-tag";
+        sec.innerHTML = '<h3 class="ax-tag__h">' + esc(tag) + (tagMeta[tag] ? ' <span class="ax-tag__desc">' + esc(tagMeta[tag]) + '</span>' : '') + '</h3>';
+        byTag[tag].forEach(function(e){ sec.appendChild(renderOp(spec, e.path, e.method, e.op)); });
+        content.appendChild(sec);
+      });
+    }).catch(function(e){
+      document.getElementById("ax-content").innerHTML = '<div class="ax-state">Spezifikation konnte nicht geladen werden (' + esc(e.message) + ').</div>';
+    });
+  })();
+  </script>
+</body>
+</html>
