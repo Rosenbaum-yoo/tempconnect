@@ -32,6 +32,8 @@ import { createTimesheetsRouter }    from "../../routes/timesheets.js";
 import { createAssignmentsRouter }   from "../../routes/assignments.js";
 import { createOrganizationsRouter } from "../../routes/organizations.js";
 import { createRequisitionsRouter }  from "../../routes/requisitions.js";
+import { createWorkersRouter }       from "../../routes/workers.js";
+import { createSuppliersRouter }     from "../../routes/suppliers.js";
 
 // ── UUID constants for POST body schemas (Zod z.string().uuid()) ─────────────
 // ORG_A / ORG_B from security-mocks are NOT UUIDs and would fail schema validation.
@@ -483,5 +485,96 @@ describe("CORE-ISO: rateCards — PATCH /:id org-boundary", () => {
 
     assert.equal(res._status, 403, "Must block cross-org rate card update");
     assert.equal(res._json.error, "ORG_BOUNDARY_VIOLATION");
+  });
+});
+
+// ── Workers: by-id mutations org-boundary (P2.5 Coverage-Welle 1, 2026-06-13) ──
+// Hoechstes Risiko (PII/Personalverwaltung): jeder by-id Worker-Mutations-Handler laedt
+// das Profil (workerService.getWorkerProfile) und 403t bei supplier_org_id !== req.orgId.
+// Enforcement war vorhanden, aber ungetestet (Cross-Org-Audit 2026-06-13) — hier abgesichert.
+
+function workersRouter(workerRow) {
+  return createWorkersRouter({
+    ...baseDeps(poolWith(workerRow)),
+    getUserAndPlan: async () => ({ plan: "PRO" })
+  });
+}
+const WORKER_B = { user_id: "wkr-b-001", supplier_org_id: ORG_B, profile_public: false };
+const WORKER_A = { user_id: "wkr-a-001", supplier_org_id: ORG_A, profile_public: false };
+
+describe("CORE-ISO: workers — by-id mutations org-boundary", () => {
+  const crossCases = [
+    ["patch", "/workers/:userId"],
+    ["post", "/workers/:userId/deactivate"],
+    ["post", "/workers/:userId/activate"]
+  ];
+  for (const [method, path] of crossCases) {
+    it(`cross-tenant: ${method.toUpperCase()} ${path} blocked for foreign org`, async () => {
+      const handler = findHandlerExact(workersRouter(WORKER_B), method, path);
+      const req = mockReq({ orgId: ORG_A, params: { userId: "wkr-b-001" }, body: {}, session: { userId: USER_A } });
+      const res = mockRes();
+      await handler(req, res, noop);
+      assert.equal(res._status, 403, `Must block cross-org ${path}`);
+      assert.equal(res._json.error, "ORG_BOUNDARY_VIOLATION");
+    });
+  }
+
+  for (const [method, path] of [["patch", "/workers/:userId"], ["post", "/workers/:userId/deactivate"]]) {
+    it(`own-org: ${method.toUpperCase()} ${path} not org-blocked`, async () => {
+      const handler = findHandlerExact(workersRouter(WORKER_A), method, path);
+      const req = mockReq({ orgId: ORG_A, params: { userId: "wkr-a-001" }, body: {}, session: { userId: USER_A } });
+      const res = mockRes();
+      await handler(req, res, noop);
+      assert.notEqual(res._status, 403, `Own-org ${path} must not be org-blocked`);
+    });
+  }
+});
+
+// ── Suppliers/VMS: vendor-pool mutations org-boundary (P2.5 Coverage-Welle 2) ──
+// requireOwnedVendorEntry laedt den Eintrag (vendorPoolService.getEntry) und 403t bei
+// client_org_id !== req.orgId. Deckt approve/suspend/block/categorize/tier + notes ab.
+
+function suppliersRouter(entryRow) {
+  return createSuppliersRouter(baseDeps(poolWith(entryRow)));
+}
+const ENTRY_B = { id: "vp-b-001", client_org_id: ORG_B, supplier_org_id: "supp-x", category: "x", notes: "n" };
+const ENTRY_A = { id: "vp-a-001", client_org_id: ORG_A, supplier_org_id: "supp-y", category: "x", notes: "n" };
+
+describe("CORE-ISO: suppliers — vendor-pool mutations org-boundary", () => {
+  const idCases = [
+    ["patch", "/suppliers/:id/approve"],
+    ["patch", "/suppliers/:id/suspend"],
+    ["patch", "/suppliers/:id/block"],
+    ["patch", "/suppliers/:id/categorize"],
+    ["patch", "/suppliers/:id/tier"]
+  ];
+  for (const [method, path] of idCases) {
+    it(`cross-tenant: ${method.toUpperCase()} ${path} blocked for foreign org`, async () => {
+      const handler = findHandlerExact(suppliersRouter(ENTRY_B), method, path);
+      const req = mockReq({ orgId: ORG_A, params: { id: "vp-b-001" }, body: { tier: "preferred", reason: "x", category: "c" }, session: { userId: USER_A } });
+      const res = mockRes();
+      await handler(req, res, noop);
+      assert.equal(res._status, 403, `Must block cross-org ${path}`);
+      assert.equal(res._json.error, "ORG_BOUNDARY_VIOLATION");
+    });
+  }
+
+  it("cross-tenant: POST /suppliers/:vpId/notes blocked for foreign org", async () => {
+    const handler = findHandlerExact(suppliersRouter(ENTRY_B), "post", "/suppliers/:vpId/notes");
+    const req = mockReq({ orgId: ORG_A, params: { vpId: "vp-b-001" }, body: { text: "x" }, session: { userId: USER_A } });
+    const res = mockRes();
+    await handler(req, res, noop);
+    assert.equal(res._status, 403, "Must block cross-org notes add");
+    assert.equal(res._json.error, "ORG_BOUNDARY_VIOLATION");
+  });
+
+  it("own-org: PATCH /suppliers/:id/categorize not org-blocked", async () => {
+    // categorize: direktes UPDATE ohne Enum-Validierung -> sauberer Positiv-Beweis,
+    // dass requireOwnedVendorEntry bei eigener Org NICHT 403t.
+    const handler = findHandlerExact(suppliersRouter(ENTRY_A), "patch", "/suppliers/:id/categorize");
+    const req = mockReq({ orgId: ORG_A, params: { id: "vp-a-001" }, body: { category: "strategic" }, session: { userId: USER_A } });
+    const res = mockRes();
+    await handler(req, res, noop);
+    assert.notEqual(res._status, 403, "Own-org supplier categorize must not be org-blocked");
   });
 });
