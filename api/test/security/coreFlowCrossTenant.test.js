@@ -36,6 +36,8 @@ import { createWorkersRouter }       from "../../routes/workers.js";
 import { createSuppliersRouter }     from "../../routes/suppliers.js";
 import { createAgencyPortalRouter }  from "../../routes/agencyPortal.js";
 import * as templateSvc              from "../../services/timesheetTemplateService.js";
+import * as emergencyCommitmentService from "../../services/emergencyCommitmentService.js";
+import * as dealAgreementService     from "../../services/dealAgreementService.js";
 
 // ── UUID constants for POST body schemas (Zod z.string().uuid()) ─────────────
 // ORG_A / ORG_B from security-mocks are NOT UUIDs and would fail schema validation.
@@ -701,5 +703,74 @@ describe("CORE-ISO: timesheet templates — service org-scoping", () => {
     assert.ok(del, "DELETE muss laufen");
     assert.match(del.sql, /supplier_org_id\s*=\s*\$2/, "DELETE muss org-scoped sein");
     assert.deepEqual(del.params, ["tmpl-a-001", ORG_B], "DELETE muss id + Aufrufer-Org binden");
+  });
+});
+
+// ── Emergency: Sub-Resource-Ownership (Commitment-Status + Notdienst-Vereinbarung)
+//
+// Notdienst ist Cross-Org BY DESIGN (Agenturen committen auf fremde Notlagen). Der
+// echte Schutz ist Sub-Resource-Ownership: NUR die beiden Parteien (anfragendes
+// Unternehmen + zusagende Agentur) dürfen das Commitment ändern / daraus eine
+// bindende Vereinbarung erzeugen. emergencyAccess ist nur ein Feature-Gate.
+
+/** Pool mit connect() (Transaktionspfad), antwortet inhaltsabhängig. */
+function emgPool(handler) {
+  const client = {
+    query: async (sql, params) => handler(sql, params) || { rows: [], rowCount: 0 },
+    release() {}
+  };
+  return { connect: async () => client, query: client.query };
+}
+
+const REQUESTER = "company-requester-001";
+const SUPPLIER  = "agency-supplier-002";
+const OUTSIDER  = "org-c-outsider-003";
+
+describe("CORE-ISO: emergency commitment status — sub-resource ownership", () => {
+  function commitmentPool(status) {
+    const commitment = { id: "cm-1", demand_request_id: "d-1", status,
+      supplier_company_id: SUPPLIER, requester_company_id: REQUESTER };
+    return emgPool((sql) =>
+      /emergency_provider_commitments/i.test(sql) && /SELECT/i.test(sql)
+        ? { rows: [commitment] } : { rows: [], rowCount: 0 });
+  }
+  it("cross-tenant: Outsider (keine Partei) -> FORBIDDEN", async () => {
+    const result = await emergencyCommitmentService.updateCommitmentStatus(commitmentPool("committed"), {
+      commitmentId: "cm-1", actorUserId: OUTSIDER, actorRole: null, status: "withdrawn"
+    });
+    assert.equal(result.error, "FORBIDDEN", "Fremde Org darf Commitment-Status nicht ändern");
+  });
+  it("supplier-Partei passiert authz (kein FORBIDDEN)", async () => {
+    const result = await emergencyCommitmentService.updateCommitmentStatus(commitmentPool("withdrawn"), {
+      commitmentId: "cm-1", actorUserId: SUPPLIER, actorRole: null, status: "withdrawn"
+    });
+    assert.notEqual(result.error, "FORBIDDEN", "Beteiligte Partei darf NICHT geblockt werden");
+  });
+});
+
+describe("CORE-ISO: emergency create-agreement — ownership (IDOR-Fix)", () => {
+  function agreementPool(status) {
+    const commitment = { id: "cm-1", demand_request_id: "d-1", status,
+      requester_company_id: REQUESTER, supplier_company_id: SUPPLIER, committed_quantity: 2 };
+    return emgPool((sql) =>
+      /FROM emergency_provider_commitments/i.test(sql) ? { rows: [commitment] } : { rows: [], rowCount: 0 });
+  }
+  it("cross-tenant: Outsider -> FORBIDDEN (keine bindende Vereinbarung auf fremde Notlage)", async () => {
+    const result = await dealAgreementService.createEmergencyAgreement(agreementPool("committed"), {
+      demandId: "d-1", commitmentId: "cm-1", conditions: {}, actorId: OUTSIDER
+    });
+    assert.equal(result.error, "FORBIDDEN", "Fremde Org darf keine Notdienst-Vereinbarung erzeugen");
+  });
+  it("requester-Partei passiert authz (-> COMMITMENT_NOT_ACTIVE statt FORBIDDEN)", async () => {
+    const result = await dealAgreementService.createEmergencyAgreement(agreementPool("pending"), {
+      demandId: "d-1", commitmentId: "cm-1", conditions: {}, actorId: REQUESTER
+    });
+    assert.equal(result.error, "COMMITMENT_NOT_ACTIVE", "Requester passiert authz; nur Status blockt");
+  });
+  it("supplier-Partei passiert authz ebenfalls", async () => {
+    const result = await dealAgreementService.createEmergencyAgreement(agreementPool("pending"), {
+      demandId: "d-1", commitmentId: "cm-1", conditions: {}, actorId: SUPPLIER
+    });
+    assert.equal(result.error, "COMMITMENT_NOT_ACTIVE", "Supplier passiert authz; nur Status blockt");
   });
 });

@@ -360,6 +360,7 @@ export function createEmergencyRouter(deps) {
       });
 
       if (result.error === "NOT_FOUND") return res.status(404).json(result);
+      if (result.error === "FORBIDDEN") return res.status(403).json(result);
       if (result.error === "COMMITMENT_NOT_ACTIVE") return res.status(409).json(result);
       if (result.error) return res.status(400).json(result);
 

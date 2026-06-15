@@ -423,6 +423,15 @@ export async function createEmergencyAgreement(pool, { demandId, commitmentId, c
     );
     const commitment = cRows[0];
     if (!commitment) return { error: "NOT_FOUND" };
+    // Org-Boundary: nur die beiden Parteien des Commitments — das anfragende
+    // Unternehmen (requester) ODER die zusagende Agentur (supplier) — dürfen daraus
+    // eine bindende Vereinbarung erzeugen. emergencyAccess ist nur ein Feature-Gate
+    // (emergency_staffing), KEIN Ownership-Check; ohne diese Prüfung könnte eine
+    // fremde Org ein accepted Offer + Agreement auf eine fremde Notlage erzeugen
+    // (Cross-Org-IDOR). Spiegelt die Autorisierung von updateCommitmentStatus.
+    const isRequester = commitment.requester_company_id === actorId;
+    const isSupplier  = commitment.supplier_company_id === actorId;
+    if (!isRequester && !isSupplier) return { error: "FORBIDDEN" };
     if (commitment.status !== "committed") return { error: "COMMITMENT_NOT_ACTIVE", current: commitment.status };
 
     // Offer für Sofortvereinbarung erstellen
