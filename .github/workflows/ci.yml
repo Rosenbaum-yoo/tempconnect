@@ -397,6 +397,88 @@ jobs:
         run: docker compose down -v
 
   # ──────────────────────────────────────────
+  # Job 6b: E2E Core flows (manual/nightly) — E-01 / F4.2
+  # Kernflow (Requisition→Deal→Assignment→Timesheet) + Hub-Navigation +
+  # OCC-Access-Guards + Einsatzportal + Executive-Dashboard gegen den vollen Stack.
+  # ──────────────────────────────────────────
+  e2e-core:
+    name: E2E Core Flows
+    runs-on: ubuntu-latest
+    if: github.event_name == 'workflow_dispatch' || github.event_name == 'schedule'
+    timeout-minutes: 30
+
+    env:
+      E2E_STAFF_EMAIL: ${{ secrets.E2E_STAFF_EMAIL }}
+      E2E_STAFF_PASSWORD: ${{ secrets.E2E_STAFF_PASSWORD }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          cache-dependency-path: package-lock.json
+
+      - name: Install root dependencies
+        run: npm ci
+
+      - name: Install Playwright browser
+        run: npx playwright install --with-deps chromium
+
+      - name: Create .env file
+        run: |
+          cat > .env << 'EOF'
+          NODE_ENV=test
+          POSTGRES_DB=tempconnect
+          POSTGRES_USER=tempconnect
+          POSTGRES_PASSWORD=tempconnect_pw
+          DATABASE_URL=postgres://tempconnect:tempconnect_pw@db:5432/tempconnect
+          SESSION_SECRET=ci_test_secret
+          CORS_ORIGIN=http://localhost:8080
+          BASE_URL=http://localhost:8080
+          SMTP_HOST=mailpit
+          SMTP_PORT=1025
+          SMTP_FROM=test@tempconnect.local
+          FRONTEND_PORT=8080
+          API_EXTERNAL_PORT=3000
+          DB_EXTERNAL_PORT=5432
+          MAILPIT_UI_PORT=8025
+          MAILPIT_SMTP_PORT=1025
+          EOF
+
+      - name: Start Docker Compose
+        run: |
+          docker compose up -d
+          sleep 30
+          curl -f http://localhost:8080/health
+          curl -f http://localhost:8080/api/health
+
+      - name: Run core Playwright flows
+        run: npm run test:e2e:core
+
+      - name: Upload Playwright report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: e2e-core-report
+          path: |
+            playwright-report
+            e2e/test-results
+          retention-days: 14
+          if-no-files-found: ignore
+
+      - name: Collect logs on failure
+        if: failure()
+        run: docker compose logs --no-color
+
+      - name: Stop Docker Compose
+        if: always()
+        run: docker compose down -v
+
+  # ──────────────────────────────────────────
   # Job 7: Subscription mutation baseline (manual/nightly)
   # ──────────────────────────────────────────
   subscription-mutation:
@@ -494,6 +576,80 @@ jobs:
       - name: Run autocannon smoke
         working-directory: ./api
         run: npm run perf:smoke
+
+      - name: Collect logs on failure
+        if: failure()
+        run: docker compose logs --no-color
+
+      - name: Stop Docker Compose
+        if: always()
+        run: docker compose down -v
+
+  # ──────────────────────────────────────────
+  # Job 8b: Backup & Restore Drill (manual/nightly) — O-08 / F3.5
+  # Beweist die volle Kette backup.sh → restore-test.sh gegen einen echten
+  # Compose-Stack in einer isolierten Wegwerf-DB. Run-Log als Artefakt.
+  # ──────────────────────────────────────────
+  restore-drill:
+    name: Backup & Restore Drill
+    runs-on: ubuntu-latest
+    if: github.event_name == 'workflow_dispatch' || github.event_name == 'schedule'
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Create .env file
+        run: |
+          cat > .env << 'EOF'
+          NODE_ENV=test
+          POSTGRES_DB=tempconnect
+          POSTGRES_USER=tempconnect
+          POSTGRES_PASSWORD=tempconnect_pw
+          DATABASE_URL=postgres://tempconnect:tempconnect_pw@db:5432/tempconnect
+          SESSION_SECRET=ci_test_secret
+          CORS_ORIGIN=http://localhost:8080
+          BASE_URL=http://localhost:8080
+          SMTP_HOST=mailpit
+          SMTP_PORT=1025
+          SMTP_FROM=test@tempconnect.local
+          FRONTEND_PORT=8080
+          API_EXTERNAL_PORT=3000
+          DB_EXTERNAL_PORT=5432
+          MAILPIT_UI_PORT=8025
+          MAILPIT_SMTP_PORT=1025
+          EOF
+
+      - name: Start Docker Compose
+        run: |
+          docker compose up -d
+          sleep 30
+          curl -f http://localhost:8080/api/health
+
+      - name: Run backup + restore drill
+        run: |
+          set -euo pipefail
+          mkdir -p drill-artifacts
+          LOG="drill-artifacts/restore-drill-${GITHUB_SHA::7}.log"
+          {
+            echo "# TempConnect Restore-Drill (CI) — $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+            echo "# ref: ${GITHUB_SHA}"
+            echo "========================================================"
+            echo "### SCHRITT 1/2 — Backup"
+            bash scripts/backup.sh --db-only
+            echo ""
+            echo "### SCHRITT 2/2 — Restore-Test (isolierte DB)"
+            bash scripts/restore-test.sh
+          } | tee "$LOG"
+
+      - name: Upload drill run-log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: restore-drill-log
+          path: drill-artifacts/*.log
+          retention-days: 30
 
       - name: Collect logs on failure
         if: failure()

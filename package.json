@@ -34,6 +34,7 @@
     "posthog:import-insights": "node scripts/posthog/import-insights.mjs",
     "test:e2e": "npx playwright test --config e2e/playwright.config.js",
     "test:e2e:smoke": "npx playwright test --config e2e/playwright.config.js --grep @commercial-smoke",
+    "test:e2e:core": "npx playwright test --config e2e/playwright.config.js kernflow occ-access-guards einsatzportal executive-dashboard",
     "test:e2e:ui": "npx playwright test --config e2e/playwright.config.js --ui"
   },
   "devDependencies": {
