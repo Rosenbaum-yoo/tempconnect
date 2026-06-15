@@ -174,7 +174,9 @@ und Hetzner (F3) laufen vollständig parallel und warten am Ende NUR auf Steuern
 
 ### Phase F2.4 — Produkt-Restentscheidungen (bis 11.07., festlegen)
 - [ ] MFA-Enforce-Modus owner/admin/finance (O-05): enforce ab wann + Enrollment-Frist
+  - [x] **Mechanismus fertig (14.06., review-gehärtet 15.06.):** Enforce ist jetzt ein **Owner-Config-Flip** ohne Code-Änderung — `MFA_ENFORCE=true` (+ optional `MFA_ENFORCE_FROM=<ISO-Datum>` als Enrollment-Frist; unparsierbares Datum = fail-safe Audit-Only). Default = Audit-Only (unverändertes Verhalten). Greift auf **5 Plattform-Surfaces** (OCC×3, payment, settings) — alle via `req.session.userId` mit funktionierendem `/mfa/*`-Enroll-Pfad → kein Lockout. **SCC ist bewusst ausgenommen** (Staff-Session ohne MFA-Enroll-Pfad → env-Enforce würde aussperren; nutzt Step-up). 14/14 Middleware-Tests grün. Owner muss nur noch **wann + welches Datum** entscheiden und die Env setzen.
 - [ ] SSO: Option B (ehrlicher Soft-Lock, Status quo) für Marktstart bestätigen (O-06)
+  - [x] **Code ist Option B (verifiziert 14.06.):** SSO ist per-Org (`org_sso_config`), Stub-Modus = ehrlicher Soft-Lock (Karte nicht buchbar), Break-Glass-Passwort-Login bleibt. Reine **Owner-Bestätigung** offen — kein Code nötig.
 - [ ] Notification-Polling-Intervall (Empf. 60s) + bell_priority-Schwellen (Track D)
 - [ ] Schimpfwort-Liste reviewen/ergänzen (`contentModerationService.js` BADWORDS)
 - [ ] Track A (Marketplace Visibility/Bounties): als Post-Launch bestätigen (Empfehlung aus MANUAL_TASKS)
@@ -207,7 +209,8 @@ und Hetzner (F3) laufen vollständig parallel und warten am Ende NUR auf Steuern
 - **Abnahme:** je Sweep ein manueller 200-Lauf geloggt; Alert-Testfeuer kommt an
 
 ### Phase F3.5 — Restore-Drill REAL (O-08 / P1.4) — 0,5 PT
-- [ ] `backup.sh` → `backup-verify.sh` → `restore-test.sh` gegen Staging/Prod-Kopie, **Run-Log als Artefakt**
+- [x] **Autonome Vorarbeit (14.06.):** Drill-Kette lokal gegen echte Dev-DB END-TO-END BESTANDEN (170 Tabellen, 145 Migrationen, FK-Konsistenz ok, atomarer Single-Transaction-Restore) — Run-Log: `docs/releases/restore-drills/drill_*.log`. **2 echte Skript-Bugs gefixt** (vom Drill aufgedeckt): (a) `backup-verify.sh` parste das Manifest mit `python3` → Windows-Store-python3 mishandelt MSYS-Pfade → False-Confidence; jetzt portabler sed/grep-Parser. (b) `restore-test.sh` nutzt jetzt stdin-Stream statt `docker cp`+`/tmp` (pfad-robust, kein Tempfile). CI-Job `restore-drill` (nightly) ergänzt mit Run-Log-Artefakt.
+- [ ] **Owner/Infra (F3):** dieselbe Kette gegen Staging/Prod-Kopie auf Hetzner, **Run-Log als Artefakt** ablegen
 - **Abnahme:** Log zeigt vollständigen Restore in frische DB (single-transaction, exit-on-error), App startet dagegen
 
 ---
@@ -215,12 +218,14 @@ und Hetzner (F3) laufen vollständig parallel und warten am Ende NUR auf Steuern
 ## Welle F4 — Burn-in & Abnahmetests (August, KW 32–33 · O-09/WAVE16)
 
 ### Phase F4.1 — Pre-Prod-Burn-in ≥7 Tage
-- [ ] Stack lt. `docs/releases/WAVE16_BURNIN_RUNBOOK.md` betreiben; tägliche Checks (Sentry, Logs, Health, Disk)
+- [x] **Autonome Vorarbeit (14.06.):** `scripts/burnin-check.sh` automatisiert die täglichen Runbook-Checks (Health/Ready/Live, Fatal/Error-Lograte 24h, 5xx-Count, Backup-Frische <25h, Memory, Secret-Leak-Scan) zu EINEM Kommando → strukturierte Protokollzeile + Exit-Code (P0→1). Lokal gegen Dev-Stack grün verifiziert. `BURNIN_PROTOCOL=…` hängt täglich an die Protokolldatei an.
+- [ ] **Owner/Betrieb (F4):** Stack lt. `docs/releases/WAVE16_BURNIN_RUNBOOK.md` ≥7 Tage betreiben; `burnin-check.sh` täglich (Cron) ausführen
 - **Abnahme:** 7 Tage ohne offenes P0/P1; Burn-in-Protokoll geführt
 
 ### Phase F4.2 — Automatisierte Abnahme gegen Pre-Prod
+- [x] **Autonome Vorarbeit E-01 (14.06.):** Script `test:e2e:core` (Kernflow + Hub-Navigation + OCC-Guards + Einsatzportal + Executive-Dashboard) + CI-Job `e2e-core` (docker-compose-Stack, Playwright-HTML-Report als Artefakt) verdrahtet; alle 7 Core-Specs parsen. Vorher liefen NUR `@commercial-smoke` in CI — Kernflows hatten gar keinen CI-Job.
 - [ ] E2E-Kernflows + Einsatzportal + OCC-Guards gegen Pre-Prod grün
-- [ ] **E-01:** `test:e2e:smoke` in CI grün ziehen (App+DB im Runner)
+- [ ] **E-01 (CI-Runner):** `test:e2e:core`/`:smoke` in der Pipeline grün ziehen (App+DB im Runner; Seed/Secrets) — letzter Schliff, nur auf dem Runner ausführbar
 - [ ] `perf:smoke` p95 < 500ms auf Zielrouten
 - **Abnahme:** CI-Lauf-Links/Logs im Burn-in-Protokoll
 
