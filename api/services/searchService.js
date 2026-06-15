@@ -175,11 +175,15 @@ export async function search(pool, query, opts = {}) {
   const client = await getClient();
 
   if (client) {
+    // SICHERHEIT: Der Meilisearch-Pfad filtert (noch) NICHT pro Viewer (org-privat/opt-in). In der
+    // Pilot-/Hetzner-Umgebung ist Meilisearch nicht aktiv -> es laeuft der org-/sichtbarkeits-gescopte
+    // DB-Pfad unten. Vor Aktivierung von Meilisearch: pro-Index-Filter ergaenzen (requisitions org_id,
+    // capacity status, orgs is_public) — sonst cross-org-Leak.
     return searchMeilisearch(client, query, { type, limit, offset, filters: opts.filters, sort: opts.sort, start });
   }
 
-  // DB-Fallback
-  return searchDatabase(pool, query, { type, limit, offset, start });
+  // DB-Fallback (org-/sichtbarkeits-gescoped + Fuzzy via pg_trgm)
+  return searchDatabase(pool, query, { type, limit, offset, start, viewerOrgId: opts.viewerOrgId || null });
 }
 
 /**
@@ -368,78 +372,80 @@ function buildFilterString(filters) {
  * Database Fallback Search
  * ════════════════════════════════════════════════════════ */
 
-async function searchDatabase(pool, query, { type, limit, offset, start }) {
-  const term = `%${query.replace(/[%_]/g, "\\$&")}%`;
+async function searchDatabase(pool, query, { type, limit, offset, start, viewerOrgId }) {
+  // ILIKE-Term (Substring) + Roh-Query fuer den Trigram-%-Operator (Fuzzy/Tippfehler).
+  const like = `%${String(query).replace(/[%_\\]/g, "\\$&")}%`;
   const results = [];
   let total = 0;
 
-  const searchQueries = {
-    companies: {
-      sql: `SELECT id, company_name, legal_name, city, postal_code, type, 'companies' AS _index
-            FROM users
-            WHERE (company_name ILIKE $1 OR legal_name ILIKE $1 OR city ILIKE $1)
-              AND company_name IS NOT NULL
-            ORDER BY company_name ASC
-            LIMIT $2 OFFSET $3`,
-      countSql: `SELECT COUNT(*)::int AS c FROM users
-                 WHERE (company_name ILIKE $1 OR legal_name ILIKE $1 OR city ILIKE $1)
-                   AND company_name IS NOT NULL`
-    },
-    suppliers: {
-      sql: `SELECT id, company_name, legal_name, city, type, 'suppliers' AS _index
-            FROM users
-            WHERE type = 'agency'
-              AND (company_name ILIKE $1 OR legal_name ILIKE $1 OR city ILIKE $1)
-            ORDER BY company_name ASC
-            LIMIT $2 OFFSET $3`,
-      countSql: `SELECT COUNT(*)::int AS c FROM users
-                 WHERE type = 'agency'
-                   AND (company_name ILIKE $1 OR legal_name ILIKE $1 OR city ILIKE $1)`
+  // KORREKTE Sichtbarkeit pro Domain (Phase-5-Mapping, gegen den Domain-Code verifiziert):
+  //  - requisitions: ORG-PRIVAT -> nur die eigene Org (org_id = viewerOrgId). Kein viewerOrgId -> keine Treffer.
+  //  - capacity_posts: MARKTPLATZ -> nur aktiv, nicht-privat, nicht-abgelaufen.
+  //  - companies: VERZEICHNIS -> nur Orgs mit Opt-in (profile_visibility_settings is_public + approved).
+  // Match = Substring (ILIKE) ODER Trigram-Aehnlichkeit (%) -> Tippfehler-/Teilwort-Toleranz; Ranking via similarity().
+  const domains = {
+    requisitions: !viewerOrgId ? null : {
+      sql: `SELECT id, title, role, location_city, status, org_id, 'requisitions' AS _index,
+                   GREATEST(similarity(coalesce(title,''),$2), similarity(coalesce(role,''),$2)) AS _score
+            FROM requisitions
+            WHERE org_id = $5
+              AND (title ILIKE $1 OR role ILIKE $1 OR location_city ILIKE $1 OR description ILIKE $1
+                   OR title % $2 OR role % $2)
+            ORDER BY _score DESC NULLS LAST, created_at DESC
+            LIMIT $3 OFFSET $4`,
+      params: [like, query, limit, offset, viewerOrgId],
+      count: `SELECT COUNT(*)::int AS c FROM requisitions
+              WHERE org_id = $3 AND (title ILIKE $1 OR role ILIKE $1 OR location_city ILIKE $1 OR description ILIKE $1 OR title % $2 OR role % $2)`,
+      countParams: [like, query, viewerOrgId]
     },
     capacity_posts: {
-      sql: `SELECT id, title, role, location_city, status, 'capacity_posts' AS _index
+      sql: `SELECT id, title, role, location_city, status, 'capacity_posts' AS _index,
+                   GREATEST(similarity(coalesce(title,''),$2), similarity(coalesce(role,''),$2)) AS _score
             FROM capacity_posts
-            WHERE (title ILIKE $1 OR role ILIKE $1 OR location_city ILIKE $1
-                   OR description ILIKE $1)
-            ORDER BY created_at DESC
-            LIMIT $2 OFFSET $3`,
-      countSql: `SELECT COUNT(*)::int AS c FROM capacity_posts
-                 WHERE (title ILIKE $1 OR role ILIKE $1 OR location_city ILIKE $1
-                        OR description ILIKE $1)`
+            WHERE status = 'active'
+              AND (visibility_status IS NULL OR visibility_status <> 'private')
+              AND (availability_to IS NULL OR availability_to >= CURRENT_DATE)
+              AND (title ILIKE $1 OR role ILIKE $1 OR location_city ILIKE $1 OR title % $2 OR role % $2)
+            ORDER BY _score DESC NULLS LAST, created_at DESC
+            LIMIT $3 OFFSET $4`,
+      params: [like, query, limit, offset],
+      count: `SELECT COUNT(*)::int AS c FROM capacity_posts
+              WHERE status = 'active' AND (visibility_status IS NULL OR visibility_status <> 'private')
+                AND (availability_to IS NULL OR availability_to >= CURRENT_DATE)
+                AND (title ILIKE $1 OR role ILIKE $1 OR location_city ILIKE $1 OR title % $2 OR role % $2)`,
+      countParams: [like, query]
     },
-    requisitions: {
-      sql: `SELECT id, title, role, location_city, status, org_id, 'requisitions' AS _index
-            FROM requisitions
-            WHERE (title ILIKE $1 OR role ILIKE $1 OR location_city ILIKE $1
-                   OR description ILIKE $1)
-            ORDER BY created_at DESC
-            LIMIT $2 OFFSET $3`,
-      countSql: `SELECT COUNT(*)::int AS c FROM requisitions
-                 WHERE (title ILIKE $1 OR role ILIKE $1 OR location_city ILIKE $1
-                        OR description ILIKE $1)`
+    companies: {
+      sql: `SELECT o.id, o.name AS company_name, o.legal_name, 'companies' AS _index,
+                   GREATEST(similarity(coalesce(o.name,''),$2), similarity(coalesce(o.legal_name,''),$2)) AS _score
+            FROM organizations o
+            WHERE EXISTS (SELECT 1 FROM profile_visibility_settings pvs
+                          WHERE pvs.org_id = o.id AND pvs.is_public = TRUE AND pvs.status = 'approved')
+              AND (o.name ILIKE $1 OR o.legal_name ILIKE $1 OR o.name % $2 OR o.legal_name % $2)
+            ORDER BY _score DESC NULLS LAST, o.name ASC
+            LIMIT $3 OFFSET $4`,
+      params: [like, query, limit, offset],
+      count: `SELECT COUNT(*)::int AS c FROM organizations o
+              WHERE EXISTS (SELECT 1 FROM profile_visibility_settings pvs
+                            WHERE pvs.org_id = o.id AND pvs.is_public = TRUE AND pvs.status = 'approved')
+                AND (o.name ILIKE $1 OR o.legal_name ILIKE $1 OR o.name % $2 OR o.legal_name % $2)`,
+      countParams: [like, query]
     }
   };
 
-  const typesToSearch = type === "all"
-    ? Object.keys(searchQueries)
-    : (searchQueries[type] ? [type] : []);
-
-  for (const t of typesToSearch) {
-    const q = searchQueries[t];
+  const want = type === "all" ? Object.keys(domains) : (domains[type] ? [type] : []);
+  for (const t of want) {
+    const d = domains[t];
+    if (!d) continue; // z.B. requisitions ohne viewerOrgId -> sicher uebersprungen
     try {
-      const { rows } = await pool.query(q.sql, [term, limit, offset]);
+      const { rows } = await pool.query(d.sql, d.params);
       results.push(...rows);
-      const { rows: countRows } = await pool.query(q.countSql, [term]);
-      total += countRows[0]?.c || 0;
+      const { rows: c } = await pool.query(d.count, d.countParams);
+      total += c[0]?.c || 0;
     } catch (err) {
-      log.warn({ type: t, err: err.message }, "DB-Fallback Search fehlgeschlagen");
+      log.warn({ type: t, err: err.message }, "DB-Suche fehlgeschlagen");
     }
   }
 
-  return {
-    results,
-    total,
-    source: "database",
-    durationMs: Date.now() - start
-  };
+  return { results, total, source: "database", durationMs: Date.now() - start };
 }

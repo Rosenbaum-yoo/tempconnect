@@ -35,7 +35,9 @@ export function createSearchRouter(deps) {
       const limit = Math.min(parseInt(req.query.limit) || 20, 100);
       const offset = Math.max(parseInt(req.query.offset) || 0, 0);
 
-      const result = await searchService.search(pool, q, { type, limit, offset });
+      // viewerOrgId scoped org-private Domains (requisitions). Marktplatz/Verzeichnis-Domains
+      // sind statisch sichtbarkeits-gefiltert im Service.
+      const result = await searchService.search(pool, q, { type, limit, offset, viewerOrgId: req.orgId || null });
 
       // Domain Event loggen
       domainLogger.searchPerformed({
