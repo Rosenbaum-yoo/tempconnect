@@ -88,6 +88,17 @@ Bereits im Code — die „bis zu 6 Monate kostenfrei"-Struktur, die der Owner v
 
 ---
 
+## 2.9 — Cloudflare-Hosting (Modell + Stand)
+
+**Sanktioniertes Modell: Cloudflare *vor* Hetzner** (DNS-Proxy/CDN/WAF), kein Workers-Rewrite.
+- One-Pager + `/api/*` laufen **same-origin** hinter CF → CSRF/Cookies/Formular/`/pilot`-Redirect funktionieren ohne Extra-Config. `trust proxy=1`, secure-Cookies bei HTTPS, CORS in Prod zu.
+- **nginx CF-real-IP** (ergänzt 2026-06-15): echte Besucher-IP via `CF-Connecting-IP`, nur aus CF-Ranges → per-IP-Limiter/Abuse-Controls greifen korrekt (nicht „alle = Cloudflare-IP"). Ungenutzt harmlos.
+- **Voranmelde-Endpoint gehärtet:** dedizierter strenger Limiter (8/15min/IP prod), Opt-in-Token 30 Tage gültig, Honeypot. Offen für Launch: CAPTCHA/Turnstile + per-Empfänger-Sendecap, sobald echter Mail-Provider aktiv.
+- **Alternative** (One-Pager als eigenständige CF-Pages-Seite, anderer Origin): bräuchte CORS-Freigabe + Cookie `SameSite=None;Secure` → komplexer; das In-Front-Modell ist einfacher + empfohlen.
+- **Owner-Schritte zum Launch:** Domain bei CF orange-clouden (Proxy an), TLS „Full (strict)", echten Mail-Provider (SMTP/SendGrid) + `PILOT_NOTIFY_EMAIL` setzen.
+
+---
+
 ## 3 — Geschärfte Prinzipien (EMPFEHLUNG — gegenüber dem Ursprungsplan)
 
 1. **Kuratieren auf *Passung*, nicht auf *Reihenfolge*.** Voranmeldung = kurze Bewerbung mit **3 Feldern: Region · Branche · freie Kapazität bzw. konkreter Bedarf**. Dann 25 **zueinander passende Paare** auswählen → am Launch-Tag entstehen sofort echte Matches/Deals.
