@@ -118,22 +118,27 @@ pass "PostgreSQL-Container gestartet (${WAIT_COUNT}s)"
 # melden (False-Confidence). --exit-on-error ist redundant zu --single-transaction,
 # wird aber explizit gesetzt, damit die Absicht im Skript sichtbar bleibt.
 log "Spiele DB-Dump ein (atomar, --single-transaction wie im echten Restore)..."
-docker cp "$DB_DUMP" "$TEST_CONTAINER:/tmp/db.dump"
-docker exec "$TEST_CONTAINER" \
-  pg_restore /tmp/db.dump \
+# Dump via stdin streamen statt docker cp + /tmp-Tempfile:
+#  - eine Operation weniger, kein Tempfile im Container
+#  - pfad-robust: KEIN /tmp- oder Host-Pfad-Argument, das von Git-Bash/Docker auf
+#    Windows-Dev-Hosts in einen Windows-Pfad umgeschrieben wird (MSYS-Pathconv)
+#  - identische Fidelity auf Linux/CI: exakt dieselben pg_restore-Flags
+docker exec -i "$TEST_CONTAINER" \
+  pg_restore \
     --dbname="$PG_DB" \
     --username="$PG_USER" \
     --no-owner \
     --no-privileges \
     --single-transaction \
-    --exit-on-error
+    --exit-on-error \
+  < "$DB_DUMP"
 
 # ── 3. Tabellenstruktur validieren ──────────────────────────────────────────
 log "Validiere Tabellenstruktur..."
 
 TABLE_COUNT=$(docker exec "$TEST_CONTAINER" psql -U "$PG_USER" -d "$PG_DB" -t -c \
   "SELECT count(*) FROM information_schema.tables WHERE table_schema = 'public';" \
-  | tr -d ' ')
+  | tr -d ' ' || echo "0")
 
 if [ "$TABLE_COUNT" -gt 20 ]; then
   pass "Tabellenanzahl: $TABLE_COUNT (erwartet: >20)"
@@ -146,7 +151,7 @@ CRITICAL_TABLES="users organizations subscriptions listings requests contracts a
 for tbl in $CRITICAL_TABLES; do
   EXISTS=$(docker exec "$TEST_CONTAINER" psql -U "$PG_USER" -d "$PG_DB" -t -c \
     "SELECT count(*) FROM information_schema.tables WHERE table_schema = 'public' AND table_name = '$tbl';" \
-    | tr -d ' ')
+    | tr -d ' ' || echo "0")
   if [ "$EXISTS" = "1" ]; then
     pass "Tabelle '$tbl' vorhanden"
   else

@@ -70,6 +70,24 @@ manifest_bool() {
   grep -o "\"$1\"[[:space:]]*:[[:space:]]*[a-z]*" "$MANIFEST" | head -1 | sed 's/.*: *//'
 }
 
+# Section-aware JSON-Feld-Extraktion (z. B. db/uploads → included/sha256).
+# Portabel via sed/grep — KEIN python3/jq. Der Restore-Drill (2026-06-14) hat
+# gezeigt, dass ein Windows-Store-python3 MSYS-Pfade (/c/... mit Leerzeichen)
+# nicht öffnen kann und dann auf FALSCHE Defaults zurückfällt
+# (uploads.included → "true" trotz --db-only) → False-Confidence-Verifikation.
+# sed/grep ist auf jedem Host vorhanden und pfad-robust.
+manifest_section_field() {
+  # Trailing "|| true": fehlt die Section/das Feld (korruptes/abgeschnittenes
+  # Manifest), liefert grep non-zero → unter `set -euo pipefail` würde die
+  # Command-Substitution sonst das GANZE Skript still abbrechen, BEVOR der
+  # Fail-safe-Default (=\"true\") + die laute fail()-Meldung greifen. So bleibt
+  # die Ausgabe leer, der Default zieht und der Verifier schlägt sichtbar an.
+  sed -n "/\"$1\"[[:space:]]*:/,/}/p" "$MANIFEST" \
+    | grep "\"$2\"" | head -1 \
+    | sed -E "s/.*\"$2\"[[:space:]]*:[[:space:]]*\"?([^\",}]*)\"?.*/\1/" \
+    | tr -d ' ' || true
+}
+
 TIMESTAMP=$(manifest_value "timestamp")
 DB_INCLUDED=$(manifest_bool "included" | head -1)
 DB_SHA=$(manifest_value "sha256" | head -1)
@@ -79,30 +97,15 @@ log "  Backup-Zeitstempel: $TIMESTAMP"
 # ── 2. DB-Dump prüfen ───────────────────────────────────────────────────────
 DB_DUMP="$BACKUP_PATH/db.dump"
 
-# Lese DB und Uploads included-Status korrekt aus dem Manifest
-DB_INCLUDED=$(python3 -c "
-import json, sys
-m = json.load(open('$MANIFEST'))
-print(str(m['contents']['db']['included']).lower())
-" 2>/dev/null || echo "true")
-
-UPLOADS_INCLUDED=$(python3 -c "
-import json, sys
-m = json.load(open('$MANIFEST'))
-print(str(m['contents']['uploads']['included']).lower())
-" 2>/dev/null || echo "true")
-
-DB_SHA=$(python3 -c "
-import json, sys
-m = json.load(open('$MANIFEST'))
-print(m['contents']['db']['sha256'])
-" 2>/dev/null || echo "")
-
-UPLOADS_SHA=$(python3 -c "
-import json, sys
-m = json.load(open('$MANIFEST'))
-print(m['contents']['uploads']['sha256'])
-" 2>/dev/null || echo "")
+# Lese DB- und Uploads-Status section-aware aus dem Manifest (sed/grep, kein python3).
+# Fail-safe-Richtung: kann included nicht gelesen werden, gilt "true" → der Verifier
+# erwartet die Datei und schlägt LAUT an, statt sie still zu überspringen.
+DB_INCLUDED=$(manifest_section_field "db" "included")
+[ -z "$DB_INCLUDED" ] && DB_INCLUDED="true"
+UPLOADS_INCLUDED=$(manifest_section_field "uploads" "included")
+[ -z "$UPLOADS_INCLUDED" ] && UPLOADS_INCLUDED="true"
+DB_SHA=$(manifest_section_field "db" "sha256")
+UPLOADS_SHA=$(manifest_section_field "uploads" "sha256")
 
 if [ "$DB_INCLUDED" = "true" ]; then
   log "Datenbank-Dump..."

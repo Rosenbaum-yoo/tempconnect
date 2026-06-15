@@ -1,0 +1,70 @@
+# TempConnect Restore-Drill Run-Log
+# Ausgefuehrt: 2026-06-15T07:48:59Z (lokaler Dev-Stack, isolierter Wegwerf-Container)
+# Kette: backup.sh --db-only  ->  restore-test.sh (stdin-stream, --single-transaction --exit-on-error)
+# Skripte review-gehaertet: backup-verify sed-Parser + fail-safe; restore-test stdin + psql-Fallbacks.
+============================================================
+
+### SCHRITT 1/2 — Backup
+[backup] 09:49:02 Backup gestartet → /c/Users/DennisStegemann/OneDrive - BBQ - Baumann Bildung und Qualifizierung GmbH/Desktop/Tempconnect_laufendeVersion24.02.2026/tempconnect_docker/backups/2026-06-15_094900
+[backup] 09:49:02 Datenbank-Backup...
+[backup] 09:49:02   Modus: Docker-Container (tempconnect_db)
+WARNING:  database "tempconnect" has no actual collation version, but a version was recorded
+[backup] 09:49:19   DB-Dump: 1528 KB, SHA-256: c278402897713cea...
+[backup] 09:49:20 Upload-Backup übersprungen (--db-only)
+[backup] 09:49:22 Manifest erstellt
+[backup] 09:49:23 Retention: Lösche Backups älter als 30 Tage...
+[backup] 09:49:25   Keine abgelaufenen Backups gefunden
+[backup] 09:49:25 ═══════════════════════════════════════════════════
+[backup] 09:49:25 Backup abgeschlossen in 18s
+[backup] 09:49:25   Pfad:     /c/Users/DennisStegemann/OneDrive - BBQ - Baumann Bildung und Qualifizierung GmbH/Desktop/Tempconnect_laufendeVersion24.02.2026/tempconnect_docker/backups/2026-06-15_094900
+[backup] 09:49:26   DB:       1528 KB (docker)
+[backup] 09:49:26   Gesamt:   1528 KB
+[backup] 09:49:26 ═══════════════════════════════════════════════════
+[backup] 09:49:26 Status-File aktualisiert: /c/Users/DennisStegemann/OneDrive - BBQ - Baumann Bildung und Qualifizierung GmbH/Desktop/Tempconnect_laufendeVersion24.02.2026/tempconnect_docker/backups/last_success_epoch
+
+### SCHRITT 2/2 — Restore-Test (isolierte DB)
+[restore-test] 09:49:27 Verwende neuestes Backup: 2026-06-15_094900
+[restore-test] 09:49:27 ═══════════════════════════════════════════════════
+[restore-test] 09:49:27 TempConnect — Automatisierter Restore-Test
+[restore-test] 09:49:27 Backup: 2026-06-15_094900
+[restore-test] 09:49:27 ═══════════════════════════════════════════════════
+[restore-test] 09:49:27 Verifiziere Backup vor Restore-Test...
+[restore-test] 09:49:29   ✓ Backup-Verifikation bestanden
+[restore-test] 09:49:29 Starte temporären PostgreSQL-Container...
+[restore-test] 09:49:32 Warte auf PostgreSQL-Startup...
+[restore-test] 09:49:41   ✓ PostgreSQL-Container gestartet (3s)
+[restore-test] 09:49:42 Spiele DB-Dump ein (atomar, --single-transaction wie im echten Restore)...
+[restore-test] 09:49:57 Validiere Tabellenstruktur...
+[restore-test] 09:49:58   ✓ Tabellenanzahl: 170 (erwartet: >20)
+[restore-test] 09:49:59   ✓ Tabelle 'users' vorhanden
+[restore-test] 09:50:00   ✓ Tabelle 'organizations' vorhanden
+[restore-test] 09:50:01   ✓ Tabelle 'subscriptions' vorhanden
+[restore-test] 09:50:02   ✓ Tabelle 'listings' vorhanden
+[restore-test] 09:50:03   ✓ Tabelle 'requests' vorhanden
+[restore-test] 09:50:05   ✓ Tabelle 'contracts' vorhanden
+[restore-test] 09:50:06   ✓ Tabelle 'assignments' vorhanden
+[restore-test] 09:50:07   ✓ Tabelle 'timesheets' vorhanden
+[restore-test] 09:50:08   ✓ Tabelle 'invoices' vorhanden
+[restore-test] 09:50:09   ✓ Tabelle 'audit_log' vorhanden
+[restore-test] 09:50:10   ✓ Tabelle '_migrations' vorhanden
+[restore-test] 09:50:10 Prüfe Zeilenanzahl kritischer Tabellen...
+[restore-test] 09:50:11   ✓ users: 325 Zeilen
+[restore-test] 09:50:11   ✓ organizations: 570 Zeilen
+[restore-test] 09:50:12   ✓ subscriptions: 302 Zeilen
+[restore-test] 09:50:12   ✓ listings: 23 Zeilen
+[restore-test] 09:50:13   ✓ _migrations: 145 Zeilen
+[restore-test] 09:50:13   ✓ Migrations vorhanden: 145
+[restore-test] 09:50:14 Prüfe FK-Konsistenz...
+[restore-test] 09:50:15   ✓ Keine verwaisten Subscriptions
+[restore-test] 09:50:15   ✓ Keine verwaisten Listings
+[restore-test] 09:50:15 
+[restore-test] 09:50:16 ═══════════════════════════════════════════════════
+[restore-test] 09:50:16 Restore-Test abgeschlossen in 48s
+[restore-test] 09:50:16   Bestanden: 17
+[restore-test] 09:50:16   Fehlgeschlagen: 0
+[restore-test] 09:50:16   STATUS: BESTANDEN
+[restore-test] 09:50:16 ═══════════════════════════════════════════════════
+[restore-test] 09:50:16 Räume Test-Container auf...
+tempconnect_restore_test_1584
+
+### DRILL-ERGEBNIS: exit=0 (BESTANDEN)
