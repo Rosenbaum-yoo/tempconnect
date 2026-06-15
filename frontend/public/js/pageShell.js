@@ -288,8 +288,13 @@
   function buildTopbar() {
     var h = "";
 
+    /* Zwei-Zeilen-Topbar: Zeile 1 = Brand + Nav-Cluster (Buttons/Glocke/Profil), Zeile 2 = Suche (volle Breite). */
+    h += '<nav class="ds-topbar tc-shell-topbar tc-shell-topbar--stacked" data-notif-topbar>';
+
+    /* ── ROW 1: Brand (links) + Hamburger + Nav-Cluster (Links · Glocke · Profil, rechts) ── */
+    h += '<div class="tc-shell-topbar__row tc-shell-topbar__row1">';
+
     /* Brand */
-    h += '<nav class="ds-topbar tc-shell-topbar" data-notif-topbar>';
     h += '<a href="/public/enterprise.html" id="tc-shell-brand-link" class="ds-topbar__brand" style="text-decoration:none;color:inherit">';
     h += '<span class="ds-topbar__brand-dot"></span>' + esc(BRAND);
     h += '</a>';
@@ -336,6 +341,23 @@
     h += '</div>';
 
     h += '</div>'; /* /nav */
+    h += '</div>'; /* /row1 */
+
+    /* ── ROW 2: Globale Suche über volle Breite (eigene Zeile, Command-Bar).
+       Nicht im Einsatzportal (Worker-Bereich, Owner-Vorgabe) — dort wird die GANZE Zeile
+       weggelassen (kein leerer Hairline-Streifen). OCC/SCC/SOC nutzen diese Shell ohnehin nicht. */
+    if (location.pathname.indexOf("einsatzportal") === -1) {
+      h += '<div class="tc-shell-topbar__row tc-shell-topbar__row2">';
+      h += '<div class="tc-shell-search" role="search">';
+      h += '<svg class="tc-shell-search__icon" viewBox="0 0 20 20" width="16" height="16" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="8.5" cy="8.5" r="5.5"></circle><line x1="13" y1="13" x2="18" y2="18"></line></svg>';
+      h += '<input id="tc-global-search" class="tc-shell-search__input" type="search" autocomplete="off" spellcheck="false" ' +
+           'placeholder="Suchen – Bedarfe, Kapazitäten, Firmen…" ' +
+           'aria-label="Plattformweite Suche" role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="tc-global-search-panel" />';
+      h += '<div id="tc-global-search-panel" class="tc-shell-search__panel" role="listbox" aria-label="Suchergebnisse" hidden></div>';
+      h += '</div>';
+      h += '</div>'; /* /row2 */
+    }
+
     h += '</nav>';
 
     return h;
@@ -772,6 +794,42 @@
       ".tc-shell-logout{display:inline-flex;align-items:center;gap:4px;padding:4px 10px;font-size:11px;font-weight:700;letter-spacing:.03em;border-radius:8px;border:1px solid rgba(255,92,122,.3);background:rgba(255,92,122,.07);color:rgba(255,160,140,.9);cursor:pointer;font-family:inherit;transition:background .15s,border-color .15s;white-space:nowrap;flex-shrink:0;line-height:1.4}",
       ".tc-shell-logout:hover{background:rgba(255,92,122,.18);border-color:rgba(255,92,122,.55);color:#ffb0a0}",
 
+      /* Global Search */
+      ".tc-shell-search{position:relative;display:flex;align-items:center;gap:8px;flex:0 1 360px;max-width:360px;min-width:150px;height:38px;margin:0 auto 0 18px;padding:0 12px;border-radius:10px;background:rgba(255,255,255,.05);border:1px solid var(--ds-border,rgba(255,255,255,.14));transition:border-color .15s,background .15s,box-shadow .15s}",
+      ".tc-shell-search:focus-within{border-color:var(--ds-brand,#4a9eff);background:rgba(255,255,255,.08);box-shadow:0 8px 26px rgba(0,0,0,.28)}",
+      ".tc-shell-search__icon{flex-shrink:0;color:var(--ds-text-secondary,#8d9bba)}",
+      ".tc-shell-search:focus-within .tc-shell-search__icon{color:var(--ds-brand,#4a9eff)}",
+      ".tc-shell-search__input{flex:1;min-width:0;height:100%;border:0;outline:0;background:transparent;color:var(--ds-text-primary,#fff);font-size:13px;font-family:inherit}",
+      ".tc-shell-search__input::placeholder{color:var(--ds-text-secondary,#8d9bba)}",
+      ".tc-shell-search__input::-webkit-search-cancel-button{-webkit-appearance:none}",
+      ".tc-shell-search__panel{position:absolute;top:calc(100% + 8px);left:0;right:0;z-index:9999;max-height:min(70vh,460px);overflow-y:auto;padding:6px;border-radius:12px;background:var(--ds-card,#1a1d24);border:1px solid var(--ds-border,rgba(255,255,255,.12));box-shadow:0 16px 48px rgba(0,0,0,.45)}",
+      ".tc-shell-search__panel[hidden]{display:none}",
+      ".tc-shell-search__group-label{padding:9px 10px 4px;font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--ds-text-secondary,#8d9bba)}",
+      ".tc-shell-search__opt{display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:8px;text-decoration:none;color:inherit;cursor:pointer}",
+      ".tc-shell-search__opt:hover,.tc-shell-search__opt--active{background:rgba(255,255,255,.07)}",
+      ".tc-shell-search__opt--static{cursor:default}",
+      ".tc-shell-search__opt--static:hover{background:transparent}",
+      ".tc-shell-search__opt-main{flex:1;min-width:0;display:flex;flex-direction:column;gap:1px}",
+      ".tc-shell-search__opt-title{font-size:13px;font-weight:600;color:var(--ds-text-primary,#fff);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}",
+      ".tc-shell-search__opt-sub{font-size:11px;color:var(--ds-text-secondary,#8d9bba);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}",
+      ".tc-shell-search__badge{flex-shrink:0;font-size:10px;font-weight:700;letter-spacing:.02em;padding:2px 8px;border-radius:999px;background:rgba(255,255,255,.09);color:var(--ds-text-secondary,#8d9bba)}",
+      ".tc-shell-search__state{padding:16px 12px;font-size:12px;color:var(--ds-text-secondary,#8d9bba);text-align:center}",
+      ".tc-shell-search__foot{margin-top:4px;padding:8px 10px;border-top:1px solid var(--ds-border,rgba(255,255,255,.08));font-size:11px;color:var(--ds-text-secondary,#8d9bba);display:flex;justify-content:space-between;align-items:center;gap:8px}",
+      ".tc-shell-search__foot a{color:var(--ds-text-secondary,#8d9bba);text-decoration:none;font-weight:600}",
+      ".tc-shell-search__foot a:hover{color:var(--ds-text-primary,#fff);text-decoration:underline}",
+      ".tc-shell-search__opt-ic{flex-shrink:0;color:var(--ds-text-secondary,#8d9bba)}",
+
+      /* Zwei-Zeilen-Topbar (Command-Bar) — Zeile 1 Brand+Nav, Zeile 2 Suche volle Breite */
+      ".tc-shell-topbar--stacked{flex-direction:column;align-items:stretch;justify-content:flex-start;gap:var(--ds-space-3,12px);border-radius:var(--ds-radius-lg,16px);position:relative}",
+      ".tc-shell-topbar--stacked .tc-shell-topbar__row{display:flex;align-items:center;width:100%;min-width:0}",
+      ".tc-shell-topbar--stacked .tc-shell-topbar__row1{justify-content:space-between;gap:var(--ds-space-3,12px)}",
+      ".tc-shell-topbar--stacked .tc-shell-topbar__row1 .tc-shell-nav{flex:0 0 auto;justify-content:flex-end;margin-left:auto}",
+      ".tc-shell-topbar--stacked .tc-shell-topbar__row2{padding-top:var(--ds-space-2,8px);border-top:1px solid var(--ds-border,rgba(255,255,255,.08))}",
+      ".tc-shell-topbar--stacked .tc-shell-topbar__row2:empty{display:none;border-top:0;padding-top:0}",
+      ".tc-shell-topbar--stacked .tc-shell-topbar__row2 .tc-shell-search{flex:1 1 auto;width:100%;max-width:none;min-width:0;height:42px;margin:0;padding:0 14px;border-radius:12px;background:rgba(255,255,255,.06);border:1px solid var(--ds-border,rgba(255,255,255,.14))}",
+      ".tc-shell-topbar--stacked .tc-shell-topbar__row2 .tc-shell-search:focus-within{border-color:var(--ds-brand,#4a9eff);background:rgba(255,255,255,.09);box-shadow:0 10px 30px rgba(0,0,0,.30)}",
+      ".tc-shell-topbar--stacked .tc-shell-topbar__row2 .tc-shell-search__panel{top:calc(100% + 8px);left:0;right:0}",
+
       /* Mobile responsive */
       "@media(max-width:768px){" +
         ".tc-shell-hamburger{display:flex}" +
@@ -781,6 +839,12 @@
         ".tc-shell-user{margin-left:0;width:100%}" +
         ".tc-shell-user__btn{margin-right:auto}" +
         ".tc-shell-logout{width:100%;justify-content:center;padding:8px 10px}" +
+        ".tc-shell-search{flex:1 1 auto;max-width:none;min-width:0;margin:0 8px}" +
+        ".tc-shell-topbar--stacked{gap:var(--ds-space-2,8px)}" +
+        ".tc-shell-topbar--stacked .tc-shell-topbar__row1{gap:var(--ds-space-2,8px)}" +
+        ".tc-shell-topbar--stacked .tc-shell-topbar__row2{padding-top:var(--ds-space-2,8px)}" +
+        ".tc-shell-topbar--stacked .tc-shell-nav{top:calc(100% + var(--ds-space-2,8px))}" +
+        ".tc-shell-topbar--stacked .tc-shell-topbar__row2 .tc-shell-search{margin:0}" +
       "}"
     ].join("\n");
     document.head.appendChild(style);
@@ -852,6 +916,7 @@
       initLogout();
       initMobileMenu();
       initNotificationStream();
+      initGlobalSearch();
     },
 
     /** Programmatically close all dropdowns. */
@@ -923,6 +988,175 @@
           .then(function (d) { if (d) updateBadge(d.count || 0); })
           .catch(function () {});
       }, 30000); // Poll every 30 seconds
+    }
+  }
+
+  /* ── Global Search (plattformweit, RBAC-/sichtbarkeits-gefiltert serverseitig) ──
+   * Topbar-Suchfeld -> GET /api/search?type=all. Ergebnisse nach Domain gruppiert,
+   * mit Deep-Links auf das konkrete Ziel (keine Sackgassen). Companies sind ein
+   * org-id-Verzeichnis, die Public-Profile-Seite ist aber user-id-basiert -> bewusst
+   * NICHT verlinkt (statische Info-Zeile) statt eines toten Links. Debounce + Abort-
+   * via-Sequenz + Tastaturnavigation + Lade-/Leer-/Fehlerzustand. */
+  function initGlobalSearch() {
+    var input = document.getElementById("tc-global-search");
+    var panel = document.getElementById("tc-global-search-panel");
+    if (!input || !panel) return; // im Einsatzportal nicht gerendert
+
+    var timer = null, lastQ = "", reqSeq = 0, activeIdx = -1, options = [];
+
+    var DOMAIN = {
+      requisitions:   { label: "Eigene Bedarfe",            badge: "Bedarf",     href: function (r) { return "/public/requisitions.html?focus_id=" + encodeURIComponent(r.id); } },
+      capacity_posts: { label: "Marktplatz · Kapazitäten", badge: "Kapazität", href: function (r) { return "/public/capacity_exchange_detail.html?id=" + encodeURIComponent(r.id) + "&type=supply"; } },
+      companies:      { label: "Firmenverzeichnis",         badge: "Firma",      href: null }
+    };
+    var ORDER = ["requisitions", "capacity_posts", "companies"];
+
+    function close() {
+      panel.hidden = true; panel.innerHTML = "";
+      input.setAttribute("aria-expanded", "false");
+      activeIdx = -1; options = [];
+    }
+    function openPanel(html) {
+      panel.innerHTML = html; panel.hidden = false;
+      input.setAttribute("aria-expanded", "true");
+      options = Array.prototype.slice.call(panel.querySelectorAll(".tc-shell-search__opt[href],.tc-shell-search__opt[data-recent]"));
+      activeIdx = -1;
+    }
+    function attrEsc(s) { return esc(s).replace(/"/g, "&quot;"); }
+    function setActive(idx) {
+      if (!options.length) return;
+      if (activeIdx >= 0 && options[activeIdx]) options[activeIdx].classList.remove("tc-shell-search__opt--active");
+      activeIdx = (idx + options.length) % options.length;
+      options[activeIdx].classList.add("tc-shell-search__opt--active");
+      options[activeIdx].scrollIntoView({ block: "nearest" });
+    }
+
+    function render(q, payload) {
+      var data = (payload && payload.data) || payload || {};
+      var results = data.results || [];
+      if (!results.length) {
+        openPanel('<div class="tc-shell-search__state">Keine Treffer für „' + esc(q) + '“</div>');
+        return;
+      }
+      var groups = {};
+      results.forEach(function (r) { var k = r._index || "andere"; (groups[k] = groups[k] || []).push(r); });
+      var html = "";
+      ORDER.forEach(function (key) {
+        var items = groups[key]; if (!items || !items.length) return;
+        var cfg = DOMAIN[key] || { label: key, badge: key, href: null };
+        html += '<div class="tc-shell-search__group-label">' + esc(cfg.label) + "</div>";
+        items.forEach(function (r) {
+          var title = r.title || r.company_name || r.name || r.role || "Unbenannt";
+          var subParts = [];
+          if (r.role && r.role !== title) subParts.push(r.role);
+          if (r.location_city) subParts.push(r.location_city);
+          var sub = subParts.join(" · ");
+          var inner = '<span class="tc-shell-search__opt-main">' +
+                        '<span class="tc-shell-search__opt-title">' + esc(title) + "</span>" +
+                        (sub ? '<span class="tc-shell-search__opt-sub">' + esc(sub) + "</span>" : "") +
+                      "</span>" +
+                      '<span class="tc-shell-search__badge">' + esc(cfg.badge) + "</span>";
+          if (cfg.href) {
+            html += '<a class="tc-shell-search__opt" role="option" href="' + esc(cfg.href(r)) + '">' + inner + "</a>";
+          } else {
+            html += '<div class="tc-shell-search__opt tc-shell-search__opt--static" role="option" aria-disabled="true">' + inner + "</div>";
+          }
+        });
+      });
+      var total = data.total != null ? data.total : results.length;
+      html += '<div class="tc-shell-search__foot"><span>' + esc(String(total)) + " Treffer</span><span>↑↓ wählen · ↵ öffnen · Esc schließt</span></div>";
+      openPanel(html);
+    }
+
+    function run(q) {
+      var seq = ++reqSeq;
+      openPanel('<div class="tc-shell-search__state">Suche läuft…</div>');
+      fetch("/api/search?type=all&limit=8&q=" + encodeURIComponent(q), { credentials: "include" })
+        .then(function (r) {
+          if (!r.ok) throw new Error(r.status === 401 ? "Bitte anmelden, um zu suchen" : "Suche nicht verfügbar (" + r.status + ")");
+          return r.json();
+        })
+        .then(function (payload) { if (seq === reqSeq) render(q, payload); })
+        .catch(function (e) { if (seq === reqSeq) openPanel('<div class="tc-shell-search__state">' + esc(e.message || "Suche fehlgeschlagen") + "</div>"); });
+    }
+
+    input.addEventListener("input", function () {
+      var q = input.value.trim();
+      if (timer) clearTimeout(timer);
+      if (q.length < 2) { lastQ = ""; if (q.length === 0) loadRecent(); else close(); return; }
+      if (q === lastQ) return;
+      lastQ = q;
+      timer = setTimeout(function () { run(q); }, 250);
+    });
+    input.addEventListener("keydown", function (e) {
+      if (e.key === "Escape") { close(); input.blur(); return; }
+      if (e.key === "ArrowDown") { e.preventDefault(); if (panel.hidden && lastQ) run(lastQ); else setActive(activeIdx + 1); return; }
+      if (e.key === "ArrowUp") { e.preventDefault(); setActive(activeIdx - 1); return; }
+      if (e.key === "Enter" && activeIdx >= 0 && options[activeIdx]) {
+        e.preventDefault();
+        var el = options[activeIdx];
+        if (el.getAttribute("href")) window.location.href = el.getAttribute("href");
+        else if (el.getAttribute("data-recent")) applyRecentQuery(el.getAttribute("data-recent"));
+      }
+    });
+    input.addEventListener("focus", function () {
+      var q = input.value.trim();
+      if (q.length >= 2) { if (panel.hidden) { lastQ = q; run(q); } }
+      else if (panel.hidden) { loadRecent(); }
+    });
+    document.addEventListener("click", function (e) {
+      if (!panel.hidden && !e.target.closest(".tc-shell-search")) close();
+    });
+
+    // Delegierte Klicks im Panel: Verlaufseintrag erneut suchen / Verlauf loeschen.
+    panel.addEventListener("click", function (e) {
+      var rec = e.target.closest("[data-recent]");
+      if (rec) { applyRecentQuery(rec.getAttribute("data-recent")); return; }
+      var clr = e.target.closest("[data-recent-clear]");
+      if (clr) { e.preventDefault(); clearRecent(); }
+    });
+
+    function applyRecentQuery(q) {
+      input.value = q; input.focus();
+      lastQ = q; if (timer) clearTimeout(timer); run(q);
+    }
+
+    // "Letzte Suchen" beim Fokus auf das leere Feld (eBay-Muster). Soft-fail: kein Verlauf -> Panel zu.
+    function loadRecent() {
+      var seq = ++reqSeq;
+      fetch("/api/search/recent?limit=6", { credentials: "include" })
+        .then(function (r) { return r.ok ? r.json() : null; })
+        .then(function (payload) {
+          if (seq !== reqSeq) return;
+          var items = (payload && payload.data && payload.data.items) || [];
+          if (!items.length) { close(); return; }
+          var html = '<div class="tc-shell-search__group-label">Letzte Suchen</div>';
+          items.forEach(function (it) {
+            html += '<div class="tc-shell-search__opt" role="option" data-recent="' + attrEsc(it.query) + '">' +
+                      '<svg class="tc-shell-search__opt-ic" viewBox="0 0 20 20" width="14" height="14" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="10" cy="10" r="7.2"></circle><path d="M10 5.6V10l3 1.8"></path></svg>' +
+                      '<span class="tc-shell-search__opt-main"><span class="tc-shell-search__opt-title">' + esc(it.query) + "</span></span>" +
+                      (it.result_count != null ? '<span class="tc-shell-search__badge">' + esc(String(it.result_count)) + "</span>" : "") +
+                    "</div>";
+          });
+          html += '<div class="tc-shell-search__foot"><span>Zuletzt gesucht</span><a href="#" data-recent-clear>Verlauf löschen</a></div>';
+          openPanel(html);
+        })
+        .catch(function () { if (seq === reqSeq) close(); });
+    }
+
+    function clearRecent() {
+      ensureCsrf().then(function (token) {
+        return fetch("/api/search/recent", { method: "DELETE", credentials: "include", headers: token ? { "x-csrf-token": token } : {} });
+      }).then(function () { close(); }).catch(function () { close(); });
+    }
+
+    var _csrf = null;
+    function ensureCsrf() {
+      if (_csrf) return Promise.resolve(_csrf);
+      return fetch("/api/csrf", { credentials: "include" })
+        .then(function (r) { return r.ok ? r.json() : null; })
+        .then(function (d) { _csrf = d && d.token; return _csrf; })
+        .catch(function () { return null; });
     }
   }
 

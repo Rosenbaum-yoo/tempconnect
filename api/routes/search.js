@@ -9,6 +9,7 @@
 
 import { Router } from "express";
 import * as searchService from "../services/searchService.js";
+import * as searchHistory from "../services/searchHistoryService.js";
 import { domainLogger } from "../utils/logger.js";
 import { ok, fail } from "../utils/response.js";
 
@@ -39,6 +40,14 @@ export function createSearchRouter(deps) {
       // sind statisch sichtbarkeits-gefiltert im Service.
       const result = await searchService.search(pool, q, { type, limit, offset, viewerOrgId: req.orgId || null });
 
+      // Such-Historie aufzeichnen — fire-and-forget, soft-fail: die Suchantwort haengt nie daran.
+      const uid = req.session?.userId;
+      if (uid) {
+        searchHistory
+          .recordSearch(pool, { userId: uid, orgId: req.orgId || null, query: q, type, resultCount: result.total })
+          .catch(() => {});
+      }
+
       // Domain Event loggen
       domainLogger.searchPerformed({
         query: q,
@@ -53,6 +62,26 @@ export function createSearchRouter(deps) {
         type,
         ...result
       });
+    } catch (err) {
+      next(err);
+    }
+  });
+
+  /* ── GET /search/recent — persoenliche letzte Suchen (Topbar) ── */
+  router.get("/search/recent", requireAuth, async (req, res, next) => {
+    try {
+      const items = await searchHistory.getRecentSearches(pool, req.session?.userId, req.query.limit);
+      return ok(res, { items });
+    } catch (err) {
+      next(err);
+    }
+  });
+
+  /* ── DELETE /search/recent — Historie loeschen (einzeln via ?query= oder komplett) ── */
+  router.delete("/search/recent", requireAuth, async (req, res, next) => {
+    try {
+      const removed = await searchHistory.clearHistory(pool, req.session?.userId, { query: req.query.query || null });
+      return ok(res, { removed });
     } catch (err) {
       next(err);
     }
