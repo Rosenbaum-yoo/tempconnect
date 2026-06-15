@@ -38,6 +38,7 @@ import { createAgencyPortalRouter }  from "../../routes/agencyPortal.js";
 import * as templateSvc              from "../../services/timesheetTemplateService.js";
 import * as emergencyCommitmentService from "../../services/emergencyCommitmentService.js";
 import * as dealAgreementService     from "../../services/dealAgreementService.js";
+import * as capacityExchangeService  from "../../services/capacityExchangeService.js";
 
 // ── UUID constants for POST body schemas (Zod z.string().uuid()) ─────────────
 // ORG_A / ORG_B from security-mocks are NOT UUIDs and would fail schema validation.
@@ -772,5 +773,35 @@ describe("CORE-ISO: emergency create-agreement — ownership (IDOR-Fix)", () => 
       demandId: "d-1", commitmentId: "cm-1", conditions: {}, actorId: SUPPLIER
     });
     assert.equal(result.error, "COMMITMENT_NOT_ACTIVE", "Supplier passiert authz; nur Status blockt");
+  });
+});
+
+// ── Capacity exchange: by-id ownership (service-scoped) ──────────────────────
+//
+// Kapazitäts-Einträge gehören dem Ersteller (supplier_company_id = userId). Jede
+// by-id-Mutation ist darauf gebunden (WHERE id AND supplier_company_id = $caller);
+// ein fremder Nutzer/eine fremde Org bekommt NOT_FOUND/null statt einer
+// erfolgreichen Cross-Org-Transition. transitionStatus deckt activate/pause/
+// reactivate/fill/archive ab.
+
+describe("CORE-ISO: capacity exchange — by-id ownership", () => {
+  it("transitionStatus: fremder Nutzer -> NOT_FOUND, Lookup org/owner-scoped", async () => {
+    const pool = recordingPool(() => ({ rows: [], rowCount: 0 }));
+    const result = await capacityExchangeService.transitionStatus(pool, "cp-a-001", OUTSIDER, "active", "PRO");
+    assert.equal(result.error, "NOT_FOUND", "Fremder darf Eintrag nicht transitionieren");
+    const sel = pool.queries.find(q => /SELECT \* FROM capacity_posts/i.test(q.sql));
+    assert.ok(sel, "Ownership-Lookup muss laufen");
+    assert.match(sel.sql, /supplier_company_id\s*=\s*\$2/, "Lookup muss owner-scoped sein");
+    assert.deepEqual(sel.params, ["cp-a-001", OUTSIDER]);
+  });
+
+  it("confirmFreshness: fremder Nutzer -> null, UPDATE auf owner gebunden", async () => {
+    const pool = recordingPool(() => ({ rows: [], rowCount: 0 }));
+    const result = await capacityExchangeService.confirmFreshness(pool, "cp-a-001", OUTSIDER);
+    assert.equal(result, null, "Fremder darf Freshness nicht bestätigen");
+    const upd = pool.queries.find(q => /UPDATE capacity_posts/i.test(q.sql));
+    assert.ok(upd, "UPDATE muss laufen");
+    assert.match(upd.sql, /supplier_company_id\s*=\s*\$2/, "UPDATE muss owner-scoped sein");
+    assert.deepEqual(upd.params, ["cp-a-001", OUTSIDER]);
   });
 });
