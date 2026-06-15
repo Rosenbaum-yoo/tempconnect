@@ -43,6 +43,24 @@ export function createAgencyPortalRouter(deps) {
   const rperm = (permission) => requirePermission(permission, { pool, logger });
   const base = [requireAuth, requireFeature("worker_module"), requireAgencyRole, rperm("worker.review")];
 
+  /* ── Org-Boundary-Guard für Einzel-Submission-Mutationen ──────────────────
+   * Die Reviewer-Transitions (startReview/approve/sendToCustomer/...) laufen im
+   * Service durch transition(), das per id mutiert OHNE supplier_org_id-Check.
+   * Das base-Middleware prüft nur die worker.review-Permission in der EIGENEN Org,
+   * nicht die Zugehörigkeit der Submission. Ohne diesen Guard könnte Agentur B die
+   * Submission von Agentur A transitionieren (Cross-Org-IDOR). Spiegelt die
+   * bestehende Org-Prüfung der GET-/:id-Detailroute. */
+  async function requireOwnSubmission(req, res, next) {
+    try {
+      const supplierOrgId = req.orgId || req.session.supplierOrgId;
+      if (!supplierOrgId) return res.status(400).json({ error: "NO_ORG_CONTEXT" });
+      const sub = await submissionSvc.getSubmission(pool, req.params.id);
+      if (!sub) return res.status(404).json({ error: "NOT_FOUND" });
+      if (sub.supplier_org_id !== supplierOrgId) return res.status(403).json({ error: "FORBIDDEN" });
+      next();
+    } catch (err) { next(err); }
+  }
+
   /* ── KPIs (Dashboard-Widget) ──────────────────────────────────────────── */
 
   router.get("/agency/submissions/kpis", ...base, async (req, res, next) => {
@@ -93,7 +111,7 @@ export function createAgencyPortalRouter(deps) {
 
   /* ── Prüfung starten: submitted → under_review ──────────────────────── */
 
-  router.post("/agency/submissions/:id([0-9a-fA-F-]{36})/start-review", ...base, async (req, res, next) => {
+  router.post("/agency/submissions/:id([0-9a-fA-F-]{36})/start-review", ...base, requireOwnSubmission, async (req, res, next) => {
     try {
       const result = await submissionSvc.startReview(
         pool, req.params.id, req.session.userId
@@ -107,7 +125,7 @@ export function createAgencyPortalRouter(deps) {
 
   /* ── Intern genehmigen: under_review → approved_internal ───────────────── */
 
-  router.post("/agency/submissions/:id([0-9a-fA-F-]{36})/approve", ...base, async (req, res, next) => {
+  router.post("/agency/submissions/:id([0-9a-fA-F-]{36})/approve", ...base, requireOwnSubmission, async (req, res, next) => {
     try {
       const result = await submissionSvc.approveInternal(
         pool, req.params.id, req.session.userId,
@@ -122,7 +140,7 @@ export function createAgencyPortalRouter(deps) {
 
   /* ── An Kunden senden: approved_internal → sent_to_customer ──────────── */
 
-  router.post("/agency/submissions/:id([0-9a-fA-F-]{36})/send-to-customer", ...base, async (req, res, next) => {
+  router.post("/agency/submissions/:id([0-9a-fA-F-]{36})/send-to-customer", ...base, requireOwnSubmission, async (req, res, next) => {
     try {
       const result = await submissionSvc.sendToCustomer(
         pool, req.params.id, req.session.userId, {
@@ -140,7 +158,7 @@ export function createAgencyPortalRouter(deps) {
 
   /* ── Kundenbestätigung erfassen: sent_to_customer → customer_confirmed ── */
 
-  router.post("/agency/submissions/:id([0-9a-fA-F-]{36})/customer-confirm", ...base, async (req, res, next) => {
+  router.post("/agency/submissions/:id([0-9a-fA-F-]{36})/customer-confirm", ...base, requireOwnSubmission, async (req, res, next) => {
     try {
       const result = await submissionSvc.confirmByCustomer(
         pool, req.params.id, req.session.userId, {
@@ -157,7 +175,7 @@ export function createAgencyPortalRouter(deps) {
 
   /* ── Kundenablehnung erfassen: sent_to_customer → customer_rejected ───── */
 
-  router.post("/agency/submissions/:id([0-9a-fA-F-]{36})/customer-reject", ...base, async (req, res, next) => {
+  router.post("/agency/submissions/:id([0-9a-fA-F-]{36})/customer-reject", ...base, requireOwnSubmission, async (req, res, next) => {
     try {
       const result = await submissionSvc.rejectByCustomer(
         pool, req.params.id, req.session.userId, {
@@ -173,7 +191,7 @@ export function createAgencyPortalRouter(deps) {
 
   /* ── In Abrechnung buchen: confirmed/approved → posted_to_timesheet ───── */
 
-  router.post("/agency/submissions/:id([0-9a-fA-F-]{36})/post-to-timesheet", ...base, async (req, res, next) => {
+  router.post("/agency/submissions/:id([0-9a-fA-F-]{36})/post-to-timesheet", ...base, requireOwnSubmission, async (req, res, next) => {
     try {
       const result = await submissionSvc.postToTimesheet(
         pool, req.params.id, req.session.userId,
@@ -188,7 +206,7 @@ export function createAgencyPortalRouter(deps) {
 
   /* ── Korrektur anfordern (under_review → needs_correction) ───────────── */
 
-  router.post("/agency/submissions/:id([0-9a-fA-F-]{36})/request-correction", ...base, async (req, res, next) => {
+  router.post("/agency/submissions/:id([0-9a-fA-F-]{36})/request-correction", ...base, requireOwnSubmission, async (req, res, next) => {
     try {
       const note = String(req.body?.note || "").trim();
       if (!note) return res.status(400).json({ error: "NOTE_REQUIRED" });
@@ -204,7 +222,7 @@ export function createAgencyPortalRouter(deps) {
 
   /* ── Ablehnen (submitted/under_review → rejected) ────────────────────── */
 
-  router.post("/agency/submissions/:id([0-9a-fA-F-]{36})/reject", ...base, async (req, res, next) => {
+  router.post("/agency/submissions/:id([0-9a-fA-F-]{36})/reject", ...base, requireOwnSubmission, async (req, res, next) => {
     try {
       const reason = String(req.body?.reason || req.body?.note || "").trim();
       const result = await submissionSvc.rejectSubmission(

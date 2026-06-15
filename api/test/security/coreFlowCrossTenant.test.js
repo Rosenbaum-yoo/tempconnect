@@ -34,6 +34,8 @@ import { createOrganizationsRouter } from "../../routes/organizations.js";
 import { createRequisitionsRouter }  from "../../routes/requisitions.js";
 import { createWorkersRouter }       from "../../routes/workers.js";
 import { createSuppliersRouter }     from "../../routes/suppliers.js";
+import { createAgencyPortalRouter }  from "../../routes/agencyPortal.js";
+import * as templateSvc              from "../../services/timesheetTemplateService.js";
 
 // ── UUID constants for POST body schemas (Zod z.string().uuid()) ─────────────
 // ORG_A / ORG_B from security-mocks are NOT UUIDs and would fail schema validation.
@@ -576,5 +578,128 @@ describe("CORE-ISO: suppliers — vendor-pool mutations org-boundary", () => {
     const res = mockRes();
     await handler(req, res, noop);
     assert.notEqual(res._status, 403, "Own-org supplier categorize must not be org-blocked");
+  });
+});
+
+// ── Agency submissions: mutation org-boundary (Cross-Org-IDOR-Fix) ───────────
+//
+// Die Reviewer-Transitions (start-review/approve/send-to-customer/...) mutieren im
+// Service durch transition() per id OHNE supplier_org_id-Check. Der Schutz liegt im
+// requireOwnSubmission-MIDDLEWARE (direkt vor dem Handler) — daher die Middleware
+// extrahieren und direkt aufrufen, nicht den finalen Handler.
+
+function agencyRouter(sub) {
+  return createAgencyPortalRouter(
+    baseDeps(poolWith(sub), { requireFeature: () => (_req, _res, next) => next() })
+  );
+}
+
+/** Extrahiert die Middleware unmittelbar vor dem finalen Route-Handler. */
+function findGuardBeforeHandler(router, method, path) {
+  for (const layer of router.stack) {
+    if (layer.route && layer.route.path === path && layer.route.methods[method]) {
+      const stack = layer.route.stack;
+      if (stack.length < 2) throw new Error(`No guard before handler on ${method} ${path}`);
+      return stack[stack.length - 2].handle;
+    }
+  }
+  throw new Error(`Route ${method.toUpperCase()} ${path} not found`);
+}
+
+const AGENCY_MUTATIONS = [
+  "/agency/submissions/:id([0-9a-fA-F-]{36})/start-review",
+  "/agency/submissions/:id([0-9a-fA-F-]{36})/approve",
+  "/agency/submissions/:id([0-9a-fA-F-]{36})/send-to-customer",
+  "/agency/submissions/:id([0-9a-fA-F-]{36})/customer-confirm",
+  "/agency/submissions/:id([0-9a-fA-F-]{36})/customer-reject",
+  "/agency/submissions/:id([0-9a-fA-F-]{36})/post-to-timesheet",
+  "/agency/submissions/:id([0-9a-fA-F-]{36})/request-correction",
+  "/agency/submissions/:id([0-9a-fA-F-]{36})/reject"
+];
+
+describe("CORE-ISO: agency submissions — mutation org-boundary (IDOR-Fix)", () => {
+  for (const path of AGENCY_MUTATIONS) {
+    const action = path.split("/").pop();
+    it(`cross-tenant: Org A blocked from "${action}" on Org B submission`, async () => {
+      const router = agencyRouter({ id: "sub-b-001", supplier_org_id: ORG_B });
+      const guard = findGuardBeforeHandler(router, "post", path);
+      const req = mockReq({ orgId: ORG_A, params: { id: "sub-b-001" }, session: { userId: USER_A } });
+      const res = mockRes();
+      let nextCalled = false;
+      await guard(req, res, () => { nextCalled = true; });
+      assert.equal(res._status, 403, `Must block cross-org ${action}`);
+      assert.equal(res._json.error, "FORBIDDEN");
+      assert.equal(nextCalled, false, "Guard darf bei Cross-Org NICHT next() aufrufen");
+    });
+  }
+
+  it("own-org: Org A passiert den Guard bei eigener Submission", async () => {
+    const router = agencyRouter({ id: "sub-a-001", supplier_org_id: ORG_A });
+    const guard = findGuardBeforeHandler(router, "post", "/agency/submissions/:id([0-9a-fA-F-]{36})/approve");
+    const req = mockReq({ orgId: ORG_A, params: { id: "sub-a-001" }, session: { userId: USER_A } });
+    const res = mockRes();
+    let nextCalled = false;
+    await guard(req, res, () => { nextCalled = true; });
+    assert.equal(nextCalled, true, "Eigene Org muss den Guard passieren");
+    assert.notEqual(res._status, 403);
+  });
+
+  it("nicht existente Submission -> 404 (nicht 403)", async () => {
+    const router = agencyRouter(null);
+    const guard = findGuardBeforeHandler(router, "post", "/agency/submissions/:id([0-9a-fA-F-]{36})/approve");
+    const req = mockReq({ orgId: ORG_A, params: { id: "ghost" }, session: { userId: USER_A } });
+    const res = mockRes();
+    await guard(req, res, noop);
+    assert.equal(res._status, 404);
+  });
+});
+
+// ── Timesheet templates: service-layer org-scoping ──────────────────────────
+//
+// timesheetTemplates erzwingt Isolation im SERVICE: jede by-id-Operation ist auf
+// supplier_org_id gebunden (getTemplate: WHERE id AND supplier_org_id; update
+// pre-checkt via getTemplate -> NOT_FOUND; delete: DELETE WHERE id AND
+// supplier_org_id). Wir beweisen, dass der Org-Filter real angewendet wird
+// (SQL-Parameter-Test) und eine fremde Org NOT_FOUND statt einer erfolgreichen
+// Cross-Org-Mutation bekommt.
+
+/** Pool, der Queries aufzeichnet und inhaltsabhängig antwortet. */
+function recordingPool(handler) {
+  const queries = [];
+  return {
+    queries,
+    query: async (sql, params) => {
+      queries.push({ sql, params });
+      return handler(sql, params) || { rows: [], rowCount: 0 };
+    }
+  };
+}
+
+describe("CORE-ISO: timesheet templates — service org-scoping", () => {
+  it("updateTemplate: fremde Org -> NOT_FOUND, Lookup ist org-scoped", async () => {
+    // getTemplate(ORG_B) findet Org-A-Template nicht -> rows:[] -> NOT_FOUND vor jedem UPDATE.
+    const pool = recordingPool((sql) =>
+      /FROM timesheet_templates\b/i.test(sql) ? { rows: [] } : { rows: [], rowCount: 0 }
+    );
+    const result = await templateSvc.updateTemplate(pool, "tmpl-a-001", ORG_B, { name: "tampered" });
+    assert.equal(result.error, "NOT_FOUND", "Org B darf Org-A-Template nicht aktualisieren");
+    const lookup = pool.queries.find(q => /FROM timesheet_templates\b/i.test(q.sql));
+    assert.ok(lookup, "Template-Lookup muss laufen");
+    assert.match(lookup.sql, /supplier_org_id\s*=\s*\$2/, "Lookup muss org-scoped sein");
+    assert.ok(lookup.params.includes(ORG_B), "Lookup muss die Org des Aufrufers binden");
+  });
+
+  it("deleteTemplate: fremde Org -> NOT_FOUND, DELETE auf supplier_org_id gebunden", async () => {
+    const pool = recordingPool((sql) => {
+      if (/timesheet_template_assignments/i.test(sql)) return { rows: [{ cnt: "0" }] }; // nicht in Verwendung
+      if (/DELETE FROM timesheet_templates/i.test(sql)) return { rowCount: 0 };          // Org-Mismatch -> kein Treffer
+      return { rows: [], rowCount: 0 };
+    });
+    const result = await templateSvc.deleteTemplate(pool, "tmpl-a-001", ORG_B);
+    assert.equal(result.error, "NOT_FOUND", "Org B darf Org-A-Template nicht löschen");
+    const del = pool.queries.find(q => /DELETE FROM timesheet_templates/i.test(q.sql));
+    assert.ok(del, "DELETE muss laufen");
+    assert.match(del.sql, /supplier_org_id\s*=\s*\$2/, "DELETE muss org-scoped sein");
+    assert.deepEqual(del.params, ["tmpl-a-001", ORG_B], "DELETE muss id + Aufrufer-Org binden");
   });
 });
