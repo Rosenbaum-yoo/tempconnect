@@ -45,6 +45,7 @@ describe("Pilot-Voranmeldung", () => {
     const res = await confirmPrereg(pool, "rawtok");
     assert.equal(res.status, "confirmed");
     assert.match(pool.calls[0].sql, /THEN 'confirmed'/, "pending -> confirmed via CASE (idempotent)");
+    assert.match(pool.calls[0].sql, /created_at > NOW\(\) - INTERVAL '30 days'/, "Token nur 30 Tage gueltig (kein unbegrenztes Replay)");
     assert.equal(pool.calls[0].params[0].length, 64);
   });
 

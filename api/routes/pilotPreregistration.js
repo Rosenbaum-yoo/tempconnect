@@ -26,8 +26,10 @@ const schema = z.object({
 });
 
 export function createPilotPreregistrationRouter(deps) {
-  const { pool, logger, config, sendMail } = deps;
+  const { pool, logger, config, sendMail, preregLimiter } = deps;
   const router = Router();
+  // Strenger Limiter NUR an der mail-ausloesenden POST-Route (Fallback no-op, falls nicht injiziert).
+  const limitPrereg = preregLimiter || ((_req, _res, next) => next());
 
   router.get("/pilot-preregistration/counts", async (req, res) => {
     try {
@@ -39,7 +41,9 @@ export function createPilotPreregistrationRouter(deps) {
     }
   });
 
-  router.post("/pilot-preregistration", async (req, res) => {
+  // TODO (Launch-Haertung, owner-gated): zusaetzlich CAPTCHA/Turnstile (server-verifiziert) +
+  // per-Empfaenger-Sendecap, sobald ein echter Mail-Provider (SMTP/SendGrid) aktiv ist.
+  router.post("/pilot-preregistration", limitPrereg, async (req, res) => {
     // Honeypot: gefuelltes verstecktes Feld -> stiller Erfolg (Bot ohne Hinweis abweisen).
     if (req.body && typeof req.body.website === "string" && req.body.website.trim() !== "") {
       return res.status(202).json({ success: true, data: { status: "ok" } });

@@ -208,7 +208,6 @@ export async function setPilotException(pool, { orgId, actorUserId, allowed, rea
   if (!reason || String(reason).trim().length < 10) {
     throw pilotError("PILOT_EXCEPTION_REASON_REQUIRED", "Ausnahmegrund muss dokumentiert werden.");
   }
-  const nextStatus = allowed ? "exception" : "blocked";
   let rows;
   try {
     ({ rows } = await pool.query(
@@ -231,7 +230,9 @@ export async function setPilotException(pool, { orgId, actorUserId, allowed, rea
     throw normalizePolicyError(err);
   }
   if (!rows[0]) throw pilotError("ORG_NOT_FOUND", "Organisation nicht gefunden.");
-  return { ...rows[0], next_status: nextStatus };
+  // next_status spiegelt den TATSAECHLICH persistierten Status (die SQL-CASE kann fuer
+  // never-used + allowed=false unveraendert bleiben) — keine Truth-Divergence im Audit-Pfad.
+  return { ...rows[0], next_status: rows[0].pilot_status };
 }
 
 export function assertValidPilotStatus(status) {

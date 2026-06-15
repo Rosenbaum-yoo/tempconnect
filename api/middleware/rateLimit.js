@@ -47,6 +47,10 @@ export async function createRateLimiters(config, logger) {
   // SCC WAVE 03: Staff-Mutation Rate Limiter — 30 Mutationen / 5 Min pro Staff-User
   const STAFF_MUTATION_WINDOW_MS = Number(config.RATE_LIMIT_STAFF_MUTATION_WINDOW_MS) || (isLocalDev ? 60 * 1000 : 5 * 60 * 1000);
   const STAFF_MUTATION_MAX = Number(config.RATE_LIMIT_STAFF_MUTATION_MAX) || (isLocalDev ? 500 : 30);
+  // Public Pilot-Voranmeldung — eigener strenger Limiter: die Route ist OHNE Auth und loest pro
+  // Submit eine Opt-in-Mail an eine frei waehlbare Adresse aus (Anti-Spam/Anti-Mail-Bombing).
+  const PREREG_WINDOW_MS = Number(config.RATE_LIMIT_PREREG_WINDOW_MS) || (isLocalDev ? 60 * 1000 : 15 * 60 * 1000);
+  const PREREG_MAX = Number(config.RATE_LIMIT_PREREG_MAX) || (isLocalDev ? 50 : 8);
 
   let redisClient = null;
   const RATE_LIMIT_STORE = (config.RATE_LIMIT_STORE || "memory").toLowerCase();
@@ -201,6 +205,17 @@ export async function createRateLimiters(config, logger) {
     ...makeStore("rl:scc-mutation:")
   });
 
+  // Public Pilot-Voranmeldung: streng per IP (deutlich unter apiLimiter), da ohne Auth +
+  // mail-ausloesend. Nur an der POST-Route angewandt (nicht GET counts/confirm).
+  const preregLimiter = rateLimit({
+    windowMs: PREREG_WINDOW_MS,
+    max: PREREG_MAX,
+    message: { success: false, error: { code: "RATE_LIMIT", message: "Zu viele Voranmeldungen. Bitte spaeter erneut versuchen." } },
+    keyGenerator: (req) => (req.ip || "unknown") + ":prereg",
+    ...commonLimiterConfig,
+    ...makeStore("rl:prereg:")
+  });
+
   /* ── Plan-aware API rate limiter ─────────────────── */
   const PLAN_RATE_LIMITS = {
     DEMO: 10,
@@ -284,6 +299,7 @@ export async function createRateLimiters(config, logger) {
     warpExecutionRateLimit,
     staffLoginLimiter,
     staffMutationLimiter,
+    preregLimiter,
     createPlanAwareRateLimiter
   };
 }

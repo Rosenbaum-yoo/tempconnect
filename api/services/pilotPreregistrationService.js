@@ -55,14 +55,16 @@ export async function createPrereg(pool, input = {}, meta = {}) {
   }
 }
 
-/** Double-Opt-in: bestaetigt eine pending-Anmeldung per Token (Lookup ueber Hash). */
+/** Double-Opt-in: bestaetigt eine pending-Anmeldung per Token (Hash-Lookup, gueltig 30 Tage ab Anmeldung). */
 export async function confirmPrereg(pool, rawToken) {
   if (!rawToken) return null;
   const { rows } = await pool.query(
+    // Token-Gueltigkeit auf 30 Tage ab Anmeldung begrenzt: frischer Consent-Nachweis +
+    // ein geleakter Link ist nicht unbegrenzt replaybar.
     `UPDATE pilot_preregistrations
      SET status = CASE WHEN status = 'pending' THEN 'confirmed' ELSE status END,
          consent_at = COALESCE(consent_at, NOW()), updated_at = NOW()
-     WHERE confirm_token_hash = $1
+     WHERE confirm_token_hash = $1 AND created_at > NOW() - INTERVAL '30 days'
      RETURNING id, side, status`,
     [hashToken(rawToken)]
   );
