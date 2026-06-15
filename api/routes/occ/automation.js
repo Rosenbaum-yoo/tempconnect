@@ -54,7 +54,7 @@ async function insertAuditRow(pool, { actorId, entityId, details }) {
 export function createOccAutomationRouter(deps) {
   const { pool } = deps;
   const router = Router();
-  const mfaGuard = requireMfa({ pool, enforce: false });
+  const mfaGuard = requireMfa({ pool }); // MFA env-gesteuert (O-05): Default Audit-Only, scharf via MFA_ENFORCE
 
   router.get("/automation/jobs", async (_req, res) => {
     const jobs = await safeQuery(

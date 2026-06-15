@@ -23,7 +23,7 @@ export function createPaymentRouter(deps) {
   const subReqSvc = deps.subscriptionRequestService || subscriptionRequestService;
   const quoteSvc = deps.quoteSnapshotService || quoteSnapshotService;
   const auditSvc = deps.auditLog || auditLogService;
-  const mfaGuard = requireMfa({ pool, enforce: false });
+  const mfaGuard = requireMfa({ pool }); // MFA env-gesteuert (O-05): Default Audit-Only, scharf via MFA_ENFORCE
   // Tarif-/Subscription-Buchung ist ein Käufer-(Unternehmens-)Konzept: Worker und
   // sonstige Nicht-Company-Org-Typen dürfen keinen Plan buchen. Zentrale Guard-
   // Wiederverwendung (wie spendAnalytics/vendorPool/suppliers/reporting) statt eines

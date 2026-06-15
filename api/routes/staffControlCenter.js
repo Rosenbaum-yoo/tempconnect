@@ -107,6 +107,12 @@ export function createStaffControlCenterRouter(deps) {
   const requireStepUp = createStaffStepUpMiddleware({ riskLevel: "medium" });
   const requireStepUpHigh = createStaffStepUpMiddleware({ riskLevel: "high" });
   const requireStepUpCritical = createStaffStepUpMiddleware({ riskLevel: "critical" });
+  // BEWUSST explizit Audit-Only (NICHT env-gesteuert): die Staff-Session lebt in
+  // einem eigenen Cookie (tc.staff.sid, nur staffUserId) und hat KEINEN MFA-
+  // Enroll/Verify-Pfad — /api/mfa/* laufen über requireAuth/userId (tc.sid). Ein
+  // env-Enforce (MFA_ENFORCE=true) würde die gesamte SCC-Mutationsfläche
+  // unwiederbringlich aussperren. SCC erzwingt stattdessen requireStepUp(High/Critical).
+  // Staff-MFA-Enforcement erst, wenn staff-session-fähiges MFA-Enroll/Verify existiert.
   const mfaGuard = requireMfa({ pool, enforce: false });
 
   // ── Bootstrap ───────────────────────────────────────────────

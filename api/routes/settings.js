@@ -24,7 +24,7 @@ export function createSettingsRouter(deps) {
   const { pool, requireAuth, logger } = deps;
   const router = Router();
   const orgSettingsGate = requireOrgFeature("org_settings", { pool, logger });
-  const mfaGuard = requireMfa({ pool, enforce: false });
+  const mfaGuard = requireMfa({ pool }); // MFA env-gesteuert (O-05): Default Audit-Only, scharf via MFA_ENFORCE
 
   router.get("/settings", requireAuth, requirePermission("settings.view", { pool, logger }), async (req, res) => {
     // F-005 fix: use server-resolved orgId instead of client-supplied query param

@@ -124,7 +124,14 @@ export const config = {
   // "false/0/no/off" schaltet ab. THEME_SWITCHER_ENABLED steuert den Umschalter
   // insgesamt, ULTRA_PREMIUM_THEME_ENABLED die Verfügbarkeit des Ultra-Premium-Themes.
   THEME_SWITCHER_ENABLED: !["false", "0", "no", "off"].includes(String(process.env.THEME_SWITCHER_ENABLED || "").toLowerCase().trim()),
-  ULTRA_PREMIUM_THEME_ENABLED: !["false", "0", "no", "off"].includes(String(process.env.ULTRA_PREMIUM_THEME_ENABLED || "").toLowerCase().trim())
+  ULTRA_PREMIUM_THEME_ENABLED: !["false", "0", "no", "off"].includes(String(process.env.ULTRA_PREMIUM_THEME_ENABLED || "").toLowerCase().trim()),
+  // MFA-Enforcement (O-05). Tier-2 Env-Kill-Switch: DEFAULT AUS (Audit-Only).
+  // Autoritativ ausgewertet zur Laufzeit in middleware/requireMfa.isMfaEnforced()
+  // (request-time wegen der Enrollment-Frist) — hier gespiegelt zur Auffindbarkeit.
+  // MFA_ENFORCE=true schaltet alle env-gesteuerten mfaGuard-Surfaces scharf;
+  // MFA_ENFORCE_FROM (ISO-Datum) hält sie bis dahin im Audit-Only (Grace-Period).
+  MFA_ENFORCE: ["true", "1", "yes", "on"].includes(String(process.env.MFA_ENFORCE || "").toLowerCase().trim()),
+  MFA_ENFORCE_FROM: process.env.MFA_ENFORCE_FROM || ""
 };
 
 function hasPinoPretty() {

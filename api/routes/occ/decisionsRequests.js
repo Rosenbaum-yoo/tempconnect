@@ -211,7 +211,7 @@ async function upsertCommercialOffer(pool, decision, actorId) {
 export function createOccDecisionsRouter(deps) {
   const { pool, logger } = deps;
   const router = Router();
-  const mfaGuard = requireMfa({ pool, enforce: false });
+  const mfaGuard = requireMfa({ pool }); // MFA env-gesteuert (O-05): Default Audit-Only, scharf via MFA_ENFORCE
 
   router.get("/decisions-requests", async (req, res) => {
     const page = clampInt(req.query.page, 1, 100000, 1);

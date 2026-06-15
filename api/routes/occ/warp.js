@@ -124,7 +124,7 @@ export function createOccWarpRouter(deps) {
   const { pool, logger, config } = deps;
   const router = Router();
   const warpExecutionRateLimit = deps.warpExecutionRateLimit || ((_req, _res, next) => next());
-  const mfaGuard = requireMfa({ pool, enforce: false });
+  const mfaGuard = requireMfa({ pool }); // MFA env-gesteuert (O-05): Default Audit-Only, scharf via MFA_ENFORCE
 
   router.get("/warp/hosts", async (_req, res) => {
     const hosts = await safeQuery(
