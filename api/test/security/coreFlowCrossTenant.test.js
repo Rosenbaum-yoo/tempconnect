@@ -39,6 +39,7 @@ import * as templateSvc              from "../../services/timesheetTemplateServi
 import * as emergencyCommitmentService from "../../services/emergencyCommitmentService.js";
 import * as dealAgreementService     from "../../services/dealAgreementService.js";
 import * as capacityExchangeService  from "../../services/capacityExchangeService.js";
+import { createMarketplaceRouter }   from "../../routes/marketplace.js";
 
 // ── UUID constants for POST body schemas (Zod z.string().uuid()) ─────────────
 // ORG_A / ORG_B from security-mocks are NOT UUIDs and would fail schema validation.
@@ -803,5 +804,51 @@ describe("CORE-ISO: capacity exchange — by-id ownership", () => {
     assert.ok(upd, "UPDATE muss laufen");
     assert.match(upd.sql, /supplier_company_id\s*=\s*\$2/, "UPDATE muss owner-scoped sein");
     assert.deepEqual(upd.params, ["cp-a-001", OUTSIDER]);
+  });
+});
+
+// ── Marketplace: binding deal/agreement endpoints — ownership ────────────────
+//
+// Marktplatz ist Cross-Org BY DESIGN (Annahme/Verhandlung auf öffentliche Postings,
+// abgesichert per SELF_DEAL_FORBIDDEN). Die Operationen auf BESTEHENDEN Vereinbarungen
+// sind inline ownership-gepruft. Hier die zwei bindendsten als Regressionsanker:
+// create-agreement (nur Requester) + prepare-signature (nur Requester).
+
+function marketplaceRouter(agreementRow) {
+  return createMarketplaceRouter(baseDeps(poolWith(agreementRow), {
+    requireFeature: () => (_req, _res, next) => next(),
+    getUserAndPlan: async () => ({ plan: "PRO", role: "company" }),
+    sendMail: async () => {}
+  }));
+}
+
+describe("CORE-ISO: marketplace — binding endpoints ownership", () => {
+  it("cross-tenant: Outsider blocked from create-agreement (nur Requester)", async () => {
+    const router = marketplaceRouter({ id: "of-1", requester_company_id: REQUESTER, supplier_company_id: SUPPLIER });
+    const handler = findHandlerExact(router, "post", "/marketplace/offers/:id/create-agreement");
+    const req = mockReq({ params: { id: "of-1" }, session: { userId: OUTSIDER } });
+    const res = mockRes();
+    await handler(req, res, noop);
+    assert.equal(res._status, 403, "Fremde Org darf keine Einsatzvereinbarung erstellen");
+    assert.equal(res._json.error, "FORBIDDEN");
+  });
+
+  it("cross-tenant: Outsider blocked from prepare-signature (nur Requester)", async () => {
+    const router = marketplaceRouter({ id: "of-1", requester_company_id: REQUESTER, supplier_company_id: SUPPLIER });
+    const handler = findHandlerExact(router, "post", "/marketplace/offers/:id/prepare-signature");
+    const req = mockReq({ params: { id: "of-1" }, body: {}, session: { userId: OUTSIDER } });
+    const res = mockRes();
+    await handler(req, res, noop);
+    assert.equal(res._status, 403, "Fremde Org darf die Signaturstrecke nicht vorbereiten");
+    assert.equal(res._json.error, "FORBIDDEN");
+  });
+
+  it("own deal: Requester is NOT org-blocked on create-agreement", async () => {
+    const router = marketplaceRouter({ id: "of-2", requester_company_id: REQUESTER, supplier_company_id: SUPPLIER });
+    const handler = findHandlerExact(router, "post", "/marketplace/offers/:id/create-agreement");
+    const req = mockReq({ params: { id: "of-2" }, session: { userId: REQUESTER } });
+    const res = mockRes();
+    await handler(req, res, noop);
+    assert.notEqual(res._status, 403, "Requester darf NICHT org-geblockt werden");
   });
 });
