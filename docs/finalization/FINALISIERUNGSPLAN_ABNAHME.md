@@ -209,9 +209,18 @@ und Hetzner (F3) laufen vollständig parallel und warten am Ende NUR auf Steuern
 - **Abnahme:** je Sweep ein manueller 200-Lauf geloggt; Alert-Testfeuer kommt an
 
 ### Phase F3.5 — Restore-Drill REAL (O-08 / P1.4) — 0,5 PT
-- [x] **Autonome Vorarbeit (14.06.):** Drill-Kette lokal gegen echte Dev-DB END-TO-END BESTANDEN (170 Tabellen, 145 Migrationen, FK-Konsistenz ok, atomarer Single-Transaction-Restore) — Run-Log: `docs/releases/restore-drills/drill_*.log`. **2 echte Skript-Bugs gefixt** (vom Drill aufgedeckt): (a) `backup-verify.sh` parste das Manifest mit `python3` → Windows-Store-python3 mishandelt MSYS-Pfade → False-Confidence; jetzt portabler sed/grep-Parser. (b) `restore-test.sh` nutzt jetzt stdin-Stream statt `docker cp`+`/tmp` (pfad-robust, kein Tempfile). CI-Job `restore-drill` (nightly) ergänzt mit Run-Log-Artefakt.
+- [x] **Autonome Vorarbeit (14.06.):** Drill-Kette lokal gegen echte Dev-DB END-TO-END BESTANDEN (170 Tabellen, 145 Migrationen, FK-Konsistenz ok, atomarer Single-Transaction-Restore) — Run-Log: `docs/releases/restore-drills/drill_*.txt`. **2 echte Skript-Bugs gefixt** (vom Drill aufgedeckt): (a) `backup-verify.sh` parste das Manifest mit `python3` → Windows-Store-python3 mishandelt MSYS-Pfade → False-Confidence; jetzt portabler sed/grep-Parser. (b) `restore-test.sh` nutzt jetzt stdin-Stream statt `docker cp`+`/tmp` (pfad-robust, kein Tempfile). CI-Job `restore-drill` (nightly) ergänzt mit Run-Log-Artefakt.
 - [ ] **Owner/Infra (F3):** dieselbe Kette gegen Staging/Prod-Kopie auf Hetzner, **Run-Log als Artefakt** ablegen
 - **Abnahme:** Log zeigt vollständigen Restore in frische DB (single-transaction, exit-on-error), App startet dagegen
+
+### Phase F3.6 — Security-Scharfschaltung beim Cutover (O-05/O-06) — 0,25 PT
+> Mechanismus ist fertig (s. F2.4). Hier wird er in der **Prod**-Umgebung scharf geschaltet. Reihenfolge wichtig.
+- [ ] **0. Vorbedingung:** Owner richtet auf seinem Prod-Account zuerst MFA ein (`/public/settings.html#mfa`) — sonst 428 auf OCC/Payment nach dem Flip.
+- [ ] **1. MFA scharf:** in der **Prod-`.env`** setzen: `MFA_ENFORCE=true` (optional `MFA_ENFORCE_FROM=<ISO-Datum>` als Enrollment-Frist, falls beim Cutover schon Nutzer existieren — sonst weglassen für sofort). Dann `docker compose -f docker-compose.prod.yml up -d` (lädt via `env_file: .env`).
+  - Greift auf **OCC×3 + payment + settings** (Plattform-`userId`, `/mfa/*`-Enroll-Pfad vorhanden). **SCC bleibt bewusst Audit-Only** (Staff-Session ohne MFA-Enroll-Pfad → nutzt Step-up; NICHT scharf schalten ohne staff-session-fähiges Enroll).
+  - **Verify:** geschützte Mutation ohne frische MFA → `428 MFA_REQUIRED`/`MFA_VERIFY_REQUIRED`; `/api/mfa/setup` erreichbar; nach Enrollment+`/api/mfa/verify` → 200. **Break-Glass:** Passwort-Login bleibt möglich (kein Aussperren).
+- [ ] **2. SSO:** bleibt **Stub-Soft-Lock** (korrekt) bis der erste Enterprise-Kunde SSO bucht. Dann pro Kunde nach **Runbook `PILOT_GO_LIVE_TODOS.md` P1.1**: `@node-saml/node-saml` installieren + Container-Rebuild (`getSSOMode()`→`"saml"`) → `org_sso_config` mit IdP-Metadaten je Org. Kein globaler Flip; Break-Glass via `auth.js` bleibt.
+- **Abnahme:** 428 ohne MFA reproduziert; Enrollment+Login mit MFA grün; Passwort-Break-Glass weiter möglich; SSO-Karte zeigt korrekten Zustand (Stub bzw. `active` nach Kundenanbindung).
 
 ---
 
