@@ -7,7 +7,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
   resolveDirection, validateDimensions, submitFeedback, getPendingFeedback,
-  DIMENSION_KEYS, FEEDBACK_WINDOW_DAYS
+  revealDueFeedback, DIMENSION_KEYS, FEEDBACK_WINDOW_DAYS, REVEAL_DEADLINE_DAYS
 } from "../services/dealFeedbackService.js";
 
 const ORG_COMPANY = "org-company-001";
@@ -140,4 +140,68 @@ test("getPendingFeedback: Query ist completed + fenster + nicht-bereits-bewertet
 test("DIMENSION_KEYS: beide Richtungen definiert, je 4 Achsen", () => {
   assert.equal(DIMENSION_KEYS.company_to_supplier.length, 4);
   assert.equal(DIMENSION_KEYS.supplier_to_company.length, 4);
+});
+
+/* ── P2: Mutual-blind Reveal + Auto-Moderation ────────────── */
+
+/** Mock mit Counterparty-/Reveal-/Capture-Unterstützung. */
+function poolP2(asg, inserted, counterpartyExists) {
+  const calls = [];
+  const pool = {
+    calls,
+    query: async (sql, params) => {
+      calls.push({ sql, params });
+      if (/FROM assignments WHERE id/i.test(sql)) return { rows: asg ? [asg] : [] };
+      if (/INSERT INTO deal_feedback/i.test(sql)) return { rows: inserted ? [inserted] : [] };
+      if (/SELECT 1 FROM deal_feedback/i.test(sql)) return { rows: counterpartyExists ? [{ ok: 1 }] : [] };
+      if (/UPDATE deal_feedback SET status = 'revealed'/i.test(sql)) return { rowCount: 2 };
+      return { rows: [], rowCount: 0 };
+    }
+  };
+  return pool;
+}
+
+test("mutual-blind: Gegenrichtung liegt vor -> beide enthüllt (revealed=true)", async () => {
+  const inserted = { id: "fb-2", direction: "supplier_to_company", status: "submitted" };
+  const r = await submitFeedback(
+    poolP2(assignment(), inserted, true),
+    { assignmentId: "asg-1", raterOrgId: ORG_SUPPLIER, sentiment: "positive", dimensions: { briefing_klarheit: 5, kommunikation: 5, zahlungsmoral: 5, fairness: 5 } }
+  );
+  assert.equal(r.ok, true);
+  assert.equal(r.revealed, true, "Bei beidseitiger Abgabe sofort enthüllen");
+});
+
+test("mutual-blind: keine Gegenrichtung -> verborgen (revealed=false)", async () => {
+  const inserted = { id: "fb-3", direction: "company_to_supplier", status: "submitted" };
+  const r = await submitFeedback(
+    poolP2(assignment(), inserted, false),
+    { assignmentId: "asg-1", raterOrgId: ORG_COMPANY, sentiment: "positive", dimensions: VALID_DIMS }
+  );
+  assert.equal(r.ok, true);
+  assert.equal(r.revealed, false, "Einseitig bleibt verborgen bis Frist/Gegenseite");
+});
+
+test("auto-moderation: sauberer Kommentar -> moderation='approved', flagged=false", async () => {
+  const pool = poolP2(assignment(), { id: "fb-4", status: "submitted" }, false);
+  const r = await submitFeedback(pool, {
+    assignmentId: "asg-1", raterOrgId: ORG_COMPANY, sentiment: "positive", dimensions: VALID_DIMS, comment: "Sehr zuverlaessig und puenktlich"
+  });
+  assert.equal(r.ok, true);
+  assert.equal(r.flagged, false);
+  const insert = pool.calls.find(c => /INSERT INTO deal_feedback/i.test(c.sql));
+  assert.equal(insert.params[8], "approved", "moderation-Param muss 'approved' sein");
+});
+
+/* ── P2: revealDueFeedback Sweep ──────────────────────────── */
+
+test("revealDueFeedback: enthüllt 'submitted' nach Frist, korrekte SQL-Form", async () => {
+  let captured = null;
+  const pool = { query: async (sql, params) => { captured = { sql, params }; return { rowCount: 3 }; } };
+  const r = await revealDueFeedback(pool, { deadlineDays: REVEAL_DEADLINE_DAYS });
+  assert.equal(r.revealed, 3);
+  assert.match(captured.sql, /SET status = 'revealed'/);
+  assert.match(captured.sql, /status = 'submitted'/);
+  assert.match(captured.sql, /HAVING MIN\(created_at\)/);
+  assert.match(captured.sql, /make_interval\(days => \$1\)/);
+  assert.deepEqual(captured.params, [REVEAL_DEADLINE_DAYS]);
 });

@@ -9,6 +9,11 @@
  *   - supplier_to_company: der Lieferant (assignments.supplier_org_id) bewertet das Unternehmen
  * Spec: docs/finalization/RATING_SYSTEM_V2_EBAY_SPEC.md
  */
+import { withTransaction } from "../utils/transaction.js";
+import { moderateComment } from "./contentModerationService.js";
+
+/** Reveal-Frist: einseitiges Feedback wird N Tage nach erster Abgabe enthüllt. */
+export const REVEAL_DEADLINE_DAYS = 14;
 
 /** Rollenabhängige Bewertungs-Dimensionen (eBay-DSRs), je 1–5. */
 export const DIMENSION_KEYS = {
@@ -100,16 +105,59 @@ export async function submitFeedback(pool, { assignmentId, raterOrgId, actorUser
   if (!validateDimensions(dir.direction, dimensions)) return { error: "INVALID_DIMENSIONS" };
   if (comment != null && String(comment).length > 500) return { error: "COMMENT_TOO_LONG" };
 
-  const ins = await pool.query(
-    `INSERT INTO deal_feedback
-       (assignment_id, direction, rater_org_id, rated_org_id, actor_user_id, sentiment, dimensions, comment)
-     VALUES ($1, $2, $3, $4, $5, $6, $7::jsonb, $8)
-     ON CONFLICT (assignment_id, direction) DO NOTHING
-     RETURNING *`,
-    [assignmentId, dir.direction, raterOrgId, dir.ratedOrgId, actorUserId || null, sentiment, JSON.stringify(dimensions), comment || null]
+  // Auto-Moderation: saubere Kommentare -> 'approved' (nach Reveal sofort sichtbar),
+  // Profanität -> 'flagged' (bleibt verborgen bis Staff-Entscheid).
+  const mod = comment ? moderateComment(comment) : { flagged: false };
+  const moderation = mod.flagged ? "flagged" : "approved";
+  const opposite = dir.direction === "company_to_supplier" ? "supplier_to_company" : "company_to_supplier";
+
+  return withTransaction(pool, async (client) => {
+    const ins = await client.query(
+      `INSERT INTO deal_feedback
+         (assignment_id, direction, rater_org_id, rated_org_id, actor_user_id, sentiment, dimensions, comment, moderation)
+       VALUES ($1, $2, $3, $4, $5, $6, $7::jsonb, $8, $9)
+       ON CONFLICT (assignment_id, direction) DO NOTHING
+       RETURNING *`,
+      [assignmentId, dir.direction, raterOrgId, dir.ratedOrgId, actorUserId || null, sentiment, JSON.stringify(dimensions), comment || null, moderation]
+    );
+    if (!ins.rows[0]) return { error: "ALREADY_RATED" };
+
+    // Mutual-blind: liegt die Gegenrichtung bereits vor, werden BEIDE gleichzeitig
+    // enthüllt — niemand sieht das Urteil der Gegenseite vor der eigenen Abgabe
+    // (Anti-Retaliation). Einseitige Abgaben enthüllt der Sweep nach der Frist.
+    const counter = await client.query(
+      "SELECT 1 FROM deal_feedback WHERE assignment_id = $1 AND direction = $2 LIMIT 1",
+      [assignmentId, opposite]
+    );
+    let revealed = false;
+    if (counter.rows[0]) {
+      await client.query(
+        "UPDATE deal_feedback SET status = 'revealed', revealed_at = NOW() WHERE assignment_id = $1 AND status = 'submitted'",
+        [assignmentId]
+      );
+      revealed = true;
+    }
+    return { ok: true, feedback: ins.rows[0], revealed, flagged: !!mod.flagged };
+  });
+}
+
+/**
+ * Mutual-blind Sweep (Cron): enthüllt 'submitted'-Feedback, dessen Deal-Feedback
+ * seit > deadlineDays offen ist (einseitiger Fall — Gegenseite hat nie bewertet).
+ * Beidseitige Fälle werden bereits bei der 2. Abgabe enthüllt.
+ */
+export async function revealDueFeedback(pool, { deadlineDays = REVEAL_DEADLINE_DAYS } = {}) {
+  const { rowCount } = await pool.query(
+    `UPDATE deal_feedback SET status = 'revealed', revealed_at = NOW()
+      WHERE status = 'submitted'
+        AND assignment_id IN (
+          SELECT assignment_id FROM deal_feedback
+           GROUP BY assignment_id
+          HAVING MIN(created_at) < NOW() - make_interval(days => $1)
+        )`,
+    [deadlineDays]
   );
-  if (!ins.rows[0]) return { error: "ALREADY_RATED" };
-  return { ok: true, feedback: ins.rows[0] };
+  return { revealed: rowCount || 0 };
 }
 
 /** Öffentlich sichtbares Feedback einer Org (nur revealed + approved). Wird ab P2 befüllt. */

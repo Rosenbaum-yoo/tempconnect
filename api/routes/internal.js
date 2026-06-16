@@ -16,6 +16,7 @@ import * as assignmentStaffingService from "../services/assignmentStaffingServic
 import * as subscriptionLifecycle from "../services/subscriptionLifecycleService.js";
 import * as infrastructureSnapshotService from "../services/infrastructureSnapshotService.js";
 import * as documentCenterService from "../services/documentCenterService.js";
+import * as dealFeedbackService from "../services/dealFeedbackService.js";
 import fs from "node:fs";
 import path from "node:path";
 
@@ -56,6 +57,23 @@ export function createInternalRouter(deps) {
       res.json({ ok: true, expired });
     } catch (e) {
       logger.error({ err: e, path: "expire-reservations", clientIp }, "Cron expire-reservations failed");
+      res.status(500).json({ error: "SERVER_ERROR" });
+    }
+  });
+
+  // Deal-Feedback v2: einseitiges Feedback nach der Reveal-Frist enthüllen (mutual-blind).
+  router.post("/internal/reveal-due-feedback", cronRateLimit, checkCronAuth, async (req, res) => {
+    const clientIp = req.ip || req.socket?.remoteAddress || "unknown";
+    try {
+      const deadlineDays = Math.max(1, parseInt(req.body?.deadline_days, 10) || dealFeedbackService.REVEAL_DEADLINE_DAYS);
+      const { revealed } = await dealFeedbackService.revealDueFeedback(pool, { deadlineDays });
+      if (revealed > 0) {
+        await auditLog.writeAudit(pool, { action: "deal_feedback.reveal_batch", entity_type: "deal_feedback", details: { revealed, deadlineDays } });
+      }
+      logger.info({ path: "reveal-due-feedback", clientIp, revealed, deadlineDays }, "Cron reveal-due-feedback completed");
+      res.json({ ok: true, revealed });
+    } catch (e) {
+      logger.error({ err: e, path: "reveal-due-feedback", clientIp }, "Cron reveal-due-feedback failed");
       res.status(500).json({ error: "SERVER_ERROR" });
     }
   });
