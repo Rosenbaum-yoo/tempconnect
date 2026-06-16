@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <script src="/public/js/theme.js"></script>
+  <title>Neues Arbeitsplatzangebot – TempConnect</title>
+  <link rel="stylesheet" href="/public/css/enterprise.css"/>
+  <style>
+    .rc-wrap { max-width: 880px; }
+    .rc-card { border:1px solid var(--ds-border); border-radius:var(--ds-radius-lg); background:rgba(255,255,255,.015); padding:var(--ds-space-5); margin-bottom:var(--ds-space-4); }
+    .rc-card__title { font-size:14px; font-weight:700; margin:0 0 4px; }
+    .rc-card__hint { font-size:12px; color:var(--muted); margin:0 0 16px; }
+    .rc-grid { display:grid; grid-template-columns:1fr 1fr; gap:14px 18px; }
+    .rc-full { grid-column:1 / -1; }
+    .rc-field label { display:block; font-size:12px; color:var(--muted); margin:0 0 4px; font-weight:600; }
+    .rc-field input, .rc-field select, .rc-field textarea { width:100%; box-sizing:border-box; margin:0; }
+    .rc-req { color:var(--ds-danger); }
+    .rc-check { display:flex; align-items:center; gap:8px; font-size:13px; }
+    .rc-check input { width:auto; }
+    .rc-actions { display:flex; gap:10px; flex-wrap:wrap; margin-top:var(--ds-space-3); }
+    @media (max-width:680px){ .rc-grid { grid-template-columns:1fr; } }
+  </style>
+</head>
+<body>
+  <div class="wrap rc-wrap">
+    <div id="tc-shell"></div>
+
+    <div class="ds-page-header">
+      <div class="ds-page-header__content">
+        <h1 class="ds-page-title">Neues Arbeitsplatzangebot</h1>
+        <p class="ds-page-subtitle">Erfassen Sie Eckdaten, Bedarf, Einsatzort und Anforderungen. Nach dem Anlegen läuft das Angebot durch den Freigabe-Workflow.</p>
+      </div>
+      <div class="ds-page-header__actions">
+        <a class="btn" href="/public/requisitions.html">&larr; Zur Übersicht</a>
+      </div>
+    </div>
+
+    <div id="rcState" class="page-state" aria-live="polite" style="display:none"></div>
+
+    <form id="rcForm" novalidate>
+      <div class="rc-card">
+        <h2 class="rc-card__title">Eckdaten</h2>
+        <p class="rc-card__hint">Titel und Rolle sind Pflicht.</p>
+        <div class="rc-grid">
+          <div class="rc-field"><label>Titel <span class="rc-req">*</span></label><input id="cTitle" required minlength="3" maxlength="200" placeholder="z.B. Lagerarbeiter Logistikzentrum"/></div>
+          <div class="rc-field"><label>Rolle <span class="rc-req">*</span></label><input id="cRole" required maxlength="120" placeholder="z.B. Lagerarbeiter"/></div>
+          <div class="rc-field rc-full"><label>Beschreibung</label><textarea id="cDesc" rows="4" maxlength="4000" placeholder="Aufgaben, Schichten, Besonderheiten …"></textarea></div>
+        </div>
+      </div>
+
+      <div class="rc-card">
+        <h2 class="rc-card__title">Bedarf &amp; Zeitraum</h2>
+        <p class="rc-card__hint">Wie viele Personen, wie dringend und für welchen Zeitraum.</p>
+        <div class="rc-grid">
+          <div class="rc-field"><label>Headcount</label><input id="cHead" type="number" min="1" max="999" value="1"/></div>
+          <div class="rc-field"><label>Dringlichkeit</label>
+            <select id="cUrg"><option value="normal">Normal</option><option value="high">Hoch</option><option value="urgent">Dringend</option><option value="notdienst">Notdienst</option></select>
+          </div>
+          <div class="rc-field"><label>Startdatum</label><input id="cStart" type="date"/></div>
+          <div class="rc-field"><label>Enddatum</label><input id="cEnd" type="date"/></div>
+        </div>
+      </div>
+
+      <div class="rc-card">
+        <h2 class="rc-card__title">Einsatzort</h2>
+        <p class="rc-card__hint">Wo der Einsatz stattfindet und in welchem Umkreis gesucht wird.</p>
+        <div class="rc-grid">
+          <div class="rc-field"><label>Stadt</label><input id="cCity" maxlength="200" placeholder="z.B. Dortmund"/></div>
+          <div class="rc-field"><label>PLZ</label><input id="cPostal" maxlength="10"/></div>
+          <div class="rc-field"><label>Umkreis (km)</label><input id="cRadius" type="number" min="1" max="500" value="25"/></div>
+        </div>
+      </div>
+
+      <div class="rc-card">
+        <h2 class="rc-card__title">Anforderungen &amp; Budget</h2>
+        <p class="rc-card__hint">Optional. Skills helfen beim Matching, das Budget steuert Vorschläge.</p>
+        <div class="rc-grid">
+          <div class="rc-field rc-full"><label>Skills (kommagetrennt)</label><input id="cSkills" placeholder="z.B. Schweißen, SPS, Gabelstapler"/></div>
+          <div class="rc-field"><label>Budget min (Cent)</label><input id="cBudgetMin" type="number" min="0"/></div>
+          <div class="rc-field"><label>Budget max (Cent)</label><input id="cBudgetMax" type="number" min="0"/></div>
+          <div class="rc-field rc-full"><label class="rc-check"><input type="checkbox" id="cApproval"> Freigabe erforderlich</label></div>
+        </div>
+      </div>
+
+      <div class="rc-actions">
+        <button type="submit" id="rcSubmit" class="btn primary">Arbeitsplatzangebot erstellen</button>
+        <a class="btn" href="/public/requisitions.html">Abbrechen</a>
+      </div>
+    </form>
+  </div>
+
+  <script src="/public/js/pageShell.js"></script>
+  <script src="/public/js/notifications.js"></script>
+  <div id="tc-footer" data-tc-footer></div>
+  <script src="/public/js/footer.js"></script>
+  <script src="/public/js/demoBanner.js" defer></script>
+  <script src="/public/js/breadcrumb.js" defer></script>
+  <script>
+  (function () {
+    "use strict";
+    function $(id) { return document.getElementById(id); }
+
+    function setState(kind, title, text) {
+      var el = $("rcState");
+      el.style.display = "";
+      el.className = "page-state page-state--" + (kind === "bad" ? "bad" : kind === "good" ? "good" : "info");
+      el.innerHTML = '<strong>' + title + '</strong><br><span style="font-size:13px">' + text + '</span>';
+      el.scrollIntoView({ behavior: "smooth", block: "nearest" });
+    }
+
+    async function getCsrf() {
+      try {
+        var r = await fetch("/api/csrf", { credentials: "include" });
+        if (r.ok) { var d = await r.json(); return d.csrfToken || ""; }
+      } catch (e) { /* ignore */ }
+      return "";
+    }
+
+    function buildBody() {
+      var skills = $("cSkills").value.split(",").map(function (s) { return s.trim(); }).filter(Boolean);
+      return {
+        title: $("cTitle").value,
+        role: $("cRole").value,
+        description: $("cDesc").value || null,
+        headcount: parseInt($("cHead").value, 10) || 1,
+        urgency: $("cUrg").value,
+        start_date: $("cStart").value || null,
+        end_date: $("cEnd").value || null,
+        location_city: $("cCity").value || null,
+        location_postal: $("cPostal").value || null,
+        radius_km: parseInt($("cRadius").value, 10) || 25,
+        skill_tags: skills.length ? skills : undefined,
+        budget_min_cents: parseInt($("cBudgetMin").value, 10) || undefined,
+        budget_max_cents: parseInt($("cBudgetMax").value, 10) || undefined,
+        approval_required: $("cApproval").checked
+      };
+    }
+
+    async function submit(e) {
+      e.preventDefault();
+      if (!$("rcForm").reportValidity()) return;
+      var btn = $("rcSubmit");
+      var orig = btn.textContent;
+      btn.disabled = true;
+      btn.textContent = "Wird erstellt …";
+      try {
+        var token = await getCsrf();
+        var r = await fetch("/api/requisitions", {
+          method: "POST",
+          credentials: "include",
+          headers: { "Content-Type": "application/json", "x-csrf-token": token },
+          body: JSON.stringify(buildBody())
+        });
+        if (r.status === 401) { window.location.href = "/"; return; }
+        var data = {};
+        var txt = await r.text();
+        if (txt) { try { data = JSON.parse(txt); } catch (err) { data = {}; } }
+        if (r.ok && data && data.id) {
+          window.location.href = "/public/requisitions.html?created=1";
+          return;
+        }
+        setState("bad", "Erstellung fehlgeschlagen", (data && (data.message || data.error)) || ("HTTP " + r.status));
+        btn.disabled = false;
+        btn.textContent = orig;
+      } catch (err) {
+        setState("bad", "Netzwerkfehler", "Server nicht erreichbar. Bitte erneut versuchen.");
+        btn.disabled = false;
+        btn.textContent = orig;
+      }
+    }
+
+    document.addEventListener("DOMContentLoaded", function () {
+      $("rcForm").addEventListener("submit", submit);
+    });
+  })();
+  </script>
+</body>
+</html>

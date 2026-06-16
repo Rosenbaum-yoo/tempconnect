@@ -213,6 +213,9 @@ async function init() {
     if (filterRow) filterRow.before(hint);
   }
   await loadList(false);
+  if (new URLSearchParams(window.location.search).get('created') === '1') {
+    showReqState('good', 'Arbeitsplatzangebot erstellt', 'Das neue Arbeitsplatzangebot wurde angelegt und erscheint in der Liste.');
+  }
 }
 
 async function loadList(persist) {
@@ -436,44 +439,13 @@ async function doTransition(status) {
 }
 
 /* -- Create ---------------------------------------- */
-function showCreate() { document.getElementById('createModal').classList.add('show'); }
-function closeCreate() { document.getElementById('createModal').classList.remove('show'); }
-
-async function submitCreate(e) {
-  e.preventDefault();
-  var skills = document.getElementById('cSkills').value.split(',').map(function(s) { return s.trim(); }).filter(Boolean);
-  var body = {
-    title: document.getElementById('cTitle').value,
-    role: document.getElementById('cRole').value,
-    description: document.getElementById('cDesc').value || null,
-    headcount: parseInt(document.getElementById('cHead').value, 10) || 1,
-    urgency: document.getElementById('cUrg').value,
-    start_date: document.getElementById('cStart').value || null,
-    end_date: document.getElementById('cEnd').value || null,
-    location_city: document.getElementById('cCity').value || null,
-    location_postal: document.getElementById('cPostal').value || null,
-    radius_km: parseInt(document.getElementById('cRadius').value, 10) || 25,
-    skill_tags: skills.length ? skills : undefined,
-    budget_min_cents: parseInt(document.getElementById('cBudgetMin').value, 10) || undefined,
-    budget_max_cents: parseInt(document.getElementById('cBudgetMax').value, 10) || undefined,
-    approval_required: document.getElementById('cApproval').checked
-  };
-  var result = await apiPost('/requisitions', body);
-  if (result && result.id) {
-    closeCreate();
-    document.getElementById('createForm').reset();
-    showReqState('good', 'Arbeitsplatzangebot erstellt', 'Das neue Arbeitsplatzangebot wurde angelegt und in die Liste übernommen.');
-    loadList();
-  } else {
-    showReqState('bad', 'Erstellung fehlgeschlagen', parseApiError(result, 'Das Arbeitsplatzangebot konnte nicht erstellt werden.'));
-  }
-}
+// Erstellen läuft jetzt über die dedizierte Vollseite requisition_create.html
+// (eine Logik-Quelle: POST /api/requisitions dort). Das frühere Create-Modal +
+// showCreate/closeCreate/submitCreate wurden entfernt — der Button und der
+// Empty-State auf requisitions.html verlinken direkt auf die Seite.
 
 window.loadList = loadList;
 window.openDetail = openDetail;
 window.closeDetail = closeDetail;
 window.doTransition = doTransition;
-window.showCreate = showCreate;
-window.closeCreate = closeCreate;
-window.submitCreate = submitCreate;
 init();

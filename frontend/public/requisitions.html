@@ -59,7 +59,7 @@
         <p class="ds-page-subtitle">Arbeitsplatzangebote erfassen, priorisieren und durch den Freigabe-Workflow steuern.</p>
       </div>
       <div class="ds-page-header__actions">
-        <button class="btn primary" onclick="showCreate()">+ Neues Arbeitsplatzangebot</button>
+        <a class="btn primary" href="/public/requisition_create.html">+ Neues Arbeitsplatzangebot</a>
       </div>
     </div>
     <div class="link-row">
@@ -93,7 +93,7 @@
     <div id="emptyMsg" class="ds-empty" style="display:none">
       <div class="ds-empty__title" id="emptyTitle">Keine Arbeitsplatzangebote gefunden</div>
       <div class="ds-empty__text" id="emptyText">Sie haben noch keine Arbeitsplatzangebote erstellt oder passen Sie die Filterkriterien an.</div>
-      <div id="emptyActions" style="margin-top:10px"><button class="btn primary" onclick="showCreate()">Jetzt Arbeitsplatz anbieten</button></div>
+      <div id="emptyActions" style="margin-top:10px"><a class="btn primary" href="/public/requisition_create.html">Jetzt Arbeitsplatz anbieten</a></div>
     </div>
   </div>
 
@@ -105,40 +105,6 @@
         <button class="btn" onclick="closeDetail()">Schliessen</button>
       </div>
       <div id="detContent" style="margin-top:16px"></div>
-    </div>
-  </div>
-
-  <!-- Create Modal -->
-  <div class="modal" id="createModal">
-    <div class="panel" style="max-width:640px;max-height:90vh;overflow-y:auto">
-      <div style="display:flex;justify-content:space-between;align-items:center">
-        <h2 style="margin:0">Neues Arbeitsplatzangebot</h2>
-        <button class="btn" onclick="closeCreate()">Abbrechen</button>
-      </div>
-      <form id="createForm" style="margin-top:16px" onsubmit="submitCreate(event)">
-        <div class="form-grid">
-          <div><label>Titel *</label><input id="cTitle" required minlength="3" maxlength="200"/></div>
-          <div><label>Rolle *</label><input id="cRole" required maxlength="120"/></div>
-          <div class="form-full"><label>Beschreibung</label><textarea id="cDesc" rows="3" maxlength="4000"></textarea></div>
-          <div><label>Headcount</label><input id="cHead" type="number" min="1" max="999" value="1"/></div>
-          <div><label>Dringlichkeit</label>
-            <select id="cUrg"><option value="normal">Normal</option><option value="high">Hoch</option><option value="urgent">Dringend</option><option value="notdienst">Notdienst</option></select>
-          </div>
-          <div><label>Startdatum</label><input id="cStart" type="date"/></div>
-          <div><label>Enddatum</label><input id="cEnd" type="date"/></div>
-          <div><label>Stadt</label><input id="cCity" maxlength="200"/></div>
-          <div><label>PLZ</label><input id="cPostal" maxlength="10"/></div>
-          <div><label>Umkreis (km)</label><input id="cRadius" type="number" min="1" max="500" value="25"/></div>
-          <div><label>Skills (kommagetrennt)</label><input id="cSkills" placeholder="z.B. Schweißen, SPS, Gabelstapler"/></div>
-          <div><label>Budget min (Cent)</label><input id="cBudgetMin" type="number" min="0"/></div>
-          <div><label>Budget max (Cent)</label><input id="cBudgetMax" type="number" min="0"/></div>
-          <div class="form-full"><label><input type="checkbox" id="cApproval"> Freigabe erforderlich</label></div>
-        </div>
-        <div style="margin-top:12px;display:flex;gap:8px">
-          <button type="submit" class="btn primary">Erstellen</button>
-          <button type="button" class="btn" onclick="closeCreate()">Abbrechen</button>
-        </div>
-      </form>
     </div>
   </div>
 
