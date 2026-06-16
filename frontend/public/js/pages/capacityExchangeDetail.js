@@ -336,6 +336,25 @@
       el.textContent = text;
     }
 
+    // Persistenter "Zum Deal"-Button in der Aktionszone — bleibt nach dem
+    // Ergebnis-Modal sichtbar, damit man jederzeit direkt zum Deal kommt.
+    function showDealLink(offerId) {
+      if (!offerId) return;
+      var statusEl = document.getElementById("action-zone-status");
+      if (!statusEl) return;
+      var link = document.getElementById("action-zone-deal-link");
+      if (!link) {
+        link = document.createElement("a");
+        link.id = "action-zone-deal-link";
+        link.className = "ds-btn ds-btn--primary";
+        link.style.cssText = "margin-top:10px;display:inline-flex;align-items:center;gap:6px";
+        link.textContent = "→ Zum Deal";
+        statusEl.insertAdjacentElement("afterend", link);
+      }
+      link.href = "/public/offer_detail.html?id=" + encodeURIComponent(offerId);
+      link.style.display = "inline-flex";
+    }
+
     function interactionErrorMessage(code) {
       var map = {
         ACTION_NOT_ALLOWED_ROLE: "Ihre Rolle kann diese Aktion hier nicht ausfuehren.",
@@ -481,6 +500,10 @@
           // Supply: Company -> capacity-posts/accept-deal
           // Demand: Agency -> demand-requests/:id/offers (Offer erstellen) + accept
           if (action === "deal_accept") {
+            // Verklick-Schutz: verbindlicher Deal-Start wird vor dem API-Call best\u00e4tigt.
+            if (!confirm("Konditionen jetzt VERBINDLICH zustimmen?\n\nDamit starten Sie einen verbindlichen Deal zu den angebotenen Konditionen. Bitte nur best\u00e4tigen, wenn Sie sicher sind.")) {
+              return;
+            }
             btn.disabled = true;
             btn.textContent = "Deal wird vorbereitet\u2026";
 
@@ -526,6 +549,7 @@
                     : "Deal gestartet \u2014 Personalangebot ist jetzt voll reserviert.")
                 : "Deal gestartet \u2014 Einsatzbestaetigung " + (result.agreement_ref || "") + " erstellt.";
               setActionZoneStatus(remainingStatus, "success");
+              if (result && result.offer && result.offer.id) showDealLink(result.offer.id);
               toast("Konditionen zugestimmt \u2014 Einsatzbestaetigung erstellt", "success");
               // Deal-Buttons deaktivieren
               document.querySelectorAll('[data-open-action="deal_accept"],[data-open-action="deal_negotiate"]').forEach(function(b) {
@@ -599,6 +623,7 @@
             // Offer-Detail-Seite verlinken
             if (result.offer && result.offer.id) {
               fb.innerHTML += '<br><a href="/public/offer_detail.html?id=' + esc(result.offer.id) + '" class="ds-btn ds-btn--sm" style="margin-top:8px">Zur Einsatzvereinbarung</a>';
+              showDealLink(result.offer.id);
             }
             toast("Konditionen zugestimmt — Deal gestartet", "success");
           } else {
