@@ -94,7 +94,17 @@
       '</div>' +
       '</div>';
 
-    topbar.appendChild(wrap);
+    // Glocke in die ERSTE Zeile der geteilten pageShell-Topbar einhängen — direkt vor
+    // dem Profil. Vorher landete sie per appendChild als letztes Kind der gestackten
+    // Zwei-Zeilen-Nav, also UNTER der Suchzeile ("nicht in 1. Reihe"). Auf statischen
+    // Topbars ohne pageShell-Cluster wird unverändert ans Ende angehängt (rechts oben).
+    var navCluster = topbar.querySelector(".tc-shell-nav") || topbar;
+    var profile = navCluster.querySelector("#tc-user-profile");
+    if (profile && profile.parentNode === navCluster) {
+      navCluster.insertBefore(wrap, profile);
+    } else {
+      navCluster.appendChild(wrap);
+    }
     return wrap;
   }
 
