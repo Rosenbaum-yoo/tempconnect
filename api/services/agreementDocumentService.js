@@ -100,6 +100,12 @@ function docStyles(isDraft) {
     /* ── Legal ── */
     .tc-legal{font-size:10px;color:#94a3b8;line-height:1.5;margin-top:16px;padding:12px 16px;background:#f8fafc;border-radius:6px;border:1px solid #e2e8f0}
     @media print{.tc-legal{background:#f8fafc !important;-webkit-print-color-adjust:exact;print-color-adjust:exact}}
+
+    /* ── Print/PDF-Button (nur Screen; beim Druck/PDF ausgeblendet) ── */
+    .tc-print-bar{position:fixed;top:16px;right:16px;z-index:50}
+    .tc-print-btn{font:600 13px 'Segoe UI',system-ui,-apple-system,Arial,sans-serif;padding:9px 18px;border-radius:8px;border:1px solid ${TC_BRAND_COLOR};background:${TC_BRAND_COLOR};color:#fff;cursor:pointer;box-shadow:0 2px 10px rgba(74,158,255,.3)}
+    .tc-print-btn:hover{background:#3b8be8}
+    @media print{.tc-print-bar{display:none !important}}
   `;
 }
 
@@ -113,6 +119,8 @@ export function renderConditionsSheet(offer, _format) {
   return `<!DOCTYPE html>
 <html lang="de"><head><meta charset="utf-8"><title>Konditionsblatt \u2013 TempConnect</title>
 <style>${docStyles(true)}</style></head><body>
+<div class="tc-print-bar"><button type="button" class="tc-print-btn" data-tc-print>Als PDF speichern</button></div>
+<script src="/public/js/docPrint.js"></script>
 <div class="tc-watermark">ENTWURF</div>
 
 <div class="tc-doc-header">
@@ -213,6 +221,8 @@ export function renderAgreementDocument(offer) {
   return `<!DOCTYPE html>
 <html lang="de"><head><meta charset="utf-8"><title>Einsatzvereinbarung ${esc(ref)} \u2013 TempConnect</title>
 <style>${docStyles(isDraft)}</style></head><body>
+<div class="tc-print-bar"><button type="button" class="tc-print-btn" data-tc-print>Als PDF speichern</button></div>
+<script src="/public/js/docPrint.js"></script>
 ${isDraft ? '<div class="tc-watermark">ENTWURF</div>' : ""}
 
 <div class="tc-doc-header">
