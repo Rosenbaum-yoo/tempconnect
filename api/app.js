@@ -139,7 +139,10 @@ export async function createApp() {
   }
   const stripe = config.STRIPE_SECRET_KEY ? new Stripe(config.STRIPE_SECRET_KEY) : null;
   const app = express();
-  app.use(express.json({ limit: "1mb" }));
+  // Stripe-Webhook braucht den ROH-Body fuer die HMAC-Signaturpruefung (constructEvent).
+  // verify sichert den unveraenderten Buffer als req.rawBody, BEVOR express.json parst —
+  // sonst konsumiert der globale Parser den Body und die Signaturpruefung schlaegt immer fehl.
+  app.use(express.json({ limit: "1mb", verify: (req, _res, buf) => { if (buf && buf.length) req.rawBody = buf; } }));
 
   // Correlation-ID fuer Request-Tracing (X-Correlation-ID / X-Request-ID)
   app.use(correlationMiddleware);

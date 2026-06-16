@@ -11,7 +11,11 @@ export function requireAuth(req, res, next) {
 export function csrfProtect(req, res, next) {
   if (["GET", "HEAD", "OPTIONS"].includes(req.method)) return next();
   const path = (req.path || "").replace(/^\/api(\/v\d+)?/, "") || "/";
-  if (path === "/csrf" || path === "/analytics/track-public") return next();
+  // Webhook-Endpunkte (Stripe/PayPal) sind sessionlos und HMAC-signaturgesichert —
+  // CSRF greift dort konzeptionell nicht und wuerde sie faelschlich mit 403 blockieren.
+  // Hinweis: csrfProtect ist unter app.use("/api/", …) gemountet → req.path ist um /api
+  // gekuerzt, die optionale /vN-Version bleibt aber (z.B. "/v1/payment/webhook/stripe").
+  if (path === "/csrf" || path === "/analytics/track-public" || /^(\/v\d+)?\/payment\/webhook\//.test(path)) return next();
   const token = req.headers["x-csrf-token"];
   const sessionToken = req.session?.csrfToken;
   if (!sessionToken || token !== sessionToken) {

@@ -440,7 +440,11 @@ export function createPaymentRouter(deps) {
       const paidCents = Number.isFinite(intent.amount_subtotal)
         ? intent.amount_subtotal
         : intent.amount_total;
-      if (!Number.isFinite(expectedCents) || !Number.isFinite(paidCents) || paidCents !== expectedCents) {
+      // Manipulationsschutz deckt Betrag UND Waehrung ab: die bezahlte Waehrung muss der
+      // eingefrorenen Vertragswaehrung entsprechen (Blueprint-Haertung fuer Mehrwaehrung).
+      const expectedCurrency = String(reqRow.quote_snapshot?.currency || "EUR").toLowerCase();
+      const paidCurrency = String(intent.currency || "").toLowerCase();
+      if (!Number.isFinite(expectedCents) || !Number.isFinite(paidCents) || paidCents !== expectedCents || !paidCurrency || paidCurrency !== expectedCurrency) {
         await auditSvc.writeAudit(pool, {
           action: "subscription_request.payment_amount_mismatch",
           entity_type: "subscription_request",
@@ -452,6 +456,7 @@ export function createPaymentRouter(deps) {
             expected_cents: Number.isFinite(expectedCents) ? expectedCents : null,
             paid_cents: Number.isFinite(paidCents) ? paidCents : null,
             currency: intent.currency || null,
+            expected_currency: expectedCurrency,
             stripe_subscription_id: intent.stripe_subscription_id || null
           }
         });
@@ -525,7 +530,7 @@ export function createPaymentRouter(deps) {
     }
     let event;
     try {
-      event = stripe.webhooks.constructEvent(req.body, sig, STRIPE_WEBHOOK_SECRET);
+      event = stripe.webhooks.constructEvent(req.rawBody || req.body, sig, STRIPE_WEBHOOK_SECRET);
     } catch (err) {
       logger.warn({ err: err.message }, "Stripe webhook signature verification failed");
       return res.status(400).json({ error: "INVALID_SIGNATURE" });

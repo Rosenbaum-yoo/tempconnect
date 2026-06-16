@@ -442,4 +442,34 @@ describe("POST /payment/webhook/stripe — INDIVIDUELL-Aktivierung (Slice C)", (
     assert.strictEqual(calls.approve, null, "keine erneute Annahme");
     assert.strictEqual(calls.apply, null, "keine erneute Aktivierung");
   });
+
+  it("Manipulationsschutz Waehrung: korrekte Cent-Summe, aber falsche Waehrung => KEINE Aktivierung, Audit, keine Mail", async () => {
+    const pool = sequencePool({ rows: [{ status: "pending" }] });
+    let mailSent = false;
+    let auditCaptured = null;
+    const { stub, calls } = subReqStubs({
+      reqRow: { id: "req-1", org_id: "org-9", status: STATUS.SUBMITTED, quote_snapshot: { proposed_price_cents: EXPECTED_MONTHLY, currency: "EUR" } }
+    });
+    // Betrag korrekt (EXPECTED_MONTHLY), aber Waehrung usd statt eur → muss blockieren.
+    const deps = webhookDeps(pool, activationEvent({ currency: "usd" }), {
+      subscriptionRequestService: stub,
+      sendMail: () => { mailSent = true; },
+      auditLog: { writeAudit: (_pool, entry) => { auditCaptured = entry; } },
+      invoiceService: { createInvoice: () => { throw new Error("Rechnung darf nicht erzeugt werden"); } }
+    });
+    const router = createPaymentRouter(deps);
+    const handler = findHandler(router, "post", "/payment/webhook/stripe");
+    const req = mockReq({ headers: { "stripe-signature": "valid_sig" } });
+    const res = mockRes();
+
+    await handler(req, res);
+
+    assert.strictEqual(res._json.received, true);
+    assert.strictEqual(calls.approve, null, "kein approve bei Waehrungsabweichung");
+    assert.strictEqual(calls.apply, null, "kein applyApprovedChange bei Waehrungsabweichung");
+    assert.ok(auditCaptured, "Waehrungs-Mismatch wird auditiert");
+    assert.strictEqual(auditCaptured.action, "subscription_request.payment_amount_mismatch");
+    assert.strictEqual(auditCaptured.details.expected_currency, "eur");
+    assert.strictEqual(mailSent, false);
+  });
 });
