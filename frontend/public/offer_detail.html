@@ -397,6 +397,8 @@
       });
       h += '</div></div>';
 
+      h += '<div id="od-assign-cta"></div>';
+
       h += '<div class="od-grid">';
       h += '<div class="od-card"><div class="od-card__title">Arbeitsplatzangebot</div>';
       h += field('Rolle', esc(o.demand_role || '\u2014'));
@@ -546,6 +548,20 @@
         var open = Number(asg.open_quantity != null ? asg.open_quantity : Math.max(requested - filled - reserved, 0));
         var isSupplier = !!ctx.is_supplier;
         var safeCandidates = Array.isArray(ctx.safe_candidates) ? ctx.safe_candidates : [];
+
+        // Prominente Supplier-CTA direkt unter dem Deal-Fortschritt: sobald der Einsatz
+        // aktiv ist und Plaetze offen sind, fuehrt EIN Button zum 1-Klick-Zuweisungspanel
+        // (kein Suchen). Nur fuer den Lieferanten, nur bei offenem Bedarf.
+        var assignCta = document.getElementById('od-assign-cta');
+        if (assignCta) {
+          assignCta.innerHTML = (isSupplier && open > 0)
+            ? '<div class="od-card od-card--full" style="border-color:var(--ds-brand);display:flex;flex-wrap:wrap;gap:var(--ds-space-3);align-items:center;justify-content:space-between">'
+              + '<div><div class="od-card__title" style="margin:0">Einsatz aktiv – ' + esc(String(open)) + ' Platz(e) offen</div>'
+              + '<div style="font-size:12px;color:var(--ds-text-secondary);margin-top:2px">Jetzt Arbeiter zuweisen – sichere Kandidaten direkt per Klick.</div></div>'
+              + '<button type="button" class="ds-btn ds-btn--primary" onclick="var b=document.getElementById(\'od-staffing-block\');if(b)b.scrollIntoView({behavior:\'smooth\',block:\'start\'});">Arbeiter zuweisen →</button>'
+              + '</div>'
+            : '';
+        }
 
         var html = '';
         html += '<div class="od-status-line">';
