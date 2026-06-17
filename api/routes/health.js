@@ -293,8 +293,13 @@ export function createHealthRouter(deps) {
     });
   });
 
-  // ── Platform metrics (admin-only) ────────────────────
-  router.get("/admin/metrics", async (req, res) => {
+  // ── Platform metrics export (secret-gated, externer/Ops-JSON-Zugriff) ──────
+  // WICHTIG eigener Pfad, NICHT /admin/metrics: dort lebt die session-
+  // authentifizierte Admin-Panel-Metrik (routes/admin.js). Frueher kollidierten
+  // beide auf /admin/metrics — da der health-Router VOR dem admin-Router gemountet
+  // wird, gewann diese secret-gated Route und lieferte dem Admin-Panel 404 (kein
+  // Secret) -> uncaught loadMetrics. Distinkter Pfad behebt die Kollision.
+  router.get("/admin/metrics-export", async (req, res) => {
     const secret = req.headers["x-admin-secret"] || req.query.secret;
     if (!config.ADMIN_SECRET || secret !== config.ADMIN_SECRET) {
       return res.status(404).json({ error: "NOT_FOUND" });

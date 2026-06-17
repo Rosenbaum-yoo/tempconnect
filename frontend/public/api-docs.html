@@ -1561,10 +1561,10 @@ x-csrf-token: &lt;token&gt;
         <div class="endpoint">
           <div class="endpoint-header" onclick="this.parentElement.classList.toggle('open')">
             <span class="method get">GET</span>
-            <span class="endpoint-path">/api/admin/metrics</span>
-            <span class="endpoint-desc">Plattform-Metriken</span>
+            <span class="endpoint-path">/api/admin/metrics-export</span>
+            <span class="endpoint-desc">Plattform-Metriken (Ops-Export)</span>
           </div>
-          <div class="endpoint-body"><p><span class="tag auth">Auth</span> <span class="tag role">Admin</span> Geschützt via Admin-Secret. Gibt aggregierte Plattform-KPIs zurück.</p></div>
+          <div class="endpoint-body"><p><span class="tag auth">Auth</span> <span class="tag role">Admin</span> Geschützt via Admin-Secret (Header <code>x-admin-secret</code>). Gibt aggregierte Plattform-KPIs als JSON für externe Ops/Monitoring zurück. (Das Admin-Panel selbst nutzt die session-authentifizierte Route <code>/api/admin/metrics</code>.)</p></div>
         </div>
       </section>
 

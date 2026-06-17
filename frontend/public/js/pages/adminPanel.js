@@ -530,7 +530,15 @@
   }
 
   async function loadMetrics() {
-    var d = await TC.api.get('/admin/metrics');
+    var d;
+    try {
+      d = await TC.api.get('/admin/metrics');
+    } catch (e) {
+      el('metricsGrid').innerHTML = '<div class="admin-empty">Metriken konnten nicht geladen werden. Bitte erneut versuchen.</div>';
+      el('metricsDeepLinks').innerHTML = '';
+      el('metricsDetail').innerHTML = '';
+      return;
+    }
     var m = d.data || {};
     var tiles = [
       { lbl: 'Benutzer gesamt', val: (m.users && m.users.total) || 0 },
