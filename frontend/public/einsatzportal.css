@@ -4,6 +4,14 @@
    Baut auf den Design-Tokens des bestehenden Enterprise-Systems auf.
    ============================================================================ */
 
+/* ── Pre-Auth-Gate ─────────────────────────────────────────────────────────────
+   Die Portal-Huelle bleibt verborgen, bis die Session serverseitig bestaetigt ist.
+   portalShell.initShell() entfernt .ep-preauth NACH erfolgreichem GET /worker/me;
+   bei NOT_AUTH wird stattdessen zu worker-login.html umgeleitet (Body bleibt
+   verborgen -> kein Aufblitzen der Portal-Struktur fuer uneingeloggte Nutzer).
+   showError() macht ebenfalls sichtbar, damit echte Fehlerzustaende erscheinen. */
+.ep-preauth { visibility: hidden; }
+
 /* ── Design Tokens ─────────────────────────────────────────────────────────── */
 :root {
   /* Palette — Dark Enterprise */

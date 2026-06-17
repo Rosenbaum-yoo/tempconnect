@@ -28,6 +28,15 @@
     });
   }
 
+  /* ── Pre-Auth-Gate aufheben ────────────────────────────────────── */
+  // Entfernt .ep-preauth vom <body> -> Portal-Huelle wird sichtbar. Wird NUR
+  // nach bestaetigter Session (initShell) oder im Fehlerzustand (showError)
+  // aufgerufen; bei NOT_AUTH bleibt der Body verborgen und die Seite leitet
+  // zu worker-login.html um -> kein Aufblitzen fuer uneingeloggte Nutzer.
+  function _reveal() {
+    if (document.body) document.body.classList.remove('ep-preauth');
+  }
+
   /* ── Toast ─────────────────────────────────────────────────────── */
   function toast(msg, type) {
     type = type || '';
@@ -41,6 +50,7 @@
 
   /* ── Fehlerzustand ─────────────────────────────────────────────── */
   function showError(msg) {
+    _reveal(); // Fehlerzustand muss sichtbar sein, auch wenn die Huelle noch verborgen war
     var loadingEl = document.getElementById('loading');
     var contentEl = document.getElementById('content');
     if (loadingEl) loadingEl.style.display = 'none';
@@ -136,6 +146,7 @@
   async function initShell() {
     _setupAccessibility();
     var me = await loadWorkerMe();
+    _reveal(); // Session bestaetigt -> Portal-Huelle einblenden (vorher .ep-preauth)
     loadUnreadCount(); // fire-and-forget — kein await
     return me;
   }
