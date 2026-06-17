@@ -72,7 +72,7 @@ function UnauthenticatedPage() {
         Das Owner Control Center erfordert eine gültige Plattform-Session.
       </p>
       <a
-        href={`/public/login.html?return=${returnUrl}`}
+        href={`/?auth=login&return=${returnUrl}`}
         style={{
           padding: "10px 20px",
           background: "var(--occ-accent)",
@@ -114,7 +114,7 @@ function ForbiddenPage() {
         Bitte wende dich an den Systemadministrator.
       </p>
       <a
-        href="/public/login.html"
+        href="/public/enterprise.html"
         style={{
           padding: "8px 16px",
           border: "1px solid var(--occ-line)",
@@ -124,7 +124,7 @@ function ForbiddenPage() {
           fontSize: "13px",
         }}
       >
-        Zurück zum Login
+        Zur Plattform
       </a>
     </div>
   );

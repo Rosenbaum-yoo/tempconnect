@@ -17,8 +17,8 @@ export function Topbar({ pageTitle }: { pageTitle?: string }) {
   async function handleLogout() {
     await occApi.post("/auth/logout").catch(() => {});
     toast.info("Session beendet.");
-    // Weiterleitung zur Plattform-Login-Seite
-    window.location.href = "/public/login.html";
+    // Zurueck zum Plattform-Login (Auth-Modal auf der Landing direkt geoeffnet)
+    window.location.href = "/?auth=login";
   }
 
   return (

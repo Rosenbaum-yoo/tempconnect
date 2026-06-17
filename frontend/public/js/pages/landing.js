@@ -8,6 +8,7 @@
 const API = '/api';
 var _resetToken  = null;
 var _csrfToken   = null;   // cached CSRF token
+var _returnUrl   = null;   // open-redirect-sicheres Ziel nach Login (?return=, z.B. /owner-control/)
 
 /* ── CSRF: Token holen (gecacht, einmalig pro Session) ─ */
 async function getCsrf() {
@@ -83,6 +84,11 @@ function showLoggedInState(me) {
   var p      = new URLSearchParams(location.search);
   var verify = p.get('verify');
   var reset  = p.get('reset');
+
+  // Open-redirect-sicheres Rueck-Ziel nach Login (z.B. aus dem OCC: ?return=/owner-control/).
+  // Nur same-origin-Pfade: muss mit "/" beginnen, aber nicht mit "//" oder "/\" (Protocol-Relative).
+  var ret = p.get('return');
+  if (ret && /^\/(?![/\\])/.test(ret)) { _returnUrl = ret; }
 
   if (verify) { handleVerify(verify); return; }
   if (reset)  { _resetToken = reset; openAuth('reset'); return; }
@@ -239,6 +245,8 @@ window.selectLandingPlan = function(plan, role) {
 
 /* ── Redirect nach erfolgreicher Auth ─────────── */
 function redirectAfterAuth() {
+  // Explizites Rueck-Ziel (z.B. OCC) hat Vorrang vor der plan-/intent-basierten Logik.
+  if (_returnUrl) { window.location.replace(_returnUrl); return; }
   var intent = (TC && TC.authIntent) ? TC.authIntent.consume() : {};
   var url = (TC && TC.authIntent) ? TC.authIntent.resolveRedirect(intent) : '/public/capacity_exchange_feed.html';
   window.location.replace(url);
