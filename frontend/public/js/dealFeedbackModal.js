@@ -260,6 +260,9 @@
       var data = await r.json();
       var rows = (data && data.items) || [];
       if (!rows.length) { host.style.display = "none"; return; }
+      // Reply-Berechtigung: nur die BEWERTETE Org (Betrachter-Org === Profil-Org) darf antworten.
+      var canReply = false;
+      try { var meR = await fetch(API + "/me", { credentials: "include" }); if (meR.ok) { var me = await meR.json(); canReply = !!(me && me.org_id && String(me.org_id) === String(orgId)); } } catch (e) { /* anonym -> kein reply */ }
       ensureDom();
       var html = '<div class="tcdf-prompt"><h3>Deal-Bewertungen <span style="color:var(--ds-text-secondary,#8d9bba);font-weight:500">(' + rows.length + ")</span></h3>";
       var sum = (data && data.summary) || {};
@@ -278,13 +281,39 @@
         html += '<div class="tcdf-rev">' + sentimentLabel(f.sentiment) +
           (dimLine ? '<div style="font-size:12px;color:var(--ds-text-secondary,#8d9bba);margin-top:2px">' + dimLine + "</div>" : "") +
           (f.comment ? '<div style="margin:4px 0;font-size:13px">' + esc(f.comment) + "</div>" : "") +
-          (f.reply ? '<div style="margin:4px 0 0 12px;font-size:12px;border-left:2px solid var(--ds-border,rgba(255,255,255,.14));padding-left:8px"><strong>Antwort:</strong> ' + esc(f.reply) + "</div>" : "") +
+          (f.reply
+            ? '<div style="margin:4px 0 0 12px;font-size:12px;border-left:2px solid var(--ds-border,rgba(255,255,255,.14));padding-left:8px"><strong>Antwort:</strong> ' + esc(f.reply) + "</div>"
+            : (canReply
+                ? '<div style="margin-top:6px;display:flex;gap:6px"><input class="tcdf-ta tcdf-reply-in" data-fb="' + esc(f.id) + '" maxlength="500" placeholder="Oeffentlich antworten…" style="margin:0;flex:1"><button type="button" class="tcdf-btn tcdf-reply-btn" data-fb="' + esc(f.id) + '">Antworten</button></div>'
+                : "")) +
           '<div style="font-size:11px;color:var(--ds-text-secondary,#8d9bba);margin-top:2px">' + esc(f.rater_org_name || "Partnerorganisation") + " · " + esc(String(f.revealed_at || f.created_at || "").substring(0, 10)) + "</div>" +
         "</div>";
       });
       html += "</div>";
       host.innerHTML = html;
       host.style.display = "";
+      Array.prototype.forEach.call(host.querySelectorAll(".tcdf-reply-btn"), function (b) {
+        b.addEventListener("click", async function () {
+          var fid = b.getAttribute("data-fb");
+          var input = host.querySelector('.tcdf-reply-in[data-fb="' + fid + '"]');
+          var text = input && input.value ? input.value.trim() : "";
+          if (!text) { if (input) input.focus(); return; }
+          b.disabled = true;
+          try {
+            var tok = await getCsrf();
+            var rr = await fetch(API + "/deal-feedback/" + encodeURIComponent(fid) + "/reply", {
+              method: "POST", credentials: "include",
+              headers: { "Content-Type": "application/json", "x-csrf-token": tok },
+              body: JSON.stringify({ reply: text })
+            });
+            if (rr.ok) { toast("success", "Antwort veröffentlicht", ""); mountOrg(containerId, orgId); return; }
+            var ed = await rr.json().catch(function () { return {}; });
+            var rmap = { ALREADY_REPLIED: "Bereits beantwortet.", NOT_REVEALED: "Noch nicht sichtbar.", FORBIDDEN: "Nicht berechtigt.", REPLY_FLAGGED: "Antwort enthält unzulässige Sprache.", REPLY_TOO_LONG: "Antwort zu lang (max. 500 Zeichen)." };
+            alert(rmap[ed.error] || ("Fehler: " + (ed.error || rr.status)));
+            b.disabled = false;
+          } catch (e) { alert("Netzwerkfehler. Bitte erneut versuchen."); b.disabled = false; }
+        });
+      });
     } catch (e) { host.style.display = "none"; }
   }
 

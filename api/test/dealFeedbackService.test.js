@@ -7,7 +7,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
   resolveDirection, validateDimensions, submitFeedback, getPendingFeedback,
-  revealDueFeedback, computeGrade, getOrgReputationSummary,
+  revealDueFeedback, computeGrade, getOrgReputationSummary, replyToFeedback,
   DIMENSION_KEYS, FEEDBACK_WINDOW_DAYS, REVEAL_DEADLINE_DAYS
 } from "../services/dealFeedbackService.js";
 
@@ -237,4 +237,47 @@ test("getOrgReputationSummary: kein Feedback -> unbewertet, percent null", async
   assert.equal(s.total, 0);
   assert.equal(s.percent_positive, null);
   assert.equal(s.grade, "unbewertet");
+});
+
+/* ── P4: Reply (Antwort der bewerteten Seite) ─────────────── */
+
+function replyPool(fb, updRow) {
+  return {
+    query: async (sql) => {
+      if (/SELECT .* FROM deal_feedback WHERE id/i.test(sql)) return { rows: fb ? [fb] : [] };
+      if (/UPDATE deal_feedback SET reply/i.test(sql)) return { rows: updRow ? [updRow] : [] };
+      return { rows: [] };
+    }
+  };
+}
+
+test("reply: leer -> EMPTY_REPLY", async () => {
+  const r = await replyToFeedback(replyPool(), { feedbackId: "fb-1", replierOrgId: ORG_SUPPLIER, reply: "   " });
+  assert.equal(r.error, "EMPTY_REPLY");
+});
+
+test("reply: nicht die bewertete Org -> FORBIDDEN", async () => {
+  const fb = { id: "fb-1", rated_org_id: ORG_SUPPLIER, status: "revealed", reply: null };
+  const r = await replyToFeedback(replyPool(fb), { feedbackId: "fb-1", replierOrgId: ORG_OUTSIDER, reply: "Danke" });
+  assert.equal(r.error, "FORBIDDEN");
+});
+
+test("reply: noch nicht enthüllt -> NOT_REVEALED", async () => {
+  const fb = { id: "fb-1", rated_org_id: ORG_SUPPLIER, status: "submitted", reply: null };
+  const r = await replyToFeedback(replyPool(fb), { feedbackId: "fb-1", replierOrgId: ORG_SUPPLIER, reply: "Danke" });
+  assert.equal(r.error, "NOT_REVEALED");
+});
+
+test("reply: bereits beantwortet -> ALREADY_REPLIED", async () => {
+  const fb = { id: "fb-1", rated_org_id: ORG_SUPPLIER, status: "revealed", reply: "schon da" };
+  const r = await replyToFeedback(replyPool(fb), { feedbackId: "fb-1", replierOrgId: ORG_SUPPLIER, reply: "Danke" });
+  assert.equal(r.error, "ALREADY_REPLIED");
+});
+
+test("reply: gültig -> ok + reply gespeichert", async () => {
+  const fb = { id: "fb-1", rated_org_id: ORG_SUPPLIER, status: "revealed", reply: null };
+  const upd = { id: "fb-1", reply: "Danke fuer das Feedback!", reply_at: new Date().toISOString() };
+  const r = await replyToFeedback(replyPool(fb, upd), { feedbackId: "fb-1", replierOrgId: ORG_SUPPLIER, reply: "Danke fuer das Feedback!" });
+  assert.equal(r.ok, true);
+  assert.equal(r.feedback.reply, "Danke fuer das Feedback!");
 });

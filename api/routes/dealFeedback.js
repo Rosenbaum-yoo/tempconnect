@@ -86,5 +86,22 @@ export function createDealFeedbackRouter(deps) {
     }
   });
 
+  /** Öffentliche Antwort der bewerteten Seite auf ein Feedback (eBay-Reply, 1×). */
+  const REPLY_ERROR_STATUS = { NOT_FOUND: 404, FORBIDDEN: 403, NOT_REVEALED: 409, ALREADY_REPLIED: 409, EMPTY_REPLY: 400, REPLY_TOO_LONG: 400, REPLY_FLAGGED: 400 };
+  router.post("/deal-feedback/:id/reply", requireAuth, async (req, res) => {
+    const reply = req.body && req.body.reply;
+    if (typeof reply !== "string" || !reply.trim()) return res.status(400).json({ error: "EMPTY_REPLY" });
+    try {
+      if (!req.orgId) return res.status(400).json({ error: "NO_ORG_CONTEXT" });
+      const result = await dealFeedbackService.replyToFeedback(pool, { feedbackId: req.params.id, replierOrgId: req.orgId, reply });
+      if (result.error) return res.status(REPLY_ERROR_STATUS[result.error] || 400).json({ error: result.error });
+      res.locals.audit = { action: "deal_feedback.reply", entity_type: "deal_feedback", entity_id: req.params.id };
+      res.json({ ok: true });
+    } catch (e) {
+      logger.error({ err: e }, "POST /deal-feedback/:id/reply");
+      res.status(500).json({ error: "SERVER_ERROR" });
+    }
+  });
+
   return router;
 }

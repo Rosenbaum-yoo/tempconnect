@@ -201,6 +201,34 @@ export async function getOrgReputationSummary(pool, orgId) {
   };
 }
 
+/**
+ * Öffentliche Antwort der BEWERTETEN Seite auf ein Feedback (eBay-Reply, genau 1×).
+ * Guards: nur die bewertete Org, nur auf revealed Feedback, einmalig, keine Profanität.
+ */
+export async function replyToFeedback(pool, { feedbackId, replierOrgId, reply }) {
+  const text = reply == null ? "" : String(reply).trim();
+  if (!text) return { error: "EMPTY_REPLY" };
+  if (text.length > 500) return { error: "REPLY_TOO_LONG" };
+  if (moderateComment(text).flagged) return { error: "REPLY_FLAGGED" };
+
+  const { rows } = await pool.query(
+    "SELECT id, rated_org_id, status, reply FROM deal_feedback WHERE id = $1",
+    [feedbackId]
+  );
+  const fb = rows[0];
+  if (!fb) return { error: "NOT_FOUND" };
+  if (fb.rated_org_id !== replierOrgId) return { error: "FORBIDDEN" };
+  if (fb.status !== "revealed") return { error: "NOT_REVEALED" };
+  if (fb.reply) return { error: "ALREADY_REPLIED" };
+
+  const upd = await pool.query(
+    "UPDATE deal_feedback SET reply = $2, reply_at = NOW() WHERE id = $1 AND reply IS NULL RETURNING id, reply, reply_at",
+    [feedbackId, text]
+  );
+  if (!upd.rows[0]) return { error: "ALREADY_REPLIED" };
+  return { ok: true, feedback: upd.rows[0] };
+}
+
 /** Öffentlich sichtbares Feedback einer Org (nur revealed + approved). Wird ab P2 befüllt. */
 export async function getOrgFeedback(pool, orgId, { limit = 20 } = {}) {
   const { rows } = await pool.query(
