@@ -14,7 +14,7 @@ import { surfaceForType, summarizeBySurface, SURFACE_KEYS } from "../services/no
 // data-surface Keys, die in enterprise.html als Hub-Card existieren.
 const REAL_HUB_SURFACES = [
   "marketplace", "requisitions", "deals", "assignments",
-  "vendor_pool", "my_company", "trust_center"
+  "vendor_pool", "my_company", "trust_center", "bounties"
 ];
 
 describe("notificationSurfaceMap — surfaceForType", () => {
@@ -30,6 +30,15 @@ describe("notificationSurfaceMap — surfaceForType", () => {
     assert.equal(surfaceForType("offer_withdrawn"), "deals");
     assert.equal(surfaceForType("deal_confirmed"), "deals");
     assert.equal(surfaceForType("deal_staffing_ready"), "deals");
+    assert.equal(surfaceForType("deal_assignment_started"), "deals");
+    assert.equal(surfaceForType("deal_accepted"), "deals");
+    assert.equal(surfaceForType("deal_offer_sent"), "deals");
+    assert.equal(surfaceForType("deal_completed"), "deals");
+    assert.equal(surfaceForType("deal_cancelled"), "deals");
+  });
+
+  it("milestone → bounties", () => {
+    assert.equal(surfaceForType("milestone"), "bounties");
   });
 
   it("capacity/demand/emergency → marketplace", () => {

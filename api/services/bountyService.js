@@ -360,9 +360,9 @@ export async function checkAndAwardMilestones(pool, userId) {
         // Insert notification
         try {
           await pool.query(
-            `INSERT INTO notifications (user_id, type, title, body, link_path, created_at)
+            `INSERT INTO notifications (user_id, type, title, message, link_path, created_at)
              VALUES ($1, 'milestone', $2, $3, '/public/bounties.html', NOW())`,
-            [userId, `${m.icon} Meilenstein erreicht!`, m.label]
+            [userId, "Meilenstein erreicht", m.label]
           );
         } catch { /* notifications table may not exist */ }
       }

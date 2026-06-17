@@ -19,13 +19,14 @@
 
   // Spiegel von api/services/notificationSurfaceMap.js — bei Aenderung dort synchron halten.
   var TYPES_BY_SURFACE = {
-    deals: ["offer_received", "offer_accepted", "offer_rejected", "offer_counter_received", "offer_withdrawn", "deal_offer_sent", "deal_accepted", "deal_confirmed", "deal_assignment_started", "deal_staffing_ready", "deal_completed"],
+    deals: ["offer_received", "offer_accepted", "offer_rejected", "offer_counter_received", "offer_withdrawn", "deal_offer_sent", "deal_accepted", "deal_confirmed", "deal_assignment_started", "deal_staffing_ready", "deal_completed", "deal_cancelled"],
     requisitions: ["requisition_approval", "requisition_filled", "requisition_cancelled"],
     marketplace: ["capacity_interest", "capacity_expiring", "capacity_match", "capacity_stale", "demand_match", "emergency_request", "emergency_escalation"],
     vendor_pool: ["vendor_pool_change", "vendor_pool_blocked"],
     trust_center: ["compliance_expiring", "compliance_expired", "compliance_verified"],
     my_company: ["sla_warning", "sla_breached"],
-    assignments: ["timesheet_submitted", "timesheet_approved", "timesheet_rejected", "timesheet_signed"]
+    assignments: ["timesheet_submitted", "timesheet_approved", "timesheet_rejected", "timesheet_signed"],
+    bounties: ["milestone"]
   };
   var SURFACE_FOR_TYPE = {};
   Object.keys(TYPES_BY_SURFACE).forEach(function (surf) {

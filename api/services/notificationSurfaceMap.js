@@ -33,6 +33,7 @@ const SURFACE_BY_TYPE = {
   deal_assignment_started: "deals",
   deal_staffing_ready: "deals",
   deal_completed: "deals",
+  deal_cancelled: "deals",
 
   // Marktplatz — Kapazitaetsboerse + Demand-Matching + Notdienst
   capacity_interest: "marketplace",
@@ -60,7 +61,10 @@ const SURFACE_BY_TYPE = {
   timesheet_submitted: "assignments",
   timesheet_approved: "assignments",
   timesheet_rejected: "assignments",
-  timesheet_signed: "assignments"
+  timesheet_signed: "assignments",
+
+  // Gamification / Meilensteine → Bounties-Card
+  milestone: "bounties"
   // general, system und worker-only Typen → null (kein Hub-Card-Badge)
 };
 

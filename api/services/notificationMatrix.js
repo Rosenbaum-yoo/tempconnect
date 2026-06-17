@@ -200,6 +200,91 @@ const MATRIX = {
     linkPath: '/public/worker-submissions-review.html#asgn'
   },
 
+  // ── Deal-Agreement-Lifecycle (Marktplatz: offers/assignments) ──
+  // Werden in routes/marketplace.js + routes/emergency.js bereits dispatched;
+  // ohne diese Eintraege waren sie No-ops ("Unknown event") -> keine Card-
+  // Benachrichtigung. Reuse bestehender deals-Surface-Typen (notificationSurfaceMap.js)
+  // -> leuchten die "Meine Deals"-Hub-Card.
+  'deal.agreement_created': {
+    type: 'deal_offer_sent',
+    severity: 'info',
+    title: 'Einsatzvereinbarung erstellt',
+    recipientStrategy: 'deal_supplier',
+    linkPath: '/public/deal_management.html'
+  },
+  'deal.agreement_confirmed': {
+    type: 'deal_confirmed',
+    severity: 'success',
+    title: 'Einsatzvereinbarung bestätigt',
+    recipientStrategy: 'deal_requester',
+    linkPath: '/public/deal_management.html'
+  },
+  'deal.agreement_activated': {
+    type: 'deal_assignment_started',
+    severity: 'success',
+    title: 'Deal abgeschlossen – Einsatz aktiviert',
+    recipientStrategy: 'deal_participants',
+    linkPath: '/public/deal_management.html'
+  },
+  'deal.agreement_cancelled': {
+    type: 'deal_cancelled',
+    severity: 'warning',
+    title: 'Einsatzvereinbarung storniert',
+    recipientStrategy: 'deal_counterparty',
+    linkPath: '/public/deal_management.html'
+  },
+  'deal.agreement_signature_prepared': {
+    type: 'deal_confirmed',
+    severity: 'info',
+    title: 'Signaturstrecke vorbereitet',
+    recipientStrategy: 'deal_supplier',
+    linkPath: '/public/deal_management.html'
+  },
+  'deal.emergency_agreement_created': {
+    type: 'deal_offer_sent',
+    severity: 'urgent',
+    title: 'Notdienst-Sofortvereinbarung erstellt',
+    recipientStrategy: 'deal_requester',
+    linkPath: '/public/deal_management.html'
+  },
+
+  // ── Capacity-/Demand-Deal-Anbahnung (Marktplatz) ──
+  'capacity.deal_accepted': {
+    type: 'deal_accepted',
+    severity: 'success',
+    title: 'Ihr Kapazitätsangebot wurde angenommen',
+    recipientStrategy: 'capacity_supplier',
+    linkPath: '/public/deal_management.html'
+  },
+  'capacity.deal_negotiation_started': {
+    type: 'deal_offer_sent',
+    severity: 'info',
+    title: 'Verhandlung zu Ihrem Kapazitätsangebot',
+    recipientStrategy: 'capacity_supplier',
+    linkPath: '/public/deal_management.html'
+  },
+  'demand.deal_accepted': {
+    type: 'deal_accepted',
+    severity: 'success',
+    title: 'Ihr Bedarf wurde angenommen',
+    recipientStrategy: 'demand_creator',
+    linkPath: '/public/deal_management.html'
+  },
+  'demand.deal_negotiation_started': {
+    type: 'deal_offer_sent',
+    severity: 'info',
+    title: 'Verhandlung zu Ihrem Bedarf',
+    recipientStrategy: 'demand_creator',
+    linkPath: '/public/deal_management.html'
+  },
+  'emergency.commitment_received': {
+    type: 'demand_match',
+    severity: 'urgent',
+    title: 'Notdienst: Teilzusage erhalten',
+    recipientStrategy: 'demand_creator',
+    linkPath: '/public/marketplace.html'
+  },
+
   // ── Emergency Staffing events ──
   'emergency.request_created': {
     type: 'emergency_request',

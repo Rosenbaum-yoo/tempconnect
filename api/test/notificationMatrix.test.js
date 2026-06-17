@@ -46,6 +46,27 @@ describe("notificationMatrix — getMatrix", () => {
     assert.ok(matrix["capacity.match_found"]);
     assert.ok(matrix["demand.match_found"]);
   });
+
+  it("wires the marketplace deal-agreement lifecycle to deals-surface types", () => {
+    const matrix = svc.getMatrix();
+    // Diese Events werden in routes/marketplace.js dispatched und waren ohne
+    // Matrix-Eintrag No-ops. Ihre Typen muessen auf die deals-Surface mappen.
+    assert.equal(matrix["deal.agreement_created"].type, "deal_offer_sent");
+    assert.equal(matrix["deal.agreement_confirmed"].type, "deal_confirmed");
+    assert.equal(matrix["deal.agreement_activated"].type, "deal_assignment_started");
+    assert.equal(matrix["deal.agreement_cancelled"].type, "deal_cancelled");
+    assert.equal(matrix["deal.agreement_signature_prepared"].type, "deal_confirmed");
+    assert.equal(matrix["deal.emergency_agreement_created"].type, "deal_offer_sent");
+  });
+
+  it("wires capacity/demand deal-initiation + emergency commitment events", () => {
+    const matrix = svc.getMatrix();
+    assert.equal(matrix["capacity.deal_accepted"].type, "deal_accepted");
+    assert.equal(matrix["capacity.deal_negotiation_started"].type, "deal_offer_sent");
+    assert.equal(matrix["demand.deal_accepted"].type, "deal_accepted");
+    assert.equal(matrix["demand.deal_negotiation_started"].type, "deal_offer_sent");
+    assert.equal(matrix["emergency.commitment_received"].type, "demand_match");
+  });
 });
 
 // ═══════════════════════════════════════════════════════════════

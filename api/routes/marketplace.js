@@ -1465,7 +1465,7 @@ export function createMarketplaceRouter(deps) {
       res.locals.audit = { action: "deal.agreement_activated", entity_type: "offer", entity_id: req.params.id, details: { assignment_id: result.assignment?.id } };
       try {
         await dispatch(pool, "deal.agreement_activated", {
-          recipientUserIds: full?.requester_company_id ? [full.requester_company_id] : [],
+          recipientUserIds: [full?.requester_company_id, full?.supplier_company_id].filter(Boolean),
           entityType: "offer", entityId: req.params.id,
           message: `Einsatz aktiviert \u2013 Assignment #${result.assignment?.id || ""} angelegt. Die Staffing-Phase kann jetzt starten.`,
           linkPath: `/public/offer_detail.html?id=${req.params.id}`
