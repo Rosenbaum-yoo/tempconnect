@@ -340,12 +340,18 @@ describe("addMember", () => {
 describe("updateMemberRole", () => {
   it("updates role and returns updated row", async () => {
     const updated = { ...MEMBERSHIP, role_key: "admin" };
-    const pool = mockPool({ rows: [updated] });
+    // Last-Owner-Guard fuehrt zuerst eine SELECT-1-Pruefung aus; hier ist das Ziel
+    // KEIN aktiver Owner (rowCount 0) -> Guard kehrt zurueck, danach laeuft das UPDATE.
+    const pool = mockPool((sql) =>
+      /SELECT 1 FROM org_memberships/i.test(sql) ? { rowCount: 0, rows: [] } : { rows: [updated] }
+    );
     const result = await updateMemberRole(pool, "org-1", "user-1", "admin");
     assert.strictEqual(result.role_key, "admin");
-    assert.ok(pool.queries[0].sql.includes("role_key = $3"));
-    assert.ok(pool.queries[0].sql.includes("is_active = TRUE"));
-    assert.deepStrictEqual(pool.queries[0].params, ["org-1", "user-1", "admin"]);
+    const upd = pool.queries.find((q) => /UPDATE org_memberships SET role_key/i.test(q.sql));
+    assert.ok(upd, "UPDATE-Query muss ausgefuehrt werden");
+    assert.ok(upd.sql.includes("role_key = $3"));
+    assert.ok(upd.sql.includes("is_active = TRUE"));
+    assert.deepStrictEqual(upd.params, ["org-1", "user-1", "admin"]);
   });
 
   it("returns null when membership not found", async () => {
@@ -365,10 +371,14 @@ describe("updateMemberRole", () => {
 
 describe("deactivateMember", () => {
   it("returns true when deactivated", async () => {
-    const pool = mockPool({ rowCount: 1 });
+    // Ziel ist KEIN aktiver Owner (Guard SELECT-1 rowCount 0) -> Deaktivierung laeuft durch.
+    const pool = mockPool((sql) =>
+      /SELECT 1 FROM org_memberships/i.test(sql) ? { rowCount: 0, rows: [] } : { rowCount: 1 }
+    );
     assert.strictEqual(await deactivateMember(pool, "org-1", "user-1"), true);
-    assert.ok(pool.queries[0].sql.includes("is_active = FALSE"));
-    assert.deepStrictEqual(pool.queries[0].params, ["org-1", "user-1"]);
+    const del = pool.queries.find((q) => /is_active = FALSE/i.test(q.sql));
+    assert.ok(del, "Deaktivierungs-UPDATE muss ausgefuehrt werden");
+    assert.deepStrictEqual(del.params, ["org-1", "user-1"]);
   });
 
   it("returns false when not found", async () => {

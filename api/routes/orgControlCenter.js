@@ -173,6 +173,7 @@ export function createOrgControlCenterRouter(deps) {
         };
         res.json({ success: true, data: updated });
       } catch (err) {
+        if (err && err.status) return res.status(err.status).json({ success: false, error: { code: err.code || "ERROR" } });
         logger.error({ err: err.message }, "org/members update");
         res.status(500).json({ success: false, error: { code: "SERVER_ERROR" } });
       }
@@ -191,6 +192,7 @@ export function createOrgControlCenterRouter(deps) {
         };
         res.json({ success: true, data: { removed: true } });
       } catch (err) {
+        if (err && err.status) return res.status(err.status).json({ success: false, error: { code: err.code || "ERROR" } });
         logger.error({ err: err.message }, "org/members delete");
         res.status(500).json({ success: false, error: { code: "SERVER_ERROR" } });
       }
@@ -716,6 +718,7 @@ export function createOrgControlCenterRouter(deps) {
         };
         res.json({ success: true, data: updated });
       } catch (err) {
+        if (err && err.status) return res.status(err.status).json({ success: false, error: { code: err.code || "ERROR" } });
         logger.error({ err: err.message }, "org/members/:membershipId/role");
         res.status(500).json({ success: false, error: { code: "SERVER_ERROR" } });
       }

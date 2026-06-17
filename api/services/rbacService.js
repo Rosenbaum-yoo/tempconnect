@@ -268,9 +268,50 @@ export async function addMember(pool, orgId, userId, roleKey, opts = {}) {
 }
 
 /**
- * Mitglied-Rolle aendern.
+ * Anzahl aktiver Owner einer Org.
+ */
+export async function countActiveOwners(pool, orgId) {
+  const { rows } = await pool.query(
+    `SELECT COUNT(*)::int AS n FROM org_memberships
+     WHERE org_id = $1 AND role_key = 'owner' AND is_active = TRUE`,
+    [orgId]
+  );
+  return rows[0] ? rows[0].n : 0;
+}
+
+/**
+ * Last-Owner-Schutz: wirft LAST_OWNER (HTTP 409), wenn das identifizierte
+ * Mitglied der EINZIGE aktive Owner der Org ist — Demotion/Deaktivierung
+ * wuerde die Org ohne Owner zuruecklassen (Lockout fuer owner-exklusive
+ * Aktionen wie Billing/Vertrag/DSGVO). Ist das Ziel kein aktiver Owner,
+ * ist die Operation unkritisch und der Guard tut nichts.
+ * @param {{userId?:string, membershipId?:string}} target
+ */
+export async function assertNotLastOwner(pool, orgId, target = {}) {
+  const byId = !!target.membershipId;
+  const { rowCount } = await pool.query(
+    byId
+      ? `SELECT 1 FROM org_memberships WHERE id = $1 AND org_id = $2 AND role_key = 'owner' AND is_active = TRUE`
+      : `SELECT 1 FROM org_memberships WHERE user_id = $1 AND org_id = $2 AND role_key = 'owner' AND is_active = TRUE`,
+    [byId ? target.membershipId : target.userId, orgId]
+  );
+  if (!rowCount) return; // Ziel ist kein aktiver Owner -> unkritisch
+  if ((await countActiveOwners(pool, orgId)) <= 1) {
+    throw Object.assign(new Error("LAST_OWNER"), {
+      status: 409,
+      code: "LAST_OWNER",
+      expose: true
+    });
+  }
+}
+
+/**
+ * Mitglied-Rolle aendern. Schuetzt den letzten aktiven Owner vor Demotion.
  */
 export async function updateMemberRole(pool, orgId, userId, newRoleKey) {
+  if (newRoleKey !== "owner") {
+    await assertNotLastOwner(pool, orgId, { userId });
+  }
   const { rows } = await pool.query(
     `UPDATE org_memberships SET role_key = $3, updated_at = NOW()
      WHERE org_id = $1 AND user_id = $2 AND is_active = TRUE
@@ -281,9 +322,10 @@ export async function updateMemberRole(pool, orgId, userId, newRoleKey) {
 }
 
 /**
- * Mitglied deaktivieren.
+ * Mitglied deaktivieren. Schuetzt den letzten aktiven Owner.
  */
 export async function deactivateMember(pool, orgId, userId) {
+  await assertNotLastOwner(pool, orgId, { userId });
   const { rowCount } = await pool.query(
     `UPDATE org_memberships SET is_active = FALSE, updated_at = NOW()
      WHERE org_id = $1 AND user_id = $2`,
@@ -297,6 +339,9 @@ export async function deactivateMember(pool, orgId, userId) {
  * Prueft org_id-Boundary in der WHERE-Clause.
  */
 export async function updateMemberRoleByMembershipId(pool, orgId, membershipId, newRoleKey) {
+  if (newRoleKey !== "owner") {
+    await assertNotLastOwner(pool, orgId, { membershipId });
+  }
   const { rows } = await pool.query(
     `UPDATE org_memberships SET role_key = $3, updated_at = NOW()
      WHERE id = $1 AND org_id = $2 AND is_active = TRUE
