@@ -398,6 +398,7 @@
       h += '</div></div>';
 
       h += '<div id="od-assign-cta"></div>';
+      h += '<div id="od-pool-cta"></div>';
 
       h += '<div class="od-grid">';
       h += '<div class="od-card"><div class="od-card__title">Arbeitsplatzangebot</div>';
@@ -563,6 +564,22 @@
             : '';
         }
 
+        // Käufer-CTA: nach erfolgreich abgeschlossenem Deal den Lieferanten 1-Klick in den
+        // eigenen Lieferantenpool aufnehmen (Endpoint /vendor-pool/from-deal). Nur für den
+        // Auftraggeber (is_supplier=false) und nur bei "completed" (aktiviert + Ende vorbei) —
+        // exakt die Bedingung, die der Endpoint serverseitig erzwingt.
+        var poolCta = document.getElementById('od-pool-cta');
+        if (poolCta) {
+          var dealCompleted = offerRow.agreement_status === 'activated' && offerRow.end_date && new Date(offerRow.end_date) < new Date();
+          poolCta.innerHTML = (!isSupplier && dealCompleted)
+            ? '<div class="od-card od-card--full" style="display:flex;flex-wrap:wrap;gap:var(--ds-space-3);align-items:center;justify-content:space-between">'
+              + '<div><div class="od-card__title" style="margin:0">Deal erfolgreich abgeschlossen</div>'
+              + '<div style="font-size:12px;color:var(--ds-text-secondary);margin-top:2px">Lieferant in Ihren Lieferantenpool aufnehmen – für schnellere künftige Vergaben.</div></div>'
+              + '<button type="button" id="od-add-pool-btn" class="ds-btn ds-btn--primary" onclick="addSupplierToPool(this)">Lieferant in Pool aufnehmen</button>'
+              + '</div>'
+            : '';
+        }
+
         var html = '';
         html += '<div class="od-status-line">';
         html += '<span class="od-pill od-pill--neutral">Assignment ' + esc(String(asg.id).substring(0, 8)) + '</span>';
@@ -623,6 +640,33 @@
         body.textContent = 'Staffing-Kontext konnte nicht geladen werden: ' + (err && err.message ? err.message : 'Fehler');
       }
     }
+
+    window.addSupplierToPool = async function (btn) {
+      var orig = btn.textContent;
+      btn.disabled = true;
+      btn.textContent = 'Wird aufgenommen…';
+      try {
+        var r = await apiPost('/vendor-pool/from-deal/' + offerId, {}, false);
+        var d = await r.json().catch(function () { return {}; });
+        if (r.ok) { btn.textContent = '✓ In Pool aufgenommen'; return; }
+        var map = {
+          NOT_DEAL_REQUESTER: 'Nur der Auftraggeber des Deals kann den Lieferanten aufnehmen.',
+          DEAL_NOT_COMPLETED: 'Der Deal ist noch nicht erfolgreich abgeschlossen.',
+          CANNOT_ADD_SELF: 'Die eigene Organisation kann nicht aufgenommen werden.',
+          SUPPLIER_NO_ORG: 'Der Lieferant hat keine Organisation hinterlegt.',
+          FORBIDDEN: 'Ihnen fehlt die Berechtigung fuer den Lieferantenpool.',
+          PERMISSION_DENIED: 'Ihnen fehlt die Berechtigung fuer den Lieferantenpool.',
+          ORG_CONTEXT_REQUIRED: 'Kein Organisations-Kontext aktiv.'
+        };
+        btn.disabled = false;
+        btn.textContent = orig;
+        alert(map[d.error] || ('Fehler: ' + (d.error || r.status)));
+      } catch (e) {
+        btn.disabled = false;
+        btn.textContent = orig;
+        alert('Netzwerkfehler. Bitte erneut versuchen.');
+      }
+    };
 
     window.quickAssignFromDeal = async function (btn) {
       var boxes = document.querySelectorAll('#od-staffing-block .od-staffing-candidate:checked');
