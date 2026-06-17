@@ -28,6 +28,60 @@ body {
 .hero-cta { display: flex; gap: var(--ds-space-3); justify-content: center; flex-wrap: wrap; }
 .hero-cta .ds-btn--lg { padding: 14px 32px; font-size: 15px; }
 
+/* ── Hero USP — Notdienst & Notfall-Personal ──────────────
+   Premium-Callout: Icon-Badge links als visueller Anker, rechts klare
+   Hierarchie (Eyebrow → Headline → Stützsatz). Token-getrieben (--ds-warning),
+   passt sich allen Themes an. Responsiv: stapelt unter 560px. */
+.usp-emergency {
+  display: flex;
+  align-items: center;
+  gap: var(--ds-space-4);
+  max-width: 720px;
+  margin: var(--ds-space-6) auto var(--ds-space-8);
+  padding: var(--ds-space-5);
+  text-align: left;
+  border-radius: var(--ds-radius-xl);
+  border: 1px solid var(--ds-warning, #f59e0b);
+  background:
+    linear-gradient(135deg,
+      var(--ds-warning-muted, rgba(245, 158, 11, 0.14)),
+      transparent 80%);
+  box-shadow: var(--ds-shadow-md);
+}
+.usp-emergency__icon {
+  flex: 0 0 auto;
+  width: 50px; height: 50px;
+  display: grid; place-items: center;
+  border-radius: var(--ds-radius-full);
+  background: var(--ds-warning-muted, rgba(245, 158, 11, 0.16));
+  border: 1px solid var(--ds-warning, #f59e0b);
+  color: var(--ds-warning, #f59e0b);
+}
+.usp-emergency__icon svg { width: 26px; height: 26px; display: block; }
+.usp-emergency__body { min-width: 0; }
+.usp-emergency__label {
+  display: block;
+  font-size: 11px; font-weight: 800; letter-spacing: 0.1em; text-transform: uppercase;
+  color: var(--ds-warning, #f59e0b);
+  margin-bottom: var(--ds-space-1);
+}
+.usp-emergency__title {
+  font-size: 16px; font-weight: 800; line-height: 1.3;
+  letter-spacing: -0.01em; color: var(--ds-text);
+  margin: 0 0 3px;
+}
+.usp-emergency__text {
+  margin: 0;
+  font-size: 14px; line-height: 1.55;
+  color: var(--ds-text-secondary);
+}
+@media (max-width: 560px) {
+  .usp-emergency {
+    flex-direction: column; align-items: flex-start;
+    gap: var(--ds-space-3); padding: var(--ds-space-4);
+  }
+}
+
 /* ── Section titles ───────────────────────────────────── */
 .section-label {
   font-size: 11px; font-weight: 700; text-transform: uppercase;
