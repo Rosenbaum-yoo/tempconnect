@@ -3,16 +3,16 @@
  */
 
 /** Payment-Session erstellen. */
-export async function createPaymentSession(pool, { id, userId, plan, amount, method, stripeSessionId, orgId = null }) {
+export async function createPaymentSession(pool, { id, userId, plan, amount, method, stripeSessionId, orgId = null, requestId = null }) {
   if (stripeSessionId) {
     await pool.query(
-      "INSERT INTO payment_sessions (id, user_id, plan, amount, method, org_id, status, stripe_session_id, created_at) VALUES ($1, $2, $3, $4, $5, $6, 'pending', $7, NOW())",
-      [id, userId, plan, amount, method, orgId, stripeSessionId]
+      "INSERT INTO payment_sessions (id, user_id, plan, amount, method, org_id, status, stripe_session_id, request_id, created_at) VALUES ($1, $2, $3, $4, $5, $6, 'pending', $7, $8, NOW())",
+      [id, userId, plan, amount, method, orgId, stripeSessionId, requestId]
     );
   } else {
     await pool.query(
-      "INSERT INTO payment_sessions (id, user_id, plan, amount, method, org_id, status, created_at) VALUES ($1, $2, $3, $4, $5, $6, 'pending', NOW())",
-      [id, userId, plan, amount, method, orgId]
+      "INSERT INTO payment_sessions (id, user_id, plan, amount, method, org_id, status, request_id, created_at) VALUES ($1, $2, $3, $4, $5, $6, 'pending', $7, NOW())",
+      [id, userId, plan, amount, method, orgId, requestId]
     );
   }
 }

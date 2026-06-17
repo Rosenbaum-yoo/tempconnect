@@ -365,6 +365,7 @@ describe("POST /payment/webhook/stripe — INDIVIDUELL-Aktivierung (Slice C)", (
     assert.ok(calls.approve, "approve aufgerufen (Status war submitted, nicht accepted)");
     assert.strictEqual(calls.approve.requestId, "req-1");
     assert.ok(calls.apply, "applyApprovedChange aufgerufen");
+    assert.strictEqual(calls.apply.verifiedPayment, true, "Webhook aktiviert mit verifiedPayment (umgeht den Self-Service-Zahlungs-Diskriminator nur nach Tamper-Check)");
     assert.strictEqual(calls.apply.requestId, "req-1");
     // Rechnung mit TATSAECHLICH bezahltem Betrag
     assert.ok(capturedInvoiceOpts);

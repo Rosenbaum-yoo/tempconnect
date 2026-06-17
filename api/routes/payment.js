@@ -314,7 +314,8 @@ export function createPaymentRouter(deps) {
           amount: quote.total_monthly_cents / 100,
           method: "stripe",
           stripeSessionId: stripeSession.id,
-          orgId
+          orgId,
+          requestId // Korrelation für den Aktivierungs-Diskriminator (Mig 130)
         });
         res.locals.audit = {
           action: "payment.checkout.individuell",
@@ -504,7 +505,10 @@ export function createPaymentRouter(deps) {
       const applied = await subReqSvc.applyApprovedChange(pool, {
         requestId,
         actorUserId: userId,
-        reason: "stripe_payment_activation"
+        reason: "stripe_payment_activation",
+        // Der Webhook hat den Betrag/die Waehrung gegen den eingefrorenen Quote
+        // verifiziert → er DARF die Self-Service-Anfrage aktivieren (Staff/Cron nicht).
+        verifiedPayment: true
       });
       if (!applied.ok) {
         logger.error({ requestId, checkoutId, error: applied.error }, "INDIVIDUELL webhook: applyApprovedChange failed");

@@ -302,6 +302,34 @@ describe("subreq.applyApprovedChange", () => {
     assert.equal(r.ok, false);
     assert.equal(r.error, "NOT_ACCEPTED");
   });
+
+  it("PAYMENT_NOT_VERIFIED: NEW_INDIVIDUAL mit offener Stripe-Session ist NICHT (z.B. via Staff) aktivierbar", async () => {
+    // Self-Service-Anfrage (new_individual) mit offener Stripe-Payment-Session →
+    // nur der Webhook (verifiedPayment) darf aktivieren; Staff/Cron werden geblockt.
+    const pool = transactionPool(
+      { rows: [{ id: "ri", status: "accepted", request_type: subreq.REQUEST_TYPES.NEW_INDIVIDUAL, org_id: "o1", user_id: "u1", desired_plan: "INDIVIDUELL", current_plan: "DEMO" }] },
+      { rows: [{ exists: 1 }] } // payment_sessions: offene Stripe-Session vorhanden
+    );
+    const r = await subreq.applyApprovedChange(pool, { requestId: "ri", actorUserId: "staff-1" });
+    assert.equal(r.ok, false);
+    assert.equal(r.error, "PAYMENT_NOT_VERIFIED");
+    assert.ok(pool.calls.some((c) => /payment_sessions/i.test(c.sql)), "Diskriminator-Query lief");
+    assert.ok(!pool.calls.some((c) => /UPDATE organizations/i.test(c.sql)), "keine Aktivierung (kein org-Update)");
+    assert.ok(!pool.calls.some((c) => /SET status = 'active'/i.test(c.sql)), "Anfrage NICHT aktiviert");
+  });
+
+  it("verifiedPayment=true umgeht den Diskriminator (Webhook-Pfad) — keine payment_sessions-Pruefung", async () => {
+    // Mit verifiedPayment wird die payment_sessions-Pruefung übersprungen und der normale
+    // Apply-Pfad betreten. Der läuft hier in die (bewusst erschöpfte) Mock-Sequenz — der
+    // konkrete Folgefehler ist egal; entscheidend ist: KEINE payment_sessions-Query.
+    const pool = transactionPool(
+      { rows: [{ id: "ri", status: "accepted", request_type: subreq.REQUEST_TYPES.NEW_INDIVIDUAL, org_id: "o1", user_id: "u1", desired_plan: "INDIVIDUELL", current_plan: "DEMO" }] }
+    );
+    try {
+      await subreq.applyApprovedChange(pool, { requestId: "ri", actorUserId: "staff-1", verifiedPayment: true });
+    } catch { /* Apply-Pfad nach dem Diskriminator-Skip läuft in die erschöpfte Sequenz — erwartet */ }
+    assert.ok(!pool.calls.some((c) => /payment_sessions/i.test(c.sql)), "Diskriminator bei verifiedPayment übersprungen");
+  });
   it("schreibt accepted -> active atomar mit BEGIN/COMMIT, Live-Updates, History, Audit und bestehendem Dokument", async () => {
     const frozenQuote = { catalog_version: "test-cat", plan: "PRO", proposed_price_cents: 79900 };
     const pool = transactionPool(

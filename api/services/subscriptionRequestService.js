@@ -742,7 +742,7 @@ export async function setEffectivity(pool, {
  * Nutzt withTransaction, falls vom Aufrufer ein Client uebergeben wird,
  * wird der durchgereicht (siehe utils/transaction.js Welle 7-Hotfix).
  * ─────────────────────────────────────────────────────────────── */
-export async function applyApprovedChange(pool, { requestId, actorUserId, reason = null }) {
+export async function applyApprovedChange(pool, { requestId, actorUserId, reason = null, verifiedPayment = false }) {
   return await withTransaction(pool, async (client) => {
     const cur = await client.query(
       `SELECT id, status, request_type, org_id, user_id,
@@ -757,6 +757,25 @@ export async function applyApprovedChange(pool, { requestId, actorUserId, reason
     if (!req) return { ok: false, error: "REQUEST_NOT_FOUND" };
     if (req.status !== STATUS.ACCEPTED) {
       return { ok: false, error: "NOT_ACCEPTED", current_status: req.status };
+    }
+
+    // Invariante "Aktivierung NUR nach verifizierter Zahlung, NIE aus dem Staff Center":
+    // Eine Self-Service-NEW_INDIVIDUAL-Anfrage mit OFFENER (nicht abgeschlossener)
+    // Stripe-Payment-Session darf NUR der Webhook aktivieren (verifiedPayment=true,
+    // gesetzt NACH dem Betrags-/Waehrungs-Tamper-Check). Staff /activate und der
+    // Auto-Activate-Cron (ohne Flag) werden geblockt. Inquiry-Anfragen erzeugen KEINE
+    // Stripe-Session, Upgrade/Downgrade/Cancellation sind kein NEW_INDIVIDUAL → alle
+    // unberuehrt (kein zusaetzlicher Query). Korrelation via payment_sessions.request_id (Mig 130).
+    if (!verifiedPayment && req.request_type === REQUEST_TYPES.NEW_INDIVIDUAL) {
+      const openPay = await client.query(
+        `SELECT 1 FROM payment_sessions
+          WHERE request_id = $1 AND method = 'stripe' AND status <> 'completed'
+          LIMIT 1`,
+        [requestId]
+      );
+      if (openPay.rows.length > 0) {
+        return { ok: false, error: "PAYMENT_NOT_VERIFIED" };
+      }
     }
 
     const targetPlan = normalizePlan(
