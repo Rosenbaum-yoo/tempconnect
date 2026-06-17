@@ -160,6 +160,47 @@ export async function revealDueFeedback(pool, { deadlineDays = REVEAL_DEADLINE_D
   return { revealed: rowCount || 0 };
 }
 
+/**
+ * eBay-Grade aus % positiv + Volumen. Volumen-Schwelle bei "top" gegen Mini-Sample-Verzerrung.
+ */
+export function computeGrade(total, pct) {
+  if (!total) return "unbewertet";
+  if (pct >= 98 && total >= 10) return "top";
+  if (pct >= 95) return "sehr_gut";
+  if (pct >= 90) return "gut";
+  if (pct >= 80) return "solide";
+  return "ausbaufaehig";
+}
+
+/**
+ * Reputations-Summary einer Org (eBay-Feedback-Profil): Gesamtzahl, Sentiment-Aufteilung,
+ * % positiv, Grade. On-read aggregiert aus revealed+approved Feedback (kein Recompute-Job
+ * nötig bei dieser Mengenordnung — ein Feedback je Richtung je Deal).
+ */
+export async function getOrgReputationSummary(pool, orgId) {
+  const { rows } = await pool.query(
+    `SELECT COUNT(*)::int AS total,
+            COUNT(*) FILTER (WHERE sentiment = 'positive')::int AS positive,
+            COUNT(*) FILTER (WHERE sentiment = 'neutral')::int  AS neutral,
+            COUNT(*) FILTER (WHERE sentiment = 'negative')::int AS negative
+       FROM deal_feedback
+      WHERE rated_org_id = $1 AND status = 'revealed' AND moderation = 'approved'`,
+    [orgId]
+  );
+  const r = rows[0] || {};
+  const total = Number(r.total) || 0;
+  const positive = Number(r.positive) || 0;
+  const percent_positive = total > 0 ? Math.round((positive / total) * 100) : null;
+  return {
+    total,
+    positive,
+    neutral: Number(r.neutral) || 0,
+    negative: Number(r.negative) || 0,
+    percent_positive,
+    grade: computeGrade(total, percent_positive)
+  };
+}
+
 /** Öffentlich sichtbares Feedback einer Org (nur revealed + approved). Wird ab P2 befüllt. */
 export async function getOrgFeedback(pool, orgId, { limit = 20 } = {}) {
   const { rows } = await pool.query(

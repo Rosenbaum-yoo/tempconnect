@@ -7,7 +7,8 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
   resolveDirection, validateDimensions, submitFeedback, getPendingFeedback,
-  revealDueFeedback, DIMENSION_KEYS, FEEDBACK_WINDOW_DAYS, REVEAL_DEADLINE_DAYS
+  revealDueFeedback, computeGrade, getOrgReputationSummary,
+  DIMENSION_KEYS, FEEDBACK_WINDOW_DAYS, REVEAL_DEADLINE_DAYS
 } from "../services/dealFeedbackService.js";
 
 const ORG_COMPANY = "org-company-001";
@@ -204,4 +205,36 @@ test("revealDueFeedback: enthüllt 'submitted' nach Frist, korrekte SQL-Form", a
   assert.match(captured.sql, /HAVING MIN\(created_at\)/);
   assert.match(captured.sql, /make_interval\(days => \$1\)/);
   assert.deepEqual(captured.params, [REVEAL_DEADLINE_DAYS]);
+});
+
+/* ── P5: Reputation-Grade + Summary ───────────────────────── */
+
+test("computeGrade: Schwellen", () => {
+  assert.equal(computeGrade(0, null), "unbewertet");
+  assert.equal(computeGrade(12, 99), "top");          // >=98 + >=10
+  assert.equal(computeGrade(5, 99), "sehr_gut");      // >=98 aber <10 -> nicht top
+  assert.equal(computeGrade(20, 96), "sehr_gut");
+  assert.equal(computeGrade(20, 92), "gut");
+  assert.equal(computeGrade(20, 85), "solide");
+  assert.equal(computeGrade(20, 70), "ausbaufaehig");
+});
+
+test("getOrgReputationSummary: % positiv + grade aus Zählern (revealed+approved)", async () => {
+  let captured = null;
+  const pool = { query: async (sql, params) => { captured = { sql, params }; return { rows: [{ total: 10, positive: 9, neutral: 1, negative: 0 }] }; } };
+  const s = await getOrgReputationSummary(pool, "org-x");
+  assert.equal(s.total, 10);
+  assert.equal(s.percent_positive, 90);
+  assert.equal(s.grade, "gut");
+  assert.match(captured.sql, /status = 'revealed'/);
+  assert.match(captured.sql, /moderation = 'approved'/);
+  assert.deepEqual(captured.params, ["org-x"]);
+});
+
+test("getOrgReputationSummary: kein Feedback -> unbewertet, percent null", async () => {
+  const pool = { query: async () => ({ rows: [{ total: 0, positive: 0, neutral: 0, negative: 0 }] }) };
+  const s = await getOrgReputationSummary(pool, "org-y");
+  assert.equal(s.total, 0);
+  assert.equal(s.percent_positive, null);
+  assert.equal(s.grade, "unbewertet");
 });

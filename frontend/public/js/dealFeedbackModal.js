@@ -262,6 +262,16 @@
       if (!rows.length) { host.style.display = "none"; return; }
       ensureDom();
       var html = '<div class="tcdf-prompt"><h3>Deal-Bewertungen <span style="color:var(--ds-text-secondary,#8d9bba);font-weight:500">(' + rows.length + ")</span></h3>";
+      var sum = (data && data.summary) || {};
+      var gradeLabels = { top: "Top-Bewertet", sehr_gut: "Sehr gut", gut: "Gut", solide: "Solide", ausbaufaehig: "Ausbaufaehig", unbewertet: "Neu" };
+      if (sum.total) {
+        html += '<div style="display:flex;align-items:center;gap:14px;margin:6px 0 12px;flex-wrap:wrap">' +
+          '<div style="font-size:26px;font-weight:800;line-height:1;color:var(--ds-success,#34d399)">' + (sum.percent_positive != null ? sum.percent_positive + "%" : "–") + "</div>" +
+          '<div><div style="font-weight:700">' + esc(gradeLabels[sum.grade] || "—") + " positiv</div>" +
+            '<div style="font-size:12px;color:var(--ds-text-secondary,#8d9bba)">' + sum.total + " Bewertung" + (sum.total === 1 ? "" : "en") +
+              " · " + sum.positive + " positiv / " + sum.neutral + " neutral / " + sum.negative + " negativ</div></div>" +
+        "</div>";
+      }
       rows.forEach(function (f) {
         var dims = f.dimensions || {};
         var dimLine = Object.keys(dims).map(function (k) { return esc(k) + " " + esc(String(dims[k])); }).join(" · ");

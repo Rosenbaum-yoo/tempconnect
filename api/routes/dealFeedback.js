@@ -72,11 +72,14 @@ export function createDealFeedbackRouter(deps) {
     }
   });
 
-  /** Öffentliches Feedback einer Org (nur revealed + approved). Wie eBay-Profil. */
+  /** Öffentliches Feedback + Reputations-Summary einer Org (eBay-Profil). */
   router.get("/deal-feedback/org/:orgId", requireAuth, async (req, res) => {
     try {
-      const items = await dealFeedbackService.getOrgFeedback(pool, req.params.orgId);
-      res.json({ items, total: items.length });
+      const [items, summary] = await Promise.all([
+        dealFeedbackService.getOrgFeedback(pool, req.params.orgId),
+        dealFeedbackService.getOrgReputationSummary(pool, req.params.orgId)
+      ]);
+      res.json({ items, total: items.length, summary });
     } catch (e) {
       logger.error({ err: e }, "GET /deal-feedback/org/:orgId");
       res.status(500).json({ error: "SERVER_ERROR" });
