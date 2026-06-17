@@ -85,6 +85,9 @@ function baseDeps(poolOverride, extras = {}) {
     getUserAndPlan: () => ({ email: "user@test.de", plan: "FREE" }),
     requireAuth,
     logger: mockLogger(),
+    // Default: Org NICHT gesperrt → der Kill-Switch-Check im Webhook-Aktivierungspfad
+    // passiert durch. Tests, die die Sperre prüfen, überschreiben via extras.
+    orgAccessSuspensionService: { isOrgAccessSuspended: async () => false },
     ...extras
   };
 }
@@ -472,4 +475,101 @@ describe("POST /payment/webhook/stripe — INDIVIDUELL-Aktivierung (Slice C)", (
     assert.strictEqual(auditCaptured.details.expected_currency, "eur");
     assert.strictEqual(mailSent, false);
   });
+
+  it("Kill-Switch: gesperrte Org (access_suspended) => KEINE Aktivierung trotz korrekter Zahlung, Audit, kein apply", async () => {
+    const pool = sequencePool({ rows: [{ status: "pending" }] }); // nur getPaymentSessionStatus
+    let auditCaptured = null;
+    const { stub, calls } = subReqStubs({
+      reqRow: { id: "req-1", org_id: "org-9", status: STATUS.SUBMITTED, quote_snapshot: { proposed_price_cents: EXPECTED_MONTHLY, currency: "EUR" } }
+    });
+    // Betrag/Waehrung korrekt — aber Org ist gesperrt → Aktivierung muss blockieren,
+    // BEVOR der Betrags-Check erreicht wird (Operator-Hold darf nicht per Zahlung fallen).
+    const deps = webhookDeps(pool, activationEvent(), {
+      subscriptionRequestService: stub,
+      auditLog: { writeAudit: (_pool, entry) => { auditCaptured = entry; } },
+      invoiceService: { createInvoice: () => { throw new Error("Rechnung darf nicht erzeugt werden"); } },
+      orgAccessSuspensionService: { isOrgAccessSuspended: async () => true }
+    });
+    const router = createPaymentRouter(deps);
+    const handler = findHandler(router, "post", "/payment/webhook/stripe");
+    const req = mockReq({ headers: { "stripe-signature": "valid_sig" } });
+    const res = mockRes();
+
+    await handler(req, res);
+
+    assert.strictEqual(res._json.received, true);
+    assert.strictEqual(calls.approve, null, "kein approve bei gesperrter Org");
+    assert.strictEqual(calls.apply, null, "keine Aktivierung bei gesperrter Org");
+    assert.ok(auditCaptured, "Sperre-Block wird auditiert");
+    assert.strictEqual(auditCaptured.action, "subscription_request.activation_blocked_suspended");
+    assert.strictEqual(auditCaptured.entity_id, "req-1");
+  });
+});
+
+// ═══════════════════════════════════════════════════════════════
+// Querschnitt — Kill-Switch-Guard (requireOrgNotSuspended) auf den Checkout-Routen.
+// findHandler liefert nur den Handler; der Guard sitzt davor → Stack direkt greifen.
+// Kette: requireAuth, mfaGuard, companyOrg, orgNotSuspended, handler (5 Layer).
+// ═══════════════════════════════════════════════════════════════
+
+function findRouteHandlers(router, method, pathFragment) {
+  for (const layer of router.stack) {
+    if (layer.route) {
+      const routeMethod = Object.keys(layer.route.methods)[0];
+      if (routeMethod === method && layer.route.path.includes(pathFragment)) {
+        return layer.route.stack.map((s) => s.handle);
+      }
+    }
+  }
+  throw new Error(`Route ${method} ${pathFragment} not found`);
+}
+
+async function runMiddleware(mw, reqOverrides) {
+  const req = mockReq(reqOverrides);
+  const res = mockRes();
+  let nextCalled = false;
+  await mw(req, res, () => { nextCalled = true; });
+  return { req, res, nextCalled };
+}
+
+describe("Querschnitt: Kill-Switch-Guard (requireOrgNotSuspended) auf den Checkout-Routen", () => {
+  const PATHS = ["/payment/checkout", "/payment/checkout/individuell"];
+
+  for (const path of PATHS) {
+    it(`${path}: Kette trägt companyOrg + orgNotSuspended vor dem Handler`, () => {
+      const router = createPaymentRouter(baseDeps());
+      const stack = findRouteHandlers(router, "post", path);
+      assert.ok(stack.length >= 5, `${path} muss companyOrg UND orgNotSuspended vor dem Handler tragen (stack=${stack.length})`);
+    });
+
+    it(`${path}: gesperrte Org (access_suspended_at gesetzt) => 403 ACCESS_SUSPENDED, Handler nicht erreicht`, async () => {
+      // Router-Pool liefert eine gesperrte Org-Zeile → der ECHTE isOrgAccessSuspended (im Guard) sieht die Sperre.
+      const router = createPaymentRouter(baseDeps(returnPool([{ access_suspended_at: "2026-01-01T00:00:00Z" }])));
+      const stack = findRouteHandlers(router, "post", path);
+      const guard = stack[stack.length - 2]; // orgNotSuspended sitzt direkt vor dem Handler
+      const { res, nextCalled } = await runMiddleware(guard, { orgId: "org-suspended" });
+      assert.strictEqual(res._status, 403);
+      assert.strictEqual(res._json.error, "ACCESS_SUSPENDED");
+      assert.strictEqual(nextCalled, false);
+    });
+
+    it(`${path}: nicht gesperrte Org => next(), kein Block`, async () => {
+      const router = createPaymentRouter(baseDeps(returnPool([{ access_suspended_at: null }])));
+      const stack = findRouteHandlers(router, "post", path);
+      const guard = stack[stack.length - 2];
+      const { res, nextCalled } = await runMiddleware(guard, { orgId: "org-active" });
+      assert.strictEqual(nextCalled, true);
+      assert.strictEqual(res._status, 200);
+    });
+
+    it(`${path}: fehlende org_id => 400 ORG_CONTEXT_REQUIRED`, async () => {
+      const router = createPaymentRouter(baseDeps());
+      const stack = findRouteHandlers(router, "post", path);
+      const guard = stack[stack.length - 2];
+      const { res, nextCalled } = await runMiddleware(guard, { orgId: null });
+      assert.strictEqual(res._status, 400);
+      assert.strictEqual(res._json.error, "ORG_CONTEXT_REQUIRED");
+      assert.strictEqual(nextCalled, false);
+    });
+  }
 });

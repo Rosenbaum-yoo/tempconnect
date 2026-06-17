@@ -122,3 +122,20 @@ export async function reactivateOrgAccess(pool, { orgId, reason } = {}) {
 export function meta() {
   return { suspension_kinds: [...SUSPENSION_KINDS], min_reason_len: MIN_REASON_LEN };
 }
+
+/**
+ * Read-only Enforcement-Check: ist der Zugang der Org aktuell gesperrt?
+ * Genutzt von requireOrgNotSuspended (Self-Service-Checkout) UND der Webhook-
+ * Aktivierung — ein Operator-Hold darf nicht per Self-Service/Zahlung unterlaufen
+ * werden. Fail-safe: ungueltige orgId → DB-Fehler propagiert zum Aufrufer (Guard
+ * blockt mit 500); 0 Zeilen → false (kein Suspend-Datum = nicht gesperrt).
+ */
+export async function isOrgAccessSuspended(pool, orgId) {
+  if (!orgId) return false;
+  const r = await pool.query(
+    "SELECT access_suspended_at FROM organizations WHERE id = $1",
+    [orgId]
+  );
+  const row = r && r.rows && r.rows[0];
+  return !!(row && row.access_suspended_at != null);
+}

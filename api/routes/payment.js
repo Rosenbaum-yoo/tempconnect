@@ -11,7 +11,8 @@ import { describeBilling, mapStripeEvent, isStripeConfigured } from "../services
 import { computeIndividuellQuote } from "../services/individuellPricingService.js";
 import { PLAN } from "../config/planFeatures.js";
 import { requireMfa } from "../middleware/requireMfa.js";
-import { requireCompanyOrg } from "../middleware/orgAccess.js";
+import { requireCompanyOrg, requireOrgNotSuspended } from "../middleware/orgAccess.js";
+import * as orgAccessSuspensionService from "../services/orgAccessSuspensionService.js";
 
 export function createPaymentRouter(deps) {
   const { pool, config, stripe, sendMail, getUserAndPlan, requireAuth, logger } = deps;
@@ -23,6 +24,7 @@ export function createPaymentRouter(deps) {
   const subReqSvc = deps.subscriptionRequestService || subscriptionRequestService;
   const quoteSvc = deps.quoteSnapshotService || quoteSnapshotService;
   const auditSvc = deps.auditLog || auditLogService;
+  const orgSuspensionSvc = deps.orgAccessSuspensionService || orgAccessSuspensionService;
   const mfaGuard = requireMfa({ pool }); // MFA env-gesteuert (O-05): Default Audit-Only, scharf via MFA_ENFORCE
   // Tarif-/Subscription-Buchung ist ein Käufer-(Unternehmens-)Konzept: Worker und
   // sonstige Nicht-Company-Org-Typen dürfen keinen Plan buchen. Zentrale Guard-
@@ -32,6 +34,10 @@ export function createPaymentRouter(deps) {
     errorCode: "BUYER_ORG_REQUIRED",
     errorMessage: "Tarif-Buchungen stehen nur Unternehmensorganisationen zur Verfuegung."
   });
+  // Kill-Switch-Durchsetzung: eine vom Betreiber gesperrte Org (access_suspended_at)
+  // darf KEINE Self-Service-Buchung ausloesen — sonst unterlaeuft Self-Service den
+  // Operator-Hold. Greift VOR Quote-Freeze/Stripe-Session auf beiden Checkout-Routen.
+  const orgNotSuspended = requireOrgNotSuspended(deps, {});
   const PAYMENT_MODE = config.PAYMENT_MODE || "demo";
   const STRIPE_SECRET_KEY = config.STRIPE_SECRET_KEY || "";
   const STRIPE_PUBLISHABLE_KEY = config.STRIPE_PUBLISHABLE_KEY || "";
@@ -114,7 +120,7 @@ export function createPaymentRouter(deps) {
     }
   });
 
-  router.post("/payment/checkout", requireAuth, mfaGuard, companyOrg, async (req, res) => {
+  router.post("/payment/checkout", requireAuth, mfaGuard, companyOrg, orgNotSuspended, async (req, res) => {
     const plan = String(req.body?.plan || "");
     const paymentMethod = String(req.body?.payment_method || req.body?.method || "demo");
     if (!["BASIS", "PLUS", "PRO"].includes(plan)) return res.status(400).json({ error: "INVALID_PLAN" });
@@ -179,7 +185,7 @@ export function createPaymentRouter(deps) {
    * Ungueltige Auswahl → 200 ok:false + errors (Zero-State, kein 500, keine Anfrage,
    * kein Geldfluss).
    * ───────────────────────────────────────────────────────────────── */
-  router.post("/payment/checkout/individuell", requireAuth, mfaGuard, companyOrg, async (req, res) => {
+  router.post("/payment/checkout/individuell", requireAuth, mfaGuard, companyOrg, orgNotSuspended, async (req, res) => {
     const orgId = req.orgId || null;
     if (!orgId) return res.status(400).json({ error: "ORG_REQUIRED" });
 
@@ -432,6 +438,22 @@ export function createPaymentRouter(deps) {
           stripeSubscriptionId: intent.stripe_subscription_id || undefined
         });
         return;
+      }
+
+      // Kill-Switch: eine vom Betreiber gesperrte Org darf NICHT per Zahlung aktiviert
+      // werden — sonst wuerde die Aktivierung den Operator-Hold unterlaufen. Audit + Stopp,
+      // Payment-Session bleibt offen (Staff prueft: Reaktivierung+Aktivierung ODER Erstattung).
+      if (await orgSuspensionSvc.isOrgAccessSuspended(pool, reqRow.org_id)) {
+        await auditSvc.writeAudit(pool, {
+          action: "subscription_request.activation_blocked_suspended",
+          entity_type: "subscription_request",
+          entity_id: requestId,
+          actor_id: userId || null,
+          org_id: reqRow.org_id || null,
+          details: { checkout_id: checkoutId, reason: "org_access_suspended" }
+        });
+        logger.warn({ requestId, checkoutId, orgId: reqRow.org_id }, "INDIVIDUELL webhook: org access suspended — activation blocked");
+        return; // Payment-Session bleibt offen; Staff reaktiviert+aktiviert oder erstattet.
       }
 
       // Manipulationsschutz: bezahlter Netto-Betrag MUSS dem eingefrorenen

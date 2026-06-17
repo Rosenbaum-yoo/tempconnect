@@ -1,4 +1,5 @@
 import { getMembership } from "../services/rbacService.js";
+import { isOrgAccessSuspended } from "../services/orgAccessSuspensionService.js";
 
 export function requireCompanyOrg(deps, options = {}) {
   const { pool, logger } = deps;
@@ -39,6 +40,38 @@ export function requireCompanyOrg(deps, options = {}) {
       next();
     } catch (err) {
       logger.error({ err }, "Company-org guard failed");
+      res.status(500).json({ error: "SERVER_ERROR" });
+    }
+  };
+}
+
+/**
+ * Blockiert mutierende Self-Service-/Org-Boundary-Routen, wenn der Betreiber den
+ * Zugang der Org gesperrt hat (Kill-Switch, organizations.access_suspended_at).
+ * Bewusst NICHT requireActiveSubscription — das wuerde Erstkaeufer OHNE Abo blocken;
+ * hier wird gezielt NUR die Sperre geprueft. Fail-safe: Lese-/DB-Fehler → 500 (blockt).
+ */
+export function requireOrgNotSuspended(deps, options = {}) {
+  const { pool, logger } = deps;
+  const errorCode = options.errorCode || "ACCESS_SUSPENDED";
+  const errorMessage = options.errorMessage ||
+    "Der Zugang dieser Organisation wurde vom Betreiber gesperrt. Bitte den Support kontaktieren.";
+
+  return async (req, res, next) => {
+    try {
+      if (!req.orgId) {
+        return res.status(400).json({ error: "ORG_CONTEXT_REQUIRED" });
+      }
+      if (await isOrgAccessSuspended(pool, req.orgId)) {
+        logger.warn(
+          { orgId: req.orgId, userId: req.session?.userId || null },
+          "Org access suspended — request blocked"
+        );
+        return res.status(403).json({ error: errorCode, message: errorMessage });
+      }
+      next();
+    } catch (err) {
+      logger.error({ err }, "Org-suspension guard failed");
       res.status(500).json({ error: "SERVER_ERROR" });
     }
   };
