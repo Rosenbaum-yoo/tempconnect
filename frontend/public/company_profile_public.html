@@ -97,6 +97,7 @@
       <div id="pp-scorecard" style="display:none;margin-top:var(--ds-space-6)"></div>
 
       <!-- Bewertungen -->
+      <div id="pp-deal-feedback" style="display:none;margin-top:var(--ds-space-6)"></div>
       <div id="pp-ratings" style="display:none;margin-top:var(--ds-space-6)"></div>
 
       <!-- Bounty Badges -->
@@ -467,6 +468,8 @@
       try {
         var orgId = (d.user && d.user.org_id) ? String(d.user.org_id) : null;
         if (!orgId) return;
+        // Deal-Feedback (eBay-Modell) der Org anzeigen — nur revealed + approved (mutual-blind).
+        if (window.TCDealFeedback) TCDealFeedback.mountOrg("pp-deal-feedback", orgId);
         // Fire-and-forget — no await, no UI feedback
         fetch("/api/profile-analytics/events", {
           method: "POST",
@@ -588,5 +591,6 @@
 <script src="/public/js/milestoneToasts.js" defer></script>
   <script src="/public/js/ratingModal.js"></script>
   <script>(function(){var id=new URLSearchParams(location.search).get("id");if(id&&window.TCRating)TCRating.mountProfile("pp-ratings",id);})();</script>
+  <script src="/public/js/dealFeedbackModal.js"></script>
 </body>
 </html>

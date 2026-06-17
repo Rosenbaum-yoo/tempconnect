@@ -105,6 +105,7 @@
       </div>
     </div>
 
+    <div id="dm-deal-feedback-prompt" style="margin-bottom:var(--ds-space-5);display:none"></div>
     <div id="dm-ratings-prompt" style="margin-bottom:var(--ds-space-5);display:none"></div>
 
     <!-- KPI Tiles -->
@@ -591,5 +592,7 @@
   <script src="/public/js/breadcrumb.js" defer></script>
   <script src="/public/js/ratingModal.js"></script>
   <script>if(window.TCRating)TCRating.mountPending("dm-ratings-prompt");</script>
+  <script src="/public/js/dealFeedbackModal.js"></script>
+  <script>if(window.TCDealFeedback)TCDealFeedback.mountPending("dm-deal-feedback-prompt");</script>
 </body>
 </html>
