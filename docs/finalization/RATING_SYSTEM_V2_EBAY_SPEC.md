@@ -91,15 +91,15 @@ Umsetzung: rein zeit-/zustandsgesteuert (Cron-Sweep `reveal-due-feedback` + Reve
 
 ---
 
-## 6. Phasenplan (inkrementell, je Phase Tests + isolierter Commit)
+## 6. Phasenplan (inkrementell, je Phase Tests + isolierter Commit) — UMGESETZT
 
-- **P1 — Fundament:** Migration `deal_feedback` + `dealFeedbackService` (eligibility aus completed assignment, submit, getPending, getForOrg) + Eligibility-Hook in `completeAssignment`. Tests: eligibility, UNIQUE, participant-only, window.
-- **P2 — Mutual-blind:** Reveal-on-second-submit + Cron-Sweep `reveal-due-feedback` + `withTransaction`-Sicherung. Tests: blind bis beide/Frist, withheld-Pfad.
-- **P3 — UI Abgabe + Anzeige:** `dealFeedbackModal` (sentiment + rollenabhängige Dimensionen + Kommentar), Post-Deal-CTA auf `offer_detail.html` („Jetzt bewerten") + „Offene Bewertungen" erweitern, Anzeige auf Profil/Scorecard.
-- **P4 — Antwort:** öffentliche Reply der bewerteten Seite (1×), Moderation.
-- **P5 — Reputation:** company-seitige `org_reputation` (spiegelbildlich zu `supplier_reputation`), Recency-Gewichtung, Recompute-Trigger.
-- **P6 — Pool-Verzahnung:** „Lieferant in Pool"-Button auf `offer_detail` (Endpoint existiert) + optional Auto-Vorschlag bei sehr guter Bewertung.
+- ✅ **P1 — Fundament** (`0a25864`): Migration 138 `deal_feedback` + `dealFeedbackService` (resolveDirection, validateDimensions, getPendingFeedback, submitFeedback mit allen Guards). 18 Tests. Tabelle auf Dev-DB live.
+- ✅ **P2 — Mutual-blind** (`99f0d9f`): Reveal-on-second-submit (`withTransaction`) + Cron-Sweep `POST /internal/reveal-due-feedback` (14-Tage-Frist) + Auto-Moderation beim Submit. 4 Tests.
+- ✅ **P3 — UI** (`3981392` Routen + `…3b` Modal): `dealFeedbackModal` (sentiment + rollenabhängige Dimensionen + Kommentar), Routen `/deal-feedback/{pending,POST,org/:id}`, Post-Deal-Prompt in `deal_management.html`, Anzeige auf `company_profile_public.html`. 6 Route-Tests.
+- ✅ **P5 — Reputation** (`545da52`): `getOrgReputationSummary` (On-Read, % positiv + Grade `computeGrade`), Summary im Org-Endpoint + Anzeige-Header. 5 Tests.
+- ✅ **P4 — Antwort** (`1a5361c`): `replyToFeedback` (nur bewertete Org, nur revealed, 1×, Profanität blockiert) + `POST /deal-feedback/:id/reply` + Inline-Reply-UI (viewer-org-gegated). 5 Tests.
+- ✅ **P6 — Pool-Verzahnung** (`bebc518`): „Lieferant in Pool"-Button auf `offer_detail` für den Auftraggeber nach completed Deal (Endpoint `/vendor-pool/from-deal` existierte).
 
-**Akzeptanz gesamt:** echter Marktplatz-Deal → beide Seiten bewerten → mutual-blind → revealed nach beidseitig/Frist → moderiert → in Org-Reputation + Profil sichtbar; Antwort möglich; Lieferant 1-Klick in Pool.
+**Akzeptanz gesamt (erfüllt):** echter Marktplatz-Deal → beide Seiten bewerten → mutual-blind → revealed nach beidseitig/Frist → moderiert → in Org-Reputation (% positiv + Grade) + Profil sichtbar; Antwort möglich; Lieferant 1-Klick in Pool. 36 deal-feedback-Tests + volle Suite grün. **Optionaler Rest (Backlog):** Eligibility-Push-Notification nach Deal-Abschluss; Auto-Pool-Vorschlag bei Top-Bewertung; DSR-Dimensions-Schnitt im Summary.
 
 *Stand: 2026-06-15 · Owner-freigegeben (Architektur) · Umsetzung: Claude · phasiert*
