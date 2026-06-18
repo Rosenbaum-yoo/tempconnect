@@ -151,6 +151,8 @@ export function normalizeSupportAgent(row) {
     vendor_id: row.vendor_id || null,
     vendor_name: row.vendor_name || null,
     vendor_active: row.vendor_active !== false,
+    vendor_status: row.vendor_status || null,
+    vendor_ip_cidrs: normalizeArray(row.vendor_ip_cidrs),
     data_scope: row.data_scope || "assigned_only",
     allowed_queues: normalizeArray(row.allowed_queues),
     allowed_case_types: normalizeArray(row.allowed_case_types),
@@ -166,6 +168,7 @@ export async function getSupportAgent(pool, userId) {
     `SELECT sa.id, sa.user_id, sa.role, sa.scope, sa.vendor_id, sa.allowed_queues,
             sa.allowed_case_types, sa.allowed_actions, sa.data_scope, sa.is_active,
             sv.name AS vendor_name, sv.is_active AS vendor_active,
+            sv.status AS vendor_status, sv.allowed_ip_cidrs AS vendor_ip_cidrs,
             u.email AS user_email,
             COALESCE(NULLIF(u.contact_person, ''), NULLIF(u.company_name, ''), u.email) AS display_name
        FROM support_agents sa
@@ -192,6 +195,46 @@ export function requireSupportFeature(featureKey) {
   };
 }
 
+/* ── IP-Allowlist (CIDR) fuer externe Vendors ─────────────────────────────
+   Reine IPv4-CIDR-Pruefung; IPv4-mapped IPv6 (::ffff:a.b.c.d) wird normalisiert.
+   Leere Allowlist = keine Beschraenkung. */
+function normalizeIp(ip) {
+  let s = safeString(ip);
+  if (!s) return "";
+  const m = s.match(/^::ffff:(\d+\.\d+\.\d+\.\d+)$/i);
+  if (m) s = m[1];
+  return s;
+}
+function ipToLong(ip) {
+  const parts = safeString(ip).split(".");
+  if (parts.length !== 4) return null;
+  let n = 0;
+  for (const p of parts) {
+    const o = Number(p);
+    if (!Number.isInteger(o) || o < 0 || o > 255) return null;
+    n = (n * 256) + o;
+  }
+  return n >>> 0;
+}
+function ipInCidr(ip, cidr) {
+  const c = safeString(cidr);
+  if (!c) return false;
+  const nip = normalizeIp(ip);
+  if (c.indexOf("/") < 0) return nip === normalizeIp(c); // exakte IP
+  const [net, bitsRaw] = c.split("/");
+  const bits = Number(bitsRaw);
+  const ipL = ipToLong(nip);
+  const netL = ipToLong(net);
+  if (ipL === null || netL === null || !Number.isInteger(bits) || bits < 0 || bits > 32) return false;
+  if (bits === 0) return true;
+  const mask = (~0 << (32 - bits)) >>> 0;
+  return (ipL & mask) === (netL & mask);
+}
+export function ipAllowed(ip, cidrs) {
+  if (!Array.isArray(cidrs) || cidrs.length === 0) return true;
+  return cidrs.some((c) => ipInCidr(ip, c));
+}
+
 export function requireSupportAccess(deps) {
   const { pool, logger, config } = deps;
 
@@ -214,8 +257,20 @@ export function requireSupportAccess(deps) {
         return res.status(403).json({ error: "NOT_SUPPORT_STAFF" });
       }
 
-      if (agent.scope === "external" && (!agent.vendor_id || agent.vendor_active === false)) {
-        return res.status(403).json({ error: "NOT_SUPPORT_STAFF" });
+      if (agent.scope === "external") {
+        // Kein Vendor / Vendor hart deaktiviert -> wie kein Staff behandeln.
+        if (!agent.vendor_id || agent.vendor_active === false) {
+          return res.status(403).json({ error: "NOT_SUPPORT_STAFF" });
+        }
+        // Vendor muss von TempConnect VERIFIZIERT sein (status='active').
+        // 'pending' (noch nicht geprueft) / 'suspended' (Kill-Switch) -> gesperrt.
+        if (agent.vendor_status !== "active") {
+          return res.status(403).json({ error: "VENDOR_NOT_VERIFIED", message: "Der Support-Vendor ist nicht (mehr) verifiziert." });
+        }
+        // Optionale IP-Allowlist je Vendor: Zugriff nur aus freigegebenen Netzen.
+        if (!ipAllowed(req.ip, agent.vendor_ip_cidrs)) {
+          return res.status(403).json({ error: "IP_NOT_ALLOWED", message: "Zugriff von dieser IP-Adresse ist fuer diesen Vendor nicht freigegeben." });
+        }
       }
 
       req.supportAgent = agent;
