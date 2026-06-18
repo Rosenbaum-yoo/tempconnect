@@ -25,6 +25,7 @@ import * as staffMail from "../services/staffMailCenterService.js";
 import * as staffIncidents from "../services/staffIncidentService.js";
 import * as pilotPolicy from "../services/pilotPolicyService.js";
 import * as prereg from "../services/pilotPreregistrationService.js";
+import * as searchModeration from "../services/searchModerationService.js";
 import { config } from "../config/index.js";
 import { withTransaction } from "../utils/transaction.js";
 import {
@@ -48,6 +49,7 @@ function activationErrorStatus(code) {
   if (code === "REQUEST_NOT_FOUND") return 404;
   if (code === "NOT_ACCEPTED" || code === "INVALID_TRANSITION" || code === "NO_CHANGE") return 409;
   if (code === "ORG_NOT_FOUND" || code === "SUBSCRIPTION_NOT_FOUND") return 409;
+  if (code === "PAYMENT_NOT_VERIFIED") return 409; // stripe-pending Self-Service: nur Webhook aktiviert
   return 500;
 }
 
@@ -1988,6 +1990,52 @@ export function createStaffControlCenterRouter(deps) {
         res.json({ success: true });
       } catch (err) {
         logger?.error({ err }, "SCC abuse-report dismiss");
+        res.status(500).json({ success: false, error: { code: "SCC_INTERNAL_ERROR" } });
+      }
+    }
+  );
+
+  /** Liste: geflaggte Suchanfragen (Faekal-/Vulgaersprache, aus der Plattform-Suche aussortiert) */
+  router.get("/search-moderation/flagged", requireStaff, async (req, res) => {
+    try {
+      const data = await searchModeration.listFlaggedQueries(pool, {
+        status: req.query.status || null,
+        limit: req.query.limit,
+        offset: req.query.offset,
+      });
+      res.json({ success: true, data });
+    } catch (err) {
+      logger?.error({ err }, "SCC search-moderation list");
+      res.status(500).json({ success: false, error: { code: "SCC_INTERNAL_ERROR" } });
+    }
+  });
+
+  /** Aktion: geflaggte Suchanfrage abschliessen — action: 'dismiss' (harmlos) | 'action' (bestaetigt/eskaliert) */
+  router.post("/search-moderation/flagged/:id/resolve",
+    requireStaff, requireStepUp, requireConfirmAndReason,
+    async (req, res) => {
+      try {
+        const action = (req.body && req.body.action) || null;
+        if (!["dismiss", "action"].includes(action)) {
+          return res.status(400).json({ success: false, error: { code: "INVALID_ACTION" } });
+        }
+        const result = await searchModeration.resolveFlaggedQuery(pool, {
+          id: req.params.id, actorId: req.sccActorId, action, note: req.sccReason,
+        });
+        if (!result.ok) {
+          return res.status(result.error === "NOT_FOUND" ? 404 : 400).json({ success: false, error: { code: result.error } });
+        }
+        await writeStaffAudit(pool, {
+          actorId: req.sccActorId, area: "search_moderation",
+          action: `staff.search_flag.${action === "dismiss" ? "dismissed" : "actioned"}`,
+          entityType: "flagged_search_query", entityId: req.params.id,
+          status: "ok", reason: req.sccReason, confirmed: true,
+          riskLevel: action === "action" ? "medium" : "low",
+          ...auditContextFromReq(req), details: { action },
+        });
+        res.json({ success: true, data: result.row });
+      } catch (err) {
+        logger?.error({ err }, "SCC search-moderation resolve");
         res.status(500).json({ success: false, error: { code: "SCC_INTERNAL_ERROR" } });
       }
     }

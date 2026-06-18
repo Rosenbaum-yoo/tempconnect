@@ -1033,6 +1033,10 @@
 
     function render(q, payload) {
       var data = (payload && payload.data) || payload || {};
+      if (data.flagged) {
+        openPanel('<div class="tc-shell-search__state">Diese Suchanfrage ist nicht zulässig und wurde zur Prüfung gemeldet.</div>');
+        return;
+      }
       var results = data.results || [];
       if (!results.length) {
         openPanel('<div class="tc-shell-search__state">Keine Treffer für „' + esc(q) + '“</div>');

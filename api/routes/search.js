@@ -10,6 +10,7 @@
 import { Router } from "express";
 import * as searchService from "../services/searchService.js";
 import * as searchHistory from "../services/searchHistoryService.js";
+import * as searchModeration from "../services/searchModerationService.js";
 import { domainLogger } from "../utils/logger.js";
 import { ok, fail } from "../utils/response.js";
 
@@ -35,6 +36,26 @@ export function createSearchRouter(deps) {
 
       const limit = Math.min(parseInt(req.query.limit) || 20, 100);
       const offset = Math.max(parseInt(req.query.offset) || 0, 0);
+
+      // Moderation: Faekal-/Vulgaersprache wird aussortiert (geblockt) + ins Staff Center gemeldet,
+      // BEVOR ein DB-Treffer erfolgt. Soft-fail: Meldung ist fire-and-forget. Nutzer erhaelt einen
+      // neutralen Zustand (flagged) statt Ergebnissen; die Anfrage wird NICHT in der Historie gespeichert.
+      const screen = searchModeration.screenQuery(q);
+      if (screen.flagged) {
+        searchModeration
+          .recordFlaggedQuery(pool, {
+            userId: req.session?.userId || null,
+            orgId: req.orgId || null,
+            query: q,
+            severity: screen.severity,
+            matchedTerms: screen.matches.map((m) => m.word),
+            ip: req.headers["x-forwarded-for"] || req.ip || null,
+            userAgent: req.headers["user-agent"] || null,
+          })
+          .catch(() => {});
+        domainLogger.searchPerformed({ query: "[moderation-flagged]", type, resultCount: 0, durationMs: 0, source: "moderation" });
+        return ok(res, { query: q, type, results: [], total: 0, source: "moderation", durationMs: 0, flagged: true });
+      }
 
       // viewerOrgId scoped org-private Domains (requisitions). Marktplatz/Verzeichnis-Domains
       // sind statisch sichtbarkeits-gefiltert im Service.

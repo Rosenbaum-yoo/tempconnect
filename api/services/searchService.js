@@ -386,49 +386,49 @@ async function searchDatabase(pool, query, { type, limit, offset, start, viewerO
   const domains = {
     requisitions: !viewerOrgId ? null : {
       sql: `SELECT id, title, role, location_city, status, org_id, 'requisitions' AS _index,
-                   GREATEST(similarity(coalesce(title,''),$2), similarity(coalesce(role,''),$2)) AS _score
+                   GREATEST(similarity(f_unaccent(coalesce(title,'')),f_unaccent($2)), similarity(f_unaccent(coalesce(role,'')),f_unaccent($2))) AS _score
             FROM requisitions
             WHERE org_id = $5
-              AND (title ILIKE $1 OR role ILIKE $1 OR location_city ILIKE $1 OR description ILIKE $1
-                   OR title % $2 OR role % $2)
+              AND (f_unaccent(title) ILIKE f_unaccent($1) OR f_unaccent(role) ILIKE f_unaccent($1) OR f_unaccent(location_city) ILIKE f_unaccent($1) OR f_unaccent(description) ILIKE f_unaccent($1)
+                   OR f_unaccent(title) % f_unaccent($2) OR f_unaccent(role) % f_unaccent($2))
             ORDER BY _score DESC NULLS LAST, created_at DESC
             LIMIT $3 OFFSET $4`,
       params: [like, query, limit, offset, viewerOrgId],
       count: `SELECT COUNT(*)::int AS c FROM requisitions
-              WHERE org_id = $3 AND (title ILIKE $1 OR role ILIKE $1 OR location_city ILIKE $1 OR description ILIKE $1 OR title % $2 OR role % $2)`,
+              WHERE org_id = $3 AND (f_unaccent(title) ILIKE f_unaccent($1) OR f_unaccent(role) ILIKE f_unaccent($1) OR f_unaccent(location_city) ILIKE f_unaccent($1) OR f_unaccent(description) ILIKE f_unaccent($1) OR f_unaccent(title) % f_unaccent($2) OR f_unaccent(role) % f_unaccent($2))`,
       countParams: [like, query, viewerOrgId]
     },
     capacity_posts: {
       sql: `SELECT id, title, role, location_city, status, 'capacity_posts' AS _index,
-                   GREATEST(similarity(coalesce(title,''),$2), similarity(coalesce(role,''),$2)) AS _score
+                   GREATEST(similarity(f_unaccent(coalesce(title,'')),f_unaccent($2)), similarity(f_unaccent(coalesce(role,'')),f_unaccent($2))) AS _score
             FROM capacity_posts
             WHERE status = 'active'
               AND (visibility_status IS NULL OR visibility_status <> 'private')
               AND (availability_to IS NULL OR availability_to >= CURRENT_DATE)
-              AND (title ILIKE $1 OR role ILIKE $1 OR location_city ILIKE $1 OR title % $2 OR role % $2)
+              AND (f_unaccent(title) ILIKE f_unaccent($1) OR f_unaccent(role) ILIKE f_unaccent($1) OR f_unaccent(location_city) ILIKE f_unaccent($1) OR f_unaccent(title) % f_unaccent($2) OR f_unaccent(role) % f_unaccent($2))
             ORDER BY _score DESC NULLS LAST, created_at DESC
             LIMIT $3 OFFSET $4`,
       params: [like, query, limit, offset],
       count: `SELECT COUNT(*)::int AS c FROM capacity_posts
               WHERE status = 'active' AND (visibility_status IS NULL OR visibility_status <> 'private')
                 AND (availability_to IS NULL OR availability_to >= CURRENT_DATE)
-                AND (title ILIKE $1 OR role ILIKE $1 OR location_city ILIKE $1 OR title % $2 OR role % $2)`,
+                AND (f_unaccent(title) ILIKE f_unaccent($1) OR f_unaccent(role) ILIKE f_unaccent($1) OR f_unaccent(location_city) ILIKE f_unaccent($1) OR f_unaccent(title) % f_unaccent($2) OR f_unaccent(role) % f_unaccent($2))`,
       countParams: [like, query]
     },
     companies: {
       sql: `SELECT o.id, o.name AS company_name, o.legal_name, 'companies' AS _index,
-                   GREATEST(similarity(coalesce(o.name,''),$2), similarity(coalesce(o.legal_name,''),$2)) AS _score
+                   GREATEST(similarity(f_unaccent(coalesce(o.name,'')),f_unaccent($2)), similarity(f_unaccent(coalesce(o.legal_name,'')),f_unaccent($2))) AS _score
             FROM organizations o
             WHERE EXISTS (SELECT 1 FROM profile_visibility_settings pvs
                           WHERE pvs.org_id = o.id AND pvs.is_public = TRUE AND pvs.status = 'approved')
-              AND (o.name ILIKE $1 OR o.legal_name ILIKE $1 OR o.name % $2 OR o.legal_name % $2)
+              AND (f_unaccent(o.name) ILIKE f_unaccent($1) OR f_unaccent(o.legal_name) ILIKE f_unaccent($1) OR f_unaccent(o.name) % f_unaccent($2) OR f_unaccent(o.legal_name) % f_unaccent($2))
             ORDER BY _score DESC NULLS LAST, o.name ASC
             LIMIT $3 OFFSET $4`,
       params: [like, query, limit, offset],
       count: `SELECT COUNT(*)::int AS c FROM organizations o
               WHERE EXISTS (SELECT 1 FROM profile_visibility_settings pvs
                             WHERE pvs.org_id = o.id AND pvs.is_public = TRUE AND pvs.status = 'approved')
-                AND (o.name ILIKE $1 OR o.legal_name ILIKE $1 OR o.name % $2 OR o.legal_name % $2)`,
+                AND (f_unaccent(o.name) ILIKE f_unaccent($1) OR f_unaccent(o.legal_name) ILIKE f_unaccent($1) OR f_unaccent(o.name) % f_unaccent($2) OR f_unaccent(o.legal_name) % f_unaccent($2))`,
       countParams: [like, query]
     }
   };

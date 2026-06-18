@@ -24,6 +24,7 @@ export type AreaKey =
   | "automation"
   | "staff-access"
   | "marketplace-visibility"
+  | "search-moderation"
   | "data-governance"
   | "document-vault";
 
@@ -56,6 +57,7 @@ export const AREAS: NavItem[] = [
   { key: "automation",            label: "Automation",           group: "Automation" },
   { key: "staff-access",          label: "Staff Access",         group: "Administration" },
   { key: "marketplace-visibility", label: "Marketplace Visibility", group: "Marketplace" },
+  { key: "search-moderation",     label: "Suchmeldungen",          group: "Marketplace" },
   { key: "data-governance",       label: "DSGVO / Datenschutz",    group: "Governance" },
   { key: "document-vault",        label: "Dokumenten-Tresor",      group: "Governance" },
 ];

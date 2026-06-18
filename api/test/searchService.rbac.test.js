@@ -20,7 +20,7 @@ describe("searchService — RBAC/Sichtbarkeit + Fuzzy (DB-Pfad)", () => {
     const sql = pool.calls.map((c) => c.sql).join("\n");
     assert.match(sql, /FROM requisitions/);
     assert.match(sql, /org_id = \$5/, "org-gescoped");
-    assert.match(sql, /title % \$2/, "Trigram-Fuzzy-Operator");
+    assert.match(sql, /f_unaccent\(title\) % f_unaccent\(\$2\)/, "Trigram-Fuzzy-Operator (unaccent-gewrappt, Diakritik-insensitiv)");
     const main = pool.calls.find((c) => c.sql.includes("LIMIT"));
     assert.equal(main.params[4], "org-1", "viewerOrgId als Parameter");
   });
@@ -38,7 +38,7 @@ describe("searchService — RBAC/Sichtbarkeit + Fuzzy (DB-Pfad)", () => {
     assert.match(sql, /status = 'active'/);
     assert.match(sql, /visibility_status IS NULL OR visibility_status <> 'private'/);
     assert.match(sql, /availability_to IS NULL OR availability_to >= CURRENT_DATE/);
-    assert.match(sql, /title % \$2/, "Fuzzy");
+    assert.match(sql, /f_unaccent\(title\) % f_unaccent\(\$2\)/, "Fuzzy (unaccent-gewrappt)");
   });
 
   it("companies: nur opted-in Orgs (profile_visibility_settings is_public + approved)", async () => {

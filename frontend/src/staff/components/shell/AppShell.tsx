@@ -42,6 +42,7 @@ const DataExplorer         = lazy(() => import("@scc/modules/data-explorer"));
 const Automation           = lazy(() => import("@scc/modules/automation"));
 const StaffAccess          = lazy(() => import("@scc/modules/staff-access"));
 const MarketplaceVisibility = lazy(() => import("@scc/modules/marketplace-visibility"));
+const SearchModeration      = lazy(() => import("@scc/modules/search-moderation"));
 const DataGovernance        = lazy(() => import("@scc/modules/data-governance"));
 const DocumentVault         = lazy(() => import("@scc/modules/document-vault"));
 
@@ -104,6 +105,7 @@ function ActiveModule({ active }: { active: AreaKey }) {
       {active === "automation"            && <Automation />}
       {active === "staff-access"          && <StaffAccess />}
       {active === "marketplace-visibility" && <MarketplaceVisibility />}
+      {active === "search-moderation"      && <SearchModeration />}
       {active === "data-governance"        && <DataGovernance />}
       {active === "document-vault"         && <DocumentVault />}
     </Suspense>
