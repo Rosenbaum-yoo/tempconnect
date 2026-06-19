@@ -4,6 +4,7 @@ import { swallow } from "../utils/logger.js";
 import {
   requireSupportAccess,
   requireSupportFeature,
+  externalLookupGuard,
   maskSupportEmail,
   maskSupportId,
   maskSupportName,
@@ -661,6 +662,11 @@ function buildSupportRouter(deps) {
   const { pool, logger, sendMail, config } = deps;
 
   router.use("/support", supportRateLimit, requireAuth, supportAuth);
+
+  // Anti-Exfiltration: externe (BPO-)Agenten haben ein Volumen-Budget auf den
+  // Lookup-Reads (gegen Massen-Scraping). Interne Agenten unbegrenzt. Default 60/h.
+  const externalGuard = externalLookupGuard({ max: Number(config?.SUPPORT_EXTERNAL_LOOKUP_MAX) || 60, logger });
+  router.use("/support/lookup", externalGuard);
 
   router.get("/support/bootstrap", async (req, res) => {
     try {

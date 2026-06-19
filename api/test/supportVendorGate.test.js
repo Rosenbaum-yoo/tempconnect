@@ -11,7 +11,7 @@
  */
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
-import { ipAllowed, requireSupportAccess } from "../middleware/supportAccess.js";
+import { ipAllowed, requireSupportAccess, externalLookupGuard } from "../middleware/supportAccess.js";
 
 describe("supportAccess — ipAllowed (CIDR)", () => {
   it("leere/keine Allowlist = keine Beschraenkung", () => {
@@ -90,5 +90,32 @@ describe("supportAccess — externes Vendor-Gate", () => {
       is_active: true, user_email: "lead@tc", display_name: "Lead",
     };
     assert.equal((await runGate(internal)).next, true);
+  });
+});
+
+function runGuard(guard, agent, { ip = "1.1.1.1" } = {}) {
+  return new Promise((resolve) => {
+    const out = { next: false, code: 200, body: null };
+    const res = { setHeader() {}, status(c) { out.code = c; return this; }, json(b) { out.body = b; resolve(out); return this; } };
+    guard({ supportAgent: agent, ip }, res, () => { out.next = true; resolve(out); });
+  });
+}
+
+describe("supportAccess — externalLookupGuard (Anti-Exfiltration)", () => {
+  it("externer Agent: bis max erlaubt, danach 429 LOOKUP_RATE_LIMIT", async () => {
+    const guard = externalLookupGuard({ max: 2, logger: { warn() {} } });
+    const agent = { id: "ext-throttle-1", scope: "external", vendor_id: "v1" };
+    assert.equal((await runGuard(guard, agent)).next, true);
+    assert.equal((await runGuard(guard, agent)).next, true);
+    const third = await runGuard(guard, agent);
+    assert.equal(third.code, 429);
+    assert.equal(third.body.error, "LOOKUP_RATE_LIMIT");
+  });
+  it("interner Agent wird nie gedrosselt", async () => {
+    const guard = externalLookupGuard({ max: 1, logger: { warn() {} } });
+    const agent = { id: "int-throttle-1", scope: "internal" };
+    assert.equal((await runGuard(guard, agent)).next, true);
+    assert.equal((await runGuard(guard, agent)).next, true);
+    assert.equal((await runGuard(guard, agent)).next, true);
   });
 });

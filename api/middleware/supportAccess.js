@@ -195,6 +195,31 @@ export function requireSupportFeature(featureKey) {
   };
 }
 
+/* ── Anti-Exfiltration: Lookup-Budget fuer externe Agenten ────────────────
+   Externe (BPO-)Agenten duerfen Lookups nur begrenzt ausfuehren (gegen Massen-
+   Scraping). In-Memory-Sliding-Window je Agent; interne Agenten unbegrenzt.
+   Jede Lookup wird ohnehin auditiert -> dies ist der Volumen-Deckel + Anomalie-Log. */
+const _lookupBuckets = new Map();
+export function externalLookupGuard({ windowMs = 60 * 60 * 1000, max = 60, logger } = {}) {
+  return (req, res, next) => {
+    const agent = req.supportAgent;
+    if (!agent || agent.scope !== "external") return next(); // nur externe Agenten begrenzen
+    const now = Date.now();
+    let bucket = _lookupBuckets.get(agent.id);
+    if (!bucket || now >= bucket.resetAt) {
+      bucket = { count: 0, resetAt: now + windowMs };
+      _lookupBuckets.set(agent.id, bucket);
+    }
+    bucket.count += 1;
+    if (bucket.count > max) {
+      logger?.warn?.({ agentId: agent.id, vendorId: agent.vendor_id, count: bucket.count, max }, "external_support_lookup_rate_exceeded");
+      res.setHeader("Retry-After", String(Math.ceil((bucket.resetAt - now) / 1000)));
+      return res.status(429).json({ error: "LOOKUP_RATE_LIMIT", message: "Lookup-Limit erreicht. Bitte spaeter erneut versuchen." });
+    }
+    next();
+  };
+}
+
 /* ── IP-Allowlist (CIDR) fuer externe Vendors ─────────────────────────────
    Reine IPv4-CIDR-Pruefung; IPv4-mapped IPv6 (::ffff:a.b.c.d) wird normalisiert.
    Leere Allowlist = keine Beschraenkung. */
