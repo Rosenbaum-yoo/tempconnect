@@ -75,6 +75,7 @@ function serviceError(code) {
 }
 import { REQUEST_TYPES as SUB_REQUEST_TYPES, STATUS as SUB_STATUS, listAllowedNextStatuses as subAllowedNext, canBypassStaffApproval as subCanBypass, applyApprovedChange } from "../services/subscriptionRequestService.js";
 import { writeStaffAudit, listStaffAudit, auditContextFromReq } from "../services/staffAuditService.js";
+import * as supportVendorAdmin from "../services/supportVendorAdminService.js";
 import {
   createStaffControlAccessMiddleware,
   createStaffStepUpMiddleware,
@@ -558,6 +559,101 @@ export function createStaffControlCenterRouter(deps) {
       logger?.error({ err }, "SCC staff-access deactivate error");
       res.status(500).json({ success: false, error: { code: "SCC_INTERNAL_ERROR" } });
     }
+  });
+
+  /* ═══ Support-Vendor-/Agenten-Verwaltung (externer Support / BPO) ═══════════
+   * Vendor-Lebenszyklus + externe Agenten. Externe Agenten arbeiten erst nach
+   * Vendor-Verifikation (status='active') + IP-Allowlist (supportAccess.js).
+   * Sicherheitsrelevante Aktionen (verify/agent-add/ip) = Step-up HIGH. */
+  const supportVendorAudit = (req, action, entityId, riskLevel, details) =>
+    writeStaffAudit(pool, {
+      actorId: req.sccActorId, area: "support_vendors",
+      action: `staff_control.support_vendor.${action}`, entityType: "support_vendor", entityId,
+      status: "ok", reason: req.sccReason, confirmed: true, riskLevel,
+      ...auditContextFromReq(req), details: details || {}
+    }).catch((e) => logger?.warn?.({ err: e }, `SCC support-vendor ${action} audit error`));
+
+  router.get("/support-vendors", requireStaff, async (_req, res) => {
+    try {
+      const r = await supportVendorAdmin.listVendors(pool);
+      res.json({ success: true, data: { items: r.rows, total: r.rows.length } });
+    } catch (err) {
+      logger?.error({ err }, "SCC support-vendors list");
+      res.status(500).json({ success: false, error: { code: "SERVER_ERROR" } });
+    }
+  });
+
+  router.get("/support-vendors/:id", requireStaff, async (req, res) => {
+    try {
+      const r = await supportVendorAdmin.getVendorDetail(pool, req.params.id);
+      if (!r.ok) return res.status(404).json({ success: false, error: { code: "NOT_FOUND" } });
+      res.json({ success: true, data: r.row });
+    } catch (err) {
+      logger?.error({ err }, "SCC support-vendor detail");
+      res.status(500).json({ success: false, error: { code: "SERVER_ERROR" } });
+    }
+  });
+
+  router.post("/support-vendors", requireStaff, mfaGuard, requireStepUp, requireConfirmAndReason, async (req, res) => {
+    try {
+      const r = await supportVendorAdmin.createVendor(pool, { name: req.body?.name, contractRef: req.body?.contract_ref });
+      if (!r.ok) return res.status(400).json({ success: false, error: { code: r.error } });
+      supportVendorAudit(req, "create", r.row.id, "medium", { name: r.row.name });
+      res.json({ success: true, data: r.row });
+    } catch (err) { logger?.error({ err }, "SCC support-vendor create"); res.status(500).json({ success: false, error: { code: "SERVER_ERROR" } }); }
+  });
+
+  router.post("/support-vendors/:id/verify", requireStaff, mfaGuard, requireStepUpHigh, requireConfirmAndReason, async (req, res) => {
+    try {
+      const r = await supportVendorAdmin.verifyVendor(pool, { vendorId: req.params.id, actorUserId: req.sccActorId });
+      if (!r.ok) return res.status(404).json({ success: false, error: { code: r.error } });
+      supportVendorAudit(req, "verify", req.params.id, "high", { name: r.row.name });
+      res.json({ success: true, data: r.row });
+    } catch (err) { logger?.error({ err }, "SCC support-vendor verify"); res.status(500).json({ success: false, error: { code: "SERVER_ERROR" } }); }
+  });
+
+  router.post("/support-vendors/:id/status", requireStaff, mfaGuard, requireStepUp, requireConfirmAndReason, async (req, res) => {
+    try {
+      const r = await supportVendorAdmin.setVendorStatus(pool, { vendorId: req.params.id, status: req.body?.status, actorUserId: req.sccActorId });
+      if (!r.ok) return res.status(r.error === "NOT_FOUND" ? 404 : 400).json({ success: false, error: { code: r.error } });
+      supportVendorAudit(req, `status_${r.row.status}`, req.params.id, "medium", { status: r.row.status });
+      res.json({ success: true, data: r.row });
+    } catch (err) { logger?.error({ err }, "SCC support-vendor status"); res.status(500).json({ success: false, error: { code: "SERVER_ERROR" } }); }
+  });
+
+  router.post("/support-vendors/:id/ip-allowlist", requireStaff, mfaGuard, requireStepUpHigh, requireConfirmAndReason, async (req, res) => {
+    try {
+      const r = await supportVendorAdmin.setVendorIps(pool, { vendorId: req.params.id, cidrs: req.body?.cidrs });
+      if (!r.ok) return res.status(r.error === "NOT_FOUND" ? 404 : 400).json({ success: false, error: { code: r.error } });
+      supportVendorAudit(req, "ip_allowlist", req.params.id, "high", { count: r.row.allowed_ip_cidrs.length });
+      res.json({ success: true, data: r.row });
+    } catch (err) { logger?.error({ err }, "SCC support-vendor ip"); res.status(500).json({ success: false, error: { code: "SERVER_ERROR" } }); }
+  });
+
+  router.post("/support-vendors/agents", requireStaff, mfaGuard, requireStepUpHigh, requireConfirmAndReason, async (req, res) => {
+    try {
+      const r = await supportVendorAdmin.addAgent(pool, { email: req.body?.email, role: req.body?.role, vendorId: req.body?.vendor_id || null, dataScope: req.body?.data_scope || null });
+      if (!r.ok) return res.status(r.error === "USER_NOT_FOUND" ? 404 : 400).json({ success: false, error: { code: r.error } });
+      writeStaffAudit(pool, {
+        actorId: req.sccActorId, area: "support_vendors", action: "staff_control.support_agent.add",
+        entityType: "support_agent", entityId: r.row.id, status: "ok", reason: req.sccReason, confirmed: true, riskLevel: "high",
+        ...auditContextFromReq(req), details: { email: r.row.email, role: r.row.role, scope: r.row.scope }
+      }).catch((e) => logger?.warn?.({ err: e }, "SCC support-agent add audit error"));
+      res.json({ success: true, data: r.row });
+    } catch (err) { logger?.error({ err }, "SCC support-agent add"); res.status(500).json({ success: false, error: { code: "SERVER_ERROR" } }); }
+  });
+
+  router.post("/support-vendors/agents/:agentId/suspend", requireStaff, mfaGuard, requireStepUp, requireConfirmAndReason, async (req, res) => {
+    try {
+      const r = await supportVendorAdmin.suspendAgent(pool, { agentId: req.params.agentId });
+      if (!r.ok) return res.status(404).json({ success: false, error: { code: r.error } });
+      writeStaffAudit(pool, {
+        actorId: req.sccActorId, area: "support_vendors", action: "staff_control.support_agent.suspend",
+        entityType: "support_agent", entityId: req.params.agentId, status: "ok", reason: req.sccReason, confirmed: true, riskLevel: "medium",
+        ...auditContextFromReq(req), details: {}
+      }).catch((e) => logger?.warn?.({ err: e }, "SCC support-agent suspend audit error"));
+      res.json({ success: true, data: r.row });
+    } catch (err) { logger?.error({ err }, "SCC support-agent suspend"); res.status(500).json({ success: false, error: { code: "SERVER_ERROR" } }); }
   });
 
   // SCC WAVE 05: Single-Item Assign ────────────────────────────

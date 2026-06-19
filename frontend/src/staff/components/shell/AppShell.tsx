@@ -41,6 +41,7 @@ const AuditDecisions       = lazy(() => import("@scc/modules/audit-decisions"));
 const DataExplorer         = lazy(() => import("@scc/modules/data-explorer"));
 const Automation           = lazy(() => import("@scc/modules/automation"));
 const StaffAccess          = lazy(() => import("@scc/modules/staff-access"));
+const SupportVendors       = lazy(() => import("@scc/modules/support-vendors"));
 const MarketplaceVisibility = lazy(() => import("@scc/modules/marketplace-visibility"));
 const SearchModeration      = lazy(() => import("@scc/modules/search-moderation"));
 const DataGovernance        = lazy(() => import("@scc/modules/data-governance"));
@@ -104,6 +105,7 @@ function ActiveModule({ active }: { active: AreaKey }) {
       {active === "data-explorer"         && <DataExplorer />}
       {active === "automation"            && <Automation />}
       {active === "staff-access"          && <StaffAccess />}
+      {active === "support-vendors"       && <SupportVendors />}
       {active === "marketplace-visibility" && <MarketplaceVisibility />}
       {active === "search-moderation"      && <SearchModeration />}
       {active === "data-governance"        && <DataGovernance />}
