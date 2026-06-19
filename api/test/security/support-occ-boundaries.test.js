@@ -18,6 +18,7 @@ function supportAgentRow(overrides = {}) {
     is_active: true,
     vendor_name: "Vendor One",
     vendor_active: true,
+    vendor_status: "active",
     user_email: "support.agent@example.com",
     display_name: "Support Agent",
     ...overrides
