@@ -143,3 +143,9 @@ body {
 .soc-sub-tab { padding: 8px 12px; font-size: 13px; font-weight: 600; color: var(--soc-text-2); cursor: pointer; border: none; background: none; border-bottom: 2px solid transparent; }
 .soc-sub-tab.active { color: var(--soc-text); border-bottom-color: var(--soc-accent); }
 .soc-pager { display: flex; gap: 10px; align-items: center; justify-content: flex-end; margin-top: 12px; font-size: 12px; color: var(--soc-text-2); }
+
+/* ── Externes Wasserzeichen (nur scope=external) ────────────────────────────
+   Gekacheltes, sehr dezentes Overlay mit der Agenten-Identitaet ueber der
+   gesamten Oberflaeche -> Screenshots/Bildschirmaufnahmen sind rueckverfolgbar.
+   pointer-events:none -> blockiert keine Interaktion. */
+.soc-watermark { position: fixed; inset: 0; z-index: 9998; pointer-events: none; background-repeat: repeat; }

@@ -88,6 +88,8 @@ export default function App() {
   if (f.audit_view) nav.push({ key: "audit", label: "Audit" });
 
   return (
+    <>
+      {boot.identity.scope === "external" && <ExternalWatermark identity={boot.identity} />}
     <div className="soc-app">
       <aside className="soc-sidebar">
         <div className="soc-brand">
@@ -123,7 +125,18 @@ export default function App() {
         </main>
       </div>
     </div>
+    </>
   );
+}
+
+function ExternalWatermark({ identity }: { identity: Bootstrap["identity"] }) {
+  // Diagonal gekacheltes Wasserzeichen mit Agenten-Identitaet -> Screenshots/Aufnahmen
+  // eines externen Agenten sind rueckverfolgbar (Deterrent). Reines Overlay, pointer-events:none.
+  const label = `${identity.display_name} · ${identity.user_id}`;
+  const safe = label.replace(/[<>&]/g, " ");
+  const svg = `<svg xmlns='http://www.w3.org/2000/svg' width='360' height='200'><text x='10' y='112' transform='rotate(-22 180 100)' fill='rgba(255,255,255,0.05)' font-family='sans-serif' font-size='13'>${safe}</text></svg>`;
+  const bg = `url("data:image/svg+xml,${encodeURIComponent(svg)}")`;
+  return <div className="soc-watermark" aria-hidden="true" style={{ backgroundImage: bg }} />;
 }
 
 function Dashboard({ boot, onOpenCases }: { boot: Bootstrap; onOpenCases: () => void }) {
