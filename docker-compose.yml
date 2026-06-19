@@ -1,3 +1,9 @@
+# Projektname fest auf 'tempconnect_docker' gepinnt — unabhaengig vom Ordnernamen.
+# Verhindert, dass Umbenennen/Verschieben des Repos zu einem neuen Compose-Projekt
+# (= leere Volumes, DB scheint leer) fuehrt. Alle Kopien teilen dieselben
+# tempconnect_docker_* Volumes -> DB-Daten bleiben ueber Umzuege erhalten.
+name: tempconnect_docker
+
 services:
   db:
     image: postgres:16-alpine
