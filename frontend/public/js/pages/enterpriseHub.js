@@ -309,6 +309,53 @@
       }).catch(function () {});
   }
 
+  /* ── Next-Best-Action ────────────────────────────────────────────
+   * Personalisiert die prominente Hero-Karte (#ce-activation-nudge) mit dem
+   * ECHTEN naechsten Schritt des Nutzers aus /api/onboarding/status
+   * (suggested_next). Macht aus der statischen Karte eine kontextbezogene NBA:
+   * "Ihr naechster Schritt: …" + eine klare Primaer-Aktion zum exakten Ziel.
+   * Soft-Fail; greift nur solange Onboarding nicht abgeschlossen ist. */
+  function loadNextBestAction() {
+    fetch("/api/onboarding/status", { credentials: "include" })
+      .then(function (r) { return r.ok ? r.json() : null; })
+      .then(function (d) {
+        if (!d || !d.success || !d.data) return;
+        var data = d.data;
+        if (data.dismissed || data.progress_pct >= 100 || !data.suggested_next) return;
+        var steps = data.steps || [];
+        var step = null;
+        for (var j = 0; j < steps.length; j++) {
+          if ((steps[j].key || steps[j].step_key) === data.suggested_next) { step = steps[j]; break; }
+        }
+        if (!step) return;
+        var link = step.link || data.suggested_next_link;
+        if (!link) return;
+        var nudge = $("ce-activation-nudge");
+        if (!nudge) return;
+        var title = $("ce-nudge-title");
+        if (title) title.textContent = "Ihr nächster Schritt: " + (step.label || "");
+        var text = $("ce-nudge-text");
+        if (text && step.description) text.textContent = step.description;
+        var cta1 = $("ce-nudge-cta-1");
+        var row = cta1 ? cta1.parentNode : null;
+        if (row && !$("nba-primary-cta")) {
+          var a = document.createElement("a");
+          a.id = "nba-primary-cta";
+          a.href = link;
+          a.className = "ds-btn ds-btn--primary ds-btn--sm";
+          a.setAttribute("data-cta-write", "true");
+          a.textContent = (step.cta || "Jetzt erledigen") + " →";
+          row.insertBefore(a, row.firstChild);
+          // Eine klare Hierarchie: bestehende Primaer-Buttons zu Sekundaer degradieren.
+          var others = row.querySelectorAll(".ds-btn--primary");
+          for (var i = 0; i < others.length; i++) {
+            if (others[i] !== a) others[i].classList.remove("ds-btn--primary");
+          }
+        }
+        nudge.style.display = "block";
+      }).catch(function () {});
+  }
+
   /* ── Value Report Widget ─────────────────────────────────────── */
   function loadValueReport() {
     fetch("/api/value-report", { credentials: "include" })
@@ -437,6 +484,7 @@
       if (me) {
         applyPilotLocks(me);
         loadCeNudges();
+        loadNextBestAction();
         loadValueReport();
         // Hub-Card-Badges werden ausschliesslich von hubCardBadges.js gerendert
         // (Glow + Tooltip + mark-read Deep-Link, einziges Badge-System).
