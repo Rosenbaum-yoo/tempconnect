@@ -21,13 +21,23 @@
   }
 
   function init() {
-    /* ── Demo-Guard ───────────────────────────────────────── */
+    /* ── Sichtbarkeits-Gate ───────────────────────────────────
+     * Demo: Guidance sofort. Sonst (zahlende Kunden): Guidance solange das
+     * Onboarding nicht abgeschlossen ist (progress_pct < 100, nicht dismissed)
+     * — Premium-Orientierung fuer Erstkunden, danach automatisch unsichtbar. */
     const isDemo =
       document.body.dataset.demo === 'true' ||
       window.__IS_DEMO === true ||
       document.querySelector('.demo-banner') !== null;
-    if (!isDemo) return;
+    if (isDemo) { run(); return; }
+    fetch('/api/onboarding/status', { credentials: 'include' })
+      .then(function (r) { return r.ok ? r.json() : null; })
+      .then(function (d) {
+        if (d && d.success && d.data && !d.data.dismissed && d.data.progress_pct < 100) run();
+      })
+      .catch(function () { /* Guidance ist optional — still ignorieren */ });
 
+    function run() {
     /* ── Pathname normalisieren ───────────────────────────── */
     const path = location.pathname
       .replace(/^\/public\//, '/')
@@ -274,5 +284,6 @@
 
     /* ── Einfügen ─────────────────────────────────────────── */
     document.body.appendChild(banner);
+    }
   }
 })();
