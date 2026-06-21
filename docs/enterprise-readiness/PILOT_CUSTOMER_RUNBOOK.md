@@ -134,4 +134,35 @@ Nach dem Pilot:
 
 ---
 
-*WAVE 15 — Phase 2 — 2026-05-27*
+## Anhang: Lifecycle & Billing — technische Referenz (2026-06-20)
+
+> Nachgetragen, damit klar ist, **was der Code real tut** und **welche Entscheidung noch beim Owner liegt** (verifiziert gegen den Code, nicht spekulativ).
+
+### customer_stage — Lebenszyklus
+`organizations.customer_stage`: `demo` → `pilot` → `live`.
+- **demo → pilot:** `activatePilotForOrganization()` (`pilotPolicyService.js:97`) setzt `customer_stage='pilot'`, `pilot_status='active'`, `plan='INDIVIDUELL'`, `billing_mode='pilot_contract'` (kostenlos), `pilot_started_at=NOW()`. Wird real ausgelöst über den Auth-/Onboarding-Flow (`auth.js:134`, `me.js:381`) bzw. eine Pilot-`subscription_request`.
+- **pilot → live (Auto-Expire):** nach `PILOT_MAX_MONTHS = 3` (`pilotPolicyService.js:246`). Cron `POST /api/internal/pilot-expiry` (`internal.js:298` → `expireStalePilots`) setzt `pilot_status='ended'`, `customer_stage='live'`. **Scheduler muss diesen Endpoint regelmäßig aufrufen** (cron-secret/IP-gated).
+- **pilot → live (Konversion, bezahlt):** Staff-Aktivierung einer `subscription_request` (`POST /staff/api/subscription-requests/:id/activate` → `applyApprovedChange`, `subscriptionRequestService.js:745`) setzt `plan`, `billing_mode='individual_contract'|'standard_catalog'`, Entitlements.
+- **`contract_requested`** ist als Stage-Wert vorgesehen, aber **nicht aktiv verdrahtet** — der Flow springt demo→pilot bzw. demo→live. (Bewusst; kein Blocker.)
+
+### Billing-Modi
+| Modus | Bedingung | Preis |
+|---|---|---|
+| `pilot_contract` | aktiver Pilot | €0 (kostenlos während Pilot) |
+| `standard_catalog` | BASIS/PLUS/PRO | Katalogpreis (`planCatalog.js`) |
+| `individual_contract` | INDIVIDUELL | Custom-Quote (`individual_contract_price_cents`) |
+
+### Rechnung
+`createInvoice()` (`invoiceService.js:42`) erzeugt TC-YYYY-NNNNNN, 19% USt, Net-14. Während des Pilots wird **keine** Rechnung erzeugt (`pilot_contract`).
+
+### ⚠️ Offene Owner-Entscheidung (vor erstem zahlenden Kunden festlegen)
+**Wann genau wird die erste bezahlte Rechnung erzeugt?** Aktuell ist `createInvoice()` nicht automatisch an den Aktivierungs-/Zahlungs-Trigger gekoppelt (`PAYMENT_MODE=demo` bis Gründung). Vor dem ersten zahlenden Kunden ist zu entscheiden + zu verdrahten:
+1. Auslöser: bei Konversion (Aktivierung) / zum Monatsersten / Net-14 nach Vertragsstart?
+2. Manuell durch Staff (heute möglich) vs. automatisch nach Zahlungs-Webhook (Stripe, nach Gründung).
+3. Pilot-Sonderpreis (`pilot_price_cents`, falls vereinbart) → eigener Line-Item-Pfad in `invoiceService`.
+
+Bis zur Entscheidung gilt: **Rechnung manuell durch Staff** nach Konversion (dokumentieren in der Org-Notiz + Audit).
+
+---
+
+*WAVE 15 — Phase 2 — 2026-05-27 · Anhang 2026-06-20 (Lifecycle/Billing-Referenz, verifiziert gegen Code)*
