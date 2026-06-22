@@ -67,5 +67,46 @@ HTTP_CODE=$(curl -sf -o /dev/null -w "%{http_code}" \
   2>/dev/null || echo "000")
 [ "$HTTP_CODE" = "200" ] && echo "OK ($HTTP_CODE)" || echo "FAIL ($HTTP_CODE)"
 
+# --- Billing & Lifecycle Crons --------------------------------------------
+# subscription-lifecycle-tick: Request-Expiry/Activation + Trial-End + Hard-Lock
+echo -n "POST /api/internal/subscription-lifecycle-tick ... "
+HTTP_CODE=$(curl -sf -o /dev/null -w "%{http_code}" \
+  -X POST "$BASE_URL/api/internal/subscription-lifecycle-tick" \
+  -H "Content-Type: application/json" \
+  -H "X-Internal-Secret: $SECRET" -d '{}' 2>/dev/null || echo "000")
+[ "$HTTP_CODE" = "200" ] && echo "OK ($HTTP_CODE)" || echo "FAIL ($HTTP_CODE)"
+
+# invoice-overdue-scan: issued + due_at<NOW -> overdue
+echo -n "POST /api/internal/invoice-overdue-scan ... "
+HTTP_CODE=$(curl -sf -o /dev/null -w "%{http_code}" \
+  -X POST "$BASE_URL/api/internal/invoice-overdue-scan" \
+  -H "Content-Type: application/json" \
+  -H "X-Internal-Secret: $SECRET" -d '{}' 2>/dev/null || echo "000")
+[ "$HTTP_CODE" = "200" ] && echo "OK ($HTTP_CODE)" || echo "FAIL ($HTTP_CODE)"
+
+# pilot-expiry: abgelaufene Pilots -> live
+echo -n "POST /api/internal/pilot-expiry ... "
+HTTP_CODE=$(curl -sf -o /dev/null -w "%{http_code}" \
+  -X POST "$BASE_URL/api/internal/pilot-expiry" \
+  -H "Content-Type: application/json" \
+  -H "X-Internal-Secret: $SECRET" -d '{}' 2>/dev/null || echo "000")
+[ "$HTTP_CODE" = "200" ] && echo "OK ($HTTP_CODE)" || echo "FAIL ($HTTP_CODE)"
+
+# recurring-billing: feature-flagged (No-Op {ok:true,disabled:true} bis RECURRING_BILLING_ENABLED=true -> ebenfalls 200)
+echo -n "POST /api/internal/recurring-billing ... "
+HTTP_CODE=$(curl -sf -o /dev/null -w "%{http_code}" \
+  -X POST "$BASE_URL/api/internal/recurring-billing" \
+  -H "Content-Type: application/json" \
+  -H "X-Internal-Secret: $SECRET" -d '{}' 2>/dev/null || echo "000")
+[ "$HTTP_CODE" = "200" ] && echo "OK ($HTTP_CODE)" || echo "FAIL ($HTTP_CODE)"
+
+# dunning-sweep: feature-flagged (No-Op {ok:true,disabled:true} bis DUNNING_ENABLED=true -> ebenfalls 200)
+echo -n "POST /api/internal/dunning-sweep ... "
+HTTP_CODE=$(curl -sf -o /dev/null -w "%{http_code}" \
+  -X POST "$BASE_URL/api/internal/dunning-sweep" \
+  -H "Content-Type: application/json" \
+  -H "X-Internal-Secret: $SECRET" -d '{}' 2>/dev/null || echo "000")
+[ "$HTTP_CODE" = "200" ] && echo "OK ($HTTP_CODE)" || echo "FAIL ($HTTP_CODE)"
+
 echo ""
 echo "Smoke Test abgeschlossen."
