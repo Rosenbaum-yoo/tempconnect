@@ -163,6 +163,25 @@ Nach dem Pilot:
 
 Bis zur Entscheidung gilt: **Rechnung manuell durch Staff** nach Konversion (dokumentieren in der Org-Notiz + Audit).
 
+### Vorbereitete Auto-Billing-Schicht (feature-flagged AUS — 2026-06-22)
+
+Die wiederkehrende Abrechnung ist **gebaut, getestet und inaktiv** — sie lässt sich zum Gründungszeitpunkt per Schalter aktivieren, ohne Neubau (`recurringBillingService.js`):
+
+| Baustein | Funktion | Trigger |
+|---|---|---|
+| `generateRecurringInvoices` | Aktive bezahlte Subs (`current_period_end <= NOW`) → Folgerechnung (`createInvoice`, Net-14, 19% USt) + Flip `active→past_due` | Cron `POST /api/internal/recurring-billing` |
+| `runDunningSweep` | Gestaffelte Mahn-Mails (Stufe 1/2/3 = Tag 3/7/11 nach Fälligkeit), getrackt über `invoices.dunning_level`/`last_dunning_at` | Cron `POST /api/internal/dunning-sweep` |
+| `applyRenewalPayment` | Zahlungseingang Folgerechnung → `past_due→active` + Periode +1 Monat | Staff „bezahlt" / Stripe `invoice.paid`-Webhook |
+
+Unbezahlte Folgerechnungen laufen über die **bestehende** Grace-/Hard-Lock-Mechanik (`applyHardLocks`): nach 14 Tagen `past_due` → `canceled` + Org auf DEMO. Keine Parallelstruktur.
+
+**Aktivierung (3 Schritte):**
+1. Env-Flags setzen: `RECURRING_BILLING_ENABLED=true`, `DUNNING_ENABLED=true` (Default beide AUS → beide Crons sind No-Ops).
+2. Beide `/internal`-Crons im Scheduler eintragen (gleiches secret/IP-Gating wie die übrigen `/internal/*`-Crons; täglich genügt).
+3. `applyRenewalPayment(pool, { userId })` an den Zahlungs-Bestätigungspfad hängen (Staff-Aktion „Rechnung bezahlt" bzw. Stripe `invoice.paid`-Webhook nach UG-Gründung).
+
+Solange die Flags aus sind, bleibt **manuelle Rechnung durch Staff** der Default — kein automatischer Versand, keine automatischen Statuswechsel.
+
 ---
 
-*WAVE 15 — Phase 2 — 2026-05-27 · Anhang 2026-06-20 (Lifecycle/Billing-Referenz, verifiziert gegen Code)*
+*WAVE 15 — Phase 2 — 2026-05-27 · Anhang 2026-06-20 (Lifecycle/Billing-Referenz) · 2026-06-22 (Auto-Billing-Schicht vorbereitet, feature-flagged AUS)*

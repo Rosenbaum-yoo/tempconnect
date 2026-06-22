@@ -209,6 +209,60 @@ export function invoiceEmail({ invoiceNumber, amount, currency, dueDate, orgName
   return baseLayout(`Rechnung ${invoiceNumber} — TempConnect`, body);
 }
 
+// ─── Template: Dunning / Zahlungserinnerung ───────────────────────────────────
+/**
+ * Gestaffelte Zahlungserinnerung für überfällige Rechnungen.
+ * @param {object} p
+ * @param {string} p.invoiceNumber
+ * @param {number} p.amount            Bruttobetrag (Euro) der offenen Rechnung
+ * @param {string} [p.currency]
+ * @param {string} p.dueDate           Fälligkeitsdatum (formatiert)
+ * @param {string} p.orgName
+ * @param {number} p.level             Mahnstufe 1..3 (1=freundlich, 3=letzte vor Sperrung)
+ * @param {number} p.daysOverdue       Tage seit Fälligkeit
+ * @param {string} [p.graceUntil]      Datum bis zu dem der Zugang aktiv bleibt (Soft-Lock)
+ * @param {string} [p.downloadUrl]     Link zur Rechnung / zum Zahlungsbereich
+ * @returns {{ subject: string, html: string }}
+ */
+export function dunningEmail({ invoiceNumber, amount, currency, dueDate, orgName, level, daysOverdue, graceUntil, downloadUrl }) {
+  const lvl = Math.min(3, Math.max(1, Number(level) || 1));
+  const formattedAmount = new Intl.NumberFormat("de-DE", { style: "currency", currency: currency || "EUR" }).format(amount);
+  const stage = {
+    1: { heading: "Zahlungserinnerung", subject: `Zahlungserinnerung — Rechnung ${invoiceNumber}`, accent: "#2563eb", bg: "#eff6ff", border: "#bfdbfe", intro: "Wir möchten Sie freundlich daran erinnern, dass die folgende Rechnung noch offen ist." },
+    2: { heading: "2. Zahlungserinnerung", subject: `2. Zahlungserinnerung — Rechnung ${invoiceNumber} überfällig`, accent: "#d97706", bg: "#fffbeb", border: "#fde68a", intro: "Trotz unserer ersten Erinnerung ist die folgende Rechnung weiterhin offen. Bitte begleichen Sie den Betrag zeitnah." },
+    3: { heading: "Letzte Mahnung", subject: `Letzte Mahnung — Rechnung ${invoiceNumber}: Zugang wird ausgesetzt`, accent: "#dc2626", bg: "#fef2f2", border: "#fecaca", intro: "Die folgende Rechnung ist weiterhin nicht beglichen. Ohne Zahlungseingang wird Ihr Zugang nach Ablauf der Kulanzfrist automatisch ausgesetzt." }
+  }[lvl];
+
+  const warnLine = lvl >= 3 && graceUntil
+    ? `Bei ausbleibender Zahlung wird der Zugang ab dem ${escHtml(graceUntil)} gesperrt und Ihr Plan auf DEMO zurückgestuft.`
+    : graceUntil
+      ? `Ihr Zugang bleibt zunächst aktiv (Kulanzfrist bis ${escHtml(graceUntil)}).`
+      : "Bitte begleichen Sie den offenen Betrag, um eine Unterbrechung Ihres Zugangs zu vermeiden.";
+
+  const body = `
+    <h1 style="margin:0 0 8px;font-size:22px;font-weight:700;color:#1e293b;">${escHtml(stage.heading)}</h1>
+    <p style="margin:0 0 24px;font-size:15px;color:#64748b;line-height:1.6;">
+      ${escHtml(stage.intro)}
+    </p>
+    ${infoBox([
+      ["Rechnungsnummer", invoiceNumber],
+      ["Organisation", orgName],
+      ["Fällig seit", `${escHtml(dueDate)} (${Number(daysOverdue) || 0} Tage überfällig)`],
+      ["Offener Betrag", formattedAmount]
+    ])}
+    <div style="background:${stage.bg};border:1px solid ${stage.border};border-radius:6px;padding:16px 20px;margin:20px 0;">
+      <p style="margin:0;font-size:14px;color:${stage.accent};font-weight:500;line-height:1.6;">
+        ${warnLine}
+      </p>
+    </div>
+    ${downloadUrl ? primaryBtn("Rechnung ansehen & begleichen", downloadUrl) : ""}
+    <p style="margin:16px 0 0;font-size:13px;color:#94a3b8;">
+      Sollte sich Ihre Zahlung mit dieser E-Mail überschnitten haben, betrachten Sie diese Erinnerung bitte als gegenstandslos.
+      Bei Fragen wenden Sie sich an <a href="mailto:billing@tempconnect.de" style="color:#1a56db;">billing@tempconnect.de</a>
+    </p>`;
+  return { subject: stage.subject, html: baseLayout(`${stage.heading} ${invoiceNumber} — TempConnect`, body) };
+}
+
 // ─── Template: Plan Activation ────────────────────────────────────────────────
 export function planActivationEmail({ plan, amount, currency, activatedAt, userName, dashboardUrl }) {
   const formattedAmount = new Intl.NumberFormat("de-DE", { style: "currency", currency: currency || "EUR" }).format(amount);

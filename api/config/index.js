@@ -72,6 +72,19 @@ export const config = {
    * Leer = automatische Ableitung aus PAYMENT_MODE + Stripe-Key-Präsenz (rückwärtskompatibel).
    */
   BILLING_PROVIDER: (process.env.BILLING_PROVIDER || "").toLowerCase().trim(),
+  /**
+   * SaaS-Self-Service-Billing: wiederkehrende Rechnungserzeugung am Periodenende.
+   * Default AUS — solange manuelle Rechnung der Default ist (kein Auto-Billing vor UG-Gründung).
+   * AN: Cron `/internal/recurring-billing` erzeugt Folge-Rechnungen für aktive, bezahlte
+   * Subscriptions und setzt sie auf `past_due` (bestehende Grace-/Hard-Lock-Mechanik greift).
+   */
+  RECURRING_BILLING_ENABLED: ["true", "1", "yes", "on"].includes(String(process.env.RECURRING_BILLING_ENABLED || "").toLowerCase().trim()),
+  /**
+   * Dunning (gestaffelte Zahlungserinnerungen für überfällige Rechnungen).
+   * Default AUS. AN: Cron `/internal/dunning-sweep` versendet stufenweise Erinnerungs-Mails
+   * (Tag 3/7/11 nach Fälligkeit) und trackt `invoices.dunning_level` / `last_dunning_at`.
+   */
+  DUNNING_ENABLED: ["true", "1", "yes", "on"].includes(String(process.env.DUNNING_ENABLED || "").toLowerCase().trim()),
   STRIPE_SECRET_KEY: process.env.STRIPE_SECRET_KEY || "",
   STRIPE_PUBLISHABLE_KEY: process.env.STRIPE_PUBLISHABLE_KEY || "",
   STRIPE_WEBHOOK_SECRET: process.env.STRIPE_WEBHOOK_SECRET || "",

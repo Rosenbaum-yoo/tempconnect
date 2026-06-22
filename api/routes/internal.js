@@ -14,6 +14,7 @@ import * as workerNotifications from "../services/workerNotificationService.js";
 import * as invoiceService from "../services/invoiceService.js";
 import * as assignmentStaffingService from "../services/assignmentStaffingService.js";
 import * as subscriptionLifecycle from "../services/subscriptionLifecycleService.js";
+import * as recurringBillingService from "../services/recurringBillingService.js";
 import * as infrastructureSnapshotService from "../services/infrastructureSnapshotService.js";
 import * as documentCenterService from "../services/documentCenterService.js";
 import * as dealFeedbackService from "../services/dealFeedbackService.js";
@@ -106,6 +107,62 @@ export function createInternalRouter(deps) {
       res.json({ ok: true, overdue_marked: overdueMarked });
     } catch (e) {
       logger.error({ err: e, path: "invoice-overdue-scan", clientIp }, "Cron invoice-overdue-scan failed");
+      res.status(500).json({ error: "SERVER_ERROR" });
+    }
+  });
+
+  /* SaaS-Self-Service-Billing: wiederkehrende Folge-Rechnungen am Periodenende.
+     No-Op solange RECURRING_BILLING_ENABLED=false (Default) — kein Auto-Billing
+     vor UG-Gründung. AN: aktive bezahlte Subscriptions mit abgelaufener Periode
+     erhalten eine Folgerechnung + werden auf past_due gesetzt (Grace/Hard-Lock greift). */
+  router.post("/internal/recurring-billing", cronRateLimit, checkCronAuth, async (req, res) => {
+    const clientIp = req.ip || req.socket?.remoteAddress || "unknown";
+    try {
+      if (!config.RECURRING_BILLING_ENABLED) {
+        return res.json({ ok: true, disabled: true, reason: "RECURRING_BILLING_ENABLED=false" });
+      }
+      const result = await recurringBillingService.generateRecurringInvoices(pool, { logger });
+      if (result.invoiced > 0 || result.skipped > 0) {
+        await auditLog.writeAudit(pool, {
+          action: "subscription.recurring_billing_batch",
+          entity_type: "subscription",
+          details: {
+            invoiced: result.invoiced,
+            skipped: result.skipped,
+            processed: result.processed,
+            failed: result.failed.length
+          }
+        });
+      }
+      logger.info({ path: "recurring-billing", clientIp, ...result, failed: result.failed.length }, "Cron recurring-billing completed");
+      res.json({ ok: true, ...result });
+    } catch (e) {
+      logger.error({ err: e, path: "recurring-billing", clientIp }, "Cron recurring-billing failed");
+      res.status(500).json({ error: "SERVER_ERROR" });
+    }
+  });
+
+  /* SaaS-Self-Service-Billing: gestaffelte Zahlungserinnerungen (Dunning) für
+     überfällige Abo-Rechnungen. No-Op solange DUNNING_ENABLED=false (Default).
+     AN: versendet pro überfälliger Rechnung eine Erinnerungs-Mail je Mahnstufe (1..3). */
+  router.post("/internal/dunning-sweep", cronRateLimit, checkCronAuth, async (req, res) => {
+    const clientIp = req.ip || req.socket?.remoteAddress || "unknown";
+    try {
+      if (!config.DUNNING_ENABLED) {
+        return res.json({ ok: true, disabled: true, reason: "DUNNING_ENABLED=false" });
+      }
+      const result = await recurringBillingService.runDunningSweep(pool, { sendMail, logger, baseUrl: config.BASE_URL || "" });
+      if (result.reminded > 0) {
+        await auditLog.writeAudit(pool, {
+          action: "invoice.dunning_batch",
+          entity_type: "invoice",
+          details: { reminded: result.reminded, processed: result.processed, failed: result.failed.length }
+        });
+      }
+      logger.info({ path: "dunning-sweep", clientIp, ...result, failed: result.failed.length }, "Cron dunning-sweep completed");
+      res.json({ ok: true, ...result });
+    } catch (e) {
+      logger.error({ err: e, path: "dunning-sweep", clientIp }, "Cron dunning-sweep failed");
       res.status(500).json({ error: "SERVER_ERROR" });
     }
   });
