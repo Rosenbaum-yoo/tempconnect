@@ -27,6 +27,19 @@
 
 'use strict';
 function esc(s) { var d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
+
+/* Naechster operativer Schritt je Requisition-Status — Inline-Guidance auf der Zeile
+   ("jeder weiss was als Naechstes zu tun ist"), analog zu .dm-card__nextstep bei Deals. */
+var REQ_NEXT_STEP = {
+  OPEN: 'Wartet auf Angebote',
+  IN_REVIEW: 'Angebote prüfen',
+  SHORTLISTED: 'Auswahl finalisieren',
+  PARTIALLY_FILLED: 'Restbesetzung abschließen',
+  PENDING_APPROVAL: 'Freigabe ausstehend',
+  APPROVED: 'Einsatz starten',
+  FILLED: 'Besetzt — Einsatz verwalten'
+};
+function reqNextStep(status) { return REQ_NEXT_STEP[status] || ''; }
 var csrfToken = '';
 var activeStatusGroup = '';
 var focusReqId = '';
@@ -270,8 +283,9 @@ async function loadList(persist) {
   clearReqState();
   tbody.innerHTML = rows.map(function(r) {
     var urgClass = (r.urgency === 'urgent' || r.urgency === 'notdienst') ? 'ub-urgent' : r.urgency === 'high' ? 'ub-high' : '';
+    var nextStep = reqNextStep(r.status);
     return '<tr class="req-row" onclick="openDetail(\'' + r.id + '\')">' +
-      '<td>' + esc(r.title) + '</td>' +
+      '<td>' + esc(r.title) + (nextStep ? '<div class="req-nextstep" style="font-size:11px;color:var(--ds-brand,#4a9eff);font-weight:600;margin-top:2px">→ ' + esc(nextStep) + '</div>' : '') + '</td>' +
       '<td>' + esc(r.role) + '</td>' +
       '<td><span class="status-badge sb-' + r.status + '">' + esc(r.status) + '</span></td>' +
       '<td>' + (urgClass ? '<span class="urgency-badge ' + urgClass + '">' + esc(r.urgency) + '</span>' : esc(r.urgency || 'normal')) + '</td>' +
