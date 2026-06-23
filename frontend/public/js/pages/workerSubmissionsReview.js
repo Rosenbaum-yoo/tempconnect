@@ -778,6 +778,22 @@ function getFiltered(){
   if(curFilter==='pending')return allSubs.filter(s=>s.status==='submitted');
   return allSubs.filter(s=>s.status===curFilter);
 }
+/* Naechster operativer Schritt je Submission-Status — Inline-Guidance auf der Zeile
+   ("jeder weiss was als Naechstes zu tun ist"), analog requisitions REQ_NEXT_STEP /
+   deals .dm-card__nextstep. Sicht: PDL-Reviewer (Unternehmen erreichen renderSubs nicht —
+   Company-Soft-Lock mit return weiter oben). */
+var SUB_NEXT_STEP = {
+  submitted:          'Prüfen & freigeben',
+  under_review:       'Freigeben oder Korrektur anfordern',
+  needs_correction:   'Wartet auf Korrektur des Mitarbeiters',
+  approved_internal:  'Bereit – an Kunde senden',
+  sent_to_customer:   'Beim Kunden – Bestätigung ausstehend',
+  customer_confirmed: 'Bestätigt – für Abrechnung verwenden',
+  customer_rejected:  'Vom Kunden abgelehnt – klären'
+  // posted_to_timesheet: Endzustand (eigener "Für Abrechnung verwendet"-Pill)
+};
+function subNextStep(status){ return SUB_NEXT_STEP[status] || ''; }
+
 function renderSubs(){
   const el=document.getElementById('subList'),items=getFiltered();
   if(!items.length){el.innerHTML='<div class="hub-empty"><div class="icon">??</div><h3>Alles erledigt</h3><p>Keine Einreichungen in dieser Kategorie.</p></div>';return;}
@@ -792,6 +808,7 @@ function renderSubs(){
         <span style="font-size:.78rem;color:var(--wk-text-muted)">${esc(s.client_name||s.org_name||'')}</span>
         <span class="rev-ihours">${parseFloat(s.total_hours||0).toFixed(1)} h</span>
       </div>
+      ${subNextStep(s.status)?`<div class="rev-inextstep" style="font-size:11px;color:var(--ds-brand,#4a9eff);font-weight:600;margin-top:4px">→ ${esc(subNextStep(s.status))}</div>`:''}
       ${s.status==='posted_to_timesheet'||s.timesheet_id?'<div style="margin-top:6px"><span class="pill pill-act">Für Abrechnung verwendet</span></div>':''}
     </div>`).join('');
 }
