@@ -26,8 +26,8 @@
   "clean": true,
   "skip-full": false,
   "check-coverage": true,
-  "lines": 40,
-  "branches": 70,
-  "functions": 60,
-  "statements": 40
+  "lines": 67,
+  "branches": 76,
+  "functions": 80,
+  "statements": 67
 }
