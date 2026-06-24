@@ -61,17 +61,39 @@
 
     <div class="ds-page-header">
       <div class="ds-page-header__content">
-        <h1 class="ds-page-title">Slack &amp; Teams Integrationen</h1>
-        <p class="ds-page-subtitle">Webhook-Integrationen konfigurieren, um Plattform-Events in Echtzeit in Slack oder Microsoft Teams zu empfangen.</p>
+        <h1 class="ds-page-title">Integrationen &amp; Schnittstellen</h1>
+        <p class="ds-page-subtitle">Plattform an Ihre Systeme anbinden: Echtzeit-Webhooks (Slack/Teams) sowie ERP-, Lohn- &amp; Buchhaltungs-Anbindung (DATEV/SAP/zvoove).</p>
       </div>
     </div>
 
+    <h2 class="ds-page-title" style="font-size:20px;margin-top:var(--ds-space-6)">Slack &amp; Teams (Echtzeit-Benachrichtigungen)</h2>
     <div style="display:flex;justify-content:flex-end;margin-bottom:var(--ds-space-2)">
       <button class="btn primary" id="btnAdd" data-feature-key="integrations" onclick="openModal()">+ Integration hinzuf&uuml;gen</button>
     </div>
 
     <div id="list" class="int-grid">
       <p style="color:var(--ds-text-secondary,var(--muted));font-size:13px;grid-column:1/-1">Lade Integrationen&hellip;</p>
+    </div>
+
+    <!-- ── ERP-/Lohn-/Buchhaltungs-Anbindung (DATEV / SAP / zvoove) ── -->
+    <div class="ds-page-header" style="margin-top:var(--ds-space-8)">
+      <div class="ds-page-header__content">
+        <h2 class="ds-page-title" style="font-size:20px">ERP-, Lohn- &amp; Buchhaltungs-Anbindung</h2>
+        <p class="ds-page-subtitle">DATEV, SAP, zvoove &amp; Co. anbinden: Mandant/Konten hinterlegen und Exporte f&uuml;r Steuerberater bzw. Lohnb&uuml;ro ziehen.</p>
+      </div>
+    </div>
+
+    <div id="datevExports" style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:var(--ds-space-3)">
+      <a class="ds-btn ds-btn--sm" href="/api/invoices/export/datev" data-feature-key="integrations">&#11015; DATEV Fibu-Buchungsstapel (Rechnungen)</a>
+      <a class="ds-btn ds-btn--sm" href="/api/timesheets/export/datev-lohn" data-feature-key="integrations">&#11015; DATEV Lohn-Bewegungsdaten (Stunden)</a>
+      <a class="ds-btn ds-btn--sm" href="/api/invoices/export" data-feature-key="integrations">&#11015; Rechnungen-CSV (generisch)</a>
+    </div>
+
+    <div style="display:flex;justify-content:flex-end;margin-bottom:var(--ds-space-2)">
+      <button class="btn primary" id="btnAddErp" data-feature-key="integrations" onclick="openErpModal()">+ Konnektor hinzuf&uuml;gen</button>
+    </div>
+    <div id="erpList" class="int-grid">
+      <p style="color:var(--ds-text-secondary,var(--muted));font-size:13px;grid-column:1/-1">Lade Konnektoren&hellip;</p>
     </div>
   </div>
 
@@ -91,6 +113,37 @@
       <div class="int-modal__footer">
         <button class="btn" onclick="closeModal()">Abbrechen</button>
         <button class="btn primary" id="btnSave" data-feature-key="integrations" onclick="saveIntegration()">Speichern</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Create/Edit ERP-Konnektor Modal -->
+  <div class="int-modal-bg" id="erpModal">
+    <div class="int-modal">
+      <h3 id="erpModalTitle">Neuer Konnektor</h3>
+      <input type="hidden" id="erpEditId"/>
+      <label>System</label>
+      <select id="erpSystem">
+        <option value="datev">DATEV (Lohn + Fibu)</option>
+        <option value="sap_successfactors">SAP SuccessFactors</option>
+        <option value="sap_hcm">SAP HCM / ERP</option>
+        <option value="zvoove">zvoove / Landwehr</option>
+        <option value="personio">Personio</option>
+        <option value="generic">Generisch</option>
+      </select>
+      <label>Mandant / Client-ID (optional)</label>
+      <input id="erpClient" placeholder="z.B. DATEV-Mandanten-Nr"/>
+      <label>Label (optional)</label>
+      <input id="erpLabel" placeholder="z.B. Steuerberatung Mueller"/>
+      <label>Endpoint-URL (optional, fuer API-Push)</label>
+      <input id="erpEndpoint" placeholder="https://&hellip;"/>
+      <label>Status</label>
+      <select id="erpStatus"><option value="active">Aktiv</option><option value="paused">Pausiert</option><option value="disabled">Deaktiviert</option></select>
+      <label>Konfiguration (JSON &mdash; z.B. DATEV Berater/Mandant/Konten)</label>
+      <textarea id="erpConfig" rows="6" style="width:100%;font-family:ui-monospace,Menlo,Consolas,monospace;font-size:12px" placeholder='{ "berater_nr":"12345", "mandant_nr":"678", "debitor_konto":"10000", "erloes_konto":{"19":"8400"}, "lohn":{"lohnart_regular":"1","lohnart_overtime":"2"} }'></textarea>
+      <div class="int-modal__footer">
+        <button class="btn" onclick="closeErpModal()">Abbrechen</button>
+        <button class="btn primary" id="btnSaveErp" data-feature-key="integrations" onclick="saveErpMapping()">Speichern</button>
       </div>
     </div>
   </div>
@@ -263,12 +316,92 @@
       } catch { c.innerHTML = '<p style="color:#f87171">Netzwerkfehler.</p>'; }
     }
 
+    /* ── ERP-/Buchhaltungs-Konnektoren (org_erp_mappings) ── */
+    const ERP_LABELS = { datev:'DATEV', sap_successfactors:'SAP SuccessFactors', sap_hcm:'SAP HCM / ERP', zvoove:'zvoove / Landwehr', personio:'Personio', generic:'Generisch' };
+
+    function openErpModal(item) {
+      document.getElementById('erpEditId').value = item ? item.id : '';
+      document.getElementById('erpModalTitle').textContent = item ? 'Konnektor bearbeiten' : 'Neuer Konnektor';
+      const sys = document.getElementById('erpSystem');
+      sys.value = item ? item.system_type : 'datev';
+      sys.disabled = !!item; // system_type ist eindeutiger Schluessel je Org → bei Edit fix
+      document.getElementById('erpClient').value = item ? (item.external_client_id || '') : '';
+      document.getElementById('erpLabel').value = item ? (item.label || '') : '';
+      document.getElementById('erpEndpoint').value = item ? (item.endpoint_url || '') : '';
+      document.getElementById('erpStatus').value = item ? (item.status || 'active') : 'active';
+      document.getElementById('erpConfig').value = item && item.sync_config && Object.keys(item.sync_config).length ? JSON.stringify(item.sync_config, null, 2) : '';
+      document.getElementById('erpModal').classList.add('open');
+    }
+    function closeErpModal() { document.getElementById('erpModal').classList.remove('open'); }
+
+    async function saveErpMapping() {
+      const id = document.getElementById('erpEditId').value;
+      const tok = await getCSRF();
+      let sync_config = {};
+      const raw = document.getElementById('erpConfig').value.trim();
+      if (raw) { try { sync_config = JSON.parse(raw); } catch { toast('Konfiguration ist kein gueltiges JSON', false); return; } }
+      const body = {
+        external_client_id: document.getElementById('erpClient').value.trim() || undefined,
+        label: document.getElementById('erpLabel').value.trim(),
+        endpoint_url: document.getElementById('erpEndpoint').value.trim() || undefined,
+        status: document.getElementById('erpStatus').value,
+        sync_config
+      };
+      if (!id) body.system_type = document.getElementById('erpSystem').value;
+      const method = id ? 'PATCH' : 'POST';
+      const endpoint = id ? API + '/org/erp-mappings/' + id : API + '/org/erp-mappings';
+      try {
+        const r = await fetch(endpoint, { method, credentials:'include', headers:{'Content-Type':'application/json','x-csrf-token':tok}, body: JSON.stringify(body) });
+        if (!r.ok) { const e = await r.json().catch(()=>({})); toast(e.error === 'DUPLICATE' ? 'Fuer dieses System existiert bereits ein Konnektor' : (e.error || 'Fehler'), false); return; }
+        toast(id ? 'Konnektor aktualisiert' : 'Konnektor erstellt', true);
+        closeErpModal(); loadErpMappings();
+      } catch { toast('Netzwerkfehler', false); }
+    }
+
+    async function deleteErpMapping(id) {
+      if (!confirm('Konnektor wirklich loeschen?')) return;
+      const tok = await getCSRF();
+      try { await fetch(API + '/org/erp-mappings/' + id, { method:'DELETE', credentials:'include', headers:{'x-csrf-token':tok} }); toast('Geloescht', true); loadErpMappings(); }
+      catch { toast('Fehler', false); }
+    }
+
+    async function loadErpMappings() {
+      const c = document.getElementById('erpList');
+      try {
+        const r = await fetch(API + '/org/erp-mappings', { credentials:'include' });
+        if (!r.ok) { c.innerHTML = '<p style="color:#f87171">Fehler beim Laden.</p>'; return; }
+        const d = await r.json(); const items = d.items || [];
+        if (!items.length) {
+          c.innerHTML = '<div style="text-align:center;padding:var(--ds-space-6);grid-column:1/-1"><p style="font-size:15px;font-weight:700">Noch kein Konnektor</p><p style="font-size:13px;color:var(--ds-text-secondary,var(--muted))">Binden Sie DATEV, SAP oder zvoove an, um Rechnungen/Stunden ins Ziel-System zu uebergeben.</p></div>';
+          applyIntegrationDomLocks(document); return;
+        }
+        c.innerHTML = items.map(it => {
+          const st = it.status || 'active'; const active = st === 'active';
+          return `<div class="int-card">
+            <div class="int-card__head">
+              <span class="int-card__label">${esc(ERP_LABELS[it.system_type] || it.system_type)}</span>
+              <span class="int-card__status ${active?'int-card__status--active':'int-card__status--inactive'}">${esc(st)}</span>
+            </div>
+            ${it.external_client_id?`<div class="int-card__url">Mandant/Client: ${esc(it.external_client_id)}</div>`:''}
+            ${it.label?`<div class="int-card__events"><span class="int-card__evt">${esc(it.label)}</span></div>`:''}
+            <div class="int-card__actions">
+              <button class="ds-btn ds-btn--sm" data-feature-key="integrations" onclick='openErpModal(${JSON.stringify(it).replace(/'/g,"&#39;")})'>&#9998; Bearbeiten</button>
+              <button class="ds-btn ds-btn--sm" data-feature-key="integrations" style="color:#f87171" onclick='deleteErpMapping("${it.id}")'>&times;</button>
+            </div>
+            ${it.last_sync_at?`<div class="int-card__last">Letzter Sync: ${new Date(it.last_sync_at).toLocaleString('de-DE')}</div>`:''}
+          </div>`;
+        }).join('');
+        applyIntegrationDomLocks(document);
+      } catch { c.innerHTML = '<p style="color:#f87171">Netzwerkfehler.</p>'; }
+    }
+
     function esc(s) { if (!s) return ''; const d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
 
     // Init
     (async function() {
       await loadEvents();
       await loadList();
+      await loadErpMappings();
       applyIntegrationDomLocks(document);
     })();
   </script>
