@@ -32,7 +32,7 @@ test("openapi: Grundstruktur (3.0.3, Pfade, Components, Security)", () => {
   const doc = buildOpenApiDocument();
   assert.equal(doc.openapi, "3.0.3");
   assert.equal(doc.info.title, "TempConnect API");
-  assert.ok(Object.keys(doc.paths).length >= 10, "mindestens 10 dokumentierte Pfade");
+  assert.ok(Object.keys(doc.paths).length >= 20, "mindestens 20 dokumentierte Pfade (inkl. Integrations-Vertrag)");
   assert.ok(Object.keys(doc.components.schemas).length >= 13, "alle zentralen Zod-Schemas als Components");
   assert.ok(doc.components.securitySchemes.sessionCookie, "sessionCookie-Security definiert");
   assert.ok(doc.components.securitySchemes.csrfToken, "csrfToken-Security definiert");
@@ -47,6 +47,28 @@ test("openapi: Request-Bodies sind an echte Zod-Schemas gebunden (Beispiel auth/
   assert.ok(schema, "register hat einen Request-Body");
   // $ref auf die registrierte Component ODER inline-Objekt — beides ist an Zod gebunden.
   assert.ok(schema.$ref || schema.type === "object", "Body referenziert ein echtes Schema");
+});
+
+test("openapi: Integrations-Vertrag — Daten-Endpunkte tragen API-Key-Security + Scope-Hinweis", () => {
+  const doc = buildOpenApiDocument();
+  // Externe SAP/HR-Systeme docken hier an: read-Endpunkte fuer workers/timesheets/invoices/assignments.
+  const dataReads = [
+    ["/workers", "read:workers"],
+    ["/timesheets", "read:timesheets"],
+    ["/assignments", "read:assignments"],
+    ["/invoices", "read:invoices"]
+  ];
+  for (const [p, scope] of dataReads) {
+    const op = doc.paths[p]?.get;
+    assert.ok(op, `GET ${p} dokumentiert`);
+    // Akzeptiert API-Key (Bearer) zusaetzlich zur Session.
+    const hasApiKey = Array.isArray(op.security) && op.security.some((s) => "apiKey" in s);
+    assert.ok(hasApiKey, `GET ${p} akzeptiert API-Key-Auth`);
+    assert.ok(op.summary.includes(scope), `GET ${p} nennt den noetigen Scope ${scope}`);
+  }
+  // CSV-Exporte (Fibu/Lohn-Vorstufe) sind dokumentiert.
+  assert.ok(doc.paths["/invoices/export"]?.get, "GET /invoices/export (CSV) dokumentiert");
+  assert.ok(doc.paths["/timesheets/export/csv"]?.get, "GET /timesheets/export/csv dokumentiert");
 });
 
 test("openapi: mutierende Pfade verlangen Auth + liefern Standard-Fehler", () => {

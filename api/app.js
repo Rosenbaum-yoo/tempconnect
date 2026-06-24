@@ -262,6 +262,26 @@ export async function createApp() {
     res.type("application/json").sendFile(path.join(process.cwd(), "openapi", "spec.json"));
   });
 
+  // Swagger-UI fuer die OpenAPI-Spezifikation — der publizierte Integrationsvertrag fuer
+  // SAP/HR/Lohn-Teams. Public + read-only. Laedt Swagger-UI von jsDelivr (keine neue npm-Dep)
+  // → route-eigene CSP (ueberschreibt die globale helmet-CSP nur fuer diese Doku-Seite).
+  app.get("/api/docs", (_req, res) => {
+    res.set("Content-Security-Policy",
+      "default-src 'self'; script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; " +
+      "style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; img-src 'self' data: https:; " +
+      "connect-src 'self'; font-src 'self' https://cdn.jsdelivr.net");
+    res.type("html").send(
+      "<!doctype html><html lang=\"de\"><head><meta charset=\"utf-8\">" +
+      "<meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">" +
+      "<title>TempConnect API — Dokumentation</title>" +
+      "<link rel=\"stylesheet\" href=\"https://cdn.jsdelivr.net/npm/swagger-ui-dist@5/swagger-ui.css\">" +
+      "</head><body><div id=\"swagger-ui\"></div>" +
+      "<script src=\"https://cdn.jsdelivr.net/npm/swagger-ui-dist@5/swagger-ui-bundle.js\" crossorigin></script>" +
+      "<script>window.onload=function(){SwaggerUIBundle({url:\"/api/openapi/spec.json\",dom_id:\"#swagger-ui\",deepLinking:true});};</script>" +
+      "</body></html>"
+    );
+  });
+
   // CSRF + demoGuard apply to both /api/ and /api/v1/
   app.use("/api/", csrfProtect);
   app.use("/api/", demoGuard);

@@ -71,8 +71,14 @@ export function buildOpenApiDocument() {
   }
 
   const sessionSec = [{ [sessionCookie.name]: [] }, { [csrfToken.name]: [] }];
+  // Daten-Endpunkte akzeptieren Session (Cookie+CSRF) ODER Maschinen-API-Key (Bearer + Scope).
+  const dataSec = [...sessionSec, { apiKey: [] }];
+  const scopeNote = (scope) => ` · API-Key-Scope: \`${scope}\``;
   const jsonBody = (schema) => ({ content: { "application/json": { schema } }, required: true });
   const okJson = (desc, schema) => ({ description: desc, content: { "application/json": { schema: schema || z.object({}).openapi("OkResponse") } } });
+  const notFound = { 404: { description: "Nicht gefunden / Org-fremd", content: { "application/json": { schema: ErrorResponse } } } };
+  const csvText = z.string().openapi("CsvExport");
+  const csvOk = (desc) => ({ description: desc, content: { "text/csv": { schema: csvText } } });
 
   // ── Pfade: kuratierte Kern-Endpunkte (referenzieren die echten Schemas) ──
   // Zukunftssicher: weitere Pfade hier ergänzen; Request-Bodies bleiben an die Zod-Wahrheit gebunden.
@@ -138,6 +144,38 @@ export function buildOpenApiDocument() {
     responses: { 200: okJson("Checkout-Session erstellt"), ...stdErrors() }
   });
 
+  // ── Integrations-Vertrag: maschinenlesbare Daten-Endpunkte (Session ODER API-Key + Scope) ──
+  // Diese Endpunkte sind der dokumentierte Andock-Punkt fuer SAP/HR/Lohn-Systeme.
+  const idParam = { params: components.uuidParam };
+
+  // Workers (Personalstamm)
+  registry.registerPath({ method: "get", path: "/workers", tags: ["Workers"], summary: "Mitarbeiter auflisten" + scopeNote("read:workers"), security: dataSec, request: { query: components.pagination }, responses: { 200: okJson("Liste der Mitarbeiter"), ...stdErrors() } });
+  registry.registerPath({ method: "get", path: "/workers/{id}", tags: ["Workers"], summary: "Mitarbeiter-Detail" + scopeNote("read:workers"), security: dataSec, request: idParam, responses: { 200: okJson("Mitarbeiter"), ...notFound, ...stdErrors() } });
+
+  // Assignments (Einsaetze)
+  registry.registerPath({ method: "get", path: "/assignments", tags: ["Assignments"], summary: "Einsaetze auflisten" + scopeNote("read:assignments"), security: dataSec, request: { query: components.pagination }, responses: { 200: okJson("Liste der Einsaetze"), ...stdErrors() } });
+  registry.registerPath({ method: "get", path: "/assignments/{id}", tags: ["Assignments"], summary: "Einsatz-Detail" + scopeNote("read:assignments"), security: dataSec, request: idParam, responses: { 200: okJson("Einsatz"), ...notFound, ...stdErrors() } });
+
+  // Timesheets (Stundenzettel — Kern fuer Lohn-Export)
+  registry.registerPath({ method: "get", path: "/timesheets", tags: ["Timesheets"], summary: "Stundenzettel auflisten (Filter: status, supplier_org_id, week_start_from/to)" + scopeNote("read:timesheets"), security: dataSec, request: { query: components.pagination }, responses: { 200: okJson("Liste der Stundenzettel"), ...stdErrors() } });
+  registry.registerPath({ method: "get", path: "/timesheets/{id}", tags: ["Timesheets"], summary: "Stundenzettel-Detail (inkl. Tageseintraege)" + scopeNote("read:timesheets"), security: dataSec, request: idParam, responses: { 200: okJson("Stundenzettel"), ...notFound, ...stdErrors() } });
+  registry.registerPath({ method: "get", path: "/timesheets/export/csv", tags: ["Timesheets"], summary: "Stundenzettel als CSV exportieren" + scopeNote("read:timesheets"), security: dataSec, responses: { 200: csvOk("CSV-Datei (Stundenzettel)"), ...stdErrors() } });
+  registry.registerPath({ method: "post", path: "/timesheets/{id}/approve", tags: ["Timesheets"], summary: "Stundenzettel freigeben" + scopeNote("write:timesheets"), security: dataSec, request: idParam, responses: { 200: okJson("Freigegeben"), ...notFound, ...stdErrors() } });
+
+  // Invoices (Rechnungen — Fibu-Export)
+  registry.registerPath({ method: "get", path: "/invoices", tags: ["Billing"], summary: "Rechnungen auflisten (Filter: status, supplier_org_id, Zeitraum)" + scopeNote("read:invoices"), security: dataSec, request: { query: components.pagination }, responses: { 200: okJson("Liste der Rechnungen"), ...stdErrors() } });
+  registry.registerPath({ method: "get", path: "/invoices/{id}", tags: ["Billing"], summary: "Rechnungs-Detail" + scopeNote("read:invoices"), security: dataSec, request: idParam, responses: { 200: okJson("Rechnung"), ...notFound, ...stdErrors() } });
+  registry.registerPath({ method: "get", path: "/invoices/export", tags: ["Billing"], summary: "Rechnungen als CSV exportieren (Fibu/DATEV-Vorstufe)" + scopeNote("read:invoices"), security: dataSec, responses: { 200: csvOk("CSV-Datei (Rechnungen)"), ...stdErrors() } });
+
+  // Capacity / Requisitions (Read fuer externe Disposition)
+  registry.registerPath({ method: "get", path: "/capacity-exchange/feed", tags: ["Marketplace"], summary: "Marktplatz-Feed (Angebot/Nachfrage)" + scopeNote("read:capacity"), security: dataSec, request: { query: components.pagination }, responses: { 200: okJson("Feed"), ...stdErrors() } });
+  registry.registerPath({ method: "get", path: "/requisitions/{id}", tags: ["Requisitions"], summary: "Bedarf-Detail" + scopeNote("read:requisitions"), security: dataSec, request: idParam, responses: { 200: okJson("Bedarf"), ...notFound, ...stdErrors() } });
+
+  // Integrationen (Webhook-Abos fuer Outbound-Events an SAP/HR)
+  registry.registerPath({ method: "get", path: "/integrations", tags: ["Integrations"], summary: "Webhook-Integrationen auflisten", security: sessionSec, responses: { 200: okJson("Liste der Integrationen"), ...stdErrors() } });
+  registry.registerPath({ method: "post", path: "/integrations", tags: ["Integrations"], summary: "Webhook-Integration anlegen (Slack/Teams/HR-System; HMAC-signiert)", security: sessionSec, responses: { 201: okJson("Integration angelegt"), ...stdErrors() } });
+  registry.registerPath({ method: "get", path: "/org/api-keys/scopes", tags: ["Integrations"], summary: "Verfuegbare API-Key-Scopes auflisten", security: sessionSec, responses: { 200: okJson("Scope-Liste"), ...stdErrors() } });
+
   const generator = new OpenApiGeneratorV3(registry.definitions);
   return generator.generateDocument({
     openapi: "3.0.3",
@@ -156,8 +194,11 @@ export function buildOpenApiDocument() {
       { name: "Organizations", description: "Organisationen & Mitglieder" },
       { name: "Requisitions", description: "Bedarfe (Stellenanforderungen)" },
       { name: "Marketplace", description: "Kapazitäten, Angebote, Deals" },
-      { name: "Timesheets", description: "Stundenzettel" },
-      { name: "Billing", description: "Tarife & Zahlung" }
+      { name: "Workers", description: "Mitarbeiter / Personalstamm (read:workers / write:workers)" },
+      { name: "Assignments", description: "Einsätze (read:assignments / write:assignments)" },
+      { name: "Timesheets", description: "Stundenzettel (read:timesheets / write:timesheets) — Kern für Lohn-Export" },
+      { name: "Billing", description: "Tarife, Zahlung & Rechnungen (read:invoices) — Fibu-/DATEV-Export" },
+      { name: "Integrations", description: "Webhooks & API-Keys — Andock-Punkt für SAP/HR/Lohn-Systeme" }
     ]
   });
 }
