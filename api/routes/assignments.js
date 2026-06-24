@@ -5,6 +5,7 @@ import { z } from "zod";
 import { Router } from "express";
 import * as assignmentService from "../services/assignmentService.js";
 import { requirePermission } from "../middleware/rbac.js";
+import { requireScope } from "../middleware/apiKeyAuth.js";
 import { requireOrgFeature } from "../middleware/entitlementGuard.js";
 import { assertLocationBelongsToOrg, assertDepartmentBelongsToOrg, OrgBoundaryError } from "../utils/orgBoundary.js";
 
@@ -44,7 +45,7 @@ export function createAssignmentsRouter(deps) {
   // darf NICHT durch das kaeuferseitige Feature-Gate ausgesperrt werden.
   const assignmentsGate = requireOrgFeature("assignments", { pool, logger });
 
-  router.get("/assignments", requireAuth, rperm("assignment.view"), async (req, res) => {
+  router.get("/assignments", requireAuth, requireScope("read:assignments"), rperm("assignment.view"), async (req, res) => {
     // SEC-002: Org-Scoping — server-resolved, both buyer AND supplier perspective
     const orgId = req.orgId || null;
     const filters = {
@@ -72,7 +73,7 @@ export function createAssignmentsRouter(deps) {
     res.json({ items, total: items.length });
   });
 
-  router.post("/assignments", requireAuth, assignmentsGate, rperm("assignment.create"), async (req, res) => {
+  router.post("/assignments", requireAuth, requireScope("write:assignments"), assignmentsGate, rperm("assignment.create"), async (req, res) => {
     const parsed = createSchema.safeParse(req.body);
     if (!parsed.success) return res.status(400).json({ error: "VALIDATION", details: parsed.error.issues });
     try {
@@ -91,7 +92,7 @@ export function createAssignmentsRouter(deps) {
     }
   });
 
-  router.get("/assignments/:id", requireAuth, rperm("assignment.view"), async (req, res) => {
+  router.get("/assignments/:id", requireAuth, requireScope("read:assignments"), rperm("assignment.view"), async (req, res) => {
     const assignment = await assignmentService.getAssignment(pool, req.params.id);
     if (!assignment) return res.status(404).json({ error: "NOT_FOUND" });
     // Org-Boundary: eigene Org muss buyer oder supplier sein
@@ -101,7 +102,7 @@ export function createAssignmentsRouter(deps) {
     res.json(assignment);
   });
 
-  router.patch("/assignments/:id", requireAuth, assignmentsGate, rperm("assignment.edit"), async (req, res) => {
+  router.patch("/assignments/:id", requireAuth, requireScope("write:assignments"), assignmentsGate, rperm("assignment.edit"), async (req, res) => {
     const partial = createSchema.partial().safeParse(req.body);
     if (!partial.success) return res.status(400).json({ error: "VALIDATION", details: partial.error.issues });
     const existing = await assignmentService.getAssignment(pool, req.params.id);
@@ -125,7 +126,7 @@ export function createAssignmentsRouter(deps) {
     res.json(updated);
   });
 
-  router.post("/assignments/:id/transition", requireAuth, rperm("assignment.edit"), async (req, res) => {
+  router.post("/assignments/:id/transition", requireAuth, requireScope("write:assignments"), rperm("assignment.edit"), async (req, res) => {
     const parsed = transitionSchema.safeParse(req.body);
     if (!parsed.success) return res.status(400).json({ error: "VALIDATION", details: parsed.error.issues });
     // SEC-002: Org-boundary check before transition
@@ -143,7 +144,7 @@ export function createAssignmentsRouter(deps) {
     res.json(result.assignment);
   });
 
-  router.post("/assignments/:id/complete", requireAuth, rperm("assignment.complete"), async (req, res) => {
+  router.post("/assignments/:id/complete", requireAuth, requireScope("write:assignments"), rperm("assignment.complete"), async (req, res) => {
     // SEC-002: Org-boundary check before complete
     const existing = await assignmentService.getAssignment(pool, req.params.id);
     if (!existing) return res.status(404).json({ error: "NOT_FOUND" });

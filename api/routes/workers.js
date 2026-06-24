@@ -10,6 +10,7 @@ import fs from "fs";
 import path from "path";
 import multer from "multer";
 import { requirePermission } from "../middleware/rbac.js";
+import { requireScope } from "../middleware/apiKeyAuth.js";
 import { hasFeature } from "../config/planFeatures.js";
 import * as assignmentStaffingService from "../services/assignmentStaffingService.js";
 import * as dealStaffingFastTrackService from "../services/dealStaffingFastTrackService.js";
@@ -303,7 +304,7 @@ export function createWorkersRouter(deps) {
     on_duplicate: z.enum(["skip", "update"]).default("skip")
   });
 
-  router.post("/workers/import", ...base, rperm("worker.create"), async (req, res, next) => {
+  router.post("/workers/import", ...base, requireScope("write:workers"), rperm("worker.create"), async (req, res, next) => {
     try {
       const parsed = importSchema.safeParse(req.body);
       if (!parsed.success) {
@@ -353,7 +354,7 @@ export function createWorkersRouter(deps) {
 
   /* ── Duplikat-Check (Pre-Validation für Frontend) ───────────────────────── */
 
-  router.post("/workers/check-duplicates", ...base, rperm("worker.view"), async (req, res, next) => {
+  router.post("/workers/check-duplicates", ...base, requireScope("read:workers"), rperm("worker.view"), async (req, res, next) => {
     try {
       const emails = req.body?.emails;
       if (!Array.isArray(emails) || emails.length === 0 || emails.length > 1000) {
@@ -377,7 +378,7 @@ export function createWorkersRouter(deps) {
 
   /* ── Worker-Liste ──────────────────────────────────────────────────────────── */
 
-  router.get("/workers", ...base, rperm("worker.view"), async (req, res, next) => {
+  router.get("/workers", ...base, requireScope("read:workers"), rperm("worker.view"), async (req, res, next) => {
     try {
       const workers = await workerService.listWorkers(pool, {
         supplierOrgId: req.orgId,
@@ -392,7 +393,7 @@ export function createWorkersRouter(deps) {
 
   /* ── Worker anlegen (direkt, mit Passwort) ───────────────────────────────── */
 
-  router.post("/workers", ...base, rperm("worker.create"), async (req, res, next) => {
+  router.post("/workers", ...base, requireScope("write:workers"), rperm("worker.create"), async (req, res, next) => {
     try {
       const parsed = createWorkerSchema.safeParse(req.body);
       if (!parsed.success) return res.status(400).json({ error: "VALIDATION", details: parsed.error.issues });
@@ -436,7 +437,7 @@ export function createWorkersRouter(deps) {
 
   /* ── Worker abrufen ──────────────────────────────────────────────────────── */
 
-  router.get("/workers/:userId", ...base, rperm("worker.view"), async (req, res, next) => {
+  router.get("/workers/:userId", ...base, requireScope("read:workers"), rperm("worker.view"), async (req, res, next) => {
     try {
       const worker = await workerService.getWorkerHub(pool, req.params.userId);
       if (!worker) return res.status(404).json({ error: "NOT_FOUND" });
@@ -447,7 +448,7 @@ export function createWorkersRouter(deps) {
 
   /* ── Worker-Profil aktualisieren ─────────────────────────────────────────── */
 
-  router.patch("/workers/:userId", ...base, rperm("worker.edit"), async (req, res, next) => {
+  router.patch("/workers/:userId", ...base, requireScope("write:workers"), rperm("worker.edit"), async (req, res, next) => {
     try {
       const parsed = updateProfileSchema.safeParse(req.body);
       if (!parsed.success) return res.status(400).json({ error: "VALIDATION", details: parsed.error.issues });
@@ -470,7 +471,7 @@ export function createWorkersRouter(deps) {
     } catch (err) { next(err); }
   });
 
-  router.get("/workers/:userId/documents", ...base, rperm("worker.view"), async (req, res, next) => {
+  router.get("/workers/:userId/documents", ...base, requireScope("read:workers"), rperm("worker.view"), async (req, res, next) => {
     try {
       const scoped = await getScopedWorker(req.params.userId, req.orgId);
       if (scoped.error) return res.status(scoped.status).json({ error: scoped.error });
@@ -484,7 +485,7 @@ export function createWorkersRouter(deps) {
     } catch (err) { next(err); }
   });
 
-  router.post("/workers/:userId/documents", ...base, rperm("worker.edit"), (req, res, next) => {
+  router.post("/workers/:userId/documents", ...base, requireScope("write:workers"), rperm("worker.edit"), (req, res, next) => {
     workerDocumentUpload.single("file")(req, res, (err) => {
       if (!err) return next();
       if (err.code === "LIMIT_FILE_SIZE") return res.status(400).json({ error: "FILE_TOO_LARGE" });
@@ -545,7 +546,7 @@ export function createWorkersRouter(deps) {
     }
   });
 
-  router.patch("/workers/:userId/documents/:documentId", ...base, rperm("worker.edit"), async (req, res, next) => {
+  router.patch("/workers/:userId/documents/:documentId", ...base, requireScope("write:workers"), rperm("worker.edit"), async (req, res, next) => {
     try {
       const scoped = await getScopedWorker(req.params.userId, req.orgId);
       if (scoped.error) return res.status(scoped.status).json({ error: scoped.error });
@@ -571,7 +572,7 @@ export function createWorkersRouter(deps) {
     } catch (err) { next(err); }
   });
 
-  router.post("/workers/:userId/documents/:documentId/verify", ...base, rperm("worker.manage"), async (req, res, next) => {
+  router.post("/workers/:userId/documents/:documentId/verify", ...base, requireScope("write:workers"), rperm("worker.manage"), async (req, res, next) => {
     try {
       const scoped = await getScopedWorker(req.params.userId, req.orgId);
       if (scoped.error) return res.status(scoped.status).json({ error: scoped.error });
@@ -598,7 +599,7 @@ export function createWorkersRouter(deps) {
     } catch (err) { next(err); }
   });
 
-  router.post("/workers/:userId/documents/:documentId/reject", ...base, rperm("worker.manage"), async (req, res, next) => {
+  router.post("/workers/:userId/documents/:documentId/reject", ...base, requireScope("write:workers"), rperm("worker.manage"), async (req, res, next) => {
     try {
       const scoped = await getScopedWorker(req.params.userId, req.orgId);
       if (scoped.error) return res.status(scoped.status).json({ error: scoped.error });
@@ -627,7 +628,7 @@ export function createWorkersRouter(deps) {
     } catch (err) { next(err); }
   });
 
-  router.get("/workers/:userId/documents/:documentId/download", ...base, rperm("worker.view"), async (req, res, next) => {
+  router.get("/workers/:userId/documents/:documentId/download", ...base, requireScope("read:workers"), rperm("worker.view"), async (req, res, next) => {
     try {
       const scoped = await getScopedWorker(req.params.userId, req.orgId);
       if (scoped.error) return res.status(scoped.status).json({ error: scoped.error });
@@ -644,7 +645,7 @@ export function createWorkersRouter(deps) {
     } catch (err) { next(err); }
   });
 
-  router.delete("/workers/:userId/documents/:documentId", ...base, rperm("worker.manage"), async (req, res, next) => {
+  router.delete("/workers/:userId/documents/:documentId", ...base, requireScope("write:workers"), rperm("worker.manage"), async (req, res, next) => {
     try {
       const scoped = await getScopedWorker(req.params.userId, req.orgId);
       if (scoped.error) return res.status(scoped.status).json({ error: scoped.error });
@@ -665,7 +666,7 @@ export function createWorkersRouter(deps) {
 
   /* ── Worker deaktivieren / reaktivieren ──────────────────────────────────── */
 
-  router.post("/workers/:userId/deactivate", ...base, rperm("worker.manage"), async (req, res, next) => {
+  router.post("/workers/:userId/deactivate", ...base, requireScope("write:workers"), rperm("worker.manage"), async (req, res, next) => {
     try {
       const worker = await workerService.getWorkerProfile(pool, req.params.userId);
       if (!worker) return res.status(404).json({ error: "NOT_FOUND" });
@@ -676,7 +677,7 @@ export function createWorkersRouter(deps) {
     } catch (err) { next(err); }
   });
 
-  router.post("/workers/:userId/activate", ...base, rperm("worker.manage"), async (req, res, next) => {
+  router.post("/workers/:userId/activate", ...base, requireScope("write:workers"), rperm("worker.manage"), async (req, res, next) => {
     try {
       const worker = await workerService.getWorkerProfile(pool, req.params.userId);
       if (!worker) return res.status(404).json({ error: "NOT_FOUND" });
@@ -695,7 +696,7 @@ export function createWorkersRouter(deps) {
 
   /* ── Invite-System ───────────────────────────────────────────────────────── */
 
-  router.get("/worker-invites", ...base, rperm("worker.manage"), async (req, res, next) => {
+  router.get("/worker-invites", ...base, requireScope("read:workers"), rperm("worker.manage"), async (req, res, next) => {
     try {
       const invites = await workerService.listInvites(pool, {
         supplierOrgId: req.orgId,
@@ -705,7 +706,7 @@ export function createWorkersRouter(deps) {
     } catch (err) { next(err); }
   });
 
-  router.post("/worker-invites", ...base, inviteLimiter, rperm("worker.manage"), async (req, res, next) => {
+  router.post("/worker-invites", ...base, requireScope("write:workers"), inviteLimiter, rperm("worker.manage"), async (req, res, next) => {
     try {
       const parsed = inviteSchema.safeParse(req.body);
       if (!parsed.success) return res.status(400).json({ error: "VALIDATION", details: parsed.error.issues });
@@ -762,7 +763,7 @@ export function createWorkersRouter(deps) {
     } catch (err) { next(err); }
   });
 
-  router.post("/worker-invites/:id/resend", ...base, inviteLimiter, rperm("worker.manage"), async (req, res, next) => {
+  router.post("/worker-invites/:id/resend", ...base, requireScope("write:workers"), inviteLimiter, rperm("worker.manage"), async (req, res, next) => {
     try {
       const result = await workerService.resendInvite(pool, req.params.id, req.orgId);
       if (result.error) return res.status(result.error === "NOT_FOUND" ? 404 : 409).json({ error: result.error });
@@ -787,7 +788,7 @@ export function createWorkersRouter(deps) {
     } catch (err) { next(err); }
   });
 
-  router.post("/worker-invites/:id/revoke", ...base, rperm("worker.manage"), async (req, res, next) => {
+  router.post("/worker-invites/:id/revoke", ...base, requireScope("write:workers"), rperm("worker.manage"), async (req, res, next) => {
     try {
       const result = await workerService.revokeInvite(pool, req.params.id, req.orgId);
       if (result.error) return res.status(result.error === "NOT_FOUND" ? 404 : 409).json({ error: result.error });
@@ -798,7 +799,7 @@ export function createWorkersRouter(deps) {
 
   /* ── Assignment-Links ────────────────────────────────────────────────────── */
 
-  router.get("/workers/:userId/assignments", ...base, rperm("worker.view"), async (req, res, next) => {
+  router.get("/workers/:userId/assignments", ...base, requireScope("read:workers"), rperm("worker.view"), async (req, res, next) => {
     try {
       const worker = await workerService.getWorkerProfile(pool, req.params.userId);
       if (!worker) return res.status(404).json({ error: "NOT_FOUND" });
@@ -808,7 +809,7 @@ export function createWorkersRouter(deps) {
     } catch (err) { next(err); }
   });
 
-  router.post("/worker-assignment-links", ...base, rperm("worker.manage"), async (req, res, next) => {
+  router.post("/worker-assignment-links", ...base, requireScope("write:workers"), rperm("worker.manage"), async (req, res, next) => {
     try {
       const parsed = assignmentLinkSchema.safeParse(req.body);
       if (!parsed.success) return res.status(400).json({ error: "VALIDATION", details: parsed.error.issues });
@@ -847,7 +848,7 @@ export function createWorkersRouter(deps) {
 
   /* ── Assignment-Link Worker-Felder aktualisieren (Supplier-Ansicht) ────────────── */
 
-  router.patch("/worker-assignment-links/:id", ...base, rperm("worker.manage"), async (req, res, next) => {
+  router.patch("/worker-assignment-links/:id", ...base, requireScope("write:workers"), rperm("worker.manage"), async (req, res, next) => {
     try {
       const parsed = updateAssignmentLinkSchema.safeParse(req.body);
       if (!parsed.success) return res.status(400).json({ error: "VALIDATION", details: parsed.error.issues });
@@ -887,7 +888,7 @@ export function createWorkersRouter(deps) {
     } catch (err) { next(err); }
   });
 
-  router.get("/supplier/assignment-links", ...base, rperm("worker.view"), async (req, res, next) => {
+  router.get("/supplier/assignment-links", ...base, requireScope("read:workers"), rperm("worker.view"), async (req, res, next) => {
     try {
       const links = await workerService.getAssignmentLinksForSupplier(pool, req.orgId, {
         assignmentId: req.query.assignment_id || null
@@ -898,7 +899,7 @@ export function createWorkersRouter(deps) {
 
   /* ── Submission-Review-Flow ──────────────────────────────────────────────── */
 
-  router.get("/worker-submissions", ...base, rperm("worker.review"), async (req, res, next) => {
+  router.get("/worker-submissions", ...base, requireScope("read:workers"), rperm("worker.review"), async (req, res, next) => {
     try {
       const items = await submissionSvc.listSubmissions(pool, {
         supplierOrgId: req.orgId,
@@ -913,14 +914,14 @@ export function createWorkersRouter(deps) {
     } catch (err) { next(err); }
   });
 
-  router.get("/worker-submissions/kpis", ...base, rperm("worker.review"), async (req, res, next) => {
+  router.get("/worker-submissions/kpis", ...base, requireScope("read:workers"), rperm("worker.review"), async (req, res, next) => {
     try {
       const kpis = await submissionSvc.getSupplierSubmissionKPIs(pool, req.orgId);
       res.json(kpis);
     } catch (err) { next(err); }
   });
 
-  router.get("/worker-submissions/:id", ...base, rperm("worker.review"), async (req, res, next) => {
+  router.get("/worker-submissions/:id", ...base, requireScope("read:workers"), rperm("worker.review"), async (req, res, next) => {
     try {
       const sub = await submissionSvc.getSubmissionWithEntries(pool, req.params.id);
       if (!sub) return res.status(404).json({ error: "NOT_FOUND" });
@@ -929,7 +930,7 @@ export function createWorkersRouter(deps) {
     } catch (err) { next(err); }
   });
 
-  router.post("/worker-submissions/:id/start-review", ...base, rperm("worker.review"), async (req, res, next) => {
+  router.post("/worker-submissions/:id/start-review", ...base, requireScope("write:workers"), rperm("worker.review"), async (req, res, next) => {
     try {
       const sub = await submissionSvc.getSubmission(pool, req.params.id);
       if (!sub) return res.status(404).json({ error: "NOT_FOUND" });
@@ -941,7 +942,7 @@ export function createWorkersRouter(deps) {
     } catch (err) { next(err); }
   });
 
-  router.post("/worker-submissions/:id/request-correction", ...base, rperm("worker.review"), async (req, res, next) => {
+  router.post("/worker-submissions/:id/request-correction", ...base, requireScope("write:workers"), rperm("worker.review"), async (req, res, next) => {
     try {
       const sub = await submissionSvc.getSubmission(pool, req.params.id);
       if (!sub) return res.status(404).json({ error: "NOT_FOUND" });
@@ -955,7 +956,7 @@ export function createWorkersRouter(deps) {
     } catch (err) { next(err); }
   });
 
-  router.post("/worker-submissions/:id/accept", ...base, rperm("worker.review"), async (req, res, next) => {
+  router.post("/worker-submissions/:id/accept", ...base, requireScope("write:workers"), rperm("worker.review"), async (req, res, next) => {
     try {
       const sub = await submissionSvc.getSubmission(pool, req.params.id);
       if (!sub) return res.status(404).json({ error: "NOT_FOUND" });
@@ -970,7 +971,7 @@ export function createWorkersRouter(deps) {
     } catch (err) { next(err); }
   });
 
-  router.post("/worker-submissions/:id/reject", ...base, rperm("worker.review"), async (req, res, next) => {
+  router.post("/worker-submissions/:id/reject", ...base, requireScope("write:workers"), rperm("worker.review"), async (req, res, next) => {
     try {
       const sub = await submissionSvc.getSubmission(pool, req.params.id);
       if (!sub) return res.status(404).json({ error: "NOT_FOUND" });
@@ -987,7 +988,7 @@ export function createWorkersRouter(deps) {
     } catch (err) { next(err); }
   });
 
-  router.post("/worker-submissions/:id/comment", ...base, rperm("worker.review"), async (req, res, next) => {
+  router.post("/worker-submissions/:id/comment", ...base, requireScope("write:workers"), rperm("worker.review"), async (req, res, next) => {
     try {
       const sub = await submissionSvc.getSubmission(pool, req.params.id);
       if (!sub) return res.status(404).json({ error: "NOT_FOUND" });
@@ -1002,7 +1003,7 @@ export function createWorkersRouter(deps) {
 
   /* ── Kapazitäten → Worker-Zuweisung (Dispatcher) ─────────────────────────── */
 
-  router.get("/unassigned-capacity-posts", ...base, rperm("worker.edit"), async (req, res, next) => {
+  router.get("/unassigned-capacity-posts", ...base, requireScope("read:workers"), rperm("worker.edit"), async (req, res, next) => {
     try {
       // Legacy-Kapazitaeten wurden nur mit supplier_company_id angelegt (ohne org_id);
       // neuere mit beidem. Wir uebergeben beide IDs, damit beide Auspraegungen
@@ -1019,7 +1020,7 @@ export function createWorkersRouter(deps) {
   // damit der Drawer "+ Kapazitaet zuweisen" BEIDE Quellen mit demselben
   // manuellen Detail-Form bedienen kann. Fast-Track "Deal-Einsaetze"-Sektion
   // bleibt davon unberuehrt.
-  router.get("/assignable-sources", ...base, rperm("worker.edit"), async (req, res, next) => {
+  router.get("/assignable-sources", ...base, requireScope("read:workers"), rperm("worker.edit"), async (req, res, next) => {
     try {
       const items = await workerService.listAssignableSourcesForDispatcher(pool, req.orgId, {
         supplierUserId: req.session.userId
@@ -1028,7 +1029,7 @@ export function createWorkersRouter(deps) {
     } catch (err) { next(err); }
   });
 
-  router.post("/assign-capacity-to-worker", ...base, rperm("worker.edit"), async (req, res, next) => {
+  router.post("/assign-capacity-to-worker", ...base, requireScope("write:workers"), rperm("worker.edit"), async (req, res, next) => {
     try {
       const parsed = assignCapacitySchema.safeParse(req.body);
       if (!parsed.success) return res.status(400).json({ error: "VALIDATION", details: parsed.error.issues });
@@ -1073,7 +1074,7 @@ export function createWorkersRouter(deps) {
 
   /* ── Deal-basierte Einsätze → Worker-Zuweisung ────────────────────────────── */
 
-  router.get("/open-deal-assignments", ...base, rperm("worker.edit"), async (req, res, next) => {
+  router.get("/open-deal-assignments", ...base, requireScope("read:workers"), rperm("worker.edit"), async (req, res, next) => {
     try {
       const items = await workerService.getOpenDealAssignments(pool, req.orgId);
       res.json({ items, total: items.length });
@@ -1084,7 +1085,7 @@ export function createWorkersRouter(deps) {
   // Zeigt Agency-seitig Deals/Einsaetze, die aktiviert+vollbesetzt, planmaessig
   // abgeschlossen oder storniert sind. worker.view reicht – die Liste ist eine
   // Sichtflaeche fuer Nachbearbeitung, keine Staffing-Mutation.
-  router.get("/closed-deal-assignments", ...base, rperm("worker.view"), async (req, res, next) => {
+  router.get("/closed-deal-assignments", ...base, requireScope("read:workers"), rperm("worker.view"), async (req, res, next) => {
     try {
       const limitRaw = parseInt(req.query.limit, 10);
       const items = await workerService.getClosedDealAssignments(pool, req.orgId, {
@@ -1094,7 +1095,7 @@ export function createWorkersRouter(deps) {
     } catch (err) { next(err); }
   });
 
-  router.get("/staffing-assignments/:id", ...base, rperm("worker.edit"), async (req, res, next) => {
+  router.get("/staffing-assignments/:id", ...base, requireScope("read:workers"), rperm("worker.edit"), async (req, res, next) => {
     try {
       const detail = await assignmentStaffingService.getAssignmentStaffingOverview(pool, req.params.id, req.orgId);
       if (!detail) return res.status(404).json({ error: "NOT_FOUND" });
@@ -1102,7 +1103,7 @@ export function createWorkersRouter(deps) {
     } catch (err) { next(err); }
   });
 
-  router.get("/staffing-assignments/:id/suggestions", ...base, rperm("worker.edit"), async (req, res, next) => {
+  router.get("/staffing-assignments/:id/suggestions", ...base, requireScope("read:workers"), rperm("worker.edit"), async (req, res, next) => {
     try {
       const limitRaw = parseInt(req.query.limit, 10);
       const result = await assignmentStaffingService.listAssignmentSuggestions(pool, req.params.id, req.orgId, {
@@ -1119,7 +1120,7 @@ export function createWorkersRouter(deps) {
     } catch (err) { next(err); }
   });
 
-  router.post("/staffing-assignments/:id/quick-assign", ...base, rperm("worker.edit"), async (req, res, next) => {
+  router.post("/staffing-assignments/:id/quick-assign", ...base, requireScope("write:workers"), rperm("worker.edit"), async (req, res, next) => {
     try {
       const parsed = staffingQuickAssignSchema.safeParse(req.body || {});
       if (!parsed.success) return res.status(400).json({ error: "VALIDATION", details: parsed.error.issues });
@@ -1165,7 +1166,7 @@ export function createWorkersRouter(deps) {
     } catch (err) { next(err); }
   });
 
-  router.post("/staffing-assignments/:id/campaigns", ...base, rperm("worker.edit"), async (req, res, next) => {
+  router.post("/staffing-assignments/:id/campaigns", ...base, requireScope("write:workers"), rperm("worker.edit"), async (req, res, next) => {
     try {
       const parsed = staffingCampaignSchema.safeParse(req.body);
       if (!parsed.success) return res.status(400).json({ error: "VALIDATION", details: parsed.error.issues });
@@ -1208,7 +1209,7 @@ export function createWorkersRouter(deps) {
     } catch (err) { next(err); }
   });
 
-  router.post("/staffing-assignments/:id/waitlist", ...base, rperm("worker.edit"), async (req, res, next) => {
+  router.post("/staffing-assignments/:id/waitlist", ...base, requireScope("write:workers"), rperm("worker.edit"), async (req, res, next) => {
     try {
       const parsed = staffingWaitlistSchema.safeParse(req.body);
       if (!parsed.success) return res.status(400).json({ error: "VALIDATION", details: parsed.error.issues });
@@ -1242,7 +1243,7 @@ export function createWorkersRouter(deps) {
     } catch (err) { next(err); }
   });
 
-  router.post("/staffing-assignments/:id/waitlist/next-wave", ...base, rperm("worker.edit"), async (req, res, next) => {
+  router.post("/staffing-assignments/:id/waitlist/next-wave", ...base, requireScope("write:workers"), rperm("worker.edit"), async (req, res, next) => {
     try {
       const parsed = staffingWaitlistWaveSchema.safeParse(req.body || {});
       if (!parsed.success) return res.status(400).json({ error: "VALIDATION", details: parsed.error.issues });
@@ -1280,7 +1281,7 @@ export function createWorkersRouter(deps) {
     } catch (err) { next(err); }
   });
 
-  router.post("/staffing-choice-sets", ...base, rperm("worker.edit"), async (req, res, next) => {
+  router.post("/staffing-choice-sets", ...base, requireScope("write:workers"), rperm("worker.edit"), async (req, res, next) => {
     try {
       const parsed = staffingChoiceSetCreateSchema.safeParse(req.body);
       if (!parsed.success) return res.status(400).json({ error: "VALIDATION", details: parsed.error.issues });
@@ -1326,7 +1327,7 @@ export function createWorkersRouter(deps) {
     } catch (err) { next(err); }
   });
 
-  router.post("/staffing-choice-sets/:id/assign", ...base, rperm("worker.edit"), async (req, res, next) => {
+  router.post("/staffing-choice-sets/:id/assign", ...base, requireScope("write:workers"), rperm("worker.edit"), async (req, res, next) => {
     try {
       const parsed = staffingChoiceSetAssignSchema.safeParse(req.body || {});
       if (!parsed.success) return res.status(400).json({ error: "VALIDATION", details: parsed.error.issues });
@@ -1408,7 +1409,7 @@ export function createWorkersRouter(deps) {
     } catch (err) { next(err); }
   });
 
-  router.post("/staffing-reservations/:id/finalize", ...base, rperm("worker.edit"), async (req, res, next) => {
+  router.post("/staffing-reservations/:id/finalize", ...base, requireScope("write:workers"), rperm("worker.edit"), async (req, res, next) => {
     try {
       const parsed = staffingReservationFinalizeSchema.safeParse(req.body || {});
       if (!parsed.success) return res.status(400).json({ error: "VALIDATION", details: parsed.error.issues });
@@ -1454,7 +1455,7 @@ export function createWorkersRouter(deps) {
     notes:                  z.string().max(2000).optional().nullable()
   });
 
-  router.post("/assign-deal-to-worker", ...base, rperm("worker.edit"), async (req, res, next) => {
+  router.post("/assign-deal-to-worker", ...base, requireScope("write:workers"), rperm("worker.edit"), async (req, res, next) => {
     try {
       const parsed = assignDealSchema.safeParse(req.body);
       if (!parsed.success) return res.status(400).json({ error: "VALIDATION", details: parsed.error.issues });
@@ -1502,14 +1503,14 @@ export function createWorkersRouter(deps) {
 
   /* ── Billing / Dashboard ─────────────────────────────────────────────────── */
 
-  router.get("/worker-billing/dashboard", ...base, rperm("worker.view"), async (req, res, next) => {
+  router.get("/worker-billing/dashboard", ...base, requireScope("read:workers"), rperm("worker.view"), async (req, res, next) => {
     try {
       const metrics = await billingMetrics.getDashboardMetrics(pool, req.orgId);
       res.json(metrics);
     } catch (err) { next(err); }
   });
 
-  router.get("/worker-billing/snapshots", ...base, rperm("org.billing"), async (req, res, next) => {
+  router.get("/worker-billing/snapshots", ...base, requireScope("read:workers"), rperm("org.billing"), async (req, res, next) => {
     try {
       const snapshots = await billingMetrics.getMonthlySnapshots(pool, req.orgId, parseInt(req.query.months, 10) || 12);
       res.json({ items: snapshots });

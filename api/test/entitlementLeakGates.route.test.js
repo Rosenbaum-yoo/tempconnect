@@ -185,7 +185,7 @@ describe("reporting.js — enterprise_analytics Gate", () => {
 describe("assignments.js — assignments Gate (Kaeufer-Schreibpfade)", () => {
   it("POST /assignments: PRO-Tarif -> 403 FEATURE_NOT_ENABLED", async () => {
     const router = createAssignmentsRouter(baseDeps(proPool()));
-    const gate = routeStack(router, "post", "/assignments")[1];
+    const gate = routeStack(router, "post", "/assignments")[2];
     const { res, nextCalled } = await runMiddleware(gate, mockReq());
     assert.equal(nextCalled, false);
     assert.equal(res._status, 403);
@@ -195,21 +195,21 @@ describe("assignments.js — assignments Gate (Kaeufer-Schreibpfade)", () => {
 
   it("POST /assignments: INDIVIDUELL -> next()", async () => {
     const router = createAssignmentsRouter(baseDeps(individuellPool()));
-    const gate = routeStack(router, "post", "/assignments")[1];
+    const gate = routeStack(router, "post", "/assignments")[2];
     const { nextCalled } = await runMiddleware(gate, mockReq());
     assert.equal(nextCalled, true);
   });
 
   it("POST /assignments: DEMO+Pilot -> next() (Pilot behaelt Zugang)", async () => {
     const router = createAssignmentsRouter(baseDeps(demoPilotPool()));
-    const gate = routeStack(router, "post", "/assignments")[1];
+    const gate = routeStack(router, "post", "/assignments")[2];
     const { nextCalled } = await runMiddleware(gate, mockReq());
     assert.equal(nextCalled, true);
   });
 
   it("PATCH /assignments/:id: PRO-Tarif -> 403 FEATURE_NOT_ENABLED", async () => {
     const router = createAssignmentsRouter(baseDeps(proPool()));
-    const gate = routeStack(router, "patch", "/assignments/:id")[1];
+    const gate = routeStack(router, "patch", "/assignments/:id")[2];
     const { res, nextCalled } = await runMiddleware(gate, mockReq());
     assert.equal(nextCalled, false);
     assert.equal(res._status, 403);
@@ -218,13 +218,14 @@ describe("assignments.js — assignments Gate (Kaeufer-Schreibpfade)", () => {
 
   it("zweiseitige Pfade (view/transition/complete) tragen KEIN Gate", () => {
     const router = createAssignmentsRouter(baseDeps(proPool()));
-    // [requireAuth, rperm, handler] = 3 -> kein Entitlement-Gate
-    assert.equal(routeStack(router, "get", "/assignments").length, 3, "GET /assignments offen (Lieferantensicht)");
-    assert.equal(routeStack(router, "get", "/assignments/:id").length, 3);
-    assert.equal(routeStack(router, "post", "/assignments/:id/transition").length, 3, "transition zweiseitig");
-    assert.equal(routeStack(router, "post", "/assignments/:id/complete").length, 3, "complete zweiseitig");
-    // Kaeufer-Schreibpfade tragen das Gate (+1).
-    assert.equal(routeStack(router, "post", "/assignments").length, 4);
-    assert.equal(routeStack(router, "patch", "/assignments/:id").length, 4);
+    // [requireAuth, requireScope, rperm, handler] = 4 -> kein Entitlement-Gate
+    // (requireScope = API-Key-Scope-Guard, KEIN Entitlement-Gate; durchlaesst Session-Auth.)
+    assert.equal(routeStack(router, "get", "/assignments").length, 4, "GET /assignments offen (Lieferantensicht)");
+    assert.equal(routeStack(router, "get", "/assignments/:id").length, 4);
+    assert.equal(routeStack(router, "post", "/assignments/:id/transition").length, 4, "transition zweiseitig");
+    assert.equal(routeStack(router, "post", "/assignments/:id/complete").length, 4, "complete zweiseitig");
+    // Kaeufer-Schreibpfade tragen das assignmentsGate zusaetzlich (+1 -> 5).
+    assert.equal(routeStack(router, "post", "/assignments").length, 5);
+    assert.equal(routeStack(router, "patch", "/assignments/:id").length, 5);
   });
 });

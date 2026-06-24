@@ -6,6 +6,7 @@ import { z } from "zod";
 import { Router } from "express";
 import * as requisitionService from "../services/requisitionService.js";
 import { requirePermission } from "../middleware/rbac.js";
+import { requireScope } from "../middleware/apiKeyAuth.js";
 import { RequisitionTransitionError } from "../services/requisitionService.js";
 import { triggerRequisitionMatchAlerts } from "../services/matchAlertService.js";
 import { trackProductEventFromRequest } from "../services/productAnalyticsService.js";
@@ -66,7 +67,7 @@ export function createRequisitionsRouter(deps) {
   const router = Router();
 
   /** POST /requisitions – Neue Requisition erstellen */
-  router.post("/requisitions", requireAuth, requirePermission("requisition.create", { pool, logger }), async (req, res) => {
+  router.post("/requisitions", requireAuth, requireScope("write:requisitions"), requirePermission("requisition.create", { pool, logger }), async (req, res) => {
     const parsed = createSchema.safeParse(req.body);
     if (!parsed.success) return res.status(400).json({ error: "VALIDATION", details: parsed.error.issues });
     try {
@@ -98,7 +99,7 @@ export function createRequisitionsRouter(deps) {
   });
 
   /** GET /requisitions – Liste mit Filtern */
-  router.get("/requisitions", requireAuth, requirePermission("requisition.view", { pool, logger }), async (req, res) => {
+  router.get("/requisitions", requireAuth, requireScope("read:requisitions"), requirePermission("requisition.view", { pool, logger }), async (req, res) => {
     const filters = {
       org_id: req.orgId || null, // F-004 fix: server-resolved org only
       created_by: req.query.mine === "true" ? req.session.userId : null,
@@ -112,7 +113,7 @@ export function createRequisitionsRouter(deps) {
   });
 
   /** GET /requisitions/:id – Detail */
-  router.get("/requisitions/:id", requireAuth, requirePermission("requisition.view", { pool, logger }), async (req, res) => {
+  router.get("/requisitions/:id", requireAuth, requireScope("read:requisitions"), requirePermission("requisition.view", { pool, logger }), async (req, res) => {
     const requisition = await requisitionService.getRequisitionById(pool, req.params.id);
     if (!requisition) return res.status(404).json({ error: "NOT_FOUND" });
     // F-004 fix: org-boundary check
@@ -123,7 +124,7 @@ export function createRequisitionsRouter(deps) {
   });
 
   /** PATCH /requisitions/:id – Felder aktualisieren */
-  router.patch("/requisitions/:id", requireAuth, requirePermission("requisition.edit", { pool, logger }), async (req, res) => {
+  router.patch("/requisitions/:id", requireAuth, requireScope("write:requisitions"), requirePermission("requisition.edit", { pool, logger }), async (req, res) => {
     const partial = createSchema.partial().safeParse(req.body);
     if (!partial.success) return res.status(400).json({ error: "VALIDATION", details: partial.error.issues });
     const updated = await requisitionService.updateRequisition(pool, req.params.id, req.session.userId, partial.data);
@@ -133,7 +134,7 @@ export function createRequisitionsRouter(deps) {
   });
 
   /** POST /requisitions/:id/transition – Status aendern */
-  router.post("/requisitions/:id/transition", requireAuth, async (req, res, next) => {
+  router.post("/requisitions/:id/transition", requireAuth, requireScope("write:requisitions"), async (req, res, next) => {
     const parsed = transitionSchema.safeParse(req.body);
     if (!parsed.success) return res.status(400).json({ error: "VALIDATION", details: parsed.error.issues });
     try {
@@ -158,7 +159,7 @@ export function createRequisitionsRouter(deps) {
   });
 
   /** POST /requisitions/:id/submit – Zur Freigabe einreichen (Shortcut) */
-  router.post("/requisitions/:id/submit", requireAuth, async (req, res) => {
+  router.post("/requisitions/:id/submit", requireAuth, requireScope("write:requisitions"), async (req, res) => {
     try {
       const result = await requisitionService.submitForApproval(pool, req.params.id, req.session.userId);
       if (result.error) return res.status(404).json({ error: result.error });
@@ -173,7 +174,7 @@ export function createRequisitionsRouter(deps) {
   });
 
   /** POST /requisitions/:id/approve – Freigabe */
-  router.post("/requisitions/:id/approve", requireAuth, requirePermission("requisition.approve", { pool, logger }), async (req, res) => {
+  router.post("/requisitions/:id/approve", requireAuth, requireScope("write:requisitions"), requirePermission("requisition.approve", { pool, logger }), async (req, res) => {
     try {
       // Org-Boundary: Freigabe nur auf eigene Requisitions erlaubt.
       if (req.orgId) await assertOrgOwnership(pool, 'requisitions', req.params.id, req.orgId);
@@ -207,13 +208,13 @@ export function createRequisitionsRouter(deps) {
   });
 
   /** GET /requisitions/:id/events – Audit Trail */
-  router.get("/requisitions/:id/events", requireAuth, requirePermission("requisition.view", { pool, logger }), async (req, res) => {
+  router.get("/requisitions/:id/events", requireAuth, requireScope("read:requisitions"), requirePermission("requisition.view", { pool, logger }), async (req, res) => {
     const events = await requisitionService.getRequisitionEvents(pool, req.params.id);
     res.json({ events });
   });
 
   /** POST /requisitions/:id/comment – Kommentar hinzufuegen */
-  router.post("/requisitions/:id/comment", requireAuth, async (req, res) => {
+  router.post("/requisitions/:id/comment", requireAuth, requireScope("write:requisitions"), async (req, res) => {
     const parsed = commentSchema.safeParse(req.body);
     if (!parsed.success) return res.status(400).json({ error: "VALIDATION", details: parsed.error.issues });
     await requisitionService.addComment(pool, req.params.id, req.session.userId, parsed.data.text);
@@ -224,13 +225,13 @@ export function createRequisitionsRouter(deps) {
   /* ── Candidates / Shortlist ──────────────────────────────── */
 
   /** GET /requisitions/:id/candidates – Kandidatenliste */
-  router.get("/requisitions/:id/candidates", requireAuth, requirePermission("requisition.view", { pool, logger }), async (req, res) => {
+  router.get("/requisitions/:id/candidates", requireAuth, requireScope("read:requisitions"), requirePermission("requisition.view", { pool, logger }), async (req, res) => {
     const candidates = await requisitionService.listCandidates(pool, req.params.id);
     res.json({ candidates });
   });
 
   /** POST /requisitions/:id/candidates – Kandidat hinzufuegen */
-  router.post("/requisitions/:id/candidates", requireAuth, requirePermission("requisition.edit", { pool, logger }), async (req, res, next) => {
+  router.post("/requisitions/:id/candidates", requireAuth, requireScope("write:requisitions"), requirePermission("requisition.edit", { pool, logger }), async (req, res, next) => {
     const parsed = candidateSchema.safeParse(req.body);
     if (!parsed.success) return res.status(400).json({ error: "VALIDATION", details: parsed.error.issues });
     try {
@@ -246,7 +247,7 @@ export function createRequisitionsRouter(deps) {
   });
 
   /** PATCH /requisitions/:reqId/candidates/:candId – Kandidaten-Status aendern */
-  router.patch("/requisitions/:reqId/candidates/:candId", requireAuth, requirePermission("requisition.edit", { pool, logger }), async (req, res, next) => {
+  router.patch("/requisitions/:reqId/candidates/:candId", requireAuth, requireScope("write:requisitions"), requirePermission("requisition.edit", { pool, logger }), async (req, res, next) => {
     const parsed = candidateStatusSchema.safeParse(req.body);
     if (!parsed.success) return res.status(400).json({ error: "VALIDATION", details: parsed.error.issues });
     try {

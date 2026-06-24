@@ -88,9 +88,9 @@ describe("mutating target routes keep hard entitlement gates", () => {
     ]);
     expectTokens("api/routes/capacityExchange.js", [
       'requireOrgLimit("listings"',
-      'router.post("/capacity-exchange/entries", requireAuth, ceBasic, listingsLimitGate',
-      'router.post("/capacity-exchange/entries/:id/activate", requireAuth, ceBasic, listingsLimitGate',
-      'router.post("/capacity-exchange/entries/:id/reactivate", requireAuth, ceBasic, listingsLimitGate'
+      'router.post("/capacity-exchange/entries", requireAuth, requireScope("write:capacity"), ceBasic, listingsLimitGate',
+      'router.post("/capacity-exchange/entries/:id/activate", requireAuth, requireScope("write:capacity"), ceBasic, listingsLimitGate',
+      'router.post("/capacity-exchange/entries/:id/reactivate", requireAuth, requireScope("write:capacity"), ceBasic, listingsLimitGate'
     ]);
   });
 

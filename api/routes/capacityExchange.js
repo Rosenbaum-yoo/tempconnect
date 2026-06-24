@@ -15,6 +15,7 @@ import * as settingsService from "../services/settingsService.js";
 import { hasFeature } from "../config/planFeatures.js";
 import { canInteractWithCapacity } from "../services/capacityInteractionPolicy.js";
 import { requireOrgLimit } from "../middleware/entitlementGuard.js";
+import { requireScope } from "../middleware/apiKeyAuth.js";
 import { swallow } from "../utils/logger.js";
 
 /* ── Zod Schemas ──────────────────────────────────── */
@@ -77,7 +78,7 @@ export function createCapacityExchangeRouter(deps) {
 
   /* ── Supplier: Create entry ───────────────────────── */
 
-  router.post("/capacity-exchange/entries", requireAuth, ceBasic, listingsLimitGate, async (req, res) => {
+  router.post("/capacity-exchange/entries", requireAuth, requireScope("write:capacity"), ceBasic, listingsLimitGate, async (req, res) => {
     try {
       const me = req.user;
       if (me?.role !== "agency") return res.status(403).json({ error: "AGENCY_ONLY" });
@@ -107,7 +108,7 @@ export function createCapacityExchangeRouter(deps) {
 
   /* ── Supplier: Update entry ───────────────────────── */
 
-  router.patch("/capacity-exchange/entries/:id", requireAuth, ceBasic, async (req, res) => {
+  router.patch("/capacity-exchange/entries/:id", requireAuth, requireScope("write:capacity"), ceBasic, async (req, res) => {
     try {
       const parsed = updateEntrySchema.safeParse(req.body);
       if (!parsed.success) return res.status(400).json({ error: "VALIDATION", details: parsed.error.issues });
@@ -189,15 +190,15 @@ export function createCapacityExchangeRouter(deps) {
     }
   }
 
-  router.post("/capacity-exchange/entries/:id/activate", requireAuth, ceBasic, listingsLimitGate, (req, res) => handleTransition(req, res, "active"));
-  router.post("/capacity-exchange/entries/:id/pause", requireAuth, ceBasic, (req, res) => handleTransition(req, res, "paused"));
-  router.post("/capacity-exchange/entries/:id/reactivate", requireAuth, ceBasic, listingsLimitGate, (req, res) => handleTransition(req, res, "active"));
-  router.post("/capacity-exchange/entries/:id/fill", requireAuth, ceBasic, (req, res) => handleTransition(req, res, "filled"));
-  router.post("/capacity-exchange/entries/:id/archive", requireAuth, ceBasic, (req, res) => handleTransition(req, res, "archived"));
+  router.post("/capacity-exchange/entries/:id/activate", requireAuth, requireScope("write:capacity"), ceBasic, listingsLimitGate, (req, res) => handleTransition(req, res, "active"));
+  router.post("/capacity-exchange/entries/:id/pause", requireAuth, requireScope("write:capacity"), ceBasic, (req, res) => handleTransition(req, res, "paused"));
+  router.post("/capacity-exchange/entries/:id/reactivate", requireAuth, requireScope("write:capacity"), ceBasic, listingsLimitGate, (req, res) => handleTransition(req, res, "active"));
+  router.post("/capacity-exchange/entries/:id/fill", requireAuth, requireScope("write:capacity"), ceBasic, (req, res) => handleTransition(req, res, "filled"));
+  router.post("/capacity-exchange/entries/:id/archive", requireAuth, requireScope("write:capacity"), ceBasic, (req, res) => handleTransition(req, res, "archived"));
 
   /* ── Supplier: Confirm freshness ──────────────────── */
 
-  router.post("/capacity-exchange/entries/:id/confirm", requireAuth, ceBasic, async (req, res) => {
+  router.post("/capacity-exchange/entries/:id/confirm", requireAuth, requireScope("write:capacity"), ceBasic, async (req, res) => {
     try {
       const entry = await capacityExchangeService.confirmFreshness(pool, req.params.id, req.session.userId);
       if (!entry) return res.status(404).json({ error: "NOT_FOUND" });
@@ -216,7 +217,7 @@ export function createCapacityExchangeRouter(deps) {
 
   /* ── Supplier: List own entries ────────────────────── */
 
-  router.get("/capacity-exchange/entries", requireAuth, ceBasic, async (req, res) => {
+  router.get("/capacity-exchange/entries", requireAuth, requireScope("read:capacity"), ceBasic, async (req, res) => {
     try {
       const opts = {
         status: req.query.status || undefined,
@@ -233,7 +234,7 @@ export function createCapacityExchangeRouter(deps) {
 
   /* ── Supplier: Single entry detail ────────────────── */
 
-  router.get("/capacity-exchange/entries/:id", requireAuth, ceBasic, async (req, res) => {
+  router.get("/capacity-exchange/entries/:id", requireAuth, requireScope("read:capacity"), ceBasic, async (req, res) => {
     try {
       const entry = await capacityExchangeService.getEntryById(pool, req.params.id, req.session.userId);
       if (!entry) return res.status(404).json({ error: "NOT_FOUND" });
@@ -250,7 +251,7 @@ export function createCapacityExchangeRouter(deps) {
 
   /* ── Supplier: Dashboard stats ────────────────────── */
 
-  router.get("/capacity-exchange/stats", requireAuth, ceBasic, async (req, res) => {
+  router.get("/capacity-exchange/stats", requireAuth, requireScope("read:capacity"), ceBasic, async (req, res) => {
     try {
       const stats = await capacityExchangeService.getSupplierDashboardStats(pool, req.session.userId);
       res.json(stats);
@@ -262,7 +263,7 @@ export function createCapacityExchangeRouter(deps) {
 
   /* ── Supplier: View matching requisitions ─────────── */
 
-  router.get("/capacity-exchange/entries/:id/matches", requireAuth, ceMatching, async (req, res) => {
+  router.get("/capacity-exchange/entries/:id/matches", requireAuth, requireScope("read:capacity"), ceMatching, async (req, res) => {
     try {
       // Verify ownership
       const entry = await capacityExchangeService.getEntryById(pool, req.params.id, req.session.userId);
@@ -283,7 +284,7 @@ export function createCapacityExchangeRouter(deps) {
 
   /* ── Supplier: View interactions on entry ─────────── */
 
-  router.get("/capacity-exchange/entries/:id/interactions", requireAuth, ceBasic, async (req, res) => {
+  router.get("/capacity-exchange/entries/:id/interactions", requireAuth, requireScope("read:capacity"), ceBasic, async (req, res) => {
     try {
       const entry = await capacityExchangeService.getEntryById(pool, req.params.id, req.session.userId);
       if (!entry) return res.status(404).json({ error: "NOT_FOUND" });
@@ -300,7 +301,7 @@ export function createCapacityExchangeRouter(deps) {
 
   /* ── Company: Browse capacity feed ────────────────── */
 
-  router.get("/capacity-exchange/feed", requireAuth, async (req, res) => {
+  router.get("/capacity-exchange/feed", requireAuth, requireScope("read:capacity"), async (req, res) => {
     try {
       const me = await getUserAndPlan(req.session.userId);
       let interAgencyEnabled = false;
@@ -343,7 +344,7 @@ export function createCapacityExchangeRouter(deps) {
 
   /* ── Company: Single feed entry detail ────────────── */
 
-  router.get("/capacity-exchange/feed/:id", requireAuth, async (req, res) => {
+  router.get("/capacity-exchange/feed/:id", requireAuth, requireScope("read:capacity"), async (req, res) => {
     try {
       const entry = await capacityExchangeService.getEntryById(pool, req.params.id, req.session.userId);
       if (!entry) return res.status(404).json({ error: "NOT_FOUND" });
@@ -377,7 +378,7 @@ export function createCapacityExchangeRouter(deps) {
 
   /* ── Company: Create interaction ──────────────────── */
 
-  router.post("/capacity-exchange/entries/:id/interactions", requireAuth, async (req, res) => {
+  router.post("/capacity-exchange/entries/:id/interactions", requireAuth, requireScope("write:capacity"), async (req, res) => {
     try {
       const parsed = interactionSchema.safeParse(req.body);
       if (!parsed.success) return res.status(400).json({ error: "VALIDATION", details: parsed.error.issues });
@@ -444,7 +445,7 @@ export function createCapacityExchangeRouter(deps) {
 
   /* ── Premium Analytics: per-listing stats ──────────── */
 
-  router.get("/capacity-exchange/entries/:id/analytics", requireAuth, async (req, res) => {
+  router.get("/capacity-exchange/entries/:id/analytics", requireAuth, requireScope("read:capacity"), async (req, res) => {
     try {
       const entry = await capacityExchangeService.getEntryById(pool, req.params.id, req.session.userId);
       if (!entry) return res.status(404).json({ error: "NOT_FOUND" });
@@ -461,7 +462,7 @@ export function createCapacityExchangeRouter(deps) {
 
   /* ── Premium Analytics: supplier dashboard ────────── */
 
-  router.get("/capacity-exchange/my-analytics", requireAuth, async (req, res) => {
+  router.get("/capacity-exchange/my-analytics", requireAuth, requireScope("read:capacity"), async (req, res) => {
     try {
       const dashboard = await listingAnalytics.getSupplierDashboard(pool, req.session.userId);
       res.json(dashboard);
@@ -473,7 +474,7 @@ export function createCapacityExchangeRouter(deps) {
 
   /* ── Premium Analytics: record click ──────────────── */
 
-  router.post("/capacity-exchange/entries/:id/click", requireAuth, async (req, res) => {
+  router.post("/capacity-exchange/entries/:id/click", requireAuth, requireScope("write:capacity"), async (req, res) => {
     try {
       await listingAnalytics.recordClick(pool, req.params.id, req.session.userId);
       res.locals.audit = {
@@ -491,7 +492,7 @@ export function createCapacityExchangeRouter(deps) {
 
   /* ── Admin/Cron: Confirmation reminders + escalation ── */
 
-  router.post("/capacity-exchange/admin/process-reminders", requireAuth, async (req, res) => {
+  router.post("/capacity-exchange/admin/process-reminders", requireAuth, requireScope("write:capacity"), async (req, res) => {
     try {
       const me = req.user;
       if (me?.role !== "admin") return res.status(403).json({ error: "ADMIN_ONLY" });

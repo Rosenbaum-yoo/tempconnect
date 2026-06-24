@@ -7,6 +7,7 @@ import { Router } from "express";
 import * as timesheetService from "../services/timesheetService.js";
 import { trackProductEventFromRequest } from "../services/productAnalyticsService.js";
 import { requirePermission } from "../middleware/rbac.js";
+import { requireScope } from "../middleware/apiKeyAuth.js";
 import { hasFeature } from "../config/planFeatures.js";
 
 /* ── Validierungsschemas ─────────────────────────────────────────────────────── */
@@ -99,7 +100,7 @@ export function createTimesheetsRouter(deps) {
   const base = [requireAuth, featureGate];
 
   /* GET /timesheets – Liste (mit Filtern) */
-  router.get("/timesheets", ...base, rperm("timesheet.view"), async (req, res, next) => {
+  router.get("/timesheets", ...base, requireScope("read:timesheets"), rperm("timesheet.view"), async (req, res, next) => {
     try {
       const items = await timesheetService.listTimesheets(pool, {
         org_id:          req.orgId || null,  // SEC-002: server-resolved only, ignore client input
@@ -116,7 +117,7 @@ export function createTimesheetsRouter(deps) {
   });
 
   /* POST /timesheets – Neuen Stundenzettel anlegen */
-  router.post("/timesheets", ...base, rperm("timesheet.create"), async (req, res, next) => {
+  router.post("/timesheets", ...base, requireScope("write:timesheets"), rperm("timesheet.create"), async (req, res, next) => {
     try {
       const parsed = createSchema.safeParse(req.body);
       if (!parsed.success) return res.status(400).json({ error: "VALIDATION", details: parsed.error.issues });
@@ -151,7 +152,7 @@ export function createTimesheetsRouter(deps) {
   });
 
   /* GET /timesheets/:id – Einzelner Stundenzettel mit Eintraegen */
-  router.get("/timesheets/:id", ...base, rperm("timesheet.view"), async (req, res, next) => {
+  router.get("/timesheets/:id", ...base, requireScope("read:timesheets"), rperm("timesheet.view"), async (req, res, next) => {
     try {
       const ts = await timesheetService.getTimesheetWithEntries(pool, req.params.id);
       if (!ts) return res.status(404).json({ error: "NOT_FOUND" });
@@ -161,7 +162,7 @@ export function createTimesheetsRouter(deps) {
   });
 
   /* PATCH /timesheets/:id – Stundenzettel bearbeiten (nur draft) */
-  router.patch("/timesheets/:id", ...base, rperm("timesheet.edit"), async (req, res, next) => {
+  router.patch("/timesheets/:id", ...base, requireScope("write:timesheets"), rperm("timesheet.edit"), async (req, res, next) => {
     try {
       const parsed = updateSchema.safeParse(req.body);
       if (!parsed.success) return res.status(400).json({ error: "VALIDATION", details: parsed.error.issues });
@@ -182,7 +183,7 @@ export function createTimesheetsRouter(deps) {
   });
 
   /* POST /timesheets/:id/entries – Tageseintrag hinzufuegen / ueberschreiben */
-  router.post("/timesheets/:id/entries", ...base, rperm("timesheet.edit"), async (req, res, next) => {
+  router.post("/timesheets/:id/entries", ...base, requireScope("write:timesheets"), rperm("timesheet.edit"), async (req, res, next) => {
     try {
       const parsed = entrySchema.safeParse(req.body);
       if (!parsed.success) return res.status(400).json({ error: "VALIDATION", details: parsed.error.issues });
@@ -199,7 +200,7 @@ export function createTimesheetsRouter(deps) {
   });
 
   /* PATCH /timesheets/:id/entries/:entryId – Tageseintrag aktualisieren */
-  router.patch("/timesheets/:id/entries/:entryId", ...base, rperm("timesheet.edit"), async (req, res, next) => {
+  router.patch("/timesheets/:id/entries/:entryId", ...base, requireScope("write:timesheets"), rperm("timesheet.edit"), async (req, res, next) => {
     try {
       const parsed = entrySchema.partial().safeParse(req.body);
       if (!parsed.success) return res.status(400).json({ error: "VALIDATION", details: parsed.error.issues });
@@ -216,7 +217,7 @@ export function createTimesheetsRouter(deps) {
   });
 
   /* DELETE /timesheets/:id/entries/:entryId – Tageseintrag loeschen */
-  router.delete("/timesheets/:id/entries/:entryId", ...base, rperm("timesheet.edit"), async (req, res, next) => {
+  router.delete("/timesheets/:id/entries/:entryId", ...base, requireScope("write:timesheets"), rperm("timesheet.edit"), async (req, res, next) => {
     try {
       const ts = await timesheetService.getTimesheet(pool, req.params.id);
       if (!ts) return res.status(404).json({ error: "NOT_FOUND" });
@@ -230,7 +231,7 @@ export function createTimesheetsRouter(deps) {
   });
 
   /* POST /timesheets/:id/submit – Einreichen */
-  router.post("/timesheets/:id/submit", ...base, rperm("timesheet.submit"), async (req, res, next) => {
+  router.post("/timesheets/:id/submit", ...base, requireScope("write:timesheets"), rperm("timesheet.submit"), async (req, res, next) => {
     try {
       const ts = await timesheetService.getTimesheet(pool, req.params.id);
       if (!ts) return res.status(404).json({ error: "NOT_FOUND" });
@@ -254,7 +255,7 @@ export function createTimesheetsRouter(deps) {
   });
 
   /* POST /timesheets/:id/approve – Freigeben (Company/Kunde) */
-  router.post("/timesheets/:id/approve", ...base, rperm("timesheet.approve"), async (req, res, next) => {
+  router.post("/timesheets/:id/approve", ...base, requireScope("write:timesheets"), rperm("timesheet.approve"), async (req, res, next) => {
     try {
       const ts = await timesheetService.getTimesheet(pool, req.params.id);
       if (!ts) return res.status(404).json({ error: "NOT_FOUND" });
@@ -281,7 +282,7 @@ export function createTimesheetsRouter(deps) {
   });
 
   /* POST /timesheets/:id/reject – Ablehnen */
-  router.post("/timesheets/:id/reject", ...base, rperm("timesheet.reject"), async (req, res, next) => {
+  router.post("/timesheets/:id/reject", ...base, requireScope("write:timesheets"), rperm("timesheet.reject"), async (req, res, next) => {
     try {
       const parsed = rejectSchema.safeParse(req.body);
       if (!parsed.success) return res.status(400).json({ error: "VALIDATION", details: parsed.error.issues });
@@ -304,7 +305,7 @@ export function createTimesheetsRouter(deps) {
   });
 
   /* POST /timesheets/:id/cancel – Stornieren */
-  router.post("/timesheets/:id/cancel", ...base, rperm("timesheet.submit"), async (req, res, next) => {
+  router.post("/timesheets/:id/cancel", ...base, requireScope("write:timesheets"), rperm("timesheet.submit"), async (req, res, next) => {
     try {
       const ts = await timesheetService.getTimesheet(pool, req.params.id);
       if (!ts) return res.status(404).json({ error: "NOT_FOUND" });
@@ -322,7 +323,7 @@ export function createTimesheetsRouter(deps) {
   });
 
   /* POST /timesheets/:id/return-to-draft – Zurueck zu Draft */
-  router.post("/timesheets/:id/return-to-draft", ...base, rperm("timesheet.edit"), async (req, res, next) => {
+  router.post("/timesheets/:id/return-to-draft", ...base, requireScope("write:timesheets"), rperm("timesheet.edit"), async (req, res, next) => {
     try {
       const ts = await timesheetService.getTimesheet(pool, req.params.id);
       if (!ts) return res.status(404).json({ error: "NOT_FOUND" });
@@ -336,7 +337,7 @@ export function createTimesheetsRouter(deps) {
   });
 
   /* POST /timesheets/prefill – Vorbelegten Stundenzettel aus Assignment erstellen */
-  router.post("/timesheets/prefill", ...base, rperm("timesheet.create"), async (req, res, next) => {
+  router.post("/timesheets/prefill", ...base, requireScope("write:timesheets"), rperm("timesheet.create"), async (req, res, next) => {
     try {
       const parsed = prefillSchema.safeParse(req.body);
       if (!parsed.success) return res.status(400).json({ error: "VALIDATION", details: parsed.error.issues });
@@ -364,7 +365,7 @@ export function createTimesheetsRouter(deps) {
   });
 
   /* POST /timesheets/:id/sign – Digitale Unterschrift (Worker) */
-  router.post("/timesheets/:id/sign", ...base, rperm("timesheet.submit"), async (req, res, next) => {
+  router.post("/timesheets/:id/sign", ...base, requireScope("write:timesheets"), rperm("timesheet.submit"), async (req, res, next) => {
     try {
       const ts = await timesheetService.getTimesheet(pool, req.params.id);
       if (!ts) return res.status(404).json({ error: "NOT_FOUND" });
@@ -380,7 +381,7 @@ export function createTimesheetsRouter(deps) {
   });
 
   /* POST /timesheets/batch-approve – Mehrere Timesheets genehmigen */
-  router.post("/timesheets/batch-approve", ...base, rperm("timesheet.approve"), async (req, res, next) => {
+  router.post("/timesheets/batch-approve", ...base, requireScope("write:timesheets"), rperm("timesheet.approve"), async (req, res, next) => {
     try {
       const parsed = batchIdsSchema.safeParse(req.body);
       if (!parsed.success) return res.status(400).json({ error: "VALIDATION", details: parsed.error.issues });
@@ -392,7 +393,7 @@ export function createTimesheetsRouter(deps) {
   });
 
   /* POST /timesheets/batch-reject – Mehrere Timesheets ablehnen */
-  router.post("/timesheets/batch-reject", ...base, rperm("timesheet.reject"), async (req, res, next) => {
+  router.post("/timesheets/batch-reject", ...base, requireScope("write:timesheets"), rperm("timesheet.reject"), async (req, res, next) => {
     try {
       const parsed = batchRejectSchema.safeParse(req.body);
       if (!parsed.success) return res.status(400).json({ error: "VALIDATION", details: parsed.error.issues });
@@ -409,7 +410,7 @@ export function createTimesheetsRouter(deps) {
   });
 
   /* GET /timesheets/worker-summary – KPIs fuer Worker-Dashboard */
-  router.get("/timesheets/worker-summary", ...base, rperm("timesheet.view"), async (req, res, next) => {
+  router.get("/timesheets/worker-summary", ...base, requireScope("read:timesheets"), rperm("timesheet.view"), async (req, res, next) => {
     try {
       const result = await timesheetService.getWorkerTimesheetSummary(pool, {
         workerName:    req.query.worker_name     || null,
@@ -422,7 +423,7 @@ export function createTimesheetsRouter(deps) {
   });
 
   /* GET /timesheets/export/csv – CSV-Export aller Timesheets (org-scoped) */
-  router.get("/timesheets/export/csv", ...base, rperm("timesheet.view"), async (req, res, next) => {
+  router.get("/timesheets/export/csv", ...base, requireScope("read:timesheets"), rperm("timesheet.view"), async (req, res, next) => {
     try {
       const { exportTimesheetsCsv } = await import("../services/exportService.js");
       const items = await timesheetService.listTimesheets(pool, {
@@ -442,7 +443,7 @@ export function createTimesheetsRouter(deps) {
   });
 
   /* GET /assignments/:id/timesheets – Alle Timesheets eines Assignments */
-  router.get("/assignments/:id/timesheets", ...base, rperm("timesheet.view"), async (req, res, next) => {
+  router.get("/assignments/:id/timesheets", ...base, requireScope("read:timesheets"), rperm("timesheet.view"), async (req, res, next) => {
     try {
       const items = await timesheetService.listTimesheetsForAssignment(pool, req.params.id, {
         status: req.query.status || null
