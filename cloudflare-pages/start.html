@@ -1,0 +1,169 @@
+<!doctype html>
+<html lang="de" data-theme="editorial">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>TempConnect — Was ist das? · Jetzt scannen &amp; für den Pilot voranmelden</title>
+<meta name="description" content="In 30 Sekunden erklärt: Was TempConnect für Einsatzunternehmen und Personaldienstleister leistet — Notdienst-Personal in Stunden statt Tagen. QR scannen und für den Hamburg-Pilot voranmelden.">
+<meta name="robots" content="index,follow">
+<meta property="og:title" content="TempConnect — Was ist das?">
+<meta property="og:description" content="Wiederkehrende Zeitarbeits-Bedarfe zentral steuern. Notdienst-Personal in Stunden statt Tagen. QR scannen → Pilot-Voranmeldung.">
+<meta name="theme-color" content="#1f3a2e">
+<style>
+  :root{ --forest:#1f3a2e; --cream:#ebe4d3; --wine:#7a2e2e; --gold:#b8935a;
+    --paper:#f4efe4; --raised:#fffdf6; --line:#d4cab3; --ink:#14201a; --inv:#faf7ee; }
+  *{box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  body{margin:0;background:var(--paper);color:var(--ink);line-height:1.6;
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;-webkit-font-smoothing:antialiased}
+  h1,h2,h3,.serif{font-family:Georgia,"Times New Roman",serif;letter-spacing:-.01em}
+  .wrap{max-width:920px;margin:0 auto;padding:0 24px}
+  a{color:var(--wine)}
+  .eyebrow{font-size:12px;letter-spacing:.16em;text-transform:uppercase;color:var(--gold);font-weight:700}
+  .btn{display:inline-block;border:none;border-radius:8px;padding:14px 26px;font-size:15px;font-weight:700;
+    cursor:pointer;text-decoration:none;transition:transform .12s,box-shadow .2s}
+  .btn--primary{background:var(--forest);color:var(--inv)}
+  .btn--primary:hover{transform:translateY(-1px);box-shadow:0 8px 22px rgba(31,58,46,.25)}
+
+  header.top{border-bottom:1px solid var(--line);background:var(--raised)}
+  .top__row{display:flex;justify-content:space-between;align-items:center;padding:16px 0}
+  .brand{font-family:Georgia,serif;font-weight:700;font-size:20px;color:var(--forest)}
+  .brand b{color:var(--wine)}
+  .top__claim{font-size:13px;color:#5b5347}
+
+  .hero{padding:56px 0 36px;text-align:center}
+  .hero h1{font-size:clamp(28px,5vw,46px);line-height:1.1;margin:12px 0 16px}
+  .hero p.lead{font-size:clamp(16px,2.2vw,19px);color:#3f3a30;max-width:60ch;margin:0 auto}
+
+  /* USP — Notdienst (Wedge), identisch zum One-Pager */
+  .usp{display:flex;align-items:center;gap:16px;max-width:720px;margin:24px auto 0;padding:18px 20px;text-align:left;
+    border-radius:14px;border:1px solid var(--wine);background:linear-gradient(135deg,rgba(122,46,46,.10),transparent 80%);
+    box-shadow:0 6px 20px rgba(122,46,46,.10)}
+  .usp__icon{flex:0 0 auto;width:48px;height:48px;display:grid;place-items:center;border-radius:50%;
+    background:rgba(122,46,46,.10);border:1px solid var(--wine);color:var(--wine)}
+  .usp__icon svg{width:24px;height:24px;display:block}
+  .usp__label{font-size:11px;font-weight:800;letter-spacing:.12em;text-transform:uppercase;color:var(--wine)}
+  .usp__title{font-family:Georgia,serif;font-size:18px;font-weight:700;color:var(--forest);margin:2px 0 3px}
+  .usp__text{font-size:14px;color:#4a4438;margin:0}
+
+  section.band{padding:48px 0;border-top:1px solid var(--line)}
+  h2.sec{font-size:clamp(22px,3.5vw,30px);margin:8px 0 24px}
+  .cols{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:18px}
+  .card{background:var(--cream);border:1px solid var(--line);border-radius:12px;padding:20px;
+    box-shadow:0 1px 2px rgba(40,33,20,.05),0 4px 14px rgba(40,33,20,.06)}
+  .card h3{font-size:17px;margin:0 0 8px;color:var(--forest)}
+  .card p{font-size:14px;color:#4a4438;margin:0}
+  .card .who{display:block;font-size:11px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:var(--gold);margin-bottom:6px}
+
+  /* QR-Block */
+  .qrband{background:var(--forest);color:var(--inv);border:none}
+  .qrwrap{display:flex;gap:32px;align-items:center;flex-wrap:wrap;justify-content:center}
+  .qrcard{background:var(--raised);border-radius:18px;padding:22px;box-shadow:0 12px 40px rgba(0,0,0,.25);text-align:center}
+  .qrcard img{display:block;width:280px;height:280px;border-radius:10px;background:#fff}
+  .qrcard .cap{margin-top:12px;font-size:13px;color:#5b5347;font-weight:700}
+  .qrtext{max-width:30ch}
+  .qrtext .eyebrow{color:var(--gold)}
+  .qrtext h2{color:var(--inv);font-size:clamp(22px,3.2vw,30px);margin:8px 0 12px}
+  .qrtext p{color:rgba(250,247,238,.85);font-size:15px;margin:0 0 18px}
+  .qrtext .fallback{font-size:12px;color:rgba(250,247,238,.6);margin-top:14px;word-break:break-all}
+  .qrtext .fallback a{color:var(--gold)}
+
+  footer.foot{border-top:1px solid var(--line);background:var(--raised);padding:24px 0}
+  .foot__row{display:flex;justify-content:space-between;gap:16px;flex-wrap:wrap;font-size:13px;color:#5b5347}
+  .foot a{margin-left:16px}
+</style>
+</head>
+<body>
+<header class="top">
+  <div class="wrap top__row">
+    <div class="brand">Temp<b>Connect</b></div>
+    <div class="top__claim">Wo Bedarf auf Kapazität trifft.</div>
+  </div>
+</header>
+
+<main>
+  <section class="hero">
+    <div class="wrap">
+      <div class="eyebrow">In 30 Sekunden erklärt</div>
+      <h1>Zeitarbeit, die endlich zusammenpasst.</h1>
+      <p class="lead">TempConnect bringt <b>Einsatzunternehmen</b> und <b>Personaldienstleister</b> auf einem
+        Marktplatz zusammen — vom Bedarf über den Deal bis zum digitalen Stundenzettel. Ohne Telefonketten,
+        Excel und PDF-Chaos.</p>
+      <div class="usp">
+        <span class="usp__icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M13 2 4 14h6l-1 8 9-12h-6l1-8z"/></svg></span>
+        <div>
+          <div class="usp__label">Unser USP — Notdienst &amp; Notfall-Personal</div>
+          <div class="usp__title">Notfall-Personal in Stunden statt Tagen.</div>
+          <div class="usp__text">Dringende Notdienst-Bedarfe werden in Echtzeit priorisiert in den Markt geschaltet — schnell zum belastbaren Deal.</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="band">
+    <div class="wrap">
+      <div class="eyebrow">Was kann man bei TempConnect tun?</div>
+      <h2 class="sec">Zwei Seiten, ein Flow.</h2>
+      <div class="cols">
+        <div class="card">
+          <span class="who">Einsatzunternehmen</span>
+          <h3>Personal anfragen &amp; steuern</h3>
+          <p>Wiederkehrende Bedarfe einstellen, passende Dienstleister sehen, Konditionen verbindlich abschließen — inkl. Notdienst-Priorität.</p>
+        </div>
+        <div class="card">
+          <span class="who">Personaldienstleister</span>
+          <h3>Kapazität zeigen &amp; gewinnen</h3>
+          <p>Freie Mitarbeiter dort sichtbar machen, wo gerade gesucht wird — Anfragen kommen automatisch, statt herumzutelefonieren.</p>
+        </div>
+        <div class="card">
+          <span class="who">Beide Seiten</span>
+          <h3>Deal → Einsatz → Stundenzettel</h3>
+          <p>Revisionssicherer Abschluss, Einsatzverwaltung und digitale Stundenzettel — lückenlos, prüfbar, ohne Medienbruch.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="band qrband">
+    <div class="wrap qrwrap">
+      <div class="qrcard">
+        <img id="qr" alt="QR-Code zur Pilot-Voranmeldung" width="280" height="280">
+        <div class="cap">Scannen &amp; voranmelden</div>
+      </div>
+      <div class="qrtext">
+        <div class="eyebrow">Hamburg-Pilot · limitiert</div>
+        <h2>Jetzt scannen und Pilotplatz sichern.</h2>
+        <p>30 Plätze je Seite, Start 2026. Handy-Kamera auf den QR-Code halten — die Voranmeldung öffnet sich automatisch.</p>
+        <a id="qrlink" class="btn btn--primary" href="#">Oder hier direkt voranmelden</a>
+        <div class="fallback">Link: <a id="qrurl" href="#"></a></div>
+      </div>
+    </div>
+  </section>
+</main>
+
+<footer class="foot">
+  <div class="wrap foot__row">
+    <div>© 2026 TempConnect · Pilot Hamburg</div>
+    <div><a href="impressum.html">Impressum</a><a href="datenschutz.html">Datenschutz</a></div>
+  </div>
+</footer>
+
+<script>
+(function(){
+  "use strict";
+  // ─────────────────────────────────────────────────────────────────────────
+  //  HIER die URL des One-Pagers eintragen (die Voranmelde-Seite, index.html).
+  //  Nach dem Cloudflare-Pages-Deploy z. B. "https://tempconnect.pages.dev/" oder
+  //  die eigene Domain. Der QR-Code wird automatisch daraus erzeugt.
+  var ONE_PAGER_URL = "https://tempconnect.pages.dev/";
+  // ─────────────────────────────────────────────────────────────────────────
+  var qr = document.getElementById("qr");
+  // QR-Bild aus der URL erzeugen (goqr.me, kein Server/Build nötig). Zum Drucken: Bild speichern.
+  qr.src = "https://api.qrserver.com/v1/create-qr-code/?size=320x320&margin=12&data=" + encodeURIComponent(ONE_PAGER_URL);
+  var link = document.getElementById("qrlink"); if (link) link.href = ONE_PAGER_URL;
+  var url = document.getElementById("qrurl");
+  if (url) { url.href = ONE_PAGER_URL; url.textContent = ONE_PAGER_URL.replace(/^https?:\/\//, ""); }
+})();
+</script>
+</body>
+</html>

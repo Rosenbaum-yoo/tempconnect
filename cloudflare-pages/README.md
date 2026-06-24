@@ -51,3 +51,20 @@ Sobald TempConnect auf Hetzner läuft, wird der **eigentliche** One-Pager
 (`frontend/public/onepager.html`, mit Live-Zähler + Double-Opt-in + Staff-Kuratierung)
 über die Domain hinter Cloudflare ausgeliefert. Diese Pages-Version ist die **Brücke**,
 um schon vorher Voranmeldungen zu sammeln (readiness-driven).
+
+---
+
+## `start.html` — Erklär-Seite mit QR-Code (zum Verteilen)
+`start.html` erklärt in 30 Sekunden, **was man bei TempConnect tun kann** (beide Seiten + Notdienst-USP)
+und zeigt einen **QR-Code, der direkt auf den One-Pager (`index.html` = Voranmeldung) weiterleitet** —
+ideal für Flyer, Plakat, Visitenkarte oder einen Bildschirm: Handy-Kamera drauf → Voranmeldung öffnet sich.
+
+**Konfiguration (1 Zeile):** In `start.html` ganz unten im `<script>` die Variable setzen:
+```js
+var ONE_PAGER_URL = "https://<dein-projekt>.pages.dev/";   // bzw. eigene Domain
+```
+Der QR-Code wird daraus automatisch erzeugt (Bild via goqr.me — zum **Drucken einfach das QR-Bild speichern**;
+einmal scannen zum Testen). Aufruf nach Deploy: `https://<projekt>.pages.dev/start.html`.
+
+> Design: beide Seiten teilen denselben editorial-Look wie `landing.html` (Forest/Cream/Wine/Gold),
+> inkl. des **Notdienst-USP-Blocks** als zentralem Verkaufsargument.

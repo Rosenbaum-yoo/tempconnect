@@ -94,6 +94,18 @@
   footer.foot{border-top:1px solid var(--line);background:var(--raised);padding:28px 0;margin-top:8px}
   .foot__row{display:flex;justify-content:space-between;gap:16px;flex-wrap:wrap;font-size:13px;color:#5b5347}
   .foot a{margin-left:16px}
+
+  /* USP — Notdienst & Notfall-Personal (Signatur von landing.html, der strategische Wedge) */
+  .usp{display:flex;align-items:center;gap:16px;max-width:760px;margin:24px 0 6px;padding:18px 20px;
+    text-align:left;border-radius:14px;border:1px solid var(--wine);
+    background:linear-gradient(135deg,rgba(122,46,46,.10),transparent 80%);box-shadow:0 6px 20px rgba(122,46,46,.10)}
+  .usp__icon{flex:0 0 auto;width:48px;height:48px;display:grid;place-items:center;border-radius:50%;
+    background:rgba(122,46,46,.10);border:1px solid var(--wine);color:var(--wine)}
+  .usp__icon svg{width:24px;height:24px;display:block}
+  .usp__label{font-size:11px;font-weight:800;letter-spacing:.12em;text-transform:uppercase;color:var(--wine)}
+  .usp__title{font-family:Georgia,serif;font-size:18px;font-weight:700;color:var(--forest);margin:2px 0 3px}
+  .usp__text{font-size:14px;color:#4a4438;margin:0}
+  @media(max-width:560px){.usp{flex-direction:column;align-items:flex-start}}
 </style>
 </head>
 <body>
@@ -112,6 +124,14 @@
       <p class="lead">Vom Bedarf über Lieferanten und Deal bis zu Einsatz und digitalen Stundenzetteln — für
         Einsatzunternehmen mit echtem Besetzungs-, Freigabe- und Kostendruck. Und für Personaldienstleister,
         die ihre Kapazität dort zeigen, wo gerade gesucht wird.</p>
+      <div class="usp">
+        <span class="usp__icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M13 2 4 14h6l-1 8 9-12h-6l1-8z"/></svg></span>
+        <div>
+          <div class="usp__label">Unser USP — Notdienst &amp; Notfall-Personal</div>
+          <div class="usp__title">Notfall-Personal in Stunden statt Tagen.</div>
+          <div class="usp__text">TempConnect priorisiert <b>dringende Notdienst-Bedarfe in Echtzeit</b> im Markt — gegenseitenorientiert und ohne Medienbruch zum belastbaren Deal.</div>
+        </div>
+      </div>
       <div class="hero__cta">
         <a href="#bewerben" class="btn btn--primary">Pilotplatz anfragen</a>
       </div>
