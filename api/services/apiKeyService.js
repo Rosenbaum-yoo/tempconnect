@@ -33,7 +33,8 @@ export const VALID_SCOPES = [
   "write:assignments",
   "read:audit",
   "read:capacity",
-  "write:capacity"
+  "write:capacity",
+  "admin:scim"   // SCIM 2.0 Nutzer-Provisioning (HR → Org-Mitgliedschaft), nur bei SCIM_ENABLED
 ];
 
 /**

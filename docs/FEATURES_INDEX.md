@@ -99,7 +99,8 @@ Stand: 2026-06-24 · Plan-Stufen: `DEMO · BASIS · PLUS · PRO · INDIVIDUELL` 
 | 🚧 | DATEV Fibu-Buchungsstapel (EXTF 700) live — `GET /invoices/export/datev`, Konten/SKR aus DATEV-ERP-Mapping (SKR03-Defaults) | `services/datevExportService.js` |
 | 🚧 | DATEV-Lohn-Bewegungsdaten live — `GET /timesheets/export/datev-lohn` (freigegebene Stunden je Mitarbeiter/Monat, Lohnarten aus Mapping); LODAS/Lohn+Gehalt-mappbar | `services/datevExportService.js` |
 | 🚧 | OIDC M2M-Auth (`client_credentials`) — `POST /oauth/token` gibt kurzlebiges JWT für API-Keys aus (feature-flagged AUS, `OAUTH_M2M_ENABLED`); HS256, scoped, in apiKeyAuth akzeptiert | `services/m2mTokenService.js`, `routes/oauth.js` |
-| 📋 | SCIM 2.0 (`/scim/v2/Users`, Provisioning aus HR) · SAP SuccessFactors-Feldmapping · zvoove · generisches DATEV-CSV | geplant (Welle B2/C3) |
+| 🚧 | SCIM 2.0 (`/scim/v2/Users` + ServiceProviderConfig) — Nutzer-Provisioning aus HR/IdP in die eigene Org (find-or-create + Mitgliedschaft, deaktivieren), flagged AUS (`SCIM_ENABLED`), Scope `admin:scim` | `services/scimService.js`, `routes/scim.js` |
+| 📋 | SAP SuccessFactors-Feldmapping · zvoove · generisches DATEV-CSV | geplant (C3) |
 
 ## 9 · Engagement & Growth
 

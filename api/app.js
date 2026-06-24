@@ -103,6 +103,7 @@ import { createProfileRankingsRouter } from "./routes/profileRankings.js";
 import { createProfileBountiesRouter } from "./routes/profileBounties.js";
 import { apiKeyAuthMiddleware } from "./middleware/apiKeyAuth.js";
 import { createOAuthRouter } from "./routes/oauth.js";
+import { createScimRouter } from "./routes/scim.js";
 import { correlationMiddleware } from "./utils/logger.js";
 import { metricsMiddleware, metricsEndpoint, registerDbPoolMetrics, wrapPoolWithMetrics } from "./utils/metrics.js";
 import { orgContextMiddleware } from "./middleware/orgContext.js";
@@ -333,6 +334,7 @@ export async function createApp() {
 
   v1.use(createCsrfRouter(deps));
   v1.use(createOAuthRouter(deps));
+  v1.use(createScimRouter(deps));
   v1.use(createHealthRouter(deps));
   v1.use(createAuthRouter(deps));
   v1.use(createMeRouter(deps));
