@@ -15,6 +15,8 @@ import { renderInvoiceHtml, renderInvoiceText, renderInvoicePdf } from "../servi
 import { requirePermission } from "../middleware/rbac.js";
 import { requireScope } from "../middleware/apiKeyAuth.js";
 import * as integrationService from "../services/integrationService.js";
+import * as erpMappingService from "../services/erpMappingService.js";
+import { buildFibuBuchungsstapel } from "../services/datevExportService.js";
 
 export function createInvoicesRouter(deps) {
   const { pool, requireAuth, logger, requestLimiter } = deps;
@@ -61,6 +63,42 @@ export function createInvoicesRouter(deps) {
       integrationService.dispatchToIntegrations(pool, "invoice.exported", {
         orgId, entityType: "invoice_export", entityId: null,
         message: `${invoices.length} Rechnung(en) als CSV exportiert`, count: invoices.length
+      }).catch(() => {});
+    } catch (err) {
+      next(err);
+    }
+  });
+
+  /* GET /invoices/export/datev — DATEV-Fibu-Buchungsstapel (EXTF 700) für Steuerberater/Buchhaltung.
+     Konten/SKR/Berater-Mandant aus dem DATEV-ERP-Mapping der Org (sync_config), sonst SKR03-Defaults.
+     Ausgabe ISO-8859-1 (DATEV-Erwartung) ohne neue Dependency via Buffer latin1. */
+  router.get("/invoices/export/datev", requireAuth, requireScope("read:invoices"), exportLimiter, rperm("org.billing"), async (req, res, next) => {
+    try {
+      const orgId = req.orgId || null;
+      const userId = !orgId ? req.session.userId : null;
+      const status = req.query.status || "paid"; // Default: nur bezahlte Rechnungen verbuchen
+      const limit = parseInt(req.query.limit, 10) || 500;
+
+      const invoices = await invoiceService.listInvoices(pool, { orgId, userId, status, limit });
+
+      // DATEV-Parameter (Berater/Mandant/SKR/Konten) aus dem ERP-Mapping der Org.
+      let cfg = {};
+      if (orgId) {
+        try {
+          const mappings = await erpMappingService.listMappings(pool, orgId);
+          const datev = mappings.find((m) => m.system_type === "datev" && m.status !== "disabled");
+          if (datev && datev.sync_config && typeof datev.sync_config === "object") cfg = datev.sync_config;
+        } catch { /* Defaults greifen */ }
+      }
+
+      const csv = buildFibuBuchungsstapel(invoices, cfg);
+      const filename = `datev-buchungsstapel-${new Date().toISOString().split("T")[0]}.csv`;
+      res.setHeader("Content-Type", "text/csv; charset=ISO-8859-1");
+      res.setHeader("Content-Disposition", `attachment; filename="${filename}"`);
+      res.send(Buffer.from(csv, "latin1")); // DATEV erwartet ISO-8859-1/CP1252
+      integrationService.dispatchToIntegrations(pool, "invoice.exported", {
+        orgId, entityType: "datev_buchungsstapel", entityId: null,
+        message: `${invoices.length} Rechnung(en) als DATEV-Buchungsstapel exportiert`, count: invoices.length
       }).catch(() => {});
     } catch (err) {
       next(err);

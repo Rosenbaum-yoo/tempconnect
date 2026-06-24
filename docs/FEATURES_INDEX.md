@@ -96,7 +96,8 @@ Stand: 2026-06-24 · Plan-Stufen: `DEMO · BASIS · PLUS · PRO · INDIVIDUELL` 
 | ✅ | `org_erp_mappings` — Konnektor-Registry (Org ↔ SAP/DATEV/zvoove/Personio-Mandant) + CRUD `/api/org/erp-mappings` | `services/erpMappingService.js`, `routes/integrations.js`, Mig 143 |
 | 🚧 | HR-Outbound-Events: `invoice.exported` + `timesheet.exported` live (Webhook an SAP/DATEV); `worker.*` + Kostenstellen-Kontext geplant | `integrationService.SUPPORTED_EVENTS`, `routes/{invoices,timesheets}.js` |
 | 📋 | SCIM 2.0 (`/scim/v2/Users`) + OIDC `client_credentials` (`/oauth/token`) | geplant (Welle B) |
-| 📋 | DATEV-CSV (Lohn+Fibu) · SAP SuccessFactors-Feldmapping · zvoove | geplant (Welle C) |
+| 🚧 | DATEV Fibu-Buchungsstapel (EXTF 700) live — `GET /invoices/export/datev`, Konten/SKR aus DATEV-ERP-Mapping (SKR03-Defaults) | `services/datevExportService.js` |
+| 📋 | DATEV-Lohn (LODAS) · generisches DATEV-CSV (Fallback) · SAP SuccessFactors-Feldmapping · zvoove | geplant (Welle C2/C3) |
 
 ## 9 · Engagement & Growth
 
