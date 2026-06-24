@@ -6,6 +6,8 @@ import { z } from "zod";
 import { Router } from "express";
 import * as timesheetService from "../services/timesheetService.js";
 import * as integrationService from "../services/integrationService.js";
+import * as erpMappingService from "../services/erpMappingService.js";
+import { buildLohnBewegungsdaten } from "../services/datevExportService.js";
 import { trackProductEventFromRequest } from "../services/productAnalyticsService.js";
 import { requirePermission } from "../middleware/rbac.js";
 import { requireScope } from "../middleware/apiKeyAuth.js";
@@ -445,6 +447,41 @@ export function createTimesheetsRouter(deps) {
       integrationService.dispatchToIntegrations(pool, "timesheet.exported", {
         orgId: req.orgId || null, entityType: "timesheet_export", entityId: null,
         message: `${items.length} Stundenzettel als CSV exportiert`, count: items.length
+      }).catch(() => {});
+    } catch (err) { next(err); }
+  });
+
+  /* GET /timesheets/export/datev-lohn – DATEV-Lohn-Bewegungsdaten (Stunden je Mitarbeiter/Monat).
+     Nur FREIGEGEBENE Stundenzettel (status=approved); Lohnarten/Berater-Mandant aus dem DATEV-ERP-
+     Mapping (sync_config.lohn), sonst Defaults. Ausgabe ISO-8859-1, mappbar in LODAS/Lohn+Gehalt. */
+  router.get("/timesheets/export/datev-lohn", ...base, requireScope("read:timesheets"), rperm("timesheet.view"), async (req, res, next) => {
+    try {
+      const orgId = req.orgId || null;
+      const items = await timesheetService.listTimesheets(pool, {
+        org_id:          orgId,
+        supplier_org_id: req.query.supplier_org_id || null,
+        status:          req.query.status || "approved", // Default: nur freigegebene Stunden in die Lohnabrechnung
+        week_start_from: req.query.week_start_from || null,
+        week_start_to:   req.query.week_start_to   || null,
+        limit:           1000
+      });
+      let cfg = {};
+      if (orgId) {
+        try {
+          const mappings = await erpMappingService.listMappings(pool, orgId);
+          const datev = mappings.find((m) => m.system_type === "datev" && m.status !== "disabled");
+          if (datev && datev.sync_config && typeof datev.sync_config === "object" && datev.sync_config.lohn) cfg = datev.sync_config.lohn;
+        } catch { /* Defaults greifen */ }
+      }
+      const { csv, rows, skipped } = buildLohnBewegungsdaten(items, cfg);
+      const filename = `datev-lohn-bewegungsdaten-${new Date().toISOString().split("T")[0]}.csv`;
+      res.setHeader("Content-Type", "text/csv; charset=ISO-8859-1");
+      res.setHeader("Content-Disposition", `attachment; filename="${filename}"`);
+      if (skipped > 0) res.setHeader("X-Datev-Skipped", String(skipped)); // Zettel ohne Personalnummer/Periode
+      res.send(Buffer.from(csv, "latin1")); // DATEV erwartet ISO-8859-1/CP1252
+      integrationService.dispatchToIntegrations(pool, "timesheet.exported", {
+        orgId, entityType: "datev_lohn_bewegungsdaten", entityId: null,
+        message: `${rows} DATEV-Lohn-Bewegungszeile(n) exportiert`, count: rows
       }).catch(() => {});
     } catch (err) { next(err); }
   });

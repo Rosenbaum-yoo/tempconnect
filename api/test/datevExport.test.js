@@ -6,7 +6,8 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 import {
-  buildFibuBuchungsstapel, centsToDatev, toBelegdatum, DATEV_DEFAULTS
+  buildFibuBuchungsstapel, centsToDatev, toBelegdatum, DATEV_DEFAULTS,
+  buildLohnBewegungsdaten, monthKey, hoursToDatev, DATEV_LOHN_DEFAULTS
 } from "../services/datevExportService.js";
 import { createInvoicesRouter } from "../routes/invoices.js";
 
@@ -117,5 +118,74 @@ describe("GET /invoices/export/datev — Route-Smoke", () => {
     assert.match(text, /^"EXTF";700;21/);
     assert.ok(text.includes(";999;"), "Berater aus sync_config");
     assert.match(headers["Content-Type"], /ISO-8859-1/);
+  });
+});
+
+/* ── C2: DATEV-Lohn-Bewegungsdaten ─────────────────────────────── */
+const ts = (over = {}) => ({
+  worker_identifier: "P-001", worker_name: "Max Mustermann",
+  total_hours: 40, overtime_hours: 5, week_start: "2026-03-09", status: "approved", ...over
+});
+
+describe("datevExportService — Lohn-Helfer", () => {
+  it("monthKey: yyyyMM", () => {
+    assert.equal(monthKey("2026-03-09"), "202603");
+    assert.equal(monthKey("invalid"), "");
+  });
+  it("hoursToDatev: Komma-Dezimal", () => {
+    assert.equal(hoursToDatev(40), "40,00");
+    assert.equal(hoursToDatev(7.5), "7,50");
+    assert.equal(hoursToDatev(0), "0,00");
+  });
+});
+
+describe("buildLohnBewegungsdaten — Bewegungsdaten", () => {
+  it("Regulär + Überstunden je eigene Lohnart-Zeile", () => {
+    const { csv, rows } = buildLohnBewegungsdaten([ts()]);
+    const lines = csv.split("\r\n").filter(Boolean);
+    assert.equal(rows, 2);                       // regulär + überstunden
+    assert.equal(lines.length, 1 + 2);           // header + 2 zeilen
+    const reg = lines[1].split(";"), ot = lines[2].split(";");
+    assert.equal(reg[0], '"P-001"');             // Personalnummer
+    assert.equal(reg[2], "202603");              // Abrechnungsmonat
+    assert.equal(reg[3], '"1"');                 // Lohnart regulär (default)
+    assert.equal(reg[4], "35,00");               // 40 - 5 Überstunden
+    assert.equal(ot[3], '"2"');                  // Lohnart Überstunden
+    assert.equal(ot[4], "5,00");
+  });
+
+  it("aggregiert mehrere Wochen je (Personalnummer × Monat)", () => {
+    const { csv, rows } = buildLohnBewegungsdaten([
+      ts({ week_start: "2026-03-02", total_hours: 40, overtime_hours: 0 }),
+      ts({ week_start: "2026-03-09", total_hours: 38, overtime_hours: 0 })
+    ]);
+    assert.equal(rows, 1);                        // ein Monat, keine Überstunden → 1 Zeile
+    assert.equal(csv.split("\r\n")[1].split(";")[4], "78,00"); // 40 + 38
+  });
+
+  it("ohne overtime → nur 1 Zeile (keine leere Überstunden-Lohnart)", () => {
+    const { rows } = buildLohnBewegungsdaten([ts({ overtime_hours: 0 })]);
+    assert.equal(rows, 1);
+  });
+
+  it("Stundenzettel ohne Personalnummer/Periode werden übersprungen + gemeldet", () => {
+    const { rows, skipped } = buildLohnBewegungsdaten([
+      ts(), ts({ worker_identifier: "" }), ts({ week_start: "invalid" })
+    ]);
+    assert.equal(skipped, 2);
+    assert.equal(rows, 2); // nur der valide → regulär+overtime
+  });
+
+  it("Config-Override: eigene Lohnarten + Berater/Mandant aus sync_config.lohn", () => {
+    const { csv } = buildLohnBewegungsdaten([ts()], { lohnart_regular: "100", lohnart_overtime: "110", berater_nr: "7", mandant_nr: "9" });
+    const reg = csv.split("\r\n")[1].split(";");
+    assert.equal(reg[3], '"100"');
+    assert.equal(reg[5], "7");   // Berater
+    assert.equal(reg[6], "9");   // Mandant
+  });
+
+  it("Defaults exportiert (Sanity)", () => {
+    assert.equal(DATEV_LOHN_DEFAULTS.lohnart_regular, "1");
+    assert.equal(DATEV_LOHN_DEFAULTS.lohnart_overtime, "2");
   });
 });

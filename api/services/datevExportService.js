@@ -136,3 +136,68 @@ export function buildFibuBuchungsstapel(invoices, cfg = {}, opts = {}) {
 
   return [header, columns, ...rows].join("\r\n") + "\r\n";
 }
+
+/* ─────────────────────────────────────────────────────────────────────────────
+ * C2: DATEV-Lohn — Bewegungsdaten (Stunden je Mitarbeiter je Abrechnungsmonat).
+ * Aus freigegebenen Stundenzetteln; mappbar in DATEV LODAS / Lohn und Gehalt (Import
+ * "Bewegungsdaten"). Lohnarten + Berater/Mandant sind mandantenspezifisch → aus dem
+ * DATEV-ERP-Mapping (sync_config.lohn) bzw. konservative Defaults. Pure/testbar.
+ * ─────────────────────────────────────────────────────────────────────────── */
+
+export const DATEV_LOHN_DEFAULTS = {
+  berater_nr: "0",
+  mandant_nr: "0",
+  lohnart_regular: "1",    // Lohnart reguläre Stunden (MANDANTENSPEZIFISCH — mit Lohnbüro abstimmen)
+  lohnart_overtime: "2"    // Lohnart Überstunden
+};
+
+/** Date → "yyyyMM" (Abrechnungsmonat). */
+export function monthKey(d) {
+  const dt = d instanceof Date ? d : new Date(d);
+  if (Number.isNaN(dt.getTime())) return "";
+  return dt.getUTCFullYear() + String(dt.getUTCMonth() + 1).padStart(2, "0");
+}
+
+/** Stunden → DATEV-Dezimal "12,50" (Komma, 2 Nachkommastellen). */
+export function hoursToDatev(h) {
+  return (Math.round((Number(h) || 0) * 100) / 100).toFixed(2).replace(".", ",");
+}
+
+/**
+ * Baut DATEV-Lohn-Bewegungsdaten (CSV) aus (freigegebenen) Stundenzetteln.
+ * Aggregiert je (Personalnummer × Abrechnungsmonat) und splittet Regulär/Überstunden auf
+ * je eine Lohnart-Zeile. Stundenzettel ohne `worker_identifier` (Personalnummer) oder ohne
+ * Periode werden übersprungen (nicht lohn-verbuchbar) und in `skipped` gemeldet.
+ *
+ * @param {object[]} timesheets  Rows (worker_identifier, worker_name, total_hours, overtime_hours, week_start, status)
+ * @param {object} [cfg]         sync_config.lohn der Org (überschreibt DATEV_LOHN_DEFAULTS)
+ * @returns {{ csv: string, rows: number, skipped: number }}
+ */
+export function buildLohnBewegungsdaten(timesheets, cfg = {}) {
+  const c = { ...DATEV_LOHN_DEFAULTS, ...cfg };
+  const list = Array.isArray(timesheets) ? timesheets : [];
+  const agg = new Map();
+  let skipped = 0;
+  for (const ts of list) {
+    const pnr = (ts.worker_identifier || "").toString().trim();
+    const mon = monthKey(ts.week_start || ts.created_at);
+    if (!pnr || !mon) { skipped++; continue; }
+    const total = Number(ts.total_hours) || 0;
+    const ot = Number(ts.overtime_hours) || 0;
+    const reg = Math.max(0, total - ot);
+    const key = pnr + "|" + mon;
+    const e = agg.get(key) || { pnr, mon, name: ts.worker_name || "", reg: 0, ot: 0 };
+    e.reg += reg; e.ot += ot;
+    agg.set(key, e);
+  }
+  const header = ["Personalnummer", "Name", "Abrechnungsmonat", "Lohnart", "Stunden", "Berater", "Mandant"]
+    .map((h) => f(h, { quote: true })).join(";");
+  const rows = [];
+  for (const e of agg.values()) {
+    rows.push([f(e.pnr, { quote: true }), f(e.name, { quote: true }), e.mon, f(c.lohnart_regular, { quote: true }), f(hoursToDatev(e.reg)), f(c.berater_nr), f(c.mandant_nr)].join(";"));
+    if (e.ot > 0) {
+      rows.push([f(e.pnr, { quote: true }), f(e.name, { quote: true }), e.mon, f(c.lohnart_overtime, { quote: true }), f(hoursToDatev(e.ot)), f(c.berater_nr), f(c.mandant_nr)].join(";"));
+    }
+  }
+  return { csv: [header, ...rows].join("\r\n") + "\r\n", rows: rows.length, skipped };
+}

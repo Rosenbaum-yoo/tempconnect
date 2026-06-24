@@ -2059,6 +2059,77 @@
         }
       }
     },
+    "/timesheets/export/datev-lohn": {
+      "get": {
+        "tags": [
+          "Timesheets"
+        ],
+        "summary": "DATEV-Lohn-Bewegungsdaten (freigegebene Stunden je Mitarbeiter/Monat) — Lohnarten aus DATEV-ERP-Mapping · API-Key-Scope: `read:timesheets`",
+        "security": [
+          {
+            "sessionCookie": []
+          },
+          {
+            "csrfToken": []
+          },
+          {
+            "apiKey": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "DATEV-Lohn-Bewegungsdaten (ISO-8859-1)",
+            "content": {
+              "text/csv": {
+                "schema": {
+                  "$ref": "#/components/schemas/CsvExport"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validierungsfehler",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Nicht authentifiziert",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Keine Berechtigung / Org-Boundary",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate-Limit erreicht",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/timesheets/{id}/approve": {
       "post": {
         "tags": [

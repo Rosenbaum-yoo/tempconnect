@@ -97,7 +97,8 @@ Stand: 2026-06-24 · Plan-Stufen: `DEMO · BASIS · PLUS · PRO · INDIVIDUELL` 
 | 🚧 | HR-Outbound-Events: `invoice.exported` + `timesheet.exported` live (Webhook an SAP/DATEV); `worker.*` + Kostenstellen-Kontext geplant | `integrationService.SUPPORTED_EVENTS`, `routes/{invoices,timesheets}.js` |
 | 📋 | SCIM 2.0 (`/scim/v2/Users`) + OIDC `client_credentials` (`/oauth/token`) | geplant (Welle B) |
 | 🚧 | DATEV Fibu-Buchungsstapel (EXTF 700) live — `GET /invoices/export/datev`, Konten/SKR aus DATEV-ERP-Mapping (SKR03-Defaults) | `services/datevExportService.js` |
-| 📋 | DATEV-Lohn (LODAS) · generisches DATEV-CSV (Fallback) · SAP SuccessFactors-Feldmapping · zvoove | geplant (Welle C2/C3) |
+| 🚧 | DATEV-Lohn-Bewegungsdaten live — `GET /timesheets/export/datev-lohn` (freigegebene Stunden je Mitarbeiter/Monat, Lohnarten aus Mapping); LODAS/Lohn+Gehalt-mappbar | `services/datevExportService.js` |
+| 📋 | generisches DATEV-CSV (Fallback) · SAP SuccessFactors-Feldmapping · zvoove | geplant (Welle C3) |
 
 ## 9 · Engagement & Growth
 
