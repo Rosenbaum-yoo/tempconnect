@@ -53,6 +53,12 @@ const ALLOWLIST_ROUTES = new Set([
   "/profile-analytics/events",
   // Session-Cache-Reset — kein DB-Write, nur req.session._locationCache löschen (me.js)
   "/me/active-location",
+  // Öffentliches Lead-/Voranmelde-Formular (anti-spam via Honeypot + Rate-Limit, kein
+  // Akteur/Session) — der Prereg-Record + SCC-Sicht sind der Nachweis, kein privilegierter
+  // State-Change. Gleiche Begründung wie track-public (pilotPreregistration.js)
+  "/pilot-preregistration",
+  // Self-Cleanup der EIGENEN Such-Historie — nicht-sensible Nutzerdaten, kein Audit nötig (search.js)
+  "/search/recent",
 ]);
 
 /** Regex-Muster zum Erkennen von Mutation-Route-Registrierungen */
@@ -66,6 +72,7 @@ const AUDIT_PATTERNS = [
   /audit\s*\(req\s*,/,          // Lokale audit(req, ...) Wrapper (z.B. companyProfile.js)
   /writeStaffAudit\s*\(/,       // Staff Control Center — eigener Audit-Service (staffControlCenter.js)
   /insertSupportAudit\s*\(/,    // Support Operations Center — direkte Audit-Log-Insertion (support.js)
+  /supportVendorAudit\s*\(/,    // SCC Support-Vendor-Wrapper → writeStaffAudit (staffControlCenter.js)
 ];
 
 /**
