@@ -14,6 +14,7 @@ import * as opInvoice from "../services/operationalInvoiceService.js";
 import { renderInvoiceHtml, renderInvoiceText, renderInvoicePdf } from "../services/invoicePdfService.js";
 import { requirePermission } from "../middleware/rbac.js";
 import { requireScope } from "../middleware/apiKeyAuth.js";
+import * as integrationService from "../services/integrationService.js";
 
 export function createInvoicesRouter(deps) {
   const { pool, requireAuth, logger, requestLimiter } = deps;
@@ -55,6 +56,12 @@ export function createInvoicesRouter(deps) {
       res.setHeader("Content-Type", "text/csv; charset=utf-8");
       res.setHeader("Content-Disposition", `attachment; filename="${filename}"`);
       res.send(csv);
+      // HR/Fibu-Outbound (Epic A.3b): signalisiert abonnierten Systemen (SAP/DATEV), dass
+      // Rechnungsdaten exportiert wurden. Fire-and-forget (kein Block des CSV-Downloads).
+      integrationService.dispatchToIntegrations(pool, "invoice.exported", {
+        orgId, entityType: "invoice_export", entityId: null,
+        message: `${invoices.length} Rechnung(en) als CSV exportiert`, count: invoices.length
+      }).catch(() => {});
     } catch (err) {
       next(err);
     }

@@ -5,6 +5,7 @@
 import { z } from "zod";
 import { Router } from "express";
 import * as timesheetService from "../services/timesheetService.js";
+import * as integrationService from "../services/integrationService.js";
 import { trackProductEventFromRequest } from "../services/productAnalyticsService.js";
 import { requirePermission } from "../middleware/rbac.js";
 import { requireScope } from "../middleware/apiKeyAuth.js";
@@ -439,6 +440,12 @@ export function createTimesheetsRouter(deps) {
       res.setHeader("Content-Type", "text/csv; charset=utf-8");
       res.setHeader("Content-Disposition", `attachment; filename="${filename}"`);
       res.send(csv);
+      // HR/Lohn-Outbound (Epic A.3b): signalisiert abonnierten Systemen (SAP/DATEV), dass
+      // Stundenzettel-Daten exportiert wurden. Fire-and-forget (kein Block des CSV-Downloads).
+      integrationService.dispatchToIntegrations(pool, "timesheet.exported", {
+        orgId: req.orgId || null, entityType: "timesheet_export", entityId: null,
+        message: `${items.length} Stundenzettel als CSV exportiert`, count: items.length
+      }).catch(() => {});
     } catch (err) { next(err); }
   });
 

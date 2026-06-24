@@ -39,12 +39,14 @@ export const SUPPORTED_EVENTS = [
   'timesheet.submitted',
   'timesheet.approved',
   'timesheet.rejected',
+  'timesheet.exported',   // Stundenzettel-Daten als CSV exportiert → Lohn-System (SAP/DATEV)
   // Contracts
   'contract.activated',
   'contract.terminated',
   // Invoices
   'invoice.issued',
-  'invoice.paid'
+  'invoice.paid',
+  'invoice.exported'      // Rechnungsdaten als CSV exportiert → Fibu/DATEV
 ];
 
 /* ── Signing ─────────────────────────────────────────────── */

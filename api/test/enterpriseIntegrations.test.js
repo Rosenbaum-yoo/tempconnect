@@ -83,14 +83,15 @@ describe("Integration Service — Event Catalog", () => {
     }
   });
 
-  it("SUPPORTED_EVENTS has 24 total events", () => {
-    assert.equal(SUPPORTED_EVENTS.length, 24);
+  it("SUPPORTED_EVENTS has 26 total events", () => {
+    // 24 Basis + 2 HR-Export-Events (invoice.exported, timesheet.exported, Epic A.3b)
+    assert.equal(SUPPORTED_EVENTS.length, 26);
   });
 
   it("getSupportedEvents returns structured event list", () => {
     const events = getSupportedEvents();
     assert.ok(Array.isArray(events));
-    assert.equal(events.length, 24);
+    assert.equal(events.length, 26);
     assert.ok(events[0].key);
     assert.ok(events[0].label);
   });
