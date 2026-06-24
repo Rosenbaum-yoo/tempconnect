@@ -2560,6 +2560,41 @@
         }
       }
     },
+    "/oauth/token": {
+      "post": {
+        "tags": [
+          "Integrations"
+        ],
+        "summary": "OIDC client_credentials: API-Key → kurzlebiges M2M-Bearer-JWT (nur bei OAUTH_M2M_ENABLED). client_id/client_secret via Form-Body oder HTTP-Basic.",
+        "responses": {
+          "200": {
+            "description": "access_token (JSON: access_token, token_type=Bearer, expires_in, scope)"
+          },
+          "400": {
+            "description": "unsupported_grant_type / invalid_request"
+          },
+          "401": {
+            "description": "invalid_client"
+          },
+          "404": {
+            "description": "M2M deaktiviert"
+          }
+        }
+      }
+    },
+    "/.well-known/openid-configuration": {
+      "get": {
+        "tags": [
+          "Integrations"
+        ],
+        "summary": "OIDC-Discovery (token_endpoint, unterstützte Grants)",
+        "responses": {
+          "200": {
+            "description": "OIDC-Provider-Metadaten"
+          }
+        }
+      }
+    },
     "/capacity-exchange/feed": {
       "get": {
         "tags": [

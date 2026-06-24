@@ -17,6 +17,7 @@
  */
 
 import { hashKey, lookupByHash, touchLastUsed, hasScope } from "../services/apiKeyService.js";
+import { verifyM2MToken } from "../services/m2mTokenService.js";
 import { swallow } from "../utils/logger.js";
 
 const KEY_PREFIX = "tc_live_";
@@ -27,10 +28,28 @@ const KEY_PREFIX = "tc_live_";
  * @param {{ logger: object }} opts
  * @returns {Function} Express Middleware
  */
-export function apiKeyAuthMiddleware(pool, { logger }) {
+export function apiKeyAuthMiddleware(pool, { logger, config = {} }) {
   return async (req, _res, next) => {
     const rawKey = extractApiKey(req);
-    if (!rawKey) return next(); // Kein API-Key → Session-Auth
+    if (!rawKey) {
+      // M2M-Bearer-JWT (OIDC client_credentials, Welle B1) — nur wenn aktiviert.
+      // Setzt denselben Request-Kontext wie ein API-Key (orgId + apiKeyScopes), sodass
+      // requireScope/Org-Boundary unverändert greifen. Ungültiges JWT → Kontext bleibt leer,
+      // requireAuth lehnt downstream ab (kein hartes 401 hier, um Session-Pfade nicht zu stören).
+      if (config.OAUTH_M2M_ENABLED && config.JWT_SECRET) {
+        const jwt = extractBearerJwt(req);
+        if (jwt) {
+          const payload = verifyM2MToken(jwt, config.JWT_SECRET);
+          if (payload && payload.org_id) {
+            req.orgId = payload.org_id;
+            req.apiKeyScopes = (payload.scope || "").split(" ").filter(Boolean);
+            req.isApiKeyAuth = true;
+            req.isM2mToken = true;
+          }
+        }
+      }
+      return next(); // Kein API-Key (ggf. M2M-Kontext gesetzt) → Session-/Downstream-Auth
+    }
 
     try {
       const keyHash = hashKey(rawKey);
@@ -85,6 +104,22 @@ function extractApiKey(req) {
   }
 
   return null;
+}
+
+/**
+ * Extrahiert ein Bearer-JWT (M2M), das KEIN tc_live_-API-Key ist und JWT-Form hat (3 Segmente).
+ * @param {import('express').Request} req
+ * @returns {string|null}
+ */
+function extractBearerJwt(req) {
+  const auth = req.headers.authorization;
+  if (!auth) return null;
+  const parts = auth.split(" ");
+  if (parts.length !== 2 || parts[0].toLowerCase() !== "bearer") return null;
+  const tok = parts[1];
+  if (tok.startsWith(KEY_PREFIX)) return null;     // tc_live_-Key, kein JWT
+  if (tok.split(".").length !== 3) return null;    // kein JWT-Format
+  return tok;
 }
 
 /**

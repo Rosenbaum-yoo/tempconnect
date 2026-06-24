@@ -85,6 +85,17 @@ export const config = {
    * (Tag 3/7/11 nach Fälligkeit) und trackt `invoices.dunning_level` / `last_dunning_at`.
    */
   DUNNING_ENABLED: ["true", "1", "yes", "on"].includes(String(process.env.DUNNING_ENABLED || "").toLowerCase().trim()),
+  /**
+   * M2M-Auth (OIDC client_credentials): erlaubt externen Systemen (SAP/HR), per API-Key ein
+   * kurzlebiges JWT an `/api/oauth/token` zu holen + als Bearer zu nutzen. Default AUS — neue
+   * Auth-Oberfläche bleibt inert bis bewusste Aktivierung (Tier-2-Kill-Switch).
+   */
+  OAUTH_M2M_ENABLED: ["true", "1", "yes", "on"].includes(String(process.env.OAUTH_M2M_ENABLED || "").toLowerCase().trim()),
+  /**
+   * SCIM 2.0 Provisioning (`/scim/v2/*`): erlaubt einem HR-System, Nutzer in der EIGENEN Org
+   * automatisch anzulegen/zu deaktivieren (Scope `admin:scim`). Default AUS.
+   */
+  SCIM_ENABLED: ["true", "1", "yes", "on"].includes(String(process.env.SCIM_ENABLED || "").toLowerCase().trim()),
   STRIPE_SECRET_KEY: process.env.STRIPE_SECRET_KEY || "",
   STRIPE_PUBLISHABLE_KEY: process.env.STRIPE_PUBLISHABLE_KEY || "",
   STRIPE_WEBHOOK_SECRET: process.env.STRIPE_WEBHOOK_SECRET || "",

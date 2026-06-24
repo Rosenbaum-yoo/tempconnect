@@ -102,6 +102,7 @@ import { createProfileAnalyticsRouter } from "./routes/profileAnalytics.js";
 import { createProfileRankingsRouter } from "./routes/profileRankings.js";
 import { createProfileBountiesRouter } from "./routes/profileBounties.js";
 import { apiKeyAuthMiddleware } from "./middleware/apiKeyAuth.js";
+import { createOAuthRouter } from "./routes/oauth.js";
 import { correlationMiddleware } from "./utils/logger.js";
 import { metricsMiddleware, metricsEndpoint, registerDbPoolMetrics, wrapPoolWithMetrics } from "./utils/metrics.js";
 import { orgContextMiddleware } from "./middleware/orgContext.js";
@@ -289,7 +290,7 @@ export async function createApp() {
   app.use(orgContextMiddleware(pool));
 
   // API-Key-Auth: vor Session-Enrichment, damit req.orgId gesetzt werden kann
-  app.use("/api/", apiKeyAuthMiddleware(pool, { logger }));
+  app.use("/api/", apiKeyAuthMiddleware(pool, { logger, config }));
 
   // ── Enrich req.log with session context (userId, orgId) ───────────────
   // Must be AFTER session + orgContext so the values are available.
@@ -331,6 +332,7 @@ export async function createApp() {
   wrapPoolWithMetrics(pool);
 
   v1.use(createCsrfRouter(deps));
+  v1.use(createOAuthRouter(deps));
   v1.use(createHealthRouter(deps));
   v1.use(createAuthRouter(deps));
   v1.use(createMeRouter(deps));
