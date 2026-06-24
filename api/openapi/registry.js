@@ -176,6 +176,10 @@ export function buildOpenApiDocument() {
   registry.registerPath({ method: "post", path: "/integrations", tags: ["Integrations"], summary: "Webhook-Integration anlegen (Slack/Teams/HR-System; HMAC-signiert)", security: sessionSec, responses: { 201: okJson("Integration angelegt"), ...stdErrors() } });
   registry.registerPath({ method: "get", path: "/org/api-keys/scopes", tags: ["Integrations"], summary: "Verfuegbare API-Key-Scopes auflisten", security: sessionSec, responses: { 200: okJson("Scope-Liste"), ...stdErrors() } });
 
+  // ERP/HR-Konnektor-Registry (Org ↔ SAP/DATEV/zvoove/…)
+  registry.registerPath({ method: "get", path: "/org/erp-mappings", tags: ["Integrations"], summary: "ERP/HR-Konnektor-Mappings auflisten (SAP/DATEV/zvoove)", security: sessionSec, responses: { 200: okJson("Liste der ERP-Mappings"), ...stdErrors() } });
+  registry.registerPath({ method: "post", path: "/org/erp-mappings", tags: ["Integrations"], summary: "ERP/HR-Konnektor-Mapping anlegen (system_type, Mandant, sync_config)", security: sessionSec, responses: { 201: okJson("Mapping angelegt"), 409: { description: "Mapping fuer dieses System existiert bereits", content: { "application/json": { schema: ErrorResponse } } }, ...stdErrors() } });
+
   const generator = new OpenApiGeneratorV3(registry.definitions);
   return generator.generateDocument({
     openapi: "3.0.3",

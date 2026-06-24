@@ -93,7 +93,8 @@ Stand: 2026-06-24 · Plan-Stufen: `DEMO · BASIS · PLUS · PRO · INDIVIDUELL` 
 | ✅ | Outbound-Webhooks (Slack/Teams), HMAC-Signing, Retry/Dead-Letter, 25+ Events | `services/integrationService.js`, `integrationAdapters.js`, Mig 130 |
 | ✅ | Inbound-REST-API (workers/timesheets/assignments/requisitions/invoices) + CSV-Export | `routes/*`, `services/*` |
 | ✅ | OpenAPI 3.0.3 (24 Pfade, API-Key-Security + Scope-Hinweise) + `/api/docs` Swagger-UI | `openapi/registry.js`, `app.js` (`/api/docs`, `/api/openapi/spec.json`) |
-| 📋 | `org_erp_mappings` (Org ↔ SAP-Client/DATEV-Mandant) + HR-Outbound-Events (`worker.*`, `*.exported`) | geplant (Welle A) |
+| ✅ | `org_erp_mappings` — Konnektor-Registry (Org ↔ SAP/DATEV/zvoove/Personio-Mandant) + CRUD `/api/org/erp-mappings` | `services/erpMappingService.js`, `routes/integrations.js`, Mig 143 |
+| 📋 | HR-Outbound-Events (`worker.*`, `*.exported`, Kostenstellen-Kontext) | geplant (Welle A.3b) |
 | 📋 | SCIM 2.0 (`/scim/v2/Users`) + OIDC `client_credentials` (`/oauth/token`) | geplant (Welle B) |
 | 📋 | DATEV-CSV (Lohn+Fibu) · SAP SuccessFactors-Feldmapping · zvoove | geplant (Welle C) |
 
