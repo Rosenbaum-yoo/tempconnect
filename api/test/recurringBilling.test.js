@@ -69,7 +69,7 @@ describe("recurringBillingService — generateRecurringInvoices", () => {
 
     const pool = trackingPool((sql) => {
       if (/FROM subscriptions/.test(sql) && /trial_mode = FALSE/.test(sql)) return { rows: [dueSub] };
-      if (/FROM org_members/.test(sql)) return { rows: [orgRow] };
+      if (/FROM org_memberships/.test(sql)) return { rows: [orgRow] };
       if (/UPDATE subscriptions/.test(sql) && /SET\s+status = 'past_due'/.test(sql)) return { rowCount: 1, rows: [] };
       return { rows: [], rowCount: 0 };
     });
@@ -97,7 +97,7 @@ describe("recurringBillingService — generateRecurringInvoices", () => {
     const createInvoice = async (_p, o) => { createInvoiceCalls.push(o); return { id: "i", invoice_number: "n" }; };
     const pool = trackingPool((sql) => {
       if (/FROM subscriptions/.test(sql) && /trial_mode = FALSE/.test(sql)) return { rows: [dueSub] };
-      if (/FROM org_members/.test(sql)) return { rows: [orgRow] };
+      if (/FROM org_memberships/.test(sql)) return { rows: [orgRow] };
       return { rows: [], rowCount: 0 };
     });
     const result = await generateRecurringInvoices(pool, { createInvoice });
@@ -116,7 +116,7 @@ describe("recurringBillingService — generateRecurringInvoices", () => {
     const createInvoice = async (_p, o) => { createInvoiceCalls.push(o); return { id: "i3", invoice_number: "TC-3" }; };
     const pool = trackingPool((sql) => {
       if (/FROM subscriptions/.test(sql) && /trial_mode = FALSE/.test(sql)) return { rows: [dueSub] };
-      if (/FROM org_members/.test(sql)) return { rows: [orgRow] };
+      if (/FROM org_memberships/.test(sql)) return { rows: [orgRow] };
       if (/UPDATE subscriptions/.test(sql) && /SET\s+status = 'past_due'/.test(sql)) return { rowCount: 1 };
       return { rows: [], rowCount: 0 };
     });
@@ -133,7 +133,7 @@ describe("recurringBillingService — generateRecurringInvoices", () => {
     const createInvoice = async (_p, o) => { createInvoiceCalls.push(o); return { id: "x" }; };
     const pool = trackingPool((sql) => {
       if (/FROM subscriptions/.test(sql) && /trial_mode = FALSE/.test(sql)) return { rows: [dueSub] };
-      if (/FROM org_members/.test(sql)) return { rows: [orgRow] };
+      if (/FROM org_memberships/.test(sql)) return { rows: [orgRow] };
       if (/UPDATE subscriptions/.test(sql) && /SET\s+status = 'past_due'/.test(sql)) return { rowCount: 0 }; // bereits verarbeitet
       return { rows: [], rowCount: 0 };
     });
@@ -148,7 +148,7 @@ describe("recurringBillingService — generateRecurringInvoices", () => {
     const createInvoice = async () => { throw new Error("INVOICE_BOOM"); };
     const pool = trackingPool((sql) => {
       if (/FROM subscriptions/.test(sql) && /trial_mode = FALSE/.test(sql)) return { rows: [dueSub] };
-      if (/FROM org_members/.test(sql)) return { rows: [orgRow] };
+      if (/FROM org_memberships/.test(sql)) return { rows: [orgRow] };
       if (/UPDATE subscriptions/.test(sql)) return { rowCount: 1 };
       return { rows: [], rowCount: 0 };
     });

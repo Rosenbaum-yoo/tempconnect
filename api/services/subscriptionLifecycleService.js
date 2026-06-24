@@ -645,9 +645,10 @@ export async function applyHardLocks(pool, opts = {}) {
         const orgRes = await pool.query(
           `SELECT o.id
              FROM organizations o
-             JOIN org_members om ON om.org_id = o.id
+             JOIN org_memberships om ON om.org_id = o.id
             WHERE om.user_id = $1
-              AND om.role = 'owner'
+              AND om.role_key = 'owner'
+              AND om.is_active = TRUE
             LIMIT 1`,
           [s.user_id]
         );

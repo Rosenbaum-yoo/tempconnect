@@ -96,7 +96,7 @@ export function resolveDunningLevel(daysOverdue, currentLevel) {
 /**
  * Löst Owner-Org, Empfänger-E-Mail und Netto-Abrechnungspreis (Cent) einer
  * Subscription auf — exakt über denselben Owner-Org-Pfad wie applyHardLocks
- * (`org_members.role='owner'`). INDIVIDUELL nutzt den Vertragspreis der Org,
+ * (`org_memberships.role_key='owner'`). INDIVIDUELL nutzt den Vertragspreis der Org,
  * Katalog-Pläne den Katalogpreis.
  *
  * @param {import('pg').Pool} pool
@@ -110,10 +110,10 @@ async function resolveOwnerBilling(pool, sub) {
       `SELECT o.id AS org_id, o.name AS org_name,
               o.billing_mode, o.individual_contract_price_cents,
               u.email AS user_email
-         FROM org_members om
+         FROM org_memberships om
          JOIN organizations o ON o.id = om.org_id
          JOIN users u ON u.id = om.user_id
-        WHERE om.user_id = $1 AND om.role = 'owner'
+        WHERE om.user_id = $1 AND om.role_key = 'owner' AND om.is_active = TRUE
         LIMIT 1`,
       [sub.user_id]
     );
