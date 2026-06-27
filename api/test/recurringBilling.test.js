@@ -3,7 +3,7 @@
  *
  * SaaS-Self-Service-Billing (feature-flagged, inaktiv bis UG-Gründung):
  *   - generateRecurringInvoices: Folgerechnung + Status-Flip, Preis-Auflösung,
- *     Idempotenz-Guard, Skip ohne Preis, Self-Healing-Revert bei Rechnungsfehler.
+ *     Idempotenz-Guard, Skip ohne Preis/ohne Owner-Org, atomarer Rollback bei Rechnungsfehler.
  *   - runDunningSweep: gestaffelte Erinnerungen, NO_MAILER-No-Op, Stufen-Logik.
  *   - applyRenewalPayment: Periode +1 Monat, Target-Pflicht.
  *   - /internal-Endpunkte: No-Op bei Flag AUS, Service-Aufruf bei Flag AN.
@@ -142,7 +142,7 @@ describe("recurringBillingService — generateRecurringInvoices", () => {
     assert.equal(createInvoiceCalls.length, 0);
   });
 
-  it("Self-Healing: Rechnungsfehler → Status-Flip zurückgenommen + als failed gezählt", async () => {
+  it("Rechnungsfehler → Transaktion rollt zurück (kein Zombie) + als failed gezählt", async () => {
     const dueSub = { id: "s5", user_id: "u5", plan: "PRO", current_period_end: "2026-02-01T00:00:00Z" };
     const orgRow = { org_id: "o5", org_name: "W", billing_mode: "standard_catalog", individual_contract_price_cents: null, user_email: "w@w.de" };
     const createInvoice = async () => { throw new Error("INVOICE_BOOM"); };
@@ -156,8 +156,25 @@ describe("recurringBillingService — generateRecurringInvoices", () => {
     assert.equal(result.invoiced, 0);
     assert.equal(result.failed.length, 1);
     assert.equal(result.failed[0].id, "s5");
-    // Revert auf active wurde ausgelöst:
-    assert.ok(pool.calls.some((c) => /UPDATE subscriptions/.test(c.sql) && /SET status = 'active'/.test(c.sql)));
+    // Atomar: der Flip wird per ROLLBACK rückgängig gemacht — kein manueller Revert, kein „past_due ohne Rechnung".
+    assert.ok(pool.calls.some((c) => /ROLLBACK/.test(c.sql)), "ROLLBACK erwartet");
+    assert.ok(!pool.calls.some((c) => /SET status = 'active'/.test(c.sql)), "kein manueller Revert mehr");
+  });
+
+  it("kein Owner-Org auflösbar → Skip (kein org_id=NULL-Invoice, kein Status-Flip)", async () => {
+    const dueSub = { id: "s6", user_id: "u6", plan: "PRO", current_period_end: "2026-02-01T00:00:00Z" };
+    let createInvoiceCalled = false;
+    const createInvoice = async () => { createInvoiceCalled = true; return { id: "x" }; };
+    const pool = trackingPool((sql) => {
+      if (/FROM subscriptions/.test(sql) && /trial_mode = FALSE/.test(sql)) return { rows: [dueSub] };
+      if (/FROM org_memberships/.test(sql)) return { rows: [] }; // Owner-Lookup liefert nichts → orgId null
+      return { rows: [], rowCount: 0 };
+    });
+    const result = await generateRecurringInvoices(pool, { createInvoice, logger: noopLogger });
+    assert.equal(result.invoiced, 0);
+    assert.equal(result.skipped, 1);
+    assert.equal(createInvoiceCalled, false, "keine Rechnung ohne Owner-Org");
+    assert.ok(!pool.calls.some((c) => /UPDATE subscriptions/.test(c.sql)), "kein Status-Flip");
   });
 });
 

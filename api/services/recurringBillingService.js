@@ -26,14 +26,18 @@
  *
  * Fail-safe (wie subscriptionLifecycleService):
  *   - Jeder Datensatz in eigener try/catch-Schleife; ein Fehler stoppt den Lauf nicht.
- *   - Audit-Log best-effort. Status-Flip ist der Idempotenz-Guard.
- *   - Bei Rechnungsfehler wird der Status-Flip zurückgenommen (self-healing Retry).
+ *   - Audit-Log best-effort.
+ *   - Status-Flip (active→past_due) UND Rechnungserstellung laufen ATOMAR in EINER Transaktion:
+ *     Bricht der Prozess/die DB dazwischen ab, rollt alles zurück → kein „past_due ohne Rechnung"-
+ *     Zombie. Der atomare `UPDATE … WHERE status='active'` hält zugleich den Row-Lock und dient als
+ *     Idempotenz-/Concurrency-Guard (kein Doppel-Invoice bei Parallel-Lauf).
  */
 
 import * as invoiceService from "./invoiceService.js";
 import * as auditLog from "./auditLog.js";
 import { getPlanPriceCentsByKey, normalizePlanKey } from "../config/planCatalog.js";
 import { dunningEmail } from "./emailHtmlTemplates.js";
+import { withTransaction } from "../utils/transaction.js";
 
 /* ── Konstanten ────────────────────────────────────────────── */
 
@@ -141,8 +145,9 @@ async function resolveOwnerBilling(pool, sub) {
 
 /**
  * Erzeugt Folge-Rechnungen für fällige aktive Subscriptions und setzt sie auf
- * `past_due` (bezahlter Zwilling von applyTrialEnds). Idempotent über den
- * Status-Flip; bei Rechnungsfehler wird der Flip zurückgenommen (self-healing).
+ * `past_due` (bezahlter Zwilling von applyTrialEnds). Flip + Rechnung laufen atomar in
+ * einer Transaktion (Crash → Rollback, kein Zombie); der Flip ist Idempotenz-/Concurrency-Guard.
+ * Subscriptions ohne auflösbaren Preis ODER ohne Owner-Org werden übersprungen + auditiert.
  *
  * @param {import('pg').Pool} pool
  * @param {{ batchSize?: number, now?: Date|string|null, logger?: object, createInvoice?: Function }} [opts]
@@ -191,40 +196,49 @@ export async function generateRecurringInvoices(pool, opts = {}) {
         continue;
       }
 
-      // Idempotenz-Guard: active→past_due ZUERST (atomar). Fällt damit aus dem
-      // SELECT-Filter → kein Doppel-Invoice bei erneutem/parallelem Lauf.
-      const { rowCount } = await pool.query(
-        `UPDATE subscriptions
-            SET status = 'past_due',
-                updated_at = NOW()
-          WHERE id = $1 AND status = 'active'`,
-        [s.id]
-      );
-      if (!rowCount) {
-        // Parallel-Lauf hat den Datensatz bereits verarbeitet.
+      // Ohne auflösbaren Owner-Org-Kontext NICHT abrechnen — sonst entstünde eine verwaiste
+      // Rechnung mit org_id=NULL (Org-Boundary-Verletzung). Tritt z.B. auf, wenn der Owner-Lookup
+      // transient fehlschlägt (resolveOwnerBilling fängt DB-Fehler schema-tolerant ab → orgId=null).
+      // Sauber überspringen + auditieren; Status bleibt 'active' → nächster Lauf versucht erneut.
+      if (!billing.orgId) {
+        skipped++;
+        try {
+          await auditLog.writeAudit(pool, {
+            action: "subscription.recurring_invoice_skipped",
+            entity_type: "subscription",
+            entity_id: s.id,
+            details: { user_id: s.user_id, plan: s.plan, reason: "NO_OWNER_ORG", auto: true }
+          });
+        } catch { /* best-effort */ }
         continue;
       }
 
-      let invoice;
-      try {
-        invoice = await createInvoice(pool, {
+      // Status-Flip (active→past_due) UND Rechnung ATOMAR: Crash/DB-Abbruch dazwischen → Rollback,
+      // kein „past_due ohne Rechnung"-Zombie. Der UPDATE … WHERE status='active' hält den Row-Lock
+      // bis COMMIT und ist zugleich Idempotenz-/Concurrency-Guard (kein Doppel-Invoice).
+      // createInvoice erhält den Transaktions-Client; withTransaction erkennt den geschachtelten
+      // Client (.release vorhanden) und öffnet KEINE zweite Transaktion.
+      const invoice = await withTransaction(pool, async (client) => {
+        const { rowCount } = await client.query(
+          `UPDATE subscriptions
+              SET status = 'past_due',
+                  updated_at = NOW()
+            WHERE id = $1 AND status = 'active'`,
+          [s.id]
+        );
+        if (!rowCount) return null; // Parallel-Lauf hat den Datensatz bereits verarbeitet.
+        return createInvoice(client, {
           orgId: billing.orgId,
           userId: s.user_id,
           plan: s.plan,
           amountCents: Number(billing.amountCents),
           notes: `Automatische Folgerechnung (Abo-Verlängerung) — Periode ab ${new Date(s.current_period_end).toISOString().slice(0, 10)}`
         });
-      } catch (createErr) {
-        // Rechnung fehlgeschlagen → Status-Flip zurücknehmen, damit der nächste Lauf
-        // sauber erneut versucht (kein „past_due ohne Rechnung").
-        try {
-          await pool.query(
-            `UPDATE subscriptions SET status = 'active', updated_at = NOW()
-              WHERE id = $1 AND status = 'past_due'`,
-            [s.id]
-          );
-        } catch { /* best-effort revert */ }
-        throw createErr;
+      });
+
+      if (!invoice) {
+        // Row war beim Flip nicht mehr 'active' (Parallel-Lauf) → nichts erstellt.
+        continue;
       }
 
       try {
