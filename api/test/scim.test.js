@@ -5,9 +5,9 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 import {
-  toScimUser, parseUserNameFilter, extractActiveFromPatch,
-  listUsers, getUser, provisionUser, setMembershipActive,
-  SCIM_USER_SCHEMA, SCIM_LIST_SCHEMA
+  toScimUser, parseUserNameFilter, extractActiveFromPatch, extractEnterpriseAttrs,
+  listUsers, getUser, provisionUser, setMembershipActive, setMembershipHrAttributes,
+  SCIM_USER_SCHEMA, SCIM_LIST_SCHEMA, SCIM_ENTERPRISE_SCHEMA
 } from "../services/scimService.js";
 import { createScimRouter } from "../routes/scim.js";
 
@@ -109,6 +109,62 @@ describe("scimService — DB-Operationen (Mock-Pool)", () => {
   });
 });
 
+describe("scimService — Enterprise-Extension (SAP/HR-Feldmapping)", () => {
+  it("toScimUser hängt enterprise:2.0 an, wenn HRIS-Attribute gesetzt sind", () => {
+    const u = toScimUser({ id: "u1", email: "a@b.de", company_name: "A B", membership_active: true,
+      employee_number: "P-00042", cost_center: "KST-4711", hr_department: "Pflege Station 3", division: "Süd" });
+    assert.deepEqual(u.schemas, [SCIM_USER_SCHEMA, SCIM_ENTERPRISE_SCHEMA]);
+    const ext = u[SCIM_ENTERPRISE_SCHEMA];
+    assert.equal(ext.employeeNumber, "P-00042");
+    assert.equal(ext.costCenter, "KST-4711");
+    assert.equal(ext.department, "Pflege Station 3");
+    assert.equal(ext.division, "Süd");
+  });
+  it("toScimUser ohne HRIS-Attribute → nur Core-Schema, keine Extension", () => {
+    const u = toScimUser({ id: "u1", email: "a@b.de", membership_active: true });
+    assert.deepEqual(u.schemas, [SCIM_USER_SCHEMA]);
+    assert.equal(u[SCIM_ENTERPRISE_SCHEMA], undefined);
+  });
+  it("extractEnterpriseAttrs: direkter Body (POST/PUT) → Spalten-Mapping, fremde Felder ignoriert", () => {
+    const got = extractEnterpriseAttrs({ [SCIM_ENTERPRISE_SCHEMA]: { employeeNumber: "P1", costCenter: "K1", department: "D1", division: "V1", manager: { value: "x" } } });
+    assert.deepEqual(got, { employee_number: "P1", cost_center: "K1", hr_department: "D1", division: "V1" });
+  });
+  it("extractEnterpriseAttrs: PatchOp path-präfix UND value-Objekt", () => {
+    const byPath = extractEnterpriseAttrs({ Operations: [{ op: "replace", path: SCIM_ENTERPRISE_SCHEMA + ":costCenter", value: "K9" }] });
+    assert.deepEqual(byPath, { cost_center: "K9" });
+    const byValue = extractEnterpriseAttrs({ Operations: [{ op: "replace", value: { [SCIM_ENTERPRISE_SCHEMA]: { department: "Notdienst" } } }] });
+    assert.deepEqual(byValue, { hr_department: "Notdienst" });
+  });
+  it("extractEnterpriseAttrs: leerer/fremder Body → {}", () => {
+    assert.deepEqual(extractEnterpriseAttrs(null), {});
+    assert.deepEqual(extractEnterpriseAttrs({ active: false }), {});
+  });
+  it("provisionUser schreibt HRIS-Attribute in org_memberships (org-gebunden)", async () => {
+    let inserted = false;
+    const pool = mkPool((sql) => {
+      if (/SELECT id FROM users WHERE LOWER\(email\)/.test(sql)) return { rows: inserted ? [{ id: "u-new" }] : [] };
+      if (/INSERT INTO users/.test(sql)) { inserted = true; return { rows: [{ id: "u-new" }] }; }
+      if (/SELECT u\.id, u\.email/.test(sql)) return { rows: [{ id: "u-new", email: "neu@firma.de", company_name: "Neu", membership_active: true, cost_center: "KST-4711" }] };
+      return { rows: [], rowCount: 1 };
+    });
+    const { row } = await provisionUser(pool, "org-1", { userName: "neu@firma.de", enterprise: { cost_center: "KST-4711", employee_number: "P-00042" } });
+    assert.equal(row.cost_center, "KST-4711");
+    const upd = pool.calls.find((c) => /UPDATE org_memberships SET/.test(c.sql) && /cost_center/.test(c.sql));
+    assert.ok(upd, "HRIS-UPDATE erwartet");
+    assert.ok(upd.params.includes("KST-4711") && upd.params.includes("org-1"), "org-gebunden + Wert gesetzt");
+  });
+  it("setMembershipHrAttributes: UPDATE gesetzter Felder, null wenn nicht in Org", async () => {
+    const none = mkPool(() => ({ rowCount: 0 }));
+    assert.equal(await setMembershipHrAttributes(none, "org-1", "u-x", { cost_center: "K1" }), null);
+  });
+  it("setMembershipHrAttributes: leeres enterprise → kein UPDATE, gibt Row zurück", async () => {
+    const pool = mkPool((sql) => /SELECT u\.id, u\.email/.test(sql) ? { rows: [{ id: "u1", email: "a@b.de", membership_active: true }] } : { rows: [], rowCount: 0 });
+    const row = await setMembershipHrAttributes(pool, "org-1", "u1", {});
+    assert.ok(row && row.id === "u1");
+    assert.ok(!pool.calls.some((c) => /UPDATE org_memberships SET/.test(c.sql)), "kein UPDATE bei leerem enterprise");
+  });
+});
+
 describe("SCIM-Router — Gate/Auth/Scope", () => {
   const deps = (cfg, pool) => ({ pool: pool || mkPool(() => ({ rows: [] })), config: { BASE_URL: "https://x", ...cfg }, logger: { error() {}, info() {} } });
   function run(router, method, path, req) {
@@ -167,5 +223,34 @@ describe("SCIM-Router — Gate/Auth/Scope", () => {
     const out = await run(r, "get", "/scim/v2/ServiceProviderConfig", { headers: {} });
     assert.equal(out.status, 200);
     assert.equal(out.body.filter.supported, true);
+  });
+
+  it("POST mit enterprise:2.0 → provisioniert + Extension in Antwort (201)", async () => {
+    let inserted = false;
+    const pool = mkPool((sql) => {
+      if (/SELECT id FROM users WHERE LOWER\(email\)/.test(sql)) return { rows: inserted ? [{ id: "u-new" }] : [] };
+      if (/INSERT INTO users/.test(sql)) { inserted = true; return { rows: [{ id: "u-new" }] }; }
+      if (/SELECT u\.id, u\.email/.test(sql)) return { rows: [{ id: "u-new", email: "neu@firma.de", company_name: "Neu", membership_active: true, cost_center: "KST-4711", employee_number: "P-1" }] };
+      return { rows: [], rowCount: 1 };
+    });
+    const r = createScimRouter(deps({ SCIM_ENABLED: true }, pool));
+    const body = { userName: "neu@firma.de", [SCIM_ENTERPRISE_SCHEMA]: { costCenter: "KST-4711", employeeNumber: "P-1" } };
+    // _body:true → express.json short-circuit (kein Stream-Read im Harness).
+    const out = await run(r, "post", "/scim/v2/Users", { isApiKeyAuth: true, orgId: "org-1", apiKeyScopes: ["admin:scim"], body, _body: true, headers: { "content-type": "application/scim+json" } });
+    assert.equal(out.status, 201);
+    assert.equal(out.body[SCIM_ENTERPRISE_SCHEMA].costCenter, "KST-4711");
+  });
+
+  it("PATCH mit enterprise:2.0 → aktualisiert Kostenstelle (200)", async () => {
+    const pool = mkPool((sql) => {
+      if (/UPDATE org_memberships SET/.test(sql)) return { rowCount: 1 };
+      if (/SELECT u\.id, u\.email/.test(sql)) return { rows: [{ id: "u1", email: "a@b.de", company_name: "A B", membership_active: true, cost_center: "KST-9" }] };
+      return { rows: [], rowCount: 0 };
+    });
+    const r = createScimRouter(deps({ SCIM_ENABLED: true }, pool));
+    const body = { Operations: [{ op: "replace", path: SCIM_ENTERPRISE_SCHEMA + ":costCenter", value: "KST-9" }] };
+    const out = await run(r, "patch", "/scim/v2/Users/:id", { isApiKeyAuth: true, orgId: "org-1", apiKeyScopes: ["admin:scim"], params: { id: "u1" }, body, _body: true, headers: { "content-type": "application/scim+json" } });
+    assert.equal(out.status, 200);
+    assert.equal(out.body[SCIM_ENTERPRISE_SCHEMA].costCenter, "KST-9");
   });
 });

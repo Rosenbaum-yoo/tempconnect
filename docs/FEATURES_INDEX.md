@@ -92,15 +92,16 @@ Stand: 2026-06-24 · Plan-Stufen: `DEMO · BASIS · PLUS · PRO · INDIVIDUELL` 
 |---|---|---|
 | ✅ | Outbound-Webhooks (Slack/Teams), HMAC-Signing, Retry/Dead-Letter, 25+ Events | `services/integrationService.js`, `integrationAdapters.js`, Mig 130 |
 | ✅ | Inbound-REST-API (workers/timesheets/assignments/requisitions/invoices) + CSV-Export | `routes/*`, `services/*` |
-| ✅ | OpenAPI 3.0.3 (24 Pfade, API-Key-Security + Scope-Hinweise) + `/api/docs` Swagger-UI | `openapi/registry.js`, `app.js` (`/api/docs`, `/api/openapi/spec.json`) |
+| ✅ | OpenAPI 3.0.3 (32 Pfade, API-Key-Security + Scope-Hinweise) + `/api/docs` Swagger-UI | `openapi/registry.js`, `app.js` (`/api/docs`, `/api/openapi/spec.json`) |
 | ✅ | `org_erp_mappings` — Konnektor-Registry (Org ↔ SAP/DATEV/zvoove/Personio-Mandant) + CRUD `/api/org/erp-mappings` | `services/erpMappingService.js`, `routes/integrations.js`, Mig 143 |
 | 🚧 | HR-Outbound-Events: `invoice.exported` + `timesheet.exported` live (Webhook an SAP/DATEV); `worker.*` + Kostenstellen-Kontext geplant | `integrationService.SUPPORTED_EVENTS`, `routes/{invoices,timesheets}.js` |
-| 📋 | SCIM 2.0 (`/scim/v2/Users`) + OIDC `client_credentials` (`/oauth/token`) | geplant (Welle B) |
 | 🚧 | DATEV Fibu-Buchungsstapel (EXTF 700) live — `GET /invoices/export/datev`, Konten/SKR aus DATEV-ERP-Mapping (SKR03-Defaults) | `services/datevExportService.js` |
 | 🚧 | DATEV-Lohn-Bewegungsdaten live — `GET /timesheets/export/datev-lohn` (freigegebene Stunden je Mitarbeiter/Monat, Lohnarten aus Mapping); LODAS/Lohn+Gehalt-mappbar | `services/datevExportService.js` |
 | 🚧 | OIDC M2M-Auth (`client_credentials`) — `POST /oauth/token` gibt kurzlebiges JWT für API-Keys aus (feature-flagged AUS, `OAUTH_M2M_ENABLED`); HS256, scoped, in apiKeyAuth akzeptiert | `services/m2mTokenService.js`, `routes/oauth.js` |
 | 🚧 | SCIM 2.0 (`/scim/v2/Users` + ServiceProviderConfig) — Nutzer-Provisioning aus HR/IdP in die eigene Org (find-or-create + Mitgliedschaft, deaktivieren), flagged AUS (`SCIM_ENABLED`), Scope `admin:scim` | `services/scimService.js`, `routes/scim.js` |
-| 📋 | SAP SuccessFactors-Feldmapping · zvoove · generisches DATEV-CSV | geplant (C3) |
+| 🚧 | SAP SuccessFactors / Workday / Entra ID-Feldmapping — SCIM Enterprise-User-Extension (`enterprise:2.0`): `employeeNumber`/`costCenter`/`department`/`division` → `org_memberships`, flagged AUS (`SCIM_ENABLED`) | `services/scimService.js`, Mig 144, `docs/integrations/SCIM_FIELD_MAPPING.md` |
+| ✅ | Generisches DATEV-CSV (Fallback-Export) | `services/datevExportService.js` |
+| 📋 | zvoove-spezifischer Adapter (kundengetrieben — generische REST/SCIM/Webhook-Basis trägt ihn bereits) | geplant |
 
 ## 9 · Engagement & Growth
 

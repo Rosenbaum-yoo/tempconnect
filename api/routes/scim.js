@@ -65,8 +65,9 @@ export function createScimRouter(deps) {
       const userName = req.body?.userName || (emails.find((e) => e.primary)?.value || emails[0]?.value) || null;
       const displayName = req.body?.displayName || req.body?.name?.formatted ||
         [req.body?.name?.givenName, req.body?.name?.familyName].filter(Boolean).join(" ");
-      const { row, created } = await scim.provisionUser(pool, req.orgId, { userName, displayName });
-      try { await auditLog.writeAudit(pool, { action: "scim.user_provisioned", entity_type: "user", entity_id: row.id, details: { org_id: req.orgId, created, user_name: row.email } }); } catch { /* best-effort */ }
+      const enterprise = scim.extractEnterpriseAttrs(req.body);
+      const { row, created } = await scim.provisionUser(pool, req.orgId, { userName, displayName, enterprise });
+      try { await auditLog.writeAudit(pool, { action: "scim.user_provisioned", entity_type: "user", entity_id: row.id, details: { org_id: req.orgId, created, user_name: row.email, hr_fields: Object.keys(enterprise) } }); } catch { /* best-effort */ }
       send(res, created ? 201 : 200, scim.toScimUser(row, base));
     } catch (err) {
       if (err.code === "INVALID_USERNAME") return send(res, 400, scim.scimError(400, "userName (E-Mail) erforderlich", "invalidValue"));
@@ -74,18 +75,29 @@ export function createScimRouter(deps) {
     }
   });
 
-  async function applyActive(req, res) {
+  // PUT (Replace) + PATCH (Operations): aktualisiert active und/oder HRIS-Attribute (enterprise:2.0).
+  async function applyUpdate(req, res) {
     try {
       const active = scim.extractActiveFromPatch(req.body);
-      if (active === null) return send(res, 400, scim.scimError(400, "active-Wert erforderlich", "invalidValue"));
-      const row = await scim.setMembershipActive(pool, req.orgId, req.params.id, active);
-      if (!row) return send(res, 404, scim.scimError(404, "User nicht gefunden", "noTarget"));
-      try { await auditLog.writeAudit(pool, { action: active ? "scim.user_activated" : "scim.user_deactivated", entity_type: "user", entity_id: req.params.id, details: { org_id: req.orgId } }); } catch { /* best-effort */ }
+      const enterprise = scim.extractEnterpriseAttrs(req.body);
+      const hasHr = Object.keys(enterprise).length > 0;
+      if (active === null && !hasHr) return send(res, 400, scim.scimError(400, "active- oder Enterprise-Attribut (employeeNumber/costCenter/department/division) erforderlich", "invalidValue"));
+      let row = null;
+      if (active !== null) {
+        row = await scim.setMembershipActive(pool, req.orgId, req.params.id, active);
+        if (!row) return send(res, 404, scim.scimError(404, "User nicht gefunden", "noTarget"));
+      }
+      if (hasHr) {
+        row = await scim.setMembershipHrAttributes(pool, req.orgId, req.params.id, enterprise);
+        if (!row) return send(res, 404, scim.scimError(404, "User nicht gefunden", "noTarget"));
+      }
+      if (active !== null) { try { await auditLog.writeAudit(pool, { action: active ? "scim.user_activated" : "scim.user_deactivated", entity_type: "user", entity_id: req.params.id, details: { org_id: req.orgId } }); } catch { /* best-effort */ } }
+      if (hasHr) { try { await auditLog.writeAudit(pool, { action: "scim.user_hr_updated", entity_type: "user", entity_id: req.params.id, details: { org_id: req.orgId, fields: Object.keys(enterprise) } }); } catch { /* best-effort */ } }
       send(res, 200, scim.toScimUser(row, base));
-    } catch (err) { logger.error({ err: err.message }, "SCIM patch"); send(res, 500, scim.scimError(500, "Serverfehler")); }
+    } catch (err) { logger.error({ err: err.message }, "SCIM update"); send(res, 500, scim.scimError(500, "Serverfehler")); }
   }
-  router.patch("/scim/v2/Users/:id", scimGate, scope, scimJson, applyActive);
-  router.put("/scim/v2/Users/:id", scimGate, scope, scimJson, applyActive);
+  router.patch("/scim/v2/Users/:id", scimGate, scope, scimJson, applyUpdate);
+  router.put("/scim/v2/Users/:id", scimGate, scope, scimJson, applyUpdate);
 
   router.delete("/scim/v2/Users/:id", scimGate, scope, async (req, res) => {
     try {
