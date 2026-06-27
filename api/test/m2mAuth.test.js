@@ -124,12 +124,14 @@ describe("/oauth/token — client_credentials", () => {
   });
 });
 
-/* ── apiKeyAuth: M2M-Bearer-Akzeptanz ──────────────────────── */
+/* ── apiKeyAuth: M2M-Bearer-Akzeptanz + Live-Revocation ─────── */
 describe("apiKeyAuthMiddleware — M2M-JWT-Bearer", () => {
   const stubPool = { query: async () => ({ rows: [] }) };
-  it("Flag AN + gültiges JWT → setzt orgId + scopes + isApiKeyAuth", async () => {
-    const { token } = signM2MToken({ orgId: "org-9", scopes: ["read:workers"], secret: SECRET });
-    const mw = apiKeyAuthMiddleware(stubPool, { logger: { warn() {}, error() {} }, config: { OAUTH_M2M_ENABLED: true, JWT_SECRET: SECRET } });
+  const log = { warn() {}, error() {} };
+  it("Flag AN + gültiges JWT + aktiver Key → setzt orgId + scopes + isApiKeyAuth", async () => {
+    const { token } = signM2MToken({ orgId: "org-9", scopes: ["read:workers"], keyId: "key-9", secret: SECRET });
+    const pool = mockPool({ id: "key-9", org_id: "org-9", scopes: ["read:workers"], is_active: true });
+    const mw = apiKeyAuthMiddleware(pool, { logger: log, config: { OAUTH_M2M_ENABLED: true, JWT_SECRET: SECRET } });
     const req = { headers: { authorization: "Bearer " + token } };
     let nexted = false;
     await mw(req, {}, () => { nexted = true; });
@@ -138,11 +140,52 @@ describe("apiKeyAuthMiddleware — M2M-JWT-Bearer", () => {
     assert.deepEqual(req.apiKeyScopes, ["read:workers"]);
     assert.equal(req.isApiKeyAuth, true);
     assert.equal(req.isM2mToken, true);
+    assert.equal(req.apiKeyId, "key-9");
   });
 
-  it("Flag AUS → JWT ignoriert (kein Kontext)", async () => {
-    const { token } = signM2MToken({ orgId: "org-9", scopes: ["read:workers"], secret: SECRET });
-    const mw = apiKeyAuthMiddleware(stubPool, { logger: { warn() {}, error() {} }, config: { OAUTH_M2M_ENABLED: false, JWT_SECRET: SECRET } });
+  it("gültiges JWT aber Key widerrufen/unbekannt → KEIN Kontext (Revoke greift sofort, nicht erst bei exp)", async () => {
+    const { token } = signM2MToken({ orgId: "org-9", scopes: ["read:workers"], keyId: "key-9", secret: SECRET });
+    const pool = mockPool(null); // lookupById findet nichts (is_active=FALSE / rotiert / gelöscht)
+    const mw = apiKeyAuthMiddleware(pool, { logger: log, config: { OAUTH_M2M_ENABLED: true, JWT_SECRET: SECRET } });
+    const req = { headers: { authorization: "Bearer " + token } };
+    let nexted = false;
+    await mw(req, {}, () => { nexted = true; });
+    assert.ok(nexted);
+    assert.equal(req.orgId, undefined);
+    assert.equal(req.isApiKeyAuth, undefined);
+  });
+
+  it("Key gehört anderer Org als das Token → KEIN Kontext (Org-Boundary)", async () => {
+    const { token } = signM2MToken({ orgId: "org-9", scopes: ["read:workers"], keyId: "key-9", secret: SECRET });
+    const pool = mockPool({ id: "key-9", org_id: "org-OTHER", scopes: ["read:workers"], is_active: true });
+    const mw = apiKeyAuthMiddleware(pool, { logger: log, config: { OAUTH_M2M_ENABLED: true, JWT_SECRET: SECRET } });
+    const req = { headers: { authorization: "Bearer " + token } };
+    await mw(req, {}, () => {});
+    assert.equal(req.orgId, undefined);
+    assert.equal(req.isApiKeyAuth, undefined);
+  });
+
+  it("Scope auf dem Key entzogen → effektive Scopes reduziert (Token-Grant ∩ Key-Stand)", async () => {
+    const { token } = signM2MToken({ orgId: "org-9", scopes: ["admin:scim", "read:invoices"], keyId: "key-9", secret: SECRET });
+    const pool = mockPool({ id: "key-9", org_id: "org-9", scopes: ["read:invoices"], is_active: true }); // admin:scim entzogen
+    const mw = apiKeyAuthMiddleware(pool, { logger: log, config: { OAUTH_M2M_ENABLED: true, JWT_SECRET: SECRET } });
+    const req = { headers: { authorization: "Bearer " + token } };
+    await mw(req, {}, () => {});
+    assert.deepEqual(req.apiKeyScopes, ["read:invoices"]);
+  });
+
+  it("Key hat 'admin' → hierarchischer Token-Scope admin:scim bleibt erhalten", async () => {
+    const { token } = signM2MToken({ orgId: "org-9", scopes: ["admin:scim"], keyId: "key-9", secret: SECRET });
+    const pool = mockPool({ id: "key-9", org_id: "org-9", scopes: ["admin"], is_active: true });
+    const mw = apiKeyAuthMiddleware(pool, { logger: log, config: { OAUTH_M2M_ENABLED: true, JWT_SECRET: SECRET } });
+    const req = { headers: { authorization: "Bearer " + token } };
+    await mw(req, {}, () => {});
+    assert.deepEqual(req.apiKeyScopes, ["admin:scim"]);
+  });
+
+  it("Flag AUS → JWT ignoriert (kein Kontext, kein DB-Lookup)", async () => {
+    const { token } = signM2MToken({ orgId: "org-9", scopes: ["read:workers"], keyId: "key-9", secret: SECRET });
+    const mw = apiKeyAuthMiddleware(stubPool, { logger: log, config: { OAUTH_M2M_ENABLED: false, JWT_SECRET: SECRET } });
     const req = { headers: { authorization: "Bearer " + token } };
     await mw(req, {}, () => {});
     assert.equal(req.orgId, undefined);
@@ -150,7 +193,7 @@ describe("apiKeyAuthMiddleware — M2M-JWT-Bearer", () => {
   });
 
   it("ungültiges JWT → kein Kontext (fällt durch zu Session)", async () => {
-    const mw = apiKeyAuthMiddleware(stubPool, { logger: { warn() {}, error() {} }, config: { OAUTH_M2M_ENABLED: true, JWT_SECRET: SECRET } });
+    const mw = apiKeyAuthMiddleware(stubPool, { logger: log, config: { OAUTH_M2M_ENABLED: true, JWT_SECRET: SECRET } });
     const req = { headers: { authorization: "Bearer aaa.bbb.ccc" } };
     let nexted = false;
     await mw(req, {}, () => { nexted = true; });

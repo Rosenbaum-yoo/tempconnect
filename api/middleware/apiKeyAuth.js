@@ -16,7 +16,7 @@
  * Wenn Key ungueltig/abgelaufen/revoked: 401.
  */
 
-import { hashKey, lookupByHash, touchLastUsed, hasScope } from "../services/apiKeyService.js";
+import { hashKey, lookupByHash, lookupById, touchLastUsed, hasScope } from "../services/apiKeyService.js";
 import { verifyM2MToken } from "../services/m2mTokenService.js";
 import { swallow } from "../utils/logger.js";
 
@@ -41,10 +41,20 @@ export function apiKeyAuthMiddleware(pool, { logger, config = {} }) {
         if (jwt) {
           const payload = verifyM2MToken(jwt, config.JWT_SECRET);
           if (payload && payload.org_id) {
-            req.orgId = payload.org_id;
-            req.apiKeyScopes = (payload.scope || "").split(" ").filter(Boolean);
-            req.isApiKeyAuth = true;
-            req.isM2mToken = true;
+            // Signatur gültig — aber der zugrundeliegende API-Key (sub=keyId) muss bei JEDEM Request
+            // noch aktiv/nicht abgelaufen sein, damit Revoke/Rotation/Ablauf SOFORT greifen (nicht
+            // erst bei JWT-exp, bis zu 1h später). Spiegelt den strengen tc_live_-Pfad (lookupByHash).
+            const key = await lookupById(pool, payload.sub).catch(() => null);
+            if (key && key.org_id === payload.org_id) {
+              req.orgId = payload.org_id;
+              // Effektive Scopes = Token-Grant ∩ aktueller Key-Stand (scope-hierarchie-bewusst):
+              // ein auf dem Key entzogener Scope greift dadurch sofort, auch im noch gültigen Token.
+              const tokenScopes = (payload.scope || "").split(" ").filter(Boolean);
+              req.apiKeyScopes = tokenScopes.filter((s) => hasScope(key.scopes || [], s));
+              req.apiKeyId = key.id;
+              req.isApiKeyAuth = true;
+              req.isM2mToken = true;
+            }
           }
         }
       }

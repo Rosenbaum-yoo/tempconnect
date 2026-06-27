@@ -300,3 +300,25 @@ export async function lookupByHash(pool, keyHash) {
   if (row.expires_at && new Date(row.expires_at) < new Date()) return null;
   return row;
 }
+
+/**
+ * Schlaegt einen aktiven, nicht abgelaufenen API-Key per ID nach (fuer die M2M-JWT-Re-Validierung:
+ * ein ausgestelltes Token muss bei jedem Request gegen den aktuellen Key-Status geprueft werden,
+ * damit Revoke/Rotation/Ablauf sofort greifen — nicht erst bei JWT-exp). → Row oder null.
+ * @param {import('pg').Pool} pool
+ * @param {string} keyId
+ * @returns {Promise<Object|null>}
+ */
+export async function lookupById(pool, keyId) {
+  if (!keyId) return null;
+  const { rows } = await pool.query(
+    `SELECT id, org_id, scopes, is_active, expires_at
+     FROM org_api_keys
+     WHERE id = $1 AND is_active = TRUE`,
+    [keyId]
+  );
+  const row = rows[0] || null;
+  if (!row) return null;
+  if (row.expires_at && new Date(row.expires_at) < new Date()) return null;
+  return row;
+}
