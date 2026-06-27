@@ -7,7 +7,7 @@ import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 import {
   buildFibuBuchungsstapel, centsToDatev, toBelegdatum, DATEV_DEFAULTS,
-  buildLohnBewegungsdaten, monthKey, hoursToDatev, DATEV_LOHN_DEFAULTS
+  buildLohnBewegungsdaten, monthKey, hoursToDatev, DATEV_LOHN_DEFAULTS, cp1252Safe
 } from "../services/datevExportService.js";
 import { createInvoicesRouter } from "../routes/invoices.js";
 
@@ -29,6 +29,37 @@ describe("datevExportService — Formatierungs-Helfer", () => {
     assert.equal(toBelegdatum("2026-03-10T00:00:00Z"), "1003");
     assert.equal(toBelegdatum("2026-12-01T00:00:00Z"), "0112");
     assert.equal(toBelegdatum("invalid"), "");
+  });
+});
+
+describe("datevExportService — Sicherheit: CSV-Injection + ISO-8859-1-Transliteration", () => {
+  it("cp1252Safe: latin-1-Zeichen bleiben, € + Smart-Quotes transliteriert", () => {
+    assert.equal(cp1252Safe("Müller & Söhne ä ö ü ß é"), "Müller & Söhne ä ö ü ß é");
+    assert.equal(cp1252Safe("100 €"), "100 EUR");
+    assert.equal(cp1252Safe("„Test“ – ok"), '"Test" - ok');
+  });
+  it("cp1252Safe: Extended-Latin → ASCII (keine gefährliche Byte-Truncation)", () => {
+    // U+013B 'Ļ' (Low-Byte 0x3B=';') und U+0122 'Ģ' (0x22='\"') dürfen NIE als Trenner/Quote durchschlagen.
+    assert.equal(cp1252Safe("AĻB"), "ALB");
+    assert.equal(cp1252Safe("AĢB"), "AGB");
+    assert.equal(cp1252Safe("Łukasz"), "Lukasz");
+    // Nicht-zerlegbares (Kyrillisch) → "?" statt stiller Korruption.
+    assert.equal(cp1252Safe("Иван"), "????");
+  });
+  it("Fibu-Buchungstext transliteriert Nicht-latin1-Zeichen aus billing_name", () => {
+    // Buchungstext beginnt strukturell mit "Rechnung …" → nie ein Formel-Cell-Start; der reale
+    // Injection-Vektor ist der Lohn-worker_name (eigener Test). Hier zählt korrekte Transliteration.
+    const csv = buildFibuBuchungsstapel([inv({ billing_name: "Łukasz € GmbH" })], {}, { now: NOW });
+    assert.ok(csv.includes("Rechnung TC-2026-000001 Lukasz EUR GmbH"), "billing_name transliteriert in Buchungstext");
+  });
+  it("Lohn: worker_name/Personalnummer mit Formel-Trigger neutralisiert + transliteriert", () => {
+    const { csv } = buildLohnBewegungsdaten([
+      { worker_identifier: "P1", worker_name: "@cmd|calc", total_hours: 8, overtime_hours: 0, week_start: "2026-03-02T00:00:00Z" },
+      { worker_identifier: "P2", worker_name: "Łukasz Œ", total_hours: 8, overtime_hours: 0, week_start: "2026-03-02T00:00:00Z" },
+    ]);
+    assert.ok(csv.includes("\"'@cmd|calc\""), "führendes @ neutralisiert");
+    assert.ok(csv.includes("Lukasz OE"), "Extended-Latin transliteriert");
+    assert.ok(!/"@cmd/.test(csv), "kein unneutralisiertes @cmd");
   });
 });
 

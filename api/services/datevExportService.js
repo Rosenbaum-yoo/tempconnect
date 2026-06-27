@@ -56,11 +56,48 @@ function toYmd(d) {
   return dt.getUTCFullYear() + String(dt.getUTCMonth() + 1).padStart(2, "0") + String(dt.getUTCDate()).padStart(2, "0");
 }
 
-/** EXTF-Feld: Strings in Anführungszeichen + verdoppeltes ", Zahlen/leer roh. */
+/** Transliterations-Tabelle für häufige Nicht-ISO-8859-1-Zeichen (CP1252/„Smart"-Zeichen → ASCII). */
+const CP1252_TRANSLIT = {
+  // Windows-1252-Extras (0x80–0x9F), die Node-latin1 sonst falsch byte-trunkiert:
+  "€": "EUR", "‚": ",", "ƒ": "f", "„": '"', "…": "...", "†": "+", "‡": "++",
+  "ˆ": "^", "‰": "%o", "Š": "S", "‹": "<", "Œ": "OE", "Ž": "Z",
+  "‘": "'", "’": "'", "“": '"', "”": '"', "•": "*", "–": "-", "—": "-",
+  "˜": "~", "™": "(TM)", "š": "s", "›": ">", "œ": "oe", "ž": "z", "Ÿ": "Y",
+  // Häufige Latein-Buchstaben OHNE NFKD-Zerlegung (Strich statt Akzent):
+  "Ł": "L", "ł": "l", "Đ": "D", "đ": "d"
+};
+
+/**
+ * Macht einen String ISO-8859-1-sicher (der Aufrufer kodiert die CSV mit latin1):
+ * Code Points ≤ 0xFF bleiben (inkl. ä/ö/ü/ß/é …); darüber transliterieren wir deterministisch
+ * (Map → NFKD-Akzent-Strip → "?"), statt uns auf stille Byte-Truncation zu verlassen, die sonst
+ * Zeichen korrumpiert ODER — falls das Low-Byte zufällig 0x3B(';') / 0x22('"') ist — die CSV-Struktur bricht.
+ */
+export function cp1252Safe(v) {
+  let out = "";
+  for (const ch of String(v)) {
+    const cp = ch.codePointAt(0);
+    if (cp <= 0xFF) { out += ch; continue; }
+    if (CP1252_TRANSLIT[ch] !== undefined) { out += CP1252_TRANSLIT[ch]; continue; }
+    const ascii = [...ch.normalize("NFKD")].filter((c) => c.codePointAt(0) <= 0xFF).join("");
+    out += ascii || "?";
+  }
+  return out;
+}
+
+/**
+ * EXTF-Feld: Strings in Anführungszeichen + verdoppeltes ", Zahlen/leer roh.
+ * Alle Werte werden ISO-8859-1-sicher transliteriert. Quoted (= Text-)Felder werden zusätzlich
+ * gegen CSV-/Formel-Injection gehärtet: ein führendes =,+,-,@,TAB,CR wird mit Apostroph neutralisiert
+ * (verhindert Formel-Ausführung beim Öffnen in Excel/LibreOffice; DATEV importiert den Wert unverändert).
+ */
 function f(v, { quote = false } = {}) {
   if (v === null || v === undefined) return quote ? '""' : "";
-  const s = String(v);
-  if (quote) return '"' + s.replace(/"/g, '""') + '"';
+  let s = cp1252Safe(String(v));
+  if (quote) {
+    if (/^[=+\-@\t\r]/.test(s)) s = "'" + s;
+    return '"' + s.replace(/"/g, '""') + '"';
+  }
   return s;
 }
 
