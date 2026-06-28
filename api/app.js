@@ -39,6 +39,7 @@ import { createReportsRouter } from "./routes/reports.js";
 import { createPaymentRouter } from "./routes/payment.js";
 import { createProofsRouter } from "./routes/proofs.js";
 import { createMarketplaceRouter } from "./routes/marketplace.js";
+import { createRequestsRouter } from "./routes/requests.js";
 import { createSlaSearchJobsRouter } from "./routes/slaSearchJobs.js";
 import { createRequisitionsRouter } from "./routes/requisitions.js";
 import { createVendorPoolRouter } from "./routes/vendorPool.js";
@@ -354,6 +355,10 @@ export async function createApp() {
   v1.use(createPaymentRouter(deps));
   v1.use(createProofsRouter(deps));
   v1.use(createMarketplaceRouter(deps));
+  // Anfrage-Flow (/requests, /my/requests/*, …): in fc24b94 versehentlich mit-entfernt, als
+  // createSubscriptionRequestsRouter (namensähnlich) hinzukam → live verlinkte Seiten liefen auf 404.
+  // Wiederhergestellt (eigenes Feature, kein Duplikat zum Marketplace-Capacity-Exchange).
+  v1.use(createRequestsRouter(deps));
   v1.use(createSlaSearchJobsRouter(deps));
   v1.use(createRequisitionsRouter(deps));
   v1.use(createVendorPoolRouter(deps));

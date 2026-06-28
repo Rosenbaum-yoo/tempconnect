@@ -30,7 +30,7 @@ Diese Punkte brauchen eine Produkt-/Security-Entscheidung, bevor Code geändert 
 
 | ID | Thema | Optionen | Status |
 |---|---|---|---|
-| D-1 | **`/requests`-Flow** (`api/routes/requests.js` unmounted, aber Frontend ruft `/api/requests*` → 404) | (a) Router wieder mounten · (b) Frontend auf `/marketplace/demand-requests` umbiegen + Legacy löschen · (c) lassen | ⬜ |
+| D-1 | **`/requests`-Flow** (404) | ⚠️ **Prämisse korrigiert + gelöst (2026-06-28):** Verifikation zeigt — der Mount wurde in `fc24b94` („Session-Middleware-Reihenfolge") **versehentlich** mit-entfernt, als der namensähnliche `createSubscriptionRequestsRouter` hinzukam (Diff: `-import createRequestsRouter`, `-app.use(...createRequestsRouter)`). Es ist ein **eigenes, live verlinktes Feature** (Onboarding→company_requests; Seiten capacity_search/company_requests/request_detail/agency_inbox), **kein** Duplikat zum Marketplace-Capacity-Exchange (separates Feature, eigenes Frontend). „Umbiegen+Löschen" hätte echtes Feature zerstört + Daten-Modell-Rewrite erfordert. **→ Re-Mount** (`v1.use(createRequestsRouter)`); deps liefern requestLimiter etc.; Suite 7240/0, Coverage 44/44. | ✅ |
 | D-2 | **Build-Artefakt-Strategie** (30 gehashte Vite-Bundles getrackt) | (a) gitignoren + im Build/CI erzeugen (empfohlen) · (b) bewusst alle committen | ⬜ |
 | D-3 | **`catalogVersionService`** wird nie getriggert | (a) beim Boot/Deploy einhängen (wenn Versionierung gewollt) · (b) Service + Test entfernen | ⬜ |
 | D-4 | **Kanonische Go-Live-Liste** (`GO-LIVE.md` vs `MARKTSTART-CHECKLISTE.md` vs `docs/GO_LIVE_FINAL.md`) | eine als SSoT wählen, Rest auf Pointer reduzieren | ⬜ |
@@ -65,7 +65,7 @@ Jede Datei per Repo-weitem Grep als 0-Referenz bestätigt. Commit `chore(cleanup
 | ID | Befund | Aktion | Typ | Status |
 |---|---|---|---|---|
 | F-1 | Toter Upload-Button `sla_nachweise.html` ("Backend nimmt Uploads noch nicht entgegen") | ehrliches Maturity-Gate (403-Pattern wie `sla_profil.html`) ODER Nav-Eintrag für Pilot ausblenden | 🟢 | ⬜ |
-| F-2 | `/requests`-404-Bruch | gemäß D-1 umsetzen | 🟡 | ⬜ |
+| F-2 | `/requests`-404-Bruch | ✅ gelöst via Re-Mount (siehe D-1). Optionaler Folgeschritt: Live-Browser-Smoke der 4 Seiten nach Deploy. `dealWorkflow.js` NICHT gelöscht (Audit-Klassifikation „tot" war unzuverlässig — separat verifizieren). | 🟡 | ✅ |
 | F-3 | `catalogVersionService` nie getriggert | gemäß D-3 umsetzen | 🟡 | ⬜ |
 | F-4 | OCC-Mutationen ohne Confirm-Reason-Pflicht (CLAUDE.md Pfeiler 5) | `requireConfirmAndReason`-Guard (confirmed=true + reason≥10) in LIVE-OCC-Mutationsrouten einziehen (Wert aus D-5) | 🟢 | ⬜ |
 | F-5 | **Flaky Test** (Suite-Anzahl schwankt 7241↔7240, 1 sporadischer Fail) — DB/`meilisearch`-gated, umgebungsabhängig | identifizieren + stabilisieren (sauberer `skip:!hasDb`/optional-dep-Guard) | 🟢 | ⬜ |
@@ -122,3 +122,4 @@ Jede Datei per Repo-weitem Grep als 0-Referenz bestätigt. Commit `chore(cleanup
 | 2026-06-28 | Welle 3 — S-1 SAML-Härtung | `fix(security) SAML` | Issuer-Validierung + Fallback entfernt; ssoService.test 3/3 |
 | 2026-06-28 | D-5 (Welle 0) | `chore(occ)` | Prämisse korrigiert; tote Parallel-Middleware + Coverage-Test gelöscht; Suite 7240/0 (re-run). Confirm-Reason → F-4 |
 | 2026-06-28 | Welle 4 — H-5 | `refactor(logging)` | 6× stilles `.catch(()=>{})` → `swallow()`; 262/262 Route-Tests grün |
+| 2026-06-28 | D-1/F-2 (Welle 2) | `fix(api) requests re-mount` | Prämisse korrigiert: versehentlicher Regress (fc24b94) → Anfrage-Flow-Router re-mounted; Suite 7240/0. Kein Löschen (echtes Feature) |
