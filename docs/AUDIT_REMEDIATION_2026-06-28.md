@@ -64,7 +64,7 @@ Jede Datei per Repo-weitem Grep als 0-Referenz bestätigt. Commit `chore(cleanup
 
 | ID | Befund | Aktion | Typ | Status |
 |---|---|---|---|---|
-| F-1 | Toter Upload-Button `sla_nachweise.html` ("Backend nimmt Uploads noch nicht entgegen") | ehrliches Maturity-Gate (403-Pattern wie `sla_profil.html`) ODER Nav-Eintrag für Pilot ausblenden | 🟢 | ⬜ |
+| F-1 | Toter Upload-Button `sla_nachweise.html` ("Backend nimmt Uploads noch nicht entgegen") | ✅ erledigt: Fake-Upload (Datei-Input + disabled Button) entfernt, ehrliche „kommt in Kürze"-Info; Seite bleibt plan-gegated, keine tote Interaktion mehr | 🟢 | ✅ |
 | F-2 | `/requests`-404-Bruch | ✅ gelöst via Re-Mount (siehe D-1). Optionaler Folgeschritt: Live-Browser-Smoke der 4 Seiten nach Deploy. `dealWorkflow.js` NICHT gelöscht (Audit-Klassifikation „tot" war unzuverlässig — separat verifizieren). | 🟡 | ✅ |
 | F-3 | `catalogVersionService` nie getriggert | gemäß D-3 umsetzen | 🟡 | ⬜ |
 | F-4 | OCC-Mutationen ohne Confirm-Reason-Pflicht (CLAUDE.md Pfeiler 5) | `requireConfirmAndReason`-Guard (confirmed=true + reason≥10) in LIVE-OCC-Mutationsrouten einziehen (Wert aus D-5) | 🟢 | ⬜ |
@@ -87,7 +87,7 @@ Jede Datei per Repo-weitem Grep als 0-Referenz bestätigt. Commit `chore(cleanup
 | ID | Befund | Aktion | Typ | Status |
 |---|---|---|---|---|
 | H-1 | Build-Artefakt-Churn (staff/support assets) | Build-on-Deploy etabliert (siehe D-2); finales Untrack nach Deploy-Verifikation | 🟡 | ✅ (Untrack gated) |
-| H-2 | `finalization/` + `docs/` im Docker-Build-Context | `finalization/` (+ ggf. `docs/`) in `.dockerignore` | 🟢 | ⬜ |
+| H-2 | `finalization/` + `docs/` im Docker-Build-Context | ❎ gegenstandslos: einziger Image-Build ist `api` mit Context `./api`; `finalization/`+`docs/` liegen im Root, also außerhalb jedes Build-Contexts → `.dockerignore`-Eintrag wäre No-Op. (Audit-Annahme „landet im Build-Context" falsch.) Rest-Concern nur Release-Artefakt-Größe → niedrig. | 🟢 | ❎ n/a |
 | H-3 | `frontend/support-ops/` nicht ausgeliefert (SOC aus `support-ops-dist/`) | gitignoren oder löschen; Vite-Emit-Ziel prüfen | 🟡 | ⬜ |
 | H-4 | **docs-consistency-Test fehlt** (CLAUDE.md §0.12 verbindlich) | leichten Test ergänzen: tote Markdown-Links + verwaiste/duplizierte Docs → rot | 🟢 | ⬜ |
 | H-5 | `.catch(()=>{})` ×6 statt `swallow()` (invoices/search/timesheets) | durch `.catch(swallow('…'))` ersetzen | 🟢 | ✅ erledigt (262/262 Route-Tests grün) |
@@ -125,3 +125,4 @@ Jede Datei per Repo-weitem Grep als 0-Referenz bestätigt. Commit `chore(cleanup
 | 2026-06-28 | D-1/F-2 (Welle 2) | `fix(api) requests re-mount` | Prämisse korrigiert: versehentlicher Regress (fc24b94) → Anfrage-Flow-Router re-mounted; Suite 7240/0. Kein Löschen (echtes Feature) |
 | 2026-06-28 | D-2 (Welle 0) | — | BLOCKIERT: gitignoren der staff/support-Bundles unsicher ohne bestätigten Build-on-Deploy (Prod-404-Risiko). Owner-Entscheidung offen |
 | 2026-06-28 | D-2/H-1 (Welle 4) | `feat(deploy) frontend-build` | Build-on-Deploy etabliert: compose `frontend-build`-Service (base+prod) + CI `build:soc` + DEPLOYMENT.md. compose config valide. Untrack gated nach Deploy-Verifikation |
+| 2026-06-28 | F-1 (Welle 2) | `fix(ui) sla-nachweise` | Toten Upload-Button entfernt, ehrliche Coming-Soon-Info; kein Test betroffen. H-2 als gegenstandslos markiert |
