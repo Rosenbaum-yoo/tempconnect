@@ -34,7 +34,7 @@ Diese Punkte brauchen eine Produkt-/Security-Entscheidung, bevor Code geändert 
 | D-2 | **Build-Artefakt-Strategie** (30 gehashte Vite-Bundles getrackt) | (a) gitignoren + im Build/CI erzeugen (empfohlen) · (b) bewusst alle committen | ⬜ |
 | D-3 | **`catalogVersionService`** wird nie getriggert | (a) beim Boot/Deploy einhängen (wenn Versionierung gewollt) · (b) Service + Test entfernen | ⬜ |
 | D-4 | **Kanonische Go-Live-Liste** (`GO-LIVE.md` vs `MARKTSTART-CHECKLISTE.md` vs `docs/GO_LIVE_FINAL.md`) | eine als SSoT wählen, Rest auf Pointer reduzieren | ⬜ |
-| D-5 | **OCC-Access-Middleware-Duplikat** | ⚠️ **Prämisse korrigiert (2026-06-28):** Verifikation zeigt — `ownerControlAccess.js` ist eine **nie adoptierte Parallel-Architektur** (nutzt `session.ownerUserId` [nirgends gesetzt] + Tabelle `tempconnect_owners` [nicht live]; Live ist `requireOwnerControlAccess.js` + `occ_owner_access`). „Migrieren" würde den funktionierenden OCC-Login brechen. **Korrigierte Empfehlung:** die tote `ownerControlAccess.js` (+ Coverage-Test) löschen UND `requireConfirmAndReason` separat in die LIVE-OCC-Mutationsrouten einziehen (echter Mehrwert). → Re-Entscheidung eingeholt. | 🔄 |
+| D-5 | **OCC-Access-Middleware-Duplikat** | ⚠️ **Prämisse korrigiert (2026-06-28):** Verifikation zeigt — `ownerControlAccess.js` ist eine **nie adoptierte Parallel-Architektur** (nutzt `session.ownerUserId` [nirgends gesetzt] + Tabelle `tempconnect_owners` [nicht live]; Live ist `requireOwnerControlAccess.js` + `occ_owner_access`). „Migrieren" würde den funktionierenden OCC-Login brechen. **Umgesetzt:** tote `ownerControlAccess.js` + Coverage-Test gelöscht (verifiziert nie gemountet/genutzt, Suite re-run 0 fail). `requireConfirmAndReason`-Einzug in LIVE-OCC-Mutationen als Folgeschritt **F-4** offen. | ✅ |
 
 ---
 
@@ -67,6 +67,8 @@ Jede Datei per Repo-weitem Grep als 0-Referenz bestätigt. Commit `chore(cleanup
 | F-1 | Toter Upload-Button `sla_nachweise.html` ("Backend nimmt Uploads noch nicht entgegen") | ehrliches Maturity-Gate (403-Pattern wie `sla_profil.html`) ODER Nav-Eintrag für Pilot ausblenden | 🟢 | ⬜ |
 | F-2 | `/requests`-404-Bruch | gemäß D-1 umsetzen | 🟡 | ⬜ |
 | F-3 | `catalogVersionService` nie getriggert | gemäß D-3 umsetzen | 🟡 | ⬜ |
+| F-4 | OCC-Mutationen ohne Confirm-Reason-Pflicht (CLAUDE.md Pfeiler 5) | `requireConfirmAndReason`-Guard (confirmed=true + reason≥10) in LIVE-OCC-Mutationsrouten einziehen (Wert aus D-5) | 🟢 | ⬜ |
+| F-5 | **Flaky Test** (Suite-Anzahl schwankt 7241↔7240, 1 sporadischer Fail) — DB/`meilisearch`-gated, umgebungsabhängig | identifizieren + stabilisieren (sauberer `skip:!hasDb`/optional-dep-Guard) | 🟢 | ⬜ |
 
 ---
 
@@ -118,4 +120,4 @@ Jede Datei per Repo-weitem Grep als 0-Referenz bestätigt. Commit `chore(cleanup
 |---|---|---|---|
 | 2026-06-28 | Welle 1 — Safe-Cleanup | `chore(cleanup)` | 10 verifizierte Dateien entfernt, 2 Doku-Verweise gefixt, `*.lnk` ignoriert; Suite 7252/0 |
 | 2026-06-28 | Welle 3 — S-1 SAML-Härtung | `fix(security) SAML` | Issuer-Validierung + Fallback entfernt; ssoService.test 3/3 |
-| 2026-06-28 | D-5 (Welle 0) | — | Prämisse korrigiert: „reiche" Middleware ist tote Parallel-Architektur → Re-Entscheidung |
+| 2026-06-28 | D-5 (Welle 0) | `chore(occ)` | Prämisse korrigiert; tote Parallel-Middleware + Coverage-Test gelöscht; Suite 7240/0 (re-run). Confirm-Reason → F-4 |
