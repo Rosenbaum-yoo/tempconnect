@@ -16,6 +16,35 @@ Diese Datei beschreibt den kanonischen Produktionspfad für TempConnect. Produkt
 
 ---
 
+## Frontend-Build (React: OCC + SCC)
+
+Die React-Oberflächen werden aus dem Quellcode (`frontend/src/`) erzeugt — nicht aus dem Repo bezogen:
+
+- **OCC** (`build:occ`) → `frontend/owner-control/` (gitignored)
+- **SCC** (`build:scc`) → `frontend/public/staff/` (`staff.html` + `assets/*`)
+- **SOC** (`build:soc`) → `frontend/support-ops/`; ausgeliefert wird SOC separat aus `./support-ops-dist` (eigener Mount).
+
+**Automatisch beim Deploy:** Der Compose-Service `frontend-build` (in `docker-compose.yml` + `docker-compose.prod.yml`) läuft als Einmal-Job `npm ci && npm run build:occ && npm run build:scc` in den gemounteten `./frontend`-Baum, **bevor** nginx serviert (`frontend.depends_on: frontend-build: service_completed_successfully`). Damit existieren OCC/SCC bei jedem `docker compose up` frisch — auch das gitignorte `owner-control/`.
+
+**Verifikation (einmalig vor erstem Verlass darauf):**
+```bash
+docker compose -f docker-compose.prod.yml up -d
+# erwartet: Service tempconnect_frontend_build endet mit Code 0; danach startet nginx
+ls frontend/owner-control/index.html frontend/public/staff/staff.html   # müssen existieren
+```
+
+**Offen (bewusst gated): staff/support-Bundles aus Git nehmen.** Die gehashten Build-Artefakte
+(`frontend/public/staff/`) sind derzeit noch **getrackt** (erzeugen Dev-Diff-Churn). Sie können
+nach erfolgreicher Build-on-Deploy-Verifikation entfernt werden:
+```bash
+git rm -r --cached frontend/public/staff
+echo "frontend/public/staff/" >> .gitignore
+```
+**Rollback:** Falls ein Deploy danach OCC/SCC nicht baut → `git revert <commit>` stellt die committeten
+Bundles sofort wieder her. Erst untracken, wenn ein realer Deploy die Regenerierung bestätigt hat.
+
+---
+
 ## Release-Artefakt beziehen
 
 Der kanonische Release-Pfad läuft über die CI:

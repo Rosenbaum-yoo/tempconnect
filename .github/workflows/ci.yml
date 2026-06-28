@@ -147,6 +147,32 @@ jobs:
         run: npm run build:scc
 
   # ──────────────────────────────────────────
+  # Job 3c: SOC React Build (Support Ops Center)
+  # ──────────────────────────────────────────
+  soc-build:
+    name: SOC React Build
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install dependencies
+        working-directory: ./frontend
+        run: npm ci
+
+      - name: Build SOC React Shell (Vite)
+        working-directory: ./frontend
+        run: npm run build:soc
+
+  # ──────────────────────────────────────────
   # Job 4: Unit + Service tests (no DB needed)
   # ──────────────────────────────────────────
   unit-tests:

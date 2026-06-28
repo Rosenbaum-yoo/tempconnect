@@ -132,6 +132,18 @@ services:
         max-size: "50m"
         max-file: "5"
 
+  # Erzeugt die React-Builds (OCC → owner-control/, SCC → public/staff/) aus dem Quellcode in den
+  # gemounteten ./frontend-Baum, BEVOR nginx serviert. Einmal-Lauf; nginx wartet via depends_on.
+  # Nur CI-erprobte Builds (build:occ + build:scc). SOC läuft über das separate ./support-ops-dist.
+  frontend-build:
+    image: node:20-alpine
+    container_name: tempconnect_frontend_build
+    working_dir: /app
+    volumes:
+      - ./frontend:/app
+    command: sh -c "npm ci && npm run build:occ && npm run build:scc"
+    restart: "no"
+
   frontend:
     image: nginx:alpine
     container_name: tempconnect_frontend
@@ -139,6 +151,8 @@ services:
     depends_on:
       api:
         condition: service_healthy
+      frontend-build:
+        condition: service_completed_successfully
     ports:
       - "127.0.0.1:${FRONTEND_PORT:-8080}:80"
     volumes:
