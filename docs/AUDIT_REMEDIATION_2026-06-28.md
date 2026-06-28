@@ -34,7 +34,7 @@ Diese Punkte brauchen eine Produkt-/Security-Entscheidung, bevor Code geändert 
 | D-2 | **Build-Artefakt-Strategie** (30 gehashte Vite-Bundles getrackt) | (a) gitignoren + im Build/CI erzeugen (empfohlen) · (b) bewusst alle committen | ⬜ |
 | D-3 | **`catalogVersionService`** wird nie getriggert | (a) beim Boot/Deploy einhängen (wenn Versionierung gewollt) · (b) Service + Test entfernen | ⬜ |
 | D-4 | **Kanonische Go-Live-Liste** (`GO-LIVE.md` vs `MARKTSTART-CHECKLISTE.md` vs `docs/GO_LIVE_FINAL.md`) | eine als SSoT wählen, Rest auf Pointer reduzieren | ⬜ |
-| D-5 | **OCC-Access-Middleware-Duplikat** (`ownerControlAccess.js` vs `requireOwnerControlAccess.js`) | (a) auf reichere `ownerControlAccess.js` (Step-Up + Confirm-Reason) migrieren · (b) ungenutzte löschen | ⬜ |
+| D-5 | **OCC-Access-Middleware-Duplikat** | ⚠️ **Prämisse korrigiert (2026-06-28):** Verifikation zeigt — `ownerControlAccess.js` ist eine **nie adoptierte Parallel-Architektur** (nutzt `session.ownerUserId` [nirgends gesetzt] + Tabelle `tempconnect_owners` [nicht live]; Live ist `requireOwnerControlAccess.js` + `occ_owner_access`). „Migrieren" würde den funktionierenden OCC-Login brechen. **Korrigierte Empfehlung:** die tote `ownerControlAccess.js` (+ Coverage-Test) löschen UND `requireConfirmAndReason` separat in die LIVE-OCC-Mutationsrouten einziehen (echter Mehrwert). → Re-Entscheidung eingeholt. | 🔄 |
 
 ---
 
@@ -74,7 +74,7 @@ Jede Datei per Repo-weitem Grep als 0-Referenz bestätigt. Commit `chore(cleanup
 
 | ID | Befund | Aktion | Status |
 |---|---|---|---|
-| S-1 | **SAML-Issuer nicht validiert** + Legacy-First-Config-Fallback (`ssoService.js`) | `idpIssuer = config.idp_entity_id` an SAML-Constructor; bei unbekanntem RelayState abbrechen statt „erste aktive Org". Owner-Freigabe (Security). | ⬜ |
+| S-1 | **SAML-Issuer nicht validiert** + Legacy-First-Config-Fallback (`ssoService.js`) | `idpIssuer = config.idp_entity_id` an SAML-Constructor; bei unbekanntem RelayState abbrechen statt „erste aktive Org". | ✅ erledigt (Commit `fix(security) SAML`, ssoService.test 3/3) |
 | S-2 | PII (E-Mail) + Such-Query im Domain-Logger ohne Redaction | in Pino-redact-paths (teilmaskiert) ODER bewusst dokumentieren (DSGVO-Bewertung Owner) | ⬜ |
 | S-3 | `responsible_actor_user_id` nur in 2 Services | kritische Mutationspfade prüfen; `writeAudit`-Wrapper um Pflichtfeld erweitern | ⬜ |
 
@@ -117,3 +117,5 @@ Jede Datei per Repo-weitem Grep als 0-Referenz bestätigt. Commit `chore(cleanup
 | Datum | Welle | Commit | Ergebnis |
 |---|---|---|---|
 | 2026-06-28 | Welle 1 — Safe-Cleanup | `chore(cleanup)` | 10 verifizierte Dateien entfernt, 2 Doku-Verweise gefixt, `*.lnk` ignoriert; Suite 7252/0 |
+| 2026-06-28 | Welle 3 — S-1 SAML-Härtung | `fix(security) SAML` | Issuer-Validierung + Fallback entfernt; ssoService.test 3/3 |
+| 2026-06-28 | D-5 (Welle 0) | — | Prämisse korrigiert: „reiche" Middleware ist tote Parallel-Architektur → Re-Entscheidung |
