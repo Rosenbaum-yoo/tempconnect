@@ -8,6 +8,7 @@
  */
 
 import { Router } from "express";
+import { swallow } from "../utils/logger.js";
 import * as searchService from "../services/searchService.js";
 import * as searchHistory from "../services/searchHistoryService.js";
 import * as searchModeration from "../services/searchModerationService.js";
@@ -52,7 +53,7 @@ export function createSearchRouter(deps) {
             ip: req.headers["x-forwarded-for"] || req.ip || null,
             userAgent: req.headers["user-agent"] || null,
           })
-          .catch(() => {});
+          .catch(swallow("search.history.record"));
         domainLogger.searchPerformed({ query: "[moderation-flagged]", type, resultCount: 0, durationMs: 0, source: "moderation" });
         return ok(res, { query: q, type, results: [], total: 0, source: "moderation", durationMs: 0, flagged: true });
       }
@@ -66,7 +67,7 @@ export function createSearchRouter(deps) {
       if (uid) {
         searchHistory
           .recordSearch(pool, { userId: uid, orgId: req.orgId || null, query: q, type, resultCount: result.total })
-          .catch(() => {});
+          .catch(swallow("search.history.record"));
       }
 
       // Domain Event loggen

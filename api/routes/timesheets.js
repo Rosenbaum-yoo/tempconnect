@@ -4,6 +4,7 @@
  */
 import { z } from "zod";
 import { Router } from "express";
+import { swallow } from "../utils/logger.js";
 import * as timesheetService from "../services/timesheetService.js";
 import * as integrationService from "../services/integrationService.js";
 import * as erpMappingService from "../services/erpMappingService.js";
@@ -447,7 +448,7 @@ export function createTimesheetsRouter(deps) {
       integrationService.dispatchToIntegrations(pool, "timesheet.exported", {
         orgId: req.orgId || null, entityType: "timesheet_export", entityId: null,
         message: `${items.length} Stundenzettel als CSV exportiert`, count: items.length
-      }).catch(() => {});
+      }).catch(swallow("timesheet.integration.dispatch"));
     } catch (err) { next(err); }
   });
 
@@ -482,7 +483,7 @@ export function createTimesheetsRouter(deps) {
       integrationService.dispatchToIntegrations(pool, "timesheet.exported", {
         orgId, entityType: "datev_lohn_bewegungsdaten", entityId: null,
         message: `${rows} DATEV-Lohn-Bewegungszeile(n) exportiert`, count: rows
-      }).catch(() => {});
+      }).catch(swallow("timesheet.integration.dispatch"));
     } catch (err) { next(err); }
   });
 

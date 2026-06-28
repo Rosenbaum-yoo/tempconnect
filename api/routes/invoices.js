@@ -9,6 +9,7 @@
  */
 
 import { Router } from "express";
+import { swallow } from "../utils/logger.js";
 import * as invoiceService from "../services/invoiceService.js";
 import * as opInvoice from "../services/operationalInvoiceService.js";
 import { renderInvoiceHtml, renderInvoiceText, renderInvoicePdf } from "../services/invoicePdfService.js";
@@ -63,7 +64,7 @@ export function createInvoicesRouter(deps) {
       integrationService.dispatchToIntegrations(pool, "invoice.exported", {
         orgId, entityType: "invoice_export", entityId: null,
         message: `${invoices.length} Rechnung(en) als CSV exportiert`, count: invoices.length
-      }).catch(() => {});
+      }).catch(swallow("invoice.integration.dispatch"));
     } catch (err) {
       next(err);
     }
@@ -99,7 +100,7 @@ export function createInvoicesRouter(deps) {
       integrationService.dispatchToIntegrations(pool, "invoice.exported", {
         orgId, entityType: "datev_buchungsstapel", entityId: null,
         message: `${invoices.length} Rechnung(en) als DATEV-Buchungsstapel exportiert`, count: invoices.length
-      }).catch(() => {});
+      }).catch(swallow("invoice.integration.dispatch"));
     } catch (err) {
       next(err);
     }

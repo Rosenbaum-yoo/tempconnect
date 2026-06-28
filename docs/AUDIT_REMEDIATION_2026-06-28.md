@@ -90,7 +90,7 @@ Jede Datei per Repo-weitem Grep als 0-Referenz bestätigt. Commit `chore(cleanup
 | H-2 | `finalization/` + `docs/` im Docker-Build-Context | `finalization/` (+ ggf. `docs/`) in `.dockerignore` | 🟢 | ⬜ |
 | H-3 | `frontend/support-ops/` nicht ausgeliefert (SOC aus `support-ops-dist/`) | gitignoren oder löschen; Vite-Emit-Ziel prüfen | 🟡 | ⬜ |
 | H-4 | **docs-consistency-Test fehlt** (CLAUDE.md §0.12 verbindlich) | leichten Test ergänzen: tote Markdown-Links + verwaiste/duplizierte Docs → rot | 🟢 | ⬜ |
-| H-5 | `.catch(()=>{})` ×6 statt `swallow()` (invoices/search/timesheets) | durch `.catch(swallow('…'))` ersetzen | 🟢 | ⬜ |
+| H-5 | `.catch(()=>{})` ×6 statt `swallow()` (invoices/search/timesheets) | durch `.catch(swallow('…'))` ersetzen | 🟢 | ✅ erledigt (262/262 Route-Tests grün) |
 
 ---
 
@@ -121,3 +121,4 @@ Jede Datei per Repo-weitem Grep als 0-Referenz bestätigt. Commit `chore(cleanup
 | 2026-06-28 | Welle 1 — Safe-Cleanup | `chore(cleanup)` | 10 verifizierte Dateien entfernt, 2 Doku-Verweise gefixt, `*.lnk` ignoriert; Suite 7252/0 |
 | 2026-06-28 | Welle 3 — S-1 SAML-Härtung | `fix(security) SAML` | Issuer-Validierung + Fallback entfernt; ssoService.test 3/3 |
 | 2026-06-28 | D-5 (Welle 0) | `chore(occ)` | Prämisse korrigiert; tote Parallel-Middleware + Coverage-Test gelöscht; Suite 7240/0 (re-run). Confirm-Reason → F-4 |
+| 2026-06-28 | Welle 4 — H-5 | `refactor(logging)` | 6× stilles `.catch(()=>{})` → `swallow()`; 262/262 Route-Tests grün |
