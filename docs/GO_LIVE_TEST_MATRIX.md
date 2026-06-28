@@ -108,10 +108,10 @@ Risk levels:
 
 | # | Test | Expected Result | Risk | Coverage |
 |---|------|----------------|------|----------|
-| 7.1 | Registration triggers welcome email | Email queued/sent | HIGH | Unit: emailTemplates |
-| 7.2 | Password reset email rendered correctly | Valid HTML, token present | HIGH | Unit: emailTemplates |
-| 7.3 | Invoice created email rendered correctly | Valid HTML, amount present | HIGH | Unit: emailTemplates |
-| 7.4 | SMTP nicht konfiguriert wirft keinen Fehler | Emails werden uebersprungen, kein Crash | MEDIUM | Unit: emailTemplates |
+| 7.1 | Registration triggers welcome email | Email queued/sent | HIGH | Unit: emailHtmlTemplates |
+| 7.2 | Password reset email rendered correctly | Valid HTML, token present | HIGH | Unit: emailHtmlTemplates |
+| 7.3 | Invoice created email rendered correctly | Valid HTML, amount present | HIGH | Unit: emailHtmlTemplates |
+| 7.4 | SMTP nicht konfiguriert wirft keinen Fehler | Emails werden uebersprungen, kein Crash | MEDIUM | Unit: emailHtmlTemplates |
 || 7.5 | Keine Emails im Test-Modus | `SMTP_HOST` leer oder nicht gesetzt | HIGH | Env config |
 
 ---

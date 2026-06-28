@@ -23,6 +23,9 @@ node_modules/
 npm-debug.log*
 *.pid
 
+# OS-/Editor-Artefakte (maschinenspezifisch, nie committen)
+*.lnk
+
 # Builds / Coverage / Test-Artefakte
 dist/
 build/
