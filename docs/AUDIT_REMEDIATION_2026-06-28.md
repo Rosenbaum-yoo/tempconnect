@@ -67,7 +67,7 @@ Jede Datei per Repo-weitem Grep als 0-Referenz bestätigt. Commit `chore(cleanup
 | F-1 | Toter Upload-Button `sla_nachweise.html` ("Backend nimmt Uploads noch nicht entgegen") | ✅ erledigt: Fake-Upload (Datei-Input + disabled Button) entfernt, ehrliche „kommt in Kürze"-Info; Seite bleibt plan-gegated, keine tote Interaktion mehr | 🟢 | ✅ |
 | F-2 | `/requests`-404-Bruch | ✅ gelöst via Re-Mount (siehe D-1). Optionaler Folgeschritt: Live-Browser-Smoke der 4 Seiten nach Deploy. `dealWorkflow.js` NICHT gelöscht (Audit-Klassifikation „tot" war unzuverlässig — separat verifizieren). | 🟡 | ✅ |
 | F-3 | `catalogVersionService` nie getriggert | gemäß D-3 umsetzen | 🟡 | ⬜ |
-| F-4 | OCC-Mutationen ohne Confirm-Reason-Pflicht (CLAUDE.md Pfeiler 5) | `requireConfirmAndReason`-Guard (confirmed=true + reason≥10) in LIVE-OCC-Mutationsrouten einziehen (Wert aus D-5) | 🟢 | ⬜ |
+| F-4 | OCC-Mutationen ohne Confirm-Reason-Pflicht (CLAUDE.md Pfeiler 5) | ❎ **bereits erfüllt:** alle 5 OCC-Mutationsrouten (automation/trigger, decisions-requests/decide+triage, warp/execute+dry-run) erzwingen inline `confirmed===true` + `reason`≥10 (`MIN_REASON_LENGTH`) UND stehen hinter `mfaGuard` (Step-Up). Der „reichere" D-5-Schutz ist also längst live — kein Code-Bedarf. | ❎ erfüllt |
 | F-5 | **Flaky Test** (Suite-Anzahl schwankt 7241↔7240, 1 sporadischer Fail) — DB/`meilisearch`-gated, umgebungsabhängig | identifizieren + stabilisieren (sauberer `skip:!hasDb`/optional-dep-Guard) | 🟢 | ⬜ |
 
 ---
@@ -126,3 +126,4 @@ Jede Datei per Repo-weitem Grep als 0-Referenz bestätigt. Commit `chore(cleanup
 | 2026-06-28 | D-2 (Welle 0) | — | BLOCKIERT: gitignoren der staff/support-Bundles unsicher ohne bestätigten Build-on-Deploy (Prod-404-Risiko). Owner-Entscheidung offen |
 | 2026-06-28 | D-2/H-1 (Welle 4) | `feat(deploy) frontend-build` | Build-on-Deploy etabliert: compose `frontend-build`-Service (base+prod) + CI `build:soc` + DEPLOYMENT.md. compose config valide. Untrack gated nach Deploy-Verifikation |
 | 2026-06-28 | F-1 (Welle 2) | `fix(ui) sla-nachweise` | Toten Upload-Button entfernt, ehrliche Coming-Soon-Info; kein Test betroffen. H-2 als gegenstandslos markiert |
+| 2026-06-28 | F-4 (Welle 2) | — (Verifikation) | bereits erfüllt: alle 5 OCC-Mutationen haben confirmed+reason≥10 + mfaGuard inline. Kein Code nötig (Audit-Annahme ungenau) |
