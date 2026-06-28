@@ -9,6 +9,12 @@
 
 ---
 
+## Gesamtstatus (2026-06-28): ~98 % — substanzieller Teil erledigt
+
+Alle hoch-/mittelwertigen Punkte sind umgesetzt + committet (Welle 1 · S-1 · D-5 · H-5 · D-1 · D-2-Build-Schritt · F-1 · F-4-verifiziert · H-1 · H-2-n/a). Die verbleibenden ~2 % sind bewusst zurückgestellt (niedrigwertig / gated / non-deterministisch / can-of-worms) und liegen mit Triggern + Diagnosen in **[AUDIT_BACKLOG.md](AUDIT_BACKLOG.md)** (B-1 D-2-Untrack · B-2 flaky `me.route`-Test · B-3 docs-consistency · B-4 Doku-Konsolidierung · B-5 Politur). Backlog ist im Session-Memory verankert → bleibt im Blick.
+
+**Meta-Erkenntnis:** Die LLM-Audit-Befunde waren bei den großen Punkten systematisch ungenau (D-1 versehentlicher Regress statt totes Duplikat; D-5 nie-adoptierte Parallel-Arch; F-4 längst erfüllt). Erst die **adversariale Verifikation** machte sie belastbar und verhinderte jedes Mal eine destruktive Fehlentscheidung.
+
 ## Scorecard (Ausgangslage)
 
 | Dimension | Score | Note |
@@ -127,3 +133,5 @@ Jede Datei per Repo-weitem Grep als 0-Referenz bestätigt. Commit `chore(cleanup
 | 2026-06-28 | D-2/H-1 (Welle 4) | `feat(deploy) frontend-build` | Build-on-Deploy etabliert: compose `frontend-build`-Service (base+prod) + CI `build:soc` + DEPLOYMENT.md. compose config valide. Untrack gated nach Deploy-Verifikation |
 | 2026-06-28 | F-1 (Welle 2) | `fix(ui) sla-nachweise` | Toten Upload-Button entfernt, ehrliche Coming-Soon-Info; kein Test betroffen. H-2 als gegenstandslos markiert |
 | 2026-06-28 | F-4 (Welle 2) | — (Verifikation) | bereits erfüllt: alle 5 OCC-Mutationen haben confirmed+reason≥10 + mfaGuard inline. Kein Code nötig (Audit-Annahme ungenau) |
+| 2026-06-28 | F-5 (Welle 2) | — (Diagnose→Backlog) | flaky Test als `me.route.coverage.test.js` (unhandled rejection, Verdacht Z.660) lokalisiert → B-2 in AUDIT_BACKLOG.md |
+| 2026-06-28 | ~98 % erreicht | `docs(audit) backlog` | Restpunkte (B-1..B-5) in AUDIT_BACKLOG.md + Memory verankert |
