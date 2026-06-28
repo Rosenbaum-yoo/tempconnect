@@ -79,6 +79,7 @@ export async function initiateSSOLogin(pool, orgId, baseUrl) {
   const saml = new SAML({
     entryPoint: config.idp_sso_url,
     issuer: config.sp_entity_id || `${baseUrl}/api/sso/metadata/${orgId}`,
+    idpIssuer: config.idp_entity_id,
     cert: config.idp_certificate,
     callbackUrl: `${baseUrl}/api/sso/callback`,
     wantAuthnResponseSigned: true
@@ -116,13 +117,9 @@ export async function handleSAMLCallback(pool, samlResponse, relayState, baseUrl
   if (relayState) {
     config = await getSSOConfig(pool, relayState);
   }
-  if (!config) {
-    // Fallback: ersten aktiven Config (Legacy-Kompatibilitaet)
-    const { rows } = await pool.query(
-      "SELECT * FROM org_sso_config WHERE is_active = TRUE LIMIT 1"
-    );
-    config = rows[0] || null;
-  }
+  // KEIN Legacy-Fallback auf "erste aktive Org": ein fehlender/unbekannter RelayState darf NICHT
+  // dazu führen, dass die Assertion gegen eine fremde Org-Config validiert und ein Nutzer dort
+  // (auto-)provisioniert wird. Ohne eindeutige Org-Zuordnung wird abgebrochen.
   if (!config) return { error: "NO_ACTIVE_SSO_CONFIG" };
 
   if (!SAML) return { error: "SAML_NOT_AVAILABLE" };
@@ -130,6 +127,7 @@ export async function handleSAMLCallback(pool, samlResponse, relayState, baseUrl
   const saml = new SAML({
     entryPoint: config.idp_sso_url,
     issuer: config.sp_entity_id || `${baseUrl}/api/sso/metadata/${config.org_id}`,
+    idpIssuer: config.idp_entity_id,            // Assertion-Issuer MUSS zur konfigurierten IdP-Entity-ID passen
     cert: config.idp_certificate,
     callbackUrl: `${baseUrl}/api/sso/callback`,
     wantAuthnResponseSigned: true
