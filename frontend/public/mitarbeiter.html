@@ -177,6 +177,7 @@
     <!-- Tabs -->
     <div class="tabs">
       <button class="tab-btn active" data-tab="list" onclick="showTab('list')">Mitarbeiter <span class="badge" id="workerCount">0</span></button>
+      <button class="tab-btn" data-tab="live" onclick="showTab('live')">Live-Belegschaft</button>
       <button class="tab-btn" data-tab="skills" onclick="showTab('skills')">Profil &amp; Talent Hub</button>
       <button class="tab-btn" data-tab="create" onclick="showTab('create')">Manuell anlegen</button>
       <button class="tab-btn" data-tab="invite" onclick="showTab('invite')">Einladen</button>
@@ -197,6 +198,16 @@
       <div id="workerList">
         <div class="empty-state">Mitarbeiter werden geladen...</div>
       </div>
+    </div>
+
+    <!-- Panel: Live-Belegschaft (Disposition) -->
+    <div id="panel-live" class="panel">
+      <div class="search-bar">
+        <input type="text" id="liveSearch" placeholder="Mitarbeiter suchen..." oninput="filterLiveBoard()">
+        <span id="liveUpdated" style="font-size:12px;color:var(--wk-text-muted);align-self:center;white-space:nowrap"></span>
+      </div>
+      <div id="liveKpis" style="display:flex;flex-wrap:wrap;gap:10px;margin-bottom:8px"></div>
+      <div id="liveList"><div class="empty-state">Live-Belegschaft wird geladen...</div></div>
     </div>
 
     <!-- Panel: Manuell anlegen -->

@@ -11,7 +11,8 @@ import {
   getWorkforceOverview,
   getWorkforceDetail,
   getWorkforceKpis,
-  getPendingActions
+  getPendingActions,
+  getWorkerLiveBoard
 } from "../services/workforceService.js";
 
 // ── Mock helpers ──────────────────────────────────────
@@ -492,5 +493,57 @@ describe("assignmentService — transitions", () => {
     const { transitionAssignment } = await import("../services/assignmentService.js");
     const result = await transitionAssignment(pool, 'asg-1', 'active', 'actor-1');
     assert.strictEqual(result.error, 'INVALID_TRANSITION');
+  });
+});
+
+// ═══════════════════════════════════════════════════════
+// getWorkerLiveBoard (Live-Belegschaft / Disposition)
+// ═══════════════════════════════════════════════════════
+
+describe("workforceService — getWorkerLiveBoard", () => {
+  it("leere/fehlende Org → available:false, Zero-State", async () => {
+    const pool = returnPool([]);
+    const res = await getWorkerLiveBoard(pool, null);
+    assert.strictEqual(res.available, false);
+    assert.strictEqual(res.workers.length, 0);
+    assert.strictEqual(res.kpis.total, 0);
+  });
+
+  it("aggregiert KPIs + Auslastung aus den Worker-Zeilen", async () => {
+    const pool = returnPool([
+      { user_id: 'u1', is_active: true,  live_status: 'im_einsatz', open_timesheets: 1 },
+      { user_id: 'u2', is_active: true,  live_status: 'verfuegbar', open_timesheets: 0 },
+      { user_id: 'u3', is_active: true,  live_status: 'endet_bald', open_timesheets: 2 },
+      { user_id: 'u4', is_active: false, live_status: 'inaktiv',    open_timesheets: 0 }
+    ]);
+    const res = await getWorkerLiveBoard(pool, 'agency-1');
+    assert.strictEqual(res.available, true);
+    assert.strictEqual(res.kpis.total, 4);
+    assert.strictEqual(res.kpis.im_einsatz, 1);
+    assert.strictEqual(res.kpis.verfuegbar, 1);
+    assert.strictEqual(res.kpis.endet_bald, 1);
+    assert.strictEqual(res.kpis.inaktiv, 1);
+    assert.strictEqual(res.kpis.open_timesheets, 3);
+    // onAssignment = im_einsatz(1)+endet_bald(1)=2; aktive Worker = 4-1(inaktiv)=3 → 67%
+    assert.strictEqual(res.kpis.auslastung_pct, 67);
+  });
+
+  it("ist strikt org-gebunden: supplier_org_id = $1 überall (Org-Boundary in SQL)", async () => {
+    const captured = [];
+    const pool = mockPool(async (sql, params) => { captured.push({ sql, params }); return { rows: [] }; });
+    await getWorkerLiveBoard(pool, 'agency-1');
+    const q = captured[0];
+    assert.strictEqual(q.params[0], 'agency-1');
+    assert.ok(q.sql.includes('wp.supplier_org_id = $1'), 'worker_profiles org-gebunden');
+    assert.ok(q.sql.includes('wal.supplier_org_id = $1'), 'assignment-links org-gebunden');
+    assert.ok(/worker_time_submissions[\s\S]*supplier_org_id = \$1/.test(q.sql), 'timesheets org-gebunden');
+  });
+
+  it("Suchfilter fügt ILIKE-Parameter hinzu", async () => {
+    const captured = [];
+    const pool = mockPool(async (sql, params) => { captured.push({ sql, params }); return { rows: [] }; });
+    await getWorkerLiveBoard(pool, 'agency-1', { search: 'müller' });
+    assert.ok(captured[0].sql.includes('ILIKE'));
+    assert.ok(captured[0].params.some((p) => String(p).includes('müller')));
   });
 });

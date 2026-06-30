@@ -279,6 +279,89 @@ function showTab(name) {
   if (tab) tab.classList.add("active");
   if (name === "invites") loadInvites();
   if (name === "skills") populateSkillsWorkerSelect();
+  if (name === "live") startLiveBoard(); else stopLiveBoard();
+}
+
+/* ── Live-Belegschaft (Disposition) ─────────────────────
+ * Pro-Worker-Live-Status (verfügbar/im Einsatz/endet bald/inaktiv + offene Stundenzettel),
+ * Polling alle 30 s (nur solange der Tab aktiv ist). Serverseitig org-gebunden. */
+var _liveTimer = null;
+var _liveSearchT = null;
+var LIVE_POLL_MS = 30000;
+var LIVE_STATUS = {
+  endet_bald: { label: "Endet bald", color: "var(--ds-warning,#f59e0b)" },
+  im_einsatz: { label: "Im Einsatz", color: "var(--ds-brand,#4a9eff)" },
+  verfuegbar: { label: "Verfügbar",  color: "var(--ds-success,#34d399)" },
+  inaktiv:    { label: "Inaktiv",    color: "var(--ds-text-tertiary,#8d9bba)" }
+};
+
+function startLiveBoard() {
+  loadLiveBoard();
+  if (_liveTimer) clearInterval(_liveTimer);
+  _liveTimer = setInterval(loadLiveBoard, LIVE_POLL_MS);
+}
+function stopLiveBoard() {
+  if (_liveTimer) { clearInterval(_liveTimer); _liveTimer = null; }
+}
+function filterLiveBoard() {
+  if (_liveSearchT) clearTimeout(_liveSearchT);
+  _liveSearchT = setTimeout(loadLiveBoard, 300);
+}
+function loadLiveBoard() {
+  var q = (document.getElementById("liveSearch") || {}).value || "";
+  return api("/workers/live-board" + (q ? "?search=" + encodeURIComponent(q) : "")).then(function(data) {
+    renderLiveKpis((data && data.kpis) || {});
+    renderLiveList((data && data.workers) || []);
+    var u = document.getElementById("liveUpdated");
+    if (u) u.textContent = "Stand: " + new Date().toLocaleTimeString("de-DE");
+  }).catch(function() {
+    var l = document.getElementById("liveList");
+    if (l) l.innerHTML = '<div class="empty-state">Live-Belegschaft konnte nicht geladen werden.</div>';
+  });
+}
+function renderLiveKpis(k) {
+  var el = document.getElementById("liveKpis"); if (!el) return;
+  function tile(label, val, color) {
+    return '<div style="flex:1;min-width:120px;padding:14px 16px;border:1px solid var(--ds-border,rgba(0,0,0,.1));border-radius:12px;background:var(--ds-bg-surface,#fff)">' +
+           '<div style="font-size:24px;font-weight:800;color:' + (color || "var(--ds-text,#0f172a)") + '">' + esc(String(val != null ? val : "–")) + '</div>' +
+           '<div style="font-size:12px;color:var(--wk-text-muted,#64748b)">' + esc(label) + '</div></div>';
+  }
+  el.innerHTML =
+    tile("Auslastung", (k.auslastung_pct != null ? k.auslastung_pct + " %" : "–"), "var(--ds-brand,#4a9eff)") +
+    tile("Im Einsatz", (k.im_einsatz || 0) + (k.endet_bald ? " (+" + k.endet_bald + ")" : ""), null) +
+    tile("Verfügbar", k.verfuegbar || 0, "var(--ds-success,#34d399)") +
+    tile("Endet bald", k.endet_bald || 0, "var(--ds-warning,#f59e0b)") +
+    tile("Stundenzettel offen", k.open_timesheets || 0, null) +
+    tile("Belegschaft", k.total || 0, null);
+}
+function renderLiveList(workers) {
+  var el = document.getElementById("liveList"); if (!el) return;
+  if (!workers.length) { el.innerHTML = '<div class="empty-state">Noch keine Mitarbeiter in der Belegschaft.</div>'; return; }
+  var order = ["endet_bald", "im_einsatz", "verfuegbar", "inaktiv"]; // Handlungsbedarf zuerst
+  var html = "";
+  order.forEach(function(st) {
+    var group = workers.filter(function(w) { return w.live_status === st; });
+    if (!group.length) return;
+    var cfg = LIVE_STATUS[st] || { label: st, color: "var(--ds-text,#0f172a)" };
+    html += '<div style="margin:18px 0 8px;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:' + cfg.color + '">' + esc(cfg.label) + ' (' + group.length + ')</div>';
+    group.forEach(function(w) {
+      var name = esc(((w.first_name || "") + " " + (w.last_name || "")).trim() || "—") +
+                 (w.personnel_number ? ' <span style="color:var(--wk-text-muted,#64748b);font-weight:400">#' + esc(w.personnel_number) + '</span>' : "");
+      var sub = [];
+      if (w.client_name) sub.push("bei " + esc(w.client_name));
+      if (w.effective_end_date) sub.push("bis " + esc(String(w.effective_end_date).slice(0, 10)));
+      var ts = (w.open_timesheets > 0)
+        ? '<a href="/public/worker-submissions-review.html" class="badge" style="background:var(--ds-warning-muted,rgba(245,158,11,.15));color:var(--ds-warning,#b45309);text-decoration:none">' + w.open_timesheets + ' Stundenzettel</a>'
+        : "";
+      html += '<div class="card" style="display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:8px">' +
+                '<div><div style="font-weight:700">' + name + '</div>' +
+                (sub.length ? '<div style="font-size:13px;color:var(--wk-text-muted,#64748b)">' + sub.join(" · ") + '</div>' : "") + '</div>' +
+                '<div style="display:flex;gap:8px;align-items:center;flex-shrink:0">' + ts +
+                  '<span class="badge" style="background:transparent;border:1px solid ' + cfg.color + ';color:' + cfg.color + '">' + esc(cfg.label) + '</span>' +
+                '</div></div>';
+    });
+  });
+  el.innerHTML = html;
 }
 
 /* ── Init ────────────────────────────────────────────── */

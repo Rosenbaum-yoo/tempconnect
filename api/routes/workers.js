@@ -15,6 +15,7 @@ import { hasFeature } from "../config/planFeatures.js";
 import * as assignmentStaffingService from "../services/assignmentStaffingService.js";
 import * as dealStaffingFastTrackService from "../services/dealStaffingFastTrackService.js";
 import * as workerService from "../services/workerService.js";
+import * as workforceService from "../services/workforceService.js";
 import * as submissionSvc from "../services/workerSubmissionService.js";
 import * as billingMetrics from "../services/billingMetricsService.js";
 import * as workerNotifications from "../services/workerNotificationService.js";
@@ -433,6 +434,20 @@ export function createWorkersRouter(deps) {
       if (err.code === "23505") return res.status(409).json({ error: "EMAIL_EXISTS" });
       next(err);
     }
+  });
+
+  /* ── Live-Belegschaft (Disposition) ──────────────────────────────────────────
+   * Pro-Worker-Live-Status (verfügbar/im Einsatz/endet bald/inaktiv + offene Stundenzettel).
+   * Strikt supplier_org_id-gebunden (req.orgId). Read-only, Zero-State bei leerer Belegschaft.
+   * MUSS vor "/workers/:userId" stehen, sonst fängt :userId "live-board". */
+  router.get("/workers/live-board", ...base, requireScope("read:workers"), rperm("worker.view"), async (req, res, next) => {
+    try {
+      const board = await workforceService.getWorkerLiveBoard(pool, req.orgId, {
+        search: req.query.search || null,
+        limit: parseInt(req.query.limit, 10) || 300
+      });
+      res.json(board);
+    } catch (err) { next(err); }
   });
 
   /* ── Worker abrufen ──────────────────────────────────────────────────────── */

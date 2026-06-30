@@ -450,3 +450,80 @@ export async function getPendingActions(pool, orgId, limit = 20) {
 
   return actions.slice(0, safeLimit);
 }
+
+/* ── Worker Live-Board (Disposition) ─────────────────────────
+ * Pro-Worker-Live-Status für die Personaldienstfirma (Supplier-Sicht): verfügbar / im Einsatz /
+ * endet bald / inaktiv + offene Stundenzettel. STRIKT org-gebunden auf supplier_org_id. Rein lesend,
+ * eine set-basierte Query (LATERAL für den aktuellen Einsatz, kein N+1). KPIs aus den (begrenzten)
+ * Rows in JS aggregiert. */
+const LIVE_BOARD_ENDS_SOON_DAYS = 7;
+
+export async function getWorkerLiveBoard(pool, supplierOrgId, filters = {}) {
+  const scope = { supplier_org_id: supplierOrgId || null, ends_soon_days: LIVE_BOARD_ENDS_SOON_DAYS };
+  const emptyKpis = { total: 0, im_einsatz: 0, verfuegbar: 0, endet_bald: 0, inaktiv: 0, open_timesheets: 0, auslastung_pct: 0 };
+  if (!supplierOrgId) return { available: false, workers: [], kpis: emptyKpis, scope };
+
+  const lifecycleStateSql = buildAssignmentLifecycleStateSql({ assignmentAlias: "a", linkAlias: "wal" });
+  const effEndSql = buildAssignmentEffectiveEndDateSql({ assignmentAlias: "a", linkAlias: "wal" });
+
+  const params = [supplierOrgId];
+  let idx = 2;
+  let searchClause = "";
+  if (filters.search) {
+    searchClause = `AND (wp.first_name ILIKE $${idx} OR wp.last_name ILIKE $${idx} OR wp.personnel_number ILIKE $${idx})`;
+    params.push(`%${filters.search}%`); idx++;
+  }
+  const limit = Math.min(500, Math.max(1, Number(filters.limit) || 300));
+
+  const { rows } = await pool.query(
+    `SELECT wp.id, wp.user_id, wp.first_name, wp.last_name, wp.personnel_number, wp.is_active,
+            cur.assignment_id, cur.assignment_status, cur.client_name, cur.start_date,
+            cur.effective_end_date, cur.lifecycle_state,
+            COALESCE(ts.pending_count, 0)::int AS open_timesheets,
+            CASE
+              WHEN wp.is_active = FALSE THEN 'inaktiv'
+              WHEN cur.assignment_id IS NULL THEN 'verfuegbar'
+              WHEN cur.effective_end_date IS NOT NULL
+                   AND cur.effective_end_date <= CURRENT_DATE + ${LIVE_BOARD_ENDS_SOON_DAYS} THEN 'endet_bald'
+              ELSE 'im_einsatz'
+            END AS live_status
+       FROM worker_profiles wp
+       LEFT JOIN LATERAL (
+         SELECT a.id AS assignment_id, a.status AS assignment_status, o.name AS client_name,
+                wal.start_date, ${effEndSql} AS effective_end_date, ${lifecycleStateSql} AS lifecycle_state
+           FROM worker_assignment_links wal
+           JOIN assignments a ON a.id = wal.assignment_id
+           LEFT JOIN organizations o ON o.id = a.org_id
+          WHERE wal.worker_user_id = wp.user_id
+            AND wal.supplier_org_id = $1
+            AND wal.is_active = TRUE
+            AND ${lifecycleStateSql} IN ('active', 'ends_today')
+          ORDER BY ${effEndSql} ASC NULLS LAST
+          LIMIT 1
+       ) cur ON TRUE
+       LEFT JOIN (
+         SELECT worker_user_id, COUNT(*) AS pending_count
+           FROM worker_time_submissions
+          WHERE supplier_org_id = $1 AND status IN ('submitted', 'under_review')
+          GROUP BY worker_user_id
+       ) ts ON ts.worker_user_id = wp.user_id
+      WHERE wp.supplier_org_id = $1 ${searchClause}
+      ORDER BY (CASE WHEN wp.is_active THEN 0 ELSE 1 END), wp.last_name ASC, wp.first_name ASC
+      LIMIT ${limit}`,
+    params
+  );
+
+  const kpis = { ...emptyKpis, total: rows.length };
+  rows.forEach((r) => {
+    if (r.live_status === "inaktiv") kpis.inaktiv++;
+    else if (r.live_status === "verfuegbar") kpis.verfuegbar++;
+    else if (r.live_status === "endet_bald") kpis.endet_bald++;
+    else if (r.live_status === "im_einsatz") kpis.im_einsatz++;
+    kpis.open_timesheets += r.open_timesheets || 0;
+  });
+  const onAssignment = kpis.im_einsatz + kpis.endet_bald;
+  const activeWorkers = kpis.total - kpis.inaktiv;
+  kpis.auslastung_pct = activeWorkers > 0 ? Math.round((onAssignment / activeWorkers) * 100) : 0;
+
+  return { available: true, workers: rows, kpis, scope, generated_at: new Date().toISOString() };
+}
