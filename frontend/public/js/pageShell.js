@@ -1011,6 +1011,97 @@
     };
     var ORDER = ["requisitions", "capacity_posts", "companies"];
 
+    /* ── Schnellzugriff / Intents: natürliche Begriffe → richtige Seite (rollenbasiert).
+     * Macht die Suche zur #1-Navigation: "arbeiter einstellen", "stundenzettel", "notdienst" …
+     * org-spezifisch (it.org) + RBAC über hubVisibility.resolveNav(me, it.key). Nur echte Nav-Ziele. */
+    var INTENTS = [
+      { label: "Personal finden", sub: "Marktplatz · Kapazitäten & Vermittlung", href: "/public/capacity_exchange_feed.html", key: "marktplatz", org: "company",
+        t: ["personal finden","personal suchen","arbeiter finden","arbeiter suchen","arbeiter einstellen","mitarbeiter suchen","mitarbeiter finden","mitarbeiter einstellen","kraefte finden","fachkraefte","aushilfe","springer","leiharbeiter","zeitarbeiter","leihpersonal","pflegekraft","personal anheuern","leute suchen","kapazitaet finden","besetzen","personalsuche","arbeitskraft"] },
+      { label: "Personalsuche (gezielt)", sub: "Kapazitäten gezielt durchsuchen", href: "/public/capacity_search.html", key: "marktplatz", org: "company",
+        t: ["gezielte suche","kapazitaet suchen","skills suchen","qualifikation suchen","verfuegbare kraefte","nach skill"] },
+      { label: "Personal anbieten", sub: "Marktplatz · eigene Kapazitäten einstellen", href: "/public/angebote_verwalten.html", key: "marktplatz", org: "agency",
+        t: ["personal anbieten","mitarbeiter anbieten","kapazitaet anbieten","kapazitaet einstellen","verfuegbarkeit melden","leute anbieten","angebot einstellen","personal vermitteln"] },
+      { label: "Anfragen-Eingang", sub: "Eingehende Vermittlungsanfragen", href: "/public/agency_inbox.html", key: "marktplatz", org: "agency",
+        t: ["anfragen","eingang","posteingang","arbeitsplatzangebote finden","einsaetze finden","auftraege finden","vermittlungen"] },
+      { label: "Arbeitsplatzangebote", sub: "Bedarfe anlegen & verwalten", href: "/public/requisitions.html", key: "bedarfe",
+        t: ["bedarf","bedarfe","anfrage","arbeitsplatzangebot","stellenanzeige","stelle ausschreiben","personalbedarf","auftrag anlegen","bedarf melden","ausschreibung"] },
+      { label: "Bedarf anlegen", sub: "Neuen Personalbedarf erstellen", href: "/public/demand_create.html", key: "bedarfe", org: "company",
+        t: ["bedarf anlegen","bedarf erstellen","neue anfrage","stelle anlegen","arbeitsplatz anbieten","personal anfragen","auftrag erstellen"] },
+      { label: "Deals & Einsätze", sub: "Besetzungen führen & abschließen", href: "/public/deal_management.html", key: "deals_einsaetze",
+        t: ["deal","deals","einsatz","einsaetze","besetzung","vermittlung abschliessen","angebot annehmen","abschluss","auftrag fuehren"] },
+      { label: "Stundenzettel", sub: "Zeiterfassung & Freigaben", href: "/public/timesheets.html", key: "deals_einsaetze",
+        t: ["stundenzettel","zeiterfassung","stunden erfassen","arbeitszeit","stunden freigeben","timesheet","zeiten","arbeitsstunden","stundennachweis"] },
+      { label: "Mitarbeiter", sub: "Besetzte Einsätze & Personen", href: "/public/mitarbeiter.html", key: "deals_einsaetze",
+        t: ["mitarbeiter verwalten","personal verwalten","wer arbeitet","besetzte stellen","personenuebersicht","belegschaft"] },
+      { label: "Notdienst-Personal", sub: "Kurzfristigen Personalausfall decken", href: "/public/capacity_exchange_feed.html", key: "marktplatz", org: "company",
+        t: ["notdienst","notfall","dringend personal","kurzfristig personal","sofort personal","ausfall ersetzen","krankheitsausfall","schnell personal","akut","spontan personal","ersatz finden","kurzfristig"] },
+      { label: "Bewertungen", sub: "Lieferanten-Scorecards", href: "/public/supplier_scorecard.html", key: "steuerung",
+        t: ["bewertung","bewertungen","scorecard","lieferantenbewertung","rating","leistung bewerten","qualitaet"] },
+      { label: "Konditionen / Preise", sub: "Rate Cards & Stundensätze", href: "/public/rate-cards.html", key: "steuerung",
+        t: ["preise","konditionen","rate card","ratecard","stundensatz","tarife","preisliste","kosten je stunde"] },
+      { label: "Auswertungen", sub: "Spend, KPIs & Executive-Sicht", href: "/public/spend-analytics.html", key: "steuerung",
+        t: ["ausgaben","spend","kosten","budget","auswertung","analyse","reporting","statistik","zahlen","kennzahlen","kpi"] },
+      { label: "Lieferanten / Pool", sub: "Vendor-Verzeichnis", href: "/public/vendor_pool.html", key: "steuerung",
+        t: ["firma","firmen","verzeichnis","lieferanten","anbieter","vendor","partner","pool","dienstleister"] },
+      { label: "Organisation & Team", sub: "Stammdaten, Nutzer, Standorte", href: "/public/organization.html", key: "steuerung",
+        t: ["einstellungen","konto","profil","organisation","team","nutzer verwalten","stammdaten","benutzer","standorte","mitarbeiter einladen"] },
+      { label: "Integrationen", sub: "SAP, DATEV, API, Webhooks", href: "/public/integrations.html", key: "steuerung",
+        t: ["integration","schnittstelle","sap","datev","api","webhook","export","anbindung","lohn","buchhaltung anbinden"] },
+      { label: "Single Sign-On", sub: "SSO / SAML einrichten", href: "/public/sso_config.html", key: "steuerung",
+        t: ["sso","saml","single sign on","anmeldung einrichten","login einrichten","identity"] },
+      { label: "Übersicht", sub: "Start & nächste Schritte", href: "/public/enterprise.html", key: "uebersicht",
+        t: ["uebersicht","start","startseite","home","dashboard","cockpit"] },
+      { label: "Hilfe & Support", sub: "FAQ, Anleitungen, Kontakt", href: "/public/hilfe.html", key: "help",
+        t: ["hilfe","support","anleitung","faq","kontakt","frage","problem","wie geht"] }
+    ];
+    function normSearch(s) {
+      return String(s || "").toLowerCase()
+        .replace(/ä/g, "ae").replace(/ö/g, "oe").replace(/ü/g, "ue").replace(/ß/g, "ss")
+        .replace(/[^a-z0-9 ]+/g, " ").replace(/\s+/g, " ").trim();
+    }
+    function matchIntents(q) {
+      var nq = normSearch(q); if (nq.length < 2) return [];
+      var qToks = nq.split(" ").filter(Boolean);
+      var ctx = (window.TC && TC.shell && TC.shell.context) || {};
+      var me = ctx.me || null;
+      var ot = me && me.org_type ? String(me.org_type).toLowerCase() : "";
+      var hv = (window.TC && TC.hubVisibility && typeof TC.hubVisibility.resolveNav === "function") ? TC.hubVisibility.resolveNav : null;
+      var scored = [];
+      INTENTS.forEach(function (it) {
+        if (it.org && ot && it.org !== ot) return;                 // org-spezifischer Intent
+        if (it.key && hv) { try { var d = hv(me, it.key); if (d && d.visible === false) return; } catch (e) { /* fail-open */ } }
+        var best = 0;
+        for (var i = 0; i < it.t.length; i++) {
+          var nt = normSearch(it.t[i]);
+          if (nt === nq) { best = 100; break; }
+          if (nt.indexOf(nq) >= 0 || nq.indexOf(nt) >= 0) { best = Math.max(best, 65); continue; }
+          var tToks = nt.split(" "), ov = 0;
+          for (var j = 0; j < qToks.length; j++) {
+            var x = qToks[j];
+            for (var k = 0; k < tToks.length; k++) { if (tToks[k] === x || (x.length >= 3 && tToks[k].indexOf(x) === 0)) { ov++; break; } }
+          }
+          if (ov > 0) best = Math.max(best, 25 + ov * 10);
+        }
+        if (best > 0) scored.push({ s: best, it: it });
+      });
+      scored.sort(function (a, b) { return b.s - a.s; });
+      return scored.slice(0, 5).map(function (x) { return x.it; });
+    }
+    function renderIntents(intents) {
+      if (!intents || !intents.length) return "";
+      var h = '<div class="tc-shell-search__group-label">Schnellzugriff</div>';
+      intents.forEach(function (it) {
+        h += '<a class="tc-shell-search__opt" role="option" href="' + esc(it.href) + '">' +
+               '<span class="tc-shell-search__opt-main">' +
+                 '<span class="tc-shell-search__opt-title">' + esc(it.label) + '</span>' +
+                 (it.sub ? '<span class="tc-shell-search__opt-sub">' + esc(it.sub) + '</span>' : '') +
+               '</span>' +
+               '<span class="tc-shell-search__badge">Aktion</span>' +
+             '</a>';
+      });
+      return h;
+    }
+
     function close() {
       panel.hidden = true; panel.innerHTML = "";
       input.setAttribute("aria-expanded", "false");
@@ -1031,20 +1122,26 @@
       options[activeIdx].scrollIntoView({ block: "nearest" });
     }
 
-    function render(q, payload) {
+    function render(q, payload, intents) {
       var data = (payload && payload.data) || payload || {};
       if (data.flagged) {
         openPanel('<div class="tc-shell-search__state">Diese Suchanfrage ist nicht zulässig und wurde zur Prüfung gemeldet.</div>');
         return;
       }
+      var intentsHtml = renderIntents(intents);
       var results = data.results || [];
       if (!results.length) {
-        openPanel('<div class="tc-shell-search__state">Keine Treffer für „' + esc(q) + '“</div>');
+        // Auch ohne Daten-Treffer bleibt die Suche nützlich: Schnellzugriff zeigen, wenn vorhanden.
+        if (intentsHtml) {
+          openPanel(intentsHtml + '<div class="tc-shell-search__state">Keine weiteren Treffer für „' + esc(q) + '“</div>');
+        } else {
+          openPanel('<div class="tc-shell-search__state">Keine Treffer für „' + esc(q) + '“</div>');
+        }
         return;
       }
       var groups = {};
       results.forEach(function (r) { var k = r._index || "andere"; (groups[k] = groups[k] || []).push(r); });
-      var html = "";
+      var html = intentsHtml;
       ORDER.forEach(function (key) {
         var items = groups[key]; if (!items || !items.length) return;
         var cfg = DOMAIN[key] || { label: key, badge: key, href: null };
@@ -1074,14 +1171,20 @@
 
     function run(q) {
       var seq = ++reqSeq;
-      openPanel('<div class="tc-shell-search__state">Suche läuft…</div>');
+      var intents = matchIntents(q);
+      // Schnellzugriff sofort (synchron) zeigen; Daten-Treffer laden parallel.
+      openPanel(renderIntents(intents) + '<div class="tc-shell-search__state">Suche läuft…</div>');
       fetch("/api/search?type=all&limit=8&q=" + encodeURIComponent(q), { credentials: "include" })
         .then(function (r) {
           if (!r.ok) throw new Error(r.status === 401 ? "Bitte anmelden, um zu suchen" : "Suche nicht verfügbar (" + r.status + ")");
           return r.json();
         })
-        .then(function (payload) { if (seq === reqSeq) render(q, payload); })
-        .catch(function (e) { if (seq === reqSeq) openPanel('<div class="tc-shell-search__state">' + esc(e.message || "Suche fehlgeschlagen") + "</div>"); });
+        .then(function (payload) { if (seq === reqSeq) render(q, payload, intents); })
+        .catch(function (e) {
+          if (seq !== reqSeq) return;
+          // Schnellzugriff bleibt nutzbar, auch wenn die Daten-Suche fehlschlägt (401/offline).
+          openPanel(renderIntents(intents) + '<div class="tc-shell-search__state">' + esc(e.message || "Suche fehlgeschlagen") + "</div>");
+        });
     }
 
     input.addEventListener("input", function () {
