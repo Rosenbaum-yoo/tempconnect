@@ -1,0 +1,64 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# TempConnect — Öffentliche Pilot-Demo via Cloudflare Tunnel (OHNE eigenen Server)
+# ─────────────────────────────────────────────────────────────────────────────
+# Macht den lokalen Docker-Stack unter einer öffentlichen Adresse erreichbar,
+# damit Pilot-/Interessenten damit spielen können — kein Server mieten, keine
+# offenen Ports, keine feste IP. Läuft auf DEINEM PC (muss an sein).
+#
+#   docker compose -f docker-compose.yml -f docker-compose.demo.yml up -d --build
+#
+# WICHTIG: beide -f explizit angeben. Dadurch wird der Dev-Override
+# (docker-compose.override.yml) NICHT geladen → die API läuft aus dem gebackenen
+# Image (kein ./api:/app Bind-Mount) → STABIL, keine 502-Blips für Publikum.
+#
+# Voraussetzung für den benannten Tunnel: CLOUDFLARE_TUNNEL_TOKEN in .env.
+# Schnelltest ganz ohne Token/Account: siehe docs/launch/G_DEMO-CLOUDFLARE-TUNNEL.md
+# ─────────────────────────────────────────────────────────────────────────────
+
+services:
+  # Demo-Welt seeden (Migration 052 + Demo-Accounts der 3 Perspektiven).
+  migrate:
+    environment:
+      SEED_DEMO_WORLD: "true"
+
+  # E-Mails NUR in den Mock (nie echt nach außen). Profil leeren, damit
+  # Mailpit im Demo-Betrieb mitläuft (sonst nur unter --profile dev).
+  mailpit:
+    profiles: []
+
+  api:
+    # KEIN ./api:/app Bind-Mount (Override nicht geladen) → stabiles Image.
+    environment:
+      NODE_ENV: production
+      PAYMENT_MODE: demo          # keine echten Zahlungen
+      FEATURE_GATE_BYPASS: "true" # voller Funktionsumfang im Demo sichtbar
+      # E-Mail-Flows landen im Mailpit-Mock statt echt rauszugehen
+      SMTP_HOST: mailpit
+      SMTP_PORT: "1025"
+      SMTP_SECURE: "false"
+      SMTP_USER: ""
+      SMTP_PASS: ""
+      SMTP_FROM: "demo@tempconnect.de"
+      # Öffentliche Demo-Adresse (Links + CORS). Für *.trycloudflare.com-Schnelltest
+      # einfach DEMO_BASE_URL in .env auf die trycloudflare-URL setzen.
+      BASE_URL: ${DEMO_BASE_URL:-https://demo.tempconnect.de}
+      CORS_ORIGIN: ${DEMO_BASE_URL:-https://demo.tempconnect.de}
+
+  # Cloudflare Tunnel: verbindet nginx (frontend:80) ausgehend-verschlüsselt mit
+  # Cloudflare → öffentliche URL. Token kommt aus dem Cloudflare-Dashboard
+  # (Zero Trust → Networks → Tunnels → Create → Docker → Token kopieren).
+  cloudflared:
+    image: cloudflare/cloudflared:latest
+    container_name: tempconnect_cloudflared
+    restart: unless-stopped
+    depends_on:
+      frontend:
+        condition: service_healthy
+    command: tunnel --no-autoupdate run
+    environment:
+      TUNNEL_TOKEN: ${CLOUDFLARE_TUNNEL_TOKEN:-}
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
