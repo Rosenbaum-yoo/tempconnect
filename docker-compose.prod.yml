@@ -141,7 +141,11 @@ services:
     working_dir: /app
     volumes:
       - ./frontend:/app
-    command: sh -c "npm ci && npm run build:occ && npm run build:scc"
+      # Anonymes Volume isoliert das Container-node_modules vom Host (verhindert
+      # "npm ci"-Crash / "tsc: not found", wenn der Host ein fremdes node_modules haelt).
+      - /app/node_modules
+    # --include=dev erzwingt devDependencies (tsc, vite) unabhaengig von NODE_ENV.
+    command: sh -c "npm ci --include=dev && npm run build:occ && npm run build:scc"
     restart: "no"
 
   frontend:
