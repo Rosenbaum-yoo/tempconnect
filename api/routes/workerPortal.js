@@ -50,6 +50,17 @@ const updateProfileSchema = z.object({
   preferred_locale: z.string().max(5).optional()
 });
 
+const putSkillsSchema = z.object({
+  skills: z.array(z.object({
+    skill_id:         z.string().uuid(),
+    proficiency:      z.enum(["beginner", "intermediate", "advanced", "expert"]).optional(),
+    years_experience: z.number().min(0).max(60).optional().nullable(),
+    is_primary:       z.boolean().optional(),
+    certified:        z.boolean().optional(),
+    certificate_ref:  z.string().max(200).optional().nullable()
+  })).max(200)
+});
+
 const staffingInviteRespondSchema = z.object({
   action: z.enum(["accept", "decline"]),
   note: z.string().max(2000).optional().nullable()
@@ -170,6 +181,39 @@ export function createWorkerPortalRouter(deps) {
       );
       res.locals.audit = { action: "worker.update_profile", entity_type: "worker_profile", entity_id: req.session.userId, details: { changed_fields: Object.keys(parsed.data) } };
       res.json(result);
+    } catch (err) { next(err); }
+  });
+
+  /* ── Eigene Fähigkeiten abrufen / setzen (Katalog-gebunden, Welle 1) ───────── */
+
+  router.get("/worker/me/skills", ...base, async (req, res, next) => {
+    try {
+      const profile = await workerService.getWorkerProfile(pool, req.session.userId);
+      if (!profile) return res.status(404).json({ error: "PROFILE_NOT_FOUND" });
+      const items = await workerService.getWorkerSkills(pool, profile.id);
+      res.json({ items, count: items.length });
+    } catch (err) { next(err); }
+  });
+
+  router.put("/worker/me/skills", ...base, async (req, res, next) => {
+    try {
+      const parsed = putSkillsSchema.safeParse(req.body);
+      if (!parsed.success) return res.status(400).json({ error: "VALIDATION", details: parsed.error.issues });
+      const profile = await workerService.getWorkerProfile(pool, req.session.userId);
+      if (!profile) return res.status(404).json({ error: "PROFILE_NOT_FOUND" });
+      const result = await workerService.setWorkerSkills(pool, {
+        workerProfileId: profile.id,
+        supplierOrgId: profile.supplier_org_id,
+        skills: parsed.data.skills,
+        source: "worker"
+      });
+      res.locals.audit = {
+        action: "worker.update_skills",
+        entity_type: "worker_profile",
+        entity_id: req.session.userId,
+        details: { skill_count: result.count }
+      };
+      res.json({ ok: true, count: result.count, skill_ids: result.skill_ids });
     } catch (err) { next(err); }
   });
 

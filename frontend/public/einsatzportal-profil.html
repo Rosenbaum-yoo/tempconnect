@@ -58,6 +58,18 @@
     }
     .ep-form-input::placeholder { color:var(--ep-text-muted); }
     .profil-save-row { display:flex; gap:10px; align-items:center; margin-top:20px; flex-wrap:wrap; }
+
+    /* Fähigkeiten-Katalog (Welle 1: Multi-Skill-Fundament) */
+    .skill-group { border:1px solid var(--ep-border); border-radius:10px; margin-bottom:10px; background:var(--ep-surface-raised); overflow:hidden; }
+    .skill-group > summary { cursor:pointer; padding:12px 14px; font-weight:700; font-size:.82rem; list-style:none; display:flex; align-items:center; gap:8px; }
+    .skill-group > summary::-webkit-details-marker { display:none; }
+    .skill-group[open] > summary { border-bottom:1px solid var(--ep-border); }
+    .skill-group-count { margin-left:auto; font-size:.7rem; color:var(--ep-text-muted); background:var(--ep-surface); border:1px solid var(--ep-border); border-radius:20px; padding:1px 8px; }
+    .skill-chip-wrap { display:flex; flex-wrap:wrap; gap:8px; padding:14px; }
+    .skill-chip { display:inline-flex; align-items:center; gap:7px; padding:7px 12px; border:1.5px solid var(--ep-border); border-radius:20px; font-size:.8rem; cursor:pointer; user-select:none; transition:border-color .15s, background .15s; }
+    .skill-chip:hover { border-color:var(--ep-brand); }
+    .skill-chip input { accent-color:var(--ep-brand); margin:0; }
+    .skill-chip:has(input:checked) { border-color:var(--ep-brand); background:rgba(74,158,255,.10); color:var(--ep-text); font-weight:600; }
     .profil-success { font-size:.8rem; color:var(--ep-success); font-weight:600; display:none; }
     .profil-doc-summary { display:flex; gap:8px; flex-wrap:wrap; margin-bottom:14px; }
     .profil-doc-badge {
@@ -266,6 +278,30 @@
         </div>
       </div>
 
+      <!-- Fähigkeiten / Skills (Katalog-gebunden) -->
+      <div class="profil-card">
+        <div class="profil-card-head" style="padding:14px 20px;justify-content:space-between">
+          <div style="font-weight:700;font-size:.9rem">Fähigkeiten &amp; Qualifikationen</div>
+          <span class="profil-doc-badge info" id="skillCount">0 gewählt</span>
+        </div>
+        <div class="profil-card-body">
+          <p style="font-size:.82rem;color:var(--ep-text-muted);margin:0 0 14px">
+            Wählen Sie alle Tätigkeiten, die Sie ausüben können. Je vollständiger Ihr Profil,
+            desto mehr passende Einsätze werden Ihnen vermittelt – jede Fähigkeit wird plattformweit
+            für Vermittlung und Suche genutzt.
+          </p>
+          <div id="skillLoading" class="profil-val muted">Fähigkeiten werden geladen…</div>
+          <div class="ep-alert ep-alert-danger" id="skillErr" style="display:none">
+            <span>⚠️</span><span id="skillErrTxt">Katalog konnte nicht geladen werden.</span>
+          </div>
+          <div id="skillCatalog" style="display:none"></div>
+          <div class="profil-save-row" id="skillSaveRow" style="display:none">
+            <button class="ep-btn ep-btn-primary" id="skillSaveBtn" onclick="saveSkills()">Fähigkeiten speichern</button>
+            <span class="profil-doc-upload-note">Änderungen wirken sich sofort auf Ihre Sichtbarkeit für Einsätze aus.</span>
+          </div>
+        </div>
+      </div>
+
       <!-- Sicherheit -->
       <div class="profil-card">
         <div class="profil-card-head" style="padding:14px 20px">
@@ -305,8 +341,92 @@
 <script>
 let me = null;
 let workerDocuments = { items: [], summary: {} };
+let skillState = { catalog: null, selected: new Map() };
 function esc(s) { return PortalShell.esc(s); }
 function toast(msg, type) { PortalShell.toast(msg, type || ''); }
+
+async function loadSkills() {
+  const loadingEl = document.getElementById('skillLoading');
+  const errEl     = document.getElementById('skillErr');
+  const catEl     = document.getElementById('skillCatalog');
+  const saveRow   = document.getElementById('skillSaveRow');
+  try {
+    const [catalog, mine] = await Promise.all([
+      PortalApi.get('/skills/catalog'),
+      PortalApi.get('/worker/me/skills').catch(function () { return { items: [] }; })
+    ]);
+    skillState.catalog = catalog;
+    skillState.selected = new Map();
+    (mine.items || []).forEach(function (s) {
+      skillState.selected.set(s.skill_id, { proficiency: s.proficiency || 'intermediate' });
+    });
+    loadingEl.style.display = 'none';
+    if (catalog && catalog.available) {
+      renderSkillCatalog();
+      catEl.style.display = '';
+      saveRow.style.display = '';
+    } else {
+      loadingEl.style.display = '';
+      loadingEl.textContent = 'Der Fähigkeiten-Katalog ist noch nicht verfügbar.';
+    }
+  } catch (e) {
+    loadingEl.style.display = 'none';
+    document.getElementById('skillErrTxt').textContent =
+      e.code === 'NOT_AUTH' ? 'Bitte melden Sie sich erneut an.' : 'Fähigkeiten konnten nicht geladen werden.';
+    errEl.style.display = 'flex';
+  }
+}
+
+function updateSkillCount() {
+  const el = document.getElementById('skillCount');
+  if (el) el.textContent = skillState.selected.size + ' gewählt';
+}
+
+function renderSkillCatalog() {
+  const catEl = document.getElementById('skillCatalog');
+  if (!catEl || !skillState.catalog) return;
+  catEl.innerHTML = (skillState.catalog.categories || []).map(function (cat) {
+    const chips = (cat.skills || []).map(function (sk) {
+      const checked = skillState.selected.has(sk.id) ? 'checked' : '';
+      return '<label class="skill-chip"><input type="checkbox" value="' + esc(sk.id) + '" ' + checked +
+        ' onchange="toggleSkill(this)"><span>' + esc(sk.name) + '</span></label>';
+    }).join('');
+    return '<details class="skill-group"><summary>' + esc(cat.category) +
+      '<span class="skill-group-count">' + esc(String(cat.skill_count || 0)) + '</span></summary>' +
+      '<div class="skill-chip-wrap">' + chips + '</div></details>';
+  }).join('');
+  updateSkillCount();
+}
+
+function toggleSkill(input) {
+  const id = input.value;
+  if (input.checked) {
+    skillState.selected.set(id, skillState.selected.get(id) || { proficiency: 'intermediate' });
+  } else {
+    skillState.selected.delete(id);
+  }
+  updateSkillCount();
+}
+
+async function saveSkills() {
+  const btn = document.getElementById('skillSaveBtn');
+  if (!btn) return;
+  btn.disabled = true;
+  const prevLabel = btn.textContent;
+  btn.textContent = '⏳ Speichern…';
+  try {
+    const skills = Array.from(skillState.selected.entries()).map(function (entry) {
+      return { skill_id: entry[0], proficiency: (entry[1] && entry[1].proficiency) || 'intermediate' };
+    });
+    const r = await PortalApi.put('/worker/me/skills', { skills: skills });
+    toast('Fähigkeiten gespeichert (' + (r.count || 0) + ').');
+  } catch (e) {
+    toast(e.code === 'VALIDATION' ? 'Bitte Auswahl prüfen.' : 'Speichern fehlgeschlagen.', 'error');
+  } finally {
+    btn.disabled = false;
+    btn.textContent = prevLabel;
+  }
+}
 
 (async () => {
   try {
@@ -316,6 +436,7 @@ function toast(msg, type) { PortalShell.toast(msg, type || ''); }
       workerDocuments = { items: [], summary: {} };
       renderDocuments();
     });
+    await loadSkills().catch(function () {});
     document.getElementById('loading').style.display = 'none';
     document.getElementById('content').style.display = '';
   } catch(e) {

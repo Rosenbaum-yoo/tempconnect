@@ -1,0 +1,206 @@
+# Multi-Skill Angebots-Management — Feature-Plan & USP
+
+> **Status:** In Umsetzung · **Welle 1 (Fundament) erledigt** (2026-07-19)
+> **Owner-Direktive:** Fester Bestandteil der Plattform und zentrale USP.
+> **Leitprinzip:** Wenige Zeitarbeitsfirmen sollen sich für suchende Unternehmen
+> anfühlen wie **tausende** — **ohne eine einzige Fake-Zeile**, allein durch echten
+> Multi-Skill-Fan-out (1 Arbeiter mit N echten Skills = N+1 eigenständige Angebote).
+
+Dieses Dokument ist die verbindliche Wahrheit für das Feature. Es wird bei jeder
+Welle fortgeschrieben. Detail-Wahrheiten (Routen/Tabellen/Regeln) zusätzlich in
+`.agents/skills/tempconnect-project/SKILL.md` verankert.
+
+---
+
+## 1. Vision & strategisches Ziel
+
+TempConnect gewinnt mit wenigen Personaldienstleistern eine **massive Angebotsfülle**,
+indem jeder reale Mitarbeiter über seine strukturierten Skills mehrfach — aber sauber
+entdupliziert und anonymisiert — im Marktplatz erscheint. Zeitarbeitsfirmen können
+einen Mitarbeiter gezielt auf **einzelne Skills**, als **Gesamtpaket** oder in
+**Sammelangeboten** (viele Arbeiter) vermitteln und ihn dadurch schneller platzieren.
+
+**Keine neue Kachel.** Die bestehenden Bereiche (Einsatzportal, Kapazitätsbörse,
+Marktplatz, Mitarbeiterverwaltung, Suche) werden premium erweitert — psychologisch
+ansprechend, verkaufsstark, auf dem bestehenden Design-System.
+
+---
+
+## 2. Kernprinzipien (verbindlich)
+
+1. **Echte Multiplikation statt Fake.** Angebotsfülle entsteht ausschließlich aus
+   realen, vom Arbeiter/Chef gepflegten Skills — nie aus erfundenen Daten.
+2. **Anonym bis Deal.** Suchende Unternehmen sehen nur Skill(s) + Anzahl + anonymes
+   Profil. Die Identität wird erst bei Zustandekommen des Deals freigegeben.
+   (AGG-/DSGVO-konform, kein Diskriminierungs-Vektor.)
+3. **Dedup-Regel.** Kein zweites **aktives** Einzelskill-Angebot pro Arbeiter+Skill.
+   Gesamt-/Sammelangebote (`bundle`, `pool_*`) sind bewusst ausgenommen — ein
+   Arbeiter darf gezielt einzeln **und** im Bündel angeboten werden.
+   Durchgesetzt per partiellem Unique-Index (`capacity_posts_single_skill_unique_idx`).
+4. **Hard-Reserve mit Ablauf.** Wird ein Arbeiter über ein Angebot eingestellt,
+   werden konkurrierende Angebote gesperrt, bis der Einsatz endet (`valid_until`),
+   danach automatische Reaktivierung. Keine Doppelbuchung.
+5. **Erweitern statt neu bauen.** Wir nutzen vorhandene, teils schlafende
+   Infrastruktur (siehe §4) — keine Parallelstrukturen.
+
+---
+
+## 3. Angebots-Typen-Matrix
+
+| Verzeichnis-Typ (`offer_kind`) | Bedeutung |
+|---|---|
+| `single_skill` | 1 Arbeiter, 1 Skill (Einzelskillverzeichnis, anonym) |
+| `bundle` | 1 Arbeiter, alle/mehrere Skills (Gesamtangebot, anonym) |
+| `pool_single_skill` | viele Arbeiter mit **einem** gemeinsamen Skill (Sammelangebot) |
+| `pool_multi_skill` | viele Arbeiter mit **mehreren** gemeinsamen Skills (Sammelangebot) |
+
+Jeweils in vier Ausprägungen: **Standard / Notdienst** × **Normal / Premium**
+(Premium = mehr Sichtbarkeit, wie bereits in Mig 133 `premium_listing` angelegt;
+Notdienst in Mig 132 `capacity_notdienst`).
+
+**Unternehmens-Seite (Nachfrage):** Firmen erstellen Bedarfsangebote (`demand`/
+`requisitions`), die gezielt 1 oder mehrere Mitarbeiter mit 1 oder mehreren Skills
+fordern — gematcht gegen den Skill-Katalog.
+
+---
+
+## 4. Datenmodell
+
+### 4.1 Vorhandene Anker (wiederverwendet)
+- `platform_skills` (Mig 023) — Skill-Katalog `name / category / aliases`; war bis
+  Welle 1 **schlafend** (0 Verwendung). Jetzt befüllt + angebunden.
+- `capacity_posts` (Mig 014/021) — Angebots-Tabelle mit `status` (inkl. `filled`),
+  `priority_level` (normal/elevated/urgent → Premium/Notdienst), `valid_until`
+  (→ Reservierungs-Ablauf), `visibility_status`, `placement_boost_level` (Mig 133).
+- `worker_profiles` (Mig 029/074) — Arbeiter-Stammdaten + `skill_tags[]` (Freitext-Spiegel).
+- `worker_invites` (Mig 029) — Einladungs-Token-System (Chef lädt Arbeiter ein).
+- `staffing_reservations` u.a. (Mig 087/097) — Fundament der Reservierungs-Engine.
+
+### 4.2 Neu in Welle 1 (Mig 145 `multi_skill_catalog`)
+- **`worker_profile_skills`** — Join-Tabelle Arbeiter ↔ Katalog-Skill (Quelle der
+  Wahrheit: `proficiency`, `years_experience`, `is_primary`, `certified`, `source`).
+- **`capacity_posts`** add-only: `worker_profile_id`, `primary_skill_id`,
+  `offer_kind`, `is_anonymous` (nullable = firmenweite „pauschal N Helfer"-Angebote
+  bleiben gültig).
+- **Dedup-Index** `capacity_posts_single_skill_unique_idx` (siehe §2.3).
+- **Katalog-Seed:** 162 Skills über 14 Branchen.
+
+---
+
+## 5. Phasen & Wellen (der Fahrplan)
+
+### Phase A — Fundament & Datenbasis
+- **Welle 1 — Skill-Fundament** ✅ *erledigt (2026-07-19)*
+  Skill-Katalog aktiviert + befüllt, `worker_profile_skills`, `GET /api/skills/catalog`,
+  `GET/PUT /api/worker/me/skills`, Onboarding-Skill-UI im Einsatzportal, Tests grün.
+- **Welle 2 — Premium-Onboarding-Wizard**
+  Vollständiges, geführtes Aufnahme-Formular (Personendaten → Skills → Zertifikate →
+  Verfügbarkeit), Pflichtfeld-Logik, Fortschrittsanzeige, „lange genug, damit alles
+  Wichtige erfasst wird". Chef-Einladung → Worker füllt end-to-end.
+
+### Phase B — Angebots-Engine (Herzstück der USP)
+- **Welle 3 — Multi-Skill-Angebotsgenerator**
+  Aus einem Arbeiter automatisch N+1 Angebotsvorschläge (je Skill + Gesamt),
+  `capacity_posts` mit `offer_kind`/`primary_skill_id`, Dedup live, Ein-Klick-Erzeugung.
+- **Welle 4 — Sammelangebote + Reservierungs-/Konflikt-Engine**
+  `pool_single_skill` / `pool_multi_skill`, Hard-Reserve über `valid_until` +
+  `staffing_reservations`, Auto-Reaktivierung nach Einsatzende.
+- **Welle 5 — Premium & Notdienst**
+  Varianten verdrahten (Mig 132/133), Sichtbarkeits-Boost, Angebots-Styling
+  psychologisch optimiert (Dringlichkeit, Knappheit, Trust).
+
+### Phase C — Nachfrage & Matching
+- **Welle 6 — Live-Vorschlag im Angebotsformular**
+  Suchleisten-Intelligenz: passende Mitarbeiter live vorschlagen, Anzahl gegen
+  verfügbare/reservierte Kapazität prüfen, Konflikt bei bereits verplant.
+- **Welle 7 — Unternehmens-Bedarfsangebote**
+  Firmen fordern gezielt 1+/viele Skills bei 1+/vielen Mitarbeitern; Matching
+  Bedarf ↔ Katalog ↔ verfügbare Kapazität.
+
+### Phase D — Visual Trust Layer (Fotos/Videos)
+> Bilder/Videos **nur wo sie Wert + Vertrauen schaffen** und die Anonymität +
+> AGG/DSGVO respektieren. **Keine Bewerberfotos in anonymen Angeboten.**
+- **Welle 8 — Kategorie-Bildwelt + Firmen-Branding**
+  Professionelle Kategorie-Illustrationen im Skill-Katalog; Firmen/Agenturen
+  hinterlegen Logo, Team- und Standortfotos (opt-in, moderiert).
+- **Welle 9 — Einsatzort-Fotos + Verifizierungs-Badges**
+  Unternehmen hängen Fotos des Einsatzortes an Bedarfsangebote; visuelle
+  Verifizierungs-Marken (verifizierte Agentur, zertifizierter Skill).
+- **Welle 10 — Onboarding-Erklärvideo + Marketing**
+  Kurzes Erklärvideo/animierter Guide senkt die Abbruchquote im Onboarding;
+  Hero-/Testimonial-Videos auf Landing/Marketing.
+
+### Phase E — Skalierung & Politur
+- **Welle 11 — Suche plattformweit auf `skill_id`**
+  Suche/Matching von Freitext auf strukturierte Skills heben (nutzt Fuzzy/Trgm
+  Mig 135–137), `usage_count`-Analytics für Auto-Vorschläge.
+- **Welle 12 — Performance, Kosten, Moderation, E2E**
+  Skalierung 10→300 (Indizes, Caching), Bild-/Video-Kostenkontrolle (CDN, Lazy-Load),
+  Moderation, E2E-Tests, Doku-Konsistenz.
+
+---
+
+## 6. Media-Strategie (Fotos/Videos) — Leitplanken
+
+**JA (echter Wert):** Firmen-/Agentur-Branding · Kategorie-Bildwelt im Katalog ·
+Einsatzort-Fotos an Bedarfsangeboten · Onboarding-Erklärvideo · Verifizierungs-Badges ·
+Marketing/Landing-Videos.
+
+**NEIN (Risiko):** Bewerber-/Arbeiter-Gesichtsfotos in anonymen Angeboten
+(kollidiert mit „anonym bis Deal" + AGG/DSGVO-Diskriminierungsrisiko). Optionale
+Skill-Demo-Clips nur opt-in und erst **nach** Deal-Freigabe.
+
+**Technik-Guardrails:** Upload + Moderation, CDN + Bildoptimierung + Lazy-Load,
+verpflichtender Alt-Text (Barrierefreiheit), Speicher-/Traffic-Kosten aktiv im Blick
+(Skalierung 10→300), DSGVO-Einwilligung, keine Stock-Bilder als reale Daten.
+
+---
+
+## 7. Verdrahtungskarte (End-to-End)
+
+```
+Chef-Einladung (worker_invites)
+        ↓
+Einsatzportal-Onboarding  →  worker_profile_skills (Quelle der Wahrheit)
+        ↓                         ↘ Spiegel: worker_profiles.skill_tags[]
+Multi-Skill-Angebotsgenerator  →  capacity_posts (offer_kind, primary_skill_id)
+        ↓                         ↘ Dedup-Index verhindert Doppel-Einzelangebote
+Marktplatz / Suche (anonym)  →  Deal  →  Hard-Reserve (valid_until / staffing_reservations)
+        ↓
+Einsatzende  →  Auto-Reaktivierung der gesperrten Angebote
+```
+
+---
+
+## 8. Status & offene Owner-Entscheidungen
+
+**Erledigt (Welle 1):** siehe §9 Dateiliste. Migration 145 ist **bereit zum Anwenden**
+(`docker compose run --rm migrate`) — additive, idempotente, rückwärtskompatible DDL.
+
+**Offen / künftig:** Premium-/Notdienst-Preislogik (Welle 5), Reservierungs-Feinregeln
+(Teil-Kapazität vs. Voll-Sperre, Welle 4), Bild-/Video-Speicherziel + Kostenrahmen (Phase D).
+
+---
+
+## 9. Welle-1 Dateiliste (Traceability)
+
+**Neu:**
+- `sql/migrations/145_multi_skill_catalog.sql`
+- `api/services/skillCatalogService.js`
+- `api/routes/skills.js`
+- `api/test/skillCatalog.service.test.js`
+- `api/test/workerSkills.service.test.js`
+
+**Geändert:**
+- `api/app.js` — Skill-Katalog-Router gemountet
+- `api/services/workerService.js` — `getWorkerSkills` / `setWorkerSkills`
+- `api/routes/workerPortal.js` — `GET/PUT /worker/me/skills`
+- `frontend/public/einsatzportal-profil.html` — Fähigkeiten-Katalog-UI (Checkbox-Chips)
+
+---
+
+## 10. Sicherheit & Compliance
+
+Org-Boundary auf allen schreibenden Pfaden (`supplier_org_id`-gebundener Spiegel),
+CSRF (globaler `/api/`-Guard), Audit (`worker.update_skills`), Anonymität bis Deal,
+DSGVO/AGG bei Media. Katalog = plattformweite Referenzdaten (kein Org-Scope).

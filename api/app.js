@@ -65,6 +65,7 @@ import { createActivityFeedRouter } from "./routes/activityFeed.js";
 import { createAdminRouter } from "./routes/admin.js";
 import { createWorkersRouter } from "./routes/workers.js";
 import { createWorkerPortalRouter } from "./routes/workerPortal.js";
+import { createSkillCatalogRouter } from "./routes/skills.js";
 import { createAgencyPortalRouter } from "./routes/agencyPortal.js";
 import { createTimesheetsRouter } from "./routes/timesheets.js";
 import { createTimesheetTemplatesRouter } from "./routes/timesheetTemplates.js";
@@ -385,6 +386,7 @@ export async function createApp() {
   v1.use(createAdminRouter(deps));
   v1.use(createWorkersRouter(deps));
   v1.use(createWorkerPortalRouter(deps));
+  v1.use(createSkillCatalogRouter(deps));
   v1.use(createAgencyPortalRouter(deps));
   v1.use(createTimesheetsRouter(deps));
   v1.use(createTimesheetTemplatesRouter(deps));

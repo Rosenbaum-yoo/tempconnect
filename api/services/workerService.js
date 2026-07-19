@@ -6,6 +6,7 @@
 import crypto from "crypto";
 import * as assignmentStaffingService from "./assignmentStaffingService.js";
 import * as submissionSvc from "./workerSubmissionService.js";
+import { withTransaction } from "../utils/transaction.js";
 import {
   buildAssignmentActivePredicateSql,
   buildAssignmentHistoryPredicateSql,
@@ -776,6 +777,98 @@ export async function updateWorkerProfile(pool, workerUserId, supplierOrgId, dat
     params
   );
   return normalizeWorkerProfileRecord(rows[0] || null);
+}
+
+/* ── Worker-Skills (Katalog-gebunden, Welle 1: Multi-Skill-Fundament) ────────── */
+
+export async function getWorkerSkills(pool, workerProfileId) {
+  const { rows } = await pool.query(
+    `SELECT wps.id, wps.skill_id, ps.name, ps.category,
+            wps.proficiency, wps.years_experience, wps.is_primary,
+            wps.certified, wps.certificate_ref, wps.source
+       FROM worker_profile_skills wps
+       JOIN platform_skills ps ON ps.id = wps.skill_id
+      WHERE wps.worker_profile_id = $1
+      ORDER BY wps.is_primary DESC, ps.category NULLS LAST, ps.name`,
+    [workerProfileId]
+  );
+  return rows.map((r) => ({
+    id: r.id,
+    skill_id: r.skill_id,
+    name: r.name,
+    category: r.category,
+    proficiency: r.proficiency,
+    years_experience: r.years_experience !== null && r.years_experience !== undefined
+      ? Number(r.years_experience) : null,
+    is_primary: r.is_primary === true,
+    certified: r.certified === true,
+    certificate_ref: r.certificate_ref,
+    source: r.source
+  }));
+}
+
+/**
+ * Ersetzt die Skill-Zuordnung eines Arbeiters vollständig (replace-all) und hält
+ * den denormalisierten worker_profiles.skill_tags[]-Spiegel synchron, damit die
+ * bestehende GIN-Suche (cp.skill_tags && ...) unverändert weiterläuft.
+ * Org-gebunden: der Spiegel-UPDATE greift nur, wenn worker_profile_id UND
+ * supplier_org_id zusammenpassen (Datenisolation, Enterprise-Pfeiler #1).
+ * Nur aktive Katalog-Skills werden akzeptiert; unbekannte IDs werden verworfen.
+ */
+export async function setWorkerSkills(pool, { workerProfileId, supplierOrgId, skills = [], source = "worker" }) {
+  return withTransaction(pool, async (client) => {
+    const requested = Array.isArray(skills) ? skills.filter((s) => s && s.skill_id) : [];
+    const ids = [...new Set(requested.map((s) => s.skill_id))];
+
+    let validRows = [];
+    if (ids.length) {
+      const res = await client.query(
+        `SELECT id, name FROM platform_skills WHERE id = ANY($1::uuid[]) AND is_active = TRUE`,
+        [ids]
+      );
+      validRows = res.rows;
+    }
+    const nameById = new Map(validRows.map((r) => [r.id, r.name]));
+
+    // De-dupe auf skill_id (letzte Angabe gewinnt), nur gültige Katalog-IDs.
+    const bySkill = new Map();
+    for (const s of requested) {
+      if (!nameById.has(s.skill_id)) continue;
+      bySkill.set(s.skill_id, s);
+    }
+    const clean = [...bySkill.values()];
+
+    // Replace-all: leeren, dann neu setzen.
+    await client.query(`DELETE FROM worker_profile_skills WHERE worker_profile_id = $1`, [workerProfileId]);
+    for (const s of clean) {
+      await client.query(
+        `INSERT INTO worker_profile_skills
+           (worker_profile_id, skill_id, proficiency, years_experience, is_primary, certified, certificate_ref, source)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8)`,
+        [
+          workerProfileId,
+          s.skill_id,
+          s.proficiency || "intermediate",
+          s.years_experience != null ? s.years_experience : null,
+          s.is_primary === true,
+          s.certified === true,
+          s.certificate_ref || null,
+          source
+        ]
+      );
+    }
+
+    // Denormalisierter Spiegel: skill_tags = Namen der zugewiesenen Skills.
+    const tagNames = clean.map((s) => nameById.get(s.skill_id)).filter(Boolean);
+    await client.query(
+      `UPDATE worker_profiles
+          SET skill_tags = $1::text[], updated_at = NOW()
+        WHERE id = $2 AND supplier_org_id = $3`,
+      [tagNames, workerProfileId, supplierOrgId]
+    );
+
+    return { count: clean.length, skill_ids: clean.map((s) => s.skill_id) };
+  });
 }
 
 export async function getWorkerHub(pool, userId) {
