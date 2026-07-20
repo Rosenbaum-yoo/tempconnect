@@ -659,6 +659,10 @@ function renderOfferSuggestions(data) {
     }
     html += "</div>";
   }
+  html += '<div class="og-section-title">Angebotsstufe</div><div class="og-chips" id="ogTier">' +
+    '<label class="og-chip"><input type="radio" name="ogTier" value="normal" checked><span>Standard</span></label>' +
+    '<label class="og-chip"><input type="radio" name="ogTier" value="notdienst"><span>Notdienst – höhere Priorität</span></label>' +
+    '</div>';
   html += '<div class="og-hint">Angebote werden als <strong>Entwurf</strong> erstellt. Sichtbar im Marktplatz werden sie erst nach dem Aktivieren in der Kapazitätsbörse.</div>';
   body.innerHTML = html;
   document.getElementById("ogFooter").style.display = data.location_ready ? "" : "none";
@@ -670,11 +674,13 @@ function generateOffers() {
   var bundleEl = document.getElementById("ogBundle");
   var includeBundle = !!(bundleEl && bundleEl.checked);
   if (!singleIds.length && !includeBundle) { toast("Bitte mindestens ein Angebot auswählen.", "err"); return; }
+  var tierEl = document.querySelector('input[name="ogTier"]:checked');
+  var tier = (tierEl && tierEl.value) || "normal";
   var btn = document.getElementById("ogGenerateBtn");
   var prev = btn.textContent;
   btn.disabled = true; btn.textContent = "Erstelle…";
   api("/capacity-exchange/workers/" + _offerGenProfileId + "/generate-offers", {
-    method: "POST", body: { single_skill_ids: singleIds, include_bundle: includeBundle }
+    method: "POST", body: { single_skill_ids: singleIds, include_bundle: includeBundle, priority_level: tier }
   }).then(function(res) {
     toast(esc(String(res.created_count)) + " Angebot(e) als Entwurf erstellt" + (res.skipped_count ? " · " + esc(String(res.skipped_count)) + " übersprungen" : "") + ".");
     closeOfferGenModal();

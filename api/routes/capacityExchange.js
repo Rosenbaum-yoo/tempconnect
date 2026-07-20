@@ -59,7 +59,8 @@ const updateEntrySchema = createEntrySchema.partial().omit({ status: true });
 
 const generateOffersSchema = z.object({
   single_skill_ids: z.array(z.string().uuid()).max(200).optional().default([]),
-  include_bundle: z.boolean().optional().default(false)
+  include_bundle: z.boolean().optional().default(false),
+  priority_level: z.enum(["normal", "notdienst"]).optional().default("normal")
 });
 
 const interactionSchema = z.object({
@@ -150,7 +151,8 @@ export function createCapacityExchangeRouter(deps) {
         supplierUserId: req.session.userId, orgId: req.orgId, plan,
         workerProfileId: req.params.workerProfileId,
         single_skill_ids: parsed.data.single_skill_ids,
-        include_bundle: parsed.data.include_bundle
+        include_bundle: parsed.data.include_bundle,
+        priority_level: parsed.data.priority_level
       });
       await auditLog.writeAudit(pool, {
         action: "capacity_exchange.generate_offers", entity_type: "worker_profile",

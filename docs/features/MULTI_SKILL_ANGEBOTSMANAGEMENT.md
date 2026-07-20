@@ -112,9 +112,13 @@ fordern — gematcht gegen den Skill-Katalog.
 - **Welle 4 — Sammelangebote + Reservierungs-/Konflikt-Engine**
   `pool_single_skill` / `pool_multi_skill`, Hard-Reserve über `valid_until` +
   `staffing_reservations`, Auto-Reaktivierung nach Einsatzende.
-- **Welle 5 — Premium & Notdienst**
-  Varianten verdrahten (Mig 132/133), Sichtbarkeits-Boost, Angebots-Styling
-  psychologisch optimiert (Dringlichkeit, Knappheit, Trust).
+- **Welle 5 — Premium & Notdienst** 🔶 *Notdienst-Stufe im Generator erledigt (2026-07-20)*
+  Generator bietet eine Angebotsstufe (Standard/Notdienst → `priority_level`); der Chef
+  erzeugt damit direkt höher priorisierte Notdienst-Angebote (die USP „Notfall-Personal in
+  Stunden"). UI: Stufen-Umschalter im Generator-Modal; Service reicht `priority_level` an alle
+  erzeugten Angebote durch (Test abgesichert).
+  Offen (5b): Premium-Sichtbarkeits-Boost (`placement_boost_level`/`featured_until`, Mig 133)
+  inkl. Abrechnung (`premium_listing_charges`), Angebots-Styling (Dringlichkeit/Knappheit/Trust).
 
 ### Phase C — Nachfrage & Matching
 - **Welle 6 — Live-Vorschlag im Angebotsformular**

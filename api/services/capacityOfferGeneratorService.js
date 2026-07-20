@@ -117,7 +117,7 @@ export async function buildOfferSuggestions(pool, { orgId, workerProfileId }) {
 }
 
 /** Reine Abbildung: Einzelskill-Angebotsdaten für createCapacityEntry. */
-export function buildSingleSkillOfferData({ worker, skill, orgId }) {
+export function buildSingleSkillOfferData({ worker, skill, orgId, priorityLevel = "normal" }) {
   return {
     title: skill.name,
     role: skill.name,
@@ -133,12 +133,13 @@ export function buildSingleSkillOfferData({ worker, skill, orgId }) {
     worker_profile_id: worker.id,
     primary_skill_id: skill.skill_id,
     offer_kind: "single_skill",
+    priority_level: priorityLevel,
     is_anonymous: true
   };
 }
 
 /** Reine Abbildung: Bündel-/Gesamtangebotsdaten für createCapacityEntry. */
-export function buildBundleOfferData({ worker, skills, orgId }) {
+export function buildBundleOfferData({ worker, skills, orgId, priorityLevel = "normal" }) {
   const primary = skills.find((s) => s.is_primary) || skills[0] || null;
   return {
     title: `Allround-Kraft – ${skills.length} Fähigkeiten`,
@@ -155,6 +156,7 @@ export function buildBundleOfferData({ worker, skills, orgId }) {
     worker_profile_id: worker.id,
     primary_skill_id: primary ? primary.skill_id : null,
     offer_kind: "bundle",
+    priority_level: priorityLevel,
     is_anonymous: true
   };
 }
@@ -167,7 +169,7 @@ export function buildBundleOfferData({ worker, skills, orgId }) {
  */
 export async function createOffersFromSelection(
   pool,
-  { supplierUserId, orgId, plan, workerProfileId, single_skill_ids = [], include_bundle = false },
+  { supplierUserId, orgId, plan, workerProfileId, single_skill_ids = [], include_bundle = false, priority_level = "normal" },
   { createEntry = capacityExchangeService.createCapacityEntry } = {}
 ) {
   const worker = await loadWorkerForOrg(pool, workerProfileId, orgId);
@@ -187,7 +189,7 @@ export async function createOffersFromSelection(
       continue;
     }
     try {
-      const entry = await createEntry(pool, supplierUserId, plan, buildSingleSkillOfferData({ worker, skill, orgId }));
+      const entry = await createEntry(pool, supplierUserId, plan, buildSingleSkillOfferData({ worker, skill, orgId, priorityLevel: priority_level }));
       created.push({ id: entry.id, kind: "single_skill", skill_id: skillId, skill_name: skill.name });
     } catch (e) {
       if (e.code === "23505") skipped.push({ kind: "single_skill", skill_id: skillId, reason: "already_exists" });
@@ -198,7 +200,7 @@ export async function createOffersFromSelection(
 
   if (include_bundle && skills.length >= 2) {
     try {
-      const entry = await createEntry(pool, supplierUserId, plan, buildBundleOfferData({ worker, skills, orgId }));
+      const entry = await createEntry(pool, supplierUserId, plan, buildBundleOfferData({ worker, skills, orgId, priorityLevel: priority_level }));
       created.push({ id: entry.id, kind: "bundle", skill_ids: skills.map((s) => s.skill_id) });
     } catch (e) {
       if (e.code === "23505") skipped.push({ kind: "bundle", reason: "already_exists" });

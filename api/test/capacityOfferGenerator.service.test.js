@@ -145,4 +145,25 @@ describe("createOffersFromSelection", () => {
       (e) => e.code === "LOCATION_REQUIRED"
     );
   });
+
+  it("Notdienst-Stufe wird an alle erzeugten Angebote durchgereicht", async () => {
+    const pool = mockPool({ worker, skills: skills3 });
+    const calls = [];
+    const createEntry = async (_p, _u, _plan, data) => { calls.push(data); return { id: "x" }; };
+    await gen.createOffersFromSelection(
+      pool,
+      { supplierUserId: "u1", orgId: ORG, plan: "PRO", workerProfileId: WP, single_skill_ids: [S1, S2], include_bundle: true, priority_level: "notdienst" },
+      { createEntry }
+    );
+    assert.equal(calls.length, 3);
+    assert.ok(calls.every((d) => d.priority_level === "notdienst"));
+    // Default bleibt normal, wenn nichts angegeben:
+    const calls2 = [];
+    await gen.createOffersFromSelection(
+      pool,
+      { supplierUserId: "u1", orgId: ORG, plan: "PRO", workerProfileId: WP, single_skill_ids: [S1] },
+      { createEntry: async (_p, _u, _plan, data) => { calls2.push(data); return { id: "y" }; } }
+    );
+    assert.equal(calls2[0].priority_level, "normal");
+  });
 });
