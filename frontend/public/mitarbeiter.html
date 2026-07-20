@@ -643,6 +643,32 @@ Anna;Beispiel;anna@example.com;0157987654;M&uuml;nchen;P002</pre>
     </div>
   </div>
 
+  <!-- Multi-Skill Angebotsgenerator (Welle 3) -->
+  <style>
+    #offerGenModal .modal-panel { max-width: 640px; }
+    .og-summary { font-size:14px; color:var(--ds-text,#0f172a); margin-bottom:6px; padding:10px 12px; background:var(--ds-surface-2,#f1f5f9); border-radius:8px; }
+    .og-section-title { font-size:12px; font-weight:700; text-transform:uppercase; letter-spacing:.05em; color:var(--ds-text-muted,#64748b); margin:16px 0 8px; }
+    .og-chips { display:flex; flex-wrap:wrap; gap:8px; }
+    .og-chip { display:inline-flex; align-items:center; gap:7px; padding:7px 12px; border:1.5px solid var(--ds-border,#e2e8f0); border-radius:20px; font-size:13px; cursor:pointer; user-select:none; }
+    .og-chip input { margin:0; accent-color:var(--ds-brand,#2563eb); }
+    .og-chip:has(input:checked:not(:disabled)) { border-color:var(--ds-brand,#2563eb); background:var(--ds-brand-weak,rgba(37,99,235,.08)); font-weight:600; }
+    .og-chip.exists { opacity:.65; cursor:default; }
+    .og-chip.exists em { font-style:normal; color:var(--ds-success,#16a34a); font-size:11px; font-weight:700; }
+    .og-hint, .og-empty, .og-loading, .og-error { font-size:12.5px; margin-top:14px; color:var(--ds-text-muted,#64748b); }
+    .og-error { color:var(--ds-danger,#b91c1c); }
+    .og-warn { font-size:12.5px; color:var(--ds-warning-text,#b45309); background:var(--ds-warning-bg,#fffbeb); border:1px solid var(--ds-warning-border,#fde68a); padding:10px 12px; border-radius:8px; margin-bottom:12px; }
+  </style>
+  <div class="modal-bg" id="offerGenModal">
+    <div class="modal-panel">
+      <h2 id="ogTitle">Angebote generieren</h2>
+      <div id="ogBody"></div>
+      <div class="form-actions" style="margin-top:16px" id="ogFooter">
+        <button class="btn" onclick="closeOfferGenModal()">Abbrechen</button>
+        <button class="btn primary" id="ogGenerateBtn" onclick="generateOffers()">Ausgewählte Angebote erstellen</button>
+      </div>
+    </div>
+  </div>
+
   <!-- Toast -->
   <div class="toast" id="toast"></div>
 

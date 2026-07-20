@@ -434,6 +434,7 @@ function renderWorkers() {
       '<td style="white-space:nowrap">' +
         '<button class="action-btn" onclick="openWorkerProfileHub(\'' + w.user_id + '\')">Profil</button> ' +
         '<button class="action-btn" onclick="openEdit(\'' + w.user_id + '\')">Bearbeiten</button> ' +
+        '<button class="action-btn" onclick="openOfferGen(\'' + w.profile_id + '\')">Angebote</button> ' +
         (isActive
           ? '<button class="action-btn danger" onclick="toggleActive(\'' + w.user_id + '\', false)">Deaktivieren</button>'
           : '<button class="action-btn good" onclick="toggleActive(\'' + w.user_id + '\', true)">Aktivieren</button>') +
@@ -607,6 +608,87 @@ function saveEdit() {
     closeEditModal();
     loadWorkers();
   }).catch(function(e) { toast(e.message || e.error || "Fehler", "err"); });
+}
+
+/* ── Multi-Skill Angebotsgenerator (Welle 3) ─────────── */
+var _offerGenProfileId = null;
+
+function openOfferGen(profileId) {
+  _offerGenProfileId = profileId;
+  var w = (_workers || []).filter(function(x) { return x.profile_id === profileId; })[0];
+  var name = w ? (((w.first_name || "") + " " + (w.last_name || "")).trim() || "Mitarbeiter") : "Mitarbeiter";
+  document.getElementById("ogTitle").textContent = "Angebote generieren – " + name;
+  document.getElementById("ogBody").innerHTML = '<div class="og-loading">Vorschläge werden geladen…</div>';
+  document.getElementById("ogFooter").style.display = "none";
+  document.getElementById("offerGenModal").classList.add("show");
+  api("/capacity-exchange/workers/" + profileId + "/offer-suggestions").then(function(data) {
+    renderOfferSuggestions(data);
+  }).catch(function(e) {
+    document.getElementById("ogBody").innerHTML = '<div class="og-error">' + esc(e.message || e.error || "Konnte Vorschläge nicht laden.") + '</div>';
+  });
+}
+
+function renderOfferSuggestions(data) {
+  var body = document.getElementById("ogBody");
+  if (!data.skill_count) {
+    body.innerHTML = '<div class="og-empty">Dieser Mitarbeiter hat noch keine Fähigkeiten hinterlegt. Skills werden im Einsatzportal des Mitarbeiters erfasst – erst dann können Angebote generiert werden.</div>';
+    document.getElementById("ogFooter").style.display = "none";
+    return;
+  }
+  var html = "";
+  if (!data.location_ready) {
+    html += '<div class="og-warn">Kein Wohnort hinterlegt. Bitte zuerst unter „Bearbeiten" die Stadt ergänzen – sonst können keine Angebote erstellt werden.</div>';
+  }
+  html += '<div class="og-summary">' + esc(String(data.skill_count)) + ' Fähigkeiten → <strong>' + esc(String(data.suggested_new_offers)) + ' neue Angebote</strong> möglich' +
+          (data.existing_offer_count ? ' · ' + esc(String(data.existing_offer_count)) + ' bereits vorhanden' : '') + '</div>';
+  html += '<div class="og-section-title">Einzelangebote (1 je Fähigkeit)</div><div class="og-chips">';
+  (data.single || []).forEach(function(s) {
+    if (s.already_exists) {
+      html += '<label class="og-chip exists"><input type="checkbox" disabled checked><span>' + esc(s.skill_name) + '</span><em>vorhanden</em></label>';
+    } else {
+      html += '<label class="og-chip"><input type="checkbox" class="og-single" value="' + esc(s.skill_id) + '" checked><span>' + esc(s.skill_name) + '</span></label>';
+    }
+  });
+  html += "</div>";
+  if (data.bundle) {
+    html += '<div class="og-section-title">Gesamtangebot (alle Fähigkeiten gebündelt)</div><div class="og-chips">';
+    if (data.bundle.already_exists) {
+      html += '<label class="og-chip exists"><input type="checkbox" disabled checked><span>Allround-Kraft (' + esc(String(data.bundle.skill_ids.length)) + ' Fähigkeiten)</span><em>vorhanden</em></label>';
+    } else {
+      html += '<label class="og-chip"><input type="checkbox" id="ogBundle" checked><span>Allround-Kraft (' + esc(String(data.bundle.skill_ids.length)) + ' Fähigkeiten)</span></label>';
+    }
+    html += "</div>";
+  }
+  html += '<div class="og-hint">Angebote werden als <strong>Entwurf</strong> erstellt. Sichtbar im Marktplatz werden sie erst nach dem Aktivieren in der Kapazitätsbörse.</div>';
+  body.innerHTML = html;
+  document.getElementById("ogFooter").style.display = data.location_ready ? "" : "none";
+}
+
+function generateOffers() {
+  if (!_offerGenProfileId) return;
+  var singleIds = [].slice.call(document.querySelectorAll(".og-single:checked")).map(function(c) { return c.value; });
+  var bundleEl = document.getElementById("ogBundle");
+  var includeBundle = !!(bundleEl && bundleEl.checked);
+  if (!singleIds.length && !includeBundle) { toast("Bitte mindestens ein Angebot auswählen.", "err"); return; }
+  var btn = document.getElementById("ogGenerateBtn");
+  var prev = btn.textContent;
+  btn.disabled = true; btn.textContent = "Erstelle…";
+  api("/capacity-exchange/workers/" + _offerGenProfileId + "/generate-offers", {
+    method: "POST", body: { single_skill_ids: singleIds, include_bundle: includeBundle }
+  }).then(function(res) {
+    toast(esc(String(res.created_count)) + " Angebot(e) als Entwurf erstellt" + (res.skipped_count ? " · " + esc(String(res.skipped_count)) + " übersprungen" : "") + ".");
+    closeOfferGenModal();
+    loadWorkers();
+  }).catch(function(e) {
+    toast(e.message || e.error || "Erstellen fehlgeschlagen.", "err");
+  }).finally(function() {
+    btn.disabled = false; btn.textContent = prev;
+  });
+}
+
+function closeOfferGenModal() {
+  document.getElementById("offerGenModal").classList.remove("show");
+  _offerGenProfileId = null;
 }
 
 document.addEventListener("keydown", function(e) {
