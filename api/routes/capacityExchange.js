@@ -7,6 +7,7 @@
 import { z } from "zod";
 import { Router } from "express";
 import * as capacityExchangeService from "../services/capacityExchangeService.js";
+import * as capacityOfferGeneratorService from "../services/capacityOfferGeneratorService.js";
 import * as matchingEngine from "../services/matchingEngine.js";
 import * as auditLog from "../services/auditLog.js";
 import { dispatch } from "../services/notificationMatrix.js";
@@ -56,6 +57,11 @@ const createEntrySchema = z.object({
 
 const updateEntrySchema = createEntrySchema.partial().omit({ status: true });
 
+const generateOffersSchema = z.object({
+  single_skill_ids: z.array(z.string().uuid()).max(200).optional().default([]),
+  include_bundle: z.boolean().optional().default(false)
+});
+
 const interactionSchema = z.object({
   interaction_type: z.enum(["interest", "offer_request", "question", "save", "requisition_link", "deal_start", "contact", "deal_accept", "deal_negotiate"]),
   message: z.string().max(2000).optional().nullable(),
@@ -102,6 +108,63 @@ export function createCapacityExchangeRouter(deps) {
     } catch (e) {
       if (e.code === "PLAN_LIMIT") return res.status(403).json({ error: "PLAN_LIMIT", message: e.message });
       logger.error({ err: e }, "POST /capacity-exchange/entries");
+      res.status(500).json({ error: "SERVER_ERROR" });
+    }
+  });
+
+  /* ── Supplier: Multi-Skill Angebotsgenerator (Welle 3) ─────────────────── */
+
+  // Vorschau: welche N+1 Angebote koennen aus den Skills des Arbeiters entstehen?
+  router.get("/capacity-exchange/workers/:workerProfileId/offer-suggestions",
+    requireAuth, requireScope("read:capacity"), ceBasic, async (req, res) => {
+    try {
+      const me = req.user;
+      if (me?.role !== "agency") return res.status(403).json({ error: "AGENCY_ONLY" });
+      if (!req.orgId) return res.status(403).json({ error: "ORG_REQUIRED" });
+      const suggestions = await capacityOfferGeneratorService.buildOfferSuggestions(pool, {
+        orgId: req.orgId, workerProfileId: req.params.workerProfileId
+      });
+      res.json(suggestions);
+    } catch (e) {
+      if (e.code === "WORKER_NOT_FOUND") return res.status(404).json({ error: "WORKER_NOT_FOUND" });
+      if (e.code === "FORBIDDEN") return res.status(403).json({ error: "FORBIDDEN" });
+      logger.error({ err: e }, "GET /capacity-exchange/workers/:id/offer-suggestions");
+      res.status(500).json({ error: "SERVER_ERROR" });
+    }
+  });
+
+  // Erzeugung: ausgewaehlte Einzel-/Buendelangebote als Entwuerfe anlegen.
+  router.post("/capacity-exchange/workers/:workerProfileId/generate-offers",
+    requireAuth, requireScope("write:capacity"), ceBasic, async (req, res) => {
+    try {
+      const me = req.user;
+      if (me?.role !== "agency") return res.status(403).json({ error: "AGENCY_ONLY" });
+      if (!req.orgId) return res.status(403).json({ error: "ORG_REQUIRED" });
+      const parsed = generateOffersSchema.safeParse(req.body);
+      if (!parsed.success) return res.status(400).json({ error: "VALIDATION", details: parsed.error.issues });
+      if (!parsed.data.single_skill_ids.length && !parsed.data.include_bundle) {
+        return res.status(400).json({ error: "NOTHING_SELECTED" });
+      }
+      const plan = me?.plan ?? "FREE";
+      const result = await capacityOfferGeneratorService.createOffersFromSelection(pool, {
+        supplierUserId: req.session.userId, orgId: req.orgId, plan,
+        workerProfileId: req.params.workerProfileId,
+        single_skill_ids: parsed.data.single_skill_ids,
+        include_bundle: parsed.data.include_bundle
+      });
+      await auditLog.writeAudit(pool, {
+        action: "capacity_exchange.generate_offers", entity_type: "worker_profile",
+        entity_id: req.params.workerProfileId, actor_id: req.session.userId,
+        details: { created: result.created_count, skipped: result.skipped_count }
+      });
+      res.status(201).json(result);
+    } catch (e) {
+      if (e.code === "WORKER_NOT_FOUND") return res.status(404).json({ error: "WORKER_NOT_FOUND" });
+      if (e.code === "FORBIDDEN") return res.status(403).json({ error: "FORBIDDEN" });
+      if (e.code === "LOCATION_REQUIRED") {
+        return res.status(400).json({ error: "LOCATION_REQUIRED", message: "Bitte zuerst Wohnort/Einsatzort des Mitarbeiters ergänzen." });
+      }
+      logger.error({ err: e }, "POST /capacity-exchange/workers/:id/generate-offers");
       res.status(500).json({ error: "SERVER_ERROR" });
     }
   });

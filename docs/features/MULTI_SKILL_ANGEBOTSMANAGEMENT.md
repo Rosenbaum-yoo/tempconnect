@@ -99,9 +99,13 @@ fordern — gematcht gegen den Skill-Katalog.
   Wichtige erfasst wird". Chef-Einladung → Worker füllt end-to-end.
 
 ### Phase B — Angebots-Engine (Herzstück der USP)
-- **Welle 3 — Multi-Skill-Angebotsgenerator**
+- **Welle 3 — Multi-Skill-Angebotsgenerator** 🔶 *Backend-Engine erledigt (2026-07-20), Agency-UI folgt*
   Aus einem Arbeiter automatisch N+1 Angebotsvorschläge (je Skill + Gesamt),
   `capacity_posts` mit `offer_kind`/`primary_skill_id`, Dedup live, Ein-Klick-Erzeugung.
+  Erzeugung als Entwurf (Aktivierung bleibt plan-gated = Upsell-Hebel).
+  Neu: `api/services/capacityOfferGeneratorService.js`, Endpoints
+  `GET/POST /api/capacity-exchange/workers/:workerProfileId/offer-suggestions|generate-offers`,
+  `createCapacityEntry` um `worker_profile_id/primary_skill_id/offer_kind/is_anonymous` erweitert.
 - **Welle 4 — Sammelangebote + Reservierungs-/Konflikt-Engine**
   `pool_single_skill` / `pool_multi_skill`, Hard-Reserve über `valid_until` +
   `staffing_reservations`, Auto-Reaktivierung nach Einsatzende.
