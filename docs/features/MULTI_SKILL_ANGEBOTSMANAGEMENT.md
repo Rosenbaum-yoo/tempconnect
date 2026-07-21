@@ -110,8 +110,15 @@ fordern — gematcht gegen den Skill-Katalog.
   `frontend/public/mitarbeiter.html` + `js/pages/mitarbeiter.js`. Dedup gegen echtes Schema
   per DB-Smoke bestätigt (zweites Einzelangebot abgelehnt, Bündel erlaubt).
 - **Welle 4 — Sammelangebote + Reservierungs-/Konflikt-Engine**
-  `pool_single_skill` / `pool_multi_skill`, Hard-Reserve über `valid_until` +
-  `staffing_reservations`, Auto-Reaktivierung nach Einsatzende.
+  - **4a (Sammelangebote) erledigt (2026-07-21):** Mig 146 `capacity_post_pool_members`;
+    `buildPoolSuggestion` (freie Arbeiter mit gleichem Skill) + `createPoolOffer` (EIN
+    `pool_single_skill`-Angebot, headcount=Mitgliederzahl, dominante Stadt, org-/skill-validiert);
+    Endpoints `GET /capacity-exchange/pool/suggestion`, `POST /capacity-exchange/pool/generate`;
+    UI „+ Sammelangebot"-Button + Modal (Skill wählen → freie Mitarbeiter → bündeln) in
+    `mitarbeiter.html`. Standard/Notdienst + Premium unterstützt. Tests grün.
+  - **4b (offen, eigener Durchlauf):** `pool_multi_skill`, Hard-Reserve über `valid_until` +
+    bestehendes `assignmentStaffingService`/`staffing_reservations` (greift tief in den
+    Deal-/Einstell-Flow ein), Auto-Reaktivierung nach Einsatzende.
 - **Welle 5 — Premium & Notdienst** 🔶 *Notdienst-Stufe im Generator erledigt (2026-07-20)*
   Generator bietet eine Angebotsstufe (Standard/Notdienst → `priority_level`); der Chef
   erzeugt damit direkt höher priorisierte Notdienst-Angebote (die USP „Notfall-Personal in

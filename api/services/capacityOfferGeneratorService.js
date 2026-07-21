@@ -218,3 +218,118 @@ export async function createOffersFromSelection(
 
   return { created, skipped, created_count: created.length, skipped_count: skipped.length };
 }
+
+/* ── Sammelangebote / Pool (Welle 4a) ───────────────────────────────────────── */
+
+/**
+ * Vorschau für ein Sammelangebot: alle Arbeiter der Org mit einem bestimmten Skill,
+ * inkl. Frei-Markierung (kein aktiver Einsatz). Basis für "N Helfer auf einmal anbieten".
+ */
+export async function buildPoolSuggestion(pool, { orgId, skillId }) {
+  const skillRes = await pool.query(
+    `SELECT id, name, category FROM platform_skills WHERE id = $1 AND is_active = TRUE`,
+    [skillId]
+  );
+  const skill = skillRes.rows[0];
+  if (!skill) throw Object.assign(new Error("SKILL_NOT_FOUND"), { code: "SKILL_NOT_FOUND" });
+
+  const { rows } = await pool.query(
+    `SELECT wp.id AS worker_profile_id, wp.first_name, wp.last_name, wp.city,
+            COALESCE((SELECT COUNT(*) FROM worker_assignment_links wal
+                       WHERE wal.worker_user_id = wp.user_id AND wal.is_active = TRUE), 0) AS active_assignments
+       FROM worker_profile_skills wps
+       JOIN worker_profiles wp ON wp.id = wps.worker_profile_id
+      WHERE wps.skill_id = $1 AND wp.supplier_org_id = $2 AND wp.is_active = TRUE
+      ORDER BY wp.last_name, wp.first_name`,
+    [skillId, orgId]
+  );
+  const members = rows.map((r) => ({
+    worker_profile_id: r.worker_profile_id,
+    name: `${r.first_name || ""} ${r.last_name || ""}`.trim(),
+    city: r.city || null,
+    free: Number(r.active_assignments) === 0
+  }));
+  return {
+    skill_id: skill.id,
+    skill_name: skill.name,
+    category: skill.category,
+    total: members.length,
+    free_count: members.filter((m) => m.free).length,
+    members
+  };
+}
+
+/**
+ * Erzeugt EIN Sammelangebot (offer_kind pool_single_skill), das mehrere Arbeiter mit
+ * demselben Skill bündelt (headcount = Mitgliederzahl). Mitglieder werden org- und
+ * skill-validiert; die Angebots-Stadt ist die häufigste Mitglieder-Stadt (sonst
+ * "Mehrere Standorte"). Als Entwurf erstellt (Aktivierung bleibt plan-gated).
+ */
+export async function createPoolOffer(
+  pool,
+  { supplierUserId, orgId, plan, skillId, workerProfileIds = [], priority_level = "normal", premium = false },
+  { createEntry = capacityExchangeService.createCapacityEntry } = {}
+) {
+  const skillRes = await pool.query(
+    `SELECT id, name, category FROM platform_skills WHERE id = $1 AND is_active = TRUE`,
+    [skillId]
+  );
+  const skill = skillRes.rows[0];
+  if (!skill) throw Object.assign(new Error("SKILL_NOT_FOUND"), { code: "SKILL_NOT_FOUND" });
+
+  const ids = [...new Set((workerProfileIds || []).filter(Boolean))];
+  if (!ids.length) throw Object.assign(new Error("POOL_EMPTY"), { code: "POOL_EMPTY" });
+
+  // Nur Mitglieder, die zur Org gehören UND den Skill besitzen (Datenisolation).
+  const { rows: valid } = await pool.query(
+    `SELECT wp.id, wp.city
+       FROM worker_profiles wp
+       JOIN worker_profile_skills wps ON wps.worker_profile_id = wp.id AND wps.skill_id = $2
+      WHERE wp.id = ANY($1::uuid[]) AND wp.supplier_org_id = $3 AND wp.is_active = TRUE`,
+    [ids, skillId, orgId]
+  );
+  if (!valid.length) throw Object.assign(new Error("NO_VALID_MEMBERS"), { code: "NO_VALID_MEMBERS" });
+
+  const memberIds = valid.map((r) => r.id);
+  const cityCounts = new Map();
+  for (const r of valid) {
+    const c = (r.city || "").trim();
+    if (c) cityCounts.set(c, (cityCounts.get(c) || 0) + 1);
+  }
+  let city = "Mehrere Standorte";
+  if (cityCounts.size) city = [...cityCounts.entries()].sort((a, b) => b[1] - a[1])[0][0];
+
+  const entry = await createEntry(pool, supplierUserId, plan, {
+    title: `${skill.name} – ${memberIds.length} verfügbar`,
+    role: skill.name,
+    skill_tags: [skill.name],
+    headcount: memberIds.length,
+    availability_from: todayIso(),
+    location_city: city,
+    worker_category: skill.category || null,
+    status: "draft",
+    org_id: orgId,
+    department_id: null,
+    worker_profile_id: null,
+    primary_skill_id: skillId,
+    offer_kind: "pool_single_skill",
+    priority_level,
+    placement_boost_level: premium ? PREMIUM_BOOST_LEVEL : 0,
+    is_anonymous: true
+  });
+
+  await pool.query(
+    `INSERT INTO capacity_post_pool_members (capacity_post_id, worker_profile_id)
+     SELECT $1, unnest($2::uuid[]) ON CONFLICT DO NOTHING`,
+    [entry.id, memberIds]
+  );
+
+  return {
+    id: entry.id,
+    offer_kind: "pool_single_skill",
+    skill_id: skillId,
+    skill_name: skill.name,
+    member_count: memberIds.length,
+    location_city: city
+  };
+}

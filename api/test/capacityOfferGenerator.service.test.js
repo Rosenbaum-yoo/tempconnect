@@ -187,3 +187,67 @@ describe("createOffersFromSelection", () => {
     assert.equal(calls2[0].placement_boost_level, 0);
   });
 });
+
+describe("buildPoolSuggestion / createPoolOffer (Sammelangebote)", () => {
+  const skill = { id: S1, name: "Altenpflege", category: "Pflege & Betreuung" };
+  const members = [
+    { worker_profile_id: WP, id: WP, first_name: "Max", last_name: "M", city: "Hamburg", active_assignments: 0 },
+    { worker_profile_id: "d1111111-1111-1111-1111-111111111111", id: "d1111111-1111-1111-1111-111111111111", first_name: "Anna", last_name: "K", city: "Hamburg", active_assignments: 0 },
+    { worker_profile_id: "d2222222-2222-2222-2222-222222222222", id: "d2222222-2222-2222-2222-222222222222", first_name: "Ben", last_name: "B", city: "Kiel", active_assignments: 2 }
+  ];
+  function poolPool(pmCalls) {
+    return {
+      query: async (sql, params) => {
+        if (sql.includes("FROM platform_skills")) return { rows: [skill] };
+        if (sql.includes("active_assignments")) return { rows: members };              // buildPoolSuggestion
+        if (sql.includes("JOIN worker_profile_skills wps ON")) return { rows: members }; // createPoolOffer valid
+        if (sql.includes("capacity_post_pool_members")) { if (pmCalls) pmCalls.push(params); return { rows: [] }; }
+        return { rows: [] };
+      }
+    };
+  }
+
+  it("buildPoolSuggestion: zählt Mitglieder + freie", async () => {
+    const res = await gen.buildPoolSuggestion(poolPool(), { orgId: ORG, skillId: S1 });
+    assert.equal(res.skill_name, "Altenpflege");
+    assert.equal(res.total, 3);
+    assert.equal(res.free_count, 2);
+  });
+
+  it("buildPoolSuggestion: unbekannter Skill -> SKILL_NOT_FOUND", async () => {
+    const pool = { query: async () => ({ rows: [] }) };
+    await assert.rejects(() => gen.buildPoolSuggestion(pool, { orgId: ORG, skillId: S1 }), (e) => e.code === "SKILL_NOT_FOUND");
+  });
+
+  it("createPoolOffer: EIN pool_single_skill mit headcount, dominanter Stadt, Mitgliedern", async () => {
+    const pmCalls = [];
+    const calls = [];
+    const createEntry = async (_p, _u, _plan, data) => { calls.push(data); return { id: "pool1" }; };
+    const res = await gen.createPoolOffer(
+      poolPool(pmCalls),
+      { supplierUserId: "u1", orgId: ORG, plan: "PRO", skillId: S1,
+        workerProfileIds: members.map((m) => m.id), premium: true, priority_level: "notdienst" },
+      { createEntry }
+    );
+    assert.equal(res.offer_kind, "pool_single_skill");
+    assert.equal(res.member_count, 3);
+    assert.equal(calls.length, 1);
+    assert.equal(calls[0].offer_kind, "pool_single_skill");
+    assert.equal(calls[0].headcount, 3);
+    assert.equal(calls[0].primary_skill_id, S1);
+    assert.equal(calls[0].worker_profile_id, null);
+    assert.equal(calls[0].priority_level, "notdienst");
+    assert.equal(calls[0].placement_boost_level, 2);
+    assert.equal(calls[0].location_city, "Hamburg"); // 2x Hamburg schlägt 1x Kiel
+    assert.equal(pmCalls.length, 1);
+    assert.equal(pmCalls[0][1].length, 3);
+  });
+
+  it("createPoolOffer: keine gültigen Mitglieder -> NO_VALID_MEMBERS", async () => {
+    const pool = { query: async (sql) => (sql.includes("FROM platform_skills") ? { rows: [skill] } : { rows: [] }) };
+    await assert.rejects(
+      () => gen.createPoolOffer(pool, { supplierUserId: "u1", orgId: ORG, plan: "PRO", skillId: S1, workerProfileIds: [WP] }, { createEntry: async () => ({ id: "x" }) }),
+      (e) => e.code === "NO_VALID_MEMBERS"
+    );
+  });
+});

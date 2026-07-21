@@ -702,6 +702,94 @@ function closeOfferGenModal() {
   _offerGenProfileId = null;
 }
 
+/* ── Sammelangebot-Generator (Welle 4a) ──────────────── */
+var _poolCatalogLoaded = false;
+
+function openPoolGen() {
+  document.getElementById("poolBody").innerHTML = "";
+  document.getElementById("poolFooter").style.display = "none";
+  document.getElementById("poolGenModal").classList.add("show");
+  if (_poolCatalogLoaded) return;
+  api("/skills/catalog").then(function(cat) {
+    var sel = document.getElementById("poolSkill");
+    (cat.categories || []).forEach(function(c) {
+      var og = document.createElement("optgroup");
+      og.label = c.category;
+      (c.skills || []).forEach(function(s) {
+        var o = document.createElement("option");
+        o.value = s.id; o.textContent = s.name;
+        og.appendChild(o);
+      });
+      sel.appendChild(og);
+    });
+    _poolCatalogLoaded = true;
+  }).catch(function() { toast("Fähigkeiten-Katalog konnte nicht geladen werden.", "err"); });
+}
+
+function loadPoolMembers() {
+  var skillId = document.getElementById("poolSkill").value;
+  var body = document.getElementById("poolBody");
+  var footer = document.getElementById("poolFooter");
+  if (!skillId) { body.innerHTML = ""; footer.style.display = "none"; return; }
+  body.innerHTML = '<div class="og-loading">Mitarbeiter werden geladen…</div>';
+  api("/capacity-exchange/pool/suggestion?skill_id=" + encodeURIComponent(skillId)).then(function(d) {
+    if (!d.total) {
+      body.innerHTML = '<div class="og-empty">Kein Mitarbeiter mit dieser Fähigkeit gefunden.</div>';
+      footer.style.display = "none";
+      return;
+    }
+    var html = '<div class="og-summary">' + esc(String(d.total)) + ' Mitarbeiter mit „' + esc(d.skill_name) +
+      '" · <strong>' + esc(String(d.free_count)) + ' frei</strong> (frei ist vorausgewählt)</div><div class="og-chips">';
+    (d.members || []).forEach(function(m) {
+      var checked = m.free ? "checked" : "";
+      var busy = m.free ? "" : ' <em style="font-style:normal;color:var(--ds-text-muted,#64748b)">(im Einsatz)</em>';
+      html += '<label class="og-chip"><input type="checkbox" class="pool-member" value="' + esc(m.worker_profile_id) + '" ' + checked +
+        '><span>' + esc(m.name || "—") + (m.city ? ' · ' + esc(m.city) : '') + busy + '</span></label>';
+    });
+    html += '</div>';
+    html += '<div class="og-section-title">Angebotsstufe</div><div class="og-chips" id="poolTier">' +
+      '<label class="og-chip"><input type="radio" name="poolTier" value="normal" checked><span>Standard</span></label>' +
+      '<label class="og-chip"><input type="radio" name="poolTier" value="notdienst"><span>Notdienst</span></label>' +
+      '</div>';
+    html += '<div class="og-chips" style="margin-top:8px"><label class="og-chip"><input type="checkbox" id="poolPremium"><span>Premium – mehr Sichtbarkeit</span></label></div>';
+    html += '<div class="og-hint">Erstellt <strong>ein</strong> Sammelangebot als Entwurf (Aktivierung in der Kapazitätsbörse).</div>';
+    body.innerHTML = html;
+    footer.style.display = "";
+  }).catch(function(e) {
+    body.innerHTML = '<div class="og-error">' + esc(e.message || e.error || "Mitarbeiter konnten nicht geladen werden.") + '</div>';
+    footer.style.display = "none";
+  });
+}
+
+function generatePool() {
+  var skillId = document.getElementById("poolSkill").value;
+  var ids = [].slice.call(document.querySelectorAll(".pool-member:checked")).map(function(c) { return c.value; });
+  if (!skillId) { toast("Bitte eine Fähigkeit wählen.", "err"); return; }
+  if (!ids.length) { toast("Bitte mindestens einen Mitarbeiter wählen.", "err"); return; }
+  var tierEl = document.querySelector('input[name="poolTier"]:checked');
+  var tier = (tierEl && tierEl.value) || "normal";
+  var premiumEl = document.getElementById("poolPremium");
+  var premium = !!(premiumEl && premiumEl.checked);
+  var btn = document.getElementById("poolGenerateBtn");
+  var prev = btn.textContent;
+  btn.disabled = true; btn.textContent = "Erstelle…";
+  api("/capacity-exchange/pool/generate", {
+    method: "POST",
+    body: { skill_id: skillId, worker_profile_ids: ids, priority_level: tier, premium: premium }
+  }).then(function(res) {
+    toast("Sammelangebot erstellt (" + esc(String(res.member_count || 0)) + " Mitarbeiter, Entwurf).");
+    closePoolGenModal();
+  }).catch(function(e) {
+    toast(e.error === "NO_VALID_MEMBERS" ? "Keine gültigen Mitarbeiter für dieses Angebot." : (e.message || e.error || "Erstellen fehlgeschlagen."), "err");
+  }).finally(function() {
+    btn.disabled = false; btn.textContent = prev;
+  });
+}
+
+function closePoolGenModal() {
+  document.getElementById("poolGenModal").classList.remove("show");
+}
+
 document.addEventListener("keydown", function(e) {
   if (e.key === "Escape") closeEditModal();
 });

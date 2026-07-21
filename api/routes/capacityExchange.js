@@ -64,6 +64,13 @@ const generateOffersSchema = z.object({
   premium: z.boolean().optional().default(false)
 });
 
+const generatePoolSchema = z.object({
+  skill_id: z.string().uuid(),
+  worker_profile_ids: z.array(z.string().uuid()).min(1).max(500),
+  priority_level: z.enum(["normal", "notdienst"]).optional().default("normal"),
+  premium: z.boolean().optional().default(false)
+});
+
 const interactionSchema = z.object({
   interaction_type: z.enum(["interest", "offer_request", "question", "save", "requisition_link", "deal_start", "contact", "deal_accept", "deal_negotiate"]),
   message: z.string().max(2000).optional().nullable(),
@@ -169,6 +176,58 @@ export function createCapacityExchangeRouter(deps) {
         return res.status(400).json({ error: "LOCATION_REQUIRED", message: "Bitte zuerst Wohnort/Einsatzort des Mitarbeiters ergänzen." });
       }
       logger.error({ err: e }, "POST /capacity-exchange/workers/:id/generate-offers");
+      res.status(500).json({ error: "SERVER_ERROR" });
+    }
+  });
+
+  /* ── Supplier: Sammelangebote / Pool (Welle 4a) ────────────────────────── */
+
+  // Vorschau: alle Arbeiter der Org mit einem Skill (inkl. Frei-Markierung).
+  router.get("/capacity-exchange/pool/suggestion",
+    requireAuth, requireScope("read:capacity"), ceBasic, async (req, res) => {
+    try {
+      const me = req.user;
+      if (me?.role !== "agency") return res.status(403).json({ error: "AGENCY_ONLY" });
+      if (!req.orgId) return res.status(403).json({ error: "ORG_REQUIRED" });
+      const skillId = req.query.skill_id;
+      if (!skillId || !/^[0-9a-f-]{36}$/i.test(String(skillId))) return res.status(400).json({ error: "SKILL_ID_REQUIRED" });
+      const suggestion = await capacityOfferGeneratorService.buildPoolSuggestion(pool, { orgId: req.orgId, skillId });
+      res.json(suggestion);
+    } catch (e) {
+      if (e.code === "SKILL_NOT_FOUND") return res.status(404).json({ error: "SKILL_NOT_FOUND" });
+      logger.error({ err: e }, "GET /capacity-exchange/pool/suggestion");
+      res.status(500).json({ error: "SERVER_ERROR" });
+    }
+  });
+
+  // Erzeugung: EIN Sammelangebot, das die gewählten Arbeiter bündelt (als Entwurf).
+  router.post("/capacity-exchange/pool/generate",
+    requireAuth, requireScope("write:capacity"), ceBasic, async (req, res) => {
+    try {
+      const me = req.user;
+      if (me?.role !== "agency") return res.status(403).json({ error: "AGENCY_ONLY" });
+      if (!req.orgId) return res.status(403).json({ error: "ORG_REQUIRED" });
+      const parsed = generatePoolSchema.safeParse(req.body);
+      if (!parsed.success) return res.status(400).json({ error: "VALIDATION", details: parsed.error.issues });
+      const plan = me?.plan ?? "FREE";
+      const result = await capacityOfferGeneratorService.createPoolOffer(pool, {
+        supplierUserId: req.session.userId, orgId: req.orgId, plan,
+        skillId: parsed.data.skill_id,
+        workerProfileIds: parsed.data.worker_profile_ids,
+        priority_level: parsed.data.priority_level,
+        premium: parsed.data.premium
+      });
+      await auditLog.writeAudit(pool, {
+        action: "capacity_exchange.generate_pool", entity_type: "capacity_post",
+        entity_id: result.id, actor_id: req.session.userId,
+        details: { skill_id: result.skill_id, member_count: result.member_count }
+      });
+      res.status(201).json(result);
+    } catch (e) {
+      if (e.code === "SKILL_NOT_FOUND") return res.status(404).json({ error: "SKILL_NOT_FOUND" });
+      if (e.code === "POOL_EMPTY" || e.code === "NO_VALID_MEMBERS") return res.status(400).json({ error: e.code });
+      if (e.code === "PLAN_LIMIT") return res.status(403).json({ error: "PLAN_LIMIT", message: e.message });
+      logger.error({ err: e }, "POST /capacity-exchange/pool/generate");
       res.status(500).json({ error: "SERVER_ERROR" });
     }
   });

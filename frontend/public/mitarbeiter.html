@@ -194,6 +194,7 @@
           <option value="true">Aktiv</option>
           <option value="false">Inaktiv</option>
         </select>
+        <button class="btn primary" style="width:auto;white-space:nowrap;margin-bottom:0" onclick="openPoolGen()">+ Sammelangebot</button>
       </div>
       <div id="workerList">
         <div class="empty-state">Mitarbeiter werden geladen...</div>
@@ -665,6 +666,25 @@ Anna;Beispiel;anna@example.com;0157987654;M&uuml;nchen;P002</pre>
       <div class="form-actions" style="margin-top:16px" id="ogFooter">
         <button class="btn" onclick="closeOfferGenModal()">Abbrechen</button>
         <button class="btn primary" id="ogGenerateBtn" onclick="generateOffers()">Ausgewählte Angebote erstellen</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Sammelangebot-Generator (Welle 4a) -->
+  <div class="modal-bg" id="poolGenModal">
+    <div class="modal-panel" style="max-width:640px">
+      <h2>Sammelangebot erstellen</h2>
+      <p style="font-size:12.5px;color:var(--ds-text-muted,#64748b);margin:0 0 14px">Bündeln Sie mehrere freie Mitarbeiter mit derselben Fähigkeit in <strong>einem</strong> Angebot – „N auf einmal anbieten".</p>
+      <div style="margin-bottom:12px">
+        <label style="display:block;font-size:12px;font-weight:700;margin-bottom:6px">Fähigkeit</label>
+        <select id="poolSkill" onchange="loadPoolMembers()" style="width:100%;padding:9px 12px;border:1.5px solid var(--ds-border,#e2e8f0);border-radius:8px;font-size:13px;background:#fff">
+          <option value="">Bitte wählen…</option>
+        </select>
+      </div>
+      <div id="poolBody"></div>
+      <div class="form-actions" id="poolFooter" style="margin-top:16px;display:none">
+        <button class="btn" onclick="closePoolGenModal()">Abbrechen</button>
+        <button class="btn primary" id="poolGenerateBtn" onclick="generatePool()">Sammelangebot erstellen</button>
       </div>
     </div>
   </div>
