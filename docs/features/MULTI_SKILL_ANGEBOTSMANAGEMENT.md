@@ -121,8 +121,11 @@ fordern — gematcht gegen den Skill-Katalog.
   `placement_boost_level` (Stufe 2, unter dem bezahlten Max 3 via `premiumListingService`) → höheres
   Feed-Ranking, **ohne Gebühr**. `createCapacityEntry` um `placement_boost_level` erweitert; UI-Checkbox
   im Generator-Modal; Test abgesichert. Live gegen echtes Schema bestätigt.
-  Offen (5b-Teil-2): In-App-Gebühr (`premium_listing_charges` — braucht Owner-Preis) + Angebots-Styling
-  (Dringlichkeit/Knappheit/Trust).
+  **5b-Teil-2 (Premium-Abrechnung) erledigt (2026-07-21):** Mechanismus war bereits vorhanden
+  (`POST /marketplace/premium/feature` → `premiumListingService` → `premium_listing_charges` → nächste
+  Monatsrechnung, manual-first). Preis auf **9,99 €/Angebot** gesetzt (`PREMIUM_LISTING.price_cents`,
+  war 49,00 €; fan-out-freundlicher Micro-Preis, trivial anpassbar, z. B. 14,99 €).
+  Offen: optionales Notdienst-/Top-Preis-Tier + Angebots-Styling (Dringlichkeit/Knappheit/Trust).
 
 ### Phase C — Nachfrage & Matching
 - **Welle 6 — Live-Vorschlag im Angebotsformular**

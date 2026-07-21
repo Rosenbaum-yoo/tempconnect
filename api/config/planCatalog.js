@@ -475,6 +475,10 @@ export function buildCatalogResponse() {
    NAECHSTE Monatsrechnung addiert (manual-first, kein Sofort-Charge).
    Preis/Laufzeit hier zentral pflegen (Owner-Entscheidung). */
 export const PREMIUM_LISTING = Object.freeze({
-  price_cents: 4900,   // 49,00 EUR netto je Anzeige
+  // Owner-Empfehlung 2026-07-21: fan-out-freundlicher Micro-Preis je Premium-Angebot
+  // (war 4900 = 49,00 EUR). Bei Preis PRO Angebot multipliziert sich der Multi-Skill-
+  // Fan-out — unter 10,00 EUR bleibt Premium ein friktionsloses "Ja" ueber viele Angebote.
+  // Trivial anpassbar (z. B. 1499 = 14,99 EUR fuer mehr Marge je Angebot).
+  price_cents: 999,    // 9,99 EUR netto je Premium-Angebot
   duration_days: 14    // Hervorhebungsdauer
 });
