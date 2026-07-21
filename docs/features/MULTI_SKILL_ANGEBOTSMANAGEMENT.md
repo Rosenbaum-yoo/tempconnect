@@ -117,8 +117,12 @@ fordern — gematcht gegen den Skill-Katalog.
   erzeugt damit direkt höher priorisierte Notdienst-Angebote (die USP „Notfall-Personal in
   Stunden"). UI: Stufen-Umschalter im Generator-Modal; Service reicht `priority_level` an alle
   erzeugten Angebote durch (Test abgesichert).
-  Offen (5b): Premium-Sichtbarkeits-Boost (`placement_boost_level`/`featured_until`, Mig 133)
-  inkl. Abrechnung (`premium_listing_charges`), Angebots-Styling (Dringlichkeit/Knappheit/Trust).
+  **Premium-Sichtbarkeit (5b-Teil-1) erledigt (2026-07-21):** Generator-Checkbox „Premium" setzt
+  `placement_boost_level` (Stufe 2, unter dem bezahlten Max 3 via `premiumListingService`) → höheres
+  Feed-Ranking, **ohne Gebühr**. `createCapacityEntry` um `placement_boost_level` erweitert; UI-Checkbox
+  im Generator-Modal; Test abgesichert. Live gegen echtes Schema bestätigt.
+  Offen (5b-Teil-2): In-App-Gebühr (`premium_listing_charges` — braucht Owner-Preis) + Angebots-Styling
+  (Dringlichkeit/Knappheit/Trust).
 
 ### Phase C — Nachfrage & Matching
 - **Welle 6 — Live-Vorschlag im Angebotsformular**

@@ -314,10 +314,10 @@ export async function createCapacityEntry(pool, supplierId, plan, data) {
       country, mobility_notes, qualification_summary, certifications_summary,
       compliance_status, notes, visibility_status, priority_level,
       valid_until, last_confirmed_at, org_id, department_id, created_by, price_hint,
-      worker_profile_id, primary_skill_id, offer_kind, is_anonymous)
+      worker_profile_id, primary_skill_id, offer_kind, is_anonymous, placement_boost_level)
      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,FALSE,$17,
              $18,$19,$20,$21,$22,$23,$24,$25,$26,$27,$28,$29,$30,$31,$32,$33,$34,$35,
-             $36,$37,$38,$39)
+             $36,$37,$38,$39,$40)
      RETURNING *`,
     [
       supplierId,
@@ -358,7 +358,8 @@ export async function createCapacityEntry(pool, supplierId, plan, data) {
       data.worker_profile_id || null,
       data.primary_skill_id || null,
       data.offer_kind || 'legacy',
-      data.is_anonymous ?? true
+      data.is_anonymous ?? true,
+      data.placement_boost_level ?? 0
     ]
   );
   return rows[0];

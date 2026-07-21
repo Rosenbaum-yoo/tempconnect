@@ -16,6 +16,10 @@
  */
 import * as capacityExchangeService from "./capacityExchangeService.js";
 
+// Kostenlose Premium-Sichtbarkeit (Welle 5b-Teil-1): moderate Boost-Stufe unter dem
+// bezahlten Max (3 via premiumListingService) — erhält den Upsell-Hebel.
+const PREMIUM_BOOST_LEVEL = 2;
+
 function todayIso() {
   return new Date().toISOString().slice(0, 10);
 }
@@ -117,7 +121,7 @@ export async function buildOfferSuggestions(pool, { orgId, workerProfileId }) {
 }
 
 /** Reine Abbildung: Einzelskill-Angebotsdaten für createCapacityEntry. */
-export function buildSingleSkillOfferData({ worker, skill, orgId, priorityLevel = "normal" }) {
+export function buildSingleSkillOfferData({ worker, skill, orgId, priorityLevel = "normal", placementBoostLevel = 0 }) {
   return {
     title: skill.name,
     role: skill.name,
@@ -134,12 +138,13 @@ export function buildSingleSkillOfferData({ worker, skill, orgId, priorityLevel 
     primary_skill_id: skill.skill_id,
     offer_kind: "single_skill",
     priority_level: priorityLevel,
+    placement_boost_level: placementBoostLevel,
     is_anonymous: true
   };
 }
 
 /** Reine Abbildung: Bündel-/Gesamtangebotsdaten für createCapacityEntry. */
-export function buildBundleOfferData({ worker, skills, orgId, priorityLevel = "normal" }) {
+export function buildBundleOfferData({ worker, skills, orgId, priorityLevel = "normal", placementBoostLevel = 0 }) {
   const primary = skills.find((s) => s.is_primary) || skills[0] || null;
   return {
     title: `Allround-Kraft – ${skills.length} Fähigkeiten`,
@@ -157,6 +162,7 @@ export function buildBundleOfferData({ worker, skills, orgId, priorityLevel = "n
     primary_skill_id: primary ? primary.skill_id : null,
     offer_kind: "bundle",
     priority_level: priorityLevel,
+    placement_boost_level: placementBoostLevel,
     is_anonymous: true
   };
 }
@@ -169,7 +175,7 @@ export function buildBundleOfferData({ worker, skills, orgId, priorityLevel = "n
  */
 export async function createOffersFromSelection(
   pool,
-  { supplierUserId, orgId, plan, workerProfileId, single_skill_ids = [], include_bundle = false, priority_level = "normal" },
+  { supplierUserId, orgId, plan, workerProfileId, single_skill_ids = [], include_bundle = false, priority_level = "normal", premium = false },
   { createEntry = capacityExchangeService.createCapacityEntry } = {}
 ) {
   const worker = await loadWorkerForOrg(pool, workerProfileId, orgId);
@@ -178,6 +184,7 @@ export async function createOffersFromSelection(
   }
   const skills = await loadWorkerSkills(pool, workerProfileId);
   const skillById = new Map(skills.map((s) => [s.skill_id, s]));
+  const placementBoostLevel = premium ? PREMIUM_BOOST_LEVEL : 0;
 
   const created = [];
   const skipped = [];
@@ -189,7 +196,7 @@ export async function createOffersFromSelection(
       continue;
     }
     try {
-      const entry = await createEntry(pool, supplierUserId, plan, buildSingleSkillOfferData({ worker, skill, orgId, priorityLevel: priority_level }));
+      const entry = await createEntry(pool, supplierUserId, plan, buildSingleSkillOfferData({ worker, skill, orgId, priorityLevel: priority_level, placementBoostLevel }));
       created.push({ id: entry.id, kind: "single_skill", skill_id: skillId, skill_name: skill.name });
     } catch (e) {
       if (e.code === "23505") skipped.push({ kind: "single_skill", skill_id: skillId, reason: "already_exists" });
@@ -200,7 +207,7 @@ export async function createOffersFromSelection(
 
   if (include_bundle && skills.length >= 2) {
     try {
-      const entry = await createEntry(pool, supplierUserId, plan, buildBundleOfferData({ worker, skills, orgId, priorityLevel: priority_level }));
+      const entry = await createEntry(pool, supplierUserId, plan, buildBundleOfferData({ worker, skills, orgId, priorityLevel: priority_level, placementBoostLevel }));
       created.push({ id: entry.id, kind: "bundle", skill_ids: skills.map((s) => s.skill_id) });
     } catch (e) {
       if (e.code === "23505") skipped.push({ kind: "bundle", reason: "already_exists" });

@@ -166,4 +166,24 @@ describe("createOffersFromSelection", () => {
     );
     assert.equal(calls2[0].priority_level, "normal");
   });
+
+  it("Premium setzt placement_boost_level (>0) auf allen Angeboten, sonst 0", async () => {
+    const pool = mockPool({ worker, skills: skills3 });
+    const calls = [];
+    const createEntry = async (_p, _u, _plan, data) => { calls.push(data); return { id: "x" }; };
+    await gen.createOffersFromSelection(
+      pool,
+      { supplierUserId: "u1", orgId: ORG, plan: "PRO", workerProfileId: WP, single_skill_ids: [S1, S2], include_bundle: true, premium: true },
+      { createEntry }
+    );
+    assert.equal(calls.length, 3);
+    assert.ok(calls.every((d) => d.placement_boost_level === 2));
+    const calls2 = [];
+    await gen.createOffersFromSelection(
+      pool,
+      { supplierUserId: "u1", orgId: ORG, plan: "PRO", workerProfileId: WP, single_skill_ids: [S1] },
+      { createEntry: async (_p, _u, _plan, data) => { calls2.push(data); return { id: "y" }; } }
+    );
+    assert.equal(calls2[0].placement_boost_level, 0);
+  });
 });
