@@ -99,6 +99,7 @@ services:
     env_file: .env
     environment:
       NODE_ENV: ${NODE_ENV:-production}
+      TZ: Europe/Berlin
       PORT: ${API_PORT:-3000}
       DATABASE_URL: ${DATABASE_URL:-}
       DB_HOST: ${DB_HOST:-}

@@ -456,7 +456,7 @@ function renderList() {
     const wk = s.week_label || fmtWeek(s.week_start);
     const client = s.client_name || s.client_display_name || 'Einsatz';
     return `
-      <div class="sub-card${selId === s.id ? ' selected' : ''}" onclick="selSub(${s.id})">
+      <div class="sub-card${selId === s.id ? ' selected' : ''}" onclick="selSub('${esc(String(s.id))}')">
         <div class="sub-card-head">
           <div>
             <div class="sub-card-title">${esc(wk)}</div>
@@ -539,7 +539,7 @@ function renderDetail(s) {
 
         <div style="margin-top:16px;display:flex;gap:8px;flex-wrap:wrap">
           ${editable ? `
-            <button onclick="openEditorForSub(${s.id})" class="ep-btn ep-btn-primary ep-btn-sm">
+            <button onclick="openEditorForSub('${esc(String(s.id))}')" class="ep-btn ep-btn-primary ep-btn-sm">
               ✏️ ${s.status === 'needs_correction' ? 'Korrektur einreichen' : 'Weiter ausfüllen'}
             </button>
           ` : ''}
@@ -687,8 +687,8 @@ async function edShiftWeek(dir) {
   const d = new Date(edPickedWeekStart);
   d.setDate(d.getDate() + (dir * 7));
   const sun = new Date(d); sun.setDate(d.getDate() + 6);
-  const newStart = d.toISOString().slice(0, 10);
-  const newEnd   = sun.toISOString().slice(0, 10);
+  const newStart = ymd(d);
+  const newEnd   = ymd(sun);
   document.getElementById('ed-week-label').textContent = '⏳ Lädt…';
   try {
     edPickedWeekStart = newStart;
@@ -714,7 +714,7 @@ async function edShiftWeek(dir) {
       toast('Für diese Woche existiert bereits ein gesperrter Stundenzettel.', 'error');
       // Woche zurücksetzen
       const rev = new Date(edPickedWeekStart); rev.setDate(rev.getDate() - (dir * 7));
-      edPickedWeekStart = rev.toISOString().slice(0, 10);
+      edPickedWeekStart = ymd(rev);
       _edRender();
     } else {
       toast('Fehler: ' + (e.message || code), 'error');
@@ -857,7 +857,7 @@ function _edBuildWeekGrid() {
 
   for (let i = 0; i < 7; i++) {
     const d = new Date(start); d.setDate(start.getDate() + i);
-    const dateStr  = d.toISOString().slice(0, 10);
+    const dateStr  = ymd(d);
     const entry    = edEntries[dateStr] || {};
     const isWorkday = i < 5;
     const usePrefill = edPrefill && editable && !hasSaved && isWorkday;
@@ -915,7 +915,7 @@ function edToggleAdvanced() {
   const start = new Date(edSub.week_start);
   for (let i = 0; i < 7; i++) {
     const d = new Date(start); d.setDate(start.getDate() + i);
-    const adv = document.getElementById('ed-adv-' + d.toISOString().slice(0, 10));
+    const adv = document.getElementById('ed-adv-' + ymd(d));
     if (adv) adv.style.display = edAdvancedVisible ? 'flex' : 'none';
   }
   const btn = document.getElementById('ed-toggle-details');
@@ -939,7 +939,7 @@ function _edGetWeekDates() {
   const start = new Date(edSub.week_start);
   for (let i = 0; i < 7; i++) {
     const d = new Date(start); d.setDate(start.getDate() + i);
-    dates.push(d.toISOString().slice(0, 10));
+    dates.push(ymd(d));
   }
   return dates;
 }
@@ -1115,7 +1115,7 @@ function _getCurrentWeek() {
   const now = new Date(), day = now.getDay();
   const mon = new Date(now); mon.setDate(now.getDate() - (day === 0 ? 6 : day - 1));
   const sun = new Date(mon); sun.setDate(mon.getDate() + 6);
-  return { weekStart: mon.toISOString().slice(0, 10), weekEnd: sun.toISOString().slice(0, 10) };
+  return { weekStart: ymd(mon), weekEnd: ymd(sun) };
 }
 function fmtWeekRange(start, end) {
   if (!start) return '';
@@ -1134,6 +1134,11 @@ function getKW(d) {
   const day = t.getUTCDay() || 7; t.setUTCDate(t.getUTCDate() + 4 - day);
   const y = t.getUTCFullYear();
   return Math.floor((t - new Date(Date.UTC(y, 0, 1))) / 604800000) + 1;
+}
+// TZ-sicher: datum-only (YYYY-MM-DD) aus LOKALEN Komponenten, nie toISOString (UTC-Shift → +/-1 Tag).
+function ymd(d) {
+  const x = new Date(d);
+  return x.getFullYear() + '-' + String(x.getMonth() + 1).padStart(2, '0') + '-' + String(x.getDate()).padStart(2, '0');
 }
 function fmtDate(d) {
   if (!d) return '';
