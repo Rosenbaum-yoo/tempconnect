@@ -151,6 +151,18 @@ fordern — gematcht gegen den Skill-Katalog.
 - **Welle 7 — Unternehmens-Bedarfsangebote**
   Firmen fordern gezielt 1+/viele Skills bei 1+/vielen Mitarbeitern; Matching
   Bedarf ↔ Katalog ↔ verfügbare Kapazität.
+  **Prüfung (2026-07-22): existiert bereits weitgehend.** `marketplace.js` hat den
+  zweiseitigen Marktplatz (`demand_requests` company-only + `requisitions`, `offers`
+  mit Accept/Counter/Withdraw, `capacity-posts/:id/accept-deal`); der Feed
+  (`/capacity-exchange/feed`, `marketplaceFeed.js`) zeigt Agenturen die Bedarfe und
+  Unternehmen die Angebote, inkl. „N verfügbar/gesucht", Notdienst, Reserviert.
+  **Gegenseiten-Anschluss (erledigt 2026-07-22):** Angebotstyp-Badge im Käufer-Feed
+  (Einzelprofil / Komplettprofil / Sammelangebot / Sammelangebot·Multi-Skill +
+  „Hervorgehoben" bei placement_boost) — Supply-Query ist `cp.*`, also kam `offer_kind`
+  schon mit; nur das Frontend-Badge fehlte. Buchen bleibt company-only (Owner-Entscheidung);
+  `interAgencyEnabled`-Infrastruktur existiert für eine spätere Agentur→Agentur-Freigabe.
+  **Offen:** Sofort-Trigger der Hard-Reserve am Capacity-Deal (heute zweistufig: Deal →
+  Angebot `reserved`; Worker-Level-Reserve erst beim echten `worker_assignment_link`).
 
 ### Phase D — Visual Trust Layer (Fotos/Videos)
 > Bilder/Videos **nur wo sie Wert + Vertrauen schaffen** und die Anonymität +

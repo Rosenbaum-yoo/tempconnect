@@ -198,6 +198,13 @@
     if (e.priority_level === "notdienst") html += '<span class="ds-badge ds-badge--danger">Notdienst</span>';
     else if (e.priority_level === "urgent") html += '<span class="ds-badge ds-badge--danger">Dringend</span>';
     else if (e.priority_level === "elevated") html += '<span class="ds-badge ds-badge--warning">Erhoet</span>';
+    if (!isDemandCard) {
+      if (e.offer_kind === "pool_single_skill") html += '<span class="ds-badge ds-badge--neutral">Sammelangebot</span>';
+      else if (e.offer_kind === "pool_multi_skill") html += '<span class="ds-badge ds-badge--neutral">Sammelangebot · Multi-Skill</span>';
+      else if (e.offer_kind === "bundle") html += '<span class="ds-badge ds-badge--neutral">Komplettprofil (mehrere Skills)</span>';
+      else if (e.offer_kind === "single_skill") html += '<span class="ds-badge ds-badge--neutral">Einzelprofil</span>';
+      if (Number(e.placement_boost_level) > 0) html += '<span class="ds-badge ds-badge--warning">★ Hervorgehoben</span>';
+    }
     if (!isDemandCard && e.status === "reserved") html += '<span class="ds-badge ds-badge--neutral">Reserviert</span>';
     else if (!isDemandCard && committedPeople > 0) html += '<span class="ds-badge ds-badge--neutral">' + committedPeople + ' dealgebunden</span>';
     if (isDemandCard && e.status === "partially_covered") html += '<span class="ds-badge ds-badge--neutral">Teilgedeckt</span>';
