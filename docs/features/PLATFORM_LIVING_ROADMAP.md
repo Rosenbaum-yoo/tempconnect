@@ -26,11 +26,17 @@
 
 ## Phase 0 — Bugs zuerst (Quick Wins, hohe Sichtbarkeit)
 
-- **0.1 Zeitzone DACH (Datum +1 Tag).** *Systemisch.* Ursache: UTC-Datumsbildung.
-  Fix: zentrale `todayDE()` (Intl/`Europe/Berlin`), `TZ=Europe/Berlin` in Compose-Env,
-  Client-Datumsanzeige lokalisieren. Betroffen u.a.: `capacityOfferGeneratorService.todayIso`,
-  Stundenzettel/Wochenberichte, Einsatzportal-Anzeigen, alle date-only-Felder. *Verify:* alle
-  `toISOString().slice(0,10)` + `new Date(...).toLocaleDateString` sweepen.
+- **0.1 Zeitzone DACH (Datum +/-1 Tag).** *Systemisch.* Ursache: UTC-Datumsbildung + DB/Container UTC.
+  **✅ Erledigt (2026-07-22):** DB-Timezone `Etc/UTC` → `Europe/Berlin` (`ALTER DATABASE`, persistent);
+  `TZ=Europe/Berlin` im API-Container (Compose, greift beim nächsten Recreate); Einsatzportal-
+  Stundenzettel 8× `toISOString().slice(0,10)` → TZ-sicherer `ymd()` (lokale Komponenten);
+  zentrale `api/utils/dateDE.js` (`todayDE`/`dateOnlyDE`) angelegt + in `capacityOfferGeneratorService`
+  als Referenz verdrahtet.
+  **🔶 Offen (kontrollierte Per-Case-Triage — NICHT blind sweepen):** ~40 server-seitige
+  `toISOString().slice(0,10)`-Stellen einzeln prüfen. **Nutzersichtbare date-only-Defaults**
+  (start_date/work_date/Fristen) → `todayDE()/dateOnlyDE()`. **Technische UTC-Buckets**
+  (Analytics-Tagesaggregation, Idempotenz-/Dedup-Keys wie `eventKey`, `activeDays`) → **bewusst UTC
+  lassen** (sonst brechen Dedup/Reports). Frontend-`toLocaleDateString` ist für Berlin-Browser korrekt.
 - **0.2 Stundenzettel-Cards klickbar.** Die Wochen-Cards (KW 30 …) in
   `einsatzportal-stundenzettel.html` müssen anklickbar sein → Weiterleitung zum Ausfüllen/Detail.
 - **0.3 Stundenzettel im Einsatzportal bearbeitbar.** Aktuell nicht editierbar — Bearbeiten-Flow

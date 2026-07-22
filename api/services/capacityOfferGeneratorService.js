@@ -15,13 +15,14 @@
  * statt eigene INSERTs zu schreiben.
  */
 import * as capacityExchangeService from "./capacityExchangeService.js";
+import { todayDE } from "../utils/dateDE.js";
 
 // Kostenlose Premium-Sichtbarkeit (Welle 5b-Teil-1): moderate Boost-Stufe unter dem
 // bezahlten Max (3 via premiumListingService) — erhält den Upsell-Hebel.
 const PREMIUM_BOOST_LEVEL = 2;
 
 function todayIso() {
-  return new Date().toISOString().slice(0, 10);
+  return todayDE(); // DACH-Zeit (Europe/Berlin) statt UTC — verhindert +/-1-Tag bei Angebotsdaten.
 }
 
 async function loadWorkerForOrg(pool, workerProfileId, orgId) {
