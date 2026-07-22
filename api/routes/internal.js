@@ -13,6 +13,7 @@ import * as workerService from "../services/workerService.js";
 import * as workerNotifications from "../services/workerNotificationService.js";
 import * as invoiceService from "../services/invoiceService.js";
 import * as assignmentStaffingService from "../services/assignmentStaffingService.js";
+import * as workerOfferReservationService from "../services/workerOfferReservationService.js";
 import * as subscriptionLifecycle from "../services/subscriptionLifecycleService.js";
 import * as recurringBillingService from "../services/recurringBillingService.js";
 import * as infrastructureSnapshotService from "../services/infrastructureSnapshotService.js";
@@ -468,6 +469,11 @@ export function createInternalRouter(deps) {
       const limit = Math.min(100, Math.max(1, parseInt(req.body?.limit, 10) || 25));
       const cooldownMinutes = Math.min(1440, Math.max(1, parseInt(req.body?.cooldown_minutes, 10) || 15));
       const result = await assignmentStaffingService.runStaffingMaintenance(pool, { limit, cooldownMinutes });
+      // Hard-Reserve (Welle 4b): worker-spezifische Angebote im-Einsatz-Arbeiter pausieren,
+      // frei gewordene reaktivieren. Set-basiert + idempotent, greift nicht in den Deal-Flow ein.
+      const offerReservation = await workerOfferReservationService.sweepReservations(pool);
+      result.offers_reserved = offerReservation.reserved;
+      result.offers_released = offerReservation.released;
       if (
         result.expired_invites > 0
         || result.expired_reservations > 0

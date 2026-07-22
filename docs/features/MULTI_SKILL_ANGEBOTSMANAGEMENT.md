@@ -116,9 +116,15 @@ fordern — gematcht gegen den Skill-Katalog.
     Endpoints `GET /capacity-exchange/pool/suggestion`, `POST /capacity-exchange/pool/generate`;
     UI „+ Sammelangebot"-Button + Modal (Skill wählen → freie Mitarbeiter → bündeln) in
     `mitarbeiter.html`. Standard/Notdienst + Premium unterstützt. Tests grün.
-  - **4b (offen, eigener Durchlauf):** `pool_multi_skill`, Hard-Reserve über `valid_until` +
-    bestehendes `assignmentStaffingService`/`staffing_reservations` (greift tief in den
-    Deal-/Einstell-Flow ein), Auto-Reaktivierung nach Einsatzende.
+  - **4b Hard-Reserve erledigt (2026-07-22):** Mig 147 (`capacity_posts.worker_reserved`);
+    `workerOfferReservationService.sweepReservations` — set-basiert + idempotent, getrieben vom
+    „im Einsatz"-Signal (`worker_assignment_links.is_active`): aktive Einzel-/Bündelangebote
+    belegter Arbeiter werden auto-pausiert (`worker_reserved`), frei gewordene reaktiviert.
+    Eingehängt in den Cron `POST /internal/staffing-maintenance`. Greift NICHT in den
+    Deal-/Einstell-Flow ein (sicher). Live bewiesen (Reservieren + Freigeben), Tests grün.
+  - **Offen (4b-Rest):** `pool_multi_skill` (viele Arbeiter × mehrere gemeinsame Skills) +
+    optional Echtzeit-Trigger direkt am Hire-Event und Pool-Feinlogik (ein belegter
+    Pool-Member reduziert nur die verfügbare Anzahl, statt das ganze Sammelangebot zu sperren).
 - **Welle 5 — Premium & Notdienst** 🔶 *Notdienst-Stufe im Generator erledigt (2026-07-20)*
   Generator bietet eine Angebotsstufe (Standard/Notdienst → `priority_level`); der Chef
   erzeugt damit direkt höher priorisierte Notdienst-Angebote (die USP „Notfall-Personal in
