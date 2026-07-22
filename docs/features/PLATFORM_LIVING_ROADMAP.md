@@ -41,7 +41,12 @@
   `einsatzportal-stundenzettel.html` müssen anklickbar sein → Weiterleitung zum Ausfüllen/Detail.
 - **0.3 Stundenzettel im Einsatzportal bearbeitbar.** Aktuell nicht editierbar — Bearbeiten-Flow
   reparieren (`workerPortal.js` Submissions `PUT /worker/submissions/:id/entries`, Frontend-Binding).
-- **0.4 CSV-Import härten + perfektionieren** (Detail siehe Phase 7c).
+- **0.4 CSV-Import ↔ Einladung (Brücke).** 🔶 *Kern erledigt (2026-07-22):* Worker-Liste liefert
+  `is_verified`; neue `listInvitableWorkers` (nicht-registriert + keine offene Einladung = kollisionsfrei);
+  Route `POST /worker-invites/bulk`; UI: „Einladen"-Button je nicht-registriertem Worker (E-Mail
+  vorbefüllt → 1 Klick) + „Alle einladen"-Button in der Toolbar. Live bewiesen: 3 eingeladen,
+  2. Aufruf 0 (idempotent, keine Doppel-Einladung). *Offen:* tieferer CSV-Wizard-Bug-Review
+  (Wizard funktioniert; Detail-Politur).
 
 ## Phase 1 — Assignment-Lifecycle & Ersatz (Herzstück, voll verdrahtet)
 

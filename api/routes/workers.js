@@ -778,6 +778,52 @@ export function createWorkersRouter(deps) {
     } catch (err) { next(err); }
   });
 
+  /* ── Bulk-Einladung: alle nicht-registrierten Worker einladen (kollisionsfrei) ── */
+  router.post("/worker-invites/bulk", ...base, requireScope("write:workers"), inviteLimiter, rperm("worker.manage"), async (req, res, next) => {
+    try {
+      const limits = await billingMetrics.checkPlanLimits(pool, req.orgId);
+      if (limits.hard_blocked) {
+        return res.status(402).json({ error: "WORKER_LIMIT_EXCEEDED", plan_limits: limits });
+      }
+      const candidates = await workerService.listInvitableWorkers(pool, req.orgId);
+      const BASE_URL = deps.config?.BASE_URL || "http://localhost:8080";
+      const invited = [];
+      const failed = [];
+      for (const c of candidates) {
+        try {
+          const result = await workerService.createWorkerInvite(pool, {
+            supplierOrgId: req.orgId, invitedBy: req.session.userId,
+            email: c.email, firstName: c.first_name, lastName: c.last_name, personnelNumber: c.personnel_number
+          });
+          if (result.error) { failed.push({ email: c.email, error: result.error }); continue; }
+          const { invite, token } = result;
+          const inviteUrl = `${BASE_URL}/worker-login.html?invite=${token}`;
+          try {
+            await deps.sendMail(
+              invite.email,
+              "Ihre Einladung zu TempConnect Worker-Portal",
+              `<h2>Willkommen bei TempConnect!</h2>
+               <p>Hallo ${invite.first_name},</p>
+               <p>Sie wurden eingeladen, das Worker Self-Service Portal zu nutzen.</p>
+               <p><a href="${inviteUrl}" style="background:#0070f3;color:white;padding:12px 24px;border-radius:8px;text-decoration:none;display:inline-block">Konto einrichten</a></p>
+               <p style="color:#666;font-size:14px">Der Link ist 7 Tage gültig.</p>`
+            );
+          } catch (mailErr) {
+            logger.warn({ err: mailErr?.message, email: invite.email }, "Bulk-Invite E-Mail fehlgeschlagen");
+          }
+          invited.push({ email: invite.email, invite_id: invite.id });
+        } catch (e) {
+          failed.push({ email: c.email, error: e.message });
+        }
+      }
+      res.locals.audit = {
+        action: "worker.bulk_invite_sent", entity_type: "worker_invite",
+        entity_id: null, details: { invited: invited.length, failed: failed.length }
+      };
+      res.status(201).json({ invited_count: invited.length, failed_count: failed.length, invited, failed });
+    } catch (err) { next(err); }
+  });
+
   router.post("/worker-invites/:id/resend", ...base, requireScope("write:workers"), inviteLimiter, rperm("worker.manage"), async (req, res, next) => {
     try {
       const result = await workerService.resendInvite(pool, req.params.id, req.orgId);

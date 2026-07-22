@@ -435,6 +435,7 @@ function renderWorkers() {
         '<button class="action-btn" onclick="openWorkerProfileHub(\'' + w.user_id + '\')">Profil</button> ' +
         '<button class="action-btn" onclick="openEdit(\'' + w.user_id + '\')">Bearbeiten</button> ' +
         '<button class="action-btn" onclick="openOfferGen(\'' + w.profile_id + '\')">Angebote</button> ' +
+        (w.is_verified === false ? '<button class="action-btn" onclick="inviteFromRow(\'' + w.profile_id + '\')" title="Einladung ins Einsatzportal senden">Einladen</button> ' : '') +
         (isActive
           ? '<button class="action-btn danger" onclick="toggleActive(\'' + w.user_id + '\', false)">Deaktivieren</button>'
           : '<button class="action-btn good" onclick="toggleActive(\'' + w.user_id + '\', true)">Aktivieren</button>') +
@@ -509,6 +510,36 @@ function inviteWorker() {
     toast(msg, "err");
   }).finally(function() {
     document.getElementById("btnInvite").disabled = false;
+  });
+}
+
+/* ── 1-Klick-Einladung aus der Worker-Liste (E-Mail vorbefüllt) ──────────── */
+function inviteFromRow(profileId) {
+  var w = (_workers || []).filter(function(x) { return x.profile_id === profileId; })[0];
+  if (!w || !w.email) { toast("Für diesen Mitarbeiter ist keine E-Mail hinterlegt.", "err"); return; }
+  api("/worker-invites", {
+    method: "POST",
+    body: { first_name: w.first_name, last_name: w.last_name, email: w.email, personnel_number: w.personnel_number || undefined }
+  }).then(function() {
+    toast("Einladung an " + w.email + " gesendet.");
+    loadWorkers();
+    loadInvites();
+  }).catch(function(e) {
+    toast(e.error === "INVITE_ALREADY_PENDING" ? "Es gibt bereits eine offene Einladung." : (e.message || e.error || "Einladung fehlgeschlagen."), "err");
+  });
+}
+
+/* ── Alle noch nicht registrierten Mitarbeiter einladen (kollisionsfrei) ──── */
+function inviteAllUnregistered() {
+  var count = (_workers || []).filter(function(w) { return w.is_verified === false; }).length;
+  if (!count) { toast("Alle Mitarbeiter sind bereits registriert oder eingeladen."); return; }
+  if (!window.confirm(count + " noch nicht registrierte Mitarbeiter einladen? Bereits Registrierte werden übersprungen.")) return;
+  api("/worker-invites/bulk", { method: "POST", body: {} }).then(function(r) {
+    toast((r.invited_count || 0) + " eingeladen" + (r.failed_count ? " · " + r.failed_count + " übersprungen" : "") + ".");
+    loadWorkers();
+    loadInvites();
+  }).catch(function(e) {
+    toast(e.error === "WORKER_LIMIT_EXCEEDED" ? "Plan-Limit erreicht — Upgrade nötig." : (e.message || e.error || "Bulk-Einladung fehlgeschlagen."), "err");
   });
 }
 

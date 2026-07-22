@@ -447,7 +447,7 @@ export async function listWorkers(pool, { supplierOrgId, isActive = null, search
   }
   params.push(limit, offset);
   const { rows } = await pool.query(
-    `SELECT wp.id AS profile_id, u.id AS id, u.id AS user_id, u.email,
+    `SELECT wp.id AS profile_id, u.id AS id, u.id AS user_id, u.email, u.is_verified,
             wp.first_name, wp.last_name, wp.personnel_number,
             wp.phone, wp.is_active, wp.preferred_locale,
             wp.created_at, wp.profile_public, wp.public_profile_slug,
@@ -493,6 +493,30 @@ export async function listWorkers(pool, { supplierOrgId, isActive = null, search
     params
   );
   return rows.map((row) => normalizeWorkerProfileRecord(row));
+}
+
+/**
+ * Nicht-registrierte, kollisionsfreie Einladungskandidaten einer Org: aktive Worker,
+ * deren Account noch nicht verifiziert ist (nie registriert) UND für die keine offene
+ * Einladung existiert. Basis für "Alle einladen" ohne Kollision mit bereits Registrierten.
+ */
+export async function listInvitableWorkers(pool, supplierOrgId) {
+  const { rows } = await pool.query(
+    `SELECT u.email, wp.first_name, wp.last_name, wp.personnel_number
+       FROM worker_profiles wp
+       JOIN users u ON u.id = wp.user_id
+      WHERE wp.supplier_org_id = $1
+        AND wp.is_active = TRUE
+        AND u.is_verified = FALSE
+        AND NOT EXISTS (
+          SELECT 1 FROM worker_invites wi
+           WHERE wi.supplier_org_id = wp.supplier_org_id
+             AND LOWER(wi.email) = LOWER(u.email)
+             AND wi.status = 'pending' AND wi.expires_at > NOW())
+      ORDER BY wp.last_name, wp.first_name`,
+    [supplierOrgId]
+  );
+  return rows;
 }
 
 /* ── Worker direkt anlegen (ohne Invite) ────────────────────────────────────── */
