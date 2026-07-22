@@ -145,10 +145,12 @@ services:
     command: ["npm", "run", "start"]
     healthcheck:
       test: ["CMD", "wget", "-q", "--spider", "http://localhost:3000/health"]
-      interval: 30s
+      # Grosszuegiger als vorher (war 30s/30s/3): verhindert falsches "unhealthy"
+      # direkt nach Rebuild/Recreate. Fehlschlaege in start_period halten "starting".
+      interval: 15s
       timeout: 10s
-      retries: 3
-      start_period: 30s
+      retries: 5
+      start_period: 45s
     logging:
       driver: "json-file"
       options:
