@@ -65,7 +65,7 @@ const generateOffersSchema = z.object({
 });
 
 const generatePoolSchema = z.object({
-  skill_id: z.string().uuid(),
+  skill_ids: z.array(z.string().uuid()).min(1).max(20),
   worker_profile_ids: z.array(z.string().uuid()).min(1).max(500),
   priority_level: z.enum(["normal", "notdienst"]).optional().default("normal"),
   premium: z.boolean().optional().default(false)
@@ -189,12 +189,14 @@ export function createCapacityExchangeRouter(deps) {
       const me = req.user;
       if (me?.role !== "agency") return res.status(403).json({ error: "AGENCY_ONLY" });
       if (!req.orgId) return res.status(403).json({ error: "ORG_REQUIRED" });
-      const skillId = req.query.skill_id;
-      if (!skillId || !/^[0-9a-f-]{36}$/i.test(String(skillId))) return res.status(400).json({ error: "SKILL_ID_REQUIRED" });
-      const suggestion = await capacityOfferGeneratorService.buildPoolSuggestion(pool, { orgId: req.orgId, skillId });
+      const raw = String(req.query.skill_ids || req.query.skill_id || "");
+      const skillIds = raw.split(",").map((s) => s.trim()).filter(Boolean);
+      if (!skillIds.length) return res.status(400).json({ error: "SKILL_ID_REQUIRED" });
+      const suggestion = await capacityOfferGeneratorService.buildPoolSuggestion(pool, { orgId: req.orgId, skillIds });
       res.json(suggestion);
     } catch (e) {
       if (e.code === "SKILL_NOT_FOUND") return res.status(404).json({ error: "SKILL_NOT_FOUND" });
+      if (e.code === "SKILL_REQUIRED") return res.status(400).json({ error: "SKILL_REQUIRED" });
       logger.error({ err: e }, "GET /capacity-exchange/pool/suggestion");
       res.status(500).json({ error: "SERVER_ERROR" });
     }
@@ -212,7 +214,7 @@ export function createCapacityExchangeRouter(deps) {
       const plan = me?.plan ?? "FREE";
       const result = await capacityOfferGeneratorService.createPoolOffer(pool, {
         supplierUserId: req.session.userId, orgId: req.orgId, plan,
-        skillId: parsed.data.skill_id,
+        skillIds: parsed.data.skill_ids,
         workerProfileIds: parsed.data.worker_profile_ids,
         priority_level: parsed.data.priority_level,
         premium: parsed.data.premium
@@ -220,12 +222,12 @@ export function createCapacityExchangeRouter(deps) {
       await auditLog.writeAudit(pool, {
         action: "capacity_exchange.generate_pool", entity_type: "capacity_post",
         entity_id: result.id, actor_id: req.session.userId,
-        details: { skill_id: result.skill_id, member_count: result.member_count }
+        details: { skill_ids: result.skill_ids, member_count: result.member_count }
       });
       res.status(201).json(result);
     } catch (e) {
       if (e.code === "SKILL_NOT_FOUND") return res.status(404).json({ error: "SKILL_NOT_FOUND" });
-      if (e.code === "POOL_EMPTY" || e.code === "NO_VALID_MEMBERS") return res.status(400).json({ error: e.code });
+      if (e.code === "POOL_EMPTY" || e.code === "NO_VALID_MEMBERS" || e.code === "SKILL_REQUIRED") return res.status(400).json({ error: e.code });
       if (e.code === "PLAN_LIMIT") return res.status(403).json({ error: "PLAN_LIMIT", message: e.message });
       logger.error({ err: e }, "POST /capacity-exchange/pool/generate");
       res.status(500).json({ error: "SERVER_ERROR" });

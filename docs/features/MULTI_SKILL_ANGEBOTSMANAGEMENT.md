@@ -122,9 +122,13 @@ fordern — gematcht gegen den Skill-Katalog.
     belegter Arbeiter werden auto-pausiert (`worker_reserved`), frei gewordene reaktiviert.
     Eingehängt in den Cron `POST /internal/staffing-maintenance`. Greift NICHT in den
     Deal-/Einstell-Flow ein (sicher). Live bewiesen (Reservieren + Freigeben), Tests grün.
-  - **Offen (4b-Rest):** `pool_multi_skill` (viele Arbeiter × mehrere gemeinsame Skills) +
-    optional Echtzeit-Trigger direkt am Hire-Event und Pool-Feinlogik (ein belegter
-    Pool-Member reduziert nur die verfügbare Anzahl, statt das ganze Sammelangebot zu sperren).
+  - **`pool_multi_skill` erledigt (2026-07-22):** Pool-Funktionen auf `skill_ids` generalisiert
+    (Arbeiter, die ALLE gewählten Skills haben — `COUNT(DISTINCT skill_id) = N`); `offer_kind` aus
+    Skill-Anzahl (1 → pool_single_skill, >1 → pool_multi_skill); UI-Modal mit Mehrfach-Skill-Auswahl
+    (Chips). Live bewiesen (Max+Anna teilen Altenpflege+Grundpflege → ein pool_multi_skill-Angebot).
+  - **Offen (optional):** Echtzeit-Reservierungs-Trigger direkt am Hire-Event (statt periodischem
+    Sweep) + Pool-Feinlogik (ein belegter Pool-Member reduziert nur die verfügbare Anzahl, statt
+    das ganze Sammelangebot zu sperren).
 - **Welle 5 — Premium & Notdienst** 🔶 *Notdienst-Stufe im Generator erledigt (2026-07-20)*
   Generator bietet eine Angebotsstufe (Standard/Notdienst → `priority_level`); der Chef
   erzeugt damit direkt höher priorisierte Notdienst-Angebote (die USP „Notfall-Personal in

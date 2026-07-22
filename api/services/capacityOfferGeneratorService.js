@@ -225,23 +225,30 @@ export async function createOffersFromSelection(
  * Vorschau für ein Sammelangebot: alle Arbeiter der Org mit einem bestimmten Skill,
  * inkl. Frei-Markierung (kein aktiver Einsatz). Basis für "N Helfer auf einmal anbieten".
  */
-export async function buildPoolSuggestion(pool, { orgId, skillId }) {
-  const skillRes = await pool.query(
-    `SELECT id, name, category FROM platform_skills WHERE id = $1 AND is_active = TRUE`,
-    [skillId]
-  );
-  const skill = skillRes.rows[0];
-  if (!skill) throw Object.assign(new Error("SKILL_NOT_FOUND"), { code: "SKILL_NOT_FOUND" });
+export async function buildPoolSuggestion(pool, { orgId, skillIds }) {
+  const ids = [...new Set((skillIds || []).filter(Boolean))];
+  if (!ids.length) throw Object.assign(new Error("SKILL_REQUIRED"), { code: "SKILL_REQUIRED" });
 
+  const skillRes = await pool.query(
+    `SELECT id, name, category FROM platform_skills WHERE id = ANY($1::uuid[]) AND is_active = TRUE`,
+    [ids]
+  );
+  if (skillRes.rows.length !== ids.length) {
+    throw Object.assign(new Error("SKILL_NOT_FOUND"), { code: "SKILL_NOT_FOUND" });
+  }
+  const skillNames = skillRes.rows.map((r) => r.name);
+
+  // Arbeiter, die ALLE gewählten Skills besitzen (COUNT DISTINCT == Anzahl Skills).
   const { rows } = await pool.query(
     `SELECT wp.id AS worker_profile_id, wp.first_name, wp.last_name, wp.city,
             COALESCE((SELECT COUNT(*) FROM worker_assignment_links wal
                        WHERE wal.worker_user_id = wp.user_id AND wal.is_active = TRUE), 0) AS active_assignments
-       FROM worker_profile_skills wps
-       JOIN worker_profiles wp ON wp.id = wps.worker_profile_id
-      WHERE wps.skill_id = $1 AND wp.supplier_org_id = $2 AND wp.is_active = TRUE
+       FROM worker_profiles wp
+      WHERE wp.supplier_org_id = $2 AND wp.is_active = TRUE
+        AND (SELECT COUNT(DISTINCT wps.skill_id) FROM worker_profile_skills wps
+              WHERE wps.worker_profile_id = wp.id AND wps.skill_id = ANY($1::uuid[])) = $3
       ORDER BY wp.last_name, wp.first_name`,
-    [skillId, orgId]
+    [ids, orgId, ids.length]
   );
   const members = rows.map((r) => ({
     worker_profile_id: r.worker_profile_id,
@@ -250,9 +257,9 @@ export async function buildPoolSuggestion(pool, { orgId, skillId }) {
     free: Number(r.active_assignments) === 0
   }));
   return {
-    skill_id: skill.id,
-    skill_name: skill.name,
-    category: skill.category,
+    skill_ids: ids,
+    skill_names: skillNames,
+    offer_kind: ids.length > 1 ? "pool_multi_skill" : "pool_single_skill",
     total: members.length,
     free_count: members.filter((m) => m.free).length,
     members
@@ -267,26 +274,33 @@ export async function buildPoolSuggestion(pool, { orgId, skillId }) {
  */
 export async function createPoolOffer(
   pool,
-  { supplierUserId, orgId, plan, skillId, workerProfileIds = [], priority_level = "normal", premium = false },
+  { supplierUserId, orgId, plan, skillIds, workerProfileIds = [], priority_level = "normal", premium = false },
   { createEntry = capacityExchangeService.createCapacityEntry } = {}
 ) {
+  const ids = [...new Set((skillIds || []).filter(Boolean))];
+  if (!ids.length) throw Object.assign(new Error("SKILL_REQUIRED"), { code: "SKILL_REQUIRED" });
+
   const skillRes = await pool.query(
-    `SELECT id, name, category FROM platform_skills WHERE id = $1 AND is_active = TRUE`,
-    [skillId]
+    `SELECT id, name, category FROM platform_skills WHERE id = ANY($1::uuid[]) AND is_active = TRUE`,
+    [ids]
   );
-  const skill = skillRes.rows[0];
-  if (!skill) throw Object.assign(new Error("SKILL_NOT_FOUND"), { code: "SKILL_NOT_FOUND" });
+  if (skillRes.rows.length !== ids.length) {
+    throw Object.assign(new Error("SKILL_NOT_FOUND"), { code: "SKILL_NOT_FOUND" });
+  }
+  const skillNames = skillRes.rows.map((r) => r.name);
+  const category = skillRes.rows[0].category;
 
-  const ids = [...new Set((workerProfileIds || []).filter(Boolean))];
-  if (!ids.length) throw Object.assign(new Error("POOL_EMPTY"), { code: "POOL_EMPTY" });
+  const memberIn = [...new Set((workerProfileIds || []).filter(Boolean))];
+  if (!memberIn.length) throw Object.assign(new Error("POOL_EMPTY"), { code: "POOL_EMPTY" });
 
-  // Nur Mitglieder, die zur Org gehören UND den Skill besitzen (Datenisolation).
+  // Nur Mitglieder, die zur Org gehören UND ALLE gewählten Skills besitzen (Datenisolation).
   const { rows: valid } = await pool.query(
     `SELECT wp.id, wp.city
        FROM worker_profiles wp
-       JOIN worker_profile_skills wps ON wps.worker_profile_id = wp.id AND wps.skill_id = $2
-      WHERE wp.id = ANY($1::uuid[]) AND wp.supplier_org_id = $3 AND wp.is_active = TRUE`,
-    [ids, skillId, orgId]
+      WHERE wp.id = ANY($1::uuid[]) AND wp.supplier_org_id = $3 AND wp.is_active = TRUE
+        AND (SELECT COUNT(DISTINCT wps.skill_id) FROM worker_profile_skills wps
+              WHERE wps.worker_profile_id = wp.id AND wps.skill_id = ANY($2::uuid[])) = $4`,
+    [memberIn, ids, orgId, ids.length]
   );
   if (!valid.length) throw Object.assign(new Error("NO_VALID_MEMBERS"), { code: "NO_VALID_MEMBERS" });
 
@@ -299,20 +313,26 @@ export async function createPoolOffer(
   let city = "Mehrere Standorte";
   if (cityCounts.size) city = [...cityCounts.entries()].sort((a, b) => b[1] - a[1])[0][0];
 
+  const isMulti = ids.length > 1;
+  const offerKind = isMulti ? "pool_multi_skill" : "pool_single_skill";
+  const title = isMulti
+    ? `${ids.length} Fähigkeiten – ${memberIds.length} verfügbar`
+    : `${skillNames[0]} – ${memberIds.length} verfügbar`;
+
   const entry = await createEntry(pool, supplierUserId, plan, {
-    title: `${skill.name} – ${memberIds.length} verfügbar`,
-    role: skill.name,
-    skill_tags: [skill.name],
+    title,
+    role: skillNames[0],
+    skill_tags: skillNames,
     headcount: memberIds.length,
     availability_from: todayIso(),
     location_city: city,
-    worker_category: skill.category || null,
+    worker_category: category || null,
     status: "draft",
     org_id: orgId,
     department_id: null,
     worker_profile_id: null,
-    primary_skill_id: skillId,
-    offer_kind: "pool_single_skill",
+    primary_skill_id: ids[0],
+    offer_kind: offerKind,
     priority_level,
     placement_boost_level: premium ? PREMIUM_BOOST_LEVEL : 0,
     is_anonymous: true
@@ -326,9 +346,9 @@ export async function createPoolOffer(
 
   return {
     id: entry.id,
-    offer_kind: "pool_single_skill",
-    skill_id: skillId,
-    skill_name: skill.name,
+    offer_kind: offerKind,
+    skill_ids: ids,
+    skill_names: skillNames,
     member_count: memberIds.length,
     location_city: city
   };
