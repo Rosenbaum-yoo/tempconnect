@@ -458,6 +458,72 @@ export async function getPendingActions(pool, orgId, limit = 20) {
  * Rows in JS aggregiert. */
 const LIVE_BOARD_ENDS_SOON_DAYS = 7;
 
+/**
+ * Live-Belegschaft aus KÄUFER-Sicht (P2.3/3.1): welche Arbeiter sind AKTUELL beim
+ * einsetzenden Unternehmen (org_id) im Einsatz. Gescoped auf wal.org_id (die Käufer-Org),
+ * NICHT supplier_org_id. „Aktuell" = aktiver Link, datum-gültig (start<=heute<=end) und
+ * Lifecycle active/ends_today; freigestellt/abgelehnt zählen nicht. Reines Read-Aggregat.
+ */
+export async function getCompanyLiveWorkforce(pool, companyOrgId, filters = {}) {
+  const scope = { company_org_id: companyOrgId || null, ends_soon_days: LIVE_BOARD_ENDS_SOON_DAYS };
+  const emptyKpis = { total: 0, im_einsatz: 0, endet_bald: 0, agencies: 0 };
+  if (!companyOrgId) return { available: false, workers: [], kpis: emptyKpis, scope };
+
+  const lifecycleStateSql = buildAssignmentLifecycleStateSql({ assignmentAlias: "a", linkAlias: "wal" });
+  const effEndSql = buildAssignmentEffectiveEndDateSql({ assignmentAlias: "a", linkAlias: "wal" });
+
+  const params = [companyOrgId];
+  let idx = 2;
+  let searchClause = "";
+  if (filters.search) {
+    searchClause = `AND (wp.first_name ILIKE $${idx} OR wp.last_name ILIKE $${idx} OR so.name ILIKE $${idx})`;
+    params.push(`%${filters.search}%`); idx++;
+  }
+  const limit = Math.min(500, Math.max(1, Number(filters.limit) || 300));
+
+  const { rows } = await pool.query(
+    `SELECT wal.id AS link_id, wal.worker_user_id,
+            wp.first_name, wp.last_name, wp.personnel_number,
+            wal.role, wal.start_date, ${effEndSql} AS effective_end_date,
+            wal.default_shift_start::TEXT AS shift_start,
+            wal.default_shift_end::TEXT   AS shift_end,
+            so.name AS agency_name, wal.supplier_org_id,
+            a.worker_description,
+            ${lifecycleStateSql} AS lifecycle_state,
+            CASE
+              WHEN ${effEndSql} IS NOT NULL
+                   AND ${effEndSql} <= CURRENT_DATE + ${LIVE_BOARD_ENDS_SOON_DAYS} THEN 'endet_bald'
+              ELSE 'im_einsatz'
+            END AS live_status
+       FROM worker_assignment_links wal
+       JOIN assignments a ON a.id = wal.assignment_id
+       JOIN users u ON u.id = wal.worker_user_id
+       LEFT JOIN worker_profiles wp ON wp.user_id = wal.worker_user_id
+       LEFT JOIN organizations so ON so.id = wal.supplier_org_id
+      WHERE wal.org_id = $1
+        AND wal.is_active = TRUE
+        AND wal.worker_confirmation_status NOT IN ('worker_declined','worker_unavailable')
+        AND wal.start_date <= CURRENT_DATE
+        AND (wal.end_date IS NULL OR wal.end_date >= CURRENT_DATE)
+        AND ${lifecycleStateSql} IN ('active','ends_today')
+        ${searchClause}
+      ORDER BY so.name ASC NULLS LAST, wp.last_name ASC, wp.first_name ASC
+      LIMIT ${limit}`,
+    params
+  );
+
+  const agencies = new Set();
+  const kpis = { ...emptyKpis, total: rows.length };
+  rows.forEach((r) => {
+    if (r.live_status === "endet_bald") kpis.endet_bald++;
+    else kpis.im_einsatz++;
+    if (r.supplier_org_id) agencies.add(r.supplier_org_id);
+  });
+  kpis.agencies = agencies.size;
+
+  return { available: true, workers: rows, kpis, scope, generated_at: new Date().toISOString() };
+}
+
 export async function getWorkerLiveBoard(pool, supplierOrgId, filters = {}) {
   const scope = { supplier_org_id: supplierOrgId || null, ends_soon_days: LIVE_BOARD_ENDS_SOON_DAYS };
   const emptyKpis = { total: 0, im_einsatz: 0, verfuegbar: 0, endet_bald: 0, inaktiv: 0, open_timesheets: 0, auslastung_pct: 0 };

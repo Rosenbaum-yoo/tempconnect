@@ -7,6 +7,7 @@
  */
 import { Router } from "express";
 import * as submissionSvc from "../services/workerSubmissionService.js";
+import * as workforceSvc from "../services/workforceService.js";
 import { requireCompanyOrg } from "../middleware/orgAccess.js";
 
 export function createCompanyTimesheetsRouter(deps) {
@@ -41,6 +42,17 @@ export function createCompanyTimesheetsRouter(deps) {
     if (error === "FORBIDDEN") return 403;
     return 400;
   }
+
+  /* ── Live-Belegschaft (P2.3/3.1): wer arbeitet gerade beim Unternehmen ───────── */
+  router.get("/company/live-workforce", ...base, async (req, res, next) => {
+    try {
+      const board = await workforceSvc.getCompanyLiveWorkforce(pool, req.orgId, {
+        search: (req.query.search || "").toString().trim() || null,
+        limit: parseInt(req.query.limit, 10) || 300
+      });
+      res.json(board);
+    } catch (err) { next(err); }
+  });
 
   /* ── Empfangene Stundenzettel der eigenen Org auflisten ────────────────────── */
   router.get("/company/submissions", ...base, async (req, res, next) => {

@@ -179,6 +179,71 @@
   }
   window.ctReject = ctReject;
 
+  /* ── Live-Belegschaft (P2.3/3.1) ─────────────────────────────────────── */
+  var _liveLoaded = false;
+  var _liveTimer = null;
+
+  function ctView(mode) {
+    var isLive = mode === 'live';
+    document.getElementById('viewTimesheets').style.display = isLive ? 'none' : '';
+    document.getElementById('viewLive').style.display = isLive ? '' : 'none';
+    document.getElementById('tabTimesheets').classList.toggle('ct-tab--active', !isLive);
+    document.getElementById('tabLive').classList.toggle('ct-tab--active', isLive);
+    if (isLive && !_liveLoaded) ctLoadLive();
+  }
+  window.ctView = ctView;
+
+  function ctLiveDebounce() { clearTimeout(_liveTimer); _liveTimer = setTimeout(ctLoadLive, 350); }
+  window.ctLiveDebounce = ctLiveDebounce;
+
+  async function ctLoadLive() {
+    var s = (document.getElementById('lwSearch').value || '').trim();
+    var q = s ? ('?search=' + encodeURIComponent(s)) : '';
+    try {
+      var data = await TC.api.get('/company/live-workforce' + q);
+      _liveLoaded = true;
+      var workers = (data && data.workers) || [];
+      renderLive(workers);
+      updateLiveKPIs((data && data.kpis) || {});
+      document.getElementById('lwCount').textContent = workers.length + ' im Einsatz';
+    } catch (e) {
+      if (isCompanyGateError(e)) { show('notCompany'); return; }
+      document.getElementById('lwBody').innerHTML =
+        '<tr><td colspan="7" class="ct-empty">Konnte nicht geladen werden: ' + esc(e.code || e.message || 'Fehler') + '</td></tr>';
+    }
+  }
+  window.ctLoadLive = ctLoadLive;
+
+  function liveBadge(status) {
+    return status === 'endet_bald'
+      ? '<span class="ct-badge ct-badge--soon">Endet bald</span>'
+      : '<span class="ct-badge ct-badge--live">Im Einsatz</span>';
+  }
+  function renderLive(list) {
+    var tb = document.getElementById('lwBody');
+    if (!list.length) {
+      tb.innerHTML = '<tr><td colspan="7" class="ct-empty">Aktuell arbeitet niemand bei Ihnen. Sobald Kräfte im Einsatz sind, erscheinen sie hier live.</td></tr>';
+      return;
+    }
+    tb.innerHTML = list.map(function (r) {
+      var shift = (r.shift_start && r.shift_end) ? (String(r.shift_start).slice(0, 5) + '–' + String(r.shift_end).slice(0, 5)) : '–';
+      return '<tr>' +
+        '<td><div style="font-weight:600">' + esc(workerName(r)) + '</div>' + (r.personnel_number ? '<div class="ct-sub">' + esc(r.personnel_number) + '</div>' : '') + '</td>' +
+        '<td>' + esc(r.agency_name || '–') + '</td>' +
+        '<td>' + esc(r.role || r.worker_description || '–') + '</td>' +
+        '<td>' + shift + '</td>' +
+        '<td>' + fmtDate(r.start_date) + '</td>' +
+        '<td>' + (r.effective_end_date ? fmtDate(r.effective_end_date) : 'offen') + '</td>' +
+        '<td>' + liveBadge(r.live_status) + '</td>' +
+      '</tr>';
+    }).join('');
+  }
+  function updateLiveKPIs(k) {
+    document.getElementById('lwTotal').textContent = (k.total != null) ? k.total : ((k.im_einsatz || 0) + (k.endet_bald || 0));
+    document.getElementById('lwEnds').textContent = k.endet_bald || 0;
+    document.getElementById('lwAgencies').textContent = k.agencies || 0;
+  }
+
   // Modal-Klick außerhalb schließt
   document.getElementById('ctModal').addEventListener('click', function (e) { if (e.target === this) ctClose(); });
 

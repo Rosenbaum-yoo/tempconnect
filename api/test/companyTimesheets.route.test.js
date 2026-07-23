@@ -116,6 +116,24 @@ describe("GET /company/submissions — Handler + Zero-State", () => {
   });
 });
 
+describe("GET /company/live-workforce — Käufer-Scoping + Handler", () => {
+  it("scoped auf wal.org_id = req.orgId und liefert Board-Shape", async () => {
+    const pool = recordingPool({
+      rows: [{ link_id: "l1", worker_user_id: "w1", first_name: "Anna", last_name: "Bauer", supplier_org_id: "sup-1", live_status: "im_einsatz" }]
+    });
+    const router = createCompanyTimesheetsRouter(baseDeps(pool));
+    const handler = lastHandler(router, "get", "/company/live-workforce");
+    const res = mockRes();
+    await handler({ orgId: "company-org-1", query: {}, session: { userId: "u1" } }, res, (e) => { throw e; });
+    assert.equal(res._json.available, true);
+    assert.equal(res._json.workers.length, 1);
+    assert.equal(res._json.kpis.total, 1);
+    assert.equal(pool.calls[0].params[0], "company-org-1", "gescoped auf die eigene Käufer-Org");
+    assert.match(pool.calls[0].sql, /wal\.org_id = \$1/);
+    assert.ok(!/supplier_org_id = \$1/.test(pool.calls[0].sql), "NICHT auf supplier_org_id gescoped");
+  });
+});
+
 describe("POST /company/submissions/:id/reject — Grund Pflicht", () => {
   it("ohne Grund → 400 REASON_REQUIRED", async () => {
     const pool = recordingPool();

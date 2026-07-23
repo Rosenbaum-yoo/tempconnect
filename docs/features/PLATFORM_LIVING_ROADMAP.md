@@ -167,12 +167,24 @@
   Käufer-Inbox (KEINE manuelle Org-ID) mit Confirm/Reject + Detail. (4) Legacy `timesheets.html`
   retten/umleiten (nicht zwei Systeme nebeneinander). (5) Nav-Verdrahtung + Tests (fremde Org=403,
   Zero-State, valider Confirm/Reject). Verbindet sich mit **2.3/3.1** (Live-Belegschaft im selben Portal).
-- **2.3 Live-Belegschaft für Unternehmen.** Aktive Einsätze überwachen (siehe Phase 3.1).
+- **2.3 Live-Belegschaft für Unternehmen.** ✅ **Erledigt (2026-07-22) — deckt auch 3.1 ab.** Aktive
+  Einsätze in Echtzeit überwachen: das Unternehmen sieht, wer gerade bei ihm arbeitet.
+  → **Service** `workforceService.getCompanyLiveWorkforce(pool, companyOrgId)` — käufer-gescoped über
+  `wal.org_id` (NICHT supplier_org_id), „aktuell" = aktiver Link + datum-gültig (start≤heute≤end) +
+  Lifecycle active/ends_today (nutzt die geteilten Lifecycle-SQL-Helfer wie `getWorkerLiveBoard`),
+  freigestellt/abgelehnt zählen nicht. KPIs (im Einsatz / endet bald / Zeitarbeitsfirmen). → **Route**
+  `GET /company/live-workforce` (`requireCompanyOrg`, im Käufer-Portal-Router). → **UI:** neuer Tab
+  „● Live-Belegschaft" im Käufer-Portal (`company-timesheets.html`): Tabelle (Mitarbeiter | Firma |
+  Rolle | Schicht | Seit | Bis | Status), Live-KPIs, Suche.
+  Verifiziert: **echte Funktion im api-Container gegen die DB** (6 im Einsatz, Agentur/Enddatum korrekt,
+  Zero-State sauber), 8/8 Route-Tests (Scoping auf org_id), Route live 401, **Browser-Render im Harness
+  bestätigt** (Tab-Umschaltung, 3 Zeilen, KPIs, Status-Badges), Konsole fehlerfrei.
 
 ## Phase 3 — Unternehmens-Seite (Monitoring, Beschwerden, Sperrliste)
 
-- **3.1 Live-Verfolgung.** Gebuchtes Unternehmen sieht in Echtzeit, wer gerade bei ihm arbeitet
-  (Live-Belegschaft aus Käufer-Sicht). *Wiederverwenden:* Worker-Live-Dispositionsboard (`workforce`).
+- **3.1 Live-Verfolgung.** ✅ **Erledigt (2026-07-22) zusammen mit 2.3.** Gebuchtes Unternehmen sieht
+  in Echtzeit, wer gerade bei ihm arbeitet (Live-Belegschaft aus Käufer-Sicht) → Tab „Live-Belegschaft"
+  im Käufer-Portal, Service `getCompanyLiveWorkforce`. Siehe **2.3** für Details.
 - **3.2 Beschwerde-Meldung.** Unternehmen meldet Problem mit Arbeiter → Benachrichtigung an
   Zeitarbeitsfirma → Ersatz anfragen (verknüpft mit 1.1).
 - **3.3 Sperrliste.** Negativ aufgefallene Arbeiter je Unternehmen sperrbar. Chef kann gesperrten
