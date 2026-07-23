@@ -133,9 +133,27 @@
   Queries liefern `submission_deadline`/`submitted_late`/`is_overdue`. **UI:** Chef-Review-Liste zeigt
   „Überfällig"/„Verspätet"/„Frist DD.MM", Worker-Stundenzettel zeigt dasselbe. Verifiziert: 89/89 Tests
   grün (+1 neu), Migration + Backfill + Formel gegen echtes Schema, DB-Smoke der Queries.
-- **2.2 Flow bis zum Unternehmen.** Einsatzportal → Zeitarbeitschef → **Unternehmen**: definieren,
-  wo/wie das Unternehmen Stundenzettel entgegennimmt (Freigabe/Prüfung aus Käufer-Sicht) — inkl.
-  klarer, vertrauensbildender Unternehmens-Ansicht.
+- **2.2 Flow bis zum Unternehmen.** 🔵 **Analysiert + geplant (2026-07-22); Owner-Entscheid: Option 1
+  (volles Käufer-Portal).** Einsatzportal → Zeitarbeitschef → **Unternehmen**: definieren, wo/wie das
+  Unternehmen Stundenzettel entgegennimmt (Freigabe/Prüfung aus Käufer-Sicht) — inkl. klarer,
+  vertrauensbildender Unternehmens-Ansicht.
+  → **Befund (wichtig):** Es gibt **zwei parallele Timesheet-Systeme.** (a) *Legacy* `timesheets.html` +
+  `timesheets.js` → alter `/timesheets`-Endpoint (`timesheetService`, eigene Statusmaschine
+  draft/submitted/approved) mit **manueller Eingabe von Org-ID + Supplier-Org-ID + Worker-Name (Freitext)**
+  im Anlage-Modal — **das ist der „Zugang ist falsch"**: nicht auf die eingeloggte Org gescoped, Worker als
+  Freitext statt echte Accounts. (b) *Echtes System* `worker_time_submissions` (`workerSubmissionService`,
+  volle Käufer-Pipeline `approved_internal → sent_to_customer → customer_confirmed/rejected →
+  posted_to_timesheet`), genutzt von Agentur (`worker-submissions-review`) + Worker (`einsatzportal-
+  stundenzettel`). Die Kundenbestätigung erfasst heute die **Agentur** stellvertretend
+  (`agencyPortal customer-confirm/-reject`, `requireOwnSubmission`).
+  → **Bauplan Option 1 (auf dem echten System, Backend+Frontend zusammen — kein toter Endpoint):**
+  (1) Käufer-gescopte Routen `GET /company/submissions` (Filter `sent_to_customer` + Historie, gescoped
+  `wts.org_id = req.orgId` via `requireCompanyOrg`), `POST /company/submissions/:id/confirm|reject`
+  (Guard `wts.org_id === req.orgId`, **wiederverwendet** `confirmByCustomer`/`rejectByCustomer`).
+  (2) Service `listCompanySubmissions(pool, companyOrgId, filter)`. (3) Frontend: saubere, auto-gescopte
+  Käufer-Inbox (KEINE manuelle Org-ID) mit Confirm/Reject + Detail. (4) Legacy `timesheets.html`
+  retten/umleiten (nicht zwei Systeme nebeneinander). (5) Nav-Verdrahtung + Tests (fremde Org=403,
+  Zero-State, valider Confirm/Reject). Verbindet sich mit **2.3/3.1** (Live-Belegschaft im selben Portal).
 - **2.3 Live-Belegschaft für Unternehmen.** Aktive Einsätze überwachen (siehe Phase 3.1).
 
 ## Phase 3 — Unternehmens-Seite (Monitoring, Beschwerden, Sperrliste)
