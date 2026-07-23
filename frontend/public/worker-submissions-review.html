@@ -276,6 +276,39 @@
     .asgn-field-val   { flex:1; font-weight:500; word-break:break-word; }
     .asgn-field-val.empty { color:var(--wk-text-muted); font-style:italic; font-weight:400; }
     .asgn-card-foot { border-top:1px solid var(--wk-border); padding-top:12px; display:flex; justify-content:flex-end; gap:8px; }
+    /* -- P1.4 Vorausplanung: Timeline -- */
+    .plan-nav { display:flex; align-items:center; gap:12px; flex-wrap:wrap; margin-bottom:14px; }
+    .plan-nav .plan-month { font-weight:700; font-size:.95rem; min-width:150px; text-align:center; }
+    .plan-legend { display:flex; gap:14px; flex-wrap:wrap; margin-left:auto; font-size:.72rem; color:var(--wk-text-muted); }
+    .plan-legend span { display:inline-flex; align-items:center; gap:5px; }
+    .plan-legend i { width:11px; height:11px; border-radius:3px; display:inline-block; }
+    .plan-grid { display:flex; flex-direction:column; gap:8px; }
+    .plan-head { display:flex; align-items:stretch; gap:10px; }
+    .plan-row { display:flex; align-items:stretch; gap:10px; }
+    .plan-name { flex:0 0 168px; width:168px; font-size:.82rem; font-weight:600; display:flex; flex-direction:column; justify-content:center; overflow:hidden; }
+    .plan-name small { font-weight:400; color:var(--wk-text-muted); font-size:.72rem; }
+    .plan-track {
+      position:relative; flex:1; min-width:0; height:34px; border-radius:7px;
+      background:var(--wk-surface-2,#f1f5f9); border:1px solid var(--wk-border); overflow:hidden;
+    }
+    .plan-track.plan-axis { height:22px; background:transparent; border:none; }
+    .plan-daycol { position:absolute; top:0; bottom:0; border-left:1px solid var(--tc-row-divider,rgba(0,0,0,.06)); }
+    .plan-daycol.we { background:rgba(100,116,139,.09); }
+    .plan-tick { position:absolute; top:2px; font-size:.62rem; color:var(--wk-text-muted); transform:translateX(-50%); }
+    .plan-today { position:absolute; top:0; bottom:0; width:2px; background:var(--wk-danger,#e5484d); z-index:4; }
+    .plan-block {
+      position:absolute; top:4px; bottom:4px; border-radius:5px; z-index:3;
+      display:flex; align-items:center; padding:0 7px; font-size:.71rem; font-weight:600;
+      color:#fff; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; cursor:pointer;
+      box-shadow:0 1px 2px rgba(0,0,0,.15);
+    }
+    .plan-block.pb-active  { background:var(--wk-success,#12a150); }
+    .plan-block.pb-planned { background:var(--hub-accent,#3b82f6); }
+    .plan-block.pb-ends    { background:var(--wk-warning,#d97706); }
+    .plan-block.pb-past    { background:var(--wk-text-muted,#94a3b8); }
+    .plan-block.pb-unavail { background:var(--wk-danger,#e5484d); opacity:.85; }
+    .plan-row:hover .plan-track { border-color:var(--tc-tone-brand-border); }
+    .plan-plusbtn { flex:0 0 auto; }
   </style>
 </head>
 <body>
@@ -551,10 +584,14 @@
           <input type="text" id="aSearch" placeholder="Mitarbeiter oder Kunden suchen…" oninput="filterAsgn()">
         </div>
         <button class="wk-btn wk-btn-primary wk-btn-sm" id="asgnAssignBtn" onclick="openAssignDrw()">+ Personal zuweisen</button>
-        <div class="asgn-status-btns">
+        <div class="asgn-status-btns" id="asgnStatusBtns">
           <button class="rev-pill on" onclick="setAsgnFilter('active',this)">Aktiv</button>
           <button class="rev-pill" onclick="setAsgnFilter('archived',this)">Archiv</button>
           <button class="rev-pill" onclick="setAsgnFilter('all',this)">Alle</button>
+        </div>
+        <div class="asgn-status-btns" id="asgnViewToggle" style="margin-left:8px">
+          <button class="rev-pill on" id="asgnViewCards" onclick="setAsgnView('cards',this)">&#9636; Karten</button>
+          <button class="rev-pill" id="asgnViewPlan" onclick="setAsgnView('planung',this)">&#9638; Planung</button>
         </div>
       </div>
       <div id="asgnEditNotice" class="wk-alert wk-alert-info" style="display:none;margin-bottom:14px"></div>
@@ -583,6 +620,8 @@
           <h3>Keine Einsatz-Konfigurationen</h3>
           <p>Sobald Arbeitnehmer Einsätzen zugeordnet werden,<br>erscheinen sie hier zur Konfiguration.</p>
         </div>
+        <!-- P1.4: Vorausplanung — Timeline je Arbeiter (clientseitig aus allLinks) -->
+        <div id="planungView" style="display:none"></div>
       </div>
     </div>
 

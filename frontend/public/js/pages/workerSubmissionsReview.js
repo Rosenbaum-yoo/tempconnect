@@ -3308,6 +3308,7 @@ function filterAsgn(){
 function renderAsgns(){
   const grid=document.getElementById('asgnGrid'),emp=document.getElementById('asgnEmpty');
   if(!grid)return;
+  if(asgnViewMode==='planung'){ renderPlanungView(); return; }
   let list=allLinks;
   // Welle 7 – Phase 10+11: Aktiv / Archiv / Alle. Archiv zeigt alle Nicht-
   // aktiven Links (expired/completed/cancelled/archived) timezone-sicher.
@@ -3612,6 +3613,130 @@ async function submitReplace(){
   }catch(e){showErr(e.message||'Fehler bei der Ersatz-Zuweisung');}
   finally{if(btn){btn.disabled=false;btn.innerHTML='&#8644; Ersatz zuweisen';}}
 }
+/* ── P1.4: Vorausplanung — Timeline je Arbeiter (clientseitig aus allLinks) ────── */
+var asgnViewMode='cards';
+var planMonth=null; // Date am 1. des angezeigten Monats
+function setAsgnView(mode,btn){
+  asgnViewMode=mode;
+  document.querySelectorAll('#asgnViewToggle .rev-pill').forEach(function(b){b.classList.remove('on');});
+  if(btn)btn.classList.add('on');
+  var cards=mode==='cards';
+  var grid=document.getElementById('asgnGrid');
+  var plan=document.getElementById('planungView');
+  var statusBtns=document.getElementById('asgnStatusBtns');
+  if(grid)grid.style.display=cards?'':'none';
+  if(plan)plan.style.display=cards?'none':'block';
+  if(statusBtns)statusBtns.style.display=cards?'':'none';
+  if(cards){ renderAsgns(); }
+  else{ if(!planMonth){var n=new Date();planMonth=new Date(n.getFullYear(),n.getMonth(),1);} renderPlanungView(); }
+}
+function planShiftMonth(delta){
+  if(!planMonth){var n=new Date();planMonth=new Date(n.getFullYear(),n.getMonth(),1);}
+  planMonth=new Date(planMonth.getFullYear(),planMonth.getMonth()+delta,1);
+  renderPlanungView();
+}
+function planToday(){ var n=new Date();planMonth=new Date(n.getFullYear(),n.getMonth(),1);renderPlanungView(); }
+function renderPlanungView(){
+  var host=document.getElementById('planungView');
+  if(!host)return;
+  if(!planMonth){var n0=new Date();planMonth=new Date(n0.getFullYear(),n0.getMonth(),1);}
+  var y=planMonth.getFullYear(), m=planMonth.getMonth();
+  var monthStart=new Date(y,m,1), monthEnd=new Date(y,m+1,0);
+  var daysInMonth=monthEnd.getDate();
+  var monthLabel=planMonth.toLocaleDateString('de-DE',{month:'long',year:'numeric'});
+  var pad=function(n){return String(n).padStart(2,'0');};
+  var iso=function(d){return d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate());};
+  var monthStartIso=iso(monthStart), monthEndIso=iso(monthEnd);
+  var td=new Date(); var todayIso=iso(new Date(td.getFullYear(),td.getMonth(),td.getDate()));
+  var parseD=function(s){return s?String(s).substring(0,10):null;};
+  var wname=function(l){return ((l.first_name||'')+' '+(l.last_name||'')).trim()||l.worker_email||'Arbeiter';};
+  var esc2=function(s){return esc(String(s==null?'':s));};
+  var dayPct=100/daysInMonth;
+  var colFor=function(d){return (d-1)*dayPct;};
+
+  // Links, die den Monat berühren (Datumsfenster-Überschneidung)
+  var linksInMonth=(allLinks||[]).filter(function(l){
+    var s=parseD(l.start_date); if(!s)return false;
+    var e=parseD(l.end_date)||'9999-12-31';
+    return s<=monthEndIso && e>=monthStartIso;
+  });
+  var byWorker=new Map();
+  linksInMonth.forEach(function(l){
+    var k=l.worker_user_id||l.id;
+    if(!byWorker.has(k))byWorker.set(k,{name:wname(l),id:k,links:[]});
+    byWorker.get(k).links.push(l);
+  });
+  var workers=Array.from(byWorker.values()).sort(function(a,b){return a.name.localeCompare(b.name,'de');});
+
+  // Tagesraster (Hintergrund) + Wochen-Ticks
+  var gridCols='', tickRow='';
+  for(var d=1; d<=daysInMonth; d++){
+    var dt=new Date(y,m,d); var we=(dt.getDay()===0||dt.getDay()===6);
+    gridCols+='<div class="plan-daycol'+(we?' we':'')+'" style="left:'+colFor(d)+'%;width:'+dayPct+'%"></div>';
+    if(dt.getDay()===1||d===1){ tickRow+='<div class="plan-tick" style="left:'+(colFor(d)+dayPct/2)+'%">'+d+'</div>'; }
+  }
+  var todayMarker='';
+  if(todayIso>=monthStartIso && todayIso<=monthEndIso){
+    todayMarker='<div class="plan-today" style="left:'+(colFor(td.getDate())+dayPct/2)+'%" title="Heute"></div>';
+  }
+  var blockClass=function(l){
+    if(l.worker_confirmation_status==='worker_unavailable')return 'pb-unavail';
+    var s=parseD(l.start_date), e=parseD(l.end_date)||'9999-12-31';
+    if(e<todayIso)return 'pb-past';
+    if(l.assignment_lifecycle_state==='ends_today'||e===todayIso)return 'pb-ends';
+    if(s>todayIso)return 'pb-planned';
+    return 'pb-active';
+  };
+  var rowFor=function(w){
+    var blocks=w.links.map(function(l){
+      var s=parseD(l.start_date), e=parseD(l.end_date)||monthEndIso;
+      var cs=s<monthStartIso?1:parseInt(s.substring(8,10),10);
+      var ce=e>monthEndIso?daysInMonth:parseInt(e.substring(8,10),10);
+      if(ce<cs)ce=cs;
+      var left=colFor(cs);
+      var width=Math.max(dayPct*0.6,(ce-cs+1)*dayPct);
+      var label=l.client_name||l.location_address||l.worker_description||'Einsatz';
+      var range=(l.start_date?fmtD(l.start_date):'?')+(l.end_date?(' – '+fmtD(l.end_date)):' (offen)');
+      var contL=(s<monthStartIso?'‹ ':''), contR=(e>monthEndIso?' ›':'');
+      return '<div class="plan-block '+blockClass(l)+'" style="left:'+left+'%;width:'+width+'%" '
+        +'title="'+esc2(label)+' · '+esc2(range)+'" onclick="openLnkDrwById(\''+esc2(l.id)+'\')">'
+        +esc2(contL+label+contR)+'</div>';
+    }).join('');
+    var planBtn=pageAccess.permissions.workerEdit
+      ? '<button class="wk-btn wk-btn-sm wk-btn-outline plan-plusbtn" title="Einsatz für diesen Arbeiter planen" onclick="planBlockForWorker(\''+esc2(w.id)+'\')">+ Block</button>'
+      : '<span class="plan-plusbtn" style="width:74px"></span>';
+    return '<div class="plan-row">'
+      +'<div class="plan-name">'+esc2(w.name)+'<small>'+w.links.length+' Einsatz'+(w.links.length===1?'':'e')+' im Monat</small></div>'
+      +'<div class="plan-track">'+gridCols+todayMarker+blocks+'</div>'
+      +planBtn+'</div>';
+  };
+  var legend='<div class="plan-legend">'
+    +'<span><i style="background:var(--wk-success,#12a150)"></i>Aktiv</span>'
+    +'<span><i style="background:var(--hub-accent,#3b82f6)"></i>Geplant</span>'
+    +'<span><i style="background:var(--wk-warning,#d97706)"></i>Endet</span>'
+    +'<span><i style="background:var(--wk-text-muted,#94a3b8)"></i>Vergangen</span>'
+    +'<span><i style="background:var(--wk-danger,#e5484d)"></i>Freigestellt</span></div>';
+  var nav='<div class="plan-nav">'
+    +'<button class="wk-btn wk-btn-sm wk-btn-outline" onclick="planShiftMonth(-1)" title="Vormonat">&#8249;</button>'
+    +'<div class="plan-month">'+esc2(monthLabel)+'</div>'
+    +'<button class="wk-btn wk-btn-sm wk-btn-outline" onclick="planShiftMonth(1)" title="Folgemonat">&#8250;</button>'
+    +'<button class="wk-btn wk-btn-sm" onclick="planToday()">Heute</button>'
+    +legend+'</div>';
+  if(!workers.length){
+    host.innerHTML=nav+'<div class="hub-empty" style="display:block"><h3>Keine Einsätze in '+esc2(monthLabel)+'</h3><p>Für diesen Monat sind keine Einsätze geplant. Wechsle den Monat oder plane einen Block.</p></div>';
+    return;
+  }
+  var axisHead='<div class="plan-head"><div class="plan-name"></div><div class="plan-track plan-axis">'+gridCols+tickRow+todayMarker+'</div><span class="plan-plusbtn" style="width:74px"></span></div>';
+  host.innerHTML=nav+'<div class="plan-grid">'+axisHead+workers.map(rowFor).join('')+'</div>';
+}
+function planBlockForWorker(workerId){
+  if(!ensurePermission('workerEdit','Sie können keine Einsätze planen.'))return;
+  if(typeof setStaffingWorkerPrefill==='function')setStaffingWorkerPrefill(workerId);
+  if(typeof openAssignDrw==='function'){
+    openAssignDrw();
+    if(typeof applyStaffingWorkerPrefill==='function')applyStaffingWorkerPrefill(workerId);
+  }
+}
 /* UTILS */
 function confBadge(s){
   const m={
@@ -3724,3 +3849,7 @@ window.viewWorkerLinks = viewWorkerLinks;
 window.openReplaceModal = openReplaceModal;
 window.closeReplaceModal = closeReplaceModal;
 window.submitReplace = submitReplace;
+window.setAsgnView = setAsgnView;
+window.planShiftMonth = planShiftMonth;
+window.planToday = planToday;
+window.planBlockForWorker = planBlockForWorker;

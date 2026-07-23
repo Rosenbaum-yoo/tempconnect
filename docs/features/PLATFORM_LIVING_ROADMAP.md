@@ -87,7 +87,7 @@
   /worker-assignment-links` ruft nach erfolgreicher Zuweisung `syncWorkerReservation(pool, worker.id)`
   (fire-and-forget, `swallow`-geguardet) → Angebote verschwinden **sofort**, nicht erst beim nächsten
   Maintenance-Lauf. (Der Release-Fall bleibt bewusst beim Datums-Sweep, da ihn kein User-Klick auslöst.)
-- **1.4 Monats-/Vorausplanung.** 🟡 **Fundament erledigt (2026-07-22): zentraler Kollisions-Guard.**
+- **1.4 Monats-/Vorausplanung.** ✅ **Erledigt (2026-07-22): Kollisions-Guard + Planungs-Timeline.**
   Chef plant je Arbeiter blockweise voraus (2 Wochen hier, dann dort, monatsweise) — mit Kollisions-/
   Datums-Check gegen Live-Belegschaft + Stundenzettel.
   → **Fundament (zukunftssicher, ein Chokepoint):** `workerService.findWorkerScheduleConflicts(db, worker,
@@ -99,7 +99,13 @@
   liefern `409 {conflicts}`. Verifiziert: 220/220 betroffene Tests grün (+3 neue), EXPLAIN + realer
   Daten-Smoke (fremder Auftrag → Konflikt gefangen, eigener Auftrag → 0). Blocklist (P3.3) hängt sich
   später an **denselben** Chokepoint → kein Umbau.
-  **Offen:** Planungs-UI (Timeline je Arbeiter, Block hinzufügen mit Guard-Feedback).
+  → **Planungs-Timeline** in `worker-submissions-review` (Einsätze-Tab, Toggle „Karten | Planung"):
+  Monats-Timeline je Arbeiter aus `allLinks` (rein clientseitig, kein neuer Endpoint), Blöcke
+  farbcodiert nach Lifecycle (aktiv/geplant/endet/vergangen/freigestellt), Monatsrand-Clamping mit
+  ‹/›-Übergangsmarkern, Wochenend-Raster + Heute-Marker, Monats-Navigation. „+ Block" je Arbeiter
+  öffnet den **bestehenden guarded Assign-Flow** (Vorausplanung mit Kollisionsschutz). Verifiziert:
+  isolierter Render-Test im Browser (3 Zeilen, 6 Blöcke, alle 5 Farbzustände, Positions-Mathematik
+  exakt: BMW 1.–10.=0%/32.26%, Monatsübergänge korrekt geklemmt) — Screenshot bestätigt.
 - **1.5 Downloads (PDF).** Monatsplanung-PDF (abrechnungsrelevant) + Stundenzettel-Planung-PDF.
   *Wiederverwenden:* vorhandener PDF-Renderer (`agreementDocumentService`-Muster).
 
