@@ -106,8 +106,18 @@
   öffnet den **bestehenden guarded Assign-Flow** (Vorausplanung mit Kollisionsschutz). Verifiziert:
   isolierter Render-Test im Browser (3 Zeilen, 6 Blöcke, alle 5 Farbzustände, Positions-Mathematik
   exakt: BMW 1.–10.=0%/32.26%, Monatsübergänge korrekt geklemmt) — Screenshot bestätigt.
-- **1.5 Downloads (PDF).** Monatsplanung-PDF (abrechnungsrelevant) + Stundenzettel-Planung-PDF.
-  *Wiederverwenden:* vorhandener PDF-Renderer (`agreementDocumentService`-Muster).
+- **1.5 Downloads (PDF).** ✅ **Monatsplanung-PDF erledigt (2026-07-22); Stundenzettel-Template folgt.**
+  Monatsplanung-PDF (abrechnungsrelevant) + Stundenzettel-Planung-PDF.
+  → **Service** `workforceSchedulePdfService.renderMonthlyPlanPdf` (pdf-lib, Muster von
+  `invoicePdfService`): Kopf (Org/Monat/Datum/Zähler), je Mitarbeiter eine Tabelle
+  (Kunde | Von | Bis | Tage | Std/Tag), WinAnsi-sicher, **multi-page** mit „(Forts.)"-Umbruch.
+  **Gleiche Datenquelle wie die Timeline** (`getAssignmentLinksForSupplier`) → PDF und Bildschirm
+  konsistent. → **Route** `GET /supplier/plan/monthly.pdf?year=&month=` (`worker.view`, streamt als
+  Attachment). → **UI:** „⭳ PDF"-Button in der Planungs-Timeline (lädt den angezeigten Monat).
+  Verifiziert: reale Generierung (32 Mitarbeiter → valides 3-seitiges PDF, Leer-Fall sauber),
+  pdf-lib-Reload bestätigt Seitenzahl, Route live 401 (nicht 404), api sauber. *Wiederverwenden:*
+  vorhandener pdf-lib-Renderer.
+  **Offen:** Stundenzettel-Planung-PDF (leeres Monats-Zeitraster je Arbeiter) — gleiche Service-Basis.
 
 ## Phase 2 — Stundenzettel-Workflow Ende-zu-Ende
 

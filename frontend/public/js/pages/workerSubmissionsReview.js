@@ -3721,6 +3721,7 @@ function renderPlanungView(){
     +'<div class="plan-month">'+esc2(monthLabel)+'</div>'
     +'<button class="wk-btn wk-btn-sm wk-btn-outline" onclick="planShiftMonth(1)" title="Folgemonat">&#8250;</button>'
     +'<button class="wk-btn wk-btn-sm" onclick="planToday()">Heute</button>'
+    +'<button class="wk-btn wk-btn-sm wk-btn-outline" onclick="planDownloadPdf()" title="Monats-Einsatzplan als PDF herunterladen (abrechnungsrelevant)">&#8681; PDF</button>'
     +legend+'</div>';
   if(!workers.length){
     host.innerHTML=nav+'<div class="hub-empty" style="display:block"><h3>Keine Einsätze in '+esc2(monthLabel)+'</h3><p>Für diesen Monat sind keine Einsätze geplant. Wechsle den Monat oder plane einen Block.</p></div>';
@@ -3728,6 +3729,11 @@ function renderPlanungView(){
   }
   var axisHead='<div class="plan-head"><div class="plan-name"></div><div class="plan-track plan-axis">'+gridCols+tickRow+todayMarker+'</div><span class="plan-plusbtn" style="width:74px"></span></div>';
   host.innerHTML=nav+'<div class="plan-grid">'+axisHead+workers.map(rowFor).join('')+'</div>';
+}
+function planDownloadPdf(){
+  if(!planMonth){var n=new Date();planMonth=new Date(n.getFullYear(),n.getMonth(),1);}
+  var y=planMonth.getFullYear(), mo=planMonth.getMonth()+1;
+  window.open(API+'/supplier/plan/monthly.pdf?year='+y+'&month='+mo,'_blank');
 }
 function planBlockForWorker(workerId){
   if(!ensurePermission('workerEdit','Sie können keine Einsätze planen.'))return;
@@ -3852,4 +3858,5 @@ window.submitReplace = submitReplace;
 window.setAsgnView = setAsgnView;
 window.planShiftMonth = planShiftMonth;
 window.planToday = planToday;
+window.planDownloadPdf = planDownloadPdf;
 window.planBlockForWorker = planBlockForWorker;

@@ -20,6 +20,7 @@ import * as submissionSvc from "../services/workerSubmissionService.js";
 import * as billingMetrics from "../services/billingMetricsService.js";
 import * as workerNotifications from "../services/workerNotificationService.js";
 import * as workerOfferReservationService from "../services/workerOfferReservationService.js";
+import * as workforceSchedulePdf from "../services/workforceSchedulePdfService.js";
 import { trackProductEventFromRequest } from "../services/productAnalyticsService.js";
 import { swallow } from "../utils/logger.js";
 
@@ -1030,6 +1031,29 @@ export function createWorkersRouter(deps) {
         assignmentId: req.query.assignment_id || null
       });
       res.json({ items: links, total: links.length });
+    } catch (err) { next(err); }
+  });
+
+  /* ── P1.5: Monats-Einsatzplan als PDF (abrechnungsrelevant) ─────────────────── */
+
+  router.get("/supplier/plan/monthly.pdf", ...base, requireScope("read:workers"), rperm("worker.view"), async (req, res, next) => {
+    try {
+      const now = new Date();
+      let year = parseInt(req.query.year, 10);
+      let month = parseInt(req.query.month, 10);
+      if (!Number.isInteger(year) || year < 2000 || year > 2100) year = now.getFullYear();
+      if (!Number.isInteger(month) || month < 1 || month > 12) month = now.getMonth() + 1;
+
+      const links = await workerService.getAssignmentLinksForSupplier(pool, req.orgId, {});
+      const orgRow = await pool.query("SELECT name FROM organizations WHERE id=$1", [req.orgId]);
+      const orgName = orgRow.rows[0]?.name || "";
+      const bytes = await workforceSchedulePdf.renderMonthlyPlanPdf({ orgName, year, month, links, generatedAt: new Date() });
+
+      const filename = `einsatzplan_${year}-${String(month).padStart(2, "0")}.pdf`;
+      res.setHeader("Content-Type", "application/pdf");
+      res.setHeader("Content-Disposition", `attachment; filename="${filename}"`);
+      res.setHeader("Cache-Control", "no-store");
+      res.send(Buffer.from(bytes));
     } catch (err) { next(err); }
   });
 
