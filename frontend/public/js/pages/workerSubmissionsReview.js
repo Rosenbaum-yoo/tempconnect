@@ -3339,6 +3339,10 @@ function renderAsgnCard(l){
   const editAction=pageAccess.permissions.workerEdit
     ? '<button class="wk-btn wk-btn-primary wk-btn-sm" onclick="openLnkDrwById(\''+l.id+'\')">&#9998; Konfigurieren</button>'
     : '';
+  // P1.1: Ersatz bei Krankheit/Ausfall — nur auf aktiven Einsaetzen + mit Edit-Recht
+  const replaceAction=(pageAccess.permissions.workerEdit&&isCurrentAssignmentLink(l))
+    ? '<button class="wk-btn wk-btn-sm" style="background:var(--tc-tone-danger-bg,#fef1f1);color:var(--tc-tone-danger-text,#b42318);border:1px solid var(--wk-danger,#e5484d)" onclick="openReplaceModal(\''+l.id+'\')" title="Bei Krankheit/Ausfall: Ersatz ab Wirk-Datum zuweisen, Ausfallenden freistellen">&#8644; Ersatz zuweisen</button>'
+    : '';
   return '<div class="asgn-card">'
     +'<div class="asgn-card-head">'
     +'<div class="wk-avatar" style="'+aColor((l.first_name||'')+(l.last_name||''))+'">'+ini+'</div>'
@@ -3368,6 +3372,7 @@ function renderAsgnCard(l){
     +'</div>'
     +'<div class="asgn-card-foot">'
     +editAction
+    +replaceAction
     +'</div>'
     +'</div>';
 }
@@ -3519,6 +3524,94 @@ async function viewWorkerLinks(workerId){
   applyStaffingWorkerPrefill(workerId);
   if(linksLoaded)renderAsgns();
 }
+/* ── P1.1: Ersatz bei Krankheit/Ausfall (Chef weist Ersatz ab Wirk-Datum zu) ──── */
+let replacingLinkId=null;
+function openReplaceModal(id){
+  if(!ensurePermission('workerEdit','Sie koennen Einsaetze sehen, aber nicht bearbeiten.'))return;
+  var l=allLinks.find(function(x){return x.id===id;});
+  if(!l){toast('Einsatz nicht gefunden.','error');return;}
+  replacingLinkId=id;
+  var ailingId=l.worker_user_id;
+  var wname=function(w){return ((w.first_name||'')+' '+(w.last_name||'')).trim()||w.email||w.worker_email||w.personnel_number||'Arbeiter';};
+  var cands=(allWrks||[]).filter(function(w){var uid=w.user_id||w.id;return w.is_active!==false&&uid&&uid!==ailingId;})
+    .sort(function(a,b){return wname(a).localeCompare(wname(b),'de');});
+  var opts=cands.map(function(w){var uid=w.user_id||w.id;return '<option value="'+esc(String(uid))+'">'+esc(wname(w))+(w.personnel_number?' ('+esc(String(w.personnel_number))+')':'')+'</option>';}).join('');
+  var todayIso=(function(){var d=new Date();return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');})();
+  var ailingName=esc(((l.first_name||'')+' '+(l.last_name||'')).trim()||'Arbeiter');
+  var client=l.client_name?(' · '+esc(String(l.client_name))):'';
+  var endInfo=l.end_date?('Der Ersatz übernimmt bis zum Original-Enddatum ('+esc(fmtD(l.end_date))+').'):'Der Ersatz übernimmt den offenen Einsatz.';
+  var body=''
+    +'<div class="wk-alert wk-alert-info" style="margin-bottom:18px;font-size:.83rem;line-height:1.5">'
+    +'<span>&#8644;</span><span><strong>'+ailingName+'</strong>'+client+' wird ab dem Wirk-Datum aus dem Einsatz herausgenommen und freigestellt. '+endInfo+' Bereits geleistete Tage bleiben abrechenbar.</span>'
+    +'</div>'
+    +'<div class="wk-form-group"><label class="wk-label">Wirk-Datum (ab wann Ersatz) <span class="required">*</span></label>'
+    +'<input type="date" class="wk-input" id="rep-date" value="'+todayIso+'"></div>'
+    +'<div class="wk-form-group"><label class="wk-label">Ersatz-Arbeiter <span class="required">*</span></label>'
+    +(cands.length?('<select class="wk-input" id="rep-worker"><option value="">– Bitte wählen –</option>'+opts+'</select>')
+      :('<div class="wk-alert wk-alert-warning" style="font-size:.82rem">Keine weiteren aktiven Arbeiter in Ihrer Organisation verfügbar.</div>'))
+    +'</div>'
+    +'<div class="wk-form-group"><label class="wk-label">Grund <span class="required">*</span></label>'
+    +'<textarea class="wk-textarea" id="rep-reason" rows="2" placeholder="z.B. Krankmeldung, Ausfall, Kundenwunsch…"></textarea></div>'
+    +'<div id="repErr" style="display:none;padding:10px 12px;background:var(--tc-tone-danger-bg,#fef1f1);border-radius:8px;font-size:.83rem;color:var(--tc-tone-danger-text,#b42318);border-left:3px solid var(--wk-danger,#e5484d);margin-top:4px"></div>';
+  var ovl=document.getElementById('repModalOvl');
+  if(!ovl){
+    ovl=document.createElement('div');ovl.id='repModalOvl';
+    ovl.style.cssText='position:fixed;inset:0;background:rgba(15,23,42,.55);z-index:9998;display:flex;align-items:center;justify-content:center;padding:20px';
+    ovl.addEventListener('click',function(e){if(e.target===ovl)closeReplaceModal();});
+    var box=document.createElement('div');box.id='repModalBox';
+    box.style.cssText='background:var(--wk-surface,#fff);border-radius:14px;max-width:460px;width:100%;max-height:90vh;overflow:auto;box-shadow:0 20px 60px rgba(0,0,0,.35)';
+    ovl.appendChild(box);document.body.appendChild(ovl);
+  }
+  document.getElementById('repModalBox').innerHTML=''
+    +'<div style="padding:20px 22px 0"><div style="font-size:1.05rem;font-weight:700;color:var(--wk-text,#0f172a)">Ersatz zuweisen</div>'
+    +'<div style="font-size:.82rem;color:var(--wk-text-muted,#64748b);margin-top:2px">Krankheit / Ausfall – zeitgenau ab Wirk-Datum</div></div>'
+    +'<div style="padding:18px 22px">'+body+'</div>'
+    +'<div style="display:flex;gap:10px;justify-content:flex-end;padding:0 22px 20px">'
+    +'<button class="wk-btn wk-btn-sm" style="background:var(--wk-surface-2,#f1f5f9);color:var(--wk-text,#0f172a)" onclick="closeReplaceModal()">Abbrechen</button>'
+    +'<button class="wk-btn wk-btn-sm" id="repSubmitBtn" style="background:var(--wk-danger,#e5484d);color:#fff" '+(cands.length?'':'disabled')+' onclick="submitReplace()">&#8644; Ersatz zuweisen</button>'
+    +'</div>';
+  ovl.style.display='flex';
+}
+function closeReplaceModal(){
+  var ovl=document.getElementById('repModalOvl');
+  if(ovl)ovl.style.display='none';
+  replacingLinkId=null;
+}
+async function submitReplace(){
+  if(!ensurePermission('workerEdit','Sie koennen keinen Ersatz zuweisen.'))return;
+  if(!replacingLinkId)return;
+  var err=document.getElementById('repErr');
+  var showErr=function(m){if(err){err.textContent=m;err.style.display='block';}};
+  var date=(document.getElementById('rep-date')&&document.getElementById('rep-date').value||'').trim();
+  var worker=(document.getElementById('rep-worker')&&document.getElementById('rep-worker').value||'').trim();
+  var reason=(document.getElementById('rep-reason')&&document.getElementById('rep-reason').value||'').trim();
+  if(!date){showErr('Bitte ein Wirk-Datum wählen.');return;}
+  if(!worker){showErr('Bitte einen Ersatz-Arbeiter wählen.');return;}
+  if(reason.length<3){showErr('Bitte einen Grund angeben (mind. 3 Zeichen).');return;}
+  showErr('');err.style.display='none';
+  var btn=document.getElementById('repSubmitBtn');
+  if(btn){btn.disabled=true;btn.textContent='Wird zugewiesen…';}
+  try{
+    var csrf=await getCsrf();
+    var r=await fetch(`${API}/worker-assignment-links/${replacingLinkId}/replace`,{
+      method:'POST',credentials:'include',
+      headers:{'Content-Type':'application/json','x-csrf-token':csrf},
+      body:JSON.stringify({replacement_worker_user_id:worker,effective_date:date,reason:reason})
+    });
+    var d=await r.json().catch(function(){return {};});
+    if(!r.ok){
+      var msg=d.error||d.message||'Fehler';
+      var map={NOT_FOUND:'Einsatz nicht gefunden.',LINK_NOT_ACTIVE:'Dieser Einsatz ist nicht aktiv.',SAME_WORKER:'Ersatz und Ausfallender dürfen nicht identisch sein.',REPLACEMENT_NOT_IN_ORG:'Der gewählte Arbeiter gehört nicht zu Ihrer Organisation.',REPLACEMENT_INACTIVE:'Der gewählte Arbeiter ist inaktiv.'};
+      if(d.error==='VALIDATION'&&d.details&&d.details[0])msg='Ungültige Eingabe: '+(d.details[0].message||'');
+      else if(map[d.error])msg=map[d.error];
+      throw new Error(msg);
+    }
+    toast('Ersatz zugewiesen ✓ Ausfallender ab '+fmtD(date)+' freigestellt.','success');
+    closeReplaceModal();
+    await loadAsgn();
+  }catch(e){showErr(e.message||'Fehler bei der Ersatz-Zuweisung');}
+  finally{if(btn){btn.disabled=false;btn.innerHTML='&#8644; Ersatz zuweisen';}}
+}
 /* UTILS */
 function confBadge(s){
   const m={
@@ -3628,3 +3721,6 @@ window.openLnkDrwById = openLnkDrwById;
 window.closeLnkDrw = closeLnkDrw;
 window.saveLnkEdit = saveLnkEdit;
 window.viewWorkerLinks = viewWorkerLinks;
+window.openReplaceModal = openReplaceModal;
+window.closeReplaceModal = closeReplaceModal;
+window.submitReplace = submitReplace;

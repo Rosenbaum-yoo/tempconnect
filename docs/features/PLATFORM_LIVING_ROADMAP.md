@@ -50,7 +50,7 @@
 
 ## Phase 1 — Assignment-Lifecycle & Ersatz (Herzstück, voll verdrahtet)
 
-- **1.1 Ersatz bei Krankheit/Abbruch.** ✅ **Backend + Verdrahtung erledigt (2026-07-22), Chef-UI folgt.**
+- **1.1 Ersatz bei Krankheit/Abbruch.** ✅ **Erledigt (2026-07-22) — Backend + Chef-UI end-to-end.**
   Chef weist ab **Wirk-Datum X** einen Ersatz-Arbeiter zu; der ausfallende Arbeiter wird ab X
   freigestellt. Ripple: Marktplatz (Ersatz raus, Ausfallender ggf. wieder rein), Einsätze,
   Live-Belegschaft, Stundenzettel (ab X neuer Zettel-Owner), Benachrichtigung an alle Beteiligten.
@@ -64,9 +64,13 @@
   für B (Angebote sofort raus) + A (Angebote reaktiviert) + Notifications (B: neuer Einsatz,
   A: `notifyAssignmentRemoved`). **Stundenzettel-Owner ab X = automatisch B** (Link-Split trennt nach
   Worker+Datum; bereits geleistete Tage von A vor X bleiben abrechenbar — keine Datenmigration).
+  → **Chef-UI** in `worker-submissions-review` (Einsätze-Tab): Button „⇄ Ersatz zuweisen" auf jeder
+  aktiven Einsatz-Karte (nur mit `workerEdit`-Recht) + Modal (Wirk-Datum, Ersatz-Arbeiter aus aktiver
+  Belegschaft ohne den Ausfallenden, Grund-Pflicht) → `POST …/replace` mit CSRF, spezifische
+  Fehlermeldungen, danach `loadAsgn()`-Refresh. `workerSubmissionsReview.js`, Vanilla, Design-Tokens.
   Verifiziert: 5/5 Service-Tests (Happy-Path + 4 Guards), EXPLAIN beider Writes gegen echtes Schema,
-  voller transaktionaler Dry-Run mit realen Daten (A freigestellt, B ab X bis Enddatum) grün.
-  **Offen:** Chef-UI (Button „Ersatz zuweisen" + Modal: Datum/Arbeiter/Grund) im Einsätze-View.
+  voller transaktionaler Dry-Run mit realen Daten (A freigestellt, B ab X bis Enddatum) grün, Route
+  live 403 (nicht 404), Chef-UI-JS syntaxgeprüft + live über nginx ausgeliefert.
 - **1.2 Auto-Reappear nach Einsatz-Ende.** ✅ **Kern erledigt (2026-07-22).** Ist das Auftragsdatum
   abgelaufen (Folgetag), erscheint der Arbeiter wieder in der Live-Belegschaft, ist wieder zuweisbar,
   seine Skills sind wieder als Angebote verzeichnet. *Nutzt meine Hard-Reserve-Sweep-Infrastruktur*
