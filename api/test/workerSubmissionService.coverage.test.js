@@ -222,6 +222,29 @@ describe("createSubmission", () => {
     assert.strictEqual(res.submission.id, SUB_ID);
   });
 
+  it("materialisiert submission_deadline = week_end + TIMESHEET_DEADLINE_DAYS im INSERT (P2.1)", async () => {
+    const sqls = [];
+    const created = baseSub({ status: "draft" });
+    const capturingPool = {
+      connect: async () => ({
+        query: async (sql) => {
+          sqls.push(String(sql));
+          return /INSERT INTO worker_time_submissions/.test(sql) ? { rows: [created] } : { rows: [], rowCount: 1 };
+        },
+        release() {}
+      })
+    };
+    const res = await svc.createSubmission(capturingPool, {
+      workerUserId: WORKER, orgId: "o", supplierOrgId: "s",
+      weekStart: "2026-03-02", weekEnd: "2026-03-08"
+    });
+    assert.strictEqual(res.submission.id, SUB_ID);
+    const insertSql = sqls.find((s) => /INSERT INTO worker_time_submissions/.test(s));
+    assert.ok(insertSql, "INSERT wurde ausgeführt");
+    assert.match(insertSql, /submission_deadline/, "INSERT setzt submission_deadline");
+    assert.match(insertSql, new RegExp(`INTERVAL '${svc.TIMESHEET_DEADLINE_DAYS} days'`), "Frist = week_end + N Tage");
+  });
+
   it("maps unique-violation (23505) to DUPLICATE_WEEK", async () => {
     const dupErr = Object.assign(new Error("dup"), { code: "23505" });
     const pool = sequencePool(dupErr);

@@ -803,7 +803,7 @@ function renderSubs(){
         <div class="rev-iname">${esc(s.first_name||'')} ${esc(s.last_name||'')}${s.personnel_number?` <span style="font-weight:400;font-size:.74rem;color:var(--wk-text-muted)">– ${esc(s.personnel_number)}</span>`:''}
         </div>${badge(s.status)}
       </div>
-      <div class="rev-isub">${fmtWeek(s.week_start,s.week_end)}</div>
+      <div class="rev-isub">${fmtWeek(s.week_start,s.week_end)}${subDeadlineTag(s)}</div>
       <div class="rev-ifoot">
         <span style="font-size:.78rem;color:var(--wk-text-muted)">${esc(s.client_name||s.org_name||'')}</span>
         <span class="rev-ihours">${parseFloat(s.total_hours||0).toFixed(1)} h</span>
@@ -3751,6 +3751,15 @@ function confBadge(s){
     worker_declined:'<span class="pill pill-danger" style="margin-left:6px">? Abgelehnt</span>'
   };
   return m[s]||'';
+}
+// P2.1: Einreichfrist-Indikator — überfällig (offen + Frist verstrichen) / verspätet (nach Frist abgegeben) / Frist-Hinweis.
+function subDeadlineTag(s){
+  if(!s)return'';
+  if(s.is_overdue) return ' <span class="wk-badge" style="background:var(--wk-danger,#e5484d);color:#fff" title="Einreichfrist verstrichen, noch nicht eingereicht">Überfällig</span>';
+  if(s.submitted_late) return ' <span class="wk-badge" style="background:var(--wk-warning,#d97706);color:#fff" title="Nach der Einreichfrist abgegeben">Verspätet</span>';
+  if((s.status==='draft'||s.status==='needs_correction') && s.submission_deadline)
+    return ' <span style="font-size:.72rem;color:var(--wk-text-muted)" title="Einreichfrist">· Frist '+esc(fmtD(s.submission_deadline))+'</span>';
+  return '';
 }
 function badge(s){
   const m={

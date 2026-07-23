@@ -467,6 +467,12 @@ function renderList() {
         <div class="sub-card-foot">
           ${s.total_hours ? `<span>⏱ ${s.total_hours} h</span>` : ''}
           ${s.submitted_at ? `<span>📤 ${fmtDate(s.submitted_at)}</span>` : ''}
+          ${s.is_overdue
+            ? `<span style="color:var(--ep-danger,#e5484d);font-weight:600" title="Einreichfrist verstrichen">Überfällig</span>`
+            : (s.submitted_late
+              ? `<span style="color:var(--ep-warning,#d97706);font-weight:600" title="Nach der Einreichfrist abgegeben">Verspätet</span>`
+              : (((s.status === 'draft' || s.status === 'needs_correction') && s.submission_deadline)
+                ? `<span title="Einreichfrist">Frist ${fmtDate(s.submission_deadline)}</span>` : ''))}
         </div>
       </div>`;
   }).join('');

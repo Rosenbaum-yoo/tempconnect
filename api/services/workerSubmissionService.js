@@ -131,6 +131,9 @@ async function logEvent(client, { submissionId, actorId, eventType, note, meta }
 export async function getSubmission(pool, submissionId) {
   const { rows } = await pool.query(
     `SELECT wts.*,
+            (wts.submission_deadline IS NOT NULL
+              AND wts.status IN ('draft','needs_correction')
+              AND CURRENT_DATE > wts.submission_deadline) AS is_overdue,
             u.email AS worker_email,
             wp.first_name, wp.last_name, wp.personnel_number,
             o.name  AS client_name,
@@ -210,6 +213,10 @@ export async function listSubmissions(pool, {
             wts.status, wts.submitted_at, wts.reviewed_at,
             wts.worker_comment, wts.reviewer_comment, wts.correction_note,
             wts.timesheet_id, wts.created_at,
+            wts.submission_deadline, wts.submitted_late,
+            (wts.submission_deadline IS NOT NULL
+              AND wts.status IN ('draft','needs_correction')
+              AND CURRENT_DATE > wts.submission_deadline) AS is_overdue,
             (SELECT COUNT(*)::int FROM worker_time_submission_entries e WHERE e.submission_id = wts.id) AS filled_days,
             (DATE_PART('day', wts.week_end::timestamp - wts.week_start::timestamp)::int + 1) AS expected_days,
             wp.first_name, wp.last_name, wp.personnel_number,
@@ -231,6 +238,11 @@ export async function listSubmissions(pool, {
 
 /* ── Submission anlegen ─────────────────────────────────────────────────────── */
 
+// Einreichfrist (P2.1): Standard = Wochenende + N Tage. Weiche Frist (kein Hard-Block).
+// Als Konstante materialisiert je Submission → später ohne Schema-Änderung auf ein
+// Org-Setting (settingsService, Tier-3) umstellbar; nur diese Zahl muss dann eine Query werden.
+export const TIMESHEET_DEADLINE_DAYS = 3;
+
 export async function createSubmission(pool, {
   workerUserId, workerAssignmentLinkId, orgId, supplierOrgId,
   assignmentId, weekStart, weekEnd, workerComment
@@ -246,8 +258,8 @@ export async function createSubmission(pool, {
     const { rows: [sub] } = await client.query(
       `INSERT INTO worker_time_submissions
          (worker_user_id, worker_assignment_link_id, org_id, supplier_org_id,
-          assignment_id, week_start, week_end, worker_comment)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8)
+          assignment_id, week_start, week_end, worker_comment, submission_deadline)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8, ($7::date + INTERVAL '${TIMESHEET_DEADLINE_DAYS} days')::date)
        RETURNING *`,
       [workerUserId, workerAssignmentLinkId || null, orgId, supplierOrgId,
        assignmentId || null, weekStart, weekEnd, workerComment || null]
@@ -395,6 +407,8 @@ async function transition(pool, submissionId, newStatus, actorId, {
     if (newStatus === "submitted") {
       sets.push(`submitted_at = NOW()`, `submitted_by = $${params.push(actorId) && params.length}`);
       sets.push(`correction_note = NULL`); // zurücksetzen
+      // P2.1: verspätete Abgabe markieren (weiche Frist — Einreichen bleibt erlaubt).
+      sets.push(`submitted_late = (submission_deadline IS NOT NULL AND CURRENT_DATE > submission_deadline)`);
     }
     if (newStatus === "under_review") {
       sets.push(`reviewed_at = NOW()`, `reviewed_by = $${params.push(actorId) && params.length}`);
@@ -1122,6 +1136,10 @@ export async function listAgencySubmissions(pool, {
        wts.customer_bundle_sent_at, wts.customer_bundle_sent_by,
        wts.timesheet_id, wts.template_id,
        wts.created_at, wts.updated_at,
+       wts.submission_deadline, wts.submitted_late,
+       (wts.submission_deadline IS NOT NULL
+         AND wts.status IN ('draft','needs_correction')
+         AND CURRENT_DATE > wts.submission_deadline) AS is_overdue,
        wp.first_name, wp.last_name, wp.personnel_number,
        u.email AS worker_email,
        o.name   AS client_name,

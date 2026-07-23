@@ -121,9 +121,18 @@
 
 ## Phase 2 — Stundenzettel-Workflow Ende-zu-Ende
 
-- **2.1 Einreichfrist + Lock.** Frist zum Einreichen; nach Einreichen **keine** Worker-Edits mehr —
-  nur wenn der Chef ablehnt und um Korrektur bittet, wird der Zettel wieder editierbar.
-  (Status-Maschine: draft → submitted(lock) → correction_requested(unlock) → approved.)
+- **2.1 Einreichfrist + Lock.** ✅ **Erledigt (2026-07-22).** Frist zum Einreichen; nach Einreichen
+  **keine** Worker-Edits mehr — nur wenn der Chef ablehnt und um Korrektur bittet, wird der Zettel
+  wieder editierbar. (Status-Maschine: draft → submitted(lock) → correction_requested(unlock) → approved.)
+  → **Lock war bereits vorhanden** (`upsertEntry`/`deleteEntry` → `SUBMISSION_NOT_EDITABLE`, nur bei
+  draft/needs_correction editierbar) — verifiziert, nicht neu gebaut.
+  → **Einreichfrist neu (weiche Frist, kein Hard-Block — geleistete Stunden dürfen nie blockiert werden):**
+  Migration 148 (`submission_deadline` + `submitted_late`, Backfill = week_end+3, 5 Alt-Zettel korrekt als
+  verspätet erkannt). `createSubmission` materialisiert die Frist (`TIMESHEET_DEADLINE_DAYS=3`, exportiert →
+  später ohne Schema-Änderung auf Org-Setting umstellbar). `transition('submitted')` setzt `submitted_late`.
+  Queries liefern `submission_deadline`/`submitted_late`/`is_overdue`. **UI:** Chef-Review-Liste zeigt
+  „Überfällig"/„Verspätet"/„Frist DD.MM", Worker-Stundenzettel zeigt dasselbe. Verifiziert: 89/89 Tests
+  grün (+1 neu), Migration + Backfill + Formel gegen echtes Schema, DB-Smoke der Queries.
 - **2.2 Flow bis zum Unternehmen.** Einsatzportal → Zeitarbeitschef → **Unternehmen**: definieren,
   wo/wie das Unternehmen Stundenzettel entgegennimmt (Freigabe/Prüfung aus Käufer-Sicht) — inkl.
   klarer, vertrauensbildender Unternehmens-Ansicht.
