@@ -3601,7 +3601,7 @@ async function submitReplace(){
     var d=await r.json().catch(function(){return {};});
     if(!r.ok){
       var msg=d.error||d.message||'Fehler';
-      var map={NOT_FOUND:'Einsatz nicht gefunden.',LINK_NOT_ACTIVE:'Dieser Einsatz ist nicht aktiv.',SAME_WORKER:'Ersatz und Ausfallender dürfen nicht identisch sein.',REPLACEMENT_NOT_IN_ORG:'Der gewählte Arbeiter gehört nicht zu Ihrer Organisation.',REPLACEMENT_INACTIVE:'Der gewählte Arbeiter ist inaktiv.'};
+      var map={NOT_FOUND:'Einsatz nicht gefunden.',LINK_NOT_ACTIVE:'Dieser Einsatz ist nicht aktiv.',SAME_WORKER:'Ersatz und Ausfallender dürfen nicht identisch sein.',REPLACEMENT_NOT_IN_ORG:'Der gewählte Arbeiter gehört nicht zu Ihrer Organisation.',REPLACEMENT_INACTIVE:'Der gewählte Arbeiter ist inaktiv.',SCHEDULE_CONFLICT:'Der gewählte Ersatz ist im Zeitraum bereits in einem anderen Einsatz gebucht. Bitte anderen Arbeiter oder Wirk-Datum wählen.'};
       if(d.error==='VALIDATION'&&d.details&&d.details[0])msg='Ungültige Eingabe: '+(d.details[0].message||'');
       else if(map[d.error])msg=map[d.error];
       throw new Error(msg);
