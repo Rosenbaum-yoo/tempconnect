@@ -695,12 +695,34 @@ describe("createAssignmentLink", () => {
   it("creates (upserts) the link on a valid assignment", async () => {
     const pool = sequencePool(
       { rows: [{ id: "a1", status: "planned", is_expired: false }] },
+      { rows: [] }, // Kollisionsprüfung: kein Konflikt
       { rows: [{ id: "link1", worker_user_id: "w1" }] }
     );
     const out = await svc.createAssignmentLink(pool, {
       workerUserId: "w1", assignmentId: "a1", orgId: "o", supplierOrgId: "s", startDate: "2026-01-01"
     });
     assert.strictEqual(out.link.id, "link1");
+  });
+  it("returns SCHEDULE_CONFLICT when the worker has an overlapping active link", async () => {
+    const pool = sequencePool(
+      { rows: [{ id: "a1", status: "planned", is_expired: false }] },
+      { rows: [{ id: "lc9" }] } // Kollisionsprüfung: überlappender Einsatz
+    );
+    const out = await svc.createAssignmentLink(pool, {
+      workerUserId: "w1", assignmentId: "a1", orgId: "o", supplierOrgId: "s", startDate: "2026-01-01"
+    });
+    assert.strictEqual(out.error, "SCHEDULE_CONFLICT");
+    assert.deepStrictEqual(out.conflicting_link_ids, ["lc9"]);
+  });
+  it("allowOverlap=true skips the conflict check (INSERT direkt)", async () => {
+    const pool = sequencePool(
+      { rows: [{ id: "a1", status: "planned", is_expired: false }] },
+      { rows: [{ id: "link2", worker_user_id: "w1" }] } // direkt INSERT, keine Kollisionsquery
+    );
+    const out = await svc.createAssignmentLink(pool, {
+      workerUserId: "w1", assignmentId: "a1", orgId: "o", supplierOrgId: "s", startDate: "2026-01-01", allowOverlap: true
+    });
+    assert.strictEqual(out.link.id, "link2");
   });
 });
 

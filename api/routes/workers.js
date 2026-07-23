@@ -897,7 +897,7 @@ export function createWorkersRouter(deps) {
         createdBy:           req.session.userId
       });
 
-      if (result.error) return res.status(409).json({ error: result.error });
+      if (result.error) return res.status(409).json({ error: result.error, ...(result.conflicts ? { conflicts: result.conflicts, conflicting_link_ids: result.conflicting_link_ids } : {}) });
       res.locals.audit = { action: "worker_assignment_link.create", entity_type: "worker_assignment_link", entity_id: result.link.id, details: { worker_user_id: parsed.data.worker_user_id, assignment_id: parsed.data.assignment_id } };
       // Notify worker about new assignment (fire-and-forget)
       const clientName = parsed.data.client_name
@@ -978,7 +978,11 @@ export function createWorkersRouter(deps) {
         const code = result.error === "NOT_FOUND" ? 404
           : result.error === "REPLACEMENT_NOT_IN_ORG" ? 403
           : 409;
-        return res.status(code).json({ error: result.error, ...(result.current_status ? { current_status: result.current_status } : {}) });
+        return res.status(code).json({
+          error: result.error,
+          ...(result.current_status ? { current_status: result.current_status } : {}),
+          ...(result.conflicts ? { conflicts: result.conflicts, conflicting_link_ids: result.conflicting_link_ids } : {})
+        });
       }
 
       res.locals.audit = {

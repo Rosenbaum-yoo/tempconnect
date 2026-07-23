@@ -87,8 +87,19 @@
   /worker-assignment-links` ruft nach erfolgreicher Zuweisung `syncWorkerReservation(pool, worker.id)`
   (fire-and-forget, `swallow`-geguardet) → Angebote verschwinden **sofort**, nicht erst beim nächsten
   Maintenance-Lauf. (Der Release-Fall bleibt bewusst beim Datums-Sweep, da ihn kein User-Klick auslöst.)
-- **1.4 Monats-/Vorausplanung.** Chef plant je Arbeiter blockweise voraus (2 Wochen hier, dann
-  dort, monatsweise) — mit Kollisions-/Datums-Check gegen Live-Belegschaft + Stundenzettel.
+- **1.4 Monats-/Vorausplanung.** 🟡 **Fundament erledigt (2026-07-22): zentraler Kollisions-Guard.**
+  Chef plant je Arbeiter blockweise voraus (2 Wochen hier, dann dort, monatsweise) — mit Kollisions-/
+  Datums-Check gegen Live-Belegschaft + Stundenzettel.
+  → **Fundament (zukunftssicher, ein Chokepoint):** `workerService.findWorkerScheduleConflicts(db, worker,
+  start, end, {excludeAssignmentId})` — EINZIGE Wahrheit für Überlappungserkennung (aktive Links,
+  `worker_declined`/`worker_unavailable` ausgenommen, Selbst-Auftrag ausschließbar). Jetzt erzwungen in
+  **allen** Erstellungspfaden: `createAssignmentLink` (neu, `allowOverlap`-Override für Zukunft),
+  `replaceAssignmentWorker` (Ersatz B), und die 2 bestehenden Inline-Checks (`assignCapacityToWorker` +
+  Direkt-Assign) darauf **umgestellt (DRY)** — Doppelbuchung ist an der Datenschicht unmöglich, Routen
+  liefern `409 {conflicts}`. Verifiziert: 220/220 betroffene Tests grün (+3 neue), EXPLAIN + realer
+  Daten-Smoke (fremder Auftrag → Konflikt gefangen, eigener Auftrag → 0). Blocklist (P3.3) hängt sich
+  später an **denselben** Chokepoint → kein Umbau.
+  **Offen:** Planungs-UI (Timeline je Arbeiter, Block hinzufügen mit Guard-Feedback).
 - **1.5 Downloads (PDF).** Monatsplanung-PDF (abrechnungsrelevant) + Stundenzettel-Planung-PDF.
   *Wiederverwenden:* vorhandener PDF-Renderer (`agreementDocumentService`-Muster).
 

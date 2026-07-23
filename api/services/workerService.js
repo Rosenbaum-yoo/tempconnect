@@ -1208,11 +1208,34 @@ export async function deleteWorkerDocument(pool, documentId, workerUserId, suppl
 
 /* ── Assignment-Links ───────────────────────────────────────────────────────── */
 
+/**
+ * Zentrale Überlappungs-/Kollisionsprüfung (P1.4-Fundament, EINZIGE Wahrheit für alle
+ * Zuweisungs-Pfade): findet aktive Einsatz-Links des Arbeiters, deren Datumsfenster
+ * [start_date, end_date|∞] sich mit dem angefragten Zeitraum [start,end] überschneidet.
+ * worker_declined/worker_unavailable zählen NICHT als Konflikt (freigestellt/abgelehnt).
+ * `excludeAssignmentId` schließt den Ziel-Auftrag aus (kein Selbst-Konflikt bei Re-Assign).
+ * `db` kann pool ODER ein Transaktions-Client sein.
+ */
+export async function findWorkerScheduleConflicts(db, workerUserId, startDate, endDate, { excludeAssignmentId = null } = {}) {
+  const { rows } = await db.query(
+    `SELECT wal.id, wal.assignment_id, wal.start_date, wal.end_date,
+            wal.worker_confirmation_status, wal.client_name
+       FROM worker_assignment_links wal
+      WHERE wal.worker_user_id = $1 AND wal.is_active = TRUE
+        AND wal.worker_confirmation_status NOT IN ('worker_declined','worker_unavailable')
+        AND wal.start_date <= $3 AND (wal.end_date IS NULL OR wal.end_date >= $2)
+        AND ($4::uuid IS NULL OR wal.assignment_id <> $4)
+      ORDER BY wal.start_date ASC`,
+    [workerUserId, startDate, endDate || "9999-12-31", excludeAssignmentId]
+  );
+  return rows;
+}
+
 export async function createAssignmentLink(pool, {
   workerUserId, assignmentId, orgId, supplierOrgId,
   role = "primary", startDate, endDate,
   defaultHoursPerDay = 8.0, defaultShiftStart, defaultShiftEnd,
-  defaultBreakMinutes = 30, notes, createdBy
+  defaultBreakMinutes = 30, notes, createdBy, allowOverlap = false
 }) {
   // Assignment validieren
   const { rows: asgRows } = await pool.query(
@@ -1227,6 +1250,14 @@ export async function createAssignmentLink(pool, {
   }
   if (asgRows[0].is_expired) {
     return { error: "ASSIGNMENT_NOT_ACTIVE", status: asgRows[0].status, lifecycle_state: "expired" };
+  }
+
+  // Doppelbuchung verhindern: überlappender aktiver Einsatz (außer demselben Auftrag = Re-Assign)
+  if (!allowOverlap) {
+    const conflicts = await findWorkerScheduleConflicts(pool, workerUserId, startDate, endDate, { excludeAssignmentId: assignmentId });
+    if (conflicts.length > 0) {
+      return { error: "SCHEDULE_CONFLICT", conflicts, conflicting_link_ids: conflicts.map(c => c.id) };
+    }
   }
 
   const { rows } = await pool.query(
@@ -1520,6 +1551,16 @@ export async function replaceAssignmentWorker(pool, {
     if (!repRows[0]) { await client.query("ROLLBACK"); return { error: "REPLACEMENT_NOT_IN_ORG" }; }
     if (repRows[0].is_active === false) { await client.query("ROLLBACK"); return { error: "REPLACEMENT_INACTIVE" }; }
 
+    // 2b) Doppelbuchung des Ersatzes verhindern: hat B im Zeitraum [X, Enddatum] schon einen
+    // überlappenden Einsatz (außer diesem Auftrag)? Dann Ersatz nicht möglich.
+    const bConflicts = await findWorkerScheduleConflicts(
+      client, replacementWorkerUserId, effectiveDate, orig.end_date, { excludeAssignmentId: orig.assignment_id }
+    );
+    if (bConflicts.length > 0) {
+      await client.query("ROLLBACK");
+      return { error: "SCHEDULE_CONFLICT", conflicts: bConflicts, conflicting_link_ids: bConflicts.map(c => c.id) };
+    }
+
     // 3) Ausfallenden ab X freistellen (spiegelt reportUnavailable, aber Chef-initiiert)
     const { rows: freedRows } = await client.query(
       `UPDATE worker_assignment_links
@@ -1610,14 +1651,8 @@ export async function assignCapacityToWorker(pool, {
     if (!wpRows[0]) { await client.query("ROLLBACK"); return { error: "WORKER_NOT_FOUND" }; }
     if (!wpRows[0].is_active) { await client.query("ROLLBACK"); return { error: "WORKER_INACTIVE" }; }
 
-    // 3) Zeitraum-Konflikt prüfen
-    const { rows: conflicts } = await client.query(
-      `SELECT id FROM worker_assignment_links
-       WHERE worker_user_id = $1 AND is_active = TRUE
-         AND worker_confirmation_status NOT IN ('worker_declined', 'worker_unavailable')
-         AND start_date <= $3 AND (end_date IS NULL OR end_date >= $2)`,
-      [workerUserId, startDate, endDate || '9999-12-31']
-    );
+    // 3) Zeitraum-Konflikt prüfen (zentrale Wahrheit)
+    const conflicts = await findWorkerScheduleConflicts(client, workerUserId, startDate, endDate);
     if (conflicts.length > 0) {
       await client.query("ROLLBACK");
       return { error: "SCHEDULE_CONFLICT", conflicting_link_ids: conflicts.map(c => c.id) };
@@ -1951,14 +1986,8 @@ export async function assignDealToWorker(pool, {
     const effectiveStart = startDate || asg.start_date;
     const effectiveEnd   = endDate   || asg.planned_end_date;
 
-    // 4) Zeitraum-Konflikt prüfen
-    const { rows: conflicts } = await client.query(
-      `SELECT id FROM worker_assignment_links
-       WHERE worker_user_id = $1 AND is_active = TRUE
-         AND worker_confirmation_status NOT IN ('worker_declined', 'worker_unavailable')
-         AND start_date <= $3 AND (end_date IS NULL OR end_date >= $2)`,
-      [workerUserId, effectiveStart, effectiveEnd || '9999-12-31']
-    );
+    // 4) Zeitraum-Konflikt prüfen (zentrale Wahrheit)
+    const conflicts = await findWorkerScheduleConflicts(client, workerUserId, effectiveStart, effectiveEnd);
     if (conflicts.length > 0) {
       await client.query("ROLLBACK");
       return { error: "SCHEDULE_CONFLICT", conflicting_link_ids: conflicts.map(c => c.id) };
