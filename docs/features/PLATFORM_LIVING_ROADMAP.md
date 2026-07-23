@@ -54,13 +54,22 @@
   der ausfallende Arbeiter wird ab X freigestellt. Ripple: Marktplatz (Ersatz raus, Ausfallender
   ggf. wieder rein), Einsätze, Live-Belegschaft, Stundenzettel (ab X neuer Zettel-Owner),
   Benachrichtigung an alle Beteiligten. Zeitlich sauber sortiert.
-- **1.2 Auto-Reappear nach Einsatz-Ende.** Ist das Auftragsdatum abgelaufen (Folgetag), erscheint
-  der Arbeiter wieder in der Live-Belegschaft, ist wieder zuweisbar, seine Skills sind wieder als
-  Angebote verzeichnet. *Nutzt meine Hard-Reserve-Sweep-Infrastruktur* (`workerOfferReservationService`
-  + `valid_until`) — erweitern statt neu bauen.
-- **1.3 Marktplatz-Sichtbarkeit an Assignment gekoppelt.** Zugewiesen → aus Marktplatz raus;
-  fertig → wieder rein **mit allen** Skill-Angeboten. (Erweitert `worker_reserved`-Sweep um den
-  echten Assignment-Trigger, siehe „offener Punkt" aus [MULTI_SKILL_ANGEBOTSMANAGEMENT.md].)
+- **1.2 Auto-Reappear nach Einsatz-Ende.** ✅ **Kern erledigt (2026-07-22).** Ist das Auftragsdatum
+  abgelaufen (Folgetag), erscheint der Arbeiter wieder in der Live-Belegschaft, ist wieder zuweisbar,
+  seine Skills sind wieder als Angebote verzeichnet. *Nutzt meine Hard-Reserve-Sweep-Infrastruktur*
+  (`workerOfferReservationService` + `valid_until`) — erweitert statt neu gebaut.
+  → `BUSY_EXISTS_SQL` ist jetzt **datum-bewusst**: reserviert nur, solange `wal.is_active = TRUE AND
+  (end_date IS NULL OR end_date >= CURRENT_DATE)` (DB = Europe/Berlin). Am Folgetag nach `end_date`
+  fällt die Reservierung weg → Angebot reaktiviert. Wichtig, weil `is_active` beim Einsatzende **nicht**
+  automatisch bereinigt wird (live 10 aktive Links mit abgelaufenem `end_date` verifiziert). Zusätzlich
+  `assignmentLifecycleService.todayIsoDate()` von UTC auf `todayDE()` umgestellt (korrekte active/expired-
+  Einstufung). DB-Smoke gegen echtes Schema grün; 3/3 Reservation-Tests grün.
+- **1.3 Marktplatz-Sichtbarkeit an Assignment gekoppelt.** ✅ **Kern erledigt (2026-07-22).** Zugewiesen
+  → aus Marktplatz raus; fertig → wieder rein **mit allen** Skill-Angeboten. Der periodische Sweep
+  koppelt Sichtbarkeit an den echten Assignment-Zustand; zusätzlich **Echtzeit-Trigger**: `POST
+  /worker-assignment-links` ruft nach erfolgreicher Zuweisung `syncWorkerReservation(pool, worker.id)`
+  (fire-and-forget, `swallow`-geguardet) → Angebote verschwinden **sofort**, nicht erst beim nächsten
+  Maintenance-Lauf. (Der Release-Fall bleibt bewusst beim Datums-Sweep, da ihn kein User-Klick auslöst.)
 - **1.4 Monats-/Vorausplanung.** Chef plant je Arbeiter blockweise voraus (2 Wochen hier, dann
   dort, monatsweise) — mit Kollisions-/Datums-Check gegen Live-Belegschaft + Stundenzettel.
 - **1.5 Downloads (PDF).** Monatsplanung-PDF (abrechnungsrelevant) + Stundenzettel-Planung-PDF.

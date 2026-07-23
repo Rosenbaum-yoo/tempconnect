@@ -16,12 +16,17 @@
 
 // Ein Arbeiter gilt als "im Einsatz", wenn er mindestens einen aktiven
 // worker_assignment_link hat (dasselbe Signal wie die Pool-"frei"-Erkennung).
+// Datum-bewusst (P1): reserviert, solange ein aktiver Einsatz läuft ODER noch nicht
+// abgelaufen ist. Am Tag NACH end_date (CURRENT_DATE > end_date, DB = Europe/Berlin)
+// fällt die Reservierung weg → Arbeiter taucht automatisch wieder im Marktplatz auf.
 const BUSY_EXISTS_SQL = `
   EXISTS (
     SELECT 1
       FROM worker_profiles wp2
       JOIN worker_assignment_links wal
-        ON wal.worker_user_id = wp2.user_id AND wal.is_active = TRUE
+        ON wal.worker_user_id = wp2.user_id
+       AND wal.is_active = TRUE
+       AND (wal.end_date IS NULL OR wal.end_date >= CURRENT_DATE)
      WHERE wp2.id = cp.worker_profile_id
   )`;
 

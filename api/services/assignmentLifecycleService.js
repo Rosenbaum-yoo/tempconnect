@@ -1,6 +1,7 @@
 /**
  * Assignment Lifecycle Service — canonical active/history separation.
  */
+import { todayDE } from "../utils/dateDE.js";
 
 export const ASSIGNMENT_LIFECYCLE_STATES = Object.freeze([
   "active",
@@ -18,7 +19,7 @@ export const ASSIGNMENT_LIFECYCLE_QUERY_BUCKETS = Object.freeze([
 ]);
 
 function todayIsoDate() {
-  return new Date().toISOString().slice(0, 10);
+  return todayDE(); // DACH-Referenzdatum (Europe/Berlin) statt UTC — korrekte active/expired-Einstufung.
 }
 
 function normalizeIsoDateValue(value) {

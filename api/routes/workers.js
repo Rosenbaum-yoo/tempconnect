@@ -19,6 +19,7 @@ import * as workforceService from "../services/workforceService.js";
 import * as submissionSvc from "../services/workerSubmissionService.js";
 import * as billingMetrics from "../services/billingMetricsService.js";
 import * as workerNotifications from "../services/workerNotificationService.js";
+import * as workerOfferReservationService from "../services/workerOfferReservationService.js";
 import { trackProductEventFromRequest } from "../services/productAnalyticsService.js";
 import { swallow } from "../utils/logger.js";
 
@@ -903,6 +904,9 @@ export function createWorkersRouter(deps) {
         || (await pool.query("SELECT name FROM organizations WHERE id=$1", [parsed.data.org_id])).rows[0]?.name
         || null;
       workerNotifications.notifyAssignmentNew(pool, parsed.data.worker_user_id, result.link.id, clientName);
+      // P1.3: Arbeiter ist jetzt im Einsatz → seine Multi-Skill-Angebote sofort aus dem
+      // Marktplatz nehmen (Hard-Reserve), statt erst beim nächsten Maintenance-Sweep.
+      workerOfferReservationService.syncWorkerReservation(pool, worker.id).catch(swallow("worker.offer_reservation_sync"));
       res.status(201).json(result.link);
     } catch (err) { next(err); }
   });
