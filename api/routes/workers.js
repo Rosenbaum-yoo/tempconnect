@@ -953,6 +953,73 @@ export function createWorkersRouter(deps) {
     } catch (err) { next(err); }
   });
 
+  /* ── Ersatz bei Krankheit/Abbruch (Chef weist Ersatz ab Wirk-Datum zu) — P1.1 ──── */
+
+  const replaceAssignmentSchema = z.object({
+    replacement_worker_user_id: z.string().regex(uuidRx),
+    effective_date:             z.string().regex(dateRx),
+    reason:                     z.string().trim().min(3).max(500)
+  });
+
+  router.post("/worker-assignment-links/:id/replace", ...base, requireScope("write:workers"), rperm("worker.manage"), async (req, res, next) => {
+    try {
+      const parsed = replaceAssignmentSchema.safeParse(req.body);
+      if (!parsed.success) return res.status(400).json({ error: "VALIDATION", details: parsed.error.issues });
+
+      const result = await workerService.replaceAssignmentWorker(pool, {
+        linkId:                  req.params.id,
+        supplierOrgId:           req.orgId,
+        replacementWorkerUserId: parsed.data.replacement_worker_user_id,
+        effectiveDate:           parsed.data.effective_date,
+        reason:                  parsed.data.reason,
+        createdBy:               req.session.userId
+      });
+      if (result.error) {
+        const code = result.error === "NOT_FOUND" ? 404
+          : result.error === "REPLACEMENT_NOT_IN_ORG" ? 403
+          : 409;
+        return res.status(code).json({ error: result.error, ...(result.current_status ? { current_status: result.current_status } : {}) });
+      }
+
+      res.locals.audit = {
+        action: "worker_assignment_link.replace",
+        entity_type: "worker_assignment_link",
+        entity_id: req.params.id,
+        details: {
+          assignment_id:              result.replacement_link.assignment_id,
+          ailing_worker_user_id:      result.ailing_worker_user_id,
+          replacement_worker_user_id: parsed.data.replacement_worker_user_id,
+          effective_date:             parsed.data.effective_date,
+          reason:                     parsed.data.reason,
+          responsible_actor_user_id:  req.session.userId
+        }
+      };
+
+      // Ripple (fire-and-forget): Ersatz ist jetzt im Einsatz → Angebote reservieren;
+      // Ausfallender ist frei → Angebote reaktivieren (taucht im Marktplatz wieder auf).
+      (async () => {
+        const [ailing, replacement] = await Promise.all([
+          workerService.getWorkerProfile(pool, result.ailing_worker_user_id),
+          workerService.getWorkerProfile(pool, parsed.data.replacement_worker_user_id)
+        ]);
+        if (replacement?.id) await workerOfferReservationService.syncWorkerReservation(pool, replacement.id);
+        if (ailing?.id)      await workerOfferReservationService.syncWorkerReservation(pool, ailing.id);
+      })().catch(swallow("worker.replace.reservation_sync"));
+
+      // Notifications: Ersatz über neuen Einsatz, Ausfallenden über Herausnahme.
+      const clientName = result.replacement_link.client_name || null;
+      workerNotifications.notifyAssignmentNew(pool, parsed.data.replacement_worker_user_id, result.replacement_link.id, clientName);
+      workerNotifications.notifyAssignmentRemoved(pool, result.ailing_worker_user_id, req.params.id, {
+        effectiveFrom: parsed.data.effective_date, reason: parsed.data.reason
+      });
+
+      res.status(200).json({
+        original_link:    result.original_link,
+        replacement_link: result.replacement_link
+      });
+    } catch (err) { next(err); }
+  });
+
   router.get("/supplier/assignment-links", ...base, requireScope("read:workers"), rperm("worker.view"), async (req, res, next) => {
     try {
       const links = await workerService.getAssignmentLinksForSupplier(pool, req.orgId, {

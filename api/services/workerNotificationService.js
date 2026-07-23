@@ -111,6 +111,22 @@ export async function notifyAssignmentNew(pool, workerUserId, assignmentLinkId, 
   });
 }
 
+/** Einsatz-Herausnahme: Arbeiter wurde (z. B. wegen Krankheit) durch Ersatz abgelöst (P1.1) */
+export async function notifyAssignmentRemoved(pool, workerUserId, assignmentLinkId, { effectiveFrom = null, reason = null } = {}) {
+  const dateLabel = effectiveFrom
+    ? new Date(effectiveFrom).toLocaleDateString("de-DE", { day: "2-digit", month: "2-digit", year: "numeric" })
+    : null;
+  await notifyWorker(pool, {
+    workerUserId,
+    type:        "worker_assignment_changed",
+    title:       "Aus Einsatz herausgenommen",
+    message:     `Sie wurden${dateLabel ? ` ab ${dateLabel}` : ""} aus diesem Einsatz herausgenommen; ein Ersatz übernimmt.${reason ? ` Grund: ${String(reason).slice(0, 140)}${String(reason).length > 140 ? "…" : ""}` : ""} Bereits geleistete Tage bleiben abrechenbar.`,
+    entityType:  "worker_assignment_link",
+    entityId:    assignmentLinkId,
+    linkPath:    `/public/einsatzportal-einsaetze.html`
+  });
+}
+
 /** Stundenzettel-Korrektur angefordert */
 export async function notifySubmissionCorrectionRequested(pool, workerUserId, submissionId, correctionNote) {
   await notifyWorker(pool, {

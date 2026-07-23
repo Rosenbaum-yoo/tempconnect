@@ -50,10 +50,23 @@
 
 ## Phase 1 — Assignment-Lifecycle & Ersatz (Herzstück, voll verdrahtet)
 
-- **1.1 Ersatz bei Krankheit/Abbruch.** Chef weist ab **Wirk-Datum X** einen Ersatz-Arbeiter zu;
-  der ausfallende Arbeiter wird ab X freigestellt. Ripple: Marktplatz (Ersatz raus, Ausfallender
-  ggf. wieder rein), Einsätze, Live-Belegschaft, Stundenzettel (ab X neuer Zettel-Owner),
-  Benachrichtigung an alle Beteiligten. Zeitlich sauber sortiert.
+- **1.1 Ersatz bei Krankheit/Abbruch.** ✅ **Backend + Verdrahtung erledigt (2026-07-22), Chef-UI folgt.**
+  Chef weist ab **Wirk-Datum X** einen Ersatz-Arbeiter zu; der ausfallende Arbeiter wird ab X
+  freigestellt. Ripple: Marktplatz (Ersatz raus, Ausfallender ggf. wieder rein), Einsätze,
+  Live-Belegschaft, Stundenzettel (ab X neuer Zettel-Owner), Benachrichtigung an alle Beteiligten.
+  Zeitlich sauber sortiert.
+  → **Service** `workerService.replaceAssignmentWorker` (transaktional, Row-Lock, Guards: NOT_FOUND /
+  LINK_NOT_ACTIVE / SAME_WORKER / REPLACEMENT_NOT_IN_ORG): stellt A frei (`unavailable_from=X`,
+  `is_active=FALSE`, `worker_unavailable`) + legt Ersatz-Link B ab X bis Original-Enddatum an
+  (Defaults/Enddatum/Rolle geerbt). Nutzt die vorhandene 073-Infrastruktur (kein Schema-Change).
+  → **Route** `POST /worker-assignment-links/:id/replace` (`worker.manage`, `effective_date`+`reason`
+  Pflicht, Audit mit `responsible_actor_user_id`). **Ripple auf Route-Ebene:** `syncWorkerReservation`
+  für B (Angebote sofort raus) + A (Angebote reaktiviert) + Notifications (B: neuer Einsatz,
+  A: `notifyAssignmentRemoved`). **Stundenzettel-Owner ab X = automatisch B** (Link-Split trennt nach
+  Worker+Datum; bereits geleistete Tage von A vor X bleiben abrechenbar — keine Datenmigration).
+  Verifiziert: 5/5 Service-Tests (Happy-Path + 4 Guards), EXPLAIN beider Writes gegen echtes Schema,
+  voller transaktionaler Dry-Run mit realen Daten (A freigestellt, B ab X bis Enddatum) grün.
+  **Offen:** Chef-UI (Button „Ersatz zuweisen" + Modal: Datum/Arbeiter/Grund) im Einsätze-View.
 - **1.2 Auto-Reappear nach Einsatz-Ende.** ✅ **Kern erledigt (2026-07-22).** Ist das Auftragsdatum
   abgelaufen (Folgetag), erscheint der Arbeiter wieder in der Live-Belegschaft, ist wieder zuweisbar,
   seine Skills sind wieder als Angebote verzeichnet. *Nutzt meine Hard-Reserve-Sweep-Infrastruktur*

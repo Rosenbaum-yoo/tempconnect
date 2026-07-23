@@ -1479,6 +1479,103 @@ export async function reportUnavailable(pool, linkId, workerUserId, { unavailabl
 }
 
 /**
+ * Chef-seitiger Ersatz bei Krankheit/Abbruch (P1.1): stellt den ausfallenden Arbeiter
+ * ab Wirk-Datum X frei UND weist einen Ersatz-Arbeiter ab X demselben Einsatz zu — atomar.
+ * Bereits geleistete Tage des Ausfallenden vor X bleiben abrechenbar; ab X ist der Ersatz
+ * der Zettel-Owner (Link-Split trennt Stundenzettel nach Worker + Datum, keine Datenmigration).
+ * Reservierungs-/Notification-Ripple erfolgt auf Route-Ebene (wie beim Zuweisen).
+ */
+export async function replaceAssignmentWorker(pool, {
+  linkId, supplierOrgId, replacementWorkerUserId, effectiveDate, reason, createdBy
+}) {
+  const client = await pool.connect();
+  try {
+    await client.query("BEGIN");
+
+    // 1) Original-Link laden + Org-Boundary + Aktivität (Row-Lock gegen Race)
+    const { rows: origRows } = await client.query(
+      `SELECT wal.*
+         FROM worker_assignment_links wal
+        WHERE wal.id = $1 AND wal.supplier_org_id = $2
+        FOR UPDATE`,
+      [linkId, supplierOrgId]
+    );
+    const orig = origRows[0];
+    if (!orig) { await client.query("ROLLBACK"); return { error: "NOT_FOUND" }; }
+    if (orig.is_active !== true) {
+      await client.query("ROLLBACK");
+      return { error: "LINK_NOT_ACTIVE", current_status: orig.worker_confirmation_status };
+    }
+    if (orig.worker_user_id === replacementWorkerUserId) {
+      await client.query("ROLLBACK"); return { error: "SAME_WORKER" };
+    }
+
+    // 2) Ersatz-Arbeiter validieren: gehört zur selben Supplier-Org und ist aktiv?
+    const { rows: repRows } = await client.query(
+      `SELECT wp.user_id, wp.is_active
+         FROM worker_profiles wp
+        WHERE wp.user_id = $1 AND wp.supplier_org_id = $2`,
+      [replacementWorkerUserId, supplierOrgId]
+    );
+    if (!repRows[0]) { await client.query("ROLLBACK"); return { error: "REPLACEMENT_NOT_IN_ORG" }; }
+    if (repRows[0].is_active === false) { await client.query("ROLLBACK"); return { error: "REPLACEMENT_INACTIVE" }; }
+
+    // 3) Ausfallenden ab X freistellen (spiegelt reportUnavailable, aber Chef-initiiert)
+    const { rows: freedRows } = await client.query(
+      `UPDATE worker_assignment_links
+          SET worker_confirmation_status = 'worker_unavailable',
+              unavailable_from = $2,
+              unavailable_reason = $3,
+              unavailable_reported_at = NOW(),
+              is_active = FALSE,
+              updated_at = NOW()
+        WHERE id = $1
+        RETURNING *`,
+      [linkId, effectiveDate, reason || null]
+    );
+
+    // 4) Ersatz-Link ab X bis Original-Enddatum anlegen (Defaults/Enddatum/Rolle geerbt)
+    const { rows: repLinkRows } = await client.query(
+      `INSERT INTO worker_assignment_links
+         (worker_user_id, assignment_id, org_id, supplier_org_id, role,
+          default_hours_per_day, default_shift_start, default_shift_end,
+          default_break_minutes, start_date, end_date, notes, created_by,
+          worker_confirmation_status)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,'auto_confirmed')
+       ON CONFLICT (worker_user_id, assignment_id) DO UPDATE
+         SET is_active=TRUE, role=EXCLUDED.role,
+             default_hours_per_day=EXCLUDED.default_hours_per_day,
+             default_shift_start=EXCLUDED.default_shift_start,
+             default_shift_end=EXCLUDED.default_shift_end,
+             default_break_minutes=EXCLUDED.default_break_minutes,
+             start_date=EXCLUDED.start_date, end_date=EXCLUDED.end_date,
+             notes=EXCLUDED.notes,
+             worker_confirmation_status='auto_confirmed',
+             unavailable_from=NULL, unavailable_reason=NULL, unavailable_reported_at=NULL,
+             updated_at=NOW()
+       RETURNING *`,
+      [replacementWorkerUserId, orig.assignment_id, orig.org_id, supplierOrgId, orig.role,
+       orig.default_hours_per_day, orig.default_shift_start, orig.default_shift_end,
+       orig.default_break_minutes, effectiveDate, orig.end_date, orig.notes, createdBy || null]
+    );
+
+    await client.query("COMMIT");
+    // Staffing-Neuberechnung nach dem Commit (identisch zu reportUnavailable)
+    await assignmentStaffingService.recalcAssignmentStaffing(pool, orig.assignment_id, { writeEvent: false });
+    return {
+      original_link: freedRows[0],
+      replacement_link: repLinkRows[0],
+      ailing_worker_user_id: orig.worker_user_id
+    };
+  } catch (err) {
+    await client.query("ROLLBACK");
+    throw err;
+  } finally {
+    client.release();
+  }
+}
+
+/**
  * Dispatcher weist eine Kapazität einem Worker zu.
  * Erstellt: Assignment → Assignment-Link (pending_confirmation) → Notification
  */
