@@ -133,10 +133,23 @@
   Queries liefern `submission_deadline`/`submitted_late`/`is_overdue`. **UI:** Chef-Review-Liste zeigt
   „Überfällig"/„Verspätet"/„Frist DD.MM", Worker-Stundenzettel zeigt dasselbe. Verifiziert: 89/89 Tests
   grün (+1 neu), Migration + Backfill + Formel gegen echtes Schema, DB-Smoke der Queries.
-- **2.2 Flow bis zum Unternehmen.** 🔵 **Analysiert + geplant (2026-07-22); Owner-Entscheid: Option 1
-  (volles Käufer-Portal).** Einsatzportal → Zeitarbeitschef → **Unternehmen**: definieren, wo/wie das
-  Unternehmen Stundenzettel entgegennimmt (Freigabe/Prüfung aus Käufer-Sicht) — inkl. klarer,
-  vertrauensbildender Unternehmens-Ansicht.
+- **2.2 Flow bis zum Unternehmen.** ✅ **Erledigt (2026-07-22): Käufer-Portal end-to-end (Option 1).**
+  Einsatzportal → Zeitarbeitschef → **Unternehmen**: das Unternehmen empfängt + bestätigt/weist zurück
+  selbst (Self-Service), statt dass die Agentur es stellvertretend erfasst.
+  → **Backend** (auf dem echten `worker_time_submissions`-System): Router `companyTimesheets.js` mit
+  `GET /company/submissions` (gescoped `wts.org_id = req.orgId` via `requireCompanyOrg`, Service
+  `listCompanySubmissions`), `GET /:id`, `POST /:id/confirm|reject` (**wiederverwendet**
+  `confirmByCustomer`/`rejectByCustomer`; Reject-Grund Pflicht; `requireCompanySubmission`-Guard gegen
+  Cross-Org-IDOR; Audit). In `app.js` gemountet. → **Frontend** `company-timesheets.html` +
+  `companyTimesheets.js`: **auto-gescopte** Käufer-Inbox (KEINE manuelle Org-ID mehr — behebt den
+  gemeldeten „Zugang falsch"), KPIs, Status-Filter, Detail-Modal mit Tageseinträgen + Bestätigen/
+  Zurückweisen (Grund-Prompt), vertrauensbildendes Banner. → **Legacy `timesheets.html`** bekam einen
+  Wegweiser-Banner zum neuen Eingang; Nav-`match` in `pageShell.js` ergänzt.
+  Verifiziert: 7/7 Route-Tests (Cross-Org=403, Zero-State, Scoping auf org_id NICHT supplier_org_id,
+  Reject-Grund-Pflicht), DB-Smoke der Query, Routen live 401/403 (nicht 404), **Browser-Render im
+  isolierten Harness bestätigt** (3 Zeilen, KPIs, Detail-Modal mit Einträgen + Aktionen) — Screenshot.
+  **Offen:** Legacy-`timesheets.html`/`/timesheets`-Altsystem final ausmustern (eigener Task);
+  Käufer-Notification bei „gesendet".
   → **Befund (wichtig):** Es gibt **zwei parallele Timesheet-Systeme.** (a) *Legacy* `timesheets.html` +
   `timesheets.js` → alter `/timesheets`-Endpoint (`timesheetService`, eigene Statusmaschine
   draft/submitted/approved) mit **manueller Eingabe von Org-ID + Supplier-Org-ID + Worker-Name (Freitext)**

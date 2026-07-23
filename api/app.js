@@ -67,6 +67,7 @@ import { createWorkersRouter } from "./routes/workers.js";
 import { createWorkerPortalRouter } from "./routes/workerPortal.js";
 import { createSkillCatalogRouter } from "./routes/skills.js";
 import { createAgencyPortalRouter } from "./routes/agencyPortal.js";
+import { createCompanyTimesheetsRouter } from "./routes/companyTimesheets.js";
 import { createTimesheetsRouter } from "./routes/timesheets.js";
 import { createTimesheetTemplatesRouter } from "./routes/timesheetTemplates.js";
 import { createInvoicesRouter } from "./routes/invoices.js";
@@ -388,6 +389,7 @@ export async function createApp() {
   v1.use(createWorkerPortalRouter(deps));
   v1.use(createSkillCatalogRouter(deps));
   v1.use(createAgencyPortalRouter(deps));
+  v1.use(createCompanyTimesheetsRouter(deps));
   v1.use(createTimesheetsRouter(deps));
   v1.use(createTimesheetTemplatesRouter(deps));
   v1.use(createInvoicesRouter(deps));

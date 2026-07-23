@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <script src="/public/js/theme.js"></script>
+  <title>Stundenzettel-Eingang – TempConnect</title>
+  <link rel="stylesheet" href="/public/css/enterprise.css"/>
+  <style>
+    .ct-wrap { max-width:1200px; margin:0 auto; padding:20px; }
+    .ct-kpis { display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:12px; margin:18px 0; }
+    .ct-kpi { background:var(--ds-surface,#fff); border:1px solid var(--ds-border,#e2e8f0); border-radius:12px; padding:14px 16px; }
+    .ct-kpi__val { font-size:1.5rem; font-weight:700; }
+    .ct-kpi__label { font-size:.74rem; color:var(--ds-text-secondary,#64748b); text-transform:uppercase; letter-spacing:.04em; margin-top:2px; }
+    .ct-toolbar { display:flex; gap:10px; align-items:center; flex-wrap:wrap; margin-bottom:14px; }
+    .ct-table { width:100%; border-collapse:collapse; background:var(--ds-surface,#fff); border:1px solid var(--ds-border,#e2e8f0); border-radius:12px; overflow:hidden; }
+    .ct-table th { text-align:left; font-size:.72rem; text-transform:uppercase; letter-spacing:.04em; color:var(--ds-text-secondary,#64748b); padding:10px 14px; border-bottom:1px solid var(--ds-border,#e2e8f0); }
+    .ct-table td { padding:12px 14px; border-bottom:1px solid var(--ds-border-subtle,#f1f5f9); font-size:.86rem; vertical-align:top; }
+    .ct-table tr:last-child td { border-bottom:none; }
+    .ct-sub { font-size:.75rem; color:var(--ds-text-secondary,#64748b); }
+    .ct-badge { display:inline-block; padding:2px 9px; border-radius:999px; font-size:.72rem; font-weight:600; }
+    .ct-badge--review { background:#fef3c7; color:#92400e; }
+    .ct-badge--ok { background:#dcfce7; color:#166534; }
+    .ct-badge--rej { background:#fee2e2; color:#991b1b; }
+    .ct-badge--done { background:#e0e7ff; color:#3730a3; }
+    .ct-btn { border:1px solid var(--ds-border,#e2e8f0); background:var(--ds-surface,#fff); border-radius:8px; padding:6px 12px; font-size:.8rem; cursor:pointer; }
+    .ct-btn--ok { background:#16a34a; color:#fff; border-color:#16a34a; }
+    .ct-btn--rej { background:#fff; color:#dc2626; border-color:#fecaca; }
+    .ct-empty { text-align:center; padding:40px 20px; color:var(--ds-text-secondary,#64748b); }
+    .ct-modal { position:fixed; inset:0; background:rgba(15,23,42,.55); display:none; align-items:center; justify-content:center; z-index:9998; padding:20px; }
+    .ct-modal.active { display:flex; }
+    .ct-modal__box { background:var(--ds-surface,#fff); border-radius:14px; max-width:640px; width:100%; max-height:90vh; overflow:auto; box-shadow:0 20px 60px rgba(0,0,0,.35); }
+    .ct-entry { display:flex; justify-content:space-between; gap:12px; padding:8px 0; border-bottom:1px solid var(--ds-border-subtle,#f1f5f9); font-size:.84rem; }
+    .ct-banner { background:var(--ds-surface,#fff); border:1px solid var(--ds-border,#e2e8f0); border-left:3px solid var(--ds-brand,#4a9eff); border-radius:10px; padding:12px 16px; margin-bottom:16px; font-size:.85rem; line-height:1.5; }
+  </style>
+</head>
+<body>
+  <!-- Nicht angemeldet -->
+  <div id="paywall" class="ct-wrap" style="display:none">
+    <div style="max-width:440px;margin:60px auto;text-align:center">
+      <h2>Anmeldung erforderlich</h2>
+      <p>Bitte melden Sie sich an, um empfangene Stundenzettel zu prüfen.</p>
+      <a href="/" class="ct-btn ct-btn--ok" style="display:inline-block;margin-top:12px;text-decoration:none">Anmelden</a>
+    </div>
+  </div>
+
+  <!-- Nicht als Unternehmens-Org -->
+  <div id="notCompany" class="ct-wrap" style="display:none">
+    <div id="tc-shell-nc"></div>
+    <div style="max-width:520px;margin:50px auto;text-align:center">
+      <div style="font-size:2rem">&#127970;</div>
+      <h2>Nur für Unternehmen</h2>
+      <p>Der Stundenzettel-Eingang steht Unternehmens-/Käufer-Organisationen zur Verfügung. Ihre aktive Organisation ist keine Unternehmens-Organisation.</p>
+    </div>
+  </div>
+
+  <!-- Hauptinhalt -->
+  <div id="main" class="ct-wrap" style="display:none">
+    <div id="tc-shell"></div>
+
+    <div class="ds-page-header">
+      <div class="ds-page-header__content">
+        <h1 class="ds-page-title">Stundenzettel-Eingang</h1>
+        <p class="ds-page-subtitle">Von Ihren Zeitarbeitsfirmen gesendete Stundenzettel Ihrer eingesetzten Kräfte prüfen, bestätigen oder zur Korrektur zurückweisen.</p>
+      </div>
+    </div>
+
+    <div class="ct-banner">
+      Ihre Zeitarbeitsfirma sendet Ihnen hier die Stundenzettel der bei Ihnen eingesetzten Kräfte zur Freigabe.
+      <strong>Bestätigen</strong> Sie geprüfte Zeiten oder weisen Sie sie mit einer <strong>Begründung</strong> zurück –
+      transparent und nachvollziehbar, direkt in der Plattform.
+    </div>
+
+    <div class="ct-kpis">
+      <div class="ct-kpi"><div class="ct-kpi__val" id="kpiReview" style="color:#d97706">–</div><div class="ct-kpi__label">Zu prüfen</div></div>
+      <div class="ct-kpi"><div class="ct-kpi__val" id="kpiConfirmed" style="color:#16a34a">–</div><div class="ct-kpi__label">Bestätigt</div></div>
+      <div class="ct-kpi"><div class="ct-kpi__val" id="kpiRejected" style="color:#dc2626">–</div><div class="ct-kpi__label">Zurückgewiesen</div></div>
+      <div class="ct-kpi"><div class="ct-kpi__val" id="kpiHours">–</div><div class="ct-kpi__label">Bestätigte Stunden</div></div>
+    </div>
+
+    <div class="ct-toolbar">
+      <select id="filterStatus" class="ct-btn" onchange="ctLoad()">
+        <option value="">Alle empfangenen</option>
+        <option value="sent_to_customer">Nur zu prüfen</option>
+        <option value="customer_confirmed">Bestätigt</option>
+        <option value="customer_rejected">Zurückgewiesen</option>
+        <option value="posted_to_timesheet">Abgerechnet</option>
+      </select>
+      <button class="ct-btn" onclick="ctLoad()">Aktualisieren</button>
+      <span id="ctCount" class="ct-sub"></span>
+    </div>
+
+    <table class="ct-table">
+      <thead><tr>
+        <th>Mitarbeiter</th><th>Zeitarbeitsfirma</th><th>Woche</th><th>Stunden</th><th>Status</th><th></th>
+      </tr></thead>
+      <tbody id="ctBody"><tr><td colspan="6" class="ct-empty">Wird geladen…</td></tr></tbody>
+    </table>
+  </div>
+
+  <!-- Detail-Modal -->
+  <div id="ctModal" class="ct-modal">
+    <div class="ct-modal__box">
+      <div style="padding:20px 22px 0"><div id="ctDetailTitle" style="font-size:1.1rem;font-weight:700"></div>
+        <div id="ctDetailMeta" class="ct-sub" style="margin-top:3px"></div></div>
+      <div style="padding:16px 22px" id="ctDetailBody"></div>
+      <div id="ctDetailErr" style="display:none;margin:0 22px;padding:10px 12px;background:#fee2e2;color:#991b1b;border-radius:8px;font-size:.83rem"></div>
+      <div style="display:flex;gap:10px;justify-content:flex-end;padding:16px 22px 20px" id="ctDetailActions"></div>
+    </div>
+  </div>
+
+  <script src="/public/js/planFeatures.js"></script>
+  <script src="/public/js/pageShell.js"></script>
+  <script>
+    if (document.getElementById('tc-shell-nc') && window.TC && TC.shell) { try { TC.shell.init({ target: '#tc-shell-nc' }); } catch(e){} }
+  </script>
+  <script src="/public/js/pages/companyTimesheets.js"></script>
+  <script src="/public/js/notifications.js"></script>
+</body>
+</html>

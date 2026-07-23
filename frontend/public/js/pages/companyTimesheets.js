@@ -1,0 +1,186 @@
+/* ═══════════════════════════════════════════════════════
+   Company Timesheets — Käufer-Sicht (P2.2)
+   Auto-gescoped auf die eigene Unternehmens-Org (kein manuelles Org-ID-Eintippen).
+   ═══════════════════════════════════════════════════════ */
+(function () {
+  'use strict';
+
+  var _rows = [];
+  var _current = null;
+
+  function esc(v) {
+    if (v == null) return '';
+    return String(v).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+  }
+  function fmtDate(d) {
+    if (!d) return '–';
+    var p = String(d).split('T')[0].split('-');
+    return p.length === 3 ? (p[2] + '.' + p[1] + '.' + p[0]) : '–';
+  }
+  function fmtH(v) { return parseFloat(v || 0).toFixed(2).replace(/\.00$/, '').replace(/(\.\d)$/, '$10'); }
+  function workerName(r) {
+    return ((r.first_name || '') + ' ' + (r.last_name || '')).trim() || r.worker_email || 'Mitarbeiter';
+  }
+  function isCompanyGateError(e) {
+    var c = ((e && (e.code || e.error)) || '') + '';
+    return /COMPANY_TIMESHEETS|BUYER_ORG|ORG_TYPE|NO_ORG_MEMBERSHIP|ORG_CONTEXT_REQUIRED/.test(c);
+  }
+
+  var STATUS = {
+    sent_to_customer:    { cls: 'ct-badge--review', label: 'Zu prüfen' },
+    customer_confirmed:  { cls: 'ct-badge--ok',     label: 'Bestätigt' },
+    customer_rejected:   { cls: 'ct-badge--rej',    label: 'Zurückgewiesen' },
+    posted_to_timesheet: { cls: 'ct-badge--done',   label: 'Abgerechnet' }
+  };
+  function badge(status) {
+    var s = STATUS[status] || { cls: '', label: status };
+    return '<span class="ct-badge ' + s.cls + '">' + esc(s.label) + '</span>';
+  }
+
+  function show(which) {
+    ['paywall', 'notCompany', 'main'].forEach(function (id) {
+      var el = document.getElementById(id);
+      if (el) el.style.display = (id === which) ? '' : 'none';
+    });
+  }
+
+  async function init() {
+    try { await TC.api.get('/me'); }
+    catch (e) { show('paywall'); return; }
+    show('main');
+    ctLoad();
+  }
+
+  async function ctLoad() {
+    var st = document.getElementById('filterStatus').value;
+    var q = st ? ('?status=' + encodeURIComponent(st)) : '';
+    try {
+      var data = await TC.api.get('/company/submissions' + q);
+      _rows = (data && data.items) || [];
+      renderTable(_rows);
+      updateKPIs(_rows);
+      document.getElementById('ctCount').textContent = _rows.length + ' Einträge';
+    } catch (e) {
+      if (isCompanyGateError(e)) { show('notCompany'); return; }
+      document.getElementById('ctBody').innerHTML =
+        '<tr><td colspan="6" class="ct-empty">Konnte nicht geladen werden: ' + esc(e.code || e.message || 'Fehler') + '</td></tr>';
+    }
+  }
+  window.ctLoad = ctLoad;
+
+  function renderTable(list) {
+    var tb = document.getElementById('ctBody');
+    if (!list.length) {
+      tb.innerHTML = '<tr><td colspan="6" class="ct-empty">Keine empfangenen Stundenzettel. Sobald Ihre Zeitarbeitsfirma Zeiten zur Freigabe sendet, erscheinen sie hier.</td></tr>';
+      return;
+    }
+    tb.innerHTML = list.map(function (r) {
+      var canAct = r.status === 'sent_to_customer';
+      return '<tr>' +
+        '<td><div style="font-weight:600">' + esc(workerName(r)) + '</div>' +
+          (r.personnel_number ? '<div class="ct-sub">' + esc(r.personnel_number) + '</div>' : '') + '</td>' +
+        '<td>' + esc(r.supplier_name || '–') + '</td>' +
+        '<td>' + fmtDate(r.week_start) + '<div class="ct-sub">bis ' + fmtDate(r.week_end) + '</div></td>' +
+        '<td><strong>' + fmtH(r.total_hours) + ' h</strong>' +
+          (parseFloat(r.overtime_hours || 0) > 0 ? '<div class="ct-sub">Ü ' + fmtH(r.overtime_hours) + ' h</div>' : '') + '</td>' +
+        '<td>' + badge(r.status) + '</td>' +
+        '<td style="text-align:right"><button class="ct-btn' + (canAct ? ' ct-btn--ok' : '') + '" onclick="ctOpen(\'' + esc(r.id) + '\')">' +
+          (canAct ? 'Prüfen' : 'Detail') + '</button></td>' +
+      '</tr>';
+    }).join('');
+  }
+
+  function updateKPIs(list) {
+    var review = list.filter(function (r) { return r.status === 'sent_to_customer'; }).length;
+    var conf = list.filter(function (r) { return r.status === 'customer_confirmed'; }).length;
+    var rej = list.filter(function (r) { return r.status === 'customer_rejected'; }).length;
+    var hrs = list.filter(function (r) { return r.status === 'customer_confirmed' || r.status === 'posted_to_timesheet'; })
+      .reduce(function (s, r) { return s + parseFloat(r.total_hours || 0); }, 0);
+    document.getElementById('kpiReview').textContent = review;
+    document.getElementById('kpiConfirmed').textContent = conf;
+    document.getElementById('kpiRejected').textContent = rej;
+    document.getElementById('kpiHours').textContent = fmtH(hrs) + ' h';
+  }
+
+  async function ctOpen(id) {
+    try { _current = await TC.api.get('/company/submissions/' + id); }
+    catch (e) { alert('Fehler beim Laden: ' + (e.code || e.message || '')); return; }
+    renderDetail(_current);
+    document.getElementById('ctModal').classList.add('active');
+  }
+  window.ctOpen = ctOpen;
+
+  function renderDetail(ts) {
+    document.getElementById('ctDetailTitle').textContent = workerName(ts);
+    document.getElementById('ctDetailMeta').innerHTML =
+      esc(ts.supplier_name || '–') + ' &nbsp;·&nbsp; ' + fmtDate(ts.week_start) + ' bis ' + fmtDate(ts.week_end) +
+      ' &nbsp;·&nbsp; ' + badge(ts.status);
+
+    var entries = ts.entries || [];
+    var rows = entries.length
+      ? entries.map(function (e) {
+          return '<div class="ct-entry"><div>' + fmtDate(e.work_date) +
+            (e.shift_start ? ' <span class="ct-sub">' + esc(e.shift_start) + '–' + esc(e.shift_end || '?') + '</span>' : '') +
+            (e.notes ? '<div class="ct-sub">' + esc(e.notes) + '</div>' : '') + '</div>' +
+            '<div style="text-align:right"><strong>' + fmtH(parseFloat(e.hours_regular || 0) + parseFloat(e.hours_overtime || 0)) + ' h</strong>' +
+            (parseFloat(e.hours_overtime || 0) > 0 ? '<div class="ct-sub">inkl. Ü ' + fmtH(e.hours_overtime) + ' h</div>' : '') +
+            (e.break_minutes > 0 ? '<div class="ct-sub">Pause ' + e.break_minutes + ' min</div>' : '') + '</div></div>';
+        }).join('')
+      : '<div class="ct-sub">Keine Tageseinträge erfasst.</div>';
+
+    document.getElementById('ctDetailBody').innerHTML =
+      rows +
+      '<div style="display:flex;justify-content:space-between;margin-top:12px;padding-top:10px;border-top:2px solid var(--ds-border,#e2e8f0);font-weight:700">' +
+        '<span>Gesamt</span><span>' + fmtH(ts.total_hours) + ' h' +
+        (parseFloat(ts.overtime_hours || 0) > 0 ? ' (Ü ' + fmtH(ts.overtime_hours) + ' h)' : '') + '</span></div>' +
+      (ts.worker_comment ? '<div class="ct-sub" style="margin-top:8px">Notiz: ' + esc(ts.worker_comment) + '</div>' : '') +
+      (ts.customer_note ? '<div class="ct-sub" style="margin-top:4px">Ihre Rückmeldung: ' + esc(ts.customer_note) + '</div>' : '');
+
+    var err = document.getElementById('ctDetailErr'); err.style.display = 'none';
+    var acts = document.getElementById('ctDetailActions');
+    var btns = ['<button class="ct-btn" onclick="ctClose()">Schließen</button>'];
+    if (ts.status === 'sent_to_customer') {
+      btns.push('<button class="ct-btn ct-btn--rej" onclick="ctReject()">Zurückweisen</button>');
+      btns.push('<button class="ct-btn ct-btn--ok" onclick="ctConfirm()">Bestätigen</button>');
+    }
+    acts.innerHTML = btns.join('');
+  }
+
+  function ctClose() { document.getElementById('ctModal').classList.remove('active'); _current = null; }
+  window.ctClose = ctClose;
+
+  function detailErr(msg) {
+    var el = document.getElementById('ctDetailErr');
+    el.textContent = msg; el.style.display = '';
+  }
+
+  async function ctConfirm() {
+    if (!_current) return;
+    try {
+      await TC.api.post('/company/submissions/' + _current.id + '/confirm', {});
+      ctClose(); ctLoad();
+    } catch (e) { detailErr('Bestätigung fehlgeschlagen: ' + (e.code || e.message || 'Fehler')); }
+  }
+  window.ctConfirm = ctConfirm;
+
+  async function ctReject() {
+    if (!_current) return;
+    var reason = window.prompt('Grund der Zurückweisung (wird der Zeitarbeitsfirma angezeigt):', '');
+    if (reason === null) return;
+    reason = reason.trim();
+    if (reason.length < 3) { detailErr('Bitte einen Grund angeben (mind. 3 Zeichen).'); return; }
+    try {
+      await TC.api.post('/company/submissions/' + _current.id + '/reject', { reason: reason });
+      ctClose(); ctLoad();
+    } catch (e) {
+      detailErr(e.code === 'REASON_REQUIRED' ? 'Bitte einen Grund angeben (mind. 3 Zeichen).'
+        : 'Zurückweisung fehlgeschlagen: ' + (e.code || e.message || 'Fehler'));
+    }
+  }
+  window.ctReject = ctReject;
+
+  // Modal-Klick außerhalb schließt
+  document.getElementById('ctModal').addEventListener('click', function (e) { if (e.target === this) ctClose(); });
+
+  init();
+})();

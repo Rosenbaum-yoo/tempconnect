@@ -236,6 +236,40 @@ export async function listSubmissions(pool, {
   return rows;
 }
 
+/**
+ * Käufer-Sicht (P2.2): Stundenzettel, die AN DIE eigene Unternehmens-Org gesendet wurden.
+ * Gescoped auf `wts.org_id = companyOrgId` (die Einsatz-/Käufer-Org), NICHT supplier_org_id.
+ * Default: nur relevante Käufer-Status (empfangen + eigene Entscheidung + abgerechnet).
+ */
+export async function listCompanySubmissions(pool, companyOrgId, { status = null, limit = 100 } = {}) {
+  const params = [companyOrgId];
+  let statusClause = "wts.status IN ('sent_to_customer','customer_confirmed','customer_rejected','posted_to_timesheet')";
+  if (status) { params.push(status); statusClause = `wts.status = $${params.length}`; }
+  params.push(Math.min(500, Math.max(1, Number(limit) || 100)));
+  const { rows } = await pool.query(
+    `SELECT wts.id, wts.status, wts.week_start, wts.week_end,
+            wts.total_hours, wts.overtime_hours,
+            wts.submitted_at, wts.sent_to_customer_at,
+            wts.customer_confirmed_at, wts.customer_rejected_at, wts.customer_note,
+            wts.worker_comment,
+            wp.first_name, wp.last_name, wp.personnel_number,
+            u.email  AS worker_email,
+            so.name  AS supplier_name, wts.supplier_org_id,
+            a.worker_description AS assignment_description
+       FROM worker_time_submissions wts
+       JOIN users u ON u.id = wts.worker_user_id
+       LEFT JOIN worker_profiles wp ON wp.user_id = wts.worker_user_id
+       LEFT JOIN organizations so ON so.id = wts.supplier_org_id
+       LEFT JOIN assignments a ON a.id = wts.assignment_id
+      WHERE wts.org_id = $1 AND ${statusClause}
+      ORDER BY (wts.status = 'sent_to_customer') DESC,
+               wts.sent_to_customer_at DESC NULLS LAST, wts.week_start DESC
+      LIMIT $${params.length}`,
+    params
+  );
+  return rows;
+}
+
 /* ── Submission anlegen ─────────────────────────────────────────────────────── */
 
 // Einreichfrist (P2.1): Standard = Wochenende + N Tage. Weiche Frist (kein Hard-Block).
