@@ -898,7 +898,11 @@ export function createWorkersRouter(deps) {
         createdBy:           req.session.userId
       });
 
-      if (result.error) return res.status(409).json({ error: result.error, ...(result.conflicts ? { conflicts: result.conflicts, conflicting_link_ids: result.conflicting_link_ids } : {}) });
+      if (result.error) return res.status(409).json({
+        error: result.error,
+        ...(result.conflicts ? { conflicts: result.conflicts, conflicting_link_ids: result.conflicting_link_ids } : {}),
+        ...(result.error === "BLOCKED_BY_COMPANY" ? { blocked_until: result.blocked_until, reason: result.reason } : {})
+      });
       res.locals.audit = { action: "worker_assignment_link.create", entity_type: "worker_assignment_link", entity_id: result.link.id, details: { worker_user_id: parsed.data.worker_user_id, assignment_id: parsed.data.assignment_id } };
       // Notify worker about new assignment (fire-and-forget)
       const clientName = parsed.data.client_name
@@ -982,7 +986,8 @@ export function createWorkersRouter(deps) {
         return res.status(code).json({
           error: result.error,
           ...(result.current_status ? { current_status: result.current_status } : {}),
-          ...(result.conflicts ? { conflicts: result.conflicts, conflicting_link_ids: result.conflicting_link_ids } : {})
+          ...(result.conflicts ? { conflicts: result.conflicts, conflicting_link_ids: result.conflicting_link_ids } : {}),
+          ...(result.error === "BLOCKED_BY_COMPANY" ? { blocked_until: result.blocked_until, reason: result.reason } : {})
         });
       }
 

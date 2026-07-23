@@ -148,3 +148,44 @@ describe("POST /company/submissions/:id/reject — Grund Pflicht", () => {
     assert.equal(res._json.error, "REASON_REQUIRED");
   });
 });
+
+describe("Sperrliste (P3.3) — Käufer-Routen", () => {
+  const WUID = "11111111-1111-1111-1111-111111111111";
+  it("POST /company/blocklist ohne gültige worker_user_id → 400 INVALID_WORKER", async () => {
+    const pool = recordingPool();
+    const router = createCompanyTimesheetsRouter(baseDeps(pool));
+    const handler = lastHandler(router, "post", "/company/blocklist");
+    const res = mockRes();
+    await handler({ orgId: "c1", body: { worker_user_id: "nope" }, session: { userId: "u1" } }, res, (e) => { throw e; });
+    assert.equal(res._status, 400);
+    assert.equal(res._json.error, "INVALID_WORKER");
+  });
+  it("POST /company/blocklist mit gültigen Daten → 201 + gescoped auf company_org_id", async () => {
+    const pool = recordingPool({ rows: [{ id: "b1", company_org_id: "c1", worker_user_id: WUID, blocked_until: null }] });
+    const router = createCompanyTimesheetsRouter(baseDeps(pool));
+    const handler = lastHandler(router, "post", "/company/blocklist");
+    const res = mockRes();
+    await handler({ orgId: "c1", body: { worker_user_id: WUID, reason: "Unzuverlässig", blocked_until: null }, session: { userId: "u1" } }, res, (e) => { throw e; });
+    assert.equal(res._status, 201);
+    assert.equal(pool.calls[0].params[0], "c1", "company_org_id = eigene Org");
+    assert.equal(pool.calls[0].params[1], WUID);
+  });
+  it("POST /company/blocklist mit ungültigem Datum → 400 INVALID_DATE", async () => {
+    const pool = recordingPool();
+    const router = createCompanyTimesheetsRouter(baseDeps(pool));
+    const handler = lastHandler(router, "post", "/company/blocklist");
+    const res = mockRes();
+    await handler({ orgId: "c1", body: { worker_user_id: WUID, blocked_until: "31.12.2026" }, session: { userId: "u1" } }, res, (e) => { throw e; });
+    assert.equal(res._status, 400);
+    assert.equal(res._json.error, "INVALID_DATE");
+  });
+  it("GET /company/blocklist → Liste gescoped auf req.orgId (Zero-State)", async () => {
+    const pool = recordingPool({ rows: [] });
+    const router = createCompanyTimesheetsRouter(baseDeps(pool));
+    const handler = lastHandler(router, "get", "/company/blocklist");
+    const res = mockRes();
+    await handler({ orgId: "c1", query: {}, session: { userId: "u1" } }, res, (e) => { throw e; });
+    assert.deepEqual(res._json, { items: [], total: 0 });
+    assert.equal(pool.calls[0].params[0], "c1");
+  });
+});

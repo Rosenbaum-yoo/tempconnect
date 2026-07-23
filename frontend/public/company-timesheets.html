@@ -80,6 +80,7 @@
     <div class="ct-tabs">
       <button class="ct-tab ct-tab--active" id="tabTimesheets" onclick="ctView('timesheets')">Stundenzettel-Eingang</button>
       <button class="ct-tab" id="tabLive" onclick="ctView('live')"><span class="ct-live-dot"></span>Live-Belegschaft</button>
+      <button class="ct-tab" id="tabBlocklist" onclick="ctView('blocklist')">Sperrliste</button>
     </div>
 
     <div id="viewTimesheets">
@@ -127,11 +128,28 @@
       </div>
       <table class="ct-table">
         <thead><tr>
-          <th>Mitarbeiter</th><th>Zeitarbeitsfirma</th><th>Rolle</th><th>Schicht</th><th>Seit</th><th>Bis</th><th>Status</th>
+          <th>Mitarbeiter</th><th>Zeitarbeitsfirma</th><th>Rolle</th><th>Schicht</th><th>Seit</th><th>Bis</th><th>Status</th><th></th>
         </tr></thead>
-        <tbody id="lwBody"><tr><td colspan="7" class="ct-empty">–</td></tr></tbody>
+        <tbody id="lwBody"><tr><td colspan="8" class="ct-empty">–</td></tr></tbody>
       </table>
     </div><!-- /viewLive -->
+
+    <div id="viewBlocklist" style="display:none">
+      <div class="ct-banner">
+        Gesperrte Kräfte werden diesem Unternehmen von den Zeitarbeitsfirmen <strong>nicht mehr zugewiesen</strong>.
+        Sie entscheiden: dauerhaft, befristet (z.&nbsp;B. 3&nbsp;Monate) oder wieder freigeben.
+      </div>
+      <div class="ct-toolbar">
+        <button class="ct-btn" onclick="ctLoadBlocklist()">Aktualisieren</button>
+        <span id="blCount" class="ct-sub"></span>
+      </div>
+      <table class="ct-table">
+        <thead><tr>
+          <th>Mitarbeiter</th><th>Zeitarbeitsfirma</th><th>Grund</th><th>Gesperrt bis</th><th></th>
+        </tr></thead>
+        <tbody id="blBody"><tr><td colspan="5" class="ct-empty">–</td></tr></tbody>
+      </table>
+    </div><!-- /viewBlocklist -->
   </div>
 
   <!-- Detail-Modal -->
@@ -142,6 +160,30 @@
       <div style="padding:16px 22px" id="ctDetailBody"></div>
       <div id="ctDetailErr" style="display:none;margin:0 22px;padding:10px 12px;background:#fee2e2;color:#991b1b;border-radius:8px;font-size:.83rem"></div>
       <div style="display:flex;gap:10px;justify-content:flex-end;padding:16px 22px 20px" id="ctDetailActions"></div>
+    </div>
+  </div>
+
+  <!-- Sperren-Modal -->
+  <div id="ctBlockModal" class="ct-modal">
+    <div class="ct-modal__box" style="max-width:460px">
+      <div style="padding:20px 22px 0"><div style="font-size:1.1rem;font-weight:700">Kraft sperren</div>
+        <div id="blkWorkerName" class="ct-sub" style="margin-top:3px"></div></div>
+      <div style="padding:16px 22px">
+        <label class="ct-sub" style="display:block;margin-bottom:4px">Dauer</label>
+        <select id="blkDuration" class="ct-btn" style="width:100%;margin-bottom:12px" onchange="ctBlkDurChange()">
+          <option value="permanent">Dauerhaft (nie wieder)</option>
+          <option value="3m">Befristet: 3 Monate</option>
+          <option value="custom">Befristet: bis Datum…</option>
+        </select>
+        <input type="date" id="blkUntil" class="ct-btn" style="width:100%;margin-bottom:12px;display:none"/>
+        <label class="ct-sub" style="display:block;margin-bottom:4px">Grund (wird der Zeitarbeitsfirma angezeigt)</label>
+        <textarea id="blkReason" class="ct-btn" style="width:100%;min-height:64px;resize:vertical" placeholder="z. B. wiederholt unentschuldigt gefehlt"></textarea>
+        <div id="blkErr" style="display:none;margin-top:8px;padding:8px 10px;background:#fee2e2;color:#991b1b;border-radius:8px;font-size:.83rem"></div>
+      </div>
+      <div style="display:flex;gap:10px;justify-content:flex-end;padding:0 22px 20px">
+        <button class="ct-btn" onclick="ctBlkClose()">Abbrechen</button>
+        <button class="ct-btn ct-btn--rej" id="blkSubmit" onclick="ctBlkSubmit()">Sperren</button>
+      </div>
     </div>
   </div>
 

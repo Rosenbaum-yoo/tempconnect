@@ -179,17 +179,22 @@
   }
   window.ctReject = ctReject;
 
-  /* ── Live-Belegschaft (P2.3/3.1) ─────────────────────────────────────── */
+  /* ── Live-Belegschaft (P2.3/3.1) + Sperrliste (P3.3) ──────────────────── */
   var _liveLoaded = false;
+  var _blocklistLoaded = false;
   var _liveTimer = null;
+  var _liveRows = [];
+  var _blkWorkerId = null;
 
+  var VIEWS = { timesheets: 'viewTimesheets', live: 'viewLive', blocklist: 'viewBlocklist' };
+  var TABS = { timesheets: 'tabTimesheets', live: 'tabLive', blocklist: 'tabBlocklist' };
   function ctView(mode) {
-    var isLive = mode === 'live';
-    document.getElementById('viewTimesheets').style.display = isLive ? 'none' : '';
-    document.getElementById('viewLive').style.display = isLive ? '' : 'none';
-    document.getElementById('tabTimesheets').classList.toggle('ct-tab--active', !isLive);
-    document.getElementById('tabLive').classList.toggle('ct-tab--active', isLive);
-    if (isLive && !_liveLoaded) ctLoadLive();
+    Object.keys(VIEWS).forEach(function (k) {
+      document.getElementById(VIEWS[k]).style.display = (k === mode) ? '' : 'none';
+      document.getElementById(TABS[k]).classList.toggle('ct-tab--active', k === mode);
+    });
+    if (mode === 'live' && !_liveLoaded) ctLoadLive();
+    if (mode === 'blocklist' && !_blocklistLoaded) ctLoadBlocklist();
   }
   window.ctView = ctView;
 
@@ -220,9 +225,10 @@
       : '<span class="ct-badge ct-badge--live">Im Einsatz</span>';
   }
   function renderLive(list) {
+    _liveRows = list || [];
     var tb = document.getElementById('lwBody');
     if (!list.length) {
-      tb.innerHTML = '<tr><td colspan="7" class="ct-empty">Aktuell arbeitet niemand bei Ihnen. Sobald Kräfte im Einsatz sind, erscheinen sie hier live.</td></tr>';
+      tb.innerHTML = '<tr><td colspan="8" class="ct-empty">Aktuell arbeitet niemand bei Ihnen. Sobald Kräfte im Einsatz sind, erscheinen sie hier live.</td></tr>';
       return;
     }
     tb.innerHTML = list.map(function (r) {
@@ -235,6 +241,7 @@
         '<td>' + fmtDate(r.start_date) + '</td>' +
         '<td>' + (r.effective_end_date ? fmtDate(r.effective_end_date) : 'offen') + '</td>' +
         '<td>' + liveBadge(r.live_status) + '</td>' +
+        '<td style="text-align:right"><button class="ct-btn ct-btn--rej" onclick="ctBlock(\'' + esc(r.worker_user_id) + '\')" title="Diese Kraft für Ihr Unternehmen sperren">Sperren</button></td>' +
       '</tr>';
     }).join('');
   }
@@ -244,8 +251,102 @@
     document.getElementById('lwAgencies').textContent = k.agencies || 0;
   }
 
+  /* ── Sperren-Modal + Sperrliste (P3.3) ───────────────────────────────── */
+  var _blkSupplierOrgId = null;
+
+  function ctBlock(workerId) {
+    var w = _liveRows.find(function (r) { return String(r.worker_user_id) === String(workerId); }) || {};
+    _blkWorkerId = workerId;
+    _blkSupplierOrgId = w.supplier_org_id || null;
+    document.getElementById('blkWorkerName').textContent = workerName(w) + (w.agency_name ? ' · ' + w.agency_name : '');
+    document.getElementById('blkDuration').value = 'permanent';
+    document.getElementById('blkUntil').style.display = 'none';
+    document.getElementById('blkUntil').value = '';
+    document.getElementById('blkReason').value = '';
+    document.getElementById('blkErr').style.display = 'none';
+    document.getElementById('ctBlockModal').classList.add('active');
+  }
+  window.ctBlock = ctBlock;
+
+  function ctBlkDurChange() {
+    document.getElementById('blkUntil').style.display =
+      document.getElementById('blkDuration').value === 'custom' ? '' : 'none';
+  }
+  window.ctBlkDurChange = ctBlkDurChange;
+
+  function ctBlkClose() { document.getElementById('ctBlockModal').classList.remove('active'); _blkWorkerId = null; }
+  window.ctBlkClose = ctBlkClose;
+
+  function pad2(n) { return String(n).padStart(2, '0'); }
+  function isoDate(d) { return d.getFullYear() + '-' + pad2(d.getMonth() + 1) + '-' + pad2(d.getDate()); }
+  function blkErr(msg) { var el = document.getElementById('blkErr'); el.textContent = msg; el.style.display = ''; }
+
+  async function ctBlkSubmit() {
+    if (!_blkWorkerId) return;
+    var dur = document.getElementById('blkDuration').value;
+    var until = null;
+    if (dur === '3m') { var d = new Date(); d.setMonth(d.getMonth() + 3); until = isoDate(d); }
+    else if (dur === 'custom') {
+      until = (document.getElementById('blkUntil').value || '').trim();
+      if (!until) { blkErr('Bitte ein Datum wählen.'); return; }
+    }
+    var reason = (document.getElementById('blkReason').value || '').trim();
+    try {
+      await TC.api.post('/company/blocklist', {
+        worker_user_id: _blkWorkerId,
+        blocked_until: until,
+        reason: reason || null,
+        supplier_org_id: _blkSupplierOrgId || null
+      });
+      ctBlkClose();
+      _blocklistLoaded = false;
+      ctLoadBlocklist();
+    } catch (e) { blkErr('Sperren fehlgeschlagen: ' + (e.code || e.message || 'Fehler')); }
+  }
+  window.ctBlkSubmit = ctBlkSubmit;
+
+  async function ctLoadBlocklist() {
+    try {
+      var data = await TC.api.get('/company/blocklist');
+      _blocklistLoaded = true;
+      renderBlocklist((data && data.items) || []);
+    } catch (e) {
+      if (isCompanyGateError(e)) { show('notCompany'); return; }
+      document.getElementById('blBody').innerHTML = '<tr><td colspan="5" class="ct-empty">Konnte nicht geladen werden: ' + esc(e.code || e.message || 'Fehler') + '</td></tr>';
+    }
+  }
+  window.ctLoadBlocklist = ctLoadBlocklist;
+
+  function renderBlocklist(list) {
+    document.getElementById('blCount').textContent = list.length + ' gesperrt';
+    var tb = document.getElementById('blBody');
+    if (!list.length) {
+      tb.innerHTML = '<tr><td colspan="5" class="ct-empty">Keine gesperrten Kräfte. In „Live-Belegschaft“ können Sie eine Kraft sperren.</td></tr>';
+      return;
+    }
+    tb.innerHTML = list.map(function (b) {
+      var until = b.blocked_until ? ('bis ' + fmtDate(b.blocked_until)) : 'dauerhaft';
+      return '<tr>' +
+        '<td><div style="font-weight:600">' + esc(workerName(b)) + '</div>' + (b.personnel_number ? '<div class="ct-sub">' + esc(b.personnel_number) + '</div>' : '') + '</td>' +
+        '<td>' + esc(b.agency_name || '–') + '</td>' +
+        '<td>' + esc(b.reason || '–') + '</td>' +
+        '<td>' + esc(until) + '</td>' +
+        '<td style="text-align:right"><button class="ct-btn ct-btn--ok" onclick="ctUnblock(\'' + esc(b.worker_user_id) + '\')">Freigeben</button></td>' +
+      '</tr>';
+    }).join('');
+  }
+
+  async function ctUnblock(workerId) {
+    try {
+      await TC.api.delete('/company/blocklist/' + workerId);
+      ctLoadBlocklist();
+    } catch (e) { alert('Freigeben fehlgeschlagen: ' + (e.code || e.message || '')); }
+  }
+  window.ctUnblock = ctUnblock;
+
   // Modal-Klick außerhalb schließt
   document.getElementById('ctModal').addEventListener('click', function (e) { if (e.target === this) ctClose(); });
+  document.getElementById('ctBlockModal').addEventListener('click', function (e) { if (e.target === this) ctBlkClose(); });
 
   init();
 })();

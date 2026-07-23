@@ -694,14 +694,27 @@ describe("createAssignmentLink", () => {
   });
   it("creates (upserts) the link on a valid assignment", async () => {
     const pool = sequencePool(
-      { rows: [{ id: "a1", status: "planned", is_expired: false }] },
+      { rows: [{ id: "a1", status: "planned", is_expired: false, org_id: "o" }] },
       { rows: [] }, // Kollisionsprüfung: kein Konflikt
+      { rows: [] }, // Sperrlisten-Prüfung: nicht gesperrt
       { rows: [{ id: "link1", worker_user_id: "w1" }] }
     );
     const out = await svc.createAssignmentLink(pool, {
       workerUserId: "w1", assignmentId: "a1", orgId: "o", supplierOrgId: "s", startDate: "2026-01-01"
     });
     assert.strictEqual(out.link.id, "link1");
+  });
+  it("returns BLOCKED_BY_COMPANY when the worker is on the company blocklist", async () => {
+    const pool = sequencePool(
+      { rows: [{ id: "a1", status: "planned", is_expired: false, org_id: "o" }] },
+      { rows: [] }, // kein Konflikt
+      { rows: [{ id: "b1", reason: "Unzuverlässig", blocked_until: null }] } // gesperrt
+    );
+    const out = await svc.createAssignmentLink(pool, {
+      workerUserId: "w1", assignmentId: "a1", orgId: "o", supplierOrgId: "s", startDate: "2026-01-01"
+    });
+    assert.strictEqual(out.error, "BLOCKED_BY_COMPANY");
+    assert.strictEqual(out.reason, "Unzuverlässig");
   });
   it("returns SCHEDULE_CONFLICT when the worker has an overlapping active link", async () => {
     const pool = sequencePool(
@@ -714,10 +727,11 @@ describe("createAssignmentLink", () => {
     assert.strictEqual(out.error, "SCHEDULE_CONFLICT");
     assert.deepStrictEqual(out.conflicting_link_ids, ["lc9"]);
   });
-  it("allowOverlap=true skips the conflict check (INSERT direkt)", async () => {
+  it("allowOverlap=true skips the conflict check (Sperrlisten-Check läuft weiter, dann INSERT)", async () => {
     const pool = sequencePool(
-      { rows: [{ id: "a1", status: "planned", is_expired: false }] },
-      { rows: [{ id: "link2", worker_user_id: "w1" }] } // direkt INSERT, keine Kollisionsquery
+      { rows: [{ id: "a1", status: "planned", is_expired: false, org_id: "o" }] },
+      { rows: [] }, // Sperrlisten-Prüfung (läuft auch bei allowOverlap): nicht gesperrt
+      { rows: [{ id: "link2", worker_user_id: "w1" }] } // INSERT, keine Kollisionsquery
     );
     const out = await svc.createAssignmentLink(pool, {
       workerUserId: "w1", assignmentId: "a1", orgId: "o", supplierOrgId: "s", startDate: "2026-01-01", allowOverlap: true

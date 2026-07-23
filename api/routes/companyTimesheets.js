@@ -8,6 +8,7 @@
 import { Router } from "express";
 import * as submissionSvc from "../services/workerSubmissionService.js";
 import * as workforceSvc from "../services/workforceService.js";
+import * as blocklistSvc from "../services/companyBlocklistService.js";
 import { requireCompanyOrg } from "../middleware/orgAccess.js";
 
 export function createCompanyTimesheetsRouter(deps) {
@@ -51,6 +52,51 @@ export function createCompanyTimesheetsRouter(deps) {
         limit: parseInt(req.query.limit, 10) || 300
       });
       res.json(board);
+    } catch (err) { next(err); }
+  });
+
+  /* ── Sperrliste (P3.3): Kraft für dieses Unternehmen sperren / freigeben ─────── */
+  const uuidRx = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+  const dateRx = /^\d{4}-\d{2}-\d{2}$/;
+
+  router.get("/company/blocklist", ...base, async (req, res, next) => {
+    try {
+      const items = await blocklistSvc.listCompanyBlocklist(pool, req.orgId, {
+        includeExpired: req.query.include_expired === "1"
+      });
+      res.json({ items, total: items.length });
+    } catch (err) { next(err); }
+  });
+
+  router.post("/company/blocklist", ...base, async (req, res, next) => {
+    try {
+      const workerUserId = String(req.body?.worker_user_id || "").trim();
+      if (!uuidRx.test(workerUserId)) return res.status(400).json({ error: "INVALID_WORKER" });
+      const blockedUntil = req.body?.blocked_until ? String(req.body.blocked_until).trim() : null;
+      if (blockedUntil && !dateRx.test(blockedUntil)) return res.status(400).json({ error: "INVALID_DATE" });
+      const reason = req.body?.reason ? String(req.body.reason).trim().slice(0, 500) : null;
+      const supplierOrgId = (req.body?.supplier_org_id && uuidRx.test(req.body.supplier_org_id)) ? req.body.supplier_org_id : null;
+      const result = await blocklistSvc.blockWorkerForCompany(pool, {
+        companyOrgId: req.orgId, workerUserId, supplierOrgId, reason, blockedUntil, createdBy: req.session.userId
+      });
+      if (result.error) return res.status(400).json(result);
+      res.locals.audit = {
+        action: "company.worker_blocklist.block", entity_type: "worker", entity_id: workerUserId,
+        details: { blocked_until: blockedUntil, reason, responsible_actor_user_id: req.session.userId }
+      };
+      res.status(201).json(result.block);
+    } catch (err) { next(err); }
+  });
+
+  router.delete("/company/blocklist/:workerUserId([0-9a-fA-F-]{36})", ...base, async (req, res, next) => {
+    try {
+      const ok = await blocklistSvc.unblockWorkerForCompany(pool, req.orgId, req.params.workerUserId);
+      if (!ok) return res.status(404).json({ error: "NOT_FOUND" });
+      res.locals.audit = {
+        action: "company.worker_blocklist.unblock", entity_type: "worker", entity_id: req.params.workerUserId,
+        details: { responsible_actor_user_id: req.session.userId }
+      };
+      res.json({ ok: true });
     } catch (err) { next(err); }
   });
 

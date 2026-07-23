@@ -56,6 +56,7 @@ describe("replaceAssignmentWorker — Happy Path", () => {
       { rows: [origLinkRow()], rowCount: 1 },                      // SELECT ... FOR UPDATE
       { rows: [{ user_id: REPLACEMENT, is_active: true }], rowCount: 1 }, // SELECT replacement profile
       { rows: [], rowCount: 0 },                                   // Kollisionsprüfung Ersatz: kein Konflikt
+      { rows: [], rowCount: 0 },                                   // Sperrlisten-Prüfung Ersatz: nicht gesperrt
       { rows: [origLinkRow({ is_active: false, worker_confirmation_status: "worker_unavailable" })], rowCount: 1 }, // UPDATE freed
       { rows: [{ id: "new-link", worker_user_id: REPLACEMENT, assignment_id: ASG, start_date: "2026-08-10", end_date: "2026-08-31" }], rowCount: 1 }, // INSERT replacement
       { rows: [], rowCount: 0 }                                    // COMMIT
@@ -162,6 +163,22 @@ describe("replaceAssignmentWorker — Guards (ROLLBACK, kein INSERT)", () => {
     });
     assert.equal(r.error, "SCHEDULE_CONFLICT");
     assert.deepEqual(r.conflicting_link_ids, ["conflict-link"]);
+    assertRolledBackNoInsert(pool);
+  });
+
+  it("BLOCKED_BY_COMPANY: Ersatz ist beim Unternehmen gesperrt", async () => {
+    const pool = fakePool([
+      { rows: [], rowCount: 0 },                                          // BEGIN
+      { rows: [origLinkRow()], rowCount: 1 },                             // SELECT FOR UPDATE
+      { rows: [{ user_id: REPLACEMENT, is_active: true }], rowCount: 1 },// SELECT replacement profile
+      { rows: [], rowCount: 0 },                                          // Kollisionsprüfung: kein Konflikt
+      { rows: [{ id: "blk1", reason: "gesperrt", blocked_until: null }], rowCount: 1 } // Sperrliste: gesperrt!
+    ]);
+    const r = await replaceAssignmentWorker(pool, {
+      linkId: LINK, supplierOrgId: ORG, replacementWorkerUserId: REPLACEMENT,
+      effectiveDate: "2026-08-10", reason: "Krankmeldung"
+    });
+    assert.equal(r.error, "BLOCKED_BY_COMPANY");
     assertRolledBackNoInsert(pool);
   });
 });

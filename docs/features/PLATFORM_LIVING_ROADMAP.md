@@ -187,10 +187,20 @@
   im Käufer-Portal, Service `getCompanyLiveWorkforce`. Siehe **2.3** für Details.
 - **3.2 Beschwerde-Meldung.** Unternehmen meldet Problem mit Arbeiter → Benachrichtigung an
   Zeitarbeitsfirma → Ersatz anfragen (verknüpft mit 1.1).
-- **3.3 Sperrliste.** Negativ aufgefallene Arbeiter je Unternehmen sperrbar. Chef kann gesperrten
-  Arbeiter diesem Unternehmen **nicht** zuweisen (+ Benachrichtigung). Unternehmen entscheidet:
-  nie / wieder in 3 Monaten / wieder frei. (Neue Tabelle `company_worker_blocklist`
-  {company, worker, reason, blocked_until|null}, Guard in der Zuweisung.)
+- **3.3 Sperrliste.** ✅ **Erledigt (2026-07-22).** Negativ aufgefallene Arbeiter je Unternehmen
+  sperrbar. Chef kann gesperrten Arbeiter diesem Unternehmen **nicht** zuweisen. Unternehmen
+  entscheidet: nie / wieder in 3 Monaten / wieder frei.
+  → **Migration 149** `company_worker_blocklist` {company, worker, supplier, reason, blocked_until|null};
+  aktiv = `blocked_until IS NULL OR >= CURRENT_DATE`. → **Service** `companyBlocklistService`
+  (isWorkerBlockedForCompany / list / block(upsert) / unblock). → **Guard am selben Chokepoint wie der
+  Kollisions-Schutz:** `createAssignmentLink` + `replaceAssignmentWorker` lehnen gesperrte Kräfte mit
+  `BLOCKED_BY_COMPANY` ab (Routen liefern 409 + reason/blocked_until). → **UI** im Käufer-Portal: Tab
+  „Sperrliste" (Freigeben) + „Sperren"-Aktion je Live-Kraft mit Modal (dauerhaft / 3 Monate / Datum +
+  Grund). Verifiziert: 137/137 Tests grün (+3 neue BLOCKED-Tests, +4 Blocklist-Route-Tests, Fixtures
+  aktualisiert), Migration angewendet, **Guard-Query transaktional gegen echtes Schema** (aktive Sperre
+  gefunden, abgelaufene ignoriert), Routen live 401/403, **Browser-Render bestätigt** (Sperrliste-Tab
+  2 Einträge + Freigeben, Block-Modal mit Dauer-Optionen), Konsole fehlerfrei.
+  **Offen:** Chef-Hinweis „gesperrt bei X" in der Zuweisungs-UI (nice-to-have) + Benachrichtigung an Chef.
 - **3.4 Arbeitsplatz-Aufträge perfektionieren.** Existiert bereits (`marketplace.js` demand_requests
   + `requisitions`) — Politur zur Perfektion.
 

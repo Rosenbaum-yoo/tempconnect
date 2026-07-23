@@ -5,6 +5,7 @@
  */
 import crypto from "crypto";
 import * as assignmentStaffingService from "./assignmentStaffingService.js";
+import { isWorkerBlockedForCompany } from "./companyBlocklistService.js";
 import * as submissionSvc from "./workerSubmissionService.js";
 import { withTransaction } from "../utils/transaction.js";
 import {
@@ -1260,6 +1261,10 @@ export async function createAssignmentLink(pool, {
     }
   }
 
+  // P3.3 Sperrliste: hat das einsetzende Unternehmen (Auftrags-Org) diese Kraft gesperrt?
+  const cBlock = await isWorkerBlockedForCompany(pool, asgRows[0].org_id, workerUserId);
+  if (cBlock) return { error: "BLOCKED_BY_COMPANY", blocked_until: cBlock.blocked_until, reason: cBlock.reason };
+
   const { rows } = await pool.query(
     `INSERT INTO worker_assignment_links
        (worker_user_id, assignment_id, org_id, supplier_org_id, role,
@@ -1559,6 +1564,13 @@ export async function replaceAssignmentWorker(pool, {
     if (bConflicts.length > 0) {
       await client.query("ROLLBACK");
       return { error: "SCHEDULE_CONFLICT", conflicts: bConflicts, conflicting_link_ids: bConflicts.map(c => c.id) };
+    }
+
+    // 2c) Sperrliste (P3.3): hat das Unternehmen den Ersatz gesperrt? Dann kein Ersatz möglich.
+    const bBlock = await isWorkerBlockedForCompany(client, orig.org_id, replacementWorkerUserId);
+    if (bBlock) {
+      await client.query("ROLLBACK");
+      return { error: "BLOCKED_BY_COMPANY", blocked_until: bBlock.blocked_until, reason: bBlock.reason };
     }
 
     // 3) Ausfallenden ab X freistellen (spiegelt reportUnavailable, aber Chef-initiiert)
