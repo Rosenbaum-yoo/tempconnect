@@ -187,6 +187,32 @@
     </div>
   </div>
 
+  <!-- Beschwerde-Modal -->
+  <div id="ctComplaintModal" class="ct-modal">
+    <div class="ct-modal__box" style="max-width:460px">
+      <div style="padding:20px 22px 0"><div style="font-size:1.1rem;font-weight:700">Problem melden</div>
+        <div id="cmpWorkerName" class="ct-sub" style="margin-top:3px"></div></div>
+      <div style="padding:16px 22px">
+        <div class="ct-banner" style="margin:0 0 12px">
+          Ihre Meldung geht an die zuständige Zeitarbeitsfirma. Diese kann reagieren – z.&nbsp;B. einen Ersatz stellen.
+        </div>
+        <label class="ct-sub" style="display:block;margin-bottom:4px">Dringlichkeit</label>
+        <select id="cmpSeverity" class="ct-btn" style="width:100%;margin-bottom:12px">
+          <option value="low">Niedrig – Hinweis</option>
+          <option value="medium" selected>Mittel – bitte prüfen</option>
+          <option value="high">Hoch – dringend / Ersatz nötig</option>
+        </select>
+        <label class="ct-sub" style="display:block;margin-bottom:4px">Was ist das Problem?</label>
+        <textarea id="cmpReason" class="ct-btn" style="width:100%;min-height:72px;resize:vertical" placeholder="z. B. wiederholt zu spät, Qualität unzureichend, Verhalten vor Ort"></textarea>
+        <div id="cmpErr" style="display:none;margin-top:8px;padding:8px 10px;background:#fee2e2;color:#991b1b;border-radius:8px;font-size:.83rem"></div>
+      </div>
+      <div style="display:flex;gap:10px;justify-content:flex-end;padding:0 22px 20px">
+        <button class="ct-btn" onclick="ctCompClose()">Abbrechen</button>
+        <button class="ct-btn ct-btn--rej" id="cmpSubmit" onclick="ctCompSubmit()">Melden</button>
+      </div>
+    </div>
+  </div>
+
   <script src="/public/js/planFeatures.js"></script>
   <script src="/public/js/pageShell.js"></script>
   <script>

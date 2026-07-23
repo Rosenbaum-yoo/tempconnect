@@ -241,7 +241,10 @@
         '<td>' + fmtDate(r.start_date) + '</td>' +
         '<td>' + (r.effective_end_date ? fmtDate(r.effective_end_date) : 'offen') + '</td>' +
         '<td>' + liveBadge(r.live_status) + '</td>' +
-        '<td style="text-align:right"><button class="ct-btn ct-btn--rej" onclick="ctBlock(\'' + esc(r.worker_user_id) + '\')" title="Diese Kraft für Ihr Unternehmen sperren">Sperren</button></td>' +
+        '<td style="text-align:right;white-space:nowrap">' +
+          '<button class="ct-btn" style="margin-right:4px" onclick="ctComplain(\'' + esc(r.worker_user_id) + '\')" title="Problem mit dieser Kraft an die Zeitarbeitsfirma melden">Melden</button>' +
+          '<button class="ct-btn ct-btn--rej" onclick="ctBlock(\'' + esc(r.worker_user_id) + '\')" title="Diese Kraft für Ihr Unternehmen sperren">Sperren</button>' +
+        '</td>' +
       '</tr>';
     }).join('');
   }
@@ -344,9 +347,50 @@
   }
   window.ctUnblock = ctUnblock;
 
+  /* ── Beschwerde-Meldung (P3.2) ───────────────────────────────────────── */
+  var _cmpWorkerId = null;
+  var _cmpLinkId = null;
+
+  function ctComplain(workerId) {
+    var w = _liveRows.find(function (r) { return String(r.worker_user_id) === String(workerId); }) || {};
+    _cmpWorkerId = workerId;
+    _cmpLinkId = w.link_id || null;
+    document.getElementById('cmpWorkerName').textContent = workerName(w) + (w.agency_name ? ' · ' + w.agency_name : '');
+    document.getElementById('cmpSeverity').value = 'medium';
+    document.getElementById('cmpReason').value = '';
+    document.getElementById('cmpErr').style.display = 'none';
+    document.getElementById('ctComplaintModal').classList.add('active');
+  }
+  window.ctComplain = ctComplain;
+
+  function ctCompClose() { document.getElementById('ctComplaintModal').classList.remove('active'); _cmpWorkerId = null; }
+  window.ctCompClose = ctCompClose;
+
+  async function ctCompSubmit() {
+    if (!_cmpWorkerId) return;
+    var reason = (document.getElementById('cmpReason').value || '').trim();
+    var err = document.getElementById('cmpErr');
+    if (reason.length < 3) { err.textContent = 'Bitte beschreiben Sie das Problem (mind. 3 Zeichen).'; err.style.display = ''; return; }
+    var btn = document.getElementById('cmpSubmit');
+    btn.disabled = true; btn.textContent = 'Wird gemeldet…';
+    try {
+      await TC.api.post('/company/complaints', {
+        worker_user_id: _cmpWorkerId,
+        assignment_link_id: _cmpLinkId || null,
+        severity: document.getElementById('cmpSeverity').value,
+        reason: reason
+      });
+      ctCompClose();
+    } catch (e) {
+      err.textContent = 'Melden fehlgeschlagen: ' + (e.code || e.message || 'Fehler'); err.style.display = '';
+    } finally { btn.disabled = false; btn.textContent = 'Melden'; }
+  }
+  window.ctCompSubmit = ctCompSubmit;
+
   // Modal-Klick außerhalb schließt
   document.getElementById('ctModal').addEventListener('click', function (e) { if (e.target === this) ctClose(); });
   document.getElementById('ctBlockModal').addEventListener('click', function (e) { if (e.target === this) ctBlkClose(); });
+  document.getElementById('ctComplaintModal').addEventListener('click', function (e) { if (e.target === this) ctCompClose(); });
 
   init();
 })();

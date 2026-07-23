@@ -185,8 +185,18 @@
 - **3.1 Live-Verfolgung.** ✅ **Erledigt (2026-07-22) zusammen mit 2.3.** Gebuchtes Unternehmen sieht
   in Echtzeit, wer gerade bei ihm arbeitet (Live-Belegschaft aus Käufer-Sicht) → Tab „Live-Belegschaft"
   im Käufer-Portal, Service `getCompanyLiveWorkforce`. Siehe **2.3** für Details.
-- **3.2 Beschwerde-Meldung.** Unternehmen meldet Problem mit Arbeiter → Benachrichtigung an
-  Zeitarbeitsfirma → Ersatz anfragen (verknüpft mit 1.1).
+- **3.2 Beschwerde-Meldung.** ✅ **Erledigt (2026-07-22).** Unternehmen meldet Problem mit Arbeiter →
+  Benachrichtigung an Zeitarbeitsfirma → Ersatz anfragen (verknüpft mit 1.1).
+  → **Migration 150** `worker_complaints` {company, worker, supplier, assignment_link, severity, reason,
+  status} + Notification-Typ `worker_complaint_filed`. → **Service** `companyComplaintService`
+  (fileComplaint löst Agentur + Disponent aus dem aktuellen Einsatz auf; listCompanyComplaints).
+  → **Route** `POST/GET /company/complaints` (`requireCompanyOrg`, org-gescoped, Grund+Severity-Validierung,
+  Audit). Benachrichtigt den **Disponenten** (`notifyComplaintToDispatcher`) → dieser kann via P1.1
+  Ersatz stellen. → **UI** im Käufer-Portal: „Melden"-Aktion je Live-Kraft + Modal (Dringlichkeit low/
+  medium/high + Grund). Verifiziert: 16/16 Route-Tests (Validierung, Scoping auf company, Dispatcher-
+  Benachrichtigung), Migration angewendet, **fileComplaint transaktional gegen echte Daten** (Kontext
+  löst Agentur+Disponent korrekt auf, INSERT sauber), Routen live 401/403, **Browser-Render bestätigt**
+  (Melden-Button + Modal + Submit schließt), Konsole fehlerfrei.
 - **3.3 Sperrliste.** ✅ **Erledigt (2026-07-22).** Negativ aufgefallene Arbeiter je Unternehmen
   sperrbar. Chef kann gesperrten Arbeiter diesem Unternehmen **nicht** zuweisen. Unternehmen
   entscheidet: nie / wieder in 3 Monaten / wieder frei.

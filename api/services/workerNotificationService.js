@@ -380,6 +380,21 @@ export async function notifyUnavailableReported(pool, dispatcherUserId, assignme
   });
 }
 
+/** Beschwerde-Meldung eines Unternehmens → Disponent informieren (P3.2) */
+export async function notifyComplaintToDispatcher(pool, dispatcherUserId, complaintId, workerName, { severity = "medium", reason = null } = {}) {
+  if (!dispatcherUserId) return;
+  const sev = severity === "high" ? "Hohe Priorität" : (severity === "low" ? "Niedrige Priorität" : "Mittlere Priorität");
+  await notifyWorker(pool, {
+    workerUserId: dispatcherUserId,
+    type:         "worker_complaint_filed",
+    title:        "Beschwerde vom Unternehmen",
+    message:      `${workerName || "Eine Kraft"}: Das einsetzende Unternehmen hat ein Problem gemeldet (${sev}).${reason ? " Grund: " + String(reason).slice(0, 140) : ""} Ggf. Ersatz stellen.`,
+    entityType:   "worker_complaint",
+    entityId:     complaintId,
+    linkPath:     "/public/worker-submissions-review.html"
+  });
+}
+
 /** Worker hat Stundenzettel eingereicht → Reviewer/Dispatcher informieren */
 export async function notifySubmissionSubmitted(pool, reviewerUserId, submissionId, workerName, weekLabel) {
   await notifyWorker(pool, {

@@ -9,7 +9,10 @@ import { Router } from "express";
 import * as submissionSvc from "../services/workerSubmissionService.js";
 import * as workforceSvc from "../services/workforceService.js";
 import * as blocklistSvc from "../services/companyBlocklistService.js";
+import * as complaintSvc from "../services/companyComplaintService.js";
+import * as workerNotifications from "../services/workerNotificationService.js";
 import { requireCompanyOrg } from "../middleware/orgAccess.js";
+import { swallow } from "../utils/logger.js";
 
 export function createCompanyTimesheetsRouter(deps) {
   const { pool, logger, requireAuth, requireFeature } = deps;
@@ -97,6 +100,41 @@ export function createCompanyTimesheetsRouter(deps) {
         details: { responsible_actor_user_id: req.session.userId }
       };
       res.json({ ok: true });
+    } catch (err) { next(err); }
+  });
+
+  /* ── Beschwerde-Meldung (P3.2): Problem mit einer Kraft → Agentur benachrichtigen ── */
+  router.get("/company/complaints", ...base, async (req, res, next) => {
+    try {
+      const items = await complaintSvc.listCompanyComplaints(pool, req.orgId, { status: req.query.status || null });
+      res.json({ items, total: items.length });
+    } catch (err) { next(err); }
+  });
+
+  router.post("/company/complaints", ...base, async (req, res, next) => {
+    try {
+      const workerUserId = String(req.body?.worker_user_id || "").trim();
+      if (!uuidRx.test(workerUserId)) return res.status(400).json({ error: "INVALID_WORKER" });
+      const reason = String(req.body?.reason || "").trim();
+      if (reason.length < 3) return res.status(400).json({ error: "REASON_REQUIRED" });
+      const severity = ["low", "medium", "high"].includes(req.body?.severity) ? req.body.severity : "medium";
+      const assignmentLinkId = (req.body?.assignment_link_id && uuidRx.test(req.body.assignment_link_id)) ? req.body.assignment_link_id : null;
+
+      const result = await complaintSvc.fileComplaint(pool, {
+        companyOrgId: req.orgId, workerUserId, assignmentLinkId, severity, reason, createdBy: req.session.userId
+      });
+      if (result.error) return res.status(400).json(result);
+
+      // Disponent der Agentur benachrichtigen (fire-and-forget) → kann via P1.1 Ersatz stellen.
+      workerNotifications
+        .notifyComplaintToDispatcher(pool, result.dispatcherUserId, result.complaint.id, result.workerName, { severity, reason })
+        .catch(swallow("company.complaint.notify"));
+
+      res.locals.audit = {
+        action: "company.worker_complaint.file", entity_type: "worker_complaint", entity_id: result.complaint.id,
+        details: { worker_user_id: workerUserId, severity, responsible_actor_user_id: req.session.userId }
+      };
+      res.status(201).json({ complaint: result.complaint, notified_dispatcher: !!result.dispatcherUserId });
     } catch (err) { next(err); }
   });
 

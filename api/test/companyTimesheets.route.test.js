@@ -189,3 +189,49 @@ describe("Sperrliste (P3.3) — Käufer-Routen", () => {
     assert.equal(pool.calls[0].params[0], "c1");
   });
 });
+
+describe("Beschwerde (P3.2) — Käufer-Routen", () => {
+  const WUID = "11111111-1111-1111-1111-111111111111";
+  it("POST /company/complaints ohne Grund → 400 REASON_REQUIRED", async () => {
+    const pool = recordingPool();
+    const router = createCompanyTimesheetsRouter(baseDeps(pool));
+    const handler = lastHandler(router, "post", "/company/complaints");
+    const res = mockRes();
+    await handler({ orgId: "c1", body: { worker_user_id: WUID, reason: "" }, session: { userId: "u1" } }, res, (e) => { throw e; });
+    assert.equal(res._status, 400);
+    assert.equal(res._json.error, "REASON_REQUIRED");
+  });
+  it("POST /company/complaints ungültige worker_user_id → 400 INVALID_WORKER", async () => {
+    const pool = recordingPool();
+    const router = createCompanyTimesheetsRouter(baseDeps(pool));
+    const handler = lastHandler(router, "post", "/company/complaints");
+    const res = mockRes();
+    await handler({ orgId: "c1", body: { worker_user_id: "nope", reason: "problem" }, session: { userId: "u1" } }, res, (e) => { throw e; });
+    assert.equal(res._status, 400);
+    assert.equal(res._json.error, "INVALID_WORKER");
+  });
+  it("POST /company/complaints gültig → 201, Kontext gescoped auf worker+company, Dispatcher benachrichtigt", async () => {
+    const pool = recordingPool(
+      { rows: [{ link_id: "l1", supplier_org_id: "sup1", dispatcher_user_id: "disp1", first_name: "A", last_name: "B" }] }, // Kontext-SELECT
+      { rows: [{ id: "cmp1", company_org_id: "c1" }] } // INSERT
+    );
+    const router = createCompanyTimesheetsRouter(baseDeps(pool));
+    const handler = lastHandler(router, "post", "/company/complaints");
+    const res = mockRes();
+    await handler({ orgId: "c1", body: { worker_user_id: WUID, reason: "wiederholt zu spät", severity: "high" }, session: { userId: "u1" } }, res, (e) => { throw e; });
+    assert.equal(res._status, 201);
+    assert.equal(res._json.complaint.id, "cmp1");
+    assert.equal(res._json.notified_dispatcher, true);
+    assert.equal(pool.calls[0].params[0], WUID, "Kontext gescoped auf Worker");
+    assert.equal(pool.calls[0].params[1], "c1", "Kontext gescoped auf Company");
+  });
+  it("GET /company/complaints → gescoped auf req.orgId (Zero-State)", async () => {
+    const pool = recordingPool({ rows: [] });
+    const router = createCompanyTimesheetsRouter(baseDeps(pool));
+    const handler = lastHandler(router, "get", "/company/complaints");
+    const res = mockRes();
+    await handler({ orgId: "c1", query: {}, session: { userId: "u1" } }, res, (e) => { throw e; });
+    assert.deepEqual(res._json, { items: [], total: 0 });
+    assert.equal(pool.calls[0].params[0], "c1");
+  });
+});
