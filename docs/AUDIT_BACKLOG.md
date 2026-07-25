@@ -57,6 +57,69 @@ echo "frontend/public/staff/" >> .gitignore
 
 ---
 
+## Zugang 2026-07-25 — aus dem Enterprise-Audit Käufer-Portal
+
+> Quelle: [features/ENTERPRISE_AUDIT_2026-07-25.md](features/ENTERPRISE_AUDIT_2026-07-25.md).
+> Diese Punkte gehören **nicht** zum Befund und sind bewusst nicht im Audit-Commit gelandet —
+> sie sind beim Lesen des Codes nebenbei aufgefallen. Gesammelt statt erzählt (AGENTS.md-Regel).
+
+### C-1 · Zwei parallele Timesheet-Systeme 🟠 *strukturell*
+**Was:** Legacy `routes/timesheets.js` + `timesheets.html` (`timesheetService`, eigene Statusmaschine,
+manuelle Eingabe von Org-ID/Supplier-Org-ID/Worker-Freitext) läuft weiter neben dem echten System
+`worker_time_submissions`. Aus der Nav ist es raus, ein Wegweiser-Banner steht drin — mehr nicht.
+**Warum riskant:** zwei Wahrheiten für denselben Geschäftsvorfall; wer den alten Weg kennt, erzeugt
+Daten, die im neuen Käufer-Portal nie auftauchen.
+**Trigger:** vor dem Onboarding echter Pilotkunden. **Aufwand:** ~2–3 h.
+
+### C-2 · Emojis in produktiver UI 🟡 *Regelverstoß*
+**Was:** `einsatzportal-stundenzettel.html` nutzt ✏️ 💾 📝 💬 in Buttons/Hinweisen — CLAUDE.md
+verbietet Emojis in produktiver UI ausdrücklich. **Trigger:** nächste Einsatzportal-Politur. **~20 min.**
+
+### C-3 · `findOrgApprovers` hartkodiert Rollen in SQL 🟠 *Drift-Risiko*
+**Was:** `notificationMatrix.js` löst Empfänger über `role_key IN ('owner','admin','program_manager')`
+direkt in SQL auf — unabhängig von der Rechte-Matrix in `rbacService.js`.
+**Warum riskant:** ändert jemand die Permission-Matrix, driftet der Benachrichtigungs-Kreis still
+auseinander — es wird benachrichtigt, wer nicht handeln darf, oder umgekehrt.
+**Trigger:** beim nächsten Anfassen der Notification-Empfänger. **~1 h + Tests.**
+
+### C-4 · Web3Forms-Access-Key im Repo 🟠 *Pilot-Strecke*
+**Was:** `cloudflare-pages/index.html` enthält den Key im Klartext. Bei Web3Forms ist er per Design
+öffentlich — committet heißt aber: jeder kann die Owner-Inbox zuspammen.
+**Trigger:** mit der Pilot-Strecken-Umstellung.
+
+### C-5 · QR-Code von Fremd-Dienst 🟡
+**Was:** `cloudflare-pages/start.html` lädt den QR live von `api.qrserver.com`. Externe Abhängigkeit
+auf einer Marketing-Seite, und jeder Aufruf leakt die Ziel-URL an Dritte.
+**Lösung:** QR einmal erzeugen, statisch mit ausliefern. **Trigger:** vor dem ersten LinkedIn-Post. **~20 min.**
+
+### C-6 · 13 skipped Tests nie identifiziert 🟡
+**Was:** Die Suite meldet konstant `skipped 13`, ohne dass dokumentiert wäre, welche und warum.
+CLAUDE.md §0.9 verbietet stille Skips. **Trigger:** nächster Test-Durchgang. **~30 min.**
+
+### C-7 · Build-Artefakte im Working Tree 🟢 *= B-1, bestätigt*
+`frontend/public/staff/assets/*` + `frontend/support-ops/*` erzeugen dauerhaftes Diff-Rauschen.
+Kein neuer Punkt — Bestätigung, dass **B-1** inzwischen die Übersicht in `git status` real stört.
+
+### C-8 · Verwaister Stash 🟢 *sofort erledigbar*
+`stash@{0}` ist inhaltlich identisch zum Working Tree (verifiziert) → `git stash drop stash@{0}`.
+
+### C-9 · Push-Benachrichtigung beim Sperren fehlt 🟡
+Sperrt ein Kunde eine Kraft, erfährt die Agentur es nur per Pull (Hinweis im Zuweisungs-Drawer).
+**Trigger:** nächste Notification-Welle. **~1 h + Migration für den Typ.**
+
+---
+
+## Turnus-Prüfung (alle 14 Tage — global verbindlich laut `~/AGENTS.md`)
+
+Bei jeder Prüfung: **erledigt? noch gültig? neu dazugekommen?** Erledigte Punkte werden
+**abgehakt, nicht gelöscht** — die Historie zeigt, ob ein Muster wiederkehrt.
+
+| Datum | Geprüft von | Ergebnis |
+|---|---|---|
+| 2026-07-25 | Claude | Zugang C-1…C-9 aus dem Enterprise-Audit. B-1…B-5 unverändert offen. Nächste Prüfung: 2026-08-08. |
+
+---
+
 ## Erledigt-Verweis
 Alles Substanzielle (Welle 1, S-1, D-5, H-5, D-1, D-2-Build-Schritt, F-1, F-4-verifiziert, H-1, H-2-n/a)
 ist in [AUDIT_REMEDIATION_2026-06-28.md](AUDIT_REMEDIATION_2026-06-28.md) dokumentiert + committet.

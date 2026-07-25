@@ -5,6 +5,7 @@
  */
 
 import { createServiceLogger } from "../utils/logger.js";
+import * as rbacService from "./rbacService.js";
 
 const logger = createServiceLogger("notificationMatrix");
 
@@ -430,7 +431,47 @@ export async function dispatch(pool, eventKey, context = {}) {
 }
 
 /**
+ * Empfänger aus einer PERMISSION ableiten statt aus einer hartkodierten Rollenliste.
+ *
+ * Warum das der richtige Weg ist: `findOrgApprovers`/`findOrgAdmins` schreiben ihre Rollen
+ * direkt ins SQL. Ändert jemand die Rechte-Matrix in `rbacService.PERMISSIONS`, driftet der
+ * Benachrichtigungs-Kreis still auseinander — es wird benachrichtigt, wer gar nicht handeln
+ * darf, oder der Zuständige bekommt nichts. Hier ist die Matrix die einzige Wahrheit:
+ * benachrichtigt wird genau, **wer die Aktion auch ausführen darf**.
+ *
+ * Fallback: hat niemand die Permission (z. B. kleine Org mit ungewöhnlicher Rollenverteilung),
+ * wird der Org-Owner benachrichtigt — eine Benachrichtigung an niemanden ist immer ein Bug.
+ *
+ * @param {string} permission z. B. 'timesheet.approve'
+ * @returns {Promise<string[]>} user_ids
+ */
+export async function findOrgMembersWithPermission(pool, orgId, permission) {
+  if (!orgId || !permission) return [];
+  const roles = rbacService.PERMISSIONS[permission];
+  if (!Array.isArray(roles) || !roles.length) {
+    logger.warn({ permission }, 'Unbekannte Permission fuer Empfaenger-Aufloesung');
+    return [];
+  }
+  const { rows } = await pool.query(
+    `SELECT user_id FROM org_memberships
+      WHERE org_id = $1 AND is_active = TRUE AND role_key = ANY($2::text[])`,
+    [orgId, roles]
+  );
+  if (rows.length) return rows.map(r => r.user_id);
+
+  const { rows: owners } = await pool.query(
+    `SELECT user_id FROM org_memberships
+      WHERE org_id = $1 AND is_active = TRUE AND role_key = 'owner'`,
+    [orgId]
+  );
+  if (owners.length) logger.warn({ orgId, permission }, 'Niemand mit Permission — Fallback auf Org-Owner');
+  return owners.map(r => r.user_id);
+}
+
+/**
  * Helper: find org approvers (owner/admin/program_manager).
+ * @deprecated Bevorzugt `findOrgMembersWithPermission(pool, orgId, '<permission>')` —
+ * diese Variante kann von der Rechte-Matrix wegdriften (siehe C-3 in docs/AUDIT_BACKLOG.md).
  */
 export async function findOrgApprovers(pool, orgId) {
   const { rows } = await pool.query(
