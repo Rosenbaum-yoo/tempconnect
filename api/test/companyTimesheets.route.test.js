@@ -11,6 +11,7 @@ import { createCompanyTimesheetsRouter } from "../routes/companyTimesheets.js";
 import * as submissionSvc from "../services/workerSubmissionService.js";
 import * as rbacService from "../services/rbacService.js";
 import * as complaintSvc from "../services/companyComplaintService.js";
+import * as blocklistSvc from "../services/companyBlocklistService.js";
 
 function recordingPool(...responses) {
   let idx = 0;
@@ -189,6 +190,24 @@ describe("Sperrliste (P3.3) — Käufer-Routen", () => {
     await handler({ orgId: "c1", query: {}, session: { userId: "u1" } }, res, (e) => { throw e; });
     assert.deepEqual(res._json, { items: [], total: 0 });
     assert.equal(pool.calls[0].params[0], "c1");
+  });
+});
+
+describe("Chef-Hinweis „gesperrt bei X\" (P3.3-Abschluss)", () => {
+  it("listBlocksForSupplier scoped über die eigene Belegschaft, nicht über blocklist.supplier_org_id", async () => {
+    const pool = recordingPool({ rows: [] });
+    await blocklistSvc.listBlocksForSupplier(pool, "sup-1");
+    const q = pool.calls[0];
+    assert.match(q.sql, /wp\.supplier_org_id = \$1/, "über worker_profiles gescoped (supplier_org_id der Sperre kann NULL sein)");
+    assert.equal(q.params[0], "sup-1");
+    assert.match(q.sql, /blocked_until IS NULL OR b\.blocked_until >= CURRENT_DATE/, "nur aktive Sperren");
+    assert.match(q.sql, /company_name/, "liefert den Kundennamen für den Hinweis");
+  });
+
+  it("listBlocksForSupplier ohne Org → leer, ohne Query", async () => {
+    const pool = recordingPool({ rows: [] });
+    assert.deepEqual(await blocklistSvc.listBlocksForSupplier(pool, null), []);
+    assert.equal(pool.calls.length, 0);
   });
 });
 

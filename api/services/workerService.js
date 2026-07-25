@@ -1914,6 +1914,9 @@ export async function listAssignableSourcesForDispatcher(pool, supplierOrgId, { 
       availability_to: row.planned_end_date || null,
       shift_model: null,
       client_org_name: row.client_org_name || null,
+      // Käufer-Org mitgeben, damit die Dispositions-UI Sperren dieses Kunden
+      // (P3.3) schon VOR dem Absenden anzeigen kann statt erst als 409.
+      client_org_id: row.org_id || null,
       supplier_company_name: null,
       status_label: "Aus Deal",
       assigned_worker_user_ids: assignedByAssignment.get(row.assignment_id) || []

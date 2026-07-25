@@ -22,6 +22,7 @@ import * as workerNotifications from "../services/workerNotificationService.js";
 import * as workerOfferReservationService from "../services/workerOfferReservationService.js";
 import * as workforceSchedulePdf from "../services/workforceSchedulePdfService.js";
 import * as complaintSvc from "../services/companyComplaintService.js";
+import * as blocklistSvc from "../services/companyBlocklistService.js";
 import { trackProductEventFromRequest } from "../services/productAnalyticsService.js";
 import { swallow } from "../utils/logger.js";
 
@@ -479,6 +480,17 @@ export function createWorkersRouter(deps) {
         details: { status, responsible_actor_user_id: req.session.userId }
       };
       res.json(result.complaint);
+    } catch (err) { next(err); }
+  });
+
+  /* ── Sperr-Hinweise für die Disposition (P3.3) ───────────────────────────────
+   * „Wer aus meiner Belegschaft ist bei welchem Kunden gesperrt?" — damit die
+   * Zuweisungs-UI die Sperre anzeigt, bevor der Guard mit 409 abweist.
+   * MUSS vor "/workers/:userId" stehen. */
+  router.get("/workers/blocks", ...base, requireScope("read:workers"), rperm("worker.view"), async (req, res, next) => {
+    try {
+      const items = await blocklistSvc.listBlocksForSupplier(pool, req.orgId);
+      res.json({ items, total: items.length });
     } catch (err) { next(err); }
   });
 

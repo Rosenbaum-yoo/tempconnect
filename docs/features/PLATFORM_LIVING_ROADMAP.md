@@ -51,10 +51,16 @@
   (start_date/work_date/Fristen) → `todayDE()/dateOnlyDE()`. **Technische UTC-Buckets**
   (Analytics-Tagesaggregation, Idempotenz-/Dedup-Keys wie `eventKey`, `activeDays`) → **bewusst UTC
   lassen** (sonst brechen Dedup/Reports). Frontend-`toLocaleDateString` ist für Berlin-Browser korrekt.
-- **0.2 Stundenzettel-Cards klickbar.** Die Wochen-Cards (KW 30 …) in
-  `einsatzportal-stundenzettel.html` müssen anklickbar sein → Weiterleitung zum Ausfüllen/Detail.
-- **0.3 Stundenzettel im Einsatzportal bearbeitbar.** Aktuell nicht editierbar — Bearbeiten-Flow
-  reparieren (`workerPortal.js` Submissions `PUT /worker/submissions/:id/entries`, Frontend-Binding).
+- **0.2 Stundenzettel-Cards klickbar.** ✅ **Als bereits erledigt verifiziert (2026-07-25) — kein Bau nötig.**
+  Die Wochen-Cards tragen `onclick="selSub(...)"` (`einsatzportal-stundenzettel.html:459`), die
+  Detail-Ansicht öffnet den Editor über „Weiter ausfüllen"/„Korrektur einreichen". Der Eintrag
+  stammte aus dem Owner-Braindump und war zum Zeitpunkt der Aufnahme bereits überholt.
+- **0.3 Stundenzettel im Einsatzportal bearbeitbar.** ✅ **Als bereits erledigt verifiziert (2026-07-25).**
+  Editor vorhanden (`edSaveDraft()` → `PUT /worker/submissions/:id/entries`), und die
+  Frontend-Freigabe deckt sich **exakt** mit dem Backend-Guard:
+  `EDITABLE = ['draft','needs_correction']` ↔ `SUBMISSION_NOT_EDITABLE` im Service.
+  Keine Drift zwischen Anzeige und Regel. *(Lehre: Braindump-Bugs vor dem Bau gegen den
+  echten Code prüfen — hier hätte „Fix" doppelte Logik erzeugt.)*
 - **0.4 CSV-Import ↔ Einladung (Brücke).** 🔶 *Kern erledigt (2026-07-22):* Worker-Liste liefert
   `is_verified`; neue `listInvitableWorkers` (nicht-registriert + keine offene Einladung = kollisionsfrei);
   Route `POST /worker-invites/bulk`; UI: „Einladen"-Button je nicht-registriertem Worker (E-Mail
@@ -241,7 +247,21 @@
   aktualisiert), Migration angewendet, **Guard-Query transaktional gegen echtes Schema** (aktive Sperre
   gefunden, abgelaufene ignoriert), Routen live 401/403, **Browser-Render bestätigt** (Sperrliste-Tab
   2 Einträge + Freigeben, Block-Modal mit Dauer-Optionen), Konsole fehlerfrei.
-  **Offen:** Chef-Hinweis „gesperrt bei X" in der Zuweisungs-UI (nice-to-have) + Benachrichtigung an Chef.
+  → **Chef-Hinweis „gesperrt bei X" ergänzt (2026-07-25) — P3.3 damit abgeschlossen.** Bisher lief der
+  Disponent erst beim Absenden in den 409-Guard. Jetzt sieht er die Sperre **vor** der Zuweisung:
+  Service `listBlocksForSupplier` (aktive Sperren gegen die eigene Belegschaft, gescoped über
+  `worker_profiles.supplier_org_id` — **nicht** über `blocklist.supplier_org_id`, das nur
+  abgeleiteter Kontext und ggf. NULL ist; nutzt den in Mig 149 dafür angelegten
+  `(worker_user_id)`-Index), Route `GET /workers/blocks` (`worker.view`).
+  `listAssignableSourcesForDispatcher` liefert zusätzlich `client_org_id`, damit die UI die
+  Sperren des **konkret gewählten Kunden** auflösen kann. Im Zuweisungs-Drawer werden gesperrte
+  Kräfte bewusst **sichtbar deaktiviert** („— gesperrt bei diesem Kunden bis TT.MM.JJJJ") statt
+  still ausgeblendet, plus Sammel-Hinweis mit Grund in der Info-Box — der Disponent soll den
+  Grund sehen, nicht rätseln, warum jemand fehlt. Verifiziert: 2 neue Tests (Scoping-Form,
+  Zero-State ohne Query) + transaktionaler DB-Smoke gegen echte Daten (Sperre angelegt →
+  Hinweis mit Kundenname + Grund sichtbar → fremde Agentur sieht 0 → zurückgerollt),
+  Route live 401.
+  **Offen:** aktive Benachrichtigung an den Chef beim Sperren (heute Pull statt Push).
 - **3.4 Arbeitsplatz-Aufträge perfektionieren.** Existiert bereits (`marketplace.js` demand_requests
   + `requisitions`) — Politur zur Perfektion.
 
@@ -290,6 +310,18 @@
 - CSV-Import und Einladungs-Flow als ein durchgängiges, harmonisches Erlebnis.
 
 ---
+
+## Stand P0–P3 (2026-07-25)
+
+| Welle | Status |
+|---|---|
+| P0 Bugs | ✅ 0.1 Kern / 0.2 + 0.3 **als bereits erledigt verifiziert** / 0.4 Kern — offen: TZ-Per-Case-Triage, CSV-Wizard-Politur |
+| P1 Lifecycle & Ersatz | ✅ 1.1–1.4 komplett, 1.5 Monatsplan-PDF — offen: Stundenzettel-Planung-PDF (leeres Monatsraster) |
+| P2 Stundenzettel-Workflow | ✅ 2.1–2.3 komplett + audit-gehärtet — offen: Legacy-`/timesheets` ausmustern, Käufer-Notification bei „gesendet" |
+| P3 Unternehmens-Seite | ✅ 3.1–3.3 **komplett** (inkl. Beschwerde-Rückkanal + Chef-Hinweis) — offen: 3.4 Politur, Push-Benachrichtigung beim Sperren |
+
+Die verbleibenden Punkte sind bewusst klein geschnitten und einzeln lieferbar; keiner davon
+blockiert die Nutzbarkeit der jeweiligen Welle. Nächster substanzieller Block ist **P4**.
 
 ## Empfohlene Reihenfolge (Owner entscheidet)
 

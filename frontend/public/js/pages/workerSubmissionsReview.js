@@ -1937,6 +1937,7 @@ async function loadAssignData(){
     // in submitAssign waehlt anhand dessen das richtige Backend-Ziel.
     const dC=await fetchJson(`${API}/assignable-sources`);
     unassignedCaps=dC.items||[];
+    await loadSupplierBlocks();
     if(!wrksLoaded){
       const dW=await fetchJson(`${API}/workers`);
       allWrks=dW.items||dW.workers||[];
@@ -2012,7 +2013,19 @@ function parseAssignableSelection(raw){
   if(idx<=0)return { source:'capacity', id:raw };
   return { source:raw.slice(0,idx), id:raw.slice(idx+1) };
 }
-function rebuildWorkerSelect(blockedWorkerUserIds){
+/* P3.3 \u2014 Sperr-Hinweise: welcher eigene Worker ist bei welchem Kunden gesperrt.
+ * Einmal geladen, dann rein clientseitig gefiltert (kein Request je Auswahl). */
+let supplierBlocks=[];
+function blocksForCompany(companyOrgId){
+  if(!companyOrgId)return new Map();
+  const m=new Map();
+  supplierBlocks.forEach((b)=>{
+    if(String(b.company_org_id)===String(companyOrgId))m.set(String(b.worker_user_id),b);
+  });
+  return m;
+}
+
+function rebuildWorkerSelect(blockedWorkerUserIds,companyOrgId){
   const wSel=document.getElementById('asgWkr');
   if(!wSel)return;
   const prev=wSel.value;
@@ -2021,10 +2034,40 @@ function rebuildWorkerSelect(blockedWorkerUserIds){
   const available=activeW.filter((w)=>!blocked.has(String(w.id||w.user_id)));
   const hidden=activeW.length-available.length;
   const hiddenLabel=hidden>0?` (${hidden} ausgeblendet: bereits zugewiesen)`:'';
+  // Vom Kunden gesperrte Kr\u00e4fte werden NICHT versteckt, sondern sichtbar deaktiviert \u2014
+  // der Disponent muss den Grund sehen, nicht r\u00e4tseln, warum jemand fehlt.
+  const byCompany=blocksForCompany(companyOrgId);
+  let blockedCount=0;
   wSel.innerHTML='<option value="">\u2013 Bitte waehlen\u2013'+hiddenLabel+'</option>'
-    +available.map((w)=>`<option value="${w.id||w.user_id}">${esc(w.first_name||'')} ${esc(w.last_name||'')}${w.personnel_number?' ('+esc(w.personnel_number)+')':''}</option>`).join('');
-  // Bisherige Auswahl nur beibehalten wenn nicht geblockt
-  if(prev && !blocked.has(String(prev))) wSel.value=prev;
+    +available.map((w)=>{
+      const uid=String(w.id||w.user_id);
+      const blk=byCompany.get(uid);
+      const name=`${esc(w.first_name||'')} ${esc(w.last_name||'')}${w.personnel_number?' ('+esc(w.personnel_number)+')':''}`;
+      if(!blk)return `<option value="${uid}">${name}</option>`;
+      blockedCount++;
+      const until=blk.blocked_until?(' bis '+fmtD(blk.blocked_until)):' dauerhaft';
+      return `<option value="${uid}" disabled>${name} \u2014 gesperrt bei diesem Kunden${esc(until)}</option>`;
+    }).join('');
+  if(prev && !blocked.has(String(prev)) && !byCompany.has(String(prev))) wSel.value=prev;
+  setAssignBlockNotice(byCompany,blockedCount);
+}
+
+function setAssignBlockNotice(byCompany,count){
+  const info=document.getElementById('asgCapInfo');
+  if(!info||!count)return;
+  const names=[...byCompany.values()].map((b)=>esc(b.reason||'ohne Grundangabe')).slice(0,3);
+  info.insertAdjacentHTML('beforeend',
+    '<div class="wk-alert wk-alert-warn" style="margin-top:8px;font-size:.8rem">'
+    +'<strong>'+count+' Kraft/Kr\u00e4fte von diesem Kunden gesperrt</strong> \u2014 '
+    +'im Dropdown deaktiviert. Grund: '+names.join(' \u00b7 ')
+    +'</div>');
+}
+
+async function loadSupplierBlocks(){
+  try{
+    const d=await fetchJson(`${API}/workers/blocks`);
+    supplierBlocks=d.items||[];
+  }catch(e){ supplierBlocks=[]; }  // Hinweis ist Zusatz \u2014 Zuweisung darf nie daran scheitern
 }
 function onCapSelect(){
   const raw=document.getElementById('asgCap').value;
@@ -2032,19 +2075,18 @@ function onCapSelect(){
   const sel=parseAssignableSelection(raw);
   if(!sel){
     info.style.display='none';
-    rebuildWorkerSelect([]);
+    rebuildWorkerSelect([],null);
     return;
   }
   const c=unassignedCaps.find((x)=>x.source===sel.source && String(x.id)===String(sel.id))
     ||unassignedCaps.find((x)=>String(x.id)===String(sel.id));
   if(!c){
     info.style.display='none';
-    rebuildWorkerSelect([]);
+    rebuildWorkerSelect([],null);
     return;
   }
   // Bereits verknuepfte Worker aus dem Dropdown filtern (krankgemeldete /
   // abgelehnte sind serverseitig bereits ausgeschlossen).
-  rebuildWorkerSelect(Array.isArray(c.assigned_worker_user_ids)?c.assigned_worker_user_ids:[]);
   info.style.display='block';
   const sourceBadge=c.source==='deal_assignment'
     ? '<span class="pill pill-pnd" style="margin-left:6px">Aus Deal</span>'
@@ -2059,6 +2101,8 @@ function onCapSelect(){
     +(c.availability_from?`<br>Zeitraum: ${fmtD(c.availability_from)}${c.availability_to?' \u2013 '+fmtD(c.availability_to):''}`:'')
     +(c.shift_model?`<br>Schichtmodell: ${esc(c.shift_model)}`:'')
     +(remain?`<br>Personal: ${esc(remain)}`:'');
+  // Erst jetzt, damit der Sperr-Hinweis an die fertige Info-Box angehängt wird.
+  rebuildWorkerSelect(Array.isArray(c.assigned_worker_user_ids)?c.assigned_worker_user_ids:[], c.client_org_id||null);
   // Pre-fill Start/End aus der Quelle (capacity.availability_* bzw. deal_assignment.start_date/planned_end_date)
   if(c.availability_from) document.getElementById('asgStart').value=String(c.availability_from).substring(0,10);
   if(c.availability_to)   document.getElementById('asgEnd').value=String(c.availability_to).substring(0,10);

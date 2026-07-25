@@ -47,6 +47,31 @@ export async function listCompanyBlocklist(pool, companyOrgId, { includeExpired 
 }
 
 /**
+ * Chef-Hinweis (P3.3): alle AKTIVEN Sperren, die die eigene Belegschaft betreffen —
+ * „wer ist bei welchem Kunden gesperrt". Damit zeigt die Dispositions-UI die Sperre
+ * schon bei der Auswahl an, statt den Disponenten erst am 409 auflaufen zu lassen.
+ *
+ * Scoping über die eigene Belegschaft (`worker_profiles.supplier_org_id = $1`), nicht über
+ * `blocklist.supplier_org_id` — letzteres ist nur ein abgeleiteter Kontext und kann NULL sein.
+ * Nutzt den in Mig 149 genau dafür angelegten Index `(worker_user_id)`.
+ */
+export async function listBlocksForSupplier(pool, supplierOrgId) {
+  if (!supplierOrgId) return [];
+  const { rows } = await pool.query(
+    `SELECT b.worker_user_id, b.company_org_id, b.reason, b.blocked_until,
+            co.name AS company_name
+       FROM company_worker_blocklist b
+       JOIN worker_profiles wp ON wp.user_id = b.worker_user_id
+       LEFT JOIN organizations co ON co.id = b.company_org_id
+      WHERE wp.supplier_org_id = $1
+        AND (b.blocked_until IS NULL OR b.blocked_until >= CURRENT_DATE)
+      ORDER BY b.created_at DESC`,
+    [supplierOrgId]
+  );
+  return rows;
+}
+
+/**
  * Kraft sperren / Sperre aktualisieren (Upsert je company+worker).
  *
  * Beziehungs-Nachweis (Pflicht): gesperrt werden kann NUR eine Kraft, die bei diesem
