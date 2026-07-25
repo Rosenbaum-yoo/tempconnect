@@ -41,7 +41,7 @@ describe("createPaymentSession — insert with/without stripe session", () => {
     });
     assert.strictEqual(pool.queries.length, 1);
     assert.ok(pool.queries[0].sql.includes("stripe_session_id"));
-    assert.deepStrictEqual(pool.queries[0].params, ["ps-1", "u1", "PLUS", 49, "stripe", "org-1", "cs_abc"]);
+    assert.deepStrictEqual(pool.queries[0].params, ["ps-1", "u1", "PLUS", 49, "stripe", "org-1", "cs_abc", null]);
   });
 
   it("inserts without stripeSessionId for demo payments", async () => {
@@ -51,7 +51,7 @@ describe("createPaymentSession — insert with/without stripe session", () => {
     });
     assert.strictEqual(pool.queries.length, 1);
     assert.ok(!pool.queries[0].sql.includes("stripe_session_id"));
-    assert.deepStrictEqual(pool.queries[0].params, ["ps-2", "u1", "BASIS", 29, "demo", "org-2"]);
+    assert.deepStrictEqual(pool.queries[0].params, ["ps-2", "u1", "BASIS", 29, "demo", "org-2", null]);
   });
 });
 
