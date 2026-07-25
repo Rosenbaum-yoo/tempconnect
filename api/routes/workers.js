@@ -21,6 +21,7 @@ import * as billingMetrics from "../services/billingMetricsService.js";
 import * as workerNotifications from "../services/workerNotificationService.js";
 import * as workerOfferReservationService from "../services/workerOfferReservationService.js";
 import * as workforceSchedulePdf from "../services/workforceSchedulePdfService.js";
+import * as complaintSvc from "../services/companyComplaintService.js";
 import { trackProductEventFromRequest } from "../services/productAnalyticsService.js";
 import { swallow } from "../utils/logger.js";
 
@@ -449,6 +450,35 @@ export function createWorkersRouter(deps) {
         limit: parseInt(req.query.limit, 10) || 300
       });
       res.json(board);
+    } catch (err) { next(err); }
+  });
+
+  /* ── Beschwerde-Eingang (P3.2, Agentur-Seite) ───────────────────────────────
+   * Gegenstück zur Käufer-Meldung: der Disponent sieht Meldungen über SEINE Kräfte
+   * (strikt supplier_org_id-gebunden) und schreibt den Status fort. Ohne diesen
+   * Rückkanal wäre die Meldung eine Einbahnstraße.
+   * MUSS vor "/workers/:userId" stehen. */
+  router.get("/workers/complaints", ...base, requireScope("read:workers"), rperm("worker.view"), async (req, res, next) => {
+    try {
+      const items = await complaintSvc.listSupplierComplaints(pool, req.orgId, {
+        status: req.query.status || null,
+        limit: parseInt(req.query.limit, 10) || 100
+      });
+      res.json({ items, total: items.length, open: items.filter((c) => c.status === "open").length });
+    } catch (err) { next(err); }
+  });
+
+  router.patch("/workers/complaints/:id([0-9a-fA-F-]{36})", ...base, requireScope("write:workers"), rperm("worker.manage"), async (req, res, next) => {
+    try {
+      const status = String(req.body?.status || "").trim();
+      const result = await complaintSvc.updateComplaintStatus(pool, req.orgId, req.params.id, status);
+      if (result.error === "INVALID_STATUS") return res.status(400).json(result);
+      if (result.error) return res.status(404).json(result);
+      res.locals.audit = {
+        action: "supplier.worker_complaint.status", entity_type: "worker_complaint", entity_id: req.params.id,
+        details: { status, responsible_actor_user_id: req.session.userId }
+      };
+      res.json(result.complaint);
     } catch (err) { next(err); }
   });
 

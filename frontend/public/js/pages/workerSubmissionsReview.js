@@ -3264,6 +3264,7 @@ async function loadAsgn(){
     document.getElementById('ctAsgn').style.display='block';
     if(!pageAccess.permissions.workerEdit)toggleElement('dealAsgnSection',false);
     renderAsgns();
+    loadComplaintInbox();
   }catch(error){
     if(isTransientError(error)){
       document.getElementById('ldAsgn').style.display='none';
@@ -3525,6 +3526,76 @@ async function viewWorkerLinks(workerId){
   applyStaffingWorkerPrefill(workerId);
   if(linksLoaded)renderAsgns();
 }
+/* ── P3.2: Beschwerde-Eingang der Agentur (Rückkanal zur Kundenmeldung) ─────────
+ * Zeigt Meldungen über eigene Kräfte und verdrahtet jede Meldung mit ihrer Antwort:
+ * „Ersatz zuweisen" (P1.1) auf demselben Einsatz + Statusfortschritt für den Kunden. */
+const CMP_SEV_LABEL={high:'Hoch',medium:'Mittel',low:'Niedrig'};
+let complaintItems=[];
+
+async function loadComplaintInbox(){
+  const box=document.getElementById('cmpInbox');
+  if(!box)return;
+  try{
+    const d=await fetchJson(`${API}/workers/complaints?status=open`);
+    complaintItems=d.items||[];
+  }catch(error){
+    // Rückkanal ist Zusatzinformation — ein Fehler darf die Einsatzliste nie blockieren.
+    complaintItems=[];
+  }
+  renderComplaintInbox();
+}
+
+function renderComplaintInbox(){
+  const box=document.getElementById('cmpInbox');
+  if(!box)return;
+  if(!complaintItems.length){box.style.display='none';box.innerHTML='';return;}
+  const rows=complaintItems.map((c)=>{
+    const name=((c.first_name||'')+' '+(c.last_name||'')).trim()||'Mitarbeiter';
+    const sev=CMP_SEV_LABEL[c.severity]||c.severity||'–';
+    const when=c.created_at?new Date(c.created_at).toLocaleDateString('de-DE'):'';
+    const canEdit=pageAccess.permissions.workerEdit;
+    const replaceBtn=(canEdit&&c.assignment_link_id)
+      ? '<button class="wk-btn wk-btn-sm" style="background:var(--tc-tone-danger-bg,#fef1f1);color:var(--tc-tone-danger-text,#b42318);border:1px solid var(--wk-danger,#e5484d)" onclick="openReplaceModal(\''+esc(c.assignment_link_id)+'\')">&#8644; Ersatz zuweisen</button>'
+      : '';
+    return '<div class="wk-card" style="padding:12px 14px;margin-bottom:8px;border-left:3px solid var(--wk-danger,#e5484d)">'
+      +'<div style="display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;align-items:flex-start">'
+        +'<div style="min-width:220px">'
+          +'<div style="font-weight:700">'+esc(name)+' <span class="wk-sub" style="font-weight:400">· '+esc(c.company_name||'Kunde')+'</span></div>'
+          +'<div class="wk-sub">Dringlichkeit: '+esc(sev)+(when?(' · gemeldet '+esc(when)):'')+'</div>'
+          +'<div style="margin-top:6px">'+esc(c.reason||'')+'</div>'
+        +'</div>'
+        +'<div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center">'
+          +replaceBtn
+          +'<button class="wk-btn wk-btn-sm" onclick="setComplaintStatus(\''+esc(c.id)+'\',\'acknowledged\')" title="Dem Kunden zeigen: wir kümmern uns">Angenommen</button>'
+          +'<button class="wk-btn wk-btn-sm wk-btn-primary" onclick="setComplaintStatus(\''+esc(c.id)+'\',\'resolved\')">Erledigt</button>'
+        +'</div>'
+      +'</div>'
+    +'</div>';
+  }).join('');
+  box.innerHTML='<div class="wk-alert wk-alert-warn" style="margin-bottom:10px">'
+    +'<strong>'+complaintItems.length+' offene Kundenmeldung'+(complaintItems.length===1?'':'en')+'</strong> '
+    +'<span class="wk-sub">Ein Kunde hat ein Problem mit einer Ihrer Kräfte gemeldet — reagieren Sie direkt hier.</span>'
+    +'</div>'+rows;
+  box.style.display='block';
+}
+
+async function setComplaintStatus(id,status){
+  if(!ensurePermission('workerManage','Sie koennen Meldungen sehen, aber nicht bearbeiten.'))return;
+  try{
+    const csrf=await getCsrf();
+    await fetchJson(`${API}/workers/complaints/${encodeURIComponent(id)}`,{
+      method:'PATCH',
+      headers:{'Content-Type':'application/json','x-csrf-token':csrf},
+      body:JSON.stringify({status})
+    });
+    toast(status==='resolved'?'Meldung als erledigt markiert.':'Meldung als angenommen markiert.','success');
+    loadComplaintInbox();
+  }catch(error){
+    toast('Konnte nicht gespeichert werden: '+(error?.message||'Fehler'),'error');
+  }
+}
+window.setComplaintStatus=setComplaintStatus;
+
 /* ── P1.1: Ersatz bei Krankheit/Ausfall (Chef weist Ersatz ab Wirk-Datum zu) ──── */
 let replacingLinkId=null;
 function openReplaceModal(id){

@@ -8,9 +8,12 @@
   var _rows = [];
   var _current = null;
 
+  // Escaped auch Apostrophe: Werte landen u.a. in onclick="fn('…')" — ohne &#39; könnte
+  // ein Wert aus dem JS-String-Literal ausbrechen (heute nur DB-UUIDs, morgen evtl. Namen).
   function esc(v) {
     if (v == null) return '';
-    return String(v).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+    return String(v).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
   }
   function fmtDate(d) {
     if (!d) return '–';
@@ -182,12 +185,13 @@
   /* ── Live-Belegschaft (P2.3/3.1) + Sperrliste (P3.3) ──────────────────── */
   var _liveLoaded = false;
   var _blocklistLoaded = false;
+  var _complaintsLoaded = false;
   var _liveTimer = null;
   var _liveRows = [];
   var _blkWorkerId = null;
 
-  var VIEWS = { timesheets: 'viewTimesheets', live: 'viewLive', blocklist: 'viewBlocklist' };
-  var TABS = { timesheets: 'tabTimesheets', live: 'tabLive', blocklist: 'tabBlocklist' };
+  var VIEWS = { timesheets: 'viewTimesheets', live: 'viewLive', complaints: 'viewComplaints', blocklist: 'viewBlocklist' };
+  var TABS = { timesheets: 'tabTimesheets', live: 'tabLive', complaints: 'tabComplaints', blocklist: 'tabBlocklist' };
   function ctView(mode) {
     Object.keys(VIEWS).forEach(function (k) {
       document.getElementById(VIEWS[k]).style.display = (k === mode) ? '' : 'none';
@@ -195,6 +199,7 @@
     });
     if (mode === 'live' && !_liveLoaded) ctLoadLive();
     if (mode === 'blocklist' && !_blocklistLoaded) ctLoadBlocklist();
+    if (mode === 'complaints' && !_complaintsLoaded) ctLoadComplaints();
   }
   window.ctView = ctView;
 
@@ -339,6 +344,57 @@
     }).join('');
   }
 
+  /* ── Meine Meldungen: Rückkanal zu den gemeldeten Problemen ─────────────── */
+  // Status-Werte exakt wie der CHECK in Migration 150: open | acknowledged | resolved.
+  var CMP_STATUS = {
+    open:         { label: 'Offen',      cls: 'ct-badge--review' },
+    acknowledged: { label: 'Angenommen', cls: 'ct-badge--done' },
+    resolved:     { label: 'Erledigt',   cls: 'ct-badge--ok' }
+  };
+  var CMP_SEVERITY = {
+    low:    { label: 'Niedrig', cls: 'ct-badge--done' },
+    medium: { label: 'Mittel',  cls: 'ct-badge--review' },
+    high:   { label: 'Hoch',    cls: 'ct-badge--rej' }
+  };
+
+  async function ctLoadComplaints() {
+    var s = document.getElementById('cmpFilterStatus').value;
+    try {
+      var data = await TC.api.get('/company/complaints' + (s ? ('?status=' + encodeURIComponent(s)) : ''));
+      _complaintsLoaded = true;
+      renderComplaints((data && data.items) || []);
+    } catch (e) {
+      if (isCompanyGateError(e)) { show('notCompany'); return; }
+      document.getElementById('cmpBody').innerHTML =
+        '<tr><td colspan="6" class="ct-empty">Konnte nicht geladen werden: ' + esc(e.code || e.message || 'Fehler') + '</td></tr>';
+    }
+  }
+  window.ctLoadComplaints = ctLoadComplaints;
+
+  function renderComplaints(list) {
+    var open = list.filter(function (c) { return c.status === 'open' || c.status === 'in_progress'; }).length;
+    document.getElementById('cmpCount').textContent =
+      list.length + (list.length === 1 ? ' Meldung' : ' Meldungen') + (open ? (' · ' + open + ' offen') : '');
+    var tb = document.getElementById('cmpBody');
+    if (!list.length) {
+      tb.innerHTML = '<tr><td colspan="6" class="ct-empty">Noch keine Meldungen. In „Live-Belegschaft“ können Sie ein Problem melden.</td></tr>';
+      return;
+    }
+    tb.innerHTML = list.map(function (c) {
+      var st = CMP_STATUS[c.status] || { label: c.status || '–', cls: 'ct-badge--done' };
+      var sv = CMP_SEVERITY[c.severity] || { label: c.severity || '–', cls: 'ct-badge--done' };
+      return '<tr>' +
+        '<td><div style="font-weight:600">' + esc(workerName(c)) + '</div>' +
+          (c.personnel_number ? '<div class="ct-sub">' + esc(c.personnel_number) + '</div>' : '') + '</td>' +
+        '<td>' + esc(c.agency_name || '–') + '</td>' +
+        '<td><span class="ct-badge ' + sv.cls + '">' + esc(sv.label) + '</span></td>' +
+        '<td>' + esc(c.reason || '–') + '</td>' +
+        '<td><span class="ct-badge ' + st.cls + '">' + esc(st.label) + '</span></td>' +
+        '<td>' + fmtDate(c.created_at) + '</td>' +
+      '</tr>';
+    }).join('');
+  }
+
   async function ctUnblock(workerId) {
     try {
       await TC.api.delete('/company/blocklist/' + workerId);
@@ -381,6 +437,9 @@
         reason: reason
       });
       ctCompClose();
+      // Ripple: die gerade abgesetzte Meldung muss sofort im Rückkanal sichtbar sein.
+      _complaintsLoaded = false;
+      ctLoadComplaints();
     } catch (e) {
       err.textContent = 'Melden fehlgeschlagen: ' + (e.code || e.message || 'Fehler'); err.style.display = '';
     } finally { btn.disabled = false; btn.textContent = 'Melden'; }

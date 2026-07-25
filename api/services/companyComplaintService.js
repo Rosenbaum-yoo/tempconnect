@@ -33,7 +33,11 @@ export async function fileComplaint(pool, {
       LIMIT 1`,
     params
   );
-  const c = ctx[0] || {};
+  // Beziehungs-Nachweis: gemeldet werden kann nur eine Kraft, die bei diesem Unternehmen
+  // im Einsatz ist/war. Ohne Einsatz gäbe es weder Agentur noch Disponent — die Beschwerde
+  // wäre ein Datensatz, den niemand je sieht (und ein Vektor, um fremde Kräfte zu belasten).
+  const c = ctx[0];
+  if (!c) return { error: "NO_ASSIGNMENT_RELATION" };
 
   const { rows } = await pool.query(
     `INSERT INTO worker_complaints
@@ -50,6 +54,62 @@ export async function fileComplaint(pool, {
     supplierOrgId: c.supplier_org_id || null,
     workerName
   };
+}
+
+/** Erlaubte Status laut CHECK in Migration 150. */
+export const COMPLAINT_STATUSES = Object.freeze(["open", "acknowledged", "resolved"]);
+
+/**
+ * Beschwerden, die GEGEN die eigenen Kräfte eingegangen sind (Agentur-/Disponenten-Sicht).
+ * Strikt auf `supplier_org_id = req.orgId` gescoped — eine Agentur sieht nie Meldungen
+ * über die Kräfte einer anderen Agentur. Nutzt den Index (supplier_org_id, status) aus Mig 150.
+ * Liefert `worker_user_id` + `assignment_link_id` mit, damit der Disponent direkt in den
+ * Ersatz-Flow (P1.1) springen kann — kein Sackgassen-Eintrag.
+ */
+export async function listSupplierComplaints(pool, supplierOrgId, { status = null, limit = 100 } = {}) {
+  if (!supplierOrgId) return [];
+  const params = [supplierOrgId];
+  let statusClause = "";
+  if (status && COMPLAINT_STATUSES.includes(status)) {
+    params.push(status);
+    statusClause = `AND c.status = $${params.length}`;
+  }
+  params.push(Math.min(300, Math.max(1, Number(limit) || 100)));
+  const { rows } = await pool.query(
+    `SELECT c.id, c.worker_user_id, c.assignment_link_id, c.company_org_id,
+            c.severity, c.reason, c.status, c.created_at,
+            wp.first_name, wp.last_name, wp.personnel_number,
+            co.name AS company_name
+       FROM worker_complaints c
+       LEFT JOIN worker_profiles wp ON wp.user_id = c.worker_user_id
+       LEFT JOIN organizations co ON co.id = c.company_org_id
+      WHERE c.supplier_org_id = $1 ${statusClause}
+      ORDER BY (c.status = 'open') DESC,
+               CASE c.severity WHEN 'high' THEN 0 WHEN 'medium' THEN 1 ELSE 2 END,
+               c.created_at DESC
+      LIMIT $${params.length}`,
+    params
+  );
+  return rows;
+}
+
+/**
+ * Status einer Beschwerde fortschreiben (Agentur-Seite): open → acknowledged → resolved.
+ * Org-Boundary im UPDATE selbst (`supplier_org_id = $`), damit eine fremde Agentur eine
+ * Meldung nicht per ID umschreiben kann — kein nachgelagerter Check, der vergessen werden kann.
+ * @returns {{complaint}|{error:"INVALID_STATUS"|"NOT_FOUND"}}
+ */
+export async function updateComplaintStatus(pool, supplierOrgId, complaintId, status) {
+  if (!COMPLAINT_STATUSES.includes(status)) return { error: "INVALID_STATUS" };
+  const { rows } = await pool.query(
+    `UPDATE worker_complaints
+        SET status = $3, updated_at = NOW()
+      WHERE id = $2 AND supplier_org_id = $1
+      RETURNING *`,
+    [supplierOrgId, complaintId, status]
+  );
+  if (!rows[0]) return { error: "NOT_FOUND" };
+  return { complaint: rows[0] };
 }
 
 /**

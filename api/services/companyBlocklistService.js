@@ -48,24 +48,41 @@ export async function listCompanyBlocklist(pool, companyOrgId, { includeExpired 
 
 /**
  * Kraft sperren / Sperre aktualisieren (Upsert je company+worker).
+ *
+ * Beziehungs-Nachweis (Pflicht): gesperrt werden kann NUR eine Kraft, die bei diesem
+ * Unternehmen tatsächlich im Einsatz ist oder war (`worker_assignment_links.org_id`).
+ * Sonst könnte eine Käufer-Org beliebige Worker-UUIDs auf ihre Sperrliste schreiben und
+ * damit fremde Kräfte für sich blockieren, die sie nie gesehen hat.
+ *
+ * Die Herkunfts-Agentur (`supplier_org_id`) wird dabei SERVER-SEITIG aus dem echten
+ * Einsatz abgeleitet — nie aus dem Request übernommen (sonst falsche Zuordnung).
+ * Alles in EINER Anweisung: race-frei und ohne zusätzlichen Roundtrip.
+ *
  * @param {object} opts blockedUntil: null = unbefristet ("nie wieder").
+ * @returns {{block}|{error:"MISSING_PARAMS"|"NO_ASSIGNMENT_RELATION"}}
  */
 export async function blockWorkerForCompany(pool, {
-  companyOrgId, workerUserId, supplierOrgId = null, reason = null, blockedUntil = null, createdBy = null
+  companyOrgId, workerUserId, reason = null, blockedUntil = null, createdBy = null
 }) {
   if (!companyOrgId || !workerUserId) return { error: "MISSING_PARAMS" };
   const { rows } = await pool.query(
     `INSERT INTO company_worker_blocklist
        (company_org_id, worker_user_id, supplier_org_id, reason, blocked_until, created_by)
-     VALUES ($1,$2,$3,$4,$5,$6)
+     SELECT $1, $2, rel.supplier_org_id, $3, $4, $5
+       FROM (SELECT wal.supplier_org_id
+               FROM worker_assignment_links wal
+              WHERE wal.worker_user_id = $2 AND wal.org_id = $1
+              ORDER BY wal.is_active DESC, wal.start_date DESC
+              LIMIT 1) rel
      ON CONFLICT (company_org_id, worker_user_id) DO UPDATE
        SET reason = EXCLUDED.reason,
            blocked_until = EXCLUDED.blocked_until,
            supplier_org_id = COALESCE(EXCLUDED.supplier_org_id, company_worker_blocklist.supplier_org_id),
            updated_at = NOW()
      RETURNING *`,
-    [companyOrgId, workerUserId, supplierOrgId, reason, blockedUntil, createdBy]
+    [companyOrgId, workerUserId, reason, blockedUntil, createdBy]
   );
+  if (!rows[0]) return { error: "NO_ASSIGNMENT_RELATION" };
   return { block: rows[0] };
 }
 

@@ -237,14 +237,29 @@ export async function listSubmissions(pool, {
 }
 
 /**
+ * Freigabe-Grenze Agentur → Kunde: NUR diese Status darf die Käufer-Org überhaupt sehen.
+ * Alles davor (draft / submitted / approved_internal) ist der interne Prüfstand der Agentur —
+ * ein Kunde darf weder unfertige noch intern noch nicht freigegebene Stunden lesen.
+ * Single source of truth für Liste UND Detail-Guard (siehe routes/companyTimesheets.js).
+ */
+export const COMPANY_VISIBLE_STATUSES = Object.freeze([
+  "sent_to_customer", "customer_confirmed", "customer_rejected", "posted_to_timesheet"
+]);
+
+/**
  * Käufer-Sicht (P2.2): Stundenzettel, die AN DIE eigene Unternehmens-Org gesendet wurden.
  * Gescoped auf `wts.org_id = companyOrgId` (die Einsatz-/Käufer-Org), NICHT supplier_org_id.
- * Default: nur relevante Käufer-Status (empfangen + eigene Entscheidung + abgerechnet).
+ * Default: alle käufer-sichtbaren Status. Ein `status`-Filter kann die Freigabe-Grenze
+ * NICHT aufweiten — ein nicht-whitelisteter Wert fällt auf den Default zurück.
  */
 export async function listCompanySubmissions(pool, companyOrgId, { status = null, limit = 100 } = {}) {
   const params = [companyOrgId];
-  let statusClause = "wts.status IN ('sent_to_customer','customer_confirmed','customer_rejected','posted_to_timesheet')";
-  if (status) { params.push(status); statusClause = `wts.status = $${params.length}`; }
+  const visibleList = COMPANY_VISIBLE_STATUSES.map((s) => `'${s}'`).join(",");
+  let statusClause = `wts.status IN (${visibleList})`;
+  if (status && COMPANY_VISIBLE_STATUSES.includes(status)) {
+    params.push(status);
+    statusClause = `wts.status = $${params.length}`;
+  }
   params.push(Math.min(500, Math.max(1, Number(limit) || 100)));
   const { rows } = await pool.query(
     `SELECT wts.id, wts.status, wts.week_start, wts.week_end,

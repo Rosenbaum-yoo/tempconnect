@@ -19,13 +19,13 @@
     .ct-table tr:last-child td { border-bottom:none; }
     .ct-sub { font-size:.75rem; color:var(--ds-text-secondary,#64748b); }
     .ct-badge { display:inline-block; padding:2px 9px; border-radius:999px; font-size:.72rem; font-weight:600; }
-    .ct-badge--review { background:#fef3c7; color:#92400e; }
-    .ct-badge--ok { background:#dcfce7; color:#166534; }
-    .ct-badge--rej { background:#fee2e2; color:#991b1b; }
-    .ct-badge--done { background:#e0e7ff; color:#3730a3; }
+    .ct-badge--review { background:var(--ds-warning-muted); color:var(--ds-warning); }
+    .ct-badge--ok { background:var(--ds-success-muted); color:var(--ds-success); }
+    .ct-badge--rej { background:var(--ds-danger-muted); color:var(--ds-danger); }
+    .ct-badge--done { background:var(--ds-accent-muted); color:var(--ds-accent); }
     .ct-btn { border:1px solid var(--ds-border,#e2e8f0); background:var(--ds-surface,#fff); border-radius:8px; padding:6px 12px; font-size:.8rem; cursor:pointer; }
-    .ct-btn--ok { background:#16a34a; color:#fff; border-color:#16a34a; }
-    .ct-btn--rej { background:#fff; color:#dc2626; border-color:#fecaca; }
+    .ct-btn--ok { background:var(--ds-success); color:var(--ds-bg); border-color:var(--ds-success); font-weight:600; }
+    .ct-btn--rej { background:transparent; color:var(--ds-danger); border-color:var(--ds-danger); }
     .ct-empty { text-align:center; padding:40px 20px; color:var(--ds-text-secondary,#64748b); }
     .ct-modal { position:fixed; inset:0; background:rgba(15,23,42,.55); display:none; align-items:center; justify-content:center; z-index:9998; padding:20px; }
     .ct-modal.active { display:flex; }
@@ -35,9 +35,9 @@
     .ct-tabs { display:flex; gap:4px; margin-bottom:16px; border-bottom:1px solid var(--ds-border,#e2e8f0); }
     .ct-tab { background:none; border:none; border-bottom:2px solid transparent; padding:9px 14px; font-size:.88rem; font-weight:600; color:var(--ds-text-secondary,#64748b); cursor:pointer; }
     .ct-tab--active { color:var(--ds-brand,#4a9eff); border-bottom-color:var(--ds-brand,#4a9eff); }
-    .ct-badge--live { background:#dcfce7; color:#166534; }
-    .ct-badge--soon { background:#fef3c7; color:#92400e; }
-    .ct-live-dot { display:inline-block; width:7px; height:7px; border-radius:50%; background:#16a34a; margin-right:5px; }
+    .ct-badge--live { background:var(--ds-success-muted); color:var(--ds-success); }
+    .ct-badge--soon { background:var(--ds-warning-muted); color:var(--ds-warning); }
+    .ct-live-dot { display:inline-block; width:7px; height:7px; border-radius:50%; background:var(--ds-success); margin-right:5px; }
   </style>
 </head>
 <body>
@@ -80,14 +80,15 @@
     <div class="ct-tabs">
       <button class="ct-tab ct-tab--active" id="tabTimesheets" onclick="ctView('timesheets')">Stundenzettel-Eingang</button>
       <button class="ct-tab" id="tabLive" onclick="ctView('live')"><span class="ct-live-dot"></span>Live-Belegschaft</button>
+      <button class="ct-tab" id="tabComplaints" onclick="ctView('complaints')">Meine Meldungen</button>
       <button class="ct-tab" id="tabBlocklist" onclick="ctView('blocklist')">Sperrliste</button>
     </div>
 
     <div id="viewTimesheets">
     <div class="ct-kpis">
-      <div class="ct-kpi"><div class="ct-kpi__val" id="kpiReview" style="color:#d97706">–</div><div class="ct-kpi__label">Zu prüfen</div></div>
-      <div class="ct-kpi"><div class="ct-kpi__val" id="kpiConfirmed" style="color:#16a34a">–</div><div class="ct-kpi__label">Bestätigt</div></div>
-      <div class="ct-kpi"><div class="ct-kpi__val" id="kpiRejected" style="color:#dc2626">–</div><div class="ct-kpi__label">Zurückgewiesen</div></div>
+      <div class="ct-kpi"><div class="ct-kpi__val" id="kpiReview" style="color:var(--ds-warning)">–</div><div class="ct-kpi__label">Zu prüfen</div></div>
+      <div class="ct-kpi"><div class="ct-kpi__val" id="kpiConfirmed" style="color:var(--ds-success)">–</div><div class="ct-kpi__label">Bestätigt</div></div>
+      <div class="ct-kpi"><div class="ct-kpi__val" id="kpiRejected" style="color:var(--ds-danger)">–</div><div class="ct-kpi__label">Zurückgewiesen</div></div>
       <div class="ct-kpi"><div class="ct-kpi__val" id="kpiHours">–</div><div class="ct-kpi__label">Bestätigte Stunden</div></div>
     </div>
 
@@ -117,8 +118,8 @@
         automatisch aus den laufenden Einsätzen Ihrer Organisation.
       </div>
       <div class="ct-kpis">
-        <div class="ct-kpi"><div class="ct-kpi__val" id="lwTotal" style="color:#16a34a">–</div><div class="ct-kpi__label">Aktuell im Einsatz</div></div>
-        <div class="ct-kpi"><div class="ct-kpi__val" id="lwEnds" style="color:#d97706">–</div><div class="ct-kpi__label">Endet in Kürze</div></div>
+        <div class="ct-kpi"><div class="ct-kpi__val" id="lwTotal" style="color:var(--ds-success)">–</div><div class="ct-kpi__label">Aktuell im Einsatz</div></div>
+        <div class="ct-kpi"><div class="ct-kpi__val" id="lwEnds" style="color:var(--ds-warning)">–</div><div class="ct-kpi__label">Endet in Kürze</div></div>
         <div class="ct-kpi"><div class="ct-kpi__val" id="lwAgencies">–</div><div class="ct-kpi__label">Zeitarbeitsfirmen</div></div>
       </div>
       <div class="ct-toolbar">
@@ -133,6 +134,29 @@
         <tbody id="lwBody"><tr><td colspan="8" class="ct-empty">–</td></tr></tbody>
       </table>
     </div><!-- /viewLive -->
+
+    <div id="viewComplaints" style="display:none">
+      <div class="ct-banner">
+        Ihre Meldungen an die Zeitarbeitsfirmen — mit aktuellem Bearbeitungsstand.
+        Der zuständige Disponent wird bei jeder Meldung sofort benachrichtigt und kann Ersatz stellen.
+      </div>
+      <div class="ct-toolbar">
+        <select id="cmpFilterStatus" class="ct-btn" onchange="ctLoadComplaints()">
+          <option value="">Alle Meldungen</option>
+          <option value="open">Offen</option>
+          <option value="acknowledged">Angenommen</option>
+          <option value="resolved">Erledigt</option>
+        </select>
+        <button class="ct-btn" onclick="ctLoadComplaints()">Aktualisieren</button>
+        <span id="cmpCount" class="ct-sub"></span>
+      </div>
+      <table class="ct-table">
+        <thead><tr>
+          <th>Mitarbeiter</th><th>Zeitarbeitsfirma</th><th>Dringlichkeit</th><th>Grund</th><th>Status</th><th>Gemeldet</th>
+        </tr></thead>
+        <tbody id="cmpBody"><tr><td colspan="6" class="ct-empty">–</td></tr></tbody>
+      </table>
+    </div><!-- /viewComplaints -->
 
     <div id="viewBlocklist" style="display:none">
       <div class="ct-banner">

@@ -12,6 +12,8 @@ import * as blocklistSvc from "../services/companyBlocklistService.js";
 import * as complaintSvc from "../services/companyComplaintService.js";
 import * as workerNotifications from "../services/workerNotificationService.js";
 import { requireCompanyOrg } from "../middleware/orgAccess.js";
+import { requirePermission } from "../middleware/rbac.js";
+import { requireScope } from "../middleware/apiKeyAuth.js";
 import { swallow } from "../utils/logger.js";
 
 export function createCompanyTimesheetsRouter(deps) {
@@ -24,9 +26,28 @@ export function createCompanyTimesheetsRouter(deps) {
   const base = [requireAuth, requireFeature("worker_module"), companyOrg];
 
   /**
+   * RBAC (zentrale Guards, keine Inline-Rollenchecks). Org-Mitgliedschaft allein reicht
+   * hier NICHT: Stundenfreigabe ist eine Geldentscheidung und eine Sperre hat kommerzielle
+   * Folgen für die Zeitarbeitsfirma. Wir nutzen bewusst die BESTEHENDEN Permissions
+   * (rbacService), statt neue zu erfinden:
+   *   timesheet.view/approve/reject → identisch zum Legacy-/timesheets-Pfad (keine zwei Wahrheiten)
+   *   assignment.view  → lesende Käufer-Sichten (Live-Belegschaft, Sperrliste, eigene Meldungen)
+   *   assignment.edit  → Sperren/Freigeben (greift in künftige Besetzung ein)
+   * Beschwerde melden bleibt bewusst auf `assignment.view`: wer die Kraft im Einsatz sieht
+   * (auch ein Schichtverantwortlicher mit `member`), muss ein Problem melden können — es ist
+   * ein Hinweis, keine Zustandsänderung am Einsatz.
+   */
+  const rperm = (p) => requirePermission(p, { pool, logger });
+
+  /**
    * Org-Boundary-Guard: die Submission muss zur eigenen Käufer-Org gehören (org_id),
    * sonst Cross-Org-IDOR. Spiegelt requireOwnSubmission der Agentur-Seite, aber
    * käuferseitig (org_id statt supplier_org_id).
+   *
+   * Zusätzlich Freigabe-Grenze: auch die eigene Org darf einen Zettel erst ab
+   * `sent_to_customer` sehen — der interne Prüfstand der Agentur (draft/submitted/
+   * approved_internal) bleibt dem Kunden verborgen (404, kein 403: die Existenz eines
+   * noch nicht freigegebenen Zettels ist selbst schon eine Information).
    */
   async function requireCompanySubmission(req, res, next) {
     try {
@@ -35,6 +56,9 @@ export function createCompanyTimesheetsRouter(deps) {
       const sub = await submissionSvc.getSubmission(pool, req.params.id);
       if (!sub) return res.status(404).json({ error: "NOT_FOUND" });
       if (sub.org_id !== companyOrgId) return res.status(403).json({ error: "FORBIDDEN" });
+      if (!submissionSvc.COMPANY_VISIBLE_STATUSES.includes(sub.status)) {
+        return res.status(404).json({ error: "NOT_FOUND" });
+      }
       req._companySubmission = sub;
       next();
     } catch (err) { next(err); }
@@ -48,7 +72,7 @@ export function createCompanyTimesheetsRouter(deps) {
   }
 
   /* ── Live-Belegschaft (P2.3/3.1): wer arbeitet gerade beim Unternehmen ───────── */
-  router.get("/company/live-workforce", ...base, async (req, res, next) => {
+  router.get("/company/live-workforce", ...base, requireScope("read:workers"), rperm("assignment.view"), async (req, res, next) => {
     try {
       const board = await workforceSvc.getCompanyLiveWorkforce(pool, req.orgId, {
         search: (req.query.search || "").toString().trim() || null,
@@ -62,7 +86,7 @@ export function createCompanyTimesheetsRouter(deps) {
   const uuidRx = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
   const dateRx = /^\d{4}-\d{2}-\d{2}$/;
 
-  router.get("/company/blocklist", ...base, async (req, res, next) => {
+  router.get("/company/blocklist", ...base, requireScope("read:workers"), rperm("assignment.view"), async (req, res, next) => {
     try {
       const items = await blocklistSvc.listCompanyBlocklist(pool, req.orgId, {
         includeExpired: req.query.include_expired === "1"
@@ -71,16 +95,17 @@ export function createCompanyTimesheetsRouter(deps) {
     } catch (err) { next(err); }
   });
 
-  router.post("/company/blocklist", ...base, async (req, res, next) => {
+  router.post("/company/blocklist", ...base, requireScope("write:workers"), rperm("assignment.edit"), async (req, res, next) => {
     try {
       const workerUserId = String(req.body?.worker_user_id || "").trim();
       if (!uuidRx.test(workerUserId)) return res.status(400).json({ error: "INVALID_WORKER" });
       const blockedUntil = req.body?.blocked_until ? String(req.body.blocked_until).trim() : null;
       if (blockedUntil && !dateRx.test(blockedUntil)) return res.status(400).json({ error: "INVALID_DATE" });
       const reason = req.body?.reason ? String(req.body.reason).trim().slice(0, 500) : null;
-      const supplierOrgId = (req.body?.supplier_org_id && uuidRx.test(req.body.supplier_org_id)) ? req.body.supplier_org_id : null;
+      // supplier_org_id kommt bewusst NICHT aus dem Body — der Service leitet die
+      // Herkunfts-Agentur aus dem echten Einsatz ab (keine Fremdzuordnung durch den Client).
       const result = await blocklistSvc.blockWorkerForCompany(pool, {
-        companyOrgId: req.orgId, workerUserId, supplierOrgId, reason, blockedUntil, createdBy: req.session.userId
+        companyOrgId: req.orgId, workerUserId, reason, blockedUntil, createdBy: req.session.userId
       });
       if (result.error) return res.status(400).json(result);
       res.locals.audit = {
@@ -91,7 +116,7 @@ export function createCompanyTimesheetsRouter(deps) {
     } catch (err) { next(err); }
   });
 
-  router.delete("/company/blocklist/:workerUserId([0-9a-fA-F-]{36})", ...base, async (req, res, next) => {
+  router.delete("/company/blocklist/:workerUserId([0-9a-fA-F-]{36})", ...base, requireScope("write:workers"), rperm("assignment.edit"), async (req, res, next) => {
     try {
       const ok = await blocklistSvc.unblockWorkerForCompany(pool, req.orgId, req.params.workerUserId);
       if (!ok) return res.status(404).json({ error: "NOT_FOUND" });
@@ -104,14 +129,14 @@ export function createCompanyTimesheetsRouter(deps) {
   });
 
   /* ── Beschwerde-Meldung (P3.2): Problem mit einer Kraft → Agentur benachrichtigen ── */
-  router.get("/company/complaints", ...base, async (req, res, next) => {
+  router.get("/company/complaints", ...base, requireScope("read:workers"), rperm("assignment.view"), async (req, res, next) => {
     try {
       const items = await complaintSvc.listCompanyComplaints(pool, req.orgId, { status: req.query.status || null });
       res.json({ items, total: items.length });
     } catch (err) { next(err); }
   });
 
-  router.post("/company/complaints", ...base, async (req, res, next) => {
+  router.post("/company/complaints", ...base, requireScope("write:workers"), rperm("assignment.view"), async (req, res, next) => {
     try {
       const workerUserId = String(req.body?.worker_user_id || "").trim();
       if (!uuidRx.test(workerUserId)) return res.status(400).json({ error: "INVALID_WORKER" });
@@ -139,7 +164,7 @@ export function createCompanyTimesheetsRouter(deps) {
   });
 
   /* ── Empfangene Stundenzettel der eigenen Org auflisten ────────────────────── */
-  router.get("/company/submissions", ...base, async (req, res, next) => {
+  router.get("/company/submissions", ...base, requireScope("read:timesheets"), rperm("timesheet.view"), async (req, res, next) => {
     try {
       const items = await submissionSvc.listCompanySubmissions(pool, req.orgId, {
         status: req.query.status || null,
@@ -150,7 +175,7 @@ export function createCompanyTimesheetsRouter(deps) {
   });
 
   /* ── Detail (inkl. Tageseinträge) ──────────────────────────────────────────── */
-  router.get("/company/submissions/:id([0-9a-fA-F-]{36})", ...base, requireCompanySubmission, async (req, res, next) => {
+  router.get("/company/submissions/:id([0-9a-fA-F-]{36})", ...base, requireScope("read:timesheets"), rperm("timesheet.view"), requireCompanySubmission, async (req, res, next) => {
     try {
       const detail = await submissionSvc.getSubmissionWithEntries(pool, req.params.id);
       if (!detail) return res.status(404).json({ error: "NOT_FOUND" });
@@ -159,7 +184,7 @@ export function createCompanyTimesheetsRouter(deps) {
   });
 
   /* ── Käufer bestätigt: sent_to_customer → customer_confirmed ───────────────── */
-  router.post("/company/submissions/:id([0-9a-fA-F-]{36})/confirm", ...base, requireCompanySubmission, async (req, res, next) => {
+  router.post("/company/submissions/:id([0-9a-fA-F-]{36})/confirm", ...base, requireScope("write:timesheets"), rperm("timesheet.approve"), requireCompanySubmission, async (req, res, next) => {
     try {
       const result = await submissionSvc.confirmByCustomer(pool, req.params.id, req.session.userId, {
         customerConfirmedBy: req.body?.confirmed_by || null,
@@ -177,7 +202,7 @@ export function createCompanyTimesheetsRouter(deps) {
   });
 
   /* ── Käufer lehnt ab: sent_to_customer → customer_rejected (Grund Pflicht) ───── */
-  router.post("/company/submissions/:id([0-9a-fA-F-]{36})/reject", ...base, requireCompanySubmission, async (req, res, next) => {
+  router.post("/company/submissions/:id([0-9a-fA-F-]{36})/reject", ...base, requireScope("write:timesheets"), rperm("timesheet.reject"), requireCompanySubmission, async (req, res, next) => {
     try {
       const reason = String(req.body?.reason || req.body?.note || "").trim();
       if (reason.length < 3) return res.status(400).json({ error: "REASON_REQUIRED" });

@@ -21,6 +21,20 @@
 5. **Bugs zuerst.** Phase 0 vor allen Features.
 6. **Token-effizient bauen.** Gezielt lesen (Ranges/Diffs), Bestehendes wiederverwenden,
    `docker restart tempconnect_api` statt Rebuild, Docs bei jeder Welle mitziehen.
+7. **Definition of Done je Welle** (aus dem Audit vom 2026-07-25, siehe
+   [ENTERPRISE_AUDIT_2026-07-25.md](ENTERPRISE_AUDIT_2026-07-25.md) — diese vier Punkte
+   waren in P2.2–P3.3 die tatsächlichen Lücken, obwohl die Suite grün war):
+   - **RBAC explizit.** Org-Mitgliedschaft ist keine Berechtigung. Jede mutierende Route trägt
+     `requirePermission(...)` + `requireScope(...)`. **Gegenprobe:** löst die neue Route etwas ab,
+     muss sie mindestens so streng sein wie der alte Pfad — ein fehlender Guard macht keinen Test rot.
+   - **Freigabe-Grenzen sind serverseitig, nicht per Default-Klausel.** Ein Query-Parameter darf
+     eine Sichtbarkeits-Whitelist nie aufweiten. Whitelist als exportierte Konstante, in Liste
+     **und** Detail-Guard verwendet.
+   - **Beziehungs-Nachweis statt Formatprüfung.** Eine gültige UUID ist kein Zugriffsrecht:
+     Aktionen über fremde Entitäten brauchen eine belegte Beziehung (z. B. echter Einsatz),
+     und abgeleitete Fremdschlüssel kommen aus der DB, nie aus dem Request-Body.
+   - **Beide Richtungen fertig.** Ein Feature, das etwas meldet/anstößt, braucht den Rückkanal
+     (Empfänger-Sicht + Statusfortschritt), sonst ist es eine Einbahnstraße mit totem Endpunkt.
 
 ---
 
@@ -148,6 +162,12 @@
   Verifiziert: 7/7 Route-Tests (Cross-Org=403, Zero-State, Scoping auf org_id NICHT supplier_org_id,
   Reject-Grund-Pflicht), DB-Smoke der Query, Routen live 401/403 (nicht 404), **Browser-Render im
   isolierten Harness bestätigt** (3 Zeilen, KPIs, Detail-Modal mit Einträgen + Aktionen) — Screenshot.
+  → **Nachgehärtet (2026-07-25, Audit-Befunde 1+2):** RBAC ergänzt (`timesheet.view/approve/reject`
+  + Scopes — das Portal war schwächer geschützt als das Legacy-System, das es ablöst) und die
+  **Freigabe-Grenze serverseitig geschlossen**: `?status=draft` konnte die Status-Whitelist
+  aufweiten, die Detail-Route hatte gar kein Status-Gate → der Kunde konnte den internen
+  Prüfstand der Agentur lesen. Jetzt `COMPANY_VISIBLE_STATUSES` als Single Source of Truth
+  für Liste **und** Guard (404 statt 403 bei nicht freigegebenen Zetteln).
   **Offen:** Legacy-`timesheets.html`/`/timesheets`-Altsystem final ausmustern (eigener Task);
   Käufer-Notification bei „gesendet".
   → **Befund (wichtig):** Es gibt **zwei parallele Timesheet-Systeme.** (a) *Legacy* `timesheets.html` +
@@ -197,6 +217,17 @@
   Benachrichtigung), Migration angewendet, **fileComplaint transaktional gegen echte Daten** (Kontext
   löst Agentur+Disponent korrekt auf, INSERT sauber), Routen live 401/403, **Browser-Render bestätigt**
   (Melden-Button + Modal + Submit schließt), Konsole fehlerfrei.
+  → **Rückkanal ergänzt (2026-07-25, Audit-Befund 3):** die Meldung war eine Einbahnstraße —
+  `GET /company/complaints` war ein toter Endpunkt, `status` wurde nie fortgeschrieben, die
+  Agentur hatte keine Sicht. Jetzt beidseitig: **Käufer** sieht Tab „Meine Meldungen"
+  (Dringlichkeit/Grund/Status/Datum + Filter, lädt nach dem Absenden sofort neu);
+  **Agentur** sieht den Beschwerde-Eingang im Einsätze-Panel von `worker-submissions-review`
+  — bewusst dort, weil die Antwort auf eine Meldung der Ersatz-Flow (1.1) ist: je Meldung
+  „⇄ Ersatz zuweisen" (springt via `assignment_link_id` in den bestehenden Modal),
+  „Angenommen", „Erledigt". Service `listSupplierComplaints` (strikt `supplier_org_id`,
+  nutzt den Index aus Mig 150) + `updateComplaintStatus` (Org-Boundary IM UPDATE);
+  Routen `GET/PATCH /workers/complaints` (`worker.view` / `worker.manage`).
+  Status-Werte exakt wie der CHECK: `open | acknowledged | resolved`.
 - **3.3 Sperrliste.** ✅ **Erledigt (2026-07-22).** Negativ aufgefallene Arbeiter je Unternehmen
   sperrbar. Chef kann gesperrten Arbeiter diesem Unternehmen **nicht** zuweisen. Unternehmen
   entscheidet: nie / wieder in 3 Monaten / wieder frei.
