@@ -63,6 +63,26 @@ KI überhaupt besser ist.
 
 ## Welle 4.3 — KI-Augmentierung als Ranking-Schicht (Claude API)
 
+> **Owner-Vorgabe 2026-07-25:** „Die KI soll so fortschrittlich sein wie es nur geht — dabei
+> aber effizient im Sinne von wirtschaftlich optimal."
+>
+> **Wie das aufgelöst wird — die beiden Ziele sind kein Widerspruch, sondern eine Frage der
+> Architektur:** Fortschrittlich heißt nicht „größtes Modell auf jede Anfrage". Es heißt, das
+> Modell genau dort einzusetzen, wo es etwas kann, das Code nicht kann — Bedeutung verstehen
+> und begründen — und alles andere weiter deterministisch zu rechnen. Konkret:
+> - **Vorfilter deterministisch, Feinsortierung mit KI.** Der Engine reduziert Tausende auf ~10.
+>   Nur diese 10 sehen das Modell. Kosten skalieren dann mit der Zahl der *Treffer*, nicht mit
+>   der Größe der Datenbank — das ist der Unterschied zwischen tragfähig und ruinös bei 300 Kunden.
+> - **Modellwahl nach Aufgabe, nicht nach Prestige.** Ranking + ein Satz Begründung ist eine
+>   Aufgabe für ein schnelles Modell; nur wo echtes Urteilsvermögen nötig ist, das stärkere.
+>   Vor dem Bau den `claude-api`-Skill konsultieren — Modell-IDs und Preise nie aus dem Gedächtnis.
+> - **Cache als Kostenhebel.** Identische Angebot×Auftrag-Paare fragen das Modell genau einmal.
+>   Ändert sich keine Seite, gilt das Ergebnis weiter.
+> - **Prompt Caching** für den stabilen Teil des Prompts (Skill-Taxonomie, Bewertungsregeln) —
+>   der wiederholt sich bei jedem Aufruf und muss nicht jedes Mal neu bezahlt werden.
+> - **Messbar machen:** Kosten pro Match und Trefferqualität gegen die 4.2-Baseline protokollieren.
+>   Ohne diese Zahl ist „wirtschaftlich optimal" eine Meinung. Mit ihr eine Entscheidung.
+
 **Architektur-Prinzip: die KI rankt, sie entscheidet nicht.** Der deterministische Engine
 bleibt die Wahrheit und der Fallback. Die KI sortiert die Top-Kandidaten um und schreibt
 die Erklärung — fällt sie aus, funktioniert alles weiter, nur weniger elegant.
