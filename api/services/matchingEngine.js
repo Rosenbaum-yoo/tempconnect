@@ -53,13 +53,13 @@ export function scoreMatch(demand, cap, opts = {}) {
   if (dRole && cRole) {
     if (dRole === cRole) {
       score += weights.role;
-      reasons.push({ factor: 'role', points: weights.role, max: weights.role, detail: `Rolle "${cRole}" stimmt ueberein` });
+      reasons.push({ factor: 'role', points: weights.role, max: weights.role, detail: `Rolle "${cRole}" stimmt ueberein`, meta: { mode: 'exact', role: cap.role || cRole } });
     } else if (cRole.includes(dRole) || dRole.includes(cRole)) {
       const partial = Math.round(weights.role * 0.5);
       score += partial;
-      reasons.push({ factor: 'role', points: partial, max: weights.role, detail: `Rolle teilweise: "${dRole}" / "${cRole}"` });
+      reasons.push({ factor: 'role', points: partial, max: weights.role, detail: `Rolle teilweise: "${dRole}" / "${cRole}"`, meta: { mode: 'partial', role: cap.role || cRole, demandRole: demand.role || dRole } });
     } else {
-      reasons.push({ factor: 'role', points: 0, max: weights.role, detail: `Rolle nicht passend` });
+      reasons.push({ factor: 'role', points: 0, max: weights.role, detail: `Rolle nicht passend`, meta: { mode: 'none', role: cap.role || cRole, demandRole: demand.role || dRole } });
     }
   }
 
@@ -72,7 +72,7 @@ export function scoreMatch(demand, cap, opts = {}) {
     const maxTags = Math.min(5, dTags.size);
     const pts = Math.min(weights.skills, Math.round((overlap / maxTags) * weights.skills));
     score += pts;
-    reasons.push({ factor: 'skills', points: pts, max: weights.skills, detail: `${overlap}/${dTags.size} Skills uebereinstimmend` });
+    reasons.push({ factor: 'skills', points: pts, max: weights.skills, detail: `${overlap}/${dTags.size} Skills uebereinstimmend`, meta: { overlap, required: dTags.size } });
   }
 
   // ── 3) Standort / Entfernung ─────────────────────────
@@ -87,9 +87,9 @@ export function scoreMatch(demand, cap, opts = {}) {
     if (dist <= maxR) {
       const distScore = Math.max(0, weights.location - Math.floor((dist / maxR) * weights.location));
       score += distScore;
-      reasons.push({ factor: 'location', points: distScore, max: weights.location, detail: `${Math.round(dist)} km Entfernung (max ${maxR} km)` });
+      reasons.push({ factor: 'location', points: distScore, max: weights.location, detail: `${Math.round(dist)} km Entfernung (max ${maxR} km)`, meta: { km: Math.round(dist), maxKm: maxR, withinRadius: true } });
     } else {
-      reasons.push({ factor: 'location', points: 0, max: weights.location, detail: `Zu weit: ${Math.round(dist)} km (max ${maxR} km)` });
+      reasons.push({ factor: 'location', points: 0, max: weights.location, detail: `Zu weit: ${Math.round(dist)} km (max ${maxR} km)`, meta: { km: Math.round(dist), maxKm: maxR, withinRadius: false } });
     }
   } else {
     // Fallback: Stadt-Vergleich
@@ -98,7 +98,7 @@ export function scoreMatch(demand, cap, opts = {}) {
     if (dCity && cCity && dCity === cCity) {
       const pts = Math.round(weights.location * 0.6);
       score += pts;
-      reasons.push({ factor: 'location', points: pts, max: weights.location, detail: `Stadt "${cCity}" stimmt ueberein` });
+      reasons.push({ factor: 'location', points: pts, max: weights.location, detail: `Stadt "${cCity}" stimmt ueberein`, meta: { city: cap.location_city || cCity } });
     }
   }
 
@@ -110,23 +110,23 @@ export function scoreMatch(demand, cap, opts = {}) {
   if (dStart && cFrom) {
     if (cFrom <= dEnd && (!cTo || cTo >= dStart)) {
       score += weights.availability;
-      reasons.push({ factor: 'availability', points: weights.availability, max: weights.availability, detail: 'Verfuegbarkeit passt' });
+      reasons.push({ factor: 'availability', points: weights.availability, max: weights.availability, detail: 'Verfuegbarkeit passt', meta: { fits: true, from: cFrom, to: cTo || null } });
     } else {
-      reasons.push({ factor: 'availability', points: 0, max: weights.availability, detail: 'Zeitraum passt nicht' });
+      reasons.push({ factor: 'availability', points: 0, max: weights.availability, detail: 'Zeitraum passt nicht', meta: { fits: false, from: cFrom, to: cTo || null } });
     }
   }
 
   // ── 5) Verifiziert ───────────────────────────────────
   if (opts.supplierVerified) {
     score += weights.verified;
-    reasons.push({ factor: 'verified', points: weights.verified, max: weights.verified, detail: 'Supplier verifiziert' });
+    reasons.push({ factor: 'verified', points: weights.verified, max: weights.verified, detail: 'Supplier verifiziert', meta: { verified: true } });
   }
 
   // ── 6) Vendor Pool Bonus ─────────────────────────────
   if (opts.vendorPoolTier) {
     const tierBonus = opts.vendorPoolTier === 'PREFERRED' ? weights.vendorPool : Math.round(weights.vendorPool * 0.5);
     score += tierBonus;
-    reasons.push({ factor: 'vendorPool', points: tierBonus, max: weights.vendorPool, detail: `Vendor Pool Tier: ${opts.vendorPoolTier}` });
+    reasons.push({ factor: 'vendorPool', points: tierBonus, max: weights.vendorPool, detail: `Vendor Pool Tier: ${opts.vendorPoolTier}`, meta: { tier: opts.vendorPoolTier } });
   }
 
   // ── 7) Compliance Bonus (opt-in) ───────────────────────
@@ -134,16 +134,16 @@ export function scoreMatch(demand, cap, opts = {}) {
     const maxPts = 7;
     const pts = Math.min(maxPts, Math.round((opts.complianceScore / 100) * maxPts));
     score += pts;
-    reasons.push({ factor: 'compliance', points: pts, max: maxPts, detail: `Compliance ${opts.complianceScore}% erfuellt` });
+    reasons.push({ factor: 'compliance', points: pts, max: maxPts, detail: `Compliance ${opts.complianceScore}% erfuellt`, meta: { pct: opts.complianceScore } });
   }
 
   // ── 8) Rate-Kompatibilitaet (opt-in) ───────────────────
   if (opts.rateCompatible === true) {
     const pts = 5;
     score += pts;
-    reasons.push({ factor: 'rate', points: pts, max: 5, detail: 'Stundensatz innerhalb Budget' });
+    reasons.push({ factor: 'rate', points: pts, max: 5, detail: 'Stundensatz innerhalb Budget', meta: { compatible: true } });
   } else if (opts.rateCompatible === false) {
-    reasons.push({ factor: 'rate', points: 0, max: 5, detail: 'Stundensatz ueber Budget' });
+    reasons.push({ factor: 'rate', points: 0, max: 5, detail: 'Stundensatz ueber Budget', meta: { compatible: false } });
   }
 
   // ── 9) Urgency / Notdienst Boost (opt-in) ─────────────
@@ -157,9 +157,9 @@ export function scoreMatch(demand, cap, opts = {}) {
   if (opts.workerCountMatch === true) {
     const pts = 3;
     score += pts;
-    reasons.push({ factor: 'workerCount', points: pts, max: 3, detail: 'Personalkapazitaet ausreichend' });
+    reasons.push({ factor: 'workerCount', points: pts, max: 3, detail: 'Personalkapazitaet ausreichend', meta: { sufficient: true } });
   } else if (opts.workerCountMatch === false) {
-    reasons.push({ factor: 'workerCount', points: 0, max: 3, detail: 'Personalkapazitaet nicht ausreichend' });
+    reasons.push({ factor: 'workerCount', points: 0, max: 3, detail: 'Personalkapazitaet nicht ausreichend', meta: { sufficient: false } });
   }
 
   // ── 11) Reputation Score (opt-in) ─────────────────────
@@ -167,7 +167,7 @@ export function scoreMatch(demand, cap, opts = {}) {
     const maxPts = 8;
     const pts = Math.min(maxPts, Math.round((opts.reputationScore / 100) * maxPts));
     score += pts;
-    reasons.push({ factor: 'reputation', points: pts, max: maxPts, detail: `Reputation ${Math.round(opts.reputationScore)}/100` });
+    reasons.push({ factor: 'reputation', points: pts, max: maxPts, detail: `Reputation ${Math.round(opts.reputationScore)}/100`, meta: { score: Math.round(opts.reputationScore) } });
   }
 
   // ── 12) Preferred-First Boost (opt-in) ─────────────────
@@ -183,7 +183,7 @@ export function scoreMatch(demand, cap, opts = {}) {
     const pts = Math.min(maxPts, Math.round((opts.smartRankScore / 100) * maxPts));
     score += pts;
     const level = opts.smartRankLabel || (opts.smartRankScore >= 85 ? 'Exzellent' : opts.smartRankScore >= 70 ? 'Stark' : opts.smartRankScore >= 50 ? 'Solide' : 'Aufbauend');
-    reasons.push({ factor: 'smartRank', points: pts, max: maxPts, detail: `Smart Rank ${Math.round(opts.smartRankScore)}/100 (${level})` });
+    reasons.push({ factor: 'smartRank', points: pts, max: maxPts, detail: `Smart Rank ${Math.round(opts.smartRankScore)}/100 (${level})`, meta: { score: Math.round(opts.smartRankScore), label: level } });
   }
 
   return { score: Math.min(100, score), reasons };

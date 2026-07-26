@@ -110,7 +110,7 @@ Schema-Smoke prüft ab jetzt, dass ein Eintrag wirklich in der DB landet.
   Quelle) → ebenfalls `alerts: 0`. Genau der Fall, den eine Zeitfenster-Logik nicht abdeckt.
 - Testdaten anschließend restlos entfernt.
 
-## Welle 4.2 — Match-Qualität sichtbar machen (vor der KI!)
+## Welle 4.2 — Match-Qualität sichtbar machen (vor der KI!) ✅ ERLEDIGT (2026-07-26)
 
 **Bewusst vor 4.3 gezogen.** Ein Ranking ohne erklärbare Grundlage ist eine Blackbox, der
 niemand vertraut — und ohne deterministische Basis lässt sich später nicht messen, ob die
@@ -121,6 +121,42 @@ KI überhaupt besser ist.
 - **Begründung im Klartext**, deterministisch erzeugt: „3 von 4 geforderten Skills, ab sofort
   verfügbar, 18 km entfernt."
 - Damit existiert eine **Baseline**, gegen die 4.3 antreten muss.
+
+### Was gebaut wurde
+
+| Baustein | Ort |
+|---|---|
+| Erklärungs-Schicht (Achsen, Formulierung, Zusammenfassung) | `api/services/matchExplanationService.js` |
+| Strukturierte Fakten je Score-Beitrag (`meta`) | `api/services/matchingEngine.js` (additiv) |
+| Karte mit Begründung, Badge und Lücken | `frontend/public/matching_results.html` |
+| Verhaltens-Suite (35 Tests) | `api/test/matchExplanation.test.js` |
+| DOM-Verdrahtungs-Nachweis in vm-Sandbox (6 Tests) | `api/test/matchingResultsPage.test.js` |
+
+**Der Server besitzt die Erklärung.** Vorher pflegte jede Oberfläche ihre eigene
+`FACTOR_LABELS`-Tabelle — kam ein Faktor in der Engine dazu (`compliance`, `rate`,
+`smartRank`), zeigte die UI stumm den technischen Schlüsselnamen. Jetzt liefern alle
+Match-Endpunkte ein `explanation`-Objekt mit:
+
+- `headline` — „Gute Übereinstimmung (72%)"
+- `summary` — „Rolle „Pflegekraft" passt genau, 3 von 4 geforderten Skills, 18 km entfernt"
+- `axes[]` — je Achse Label, Punkte, Prozent, Status (`full`/`partial`/`missing`) und Klartext
+- `gaps[]` — was **nicht** passt, getrennt ausgewiesen statt verschwiegen
+
+**Verdrahtete Endpunkte:** `/matching/demand/:id`, `/matching/supply/:id`,
+`/matching/worker/:id`, `/matching/instant/search`, `/matching/instant/:requisitionId`,
+`/capacity-exchange/entries/:id/matches`, `/marketplace/demand-requests/:id/matches`.
+Zusätzlich trägt die Benachrichtigung aus 4.1 jetzt die Begründung statt nur einer Prozentzahl.
+
+**Grundlage sind strukturierte Fakten, keine String-Analyse:** `scoreMatch` gibt je Beitrag
+ein `meta` mit (`{overlap, required}`, `{km, maxKm, withinRadius}`, `{fits}`, …). Die
+Formulierung entsteht daraus — nicht durch Zerlegen des technischen `detail`-Texts, der
+sonst bei jeder Wortänderung die Erklärung kaputtmachen würde. Altdaten ohne `meta`
+(persistierte `matches.reasons`) fallen sauber auf eine allgemeinere Formulierung zurück.
+
+**Verifikation:** volle Suite **7392 Tests / 0 Fehler**; Live gegen die laufende App:
+`Sehr gute Übereinstimmung (80%)` mit Achsen `Rolle 30/30 · Skills 25/25 · Standort 15/25 ·
+Verfügbarkeit 10/10`; Computed-Style-Prüfung im Browser bestätigt Token-Farben
+(`--ds-success` für gute, `--ds-danger` für fehlende Achsen), keine Hardcodes.
 
 ## Welle 4.3 — KI-Augmentierung als Ranking-Schicht (Claude API)
 
@@ -189,7 +225,7 @@ Feature erzeugt (`createRatingsRouter` war nie gemountet).
 
 **4.1 → 4.2 → 4.4 → 4.3.** Bewusst so: 4.4 vor der KI, weil das Activity Center den Nutzen
 von 4.1/4.2 überhaupt erst sichtbar macht — und weil die KI ohne die Baseline aus 4.2 nicht
-bewertbar ist.
+bewertbar ist. **Stand 2026-07-26: 4.1 und 4.2 sind erledigt, als Nächstes 4.4.**
 
 | Welle | Aufwand | Wirtschaftlicher Hebel |
 |---|---|---|

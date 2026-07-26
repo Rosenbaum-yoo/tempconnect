@@ -12,6 +12,7 @@ import * as matchingEngine from "../services/matchingEngine.js";
 import * as auditLog from "../services/auditLog.js";
 import { dispatch } from "../services/notificationMatrix.js";
 import { scheduleMatchTrigger } from "../services/matchTriggerService.js";
+import { attachExplanations } from "../services/matchExplanationService.js";
 import * as listingAnalytics from "../services/listingAnalyticsService.js";
 import * as settingsService from "../services/settingsService.js";
 import { hasFeature } from "../config/planFeatures.js";
@@ -385,7 +386,9 @@ export function createCapacityExchangeRouter(deps) {
       const matches = await matchingEngine.matchCapacityToRequisitions(pool, req.params.id, {
         topN: 25, minScore: 10, supplierVerified: true
       });
-      res.json(matches);
+      // P4.2: Score-Zerlegung + Klartext-Begruendung kommen vom Server, damit jede
+      // Oberflaeche dieselbe Erklaerung zeigt statt eigener Label-Tabellen.
+      res.json(attachExplanations(matches));
     } catch (e) {
       logger.error({ err: e }, "GET /capacity-exchange/entries/:id/matches");
       res.status(500).json({ error: "SERVER_ERROR" });

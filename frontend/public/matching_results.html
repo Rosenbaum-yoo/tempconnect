@@ -21,6 +21,18 @@
     .match-meta{display:flex;flex-wrap:wrap;gap:10px;font-size:13px;color:var(--muted);margin-bottom:8px}
     .match-actions{display:flex;gap:8px;margin-top:10px}
 
+    /* P4.2 — Klartext-Begruendung ueber der Score-Zerlegung */
+    .match-why{display:flex;align-items:center;flex-wrap:wrap;gap:var(--ds-space-2,8px);margin:0 0 var(--ds-space-2,8px);font-size:13px}
+    .match-why__badge{font-size:11px;font-weight:700;letter-spacing:.02em;text-transform:uppercase;padding:3px 8px;border-radius:var(--ds-radius-sm,6px);background:var(--ds-warning-muted);color:var(--ds-warning)}
+    .match-why--excellent .match-why__badge,
+    .match-why--good .match-why__badge{background:var(--ds-success-muted);color:var(--ds-success)}
+    .match-why--weak .match-why__badge{background:var(--ds-danger-muted);color:var(--ds-danger)}
+    .match-why__text{color:var(--text)}
+    .match-gaps{font-size:12px;color:var(--muted);margin:0 0 var(--ds-space-2,8px)}
+    .score-bar--missing .score-bar__fill{background:var(--ds-danger)}
+    .score-bar--missing .score-bar__label,.score-bar--missing .score-bar__pts{color:var(--muted)}
+    .score-bar--full .score-bar__fill{background:linear-gradient(90deg,var(--ds-success),var(--brand))}
+
     /* EDITORIAL — warme Creme-Karten statt White-Alpha (dark/light/ultra byte-identisch) */
     [data-theme="editorial"] .match-card{background:#ebe4d3;border-color:#d4cab3}
     [data-theme="editorial"] .match-card:hover{border-color:rgba(31,58,46,.4)}
@@ -59,20 +71,45 @@
     function esc(s){return s==null?"":String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;")}
     function fmtDate(d){return d?String(d).substring(0,10):"–"}
 
-    var FACTOR_LABELS={role:"Rolle",skills:"Skills",location:"Standort",availability:"Verfuegbarkeit",verified:"Verifiziert",vendorPool:"Vendor Pool",urgency:"Notdienst/Dringlichkeit",reputation:"Reputation",smartRank:"Smart Rank",preferredFirst:"Preferred First",workerCount:"Personal"};
-    var FACTOR_MAX={role:30,skills:25,location:25,availability:10,verified:5,vendorPool:5,urgency:5,reputation:8,smartRank:10,preferredFirst:15,workerCount:3};
+    // Fallback-Beschriftung nur noch fuer Altdaten ohne Server-Erklaerung (P4.2:
+    // Labels + Formulierung gehoeren dem Backend, sonst driftet jede Seite fuer sich).
+    var FACTOR_LABELS={role:"Rolle",skills:"Skills",location:"Standort",availability:"Verfuegbarkeit",verified:"Verifizierung",vendorPool:"Lieferantenpool",urgency:"Dringlichkeit",reputation:"Historie",smartRank:"Smart Rank",preferredFirst:"Bevorzugt",workerCount:"Personalstaerke",compliance:"Compliance",rate:"Preisrahmen"};
 
-    function renderScoreBars(reasons){
-      if(!reasons||!reasons.length)return"";
-      return '<div class="score-bars">'+reasons.map(function(r){
-        var pct=r.max>0?Math.round((r.points/r.max)*100):0;
-        return '<div class="score-bar"><span class="score-bar__label">'+(FACTOR_LABELS[r.factor]||r.factor)+'</span><div class="score-bar__track"><div class="score-bar__fill" style="width:'+pct+'%"></div></div><span class="score-bar__pts">'+r.points+'/'+r.max+'</span></div>';
+    function renderScoreBars(reasons,explanation){
+      var axes=(explanation&&explanation.axes&&explanation.axes.length)
+        ? explanation.axes
+        : (reasons||[]).map(function(r){
+            return {label:FACTOR_LABELS[r.factor]||r.factor,points:r.points,max:r.max,
+                    pct:r.max>0?Math.round((r.points/r.max)*100):0,
+                    status:r.points>0?"partial":"missing",phrase:r.detail};
+          });
+      if(!axes.length)return"";
+      return '<div class="score-bars">'+axes.map(function(a){
+        var cls=a.status==="missing"?" score-bar--missing":(a.status==="full"?" score-bar--full":"");
+        var why=a.phrase?' title="'+esc(a.phrase)+'"':'';
+        return '<div class="score-bar'+cls+'"'+why+'><span class="score-bar__label">'+esc(a.label)+'</span>'+
+          '<div class="score-bar__track"><div class="score-bar__fill" style="width:'+a.pct+'%"></div></div>'+
+          '<span class="score-bar__pts">'+a.points+'/'+a.max+'</span></div>';
       }).join("")+'</div>';
+    }
+
+    // Klartext-Begruendung: warum dieser Treffer? (deterministisch, vom Server)
+    function renderWhy(explanation){
+      if(!explanation)return"";
+      var q=explanation.quality||"fair";
+      var out='<div class="match-why match-why--'+esc(q)+'">'+
+        '<span class="match-why__badge">'+esc(explanation.quality_label||"")+'</span>'+
+        '<span class="match-why__text">'+esc(explanation.summary||"")+'</span></div>';
+      if(explanation.gaps&&explanation.gaps.length){
+        out+='<div class="match-gaps">Einschränkung: '+esc(explanation.gaps.slice(0,2).join(", "))+'</div>';
+      }
+      return out;
     }
 
     function renderMatchCard(m,type){
       var entity=m.entity||m.capacity_post||m;
-      var score=m.score||0;
+      var explanation=m.explanation||null;
+      var score=(explanation&&explanation.score)||m.score||m.match_score||0;
       var reasons=m.reasons||[];
       var title=entity.title||entity.role||"–";
       var city=entity.location_city||"–";
@@ -96,7 +133,8 @@
         '<div><div style="font-size:15px;font-weight:700">'+esc(title)+'</div><div class="match-meta"><span>Rolle: '+esc(role)+'</span><span>Stadt: '+esc(city)+'</span><span>'+from+' – '+to+'</span></div></div>'+
         '<div class="match-score">'+score+'<small>/100</small></div>'+
         '</div>'+
-        renderScoreBars(reasons)+
+        renderWhy(explanation)+
+        renderScoreBars(reasons,explanation)+
         '<div class="match-actions">'+actions+'</div>'+
         '</div>';
     }

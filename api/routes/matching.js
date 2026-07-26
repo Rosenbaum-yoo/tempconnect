@@ -7,6 +7,7 @@ import * as engine from "../services/matchingEngine.js";
 import * as instant from "../services/instantMatchService.js";
 import { computeFillRateSignal, computeSlaComplianceSignal, computeRoleExpertiseSignal, computeRecencySignal, computeSmartRankScore, classifySmartRank, SMART_RANK_WEIGHTS, SMART_RANK_LABELS } from "../services/smartRankingService.js";
 import { requirePermission } from "../middleware/rbac.js";
+import { attachExplanations } from "../services/matchExplanationService.js";
 import { swallow } from "../utils/logger.js";
 
 /**
@@ -36,7 +37,7 @@ export function createMatchingRouter(deps) {
           org_id: req.orgId || null
         }).catch(swallow("matching"));
       }
-      res.json({ demand_id: req.params.id, count: matches.length, matches });
+      res.json({ demand_id: req.params.id, count: matches.length, matches: attachExplanations(matches) });
     } catch (err) {
       logger.error({ err: err.message }, "GET /matching/demand/:id");
       res.status(500).json({ error: "SERVER_ERROR" });
@@ -61,7 +62,7 @@ export function createMatchingRouter(deps) {
           org_id: req.orgId || null
         }).catch(swallow("matching"));
       }
-      res.json({ capacity_post_id: req.params.id, count: matches.length, matches });
+      res.json({ capacity_post_id: req.params.id, count: matches.length, matches: attachExplanations(matches) });
     } catch (err) {
       logger.error({ err: err.message }, "GET /matching/supply/:id");
       res.status(500).json({ error: "SERVER_ERROR" });
@@ -86,7 +87,7 @@ export function createMatchingRouter(deps) {
           org_id: req.orgId || null
         }).catch(swallow("matching"));
       }
-      res.json({ worker_id: req.params.id, count: matches.length, matches });
+      res.json({ worker_id: req.params.id, count: matches.length, matches: attachExplanations(matches) });
     } catch (err) {
       logger.error({ err: err.message }, "GET /matching/worker/:id");
       res.status(500).json({ error: "SERVER_ERROR" });
@@ -117,7 +118,7 @@ export function createMatchingRouter(deps) {
         workersNeeded: req.query.workers ? Number(req.query.workers) : null,
         urgency: req.query.urgency || null
       });
-      res.json(result);
+      res.json({ ...result, matches: attachExplanations(result.matches) });
     } catch (err) {
       logger.error({ err: err.message }, "GET /matching/instant/search");
       res.status(500).json({ error: "SERVER_ERROR" });
@@ -134,7 +135,7 @@ export function createMatchingRouter(deps) {
       if (result.error === "REQUISITION_NOT_FOUND") return res.status(404).json(result);
       if (result.error === "ORG_BOUNDARY_VIOLATION") return res.status(403).json(result);
       if (result.error) return res.status(400).json(result);
-      res.json(result);
+      res.json({ ...result, matches: attachExplanations(result.matches) });
     } catch (err) {
       logger.error({ err: err.message }, "GET /matching/instant/:requisitionId");
       res.status(500).json({ error: "SERVER_ERROR" });

@@ -13,6 +13,7 @@ import * as dealProgressHelper from "../services/dealProgressHelper.js";
 import * as eventTracking from "../services/eventTrackingService.js";
 import { dispatch } from "../services/notificationMatrix.js";
 import { scheduleMatchTrigger } from "../services/matchTriggerService.js";
+import { attachExplanations } from "../services/matchExplanationService.js";
 import { BRANDING } from "../config/branding.js";
 import { canAccessAsOwner } from "../utils/ownerCheck.js";
 import { withTransaction } from "../utils/transaction.js";
@@ -897,7 +898,7 @@ export function createMarketplaceRouter(deps) {
       const allowed = await canAccessAsOwner(pool, row.requester_company_id, req.session.userId);
       if (!allowed) return res.status(403).json({ error: "FORBIDDEN" });
       const matches = await marketplaceService.getDemandMatches(pool, id);
-      res.json(matches);
+      res.json(attachExplanations(matches));
     } catch (e) {
       logger.error({ err: e }, "GET /marketplace/demand-requests/:id/matches");
       res.status(500).json({ error: "SERVER_ERROR" });

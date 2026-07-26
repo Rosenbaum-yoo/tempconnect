@@ -34,6 +34,7 @@ import { matchCapacityToRequisitions, logMatch } from "./matchingEngine.js";
 import { instantMatchFromParams } from "./instantMatchService.js";
 import { dispatch, findOrgMembersWithPermission } from "./notificationMatrix.js";
 import { getUserPreferences } from "./matchAlertService.js";
+import { summarizeMatch } from "./matchExplanationService.js";
 
 const logger = createServiceLogger("matchTrigger");
 
@@ -192,11 +193,16 @@ async function insertPairAlert(pool, { userId, source, counterpart, score, reaso
   return rowCount > 0;
 }
 
-export function buildTriggerMessage(counterpart, score) {
+/**
+ * Benachrichtigungstext. Ab P4.2 traegt er die Begruendung mit: eine Prozentzahl allein
+ * sagt niemandem, WARUM etwas passt — und genau daran entscheidet sich, ob jemand klickt.
+ */
+export function buildTriggerMessage(counterpart, score, reasons) {
   const kind = counterpart.type === "capacity_post" ? "Passendes Personalangebot" : "Passender Auftrag";
   const role = counterpart.role ? ` – ${counterpart.role}` : "";
   const where = counterpart.city ? `, ${counterpart.city}` : "";
-  return `${kind}: "${counterpart.title}"${role}${where} (Match ${Math.round(score)}%)`;
+  const why = Array.isArray(reasons) && reasons.length ? `: ${summarizeMatch(score, reasons, { maxSummaryParts: 2 })}` : "";
+  return `${kind}: "${counterpart.title}"${role}${where} (Match ${Math.round(score)}%${why})`;
 }
 
 /**
@@ -217,7 +223,7 @@ async function alertSide(pool, { recipients, source, counterpart, score, reasons
       orgId: source.orgId || null,
       entityType: counterpart.type,
       entityId: counterpart.id,
-      message: buildTriggerMessage(counterpart, score),
+      message: buildTriggerMessage(counterpart, score, reasons),
       linkPath: deepLinkFor(counterpart.type, counterpart.id),
       emailQueue: prefs.email,
       _skipPreferenceCheck: true
