@@ -32,7 +32,7 @@ Welle gilt die Verifikations-Pflicht: erst am Code prüfen, was wirklich fehlt.
 
 ---
 
-## Welle 4.1 — Bidirektionales Instant-Matching
+## Welle 4.1 — Bidirektionales Instant-Matching ✅ ERLEDIGT (2026-07-26)
 
 **Ziel:** Bei **Angebots-** UND **Auftrags-Erstellung** sofort gegen die aktive Gegenseite
 matchen und **beide** Seiten benachrichtigen. Heute ist der Trigger unzuverlässig.
@@ -48,6 +48,67 @@ matchen und **beide** Seiten benachrichtigen. Heute ist der Trigger unzuverläss
 
 **Akzeptanz:** Angebot anlegen → passender Auftrag existiert → beide Seiten haben binnen
 Sekunden eine Benachrichtigung mit Deep-Link auf das konkrete Gegenstück (keine Übersicht).
+
+### Was gebaut wurde
+
+| Baustein | Ort |
+|---|---|
+| Chokepoint `runMatchTrigger` / `scheduleMatchTrigger` | `api/services/matchTriggerService.js` |
+| Paar-Dedup in der DB (`pair_key` + partieller UNIQUE-Index) | `sql/migrations/151_instant_match_pair_dedup.sql` |
+| Auswertungsspur `match_logs` (fehlte komplett, siehe unten) | `sql/migrations/152_match_logs.sql` |
+| Verhaltens-Suite (28 Tests, ohne DB) | `api/test/matchTrigger.test.js` |
+| Schema-Smoke gegen echte DB (3 Tests) | `api/test/integration/matchTrigger.schema.flow.test.js` |
+
+**Verdrahtete Erstellungspfade** (vorher drei verschiedene Implementierungen, eine davon gar keine):
+
+| Pfad | Vorher | Jetzt |
+|---|---|---|
+| `POST /marketplace/capacity-posts` | **kein Trigger** — neues Angebot blieb unsichtbar | Chokepoint |
+| `POST /marketplace/demand-requests` | Inline-Dispatch nur an Anbieter, ohne Dedup/Alarm-Datensatz | Chokepoint (SLA-Mails unverändert) |
+| `POST /capacity-exchange/entries` (sofort aktiv) | kein Trigger | Chokepoint |
+| `POST /capacity-exchange/entries/:id/activate` | Inline-Variante, kannte nur `demand_requests` | Chokepoint |
+| `POST /requisitions/:id/approve` | `triggerRequisitionMatchAlerts` (Einbahn, Zeitfenster-Dedup) | Chokepoint |
+
+Die beiden alten Trigger in `matchAlertService.js` sind `@deprecated` markiert und bekommen
+keine neuen Aufrufer. Deal-abgeleitete Nachfragen (Zustimmung/Verhandlung zu einem konkreten
+Angebot) lösen bewusst **nicht** aus — sie sind bereits gematcht.
+
+### Entscheidungen, die über den Plan hinausgehen
+
+- **Kanonischer, richtungsunabhängiger `pair_key`** statt eines Unique-Keys auf
+  (Quelle, Ziel). Ein Unique-Key auf die Quelle hätte das Kernproblem nicht gelöst: legt
+  Seite A zuerst an und Seite B später, ist die *Quelle* eine andere, das *Paar* aber
+  dasselbe — es hätte weiterhin doppelt alarmiert.
+- **Selbstmatch-Sperre**: eigene Kapazität gegen eigenen Bedarf (gleicher Account oder
+  gleiche Org) alarmiert nie.
+- **Kostengrenzen im Code**: `TRIGGER_TOP_N = 8`, `TRIGGER_MIN_SCORE = 40`
+  (= exakte Rolle + passende Verfügbarkeit), `TRIGGER_MAX_ALERTS = 24` pro Lauf.
+- **Wiederverwendung statt Zweitimplementierung**: Richtung Auftrag → Angebot nutzt den
+  bereits vorhandenen, angereicherten `instantMatchService.instantMatchFromParams`
+  (Compliance, Reputation, Vendor-Pool, Smart Rank sind dort batch-vorgeladen).
+
+### Nebenbefund, sofort behoben: `match_logs` gab es nie
+
+Der Live-Smoke hat gezeigt, dass `matchingEngine.logMatch()` seit Einführung in eine
+**nicht existierende Tabelle** schreibt — der INSERT steckt in einem `try/catch` ohne Log,
+also ist jeder Aufruf still ins Leere gelaufen. Exakt das Fehlermuster aus `SKILL.md`:
+ein Pfad, der nirgends scheitert und trotzdem nichts tut.
+
+Das ist kein Schönheitsfehler, sondern die Messgrundlage von 4.3: ohne diese Spur lässt
+sich „ist die KI besser als die deterministische Baseline?" nicht beantworten. Migration
+152 legt die Tabelle an (BRIN auf `created_at` — append-only auf heißem Insert-Pfad), der
+Schema-Smoke prüft ab jetzt, dass ein Eintrag wirklich in der DB landet.
+
+### Verifikation (2026-07-26)
+
+- Volle Suite: **7350 Tests, 0 Fehler** (`api/scripts/run-tests.js`).
+- Migrationen 151 + 152 gegen die laufende Dev-DB angewandt.
+- Live gegen die laufende App (`tempconnect_api` + echte DB): Angebot × Nachfrage angelegt →
+  `{"pairs":1,"alerts":2}`, beide Seiten haben eine Benachrichtigung mit Deep-Link auf das
+  Gegenstück (`…detail.html?id=<Angebot>&type=supply` bzw. `…&type=demand`).
+- Dedup live geprüft: derselbe Lauf erneut → `alerts: 0`; **Gegenrichtung** (Nachfrage als
+  Quelle) → ebenfalls `alerts: 0`. Genau der Fall, den eine Zeitfenster-Logik nicht abdeckt.
+- Testdaten anschließend restlos entfernt.
 
 ## Welle 4.2 — Match-Qualität sichtbar machen (vor der KI!)
 

@@ -164,6 +164,12 @@ export async function createMatchAlertRecord(pool, opts) {
 /**
  * When a requisition is approved and moves to OPEN status,
  * find matching capacity suppliers and alert them.
+ *
+ * @deprecated Seit P4.1 laeuft die Ausloesung ueber den Chokepoint
+ * `matchTriggerService.runMatchTrigger({ sourceType: 'requisition' })`: der alarmiert
+ * BEIDE Seiten, dedupliziert paarbasiert in der DB und verlinkt auf das konkrete
+ * Gegenstueck. Diese Einbahn-Variante (nur Anbieter, Zeitfenster-Dedup, Link auf die
+ * Uebersicht) bleibt nur fuer Bestandsaufrufe erhalten und bekommt keine neuen.
  */
 export async function triggerRequisitionMatchAlerts(pool, requisitionId, requisitionData, opts = {}) {
   try {
@@ -254,6 +260,10 @@ export async function triggerRequisitionMatchAlerts(pool, requisitionId, requisi
 
 /**
  * Enhanced capacity activation alerts with preferences + dedup.
+ *
+ * @deprecated Seit P4.1 uebernimmt das der Chokepoint
+ * `matchTriggerService.runMatchTrigger({ sourceType: 'capacity_post' })` — siehe
+ * Begruendung bei `triggerRequisitionMatchAlerts`.
  */
 export async function triggerCapacityMatchAlerts(pool, capacityPostId, capacityData, opts = {}) {
   try {

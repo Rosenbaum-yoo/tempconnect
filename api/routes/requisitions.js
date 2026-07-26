@@ -8,7 +8,7 @@ import * as requisitionService from "../services/requisitionService.js";
 import { requirePermission } from "../middleware/rbac.js";
 import { requireScope } from "../middleware/apiKeyAuth.js";
 import { RequisitionTransitionError } from "../services/requisitionService.js";
-import { triggerRequisitionMatchAlerts } from "../services/matchAlertService.js";
+import { scheduleMatchTrigger } from "../services/matchTriggerService.js";
 import { trackProductEventFromRequest } from "../services/productAnalyticsService.js";
 import { assertOrgOwnership, OrgBoundaryError } from "../utils/orgBoundary.js";
 
@@ -182,18 +182,9 @@ export function createRequisitionsRouter(deps) {
       if (result.error) return res.status(404).json({ error: result.error });
       res.locals.audit = { action: "requisition.approve", entity_type: "requisition", entity_id: req.params.id, new_values: { status: "APPROVED" } };
 
-      // ── Match Alerts: notify matching capacity suppliers on approval ──
-      try {
-        const reqData = result.requisition;
-        triggerRequisitionMatchAlerts(pool, req.params.id, {
-          title: reqData.title, role: reqData.role,
-          skill_tags: reqData.skill_tags, location_city: reqData.location_city,
-          latitude: reqData.latitude, longitude: reqData.longitude,
-          radius_km: reqData.radius_km, start_date: reqData.start_date,
-          end_date: reqData.end_date, urgency: reqData.urgency,
-          org_id: reqData.org_id
-        }).catch(e => logger.warn({ err: e?.message, reqId: req.params.id }, 'Match alert dispatch failed (non-critical)'));
-      } catch (_e) { /* non-critical */ }
+      // ── Instant-Matching (P4.1): ein Chokepoint, beide Seiten, Dedup in der DB ──
+      // Der Trigger laedt die Requisition selbst — kein zweiter, driftender Datensatz.
+      scheduleMatchTrigger(pool, { sourceType: "requisition", sourceId: req.params.id });
 
       res.json(result.requisition);
     } catch (err) {

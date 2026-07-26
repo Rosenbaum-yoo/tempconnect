@@ -12,6 +12,7 @@ import * as matchingEngine from "../services/matchingEngine.js";
 import * as dealProgressHelper from "../services/dealProgressHelper.js";
 import * as eventTracking from "../services/eventTrackingService.js";
 import { dispatch } from "../services/notificationMatrix.js";
+import { scheduleMatchTrigger } from "../services/matchTriggerService.js";
 import { BRANDING } from "../config/branding.js";
 import { canAccessAsOwner } from "../utils/ownerCheck.js";
 import { withTransaction } from "../utils/transaction.js";
@@ -354,6 +355,11 @@ export function createMarketplaceRouter(deps) {
       }
       const row = await marketplaceService.createCapacityPost(pool, req.session.userId, parsed.data);
       res.locals.audit = { action: "marketplace.capacity_post.create", entity_type: "capacity_post", entity_id: row.id, details: { role: parsed.data.role, city: parsed.data.location_city } };
+
+      // Instant-Matching (P4.1): dieser Pfad hatte bisher gar keinen Trigger — ein neues
+      // Angebot blieb unsichtbar, bis jemand von Hand suchte.
+      scheduleMatchTrigger(pool, { sourceType: "capacity_post", sourceId: row.id });
+
       res.status(201).json(row);
     } catch (e) {
       logger.error({ err: e }, "POST /marketplace/capacity-posts");
@@ -804,20 +810,13 @@ export function createMarketplaceRouter(deps) {
         await marketplaceService.markMatchesNotified(pool, demand.id, notifiedIds);
       }
 
-      // ── Match Alerts: in-app notifications for matching suppliers ──
-      try {
-        const supplierIds = [...new Set(
-          toNotify.map(m => m.cap?.supplier_company_id).filter(Boolean)
-        )];
-        if (supplierIds.length > 0) {
-          await dispatch(pool, 'capacity.match_found', {
-            recipientUserIds: supplierIds,
-            entityType: 'demand_request',
-            entityId: demand.id,
-            message: `Neue Nachfrage passt zu Ihrer Kapazitaet: "${demand.title}" – ${demand.role}, ${demand.location_city}`
-          });
-        }
-      } catch { /* notification failure is non-critical */ }
+      // ── Instant-Matching (P4.1) ──
+      // Ersetzt die frueher hier inline gebaute In-App-Benachrichtigung: die ging nur
+      // an die Anbieterseite, ohne Dedup, ohne match_alerts-Datensatz und verlinkte auf
+      // die eigene Nachfrage statt auf das passende Angebot. Der Chokepoint alarmiert
+      // beide Seiten mit Deep-Link auf das konkrete Gegenstueck. Die SLA-Mails oben
+      // bleiben unberuehrt — anderer Kanal, andere Zusage.
+      scheduleMatchTrigger(pool, { sourceType: "demand_request", sourceId: demand.id });
 
       if (demand.sla_due_at && new Date() <= new Date(demand.sla_due_at)) {
         await marketplaceService.markDemandSlaMet(pool, demand.id);

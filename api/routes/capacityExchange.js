@@ -11,6 +11,7 @@ import * as capacityOfferGeneratorService from "../services/capacityOfferGenerat
 import * as matchingEngine from "../services/matchingEngine.js";
 import * as auditLog from "../services/auditLog.js";
 import { dispatch } from "../services/notificationMatrix.js";
+import { scheduleMatchTrigger } from "../services/matchTriggerService.js";
 import * as listingAnalytics from "../services/listingAnalyticsService.js";
 import * as settingsService from "../services/settingsService.js";
 import { hasFeature } from "../config/planFeatures.js";
@@ -112,6 +113,12 @@ export function createCapacityExchangeRouter(deps) {
         entity_id: entry.id, actor_id: req.session.userId,
         details: { title: entry.title, role: entry.role, status: entry.status, headcount: entry.headcount }
       });
+
+      // Instant-Matching (P4.1) nur fuer sofort veroeffentlichte Angebote. Entwuerfe
+      // sind noch nicht am Markt — sie loesen beim Aktivieren aus (handleTransition).
+      if (entry?.is_active) {
+        scheduleMatchTrigger(pool, { sourceType: "capacity_post", sourceId: entry.id });
+      }
 
       res.status(201).json(entry);
     } catch (e) {
@@ -273,39 +280,14 @@ export function createCapacityExchangeRouter(deps) {
         details: { new_status: targetStatus }
       });
 
-      // ── Match Alerts: dispatch bidirectional notifications on activation ──
+      // ── Instant-Matching (P4.1) ──
+      // Ersetzt die frueher hier inline gebaute Variante: die kannte nur
+      // demand_requests (Requisitions fielen durch), hatte keinen Dedup, schrieb
+      // keinen match_alerts-Datensatz und verlinkte auf eine Uebersicht statt auf
+      // das konkrete Gegenstueck. Jetzt: derselbe Chokepoint wie in allen anderen
+      // Erstellungspfaden, fire-and-forget.
       if (targetStatus === "active") {
-        try {
-          const matches = await matchingEngine.matchCapacityToRequisitions(pool, req.params.id, {
-            topN: 5, minScore: 20
-          });
-          if (matches.length > 0) {
-            // Notify supplier about matching demands/requisitions
-            await dispatch(pool, 'capacity.match_found', {
-              recipientUserIds: [req.session.userId],
-              entityType: 'capacity_post',
-              entityId: req.params.id,
-              message: `${matches.length} passende Nachfrage${matches.length > 1 ? 'n' : ''} gefunden fuer "${result.entry.title}"`
-            });
-
-            // Notify demand creators about the new matching capacity
-            const demandCreatorIds = [...new Set(
-              matches
-                .filter(m => m.type === 'demand_request' && m.entity?.requester_company_id)
-                .map(m => m.entity.requester_company_id)
-            )];
-            if (demandCreatorIds.length > 0) {
-              await dispatch(pool, 'demand.match_found', {
-                recipientUserIds: demandCreatorIds,
-                entityType: 'capacity_post',
-                entityId: req.params.id,
-                message: `Neues Kapazitaetsangebot passt zu Ihrer Nachfrage: "${result.entry.title}" – ${result.entry.role}, ${result.entry.location_city}`
-              });
-            }
-          }
-        } catch (matchErr) {
-          logger.warn({ err: matchErr?.message, entryId: req.params.id }, 'Match alert dispatch failed (non-critical)');
-        }
+        scheduleMatchTrigger(pool, { sourceType: "capacity_post", sourceId: req.params.id });
       }
 
       res.json(result.entry);

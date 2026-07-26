@@ -19,6 +19,7 @@ Stand: 2026-06-24 · Plan-Stufen: `DEMO · BASIS · PLUS · PRO · INDIVIDUELL` 
 | ✅ | Granulare Personalanfragen / Requisitions (Rolle/Region/Schicht/Rate) | alle | `services/requestService.js`, `routes/requisitions.js` |
 | ✅ | Marktplatz-Feed (Angebot ↔ Nachfrage, Ranking, NEW/PREMIUM-Badges) | alle | `services/marketplaceService.js`, `routes/marketplace.js` |
 | ✅ | Matching-Engine (Kapazität ↔ Bedarf) | PLUS+ | `services/matchingEngine.js` |
+| ✅ | Instant-Matching bidirektional (Anlegen/Aktivieren → beide Seiten benachrichtigt, Paar-Dedup, Deep-Link) | alle | `services/matchTriggerService.js`, Mig 151, [P4-Plan](features/P4_MATCHING_PLAN.md) |
 | ✅ | Angebots-Lifecycle (accept/counter/withdraw, Agreements) | alle | `services/marketplaceService.js`, `services/dealAgreementService.js` |
 | ✅ | Deal-Abschluss beidseitig + Einsatzvereinbarung/Konditionsblatt (PDF) | alle | `services/agreementDocumentService.js` |
 | ✅ | Suche (Tippfehler/Umlaut-tolerant, trgm/unaccent, Moderation) | alle | `services/searchService.js`, Mig 135–137 |
