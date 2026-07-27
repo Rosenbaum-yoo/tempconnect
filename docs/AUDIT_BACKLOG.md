@@ -31,6 +31,23 @@ echo "frontend/public/staff/" >> .gitignore
 **Verifikation:** `me.route.coverage.test.js` 20×30 in Schleife laufen → 0 Fail.
 **Wert:** mittel (grüne-Suite-Glaubwürdigkeit), **kein Prod-Bug** (nur unter künstlichem all-werfenden Mock).
 
+**Untersuchung 2026-07-26 (Zwischenstand, Verdacht widerlegt):** Der Flake trat an diesem Tag
+zweimal im vollen Suite-Lauf auf (~1900 Suiten). Gezielte Reproduktion ist **nicht** gelungen:
+6 isolierte Läufe grün, mehrere Kombinationsläufe (me.route + subscriptionLifecycle +
+qaHardening + hubVisibility) grün. Eine erste scheinbare Reproduktion (`fail 4`, Datei bricht
+nach ~110 ms ab) war ein **Artefakt der eigenen Instrumentierung** — ein `--import`-Pfad in
+Git-Bash-Schreibweise, den Node unter Windows nicht auflösen kann; jede Testdatei starb dann
+sofort. Nicht als Beleg werten.
+
+Der dokumentierte Prime-Verdacht ist damit **unwahrscheinlich**: `pilotPolicyService` enthält
+gar keinen fire-and-forget — alle asynchronen Aufrufe dort sind `await`ed (geprüft am Code,
+nicht am Gedächtnis). Wer hier weitermacht, sollte bei (c) ansetzen: `unhandledRejection`
+**im vollen Suite-Lauf** instrumentieren (nicht in Teilmengen — nur dort tritt es auf), mit
+einem Pfad in Node-tauglicher Schreibweise.
+
+**Auswirkung bleibt unverändert:** kein Produktionsfehler, aber jeder Treffer kostet einen
+kompletten Suite-Lauf zur Gegenprüfung.
+
 ---
 
 ## B-3 · H-4 · docs-consistency-Test (CLAUDE.md §0.12) ⚠️ *can of worms*

@@ -20,16 +20,29 @@ function mockLogger() {
   return { info() {}, warn() {}, error() {}, debug() {}, trace() {}, fatal() {} };
 }
 
-function trackingPool(rows = []) {
+/**
+ * @param rows        Ereigniszeilen
+ * @param roleKey     Rolle des Anfragenden in der Org (null = kein Mitglied)
+ */
+function trackingPool(rows = [], roleKey = "owner") {
   const calls = [];
   return {
     calls,
     query: async (sql, params = []) => {
-      calls.push({ sql: String(sql), params });
+      const text = String(sql);
+      calls.push({ sql: text, params });
+      if (text.includes("org_memberships")) {
+        return roleKey
+          ? { rows: [{ role_key: roleKey, is_active: true, org_id: params[1] || null, user_id: params[0] || null }], rowCount: 1 }
+          : { rows: [], rowCount: 0 };
+      }
       return { rows, rowCount: rows.length };
     }
   };
 }
+
+/** Die Ereignis-Abfrage aus den Aufrufen holen (die Mitgliedschaft laeuft davor). */
+const eventCall = (pool) => pool.calls.find((c) => c.sql.includes("FROM platform_events"));
 
 function mockRes() {
   const res = { _status: 200, _json: null };
@@ -67,9 +80,9 @@ describe("GET /activity-feed — Org-Boundary", () => {
     await handler({ orgId: "org-1", session: { userId: "u1" }, query: {} }, res);
 
     assert.equal(res._status, 200);
-    const sql = pool.calls[0].sql;
-    assert.match(sql, /pe\.org_id = \$1 OR pe\.target_org_id = \$1/);
-    assert.equal(pool.calls[0].params[0], "org-1");
+    const call = eventCall(pool);
+    assert.match(call.sql, /pe\.org_id = \$1 OR pe\.target_org_id = \$1/);
+    assert.equal(call.params[0], "org-1");
     assert.equal(res._json.data.scope, "org");
   });
 
@@ -79,10 +92,10 @@ describe("GET /activity-feed — Org-Boundary", () => {
     const res = mockRes();
     await handler({ orgId: null, session: { userId: "u1" }, query: {} }, res);
 
-    const sql = pool.calls[0].sql;
-    assert.match(sql, /pe\.actor_id = \$1/, "ohne Org wird auf den Akteur eingegrenzt");
-    assert.equal(pool.calls[0].params[0], "u1");
-    assert.ok(!/WHERE\s+LIMIT/i.test(sql), "niemals eine Abfrage ohne Einschraenkung");
+    const call = eventCall(pool);
+    assert.match(call.sql, /pe\.actor_id = \$1/, "ohne Org wird auf den Akteur eingegrenzt");
+    assert.equal(call.params[0], "u1");
+    assert.ok(!/WHERE\s+LIMIT/i.test(call.sql), "niemals eine Abfrage ohne Einschraenkung");
     assert.equal(res._json.data.scope, "own");
   });
 
@@ -90,8 +103,42 @@ describe("GET /activity-feed — Org-Boundary", () => {
     const pool = trackingPool([]);
     const handler = getHandler(createActivityFeedRouter({ pool, requireAuth: (_q, _s, n) => n(), logger: mockLogger() }), "get", "/activity-feed");
     await handler({ orgId: "org-1", session: { userId: "u1" }, query: { limit: "5000" } }, mockRes());
-    const params = pool.calls[0].params;
+    const params = eventCall(pool).params;
     assert.equal(params[params.length - 1], 100);
+  });
+});
+
+describe("GET /activity-feed — Rollen-Gate fuer den Org-Verlauf", () => {
+  it("Mitglied ohne Reporting-Recht sieht NUR die eigenen Vorgaenge", async () => {
+    // Der Verlauf traegt seit P4.4 Beschwerden ueber namentliche Kraefte und Sperren.
+    // Ein `member` darf das nicht org-weit mitlesen — aber die Seite bleibt nutzbar.
+    const pool = trackingPool([eventRow()], "member");
+    const handler = getHandler(createActivityFeedRouter({ pool, requireAuth: (_q, _s, n) => n(), logger: mockLogger() }), "get", "/activity-feed");
+    const res = mockRes();
+    await handler({ orgId: "org-1", session: { userId: "u1" }, query: {} }, res);
+
+    assert.equal(res._status, 200, "kein 403 — nur ein engerer Ausschnitt");
+    assert.equal(res._json.data.scope, "own");
+    assert.match(eventCall(pool).sql, /pe\.actor_id = \$1/);
+  });
+
+  it("Rollen mit Reporting-Recht sehen den Org-Verlauf", async () => {
+    for (const role of ["owner", "admin", "program_manager"]) {
+      const pool = trackingPool([eventRow()], role);
+      const handler = getHandler(createActivityFeedRouter({ pool, requireAuth: (_q, _s, n) => n(), logger: mockLogger() }), "get", "/activity-feed");
+      const res = mockRes();
+      await handler({ orgId: "org-1", session: { userId: "u1" }, query: {} }, res);
+      assert.equal(res._json.data.scope, "org", `Rolle ohne Org-Sicht: ${role}`);
+    }
+  });
+
+  it("Nicht-Mitglied der aktiven Org bekommt keine Org-Daten", async () => {
+    const pool = trackingPool([eventRow()], null);
+    const handler = getHandler(createActivityFeedRouter({ pool, requireAuth: (_q, _s, n) => n(), logger: mockLogger() }), "get", "/activity-feed");
+    const res = mockRes();
+    await handler({ orgId: "org-fremd", session: { userId: "u1" }, query: {} }, res);
+    assert.equal(res._json.data.scope, "own");
+    assert.match(eventCall(pool).sql, /pe\.actor_id = \$1/);
   });
 });
 

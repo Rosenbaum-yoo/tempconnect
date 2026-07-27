@@ -7,6 +7,16 @@
  */
 import { Router } from "express";
 import * as eventService from "../services/eventTrackingService.js";
+import { checkPermission } from "../services/rbacService.js";
+
+/**
+ * Wer den Verlauf der GANZEN Organisation sehen darf. Bewusst eng: der Feed traegt seit
+ * P4.4 auch Beschwerden ueber namentliche Kraefte und Einsatz-Sperren — das ist
+ * HR-sensibel und nichts, was jedes Mitglied mitlesen muss. Wer die Permission nicht
+ * hat, sieht seine EIGENEN Vorgaenge (kein 403: die Seite bleibt nutzbar, nur enger).
+ * Soll der Kreis groesser werden, ist das diese eine Konstante.
+ */
+const ORG_FEED_PERMISSION = "report.operational";
 
 export function createActivityFeedRouter(deps) {
   const { pool, requireAuth, logger } = deps;
@@ -21,7 +31,12 @@ export function createActivityFeedRouter(deps) {
       // plattformweit lesen. Solange die Tabelle leer war, fiel das nicht auf — mit den
       // neuen Events aus P1-P4 waere es ein Datenleck. Ohne Org gibt es nur die
       // eigenen Vorgaenge.
-      const scope = orgId
+      let orgWide = false;
+      if (orgId) {
+        const check = await checkPermission(pool, req.session.userId, orgId, ORG_FEED_PERMISSION);
+        orgWide = check.allowed === true;
+      }
+      const scope = orgWide
         ? { org_id: orgId }
         : { actor_id: req.session.userId };
 
@@ -35,7 +50,7 @@ export function createActivityFeedRouter(deps) {
       // Beschriftung, Symbol und Deep-Link kommen aus dem Katalog des Services —
       // eine Wahrheit fuer alle Oberflaechen.
       const items = events.map(eventService.describeEvent);
-      res.json({ success: true, data: { items, count: items.length, scope: orgId ? "org" : "own" } });
+      res.json({ success: true, data: { items, count: items.length, scope: orgWide ? "org" : "own" } });
     } catch (e) {
       logger.error({ err: e }, "activity-feed GET");
       res.status(500).json({ success: false, error: { code: "SERVER_ERROR" } });

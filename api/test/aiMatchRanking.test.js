@@ -26,6 +26,7 @@ import {
   buildDemandPayload,
   rankMatches
 } from "../services/aiMatchRankingService.js";
+import { rankDistance } from "../scripts/measure-ai-ranking.js";
 
 /* ── Umgebung sauber halten ─────────────────────────────────────────────── */
 
@@ -430,5 +431,30 @@ describe("Prompt — cachefaehig und eng gefuehrt", () => {
       Object.keys(payload).sort(),
       ["achsen", "basis_score", "id", "luecken", "ort", "personen", "rolle", "titel", "verfuegbar_ab", "verfuegbar_bis"]
     );
+  });
+});
+
+// ═══════════════════════════════════════════════════════════════
+// Messbarkeit: die Zahl, die 4.3 entscheidbar macht
+// ═══════════════════════════════════════════════════════════════
+
+describe("rankDistance — wie stark ordnet die KI um?", () => {
+  it("ist 0, wenn die KI die Baseline bestaetigt", () => {
+    assert.equal(rankDistance(["A", "B", "C"], ["A", "B", "C"]), 0);
+  });
+
+  it("waechst mit der Zahl der verschobenen Plaetze", () => {
+    const klein = rankDistance(["A", "B", "C", "D"], ["B", "A", "C", "D"]);
+    const gross = rankDistance(["A", "B", "C", "D"], ["D", "C", "B", "A"]);
+    assert.ok(klein > 0 && klein < gross, `klein=${klein} gross=${gross}`);
+    assert.ok(gross <= 1, "der Wert bleibt normiert");
+  });
+
+  it("bleibt bei leerer Liste bei 0 statt zu werfen", () => {
+    assert.equal(rankDistance([], []), 0);
+  });
+
+  it("ignoriert Kandidaten, die in der neuen Reihenfolge fehlen, statt zu werfen", () => {
+    assert.equal(typeof rankDistance(["A", "B"], ["A"]), "number");
   });
 });

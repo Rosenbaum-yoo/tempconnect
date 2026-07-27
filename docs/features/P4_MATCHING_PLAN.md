@@ -203,7 +203,8 @@ Reihenfolge, je Treffer ein Satz Begründung. Kein Treffer verschwindet durch di
 | Ranking-Schicht (Vorfilter → Modell → Fallback) | `api/services/aiMatchRankingService.js` |
 | Ergebnis-Cache + Kostenspur | `sql/migrations/153_ai_match_ranking_cache.sql` |
 | Verdrahtung (Auftrag → Angebot) | `api/routes/matching.js` |
-| Verhaltens-Suite (32 Tests) | `api/test/aiMatchRanking.test.js` |
+| Verhaltens-Suite (36 Tests) | `api/test/aiMatchRanking.test.js` |
+| Messung gegen die 4.2-Baseline | `api/scripts/measure-ai-ranking.js` |
 
 **Die Suite prüft nicht „rankt die KI gut?" — das misst man gegen die Baseline, nicht im
 Unit-Test. Sie prüft: kann die KI etwas kaputt machen?** Antwort in jedem Fall nein:
@@ -241,6 +242,20 @@ für den stabilen Bewertungsteil. Der dritte Hebel ist die Modellwahl — ein Ra
 einem Satz Begründung ist die Aufgabe, bei der ein schnelles Modell am wenigsten kostet
 und am wenigsten verliert. **Empfehlung: mit `claude-haiku-4-5` starten, gegen die
 4.2-Baseline messen, und nur hochstufen, wenn die Messung es rechtfertigt.**
+
+### Die Zahl, die 4.3 entscheidbar macht
+
+`node scripts/measure-ai-ranking.js --limit=20 [--model=claude-haiku-4-5]` nimmt echte
+offene Aufträge, rechnet für jeden **beide** Reihenfolgen und stellt sie gegenüber:
+wie stark die KI umsortiert (0 = sie bestätigt die Baseline, 1 = sie dreht alles um),
+wie oft sich Platz 1 ändert, Kosten und Laufzeit je Auftrag, Cache-Treffer.
+`--dry` prüft die Mechanik ohne Modellaufruf.
+
+Die Lesehilfe steht im Skript-Output: **eine Umsortierung nahe 0 heißt, man bezahlt für
+Bestätigung.** Deutliche Umsortierung ist erst dann ein Gewinn, wenn sie zu mehr
+angenommenen Angeboten führt — dafür `match_logs` (outcome) über einige Wochen gegen
+die Läufe halten. Erst diese Kombination beantwortet „lohnt sich die KI?" mit einer Zahl
+statt mit einem Gefühl.
 
 ### Aktivierung (3 Schritte, alle owner-gated)
 
@@ -322,6 +337,11 @@ scheitern lassen):
 - **Doppelte Wahrheiten aufgelöst:** Label-/Icon-Tabellen lagen in `routes/activityFeed.js`
   *und* im Frontend; Deep-Links gab es zweimal (`matchTriggerService.deepLinkFor` und die
   Feed-Routen-Tabelle). Jetzt eine Quelle im Service, die anderen delegieren.
+- **Rollen-Gate nachgezogen (Selbst-Audit 2026-07-26):** Der Feed hatte nur `requireAuth` —
+  folgenlos, solange die Tabelle leer war. Seit er Beschwerden über namentliche Kräfte und
+  Einsatz-Sperren trägt, ist das HR-sensibel. Jetzt sieht den **org-weiten** Verlauf nur,
+  wer `report.operational` hat; alle anderen sehen ihre **eigenen** Vorgänge — kein 403,
+  die Seite bleibt nutzbar, nur enger. Der Kreis ist eine Konstante im Router.
 
 Ein neuer `notifications.type` war **nicht** nötig — die Ereignisse laufen über
 `platform_events`, nicht über die Benachrichtigungstabelle. Falle 2 greift hier also nicht;
