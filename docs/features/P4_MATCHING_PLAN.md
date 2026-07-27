@@ -158,7 +158,7 @@ sonst bei jeder Wortänderung die Erklärung kaputtmachen würde. Altdaten ohne 
 Verfügbarkeit 10/10`; Computed-Style-Prüfung im Browser bestätigt Token-Farben
 (`--ds-success` für gute, `--ds-danger` für fehlende Achsen), keine Hardcodes.
 
-## Welle 4.3 — KI-Augmentierung als Ranking-Schicht (Claude API)
+## Welle 4.3 — KI-Augmentierung als Ranking-Schicht (Claude API) ✅ GEBAUT, AUS (2026-07-26)
 
 > **Owner-Vorgabe 2026-07-25:** „Die KI soll so fortschrittlich sein wie es nur geht — dabei
 > aber effizient im Sinne von wirtschaftlich optimal."
@@ -195,6 +195,75 @@ die Erklärung — fällt sie aus, funktioniert alles weiter, nur weniger elegan
 
 **Akzeptanz:** Flag AUS → Verhalten exakt wie 4.2. Flag AN → gleiche Treffer, bessere
 Reihenfolge, je Treffer ein Satz Begründung. Kein Treffer verschwindet durch die KI.
+
+### Was gebaut wurde
+
+| Baustein | Ort |
+|---|---|
+| Ranking-Schicht (Vorfilter → Modell → Fallback) | `api/services/aiMatchRankingService.js` |
+| Ergebnis-Cache + Kostenspur | `sql/migrations/153_ai_match_ranking_cache.sql` |
+| Verdrahtung (Auftrag → Angebot) | `api/routes/matching.js` |
+| Verhaltens-Suite (32 Tests) | `api/test/aiMatchRanking.test.js` |
+
+**Die Suite prüft nicht „rankt die KI gut?" — das misst man gegen die Baseline, nicht im
+Unit-Test. Sie prüft: kann die KI etwas kaputt machen?** Antwort in jedem Fall nein:
+Flag aus, Tarif ohne Anspruch, Modell nicht erreichbar, Antwort unlesbar, Sicherheits-
+Ablehnung, Kandidat fehlt, Kandidat erfunden, Auftrag nicht ladbar → immer die
+vollständige deterministische Reihenfolge aus 4.2.
+
+### Konfiguration (3-Tier-Taxonomie)
+
+| Schalter | Default | Wirkung |
+|---|---|---|
+| `AI_MATCH_RANKING_ENABLED` | **AUS** | Tier-2-Kill-Switch. Ohne Freigabe entsteht keine einzige API-Anfrage. |
+| `AI_MATCH_RANKING_MODEL` | `claude-opus-5` | Modellwahl ohne Deploy. |
+| `AI_MATCH_RANKING_MIN_PLAN` | `PRO` | Tier-3-Entitlement. `DEMO` öffnet es für alle Pläne. |
+| `AI_MATCH_RANKING_TOP_N` | `10` | Wie viele Kandidaten das Modell überhaupt sieht. |
+| `AI_MATCH_RANKING_TIMEOUT_MS` | `2500` | Latenzbudget; darüber gilt das deterministische Ergebnis. |
+
+> **Offene Owner-Entscheidung, unter Annahme gebaut:** Die Frage „KI-Ranking in allen
+> Plänen oder ab höherem Tarif?" ist eine Preis-, keine Technikfrage und wurde noch nicht
+> beantwortet. Gebaut ist deshalb der vorsichtige Default **PRO+ mit Flag AUS** — beides
+> ist eine Ein-Zeilen-Änderung an der Konfiguration, kein Code.
+
+### Gemessene Kosten pro Ranking-Lauf (10 Kandidaten, Prompt-Cache warm)
+
+| Modell | Kosten je Lauf | 15.000 Läufe/Tag (~300 Kunden) |
+|---|---|---|
+| `claude-opus-5` (Default) | **0,82 Cent** | ~123 €/Tag |
+| `claude-sonnet-5` | 0,49 Cent | ~74 €/Tag |
+| `claude-haiku-4-5` | **0,16 Cent** | ~25 €/Tag |
+
+Gemessen mit der echten Preistabelle gegen einen realistischen Lauf (500 neue + 900
+gecachte Eingabe-Tokens, 210 Ausgabe-Tokens). Zwei Hebel drücken diese Zahl bereits:
+der **Cache** (dieselbe Paarung mit unverändertem Inhalt kostet 0) und **Prompt Caching**
+für den stabilen Bewertungsteil. Der dritte Hebel ist die Modellwahl — ein Ranking mit
+einem Satz Begründung ist die Aufgabe, bei der ein schnelles Modell am wenigsten kostet
+und am wenigsten verliert. **Empfehlung: mit `claude-haiku-4-5` starten, gegen die
+4.2-Baseline messen, und nur hochstufen, wenn die Messung es rechtfertigt.**
+
+### Aktivierung (3 Schritte, alle owner-gated)
+
+1. `ANTHROPIC_API_KEY` in die Produktions-Umgebung legen (Secret, nie im Code).
+2. `npm install` im API-Image — `@anthropic-ai/sdk` ist in `package.json` deklariert, aber
+   bewusst noch nicht installiert: solange das Flag AUS ist, wird es nie importiert.
+3. `AI_MATCH_RANKING_ENABLED=true` setzen (plus optional Modell/Mindesttarif).
+
+### Verifikation (2026-07-26)
+
+- Volle Suite: **7451 Tests, 0 Fehler**.
+- Migration 153 gegen die laufende Dev-DB angewandt.
+- Live gegen die laufende App: Flag AUS → `applied:false, reason:"disabled"`, Liste
+  identisch (Objektidentität geprüft, nicht nur Inhalt); Tarif BASIS → `plan_locked`;
+  angewandt → Reihenfolge geändert, Begründung je Treffer, Kosten protokolliert;
+  zweiter Lauf → **Cache-Treffer, kein Modellaufruf, Kosten 0**.
+- **Nicht verifiziert (bewusst):** der echte Modellaufruf. Er braucht einen
+  `ANTHROPIC_API_KEY` auf dem Owner-Konto und verursacht echte Kosten — das ist eine
+  Owner-Entscheidung, keine Entwickler-Entscheidung. Alles davor und danach (Vorfilter,
+  Prompt-Aufbau, Schema, Cache, Kostenrechnung, Fallback, Verdrahtung) ist geprüft; der
+  Aufruf selbst folgt exakt der `claude-api`-Referenz (Structured Outputs über
+  `output_config.format`, Prompt Caching auf dem stabilen System-Block, `effort: "low"`).
+- Testdaten restlos entfernt.
 
 ## Welle 4.4 — Activity Center voll verdrahten ✅ ERLEDIGT (2026-07-26)
 
@@ -284,7 +353,8 @@ Falle 1 ist durch den Katalog-Test strukturell ausgeschlossen.
 
 **4.1 → 4.2 → 4.4 → 4.3.** Bewusst so: 4.4 vor der KI, weil das Activity Center den Nutzen
 von 4.1/4.2 überhaupt erst sichtbar macht — und weil die KI ohne die Baseline aus 4.2 nicht
-bewertbar ist. **Stand 2026-07-26: 4.1, 4.2 und 4.4 sind erledigt — offen ist nur noch 4.3 (KI-Ranking).**
+bewertbar ist. **Stand 2026-07-26: alle vier Wellen sind gebaut.** 4.1, 4.2 und 4.4 sind aktiv; 4.3 liegt
+fertig und abgeschaltet bereit und wartet auf zwei Owner-Entscheidungen (API-Schlüssel, Tarif-Zuordnung).
 
 | Welle | Aufwand | Wirtschaftlicher Hebel |
 |---|---|---|
@@ -293,6 +363,8 @@ bewertbar ist. **Stand 2026-07-26: 4.1, 4.2 und 4.4 sind erledigt — offen ist 
 | 4.4 Activity Center | mittel | mittel — macht die Plattform „lebendig" |
 | 4.3 KI-Ranking | groß | hoch, aber erst mit Baseline messbar |
 
-**Owner-Entscheidung offen:** 4.3 verursacht laufende API-Kosten pro Match. Vor dem Bau
-gehört geklärt, ob das KI-Ranking allen Plänen offensteht oder ein Entitlement höherer
-Tarife wird (Tier-3 der Config-Taxonomie) — das ist eine Preis-, keine Technikfrage.
+**Owner-Entscheidung offen:** 4.3 verursacht laufende API-Kosten pro Match. Zu klären ist,
+ob das KI-Ranking allen Plänen offensteht oder ein Entitlement höherer Tarife wird (Tier-3
+der Config-Taxonomie) — das ist eine Preis-, keine Technikfrage. **Der Bau wurde davon
+entkoppelt:** die Zuordnung ist eine Konfigurationszeile (`AI_MATCH_RANKING_MIN_PLAN`),
+das Flag steht auf AUS, es entstehen bis zur Freigabe keine Kosten.

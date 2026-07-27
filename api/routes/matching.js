@@ -8,6 +8,7 @@ import * as instant from "../services/instantMatchService.js";
 import { computeFillRateSignal, computeSlaComplianceSignal, computeRoleExpertiseSignal, computeRecencySignal, computeSmartRankScore, classifySmartRank, SMART_RANK_WEIGHTS, SMART_RANK_LABELS } from "../services/smartRankingService.js";
 import { requirePermission } from "../middleware/rbac.js";
 import { attachExplanations } from "../services/matchExplanationService.js";
+import { rankMatches } from "../services/aiMatchRankingService.js";
 import { swallow } from "../utils/logger.js";
 
 /**
@@ -37,7 +38,21 @@ export function createMatchingRouter(deps) {
           org_id: req.orgId || null
         }).catch(swallow("matching"));
       }
-      res.json({ demand_id: req.params.id, count: matches.length, matches: attachExplanations(matches) });
+      // P4.2 Erklaerung zuerst — sie ist die Baseline, die 4.3 umsortiert (nie ersetzt).
+      const explained = attachExplanations(matches);
+      // P4.3: Flag AUS oder Tarif ohne Anspruch => exakt die deterministische Reihenfolge.
+      const ranked = await rankMatches(pool, {
+        matches: explained,
+        demandType: "demand_request",
+        demandId: req.params.id,
+        plan: req.user?.plan
+      });
+      res.json({
+        demand_id: req.params.id,
+        count: ranked.matches.length,
+        matches: ranked.matches,
+        ai_ranking: { applied: ranked.applied, reason: ranked.reason }
+      });
     } catch (err) {
       logger.error({ err: err.message }, "GET /matching/demand/:id");
       res.status(500).json({ error: "SERVER_ERROR" });
@@ -135,7 +150,14 @@ export function createMatchingRouter(deps) {
       if (result.error === "REQUISITION_NOT_FOUND") return res.status(404).json(result);
       if (result.error === "ORG_BOUNDARY_VIOLATION") return res.status(403).json(result);
       if (result.error) return res.status(400).json(result);
-      res.json({ ...result, matches: attachExplanations(result.matches) });
+      const explained = attachExplanations(result.matches);
+      const ranked = await rankMatches(pool, {
+        matches: explained,
+        demandType: "requisition",
+        demandId: req.params.requisitionId,
+        plan: req.user?.plan
+      });
+      res.json({ ...result, matches: ranked.matches, ai_ranking: { applied: ranked.applied, reason: ranked.reason } });
     } catch (err) {
       logger.error({ err: err.message }, "GET /matching/instant/:requisitionId");
       res.status(500).json({ error: "SERVER_ERROR" });
