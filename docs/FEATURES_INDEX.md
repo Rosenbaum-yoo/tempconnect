@@ -21,6 +21,7 @@ Stand: 2026-06-24 · Plan-Stufen: `DEMO · BASIS · PLUS · PRO · INDIVIDUELL` 
 | ✅ | Matching-Engine (Kapazität ↔ Bedarf) | PLUS+ | `services/matchingEngine.js` |
 | ✅ | Instant-Matching bidirektional (Anlegen/Aktivieren → beide Seiten benachrichtigt, Paar-Dedup, Deep-Link) | alle | `services/matchTriggerService.js`, Mig 151, [P4-Plan](features/P4_MATCHING_PLAN.md) |
 | ✅ | Erklärbares Matching (Score-Zerlegung je Achse + Klartext-Begründung, deterministisch) | alle | `services/matchExplanationService.js`, `matching_results.html` |
+| ✅ | Activity Center (Verlauf aus P1–P4-Ereignissen, klickbar, org-gebunden) | alle | `services/eventTrackingService.js`, `routes/activityFeed.js`, `activity.html` |
 | ✅ | Angebots-Lifecycle (accept/counter/withdraw, Agreements) | alle | `services/marketplaceService.js`, `services/dealAgreementService.js` |
 | ✅ | Deal-Abschluss beidseitig + Einsatzvereinbarung/Konditionsblatt (PDF) | alle | `services/agreementDocumentService.js` |
 | ✅ | Suche (Tippfehler/Umlaut-tolerant, trgm/unaccent, Moderation) | alle | `services/searchService.js`, Mig 135–137 |

@@ -121,7 +121,7 @@ export function createNotificationsRouter(deps) {
 
   router.get("/match-alerts", requireAuth, async (req, res) => {
     try {
-      const { getMatchAlerts } = await import("../services/matchAlertService.js");
+      const { getMatchAlerts, enrichMatchAlerts } = await import("../services/matchAlertService.js");
       const opts = {
         unreadOnly: req.query.unread === "true",
         sourceType: req.query.source_type || undefined,
@@ -130,7 +130,9 @@ export function createNotificationsRouter(deps) {
         offset: parseInt(req.query.offset, 10) || 0
       };
       const result = await getMatchAlerts(pool, req.session.userId, opts);
-      res.json(result);
+      // Titel, Begruendung und Deep-Link auf das Gegenstueck (P4.4) — sonst ist der
+      // Match-Alerts-Tab eine Liste ohne Aussage und ohne Ziel.
+      res.json({ ...result, items: enrichMatchAlerts(result.items) });
     } catch (_e) {
       res.status(500).json({ error: "SERVER_ERROR" });
     }

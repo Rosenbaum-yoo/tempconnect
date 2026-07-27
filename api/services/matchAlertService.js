@@ -16,6 +16,8 @@
  */
 
 import { createServiceLogger } from "../utils/logger.js";
+import { summarizeMatch, classifyQuality } from "./matchExplanationService.js";
+import { activityLinkFor } from "./eventTrackingService.js";
 
 const logger = createServiceLogger("matchAlertService");
 
@@ -518,9 +520,15 @@ export async function getMatchAlerts(pool, userId, opts = {}) {
 
   const { rows } = await pool.query(
     `SELECT ma.*,
-            sj.title AS job_title, sj.role AS job_role, sj.location_city AS job_city
+            sj.title AS job_title, sj.role AS job_role, sj.location_city AS job_city,
+            COALESCE(cp.title, dr.title, rq.title)                   AS counterpart_title,
+            COALESCE(cp.role, dr.role, rq.role)                      AS counterpart_role,
+            COALESCE(cp.location_city, dr.location_city, rq.location_city) AS counterpart_city
      FROM match_alerts ma
      LEFT JOIN sla_search_jobs sj ON sj.id = ma.job_id
+     LEFT JOIN capacity_posts   cp ON ma.counterpart_type = 'capacity_post'  AND cp.id = ma.counterpart_id
+     LEFT JOIN demand_requests  dr ON ma.counterpart_type = 'demand_request' AND dr.id = ma.counterpart_id
+     LEFT JOIN requisitions     rq ON ma.counterpart_type = 'requisition'    AND rq.id = ma.counterpart_id
      WHERE ${where.join(' AND ')}
      ORDER BY
        CASE WHEN ma.severity = 'urgent' THEN 0 ELSE 1 END,
@@ -559,4 +567,49 @@ export async function markAllMatchAlertsRead(pool, userId) {
     [userId]
   );
   return { updated: rowCount };
+}
+
+/* ── Darstellung fuer das Activity Center (P4.4) ───────────────────────────── */
+
+/**
+ * Reichert Alarm-Zeilen um Titel, Begruendung und Ziel an.
+ *
+ * Warum hier und nicht in `getMatchAlerts`: dieselbe Trennung wie bei
+ * `attachExplanations` (P4.2) — die Abfrage liefert Daten, die Darstellung entsteht
+ * daraus. Ohne diese Schicht zeigte der Match-Alerts-Tab "Match: 0 Treffer" ohne Ziel:
+ * ein Hinweis, der nirgendwohin fuehrt, ist eine Sackgasse.
+ */
+export function enrichMatchAlerts(rows) {
+  if (!Array.isArray(rows)) return rows;
+  return rows.map((row) => {
+    if (!row || typeof row !== 'object') return row;
+
+    let reasons = row.match_reasons;
+    if (typeof reasons === 'string') {
+      try { reasons = JSON.parse(reasons); } catch { reasons = []; }
+    }
+
+    const kind = row.counterpart_type === 'capacity_post' ? 'Personalangebot'
+      : row.counterpart_type === 'requisition' ? 'Arbeitsplatzangebot'
+      : row.counterpart_type === 'demand_request' ? 'Auftrag'
+      : null;
+
+    const title = row.counterpart_title
+      ? `${kind}: ${row.counterpart_title}`
+      : (row.job_title ? `Suchauftrag: ${row.job_title}` : `Match: ${row.match_count || 0} Treffer`);
+
+    const where = [row.counterpart_role, row.counterpart_city].filter(Boolean).join(', ');
+    const why = Array.isArray(reasons) && reasons.length
+      ? summarizeMatch(row.match_score || 0, reasons, { maxSummaryParts: 3 })
+      : '';
+    const message = [where, why].filter(Boolean).join(' — ');
+
+    return {
+      ...row,
+      title,
+      message,
+      match_quality: row.match_score != null ? classifyQuality(row.match_score) : null,
+      link_path: activityLinkFor(row.counterpart_type, row.counterpart_id)
+    };
+  });
 }

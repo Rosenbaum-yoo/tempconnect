@@ -25,6 +25,7 @@ import * as complaintSvc from "../services/companyComplaintService.js";
 import * as blocklistSvc from "../services/companyBlocklistService.js";
 import { trackProductEventFromRequest } from "../services/productAnalyticsService.js";
 import { swallow } from "../utils/logger.js";
+import { recordActivity } from "../services/eventTrackingService.js";
 
 /* ── Schemas ─────────────────────────────────────────────────────────────────── */
 
@@ -479,6 +480,14 @@ export function createWorkersRouter(deps) {
         action: "supplier.worker_complaint.status", entity_type: "worker_complaint", entity_id: req.params.id,
         details: { status, responsible_actor_user_id: req.session.userId }
       };
+      // Nur der Abschluss ist eine Aktivitaet — Zwischenstaende sind Arbeitsstand, kein Ereignis.
+      if (status === "resolved" || status === "closed") {
+        recordActivity(pool, {
+          event_type: "complaint_resolved", actor_id: req.session.userId, org_id: req.orgId,
+          target_org_id: result.complaint?.company_org_id || null,
+          entity_type: "worker_complaint", entity_id: req.params.id, metadata: { status }
+        });
+      }
       res.json(result.complaint);
     } catch (err) { next(err); }
   });
@@ -1046,6 +1055,17 @@ export function createWorkersRouter(deps) {
           responsible_actor_user_id:  req.session.userId
         }
       };
+
+      recordActivity(pool, {
+        event_type: "worker_replacement_assigned", actor_id: req.session.userId, org_id: req.orgId,
+        entity_type: "worker_assignment_link", entity_id: result.replacement_link.id,
+        metadata: {
+          assignment_id: result.replacement_link.assignment_id,
+          ailing_worker_user_id: result.ailing_worker_user_id,
+          replacement_worker_user_id: parsed.data.replacement_worker_user_id,
+          effective_date: parsed.data.effective_date
+        }
+      });
 
       // Ripple (fire-and-forget): Ersatz ist jetzt im Einsatz → Angebote reservieren;
       // Ausfallender ist frei → Angebote reaktivieren (taucht im Marktplatz wieder auf).

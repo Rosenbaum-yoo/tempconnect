@@ -111,6 +111,13 @@
     .ac-timeline-label { font-size: 13px; font-weight: 600; }
     .ac-timeline-actor { font-size: 11px; color: var(--ds-text-secondary); }
     .ac-timeline-time { font-size: 11px; color: var(--ds-text-tertiary); margin-top: 2px; }
+    /* P4.4 — Eintraege mit Ziel sind als klickbar erkennbar */
+    .ac-timeline-item--link { cursor: pointer; border-radius: var(--ds-radius-md, 10px); padding-left: 6px; padding-right: 6px; transition: background .15s; }
+    .ac-timeline-item--link:hover,
+    .ac-timeline-item--link:focus-visible { background: rgba(255,255,255,.045); outline: none; }
+    .ac-timeline-item--link:focus-visible { box-shadow: 0 0 0 2px var(--ds-brand); }
+    [data-theme="editorial"] .ac-timeline-item--link:hover,
+    [data-theme="editorial"] .ac-timeline-item--link:focus-visible { background: rgba(31,58,46,.06); }
 
     /* ── Activity Filter ─────────────────────────── */
     .ac-select {

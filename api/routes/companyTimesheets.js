@@ -15,6 +15,7 @@ import { requireCompanyOrg } from "../middleware/orgAccess.js";
 import { requirePermission } from "../middleware/rbac.js";
 import { requireScope } from "../middleware/apiKeyAuth.js";
 import { swallow } from "../utils/logger.js";
+import { recordActivity } from "../services/eventTrackingService.js";
 
 export function createCompanyTimesheetsRouter(deps) {
   const { pool, logger, requireAuth, requireFeature } = deps;
@@ -112,6 +113,10 @@ export function createCompanyTimesheetsRouter(deps) {
         action: "company.worker_blocklist.block", entity_type: "worker", entity_id: workerUserId,
         details: { blocked_until: blockedUntil, reason, responsible_actor_user_id: req.session.userId }
       };
+      recordActivity(pool, {
+        event_type: "worker_blocked", actor_id: req.session.userId, org_id: req.orgId,
+        entity_type: "worker", entity_id: workerUserId, metadata: { blocked_until: blockedUntil }
+      });
       res.status(201).json(result.block);
     } catch (err) { next(err); }
   });
@@ -124,6 +129,10 @@ export function createCompanyTimesheetsRouter(deps) {
         action: "company.worker_blocklist.unblock", entity_type: "worker", entity_id: req.params.workerUserId,
         details: { responsible_actor_user_id: req.session.userId }
       };
+      recordActivity(pool, {
+        event_type: "worker_unblocked", actor_id: req.session.userId, org_id: req.orgId,
+        entity_type: "worker", entity_id: req.params.workerUserId
+      });
       res.json({ ok: true });
     } catch (err) { next(err); }
   });
@@ -159,6 +168,12 @@ export function createCompanyTimesheetsRouter(deps) {
         action: "company.worker_complaint.file", entity_type: "worker_complaint", entity_id: result.complaint.id,
         details: { worker_user_id: workerUserId, severity, responsible_actor_user_id: req.session.userId }
       };
+      recordActivity(pool, {
+        event_type: "complaint_filed", actor_id: req.session.userId, org_id: req.orgId,
+        target_org_id: result.supplierOrgId || null,
+        entity_type: "worker_complaint", entity_id: result.complaint.id,
+        metadata: { severity, worker_user_id: workerUserId }
+      });
       res.status(201).json({ complaint: result.complaint, notified_dispatcher: !!result.dispatcherUserId });
     } catch (err) { next(err); }
   });
@@ -197,6 +212,10 @@ export function createCompanyTimesheetsRouter(deps) {
         entity_id: req.params.id,
         details: { responsible_actor_user_id: req.session.userId, confirmed_by: req.body?.confirmed_by || null }
       };
+      recordActivity(pool, {
+        event_type: "timesheet_customer_confirmed", actor_id: req.session.userId, org_id: req.orgId,
+        entity_type: "worker_submission", entity_id: req.params.id
+      });
       res.json(result);
     } catch (err) { next(err); }
   });
@@ -217,6 +236,10 @@ export function createCompanyTimesheetsRouter(deps) {
         entity_id: req.params.id,
         details: { reason, responsible_actor_user_id: req.session.userId }
       };
+      recordActivity(pool, {
+        event_type: "timesheet_customer_rejected", actor_id: req.session.userId, org_id: req.orgId,
+        entity_type: "worker_submission", entity_id: req.params.id
+      });
       res.json(result);
     } catch (err) { next(err); }
   });

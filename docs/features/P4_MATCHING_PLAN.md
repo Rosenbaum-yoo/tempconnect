@@ -196,7 +196,7 @@ die Erklärung — fällt sie aus, funktioniert alles weiter, nur weniger elegan
 **Akzeptanz:** Flag AUS → Verhalten exakt wie 4.2. Flag AN → gleiche Treffer, bessere
 Reihenfolge, je Treffer ein Satz Begründung. Kein Treffer verschwindet durch die KI.
 
-## Welle 4.4 — Activity Center voll verdrahten
+## Welle 4.4 — Activity Center voll verdrahten ✅ ERLEDIGT (2026-07-26)
 
 Jede relevante Aktion aus P1–P3 erzeugt ein Activity-Event — der Ripple aus den fertigen
 Wellen wird eingespeist (Ersatz zugewiesen, Zettel freigegeben, Kraft gesperrt, Beschwerde
@@ -209,6 +209,65 @@ gemeldet/erledigt, Match gefunden).
 
 Beides ist in `SKILL.md` als harte Lehre vermerkt und hat schon einmal ein komplett totes
 Feature erzeugt (`createRatingsRouter` war nie gemountet).
+
+### Der Befund: der Verlauf war leer, weil niemand ihn füllte
+
+`platform_events` hatte in der Dev-Datenbank **0 Zeilen**. Von 40 deklarierten Event-Typen
+wurden nur 10 überhaupt jemals emittiert — und keiner davon aus P1–P3. `match_found`
+existierte als Typ, wurde aber nie geschrieben. Für einen Kunden hieß das: der Tab
+„Verlauf" im Activity Center zeigte dauerhaft „Keine Aktivitäten im ausgewählten Zeitraum".
+Dritte Ausprägung desselben Musters wie `match_logs` (4.1) und `notificationMatrix`.
+
+### Was gebaut wurde
+
+| Baustein | Ort |
+|---|---|
+| `ACTIVITY_CATALOG` — Typ, Beschriftung, Symbol in **einer** Zeile | `api/services/eventTrackingService.js` |
+| `recordActivity()` — fire-and-forget, wirft nie, meldet unbekannte Typen laut | dito |
+| `activityLinkFor()` / `describeEvent()` — Deep-Link + Darstellung vom Server | dito |
+| Anreicherung der Match-Alarme (Titel, Begründung, Ziel) | `api/services/matchAlertService.js` (`enrichMatchAlerts`) |
+| Klickbarer Verlauf + Alarme mit Ziel | `frontend/public/js/pages/activity.js`, `activity.html` |
+| Katalog-/Emitter-Suite (16 Tests) | `api/test/activityCatalog.test.js` |
+| Route- und Anreicherungs-Suite (11 Tests) | `api/test/activityFeed.route.test.js` |
+
+**Neu emittierte Ereignisse** (alle fire-and-forget, keiner kann einen Geschäftsvorgang
+scheitern lassen):
+
+| Ereignis | Ausgelöst in |
+|---|---|
+| `worker_replacement_assigned` (P1.1) | `POST /worker-assignment-links/:id/replace` |
+| `timesheet_submitted/_approved/_rejected` (P2) | `routes/timesheets.js` |
+| `timesheet_customer_confirmed/_rejected` (P2) | `POST /company/submissions/:id/confirm|reject` |
+| `worker_blocked` / `worker_unblocked` (P3.3) | `POST/DELETE /company/blocklist` |
+| `complaint_filed` (P3.2) | `POST /company/complaints` |
+| `complaint_resolved` (P3.2) | `PATCH /workers/complaints/:id` (nur bei Abschluss) |
+| `match_found` (P4.1) | `matchTriggerService` je Paarung |
+
+### Zwei Befunde, die über den Plan hinausgingen
+
+- **Org-Boundary-Leck (latent, jetzt geschlossen):** `GET /api/activity-feed` gab ohne
+  Org-Kontext `org_id: null` an `queryEvents` — und das baute eine Abfrage **ohne WHERE**,
+  also plattformweit über alle Mandanten. Solange die Tabelle leer war, fiel das nicht auf;
+  mit den neuen Ereignissen wäre es ein echtes Leck geworden. Jetzt: ohne Org nur die
+  eigenen Vorgänge (`actor_id`), mit Org strikt org-gebunden. Test deckt beide Fälle ab.
+- **Doppelte Wahrheiten aufgelöst:** Label-/Icon-Tabellen lagen in `routes/activityFeed.js`
+  *und* im Frontend; Deep-Links gab es zweimal (`matchTriggerService.deepLinkFor` und die
+  Feed-Routen-Tabelle). Jetzt eine Quelle im Service, die anderen delegieren.
+
+Ein neuer `notifications.type` war **nicht** nötig — die Ereignisse laufen über
+`platform_events`, nicht über die Benachrichtigungstabelle. Falle 2 greift hier also nicht;
+Falle 1 ist durch den Katalog-Test strukturell ausgeschlossen.
+
+### Verifikation (2026-07-26)
+
+- Volle Suite: **7419 Tests, 0 Fehler**. (Ein Lauf zeigte `me.route.coverage.test.js` rot —
+  der in `docs/AUDIT_BACKLOG.md` als B-2 dokumentierte Flake; isoliert 65/65 grün, im
+  Wiederholungslauf ebenfalls grün. Nicht durch diese Welle verursacht.)
+- Live gegen die laufende App: Trigger → `platform_events`-Zeile `match_found` mit
+  Beschriftung „Match gefunden" und Deep-Link auf das Angebot.
+- Live: Match-Alarm wird zu „Auftrag: … — Pflegekraft, Kiel — Rolle „Pflegekraft" passt
+  genau, …" mit Ziel-Link und Qualitätsstufe `excellent`.
+- Testdaten restlos entfernt (`platform_events` wieder bei 0).
 
 ---
 
@@ -225,7 +284,7 @@ Feature erzeugt (`createRatingsRouter` war nie gemountet).
 
 **4.1 → 4.2 → 4.4 → 4.3.** Bewusst so: 4.4 vor der KI, weil das Activity Center den Nutzen
 von 4.1/4.2 überhaupt erst sichtbar macht — und weil die KI ohne die Baseline aus 4.2 nicht
-bewertbar ist. **Stand 2026-07-26: 4.1 und 4.2 sind erledigt, als Nächstes 4.4.**
+bewertbar ist. **Stand 2026-07-26: 4.1, 4.2 und 4.4 sind erledigt — offen ist nur noch 4.3 (KI-Ranking).**
 
 | Welle | Aufwand | Wirtschaftlicher Hebel |
 |---|---|---|

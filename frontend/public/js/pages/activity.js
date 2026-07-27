@@ -369,11 +369,16 @@
             var label = ev.label || EVENT_LABELS[ev.event_type] || ev.event_type || "";
             var icon = ev.icon || EVENT_ICONS[ev.event_type] || "&#128308;";
             var actor = ev.actor_name || ev.actor_email || "";
-            html += '<div class="ac-timeline-item">' +
+            // Deep-Link auf den konkreten Vorgang (P4.4) — ein Verlaufseintrag, der auf
+            // etwas verweist, muss auch dorthin fuehren.
+            var link = ev.link_path || resolveLink(ev);
+            html += '<div class="ac-timeline-item' + (link ? ' ac-timeline-item--link' : '') + '"' +
+              (link ? ' data-link="' + esc(link) + '" role="link" tabindex="0"' : '') + '>' +
               '<div class="ac-timeline-icon">' + icon + '</div>' +
               '<div class="ac-timeline-body">' +
               '<div class="ac-timeline-label">' + esc(label) +
               (actor ? ' <span class="ac-timeline-actor">von ' + esc(actor) + '</span>' : '') +
+              (link ? ' <span class="ac-arrow">→</span>' : '') +
               '</div>' +
               '<div class="ac-timeline-time">' + relTime(ev.created_at) + '</div>' +
               '</div></div>';
@@ -424,12 +429,16 @@
         var cls = a.is_read ? "ac-item ac-item--read" : "ac-item ac-item--unread";
         var title = a.title || ("Match: " + (a.match_count || 0) + " Treffer");
         var msg = a.message || "";
-        html += '<div class="' + cls + '" data-maid="' + esc(a.id) + '">' +
+        var link = a.link_path || null;
+        var score = (a.match_score != null) ? (Math.round(a.match_score) + "% Match") : "";
+        html += '<div class="' + cls + '" data-maid="' + esc(a.id) + '"' +
+          (link ? ' data-link="' + esc(link) + '"' : '') + '>' +
           '<div class="ac-icon ac-icon--info">&#11088;</div>' +
           '<div class="ac-body">' +
-          '<div class="ac-title">' + esc(title) + '</div>' +
+          '<div class="ac-title">' + esc(title) + (link ? ' <span class="ac-arrow">→</span>' : '') + '</div>' +
           (msg ? '<div class="ac-msg">' + esc(msg.substring(0, 200)) + '</div>' : '') +
           '<div class="ac-meta"><span>' + relTime(a.created_at) + '</span>' +
+          (score ? '<span>' + esc(score) + '</span>' : '') +
           (!a.is_read ? '<span style="color:var(--ds-brand);font-weight:600">\u25CF Ungelesen</span>' : '') +
           '</div></div></div>';
       });
@@ -564,6 +573,21 @@
         });
       });
 
+      /* ── Klick auf Verlaufseintrag (P4.4: der Verlauf ist kein Endpunkt) ── */
+      (function () {
+        var list = document.getElementById("activity-list");
+        if (!list) return;
+        function openEntry(e) {
+          var row = e.target.closest("[data-link]");
+          if (!row) return;
+          if (e.type === "keydown" && e.key !== "Enter" && e.key !== " ") return;
+          e.preventDefault();
+          window.location.href = row.getAttribute("data-link");
+        }
+        list.addEventListener("click", openEntry);
+        list.addEventListener("keydown", openEntry);
+      })();
+
       /* ── Load more notifications ── */
       document.getElementById("btn-load-more").addEventListener("click", function () {
         _offset += LIMIT;
@@ -598,9 +622,11 @@
         var row = e.target.closest("[data-maid]");
         if (!row) return;
         var id = row.getAttribute("data-maid");
+        var alertLink = row.getAttribute("data-link");
         markAlertRead(id).then(function () {
           var item = _allAlerts.find(function (a) { return a.id === id; });
           if (item) item.is_read = true;
+          if (alertLink) { window.location.href = alertLink; return; }
           renderAlerts();
           updateAlertsBadge();
         });

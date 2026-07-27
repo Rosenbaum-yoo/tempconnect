@@ -13,6 +13,7 @@ import { trackProductEventFromRequest } from "../services/productAnalyticsServic
 import { requirePermission } from "../middleware/rbac.js";
 import { requireScope } from "../middleware/apiKeyAuth.js";
 import { hasFeature } from "../config/planFeatures.js";
+import { recordActivity } from "../services/eventTrackingService.js";
 
 /* ── Validierungsschemas ─────────────────────────────────────────────────────── */
 
@@ -248,6 +249,10 @@ export function createTimesheetsRouter(deps) {
         action: "timesheet.submit", entity_type: "timesheet", entity_id: req.params.id,
         details: { total_hours: result.timesheet.total_hours, worker_name: result.timesheet.worker_name }
       };
+      recordActivity(pool, {
+        event_type: "timesheet_submitted", actor_id: req.session.userId, org_id: req.orgId,
+        entity_type: "timesheet", entity_id: req.params.id
+      });
       try {
         await trackProductEventFromRequest(pool, req, "timesheet_submitted", {
           flow_key: "worker_to_timesheet",
@@ -275,6 +280,10 @@ export function createTimesheetsRouter(deps) {
         action: "timesheet.approve", entity_type: "timesheet", entity_id: req.params.id,
         details: { total_hours: result.timesheet.total_hours, worker_name: result.timesheet.worker_name }
       };
+      recordActivity(pool, {
+        event_type: "timesheet_approved", actor_id: req.session.userId, org_id: req.orgId,
+        entity_type: "timesheet", entity_id: req.params.id
+      });
       try {
         await trackProductEventFromRequest(pool, req, "timesheet_approved", {
           flow_key: "worker_to_timesheet",
@@ -304,6 +313,10 @@ export function createTimesheetsRouter(deps) {
         action: "timesheet.reject", entity_type: "timesheet", entity_id: req.params.id,
         details: { rejection_reason: parsed.data.reason, worker_name: ts.worker_name }
       };
+      recordActivity(pool, {
+        event_type: "timesheet_rejected", actor_id: req.session.userId, org_id: req.orgId,
+        entity_type: "timesheet", entity_id: req.params.id
+      });
       res.json(result.timesheet);
     } catch (err) { next(err); }
   });

@@ -35,6 +35,7 @@ import { instantMatchFromParams } from "./instantMatchService.js";
 import { dispatch, findOrgMembersWithPermission } from "./notificationMatrix.js";
 import { getUserPreferences } from "./matchAlertService.js";
 import { summarizeMatch } from "./matchExplanationService.js";
+import { recordActivity, activityLinkFor } from "./eventTrackingService.js";
 
 const logger = createServiceLogger("matchTrigger");
 
@@ -68,17 +69,14 @@ export function buildPairKey(aType, aId, bType, bId) {
 
 /* ── Deep-Links auf das konkrete Gegenstueck ────────────────────────────── */
 
+/**
+ * Deep-Link auf das konkrete Gegenstueck. Delegiert bewusst an `activityLinkFor`:
+ * Benachrichtigung und Activity Center muessen auf DIESELBE Seite zeigen — zwei
+ * Tabellen waeren zwei Wahrheiten (P4.4).
+ */
 export function deepLinkFor(entityType, entityId) {
-  switch (entityType) {
-    case "capacity_post":
-      return `/public/capacity_exchange_detail.html?id=${entityId}&type=supply`;
-    case "demand_request":
-      return `/public/capacity_exchange_detail.html?id=${entityId}&type=demand`;
-    case "requisition":
-      return `/public/requisitions.html?focus_id=${entityId}`;
-    default:
-      return null;
-  }
+  if (!entityId) return null;
+  return activityLinkFor(entityType, entityId);
 }
 
 /* ── Quelle laden (nur matchfaehige Zustaende) ──────────────────────────── */
@@ -312,6 +310,19 @@ export async function runMatchTrigger(pool, args = {}) {
     alerts += await alertSide(pool, {
       recipients: demandRecipients, source: demand, counterpart: supply,
       score, reasons, urgency, eventKey: "demand.match_found"
+    });
+
+    // Activity Center (P4.4): ein Ereignis pro Paarung. `queryEvents` matcht org_id ODER
+    // target_org_id — ein Datensatz erscheint damit im Verlauf BEIDER Organisationen.
+    // Kein Akteur: das war das System, nicht ein Mensch. Fuer Marktplatz-Konten ohne Org
+    // bleibt der Match-Alerts-Tab die Sicht darauf (der ist nutzerbezogen).
+    recordActivity(pool, {
+      event_type: "match_found",
+      org_id: demand.orgId || null,
+      target_org_id: supply.orgId || null,
+      entity_type: supply.type,
+      entity_id: supply.id,
+      metadata: { score: Math.round(score), demand_type: demand.type, demand_id: demand.id }
     });
 
     // Auswertungsspur: "alarmiert" ist der Zustand, gegen den 4.3 spaeter gemessen wird.
