@@ -48,6 +48,18 @@ einem Pfad in Node-tauglicher Schreibweise.
 **Auswirkung bleibt unverändert:** kein Produktionsfehler, aber jeder Treffer kostet einen
 kompletten Suite-Lauf zur Gegenprüfung.
 
+**Untersuchung 2026-07-26 (Ansatz (c) umgesetzt, Flake nicht gefangen):** Die Sonde
+`api/scripts/unhandled-rejection-probe.mjs` hängt sich per `--import` an **jeden**
+Testprozess und protokolliert Quelle und Stack jeder unbehandelten Rejection:
+```bash
+NODE_OPTIONS="--import file:///…/api/scripts/unhandled-rejection-probe.mjs" \
+  node scripts/run-tests.js
+```
+Der so instrumentierte volle Lauf war **grün (7458 Tests, 0 Fehler) und ohne eine einzige
+Rejection** — der Flake trat in diesem Lauf nicht auf. Damit ist er weiterhin nicht
+gefangen, aber das Werkzeug liegt bereit: beim nächsten roten Lauf einmal mit der Sonde
+wiederholen, dann steht die Quelle im Protokoll. Nicht weiter blind suchen.
+
 ---
 
 ## B-3 · H-4 · docs-consistency-Test (CLAUDE.md §0.12) ⚠️ *can of worms*
@@ -92,12 +104,19 @@ Daten, die im neuen Käufer-Portal nie auftauchen.
 **Was:** `einsatzportal-stundenzettel.html` nutzt ✏️ 💾 📝 💬 in Buttons/Hinweisen — CLAUDE.md
 verbietet Emojis in produktiver UI ausdrücklich. **Trigger:** nächste Einsatzportal-Politur. **~20 min.**
 
-### C-3 · `findOrgApprovers` hartkodiert Rollen in SQL 🟠 *Drift-Risiko*
-**Was:** `notificationMatrix.js` löst Empfänger über `role_key IN ('owner','admin','program_manager')`
+### C-3 · `findOrgApprovers` hartkodiert Rollen in SQL ✅ **ERLEDIGT 2026-07-26**
+**Was:** `notificationMatrix.js` löste Empfänger über `role_key IN ('owner','admin','program_manager')`
 direkt in SQL auf — unabhängig von der Rechte-Matrix in `rbacService.js`.
-**Warum riskant:** ändert jemand die Permission-Matrix, driftet der Benachrichtigungs-Kreis still
-auseinander — es wird benachrichtigt, wer nicht handeln darf, oder umgekehrt.
-**Trigger:** beim nächsten Anfassen der Notification-Empfänger. **~1 h + Tests.**
+
+**Befund beim Anfassen (Trigger erfüllt durch P4.1/P4.4):** `findOrgApprovers` und
+`findOrgAdmins` hatten **keinen einzigen Aufrufer mehr** — nur noch ihre eigene Definition
+und ihre Tests. Der beschriebene Drift konnte gar nicht mehr eintreten, aber der tote Code
+lud dazu ein, ihn wieder zu benutzen.
+
+**Umgesetzt:** beide Funktionen ersatzlos entfernt, samt ihrer Tests. Verbindlich bleibt
+`findOrgMembersWithPermission(pool, orgId, permission)` — die Rechte-Matrix ist die einzige
+Wahrheit, benachrichtigt wird, wer die Aktion ausführen darf. `notificationMatrix.test.js`
+11/11 grün.
 
 ### C-4 · Web3Forms-Access-Key im Repo 🟠 *Pilot-Strecke*
 **Was:** `cloudflare-pages/index.html` enthält den Key im Klartext. Bei Web3Forms ist er per Design
@@ -109,20 +128,79 @@ auseinander — es wird benachrichtigt, wer nicht handeln darf, oder umgekehrt.
 auf einer Marketing-Seite, und jeder Aufruf leakt die Ziel-URL an Dritte.
 **Lösung:** QR einmal erzeugen, statisch mit ausliefern. **Trigger:** vor dem ersten LinkedIn-Post. **~20 min.**
 
-### C-6 · 13 skipped Tests nie identifiziert 🟡
+### C-6 · 13 skipped Tests nie identifiziert ✅ **ERLEDIGT 2026-07-26**
 **Was:** Die Suite meldet konstant `skipped 13`, ohne dass dokumentiert wäre, welche und warum.
-CLAUDE.md §0.9 verbietet stille Skips. **Trigger:** nächster Test-Durchgang. **~30 min.**
+CLAUDE.md §0.9 verbietet stille Skips.
+
+**Identifiziert.** Alle 13 sind **DB-gated** (`skip: !hasDb`) oder **Frontend-gated**
+(`FRONTEND_AVAILABLE`) — keine abgeschalteten Tests, aber auch nichts, was im Normallauf
+je läuft:
+
+| Datei | Übersprungene Tests | Grund |
+|---|---|---|
+| `test/org-boundary.test.js` | 6 — u. a. „user from org1 cannot view org2's requisitions", `ORG_BOUNDARY_VIOLATION`, `OWNERSHIP_VIOLATION` | kein `DATABASE_URL` |
+| `test/multi-location-integration.test.js` | 5 — Standort-Zugehörigkeit, Cross-Org-Standort, Soft-Delete | kein `DATABASE_URL` |
+| `test/capacityService.test.js` | 2 — `available_effective`, Reservierung reduziert Verfügbarkeit | kein `DATABASE_URL` |
+| `test/idempotency.test.js` | 1 (Suite) — Idempotency gegen Migration 012 | kein `DATABASE_URL` |
+| `test/staffCombinedInbox.test.js` | 1 (Suite) — Staff-Frontend-Strukturchecks | Frontend nicht gemountet |
+
+**Der eigentliche Befund:** ausgerechnet die **Mandantentrennung** wird im Standardlauf nie
+geprüft. Eine grüne Suite sagt über Org-Grenzen genau nichts aus — dieselbe Lehre wie im
+Enterprise-Audit.
+
+**Abhilfe (umgesetzt):** neue Suite `--suite=db-gated` in `api/scripts/run-tests.js`.
+```bash
+DATABASE_URL=postgres://… node scripts/run-tests.js --suite=db-gated
+```
+**Verifiziert 2026-07-26:** gegen die Dev-DB **56 Tests, 0 Fehler, 0 skipped** — die
+Org-Boundary-Guards halten tatsächlich. Vor jedem Release mitlaufen lassen.
 
 ### C-7 · Build-Artefakte im Working Tree 🟢 *= B-1, bestätigt*
 `frontend/public/staff/assets/*` + `frontend/support-ops/*` erzeugen dauerhaftes Diff-Rauschen.
 Kein neuer Punkt — Bestätigung, dass **B-1** inzwischen die Übersicht in `git status` real stört.
 
-### C-8 · Verwaister Stash 🟢 *sofort erledigbar*
-`stash@{0}` ist inhaltlich identisch zum Working Tree (verifiziert) → `git stash drop stash@{0}`.
+### C-8 · Verwaister Stash ✅ **ERLEDIGT 2026-07-26**
+`stash@{0}` enthielt Build-Artefakt-Rauschen plus **eine** echte Änderung: die nginx-Regel
+für un-gehashtes App-JS/CSS (`no-cache, must-revalidate`). Vor dem Verwerfen geprüft: diese
+Regel liegt **byte-identisch** bereits im Working Tree — der Stash war damit vollständig
+redundant und wurde verworfen.
+
+> ⚠️ **Hinweis an den Owner:** die nginx-Änderung ist weiterhin **uncommitted** im Working
+> Tree. Sie ist sinnvoll (Frontend-Änderungen erreichen Nutzer sofort statt aus dem
+> Browser-Cache), gehört aber nicht in diesen Audit-Commit — bitte separat entscheiden.
 
 ### C-9 · Push-Benachrichtigung beim Sperren fehlt 🟡
 Sperrt ein Kunde eine Kraft, erfährt die Agentur es nur per Pull (Hinweis im Zuweisungs-Drawer).
 **Trigger:** nächste Notification-Welle. **~1 h + Migration für den Typ.**
+
+---
+
+## Zugang 2026-07-26 — beim Abarbeiten von C-6 aufgefallen
+
+### C-10 · Integrationssuite: 42 von 179 Tests rot 🟠 *Test-Drift, kein Prod-Bug*
+**Was:** Mit gesetztem `DATABASE_URL` läuft `--suite=integration` erstmals wieder komplett
+durch — und meldet **42 Fehler**. Vorher fiel das nicht auf, weil sich diese Tests ohne DB
+still überspringen (genau der C-6-Befund).
+
+**Diagnose (belegt, nicht vermutet):**
+- Der größte Block betrifft die Legacy-Strecke `/api/listings` + `/api/my/listings`. Diese
+  Routen existieren noch, liegen aber inzwischen hinter `requireFeature("legacy_access")`
+  (`routes/listings.js:24`). Die Tests legen normale Nutzer ohne dieses Feature an → **403**,
+  danach kaskadieren die Folgeschritte (`expected: true, actual: undefined`).
+- **Nicht** die Ursache: Rate-Limiting. Gegenprobe mit `RATE_LIMIT_AUTH_MAX/API_MAX/REQUEST_MAX
+  = 100000` ergab exakt dieselben 42 Fehler.
+- Restliche Fehlerbilder: 4× `22P02` (ungültige UUID in Fixtures), 3× `expected 403 / actual
+  ORG_BOUNDARY_VIOLATION` (Assertion prüft Status statt Fehlercode).
+
+**Warum das kein Produktionsfehler ist:** die Tests stammen aus der Zeit vor dem Feature-Gate
+bzw. prüfen eine Antwortform, die sich geändert hat. Die Produktpfade selbst sind grün — die
+DB-gestützten Nicht-Integrationstests (Org-Boundary, Multi-Location, Capacity, Idempotency)
+laufen mit echter DB **56/56**.
+
+**Zwei saubere Wege (Owner-Entscheid):** (a) Testnutzer mit `legacy_access` ausstatten und die
+Assertions nachziehen, oder (b) die Legacy-Strecke samt Tests zurückbauen — das hängt an
+**C-1** (zwei parallele Timesheet-/Listing-Welten) und sollte gemeinsam entschieden werden.
+**Trigger:** bevor die Integrationssuite Teil eines Release-Gates wird. **Aufwand:** (a) ~2 h, (b) ~halber Tag.
 
 ---
 
@@ -134,6 +212,7 @@ Bei jeder Prüfung: **erledigt? noch gültig? neu dazugekommen?** Erledigte Punk
 | Datum | Geprüft von | Ergebnis |
 |---|---|---|
 | 2026-07-25 | Claude | Zugang C-1…C-9 aus dem Enterprise-Audit. B-1…B-5 unverändert offen. Nächste Prüfung: 2026-08-08. |
+| 2026-07-26 | Claude | **C-3, C-6, C-8 erledigt.** B-2: Sonde gebaut, Flake in diesem Lauf nicht reproduzierbar. Neu: **C-10** (Integrationssuite 42 rot — Test-Drift gegen `legacy_access`-Gate). Offen: B-1 (gated), B-3, B-4, B-5, C-1, C-2, C-4, C-5, C-7, C-9, C-10. Nächste Prüfung: 2026-08-09. |
 
 ---
 

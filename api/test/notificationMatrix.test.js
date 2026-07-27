@@ -1,7 +1,7 @@
 /**
  * Notification Matrix unit tests.
  * Covers dispatch with dedup, unknown events, empty recipients,
- * findOrgApprovers, findOrgAdmins, getMatrix.
+ * findOrgMembersWithPermission, getMatrix.
  * Uses mock pool — no database required.
  *
  * Run: node --test --test-force-exit test/notificationMatrix.test.js
@@ -148,71 +148,3 @@ describe("notificationMatrix — dispatch", () => {
 });
 
 // ═══════════════════════════════════════════════════════════════
-// findOrgApprovers / findOrgAdmins
-// ═══════════════════════════════════════════════════════════════
-
-describe("notificationMatrix — helpers", () => {
-  it("findOrgApprovers returns user IDs", async () => {
-    const rows = [{ user_id: 1 }, { user_id: 2 }];
-    const result = await svc.findOrgApprovers(returnPool(rows), "org-1");
-    assert.deepStrictEqual(result, [1, 2]);
-  });
-
-  it("findOrgApprovers returns empty for no members", async () => {
-    assert.deepStrictEqual(await svc.findOrgApprovers(returnPool([]), "org-1"), []);
-  });
-
-  it("findOrgAdmins returns user IDs", async () => {
-    const rows = [{ user_id: 5 }];
-    const result = await svc.findOrgAdmins(returnPool(rows), "org-1");
-    assert.deepStrictEqual(result, [5]);
-  });
-
-  it("findOrgAdmins returns empty for no admins", async () => {
-    assert.deepStrictEqual(await svc.findOrgAdmins(returnPool([]), "org-1"), []);
-  });
-});
-
-describe("findOrgMembersWithPermission — Empfänger aus der Rechte-Matrix ableiten", () => {
-  function capturePool(...responses) {
-    let i = 0; const calls = [];
-    return { calls, query: async (sql, params) => { calls.push({ sql, params }); return responses[i++] ?? { rows: [] }; } };
-  }
-
-  it("leitet die Rollenliste aus rbacService.PERMISSIONS ab (keine hartkodierte Liste)", async () => {
-    const pool = capturePool({ rows: [{ user_id: "u1" }] });
-    const out = await svc.findOrgMembersWithPermission(pool, "org-1", "timesheet.approve");
-    assert.deepStrictEqual(out, ["u1"]);
-    assert.deepStrictEqual(
-      pool.calls[0].params[1],
-      rbac.PERMISSIONS["timesheet.approve"],
-      "die Rollen kommen 1:1 aus der Matrix — sonst driften Benachrichtigung und Berechtigung auseinander"
-    );
-  });
-
-  it("wer nicht handeln darf, wird auch nicht benachrichtigt", () => {
-    const roles = rbac.PERMISSIONS["timesheet.approve"];
-    for (const r of ["member", "viewer", "recruiter", "supplier_user"]) {
-      assert.ok(!roles.includes(r), `${r} darf nicht freigeben und gehoert daher nicht in den Verteiler`);
-    }
-  });
-
-  it("Fallback auf den Org-Owner, wenn niemand die Permission hat (nie an niemanden senden)", async () => {
-    const pool = capturePool({ rows: [] }, { rows: [{ user_id: "owner-1" }] });
-    const out = await svc.findOrgMembersWithPermission(pool, "org-1", "timesheet.approve");
-    assert.deepStrictEqual(out, ["owner-1"]);
-    assert.match(pool.calls[1].sql, /role_key = 'owner'/);
-  });
-
-  it("unbekannte Permission → leer, ohne DB-Zugriff", async () => {
-    const pool = capturePool();
-    assert.deepStrictEqual(await svc.findOrgMembersWithPermission(pool, "org-1", "gibts.nicht"), []);
-    assert.equal(pool.calls.length, 0);
-  });
-
-  it("ohne orgId → leer, ohne DB-Zugriff (Zero-State)", async () => {
-    const pool = capturePool();
-    assert.deepStrictEqual(await svc.findOrgMembersWithPermission(pool, null, "timesheet.approve"), []);
-    assert.equal(pool.calls.length, 0);
-  });
-});

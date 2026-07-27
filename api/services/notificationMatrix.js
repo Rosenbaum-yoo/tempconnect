@@ -468,31 +468,5 @@ export async function findOrgMembersWithPermission(pool, orgId, permission) {
   return owners.map(r => r.user_id);
 }
 
-/**
- * Helper: find org approvers (owner/admin/program_manager).
- * @deprecated Bevorzugt `findOrgMembersWithPermission(pool, orgId, '<permission>')` —
- * diese Variante kann von der Rechte-Matrix wegdriften (siehe C-3 in docs/AUDIT_BACKLOG.md).
- */
-export async function findOrgApprovers(pool, orgId) {
-  const { rows } = await pool.query(
-    `SELECT user_id FROM org_memberships
-     WHERE org_id = $1 AND is_active = TRUE AND role_key IN ('owner','admin','program_manager')`,
-    [orgId]
-  );
-  return rows.map(r => r.user_id);
-}
-
-/**
- * Helper: find org admins for a supplier org.
- */
-export async function findOrgAdmins(pool, orgId) {
-  const { rows } = await pool.query(
-    `SELECT user_id FROM org_memberships
-     WHERE org_id = $1 AND is_active = TRUE AND role_key IN ('owner','admin')`,
-    [orgId]
-  );
-  return rows.map(r => r.user_id);
-}
-
 /** Exported matrix for introspection / documentation. */
 export function getMatrix() { return { ...MATRIX }; }

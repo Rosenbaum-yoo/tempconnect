@@ -12,6 +12,11 @@
  *   --suite=security         => test/security/ + *security*.test.js + *rbac*.test.js + *auth*.test.js
  *   --suite=tenant           => *orgBoundary*.test.js + *org-boundary*.test.js + *tenant*.test.js
  *   --suite=pilot            => *pilot*.test.js
+ *   --suite=db-gated         => Dateien, deren Tests sich OHNE DATABASE_URL selbst
+ *                               ueberspringen (Audit-Backlog C-6). Im Normallauf melden
+ *                               sie nur "skipped" — darunter die Org-Boundary- und
+ *                               Cross-Org-Tests. Mit gesetzter DATABASE_URL laufen sie
+ *                               echt: `DATABASE_URL=... node scripts/run-tests.js --suite=db-gated`
  */
 
 import { spawnSync } from "node:child_process";
@@ -20,10 +25,10 @@ import { join, relative } from "node:path";
 
 const PROJECT_DIR = join(import.meta.dirname, "..");
 const TEST_DIR = join(PROJECT_DIR, "test");
-const VALID_SUITES = new Set(["non-integration", "integration", "all", "ci", "security", "tenant", "pilot"]);
+const VALID_SUITES = new Set(["non-integration", "integration", "all", "ci", "security", "tenant", "pilot", "db-gated"]);
 
 function usage() {
-  console.log("Usage: node scripts/run-tests.js [--suite=non-integration|integration|all|ci|security|tenant|pilot]");
+  console.log("Usage: node scripts/run-tests.js [--suite=non-integration|integration|all|ci|security|tenant|pilot|db-gated]");
 }
 
 function normalizePath(filePath) {
@@ -112,6 +117,16 @@ function selectSuite(files, suite) {
     case "pilot":
       return files.filter((file) =>
         matchesPattern(file, ["pilot"])
+      );
+    // Dateien mit DB-abhaengigen Tests, die sich ohne DATABASE_URL still ueberspringen.
+    // Sie sind der einzige Ort, an dem die Mandantentrennung wirklich gegen Postgres
+    // geprueft wird — im Normallauf zaehlen sie nur als "skipped" (Audit-Backlog C-6).
+    case "db-gated":
+      return files.filter((file) =>
+        file.startsWith("test/integration/") ||
+        matchesPattern(file, [
+          "org-boundary", "multi-location-integration", "capacityservice", "idempotency"
+        ])
       );
     default:
       return files;
