@@ -109,14 +109,15 @@
     return SUBMISSION_LABELS[status] || status || 'Unbekannt';
   }
 
-  /** Gibt fertiges <span class="ep-badge ...">...</span> zurück */
+  /**
+   * Gibt fertiges <span class="ep-badge ...">...</span> zurück.
+   * Die Bedeutung traegt die Badge-Klasse (Farbe) plus die Beschriftung — frueher stand
+   * hier zusaetzlich ein Emoji, das dieselbe Aussage ein zweites Mal machte.
+   */
   function submissionBadgeHtml(status) {
     var cls  = SUBMISSION_BADGE_CLASS[status] || 'ep-badge-draft';
     var lbl  = SUBMISSION_LABELS[status] || status || '';
-    var icon = '';
-    if (status === 'needs_correction' || status === 'customer_rejected' || status === 'rejected') icon = '⚠ ';
-    else if (status === 'customer_confirmed' || status === 'accepted_into_timesheet' || status === 'posted_to_timesheet') icon = '✓ ';
-    return '<span class="ep-badge ' + cls + '">' + icon + lbl + '</span>';
+    return '<span class="ep-badge ' + cls + '">' + lbl + '</span>';
   }
 
   function submissionAlertClass(status) {

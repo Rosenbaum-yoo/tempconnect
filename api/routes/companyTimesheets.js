@@ -16,6 +16,7 @@ import { requirePermission } from "../middleware/rbac.js";
 import { requireScope } from "../middleware/apiKeyAuth.js";
 import { swallow } from "../utils/logger.js";
 import { recordActivity } from "../services/eventTrackingService.js";
+import { findOrgMembersWithPermission } from "../services/notificationMatrix.js";
 
 export function createCompanyTimesheetsRouter(deps) {
   const { pool, logger, requireAuth, requireFeature } = deps;
@@ -117,6 +118,28 @@ export function createCompanyTimesheetsRouter(deps) {
         event_type: "worker_blocked", actor_id: req.session.userId, org_id: req.orgId,
         entity_type: "worker", entity_id: workerUserId, metadata: { blocked_until: blockedUntil }
       });
+
+      // Agentur aktiv informieren (Audit-Backlog C-9): bisher stand die Sperre nur als
+      // Hinweis im Zuweisungs-Drawer — die Agentur erfuhr davon erst, wenn sie zufaellig
+      // hinsah. Empfaenger kommen aus der Rechte-Matrix: benachrichtigt wird, wer
+      // disponieren darf. Fire-and-forget — eine Sperre darf daran nie scheitern.
+      (async () => {
+        const supplierOrgId = result.block?.supplier_org_id;
+        if (!supplierOrgId) return;
+        const [recipients, ctx] = await Promise.all([
+          findOrgMembersWithPermission(pool, supplierOrgId, "worker.manage"),
+          pool.query(
+            `SELECT (u.first_name || ' ' || u.last_name) AS worker_name,
+                    (SELECT name FROM organizations WHERE id = $2) AS company_name
+               FROM users u WHERE u.id = $1`,
+            [workerUserId, req.orgId]
+          )
+        ]);
+        await workerNotifications.notifyWorkerBlockedToAgency(
+          pool, recipients, result.block.id, ctx.rows[0]?.worker_name?.trim() || null,
+          { companyName: ctx.rows[0]?.company_name || null, blockedUntil, reason }
+        );
+      })().catch(swallow("company.blocklist.notify"));
       res.status(201).json(result.block);
     } catch (err) { next(err); }
   });

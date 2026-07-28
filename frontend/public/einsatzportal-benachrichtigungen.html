@@ -190,23 +190,23 @@
 <aside class="ep-sidebar">
   <div class="ep-sidebar-brand"><div class="ep-sidebar-logo">TC</div><div><div style="font-weight:800;font-size:.95rem">Einsatzportal</div><div style="font-size:.7rem;color:var(--ep-text-muted);font-weight:400">TempConnect</div></div></div>
   <nav class="ep-sidebar-nav">
-    <a class="ep-sidebar-item" href="einsatzportal-dashboard.html"><span class="icon">🏠</span> Dashboard</a>
-    <a class="ep-sidebar-item" href="einsatzportal-einsaetze.html"><span class="icon">📋</span> Meine Einsätze</a>
-    <a class="ep-sidebar-item" href="einsatzportal-plan.html"><span class="icon">📅</span> Einsatzplan</a>
-    <a class="ep-sidebar-item" href="einsatzportal-stundenzettel.html"><span class="icon">⏱</span> Stundenzettel</a>
-    <a class="ep-sidebar-item active" href="einsatzportal-benachrichtigungen.html"><span class="icon">🔔</span> Benachrichtigungen</a>
-    <a class="ep-sidebar-item" href="einsatzportal-kontakt.html"><span class="icon">💬</span> Kontakt &amp; Hilfe</a>
-    <a class="ep-sidebar-item" href="einsatzportal-profil.html"><span class="icon">👤</span> Mein Profil</a>
+    <a class="ep-sidebar-item" href="einsatzportal-dashboard.html">Dashboard</a>
+    <a class="ep-sidebar-item" href="einsatzportal-einsaetze.html">Meine Einsätze</a>
+    <a class="ep-sidebar-item" href="einsatzportal-plan.html">Einsatzplan</a>
+    <a class="ep-sidebar-item" href="einsatzportal-stundenzettel.html">Stundenzettel</a>
+    <a class="ep-sidebar-item active" href="einsatzportal-benachrichtigungen.html">Benachrichtigungen</a>
+    <a class="ep-sidebar-item" href="einsatzportal-kontakt.html">Kontakt &amp; Hilfe</a>
+    <a class="ep-sidebar-item" href="einsatzportal-profil.html">Mein Profil</a>
   </nav>
   <div class="ep-sidebar-footer">
     <div class="ep-sidebar-user"><div class="ep-sidebar-avatar" id="sd-ava">?</div><div><div class="ep-sidebar-name" id="sd-name">Lädt…</div><div class="ep-sidebar-role">Arbeitnehmer</div></div></div>
-    <button class="ep-sidebar-item" onclick="doLogout()" style="margin-top:4px;color:var(--ep-text-muted)"><span class="icon">↩</span> Abmelden</button>
+    <button class="ep-sidebar-item" onclick="doLogout()" style="margin-top:4px;color:var(--ep-text-muted)">Abmelden</button>
   </div>
 </aside>
 
 <header class="ep-topbar">
   <a class="ep-topbar-brand" href="einsatzportal-dashboard.html" aria-label="Zur Einsatzportal-Übersicht"><div class="ep-topbar-logo">TC</div>Benachrichtigungen</a>
-  <div class="ep-topbar-actions"><a class="ep-bell" href="einsatzportal-benachrichtigungen.html">🔔</a></div>
+  <div class="ep-topbar-actions"><a class="ep-bell" href="einsatzportal-benachrichtigungen.html"></a></div>
 </header>
 
 <main class="ep-main">
@@ -228,7 +228,7 @@
           <button class="notif-toggle active" id="tog-unread" onclick="setView('unread')">Ungelesen <span class="notif-count-badge" id="unread-cnt" style="display:none">0</span></button>
           <button class="notif-toggle" id="tog-all" onclick="setView('all')">Alle</button>
         </div>
-        <button class="notif-read-all" onclick="markAllRead()">✓ Alle als gelesen markieren</button>
+        <button class="notif-read-all" onclick="markAllRead()">Alle als gelesen markieren</button>
       </div>
       <div id="staffingChoiceWrap" style="display:none;margin-bottom:18px">
         <div style="font-size:.8rem;font-weight:700;letter-spacing:.02em;margin-bottom:10px;color:var(--ep-text)">Auswahl freigegebener Einsatzoptionen</div>
@@ -245,12 +245,12 @@
 </main>
 
 <nav class="ep-bottom-nav">
-  <a class="ep-bn-item" href="einsatzportal-dashboard.html"><span class="icon">🏠</span>Start</a>
-  <a class="ep-bn-item" href="einsatzportal-einsaetze.html"><span class="icon">📋</span>Einsätze</a>
-  <a class="ep-bn-item" href="einsatzportal-plan.html"><span class="icon">📅</span>Plan</a>
-  <a class="ep-bn-item" href="einsatzportal-stundenzettel.html"><span class="icon">⏱</span>Stunden</a>
-  <a class="ep-bn-item active" href="einsatzportal-benachrichtigungen.html"><span class="icon">🔔</span>Info</a>
-  <a class="ep-bn-item" href="einsatzportal-profil.html"><span class="icon">👤</span>Profil</a>
+  <a class="ep-bn-item" href="einsatzportal-dashboard.html">Start</a>
+  <a class="ep-bn-item" href="einsatzportal-einsaetze.html">Einsätze</a>
+  <a class="ep-bn-item" href="einsatzportal-plan.html">Plan</a>
+  <a class="ep-bn-item" href="einsatzportal-stundenzettel.html">Stunden</a>
+  <a class="ep-bn-item active" href="einsatzportal-benachrichtigungen.html">Info</a>
+  <a class="ep-bn-item" href="einsatzportal-profil.html">Profil</a>
 </nav>
 <div id="ep-toast"></div>
 
@@ -327,16 +327,16 @@ function getFiltered() {
 
 function notifIcon(type) {
   const icons = {
-    new_assignment:'📋', correction_requested:'⚠️', submission_accepted:'✅',
-    submission_rejected:'❌', submission_received:'📤', assignment_reminder:'⏰',
-    worker_assignment_pending_confirmation:'📋', worker_assignment_new:'📋',
-    worker_staffing_request_new:'📨',
-    worker_assignment_changed:'🔄', worker_submission_correction_requested:'⚠️',
-    worker_submission_accepted:'✅', worker_submission_rejected:'❌',
-    worker_document_verified:'🗂️', worker_document_rejected:'📎',
-    worker_document_expiring:'⏳', worker_document_expired:'🚨',
-    worker_shift_reminder:'⏰', worker_assignment_confirmed:'✅',
-    worker_assignment_declined:'❌',
+    new_assignment:'', correction_requested:'', submission_accepted:'',
+    submission_rejected:'', submission_received:'', assignment_reminder:'',
+    worker_assignment_pending_confirmation:'', worker_assignment_new:'',
+    worker_staffing_request_new:'',
+    worker_assignment_changed:'', worker_submission_correction_requested:'',
+    worker_submission_accepted:'', worker_submission_rejected:'',
+    worker_document_verified:'', worker_document_rejected:'',
+    worker_document_expiring:'', worker_document_expired:'',
+    worker_shift_reminder:'', worker_assignment_confirmed:'',
+    worker_assignment_declined:'',
     system:'ℹ️', info:'ℹ️'
   };
   const cls = {
@@ -350,7 +350,7 @@ function notifIcon(type) {
     worker_document_verified:'accepted', worker_document_rejected:'rejected',
     worker_document_expiring:'correction', worker_document_expired:'rejected'
   };
-  return { icon: icons[type]||'🔔', cls: cls[type]||'info' };
+  return { icon: icons[type]||'', cls: cls[type]||'info' };
 }
 
 function notifLink(n) {
@@ -533,7 +533,7 @@ function renderChoiceSets() {
       const rankOptions = options.map((_, rankIdx) => `<option value="${rankIdx + 1}" ${Number(option.worker_rank) === (rankIdx + 1) ? 'selected' : ''}>Rang ${rankIdx + 1}</option>`).join('');
       let selectionControl = '';
       if (choiceSet.choice_mode === 'free_choice') {
-        selectionControl = `<button class="notif-btn-confirm" ${controlDisabled ? 'disabled' : ''} onclick="selectStaffingChoiceOption('${choiceSet.id}','${option.id}',event)">${hasLockedSelection && option.worker_response === 'selected' ? '✓ Bereits gewählt' : 'Diesen Einsatz wählen'}</button>`;
+        selectionControl = `<button class="notif-btn-confirm" ${controlDisabled ? 'disabled' : ''} onclick="selectStaffingChoiceOption('${choiceSet.id}','${option.id}',event)">${hasLockedSelection && option.worker_response === 'selected' ? 'Bereits gewählt' : 'Diesen Einsatz wählen'}</button>`;
       } else if (choiceSet.choice_mode === 'ranked_choice') {
         selectionControl = `
           <label style="display:flex;align-items:center;gap:8px;font-size:.76rem;color:var(--ep-text-muted)">
@@ -569,7 +569,7 @@ function renderChoiceSets() {
           ${staffingSnapshot ? `<div style="font-size:.74rem;color:var(--ep-text-muted);margin-top:6px">${esc(staffingSnapshot)}</div>` : ''}
           <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-top:10px">
             ${selectionControl}
-            ${option.is_actionable ? `<button class="notif-btn-neutral" onclick="toggleStaffingBox('${option.invite_id}','question',event)">❓ Rückfrage</button>` : ''}
+            ${option.is_actionable ? `<button class="notif-btn-neutral" onclick="toggleStaffingBox('${option.invite_id}','question',event)">Rückfrage</button>` : ''}
           </div>
           ${option.is_actionable ? `
             <div class="staffing-inline-box" id="staffing-question-${option.invite_id}">
@@ -586,7 +586,7 @@ function renderChoiceSets() {
         : `<button class="notif-btn-confirm" ${actionLocked ? 'disabled' : ''} onclick="submitStaffingChoicePreferences('${choiceSet.id}',event)">Präferenzen senden</button>`);
     return `
       <div class="notif-item staffing-card priority-medium${choiceSet.viewed_at ? '' : ' unread'}" id="choice-${choiceSet.id}">
-        <div class="notif-icon new_assignment">🧭</div>
+        <div class="notif-icon new_assignment"></div>
         <div class="notif-body">
           <div class="staffing-topline">
             <div>
@@ -740,7 +740,7 @@ function renderStaffingRequests() {
       : '';
     return `
       <div class="notif-item unread staffing-card priority-${priority.level}" id="sr-${req.id}">
-        <div class="notif-icon new_assignment">📨</div>
+        <div class="notif-icon new_assignment"></div>
         <div class="notif-body">
           <div class="staffing-topline">
             <div>
@@ -790,12 +790,12 @@ function renderStaffingRequests() {
             </div>
           </div>
           <div class="notif-actions">
-            ${accepted ? `<span class="notif-btn-link" style="cursor:default">✓ Angenommen – wartet auf finale Zuordnung</span>` : `
-              <button class="notif-btn-confirm" ${canAccept ? '' : 'disabled'} onclick="respondStaffingRequest('${req.id}','accept',event)">✓ Annehmen</button>
-              <button class="notif-btn-decline" onclick="toggleStaffingBox('${req.id}','decline',event)">✗ Ablehnen</button>
+            ${accepted ? `<span class="notif-btn-link" style="cursor:default">Angenommen – wartet auf finale Zuordnung</span>` : `
+              <button class="notif-btn-confirm" ${canAccept ? '' : 'disabled'} onclick="respondStaffingRequest('${req.id}','accept',event)">Annehmen</button>
+              <button class="notif-btn-decline" onclick="toggleStaffingBox('${req.id}','decline',event)">Ablehnen</button>
             `}
-            ${!accepted ? `<button class="notif-btn-neutral" onclick="toggleStaffingBox('${req.id}','question',event)">❓ Rückfrage</button>` : ''}
-            ${!accepted ? `<button class="notif-btn-neutral" onclick="toggleStaffingBox('${req.id}','remind',event)">⏰ Später erinnern</button>` : ''}
+            ${!accepted ? `<button class="notif-btn-neutral" onclick="toggleStaffingBox('${req.id}','question',event)">Rückfrage</button>` : ''}
+            ${!accepted ? `<button class="notif-btn-neutral" onclick="toggleStaffingBox('${req.id}','remind',event)">Später erinnern</button>` : ''}
             <a class="notif-btn-link" href="einsatzportal-einsaetze.html">→ Einsätze ansehen</a>
           </div>
           ${accepted ? '' : `
@@ -836,7 +836,7 @@ async function respondStaffingRequest(inviteId, action, event, note = '') {
   event.stopPropagation();
   try {
     await PortalApi.post(`/worker/staffing-requests/${inviteId}/respond`, { action, note });
-    toast(action === 'accept' ? '✓ Anfrage angenommen' : 'Anfrage abgelehnt');
+    toast(action === 'accept' ? 'Anfrage angenommen' : 'Anfrage abgelehnt');
     await load();
   } catch (e) {
     const code = e.code || e.message;
@@ -878,7 +878,7 @@ function renderList() {
   const list = getFiltered();
 
   if (!list.length) {
-    el.innerHTML = `<div class="notif-empty-state"><div style="font-size:2.5rem;margin-bottom:12px">🔔</div><h3 style="color:var(--ep-text);margin-bottom:6px">${curView==='unread'?'Keine ungelesenen Nachrichten':'Keine Benachrichtigungen'}</h3><p style="font-size:.85rem">${curView==='unread'?'Sie sind auf dem neuesten Stand.':'Noch keine Benachrichtigungen vorhanden.'}</p></div>`;
+    el.innerHTML = `<div class="notif-empty-state"><div style="font-size:2.5rem;margin-bottom:12px"></div><h3 style="color:var(--ep-text);margin-bottom:6px">${curView==='unread'?'Keine ungelesenen Nachrichten':'Keine Benachrichtigungen'}</h3><p style="font-size:.85rem">${curView==='unread'?'Sie sind auf dem neuesten Stand.':'Noch keine Benachrichtigungen vorhanden.'}</p></div>`;
     return;
   }
 
@@ -895,8 +895,8 @@ function renderList() {
           <div class="notif-time">${age}</div>
           <div class="notif-actions">
             ${isPending(n) ? `
-              <button class="notif-btn-confirm" onclick="confirmAsg('${n.entity_id}','${n.id}',event)">✓ Bestätigen</button>
-              <button class="notif-btn-decline" onclick="toggleDecline('${n.id}',event)">✗ Ablehnen</button>
+              <button class="notif-btn-confirm" onclick="confirmAsg('${n.entity_id}','${n.id}',event)">Bestätigen</button>
+              <button class="notif-btn-decline" onclick="toggleDecline('${n.id}',event)">Ablehnen</button>
             ` : ''}
             ${link ? `<a class="notif-btn-link" href="${esc(link)}">→ Ansehen</a>` : ''}
             ${!n.is_read ? `<button class="notif-btn-read" onclick="markRead('${n.id}',event)">Als gelesen markieren</button>` : ''}
@@ -932,7 +932,7 @@ async function markAllRead() {
     notifications.forEach(n=>n.is_read=true);
     renderList();
     document.getElementById('unread-cnt').style.display='none';
-    toast('Alle als gelesen markiert ✓');
+    toast('Alle als gelesen markiert');
   } catch { toast('Fehler', true); }
 }
 
@@ -968,7 +968,7 @@ async function confirmAsg(linkId, notifId, event) {
     const n = notifications.find(x=>x.id===notifId);
     if (n) { n._handled = true; n.is_read = true; }
     renderList();
-    toast('✓ Einsatz bestätigt!');
+    toast('Einsatz bestätigt!');
     PortalApi.patch(`/worker/notifications/${notifId}/read`, {}).catch(()=>{});
   } catch(e) { toast(e.message || 'Fehler', true); }
 }

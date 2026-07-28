@@ -129,6 +129,15 @@ input, textarea, select { font-family: inherit; }
   display: flex; align-items: center; gap: 8px;
 }
 
+/* Icon-Satz (Inline-SVG aus portalShell.js) — ersetzt die frueheren Emojis.
+   Groesse und Farbe folgen dem Text, damit die Icons in jedem Theme sitzen. */
+.ep-icon { flex: 0 0 auto; vertical-align: -.15em; opacity: .85; }
+.ep-sidebar-item .ep-icon,
+.ep-bn-item .ep-icon { margin-right: 0; }
+.ep-sidebar-item.active .ep-icon,
+.ep-bn-item.active .ep-icon { opacity: 1; }
+.ep-bn-item { gap: 2px; }
+
 /* Notification bell */
 .ep-bell {
   position: relative;

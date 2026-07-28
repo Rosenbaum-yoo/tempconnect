@@ -30,7 +30,8 @@ const SEVERITY_MAP = {
   worker_document_verified:                 "success",
   worker_document_rejected:                 "error",
   worker_document_expiring:                 "warning",
-  worker_document_expired:                  "error"
+  worker_document_expired:                  "error",
+  worker_blocked_by_company:                "warning"
 };
 
 /**
@@ -393,6 +394,40 @@ export async function notifyComplaintToDispatcher(pool, dispatcherUserId, compla
     entityId:     complaintId,
     linkPath:     "/public/worker-submissions-review.html"
   });
+}
+
+/**
+ * Ein Einsatzunternehmen hat eine Kraft fuer kuenftige Einsaetze gesperrt (P3.3).
+ *
+ * Warum das eine Benachrichtigung braucht: bisher stand die Sperre nur als Hinweis im
+ * Zuweisungs-Drawer — die Agentur erfuhr davon erst, wenn sie zufaellig hinsah, im
+ * schlechtesten Fall beim Versuch, genau diese Kraft erneut dorthin zu schicken.
+ *
+ * Empfaenger sind alle, die in der Agentur disponieren duerfen (Rechte-Matrix statt
+ * hartkodierter Rollen) — der Aufrufer ermittelt sie und uebergibt die Liste.
+ */
+export async function notifyWorkerBlockedToAgency(pool, recipientUserIds, blockId, workerName, {
+  companyName = null, blockedUntil = null, reason = null
+} = {}) {
+  const ids = Array.isArray(recipientUserIds) ? recipientUserIds.filter(Boolean) : [];
+  if (!ids.length) return { notified: 0 };
+
+  const bis = blockedUntil ? `bis ${String(blockedUntil).slice(0, 10)}` : "unbefristet";
+  const wer = companyName || "Ein Einsatzunternehmen";
+  const grund = reason ? ` Grund: ${String(reason).slice(0, 140)}` : "";
+
+  for (const userId of ids) {
+    await notifyWorker(pool, {
+      workerUserId: userId,
+      type:         "worker_blocked_by_company",
+      title:        "Kraft vom Kunden gesperrt",
+      message:      `${wer} hat ${workerName || "eine Kraft"} für künftige Einsätze gesperrt (${bis}).${grund} Bei der Disposition berücksichtigen.`,
+      entityType:   "company_worker_blocklist",
+      entityId:     blockId,
+      linkPath:     "/public/worker-submissions-review.html"
+    });
+  }
+  return { notified: ids.length };
 }
 
 /** Worker hat Stundenzettel eingereicht → Reviewer/Dispatcher informieren */

@@ -116,23 +116,23 @@
 <aside class="ep-sidebar">
   <div class="ep-sidebar-brand"><div class="ep-sidebar-logo">TC</div><div><div style="font-weight:800;font-size:.95rem">Einsatzportal</div><div style="font-size:.7rem;color:var(--ep-text-muted);font-weight:400">TempConnect</div></div></div>
   <nav class="ep-sidebar-nav">
-    <a class="ep-sidebar-item" href="einsatzportal-dashboard.html"><span class="icon">🏠</span> Dashboard</a>
-    <a class="ep-sidebar-item" href="einsatzportal-einsaetze.html"><span class="icon">📋</span> Meine Einsätze</a>
-    <a class="ep-sidebar-item" href="einsatzportal-plan.html"><span class="icon">📅</span> Einsatzplan</a>
-    <a class="ep-sidebar-item" href="einsatzportal-stundenzettel.html"><span class="icon">⏱</span> Stundenzettel</a>
-    <a class="ep-sidebar-item" href="einsatzportal-benachrichtigungen.html"><span class="icon">🔔</span> Benachrichtigungen<span class="ep-sidebar-badge" id="sb-badge" style="display:none">0</span></a>
-    <a class="ep-sidebar-item" href="einsatzportal-kontakt.html"><span class="icon">💬</span> Kontakt &amp; Hilfe</a>
-    <a class="ep-sidebar-item active" href="einsatzportal-profil.html"><span class="icon">👤</span> Mein Profil</a>
+    <a class="ep-sidebar-item" href="einsatzportal-dashboard.html">Dashboard</a>
+    <a class="ep-sidebar-item" href="einsatzportal-einsaetze.html">Meine Einsätze</a>
+    <a class="ep-sidebar-item" href="einsatzportal-plan.html">Einsatzplan</a>
+    <a class="ep-sidebar-item" href="einsatzportal-stundenzettel.html">Stundenzettel</a>
+    <a class="ep-sidebar-item" href="einsatzportal-benachrichtigungen.html">Benachrichtigungen<span class="ep-sidebar-badge" id="sb-badge" style="display:none">0</span></a>
+    <a class="ep-sidebar-item" href="einsatzportal-kontakt.html">Kontakt &amp; Hilfe</a>
+    <a class="ep-sidebar-item active" href="einsatzportal-profil.html">Mein Profil</a>
   </nav>
   <div class="ep-sidebar-footer">
     <div class="ep-sidebar-user"><div class="ep-sidebar-avatar" id="sd-ava">?</div><div><div class="ep-sidebar-name" id="sd-name">Lädt…</div><div class="ep-sidebar-role">Arbeitnehmer</div></div></div>
-    <button class="ep-sidebar-item" onclick="doLogout()" style="margin-top:4px;color:var(--ep-text-muted)"><span class="icon">↩</span> Abmelden</button>
+    <button class="ep-sidebar-item" onclick="doLogout()" style="margin-top:4px;color:var(--ep-text-muted)">Abmelden</button>
   </div>
 </aside>
 
 <header class="ep-topbar">
   <a class="ep-topbar-brand" href="einsatzportal-dashboard.html" aria-label="Zur Einsatzportal-Übersicht"><div class="ep-topbar-logo">TC</div>Mein Profil</a>
-  <div class="ep-topbar-actions"><a class="ep-bell" href="einsatzportal-benachrichtigungen.html">🔔<span class="ep-bell-badge" id="mob-badge" style="display:none">0</span></a></div>
+  <div class="ep-topbar-actions"><a class="ep-bell" href="einsatzportal-benachrichtigungen.html"><span class="ep-bell-badge" id="mob-badge" style="display:none">0</span></a></div>
 </header>
 
 <main class="ep-main">
@@ -206,10 +206,10 @@
           </div>
           <div class="profil-save-row">
             <button class="ep-btn ep-btn-primary" id="saveBtn" onclick="saveProfile()">Änderungen speichern</button>
-            <span class="profil-success" id="saveOk">✓ Gespeichert</span>
+            <span class="profil-success" id="saveOk">Gespeichert</span>
           </div>
           <div class="ep-alert ep-alert-danger" id="saveErr" style="display:none;margin-top:10px">
-            <span>⚠️</span><span id="saveErrTxt">Fehler beim Speichern.</span>
+            <span id="saveErrTxt">Fehler beim Speichern.</span>
           </div>
         </div>
       </div>
@@ -223,7 +223,7 @@
         </div>
         <div class="profil-card-body">
           <div class="ep-alert ep-alert-warning" id="docAlert" style="display:none;margin-bottom:12px">
-            <span>⚠️</span><span id="docAlertTxt">Bitte prüfen Sie Ihre Nachweise.</span>
+            <span id="docAlertTxt">Bitte prüfen Sie Ihre Nachweise.</span>
           </div>
           <div class="profil-doc-summary" id="docSummary"></div>
           <div class="profil-doc-form-grid">
@@ -272,7 +272,7 @@
             <span class="profil-doc-upload-note">PDF, PNG, JPG oder WEBP bis 10 MB. Verifizierte Dokumente bleiben nach der Freigabe geschützt.</span>
           </div>
           <div class="ep-alert ep-alert-danger" id="docErr" style="display:none;margin-top:10px">
-            <span>⚠️</span><span id="docErrTxt">Dokument konnte nicht gespeichert werden.</span>
+            <span id="docErrTxt">Dokument konnte nicht gespeichert werden.</span>
           </div>
           <div class="profil-doc-list" id="docList"></div>
         </div>
@@ -292,7 +292,7 @@
           </p>
           <div id="skillLoading" class="profil-val muted">Fähigkeiten werden geladen…</div>
           <div class="ep-alert ep-alert-danger" id="skillErr" style="display:none">
-            <span>⚠️</span><span id="skillErrTxt">Katalog konnte nicht geladen werden.</span>
+            <span id="skillErrTxt">Katalog konnte nicht geladen werden.</span>
           </div>
           <div id="skillCatalog" style="display:none"></div>
           <div class="profil-save-row" id="skillSaveRow" style="display:none">
@@ -309,7 +309,6 @@
         </div>
         <div class="profil-card-body">
           <div class="ep-info-row" style="display:flex;align-items:center;gap:12px">
-            <div class="ep-info-icon">🔒</div>
             <div>
               <div class="ep-info-label">Passwort ändern</div>
               <div class="ep-info-val" style="font-size:.8rem;color:var(--ep-text-muted)">Passwort-Änderung über den „Passwort vergessen"-Link auf der Login-Seite</div>
@@ -326,12 +325,12 @@
 </main>
 
 <nav class="ep-bottom-nav">
-  <a class="ep-bn-item" href="einsatzportal-dashboard.html"><span class="icon">🏠</span>Start</a>
-  <a class="ep-bn-item" href="einsatzportal-einsaetze.html"><span class="icon">📋</span>Einsätze</a>
-  <a class="ep-bn-item" href="einsatzportal-plan.html"><span class="icon">📅</span>Plan</a>
-  <a class="ep-bn-item" href="einsatzportal-stundenzettel.html"><span class="icon">⏱</span>Stunden</a>
-  <a class="ep-bn-item" href="einsatzportal-benachrichtigungen.html"><span class="icon">🔔</span>Info<span class="ep-bn-dot" id="bn-dot" style="display:none"></span></a>
-  <a class="ep-bn-item active" href="einsatzportal-profil.html"><span class="icon">👤</span>Profil</a>
+  <a class="ep-bn-item" href="einsatzportal-dashboard.html">Start</a>
+  <a class="ep-bn-item" href="einsatzportal-einsaetze.html">Einsätze</a>
+  <a class="ep-bn-item" href="einsatzportal-plan.html">Plan</a>
+  <a class="ep-bn-item" href="einsatzportal-stundenzettel.html">Stunden</a>
+  <a class="ep-bn-item" href="einsatzportal-benachrichtigungen.html">Info<span class="ep-bn-dot" id="bn-dot" style="display:none"></span></a>
+  <a class="ep-bn-item active" href="einsatzportal-profil.html">Profil</a>
 </nav>
 <div id="ep-toast"></div>
 
@@ -413,7 +412,7 @@ async function saveSkills() {
   if (!btn) return;
   btn.disabled = true;
   const prevLabel = btn.textContent;
-  btn.textContent = '⏳ Speichern…';
+  btn.textContent = 'Speichern…';
   try {
     const skills = Array.from(skillState.selected.entries()).map(function (entry) {
       return { skill_id: entry[0], proficiency: (entry[1] && entry[1].proficiency) || 'intermediate' };
@@ -609,7 +608,7 @@ async function uploadDocument() {
   }
   errEl.style.display = 'none';
   btn.disabled = true;
-  btn.textContent = '⏳ Upload läuft…';
+  btn.textContent = 'Upload läuft…';
   const formData = new FormData();
   formData.append('category', document.getElementById('docCategory').value || 'qualification');
   formData.append('title', title);
@@ -663,7 +662,7 @@ async function saveProfile() {
   const errEl  = document.getElementById('saveErr');
   const errTxt = document.getElementById('saveErrTxt');
 
-  btn.disabled = true; btn.textContent = '⏳ Speichern…';
+  btn.disabled = true; btn.textContent = 'Speichern…';
   okEl.style.display = 'none'; errEl.style.display = 'none';
 
   const data = {

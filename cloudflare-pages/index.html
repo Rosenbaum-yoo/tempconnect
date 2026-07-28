@@ -240,11 +240,10 @@
 <script>
 (function(){
   "use strict";
-  // ─────────────────────────────────────────────────────────────────────────
-  //  HIER DEINEN WEB3FORMS-ACCESS-KEY EINTRAGEN  (kostenlos auf https://web3forms.com,
-  //  E-Mail eingeben → Key kommt per Mail). Voranmeldungen landen dann in DEINEM Postfach.
-  var WEB3FORMS_KEY = "3c9faf7c-b069-411d-b7bf-dd22eefdff37";
-  // ─────────────────────────────────────────────────────────────────────────
+  // Der Web3Forms-Access-Key liegt NICHT mehr hier: er ist ein Serverseiten-Geheimnis
+  // (Cloudflare-Umgebungsvariable WEB3FORMS_KEY) und wird von functions/api/prereg.js
+  // gelesen. Diese Seite kennt ihn nicht — im Repo steht damit kein Schluessel mehr.
+  var PREREG_ENDPOINT = "/api/prereg";
   var $ = function(id){ return document.getElementById(id); };
 
   // Seiten-Toggle: aktiven Rahmen + Label anpassen
@@ -265,16 +264,9 @@
   form.addEventListener("submit", function(ev){
     ev.preventDefault();
     if (!form.checkValidity()) { form.reportValidity(); return; }
-    if (!WEB3FORMS_KEY || WEB3FORMS_KEY.indexOf("DEIN-") === 0) {
-      show("err", "Formular noch nicht konfiguriert (Web3Forms-Key fehlt). Bitte später erneut versuchen."); return;
-    }
     var fd = new FormData(form);
     var seite = fd.get("side") === "agency" ? "Personaldienstleister" : "Einsatzunternehmen";
     var payload = {
-      access_key: WEB3FORMS_KEY,
-      subject: "Pilot-Voranmeldung (" + seite + "): " + ((fd.get("org_name")||"").trim()),
-      from_name: "TempConnect One-Pager",
-      replyto: (fd.get("email")||"").trim(),
       botcheck: fd.get("botcheck") ? true : false,
       "Seite": seite,
       "Organisation": (fd.get("org_name")||"").trim(),
@@ -289,7 +281,7 @@
       "Quelle": "onepager (cloudflare pages)"
     };
     btn.disabled = true; show("", "");
-    fetch("https://api.web3forms.com/submit", {
+    fetch(PREREG_ENDPOINT, {
       method: "POST",
       headers: { "Content-Type": "application/json", "Accept": "application/json" },
       body: JSON.stringify(payload)
@@ -298,7 +290,9 @@
         form.reset(); syncSide();
         show("ok", "Danke! Ihre Voranmeldung ist eingegangen — wir melden uns persönlich bei Ihnen.");
       } else {
-        show("err", "Da ist etwas schiefgelaufen. Bitte prüfen Sie Ihre Eingaben und versuchen Sie es erneut.");
+        // Der Server sagt, was los ist (fehlende Konfiguration, ungültige Eingabe) —
+        // das ist ehrlicher als eine Pauschalmeldung.
+        show("err", (j && j.message) || "Da ist etwas schiefgelaufen. Bitte prüfen Sie Ihre Eingaben und versuchen Sie es erneut.");
       }
     }).catch(function(){
       show("err", "Verbindung fehlgeschlagen. Bitte später erneut versuchen.");

@@ -127,7 +127,7 @@
   <section class="band qrband">
     <div class="wrap qrwrap">
       <div class="qrcard">
-        <img id="qr" alt="QR-Code zur Pilot-Voranmeldung" width="280" height="280">
+        <img id="qr" src="assets/qr-pilot.svg" alt="QR-Code zur Pilot-Voranmeldung" width="280" height="280" loading="lazy">
         <div class="cap">Scannen &amp; voranmelden</div>
       </div>
       <div class="qrtext">
@@ -157,9 +157,11 @@
   //  die eigene Domain. Der QR-Code wird automatisch daraus erzeugt.
   var ONE_PAGER_URL = "https://tempconnect.pages.dev/";
   // ─────────────────────────────────────────────────────────────────────────
-  var qr = document.getElementById("qr");
-  // QR-Bild aus der URL erzeugen (goqr.me, kein Server/Build nötig). Zum Drucken: Bild speichern.
-  qr.src = "https://api.qrserver.com/v1/create-qr-code/?size=320x320&margin=12&data=" + encodeURIComponent(ONE_PAGER_URL);
+  // QR-Code liegt als statische Datei bei (assets/qr-pilot.svg) und wird NICHT mehr zur
+  // Laufzeit von einem Fremddienst geladen: das ersparte jedem Besucher eine Verbindung zu
+  // Dritten — und dem Dritten die Information, wer wann auf diese Seite schaut.
+  // Neu erzeugen (nur wenn sich ONE_PAGER_URL aendert):
+  //   curl -o assets/qr-pilot.svg "https://api.qrserver.com/v1/create-qr-code/?size=320x320&margin=12&format=svg&data=<url-encoded ONE_PAGER_URL>"
   var link = document.getElementById("qrlink"); if (link) link.href = ONE_PAGER_URL;
   var url = document.getElementById("qrurl");
   if (url) { url.href = ONE_PAGER_URL; url.textContent = ONE_PAGER_URL.replace(/^https?:\/\//, ""); }

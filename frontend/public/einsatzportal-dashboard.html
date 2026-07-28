@@ -134,28 +134,28 @@
   </div>
   <nav class="ep-sidebar-nav">
     <a class="ep-sidebar-item active" href="einsatzportal-dashboard.html">
-      <span class="icon">🏠</span> Dashboard
+      Dashboard
     </a>
     <a class="ep-sidebar-item" href="einsatzportal-einsaetze.html">
-      <span class="icon">📋</span> Meine Einsätze
+      Meine Einsätze
     </a>
     <a class="ep-sidebar-item" href="einsatzportal-plan.html">
-      <span class="icon">📅</span> Einsatzplan
+      Einsatzplan
     </a>
     <a class="ep-sidebar-item" href="einsatzportal-stundenzettel.html">
-      <span class="icon">⏱</span> Stundenzettel
+      Stundenzettel
     </a>
     <a class="ep-sidebar-item" href="/public/whats-new.html">
-      <span class="icon">✨</span> Was ist neu
+      Was ist neu
     </a>
     <a class="ep-sidebar-item" href="einsatzportal-benachrichtigungen.html" id="sb-notif">
-      <span class="icon">🔔</span> Benachrichtigungen
+      Benachrichtigungen
       <span class="ep-sidebar-badge" id="sb-badge" style="display:none">0</span>
     </a>
     <a class="ep-sidebar-item" href="einsatzportal-kontakt.html">
-      <span class="icon">💬</span> Kontakt &amp; Hilfe
+      Kontakt &amp; Hilfe
     </a>
-    <a class="ep-sidebar-item" href="einsatzportal-profil.html"><span class="icon">👤</span> Mein Profil</a>
+    <a class="ep-sidebar-item" href="einsatzportal-profil.html">Mein Profil</a>
   </nav>
   <div class="ep-sidebar-footer">
     <div class="ep-sidebar-user">
@@ -166,7 +166,7 @@
       </div>
     </div>
     <button class="ep-sidebar-item" onclick="doLogout()" style="margin-top:4px;color:var(--ep-text-muted)">
-      <span class="icon">↩</span> Abmelden
+      Abmelden
     </button>
   </div>
 </aside>
@@ -178,9 +178,7 @@
     Einsatzportal
   </a>
   <div class="ep-topbar-actions">
-    <a class="ep-bell" href="einsatzportal-benachrichtigungen.html" id="mob-bell">
-      🔔
-      <span class="ep-bell-badge" id="mob-badge" style="display:none">0</span>
+    <a class="ep-bell" href="einsatzportal-benachrichtigungen.html" id="mob-bell"><span class="ep-bell-badge" id="mob-badge" style="display:none">0</span>
     </a>
   </div>
 </header>
@@ -202,14 +200,14 @@
 
       <!-- Pending-Confirmation-Banner -->
       <div id="pendBanner" style="display:none;background:rgba(74,158,255,.08);border:1px solid rgba(74,158,255,.22);border-radius:12px;padding:16px 18px;margin-bottom:14px">
-        <div style="font-weight:700;font-size:.92rem;margin-bottom:4px">⏳ Einsatz-Bestätigung offen</div>
+        <div style="font-weight:700;font-size:.92rem;margin-bottom:4px">Einsatz-Bestätigung offen</div>
         <div style="font-size:.84rem;color:var(--ep-text-sub,var(--ep-text-muted));margin-bottom:10px" id="pendMsg">Ihr Disponent hat Ihnen einen neuen Einsatz zugewiesen.</div>
         <a href="einsatzportal-einsaetze.html" class="ep-btn ep-btn-primary ep-btn-sm">Einsatz ansehen →</a>
       </div>
 
       <!-- Korrektur-Banner -->
       <div class="ep-correction-banner" id="corrBanner" style="display:none">
-        <div class="ep-correction-title">⚠️ Korrektur erforderlich</div>
+        <div class="ep-correction-title">Korrektur erforderlich</div>
         <div class="ep-correction-note" id="corrNote">Ihr Stundenzettel wurde zur Korrektur zurückgegeben.</div>
         <a id="corrLink" href="einsatzportal-stundenzettel.html" class="ep-btn ep-btn-outline ep-btn-sm" style="margin-top:10px;display:inline-flex">Jetzt korrigieren →</a>
       </div>
@@ -230,7 +228,6 @@
       <div class="ep-hero" id="heroCard">
         <div class="ep-hero-label">Ihr nächster Einsatz</div>
         <div class="ep-hero-empty">
-          <div class="icon">📋</div>
           <p>Kein aktiver Einsatz gefunden.<br>Ihr Disponent wird Sie benachrichtigen.</p>
         </div>
       </div>
@@ -245,7 +242,7 @@
 
       <div class="ep-card">
         <div class="ep-card-head">
-          <div class="ep-card-title"><span class="icon">🗂️</span> Nachweise &amp; Dokumente</div>
+          <div class="ep-card-title">Nachweise &amp; Dokumente</div>
           <a href="einsatzportal-profil.html#documents" class="ep-card-link">Profil öffnen →</a>
         </div>
         <div id="docHubContent">
@@ -256,7 +253,7 @@
       <!-- Aktuelle Woche -->
       <div class="ep-card">
         <div class="ep-card-head">
-          <div class="ep-card-title"><span class="icon">⏱</span> Diese Woche</div>
+          <div class="ep-card-title">Diese Woche</div>
           <a href="einsatzportal-stundenzettel.html" class="ep-card-link">Alle ansehen →</a>
         </div>
         <div id="weekContent">
@@ -267,7 +264,7 @@
       <!-- Letzte Einreichungen -->
       <div class="ep-card">
         <div class="ep-card-head">
-          <div class="ep-card-title"><span class="icon">📄</span> Letzte Stundenzettel</div>
+          <div class="ep-card-title">Letzte Stundenzettel</div>
           <a href="einsatzportal-stundenzettel.html" class="ep-card-link">Alle →</a>
         </div>
         <div id="subsList"></div>
@@ -285,12 +282,12 @@
 
 <!-- Mobile Bottom Nav -->
 <nav class="ep-bottom-nav">
-  <a class="ep-bn-item active" href="einsatzportal-dashboard.html"><span class="icon">🏠</span>Start</a>
-  <a class="ep-bn-item" href="einsatzportal-einsaetze.html"><span class="icon">📋</span>Einsätze</a>
-  <a class="ep-bn-item" href="einsatzportal-plan.html"><span class="icon">📅</span>Plan</a>
-  <a class="ep-bn-item" href="einsatzportal-stundenzettel.html"><span class="icon">⏱</span>Stunden</a>
-  <a class="ep-bn-item" href="einsatzportal-benachrichtigungen.html" id="bn-notif"><span class="icon">🔔</span>Info<span class="ep-bn-dot" id="bn-dot" style="display:none"></span></a>
-  <a class="ep-bn-item" href="einsatzportal-profil.html"><span class="icon">👤</span>Profil</a>
+  <a class="ep-bn-item active" href="einsatzportal-dashboard.html">Start</a>
+  <a class="ep-bn-item" href="einsatzportal-einsaetze.html">Einsätze</a>
+  <a class="ep-bn-item" href="einsatzportal-plan.html">Plan</a>
+  <a class="ep-bn-item" href="einsatzportal-stundenzettel.html">Stunden</a>
+  <a class="ep-bn-item" href="einsatzportal-benachrichtigungen.html" id="bn-notif">Info<span class="ep-bn-dot" id="bn-dot" style="display:none"></span></a>
+  <a class="ep-bn-item" href="einsatzportal-profil.html">Profil</a>
 </nav>
 
 <div id="ep-toast"></div>
@@ -413,9 +410,9 @@ function renderHero() {
     <div class="ep-hero-client">${esc(clientName)}</div>
     ${desc ? `<div class="ep-hero-desc">${esc(desc)}</div>` : ''}
     <div class="ep-hero-meta">
-      ${startDate ? `<div class="ep-hero-chip"><span class="ci">📅</span> ab ${startDate}${endDate ? ` – ${endDate}` : ''}</div>` : ''}
-      ${shiftStart ? `<div class="ep-hero-chip"><span class="ci">🕐</span> ${shiftStart}${shiftEnd ? ` – ${shiftEnd}` : ''} Uhr</div>` : ''}
-      ${a.location_address ? `<div class="ep-hero-chip"><span class="ci">📍</span> ${esc(a.location_address.split(',')[0])}</div>` : ''}
+      ${startDate ? `<div class="ep-hero-chip"><span class="ci"></span> ab ${startDate}${endDate ? ` – ${endDate}` : ''}</div>` : ''}
+      ${shiftStart ? `<div class="ep-hero-chip"><span class="ci"></span> ${shiftStart}${shiftEnd ? ` – ${shiftEnd}` : ''} Uhr</div>` : ''}
+      ${a.location_address ? `<div class="ep-hero-chip"><span class="ci"></span> ${esc(a.location_address.split(',')[0])}</div>` : ''}
     </div>
     <div style="display:flex;gap:8px;flex-wrap:wrap">
       <a href="einsatzportal-einsaetze.html" class="ep-btn ep-btn-outline ep-btn-sm">Details ansehen</a>
@@ -438,13 +435,12 @@ function renderWeek() {
       <p style="font-size:.875rem;color:var(--ep-text-sub);margin-bottom:12px">
         Noch keine Stunden für KW ${getKW(new Date(weekStart))} erfasst.
       </p>
-      <a href="einsatzportal-stundenzettel.html" class="ep-btn ep-btn-primary ep-btn-full">
-        ✏️ Stundenzettel für diese Woche anlegen
+      <a href="einsatzportal-stundenzettel.html" class="ep-btn ep-btn-primary ep-btn-full">Stundenzettel für diese Woche anlegen
       </a>`;
   } else if (thisWeek.status === 'draft') {
     el.innerHTML = `
       <div class="ep-alert ep-alert-warning" style="margin-bottom:10px">
-        <span>✏️</span><span>Entwurf für KW ${getKW(new Date(weekStart))} — noch nicht eingereicht.</span>
+        <span>Entwurf für KW ${getKW(new Date(weekStart))} — noch nicht eingereicht.</span>
       </div>
       <a href="einsatzportal-stundenzettel.html?id=${thisWeek.id}" class="ep-btn ep-btn-outline ep-btn-full">
         Entwurf fortsetzen →
@@ -452,17 +448,16 @@ function renderWeek() {
   } else if (thisWeek.status === 'needs_correction') {
     el.innerHTML = `
       <div class="ep-alert ep-alert-danger" style="margin-bottom:10px">
-        <span>⚠️</span><span>Korrektur erforderlich für KW ${getKW(new Date(weekStart))}.</span>
+        <span>Korrektur erforderlich für KW ${getKW(new Date(weekStart))}.</span>
       </div>
       <a href="einsatzportal-stundenzettel.html?id=${thisWeek.id}" class="ep-btn ep-btn-danger ep-btn-full">
         Jetzt korrigieren →
       </a>`;
   } else {
-    const lbls = { submitted:'Eingereicht – wird geprüft', under_review:'In Prüfung', accepted_into_timesheet:'✓ Angenommen', rejected:'Abgelehnt' };
+    const lbls = { submitted:'Eingereicht – wird geprüft', under_review:'In Prüfung', accepted_into_timesheet:'Angenommen', rejected:'Abgelehnt' };
     const cls  = { submitted:'info', under_review:'warning', accepted_into_timesheet:'success', rejected:'danger' };
     el.innerHTML = `
       <div class="ep-alert ep-alert-${cls[thisWeek.status] || 'info'}">
-        <span>📄</span>
         <span>KW ${getKW(new Date(weekStart))}: <strong>${lbls[thisWeek.status] || thisWeek.status}</strong> · ${parseFloat(thisWeek.total_hours||0).toFixed(1)} h</span>
       </div>`;
   }
@@ -472,7 +467,7 @@ function renderSubs() {
   const el = document.getElementById('subsList');
   const recent = submissions.slice(0, 5);
   if (!recent.length) {
-    el.innerHTML = `<div class="ep-empty" style="padding:24px 0"><div class="icon">📄</div><p>Noch keine Einreichungen</p></div>`;
+    el.innerHTML = `<div class="ep-empty" style="padding:24px 0"><p>Noch keine Einreichungen</p></div>`;
     return;
   }
   el.innerHTML = recent.map(s => `
@@ -502,15 +497,15 @@ function renderContact() {
   ci.innerHTML = `
     <div class="ep-contact-label">${a.dispatcher_name ? 'Ihr Disponent' : 'Ansprechpartner'}</div>
     <div class="ep-contact-head">
-      <div class="ep-contact-avatar">👤</div>
+      <div class="ep-contact-avatar"></div>
       <div>
         <div class="ep-contact-name">${esc(who)}</div>
         <div class="ep-contact-role">${a.dispatcher_name ? 'Disponent' : 'Ansprechpartner vor Ort'}</div>
       </div>
     </div>
     <div class="ep-contact-actions">
-      ${phone ? `<a class="ep-contact-action primary" href="tel:${esc(phone)}">📞 ${esc(phone)}</a>` : ''}
-      ${email ? `<a class="ep-contact-action" href="mailto:${esc(email)}">✉️ E-Mail</a>` : ''}
+      ${phone ? `<a class="ep-contact-action primary" href="tel:${esc(phone)}">${esc(phone)}</a>` : ''}
+      ${email ? `<a class="ep-contact-action" href="mailto:${esc(email)}">E-Mail</a>` : ''}
       <a class="ep-contact-action" href="einsatzportal-kontakt.html">Alle Kontakte →</a>
     </div>`;
 }
@@ -567,7 +562,6 @@ function renderDocumentHub() {
         `).join('')}
       </div>
       <div class="ep-empty" style="padding:24px 0">
-        <div class="icon">🗂️</div>
         <p>Noch keine Nachweise hinterlegt.</p>
       </div>`;
     return;

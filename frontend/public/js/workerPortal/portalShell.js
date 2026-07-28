@@ -17,6 +17,7 @@
  *  - showError(msg)    — Sichtbarer Fehlerzustand statt Spinner
  *  - getMe()           — Geladenes Worker-Profil abrufen
  *  - esc(s)            — XSS-Schutz für innerHTML
+ *  - Icon-Satz         — Inline-SVG für Navigation und Glocke (keine Emojis)
  */
 (function () {
   var _me = null;
@@ -65,7 +66,6 @@
       container.appendChild(errorEl);
     }
     errorEl.innerHTML =
-      '<div style="font-size:2rem;margin-bottom:12px">⚠️</div>' +
       '<p style="font-size:.95rem;line-height:1.5;margin-bottom:16px">' + esc(msg) + '</p>' +
       '<button class="ep-btn ep-btn-outline ep-btn-sm" onclick="location.reload()">Erneut versuchen</button>';
   }
@@ -137,6 +137,62 @@
     });
   }
 
+
+  /* ── Icon-Satz ─────────────────────────────────────────────────── */
+  /**
+   * Strichzeichnungen statt Emojis (CLAUDE.md: keine Emojis in produktiver UI).
+   * Bewusst hier und nicht in den sieben Portal-Seiten: ein Satz, eine Wahrheit —
+   * kopierte Icons driften beim ersten Nachziehen auseinander.
+   * `currentColor` sorgt dafuer, dass sie jedem Theme folgen.
+   */
+  var ICON_PATHS = {
+    dashboard:          'M3 10.5 12 3l9 7.5M5.5 9.5V20h13V9.5',
+    einsaetze:          'M4 5h16v15H4zM8 3v4M16 3v4M8 12h8M8 16h5',
+    plan:               'M4 5h16v15H4zM4 10h16M9 3v4M15 3v4',
+    stundenzettel:      'M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18zM12 7v5l3 2',
+    benachrichtigungen: 'M6 9a6 6 0 1 1 12 0c0 4 1.5 5.5 2 6H4c.5-.5 2-2 2-6zM10 19a2 2 0 0 0 4 0',
+    kontakt:            'M4 5h16v11H9l-5 4z',
+    profil:             'M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM4.5 20a7.5 7.5 0 0 1 15 0',
+    abmelden:           'M15 17l5-5-5-5M20 12H9M12 4H6a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h6'
+  };
+
+  /** Ein Icon als Inline-SVG. Rein dekorativ — die Beschriftung steht daneben. */
+  function _iconSvg(key) {
+    var d = ICON_PATHS[key];
+    if (!d) return '';
+    return '<svg class="ep-icon" viewBox="0 0 24 24" width="18" height="18" fill="none" ' +
+           'stroke="currentColor" stroke-width="1.7" stroke-linecap="round" ' +
+           'stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="' + d + '"/></svg>';
+  }
+
+  /** Schluessel aus dem Ziel-Link ableiten: einsatzportal-plan.html -> plan */
+  function _iconKeyFromHref(href) {
+    var m = /einsatzportal-([a-z]+)\.html/.exec(String(href || ''));
+    return m ? m[1] : null;
+  }
+
+  /**
+   * Setzt die Icons in Seitenleiste, Kurznavigation und Glocke.
+   * Idempotent: ein bereits gesetztes Icon wird nicht doppelt eingefuegt.
+   * Faellt die Datei aus, bleibt die Navigation als reine Textliste nutzbar.
+   */
+  function _setupIcons() {
+    var links = document.querySelectorAll('.ep-sidebar-item, .ep-bn-item');
+    links.forEach(function (a) {
+      if (a.querySelector('.ep-icon')) return;
+      var svg = _iconSvg(_iconKeyFromHref(a.getAttribute('href')));
+      if (svg) a.insertAdjacentHTML('afterbegin', svg);
+    });
+    var logout = document.querySelector('button.ep-sidebar-item[onclick*="doLogout"]');
+    if (logout && !logout.querySelector('.ep-icon')) {
+      logout.insertAdjacentHTML('afterbegin', _iconSvg('abmelden'));
+    }
+    var bell = document.querySelector('.ep-bell');
+    if (bell && !bell.querySelector('.ep-icon')) {
+      bell.insertAdjacentHTML('afterbegin', _iconSvg('benachrichtigungen'));
+    }
+  }
+
   /* ── Shell initialisieren ──────────────────────────────────────── */
   /**
    * Lädt Worker-Me, setzt Sidebar, startet Unread-Count (fire-and-forget).
@@ -145,6 +201,7 @@
    */
   async function initShell() {
     _setupAccessibility();
+    _setupIcons();
     var me = await loadWorkerMe();
     _reveal(); // Session bestaetigt -> Portal-Huelle einblenden (vorher .ep-preauth)
     loadUnreadCount(); // fire-and-forget — kein await
@@ -167,6 +224,8 @@
     showError: showError,
     getMe: getMe,
     esc: esc,
-    setupAccessibility: _setupAccessibility
+    setupAccessibility: _setupAccessibility,
+    // Nachtraeglich aufrufbar, wenn eine Seite Navigationseintraege selbst nachlaedt.
+    setupIcons: _setupIcons
   };
 })();

@@ -18,23 +18,23 @@
 <aside class="ep-sidebar">
   <div class="ep-sidebar-brand"><div class="ep-sidebar-logo">TC</div><div><div style="font-weight:800;font-size:.95rem">Einsatzportal</div><div style="font-size:.7rem;color:var(--ep-text-muted);font-weight:400">TempConnect</div></div></div>
   <nav class="ep-sidebar-nav">
-    <a class="ep-sidebar-item" href="einsatzportal-dashboard.html"><span class="icon">🏠</span> Dashboard</a>
-    <a class="ep-sidebar-item active" href="einsatzportal-einsaetze.html"><span class="icon">📋</span> Meine Einsätze</a>
-    <a class="ep-sidebar-item" href="einsatzportal-plan.html"><span class="icon">📅</span> Einsatzplan</a>
-    <a class="ep-sidebar-item" href="einsatzportal-stundenzettel.html"><span class="icon">⏱</span> Stundenzettel</a>
-    <a class="ep-sidebar-item" href="einsatzportal-benachrichtigungen.html"><span class="icon">🔔</span> Benachrichtigungen<span class="ep-sidebar-badge" id="sb-badge" style="display:none">0</span></a>
-    <a class="ep-sidebar-item" href="einsatzportal-kontakt.html"><span class="icon">💬</span> Kontakt &amp; Hilfe</a>
-    <a class="ep-sidebar-item" href="einsatzportal-profil.html"><span class="icon">👤</span> Mein Profil</a>
+    <a class="ep-sidebar-item" href="einsatzportal-dashboard.html">Dashboard</a>
+    <a class="ep-sidebar-item active" href="einsatzportal-einsaetze.html">Meine Einsätze</a>
+    <a class="ep-sidebar-item" href="einsatzportal-plan.html">Einsatzplan</a>
+    <a class="ep-sidebar-item" href="einsatzportal-stundenzettel.html">Stundenzettel</a>
+    <a class="ep-sidebar-item" href="einsatzportal-benachrichtigungen.html">Benachrichtigungen<span class="ep-sidebar-badge" id="sb-badge" style="display:none">0</span></a>
+    <a class="ep-sidebar-item" href="einsatzportal-kontakt.html">Kontakt &amp; Hilfe</a>
+    <a class="ep-sidebar-item" href="einsatzportal-profil.html">Mein Profil</a>
   </nav>
   <div class="ep-sidebar-footer">
     <div class="ep-sidebar-user"><div class="ep-sidebar-avatar" id="sd-ava">?</div><div><div class="ep-sidebar-name" id="sd-name">Lädt…</div><div class="ep-sidebar-role">Arbeitnehmer</div></div></div>
-    <button class="ep-sidebar-item" onclick="doLogout()" style="margin-top:4px;color:var(--ep-text-muted)"><span class="icon">↩</span> Abmelden</button>
+    <button class="ep-sidebar-item" onclick="doLogout()" style="margin-top:4px;color:var(--ep-text-muted)">Abmelden</button>
   </div>
 </aside>
 
 <header class="ep-topbar">
   <a class="ep-topbar-brand" href="einsatzportal-dashboard.html" aria-label="Zur Einsatzportal-Übersicht"><div class="ep-topbar-logo">TC</div>Meine Einsätze</a>
-  <div class="ep-topbar-actions"><a class="ep-bell" href="einsatzportal-benachrichtigungen.html">🔔<span class="ep-bell-badge" id="mob-badge" style="display:none">0</span></a></div>
+  <div class="ep-topbar-actions"><a class="ep-bell" href="einsatzportal-benachrichtigungen.html"><span class="ep-bell-badge" id="mob-badge" style="display:none">0</span></a></div>
 </header>
 
 <main class="ep-main">
@@ -63,7 +63,6 @@
         <!-- Detail -->
         <div id="asgDetail">
           <div class="ep-empty" id="detEmpty">
-            <div class="icon">👆</div>
             <h3>Einsatz auswählen</h3>
             <p>Wählen Sie links einen Einsatz, um alle Details zu sehen.</p>
           </div>
@@ -75,12 +74,12 @@
 </main>
 
 <nav class="ep-bottom-nav">
-  <a class="ep-bn-item" href="einsatzportal-dashboard.html"><span class="icon">🏠</span>Start</a>
-  <a class="ep-bn-item active" href="einsatzportal-einsaetze.html"><span class="icon">📋</span>Einsätze</a>
-  <a class="ep-bn-item" href="einsatzportal-plan.html"><span class="icon">📅</span>Plan</a>
-  <a class="ep-bn-item" href="einsatzportal-stundenzettel.html"><span class="icon">⏱</span>Stunden</a>
-  <a class="ep-bn-item" href="einsatzportal-benachrichtigungen.html"><span class="icon">🔔</span>Info<span class="ep-bn-dot" id="bn-dot" style="display:none"></span></a>
-  <a class="ep-bn-item" href="einsatzportal-profil.html"><span class="icon">👤</span>Profil</a>
+  <a class="ep-bn-item" href="einsatzportal-dashboard.html">Start</a>
+  <a class="ep-bn-item active" href="einsatzportal-einsaetze.html">Einsätze</a>
+  <a class="ep-bn-item" href="einsatzportal-plan.html">Plan</a>
+  <a class="ep-bn-item" href="einsatzportal-stundenzettel.html">Stunden</a>
+  <a class="ep-bn-item" href="einsatzportal-benachrichtigungen.html">Info<span class="ep-bn-dot" id="bn-dot" style="display:none"></span></a>
+  <a class="ep-bn-item" href="einsatzportal-profil.html">Profil</a>
 </nav>
 <div id="ep-toast"></div>
 
@@ -156,7 +155,7 @@ function renderList() {
   const el = document.getElementById('asgList');
   const list = getFiltered();
   if (!list.length) {
-    el.innerHTML = `<div class="ep-empty"><div class="icon">${curTab==='active'?'📋':'📁'}</div><h3>${curTab==='active'?'Keine aktiven Einsätze':'Keine Einsätze im Verlauf'}</h3><p>${curTab==='active'?'Ihr Disponent richtet Ihre Einsätze ein.':'Hier erscheinen beendete, abgelaufene und archivierte Einsätze.'}</p></div>`;
+    el.innerHTML = `<div class="ep-empty"><div class="icon">${curTab==='active'?'':''}</div><h3>${curTab==='active'?'Keine aktiven Einsätze':'Keine Einsätze im Verlauf'}</h3><p>${curTab==='active'?'Ihr Disponent richtet Ihre Einsätze ein.':'Hier erscheinen beendete, abgelaufene und archivierte Einsätze.'}</p></div>`;
     return;
   }
   el.innerHTML = list.map(a => {
@@ -173,8 +172,8 @@ function renderList() {
         </div>
         ${a.worker_description ? `<div class="ep-asg-desc">${esc(a.worker_description)}</div>` : ''}
         <div class="ep-asg-foot">
-          <span class="ep-asg-date">📅 ${startD} – ${endD}</span>
-          ${a.default_shift_start ? `<span class="ep-asg-date">🕐 ${a.default_shift_start.slice(0,5)}${a.default_shift_end?' – '+a.default_shift_end.slice(0,5):''} Uhr</span>` : ''}
+          <span class="ep-asg-date">${startD} – ${endD}</span>
+          ${a.default_shift_start ? `<span class="ep-asg-date">${a.default_shift_start.slice(0,5)}${a.default_shift_end?' – '+a.default_shift_end.slice(0,5):''} Uhr</span>` : ''}
         </div>
       </div>`;
   }).join('');
@@ -190,7 +189,7 @@ async function selAsg(id) {
     const a = await PortalApi.get(`/worker/assignments/${id}`);
     renderDetail(a);
   } catch {
-    dc.innerHTML = `<div class="ep-alert ep-alert-danger"><span>⚠️</span><span>Fehler beim Laden.</span></div>`;
+    dc.innerHTML = `<div class="ep-alert ep-alert-danger"><span>Fehler beim Laden.</span></div>`;
   }
 }
 
@@ -212,15 +211,15 @@ function renderDetail(a) {
         </div>
       </div>
       <div class="ep-detail-body">
-        ${infoRow('📅','Zeitraum', `${startD} bis ${endD}`)}
-        ${a.default_shift_start ? infoRow('🕐','Schichtzeit', `${a.default_shift_start.slice(0,5)}${a.default_shift_end?' – '+a.default_shift_end.slice(0,5):''} Uhr`) : ''}
-        ${a.default_hours_per_day ? infoRow('⏱','Stunden/Tag', `${a.default_hours_per_day} h`) : ''}
-        ${a.default_break_minutes ? infoRow('☕','Pause', `${a.default_break_minutes} Minuten`) : ''}
-        ${a.location_address ? infoRow('📍','Einsatzort', a.location_address) : ''}
-        ${a.meeting_point ? infoRow('🚪','Treffpunkt', a.meeting_point) : ''}
-        ${a.worker_description ? infoRow('📄','Tätigkeit', a.worker_description) : ''}
+        ${infoRow('','Zeitraum', `${startD} bis ${endD}`)}
+        ${a.default_shift_start ? infoRow('','Schichtzeit', `${a.default_shift_start.slice(0,5)}${a.default_shift_end?' – '+a.default_shift_end.slice(0,5):''} Uhr`) : ''}
+        ${a.default_hours_per_day ? infoRow('','Stunden/Tag', `${a.default_hours_per_day} h`) : ''}
+        ${a.default_break_minutes ? infoRow('','Pause', `${a.default_break_minutes} Minuten`) : ''}
+        ${a.location_address ? infoRow('','Einsatzort', a.location_address) : ''}
+        ${a.meeting_point ? infoRow('','Treffpunkt', a.meeting_point) : ''}
+        ${a.worker_description ? infoRow('','Tätigkeit', a.worker_description) : ''}
         ${a.instructions ? `<div class="ep-section-label">Einsatzanweisungen</div><div style="background:rgba(74,158,255,.07);border-left:3px solid var(--ep-brand);border-radius:0 8px 8px 0;padding:12px 14px;font-size:.875rem;line-height:1.6;margin-bottom:12px">${esc(a.instructions)}</div>` : ''}
-        ${a.dress_code ? `<div class="ep-section-label">Kleidung / Ausrüstung</div><div style="background:rgba(251,191,36,.07);border-left:3px solid var(--ep-warning);border-radius:0 8px 8px 0;padding:10px 14px;font-size:.875rem;margin-bottom:12px">👷 ${esc(a.dress_code)}</div>` : ''}
+        ${a.dress_code ? `<div class="ep-section-label">Kleidung / Ausrüstung</div><div style="background:rgba(251,191,36,.07);border-left:3px solid var(--ep-warning);border-radius:0 8px 8px 0;padding:10px 14px;font-size:.875rem;margin-bottom:12px">${esc(a.dress_code)}</div>` : ''}
 
         ${a.contact_name || a.dispatcher_name ? `
           <div class="ep-section-label">Ansprechpartner</div>
@@ -230,7 +229,7 @@ function renderDetail(a) {
 
         ${a.worker_confirmation_status==='pending_confirmation' && isCurrentAssignment(a) ? `
         <div style="margin-top:16px;padding:14px;background:rgba(74,158,255,.07);border:1px solid rgba(74,158,255,.2);border-radius:10px">
-          <div style="font-weight:700;font-size:.88rem;margin-bottom:6px">⏳ Best\u00e4tigung erforderlich</div>
+          <div style="font-weight:700;font-size:.88rem;margin-bottom:6px">Best\u00e4tigung erforderlich</div>
           <div style="font-size:.82rem;color:var(--ep-text-sub,var(--ep-text-muted));margin-bottom:10px">Ihr Disponent hat Ihnen diesen Einsatz zugewiesen. Bitte best\u00e4tigen oder lehnen Sie ab.</div>
           <div style="display:flex;gap:8px;flex-wrap:wrap">
             <button class="ep-btn ep-btn-primary ep-btn-sm" onclick="confirmAsg('${a.id}')">\u2713 Einsatz best\u00e4tigen</button>
@@ -242,19 +241,19 @@ function renderDetail(a) {
           </div>
         </div>` : `
         <div style="margin-top:16px;display:flex;gap:8px;flex-wrap:wrap">
-          <a href="einsatzportal-stundenzettel.html${a.id?'?link_id='+a.id:''}" class="ep-btn ep-btn-primary ep-btn-sm">⏱ Stundenzettel →</a>
-          <a href="einsatzportal-plan.html" class="ep-btn ep-btn-ghost ep-btn-sm">📅 Im Plan ansehen</a>
-          ${canReportUnavailable(a) ? '<button class="ep-btn ep-btn-ghost ep-btn-sm" onclick="showUnavailableForm(\'' + a.id + '\')" style="color:var(--ep-danger,#ef4444)">⚠️ Abwesenheit melden</button>' : ''}
+          <a href="einsatzportal-stundenzettel.html${a.id?'?link_id='+a.id:''}" class="ep-btn ep-btn-primary ep-btn-sm">Stundenzettel →</a>
+          <a href="einsatzportal-plan.html" class="ep-btn ep-btn-ghost ep-btn-sm">Im Plan ansehen</a>
+          ${canReportUnavailable(a) ? '<button class="ep-btn ep-btn-ghost ep-btn-sm" onclick="showUnavailableForm(\'' + a.id + '\')" style="color:var(--ep-danger,#ef4444)">Abwesenheit melden</button>' : ''}
         </div>
         <div id="unavailableForm-${a.id}" style="display:none;margin-top:12px;padding:14px;background:rgba(239,68,68,.06);border:1px solid rgba(239,68,68,.15);border-radius:10px">
-          <div style="font-weight:700;font-size:.88rem;margin-bottom:6px">⚠️ Abwesenheit / Krankmeldung</div>
+          <div style="font-weight:700;font-size:.88rem;margin-bottom:6px">Abwesenheit / Krankmeldung</div>
           <div style="font-size:.82rem;color:var(--ep-text-muted);margin-bottom:10px">Melden Sie sich ab einem bestimmten Datum als nicht verf\u00fcgbar. Bereits geleistete Tage davor bleiben abrechenbar. Ihr Disponent wird automatisch informiert.</div>
           <label style="font-size:.78rem;font-weight:600;margin-bottom:4px;display:block">Nicht verf\u00fcgbar ab *</label>
           <input type="date" class="ep-input" id="unavailDate-${a.id}" style="margin-bottom:8px;padding:8px;font-size:.82rem" value="${new Date().toISOString().slice(0,10)}" />
           <label style="font-size:.78rem;font-weight:600;margin-bottom:4px;display:block">Grund (optional)</label>
           <textarea class="ep-input" id="unavailReason-${a.id}" rows="2" placeholder="z.B. Krankheit, pers\u00f6nliche Gr\u00fcnde\u2026" style="width:100%;margin-bottom:8px;font-size:.82rem;padding:8px;border:1px solid var(--ep-border);border-radius:6px"></textarea>
           <div style="display:flex;gap:8px">
-            <button class="ep-btn ep-btn-outline ep-btn-sm" onclick="submitUnavailable('${a.id}')" style="color:var(--ep-danger,#ef4444)">⚠️ Abwesenheit best\u00e4tigen</button>
+            <button class="ep-btn ep-btn-outline ep-btn-sm" onclick="submitUnavailable('${a.id}')" style="color:var(--ep-danger,#ef4444)">Abwesenheit best\u00e4tigen</button>
             <button class="ep-btn ep-btn-ghost ep-btn-sm" onclick="hideUnavailableForm('${a.id}')">Abbrechen</button>
           </div>
         </div>`}
@@ -269,12 +268,12 @@ function contactBlock(name, role, phone, email) {
   return `
     <div class="ep-contact-card" style="margin-bottom:8px">
       <div class="ep-contact-head">
-        <div class="ep-contact-avatar">👤</div>
+        <div class="ep-contact-avatar"></div>
         <div><div class="ep-contact-name">${esc(name)}</div><div class="ep-contact-role">${esc(role)}</div></div>
       </div>
       <div class="ep-contact-actions">
-        ${phone ? `<a class="ep-contact-action primary" href="tel:${esc(phone)}">📞 ${esc(phone)}</a>` : ''}
-        ${email ? `<a class="ep-contact-action" href="mailto:${esc(email)}">✉️ E-Mail</a>` : ''}
+        ${phone ? `<a class="ep-contact-action primary" href="tel:${esc(phone)}">${esc(phone)}</a>` : ''}
+        ${email ? `<a class="ep-contact-action" href="mailto:${esc(email)}">E-Mail</a>` : ''}
       </div>
     </div>`;
 }

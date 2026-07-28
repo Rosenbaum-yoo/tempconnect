@@ -100,9 +100,28 @@ manuelle Eingabe von Org-ID/Supplier-Org-ID/Worker-Freitext) läuft weiter neben
 Daten, die im neuen Käufer-Portal nie auftauchen.
 **Trigger:** vor dem Onboarding echter Pilotkunden. **Aufwand:** ~2–3 h.
 
-### C-2 · Emojis in produktiver UI 🟡 *Regelverstoß*
-**Was:** `einsatzportal-stundenzettel.html` nutzt ✏️ 💾 📝 💬 in Buttons/Hinweisen — CLAUDE.md
-verbietet Emojis in produktiver UI ausdrücklich. **Trigger:** nächste Einsatzportal-Politur. **~20 min.**
+### C-2 · Emojis in produktiver UI ✅ **ERLEDIGT 2026-07-26**
+**Was:** Der Eintrag nannte eine Seite — betroffen war das **ganze Einsatzportal**:
+**181 Emojis** über 7 Seiten plus `portalStatus.js`.
+
+**Umgesetzt:**
+- Alle 181 entfernt. Vorher geprüft, dass keines logiktragend ist (keine Vergleiche, keine
+  Schlüssel) — die Entfernung ist rein darstellend.
+- Statt dessen ein **Inline-SVG-Icon-Satz**, zentral in `js/workerPortal/portalShell.js`
+  (`ICON_PATHS` + `_setupIcons()`), nicht siebenfach in die HTML-Dateien kopiert: ein
+  kopierter Satz driftet beim ersten Nachziehen auseinander. Farbe folgt `currentColor`,
+  also jedem Theme; der aktive Eintrag bleibt farblich hervorgehoben.
+- Statusbedeutung tragen jetzt Badge-Klasse und Beschriftung statt eines zweiten,
+  redundanten Emojis.
+- **Wächter-Test** `api/test/uiNoEmoji.test.js`: schlägt an, sobald ein Emoji zurückkommt,
+  und prüft, dass jeder Navigationseintrag ein Icon hat. Bewusst auf den aufgeräumten
+  Bereich beschränkt — ein repo-weiter Test wäre sofort rot und würde abgeschaltet statt
+  befolgt. Geltungsbereich wächst über `GUARDED` mit jedem aufgeräumten Bereich.
+
+**Verifiziert:** im Browser gegen die echte `einsatzportal.css` — alle 8 Seitenleisten- und
+6 Kurznavigations-Einträge plus Glocke tragen ein 18px-SVG, `aria-label` sitzt, kein Emoji
+mehr im DOM. Der Wächter fand dabei zwei Reste in `portalStatus.js`, die der erste Durchgang
+übersehen hatte — genau dafür ist er da.
 
 ### C-3 · `findOrgApprovers` hartkodiert Rollen in SQL ✅ **ERLEDIGT 2026-07-26**
 **Was:** `notificationMatrix.js` löste Empfänger über `role_key IN ('owner','admin','program_manager')`
@@ -118,15 +137,31 @@ lud dazu ein, ihn wieder zu benutzen.
 Wahrheit, benachrichtigt wird, wer die Aktion ausführen darf. `notificationMatrix.test.js`
 11/11 grün.
 
-### C-4 · Web3Forms-Access-Key im Repo 🟠 *Pilot-Strecke*
-**Was:** `cloudflare-pages/index.html` enthält den Key im Klartext. Bei Web3Forms ist er per Design
-öffentlich — committet heißt aber: jeder kann die Owner-Inbox zuspammen.
-**Trigger:** mit der Pilot-Strecken-Umstellung.
+### C-4 · Web3Forms-Access-Key im Repo ✅ **ERLEDIGT 2026-07-26** *(zwei Owner-Schritte offen)*
+**Was:** `cloudflare-pages/index.html` enthielt den Key im Klartext.
 
-### C-5 · QR-Code von Fremd-Dienst 🟡
-**Was:** `cloudflare-pages/start.html` lädt den QR live von `api.qrserver.com`. Externe Abhängigkeit
-auf einer Marketing-Seite, und jeder Aufruf leakt die Ziel-URL an Dritte.
-**Lösung:** QR einmal erzeugen, statisch mit ausliefern. **Trigger:** vor dem ersten LinkedIn-Post. **~20 min.**
+**Umgesetzt — der Key gehört gar nicht in die Seite:** neue Cloudflare Pages Function
+`cloudflare-pages/functions/api/prereg.js` nimmt die Voranmeldung entgegen und ergänzt den
+Key **serverseitig** aus der Umgebungsvariable `WEB3FORMS_KEY`. Die ausgelieferte Seite
+kennt ihn nicht mehr; im Repo steht kein Schlüssel. Die Funktion nimmt zusätzlich nur
+bekannte Felder an (längenbegrenzt), prüft E-Mail und Organisation und beantwortet den
+Honeypot freundlich, ohne weiterzuleiten. Fehlt die Variable, antwortet sie mit einer
+klaren Meldung statt still zu schlucken — die Seite zeigt sie an.
+
+**Zwei Schritte bleiben beim Owner** (in `cloudflare-pages/README.md` dokumentiert):
+1. `WEB3FORMS_KEY` im Cloudflare-Dashboard als **Secret** setzen (Production *und* Preview),
+   danach neu deployen.
+2. **Den alten Key rotieren.** Er steht in der Versionsgeschichte und lässt sich daraus
+   nicht entfernen — bis zur Rotation bleibt er für Fremde nutzbar.
+
+### C-5 · QR-Code von Fremd-Dienst ✅ **ERLEDIGT 2026-07-26**
+**Was:** `cloudflare-pages/start.html` lud den QR live von `api.qrserver.com` — jeder
+Seitenaufruf verriet einem Dritten, wer wann auf die Seite schaut.
+
+**Umgesetzt:** QR **einmal** erzeugt und als `cloudflare-pages/assets/qr-pilot.svg`
+beigelegt (SVG, 10 KB, ohne externe Verweise im Inhalt). Die Seite lädt jetzt die lokale
+Datei; zur Laufzeit geht keine Anfrage mehr an Dritte. Der Erzeugungsbefehl steht als
+Kommentar in `start.html` — nötig nur, wenn sich `ONE_PAGER_URL` ändert.
 
 ### C-6 · 13 skipped Tests nie identifiziert ✅ **ERLEDIGT 2026-07-26**
 **Was:** Die Suite meldet konstant `skipped 13`, ohne dass dokumentiert wäre, welche und warum.
@@ -169,9 +204,22 @@ redundant und wurde verworfen.
 > Tree. Sie ist sinnvoll (Frontend-Änderungen erreichen Nutzer sofort statt aus dem
 > Browser-Cache), gehört aber nicht in diesen Audit-Commit — bitte separat entscheiden.
 
-### C-9 · Push-Benachrichtigung beim Sperren fehlt 🟡
-Sperrt ein Kunde eine Kraft, erfährt die Agentur es nur per Pull (Hinweis im Zuweisungs-Drawer).
-**Trigger:** nächste Notification-Welle. **~1 h + Migration für den Typ.**
+### C-9 · Push-Benachrichtigung beim Sperren fehlt ✅ **ERLEDIGT 2026-07-26**
+Sperrt ein Kunde eine Kraft, erfuhr die Agentur es nur per Pull — im schlechtesten Fall
+beim Versuch, genau diese Kraft erneut dorthin zu schicken.
+
+**Umgesetzt:**
+- **Migration 154** ergänzt den Typ `worker_blocked_by_company` im CHECK-Constraint. Zuerst
+  die Migration, dann der Code — ein neuer Typ ohne Eintrag lässt den INSERT still
+  scheitern (die Falle steht in `SKILL.md`). Gegen die echte DB angewandt und mit einem
+  INSERT verifiziert.
+- `workerNotificationService.notifyWorkerBlockedToAgency()` — nennt Unternehmen, Kraft,
+  Frist und Grund, nicht nur „es gibt Neuigkeiten", und verlinkt auf eine konkrete Seite.
+- Verdrahtet in `POST /company/blocklist`, **fire-and-forget**: eine Sperre darf an der
+  Benachrichtigung nie scheitern. Empfänger kommen aus der Rechte-Matrix
+  (`findOrgMembersWithPermission(..., "worker.manage")`), nicht aus einer Rollenliste.
+- 12 Tests (`api/test/workerBlockNotification.test.js`), darunter je einer für die beiden
+  dokumentierten Fallen: CHECK-Eintrag vorhanden, Empfänger aus der Matrix.
 
 ---
 
@@ -212,7 +260,8 @@ Bei jeder Prüfung: **erledigt? noch gültig? neu dazugekommen?** Erledigte Punk
 | Datum | Geprüft von | Ergebnis |
 |---|---|---|
 | 2026-07-25 | Claude | Zugang C-1…C-9 aus dem Enterprise-Audit. B-1…B-5 unverändert offen. Nächste Prüfung: 2026-08-08. |
-| 2026-07-26 | Claude | **C-3, C-6, C-8 erledigt.** B-2: Sonde gebaut, Flake in diesem Lauf nicht reproduzierbar. Neu: **C-10** (Integrationssuite 42 rot — Test-Drift gegen `legacy_access`-Gate). Offen: B-1 (gated), B-3, B-4, B-5, C-1, C-2, C-4, C-5, C-7, C-9, C-10. Nächste Prüfung: 2026-08-09. |
+| 2026-07-26 | Claude | **C-3, C-6, C-8 erledigt.** B-2: Sonde gebaut, Flake in diesem Lauf nicht reproduzierbar. Neu: **C-10** (Integrationssuite 42 rot — Test-Drift gegen `legacy_access`-Gate). |
+| 2026-07-26 (2) | Claude | **C-2, C-4, C-5, C-9 erledigt.** Offen: B-1 (gated auf Prod-Deploy), B-3, B-4, B-5, C-1, C-7 (= B-1), C-10. Nächste Prüfung: 2026-08-09. |
 
 ---
 
