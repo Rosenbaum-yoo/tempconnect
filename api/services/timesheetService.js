@@ -137,6 +137,22 @@ export async function listTimesheets(pool, filters = {}) {
   const where = [];
   let idx = 1;
 
+  // Org-Sicht: ein Stundenzettel hat ZWEI Seiten — den Kunden (`org_id`) und den
+  // Lieferanten (`supplier_org_id`). `member_org_id` bedeutet "meine Org ist eine
+  // der beiden Seiten" und ist die richtige Klammer fuer "zeig mir meine
+  // Stundenzettel".
+  //
+  // WARUM DAS HIER STEHT: die Liste filterte frueher nur auf `org_id`. Eine
+  // Agentur, die einen Zettel selbst angelegt hatte, sah ihn in
+  // `GET /api/timesheets` **nicht** — waehrend `GET /api/timesheets/:id` ihn per
+  // `checkOrgBoundary` (beide Seiten) sehr wohl herausgab. Man konnte einen
+  // Datensatz oeffnen, den man nicht finden konnte. Kein Leck, aber die
+  // Lieferantenseite der Strecke war praktisch unbenutzbar.
+  if (filters.member_org_id) {
+    where.push(`(ts.org_id = $${idx} OR ts.supplier_org_id = $${idx})`);
+    params.push(filters.member_org_id);
+    idx++;
+  }
   if (filters.org_id)          { where.push(`ts.org_id = $${idx}`);          params.push(filters.org_id);          idx++; }
   if (filters.supplier_org_id) { where.push(`ts.supplier_org_id = $${idx}`); params.push(filters.supplier_org_id); idx++; }
   if (filters.assignment_id)   { where.push(`ts.assignment_id = $${idx}`);   params.push(filters.assignment_id);   idx++; }

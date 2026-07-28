@@ -25,6 +25,7 @@ import {
   cleanupUser,
   createSupplierOrg,
   getUserOrgId,
+  loginAgent,
   ensureSubscription
 } from "./helpers.js";
 
@@ -76,6 +77,9 @@ describe("RBAC Deep — Role & Org Enforcement", { skip: !hasDb && "No database 
     );
     // Point user to Org A
     await pool.query("UPDATE users SET org_id = $1 WHERE id = $2", [orgAId, viewerUser.user.id]);
+    // Neu anmelden: die alte Session traegt noch die persoenliche Org im
+    // `_orgCache` und wuerde jede Anfrage gegen die falsche Org stellen.
+    Object.assign(viewerUser, await loginAgent(viewerUser.email, viewerUser.password));
 
     // ── Member user: register, then add to Org A with 'member' role ─────────
     memberUser = await registerAndLoginWithPlan(pool, "ENTERPRISE", {
@@ -90,6 +94,7 @@ describe("RBAC Deep — Role & Org Enforcement", { skip: !hasDb && "No database 
       [memberUser.user.id, orgAId]
     );
     await pool.query("UPDATE users SET org_id = $1 WHERE id = $2", [orgAId, memberUser.user.id]);
+    Object.assign(memberUser, await loginAgent(memberUser.email, memberUser.password));
   });
 
   after(async () => {
@@ -161,7 +166,11 @@ describe("RBAC Deep — Role & Org Enforcement", { skip: !hasDb && "No database 
 
     assert.strictEqual(res.status, 403, `Expected 403, got ${res.status}: ${JSON.stringify(res.body)}`);
     assert.strictEqual(res.body.error, "PERMISSION_DENIED");
-    assert.strictEqual(res.body.permission, "contract.create");
+    // SEC-003: die Antwort nennt den internen Berechtigungsnamen bewusst NICHT.
+    // Wer 403 bekommt, soll nicht auch noch erfahren, wie das Recht heisst, das
+    // ihm fehlt — das ist eine Landkarte des Rechtemodells fuer Fremde.
+    assert.strictEqual(res.body.permission, undefined, "Der Berechtigungsname darf nicht in der Antwort stehen");
+    assert.ok(res.body.message, "Stattdessen eine allgemeine, verstaendliche Meldung");
   });
 
   it("viewer cannot terminate a contract → 403 PERMISSION_DENIED", async () => {
@@ -174,7 +183,8 @@ describe("RBAC Deep — Role & Org Enforcement", { skip: !hasDb && "No database 
 
     assert.strictEqual(res.status, 403, `Expected 403, got ${res.status}`);
     assert.strictEqual(res.body.error, "PERMISSION_DENIED");
-    assert.strictEqual(res.body.permission, "contract.terminate");
+    assert.strictEqual(res.body.permission, undefined, "Der Berechtigungsname darf nicht in der Antwort stehen");
+    assert.ok(res.body.message, "Stattdessen eine allgemeine, verstaendliche Meldung");
   });
 
   // ═══════════════════════════════════════════════════════════════════════════
@@ -223,11 +233,17 @@ describe("RBAC Deep — Role & Org Enforcement", { skip: !hasDb && "No database 
     const noOrgUser = await registerAndLogin({ role: "company", company_name: "No Org User" });
     createdEmails.push(noOrgUser.email);
 
+    // Plan ZUERST setzen, solange die Org noch existiert: danach gibt es keine
+    // Org mehr, der ein Plan zugewiesen werden koennte. Der Plan bleibt ueber die
+    // nutzerbezogene `subscriptions`-Zeile wirksam, damit nicht das Feature-Gate
+    // antwortet und der Test aus dem falschen Grund gruen wird.
+    await ensureSubscription(pool, noOrgUser.user.id, "ENTERPRISE");
+
     // Remove org membership and org_id
     await pool.query("DELETE FROM org_memberships WHERE user_id = $1", [noOrgUser.user.id]);
     await pool.query("UPDATE users SET org_id = NULL WHERE id = $1", [noOrgUser.user.id]);
-    // Ensure ENTERPRISE plan so feature gate isn't the issue
-    await ensureSubscription(pool, noOrgUser.user.id, "ENTERPRISE");
+    // Frische Session: die alte traegt die geloeschte Org noch im `_orgCache`.
+    Object.assign(noOrgUser, await loginAgent(noOrgUser.email, noOrgUser.password));
 
     const res = await noOrgUser.agent.get("/api/contracts");
     assert.strictEqual(res.status, 403, `Expected 403, got ${res.status}: ${JSON.stringify(res.body)}`);

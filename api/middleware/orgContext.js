@@ -90,26 +90,49 @@ export function orgContextMiddleware(pool) {
             };
           }
         }
-      } else if (req.session._orgCache) {
-        // Session cache: org already resolved, skip DB
-        req.orgId   = req.session._orgCache.orgId;
-        req.orgRole = req.session._orgCache.role;
-        req.orgName = req.session._orgCache.name;
-        // req.orgMembership intentionally not set (avoid stale data on cache path)
-      } else {
-        // No explicit org, no cache: resolve from users.org_id / first membership
-        membership = await rbacService.getPrimaryOrg(pool, req.session.userId);
-        if (membership) {
-          req.orgId = membership.org_id;
-          req.orgRole = membership.role_key;
-          req.orgName = membership.org_name;
-          req.orgMembership = membership;
-          req.session._orgCache = {
-            orgId: membership.org_id,
-            role:  membership.role_key,
-            name:  membership.org_name,
-            defaultLocationId: membership.location_id || null,
-          };
+      }
+
+      // ── Rueckfall: der Kontext bleibt NIE leer, nur weil ein Wunsch nicht aufging
+      //
+      // SICHERHEIT (Regel 7, ergaenzt 2026-07-26 — Audit-Backlog C-11):
+      // Frueher endete die Aufloesung hier mit `req.orgId === null`, wenn
+      // `explicitOrg` eine Org nannte, in der der Nutzer keine Mitgliedschaft hat.
+      // Das war kein harmloser Leerwert: 45 Routen pruefen die Org-Grenze als
+      //     if (req.orgId && ressource.org_id !== req.orgId) return 403;
+      // — eine Pruefung, die sich bei `null` selbst abschaltet. Sie fiel damit
+      // genau im Angriffsfall aus. Neun dieser Routen (u. a.
+      // `GET /organizations/:id/members|locations|departments`) laufen ohne
+      // vorgelagerten Permission-Guard; dort war es ein erreichbares Cross-Org-Leck:
+      // fremde org_id einmal im Pfad, einmal als `?org_id=` — und die Mitglieder-
+      // liste kam zurueck. Nachgestellt in
+      // `test/integration/orgContextBoundary.security.test.js`.
+      //
+      // Ein nicht aufloesbarer Org-Wunsch wird deshalb verworfen wie ein
+      // ungueltiger UUID-Wert, und der Kontext faellt auf die eigene Org zurueck.
+      // Die Grenzpruefungen der Routen laufen dann wieder und antworten sauber mit
+      // ORG_BOUNDARY_VIOLATION statt Daten auszuliefern.
+      if (!req.orgId) {
+        if (req.session._orgCache) {
+          // Session cache: org already resolved, skip DB
+          req.orgId   = req.session._orgCache.orgId;
+          req.orgRole = req.session._orgCache.role;
+          req.orgName = req.session._orgCache.name;
+          // req.orgMembership intentionally not set (avoid stale data on cache path)
+        } else {
+          // No usable org wish, no cache: resolve from users.org_id / first membership
+          membership = await rbacService.getPrimaryOrg(pool, req.session.userId);
+          if (membership) {
+            req.orgId = membership.org_id;
+            req.orgRole = membership.role_key;
+            req.orgName = membership.org_name;
+            req.orgMembership = membership;
+            req.session._orgCache = {
+              orgId: membership.org_id,
+              role:  membership.role_key,
+              name:  membership.org_name,
+              defaultLocationId: membership.location_id || null,
+            };
+          }
         }
       }
 

@@ -225,30 +225,112 @@ beim Versuch, genau diese Kraft erneut dorthin zu schicken.
 
 ## Zugang 2026-07-26 — beim Abarbeiten von C-6 aufgefallen
 
-### C-10 · Integrationssuite: 42 von 179 Tests rot 🟠 *Test-Drift, kein Prod-Bug*
-**Was:** Mit gesetztem `DATABASE_URL` läuft `--suite=integration` erstmals wieder komplett
-durch — und meldet **42 Fehler**. Vorher fiel das nicht auf, weil sich diese Tests ohne DB
-still überspringen (genau der C-6-Befund).
+### C-10 · Integrationssuite grün — und sechs echte Fehler unterwegs ✅ **ERLEDIGT 2026-07-26**
+**Ergebnis: 186/186 grün, 0 übersprungen** (vorher 137/179, 42 rot).
 
-**Diagnose (belegt, nicht vermutet):**
-- Der größte Block betrifft die Legacy-Strecke `/api/listings` + `/api/my/listings`. Diese
-  Routen existieren noch, liegen aber inzwischen hinter `requireFeature("legacy_access")`
-  (`routes/listings.js:24`). Die Tests legen normale Nutzer ohne dieses Feature an → **403**,
-  danach kaskadieren die Folgeschritte (`expected: true, actual: undefined`).
-- **Nicht** die Ursache: Rate-Limiting. Gegenprobe mit `RATE_LIMIT_AUTH_MAX/API_MAX/REQUEST_MAX
-  = 100000` ergab exakt dieselben 42 Fehler.
-- Restliche Fehlerbilder: 4× `22P02` (ungültige UUID in Fixtures), 3× `expected 403 / actual
-  ORG_BOUNDARY_VIOLATION` (Assertion prüft Status statt Fehlercode).
+**Meine erste Diagnose war falsch.** Ich hatte „Test-Drift gegen das `legacy_access`-Gate"
+notiert — abgeleitet aus dem Muster der Fehlercodes, nicht aus einem Lauf. Der erste
+tatsächliche Aufruf zeigte etwas anderes: **429 `PLAN_LIMIT_REACHED`, `limit: 0`**. DEMO
+hat `listings: 0`; das Produkt verhielt sich korrekt, die Tests hatten die falsche
+Ausgangslage. Merke: Fehlerbilder zählen ist keine Diagnose.
 
-**Warum das kein Produktionsfehler ist:** die Tests stammen aus der Zeit vor dem Feature-Gate
-bzw. prüfen eine Antwortform, die sich geändert hat. Die Produktpfade selbst sind grün — die
-DB-gestützten Nicht-Integrationstests (Org-Boundary, Multi-Location, Capacity, Idempotency)
-laufen mit echter DB **56/56**.
+Die 42 Fehler hatten **vier** Ursachen, nicht eine — und dahinter lagen **sechs echte
+Produktfehler**, die kein einziger Test vorher gemeldet hatte:
 
-**Zwei saubere Wege (Owner-Entscheid):** (a) Testnutzer mit `legacy_access` ausstatten und die
-Assertions nachziehen, oder (b) die Legacy-Strecke samt Tests zurückbauen — das hängt an
-**C-1** (zwei parallele Timesheet-/Listing-Welten) und sollte gemeinsam entschieden werden.
-**Trigger:** bevor die Integrationssuite Teil eines Release-Gates wird. **Aufwand:** (a) ~2 h, (b) ~halber Tag.
+**1 · Fehlender Index — `webhook_deliveries_retry_failed_idx` (Migration 155)**
+Mig 122 legte ihn hinter einem `to_regclass`-Guard an; die Tabelle existierte damals nicht,
+der Guard übersprang ihn per NOTICE. Mig 124 ließ ihn ausdrücklich aus („bis die
+Integrations-Funktion ihre Tabelle mitbringt"). Mig 130 brachte die Tabelle — die
+Nachzieh-Migration blieb aus, und 122 gilt als angewandt. Der Retry-Sweep scannte eine
+append-only Tabelle sequenziell. **Der Test hatte recht; korrigiert wurde das Schema.**
+*Lehre: ein Guard, der überspringt, braucht einen Auslöser, der ihn nachholt.*
+
+**2 · Cross-Org-Datenleck (`middleware/orgContext.js`) — der schwerwiegendste Fund**
+`orgContext` nahm `?org_id=` / `body.org_id` als Kontextquelle. Nannte der Wert eine Org
+ohne Mitgliedschaft, blieb `req.orgId` **null**. **45 Routen** prüfen die Org-Grenze als
+`if (req.orgId && ressource.org_id !== req.orgId) return 403` — eine Prüfung, die sich bei
+`null` selbst abschaltet, also genau im Angriffsfall ausfiel. Bei 36 fing ein
+vorgelagerter Permission-Guard den Zugriff ab. Bei **neun** nicht:
+`GET /organizations/:id/members|locations|departments` laufen nur mit `requireAuth`.
+**Nachgestellt und bestätigt:** eine frisch registrierte Agentur las die vollständige
+Mitgliederliste einer fremden Firma — fremde Org-ID einmal im Pfad, einmal als `?org_id=`.
+*Fix:* Ein nicht auflösbarer Org-Wunsch wird verworfen wie eine ungültige UUID, der Kontext
+fällt auf die eigene Org zurück. Die Grenzprüfungen greifen wieder.
+*Dazu:* `body.org_id` zählt nicht mehr als Kontext-Zusicherung — bei 19 Routen-Schemas ist es
+ein **Nutzdatum** („zu welcher Org gehört dieser Datensatz"). Das war zugleich die Ursache
+dafür, dass die gesamte Lieferanten-Strecke der Stundenzettel nicht funktionierte: 15 von 15
+Timesheet-Tests wurden allein durch diesen Fix grün.
+*Regressionstest:* `test/integration/orgContextBoundary.security.test.js` (7 Tests, spielt
+den Angriff nach).
+
+**3 · Datumsversatz um einen Tag (`db/typeParsers.js`)**
+Der pg-Treiber machte aus einer DATE-Spalte ein `Date` um **lokale** Mitternacht;
+`JSON.stringify` schrieb daraus einen UTC-Zeitpunkt. Aus dem Vertragsende `2026-04-01`
+wurde `"2026-03-31T22:00:00.000Z"` — jede UTC-basierte Anzeige zeigte den **31.03.**
+Betrifft 55 DATE-Spalten: Vertragsenden, Sperrfristen, Abrechnungswochen. *Fix:* DATE (OID
+1082) wird unverändert als `'YYYY-MM-DD'` durchgereicht. Zeitstempel bleiben unangetastet.
+
+**4 · Checkout-ID in zwei Schreibweisen (`routes/payment.js`)**
+`crypto.randomBytes(16).toString("hex")` erzeugt 32 Hexzeichen ohne Bindestriche;
+`payment_sessions.id` ist UUID, Postgres speichert **normalisiert**. Der Checkout gab
+`"0123456789abcdef…"` zurück, jede spätere Antwort `"01234567-89ab-cdef-…"`. Clients fanden
+ihren eigenen Vorgang in `GET /payment/history` nicht wieder, und der Audit-Eintrag
+(`entity_id`) ließ sich nicht mehr mit der Zeile verbinden, die er beschreibt. *Fix:*
+`crypto.randomUUID()`.
+
+**5 · Angebots-Postfach ohne Aktionen (`routes/marketplace.js`)**
+`computeOfferNextAction` entscheidet an `requester_company_id`, ob der Betrachter die
+Bestellerseite ist. Das Feld liegt auf `demand_requests`; zwei Roh-Queries holten nur `o.*`.
+Folge: `undefined === userId` → der Besteller wurde nie als Besteller erkannt. Sein
+Postfach meldete bei jedem eingegangenen Angebot „wartet auf die Gegenseite" und lieferte
+eine **leere Aktionsliste** — kein Annehmen, kein Ablehnen, kein Gegenangebot. *Fix:*
+`d.requester_company_id` mitselektieren; die Funktion meldet ein fehlendes Feld jetzt laut,
+statt eine plausible falsche Antwort zu geben.
+
+**6 · Lieferant sah seine eigenen Stundenzettel nicht (`services/timesheetService.js`)**
+Die Detailroute prüft die Grenze über **beide** Seiten (`checkOrgBoundary`), die Liste
+filterte nur auf `org_id` (Kundenseite). Eine Agentur konnte einen selbst angelegten Zettel
+per ID öffnen, ihn aber in `GET /api/timesheets` nie finden — und der DATEV-Lohn-Export,
+den genau diese Seite braucht, lieferte eine **leere Datei**. *Fix:* `member_org_id`
+klammert beide Seiten, in Liste und beiden Exporten.
+
+**Was an den Tests korrigiert wurde — und was ausdrücklich nicht:**
+Keine Assertion wurde abgeschwächt. Geändert wurden Ausgangslagen und zwei überholte
+Verträge:
+- **Pläne:** DEMO gewährt nichts (0 Inserate, 0 Kräfte je Anforderung, kein `worker_module`).
+  Tests, die einen Ablauf prüfen wollten, bekommen den Plan, unter dem dieser Ablauf
+  existiert — Listings **BASIS** (einziger Plan mit `legacy_access` *und* Kontingent).
+- **`ensureSubscription` schluckte einen CHECK-Verstoß.** Drei Dateien forderten
+  `"ENTERPRISE"` an — kein kanonischer Plan; das `.catch(() => {})` verschluckte den Fehler,
+  die Org blieb auf **DEMO**. Diese Tests behaupteten, Enterprise zu prüfen, und taten es
+  nie. Jetzt: Normalisierung über `normalizePlanKey`, und ein Fixture, das seinen Plan nicht
+  setzen kann, **scheitert laut**. Der neue Fehler entlarvte sofort ein weiteres Fixture.
+- **Session-Org-Cache:** Fixtures meldeten Nutzer an, *bevor* sie sie per SQL in eine andere
+  Org umhängten. `_orgCache` altert nicht mit → falscher Org-Kontext. Neuer Helfer
+  `loginAgent()`.
+- **Überholte Regel (subscription.flow):** drei Tests verlangten 403 auf `GET /api/capacities`
+  für DEMO. Die Plan-Matrix führt `sla_access` bewusst für **alle** Pläne
+  („Marketplace browsing (DEMO can view/browse but not create)") — ein Marktplatz, den
+  Interessenten nicht ansehen dürfen, verkauft nichts. Die Tests zeigen jetzt auf die Grenze,
+  die es wirklich gibt: **`sla_offers_create` (PLUS+)**, geprüft am POST.
+- **Überholte Regel (rbac-deep):** zwei Assertions verlangten den internen
+  Berechtigungsnamen in der 403-Antwort — genau das, was SEC-003 bewusst nicht mehr
+  preisgibt, und das Gegenteil dessen, was `rbac-middleware.test.js` prüft. Jetzt wird die
+  sanitisierte Form festgeschrieben.
+- **`ADMIN_SECRET`** war im Testprozess nie gesetzt: der Erfolgsfall des Admin-Guards
+  (richtiges Geheimnis → 200) wurde nie ausgeführt. Neu: `test/integration/testEnv.js`.
+
+**Verifikation:** Integration **186/186**, Unit-Suite **7451/7464 grün, 0 rot** (13
+übersprungen = ohne DB). Das Cross-Org-Leck war vor dem Fix nachweislich rot.
+
+**Zwei kleinere Beobachtungen, bewusst nicht angefasst** (kein Angriffspfad, aber notiert):
+- `routes/timesheets.js:68` — `checkOrgBoundary` beginnt mit `if (!orgId) return true`
+  („Legacy-User ohne Org"). Dasselbe Fail-Open-Muster; seit dem orgContext-Fix ist `orgId`
+  für jeden Nutzer mit Mitgliedschaft gesetzt, und ohne Mitgliedschaft scheitert schon der
+  Permission-Guard davor. Unerreichbar, aber falsch herum formuliert.
+- `routes/timesheetTemplates.js:164` — die Kunden-`org_id` beim Zuweisen einer Vorlage wird
+  nicht gegen eine Geschäftsbeziehung geprüft. Ein Lieferant könnte eine eigene Vorlage einer
+  beliebigen fremden Org zuordnen. Keine Datenpreisgabe, aber unsauber.
 
 ---
 
@@ -261,7 +343,8 @@ Bei jeder Prüfung: **erledigt? noch gültig? neu dazugekommen?** Erledigte Punk
 |---|---|---|
 | 2026-07-25 | Claude | Zugang C-1…C-9 aus dem Enterprise-Audit. B-1…B-5 unverändert offen. Nächste Prüfung: 2026-08-08. |
 | 2026-07-26 | Claude | **C-3, C-6, C-8 erledigt.** B-2: Sonde gebaut, Flake in diesem Lauf nicht reproduzierbar. Neu: **C-10** (Integrationssuite 42 rot — Test-Drift gegen `legacy_access`-Gate). |
-| 2026-07-26 (2) | Claude | **C-2, C-4, C-5, C-9 erledigt.** Offen: B-1 (gated auf Prod-Deploy), B-3, B-4, B-5, C-1, C-7 (= B-1), C-10. Nächste Prüfung: 2026-08-09. |
+| 2026-07-26 (2) | Claude | **C-2, C-4, C-5, C-9 erledigt.** |
+| 2026-07-26 (3) | Claude | **C-10 erledigt — Integration 186/186.** Dabei sechs echte Fehler gefunden: Cross-Org-Leck (nachgestellt), fehlender Index (Mig 155), DATE-Versatz um einen Tag, Checkout-ID in zwei Schreibweisen, Angebots-Postfach ohne Aktionen, Lieferanten-Stundenzettel unsichtbar. Offen: B-1 (gated auf Prod-Deploy), B-3, B-4, B-5, C-1, C-7 (= B-1). Nächste Prüfung: 2026-08-09. |
 
 ---
 

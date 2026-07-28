@@ -20,11 +20,17 @@ import {
   hasDb,
   makeAgent,
   getCsrf,
-  registerAndLogin,
-  registerAndLoginAgency,
+  registerAndLoginWithPlan,
   createPool,
   cleanupUser
 } from "./helpers.js";
+
+// Warum BASIS und nicht PRO: `/api/listings` liegt hinter `requireFeature("legacy_access")`,
+// das nur DEMO und BASIS haben — DEMO wiederum hat `listings: 0` und antwortet mit
+// 429 PLAN_LIMIT_REACHED. BASIS ist damit der einzige Plan, der beides mitbringt:
+// Zugang zur Legacy-Strecke und ein Kontingent (5) fuer echte Inserate. Diese Tests
+// pruefen den CRUD-Fluss, nicht die Bezahlschranke — die hat ihre eigenen Tests.
+const LISTING_PLAN = "BASIS";
 
 describe("Listing Flow", { skip: !hasDb && "No database configured" }, () => {
   let pool;
@@ -53,7 +59,7 @@ describe("Listing Flow", { skip: !hasDb && "No database configured" }, () => {
   // ── Create ──────────────────────────────────────────────────────────────
 
   it("company user creates a demand listing", async () => {
-    const { agent, csrfToken, email } = await registerAndLogin({ role: "company" });
+    const { agent, csrfToken, email } = await registerAndLoginWithPlan(pool, LISTING_PLAN, { role: "company" });
     createdEmails.push(email);
 
     const res = await agent
@@ -70,7 +76,7 @@ describe("Listing Flow", { skip: !hasDb && "No database configured" }, () => {
   });
 
   it("agency user creates a supply listing", async () => {
-    const { agent, csrfToken, email } = await registerAndLoginAgency();
+    const { agent, csrfToken, email } = await registerAndLoginWithPlan(pool, LISTING_PLAN, { role: "agency", company_name: "Test Agency GmbH" });
     createdEmails.push(email);
 
     const res = await agent
@@ -87,7 +93,7 @@ describe("Listing Flow", { skip: !hasDb && "No database configured" }, () => {
   // ── Validation ──────────────────────────────────────────────────────────
 
   it("rejects listing without required category field", async () => {
-    const { agent, csrfToken, email } = await registerAndLogin();
+    const { agent, csrfToken, email } = await registerAndLoginWithPlan(pool, LISTING_PLAN);
     createdEmails.push(email);
 
     const res = await agent
@@ -101,7 +107,7 @@ describe("Listing Flow", { skip: !hasDb && "No database configured" }, () => {
   });
 
   it("rejects listing with qty=0", async () => {
-    const { agent, csrfToken, email } = await registerAndLogin();
+    const { agent, csrfToken, email } = await registerAndLoginWithPlan(pool, LISTING_PLAN);
     createdEmails.push(email);
 
     const res = await agent
@@ -114,7 +120,7 @@ describe("Listing Flow", { skip: !hasDb && "No database configured" }, () => {
   });
 
   it("rejects listing with category exceeding max length", async () => {
-    const { agent, csrfToken, email } = await registerAndLogin();
+    const { agent, csrfToken, email } = await registerAndLoginWithPlan(pool, LISTING_PLAN);
     createdEmails.push(email);
 
     const res = await agent
@@ -129,7 +135,7 @@ describe("Listing Flow", { skip: !hasDb && "No database configured" }, () => {
   // ── Search / GET ────────────────────────────────────────────────────────
 
   it("GET /api/listings returns array of active listings", async () => {
-    const { agent, csrfToken, email } = await registerAndLogin();
+    const { agent, csrfToken, email } = await registerAndLoginWithPlan(pool, LISTING_PLAN);
     createdEmails.push(email);
 
     // Create a listing first so the result set is non-empty
@@ -150,7 +156,7 @@ describe("Listing Flow", { skip: !hasDb && "No database configured" }, () => {
   });
 
   it("GET /api/listings filters by type=demand", async () => {
-    const { agent, csrfToken, email } = await registerAndLogin({ role: "company" });
+    const { agent, csrfToken, email } = await registerAndLoginWithPlan(pool, LISTING_PLAN, { role: "company" });
     createdEmails.push(email);
 
     await agent
@@ -169,7 +175,7 @@ describe("Listing Flow", { skip: !hasDb && "No database configured" }, () => {
   // ── My listings ─────────────────────────────────────────────────────────
 
   it("GET /api/my/listings returns only own listings", async () => {
-    const { agent, csrfToken, email, user } = await registerAndLogin();
+    const { agent, csrfToken, email, user } = await registerAndLoginWithPlan(pool, LISTING_PLAN);
     createdEmails.push(email);
 
     // Create two listings
@@ -196,7 +202,7 @@ describe("Listing Flow", { skip: !hasDb && "No database configured" }, () => {
   // ── Update ──────────────────────────────────────────────────────────────
 
   it("PUT /api/listings/:id updates own listing", async () => {
-    const { agent, csrfToken, email } = await registerAndLogin();
+    const { agent, csrfToken, email } = await registerAndLoginWithPlan(pool, LISTING_PLAN);
     createdEmails.push(email);
 
     const createRes = await agent
@@ -218,7 +224,7 @@ describe("Listing Flow", { skip: !hasDb && "No database configured" }, () => {
 
   it("PUT /api/listings/:id returns 404 for non-owner", async () => {
     // User A creates a listing
-    const userA = await registerAndLogin();
+    const userA = await registerAndLoginWithPlan(pool, LISTING_PLAN);
     createdEmails.push(userA.email);
 
     const createRes = await userA.agent
@@ -228,7 +234,7 @@ describe("Listing Flow", { skip: !hasDb && "No database configured" }, () => {
     const listingId = createRes.body.id;
 
     // User B tries to update it
-    const userB = await registerAndLogin();
+    const userB = await registerAndLoginWithPlan(pool, LISTING_PLAN);
     createdEmails.push(userB.email);
 
     const res = await userB.agent
@@ -243,7 +249,7 @@ describe("Listing Flow", { skip: !hasDb && "No database configured" }, () => {
   // ── Delete (soft) ───────────────────────────────────────────────────────
 
   it("DELETE /api/listings/:id soft-deletes own listing", async () => {
-    const { agent, csrfToken, email } = await registerAndLogin();
+    const { agent, csrfToken, email } = await registerAndLoginWithPlan(pool, LISTING_PLAN);
     createdEmails.push(email);
 
     const createRes = await agent
@@ -266,7 +272,7 @@ describe("Listing Flow", { skip: !hasDb && "No database configured" }, () => {
   });
 
   it("DELETE /api/listings/:id returns 404 for non-owner", async () => {
-    const userA = await registerAndLogin();
+    const userA = await registerAndLoginWithPlan(pool, LISTING_PLAN);
     createdEmails.push(userA.email);
 
     const createRes = await userA.agent
@@ -275,7 +281,7 @@ describe("Listing Flow", { skip: !hasDb && "No database configured" }, () => {
       .send(validListing());
     const listingId = createRes.body.id;
 
-    const userB = await registerAndLogin();
+    const userB = await registerAndLoginWithPlan(pool, LISTING_PLAN);
     createdEmails.push(userB.email);
 
     const res = await userB.agent

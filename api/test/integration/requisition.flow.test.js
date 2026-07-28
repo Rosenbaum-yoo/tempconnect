@@ -19,6 +19,7 @@ import assert from "node:assert/strict";
 import {
   hasDb,
   registerAndLogin,
+  registerAndLoginWithPlan,
   createPool,
   cleanupUser
 } from "./helpers.js";
@@ -32,7 +33,10 @@ describe("Requisition Flow", { skip: !hasDb && "No database configured" }, () =>
   before(async () => {
     if (!hasDb) return;
     pool = createPool();
-    ({ agent: primaryAgent, csrfToken: primaryCsrf, email: primaryEmail } = await registerAndLogin());
+    // PRO statt DEMO: DEMO erlaubt `max_workers_per_request: 0`, jede Anforderung
+    // scheitert dort mit WORKER_LIMIT_EXCEEDED. Geprueft wird hier der Anforderungs-
+    // Fluss, nicht das Kontingent.
+    ({ agent: primaryAgent, csrfToken: primaryCsrf, email: primaryEmail } = await registerAndLoginWithPlan(pool, "PRO"));
     createdEmails.push(primaryEmail);
   });
 

@@ -14,6 +14,8 @@
  * Requires: DATABASE_URL
  */
 
+// MUSS vor den Helfern stehen: setzt ADMIN_SECRET, bevor `config/index.js` es liest.
+import "./testEnv.js";
 import { describe, it, before, after } from "node:test";
 import assert from "node:assert/strict";
 import {

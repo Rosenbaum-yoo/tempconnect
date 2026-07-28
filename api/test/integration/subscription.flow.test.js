@@ -57,19 +57,18 @@ describe("Subscription Feature-Gating Flow", { skip: !hasDb && "No database conf
     assert.ok(Array.isArray(res.body));
   });
 
-  it("FREE user gets 403 FEATURE_NOT_ALLOWED on GET /api/capacities", async () => {
+  it("DEMO darf den SLA-Marktplatz ansehen — die Schranke liegt beim Einstellen", async () => {
     const { agent, email } = await registerAndLogin();
     createdEmails.push(email);
 
+    // `sla_access` gilt laut Plan-Matrix fuer JEDEN Plan, inklusive DEMO
+    // ("Marketplace browsing (DEMO can view/browse but not create)"). Wer nicht
+    // sehen darf, was es zu kaufen gaebe, wird auch nichts kaufen. Die
+    // Bezahlschranke sitzt eine Stufe weiter: `sla_offers_create` (PLUS+),
+    // geprueft im Test darunter und in den Upgrade-/Downgrade-Tests.
     const res = await agent.get("/api/capacities");
-    if (GATE_BYPASS) {
-      assert.strictEqual(res.status, 200, "Bypass-Env: Gate ist bewusst offen (FEATURE_GATE_BYPASS=true)");
-    } else {
-      assert.strictEqual(res.status, 403, "FREE plan should NOT have sla_access");
-      assert.strictEqual(res.body.code, "FEATURE_NOT_ALLOWED");
-      assert.strictEqual(res.body.feature, "sla_access");
-      assert.strictEqual(res.body.plan, "FREE");
-    }
+    assert.strictEqual(res.status, 200, `DEMO soll browsen duerfen, bekam ${res.status}: ${JSON.stringify(res.body)}`);
+    assert.ok(Array.isArray(res.body) || Array.isArray(res.body?.items), "Erwartet eine Liste");
   });
 
   it("FREE agency user gets 403 on POST /api/capacities", async () => {
@@ -100,20 +99,30 @@ describe("Subscription Feature-Gating Flow", { skip: !hasDb && "No database conf
 
   // ── Upgrade to PLUS: SLA access granted ─────────────────────────────────
 
-  it("upgrading to PLUS grants access to GET /api/capacities", async () => {
-    const { agent, email, user } = await registerAndLogin();
+  it("Upgrade auf PLUS schaltet das Veroeffentlichen frei", async () => {
+    const { agent, csrfToken, email, user } = await registerAndLoginAgency();
     createdEmails.push(email);
+    const payload = {
+      role: "Fachkraft Lager", region: "Berlin",
+      available_from: "2026-04-01", available_workers: 5
+    };
 
-    // Verify blocked before upgrade (im Bypass-Env bewusst offen)
-    const before = await agent.get("/api/capacities");
-    assert.strictEqual(before.status, GATE_BYPASS ? 200 : 403, "Should be blocked before upgrade (ausser Bypass-Env)");
+    // Vorher gesperrt — im Bypass-Env greift stattdessen deterministisch das
+    // Org-Limit (DEMO: listings-Kontingent 0).
+    const before = await agent.post("/api/capacities").set("x-csrf-token", csrfToken).send(payload);
+    if (GATE_BYPASS) {
+      assert.strictEqual(before.status, 429, "Bypass-Env: Org-Limit statt Feature-Gate erwartet");
+    } else {
+      assert.strictEqual(before.status, 403, "DEMO darf nicht einstellen");
+      assert.strictEqual(before.body.code, "FEATURE_NOT_ALLOWED");
+    }
 
-    // Upgrade plan via DB
     await ensureSubscription(pool, user.id, "PLUS");
 
-    // Now SLA endpoints should be accessible
-    const after = await agent.get("/api/capacities");
-    assert.strictEqual(after.status, 200, "PLUS plan should grant sla_access");
+    // Nachher offen: PLUS bringt `sla_offers_create` UND ein Kontingent (20).
+    const after = await agent.post("/api/capacities").set("x-csrf-token", csrfToken).send(payload);
+    assert.ok([200, 201].includes(after.status),
+      `PLUS muss veroeffentlichen duerfen, bekam ${after.status}: ${JSON.stringify(after.body)}`);
   });
 
   it("PLUS agency user can POST /api/capacities", async () => {
@@ -158,22 +167,27 @@ describe("Subscription Feature-Gating Flow", { skip: !hasDb && "No database conf
 
   // ── Downgrade: access revoked ───────────────────────────────────────────
 
-  it("downgrade from PLUS to FREE revokes SLA access", async () => {
-    const { agent, email, user } = await registerAndLogin();
+  it("Downgrade auf DEMO nimmt das Veroeffentlichen wieder weg", async () => {
+    const { agent, csrfToken, email, user } = await registerAndLoginAgency();
     createdEmails.push(email);
+    const payload = {
+      role: "Helfer Montage", region: "Hamburg",
+      available_from: "2026-04-01", available_workers: 3
+    };
 
-    // Upgrade first
     await ensureSubscription(pool, user.id, "PLUS");
-    const granted = await agent.get("/api/capacities");
-    assert.strictEqual(granted.status, 200, "PLUS should grant access");
+    const granted = await agent.post("/api/capacities").set("x-csrf-token", csrfToken).send(payload);
+    assert.ok([200, 201].includes(granted.status),
+      `PLUS muss veroeffentlichen duerfen, bekam ${granted.status}: ${JSON.stringify(granted.body)}`);
 
-    // Downgrade
     await ensureSubscription(pool, user.id, "FREE");
-    const revoked = await agent.get("/api/capacities");
+    const revoked = await agent.post("/api/capacities").set("x-csrf-token", csrfToken).send(payload);
     if (GATE_BYPASS) {
-      assert.strictEqual(revoked.status, 200, "Bypass-Env: Gate ist bewusst offen (FEATURE_GATE_BYPASS=true)");
+      // Bypass-Env: Feature-Gate offen, aber DEMO hat Kontingent 0 — der Entzug
+      // ist trotzdem wirksam, nur mit anderem Fehlercode.
+      assert.strictEqual(revoked.status, 429, "Bypass-Env: Org-Limit muss weiterhin greifen");
     } else {
-      assert.strictEqual(revoked.status, 403, "FREE should revoke sla_access");
+      assert.strictEqual(revoked.status, 403, "DEMO darf nach dem Downgrade nicht mehr einstellen");
       assert.strictEqual(revoked.body.code, "FEATURE_NOT_ALLOWED");
     }
   });

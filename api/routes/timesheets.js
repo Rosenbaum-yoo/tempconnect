@@ -108,7 +108,11 @@ export function createTimesheetsRouter(deps) {
   router.get("/timesheets", ...base, requireScope("read:timesheets"), rperm("timesheet.view"), async (req, res, next) => {
     try {
       const items = await timesheetService.listTimesheets(pool, {
-        org_id:          req.orgId || null,  // SEC-002: server-resolved only, ignore client input
+        // SEC-002: server-resolved only, ignore client input.
+        // `member_org_id` klammert beide Seiten (Kunde ODER Lieferant) — dieselbe
+        // Grenze, die `checkOrgBoundary` auf der Detailroute zieht. Mit `org_id`
+        // allein sah eine Agentur ihre eigenen Zettel nicht in der Liste.
+        member_org_id:   req.orgId || null,
         supplier_org_id: req.query.supplier_org_id || null,
         assignment_id:   req.query.assignment_id   || null,
         status:          req.query.status          || null,
@@ -444,7 +448,7 @@ export function createTimesheetsRouter(deps) {
     try {
       const { exportTimesheetsCsv } = await import("../services/exportService.js");
       const items = await timesheetService.listTimesheets(pool, {
-        org_id:          req.orgId || null,
+        member_org_id:   req.orgId || null,  // beide Seiten — wie die Liste, siehe dort
         supplier_org_id: req.query.supplier_org_id || null,
         status:          req.query.status          || null,
         week_start_from: req.query.week_start_from || null,
@@ -472,7 +476,11 @@ export function createTimesheetsRouter(deps) {
     try {
       const orgId = req.orgId || null;
       const items = await timesheetService.listTimesheets(pool, {
-        org_id:          orgId,
+        // Beide Seiten (wie Liste und Detailroute). Fuer die Lohnabrechnung ist in
+        // aller Regel die Lieferantenseite gemeint — wer die Kraefte bezahlt. Mit
+        // `org_id` allein bekam genau diese Seite eine LEERE Lohndatei. Wer strikt
+        // nur die Lieferantenseite exportieren will, setzt `?supplier_org_id=`.
+        member_org_id:   orgId,
         supplier_org_id: req.query.supplier_org_id || null,
         status:          req.query.status || "approved", // Default: nur freigegebene Stunden in die Lohnabrechnung
         week_start_from: req.query.week_start_from || null,

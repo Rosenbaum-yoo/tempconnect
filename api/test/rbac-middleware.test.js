@@ -71,6 +71,26 @@ function sequencePool(...responses) {
   };
 }
 
+/**
+ * Wie sequencePool, merkt sich aber die Query-Parameter. Noetig, um zu pruefen
+ * *gegen welche* Org eine Berechtigung geprueft wurde — sequencePool verwirft
+ * die Argumente und wuerde jede Org gleich gruen faerben.
+ */
+function recordingPool(...responses) {
+  let idx = 0;
+  const params = [];
+  return {
+    params,
+    query: async (_sql, args = []) => {
+      params.push(args);
+      if (idx >= responses.length) {
+        throw new Error(`Unexpected pool.query call #${idx + 1} (only ${responses.length} configured)`);
+      }
+      return responses[idx++];
+    }
+  };
+}
+
 function mockLogger() {
   const calls = { warn: [] };
   return {
@@ -144,7 +164,7 @@ describe("requirePermission — explicit org_id", () => {
     const req = mockReq({
       orgId: ORG_ID,
       orgMembership: OWNER_MEMBERSHIP,
-      body: { org_id: "org-other-999" }
+      query: { org_id: "org-other-999" }
     });
     const res = mockRes();
 
@@ -158,7 +178,7 @@ describe("requirePermission — explicit org_id", () => {
     const pool = sequencePool({ rows: [OWNER_MEMBERSHIP] });
     const logger = mockLogger();
     const mw = requirePermission("requisition.create", { pool, logger });
-    const req = mockReq({ body: { org_id: ORG_ID } });
+    const req = mockReq({ query: { org_id: ORG_ID } });
     const res = mockRes();
     let nextCalled = false;
 
@@ -175,7 +195,7 @@ describe("requirePermission — explicit org_id", () => {
     const pool = sequencePool({ rows: [VIEWER_MEMBERSHIP] });
     const logger = mockLogger();
     const mw = requirePermission("requisition.create", { pool, logger });
-    const req = mockReq({ body: { org_id: ORG_ID } });
+    const req = mockReq({ query: { org_id: ORG_ID } });
     const res = mockRes();
 
     await mw(req, res, () => assert.fail("next() should not be called"));
@@ -192,7 +212,7 @@ describe("requirePermission — explicit org_id", () => {
     const pool = sequencePool({ rows: [] }); // no membership
     const logger = mockLogger();
     const mw = requirePermission("requisition.create", { pool, logger });
-    const req = mockReq({ body: { org_id: ORG_ID } });
+    const req = mockReq({ query: { org_id: ORG_ID } });
     const res = mockRes();
 
     await mw(req, res, () => assert.fail("next() should not be called"));
@@ -227,21 +247,56 @@ describe("requirePermission — explicit org_id", () => {
     assert.ok(nextCalled, "Should resolve org_id from params");
   });
 
-  it("body.org_id takes precedence over query.org_id", async () => {
-    // Body has the real org, query has a different one
-    // With body org_id, getMembership returns owner → granted
-    const pool = sequencePool({ rows: [OWNER_MEMBERSHIP] });
+  // ── Body ist Nutzdatum, nicht Kontext (Audit-Backlog C-11) ────────────────
+  //
+  // Frueher galt "body.org_id schlaegt query.org_id". Dieser Vertrag war die
+  // Wurzel eines Cross-Org-Lecks: `orgContext` liess `req.orgId` auf null fallen,
+  // wenn der Body eine fremde Org nannte, und die Grenzpruefungen der Routen
+  // (`if (req.orgId && ...)`) schalteten sich damit selbst ab. Zugleich brach er
+  // legitime Lieferanten-Vorgaenge, bei denen `org_id` im Body den *Kunden*
+  // bezeichnet (Stundenzettel, Template-Zuweisung).
+  //
+  // Neuer Vertrag: Kontext kommt aus Adressierung (Header/Query/Pfad). Der Body
+  // wird beim Kontext ignoriert — die Route prueft ihn selbst gegen `req.orgId`.
+  it("body.org_id bestimmt den Kontext NICHT — die Query gewinnt", async () => {
+    const pool = recordingPool({ rows: [OWNER_MEMBERSHIP] });
     const logger = mockLogger();
     const mw = requirePermission("requisition.create", { pool, logger });
     const req = mockReq({
-      body: { org_id: ORG_ID },
-      query: { org_id: "other-org-id" }
+      body: { org_id: "payload-org-999" },
+      query: { org_id: ORG_ID }
     });
     let nextCalled = false;
 
     await mw(req, mockRes(), () => { nextCalled = true; });
 
-    assert.ok(nextCalled, "body.org_id should take precedence");
+    assert.ok(nextCalled, "Die Query-Org bestimmt den Kontext");
+    assert.strictEqual(req.orgId, ORG_ID);
+    const lookedUp = pool.params.flat();
+    assert.ok(lookedUp.includes(ORG_ID), "Die Berechtigung muss gegen die Query-Org geprueft werden");
+    assert.ok(!lookedUp.includes("payload-org-999"),
+      "Die Org aus dem Body darf nie in die Berechtigungspruefung einfliessen");
+  });
+
+  it("ein fremdes org_id im Body loest keinen ORG_CONTEXT_MISMATCH aus", async () => {
+    // Der Lieferanten-Fall: eine Agentur legt einen Datensatz FUER einen Kunden an.
+    // `org_id` = Kunde, gehandelt wird als Agentur. Wuerde der Body als
+    // Kontextwechsel gelesen, scheiterte der legitime Vorgang mit 403.
+    const pool = recordingPool({ rows: [OWNER_MEMBERSHIP] });
+    const logger = mockLogger();
+    const mw = requirePermission("requisition.create", { pool, logger });
+    const req = mockReq({
+      orgId: ORG_ID,
+      orgMembership: OWNER_MEMBERSHIP,
+      body: { org_id: "kunden-org-999" }
+    });
+    const res = mockRes();
+    let nextCalled = false;
+
+    await mw(req, res, () => { nextCalled = true; });
+
+    assert.ok(nextCalled, `Erwartet: durchgelassen, bekam ${res.statusCode} ${JSON.stringify(res.body)}`);
+    assert.strictEqual(req.orgId, ORG_ID, "Der Kontext bleibt die eigene Org");
   });
 });
 
@@ -345,7 +400,7 @@ describe("requirePermission — error handling", () => {
     const pool = { query: async () => { throw dbError; } };
     const logger = mockLogger();
     const mw = requirePermission("requisition.create", { pool, logger });
-    const req = mockReq({ body: { org_id: ORG_ID } });
+    const req = mockReq({ query: { org_id: ORG_ID } });
 
     await assert.rejects(
       () => mw(req, mockRes(), () => {}),
@@ -391,7 +446,7 @@ describe("requireRole — explicit org_id", () => {
     const req = mockReq({
       orgId: ORG_ID,
       orgMembership: OWNER_MEMBERSHIP,
-      body: { org_id: "org-other-999" }
+      query: { org_id: "org-other-999" }
     });
     const res = mockRes();
 
@@ -404,7 +459,7 @@ describe("requireRole — explicit org_id", () => {
     const pool = sequencePool({ rows: [OWNER_MEMBERSHIP] });
     const logger = mockLogger();
     const mw = requireRole(["owner", "admin"], { pool, logger });
-    const req = mockReq({ body: { org_id: ORG_ID } });
+    const req = mockReq({ query: { org_id: ORG_ID } });
     let nextCalled = false;
 
     await mw(req, mockRes(), () => { nextCalled = true; });
@@ -418,7 +473,7 @@ describe("requireRole — explicit org_id", () => {
     const pool = sequencePool({ rows: [VIEWER_MEMBERSHIP] });
     const logger = mockLogger();
     const mw = requireRole(["owner", "admin"], { pool, logger });
-    const req = mockReq({ body: { org_id: ORG_ID } });
+    const req = mockReq({ query: { org_id: ORG_ID } });
     const res = mockRes();
 
     await mw(req, res, () => assert.fail("next() should not be called"));
@@ -436,7 +491,7 @@ describe("requireRole — explicit org_id", () => {
     const pool = sequencePool({ rows: [] }); // no membership
     const logger = mockLogger();
     const mw = requireRole(["owner", "admin"], { pool, logger });
-    const req = mockReq({ body: { org_id: ORG_ID } });
+    const req = mockReq({ query: { org_id: ORG_ID } });
     const res = mockRes();
 
     await mw(req, res, () => assert.fail("next() should not be called"));
@@ -453,7 +508,7 @@ describe("requireRole — explicit org_id", () => {
     const pool = sequencePool({ rows: [dispatcherMembership] });
     const logger = mockLogger();
     const mw = requireRole(["owner", "admin", "dispatcher"], { pool, logger });
-    const req = mockReq({ body: { org_id: ORG_ID } });
+    const req = mockReq({ query: { org_id: ORG_ID } });
     let nextCalled = false;
 
     await mw(req, mockRes(), () => { nextCalled = true; });
@@ -527,7 +582,7 @@ describe("requireRole — error handling", () => {
     const mw = requireRole(["admin"], { pool, logger });
 
     await assert.rejects(
-      () => mw(mockReq({ body: { org_id: ORG_ID } }), mockRes(), () => {}),
+      () => mw(mockReq({ query: { org_id: ORG_ID } }), mockRes(), () => {}),
       (err) => {
         assert.strictEqual(err.message, "pool timeout");
         return true;
@@ -544,7 +599,7 @@ describe("requirePermission — role inheritance via middleware", () => {
     const pool = sequencePool({ rows: [platformAdminMembership] });
     const logger = mockLogger();
     const mw = requirePermission("org.settings", { pool, logger });
-    const req = mockReq({ body: { org_id: ORG_ID } });
+    const req = mockReq({ query: { org_id: ORG_ID } });
     let nextCalled = false;
 
     await mw(req, mockRes(), () => { nextCalled = true; });
@@ -559,7 +614,7 @@ describe("requirePermission — role inheritance via middleware", () => {
     const mw = requirePermission("org.settings", { pool, logger });
     const res = mockRes();
 
-    await mw(mockReq({ body: { org_id: ORG_ID } }), res, () => assert.fail("next() should not be called"));
+    await mw(mockReq({ query: { org_id: ORG_ID } }), res, () => assert.fail("next() should not be called"));
 
     assert.strictEqual(res.statusCode, 403);
     assert.strictEqual(res.body.error, "PERMISSION_DENIED");

@@ -1241,11 +1241,22 @@ export function createMarketplaceRouter(deps) {
       const documentUrl = `/api/marketplace/offers/${req.params.id}/document?type=agreement`;
       const conditionsUrl = `/api/marketplace/offers/${req.params.id}/document?type=conditions`;
 
+      const acceptedOffer = agreementResult.offer || result.offer;
       res.json({
-        offer: agreementResult.offer || result.offer,
+        offer: acceptedOffer,
         agreement_ref: agreementResult.agreement_ref || null,
         document_url: documentUrl,
         conditions_url: conditionsUrl,
+
+        // Zwei Zustaende, zwei Namen. `status` allein war mehrdeutig: es trug den
+        // Status der ANFRAGE ('fulfilled', 'partially_covered', …), waehrend die
+        // Antwort auf ein Angebot ergeht — Aufrufer lasen dort naheliegend den
+        // Angebotsstatus und bekamen einen Wert, den ein Angebot nie annimmt.
+        offer_status: acceptedOffer?.status || "accepted",
+        demand_status: result.demand?.status || null,
+
+        // Unveraendert fuer bestehende Aufrufer. Neue Integrationen nehmen
+        // `offer_status` bzw. `demand_status`.
         status: result.demand?.status || "accepted",
         remaining_open_count: result.demand ? normalizeDemandRemainingOpenCount(result.demand) : null
       });
@@ -1319,7 +1330,10 @@ export function createMarketplaceRouter(deps) {
       const where = status ? "AND o.status = $2" : "";
       const params = status ? [req.session.userId, status] : [req.session.userId];
       const { rows } = await pool.query(
-        `SELECT o.*, d.title AS demand_title, d.role AS demand_role, d.location_city AS demand_city,
+        // `d.requester_company_id` gehoert auch hier dazu — siehe received-offers:
+        // `computeOfferNextAction` braucht beide Seiten, um die Sicht zu bestimmen.
+        `SELECT o.*, d.requester_company_id,
+                d.title AS demand_title, d.role AS demand_role, d.location_city AS demand_city,
                 u.company_name AS requester_name
          FROM offers o
          JOIN demand_requests d ON d.id = o.demand_request_id
@@ -1346,7 +1360,13 @@ export function createMarketplaceRouter(deps) {
     try {
       const limit = Math.min(200, parseInt(req.query.limit, 10) || 50);
       const { rows } = await pool.query(
-        `SELECT o.*, d.title AS demand_title, d.role AS demand_role, d.location_city AS demand_city,
+        // `d.requester_company_id` MUSS mit heraus: `computeOfferNextAction`
+        // entscheidet daran, ob der Betrachter die Bestellerseite ist. Fehlte das
+        // Feld, war `undefined === userId` immer falsch — der Besteller sah sein
+        // eigenes Postfach als "wartet auf die Gegenseite" und bekam eine LEERE
+        // Aktionsliste: kein Annehmen, kein Ablehnen, kein Gegenangebot.
+        `SELECT o.*, d.requester_company_id,
+                d.title AS demand_title, d.role AS demand_role, d.location_city AS demand_city,
                 su.company_name AS supplier_name
          FROM offers o
          JOIN demand_requests d ON d.id = o.demand_request_id

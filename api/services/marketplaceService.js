@@ -752,6 +752,26 @@ export const OFFER_VIEWER_LABELS = {
  * @returns {{ actor_required: ('requester'|'supplier'|'none'), viewer_mode: ('sender'|'receiver'), viewer_state: string, viewer_label: string, actions: string[] }}
  */
 export function computeOfferNextAction(offer, viewerUserId) {
+  // PFLICHTFELDER der uebergebenen Zeile: `supplier_company_id` (auf `offers`) und
+  // `requester_company_id` (auf `demand_requests` — muss mitselektiert werden).
+  //
+  // Fehlt das zweite, ist `undefined === viewerUserId` immer falsch: der Besteller
+  // wird nicht als Besteller erkannt, sein Postfach meldet "wartet auf die
+  // Gegenseite" und die Aktionsliste bleibt leer. Genau das passierte in
+  // `received-offers` und `my-offers`, weil beide Queries nur `o.*` holten. Der
+  // Fehler war unsichtbar — eine plausible, aber falsche Antwort.
+  //
+  // `undefined` heisst "Spalte nicht selektiert" (Programmierfehler), `null`
+  // hiesse "kein Besteller hinterlegt" (Datenlage). Nur der erste Fall wird
+  // gemeldet, und nur ausserhalb der Produktion — laut genug fuer Entwicklung und
+  // Tests, ohne Lograuschen im Betrieb.
+  if (offer && offer.requester_company_id === undefined && process.env.NODE_ENV !== "production") {
+    console.warn(
+      "[marketplace] computeOfferNextAction: 'requester_company_id' fehlt in der Zeile — " +
+      "die Query muss d.requester_company_id mitselektieren, sonst ist die Besteller-Sicht falsch."
+    );
+  }
+
   const viewerIsSupplier = offer?.supplier_company_id === viewerUserId;
   const viewerIsRequester = offer?.requester_company_id === viewerUserId;
   const viewerMode = viewerIsSupplier ? "sender" : (viewerIsRequester ? "receiver" : "receiver");

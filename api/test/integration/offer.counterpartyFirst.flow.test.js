@@ -150,7 +150,13 @@ describe("Offers — counterparty-first flow", { skip: !hasDb && "No database co
       .set("x-csrf-token", reqCsrf3)
       .send({})
       .expect(200);
-    assert.ok(acc.body && acc.body.status === "accepted");
+    // `offer_status` statt `status`: letzteres traegt aus historischen Gruenden den
+    // Status der ANFRAGE ('fulfilled' o. ae.) und war damit nie der Angebotsstatus,
+    // den dieser Test meint.
+    assert.ok(acc.body, "Antwort muss einen Koerper haben");
+    assert.strictEqual(acc.body.offer_status, "accepted", `Angebot muss angenommen sein: ${JSON.stringify(acc.body)}`);
+    assert.strictEqual(acc.body.offer?.status, "accepted", "Auch das eingebettete Angebot traegt den Status");
+    assert.ok(acc.body.demand_status, "Der Anfragestatus wird getrennt ausgewiesen");
   });
 });
 

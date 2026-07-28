@@ -126,7 +126,17 @@ export function createPaymentRouter(deps) {
     if (!["BASIS", "PLUS", "PRO"].includes(plan)) return res.status(400).json({ error: "INVALID_PLAN" });
     const planInfo = PLAN_LIMITS[plan];
     const me = await getUserAndPlan(req.session.userId);
-    const checkoutId = crypto.randomBytes(16).toString("hex");
+    // randomUUID() statt randomBytes(16).toString("hex"):
+    //
+    // `payment_sessions.id` ist eine UUID-Spalte. Postgres akzeptiert eine
+    // bindestrichlose 32-Hex-Kette zwar als Eingabe, speichert sie aber
+    // **normalisiert** — mit Bindestrichen. Der Checkout gab damit
+    // "0123456789abcdef…" zurueck, waehrend jede spaetere Antwort
+    // "01234567-89ab-cdef-…" lieferte: derselbe Vorgang unter zwei Namen.
+    // Clients konnten ihren eigenen Checkout in `GET /payment/history` nicht
+    // wiederfinden, und der Audit-Eintrag (`entity_id: checkoutId`) liess sich
+    // nicht mehr mit der Zeile verbinden, die er beschreibt.
+    const checkoutId = crypto.randomUUID();
 
     if (PAYMENT_MODE === "demo" || paymentMethod === "demo") {
       await paymentService.createPaymentSession(pool, { id: checkoutId, userId: req.session.userId, plan, amount: planInfo.price, method: "demo", orgId: req.orgId });
@@ -275,7 +285,10 @@ export function createPaymentRouter(deps) {
       // (a) Self-Service-Checkout: EINE konsolidierte, wiederkehrende Position.
       //     Bezahlter Betrag == proposed_price_cents (kein Tax/Proration) →
       //     exakter Manipulationsschutz im Webhook (Slice C).
-      const checkoutId = crypto.randomBytes(16).toString("hex");
+      // Kanonische UUID — siehe Begruendung beim ersten Checkout weiter oben:
+      // `payment_sessions.id` ist UUID, eine bindestrichlose Kette kaeme
+      // normalisiert zurueck und passte nicht mehr zum ausgegebenen Wert.
+      const checkoutId = crypto.randomUUID();
       const addonSummary = quote.addons.length
         ? ` + ${quote.addons.map((a) => a.name).join(", ")}`
         : "";

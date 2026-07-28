@@ -36,7 +36,21 @@ export function requirePermission(permission, deps) {
     if (!req.session?.userId) {
       return res.status(401).json({ error: "NOT_AUTHENTICATED" });
     }
-    const explicitOrg = req.body?.org_id || req.query?.org_id || req.params?.org_id;
+    // Nur Adressierung zaehlt als Kontext-Zusicherung: Query und Pfad. NICHT der Body.
+    //
+    // `org_id` im Body ist bei 19 Routen-Schemas ein **Nutzdatum** ("zu welcher Org
+    // gehoert dieser Datensatz"), kein Wunsch, als diese Org zu handeln. Der
+    // klassische Fall ist der Stundenzettel: eine Agentur legt ihn fuer einen Kunden
+    // an — `org_id` = Kunde, `supplier_org_id` = Agentur. Wertet man den Body als
+    // Kontext, wird die Berechtigung gegen die *Kunden*-Org geprueft, in der die
+    // Agentur naturgemaess kein Mitglied ist: der legitime Vorgang scheitert mit
+    // PERMISSION_DENIED, obwohl die Route ihre eigene Grenzpruefung
+    // (org_id ODER supplier_org_id) sauber bestanden haette.
+    //
+    // Der Angriffsfall bleibt gedeckt: `orgContext` faellt bei einem nicht
+    // aufloesbaren Org-Wunsch auf die eigene Org zurueck (siehe dort, Regel 7),
+    // `req.orgId` ist also gesetzt und die Grenzpruefung der Route greift.
+    const explicitOrg = req.query?.org_id || req.params?.org_id;
     if (req.orgId && explicitOrg && explicitOrg !== req.orgId) {
       const roleKey = req.orgMembership?.role_key || req.orgRole || null;
       if (roleKey !== "platform_admin") {
@@ -113,7 +127,21 @@ export function requireRole(allowedRoles, deps) {
     if (!req.session?.userId) {
       return res.status(401).json({ error: "NOT_AUTHENTICATED" });
     }
-    const explicitOrg = req.body?.org_id || req.query?.org_id || req.params?.org_id;
+    // Nur Adressierung zaehlt als Kontext-Zusicherung: Query und Pfad. NICHT der Body.
+    //
+    // `org_id` im Body ist bei 19 Routen-Schemas ein **Nutzdatum** ("zu welcher Org
+    // gehoert dieser Datensatz"), kein Wunsch, als diese Org zu handeln. Der
+    // klassische Fall ist der Stundenzettel: eine Agentur legt ihn fuer einen Kunden
+    // an — `org_id` = Kunde, `supplier_org_id` = Agentur. Wertet man den Body als
+    // Kontext, wird die Berechtigung gegen die *Kunden*-Org geprueft, in der die
+    // Agentur naturgemaess kein Mitglied ist: der legitime Vorgang scheitert mit
+    // PERMISSION_DENIED, obwohl die Route ihre eigene Grenzpruefung
+    // (org_id ODER supplier_org_id) sauber bestanden haette.
+    //
+    // Der Angriffsfall bleibt gedeckt: `orgContext` faellt bei einem nicht
+    // aufloesbaren Org-Wunsch auf die eigene Org zurueck (siehe dort, Regel 7),
+    // `req.orgId` ist also gesetzt und die Grenzpruefung der Route greift.
+    const explicitOrg = req.query?.org_id || req.params?.org_id;
     if (req.orgId && explicitOrg && explicitOrg !== req.orgId) {
       const roleKey = req.orgMembership?.role_key || req.orgRole || null;
       if (roleKey !== "platform_admin") {

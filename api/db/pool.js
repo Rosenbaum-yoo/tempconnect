@@ -2,6 +2,9 @@
  * DB client: single pool instance. Must be initialized after config.
  */
 
+// Muss vor dem ersten Query stehen: setzt DATE auf 'YYYY-MM-DD' statt UTC-Zeitpunkt
+// (sonst ist jedes Vertrags-/Sperr-/Wochendatum in der Antwort einen Tag zu frueh).
+import "./typeParsers.js";
 import { Pool } from "pg";
 import { config, logger } from "../config/index.js";
 

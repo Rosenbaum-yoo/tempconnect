@@ -9,6 +9,10 @@
 import supertest from "supertest";
 import { Pool } from "pg";
 import { createApp } from "../../app.js";
+import { normalizePlanKey, CANONICAL_PLAN_KEYS } from "../../config/planCatalog.js";
+// DATE bleibt 'YYYY-MM-DD' statt UTC-Zeitpunkt — die Testpools sollen dieselben
+// Werte sehen wie die App (pg haelt Typparser modulweit, der Import genuegt).
+import "../../db/typeParsers.js";
 
 // ─── Guard ────────────────────────────────────────────────────────────────────
 export const hasDb = !!(
@@ -181,9 +185,24 @@ export async function cleanupUser(pool, email) {
  * @param {string} plan - e.g. 'FREE', 'BASIS', 'PLUS', 'PRO'
  */
 export async function ensureSubscription(pool, userId, plan) {
-  // Kanonisierung: subscriptions_plan_check/organizations kennen kein FREE — Alias auf DEMO
-  // (gleiche Semantik wie normalizePlanKey; Downgrade-Tests meinen den Einstiegsplan).
-  const p = plan === "FREE" ? "DEMO" : plan;
+  // Kanonisierung ueber die EINE Wahrheit des Repos (`normalizePlanKey`) statt einer
+  // eigenen Alias-Liste.
+  //
+  // WARUM DAS WICHTIG IST — eine stille Falle, die lange Tests entwertet hat:
+  // `organizations.plan` und `subscriptions.plan` haengen an einem CHECK, der nur
+  // DEMO|BASIS|PLUS|PRO|INDIVIDUELL kennt. Der frueher hier verwendete Alias deckte
+  // nur FREE ab. Wer `ensureSubscription(pool, id, "ENTERPRISE")` aufrief — drei
+  // Integrationsdateien taten das — verletzte den CHECK, das `.catch(() => {})`
+  // unten schluckte den Fehler, und die Org blieb auf **DEMO**. Die Tests liefen
+  // damit gegen den Einstiegsplan und behaupteten, Enterprise zu pruefen: sie
+  // scheiterten spaeter an FEATURE_NOT_ALLOWED oder — schlimmer — waren gruen,
+  // ohne das Gemeinte je erreicht zu haben.
+  const p = normalizePlanKey(plan, { fallback: null });
+  if (!p) {
+    throw new Error(
+      `ensureSubscription: '${plan}' ist kein kanonischer Plan. Erlaubt: ${CANONICAL_PLAN_KEYS.join(", ")} (Aliase wie ENTERPRISE/FREE werden umgesetzt).`
+    );
+  }
 
   // 1) User-Subscription: UPDATE→INSERT statt ON CONFLICT — subscriptions hat KEINEN
   //    Unique-Constraint auf user_id (nur btree-Index), ON CONFLICT (user_id) wirft daher
@@ -202,7 +221,7 @@ export async function ensureSubscription(pool, userId, plan) {
   // 2) Org-Plan: der EFFEKTIVE Plan ist org-first (userService: basePlan = org_plan || dbPlan)
   //    — die Registrierung legt die Org mit plan=DEMO an; ohne diesen Schritt sieht die App
   //    weiterhin DEMO, egal was in subscriptions steht (CAN-1-Root-Cause).
-  await pool.query(
+  const orgUpd = await pool.query(
     `UPDATE organizations SET plan = $1
       WHERE id IN (
         SELECT org_id FROM org_memberships WHERE user_id = $2 AND is_active = TRUE
@@ -210,7 +229,37 @@ export async function ensureSubscription(pool, userId, plan) {
         SELECT org_id FROM users WHERE id = $2 AND org_id IS NOT NULL
       )`,
     [p, userId]
-  ).catch(() => {});
+  );
+
+  // Kein `.catch(() => {})` mehr: ein Fixture, das seinen Plan nicht setzt, laesst
+  // den Test lautlos auf DEMO laufen und das Gemeinte ungeprueft. Lieber hier laut
+  // scheitern als spaeter mit einem raetselhaften FEATURE_NOT_ALLOWED — oder, noch
+  // schlimmer, gruen ohne Aussage.
+  if (!orgUpd.rowCount) {
+    throw new Error(
+      `ensureSubscription: Plan '${p}' konnte fuer Nutzer ${userId} keiner Org zugewiesen werden (keine Mitgliedschaft, keine users.org_id).`
+    );
+  }
+}
+
+/**
+ * Meldet einen bestehenden Nutzer in einer FRISCHEN Session an.
+ *
+ * Noetig, wenn ein Fixture die Org-Zugehoerigkeit eines bereits angemeldeten
+ * Nutzers per SQL veraendert: `orgContext` legt die aufgeloeste Org beim ersten
+ * Request in `req.session._orgCache` ab. Diese Kopie altert nicht mit — der
+ * Nutzer arbeitet danach weiter im alten Org-Kontext, und Grenzpruefungen
+ * antworten mit ORG_BOUNDARY_VIOLATION, obwohl die Mitgliedschaft laengst passt.
+ *
+ * @param {string} email
+ * @param {string} password
+ * @returns {Promise<{agent: import('supertest').SuperAgentTest, csrfToken: string}>}
+ */
+export async function loginAgent(email, password) {
+  const agent = await makeAgent();
+  const csrf = await getCsrf(agent);
+  await agent.post("/api/auth/login").set("x-csrf-token", csrf).send({ email, password }).expect(200);
+  return { agent, csrfToken: await getCsrf(agent) };
 }
 
 /**
