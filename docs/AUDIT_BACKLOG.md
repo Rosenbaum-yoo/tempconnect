@@ -62,11 +62,40 @@ wiederholen, dann steht die Quelle im Protokoll. Nicht weiter blind suchen.
 
 ---
 
-## B-3 · H-4 · docs-consistency-Test (CLAUDE.md §0.12) ⚠️ *can of worms*
-**Was:** Ein leichter Test, der tote Markdown-Links + verwaiste/duplizierte Docs rot werden lässt.
-**Warum gated:** Bei 215 docs/-Dateien findet er voraussichtlich **viele** Alt-Links → eigenes Aufräum-Projekt.
-**Trigger:** Wenn Doku-Drift real schmerzt ODER vor einem „Doku-Audit"-Meilenstein. Dann: erst Test schreiben (nur NEUE Verstöße rot, Bestand als Allowlist), inkrementell abbauen.
-**Wert:** mittel-hoch langfristig, hoher Initialaufwand.
+## B-3 · docs-consistency-Test (CLAUDE.md §0.12) ✅ **ERLEDIGT 2026-07-26**
+**Die Sorge „can of worms" traf nicht zu.** Gemessen statt geschätzt: 250 Markdown-Dateien,
+188 relative Links — davon **2 tot**. Beide waren echte Fehler und in einer Minute behoben
+(`docs/README.md` verwies auf `api/docs/…` statt `../api/docs/…`; die Zieldateien gab es
+längst). Für tote Links braucht es damit **keine Ausnahmeliste** — sie sind ab jetzt
+kompromisslos rot.
+
+**Was der Wächter prüft** (`api/test/docsConsistency.test.js`, 5 Tests):
+1. **Tote Links — strikt.** Jeder relative Markdown-Link muss auf eine existierende Datei
+   zeigen. Kein Bestand, keine Ausnahmen.
+2. **Verwaiste Dokumente — Ratsche.** Eine Datei unter `docs/`, auf die keine andere
+   Markdown-Datei verweist, findet niemand mehr; sie veraltet unbemerkt und widerspricht
+   später dem, was gilt. 177 davon gab es. Alle auf einen Schlag zu verlinken wäre
+   Beschäftigung gewesen, also eine Ratsche gegen
+   `docs/.docs-consistency-baseline.json`: **neue** Verwaiste sind rot, und Einträge, die
+   inzwischen verlinkt sind, **müssen** gestrichen werden — sonst verrottet die Liste und
+   die Ratsche zieht nie an. Die Zahl kann damit nur sinken.
+3. Ein Test stellt sicher, dass überhaupt Dokumente gefunden werden — ein Wächter, der wegen
+   eines Pfadfehlers nichts sieht, wirkt sonst grün und prüft nichts (CLAUDE.md §0.9).
+
+**Gegenprobe, damit er nicht bloß Dekoration ist:** Alle drei Fehlerrichtungen wurden
+absichtlich ausgelöst und gingen rot — toter Link, neue verwaiste Datei, verrotteter
+Bestandseintrag. Jede Meldung nennt die betroffene Datei im Klartext.
+
+**Die Ratsche hat sofort angezogen: 177 → 156.** 21 operativ tragende Dokumente waren
+schlicht in keinem Index und damit unauffindbar — Betriebs- und Notfall-Runbooks,
+Architektur, Marktstart-Plan, Pilot-Unterlagen, Support-Ops, AVV-Vorlage. Sie stehen jetzt
+gruppiert in `docs/README.md`. Nicht verlinkt wurde `docs/launch/**`: das ist die laufende,
+noch nicht committete Arbeit des Owners — ein Link darauf würde den Test in jedem anderen
+Arbeitsverzeichnis rot färben.
+
+**Was bleibt:** 156 unverlinkte Dokumente. Kein Blocker, sondern eine Liste, die bei jedem
+Anfassen kleiner wird. Wer ein Dokument bewusst unverlinkt lassen will, trägt es dort ein —
+mit Begründung im Commit.
 
 ---
 
@@ -344,6 +373,7 @@ Bei jeder Prüfung: **erledigt? noch gültig? neu dazugekommen?** Erledigte Punk
 | 2026-07-25 | Claude | Zugang C-1…C-9 aus dem Enterprise-Audit. B-1…B-5 unverändert offen. Nächste Prüfung: 2026-08-08. |
 | 2026-07-26 | Claude | **C-3, C-6, C-8 erledigt.** B-2: Sonde gebaut, Flake in diesem Lauf nicht reproduzierbar. Neu: **C-10** (Integrationssuite 42 rot — Test-Drift gegen `legacy_access`-Gate). |
 | 2026-07-26 (2) | Claude | **C-2, C-4, C-5, C-9 erledigt.** |
+| 2026-07-26 (4) | Claude | **B-3 erledigt** — Doku-Wächter steht (tote Links strikt, Verwaiste als Ratsche 177→156), Gegenprobe in allen drei Richtungen rot. Offen: B-1 (gated), B-4, B-5, C-1, C-7 (= B-1). |
 | 2026-07-26 (3) | Claude | **C-10 erledigt — Integration 186/186.** Dabei sechs echte Fehler gefunden: Cross-Org-Leck (nachgestellt), fehlender Index (Mig 155), DATE-Versatz um einen Tag, Checkout-ID in zwei Schreibweisen, Angebots-Postfach ohne Aktionen, Lieferanten-Stundenzettel unsichtbar. Offen: B-1 (gated auf Prod-Deploy), B-3, B-4, B-5, C-1, C-7 (= B-1). Nächste Prüfung: 2026-08-09. |
 
 ---

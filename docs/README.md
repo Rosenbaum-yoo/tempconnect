@@ -32,8 +32,68 @@ Dominanter Einstiegs-ICP: groessere Einsatzunternehmen mit wiederkehrenden Zeita
 | [THEME-SYSTEM.md](THEME-SYSTEM.md) | Dark/Light-Theming: Tokens (`--ds-*`, `--tc-*`), `theme.js`, Toggle, Speicherung, Erweiterungshinweise. |
 | [ACCESS-AND-NAVIGATION-GUARDS.md](ACCESS-AND-NAVIGATION-GUARDS.md) | Harte Guards nach Logout, Marktplatz-Access-Absicherung, einheitliche Logo-Zielregel je Login/Rolle. |
 | **API-Docs (unter api/docs/)** | |
-| [api/docs/ENDPOINTS.md](api/docs/ENDPOINTS.md) | Vollständige API-Endpoint-Liste (nach Refactoring). |
-| [api/docs/IDEMPOTENCY-CURL.md](api/docs/IDEMPOTENCY-CURL.md) | Idempotency: Scope pro User, Ablauf 24h, Cleanup-Job, curl-Beispiele. |
+| [api/docs/ENDPOINTS.md](../api/docs/ENDPOINTS.md) | Vollständige API-Endpoint-Liste (nach Refactoring). |
+| [api/docs/IDEMPOTENCY-CURL.md](../api/docs/IDEMPOTENCY-CURL.md) | Idempotency: Scope pro User, Ablauf 24h, Cleanup-Job, curl-Beispiele. |
+
+---
+
+## Betrieb, Architektur, Markt
+
+> Diese Dokumente gab es längst — sie standen nur in keinem Index und waren damit
+> praktisch nicht auffindbar. `api/test/docsConsistency.test.js` hält die Liste ab
+> jetzt ehrlich: tote Links werden sofort rot, und die Zahl unverlinkter Dokumente
+> darf nur noch sinken.
+
+**Betrieb & Notfall**
+
+| Dokument | Inhalt |
+|----------|--------|
+| [RELEASE_RUNBOOK.md](RELEASE_RUNBOOK.md) | Ablauf eines Releases von Freigabe bis Rollback. |
+| [engineering/OPERATIONS_RUNBOOK.md](engineering/OPERATIONS_RUNBOOK.md) | Laufender Betrieb: Wartung, Jobs, wiederkehrende Handgriffe. |
+| [HETZNER_HA_RUNBOOK.md](HETZNER_HA_RUNBOOK.md) | Hochverfügbarkeit auf Hetzner: Aufbau und Umschaltung. |
+| [BACKUP_DISASTER_RECOVERY.md](BACKUP_DISASTER_RECOVERY.md) | Sicherung und Wiederanlauf — inklusive Wiederherstellungsprobe. |
+| [SECURITY_INCIDENTS.md](SECURITY_INCIDENTS.md) | Vorgehen bei Sicherheitsvorfällen: melden, eindämmen, aufarbeiten. |
+
+**Architektur**
+
+| Dokument | Inhalt |
+|----------|--------|
+| [ARCHITEKTUR.md](ARCHITEKTUR.md) | Gesamtaufbau der Plattform auf Deutsch. |
+| [ENTERPRISE_ARCHITECTURE.md](ENTERPRISE_ARCHITECTURE.md) | Enterprise-Schicht: Mandanten, Standorte, Freigaben. |
+| [PRODUCT_ANALYTICS_ARCHITECTURE.md](PRODUCT_ANALYTICS_ARCHITECTURE.md) | Produktdaten: Ereignisse, Trichter, Auswertung. |
+
+**Markt & Pilot**
+
+| Dokument | Inhalt |
+|----------|--------|
+| [MARKTSTART_PLAN.md](MARKTSTART_PLAN.md) | Go-to-Market: Zielkunden, Reihenfolge, Botschaften. |
+| [PILOT_GO_LIVE_TODOS.md](PILOT_GO_LIVE_TODOS.md) | Offene Punkte bis zum Pilotstart (laut CLAUDE.md pflegepflichtig). |
+| [releases/PILOT_GO_LIVE_DECISION.md](releases/PILOT_GO_LIVE_DECISION.md) | Entscheidungsvorlage für den Pilot-Start. |
+| [releases/PHASE_STATUS.md](releases/PHASE_STATUS.md) | Stand der Ausbaustufen. |
+| [enterprise-readiness/PILOT_CUSTOMER_RUNBOOK.md](enterprise-readiness/PILOT_CUSTOMER_RUNBOOK.md) | Betreuung eines Pilotkunden von Aufnahme bis Abnahme. |
+
+**Produkt**
+
+| Dokument | Inhalt |
+|----------|--------|
+| [ONBOARDING_SYSTEM.md](ONBOARDING_SYSTEM.md) | Einführung neuer Organisationen und Nutzer. |
+| [RATE_CARDS.md](RATE_CARDS.md) | Konditionsrahmen: Aufbau, Geltung, Sichtbarkeit. |
+| [features/MULTI_SKILL_ANGEBOTSMANAGEMENT.md](features/MULTI_SKILL_ANGEBOTSMANAGEMENT.md) | Multi-Skill-Angebote — Alleinstellungsmerkmal, Wellenplan. |
+
+**Support-Ops**
+
+| Dokument | Inhalt |
+|----------|--------|
+| [support/api-contract.md](support/api-contract.md) | Schnittstellenvertrag des Support-Bereichs. |
+| [support/implementation-state.md](support/implementation-state.md) | Umsetzungsstand. |
+| [support/security-review.md](support/security-review.md) | Sicherheitsbetrachtung des Support-Zugangs. |
+| [support/handoff-and-go-live.md](support/handoff-and-go-live.md) | Übergabe und Inbetriebnahme. |
+
+**Recht**
+
+| Dokument | Inhalt |
+|----------|--------|
+| [AVV_TEMPLATE.md](AVV_TEMPLATE.md) | Auftragsverarbeitungsvertrag — Vorlage. |
 
 ---
 
