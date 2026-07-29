@@ -20,6 +20,20 @@
 .ts-badge--rejected  { background: rgba(248, 113, 113, .12); color: var(--ds-danger); }
 .ts-badge--cancelled { background: rgba(148, 163, 184, .08); color: var(--ds-text-tertiary); }
 
+/* ── Herkunft ─────────────────────────────────────────────
+   Nur der Ausnahmefall wird beschriftet: ein direkt erfasster Stundenzettel hat
+   keine Meldung der Kraft gegen sich stehen. Zettel aus dem Worker-Portal bleiben
+   unbeschriftet — waere beides markiert, verschwaende die Unterscheidung im Rauschen.
+   Bewusst zurueckhaltend (kein Rot): die manuelle Erfassung ist erlaubt, nicht falsch. */
+.ts-badge--manual {
+  background: rgba(148, 163, 184, .12);
+  color: var(--ds-text-secondary);
+  text-transform: none;
+  letter-spacing: 0;
+  font-weight: 600;
+  margin-top: 4px;
+}
+
 /* ── Table ────────────────────────────────────────────── */
 .ts-table { width: 100%; border-collapse: collapse; font-size: 13px; }
 .ts-table th {

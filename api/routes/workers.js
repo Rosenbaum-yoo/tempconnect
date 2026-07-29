@@ -862,7 +862,10 @@ export function createWorkersRouter(deps) {
                <p style="color:#666;font-size:14px">Der Link ist 7 Tage gültig.</p>`
             );
           } catch (mailErr) {
-            logger.warn({ err: mailErr?.message, email: invite.email }, "Bulk-Invite E-Mail fehlgeschlagen");
+            // `invite_id` statt der Adresse: personenbezogen darf nicht ins Log (S-2),
+            // und die ID ist zum Nachverfolgen ohnehin die bessere Kennung — ueber sie
+            // findet man den Datensatz, die Adresse haette man erst suchen muessen.
+            logger.warn({ err: mailErr?.message, invite_id: invite.id }, "Bulk-Invite E-Mail fehlgeschlagen");
           }
           invited.push({ email: invite.email, invite_id: invite.id });
         } catch (e) {

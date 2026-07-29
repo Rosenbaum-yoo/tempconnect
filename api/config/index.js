@@ -200,7 +200,16 @@ export const logger = pino({
       "*.sessionSecret",
       "*.creditCard",
       "*.ssn",
-      "*.apiKey"
+      "*.apiKey",
+      // Personenbezug: E-Mail-Adressen sind personenbezogene Daten und haben in
+      // Logdateien nichts zu suchen (Audit-Backlog S-2, Owner-Freigabe 2026-07-26).
+      // Das ist bewusst ein Sicherheitsnetz und keine Entschuldigung: die beiden
+      // Stellen, die vorher eine Adresse mitgaben, wurden auf unbedenkliche
+      // Kennungen umgestellt (`invite_id` bzw. die ohnehin vorhandene Rolle) —
+      // ohne Diagnoseverlust. Wer kuenftig eine Adresse loggt, bekommt hier
+      // [REDACTED] und sollte stattdessen eine ID mitgeben.
+      "email",
+      "*.email"
     ],
     censor: "[REDACTED]"
   },

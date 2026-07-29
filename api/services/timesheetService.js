@@ -76,21 +76,25 @@ export async function createTimesheet(pool, data) {
     const { rows } = await client.query(
       `INSERT INTO timesheets
          (org_id, supplier_org_id, assignment_id, worker_name, worker_identifier,
-          week_start, week_end, notes, created_by, status)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,'draft')
+          week_start, week_end, notes, created_by, status, source)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,'draft',$10)
        RETURNING *`,
       [
         data.org_id, data.supplier_org_id, data.assignment_id || null,
         data.worker_name, data.worker_identifier || null,
         data.week_start, data.week_end, data.notes || null,
-        data.created_by || null
+        data.created_by || null,
+        // Herkunft (Mig 156): dieser Weg ist die direkte Erfassung — der Name der Kraft
+        // ist Freitext, es gibt keine Worker-Meldung dagegen. Aufrufer, die aus einer
+        // freigegebenen Meldung heraus anlegen, geben 'worker_submission' mit.
+        data.source === 'worker_submission' ? 'worker_submission' : 'manual'
       ]
     );
     const row = rows[0];
     await auditLog.writeAudit(client, {
       action: 'timesheet.created', entity_type: 'timesheet', entity_id: row.id,
       actor_id: data.created_by,
-      details: { org_id: row.org_id, supplier_org_id: row.supplier_org_id, worker_name: row.worker_name, week_start: row.week_start }
+      details: { org_id: row.org_id, supplier_org_id: row.supplier_org_id, worker_name: row.worker_name, week_start: row.week_start, source: row.source }
     });
     return row;
   });

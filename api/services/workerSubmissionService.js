@@ -688,12 +688,15 @@ export async function acceptIntoTimesheet(pool, submissionId, reviewerUserId) {
 
     // 1. Timesheet anlegen
     const { rows: [ts] } = await client.query(
+      // `source = 'worker_submission'` (Mig 156): dieser Zettel beruht auf einer
+      // Meldung der Kraft selbst — es gibt einen Nachweis. Der Unterschied zur
+      // direkten Erfassung ist in Abrechnung und Streitfall entscheidend.
       `INSERT INTO timesheets
          (org_id, supplier_org_id, assignment_id,
           worker_name, worker_identifier,
           week_start, week_end, status, created_by,
-          notes)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,'draft',$8,$9)
+          notes, source)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,'draft',$8,$9,'worker_submission')
        RETURNING *`,
       [
         sub.org_id, sub.supplier_org_id, sub.assignment_id,
@@ -1016,11 +1019,12 @@ export async function postToTimesheet(pool, submissionId, reviewerUserId) {
 
     // Timesheet anlegen
     const { rows: [ts] } = await client.query(
+      // `source = 'worker_submission'` (Mig 156) — siehe oben.
       `INSERT INTO timesheets
          (org_id, supplier_org_id, assignment_id,
           worker_name, worker_identifier,
-          week_start, week_end, status, created_by, notes)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,'submitted',$8,$9)
+          week_start, week_end, status, created_by, notes, source)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,'submitted',$8,$9,'worker_submission')
        RETURNING *`,
       [
         sub.org_id, sub.supplier_org_id, sub.assignment_id,

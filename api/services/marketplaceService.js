@@ -5,8 +5,11 @@
 
 import { PLAN } from "../config/planFeatures.js";
 import { withTransaction } from "../utils/transaction.js";
+import { createServiceLogger } from "../utils/logger.js";
 import { assertTransition, TransitionError } from "./stateMachine.js";
 import * as capacityExchangeService from "./capacityExchangeService.js";
+
+const log = createServiceLogger("marketplace");
 
 /** Haversine distance in km */
 function haversineKm(lat1, lng1, lat2, lng2) {
@@ -766,9 +769,10 @@ export function computeOfferNextAction(offer, viewerUserId) {
   // gemeldet, und nur ausserhalb der Produktion — laut genug fuer Entwicklung und
   // Tests, ohne Lograuschen im Betrieb.
   if (offer && offer.requester_company_id === undefined && process.env.NODE_ENV !== "production") {
-    console.warn(
-      "[marketplace] computeOfferNextAction: 'requester_company_id' fehlt in der Zeile — " +
-      "die Query muss d.requester_company_id mitselektieren, sonst ist die Besteller-Sicht falsch."
+    log.warn(
+      { offer_id: offer.id ?? null, fehlendes_feld: "requester_company_id" },
+      "computeOfferNextAction: Pflichtfeld fehlt in der Zeile — die Query muss " +
+      "d.requester_company_id mitselektieren, sonst ist die Besteller-Sicht falsch"
     );
   }
 

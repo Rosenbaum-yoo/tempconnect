@@ -47,7 +47,11 @@ export function createDemoRouter(deps) {
       [email]
     );
     if (!rows[0]) {
-      logger.warn({ ...meta, email }, "Demo-User nicht gefunden");
+      // Ohne Adresse: `meta` traegt bereits `{ role }` bzw. `{ plan }`, und genau das
+      // ist die Diagnose — welches Demokonto in der Datenbank fehlt. Die Adresse kam
+      // ohnehin aus der festen Tabelle ROLE_ACCOUNTS/PLAN_ACCOUNTS und war im Log
+      // redundant (Audit-Backlog S-2).
+      logger.warn({ ...meta }, "Demo-User nicht gefunden");
       return res.status(404).json({
         error: "DEMO_USER_NOT_FOUND",
         message: "Demo-Benutzer nicht verfügbar."

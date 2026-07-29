@@ -226,23 +226,36 @@ Routen ist nicht gerechtfertigt. Der Punkt wird geschlossen, damit er nicht auf 
 wieder geöffnet wird; der Auslöser für ein erneutes Hinsehen bleibt derselbe: **wenn ein 500
 bei leeren Daten real auftritt.**
 
-### S-2 · Logger-PII — **gemessen, Entscheidung beim Owner**
-Die Redaktionsliste in `config/index.js` deckt Zugangsdaten vollständig ab (Authorization-
-und Cookie-Header, `*.password`, `*.token`, `*.secret`, `*.apiKey`, `*.creditCard`, `*.ssn`).
-**`email` fehlt** — betroffen sind aber nur **zwei** Logaufrufe.
+### S-2 · Logger-PII ✅ **ERLEDIGT 2026-07-26** *(Owner-Freigabe)*
+`"email"` und `"*.email"` stehen jetzt in `redact.paths` (`config/index.js`).
 
-Das ist eine Abwägung, keine Nachlässigkeit: bei `routes/demo.js:50`
-(„Demo-User nicht gefunden") ist die Adresse *der* diagnostische Wert — es gibt keinen
-Nutzer und damit keine ID, auf die man ausweichen könnte. Redigiert man sie, verliert der
-Logeintrag seinen Zweck.
+**Der befürchtete Zielkonflikt löste sich beim Hinsehen auf.** Ich hatte notiert, bei
+`routes/demo.js` sei die Adresse *der* diagnostische Wert. Falsch — ich hatte nicht
+verfolgt, woher sie kommt: sie stammt aus der festen Tabelle `ROLE_ACCOUNTS`/`PLAN_ACCOUNTS`,
+ist also gar nicht personenbezogen, **und** `meta` trug die eigentliche Diagnose
+(`{ role }` bzw. `{ plan }`) längst mit. Die Adresse war im Log schlicht redundant.
 
-**Owner-Entscheid, eine Zeile:** `"*.email"` in `config/index.js` zu `redact.paths`
-ergänzen — Datenschutz vor Diagnostizierbarkeit — oder bewusst darauf verzichten und die
-zwei Stellen als vertretbar dokumentieren. **Trigger:** vor dem DSGVO-/Security-Review.
+Beide Stellen sind damit ohne jeden Diagnoseverlust umgestellt:
+- `routes/demo.js` — Adresse entfernt; `meta` sagt, welches Demokonto fehlt.
+- `routes/workers.js` — `invite_id` statt Adresse. Über die ID findet man den Datensatz;
+  über die Adresse hätte man erst suchen müssen. Die bessere Kennung, nicht nur die
+  datenschutzfreundlichere.
+
+**Zwei Ebenen, absichtlich beide** (`api/test/loggerPiiRedaction.test.js`): die Redaktion
+als Sicherheitsnetz **und** ein Bestandstest über die Quelldateien, der anschlägt, sobald
+wieder jemand eine Adresse an den Logger gibt. Ein Netz, auf das man sich verlässt, wird
+zum Ruhekissen — und Redaktion greift erst beim Serialisieren, ein `logger.warn({ email })`
+wäre technisch „grün" und trotzdem falsch. Gegenprobe: absichtlicher Verstoß eingebaut,
+Test meldete ihn mit Datei und Zeile.
 
 ### E-1 / E-3 — unverändert auslöserbasiert
-- **E-1:** `createServiceLogger(name)` breiter ausrollen (derzeit 7/153 Services). Additiv,
-  ohne Eigenwert als Sammelaktion. **Beim nächsten Anfassen eines Service mitnehmen.**
+- **E-1:** `createServiceLogger(name)` breiter ausrollen. Additiv, ohne Eigenwert als
+  Sammelaktion — **beim nächsten Anfassen eines Service mitnehmen**, genau so gehandhabt:
+  `marketplaceService` hat ihn 2026-07-26 bekommen. Anlass war eine Zeile, die ich selbst
+  eingebracht hatte: ein `console.warn` (mangels Logger im Geltungsbereich) — und damit das
+  **einzige** `console.*` im gesamten `services/`-Ordner. Es fiel aus dem Muster, umging die
+  Redaktion und trug keinen Service-Kontext. Jetzt strukturiert über `log.warn` mit
+  `offer_id`. Im Ordner steht wieder **kein einziges** `console.*`.
 - **E-3:** Nicht-Service-Module aus `api/services/` umsortieren. Rein organisatorisch, ändert
   kein Verhalten und erzeugt eine breite Diff-Fläche. **Nur bei einem größeren
   Struktur-Refactor.**
@@ -255,7 +268,7 @@ zwei Stellen als vertretbar dokumentieren. **Trigger:** vor dem DSGVO-/Security-
 > Diese Punkte gehören **nicht** zum Befund und sind bewusst nicht im Audit-Commit gelandet —
 > sie sind beim Lesen des Codes nebenbei aufgefallen. Gesammelt statt erzählt (AGENTS.md-Regel).
 
-### C-1 · „Zwei parallele Timesheet-Systeme" 🟢 **PRÄMISSE WIDERLEGT 2026-07-26** — Restfrage ist klein
+### C-1 · „Zwei parallele Timesheet-Systeme" ✅ **ERLEDIGT 2026-07-26** — Prämisse widerlegt, Restfrage umgesetzt
 
 **Der Eintrag beschrieb zwei konkurrierende Wahrheiten. Das stimmt nicht.** Am Code
 nachgeprüft (nicht aus dem Gedächtnis):
@@ -279,12 +292,27 @@ der Kraft ist dort ein Freitextfeld; es gibt keine Worker-Meldung, die den Stund
 gegenübersteht. Das ist kein Datenmüll, sondern eine bewusste Abkürzung — und für Agenturen,
 deren Kräfte das Portal nicht nutzen, ist sie der einzige Weg.
 
-**Owner-Entscheid (Produkt, nicht Technik):** bleibt die manuelle Erfassung als
-gleichberechtigter Weg, oder wird sie zum ausdrücklichen Ausnahmefall (z. B. Kennzeichnung
-`source: manual` am Datensatz, damit in Abrechnung und Streitfall sichtbar ist, dass kein
-Worker-Nachweis dahintersteht)? Die zweite Variante ist ~1 h Arbeit — Migration für eine
-Spalte plus Anzeige — und deutlich weniger als die ursprünglich veranschlagten 2–3 h für
-einen Rückbau, der die Rechnungsstellung getroffen hätte.
+**Owner-Entscheid gefallen (2026-07-26): Kennzeichnung statt Rückbau.** Umgesetzt:
+
+- **Migration 156** ergänzt `timesheets.source` (`manual` | `worker_submission`), NOT NULL,
+  mit CHECK. Der Bestand wurde **nicht geraten**, sondern hergeleitet: jede Zeile, auf die
+  eine Worker-Meldung zeigt, ist `worker_submission`, alles Übrige `manual` — die
+  konservative Richtung, im Zweifel „kein Nachweis" statt fälschlich „geprüft".
+  NOT NULL kommt nach dem Backfill, sonst sprengt die Migration jeden Bestand.
+  Partieller Index auf `source = 'manual'`, denn „zeig mir alle ohne Nachweis" ist der
+  Grund für die Spalte.
+- **Beide Schreibwege gekennzeichnet:** `timesheetService.createTimesheet` schreibt
+  `manual` (unbekannte Werte fallen konservativ auf `manual`, nie auf „belegt"), die zwei
+  Übernahmepfade in `workerSubmissionService` schreiben `worker_submission`. Die Herkunft
+  steht zusätzlich im Audit-Eintrag.
+- **Anzeige:** nur der Ausnahmefall wird beschriftet — „Ohne Worker-Nachweis" mit
+  erklärendem Tooltip. Zettel aus dem Portal bleiben unbeschriftet; markierte man beide,
+  ginge der Unterschied im Rauschen unter. Bewusst zurückhaltend gestaltet (kein Rot): die
+  manuelle Erfassung ist erlaubt, nicht falsch.
+- **12 Tests** (`api/test/timesheetSource.test.js`), Migration gegen die echte DB angewandt
+  und der Backfill verifiziert (3 belegt / 7 manuell). Im Browser gegen die echte CSS
+  geprüft: Badge sichtbar, Design-Token aufgelöst, optisch von den Status-Badges
+  unterscheidbar.
 
 **Nebenbefund (2026-07-26 mitbehoben):** die Lieferantenseite dieser Strecke war schlicht
 kaputt — `GET /api/timesheets` filterte nur auf die Käuferseite, eine Agentur sah ihre
@@ -386,28 +414,35 @@ Org-Boundary-Guards halten tatsächlich. Vor jedem Release mitlaufen lassen.
 genommen; beide Verzeichnisse stehen in `.gitignore`. `git status` zeigt kein Bundle-Rauschen
 mehr. Begründung und Nachweis: siehe **B-1**.
 
-### C-11 · `support-ops-dist/index.html`: Platzhalter committet, echter Build nur lokal 🟠 *neu 2026-07-26*
-**Was:** Die **committete** Datei ist ein Platzhalter (`<title>Support Ops Placeholder</title>`).
-Im Arbeitsverzeichnis liegt **uncommittet** die echte gebaute Oberfläche (12 Zeilen statt 42,
-anderer Aufbau). Beobachtet beim Aufräumen von B-1, **nicht von mir verursacht**.
+### C-11 · `support-ops-dist/index.html`: Platzhalter ✅ **GEKLÄRT 2026-07-26 — kein Fehler**
 
-**Warum das zählt:** Diese Datei ist Pflichtbestandteil des Release-Artefakts (CI-Check
-`check_required_file "support-ops-dist/index.html"`), und der Prod-Stack mountet
-`./support-ops-dist` direkt — es gibt für sie **keinen** Build-Schritt beim Deploy
-(`frontend-build` fährt nur `build:occ` + `build:scc`). Produktion liefert unter
-`/support-ops/` also genau das aus, was im Repo liegt: den Platzhalter. Lokal sieht man das
-nicht, weil dort die uncommittete echte Datei gemountet ist — die Abweichung fällt erst im
-Betrieb auf.
+**Meine erste Einschätzung war zu alarmierend.** Ich hatte notiert, Produktion liefere unter
+`/support-ops/` einen Platzhalter aus und das sei zu entscheiden. Die Entscheidung war
+längst getroffen und steht dokumentiert — ich hatte nur nicht nachgesehen.
 
-**Zwei Möglichkeiten, beide Owner-Sache:**
-1. Support-Ops soll live sein → den echten Build committen (und festlegen, wie er künftig
-   entsteht: eigener `build:soc`-Schritt im Prod-Stack statt Handkopie).
-2. Support-Ops ist bewusst noch nicht live → dann gehört der Platzhalter dorthin, und die
-   lokale Datei ist ein Arbeitsstand, der nicht ins Repo darf.
+`docs/support/handoff-and-go-live.md` führt die SOC-Go-Live-Checkliste, und sie ist
+**offen**:
+- [ ] Migration 110 in Zielumgebung ausgerollt
+- [ ] Support-Agenten/Vendoren produktiv gepflegt
+- [ ] `SUPPORT_OPS_ENABLED=true` gesetzt
+- [ ] `/support-ops/`-Artefakte nach `support-ops-dist/` synchronisiert
+      (`scripts/sync-support-ops-artifacts.sh` — existiert)
 
-**Nicht selbst entschieden:** eine Support-Oberfläche scharf zu schalten ist eine
-Produktentscheidung, und die Herkunft des lokalen Builds ist nicht nachvollziehbar.
-**Trigger:** vor dem nächsten Deploy.
+**Support-Ops ist bewusst noch nicht live. Der committete Platzhalter ist damit korrekt**,
+und der echte Build im Arbeitsverzeichnis ist ein lokaler Arbeitsstand, der dort auch
+hingehört, bis die Punkte abgearbeitet sind.
+
+**Mitgeprüft, weil es beunruhigend aussah:** `SUPPORT_OPS_ENABLED` steht per Default auf
+`true` (`config/index.js:135`), obwohl die Checkliste verlangt, es zu setzen. Das ist
+**keine** Lücke: `requireSupportAccess` staffelt drei Hürden — Flag (503), Anmeldung (401)
+und `getSupportAgent()` (403 `NOT_SUPPORT_STAFF`). Ohne gepflegten, aktiven Support-Agenten
+kommt niemand durch, und genau dieser Punkt ist offen. Der Default ist bequem, nicht
+gefährlich.
+
+**Was bleibt — eine Warnung, kein Ticket:** solange der echte Build ungetrackt auf dem
+committeten Platzhalter liegt, würde ein `git add -A` eine halbfertige Oberfläche
+ausliefern. Beim Freischalten die Checkliste abarbeiten und den Build über das dafür
+vorgesehene Skript synchronisieren — nicht von Hand kopieren.
 
 ### C-8 · Verwaister Stash ✅ **ERLEDIGT 2026-07-26**
 `stash@{0}` enthielt Build-Artefakt-Rauschen plus **eine** echte Änderung: die nginx-Regel
@@ -559,6 +594,7 @@ Bei jeder Prüfung: **erledigt? noch gültig? neu dazugekommen?** Erledigte Punk
 | 2026-07-25 | Claude | Zugang C-1…C-9 aus dem Enterprise-Audit. B-1…B-5 unverändert offen. Nächste Prüfung: 2026-08-08. |
 | 2026-07-26 | Claude | **C-3, C-6, C-8 erledigt.** B-2: Sonde gebaut, Flake in diesem Lauf nicht reproduzierbar. Neu: **C-10** (Integrationssuite 42 rot — Test-Drift gegen `legacy_access`-Gate). |
 | 2026-07-26 (2) | Claude | **C-2, C-4, C-5, C-9 erledigt.** |
+| 2026-07-26 (8) | Claude | **Alle Owner-Gates freigegeben und umgesetzt.** S-2 (E-Mail-Redaktion + Bestandswächter), C-1 (Mig 156 `timesheets.source` + Anzeige), C-11 (geklärt: SOC ist bewusst nicht live, Platzhalter korrekt, Flag-Default trotz `true` ungefährlich). **Backlog vollständig abgearbeitet** — offen nur noch die B-4-Dateiverschiebung, die auf `docs/launch/` wartet. |
 | 2026-07-26 (7) | Claude | **B-1 + C-7 erledigt.** Sperre aufgeloest durch echten Prod-Build-Lauf: 31 Bundles neu erzeugt, 27 getrackte Dateien dabei geloescht (`emptyOutDir`) — getrackte Kopien ueberleben keinen Deploy. C-1 neu bewertet (Praemisse widerlegt). **Damit ist die Liste bis auf Owner-Entscheide abgearbeitet:** S-2 (DSGVO-Abwaegung), C-1-Restfrage (manuelle Stundenzettel-Erfassung), B-4-Dateiverschiebung (wartet auf `docs/launch/`). |
 | 2026-07-26 (6) | Claude | **B-5 teilweise erledigt: S-3 + E-2.** S-3: Verantwortlichkeit sitzt jetzt in `writeAudit()` statt an 400 Aufrufstellen (7/319 hatten sie). E-2: nachgemessen — 42 Fundstellen, alle abgesichert, die "48 Routen" waren geschaetzt; geschlossen. B-2: Sonde fest im Runner verdrahtet + Gegenprobe. S-2 gemessen (2 Stellen), Owner-Entscheid. E-1/E-3 bleiben ausloeserbasiert. Offen: B-1 (gated), C-1, C-7 (= B-1), S-2 (Owner). |
 | 2026-07-26 (5) | Claude | **B-4 erledigt** — widersprüchliche Dokumente aufgelöst: Go-Live-Listen auf `docs/GO_LIVE_FINAL.md` (= Remediation D-4), zusätzlich das gefährlichere Release-Runbook-Doppel (CI vs. lokaler Artefaktbau), `DEPLOYMENT.md`-Namenskollision geklärt, abgelaufene Roadmap-Zusage datiert. Dateiverschiebung bewusst offen (kollidiert mit `docs/launch/`). Offen: B-1 (gated), B-5, C-1, C-7 (= B-1). |

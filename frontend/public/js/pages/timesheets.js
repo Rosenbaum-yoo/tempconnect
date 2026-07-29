@@ -127,7 +127,8 @@
       return '<tr>' +
         '<td><div class="ts-worker">' + esc(ts.worker_name) + '</div>' +
              (ts.worker_identifier ? '<div class="ts-period">' + esc(ts.worker_identifier) + '</div>' : '') +
-             '<div class="ts-period">' + esc(ts.supplier_org_name || ts.supplier_org_id) + '</div></td>' +
+             '<div class="ts-period">' + esc(ts.supplier_org_name || ts.supplier_org_id) + '</div>' +
+             sourceBadge(ts.source) + '</td>' +
         '<td><div>' + fmtDate(ts.week_start) + '</div><div class="ts-period">' + fmtDate(ts.week_end) + '</div></td>' +
         '<td><div class="ts-hours">' + fmtH(ts.total_hours) + ' h</div>' +
              (ts.overtime_hours > 0 ? '<div class="ts-hours-ot">Ü ' + fmtH(ts.overtime_hours) + ' h</div>' : '') + '</td>' +
@@ -389,6 +390,19 @@
   function badge(status) {
     var label = { draft:'Entwurf', submitted:'Eingereicht', approved:'Genehmigt', rejected:'Abgelehnt', cancelled:'Storniert' };
     return '<span class="ts-badge ts-badge--' + status + '">' + (label[status] || status) + '</span>';
+  }
+
+  /* Herkunft des Zettels (Mig 156).
+     Nur die direkte Erfassung wird beschriftet — sie hat keine Meldung der Kraft gegen sich
+     stehen, und genau das muss man in der Abrechnung und im Streitfall sehen. Zettel aus dem
+     Worker-Portal sind der Normalfall und bleiben unbeschriftet; markierte man beide, ginge
+     der Unterschied im Rauschen unter. Unbekannte Werte erzeugen nichts, damit eine spaetere
+     dritte Herkunft nicht faelschlich als "manuell" erscheint. */
+  function sourceBadge(source) {
+    if (source !== 'manual') return '';
+    return '<span class="ts-badge ts-badge--manual" ' +
+           'title="Direkt erfasst — es liegt keine Stundenmeldung der Einsatzkraft vor.">' +
+           'Ohne Worker-Nachweis</span>';
   }
 
   // Modal close on overlay click
