@@ -99,8 +99,35 @@ protokolliert. Nebenbefund: eine Rejection ohne nachfolgendes `await` im selben 
 unter `--test-force-exit` nicht mehr sichtbar — wer die Sonde prüft, muss dem Prozess einen
 Tick Zeit lassen.
 
-**Nächster Schritt:** nichts tun außer weiterarbeiten. Beim nächsten roten Lauf steht die
-Quelle im Protokoll. Nicht weiter blind suchen.
+**Untersuchung 2026-07-26 (3) — drei Mechanismen ausgeschlossen.** Der Flake trat an diesem
+Tag insgesamt dreimal auf, jedes Mal mit angehängter Sonde und identischer Signatur:
+Datei-Level-Fail, **alle 65 Untertests bestehen** (`pass` ist im roten wie im grünen Lauf
+gleich, nur die Gesamtzahl steigt um den synthetischen Eintrag), und die Sonde meldet
+**nichts**. Damit ist ausgeschlossen:
+
+1. **Unbehandelte Rejection** — der Handler ist nachweislich wirksam (Gegenprobe über den
+   offiziellen Runner bestanden). Das war die ursprünglich dokumentierte Hauptvermutung.
+2. **Uncaught Exception** — derselbe Handler deckt sie ab.
+3. **Exit-Code ≠ 0** — der eigens ergänzte Exit-Melder schweigt ebenfalls. Der Kindprozess
+   endet also *nicht* mit Fehler.
+
+Wenn jeder Test besteht, nichts geworfen wird und der Prozess sauber endet, bleibt als
+Erklärung, dass der Prozess das Ende gar nicht erreicht: **`--test-force-exit` räumt ihn ab,
+solange noch ein Handle offen ist.** Bei einem Kill laufen `exit`-Handler nicht — genau das
+passt zum Schweigen der Sonde.
+
+Gegen die naheliegende Quelle geprüft und **nicht** bestätigt: `me.route.coverage.test.js`
+enthält keine Timer und keine nicht abgewarteten Aufrufe, `routes/me.js` kein
+Fire-and-Forget. Das Handle käme demnach aus einem der beteiligten Services.
+
+**Bewusst nicht weiter verfolgt.** Der Ertrag sinkt, und es ist unverändert **kein
+Produktionsfehler** — er tritt nur unter dem künstlichen Mock-Aufbau und nur unter Last auf.
+Wer daran weiterarbeitet, setzt hier an: die Sonde um einen SIGTERM-Handler ergänzen, der
+`process._getActiveHandles()` ausgibt — **vorsichtig**, denn ein registrierter
+SIGTERM-Handler unterdrückt in Node das Standard-Beenden und kann Testprozesse hängen
+lassen; er muss selbst `process.exit()` aufrufen. Genau deshalb steht er nicht schon drin.
+
+**Nächster Schritt:** nichts tun außer weiterarbeiten. Die Sonde bleibt scharf.
 
 ---
 

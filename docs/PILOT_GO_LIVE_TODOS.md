@@ -1,7 +1,7 @@
 # TempConnect - Pilot/Go-Live TODOs
 Quelle: fundierte Projektbewertung April 2026, abgeleitet aus realem Ist-Zustand (65 Routes, 102 Services, 156 Tests, 98 Migrationen, 6-Job-CI, 289/290 Audit-Coverage).
 Dieses File wird automatisch gepflegt, solange die Regel in `AGENTS.md` ("Pilot-TODO-Pflege") aktiv ist. Erledigte Punkte wandern nach `## Done`. Neue Blocker, die in Sessions auftauchen, werden als P0/P1/P2 angelegt.
-Letzte Aktualisierung: 2026-06-13 — **Welle F1 (Code-Schlussarbeiten) abgeschlossen + committet** (`9f37250`/`1044343`/`878b022`/`845b6c9`): Prod-Härtung, Security-Quick-Wins, Hygiene-Sweep, Test-Harness-Folge inkl. eines gefundenen+gefixten requireMfa-SCC-Betriebsblockers; volle Suite 4508/0, Lint 0/0, Builds grün — siehe Abschlussbericht im Worklog. Marktstart-Ziel auf **01.09.2026** aktualisiert (UG-Gründung = kritischer Pfad). Vorher: 2026-06-11 — **Der konsolidierte Vorwaerts-Plan bis zur finalen Abnahme (Wellen F0-F6) liegt in `docs/finalization/FINALISIERUNGSPLAN_ABNAHME.md`** und mappt ALLE offenen Punkte dieses Files (P0.4, P1.0, P1.4, E-01, P2.x) + Gap-Register O-01-O-11 + Audit-Funde 2026-06-11 auf Wellen/Phasen mit Abnahmekriterien. Vorher: 2026-06-05 (Go-Live-Haertung abgeschlossen, „drei wie empfohlen" Owner-approved: P0.6 [052-Demo-Seed-Backdoor] via Env-Flag-Gate `SEED_DEMO_WORLD` [migrate.sh PGOPTIONS-GUC + 052 DO-Guard + Compose-Split base/prod=false, override=true] + Remediation-Migration 125 [Hash-Neutralisierung der 6 Demo-Konten, gegated+idempotent]; P0.7 Tier-2 [Bestands-DB-116-Backstop] via Forward-Repair-Migration 126 [nicht-transaktional, per-Tabelle-to_regclass-guarded, idempotent]; subscriptions-RLS-Exclusion bestaetigt. Verifiziert auf zwei Wegwerf-DBs [beide Flag-Pfade + Nicht-Superuser-Deny-by-Default-Laufzeitbeweis], realer Stack unberuehrt. AKTIVIERUNG: 126 schaltet Deny-by-Default+FORCE RLS beim naechsten migrate-Lauf gegen Bestands-/Managed-DB scharf. Alle Diffs uncommitted = Owner-Commit-Gate. Vorherige offene Owner-Tasks bleiben: P0.4, P1.4-Live-Run, E-01, R2/R9 extern).
+Letzte Aktualisierung: 2026-07-26 — **P1.0 Schritt (d) erledigt**: `.env.prod.example` kannte `STAFF_SESSION_SECRET` nicht, obwohl die Variable in Produktion ein `fatal()` ausloest — ein Deploy nach dieser Vorlage waere nicht gestartet. Ergaenzt + Waechter `api/test/prodEnvTemplate.test.js`, der Pflichtvariablen aus dem Code gegen die Vorlage prueft. Ebenfalls am 2026-07-26: `docs/AUDIT_BACKLOG.md` vollstaendig abgearbeitet (u. a. ein ausnutzbares Cross-Org-Leck geschlossen). Vorher: 2026-06-13 — **Welle F1 (Code-Schlussarbeiten) abgeschlossen + committet** (`9f37250`/`1044343`/`878b022`/`845b6c9`): Prod-Härtung, Security-Quick-Wins, Hygiene-Sweep, Test-Harness-Folge inkl. eines gefundenen+gefixten requireMfa-SCC-Betriebsblockers; volle Suite 4508/0, Lint 0/0, Builds grün — siehe Abschlussbericht im Worklog. Marktstart-Ziel auf **01.09.2026** aktualisiert (UG-Gründung = kritischer Pfad). Vorher: 2026-06-11 — **Der konsolidierte Vorwaerts-Plan bis zur finalen Abnahme (Wellen F0-F6) liegt in `docs/finalization/FINALISIERUNGSPLAN_ABNAHME.md`** und mappt ALLE offenen Punkte dieses Files (P0.4, P1.0, P1.4, E-01, P2.x) + Gap-Register O-01-O-11 + Audit-Funde 2026-06-11 auf Wellen/Phasen mit Abnahmekriterien. Vorher: 2026-06-05 (Go-Live-Haertung abgeschlossen, „drei wie empfohlen" Owner-approved: P0.6 [052-Demo-Seed-Backdoor] via Env-Flag-Gate `SEED_DEMO_WORLD` [migrate.sh PGOPTIONS-GUC + 052 DO-Guard + Compose-Split base/prod=false, override=true] + Remediation-Migration 125 [Hash-Neutralisierung der 6 Demo-Konten, gegated+idempotent]; P0.7 Tier-2 [Bestands-DB-116-Backstop] via Forward-Repair-Migration 126 [nicht-transaktional, per-Tabelle-to_regclass-guarded, idempotent]; subscriptions-RLS-Exclusion bestaetigt. Verifiziert auf zwei Wegwerf-DBs [beide Flag-Pfade + Nicht-Superuser-Deny-by-Default-Laufzeitbeweis], realer Stack unberuehrt. AKTIVIERUNG: 126 schaltet Deny-by-Default+FORCE RLS beim naechsten migrate-Lauf gegen Bestands-/Managed-DB scharf. Alle Diffs uncommitted = Owner-Commit-Gate. Vorherige offene Owner-Tasks bleiben: P0.4, P1.4-Live-Run, E-01, R2/R9 extern).
 ## Status-Legende
 - **P0** - harter Blocker, verhindert gruene CI oder stabile Produktion. Muss vor Go-Live weg.
 - **P1** - soll vor erstem Pilotkunden live sein (Vertrag, Sicherheit, Demo-Glaubwuerdigkeit).
@@ -64,9 +64,33 @@ Letzte Aktualisierung: 2026-06-13 — **Welle F1 (Code-Schlussarbeiten) abgeschl
 - Tier-2 erledigt (2026-06-05) via `126_rls_forward_repair.sql`: NICHT-transaktional, EIN per-`to_regclass` abgesicherter `DO`-Block pro Tabelle (requisitions/timesheets/invoices/org_memberships/compliance_documents/subscription_requests/commercial_offers/audit_log; vendor_pool_entries als out-of-scope-Guard) — CREATE OR REPLACE der Helfer `current_org_id()`/`is_staff_context()`, dann je Tabelle ENABLE RLS + DROP der IS-NULL-Wildcards + DROP/CREATE same_org & staff_bypass (USING-Klauseln 1:1 aus 031/116), FORCE RLS nur auf req/ts/inv. Idempotent (DROP IF EXISTS + identisches CREATE), resilient (ein fehlendes Objekt ueberspringt nur SEINEN Block, reisst nie den Backstop mit), auf Bestands-DBs erstmals wirksam, auf frischen DBs folgenloser No-Op. `subscriptions`-RLS-Exclusion bestaetigt (user-skaliert via user_id, kein org_id; eine Membership-Bruecke wuerde persoenliche Billing-Daten cross-org leaken — Schutz bleibt App-Layer). **AKTIVIERUNGS-HINWEIS:** 126 schaltet Deny-by-Default + FORCE RLS beim NAECHSTEN migrate-Lauf gegen Bestands-/Managed-DBs scharf. Lokal ist `tempconnect` Superuser → RLS-inert (kein Breakage); auf Managed-DB (Nicht-Superuser-App-User) wird der Backstop real wirksam = gewollter Mandanten-Schutz.
 ## P1 - Vor Pilotkunde (Summe 2-3 Personentage)
 ### P1.0 - Staff Control Center produktiv schalten
-- Status: OFFEN
+- Status: **Schritt (d) ERLEDIGT (2026-07-26) — dabei einen Startblocker gefunden.** Rest bleibt Ops/Owner.
 - Fakt: SCC-Stack ist live im Code (Migrationen 095+096, Router `/staff/api`, Frontend `/public/staff/`, Tests gruen). Ops-Schritte fehlen: Nginx-VHost `staff.tempconnect.de`, ENV `STAFF_USER_IDS` (2 UUIDs: Elmira + Mitarbeiter), `STAFF_SESSION_SECRET`, optional `HETZNER_CLOUD_TOKEN`.
-- Aktion: (a) Nginx-VHost fuer Staff-Subdomain anlegen, (b) dediziertes TLS-Zertifikat, (c) optional IP-Allowlist auf VHost-Ebene, (d) ENV in `.env.example` dokumentieren + in Prod-Compose injizieren, (e) Initial-Staff-UUIDs (Elmira + Mitarbeiter) in `STAFF_USER_IDS`, (f) `HETZNER_CLOUD_TOKEN` fuer Live-Infra-GUI (sonst bleibt SCC im Stub-Mode).
+- Aktion: (a) Nginx-VHost fuer Staff-Subdomain anlegen, (b) dediziertes TLS-Zertifikat, (c) optional IP-Allowlist auf VHost-Ebene, ~~(d) ENV in `.env.example` dokumentieren + in Prod-Compose injizieren~~, (e) Initial-Staff-UUIDs (Elmira + Mitarbeiter) in `STAFF_USER_IDS`, (f) `HETZNER_CLOUD_TOKEN` fuer Live-Infra-GUI (sonst bleibt SCC im Stub-Mode).
+
+**(d) erledigt — und der Punkt war groesser als beschrieben.**
+Nachgeprueft statt angenommen: „in Prod-Compose injizieren" war bereits erfuellt, der
+`api`-Dienst laedt `env_file: .env`, alle Variablen erreichen den Container ohnehin. Und
+`.env.example` dokumentierte alle drei Werte laengst.
+
+**Offen war die Produktionsvorlage — und dort mit Folgen:** `.env.prod.example` (die Datei,
+die laut Kopf „auf dem Server nach `.env.prod` kopiert" wird) kannte `STAFF_SESSION_SECRET`
+nicht. Diese Variable ist in Produktion kein Komfort, sondern ein **`fatal()`** in
+`runProductionValidation()` — der Rueckfall auf `SESSION_SECRET + ':staff'` ist dort
+ausdruecklich verboten. Wer die Produktion nach der Vorlage aufgesetzt haette, waere mit
+einer scheinbar vollstaendigen `.env.prod` dagestanden und **die API waere nicht
+hochgekommen**. Aufgefallen erst beim Deploy — im ungeeignetsten Moment.
+
+Ergaenzt wurde ein eigener SCC-Abschnitt in `.env.prod.example` mit allen drei Werten und
+je einer Zeile, die sagt, was passiert, wenn man sie weglaesst (kein Zugang / Stub-Modus /
+Start bricht ab).
+
+**Damit es nicht wiederkommt:** `api/test/prodEnvTemplate.test.js` liest die Pflichtvariablen
+**aus dem Code** (welche Bedingungen fuehren zu `fatal()`?) und vergleicht sie mit der
+Vorlage. Wer morgen eine neue Pflichtvariable einfuehrt, wird hier daran erinnert, sie zu
+dokumentieren. Der Test prueft ausserdem, dass in der Vorlage keine echten Werte stehen
+(sie liegt im Repo **und** im Release-Artefakt) und dass Staff- und Kundensitzung nicht
+denselben Platzhalter teilen. Gegenprobe in beide Richtungen bestanden.
 - Aufwand: 0,5-1 Tag Ops.
 - Verify: Login nur fuer Allowlist-User, Abo-Kunden/Platform-Admins/Org-Owner bekommen 401/403, Admin-Panel + Organization zeigen keinen Link ins SCC (und umgekehrt).
 ### P1.1 - SSO Enterprise-Pfad (per-Kunde aktivierbar, 300-Kunden-tauglich)
