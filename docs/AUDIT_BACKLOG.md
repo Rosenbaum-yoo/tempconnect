@@ -179,14 +179,24 @@ dieselbe Falle wie zwei Checklisten. Jetzt datiert, mit Verweis auf die Stellen,
 echten Stand führen. (`NAECHSTE-SCHRITTE.md`, `VOR-GELDFLUSS.md`, `MARKTSTART-CHECKLISTE.md`
 trugen bereits Veraltet-Hinweise; `PHASE1-STATUS.md` datiert sich im ersten Satz selbst.)
 
-**Bewusst NICHT gemacht: die neun Root-`.md` nach `docs/` verschieben.** Zwei Gründe. Erstens
-ist es reine Ablage — die inhaltliche Verwirrung ist oben behoben, ein Ortswechsel ändert
-daran nichts. Zweitens baut der Owner parallel `docs/launch/` (A–H) als neue
-Launch-Struktur auf; Dateien darunter zu verschieben, während dort gerade sortiert wird,
-erzeugt Kollisionen statt Ordnung. **Sinnvoll, wenn `docs/launch/` steht** — dann in einem
-Zug und mit dem Doku-Wächter aus B-3 als Netz, der jeden gebrochenen Link sofort rot färbt.
-Die Annahme des ursprünglichen Eintrags, „6 der Root-`.md` sind aus `docs/` verlinkt", trifft
-übrigens nicht mehr zu: von den genannten liegt nur noch `DEPLOYMENT.md` in der Wurzel.
+**Die Dateiverschiebung wird nicht gemacht — geprüft und verworfen (2026-07-26).**
+Nach der inhaltlichen Konsolidierung bleiben von den „neun Root-`.md`" nur **zwei** echte
+Kandidaten übrig, und beide zu verschieben wäre schlechter als sie zu lassen:
+
+- **Fünf sind jetzt Wegweiser** (`GO-LIVE.md`, `RELEASE.md`, `MARKTSTART-CHECKLISTE.md`,
+  `NAECHSTE-SCHRITTE.md`, `VOR-GELDFLUSS.md`). Ihr Zweck ist, an der gewohnten Stelle
+  gefunden zu werden. Verschiebt man sie, verlieren sie ihn.
+- **Fünf sind konventionell am richtigen Ort** (`README`, `CHANGELOG`, `CLAUDE`, `AGENTS`,
+  `DEPLOYMENT`), `WARP-TASKS-PERMANENT.md` ist ausdrücklich als „behalten" markiert.
+- Bleiben `ROADMAP.md` und `PHASE1-STATUS.md`. Beide sind von **nirgends** verlinkt und
+  datieren sich selbst. `ROADMAP.md` ist abgelöst durch
+  `docs/features/PLATFORM_LIVING_ROADMAP.md` — sie daneben nach `docs/` zu legen, würde
+  genau die Doppeldeutigkeit erzeugen, die dieser Punkt beseitigen sollte: zwei Roadmaps
+  im selben Ordner. Stattdessen nennt `ROADMAP.md` jetzt ihre Nachfolgerin im Kopf.
+
+**Der ursprüngliche Eintrag war zudem überholt:** die Annahme „6 der Root-`.md` sind aus
+`docs/` verlinkt" trifft nicht mehr zu — von den genannten liegt nur noch `DEPLOYMENT.md`
+in der Wurzel. Ein Ortswechsel hätte kein Problem gelöst, das nicht schon gelöst ist.
 
 ---
 
@@ -594,6 +604,7 @@ Bei jeder Prüfung: **erledigt? noch gültig? neu dazugekommen?** Erledigte Punk
 | 2026-07-25 | Claude | Zugang C-1…C-9 aus dem Enterprise-Audit. B-1…B-5 unverändert offen. Nächste Prüfung: 2026-08-08. |
 | 2026-07-26 | Claude | **C-3, C-6, C-8 erledigt.** B-2: Sonde gebaut, Flake in diesem Lauf nicht reproduzierbar. Neu: **C-10** (Integrationssuite 42 rot — Test-Drift gegen `legacy_access`-Gate). |
 | 2026-07-26 (2) | Claude | **C-2, C-4, C-5, C-9 erledigt.** |
+| 2026-07-26 (9) | Claude | **Backlog vollstaendig geschlossen.** B-4-Dateiverschiebung geprueft und verworfen: nach der Konsolidierung bleiben zwei Kandidaten, beide von nirgends verlinkt, und  neben die lebende Roadmap zu legen haette genau die Doppeldeutigkeit erzeugt, die dieser Punkt beseitigen sollte. Stattdessen nennt sie ihre Nachfolgerin. **Kein offener Punkt mehr.** Naechste Turnuspruefung: 2026-08-09. |
 | 2026-07-26 (8) | Claude | **Alle Owner-Gates freigegeben und umgesetzt.** S-2 (E-Mail-Redaktion + Bestandswächter), C-1 (Mig 156 `timesheets.source` + Anzeige), C-11 (geklärt: SOC ist bewusst nicht live, Platzhalter korrekt, Flag-Default trotz `true` ungefährlich). **Backlog vollständig abgearbeitet** — offen nur noch die B-4-Dateiverschiebung, die auf `docs/launch/` wartet. |
 | 2026-07-26 (7) | Claude | **B-1 + C-7 erledigt.** Sperre aufgeloest durch echten Prod-Build-Lauf: 31 Bundles neu erzeugt, 27 getrackte Dateien dabei geloescht (`emptyOutDir`) — getrackte Kopien ueberleben keinen Deploy. C-1 neu bewertet (Praemisse widerlegt). **Damit ist die Liste bis auf Owner-Entscheide abgearbeitet:** S-2 (DSGVO-Abwaegung), C-1-Restfrage (manuelle Stundenzettel-Erfassung), B-4-Dateiverschiebung (wartet auf `docs/launch/`). |
 | 2026-07-26 (6) | Claude | **B-5 teilweise erledigt: S-3 + E-2.** S-3: Verantwortlichkeit sitzt jetzt in `writeAudit()` statt an 400 Aufrufstellen (7/319 hatten sie). E-2: nachgemessen — 42 Fundstellen, alle abgesichert, die "48 Routen" waren geschaetzt; geschlossen. B-2: Sonde fest im Runner verdrahtet + Gegenprobe. S-2 gemessen (2 Stellen), Owner-Entscheid. E-1/E-3 bleiben ausloeserbasiert. Offen: B-1 (gated), C-1, C-7 (= B-1), S-2 (Owner). |
