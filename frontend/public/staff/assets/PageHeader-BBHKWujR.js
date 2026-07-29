@@ -1,1 +1,0 @@
-import{j as s}from"./index-DT6jXab4.js";function d({title:a,subtitle:e,actions:c,id:i}){return s.jsxs("div",{className:"scc-section__header",children:[s.jsxs("div",{children:[s.jsx("h1",{className:"scc-section__title",id:i,children:a}),e&&s.jsx("div",{className:"scc-section__sub",children:e})]}),c&&s.jsx("div",{className:"scc-page-header__actions",children:c})]})}export{d as P};

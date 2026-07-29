@@ -107,7 +107,20 @@ release/
 .env*.local
 
 # OCC React Build-Output (Vite generiert, nicht committen)
+# Vite-Build-Ergebnisse. Der Produktions-Stack erzeugt sie beim Deploy selbst
+# (docker-compose.prod.yml, Dienst `frontend-build`: npm ci + build:occ + build:scc),
+# und `emptyOutDir: true` loescht das Zielverzeichnis dabei vollstaendig — nachgewiesen
+# am 2026-07-26: ein Lauf ersetzte alle 31 Bundles und entfernte 27 getrackte Dateien.
+# Getrackte Kopien ueberleben also keinen Deploy; sie erzeugen nur Diff-Laerm und
+# Merge-Konflikte. Nach einem frischen Klon: `npm run build:occ && npm run build:scc`
+# (bzw. build:soc) im Ordner frontend/.
 frontend/owner-control/
+frontend/public/staff/
+frontend/support-ops/
+
+# AUSNAHME: support-ops-dist wird bewusst vorgebaut ausgeliefert — der Prod-Stack mountet
+# es direkt (kein Build-Schritt dafuer), und die CI prueft die Datei als Pflichtbestandteil
+# des Release-Artefakts. Sie gehoert deshalb ins Repo.
 support-ops-dist/*
 !support-ops-dist/index.html
 
