@@ -20,8 +20,9 @@
  */
 
 import { spawnSync } from "node:child_process";
-import { readdirSync } from "node:fs";
+import { readdirSync, existsSync } from "node:fs";
 import { join, relative } from "node:path";
+import { pathToFileURL } from "node:url";
 
 const PROJECT_DIR = join(import.meta.dirname, "..");
 const TEST_DIR = join(PROJECT_DIR, "test");
@@ -142,12 +143,33 @@ if (selectedFiles.length === 0) {
   process.exit(1);
 }
 
+// Diagnose-Sonde fuer unbehandelte Promise-Rejections (Audit-Backlog B-2).
+//
+// Der Flake in `me.route.coverage.test.js` zeigt sich nur im vollen Lauf, nie in
+// Teilmengen, und nie auf Zuruf: die Datei faellt als GANZES aus ("test failed"),
+// waehrend alle 65 Untertests gruen sind — ein Muster, das typischerweise von einer
+// Rejection ausserhalb eines Tests kommt. Wer sie erst bei Auftreten von Hand
+// anhaengt, hat den Lauf schon verloren, in dem sie passiert ist.
+//
+// Die Sonde installiert nur Ereignis-Handler und kostet nichts, solange nichts
+// passiert. NODE_OPTIONS statt eines eigenen `--import`-Arguments, weil node:test
+// pro Testdatei einen Kindprozess startet — nur ueber die Umgebung erreicht die
+// Sonde auch diese.
+//
+// Abschalten: TC_TEST_PROBE=0
+const probePath = join(import.meta.dirname, "unhandled-rejection-probe.mjs");
+const testEnv = { ...process.env };
+if (process.env.TC_TEST_PROBE !== "0" && existsSync(probePath)) {
+  const probeUrl = pathToFileURL(probePath).href;
+  testEnv.NODE_OPTIONS = `${process.env.NODE_OPTIONS || ""} --import ${probeUrl}`.trim();
+}
+
 const result = spawnSync(
   process.execPath,
   ["--test", "--test-force-exit", ...selectedFiles],
   {
     cwd: PROJECT_DIR,
-    env: process.env,
+    env: testEnv,
     stdio: "inherit",
   },
 );

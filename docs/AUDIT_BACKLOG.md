@@ -56,9 +56,28 @@ NODE_OPTIONS="--import file:///…/api/scripts/unhandled-rejection-probe.mjs" \
   node scripts/run-tests.js
 ```
 Der so instrumentierte volle Lauf war **grün (7458 Tests, 0 Fehler) und ohne eine einzige
-Rejection** — der Flake trat in diesem Lauf nicht auf. Damit ist er weiterhin nicht
-gefangen, aber das Werkzeug liegt bereit: beim nächsten roten Lauf einmal mit der Sonde
-wiederholen, dann steht die Quelle im Protokoll. Nicht weiter blind suchen.
+Rejection** — der Flake trat in diesem Lauf nicht auf.
+
+**Untersuchung 2026-07-26 (2) — Sonde fest verdrahtet.** Der Flake trat an diesem Tag erneut
+auf: ein voller Lauf meldete `me.route.coverage.test.js` als **Datei-Level-Fail**, während
+die Datei isoliert **65/65 grün** war. Der unmittelbar folgende instrumentierte Lauf war
+wieder grün, ohne Rejection — der Fehler ist also weiterhin nicht auf Zuruf reproduzierbar.
+
+Genau das ist das eigentliche Problem: **wer die Sonde erst anhängt, wenn es rot war, hat den
+Lauf schon verloren, in dem es passiert ist.** Deshalb hängt sie jetzt **standardmäßig** an
+jedem Lauf über `api/scripts/run-tests.js` (per `NODE_OPTIONS`, weil `node:test` pro Testdatei
+einen Kindprozess startet — nur über die Umgebung erreicht die Sonde auch diese). Sie
+installiert nur Ereignis-Handler und kostet nichts, solange nichts passiert. Abschalten mit
+`TC_TEST_PROBE=0`.
+
+**Gegenprobe, damit das kein Papiertiger ist:** eine absichtlich erzeugte unbehandelte
+Rejection wurde über den offiziellen Runner gefangen und mit Prozessnamen, Meldung und Stack
+protokolliert. Nebenbefund: eine Rejection ohne nachfolgendes `await` im selben Test wird
+unter `--test-force-exit` nicht mehr sichtbar — wer die Sonde prüft, muss dem Prozess einen
+Tick Zeit lassen.
+
+**Nächster Schritt:** nichts tun außer weiterarbeiten. Beim nächsten roten Lauf steht die
+Quelle im Protokoll. Nicht weiter blind suchen.
 
 ---
 
@@ -148,11 +167,62 @@ Die Annahme des ursprünglichen Eintrags, „6 der Root-`.md` sind aus `docs/` v
 
 ---
 
-## B-5 · Welle 6 · Enterprise-Politur 🟢 *niedrig*
-- **E-1:** `createServiceLogger(name)` schrittweise in mehr Services (derzeit 7/153) → Service-Kontext im Log. Additiv, tedious. **Trigger:** beim nächsten Anfassen eines Service ohnehin mitnehmen.
-- **E-2:** Soft-Fail-Audit — 48 Routen mit potenziellem 500 auf `available:false`/Zero-State prüfen. **Trigger:** wenn ein 500-bei-leeren-Daten real auftritt.
-- **E-3:** Nicht-Service-Module aus `api/services/` (stateMachine/notificationMatrix/…) nach `api/lib`/`api/config` umsortieren. Rein organisatorisch. **Trigger:** nur bei größerem Struktur-Refactor.
-- **S-2/S-3 (aus Welle 3):** Logger-PII-Redaction (E-Mail/Query) — DSGVO-Bewertung durch Owner; `responsible_actor_user_id`-Pflicht im `writeAudit`-Wrapper. **Trigger:** vor DSGVO-/Security-Review.
+## B-5 · Enterprise-Politur — **S-3 und E-2 erledigt 2026-07-26**, Rest bewusst offen
+
+### S-3 · Audit-Verantwortlichkeit ✅ **ERLEDIGT**
+CLAUDE.md (Produktionspfeiler 5) fordert `details.responsible_actor_user_id` für **jede**
+mutierende Aktion. Gezählt: **7 von 319** `res.locals.audit`-Markierungen setzten es, dazu
+**98 direkte `writeAudit()`-Aufrufe**, die an der Middleware vorbeigehen. Eine Regel, die an
+rund 400 Stellen einzeln befolgt werden muss, wird nicht befolgt — sie wird vergessen,
+sobald jemand die nächste Route schreibt.
+
+Deshalb sitzt sie jetzt in `writeAudit()` selbst, dem einen Punkt, durch den alles läuft:
+- **Voreinstellung ist der Handelnde.** Ohne Angabe wird `actor_id` eingetragen.
+- **Der Aufrufer gewinnt.** Setzt eine Route das Feld selbst, bleibt ihr Wert stehen — das
+  ist der Fall, in dem Handelnder und Verantwortlicher auseinanderfallen (Support handelt im
+  Auftrag eines Kunden).
+- **Systemvorgänge tragen ausdrücklich `null`.** Ein *fehlendes* Feld wäre mehrdeutig
+  („Cron-Lauf" oder „vergessen?"); ein ausdrückliches `null` ist eindeutig und passt zu
+  `actor_id`, das dann ebenfalls leer ist.
+- Nicht-objektförmige `details` (Array, Zeichenkette) werden unverändert durchgereicht statt
+  in ein Objekt gezwängt — lieber kein Feld als stiller Datenverlust.
+
+9 Tests in `api/test/auditResponsibleActor.test.js`, darunter beide Randfälle.
+
+### E-2 · Soft-Fail-Audit ✅ **GEMESSEN — kein Handlungsbedarf**
+Der Eintrag nannte „48 Routen mit potenziellem 500". Diese Zahl war eine Schätzung, keine
+Messung. Nachgemessen wurde das Muster, das bei leeren Daten tatsächlich abstürzt —
+`X.rows[0].feld` ohne Absicherung: **42 Fundstellen, 23 nachweislich abgesichert, 19
+Kandidaten.** Die 19 wurden einzeln gegengelesen: **alle sind Fehlalarme** des
+Suchfensters — die Absicherung steht jeweils weiter oben, etwa
+`if (!u.rows[0]) return null;` (`userService.js:183`) oder `if (om.rows[0]) { … }`
+(`userService.js:232`), das den gesamten Block umschließt.
+
+**Ergebnis: die Soft-Fail-Disziplin ist im Bestand bereits durchgehalten.** Ein Audit über 48
+Routen ist nicht gerechtfertigt. Der Punkt wird geschlossen, damit er nicht auf Verdacht
+wieder geöffnet wird; der Auslöser für ein erneutes Hinsehen bleibt derselbe: **wenn ein 500
+bei leeren Daten real auftritt.**
+
+### S-2 · Logger-PII — **gemessen, Entscheidung beim Owner**
+Die Redaktionsliste in `config/index.js` deckt Zugangsdaten vollständig ab (Authorization-
+und Cookie-Header, `*.password`, `*.token`, `*.secret`, `*.apiKey`, `*.creditCard`, `*.ssn`).
+**`email` fehlt** — betroffen sind aber nur **zwei** Logaufrufe.
+
+Das ist eine Abwägung, keine Nachlässigkeit: bei `routes/demo.js:50`
+(„Demo-User nicht gefunden") ist die Adresse *der* diagnostische Wert — es gibt keinen
+Nutzer und damit keine ID, auf die man ausweichen könnte. Redigiert man sie, verliert der
+Logeintrag seinen Zweck.
+
+**Owner-Entscheid, eine Zeile:** `"*.email"` in `config/index.js` zu `redact.paths`
+ergänzen — Datenschutz vor Diagnostizierbarkeit — oder bewusst darauf verzichten und die
+zwei Stellen als vertretbar dokumentieren. **Trigger:** vor dem DSGVO-/Security-Review.
+
+### E-1 / E-3 — unverändert auslöserbasiert
+- **E-1:** `createServiceLogger(name)` breiter ausrollen (derzeit 7/153 Services). Additiv,
+  ohne Eigenwert als Sammelaktion. **Beim nächsten Anfassen eines Service mitnehmen.**
+- **E-3:** Nicht-Service-Module aus `api/services/` umsortieren. Rein organisatorisch, ändert
+  kein Verhalten und erzeugt eine breite Diff-Fläche. **Nur bei einem größeren
+  Struktur-Refactor.**
 
 ---
 
@@ -162,13 +232,41 @@ Die Annahme des ursprünglichen Eintrags, „6 der Root-`.md` sind aus `docs/` v
 > Diese Punkte gehören **nicht** zum Befund und sind bewusst nicht im Audit-Commit gelandet —
 > sie sind beim Lesen des Codes nebenbei aufgefallen. Gesammelt statt erzählt (AGENTS.md-Regel).
 
-### C-1 · Zwei parallele Timesheet-Systeme 🟠 *strukturell*
-**Was:** Legacy `routes/timesheets.js` + `timesheets.html` (`timesheetService`, eigene Statusmaschine,
-manuelle Eingabe von Org-ID/Supplier-Org-ID/Worker-Freitext) läuft weiter neben dem echten System
-`worker_time_submissions`. Aus der Nav ist es raus, ein Wegweiser-Banner steht drin — mehr nicht.
-**Warum riskant:** zwei Wahrheiten für denselben Geschäftsvorfall; wer den alten Weg kennt, erzeugt
-Daten, die im neuen Käufer-Portal nie auftauchen.
-**Trigger:** vor dem Onboarding echter Pilotkunden. **Aufwand:** ~2–3 h.
+### C-1 · „Zwei parallele Timesheet-Systeme" 🟢 **PRÄMISSE WIDERLEGT 2026-07-26** — Restfrage ist klein
+
+**Der Eintrag beschrieb zwei konkurrierende Wahrheiten. Das stimmt nicht.** Am Code
+nachgeprüft (nicht aus dem Gedächtnis):
+
+- **`timesheets` ist nicht die Altlast, sondern der kaufmännische Datensatz.** Acht Services
+  lesen die Tabelle, darunter `operationalInvoiceService` (Rechnungsstellung),
+  `billingMetricsService`, `revenueMetricsService`, `spendAnalyticsService`,
+  `reputationService`, `dataGovernanceService` (DSGVO-Auskunft) und `workforceService`
+  (Live-Belegschaft). Wer sie zurückbaut, nimmt der Rechnungsstellung die Grundlage.
+- **`worker_time_submissions` konkurriert nicht damit, sondern speist sie.**
+  `workerSubmissionService.js:691` und `:1019` legen aus einer freigegebenen Worker-Meldung
+  eine `timesheets`-Zeile an; `sub.timesheet_id` verknüpft beide, `TIMESHEET_ALREADY_EXISTS`
+  verhindert Doppelungen. Es ist **eine Kette mit zwei Schichten**: die Kraft meldet Stunden
+  (Nachweisschicht) → daraus entsteht der kaufmännische Datensatz (Abrechnungsschicht).
+- Die Sorge „erzeugt Daten, die im Käufer-Portal nie auftauchen" trifft damit **nicht** zu:
+  beide Wege münden in dieselbe Tabelle.
+
+**Was tatsächlich offen ist — und es ist deutlich kleiner:** `POST /api/timesheets` ist ein
+**zweiter Eingang in die Abrechnungsschicht, der die Nachweisschicht überspringt**. Der Name
+der Kraft ist dort ein Freitextfeld; es gibt keine Worker-Meldung, die den Stunden
+gegenübersteht. Das ist kein Datenmüll, sondern eine bewusste Abkürzung — und für Agenturen,
+deren Kräfte das Portal nicht nutzen, ist sie der einzige Weg.
+
+**Owner-Entscheid (Produkt, nicht Technik):** bleibt die manuelle Erfassung als
+gleichberechtigter Weg, oder wird sie zum ausdrücklichen Ausnahmefall (z. B. Kennzeichnung
+`source: manual` am Datensatz, damit in Abrechnung und Streitfall sichtbar ist, dass kein
+Worker-Nachweis dahintersteht)? Die zweite Variante ist ~1 h Arbeit — Migration für eine
+Spalte plus Anzeige — und deutlich weniger als die ursprünglich veranschlagten 2–3 h für
+einen Rückbau, der die Rechnungsstellung getroffen hätte.
+
+**Nebenbefund (2026-07-26 mitbehoben):** die Lieferantenseite dieser Strecke war schlicht
+kaputt — `GET /api/timesheets` filterte nur auf die Käuferseite, eine Agentur sah ihre
+eigenen Stundenzettel nie, und der DATEV-Lohn-Export lieferte ihr eine leere Datei. Siehe
+C-10.
 
 ### C-2 · Emojis in produktiver UI ✅ **ERLEDIGT 2026-07-26**
 **Was:** Der Eintrag nannte eine Seite — betroffen war das **ganze Einsatzportal**:
@@ -414,6 +512,7 @@ Bei jeder Prüfung: **erledigt? noch gültig? neu dazugekommen?** Erledigte Punk
 | 2026-07-25 | Claude | Zugang C-1…C-9 aus dem Enterprise-Audit. B-1…B-5 unverändert offen. Nächste Prüfung: 2026-08-08. |
 | 2026-07-26 | Claude | **C-3, C-6, C-8 erledigt.** B-2: Sonde gebaut, Flake in diesem Lauf nicht reproduzierbar. Neu: **C-10** (Integrationssuite 42 rot — Test-Drift gegen `legacy_access`-Gate). |
 | 2026-07-26 (2) | Claude | **C-2, C-4, C-5, C-9 erledigt.** |
+| 2026-07-26 (6) | Claude | **B-5 teilweise erledigt: S-3 + E-2.** S-3: Verantwortlichkeit sitzt jetzt in `writeAudit()` statt an 400 Aufrufstellen (7/319 hatten sie). E-2: nachgemessen — 42 Fundstellen, alle abgesichert, die "48 Routen" waren geschaetzt; geschlossen. B-2: Sonde fest im Runner verdrahtet + Gegenprobe. S-2 gemessen (2 Stellen), Owner-Entscheid. E-1/E-3 bleiben ausloeserbasiert. Offen: B-1 (gated), C-1, C-7 (= B-1), S-2 (Owner). |
 | 2026-07-26 (5) | Claude | **B-4 erledigt** — widersprüchliche Dokumente aufgelöst: Go-Live-Listen auf `docs/GO_LIVE_FINAL.md` (= Remediation D-4), zusätzlich das gefährlichere Release-Runbook-Doppel (CI vs. lokaler Artefaktbau), `DEPLOYMENT.md`-Namenskollision geklärt, abgelaufene Roadmap-Zusage datiert. Dateiverschiebung bewusst offen (kollidiert mit `docs/launch/`). Offen: B-1 (gated), B-5, C-1, C-7 (= B-1). |
 | 2026-07-26 (4) | Claude | **B-3 erledigt** — Doku-Wächter steht (tote Links strikt, Verwaiste als Ratsche 177→156), Gegenprobe in allen drei Richtungen rot. Offen: B-1 (gated), B-4, B-5, C-1, C-7 (= B-1). |
 | 2026-07-26 (3) | Claude | **C-10 erledigt — Integration 186/186.** Dabei sechs echte Fehler gefunden: Cross-Org-Leck (nachgestellt), fehlender Index (Mig 155), DATE-Versatz um einen Tag, Checkout-ID in zwei Schreibweisen, Angebots-Postfach ohne Aktionen, Lieferanten-Stundenzettel unsichtbar. Offen: B-1 (gated auf Prod-Deploy), B-3, B-4, B-5, C-1, C-7 (= B-1). Nächste Prüfung: 2026-08-09. |

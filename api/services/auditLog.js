@@ -32,6 +32,39 @@ export function sanitizeMetadata(obj) {
 }
 
 /**
+ * Setzt `details.responsible_actor_user_id` — die Antwort auf „wer verantwortet das?".
+ *
+ * WARUM DAS HIER STEHT UND NICHT IN DEN AUFRUFSTELLEN (Audit-Backlog B-5/S-3):
+ * CLAUDE.md fordert das Feld fuer **jede** mutierende Aktion. Tatsaechlich setzten es
+ * 7 von 319 `res.locals.audit`-Markierungen, dazu kommen 98 direkte `writeAudit()`-Aufrufe,
+ * die an der Middleware vorbeigehen. Eine Regel, die an 400 Stellen einzeln befolgt werden
+ * muss, wird nicht befolgt — sie wird vergessen, sobald jemand eine neue Route schreibt.
+ * `writeAudit` ist der eine Punkt, durch den alles laeuft; hier gilt die Regel per Bauart.
+ *
+ * Vorrang hat immer der Aufrufer: setzt eine Route das Feld selbst, bleibt ihr Wert stehen.
+ * Das ist der Fall, in dem Handelnder und Verantwortlicher auseinanderfallen — etwa wenn
+ * Support im Auftrag eines Kunden handelt.
+ *
+ * Der Schluessel wird **immer** geschrieben, auch als `null`. Ein fehlendes Feld waere
+ * mehrdeutig ("Systemvorgang" oder "vergessen?"); ein ausdrueckliches `null` heisst
+ * eindeutig: kein Mensch, sondern Cron, Webhook oder Systemlauf — passend zu `actor_id`,
+ * das dann ebenfalls leer ist.
+ *
+ * @param {object|null} details bereits sanitisierte Detaildaten
+ * @param {string|null} actorId der handelnde Nutzer
+ * @returns {object} Details mit gesetztem Verantwortlichen
+ */
+export function withResponsibleActor(details, actorId) {
+  // Nur echte Objekte werden ergaenzt. Ein Array oder ein blosser String als `details`
+  // ist zwar nicht vorgesehen, wuerde beim Umwandeln in ein Objekt aber Daten verlieren —
+  // dann lieber unveraendert durchreichen als still etwas wegwerfen.
+  if (details != null && (typeof details !== "object" || Array.isArray(details))) return details;
+  const base = details ?? {};
+  if (base.responsible_actor_user_id !== undefined) return base;
+  return { ...base, responsible_actor_user_id: actorId ?? null };
+}
+
+/**
  * Leitet action_type aus dem action-String ab.
  * @param {string} action - z.B. 'timesheet.approve', 'auth.login'
  * @returns {string}
@@ -79,11 +112,12 @@ export async function writeAudit(pool, params) {
   const a = params.action;
   const et = params.entity_type;
   const eid = params.entity_id ?? null;
-  const details = sanitizeMetadata(params.details ?? null);
+  const actorId = params.actor_id ?? null;
+  const details = withResponsibleActor(sanitizeMetadata(params.details ?? null), actorId);
   const rid = params.request_id ?? null;
   const cid = params.capacity_id ?? null;
   const resid = params.reservation_id ?? null;
-  const actor = params.actor_id ?? null;
+  const actor = actorId;
   const orgId = params.org_id ?? null;
   const actionType = params.action_type || deriveActionType(a);
   const status = params.status || 'SUCCESS';
