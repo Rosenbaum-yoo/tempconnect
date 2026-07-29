@@ -10,17 +10,40 @@
 
 ---
 
-## B-1 · D-2-Untrack der staff-Build-Bundles 🔒 *gated*
-**Was:** Die gehashten Vite-Bundles unter `frontend/public/staff/` aus Git nehmen (Dev-Diff-Churn beenden).
-**Vorbedingung erfüllt:** Build-on-Deploy ist etabliert (`frontend-build`-Service in compose, CI `build:soc`, DEPLOYMENT.md).
-**Trigger:** Nach **einem realen `docker compose -f docker-compose.prod.yml up`**, der bestätigt, dass `frontend/public/staff/staff.html` + `assets/*` frisch erzeugt werden.
-**Schritte:**
-```bash
-git rm -r --cached frontend/public/staff
-echo "frontend/public/staff/" >> .gitignore
-```
-**Rollback:** `git revert <commit>` stellt die committeten Bundles sofort wieder her.
-**Wert:** mittel (Hygiene), **Risiko ohne Verifikation:** Prod-404 → daher gated.
+## B-1 · Untrack der Build-Bundles ✅ **ERLEDIGT 2026-07-26**
+**Die Sperre war ein fehlender Nachweis — der ist jetzt geführt, nicht argumentiert:**
+
+`docker compose -f docker-compose.prod.yml run --rm frontend-build` ausgeführt — genau der
+Dienst, den der Produktions-Stack vor nginx laufen lässt (nginx wartet via
+`service_completed_successfully`). Ergebnis: **alle 31 Bundles neu erzeugt, dabei 27
+getrackte Dateien gelöscht.** `vite.config.staff.ts` setzt `emptyOutDir: true` — das
+Zielverzeichnis wird bei jedem Deploy vollständig ersetzt.
+
+Damit ist die Frage beantwortet, die den Punkt gesperrt hielt: die getrackten Kopien können
+gar nicht das sein, was ausgeliefert wird. **Jeder Deploy löscht sie.** Sie erzeugten nur
+Diff-Lärm und Merge-Konflikte — das befürchtete Prod-404 kann nicht eintreten.
+
+Die Kette wurde vollständig geprüft, nicht nur der Build-Schritt:
+- Das Release-Artefakt ist ein `git archive` der Quellen; `frontend/src`,
+  `package.json`, `vite.config.staff.ts` und `staff.html` sind darin — der Deploy-Build hat
+  alles, was er braucht.
+- Die CI-Artefaktprüfung verlangt **keine** Datei unterhalb `frontend/public/staff`.
+- Unter `frontend/public/staff` liegt nichts Handgeschriebenes: alle 30 getrackten Dateien
+  sind Build-Ergebnisse. Die drei, die den Build „überlebten", hatten schlicht denselben
+  Content-Hash bzw. sind die Einstiegs-HTML.
+
+**Gleiches Muster mitgenommen:** `frontend/support-ops/` ist das lokale Ergebnis von
+`build:soc` und wird in Produktion nicht verwendet — der Prod-Stack baut es nicht einmal
+(`command` = `build:occ` + `build:scc`) und mountet stattdessen `./support-ops-dist`.
+
+**Ausdrücklich nicht angefasst:** `support-ops-dist/index.html`. Das wird bewusst vorgebaut
+ausgeliefert und ist Pflichtbestandteil des Release-Artefakts. Die bestehende Ausnahme in
+`.gitignore` bleibt — und steht dort jetzt mit Begründung, damit sie niemand für einen
+Fehler hält und „aufräumt".
+
+**Verifiziert gegen den laufenden Stack:** `/staff/`, `/support-ops/` und
+`/public/enterprise.html` antworten mit 200. `git status` ist von diesem Rauschen befreit.
+**Rollback:** `git revert <commit>` stellt die Bundles sofort wieder her.
 
 ---
 
@@ -358,9 +381,10 @@ DATABASE_URL=postgres://… node scripts/run-tests.js --suite=db-gated
 **Verifiziert 2026-07-26:** gegen die Dev-DB **56 Tests, 0 Fehler, 0 skipped** — die
 Org-Boundary-Guards halten tatsächlich. Vor jedem Release mitlaufen lassen.
 
-### C-7 · Build-Artefakte im Working Tree 🟢 *= B-1, bestätigt*
-`frontend/public/staff/assets/*` + `frontend/support-ops/*` erzeugen dauerhaftes Diff-Rauschen.
-Kein neuer Punkt — Bestätigung, dass **B-1** inzwischen die Übersicht in `git status` real stört.
+### C-7 · Build-Artefakte im Working Tree ✅ **ERLEDIGT 2026-07-26** *(mit B-1)*
+`frontend/public/staff/assets/*` und `frontend/support-ops/*` sind aus der Versionierung
+genommen; beide Verzeichnisse stehen in `.gitignore`. `git status` zeigt kein Bundle-Rauschen
+mehr. Begründung und Nachweis: siehe **B-1**.
 
 ### C-8 · Verwaister Stash ✅ **ERLEDIGT 2026-07-26**
 `stash@{0}` enthielt Build-Artefakt-Rauschen plus **eine** echte Änderung: die nginx-Regel
@@ -512,6 +536,7 @@ Bei jeder Prüfung: **erledigt? noch gültig? neu dazugekommen?** Erledigte Punk
 | 2026-07-25 | Claude | Zugang C-1…C-9 aus dem Enterprise-Audit. B-1…B-5 unverändert offen. Nächste Prüfung: 2026-08-08. |
 | 2026-07-26 | Claude | **C-3, C-6, C-8 erledigt.** B-2: Sonde gebaut, Flake in diesem Lauf nicht reproduzierbar. Neu: **C-10** (Integrationssuite 42 rot — Test-Drift gegen `legacy_access`-Gate). |
 | 2026-07-26 (2) | Claude | **C-2, C-4, C-5, C-9 erledigt.** |
+| 2026-07-26 (7) | Claude | **B-1 + C-7 erledigt.** Sperre aufgeloest durch echten Prod-Build-Lauf: 31 Bundles neu erzeugt, 27 getrackte Dateien dabei geloescht (`emptyOutDir`) — getrackte Kopien ueberleben keinen Deploy. C-1 neu bewertet (Praemisse widerlegt). **Damit ist die Liste bis auf Owner-Entscheide abgearbeitet:** S-2 (DSGVO-Abwaegung), C-1-Restfrage (manuelle Stundenzettel-Erfassung), B-4-Dateiverschiebung (wartet auf `docs/launch/`). |
 | 2026-07-26 (6) | Claude | **B-5 teilweise erledigt: S-3 + E-2.** S-3: Verantwortlichkeit sitzt jetzt in `writeAudit()` statt an 400 Aufrufstellen (7/319 hatten sie). E-2: nachgemessen — 42 Fundstellen, alle abgesichert, die "48 Routen" waren geschaetzt; geschlossen. B-2: Sonde fest im Runner verdrahtet + Gegenprobe. S-2 gemessen (2 Stellen), Owner-Entscheid. E-1/E-3 bleiben ausloeserbasiert. Offen: B-1 (gated), C-1, C-7 (= B-1), S-2 (Owner). |
 | 2026-07-26 (5) | Claude | **B-4 erledigt** — widersprüchliche Dokumente aufgelöst: Go-Live-Listen auf `docs/GO_LIVE_FINAL.md` (= Remediation D-4), zusätzlich das gefährlichere Release-Runbook-Doppel (CI vs. lokaler Artefaktbau), `DEPLOYMENT.md`-Namenskollision geklärt, abgelaufene Roadmap-Zusage datiert. Dateiverschiebung bewusst offen (kollidiert mit `docs/launch/`). Offen: B-1 (gated), B-5, C-1, C-7 (= B-1). |
 | 2026-07-26 (4) | Claude | **B-3 erledigt** — Doku-Wächter steht (tote Links strikt, Verwaiste als Ratsche 177→156), Gegenprobe in allen drei Richtungen rot. Offen: B-1 (gated), B-4, B-5, C-1, C-7 (= B-1). |
