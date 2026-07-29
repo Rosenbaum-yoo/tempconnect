@@ -117,7 +117,8 @@ denselben Platzhalter teilen. Gegenprobe in beide Richtungen bestanden.
   - (b) Bedarf anlegen + Deal-Accept + Aktivierung → `kernflow-requisition.spec.js` (5 Tests: POST/GET/Detail/Transition DRAFT→OPEN) + `kernflow-deal-activation.spec.js` (6 Tests: OPEN-Requisition, received-offers, contracts, State-Machine-Transitions, Hub)
   - (c) Worker-Assignment + Stundenzettel → `kernflow-assignment-timesheet.spec.js` (7 Tests: Assignment anlegen/Liste/Transition planned→active, ungültige Transition, Timesheet-Plan-Gate, Endpunkt definiert, Einsätze-Seite)
   - (d) Admin-/Strategic-Collaboration → in `kernflow-hub-navigation.spec.js` abgedeckt
-- Verbleibend (E-01, Owner): `npm run test:e2e` in der CI-Pipeline grün ziehen (benötigt laufende App + DB im CI-Runner).
+- **E-01 nachgeprueft (2026-07-26): die Verdrahtung IST da.** `.github/workflows/ci.yml` hat den Job `e2e-core`, der `npm run test:e2e:core` faehrt — und dieses Skript zielt ausdruecklich auf `kernflow occ-access-guards einsatzportal executive-dashboard`. Postgres laeuft als Service-Container, Playwright wird installiert. Der Job ist auf `workflow_dispatch` + woechentlichen Zeitplan (montags 02:17) begrenzt, nicht auf jeden Push — bei E2E eine vertretbare Wahl.
+- **Aber: er kann derzeit gar nicht laufen.** Seit 2026-06-29 erzeugt die CI ueberhaupt keine Laeufe mehr (siehe **C-12** in `docs/AUDIT_BACKLOG.md`). E-01 haengt damit nicht mehr an der Verdrahtung, sondern an C-12.
 - Verify: `npx playwright test e2e/tests/kernflow-*.spec.js` lokal; CI-Gate = E-01.
 ### P1.3 - `FEATURE_GATE_BYPASS`-Default umkehren
 - Status: ERLEDIGT (2026-05-24)

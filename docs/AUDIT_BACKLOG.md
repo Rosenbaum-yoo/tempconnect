@@ -451,6 +451,52 @@ Org-Boundary-Guards halten tatsächlich. Vor jedem Release mitlaufen lassen.
 genommen; beide Verzeichnisse stehen in `.gitignore`. `git status` zeigt kein Bundle-Rauschen
 mehr. Begründung und Nachweis: siehe **B-1**.
 
+### C-12 · **Die CI läuft seit einem Monat nicht** 🔴 *Owner — blockiert den dokumentierten Release-Weg*
+**Gefunden 2026-07-26** beim Nachprüfen von E-01 (E2E in der Pipeline). Nicht vermutet, sondern
+über `gh` abgefragt:
+
+- **Seit 2026-06-29 wurde kein einziger CI-Lauf mehr erzeugt** — trotz offenem PR #1 aus
+  `release/enterprise-premium-market-ready` und trotz acht Pushes allein an diesem Tag.
+- Die **letzten acht** Läufe (28./29.06.) endeten ausnahmslos mit `startup_failure` nach
+  **0 Sekunden**. `gh run view` sagt dazu nur: „This run likely failed because of a workflow
+  file issue."
+- `gh workflow list` liefert **nichts** — es ist kein Workflow registriert.
+
+**Was ich ausgeschlossen habe** (damit niemand dieselbe Runde dreht):
+- Actions sind auf Repo-Ebene **aktiviert** (`gh api …/actions/permissions` →
+  `{"enabled":true,"allowed_actions":"all"}`).
+- Die Workflow-Datei ist **auf beiden Branches gültig**: YAML lädt sauber, alle Jobs haben
+  `runs-on` und `steps`, kein `needs` zeigt ins Leere, kein Step hat `uses` **und** `run`,
+  und es gibt **keine doppelten Schlüssel** (die verschluckt ein YAML-Parser stillschweigend,
+  GitHub lehnt sie ab — deshalb eigens geprüft). Auf `main` 11 Jobs / 649 Zeilen, auf dem
+  Release-Branch 14 Jobs.
+- `.github/workflows/ci.yml` liegt auf `main` (Standardbranch) und ist dort erreichbar.
+
+**Warum das mehr ist als ein rotes Lämpchen:** `docs/GO_LIVE_FINAL.md` und
+`docs/RELEASE_RUNBOOK.md` benennen den CI-Job `release-artifact` als **kanonischen**
+Artefaktpfad — „CI für diesen Stand vollständig grün laufen lassen, Artefakt herunterladen".
+Solange keine Läufe entstehen, ist dieser Weg **nicht ausführbar**, und jede Aussage der Form
+„CI ist grün" beschreibt einen über einen Monat alten Stand. Der lokal grüne Testlauf
+(7484/7498) sagt darüber nichts aus — er läuft auf einem anderen Rechner mit anderer
+Umgebung.
+
+**Bewusst nicht geraten.** Eine CI-Konfiguration blind zu ändern, deren Fehlerbild man nicht
+kennt, macht es wahrscheinlicher schlimmer. Die konkrete Startfehlermeldung zeigt GitHub nur
+in der Weboberfläche, nicht über die API.
+
+**Owner-Schritte (5 Minuten):**
+1. <https://github.com/Rosenbaum-yoo/tempconnect/actions/runs/28358264704> öffnen — dort steht
+   der genaue Startfehler im Klartext.
+2. Falls nichts zu sehen ist: **Settings → Billing** prüfen (aufgebrauchte Actions-Minuten bei
+   privaten Repos erzeugen genau dieses Bild) und **Settings → Actions → General**.
+3. Danach einen Lauf über **Actions → CI → Run workflow** anstoßen (`workflow_dispatch` ist
+   konfiguriert) und das Ergebnis hier eintragen.
+
+**Nebenbefund, erst danach relevant:** die Auslöser sind `branches: [main, master, develop]`.
+Für den Release-Branch greift CI daher **nur** über den offenen PR, nicht bei Push. Das kann
+so gewollt sein (CI als Merge-Gate). Sobald wieder Läufe entstehen, ist zu entscheiden, ob
+`release/**` in die Push-Auslöser gehört — vorher ist die Frage müßig.
+
 ### C-11 · `support-ops-dist/index.html`: Platzhalter ✅ **GEKLÄRT 2026-07-26 — kein Fehler**
 
 **Meine erste Einschätzung war zu alarmierend.** Ich hatte notiert, Produktion liefere unter
@@ -631,6 +677,7 @@ Bei jeder Prüfung: **erledigt? noch gültig? neu dazugekommen?** Erledigte Punk
 | 2026-07-25 | Claude | Zugang C-1…C-9 aus dem Enterprise-Audit. B-1…B-5 unverändert offen. Nächste Prüfung: 2026-08-08. |
 | 2026-07-26 | Claude | **C-3, C-6, C-8 erledigt.** B-2: Sonde gebaut, Flake in diesem Lauf nicht reproduzierbar. Neu: **C-10** (Integrationssuite 42 rot — Test-Drift gegen `legacy_access`-Gate). |
 | 2026-07-26 (2) | Claude | **C-2, C-4, C-5, C-9 erledigt.** |
+| 2026-07-26 (10) | Claude | **Neu: C-12 — die CI erzeugt seit 2026-06-29 keine Laeufe mehr** (letzte acht: `startup_failure` nach 0s; kein Workflow registriert). Actions sind aktiviert und die Workflow-Datei ist auf beiden Branches nachweislich gueltig — die Ursache zeigt nur die Weboberflaeche. Blockiert den dokumentierten Release-Weg ueber `release-artifact`. Bewusst nicht geraten. Ausserdem: P1.0 (d) erledigt, dabei einen Startblocker in `.env.prod.example` gefunden. |
 | 2026-07-26 (9) | Claude | **Backlog vollstaendig geschlossen.** B-4-Dateiverschiebung geprueft und verworfen: nach der Konsolidierung bleiben zwei Kandidaten, beide von nirgends verlinkt, und  neben die lebende Roadmap zu legen haette genau die Doppeldeutigkeit erzeugt, die dieser Punkt beseitigen sollte. Stattdessen nennt sie ihre Nachfolgerin. **Kein offener Punkt mehr.** Naechste Turnuspruefung: 2026-08-09. |
 | 2026-07-26 (8) | Claude | **Alle Owner-Gates freigegeben und umgesetzt.** S-2 (E-Mail-Redaktion + Bestandswächter), C-1 (Mig 156 `timesheets.source` + Anzeige), C-11 (geklärt: SOC ist bewusst nicht live, Platzhalter korrekt, Flag-Default trotz `true` ungefährlich). **Backlog vollständig abgearbeitet** — offen nur noch die B-4-Dateiverschiebung, die auf `docs/launch/` wartet. |
 | 2026-07-26 (7) | Claude | **B-1 + C-7 erledigt.** Sperre aufgeloest durch echten Prod-Build-Lauf: 31 Bundles neu erzeugt, 27 getrackte Dateien dabei geloescht (`emptyOutDir`) — getrackte Kopien ueberleben keinen Deploy. C-1 neu bewertet (Praemisse widerlegt). **Damit ist die Liste bis auf Owner-Entscheide abgearbeitet:** S-2 (DSGVO-Abwaegung), C-1-Restfrage (manuelle Stundenzettel-Erfassung), B-4-Dateiverschiebung (wartet auf `docs/launch/`). |
