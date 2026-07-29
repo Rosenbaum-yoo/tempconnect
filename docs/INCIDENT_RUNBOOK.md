@@ -638,7 +638,7 @@ docker exec tempconnect_redis redis-cli ping
 
 ## Szenario 5 — Deployment-Fehler
 
-> **Release-Prozess & Rollback:** Für den vollständigen Release-Ablauf mit Pre-Deploy-Checkliste, Smoke Tests und strukturierter Rollback-Prozedur siehe [../RELEASE.md](../RELEASE.md).
+> **Release-Prozess & Rollback:** Für den vollständigen Release-Ablauf mit Pre-Deploy-Checkliste, Smoke Tests und strukturierter Rollback-Prozedur siehe [RELEASE_RUNBOOK.md](RELEASE_RUNBOOK.md).
 
 ### 5a. API startet nicht nach Deployment
 

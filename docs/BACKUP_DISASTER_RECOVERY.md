@@ -397,7 +397,7 @@ GROUP BY tag ORDER BY tag;
 
 - `docs/BACKUP.md` — Skript-Referenz, Cron-Setup, Restore-Anleitung
 - `docs/INCIDENT_RUNBOOK.md` — Sofortmaßnahmen bei Service-Ausfall, DB-Fehlern
-- `../RELEASE.md` — Deployment-Prozess mit Pre-Deploy Backup
+- [`RELEASE_RUNBOOK.md`](RELEASE_RUNBOOK.md) — Deployment-Prozess mit Pre-Deploy Backup
 - `scripts/backup.sh` — Backup-Skript
 - `scripts/restore.sh` — Restore-Skript
 - `scripts/restore-test.sh` — Automatisierter Restore-Test

@@ -99,11 +99,52 @@ mit Begründung im Commit.
 
 ---
 
-## B-4 · Welle 5 · Doku-Konsolidierung (Go-Live-Listen + Root-Status-.md) 🟡 *editorisch*
-**Was:** 3 widersprüchliche Go-Live-Listen (`GO-LIVE.md` / `MARKTSTART-CHECKLISTE.md` / `docs/GO_LIVE_FINAL.md`) auf **eine SSoT** reduzieren; 9 Root-Status-`.md` nach `docs/` konsolidieren.
-**Warum gated:** **6 der Root-`.md` sind aktiv aus `docs/` verlinkt** (DEPLOYMENT/INCIDENT/BACKUP/RELEASE_RUNBOOK/VOR-HETZNER-GO-LIVE/DEAL-ERFOLG) → blindes Löschen bricht Links. `WARP-TASKS-PERMANENT.md` ist explizit „behalten"-markiert. Erfordert sorgfältiges Link-Umbiegen + Owner-Entscheid zur kanonischen Liste (Empfehlung: `docs/GO_LIVE_FINAL.md`).
-**Trigger:** Vor Marktstart-Endspurt (eine klare Go-Live-Liste vermeidet, dass die falsche/leere abgehakt wird).
-**Wert:** mittel.
+## B-4 · Doku-Konsolidierung ✅ **ERLEDIGT 2026-07-26** *(Ablage bewusst offen gelassen)*
+
+**Der eigentliche Schaden waren nicht neun Dateien am falschen Ort, sondern Dokumente, die
+sich widersprechen.** Genau die sind aufgelöst — und es war eines mehr, als der Eintrag wusste.
+
+**Go-Live-Listen → eine Wahrheit.** `GO-LIVE.md` und `docs/GO_LIVE_FINAL.md` waren zu 98 %
+deckungsgleich (26 abweichende Zeilen von 176), behaupteten aber beide von sich, maßgeblich
+zu sein („die einzige" vs. „die versionierte"). Zwei Dokumente, die jeweils sagen, sie seien
+die Referenz, sind schlimmer als ein fehlendes: man hakt die falsche Liste ab und hält den
+Start für abgesichert. `docs/GO_LIVE_FINAL.md` ist die SSoT — sie ist die inhaltlich
+bessere (Enterprise-Abnahmegate, kanonischer CI-Artefaktpfad, konkrete Backup-/Restore-
+Skripte), und `MARKTSTART-CHECKLISTE.md` verwies längst auf sie. Die vier Verweise, die es
+nur in `GO-LIVE.md` gab, wurden **vorher übernommen**; erst danach wurde die Datei zum
+Wegweiser. Damit ist auch **Remediation D-4** erledigt.
+
+**Zusätzlich gefunden: ein zweites Doppel, das gefährlicher war.** `RELEASE.md` (Wurzel) und
+`docs/RELEASE_RUNBOOK.md` — 394 vs. 397 Zeilen, fast identisch, mit **einer** inhaltlichen
+Abweichung: dem Release-Artefakt. Die eine Datei sagte „CI-Job `release-artifact`", die
+andere „lokal via `scripts/release-package.sh`". Zwei Runbooks, denen jemand während eines
+Produktionsdeployments folgt, und beide galten formal. Aufgelöst wurde das nicht nach
+Gefühl: `docs/GO_LIVE_FINAL.md` benennt den CI-Job ausdrücklich als kanonisch. Der Abschnitt
+wanderte nach `docs/RELEASE_RUNBOOK.md`, der lokale Bau steht dort weiter — jetzt klar als
+**Rückfallweg**. Die drei Dokumente, die auf `../RELEASE.md` verwiesen, zeigen jetzt auf den
+Inhalt statt auf den Wegweiser.
+
+**`DEPLOYMENT.md` ×2 — kein Duplikat, sondern eine Namenskollision.** 464 abweichende Zeilen:
+die Wurzel-Datei ist der *operative* Produktionspfad, `docs/DEPLOYMENT.md` der erklärende
+Leitfaden inklusive lokaler Umgebung und Due-Diligence-Kontext. Zusammenführen wäre falsch
+gewesen — beide haben einen Zweck und einen Leser. Stattdessen trägt jetzt jede oben einen
+Hinweis, welche man vor sich hat und wo die andere liegt.
+
+**`ROADMAP.md` behauptete Gegenwart.** Kopfzeile: „Aktueller Stand: ~90 % fertig · Ziel:
+Launch in 2-3 Wochen" — zuletzt geändert am 2026-06-01, die Frist also seit sieben Wochen
+abgelaufen. Ein Dokument, das einen historischen Planungsstand als „aktuell" ausgibt, ist
+dieselbe Falle wie zwei Checklisten. Jetzt datiert, mit Verweis auf die Stellen, die den
+echten Stand führen. (`NAECHSTE-SCHRITTE.md`, `VOR-GELDFLUSS.md`, `MARKTSTART-CHECKLISTE.md`
+trugen bereits Veraltet-Hinweise; `PHASE1-STATUS.md` datiert sich im ersten Satz selbst.)
+
+**Bewusst NICHT gemacht: die neun Root-`.md` nach `docs/` verschieben.** Zwei Gründe. Erstens
+ist es reine Ablage — die inhaltliche Verwirrung ist oben behoben, ein Ortswechsel ändert
+daran nichts. Zweitens baut der Owner parallel `docs/launch/` (A–H) als neue
+Launch-Struktur auf; Dateien darunter zu verschieben, während dort gerade sortiert wird,
+erzeugt Kollisionen statt Ordnung. **Sinnvoll, wenn `docs/launch/` steht** — dann in einem
+Zug und mit dem Doku-Wächter aus B-3 als Netz, der jeden gebrochenen Link sofort rot färbt.
+Die Annahme des ursprünglichen Eintrags, „6 der Root-`.md` sind aus `docs/` verlinkt", trifft
+übrigens nicht mehr zu: von den genannten liegt nur noch `DEPLOYMENT.md` in der Wurzel.
 
 ---
 
@@ -373,6 +414,7 @@ Bei jeder Prüfung: **erledigt? noch gültig? neu dazugekommen?** Erledigte Punk
 | 2026-07-25 | Claude | Zugang C-1…C-9 aus dem Enterprise-Audit. B-1…B-5 unverändert offen. Nächste Prüfung: 2026-08-08. |
 | 2026-07-26 | Claude | **C-3, C-6, C-8 erledigt.** B-2: Sonde gebaut, Flake in diesem Lauf nicht reproduzierbar. Neu: **C-10** (Integrationssuite 42 rot — Test-Drift gegen `legacy_access`-Gate). |
 | 2026-07-26 (2) | Claude | **C-2, C-4, C-5, C-9 erledigt.** |
+| 2026-07-26 (5) | Claude | **B-4 erledigt** — widersprüchliche Dokumente aufgelöst: Go-Live-Listen auf `docs/GO_LIVE_FINAL.md` (= Remediation D-4), zusätzlich das gefährlichere Release-Runbook-Doppel (CI vs. lokaler Artefaktbau), `DEPLOYMENT.md`-Namenskollision geklärt, abgelaufene Roadmap-Zusage datiert. Dateiverschiebung bewusst offen (kollidiert mit `docs/launch/`). Offen: B-1 (gated), B-5, C-1, C-7 (= B-1). |
 | 2026-07-26 (4) | Claude | **B-3 erledigt** — Doku-Wächter steht (tote Links strikt, Verwaiste als Ratsche 177→156), Gegenprobe in allen drei Richtungen rot. Offen: B-1 (gated), B-4, B-5, C-1, C-7 (= B-1). |
 | 2026-07-26 (3) | Claude | **C-10 erledigt — Integration 186/186.** Dabei sechs echte Fehler gefunden: Cross-Org-Leck (nachgestellt), fehlender Index (Mig 155), DATE-Versatz um einen Tag, Checkout-ID in zwei Schreibweisen, Angebots-Postfach ohne Aktionen, Lieferanten-Stundenzettel unsichtbar. Offen: B-1 (gated auf Prod-Deploy), B-3, B-4, B-5, C-1, C-7 (= B-1). Nächste Prüfung: 2026-08-09. |
 

@@ -1,7 +1,14 @@
 # TempConnect - Roadmap zur Marktreife
 
-> **Aktueller Stand:** ~90% fertig  
-> **Ziel:** Produktionsreifer Launch in 2-3 Wochen
+> **Stand dieses Dokuments: 2026-06-01.** Die Zeitangabe unten ist damit abgelaufen und
+> beschreibt einen historischen Planungsstand — sie ist keine Aussage über heute.
+> Der aktuelle Stand steht in [docs/GO_LIVE_FINAL.md](./docs/GO_LIVE_FINAL.md) (Checkliste)
+> und [docs/releases/PHASE_STATUS.md](./docs/releases/PHASE_STATUS.md) (Ausbaustufen);
+> die offenen Punkte bis zum Pilotstart in
+> [docs/PILOT_GO_LIVE_TODOS.md](./docs/PILOT_GO_LIVE_TODOS.md).
+
+> **Stand bei Erstellung:** ~90% fertig  
+> **Ziel damals:** Produktionsreifer Launch in 2-3 Wochen
 
 ---
 

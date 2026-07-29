@@ -2,6 +2,13 @@
 
 Diese Datei beschreibt den kanonischen Produktionspfad für TempConnect. Produktion wird aus einem **verifizierten Release-Artefakt** betrieben – nicht aus einem offenen Working Tree.
 
+> **Es gibt zwei Dateien mit diesem Namen — das hier ist die operative.**
+> Diese beschreibt, *wie* produktiv ausgerollt wird (Artefakt, Rollback, Betrieb).
+> [`docs/DEPLOYMENT.md`](./docs/DEPLOYMENT.md) ist der erklärende Leitfaden inklusive
+> lokaler Docker-Compose-Umgebung und Due-Diligence-Kontext. Sie sind kein Duplikat:
+> unterschiedliche Leser, unterschiedlicher Zweck.
+> Den Release-Ablauf selbst führt [`docs/RELEASE_RUNBOOK.md`](./docs/RELEASE_RUNBOOK.md).
+
 ---
 
 ## Produktionsmodell

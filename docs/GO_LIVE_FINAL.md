@@ -121,6 +121,7 @@ Alle internen Endpunkte benötigen `X-Internal-Secret: <INTERNAL_CRON_SECRET>`.
 - [ ] Backup-Ziel und Retention festgelegt
 - [ ] `.env` zusätzlich außerhalb des Release-Verzeichnisses gesichert
 - [ ] RPO/RTO, Restore-Fenster und Verantwortliche für die Zielumgebung dokumentiert
+      (Konzept: [BACKUP_DISASTER_RECOVERY.md](BACKUP_DISASTER_RECOVERY.md))
 
 ### B4) Monitoring
 
@@ -166,7 +167,11 @@ Alle internen Endpunkte benötigen `X-Internal-Secret: <INTERNAL_CRON_SECRET>`.
 
 ## Referenzen
 
-- `ENTERPRISE_GO_LIVE_GATE.md` – verbindliches Enterprise-Abnahmegate (G0-G7)
+- [`ENTERPRISE_GO_LIVE_GATE.md`](ENTERPRISE_GO_LIVE_GATE.md) – verbindliches Enterprise-Abnahmegate (G0-G7)
+- [`RELEASE_RUNBOOK.md`](RELEASE_RUNBOOK.md) – Release-, Monitoring- und Rollback-Ablauf
+- [`BACKUP.md`](BACKUP.md) – Backup / Verify / Restore im Detail
+- [`BACKUP_DISASTER_RECOVERY.md`](BACKUP_DISASTER_RECOVERY.md) – Wiederanlauf-Konzept
+- [`MONITORING.md`](MONITORING.md) – Monitoring-Aufbau
 - `../DEPLOYMENT.md` – technischer Produktions-, Rollback- und Restore-Pfad
 - `../.github/workflows/ci.yml` – kanonischer CI-Artefaktpfad (`release-artifact`)
 - `../scripts/backup.sh` – Backup-Erstellung

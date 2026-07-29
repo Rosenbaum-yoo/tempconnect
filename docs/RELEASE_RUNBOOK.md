@@ -76,15 +76,27 @@ Vor jedem Release mit Datenbankschema-Änderungen prüfen:
 
 ---
 
-## 4. Release-Artefakt bauen
+## 4. Release-Artefakt erzeugen
 
-### Bash / Linux / macOS
+**Kanonisch ist der CI-Job `release-artifact`** in [`../.github/workflows/ci.yml`](../.github/workflows/ci.yml)
+— so steht es auch in der Go-Live-Checkliste ([`GO_LIVE_FINAL.md`](GO_LIVE_FINAL.md)). Ein auf
+einem Entwicklungsrechner gebautes Artefakt trägt dessen Zustand mit sich; das aus der CI ist
+reproduzierbar und an einen grünen Lauf gebunden.
+
+### Ablauf
+
+1. Git-Ref oder Release-Tag festlegen
+2. CI für diesen Stand vollständig grün laufen lassen
+3. Artefakt `release-artifact` aus GitHub Actions herunterladen
+
+### Rückfallweg: lokal bauen
+
+Nur wenn die CI nicht verfügbar ist. Das Ergebnis vor dem Ausrollen gegen die
+Validierungsregeln unten prüfen.
 
 ```bash
 ./scripts/release-package.sh v2026.04.07 <git-ref>
 ```
-
-### PowerShell / Windows
 
 ```powershell
 .\scripts\release-package.ps1 -Version v2026.04.07 -Ref <git-ref>
@@ -100,6 +112,8 @@ Das Artefakt darf insbesondere **nicht** enthalten:
 - `node_modules`
 - `coverage`, `.c8_output`, `.nyc_output`
 - Log-, Temp- oder alte Release-Artefakte
+- fehlende Pflichtdateien wie `docker-compose.prod.yml`, `scripts/prod-update.sh`,
+  `scripts/prod-up.sh`, Backup-/Restore-Skripte oder `README.md`
 
 Das Artefakt enthält ein Manifest mit Quelle (`git-archive` oder Fallback), Git-Ref und SHA-256.
 
@@ -391,7 +405,7 @@ INTERNAL_CRON_SECRET=$INTERNAL_CRON_SECRET ./scripts/scheduler-smoke.sh http://1
 ## Verwandte Dokumentation
 
 - `DEPLOYMENT.md` – technischer Produktionspfad
-- `GO-LIVE.md` – Go-Live-Checkliste
+- [`GO_LIVE_FINAL.md`](GO_LIVE_FINAL.md) – Go-Live-Checkliste (kanonisch; `GO-LIVE.md` im Wurzelverzeichnis ist nur noch ein Wegweiser)
 - `docs/BACKUP.md` – Backup, Verify, Restore
 - `docs/BACKUP_DISASTER_RECOVERY.md` – DR-Konzept
 - `docs/MONITORING.md` – Monitoring und Alerting

@@ -3,6 +3,13 @@
 **Target audience:** DevOps, Engineering, Investors (due diligence)  
 **Environments covered:** Docker Compose (local/dev), Production (VPS/Hetzner/Cloud)
 
+> **Es gibt zwei Dateien mit diesem Namen — das hier ist der erklärende Leitfaden.**
+> Er deckt auch die lokale Umgebung und den Due-Diligence-Kontext ab.
+> Der **kanonische Produktionspfad** (Ausrollen aus einem verifizierten Release-Artefakt,
+> Rollback, Betrieb) steht in [`../DEPLOYMENT.md`](../DEPLOYMENT.md), der Release-Ablauf in
+> [`RELEASE_RUNBOOK.md`](RELEASE_RUNBOOK.md). Sie sind kein Duplikat: unterschiedliche
+> Leser, unterschiedlicher Zweck.
+
 ---
 
 ## Architecture Overview
@@ -120,7 +127,7 @@ curl http://localhost/api/service-status
 
 ### Zero-Downtime Update
 
-> **Vollständiger Release-Prozess:** Für den kompletten Release-Ablauf inkl. QA-Checkliste, Smoke Tests, Monitoring-Check und Rollback siehe [../RELEASE.md](../RELEASE.md).
+> **Vollständiger Release-Prozess:** Für den kompletten Release-Ablauf inkl. QA-Checkliste, Smoke Tests, Monitoring-Check und Rollback siehe [RELEASE_RUNBOOK.md](RELEASE_RUNBOOK.md).
 
 ```bash
 # Pull latest changes
