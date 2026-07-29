@@ -386,6 +386,29 @@ Org-Boundary-Guards halten tatsächlich. Vor jedem Release mitlaufen lassen.
 genommen; beide Verzeichnisse stehen in `.gitignore`. `git status` zeigt kein Bundle-Rauschen
 mehr. Begründung und Nachweis: siehe **B-1**.
 
+### C-11 · `support-ops-dist/index.html`: Platzhalter committet, echter Build nur lokal 🟠 *neu 2026-07-26*
+**Was:** Die **committete** Datei ist ein Platzhalter (`<title>Support Ops Placeholder</title>`).
+Im Arbeitsverzeichnis liegt **uncommittet** die echte gebaute Oberfläche (12 Zeilen statt 42,
+anderer Aufbau). Beobachtet beim Aufräumen von B-1, **nicht von mir verursacht**.
+
+**Warum das zählt:** Diese Datei ist Pflichtbestandteil des Release-Artefakts (CI-Check
+`check_required_file "support-ops-dist/index.html"`), und der Prod-Stack mountet
+`./support-ops-dist` direkt — es gibt für sie **keinen** Build-Schritt beim Deploy
+(`frontend-build` fährt nur `build:occ` + `build:scc`). Produktion liefert unter
+`/support-ops/` also genau das aus, was im Repo liegt: den Platzhalter. Lokal sieht man das
+nicht, weil dort die uncommittete echte Datei gemountet ist — die Abweichung fällt erst im
+Betrieb auf.
+
+**Zwei Möglichkeiten, beide Owner-Sache:**
+1. Support-Ops soll live sein → den echten Build committen (und festlegen, wie er künftig
+   entsteht: eigener `build:soc`-Schritt im Prod-Stack statt Handkopie).
+2. Support-Ops ist bewusst noch nicht live → dann gehört der Platzhalter dorthin, und die
+   lokale Datei ist ein Arbeitsstand, der nicht ins Repo darf.
+
+**Nicht selbst entschieden:** eine Support-Oberfläche scharf zu schalten ist eine
+Produktentscheidung, und die Herkunft des lokalen Builds ist nicht nachvollziehbar.
+**Trigger:** vor dem nächsten Deploy.
+
 ### C-8 · Verwaister Stash ✅ **ERLEDIGT 2026-07-26**
 `stash@{0}` enthielt Build-Artefakt-Rauschen plus **eine** echte Änderung: die nginx-Regel
 für un-gehashtes App-JS/CSS (`no-cache, must-revalidate`). Vor dem Verwerfen geprüft: diese
