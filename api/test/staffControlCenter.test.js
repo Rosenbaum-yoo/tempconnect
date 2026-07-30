@@ -45,7 +45,7 @@ describe("staffControlAccess — harte Staff-Allowlist", () => {
   });
 
   it("allows user listed in tempconnect_staff", async () => {
-    const row = { user_id: "u1", email: "elmira@tempconnect.de", display_name: "Elmira", is_active: true, requires_step_up: true };
+    const row = { user_id: "u1", email: "staff-a@tempconnect.invalid", display_name: "Staff A", is_active: true, requires_step_up: true };
     const pool = {
       query: async (sql) => {
         if (/tempconnect_staff WHERE user_id/i.test(sql)) return { rows: [row] };

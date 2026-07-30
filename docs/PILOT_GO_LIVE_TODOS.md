@@ -100,7 +100,7 @@ fertig und getestet; es fehlt die Einrichtung auf dem Server.
 - **(b) eigenes TLS-Zertifikat** für diese Subdomain.
 - **(c) optional IP-Allowlist** auf VHost-Ebene — nur euer Anschluss kommt überhaupt bis zur
   Anmeldemaske.
-- **(e) die zwei echten Nutzer-UUIDs** (Elmira + Mitarbeiter) in `STAFF_USER_IDS`. Das ist ein
+- **(e) die zwei echten Nutzer-UUIDs** (Betreiber-Team) in `STAFF_USER_IDS`. Das ist ein
   einmaliger Startschalter: beim ersten Login werden diese Konten als Staff freigeschaltet,
   danach verwaltet das Center seine Mitglieder selbst. **Leer bedeutet: niemand kommt hinein.**
 - **(f) optional `HETZNER_CLOUD_TOKEN`** (Lesezugriff genügt). Ohne Token zeigt die
@@ -197,8 +197,8 @@ unvollständig ist, ein Passwort fehlt oder der Vorgang vier Stunden dauert.
 ## P1 - Vor Pilotkunde (Summe 2-3 Personentage)
 ### P1.0 - Staff Control Center produktiv schalten
 - Status: **Schritt (d) ERLEDIGT (2026-07-26) — dabei einen Startblocker gefunden.** Rest bleibt Ops/Owner.
-- Fakt: SCC-Stack ist live im Code (Migrationen 095+096, Router `/staff/api`, Frontend `/public/staff/`, Tests gruen). Ops-Schritte fehlen: Nginx-VHost `staff.tempconnect.de`, ENV `STAFF_USER_IDS` (2 UUIDs: Elmira + Mitarbeiter), `STAFF_SESSION_SECRET`, optional `HETZNER_CLOUD_TOKEN`.
-- Aktion: (a) Nginx-VHost fuer Staff-Subdomain anlegen, (b) dediziertes TLS-Zertifikat, (c) optional IP-Allowlist auf VHost-Ebene, ~~(d) ENV in `.env.example` dokumentieren + in Prod-Compose injizieren~~, (e) Initial-Staff-UUIDs (Elmira + Mitarbeiter) in `STAFF_USER_IDS`, (f) `HETZNER_CLOUD_TOKEN` fuer Live-Infra-GUI (sonst bleibt SCC im Stub-Mode).
+- Fakt: SCC-Stack ist live im Code (Migrationen 095+096, Router `/staff/api`, Frontend `/public/staff/`, Tests gruen). Ops-Schritte fehlen: Nginx-VHost `staff.tempconnect.de`, ENV `STAFF_USER_IDS` (2 UUIDs: Betreiber-Team), `STAFF_SESSION_SECRET`, optional `HETZNER_CLOUD_TOKEN`.
+- Aktion: (a) Nginx-VHost fuer Staff-Subdomain anlegen, (b) dediziertes TLS-Zertifikat, (c) optional IP-Allowlist auf VHost-Ebene, ~~(d) ENV in `.env.example` dokumentieren + in Prod-Compose injizieren~~, (e) Initial-Staff-UUIDs (Betreiber-Team) in `STAFF_USER_IDS`, (f) `HETZNER_CLOUD_TOKEN` fuer Live-Infra-GUI (sonst bleibt SCC im Stub-Mode).
 
 **(d) erledigt — und der Punkt war groesser als beschrieben.**
 Nachgeprueft statt angenommen: „in Prod-Compose injizieren" war bereits erfuellt, der

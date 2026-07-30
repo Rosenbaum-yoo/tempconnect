@@ -1,5 +1,5 @@
 # Staff Control Center (SCC)
-Interne TempConnect-Steuerzentrale fuer das Team (Elmira + Mitarbeiter). Hier werden Kundenanfragen bearbeitet, Hetzner gesteuert, globale Kill-Switches betaetigt und Audit-/Decision-Logs gepflegt.
+Interne TempConnect-Steuerzentrale fuer das Betreiber-Team. Hier werden Kundenanfragen bearbeitet, Hetzner gesteuert, globale Kill-Switches betaetigt und Audit-/Decision-Logs gepflegt.
 ## Klare Abgrenzung zu bestehenden Bereichen
 SCC ist strikt getrennt von den Kunden-/Plattform-Bereichen:
 - **SCC (`/staff/*`)** - interne TempConnect-Team-Konsole. Nur Team-Mitglieder, die in `tempconnect_staff` mit `is_active = TRUE` stehen. Kunden und Plattform-Admins kommen hier NICHT rein.

@@ -56,7 +56,7 @@
 | Variable | Beschreibung |
 |---|---|
 | `STAFF_SESSION_SECRET` | Separater Session-Key für Staff CC (mind. 64 Zeichen) |
-| `STAFF_USER_IDS` | Kommagetrennte UUIDs der Staff-User (Elmira + Mitarbeiter) |
+| `STAFF_USER_IDS` | Kommagetrennte UUIDs der Staff-User (Betreiber-Team) |
 | `HETZNER_CLOUD_TOKEN` | Optional: Live-Infra-GUI im SCC |
 
 ## 6. OCC (Owner Control Center)

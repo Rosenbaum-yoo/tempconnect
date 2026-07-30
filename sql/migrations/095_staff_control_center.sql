@@ -1,6 +1,6 @@
 -- 095_staff_control_center.sql
 -- Staff Control Center (SCC) — interne TempConnect-Steuerzentrale
--- ausschliesslich fuer das TempConnect-Betriebsteam (Elmira + Mitarbeiter).
+-- ausschliesslich fuer das TempConnect-Betreiber-Team.
 -- NICHT fuer Abo-Kunden, NICHT fuer Org-Owner, NICHT fuer normale Plattform-Admins.
 -- Getrennt vom normalen audit_log / RBAC / admin_panel / internal_control_center.
 
