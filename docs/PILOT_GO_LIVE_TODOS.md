@@ -2,6 +2,138 @@
 Quelle: fundierte Projektbewertung April 2026, abgeleitet aus realem Ist-Zustand (65 Routes, 102 Services, 156 Tests, 98 Migrationen, 6-Job-CI, 289/290 Audit-Coverage).
 Dieses File wird automatisch gepflegt, solange die Regel in `AGENTS.md` ("Pilot-TODO-Pflege") aktiv ist. Erledigte Punkte wandern nach `## Done`. Neue Blocker, die in Sessions auftauchen, werden als P0/P1/P2 angelegt.
 Letzte Aktualisierung: 2026-07-26 — **P1.0 Schritt (d) erledigt**: `.env.prod.example` kannte `STAFF_SESSION_SECRET` nicht, obwohl die Variable in Produktion ein `fatal()` ausloest — ein Deploy nach dieser Vorlage waere nicht gestartet. Ergaenzt + Waechter `api/test/prodEnvTemplate.test.js`, der Pflichtvariablen aus dem Code gegen die Vorlage prueft. Ebenfalls am 2026-07-26: `docs/AUDIT_BACKLOG.md` vollstaendig abgearbeitet (u. a. ein ausnutzbares Cross-Org-Leck geschlossen). Vorher: 2026-06-13 — **Welle F1 (Code-Schlussarbeiten) abgeschlossen + committet** (`9f37250`/`1044343`/`878b022`/`845b6c9`): Prod-Härtung, Security-Quick-Wins, Hygiene-Sweep, Test-Harness-Folge inkl. eines gefundenen+gefixten requireMfa-SCC-Betriebsblockers; volle Suite 4508/0, Lint 0/0, Builds grün — siehe Abschlussbericht im Worklog. Marktstart-Ziel auf **01.09.2026** aktualisiert (UG-Gründung = kritischer Pfad). Vorher: 2026-06-11 — **Der konsolidierte Vorwaerts-Plan bis zur finalen Abnahme (Wellen F0-F6) liegt in `docs/finalization/FINALISIERUNGSPLAN_ABNAHME.md`** und mappt ALLE offenen Punkte dieses Files (P0.4, P1.0, P1.4, E-01, P2.x) + Gap-Register O-01-O-11 + Audit-Funde 2026-06-11 auf Wellen/Phasen mit Abnahmekriterien. Vorher: 2026-06-05 (Go-Live-Haertung abgeschlossen, „drei wie empfohlen" Owner-approved: P0.6 [052-Demo-Seed-Backdoor] via Env-Flag-Gate `SEED_DEMO_WORLD` [migrate.sh PGOPTIONS-GUC + 052 DO-Guard + Compose-Split base/prod=false, override=true] + Remediation-Migration 125 [Hash-Neutralisierung der 6 Demo-Konten, gegated+idempotent]; P0.7 Tier-2 [Bestands-DB-116-Backstop] via Forward-Repair-Migration 126 [nicht-transaktional, per-Tabelle-to_regclass-guarded, idempotent]; subscriptions-RLS-Exclusion bestaetigt. Verifiziert auf zwei Wegwerf-DBs [beide Flag-Pfade + Nicht-Superuser-Deny-by-Default-Laufzeitbeweis], realer Stack unberuehrt. AKTIVIERUNG: 126 schaltet Deny-by-Default+FORCE RLS beim naechsten migrate-Lauf gegen Bestands-/Managed-DB scharf. Alle Diffs uncommitted = Owner-Commit-Gate. Vorherige offene Owner-Tasks bleiben: P0.4, P1.4-Live-Run, E-01, R2/R9 extern).
+## Owner-Aufgaben im Klartext (Stand 2026-07-26)
+
+> **Warum dieser Abschnitt existiert:** die Punkte unten stehen weiter unten schon als P0.4 /
+> P1.0 / P1.4 — aber in Kurzschrift, die man nur versteht, wenn man sie geschrieben hat. Hier
+> steht in normalen Sätzen, **was gemeint ist, warum es zählt und was konkret zu tun ist.**
+> Alles hier kann **nur der Owner** erledigen: Zugangsdaten, Server, GitHub-Konto.
+
+---
+
+### 0. Vorab: warum GitHub-Links „404" zeigen
+
+`Rosenbaum-yoo/tempconnect` ist ein **privates** Repository. GitHub antwortet Besuchern ohne
+Berechtigung absichtlich mit **404** statt „kein Zugriff" — es soll nicht einmal verraten, dass
+etwas existiert. Ein Actions-Link, der nicht öffnet, ist deshalb **nicht kaputt**: der Browser
+ist nur nicht als `Rosenbaum-yoo` angemeldet. Einmal auf github.com mit diesem Konto anmelden,
+dann öffnen dieselben Links normal. (Die `gh`-Kommandozeile ist angemeldet — daher kommen die
+Angaben in diesem Dokument.)
+
+---
+
+### 1. 🔴 Die CI hat nie funktioniert — bitte zuerst
+
+**Was gemessen wurde:** von **62 Läufen in der gesamten Repo-Historie sind alle 62
+`startup_failure`** nach 0 Sekunden. Nicht „seit Juni kaputt" — es gab **nie** einen
+erfolgreichen Lauf.
+
+**Warum das mehr ist als ein rotes Lämpchen:** `docs/GO_LIVE_FINAL.md` und
+`docs/RELEASE_RUNBOOK.md` erklären den CI-Job `release-artifact` zum **kanonischen** Weg zum
+Produktions-Artefakt — „CI grün laufen lassen, Artefakt herunterladen". Dieser Weg ist derzeit
+nicht ausführbar. Und jede Aussage „CI ist grün" in der Dokumentation beschreibt etwas, das nie
+stattgefunden hat.
+
+**Wie schlimm ist es wirklich?** Es ist **kein Code-Problem**: die Testsuite ist auf diesem
+Rechner nachweislich grün (7484 Unit-Tests, 186 Integrationstests). Es ist ein
+**Verifikations**-Problem: niemand hat den Code je auf einer fremden, sauberen Maschine gebaut
+und getestet. Genau das ist der Zweck einer CI — sie fängt „bei mir läuft's". Vor dem ersten
+echten Kunden muss das weg; heute brennt nichts, weil nichts produktiv läuft.
+
+**Was schon ausgeschlossen ist** (bitte nicht erneut prüfen):
+- Actions sind auf Repo-Ebene aktiviert (`enabled: true, allowed_actions: all`).
+- Die Workflow-Datei ist auf **beiden** Branches gültig: YAML lädt, alle Jobs haben `runs-on`
+  und `steps`, kein `needs` zeigt ins Leere, kein Step hat `uses` **und** `run`, keine
+  doppelten Schlüssel, **kein BOM**, keine Tabs.
+- Die API liefert als einzigen Hinweis `path: "BuildFailed"` — ein Platzhalter, den GitHub
+  setzt, wenn es die Workflow-Definition gar nicht aufbauen konnte.
+
+**Deine Schritte (5 Minuten):**
+1. Auf github.com als `Rosenbaum-yoo` anmelden.
+2. **Actions → CI → irgendeinen Lauf öffnen.** Dort steht der Startfehler im Klartext — die
+   API gibt ihn nicht heraus, die Weboberfläche schon.
+3. Ist dort nichts zu sehen: **Settings → Billing** prüfen. Aufgebrauchte Actions-Minuten oder
+   eine fehlende Zahlungsart erzeugen bei privaten Repos genau dieses Bild (0 Sekunden,
+   `startup_failure`). Ebenfalls ansehen: **Settings → Actions → General**.
+4. Danach **Actions → CI → Run workflow** anstoßen (`workflow_dispatch` ist konfiguriert) und
+   das Ergebnis hier eintragen.
+
+**Selbst prüfen, jederzeit:** `bash scripts/ci-status.sh` — sagt in 5 Sekunden, ob es je einen
+grünen Lauf gab und wie alt der letzte ist. Genau diese Blindstelle blieb sonst einen Monat
+unbemerkt.
+
+---
+
+### 2. Secret-Rotation (P0.4) — die Schlüssel wechseln
+
+**Was gemeint ist:** alle Geheimnisse in der aktuellen `.env` sind während der Entwicklung
+entstanden und benutzt worden. Sie standen in Logs, in Terminals, teils in Screenshots, und
+manche waren von Anfang an Entwicklungs-Platzhalter. Bevor echte Kundendaten im System liegen,
+wird **jedes einzelne** durch einen frischen Zufallswert ersetzt.
+
+**Warum das zählt:** wer `SESSION_SECRET` kennt, kann sich **fremde Sitzungen selbst
+ausstellen** — ohne Passwort, ohne Spur. Das ist keine Formalie.
+
+**Was zu tun ist** (die Befehle stehen unten bei P0.4, hier die Bedeutung):
+- **`SESSION_SECRET` + `STAFF_SESSION_SECRET`** neu erzeugen. Folge: **alle** angemeldeten
+  Nutzer werden ausgeloggt und müssen sich neu anmelden. Vor dem Pilotstart also harmlos,
+  danach ein angekündigter Wartungsschritt.
+- **DB-Passwort** wechseln — zuerst in der Datenbank, **direkt danach** in der `.env`, dann
+  neu starten. Die Reihenfolge ist wichtig, sonst kommt die API nicht mehr an die Datenbank.
+- **Stripe Secret Key** im Dashboard rollen („Roll key"), **Sentry-Token** neu ausstellen und
+  den alten löschen.
+- **Zusätzlich (aus früheren Sitzungen):** den **Web3Forms-Key** bei Cloudflare als Secret
+  setzen **und den alten rotieren** — er steht in der Git-Historie und lässt sich daraus nicht
+  entfernen. Bis zur Rotation bleibt er für Fremde nutzbar.
+
+---
+
+### 3. Staff Control Center betriebsbereit machen (P1.0, Rest)
+
+**Was das ist:** das Staff Control Center ist die **Betreiber-Kanzel** unter `/staff/` — deine
+Sicht auf die Plattform, strikt getrennt von Kunden-, Admin- und Support-Welt. Der Code ist
+fertig und getestet; es fehlt die Einrichtung auf dem Server.
+
+**Was zu tun ist:**
+- **(a) nginx-VHost** für eine eigene Subdomain (z. B. `staff.tempconnect.de`), damit die
+  Betreiber-Oberfläche nicht unter derselben Adresse wie die Kundenanwendung liegt.
+- **(b) eigenes TLS-Zertifikat** für diese Subdomain.
+- **(c) optional IP-Allowlist** auf VHost-Ebene — nur euer Anschluss kommt überhaupt bis zur
+  Anmeldemaske.
+- **(e) die zwei echten Nutzer-UUIDs** (Elmira + Mitarbeiter) in `STAFF_USER_IDS`. Das ist ein
+  einmaliger Startschalter: beim ersten Login werden diese Konten als Staff freigeschaltet,
+  danach verwaltet das Center seine Mitglieder selbst. **Leer bedeutet: niemand kommt hinein.**
+- **(f) optional `HETZNER_CLOUD_TOKEN`** (Lesezugriff genügt). Ohne Token zeigt die
+  Infrastruktur-Ansicht ehrlich gekennzeichnete Beispieldaten statt echter Server.
+
+**Schon erledigt (2026-07-26):** alle drei Variablen stehen samt Erklärung in
+`.env.prod.example`. Dabei fiel auf, dass `STAFF_SESSION_SECRET` dort **fehlte** — und diese
+Variable bricht den Produktionsstart hart ab. Ein Deploy nach der alten Vorlage wäre nicht
+hochgekommen. Ein Test wacht jetzt darüber (`api/test/prodEnvTemplate.test.js`).
+
+---
+
+### 4. Restore-Probe (P1.4) — einmal wirklich zurückspielen
+
+**Was gemeint ist:** die Backup-Skripte existieren, sind getestet und laufen. Aber **noch
+niemand hat auf dem echten Server ein Backup tatsächlich zurückgespielt.** Genau das ist die
+Aufgabe — nicht Code schreiben, sondern es einmal durchspielen.
+
+**Warum das zählt:** ein Backup, das nie zurückgespielt wurde, ist eine **Annahme**, keine
+Absicherung. Der Ernstfall ist der schlechteste Zeitpunkt, um herauszufinden, dass die Datei
+unvollständig ist, ein Passwort fehlt oder der Vorgang vier Stunden dauert.
+
+**Die Übung:**
+1. Backup erzeugen (`scripts/backup.sh`) und prüfen (`scripts/backup-verify.sh`).
+2. In eine **Wegwerf-Datenbank** zurückspielen (`scripts/restore-test.sh`) — nicht in die echte.
+3. Stichprobe: sind Organisationen, Nutzer und Stundenzettel wirklich da?
+4. **Die Uhrzeit mitschreiben.** Wie lange hat es gedauert, wie alt war der Datenstand? Das
+   sind genau die beiden Zahlen (RPO/RTO), die `docs/GO_LIVE_FINAL.md` verlangt — und
+   dieselben, die man im Ernstfall dem Kunden nennen muss.
+5. Ergebnis in `docs/BACKUP_DISASTER_RECOVERY.md` eintragen, mit Datum.
+
+---
+
 ## Status-Legende
 - **P0** - harter Blocker, verhindert gruene CI oder stabile Produktion. Muss vor Go-Live weg.
 - **P1** - soll vor erstem Pilotkunden live sein (Vertrag, Sicherheit, Demo-Glaubwuerdigkeit).
