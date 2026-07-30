@@ -1,5 +1,40 @@
 # TempConnect — Finalisierungsplan bis zur finalen Abnahme (Marktstart)
 
+> ## Stand 2026-07-26 — was seit der letzten Planpflege (13.06.) passiert ist
+>
+> **Der Plan war sechs Wochen nicht gepflegt.** Er untertreibt den Fortschritt deutlich; die
+> Wellen unten sind noch auf dem Stand von Mitte Juni. Diese Notiz schliesst die Luecke, ohne
+> die Wellenstruktur anzufassen — Details stehen wie gehabt in den Quell-Dokumenten.
+>
+> **Seither geliefert (Code, alles committet und gruen):**
+> - **P4 — Matching-Engine, KI-Ranking, Activity Center.** Inklusive Migrationen 151–153.
+> - **Multi-Skill-Angebotsmanagement Welle 1** und **Live-Belegschaft** (Worker-Dispositionsboard).
+> - **`docs/AUDIT_BACKLOG.md` vollstaendig abgearbeitet** (B-1…B-5, C-1…C-12). Dabei gefunden
+>   und behoben: ein **ausnutzbares Cross-Org-Leck** (fremde Mitgliederlisten lesbar), ein
+>   Datumsversatz um einen Tag ueber 55 Spalten, Checkout-IDs in zwei Schreibweisen, ein
+>   Angebots-Postfach ohne Aktionen, unsichtbare Lieferanten-Stundenzettel, ein fehlender
+>   Index. Migrationen 154–156.
+> - **Wachhunde statt Merkzettel:** Doku-Konsistenz, Logger-PII, Produktions-Env-Vorlage,
+>   Emoji-Freiheit, Secret-Scan ueber die Historie, CI-Status.
+>
+> **Zwei Dinge, die die Wellen unten noch nicht kennen:**
+> 1. **Die CI hat nie funktioniert** — alle 62 Laeufe der Repo-Historie `startup_failure`.
+>    Ursache gefunden: der Workflow war *manuell deaktiviert* (behoben) **und** das
+>    GitHub-Konto ist wegen einer Abrechnungssache gesperrt (offen, nur Owner). Das trifft
+>    **F4.2** und **F5.1** unmittelbar: der dort vorausgesetzte kanonische Artefaktpfad
+>    (`release-artifact`) ist bis dahin nicht ausfuehrbar. Details: C-12 im Audit-Backlog.
+> 2. **Das Repository ist oeffentlich** (Owner-Entscheidung 2026-07-26). Vorher Secret-Scan
+>    ueber die gesamte Historie: sauber bis auf den bekannten Web3Forms-Key (Spam-Risiko,
+>    kein Systemzugriff — rotieren). Seither zusaetzlich aktiv: Secret Scanning, Push
+>    Protection, Private Vulnerability Reporting, `SECURITY.md`.
+>
+> **Was das fuer die Restliste heisst.** Von den offenen Punkten unten sind praktisch alle
+> **owner- oder infrastrukturgebunden**: Gruendung (G.1–G.3, kritischer Pfad),
+> Rechtstexte und kommerzielle Festlegungen (F2.1–F2.3), Produktionsinfrastruktur
+> (F3.x), manuelle Abnahme und Gate (F4.3–F5.3). **Reine Code-Arbeit ist derzeit keine
+> offen** — was auf der Tastatur erledigt werden konnte, ist erledigt. Der Engpass ist die
+> UG-Gruendung, wie im Zieltermin unten bereits richtig beschrieben.
+
 > **Zweck:** DER eine Vorwärts-Plan vom heutigen Stand bis zum ersten echt zahlenden Kunden.
 > Konsolidiert: 6-Lens-Audit (2026-06-11) · `ENTERPRISE_GAP_REGISTER.md` (O-01–O-11) ·
 > `phase5_manual_tasks_checklist.md` · `PILOT_GO_LIVE_TODOS.md` (P0.4/P1.0/P1.4/E-01/P2.x) ·
@@ -178,7 +213,12 @@ und Hetzner (F3) laufen vollständig parallel und warten am Ende NUR auf Steuern
 - [ ] SSO: Option B (ehrlicher Soft-Lock, Status quo) für Marktstart bestätigen (O-06)
   - [x] **Code ist Option B (verifiziert 14.06.):** SSO ist per-Org (`org_sso_config`), Stub-Modus = ehrlicher Soft-Lock (Karte nicht buchbar), Break-Glass-Passwort-Login bleibt. Reine **Owner-Bestätigung** offen — kein Code nötig.
 - [ ] Notification-Polling-Intervall (Empf. 60s) + bell_priority-Schwellen (Track D)
-- [ ] Schimpfwort-Liste reviewen/ergänzen (`contentModerationService.js` BADWORDS)
+- [x] Schimpfwort-Liste geprüft (2026-07-26). **Die Liste war nicht das Problem** — sie ist
+      dreistufig und inhaltlich ausreichend. Die Luecke lag in der Erkennung: Leetspeak und
+      Sonderzeichen wurden gefangen, ein simples Leerzeichen nicht (`a r s c h l o c h` ging
+      glatt durch). Behoben, ohne pauschal Leerzeichen zu entfernen — das haette „Der Marsch
+      war lang“ zum Treffer gemacht. Zusammengezogen werden nur Folgen einzelner Buchstaben.
+      3 Tests, inklusive Fehlalarm-Proben.
 - [ ] Track A (Marketplace Visibility/Bounties): als Post-Launch bestätigen (Empfehlung aus MANUAL_TASKS)
 - **Abnahme:** je Punkt eine Zeile Entscheidung in `phase5_manual_tasks_checklist.md`
 

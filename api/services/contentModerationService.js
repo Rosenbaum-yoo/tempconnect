@@ -41,12 +41,46 @@ const SEV_RANK = { none: 0, low: 1, medium: 2, high: 3, critical: 4 };
 const SEV_BY_RANK = ["none", "low", "medium", "high", "critical"];
 const LEET = { "1": "i", "!": "i", "3": "e", "4": "a", "@": "a", "5": "s", "$": "s", "0": "o", "7": "t" };
 
+/**
+ * Zieht auseinandergezogene Schreibweisen wieder zusammen: "a r s c h" -> "arsch".
+ *
+ * WARUM NICHT EINFACH ALLE LEERZEICHEN ENTFERNEN: dann enthaelt "Der Marsch war lang"
+ * das Wort "arsch" mitten im Wort, und die Wortgrenzen-Regel unten kann es nicht mehr
+ * abfangen — nach dem Entfernen gibt es keine Grenzen mehr. Das Ergebnis waeren
+ * Fehlalarme auf voellig harmlosen Texten.
+ *
+ * Zusammengezogen wird deshalb NUR das, was das Ausweichmuster ausmacht: eine Folge von
+ * mindestens drei einzelnen Buchstaben. Normale Woerter bleiben unberuehrt.
+ *
+ * Bewusst nicht abgedeckt: teilweises Trennen wie "ar sch loch". Das zuverlaessig zu
+ * fangen braucht unscharfen Abgleich, und der erzeugt in einem B2B-Bewertungstext mehr
+ * falsche Treffer als er verhindert.
+ */
+function zieheGesperrtesZusammen(s) {
+  const tokens = s.split(/(\s+)/);
+  const out = [];
+  let lauf = [];
+  const spuelen = () => {
+    if (lauf.length >= 3) out.push(lauf.join(""));
+    else if (lauf.length) out.push(lauf.join(" "));
+    lauf = [];
+  };
+  for (const tok of tokens) {
+    if (/^\s+$/.test(tok)) continue;
+    if (tok.length === 1) lauf.push(tok);
+    else { spuelen(); out.push(tok); }
+  }
+  spuelen();
+  return out.join(" ");
+}
+
 function normalize(text) {
   let s = String(text == null ? "" : text).toLowerCase();
   s = s.replace(/[1!34@5$07]/g, (c) => LEET[c] || c);          // Leetspeak
   s = s.replace(/ä/g, "a").replace(/ö/g, "o").replace(/ü/g, "u").replace(/ß/g, "ss"); // Umlaute/ß
   s = s.replace(/[^a-z\s]/g, "");                               // Sonderzeichen weg (Evasion)
   s = s.replace(/([a-z])\1{2,}/g, "$1$1");                      // 3+ Wiederholungen -> 2
+  s = zieheGesperrtesZusammen(s);                               // "a r s c h" -> "arsch"
   return s;
 }
 

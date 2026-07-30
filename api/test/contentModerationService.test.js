@@ -79,3 +79,42 @@ test("BADWORDS list is well-formed (word + valid severity)", () => {
     assert.ok(valid.has(bw.s), `invalid severity for ${bw.w}: ${bw.s}`);
   }
 });
+
+/* ── Auseinandergezogene Schreibweise (Plan F2.4, geprueft 2026-07-26) ────────
+ *
+ * Der Plan fuehrte "Schimpfwort-Liste reviewen/ergaenzen". Die Liste ist inhaltlich
+ * in Ordnung — die Luecke lag woanders: Leetspeak und Sonderzeichen wurden gefangen,
+ * ein simples Leerzeichen aber nicht. "a r s c h l o c h" ging glatt durch.
+ *
+ * Nicht behoben durch Entfernen ALLER Leerzeichen: dann enthaelt "Der Marsch war lang"
+ * das Wort mitten drin, und die Wortgrenzen-Regel greift nicht mehr. Zusammengezogen
+ * wird nur, was das Ausweichmuster ausmacht: Folgen einzelner Buchstaben.
+ */
+
+test("gesperrte Schreibweise wird erkannt", () => {
+  for (const t of ["a r s c h l o c h", "h u r e n s o h n", "f i c k e n"]) {
+    assert.equal(moderateComment(t).flagged, true, `sollte anschlagen: ${t}`);
+  }
+});
+
+test("bereits abgedeckte Ausweichmuster bleiben erkannt", () => {
+  for (const t of ["arschloch", "4rschl0ch", "a-r-s-c-h-l-o-c-h", "arschlooooch"]) {
+    assert.equal(moderateComment(t).flagged, true, `sollte anschlagen: ${t}`);
+  }
+});
+
+test("das Zusammenziehen erzeugt keine Fehlalarme", () => {
+  // "Marsch" enthaelt ein Schimpfwort — genau deshalb duerfen Leerzeichen nicht
+  // pauschal entfernt werden. "Team A B C" ist eine Folge einzelner Buchstaben,
+  // ergibt zusammengezogen aber kein Schimpfwort.
+  const harmlos = [
+    "Der Marsch war lang",
+    "Wir haben 3 a 4 b geliefert",
+    "Die Analyse der Uhren war ok",
+    "Team A B C hat gut gearbeitet",
+    "Halle 5 Reihe C Platz 2"
+  ];
+  for (const t of harmlos) {
+    assert.equal(moderateComment(t).flagged, false, `sollte NICHT anschlagen: ${t}`);
+  }
+});
