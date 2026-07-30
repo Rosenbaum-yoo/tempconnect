@@ -251,6 +251,48 @@ export async function assignTemplate(pool, {
   if (!tmpl) return { error: "TEMPLATE_NOT_FOUND" };
   if (!assignmentId && !orgId) return { error: "ASSIGNMENT_OR_ORG_REQUIRED" };
 
+  // ── Zielorganisation absichern ────────────────────────────────────────────
+  //
+  // Vorher wurde nur geprueft, ob die VORLAGE der Agentur gehoert — die Kunden-`org_id`
+  // gar nicht. Eine Agentur konnte ihre Vorlage damit einer beliebigen fremden
+  // Organisation zuordnen, zu der sie keinerlei Beziehung hat. Kein Datenabfluss, aber
+  // der Zettel taucht dann in der Ansicht eines Fremden auf: ungefragte Einmischung in
+  // eine fremde Mandantenwelt, mit frei waehlbarem Vorlagentext.
+  //
+  // Zwei Wege hinein, zwei Absicherungen:
+
+  let zielOrgId = orgId || null;
+
+  if (assignmentId) {
+    // (a) Ueber einen Einsatz: die Org wird ABGELEITET, nicht geglaubt. Der Client darf
+    //     nicht bestimmen, zu welchem Kunden ein Einsatz angeblich gehoert.
+    const { rows: [asg] } = await pool.query(
+      "SELECT id, org_id, supplier_org_id FROM assignments WHERE id = $1",
+      [assignmentId]
+    );
+    if (!asg) return { error: "ASSIGNMENT_NOT_FOUND" };
+    if (asg.supplier_org_id !== supplierOrgId) return { error: "ASSIGNMENT_NOT_OWNED" };
+    zielOrgId = asg.org_id;
+  } else {
+    // (b) Direkt auf eine Org: es muss eine nachweisbare Geschaeftsbeziehung geben.
+    //     Belegt ist sie durch die Lieferantenliste des Kunden ODER durch gemeinsame
+    //     Historie (ein Einsatz oder ein Stundenzettel zwischen beiden Seiten). Eine
+    //     eigene Definition von "Beziehung" wird bewusst NICHT erfunden.
+    const { rows: [beziehung] } = await pool.query(
+      `SELECT 1 AS ok
+         FROM vendor_pool
+        WHERE client_org_id = $1 AND supplier_org_id = $2
+          AND status = 'active' AND tier != 'BLOCKED'
+        UNION ALL
+       SELECT 1 FROM assignments WHERE org_id = $1 AND supplier_org_id = $2
+        UNION ALL
+       SELECT 1 FROM timesheets  WHERE org_id = $1 AND supplier_org_id = $2
+        LIMIT 1`,
+      [zielOrgId, supplierOrgId]
+    );
+    if (!beziehung) return { error: "NO_BUSINESS_RELATIONSHIP" };
+  }
+
   try {
     const { rows: [asgn] } = await pool.query(
       `INSERT INTO timesheet_template_assignments
@@ -259,7 +301,7 @@ export async function assignTemplate(pool, {
        ON CONFLICT (template_id, assignment_id)
          DO UPDATE SET org_id = EXCLUDED.org_id, created_by = EXCLUDED.created_by
        RETURNING *`,
-      [templateId, assignmentId || null, orgId || null, createdBy]
+      [templateId, assignmentId || null, zielOrgId || null, createdBy]
     );
     return { ok: true, assignment: asgn };
   } catch (err) {

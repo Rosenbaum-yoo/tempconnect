@@ -104,6 +104,35 @@ eine **leere Checkliste** mit Platzhaltern, keine echten Daten. Unbedenklich.
 
 ---
 
+## 0c. Was GitHub seit dem Öffentlich-Schalten zusätzlich absichert
+
+Aktiviert am 2026-07-26. Für öffentliche Repositories ist all das **kostenlos** — einer der
+Nebengewinne der Sichtbarkeitsänderung.
+
+| Schutz | Was er tut |
+|---|---|
+| **Secret Scanning** | Durchsucht Code **und Historie** laufend nach bekannten Schlüsselformaten und meldet Treffer. |
+| **Push Protection** | Blockiert einen Push, der ein erkanntes Geheimnis enthält — **bevor** es im Repo landet. |
+| **Private Vulnerability Reporting** | Finder melden Schwachstellen privat über GitHub, statt ein öffentliches Issue zu öffnen (siehe `SECURITY.md`). |
+
+**Push Protection ist die eigentliche Verbesserung.** `scripts/secret-scan.sh` findet ein
+Geheimnis, *nachdem* es committet wurde — dann hilft nur noch rotieren. Push Protection
+verhindert den Commit. Beides zusammen ist sinnvoll: das Skript deckt auch Formate ab, die
+GitHub nicht kennt, und läuft ohne Netz.
+
+Prüfen:
+
+```bash
+gh api repos/<owner>/<repo> --jq '.security_and_analysis'
+gh api repos/<owner>/<repo>/private-vulnerability-reporting --jq '.enabled'
+```
+
+**Nicht aktiviert:** Dependabot-Sicherheitsupdates. Die erzeugen automatisch Pull Requests —
+sinnvoll, aber eine Entscheidung über den Arbeitsfluss, nicht über Sicherheit. Bewusst dem
+Owner überlassen.
+
+---
+
 ## 1. .env darf nicht getrackt sein
 
 ```bash

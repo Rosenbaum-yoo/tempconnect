@@ -508,6 +508,9 @@ describe("assignTemplate", () => {
     const pool = trackingPool((sql) => {
       if (has(sql, "FROM timesheet_templates tt")) return { rows: [{ id: TMPL }], rowCount: 1 };
       if (has(sql, "FROM timesheet_template_fields")) return { rows: [], rowCount: 0 };
+      // Neu: assignTemplate verlangt eine nachweisbare Geschaeftsbeziehung,
+      // bevor eine Vorlage einer fremden Org zugeordnet werden darf.
+      if (has(sql, "FROM vendor_pool")) return { rows: [{ ok: 1 }], rowCount: 1 };
       if (has(sql, "INSERT INTO timesheet_template_assignments")) return { rows: [asgnRow], rowCount: 1 };
       return undefined;
     });
@@ -529,6 +532,9 @@ describe("assignTemplate", () => {
     const pool = trackingPool((sql) => {
       if (has(sql, "FROM timesheet_templates tt")) return { rows: [{ id: TMPL }], rowCount: 1 };
       if (has(sql, "FROM timesheet_template_fields")) return { rows: [], rowCount: 0 };
+      // Neu: die Ziel-Org wird aus dem Einsatz ABGELEITET — der muss existieren
+      // und der Agentur gehoeren.
+      if (has(sql, "FROM assignments WHERE id")) return { rows: [{ id: ASGN, org_id: ORG, supplier_org_id: ORG }], rowCount: 1 };
       if (has(sql, "INSERT INTO timesheet_template_assignments")) throw err;
       return undefined;
     });
@@ -546,6 +552,9 @@ describe("assignTemplate", () => {
     const pool = trackingPool((sql) => {
       if (has(sql, "FROM timesheet_templates tt")) return { rows: [{ id: TMPL }], rowCount: 1 };
       if (has(sql, "FROM timesheet_template_fields")) return { rows: [], rowCount: 0 };
+      // Neu: die Ziel-Org wird aus dem Einsatz ABGELEITET — der muss existieren
+      // und der Agentur gehoeren.
+      if (has(sql, "FROM assignments WHERE id")) return { rows: [{ id: ASGN, org_id: ORG, supplier_org_id: ORG }], rowCount: 1 };
       if (has(sql, "INSERT INTO timesheet_template_assignments")) throw err;
       return undefined;
     });

@@ -664,9 +664,16 @@ Verträge:
   („Legacy-User ohne Org"). Dasselbe Fail-Open-Muster; seit dem orgContext-Fix ist `orgId`
   für jeden Nutzer mit Mitgliedschaft gesetzt, und ohne Mitgliedschaft scheitert schon der
   Permission-Guard davor. Unerreichbar, aber falsch herum formuliert.
-- `routes/timesheetTemplates.js:164` — die Kunden-`org_id` beim Zuweisen einer Vorlage wird
-  nicht gegen eine Geschäftsbeziehung geprüft. Ein Lieferant könnte eine eigene Vorlage einer
-  beliebigen fremden Org zuordnen. Keine Datenpreisgabe, aber unsauber.
+- ~~`routes/timesheetTemplates.js:164` — Kunden-`org_id` ungeprüft~~ ✅ **BEHOBEN 2026-07-26.**
+  Mit dem Wechsel auf ein **öffentliches** Repository wurde aus der Randnotiz ein
+  öffentlicher Wegweiser auf eine offene Schwachstelle — deshalb geschlossen statt
+  dokumentiert. Zwei Wege, zwei Absicherungen: über einen Einsatz wird die Ziel-Org jetzt
+  **abgeleitet** statt geglaubt (und der Einsatz muss der Agentur gehören); direkt auf eine
+  Org verlangt sie eine **nachweisbare Geschäftsbeziehung** — Lieferantenliste des Kunden
+  **oder** gemeinsame Historie (Einsatz/Stundenzettel). Bewusst keine eigene Definition von
+  „Beziehung“ erfunden, sondern die vorhandenen Tabellen befragt. Die Route unterscheidet
+  jetzt 404 / 403 / 400 statt alles als 409 zu melden. 10 Tests in
+  `api/test/timesheetTemplateAssign.test.js`.
 
 ---
 

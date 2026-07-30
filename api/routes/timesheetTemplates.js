@@ -165,8 +165,16 @@ export function createTimesheetTemplatesRouter(deps) {
         createdBy:    req.session.userId
       });
       if (result.error) {
-        const s = result.error === "TEMPLATE_NOT_FOUND" ? 404 : 409;
-        return res.status(s).json(result);
+        // Jeder Fall bekommt den Code, der ihn beschreibt: "nicht gefunden" ist etwas
+        // anderes als "gehoert dir nicht", und beides etwas anderes als ein Konflikt.
+        const codes = {
+          TEMPLATE_NOT_FOUND: 404,
+          ASSIGNMENT_NOT_FOUND: 404,
+          ASSIGNMENT_NOT_OWNED: 403,
+          NO_BUSINESS_RELATIONSHIP: 403,
+          ASSIGNMENT_OR_ORG_REQUIRED: 400
+        };
+        return res.status(codes[result.error] || 409).json(result);
       }
       res.locals.audit = { action: "timesheet_template.assign", entity_type: "timesheet_template_assignment", entity_id: result.assignment.id, details: { template_id: req.params.id, assignment_id: parsed.data.assignment_id || null } };
       res.status(201).json(result.assignment);
