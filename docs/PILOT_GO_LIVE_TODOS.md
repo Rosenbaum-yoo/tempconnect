@@ -22,11 +22,18 @@ Angaben in diesem Dokument.)
 
 ---
 
-### 1. 🔴 Die CI hat nie funktioniert — bitte zuerst
+### 1. 🔴 Die CI — Ursache gefunden, eine Owner-Handlung offen
 
 **Was gemessen wurde:** von **62 Läufen in der gesamten Repo-Historie sind alle 62
 `startup_failure`** nach 0 Sekunden. Nicht „seit Juni kaputt" — es gab **nie** einen
 erfolgreichen Lauf.
+
+**Aufgeklaert am 2026-07-26 — es waren zwei Ursachen.** Erstens war der Workflow **manuell
+deaktiviert** (`gh workflow list --all` → `CI  disabled_manually`); deaktivierte Workflows
+verschweigt `gh workflow list` ohne `--all`, deshalb blieb das lange unentdeckt. Das ist
+**behoben**, er steht auf `active`. Zweitens zeigte der erste danach wirklich ausgefuehrte
+Lauf den eigentlichen Grund: eine **Kontosperre wegen Abrechnung**. Nur die ist noch offen —
+und nur vom Owner loesbar (Schritt 2 unten).
 
 **Warum das mehr ist als ein rotes Lämpchen:** `docs/GO_LIVE_FINAL.md` und
 `docs/RELEASE_RUNBOOK.md` erklären den CI-Job `release-artifact` zum **kanonischen** Weg zum
@@ -40,7 +47,9 @@ Rechner nachweislich grün (7484 Unit-Tests, 186 Integrationstests). Es ist ein
 und getestet. Genau das ist der Zweck einer CI — sie fängt „bei mir läuft's". Vor dem ersten
 echten Kunden muss das weg; heute brennt nichts, weil nichts produktiv läuft.
 
-**Was schon ausgeschlossen ist** (bitte nicht erneut prüfen):
+**Ursache steht fest — bitte nichts davon erneut prüfen:** es war weder der Code noch die
+Workflow-Datei. Zwei Dinge kamen zusammen: ein manuell deaktivierter Workflow (behoben) und
+die Kontosperre (offen, Schritt 2). Unterwegs ausgeschlossen wurde:
 - Actions sind auf Repo-Ebene aktiviert (`enabled: true, allowed_actions: all`).
 - Die Workflow-Datei ist auf **beiden** Branches gültig: YAML lädt, alle Jobs haben `runs-on`
   und `steps`, kein `needs` zeigt ins Leere, kein Step hat `uses` **und** `run`, keine
@@ -50,11 +59,15 @@ echten Kunden muss das weg; heute brennt nichts, weil nichts produktiv läuft.
 
 **Deine Schritte (5 Minuten):**
 1. Auf github.com als `Rosenbaum-yoo` anmelden.
-2. **Actions → CI → irgendeinen Lauf öffnen.** Dort steht der Startfehler im Klartext — die
-   API gibt ihn nicht heraus, die Weboberfläche schon.
-3. Ist dort nichts zu sehen: **Settings → Billing** prüfen. Aufgebrauchte Actions-Minuten oder
-   eine fehlende Zahlungsart erzeugen bei privaten Repos genau dieses Bild (0 Sekunden,
-   `startup_failure`). Ebenfalls ansehen: **Settings → Actions → General**.
+2. **Settings → Billing and plans.** Dort liegt die Ursache. Beim ersten tatsächlich
+   ausgeführten Lauf meldete GitHub für **jeden** Job: „account is locked due to a
+   billing issue“. Offene Zahlungssache klären — abgelaufene Karte, unbezahlte Rechnung
+   oder ein Ausgabenlimit.
+3. Hintergrund, damit die alte Fehlersuche nicht wiederholt wird: der Workflow war
+   zusätzlich **manuell deaktiviert** (`gh workflow list --all` → `CI  disabled_manually`).
+   Das ist **behoben**, er steht auf `active`. Genau deshalb endeten alle 62 früheren Läufe
+   mit `startup_failure` nach 0 Sekunden — ohne Annotation, an der etwas ablesbar gewesen
+   wäre. Die Kontosperre wurde erst sichtbar, als wieder ein Lauf startete.
 4. Danach **Actions → CI → Run workflow** anstoßen (`workflow_dispatch` ist konfiguriert) und
    das Ergebnis hier eintragen.
 

@@ -451,59 +451,54 @@ Org-Boundary-Guards halten tatsächlich. Vor jedem Release mitlaufen lassen.
 genommen; beide Verzeichnisse stehen in `.gitignore`. `git status` zeigt kein Bundle-Rauschen
 mehr. Begründung und Nachweis: siehe **B-1**.
 
-### C-12 · **Die CI hat nie funktioniert** 🔴 *Owner — blockiert den dokumentierten Release-Weg*
+### C-12 · CI: **Ursache gefunden** 🟠 *eine Owner-Handlung offen (Abrechnung)*
 
-**Korrektur meiner ersten Fassung (2026-07-26).** Ich hatte „läuft seit einem Monat nicht"
-geschrieben — das war zu milde und stützte sich auf die letzten acht Läufe. Über die gesamte
-Historie abgefragt: **von 62 Läufen sind alle 62 `startup_failure`.** Es gab **nie** einen
-erfolgreichen Lauf. Jede Aussage „CI ist grün" oder „6-Job-CI" in der Dokumentation beschreibt
-etwas, das nicht stattgefunden hat.
+**Aufgeklärt am 2026-07-26.** Es waren **zwei** Ursachen, nicht eine — und die zweite nennt
+GitHub inzwischen im Klartext.
 
-**Belegt, nicht vermutet** (`gh run list --limit 100` → `Counter({'startup_failure': 62})`):
-- Kein einziger Erfolg, seit es das Repo gibt.
-- Letzter Lauf: 2026-06-29. Seither wurde vielfach gepusht — u. a. neunmal an diesem Tag —
-  **ohne dass ein Lauf erzeugt wurde.** Live gegengeprüft: Push abgesetzt, kein Lauf erschienen.
-- Die API liefert als einzigen Hinweis `path: "BuildFailed"` — ein Platzhalter, den GitHub
-  setzt, wenn es die Workflow-Definition gar nicht aufbauen konnte.
+**Ursache 1 (behoben): der Workflow war abgeschaltet.**
+`gh workflow list` lieferte nichts, weil deaktivierte Workflows dort nicht erscheinen — erst
+`gh workflow list --all` zeigte: `CI  disabled_manually`. Ein manuell deaktivierter Workflow
+erklärt das gesamte Fehlerbild: GitHub legt eine Lauf-Notiz an, führt sie aber nie aus, also
+`startup_failure` nach 0 Sekunden und der Platzhalter `path: "BuildFailed"`. Genau darum war
+lokal nichts zu finden — die Datei war immer in Ordnung.
+*Behoben:* über `gh api -X PUT …/workflows/288266771/enable`, Zustand jetzt `active`.
 
-**Was ausgeschlossen ist** (damit niemand dieselbe Runde dreht):
-- Actions sind auf Repo-Ebene **aktiviert** (`{"enabled":true,"allowed_actions":"all"}`).
-- Die Workflow-Datei ist **auf beiden Branches gültig**: YAML lädt sauber, alle Jobs haben
-  `runs-on` und `steps`, kein `needs` zeigt ins Leere, kein Step hat `uses` **und** `run`,
-  **keine doppelten Schlüssel** (die verschluckt ein YAML-Parser still, GitHub lehnt sie ab —
-  deshalb eigens geprüft), **kein BOM**, **keine Tabs**. Auf `main` 11 Jobs / 649 Zeilen, auf
-  dem Release-Branch 14 Jobs.
-- Der `secrets`-Kontext steht ausschließlich in **job-lokalen** `env`-Blöcken — dort ist er
-  erlaubt. Auf Workflow-Ebene würde er einen Startfehler auslösen; er steht dort nicht.
-- Das `gh`-Token hat keinen `user`-Scope, deshalb ist der **Guthaben**-Endpunkt nicht abfragbar.
-  Das bleibt die naheliegendste unbeantwortete Möglichkeit.
+**Ursache 2 (offen, nur Owner): das Konto ist wegen einer Abrechnungssache gesperrt.**
+Nach dem Einschalten wurde erstmals ein Lauf **tatsächlich ausgeführt** (Lauf
+`30531949333`, 14 s, `failure` statt `startup_failure`). Die Annotation sagt für **jeden**
+Job:
 
-**Wie schlimm ist es?** Es ist **kein Code-Problem** — die Suite ist auf dem
-Entwicklungsrechner nachweislich grün (7484 Unit-, 186 Integrationstests). Es ist ein
-**Verifikations**-Problem: der Code wurde nie auf einer fremden, sauberen Maschine gebaut und
-geprüft. Genau dafür ist eine CI da, sie fängt „bei mir läuft's". Zusätzlich hängt daran der
-**kanonische** Artefaktpfad aus `docs/GO_LIVE_FINAL.md` und `docs/RELEASE_RUNBOOK.md` — „CI
-grün laufen lassen, Artefakt `release-artifact` herunterladen". Vor dem ersten echten Kunden
-muss das weg; akut brennt nichts, weil nichts produktiv läuft.
+> „The job was not started because your account is locked due to a billing issue."
 
-**Bewusst nicht geraten.** Eine CI-Konfiguration blind zu ändern, deren Fehlerbild man nicht
-kennt, macht es wahrscheinlicher schlimmer. Die konkrete Startfehlermeldung zeigt GitHub nur
-in der Weboberfläche.
+Damit ist die Blindstelle geschlossen: die Ursache war nie im Code und nie in der
+Workflow-Datei. Genau diese Meldung war über die API nicht zu sehen (der Guthaben-Endpunkt
+braucht den `user`-Scope, den das Token nicht hat) — sie erscheint erst, wenn ein Lauf
+wirklich startet.
 
-**Owner-Schritte, ausführlich erklärt:** `docs/PILOT_GO_LIVE_TODOS.md`, Abschnitt 1.
-Kurzfassung: als `Rosenbaum-yoo` anmelden (das Repo ist **privat**, deshalb antwortet GitHub
-Fremden mit **404** statt „kein Zugriff" — die Links sind nicht kaputt) → Actions-Tab → Lauf
-öffnen → dort steht der Fehler → sonst Settings → Billing.
+**Owner-Schritt (2 Minuten):** GitHub → **Settings → Billing and plans** → die offene
+Zahlungssache klären (abgelaufene Karte, unbezahlte Rechnung oder ein Ausgabenlimit). Danach
+`bash scripts/ci-status.sh` — dann sollte es den ersten grünen Lauf geben.
 
-**Damit es nicht wieder ein Monat wird:** `bash scripts/ci-status.sh` sagt in fünf Sekunden,
-ob es je einen grünen Lauf gab und wie alt der letzte ist; Rückgabewert 1 bei Befund, taugt
-also als Gate. Genau diese Blindstelle war nur durch Hinsehen zu finden — und wurde deshalb
-nicht gefunden.
+**Das Repository ist seit 2026-07-26 öffentlich** (Owner-Entscheidung). Öffentliche Repos haben
+bei Actions **unbegrenzte Minuten** — das war das Motiv, und es senkt die Betriebskosten
+dauerhaft. **Es löst diesen Punkt aber nicht:** eine Kontosperre wirkt unabhängig von der
+Sichtbarkeit. Umgekehrt heißt das: sobald die Abrechnung geklärt ist, kostet die CI hier nichts
+mehr.
 
-**Nebenbefund, erst danach relevant:** die Auslöser sind `branches: [main, master, develop]`.
-Für den Release-Branch greift CI daher nur über den offenen PR #1, nicht bei Push. Das kann so
-gewollt sein (CI als Merge-Gate). Sobald wieder Läufe entstehen, ist zu entscheiden, ob
-`release/**` in die Push-Auslöser gehört — vorher ist die Frage müßig.
+**Was nach dem Entsperren zu erwarten ist:** der Lauf umfasst 14 Jobs. Sie sind nie
+ausgeführt worden, also ist mit echten Fehlern zu rechnen — Umgebungsannahmen, fehlende
+Secrets (`E2E_STAFF_EMAIL`, `TC_PERF_*`), Node-Versionen. Das ist normal und der eigentliche
+Nutzen: der lokale Lauf (7484 Tests grün) sagt nichts über eine fremde, saubere Maschine. Die
+ersten roten Jobs sind Arbeit, nicht Alarm.
+
+**Nebenbefund:** die Auslöser sind `branches: [main, master, develop]`. Für den Release-Branch
+greift CI daher nur über den offenen PR #1, nicht bei Push. Sobald Läufe wieder entstehen, ist
+zu entscheiden, ob `release/**` in die Push-Auslöser gehört.
+
+**Lehre für den Werkzeugkasten:** `gh workflow list` verschweigt deaktivierte Workflows. Wer
+eine schweigende CI untersucht, nimmt **`--all`** — sonst sucht man, wie ich, im Dateiinhalt
+nach einem Fehler, der dort nicht ist. `scripts/ci-status.sh` prüft das jetzt mit.
 
 ### C-11 · `support-ops-dist/index.html`: Platzhalter ✅ **GEKLÄRT 2026-07-26 — kein Fehler**
 
@@ -685,6 +680,7 @@ Bei jeder Prüfung: **erledigt? noch gültig? neu dazugekommen?** Erledigte Punk
 | 2026-07-25 | Claude | Zugang C-1…C-9 aus dem Enterprise-Audit. B-1…B-5 unverändert offen. Nächste Prüfung: 2026-08-08. |
 | 2026-07-26 | Claude | **C-3, C-6, C-8 erledigt.** B-2: Sonde gebaut, Flake in diesem Lauf nicht reproduzierbar. Neu: **C-10** (Integrationssuite 42 rot — Test-Drift gegen `legacy_access`-Gate). |
 | 2026-07-26 (2) | Claude | **C-2, C-4, C-5, C-9 erledigt.** |
+| 2026-07-26 (12) | Claude | **C-12 aufgeklaert.** Zwei Ursachen: (1) der Workflow war `disabled_manually` — `gh workflow list` verschweigt deaktivierte, erst `--all` zeigte es; wieder aktiviert. (2) Danach lief erstmals ein Job und GitHub sagt im Klartext: "account is locked due to a billing issue". Nur der Owner kann das klaeren (Settings -> Billing). Repo ist jetzt oeffentlich (unbegrenzte Actions-Minuten), was die Sperre aber nicht aufhebt. Secret-Scan ueber die Historie vorher gruen. |
 | 2026-07-26 (11) | Claude | **C-12 verschaerft: die CI hat NIE funktioniert** — nicht "seit einem Monat kaputt". Ueber die gesamte Historie: 62 von 62 Laeufen `startup_failure`, kein einziger Erfolg. Meine erste Fassung stuetzte sich auf acht Laeufe und war zu milde. Neu: `scripts/ci-status.sh` als Dauer-Waechter (Rueckgabewert 1 bei Befund) und ein Klartext-Abschnitt fuer alle Owner-Aufgaben in `docs/PILOT_GO_LIVE_TODOS.md`. |
 | 2026-07-26 (10) | Claude | **Neu: C-12 — die CI erzeugt seit 2026-06-29 keine Laeufe mehr** (letzte acht: `startup_failure` nach 0s; kein Workflow registriert). Actions sind aktiviert und die Workflow-Datei ist auf beiden Branches nachweislich gueltig — die Ursache zeigt nur die Weboberflaeche. Blockiert den dokumentierten Release-Weg ueber `release-artifact`. Bewusst nicht geraten. Ausserdem: P1.0 (d) erledigt, dabei einen Startblocker in `.env.prod.example` gefunden. |
 | 2026-07-26 (9) | Claude | **Backlog vollstaendig geschlossen.** B-4-Dateiverschiebung geprueft und verworfen: nach der Konsolidierung bleiben zwei Kandidaten, beide von nirgends verlinkt, und  neben die lebende Roadmap zu legen haette genau die Doppeldeutigkeit erzeugt, die dieser Punkt beseitigen sollte. Stattdessen nennt sie ihre Nachfolgerin. **Kein offener Punkt mehr.** Naechste Turnuspruefung: 2026-08-09. |

@@ -12,8 +12,10 @@
 # Nutzung:
 #   bash scripts/ci-status.sh
 #
-# Voraussetzung: `gh` installiert und angemeldet (`gh auth status`). Das Repo ist privat —
-# ohne Anmeldung antwortet GitHub mit 404, nicht mit "kein Zugriff".
+# Voraussetzung: `gh` installiert und angemeldet (`gh auth status`).
+# Hinweis fuer den Fall, dass das Repo wieder auf privat gestellt wird: GitHub antwortet
+# Nicht-Berechtigten dann mit 404, nicht mit "kein Zugriff" — ein Link, der nicht oeffnet,
+# ist dann kein Fehler, sondern eine fehlende Anmeldung.
 #
 # Rueckgabewert: 0 = es gibt mindestens einen erfolgreichen Lauf UND der letzte Lauf ist
 # juenger als MAX_AGE_DAYS. Sonst 1 — damit das Skript auch als Gate taugt.
@@ -31,8 +33,24 @@ fi
 
 if ! gh auth status >/dev/null 2>&1; then
   echo "FEHLER: 'gh' ist nicht angemeldet. 'gh auth login' ausfuehren." >&2
-  echo "        (Das Repo ist privat — ohne Anmeldung sieht man nichts, auch keinen Fehler.)" >&2
+  echo "        (Ohne Anmeldung sieht man bei privaten Repos nichts, auch keinen Fehler.)" >&2
   exit 1
+fi
+
+# ── Zustand der Workflows ZUERST ─────────────────────────────────────────────
+#
+# LEHRE VOM 2026-07-26: `gh workflow list` verschweigt deaktivierte Workflows. Die Liste
+# war leer, und ich habe daraus geschlossen, es sei keiner registriert — und danach lange
+# im Dateiinhalt nach einem Fehler gesucht, der dort nicht war. Erst `--all` zeigte
+# `CI  disabled_manually`. Ein deaktivierter Workflow erzeugt genau das verwirrende Bild:
+# GitHub legt eine Lauf-Notiz an, fuehrt sie aber nie aus (startup_failure nach 0 s).
+# Deshalb steht diese Pruefung jetzt an erster Stelle.
+deaktiviert="$(gh workflow list --all 2>/dev/null | grep -iE 'disabled' || true)"
+if [ -n "$deaktiviert" ]; then
+  echo "!! BEFUND: Es gibt DEAKTIVIERTE Workflows — die fuehrt GitHub nie aus:"
+  printf '   %s\n' "$deaktiviert"
+  echo "   Einschalten: gh api -X PUT repos/<owner>/<repo>/actions/workflows/<ID>/enable"
+  echo ""
 fi
 
 runs="$(gh run list --limit "$LIMIT" --json conclusion,createdAt,event,headBranch 2>/dev/null)"
@@ -70,10 +88,12 @@ if not erfolge:
     print("")
     print("!! BEFUND: In den betrachteten Laeufen ist KEIN EINZIGER erfolgreich.")
     if counts.get("startup_failure"):
-        print("   Alle/viele enden mit startup_failure - GitHub konnte den Workflow nicht")
-        print("   einmal aufbauen. Die Ursache steht NUR in der Weboberflaeche, nicht in der API.")
-        print("   Pruefen: Actions-Tab -> Lauf oeffnen; dann Settings -> Billing (aufgebrauchte")
-        print("   Minuten bei privaten Repos erzeugen genau dieses Bild).")
+        print("   startup_failure heisst: GitHub hat den Lauf angelegt, aber nie ausgefuehrt.")
+        print("   Haeufigste Ursache: der Workflow ist DEAKTIVIERT (Pruefung oben) - dann gibt")
+        print("   es gar keine Annotation, an der man etwas ablesen koennte.")
+    print("   Naechster Schritt: gh run view <Lauf-ID>  -- fuehrt ein Lauf wirklich aus,")
+    print("   steht der Grund unter ANNOTATIONS (etwa eine Kontosperre wegen Abrechnung).")
+    print("   Bei 0-Sekunden-Laeufen fehlt diese Zeile.")
     probleme.append("kein erfolgreicher Lauf")
 else:
     print("Letzter Erfolg     : %s" % max(erfolge))
