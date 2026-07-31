@@ -235,7 +235,13 @@ async function acceptInvite() {
     const data = await res.json();
     if (!res.ok) throw new Error(data.error || 'Fehler');
     showToast('Konto eingerichtet! Weiterleitung…', 'success');
-    setTimeout(() => location.href = 'einsatzportal-dashboard.html', 1500);
+    // Nach Annahme einer Einladung ins PROFIL, nicht aufs Dashboard (Multi-Skill Welle 2):
+    // Wer gerade erst eingeladen wurde, hat ein leeres Profil. Das Dashboard zeigt ihm
+    // dann leere Listen und keinen Weg nach vorn. `willkommen=1` macht dort aus dem
+    // Fortschrittsbanner eine Begruessung mit dem ersten offenen Schritt.
+    // Der normale Login unten fuehrt weiterhin aufs Dashboard — eine Bestandskraft will
+    // ihre Einsaetze sehen, nicht ihr Profil.
+    setTimeout(() => location.href = 'einsatzportal-profil.html?willkommen=1', 1500);
   } catch (e) {
     errEl.textContent = e.message === 'INVITE_ALREADY_USED'
       ? 'Diese Einladung wurde bereits verwendet.'

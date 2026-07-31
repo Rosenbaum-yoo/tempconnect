@@ -222,7 +222,7 @@
       </div>
 
       <!-- Bearbeitbare Felder -->
-      <div class="profil-card">
+      <div class="profil-card" id="person">
         <div class="profil-card-head" style="padding:14px 20px">
           <div>
             <div style="font-weight:700;font-size:.9rem">Kontaktdaten bearbeiten</div>
@@ -372,7 +372,7 @@
       </div>
 
       <!-- Fähigkeiten / Skills (Katalog-gebunden) -->
-      <div class="profil-card">
+      <div class="profil-card" id="skills">
         <div class="profil-card-head" style="padding:14px 20px;justify-content:space-between">
           <div style="font-weight:700;font-size:.9rem">Fähigkeiten &amp; Qualifikationen</div>
           <span class="profil-doc-badge info" id="skillCount">0 gewählt</span>
@@ -553,8 +553,17 @@ async function loadProgress() {
 
   var titel = document.getElementById('progressTitle');
   var sub = document.getElementById('progressSub');
-  if (p.einsatzbereit) {
-    titel.textContent = 'Ihr Profil ist einsatzbereit';
+
+  // Frisch eingeladen (?willkommen=1 aus worker-login.html): begrüßen statt ermahnen.
+  // Jemand, der sich gerade sein Konto eingerichtet hat, hat nichts „versäumt".
+  var willkommen = new URLSearchParams(location.search).get('willkommen') === '1';
+
+  if (willkommen && !p.einsatzbereit) {
+    titel.textContent = 'Willkommen – noch ein paar Angaben';
+    sub.textContent = 'Damit passende Einsätze zu Ihnen finden. Dauert nur wenige Minuten,'
+                    + ' und Sie können jederzeit später ergänzen.';
+  } else if (p.einsatzbereit) {
+    titel.textContent = willkommen ? 'Willkommen – Ihr Profil ist bereits einsatzbereit' : 'Ihr Profil ist einsatzbereit';
     sub.textContent = p.fortschritt_prozent === 100
       ? 'Alles ausgefüllt – danke.'
       : 'Sie können vermittelt werden. Ergänzendes ist unten markiert.';
@@ -573,10 +582,18 @@ async function loadProgress() {
     // UI, und der Wächter api/test/uiNoEmoji.test.js setzt das durch.
     var mark = PortalShell.iconSvg(s.erledigt ? 'erledigt' : 'offen');
     var titelAttr = s.pflicht ? 'Erforderlich' : 'Empfohlen';
-    return '<span class="profil-step ' + klasse + '" title="' + titelAttr + '">'
-         + '<span class="profil-step-mark">' + mark + '</span>' + esc(s.titel)
-         + (s.pflicht ? '' : ' <span style="font-weight:400;opacity:.75">(optional)</span>')
-         + '</span>';
+    var inhalt = '<span class="profil-step-mark">' + mark + '</span>' + esc(s.titel)
+               + (s.pflicht ? '' : ' <span style="font-weight:400;opacity:.75">(optional)</span>');
+    // Offene Schritte sind Sprungziele — ein Hinweis, der nicht hinführt, ist eine
+    // Sackgasse. Erledigte bleiben ruhig: dort gibt es nichts zu tun.
+    // Jede Karte trägt eine id, die dem Schrittnamen entspricht (person, skills,
+    // availability -> availCard, documents).
+    if (!s.erledigt) {
+      var ziel = s.key === 'availability' ? 'availCard' : s.key;
+      return '<a class="profil-step ' + klasse + '" href="#' + ziel + '" title="' + titelAttr
+           + ' – hier ergänzen" style="text-decoration:none">' + inhalt + '</a>';
+    }
+    return '<span class="profil-step ' + klasse + '" title="' + titelAttr + '">' + inhalt + '</span>';
   }).join('');
 
   card.style.display = '';
