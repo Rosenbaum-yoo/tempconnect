@@ -13,6 +13,7 @@ import * as workerService from "../services/workerService.js";
 import * as submissionSvc from "../services/workerSubmissionService.js";
 import * as workerNotifications from "../services/workerNotificationService.js";
 import * as availabilitySvc from "../services/workerAvailabilityService.js";
+import * as onboardingSvc from "../services/workerOnboardingService.js";
 import { swallow } from "../utils/logger.js";
 
 /* ── Schemas ─────────────────────────────────────────────────────────────────── */
@@ -230,6 +231,22 @@ export function createWorkerPortalRouter(deps) {
         details: { skill_count: result.count }
       };
       res.json({ ok: true, count: result.count, skill_ids: result.skill_ids });
+    } catch (err) { next(err); }
+  });
+
+  /* ── Aufnahme-Fortschritt (Welle 2) ───────────────────────────────────────
+   *
+   * Eine Wahrheit fuer Assistent, Dashboard-Hinweis und Disposition. Liefert je Schritt
+   * `erledigt`, was konkret `offen` ist, und einen Hinweis im Klartext — damit die
+   * Oberflaeche nichts nachrechnen und nichts erfinden muss.
+   */
+  router.get("/worker/me/onboarding", ...base, async (req, res, next) => {
+    try {
+      const profile = await workerService.getWorkerProfile(pool, req.session.userId);
+      if (!profile) return res.status(404).json({ error: "PROFILE_NOT_FOUND" });
+      const out = await onboardingSvc.getOnboardingProgress(pool, profile);
+      if (!out) return res.status(404).json({ error: "PROFILE_NOT_FOUND" });
+      res.json(out);
     } catch (err) { next(err); }
   });
 

@@ -21,7 +21,7 @@
       background:var(--ep-surface); border-radius:12px; border:1px solid var(--ep-border);
       padding:16px; margin-bottom:10px; cursor:pointer; transition:all .15s;
     }
-    .sub-card:hover { border-color:var(--ep-brand); background:var(--ep-surface-raised); }
+    .sub-card:hover { border-color:var(--ep-brand); background:var(--ep-raised); }
     .sub-card.selected { border-color:var(--ep-brand); box-shadow:0 0 0 1px var(--ep-brand); }
     .sub-card-head { display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:8px; }
     .sub-card-title { font-weight:700; font-size:.9rem; }
@@ -33,7 +33,7 @@
       background:var(--ep-surface); border-radius:14px; border:1px solid var(--ep-border);
       overflow:hidden; margin-top:20px;
     }
-    .sub-detail-head { padding:18px 20px; background:var(--ep-surface-raised); border-bottom:1px solid var(--ep-border); }
+    .sub-detail-head { padding:18px 20px; background:var(--ep-raised); border-bottom:1px solid var(--ep-border); }
     .sub-detail-title { font-size:1.1rem; font-weight:800; margin-bottom:4px; }
     .sub-detail-body { padding:20px; }
 
@@ -82,7 +82,7 @@
 
     /* Week picker */
     .ed-week-picker {
-      display:flex; align-items:center; gap:8px; background:var(--ep-surface-raised);
+      display:flex; align-items:center; gap:8px; background:var(--ep-raised);
       border:1px solid var(--ep-border); border-radius:10px; padding:10px 14px;
       margin-bottom:14px; font-size:.84rem; flex-wrap:wrap;
     }
@@ -113,7 +113,7 @@
     .wk-input::-webkit-outer-spin-button,
     .wk-input::-webkit-inner-spin-button { -webkit-appearance:none; }
     .wk-input:focus { outline:none; border-color:var(--ep-brand); box-shadow:0 0 0 2px rgba(74,158,255,.15); }
-    .wk-input:disabled { opacity:.55; cursor:not-allowed; background:var(--ep-surface-raised); }
+    .wk-input:disabled { opacity:.55; cursor:not-allowed; background:var(--ep-raised); }
     .wk-input.time { width:95px; text-align:left; }
     .advanced-row { display:none; gap:5px; margin-top:5px; flex-wrap:wrap; }
     .wk-input-hint { font-size:.68rem; color:var(--ep-text-muted); text-align:center; display:block; margin-top:2px; }
@@ -121,7 +121,7 @@
     /* Totals */
     .ed-totals {
       display:flex; gap:16px; padding:12px 16px;
-      background:var(--ep-surface-raised); border-radius:10px;
+      background:var(--ep-raised); border-radius:10px;
       border:1px solid var(--ep-border); margin:14px 0; flex-wrap:wrap;
     }
     .ed-total-item { display:flex; flex-direction:column; gap:2px; }
@@ -259,7 +259,7 @@
             </div>
 
             <!-- Einsatz-Info (aus Prefill) -->
-            <div id="ed-assignment-info" style="display:none;margin-bottom:14px;padding:10px 14px;background:var(--ep-surface-raised);border:1px solid var(--ep-border);border-radius:10px;font-size:.82rem">
+            <div id="ed-assignment-info" style="display:none;margin-bottom:14px;padding:10px 14px;background:var(--ep-raised);border:1px solid var(--ep-border);border-radius:10px;font-size:.82rem">
               <div style="font-weight:700;margin-bottom:4px">Einsatz-Info</div>
               <div id="ed-ai-description" style="color:var(--ep-text-muted)"></div>
               <div id="ed-ai-dates" style="color:var(--ep-text-muted);margin-top:2px"></div>
@@ -303,7 +303,7 @@
             <!-- Zuschläge -->
             <div style="margin-top:8px">
               <button class="ep-btn ep-btn-ghost ep-btn-sm" onclick="edToggleZuschlaege()" id="ed-btn-zuschlaege" style="font-size:.78rem">+ Zuschläge</button>
-              <div id="ed-zuschlaege" style="display:none;margin-top:8px;padding:12px;background:var(--ep-surface-raised);border:1px solid var(--ep-border);border-radius:10px">
+              <div id="ed-zuschlaege" style="display:none;margin-top:8px;padding:12px;background:var(--ep-raised);border:1px solid var(--ep-border);border-radius:10px">
                 <div style="font-size:.78rem;font-weight:700;color:var(--ep-text-muted);margin-bottom:8px">Zuschlagsarten</div>
                 <label style="display:flex;align-items:center;gap:8px;padding:5px 0;font-size:.84rem;cursor:pointer"><input type="checkbox" id="ed-zs-nacht"> Nachtschichtzuschlag</label>
                 <label style="display:flex;align-items:center;gap:8px;padding:5px 0;font-size:.84rem;cursor:pointer"><input type="checkbox" id="ed-zs-sonn"> Sonntagsarbeit</label>

@@ -153,7 +153,13 @@
     benachrichtigungen: 'M6 9a6 6 0 1 1 12 0c0 4 1.5 5.5 2 6H4c.5-.5 2-2 2-6zM10 19a2 2 0 0 0 4 0',
     kontakt:            'M4 5h16v11H9l-5 4z',
     profil:             'M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM4.5 20a7.5 7.5 0 0 1 15 0',
-    abmelden:           'M15 17l5-5-5-5M20 12H9M12 4H6a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h6'
+    abmelden:           'M15 17l5-5-5-5M20 12H9M12 4H6a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h6',
+    // Zustandssymbole (Welle 2): erledigt / offen. Bewusst hier und nicht als
+    // Unicode-Zeichen in der Seite — CLAUDE.md verbietet Emojis in produktiver UI,
+    // und der Waechter `api/test/uiNoEmoji.test.js` setzt das durch. Ein Haken als
+    // SVG traegt dieselbe Bedeutung, folgt `currentColor` und skaliert sauber.
+    erledigt:           'M20 6 9 17l-5-5',
+    offen:              'M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18z'
   };
 
   /** Ein Icon als Inline-SVG. Rein dekorativ — die Beschriftung steht daneben. */
@@ -226,6 +232,9 @@
     esc: esc,
     setupAccessibility: _setupAccessibility,
     // Nachtraeglich aufrufbar, wenn eine Seite Navigationseintraege selbst nachlaedt.
-    setupIcons: _setupIcons
+    setupIcons: _setupIcons,
+    // Damit Seiten Zustandssymbole aus DEMSELBEN Satz nehmen, statt eigene
+    // Unicode-Zeichen zu erfinden (siehe Kommentar bei ICON_PATHS).
+    iconSvg: _iconSvg
   };
 })();

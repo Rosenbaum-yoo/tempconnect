@@ -12,7 +12,7 @@
       overflow:hidden; margin-bottom:16px;
     }
     .profil-card-head {
-      padding:18px 20px; background:var(--ep-surface-raised);
+      padding:18px 20px; background:var(--ep-raised);
       border-bottom:1px solid var(--ep-border);
       display:flex; align-items:center; gap:14px;
     }
@@ -35,7 +35,7 @@
     }
     .profil-val {
       font-size:.9rem; color:var(--ep-text); padding:10px 12px;
-      background:var(--ep-surface-raised); border-radius:8px;
+      background:var(--ep-raised); border-radius:8px;
       border:1px solid var(--ep-border);
     }
     .profil-val.muted { color:var(--ep-text-muted); font-style:italic; }
@@ -48,7 +48,7 @@
     }
     .ep-form-input {
       width:100%; padding:10px 12px; border-radius:8px;
-      border:1.5px solid var(--ep-border); background:var(--ep-surface-raised);
+      border:1.5px solid var(--ep-border); background:var(--ep-raised);
       color:var(--ep-text); font-size:.875rem; box-sizing:border-box;
       transition:border-color .15s;
     }
@@ -59,8 +59,36 @@
     .ep-form-input::placeholder { color:var(--ep-text-muted); }
     .profil-save-row { display:flex; gap:10px; align-items:center; margin-top:20px; flex-wrap:wrap; }
 
+    /* Aufnahme-Fortschritt (Welle 2). Alle Farben aus dem Design-System —
+       keine festen Werte, damit der helle wie der dunkle Modus tragen. */
+    .profil-progress {
+      border:1px solid var(--ep-border); border-radius:12px; background:var(--ep-raised);
+      padding:16px 18px; margin-bottom:16px;
+    }
+    .profil-progress-head { display:flex; align-items:flex-start; justify-content:space-between; gap:16px; margin-bottom:12px; }
+    .profil-progress-title { font-weight:700; font-size:.95rem; }
+    .profil-progress-sub { font-size:.8rem; color:var(--ep-text-muted); margin-top:2px; }
+    .profil-progress-pct { font-weight:700; font-size:1.4rem; white-space:nowrap; }
+    .profil-progress-bar { height:6px; border-radius:999px; background:var(--ep-border); overflow:hidden; }
+    .profil-progress-fill { height:100%; border-radius:999px; background:var(--ep-brand); width:0; transition:width .4s ease; }
+    .profil-progress-steps { display:flex; flex-wrap:wrap; gap:8px; margin-top:14px; }
+    .profil-step {
+      display:inline-flex; align-items:center; gap:6px; padding:5px 11px; border-radius:999px;
+      font-size:.76rem; font-weight:600; border:1px solid var(--ep-border); background:var(--ep-surface);
+      color:var(--ep-text-muted);
+    }
+    /* Erledigt und offen muessen sich ohne Farbe unterscheiden lassen — das Zeichen
+       traegt die Bedeutung, die Farbe verstaerkt sie nur. */
+    .profil-step--ok { color:var(--ep-success); border-color:currentColor; }
+    .profil-step--todo { color:var(--ep-text); }
+    .profil-step--next { border-color:var(--ep-brand); color:var(--ep-brand); }
+    .profil-step-mark { font-weight:800; }
+    .profil-hint {
+      font-size:.78rem; color:var(--ep-text-muted); margin-top:6px; font-style:italic;
+    }
+
     /* Fähigkeiten-Katalog (Welle 1: Multi-Skill-Fundament) */
-    .skill-group { border:1px solid var(--ep-border); border-radius:10px; margin-bottom:10px; background:var(--ep-surface-raised); overflow:hidden; }
+    .skill-group { border:1px solid var(--ep-border); border-radius:10px; margin-bottom:10px; background:var(--ep-raised); overflow:hidden; }
     .skill-group > summary { cursor:pointer; padding:12px 14px; font-weight:700; font-size:.82rem; list-style:none; display:flex; align-items:center; gap:8px; }
     .skill-group > summary::-webkit-details-marker { display:none; }
     .skill-group[open] > summary { border-bottom:1px solid var(--ep-border); }
@@ -75,7 +103,7 @@
     .profil-doc-badge {
       display:inline-flex; align-items:center; gap:6px;
       padding:6px 10px; border-radius:999px; font-size:.75rem; font-weight:700;
-      border:1px solid var(--ep-border); background:var(--ep-surface-raised);
+      border:1px solid var(--ep-border); background:var(--ep-raised);
     }
     .profil-doc-badge.good { color:var(--ep-success); border-color:rgba(16,185,129,.2); background:rgba(16,185,129,.1); }
     .profil-doc-badge.warn { color:var(--ep-warning,#f59e0b); border-color:rgba(245,158,11,.22); background:rgba(245,158,11,.1); }
@@ -84,7 +112,7 @@
     .profil-doc-form-grid { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
     .profil-doc-list { display:grid; gap:12px; margin-top:18px; }
     .profil-doc-item {
-      border:1px solid var(--ep-border); border-radius:10px; background:var(--ep-surface-raised);
+      border:1px solid var(--ep-border); border-radius:10px; background:var(--ep-raised);
       padding:14px 16px;
     }
     .profil-doc-head {
@@ -148,6 +176,22 @@
     </div>
 
     <div id="content" style="display:none">
+
+      <!-- Aufnahme-Fortschritt (Welle 2).
+           Bewusst ein Banner ueber den vorhandenen Karten statt eines mehrseitigen
+           Assistenten: die Karten SIND bereits die Schritte. Ein Umbau haette dieselbe
+           Fuehrung gebracht, aber die gesamte Seite neu getestet werden muessen. -->
+      <div class="profil-progress" id="progressCard" style="display:none">
+        <div class="profil-progress-head">
+          <div>
+            <div class="profil-progress-title" id="progressTitle">Profil vervollständigen</div>
+            <div class="profil-progress-sub" id="progressSub">–</div>
+          </div>
+          <div class="profil-progress-pct" id="progressPct">–</div>
+        </div>
+        <div class="profil-progress-bar"><div class="profil-progress-fill" id="progressFill"></div></div>
+        <div class="profil-progress-steps" id="progressSteps"></div>
+      </div>
 
       <!-- Stammdaten (read-only) -->
       <div class="profil-card">
@@ -278,6 +322,55 @@
         </div>
       </div>
 
+      <!-- Verfügbarkeit (Welle 2).
+           Der Kern der Owner-Vorgabe „manuelle Eingabe auf das Minimum": die Felder sind
+           mit dem vorbelegt, was das System aus den Einsätzen weiß, und darunter steht,
+           woher es das weiß. Wer nichts ändert, hat nichts zu tun. -->
+      <div class="profil-card" id="availCard">
+        <div class="profil-card-head" style="padding:14px 20px">
+          <div style="font-weight:700;font-size:.9rem">Verfügbarkeit</div>
+        </div>
+        <div class="profil-card-body">
+          <p class="profil-val muted" style="margin:0 0 14px;font-size:.82rem;line-height:1.5">
+            Damit passende Einsätze gefunden werden. Was aus Ihren bisherigen Einsätzen
+            hervorgeht, ist bereits eingetragen – Sie müssen es nur ändern, wenn es nicht stimmt.
+          </p>
+
+          <div id="availLoading" class="profil-val muted">Verfügbarkeit wird geladen…</div>
+
+          <div id="availForm" style="display:none">
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px">
+              <div class="ep-form-group">
+                <label class="ep-label" for="availFrom">Verfügbar ab</label>
+                <input class="ep-input" type="date" id="availFrom">
+                <div class="profil-hint" id="availFromHint"></div>
+              </div>
+              <div class="ep-form-group">
+                <label class="ep-label" for="availHours">Wochenstunden</label>
+                <input class="ep-input" type="number" id="availHours" min="1" max="80" step="0.5" placeholder="z. B. 40">
+                <div class="profil-hint" id="availHoursHint"></div>
+              </div>
+            </div>
+
+            <div class="ep-form-group" style="margin-top:4px">
+              <label class="ep-label" for="availRadius">Einsatzradius (km)</label>
+              <input class="ep-input" type="number" id="availRadius" min="1" max="500" step="5" style="max-width:180px">
+              <div class="profil-hint" id="availRadiusHint"></div>
+            </div>
+
+            <div id="availAbsence" class="profil-hint" style="display:none;font-style:normal"></div>
+
+            <div style="margin-top:14px;display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+              <button class="ep-btn ep-btn-primary" id="availSaveBtn" onclick="saveAvailability()">Verfügbarkeit speichern</button>
+              <button class="ep-btn" id="availResetBtn" onclick="resetAvailability()"
+                      title="Eigene Angaben löschen – danach wird die Verfügbarkeit wieder aus den Einsätzen abgeleitet.">
+                Wieder automatisch ermitteln
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
       <!-- Fähigkeiten / Skills (Katalog-gebunden) -->
       <div class="profil-card">
         <div class="profil-card-head" style="padding:14px 20px;justify-content:space-between">
@@ -343,6 +436,151 @@ let workerDocuments = { items: [], summary: {} };
 let skillState = { catalog: null, selected: new Map() };
 function esc(s) { return PortalShell.esc(s); }
 function toast(msg, type) { PortalShell.toast(msg, type || ''); }
+
+/* ── Verfügbarkeit (Welle 2) ──────────────────────────────────────────────────
+ *
+ * Die Felder werden mit dem vorbelegt, was das Backend hergeleitet hat, und darunter
+ * steht die Herkunft im Klartext. Das ist der Unterschied zwischen einem leeren Feld
+ * und „aus dem Einsatz bis 15.09. übernommen" — und der Grund, warum eine Bestandskraft
+ * hier nichts tun muss.
+ */
+var availState = { geladen: null };
+
+var HERKUNFT_TEXT = {
+  abgeleitet:    'Aus Ihren Einsätzen übernommen.',
+  geerbt:        'Vorgabe Ihres Betriebs.',
+  ausdruecklich: 'Von Ihnen angegeben.',
+  unbekannt:     'Bitte ergänzen – das können wir nicht aus Ihren Einsätzen ableiten.'
+};
+
+function setzeHinweis(id, herkunft, zusatz) {
+  var el = document.getElementById(id);
+  if (!el) return;
+  el.textContent = (HERKUNFT_TEXT[herkunft] || '') + (zusatz ? ' ' + zusatz : '');
+}
+
+async function loadAvailability() {
+  var loadingEl = document.getElementById('availLoading');
+  var formEl = document.getElementById('availForm');
+  try {
+    var v = await PortalApi.get('/worker/me/availability');
+    availState.geladen = v;
+
+    document.getElementById('availFrom').value = v.available_from || '';
+    document.getElementById('availHours').value = v.weekly_hours != null ? v.weekly_hours : '';
+    document.getElementById('availRadius').value = v.radius_km != null ? v.radius_km : '';
+
+    var h = v.herkunft || {};
+    setzeHinweis('availFromHint', h.available_from,
+      h.available_from === 'abgeleitet' && v.belegt_bis ? '(Einsatz bis ' + v.belegt_bis + ')' : '');
+    setzeHinweis('availHoursHint', h.weekly_hours, '');
+    setzeHinweis('availRadiusHint', h.radius_km, '');
+
+    // Gemeldete Abwesenheit gehört sichtbar gemacht — sie schlägt jede Angabe.
+    var abwEl = document.getElementById('availAbsence');
+    if (v.abwesend_ab) {
+      abwEl.textContent = 'Hinweis: Für Sie ist ab ' + v.abwesend_ab + ' eine Abwesenheit gemeldet'
+        + (v.abwesenheitsgrund ? ' (' + v.abwesenheitsgrund + ')' : '') + '.';
+      abwEl.style.display = '';
+    } else {
+      abwEl.style.display = 'none';
+    }
+
+    loadingEl.style.display = 'none';
+    formEl.style.display = '';
+  } catch (e) {
+    loadingEl.textContent = e.code === 'NOT_AUTH'
+      ? 'Bitte melden Sie sich erneut an.'
+      : 'Verfügbarkeit konnte nicht geladen werden.';
+  }
+}
+
+async function saveAvailability() {
+  var btn = document.getElementById('availSaveBtn');
+  if (!btn) return;
+  btn.disabled = true;
+  var prev = btn.textContent;
+  btn.textContent = 'Speichern…';
+  try {
+    var von = document.getElementById('availFrom').value;
+    var std = document.getElementById('availHours').value;
+    var rad = document.getElementById('availRadius').value;
+    // Leeres Feld heisst „nichts sagen" -> null, damit wieder hergeleitet wird.
+    var v = await PortalApi.patch('/worker/me/availability', {
+      available_from: von || null,
+      weekly_hours: std === '' ? null : Number(std),
+      travel_radius_km: rad === '' ? null : Number(rad)
+    });
+    availState.geladen = v;
+    await loadAvailability();
+    loadProgress().catch(function () {});
+    toast('Verfügbarkeit gespeichert.');
+  } catch (e) {
+    toast(e.code === 'VALIDATION' ? 'Bitte Eingaben prüfen.' : 'Speichern fehlgeschlagen.', 'error');
+  } finally {
+    btn.disabled = false;
+    btn.textContent = prev;
+  }
+}
+
+/* Eigene Angaben löschen — danach greift wieder die Herleitung. Ohne diesen Weg käme
+   man aus einer einmal gesetzten Angabe nie wieder heraus. */
+async function resetAvailability() {
+  var btn = document.getElementById('availResetBtn');
+  if (!btn) return;
+  btn.disabled = true;
+  try {
+    await PortalApi.patch('/worker/me/availability', {
+      available_from: null, weekly_hours: null, travel_radius_km: null
+    });
+    await loadAvailability();
+    loadProgress().catch(function () {});
+    toast('Wird wieder automatisch ermittelt.');
+  } catch (e) {
+    toast('Zurücksetzen fehlgeschlagen.', 'error');
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+/* ── Aufnahme-Fortschritt (Welle 2) ────────────────────────────────────────── */
+async function loadProgress() {
+  var card = document.getElementById('progressCard');
+  var p = await PortalApi.get('/worker/me/onboarding');
+
+  document.getElementById('progressPct').textContent = p.fortschritt_prozent + '%';
+  document.getElementById('progressFill').style.width = p.fortschritt_prozent + '%';
+
+  var titel = document.getElementById('progressTitle');
+  var sub = document.getElementById('progressSub');
+  if (p.einsatzbereit) {
+    titel.textContent = 'Ihr Profil ist einsatzbereit';
+    sub.textContent = p.fortschritt_prozent === 100
+      ? 'Alles ausgefüllt – danke.'
+      : 'Sie können vermittelt werden. Ergänzendes ist unten markiert.';
+  } else {
+    titel.textContent = 'Profil vervollständigen';
+    sub.textContent = 'Es fehlt noch etwas, damit Sie zu Einsätzen vermittelt werden können.';
+  }
+
+  var stepsEl = document.getElementById('progressSteps');
+  stepsEl.innerHTML = p.schritte.map(function (s) {
+    var klasse = s.erledigt ? 'profil-step--ok'
+               : (s.key === p.naechster_schritt ? 'profil-step--next' : 'profil-step--todo');
+    // Symbol statt Farbe als Bedeutungsträger — erledigt und offen bleiben auch dann
+    // unterscheidbar, wenn Farben nicht wahrgenommen werden. Aus dem zentralen
+    // SVG-Satz, nicht als Unicode-Zeichen: CLAUDE.md verbietet Emojis in produktiver
+    // UI, und der Wächter api/test/uiNoEmoji.test.js setzt das durch.
+    var mark = PortalShell.iconSvg(s.erledigt ? 'erledigt' : 'offen');
+    var titelAttr = s.pflicht ? 'Erforderlich' : 'Empfohlen';
+    return '<span class="profil-step ' + klasse + '" title="' + titelAttr + '">'
+         + '<span class="profil-step-mark">' + mark + '</span>' + esc(s.titel)
+         + (s.pflicht ? '' : ' <span style="font-weight:400;opacity:.75">(optional)</span>')
+         + '</span>';
+  }).join('');
+
+  card.style.display = '';
+}
 
 async function loadSkills() {
   const loadingEl = document.getElementById('skillLoading');
@@ -436,8 +674,13 @@ async function saveSkills() {
       renderDocuments();
     });
     await loadSkills().catch(function () {});
+    await loadAvailability().catch(function () {});
     document.getElementById('loading').style.display = 'none';
     document.getElementById('content').style.display = '';
+    // Zuletzt: der Fortschritt liest den Zustand aller Schritte und darf deshalb erst
+    // laufen, wenn sie geladen sind. Fehlschlag ist unkritisch — er ist Beiwerk,
+    // die Karten funktionieren ohne ihn.
+    loadProgress().catch(function () {});
   } catch(e) {
     const code = e.code || e.message;
     if (code === 'NOT_AUTH') { location.href = 'worker-login.html'; return; }
