@@ -1,7 +1,8 @@
 # Migration Numbering Reference
 
 > Last updated: 2026-07-26 — 153 KI-Ranking-Cache, 154 Sperr-Benachrichtigung,
-> 155 Webhook-Retry-Index (Nachzug zu 122), 156 Herkunft von Stundenzetteln
+> 155 Webhook-Retry-Index (Nachzug zu 122), 156 Herkunft von Stundenzetteln,
+> 157 Verfuegbarkeit von Einsatzkraeften (Multi-Skill Welle 2)
 
 This document records known legacy numbering anomalies and establishes the rule
 for all future migrations.
@@ -10,7 +11,7 @@ for all future migrations.
 
 ## Rule: Next migration number
 
-**Next migration MUST start at: 157**
+**Next migration MUST start at: 158**
 
 Format: `<NNN>_<short_description>.sql` (three-digit zero-padded)
 
@@ -77,8 +78,8 @@ alphabetical order within the number (e.g. `064_capacity_…` before `064_strate
 
 ## Checklist for new migrations
 
-1. Use the next sequential number (currently **157**)
-2. File name: `157_<short_snake_case>.sql`
+1. Use the next sequential number (currently **158**)
+2. File name: `158_<short_snake_case>.sql`
 3. Wrap DDL in a transaction if the DB supports transactional DDL
 4. Include a `-- Migration NNN:` comment header with a brief description
 5. Use `SET client_min_messages TO WARNING;` to suppress noise

@@ -12,6 +12,7 @@ import * as assignmentStaffingService from "../services/assignmentStaffingServic
 import * as workerService from "../services/workerService.js";
 import * as submissionSvc from "../services/workerSubmissionService.js";
 import * as workerNotifications from "../services/workerNotificationService.js";
+import * as availabilitySvc from "../services/workerAvailabilityService.js";
 import { swallow } from "../utils/logger.js";
 
 /* ── Schemas ─────────────────────────────────────────────────────────────────── */
@@ -49,6 +50,21 @@ const updateProfileSchema = z.object({
   city:            z.string().max(100).optional().nullable(),
   preferred_locale: z.string().max(5).optional()
 });
+
+/* Verfuegbarkeit (Welle 2).
+ *
+ * Alle drei Felder sind optional UND null-bar — und das ist keine Nachlaessigkeit:
+ *   Feld weggelassen -> unveraendert
+ *   Feld = null      -> Angabe loeschen und bewusst wieder herleiten lassen
+ * Ohne diese Unterscheidung koennte man eine einmal gesetzte Angabe nie zurueknehmen.
+ * Die Grenzen spiegeln die CHECK-Constraints aus Migration 157 — was die Datenbank
+ * ablehnt, soll gar nicht erst bis dorthin kommen.
+ */
+const availabilitySchema = z.object({
+  available_from:   z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Datum als YYYY-MM-DD").nullable().optional(),
+  weekly_hours:     z.number().positive().max(80).nullable().optional(),
+  travel_radius_km: z.number().int().min(1).max(500).nullable().optional()
+}).strict();
 
 const putSkillsSchema = z.object({
   skills: z.array(z.object({
@@ -214,6 +230,48 @@ export function createWorkerPortalRouter(deps) {
         details: { skill_count: result.count }
       };
       res.json({ ok: true, count: result.count, skill_ids: result.skill_ids });
+    } catch (err) { next(err); }
+  });
+
+  /* ── Verfuegbarkeit abrufen / setzen (Welle 2) ─────────────────────────────
+   *
+   * Die Antwort enthaelt zu jedem Wert seine HERKUNFT und die Liste der Fragen, die
+   * offen bleiben. Damit zeigt der Aufnahme-Assistent "abgeleitet aus dem Einsatz bis
+   * 15.09." statt eines leeren Feldes — und fragt nur das, was das System nicht wissen
+   * kann. Fuer eine Bestandskraft ist `offene_fragen` in der Regel leer.
+   */
+  router.get("/worker/me/availability", ...base, async (req, res, next) => {
+    try {
+      const profile = await workerService.getWorkerProfile(pool, req.session.userId);
+      if (!profile) return res.status(404).json({ error: "PROFILE_NOT_FOUND" });
+      const out = await availabilitySvc.resolveAvailability(pool, profile.id);
+      if (!out) return res.status(404).json({ error: "PROFILE_NOT_FOUND" });
+      res.json(out);
+    } catch (err) { next(err); }
+  });
+
+  router.patch("/worker/me/availability", ...base, async (req, res, next) => {
+    try {
+      const parsed = availabilitySchema.safeParse(req.body);
+      if (!parsed.success) return res.status(400).json({ error: "VALIDATION", details: parsed.error.issues });
+
+      const profile = await workerService.getWorkerProfile(pool, req.session.userId);
+      if (!profile) return res.status(404).json({ error: "PROFILE_NOT_FOUND" });
+
+      const result = await availabilitySvc.setAvailability(
+        pool, profile.id, parsed.data, profile.supplier_org_id
+      );
+      if (result.error) return res.status(404).json(result);
+
+      res.locals.audit = {
+        action: "worker.update_availability",
+        entity_type: "worker_profile",
+        entity_id: profile.id,
+        details: { felder: Object.keys(parsed.data) }
+      };
+      // Die aufgeloeste Sicht zurueckgeben, nicht die Rohwerte: der Aufrufer will wissen,
+      // was jetzt gilt — inklusive dessen, was nach dem Loeschen wieder hergeleitet wird.
+      res.json(await availabilitySvc.resolveAvailability(pool, profile.id));
     } catch (err) { next(err); }
   });
 

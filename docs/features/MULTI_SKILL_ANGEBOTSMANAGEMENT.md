@@ -1,6 +1,6 @@
 # Multi-Skill Angebots-Management — Feature-Plan & USP
 
-> **Status:** In Umsetzung · **Welle 1 (Fundament) erledigt** (2026-07-19)
+> **Status:** In Umsetzung · Welle 1 + 3 erledigt · **Welle 2: Verfügbarkeits-Fundament erledigt** (2026-07-31)
 > **Owner-Direktive:** Fester Bestandteil der Plattform und zentrale USP.
 > **Leitprinzip:** Wenige Zeitarbeitsfirmen sollen sich für suchende Unternehmen
 > anfühlen wie **tausende** — **ohne eine einzige Fake-Zeile**, allein durch echten
@@ -93,10 +93,58 @@ fordern — gematcht gegen den Skill-Katalog.
 - **Welle 1 — Skill-Fundament** ✅ *erledigt (2026-07-19)*
   Skill-Katalog aktiviert + befüllt, `worker_profile_skills`, `GET /api/skills/catalog`,
   `GET/PUT /api/worker/me/skills`, Onboarding-Skill-UI im Einsatzportal, Tests grün.
-- **Welle 2 — Premium-Onboarding-Wizard**
+- **Welle 2 — Premium-Onboarding-Wizard** 🔶 *Fundament erledigt (2026-07-31)*
   Vollständiges, geführtes Aufnahme-Formular (Personendaten → Skills → Zertifikate →
   Verfügbarkeit), Pflichtfeld-Logik, Fortschrittsanzeige, „lange genug, damit alles
   Wichtige erfasst wird". Chef-Einladung → Worker füllt end-to-end.
+
+  **Owner-Vorgabe (2026-07-31):** *„alles erfassen, aber die manuelle Eingabe auf das
+  Minimum reduzieren"*. Das ist kein Widerspruch, sondern eine Rangfolge — **ableiten
+  statt fragen**.
+
+  **Der Befund, der den Zuschnitt bestimmt hat:** `worker_profiles` kannte für
+  Verfügbarkeit nur `availability_note`, ein **Freitextfeld**. Daraus kann der
+  Angebotsgenerator aus Welle 3 nicht rechnen — er erzeugte Angebote für Kräfte, von denen
+  das System nicht wusste, ab wann sie können. Für eine USP, die auf Angebotsqualität
+  beruht, ist das die Wurzel und nicht das Beiwerk.
+
+  **Erledigt — die Ableitungsschicht (`api/services/workerAvailabilityService.js`):**
+  drei Quellen in fester Rangfolge, jeder Wert kommt **mit seiner Herkunft** zurück:
+
+  | Quelle | Bedeutung | Beispiel |
+  |---|---|---|
+  | `ausdruecklich` | jemand hat es hingeschrieben | Kraft sagt „ab 01.12." |
+  | `abgeleitet` | aus den Einsatzverknüpfungen berechnet | letzter Einsatz endet 15.09. → ab 16.09. |
+  | `geerbt` | Betriebseinstellung | `org_settings.default_radius_km` |
+  | `unbekannt` | ehrliches Nichtwissen → wird zur **einen** Frage | neue Kraft ohne Historie |
+
+  Die Herkunft ist kein Beiwerk: nur so zeigt der Assistent *„abgeleitet aus dem Einsatz
+  bis 15.09."* statt eines leeren Feldes, und nur so sieht ein Disponent, ob „40 Stunden"
+  eine Aussage oder eine Annahme ist.
+
+  **Das messbare Ergebnis** (gegen die echte Datenbank geprüft):
+  - **Bestandskraft: null Eingaben.** `ab 2027-09-12 (abgeleitet) · 40 Std (abgeleitet) ·
+    25 km (geerbt) · offene Fragen: []`
+  - **Neue Kraft: genau zwei Fragen** (ab wann, wie viel) — der Radius wird vom Betrieb
+    geerbt und muss nie getippt werden.
+
+  **Bewusst NICHT geraten:** bei einem laufenden Einsatz *ohne* Enddatum bleibt „verfügbar
+  ab" unbekannt und wird zur Frage. Ein erfundenes „ab morgen" erzeugt Angebote, die die
+  Agentur nicht halten kann — schädlicher als ein ehrliches Nichtwissen.
+
+  **Bewusst NICHT gebaut:** ein Schichtmuster. Die Spalten `default_shift_start`/`_end`
+  existieren, sind aber in **allen 21** Bestandszeilen leer. Eine Herleitung ohne
+  Datenbasis wäre geraten, nicht gewusst. Sobald die Felder befüllt werden, gehört sie in
+  denselben Dienst.
+
+  Migration 157 (`available_from`, `weekly_hours`, `travel_radius_km` — alle **NULL-bar**,
+  denn NULL heißt „nichts gesagt → ableiten"; ein Default-Wert würde die Herleitung stumm
+  überschreiben). Endpunkte `GET/PATCH /api/worker/me/availability`. 24 Tests plus
+  Schema-Smoke gegen die echte Datenbank.
+
+  **Offen für Welle 2:** Vollständigkeits-/Fortschritts-Begriff im Backend, der geführte
+  Assistent selbst, und die Einladungsstrecke end-to-end (nach Annahme direkt in den
+  Assistenten statt auf die flache Profilseite).
 
 ### Phase B — Angebots-Engine (Herzstück der USP)
 - **Welle 3 — Multi-Skill-Angebotsgenerator** ✅ *erledigt (2026-07-20)*

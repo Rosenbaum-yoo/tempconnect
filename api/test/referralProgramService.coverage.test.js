@@ -508,8 +508,15 @@ describe("getReferralStatus", () => {
   });
 
   it("usedMonthsSincePilot reduces free_months_remaining for an older pilot", async () => {
-    const old = new Date();
-    old.setMonth(old.getMonth() - 3);
+    // Bewusst NICHT `setMonth(getMonth() - 3)`: faellt der heutige Tag auf den 31. und hat
+    // der Zielmonat nur 30 Tage, rollt JavaScript in den Folgemonat (31. April -> 1. Mai).
+    // Der Abstand betraegt dann nur 2 Kalendermonate und der Test scheitert — an wenigen
+    // Tagen im Jahr, sonst nie. Genau so ist er am 2026-07-31 rot geworden.
+    // Der 15. existiert in jedem Monat, damit ist der Abstand immer exakt 3.
+    // (Der Dienst selbst rechnet korrekt mit der Kalendermonats-Differenz; nur das
+    // Fixture war sproede.)
+    const jetzt = new Date();
+    const old = new Date(jetzt.getFullYear(), jetzt.getMonth() - 3, 15);
     const codeRow = { id: "c4", user_id: "u4", code: "OLD00001", is_pilot: true, created_at: old.toISOString() };
     const rewards = [
       { reward_type: "pilot_base" },
