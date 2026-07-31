@@ -25,6 +25,8 @@
  * geraten, nicht gewusst. Sobald die Felder befuellt werden, gehoert sie hierher.
  */
 
+import { todayDE, dateOnlyDE } from "../utils/dateDE.js";
+
 /** Herkunft eines Wertes. Bewusst sprechend — die Oberflaeche zeigt sie an. */
 export const HERKUNFT = Object.freeze({
   AUSDRUECKLICH: "ausdruecklich",
@@ -39,11 +41,18 @@ const RADIUS_RUECKFALL_KM = 25;
 /** Arbeitstage pro Woche fuer die Umrechnung Tagesstunden -> Wochenstunden. */
 const ARBEITSTAGE_PRO_WOCHE = 5;
 
-/** Datum ohne Zeitanteil als 'YYYY-MM-DD'. */
+/**
+ * Datum ohne Zeitanteil als 'YYYY-MM-DD'.
+ *
+ * DATE-Spalten kommen dank `db/typeParsers.js` bereits als Zeichenkette an — der
+ * String-Zweig ist also der Normalfall. Der Date-Zweig greift nur, wenn hier je ein
+ * Zeitstempel statt eines Kalendertags landet; dann muss er ueber dateOnlyDE laufen,
+ * weil `toISOString()` lokale Mitternacht in Berlin auf 22:00 des VORTAGS schiebt.
+ */
 function alsDatum(wert) {
   if (!wert) return null;
   if (typeof wert === "string") return wert.slice(0, 10);
-  return new Date(wert).toISOString().slice(0, 10);
+  return dateOnlyDE(wert);
 }
 
 /** Ein Tag nach dem uebergebenen Datum. */
@@ -54,7 +63,7 @@ function tagDanach(datum) {
 }
 
 function heute() {
-  return new Date().toISOString().slice(0, 10);
+  return todayDE();
 }
 
 /**

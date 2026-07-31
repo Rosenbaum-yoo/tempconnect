@@ -8,6 +8,7 @@ import { z } from "zod";
 import { Router } from "express";
 import * as capacityExchangeService from "../services/capacityExchangeService.js";
 import * as capacityOfferGeneratorService from "../services/capacityOfferGeneratorService.js";
+import * as capacityOfferMatchService from "../services/capacityOfferMatchService.js";
 import * as matchingEngine from "../services/matchingEngine.js";
 import * as auditLog from "../services/auditLog.js";
 import { dispatch } from "../services/notificationMatrix.js";
@@ -58,6 +59,18 @@ const createEntrySchema = z.object({
 });
 
 const updateEntrySchema = createEntrySchema.partial().omit({ status: true });
+
+// Deckungsvorschau (Welle 6). Alles optional: das Formular fragt schon waehrend des
+// Tippens, also auch mit halb ausgefuellten Feldern — eine unvollstaendige Anfrage ist
+// hier ein gueltiger Zustand, kein Fehler.
+const offerCoverageSchema = z.object({
+  skills: z.string().max(500).optional(),
+  skill_ids: z.string().max(2000).optional(),
+  headcount: z.coerce.number().int().min(1).max(999).optional().default(1),
+  from: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
+  to: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
+  all_skills: z.enum(["true", "false"]).optional()
+});
 
 const generateOffersSchema = z.object({
   single_skill_ids: z.array(z.string().uuid()).max(200).optional().default([]),
@@ -238,6 +251,37 @@ export function createCapacityExchangeRouter(deps) {
       if (e.code === "POOL_EMPTY" || e.code === "NO_VALID_MEMBERS" || e.code === "SKILL_REQUIRED") return res.status(400).json({ error: e.code });
       if (e.code === "PLAN_LIMIT") return res.status(403).json({ error: "PLAN_LIMIT", message: e.message });
       logger.error({ err: e }, "POST /capacity-exchange/pool/generate");
+      res.status(500).json({ error: "SERVER_ERROR" });
+    }
+  });
+
+  /* ── Supplier: Deckungsvorschau im Angebotsformular (Welle 6) ──────────── */
+
+  // Deckt die eigene Belegschaft dieses Angebot? Lesend, ohne Nebenwirkung — die Antwort
+  // erscheint waehrend des Tippens, damit niemand eine Kopfzahl einstellt, die er nicht
+  // halten kann. Bewusst KEIN Audit-Eintrag: eine Formularvorschau ist keine Handlung.
+  router.get("/capacity-exchange/offer-coverage",
+    requireAuth, requireScope("read:capacity"), ceBasic, async (req, res) => {
+    try {
+      const me = req.user;
+      if (me?.role !== "agency") return res.status(403).json({ error: "AGENCY_ONLY" });
+      if (!req.orgId) return res.status(403).json({ error: "ORG_REQUIRED" });
+      const parsed = offerCoverageSchema.safeParse(req.query);
+      if (!parsed.success) return res.status(400).json({ error: "VALIDATION", details: parsed.error.issues });
+      const q = parsed.data;
+      const result = await capacityOfferMatchService.checkOfferCoverage(pool, {
+        orgId: req.orgId,
+        skillTags: q.skills ? q.skills.split(",").map((s) => s.trim()).filter(Boolean) : [],
+        skillIds: q.skill_ids ? q.skill_ids.split(",").map((s) => s.trim()).filter(Boolean) : [],
+        headcount: q.headcount,
+        from: q.from || null,
+        to: q.to || null,
+        alleSkills: q.all_skills === "true"
+      });
+      res.json(result);
+    } catch (e) {
+      if (e.code === "ORG_REQUIRED") return res.status(403).json({ error: "ORG_REQUIRED" });
+      logger.error({ err: e }, "GET /capacity-exchange/offer-coverage");
       res.status(500).json({ error: "SERVER_ERROR" });
     }
   });

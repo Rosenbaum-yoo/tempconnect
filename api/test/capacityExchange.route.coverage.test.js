@@ -734,3 +734,85 @@ describe("POST /capacity-exchange/admin/process-reminders", () => {
     assert.ok(res._json && typeof res._json === "object");
   });
 });
+
+/* ── Deckungsvorschau im Angebotsformular (Welle 6) ─────────────────────── */
+
+describe("GET /capacity-exchange/offer-coverage", () => {
+  const PFAD = "/capacity-exchange/offer-coverage";
+
+  it("403 AGENCY_ONLY — die eigene Belegschaft geht nur die Agentur etwas an", async () => {
+    const handler = getHandler(createCapacityExchangeRouter(makeDeps(trackingPool())), "get", PFAD);
+    const res = mockRes();
+    await handler(mockReq({ user: { id: "u1", role: "company" }, orgId: "org-1", query: { skills: "pflege" } }), res);
+    assert.strictEqual(res._status, 403);
+    assert.strictEqual(res._json.error, "AGENCY_ONLY");
+  });
+
+  it("403 ORG_REQUIRED ohne Org-Kontext", async () => {
+    const handler = getHandler(createCapacityExchangeRouter(makeDeps(trackingPool())), "get", PFAD);
+    const res = mockRes();
+    await handler(mockReq({ orgId: null, query: { skills: "pflege" } }), res);
+    assert.strictEqual(res._status, 403);
+    assert.strictEqual(res._json.error, "ORG_REQUIRED");
+  });
+
+  it("400 bei unbrauchbarem Datum, statt es stillschweigend zu verwerfen", async () => {
+    const handler = getHandler(createCapacityExchangeRouter(makeDeps(trackingPool())), "get", PFAD);
+    const res = mockRes();
+    await handler(mockReq({ orgId: "org-1", query: { skills: "pflege", from: "morgen" } }), res);
+    assert.strictEqual(res._status, 400);
+    assert.strictEqual(res._json.error, "VALIDATION");
+  });
+
+  it("nimmt die Org NUR aus der Sitzung, nie aus der Anfrage", async () => {
+    // Der Kern der Org-Grenze: ein mitgeschicktes org_id darf die Sitzung nicht ueberstimmen.
+    const pool = trackingPool([
+      { match: (s) => s.includes("platform_skills"), respond: { rows: [{ id: "s1", name: "Altenpflege", category: "Pflege", suchbegriff: "pflege" }] } },
+      { match: (s) => s.includes("WITH forderung"), respond: { rows: [] } }
+    ]);
+    const handler = getHandler(createCapacityExchangeRouter(makeDeps(pool)), "get", PFAD);
+    const res = mockRes();
+    await handler(mockReq({ orgId: "org-eigen", query: { skills: "pflege", org_id: "org-fremd" } }), res);
+    assert.strictEqual(res._status, 200);
+    const belegschaft = pool.find("WITH forderung")[0];
+    assert.strictEqual(belegschaft.params[1], "org-eigen");
+    assert.ok(!JSON.stringify(belegschaft.params).includes("org-fremd"), "Die fremde Org darf nirgends in der Abfrage landen");
+  });
+
+  it("liefert die Deckung mit Zustand je Kraft", async () => {
+    const pool = trackingPool([
+      { match: (s) => s.includes("platform_skills"), respond: { rows: [{ id: "s1", name: "Altenpflege", category: "Pflege", suchbegriff: "altenpflege" }] } },
+      { match: (s) => s.includes("WITH forderung"), respond: { rows: [
+        { worker_profile_id: "wp-1", first_name: "Anna", last_name: "Kraft", city: "Kiel", available_from: null,
+          treffer: 1, treffer_namen: ["Altenpflege"], konflikt_anzahl: 0, konflikt_bis: null, konflikt_offen: false,
+          konflikt_kunde: null, letztes_ende: null, unbefristet: false, abwesend_ab: null, abwesenheitsgrund: null }
+      ] } }
+    ]);
+    const handler = getHandler(createCapacityExchangeRouter(makeDeps(pool)), "get", PFAD);
+    const res = mockRes();
+    await handler(mockReq({ orgId: "org-1", query: { skills: "altenpflege", headcount: "3" } }), res);
+    assert.strictEqual(res._status, 200);
+    assert.strictEqual(res._json.auswertbar, true);
+    assert.strictEqual(res._json.gefordert, 3);
+    assert.strictEqual(res._json.frei, 1);
+    assert.strictEqual(res._json.luecke, 2);
+    assert.strictEqual(res._json.kandidaten[0].zustand, "frei");
+  });
+
+  it("Zero-State: leeres Feld liefert 200 mit auswertbar=false, keinen Fehler", async () => {
+    const handler = getHandler(createCapacityExchangeRouter(makeDeps(trackingPool())), "get", PFAD);
+    const res = mockRes();
+    await handler(mockReq({ orgId: "org-1", query: {} }), res);
+    assert.strictEqual(res._status, 200);
+    assert.strictEqual(res._json.auswertbar, false);
+    assert.deepEqual(res._json.kandidaten, []);
+  });
+
+  it("schreibt keinen Audit-Eintrag — eine Vorschau ist keine Handlung", async () => {
+    const pool = trackingPool();
+    const handler = getHandler(createCapacityExchangeRouter(makeDeps(pool)), "get", PFAD);
+    const res = mockRes();
+    await handler(mockReq({ orgId: "org-1", query: {} }), res);
+    assert.strictEqual(res.locals.audit, undefined);
+  });
+});

@@ -1,6 +1,6 @@
 # Multi-Skill Angebots-Management — Feature-Plan & USP
 
-> **Status:** In Umsetzung · Welle 1 + 3 erledigt · **Welle 2: Verfügbarkeits-Fundament erledigt** (2026-07-31)
+> **Status:** In Umsetzung · Welle 1–5 erledigt · **Welle 6: Deckungsvorschau erledigt** (2026-07-31)
 > **Owner-Direktive:** Fester Bestandteil der Plattform und zentrale USP.
 > **Leitprinzip:** Wenige Zeitarbeitsfirmen sollen sich für suchende Unternehmen
 > anfühlen wie **tausende** — **ohne eine einzige Fake-Zeile**, allein durch echten
@@ -93,7 +93,7 @@ fordern — gematcht gegen den Skill-Katalog.
 - **Welle 1 — Skill-Fundament** ✅ *erledigt (2026-07-19)*
   Skill-Katalog aktiviert + befüllt, `worker_profile_skills`, `GET /api/skills/catalog`,
   `GET/PUT /api/worker/me/skills`, Onboarding-Skill-UI im Einsatzportal, Tests grün.
-- **Welle 2 — Premium-Onboarding-Wizard** 🔶 *Fundament erledigt (2026-07-31)*
+- **Welle 2 — Premium-Onboarding-Wizard** ✅ *erledigt (2026-07-31)*
   Vollständiges, geführtes Aufnahme-Formular (Personendaten → Skills → Zertifikate →
   Verfügbarkeit), Pflichtfeld-Logik, Fortschrittsanzeige, „lange genug, damit alles
   Wichtige erfasst wird". Chef-Einladung → Worker füllt end-to-end.
@@ -168,9 +168,15 @@ fordern — gematcht gegen den Skill-Katalog.
   `portalShell.js` hat jetzt `erledigt`/`offen`, und `iconSvg` ist exportiert, damit
   Seiten Zustandssymbole aus demselben Satz nehmen.
 
-  **Offen für Welle 2:** die Einladungsstrecke end-to-end — nach Annahme der Einladung
-  landet die Kraft heute auf der flachen Profilseite statt geführt im ersten offenen
-  Schritt. Das ist der letzte Baustein.
+  **Zuletzt erledigt — die Einladungsstrecke (2026-07-31, Commit `7367e48`).** Nach Annahme
+  einer Einladung landete eine brandneue Kraft auf dem Dashboard: leeres Profil, leere Listen,
+  kein Weg nach vorn. Jetzt führt der Einladungspfad ins Profil, und das Fortschrittsbanner
+  begrüßt („Willkommen — noch ein paar Angaben"), statt zu ermahnen. Der **normale** Login
+  führt weiterhin aufs Dashboard: eine Bestandskraft will ihre Einsätze sehen, nicht ihr
+  Profil. Offene Schritte im Banner sind Sprungziele (Anker `person` / `skills` / `availCard`
+  / `documents`) — ein Hinweis, der nicht hinführt, ist eine Sackgasse.
+
+  Damit ist Welle 2 abgeschlossen.
 
 ### Phase B — Angebots-Engine (Herzstück der USP)
 - **Welle 3 — Multi-Skill-Angebotsgenerator** ✅ *erledigt (2026-07-20)*
@@ -219,9 +225,52 @@ fordern — gematcht gegen den Skill-Katalog.
   Offen: optionales Notdienst-/Top-Preis-Tier + Angebots-Styling (Dringlichkeit/Knappheit/Trust).
 
 ### Phase C — Nachfrage & Matching
-- **Welle 6 — Live-Vorschlag im Angebotsformular**
-  Suchleisten-Intelligenz: passende Mitarbeiter live vorschlagen, Anzahl gegen
-  verfügbare/reservierte Kapazität prüfen, Konflikt bei bereits verplant.
+- **Welle 6 — Deckungsvorschau im Angebotsformular** ✅ *erledigt (2026-07-31)*
+
+  **Die Lücke, die den Zuschnitt bestimmt hat:** das Angebotsformular war reiner Freitext.
+  Der Disponent tippt eine Rolle, ein paar Fähigkeiten und eine Kopfzahl — und **niemand
+  prüfte, ob die Firma diese Leute überhaupt hat**. Wer „6 Pflegekräfte ab 01.09." einstellt
+  und dann vier liefert, verliert den Kunden beim ersten Mal. Genau davor warnt Welle 2:
+  ein Angebot, das die Agentur nicht halten kann, ist schädlicher als keins. Die Vorschau
+  beantwortet das **vor** dem Absenden — mit Namen, nicht mit einer Zahl.
+
+  **Zeitraum-Bezug ist der Kern.** `buildPoolSuggestion` (Welle 4a) kennt nur „hat gerade
+  einen Einsatz". Für ein Angebot, das erst in sechs Wochen beginnt, ist das die falsche
+  Frage: eine Kraft, deren Einsatz nächste Woche endet, ist dafür frei. Geprüft wird deshalb
+  gegen den **angebotenen** Zeitraum — mit exakt derselben Überlappungsregel wie
+  `findWorkerScheduleConflicts`. Liefen die auseinander, zeigte das Formular „frei" und die
+  spätere Zuweisung antwortete 409.
+
+  | Zustand | Bedeutung |
+  |---|---|
+  | `frei` | im gewählten Zeitraum verfügbar — zählt in die Deckung |
+  | `verplant` | überlappender Einsatz; nennt Kunde + Tag der Rückkehr |
+  | `spaeter_frei` | ausdrückliche Angabe der Kraft liegt nach dem Beginn |
+  | `abwesend` | gemeldete Abwesenheit (Grund wird angezeigt) |
+
+  **Bewusst nicht geraten:** bei einem Einsatz **ohne Enddatum** bleibt die Rückkehr
+  unbekannt statt geschätzt — dieselbe Regel wie im Verfügbarkeits-Dienst.
+
+  **Ein Designfehler, den erst der Test gegen echte Daten zeigte:** ein einziges getipptes
+  „stapler" löst **vier** Katalog-Einträge auf (Staplerfahrer:in, Staplerschein, …). Die
+  naheliegende Regel „die Kraft muss alle aufgelösten Skills haben" fand deshalb *niemanden*.
+  Gefordert ist jetzt je **Suchbegriff** ein Treffer — das ist, was der Disponent meint, wenn
+  er zwei Fähigkeiten nebeneinander tippt.
+
+  Backend: `api/services/capacityOfferMatchService.js`, Endpunkt
+  `GET /api/capacity-exchange/offer-coverage` (`read:capacity`, agency-only, org-gebunden,
+  kein Audit — eine Formularvorschau ist keine Handlung). **Eine** Abfrage für die gesamte
+  Belegschaft, nicht eine pro Kraft: die Belegschaft wächst mit jedem Kunden.
+  UI: Panel unter dem Zeitraum in `capacity_exchange_form.html` +
+  `js/pages/capacityExchangeForm.js` (400 ms entprellt, veraltete Antworten verworfen).
+  Die Rolle wird mitgeschickt — viele Disponenten tippen „Staplerfahrer" dorthin und lassen
+  das Skill-Feld leer; ohne sie bliebe die Vorschau bei ihnen stumm.
+
+  Verifiziert: 12 Service-Tests, **transaktionaler Dry-Run gegen die echte Datenbank**
+  (Anna im September frei → Lücke 2→1, am Endtag selbst noch belegt, zurückgerollt),
+  Route live 401 statt 404, Browser-Harness mit echtem Markup + echtem Seiten-JS
+  (ein entprellter Aufruf statt vier, alle vier Zustände mit echten Design-Tokens
+  eingefärbt, `<script>` im Namen erscheint als Text).
 - **Welle 7 — Unternehmens-Bedarfsangebote**
   Firmen fordern gezielt 1+/viele Skills bei 1+/vielen Mitarbeitern; Matching
   Bedarf ↔ Katalog ↔ verfügbare Kapazität.

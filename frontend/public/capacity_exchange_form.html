@@ -17,6 +17,28 @@
     .ce-char-count { font-size: 11px; color: var(--ds-text-tertiary); text-align: right; margin-top: 2px; }
     .ce-char-count--warn { color: var(--ds-warning); }
     .ce-char-count--limit { color: var(--ds-danger); }
+    /* Deckungsvorschau (Welle 6) */
+    .ce-coverage {
+      margin-top: var(--ds-space-4);
+      border: 1px solid var(--ds-border);
+      border-radius: var(--ds-radius-md);
+      padding: var(--ds-space-3);
+      background: var(--ds-bg-raised);
+    }
+    .ce-coverage__head { display: flex; align-items: baseline; justify-content: space-between; gap: var(--ds-space-3); flex-wrap: wrap; }
+    .ce-coverage__title { font-size: 13px; font-weight: 600; color: var(--ds-text); }
+    .ce-coverage__summary { font-size: 13px; font-weight: 600; color: var(--ds-text-secondary); }
+    .ce-coverage--gedeckt .ce-coverage__summary { color: var(--ds-success); }
+    .ce-coverage--luecke .ce-coverage__summary { color: var(--ds-warning); }
+    .ce-coverage__note { font-size: 12px; color: var(--ds-text-tertiary); margin-top: 2px; }
+    .ce-coverage__list { list-style: none; margin: var(--ds-space-3) 0 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+    .ce-coverage__row { display: flex; align-items: baseline; justify-content: space-between; gap: var(--ds-space-3); font-size: 12px; }
+    .ce-coverage__name { color: var(--ds-text); }
+    .ce-coverage__meta { color: var(--ds-text-tertiary); }
+    .ce-coverage__state { font-weight: 600; white-space: nowrap; }
+    .ce-coverage__state--frei { color: var(--ds-success); }
+    .ce-coverage__state--verplant, .ce-coverage__state--abwesend { color: var(--ds-text-tertiary); }
+    .ce-coverage__state--spaeter_frei { color: var(--ds-warning); }
     .ce-media-grid { display: grid; grid-template-columns: 1fr 1fr; gap: var(--ds-space-4); }
     @media (max-width: 860px) { .ce-media-grid { grid-template-columns: 1fr; } }
     .ce-media-drop {
@@ -141,6 +163,16 @@
               <option value="on_call">Abruf</option>
             </select>
           </div>
+        </div>
+        <!-- Deckungsvorschau (Welle 6): beantwortet vor dem Absenden, ob die eigene
+             Belegschaft die angebotene Kopfzahl im gewaehlten Zeitraum wirklich traegt. -->
+        <div id="coverage-panel" class="ce-coverage" hidden>
+          <div class="ce-coverage__head">
+            <span class="ce-coverage__title">Deckung aus Ihrer Belegschaft</span>
+            <span id="coverage-summary" class="ce-coverage__summary"></span>
+          </div>
+          <div id="coverage-note" class="ce-coverage__note"></div>
+          <ul id="coverage-list" class="ce-coverage__list"></ul>
         </div>
       </div>
 

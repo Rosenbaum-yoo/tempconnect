@@ -16,15 +16,18 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 import { resolveAvailability, setAvailability, HERKUNFT } from "../services/workerAvailabilityService.js";
+import { todayDE } from "../utils/dateDE.js";
 
 const PROFIL_ID = "wp-1";
 const USER_ID = "u-1";
 const ORG_ID = "org-agentur";
 
-function heute() { return new Date().toISOString().slice(0, 10); }
+// Berlin-Zeit, nicht UTC: der Dienst rechnet in Europe/Berlin. Rechnete der Test in UTC,
+// wuerde er zwischen 00:00 und 02:00 Berliner Zeit einen anderen Tag pruefen als die Produktion.
+function heute() { return todayDE(); }
 
 function inTagen(n) {
-  const d = new Date();
+  const d = new Date(`${todayDE()}T00:00:00Z`);
   d.setUTCDate(d.getUTCDate() + n);
   return d.toISOString().slice(0, 10);
 }
@@ -86,6 +89,23 @@ describe("verfuegbar ab", () => {
     assert.equal(out.available_from, null);
     assert.equal(out.herkunft.available_from, HERKUNFT.UNBEKANNT);
     assert.ok(out.offene_fragen.includes("available_from"));
+  });
+
+  it("liest auch ein Date-Objekt als denselben Kalendertag", async () => {
+    // DATE-Spalten kommen dank db/typeParsers.js als Zeichenkette an — dieser Test sichert
+    // den anderen Fall ab: kaeme hier je ein Zeitstempel an, wuerde `toISOString()` lokale
+    // Mitternacht in Berlin auf 22:00 des VORTAGS schieben. Aus einem Einsatzende am 15.09.
+    // wuerde der 14.09., und die Kraft gaelte einen Tag zu frueh als frei — genau das
+    // Angebot, das die Agentur nicht halten kann. Ein Schutz, den der Parser heute traegt
+    // und der beim naechsten Treiber-Wechsel nicht still verloren gehen soll.
+    const ende = inTagen(10);
+    const [jahr, monat, tag] = ende.split("-").map(Number);
+    const out = await resolveAvailability(
+      poolStub({ historie: { letztes_ende: new Date(jahr, monat - 1, tag) } }),
+      PROFIL_ID
+    );
+    assert.equal(out.belegt_bis, ende, "Das Einsatzende darf nicht auf den Vortag rutschen");
+    assert.equal(out.available_from, inTagen(11), "Frei ist die Kraft erst am Tag DANACH");
   });
 
   it("neue Kraft ohne Historie: eine Frage, keine Annahme", async () => {

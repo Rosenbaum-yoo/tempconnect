@@ -201,6 +201,128 @@
       };
     }
 
+    /* ── Deckungsvorschau (Welle 6) ─────────────────────────────────────────
+       Beantwortet waehrend des Tippens, ob die eigene Belegschaft die angebotene
+       Kopfzahl im gewaehlten Zeitraum wirklich traegt. Wer sechs Kraefte einstellt
+       und vier liefert, verliert den Kunden beim ersten Mal. */
+
+    var coverageTimer = null;
+    var coverageSeq = 0;
+
+    function esc(s) {
+      return String(s == null ? "" : s).replace(/[&<>"']/g, function(c) {
+        return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c];
+      });
+    }
+
+    function datumDE(iso) {
+      if (!iso) return "";
+      var t = String(iso).slice(0, 10).split("-");
+      return t.length === 3 ? t[2] + "." + t[1] + "." + t[0] : String(iso);
+    }
+
+    var ZUSTAND_TEXT = {
+      frei: "frei",
+      verplant: "verplant",
+      spaeter_frei: "erst spaeter",
+      abwesend: "abwesend"
+    };
+
+    function renderCoverage(data) {
+      var panel = document.getElementById("coverage-panel");
+      var summary = document.getElementById("coverage-summary");
+      var note = document.getElementById("coverage-note");
+      var list = document.getElementById("coverage-list");
+      if (!panel) return;
+
+      panel.classList.remove("ce-coverage--gedeckt", "ce-coverage--luecke");
+
+      if (!data || !data.auswertbar) {
+        panel.hidden = true;
+        return;
+      }
+      panel.hidden = false;
+
+      var gedeckt = data.luecke === 0;
+      panel.classList.add(gedeckt ? "ce-coverage--gedeckt" : "ce-coverage--luecke");
+      // Nicht "N von M": sind mehr Kraefte frei als angeboten, laese sich "2 von 1" unsinnig.
+      summary.textContent = gedeckt
+        ? "Gedeckt — " + data.frei + (data.frei === 1 ? " Kraft frei" : " Kraefte frei")
+        : "Es fehlen " + data.luecke + " von " + data.gefordert;
+
+      var hinweise = [];
+      if (data.zeitraum && data.zeitraum.von) {
+        hinweise.push("Zeitraum ab " + datumDE(data.zeitraum.von) +
+          (data.zeitraum.bis ? " bis " + datumDE(data.zeitraum.bis) : " (offen)"));
+      }
+      if (!data.kandidaten.length) {
+        hinweise.push("Keine Kraft in Ihrer Belegschaft fuehrt diese Faehigkeit im Katalog.");
+      }
+      if (data.unbekannte_faehigkeiten && data.unbekannte_faehigkeiten.length) {
+        hinweise.push("Kein Katalog-Eintrag fuer: " + data.unbekannte_faehigkeiten.join(", "));
+      }
+      note.textContent = hinweise.join(" · ");
+
+      list.innerHTML = data.kandidaten.map(function(k) {
+        var zusatz = [];
+        if (k.grund) zusatz.push(k.grund);
+        if (k.frei_ab) zusatz.push("wieder ab " + datumDE(k.frei_ab));
+        else if (k.zustand === "verplant") zusatz.push("Ende offen");
+        if (k.city) zusatz.push(k.city);
+        return '<li class="ce-coverage__row">' +
+          '<span class="ce-coverage__name">' + esc(k.name) +
+            (k.treffer_namen && k.treffer_namen.length
+              ? ' <span class="ce-coverage__meta">' + esc(k.treffer_namen.join(", ")) + '</span>'
+              : '') +
+          '</span>' +
+          '<span class="ce-coverage__state ce-coverage__state--' + esc(k.zustand) + '">' +
+            esc(ZUSTAND_TEXT[k.zustand] || k.zustand) +
+            (zusatz.length ? ' <span class="ce-coverage__meta">' + esc(zusatz.join(" · ")) + '</span>' : '') +
+          '</span>' +
+        '</li>';
+      }).join("");
+    }
+
+    function refreshCoverage() {
+      var skills = document.getElementById("f-skills").value.trim();
+      var rolle = document.getElementById("f-role").value.trim();
+      // Die Rolle mitschicken: viele Disponenten tippen "Staplerfahrer" dorthin und
+      // lassen das Skill-Feld leer. Ohne sie bliebe die Vorschau bei ihnen stumm.
+      var begriffe = (skills + (skills && rolle ? "," : "") + rolle).trim();
+      if (!begriffe) { renderCoverage(null); return; }
+
+      var params = new URLSearchParams();
+      params.set("skills", begriffe);
+      params.set("headcount", String(parseInt(document.getElementById("f-headcount").value, 10) || 1));
+      var von = document.getElementById("f-from").value;
+      var bis = document.getElementById("f-to").value;
+      if (von) params.set("from", von);
+      if (bis) params.set("to", bis);
+
+      var meine = ++coverageSeq;
+      apiFetch("/capacity-exchange/offer-coverage?" + params.toString())
+        .then(function(r) { return r.ok ? r.json() : null; })
+        .then(function(data) {
+          // Eine ueberholte Antwort darf eine neuere nicht ueberschreiben.
+          if (meine !== coverageSeq) return;
+          renderCoverage(data);
+        })
+        .catch(function() { if (meine === coverageSeq) renderCoverage(null); });
+    }
+
+    function scheduleCoverage() {
+      clearTimeout(coverageTimer);
+      coverageTimer = setTimeout(refreshCoverage, 400);
+    }
+
+    ["f-skills", "f-role", "f-headcount", "f-from", "f-to"].forEach(function(id) {
+      var el = document.getElementById(id);
+      if (el) {
+        el.addEventListener("input", scheduleCoverage);
+        el.addEventListener("change", scheduleCoverage);
+      }
+    });
+
     var targetStatus = "draft";
     var formDirty = false;
 
