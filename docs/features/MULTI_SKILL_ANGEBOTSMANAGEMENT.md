@@ -142,9 +142,35 @@ fordern — gematcht gegen den Skill-Katalog.
   überschreiben). Endpunkte `GET/PATCH /api/worker/me/availability`. 24 Tests plus
   Schema-Smoke gegen die echte Datenbank.
 
-  **Offen für Welle 2:** Vollständigkeits-/Fortschritts-Begriff im Backend, der geführte
-  Assistent selbst, und die Einladungsstrecke end-to-end (nach Annahme direkt in den
-  Assistenten statt auf die flache Profilseite).
+  **Ebenfalls erledigt (2026-07-31): Fortschritt + Oberfläche.**
+  `api/services/workerOnboardingService.js` ist die **eine** Antwort auf „wie weit ist
+  dieses Profil" — gebraucht an drei Stellen (Assistent, Dashboard-Hinweis, Disposition).
+  Vier Schritte: Person, Fähigkeiten, Verfügbarkeit, Nachweise.
+
+  Unterschieden wird bewusst **vollständig** von **einsatzbereit**: Nachweise zählen in
+  den Fortschritt, blockieren die Vermittlung aber nicht — welche Papiere nötig sind,
+  hängt an Branche und Einsatz. Sonst zeigte der Balken 100 %, während Nachweise fehlen,
+  oder er bliebe bei 75 % stehen, obwohl die Kraft längst disponierbar ist.
+
+  In der Oberfläche ein **Fortschrittsbanner über den vorhandenen Karten** statt eines
+  mehrseitigen Assistenten: die Karten *sind* bereits die Schritte. Ein Umbau hätte
+  dieselbe Führung gebracht, aber die ganze Seite neu getestet werden müssen. Die neue
+  Verfügbarkeits-Karte ist mit dem Hergeleiteten vorbelegt und nennt darunter die
+  Herkunft im Klartext; ein Knopf schaltet zurück auf Herleitung.
+
+  Endpunkt `GET /api/worker/me/onboarding`, 10 Tests.
+
+  **Zwei Fehler, die erst der Browser-Test zeigte:** `--ep-accent` und
+  `--ep-surface-raised` existieren nicht (richtig: `--ep-brand`, `--ep-raised`) — der
+  Fortschrittsbalken war dadurch durchsichtig. Derselbe Fehler steckte im Bestand
+  (kontakt, plan, stundenzettel, 11 Stellen) und ist mitkorrigiert. Und der Emoji-Wächter
+  aus dem Audit-Backlog hat einen Unicode-Haken abgefangen; `ICON_PATHS` in
+  `portalShell.js` hat jetzt `erledigt`/`offen`, und `iconSvg` ist exportiert, damit
+  Seiten Zustandssymbole aus demselben Satz nehmen.
+
+  **Offen für Welle 2:** die Einladungsstrecke end-to-end — nach Annahme der Einladung
+  landet die Kraft heute auf der flachen Profilseite statt geführt im ersten offenen
+  Schritt. Das ist der letzte Baustein.
 
 ### Phase B — Angebots-Engine (Herzstück der USP)
 - **Welle 3 — Multi-Skill-Angebotsgenerator** ✅ *erledigt (2026-07-20)*
