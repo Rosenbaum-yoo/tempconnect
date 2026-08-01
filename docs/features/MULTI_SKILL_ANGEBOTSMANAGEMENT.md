@@ -1,6 +1,6 @@
 # Multi-Skill Angebots-Management — Feature-Plan & USP
 
-> **Status:** In Umsetzung · Welle 1–5 erledigt · **Welle 6: Deckungsvorschau erledigt** (2026-07-31)
+> **Status:** In Umsetzung · Welle 1–6 erledigt · **Welle 11: Matching/Suche auf den Katalog gehoben** (2026-08-01)
 > **Owner-Direktive:** Fester Bestandteil der Plattform und zentrale USP.
 > **Leitprinzip:** Wenige Zeitarbeitsfirmen sollen sich für suchende Unternehmen
 > anfühlen wie **tausende** — **ohne eine einzige Fake-Zeile**, allein durch echten
@@ -301,9 +301,48 @@ fordern — gematcht gegen den Skill-Katalog.
   Hero-/Testimonial-Videos auf Landing/Marketing.
 
 ### Phase E — Skalierung & Politur
-- **Welle 11 — Suche plattformweit auf `skill_id`**
-  Suche/Matching von Freitext auf strukturierte Skills heben (nutzt Fuzzy/Trgm
-  Mig 135–137), `usage_count`-Analytics für Auto-Vorschläge.
+- **Welle 11 — Matching und Suche auf den Katalog heben** ✅ *Kern erledigt (2026-08-01)*
+
+  **Der gemessene Schaden:** Matching und Marktplatz verglichen Fähigkeiten als **exakte
+  Zeichenketten**. Ein Unternehmen, das „Seniorenpflege" suchte, bekam auf ein Angebot
+  „Altenpflege" **0 von 25** Skill-Punkten — obwohl beides im eigenen Katalog dieselbe
+  Fähigkeit ist. **115 von 162** Katalog-Einträgen tragen Synonyme; sie waren allesamt
+  wirkungslos.
+
+  Das traf die USP direkt: der Angebotsgenerator (Welle 3) schreibt den **exakten
+  Katalognamen** in `skill_tags`, während die Nachfrageseite Umgangssprache tippt. Der
+  Multi-Skill-Fan-out erzeugte also genau die Angebote, die niemand findet.
+
+  **Zwei Ebenen — und die zweite war die wichtigere:**
+  1. *Bewerten* (`scoreMatch`): Schreibweisen werden über einen Index auf die kanonische
+     Fähigkeit abgebildet. Gemessen: alle vier geprüften Synonympaare **0/25 → 25/25**,
+     fremde Fähigkeiten bleiben bei 0.
+  2. *Filtern* (`browseFeed`): der Marktplatz filtert in SQL per Array-Überlappung
+     (`cp.skill_tags && $n`) — ein harter Vergleich exakter Zeichenketten. Wer
+     „Seniorenpflege" suchte, bekam die Angebote **gar nicht erst geliefert**; wie gut sie
+     bewertet würden, war dann schon egal. Die Suchbegriffe werden deshalb **vor** der
+     Abfrage um alle Schreibweisen erweitert (`expandTags`), in der **Original-Schreibung
+     des Katalogs** — kleingeschriebene Varianten träfen den Array-Filter nicht.
+     Gemessen am echten Bestand: „Seniorenpflege" **0 → 6 Angebote**, identisch mit der
+     Referenzsuche „Altenpflege".
+
+  **Entwurfsentscheidungen:** Der Index ist **gecacht und synchron** (`INDEX_TTL_MS`,
+  10 min) — `scoreMatch` ist eine reine Funktion und läuft in Schleifen über viele
+  Kandidaten; eine Abfrage pro Fähigkeit wäre dort der teuerste Pfad im System. Geladen
+  wird **einmal je Lauf**, nicht je Kandidat. Ohne Index verhält sich alles wie vorher
+  (rückwärtskompatibel), und ein nicht erreichbarer Katalog liefert bewusst `null`, statt
+  die Vermittlung zu blockieren. Eine Fähigkeit außerhalb des Katalogs behält ihre Rohform
+  — zwei Betriebe mit demselben Eigengewächs finden sich weiterhin.
+
+  Backend: `api/services/skillNormalizationService.js`; angebunden in `matchingEngine`
+  (5 Aufrufe), `instantMatchService`, `capacityExchangeService.browseFeed` (Filter **und**
+  Relevanz) — **alle** `scoreMatch`-Aufrufer, damit keine zweite Wahrheit entsteht.
+  21 Tests; Wirkung gegen den echten Katalog und mit transaktionalem Dry-Run belegt.
+
+  **Offen:** `skill_id`-Spalten in Bedarf/Requisition (heute nur Freitext, deshalb greift
+  die Erweiterung), Fuzzy/Trgm-Tippfehlertoleranz (Mig 135–137) und `usage_count`-Analytics
+  für Auto-Vorschläge. Der Index ist die Grundlage, auf der **P4.2 (KI-Ranking)** aufsetzen
+  kann — semantisches Ranking auf Freitext wäre Raten gewesen.
 - **Welle 12 — Performance, Kosten, Moderation, E2E**
   Skalierung 10→300 (Indizes, Caching), Bild-/Video-Kostenkontrolle (CDN, Lazy-Load),
   Moderation, E2E-Tests, Doku-Konsistenz.

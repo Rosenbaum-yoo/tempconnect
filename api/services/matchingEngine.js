@@ -5,6 +5,7 @@
  * Konsolidiert Logik aus marketplaceService.scoreMatch, slaSearchService.scoreJobAgainstCapacity,
  * capacityService.haversineKm.
  */
+import { normalizeTags, loadSkillIndex } from "./skillNormalizationService.js";
 
 /** Haversine-Distanz in km */
 export function haversineKm(lat1, lng1, lat2, lng2) {
@@ -64,15 +65,19 @@ export function scoreMatch(demand, cap, opts = {}) {
   }
 
   // ── 2) Skills / Tags ─────────────────────────────────
-  const dTags = new Set((demand.skill_tags || []).map(t => String(t).toLowerCase().trim()));
-  const cTags = new Set((cap.skill_tags || []).map(t => String(t).toLowerCase().trim()));
+  // Mit Katalog-Index (Welle 11) werden Schreibweisen auf die kanonische Faehigkeit
+  // abgebildet: "Seniorenpflege" und "Altenpflege" sind dann derselbe Skill. Ohne Index
+  // bleibt es beim Vergleich der kleingeschriebenen Rohform — exakt wie vorher.
+  const skillIndex = opts.skillIndex || null;
+  const dTags = normalizeTags(demand.skill_tags || [], skillIndex);
+  const cTags = normalizeTags(cap.skill_tags || [], skillIndex);
   if (dTags.size > 0 && cTags.size > 0) {
     let overlap = 0;
     dTags.forEach(t => { if (cTags.has(t)) overlap++; });
     const maxTags = Math.min(5, dTags.size);
     const pts = Math.min(weights.skills, Math.round((overlap / maxTags) * weights.skills));
     score += pts;
-    reasons.push({ factor: 'skills', points: pts, max: weights.skills, detail: `${overlap}/${dTags.size} Skills uebereinstimmend`, meta: { overlap, required: dTags.size } });
+    reasons.push({ factor: 'skills', points: pts, max: weights.skills, detail: `${overlap}/${dTags.size} Skills uebereinstimmend`, meta: { overlap, required: dTags.size, normalized: !!skillIndex } });
   }
 
   // ── 3) Standort / Entfernung ─────────────────────────
@@ -215,12 +220,16 @@ export async function matchRequisition(pool, demand, opts = {}) {
     `SELECT * FROM capacity_posts WHERE is_active = TRUE`
   );
 
+  // Einmal je Lauf, nicht je Kandidat (Welle 11).
+  const skillIndex = opts.skillIndex !== undefined ? opts.skillIndex : await loadSkillIndex(pool);
+
   const scored = [];
   for (const cap of caps) {
     const { score, reasons } = scoreMatch(demand, cap, {
       supplierVerified: verifiedIds.has(cap.supplier_company_id),
       vendorPoolTier: vendorPoolMap.get(cap.supplier_company_id) || null,
-      weights: opts.weights
+      weights: opts.weights,
+      skillIndex
     });
     if (score >= minScore) {
       scored.push({ capacity_post: cap, score, reasons });
@@ -280,6 +289,9 @@ export async function matchCapacityToRequisitions(pool, capacityPostId, opts = {
 
   const scored = [];
 
+  // Einmal je Lauf, nicht je Kandidat (Welle 11).
+  const skillIndex = opts.skillIndex !== undefined ? opts.skillIndex : await loadSkillIndex(pool);
+
   // Score requisitions against capacity (treat requisition as "demand")
   for (const req of reqs) {
     const demand = {
@@ -294,7 +306,8 @@ export async function matchCapacityToRequisitions(pool, capacityPostId, opts = {
     };
     const { score, reasons } = scoreMatch(demand, cap, {
       supplierVerified: opts.supplierVerified || false,
-      vendorPoolTier: null
+      vendorPoolTier: null,
+      skillIndex
     });
     if (score >= minScore) {
       scored.push({ type: 'requisition', entity: req, score, reasons });
@@ -315,7 +328,8 @@ export async function matchCapacityToRequisitions(pool, capacityPostId, opts = {
     };
     const { score, reasons } = scoreMatch(demand, cap, {
       supplierVerified: opts.supplierVerified || false,
-      vendorPoolTier: null
+      vendorPoolTier: null,
+      skillIndex
     });
     if (score >= minScore) {
       scored.push({ type: 'demand_request', entity: dr, score, reasons });
@@ -422,6 +436,9 @@ export async function matchWorkerToAssignments(pool, workerId, opts = {}) {
 
   const scored = [];
 
+  // Einmal je Lauf, nicht je Kandidat (Welle 11).
+  const skillIndex = opts.skillIndex !== undefined ? opts.skillIndex : await loadSkillIndex(pool);
+
   for (const dr of demands) {
     const demand = {
       role: dr.role,
@@ -430,7 +447,7 @@ export async function matchWorkerToAssignments(pool, workerId, opts = {}) {
       location_city: dr.location_city, radius_km: dr.radius_km,
       start_date: dr.start_date, end_date: dr.end_date
     };
-    let { score, reasons } = scoreMatch(demand, cap, {});
+    let { score, reasons } = scoreMatch(demand, cap, { skillIndex });
     if (repBonus > 0) {
       score = Math.min(100, score + repBonus);
       reasons.push({ factor: 'reputation', points: repBonus, max: 5, detail: `Reputation ${repScore}/10` });
@@ -448,7 +465,7 @@ export async function matchWorkerToAssignments(pool, workerId, opts = {}) {
       location_city: req.location_city, radius_km: req.radius_km,
       start_date: req.start_date, end_date: req.end_date
     };
-    let { score, reasons } = scoreMatch(demand, cap, {});
+    let { score, reasons } = scoreMatch(demand, cap, { skillIndex });
     if (repBonus > 0) {
       score = Math.min(100, score + repBonus);
       reasons.push({ factor: 'reputation', points: repBonus, max: 5, detail: `Reputation ${repScore}/10` });

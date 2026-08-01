@@ -7,6 +7,7 @@
 
 import * as capacityWorkflow from "./capacityWorkflow.js";
 import { haversineKm, scoreMatch } from "./matchingEngine.js";
+import { loadSkillIndex, expandTags } from "./skillNormalizationService.js";
 import * as auditLog from "./auditLog.js";
 import { computePremiumBoost } from "./reputationService.js";
 import { assertLocationBelongsToOrg, assertDepartmentBelongsToOrg } from "../utils/orgBoundary.js";
@@ -629,8 +630,15 @@ export async function browseFeed(pool, opts = {}) {
     where.push(`cp.priority_level = $${idx}`);
     idx++;
   }
+  // Katalog-Index einmal je Feed-Aufruf (Welle 11) — hier oben, weil er schon fuer den
+  // FILTER gebraucht wird, nicht erst fuers Bewerten.
+  const skillIndex = await loadSkillIndex(pool);
+
   if (Array.isArray(opts.skill_tags) && opts.skill_tags.length > 0) {
-    params.push(opts.skill_tags);
+    // Um die Synonyme erweitern, BEVOR gefiltert wird: `&&` vergleicht exakte
+    // Zeichenketten, ein "Seniorenpflege"-Suchender bekaeme die "Altenpflege"-Angebote
+    // sonst gar nicht erst geliefert — wie gut sie bewertet wuerden, waere dann egal.
+    params.push(expandTags(opts.skill_tags, skillIndex));
     where.push(`cp.skill_tags && $${idx}`);
     idx++;
   }
@@ -860,7 +868,7 @@ export async function browseFeed(pool, opts = {}) {
         availability_from: item.availability_from,
         availability_to: item.availability_to
       };
-      const scored = scoreMatch(intentDemand, capLike, { supplierVerified: false, vendorPoolTier: null });
+      const scored = scoreMatch(intentDemand, capLike, { supplierVerified: false, vendorPoolTier: null, skillIndex });
       matchScore = scored.score || 0;
     } else {
       // For demand entries reuse same engine by mapping demand->cap-like inverse.
@@ -885,7 +893,8 @@ export async function browseFeed(pool, opts = {}) {
         availability_to: intentDemand.end_date || null
       };
       const scored = scoreMatch(demandLike, capIntent, {
-        urgencyBoost: item.priority_level === "notdienst" || item.priority_level === "urgent"
+        urgencyBoost: item.priority_level === "notdienst" || item.priority_level === "urgent",
+        skillIndex
       });
       matchScore = scored.score || 0;
     }

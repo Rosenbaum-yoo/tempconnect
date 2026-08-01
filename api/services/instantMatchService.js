@@ -14,6 +14,7 @@
 import { scoreMatch, classifyMatch, logMatch } from "./matchingEngine.js";
 import { computeFillRateSignal, computeSlaComplianceSignal, computeRoleExpertiseSignal, computeRecencySignal, computeSmartRankScore, classifySmartRank, SMART_RANK_LABELS } from "./smartRankingService.js";
 import { swallow } from "../utils/logger.js";
+import { loadSkillIndex } from "./skillNormalizationService.js";
 
 /* ── Batch-Loader ─────────────────────────────────────── */
 
@@ -248,6 +249,10 @@ export async function instantMatchFromParams(pool, demand, orgId, opts = {}) {
   const urgencyValue = String(opts.urgency || "").toLowerCase();
   const isUrgent = ["high", "plus", "urgent", "critical", "notdienst"].includes(urgencyValue);
 
+  // Katalog-Index einmal je Lauf (Welle 11): sonst faellt "Seniorenpflege" nicht mit
+  // "Altenpflege" zusammen — genau hier, wo beide Seiten sofort benachrichtigt werden.
+  const skillIndex = opts.skillIndex !== undefined ? opts.skillIndex : await loadSkillIndex(pool);
+
   // 4. Score all capacity posts
   const scored = [];
   for (const cap of caps) {
@@ -296,7 +301,8 @@ export async function instantMatchFromParams(pool, demand, orgId, opts = {}) {
       preferredFirst: opts.preferredFirst || false,
       smartRankScore,
       smartRankLabel,
-      weights: opts.weights
+      weights: opts.weights,
+      skillIndex
     });
 
     if (score >= minScore) {
