@@ -75,6 +75,23 @@ describe("Faehigkeiten aufloesen", () => {
     assert.deepEqual([...new Set(out.zuordnung.map((z) => z.gruppe))], ["stapler"],
       "Beide Treffer erfuellen dieselbe eine Forderung");
   });
+
+  it("maskiert LIKE-Sonderzeichen und behaelt dafuer ein echtes ESCAPE-Zeichen", async () => {
+    // Regression: im Template-String stand `ESCAPE '\'` — JS loest `\'` zu `'` auf, in der DB
+    // kam also `ESCAPE ''` an. Bei leerem Escape-Zeichen schaltet Postgres die Maskierung ganz
+    // ab: die Zeile darueber war wirkungslos und ein getipptes "%" wieder eine Wildcard.
+    // Geprueft wird deshalb beides — die Maskierung UND das Zeichen, das sie erst wirksam macht.
+    const pool = mockPool({ katalog: [] });
+    await resolveSkillTags(pool, ["100%"]);
+    const abfrage = pool.calls.find((c) => /platform_skills/i.test(c.sql));
+
+    assert.deepEqual(abfrage.params[0], ["100%"], "Der unmaskierte Begriff bleibt fuer den exakten Vergleich");
+    assert.deepEqual(abfrage.params[1], ["100\\%"], "Fuer den Teiltreffer muss das getippte % maskiert ankommen");
+    assert.match(abfrage.sql, /ESCAPE '\\'/,
+      "Ohne echtes Escape-Zeichen ist die Maskierung eine Zeile ohne Wirkung");
+    assert.doesNotMatch(abfrage.sql, /ESCAPE ''/,
+      "Leeres ESCAPE deaktiviert die Maskierung in Postgres — dann liefert '%' den GESAMTEN Katalog");
+  });
 });
 
 describe("Deckung", () => {

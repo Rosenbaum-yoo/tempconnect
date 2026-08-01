@@ -10,6 +10,7 @@ import { writeAudit } from "../services/auditLog.js";
 import { trackProductEvent, deriveCustomerSegment } from "../services/productAnalyticsService.js";
 import { catchAsync } from "../utils/routeHandler.js";
 import { domainLogger, swallow } from "../utils/logger.js";
+import { stampSession, destroyAllUserSessions, countUserSessions } from "../services/sessionSecurityService.js";
 import { isEnforceSSO } from "../services/ssoService.js";
 import * as totpService from "../services/totpService.js";
 
@@ -179,6 +180,7 @@ export function createAuthRouter(deps) {
     // SEC-001: Regenerate session to prevent session fixation
     await new Promise((resolve, reject) => req.session.regenerate((err) => err ? reject(err) : resolve()));
     req.session.userId = userId;
+    stampSession(req.session); // P5.1: Hoechstalter zaehlt ab hier — nach regenerate, sonst verworfen
     const me = await getUserAndPlan(userId);
     try {
       await trackProductEvent(pool, {
@@ -278,6 +280,7 @@ export function createAuthRouter(deps) {
     // SEC-001: Regenerate session to prevent session fixation
     await new Promise((resolve, reject) => req.session.regenerate((err) => err ? reject(err) : resolve()));
     req.session.userId = creds.id;
+    stampSession(req.session); // P5.1: Hoechstalter zaehlt ab hier
     req.session.userRole = creds.role;  // needed by requireWorkerRole gate
     const me = await getUserAndPlan(creds.id);
     try {
@@ -313,6 +316,40 @@ export function createAuthRouter(deps) {
       res.json({ ok: true });
     });
   });
+
+  /**
+   * Wie viele Sitzungen sind offen? (P5.1)
+   * Ohne diese Zahl waere "Alle Geraete abmelden" ein Knopf ins Leere — der Nutzer soll
+   * sehen, dass es ueberhaupt etwas zu beenden gibt.
+   */
+  router.get("/auth/sessions", requireAuth, catchAsync(async (req, res) => {
+    const offen = await countUserSessions(pool, req.session.userId);
+    res.json({ offen, weitere_geraete: Math.max(0, offen - 1) });
+  }));
+
+  /**
+   * Fernabmeldung (P5.1): beendet alle Sitzungen des eigenen Kontos.
+   * Der Normalfall ist ein verlorenes Geraet — deshalb bleibt die AKTUELLE Sitzung
+   * standardmaessig bestehen: wer sich gerade selbst aussperrt, kann nicht nachsehen,
+   * ob es geklappt hat. Mit `include_current` wird auch sie beendet.
+   */
+  router.post("/auth/logout-all", requireAuth, catchAsync(async (req, res) => {
+    const userId = req.session.userId;
+    const auchDiese = req.body?.include_current === true;
+    const { beendet } = await destroyAllUserSessions(pool, userId, {
+      exceptSid: auchDiese ? null : req.sessionID
+    });
+    domainLogger.userLogout({ userId });
+    res.locals.audit = {
+      action: "auth.logout_all", entity_type: "user", entity_id: userId, action_type: "LOGIN",
+      details: { beendet, include_current: auchDiese }
+    };
+    if (!auchDiese) return res.json({ ok: true, beendet });
+    req.session.destroy(() => {
+      res.clearCookie("tc.sid", { path: "/", httpOnly: true, sameSite: "lax" });
+      res.json({ ok: true, beendet });
+    });
+  }));
 
   router.post("/auth/forgot-password", authLimiter, catchAsync(async (req, res) => {
     const email = String(req.body?.email || "").trim().toLowerCase();
@@ -406,6 +443,7 @@ export function createAuthRouter(deps) {
     // SEC-001: Regenerate session to prevent session fixation
     await new Promise((resolve, reject) => req.session.regenerate((err) => err ? reject(err) : resolve()));
     req.session.userId = result.user.id;
+    stampSession(req.session); // P5.1: Hoechstalter zaehlt ab hier
     req.session.userRole = result.user.role;  // needed by requireWorkerRole gate
     try {
       await trackProductEvent(pool, {

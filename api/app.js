@@ -7,6 +7,7 @@
  */
 import express from "express";
 import session from "express-session";
+import { IDLE_TIMEOUT_MS, enforceAbsoluteLifetime } from "./services/sessionSecurityService.js";
 import { createRequire } from "module";
 import path from "path";
 import cors from "cors";
@@ -256,10 +257,23 @@ export async function createApp() {
 
   // ── Plattform-Session (tc.sid) — ueberspringt /staff-Pfade komplett ───────
   // Verhindert dass req.session nach der Staff-Session ueberschrieben wird.
-  const platformSessionMiddleware = session({ name: "tc.sid", secret: config.SESSION_SECRET, store: sessionStore, resave: true, saveUninitialized: false, rolling: true, cookie: { path: "/", httpOnly: true, sameSite: "lax", secure: cookieSecure, maxAge: 1000 * 60 * 60 * 24 * 14 } });
+  const absoluteLifetimeGuard = enforceAbsoluteLifetime();
+
+  // Leerlauf-Frist (P5.1, Owner-Entscheidung 2026-08-01): 8 Stunden statt 14 Tage.
+  // `rolling: true` verlaengert sie bei jeder Anfrage — ein Arbeitstag am Stueck ist
+  // gedeckt. Das HOECHSTALTER kann express-session nicht, das erledigt
+  // enforceAbsoluteLifetime weiter unten.
+  const platformSessionMiddleware = session({ name: "tc.sid", secret: config.SESSION_SECRET, store: sessionStore, resave: true, saveUninitialized: false, rolling: true, cookie: { path: "/", httpOnly: true, sameSite: "lax", secure: cookieSecure, maxAge: IDLE_TIMEOUT_MS } });
   app.use((req, res, next) => {
     if (req.path.startsWith("/staff")) return next();
     return platformSessionMiddleware(req, res, next);
+  });
+  // Hoechstalter (P5.1): eine einmal entwendete Sitzung soll auch dann ungueltig werden,
+  // wenn sie durch regelmaessige Nutzung staendig verlaengert wird. Direkt hinter der
+  // Sitzung, damit jeder nachfolgende Guard eine geprueft-frische Sitzung sieht.
+  app.use((req, res, next) => {
+    if (req.path.startsWith("/staff")) return next();
+    return absoluteLifetimeGuard(req, res, next);
   });
   // OpenAPI-Spezifikation (auto-generiert aus den Zod-Schemas, openapi/registry.js).
   // Oeffentlich + VOR den /api-Guards: keine Auth/CSRF noetig, read-only statische Datei.

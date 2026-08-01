@@ -265,27 +265,71 @@
 - **3.4 Arbeitsplatz-Aufträge perfektionieren.** Existiert bereits (`marketplace.js` demand_requests
   + `requisitions`) — Politur zur Perfektion.
 
-## Phase 4 — Matching-Engine / KI + Activity Center
+## Phase 4 — Matching-Engine / KI + Activity Center ✅ **komplett (26.–27.07.2026)**
 
-- **4.1 Bidirektionales Instant-Matching.** Bei Angebots- **und** Auftrags-Erstellung sofort gegen
-  aktive Gegenseite matchen + beide Seiten benachrichtigen. Fast vorhanden (`matching.js`,
-  `matchingEngine`, `match_alerts`) — Lücken schließen + zuverlässige Trigger.
-- **4.2 KI-Augmentierung (Claude API).** Über den bestehenden Matching-Engine hinaus:
-  semantisches Ranking der wahrscheinlichsten Treffer + kurze **Match-Erklärungen** („warum passt das").
-  Umsetzung mit der Anthropic-API (Skill `claude-api` konsultieren), als optionale Ranking-Schicht
-   vor den Benachrichtigungen — deterministischer Engine bleibt Fallback (Kosten/Latenz beachten).
-- **4.3 Activity Center voll verdrahten.** Jede relevante Aktion erzeugt ein Activity-/
-  Notification-Event (Ripple aus Phase 1–3 einspeisen). *Wiederverwenden:* `activityFeedService`,
-  `notificationMatrix`, `notificationSurfaceMap`.
+- **4.1 Bidirektionales Instant-Matching.** ✅ *Erledigt (Commit `994c77d`).* `matchTriggerService`
+  ist der EINE Chokepoint: bidirektional (beide Seiten, nie nur die erstellende), Dedup über
+  kanonischen `pair_key` + UNIQUE-Index (Mig 151), Empfänger aus der Rechte-Matrix
+  (`findOrgMembersWithPermission` — benachrichtigt wird, wer handeln *darf*), fire-and-forget
+  (ein Matching-Fehler darf nie ein Angebot scheitern lassen). Verdrahtet in **allen fünf**
+  Erstellungspfaden: `capacityExchange` (Anlage + Aktivierung), `marketplace` (capacity_post +
+  demand_request), `requisitions` (approve). Entwürfe lösen bewusst erst beim Aktivieren aus.
+- **4.2 Match-Qualität erklärbar machen.** ✅ *Erledigt (Commit `c1494ea`)* — deterministische
+  Baseline mit Begründungen als Grundlage für die KI-Schicht.
+- **4.3 KI-Ranking (Claude API).** ✅ *Gebaut, per Flag AUS (Commit `9faba7b`, Messbarkeit in
+  `1807fc3`).* Optionale Schicht über der Baseline; der deterministische Engine bleibt Fallback.
+  **Owner-Gate zum Einschalten:** `ANTHROPIC_API_KEY` + Kosten-/Latenzrahmen.
+- **4.4 Activity Center voll verdrahtet.** ✅ *Erledigt (Commit `aff8c55`)* — echte Ereignisse
+  mit Sprungzielen statt Sackgassen.
+
+> **Nachtrag zur Skill-Ebene (2026-08-01, Multi-Skill Welle 11):** Matching *und* Marktplatz-Filter
+> verglichen Fähigkeiten als exakte Zeichenketten — „Seniorenpflege" traf „Altenpflege" nicht,
+> obwohl im Katalog als Synonym hinterlegt (115 von 162 Einträgen betroffen). Behoben über
+> `skillNormalizationService`; Details in
+> [MULTI_SKILL_ANGEBOTSMANAGEMENT.md](MULTI_SKILL_ANGEBOTSMANAGEMENT.md).
 
 ## Phase 5 — Session/Auth-Härtung (Sicherheit + zukunftssicher + wirtschaftlich)
 
-- **5.1 Session-Modell definieren + härten.** Empfehlung (Details im Report): **Multi-Tab = eine
-  geteilte Session** (Standard, gut), **Fenster schließen ≠ Logout** (Session-Cookie ohne
-  Persistenz loggt nur bei komplettem Browser-Schließen aus; für „hart" optional Idle-Timeout).
-  Hinzu: absolute Session-Lebensdauer, **Idle-Timeout** (z.B. 30–60 min), **Re-Auth** für sensible
-  Aktionen (Auszahlung/Rollentausch), Session-Rotation bei Login, „Alle Geräte abmelden".
-  *Betroffen:* `middleware/auth.js`, `connect-pg-simple`-Sessionstore, Cookie-Flags.
+- **5.1 Session-Modell definieren + härten.** ✅ *Erledigt (2026-08-01).*
+
+  **Was bereits gut war** (geprüft, bewusst nicht angefasst): Session-Rotation bei jedem
+  Login (`req.session.regenerate` in `auth.js` 3× und `sso.js` 2× — verhindert
+  Session-Fixation), Cookie-Flags (`httpOnly`, `sameSite` strict/lax, `secure`, getrennte
+  Pfade für Plattform und Staff), Re-Authentifizierung mit Risikostufen (`requireMfa`,
+  `staffControlAccess`), Staff-Session bereits auf 4 Stunden.
+
+  **Die Lücke:** die Plattform-Session lief **14 Tage „rollend" ohne absolute Obergrenze** —
+  wer alle 13 Tage einmal klickte, blieb unbegrenzt angemeldet. Eine einmal entwendete
+  Sitzung wurde nie von allein ungültig. `express-session` kann das nicht: `maxAge` +
+  `rolling` ergibt eine Leerlauf-Frist, kein Höchstalter.
+
+  **Owner-Entscheidung (2026-08-01): Leerlauf 8 Stunden, absolut 7 Tage.** Ein Arbeitstag am
+  Stück ist gedeckt — der Disponent wird nicht mitten in der Disposition abgemeldet —, aber
+  eine gestohlene Sitzung ist spätestens nach einer Woche wertlos.
+
+  Umgesetzt in `api/services/sessionSecurityService.js`: `IDLE_TIMEOUT_MS` (als `maxAge` in
+  `app.js`), `enforceAbsoluteLifetime` als Middleware direkt hinter der Session,
+  `stampSession` an **allen fünf** Login-Pfaden (nach `regenerate`, sonst wird der Stempel
+  mitverworfen). Bestandssitzungen ohne Stempel werden beim ersten Zugriff **nachgestempelt
+  statt hinausgeworfen** — ein Deploy, der alle Angemeldeten aussperrt, ist ein Ausfall, kein
+  Sicherheitsgewinn.
+
+  **Neu: Fernabmeldung.** `GET /api/auth/sessions` (Anzahl offener Sitzungen — ohne sie wäre
+  der Knopf einer ins Leere) und `POST /api/auth/logout-all`. Die **aktuelle** Sitzung bleibt
+  standardmäßig bestehen: der Normalfall ist ein verlorenes Gerät, und wer sich selbst
+  aussperrt, kann nicht nachsehen, ob es geklappt hat (`include_current: true` beendet auch
+  sie). Gefiltert wird über `sess->>'userId'` — ein gezielter Feldvergleich statt
+  `sess::text LIKE '%<id>%'`, das auch Sitzungen trifft, in denen die Kennung nur *erwähnt*
+  wird (etwa während einer Staff-Stellvertretung) und damit Unbeteiligte abmeldet.
+
+  Verifiziert: 15 Tests; **live gegen die laufende Instanz** — Cookie-Laufzeit 336 h → 8,00 h,
+  `createdAt` wird beim Login gesetzt, eine künstlich auf 8 Tage gealterte Sitzung antwortet
+  `401 SESSION_EXPIRED` (dieselbe Sitzung war eine Sekunde vorher noch 200), und
+  `logout-all` beendete 11 Fremdsitzungen, während die eigene weiterlief.
+
+  **Offen:** dasselbe `LIKE`-Muster steckt noch in `dataGovernanceService.js` (DSGVO-Löschung)
+  — eigener Task, weil es dort um Löschpfade geht. Oberfläche für die Fernabmeldung
+  (Endpunkte stehen, Konto-Einstellungen noch nicht verdrahtet).
 
 ## Phase 6 — Internationalisierung (Deutsch/Englisch)
 
@@ -311,7 +355,7 @@
 
 ---
 
-## Stand P0–P3 (2026-07-25)
+## Stand P0–P4 (Stand 2026-08-01)
 
 | Welle | Status |
 |---|---|
@@ -319,9 +363,20 @@
 | P1 Lifecycle & Ersatz | ✅ 1.1–1.4 komplett, 1.5 Monatsplan-PDF — offen: Stundenzettel-Planung-PDF (leeres Monatsraster) |
 | P2 Stundenzettel-Workflow | ✅ 2.1–2.3 komplett + audit-gehärtet — offen: Legacy-`/timesheets` ausmustern, Käufer-Notification bei „gesendet" |
 | P3 Unternehmens-Seite | ✅ 3.1–3.3 **komplett** (inkl. Beschwerde-Rückkanal + Chef-Hinweis) — offen: 3.4 Politur, Push-Benachrichtigung beim Sperren |
+| P4 Matching / KI / Activity | ✅ **4.1–4.4 komplett** (26.–27.07.) — 4.3 per Flag AUS, Einschalten ist Owner-Gate (API-Key + Kostenrahmen) |
+| P5 Session-/Auth-Härtung | ✅ **5.1 komplett** (01.08., Owner-Entscheidung: Leerlauf 8 h, absolut 7 Tage) — offen: Oberfläche für die Fernabmeldung, `LIKE`-Muster in `dataGovernanceService` |
 
 Die verbleibenden Punkte sind bewusst klein geschnitten und einzeln lieferbar; keiner davon
-blockiert die Nutzbarkeit der jeweiligen Welle. Nächster substanzieller Block ist **P4**.
+blockiert die Nutzbarkeit der jeweiligen Welle. **Nächster substanzieller Block ist P6**
+(i18n DE/EN) oder **P7** (Visual/Media) — P7 startet laut Leitprinzip 3 mit einem
+**Preview-Mockup**, bevor irgendetwas an der Landing verändert wird.
+
+> **Warum dieser Abschnitt jetzt anders aussieht (2026-08-01):** die Tabelle stand auf dem
+> Stand vom 25.07. und nannte P4 als „nächsten Block" — obwohl P4 am 26./27.07. vollständig
+> gebaut wurde. Die Lücke hat eine Sitzung zu einer falschen Empfehlung geführt, bevor sie
+> auffiel. Eine Roadmap, die den eigenen Fortschritt nicht mitschreibt, ist schlimmer als
+> keine: sie wirkt verbindlich und ist es nicht. Nach jedem abgeschlossenen Block gehört der
+> Stand hier nachgezogen — dieselbe Regel wie in §0.12.
 
 ## Empfohlene Reihenfolge (Owner entscheidet)
 

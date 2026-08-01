@@ -1,6 +1,7 @@
 import { Router } from "express";
 import * as ssoService from "../services/ssoService.js";
 import { resolveAdminAccess, resolveSsoCardAvailability } from "../services/adminControlCenterService.js";
+import { stampSession } from "../services/sessionSecurityService.js";
 
 export function createSSORouter(deps) {
   const { pool, config, requireAuth, logger, getUserAndPlan, authLimiter } = deps;
@@ -95,6 +96,7 @@ export function createSSORouter(deps) {
       // SEC-001: Session regenerieren
       await new Promise((resolve, reject) => req.session.regenerate((err) => err ? reject(err) : resolve()));
       req.session.userId = result.userId;
+      stampSession(req.session); // P5.1: Hoechstalter zaehlt ab hier — nach regenerate
       req.session.ssoOrgId = result.orgId;
       res.locals.audit = {
         action: "sso.callback_success",
@@ -122,6 +124,7 @@ export function createSSORouter(deps) {
       if (result.error) return res.status(400).json({ error: result.error });
       await new Promise((resolve, reject) => req.session.regenerate((err) => err ? reject(err) : resolve()));
       req.session.userId = result.userId;
+      stampSession(req.session); // P5.1: Hoechstalter zaehlt ab hier — nach regenerate
       req.session.ssoOrgId = result.orgId;
       res.redirect("/public/enterprise.html");
     } catch (e) {

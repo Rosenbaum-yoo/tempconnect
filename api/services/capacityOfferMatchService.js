@@ -58,6 +58,10 @@ export async function resolveSkillTags(pool, tags = []) {
   // getipptes "%" eine Wildcard und liefert den GESAMTEN Katalog — die Suche taete dann
   // etwas anderes als das, was dasteht. Der unmaskierte Begriff bleibt fuer den exakten
   // Vergleich; beide Formen laufen deshalb als eigene Spalte mit.
+  // `\\` im Template-String ist Absicht und kein Vertipper: SQL braucht hier ESCAPE '\',
+  // also genau EIN Backslash. Ein einfaches `\'` wuerde JS zu `'` aufloesen — daraus wird
+  // ESCAPE '' und Postgres schaltet die Maskierung damit komplett ab. Die Zeile darueber
+  // waere dann wirkungslos und ein getipptes "%" wieder eine Wildcard.
   const fuerLike = klein.map((t) => t.replace(/([\\%_])/g, "\\$1"));
   const { rows } = await pool.query(
     `SELECT ps.id, ps.name, ps.category, t.suchbegriff
@@ -67,7 +71,7 @@ export async function resolveSkillTags(pool, tags = []) {
         AND (lower(ps.name) = t.suchbegriff
              OR EXISTS (SELECT 1 FROM unnest(COALESCE(ps.aliases, ARRAY[]::text[])) a
                          WHERE lower(a) = t.suchbegriff)
-             OR lower(ps.name) LIKE '%' || t.muster || '%' ESCAPE '\')
+             OR lower(ps.name) LIKE '%' || t.muster || '%' ESCAPE '\\')
       ORDER BY (lower(ps.name) = t.suchbegriff) DESC, ps.name`,
     [klein, fuerLike]
   );
