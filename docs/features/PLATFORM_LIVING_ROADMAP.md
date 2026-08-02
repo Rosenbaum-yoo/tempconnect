@@ -341,6 +341,13 @@
 
 - **7a Landing-Redesign.** KI-Bilder + Videos, **alternierendes Layout** (~½ Text/Beschreibung,
   ~½ KI-Bild, links/rechts abwechselnd). **Ablauf: erst Preview-Mockup, iterieren, dann bauen.**
+  - **Preview-Mockup v1 erstellt (2026-08-02):** `docs/mockups/landing_preview_v1.html` —
+    selbst-enthalten, Produktions-Token-Farbwelt, Hero + 4 alternierende Sektionen
+    (Notdienst / Multi-Skill-Fan-out / Workflow / Vertrauen) + Pilot-CTA. Jedes Bild-Panel
+    beschreibt das geplante KI-Motiv (inkl. Hero-Video „Der Anruf um 4:12 Uhr"), damit Layout
+    UND Motive gemeinsam freigegeben werden. Trust-Leiste bewusst qualitativ — keine erfundenen
+    Zahlen. **Status: Iteration mit Owner offen; erst nach Freigabe wird die echte
+    `frontend/landing.html` angefasst.**
 - **7b Upload-Bereiche (echt, KI-frei):** Profilfoto (Upload im **Einsatzportal**), Firmenfoto-Upload,
   Angebotsfoto-Upload. Alle drei strikt getrennt von KI-Bildern.
 - **7c KI-Bilder nur wo kein Upload + sinnvoll** (Landing, Kategorie-Bildwelt). Klare Trennung.

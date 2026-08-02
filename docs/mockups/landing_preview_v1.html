@@ -1,0 +1,253 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<meta name="robots" content="noindex, nofollow"/>
+<title>TempConnect Landing — Preview-Mockup v1 (nicht produktiv)</title>
+<style>
+  /* Selbst-enthaltenes Mockup — Token-Werte aus design-system.css gespiegelt,
+     damit die Preview exakt die Produktions-Farbwelt zeigt. */
+  :root {
+    --bg: #0a0f1e; --bg-raised: #0f1629; --bg-surface: #131b30;
+    --text: #eaeff8; --text-2: #8d9bba; --text-3: #5f6d8a;
+    --brand: #4a9eff; --brand-hover: #6bb3ff; --brand-muted: rgba(74,158,255,.12);
+    --danger: #f87171; --warning: #fbbf24; --ok: #34d399;
+    --radius: 14px; --maxw: 1120px;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { background: var(--bg); color: var(--text); font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; line-height: 1.6; }
+  a { color: var(--brand); text-decoration: none; }
+
+  /* Preview-Banner — macht unmissverständlich klar: Mockup, nicht live */
+  .preview-note { background: var(--warning); color: #1a1205; font-weight: 700; font-size: 13px; text-align: center; padding: 8px 16px; }
+
+  .wrap { max-width: var(--maxw); margin: 0 auto; padding: 0 24px; }
+
+  /* Nav */
+  nav { display: flex; align-items: center; justify-content: space-between; padding: 20px 0; }
+  .logo { font-size: 20px; font-weight: 800; letter-spacing: -.02em; }
+  .logo span { color: var(--brand); }
+  .nav-links { display: flex; gap: 28px; font-size: 14px; color: var(--text-2); }
+  .nav-cta { display: flex; gap: 12px; }
+
+  .btn { display: inline-block; padding: 12px 24px; border-radius: 10px; font-weight: 700; font-size: 15px; border: 1px solid transparent; cursor: pointer; }
+  .btn-primary { background: var(--brand); color: #071022; }
+  .btn-primary:hover { background: var(--brand-hover); }
+  .btn-ghost { border-color: rgba(255,255,255,.18); color: var(--text); }
+  .btn-sm { padding: 8px 16px; font-size: 13px; }
+
+  /* Hero */
+  .hero { display: grid; grid-template-columns: 1.05fr .95fr; gap: 48px; align-items: center; padding: 72px 0 88px; }
+  .eyebrow { display: inline-block; font-size: 12px; font-weight: 800; letter-spacing: .14em; text-transform: uppercase; color: var(--brand); background: var(--brand-muted); border-radius: 999px; padding: 6px 14px; margin-bottom: 20px; }
+  h1 { font-size: clamp(36px, 5vw, 56px); line-height: 1.08; letter-spacing: -.03em; font-weight: 850; }
+  h1 em { font-style: normal; color: var(--brand); }
+  .hero p.lead { margin: 22px 0 30px; font-size: 19px; color: var(--text-2); max-width: 34em; }
+  .hero-proof { margin-top: 28px; display: flex; gap: 22px; flex-wrap: wrap; font-size: 13px; color: var(--text-3); }
+  .hero-proof b { color: var(--text-2); font-weight: 600; }
+
+  /* KI-Bild-Platzhalter — beschreibt das spätere Motiv, damit die Motive
+     gemeinsam mit dem Layout freigegeben werden können. */
+  .img-slot { position: relative; border-radius: var(--radius); min-height: 340px; display: flex; align-items: flex-end; overflow: hidden;
+    background: linear-gradient(145deg, rgba(74,158,255,.16), rgba(74,158,255,.03) 45%, rgba(52,211,153,.07)); border: 1px dashed rgba(74,158,255,.45); }
+  .img-slot.warm { background: linear-gradient(145deg, rgba(251,191,36,.14), rgba(248,113,113,.05) 55%, rgba(74,158,255,.06)); border-color: rgba(251,191,36,.4); }
+  .img-slot .tag { position: absolute; top: 14px; left: 14px; font-size: 11px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; color: var(--warning); background: rgba(0,0,0,.45); padding: 5px 10px; border-radius: 6px; }
+  .img-slot .motiv { padding: 18px; font-size: 13px; color: var(--text-2); background: linear-gradient(transparent, rgba(7,14,28,.88) 30%); width: 100%; }
+  .img-slot .motiv b { color: var(--text); display: block; margin-bottom: 2px; }
+  .img-slot.video::after { content: "▶"; position: absolute; top: 50%; left: 50%; transform: translate(-50%, -60%); width: 74px; height: 74px; border-radius: 50%; background: rgba(74,158,255,.9); color: #071022; font-size: 26px; display: flex; align-items: center; justify-content: center; }
+
+  /* Alternierende Sektionen: ~1/2 Text, ~1/2 Bild, links/rechts wechselnd */
+  section.alt { padding: 64px 0; }
+  .alt .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 56px; align-items: center; }
+  .alt.flip .grid > .txt { order: 2; }
+  .alt.flip .grid > .img-slot { order: 1; }
+  .kicker { font-size: 12px; font-weight: 800; letter-spacing: .14em; text-transform: uppercase; margin-bottom: 14px; }
+  h2 { font-size: clamp(26px, 3.4vw, 38px); line-height: 1.15; letter-spacing: -.02em; font-weight: 800; margin-bottom: 16px; }
+  .alt p { color: var(--text-2); font-size: 16.5px; max-width: 32em; }
+  .alt ul { margin: 20px 0 26px; list-style: none; }
+  .alt li { padding: 9px 0 9px 30px; position: relative; color: var(--text-2); font-size: 15.5px; }
+  .alt li::before { content: "✓"; position: absolute; left: 0; top: 9px; color: var(--ok); font-weight: 800; }
+  .alt li b { color: var(--text); font-weight: 650; }
+
+  /* Trust-Leiste — bewusst qualitativ, KEINE erfundenen Zahlen */
+  .trust { border-top: 1px solid rgba(255,255,255,.07); border-bottom: 1px solid rgba(255,255,255,.07); background: var(--bg-raised); }
+  .trust .row { display: flex; justify-content: center; gap: 48px; flex-wrap: wrap; padding: 22px 0; font-size: 13.5px; color: var(--text-2); }
+  .trust b { color: var(--text); font-weight: 700; }
+
+  /* Abschluss-CTA */
+  .final { text-align: center; padding: 88px 0 96px; }
+  .final h2 { font-size: clamp(30px, 4vw, 44px); }
+  .final p { color: var(--text-2); margin: 16px auto 32px; max-width: 36em; }
+
+  footer { border-top: 1px solid rgba(255,255,255,.07); padding: 28px 0; font-size: 13px; color: var(--text-3); display: flex; justify-content: space-between; flex-wrap: wrap; gap: 12px; }
+
+  @media (max-width: 860px) {
+    .hero, .alt .grid { grid-template-columns: 1fr; gap: 32px; }
+    .alt.flip .grid > .txt { order: 1; }
+    .alt.flip .grid > .img-slot { order: 2; }
+    .nav-links { display: none; }
+    .img-slot { min-height: 240px; }
+  }
+</style>
+</head>
+<body>
+
+<div class="preview-note">PREVIEW-MOCKUP v1 — P7a Landing-Redesign · nicht produktiv · Bild-Panels beschreiben das geplante KI-Motiv</div>
+
+<div class="wrap">
+  <nav>
+    <div class="logo">Temp<span>Connect</span></div>
+    <div class="nav-links">
+      <a href="#unternehmen">Für Unternehmen</a>
+      <a href="#dienstleister">Für Personaldienstleister</a>
+      <a href="#produkt">Produkt</a>
+      <a href="#preise">Tarife</a>
+    </div>
+    <div class="nav-cta">
+      <a class="btn btn-ghost btn-sm" href="#">Anmelden</a>
+      <a class="btn btn-primary btn-sm" href="#">Demo anfragen</a>
+    </div>
+  </nav>
+
+  <!-- ═══ HERO ═══ -->
+  <section class="hero">
+    <div>
+      <span class="eyebrow">Zeitarbeit, neu verdrahtet</span>
+      <h1>Personal, wenn es <em>zählt</em>.<br/>Nicht in Wochen. In Stunden.</h1>
+      <p class="lead">TempConnect verbindet Einsatzunternehmen und Personaldienstleister auf einer Plattform — vom Notdienst-Bedarf über den anonymen Deal bis zum freigegebenen Stundenzettel. Ein System. Kein Reibungsverlust.</p>
+      <div class="hero-cta" style="display:flex;gap:14px;flex-wrap:wrap">
+        <a class="btn btn-primary" href="#">Demo ansehen</a>
+        <a class="btn btn-ghost" href="#">Für den Pilot bewerben</a>
+      </div>
+      <div class="hero-proof">
+        <span><b>DSGVO-konform</b> · Hosting in Deutschland</span>
+        <span><b>Anonym bis zum Deal</b> · AGG-sicher</span>
+        <span><b>Lückenloser Audit-Trail</b></span>
+      </div>
+    </div>
+    <div class="img-slot video">
+      <span class="tag">KI-Video / Hero</span>
+      <div class="motiv"><b>Motiv: „Der Anruf um 4:12 Uhr"</b>
+      20-Sek-Loop: Nachtschicht-Halle, ein Ausfall, der Disponent öffnet TempConnect, um 6:00 steht das Ersatz-Team am Tor. Kein Text, nur Tempo.</div>
+    </div>
+  </section>
+</div>
+
+<!-- ═══ TRUST-LEISTE (qualitativ, keine erfundenen Zahlen) ═══ -->
+<div class="trust"><div class="wrap"><div class="row">
+  <span><b>Notdienst-Feed</b> priorisiert in Echtzeit</span>
+  <span><b>Live-Belegschaft</b> für Disposition & Kunde</span>
+  <span><b>Stundenzettel → Rechnung</b> ohne Medienbruch</span>
+  <span><b>Skill-Katalog</b> mit 162 Fähigkeiten in 14 Branchen</span>
+</div></div></div>
+
+<div class="wrap">
+
+  <!-- ═══ SEKTION A: Unternehmen / Notdienst (Bild rechts) ═══ -->
+  <section class="alt" id="unternehmen">
+    <div class="grid">
+      <div class="txt">
+        <div class="kicker" style="color: var(--danger)">Für Einsatzunternehmen</div>
+        <h2>Ausfall um 4 Uhr.<br/>Ersatz um 6 Uhr.</h2>
+        <p>Wenn eine Schicht kippt, zählt keine Bewerbermappe. Der Notdienst-Feed zeigt sofort, wer verfügbar ist — mit echter Verfügbarkeit, echtem Zeitraum, echter Deckung.</p>
+        <ul>
+          <li><b>Notdienst-Angebote</b> stehen priorisiert ganz oben — sichtbar markiert, sofort buchbar</li>
+          <li><b>„Nur noch 2 frei"</b> ist bei uns ein Fakt aus der Disposition, kein Marketing-Trick</li>
+          <li><b>Deckungsvorschau:</b> Sie sehen vor der Anfrage, ob der Anbieter liefern kann</li>
+        </ul>
+        <a class="btn btn-primary" href="#">Notdienst-Feed ansehen</a>
+      </div>
+      <div class="img-slot warm">
+        <span class="tag">KI-Bild</span>
+        <div class="motiv"><b>Motiv: Ankunft der Frühschicht</b>
+        Logistikhalle im Morgengrauen, ein Team in Warnwesten kommt durchs Tor, warmes Licht — Erleichterung statt Hektik.</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══ SEKTION B: Personaldienstleister / Multi-Skill (Bild links) ═══ -->
+  <section class="alt flip" id="dienstleister">
+    <div class="grid">
+      <div class="txt">
+        <div class="kicker" style="color: var(--brand)">Für Personaldienstleister</div>
+        <h2>Wenige Mitarbeiter.<br/>Marktpräsenz wie tausend.</h2>
+        <p>Eine Fachkraft kann zehn Dinge — warum steht sie nur einmal im Markt? TempConnect macht aus einem Mitarbeiter mit N Fähigkeiten N+1 echte Angebote: je Skill eines, plus das Komplettprofil. Automatisch vorgeschlagen, mit einem Klick erstellt.</p>
+        <ul>
+          <li><b>Multi-Skill-Fan-out:</b> 10 Fähigkeiten → 11 Angebote, ohne eine Zeile Fake</li>
+          <li><b>Sammelangebote:</b> ganze Teams mit gemeinsamen Skills in einem Angebot</li>
+          <li><b>Anonym bis zum Deal:</b> Ihre Leute bleiben Ihre Leute — bis der Vertrag steht</li>
+          <li><b>Hard-Reserve:</b> vermittelt heißt gesperrt — keine Doppelbuchung, automatische Freigabe nach Einsatzende</li>
+        </ul>
+        <a class="btn btn-primary" href="#">Angebotsgenerator ansehen</a>
+      </div>
+      <div class="img-slot">
+        <span class="tag">KI-Bild</span>
+        <div class="motiv"><b>Motiv: Eine Person, viele Rollen</b>
+        Triptychon derselben (KI-generierten) Person: Lagerhalle, Pflegestation, Werkbank — ein Gesicht, drei Einsätze, klare Lichtführung.</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══ SEKTION C: Voll verdrahtet (Bild rechts) ═══ -->
+  <section class="alt" id="produkt">
+    <div class="grid">
+      <div class="txt">
+        <div class="kicker" style="color: var(--ok)">Der operative Kern</div>
+        <h2>Vom Deal bis zur Rechnung.<br/>Ohne Medienbruch.</h2>
+        <p>Die meisten Plattformen enden beim Matching. TempConnect fängt dort erst an: Einsatz, Live-Belegschaft, Stundenzettel-Freigabe und Monatsrechnung laufen im selben System — jede Statusänderung überall sichtbar, jede Aktion im Audit-Trail.</p>
+        <ul>
+          <li><b>Live-Belegschaft:</b> wer ist wo im Einsatz — für Dienstleister und Kunde</li>
+          <li><b>Stundenzettel-Workflow:</b> erfassen, prüfen, freigeben — beidseitig</li>
+          <li><b>Verantwortung statt Blackbox:</b> jede Änderung mit Wer, Was, Warum</li>
+        </ul>
+        <a class="btn btn-primary" href="#">Den Workflow ansehen</a>
+      </div>
+      <div class="img-slot">
+        <span class="tag">KI-Bild</span>
+        <div class="motiv"><b>Motiv: Disposition über die Schulter</b>
+        Blick über die Schulter einer Disponentin auf das Live-Board (stilisiert, kein echter Screenshot) — ruhige Kontrolle statt Zettelchaos.</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══ SEKTION D: Vertrauen & Compliance (Bild links) ═══ -->
+  <section class="alt flip">
+    <div class="grid">
+      <div class="txt">
+        <div class="kicker" style="color: var(--warning)">Vertrauen, eingebaut</div>
+        <h2>Anonym bis zum Deal.<br/>Transparent ab dem Deal.</h2>
+        <p>Profile bleiben anonym, bis der Vertrag zustande kommt — das schützt Kandidaten (AGG), Bestände (Abwerbung) und macht Entscheidungen sachlich: Skills, Verfügbarkeit, Konditionen. Danach: volle Transparenz mit Audit-Trail und nachvollziehbarer Historie.</p>
+        <ul>
+          <li><b>AGG- & DSGVO-konform</b> by Design, Hosting in Deutschland</li>
+          <li><b>Verifizierte Anbieter</b> mit Trust-Signalen aus echten Deals</li>
+          <li><b>Kein Fake-Content:</b> jede Zahl auf der Plattform hat eine Quelle</li>
+        </ul>
+        <a class="btn btn-ghost" href="#">Sicherheitskonzept lesen</a>
+      </div>
+      <div class="img-slot warm">
+        <span class="tag">KI-Bild</span>
+        <div class="motiv"><b>Motiv: Der Handschlag</b>
+        Zwei Menschen, Werkshalle im Hintergrund, Handschlag im warmen Gegenlicht — der Moment, in dem aus „anonym" ein Team wird.</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══ FINALER CTA ═══ -->
+  <section class="final" id="preise">
+    <div class="eyebrow">Marktstart Juni 2026 · Kuratierter Pilot</div>
+    <h2>25 Unternehmen. 25 Dienstleister.<br/>Ein unfairer Vorsprung.</h2>
+    <p>Der Pilot ist bewusst klein: Wer jetzt einsteigt, prägt die Plattform, bekommt direkten Draht zum Produktteam — und Konditionen, die es später nicht mehr gibt.</p>
+    <div style="display:flex; gap:14px; justify-content:center; flex-wrap:wrap">
+      <a class="btn btn-primary" href="#">Pilot-Platz sichern</a>
+      <a class="btn btn-ghost" href="#">Tarife ansehen</a>
+    </div>
+  </section>
+
+  <footer>
+    <span>© 2026 TempConnect UG (i. G.) · Wilster, Schleswig-Holstein</span>
+    <span><a href="#">Impressum</a> · <a href="#">Datenschutz</a> · <a href="#">AGB</a></span>
+  </footer>
+</div>
+
+</body>
+</html>
