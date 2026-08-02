@@ -222,7 +222,20 @@ fordern — gematcht gegen den Skill-Katalog.
   (`POST /marketplace/premium/feature` → `premiumListingService` → `premium_listing_charges` → nächste
   Monatsrechnung, manual-first). Preis auf **9,99 €/Angebot** gesetzt (`PREMIUM_LISTING.price_cents`,
   war 49,00 €; fan-out-freundlicher Micro-Preis, trivial anpassbar, z. B. 14,99 €).
-  Offen: optionales Notdienst-/Top-Preis-Tier + Angebots-Styling (Dringlichkeit/Knappheit/Trust).
+  **Angebots-Styling (5c) erledigt (2026-08-02):** Feed-Karten transportieren jetzt Dringlichkeit,
+  Knappheit und den Multi-Skill-Fan-out sichtbar — auf dem bestehenden Token-System, ohne Fake:
+  - *Dringlichkeit:* Notdienst-Angebote tragen `ce-card--notdienst` (Danger-Token-Rand + Tint,
+    gleiche Mechanik wie `ce-card--demand`; Editorial überschreibt `--ds-danger` selbst → kein Hardcode).
+  - *Knappheit — ehrlich:* „Nur noch N frei/offen"-Badge NUR wenn real Plätze gebunden sind UND
+    ≤ ⅓ Rest bleibt (`scarcitySignal`); nie bei unberührten oder voll reservierten Angeboten —
+    erfundene Verknappung wäre Fake-Data. Gilt für Angebots- UND Nachfrage-Karten.
+  - *Multi-Skill sichtbar:* Skill-Chips auf Bündel-/Sammelkarten (ab 2 Skills, Cap 4 + „+N weitere",
+    escaped) — der Fan-out aus Welle 3 ist damit im Feed erkennbar statt nur ein Typ-Badge.
+  - Nebenbei: Badge-Tippfehler „Erhoet"→„Erhoeht" behoben.
+  Dateien: `js/pages/marketplaceFeed.js` (+ Test-Hook `__mpFeedTestHooks`),
+  `css/pages/marketplace-feed.css`; 11 vm-Sandbox-Tests (`api/test/marketplaceFeedCard.test.js`),
+  Computed-Style-Verifikation in Dark + Editorial gegen die echte Seite.
+  Offen (Owner-Entscheidung, Preisgestaltung): optionales Notdienst-/Top-Preis-Tier.
 
 ### Phase C — Nachfrage & Matching
 - **Welle 6 — Deckungsvorschau im Angebotsformular** ✅ *erledigt (2026-07-31)*

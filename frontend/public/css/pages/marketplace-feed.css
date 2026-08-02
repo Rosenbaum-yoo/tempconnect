@@ -257,3 +257,27 @@
   background: #f4efe4;
   border-color: #e6dfcd;
 }
+
+/* ── Notdienst-Karten-Akzent (Welle 5) ────────────────────
+   Die "Notfall-Personal in Stunden"-USP braucht Karten-Praesenz, nicht nur ein
+   Mini-Badge. Gleiche Mechanik wie .ce-card--demand; steht NACH allen Demand-/
+   Theme-Regeln, damit Notdienst per Quell-Reihenfolge gewinnt. Farben kommen
+   aus den Tokens — Editorial ueberschreibt --ds-danger selbst (#8f2d2d). */
+.ce-card.ce-card--notdienst {
+  border-left: 3px solid var(--ds-danger);
+  background: var(--ds-danger-muted);
+}
+[data-theme="editorial"] .ce-card.ce-card--notdienst {
+  background: #ebe4d3; /* geerdete Creme-Flaeche wie alle Editorial-Karten */
+  border-color: #d4cab3;
+  border-left-color: var(--ds-danger);
+}
+
+/* Skill-Chips (Welle 5): Multi-Skill-Fan-out auf Buendel-/Sammelkarten sichtbar.
+   Chips nutzen ds-badge--neutral; hier nur die Reihen-Geometrie. */
+.ce-card__skills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--ds-space-1, 4px);
+  margin-top: var(--ds-space-2, 8px);
+}

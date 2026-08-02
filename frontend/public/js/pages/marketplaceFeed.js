@@ -72,6 +72,34 @@
     return total + " Personen";
   }
 
+  // Ehrliche Knappheit (Welle 5): nur wenn real Plaetze gebunden sind UND wenig
+  // Rest bleibt (<= 1/3, mind. 1). Nie bei unberuehrten oder voll reservierten
+  // Angeboten — erfundene Verknappung waere Fake-Data.
+  function scarcitySignal(entry, isDemand) {
+    if (!entry) return null;
+    if (!isDemand && entry.status === "reserved") return null;
+    var total = isDemand ? demandTotalHeadcount(entry) : totalHeadcount(entry);
+    var remaining = isDemand ? demandRemainingHeadcount(entry) : remainingHeadcount(entry);
+    var committed = isDemand ? demandCommittedHeadcount(entry) : committedHeadcount(entry);
+    if (committed <= 0 && remaining === total) return null;
+    if (remaining <= 0) return null;
+    if (remaining > Math.max(1, Math.floor(total / 3))) return null;
+    return { remaining: remaining, label: "Nur noch " + remaining + (isDemand ? " offen" : " frei") };
+  }
+
+  // Skill-Chips (Welle 5): macht den Multi-Skill-Fan-out auf Buendel-/Sammelkarten
+  // sichtbar. Erst ab 2 Skills — ein einzelner steckt schon in Rolle + Typ-Badge.
+  function skillChipsHtml(entry) {
+    var tags = Array.isArray(entry && entry.skill_tags) ? entry.skill_tags.filter(Boolean) : [];
+    if (tags.length < 2) return "";
+    var shown = tags.slice(0, 4);
+    var html = '<div class="ce-card__skills">';
+    shown.forEach(function(t) { html += '<span class="ds-badge ds-badge--neutral ce-skill-chip">' + esc(t) + '</span>'; });
+    if (tags.length > shown.length) html += '<span class="ds-badge ds-badge--neutral ce-skill-chip ce-skill-chip--more">+' + (tags.length - shown.length) + ' weitere</span>';
+    html += '</div>';
+    return html;
+  }
+
   var SHIFT_LABELS = { day:"Tagschicht", night:"Nachtschicht", rotating:"Wechselschicht", flexible:"Flexibel", weekend:"Wochenende", on_call:"Bereitschaft" };
   var EMPLOYMENT_LABELS = { temporary:"ANUe", contract:"Werkvertrag", temp_to_perm:"Temp-to-Perm", project:"Projekt", on_call:"Abruf" };
   var COMPLIANCE_LABELS = { unknown:"Unbekannt", pending:"In Pruefung", partial:"Teilweise", complete:"Vollstaendig" };
@@ -169,10 +197,13 @@
     // Typ-Akzent (Arbeitsplatzangebot) als Klasse statt Inline-Style, damit das
     // Editorial-Theme die Karte erden + de-orangen kann (siehe .ce-card--demand).
     var demandCls = isDemandCard ? ' ce-card--demand' : '';
+    // Notdienst braucht Karten-Praesenz (USP "Notfall-Personal in Stunden"),
+    // nicht nur ein Mini-Badge — gleiche Klassen-Mechanik wie ce-card--demand.
+    var notdienstCls = e.priority_level === "notdienst" ? ' ce-card--notdienst' : '';
     var premCls = premiumCardClass(e);
     var demandRemaining = demandRemainingHeadcount(e);
     var demandCommitted = demandCommittedHeadcount(e);
-    var html = '<div class="ce-card' + premCls + demandCls + '" data-id="' + esc(e.id) + '" data-feed-type="' + (e.feed_type || 'supply') + '">';
+    var html = '<div class="ce-card' + premCls + demandCls + notdienstCls + '" data-id="' + esc(e.id) + '" data-feed-type="' + (e.feed_type || 'supply') + '">';
     html += '<div class="ce-card__layout">';
     html += '<div class="ce-card__preview" data-logo-id="' + esc(e.id) + '">' + previewPlaceholderHtml(e) + '</div>';
     html += '<div class="ce-card__content">';
@@ -197,7 +228,7 @@
     html += freshnessHtml(e.last_confirmed_at);
     if (e.priority_level === "notdienst") html += '<span class="ds-badge ds-badge--danger">Notdienst</span>';
     else if (e.priority_level === "urgent") html += '<span class="ds-badge ds-badge--danger">Dringend</span>';
-    else if (e.priority_level === "elevated") html += '<span class="ds-badge ds-badge--warning">Erhoet</span>';
+    else if (e.priority_level === "elevated") html += '<span class="ds-badge ds-badge--warning">Erhoeht</span>';
     if (!isDemandCard) {
       if (e.offer_kind === "pool_single_skill") html += '<span class="ds-badge ds-badge--neutral">Sammelangebot</span>';
       else if (e.offer_kind === "pool_multi_skill") html += '<span class="ds-badge ds-badge--neutral">Sammelangebot · Multi-Skill</span>';
@@ -209,6 +240,8 @@
     else if (!isDemandCard && committedPeople > 0) html += '<span class="ds-badge ds-badge--neutral">' + committedPeople + ' dealgebunden</span>';
     if (isDemandCard && e.status === "partially_covered") html += '<span class="ds-badge ds-badge--neutral">Teilgedeckt</span>';
     if (isDemandCard && demandCommitted > 0) html += '<span class="ds-badge ds-badge--neutral">' + demandCommitted + ' gebunden</span>';
+    var scarcity = scarcitySignal(e, isDemandCard);
+    if (scarcity) html += '<span class="ds-badge ds-badge--warning ce-scarcity-badge">' + esc(scarcity.label) + '</span>';
     if (e.employment_type) html += '<span class="ds-badge ds-badge--neutral">' + esc(EMPLOYMENT_LABELS[e.employment_type] || e.employment_type) + '</span>';
     html += '<button class="ce-card__save" data-save-id="' + esc(e.id) + '" title="Merken" onclick="event.stopPropagation();window._saveCap(this)">&#9734; Merken</button>';
     html += '</div></div>';
@@ -228,6 +261,7 @@
     if (compLabel) html += '<span class="ce-card__meta-item"><span class="ds-traffic-light ds-traffic-light' + compColor + '"></span>' + esc(compLabel) + '</span>';
     if (priceHtml) html += '<span class="ce-card__meta-item">&#128176; ' + priceHtml + '</span>';
     html += '</div>';
+    html += skillChipsHtml(e);
 
     var premBadge = premiumBadgeHtml(e);
     var repBadge = reputationBadgeHtml(e);
@@ -568,6 +602,11 @@
   })();
 
   loadFeed(1);
+
+  // Test-Hook: reine Render-Helfer fuer vm-Sandbox-Tests (kein Betriebspfad).
+  if (typeof window !== "undefined") {
+    window.__mpFeedTestHooks = { renderCard: renderCard, scarcitySignal: scarcitySignal, skillChipsHtml: skillChipsHtml };
+  }
 })();
 
   /* ── Role-based CTAs ───────────────────────────────── */
