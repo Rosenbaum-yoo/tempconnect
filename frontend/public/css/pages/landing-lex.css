@@ -407,3 +407,21 @@
 [data-theme="editorial"] .tc-toast.success { border-color: rgba(31, 58, 46, 0.4); color: var(--lex-forest-deep); }
 [data-theme="editorial"] .tc-toast.error { border-color: rgba(122, 46, 46, 0.4); color: var(--lex-wine); }
 [data-theme="editorial"] .tc-toast.info { border-color: var(--lex-gold); color: var(--lex-forest); }
+
+/* ── Story-Sektionen (P7a) ─────────────────────────────────────────
+   Serif-Headings kommen bereits über .section-heading; hier nur die
+   geerdete Creme-Flaeche fuer die Visual-Panels + Lesbarkeitsfarben.
+   Die SVG-Illustrationen nutzen --ds-* Tokens und faerben sich ueber
+   die Editorial-Token-Overrides in design-system.css von selbst um. */
+[data-theme="editorial"] .story__visual {
+  background: var(--lex-cream-warm);
+  border-color: var(--lex-line);
+  box-shadow: 0 1px 2px rgba(40, 33, 20, 0.05), 0 4px 14px rgba(40, 33, 20, 0.06);
+}
+[data-theme="editorial"] .story__lead,
+[data-theme="editorial"] .story__list li { color: var(--lex-muted); }
+[data-theme="editorial"] .story__list li b { color: var(--lex-ink); }
+[data-theme="editorial"] .story__list li::before { color: var(--lex-forest); }
+[data-theme="editorial"] .story__caption { color: var(--lex-muted); }
+/* Kicker-Farben kommen inline als var(--ds-*) — die Editorial-Token-Overrides
+   in design-system.css (accent/danger/success/warning) faerben sie von selbst um. */

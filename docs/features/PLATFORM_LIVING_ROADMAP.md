@@ -345,9 +345,21 @@
     selbst-enthalten, Produktions-Token-Farbwelt, Hero + 4 alternierende Sektionen
     (Notdienst / Multi-Skill-Fan-out / Workflow / Vertrauen) + Pilot-CTA. Jedes Bild-Panel
     beschreibt das geplante KI-Motiv (inkl. Hero-Video „Der Anruf um 4:12 Uhr"), damit Layout
-    UND Motive gemeinsam freigegeben werden. Trust-Leiste bewusst qualitativ — keine erfundenen
-    Zahlen. **Status: Iteration mit Owner offen; erst nach Freigabe wird die echte
-    `frontend/landing.html` angefasst.**
+    UND Motive gemeinsam freigegeben werden.
+  - **✅ Landing-Umbau gebaut (2026-08-02, Owner-Freigabe „sehr fein" + 2 Auflagen):**
+    (1) *Editorial-Theme mitgedacht* — alle neuen Klassen token-basiert, Editorial-Feintuning
+    in `landing-lex.css` (Creme-Visual-Panels, Serif-Headings greifen automatisch); die
+    SVG-Illustrationen nutzen `--ds-*`-Tokens und färben sich pro Theme selbst um.
+    (2) *Beide Zielgruppen gleichzeitig* — Hero spricht beide ICPs an (2 Start-CTAs),
+    Story-Reihenfolge: Personaldienstleister (Multi-Skill) zuerst, dann Unternehmen
+    (Notdienst), Workflow, Vertrauen; „Für wen" von „sekundärer ICP" auf Gleichstand
+    umgeschrieben. **Nichts verloren:** Topbar/Auth-Modal/5-Schritte/Pilot-Standard/
+    Produktkern/5 Tarife/Vergleichstabelle (65 Zeilen)/Buyer-Fit/Final-CTA/Disclaimer/
+    Footer + alle `landing.js`-Funktionen unangetastet (per DOM-Check belegt).
+    Verifiziert: alle 3 Themes im Browser (Computed Styles), Konsole fehlerfrei,
+    uiNoEmoji + frontendCanonicalPages grün. **Offen (7c):** SVG-Illustrationen durch
+    freigegebene KI-Bilder ersetzen (`data-motif` an jedem `figure` nennt das Ziel-Motiv),
+    Hero-Video.
 - **7b Upload-Bereiche (echt, KI-frei):** Profilfoto (Upload im **Einsatzportal**), Firmenfoto-Upload,
   Angebotsfoto-Upload. Alle drei strikt getrennt von KI-Bildern.
 - **7c KI-Bilder nur wo kein Upload + sinnvoll** (Landing, Kategorie-Bildwelt). Klare Trennung.

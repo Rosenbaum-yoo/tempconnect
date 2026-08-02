@@ -82,6 +82,53 @@ body {
   }
 }
 
+/* ── Story-Sektionen (P7a): alternierend ½ Text / ½ Visual ──
+   Token-basiert, damit Dark/Light/Editorial identisch funktionieren;
+   Editorial-Feintuning liegt in landing-lex.css. */
+.story { padding: var(--ds-space-10) 0; }
+.story__grid {
+  display: grid; grid-template-columns: 1fr 1fr;
+  gap: var(--ds-space-10); align-items: center;
+}
+.story--flip .story__grid > .story__txt { order: 2; }
+.story--flip .story__grid > .story__visual { order: 1; }
+.story__kicker {
+  font-size: 11px; font-weight: 800; text-transform: uppercase;
+  letter-spacing: 0.12em; margin-bottom: var(--ds-space-3);
+}
+.story__txt .section-heading { font-size: clamp(26px, 3.4vw, 36px); line-height: 1.14; }
+.story__lead {
+  color: var(--ds-text-secondary); font-size: 16px;
+  line-height: 1.65; max-width: 32em; margin: 0 0 var(--ds-space-2);
+}
+.story__list { list-style: none; margin: var(--ds-space-4) 0 var(--ds-space-5); padding: 0; }
+.story__list li {
+  position: relative; padding: 8px 0 8px 28px;
+  color: var(--ds-text-secondary); font-size: 15px; line-height: 1.55;
+}
+.story__list li::before {
+  content: "\2713"; position: absolute; left: 0; top: 8px;
+  color: var(--ds-success); font-weight: 800;
+}
+.story__list li b { color: var(--ds-text); font-weight: 650; }
+.story__visual {
+  margin: 0; border-radius: var(--ds-radius-xl);
+  border: 1px solid var(--ds-border);
+  background: linear-gradient(150deg, var(--ds-brand-muted), transparent 55%), var(--ds-bg-raised);
+  padding: var(--ds-space-5) var(--ds-space-5) var(--ds-space-3);
+}
+.story__visual svg { width: 100%; height: auto; display: block; }
+.story__caption {
+  text-align: center; font-size: 12.5px; color: var(--ds-text-tertiary);
+  padding: var(--ds-space-2) 0 var(--ds-space-1);
+}
+@media (max-width: 860px) {
+  .story { padding: var(--ds-space-8) 0; }
+  .story__grid { grid-template-columns: 1fr; gap: var(--ds-space-5); }
+  .story--flip .story__grid > .story__txt { order: 1; }
+  .story--flip .story__grid > .story__visual { order: 2; }
+}
+
 /* ── Section titles ───────────────────────────────────── */
 .section-label {
   font-size: 11px; font-weight: 700; text-transform: uppercase;

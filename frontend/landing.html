@@ -4,8 +4,8 @@
   <meta charset="utf-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <script src="/public/js/theme.js"></script>
-  <title>TempConnect – Zeitarbeits-Bedarfe für Einsatzunternehmen steuern</title>
-  <meta name="description" content="TempConnect ist das buyer-first VMS-light für Einsatzunternehmen mit wiederkehrenden Zeitarbeits-Bedarfen, Lieferantensteuerung, Deals, Einsätzen und digitalen Stundenzetteln."/>
+  <title>TempConnect – Personal in Stunden: Zeitarbeit für Unternehmen &amp; Personaldienstleister</title>
+  <meta name="description" content="TempConnect verbindet Einsatzunternehmen und Personaldienstleister: Notdienst-Personal in Stunden, Multi-Skill-Angebote, anonyme Deals, Einsätze und digitale Stundenzettel in einer Plattform."/>
   <link rel="stylesheet" href="/public/css/design-system.css"/>
   <link rel="stylesheet" href="/public/css/pages/landing.css"/>
   <!-- Editorial skin — additive, scoped to [data-theme="editorial"]. Classic/Light bleiben unangetastet.
@@ -41,10 +41,10 @@
       </div>
     </nav>
 
-    <!-- ── Hero ──────────────────────────────────────────── -->
+    <!-- ── Hero (P7a: beide Zielgruppen gleichzeitig) ────── -->
     <section class="hero">
-      <h1>Wiederkehrende Zeitarbeits-Bedarfe<br/><em>zentral steuern und freigeben</em></h1>
-      <p>TempConnect ist das buyer-first VMS-light für Einsatzunternehmen mit wiederkehrenden temporären Bedarfen: Lieferantenpool, Preisrahmen, Dealabschluss, Einsaetze und digitale Stundenzettel in einer Plattform.</p>
+      <h1>Personal, wenn es zählt.<br/><em>Nicht in Wochen. In Stunden.</em></h1>
+      <p>TempConnect verbindet Einsatzunternehmen und Personaldienstleister auf einer Plattform — vom priorisierten Notdienst-Bedarf über den anonymen Deal bis zum freigegebenen Stundenzettel. Ein System, beide Seiten, kein Medienbruch.</p>
       <div class="usp-emergency">
         <span class="usp-emergency__icon" aria-hidden="true">
           <svg viewBox="0 0 24 24" fill="currentColor"><path d="M13 2 4 14h6l-1 8 9-12h-6l1-8z"/></svg>
@@ -57,8 +57,9 @@
       </div>
       <div class="hero-cta">
         <button onclick="selectLandingPlan('PLUS','company')" class="ds-btn ds-btn--primary ds-btn--lg">Als Einsatzunternehmen starten</button>
-        <a href="/demo.html"                   class="ds-btn ds-btn--lg" style="border-color:rgba(57,217,138,.35);color:var(--ds-success)">Demo fuer Einsatzunternehmen</a>
-        <a href="/public/pricing.html"         class="ds-btn ds-btn--lg">Tarife fuer Einsatzunternehmen</a>
+        <button onclick="selectLandingPlan('BASIS','agency')" class="ds-btn ds-btn--lg" style="border-color:rgba(124,92,255,.35);color:var(--ds-accent)">Als Personaldienstleister starten</button>
+        <a href="/demo.html"                   class="ds-btn ds-btn--lg" style="border-color:rgba(57,217,138,.35);color:var(--ds-success)">Demo ansehen</a>
+        <a href="/public/pricing.html"         class="ds-btn ds-btn--lg">Tarife</a>
       </div>
     </section>
 
@@ -69,6 +70,168 @@
       <div class="ds-trust-item"><span class="ds-trust-item__icon">✅</span> E-Mail-verifizierte Nutzer</div>
       <div class="ds-trust-item"><span class="ds-trust-item__icon">👥</span> Kontakt erst nach Deal</div>
     </div>
+
+    <hr class="ds-divider"/>
+
+    <!-- ── Story-Sektionen (P7a): alternierend ½ Text / ½ Visual ──
+         Visuals sind token-basierte SVG-Illustrationen (theme-fähig, DSGVO-frei);
+         sie werden in Phase 7c durch freigegebene KI-Bilder ersetzt (data-motif
+         beschreibt das Ziel-Motiv). -->
+
+    <!-- A · Personaldienstleister: Multi-Skill-Fan-out (Visual rechts) -->
+    <section class="story" id="story-dienstleister">
+      <div class="story__grid">
+        <div class="story__txt">
+          <div class="story__kicker" style="color:var(--ds-accent)">Für Personaldienstleister</div>
+          <h2 class="section-heading">Wenige Mitarbeiter.<br/>Marktpräsenz wie tausend.</h2>
+          <p class="story__lead">Eine Fachkraft kann zehn Dinge — warum steht sie nur einmal im Markt? TempConnect macht aus einem Mitarbeiter mit N Fähigkeiten N+1 echte Angebote: je Skill eines, plus das Komplettprofil. Automatisch vorgeschlagen, mit einem Klick erstellt.</p>
+          <ul class="story__list">
+            <li><b>Multi-Skill-Fan-out:</b> 10 Fähigkeiten &rarr; 11 Angebote, ohne eine Zeile Fake</li>
+            <li><b>Sammelangebote:</b> ganze Teams mit gemeinsamen Skills in einem Angebot</li>
+            <li><b>Anonym bis zum Deal:</b> Ihre Leute bleiben Ihre Leute — bis der Vertrag steht</li>
+            <li><b>Hard-Reserve:</b> vermittelt heißt gesperrt — keine Doppelbuchung, automatische Freigabe nach Einsatzende</li>
+          </ul>
+          <button onclick="selectLandingPlan('BASIS','agency')" class="ds-btn ds-btn--primary">Als Personaldienstleister starten</button>
+        </div>
+        <figure class="story__visual" data-motif="Eine Person, viele Rollen (Triptychon)" aria-hidden="true">
+          <svg viewBox="0 0 480 360" xmlns="http://www.w3.org/2000/svg" role="img">
+            <circle cx="240" cy="130" r="46" style="fill:var(--ds-brand-muted);stroke:var(--ds-brand);stroke-width:2.5"/>
+            <circle cx="240" cy="116" r="16" style="fill:var(--ds-brand)"/>
+            <path d="M212 158c6-16 50-16 56 0" style="fill:var(--ds-brand)"/>
+            <g style="stroke:var(--ds-border);stroke-width:1.6">
+              <line x1="240" y1="180" x2="110" y2="250"/><line x1="240" y1="180" x2="197" y2="252"/>
+              <line x1="240" y1="180" x2="283" y2="252"/><line x1="240" y1="180" x2="370" y2="250"/>
+            </g>
+            <g>
+              <rect x="60"  y="252" width="100" height="66" rx="10" style="fill:var(--ds-bg-surface);stroke:var(--ds-border)"/>
+              <rect x="147" y="252" width="100" height="66" rx="10" style="fill:var(--ds-bg-surface);stroke:var(--ds-border)"/>
+              <rect x="234" y="252" width="100" height="66" rx="10" style="fill:var(--ds-bg-surface);stroke:var(--ds-border)"/>
+              <rect x="321" y="252" width="100" height="66" rx="10" style="fill:var(--ds-brand-muted);stroke:var(--ds-brand);stroke-width:2"/>
+              <rect x="72"  y="266" width="56" height="8" rx="4" style="fill:var(--ds-text-tertiary)"/>
+              <rect x="159" y="266" width="56" height="8" rx="4" style="fill:var(--ds-text-tertiary)"/>
+              <rect x="246" y="266" width="56" height="8" rx="4" style="fill:var(--ds-text-tertiary)"/>
+              <rect x="333" y="266" width="64" height="8" rx="4" style="fill:var(--ds-brand)"/>
+              <rect x="72"  y="284" width="76" height="6" rx="3" style="fill:var(--ds-border)"/>
+              <rect x="159" y="284" width="76" height="6" rx="3" style="fill:var(--ds-border)"/>
+              <rect x="246" y="284" width="76" height="6" rx="3" style="fill:var(--ds-border)"/>
+              <rect x="333" y="284" width="76" height="6" rx="3" style="fill:var(--ds-brand-ring)"/>
+            </g>
+          </svg>
+          <figcaption class="story__caption">Ein Profil, vier echte Angebote — automatisch vorgeschlagen</figcaption>
+        </figure>
+      </div>
+    </section>
+
+    <!-- B · Einsatzunternehmen: Notdienst (Visual links) -->
+    <section class="story story--flip" id="story-unternehmen">
+      <div class="story__grid">
+        <div class="story__txt">
+          <div class="story__kicker" style="color:var(--ds-danger)">Für Einsatzunternehmen</div>
+          <h2 class="section-heading">Ausfall um 4 Uhr.<br/>Ersatz um 6 Uhr.</h2>
+          <p class="story__lead">Wenn eine Schicht kippt, zählt keine Bewerbermappe. Der Notdienst-Feed zeigt sofort, wer verfügbar ist — mit echter Verfügbarkeit, echtem Zeitraum, echter Deckung.</p>
+          <ul class="story__list">
+            <li><b>Notdienst-Angebote</b> stehen priorisiert ganz oben — sichtbar markiert, sofort anfragbar</li>
+            <li><b>&bdquo;Nur noch 2 frei&ldquo;</b> ist ein Fakt aus der Disposition, kein Marketing-Trick</li>
+            <li><b>Deckungsvorschau:</b> Sie sehen vor der Anfrage, ob der Anbieter liefern kann</li>
+          </ul>
+          <button onclick="selectLandingPlan('PLUS','company')" class="ds-btn ds-btn--primary">Als Einsatzunternehmen starten</button>
+        </div>
+        <figure class="story__visual" data-motif="Ankunft der Fruehschicht im Morgengrauen" aria-hidden="true">
+          <svg viewBox="0 0 480 360" xmlns="http://www.w3.org/2000/svg" role="img">
+            <circle cx="150" cy="150" r="86" style="fill:none;stroke:var(--ds-border);stroke-width:3"/>
+            <circle cx="150" cy="150" r="86" style="fill:none;stroke:var(--ds-danger);stroke-width:3;stroke-dasharray:135 405;stroke-linecap:round" transform="rotate(-90 150 150)"/>
+            <line x1="150" y1="150" x2="150" y2="96"  style="stroke:var(--ds-text);stroke-width:4;stroke-linecap:round"/>
+            <line x1="150" y1="150" x2="188" y2="168" style="stroke:var(--ds-text);stroke-width:4;stroke-linecap:round"/>
+            <path d="M262 96 244 132h16l-10 40 34-48h-17l12-28z" style="fill:var(--ds-danger)"/>
+            <g>
+              <rect x="272" y="196" width="150" height="34" rx="8" style="fill:var(--ds-danger-muted);stroke:var(--ds-danger);stroke-width:1.6"/>
+              <rect x="272" y="240" width="150" height="34" rx="8" style="fill:var(--ds-bg-surface);stroke:var(--ds-border)"/>
+              <rect x="272" y="284" width="150" height="34" rx="8" style="fill:var(--ds-bg-surface);stroke:var(--ds-border)"/>
+              <circle cx="292" cy="213" r="7" style="fill:var(--ds-danger)"/>
+              <circle cx="292" cy="257" r="7" style="fill:var(--ds-text-tertiary)"/>
+              <circle cx="292" cy="301" r="7" style="fill:var(--ds-text-tertiary)"/>
+              <rect x="308" y="208" width="76" height="9" rx="4" style="fill:var(--ds-danger)"/>
+              <rect x="308" y="252" width="88" height="9" rx="4" style="fill:var(--ds-border)"/>
+              <rect x="308" y="296" width="66" height="9" rx="4" style="fill:var(--ds-border)"/>
+            </g>
+          </svg>
+          <figcaption class="story__caption">Notdienst-Bedarfe stehen priorisiert ganz oben im Feed</figcaption>
+        </figure>
+      </div>
+    </section>
+
+    <!-- C · Workflow-Kern (Visual rechts) -->
+    <section class="story" id="story-workflow">
+      <div class="story__grid">
+        <div class="story__txt">
+          <div class="story__kicker" style="color:var(--ds-success)">Der operative Kern</div>
+          <h2 class="section-heading">Vom Deal bis zur Rechnung.<br/>Ohne Medienbruch.</h2>
+          <p class="story__lead">Die meisten Plattformen enden beim Matching. TempConnect fängt dort erst an: Einsatz, Live-Belegschaft, Stundenzettel-Freigabe und Monatsrechnung laufen im selben System — jede Statusänderung überall sichtbar, jede Aktion im Audit-Trail.</p>
+          <ul class="story__list">
+            <li><b>Live-Belegschaft:</b> wer ist wo im Einsatz — für Dienstleister und Kunde</li>
+            <li><b>Stundenzettel-Workflow:</b> erfassen, prüfen, freigeben — beidseitig</li>
+            <li><b>Verantwortung statt Blackbox:</b> jede Änderung mit Wer, Was, Warum</li>
+          </ul>
+          <a href="/demo.html" class="ds-btn ds-btn--primary">Den Workflow in der Demo sehen</a>
+        </div>
+        <figure class="story__visual" data-motif="Disposition ueber die Schulter (Live-Board)" aria-hidden="true">
+          <svg viewBox="0 0 480 360" xmlns="http://www.w3.org/2000/svg" role="img">
+            <g style="stroke:var(--ds-border);stroke-width:1.6">
+              <line x1="118" y1="120" x2="185" y2="120"/><line x1="255" y1="120" x2="322" y2="120"/>
+              <line x1="240" y1="152" x2="240" y2="210"/>
+            </g>
+            <g>
+              <rect x="48"  y="88" width="70" height="64" rx="10" style="fill:var(--ds-brand-muted);stroke:var(--ds-brand);stroke-width:2"/>
+              <rect x="185" y="88" width="70" height="64" rx="10" style="fill:var(--ds-bg-surface);stroke:var(--ds-border)"/>
+              <rect x="322" y="88" width="70" height="64" rx="10" style="fill:var(--ds-bg-surface);stroke:var(--ds-border)"/>
+              <text x="83"  y="126" text-anchor="middle" style="fill:var(--ds-brand);font:700 13px system-ui">Deal</text>
+              <text x="220" y="126" text-anchor="middle" style="fill:var(--ds-text-secondary);font:700 12px system-ui">Einsatz</text>
+              <text x="357" y="126" text-anchor="middle" style="fill:var(--ds-text-secondary);font:700 12px system-ui">Zeiten</text>
+            </g>
+            <rect x="130" y="210" width="220" height="88" rx="12" style="fill:var(--ds-bg-surface);stroke:var(--ds-success);stroke-width:2"/>
+            <path d="M158 252l14 14 26-30" style="fill:none;stroke:var(--ds-success);stroke-width:5;stroke-linecap:round;stroke-linejoin:round"/>
+            <rect x="216" y="238" width="110" height="9" rx="4" style="fill:var(--ds-text-tertiary)"/>
+            <rect x="216" y="258" width="86"  height="9" rx="4" style="fill:var(--ds-border)"/>
+            <text x="240" y="330" text-anchor="middle" style="fill:var(--ds-text-tertiary);font:600 12px system-ui">Freigabe &rarr; Rechnung, automatisch</text>
+          </svg>
+          <figcaption class="story__caption">Deal, Einsatz und Zeiten in einer durchgängigen Kette</figcaption>
+        </figure>
+      </div>
+    </section>
+
+    <!-- D · Vertrauen & Compliance (Visual links) -->
+    <section class="story story--flip" id="story-vertrauen">
+      <div class="story__grid">
+        <div class="story__txt">
+          <div class="story__kicker" style="color:var(--ds-warning)">Vertrauen, eingebaut</div>
+          <h2 class="section-heading">Anonym bis zum Deal.<br/>Transparent ab dem Deal.</h2>
+          <p class="story__lead">Profile bleiben anonym, bis der Vertrag zustande kommt — das schützt Kandidaten (AGG), Bestände (Abwerbung) und macht Entscheidungen sachlich: Skills, Verfügbarkeit, Konditionen. Danach: volle Transparenz mit Audit-Trail.</p>
+          <ul class="story__list">
+            <li><b>AGG- &amp; DSGVO-konform</b> by Design, Hosting in Deutschland</li>
+            <li><b>Verifizierte Anbieter</b> mit Trust-Signalen aus echten Deals</li>
+            <li><b>Kein Fake-Content:</b> jede Zahl auf der Plattform hat eine Quelle</li>
+          </ul>
+          <a href="/public/about.html" class="ds-btn">Mehr über TempConnect</a>
+        </div>
+        <figure class="story__visual" data-motif="Der Handschlag (anonym wird Team)" aria-hidden="true">
+          <svg viewBox="0 0 480 360" xmlns="http://www.w3.org/2000/svg" role="img">
+            <path d="M150 60l64 22v44c0 44-26 72-64 88-38-16-64-44-64-88V82z" style="fill:var(--ds-brand-muted);stroke:var(--ds-brand);stroke-width:2.5"/>
+            <path d="M124 138l18 18 34-38" style="fill:none;stroke:var(--ds-brand);stroke-width:6;stroke-linecap:round;stroke-linejoin:round"/>
+            <g style="stroke:var(--ds-border);stroke-width:1.6"><line x1="238" y1="150" x2="286" y2="150"/></g>
+            <path d="M282 142l14 8-14 8z" style="fill:var(--ds-text-tertiary)"/>
+            <circle cx="352" cy="128" r="30" style="fill:var(--ds-bg-surface);stroke:var(--ds-border);stroke-width:2"/>
+            <text x="352" y="136" text-anchor="middle" style="fill:var(--ds-text-tertiary);font:800 22px system-ui">?</text>
+            <circle cx="352" cy="232" r="30" style="fill:var(--ds-success-muted, rgba(57,217,138,.12));stroke:var(--ds-success);stroke-width:2"/>
+            <circle cx="352" cy="224" r="9" style="fill:var(--ds-success)"/>
+            <path d="M336 248c4-10 28-10 32 0" style="fill:var(--ds-success)"/>
+            <g style="stroke:var(--ds-border);stroke-width:1.6"><line x1="352" y1="162" x2="352" y2="198"/></g>
+            <text x="404" y="132" style="fill:var(--ds-text-tertiary);font:600 12px system-ui">anonym</text>
+            <text x="404" y="236" style="fill:var(--ds-success);font:600 12px system-ui">ab Deal</text>
+          </svg>
+          <figcaption class="story__caption">Identität erst, wenn der Deal steht — sachlich statt voreingenommen</figcaption>
+        </figure>
+      </div>
+    </section>
 
     <hr class="ds-divider"/>
 
@@ -141,13 +304,13 @@
     <section class="ds-section">
       <div style="text-align:center;margin-bottom:var(--ds-space-8)">
         <div class="section-label">Für wen</div>
-        <h2 class="section-heading">Dominanter Einstieg: Einsatzunternehmen</h2>
-        <p class="section-desc" style="margin:var(--ds-space-2) auto 0;text-align:center">Personaldienstleister bleiben zentral für das Netzwerk, werden in Website, Demo und Sales aber als sekundärer Ausbau-ICP geführt.</p>
+        <h2 class="section-heading">Eine Plattform, beide Seiten</h2>
+        <p class="section-desc" style="margin:var(--ds-space-2) auto 0;text-align:center">Einsatzunternehmen steuern Bedarfe, Deals und Zeiten — Personaldienstleister multiplizieren ihre Marktpräsenz. Beide arbeiten im selben operativen Flow.</p>
       </div>
       <div class="audience-grid">
         <div class="audience-card" style="border-color:rgba(74,158,255,0.2)">
           <h3><span style="font-size:22px">🏢</span> Unternehmen</h3>
-          <p style="color:var(--ds-text-secondary);font-size:14px;margin:0 0 var(--ds-space-3)">Primärer ICP: Sie muessen wiederkehrende Zeitarbeits-Bedarfe schnell, sauber und steuerbar besetzen?</p>
+          <p style="color:var(--ds-text-secondary);font-size:14px;margin:0 0 var(--ds-space-3)">Sie müssen wiederkehrende Zeitarbeits-Bedarfe schnell, sauber und steuerbar besetzen?</p>
           <ul>
             <li>Bedarfe strukturiert platzieren und priorisieren</li>
             <li>Angebote und Lieferanten zentral vergleichen</li>
@@ -159,8 +322,9 @@
         </div>
         <div class="audience-card" style="border-color:rgba(124,92,255,0.2)">
           <h3><span style="font-size:22px">💼</span> Personaldienstleister</h3>
-          <p style="color:var(--ds-text-secondary);font-size:14px;margin:0 0 var(--ds-space-3)">Sekundärer Ausbau-ICP: Sie wollen buyer-seitige Bedarfe schneller bedienen und Kapazitaeten bis zum Einsatz digital steuern?</p>
+          <p style="color:var(--ds-text-secondary);font-size:14px;margin:0 0 var(--ds-space-3)">Sie wollen Bedarfe schneller bedienen, Ihre Mitarbeiter mehrfach anbieten und Kapazitäten bis zum Einsatz digital steuern?</p>
           <ul>
+            <li>Multi-Skill-Angebote: ein Mitarbeiter, N Fähigkeiten, N+1 Angebote</li>
             <li>Kapazitaeten gezielt veroeffentlichen und auf Bedarfe reagieren</li>
             <li>Angebote und Gegenangebote strukturiert steuern</li>
             <li>Einsaetze, Einsatzkraefte und Stundenzettel digital begleiten</li>
