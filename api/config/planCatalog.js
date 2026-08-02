@@ -478,7 +478,9 @@ export const PREMIUM_LISTING = Object.freeze({
   // Owner-Empfehlung 2026-07-21: fan-out-freundlicher Micro-Preis je Premium-Angebot
   // (war 4900 = 49,00 EUR). Bei Preis PRO Angebot multipliziert sich der Multi-Skill-
   // Fan-out — unter 10,00 EUR bleibt Premium ein friktionsloses "Ja" ueber viele Angebote.
-  // Trivial anpassbar (z. B. 1499 = 14,99 EUR fuer mehr Marge je Angebot).
   price_cents: 999,    // 9,99 EUR netto je Premium-Angebot
+  // Owner-Entscheidung 2026-08-02: Notdienst-Tier — Notdienst-Listings zahlen fuer
+  // Premium-Hervorhebung mehr (Dringlichkeit = hoehere Zahlungsbereitschaft).
+  notdienst_price_cents: 1499, // 14,99 EUR netto je Premium-NOTDIENST-Angebot
   duration_days: 14    // Hervorhebungsdauer
 });

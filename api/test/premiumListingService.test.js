@@ -40,6 +40,49 @@ test("featureListing capacity: ownership im UPDATE erzwungen + Charge mit Katalo
   assert.equal(charge.params[5], PREMIUM_LISTING.price_cents);
 });
 
+test("Notdienst-Tier capacity: priority_level=notdienst -> 14,99 EUR + Notdienst in Beschreibung", async () => {
+  const p = mockPool((sql, _params, n) =>
+    n === 1
+      ? { rows: [{ id: "l1", title: "Notfall-Pflege", featured_until: "2026-08-20", priority_level: "notdienst" }] }
+      : { rows: [{ id: "ch1" }] }
+  );
+  const r = await featureListing(p, { listingType: "capacity", listingId: "l1", userId: "u1", orgId: "o1" });
+  assert.equal(r.ok, true);
+  assert.equal(r.price_cents, PREMIUM_LISTING.notdienst_price_cents);
+  assert.equal(r.tier, "notdienst");
+  const charge = p.calls[1];
+  assert.equal(charge.params[5], PREMIUM_LISTING.notdienst_price_cents);
+  assert.match(charge.params[4], /Notdienst/, "Rechnungsposten benennt den Tarif");
+  assert.match(p.calls[0].sql, /RETURNING id, title, featured_until, priority_level/);
+});
+
+test("Notdienst-Tier demand: urgency=notdienst -> 14,99 EUR; Standard bleibt 9,99", async () => {
+  const p = mockPool((sql, _params, n) =>
+    n === 1
+      ? { rows: [{ id: "d1", title: "T", featured_until: "2026-08-20", urgency: "notdienst" }] }
+      : { rows: [{ id: "ch1" }] }
+  );
+  const r = await featureListing(p, { listingType: "demand", listingId: "d1", userId: "u1", orgId: "o1" });
+  assert.equal(r.price_cents, PREMIUM_LISTING.notdienst_price_cents);
+  assert.match(p.calls[0].sql, /RETURNING id, title, featured_until, urgency/);
+
+  const p2 = mockPool((sql, _params, n) =>
+    n === 1
+      ? { rows: [{ id: "d2", title: "T", featured_until: "2026-08-20", urgency: "high" }] }
+      : { rows: [{ id: "ch2" }] }
+  );
+  const r2 = await featureListing(p2, { listingType: "demand", listingId: "d2", userId: "u1", orgId: "o1" });
+  assert.equal(r2.price_cents, PREMIUM_LISTING.price_cents);
+  assert.equal(r2.tier, "standard");
+  assert.doesNotMatch(p2.calls[1].params[4], /Notdienst/);
+});
+
+test("Katalog: Notdienst-Tier ist teurer als Standard (14,99 > 9,99)", () => {
+  assert.equal(PREMIUM_LISTING.price_cents, 999);
+  assert.equal(PREMIUM_LISTING.notdienst_price_cents, 1499);
+  assert.ok(PREMIUM_LISTING.notdienst_price_cents > PREMIUM_LISTING.price_cents);
+});
+
 test("featureListing demand: requester-ownership + featured_until gesetzt", async () => {
   const p = mockPool((sql, _params, n) =>
     n === 1 ? { rows: [{ id: "d1", title: "T", featured_until: "2026-06-25" }] } : { rows: [{ id: "ch1" }] }

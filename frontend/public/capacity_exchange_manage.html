@@ -297,7 +297,7 @@
       }
       var isFeatured = entry.featured_until && new Date(entry.featured_until) > new Date();
       if (s === "active" && !isFeatured) {
-        html += '<button class="ds-btn ds-btn--sm" data-action="premium" data-id="' + esc(entry.id) + '" style="border-color:var(--ds-warning,#f59e0b);color:var(--ds-warning,#f59e0b);font-weight:700" title="Anzeige gegen einmalige Gebuehr priorisieren">Premium</button>';
+        html += '<button class="ds-btn ds-btn--sm" data-action="premium" data-id="' + esc(entry.id) + '" data-priority="' + esc(entry.priority_level || "") + '" style="border-color:var(--ds-warning,#f59e0b);color:var(--ds-warning,#f59e0b);font-weight:700" title="Anzeige gegen einmalige Gebuehr priorisieren">Premium</button>';
       } else if (isFeatured) {
         html += '<span class="ds-badge" style="background:var(--ds-warning,#f59e0b);color:#1a1205;font-weight:800" title="Premium aktiv bis ' + esc(String(entry.featured_until).slice(0, 10)) + '">PREMIUM</span>';
       }
@@ -411,9 +411,14 @@
       fetch("/api/marketplace/premium/price", { credentials: "include" })
         .then(function(r) { return r.ok ? r.json() : {}; })
         .then(function(p) {
-          var label = p.price_cents != null ? (p.price_cents / 100).toFixed(2).replace(".", ",") + " EUR (einmalig, netto)" : "die einmalige Gebuehr";
+          // Notdienst-Tier: Notdienst-Anzeigen kosten den hoeheren Satz — der Dialog
+          // muss denselben Preis nennen, den das Backend berechnet (Transparenz).
+          var isNotdienst = btn.getAttribute("data-priority") === "notdienst";
+          var cents = isNotdienst && p.notdienst_price_cents != null ? p.notdienst_price_cents : p.price_cents;
+          var label = cents != null ? (cents / 100).toFixed(2).replace(".", ",") + " EUR (einmalig, netto)" : "die einmalige Gebuehr";
           var days = p.duration_days || 14;
-          if (!confirm("Premium-Anzeige aktivieren?\n\n" + days + " Tage priorisiert im Marktplatz fuer " + label + ".\nDie Gebuehr wird Ihrer naechsten Monatsrechnung hinzugefuegt.")) return;
+          var titel = isNotdienst ? "Premium-Anzeige (Notdienst-Tarif) aktivieren?" : "Premium-Anzeige aktivieren?";
+          if (!confirm(titel + "\n\n" + days + " Tage priorisiert im Marktplatz fuer " + label + ".\nDie Gebuehr wird Ihrer naechsten Monatsrechnung hinzugefuegt.")) return;
           btn.disabled = true;
           getCsrf().then(function(csrf) {
             return fetch("/api/marketplace/premium/feature", {

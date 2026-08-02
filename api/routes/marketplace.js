@@ -372,7 +372,12 @@ export function createMarketplaceRouter(deps) {
 
   router.get("/marketplace/premium/price", requireAuth, async (_req, res) => {
     const { PREMIUM_LISTING } = await import("../config/planCatalog.js");
-    res.json({ price_cents: PREMIUM_LISTING.price_cents, duration_days: PREMIUM_LISTING.duration_days, currency: "EUR" });
+    res.json({
+      price_cents: PREMIUM_LISTING.price_cents,
+      notdienst_price_cents: PREMIUM_LISTING.notdienst_price_cents,
+      duration_days: PREMIUM_LISTING.duration_days,
+      currency: "EUR"
+    });
   });
 
   router.post("/marketplace/premium/feature", requireAuth, slaAccess, async (req, res) => {

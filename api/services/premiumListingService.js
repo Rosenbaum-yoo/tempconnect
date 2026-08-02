@@ -27,7 +27,7 @@ export async function featureListing(pool, { listingType, listingId, userId, org
               updated_at = NOW()
         WHERE id = $1 AND supplier_company_id = $2
           AND (featured_until IS NULL OR featured_until < NOW())
-        RETURNING id, title, featured_until`,
+        RETURNING id, title, featured_until, priority_level`,
       [listingId, userId, String(days)]
     );
     updated = rows[0];
@@ -38,7 +38,7 @@ export async function featureListing(pool, { listingType, listingId, userId, org
               updated_at = NOW()
         WHERE id = $1 AND requester_company_id = $2
           AND (featured_until IS NULL OR featured_until < NOW())
-        RETURNING id, title, featured_until`,
+        RETURNING id, title, featured_until, urgency`,
       [listingId, userId, String(days)]
     );
     updated = rows[0];
@@ -55,6 +55,11 @@ export async function featureListing(pool, { listingType, listingId, userId, org
     return { ok: false, error: "ALREADY_FEATURED", featured_until: probe.rows[0].featured_until };
   }
 
+  // Notdienst-Tier (Owner-Entscheidung 2026-08-02): Notdienst-Listings zahlen den
+  // hoeheren Satz — capacity traegt priority_level, demand traegt urgency (Mig 014/132).
+  const isNotdienst = updated.priority_level === "notdienst" || updated.urgency === "notdienst";
+  const priceCents = isNotdienst ? PREMIUM_LISTING.notdienst_price_cents : PREMIUM_LISTING.price_cents;
+
   const { rows: chargeRows } = await pool.query(
     `INSERT INTO premium_listing_charges
        (org_id, user_id, listing_type, listing_id, description, amount_cents, currency)
@@ -62,8 +67,8 @@ export async function featureListing(pool, { listingType, listingId, userId, org
      RETURNING *`,
     [
       orgId, userId, listingType, listingId,
-      `Premium-Anzeige (${days} Tage): ${String(updated.title || "").slice(0, 120)}`,
-      PREMIUM_LISTING.price_cents
+      `Premium-${isNotdienst ? "Notdienst-" : ""}Anzeige (${days} Tage): ${String(updated.title || "").slice(0, 120)}`,
+      priceCents
     ]
   );
 
@@ -71,7 +76,8 @@ export async function featureListing(pool, { listingType, listingId, userId, org
     ok: true,
     listing: updated,
     charge: chargeRows[0],
-    price_cents: PREMIUM_LISTING.price_cents,
+    price_cents: priceCents,
+    tier: isNotdienst ? "notdienst" : "standard",
     featured_until: updated.featured_until
   };
 }

@@ -235,7 +235,14 @@ fordern — gematcht gegen den Skill-Katalog.
   Dateien: `js/pages/marketplaceFeed.js` (+ Test-Hook `__mpFeedTestHooks`),
   `css/pages/marketplace-feed.css`; 11 vm-Sandbox-Tests (`api/test/marketplaceFeedCard.test.js`),
   Computed-Style-Verifikation in Dark + Editorial gegen die echte Seite.
-  Offen (Owner-Entscheidung, Preisgestaltung): optionales Notdienst-/Top-Preis-Tier.
+  **Notdienst-Preis-Tier (5d) erledigt (2026-08-02, Owner-Entscheidung 14,99 €):**
+  Premium-Hervorhebung kostet für Notdienst-Listings **14,99 €** statt 9,99 € (Dringlichkeit =
+  höhere Zahlungsbereitschaft). Tarifwahl serverseitig in `featureListing` aus dem Listing selbst
+  (capacity `priority_level` / demand `urgency`, Mig 014/132) — kein Client-Input. Rechnungsposten
+  benennt den Tarif („Premium-Notdienst-Anzeige"), Audit trägt den echten Betrag.
+  `GET /marketplace/premium/price` liefert beide Sätze; die Bestätigungs-Dialoge
+  (capacity_exchange_manage, marketplace_demand_list) zeigen exakt den Preis, der berechnet wird.
+  5 neue Tests (Tier-Wahl, Beschreibung, Katalog-Invariante) — Welle 5 damit **komplett**.
 
 ### Phase C — Nachfrage & Matching
 - **Welle 6 — Deckungsvorschau im Angebotsformular** ✅ *erledigt (2026-07-31)*
