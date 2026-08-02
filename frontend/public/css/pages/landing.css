@@ -118,6 +118,13 @@ body {
   padding: var(--ds-space-5) var(--ds-space-5) var(--ds-space-3);
 }
 .story__visual svg { width: 100%; height: auto; display: block; }
+/* KI-Bild-Drop-in (P7c): landing.js blendet .story__img ein, sobald die
+   Datei existiert; die SVG-Illustration bleibt Fallback. */
+.story__img {
+  display: block; width: 100%; height: auto;
+  border-radius: calc(var(--ds-radius-xl) - 6px);
+}
+.story__visual.has-img svg { display: none; }
 .story__caption {
   text-align: center; font-size: 12.5px; color: var(--ds-text-tertiary);
   padding: var(--ds-space-2) 0 var(--ds-space-1);

@@ -521,3 +521,26 @@ function showToast(msg, type) {
   clearTimeout(el._t);
   el._t = setTimeout(function() { el.classList.remove('visible'); }, 4500);
 }
+
+/* ── Story-Visuals: KI-Bild-Drop-in (P7c) ─────────────────────────
+   Jede figure.story__visual[data-img] behaelt ihre SVG-Illustration als
+   Fallback. Existiert die Bilddatei (Phase 7c legt sie unter
+   /public/img/landing/ ab), wird sie eingeblendet und die SVG versteckt —
+   ohne Deploy-Aenderung am Markup. Ladefehler bleiben stumm (kein JS-Error). */
+(function () {
+  var figures = document.querySelectorAll('.story__visual[data-img]');
+  figures.forEach(function (fig) {
+    var probe = new Image();
+    probe.onload = function () {
+      var img = document.createElement('img');
+      img.src = fig.getAttribute('data-img');
+      img.alt = fig.getAttribute('data-alt') || '';
+      img.loading = 'lazy';
+      img.width = 960; img.height = 720;
+      img.className = 'story__img';
+      fig.insertBefore(img, fig.firstChild);
+      fig.classList.add('has-img');
+    };
+    probe.src = fig.getAttribute('data-img');
+  });
+})();
