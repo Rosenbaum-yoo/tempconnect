@@ -841,7 +841,7 @@ export async function getWorkerSkills(pool, workerProfileId) {
  * Nur aktive Katalog-Skills werden akzeptiert; unbekannte IDs werden verworfen.
  */
 export async function setWorkerSkills(pool, { workerProfileId, supplierOrgId, skills = [], source = "worker" }) {
-  return withTransaction(pool, async (client) => {
+  return await withTransaction(pool, async (client) => {
     const requested = Array.isArray(skills) ? skills.filter((s) => s && s.skill_id) : [];
     const ids = [...new Set(requested.map((s) => s.skill_id))];
 

@@ -17,6 +17,23 @@ export function createScimRouter(deps) {
 
   function send(res, status, body) { res.status(status); res.type("application/scim+json"); res.send(JSON.stringify(body)); }
 
+  /**
+   * Audit fuer SCIM — laeuft ueber `writeAuditEnhanced`, den zentralen req-bewussten Weg.
+   * Verantwortlicher Akteur (Key-Ersteller) und Maschinen-Kontext (actor_type, api_key_id)
+   * kommen dort aus `resolveAuditActor` und gelten fuer JEDE Maschinen-Auth — hier bleibt
+   * bewusst keine eigene Akteurs-Logik zurueck, die spaeter auseinanderlaufen koennte.
+   *
+   * Best-effort: ein fehlgeschlagener Log darf die SCIM-Antwort nie kippen.
+   */
+  async function writeScimAudit(req, { action, entityId, details }) {
+    try {
+      await auditLog.writeAuditEnhanced(pool, req, {
+        action, entity_type: "user", entity_id: entityId,
+        details: { org_id: req.orgId, ...details }
+      });
+    } catch (err) { logger.error({ err: err.message, action }, "SCIM audit write failed"); }
+  }
+
   // Gate: SCIM aktiv + API-Key/M2M-Auth + org-Kontext. (Scope-Check via requireScope dahinter.)
   function scimGate(req, res, next) {
     if (!config.SCIM_ENABLED) return send(res, 404, scim.scimError(404, "SCIM ist nicht aktiviert."));
@@ -67,7 +84,10 @@ export function createScimRouter(deps) {
         [req.body?.name?.givenName, req.body?.name?.familyName].filter(Boolean).join(" ");
       const enterprise = scim.extractEnterpriseAttrs(req.body);
       const { row, created } = await scim.provisionUser(pool, req.orgId, { userName, displayName, enterprise });
-      try { await auditLog.writeAudit(pool, { action: "scim.user_provisioned", entity_type: "user", entity_id: row.id, details: { org_id: req.orgId, created, user_name: row.email, hr_fields: Object.keys(enterprise) } }); } catch { /* best-effort */ }
+      await writeScimAudit(req, {
+        action: "scim.user_provisioned", entityId: row.id,
+        details: { created, user_name: row.email, hr_fields: Object.keys(enterprise) }
+      });
       send(res, created ? 201 : 200, scim.toScimUser(row, base));
     } catch (err) {
       if (err.code === "INVALID_USERNAME") return send(res, 400, scim.scimError(400, "userName (E-Mail) erforderlich", "invalidValue"));
@@ -91,8 +111,18 @@ export function createScimRouter(deps) {
         row = await scim.setMembershipHrAttributes(pool, req.orgId, req.params.id, enterprise);
         if (!row) return send(res, 404, scim.scimError(404, "User nicht gefunden", "noTarget"));
       }
-      if (active !== null) { try { await auditLog.writeAudit(pool, { action: active ? "scim.user_activated" : "scim.user_deactivated", entity_type: "user", entity_id: req.params.id, details: { org_id: req.orgId } }); } catch { /* best-effort */ } }
-      if (hasHr) { try { await auditLog.writeAudit(pool, { action: "scim.user_hr_updated", entity_type: "user", entity_id: req.params.id, details: { org_id: req.orgId, fields: Object.keys(enterprise) } }); } catch { /* best-effort */ } }
+      if (active !== null) {
+        await writeScimAudit(req, {
+          action: active ? "scim.user_activated" : "scim.user_deactivated",
+          entityId: req.params.id, details: { via: req.method }
+        });
+      }
+      if (hasHr) {
+        await writeScimAudit(req, {
+          action: "scim.user_hr_updated", entityId: req.params.id,
+          details: { via: req.method, fields: Object.keys(enterprise) }
+        });
+      }
       send(res, 200, scim.toScimUser(row, base));
     } catch (err) { logger.error({ err: err.message }, "SCIM update"); send(res, 500, scim.scimError(500, "Serverfehler")); }
   }
@@ -103,7 +133,9 @@ export function createScimRouter(deps) {
     try {
       const row = await scim.setMembershipActive(pool, req.orgId, req.params.id, false);
       if (!row) return send(res, 404, scim.scimError(404, "User nicht gefunden", "noTarget"));
-      try { await auditLog.writeAudit(pool, { action: "scim.user_deactivated", entity_type: "user", entity_id: req.params.id, details: { org_id: req.orgId, via: "DELETE" } }); } catch { /* best-effort */ }
+      await writeScimAudit(req, {
+        action: "scim.user_deactivated", entityId: req.params.id, details: { via: "DELETE" }
+      });
       res.status(204).end();
     } catch (err) { logger.error({ err: err.message }, "SCIM delete"); send(res, 500, scim.scimError(500, "Serverfehler")); }
   });

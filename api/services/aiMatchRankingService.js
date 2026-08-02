@@ -385,7 +385,7 @@ export async function rankMatches(pool, opts = {}) {
   const missing = candidates.filter((_, i) => !cached.has(keys[i].fingerprint));
   let usage = null;
   let latencyMs = null;
-  let fresh = new Map();
+  const fresh = new Map();
 
   if (missing.length) {
     const started = Date.now();

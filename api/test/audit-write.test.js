@@ -179,3 +179,95 @@ describe("auditWriteMiddleware", () => {
     assert.ok(hasNew, "new_values als JSON-String enthalten");
   });
 });
+
+/**
+ * Maschinen-Auth durch die Auto-Middleware.
+ *
+ * Die Middleware ist der Weg, ueber den die MEISTEN Mutationen auditiert werden
+ * (`res.locals.audit`). Sie loeste den Akteur frueher nur aus `req.session.userId` auf —
+ * ein API-Key-Request (workers, timesheets, requisitions, invoices, assignments, …)
+ * landete dadurch als `actor_id: null` in der Zeile und war von einem Systemlauf nicht
+ * zu unterscheiden. Seitdem kommt der Akteur aus `resolveAuditActor`.
+ */
+describe("auditWriteMiddleware — Maschinen-Auth (API-Key/M2M)", () => {
+  /** Request ohne Session, aber mit API-Key-Kontext. */
+  function apiKeyReq(over = {}) {
+    return {
+      method: "POST", path: "/api/timesheets", originalUrl: "/api/timesheets",
+      ip: "127.0.0.1", headers: { "user-agent": "partner-integration/1.0" },
+      orgId: "org-456",
+      isApiKeyAuth: true, apiKeyId: "key-42", apiKeyOwnerUserId: "owner-9",
+      ...over
+    };
+  }
+
+  /** details-Spalte ist Parameter 5 des INSERT. */
+  const details = (pool) => JSON.parse(pool.written[0].params[4]);
+
+  it("schreibt den Key-Ersteller als Verantwortlichen statt null", async () => {
+    const pool = mockPool();
+    const mw = auditWriteMiddleware(pool, { logger: null });
+    const req = apiKeyReq();
+    const res = mockRes(201);
+
+    mw(req, res, () => {});
+    res.locals.audit = { action: "timesheet.create", entity_type: "timesheet", entity_id: "ts-1" };
+    res.emit("finish");
+    await nextTick();
+
+    assert.strictEqual(pool.written.length, 1);
+    assert.strictEqual(pool.written[0].params[0], "owner-9", "actor_id-Spalte");
+    const d = details(pool);
+    assert.strictEqual(d.responsible_actor_user_id, "owner-9");
+    assert.strictEqual(d.actor_type, "api_key");
+    assert.strictEqual(d.api_key_id, "key-42");
+  });
+
+  it("erhaelt die fachlichen Details der Route", async () => {
+    const pool = mockPool();
+    const mw = auditWriteMiddleware(pool, { logger: null });
+    const res = mockRes(200);
+
+    mw(apiKeyReq(), res, () => {});
+    res.locals.audit = {
+      action: "worker.update", entity_type: "worker", entity_id: "w-1",
+      details: { changed_fields: ["email"] }
+    };
+    res.emit("finish");
+    await nextTick();
+
+    const d = details(pool);
+    assert.deepStrictEqual(d.changed_fields, ["email"], "Route-Details bleiben erhalten");
+    assert.strictEqual(d.actor_type, "api_key");
+  });
+
+  it("M2M-JWT wird als m2m_token gefuehrt", async () => {
+    const pool = mockPool();
+    const mw = auditWriteMiddleware(pool, { logger: null });
+    const res = mockRes(200);
+
+    mw(apiKeyReq({ isM2mToken: true }), res, () => {});
+    res.locals.audit = { action: "invoice.update", entity_type: "invoice", entity_id: "i-1" };
+    res.emit("finish");
+    await nextTick();
+
+    assert.strictEqual(details(pool).actor_type, "m2m_token");
+  });
+
+  it("Session-Request bleibt unveraendert (kein Maschinen-Kontext)", async () => {
+    // Regressionsschutz: die Aenderung darf bestehende Audit-Zeilen nicht anfassen.
+    const pool = mockPool();
+    const mw = auditWriteMiddleware(pool, { logger: null });
+    const res = mockRes(201);
+
+    mw(mockReq("POST", "/api/contracts"), res, () => {});
+    res.locals.audit = { action: "contract.create", entity_type: "contract", entity_id: "c-1" };
+    res.emit("finish");
+    await nextTick();
+
+    const d = details(pool);
+    assert.strictEqual(d.responsible_actor_user_id, "user-123");
+    assert.strictEqual(d.actor_type, undefined, "Session-Eintraege bekommen keinen Maschinen-Kontext");
+    assert.strictEqual(d.api_key_id, undefined);
+  });
+});

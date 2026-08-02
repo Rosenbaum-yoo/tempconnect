@@ -65,6 +65,60 @@ export function withResponsibleActor(details, actorId) {
 }
 
 /**
+ * Ermittelt den verantwortlichen Akteur eines Requests — Session ODER Maschine.
+ *
+ * Warum zentral: `actor_id: req.session?.userId` deckt nur den Browser-Fall ab. Ein
+ * Request per API-Key oder M2M-JWT hat KEINE Session — er lief bisher als `null` durch
+ * und war damit von einem Cron-/Systemlauf nicht zu unterscheiden (siehe die Semantik in
+ * `withResponsibleActor`). Bei Maschinen-Auth gibt es aber sehr wohl einen
+ * Verantwortlichen: den Menschen, der den Key angelegt hat (`org_api_keys.created_by`).
+ *
+ * Dies ist die EINE Stelle, die das entscheidet. Beide Audit-Wege benutzen sie
+ * (Auto-Middleware `auditWrite` und `writeAuditEnhanced`), damit eine neue
+ * Maschinen-Schnittstelle nichts mehr nachziehen muss.
+ *
+ * Der Session-Fall bleibt bewusst ohne `machine`-Kontext, damit bestehende Audit-Eintraege
+ * unveraendert bleiben — Zusatzinfo entsteht nur dort, wo bisher Information FEHLTE.
+ *
+ * @param {object} req Express-Request
+ * @returns {{ actor_id: string|null, machine: object|null }}
+ */
+export function resolveAuditActor(req) {
+  const sessionUserId = req?.session?.userId ?? null;
+  if (sessionUserId) return { actor_id: sessionUserId, machine: null };
+
+  if (req?.isApiKeyAuth) {
+    const ownerUserId = req.apiKeyOwnerUserId ?? null;
+    return {
+      actor_id: ownerUserId,
+      machine: {
+        actor_type: req.isM2mToken ? "m2m_token" : "api_key",
+        api_key_id: req.apiKeyId ?? null,
+        // Key-Ersteller nicht (mehr) ermittelbar — z.B. Nutzer geloescht
+        // (`created_by ON DELETE SET NULL`). Ausdruecklich markieren, sonst waere der
+        // Eintrag von einem echten Systemlauf nicht zu unterscheiden.
+        ...(ownerUserId ? {} : { responsible_actor_unknown: true })
+      }
+    };
+  }
+
+  return { actor_id: null, machine: null }; // echter Systemvorgang (Cron/Webhook)
+}
+
+/**
+ * Mischt den Maschinen-Kontext in die Detaildaten. Ohne Maschinen-Auth unveraendert.
+ * @param {object|null} details
+ * @param {object|null} machine
+ * @returns {object|null}
+ */
+export function withMachineActor(details, machine) {
+  if (!machine) return details ?? null;
+  // Nicht-Objekte (Array/String) bleiben unangetastet — gleiche Regel wie withResponsibleActor.
+  if (details != null && (typeof details !== "object" || Array.isArray(details))) return details;
+  return { ...(details ?? {}), ...machine };
+}
+
+/**
  * Leitet action_type aus dem action-String ab.
  * @param {string} action - z.B. 'timesheet.approve', 'auth.login'
  * @returns {string}
@@ -144,10 +198,14 @@ export async function writeAudit(pool, params) {
  * @param {Object} params — same as writeAudit plus optional old_values/new_values
  */
 export function writeAuditEnhanced(pool, req, params) {
+  // Akteur zentral: deckt Session UND Maschinen-Auth (API-Key/M2M) ab. Ein ausdruecklich
+  // uebergebener actor_id hat weiterhin Vorrang (Handelnder ≠ Verantwortlicher).
+  const { actor_id, machine } = resolveAuditActor(req);
   return writeAudit(pool, {
     ...params,
-    actor_id: params.actor_id ?? req.session?.userId ?? null,
+    actor_id: params.actor_id ?? actor_id,
     org_id: params.org_id ?? req.orgId ?? null,
+    details: withMachineActor(params.details ?? null, machine),
     ip_address: params.ip_address ?? req.ip ?? null,
     user_agent: params.user_agent ?? (req.headers?.['user-agent'] || '').slice(0, 500) ?? null
   });

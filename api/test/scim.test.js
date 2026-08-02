@@ -254,3 +254,157 @@ describe("SCIM-Router — Gate/Auth/Scope", () => {
     assert.equal(out.body[SCIM_ENTERPRISE_SCHEMA].costCenter, "KST-9");
   });
 });
+
+/**
+ * Audit-Trail (Produktionspfeiler 5): JEDE mutierende SCIM-Aktion schreibt action,
+ * entity_type, entity_id und details.responsible_actor_user_id.
+ * SCIM laeuft maschinell (API-Key/M2M) — verantwortlicher Akteur ist der Mensch,
+ * der den Key angelegt hat (org_api_keys.created_by → req.apiKeyOwnerUserId).
+ */
+describe("SCIM-Router — Audit-Trail", () => {
+  const deps = (cfg, pool) => ({ pool: pool || mkPool(() => ({ rows: [] })), config: { BASE_URL: "https://x", ...cfg }, logger: { error() {}, info() {} } });
+
+  function run(router, method, path, req) {
+    const layer = router.stack.find((l) => l.route && l.route.path === path && l.route.methods[method]);
+    assert.ok(layer, `Route ${method} ${path}`);
+    const stack = layer.route.stack;
+    return new Promise((resolve) => {
+      let status = 200, captured = null;
+      const done = () => resolve({ status, body: captured });
+      const res = {
+        status(c) { status = c; return this; }, type() { return this; },
+        send(b) { captured = b; done(); return this; },
+        json(b) { captured = b; done(); return this; },
+        end() { done(); return this; }
+      };
+      let i = 0;
+      const next = () => { const l = stack[i++]; if (l) return l.handle(req, res, next); };
+      Promise.resolve(next()).catch(() => done());
+    });
+  }
+
+  /** Mutations-Pool: Membership-Update + Re-Read liefern eine Zeile zurueck. */
+  const mutationPool = (onAudit) => mkPool((sql) => {
+    if (/INSERT INTO audit_log/.test(sql) && onAudit) return onAudit();
+    if (/UPDATE org_memberships SET/.test(sql)) return { rowCount: 1 };
+    if (/SELECT u\.id, u\.email/.test(sql)) return { rows: [{ id: "u1", email: "a@b.de", company_name: "A B", membership_active: true, cost_center: "KST-9" }] };
+    return { rows: [], rowCount: 0 };
+  });
+
+  const scimReq = (over = {}) => ({
+    isApiKeyAuth: true, orgId: "org-1", apiKeyScopes: ["admin:scim"],
+    apiKeyId: "key-1", apiKeyOwnerUserId: "owner-1",
+    params: { id: "u1" }, _body: true, ip: "10.0.0.9",
+    headers: { "content-type": "application/scim+json", "user-agent": "Okta-SCIM/2.0" },
+    ...over
+  });
+
+  /** writeAudit-INSERT aus dem Mock-Pool holen → {action, entity_type, entity_id, details, …}. */
+  function auditEntries(pool) {
+    return pool.calls.filter((c) => /INSERT INTO audit_log/.test(c.sql)).map((c) => ({
+      actor_id: c.params[0], action: c.params[1], entity_type: c.params[2], entity_id: c.params[3],
+      details: c.params[4] ? JSON.parse(c.params[4]) : null, org_id: c.params[8],
+      ip_address: c.params[11], user_agent: c.params[12]
+    }));
+  }
+
+  it("PATCH active:false → Audit mit action/entity/responsible_actor_user_id", async () => {
+    const pool = mutationPool();
+    const r = createScimRouter(deps({ SCIM_ENABLED: true }, pool));
+    const out = await run(r, "patch", "/scim/v2/Users/:id", scimReq({
+      method: "PATCH", body: { Operations: [{ op: "replace", path: "active", value: false }] }
+    }));
+    assert.equal(out.status, 200);
+
+    const entries = auditEntries(pool);
+    assert.equal(entries.length, 1, "genau ein Audit-Eintrag erwartet");
+    const a = entries[0];
+    assert.equal(a.action, "scim.user_deactivated");
+    assert.equal(a.entity_type, "user");
+    assert.equal(a.entity_id, "u1");
+    // Produktionspfeiler 5 — der verantwortliche Mensch muss benennbar sein:
+    assert.equal(a.details.responsible_actor_user_id, "owner-1");
+    assert.equal(a.actor_id, "owner-1");
+    // Org-Boundary: audit_log.org_id gefuellt, nicht nur in details versteckt
+    assert.equal(a.org_id, "org-1");
+    // Maschinen-Herkunft nachvollziehbar (zentral aus resolveAuditActor, nicht SCIM-lokal)
+    assert.equal(a.details.api_key_id, "key-1");
+    assert.equal(a.details.actor_type, "api_key");
+    assert.equal(a.details.via, "PATCH");
+  });
+
+  it("PUT (Replace) schreibt denselben Audit wie PATCH — geteilter Handler", async () => {
+    const pool = mutationPool();
+    const r = createScimRouter(deps({ SCIM_ENABLED: true }, pool));
+    const out = await run(r, "put", "/scim/v2/Users/:id", scimReq({
+      method: "PUT", body: { active: true }
+    }));
+    assert.equal(out.status, 200);
+
+    const entries = auditEntries(pool);
+    assert.equal(entries.length, 1);
+    assert.equal(entries[0].action, "scim.user_activated");
+    assert.equal(entries[0].entity_id, "u1");
+    assert.equal(entries[0].details.responsible_actor_user_id, "owner-1");
+    assert.equal(entries[0].details.via, "PUT");
+  });
+
+  it("HR-Attribut-Update schreibt scim.user_hr_updated mit Feldliste", async () => {
+    const pool = mutationPool();
+    const r = createScimRouter(deps({ SCIM_ENABLED: true }, pool));
+    const out = await run(r, "patch", "/scim/v2/Users/:id", scimReq({
+      method: "PATCH",
+      body: { Operations: [{ op: "replace", path: SCIM_ENTERPRISE_SCHEMA + ":costCenter", value: "KST-9" }] }
+    }));
+    assert.equal(out.status, 200);
+
+    const a = auditEntries(pool).find((e) => e.action === "scim.user_hr_updated");
+    assert.ok(a, "scim.user_hr_updated erwartet");
+    assert.equal(a.details.responsible_actor_user_id, "owner-1");
+    assert.ok(a.details.fields.includes("cost_center"), "geaenderte Felder protokolliert");
+  });
+
+  it("M2M-JWT wird als actor_type m2m_token protokolliert", async () => {
+    const pool = mutationPool();
+    const r = createScimRouter(deps({ SCIM_ENABLED: true }, pool));
+    await run(r, "patch", "/scim/v2/Users/:id", scimReq({
+      method: "PATCH", isM2mToken: true, body: { active: false }
+    }));
+    assert.equal(auditEntries(pool)[0].details.actor_type, "m2m_token");
+  });
+
+  it("Key-Ersteller geloescht → als Maschine markiert, NICHT als Systemlauf lesbar", async () => {
+    // created_by ist ON DELETE SET NULL. Ohne ausdrueckliche Markierung waere der Eintrag
+    // (actor_id null + responsible null) von einem Cron-/Systemlauf nicht zu unterscheiden.
+    const pool = mutationPool();
+    const r = createScimRouter(deps({ SCIM_ENABLED: true }, pool));
+    await run(r, "patch", "/scim/v2/Users/:id", scimReq({
+      method: "PATCH", apiKeyOwnerUserId: undefined, body: { active: false }
+    }));
+    const d = auditEntries(pool)[0].details;
+    assert.ok("responsible_actor_user_id" in d, "Feld muss vorhanden sein");
+    assert.equal(d.responsible_actor_user_id, null);
+    assert.equal(d.actor_type, "api_key", "Maschinen-Herkunft bleibt erkennbar");
+    assert.equal(d.responsible_actor_unknown, true, "Luecke ist ausgewiesen, nicht kaschiert");
+  });
+
+  it("DELETE deaktiviert und auditiert", async () => {
+    const pool = mutationPool();
+    const r = createScimRouter(deps({ SCIM_ENABLED: true }, pool));
+    const out = await run(r, "delete", "/scim/v2/Users/:id", scimReq({ method: "DELETE" }));
+    assert.equal(out.status, 204);
+    const a = auditEntries(pool)[0];
+    assert.equal(a.action, "scim.user_deactivated");
+    assert.equal(a.details.via, "DELETE");
+    assert.equal(a.details.responsible_actor_user_id, "owner-1");
+  });
+
+  it("Audit-Fehler kippt die SCIM-Antwort nicht (best-effort)", async () => {
+    const pool = mutationPool(() => { throw new Error("audit_log down"); });
+    const r = createScimRouter(deps({ SCIM_ENABLED: true }, pool));
+    const out = await run(r, "patch", "/scim/v2/Users/:id", scimReq({
+      method: "PATCH", body: { active: false }
+    }));
+    assert.equal(out.status, 200, "Provisioning darf an einem Audit-Fehler nicht scheitern");
+  });
+});

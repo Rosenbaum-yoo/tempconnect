@@ -146,7 +146,10 @@ export async function trackEvent(pool, event) {
   if (!VALID_EVENT_TYPES.includes(event.event_type)) {
     throw new Error('Invalid event_type: ' + event.event_type);
   }
-  return insertEvent(pool, event);
+  // `return await` statt `return`: die Funktion muss `async` bleiben, weil Aufrufer sich auf
+  // ein abgelehntes Promise verlassen (`trackEvent(...).catch(swallow(...))` in marketplace.js).
+  // Ohne `async` wuerde der Wurf oben synchron fliegen und den Geschaeftsvorgang mitreissen.
+  return await insertEvent(pool, event);
 }
 
 async function insertEvent(pool, event) {

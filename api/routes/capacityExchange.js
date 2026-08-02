@@ -122,9 +122,12 @@ export function createCapacityExchangeRouter(deps) {
       if (req.orgId) payload.org_id = req.orgId;
       const entry = await capacityExchangeService.createCapacityEntry(pool, req.session.userId, plan, payload);
 
-      await auditLog.writeAudit(pool, {
+      // writeAuditEnhanced statt writeAudit: loest den Akteur zentral auf (Session ODER
+      // API-Key/M2M — die Route ist per requireScope maschinenerreichbar) und fuellt
+      // org_id/IP/User-Agent mit, die hier bisher leer blieben.
+      await auditLog.writeAuditEnhanced(pool, req, {
         action: "capacity_exchange.create", entity_type: "capacity_post",
-        entity_id: entry.id, actor_id: req.session.userId,
+        entity_id: entry.id,
         details: { title: entry.title, role: entry.role, status: entry.status, headcount: entry.headcount }
       });
 
@@ -184,9 +187,9 @@ export function createCapacityExchangeRouter(deps) {
         priority_level: parsed.data.priority_level,
         premium: parsed.data.premium
       });
-      await auditLog.writeAudit(pool, {
+      await auditLog.writeAuditEnhanced(pool, req, {
         action: "capacity_exchange.generate_offers", entity_type: "worker_profile",
-        entity_id: req.params.workerProfileId, actor_id: req.session.userId,
+        entity_id: req.params.workerProfileId,
         details: { created: result.created_count, skipped: result.skipped_count }
       });
       res.status(201).json(result);
@@ -240,9 +243,9 @@ export function createCapacityExchangeRouter(deps) {
         priority_level: parsed.data.priority_level,
         premium: parsed.data.premium
       });
-      await auditLog.writeAudit(pool, {
+      await auditLog.writeAuditEnhanced(pool, req, {
         action: "capacity_exchange.generate_pool", entity_type: "capacity_post",
-        entity_id: result.id, actor_id: req.session.userId,
+        entity_id: result.id,
         details: { skill_ids: result.skill_ids, member_count: result.member_count }
       });
       res.status(201).json(result);
@@ -295,9 +298,9 @@ export function createCapacityExchangeRouter(deps) {
       const entry = await capacityExchangeService.updateCapacityEntry(pool, req.params.id, req.session.userId, parsed.data);
       if (!entry) return res.status(404).json({ error: "NOT_FOUND" });
 
-      await auditLog.writeAudit(pool, {
+      await auditLog.writeAuditEnhanced(pool, req, {
         action: "capacity_exchange.update", entity_type: "capacity_post",
-        entity_id: entry.id, actor_id: req.session.userId,
+        entity_id: entry.id,
         details: { changed_fields: Object.keys(parsed.data) }
       });
 
@@ -319,9 +322,9 @@ export function createCapacityExchangeRouter(deps) {
       if (result.error === "VALIDATION") return res.status(400).json({ error: "VALIDATION", details: result.details });
       if (result.error === "PLAN_LIMIT") return res.status(403).json({ error: "PLAN_LIMIT", limit: result.limit });
 
-      await auditLog.writeAudit(pool, {
+      await auditLog.writeAuditEnhanced(pool, req, {
         action: `capacity_exchange.${targetStatus}`, entity_type: "capacity_post",
-        entity_id: req.params.id, actor_id: req.session.userId,
+        entity_id: req.params.id,
         details: { new_status: targetStatus }
       });
 
@@ -358,9 +361,9 @@ export function createCapacityExchangeRouter(deps) {
       const entry = await capacityExchangeService.confirmFreshness(pool, req.params.id, req.session.userId);
       if (!entry) return res.status(404).json({ error: "NOT_FOUND" });
 
-      await auditLog.writeAudit(pool, {
+      await auditLog.writeAuditEnhanced(pool, req, {
         action: "capacity_exchange.confirm", entity_type: "capacity_post",
-        entity_id: entry.id, actor_id: req.session.userId
+        entity_id: entry.id
       });
 
       res.json(entry);
@@ -558,11 +561,10 @@ export function createCapacityExchangeRouter(deps) {
       );
       if (!interaction) return res.status(200).json({ ok: true, deduped: true });
 
-      await auditLog.writeAudit(pool, {
+      await auditLog.writeAuditEnhanced(pool, req, {
         action: `capacity_exchange.interaction.${parsed.data.interaction_type}`,
         entity_type: "capacity_interaction",
         entity_id: interaction.id,
-        actor_id: req.session.userId,
         details: { capacity_post_id: req.params.id, type: parsed.data.interaction_type }
       });
 

@@ -13,7 +13,7 @@
  * Wenn res.locals.audit nicht gesetzt ist UND die Methode mutierend ist, wird ein Fallback-Log geschrieben.
  */
 
-import { writeAudit, deriveActionType } from "../services/auditLog.js";
+import { writeAudit, deriveActionType, resolveAuditActor, withMachineActor } from "../services/auditLog.js";
 
 const MUTATING_METHODS = new Set(["POST", "PUT", "PATCH", "DELETE"]);
 
@@ -58,6 +58,11 @@ export function auditWriteMiddleware(pool, opts = {}) {
       const auditStatus = audit.status || deriveAuditStatus(res.statusCode);
       const actionType = audit.action_type || deriveActionType(audit.action);
 
+      // Akteur zentral aufloesen: Session ODER Maschine (API-Key/M2M). Frueher stand hier
+      // nur `req.session?.userId` — jeder API-Key-Request lief dadurch als `null` durch und
+      // war von einem Systemlauf nicht zu unterscheiden (Produktionspfeiler 5).
+      const { actor_id, machine } = resolveAuditActor(req);
+
       try {
         await writeAudit(pool, {
           action: audit.action,
@@ -65,9 +70,9 @@ export function auditWriteMiddleware(pool, opts = {}) {
           status: auditStatus,
           entity_type: audit.entity_type || "unknown",
           entity_id: audit.entity_id ? String(audit.entity_id) : null,
-          actor_id: req.session?.userId || null,
+          actor_id,
           org_id: req.orgId || null,
-          details: audit.details || null,
+          details: withMachineActor(audit.details || null, machine),
           old_values: audit.old_values || null,
           new_values: audit.new_values || null,
           ip_address: req.ip || null,

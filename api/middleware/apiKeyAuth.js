@@ -8,6 +8,7 @@
  * Wenn ein gültiger API-Key gefunden wird:
  *   - req.orgId wird gesetzt (Multi-Tenancy)
  *   - req.apiKeyId wird gesetzt (fuer Audit)
+ *   - req.apiKeyOwnerUserId wird gesetzt (created_by des Keys — verantwortlicher Mensch im Audit)
  *   - req.apiKeyScopes wird gesetzt (fuer Scope-Enforcement)
  *   - req.isApiKeyAuth = true
  *   - last_used_at wird async aktualisiert (non-blocking)
@@ -52,6 +53,7 @@ export function apiKeyAuthMiddleware(pool, { logger, config = {} }) {
               const tokenScopes = (payload.scope || "").split(" ").filter(Boolean);
               req.apiKeyScopes = tokenScopes.filter((s) => hasScope(key.scopes || [], s));
               req.apiKeyId = key.id;
+              req.apiKeyOwnerUserId = key.created_by ?? null;
               req.isApiKeyAuth = true;
               req.isM2mToken = true;
             }
@@ -76,6 +78,10 @@ export function apiKeyAuthMiddleware(pool, { logger, config = {} }) {
       // Auth erfolgreich → Request anreichern
       req.orgId = record.org_id;
       req.apiKeyId = record.id;
+      // Menschlicher Verantwortlicher hinter dem Maschinen-Key (org_api_keys.created_by).
+      // Ohne ihn bliebe details.responsible_actor_user_id bei M2M-Aktionen (z.B. SCIM)
+      // dauerhaft null — Produktionspfeiler 5 verlangt aber einen benennbaren Akteur.
+      req.apiKeyOwnerUserId = record.created_by ?? null;
       req.apiKeyScopes = record.scopes || [];
       req.isApiKeyAuth = true;
 

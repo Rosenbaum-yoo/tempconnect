@@ -289,7 +289,7 @@ export async function rotateApiKey(pool, keyId, orgId, opts = {}) {
  */
 export async function lookupByHash(pool, keyHash) {
   const { rows } = await pool.query(
-    `SELECT id, org_id, scopes, is_active, expires_at
+    `SELECT id, org_id, scopes, is_active, expires_at, created_by
      FROM org_api_keys
      WHERE key_hash = $1 AND is_active = TRUE`,
     [keyHash]
@@ -312,7 +312,7 @@ export async function lookupByHash(pool, keyHash) {
 export async function lookupById(pool, keyId) {
   if (!keyId) return null;
   const { rows } = await pool.query(
-    `SELECT id, org_id, scopes, is_active, expires_at
+    `SELECT id, org_id, scopes, is_active, expires_at, created_by
      FROM org_api_keys
      WHERE id = $1 AND is_active = TRUE`,
     [keyId]

@@ -15,7 +15,8 @@
  */
 
 import { readFileSync, readdirSync } from "node:fs";
-import { join } from "node:path";
+import { join, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 
 const ROUTES_DIR = join(import.meta.dirname, "..", "routes");
 
@@ -86,6 +87,164 @@ const AUDIT_PATTERNS = [
  */
 const DELEGATE_RE = /=>\s*([a-zA-Z_]+)\s*\(\s*req\s*,\s*res/;
 
+/**
+ * Erkennt Handler, die als blosse Funktions-REFERENZ registriert werden statt als
+ * Inline-Arrow — z.B. `router.patch("/x/:id", gate, scope, json, applyUpdate);`
+ * (scim.js teilt sich PUT/PATCH einen gemeinsamen applyUpdate-Handler).
+ * Ohne diese Erkennung meldet das Gate solche Endpunkte faelschlich als "kein Audit",
+ * obwohl der Audit-Aufruf in der referenzierten Funktion steht.
+ *
+ * `[^)]*?` kann keine Klammer ueberspringen — Inline-Arrows (`async (req, res) => {`)
+ * matchen daher bewusst NICHT und laufen weiter ueber die normale Block-Pruefung.
+ */
+const DIRECT_HANDLER_RE = /^\s*router\.(?:post|put|patch|delete)\s*\([^)]*?,\s*([a-zA-Z_$][\w$]*)\s*\)\s*;?\s*$/;
+
+/**
+ * Liefert den vollstaendigen Rumpf einer benannten Funktion (brace-matched).
+ * Unterstuetzt `function f(){}`, `async function f(){}` und `const f = async (…) => {}`.
+ *
+ * Bewusst brace-matched statt fixem Zeichenfenster: ein zu kurzes Fenster uebersieht
+ * Audit-Aufrufe am Ende langer Handler (false negative), ein zu langes zieht den
+ * Audit-Aufruf der NAECHSTEN Funktion herein und meldet ungeprueft "abgedeckt"
+ * (false positive) — fuer ein Security-Gate das gefaehrlichere Versagen.
+ *
+ * @returns {string|null} Funktionsrumpf oder null, wenn die Funktion nicht auffindbar ist
+ */
+function resolveFunctionBody(src, fnName) {
+  const escaped = fnName.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const declRe = new RegExp(
+    `(?:async\\s+)?function\\s+${escaped}\\s*\\(|` +
+    `(?:const|let|var)\\s+${escaped}\\s*=\\s*(?:async\\s*)?(?:function\\b|\\()`,
+    "m"
+  );
+  const decl = declRe.exec(src);
+  if (!decl) return null;
+
+  // Erst die Parameterliste ueberspringen, dann den Rumpf suchen — sonst wuerde ein
+  // destrukturiertes Argument (`function f({ a, b }) {`) faelschlich als Rumpf gelesen.
+  const parenOpen = src.indexOf("(", decl.index);
+  if (parenOpen < 0) return null;
+  let parenDepth = 0;
+  let parenClose = -1;
+  for (let i = parenOpen; i < src.length; i++) {
+    if (src[i] === "(") parenDepth++;
+    else if (src[i] === ")") { parenDepth--; if (parenDepth === 0) { parenClose = i; break; } }
+  }
+  if (parenClose < 0) return null;
+
+  const bodyStart = src.indexOf("{", parenClose);
+  if (bodyStart < 0) return null;
+
+  let depth = 0;
+  for (let i = bodyStart; i < src.length; i++) {
+    const ch = src[i];
+    if (ch === "{") depth++;
+    else if (ch === "}") {
+      depth--;
+      if (depth === 0) return src.slice(bodyStart, i + 1);
+    }
+  }
+  return src.slice(bodyStart); // unbalanciert → Rest der Datei (konservativ)
+}
+
+/**
+ * Liefert den vollstaendigen Aufruf `router.post( … )` ab `startIndex` — inklusive
+ * verschachtelter Klammern, aber ohne alles, was NACH der schliessenden Klammer folgt.
+ *
+ * Klammern in String-Literalen (Route-Pfade, SQL) und in KOMMENTAREN werden nicht
+ * mitgezaehlt: Nummerierte Schritt-Kommentare wie `// 1)` sind im Code verbreitet und
+ * wuerden den Handler sonst mittendrin beenden (der Audit-Aufruf dahinter ginge verloren).
+ *
+ * @returns {string|null} Aufruftext oder null bei unbalancierter Klammerung
+ */
+function extractCallArguments(src, startIndex) {
+  const open = src.indexOf("(", startIndex);
+  if (open < 0) return null;
+  let depth = 0;
+  let quote = null;      // ' " ` — aktives String-Literal
+  let comment = null;    // "line" | "block"
+  let inRegex = false;   // /…/ Regex-Literal
+  let lastSignificant = ""; // letztes bedeutungstragendes Zeichen (fuer Regex-Erkennung)
+
+  for (let i = open; i < src.length; i++) {
+    const ch = src[i];
+    const next = src[i + 1];
+
+    if (comment === "line") { if (ch === "\n") comment = null; continue; }
+    if (comment === "block") { if (ch === "*" && next === "/") { comment = null; i++; } continue; }
+    if (inRegex) {
+      if (ch === "\\") { i++; continue; }
+      if (ch === "[") { // Zeichenklasse: / darin beendet die Regex nicht
+        while (i < src.length && src[i] !== "]") { if (src[i] === "\\") i++; i++; }
+        continue;
+      }
+      if (ch === "/") { inRegex = false; lastSignificant = "/"; }
+      continue;
+    }
+    if (quote) {
+      if (ch === "\\") { i++; continue; }
+      if (ch === quote) { quote = null; lastSignificant = "x"; }
+      continue;
+    }
+
+    if (ch === "/" && next === "/") { comment = "line"; i++; continue; }
+    if (ch === "/" && next === "*") { comment = "block"; i++; continue; }
+    // Regex-Literal vs. Division: nach Operator/Klammer-auf/Komma steht ein Literal,
+    // nach Wert/Bezeichner/Klammer-zu eine Division. Ohne das verwechselt der Scanner
+    // das Ende von `/^\//` mit einem Zeilenkommentar und verliert die Klammerbilanz.
+    if (ch === "/" && (lastSignificant === "" || "(,=:[!&|?{};+-*%<>~^".includes(lastSignificant))) {
+      inRegex = true;
+      continue;
+    }
+    if (ch === '"' || ch === "'" || ch === "`") { quote = ch; continue; }
+    if (ch === "(") depth++;
+    else if (ch === ")") { depth--; if (depth === 0) return src.slice(startIndex, i + 1); }
+
+    if (!/\s/.test(ch)) lastSignificant = ch;
+  }
+  return null;
+}
+
+/**
+ * Ersatz-Blockgrenze, wenn der Klammer-Scanner scheitert: ab der Registrierung bis zur
+ * naechsten Route-Registrierung (das urspruengliche Verhalten des Gates).
+ */
+function fallbackBlock(src, matchIndex, matchText) {
+  const restOfFile = src.slice(matchIndex);
+  const nextRouteMatch = restOfFile.slice(matchText.length).search(/router\.(get|post|put|patch|delete)\s*\(/i);
+  return nextRouteMatch >= 0 ? restOfFile.slice(0, matchText.length + nextRouteMatch) : restOfFile;
+}
+
+/** Bezeichner, die zwar wie Funktionsaufrufe aussehen, aber keine sind. */
+const NOT_A_CALL = new Set([
+  "if", "for", "while", "switch", "catch", "return", "typeof", "await", "function",
+  "require", "String", "Number", "Boolean", "Array", "Object", "JSON", "Promise", "Date", "Math"
+]);
+
+/**
+ * Loest lokale Audit-WRAPPER auf (eine Indirektionsebene).
+ * Muster: der Handler ruft keinen Audit-Service direkt auf, sondern eine in derselben
+ * Datei definierte Hilfsfunktion, die ihrerseits writeAudit(...) aufruft — z.B.
+ * `writeScimAudit(req, {...})` in scim.js.
+ *
+ * Bewusst generisch statt einer weiteren Namens-Konstante in AUDIT_PATTERNS: der Wrapper
+ * muss seinen Audit-Aufruf BEWEISEN (sein Rumpf wird geprueft), waehrend ein Eintrag in
+ * AUDIT_PATTERNS jedem gleichnamigen Aufruf blind vertraut.
+ */
+function hasAuditViaLocalWrapper(src, handlerBlock) {
+  const seen = new Set();
+  const callRe = /\b([a-zA-Z_$][\w$]*)\s*\(/g;
+  let m;
+  while ((m = callRe.exec(handlerBlock)) !== null) {
+    const name = m[1];
+    if (seen.has(name) || NOT_A_CALL.has(name)) continue;
+    seen.add(name);
+    const body = resolveFunctionBody(src, name);
+    if (body && AUDIT_PATTERNS.some(pat => pat.test(body))) return true;
+  }
+  return false;
+}
+
 function checkFile(filePath) {
   const src = readFileSync(filePath, "utf-8");
   const violations = [];
@@ -100,30 +259,35 @@ function checkFile(filePath) {
     // Allowlisted Route?
     if (ALLOWLIST_ROUTES.has(route)) continue;
 
-    // Finde den Handler-Block: ab dem Match bis zur naechsten Route-Registrierung
-    const restOfFile = src.slice(matchIndex);
-    const nextRouteMatch = restOfFile.slice(match[0].length).search(/router\.(get|post|put|patch|delete)\s*\(/i);
-    const handlerBlock = nextRouteMatch >= 0
-      ? restOfFile.slice(0, match[0].length + nextRouteMatch)
-      : restOfFile;
+    // Handler-Block = exakt die Argumentliste DIESER router.X(...)-Registrierung (paren-matched).
+    // Frueher: "alles bis zur naechsten Route-Registrierung" — dabei wurden Hilfsfunktionen,
+    // die ZWISCHEN zwei Registrierungen stehen, in den vorherigen Block hineingezogen. Ein
+    // dortiges writeAudit(...) liess den vorherigen Handler faelschlich als abgedeckt gelten
+    // (false negative — das Gate haette eine echte Luecke verschwiegen).
+    // Fallback bei unbalancierter Klammerung: die alte Heuristik (bis zur naechsten
+    // Registrierung) — bewusst NICHT "Rest der Datei", das waere die permissivste
+    // Variante und wuerde bei einem Scanner-Fehler still jede Luecke verstecken.
+    const handlerBlock = extractCallArguments(src, matchIndex) ?? fallbackBlock(src, matchIndex, match[0]);
 
     let hasAudit = AUDIT_PATTERNS.some(pat => pat.test(handlerBlock));
 
-    // Pruefe delegierte Handler: z.B. `=> mutateStatus(req, res, "closed")`
+    // Pruefe delegierte Handler. Zwei Formen:
+    //   1) Aufruf im Inline-Arrow:  `=> mutateStatus(req, res, "closed")`
+    //   2) blosse Referenz:         `router.put("/x/:id", gate, applyUpdate);`
     if (!hasAudit) {
-      const delegateMatch = handlerBlock.match(DELEGATE_RE);
+      const delegateMatch = handlerBlock.match(DELEGATE_RE)
+        || handlerBlock.match(DIRECT_HANDLER_RE);
       if (delegateMatch) {
-        const fnName = delegateMatch[1];
-        // Suche die Funktion im gesamten Source
-        const fnBodyStart = src.indexOf(`function ${fnName}(`) !== -1
-          ? src.indexOf(`function ${fnName}(`)
-          : src.indexOf(`async function ${fnName}(`);
-        if (fnBodyStart >= 0) {
-          const fnBody = src.slice(fnBodyStart, fnBodyStart + 2000);
-          hasAudit = AUDIT_PATTERNS.some(pat => pat.test(fnBody));
+        const fnBody = resolveFunctionBody(src, delegateMatch[1]);
+        if (fnBody) {
+          hasAudit = AUDIT_PATTERNS.some(pat => pat.test(fnBody))
+            || hasAuditViaLocalWrapper(src, fnBody);
         }
       }
     }
+
+    // Letzter Schritt: lokaler Audit-Wrapper direkt im Handler (z.B. writeScimAudit(req, …))
+    if (!hasAudit) hasAudit = hasAuditViaLocalWrapper(src, handlerBlock);
 
     // 501 Stubs brauchen kein Audit
     const isStub = /status\(501\)/.test(handlerBlock);
@@ -137,7 +301,16 @@ function checkFile(filePath) {
   return violations;
 }
 
+// Fuer Tests: die Scanner-Bausteine sind einzeln pruefbar (test/auditCoverageCheck.test.js).
+export { extractCallArguments, resolveFunctionBody, hasAuditViaLocalWrapper, checkFile };
+
 // ── Main ─────────────────────────────────────────────────────────
+// Nur ausfuehren, wenn direkt aufgerufen — sonst wuerde ein Test-Import die komplette
+// Pruefung starten und via process.exit() den Testlauf abbrechen.
+const isMain = process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url);
+if (isMain) runCheck();
+
+function runCheck() {
 const files = readdirSync(ROUTES_DIR).filter(f => f.endsWith(".js") && !ALLOWLIST_FILES.has(f));
 let totalEndpoints = 0;
 let totalViolations = 0;
@@ -180,4 +353,5 @@ if (results.length === 0) {
   }
   console.log(`Gesamt: ${totalEndpoints} Endpunkte geprüft, ${totalViolations} ohne Audit.\n`);
   process.exit(1);
+}
 }

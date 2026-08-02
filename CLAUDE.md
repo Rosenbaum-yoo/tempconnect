@@ -399,6 +399,20 @@ Kategorien: Bug-Pattern | Architektur | Security | Test | Performance | Wiederve
 
 ---
 
+## Living-Platform-Direktiven (Owner 2026-07-22, verbindlich)
+
+- **DACH-first Zeit.** Alle Datums-/Zeitwerte in `Europe/Berlin`, nie roher UTC-Slice
+  (`new Date().toISOString().slice(0,10)` = Off-by-one-Bug). Zentrale `todayDE()`-Utility
+  (Server + Client) + `TZ=Europe/Berlin` im Container. Bei jedem neuen Datums-Handling anwenden.
+- **Voll verdrahtet + Live-Monitoring als Standard.** Jede Einsatz-/Arbeiter-Zustandsänderung
+  propagiert zeitlich korrekt in Marktplatz, Einsätze, Live-Belegschaft, Stundenzettel, Angebote
+  (Skills) und Benachrichtigungen. Live-Überwachung aktiver Einsätze (Zeitarbeitsfirma **und**
+  Unternehmen) ist Pflicht-Standard — zukunftssicher + psychologischer Vertrauens-Effekt, kein Extra.
+- **Upload vs. KI-Bild strikt getrennt.** Upload-Bereiche (Profil-/Firmen-/Angebotsfoto) nur echte
+  Fotos (B2B kümmert sich selbst); KI-Bilder nur wo kein Upload möglich **und** sinnvoll ist
+  (Landing, Kategorie-Bildwelt). Landing-Redesign & sichtbare UI-Änderungen: **Preview zuerst.**
+- Vollständige Arbeitsanweisung/Roadmap: `docs/features/PLATFORM_LIVING_ROADMAP.md`.
+
 ## 8. Self-Update- und Lern-Mechanik
 
 Claude Code verbessert dieses Dokument kontrolliert und kontinuierlich. Es gibt zwei Wege:
@@ -439,3 +453,13 @@ Claude Code betreibt eine kontrollierte Lernschleife für Wirtschaftlichkeit und
 - `.claude/` gehört NIE ins externe Release-Artefakt.
 
 Vollständige Spezifikation: `finalization/phase5_scale/SELF_UPDATING_CLAUDE_MD.md`.
+
+---
+
+## Globale Direktiven-Update (2026-06-23)
+
+Zusätzlich verbindlich (Quelle: globale `~/CLAUDE.md` §0.10–§0.13 — gelten automatisch; hier zur Sichtbarkeit verankert):
+- **§0.10 Über-Liefern:** immer enorm mehr liefern als gefragt — mehr **Wert**, nicht Ballast (im Rahmen von Effizienz/Wirtschaftlichkeit).
+- **§0.11 Hype-Verantwortung:** Projekt zusätzlich trend-/hype-fähig bauen; regelmäßig umsetzbare Hype-Ideen liefern (Mechanismus „Hype Radar").
+- **§0.12 Mehrfach-Verifikation + audit-feste Doku:** Arbeit mehrfach prüfen bis perfekt; Doku muss jederzeit einer echten, zeitgenauen Prüfung standhalten (automatisiert, wo möglich).
+- **§0.13 Multi-Strategie & Multi-Agent:** Probleme auf mehreren Wegen lösen; bei Sackgassen mehrere (Sub-)Agenten parallel einsetzen.

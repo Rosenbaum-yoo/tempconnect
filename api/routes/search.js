@@ -8,11 +8,10 @@
  */
 
 import { Router } from "express";
-import { swallow } from "../utils/logger.js";
+import { swallow, domainLogger } from "../utils/logger.js";
 import * as searchService from "../services/searchService.js";
 import * as searchHistory from "../services/searchHistoryService.js";
 import * as searchModeration from "../services/searchModerationService.js";
-import { domainLogger } from "../utils/logger.js";
 import { ok, fail } from "../utils/response.js";
 
 /**

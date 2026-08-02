@@ -18,7 +18,9 @@
 
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
-import { writeAudit, withResponsibleActor } from "../services/auditLog.js";
+import {
+  writeAudit, withResponsibleActor, writeAuditEnhanced, resolveAuditActor, withMachineActor
+} from "../services/auditLog.js";
 
 /** Pool-Attrappe, die die Parameter des INSERT festhaelt. */
 function capturePool() {
@@ -113,5 +115,96 @@ describe("withResponsibleActor — Randfaelle ohne Datenverlust", () => {
     const result = withResponsibleActor(original, "user-1");
     assert.equal(original.responsible_actor_user_id, undefined, "Das Original bleibt unberuehrt");
     assert.equal(result.responsible_actor_user_id, "user-1");
+  });
+});
+
+/**
+ * Maschinen-Auth (API-Key / M2M-JWT) — der zweite Weg, auf dem Mutationen entstehen.
+ *
+ * Bis hierher loesten beide Audit-Wege den Akteur nur aus `req.session.userId` auf. Ein
+ * Request per API-Key hat keine Session: er schrieb `actor_id: null` und war damit von
+ * einem Cron-/Systemlauf nicht zu unterscheiden — obwohl es sehr wohl einen
+ * Verantwortlichen gibt (den Ersteller des Keys, `org_api_keys.created_by`).
+ * Betroffen waren alle scope-faehigen Routen (workers, timesheets, requisitions, invoices,
+ * assignments, capacityExchange, companyTimesheets), nicht nur SCIM.
+ *
+ * `resolveAuditActor` ist die eine Stelle, die das entscheidet — beide Wege benutzen sie.
+ */
+describe("Audit-Akteur bei Maschinen-Auth", () => {
+  const apiKeyReq = (over = {}) => ({
+    isApiKeyAuth: true, apiKeyId: "key-1", apiKeyOwnerUserId: "owner-1",
+    orgId: "org-1", ip: "10.0.0.9", headers: { "user-agent": "Okta-SCIM/2.0" }, ...over
+  });
+
+  it("Session gewinnt und bleibt unveraendert — kein Maschinen-Kontext", () => {
+    const { actor_id, machine } = resolveAuditActor({ session: { userId: "u-1" }, isApiKeyAuth: true });
+    assert.equal(actor_id, "u-1");
+    assert.equal(machine, null, "Session-Eintraege duerfen sich nicht veraendern");
+  });
+
+  it("API-Key → Verantwortlicher ist der Key-Ersteller", () => {
+    const { actor_id, machine } = resolveAuditActor(apiKeyReq());
+    assert.equal(actor_id, "owner-1");
+    assert.equal(machine.actor_type, "api_key");
+    assert.equal(machine.api_key_id, "key-1");
+    assert.equal(machine.responsible_actor_unknown, undefined);
+  });
+
+  it("M2M-JWT wird als eigener actor_type gefuehrt", () => {
+    assert.equal(resolveAuditActor(apiKeyReq({ isM2mToken: true })).machine.actor_type, "m2m_token");
+  });
+
+  it("Key-Ersteller geloescht → ausdruecklich als unbekannt markiert", () => {
+    // Sonst waere der Eintrag (actor_id null) von einem echten Systemlauf nicht zu trennen.
+    const { actor_id, machine } = resolveAuditActor(apiKeyReq({ apiKeyOwnerUserId: null }));
+    assert.equal(actor_id, null);
+    assert.equal(machine.actor_type, "api_key");
+    assert.equal(machine.responsible_actor_unknown, true);
+  });
+
+  it("Weder Session noch Maschine → echter Systemvorgang (null, kein Kontext)", () => {
+    const { actor_id, machine } = resolveAuditActor({});
+    assert.equal(actor_id, null);
+    assert.equal(machine, null);
+  });
+
+  it("withMachineActor laesst Details ohne Maschine unberuehrt", () => {
+    const d = { reason: "x" };
+    assert.deepEqual(withMachineActor(d, null), d);
+    assert.equal(withMachineActor(null, null), null);
+  });
+
+  it("withMachineActor veraendert das Original nicht", () => {
+    const original = { reason: "x" };
+    const out = withMachineActor(original, { actor_type: "api_key" });
+    assert.equal(original.actor_type, undefined);
+    assert.equal(out.actor_type, "api_key");
+    assert.equal(out.reason, "x");
+  });
+
+  it("writeAuditEnhanced schreibt Verantwortlichen + Maschinen-Kontext in einem Zug", async () => {
+    const pool = capturePool();
+    await writeAuditEnhanced(pool, apiKeyReq(), { ...BASE, details: { reason: "HR-Sync" } });
+    const d = pool.lastDetails();
+    assert.equal(d.responsible_actor_user_id, "owner-1");
+    assert.equal(d.actor_type, "api_key");
+    assert.equal(d.api_key_id, "key-1");
+    assert.equal(d.reason, "HR-Sync", "fachliche Details bleiben erhalten");
+    assert.equal(pool.calls[0].params[0], "owner-1", "actor_id-Spalte gefuellt");
+    assert.equal(pool.calls[0].params[8], "org-1", "org_id-Spalte gefuellt");
+  });
+
+  it("ausdruecklicher actor_id des Aufrufers gewinnt weiterhin", async () => {
+    const pool = capturePool();
+    await writeAuditEnhanced(pool, apiKeyReq(), { ...BASE, actor_id: "support-7" });
+    assert.equal(pool.lastDetails().responsible_actor_user_id, "support-7");
+  });
+
+  it("writeAuditEnhanced ohne Details erzeugt trotzdem den vollen Nachweis", async () => {
+    const pool = capturePool();
+    await writeAuditEnhanced(pool, apiKeyReq(), { ...BASE });
+    const d = pool.lastDetails();
+    assert.equal(d.responsible_actor_user_id, "owner-1");
+    assert.equal(d.actor_type, "api_key");
   });
 });
