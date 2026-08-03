@@ -336,6 +336,27 @@
 - **6.1 Sprach-Switch DE/EN.** i18n-Schicht (Key→Text, `de`/`en`), Umschalter im Header, Persistenz
   (User-Präferenz `preferred_locale` existiert bereits im Worker-Profil). Schrittweise Migration der
   UI-Strings; DE bleibt Default (DACH-Markt).
+  - **✅ Fundament + Eintrittsstrecke erledigt (2026-08-03):**
+    `frontend/public/js/i18n.js` — leichte Key→Text-Schicht nach dem theme.js-Muster
+    (localStorage `tempconnect-lang`, `<html lang>` vor dem Paint, deklaratives `data-i18n`/
+    `data-i18n-ph`, DE|EN-Umschalter via `data-i18n-switcher` mit selbst injizierten Token-Styles,
+    Event `tc:langchange`). Wörterbücher sind **progressiv** (jede Seite registriert ihre Keys);
+    EN-Lücken fallen ehrlich auf DE zurück, nie auf rohe Keys.
+  - **Erste migrierte Seite: `worker-login.html`** — bewusst gewählt, weil internationale
+    Kräfte (Pflege/Logistik) über den Einladungslink einsteigen und die Sprache VOR dem
+    ersten Formular wechseln können müssen. Vollständig zweisprachig (Markup + alle
+    JS-Meldungen inkl. Fehlerpfade); explizite Wahl wird nach Login/Accept in
+    `worker_profiles.preferred_locale` persistiert (Feld + PATCH existierten bereits).
+  - **Kritischer Beifang (nginx):** `BASE_URL/worker-login.html?invite=…` — die URL aus ALLEN
+    Einladungs-Mails — fiel in den Catch-all und servierte die **Landing**: die Einladung war
+    eine Sackgasse. Exakter Alias in beiden Confs (dev + deploy), live verifiziert (200 +
+    echte Login-Seite).
+  - Tests: `api/test/i18nFoundation.test.js` — vm-Sandbox der Schicht (Auflösung, Fallback,
+    Interpolation, set/apply/Event) + **DE/EN-Schlüssel-Parität** der Seite (fehlende
+    Übersetzung wird rot, statt still deutsch zu bleiben). Browser-verifiziert: DE↔EN live
+    umgeschaltet, Konsole sauber.
+  - **Offen (nächste Wellen):** Einsatzportal-Seiten (Shell zuerst), dann Plattform-Flächen;
+    Muster steht — je Seite: `data-i18n`-Marker + `TCi18n.register` + Paritätstest.
 
 ## Phase 7 — Visual/Media Layer (PREVIEW ZUERST)
 

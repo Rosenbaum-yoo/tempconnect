@@ -2,6 +2,7 @@
 <html lang="de">
 <head>
   <script src="/public/js/theme.js"></script>
+  <script src="/public/js/i18n.js"></script>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>TempConnect – Worker Portal Login</title>
@@ -27,12 +28,15 @@
 <body>
 <div class="wk-auth-page">
   <div class="wk-auth-box" id="authBox">
+    <!-- P6: Sprachwahl VOR dem Login — internationale Kräfte (Pflege/Logistik)
+         müssen die Einladung verstehen können, bevor sie ein Konto haben. -->
+    <div style="display:flex;justify-content:flex-end;margin-bottom:4px"><span data-i18n-switcher></span></div>
     <div class="wk-auth-logo">TC</div>
 
     <!-- PHASE 1: Einladung annehmen (mit ?invite=TOKEN) -->
     <div id="inviteSection" style="display:none">
-      <h1 class="wk-auth-title">Konto einrichten</h1>
-      <p class="wk-auth-subtitle" id="inviteSubtitle">Einladung wird geprüft…</p>
+      <h1 class="wk-auth-title" data-i18n="wk.invite.title">Konto einrichten</h1>
+      <p class="wk-auth-subtitle" id="inviteSubtitle" data-i18n="wk.invite.checking">Einladung wird geprüft…</p>
 
       <div id="inviteLoading" class="wk-loading" style="padding:20px 0">
         <div class="wk-spinner"></div>
@@ -45,13 +49,13 @@
         </div>
 
         <div class="wk-form-group">
-          <label class="wk-label" for="invEmail">E-Mail-Adresse</label>
+          <label class="wk-label" for="invEmail" data-i18n="wk.common.email">E-Mail-Adresse</label>
           <input type="email" id="invEmail" class="wk-input" readonly>
         </div>
 
         <div class="wk-form-group">
-          <label class="wk-label" for="invPassword">Passwort wählen <span class="required">*</span></label>
-          <input type="password" id="invPassword" class="wk-input" placeholder="Mind. 8 Zeichen" autocomplete="new-password">
+          <label class="wk-label" for="invPassword"><span data-i18n="wk.invite.choosePw">Passwort wählen</span> <span class="required">*</span></label>
+          <input type="password" id="invPassword" class="wk-input" placeholder="Mind. 8 Zeichen" data-i18n-ph="wk.invite.pwMin" autocomplete="new-password">
           <div class="wk-pw-strength">
             <div class="wk-pw-bar"><div class="wk-pw-fill" id="pwFill"></div></div>
             <div class="wk-pw-label" id="pwLabel"></div>
@@ -59,13 +63,13 @@
         </div>
 
         <div class="wk-form-group">
-          <label class="wk-label" for="invPasswordConfirm">Passwort bestätigen <span class="required">*</span></label>
-          <input type="password" id="invPasswordConfirm" class="wk-input" placeholder="Passwort wiederholen" autocomplete="new-password">
-          <div class="wk-error-msg" id="pwMatchError" style="display:none">Passwörter stimmen nicht überein.</div>
+          <label class="wk-label" for="invPasswordConfirm"><span data-i18n="wk.invite.confirmPw">Passwort bestätigen</span> <span class="required">*</span></label>
+          <input type="password" id="invPasswordConfirm" class="wk-input" placeholder="Passwort wiederholen" data-i18n-ph="wk.invite.repeatPw" autocomplete="new-password">
+          <div class="wk-error-msg" id="pwMatchError" style="display:none" data-i18n="wk.invite.pwMismatch">Passwörter stimmen nicht überein.</div>
         </div>
 
-        <button class="wk-btn wk-btn-primary wk-btn-full" id="invAcceptBtn" onclick="acceptInvite()">
-          Konto einrichten & anmelden
+        <button class="wk-btn wk-btn-primary wk-btn-full" id="invAcceptBtn" onclick="acceptInvite()" data-i18n="wk.invite.submit">
+          Konto einrichten &amp; anmelden
         </button>
         <div class="wk-error-msg" id="inviteError" style="display:none;margin-top:10px;text-align:center"></div>
       </div>
@@ -78,46 +82,46 @@
 
     <!-- PHASE 2: Login -->
     <div id="loginSection" style="display:none">
-      <h1 class="wk-auth-title">Worker-Portal</h1>
-      <p class="wk-auth-subtitle">Melden Sie sich an, um Ihre Stunden einzureichen</p>
+      <h1 class="wk-auth-title" data-i18n="wk.login.title">Worker-Portal</h1>
+      <p class="wk-auth-subtitle" data-i18n="wk.login.subtitle">Melden Sie sich an, um Ihre Stunden einzureichen</p>
 
       <div class="wk-form-group">
-        <label class="wk-label" for="loginEmail">E-Mail-Adresse</label>
-        <input type="email" id="loginEmail" class="wk-input" placeholder="ihre@email.de" autocomplete="email">
+        <label class="wk-label" for="loginEmail" data-i18n="wk.common.email">E-Mail-Adresse</label>
+        <input type="email" id="loginEmail" class="wk-input" placeholder="ihre@email.de" data-i18n-ph="wk.common.emailPh" autocomplete="email">
       </div>
 
       <div class="wk-form-group">
-        <label class="wk-label" for="loginPassword">Passwort</label>
-        <input type="password" id="loginPassword" class="wk-input" placeholder="Ihr Passwort" autocomplete="current-password">
+        <label class="wk-label" for="loginPassword" data-i18n="wk.common.password">Passwort</label>
+        <input type="password" id="loginPassword" class="wk-input" placeholder="Ihr Passwort" data-i18n-ph="wk.login.pwPh" autocomplete="current-password">
       </div>
 
-      <button class="wk-btn wk-btn-primary wk-btn-full" id="loginBtn" onclick="doLogin()">
+      <button class="wk-btn wk-btn-primary wk-btn-full" id="loginBtn" onclick="doLogin()" data-i18n="wk.login.submit">
         Anmelden
       </button>
       <div class="wk-error-msg" id="loginError" style="display:none;margin-top:10px;text-align:center"></div>
 
       <div class="wk-auth-footer">
-        <a href="#" onclick="showForgotPw()" style="color:var(--wk-primary)">Passwort vergessen?</a>
+        <a href="#" onclick="showForgotPw()" style="color:var(--wk-primary)" data-i18n="wk.login.forgot">Passwort vergessen?</a>
       </div>
     </div>
 
     <!-- PHASE 3: Passwort vergessen -->
     <div id="forgotSection" style="display:none">
-      <h1 class="wk-auth-title">Passwort zurücksetzen</h1>
-      <p class="wk-auth-subtitle">Wir senden Ihnen einen Link per E-Mail</p>
+      <h1 class="wk-auth-title" data-i18n="wk.forgot.title">Passwort zurücksetzen</h1>
+      <p class="wk-auth-subtitle" data-i18n="wk.forgot.subtitle">Wir senden Ihnen einen Link per E-Mail</p>
 
       <div class="wk-form-group">
-        <label class="wk-label" for="forgotEmail">E-Mail-Adresse</label>
-        <input type="email" id="forgotEmail" class="wk-input" placeholder="ihre@email.de">
+        <label class="wk-label" for="forgotEmail" data-i18n="wk.common.email">E-Mail-Adresse</label>
+        <input type="email" id="forgotEmail" class="wk-input" placeholder="ihre@email.de" data-i18n-ph="wk.common.emailPh">
       </div>
 
-      <button class="wk-btn wk-btn-primary wk-btn-full" onclick="doForgotPw()">
+      <button class="wk-btn wk-btn-primary wk-btn-full" onclick="doForgotPw()" data-i18n="wk.forgot.submit">
         Link senden
       </button>
       <div id="forgotMsg" style="display:none;margin-top:12px"></div>
 
       <div class="wk-auth-footer">
-        <a href="#" onclick="showLogin()" style="color:var(--wk-primary)">← Zurück zum Login</a>
+        <a href="#" onclick="showLogin()" style="color:var(--wk-primary)" data-i18n="wk.forgot.back">← Zurück zum Login</a>
       </div>
     </div>
   </div>
@@ -129,6 +133,113 @@
 const API = '/api';
 const params = new URLSearchParams(location.search);
 const inviteToken = params.get('invite');
+
+/* ── i18n (P6): Woerterbuch dieser Seite. DE = Quelle der Wahrheit,
+   EN fuer internationale Kraefte — die Einladung ist ihre Eintrittstuer. ── */
+TCi18n.register('de', {
+  'wk.title': 'TempConnect – Worker-Portal Login',
+  'wk.invite.title': 'Konto einrichten',
+  'wk.invite.checking': 'Einladung wird geprüft…',
+  'wk.invite.subtitle': 'Richten Sie jetzt Ihr Worker-Konto ein',
+  'wk.invite.hello': 'Hallo {first} {last} — Einladung von {org}',
+  'wk.invite.orgFallback': 'Ihrem Arbeitgeber',
+  'wk.invite.choosePw': 'Passwort wählen',
+  'wk.invite.pwMin': 'Mind. 8 Zeichen',
+  'wk.invite.confirmPw': 'Passwort bestätigen',
+  'wk.invite.repeatPw': 'Passwort wiederholen',
+  'wk.invite.pwMismatch': 'Passwörter stimmen nicht überein.',
+  'wk.invite.pwTooShort': 'Passwort muss mindestens 8 Zeichen lang sein.',
+  'wk.invite.submit': 'Konto einrichten & anmelden',
+  'wk.invite.working': '⏳ Wird eingerichtet…',
+  'wk.invite.done': 'Konto eingerichtet! Weiterleitung…',
+  'wk.invite.errGeneric': 'Fehler beim Einrichten des Kontos. Bitte versuchen Sie es erneut.',
+  'wk.invite.errUsed': 'Diese Einladung wurde bereits verwendet. Bitte melden Sie sich an.',
+  'wk.invite.errRevoked': 'Diese Einladung wurde widerrufen. Bitte kontaktieren Sie Ihren Arbeitgeber.',
+  'wk.invite.errExpired': 'Dieser Einladungslink ist abgelaufen. Bitte fordern Sie eine neue Einladung an.',
+  'wk.invite.errNotFound': 'Einladungslink nicht gefunden oder ungültig.',
+  'wk.login.title': 'Worker-Portal',
+  'wk.login.subtitle': 'Melden Sie sich an, um Ihre Stunden einzureichen',
+  'wk.login.pwPh': 'Ihr Passwort',
+  'wk.login.submit': 'Anmelden',
+  'wk.login.working': '⏳ Anmelden…',
+  'wk.login.forgot': 'Passwort vergessen?',
+  'wk.login.errEmpty': 'Bitte E-Mail und Passwort eingeben.',
+  'wk.login.errCreds': 'E-Mail oder Passwort falsch.',
+  'wk.login.errGeneric': 'Anmeldung fehlgeschlagen. Bitte versuchen Sie es erneut.',
+  'wk.login.errRole': 'Dieses Portal ist nur für Worker-Accounts zugänglich.',
+  'wk.forgot.title': 'Passwort zurücksetzen',
+  'wk.forgot.subtitle': 'Wir senden Ihnen einen Link per E-Mail',
+  'wk.forgot.submit': 'Link senden',
+  'wk.forgot.back': '← Zurück zum Login',
+  'wk.forgot.sent': 'Falls ein Konto existiert, wurde ein Link gesendet.',
+  'wk.common.email': 'E-Mail-Adresse',
+  'wk.common.emailPh': 'ihre@email.de',
+  'wk.common.password': 'Passwort',
+  'wk.pw.tooShort': 'Zu kurz',
+  'wk.pw.medium': 'Mittel',
+  'wk.pw.strong': 'Stark'
+});
+TCi18n.register('en', {
+  'wk.title': 'TempConnect – Worker Portal Login',
+  'wk.invite.title': 'Set up your account',
+  'wk.invite.checking': 'Checking your invitation…',
+  'wk.invite.subtitle': 'Set up your worker account now',
+  'wk.invite.hello': 'Hello {first} {last} — invited by {org}',
+  'wk.invite.orgFallback': 'your employer',
+  'wk.invite.choosePw': 'Choose a password',
+  'wk.invite.pwMin': 'At least 8 characters',
+  'wk.invite.confirmPw': 'Confirm password',
+  'wk.invite.repeatPw': 'Repeat password',
+  'wk.invite.pwMismatch': 'Passwords do not match.',
+  'wk.invite.pwTooShort': 'Password must be at least 8 characters long.',
+  'wk.invite.submit': 'Set up account & sign in',
+  'wk.invite.working': '⏳ Setting up…',
+  'wk.invite.done': 'Account ready! Redirecting…',
+  'wk.invite.errGeneric': 'Could not set up your account. Please try again.',
+  'wk.invite.errUsed': 'This invitation has already been used. Please sign in.',
+  'wk.invite.errRevoked': 'This invitation was revoked. Please contact your employer.',
+  'wk.invite.errExpired': 'This invitation link has expired. Please request a new invitation.',
+  'wk.invite.errNotFound': 'Invitation link not found or invalid.',
+  'wk.login.title': 'Worker Portal',
+  'wk.login.subtitle': 'Sign in to submit your working hours',
+  'wk.login.pwPh': 'Your password',
+  'wk.login.submit': 'Sign in',
+  'wk.login.working': '⏳ Signing in…',
+  'wk.login.forgot': 'Forgot password?',
+  'wk.login.errEmpty': 'Please enter your email and password.',
+  'wk.login.errCreds': 'Wrong email or password.',
+  'wk.login.errGeneric': 'Sign-in failed. Please try again.',
+  'wk.login.errRole': 'This portal is only available for worker accounts.',
+  'wk.forgot.title': 'Reset password',
+  'wk.forgot.subtitle': 'We will send you a link by email',
+  'wk.forgot.submit': 'Send link',
+  'wk.forgot.back': '← Back to sign-in',
+  'wk.forgot.sent': 'If an account exists, a link has been sent.',
+  'wk.common.email': 'Email address',
+  'wk.common.emailPh': 'you@email.com',
+  'wk.common.password': 'Password',
+  'wk.pw.tooShort': 'Too short',
+  'wk.pw.medium': 'Medium',
+  'wk.pw.strong': 'Strong'
+});
+const t = TCi18n.t;
+function applyTitle() { document.title = t('wk.title'); }
+applyTitle();
+document.addEventListener('tc:langchange', applyTitle);
+
+/* Explizite Sprachwahl nach erfolgreichem Login/Accept ins Profil schreiben
+   (worker_profiles.preferred_locale existiert seit Mig 074; PATCH /worker/me
+   akzeptiert das Feld bereits). Fire-and-forget — darf den Einstieg nie blockieren. */
+async function persistLocale(csrf) {
+  if (!TCi18n.hasExplicitChoice()) return;
+  try {
+    await fetch(`${API}/worker/me`, {
+      method: 'PATCH', credentials: 'include',
+      headers: { 'Content-Type': 'application/json', 'x-csrf-token': csrf },
+      body: JSON.stringify({ preferred_locale: TCi18n.locale() })
+    });
+  } catch (e) { /* unkritisch */ }
+}
 
 /* ── CSRF ──────────────────────────────────────────────────── */
 let _csrfToken = null;
@@ -165,13 +276,13 @@ async function checkInvite() {
     document.getElementById('inviteLoading').style.display = 'none';
 
     if (!res.ok || !data.valid) {
-      const msgs = {
-        INVITE_ALREADY_USED: 'Diese Einladung wurde bereits verwendet. Bitte melden Sie sich an.',
-        INVITE_REVOKED:      'Diese Einladung wurde widerrufen. Bitte kontaktieren Sie Ihren Arbeitgeber.',
-        INVITE_EXPIRED:      'Dieser Einladungslink ist abgelaufen. Bitte fordern Sie eine neue Einladung an.',
-        INVITE_NOT_FOUND:    'Einladungslink nicht gefunden oder ungültig.'
+      const msgKeys = {
+        INVITE_ALREADY_USED: 'wk.invite.errUsed',
+        INVITE_REVOKED:      'wk.invite.errRevoked',
+        INVITE_EXPIRED:      'wk.invite.errExpired',
+        INVITE_NOT_FOUND:    'wk.invite.errNotFound'
       };
-      document.getElementById('inviteInvalidText').textContent = msgs[data.error] || msgs.INVITE_NOT_FOUND;
+      document.getElementById('inviteInvalidText').textContent = t(msgKeys[data.error] || 'wk.invite.errNotFound');
       document.getElementById('inviteInvalid').style.display = 'flex';
 
       // Bei "already used" → Login zeigen
@@ -184,12 +295,12 @@ async function checkInvite() {
     // Token gültig → Formular befüllen
     document.getElementById('invEmail').value = data.email;
     document.getElementById('inviteInfoText').textContent =
-      `Hallo ${data.first_name} ${data.last_name} — Einladung von ${data.supplier_org_name || 'Ihrem Arbeitgeber'}`;
-    document.getElementById('inviteSubtitle').textContent =
-      `Richten Sie jetzt Ihr Worker-Konto ein`;
+      t('wk.invite.hello', { first: data.first_name, last: data.last_name, org: data.supplier_org_name || t('wk.invite.orgFallback') });
+    document.getElementById('inviteSubtitle').textContent = t('wk.invite.subtitle');
     document.getElementById('inviteForm').style.display = 'block';
   } catch (e) {
     document.getElementById('inviteLoading').style.display = 'none';
+    document.getElementById('inviteInvalidText').textContent = t('wk.invite.errNotFound');
     document.getElementById('inviteInvalid').style.display = 'flex';
   }
 }
@@ -201,13 +312,13 @@ document.addEventListener('input', function(e) {
   const fill = document.getElementById('pwFill');
   const lbl  = document.getElementById('pwLabel');
   if (!pw) { fill.className = 'wk-pw-fill'; lbl.textContent = ''; return; }
-  if (pw.length < 8) { fill.className = 'wk-pw-fill weak'; lbl.textContent = 'Zu kurz'; return; }
+  if (pw.length < 8) { fill.className = 'wk-pw-fill weak'; lbl.textContent = t('wk.pw.tooShort'); return; }
   const hasUpper = /[A-Z]/.test(pw);
   const hasNum   = /\d/.test(pw);
   const hasSpec  = /[^A-Za-z0-9]/.test(pw);
   const score = [hasUpper, hasNum, hasSpec].filter(Boolean).length;
-  if (score === 0 || pw.length < 10) { fill.className = 'wk-pw-fill medium'; lbl.textContent = 'Mittel'; }
-  else { fill.className = 'wk-pw-fill strong'; lbl.textContent = 'Stark'; }
+  if (score === 0 || pw.length < 10) { fill.className = 'wk-pw-fill medium'; lbl.textContent = t('wk.pw.medium'); }
+  else { fill.className = 'wk-pw-fill strong'; lbl.textContent = t('wk.pw.strong'); }
 });
 
 /* ── Invite acceptieren ────────────────────────────────────── */
@@ -219,10 +330,10 @@ async function acceptInvite() {
 
   matchEl.style.display = pw !== pw2 ? 'block' : 'none';
   if (pw !== pw2) return;
-  if (pw.length < 8) { errEl.textContent = 'Passwort muss mindestens 8 Zeichen lang sein.'; errEl.style.display = 'block'; return; }
+  if (pw.length < 8) { errEl.textContent = t('wk.invite.pwTooShort'); errEl.style.display = 'block'; return; }
 
   const btn = document.getElementById('invAcceptBtn');
-  btn.disabled = true; btn.textContent = '⏳ Wird eingerichtet…';
+  btn.disabled = true; btn.textContent = t('wk.invite.working');
   errEl.style.display = 'none';
 
   try {
@@ -234,7 +345,8 @@ async function acceptInvite() {
     });
     const data = await res.json();
     if (!res.ok) throw new Error(data.error || 'Fehler');
-    showToast('Konto eingerichtet! Weiterleitung…', 'success');
+    persistLocale(csrf);
+    showToast(t('wk.invite.done'), 'success');
     // Nach Annahme einer Einladung ins PROFIL, nicht aufs Dashboard (Multi-Skill Welle 2):
     // Wer gerade erst eingeladen wurde, hat ein leeres Profil. Das Dashboard zeigt ihm
     // dann leere Listen und keinen Weg nach vorn. `willkommen=1` macht dort aus dem
@@ -244,10 +356,10 @@ async function acceptInvite() {
     setTimeout(() => location.href = 'einsatzportal-profil.html?willkommen=1', 1500);
   } catch (e) {
     errEl.textContent = e.message === 'INVITE_ALREADY_USED'
-      ? 'Diese Einladung wurde bereits verwendet.'
-      : 'Fehler beim Einrichten des Kontos. Bitte versuchen Sie es erneut.';
+      ? t('wk.invite.errUsed')
+      : t('wk.invite.errGeneric');
     errEl.style.display = 'block';
-    btn.disabled = false; btn.textContent = 'Konto einrichten & anmelden';
+    btn.disabled = false; btn.textContent = t('wk.invite.submit');
   }
 }
 
@@ -257,9 +369,9 @@ async function doLogin() {
   const pw    = document.getElementById('loginPassword').value;
   const errEl = document.getElementById('loginError');
   const btn   = document.getElementById('loginBtn');
-  if (!email || !pw) { errEl.textContent = 'Bitte E-Mail und Passwort eingeben.'; errEl.style.display = 'block'; return; }
+  if (!email || !pw) { errEl.textContent = t('wk.login.errEmpty'); errEl.style.display = 'block'; return; }
 
-  btn.disabled = true; btn.textContent = '⏳ Anmelden…';
+  btn.disabled = true; btn.textContent = t('wk.login.working');
   errEl.style.display = 'none';
 
   try {
@@ -272,19 +384,20 @@ async function doLogin() {
     const data = await res.json();
     if (!res.ok) throw new Error(data.error || 'LOGIN_FAILED');
     if (data.role !== 'worker') {
-      errEl.textContent = 'Dieses Portal ist nur für Worker-Accounts zugänglich.';
+      errEl.textContent = t('wk.login.errRole');
       errEl.style.display = 'block';
       await fetch(`${API}/auth/logout`, { method: 'POST', credentials: 'include', headers: { 'x-csrf-token': csrf } });
-      btn.disabled = false; btn.textContent = 'Anmelden';
+      btn.disabled = false; btn.textContent = t('wk.login.submit');
       return;
     }
+    await persistLocale(csrf);
     location.href = 'einsatzportal-dashboard.html';
   } catch (e) {
     errEl.textContent = e.message === 'INVALID_CREDENTIALS'
-      ? 'E-Mail oder Passwort falsch.'
-      : 'Anmeldung fehlgeschlagen. Bitte versuchen Sie es erneut.';
+      ? t('wk.login.errCreds')
+      : t('wk.login.errGeneric');
     errEl.style.display = 'block';
-    btn.disabled = false; btn.textContent = 'Anmelden';
+    btn.disabled = false; btn.textContent = t('wk.login.submit');
   }
 }
 
@@ -310,7 +423,8 @@ async function doForgotPw() {
       headers: { 'Content-Type': 'application/json', 'x-csrf-token': csrf },
       body: JSON.stringify({ email })
     });
-    msgEl.innerHTML = '<div class="wk-alert wk-alert-success"><span>✅</span><span>Falls ein Konto existiert, wurde ein Link gesendet.</span></div>';
+    msgEl.innerHTML = '<div class="wk-alert wk-alert-success"><span>✅</span><span></span></div>';
+    msgEl.querySelector('span:last-child').textContent = t('wk.forgot.sent');
     msgEl.style.display = 'block';
   } catch { /* silent */ }
 }
