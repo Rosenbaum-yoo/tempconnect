@@ -208,6 +208,7 @@ describe("dataGovernanceService — anonymizeUser", () => {
       { rows: [{ c: 0 }] },   // timesheets
       { rows: [{ c: 0 }] },   // invoices
       // anonymize queries
+      { rows: [{ email: "max@firma.de" }] }, // SELECT Original-E-Mail (vor users-UPDATE)
       { rows: [] },            // UPDATE users
       { rows: [] },            // UPDATE worker_profiles
       { rows: [] },            // DELETE worker_invites
@@ -230,6 +231,7 @@ describe("dataGovernanceService — anonymizeUser", () => {
       { rows: [{ c: 0 }] },
       { rows: [{ c: 0 }] },
       { rows: [{ c: 0 }] },
+      { rows: [{ email: "max@firma.de" }] }, // SELECT Original-E-Mail
       ...Array(9).fill({ rows: [] })
     );
     const result = await svc.anonymizeUser(pool, "u1", "actor1");
@@ -302,6 +304,91 @@ describe("dataGovernanceService — retention", () => {
     assert.strictEqual(result.deleted.deleted_notifications, 1);
     assert.strictEqual(result.deleted.deleted_sessions, 1);
     assert.strictEqual(result.deleted.deleted_idempotency_keys, 0);
+  });
+});
+
+// ═══════════════════════════════════════════════════════════════
+// SQL-Form-Wächter: worker_invites-Schema + accepted-Schutz
+// (Regression: org_id/created_by existierten nie — safeQuery schluckte
+// den Fehler, die Retention löschte monatelang still gar nichts.)
+// ═══════════════════════════════════════════════════════════════
+
+/** Pool, der jede Query (SQL + Params) aufzeichnet; Antwort per responder. */
+function recordingPool(responder = () => ({ rows: [] })) {
+  const calls = [];
+  const queryFn = async (sql, params = []) => {
+    if (typeof sql === "string" && ["BEGIN", "COMMIT", "ROLLBACK"].includes(sql.trim().toUpperCase())) {
+      return { rows: [], rowCount: 0 };
+    }
+    calls.push({ sql, params });
+    return responder(sql, params) || { rows: [] };
+  };
+  return { calls, query: queryFn, connect: async () => ({ query: queryFn, release: () => {} }) };
+}
+
+describe("dataGovernanceService — SQL-Form (Schema-Drift-Wächter)", () => {
+  it("executeRetentionCleanup löscht Invites über supplier_org_id und NIE accepted", async () => {
+    const pool = recordingPool();
+    await svc.executeRetentionCleanup(pool, "org1", false);
+    const del = pool.calls.find((c) => c.sql.includes("DELETE FROM worker_invites"));
+    assert.ok(del, "Invite-DELETE fehlt");
+    assert.ok(del.sql.includes("supplier_org_id = $1"), "worker_invites hat supplier_org_id (Mig 029), nicht org_id");
+    assert.ok(!/\borg_id\b/.test(del.sql.replace(/supplier_org_id/g, "")), "org_id existiert auf worker_invites nicht");
+    assert.ok(del.sql.includes("status IN ('expired','revoked')"), "nur tote Invites löschen");
+    assert.ok(del.sql.includes("status = 'pending' AND expires_at < NOW()"), "pending nur mit abgelaufenem Token");
+    assert.ok(!del.sql.includes("'accepted'"), "accepted ist Registriert-Signal für Bulk-Dedup — nie löschen");
+    assert.deepStrictEqual(del.params, ["org1"]);
+  });
+
+  it("executeRetentionCleanup nutzt RETURNING key für idempotency_keys (PK ist key, nicht id)", async () => {
+    const pool = recordingPool();
+    await svc.executeRetentionCleanup(pool, "org1", false);
+    const del = pool.calls.find((c) => c.sql.includes("DELETE FROM idempotency_keys"));
+    assert.ok(del, "idempotency_keys-DELETE fehlt");
+    assert.ok(del.sql.includes("RETURNING key"), "Tabelle hat kein id — RETURNING id schlug still fehl");
+  });
+
+  it("getRetentionStatus zählt mit identischem Kriterium wie der Cleanup (Dry-Run-Wahrheit)", async () => {
+    const pool = recordingPool(() => ({ rows: [{ c: 0 }] }));
+    await svc.getRetentionStatus(pool, "org1");
+    const cnt = pool.calls.find((c) => c.sql.includes("FROM worker_invites"));
+    assert.ok(cnt, "Invite-Count fehlt");
+    assert.ok(cnt.sql.includes("supplier_org_id = $1"));
+    assert.ok(cnt.sql.includes("status IN ('expired','revoked')"));
+    assert.ok(cnt.sql.includes("status = 'pending' AND expires_at < NOW()"));
+    assert.ok(!cnt.sql.includes("'accepted'"));
+  });
+
+  it("anonymizeUser löscht Invites nur über die VOR der Anonymisierung gelesene E-Mail", async () => {
+    const pool = recordingPool((sql) => {
+      if (sql.includes("COUNT(*)")) return { rows: [{ c: 0 }] };
+      if (sql.startsWith("SELECT email FROM users")) return { rows: [{ email: "Worker@Firma.de" }] };
+      return { rows: [] };
+    });
+    await svc.anonymizeUser(pool, "u1", "actor1");
+    const del = pool.calls.find((c) => c.sql.includes("DELETE FROM worker_invites"));
+    assert.ok(del, "Invite-DELETE fehlt");
+    assert.ok(!del.sql.includes("created_by"), "created_by existiert auf worker_invites nicht (Spalte heißt invited_by)");
+    assert.ok(!del.sql.includes("invited_by"), "vom User VERSENDETE Invites (Daten Dritter) bleiben stehen");
+    assert.deepStrictEqual(del.params, ["Worker@Firma.de"], "muss die Original-E-Mail nutzen (vor dem users-UPDATE gelesen)");
+    const emailReadIdx = pool.calls.findIndex((c) => c.sql.startsWith("SELECT email FROM users"));
+    const usersUpdateIdx = pool.calls.findIndex((c) => c.sql.includes("UPDATE users SET email"));
+    assert.ok(emailReadIdx !== -1 && usersUpdateIdx !== -1 && emailReadIdx < usersUpdateIdx,
+      "E-Mail muss VOR der Anonymisierung gelesen werden — sonst greift der Invite-Delete ins Leere");
+  });
+
+  it("anonymizeUser löscht Sessions über den JSON-Pfad statt LIKE", async () => {
+    const pool = recordingPool((sql) => {
+      if (sql.includes("COUNT(*)")) return { rows: [{ c: 0 }] };
+      if (sql.startsWith("SELECT email FROM users")) return { rows: [{ email: "a@b.de" }] };
+      return { rows: [] };
+    });
+    await svc.anonymizeUser(pool, "u1", "actor1");
+    const del = pool.calls.find((c) => c.sql.includes("DELETE FROM session"));
+    assert.ok(del, "Session-DELETE fehlt");
+    assert.ok(del.sql.includes("sess->>'userId'"), "präziser JSON-Pfad statt LIKE-Volltextsuche");
+    assert.ok(!del.sql.includes("LIKE"));
+    assert.deepStrictEqual(del.params, ["u1"]);
   });
 });
 

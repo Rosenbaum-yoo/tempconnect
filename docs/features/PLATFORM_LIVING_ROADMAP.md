@@ -414,7 +414,7 @@
 | P2 Stundenzettel-Workflow | ✅ 2.1–2.3 komplett + audit-gehärtet — offen: Legacy-`/timesheets` ausmustern, Käufer-Notification bei „gesendet" |
 | P3 Unternehmens-Seite | ✅ 3.1–3.3 **komplett** (inkl. Beschwerde-Rückkanal + Chef-Hinweis) — offen: 3.4 Politur, Push-Benachrichtigung beim Sperren |
 | P4 Matching / KI / Activity | ✅ **4.1–4.4 komplett** (26.–27.07.) — 4.3 per Flag AUS, Einschalten ist Owner-Gate (API-Key + Kostenrahmen) |
-| P5 Session-/Auth-Härtung | ✅ **5.1 komplett** (01.08., Owner-Entscheidung: Leerlauf 8 h, absolut 7 Tage) — offen: Oberfläche für die Fernabmeldung, `LIKE`-Muster in `dataGovernanceService` |
+| P5 Session-/Auth-Härtung | ✅ **5.1 komplett** (01.08.) — `LIKE`-Muster in `dataGovernanceService` erledigt (03.08., präziser `sess->>'userId'`-Pfad); offen: Oberfläche für die Fernabmeldung |
 
 Die verbleibenden Punkte sind bewusst klein geschnitten und einzeln lieferbar; keiner davon
 blockiert die Nutzbarkeit der jeweiligen Welle. **Nächster substanzieller Block ist P6**

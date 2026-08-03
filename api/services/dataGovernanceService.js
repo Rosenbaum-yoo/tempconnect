@@ -11,6 +11,7 @@
 /* ── Datenkategorien-Inventar ──────────────────────────────────────────── */
 
 import { withTransaction } from "../utils/transaction.js";
+import { logger } from "../config/index.js";
 
 export const DATA_CATEGORIES = {
   A: {
@@ -36,7 +37,7 @@ export const DATA_CATEGORIES = {
 };
 
 export const RETENTION_POLICIES = {
-  worker_invites: { days: 90, description: "Abgelaufene Worker-Einladungen" },
+  worker_invites: { days: 90, description: "Abgelaufene/widerrufene Worker-Einladungen (angenommene bleiben als Registriert-Signal erhalten)" },
   notifications: { days: 180, description: "Gelesene Benachrichtigungen" },
   session: { days: 14, description: "Abgelaufene Sessions (connect-pg-simple)" },
   idempotency_keys: { days: 7, description: "Idempotenz-Schlüssel" }
@@ -46,7 +47,13 @@ export const RETENTION_POLICIES = {
 
 async function safeQuery(pool, sql, params = []) {
   try { const { rows } = await pool.query(sql, params); return rows; }
-  catch { return []; }
+  catch (err) {
+    // NIE wieder still: genau dieses Schlucken hat monatelang verdeckt, dass
+    // die Retention auf nicht existierende Spalten zielte (org_id/created_by
+    // statt supplier_org_id/invited_by) und faktisch nichts aufraeumte.
+    logger.warn({ err: err.message, sql: String(sql).slice(0, 90) }, "dataGovernance safeQuery fehlgeschlagen (Schema-Drift?)");
+    return [];
+  }
 }
 
 /**
@@ -168,6 +175,12 @@ export async function anonymizeUser(pool, userId, actorId) {
   const anonymized = await withTransaction(pool, async (client) => {
     const tables = [];
 
+    // Original-E-Mail VOR der Anonymisierung sichern: der Invite-Delete unten
+    // braucht sie — eine Subquery NACH dem users-UPDATE laese nur noch die
+    // anonymisierte Adresse und traefe nie (frueherer Reihenfolge-Bug).
+    const { rows: [origUser] } = await client.query("SELECT email FROM users WHERE id = $1", [userId]);
+    const originalEmail = origUser?.email || "";
+
     // Kat A: Users
     await client.query(`UPDATE users SET email = $2, password_hash = NULL, company_name = $3, phone = NULL, contact_person = $3, street = NULL, postal_code = NULL, city = NULL, vat_id = NULL, is_active = FALSE, updated_at = NOW() WHERE id = $1`, [userId, anonEmail, DELETED]);
     tables.push("users");
@@ -176,8 +189,13 @@ export async function anonymizeUser(pool, userId, actorId) {
     const { rows: wpRes } = await client.query(`UPDATE worker_profiles SET first_name = $2, last_name = $2, phone = NULL, street = NULL, postal_code = NULL, city = NULL, date_of_birth = NULL, iban_last4 = NULL, updated_at = NOW() WHERE user_id = $1 RETURNING id`, [userId, DELETED]);
     if (wpRes.length) tables.push("worker_profiles");
 
-    // Kat A: Worker invites
-    await client.query("DELETE FROM worker_invites WHERE created_by = $1 OR email IN (SELECT email FROM users WHERE id = $1)", [userId]);
+    // Kat A: Worker invites — nur Einladungen AN diese Person (ihre E-Mail).
+    // Frueher stand hier `created_by = $1` — die Spalte existiert nicht
+    // (worker_invites hat invited_by), der Wurf rollte die GESAMTE
+    // Anonymisierung zurueck. Von der Person VERSENDETE Einladungen bleiben
+    // bewusst stehen: sie enthalten die Daten ANDERER (eingeladener) Personen,
+    // und invited_by zeigt danach auf den bereits anonymisierten User.
+    await client.query("DELETE FROM worker_invites WHERE LOWER(email) = LOWER($1)", [originalEmail]);
     tables.push("worker_invites");
 
     // Kat A: Company profiles / contacts
@@ -195,8 +213,12 @@ export async function anonymizeUser(pool, userId, actorId) {
     await client.query(`UPDATE requests SET contact_email = NULL, contact_phone = NULL WHERE sender_id = $1`, [userId]);
     tables.push("requests");
 
-    // Kat D: Sessions + Notifications löschen
-    await client.query("DELETE FROM session WHERE sess::text LIKE $1", [`%${userId}%`]);
+    // Kat D: Sessions + Notifications löschen.
+    // Praeziser JSON-Pfad statt LIKE ueber den serialisierten Blob (P5.1-Rest):
+    // LIKE '%<userId>%' war ein Full-Scan mit False-Positive-Risiko (UUID als
+    // Substring in fremden Session-Inhalten). express-session legt userId
+    // top-level im sess-JSON ab.
+    await client.query("DELETE FROM session WHERE sess->>'userId' = $1", [userId]);
     tables.push("session");
 
     await client.query("DELETE FROM notifications WHERE user_id = $1", [userId]);
@@ -225,7 +247,9 @@ export async function deleteWorkerData(pool, workerUserId, actorId) {
     await client.query(`UPDATE worker_profiles SET first_name = '[Gelöscht]', last_name = '[Gelöscht]', phone = NULL, street = NULL, postal_code = NULL, city = NULL, date_of_birth = NULL, iban_last4 = NULL, is_active = FALSE, updated_at = NOW() WHERE user_id = $1`, [workerUserId]);
     tables.push("worker_profiles");
 
-    await client.query("DELETE FROM worker_invites WHERE email IN (SELECT email FROM users WHERE id = $1)", [workerUserId]);
+    // Hier ist die Subquery korrekt: deleteWorkerData anonymisiert users NICHT,
+    // die Original-E-Mail steht also noch. LOWER beidseitig fuer Robustheit.
+    await client.query("DELETE FROM worker_invites WHERE LOWER(email) IN (SELECT LOWER(email) FROM users WHERE id = $1)", [workerUserId]);
     tables.push("worker_invites");
 
     await client.query("DELETE FROM notifications WHERE user_id = $1", [workerUserId]);
@@ -252,7 +276,11 @@ export function getRetentionPolicies() {
 export async function getRetentionStatus(pool, orgId) {
   const status = {};
 
-  const [invites] = await safeQuery(pool, "SELECT COUNT(*)::int AS c FROM worker_invites WHERE org_id = $1 AND created_at < NOW() - INTERVAL '90 days'", [orgId]);
+  // supplier_org_id, nicht org_id — die falsche Spalte lief monatelang still
+  // ins Leere (safeQuery schluckte den Fehler), Status zeigte immer 0.
+  // Kriterium identisch mit executeRetentionCleanup (Dry-Run-Wahrheit):
+  // nur tote Invites (expired/revoked/pending mit abgelaufenem Token).
+  const [invites] = await safeQuery(pool, "SELECT COUNT(*)::int AS c FROM worker_invites WHERE supplier_org_id = $1 AND created_at < NOW() - INTERVAL '90 days' AND (status IN ('expired','revoked') OR (status = 'pending' AND expires_at < NOW()))", [orgId]);
   status.expired_invites = invites?.c || 0;
 
   const [notifs] = await safeQuery(pool, "SELECT COUNT(*)::int AS c FROM notifications WHERE user_id IN (SELECT user_id FROM org_memberships WHERE org_id = $1) AND is_read = TRUE AND created_at < NOW() - INTERVAL '180 days'", [orgId]);
@@ -274,7 +302,18 @@ export async function executeRetentionCleanup(pool, orgId, dryRun = true) {
     return { dry_run: true, would_delete: await getRetentionStatus(pool, orgId) };
   }
 
-  const r1 = await safeQuery(pool, "DELETE FROM worker_invites WHERE org_id = $1 AND created_at < NOW() - INTERVAL '90 days' RETURNING id", [orgId]);
+  // supplier_org_id (Mig 029) — mit org_id loeschte die 90-Tage-Retention
+  // faktisch nie etwas. accepted bleibt IMMER stehen: der Bulk-Invite-Dedup
+  // (bulkCreateWorkerInvites) prueft "schon registriert" bewusst NUR gegen
+  // invite.status='accepted' — nicht gegen users.is_verified, das durch
+  // CSV-Import-Konten nicht belastbar ist. Ohne die accepted-Zeile wuerde ein
+  // CSV-Re-Upload laengst registrierte Worker erneut einladen (und deren
+  // Accept ueberschriebe per ON CONFLICT das bestehende Passwort). DSGVO
+  // kostet das nichts: dieselben Daten liegen in users/worker_profiles;
+  // Loesch-Flows (anonymizeUser/deleteWorkerData) raeumen Invites separat.
+  // Geloescht wird nur, was tot ist: expired/revoked sowie pending mit
+  // abgelaufenem Token (Mig-159-Teilindex betrifft nur pending — kollisionsfrei).
+  const r1 = await safeQuery(pool, "DELETE FROM worker_invites WHERE supplier_org_id = $1 AND created_at < NOW() - INTERVAL '90 days' AND (status IN ('expired','revoked') OR (status = 'pending' AND expires_at < NOW())) RETURNING id", [orgId]);
   results.deleted_invites = r1.length;
 
   const r2 = await safeQuery(pool, "DELETE FROM notifications WHERE user_id IN (SELECT user_id FROM org_memberships WHERE org_id = $1) AND is_read = TRUE AND created_at < NOW() - INTERVAL '180 days' RETURNING id", [orgId]);
@@ -283,7 +322,9 @@ export async function executeRetentionCleanup(pool, orgId, dryRun = true) {
   const r3 = await safeQuery(pool, "DELETE FROM session WHERE expire < NOW() RETURNING sid", []);
   results.deleted_sessions = r3.length;
 
-  const r4 = await safeQuery(pool, "DELETE FROM idempotency_keys WHERE created_at < NOW() - INTERVAL '7 days' RETURNING id", []);
+  // RETURNING key — die Tabelle hat kein id (PK ist key); mit RETURNING id
+  // schlug auch diese Bereinigung still fehl (vom DB-Smoke-Test gefunden).
+  const r4 = await safeQuery(pool, "DELETE FROM idempotency_keys WHERE created_at < NOW() - INTERVAL '7 days' RETURNING key", []);
   results.deleted_idempotency_keys = r4.length;
 
   return { dry_run: false, deleted: results };
