@@ -386,23 +386,6 @@ export async function cancelPlan(pool, userId) {
   await insertSubscription(pool, userId, "FREE", "active");
 }
 
-/* ── Account löschen (kaskadierend) ─────────────────── */
-
-export async function deleteUser(pool, userId) {
-  const user = await pool.query("SELECT email FROM users WHERE id=$1", [userId]);
-  if (!user.rows[0]) return null;
-  const email = user.rows[0].email;
-
-  await pool.query("DELETE FROM ratings WHERE rater_id=$1 OR rated_id=$1", [userId]);
-  await pool.query("DELETE FROM requests WHERE requester_id=$1", [userId]);
-  await pool.query("DELETE FROM requests WHERE listing_id IN (SELECT id FROM listings WHERE owner_id=$1)", [userId]);
-  await pool.query("DELETE FROM listings WHERE owner_id=$1", [userId]);
-  await pool.query("DELETE FROM subscriptions WHERE user_id=$1", [userId]);
-  await pool.query("DELETE FROM users WHERE id=$1", [userId]);
-
-  return email;
-}
-
 /* ── Profil aktualisieren ───────────────────────────── */
 
 export async function updateProfile(pool, userId, data) {

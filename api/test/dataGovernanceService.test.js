@@ -222,6 +222,9 @@ describe("dataGovernanceService — anonymizeUser", () => {
     const result = await svc.anonymizeUser(pool, "u1", "actor1");
     assert.strictEqual(result.success, true);
     assert.strictEqual(result.user_id, "u1");
+    // Original-Adresse (VOR dem users-UPDATE gelesen) — Vertrag fuer die
+    // Abschieds-Mail in DELETE /me.
+    assert.strictEqual(result.email, "max@firma.de");
     assert.ok(Array.isArray(result.anonymized_tables));
     assert.ok(result.anonymized_tables.includes("users"));
   });

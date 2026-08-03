@@ -172,7 +172,7 @@ export async function anonymizeUser(pool, userId, actorId) {
   const DELETED = "[Gelöscht]";
   const ANON = "[Anonymisiert]";
 
-  const anonymized = await withTransaction(pool, async (client) => {
+  const { tables: anonymized, originalEmail } = await withTransaction(pool, async (client) => {
     const tables = [];
 
     // Original-E-Mail VOR der Anonymisierung sichern: der Invite-Delete unten
@@ -231,10 +231,13 @@ export async function anonymizeUser(pool, userId, actorId) {
       [actorId, userId, JSON.stringify({ anonymized_tables: tables })]
     );
 
-    return tables;
+    return { tables, originalEmail };
   });
 
-  return { success: true, anonymized_tables: anonymized, user_id: userId };
+  // email = Original-Adresse VOR der Anonymisierung: Aufrufer (DELETE /me)
+  // brauchen sie fuer die Abschieds-Mail — aus users ist sie danach nicht
+  // mehr lesbar, dort steht bereits deleted_*@anonymized.local.
+  return { success: true, anonymized_tables: anonymized, user_id: userId, email: originalEmail || null };
 }
 
 /**

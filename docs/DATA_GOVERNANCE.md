@@ -95,7 +95,7 @@ Alle Endpoints unter `/api/data-governance/`. RBAC: `data_governance.*` (owner, 
 | Method | Path | Auth | Beschreibung |
 |--------|------|------|-------------|
 | GET | `/api/me/export` | Session | Eigener DSGVO-Export (delegiert an exportUserDataFull) |
-| DELETE | `/api/me` | Session | Account-Löschung (versucht anonymizeUser, Fallback: Hard-Delete) |
+| DELETE | `/api/me` | Session | Account-Löschung — ausschließlich anonymizeUser. Blocker (aktive Einsätze, offene Rechnungen/Timesheets) → 409 `ACCOUNT_DELETE_BLOCKED` mit Blockerliste; Fehler → 500. Kein Hard-Delete-Fallback mehr (HGB §257: Kat-C-Daten bleiben) |
 
 ## Dateien
 

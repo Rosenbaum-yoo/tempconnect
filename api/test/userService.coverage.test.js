@@ -4,7 +4,7 @@
  * Strategy:
  *  - A pattern-routing "trackingPool" records every {sql, params} and dispatches
  *    a response based on SQL substrings. This is robust for multi-helper
- *    functions (getUserAndPlan, exportUserData, deleteUser) where the order of
+ *    functions (getUserAndPlan, exportUserData) where the order of
  *    queries is an implementation detail.
  *  - withTransaction(pool, fn) is exercised for real against the mock pool
  *    (connect() returns {query, release}); BEGIN/COMMIT/ROLLBACK are routed too.
@@ -531,32 +531,9 @@ describe("cancelPlan", () => {
   });
 });
 
-/* ──────────────────────────── deleteUser ───────────────────────────── */
-
-describe("deleteUser", () => {
-  it("returns null when user does not exist", async () => {
-    const pool = trackingPool([{ match: has("SELECT email FROM users"), respond: { rows: [] } }]);
-    assert.equal(await svc.deleteUser(pool, "u-1"), null);
-  });
-
-  it("cascades deletes across all tables and returns the email", async () => {
-    const pool = trackingPool([
-      { match: has("SELECT email FROM users"), respond: { rows: [{ email: "gone@b.de" }] } }
-    ]);
-    const email = await svc.deleteUser(pool, "u-1");
-    assert.equal(email, "gone@b.de");
-
-    const delTables = pool.calls.filter((c) => has("DELETE FROM")(c.sql)).map((c) => c.sql);
-    assert.ok(delTables.some((s) => s.includes("DELETE FROM ratings")));
-    assert.ok(delTables.some((s) => s.includes("DELETE FROM requests WHERE requester_id=$1")));
-    assert.ok(delTables.some((s) => s.includes("DELETE FROM requests WHERE listing_id IN")));
-    assert.ok(delTables.some((s) => s.includes("DELETE FROM listings")));
-    assert.ok(delTables.some((s) => s.includes("DELETE FROM subscriptions")));
-    assert.ok(delTables.some((s) => s.includes("DELETE FROM users WHERE id=$1")));
-    // users delete must be the last operation
-    assert.ok(has("DELETE FROM users")(pool.calls[pool.calls.length - 1].sql));
-  });
-});
+/* deleteUser wurde entfernt (2026-08-03): Der Hard-Delete war nur noch als
+   HGB-§257-verletzender Fallback in DELETE /me verdrahtet — Anonymisierung
+   (dataGovernanceService.anonymizeUser) ist der einzige Loeschpfad. */
 
 /* ─────────────────────────── updateProfile ─────────────────────────── */
 

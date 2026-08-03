@@ -759,8 +759,8 @@ describe("POST /me/plan/cancel", () => {
 /* ── DELETE /me ────────────────────────────────────────────────────────── */
 
 describe("DELETE /me", () => {
-  it("200 deletes account, destroys session, sends mail", async () => {
-    // anonymizeUser returns success with email → branch one
+  it("200 anonymisiert, zerstört Session, mailt an ORIGINAL-Adresse — kein Hard-Delete", async () => {
+    // anonymizeUser liest die Original-E-Mail VOR dem users-UPDATE und gibt sie zurück.
     const pool = trackingPool([
       { match: (s) => s.toLowerCase().includes("from users where id"), respond: { rows: [{ email: "me@x.de" }] } }
     ]);
@@ -771,20 +771,56 @@ describe("DELETE /me", () => {
     const res = mockRes();
     const req = mockReq({ session: { userId: "u1", destroy() { destroyed = true; } } });
     await h(req, res);
-    // Either succeeds (200) or returns 404 if no email resolvable across all branches.
-    if (res._status === 200) {
-      assert.strictEqual(res._json.ok, true);
-      assert.strictEqual(res.locals.audit.action, "user.delete");
-      assert.strictEqual(destroyed, true);
-      assert.ok(mailed);
-    } else {
-      assert.strictEqual(res._status, 404);
-      assert.strictEqual(res._json.error, "USER_NOT_FOUND");
-    }
+    assert.strictEqual(res._status, 200);
+    assert.strictEqual(res._json.ok, true);
+    assert.strictEqual(res.locals.audit.action, "user.delete");
+    assert.strictEqual(destroyed, true);
+    // Mail geht an die Original-Adresse, nicht an die bereits anonymisierte users.email.
+    assert.strictEqual(mailed, "me@x.de");
+    // Anonymisierung statt Hard-Delete: users-Zeile + subscriptions (HGB §257) bleiben.
+    assert.strictEqual(pool.find("DELETE FROM users").length, 0);
+    assert.strictEqual(pool.find("DELETE FROM subscriptions").length, 0);
+  });
+
+  it("409 ACCOUNT_DELETE_BLOCKED bei Blockern — kein Hard-Delete-Fallback", async () => {
+    // canDeleteUser meldet aktive Assignments → Anonymisierung verweigert →
+    // 409 mit Blockerliste; frueherer Fallback auf userService.deleteUser ist entfernt.
+    const pool = trackingPool([
+      { match: (s) => s.includes("FROM assignments"), respond: { rows: [{ c: 2 }] } }
+    ]);
+    let mailed = null;
+    let destroyed = false;
+    const deps = makeDeps(pool, { sendMail: async (to) => { mailed = to; return true; } });
+    const h = getHandler(createMeRouter(deps), "delete", "/me");
+    const res = mockRes();
+    const req = mockReq({ session: { userId: "u1", destroy() { destroyed = true; } } });
+    await h(req, res);
+    assert.strictEqual(res._status, 409);
+    assert.strictEqual(res._json.error, "ACCOUNT_DELETE_BLOCKED");
+    assert.deepStrictEqual(res._json.blockers, [{ reason: "ACTIVE_ASSIGNMENTS", count: 2 }]);
+    assert.strictEqual(destroyed, false);
+    assert.strictEqual(mailed, null);
+    assert.strictEqual(pool.find("DELETE FROM users").length, 0);
+    assert.strictEqual(pool.find("DELETE FROM subscriptions").length, 0);
+  });
+
+  it("500 SERVER_ERROR wenn Anonymisierung wirft — kein Hard-Delete-Fallback", async () => {
+    // Fehler im users-UPDATE rollt die Transaktion zurueck; frueher griff hier
+    // still der Hard-Delete und loeschte aufbewahrungspflichtige Daten.
+    const pool = trackingPool([
+      { match: (s) => s.includes("UPDATE users"), respond: () => { throw new Error("db down"); } }
+    ]);
+    const h = getHandler(createMeRouter(makeDeps(pool)), "delete", "/me");
+    const res = mockRes();
+    await h(mockReq({ session: { userId: "u1", destroy() {} } }), res);
+    assert.strictEqual(res._status, 500);
+    assert.strictEqual(res._json.error, "SERVER_ERROR");
+    assert.strictEqual(pool.find("DELETE FROM users").length, 0);
+    assert.strictEqual(pool.find("DELETE FROM subscriptions").length, 0);
   });
 
   it("404 USER_NOT_FOUND when no email resolvable", async () => {
-    // All anonymize/delete queries return empty → userEmail falsy → 404.
+    // Alle Queries leer → anonymizeUser liefert success ohne email → 404.
     const pool = trackingPool([
       { match: () => true, respond: { rows: [] } }
     ]);
@@ -793,8 +829,22 @@ describe("DELETE /me", () => {
     const res = mockRes();
     const req = mockReq({ session: { userId: "u1", destroy() {} } });
     await h(req, res);
-    assert.ok([404, 500].includes(res._status));
-    if (res._status === 404) assert.strictEqual(res._json.error, "USER_NOT_FOUND");
+    assert.strictEqual(res._status, 404);
+    assert.strictEqual(res._json.error, "USER_NOT_FOUND");
+  });
+
+  it("200 bleibt 200 wenn die Abschieds-Mail fehlschlägt (Löschung ist committed)", async () => {
+    const pool = trackingPool([
+      { match: (s) => s.toLowerCase().includes("from users where id"), respond: { rows: [{ email: "me@x.de" }] } }
+    ]);
+    const deps = makeDeps(pool, { sendMail: async () => { throw new Error("smtp down"); } });
+    const h = getHandler(createMeRouter(deps), "delete", "/me");
+    const res = mockRes();
+    let destroyed = false;
+    await h(mockReq({ session: { userId: "u1", destroy() { destroyed = true; } } }), res);
+    assert.strictEqual(res._status, 200);
+    assert.strictEqual(res._json.ok, true);
+    assert.strictEqual(destroyed, true);
   });
 });
 

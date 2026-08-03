@@ -69,7 +69,10 @@ export function createDataGovernanceRouter(deps) {
         entity_id: req.params.userId,
         details: { anonymized_tables: result.anonymized_tables }
       };
-      res.json({ success: true, data: result });
+      // result.email traegt die Original-Adresse (fuer DELETE /me-Abschiedsmail) —
+      // in einer Anonymisierungs-Response darf diese PII nicht zurueckfliessen.
+      const { email: _originalEmail, ...data } = result;
+      res.json({ success: true, data });
     } catch (e) {
       logger.error({ err: e }, "data-governance anonymize");
       res.status(500).json({ error: "SERVER_ERROR" });

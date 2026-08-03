@@ -381,7 +381,8 @@
     Default 1m kappte worker-documents (10m), compliance (10m), document-center (15m)
     hinter nginx auf 413. Jetzt 16m in beiden Confs (dev + deploy).
 - **7c KI-Bilder nur wo kein Upload + sinnvoll** (Landing, Kategorie-Bildwelt). Klare Trennung.
-  Landing-Seite: Prompts + Drop-in fertig (s. 7a) — es fehlen nur noch die generierten Dateien.
+  Landing-Seite: Prompts + Drop-in fertig ([Prompt-Paket](../mockups/LANDING_KI_BILD_PROMPTS.md), s. 7a) —
+  es fehlen nur noch die generierten Dateien.
 
 ## Phase 7c-Bonus — CSV-Import ↔ Einladung (harmonisieren) — ✅ erledigt (2026-08-03)
 

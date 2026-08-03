@@ -518,26 +518,32 @@ export function createMeRouter(deps) {
 
   router.delete("/me", requireAuth, async (req, res) => {
     try {
-      // Versuche DSGVO-konforme Anonymisierung zuerst, Fallback auf Hard-Delete
-      let userEmail;
-      try {
-        const anonResult = await dgSvc.anonymizeUser(pool, req.session.userId, req.session.userId);
-        if (anonResult.success) {
-          userEmail = anonResult.email || (await pool.query("SELECT email FROM users WHERE id=$1", [req.session.userId])).rows[0]?.email;
-        } else {
-          userEmail = await userService.deleteUser(pool, req.session.userId);
-        }
-      } catch {
-        userEmail = await userService.deleteUser(pool, req.session.userId);
+      // DSGVO Art. 17 (Abs. 3 lit. b): Anonymisierung ist der EINZIGE Loeschpfad.
+      // Kein Hard-Delete-Fallback — der wuerde aufbewahrungspflichtige Kat-C-Daten
+      // (HGB §257: subscriptions, invoices, audit_log) mitreissen und die
+      // canDeleteUser-Blocker aushebeln. Blocker → 409, Fehler → 500.
+      const anonResult = await dgSvc.anonymizeUser(pool, req.session.userId, req.session.userId);
+      if (!anonResult.success) {
+        return res.status(409).json({
+          error: "ACCOUNT_DELETE_BLOCKED",
+          message: "Dein Konto kann noch nicht gelöscht werden: Es bestehen offene Vorgänge (aktive Einsätze, offene Rechnungen oder unbestätigte Stundenzettel). Bitte schließe diese zuerst ab.",
+          blockers: anonResult.blockers || []
+        });
       }
-      if (!userEmail) return res.status(404).json({ error: "USER_NOT_FOUND" });
+      if (!anonResult.email) return res.status(404).json({ error: "USER_NOT_FOUND" });
       res.locals.audit = { action: "user.delete", entity_type: "user", entity_id: req.session.userId };
       req.session.destroy();
-      await sendMail(
-        userEmail,
-        "TempConnect: Account gelöscht",
-        `<h2>Dein Account wurde gelöscht</h2><p>Alle deine Daten wurden aus unserem System entfernt.</p><p>Wir danken dir für die Zeit, die du bei TempConnect verbracht hast.</p><p>Falls du zurückkommen möchtest, kannst du jederzeit ein neues Konto erstellen.</p>`
-      );
+      try {
+        await sendMail(
+          anonResult.email,
+          "TempConnect: Account gelöscht",
+          `<h2>Dein Account wurde gelöscht</h2><p>Deine personenbezogenen Daten wurden entfernt bzw. anonymisiert. Gesetzlich aufbewahrungspflichtige Rechnungs- und Vertragsdaten bleiben für die vorgeschriebene Frist gespeichert (§257 HGB).</p><p>Wir danken dir für die Zeit, die du bei TempConnect verbracht hast.</p><p>Falls du zurückkommen möchtest, kannst du jederzeit ein neues Konto erstellen.</p>`
+        );
+      } catch (mailErr) {
+        // Anonymisierung ist committed und die Session zerstoert — ein Mail-Fehler
+        // darf die erfolgreiche Loeschung nicht als 500 maskieren.
+        logger.warn({ err: mailErr }, "Abschieds-Mail nach Account-Löschung fehlgeschlagen");
+      }
       res.json({ ok: true, message: "Account wurde erfolgreich gelöscht." });
     } catch (e) {
       logger.error({ err: e }, "Account-Löschung fehlgeschlagen");
