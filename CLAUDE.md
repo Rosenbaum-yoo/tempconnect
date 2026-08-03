@@ -396,6 +396,7 @@ Kategorien: Bug-Pattern | Architektur | Security | Test | Performance | Wiederve
 [2026-06-03] [Test] Zwei-Schicht-Disziplin für Query-Helfer: (1) DB-freier Mock-Pool-Test zählt Query-ANZAHL (Anti-N+1) + SQL-Form, (2) billiger DB-gated Smoke (skip:!hasDb) führt Helfer mit nicht-existenter UUID aus → 0 Treffer, aber Postgres parst/plant die VOLLE Query → fängt Spalten-/Alias-Tippfehler, die der Mock durchlässt. (Quelle: support.recentCasesByOrg + integration/*.flow.test.js)
 [2026-06-03] [Performance] Cron-Sweep-Indizes: jede gescannte Menge gegen „wächst unbegrenzt?" prüfen, Lücke DIREKT gegen die Quell-Migration verifizieren (Sub-Agent-Audit war unzuverlässig). BRIN statt btree für append-only/zeitkorrelierte Spalten auf heißem Insert-Pfad (keine Write-Amplification). (Quelle: Mig 122/123)
 [2026-06-03] [Process] Reifes Repo = Verifikation, nicht Neubau. „Fertig" entscheidet laut 99_GOLIVE_GATE.md Teil 4 der Owner, nicht Claude. Phase-5-Diffs bleiben uncommitted bis explizite Owner-Freigabe; verbleibende Punkte sind ausschließlich owner-gated/extern (Keys/Preise/Rechtstexte/Infra-Drill). (Quelle: finalization/ Master-Spec)
+[2026-08-03] [Security] Fallback-Pfade in Lösch-/Compliance-Flows sind selbst sicherheitskritisch: Ein „Notnagel" (Hard-Delete bei Anonymisierungs-Fehler) feuert genau in den Fällen, die die Schutzlogik verhindern soll, und kann Aufbewahrungspflichten (HGB §257) verletzen. Fehlerpfade eskalieren (409/500), nie degradieren. (Quelle: DELETE /me, Commit 8cfd79b)
 
 ---
 
