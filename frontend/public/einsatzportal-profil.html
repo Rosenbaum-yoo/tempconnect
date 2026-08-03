@@ -416,6 +416,15 @@
           <div style="margin-top:12px">
             <a href="worker-login.html" class="ep-btn ep-btn-ghost ep-btn-sm">→ Zur Login-Seite</a>
           </div>
+          <!-- Fernabmeldung (P5.1): Handy verloren -> Sitzungen aus der Ferne beenden -->
+          <div style="margin-top:16px;padding-top:14px;border-top:1px solid var(--ep-border,rgba(255,255,255,.08))">
+            <div class="ep-info-label">Angemeldete Geräte</div>
+            <div class="ep-info-val" id="sessionInfo" style="font-size:.8rem;color:var(--ep-text-muted)">Lädt…</div>
+            <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px">
+              <button class="ep-btn ep-btn-primary ep-btn-sm" id="btnLogoutOthers" onclick="logoutOtherDevices()">Andere Geräte abmelden</button>
+              <button class="ep-btn ep-btn-ghost ep-btn-sm" style="color:var(--ep-danger,#f87171)" onclick="logoutEverywhere()">Überall abmelden</button>
+            </div>
+          </div>
         </div>
       </div>
 
@@ -704,12 +713,55 @@ async function saveSkills() {
     // laufen, wenn sie geladen sind. Fehlschlag ist unkritisch — er ist Beiwerk,
     // die Karten funktionieren ohne ihn.
     loadProgress().catch(function () {});
+    loadSessions().catch(function () {}); // Fernabmeldung (P5.1) — ebenfalls Beiwerk
+
   } catch(e) {
     const code = e.code || e.message;
     if (code === 'NOT_AUTH') { location.href = 'worker-login.html'; return; }
     PortalShell.showError(e.message || 'Fehler beim Laden');
   }
 })();
+
+/* Fernabmeldung (P5.1): Backend existiert (GET /auth/sessions,
+   POST /auth/logout-all mit Audit) — hier die Portal-Oberfläche.
+   Standard-Knopf lässt die AKTUELLE Sitzung bestehen (Backend-Default). */
+async function loadSessions() {
+  const box = document.getElementById('sessionInfo');
+  if (!box) return;
+  try {
+    const res = await PortalApi.get('/auth/sessions');
+    const offen = res.offen || 0, weitere = res.weitere_geraete || 0;
+    const btn = document.getElementById('btnLogoutOthers');
+    if (btn) btn.disabled = weitere === 0;
+    box.textContent = offen
+      ? offen + ' aktive Sitzung' + (offen === 1 ? '' : 'en') +
+        (weitere ? ' — davon ' + weitere + ' auf anderen Geräten' : ' — nur dieses Gerät')
+      : 'Keine aktiven Sitzungen gefunden.';
+  } catch (e) {
+    box.textContent = 'Sitzungen konnten nicht geladen werden.';
+  }
+}
+
+async function logoutOtherDevices() {
+  if (!window.confirm('Alle Sitzungen auf ANDEREN Geräten beenden? Dieses Gerät bleibt angemeldet.')) return;
+  try {
+    const res = await PortalApi.post('/auth/logout-all', {});
+    toast((res.beendet || 0) + ' Sitzung' + (res.beendet === 1 ? '' : 'en') + ' beendet.');
+    loadSessions();
+  } catch (e) {
+    toast('Fernabmeldung fehlgeschlagen.', 'error');
+  }
+}
+
+async function logoutEverywhere() {
+  if (!window.confirm('Wirklich ÜBERALL abmelden — auch auf diesem Gerät? Sie müssen sich danach neu anmelden.')) return;
+  try {
+    await PortalApi.post('/auth/logout-all', { include_current: true });
+    window.location.href = 'worker-login.html';
+  } catch (e) {
+    toast('Fernabmeldung fehlgeschlagen.', 'error');
+  }
+}
 
 /* Profilfoto (P7b): zeigt das Foto in beiden Avataren; ohne Foto bleiben
    die Initialen. `bust` erzwingt nach Upload einen frischen Abruf. */

@@ -220,6 +220,19 @@
           </div>
         </div>
 
+        <!-- Section: Sicherheit & Geräte (P5.1 Fernabmeldung) -->
+        <div class="ep-card" id="sec-security">
+          <div class="ep-card-head">
+            <div class="ep-card-title">Sicherheit &amp; Geräte</div>
+          </div>
+          <p style="font-size:12px;color:var(--ds-text-secondary);margin:0 0 var(--ds-space-3)">Gerät verloren oder an einem fremden Rechner angemeldet geblieben? Hier beenden Sie Sitzungen Ihres Kontos aus der Ferne.</p>
+          <div id="security-sessions" style="font-size:13px;margin-bottom:var(--ds-space-3)">Lädt&hellip;</div>
+          <div style="display:flex;gap:var(--ds-space-2);flex-wrap:wrap">
+            <button class="ep-btn ep-btn--primary ep-btn--sm" id="btn-logout-others" onclick="EP.logoutOtherDevices()">Andere Geräte abmelden</button>
+            <button class="ep-btn ep-btn--sm" style="border-color:var(--ds-danger);color:var(--ds-danger)" onclick="EP.logoutEverywhere()">Überall abmelden (inkl. dieses Gerät)</button>
+          </div>
+        </div>
+
         <!-- Section 2: Basic User Data -->
         <div class="ep-card" id="sec-basic">
           <div class="ep-card-head">

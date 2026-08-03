@@ -446,6 +446,41 @@
 
     function hideForm(id){ $(id).style.display="none"; }
 
+    /* -- SICHERHEIT & GERAETE (P5.1 Fernabmeldung) -------------------
+       Backend existiert seit P5.1 (GET /auth/sessions, POST /auth/logout-all
+       mit Audit); hier die fehlende Oberflaeche. Die AKTUELLE Sitzung bleibt
+       beim Standard-Knopf bestehen (Backend-Default) — wer sich selbst
+       aussperrt, kann nicht pruefen, ob es geklappt hat. */
+    async function loadSessions(){
+      var box=$("security-sessions"); if(!box) return;
+      try{
+        var res=await api("/api/auth/sessions");
+        var offen=res.offen||0, weitere=res.weitere_geraete||0;
+        var btn=$("btn-logout-others"); if(btn) btn.disabled = weitere===0;
+        box.innerHTML = offen
+          ? "<b>"+offen+"</b> aktive Sitzung"+(offen===1?"":"en")+
+            (weitere ? " &mdash; davon <b>"+weitere+"</b> auf anderen Ger&auml;ten" : " &mdash; nur dieses Ger&auml;t")
+          : "Keine aktiven Sitzungen gefunden.";
+      }catch(e){
+        box.innerHTML="<span style='color:var(--ds-danger)'>Sitzungen konnten nicht geladen werden.</span>";
+      }
+    }
+    async function logoutOtherDevices(){
+      if(!window.confirm("Alle Sitzungen auf ANDEREN Geräten beenden? Dieses Gerät bleibt angemeldet.")) return;
+      try{
+        var res=await api("/api/auth/logout-all",{method:"POST",body:{}});
+        toast((res.beendet||0)+" Sitzung"+(res.beendet===1?"":"en")+" beendet");
+        loadSessions();
+      }catch(e){ toast("Fernabmeldung fehlgeschlagen",false); }
+    }
+    async function logoutEverywhere(){
+      if(!window.confirm("Wirklich ÜBERALL abmelden — auch auf diesem Gerät? Sie müssen sich danach neu anmelden.")) return;
+      try{
+        await api("/api/auth/logout-all",{method:"POST",body:{include_current:true}});
+        window.location.href="/";
+      }catch(e){ toast("Fernabmeldung fehlgeschlagen",false); }
+    }
+
     /* -- FIRMENFOTO (P7b) --------------------------------------------
        Der Upload-Button in sla_profil.html rief uploadPhoto() auf, die
        Funktion existierte aber nie (toter Button). Jetzt end-to-end:
@@ -484,7 +519,8 @@
       }catch(e){ toast("Fehler",false); }
     }
 
-    window.EP={toggleEdit:toggleEdit,saveOverview:saveOverview,saveBasic:saveBasic,saveCapabilities:saveCapabilities,tagKey:tagKey,_removeTag:_removeTag,showAddLocation:showAddLocation,addLocation:addLocation,removeLocation:removeLocation,showAddCert:showAddCert,addCert:addCert,removeCert:removeCert,showAddContact:showAddContact,addContact:addContact,removeContact:removeContact,hideForm:hideForm,deletePhoto:deletePhoto};
+    window.EP={toggleEdit:toggleEdit,saveOverview:saveOverview,saveBasic:saveBasic,saveCapabilities:saveCapabilities,tagKey:tagKey,_removeTag:_removeTag,showAddLocation:showAddLocation,addLocation:addLocation,removeLocation:removeLocation,showAddCert:showAddCert,addCert:addCert,removeCert:removeCert,showAddContact:showAddContact,addContact:addContact,removeContact:removeContact,hideForm:hideForm,deletePhoto:deletePhoto,logoutOtherDevices:logoutOtherDevices,logoutEverywhere:logoutEverywhere};
     window.uploadPhoto=uploadPhoto; // inline onchange in sla_profil.html
     load();
+    loadSessions(); // unabhaengig vom Profil-Load — Sicherheitskarte soll auch bei Profil-Fehlern funktionieren
   })();
