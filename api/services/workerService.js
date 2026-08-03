@@ -485,9 +485,18 @@ export async function listWorkers(pool, { supplierOrgId, isActive = null, search
                AND ${workerAssignmentIsCurrentSql}) AS active_assignments,
             (SELECT COUNT(*) FROM worker_time_submissions wts
              WHERE wts.worker_user_id = u.id
-               AND wts.status NOT IN ('rejected','superseded')) AS total_submissions
+               AND wts.status NOT IN ('rejected','superseded')) AS total_submissions,
+            inv.invite_status, inv.invite_expires_at
      FROM worker_profiles wp
      JOIN users u ON u.id = wp.user_id
+     LEFT JOIN LATERAL (
+       SELECT wi.status AS invite_status, wi.expires_at AS invite_expires_at
+         FROM worker_invites wi
+        WHERE wi.supplier_org_id = wp.supplier_org_id
+          AND LOWER(wi.email) = LOWER(u.email)
+        ORDER BY (wi.status = 'accepted') DESC, wi.created_at DESC
+        LIMIT 1
+     ) inv ON TRUE
      WHERE ${where}
      ORDER BY wp.last_name ASC, wp.first_name ASC
      LIMIT $${params.length - 1} OFFSET $${params.length}`,
@@ -525,18 +534,22 @@ export async function listInvitableWorkers(pool, supplierOrgId) {
 export async function createWorkerAccount(pool, {
   supplierOrgId, email, firstName, lastName, personnelNumber,
   phone, street, postalCode, city, country = "DE",
-  passwordHash, createdBy
+  passwordHash, createdBy, isVerified = true
 }) {
   const client = await pool.connect();
   try {
     await client.query("BEGIN");
 
-    // User anlegen
+    // User anlegen. isVerified=false fuer Import-Pfade (7c-Bonus): dort ist das
+    // Passwort ein Zufallswert, den niemand kennt — is_verified=TRUE machte die
+    // Kraft fuer die gesamte Einladungs-Kette unsichtbar (Row-Button +
+    // listInvitableWorkers filtern auf is_verified=FALSE), obwohl genau sie
+    // eingeladen werden soll. acceptInvite setzt beim Annehmen wieder TRUE.
     const { rows: [user] } = await client.query(
       `INSERT INTO users (role, email, password_hash, is_verified)
-       VALUES ('worker', $1, $2, TRUE)
+       VALUES ('worker', $1, $2, $3)
        RETURNING id`,
-      [email.toLowerCase().trim(), passwordHash]
+      [email.toLowerCase().trim(), passwordHash, isVerified !== false]
     );
 
 
@@ -602,6 +615,93 @@ export async function createWorkerInvite(pool, {
   );
 
   return { invite, token }; // token wird per Mail versendet, NICHT gespeichert
+}
+
+/**
+ * Bulk-Einladungen (7c-Bonus: "Alle einladen") — set-based statt N Einzel-Calls.
+ *
+ * Dedup in EINER Query gegen den Bestand: offene (pending, nicht abgelaufen)
+ * und angenommene (accepted) Invites derselben Org werden uebersprungen.
+ * "Schon registriert" heisst heute belastbar NUR invite.status='accepted' —
+ * CSV-importierte Kraefte haben immer eine user_id, aber nie ein Passwort
+ * gesetzt; genau sie SOLLEN eingeladen werden (Kern der Harmonisierung).
+ *
+ * Insert set-based via UNNEST; ON CONFLICT auf den partiellen Unique-Index
+ * (Mig 159) macht parallele Bulk-Klicks race-sicher. Harte Obergrenze 200
+ * je Aufruf (Mail-Versand bleibt beim Aufrufer gedeckelt).
+ */
+export const BULK_INVITE_MAX = 200;
+
+export async function bulkCreateWorkerInvites(pool, { supplierOrgId, invitedBy, items }) {
+  const normalized = (Array.isArray(items) ? items : [])
+    .map((i) => ({
+      email: String(i?.email || "").toLowerCase().trim(),
+      first_name: String(i?.first_name || "").trim(),
+      last_name: String(i?.last_name || "").trim(),
+      personnel_number: i?.personnel_number ? String(i.personnel_number).trim() : null
+    }));
+  const invalid = normalized.filter((i) => !i.email || !i.email.includes("@") || !i.first_name || !i.last_name).length;
+
+  // In-Batch-Dedup ueber E-Mail (erste Zeile gewinnt)
+  const seen = new Set();
+  const unique = [];
+  for (const it of normalized) {
+    if (!it.email || !it.email.includes("@") || !it.first_name || !it.last_name) continue;
+    if (seen.has(it.email)) continue;
+    seen.add(it.email);
+    unique.push(it);
+  }
+  const truncated = Math.max(0, unique.length - BULK_INVITE_MAX);
+  const batch = unique.slice(0, BULK_INVITE_MAX);
+  if (!batch.length) {
+    return { invites: [], skipped_pending: 0, skipped_accepted: 0, invalid, truncated };
+  }
+
+  const emails = batch.map((b) => b.email);
+  const { rows: existing } = await pool.query(
+    `SELECT LOWER(email) AS email, status FROM worker_invites
+      WHERE supplier_org_id = $1 AND LOWER(email) = ANY($2::text[])
+        AND (status = 'accepted' OR (status = 'pending' AND expires_at > NOW()))`,
+    [supplierOrgId, emails]
+  );
+  const pendingSet = new Set(existing.filter((r) => r.status === "pending").map((r) => r.email));
+  const acceptedSet = new Set(existing.filter((r) => r.status === "accepted").map((r) => r.email));
+  const toCreate = batch.filter((b) => !pendingSet.has(b.email) && !acceptedSet.has(b.email));
+
+  let created = [];
+  if (toCreate.length) {
+    const tokens = toCreate.map(() => generateInviteToken());
+    const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+    const { rows } = await pool.query(
+      `INSERT INTO worker_invites
+         (supplier_org_id, invited_by, email, first_name, last_name,
+          personnel_number, token, token_hash, expires_at)
+       SELECT $1, $2, x.email, x.first_name, x.last_name,
+              NULLIF(x.personnel_number, ''), x.token, x.token_hash, $3
+         FROM UNNEST($4::text[], $5::text[], $6::text[], $7::text[], $8::text[], $9::text[])
+           AS x(email, first_name, last_name, personnel_number, token, token_hash)
+       ON CONFLICT (supplier_org_id, LOWER(email)) WHERE status = 'pending' DO NOTHING
+       RETURNING id, email, first_name, last_name, personnel_number, token, expires_at, status`,
+      [
+        supplierOrgId, invitedBy, expiresAt,
+        toCreate.map((b) => b.email),
+        toCreate.map((b) => b.first_name),
+        toCreate.map((b) => b.last_name),
+        toCreate.map((b) => b.personnel_number || ""),
+        tokens,
+        tokens.map((t) => hashToken(t))
+      ]
+    );
+    created = rows;
+  }
+
+  return {
+    invites: created, // inkl. token — NUR fuer den Mail-Versand, nie an den Client
+    skipped_pending: pendingSet.size,
+    skipped_accepted: acceptedSet.size,
+    invalid,
+    truncated
+  };
 }
 
 export async function getInviteByToken(pool, token) {
@@ -1205,6 +1305,46 @@ export async function deleteWorkerDocument(pool, documentId, workerUserId, suppl
     [documentId, workerUserId, supplierOrgId]
   );
   return normalizeWorkerDocumentRecord(rows[0] || null);
+}
+
+/* ── Profilfoto (P7b) ───────────────────────────────────────────────────────── */
+
+/**
+ * Setzt das Profilfoto und liefert den ALTEN file_ref zurueck, damit der
+ * Aufrufer die verwaiste Datei loeschen kann. Org-gebunden (supplier_org_id).
+ */
+export async function setWorkerPhoto(pool, { workerUserId, supplierOrgId, fileRef, mime }) {
+  const { rows } = await pool.query(
+    `WITH old AS (
+       SELECT photo_file_ref FROM worker_profiles
+        WHERE user_id = $1 AND supplier_org_id = $2
+     )
+     UPDATE worker_profiles wp
+        SET photo_file_ref = $3, photo_mime = $4, updated_at = NOW()
+      WHERE wp.user_id = $1 AND wp.supplier_org_id = $2
+      RETURNING (SELECT photo_file_ref FROM old) AS previous_file_ref`,
+    [workerUserId, supplierOrgId, fileRef, mime]
+  );
+  if (!rows[0]) return null;
+  return { previous_file_ref: rows[0].previous_file_ref || null };
+}
+
+/** Entfernt das Profilfoto; liefert den bisherigen file_ref (fuer unlink).
+ *  CTE noetig: RETURNING sieht die NEUE Zeile — nach SET NULL waere der
+ *  Rueckgabewert immer NULL und die alte Datei bliebe verwaist liegen. */
+export async function clearWorkerPhoto(pool, workerUserId, supplierOrgId) {
+  const { rows } = await pool.query(
+    `WITH old AS (
+       SELECT photo_file_ref FROM worker_profiles
+        WHERE user_id = $1 AND supplier_org_id = $2 AND photo_file_ref IS NOT NULL
+     )
+     UPDATE worker_profiles
+        SET photo_file_ref = NULL, photo_mime = NULL, updated_at = NOW()
+      WHERE user_id = $1 AND supplier_org_id = $2 AND photo_file_ref IS NOT NULL
+      RETURNING (SELECT photo_file_ref FROM old) AS previous_file_ref`,
+    [workerUserId, supplierOrgId]
+  );
+  return rows[0] ? { previous_file_ref: rows[0].previous_file_ref } : null;
 }
 
 /* ── Assignment-Links ───────────────────────────────────────────────────────── */
@@ -2157,7 +2297,10 @@ export async function bulkImportWorkers(pool, { supplierOrgId, workers, onDuplic
         city: w.city || null,
         country: w.country || "DE",
         passwordHash,
-        createdBy
+        createdBy,
+        // Import = Zufallspasswort, niemand hat etwas verifiziert. FALSE haelt
+        // die Kraft im "Alle einladen"-Kandidatenkreis (7c-Bonus-Kette).
+        isVerified: false
       });
 
       // date_of_birth separat updaten (nicht in createWorkerAccount)

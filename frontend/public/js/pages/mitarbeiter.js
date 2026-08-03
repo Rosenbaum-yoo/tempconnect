@@ -430,12 +430,18 @@ function renderWorkers() {
       '<td class="meta">' + esc(w.email || "") + '</td>' +
       '<td class="meta">' + esc(w.personnel_number || "–") + '</td>' +
       '<td class="meta">' + esc(w.phone || "–") + '</td>' +
-      '<td><span class="status-dot ' + (isActive ? 'active' : 'inactive') + '"></span>' + (isActive ? 'Aktiv' : 'Inaktiv') + '</td>' +
+      '<td><span class="status-dot ' + (isActive ? 'active' : 'inactive') + '"></span>' + (isActive ? 'Aktiv' : 'Inaktiv') +
+        // Einladungs-/Registrierungsstatus (7c-Bonus): sichtbar in der Liste,
+        // nicht nur im Einladungen-Tab — Farben wie renderInvites.
+        (w.is_verified ? '<div class="meta"><span class="tag green">Registriert</span></div>'
+          : w.invite_status === 'pending' ? '<div class="meta"><span class="tag yellow">Eingeladen</span></div>'
+          : w.invite_status === 'expired' ? '<div class="meta"><span class="tag muted">Einladung abgelaufen</span></div>'
+          : '<div class="meta"><span class="tag muted">Nicht registriert</span></div>') + '</td>' +
       '<td style="white-space:nowrap">' +
         '<button class="action-btn" onclick="openWorkerProfileHub(\'' + w.user_id + '\')">Profil</button> ' +
         '<button class="action-btn" onclick="openEdit(\'' + w.user_id + '\')">Bearbeiten</button> ' +
         '<button class="action-btn" onclick="openOfferGen(\'' + w.profile_id + '\')">Angebote</button> ' +
-        (w.is_verified === false ? '<button class="action-btn" onclick="inviteFromRow(\'' + w.profile_id + '\')" title="Einladung ins Einsatzportal senden">Einladen</button> ' : '') +
+        (w.is_verified === false && w.invite_status !== 'pending' ? '<button class="action-btn" onclick="inviteFromRow(\'' + w.profile_id + '\')" title="Einladung ins Einsatzportal senden">Einladen</button> ' : '') +
         (isActive
           ? '<button class="action-btn danger" onclick="toggleActive(\'' + w.user_id + '\', false)">Deaktivieren</button>'
           : '<button class="action-btn good" onclick="toggleActive(\'' + w.user_id + '\', true)">Aktivieren</button>') +
@@ -526,6 +532,22 @@ function inviteFromRow(profileId) {
     loadInvites();
   }).catch(function(e) {
     toast(e.error === "INVITE_ALREADY_PENDING" ? "Es gibt bereits eine offene Einladung." : (e.message || e.error || "Einladung fehlgeschlagen."), "err");
+  });
+}
+
+/* ── CSV-Ergebnis → direkt einladen (7c-Bonus) ─────────────────────────────
+   Ruft die Bulk-Route direkt: die lokale _workers-Liste ist nach dem Import
+   noch stale — der Server kennt die frischen Kandidaten (is_verified=false)
+   und dedupliziert ohnehin serverseitig. */
+function csvInviteImported(createdCount) {
+  if (!window.confirm(createdCount + " importierte Mitarbeiter jetzt ins Einsatzportal einladen? Bereits Eingeladene/Registrierte werden übersprungen.")) return;
+  api("/worker-invites/bulk", { method: "POST", body: {} }).then(function(r) {
+    toast((r.invited_count || 0) + " eingeladen" + (r.failed_count ? " · " + r.failed_count + " Mail-Fehler" : "") + ".");
+    showTab("invites");
+    loadWorkers();
+    loadInvites();
+  }).catch(function(e) {
+    toast(e.error === "WORKER_LIMIT_EXCEEDED" ? "Plan-Limit erreicht — Upgrade nötig." : (e.message || e.error || "Bulk-Einladung fehlgeschlagen."), "err");
   });
 }
 
@@ -1985,7 +2007,13 @@ function csvShowResult(res) {
     '<div class="csv-kpi ok"><span class="num">' + created + '</span> Erstellt</div>' +
     '<div class="csv-kpi info"><span class="num">' + updated + '</span> Aktualisiert</div>' +
     '<div class="csv-kpi dup"><span class="num">' + skipped + '</span> \u00dcbersprungen</div>' +
-    (errors > 0 ? '<div class="csv-kpi err"><span class="num">' + errors + '</span> Fehler</div>' : '');
+    (errors > 0 ? '<div class="csv-kpi err"><span class="num">' + errors + '</span> Fehler</div>' : '') +
+    // 7c-Bonus: Import endet nicht in der Sackgasse \u2014 die frisch importierten
+    // Kraefte (is_verified=false) sind jetzt Einladungs-Kandidaten.
+    (created > 0
+      ? '<div style="flex-basis:100%;margin-top:10px"><button class="btn primary" onclick="csvInviteImported(' + created + ')" title="Alle noch nicht registrierten Mitarbeiter ins Einsatzportal einladen">' +
+        'Jetzt alle ' + created + ' importierten Mitarbeiter einladen</button></div>'
+      : '');
 
   var details = document.getElementById("csv-result-details");
   var html = '';

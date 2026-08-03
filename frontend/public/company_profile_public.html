@@ -246,6 +246,11 @@
       // Grid cards
       var gridHtml = "";
 
+      // Firmenfoto (P7b) — erscheint nur, wenn hochgeladen
+      if(p.photo_url){
+        gridHtml += "<div class='pp-card' style='grid-column:1/-1;padding:0;overflow:hidden'><img src='"+esc(p.photo_url)+"' alt='Firmenfoto von "+esc(name)+"' loading='lazy' style='display:block;width:100%;max-height:340px;object-fit:cover'/></div>";
+      }
+
       // Description
       if(p.company_description){
         gridHtml += "<div class='pp-card' style='grid-column:1/-1'><div class='pp-card-title'>Ueber uns</div><p style='font-size:13px;line-height:1.7;color:var(--ds-text-secondary)'>"+esc(p.company_description)+"</p></div>";

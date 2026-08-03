@@ -360,17 +360,48 @@
     uiNoEmoji + frontendCanonicalPages grün. **Offen (7c):** SVG-Illustrationen durch
     freigegebene KI-Bilder ersetzen (`data-motif` an jedem `figure` nennt das Ziel-Motiv),
     Hero-Video.
-- **7b Upload-Bereiche (echt, KI-frei):** Profilfoto (Upload im **Einsatzportal**), Firmenfoto-Upload,
-  Angebotsfoto-Upload. Alle drei strikt getrennt von KI-Bildern.
+- **7b Upload-Bereiche (echt, KI-frei):** ✅ *erledigt (2026-08-03)*
+  - **Profilfoto Einsatzportal:** Mig 158 (`worker_profiles.photo_file_ref/photo_mime`),
+    Routen `POST/GET/DELETE /api/worker/me/photo` — personenbezogen, deshalb wird
+    `/uploads/worker-photos` in app.js von der statischen Auslieferung ausgenommen und
+    NUR session-gebunden gestreamt. UI: Upload/Entfernen in der Stammdaten-Karte,
+    Foto erscheint in beiden Avataren + im Shell-Avatar aller Portal-Seiten.
+    Erscheint NIE in anonymen Angeboten (Leitplanke §6 Multi-Skill-Doku).
+  - **Firmenfoto:** der tote „Foto hochladen"-Button in `sla_profil.html` (rief eine nie
+    definierte Funktion) ist jetzt end-to-end verdrahtet: `POST/DELETE /api/company-profile/photo`
+    → `company_profiles.photo_url` (bewusst NICHT in der upsert-Whitelist — Voll-Ersetzen-
+    Semantik hätte das Foto bei jedem Overview-Speichern gelöscht) → Vorschau + öffentliches
+    Firmenprofil rendern dasselbe Feld.
+  - **Angebotsfoto:** existierte bereits vollständig (offer-assets-Pipeline bis in den Feed) —
+    verifiziert statt neu gebaut. Offen (bewusst): Galerie-UI für `asset_type='gallery'`.
+  - **Härtung für alle Bild-Uploads:** `api/utils/imageIntegrity.js` — Magic-Byte-Sniffing
+    (Client-MIME zählt nicht) + dependency-freier JPEG-EXIF-Strip (GPS!); sharp bewusst NICHT
+    eingeführt (native Dependency = Image-Rebuild, Owner-Gate).
+  - **Infrastruktur-Bugfix:** nginx `location /api/` hatte kein `client_max_body_size` →
+    Default 1m kappte worker-documents (10m), compliance (10m), document-center (15m)
+    hinter nginx auf 413. Jetzt 16m in beiden Confs (dev + deploy).
 - **7c KI-Bilder nur wo kein Upload + sinnvoll** (Landing, Kategorie-Bildwelt). Klare Trennung.
+  Landing-Seite: Prompts + Drop-in fertig (s. 7a) — es fehlen nur noch die generierten Dateien.
 
-## Phase 7c-Bonus — CSV-Import ↔ Einladung (harmonisieren)
+## Phase 7c-Bonus — CSV-Import ↔ Einladung (harmonisieren) — ✅ erledigt (2026-08-03)
 
-- CSV-Import härten + Bug-Sweep.
-- Nach Import: E-Mail **vorbefüllt** in die „Einladung senden"-Funktion → 1 Klick pro Arbeiter.
-- **„Alle einladen"-Button** (nur noch-nicht-registrierte) — **keine Kollision** mit bereits
-  angelegten/registrierten Mitarbeitern (Dedup über E-Mail/User-Status).
-- CSV-Import und Einladungs-Flow als ein durchgängiges, harmonisches Erlebnis.
+- **Kern-Befund:** Die „Alle einladen"-Kette existierte bereits (Bulk-Route, Kandidaten-Query,
+  Buttons), war aber für CSV-Importierte **unsichtbar**: `createWorkerAccount` schrieb hart
+  `is_verified=TRUE`, der gesamte Einladungs-Filter arbeitet auf `is_verified=FALSE` — genau
+  die Zielgruppe der Harmonisierung fiel durchs Raster. Fix: Import-Pfad übergibt
+  `isVerified:false` (Zufallspasswort = niemand hat etwas verifiziert); `acceptInvite` setzt
+  beim Annehmen wieder TRUE. Manueller Anlage-Pfad bleibt unverändert (Default TRUE).
+- **Bulk set-based + race-sicher:** `bulkCreateWorkerInvites` — EINE Dedup-Query (pending/
+  accepted, case-insensitiv) + EIN UNNEST-Insert, Cap 200; Mig 159 (partieller Unique-Index
+  auf `(supplier_org_id, LOWER(email)) WHERE status='pending'` + Bereinigung bestehender
+  Dubletten) macht parallele Bulk-Klicks per `ON CONFLICT DO NOTHING` kollisionsfrei.
+  Die Route meldet ehrlich: invited/failed (Mail-Fehler!)/skipped_pending/skipped_accepted/truncated.
+- **Durchgängiges Erlebnis:** Einladungs-/Registrierungsstatus als Badge in der
+  Mitarbeiterliste (`listWorkers` LATERAL auf worker_invites; „Registriert/Eingeladen/
+  abgelaufen/Nicht registriert"), Zeilen-Button „Einladen" versteckt sich bei offener
+  Einladung, und das CSV-Import-Ergebnis endet nicht mehr in der Sackgasse: CTA
+  „Jetzt alle N importierten Mitarbeiter einladen" ruft die Bulk-Route direkt.
+- 1-Klick je Zeile (`inviteFromRow`) existierte bereits — verifiziert statt neu gebaut.
 
 ---
 

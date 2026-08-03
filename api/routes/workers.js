@@ -839,44 +839,58 @@ export function createWorkersRouter(deps) {
         return res.status(402).json({ error: "WORKER_LIMIT_EXCEEDED", plan_limits: limits });
       }
       const candidates = await workerService.listInvitableWorkers(pool, req.orgId);
+      // Set-based statt N x (SELECT + INSERT): EINE Dedup-Query + EIN UNNEST-Insert
+      // (bulkCreateWorkerInvites); der partielle Unique-Index aus Mig 159 macht
+      // parallele Bulk-Klicks race-sicher (ON CONFLICT DO NOTHING). Die Kandidaten-
+      // Menge waechst mit der Belegschaft — der alte Loop war der teure Pfad.
+      const bulk = await workerService.bulkCreateWorkerInvites(pool, {
+        supplierOrgId: req.orgId,
+        invitedBy: req.session.userId,
+        items: candidates
+      });
       const BASE_URL = deps.config?.BASE_URL || "http://localhost:8080";
       const invited = [];
       const failed = [];
-      for (const c of candidates) {
+      for (const invite of bulk.invites) {
+        const inviteUrl = `${BASE_URL}/worker-login.html?invite=${invite.token}`;
         try {
-          const result = await workerService.createWorkerInvite(pool, {
-            supplierOrgId: req.orgId, invitedBy: req.session.userId,
-            email: c.email, firstName: c.first_name, lastName: c.last_name, personnelNumber: c.personnel_number
-          });
-          if (result.error) { failed.push({ email: c.email, error: result.error }); continue; }
-          const { invite, token } = result;
-          const inviteUrl = `${BASE_URL}/worker-login.html?invite=${token}`;
-          try {
-            await deps.sendMail(
-              invite.email,
-              "Ihre Einladung zu TempConnect Worker-Portal",
-              `<h2>Willkommen bei TempConnect!</h2>
-               <p>Hallo ${invite.first_name},</p>
-               <p>Sie wurden eingeladen, das Worker Self-Service Portal zu nutzen.</p>
-               <p><a href="${inviteUrl}" style="background:#0070f3;color:white;padding:12px 24px;border-radius:8px;text-decoration:none;display:inline-block">Konto einrichten</a></p>
-               <p style="color:#666;font-size:14px">Der Link ist 7 Tage gültig.</p>`
-            );
-          } catch (mailErr) {
-            // `invite_id` statt der Adresse: personenbezogen darf nicht ins Log (S-2),
-            // und die ID ist zum Nachverfolgen ohnehin die bessere Kennung — ueber sie
-            // findet man den Datensatz, die Adresse haette man erst suchen muessen.
-            logger.warn({ err: mailErr?.message, invite_id: invite.id }, "Bulk-Invite E-Mail fehlgeschlagen");
-          }
+          await deps.sendMail(
+            invite.email,
+            "Ihre Einladung zu TempConnect Worker-Portal",
+            `<h2>Willkommen bei TempConnect!</h2>
+             <p>Hallo ${invite.first_name},</p>
+             <p>Sie wurden eingeladen, das Worker Self-Service Portal zu nutzen.</p>
+             <p><a href="${inviteUrl}" style="background:#0070f3;color:white;padding:12px 24px;border-radius:8px;text-decoration:none;display:inline-block">Konto einrichten</a></p>
+             <p style="color:#666;font-size:14px">Der Link ist 7 Tage gültig.</p>`
+          );
           invited.push({ email: invite.email, invite_id: invite.id });
-        } catch (e) {
-          failed.push({ email: c.email, error: e.message });
+        } catch (mailErr) {
+          // `invite_id` statt der Adresse: personenbezogen darf nicht ins Log (S-2),
+          // und die ID ist zum Nachverfolgen ohnehin die bessere Kennung — ueber sie
+          // findet man den Datensatz, die Adresse haette man erst suchen muessen.
+          logger.warn({ err: mailErr?.message, invite_id: invite.id }, "Bulk-Invite E-Mail fehlgeschlagen");
+          // Invite existiert (Resend moeglich) — als failed melden, damit der
+          // Disponent weiss, dass diese Mail nicht ankam.
+          failed.push({ email: invite.email, error: "MAIL_FAILED", invite_id: invite.id });
         }
       }
       res.locals.audit = {
         action: "worker.bulk_invite_sent", entity_type: "worker_invite",
-        entity_id: null, details: { invited: invited.length, failed: failed.length }
+        entity_id: null,
+        details: {
+          invited: invited.length, failed: failed.length,
+          skipped_pending: bulk.skipped_pending, skipped_accepted: bulk.skipped_accepted,
+          truncated: bulk.truncated
+        }
       };
-      res.status(201).json({ invited_count: invited.length, failed_count: failed.length, invited, failed });
+      res.status(201).json({
+        invited_count: invited.length,
+        failed_count: failed.length,
+        invited, failed,
+        skipped_pending: bulk.skipped_pending,
+        skipped_accepted: bulk.skipped_accepted,
+        truncated: bulk.truncated
+      });
     } catch (err) { next(err); }
   });
 

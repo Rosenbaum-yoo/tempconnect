@@ -214,6 +214,11 @@ export async function createApp() {
     next();
   });
 
+  // P7b: Worker-Profilfotos sind personenbezogen (DSGVO) — sie werden NIE
+  // statisch ausgeliefert, sondern ausschliesslich ueber die session-gebundene
+  // Route GET /api/worker/me/photo gestreamt. Muss VOR express.static stehen.
+  app.use("/uploads/worker-photos", (_req, res) => res.status(404).end());
+
   // Statische Auslieferung von Uploads (Bilder, PDFs)
   // SEC-001: Nach helmet() gemountet — X-Content-Type-Options, X-Frame-Options,
   // CSP, Referrer-Policy etc. gelten auch fuer Upload-Downloads.

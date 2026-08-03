@@ -15,6 +15,7 @@ import * as workerNotifications from "../services/workerNotificationService.js";
 import * as availabilitySvc from "../services/workerAvailabilityService.js";
 import * as onboardingSvc from "../services/workerOnboardingService.js";
 import { swallow } from "../utils/logger.js";
+import { sanitizeImageFile } from "../utils/imageIntegrity.js";
 
 /* ── Schemas ─────────────────────────────────────────────────────────────────── */
 
@@ -126,6 +127,38 @@ const workerDocumentAllowedMimes = ["image/png", "image/jpeg", "image/webp", "ap
 const workerDocumentAllowedExtensions = new Set([".png", ".jpg", ".jpeg", ".webp", ".pdf"]);
 const workerDocumentMaxFileSize = 10 * 1024 * 1024;
 
+const workerPhotoAllowedMimes = ["image/png", "image/jpeg", "image/webp"];
+const workerPhotoAllowedExtensions = new Set([".png", ".jpg", ".jpeg", ".webp"]);
+const workerPhotoMaxFileSize = 5 * 1024 * 1024;
+
+/* Profilfoto (P7b): personenbezogen — Ablage unter uploads/worker-photos wird
+   in app.js von der statischen Auslieferung ausgenommen; Zugriff NUR ueber
+   GET /worker/me/photo (Session-gebunden). */
+function createWorkerPhotoUpload() {
+  return multer({
+    storage: multer.diskStorage({
+      destination(req, _file, cb) {
+        if (!uuidRx.test(String(req.session?.userId || ""))) {
+          return cb(new Error("INVALID_WORKER_ID"));
+        }
+        const dir = path.join(process.cwd(), "uploads", "worker-photos", req.session.userId);
+        fs.mkdirSync(dir, { recursive: true });
+        cb(null, dir);
+      },
+      filename(_req, file, cb) {
+        const rawExt = path.extname(file.originalname).toLowerCase() || "";
+        const ext = workerPhotoAllowedExtensions.has(rawExt) ? rawExt : "";
+        cb(null, Date.now() + "-" + Math.random().toString(36).slice(2, 8) + ext);
+      }
+    }),
+    limits: { fileSize: workerPhotoMaxFileSize },
+    fileFilter(_req, file, cb) {
+      if (workerPhotoAllowedMimes.includes(file.mimetype)) return cb(null, true);
+      cb(Object.assign(new Error("Nicht erlaubter Dateityp: " + file.mimetype), { code: "INVALID_MIME" }));
+    }
+  });
+}
+
 function createWorkerDocumentUpload() {
   return multer({
     storage: multer.diskStorage({
@@ -169,6 +202,7 @@ export function createWorkerPortalRouter(deps) {
   const router = Router();
   const base = [requireAuth, requireWorkerRole];
   const workerDocumentUpload = createWorkerDocumentUpload();
+  const workerPhotoUpload = createWorkerPhotoUpload();
   const portalizeDocument = (document) => document ? {
     ...document,
     download_path: document.id ? `/api/worker/documents/${document.id}/download` : null
@@ -406,6 +440,87 @@ export function createWorkerPortalRouter(deps) {
         action: "worker.document_self_delete",
         entity_type: "worker_profile_document",
         entity_id: req.params.documentId
+      };
+      res.json({ ok: true });
+    } catch (err) { next(err); }
+  });
+
+  /* ── Profilfoto (P7b): Upload / Abruf / Loeschen ───────────────────────────── */
+
+  router.post("/worker/me/photo", ...base, (req, res, next) => {
+    workerPhotoUpload.single("file")(req, res, (err) => {
+      if (!err) return next();
+      if (err.code === "LIMIT_FILE_SIZE") return res.status(400).json({ error: "FILE_TOO_LARGE" });
+      if (err.code === "INVALID_MIME") return res.status(400).json({ error: "INVALID_MIME", message: err.message });
+      if (err.message === "INVALID_WORKER_ID") return res.status(400).json({ error: "INVALID_WORKER_ID" });
+      return res.status(400).json({ error: "UPLOAD_ERROR", message: err.message || "Upload fehlgeschlagen" });
+    });
+  }, async (req, res, next) => {
+    try {
+      if (!req.file) return res.status(400).json({ error: "FILE_REQUIRED" });
+      const profile = await workerService.getWorkerProfile(pool, req.session.userId);
+      if (!profile) {
+        fs.unlink(req.file.path, () => {});
+        return res.status(404).json({ error: "PROFILE_NOT_FOUND" });
+      }
+      // Magic-Bytes pruefen + JPEG-EXIF (GPS!) entfernen — Client-MIME zaehlt nicht.
+      const integrity = sanitizeImageFile(req.file.path, workerPhotoAllowedMimes);
+      if (!integrity.ok) {
+        fs.unlink(req.file.path, () => {});
+        return res.status(400).json({ error: "INVALID_IMAGE" });
+      }
+      const fileRef = "/uploads/worker-photos/" + req.session.userId + "/" + req.file.filename;
+      const result = await workerService.setWorkerPhoto(pool, {
+        workerUserId: req.session.userId,
+        supplierOrgId: profile.supplier_org_id,
+        fileRef,
+        mime: integrity.mime
+      });
+      if (!result) {
+        fs.unlink(req.file.path, () => {});
+        return res.status(404).json({ error: "PROFILE_NOT_FOUND" });
+      }
+      if (result.previous_file_ref && result.previous_file_ref !== fileRef) {
+        fs.unlink(path.join(process.cwd(), result.previous_file_ref.replace(/^\//, "")), () => {});
+      }
+      res.locals.audit = {
+        action: "worker.photo_upload",
+        entity_type: "worker_profile",
+        entity_id: req.session.userId,
+        details: { mime: integrity.mime, size_bytes: req.file.size || null }
+      };
+      res.status(201).json({ photo_path: "/api/worker/me/photo", mime: integrity.mime });
+    } catch (err) {
+      if (req.file) fs.unlink(req.file.path, () => {});
+      next(err);
+    }
+  });
+
+  router.get("/worker/me/photo", ...base, async (req, res, next) => {
+    try {
+      const profile = await workerService.getWorkerProfile(pool, req.session.userId);
+      if (!profile || !profile.photo_file_ref) return res.status(404).json({ error: "NO_PHOTO" });
+      const filePath = path.join(process.cwd(), profile.photo_file_ref.replace(/^\//, ""));
+      if (!fs.existsSync(filePath)) return res.status(404).json({ error: "FILE_MISSING" });
+      res.setHeader("Content-Type", profile.photo_mime || "application/octet-stream");
+      res.setHeader("Cache-Control", "private, max-age=0, must-revalidate");
+      fs.createReadStream(filePath).pipe(res);
+    } catch (err) { next(err); }
+  });
+
+  router.delete("/worker/me/photo", ...base, async (req, res, next) => {
+    try {
+      const profile = await workerService.getWorkerProfile(pool, req.session.userId);
+      if (!profile) return res.status(404).json({ error: "PROFILE_NOT_FOUND" });
+      const result = await workerService.clearWorkerPhoto(pool, req.session.userId, profile.supplier_org_id);
+      if (!result) return res.status(404).json({ error: "NO_PHOTO" });
+      if (result.previous_file_ref) {
+        fs.unlink(path.join(process.cwd(), result.previous_file_ref.replace(/^\//, "")), () => {});
+      }
+      res.locals.audit = {
+        action: "worker.photo_delete",
+        entity_type: "worker_profile",
+        entity_id: req.session.userId
       };
       res.json({ ok: true });
     } catch (err) { next(err); }

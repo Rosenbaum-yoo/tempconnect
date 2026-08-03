@@ -53,6 +53,7 @@
     function renderAll(){
       renderCompleteness();
       renderOverview();
+      renderPhoto();
       renderBasic();
       renderCapabilities();
       renderLocations();
@@ -445,6 +446,45 @@
 
     function hideForm(id){ $(id).style.display="none"; }
 
-    window.EP={toggleEdit:toggleEdit,saveOverview:saveOverview,saveBasic:saveBasic,saveCapabilities:saveCapabilities,tagKey:tagKey,_removeTag:_removeTag,showAddLocation:showAddLocation,addLocation:addLocation,removeLocation:removeLocation,showAddCert:showAddCert,addCert:addCert,removeCert:removeCert,showAddContact:showAddContact,addContact:addContact,removeContact:removeContact,hideForm:hideForm};
+    /* -- FIRMENFOTO (P7b) --------------------------------------------
+       Der Upload-Button in sla_profil.html rief uploadPhoto() auf, die
+       Funktion existierte aber nie (toter Button). Jetzt end-to-end:
+       Upload -> POST /company-profile/photo -> Vorschau + oeffentliches
+       Profil zeigen dasselbe photo_url. */
+    function renderPhoto(){
+      var box=$("photo-preview"); if(!box) return;
+      var url=(data&&data.profile&&data.profile.photo_url)||"";
+      if(url){
+        box.innerHTML="<img src='"+esc(url)+"' alt='Firmenfoto' style='max-width:320px;width:100%;border-radius:var(--ds-radius-lg);border:1px solid var(--ds-border);display:block'/>"+
+          "<button class='ep-btn ep-btn--sm' style='margin-top:var(--ds-space-2)' onclick='EP.deletePhoto()'>Foto entfernen</button>";
+      } else {
+        box.innerHTML="<span style='font-size:12px;color:var(--ds-text-tertiary)'>Noch kein Foto hochgeladen.</span>";
+      }
+    }
+    async function uploadPhoto(input){
+      var file=input&&input.files&&input.files[0];
+      if(!file) return;
+      input.value="";
+      if(file.size>5*1024*1024){ toast("Datei zu gross (max. 5 MB)",false); return; }
+      if(["image/png","image/jpeg","image/webp"].indexOf(file.type)<0){ toast("Nur PNG, JPG oder WebP",false); return; }
+      try{
+        var fd=new FormData(); fd.append("file",file);
+        var res=await api(API+"/photo",{method:"POST",body:fd});
+        var payload=res.data||res;
+        if(!data.profile) data.profile={};
+        data.profile.photo_url=payload.photo_url;
+        renderPhoto(); toast("Foto gespeichert");
+      }catch(e){ toast("Upload fehlgeschlagen",false); }
+    }
+    async function deletePhoto(){
+      try{
+        await api(API+"/photo",{method:"DELETE"});
+        if(data.profile) data.profile.photo_url=null;
+        renderPhoto(); toast("Foto entfernt");
+      }catch(e){ toast("Fehler",false); }
+    }
+
+    window.EP={toggleEdit:toggleEdit,saveOverview:saveOverview,saveBasic:saveBasic,saveCapabilities:saveCapabilities,tagKey:tagKey,_removeTag:_removeTag,showAddLocation:showAddLocation,addLocation:addLocation,removeLocation:removeLocation,showAddCert:showAddCert,addCert:addCert,removeCert:removeCert,showAddContact:showAddContact,addContact:addContact,removeContact:removeContact,hideForm:hideForm,deletePhoto:deletePhoto};
+    window.uploadPhoto=uploadPhoto; // inline onchange in sla_profil.html
     load();
   })();

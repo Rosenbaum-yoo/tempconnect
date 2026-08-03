@@ -50,6 +50,40 @@ export async function upsertProfile(pool, userId, data) {
   return rows[0];
 }
 
+/* ── Firmenfoto (P7b) ────────────────────────────────────────────────
+   BEWUSST NICHT in der upsertProfile-Whitelist: dort gilt Voll-Ersetzen-
+   Semantik (fehlendes Feld -> NULL) — das Overview-Formular wuerde das
+   Foto bei jedem Speichern loeschen. Eigener, additiver Pfad. */
+
+export async function setProfilePhoto(pool, userId, photoUrl) {
+  const { rows } = await pool.query(
+    `WITH old AS (SELECT photo_url FROM company_profiles WHERE user_id = $1)
+     INSERT INTO company_profiles (user_id, photo_url)
+     VALUES ($1, $2)
+     ON CONFLICT (user_id) DO UPDATE SET photo_url = EXCLUDED.photo_url, updated_at = NOW()
+     RETURNING photo_url, (SELECT photo_url FROM old) AS previous_photo_url`,
+    [userId, photoUrl]
+  );
+  return rows[0] || null;
+}
+
+export async function clearProfilePhoto(pool, userId) {
+  // CTE noetig: RETURNING sieht die NEUE Zeile — nach SET NULL waere der
+  // Rueckgabewert immer NULL und die alte Datei bliebe verwaist liegen.
+  const { rows } = await pool.query(
+    `WITH old AS (
+       SELECT photo_url FROM company_profiles
+        WHERE user_id = $1 AND photo_url IS NOT NULL
+     )
+     UPDATE company_profiles
+        SET photo_url = NULL, updated_at = NOW()
+      WHERE user_id = $1 AND photo_url IS NOT NULL
+      RETURNING (SELECT photo_url FROM old) AS previous_photo_url`,
+    [userId]
+  );
+  return rows[0] || null;
+}
+
 /* ══════════════════════════════════════════════════════════════════
    CAPABILITIES (1:1)
    ══════════════════════════════════════════════════════════════════ */

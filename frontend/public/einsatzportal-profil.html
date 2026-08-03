@@ -197,10 +197,16 @@
       <div class="profil-card">
         <div class="profil-card-head">
           <div class="profil-avatar" id="profAva">?</div>
-          <div>
+          <div style="flex:1;min-width:0">
             <div class="profil-head-name" id="profName">–</div>
             <div class="profil-head-role">Arbeitnehmer</div>
             <div class="profil-head-email" id="profEmail">–</div>
+          </div>
+          <!-- Profilfoto (P7b): nur im Portal sichtbar, nie in anonymen Angeboten -->
+          <div style="display:flex;flex-direction:column;gap:6px;align-items:flex-end">
+            <input type="file" id="photoInput" accept="image/png,image/jpeg,image/webp" style="display:none" onchange="uploadProfilePhoto(this)"/>
+            <button class="ep-btn ep-btn-outline ep-btn-sm" type="button" onclick="document.getElementById('photoInput').click()">Foto hochladen</button>
+            <button class="ep-btn ep-btn-sm" type="button" id="photoRemoveBtn" style="display:none" onclick="removeProfilePhoto()">Foto entfernen</button>
           </div>
         </div>
         <div class="profil-card-body">
@@ -705,6 +711,46 @@ async function saveSkills() {
   }
 })();
 
+/* Profilfoto (P7b): zeigt das Foto in beiden Avataren; ohne Foto bleiben
+   die Initialen. `bust` erzwingt nach Upload einen frischen Abruf. */
+function setAvatarPhoto(hasPhoto, bust) {
+  const removeBtn = document.getElementById('photoRemoveBtn');
+  if (removeBtn) removeBtn.style.display = hasPhoto ? '' : 'none';
+  if (!hasPhoto) return;
+  const url = '/api/worker/me/photo' + (bust ? ('?t=' + Date.now()) : '');
+  ['sd-ava', 'profAva'].forEach(function (id) {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.innerHTML = '<img src="' + url + '" alt="Profilfoto" style="width:100%;height:100%;object-fit:cover;border-radius:50%;display:block"/>';
+  });
+}
+
+async function uploadProfilePhoto(input) {
+  const file = input && input.files && input.files[0];
+  if (!file) return;
+  input.value = '';
+  if (file.size > 5 * 1024 * 1024) { toast('Datei zu groß (max. 5 MB).', 'error'); return; }
+  if (['image/png', 'image/jpeg', 'image/webp'].indexOf(file.type) < 0) { toast('Nur PNG, JPG oder WebP.', 'error'); return; }
+  try {
+    const fd = new FormData();
+    fd.append('file', file);
+    await PortalApi.upload('/worker/me/photo', fd);
+    setAvatarPhoto(true, true);
+    toast('Profilfoto gespeichert.');
+  } catch (e) {
+    toast('Upload fehlgeschlagen.', 'error');
+  }
+}
+
+async function removeProfilePhoto() {
+  try {
+    await PortalApi.del('/worker/me/photo');
+    location.reload(); // Initialen kommen aus fillProfile — sauberer Neuaufbau
+  } catch (e) {
+    toast('Entfernen fehlgeschlagen.', 'error');
+  }
+}
+
 function fillProfile(p) {
   const fullName = `${p.first_name||''} ${p.last_name||''}`.trim() || p.email;
   const ini = ((p.first_name||'?')[0] + (p.last_name||'?')[0]).toUpperCase();
@@ -715,6 +761,7 @@ function fillProfile(p) {
 
   // Profile card
   document.getElementById('profAva').textContent   = ini;
+  if (p.photo_file_ref) setAvatarPhoto(true);
   document.getElementById('profName').textContent  = fullName;
   document.getElementById('profEmail').textContent = p.email || '–';
   document.getElementById('profPN').textContent    = p.personnel_number || '–';

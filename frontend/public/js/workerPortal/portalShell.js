@@ -76,7 +76,14 @@
     var ini = ((u.first_name || '?').charAt(0) + (u.last_name || '?').charAt(0)).toUpperCase();
     var name = (u.first_name || '') + ' ' + (u.last_name || '');
     name = name.trim() || u.email || '';
-    _setById('sd-ava',  function (el) { el.textContent = ini; });
+    _setById('sd-ava',  function (el) {
+      // Profilfoto (P7b): session-gebundene Route; ohne Foto bleiben Initialen.
+      if (u.photo_file_ref) {
+        el.innerHTML = '<img src="/api/worker/me/photo" alt="Profilfoto" style="width:100%;height:100%;object-fit:cover;border-radius:50%;display:block"/>';
+      } else {
+        el.textContent = ini;
+      }
+    });
     _setById('sd-name', function (el) { el.textContent = name; });
   }
 
