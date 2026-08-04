@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <script src="/public/js/theme.js"></script>
   <script src="/public/js/i18n.js"></script>
-  <title>Personalangebot / Anfrage – TempConnect</title>
+  <title data-i18n="capm.detail.docTitle">Personalangebot / Anfrage – TempConnect</title>
   <link rel="stylesheet" href="/public/css/enterprise.css"/>
   <style>
     .ce-detail { display: grid; grid-template-columns: 1fr 340px; gap: var(--ds-space-6); align-items: start; }
@@ -175,11 +175,11 @@
 </head>
 <body data-sla-guard="sla_access">
   <div id="paywall" class="wrap" style="display:none">
-    <nav class="ds-topbar"><div class="ds-topbar__brand"><span class="ds-topbar__brand-dot"></span>TempConnect</div><div class="ds-topbar__nav"><a href="/" class="ds-btn">Startseite</a></div></nav>
+    <nav class="ds-topbar"><div class="ds-topbar__brand"><span class="ds-topbar__brand-dot"></span>TempConnect</div><div class="ds-topbar__nav"><a href="/" class="ds-btn" data-i18n="capm.paywall.home">Startseite</a></div></nav>
     <div class="paywall-box">
-      <h2>Bereich nicht verfuegbar</h2>
-      <p>Aktueller Plan: <span id="paywall-current-plan" class="paywall-plan">–</span></p>
-      <a id="paywall-cta" href="/public/sla_abo.html" class="btn primary">Abo ansehen</a>
+      <h2 data-i18n="capm.paywall.title">Bereich nicht verfuegbar</h2>
+      <p><span data-i18n="capm.paywall.currentPlan">Aktueller Plan:</span> <span id="paywall-current-plan" class="paywall-plan">–</span></p>
+      <a id="paywall-cta" href="/public/sla_abo.html" class="btn primary" data-i18n="capm.paywall.cta">Abo ansehen</a>
     </div>
   </div>
 
@@ -196,8 +196,8 @@
     <div id="detail" style="display:none">
       <div id="sect-hero" class="ce-hero">
         <img id="d-hero-img" class="ce-hero__media" style="display:none" alt="Eintragsvorschau"/>
-        <div id="d-hero-fallback" class="ce-hero__fallback">Kein Eintragsbild vorhanden</div>
-        <div class="ce-hero__badge">Eintragsvorschau</div>
+        <div id="d-hero-fallback" class="ce-hero__fallback" data-i18n="capm.hero.empty">Kein Eintragsbild vorhanden</div>
+        <div class="ce-hero__badge" data-i18n="capm.hero.badge">Eintragsvorschau</div>
       </div>
 
       <!-- Logo Area (filled by JS) -->
@@ -224,67 +224,67 @@
 
           <!-- Workforce -->
           <div class="ce-section">
-            <div class="ce-section__title">Personalangebot <span style="font-weight:400;font-size:11px;text-transform:none;letter-spacing:0;color:var(--ds-text-secondary)">&mdash; Welches Personal wird angeboten?</span></div>
+            <div class="ce-section__title"><span id="sect-workforce-label" data-i18n="capm.sect.workforce">Personalangebot</span> <span id="sect-workforce-hint" style="font-weight:400;font-size:11px;text-transform:none;letter-spacing:0;color:var(--ds-text-secondary)" data-i18n="capm.sect.workforceHint">&mdash; Welches Personal wird angeboten?</span></div>
             <div class="ce-fields-grid">
-              <div class="ce-field"><div class="ce-field__label">Rolle</div><div class="ce-field__value" id="d-role">–</div></div>
-              <div class="ce-field"><div class="ce-field__label">Kategorie</div><div class="ce-field__value" id="d-category">–</div></div>
-              <div class="ce-field"><div class="ce-field__label">Anzahl</div><div class="ce-field__value" id="d-headcount">–</div></div>
-              <div class="ce-field"><div class="ce-field__label">Skills</div><div class="ce-field__value" id="d-skills">–</div></div>
+              <div class="ce-field"><div class="ce-field__label" data-i18n="capm.field.role">Rolle</div><div class="ce-field__value" id="d-role">–</div></div>
+              <div class="ce-field"><div class="ce-field__label" data-i18n="capm.field.category">Kategorie</div><div class="ce-field__value" id="d-category">–</div></div>
+              <div class="ce-field"><div class="ce-field__label" data-i18n="capm.field.headcount">Anzahl</div><div class="ce-field__value" id="d-headcount">–</div></div>
+              <div class="ce-field"><div class="ce-field__label" data-i18n="capm.field.skills">Skills</div><div class="ce-field__value" id="d-skills">–</div></div>
             </div>
           </div>
 
           <!-- Timing -->
           <div class="ce-section">
-            <div class="ce-section__title">Zeitraum &amp; Einsatzmodell <span style="font-weight:400;font-size:11px;text-transform:none;letter-spacing:0;color:var(--ds-text-secondary)">&mdash; Wann und wie wird eingesetzt?</span></div>
+            <div class="ce-section__title"><span data-i18n="capm.sect.timing">Zeitraum &amp; Einsatzmodell</span> <span style="font-weight:400;font-size:11px;text-transform:none;letter-spacing:0;color:var(--ds-text-secondary)" data-i18n="capm.sect.timingHint">&mdash; Wann und wie wird eingesetzt?</span></div>
             <div class="ce-fields-grid">
-              <div class="ce-field"><div class="ce-field__label">Verfuegbarkeit</div><div class="ce-field__value" id="d-dates">–</div></div>
-              <div class="ce-field"><div class="ce-field__label">Typ</div><div class="ce-field__value" id="d-avail-type">–</div></div>
-              <div class="ce-field"><div class="ce-field__label">Schichtmodell</div><div class="ce-field__value" id="d-shift">–</div></div>
-              <div class="ce-field"><div class="ce-field__label">Einsatzart</div><div class="ce-field__value" id="d-employment">–</div></div>
+              <div class="ce-field"><div class="ce-field__label" data-i18n="capm.field.availability">Verfuegbarkeit</div><div class="ce-field__value" id="d-dates">–</div></div>
+              <div class="ce-field"><div class="ce-field__label" data-i18n="capm.field.availType">Typ</div><div class="ce-field__value" id="d-avail-type">–</div></div>
+              <div class="ce-field"><div class="ce-field__label" data-i18n="capm.field.shift">Schichtmodell</div><div class="ce-field__value" id="d-shift">–</div></div>
+              <div class="ce-field"><div class="ce-field__label" data-i18n="capm.field.employment">Einsatzart</div><div class="ce-field__value" id="d-employment">–</div></div>
             </div>
           </div>
 
           <!-- Location -->
           <div class="ce-section">
-            <div class="ce-section__title">Standort <span style="font-weight:400;font-size:11px;text-transform:none;letter-spacing:0;color:var(--ds-text-secondary)">&mdash; Wo ist der Einsatzort?</span></div>
+            <div class="ce-section__title"><span data-i18n="capm.sect.location">Standort</span> <span style="font-weight:400;font-size:11px;text-transform:none;letter-spacing:0;color:var(--ds-text-secondary)" data-i18n="capm.sect.locationHint">&mdash; Wo ist der Einsatzort?</span></div>
             <div class="ce-fields-grid">
-              <div class="ce-field"><div class="ce-field__label">Stadt / PLZ</div><div class="ce-field__value" id="d-location">–</div></div>
-              <div class="ce-field"><div class="ce-field__label">Einsatzradius</div><div class="ce-field__value" id="d-radius">–</div></div>
-              <div class="ce-field"><div class="ce-field__label">Land</div><div class="ce-field__value" id="d-country">–</div></div>
-              <div class="ce-field" id="d-mobility-wrap" style="display:none"><div class="ce-field__label">Mobilitaet</div><div class="ce-field__value" id="d-mobility">–</div></div>
+              <div class="ce-field"><div class="ce-field__label" data-i18n="capm.field.cityZip">Stadt / PLZ</div><div class="ce-field__value" id="d-location">–</div></div>
+              <div class="ce-field"><div class="ce-field__label" data-i18n="capm.field.radius">Einsatzradius</div><div class="ce-field__value" id="d-radius">–</div></div>
+              <div class="ce-field"><div class="ce-field__label" data-i18n="capm.field.country">Land</div><div class="ce-field__value" id="d-country">–</div></div>
+              <div class="ce-field" id="d-mobility-wrap" style="display:none"><div class="ce-field__label" data-i18n="capm.field.mobility">Mobilitaet</div><div class="ce-field__value" id="d-mobility">–</div></div>
             </div>
           </div>
 
           <!-- Qualifications -->
           <div class="ce-section" id="sect-qual" style="display:none">
-            <div class="ce-section__title">Qualifikationen</div>
-            <div class="ce-field" id="d-qual-wrap" style="display:none"><div class="ce-field__label">Profil</div><div class="ce-field__value" id="d-qualifications" style="white-space:pre-wrap">–</div></div>
-            <div class="ce-field" id="d-cert-wrap" style="display:none"><div class="ce-field__label">Zertifikate</div><div class="ce-field__value" id="d-certifications" style="white-space:pre-wrap">–</div></div>
+            <div class="ce-section__title" data-i18n="capm.sect.qual">Qualifikationen</div>
+            <div class="ce-field" id="d-qual-wrap" style="display:none"><div class="ce-field__label" data-i18n="capm.field.profile">Profil</div><div class="ce-field__value" id="d-qualifications" style="white-space:pre-wrap">–</div></div>
+            <div class="ce-field" id="d-cert-wrap" style="display:none"><div class="ce-field__label" data-i18n="capm.field.certificates">Zertifikate</div><div class="ce-field__value" id="d-certifications" style="white-space:pre-wrap">–</div></div>
           </div>
 
           <!-- Commercial -->
           <div class="ce-section" id="sect-price" style="display:none">
-            <div class="ce-section__title">Konditionen <span style="font-weight:400;font-size:11px;text-transform:none;letter-spacing:0;color:var(--ds-text-secondary)">&mdash; Preis und Vergütungsdetails</span></div>
+            <div class="ce-section__title"><span data-i18n="capm.sect.price">Konditionen</span> <span style="font-weight:400;font-size:11px;text-transform:none;letter-spacing:0;color:var(--ds-text-secondary)" data-i18n="capm.sect.priceHint">&mdash; Preis und Vergütungsdetails</span></div>
             <div class="ce-fields-grid" id="d-price-fields"></div>
           </div>
 
           <!-- Sicherheitshinweise (Bilder) -->
           <div id="sect-safety" class="ce-section" style="display:none">
-            <div class="ce-section__title">Sicherheitshinweise</div>
+            <div class="ce-section__title" data-i18n="capm.sect.safety">Sicherheitshinweise</div>
             <div id="d-safety-images" class="ce-gallery-grid"></div>
             <div id="d-safety-upload" class="ce-upload-row" style="display:none"></div>
           </div>
 
           <!-- Angebotsbilder (Galerie) -->
           <div id="sect-gallery" class="ce-section" style="display:none">
-            <div class="ce-section__title">Angebotsbilder</div>
+            <div class="ce-section__title" data-i18n="capm.sect.gallery">Angebotsbilder</div>
             <div id="d-gallery-images" class="ce-gallery-grid"></div>
             <div id="d-gallery-upload" class="ce-upload-row" style="display:none"></div>
           </div>
 
           <!-- Compliance-Dokumente -->
           <div id="sect-compliance-docs" class="ce-section" style="display:none">
-            <div class="ce-section__title">Compliance-Dokumente</div>
+            <div class="ce-section__title" data-i18n="capm.sect.complianceDocs">Compliance-Dokumente</div>
             <ul id="d-compliance-docs" class="ce-doc-list"></ul>
             <div id="d-compliance-upload" class="ce-upload-row" style="display:none"></div>
           </div>
@@ -292,16 +292,16 @@
           <!-- Owner: Matches -->
           <div id="sect-matches" style="display:none">
             <div class="ce-section">
-              <div class="ce-section__title">Passende Anfragen (Matching)</div>
-              <div id="d-matches"><span class="ds-text-sm ds-text-muted">Lade Matches…</span></div>
+              <div class="ce-section__title" data-i18n="capm.sect.matches">Passende Anfragen (Matching)</div>
+              <div id="d-matches"><span class="ds-text-sm ds-text-muted" data-i18n="capm.state.loadingMatches">Lade Matches…</span></div>
             </div>
           </div>
 
           <!-- Owner: Interactions -->
           <div id="sect-interactions" style="display:none">
             <div class="ce-section">
-              <div class="ce-section__title">Eingegangene Interaktionen</div>
-              <div id="d-interactions"><span class="ds-text-sm ds-text-muted">Lade…</span></div>
+              <div class="ce-section__title" data-i18n="capm.sect.interactions">Eingegangene Interaktionen</div>
+              <div id="d-interactions"><span class="ds-text-sm ds-text-muted" data-i18n="capm.state.loading">Lade…</span></div>
             </div>
           </div>
         </div>
@@ -310,7 +310,7 @@
         <div class="ce-detail__sidebar">
           <!-- Trust Signals -->
           <div class="ce-section" id="sect-trust">
-            <div class="ce-section__title">Vertrauenssignale <span style="font-weight:400;font-size:11px;text-transform:none;letter-spacing:0;color:var(--ds-text-secondary)">&mdash; Bewertung des Anbieters</span></div>
+            <div class="ce-section__title"><span data-i18n="capm.sect.trust">Vertrauenssignale</span> <span style="font-weight:400;font-size:11px;text-transform:none;letter-spacing:0;color:var(--ds-text-secondary)" data-i18n="capm.sect.trustHint">&mdash; Bewertung des Anbieters</span></div>
             <div id="d-trust" style="display:flex;flex-wrap:wrap;gap:var(--ds-space-2)">
               <span class="ds-text-sm ds-text-muted">–</span>
             </div>
@@ -318,7 +318,7 @@
 
           <!-- Compliance -->
           <div class="ce-section">
-            <div class="ce-section__title">Compliance <span style="font-weight:400;font-size:11px;text-transform:none;letter-spacing:0;color:var(--ds-text-secondary)">&mdash; Nachweis- und Dokumentenstatus</span></div>
+            <div class="ce-section__title"><span data-i18n="capm.sect.compliance">Compliance</span> <span style="font-weight:400;font-size:11px;text-transform:none;letter-spacing:0;color:var(--ds-text-secondary)" data-i18n="capm.sect.complianceHint">&mdash; Nachweis- und Dokumentenstatus</span></div>
             <div id="d-compliance-display" style="display:flex;align-items:center;gap:6px;font-size:14px">–</div>
             <div id="d-completeness" class="ce-completeness" style="display:none">
               <div class="ce-completeness__bar"><div class="ce-completeness__fill" id="d-completeness-fill" style="width:0"></div></div>
@@ -328,36 +328,36 @@
 
           <!-- Buyer quick actions -->
           <div class="ce-section" id="sect-buyer-actions" style="display:none">
-            <div class="ce-section__title">Schnellaktionen</div>
+            <div class="ce-section__title" data-i18n="capm.sect.quickActions">Schnellaktionen</div>
             <div class="ce-action-row">
-              <button class="ds-btn ds-btn--sm" id="btn-save-entry" title="Personalangebot merken">&#9734; Merken</button>
-              <button class="ds-btn ds-btn--sm ds-btn--ghost" id="btn-share-entry" title="Link kopieren">Link kopieren</button>
+              <button class="ds-btn ds-btn--sm" id="btn-save-entry" title="Personalangebot merken" data-i18n-title="capm.action.saveTitle">&#9734; <span id="btn-save-entry-label" data-i18n="capm.action.save">Merken</span></button>
+              <button class="ds-btn ds-btn--sm ds-btn--ghost" id="btn-share-entry" title="Link kopieren" data-i18n-title="capm.action.copyLink" data-i18n="capm.action.copyLink">Link kopieren</button>
             </div>
           </div>
 
           <!-- Interaction Panel (buyer view) -->
           <div class="ce-section" id="sect-interact" style="display:none">
-            <div class="ce-section__title" id="interact-title">Naechste Schritte</div>
+            <div class="ce-section__title" id="interact-title" data-i18n="capm.az.title">Naechste Schritte</div>
             <div class="ce-action-zone">
-              <p class="ce-action-zone__lead" id="action-zone-lead">Reagieren Sie auf dieses Angebot der Zeitarbeitsfirma.</p>
+              <p class="ce-action-zone__lead" id="action-zone-lead" data-i18n="capm.az.leadSupply">Reagieren Sie auf dieses Angebot der Zeitarbeitsfirma.</p>
 
               <div class="ce-action-zone__grid">
                 <button class="ds-btn ds-btn--primary ce-action-btn" id="btn-emergency-commit" data-open-action="emergency_commit" style="display:none;font-weight:700">
-                  <span>&#9889; Notdienst-Zusage senden</span>
+                  <span>&#9889; <span data-i18n="capm.action.emergencyCommit">Notdienst-Zusage senden</span></span>
                   <span class="ce-action-btn__meta" id="btn-emergency-commit-meta">–</span>
                 </button>
                 <button class="ds-btn ds-btn--primary ce-action-btn" data-open-action="deal_accept" style="font-weight:700">
-                  &#10003; Konditionen zustimmen
+                  &#10003; <span id="btn-deal-accept-label" data-i18n="capm.action.dealAccept">Konditionen zustimmen</span>
                 </button>
                 <button class="ds-btn ce-action-btn" data-open-action="deal_negotiate" style="font-weight:600;background:transparent;color:var(--ds-brand);border:1px solid var(--ds-brand)">
-                  &#9998; Um Verhandlung bitten
+                  &#9998; <span data-i18n="capm.action.dealNegotiate">Um Verhandlung bitten</span>
                 </button>
               </div>
 
               <div style="display:flex;flex-wrap:wrap;gap:var(--ds-space-2);margin-top:var(--ds-space-3)">
-                <button class="ds-btn ds-btn--sm" id="btn-interact-save" title="Merken">&#9734; Merken</button>
-                <button class="ds-btn ds-btn--sm ds-btn--ghost" id="btn-interact-share" title="Link kopieren">Link kopieren</button>
-                <button class="ds-btn ds-btn--sm ds-btn--ghost" data-open-action="question">&#10067; Frage stellen</button>
+                <button class="ds-btn ds-btn--sm" id="btn-interact-save" title="Merken" data-i18n-title="capm.action.save">&#9734; <span id="btn-interact-save-label" data-i18n="capm.action.save">Merken</span></button>
+                <button class="ds-btn ds-btn--sm ds-btn--ghost" id="btn-interact-share" title="Link kopieren" data-i18n-title="capm.action.copyLink" data-i18n="capm.action.copyLink">Link kopieren</button>
+                <button class="ds-btn ds-btn--sm ds-btn--ghost" data-open-action="question">&#10067; <span data-i18n="capm.action.ask">Frage stellen</span></button>
               </div>
               <div id="action-zone-status" class="ce-action-status" aria-live="polite"></div>
               <!-- Hidden: behalten fuer JS-Kompatibilitaet -->
@@ -367,20 +367,20 @@
 
           <!-- Zuletzt angesehen -->
           <div class="ce-section" id="sect-recently-viewed" style="display:none">
-            <div class="ce-section__title">Zuletzt angesehen</div>
+            <div class="ce-section__title" data-i18n="capm.sect.recentlyViewed">Zuletzt angesehen</div>
             <div id="d-recently-viewed"></div>
           </div>
 
           <!-- Owner Actions -->
           <div class="ce-section" id="sect-owner-actions" style="display:none">
-            <div class="ce-section__title">Aktionen</div>
+            <div class="ce-section__title" data-i18n="capm.sect.ownerActions">Aktionen</div>
             <div id="d-owner-actions" style="display:flex;flex-direction:column;gap:var(--ds-space-2)"></div>
           </div>
         </div>
       </div>
     </div>
 
-    <p class="ds-disclaimer">Alle Angaben ohne Gewaehr. TempConnect vermittelt, garantiert aber keinen Vermittlungserfolg.</p>
+    <p class="ds-disclaimer" data-i18n="capm.disclaimer">Alle Angaben ohne Gewaehr. TempConnect vermittelt, garantiert aber keinen Vermittlungserfolg.</p>
   </div>
 
   <div id="toast" class="ds-toast" role="status" aria-live="polite"></div>
@@ -388,81 +388,81 @@
     <div class="ce-modal" role="dialog" aria-modal="true" aria-labelledby="interaction-modal-title">
       <div class="ce-modal__head">
         <div>
-          <h3 id="interaction-modal-title" class="ce-modal__title">Interaktion senden</h3>
+          <h3 id="interaction-modal-title" class="ce-modal__title" data-i18n="capm.im.title">Interaktion senden</h3>
           <p id="interaction-modal-subtitle" class="ce-modal__subtitle"></p>
         </div>
-        <button type="button" id="interaction-modal-close" class="ds-btn ds-btn--ghost ds-btn--sm">Schliessen</button>
+        <button type="button" id="interaction-modal-close" class="ds-btn ds-btn--ghost ds-btn--sm" data-i18n="capm.im.close">Schliessen</button>
       </div>
       <div id="interaction-modal-summary" class="ce-modal__summary"></div>
       <form id="interaction-modal-form">
         <div class="ce-modal__grid">
           <div class="ce-field">
-            <label class="ds-label" for="im-start">Gewuenschter Start</label>
+            <label class="ds-label" for="im-start" data-i18n="capm.im.start">Gewuenschter Start</label>
             <input id="im-start" type="date" class="ds-input"/>
           </div>
           <div class="ce-field">
-            <label class="ds-label" for="im-end">Gewuenschter Endtermin</label>
+            <label class="ds-label" for="im-end" data-i18n="capm.im.end">Gewuenschter Endtermin</label>
             <input id="im-end" type="date" class="ds-input"/>
           </div>
           <div class="ce-field">
-            <label class="ds-label" for="im-headcount">Anzahl / Umfang</label>
-            <input id="im-headcount" type="number" min="1" class="ds-input" placeholder="z.B. 5"/>
+            <label class="ds-label" for="im-headcount" data-i18n="capm.im.headcount">Anzahl / Umfang</label>
+            <input id="im-headcount" type="number" min="1" class="ds-input" placeholder="z.B. 5" data-i18n-ph="capm.im.headcountPh"/>
           </div>
           <div class="ce-field">
-            <label class="ds-label" for="im-location">Standortbezug</label>
-            <input id="im-location" type="text" class="ds-input" placeholder="z.B. Stuttgart, 25 km"/>
+            <label class="ds-label" for="im-location" data-i18n="capm.im.location">Standortbezug</label>
+            <input id="im-location" type="text" class="ds-input" placeholder="z.B. Stuttgart, 25 km" data-i18n-ph="capm.im.locationPh"/>
           </div>
           <div class="ce-field">
-            <label class="ds-label" for="im-response-deadline">Rueckmeldung bis</label>
+            <label class="ds-label" for="im-response-deadline" data-i18n="capm.im.deadline">Rueckmeldung bis</label>
             <input id="im-response-deadline" type="date" class="ds-input"/>
           </div>
           <div class="ce-field">
-            <label class="ds-label" for="im-contact-pref">Kontaktpraeferenz</label>
+            <label class="ds-label" for="im-contact-pref" data-i18n="capm.im.contactPref">Kontaktpraeferenz</label>
             <select id="im-contact-pref" class="ds-select">
-              <option value="">Standard ueber Plattform</option>
-              <option value="platform">Nur Plattformnachricht</option>
-              <option value="email">E-Mail bevorzugt</option>
-              <option value="call">Rueckruf gewuenscht</option>
+              <option value="" data-i18n="capm.im.contactDefault">Standard ueber Plattform</option>
+              <option value="platform" data-i18n="capm.im.contactPlatform">Nur Plattformnachricht</option>
+              <option value="email" data-i18n="capm.im.contactEmail">E-Mail bevorzugt</option>
+              <option value="call" data-i18n="capm.im.contactCall">Rueckruf gewuenscht</option>
             </select>
           </div>
         </div>
         <!-- Preis-Felder fuer Verhandlung (Phase 6) -->
         <div id="im-price-wrap" style="display:none;margin-top:var(--ds-space-3)">
-          <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:var(--ds-text-tertiary);margin-bottom:var(--ds-space-2)">Preisvorstellung</div>
+          <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:var(--ds-text-tertiary);margin-bottom:var(--ds-space-2)" data-i18n="capm.im.priceHeading">Preisvorstellung</div>
           <div class="ce-modal__grid">
             <div class="ce-field">
-              <label class="ds-label" for="im-price-min">Min. Stundensatz (EUR)</label>
-              <input id="im-price-min" type="number" step="0.01" min="0" class="ds-input" placeholder="z.B. 18.50"/>
+              <label class="ds-label" for="im-price-min" data-i18n="capm.im.priceMin">Min. Stundensatz (EUR)</label>
+              <input id="im-price-min" type="number" step="0.01" min="0" class="ds-input" placeholder="z.B. 18.50" data-i18n-ph="capm.im.priceMinPh"/>
             </div>
             <div class="ce-field">
-              <label class="ds-label" for="im-price-max">Max. Stundensatz (EUR)</label>
-              <input id="im-price-max" type="number" step="0.01" min="0" class="ds-input" placeholder="z.B. 25.00"/>
+              <label class="ds-label" for="im-price-max" data-i18n="capm.im.priceMax">Max. Stundensatz (EUR)</label>
+              <input id="im-price-max" type="number" step="0.01" min="0" class="ds-input" placeholder="z.B. 25.00" data-i18n-ph="capm.im.priceMaxPh"/>
             </div>
           </div>
         </div>
         <div class="ce-field" id="im-topic-wrap" style="display:none;margin-top:var(--ds-space-3)">
-          <label class="ds-label" for="im-topic">Betreff / Thema</label>
+          <label class="ds-label" for="im-topic" data-i18n="capm.im.topic">Betreff / Thema</label>
           <select id="im-topic" class="ds-select">
-            <option value="scope">Leistungsumfang</option>
-            <option value="availability">Verfuegbarkeit</option>
-            <option value="compliance">Compliance/Nachweise</option>
-            <option value="pricing">Konditionen/Preisrahmen</option>
-            <option value="operations">Operativer Ablauf</option>
+            <option value="scope" data-i18n="capm.im.topicScope">Leistungsumfang</option>
+            <option value="availability" data-i18n="capm.im.topicAvailability">Verfuegbarkeit</option>
+            <option value="compliance" data-i18n="capm.im.topicCompliance">Compliance/Nachweise</option>
+            <option value="pricing" data-i18n="capm.im.topicPricing">Konditionen/Preisrahmen</option>
+            <option value="operations" data-i18n="capm.im.topicOperations">Operativer Ablauf</option>
           </select>
         </div>
         <div class="ce-field" style="margin-top:var(--ds-space-3)">
-          <label class="ds-label" for="im-requirements">Besondere Anforderungen</label>
-          <input id="im-requirements" type="text" class="ds-input" placeholder="z.B. Schicht, Zertifikate, Startfenster"/>
+          <label class="ds-label" for="im-requirements" data-i18n="capm.im.requirements">Besondere Anforderungen</label>
+          <input id="im-requirements" type="text" class="ds-input" placeholder="z.B. Schicht, Zertifikate, Startfenster" data-i18n-ph="capm.im.requirementsPh"/>
         </div>
         <div class="ce-field" style="margin-top:var(--ds-space-3)">
-          <label class="ds-label" for="im-message">Nachricht</label>
-          <textarea id="im-message" class="ds-textarea" rows="4" maxlength="2000" placeholder="Kurze, konkrete Nachricht mit den wichtigsten Eckdaten"></textarea>
-          <div class="ds-helper" id="im-next-step-hint">Nach dem Senden wird die Gegenseite benachrichtigt und der Vorgang ist nachvollziehbar in den Interaktionen dokumentiert.</div>
+          <label class="ds-label" for="im-message" data-i18n="capm.im.message">Nachricht</label>
+          <textarea id="im-message" class="ds-textarea" rows="4" maxlength="2000" placeholder="Kurze, konkrete Nachricht mit den wichtigsten Eckdaten" data-i18n-ph="capm.im.messagePh"></textarea>
+          <div class="ds-helper" id="im-next-step-hint" data-i18n="capm.im.hint">Nach dem Senden wird die Gegenseite benachrichtigt und der Vorgang ist nachvollziehbar in den Interaktionen dokumentiert.</div>
         </div>
         <div id="interaction-modal-feedback" style="display:none"></div>
         <div class="ce-modal__actions">
-          <button type="button" id="interaction-modal-cancel" class="ds-btn ds-btn--ghost">Abbrechen</button>
-          <button type="submit" id="interaction-modal-submit" class="ds-btn ds-btn--primary">Senden</button>
+          <button type="button" id="interaction-modal-cancel" class="ds-btn ds-btn--ghost" data-i18n="capm.im.cancel">Abbrechen</button>
+          <button type="submit" id="interaction-modal-submit" class="ds-btn ds-btn--primary" data-i18n="capm.im.submit">Senden</button>
         </div>
       </form>
     </div>
@@ -474,7 +474,7 @@
       <!-- Success Header -->
       <div id="agreement-modal-header" style="text-align:center;padding:var(--ds-space-5) var(--ds-space-5) 0">
         <div style="width:64px;height:64px;border-radius:50%;background:linear-gradient(135deg,rgba(52,211,153,.15),rgba(52,211,153,.08));display:flex;align-items:center;justify-content:center;margin:0 auto var(--ds-space-3);font-size:28px">&#10003;</div>
-        <h3 class="ce-modal__title" style="font-size:20px;margin-bottom:4px">Deal erfolgreich gestartet</h3>
+        <h3 class="ce-modal__title" style="font-size:20px;margin-bottom:4px" data-i18n="capm.ag.title">Deal erfolgreich gestartet</h3>
         <p class="ce-modal__subtitle" id="agreement-modal-ref" style="margin-bottom:0"></p>
       </div>
 
@@ -484,33 +484,33 @@
 
         <!-- Konditions-Summary (inline statt iframe) -->
         <div id="agreement-modal-summary" style="background:rgba(255,255,255,.03);border:1px solid var(--ds-border);border-radius:var(--ds-radius-lg);padding:var(--ds-space-4);margin-bottom:var(--ds-space-4)">
-          <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:var(--ds-text-tertiary);margin-bottom:var(--ds-space-2)">Vereinbarte Konditionen</div>
+          <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:var(--ds-text-tertiary);margin-bottom:var(--ds-space-2)" data-i18n="capm.ag.conditions">Vereinbarte Konditionen</div>
           <div id="agreement-modal-conditions-grid" style="display:grid;grid-template-columns:1fr 1fr;gap:8px 24px;font-size:13px">
-            <div style="text-align:center;padding:var(--ds-space-3);color:var(--ds-text-secondary)">Wird geladen&hellip;</div>
+            <div style="text-align:center;padding:var(--ds-space-3);color:var(--ds-text-secondary)" data-i18n="capm.ag.loading">Wird geladen&hellip;</div>
           </div>
         </div>
 
         <!-- Dokument-Preview (kompakt) -->
         <div id="agreement-modal-doc" style="border:1px solid var(--ds-border);border-radius:var(--ds-radius-md);background:#fff;color:#1a1d24;padding:0;height:300px;overflow:auto;margin-bottom:var(--ds-space-4)">
-          <div style="text-align:center;padding:var(--ds-space-6);color:#94a3b8">Einsatzvereinbarung wird geladen&hellip;</div>
+          <div style="text-align:center;padding:var(--ds-space-6);color:#94a3b8" data-i18n="capm.ag.docLoading">Einsatzvereinbarung wird geladen&hellip;</div>
         </div>
 
         <!-- Aktions-Buttons (prominent) -->
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:var(--ds-space-2);margin-bottom:var(--ds-space-3)">
-          <a id="agreement-modal-download" href="#" target="_blank" class="ds-btn ds-btn--primary" style="display:none;justify-content:center;min-height:42px;font-weight:700">Vereinbarung oeffnen</a>
-          <a id="agreement-modal-conditions" href="#" target="_blank" class="ds-btn" style="display:none;justify-content:center;min-height:42px">Konditionsblatt</a>
+          <a id="agreement-modal-download" href="#" target="_blank" class="ds-btn ds-btn--primary" style="display:none;justify-content:center;min-height:42px;font-weight:700" data-i18n="capm.ag.open">Vereinbarung oeffnen</a>
+          <a id="agreement-modal-conditions" href="#" target="_blank" class="ds-btn" style="display:none;justify-content:center;min-height:42px" data-i18n="capm.ag.sheet">Konditionsblatt</a>
         </div>
-        <a id="agreement-modal-deal" href="#" class="ds-btn ds-btn--primary" style="display:none;width:100%;justify-content:center;min-height:44px;font-weight:700">Zur Dealakte &amp; naechste Schritte</a>
+        <a id="agreement-modal-deal" href="#" class="ds-btn ds-btn--primary" style="display:none;width:100%;justify-content:center;min-height:44px;font-weight:700" data-i18n="capm.ag.toDeal">Zur Dealakte &amp; naechste Schritte</a>
 
         <!-- Info -->
         <div style="margin-top:var(--ds-space-3);font-size:12px;color:var(--ds-text-secondary);text-align:center">
-          Das Angebot wurde aus der Vermittlung entfernt und reserviert.<br>
-          Die Zeitarbeitsfirma wurde per E-Mail und In-App benachrichtigt.
+          <span data-i18n="capm.ag.info1">Das Angebot wurde aus der Vermittlung entfernt und reserviert.</span><br>
+          <span data-i18n="capm.ag.info2">Die Zeitarbeitsfirma wurde per E-Mail und In-App benachrichtigt.</span>
         </div>
       </div>
 
       <div style="padding:0 var(--ds-space-5) var(--ds-space-4);text-align:right">
-        <button type="button" id="agreement-modal-close" class="ds-btn ds-btn--ghost ds-btn--sm">Schliessen</button>
+        <button type="button" id="agreement-modal-close" class="ds-btn ds-btn--ghost ds-btn--sm" data-i18n="capm.ag.close">Schliessen</button>
       </div>
     </div>
   </div>

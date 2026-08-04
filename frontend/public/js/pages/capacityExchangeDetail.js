@@ -1,7 +1,812 @@
 "use strict";
 
+/* Woerterbuch (P6.1, DE/EN) fuer capacity_exchange_detail.html.
+   Die Seite laedt i18n.js im head, dieses Modul laeuft ausschliesslich auf
+   der Detailseite — TCi18n ist hier also garantiert vorhanden.
+
+   Bewusst NICHT uebersetzt:
+   - Topbar/Navigation/Nutzerbereich (uebersetzt pageShell.js mit shell-Keys)
+   - rollenabhaengige Begriffe aus terminologyLabels.js
+   - Rohwerte aus der API (Titel, Rolle, Ort, Status-Codes, Preistyp)
+   - der an die Gegenseite gesendete Nachrichtentext (buildInteractionMessage):
+     das ist ein Datenwert, dessen Empfaengersprache hier unbekannt ist        */
+TCi18n.register('de', {
+  'capm.paywall.home': 'Startseite',
+  'capm.paywall.title': 'Bereich nicht verfuegbar',
+  'capm.paywall.currentPlan': 'Aktueller Plan:',
+  'capm.paywall.cta': 'Abo ansehen',
+
+  'capm.detail.docTitle': 'Personalangebot / Anfrage – TempConnect',
+  'capm.hero.empty': 'Kein Eintragsbild vorhanden',
+  'capm.hero.badge': 'Eintragsvorschau',
+  'capm.disclaimer': 'Alle Angaben ohne Gewaehr. TempConnect vermittelt, garantiert aber keinen Vermittlungserfolg.',
+
+  'capm.sect.workforce': 'Personalangebot',
+  'capm.sect.workforceHint': '— Welches Personal wird angeboten?',
+  'capm.sect.demand': 'Arbeitsplatzangebot',
+  'capm.sect.demandHint': '— Welche Qualifikationen werden benoetigt?',
+  'capm.sect.timing': 'Zeitraum & Einsatzmodell',
+  'capm.sect.timingHint': '— Wann und wie wird eingesetzt?',
+  'capm.sect.location': 'Standort',
+  'capm.sect.locationHint': '— Wo ist der Einsatzort?',
+  'capm.sect.qual': 'Qualifikationen',
+  'capm.sect.price': 'Konditionen',
+  'capm.sect.priceHint': '— Preis und Verguetungsdetails',
+  'capm.sect.safety': 'Sicherheitshinweise',
+  'capm.sect.gallery': 'Angebotsbilder',
+  'capm.sect.complianceDocs': 'Compliance-Dokumente',
+  'capm.sect.matches': 'Passende Anfragen (Matching)',
+  'capm.sect.interactions': 'Eingegangene Interaktionen',
+  'capm.sect.trust': 'Vertrauenssignale',
+  'capm.sect.trustHint': '— Bewertung des Anbieters',
+  'capm.sect.compliance': 'Compliance',
+  'capm.sect.complianceHint': '— Nachweis- und Dokumentenstatus',
+  'capm.sect.quickActions': 'Schnellaktionen',
+  'capm.sect.recentlyViewed': 'Zuletzt angesehen',
+  'capm.sect.ownerActions': 'Aktionen',
+
+  'capm.field.role': 'Rolle',
+  'capm.field.category': 'Kategorie',
+  'capm.field.headcount': 'Anzahl',
+  'capm.field.skills': 'Skills',
+  'capm.field.availability': 'Verfuegbarkeit',
+  'capm.field.availType': 'Typ',
+  'capm.field.shift': 'Schichtmodell',
+  'capm.field.employment': 'Einsatzart',
+  'capm.field.cityZip': 'Stadt / PLZ',
+  'capm.field.radius': 'Einsatzradius',
+  'capm.field.country': 'Land',
+  'capm.field.mobility': 'Mobilitaet',
+  'capm.field.profile': 'Profil',
+  'capm.field.certificates': 'Zertifikate',
+  'capm.field.priceType': 'Preistyp',
+  'capm.field.min': 'Min',
+  'capm.field.max': 'Max',
+  'capm.field.hint': 'Hinweis',
+
+  'capm.state.loadingMatches': 'Lade Matches…',
+  'capm.state.loading': 'Lade…',
+
+  'capm.action.save': 'Merken',
+  'capm.action.saveTitle': 'Personalangebot merken',
+  'capm.action.copyLink': 'Link kopieren',
+  'capm.action.emergencyCommit': 'Notdienst-Zusage senden',
+  'capm.action.dealAccept': 'Konditionen zustimmen',
+  'capm.action.dealNegotiate': 'Um Verhandlung bitten',
+  'capm.action.ask': 'Frage stellen',
+
+  'capm.im.title': 'Interaktion senden',
+  'capm.im.close': 'Schliessen',
+  'capm.im.start': 'Gewuenschter Start',
+  'capm.im.end': 'Gewuenschter Endtermin',
+  'capm.im.headcount': 'Anzahl / Umfang',
+  'capm.im.headcountPh': 'z.B. 5',
+  'capm.im.location': 'Standortbezug',
+  'capm.im.locationPh': 'z.B. Stuttgart, 25 km',
+  'capm.im.deadline': 'Rueckmeldung bis',
+  'capm.im.contactPref': 'Kontaktpraeferenz',
+  'capm.im.contactDefault': 'Standard ueber Plattform',
+  'capm.im.contactPlatform': 'Nur Plattformnachricht',
+  'capm.im.contactEmail': 'E-Mail bevorzugt',
+  'capm.im.contactCall': 'Rueckruf gewuenscht',
+  'capm.im.priceHeading': 'Preisvorstellung',
+  'capm.im.priceMin': 'Min. Stundensatz (EUR)',
+  'capm.im.priceMinPh': 'z.B. 18.50',
+  'capm.im.priceMax': 'Max. Stundensatz (EUR)',
+  'capm.im.priceMaxPh': 'z.B. 25.00',
+  'capm.im.topic': 'Betreff / Thema',
+  'capm.im.topicScope': 'Leistungsumfang',
+  'capm.im.topicAvailability': 'Verfuegbarkeit',
+  'capm.im.topicCompliance': 'Compliance/Nachweise',
+  'capm.im.topicPricing': 'Konditionen/Preisrahmen',
+  'capm.im.topicOperations': 'Operativer Ablauf',
+  'capm.im.requirements': 'Besondere Anforderungen',
+  'capm.im.requirementsPh': 'z.B. Schicht, Zertifikate, Startfenster',
+  'capm.im.message': 'Nachricht',
+  'capm.im.messagePh': 'Kurze, konkrete Nachricht mit den wichtigsten Eckdaten',
+  'capm.im.hint': 'Nach dem Senden wird die Gegenseite benachrichtigt und der Vorgang ist nachvollziehbar in den Interaktionen dokumentiert.',
+  'capm.im.cancel': 'Abbrechen',
+  'capm.im.submit': 'Senden',
+  'capm.im.ref': 'Bezug',
+  'capm.im.entry': 'Eintrag',
+  'capm.im.na': 'n/a',
+  'capm.im.needQuestion': 'Bitte formulieren Sie kurz Ihre Rueckfrage.',
+  'capm.im.confirmAccept': 'Konditionen jetzt VERBINDLICH zustimmen?\n\nDamit starten Sie einen verbindlichen Deal zu den angebotenen Konditionen. Bitte nur bestaetigen, wenn Sie sicher sind.',
+  'capm.im.preparing': 'Deal wird vorbereitet…',
+
+  'capm.ag.title': 'Deal erfolgreich gestartet',
+  'capm.ag.conditions': 'Vereinbarte Konditionen',
+  'capm.ag.loading': 'Wird geladen…',
+  'capm.ag.docLoading': 'Einsatzvereinbarung wird geladen…',
+  'capm.ag.open': 'Vereinbarung oeffnen',
+  'capm.ag.sheet': 'Konditionsblatt',
+  'capm.ag.toDeal': 'Zur Dealakte & naechste Schritte',
+  'capm.ag.info1': 'Das Angebot wurde aus der Vermittlung entfernt und reserviert.',
+  'capm.ag.info2': 'Die Zeitarbeitsfirma wurde per E-Mail und In-App benachrichtigt.',
+  'capm.ag.close': 'Schliessen',
+  'capm.ag.refCreated': 'Einsatzvereinbarung {ref} erstellt',
+  'capm.ag.created': 'Einsatzbestaetigung erstellt',
+  'capm.ag.statusDone': 'Deal abgeschlossen — die Gegenseite wird benachrichtigt.',
+  'capm.ag.statusPartial': 'Personalangebot teilweise gebunden — noch {n} freie Plaetze verbleiben.',
+  'capm.ag.statusReserved': 'Personalangebot reserviert — keine freie Restmenge mehr.',
+  'capm.ag.gridRole': 'Rolle',
+  'capm.ag.gridCity': 'Ort',
+  'capm.ag.gridPeople': 'Personen im Deal',
+  'capm.ag.gridPeriod': 'Zeitraum',
+  'capm.ag.gridRemaining': 'Restfrei nach Deal',
+  'capm.ag.gridTotal': 'Stellen gesamt',
+  'capm.ag.gridPrice': 'Preis',
+  'capm.ag.docPending': 'Dokument wird nach Bestaetigung finalisiert.',
+  'capm.ag.docTitle': 'Einsatzvereinbarung',
+
+  'capm.hc.persons': '{n} Personen',
+  'capm.hc.split': '{free} frei / {total} gesamt',
+  'capm.hc.committed': ' · {n} dealgebunden',
+  'capm.hc.fullyReserved': 'Voll reserviert · 0 von {total} frei',
+  'capm.hc.freeOf': '{free} von {total} frei',
+
+  'capm.cfg.interestTitleSupply': 'Interesse am Angebot bekunden',
+  'capm.cfg.interestTitleDemand': 'Interesse am Arbeitsplatzangebot bekunden',
+  'capm.cfg.interestSubSupply': 'Qualifizierter Erstkontakt fuer moegliche Besetzung',
+  'capm.cfg.interestSubDemand': 'Qualifizierter Erstkontakt zur Besetzung',
+  'capm.cfg.interestBtn': 'Interesse senden',
+  'capm.cfg.interestNext': 'Die Gegenseite erhaelt Ihr strukturiertes Interesse und kann die naechste Deal-Abstimmung starten.',
+  'capm.cfg.offerTitleSupply': 'Angebot anfragen',
+  'capm.cfg.offerTitleDemand': 'Verfuegbarkeit anfragen',
+  'capm.cfg.offerSubSupply': 'Anfrage mit operativen Eckdaten statt Freitext',
+  'capm.cfg.offerSubDemand': 'Rueckmeldung mit Umsetzungsdaten vorbereiten',
+  'capm.cfg.offerBtnSupply': 'Anfrage senden',
+  'capm.cfg.offerBtnDemand': 'Rueckfrage senden',
+  'capm.cfg.offerNext': 'Die Anfrage wird mit Zeitraum, Umfang und Kontext gespeichert und kann direkt in den Deal-Prozess uebergehen.',
+  'capm.cfg.questionTitle': 'Fachliche Rueckfrage stellen',
+  'capm.cfg.questionSub': 'Kontextbezogene Frage mit klarer Zuordnung zum Eintrag',
+  'capm.cfg.questionBtn': 'Frage senden',
+  'capm.cfg.questionNext': 'Die Rueckfrage ist dem Eintrag eindeutig zugeordnet und fuer beide Seiten nachvollziehbar.',
+  'capm.cfg.contactTitle': 'Kontakt abstimmen',
+  'capm.cfg.contactSub': 'Kommunikationsweg und naechsten operativen Schritt festlegen',
+  'capm.cfg.contactBtn': 'Kontaktanfrage senden',
+  'capm.cfg.contactNext': 'Die Kontaktpraeferenz wird dokumentiert, damit der Austausch ohne Medienbruch starten kann.',
+  'capm.cfg.acceptTitle': 'Konditionen zustimmen',
+  'capm.cfg.acceptSub': 'Signalisieren Sie verbindliche Dealbereitschaft zu den angebotenen Konditionen.',
+  'capm.cfg.acceptBtn': 'Zustimmung verbindlich uebermitteln',
+  'capm.cfg.acceptNext': 'Die Zeitarbeitsfirma wird sofort informiert. Danach folgt die operative Abstimmung ueber TempConnect, E-Mail oder Telefon.',
+  'capm.cfg.negotiateTitle': 'Um Verhandlung bitten',
+  'capm.cfg.negotiateSub': 'Teilen Sie mit, welche Konditionen angepasst werden sollen.',
+  'capm.cfg.negotiateBtn': 'Verhandlungsanfrage senden',
+  'capm.cfg.negotiateNext': 'Die Gegenseite erhaelt eine strukturierte Verhandlungsanfrage. Der Deal bleibt offen bis zur Einigung.',
+  'capm.cfg.emergencyTitle': 'Notdienst-Zusage senden',
+  'capm.cfg.emergencySub': 'Schnelle Zusage fuer eine dringende Anfrage.',
+  'capm.cfg.emergencyBtn': 'Notdienst zusagen',
+  'capm.cfg.emergencyNext': 'Ihre Zusage wird sofort dokumentiert und an die anfragende Seite uebermittelt.',
+
+  'capm.az.title': 'Naechste Schritte',
+  'capm.az.leadDemand': 'Reagieren Sie auf dieses Arbeitsplatzangebot.',
+  'capm.az.leadSupply': 'Reagieren Sie auf dieses Angebot der Zeitarbeitsfirma.',
+  'capm.az.leadEmergency': 'Notdienst-Anfrage mit sofortigem Handlungsbedarf.',
+  'capm.az.leadEmergencyOpen': ' Noch {n} offen.',
+  'capm.az.openCount': '{n} offen',
+  'capm.az.full': 'voll',
+  'capm.az.roleBlocked': 'Fuer diese Rolle ist hier keine direkte Interaktion vorgesehen.',
+  'capm.az.toDeal': 'Zum Deal',
+
+  'capm.sum.start': 'Start',
+  'capm.sum.end': 'Ende',
+  'capm.sum.scope': 'Umfang',
+  'capm.sum.location': 'Standort',
+  'capm.sum.deadline': 'Rueckmeldung bis',
+  'capm.sum.contact': 'Kontakt',
+  'capm.sum.sent': '{label} gesendet.',
+  'capm.sum.captured': 'Erfasst: {parts}',
+  'capm.sum.contextual': 'Kontextbezogene Nachricht erfasst.',
+  'capm.sum.fallbackLabel': 'Interaktion',
+
+  'capm.ilabel.interest': 'Interesse',
+  'capm.ilabel.offer_request': 'Angebotsanfrage',
+  'capm.ilabel.question': 'Frage',
+  'capm.ilabel.save': 'Gespeichert',
+  'capm.ilabel.requisition_link': 'Verknuepfung',
+  'capm.ilabel.deal_start': 'Deal',
+  'capm.ilabel.contact': 'Kontakt',
+  'capm.ilabel.deal_accept': 'Konditionen zugestimmt',
+  'capm.ilabel.deal_negotiate': 'Verhandlungsanfrage',
+  'capm.ilabel.emergency_commit': 'Notdienst-Zusage',
+
+  'capm.err.ACTION_NOT_ALLOWED_ROLE': 'Ihre Rolle kann diese Aktion hier nicht ausfuehren.',
+  'capm.err.SELF_INTERACTION_FORBIDDEN': 'Eigene Eintraege koennen nicht kontaktiert werden.',
+  'capm.err.ENTRY_NOT_INTERACTABLE': 'Dieser Eintrag ist aktuell nicht mehr fuer neue Anfragen offen.',
+  'capm.err.DEMAND_NOT_INTERACTABLE': 'Dieses Arbeitsplatzangebot ist aktuell nicht mehr fuer neue Rueckmeldungen offen.',
+  'capm.err.SUPPLIER_NOT_MATCHED': 'Nur gematchte Anbieter koennen eine Notdienst-Zusage senden.',
+  'capm.err.OVERFILL_NOT_ALLOWED': 'Die zugesagte Menge ueberschreitet die offenen Stellen.',
+  'capm.err.NOT_EMERGENCY': 'Dieses Arbeitsplatzangebot ist kein Notdienst.',
+  'capm.err.NOT_OPEN': 'Der Notdienst ist nicht mehr offen.',
+  'capm.err.ALREADY_FULLY_COVERED': 'Das Arbeitsplatzangebot ist bereits vollstaendig besetzt.',
+  'capm.err.INVALID_QUANTITY': 'Bitte geben Sie eine gueltige Menge an.',
+  'capm.err.AGENCY_ONLY': 'Nur Agenturen koennen eine Notdienst-Zusage senden.',
+  'capm.err.NOT_FOUND': 'Der Eintrag wurde nicht gefunden oder ist nicht mehr sichtbar.',
+  'capm.err.CAPACITY_UNAVAILABLE': 'Die verfuegbaren Stellen reichen fuer diesen Deal nicht mehr aus.',
+  'capm.err.VALIDATION': 'Bitte pruefen Sie Ihre Eingaben und senden Sie erneut.',
+  'capm.err.default': 'Die Aktion konnte gerade nicht abgeschlossen werden. Bitte erneut versuchen.',
+  'capm.err.generic': 'Fehler',
+  'capm.err.selfDeal': 'Eigenes Angebot.',
+  'capm.err.notActive': 'Nicht mehr verfuegbar.',
+  'capm.err.capacityShort': 'Nicht mehr genuegend freie Stellen.',
+  'capm.err.companyOnly': 'Nur Unternehmen.',
+  'capm.err.http': 'Fehler: {code}',
+  'capm.err.dealSelf': 'Sie koennen nicht mit Ihrem eigenen Angebot handeln.',
+  'capm.err.dealNotActive': 'Dieses Angebot ist nicht mehr verfuegbar.',
+  'capm.err.dealCapacity': 'Die verfuegbaren Stellen reichen fuer diese Anfrage nicht mehr aus.',
+  'capm.err.dealCompanyOnly': 'Nur Unternehmen koennen Deals starten.',
+  'capm.err.dealFailed': 'Deal-Aktion fehlgeschlagen.',
+  'capm.err.actionFailed': 'Aktion fehlgeschlagen.',
+  'capm.err.emergencyFailed': 'Notdienst-Zusage fehlgeschlagen.',
+  'capm.err.loadEntry': 'Fehler beim Laden des Eintrags.',
+  'capm.err.loadHttp': 'Fehler beim Laden (HTTP {code})',
+  'capm.err.notFoundUrl': 'Eintrag nicht gefunden – bitte pruefen Sie die URL.',
+  'capm.err.loadFailed': 'Fehler beim Laden.',
+
+  'capm.deal.startedRemaining': 'Deal gestartet — {n} freie Plaetze verbleiben.',
+  'capm.deal.startedReserved': 'Deal gestartet — Personalangebot ist jetzt voll reserviert.',
+  'capm.deal.startedRef': 'Deal gestartet — Einsatzbestaetigung {ref} erstellt.',
+  'capm.deal.toastAccepted': 'Konditionen zugestimmt — Einsatzbestaetigung erstellt',
+  'capm.deal.acceptRemaining': 'Einsatzvereinbarung {ref} erstellt. Noch {n} freie Plaetze verbleiben.',
+  'capm.deal.acceptReserved': 'Einsatzvereinbarung {ref} erstellt. Das Personalangebot ist jetzt voll reserviert.',
+  'capm.deal.acceptDemand': 'Einsatzvereinbarung {ref} erstellt. Das Angebot wurde reserviert.',
+  'capm.deal.startedStrong': 'Deal gestartet!',
+  'capm.deal.closed': 'Deal abgeschlossen — {text}',
+  'capm.deal.toAgreement': 'Zur Einsatzvereinbarung',
+  'capm.deal.toastStarted': 'Konditionen zugestimmt — Deal gestartet',
+  'capm.deal.negotiationStrong': 'Verhandlung gestartet!',
+  'capm.deal.negotiationText': 'Ihre Anpassungswuensche wurden an die Gegenseite uebermittelt.',
+  'capm.deal.negotiationStatus': 'Verhandlung gestartet — die Gegenseite wurde informiert.',
+  'capm.deal.toNegotiation': 'Zum Verhandlungsvorgang',
+  'capm.deal.toastNegotiation': 'Verhandlungsanfrage gesendet',
+
+  'capm.em.supplyOnly': 'Notdienst-Zusagen sind nur fuer Arbeitsplatzangebote verfuegbar.',
+  'capm.em.needQty': 'Bitte geben Sie die zugesagte Menge an.',
+  'capm.em.sending': 'Notdienst-Zusage wird uebermittelt…',
+  'capm.em.registeredOpen': 'Notdienst-Zusage registriert — noch {n} offen.',
+  'capm.em.registeredFull': 'Notdienst-Zusage registriert — Angebot besetzt.',
+  'capm.em.registered': 'Notdienst-Zusage registriert.',
+  'capm.em.toast': 'Notdienst-Zusage gesendet',
+
+  'capm.toast.documented': 'Vorgang dokumentiert: {text}',
+  'capm.toast.interactionSent': 'Interaktion erfolgreich gesendet',
+  'capm.toast.linkCopied': 'Link kopiert',
+
+  'capm.status.draft': 'Entwurf',
+  'capm.status.active': 'Aktiv',
+  'capm.status.reserved': 'Reserviert',
+  'capm.status.paused': 'Pausiert',
+  'capm.status.expired': 'Abgelaufen',
+  'capm.status.filled': 'Besetzt',
+  'capm.status.archived': 'Archiviert',
+  'capm.status.open': 'Offen',
+  'capm.status.partially_covered': 'Teilweise gedeckt',
+  'capm.status.fulfilled': 'Erfuellt',
+  'capm.status.closed': 'Geschlossen',
+  'capm.status.validUntil': 'Gueltig bis: {date}',
+
+  'capm.shift.day': 'Tagschicht',
+  'capm.shift.night': 'Nachtschicht',
+  'capm.shift.rotating': 'Wechselschicht',
+  'capm.shift.flexible': 'Flexibel',
+  'capm.shift.weekend': 'Wochenende',
+  'capm.shift.on_call': 'Bereitschaft',
+
+  'capm.emp.temporary': 'ANUe',
+  'capm.emp.contract': 'Werkvertrag',
+  'capm.emp.temp_to_perm': 'Temp-to-Perm',
+  'capm.emp.project': 'Projekt',
+  'capm.emp.on_call': 'Abruf',
+
+  'capm.avail.immediate': 'Sofort (heute oder morgen)',
+  'capm.avail.scheduled': 'Geplant',
+  'capm.avail.flexible': 'Flexibel',
+
+  'capm.comp.unknown': 'Unbekannt',
+  'capm.comp.pending': 'In Pruefung',
+  'capm.comp.partial': 'Teilweise',
+  'capm.comp.complete': 'Vollstaendig',
+
+  'capm.fresh.unconfirmed': 'Nicht bestaetigt',
+  'capm.fresh.current': 'Aktuell',
+  'capm.fresh.aging': 'Altert',
+  'capm.fresh.stale': 'Veraltet',
+
+  'capm.trust.none': 'Keine Signale',
+  'capm.trust.successRate': '{pct}% Erfolgsrate',
+  'capm.trust.successRateTitle': 'Anteil erfolgreich abgeschlossener Deals',
+  'capm.trust.responseTime': '{label} Antwortzeit',
+  'capm.trust.verified': 'Verifiziert',
+  'capm.trust.verifiedTitle': 'Mindestens ein Nachweis wurde verifiziert',
+  'capm.trust.compliance': 'Compliance vollst.',
+  'capm.trust.complianceTitle': 'Alle Compliance-Dokumente sind verifiziert und gueltig',
+  'capm.trust.subscriber': 'Aktiver Abonnent',
+  'capm.trust.subscriberTitle': 'Nutzer hat einen aktiven kostenpflichtigen Tarif',
+  'capm.trust.deals': '{n} Deals',
+  'capm.trust.dealsTitle': 'Anzahl erfolgreich abgeschlossener Deals auf der Plattform',
+  'capm.trust.recent': 'Kuerzlich bestaetigt',
+  'capm.trust.recentTitle': 'Das Personalangebot wurde in den letzten 48 Stunden als aktuell bestaetigt',
+  'capm.trust.profile': 'Profil {pct}%',
+  'capm.trust.profileTitle': 'Wie vollstaendig das Firmenprofil ausgefuellt ist',
+
+  'capm.ds.orgTitle': 'Anfragende Organisation',
+  'capm.ds.urgencyNormal': 'Normal',
+  'capm.ds.urgencyNotdienst': 'Notdienst',
+  'capm.ds.urgencyCritical': 'Kritisch',
+  'capm.ds.urgencyUrgent': 'Dringend',
+  'capm.ds.urgencyPrioritized': 'Priorisiert',
+  'capm.ds.urgencyTitle': 'Dringlichkeit des Arbeitsplatzangebots',
+  'capm.ds.startTitle': 'Gewuenschter Starttermin',
+  'capm.ds.start': 'Start {date}',
+  'capm.ds.budgetTitle': 'Budgetrahmen des Arbeitsplatzangebots',
+  'capm.ds.headcountTitle': 'Angefragter Umfang',
+  'capm.ds.headcount': '{n} Personen',
+  'capm.ds.createdTitle': 'Erstellungsdatum',
+  'capm.ds.created': 'erstellt {date}',
+  'capm.ds.fallback': 'Angebotsdaten verfuegbar',
+
+  'capm.type.demand': 'Nachfrage',
+  'capm.type.supply': 'Angebot',
+  'capm.hdr.edit': 'Bearbeiten',
+  'capm.hdr.toList': 'Zur Liste',
+  'capm.hdr.backToFeed': 'Zurueck zur Boerse',
+  'capm.dates.open': '(offen)',
+  'capm.compliance.demand': 'Arbeitsplatzangebot',
+  'capm.profileCompleteness': 'Profilvollstaendigkeit: {pct}%',
+  'capm.save.offer': 'Angebot merken',
+  'capm.save.demandTitle': 'Nachfrage merken',
+  'capm.save.offerSaved': 'Angebot gemerkt',
+  'capm.save.saved': 'Gemerkt',
+  'capm.save.staffSaved': 'Personal gemerkt',
+
+  'capm.oa.activate': 'Aktivieren',
+  'capm.oa.confirm': 'Aktualitaet bestaetigen',
+  'capm.oa.pause': 'Pausieren',
+  'capm.oa.reactivate': 'Reaktivieren',
+  'capm.oa.fill': 'Als besetzt markieren',
+  'capm.oa.archive': 'Archivieren',
+  'capm.oa.confirmArchive': 'Archivieren?',
+  'capm.oa.done': 'Aktion ausgefuehrt',
+
+  'capm.match.none': 'Keine passenden Anfragen gefunden.',
+  'capm.match.request': 'Anfrage',
+  'capm.match.score': 'Score {n}',
+  'capm.match.unavailable': 'Matching nicht verfuegbar.',
+  'capm.inter.none': 'Noch keine Interaktionen.',
+
+  'capm.asset.safetyAlt': 'Sicherheitsbild',
+  'capm.asset.galleryAlt': 'Angebotsbild',
+  'capm.asset.fullAlt': 'Vollbild',
+  'capm.asset.logoAlt': 'Firmenlogo',
+  'capm.asset.previewAlt': 'Eintragsvorschau',
+  'capm.asset.uploadLogo': 'Logo hochladen',
+  'capm.asset.uploadSafety': 'Sicherheitsbild hochladen',
+  'capm.asset.uploadGallery': 'Bild hochladen',
+  'capm.asset.uploadDoc': 'Dokument hochladen',
+  'capm.asset.uploadGeneric': 'Hochladen',
+  'capm.asset.uploading': 'Wird hochgeladen…',
+  'capm.asset.complianceCard': 'Compliance Card',
+  'capm.asset.download': 'Download',
+  'capm.asset.document': 'Dokument',
+  'capm.asset.validUntil': 'Gueltig bis: {date}',
+  'capm.asset.uploaded': 'Datei hochgeladen',
+  'capm.asset.uploadFailed': 'Upload fehlgeschlagen',
+  'capm.asset.confirmDelete': 'Asset wirklich loeschen?',
+  'capm.asset.deleted': 'Asset geloescht',
+  'capm.asset.deleteFailed': 'Loeschen fehlgeschlagen'
+});
+
+TCi18n.register('en', {
+  'capm.paywall.home': 'Home',
+  'capm.paywall.title': 'Section not available',
+  'capm.paywall.currentPlan': 'Current plan:',
+  'capm.paywall.cta': 'View plans',
+
+  'capm.detail.docTitle': 'Staff offer / request – TempConnect',
+  'capm.hero.empty': 'No listing image available',
+  'capm.hero.badge': 'Listing preview',
+  'capm.disclaimer': 'All information without warranty. TempConnect facilitates matching but does not guarantee a successful placement.',
+
+  'capm.sect.workforce': 'Staff offer',
+  'capm.sect.workforceHint': '— Which staff is being offered?',
+  'capm.sect.demand': 'Job posting',
+  'capm.sect.demandHint': '— Which qualifications are required?',
+  'capm.sect.timing': 'Period & assignment model',
+  'capm.sect.timingHint': '— When and how will the assignment run?',
+  'capm.sect.location': 'Location',
+  'capm.sect.locationHint': '— Where is the place of work?',
+  'capm.sect.qual': 'Qualifications',
+  'capm.sect.price': 'Terms',
+  'capm.sect.priceHint': '— Pricing and compensation details',
+  'capm.sect.safety': 'Safety instructions',
+  'capm.sect.gallery': 'Listing images',
+  'capm.sect.complianceDocs': 'Compliance documents',
+  'capm.sect.matches': 'Matching requests',
+  'capm.sect.interactions': 'Incoming interactions',
+  'capm.sect.trust': 'Trust signals',
+  'capm.sect.trustHint': '— Provider rating',
+  'capm.sect.compliance': 'Compliance',
+  'capm.sect.complianceHint': '— Proof and document status',
+  'capm.sect.quickActions': 'Quick actions',
+  'capm.sect.recentlyViewed': 'Recently viewed',
+  'capm.sect.ownerActions': 'Actions',
+
+  'capm.field.role': 'Role',
+  'capm.field.category': 'Category',
+  'capm.field.headcount': 'Headcount',
+  'capm.field.skills': 'Skills',
+  'capm.field.availability': 'Availability',
+  'capm.field.availType': 'Type',
+  'capm.field.shift': 'Shift model',
+  'capm.field.employment': 'Assignment type',
+  'capm.field.cityZip': 'City / postcode',
+  'capm.field.radius': 'Travel radius',
+  'capm.field.country': 'Country',
+  'capm.field.mobility': 'Mobility',
+  'capm.field.profile': 'Profile',
+  'capm.field.certificates': 'Certificates',
+  'capm.field.priceType': 'Price type',
+  'capm.field.min': 'Min',
+  'capm.field.max': 'Max',
+  'capm.field.hint': 'Note',
+
+  'capm.state.loadingMatches': 'Loading matches…',
+  'capm.state.loading': 'Loading…',
+
+  'capm.action.save': 'Save',
+  'capm.action.saveTitle': 'Save staff offer',
+  'capm.action.copyLink': 'Copy link',
+  'capm.action.emergencyCommit': 'Send emergency commitment',
+  'capm.action.dealAccept': 'Accept terms',
+  'capm.action.dealNegotiate': 'Request negotiation',
+  'capm.action.ask': 'Ask a question',
+
+  'capm.im.title': 'Send interaction',
+  'capm.im.close': 'Close',
+  'capm.im.start': 'Preferred start',
+  'capm.im.end': 'Preferred end date',
+  'capm.im.headcount': 'Headcount / scope',
+  'capm.im.headcountPh': 'e.g. 5',
+  'capm.im.location': 'Location context',
+  'capm.im.locationPh': 'e.g. Stuttgart, 25 km',
+  'capm.im.deadline': 'Reply by',
+  'capm.im.contactPref': 'Contact preference',
+  'capm.im.contactDefault': 'Default via platform',
+  'capm.im.contactPlatform': 'Platform message only',
+  'capm.im.contactEmail': 'Email preferred',
+  'capm.im.contactCall': 'Call back requested',
+  'capm.im.priceHeading': 'Price expectation',
+  'capm.im.priceMin': 'Min. hourly rate (EUR)',
+  'capm.im.priceMinPh': 'e.g. 18.50',
+  'capm.im.priceMax': 'Max. hourly rate (EUR)',
+  'capm.im.priceMaxPh': 'e.g. 25.00',
+  'capm.im.topic': 'Subject / topic',
+  'capm.im.topicScope': 'Scope of services',
+  'capm.im.topicAvailability': 'Availability',
+  'capm.im.topicCompliance': 'Compliance/proofs',
+  'capm.im.topicPricing': 'Terms/price range',
+  'capm.im.topicOperations': 'Operational process',
+  'capm.im.requirements': 'Special requirements',
+  'capm.im.requirementsPh': 'e.g. shift, certificates, start window',
+  'capm.im.message': 'Message',
+  'capm.im.messagePh': 'Short, concrete message with the key facts',
+  'capm.im.hint': 'After sending, the other side is notified and the process is documented in the interactions log.',
+  'capm.im.cancel': 'Cancel',
+  'capm.im.submit': 'Send',
+  'capm.im.ref': 'Reference',
+  'capm.im.entry': 'Listing',
+  'capm.im.na': 'n/a',
+  'capm.im.needQuestion': 'Please briefly describe your question.',
+  'capm.im.confirmAccept': 'Accept the terms as BINDING now?\n\nThis starts a binding deal on the offered terms. Only confirm if you are sure.',
+  'capm.im.preparing': 'Preparing deal…',
+
+  'capm.ag.title': 'Deal started successfully',
+  'capm.ag.conditions': 'Agreed terms',
+  'capm.ag.loading': 'Loading…',
+  'capm.ag.docLoading': 'Loading assignment agreement…',
+  'capm.ag.open': 'Open agreement',
+  'capm.ag.sheet': 'Terms sheet',
+  'capm.ag.toDeal': 'To the deal file & next steps',
+  'capm.ag.info1': 'The offer was removed from matching and reserved.',
+  'capm.ag.info2': 'The staffing provider was notified by email and in-app.',
+  'capm.ag.close': 'Close',
+  'capm.ag.refCreated': 'Assignment agreement {ref} created',
+  'capm.ag.created': 'Assignment confirmation created',
+  'capm.ag.statusDone': 'Deal closed — the other side is being notified.',
+  'capm.ag.statusPartial': 'Staff offer partially committed — {n} places still available.',
+  'capm.ag.statusReserved': 'Staff offer reserved — no remaining capacity.',
+  'capm.ag.gridRole': 'Role',
+  'capm.ag.gridCity': 'Location',
+  'capm.ag.gridPeople': 'People in the deal',
+  'capm.ag.gridPeriod': 'Period',
+  'capm.ag.gridRemaining': 'Remaining after deal',
+  'capm.ag.gridTotal': 'Positions total',
+  'capm.ag.gridPrice': 'Price',
+  'capm.ag.docPending': 'The document is finalised after confirmation.',
+  'capm.ag.docTitle': 'Assignment agreement',
+
+  'capm.hc.persons': '{n} people',
+  'capm.hc.split': '{free} available / {total} total',
+  'capm.hc.committed': ' · {n} committed to deals',
+  'capm.hc.fullyReserved': 'Fully reserved · 0 of {total} available',
+  'capm.hc.freeOf': '{free} of {total} available',
+
+  'capm.cfg.interestTitleSupply': 'Express interest in the offer',
+  'capm.cfg.interestTitleDemand': 'Express interest in the job posting',
+  'capm.cfg.interestSubSupply': 'Qualified first contact for a possible placement',
+  'capm.cfg.interestSubDemand': 'Qualified first contact for the placement',
+  'capm.cfg.interestBtn': 'Send interest',
+  'capm.cfg.interestNext': 'The other side receives your structured interest and can start the next deal step.',
+  'capm.cfg.offerTitleSupply': 'Request an offer',
+  'capm.cfg.offerTitleDemand': 'Request availability',
+  'capm.cfg.offerSubSupply': 'Request with operational key data instead of free text',
+  'capm.cfg.offerSubDemand': 'Prepare a reply with delivery details',
+  'capm.cfg.offerBtnSupply': 'Send request',
+  'capm.cfg.offerBtnDemand': 'Send query',
+  'capm.cfg.offerNext': 'The request is stored with period, scope and context and can move straight into the deal process.',
+  'capm.cfg.questionTitle': 'Ask a technical question',
+  'capm.cfg.questionSub': 'Contextual question clearly linked to this listing',
+  'capm.cfg.questionBtn': 'Send question',
+  'capm.cfg.questionNext': 'The question is clearly linked to the listing and traceable for both sides.',
+  'capm.cfg.contactTitle': 'Agree on contact',
+  'capm.cfg.contactSub': 'Define the communication channel and the next operational step',
+  'capm.cfg.contactBtn': 'Send contact request',
+  'capm.cfg.contactNext': 'The contact preference is documented so the exchange can start without a media break.',
+  'capm.cfg.acceptTitle': 'Accept terms',
+  'capm.cfg.acceptSub': 'Signal binding readiness to deal on the offered terms.',
+  'capm.cfg.acceptBtn': 'Submit binding acceptance',
+  'capm.cfg.acceptNext': 'The staffing provider is informed immediately. Operational coordination then follows via TempConnect, email or phone.',
+  'capm.cfg.negotiateTitle': 'Request negotiation',
+  'capm.cfg.negotiateSub': 'Tell the other side which terms should be adjusted.',
+  'capm.cfg.negotiateBtn': 'Send negotiation request',
+  'capm.cfg.negotiateNext': 'The other side receives a structured negotiation request. The deal stays open until you agree.',
+  'capm.cfg.emergencyTitle': 'Send emergency commitment',
+  'capm.cfg.emergencySub': 'Fast commitment for an urgent request.',
+  'capm.cfg.emergencyBtn': 'Commit to emergency',
+  'capm.cfg.emergencyNext': 'Your commitment is documented immediately and sent to the requesting side.',
+
+  'capm.az.title': 'Next steps',
+  'capm.az.leadDemand': 'Respond to this job posting.',
+  'capm.az.leadSupply': 'Respond to this offer from the staffing provider.',
+  'capm.az.leadEmergency': 'Emergency request requiring immediate action.',
+  'capm.az.leadEmergencyOpen': ' {n} still open.',
+  'capm.az.openCount': '{n} open',
+  'capm.az.full': 'full',
+  'capm.az.roleBlocked': 'Direct interaction is not intended here for your role.',
+  'capm.az.toDeal': 'To the deal',
+
+  'capm.sum.start': 'Start',
+  'capm.sum.end': 'End',
+  'capm.sum.scope': 'Scope',
+  'capm.sum.location': 'Location',
+  'capm.sum.deadline': 'Reply by',
+  'capm.sum.contact': 'Contact',
+  'capm.sum.sent': '{label} sent.',
+  'capm.sum.captured': 'Captured: {parts}',
+  'capm.sum.contextual': 'Contextual message captured.',
+  'capm.sum.fallbackLabel': 'Interaction',
+
+  'capm.ilabel.interest': 'Interest',
+  'capm.ilabel.offer_request': 'Offer request',
+  'capm.ilabel.question': 'Question',
+  'capm.ilabel.save': 'Saved',
+  'capm.ilabel.requisition_link': 'Link',
+  'capm.ilabel.deal_start': 'Deal',
+  'capm.ilabel.contact': 'Contact',
+  'capm.ilabel.deal_accept': 'Terms accepted',
+  'capm.ilabel.deal_negotiate': 'Negotiation request',
+  'capm.ilabel.emergency_commit': 'Emergency commitment',
+
+  'capm.err.ACTION_NOT_ALLOWED_ROLE': 'Your role cannot perform this action here.',
+  'capm.err.SELF_INTERACTION_FORBIDDEN': 'You cannot contact your own listings.',
+  'capm.err.ENTRY_NOT_INTERACTABLE': 'This listing is no longer open for new requests.',
+  'capm.err.DEMAND_NOT_INTERACTABLE': 'This job posting is no longer open for new replies.',
+  'capm.err.SUPPLIER_NOT_MATCHED': 'Only matched providers can send an emergency commitment.',
+  'capm.err.OVERFILL_NOT_ALLOWED': 'The committed quantity exceeds the open positions.',
+  'capm.err.NOT_EMERGENCY': 'This job posting is not an emergency request.',
+  'capm.err.NOT_OPEN': 'The emergency request is no longer open.',
+  'capm.err.ALREADY_FULLY_COVERED': 'The job posting is already fully staffed.',
+  'capm.err.INVALID_QUANTITY': 'Please enter a valid quantity.',
+  'capm.err.AGENCY_ONLY': 'Only agencies can send an emergency commitment.',
+  'capm.err.NOT_FOUND': 'The listing was not found or is no longer visible.',
+  'capm.err.CAPACITY_UNAVAILABLE': 'The available positions are no longer sufficient for this deal.',
+  'capm.err.VALIDATION': 'Please check your input and send again.',
+  'capm.err.default': 'The action could not be completed just now. Please try again.',
+  'capm.err.generic': 'Error',
+  'capm.err.selfDeal': 'Your own offer.',
+  'capm.err.notActive': 'No longer available.',
+  'capm.err.capacityShort': 'Not enough free positions left.',
+  'capm.err.companyOnly': 'Companies only.',
+  'capm.err.http': 'Error: {code}',
+  'capm.err.dealSelf': 'You cannot deal on your own offer.',
+  'capm.err.dealNotActive': 'This offer is no longer available.',
+  'capm.err.dealCapacity': 'The available positions are no longer sufficient for this request.',
+  'capm.err.dealCompanyOnly': 'Only companies can start deals.',
+  'capm.err.dealFailed': 'Deal action failed.',
+  'capm.err.actionFailed': 'Action failed.',
+  'capm.err.emergencyFailed': 'Emergency commitment failed.',
+  'capm.err.loadEntry': 'Error loading the listing.',
+  'capm.err.loadHttp': 'Error while loading (HTTP {code})',
+  'capm.err.notFoundUrl': 'Listing not found – please check the URL.',
+  'capm.err.loadFailed': 'Error while loading.',
+
+  'capm.deal.startedRemaining': 'Deal started — {n} places still available.',
+  'capm.deal.startedReserved': 'Deal started — the staff offer is now fully reserved.',
+  'capm.deal.startedRef': 'Deal started — assignment confirmation {ref} created.',
+  'capm.deal.toastAccepted': 'Terms accepted — assignment confirmation created',
+  'capm.deal.acceptRemaining': 'Assignment agreement {ref} created. {n} places still available.',
+  'capm.deal.acceptReserved': 'Assignment agreement {ref} created. The staff offer is now fully reserved.',
+  'capm.deal.acceptDemand': 'Assignment agreement {ref} created. The offer has been reserved.',
+  'capm.deal.startedStrong': 'Deal started!',
+  'capm.deal.closed': 'Deal closed — {text}',
+  'capm.deal.toAgreement': 'To the assignment agreement',
+  'capm.deal.toastStarted': 'Terms accepted — deal started',
+  'capm.deal.negotiationStrong': 'Negotiation started!',
+  'capm.deal.negotiationText': 'Your requested adjustments were sent to the other side.',
+  'capm.deal.negotiationStatus': 'Negotiation started — the other side has been informed.',
+  'capm.deal.toNegotiation': 'To the negotiation',
+  'capm.deal.toastNegotiation': 'Negotiation request sent',
+
+  'capm.em.supplyOnly': 'Emergency commitments are only available for job postings.',
+  'capm.em.needQty': 'Please enter the committed quantity.',
+  'capm.em.sending': 'Sending emergency commitment…',
+  'capm.em.registeredOpen': 'Emergency commitment registered — {n} still open.',
+  'capm.em.registeredFull': 'Emergency commitment registered — posting fully staffed.',
+  'capm.em.registered': 'Emergency commitment registered.',
+  'capm.em.toast': 'Emergency commitment sent',
+
+  'capm.toast.documented': 'Process documented: {text}',
+  'capm.toast.interactionSent': 'Interaction sent successfully',
+  'capm.toast.linkCopied': 'Link copied',
+
+  'capm.status.draft': 'Draft',
+  'capm.status.active': 'Active',
+  'capm.status.reserved': 'Reserved',
+  'capm.status.paused': 'Paused',
+  'capm.status.expired': 'Expired',
+  'capm.status.filled': 'Filled',
+  'capm.status.archived': 'Archived',
+  'capm.status.open': 'Open',
+  'capm.status.partially_covered': 'Partially covered',
+  'capm.status.fulfilled': 'Fulfilled',
+  'capm.status.closed': 'Closed',
+  'capm.status.validUntil': 'Valid until: {date}',
+
+  'capm.shift.day': 'Day shift',
+  'capm.shift.night': 'Night shift',
+  'capm.shift.rotating': 'Rotating shift',
+  'capm.shift.flexible': 'Flexible',
+  'capm.shift.weekend': 'Weekend',
+  'capm.shift.on_call': 'On call',
+
+  'capm.emp.temporary': 'Temporary agency work',
+  'capm.emp.contract': 'Service contract',
+  'capm.emp.temp_to_perm': 'Temp-to-perm',
+  'capm.emp.project': 'Project',
+  'capm.emp.on_call': 'On demand',
+
+  'capm.avail.immediate': 'Immediately (today or tomorrow)',
+  'capm.avail.scheduled': 'Scheduled',
+  'capm.avail.flexible': 'Flexible',
+
+  'capm.comp.unknown': 'Unknown',
+  'capm.comp.pending': 'Under review',
+  'capm.comp.partial': 'Partial',
+  'capm.comp.complete': 'Complete',
+
+  'capm.fresh.unconfirmed': 'Not confirmed',
+  'capm.fresh.current': 'Current',
+  'capm.fresh.aging': 'Ageing',
+  'capm.fresh.stale': 'Outdated',
+
+  'capm.trust.none': 'No signals',
+  'capm.trust.successRate': '{pct}% success rate',
+  'capm.trust.successRateTitle': 'Share of successfully closed deals',
+  'capm.trust.responseTime': '{label} response time',
+  'capm.trust.verified': 'Verified',
+  'capm.trust.verifiedTitle': 'At least one proof has been verified',
+  'capm.trust.compliance': 'Compliance complete',
+  'capm.trust.complianceTitle': 'All compliance documents are verified and valid',
+  'capm.trust.subscriber': 'Active subscriber',
+  'capm.trust.subscriberTitle': 'This user holds an active paid plan',
+  'capm.trust.deals': '{n} deals',
+  'capm.trust.dealsTitle': 'Number of successfully closed deals on the platform',
+  'capm.trust.recent': 'Recently confirmed',
+  'capm.trust.recentTitle': 'The staff offer was confirmed as current within the last 48 hours',
+  'capm.trust.profile': 'Profile {pct}%',
+  'capm.trust.profileTitle': 'How complete the company profile is',
+
+  'capm.ds.orgTitle': 'Requesting organisation',
+  'capm.ds.urgencyNormal': 'Normal',
+  'capm.ds.urgencyNotdienst': 'Emergency',
+  'capm.ds.urgencyCritical': 'Critical',
+  'capm.ds.urgencyUrgent': 'Urgent',
+  'capm.ds.urgencyPrioritized': 'Prioritised',
+  'capm.ds.urgencyTitle': 'Urgency of the job posting',
+  'capm.ds.startTitle': 'Requested start date',
+  'capm.ds.start': 'Start {date}',
+  'capm.ds.budgetTitle': 'Budget range of the job posting',
+  'capm.ds.headcountTitle': 'Requested scope',
+  'capm.ds.headcount': '{n} people',
+  'capm.ds.createdTitle': 'Creation date',
+  'capm.ds.created': 'created {date}',
+  'capm.ds.fallback': 'Listing data available',
+
+  'capm.type.demand': 'Demand',
+  'capm.type.supply': 'Offer',
+  'capm.hdr.edit': 'Edit',
+  'capm.hdr.toList': 'To the list',
+  'capm.hdr.backToFeed': 'Back to matching',
+  'capm.dates.open': '(open)',
+  'capm.compliance.demand': 'Job posting',
+  'capm.profileCompleteness': 'Profile completeness: {pct}%',
+  'capm.save.offer': 'Save offer',
+  'capm.save.demandTitle': 'Save demand',
+  'capm.save.offerSaved': 'Offer saved',
+  'capm.save.saved': 'Saved',
+  'capm.save.staffSaved': 'Staff saved',
+
+  'capm.oa.activate': 'Activate',
+  'capm.oa.confirm': 'Confirm as current',
+  'capm.oa.pause': 'Pause',
+  'capm.oa.reactivate': 'Reactivate',
+  'capm.oa.fill': 'Mark as filled',
+  'capm.oa.archive': 'Archive',
+  'capm.oa.confirmArchive': 'Archive?',
+  'capm.oa.done': 'Action completed',
+
+  'capm.match.none': 'No matching requests found.',
+  'capm.match.request': 'Request',
+  'capm.match.score': 'Score {n}',
+  'capm.match.unavailable': 'Matching not available.',
+  'capm.inter.none': 'No interactions yet.',
+
+  'capm.asset.safetyAlt': 'Safety image',
+  'capm.asset.galleryAlt': 'Listing image',
+  'capm.asset.fullAlt': 'Full screen',
+  'capm.asset.logoAlt': 'Company logo',
+  'capm.asset.previewAlt': 'Listing preview',
+  'capm.asset.uploadLogo': 'Upload logo',
+  'capm.asset.uploadSafety': 'Upload safety image',
+  'capm.asset.uploadGallery': 'Upload image',
+  'capm.asset.uploadDoc': 'Upload document',
+  'capm.asset.uploadGeneric': 'Upload',
+  'capm.asset.uploading': 'Uploading…',
+  'capm.asset.complianceCard': 'Compliance card',
+  'capm.asset.download': 'Download',
+  'capm.asset.document': 'Document',
+  'capm.asset.validUntil': 'Valid until: {date}',
+  'capm.asset.uploaded': 'File uploaded',
+  'capm.asset.uploadFailed': 'Upload failed',
+  'capm.asset.confirmDelete': 'Really delete this asset?',
+  'capm.asset.deleted': 'Asset deleted',
+  'capm.asset.deleteFailed': 'Deletion failed'
+});
+
+/** Uebersetzung an der Verwendungsstelle (i18n.js ist im head garantiert da). */
+function capmT(key, params) {
+  return (window.TCi18n && window.TCi18n.t(key, params)) || '';
+}
+
+/** Text setzen UND den Marker mitfuehren, damit ein Sprachwechsel nachzieht.
+ *  Nur fuer parameterlose Schluessel — sonst verlaere apply() die Parameter. */
+function capmSetText(el, key) {
+  if (!el) return;
+  el.setAttribute('data-i18n', key);
+  el.textContent = capmT(key);
+}
+
+/** Parametrisierter Text: kein Marker, sonst wuerde apply() ihn entkernen. */
+function capmSetPlain(el, text) {
+  if (!el) return;
+  el.removeAttribute('data-i18n');
+  el.textContent = text;
+}
+
   (function() {
     var API = "/api";
+    var t = capmT;
     var params = new URLSearchParams(window.location.search);
     var entryId = params.get("id");
     var isOwner = params.get("owner") === "1";
@@ -67,19 +872,20 @@
       var remaining = entryRemainingHeadcount(entry);
       var committed = entryCommittedHeadcount(entry);
       if (committed > 0 || remaining !== total || entry.status === "reserved") {
-        return remaining + " frei / " + total + " gesamt" + (committed > 0 ? " · " + committed + " dealgebunden" : "");
+        return t("capm.hc.split", { free: remaining, total: total })
+          + (committed > 0 ? t("capm.hc.committed", { n: committed }) : "");
       }
-      return total + " Personen";
+      return t("capm.hc.persons", { n: total });
     }
     function formatStatusCapacityHint(entry) {
       if (!entry || currentIsDemand) return "";
       var total = entryTotalHeadcount(entry);
       var remaining = entryRemainingHeadcount(entry);
       if (entry.status === "reserved") {
-        return "Voll reserviert · 0 von " + total + " frei";
+        return t("capm.hc.fullyReserved", { total: total });
       }
       if (remaining < total) {
-        return remaining + " von " + total + " frei";
+        return t("capm.hc.freeOf", { free: remaining, total: total });
       }
       return "";
     }
@@ -114,48 +920,50 @@
 
     function getInteractionConfig(type) {
       var supply = !currentIsDemand;
+      // Schluessel statt Text: der Modal-Kopf traegt sie als data-i18n weiter,
+      // damit ein Sprachwechsel am offenen Dialog sofort greift.
       var map = {
         interest: {
-          title: supply ? "Interesse am Angebot bekunden" : "Interesse am Arbeitsplatzangebot bekunden",
-          subtitle: supply ? "Qualifizierter Erstkontakt fuer moegliche Besetzung" : "Qualifizierter Erstkontakt zur Besetzung",
-          button: "Interesse senden",
-          nextHint: "Die Gegenseite erhaelt Ihr strukturiertes Interesse und kann die naechste Deal-Abstimmung starten."
+          titleKey: supply ? "capm.cfg.interestTitleSupply" : "capm.cfg.interestTitleDemand",
+          subtitleKey: supply ? "capm.cfg.interestSubSupply" : "capm.cfg.interestSubDemand",
+          buttonKey: "capm.cfg.interestBtn",
+          nextHintKey: "capm.cfg.interestNext"
         },
         offer_request: {
-          title: supply ? "Angebot anfragen" : "Verfuegbarkeit anfragen",
-          subtitle: supply ? "Anfrage mit operativen Eckdaten statt Freitext" : "Rueckmeldung mit Umsetzungsdaten vorbereiten",
-          button: supply ? "Anfrage senden" : "Rueckfrage senden",
-          nextHint: "Die Anfrage wird mit Zeitraum, Umfang und Kontext gespeichert und kann direkt in den Deal-Prozess uebergehen."
+          titleKey: supply ? "capm.cfg.offerTitleSupply" : "capm.cfg.offerTitleDemand",
+          subtitleKey: supply ? "capm.cfg.offerSubSupply" : "capm.cfg.offerSubDemand",
+          buttonKey: supply ? "capm.cfg.offerBtnSupply" : "capm.cfg.offerBtnDemand",
+          nextHintKey: "capm.cfg.offerNext"
         },
         question: {
-          title: "Fachliche Rueckfrage stellen",
-          subtitle: "Kontextbezogene Frage mit klarer Zuordnung zum Eintrag",
-          button: "Frage senden",
-          nextHint: "Die Rueckfrage ist dem Eintrag eindeutig zugeordnet und fuer beide Seiten nachvollziehbar."
+          titleKey: "capm.cfg.questionTitle",
+          subtitleKey: "capm.cfg.questionSub",
+          buttonKey: "capm.cfg.questionBtn",
+          nextHintKey: "capm.cfg.questionNext"
         },
         contact: {
-          title: "Kontakt abstimmen",
-          subtitle: "Kommunikationsweg und naechsten operativen Schritt festlegen",
-          button: "Kontaktanfrage senden",
-          nextHint: "Die Kontaktpraeferenz wird dokumentiert, damit der Austausch ohne Medienbruch starten kann."
+          titleKey: "capm.cfg.contactTitle",
+          subtitleKey: "capm.cfg.contactSub",
+          buttonKey: "capm.cfg.contactBtn",
+          nextHintKey: "capm.cfg.contactNext"
         },
         deal_accept: {
-          title: "Konditionen zustimmen",
-          subtitle: "Signalisieren Sie verbindliche Dealbereitschaft zu den angebotenen Konditionen.",
-          button: "Zustimmung verbindlich uebermitteln",
-          nextHint: "Die Zeitarbeitsfirma wird sofort informiert. Danach folgt die operative Abstimmung ueber TempConnect, E-Mail oder Telefon."
+          titleKey: "capm.cfg.acceptTitle",
+          subtitleKey: "capm.cfg.acceptSub",
+          buttonKey: "capm.cfg.acceptBtn",
+          nextHintKey: "capm.cfg.acceptNext"
         },
         deal_negotiate: {
-          title: "Um Verhandlung bitten",
-          subtitle: "Teilen Sie mit, welche Konditionen angepasst werden sollen.",
-          button: "Verhandlungsanfrage senden",
-          nextHint: "Die Gegenseite erhaelt eine strukturierte Verhandlungsanfrage. Der Deal bleibt offen bis zur Einigung."
+          titleKey: "capm.cfg.negotiateTitle",
+          subtitleKey: "capm.cfg.negotiateSub",
+          buttonKey: "capm.cfg.negotiateBtn",
+          nextHintKey: "capm.cfg.negotiateNext"
         },
         emergency_commit: {
-          title: "Notdienst-Zusage senden",
-          subtitle: "Schnelle Zusage fuer eine dringende Anfrage.",
-          button: "Notdienst zusagen",
-          nextHint: "Ihre Zusage wird sofort dokumentiert und an die anfragende Seite uebermittelt."
+          titleKey: "capm.cfg.emergencyTitle",
+          subtitleKey: "capm.cfg.emergencySub",
+          buttonKey: "capm.cfg.emergencyBtn",
+          nextHintKey: "capm.cfg.emergencyNext"
         }
       };
       return map[type] || map.question;
@@ -174,22 +982,24 @@
           emergencyBtn.style.display = "inline-flex";
           emergencyBtn.disabled = remainingOpen != null && remainingOpen <= 0;
           if (emergencyMeta) {
-            emergencyMeta.textContent = remainingOpen != null ? (remainingOpen > 0 ? remainingOpen + " offen" : "voll") : "";
+            emergencyMeta.textContent = remainingOpen != null
+              ? (remainingOpen > 0 ? t("capm.az.openCount", { n: remainingOpen }) : t("capm.az.full"))
+              : "";
           }
         } else {
           emergencyBtn.style.display = "none";
         }
       }
+      capmSetText(titleEl, "capm.az.title");
       if (currentIsDemand) {
-        if (titleEl) titleEl.textContent = "Naechste Schritte";
         if (isEmergencyDemand) {
-          leadEl.textContent = "Notdienst-Anfrage mit sofortigem Handlungsbedarf." + (remainingOpen != null ? (" Noch " + remainingOpen + " offen.") : "");
+          capmSetPlain(leadEl, t("capm.az.leadEmergency")
+            + (remainingOpen != null ? t("capm.az.leadEmergencyOpen", { n: remainingOpen }) : ""));
         } else {
-          leadEl.textContent = "Reagieren Sie auf dieses Arbeitsplatzangebot.";
+          capmSetText(leadEl, "capm.az.leadDemand");
         }
       } else {
-        if (titleEl) titleEl.textContent = "Naechste Schritte";
-        leadEl.textContent = "Reagieren Sie auf dieses Angebot der Zeitarbeitsfirma.";
+        capmSetText(leadEl, "capm.az.leadSupply");
       }
     }
 
@@ -212,18 +1022,29 @@
       return true;
     }
 
-    function summarizeInteractionPayload(type, payload) {
-      var parts = [];
-      if (payload.start_date) parts.push("Start: " + payload.start_date);
-      if (payload.end_date) parts.push("Ende: " + payload.end_date);
-      if (payload.headcount) parts.push("Umfang: " + payload.headcount);
-      if (payload.location_context) parts.push("Standort: " + payload.location_context);
-      if (payload.response_deadline) parts.push("Rueckmeldung bis: " + payload.response_deadline);
-      if (payload.contact_preference) parts.push("Kontakt: " + payload.contact_preference);
-      var prefix = INTERACTION_LABELS[type] || "Interaktion";
-      return prefix + " gesendet. " + (parts.length ? ("Erfasst: " + parts.join(" | ")) : "Kontextbezogene Nachricht erfasst.");
+    /** Sichtbares Label eines Interaktionstyps (UI). Der an die Gegenseite
+     *  gesendete Nachrichtentext nutzt bewusst weiter INTERACTION_LABELS. */
+    function interactionLabel(type) {
+      return t("capm.ilabel." + type) || INTERACTION_LABELS[type] || type;
     }
 
+    function summarizeInteractionPayload(type, payload) {
+      var parts = [];
+      if (payload.start_date) parts.push(t("capm.sum.start") + ": " + payload.start_date);
+      if (payload.end_date) parts.push(t("capm.sum.end") + ": " + payload.end_date);
+      if (payload.headcount) parts.push(t("capm.sum.scope") + ": " + payload.headcount);
+      if (payload.location_context) parts.push(t("capm.sum.location") + ": " + payload.location_context);
+      if (payload.response_deadline) parts.push(t("capm.sum.deadline") + ": " + payload.response_deadline);
+      if (payload.contact_preference) parts.push(t("capm.sum.contact") + ": " + payload.contact_preference);
+      var prefix = interactionLabel(type) || t("capm.sum.fallbackLabel");
+      return t("capm.sum.sent", { label: prefix }) + " "
+        + (parts.length ? t("capm.sum.captured", { parts: parts.join(" | ") }) : t("capm.sum.contextual"));
+    }
+
+    /* Bewusst deutsch: dieser Text wird als Nachricht an die GEGENSEITE
+       gespeichert und dort gelesen. Die Sprache des Empfaengers ist hier
+       nicht bekannt — eine Uebersetzung nach Absendersprache waere ein
+       Datenfehler, kein UI-Fortschritt. */
     function buildInteractionMessage(type, payload) {
       var lines = [];
       lines.push("[TC-Interaction]");
@@ -260,15 +1081,15 @@
       var condGrid = document.getElementById("agreement-modal-conditions-grid");
 
       if (refEl) refEl.textContent = result.agreement_ref
-        ? "Einsatzvereinbarung " + result.agreement_ref + " erstellt"
-        : "Einsatzbestaetigung erstellt";
+        ? t("capm.ag.refCreated", { ref: result.agreement_ref })
+        : t("capm.ag.created");
       if (statusEl) {
         var remainingAfterDeal = count(result && result.remaining_headcount, null);
-        var statusCopy = "Deal abgeschlossen \u2014 die Gegenseite wird benachrichtigt.";
+        var statusCopy = t("capm.ag.statusDone");
         if (!currentIsDemand && remainingAfterDeal != null) {
           statusCopy = remainingAfterDeal > 0
-            ? "Personalangebot teilweise gebunden \u2014 noch " + remainingAfterDeal + " freie Plaetze verbleiben."
-            : "Personalangebot reserviert \u2014 keine freie Restmenge mehr.";
+            ? t("capm.ag.statusPartial", { n: remainingAfterDeal })
+            : t("capm.ag.statusReserved");
         }
         statusEl.innerHTML = '<div class="ds-alert ds-alert--success" style="text-align:center">' + esc(statusCopy) + '</div>';
       }
@@ -277,26 +1098,27 @@
       if (condGrid && currentEntry) {
         var e = currentEntry;
         var requestedHeadcount = count(result && result.requested_headcount, currentIsDemand ? entryTotalHeadcount(e) : entryRemainingHeadcount(e));
+        var gridLabel = 'font-size:10px;color:var(--ds-text-tertiary);text-transform:uppercase';
         var gridHtml = '';
-        gridHtml += '<div><div style="font-size:10px;color:var(--ds-text-tertiary);text-transform:uppercase">Rolle</div><div style="font-weight:700">' + esc(e.role || '\u2014') + '</div></div>';
-        gridHtml += '<div><div style="font-size:10px;color:var(--ds-text-tertiary);text-transform:uppercase">Ort</div><div style="font-weight:700">' + esc(e.location_city || '\u2014') + '</div></div>';
-        gridHtml += '<div><div style="font-size:10px;color:var(--ds-text-tertiary);text-transform:uppercase">Personen im Deal</div><div style="font-weight:700">' + requestedHeadcount + '</div></div>';
-        gridHtml += '<div><div style="font-size:10px;color:var(--ds-text-tertiary);text-transform:uppercase">Zeitraum</div><div style="font-weight:700">' + fmtDate(e.availability_from) + (e.availability_to ? ' \u2013 ' + fmtDate(e.availability_to) : '') + '</div></div>';
+        gridHtml += '<div><div style="' + gridLabel + '">' + esc(t('capm.ag.gridRole')) + '</div><div style="font-weight:700">' + esc(e.role || '\u2014') + '</div></div>';
+        gridHtml += '<div><div style="' + gridLabel + '">' + esc(t('capm.ag.gridCity')) + '</div><div style="font-weight:700">' + esc(e.location_city || '\u2014') + '</div></div>';
+        gridHtml += '<div><div style="' + gridLabel + '">' + esc(t('capm.ag.gridPeople')) + '</div><div style="font-weight:700">' + requestedHeadcount + '</div></div>';
+        gridHtml += '<div><div style="' + gridLabel + '">' + esc(t('capm.ag.gridPeriod')) + '</div><div style="font-weight:700">' + fmtDate(e.availability_from) + (e.availability_to ? ' \u2013 ' + fmtDate(e.availability_to) : '') + '</div></div>';
         if (!currentIsDemand && result && result.remaining_headcount != null) {
-          gridHtml += '<div><div style="font-size:10px;color:var(--ds-text-tertiary);text-transform:uppercase">Restfrei nach Deal</div><div style="font-weight:700">' + count(result.remaining_headcount, 0) + '</div></div>';
-          gridHtml += '<div><div style="font-size:10px;color:var(--ds-text-tertiary);text-transform:uppercase">Stellen gesamt</div><div style="font-weight:700">' + entryTotalHeadcount(e) + '</div></div>';
+          gridHtml += '<div><div style="' + gridLabel + '">' + esc(t('capm.ag.gridRemaining')) + '</div><div style="font-weight:700">' + count(result.remaining_headcount, 0) + '</div></div>';
+          gridHtml += '<div><div style="' + gridLabel + '">' + esc(t('capm.ag.gridTotal')) + '</div><div style="font-weight:700">' + entryTotalHeadcount(e) + '</div></div>';
         }
         if (e.price_min || e.price_max) {
-          gridHtml += '<div><div style="font-size:10px;color:var(--ds-text-tertiary);text-transform:uppercase">Preis</div><div style="font-weight:700;color:var(--ds-brand)">' + (e.price_min ? e.price_min + ' EUR' : '') + (e.price_max ? ' \u2013 ' + e.price_max + ' EUR' : '') + '</div></div>';
+          gridHtml += '<div><div style="' + gridLabel + '">' + esc(t('capm.ag.gridPrice')) + '</div><div style="font-weight:700;color:var(--ds-brand)">' + (e.price_min ? e.price_min + ' EUR' : '') + (e.price_max ? ' \u2013 ' + e.price_max + ' EUR' : '') + '</div></div>';
         }
         condGrid.innerHTML = gridHtml;
       }
 
       // Dokument als iframe laden (kompakte Preview)
       if (docEl && result.document_url) {
-        docEl.innerHTML = '<iframe src="' + esc(result.document_url) + '" style="width:100%;height:100%;border:none" title="Einsatzvereinbarung"></iframe>';
+        docEl.innerHTML = '<iframe src="' + esc(result.document_url) + '" style="width:100%;height:100%;border:none" title="' + esc(t('capm.ag.docTitle')) + '"></iframe>';
       } else if (docEl) {
-        docEl.innerHTML = '<div style="text-align:center;padding:var(--ds-space-6);color:#94a3b8">Dokument wird nach Bestaetigung finalisiert.</div>';
+        docEl.innerHTML = '<div style="text-align:center;padding:var(--ds-space-6);color:#94a3b8">' + esc(t('capm.ag.docPending')) + '</div>';
       }
 
       // Aktions-Buttons
@@ -348,31 +1170,29 @@
         link.id = "action-zone-deal-link";
         link.className = "ds-btn ds-btn--primary";
         link.style.cssText = "margin-top:10px;display:inline-flex;align-items:center;gap:6px";
-        link.textContent = "→ Zum Deal";
+        var arrow = document.createTextNode("→ ");
+        var linkLabel = document.createElement("span");
+        capmSetText(linkLabel, "capm.az.toDeal");
+        link.appendChild(arrow);
+        link.appendChild(linkLabel);
         statusEl.insertAdjacentElement("afterend", link);
       }
       link.href = "/public/offer_detail.html?id=" + encodeURIComponent(offerId);
       link.style.display = "inline-flex";
     }
 
+    /* Serverseitige Fehlercodes bleiben Rohwerte — nur ihre Erklaerung
+       ist uebersetzt (Schluessel capm.err.<CODE>). */
+    var INTERACTION_ERROR_CODES = [
+      "ACTION_NOT_ALLOWED_ROLE", "SELF_INTERACTION_FORBIDDEN", "ENTRY_NOT_INTERACTABLE",
+      "DEMAND_NOT_INTERACTABLE", "SUPPLIER_NOT_MATCHED", "OVERFILL_NOT_ALLOWED",
+      "NOT_EMERGENCY", "NOT_OPEN", "ALREADY_FULLY_COVERED", "INVALID_QUANTITY",
+      "AGENCY_ONLY", "NOT_FOUND", "CAPACITY_UNAVAILABLE", "VALIDATION"
+    ];
+
     function interactionErrorMessage(code) {
-      var map = {
-        ACTION_NOT_ALLOWED_ROLE: "Ihre Rolle kann diese Aktion hier nicht ausfuehren.",
-        SELF_INTERACTION_FORBIDDEN: "Eigene Eintraege koennen nicht kontaktiert werden.",
-        ENTRY_NOT_INTERACTABLE: "Dieser Eintrag ist aktuell nicht mehr fuer neue Anfragen offen.",
-        DEMAND_NOT_INTERACTABLE: "Dieses Arbeitsplatzangebot ist aktuell nicht mehr fuer neue Rueckmeldungen offen.",
-        SUPPLIER_NOT_MATCHED: "Nur gematchte Anbieter koennen eine Notdienst-Zusage senden.",
-        OVERFILL_NOT_ALLOWED: "Die zugesagte Menge ueberschreitet die offenen Stellen.",
-        NOT_EMERGENCY: "Dieses Arbeitsplatzangebot ist kein Notdienst.",
-        NOT_OPEN: "Der Notdienst ist nicht mehr offen.",
-        ALREADY_FULLY_COVERED: "Das Arbeitsplatzangebot ist bereits vollstaendig besetzt.",
-        INVALID_QUANTITY: "Bitte geben Sie eine gueltige Menge an.",
-        AGENCY_ONLY: "Nur Agenturen koennen eine Notdienst-Zusage senden.",
-        NOT_FOUND: "Der Eintrag wurde nicht gefunden oder ist nicht mehr sichtbar.",
-        CAPACITY_UNAVAILABLE: "Die verfügbaren Stellen reichen für diesen Deal nicht mehr aus.",
-        VALIDATION: "Bitte pruefen Sie Ihre Eingaben und senden Sie erneut."
-      };
-      return map[code] || "Die Aktion konnte gerade nicht abgeschlossen werden. Bitte erneut versuchen.";
+      if (INTERACTION_ERROR_CODES.indexOf(code) >= 0) return t("capm.err." + code);
+      return t("capm.err.default");
     }
 
     function setFieldVisibility(id, visible) {
@@ -387,17 +1207,17 @@
       var cfg = getInteractionConfig(type);
       var backdrop = document.getElementById("interaction-modal-backdrop");
       var isEmergencyCommit = type === "emergency_commit";
-      document.getElementById("interaction-modal-title").textContent = cfg.title;
-      document.getElementById("interaction-modal-subtitle").textContent = cfg.subtitle;
-      document.getElementById("interaction-modal-submit").textContent = cfg.button;
-      document.getElementById("im-next-step-hint").textContent = cfg.nextHint;
+      capmSetText(document.getElementById("interaction-modal-title"), cfg.titleKey);
+      capmSetText(document.getElementById("interaction-modal-subtitle"), cfg.subtitleKey);
+      capmSetText(document.getElementById("interaction-modal-submit"), cfg.buttonKey);
+      capmSetText(document.getElementById("im-next-step-hint"), cfg.nextHintKey);
       document.getElementById("interaction-modal-feedback").style.display = "none";
 
       var summary = [];
-      summary.push("Bezug: " + (currentEntry && currentEntry.title ? currentEntry.title : "Eintrag"));
-      summary.push("Rolle: " + (currentEntry && currentEntry.role ? currentEntry.role : "n/a"));
-      summary.push("Ort: " + (currentEntry && currentEntry.location_city ? currentEntry.location_city : "n/a"));
-      document.getElementById("interaction-modal-summary").textContent = summary.join(" | ");
+      summary.push(t("capm.im.ref") + ": " + (currentEntry && currentEntry.title ? currentEntry.title : t("capm.im.entry")));
+      summary.push(t("capm.field.role") + ": " + (currentEntry && currentEntry.role ? currentEntry.role : t("capm.im.na")));
+      summary.push(t("capm.ag.gridCity") + ": " + (currentEntry && currentEntry.location_city ? currentEntry.location_city : t("capm.im.na")));
+      capmSetPlain(document.getElementById("interaction-modal-summary"), summary.join(" | "));
 
       var showTopic = type === "question" || type === "contact";
       document.getElementById("im-topic-wrap").style.display = showTopic ? "block" : "none";
@@ -486,7 +1306,7 @@
         if (!payload.message && activeInteractionType === "question") {
           var fbReq = document.getElementById("interaction-modal-feedback");
           fbReq.className = "ds-alert ds-alert--warning";
-          fbReq.textContent = "Bitte formulieren Sie kurz Ihre Rueckfrage.";
+          capmSetPlain(fbReq, t("capm.im.needQuestion"));
           fbReq.style.display = "flex";
           return;
         }
@@ -501,11 +1321,12 @@
           // Demand: Agency -> demand-requests/:id/offers (Offer erstellen) + accept
           if (action === "deal_accept") {
             // Verklick-Schutz: verbindlicher Deal-Start wird vor dem API-Call best\u00e4tigt.
-            if (!confirm("Konditionen jetzt VERBINDLICH zustimmen?\n\nDamit starten Sie einen verbindlichen Deal zu den angebotenen Konditionen. Bitte nur best\u00e4tigen, wenn Sie sicher sind.")) {
+            if (!confirm(t("capm.im.confirmAccept"))) {
               return;
             }
             btn.disabled = true;
-            btn.textContent = "Deal wird vorbereitet\u2026";
+            var acceptLabelEl = document.getElementById("btn-deal-accept-label");
+            capmSetText(acceptLabelEl || btn, "capm.im.preparing");
 
             // Route abhaengig von Feed-Typ
             var acceptPath;
@@ -532,11 +1353,11 @@
               });
             }).then(function(r) {
               if (!r.ok) return r.json().then(function(d) {
-                var msg = d.error === "SELF_DEAL_FORBIDDEN" ? "Eigenes Angebot."
-                  : d.error === "NOT_ACTIVE" ? "Nicht mehr verfuegbar."
-                  : d.error === "CAPACITY_UNAVAILABLE" ? "Nicht mehr genügend freie Stellen."
-                  : d.error === "COMPANY_ONLY" ? "Nur Unternehmen."
-                  : "Fehler: " + (d.error || r.status);
+                var msg = d.error === "SELF_DEAL_FORBIDDEN" ? t("capm.err.selfDeal")
+                  : d.error === "NOT_ACTIVE" ? t("capm.err.notActive")
+                  : d.error === "CAPACITY_UNAVAILABLE" ? t("capm.err.capacityShort")
+                  : d.error === "COMPANY_ONLY" ? t("capm.err.companyOnly")
+                  : t("capm.err.http", { code: d.error || r.status });
                 throw new Error(msg);
               });
               return r.json();
@@ -545,21 +1366,21 @@
               showAgreementModal(result);
               var remainingStatus = result && result.remaining_headcount != null && !currentIsDemand
                 ? (count(result.remaining_headcount, 0) > 0
-                    ? "Deal gestartet \u2014 " + count(result.remaining_headcount, 0) + " freie Plaetze verbleiben."
-                    : "Deal gestartet \u2014 Personalangebot ist jetzt voll reserviert.")
-                : "Deal gestartet \u2014 Einsatzbestaetigung " + (result.agreement_ref || "") + " erstellt.";
+                    ? t("capm.deal.startedRemaining", { n: count(result.remaining_headcount, 0) })
+                    : t("capm.deal.startedReserved"))
+                : t("capm.deal.startedRef", { ref: result.agreement_ref || "" });
               setActionZoneStatus(remainingStatus, "success");
               if (result && result.offer && result.offer.id) showDealLink(result.offer.id);
-              toast("Konditionen zugestimmt \u2014 Einsatzbestaetigung erstellt", "success");
+              toast(t("capm.deal.toastAccepted"), "success");
               // Deal-Buttons deaktivieren
               document.querySelectorAll('[data-open-action="deal_accept"],[data-open-action="deal_negotiate"]').forEach(function(b) {
                 b.disabled = true; b.style.opacity = '.5';
               });
             }).catch(function(e) {
-              setActionZoneStatus(e.message || "Deal-Aktion fehlgeschlagen.", "danger");
-              toast(e.message || "Fehler", "danger");
+              setActionZoneStatus(e.message || t("capm.err.dealFailed"), "danger");
+              toast(e.message || t("capm.err.generic"), "danger");
               btn.disabled = false;
-              btn.innerHTML = "&#10003; Konditionen zustimmen";
+              capmSetText(acceptLabelEl || btn, "capm.action.dealAccept");
             });
             return;
           }
@@ -601,38 +1422,40 @@
           return apiFetch(dealPath, { method: "POST", csrf: c.csrfToken || c.token, body: dealBody });
         }).then(function(r) {
           if (!r.ok) return r.json().then(function(d) {
-            var errMsg = d.error === "SELF_DEAL_FORBIDDEN" ? "Sie koennen nicht mit Ihrem eigenen Angebot handeln."
-              : d.error === "NOT_ACTIVE" ? "Dieses Angebot ist nicht mehr verfuegbar."
-              : d.error === "CAPACITY_UNAVAILABLE" ? "Die verfügbaren Stellen reichen für diese Anfrage nicht mehr aus."
-              : d.error === "COMPANY_ONLY" ? "Nur Unternehmen koennen Deals starten."
+            var errMsg = d.error === "SELF_DEAL_FORBIDDEN" ? t("capm.err.dealSelf")
+              : d.error === "NOT_ACTIVE" ? t("capm.err.dealNotActive")
+              : d.error === "CAPACITY_UNAVAILABLE" ? t("capm.err.dealCapacity")
+              : d.error === "COMPANY_ONLY" ? t("capm.err.dealCompanyOnly")
               : interactionErrorMessage(d.error || "UNKNOWN");
             throw new Error(errMsg);
           });
           return r.json();
         }).then(function(result) {
           fb.className = "ds-alert ds-alert--success";
+          fb.removeAttribute("data-i18n");
+          var ref = (result && result.agreement_ref) || '';
           if (type === "deal_accept") {
             var remainingAfterAccept = count(result && result.remaining_headcount, null);
             var acceptText = remainingAfterAccept != null && !currentIsDemand
               ? (remainingAfterAccept > 0
-                  ? 'Einsatzvereinbarung ' + (result.agreement_ref || '') + ' erstellt. Noch ' + remainingAfterAccept + ' freie Plaetze verbleiben.'
-                  : 'Einsatzvereinbarung ' + (result.agreement_ref || '') + ' erstellt. Das Personalangebot ist jetzt voll reserviert.')
-              : 'Einsatzvereinbarung ' + (result.agreement_ref || '') + ' erstellt. Das Angebot wurde reserviert.';
-            fb.innerHTML = '<strong>Deal gestartet!</strong> ' + acceptText;
-            setActionZoneStatus("Deal abgeschlossen — " + acceptText, "success");
+                  ? t('capm.deal.acceptRemaining', { ref: ref, n: remainingAfterAccept })
+                  : t('capm.deal.acceptReserved', { ref: ref }))
+              : t('capm.deal.acceptDemand', { ref: ref });
+            fb.innerHTML = '<strong>' + esc(t('capm.deal.startedStrong')) + '</strong> ' + esc(acceptText);
+            setActionZoneStatus(t("capm.deal.closed", { text: acceptText }), "success");
             // Offer-Detail-Seite verlinken
             if (result.offer && result.offer.id) {
-              fb.innerHTML += '<br><a href="/public/offer_detail.html?id=' + esc(result.offer.id) + '" class="ds-btn ds-btn--sm" style="margin-top:8px">Zur Einsatzvereinbarung</a>';
+              fb.innerHTML += '<br><a href="/public/offer_detail.html?id=' + esc(result.offer.id) + '" class="ds-btn ds-btn--sm" style="margin-top:8px">' + esc(t('capm.deal.toAgreement')) + '</a>';
               showDealLink(result.offer.id);
             }
-            toast("Konditionen zugestimmt — Deal gestartet", "success");
+            toast(t("capm.deal.toastStarted"), "success");
           } else {
-            fb.innerHTML = '<strong>Verhandlung gestartet!</strong> Ihre Anpassungswuensche wurden an die Gegenseite uebermittelt.';
-            setActionZoneStatus("Verhandlung gestartet — die Gegenseite wurde informiert.", "success");
+            fb.innerHTML = '<strong>' + esc(t('capm.deal.negotiationStrong')) + '</strong> ' + esc(t('capm.deal.negotiationText'));
+            setActionZoneStatus(t("capm.deal.negotiationStatus"), "success");
             if (result.offer && result.offer.id) {
-              fb.innerHTML += '<br><a href="/public/offer_detail.html?id=' + esc(result.offer.id) + '" class="ds-btn ds-btn--sm" style="margin-top:8px">Zum Verhandlungsvorgang</a>';
+              fb.innerHTML += '<br><a href="/public/offer_detail.html?id=' + esc(result.offer.id) + '" class="ds-btn ds-btn--sm" style="margin-top:8px">' + esc(t('capm.deal.toNegotiation')) + '</a>';
             }
-            toast("Verhandlungsanfrage gesendet", "success");
+            toast(t("capm.deal.toastNegotiation"), "success");
           }
           fb.style.display = "flex";
           // Deal-Buttons deaktivieren nach erfolgreicher Aktion
@@ -642,16 +1465,16 @@
           setTimeout(function() { closeInteractionModal(); }, 1500);
         }).catch(function(e) {
           fb.className = "ds-alert ds-alert--danger";
-          fb.textContent = e.message || "Fehler";
+          capmSetPlain(fb, e.message || t("capm.err.generic"));
           fb.style.display = "flex";
-          setActionZoneStatus(e.message || "Deal-Aktion fehlgeschlagen.", "danger");
+          setActionZoneStatus(e.message || t("capm.err.dealFailed"), "danger");
         }).finally(function() { submitBtn.disabled = false; });
         return;
       }
       if (type === "emergency_commit") {
         if (!currentIsDemand) {
           fb.className = "ds-alert ds-alert--danger";
-          fb.textContent = "Notdienst-Zusagen sind nur fuer Arbeitsplatzangebote verfuegbar.";
+          capmSetPlain(fb, t("capm.em.supplyOnly"));
           fb.style.display = "flex";
           submitBtn.disabled = false;
           return;
@@ -659,13 +1482,13 @@
         var qty = payload && payload.headcount ? parseInt(payload.headcount, 10) : 0;
         if (!qty || qty < 1) {
           fb.className = "ds-alert ds-alert--warning";
-          fb.textContent = "Bitte geben Sie die zugesagte Menge an.";
+          capmSetPlain(fb, t("capm.em.needQty"));
           fb.style.display = "flex";
           submitBtn.disabled = false;
           return;
         }
         fb.className = "ds-alert ds-alert--info";
-        fb.textContent = "Notdienst-Zusage wird uebermittelt\u2026";
+        capmSetPlain(fb, t("capm.em.sending"));
         fb.style.display = "flex";
         getCsrf().then(function(c) {
           return apiFetch("/emergency/" + entryId + "/commitments", {
@@ -698,21 +1521,21 @@
           var remaining = currentEntry ? demandRemainingOpenCount(currentEntry) : null;
           var statusText = remaining != null
             ? (remaining > 0
-                ? "Notdienst-Zusage registriert — noch " + remaining + " offen."
-                : "Notdienst-Zusage registriert — Angebot besetzt.")
-            : "Notdienst-Zusage registriert.";
+                ? t("capm.em.registeredOpen", { n: remaining })
+                : t("capm.em.registeredFull"))
+            : t("capm.em.registered");
           fb.className = "ds-alert ds-alert--success";
-          fb.textContent = statusText;
+          capmSetPlain(fb, statusText);
           fb.style.display = "flex";
           setActionZoneStatus(statusText, "success");
-          toast("Notdienst-Zusage gesendet", "success");
+          toast(t("capm.em.toast"), "success");
           buildActionZoneCopy();
           setTimeout(function() { closeInteractionModal(); }, 900);
         }).catch(function(e) {
           fb.className = "ds-alert ds-alert--danger";
-          fb.textContent = e.message || "Fehler";
+          capmSetPlain(fb, e.message || t("capm.err.generic"));
           fb.style.display = "flex";
-          setActionZoneStatus(e.message || "Notdienst-Zusage fehlgeschlagen.", "danger");
+          setActionZoneStatus(e.message || t("capm.err.emergencyFailed"), "danger");
         }).finally(function() { submitBtn.disabled = false; });
         return;
       }
@@ -732,41 +1555,49 @@
         });
         return r.json();
       }).then(function() {
+        var summaryText = summarizeInteractionPayload(type, payload || {});
         fb.className = "ds-alert ds-alert--success";
-        fb.textContent = summarizeInteractionPayload(type, payload || {});
+        capmSetPlain(fb, summaryText);
         fb.style.display = "flex";
-        setActionZoneStatus("Vorgang dokumentiert: " + summarizeInteractionPayload(type, payload || {}), "success");
-        toast("Interaktion erfolgreich gesendet", "success");
+        setActionZoneStatus(t("capm.toast.documented", { text: summaryText }), "success");
+        toast(t("capm.toast.interactionSent"), "success");
         setTimeout(function() {
           closeInteractionModal();
         }, 700);
       }).catch(function(e) {
         fb.className = "ds-alert ds-alert--danger";
-        fb.textContent = e.message || "Fehler";
+        capmSetPlain(fb, e.message || t("capm.err.generic"));
         fb.style.display = "flex";
-        setActionZoneStatus(e.message || "Aktion fehlgeschlagen.", "danger");
+        setActionZoneStatus(e.message || t("capm.err.actionFailed"), "danger");
       }).finally(function() { submitBtn.disabled = false; });
     }
 
+    /* Rohwerte bleiben Schluessel (Server-Enums) — nur das Label ist uebersetzt. */
     var STATUS_MAP = {
-      draft: { label:"Entwurf", css:"ds-badge--neutral" }, active: { label:"Aktiv", css:"ds-badge--success" },
-      reserved: { label:"Reserviert", css:"ds-badge--brand" },
-      paused: { label:"Pausiert", css:"ds-badge--warning" }, expired: { label:"Abgelaufen", css:"ds-badge--danger" },
-      filled: { label:"Besetzt", css:"ds-badge--accent" }, archived: { label:"Archiviert", css:"ds-badge--neutral" },
-      open: { label:"Offen", css:"ds-badge--success" }, partially_covered: { label:"Teilweise gedeckt", css:"ds-badge--warning" }, fulfilled: { label:"Erfuellt", css:"ds-badge--accent" }, closed: { label:"Geschlossen", css:"ds-badge--neutral" }
+      draft: { css:"ds-badge--neutral" }, active: { css:"ds-badge--success" },
+      reserved: { css:"ds-badge--brand" },
+      paused: { css:"ds-badge--warning" }, expired: { css:"ds-badge--danger" },
+      filled: { css:"ds-badge--accent" }, archived: { css:"ds-badge--neutral" },
+      open: { css:"ds-badge--success" }, partially_covered: { css:"ds-badge--warning" }, fulfilled: { css:"ds-badge--accent" }, closed: { css:"ds-badge--neutral" }
     };
-    var SHIFT_LABELS = { day:"Tagschicht", night:"Nachtschicht", rotating:"Wechselschicht", flexible:"Flexibel", weekend:"Wochenende", on_call:"Bereitschaft" };
-    var EMPLOYMENT_LABELS = { temporary:"ANUe", contract:"Werkvertrag", temp_to_perm:"Temp-to-Perm", project:"Projekt", on_call:"Abruf" };
-    var AVAIL_LABELS = { immediate:"Sofort (heute oder morgen)", scheduled:"Geplant", flexible:"Flexibel" };
-    var COMPLIANCE_MAP = { unknown:{ label:"Unbekannt", color:"--grey" }, pending:{ label:"In Pruefung", color:"--yellow" }, partial:{ label:"Teilweise", color:"--yellow" }, complete:{ label:"Vollstaendig", color:"--green" } };
+    var SHIFT_KEYS = ["day", "night", "rotating", "flexible", "weekend", "on_call"];
+    var EMPLOYMENT_KEYS = ["temporary", "contract", "temp_to_perm", "project", "on_call"];
+    var AVAIL_KEYS = ["immediate", "scheduled", "flexible"];
+    var COMPLIANCE_MAP = { unknown:{ color:"--grey" }, pending:{ color:"--yellow" }, partial:{ color:"--yellow" }, complete:{ color:"--green" } };
+    /* Deutsche Fassung fuer den an die Gegenseite gesendeten Nachrichtentext
+       (siehe buildInteractionMessage) — die UI nutzt interactionLabel(). */
     var INTERACTION_LABELS = { interest:"Interesse", offer_request:"Angebotsanfrage", question:"Frage", save:"Gespeichert", requisition_link:"Verknuepfung", deal_start:"Deal", contact:"Kontakt", deal_accept:"Konditionen zugestimmt", deal_negotiate:"Verhandlungsanfrage", emergency_commit:"Notdienst-Zusage" };
 
+    function mapLabel(prefix, keys, raw) {
+      return keys.indexOf(raw) >= 0 ? t(prefix + raw) : "";
+    }
+
     function freshnessHtml(ts) {
-      if (!ts) return '<span class="ce-freshness"><span class="ce-freshness__dot ce-freshness__dot--stale"></span>Nicht bestaetigt</span>';
+      if (!ts) return '<span class="ce-freshness"><span class="ce-freshness__dot ce-freshness__dot--stale"></span>' + esc(t("capm.fresh.unconfirmed")) + '</span>';
       var h = (Date.now() - new Date(ts).getTime()) / 36e5;
-      if (h < 48) return '<span class="ce-freshness"><span class="ce-freshness__dot ce-freshness__dot--fresh"></span>Aktuell – ' + fmtDate(ts) + '</span>';
-      if (h < 96) return '<span class="ce-freshness"><span class="ce-freshness__dot ce-freshness__dot--aging"></span>Altert – ' + fmtDate(ts) + '</span>';
-      return '<span class="ce-freshness"><span class="ce-freshness__dot ce-freshness__dot--stale"></span>Veraltet – ' + fmtDate(ts) + '</span>';
+      if (h < 48) return '<span class="ce-freshness"><span class="ce-freshness__dot ce-freshness__dot--fresh"></span>' + esc(t("capm.fresh.current")) + ' – ' + fmtDate(ts) + '</span>';
+      if (h < 96) return '<span class="ce-freshness"><span class="ce-freshness__dot ce-freshness__dot--aging"></span>' + esc(t("capm.fresh.aging")) + ' – ' + fmtDate(ts) + '</span>';
+      return '<span class="ce-freshness"><span class="ce-freshness__dot ce-freshness__dot--stale"></span>' + esc(t("capm.fresh.stale")) + ' – ' + fmtDate(ts) + '</span>';
     }
 
     var GRADE_STYLES = {
@@ -777,7 +1608,8 @@
     };
 
     function trustBadgesHtml(ts) {
-      if (!ts) return '<span class="ds-text-sm ds-text-muted">Keine Signale</span>';
+      var noSignals = '<span class="ds-text-sm ds-text-muted">' + esc(t("capm.trust.none")) + '</span>';
+      if (!ts) return noSignals;
       var html = "";
 
       // Reputation badge (primary, prominent)
@@ -791,56 +1623,56 @@
       // Deal success rate
       if (ts.deal_success_rate != null) {
         var dsColor = ts.deal_success_rate >= 80 ? 'var(--ds-success)' : ts.deal_success_rate >= 60 ? 'var(--ds-warning)' : 'var(--ds-danger)';
-        html += '<span class="ds-trust-badge" style="color:' + dsColor + ';font-weight:600" title="Anteil erfolgreich abgeschlossener Deals">&#10003; ' + Math.round(ts.deal_success_rate) + '% Erfolgsrate</span>';
+        html += '<span class="ds-trust-badge" style="color:' + dsColor + ';font-weight:600" title="' + esc(t("capm.trust.successRateTitle")) + '">&#10003; ' + esc(t("capm.trust.successRate", { pct: Math.round(ts.deal_success_rate) })) + '</span>';
       }
 
       // Response time
       if (ts.response_time_label) {
-        html += '<span class="ds-trust-badge ds-trust-badge--response">&#9201; ' + esc(ts.response_time_label) + ' Antwortzeit</span>';
+        html += '<span class="ds-trust-badge ds-trust-badge--response">&#9201; ' + esc(t("capm.trust.responseTime", { label: ts.response_time_label })) + '</span>';
       }
 
-      if (ts.supplier_verified) html += '<span class="ds-trust-badge ds-trust-badge--verified" title="Mindestens ein Nachweis wurde verifiziert">&#10003; Verifiziert</span>';
-      if (ts.compliance_complete) html += '<span class="ds-trust-badge ds-trust-badge--compliance" title="Alle Compliance-Dokumente sind verifiziert und gueltig">Compliance vollst.</span>';
-      if (ts.active_subscriber) html += '<span class="ds-trust-badge ds-trust-badge--active" title="Nutzer hat einen aktiven kostenpflichtigen Tarif">Aktiver Abonnent</span>';
-      if (ts.completed_deals > 0) html += '<span class="ds-trust-badge ds-trust-badge--deals" title="Anzahl erfolgreich abgeschlossener Deals auf der Plattform">' + ts.completed_deals + ' Deals</span>';
-      if (ts.recently_confirmed) html += '<span class="ds-trust-badge ds-trust-badge--response" title="Das Personalangebot wurde in den letzten 48 Stunden als aktuell bestaetigt">Kürzlich bestätigt</span>';
+      if (ts.supplier_verified) html += '<span class="ds-trust-badge ds-trust-badge--verified" title="' + esc(t("capm.trust.verifiedTitle")) + '">&#10003; ' + esc(t("capm.trust.verified")) + '</span>';
+      if (ts.compliance_complete) html += '<span class="ds-trust-badge ds-trust-badge--compliance" title="' + esc(t("capm.trust.complianceTitle")) + '">' + esc(t("capm.trust.compliance")) + '</span>';
+      if (ts.active_subscriber) html += '<span class="ds-trust-badge ds-trust-badge--active" title="' + esc(t("capm.trust.subscriberTitle")) + '">' + esc(t("capm.trust.subscriber")) + '</span>';
+      if (ts.completed_deals > 0) html += '<span class="ds-trust-badge ds-trust-badge--deals" title="' + esc(t("capm.trust.dealsTitle")) + '">' + esc(t("capm.trust.deals", { n: ts.completed_deals })) + '</span>';
+      if (ts.recently_confirmed) html += '<span class="ds-trust-badge ds-trust-badge--response" title="' + esc(t("capm.trust.recentTitle")) + '">' + esc(t("capm.trust.recent")) + '</span>';
       if (ts.profile_completeness != null) {
         var pcVal = ts.profile_completeness > 1 ? Math.round(ts.profile_completeness) : Math.round(ts.profile_completeness * 100);
-        html += '<span class="ds-trust-badge" title="Wie vollstaendig das Firmenprofil ausgefuellt ist">Profil ' + pcVal + '%</span>';
+        html += '<span class="ds-trust-badge" title="' + esc(t("capm.trust.profileTitle")) + '">' + esc(t("capm.trust.profile", { pct: pcVal })) + '</span>';
       }
-      return html || '<span class="ds-text-sm ds-text-muted">Keine Signale</span>';
+      return html || noSignals;
     }
 
     function demandSignalsHtml(e) {
       var html = "";
       if (e.requester_company_name) {
-        html += '<span class="ds-trust-badge ds-trust-badge--verified" title="Anfragende Organisation">&#127970; ' + esc(e.requester_company_name) + "</span>";
+        html += '<span class="ds-trust-badge ds-trust-badge--verified" title="' + esc(t("capm.ds.orgTitle")) + '">&#127970; ' + esc(e.requester_company_name) + "</span>";
       }
       if (e.urgency) {
         var urgencyValue = normalizeUrgency(e.urgency);
-        var urgencyLabel = "Normal";
-        if (urgencyValue === "notdienst") urgencyLabel = "Notdienst";
-        else if (urgencyValue === "critical") urgencyLabel = "Kritisch";
-        else if (urgencyValue === "urgent") urgencyLabel = "Dringend";
-        else if (urgencyValue === "high" || urgencyValue === "plus") urgencyLabel = "Priorisiert";
-        html += '<span class="ds-trust-badge ds-trust-badge--response" title="Dringlichkeit des Arbeitsplatzangebots">&#9888; ' + esc(urgencyLabel) + "</span>";
+        var urgencyLabel = t("capm.ds.urgencyNormal");
+        if (urgencyValue === "notdienst") urgencyLabel = t("capm.ds.urgencyNotdienst");
+        else if (urgencyValue === "critical") urgencyLabel = t("capm.ds.urgencyCritical");
+        else if (urgencyValue === "urgent") urgencyLabel = t("capm.ds.urgencyUrgent");
+        else if (urgencyValue === "high" || urgencyValue === "plus") urgencyLabel = t("capm.ds.urgencyPrioritized");
+        html += '<span class="ds-trust-badge ds-trust-badge--response" title="' + esc(t("capm.ds.urgencyTitle")) + '">&#9888; ' + esc(urgencyLabel) + "</span>";
       }
       if (e.start_date) {
-        html += '<span class="ds-trust-badge" title="Gewuenschter Starttermin">&#128197; Start ' + esc(fmtDate(e.start_date)) + "</span>";
+        html += '<span class="ds-trust-badge" title="' + esc(t("capm.ds.startTitle")) + '">&#128197; ' + esc(t("capm.ds.start", { date: fmtDate(e.start_date) })) + "</span>";
       }
       if (e.budget_min != null || e.budget_max != null) {
         var b = [];
         if (e.budget_min != null) b.push(Number(e.budget_min).toFixed(0));
         if (e.budget_max != null) b.push(Number(e.budget_max).toFixed(0));
-        html += '<span class="ds-trust-badge ds-trust-badge--active" title="Budgetrahmen des Arbeitsplatzangebots">&#8364; ' + esc(b.join(" - ")) + "</span>";
+        html += '<span class="ds-trust-badge ds-trust-badge--active" title="' + esc(t("capm.ds.budgetTitle")) + '">&#8364; ' + esc(b.join(" - ")) + "</span>";
       }
       if (e.headcount != null) {
-        html += '<span class="ds-trust-badge ds-trust-badge--deals" title="Angefragter Umfang">&#128101; ' + esc(String(e.headcount)) + " Personen</span>";
+        html += '<span class="ds-trust-badge ds-trust-badge--deals" title="' + esc(t("capm.ds.headcountTitle")) + '">&#128101; ' + esc(t("capm.ds.headcount", { n: e.headcount })) + "</span>";
       }
       if (e.created_at) {
-        html += '<span class="ds-trust-badge" title="Erstellungsdatum">&#9201; erstellt ' + esc(fmtDate(e.created_at)) + "</span>";
+        html += '<span class="ds-trust-badge" title="' + esc(t("capm.ds.createdTitle")) + '">&#9201; ' + esc(t("capm.ds.created", { date: fmtDate(e.created_at) })) + "</span>";
       }
-      return html || '<span class="ds-text-sm ds-text-muted">Angebotsdaten verfuegbar</span>';
+      return html || '<span class="ds-text-sm ds-text-muted">' + esc(t("capm.ds.fallback")) + '</span>';
     }
 
     // Load entry — cascading fallback for robust loading
@@ -860,13 +1692,13 @@
 
     function tryLoad(idx) {
       if (idx >= endpoints.length) {
-        document.getElementById("loading").innerHTML = '<div class="ds-alert ds-alert--danger">Eintrag nicht gefunden – bitte pruefen Sie die URL.</div>';
+        document.getElementById("loading").innerHTML = '<div class="ds-alert ds-alert--danger">' + esc(t("capm.err.notFoundUrl")) + '</div>';
         return Promise.resolve(null);
       }
       return apiFetch(endpoints[idx].path).then(function(r) {
         if (r.status === 401) { window.location.href = "/"; return null; }
         if (r.status === 404 || r.status === 403) return tryLoad(idx + 1);
-        if (!r.ok) { toast("Fehler beim Laden (HTTP " + r.status + ")", "danger"); return null; }
+        if (!r.ok) { toast(t("capm.err.loadHttp", { code: r.status }), "danger"); return null; }
         return r.json().then(function(data) { data._source = endpoints[idx].type; return data; });
       });
     }
@@ -890,6 +1722,10 @@
         if (recent.length > 10) recent = recent.slice(0, 10);
         localStorage.setItem(recentKey, JSON.stringify(recent));
       } catch(_rvErr) { /* intentional: localStorage may be unavailable */ }
+      // Marker entfernen: ab jetzt traegt der Titel den Eintragsnamen, ein
+      // spaeterer Sprachwechsel darf ihn nicht wieder generisch ueberschreiben.
+      var docTitleEl = document.querySelector("title");
+      if (docTitleEl) docTitleEl.removeAttribute("data-i18n");
       document.title = esc(e.title) + " – TempConnect";
 
       // P12-2: Update recently-viewed with title + render sidebar
@@ -917,49 +1753,50 @@
         return;
       }
 
-      var typeLabel = detectedDemand ? "Nachfrage" : "Angebot";
+      var typeLabelKey = detectedDemand ? "capm.type.demand" : "capm.type.supply";
       var typeBadgeCss = detectedDemand ? "ds-badge--warning" : "ds-badge--success";
-      document.getElementById("d-title").innerHTML = esc(e.title) + ' <span class="ds-badge ' + typeBadgeCss + '" style="font-size:12px;vertical-align:middle">' + typeLabel + '</span>';
+      document.getElementById("d-title").innerHTML = esc(e.title) + ' <span class="ds-badge ' + typeBadgeCss + '" style="font-size:12px;vertical-align:middle" data-i18n="' + typeLabelKey + '">' + esc(t(typeLabelKey)) + '</span>';
       // Always normalize fields regardless of URL param
       e.availability_from = e.availability_from || e.start_date;
       e.availability_to = e.availability_to || e.end_date;
       if (e.price_min == null && e.budget_min != null) e.price_min = e.budget_min;
       if (e.price_max == null && e.budget_max != null) e.price_max = e.budget_max;
       if (detectedDemand) {
-        var sectTitle = document.querySelector(".ce-detail__main .ce-section .ce-section__title");
-        if (sectTitle) {
-          sectTitle.innerHTML = 'Arbeitsplatzangebot <span style="font-weight:400;font-size:11px;text-transform:none;letter-spacing:0;color:var(--ds-text-secondary)">&mdash; Welche Qualifikationen werden benötigt?</span>';
-        }
+        // Nur die beiden Text-Knoten tauschen (statt innerHTML): so bleiben
+        // die i18n-Marker erhalten und ein Sprachwechsel zieht mit.
+        capmSetText(document.getElementById("sect-workforce-label"), "capm.sect.demand");
+        capmSetText(document.getElementById("sect-workforce-hint"), "capm.sect.demandHint");
       }
       document.getElementById("d-subtitle").textContent = e.role + (e.worker_category ? " – " + e.worker_category : "") + " – " + (e.location_city || "–");
 
       // Header actions
       var ha = document.getElementById("d-header-actions");
       if (isOwner) {
-        ha.innerHTML = '<a href="/public/capacity_exchange_form.html?id=' + esc(e.id) + '" class="ds-btn">Bearbeiten</a><a href="/public/capacity_exchange_manage.html" class="ds-btn ds-btn--ghost">Zur Liste</a>';
+        ha.innerHTML = '<a href="/public/capacity_exchange_form.html?id=' + esc(e.id) + '" class="ds-btn" data-i18n="capm.hdr.edit">' + esc(t("capm.hdr.edit")) + '</a><a href="/public/capacity_exchange_manage.html" class="ds-btn ds-btn--ghost" data-i18n="capm.hdr.toList">' + esc(t("capm.hdr.toList")) + '</a>';
       } else {
-        ha.innerHTML = '<a href="/public/capacity_exchange_feed.html" class="ds-btn">Zurueck zur Boerse</a>';
+        ha.innerHTML = '<a href="/public/capacity_exchange_feed.html" class="ds-btn" data-i18n="capm.hdr.backToFeed">' + esc(t("capm.hdr.backToFeed")) + '</a>';
       }
 
       // Status bar
-      var sm = STATUS_MAP[e.status] || { label: e.status, css: "ds-badge--neutral" };
+      var sm = STATUS_MAP[e.status] || { css: "ds-badge--neutral" };
+      var smLabel = STATUS_MAP[e.status] ? t("capm.status." + e.status) : e.status;
       var sb = document.getElementById("d-status-bar");
-      sb.innerHTML = '<span class="ds-badge ' + sm.css + '">' + esc(sm.label) + '</span>' + freshnessHtml(e.last_confirmed_at);
+      sb.innerHTML = '<span class="ds-badge ' + sm.css + '">' + esc(smLabel) + '</span>' + freshnessHtml(e.last_confirmed_at);
       var capacityHint = formatStatusCapacityHint(e);
       if (capacityHint) sb.innerHTML += '<span class="ds-text-sm ds-text-muted">' + esc(capacityHint) + '</span>';
-      if (e.valid_until) sb.innerHTML += '<span class="ds-text-sm ds-text-muted">Gueltig bis: ' + fmtDate(e.valid_until) + '</span>';
+      if (e.valid_until) sb.innerHTML += '<span class="ds-text-sm ds-text-muted">' + esc(t("capm.status.validUntil", { date: fmtDate(e.valid_until) })) + '</span>';
 
       // Workforce fields
       document.getElementById("d-role").textContent = e.role || "–";
       document.getElementById("d-category").textContent = e.worker_category || "–";
-      document.getElementById("d-headcount").textContent = detectedDemand ? ((e.headcount || 1) + " Personen") : formatSupplyHeadcount(e);
+      document.getElementById("d-headcount").textContent = detectedDemand ? t("capm.hc.persons", { n: (e.headcount || 1) }) : formatSupplyHeadcount(e);
       document.getElementById("d-skills").textContent = Array.isArray(e.skill_tags) && e.skill_tags.length ? e.skill_tags.join(", ") : "–";
 
       // Timing
-      document.getElementById("d-dates").textContent = fmtDate(e.availability_from) + (e.availability_to ? " – " + fmtDate(e.availability_to) : " (offen)");
-      document.getElementById("d-avail-type").textContent = AVAIL_LABELS[e.availability_type] || e.availability_type || "–";
-      document.getElementById("d-shift").textContent = SHIFT_LABELS[e.shift_model] || e.shift_model || "–";
-      var empLabel = EMPLOYMENT_LABELS[e.employment_type] || e.employment_type || "–";
+      document.getElementById("d-dates").textContent = fmtDate(e.availability_from) + (e.availability_to ? " – " + fmtDate(e.availability_to) : (" " + t("capm.dates.open")));
+      document.getElementById("d-avail-type").textContent = mapLabel("capm.avail.", AVAIL_KEYS, e.availability_type) || e.availability_type || "–";
+      document.getElementById("d-shift").textContent = mapLabel("capm.shift.", SHIFT_KEYS, e.shift_model) || e.shift_model || "–";
+      var empLabel = mapLabel("capm.emp.", EMPLOYMENT_KEYS, e.employment_type) || e.employment_type || "–";
       document.getElementById("d-employment").innerHTML = esc(empLabel) + (e.employment_type ? ' <span class="ds-badge ds-badge--neutral" style="font-size:11px;vertical-align:middle">' + esc(empLabel) + '</span>' : "");
 
       // Location
@@ -982,10 +1819,10 @@
       if (e.price_type || e.price_min != null || e.price_max != null || e.price_hint) {
         document.getElementById("sect-price").style.display = "block";
         var ph = "";
-        if (e.price_type) ph += '<div class="ce-field"><div class="ce-field__label">Preistyp</div><div class="ce-field__value">' + esc(e.price_type) + '</div></div>';
-        if (e.price_min != null) ph += '<div class="ce-field"><div class="ce-field__label">Min</div><div class="ce-field__value">' + Number(e.price_min).toFixed(2) + ' EUR</div></div>';
-        if (e.price_max != null) ph += '<div class="ce-field"><div class="ce-field__label">Max</div><div class="ce-field__value">' + Number(e.price_max).toFixed(2) + ' EUR</div></div>';
-        if (e.price_hint) ph += '<div class="ce-field" style="grid-column:1/-1"><div class="ce-field__label">Hinweis</div><div class="ce-field__value">' + esc(e.price_hint) + '</div></div>';
+        if (e.price_type) ph += '<div class="ce-field"><div class="ce-field__label" data-i18n="capm.field.priceType">' + esc(t("capm.field.priceType")) + '</div><div class="ce-field__value">' + esc(e.price_type) + '</div></div>';
+        if (e.price_min != null) ph += '<div class="ce-field"><div class="ce-field__label" data-i18n="capm.field.min">' + esc(t("capm.field.min")) + '</div><div class="ce-field__value">' + Number(e.price_min).toFixed(2) + ' EUR</div></div>';
+        if (e.price_max != null) ph += '<div class="ce-field"><div class="ce-field__label" data-i18n="capm.field.max">' + esc(t("capm.field.max")) + '</div><div class="ce-field__value">' + Number(e.price_max).toFixed(2) + ' EUR</div></div>';
+        if (e.price_hint) ph += '<div class="ce-field" style="grid-column:1/-1"><div class="ce-field__label" data-i18n="capm.field.hint">' + esc(t("capm.field.hint")) + '</div><div class="ce-field__value">' + esc(e.price_hint) + '</div></div>';
         document.getElementById("d-price-fields").innerHTML = ph;
       }
 
@@ -998,11 +1835,12 @@
 
       // Compliance
       if (detectedDemand) {
-        document.getElementById("d-compliance-display").innerHTML = '<span class="ds-traffic-light ds-traffic-light--grey"></span>Arbeitsplatzangebot';
+        document.getElementById("d-compliance-display").innerHTML = '<span class="ds-traffic-light ds-traffic-light--grey"></span><span data-i18n="capm.compliance.demand">' + esc(t("capm.compliance.demand")) + '</span>';
         document.getElementById("d-completeness").style.display = "none";
       } else {
-        var comp = COMPLIANCE_MAP[e.compliance_status] || { label: "–", color: "--grey" };
-        document.getElementById("d-compliance-display").innerHTML = '<span class="ds-traffic-light ds-traffic-light' + comp.color + '"></span>' + esc(comp.label);
+        var comp = COMPLIANCE_MAP[e.compliance_status] || { color: "--grey" };
+        var compLabel = COMPLIANCE_MAP[e.compliance_status] ? t("capm.comp." + e.compliance_status) : "–";
+        document.getElementById("d-compliance-display").innerHTML = '<span class="ds-traffic-light ds-traffic-light' + comp.color + '"></span>' + esc(compLabel);
 
         // Profile completeness bar
         var pc = e.trust_signals && e.trust_signals.profile_completeness;
@@ -1011,7 +1849,7 @@
           document.getElementById("d-completeness").style.display = "block";
           document.getElementById("d-completeness-fill").style.width = pct + "%";
           document.getElementById("d-completeness-fill").style.background = pct >= 80 ? "var(--ds-success)" : pct >= 50 ? "var(--ds-warning)" : "var(--ds-danger)";
-          document.getElementById("d-completeness-label").textContent = "Profilvollstaendigkeit: " + pct + "%";
+          document.getElementById("d-completeness-label").textContent = t("capm.profileCompleteness", { pct: pct });
         } else {
           document.getElementById("d-completeness").style.display = "none";
         }
@@ -1022,12 +1860,14 @@
       // Buyer quick actions (save + share)
       if (interactionEnabled) {
         document.getElementById("sect-buyer-actions").style.display = "block";
+        var saveBtn = document.getElementById("btn-save-entry");
+        var saveBtnLabel = document.getElementById("btn-save-entry-label");
         if (currentIsDemand) {
-          var saveBtnLabel = document.getElementById("btn-save-entry");
-          saveBtnLabel.innerHTML = "&#9734; Angebot merken";
-          saveBtnLabel.title = "Nachfrage merken";
+          capmSetText(saveBtnLabel, "capm.save.offer");
+          saveBtn.setAttribute("data-i18n-title", "capm.save.demandTitle");
+          saveBtn.title = t("capm.save.demandTitle");
         }
-        document.getElementById("btn-save-entry").addEventListener("click", function() {
+        saveBtn.addEventListener("click", function() {
           var btn = this;
           btn.disabled = true;
           getCsrf().then(function(c) {
@@ -1037,19 +1877,22 @@
           }).then(function(r) {
             btn.disabled = false;
             if (r.ok) {
-              btn.innerHTML = currentIsDemand ? "&#9733; Angebot gemerkt" : "&#9733; Gemerkt";
-              btn.title = currentIsDemand ? "Angebot gemerkt" : "Personal gemerkt";
-              toast(currentIsDemand ? "Angebot gemerkt" : "Personal gemerkt", "success");
+              var savedKey = currentIsDemand ? "capm.save.offerSaved" : "capm.save.saved";
+              var titleKey = currentIsDemand ? "capm.save.offerSaved" : "capm.save.staffSaved";
+              capmSetText(saveBtnLabel, savedKey);
+              btn.setAttribute("data-i18n-title", titleKey);
+              btn.title = t(titleKey);
+              toast(t(titleKey), "success");
             }
           }).catch(function() { btn.disabled = false; });
         });
         document.getElementById("btn-share-entry").addEventListener("click", function() {
           var url = window.location.href;
           if (navigator.clipboard && navigator.clipboard.writeText) {
-            navigator.clipboard.writeText(url).then(function() { toast("Link kopiert", "success"); });
+            navigator.clipboard.writeText(url).then(function() { toast(t("capm.toast.linkCopied"), "success"); });
           } else {
             var inp = document.createElement("input"); inp.value = url; document.body.appendChild(inp); inp.select(); document.execCommand("copy"); document.body.removeChild(inp);
-            toast("Link kopiert", "success");
+            toast(t("capm.toast.linkCopied"), "success");
           }
         });
       }
@@ -1061,15 +1904,23 @@
 
         // Inline Merken-Button
         var inlineSave = document.getElementById("btn-interact-save");
+        var inlineSaveLabel = document.getElementById("btn-interact-save-label");
         if (inlineSave) {
-          if (currentIsDemand) { inlineSave.innerHTML = "&#9734; Angebot merken"; inlineSave.title = "Angebot merken"; }
+          if (currentIsDemand) {
+            capmSetText(inlineSaveLabel, "capm.save.offer");
+            inlineSave.setAttribute("data-i18n-title", "capm.save.offer");
+            inlineSave.title = t("capm.save.offer");
+          }
           inlineSave.addEventListener("click", function() {
             inlineSave.disabled = true;
             getCsrf().then(function(c) {
               return apiFetch(interactionApiPath(), { method: "POST", csrf: c.csrfToken || c.token, body: { interaction_type: "save", message: null } });
             }).then(function(r) {
               inlineSave.disabled = false;
-              if (r.ok) { inlineSave.innerHTML = currentIsDemand ? "&#9733; Angebot gemerkt" : "&#9733; Gemerkt"; toast("Gemerkt", "success"); }
+              if (r.ok) {
+                capmSetText(inlineSaveLabel, currentIsDemand ? "capm.save.offerSaved" : "capm.save.saved");
+                toast(t("capm.save.saved"), "success");
+              }
             }).catch(function() { inlineSave.disabled = false; });
           });
         }
@@ -1080,15 +1931,15 @@
           inlineShare.addEventListener("click", function() {
             var url = window.location.href;
             if (navigator.clipboard && navigator.clipboard.writeText) {
-              navigator.clipboard.writeText(url).then(function() { toast("Link kopiert", "success"); });
+              navigator.clipboard.writeText(url).then(function() { toast(t("capm.toast.linkCopied"), "success"); });
             } else {
               var inp = document.createElement("input"); inp.value = url; document.body.appendChild(inp); inp.select(); document.execCommand("copy"); document.body.removeChild(inp);
-              toast("Link kopiert", "success");
+              toast(t("capm.toast.linkCopied"), "success");
             }
           });
         }
       } else if (interactionEnabled && !canUseActionZone()) {
-        setActionZoneStatus("Fuer diese Rolle ist hier keine direkte Interaktion vorgesehen.", "warning");
+        setActionZoneStatus(t("capm.az.roleBlocked"), "warning");
       }
 
       // Owner: show actions + matches + interactions
@@ -1102,7 +1953,7 @@
       loadAssets();
     }).catch(function(err) {
       console.error("[capacity-detail] Ladefehler:", err);
-      var msg = "Fehler beim Laden des Eintrags.";
+      var msg = t("capm.err.loadEntry");
       if (err && err.message) msg += " (" + err.message + ")";
       document.getElementById("loading").innerHTML = '<div class="ds-alert ds-alert--danger">' + esc(msg) + '</div>';
     });
@@ -1111,23 +1962,28 @@
       document.getElementById("sect-owner-actions").style.display = "block";
       var el = document.getElementById("d-owner-actions");
       var h = "", s = e.status;
-      if (s === "draft") h += '<button class="ds-btn ds-btn--success" data-oa="activate">Aktivieren</button>';
-      if (s === "active") h += '<button class="ds-btn" data-oa="confirm">Aktualitaet bestaetigen</button>';
-      if (s === "active") h += '<button class="ds-btn ds-btn--ghost" data-oa="pause">Pausieren</button>';
-      if (s === "paused" || s === "expired") h += '<button class="ds-btn ds-btn--success" data-oa="reactivate">Reaktivieren</button>';
-      if (s === "active" || s === "paused") h += '<button class="ds-btn ds-btn--ghost" data-oa="fill">Als besetzt markieren</button>';
-      if (s !== "archived") h += '<button class="ds-btn ds-btn--ghost" data-oa="archive" style="color:var(--ds-text-tertiary)">Archivieren</button>';
+      function oaBtn(action, cls, extraStyle) {
+        var key = "capm.oa." + action;
+        return '<button class="' + cls + '" data-oa="' + action + '"' + (extraStyle ? ' style="' + extraStyle + '"' : '')
+          + ' data-i18n="' + key + '">' + esc(t(key)) + '</button>';
+      }
+      if (s === "draft") h += oaBtn("activate", "ds-btn ds-btn--success");
+      if (s === "active") h += oaBtn("confirm", "ds-btn");
+      if (s === "active") h += oaBtn("pause", "ds-btn ds-btn--ghost");
+      if (s === "paused" || s === "expired") h += oaBtn("reactivate", "ds-btn ds-btn--success");
+      if (s === "active" || s === "paused") h += oaBtn("fill", "ds-btn ds-btn--ghost");
+      if (s !== "archived") h += oaBtn("archive", "ds-btn ds-btn--ghost", "color:var(--ds-text-tertiary)");
       el.innerHTML = h;
       el.querySelectorAll("[data-oa]").forEach(function(btn) {
         btn.addEventListener("click", function() {
           var action = btn.getAttribute("data-oa");
-          if (action === "archive" && !confirm("Archivieren?")) return;
+          if (action === "archive" && !confirm(t("capm.oa.confirmArchive"))) return;
           btn.disabled = true;
           getCsrf().then(function(c) {
             return apiFetch("/capacity-exchange/entries/" + entryId + "/" + action, { method: "POST", csrf: c.csrfToken || c.token });
           }).then(function(r) {
-            if (!r.ok) return r.json().then(function(d) { throw new Error(d.error || "Fehler"); });
-            toast("Aktion ausgefuehrt", "success");
+            if (!r.ok) return r.json().then(function(d) { throw new Error(d.error || t("capm.err.generic")); });
+            toast(t("capm.oa.done"), "success");
             setTimeout(function() { window.location.reload(); }, 800);
           }).catch(function(e) { toast(e.message, "danger"); btn.disabled = false; });
         });
@@ -1138,17 +1994,17 @@
       document.getElementById("sect-matches").style.display = "block";
       apiFetch("/capacity-exchange/entries/" + entryId + "/matches").then(function(r) { return r.ok ? r.json() : []; }).then(function(matches) {
         var el = document.getElementById("d-matches");
-        if (!matches || !matches.length) { el.innerHTML = '<span class="ds-text-sm ds-text-muted">Keine passenden Anfragen gefunden.</span>'; return; }
+        if (!matches || !matches.length) { el.innerHTML = '<span class="ds-text-sm ds-text-muted" data-i18n="capm.match.none">' + esc(t("capm.match.none")) + '</span>'; return; }
         var h = "";
         matches.forEach(function(m) {
-          h += '<div class="ce-match-card"><strong>' + esc(m.title || m.role || "Anfrage") + '</strong>';
+          h += '<div class="ce-match-card"><strong>' + esc(m.title || m.role || t("capm.match.request")) + '</strong>';
           if (m.location_city) h += ' – ' + esc(m.location_city);
-          if (m.match_score != null) h += ' <span class="ds-badge ds-badge--brand">Score ' + m.match_score + '</span>';
+          if (m.match_score != null) h += ' <span class="ds-badge ds-badge--brand">' + esc(t("capm.match.score", { n: m.match_score })) + '</span>';
           h += '</div>';
         });
         el.innerHTML = h;
       }).catch(function() {
-        document.getElementById("d-matches").innerHTML = '<span class="ds-text-sm ds-text-muted">Matching nicht verfuegbar.</span>';
+        document.getElementById("d-matches").innerHTML = '<span class="ds-text-sm ds-text-muted" data-i18n="capm.match.unavailable">' + esc(t("capm.match.unavailable")) + '</span>';
       });
     }
 
@@ -1156,17 +2012,17 @@
       document.getElementById("sect-interactions").style.display = "block";
       apiFetch("/capacity-exchange/entries/" + entryId + "/interactions").then(function(r) { return r.ok ? r.json() : []; }).then(function(items) {
         var el = document.getElementById("d-interactions");
-        if (!items || !items.length) { el.innerHTML = '<span class="ds-text-sm ds-text-muted">Noch keine Interaktionen.</span>'; return; }
+        if (!items || !items.length) { el.innerHTML = '<span class="ds-text-sm ds-text-muted" data-i18n="capm.inter.none">' + esc(t("capm.inter.none")) + '</span>'; return; }
         var h = "";
         items.forEach(function(i) {
-          var label = INTERACTION_LABELS[i.interaction_type] || i.interaction_type;
+          var label = interactionLabel(i.interaction_type);
           h += '<div class="ce-interaction-item"><span class="ds-badge ds-badge--brand" style="margin-right:6px">' + esc(label) + '</span>';
           if (i.message) h += '<span class="ds-text-sm">' + esc(i.message) + '</span>';
           h += '<br><span class="ds-text-xs ds-text-muted">' + fmtDate(i.created_at) + '</span></div>';
         });
         el.innerHTML = h;
       }).catch(function() {
-        document.getElementById("d-interactions").innerHTML = '<span class="ds-text-sm ds-text-muted">Fehler beim Laden.</span>';
+        document.getElementById("d-interactions").innerHTML = '<span class="ds-text-sm ds-text-muted" data-i18n="capm.err.loadFailed">' + esc(t("capm.err.loadFailed")) + '</span>';
       });
     }
 
@@ -1236,7 +2092,7 @@
       if (isOwner) {
         var logoUpEl = document.getElementById("d-logo-upload");
         logoUpEl.style.display = "block";
-        logoUpEl.innerHTML = '<label class="ds-btn ds-btn--sm ce-upload-btn">Logo hochladen<input type="file" accept="image/png,image/jpeg,image/webp" data-asset-type="logo"/></label>';
+        logoUpEl.innerHTML = '<label class="ds-btn ds-btn--sm ce-upload-btn">' + esc(t("capm.asset.uploadLogo")) + '<input type="file" accept="image/png,image/jpeg,image/webp" data-asset-type="logo"/></label>';
         logoUpEl.querySelector("input").addEventListener("change", function() { uploadAsset("logo", this); });
       }
 
@@ -1245,14 +2101,14 @@
         document.getElementById("sect-safety").style.display = "block";
         var sh = "";
         data.safety_images.forEach(function(a) {
-          sh += '<img src="/' + esc(a.file_path) + '" alt="' + esc(a.original_name || 'Sicherheitsbild') + '" data-lightbox/>';
+          sh += '<img src="/' + esc(a.file_path) + '" alt="' + esc(a.original_name || t('capm.asset.safetyAlt')) + '" data-lightbox/>';
         });
         document.getElementById("d-safety-images").innerHTML = sh;
       }
       if (isOwner) {
         var safeUpEl = document.getElementById("d-safety-upload");
         safeUpEl.style.display = "flex";
-        safeUpEl.innerHTML = '<label class="ds-btn ds-btn--sm ce-upload-btn">Sicherheitsbild hochladen<input type="file" accept="image/png,image/jpeg,image/webp" data-asset-type="safety"/></label>';
+        safeUpEl.innerHTML = '<label class="ds-btn ds-btn--sm ce-upload-btn">' + esc(t("capm.asset.uploadSafety")) + '<input type="file" accept="image/png,image/jpeg,image/webp" data-asset-type="safety"/></label>';
         safeUpEl.querySelector("input").addEventListener("change", function() { uploadAsset("safety", this); });
         document.getElementById("sect-safety").style.display = "block";
       }
@@ -1262,14 +2118,14 @@
         document.getElementById("sect-gallery").style.display = "block";
         var gh = "";
         data.gallery.forEach(function(a) {
-          gh += '<img src="/' + esc(a.file_path) + '" alt="' + esc(a.original_name || 'Angebotsbild') + '" data-lightbox/>';
+          gh += '<img src="/' + esc(a.file_path) + '" alt="' + esc(a.original_name || t('capm.asset.galleryAlt')) + '" data-lightbox/>';
         });
         document.getElementById("d-gallery-images").innerHTML = gh;
       }
       if (isOwner) {
         var galUpEl = document.getElementById("d-gallery-upload");
         galUpEl.style.display = "flex";
-        galUpEl.innerHTML = '<label class="ds-btn ds-btn--sm ce-upload-btn">Bild hochladen<input type="file" accept="image/png,image/jpeg,image/webp" data-asset-type="gallery"/></label>';
+        galUpEl.innerHTML = '<label class="ds-btn ds-btn--sm ce-upload-btn">' + esc(t("capm.asset.uploadGallery")) + '<input type="file" accept="image/png,image/jpeg,image/webp" data-asset-type="gallery"/></label>';
         galUpEl.querySelector("input").addEventListener("change", function() { uploadAsset("gallery", this); });
         document.getElementById("sect-gallery").style.display = "block";
       }
@@ -1280,19 +2136,19 @@
         var ch = "";
         data.compliance_docs.forEach(function(doc) {
           var icon = doc.mime_type === "application/pdf" ? "&#128196;" : "&#128203;";
-          var source = doc.source_type === "compliance_card" ? ' <span class="ds-badge ds-badge--neutral" style="font-size:10px">Compliance Card</span>' : "";
+          var source = doc.source_type === "compliance_card" ? ' <span class="ds-badge ds-badge--neutral" style="font-size:10px">' + esc(t("capm.asset.complianceCard")) + '</span>' : "";
           var statusBadge = "";
           if (doc.compliance_status) {
             var stColor = doc.compliance_status === "verified" ? "ds-badge--success" : "ds-badge--warning";
             statusBadge = ' <span class="ds-badge ' + stColor + '" style="font-size:10px">' + esc(doc.compliance_status) + '</span>';
           }
-          var link = doc.file_path ? '<a href="/' + esc(doc.file_path) + '" target="_blank" class="ds-btn ds-btn--sm ds-btn--ghost" style="font-size:11px">Download</a>' : '';
+          var link = doc.file_path ? '<a href="/' + esc(doc.file_path) + '" target="_blank" class="ds-btn ds-btn--sm ds-btn--ghost" style="font-size:11px" data-i18n="capm.asset.download">' + esc(t("capm.asset.download")) + '</a>' : '';
           ch += '<li class="ce-doc-item">';
           ch += '<span class="ce-doc-icon">' + icon + '</span>';
-          ch += '<div class="ce-doc-meta"><div class="ce-doc-name">' + esc(doc.original_name || doc.doc_name || 'Dokument') + source + statusBadge + '</div>';
+          ch += '<div class="ce-doc-meta"><div class="ce-doc-name">' + esc(doc.original_name || doc.doc_name || t('capm.asset.document')) + source + statusBadge + '</div>';
           if (doc.compliance_doc_type) ch += '<div class="ce-doc-sub">' + esc(doc.compliance_doc_type) + '</div>';
           if (doc.file_size) ch += '<div class="ce-doc-sub">' + fmtSize(doc.file_size) + '</div>';
-          if (doc.valid_until) ch += '<div class="ce-doc-sub">Gueltig bis: ' + fmtDate(doc.valid_until) + '</div>';
+          if (doc.valid_until) ch += '<div class="ce-doc-sub">' + esc(t("capm.asset.validUntil", { date: fmtDate(doc.valid_until) })) + '</div>';
           ch += '</div>';
           ch += link;
           if (isOwner && doc.source_type !== "compliance_card" && doc.id) {
@@ -1309,7 +2165,7 @@
       if (isOwner) {
         var compUpEl = document.getElementById("d-compliance-upload");
         compUpEl.style.display = "flex";
-        compUpEl.innerHTML = '<label class="ds-btn ds-btn--sm ce-upload-btn">Dokument hochladen<input type="file" accept="image/png,image/jpeg,application/pdf" data-asset-type="compliance"/></label>';
+        compUpEl.innerHTML = '<label class="ds-btn ds-btn--sm ce-upload-btn">' + esc(t("capm.asset.uploadDoc")) + '<input type="file" accept="image/png,image/jpeg,application/pdf" data-asset-type="compliance"/></label>';
         compUpEl.querySelector("input").addEventListener("change", function() { uploadAsset("compliance", this); });
         document.getElementById("sect-compliance-docs").style.display = "block";
       }
@@ -1319,7 +2175,7 @@
         img.addEventListener("click", function() {
           var lb = document.createElement("div");
           lb.className = "ce-lightbox";
-          lb.innerHTML = '<img src="' + img.src + '" alt="Vollbild"/>';
+          lb.innerHTML = '<img src="' + img.src + '" alt="' + esc(t("capm.asset.fullAlt")) + '"/>';
           lb.addEventListener("click", function() { lb.remove(); });
           document.body.appendChild(lb);
         });
@@ -1330,7 +2186,7 @@
       if (!input.files || !input.files[0]) return;
       var file = input.files[0];
       var label = input.closest("label");
-      if (label) label.textContent = "Wird hochgeladen...";
+      if (label) label.textContent = t("capm.asset.uploading");
 
       getCsrf().then(function(c) {
         var fd = new FormData();
@@ -1343,33 +2199,33 @@
           credentials: "include"
         });
       }).then(function(r) {
-        if (!r.ok) return r.json().then(function(d) { throw new Error((d.error && d.error.message) || "Upload fehlgeschlagen"); });
+        if (!r.ok) return r.json().then(function(d) { throw new Error((d.error && d.error.message) || t("capm.asset.uploadFailed")); });
         return r.json();
       }).then(function() {
-        toast("Datei hochgeladen", "success");
+        toast(t("capm.asset.uploaded"), "success");
         loadAssets(); // Reload to show new asset
       }).catch(function(err) {
-        toast(err.message || "Upload fehlgeschlagen", "danger");
+        toast(err.message || t("capm.asset.uploadFailed"), "danger");
       }).finally(function() {
         input.value = "";
         if (label) {
-          var labels = { logo: "Logo hochladen", safety: "Sicherheitsbild hochladen", gallery: "Bild hochladen", compliance: "Dokument hochladen" };
-          label.textContent = labels[assetType] || "Hochladen";
+          var labelKeys = { logo: "capm.asset.uploadLogo", safety: "capm.asset.uploadSafety", gallery: "capm.asset.uploadGallery", compliance: "capm.asset.uploadDoc" };
+          label.textContent = t(labelKeys[assetType] || "capm.asset.uploadGeneric");
           label.appendChild(input);
         }
       });
     }
 
     function deleteAsset(assetId) {
-      if (!confirm("Asset wirklich loeschen?")) return;
+      if (!confirm(t("capm.asset.confirmDelete"))) return;
       getCsrf().then(function(c) {
         return apiFetch("/offer-assets/" + assetId, { method: "DELETE", csrf: c.csrfToken || c.token });
       }).then(function(r) {
-        if (!r.ok) return r.json().then(function(d) { throw new Error((d.error && d.error.message) || "Loeschen fehlgeschlagen"); });
-        toast("Asset geloescht", "success");
+        if (!r.ok) return r.json().then(function(d) { throw new Error((d.error && d.error.message) || t("capm.asset.deleteFailed")); });
+        toast(t("capm.asset.deleted"), "success");
         loadAssets();
       }).catch(function(err) {
-        toast(err.message || "Loeschen fehlgeschlagen", "danger");
+        toast(err.message || t("capm.asset.deleteFailed"), "danger");
       });
     }
   }

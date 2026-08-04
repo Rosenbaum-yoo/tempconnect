@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <script src="/public/js/theme.js"></script>
   <script src="/public/js/i18n.js"></script>
-  <title>Nachfrage erstellen – TempConnect Marketplace</title>
+  <title data-i18n="dem.create.docTitle">Nachfrage erstellen – TempConnect Marketplace</title>
   <link rel="stylesheet" href="/public/css/enterprise.css"/>
   <style>
     .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
@@ -27,93 +27,93 @@
 </head>
 <body data-sla-guard="sla_access">
   <div id="paywall" class="wrap" style="display:none">
-    <nav class="ds-topbar"><div class="ds-topbar__brand"><span class="ds-topbar__brand-dot"></span>TempConnect</div><div class="ds-topbar__nav"><a href="/" class="ds-btn">Startseite</a></div></nav>
+    <nav class="ds-topbar"><div class="ds-topbar__brand"><span class="ds-topbar__brand-dot"></span>TempConnect</div><div class="ds-topbar__nav"><a href="/" class="ds-btn" data-i18n="dem.create.paywallHome">Startseite</a></div></nav>
     <div class="paywall-box">
-      <h2>Bereich nicht verfuegbar</h2>
-      <p>Um Nachfragen im Marketplace zu erstellen, benoetigst du einen PLUS- oder PRO-Plan.</p>
-      <p>Aktueller Plan: <span id="paywall-current-plan" class="paywall-plan">–</span></p>
-      <a id="paywall-cta" href="/public/sla_abo.html" class="btn primary">Abo ansehen</a>
+      <h2 data-i18n="dem.create.paywallTitle">Bereich nicht verfuegbar</h2>
+      <p data-i18n="dem.create.paywallText">Um Nachfragen im Marketplace zu erstellen, benoetigst du einen PLUS- oder PRO-Plan.</p>
+      <p><span data-i18n="dem.create.paywallPlan">Aktueller Plan:</span> <span id="paywall-current-plan" class="paywall-plan">–</span></p>
+      <a id="paywall-cta" href="/public/sla_abo.html" class="btn primary" data-i18n="dem.create.paywallCta">Abo ansehen</a>
     </div>
   </div>
 
   <div id="main-content" class="wrap">
     <div id="tc-shell"></div>
-    <h1>Nachfrage im Marketplace erstellen</h1>
-    <p style="color:var(--muted);margin:0 0 16px">Beschreibe deinen Personalbedarf. TempConnect matched automatisch passendes Personal und benachrichtigt Anbieter.</p>
+    <h1 data-i18n="dem.create.title">Nachfrage im Marketplace erstellen</h1>
+    <p style="color:var(--muted);margin:0 0 16px" data-i18n="dem.create.subtitle">Beschreibe deinen Personalbedarf. TempConnect matched automatisch passendes Personal und benachrichtigt Anbieter.</p>
 
     <form id="demandForm" class="card">
       <div class="form-grid">
         <div class="full">
-          <label for="title">Titel *</label>
-          <input id="title" name="title" required placeholder="z.B. 10 Produktionshelfer ab sofort"/>
+          <label for="title" data-i18n="dem.create.label.title">Titel *</label>
+          <input id="title" name="title" required placeholder="z.B. 10 Produktionshelfer ab sofort" data-i18n-ph="dem.create.ph.title"/>
         </div>
         <div>
-          <label for="role">Rolle / Beruf *</label>
-          <input id="role" name="role" required placeholder="z.B. Produktionshelfer"/>
+          <label for="role" data-i18n="dem.create.label.role">Rolle / Beruf *</label>
+          <input id="role" name="role" required placeholder="z.B. Produktionshelfer" data-i18n-ph="dem.create.ph.role"/>
         </div>
         <div>
-          <label for="skill_tags">Skills (kommagetrennt)</label>
-          <input id="skill_tags" name="skill_tags" placeholder="z.B. Schichtarbeit, Montage"/>
+          <label for="skill_tags" data-i18n="dem.create.label.skills">Skills (kommagetrennt)</label>
+          <input id="skill_tags" name="skill_tags" placeholder="z.B. Schichtarbeit, Montage" data-i18n-ph="dem.create.ph.skills"/>
         </div>
         <div>
-          <label for="headcount">Anzahl Personen</label>
+          <label for="headcount" data-i18n="dem.create.label.headcount">Anzahl Personen</label>
           <input id="headcount" name="headcount" type="number" min="1" max="999" value="1"/>
         </div>
         <div>
-          <label for="start_date">Startdatum *</label>
+          <label for="start_date" data-i18n="dem.create.label.startDate">Startdatum *</label>
           <input id="start_date" name="start_date" type="date" required/>
         </div>
         <div>
-          <label for="end_date">Enddatum</label>
+          <label for="end_date" data-i18n="dem.create.label.endDate">Enddatum</label>
           <input id="end_date" name="end_date" type="date"/>
         </div>
         <div>
-          <label for="location_city">Stadt *</label>
-          <input id="location_city" name="location_city" required placeholder="z.B. Muenchen"/>
+          <label for="location_city" data-i18n="dem.create.label.city">Stadt *</label>
+          <input id="location_city" name="location_city" required placeholder="z.B. Muenchen" data-i18n-ph="dem.create.ph.city"/>
         </div>
         <div>
-          <label for="location_postal">PLZ</label>
-          <input id="location_postal" name="location_postal" placeholder="z.B. 80331"/>
+          <label for="location_postal" data-i18n="dem.create.label.postal">PLZ</label>
+          <input id="location_postal" name="location_postal" placeholder="z.B. 80331" data-i18n-ph="dem.create.ph.postal"/>
         </div>
         <div>
-          <label for="radius_km">Radius (km)</label>
+          <label for="radius_km" data-i18n="dem.create.label.radius">Radius (km)</label>
           <input id="radius_km" name="radius_km" type="number" min="1" max="500" value="25"/>
         </div>
         <div>
-          <label for="urgency">Dringlichkeit</label>
+          <label for="urgency" data-i18n="dem.create.label.urgency">Dringlichkeit</label>
           <select id="urgency" name="urgency">
-            <option value="normal">Normal (Pulse 120 Min)</option>
-            <option value="plus">Plus (Pulse 120 Min)</option>
-            <option value="notdienst">Notdienst (Pulse 30 Min)</option>
+            <option value="normal" data-i18n="dem.create.urgency.normal">Normal (Pulse 120 Min)</option>
+            <option value="plus" data-i18n="dem.create.urgency.plus">Plus (Pulse 120 Min)</option>
+            <option value="notdienst" data-i18n="dem.create.urgency.notdienst">Notdienst (Pulse 30 Min)</option>
           </select>
-          <p class="urgency-hint">Notdienst erfordert PRO-Plan. Pulse = Prozessnachweis, kein Erfolgsversprechen.</p>
+          <p class="urgency-hint" data-i18n="dem.create.urgencyHint">Notdienst erfordert PRO-Plan. Pulse = Prozessnachweis, kein Erfolgsversprechen.</p>
         </div>
         <div>
-          <label for="budget_min">Budget min (EUR)</label>
+          <label for="budget_min" data-i18n="dem.create.label.budgetMin">Budget min (EUR)</label>
           <input id="budget_min" name="budget_min" type="number" step="0.01" min="0"/>
         </div>
         <div>
-          <label for="budget_max">Budget max (EUR)</label>
+          <label for="budget_max" data-i18n="dem.create.label.budgetMax">Budget max (EUR)</label>
           <input id="budget_max" name="budget_max" type="number" step="0.01" min="0"/>
         </div>
       </div>
       <div style="margin-top:16px">
-        <button type="submit" class="btn primary" id="submitBtn">Nachfrage absenden</button>
+        <button type="submit" class="btn primary" id="submitBtn" data-i18n="dem.create.submit">Nachfrage absenden</button>
       </div>
       <div id="msg" style="display:none"></div>
     </form>
 
     <div id="result" class="result-box" style="display:none">
-      <h3>Nachfrage erstellt</h3>
-      <p>ID: <span id="res-id"></span></p>
-      <p>Pulse-Status: <span id="res-sla"></span></p>
+      <h3 data-i18n="dem.create.resultTitle">Nachfrage erstellt</h3>
+      <p><span data-i18n="dem.create.resultId">ID:</span> <span id="res-id"></span></p>
+      <p><span data-i18n="dem.create.resultSla">Pulse-Status:</span> <span id="res-sla"></span></p>
       <div id="res-matches"></div>
       <div style="margin-top:12px">
-        <a id="res-detail-link" href="#" class="btn primary">Zur Detailseite</a>
+        <a id="res-detail-link" href="#" class="btn primary" data-i18n="dem.create.detailLink">Zur Detailseite</a>
       </div>
     </div>
 
-    <p class="sla-disclaimer">Hinweis: TempConnect dokumentiert den Matching-Prozess (Pulse-Prozessnachweis). Es wird kein Vermittlungserfolg garantiert. Angaben ohne Gewaehr.</p>
+    <p class="sla-disclaimer" data-i18n="dem.create.disclaimer">Hinweis: TempConnect dokumentiert den Matching-Prozess (Pulse-Prozessnachweis). Es wird kein Vermittlungserfolg garantiert. Angaben ohne Gewaehr.</p>
   </div>
 
   <script src="/public/js/api.js"></script>
@@ -121,8 +121,138 @@
   <script src="/public/js/slaGuard.js"></script>
   <script>
   (function() {
+    /* i18n (P6.1): Woerterbuch dieser Seite. Topbar, Navigation und Nutzerbereich
+       uebersetzt die Plattform-Shell (pageShell.js) mit eigenen shell-Schluesseln.
+       Bewusst NICHT uebersetzt:
+       - option value= der Dringlichkeit (normal/plus/notdienst): Server-Enum
+       - API-Daten (Anbietername, Ort, Titel, Score, Pulse-Rohstatus)
+       - Fehlerdetails aus der Server-Validierung                                */
+    if (window.TCi18n) {
+      TCi18n.register('de', {
+        'dem.create.docTitle': 'Nachfrage erstellen – TempConnect Marketplace',
+        'dem.create.paywallHome': 'Startseite',
+        'dem.create.paywallTitle': 'Bereich nicht verfuegbar',
+        'dem.create.paywallText': 'Um Nachfragen im Marketplace zu erstellen, benoetigst du einen PLUS- oder PRO-Plan.',
+        'dem.create.paywallPlan': 'Aktueller Plan:',
+        'dem.create.paywallCta': 'Abo ansehen',
+        'dem.create.title': 'Nachfrage im Marketplace erstellen',
+        'dem.create.subtitle': 'Beschreibe deinen Personalbedarf. TempConnect matched automatisch passendes Personal und benachrichtigt Anbieter.',
+        'dem.create.label.title': 'Titel *',
+        'dem.create.ph.title': 'z.B. 10 Produktionshelfer ab sofort',
+        'dem.create.label.role': 'Rolle / Beruf *',
+        'dem.create.ph.role': 'z.B. Produktionshelfer',
+        'dem.create.label.skills': 'Skills (kommagetrennt)',
+        'dem.create.ph.skills': 'z.B. Schichtarbeit, Montage',
+        'dem.create.label.headcount': 'Anzahl Personen',
+        'dem.create.label.startDate': 'Startdatum *',
+        'dem.create.label.endDate': 'Enddatum',
+        'dem.create.label.city': 'Stadt *',
+        'dem.create.ph.city': 'z.B. Muenchen',
+        'dem.create.label.postal': 'PLZ',
+        'dem.create.ph.postal': 'z.B. 80331',
+        'dem.create.label.radius': 'Radius (km)',
+        'dem.create.label.urgency': 'Dringlichkeit',
+        'dem.create.urgency.normal': 'Normal (Pulse 120 Min)',
+        'dem.create.urgency.plus': 'Plus (Pulse 120 Min)',
+        'dem.create.urgency.notdienst': 'Notdienst (Pulse 30 Min)',
+        'dem.create.urgencyHint': 'Notdienst erfordert PRO-Plan. Pulse = Prozessnachweis, kein Erfolgsversprechen.',
+        'dem.create.label.budgetMin': 'Budget min (EUR)',
+        'dem.create.label.budgetMax': 'Budget max (EUR)',
+        'dem.create.submit': 'Nachfrage absenden',
+        'dem.create.submitting': 'Wird gesendet...',
+        'dem.create.msgOk': 'Nachfrage erfolgreich erstellt!',
+        'dem.create.resultTitle': 'Nachfrage erstellt',
+        'dem.create.resultId': 'ID:',
+        'dem.create.resultSla': 'Pulse-Status:',
+        'dem.create.slaDue': ' (Frist: {date})',
+        'dem.create.noPulse': 'Kein Pulse',
+        'dem.create.matchesFound': '{count} Matches gefunden',
+        'dem.create.supplier': 'Anbieter',
+        'dem.create.score': 'Score',
+        'dem.create.noMatches': 'Noch keine Matches. Verfuegbares Personal wird laufend geprueft.',
+        'dem.create.detailLink': 'Zur Detailseite',
+        'dem.create.disclaimer': 'Hinweis: TempConnect dokumentiert den Matching-Prozess (Pulse-Prozessnachweis). Es wird kein Vermittlungserfolg garantiert. Angaben ohne Gewaehr.',
+        'dem.create.err.feature': 'Der Marketplace-Bereich ist in deinem aktuellen Tarif{plan} nicht freigeschaltet. Bitte Tarif upgraden.',
+        'dem.create.err.companyOnly': 'Nur Unternehmen koennen Nachfragen erstellen. Personaldienstleister nutzen bitte die Angebotsseite.',
+        'dem.create.err.notdienst': 'Notdienst-Dringlichkeit erfordert einen PRO-Plan.',
+        'dem.create.err.workerLimit': 'Die angeforderte Personenzahl{requested} ueberschreitet dein Plan-Limit{limit}. Bitte Tarif upgraden oder Anzahl reduzieren.',
+        'dem.create.err.csrf': 'Sitzung abgelaufen. Bitte Seite neu laden und erneut versuchen.',
+        'dem.create.err.auth': 'Du bist nicht mehr eingeloggt. Bitte neu anmelden.',
+        'dem.create.err.validation': 'Bitte pruefe deine Eingaben.',
+        'dem.create.err.network': 'Netzwerkfehler. Bitte erneut versuchen.'
+      });
+      TCi18n.register('en', {
+        'dem.create.docTitle': 'Create a job posting – TempConnect Marketplace',
+        'dem.create.paywallHome': 'Home',
+        'dem.create.paywallTitle': 'Area not available',
+        'dem.create.paywallText': 'To create job postings in the Marketplace you need a PLUS or PRO plan.',
+        'dem.create.paywallPlan': 'Current plan:',
+        'dem.create.paywallCta': 'View subscription',
+        'dem.create.title': 'Create a job posting in the Marketplace',
+        'dem.create.subtitle': 'Describe your staffing need. TempConnect matches suitable staff automatically and notifies providers.',
+        'dem.create.label.title': 'Title *',
+        'dem.create.ph.title': 'e.g. 10 production assistants, starting now',
+        'dem.create.label.role': 'Role / occupation *',
+        'dem.create.ph.role': 'e.g. production assistant',
+        'dem.create.label.skills': 'Skills (comma-separated)',
+        'dem.create.ph.skills': 'e.g. shift work, assembly',
+        'dem.create.label.headcount': 'Number of people',
+        'dem.create.label.startDate': 'Start date *',
+        'dem.create.label.endDate': 'End date',
+        'dem.create.label.city': 'City *',
+        'dem.create.ph.city': 'e.g. Munich',
+        'dem.create.label.postal': 'Postcode',
+        'dem.create.ph.postal': 'e.g. 80331',
+        'dem.create.label.radius': 'Radius (km)',
+        'dem.create.label.urgency': 'Urgency',
+        'dem.create.urgency.normal': 'Normal (Pulse 120 min)',
+        'dem.create.urgency.plus': 'Plus (Pulse 120 min)',
+        'dem.create.urgency.notdienst': 'Emergency cover (Pulse 30 min)',
+        'dem.create.urgencyHint': 'Emergency cover requires a PRO plan. Pulse = process record, not a success guarantee.',
+        'dem.create.label.budgetMin': 'Budget min (EUR)',
+        'dem.create.label.budgetMax': 'Budget max (EUR)',
+        'dem.create.submit': 'Submit job posting',
+        'dem.create.submitting': 'Sending...',
+        'dem.create.msgOk': 'Job posting created successfully.',
+        'dem.create.resultTitle': 'Job posting created',
+        'dem.create.resultId': 'ID:',
+        'dem.create.resultSla': 'Pulse status:',
+        'dem.create.slaDue': ' (due: {date})',
+        'dem.create.noPulse': 'No Pulse',
+        'dem.create.matchesFound': '{count} matches found',
+        'dem.create.supplier': 'Provider',
+        'dem.create.score': 'Score',
+        'dem.create.noMatches': 'No matches yet. Available staff is being checked continuously.',
+        'dem.create.detailLink': 'Go to detail page',
+        'dem.create.disclaimer': 'Note: TempConnect documents the matching process (Pulse process record). No matching success is guaranteed. All information without warranty.',
+        'dem.create.err.feature': 'The Marketplace area is not enabled in your current plan{plan}. Please upgrade your plan.',
+        'dem.create.err.companyOnly': 'Only companies can create job postings. Staffing providers please use the offer page.',
+        'dem.create.err.notdienst': 'Emergency-cover urgency requires a PRO plan.',
+        'dem.create.err.workerLimit': 'The requested number of people{requested} exceeds your plan limit{limit}. Please upgrade your plan or reduce the number.',
+        'dem.create.err.csrf': 'Session expired. Please reload the page and try again.',
+        'dem.create.err.auth': 'You are no longer signed in. Please sign in again.',
+        'dem.create.err.validation': 'Please check your entries.',
+        'dem.create.err.network': 'Network error. Please try again.'
+      });
+    }
+
+    /** Uebersetzung mit hart kodiertem DE-Notnagel: laedt i18n.js einmal nicht,
+     *  bleibt das Formular bedienbar statt mit leeren Knoepfen dazustehen. */
+    function t(key, fallbackDe, params) {
+      var v = window.TCi18n ? TCi18n.t(key, params) : '';
+      return v || fallbackDe;
+    }
+    function dateLocale() {
+      return window.TCi18n ? TCi18n.dateLocale() : 'de-DE';
+    }
+
     var form = document.getElementById("demandForm");
     var msg = document.getElementById("msg");
+    /* Letzte Antwort + letzte Meldung merken: beide Flaechen entstehen per
+       innerHTML/textContent und traegt die deklarative Hydration nicht mit —
+       beim Sprachwechsel werden sie hier gezielt neu aufgebaut. */
+    var lastResult = null;
+    var lastMsg = null;
 
     function getCsrfToken() {
       return fetch("/api/csrf", { credentials: "include" })
@@ -160,16 +290,72 @@
       });
     }
 
+    /** Meldung anzeigen und fuer den Sprachwechsel merken. */
+    function showMsg(cls, key, fallbackDe, params) {
+      lastMsg = { cls: cls, key: key, fallback: fallbackDe, params: params || null };
+      msg.className = "msg " + cls;
+      msg.textContent = t(key, fallbackDe, params);
+      msg.style.display = "block";
+    }
+
+    function esc(s) { var d = document.createElement("div"); d.textContent = s == null ? "" : s; return d.innerHTML; }
+
+    /** Ergebnisblock aus der Server-Antwort aufbauen (auch beim Sprachwechsel). */
+    function renderResult(d) {
+      lastResult = d;
+      document.getElementById("res-id").textContent = d.id.substring(0, 8);
+      var slaEl = document.getElementById("res-sla");
+      if (d.sla_status) {
+        var html = '<span class="sla-badge ' + esc(String(d.sla_status).toLowerCase()) + '">' + esc(d.sla_status) + '</span>';
+        if (d.sla_due_at) {
+          html += esc(t('dem.create.slaDue', ' (Frist: {date})', { date: new Date(d.sla_due_at).toLocaleString(dateLocale()) }));
+        }
+        slaEl.innerHTML = html;
+      } else {
+        slaEl.textContent = t('dem.create.noPulse', 'Kein Pulse');
+      }
+
+      var matchesEl = document.getElementById("res-matches");
+      matchesEl.innerHTML = "";
+      if (d.matches && d.matches.length > 0) {
+        matchesEl.innerHTML = "<h3>" + esc(t('dem.create.matchesFound', d.matches.length + ' Matches gefunden', { count: d.matches.length })) + "</h3>";
+        var scoreLabel = esc(t('dem.create.score', 'Score'));
+        d.matches.slice(0, 10).forEach(function(m) {
+          matchesEl.innerHTML += '<div class="match-item">' +
+            esc(m.supplier_company_name || t('dem.create.supplier', 'Anbieter')) + ' – ' +
+            esc(m.capacity_title || m.capacity_role || "") + ' (' + esc(m.capacity_city || "") + ') – ' + scoreLabel + ': ' + esc(m.match_score) +
+            '</div>';
+        });
+      } else {
+        matchesEl.innerHTML = "<p style='color:var(--muted)'>" +
+          esc(t('dem.create.noMatches', 'Noch keine Matches. Verfuegbares Personal wird laufend geprueft.')) + "</p>";
+      }
+
+      document.getElementById("res-detail-link").href = "/public/marketplace_demand_detail.html?id=" + encodeURIComponent(d.id) + "&owner=1";
+      document.getElementById("result").style.display = "block";
+    }
+
+    /* Sprachwechsel: die per JS gebauten Flaechen nachziehen — sonst bliebe der
+       Ergebnisblock nach dem Umschalten in der alten Sprache stehen. */
+    document.addEventListener("tc:langchange", function() {
+      if (lastResult) renderResult(lastResult);
+      if (lastMsg && msg.style.display !== "none") {
+        msg.textContent = t(lastMsg.key, lastMsg.fallback, lastMsg.params);
+      }
+    });
+
     form.addEventListener("submit", function(e) {
       e.preventDefault();
       msg.style.display = "none";
+      lastMsg = null;
+      lastResult = null;
       document.getElementById("result").style.display = "none";
       var btn = document.getElementById("submitBtn");
       btn.disabled = true;
-      btn.textContent = "Wird gesendet...";
+      btn.textContent = t('dem.create.submitting', 'Wird gesendet...');
 
       var tags = (document.getElementById("skill_tags").value || "")
-        .split(",").map(function(t) { return t.trim(); }).filter(Boolean);
+        .split(",").map(function(tag) { return tag.trim(); }).filter(Boolean);
 
       var body = {
         title: document.getElementById("title").value.trim(),
@@ -188,71 +374,63 @@
 
       postDemand(body).then(function(d) {
         btn.disabled = false;
-        btn.textContent = "Nachfrage absenden";
-        msg.className = "msg ok";
-        msg.textContent = "Nachfrage erfolgreich erstellt!";
-        msg.style.display = "block";
+        btn.textContent = t('dem.create.submit', 'Nachfrage absenden');
+        showMsg("ok", 'dem.create.msgOk', 'Nachfrage erfolgreich erstellt!');
         form.reset();
-
-        document.getElementById("res-id").textContent = d.id.substring(0, 8);
-        var slaEl = document.getElementById("res-sla");
-        if (d.sla_status) {
-          slaEl.innerHTML = '<span class="sla-badge ' + d.sla_status.toLowerCase() + '">' + d.sla_status + '</span>';
-          if (d.sla_due_at) slaEl.innerHTML += ' (Frist: ' + new Date(d.sla_due_at).toLocaleString("de-DE") + ')';
-        } else {
-          slaEl.textContent = "Kein Pulse";
-        }
-
-        var matchesEl = document.getElementById("res-matches");
-        matchesEl.innerHTML = "";
-        if (d.matches && d.matches.length > 0) {
-          matchesEl.innerHTML = "<h3>" + d.matches.length + " Matches gefunden</h3>";
-          d.matches.slice(0, 10).forEach(function(m) {
-            matchesEl.innerHTML += '<div class="match-item">' +
-              (m.supplier_company_name || "Anbieter") + ' – ' +
-              (m.capacity_title || m.capacity_role || "") + ' (' + (m.capacity_city || "") + ') – Score: ' + m.match_score +
-              '</div>';
-          });
-        } else {
-          matchesEl.innerHTML = "<p style='color:var(--muted)'>Noch keine Matches. Verfügbares Personal wird laufend geprüft.</p>";
-        }
-
-        document.getElementById("res-detail-link").href = "/public/marketplace_demand_detail.html?id=" + d.id + "&owner=1";
-        document.getElementById("result").style.display = "block";
+        renderResult(d);
       })
       .catch(function(err) {
         btn.disabled = false;
-        btn.textContent = "Nachfrage absenden";
-        msg.className = "msg err";
+        btn.textContent = t('dem.create.submit', 'Nachfrage absenden');
         var code = err && (err.code || err.error);
-        var errText;
         switch (code) {
           case "FEATURE_NOT_ALLOWED":
-            errText = "Der Marketplace-Bereich ist in deinem aktuellen Tarif" + (err.plan ? " (" + err.plan + ")" : "") + " nicht freigeschaltet. Bitte Tarif upgraden.";
+            showMsg("err", 'dem.create.err.feature',
+              'Der Marketplace-Bereich ist in deinem aktuellen Tarif{plan} nicht freigeschaltet. Bitte Tarif upgraden.',
+              { plan: err.plan ? " (" + err.plan + ")" : "" });
             break;
           case "COMPANY_ONLY":
-            errText = "Nur Unternehmen koennen Nachfragen erstellen. Personaldienstleister nutzen bitte die Angebotsseite.";
+            showMsg("err", 'dem.create.err.companyOnly',
+              'Nur Unternehmen koennen Nachfragen erstellen. Personaldienstleister nutzen bitte die Angebotsseite.');
             break;
           case "PLAN_REQUIRED_NOTDIENST":
-            errText = "Notdienst-Dringlichkeit erfordert einen PRO-Plan.";
+            showMsg("err", 'dem.create.err.notdienst', 'Notdienst-Dringlichkeit erfordert einen PRO-Plan.');
             break;
           case "WORKER_LIMIT_EXCEEDED":
-            errText = "Die angeforderte Personenzahl" + (err.details && err.details.requested ? " (" + err.details.requested + ")" : "") + " ueberschreitet dein Plan-Limit" + (err.details && err.details.limit ? " (max. " + err.details.limit + ")" : "") + ". Bitte Tarif upgraden oder Anzahl reduzieren.";
+            showMsg("err", 'dem.create.err.workerLimit',
+              'Die angeforderte Personenzahl{requested} ueberschreitet dein Plan-Limit{limit}. Bitte Tarif upgraden oder Anzahl reduzieren.',
+              {
+                requested: err.details && err.details.requested ? " (" + err.details.requested + ")" : "",
+                limit: err.details && err.details.limit ? " (max. " + err.details.limit + ")" : ""
+              });
             break;
           case "CSRF_INVALID":
-            errText = "Sitzung abgelaufen. Bitte Seite neu laden und erneut versuchen.";
+            showMsg("err", 'dem.create.err.csrf', 'Sitzung abgelaufen. Bitte Seite neu laden und erneut versuchen.');
             break;
           case "NOT_AUTHENTICATED":
-            errText = "Du bist nicht mehr eingeloggt. Bitte neu anmelden.";
+            showMsg("err", 'dem.create.err.auth', 'Du bist nicht mehr eingeloggt. Bitte neu anmelden.');
             break;
-          case "VALIDATION":
-            errText = "Bitte pruefe deine Eingaben." + (err.details ? " " + (err.details.map ? err.details.map(function(d) { return d.message || d.path; }).join(", ") : "") : "");
+          case "VALIDATION": {
+            // Feld-Details kommen vom Server und bleiben unveraendert (keine Uebersetzung von API-Daten).
+            var details = err.details && err.details.map
+              ? err.details.map(function(d) { return d.message || d.path; }).join(", ")
+              : "";
+            lastMsg = null;
+            msg.className = "msg err";
+            msg.textContent = t('dem.create.err.validation', 'Bitte pruefe deine Eingaben.') + (details ? " " + details : "");
+            msg.style.display = "block";
             break;
+          }
           default:
-            errText = (err && err.message && err.message !== code) ? err.message : "Netzwerkfehler. Bitte erneut versuchen.";
+            if (err && err.message && err.message !== code) {
+              lastMsg = null;
+              msg.className = "msg err";
+              msg.textContent = err.message;
+              msg.style.display = "block";
+            } else {
+              showMsg("err", 'dem.create.err.network', 'Netzwerkfehler. Bitte erneut versuchen.');
+            }
         }
-        msg.textContent = errText;
-        msg.style.display = "block";
       });
     });
   })();

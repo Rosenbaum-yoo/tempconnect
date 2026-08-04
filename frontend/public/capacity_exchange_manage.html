@@ -6,6 +6,9 @@
   <script src="/public/js/theme.js"></script>
   <script src="/public/js/i18n.js"></script>
   <title>Eingestelltes Personal – TempConnect</title>
+  <!-- Kein data-i18n auf dem Titel: "Eingestelltes Personal" ist ein
+       rollenabhaengiger Begriff (terminologyLabels: capacityList). Titel und
+       H1 setzt der Terminologie-Block am Seitenende rollen- UND sprachrichtig. -->
   <link rel="stylesheet" href="/public/css/enterprise.css"/>
   <style>
     .ce-freshness { display: inline-flex; align-items: center; gap: 4px; font-size: 12px; color: var(--ds-text-secondary); }
@@ -25,12 +28,12 @@
 </head>
 <body data-sla-guard="sla_access">
   <div id="paywall" class="wrap" style="display:none">
-    <nav class="ds-topbar"><div class="ds-topbar__brand"><span class="ds-topbar__brand-dot"></span>TempConnect</div><div class="ds-topbar__nav"><a href="/" class="ds-btn">Startseite</a></div></nav>
+    <nav class="ds-topbar"><div class="ds-topbar__brand"><span class="ds-topbar__brand-dot"></span>TempConnect</div><div class="ds-topbar__nav"><a href="/" class="ds-btn" data-i18n="capm.mg.paywall.home">Startseite</a></div></nav>
     <div class="paywall-box">
-      <h2>Bereich nicht verfuegbar</h2>
-      <p>Der Vermittlungsbereich ist mit deinem aktuellen Plan nicht nutzbar.</p>
-      <p>Aktueller Plan: <span id="paywall-current-plan" class="paywall-plan">–</span></p>
-      <a id="paywall-cta" href="/public/sla_abo.html" class="btn primary">Abo ansehen</a>
+      <h2 data-i18n="capm.mg.paywall.title">Bereich nicht verfuegbar</h2>
+      <p data-i18n="capm.mg.paywall.text">Der Vermittlungsbereich ist mit deinem aktuellen Plan nicht nutzbar.</p>
+      <p><span data-i18n="capm.mg.paywall.currentPlan">Aktueller Plan:</span> <span id="paywall-current-plan" class="paywall-plan">–</span></p>
+      <a id="paywall-cta" href="/public/sla_abo.html" class="btn primary" data-i18n="capm.mg.paywall.cta">Abo ansehen</a>
     </div>
   </div>
 
@@ -41,23 +44,23 @@
     <!-- Page Header -->
     <div class="ds-page-header">
       <div class="ds-page-header__content">
-        <h1 class="ds-page-title">Eingestelltes Personal</h1>
-        <p class="ds-page-subtitle">Übersicht und Steuerung Ihres eingestellten Personals. Aktivieren, pausieren oder archivieren Sie Einträge.</p>
+        <h1 class="ds-page-title" id="mg-page-h1">Eingestelltes Personal</h1>
+        <p class="ds-page-subtitle" data-i18n="capm.mg.page.subtitle">Übersicht und Steuerung Ihres eingestellten Personals. Aktivieren, pausieren oder archivieren Sie Einträge.</p>
       </div>
       <div class="ds-page-header__actions">
-        <a href="/public/capacity_exchange_notdienst.html" class="ds-btn" style="border-color:var(--ds-warning,#f59e0b);color:var(--ds-warning,#f59e0b);font-weight:700">Notdienst einstellen</a>
-        <a href="/public/capacity_exchange_form.html" class="ds-btn ds-btn--primary">+ Personal einstellen</a>
+        <a href="/public/capacity_exchange_notdienst.html" class="ds-btn" style="border-color:var(--ds-warning,#f59e0b);color:var(--ds-warning,#f59e0b);font-weight:700" data-i18n="capm.mg.cta.emergency">Notdienst einstellen</a>
+        <a href="/public/capacity_exchange_form.html" class="ds-btn ds-btn--primary" id="mg-cta-create">+ Personal einstellen</a>
       </div>
     </div>
 
     <!-- KPI Stats -->
     <div class="ds-stats-row" id="stats-row">
-      <div class="ds-stat-tile"><span class="ds-stat-tile__value" id="stat-total">–</span><span class="ds-stat-tile__label">Gesamt</span></div>
-      <div class="ds-stat-tile"><span class="ds-stat-tile__value" id="stat-active" style="color:var(--ds-success)">–</span><span class="ds-stat-tile__label">Aktiv</span></div>
-      <div class="ds-stat-tile"><span class="ds-stat-tile__value" id="stat-reserved" style="color:var(--ds-brand)">–</span><span class="ds-stat-tile__label">Reserviert</span></div>
-      <div class="ds-stat-tile"><span class="ds-stat-tile__value" id="stat-paused" style="color:var(--ds-warning)">–</span><span class="ds-stat-tile__label">Pausiert</span></div>
-      <div class="ds-stat-tile"><span class="ds-stat-tile__value" id="stat-draft">–</span><span class="ds-stat-tile__label">Entwuerfe</span></div>
-      <div class="ds-stat-tile"><span class="ds-stat-tile__value" id="stat-interactions" style="color:var(--ds-brand)">–</span><span class="ds-stat-tile__label">Interaktionen (7T)</span></div>
+      <div class="ds-stat-tile"><span class="ds-stat-tile__value" id="stat-total">–</span><span class="ds-stat-tile__label" data-i18n="capm.mg.stat.total">Gesamt</span></div>
+      <div class="ds-stat-tile"><span class="ds-stat-tile__value" id="stat-active" style="color:var(--ds-success)">–</span><span class="ds-stat-tile__label" data-i18n="capm.mg.stat.active">Aktiv</span></div>
+      <div class="ds-stat-tile"><span class="ds-stat-tile__value" id="stat-reserved" style="color:var(--ds-brand)">–</span><span class="ds-stat-tile__label" data-i18n="capm.mg.stat.reserved">Reserviert</span></div>
+      <div class="ds-stat-tile"><span class="ds-stat-tile__value" id="stat-paused" style="color:var(--ds-warning)">–</span><span class="ds-stat-tile__label" data-i18n="capm.mg.stat.paused">Pausiert</span></div>
+      <div class="ds-stat-tile"><span class="ds-stat-tile__value" id="stat-draft">–</span><span class="ds-stat-tile__label" data-i18n="capm.mg.stat.drafts">Entwuerfe</span></div>
+      <div class="ds-stat-tile"><span class="ds-stat-tile__value" id="stat-interactions" style="color:var(--ds-brand)">–</span><span class="ds-stat-tile__label" data-i18n="capm.mg.stat.interactions">Interaktionen (7T)</span></div>
     </div>
 
     <!-- Alerts: Expiry + Stale (populated by JS) -->
@@ -67,27 +70,27 @@
     <!-- Filter Bar -->
     <div class="ds-filter-bar">
       <div class="ds-filter-item">
-        <label class="ds-label" for="filter-status">Status</label>
+        <label class="ds-label" for="filter-status" data-i18n="capm.mg.filter.status">Status</label>
         <select id="filter-status" class="ds-select">
-          <option value="">Alle</option>
-          <option value="draft">Entwurf</option>
-          <option value="active">Aktiv</option>
-          <option value="reserved">Reserviert</option>
-          <option value="paused">Pausiert</option>
-          <option value="expired">Abgelaufen</option>
-          <option value="filled">Besetzt</option>
-          <option value="archived">Archiviert</option>
+          <option value="" data-i18n="capm.mg.filter.all">Alle</option>
+          <option value="draft" data-i18n="capm.mg.status.draft">Entwurf</option>
+          <option value="active" data-i18n="capm.mg.status.active">Aktiv</option>
+          <option value="reserved" data-i18n="capm.mg.status.reserved">Reserviert</option>
+          <option value="paused" data-i18n="capm.mg.status.paused">Pausiert</option>
+          <option value="expired" data-i18n="capm.mg.status.expired">Abgelaufen</option>
+          <option value="filled" data-i18n="capm.mg.status.filled">Besetzt</option>
+          <option value="archived" data-i18n="capm.mg.status.archived">Archiviert</option>
         </select>
       </div>
       <div class="ds-filter-item">
-        <label class="ds-label" for="filter-role">Rolle</label>
-        <input type="text" id="filter-role" class="ds-input" placeholder="z.B. Lagerhelfer" style="min-width:160px"/>
+        <label class="ds-label" for="filter-role" data-i18n="capm.mg.filter.role">Rolle</label>
+        <input type="text" id="filter-role" class="ds-input" placeholder="z.B. Lagerhelfer" style="min-width:160px" data-i18n-ph="capm.mg.filter.rolePh"/>
       </div>
       <div class="ds-filter-item" style="align-self:flex-end">
-        <button type="button" id="btn-filter" class="ds-btn">Filtern</button>
+        <button type="button" id="btn-filter" class="ds-btn" data-i18n="capm.mg.filter.apply">Filtern</button>
       </div>
       <div class="ds-filter-item" style="align-self:flex-end;margin-left:auto">
-        <button type="button" id="btn-bulk-confirm" class="ds-btn ds-btn--ghost" style="display:none" title="Alle aktiven Eintraege als aktuell bestaetigen">Alle bestaetigen</button>
+        <button type="button" id="btn-bulk-confirm" class="ds-btn ds-btn--ghost" style="display:none" title="Alle aktiven Eintraege als aktuell bestaetigen" data-i18n-title="capm.mg.bulkConfirmTitle" data-i18n="capm.mg.bulkConfirm">Alle bestaetigen</button>
       </div>
     </div>
     <div id="result-count" class="ds-text-sm ds-text-muted" style="margin-bottom:var(--ds-space-3)"></div>
@@ -99,13 +102,13 @@
           <thead>
             <tr>
               <th style="width:48px"></th>
-              <th>Titel / Rolle</th>
-              <th>Standort</th>
-              <th>Anzahl</th>
-              <th>Verfuegbarkeit</th>
-              <th>Status</th>
-              <th>Aktualitaet</th>
-              <th style="text-align:right">Aktionen</th>
+              <th data-i18n="capm.mg.th.titleRole">Titel / Rolle</th>
+              <th data-i18n="capm.mg.th.location">Standort</th>
+              <th data-i18n="capm.mg.th.headcount">Anzahl</th>
+              <th data-i18n="capm.mg.th.availability">Verfuegbarkeit</th>
+              <th data-i18n="capm.mg.th.status">Status</th>
+              <th data-i18n="capm.mg.th.freshness">Aktualitaet</th>
+              <th style="text-align:right" data-i18n="capm.mg.th.actions">Aktionen</th>
             </tr>
           </thead>
           <tbody id="table-body">
@@ -119,24 +122,25 @@
 
     <!-- Nudge: Publish more -->
     <div id="nudge-publish-more" class="ds-alert ds-alert--info" style="display:none">
-      <strong>Tipp:</strong> Dienstleister mit 3+ aktiven Einträgen erhalten im Durchschnitt mehr Anfragen. <a href="/public/capacity_exchange_form.html" style="color:var(--ds-brand);text-decoration:underline">Weiteres Personal einstellen</a>
+      <strong data-i18n="capm.mg.nudge.publishStrong">Tipp:</strong> <span data-i18n="capm.mg.nudge.publishText">Dienstleister mit 3+ aktiven Einträgen erhalten im Durchschnitt mehr Anfragen.</span> <a href="/public/capacity_exchange_form.html" style="color:var(--ds-brand);text-decoration:underline" data-i18n="capm.mg.nudge.publishCta">Weiteres Personal einstellen</a>
     </div>
 
     <!-- Nudge: Profile completeness -->
     <div id="nudge-profile" class="ds-alert ds-alert--warning" style="display:none">
-      <strong>Profil unvollstaendig:</strong> Ein vollstaendiges Firmenprofil erhoeht Ihre Vertrauenswuerdigkeit und Sichtbarkeit. <a href="/public/company_profile.html" style="color:var(--ds-brand);text-decoration:underline">Profil vervollstaendigen</a>
+      <strong data-i18n="capm.mg.nudge.profileStrong">Profil unvollstaendig:</strong> <span data-i18n="capm.mg.nudge.profileText">Ein vollstaendiges Firmenprofil erhoeht Ihre Vertrauenswuerdigkeit und Sichtbarkeit.</span> <a href="/public/company_profile.html" style="color:var(--ds-brand);text-decoration:underline" data-i18n="capm.mg.nudge.profileCta">Profil vervollstaendigen</a>
     </div>
 
     <!-- Empty State (hidden by default) -->
     <div id="empty-state" style="display:none">
       <div class="ds-empty">
+        <!-- Kein data-i18n auf dem Titel: renderTable() setzt ihn standortabhaengig ueber t(). -->
         <div class="ds-empty__title">Noch kein Personal eingestellt</div>
-        <p class="ds-empty__text">Stellen Sie Ihr verfügbares Personal ein, damit Unternehmen Sie finden und anfragen können.</p>
-        <a href="/public/capacity_exchange_form.html" class="ds-btn ds-btn--primary">Erstes Personal einstellen</a>
+        <p class="ds-empty__text" data-i18n="capm.mg.empty.text">Stellen Sie Ihr verfügbares Personal ein, damit Unternehmen Sie finden und anfragen können.</p>
+        <a href="/public/capacity_exchange_form.html" class="ds-btn ds-btn--primary" data-i18n="capm.mg.empty.cta">Erstes Personal einstellen</a>
       </div>
     </div>
 
-    <p class="ds-disclaimer">Hinweis: Alle Angaben dienen der Vermittlungsunterstuetzung. TempConnect garantiert keinen Vermittlungserfolg.</p>
+    <p class="ds-disclaimer" data-i18n="capm.mg.disclaimer">Hinweis: Alle Angaben dienen der Vermittlungsunterstuetzung. TempConnect garantiert keinen Vermittlungserfolg.</p>
   </div>
 
   <!-- Toast -->
@@ -145,7 +149,252 @@
   <script src="/public/js/planFeatures.js"></script>
   <script src="/public/js/slaGuard.js"></script>
   <script>
+  /* Woerterbuch (P6.1, DE/EN) fuer capacity_exchange_manage.html.
+
+     Bewusst NICHT hier uebersetzt:
+     - H1 und der Anlege-Knopf: "Eingestelltes Personal" / "Personal einstellen"
+       sind rollenabhaengige Begriffe (terminologyLabels.js: capacityList /
+       capacityCreate). Sie werden am Seitenende ueber TC.terminology.get()
+       rollen- UND sprachrichtig gesetzt — als fester Woerterbuch-Wert wuerden
+       sie eine Rolle die Sprache der Gegenseite lesen lassen.
+     - Topbar/Navigation/Nutzerbereich (pageShell.js)
+     - Statuswerte in den option[value] (gehen an den Server)                */
   (function() {
+    if (window.TCi18n) {
+      TCi18n.register('de', {
+        'capm.mg.paywall.home': 'Startseite',
+        'capm.mg.paywall.title': 'Bereich nicht verfuegbar',
+        'capm.mg.paywall.text': 'Der Vermittlungsbereich ist mit deinem aktuellen Plan nicht nutzbar.',
+        'capm.mg.paywall.currentPlan': 'Aktueller Plan:',
+        'capm.mg.paywall.cta': 'Abo ansehen',
+
+        'capm.mg.page.subtitle': 'Uebersicht und Steuerung Ihres eingestellten Personals. Aktivieren, pausieren oder archivieren Sie Eintraege.',
+        'capm.mg.cta.emergency': 'Notdienst einstellen',
+
+        'capm.mg.stat.total': 'Gesamt',
+        'capm.mg.stat.active': 'Aktiv',
+        'capm.mg.stat.reserved': 'Reserviert',
+        'capm.mg.stat.paused': 'Pausiert',
+        'capm.mg.stat.drafts': 'Entwuerfe',
+        'capm.mg.stat.interactions': 'Interaktionen (7T)',
+
+        'capm.mg.filter.status': 'Status',
+        'capm.mg.filter.all': 'Alle',
+        'capm.mg.filter.role': 'Rolle',
+        'capm.mg.filter.rolePh': 'z.B. Lagerhelfer',
+        'capm.mg.filter.apply': 'Filtern',
+        'capm.mg.bulkConfirm': 'Alle bestaetigen',
+        'capm.mg.bulkConfirmTitle': 'Alle aktiven Eintraege als aktuell bestaetigen',
+        'capm.mg.bulkConfirming': 'Wird bestaetigt…',
+        'capm.mg.bulkDone': 'Alle aktiven Eintraege bestaetigt',
+
+        'capm.mg.status.draft': 'Entwurf',
+        'capm.mg.status.active': 'Aktiv',
+        'capm.mg.status.reserved': 'Reserviert',
+        'capm.mg.status.paused': 'Pausiert',
+        'capm.mg.status.expired': 'Abgelaufen',
+        'capm.mg.status.filled': 'Besetzt',
+        'capm.mg.status.archived': 'Archiviert',
+
+        'capm.mg.th.titleRole': 'Titel / Rolle',
+        'capm.mg.th.location': 'Standort',
+        'capm.mg.th.headcount': 'Anzahl',
+        'capm.mg.th.availability': 'Verfuegbarkeit',
+        'capm.mg.th.status': 'Status',
+        'capm.mg.th.freshness': 'Aktualitaet',
+        'capm.mg.th.actions': 'Aktionen',
+        'capm.mg.tbl.logoAlt': 'Logo',
+
+        'capm.mg.fresh.unconfirmed': 'Nicht bestaetigt',
+        'capm.mg.fresh.current': 'Aktuell',
+        'capm.mg.fresh.aging': 'Altert',
+        'capm.mg.fresh.stale': 'Veraltet',
+
+        'capm.mg.hc.split': '{free} frei / {total} gesamt',
+        'capm.mg.hc.committed': ' · {n} dealgebunden',
+
+        'capm.mg.act.activate': 'Aktivieren',
+        'capm.mg.act.confirm': 'Bestaetigen',
+        'capm.mg.act.pause': 'Pausieren',
+        'capm.mg.act.reactivate': 'Reaktivieren',
+        'capm.mg.act.edit': 'Bearbeiten',
+        'capm.mg.act.fill': 'Besetzt',
+        'capm.mg.act.premium': 'Premium',
+        'capm.mg.act.premiumTitle': 'Anzeige gegen einmalige Gebuehr priorisieren',
+        'capm.mg.act.premiumActiveTitle': 'Premium aktiv bis {date}',
+        'capm.mg.act.archive': 'Archiv',
+        'capm.mg.confirmArchive': 'Eintrag wirklich archivieren?',
+
+        'capm.mg.toast.activate': 'Aktiviert',
+        'capm.mg.toast.pause': 'Pausiert',
+        'capm.mg.toast.reactivate': 'Reaktiviert',
+        'capm.mg.toast.fill': 'Als besetzt markiert',
+        'capm.mg.toast.archive': 'Archiviert',
+        'capm.mg.toast.confirm': 'Aktualitaet bestaetigt',
+        'capm.mg.toast.generic': 'Aktion ausgefuehrt',
+        'capm.mg.toast.actionError': 'Fehler bei Aktion',
+        'capm.mg.err.generic': 'Fehler',
+
+        'capm.mg.premium.title': 'Premium-Anzeige aktivieren?',
+        'capm.mg.premium.titleEmergency': 'Premium-Anzeige (Notdienst-Tarif) aktivieren?',
+        'capm.mg.premium.body': '{days} Tage priorisiert im Marktplatz fuer {price}.\nDie Gebuehr wird Ihrer naechsten Monatsrechnung hinzugefuegt.',
+        'capm.mg.premium.price': '{amount} EUR (einmalig, netto)',
+        'capm.mg.premium.priceFallback': 'die einmalige Gebuehr',
+        'capm.mg.premium.already': 'Diese Anzeige ist bereits Premium.',
+        'capm.mg.premium.activated': 'Premium aktiviert — Anzeige wird priorisiert',
+
+        'capm.mg.alert.expiryCountOne': '{n} Eintrag',
+        'capm.mg.alert.expiryCountMany': '{n} Eintraege',
+        'capm.mg.alert.expiryTailOne': 'laeuft in den naechsten 7 Tagen ab. Pruefen Sie die Gueltigkeit oder verlaengern Sie.',
+        'capm.mg.alert.expiryTailMany': 'laufen in den naechsten 7 Tagen ab. Pruefen Sie die Gueltigkeit oder verlaengern Sie.',
+        'capm.mg.alert.staleCountOne': '{n} aktiver Eintrag',
+        'capm.mg.alert.staleCountMany': '{n} aktive Eintraege',
+        'capm.mg.alert.staleTail': 'seit ueber 96h nicht bestaetigt. Regelmaessige Bestaetigung erhoeht Ihre Sichtbarkeit im Feed.',
+
+        'capm.mg.resultCountOne': '{n} Eintrag',
+        'capm.mg.resultCountMany': '{n} Eintraege',
+
+        'capm.mg.empty.title': 'Noch kein Personal eingestellt',
+        'capm.mg.empty.titleLoc': 'Kein Personal fuer Standort {loc}',
+        'capm.mg.empty.text': 'Stellen Sie Ihr verfuegbares Personal ein, damit Unternehmen Sie finden und anfragen koennen.',
+        'capm.mg.empty.cta': 'Erstes Personal einstellen',
+
+        'capm.mg.nudge.publishStrong': 'Tipp:',
+        'capm.mg.nudge.publishText': 'Dienstleister mit 3+ aktiven Eintraegen erhalten im Durchschnitt mehr Anfragen.',
+        'capm.mg.nudge.publishCta': 'Weiteres Personal einstellen',
+        'capm.mg.nudge.profileStrong': 'Profil unvollstaendig:',
+        'capm.mg.nudge.profileText': 'Ein vollstaendiges Firmenprofil erhoeht Ihre Vertrauenswuerdigkeit und Sichtbarkeit.',
+        'capm.mg.nudge.profileCta': 'Profil vervollstaendigen',
+
+        'capm.mg.disclaimer': 'Hinweis: Alle Angaben dienen der Vermittlungsunterstuetzung. TempConnect garantiert keinen Vermittlungserfolg.'
+      });
+
+      TCi18n.register('en', {
+        'capm.mg.paywall.home': 'Home',
+        'capm.mg.paywall.title': 'Section not available',
+        'capm.mg.paywall.text': 'The matching area is not included in your current plan.',
+        'capm.mg.paywall.currentPlan': 'Current plan:',
+        'capm.mg.paywall.cta': 'View plans',
+
+        'capm.mg.page.subtitle': 'Overview and control of the staff you have listed. Activate, pause or archive listings.',
+        'capm.mg.cta.emergency': 'List emergency staff',
+
+        'capm.mg.stat.total': 'Total',
+        'capm.mg.stat.active': 'Active',
+        'capm.mg.stat.reserved': 'Reserved',
+        'capm.mg.stat.paused': 'Paused',
+        'capm.mg.stat.drafts': 'Drafts',
+        'capm.mg.stat.interactions': 'Interactions (7d)',
+
+        'capm.mg.filter.status': 'Status',
+        'capm.mg.filter.all': 'All',
+        'capm.mg.filter.role': 'Role',
+        'capm.mg.filter.rolePh': 'e.g. warehouse assistant',
+        'capm.mg.filter.apply': 'Filter',
+        'capm.mg.bulkConfirm': 'Confirm all',
+        'capm.mg.bulkConfirmTitle': 'Confirm all active listings as current',
+        'capm.mg.bulkConfirming': 'Confirming…',
+        'capm.mg.bulkDone': 'All active listings confirmed',
+
+        'capm.mg.status.draft': 'Draft',
+        'capm.mg.status.active': 'Active',
+        'capm.mg.status.reserved': 'Reserved',
+        'capm.mg.status.paused': 'Paused',
+        'capm.mg.status.expired': 'Expired',
+        'capm.mg.status.filled': 'Filled',
+        'capm.mg.status.archived': 'Archived',
+
+        'capm.mg.th.titleRole': 'Title / role',
+        'capm.mg.th.location': 'Location',
+        'capm.mg.th.headcount': 'Headcount',
+        'capm.mg.th.availability': 'Availability',
+        'capm.mg.th.status': 'Status',
+        'capm.mg.th.freshness': 'Freshness',
+        'capm.mg.th.actions': 'Actions',
+        'capm.mg.tbl.logoAlt': 'Logo',
+
+        'capm.mg.fresh.unconfirmed': 'Not confirmed',
+        'capm.mg.fresh.current': 'Current',
+        'capm.mg.fresh.aging': 'Ageing',
+        'capm.mg.fresh.stale': 'Outdated',
+
+        'capm.mg.hc.split': '{free} available / {total} total',
+        'capm.mg.hc.committed': ' · {n} committed to deals',
+
+        'capm.mg.act.activate': 'Activate',
+        'capm.mg.act.confirm': 'Confirm',
+        'capm.mg.act.pause': 'Pause',
+        'capm.mg.act.reactivate': 'Reactivate',
+        'capm.mg.act.edit': 'Edit',
+        'capm.mg.act.fill': 'Filled',
+        'capm.mg.act.premium': 'Premium',
+        'capm.mg.act.premiumTitle': 'Prioritise this listing for a one-off fee',
+        'capm.mg.act.premiumActiveTitle': 'Premium active until {date}',
+        'capm.mg.act.archive': 'Archive',
+        'capm.mg.confirmArchive': 'Really archive this listing?',
+
+        'capm.mg.toast.activate': 'Activated',
+        'capm.mg.toast.pause': 'Paused',
+        'capm.mg.toast.reactivate': 'Reactivated',
+        'capm.mg.toast.fill': 'Marked as filled',
+        'capm.mg.toast.archive': 'Archived',
+        'capm.mg.toast.confirm': 'Confirmed as current',
+        'capm.mg.toast.generic': 'Action completed',
+        'capm.mg.toast.actionError': 'Action failed',
+        'capm.mg.err.generic': 'Error',
+
+        'capm.mg.premium.title': 'Activate premium listing?',
+        'capm.mg.premium.titleEmergency': 'Activate premium listing (emergency rate)?',
+        'capm.mg.premium.body': '{days} days prioritised in the marketplace for {price}.\nThe fee is added to your next monthly invoice.',
+        'capm.mg.premium.price': '{amount} EUR (one-off, net)',
+        'capm.mg.premium.priceFallback': 'the one-off fee',
+        'capm.mg.premium.already': 'This listing is already premium.',
+        'capm.mg.premium.activated': 'Premium activated — listing is prioritised',
+
+        'capm.mg.alert.expiryCountOne': '{n} listing',
+        'capm.mg.alert.expiryCountMany': '{n} listings',
+        'capm.mg.alert.expiryTailOne': 'expires within the next 7 days. Check the validity or extend it.',
+        'capm.mg.alert.expiryTailMany': 'expire within the next 7 days. Check the validity or extend them.',
+        'capm.mg.alert.staleCountOne': '{n} active listing',
+        'capm.mg.alert.staleCountMany': '{n} active listings',
+        'capm.mg.alert.staleTail': 'not confirmed for over 96h. Regular confirmation increases your visibility in the feed.',
+
+        'capm.mg.resultCountOne': '{n} listing',
+        'capm.mg.resultCountMany': '{n} listings',
+
+        'capm.mg.empty.title': 'No staff listed yet',
+        'capm.mg.empty.titleLoc': 'No staff for location {loc}',
+        'capm.mg.empty.text': 'List your available staff so companies can find and contact you.',
+        'capm.mg.empty.cta': 'List your first staff',
+
+        'capm.mg.nudge.publishStrong': 'Tip:',
+        'capm.mg.nudge.publishText': 'Providers with 3 or more active listings receive more requests on average.',
+        'capm.mg.nudge.publishCta': 'List more staff',
+        'capm.mg.nudge.profileStrong': 'Profile incomplete:',
+        'capm.mg.nudge.profileText': 'A complete company profile increases your credibility and visibility.',
+        'capm.mg.nudge.profileCta': 'Complete profile',
+
+        'capm.mg.disclaimer': 'Note: all information supports the matching process. TempConnect does not guarantee a successful placement.'
+      });
+    }
+
+    /** Uebersetzung an der Verwendungsstelle (i18n.js liegt im head). */
+    function t(key, params) {
+      return (window.TCi18n && window.TCi18n.t(key, params)) || '';
+    }
+    /** Text setzen UND Marker mitfuehren (nur parameterlose Schluessel). */
+    function setI18nText(el, key) {
+      if (!el) return;
+      el.setAttribute('data-i18n', key);
+      el.textContent = t(key);
+    }
+    /** Parametrisierter Text: ohne Marker, sonst entkernt apply() ihn. */
+    function setPlainText(el, text) {
+      if (!el) return;
+      el.removeAttribute('data-i18n');
+      el.textContent = text;
+    }
+
     var API = "/api";
     var currentEntries = [];
     var FILTER_STORAGE_KEY = "tc.capacityManage.filters.v1";
@@ -219,28 +468,29 @@
       });
     }
 
-    // Status badge map
+    // Status badge map — Rohwert bleibt Schluessel (Server-Enum), Label uebersetzt
     var STATUS_MAP = {
-      draft:    { label: "Entwurf",     css: "ds-badge--neutral" },
-      active:   { label: "Aktiv",       css: "ds-badge--success" },
-      reserved: { label: "Reserviert",  css: "ds-badge--brand" },
-      paused:   { label: "Pausiert",    css: "ds-badge--warning" },
-      expired:  { label: "Abgelaufen",  css: "ds-badge--danger" },
-      filled:   { label: "Besetzt",     css: "ds-badge--accent" },
-      archived: { label: "Archiviert",  css: "ds-badge--neutral" }
+      draft:    { css: "ds-badge--neutral" },
+      active:   { css: "ds-badge--success" },
+      reserved: { css: "ds-badge--brand" },
+      paused:   { css: "ds-badge--warning" },
+      expired:  { css: "ds-badge--danger" },
+      filled:   { css: "ds-badge--accent" },
+      archived: { css: "ds-badge--neutral" }
     };
 
     function statusBadge(status) {
-      var m = STATUS_MAP[status] || { label: status, css: "ds-badge--neutral" };
-      return '<span class="ds-badge ' + m.css + '">' + esc(m.label) + '</span>';
+      var m = STATUS_MAP[status];
+      var label = m ? t("capm.mg.status." + status) : status;
+      return '<span class="ds-badge ' + (m ? m.css : "ds-badge--neutral") + '">' + esc(label) + '</span>';
     }
 
     function freshnessIndicator(lastConfirmed) {
-      if (!lastConfirmed) return '<span class="ce-freshness"><span class="ce-freshness__dot ce-freshness__dot--stale"></span>Nicht bestaetigt</span>';
+      if (!lastConfirmed) return '<span class="ce-freshness"><span class="ce-freshness__dot ce-freshness__dot--stale"></span>' + esc(t("capm.mg.fresh.unconfirmed")) + '</span>';
       var hours = (Date.now() - new Date(lastConfirmed).getTime()) / 3600000;
-      if (hours < 48) return '<span class="ce-freshness"><span class="ce-freshness__dot ce-freshness__dot--fresh"></span>Aktuell</span>';
-      if (hours < 96) return '<span class="ce-freshness"><span class="ce-freshness__dot ce-freshness__dot--aging"></span>Altert</span>';
-      return '<span class="ce-freshness"><span class="ce-freshness__dot ce-freshness__dot--stale"></span>Veraltet</span>';
+      if (hours < 48) return '<span class="ce-freshness"><span class="ce-freshness__dot ce-freshness__dot--fresh"></span>' + esc(t("capm.mg.fresh.current")) + '</span>';
+      if (hours < 96) return '<span class="ce-freshness"><span class="ce-freshness__dot ce-freshness__dot--aging"></span>' + esc(t("capm.mg.fresh.aging")) + '</span>';
+      return '<span class="ce-freshness"><span class="ce-freshness__dot ce-freshness__dot--stale"></span>' + esc(t("capm.mg.fresh.stale")) + '</span>';
     }
 
     function formatDate(d) {
@@ -269,7 +519,8 @@
       var remaining = remainingHeadcount(entry);
       var committed = committedHeadcount(entry);
       if (entry && (entry.status === "reserved" || committed > 0 || remaining !== total)) {
-        return remaining + " frei / " + total + " gesamt" + (committed > 0 ? " · " + committed + " dealgebunden" : "");
+        return t("capm.mg.hc.split", { free: remaining, total: total })
+          + (committed > 0 ? t("capm.mg.hc.committed", { n: committed }) : "");
       }
       return String(total);
     }
@@ -277,33 +528,39 @@
     function buildActions(entry) {
       var html = '<div class="ce-actions">';
       var s = entry.status;
+      function actionBtn(action, cls, extraStyle) {
+        var key = "capm.mg.act." + action;
+        return '<button class="' + cls + '" data-action="' + action + '" data-id="' + esc(entry.id) + '"'
+          + (extraStyle ? ' style="' + extraStyle + '"' : '')
+          + ' data-i18n="' + key + '">' + esc(t(key)) + '</button>';
+      }
       if (s === "draft") {
-        html += '<button class="ds-btn ds-btn--sm ds-btn--success" data-action="activate" data-id="' + esc(entry.id) + '">Aktivieren</button>';
+        html += actionBtn("activate", "ds-btn ds-btn--sm ds-btn--success");
       }
       if (s === "active") {
-        html += '<button class="ds-btn ds-btn--sm" data-action="confirm" data-id="' + esc(entry.id) + '">Bestaetigen</button>';
-        html += '<button class="ds-btn ds-btn--sm ds-btn--ghost" data-action="pause" data-id="' + esc(entry.id) + '">Pausieren</button>';
+        html += actionBtn("confirm", "ds-btn ds-btn--sm");
+        html += actionBtn("pause", "ds-btn ds-btn--sm ds-btn--ghost");
       }
       if (s === "paused") {
-        html += '<button class="ds-btn ds-btn--sm ds-btn--success" data-action="reactivate" data-id="' + esc(entry.id) + '">Reaktivieren</button>';
+        html += actionBtn("reactivate", "ds-btn ds-btn--sm ds-btn--success");
       }
       if (s === "expired") {
-        html += '<button class="ds-btn ds-btn--sm ds-btn--success" data-action="reactivate" data-id="' + esc(entry.id) + '">Reaktivieren</button>';
+        html += actionBtn("reactivate", "ds-btn ds-btn--sm ds-btn--success");
       }
       if (s !== "archived" && s !== "filled" && s !== "reserved") {
-        html += '<a class="ds-btn ds-btn--sm ds-btn--ghost" href="/public/capacity_exchange_form.html?id=' + esc(entry.id) + '">Bearbeiten</a>';
+        html += '<a class="ds-btn ds-btn--sm ds-btn--ghost" href="/public/capacity_exchange_form.html?id=' + esc(entry.id) + '" data-i18n="capm.mg.act.edit">' + esc(t("capm.mg.act.edit")) + '</a>';
       }
       if (s === "active" || s === "paused") {
-        html += '<button class="ds-btn ds-btn--sm ds-btn--ghost" data-action="fill" data-id="' + esc(entry.id) + '">Besetzt</button>';
+        html += actionBtn("fill", "ds-btn ds-btn--sm ds-btn--ghost");
       }
       var isFeatured = entry.featured_until && new Date(entry.featured_until) > new Date();
       if (s === "active" && !isFeatured) {
-        html += '<button class="ds-btn ds-btn--sm" data-action="premium" data-id="' + esc(entry.id) + '" data-priority="' + esc(entry.priority_level || "") + '" style="border-color:var(--ds-warning,#f59e0b);color:var(--ds-warning,#f59e0b);font-weight:700" title="Anzeige gegen einmalige Gebuehr priorisieren">Premium</button>';
+        html += '<button class="ds-btn ds-btn--sm" data-action="premium" data-id="' + esc(entry.id) + '" data-priority="' + esc(entry.priority_level || "") + '" style="border-color:var(--ds-warning,#f59e0b);color:var(--ds-warning,#f59e0b);font-weight:700" title="' + esc(t("capm.mg.act.premiumTitle")) + '" data-i18n-title="capm.mg.act.premiumTitle" data-i18n="capm.mg.act.premium">' + esc(t("capm.mg.act.premium")) + '</button>';
       } else if (isFeatured) {
-        html += '<span class="ds-badge" style="background:var(--ds-warning,#f59e0b);color:#1a1205;font-weight:800" title="Premium aktiv bis ' + esc(String(entry.featured_until).slice(0, 10)) + '">PREMIUM</span>';
+        html += '<span class="ds-badge" style="background:var(--ds-warning,#f59e0b);color:#1a1205;font-weight:800" title="' + esc(t("capm.mg.act.premiumActiveTitle", { date: String(entry.featured_until).slice(0, 10) })) + '">PREMIUM</span>';
       }
       if (s !== "archived") {
-        html += '<button class="ds-btn ds-btn--sm ds-btn--ghost" data-action="archive" data-id="' + esc(entry.id) + '" style="color:var(--ds-text-tertiary)">Archiv</button>';
+        html += actionBtn("archive", "ds-btn ds-btn--sm ds-btn--ghost", "color:var(--ds-text-tertiary)");
       }
       html += '</div>';
       return html;
@@ -317,7 +574,8 @@
         var emptyEl = document.getElementById("empty-state");
         var titleEl = emptyEl && emptyEl.querySelector(".ds-empty__title");
         var locLbl = getLocLabel();
-        if (titleEl) titleEl.textContent = locLbl ? "Kein Personal für Standort " + locLbl : "Noch kein Personal eingestellt";
+        if (locLbl) setPlainText(titleEl, t("capm.mg.empty.titleLoc", { loc: locLbl }));
+        else setI18nText(titleEl, "capm.mg.empty.title");
         emptyEl.style.display = "block";
         return;
       }
@@ -368,7 +626,7 @@
             if (el) {
               var img = document.createElement("img");
               img.src = "/" + logos[oid];
-              img.alt = "Logo";
+              img.alt = t("capm.mg.tbl.logoAlt");
               img.className = "ce-tbl-logo";
               el.replaceWith(img);
             }
@@ -389,20 +647,20 @@
       };
       var endpoint = actionMap[action];
       if (!endpoint) return;
-      if (action === "archive" && !confirm("Eintrag wirklich archivieren?")) return;
+      if (action === "archive" && !confirm(t("capm.mg.confirmArchive"))) return;
       btn.disabled = true;
       getCsrf().then(function(csrf) {
         return apiFetch(endpoint, { method: "POST", csrf: csrf.csrfToken || csrf.token });
       }).then(function(r) {
         if (r.status === 401) { window.location.href = "/"; return; }
-        if (!r.ok) return r.json().then(function(d) { throw new Error(d.error || "Fehler"); });
+        if (!r.ok) return r.json().then(function(d) { throw new Error(d.error || t("capm.mg.err.generic")); });
         return r.json();
       }).then(function() {
-        var labels = { activate: "Aktiviert", pause: "Pausiert", reactivate: "Reaktiviert", fill: "Als besetzt markiert", archive: "Archiviert", confirm: "Aktualitaet bestaetigt" };
-        toast(labels[action] || "Aktion ausgefuehrt", "success");
+        var toastKeys = { activate: "capm.mg.toast.activate", pause: "capm.mg.toast.pause", reactivate: "capm.mg.toast.reactivate", fill: "capm.mg.toast.fill", archive: "capm.mg.toast.archive", confirm: "capm.mg.toast.confirm" };
+        toast(t(toastKeys[action] || "capm.mg.toast.generic"), "success");
         loadEntries();
       }).catch(function(e) {
-        toast(e.message || "Fehler bei Aktion", "danger");
+        toast(e.message || t("capm.mg.toast.actionError"), "danger");
         btn.disabled = false;
       });
     }
@@ -416,10 +674,12 @@
           // muss denselben Preis nennen, den das Backend berechnet (Transparenz).
           var isNotdienst = btn.getAttribute("data-priority") === "notdienst";
           var cents = isNotdienst && p.notdienst_price_cents != null ? p.notdienst_price_cents : p.price_cents;
-          var label = cents != null ? (cents / 100).toFixed(2).replace(".", ",") + " EUR (einmalig, netto)" : "die einmalige Gebuehr";
+          var label = cents != null
+            ? t("capm.mg.premium.price", { amount: (cents / 100).toFixed(2).replace(".", ",") })
+            : t("capm.mg.premium.priceFallback");
           var days = p.duration_days || 14;
-          var titel = isNotdienst ? "Premium-Anzeige (Notdienst-Tarif) aktivieren?" : "Premium-Anzeige aktivieren?";
-          if (!confirm(titel + "\n\n" + days + " Tage priorisiert im Marktplatz fuer " + label + ".\nDie Gebuehr wird Ihrer naechsten Monatsrechnung hinzugefuegt.")) return;
+          var titel = isNotdienst ? t("capm.mg.premium.titleEmergency") : t("capm.mg.premium.title");
+          if (!confirm(titel + "\n\n" + t("capm.mg.premium.body", { days: days, price: label }))) return;
           btn.disabled = true;
           getCsrf().then(function(csrf) {
             return fetch("/api/marketplace/premium/feature", {
@@ -429,14 +689,14 @@
             });
           }).then(function(r) {
             if (!r.ok) return r.json().then(function(d) {
-              throw new Error(d.error === "ALREADY_FEATURED" ? "Diese Anzeige ist bereits Premium." : (d.error || "Fehler"));
+              throw new Error(d.error === "ALREADY_FEATURED" ? t("capm.mg.premium.already") : (d.error || t("capm.mg.err.generic")));
             });
             return r.json();
           }).then(function() {
-            toast("Premium aktiviert — Anzeige wird priorisiert", "success");
+            toast(t("capm.mg.premium.activated"), "success");
             loadEntries();
           }).catch(function(e) {
-            toast(e.message || "Fehler", "danger");
+            toast(e.message || t("capm.mg.err.generic"), "danger");
             btn.disabled = false;
           });
         });
@@ -469,14 +729,20 @@
 
       var expiryEl = document.getElementById("alert-expiry");
       if (expiring.length > 0) {
-        expiryEl.innerHTML = "&#9888; <strong>" + expiring.length + " Eintrag" + (expiring.length > 1 ? "e" : "") + "</strong> lauf" + (expiring.length > 1 ? "en" : "t") + " in den naechsten 7 Tagen ab. Pruefen Sie die Gueltigkeit oder verlaengern Sie.";
+        var expOne = expiring.length === 1;
+        expiryEl.innerHTML = "&#9888; <strong>"
+          + esc(t(expOne ? "capm.mg.alert.expiryCountOne" : "capm.mg.alert.expiryCountMany", { n: expiring.length }))
+          + "</strong> " + esc(t(expOne ? "capm.mg.alert.expiryTailOne" : "capm.mg.alert.expiryTailMany"));
         expiryEl.style.display = "flex";
       } else { expiryEl.style.display = "none"; }
 
       var staleEl = document.getElementById("alert-stale");
       var bulkBtn = document.getElementById("btn-bulk-confirm");
       if (stale.length > 0) {
-        staleEl.innerHTML = "<strong>" + stale.length + " aktive Eintrag" + (stale.length > 1 ? "e" : "") + "</strong> seit ueber 96h nicht bestaetigt. Regelmaessige Bestaetigung erhoeht Ihre Sichtbarkeit im Feed.";
+        var staleOne = stale.length === 1;
+        staleEl.innerHTML = "<strong>"
+          + esc(t(staleOne ? "capm.mg.alert.staleCountOne" : "capm.mg.alert.staleCountMany", { n: stale.length }))
+          + "</strong> " + esc(t("capm.mg.alert.staleTail"));
         staleEl.style.display = "flex";
         bulkBtn.style.display = "inline-flex";
       } else { staleEl.style.display = "none"; bulkBtn.style.display = "none"; }
@@ -501,7 +767,10 @@
         if (roleFilter) {
           entries = entries.filter(function(e) { return ((e.role||"")+" "+(e.title||"")).toLowerCase().indexOf(roleFilter) >= 0; });
         }
-        document.getElementById("result-count").textContent = entries.length ? entries.length + " Eintraeg" + (entries.length === 1 ? "" : "e") : "";
+        // Singular/Plural sauber getrennt (vorher entstand "1 Eintraeg").
+        document.getElementById("result-count").textContent = entries.length
+          ? t(entries.length === 1 ? "capm.mg.resultCountOne" : "capm.mg.resultCountMany", { n: entries.length })
+          : "";
         renderTable(entries);
       });
     }
@@ -510,7 +779,7 @@
     document.getElementById("btn-bulk-confirm").addEventListener("click", function() {
       var btn = this;
       btn.disabled = true;
-      btn.textContent = "Wird bestaetigt…";
+      setI18nText(btn, "capm.mg.bulkConfirming");
       getCsrf().then(function(csrf) {
         var token = csrf.csrfToken || csrf.token;
         var active = currentEntries.filter(function(e) { return e.status === "active"; });
@@ -518,8 +787,8 @@
           return apiFetch("/capacity-exchange/entries/" + e.id + "/confirm", { method: "POST", csrf: token }).catch(function() {});
         }));
       }).then(function() {
-        toast("Alle aktiven Eintraege bestaetigt", "success");
-        btn.textContent = "Alle bestaetigen";
+        toast(t("capm.mg.bulkDone"), "success");
+        setI18nText(btn, "capm.mg.bulkConfirm");
         btn.disabled = false;
         loadEntries(); loadStats();
       });
@@ -560,6 +829,35 @@
   })();
   </script>
   <script src="/public/js/terminologyLabels.js"></script>
+  <script>
+    // Drei-Seiten-Regel: "Eingestelltes Personal" und "Personal einstellen"
+    // heissen je Rolle anders (terminologyLabels.js kennt Rolle UND Sprache).
+    // Deshalb KEIN data-i18n auf H1/CTA — sonst wuerde die Sprachschicht die
+    // rollenrichtige Fassung ueberschreiben. Beim Sprachwechsel wird die
+    // Terminologie stattdessen erneut abgefragt.
+    (function() {
+      var lastOrgType = null;
+      function applyTerminology(orgType) {
+        if (!orgType || !window.TC || !window.TC.terminology) return;
+        var h1 = document.getElementById('mg-page-h1');
+        var listLabel = window.TC.terminology.get('capacityList', orgType, null);
+        if (h1 && listLabel) {
+          h1.textContent = listLabel;
+          document.title = listLabel + ' – TempConnect';
+        }
+        var cta = document.getElementById('mg-cta-create');
+        var createLabel = window.TC.terminology.get('capacityCreate', orgType, null);
+        if (cta && createLabel) cta.textContent = '+ ' + createLabel;
+      }
+      document.addEventListener('tc:shell-context', function(e) {
+        var me = e && e.detail && e.detail.me;
+        if (!me) return;
+        lastOrgType = String(me.org_type || '').trim().toLowerCase();
+        applyTerminology(lastOrgType);
+      });
+      document.addEventListener('tc:langchange', function() { applyTerminology(lastOrgType); });
+    })();
+  </script>
   <script src="/public/js/pageShell.js"></script>
   <div id="tc-footer" data-tc-footer></div>
   <script src="/public/js/footer.js"></script>

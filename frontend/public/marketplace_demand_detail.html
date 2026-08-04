@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <script src="/public/js/theme.js"></script>
   <script src="/public/js/i18n.js"></script>
-  <title>Nachfrage Detail – TempConnect Marketplace</title>
+  <title data-i18n="demd.docTitle">Nachfrage Detail – TempConnect Marketplace</title>
   <link rel="stylesheet" href="/public/css/enterprise.css"/>
   <style>
     .detail-header { margin-bottom: 20px; }
@@ -58,80 +58,80 @@
 </head>
 <body data-sla-guard="sla_access">
   <div id="paywall" class="wrap" style="display:none">
-    <nav class="ds-topbar"><div class="ds-topbar__brand"><span class="ds-topbar__brand-dot"></span>TempConnect</div><div class="ds-topbar__nav"><a href="/" class="ds-btn">Startseite</a></div></nav>
+    <nav class="ds-topbar"><div class="ds-topbar__brand"><span class="ds-topbar__brand-dot"></span>TempConnect</div><div class="ds-topbar__nav"><a href="/" class="ds-btn" data-i18n="demd.paywall.home">Startseite</a></div></nav>
     <div class="paywall-box">
-      <h2>Bereich nicht verfuegbar</h2>
-      <p>Die Detailansicht erfordert einen PLUS- oder PRO-Plan.</p>
-      <p>Aktueller Plan: <span id="paywall-current-plan" class="paywall-plan">–</span></p>
-      <a id="paywall-cta" href="/public/sla_abo.html" class="btn primary">Abo ansehen</a>
+      <h2 data-i18n="demd.paywall.title">Bereich nicht verfuegbar</h2>
+      <p data-i18n="demd.paywall.text">Die Detailansicht erfordert einen PLUS- oder PRO-Plan.</p>
+      <p><span data-i18n="demd.paywall.planLabel">Aktueller Plan:</span> <span id="paywall-current-plan" class="paywall-plan">–</span></p>
+      <a id="paywall-cta" href="/public/sla_abo.html" class="btn primary" data-i18n="demd.paywall.cta">Abo ansehen</a>
     </div>
   </div>
 
   <div id="main-content" class="wrap">
     <div id="tc-shell"></div>
 
-    <div id="loading" style="padding:40px 0;color:var(--muted)">Lade Nachfrage...</div>
+    <div id="loading" style="padding:40px 0;color:var(--muted)" data-i18n="demd.loading">Lade Nachfrage...</div>
 
     <div id="detail" style="display:none">
       <div class="detail-header">
         <h1 id="d-title"></h1>
         <div class="meta">
-          <span>Rolle: <b id="d-role"></b></span>
-          <span>Stadt: <b id="d-city"></b></span>
-          <span>Headcount: <b id="d-headcount"></b></span>
-          <span>Status: <b id="d-status"></b></span>
-          <span>Erstellt: <b id="d-created"></b></span>
+          <span><span data-i18n="demd.meta.role">Rolle:</span> <b id="d-role"></b></span>
+          <span><span data-i18n="demd.meta.city">Stadt:</span> <b id="d-city"></b></span>
+          <span><span data-i18n="demd.meta.headcount">Headcount:</span> <b id="d-headcount"></b></span>
+          <span><span data-i18n="demd.meta.status">Status:</span> <b id="d-status"></b></span>
+          <span><span data-i18n="demd.meta.created">Erstellt:</span> <b id="d-created"></b></span>
         </div>
         <div class="meta" style="margin-top:4px">
-          <span>Zeitraum: <b id="d-dates"></b></span>
-          <span>Dringlichkeit: <b id="d-urgency"></b></span>
-          <span>Budget: <b id="d-budget"></b></span>
+          <span><span data-i18n="demd.meta.period">Zeitraum:</span> <b id="d-dates"></b></span>
+          <span><span data-i18n="demd.meta.urgency">Dringlichkeit:</span> <b id="d-urgency"></b></span>
+          <span><span data-i18n="demd.meta.budget">Budget:</span> <b id="d-budget"></b></span>
         </div>
         <div id="d-tags" class="tags"></div>
       </div>
 
       <!-- SLA Section -->
       <div class="section" id="sla-section">
-        <h2>Pulse-Prozessnachweis</h2>
+        <h2 data-i18n="demd.sla.heading">Pulse-Prozessnachweis</h2>
         <div id="sla-info" style="margin-bottom:12px"></div>
         <ul class="timeline" id="sla-timeline"></ul>
         <div class="btn-group">
-          <button class="btn" id="btn-sla-report" onclick="exportSlaReport()">Pulse-Report exportieren (JSON)</button>
+          <button class="btn" id="btn-sla-report" onclick="exportSlaReport()" data-i18n="demd.sla.export">Pulse-Report exportieren (JSON)</button>
         </div>
       </div>
 
       <!-- Matches Section -->
       <div class="section">
-        <h2>Matches (<span id="match-count">0</span>)</h2>
+        <h2><span data-i18n="demd.matches.heading">Matches</span> (<span id="match-count">0</span>)</h2>
         <div id="matches-list"></div>
       </div>
 
       <!-- Offers Section -->
       <div class="section">
-        <h2>Eingegangene Angebote (<span id="offer-count">0</span>)</h2>
-        <p style="font-size:13px;color:var(--muted);margin:0 0 12px">Angebote von Zeitarbeitsfirmen auf Ihr Arbeitsplatzangebot &mdash; gegenseitenorientiert nach Aktionsstatus sortiert.</p>
+        <h2><span data-i18n="demd.offers.heading">Eingegangene Angebote</span> (<span id="offer-count">0</span>)</h2>
+        <p style="font-size:13px;color:var(--muted);margin:0 0 12px" data-i18n="demd.offers.subtitle">Angebote von Zeitarbeitsfirmen auf Ihr Arbeitsplatzangebot &mdash; gegenseitenorientiert nach Aktionsstatus sortiert.</p>
         <div id="offers-list"></div>
         <div style="margin-top:16px;padding:12px 16px;background:rgba(74,158,255,.04);border:1px solid rgba(74,158,255,.15);border-radius:8px;font-size:12px;color:var(--muted)">
-          <strong>Dealabschluss-Flow:</strong> Angebot annehmen &rarr; Einsatzvereinbarung wird erstellt &rarr; Deal landet in <a href="/public/deal_management.html" style="color:var(--ds-brand,#4a9eff)">Meine Deals</a>.
+          <strong data-i18n="demd.flow.label">Dealabschluss-Flow:</strong> <span data-i18n="demd.flow.text">Angebot annehmen &rarr; Einsatzvereinbarung wird erstellt &rarr; Deal landet in</span> <a href="/public/deal_management.html" style="color:var(--ds-brand,#4a9eff)" data-i18n="demd.flow.deals">Meine Deals</a>.
         </div>
       </div>
 
       <!-- Partial Commitments -->
       <div class="section">
-        <h2>Teilerfuellung / Zusagen (<span id="commitment-count">0</span>)</h2>
+        <h2><span data-i18n="demd.commit.heading">Teilerfuellung / Zusagen</span> (<span id="commitment-count">0</span>)</h2>
         <div class="coverage-grid">
-          <div class="coverage-box"><div class="k">Stellen gesamt</div><div class="v" id="c-required">–</div></div>
-          <div class="coverage-box"><div class="k">Zugesagt</div><div class="v" id="c-committed">–</div></div>
-          <div class="coverage-box"><div class="k">Noch offen</div><div class="v" id="c-open">–</div></div>
+          <div class="coverage-box"><div class="k" data-i18n="demd.cov.total">Stellen gesamt</div><div class="v" id="c-required">–</div></div>
+          <div class="coverage-box"><div class="k" data-i18n="demd.cov.committed">Zugesagt</div><div class="v" id="c-committed">–</div></div>
+          <div class="coverage-box"><div class="k" data-i18n="demd.cov.open">Noch offen</div><div class="v" id="c-open">–</div></div>
         </div>
         <div id="commitments-list"></div>
       </div>
     </div>
 
     <div id="error-box" style="display:none" class="card">
-      <h2>Fehler</h2>
+      <h2 data-i18n="demd.error.heading">Fehler</h2>
       <p id="error-msg" style="color:#ef4444"></p>
-      <a href="/public/enterprise.html" class="btn">Zurueck zur Uebersicht</a>
+      <a href="/public/enterprise.html" class="btn" data-i18n="demd.error.back">Zurueck zur Uebersicht</a>
     </div>
 
     <!-- Agreement-Modal: professioneller Deal-Abschluss -->
@@ -139,40 +139,254 @@
       <div style="width:min(680px,100%);max-height:88vh;overflow:auto;border:1px solid var(--line);border-radius:16px;background:var(--bg,#0b1220);box-shadow:0 20px 60px rgba(0,0,0,.4);padding:0">
         <div style="text-align:center;padding:32px 24px 0">
           <div style="width:64px;height:64px;border-radius:50%;background:linear-gradient(135deg,rgba(52,211,153,.15),rgba(52,211,153,.08));display:flex;align-items:center;justify-content:center;margin:0 auto 12px;font-size:28px">&#10003;</div>
-          <h3 style="font-size:20px;font-weight:800;margin:0 0 4px">Deal erfolgreich gestartet</h3>
+          <h3 style="font-size:20px;font-weight:800;margin:0 0 4px" data-i18n="demd.agr.title">Deal erfolgreich gestartet</h3>
           <p id="agr-modal-ref" style="font-size:13px;color:var(--muted);margin:0 0 16px"></p>
         </div>
         <div style="padding:0 24px 8px">
-          <div style="padding:12px 16px;border-radius:8px;background:rgba(52,211,153,.08);border:1px solid rgba(52,211,153,.2);text-align:center;font-size:13px;color:#34d399;font-weight:600;margin-bottom:16px">Einsatzvereinbarung erstellt &mdash; Nachfrage reserviert</div>
+          <div style="padding:12px 16px;border-radius:8px;background:rgba(52,211,153,.08);border:1px solid rgba(52,211,153,.2);text-align:center;font-size:13px;color:#34d399;font-weight:600;margin-bottom:16px" data-i18n="demd.agr.banner">Einsatzvereinbarung erstellt &mdash; Nachfrage reserviert</div>
           <div id="agr-modal-doc" style="border:1px solid var(--line);border-radius:8px;background:#fff;color:#1a1d24;height:280px;overflow:auto;margin-bottom:16px">
-            <div style="text-align:center;padding:32px;color:#94a3b8">Dokument wird geladen&hellip;</div>
+            <div style="text-align:center;padding:32px;color:#94a3b8" data-i18n="demd.agr.docLoading">Dokument wird geladen&hellip;</div>
           </div>
           <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px">
-            <a id="agr-modal-download" href="#" target="_blank" class="btn primary" style="display:none;text-align:center;text-decoration:none">Vereinbarung oeffnen</a>
-            <a id="agr-modal-conditions" href="#" target="_blank" class="btn" style="display:none;text-align:center;text-decoration:none">Konditionsblatt</a>
+            <a id="agr-modal-download" href="#" target="_blank" class="btn primary" style="display:none;text-align:center;text-decoration:none" data-i18n="demd.agr.openAgreement">Vereinbarung oeffnen</a>
+            <a id="agr-modal-conditions" href="#" target="_blank" class="btn" style="display:none;text-align:center;text-decoration:none" data-i18n="demd.agr.conditions">Konditionsblatt</a>
           </div>
-          <a id="agr-modal-deal" href="#" class="btn primary" style="display:none;width:100%;text-align:center;text-decoration:none;font-weight:700">Zur Dealakte &amp; naechste Schritte</a>
-          <p style="font-size:12px;color:var(--muted);text-align:center;margin:12px 0 0">Die Zeitarbeitsfirma wurde per E-Mail und In-App benachrichtigt.</p>
+          <a id="agr-modal-deal" href="#" class="btn primary" style="display:none;width:100%;text-align:center;text-decoration:none;font-weight:700" data-i18n="demd.agr.toDeal">Zur Dealakte &amp; naechste Schritte</a>
+          <p style="font-size:12px;color:var(--muted);text-align:center;margin:12px 0 0" data-i18n="demd.agr.notified">Die Zeitarbeitsfirma wurde per E-Mail und In-App benachrichtigt.</p>
         </div>
         <div style="padding:0 24px 20px;text-align:right">
-          <button type="button" class="btn" onclick="closeAgrModal()">Schliessen</button>
+          <button type="button" class="btn" onclick="closeAgrModal()" data-i18n="demd.agr.close">Schliessen</button>
         </div>
       </div>
     </div>
 
-    <p class="sla-disclaimer">Hinweis: Pulse = Prozessnachweis (Matching-Versuch, Benachrichtigung). Kein Vermittlungserfolg garantiert. Angaben ohne Gewaehr.</p>
+    <p class="sla-disclaimer" data-i18n="demd.disclaimer">Hinweis: Pulse = Prozessnachweis (Matching-Versuch, Benachrichtigung). Kein Vermittlungserfolg garantiert. Angaben ohne Gewaehr.</p>
   </div>
 
   <script src="/public/js/planFeatures.js"></script>
   <script src="/public/js/slaGuard.js"></script>
   <script src="/public/js/api.js"></script>
   <script>
+  /* i18n (P6.1): Woerterbuch der Nachfrage-Detailseite (Praefix "demd.").
+     Topbar, Navigation und Nutzerbereich uebersetzt die Plattform-Shell
+     (pageShell.js) unter "shell." — hier stehen ausschliesslich demd.-Keys.
+     Werte sind IMMER Texte, nie t()-Aufrufe (Selbstverweis waere stumm leer).
+
+     Bewusst NICHT uebersetzt:
+     - Server-Enums, die roh angezeigt werden (Nachfrage-Status, Dringlichkeit,
+       Zusage-Status, sla_status, Match-Status): das sind Datenwerte, keine UI-Texte.
+     - Namen, Orte, Firmen, Referenzen, Beträge, Waehrungen (EUR/h). */
+  TCi18n.register('de', {
+    'demd.docTitle': 'Nachfrage Detail – TempConnect Marketplace',
+    'demd.paywall.home': 'Startseite',
+    'demd.paywall.title': 'Bereich nicht verfuegbar',
+    'demd.paywall.text': 'Die Detailansicht erfordert einen PLUS- oder PRO-Plan.',
+    'demd.paywall.planLabel': 'Aktueller Plan:',
+    'demd.paywall.cta': 'Abo ansehen',
+    'demd.loading': 'Lade Nachfrage...',
+
+    'demd.meta.role': 'Rolle:',
+    'demd.meta.city': 'Stadt:',
+    'demd.meta.headcount': 'Headcount:',
+    'demd.meta.status': 'Status:',
+    'demd.meta.created': 'Erstellt:',
+    'demd.meta.period': 'Zeitraum:',
+    'demd.meta.urgency': 'Dringlichkeit:',
+    'demd.meta.budget': 'Budget:',
+    'demd.range.to': 'bis',
+    'demd.range.open': 'offen',
+
+    'demd.sla.heading': 'Pulse-Prozessnachweis',
+    'demd.sla.export': 'Pulse-Report exportieren (JSON)',
+    'demd.sla.none': 'Kein Pulse (Plan ohne Pulse-Tracking)',
+    'demd.sla.dueLabel': 'Frist:',
+    'demd.sla.minutes': 'Min',
+    'demd.sla.empty': 'Keine Pulse-Events vorhanden.',
+
+    'demd.matches.heading': 'Matches',
+    'demd.match.empty': 'Keine Matches vorhanden.',
+    'demd.match.supplierFallback': 'Anbieter',
+    'demd.match.score': 'Score',
+    'demd.match.status': 'Status',
+
+    'demd.offers.heading': 'Eingegangene Angebote',
+    'demd.offers.subtitle': 'Angebote von Zeitarbeitsfirmen auf Ihr Arbeitsplatzangebot — gegenseitenorientiert nach Aktionsstatus sortiert.',
+    'demd.offers.empty': 'Noch keine Angebote eingegangen.',
+    'demd.offers.supplierFallback': 'Zeitarbeitsfirma',
+    'demd.flow.label': 'Dealabschluss-Flow:',
+    'demd.flow.text': 'Angebot annehmen → Einsatzvereinbarung wird erstellt → Deal landet in',
+    'demd.flow.deals': 'Meine Deals',
+
+    'demd.offerStatus.draft': 'Entwurf',
+    'demd.offerStatus.sent': 'Neues Angebot',
+    'demd.offerStatus.accepted': 'Angenommen',
+    'demd.offerStatus.rejected': 'Abgelehnt',
+    'demd.offerStatus.countered': 'Gegenangebot',
+    'demd.offerStatus.withdrawn': 'Zurueckgezogen',
+    'demd.viewer.action': 'Ihre Aktion',
+    'demd.viewer.waiting': 'Warten auf Gegenseite',
+
+    'demd.offer.price': 'Preis:',
+    'demd.offer.quantity': 'Menge:',
+    'demd.offer.start': 'Start:',
+    'demd.offer.received': 'Eingegangen:',
+    'demd.offer.toDeal': 'Zur Dealakte',
+    'demd.offer.myDeals': 'Meine Deals',
+    'demd.offer.accept': 'Konditionen zustimmen',
+    'demd.offer.reject': 'Ablehnen',
+    'demd.offer.counter': 'Gegenangebot',
+    'demd.offer.resend': 'Erneut senden',
+    'demd.offer.withdraw': 'Zurueckziehen',
+
+    'demd.commit.heading': 'Teilerfuellung / Zusagen',
+    'demd.commit.empty': 'Noch keine verbindlichen Teilzusagen.',
+    'demd.commit.supplierFallback': 'Anbieter',
+    'demd.commit.quantity': 'Menge:',
+    'demd.commit.status': 'Status:',
+    'demd.cov.total': 'Stellen gesamt',
+    'demd.cov.committed': 'Zugesagt',
+    'demd.cov.open': 'Noch offen',
+
+    'demd.error.heading': 'Fehler',
+    'demd.error.back': 'Zurueck zur Uebersicht',
+
+    'demd.agr.title': 'Deal erfolgreich gestartet',
+    'demd.agr.banner': 'Einsatzvereinbarung erstellt — Nachfrage reserviert',
+    'demd.agr.docLoading': 'Dokument wird geladen…',
+    'demd.agr.openAgreement': 'Vereinbarung oeffnen',
+    'demd.agr.conditions': 'Konditionsblatt',
+    'demd.agr.toDeal': 'Zur Dealakte & naechste Schritte',
+    'demd.agr.notified': 'Die Zeitarbeitsfirma wurde per E-Mail und In-App benachrichtigt.',
+    'demd.agr.close': 'Schliessen',
+    'demd.agr.docTitle': 'Einsatzvereinbarung',
+    'demd.agr.refCreated': 'Einsatzvereinbarung {ref} erstellt',
+    'demd.agr.created': 'Einsatzbestaetigung erstellt',
+
+    'demd.confirm.accept': 'Konditionen verbindlich zustimmen?\n\nDie Zeitarbeitsfirma wird sofort informiert; ein Agreement und eine Einsatzbestaetigung werden erzeugt.',
+    'demd.prompt.counter': 'Gegenangebot / Hinweis (optional):',
+
+    'demd.err.prefix': 'Fehler: ',
+    'demd.err.session': 'Sitzung abgelaufen. Bitte Seite neu laden und erneut versuchen.',
+    'demd.err.network': 'Netzwerkfehler',
+    'demd.err.slaReport': 'Pulse-Report konnte nicht geladen werden.',
+    'demd.err.noId': 'Keine Nachfrage-ID angegeben.',
+    'demd.err.forbidden': 'Zugriff verweigert – diese Nachfrage gehoert nicht deinem Konto.',
+    'demd.err.notFound': 'Nachfrage nicht gefunden.',
+    'demd.err.server': 'Serverfehler beim Laden (HTTP {status}).',
+
+    'demd.disclaimer': 'Hinweis: Pulse = Prozessnachweis (Matching-Versuch, Benachrichtigung). Kein Vermittlungserfolg garantiert. Angaben ohne Gewaehr.'
+  });
+  TCi18n.register('en', {
+    'demd.docTitle': 'Request detail – TempConnect Marketplace',
+    'demd.paywall.home': 'Home',
+    'demd.paywall.title': 'Section unavailable',
+    'demd.paywall.text': 'The detail view requires a PLUS or PRO plan.',
+    'demd.paywall.planLabel': 'Current plan:',
+    'demd.paywall.cta': 'View subscription',
+    'demd.loading': 'Loading request...',
+
+    'demd.meta.role': 'Role:',
+    'demd.meta.city': 'City:',
+    'demd.meta.headcount': 'Headcount:',
+    'demd.meta.status': 'Status:',
+    'demd.meta.created': 'Created:',
+    'demd.meta.period': 'Period:',
+    'demd.meta.urgency': 'Urgency:',
+    'demd.meta.budget': 'Budget:',
+    'demd.range.to': 'to',
+    'demd.range.open': 'open',
+
+    'demd.sla.heading': 'Pulse process record',
+    'demd.sla.export': 'Export pulse report (JSON)',
+    'demd.sla.none': 'No pulse (plan without pulse tracking)',
+    'demd.sla.dueLabel': 'Due:',
+    'demd.sla.minutes': 'min',
+    'demd.sla.empty': 'No pulse events recorded.',
+
+    'demd.matches.heading': 'Matches',
+    'demd.match.empty': 'No matches available.',
+    'demd.match.supplierFallback': 'Supplier',
+    'demd.match.score': 'Score',
+    'demd.match.status': 'Status',
+
+    'demd.offers.heading': 'Offers received',
+    'demd.offers.subtitle': 'Offers from staffing firms on your job posting — sorted by whose action is due.',
+    'demd.offers.empty': 'No offers received yet.',
+    'demd.offers.supplierFallback': 'Staffing firm',
+    'demd.flow.label': 'Deal closing flow:',
+    'demd.flow.text': 'Accept the offer → the assignment agreement is created → the deal appears in',
+    'demd.flow.deals': 'My deals',
+
+    'demd.offerStatus.draft': 'Draft',
+    'demd.offerStatus.sent': 'New offer',
+    'demd.offerStatus.accepted': 'Accepted',
+    'demd.offerStatus.rejected': 'Rejected',
+    'demd.offerStatus.countered': 'Counter-offer',
+    'demd.offerStatus.withdrawn': 'Withdrawn',
+    'demd.viewer.action': 'Your action',
+    'demd.viewer.waiting': 'Waiting on the other side',
+
+    'demd.offer.price': 'Price:',
+    'demd.offer.quantity': 'Quantity:',
+    'demd.offer.start': 'Start:',
+    'demd.offer.received': 'Received:',
+    'demd.offer.toDeal': 'Open deal file',
+    'demd.offer.myDeals': 'My deals',
+    'demd.offer.accept': 'Approve the terms',
+    'demd.offer.reject': 'Reject',
+    'demd.offer.counter': 'Counter-offer',
+    'demd.offer.resend': 'Send again',
+    'demd.offer.withdraw': 'Withdraw',
+
+    'demd.commit.heading': 'Partial fulfilment / commitments',
+    'demd.commit.empty': 'No binding partial commitments yet.',
+    'demd.commit.supplierFallback': 'Supplier',
+    'demd.commit.quantity': 'Quantity:',
+    'demd.commit.status': 'Status:',
+    'demd.cov.total': 'Positions in total',
+    'demd.cov.committed': 'Committed',
+    'demd.cov.open': 'Still open',
+
+    'demd.error.heading': 'Error',
+    'demd.error.back': 'Back to the overview',
+
+    'demd.agr.title': 'Deal started successfully',
+    'demd.agr.banner': 'Assignment agreement created — request reserved',
+    'demd.agr.docLoading': 'Loading document…',
+    'demd.agr.openAgreement': 'Open agreement',
+    'demd.agr.conditions': 'Terms sheet',
+    'demd.agr.toDeal': 'Deal file & next steps',
+    'demd.agr.notified': 'The staffing firm has been notified by email and in-app.',
+    'demd.agr.close': 'Close',
+    'demd.agr.docTitle': 'Assignment agreement',
+    'demd.agr.refCreated': 'Assignment agreement {ref} created',
+    'demd.agr.created': 'Assignment confirmation created',
+
+    'demd.confirm.accept': 'Approve these terms bindingly?\n\nThe staffing firm is notified immediately; an agreement and an assignment confirmation are generated.',
+    'demd.prompt.counter': 'Counter-offer / note (optional):',
+
+    'demd.err.prefix': 'Error: ',
+    'demd.err.session': 'Session expired. Please reload the page and try again.',
+    'demd.err.network': 'Network error',
+    'demd.err.slaReport': 'The pulse report could not be loaded.',
+    'demd.err.noId': 'No request ID provided.',
+    'demd.err.forbidden': 'Access denied – this request does not belong to your account.',
+    'demd.err.notFound': 'Request not found.',
+    'demd.err.server': 'Server error while loading (HTTP {status}).',
+
+    'demd.disclaimer': 'Note: pulse = process record (matching attempt, notification). No placement success is guaranteed. All information without warranty.'
+  });
+
   var demandId = new URLSearchParams(window.location.search).get("id");
   var demandData = null;
+  // Zuletzt geladene Listen — damit ein Sprachwechsel neu zeichnen kann,
+  // ohne die Endpunkte erneut zu belasten.
+  var lastOffers = null;
+  var lastCommitments = null;
 
   function fmtDate(d) {
     if (!d) return "–";
-    return new Date(d).toLocaleString("de-DE", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" });
+    return new Date(d).toLocaleString(TCi18n.dateLocale(), { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" });
   }
 
   function showError(msg) {
@@ -184,13 +398,13 @@
   function renderSla(data) {
     var info = document.getElementById("sla-info");
     if (!data.sla_status) {
-      info.innerHTML = '<span style="color:var(--muted)">Kein Pulse (Plan ohne Pulse-Tracking)</span>';
+      info.innerHTML = '<span style="color:var(--muted)">' + TCi18n.t('demd.sla.none') + '</span>';
       document.getElementById("sla-timeline").innerHTML = "";
       return;
     }
     var badge = '<span class="sla-badge ' + data.sla_status.toLowerCase() + '">' + data.sla_status + '</span>';
-    var due = data.sla_due_at ? " – Frist: " + fmtDate(data.sla_due_at) : "";
-    var mins = data.sla_minutes ? " (" + data.sla_minutes + " Min)" : "";
+    var due = data.sla_due_at ? " – " + TCi18n.t('demd.sla.dueLabel') + " " + fmtDate(data.sla_due_at) : "";
+    var mins = data.sla_minutes ? " (" + data.sla_minutes + " " + TCi18n.t('demd.sla.minutes') + ")" : "";
     info.innerHTML = badge + mins + due;
 
     var tl = document.getElementById("sla-timeline");
@@ -203,7 +417,7 @@
         tl.appendChild(li);
       });
     } else {
-      tl.innerHTML = '<li style="padding-left:0;color:var(--muted)">Keine Pulse-Events vorhanden.</li>';
+      tl.innerHTML = '<li style="padding-left:0;color:var(--muted)">' + TCi18n.t('demd.sla.empty') + '</li>';
     }
   }
 
@@ -211,7 +425,7 @@
     var el = document.getElementById("matches-list");
     document.getElementById("match-count").textContent = matches.length;
     if (matches.length === 0) {
-      el.innerHTML = '<div class="empty-state">Keine Matches vorhanden.</div>';
+      el.innerHTML = '<div class="empty-state">' + TCi18n.t('demd.match.empty') + '</div>';
       return;
     }
     el.innerHTML = "";
@@ -219,18 +433,20 @@
       var div = document.createElement("div");
       div.className = "match-card";
       div.innerHTML =
-        '<div><b>' + (m.supplier_company_name || "Anbieter") + '</b> – ' +
+        '<div><b>' + (m.supplier_company_name || TCi18n.t('demd.match.supplierFallback')) + '</b> – ' +
         (m.capacity_title || m.capacity_role || "–") + ' (' + (m.capacity_city || "–") + ')</div>' +
-        '<div class="meta" style="margin-top:4px">Score: <span class="score">' + m.match_score + '</span> – Status: ' + (m.status || "–") + '</div>';
+        '<div class="meta" style="margin-top:4px">' + TCi18n.t('demd.match.score') + ': <span class="score">' + m.match_score +
+        '</span> – ' + TCi18n.t('demd.match.status') + ': ' + (m.status || "–") + '</div>';
       el.appendChild(div);
     });
   }
 
   function renderOffers(offers) {
     var el = document.getElementById("offers-list");
+    lastOffers = offers;
     document.getElementById("offer-count").textContent = offers.length;
     if (offers.length === 0) {
-      el.innerHTML = '<div class="empty-state">Noch keine Angebote eingegangen.</div>';
+      el.innerHTML = '<div class="empty-state">' + TCi18n.t('demd.offers.empty') + '</div>';
       return;
     }
     el.innerHTML = "";
@@ -243,23 +459,24 @@
       if (o.price_type) price += " (" + o.price_type + ")";
 
       var html = '<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px"><div>';
-      html += '<b>' + (o.supplier_company_name || "Zeitarbeitsfirma") + '</b>';
+      html += '<b>' + (o.supplier_company_name || TCi18n.t('demd.offers.supplierFallback')) + '</b>';
       html += '</div><div style="display:flex;gap:6px;flex-wrap:wrap">';
-      var statusLabels = {draft:"Entwurf",sent:"Neues Angebot",accepted:"Angenommen",rejected:"Abgelehnt",countered:"Gegenangebot",withdrawn:"Zurueckgezogen"};
+      // Status-Rohwerte bleiben Server-Enums; nur der sichtbare Text kommt aus dem
+      // Woerterbuch. Unbekannter Rohwert -> t() liefert '' -> Rohwert bleibt sichtbar.
       var statusColors = {sent:"background:rgba(255,204,0,.15);color:#ffd700",accepted:"background:rgba(52,211,153,.12);color:#34d399",rejected:"background:rgba(248,113,113,.12);color:#fca5a5",countered:"background:rgba(74,158,255,.12);color:#4a9eff"};
-      html += '<span class="tag" style="padding:3px 10px;border-radius:6px;font-size:11px;font-weight:700;' + (statusColors[o.status] || '') + '">' + (statusLabels[o.status] || o.status) + '</span>';
+      html += '<span class="tag" style="padding:3px 10px;border-radius:6px;font-size:11px;font-weight:700;' + (statusColors[o.status] || '') + '">' + (TCi18n.t('demd.offerStatus.' + o.status) || o.status) + '</span>';
       if (o.next_action) {
-        var vLabel = o.next_action.viewer_state === "action_required" ? "Ihre Aktion" : (o.next_action.viewer_state === "waiting_on_counterparty" ? "Warten auf Gegenseite" : "");
+        var vLabel = o.next_action.viewer_state === "action_required" ? TCi18n.t('demd.viewer.action') : (o.next_action.viewer_state === "waiting_on_counterparty" ? TCi18n.t('demd.viewer.waiting') : "");
         var vCls = o.next_action.viewer_state === "action_required" ? "background:rgba(255,204,0,.15);color:#ffd700" : "background:rgba(74,158,255,.08);color:#64a0ff";
         if (vLabel) html += '<span class="tag" style="padding:3px 10px;border-radius:6px;font-size:11px;font-weight:700;' + vCls + '">' + vLabel + '</span>';
       }
       html += '</div></div>';
       // Konditionen-Zusammenfassung
       html += '<div class="meta" style="margin-top:8px;display:flex;gap:16px;flex-wrap:wrap">';
-      if (price) html += '<span>Preis: <b>' + price + '</b></span>';
-      if (o.offered_quantity) html += '<span>Menge: <b>' + o.offered_quantity + '</b></span>';
-      if (o.start_confirmed) html += '<span>Start: <b>' + o.start_confirmed.substring(0,10) + '</b></span>';
-      html += '<span>Eingegangen: ' + fmtDate(o.created_at) + '</span>';
+      if (price) html += '<span>' + TCi18n.t('demd.offer.price') + ' <b>' + price + '</b></span>';
+      if (o.offered_quantity) html += '<span>' + TCi18n.t('demd.offer.quantity') + ' <b>' + o.offered_quantity + '</b></span>';
+      if (o.start_confirmed) html += '<span>' + TCi18n.t('demd.offer.start') + ' <b>' + o.start_confirmed.substring(0,10) + '</b></span>';
+      html += '<span>' + TCi18n.t('demd.offer.received') + ' ' + fmtDate(o.created_at) + '</span>';
       html += '</div>';
       if (o.notes) html += '<div style="margin-top:6px;font-size:13px;color:var(--muted);padding:8px 12px;background:rgba(255,255,255,.02);border:1px solid var(--line);border-radius:6px">' + o.notes + '</div>';
 
@@ -268,17 +485,17 @@
       if (o.status === "accepted") {
         // Deal abgeschlossen: Link zur Dealakte + Meine Deals
         html += '<div class="offer-actions" style="margin-top:12px;display:flex;gap:8px;flex-wrap:wrap">';
-        html += '<a href="/public/offer_detail.html?id=' + o.id + '" class="btn primary" style="text-decoration:none">Zur Dealakte</a>';
-        html += '<a href="/public/deal_management.html" class="btn" style="text-decoration:none">Meine Deals</a>';
+        html += '<a href="/public/offer_detail.html?id=' + o.id + '" class="btn primary" style="text-decoration:none">' + TCi18n.t('demd.offer.toDeal') + '</a>';
+        html += '<a href="/public/deal_management.html" class="btn" style="text-decoration:none">' + TCi18n.t('demd.offer.myDeals') + '</a>';
         if (o.agreement_ref) html += '<span style="font-size:12px;color:var(--muted);align-self:center">' + o.agreement_ref + '</span>';
         html += '</div>';
       } else if (acts.length) {
         var btns = [];
-        if (acts.includes("accept")) btns.push('<button class="btn primary" style="font-weight:700" onclick="updateOffer(\'' + o.id + '\',\'accepted\')">&#10003; Konditionen zustimmen</button>');
-        if (acts.includes("reject")) btns.push('<button class="btn" onclick="updateOffer(\'' + o.id + '\',\'rejected\')">Ablehnen</button>');
-        if (acts.includes("counter")) btns.push('<button class="btn" onclick="counterOfferPrompt(\'' + o.id + '\')">&#9998; Gegenangebot</button>');
-        if (acts.includes("send")) btns.push('<button class="btn primary" onclick="updateOffer(\'' + o.id + '\',\'sent\')">Erneut senden</button>');
-        if (acts.includes("withdraw")) btns.push('<button class="btn" onclick="withdrawOffer(\'' + o.id + '\')">Zurueckziehen</button>');
+        if (acts.includes("accept")) btns.push('<button class="btn primary" style="font-weight:700" onclick="updateOffer(\'' + o.id + '\',\'accepted\')">&#10003; ' + TCi18n.t('demd.offer.accept') + '</button>');
+        if (acts.includes("reject")) btns.push('<button class="btn" onclick="updateOffer(\'' + o.id + '\',\'rejected\')">' + TCi18n.t('demd.offer.reject') + '</button>');
+        if (acts.includes("counter")) btns.push('<button class="btn" onclick="counterOfferPrompt(\'' + o.id + '\')">&#9998; ' + TCi18n.t('demd.offer.counter') + '</button>');
+        if (acts.includes("send")) btns.push('<button class="btn primary" onclick="updateOffer(\'' + o.id + '\',\'sent\')">' + TCi18n.t('demd.offer.resend') + '</button>');
+        if (acts.includes("withdraw")) btns.push('<button class="btn" onclick="withdrawOffer(\'' + o.id + '\')">' + TCi18n.t('demd.offer.withdraw') + '</button>');
         if (btns.length) html += '<div class="offer-actions" style="margin-top:12px">' + btns.join(" ") + '</div>';
       }
       div.innerHTML = html;
@@ -287,6 +504,7 @@
   }
 
   function renderCommitments(data) {
+    lastCommitments = data;
     var commitments = data && data.commitments ? data.commitments : [];
     document.getElementById("commitment-count").textContent = commitments.length;
     document.getElementById("c-required").textContent = data && data.required_total_count != null ? data.required_total_count : (demandData ? (demandData.required_total_count || demandData.headcount || 1) : "–");
@@ -295,15 +513,15 @@
 
     var el = document.getElementById("commitments-list");
     if (!commitments.length) {
-      el.innerHTML = '<div class="empty-state">Noch keine verbindlichen Teilzusagen.</div>';
+      el.innerHTML = '<div class="empty-state">' + TCi18n.t('demd.commit.empty') + '</div>';
       return;
     }
     el.innerHTML = "";
     commitments.forEach(function(c) {
       var div = document.createElement("div");
       div.className = "offer-card";
-      var html = '<div><b>' + (c.supplier_company_name || "Anbieter") + "</b></div>";
-      html += '<div class="meta" style="margin-top:4px">Menge: <b>' + c.committed_quantity + '</b> – Status: <span class="status ' + c.status + '">' + String(c.status || "").toUpperCase() + '</span> – ' + fmtDate(c.committed_at) + "</div>";
+      var html = '<div><b>' + (c.supplier_company_name || TCi18n.t('demd.commit.supplierFallback')) + "</b></div>";
+      html += '<div class="meta" style="margin-top:4px">' + TCi18n.t('demd.commit.quantity') + ' <b>' + c.committed_quantity + '</b> – ' + TCi18n.t('demd.commit.status') + ' <span class="status ' + c.status + '">' + String(c.status || "").toUpperCase() + '</span> – ' + fmtDate(c.committed_at) + "</div>";
       if (c.note) html += '<div style="margin-top:4px;font-size:13px;color:var(--muted)">' + c.note + "</div>";
       div.innerHTML = html;
       el.appendChild(div);
@@ -315,10 +533,10 @@
     var backdrop = document.getElementById("agr-modal-backdrop");
     if (!backdrop) return;
     var refEl = document.getElementById("agr-modal-ref");
-    if (refEl) refEl.textContent = result.agreement_ref ? "Einsatzvereinbarung " + result.agreement_ref + " erstellt" : "Einsatzbestaetigung erstellt";
+    if (refEl) refEl.textContent = result.agreement_ref ? TCi18n.t('demd.agr.refCreated', { ref: result.agreement_ref }) : TCi18n.t('demd.agr.created');
     var docEl = document.getElementById("agr-modal-doc");
     if (docEl && result.document_url) {
-      docEl.innerHTML = '<iframe src="' + result.document_url + '" style="width:100%;height:100%;border:none" title="Einsatzvereinbarung"></iframe>';
+      docEl.innerHTML = '<iframe src="' + result.document_url + '" style="width:100%;height:100%;border:none" title="' + TCi18n.t('demd.agr.docTitle') + '"></iframe>';
     }
     var dlBtn = document.getElementById("agr-modal-download");
     if (dlBtn && result.document_url) { dlBtn.href = result.document_url; dlBtn.style.display = "block"; }
@@ -337,8 +555,7 @@
 
   function updateOffer(offerId, newStatus) {
     // 6.3: Verbindliche Zustimmung gegen Verklicken absichern (zweite Bestaetigung).
-    if (newStatus === "accepted" &&
-        !window.confirm("Konditionen verbindlich zustimmen?\n\nDie Zeitarbeitsfirma wird sofort informiert; ein Agreement und eine Einsatzbestaetigung werden erzeugt.")) {
+    if (newStatus === "accepted" && !window.confirm(TCi18n.t('demd.confirm.accept'))) {
       return;
     }
     var useTc = window.TC && TC.api;
@@ -368,9 +585,9 @@
       }).catch(function(e) {
         var code = e && (e.code || e.error);
         var msg = code === "CSRF_INVALID"
-          ? "Sitzung abgelaufen. Bitte Seite neu laden und erneut versuchen."
-          : (e && e.message) ? e.message : "Netzwerkfehler";
-        alert("Fehler: " + msg);
+          ? TCi18n.t('demd.err.session')
+          : (e && e.message) ? e.message : TCi18n.t('demd.err.network');
+        alert(TCi18n.t('demd.err.prefix') + msg);
       });
       return;
     }
@@ -397,14 +614,14 @@
      .catch(function(e) {
         var code = e && (e.code || e.error);
         var msg = code === "CSRF_INVALID"
-          ? "Sitzung abgelaufen. Bitte Seite neu laden und erneut versuchen."
-          : (e && e.message) ? e.message : "Netzwerkfehler";
-        alert("Fehler: " + msg);
+          ? TCi18n.t('demd.err.session')
+          : (e && e.message) ? e.message : TCi18n.t('demd.err.network');
+        alert(TCi18n.t('demd.err.prefix') + msg);
      });
   }
 
   function counterOfferPrompt(offerId) {
-    var note = prompt("Gegenangebot / Hinweis (optional):", "");
+    var note = prompt(TCi18n.t('demd.prompt.counter'), "");
     if (note == null) return;
     var useTc = window.TC && TC.api;
     var p = (useTc && typeof TC.api.post === "function")
@@ -427,9 +644,9 @@
     p.then(function() { loadDetail(); }).catch(function(e) {
       var code = e && (e.code || e.error);
       var msg = code === "CSRF_INVALID"
-        ? "Sitzung abgelaufen. Bitte Seite neu laden und erneut versuchen."
-        : (e && e.message) ? e.message : "Netzwerkfehler";
-      alert("Fehler: " + msg);
+        ? TCi18n.t('demd.err.session')
+        : (e && e.message) ? e.message : TCi18n.t('demd.err.network');
+      alert(TCi18n.t('demd.err.prefix') + msg);
     });
   }
 
@@ -455,9 +672,9 @@
     p.then(function() { loadDetail(); }).catch(function(e) {
       var code = e && (e.code || e.error);
       var msg = code === "CSRF_INVALID"
-        ? "Sitzung abgelaufen. Bitte Seite neu laden und erneut versuchen."
-        : (e && e.message) ? e.message : "Netzwerkfehler";
-      alert("Fehler: " + msg);
+        ? TCi18n.t('demd.err.session')
+        : (e && e.message) ? e.message : TCi18n.t('demd.err.network');
+      alert(TCi18n.t('demd.err.prefix') + msg);
     });
   }
 
@@ -473,19 +690,47 @@
       a.click();
       URL.revokeObjectURL(url);
     })
-    .catch(function() { alert("Pulse-Report konnte nicht geladen werden."); });
+    .catch(function() { alert(TCi18n.t('demd.err.slaReport')); });
+  }
+
+  /* Kopfdaten in die statischen Felder schreiben. Als eigene Funktion, damit ein
+     Sprachwechsel dieselben Felder neu zeichnen kann (Datumsformat + "bis"/"offen")
+     ohne den Endpunkt erneut zu befragen. */
+  function applyDemandFields(data) {
+    document.getElementById("d-title").textContent = data.title || "–";
+    document.getElementById("d-role").textContent = data.role || "–";
+    document.getElementById("d-city").textContent = data.location_city || "–";
+    document.getElementById("d-headcount").textContent = data.headcount || 1;
+    document.getElementById("d-status").textContent = (data.status || "open").toUpperCase();
+    document.getElementById("d-created").textContent = fmtDate(data.created_at);
+    document.getElementById("d-dates").textContent = (data.start_date || "–") + " " + TCi18n.t('demd.range.to') + " " + (data.end_date || TCi18n.t('demd.range.open'));
+    document.getElementById("d-urgency").textContent = (data.urgency || "normal").toUpperCase();
+    var budgetText = "–";
+    if (data.budget_min || data.budget_max) budgetText = (data.budget_min || "–") + " – " + (data.budget_max || "–") + " EUR";
+    document.getElementById("d-budget").textContent = budgetText;
+
+    var tagsEl = document.getElementById("d-tags");
+    tagsEl.innerHTML = "";
+    if (data.skill_tags && data.skill_tags.length > 0) {
+      data.skill_tags.forEach(function(tag) {
+        var span = document.createElement("span");
+        span.className = "tag";
+        span.textContent = tag;
+        tagsEl.appendChild(span);
+      });
+    }
   }
 
   function loadDetail() {
-    if (!demandId) { showError("Keine Nachfrage-ID angegeben."); return; }
+    if (!demandId) { showError(TCi18n.t('demd.err.noId')); return; }
 
     fetch("/api/marketplace/demand-requests/" + demandId, { credentials: "include" })
     .then(function(r) {
       if (!r.ok) {
         if (r.status === 401) { window.location.href = "/"; return Promise.reject(null); }
-        if (r.status === 403) return Promise.reject(new Error("Zugriff verweigert – diese Nachfrage gehoert nicht deinem Konto."));
-        if (r.status === 404) return Promise.reject(new Error("Nachfrage nicht gefunden."));
-        return Promise.reject(new Error("Serverfehler beim Laden (HTTP " + r.status + ")."));
+        if (r.status === 403) return Promise.reject(new Error(TCi18n.t('demd.err.forbidden')));
+        if (r.status === 404) return Promise.reject(new Error(TCi18n.t('demd.err.notFound')));
+        return Promise.reject(new Error(TCi18n.t('demd.err.server', { status: r.status })));
       }
       return r.json();
     })
@@ -494,28 +739,7 @@
       document.getElementById("loading").style.display = "none";
       document.getElementById("detail").style.display = "block";
 
-      document.getElementById("d-title").textContent = data.title || "–";
-      document.getElementById("d-role").textContent = data.role || "–";
-      document.getElementById("d-city").textContent = data.location_city || "–";
-      document.getElementById("d-headcount").textContent = data.headcount || 1;
-      document.getElementById("d-status").textContent = (data.status || "open").toUpperCase();
-      document.getElementById("d-created").textContent = fmtDate(data.created_at);
-      document.getElementById("d-dates").textContent = (data.start_date || "–") + " bis " + (data.end_date || "offen");
-      document.getElementById("d-urgency").textContent = (data.urgency || "normal").toUpperCase();
-      var budgetText = "–";
-      if (data.budget_min || data.budget_max) budgetText = (data.budget_min || "–") + " – " + (data.budget_max || "–") + " EUR";
-      document.getElementById("d-budget").textContent = budgetText;
-
-      var tagsEl = document.getElementById("d-tags");
-      tagsEl.innerHTML = "";
-      if (data.skill_tags && data.skill_tags.length > 0) {
-        data.skill_tags.forEach(function(t) {
-          var span = document.createElement("span");
-          span.className = "tag";
-          span.textContent = t;
-          tagsEl.appendChild(span);
-        });
-      }
+      applyDemandFields(data);
 
       renderSla(data);
       renderMatches(data.matches || []);
@@ -541,6 +765,18 @@
   // Warte auf slaGuardPassed bevor wir laden
   document.addEventListener("slaGuardPassed", function(ev) {
     if (ev.detail && ev.detail.passed) loadDetail();
+  });
+
+  /* Sprachwechsel: die statischen Marker zieht i18n.js selbst nach — alles,
+     was dieses Script per innerHTML gebaut hat, muss hier neu gezeichnet
+     werden. Ohne Netzabruf: die zuletzt geladenen Daten liegen im Speicher. */
+  document.addEventListener("tc:langchange", function() {
+    if (!demandData) return;
+    applyDemandFields(demandData);
+    renderSla(demandData);
+    renderMatches(demandData.matches || []);
+    if (lastOffers) renderOffers(lastOffers);
+    if (lastCommitments) renderCommitments(lastCommitments);
   });
   </script>
   <script src="/public/js/pageShell.js"></script>

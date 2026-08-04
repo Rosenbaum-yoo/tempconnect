@@ -208,14 +208,32 @@ function inlineScripts(html) {
 
 /* ── Plattform-Kernflow: Seiten mit teils AUSGELAGERTEM Seiten-JS ────────── */
 
-const KERNFLOW = [
-  { page: "enterprise.html", js: "js/pages/enterpriseHub.js" },
-  { page: "capacity_exchange_feed.html", js: "js/pages/marketplaceFeed.js" },
-  { page: "requisitions.html", js: "js/pages/requisitions.js" },
-  { page: "deal_management.html", js: null },
-  { page: "mitarbeiter.html", js: "js/pages/mitarbeiter.js" },
-  { page: "hilfe.html", js: null }
-];
+/**
+ * Migrierte Plattform-Seiten AUTOMATISCH entdecken statt sie zu listen: eine
+ * Seite gilt als migriert, sobald sie (oder ihre ausgelagerte Seiten-JS) ein
+ * Woerterbuch registriert. So deckt das Gate jede weitere Welle ohne
+ * Pflegeaufwand ab — eine handgepflegte Liste waere genau die Sorte Wahrheit,
+ * die still veraltet (dieselbe Lehre wie bei der Sichtbarkeits-Ausnahmeliste).
+ */
+function migriertePlattformSeiten() {
+  const dir = path.join(ROOT, "frontend/public");
+  const out = [];
+  for (const page of fs.readdirSync(dir).filter((f) => f.endsWith(".html"))) {
+    if (/^einsatzportal-|^worker-login/.test(page)) continue; // eigene Suite
+    const html = fs.readFileSync(path.join(dir, page), "utf8");
+    if (!html.includes("js/i18n.js")) continue;
+    if (html.includes("TCi18n.register")) { out.push({ page, js: null }); continue; }
+    const treffer = [...html.matchAll(/js\/pages\/([a-zA-Z]+)\.js/g)].map((m) => `js/pages/${m[1]}.js`);
+    const mitDict = treffer.find((rel) => {
+      const p = path.join(dir, rel);
+      return fs.existsSync(p) && fs.readFileSync(p, "utf8").includes("TCi18n.register");
+    });
+    if (mitDict) out.push({ page, js: mitDict });
+  }
+  return out;
+}
+
+const KERNFLOW = migriertePlattformSeiten();
 
 suite("Plattform-Kernflow — zweisprachig (Woerterbuch ggf. im ausgelagerten JS)", () => {
   for (const item of KERNFLOW) {

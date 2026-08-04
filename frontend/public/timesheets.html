@@ -5,18 +5,18 @@
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <script src="/public/js/theme.js"></script>
   <script src="/public/js/i18n.js"></script>
-  <title>Einsätze & Zeiten – TempConnect</title>
+  <title data-i18n="ts.docTitle">Einsätze & Zeiten – TempConnect</title>
   <link rel="stylesheet" href="/public/css/enterprise.css"/>
   <link rel="stylesheet" href="/public/css/pages/timesheets.css"/>
 </head>
 <body>
   <!-- Paywall (401) -->
   <div id="paywall" class="wrap" style="display:none">
-    <nav class="ds-topbar"><div class="ds-topbar__brand"><span class="ds-topbar__brand-dot"></span>TempConnect</div><div class="ds-topbar__nav"><a href="/" class="ds-btn">Startseite</a></div></nav>
+    <nav class="ds-topbar"><div class="ds-topbar__brand"><span class="ds-topbar__brand-dot"></span>TempConnect</div><div class="ds-topbar__nav"><a href="/" class="ds-btn" data-i18n="ts.paywall.home">Startseite</a></div></nav>
     <div class="paywall-box">
-      <h2>Anmeldung erforderlich</h2>
-      <p>Bitte melde dich an, um Einsaetze und Stundenzettel zu verwalten.</p>
-      <a href="/" class="btn primary">Anmelden</a>
+      <h2 data-i18n="ts.paywall.title">Anmeldung erforderlich</h2>
+      <p data-i18n="ts.paywall.text">Bitte melde dich an, um Einsaetze und Stundenzettel zu verwalten.</p>
+      <a href="/" class="btn primary" data-i18n="ts.paywall.cta">Anmelden</a>
     </div>
   </div>
 
@@ -25,11 +25,11 @@
     <div id="tc-shell-lock"></div>
     <div class="locked-overlay">
       <div class="lock-icon">&#128274;</div>
-      <h2>Eins&auml;tze &amp; Zeiten</h2>
-      <p>Dieses Feature ist f&#252;r <strong>PLUS</strong> und <strong>PRO</strong> verf&#252;gbar.<br>
-      Erfasse, reiche ein und genehmige Stundenzettel f&#252;r laufende Zeitarbeitseins&#228;tze &#8211; direkt in der Plattform.</p>
-      <p style="font-size:12px;color:var(--ds-text-secondary);margin-bottom:var(--ds-space-5)">Dein aktueller Plan: <strong id="lock-current-plan">&#8211;</strong></p>
-      <a href="/public/sla_abo.html" class="btn primary" style="font-size:14px;padding:12px 28px">Jetzt upgraden &rarr;</a>
+      <h2 data-i18n="ts.lock.title">Eins&auml;tze &amp; Zeiten</h2>
+      <p><span data-i18n="ts.lock.text">Dieses Feature ist f&#252;r PLUS und PRO verf&#252;gbar.</span><br>
+      <span data-i18n="ts.lock.text2">Erfasse, reiche ein und genehmige Stundenzettel f&#252;r laufende Zeitarbeitseins&#228;tze &#8211; direkt in der Plattform.</span></p>
+      <p style="font-size:12px;color:var(--ds-text-secondary);margin-bottom:var(--ds-space-5)"><span data-i18n="ts.lock.plan">Dein aktueller Plan:</span> <strong id="lock-current-plan">&#8211;</strong></p>
+      <a href="/public/sla_abo.html" class="btn primary" style="font-size:14px;padding:12px 28px" data-i18n="ts.lock.upgrade">Jetzt upgraden &rarr;</a>
     </div>
   </div>
 
@@ -39,62 +39,62 @@
 
     <div class="ds-page-header">
       <div class="ds-page-header__content">
-        <h1 class="ds-page-title">Eins&auml;tze &amp; Zeiten</h1>
-        <p class="ds-page-subtitle">Stundenzettel f&#252;r laufende Eins&#228;tze erfassen, einreichen, freigeben und f&#252;r Folgeprozesse vorbereiten.</p>
+        <h1 class="ds-page-title" data-i18n="ts.page.title">Eins&auml;tze &amp; Zeiten</h1>
+        <p class="ds-page-subtitle" data-i18n="ts.page.subtitle">Stundenzettel f&#252;r laufende Eins&#228;tze erfassen, einreichen, freigeben und f&#252;r Folgeprozesse vorbereiten.</p>
       </div>
     </div>
 
     <div class="tc-priority-banner tc-priority-banner--pilot">
       <div class="tc-priority-banner__main">
-        <div class="tc-priority-banner__eyebrow">Pilot-Standard</div>
-        <div class="tc-priority-banner__title">Stundenzettel → Kundenfreigabe → Abrechnungsvorbereitung ist der operative Mindeststandard</div>
-        <p class="tc-priority-banner__text">Statuses, Korrekturschleifen und Freigaben muessen fuer Pilotkunden sichtbar und nachvollziehbar bleiben. Genau hier wird aus einem Deal eine belastbare operative Abwicklung.</p>
+        <div class="tc-priority-banner__eyebrow" data-i18n="ts.banner.eyebrow">Pilot-Standard</div>
+        <div class="tc-priority-banner__title" data-i18n="ts.banner.title">Stundenzettel → Kundenfreigabe → Abrechnungsvorbereitung ist der operative Mindeststandard</div>
+        <p class="tc-priority-banner__text" data-i18n="ts.banner.text">Statuses, Korrekturschleifen und Freigaben muessen fuer Pilotkunden sichtbar und nachvollziehbar bleiben. Genau hier wird aus einem Deal eine belastbare operative Abwicklung.</p>
       </div>
       <div class="tc-priority-banner__aside">
-        <div class="tc-priority-banner__aside-title">Fokus jetzt</div>
-        <div class="tc-priority-banner__aside-text">Keine verdeckten Korrekturschleifen, klare Editierbarkeit und saubere Uebergabe in Kunden- oder Abrechnungsprozesse.</div>
+        <div class="tc-priority-banner__aside-title" data-i18n="ts.banner.asideTitle">Fokus jetzt</div>
+        <div class="tc-priority-banner__aside-text" data-i18n="ts.banner.asideText">Keine verdeckten Korrekturschleifen, klare Editierbarkeit und saubere Uebergabe in Kunden- oder Abrechnungsprozesse.</div>
       </div>
     </div>
 
     <!-- Wegweiser: empfangene Stundenzettel (Käufer-Sicht, P2.2) -->
     <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;background:var(--ds-surface,#fff);border:1px solid var(--ds-border,#e2e8f0);border-left:3px solid var(--ds-brand,#4a9eff);border-radius:10px;padding:12px 16px;margin-bottom:16px">
       <div style="flex:1;min-width:220px;font-size:.86rem;line-height:1.5">
-        <strong>Sie sind das einsetzende Unternehmen?</strong> Von Ihren Zeitarbeitsfirmen gesendete Stundenzettel Ihrer eingesetzten Kräfte prüfen und bestätigen Sie im <strong>Stundenzettel-Eingang</strong> – automatisch für Ihre Organisation, ohne manuelle IDs.
+        <strong data-i18n="ts.inbox.question">Sie sind das einsetzende Unternehmen?</strong> <span data-i18n="ts.inbox.text">Von Ihren Zeitarbeitsfirmen gesendete Stundenzettel Ihrer eingesetzten Kräfte prüfen und bestätigen Sie im Stundenzettel-Eingang – automatisch für Ihre Organisation, ohne manuelle IDs.</span>
       </div>
-      <a href="/public/company-timesheets.html" class="btn primary" style="text-decoration:none;white-space:nowrap">Zum Stundenzettel-Eingang &rarr;</a>
+      <a href="/public/company-timesheets.html" class="btn primary" style="text-decoration:none;white-space:nowrap" data-i18n="ts.inbox.cta">Zum Stundenzettel-Eingang &rarr;</a>
     </div>
 
     <!-- KPI-Leiste -->
     <div class="ts-total-bar" id="kpiBar">
-      <div class="ts-kpi"><div class="ts-kpi__val" id="kpiTotal">&#8211;</div><div class="ts-kpi__label">Stundenzettel gesamt</div></div>
-      <div class="ts-kpi"><div class="ts-kpi__val" id="kpiPending" style="color:#f59e0b">&#8211;</div><div class="ts-kpi__label">Zur Freigabe</div></div>
-      <div class="ts-kpi"><div class="ts-kpi__val" id="kpiApproved" style="color:#10b981">&#8211;</div><div class="ts-kpi__label">Freigegeben</div></div>
-      <div class="ts-kpi"><div class="ts-kpi__val" id="kpiHours">&#8211;</div><div class="ts-kpi__label">Freigegebene Stunden</div></div>
+      <div class="ts-kpi"><div class="ts-kpi__val" id="kpiTotal">&#8211;</div><div class="ts-kpi__label" data-i18n="ts.kpi.total">Stundenzettel gesamt</div></div>
+      <div class="ts-kpi"><div class="ts-kpi__val" id="kpiPending" style="color:#f59e0b">&#8211;</div><div class="ts-kpi__label" data-i18n="ts.kpi.pending">Zur Freigabe</div></div>
+      <div class="ts-kpi"><div class="ts-kpi__val" id="kpiApproved" style="color:#10b981">&#8211;</div><div class="ts-kpi__label" data-i18n="ts.kpi.approved">Freigegeben</div></div>
+      <div class="ts-kpi"><div class="ts-kpi__val" id="kpiHours">&#8211;</div><div class="ts-kpi__label" data-i18n="ts.kpi.hours">Freigegebene Stunden</div></div>
     </div>
 
     <!-- Filter-Bar -->
     <div class="ts-filter-bar">
-      <label>Status
+      <label><span data-i18n="ts.filter.status">Status</span>
         <select id="filterStatus" onchange="loadTimesheets()">
-          <option value="">Alle</option>
-          <option value="draft">Entwurf</option>
-          <option value="submitted">Eingereicht</option>
-          <option value="approved">Genehmigt</option>
-          <option value="rejected">Abgelehnt</option>
-          <option value="cancelled">Storniert</option>
+          <option value="" data-i18n="ts.filter.all">Alle</option>
+          <option value="draft" data-i18n="ts.status.draft">Entwurf</option>
+          <option value="submitted" data-i18n="ts.status.submitted">Eingereicht</option>
+          <option value="approved" data-i18n="ts.status.approved">Genehmigt</option>
+          <option value="rejected" data-i18n="ts.status.rejected">Abgelehnt</option>
+          <option value="cancelled" data-i18n="ts.status.cancelled">Storniert</option>
         </select>
       </label>
-      <label>Von
+      <label><span data-i18n="ts.filter.from">Von</span>
         <input type="date" id="filterFrom" onchange="loadTimesheets()"/>
       </label>
-      <label>Bis
+      <label><span data-i18n="ts.filter.to">Bis</span>
         <input type="date" id="filterTo" onchange="loadTimesheets()"/>
       </label>
-      <label>Einsatzkraft
-        <input type="text" id="filterWorker" placeholder="Einsatzkraft suchen&#8230;" oninput="debounceLoad()"/>
+      <label><span data-i18n="ts.filter.worker">Einsatzkraft</span>
+        <input type="text" id="filterWorker" placeholder="Einsatzkraft suchen&#8230;" data-i18n-ph="ts.filter.workerPh" oninput="debounceLoad()"/>
       </label>
       <label style="justify-content:flex-end">
-        <button class="btn primary" onclick="openCreateModal()">+ Neuer Stundenzettel</button>
+        <button class="btn primary" onclick="openCreateModal()" data-i18n="ts.action.create">+ Neuer Stundenzettel</button>
       </label>
     </div>
 
@@ -104,21 +104,21 @@
         <table class="ts-table">
           <thead>
             <tr>
-              <th>Einsatzkraft</th>
-              <th>Zeitraum</th>
-              <th>Stunden</th>
-              <th>Status</th>
-              <th>Eingereicht</th>
-              <th>Aktionen</th>
+              <th data-i18n="ts.table.worker">Einsatzkraft</th>
+              <th data-i18n="ts.table.period">Zeitraum</th>
+              <th data-i18n="ts.table.hours">Stunden</th>
+              <th data-i18n="ts.table.status">Status</th>
+              <th data-i18n="ts.table.submitted">Eingereicht</th>
+              <th data-i18n="ts.table.actions">Aktionen</th>
             </tr>
           </thead>
           <tbody id="tableBody">
-            <tr><td colspan="6"><div class="empty-state"><p>Lade Stundenzettel&#8230;</p></div></td></tr>
+            <tr><td colspan="6"><div class="empty-state"><p data-i18n="ts.table.loading">Lade Stundenzettel&#8230;</p></div></td></tr>
           </tbody>
         </table>
       </div>
       <div id="loadMoreWrap" style="text-align:center;margin-top:var(--ds-space-3);display:none">
-        <button class="btn" onclick="loadMore()">Weitere laden</button>
+        <button class="btn" onclick="loadMore()" data-i18n="ts.action.loadMore">Weitere laden</button>
       </div>
     </div>
   </div>
@@ -126,45 +126,45 @@
   <!-- Modal: Neuen Stundenzettel anlegen -->
   <div class="modal-overlay" id="createModal">
     <div class="modal-box">
-      <h3>Neuer Stundenzettel</h3>
+      <h3 data-i18n="ts.create.title">Neuer Stundenzettel</h3>
       <div class="form-field">
-        <label>Einsatzkraft *</label>
-        <input type="text" id="fWorkerName" placeholder="Max Mustermann"/>
+        <label data-i18n="ts.create.worker">Einsatzkraft *</label>
+        <input type="text" id="fWorkerName" placeholder="Max Mustermann" data-i18n-ph="ts.create.workerPh"/>
       </div>
       <div class="form-field">
-        <label>Einsatzkraft-ID / Personalnummer (optional)</label>
-        <input type="text" id="fWorkerIdent" placeholder="z.B. MA-12345"/>
+        <label data-i18n="ts.create.ident">Einsatzkraft-ID / Personalnummer (optional)</label>
+        <input type="text" id="fWorkerIdent" placeholder="z.B. MA-12345" data-i18n-ph="ts.create.identPh"/>
       </div>
       <div class="form-row">
         <div class="form-field">
-          <label>Wochenbeginn *</label>
+          <label data-i18n="ts.create.weekStart">Wochenbeginn *</label>
           <input type="date" id="fWeekStart"/>
         </div>
         <div class="form-field">
-          <label>Wochenende *</label>
+          <label data-i18n="ts.create.weekEnd">Wochenende *</label>
           <input type="date" id="fWeekEnd"/>
         </div>
       </div>
       <div class="form-field">
-        <label>Org-ID (Einsatzunternehmen) *</label>
-        <input type="text" id="fOrgId" placeholder="UUID des Kundenunternehmens"/>
+        <label data-i18n="ts.create.orgId">Org-ID (Einsatzunternehmen) *</label>
+        <input type="text" id="fOrgId" placeholder="UUID des Kundenunternehmens" data-i18n-ph="ts.create.orgIdPh"/>
       </div>
       <div class="form-field">
-        <label>Lieferanten-Org-ID *</label>
-        <input type="text" id="fSupplierOrgId" placeholder="UUID der Zeitarbeitsfirma"/>
+        <label data-i18n="ts.create.supplierId">Lieferanten-Org-ID *</label>
+        <input type="text" id="fSupplierOrgId" placeholder="UUID der Zeitarbeitsfirma" data-i18n-ph="ts.create.supplierIdPh"/>
       </div>
       <div class="form-field">
-        <label>Einsatz-ID (optional)</label>
-        <input type="text" id="fAssignmentId" placeholder="UUID des Einsatzes"/>
+        <label data-i18n="ts.create.assignmentId">Einsatz-ID (optional)</label>
+        <input type="text" id="fAssignmentId" placeholder="UUID des Einsatzes" data-i18n-ph="ts.create.assignmentIdPh"/>
       </div>
       <div class="form-field">
-        <label>Notizen</label>
-        <textarea id="fNotes" rows="2" placeholder="Optionale Notizen&#8230;"></textarea>
+        <label data-i18n="ts.create.notes">Notizen</label>
+        <textarea id="fNotes" rows="2" placeholder="Optionale Notizen&#8230;" data-i18n-ph="ts.create.notesPh"></textarea>
       </div>
       <div id="createError" style="display:none;color:#ef4444;font-size:13px;margin-bottom:var(--ds-space-3)"></div>
       <div class="modal-actions">
-        <button class="btn" onclick="closeCreateModal()">Abbrechen</button>
-        <button class="btn primary" onclick="createTimesheet()">Anlegen</button>
+        <button class="btn" onclick="closeCreateModal()" data-i18n="ts.action.cancel">Abbrechen</button>
+        <button class="btn primary" onclick="createTimesheet()" data-i18n="ts.action.confirmCreate">Anlegen</button>
       </div>
     </div>
   </div>
@@ -174,7 +174,7 @@
     <div class="modal-box" style="max-width:720px">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:var(--ds-space-4)">
         <h3 style="margin:0" id="detailTitle">Stundenzettel Detail</h3>
-        <button class="btn" onclick="closeDetailModal()">&#10005;</button>
+        <button class="btn" onclick="closeDetailModal()" data-i18n-title="ts.detail.close" data-i18n-aria="ts.detail.close" title="Schließen">&#10005;</button>
       </div>
       <div id="detailMeta" style="font-size:13px;color:var(--ds-text-secondary);margin-bottom:var(--ds-space-4)"></div>
       <div id="detailStatus" style="margin-bottom:var(--ds-space-4)"></div>
@@ -182,51 +182,51 @@
       <!-- Eintraege -->
       <div id="entriesSection">
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:var(--ds-space-3)">
-          <h4 style="margin:0;font-size:14px;font-weight:700">Tageseintr&#228;ge</h4>
-          <button class="btn" id="addEntryBtn" onclick="openAddEntry()" style="font-size:12px">+ Tag hinzuf&#252;gen</button>
+          <h4 style="margin:0;font-size:14px;font-weight:700" data-i18n="ts.detail.entries">Tageseintr&#228;ge</h4>
+          <button class="btn" id="addEntryBtn" onclick="openAddEntry()" style="font-size:12px" data-i18n="ts.detail.addDay">+ Tag hinzuf&#252;gen</button>
         </div>
         <div id="entryGrid" class="entry-grid"></div>
         <!-- Eintrag-Formular (inline) -->
         <div id="entryForm" style="display:none;margin-top:var(--ds-space-3);border:1px solid var(--ds-border,var(--line));border-radius:10px;padding:var(--ds-space-4)">
-          <h4 style="margin:0 0 var(--ds-space-3);font-size:13px;font-weight:700">Tag erfassen</h4>
+          <h4 style="margin:0 0 var(--ds-space-3);font-size:13px;font-weight:700" data-i18n="ts.entry.title">Tag erfassen</h4>
           <div class="form-row">
             <div class="form-field">
-              <label>Datum *</label>
+              <label data-i18n="ts.entry.date">Datum *</label>
               <input type="date" id="eDate"/>
             </div>
             <div class="form-field">
-              <label>Regul&#228;re Std.</label>
+              <label data-i18n="ts.entry.regular">Regul&#228;re Std.</label>
               <input type="number" id="eRegular" min="0" max="24" step="0.25" value="8"/>
             </div>
           </div>
           <div class="form-row">
             <div class="form-field">
-              <label>&#220;berstunden</label>
+              <label data-i18n="ts.entry.overtime">&#220;berstunden</label>
               <input type="number" id="eOvertime" min="0" max="24" step="0.25" value="0"/>
             </div>
             <div class="form-field">
-              <label>Pause (Min)</label>
+              <label data-i18n="ts.entry.break">Pause (Min)</label>
               <input type="number" id="eBreak" min="0" value="30"/>
             </div>
           </div>
           <div class="form-row">
             <div class="form-field">
-              <label>Schichtbeginn</label>
+              <label data-i18n="ts.entry.shiftStart">Schichtbeginn</label>
               <input type="time" id="eStart"/>
             </div>
             <div class="form-field">
-              <label>Schichtende</label>
+              <label data-i18n="ts.entry.shiftEnd">Schichtende</label>
               <input type="time" id="eEnd"/>
             </div>
           </div>
           <div class="form-field">
-            <label>Notiz</label>
-            <input type="text" id="eNotes" placeholder="Optional&#8230;"/>
+            <label data-i18n="ts.entry.note">Notiz</label>
+            <input type="text" id="eNotes" placeholder="Optional&#8230;" data-i18n-ph="ts.entry.notePh"/>
           </div>
           <div id="entryError" style="display:none;color:#ef4444;font-size:12px;margin-bottom:8px"></div>
           <div style="display:flex;gap:8px;justify-content:flex-end">
-            <button class="btn" onclick="document.getElementById('entryForm').style.display='none'">Abbrechen</button>
-            <button class="btn primary" onclick="saveEntry()">Speichern</button>
+            <button class="btn" onclick="document.getElementById('entryForm').style.display='none'" data-i18n="ts.action.cancel">Abbrechen</button>
+            <button class="btn primary" onclick="saveEntry()" data-i18n="ts.action.save">Speichern</button>
           </div>
         </div>
       </div>
@@ -239,11 +239,11 @@
 
       <!-- Ablehnungsgrund -->
       <div id="rejectForm" style="display:none;margin-top:var(--ds-space-3);border:1px solid rgba(248,113,113,.3);border-radius:10px;padding:var(--ds-space-4)">
-        <label style="font-size:12px;font-weight:600;color:var(--ds-text-secondary);display:block;margin-bottom:6px">Ablehnungsgrund</label>
-        <textarea id="rejectReason" rows="2" placeholder="Bitte Grund angeben&#8230;" style="width:100%;font-size:13px;padding:8px 12px"></textarea>
+        <label style="font-size:12px;font-weight:600;color:var(--ds-text-secondary);display:block;margin-bottom:6px" data-i18n="ts.reject.label">Ablehnungsgrund</label>
+        <textarea id="rejectReason" rows="2" placeholder="Bitte Grund angeben&#8230;" data-i18n-ph="ts.reject.ph" style="width:100%;font-size:13px;padding:8px 12px"></textarea>
         <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:8px">
-          <button class="btn" onclick="document.getElementById('rejectForm').style.display='none'">Abbrechen</button>
-          <button class="btn" style="background:rgba(248,113,113,.2);color:#ef4444;border-color:rgba(248,113,113,.3)" onclick="confirmReject()">Ablehnen</button>
+          <button class="btn" onclick="document.getElementById('rejectForm').style.display='none'" data-i18n="ts.action.cancel">Abbrechen</button>
+          <button class="btn" style="background:rgba(248,113,113,.2);color:#ef4444;border-color:rgba(248,113,113,.3)" onclick="confirmReject()" data-i18n="ts.action.reject">Ablehnen</button>
         </div>
       </div>
     </div>

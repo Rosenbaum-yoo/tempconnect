@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <script src="/public/js/theme.js"></script>
   <script src="/public/js/i18n.js"></script>
-  <title>Nachfragen – TempConnect Marketplace</title>
+  <title data-i18n="dem.list.docTitle">Nachfragen – TempConnect Marketplace</title>
   <link rel="stylesheet" href="/public/css/enterprise.css"/>
   <style>
     .demand-cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(340px, 1fr)); gap: var(--ds-space-4, 16px); }
@@ -39,12 +39,12 @@
 </head>
 <body data-sla-guard="sla_access">
   <div id="paywall" class="wrap" style="display:none">
-    <nav class="ds-topbar"><div class="ds-topbar__brand"><span class="ds-topbar__brand-dot"></span>TempConnect</div><div class="ds-topbar__nav"><a href="/" class="ds-btn">Startseite</a></div></nav>
+    <nav class="ds-topbar"><div class="ds-topbar__brand"><span class="ds-topbar__brand-dot"></span>TempConnect</div><div class="ds-topbar__nav"><a href="/" class="ds-btn" data-i18n="dem.list.paywallHome">Startseite</a></div></nav>
     <div class="paywall-box">
-      <h2>Bereich nicht verfuegbar</h2>
-      <p>Der Marketplace erfordert einen PLUS- oder PRO-Plan.</p>
-      <p>Aktueller Plan: <span id="paywall-current-plan" class="paywall-plan">–</span></p>
-      <a id="paywall-cta" href="/public/sla_abo.html" class="btn primary">Abo ansehen</a>
+      <h2 data-i18n="dem.list.paywallTitle">Bereich nicht verfuegbar</h2>
+      <p data-i18n="dem.list.paywallText">Der Marketplace erfordert einen PLUS- oder PRO-Plan.</p>
+      <p><span data-i18n="dem.list.paywallPlan">Aktueller Plan:</span> <span id="paywall-current-plan" class="paywall-plan">–</span></p>
+      <a id="paywall-cta" href="/public/sla_abo.html" class="btn primary" data-i18n="dem.list.paywallCta">Abo ansehen</a>
     </div>
   </div>
 
@@ -53,36 +53,36 @@
 
     <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px;margin-bottom:16px">
       <div>
-        <h1 style="margin:0 0 4px">Meine Nachfragen</h1>
-        <p style="margin:0;color:var(--muted,#8d9bba);font-size:14px">Uebersicht Ihrer Arbeitsplatzangebote im Marketplace.</p>
+        <h1 style="margin:0 0 4px" data-i18n="dem.list.title">Meine Nachfragen</h1>
+        <p style="margin:0;color:var(--muted,#8d9bba);font-size:14px" data-i18n="dem.list.subtitle">Uebersicht Ihrer Arbeitsplatzangebote im Marketplace.</p>
       </div>
-      <a href="/public/marketplace_demand_create.html" class="btn primary">+ Neue Nachfrage</a>
+      <a href="/public/marketplace_demand_create.html" class="btn primary" data-i18n="dem.list.create">+ Neue Nachfrage</a>
     </div>
 
     <div class="stats-row" id="stats-row">
-      <div class="stat-tile"><span class="stat-tile__value" id="stat-total">–</span><span class="stat-tile__label">Gesamt</span></div>
-      <div class="stat-tile"><span class="stat-tile__value" id="stat-open" style="color:var(--ds-success)">–</span><span class="stat-tile__label">Offen</span></div>
-      <div class="stat-tile"><span class="stat-tile__value" id="stat-matched" style="color:var(--ds-brand)">–</span><span class="stat-tile__label">Gematcht</span></div>
-      <div class="stat-tile"><span class="stat-tile__value" id="stat-fulfilled" style="color:var(--ds-accent)">–</span><span class="stat-tile__label">Erfuellt</span></div>
+      <div class="stat-tile"><span class="stat-tile__value" id="stat-total">–</span><span class="stat-tile__label" data-i18n="dem.list.statTotal">Gesamt</span></div>
+      <div class="stat-tile"><span class="stat-tile__value" id="stat-open" style="color:var(--ds-success)">–</span><span class="stat-tile__label" data-i18n="dem.list.statOpen">Offen</span></div>
+      <div class="stat-tile"><span class="stat-tile__value" id="stat-matched" style="color:var(--ds-brand)">–</span><span class="stat-tile__label" data-i18n="dem.list.statMatched">Gematcht</span></div>
+      <div class="stat-tile"><span class="stat-tile__value" id="stat-fulfilled" style="color:var(--ds-accent)">–</span><span class="stat-tile__label" data-i18n="dem.list.statFulfilled">Erfuellt</span></div>
     </div>
 
     <div class="filter-bar">
       <div>
-        <label for="filter-status">Status</label>
+        <label for="filter-status" data-i18n="dem.list.filterStatus">Status</label>
         <select id="filter-status">
-          <option value="">Alle</option>
-          <option value="open">Offen</option>
-          <option value="matched">Gematcht</option>
-          <option value="fulfilled">Erfuellt</option>
-          <option value="expired">Abgelaufen</option>
+          <option value="" data-i18n="dem.list.statusAll">Alle</option>
+          <option value="open" data-i18n="dem.list.statusOpen">Offen</option>
+          <option value="matched" data-i18n="dem.list.statusMatched">Gematcht</option>
+          <option value="fulfilled" data-i18n="dem.list.statusFulfilled">Erfuellt</option>
+          <option value="expired" data-i18n="dem.list.statusExpired">Abgelaufen</option>
         </select>
       </div>
       <div>
-        <label for="filter-role">Rolle</label>
-        <input type="text" id="filter-role" placeholder="z.B. Produktionshelfer" style="min-width:180px"/>
+        <label for="filter-role" data-i18n="dem.list.filterRole">Rolle</label>
+        <input type="text" id="filter-role" placeholder="z.B. Produktionshelfer" data-i18n-ph="dem.list.ph.role" style="min-width:180px"/>
       </div>
       <div style="align-self:flex-end">
-        <button type="button" id="btn-filter" class="btn">Filtern</button>
+        <button type="button" id="btn-filter" class="btn" data-i18n="dem.list.filterApply">Filtern</button>
       </div>
     </div>
 
@@ -95,19 +95,137 @@
     </div>
 
     <div id="empty-state" style="display:none" class="empty-state">
-      <div class="empty-state__title">Noch keine Nachfragen erstellt</div>
-      <p>Erstellen Sie Ihren ersten Personalbedarf, damit TempConnect passende Anbieter fuer Sie finden kann.</p>
-      <a href="/public/marketplace_demand_create.html" class="btn primary">Erste Nachfrage erstellen</a>
+      <div class="empty-state__title" data-i18n="dem.list.emptyTitle">Noch keine Nachfragen erstellt</div>
+      <p data-i18n="dem.list.emptyText">Erstellen Sie Ihren ersten Personalbedarf, damit TempConnect passende Anbieter fuer Sie finden kann.</p>
+      <a href="/public/marketplace_demand_create.html" class="btn primary" data-i18n="dem.list.emptyCta">Erste Nachfrage erstellen</a>
     </div>
 
-    <p class="sla-disclaimer">Hinweis: TempConnect dokumentiert den Matching-Prozess (Pulse-Prozessnachweis). Es wird kein Vermittlungserfolg garantiert. Angaben ohne Gewaehr.</p>
+    <p class="sla-disclaimer" data-i18n="dem.list.disclaimer">Hinweis: TempConnect dokumentiert den Matching-Prozess (Pulse-Prozessnachweis). Es wird kein Vermittlungserfolg garantiert. Angaben ohne Gewaehr.</p>
   </div>
 
   <script src="/public/js/planFeatures.js"></script>
   <script src="/public/js/slaGuard.js"></script>
   <script>
   (function() {
+    /* i18n (P6.1): Woerterbuch dieser Seite. Topbar, Navigation und Nutzerbereich
+       uebersetzt die Plattform-Shell (pageShell.js) mit eigenen shell-Schluesseln.
+       Bewusst NICHT uebersetzt:
+       - option value= des Statusfilters (open/matched/fulfilled/expired): der Wert
+         geht als Query-Parameter an den Server
+       - Status-/Dringlichkeits-Rohwerte auf den Karten (Server-Enums) und "Pulse"
+         als Produktbegriff
+       - API-Daten (Titel, Rolle, Ort, Skill-Tags, Datumswerte)                   */
+    if (window.TCi18n) {
+      TCi18n.register('de', {
+        'dem.list.docTitle': 'Nachfragen – TempConnect Marketplace',
+        'dem.list.paywallHome': 'Startseite',
+        'dem.list.paywallTitle': 'Bereich nicht verfuegbar',
+        'dem.list.paywallText': 'Der Marketplace erfordert einen PLUS- oder PRO-Plan.',
+        'dem.list.paywallPlan': 'Aktueller Plan:',
+        'dem.list.paywallCta': 'Abo ansehen',
+        'dem.list.title': 'Meine Nachfragen',
+        'dem.list.subtitle': 'Uebersicht Ihrer Arbeitsplatzangebote im Marketplace.',
+        'dem.list.create': '+ Neue Nachfrage',
+        'dem.list.statTotal': 'Gesamt',
+        'dem.list.statOpen': 'Offen',
+        'dem.list.statMatched': 'Gematcht',
+        'dem.list.statFulfilled': 'Erfuellt',
+        'dem.list.filterStatus': 'Status',
+        'dem.list.statusAll': 'Alle',
+        'dem.list.statusOpen': 'Offen',
+        'dem.list.statusMatched': 'Gematcht',
+        'dem.list.statusFulfilled': 'Erfuellt',
+        'dem.list.statusExpired': 'Abgelaufen',
+        'dem.list.filterRole': 'Rolle',
+        'dem.list.ph.role': 'z.B. Produktionshelfer',
+        'dem.list.filterApply': 'Filtern',
+        'dem.list.emptyTitle': 'Noch keine Nachfragen erstellt',
+        'dem.list.emptyText': 'Erstellen Sie Ihren ersten Personalbedarf, damit TempConnect passende Anbieter fuer Sie finden kann.',
+        'dem.list.emptyCta': 'Erste Nachfrage erstellen',
+        'dem.list.disclaimer': 'Hinweis: TempConnect dokumentiert den Matching-Prozess (Pulse-Prozessnachweis). Es wird kein Vermittlungserfolg garantiert. Angaben ohne Gewaehr.',
+        'dem.list.countOne': '{count} Nachfrage',
+        'dem.list.countMany': '{count} Nachfragen',
+        'dem.list.cardRole': 'Rolle:',
+        'dem.list.cardCity': 'Ort:',
+        'dem.list.cardHeadcount': 'Anzahl:',
+        'dem.list.cardPeriod': 'Zeitraum:',
+        'dem.list.cardUrgency': 'Dringlichkeit:',
+        'dem.list.premiumUntil': 'Premium aktiv bis {date}',
+        'dem.list.premiumBtnTitle': 'Angebot gegen einmalige Gebuehr priorisieren',
+        'dem.list.premiumConfirmTitle': 'Premium-Anzeige aktivieren?',
+        'dem.list.premiumConfirmTitleNotdienst': 'Premium-Anzeige (Notdienst-Tarif) aktivieren?',
+        'dem.list.premiumConfirmBody': '{days} Tage priorisiert im Marktplatz fuer {price}.',
+        'dem.list.premiumConfirmBilling': 'Die Gebuehr wird Ihrer naechsten Monatsrechnung hinzugefuegt.',
+        'dem.list.premiumPrice': '{amount} EUR (einmalig, netto)',
+        'dem.list.premiumPriceFallback': 'die einmalige Gebuehr',
+        'dem.list.premiumAlready': 'Diese Anzeige ist bereits Premium.',
+        'dem.list.premiumError': 'Premium konnte nicht aktiviert werden.',
+        'dem.list.loadErrorTitle': 'Nachfragen konnten nicht geladen werden',
+        'dem.list.loadErrorText': 'Bitte Seite neu laden. Wenn das Problem bestehen bleibt, Plattform-Team kontaktieren.'
+      });
+      TCi18n.register('en', {
+        'dem.list.docTitle': 'Job postings – TempConnect Marketplace',
+        'dem.list.paywallHome': 'Home',
+        'dem.list.paywallTitle': 'Area not available',
+        'dem.list.paywallText': 'The Marketplace requires a PLUS or PRO plan.',
+        'dem.list.paywallPlan': 'Current plan:',
+        'dem.list.paywallCta': 'View subscription',
+        'dem.list.title': 'My job postings',
+        'dem.list.subtitle': 'Overview of your job postings in the Marketplace.',
+        'dem.list.create': '+ New job posting',
+        'dem.list.statTotal': 'Total',
+        'dem.list.statOpen': 'Open',
+        'dem.list.statMatched': 'Matched',
+        'dem.list.statFulfilled': 'Fulfilled',
+        'dem.list.filterStatus': 'Status',
+        'dem.list.statusAll': 'All',
+        'dem.list.statusOpen': 'Open',
+        'dem.list.statusMatched': 'Matched',
+        'dem.list.statusFulfilled': 'Fulfilled',
+        'dem.list.statusExpired': 'Expired',
+        'dem.list.filterRole': 'Role',
+        'dem.list.ph.role': 'e.g. production assistant',
+        'dem.list.filterApply': 'Apply filters',
+        'dem.list.emptyTitle': 'No job postings yet',
+        'dem.list.emptyText': 'Create your first staffing need so TempConnect can find matching providers for you.',
+        'dem.list.emptyCta': 'Create the first job posting',
+        'dem.list.disclaimer': 'Note: TempConnect documents the matching process (Pulse process record). No matching success is guaranteed. All information without warranty.',
+        'dem.list.countOne': '{count} job posting',
+        'dem.list.countMany': '{count} job postings',
+        'dem.list.cardRole': 'Role:',
+        'dem.list.cardCity': 'Location:',
+        'dem.list.cardHeadcount': 'Headcount:',
+        'dem.list.cardPeriod': 'Period:',
+        'dem.list.cardUrgency': 'Urgency:',
+        'dem.list.premiumUntil': 'Premium active until {date}',
+        'dem.list.premiumBtnTitle': 'Prioritise this posting for a one-off fee',
+        'dem.list.premiumConfirmTitle': 'Activate premium listing?',
+        'dem.list.premiumConfirmTitleNotdienst': 'Activate premium listing (emergency-cover rate)?',
+        'dem.list.premiumConfirmBody': '{days} days prioritised in the marketplace for {price}.',
+        'dem.list.premiumConfirmBilling': 'The fee will be added to your next monthly invoice.',
+        'dem.list.premiumPrice': '{amount} EUR (one-off, net)',
+        'dem.list.premiumPriceFallback': 'the one-off fee',
+        'dem.list.premiumAlready': 'This listing is already premium.',
+        'dem.list.premiumError': 'Premium could not be activated.',
+        'dem.list.loadErrorTitle': 'Job postings could not be loaded',
+        'dem.list.loadErrorText': 'Please reload the page. If the problem persists, contact the platform team.'
+      });
+    }
+
+    /** Uebersetzung mit hart kodiertem DE-Notnagel: laedt i18n.js einmal nicht,
+     *  bleiben Karten und Dialoge bedienbar statt leer. */
+    function t(key, fallbackDe, params) {
+      var v = window.TCi18n ? TCi18n.t(key, params) : '';
+      return v || fallbackDe;
+    }
+    function numberLocale() {
+      return window.TCi18n ? TCi18n.dateLocale() : 'de-DE';
+    }
+
     var FILTER_STORAGE_KEY = "tc.marketplaceDemand.filters.v1";
+    /* Zuletzt gerenderte Liste: beim Sprachwechsel werden die per innerHTML
+       gebauten Karten daraus neu aufgebaut — ohne erneuten Netzabruf. */
+    var lastDemands = null;
     function esc(s) { return s == null ? "" : String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;"); }
     function fmtDate(d) { return d ? String(d).substring(0,10) : "–"; }
     function readStoredFilters() {
@@ -146,6 +264,7 @@
     function renderCards(demands) {
       var el = document.getElementById("demand-list");
       var emptyEl = document.getElementById("empty-state");
+      lastDemands = demands || [];
 
       if (!demands || demands.length === 0) {
         el.style.display = "none";
@@ -154,6 +273,13 @@
       }
       el.style.display = "grid";
       emptyEl.style.display = "none";
+
+      var labelRole = esc(t('dem.list.cardRole', 'Rolle:'));
+      var labelCity = esc(t('dem.list.cardCity', 'Ort:'));
+      var labelHeadcount = esc(t('dem.list.cardHeadcount', 'Anzahl:'));
+      var labelPeriod = esc(t('dem.list.cardPeriod', 'Zeitraum:'));
+      var labelUrgency = esc(t('dem.list.cardUrgency', 'Dringlichkeit:'));
+      var premiumBtnTitle = esc(t('dem.list.premiumBtnTitle', 'Angebot gegen einmalige Gebuehr priorisieren'));
 
       var html = "";
       demands.forEach(function(d) {
@@ -170,24 +296,25 @@
         html += slaHtml;
         var isFeatured = d.featured_until && new Date(d.featured_until) > new Date();
         if (isFeatured) {
-          html += ' <span style="font-size:10px;font-weight:800;padding:2px 8px;border-radius:999px;background:var(--ds-warning,#f59e0b);color:#1a1205" title="Premium aktiv bis ' + esc(String(d.featured_until).slice(0, 10)) + '">PREMIUM</span>';
+          html += ' <span style="font-size:10px;font-weight:800;padding:2px 8px;border-radius:999px;background:var(--ds-warning,#f59e0b);color:#1a1205" title="' +
+            esc(t('dem.list.premiumUntil', 'Premium aktiv bis {date}', { date: String(d.featured_until).slice(0, 10) })) + '">PREMIUM</span>';
         } else if (status === "open") {
-          html += ' <button class="ds-btn ds-btn--sm" data-premium-id="' + esc(d.id) + '" data-urgency="' + esc(d.urgency || "") + '" style="border-color:var(--ds-warning,#f59e0b);color:var(--ds-warning,#f59e0b);font-weight:700;font-size:11px;padding:2px 8px" title="Angebot gegen einmalige Gebuehr priorisieren">Premium</button>';
+          html += ' <button class="ds-btn ds-btn--sm" data-premium-id="' + esc(d.id) + '" data-urgency="' + esc(d.urgency || "") + '" style="border-color:var(--ds-warning,#f59e0b);color:var(--ds-warning,#f59e0b);font-weight:700;font-size:11px;padding:2px 8px" title="' + premiumBtnTitle + '">Premium</button>';
         }
         html += '</div>';
         html += '<div class="demand-card__meta">';
-        html += '<span>Rolle: <b>' + esc(d.role || "–") + '</b></span>';
-        html += '<span>Ort: <b>' + esc(d.location_city || "–") + '</b></span>';
-        html += '<span>Anzahl: <b>' + (d.headcount || 1) + '</b></span>';
+        html += '<span>' + labelRole + ' <b>' + esc(d.role || "–") + '</b></span>';
+        html += '<span>' + labelCity + ' <b>' + esc(d.location_city || "–") + '</b></span>';
+        html += '<span>' + labelHeadcount + ' <b>' + esc(d.headcount || 1) + '</b></span>';
         html += '</div>';
         html += '<div class="demand-card__meta">';
-        html += '<span>Zeitraum: ' + fmtDate(d.start_date) + ' – ' + fmtDate(d.end_date) + '</span>';
-        html += '<span>Dringlichkeit: ' + esc((d.urgency || "normal").toUpperCase()) + '</span>';
+        html += '<span>' + labelPeriod + ' ' + esc(fmtDate(d.start_date)) + ' – ' + esc(fmtDate(d.end_date)) + '</span>';
+        html += '<span>' + labelUrgency + ' ' + esc((d.urgency || "normal").toUpperCase()) + '</span>';
         html += '</div>';
 
         if (d.skill_tags && d.skill_tags.length) {
           html += '<div class="demand-card__tags">';
-          d.skill_tags.forEach(function(t) { html += '<span class="demand-card__tag">' + esc(t) + '</span>'; });
+          d.skill_tags.forEach(function(tag) { html += '<span class="demand-card__tag">' + esc(tag) + '</span>'; });
           html += '</div>';
         }
         html += '</div>';
@@ -222,10 +349,18 @@
           // muss denselben Preis nennen, den das Backend berechnet (Transparenz).
           var isNotdienst = btn.getAttribute("data-urgency") === "notdienst";
           var cents = isNotdienst && p.notdienst_price_cents != null ? p.notdienst_price_cents : p.price_cents;
-          var label = cents != null ? (cents / 100).toFixed(2).replace(".", ",") + " EUR (einmalig, netto)" : "die einmalige Gebuehr";
+          var label = cents != null
+            ? t('dem.list.premiumPrice', '{amount} EUR (einmalig, netto)', {
+                amount: (cents / 100).toLocaleString(numberLocale(), { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+              })
+            : t('dem.list.premiumPriceFallback', 'die einmalige Gebuehr');
           var days = p.duration_days || 14;
-          var titel = isNotdienst ? "Premium-Anzeige (Notdienst-Tarif) aktivieren?" : "Premium-Anzeige aktivieren?";
-          if (!confirm(titel + "\n\n" + days + " Tage priorisiert im Marktplatz fuer " + label + ".\nDie Gebuehr wird Ihrer naechsten Monatsrechnung hinzugefuegt.")) return;
+          var titel = isNotdienst
+            ? t('dem.list.premiumConfirmTitleNotdienst', 'Premium-Anzeige (Notdienst-Tarif) aktivieren?')
+            : t('dem.list.premiumConfirmTitle', 'Premium-Anzeige aktivieren?');
+          var body = t('dem.list.premiumConfirmBody', '{days} Tage priorisiert im Marktplatz fuer {price}.', { days: days, price: label }) +
+            "\n" + t('dem.list.premiumConfirmBilling', 'Die Gebuehr wird Ihrer naechsten Monatsrechnung hinzugefuegt.');
+          if (!confirm(titel + "\n\n" + body)) return;
           btn.disabled = true;
           getCsrf().then(function(csrf) {
             return fetch("/api/marketplace/premium/feature", {
@@ -235,13 +370,16 @@
             });
           }).then(function(r) {
             if (!r.ok) return r.json().then(function(d) {
-              throw new Error(d.error === "ALREADY_FEATURED" ? "Diese Anzeige ist bereits Premium." : (d.error || "Fehler"));
+              // d.error ist ein Server-Code und bleibt roh — nur den bekannten Fall uebersetzen.
+              throw new Error(d.error === "ALREADY_FEATURED"
+                ? t('dem.list.premiumAlready', 'Diese Anzeige ist bereits Premium.')
+                : (d.error || ""));
             });
             return r.json();
           }).then(function() {
             loadDemands(false);
           }).catch(function(e) {
-            alert(e.message || "Premium konnte nicht aktiviert werden.");
+            alert(e.message || t('dem.list.premiumError', 'Premium konnte nicht aktiviert werden.'));
             btn.disabled = false;
           });
         });
@@ -286,14 +424,36 @@
           });
         }
 
-        document.getElementById("result-count").textContent = demands.length ? demands.length + " Nachfrage" + (demands.length === 1 ? "" : "n") : "";
+        setResultCount(demands.length);
         renderCards(demands);
       })
       .catch(function(err) {
         console.error("[demand-list] Ladefehler:", err);
-        document.getElementById("demand-list").innerHTML = '<div class="page-state page-state--bad"><div class="page-state__title">Nachfragen konnten nicht geladen werden</div><div class="page-state__text">Bitte Seite neu laden. Wenn das Problem bestehen bleibt, Plattform-Team kontaktieren.</div></div>';
+        lastDemands = null;
+        document.getElementById("demand-list").innerHTML = '<div class="page-state page-state--bad"><div class="page-state__title">' +
+          esc(t('dem.list.loadErrorTitle', 'Nachfragen konnten nicht geladen werden')) + '</div><div class="page-state__text">' +
+          esc(t('dem.list.loadErrorText', 'Bitte Seite neu laden. Wenn das Problem bestehen bleibt, Plattform-Team kontaktieren.')) + '</div></div>';
       });
     }
+
+    /** Trefferzahl mit korrekter Ein-/Mehrzahl in beiden Sprachen. */
+    function setResultCount(count) {
+      var el = document.getElementById("result-count");
+      if (!el) return;
+      if (!count) { el.textContent = ""; return; }
+      el.textContent = count === 1
+        ? t('dem.list.countOne', '{count} Nachfrage', { count: count })
+        : t('dem.list.countMany', '{count} Nachfragen', { count: count });
+    }
+
+    /* Sprachwechsel: die per innerHTML gebauten Karten und die Trefferzahl traegt
+       die deklarative Hydration nicht mit — sie werden hier aus dem letzten
+       Ergebnis neu aufgebaut, ohne den Server erneut zu fragen. */
+    document.addEventListener("tc:langchange", function() {
+      if (!lastDemands) return;
+      setResultCount(lastDemands.length);
+      renderCards(lastDemands);
+    });
 
     // Filter
     document.getElementById("btn-filter").addEventListener("click", function() { loadDemands(true); });

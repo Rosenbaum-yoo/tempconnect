@@ -1,5 +1,1614 @@
 "use strict";
 
+/* ── Woerterbuch (P6.1, DE/EN) ─────────────────────────────────────────────
+   worker-submissions-review.html laedt i18n.js im head; dieses Modul laeuft
+   ausschliesslich auf dieser Seite, TCi18n ist hier also garantiert da.
+
+   Bewusst NICHT uebersetzt:
+   - Status-Rohwerte (submitted, approved_internal, sent_to_customer, ...) und
+     alle Fehler-Codes der API: das sind Server-Enums, keine Anzeigetexte.
+   - Namen, Kunden, Orte, Notizen, Personalnummern: reine API-Datenwerte.
+   - Topbar/Navigation: kommt aus pageShell.js.
+
+   Drei-Seiten-Regel: Diese Flaeche traegt zwei Rollen. Die Agentur sieht den
+   operativen Einsatzleitstand, das Unternehmen eine lesende Einsatzverfolgung
+   (Company-Soft-Lock in initializePage). Deshalb fuehren wir fuer die
+   Unternehmenssicht EIGENE Schluessel (ts.rev.company.*) statt einen
+   Rollenbegriff als festen Wert einzufrieren.
+   Begriffswelt EN: Einsatz = assignment, Stundenzettel = timesheet,
+   Arbeitsplatzangebot = job posting, Deal = deal.                            */
+TCi18n.register('de', {
+  'ts.rev.docTitle': 'Einsätze & Zeiten – TempConnect',
+  'ts.rev.page.title': 'Einsätze & Zeiten',
+  'ts.rev.page.subtitle': 'Einsatzkräfte, Stundenzettel, Kundenfreigaben und Nachweise – im Pilotkern zentral steuern.',
+
+  'ts.rev.company.subtitle': 'Einsatzstatus, Zeitfreigaben und Abrechnungsstand Ihres Personaldienstleisters – lesend über Deals und Activity.',
+  'ts.rev.company.lockTitle': 'Einsatzverfolgung (Unternehmenssicht)',
+  'ts.rev.company.lockText': 'Dieser Arbeitsplatz ist der operative Einsatzleitstand Ihres Personaldienstleisters. Einsatzstatus, Zeitfreigaben und Abrechnungsstand sehen Sie als Unternehmen lesend über Deals und Activity.',
+
+  'ts.rev.banner.eyebrow': 'Pilot-Standard',
+  'ts.rev.banner.title': 'Besetzung, Kundenversand und Freigaben müssen hier reibungsfrei sitzen',
+  'ts.rev.banner.text': 'Dieser Bereich trägt die operative Reife nach dem Dealabschluss: Worker-Zuweisung, laufender Einsatz, Stundenzettel-Freigabe und der sichtbare nächste Schritt für Buyer und Supplier.',
+  'ts.rev.banner.asideTitle': 'Fokus jetzt',
+  'ts.rev.banner.asideText': 'Offene Einreichungen, Kundenfreigaben und Besetzungsstatus zuerst glattziehen; Begleit- und Dokumententhemen bleiben nachrangig.',
+
+  'ts.rev.onboarding.title': 'Plattform einrichten',
+  'ts.rev.onboarding.toggle': 'Auf-/Zuklappen',
+  'ts.rev.onboarding.dismiss': 'Ausblenden',
+
+  'ts.rev.hub.current.title': 'Einsätze & Zeiten',
+  'ts.rev.hub.current.desc': 'Sie befinden sich im operativen Einsatz- und Zeitbereich.',
+  'ts.rev.hub.subs.title': 'Stundenzettel & Freigaben',
+  'ts.rev.hub.subs.desc': 'Einreichungen prüfen, an Kunden senden und Freigaben sauber steuern.',
+  'ts.rev.hub.workers.title': 'Einsatzkräfte',
+  'ts.rev.hub.workers.desc': 'Einsatzkräfte, Einladungen und operative Stammdaten pflegen.',
+  'ts.rev.hub.approvals.title': 'Freigabe-Queue',
+  'ts.rev.hub.approvals.desc': 'Ausstehende Genehmigungen über Einsätze, Zeiten und Nachweise hinweg.',
+  'ts.rev.hub.timesheets.title': 'Stundenzettel',
+  'ts.rev.hub.timesheets.desc': 'Zeiterfassung, Freigabe und Abrechnungsgrundlage im Detail.',
+  'ts.rev.hub.docs.title': 'Nachweise & Dokumente',
+  'ts.rev.hub.docs.desc': 'Dokumente, Zertifikate und Nachweise einsatznah verwalten.',
+
+  'ts.rev.tab.subs': 'Stundenzettel-Freigaben',
+  'ts.rev.tab.workers': 'Einsatzkräfte',
+  'ts.rev.tab.asgn': 'Einsätze',
+
+  'ts.rev.cust.title': 'Kundenversand Stundenzettel',
+  'ts.rev.cust.subtitle': 'Status aller Kundenversand-Vorgänge auf einen Blick',
+  'ts.rev.cust.ready': 'Versandbereit',
+  'ts.rev.cust.sent': 'Gesendet',
+  'ts.rev.cust.open': 'Beim Kunden',
+  'ts.rev.cust.confirmed': 'Bestätigt',
+  'ts.rev.cust.rejected': 'Abgelehnt',
+  'ts.rev.cust.posted': 'Abrechnung',
+  'ts.rev.cust.openSent': 'Gesendete Bundles öffnen',
+  'ts.rev.cust.filterAtCustomer': 'Beim Kunden filtern',
+  'ts.rev.cust.showRejections': 'Ablehnungen zeigen',
+  'ts.rev.cust.btnReady': '{n} versandbereite Positionen anzeigen',
+  'ts.rev.cust.btnReadyNone': 'Versandbereite Positionen anzeigen',
+  'ts.rev.cust.badgeAction': 'Handlungsbedarf',
+  'ts.rev.cust.badgeReady': '{n} versandbereit',
+  'ts.rev.cust.badgeOpen': '{n} offen beim Kunden',
+  'ts.rev.cust.badgeAllPosted': 'Alles abgerechnet',
+  'ts.rev.cust.badgeFlow': 'Kundenflow',
+  'ts.rev.cust.hintRejected': '{n} Stundenzettel wurden vom Kunden abgelehnt. Bitte prüfen und korrigieren.',
+  'ts.rev.cust.hintReady': '{n} intern freigegebene Positionen sind bereit für den Kundenversand.',
+  'ts.rev.cust.hintOpen': '{n} Positionen warten auf Kundenrückmeldung.',
+  'ts.rev.cust.hintDone': 'Alle Positionen sind bestätigt oder in Abrechnung. Kein Handlungsbedarf.',
+
+  'ts.rev.bundle.prepare': 'Sammelversand vorbereiten',
+  'ts.rev.bundle.week': 'Woche',
+  'ts.rev.bundle.month': 'Monat',
+  'ts.rev.bundle.internalOnly': 'Nur intern freigegeben',
+  'ts.rev.bundle.sentTitle': 'Gesendete Bundles',
+  'ts.rev.bundle.flowPill': 'Kundenflow',
+  'ts.rev.bundle.emptyPreview': 'Keine freigegebenen Positionen für Sammelversand.',
+  'ts.rev.bundle.emptySent': 'Noch kein Sammelversand durchgeführt.',
+  'ts.rev.bundle.clientFallback': 'Kunde',
+  'ts.rev.bundle.positions': '{n} Positionen',
+  'ts.rev.bundle.rangeTo': 'bis',
+  'ts.rev.bundle.send': 'Sammelversand',
+  'ts.rev.bundle.preview': 'Vorschau',
+  'ts.rev.bundle.details': 'Details',
+  'ts.rev.bundle.post': 'In Abrechnung',
+  'ts.rev.bundle.counts': 'Pos.: {items} · Bestätigt: {confirmed} · Abgerechnet: {posted}',
+  'ts.rev.bundle.progressSent': 'Gesendet {a}/{b}',
+  'ts.rev.bundle.progressConfirmed': 'Bestätigt {a}/{b}',
+  'ts.rev.bundle.previewToast': 'Vorschau: {n} Positionen bereit für {period}',
+  'ts.rev.bundle.notFound': 'Bundle nicht gefunden',
+  'ts.rev.bundle.postFailed': 'Bundle konnte nicht gebucht werden',
+  'ts.rev.bundle.postDone': 'Bundle in Abrechnung überführt ({n})',
+  'ts.rev.bundle.used': 'Für Abrechnung verwendet',
+  'ts.rev.bundle.stillOpen': 'Noch offen',
+  'ts.rev.bundle.open': 'Öffnen',
+  'ts.rev.bundle.searchPh': 'Filter Mitarbeiter/Kunde/Status…',
+  'ts.rev.bundle.sortHoursDesc': 'Stunden hoch→niedrig',
+  'ts.rev.bundle.sortHoursAsc': 'Stunden niedrig→hoch',
+  'ts.rev.bundle.sortStatus': 'Status',
+  'ts.rev.bundle.colWorker': 'Mitarbeiter',
+  'ts.rev.bundle.colClient': 'Kunde',
+  'ts.rev.bundle.colPeriod': 'Zeitraum',
+  'ts.rev.bundle.colHours': 'Stunden',
+  'ts.rev.bundle.colStatus': 'Status',
+  'ts.rev.bundle.colBilling': 'Abrechnung',
+  'ts.rev.bundle.colAction': 'Aktion',
+  'ts.rev.bundle.statusSent': 'Gesendet',
+  'ts.rev.bundle.statusConfirmed': 'Bestätigt',
+  'ts.rev.bundle.statusRejected': 'Abgelehnt',
+
+  'ts.rev.bundleDrw.title': 'Bundle-Details',
+  'ts.rev.bundleDrw.subtitle': 'Status und Abrechnungsmarker pro Position',
+
+  'ts.rev.kpi.submitted': 'Eingereicht',
+  'ts.rev.kpi.inReview': 'In Prüfung',
+  'ts.rev.kpi.needsCorrection': 'Korrektur nötig',
+  'ts.rev.kpi.approvedInternal': 'Intern geprüft',
+  'ts.rev.kpi.atCustomer': 'Beim Kunden',
+  'ts.rev.kpi.confirmed': 'Bestätigt',
+  'ts.rev.kpi.custRejected': 'Kd. abgelehnt',
+  'ts.rev.kpi.posted': 'In Abrechnung',
+
+  'ts.rev.filter.pending': 'Ausstehend',
+  'ts.rev.filter.underReview': 'In Prüfung',
+  'ts.rev.filter.correction': 'Korrektur',
+  'ts.rev.filter.internal': 'Intern geprüft',
+  'ts.rev.filter.atCustomer': 'Beim Kunden',
+  'ts.rev.filter.confirmed': 'Bestätigt',
+  'ts.rev.filter.rejected': 'Abgelehnt',
+  'ts.rev.filter.posted': 'Abrechnung',
+  'ts.rev.filter.all': 'Alle',
+
+  'ts.rev.detail.emptyTitle': 'Einreichung auswählen',
+  'ts.rev.detail.emptyText': 'Wählen Sie links eine Einreichung aus, um Details und Aktionen anzuzeigen.',
+  'ts.rev.detail.loadError': 'Fehler beim Laden:',
+  'ts.rev.detail.colDay': 'Tag',
+  'ts.rev.detail.colDate': 'Datum',
+  'ts.rev.detail.colRegular': 'Reg.',
+  'ts.rev.detail.colOvertime': 'Überstd.',
+  'ts.rev.detail.colBreak': 'Pause',
+  'ts.rev.detail.colFrom': 'Von',
+  'ts.rev.detail.colTo': 'Bis',
+  'ts.rev.detail.entries': 'Tageseinträge',
+  'ts.rev.detail.assignmentAt': 'Einsatz bei:',
+  'ts.rev.detail.overtime': 'Überstunden',
+  'ts.rev.detail.checkedInternal': 'Int. geprüft',
+  'ts.rev.detail.workerComment': 'Arbeitnehmer:',
+  'ts.rev.detail.reviewNote': 'Prüfhinweis:',
+  'ts.rev.detail.posted': 'Stundenzettel gebucht',
+  'ts.rev.detail.postedLink': 'In Stundenzettel-Verwaltung',
+  'ts.rev.detail.breakMinutes': 'min Pause',
+  'ts.rev.detail.hoursPerWeek': 'h/Woche',
+
+  'ts.rev.detail.customerNotified': 'Kunde per E-Mail benachrichtigt',
+  'ts.rev.detail.customerNotifiedTo': 'an',
+  'ts.rev.detail.customerNoMail': 'Keine Kundenkontakt-E-Mail hinterlegt – Kunde wurde nicht per E-Mail benachrichtigt.',
+  'ts.rev.detail.customerRejectedAt': 'Abgelehnt:',
+
+  'ts.rev.act.startReview': 'Prüfung starten',
+  'ts.rev.act.correction': 'Korrektur',
+  'ts.rev.act.correctionPh': 'Was soll der Mitarbeiter korrigieren?',
+  'ts.rev.act.requestCorrection': 'Korrektur anfordern',
+  'ts.rev.act.rejectPh': 'Warum wird abgelehnt?',
+  'ts.rev.act.sendToCustomer': 'An Kunden senden',
+  'ts.rev.act.noteOptional': 'Notiz (optional)',
+  'ts.rev.act.internalNotePh': 'Interne Notiz…',
+  'ts.rev.act.send': 'Senden',
+  'ts.rev.act.customerConfirmed': 'Kunde hat bestätigt',
+  'ts.rev.act.customerRejected': 'Kunde hat abgelehnt',
+  'ts.rev.act.confirmedBy': 'Bestätigt durch',
+  'ts.rev.act.recordConfirmation': 'Bestätigung erfassen',
+  'ts.rev.act.reasonOrNote': 'Grund / Notiz',
+  'ts.rev.act.customerRejectPh': 'Warum hat der Kunde abgelehnt?',
+  'ts.rev.act.backToReview': 'Zurück zur Prüfung',
+  'ts.rev.act.needCorrectionNote': 'Bitte Korrekturhinweis eingeben',
+  'ts.rev.act.doneReview': 'Prüfung gestartet',
+  'ts.rev.act.doneApprove': 'Intern genehmigt',
+  'ts.rev.act.doneCorrection': 'Korrektur angefordert',
+  'ts.rev.act.doneReject': 'Abgelehnt',
+  'ts.rev.act.sentAndMailed': 'An Kunden gesendet und per E-Mail benachrichtigt',
+  'ts.rev.act.sentNoMail': 'An Kunden gesendet (keine E-Mail-Adresse hinterlegt)',
+  'ts.rev.act.confirmationSaved': 'Kundenbestätigung erfasst',
+
+  'ts.rev.subs.emptyTitle': 'Alles erledigt',
+  'ts.rev.subs.emptyText': 'Keine Einreichungen in dieser Kategorie.',
+  'ts.rev.subs.noAccessTitle': tt('ts.rev.subs.noAccessTitle'),
+  'ts.rev.subs.partialTitle': 'Teilansicht aktiv.',
+  'ts.rev.subs.partialAccessText': 'Einzelne Kundenflow-Elemente sind für Ihren aktuellen Zugriff nicht verfügbar.',
+  'ts.rev.subs.partialLoadText': 'Einzelne Zusatzbereiche konnten nicht geladen werden. Die Freigabenliste bleibt nutzbar.',
+  'ts.rev.subs.loadFailTitle': 'Stundenzettel & Freigaben konnten nicht geladen werden.',
+
+  'ts.rev.next.submitted': 'Prüfen & freigeben',
+  'ts.rev.next.underReview': 'Freigeben oder Korrektur anfordern',
+  'ts.rev.next.needsCorrection': 'Wartet auf Korrektur des Mitarbeiters',
+  'ts.rev.next.approvedInternal': 'Bereit – an Kunde senden',
+  'ts.rev.next.sentToCustomer': 'Beim Kunden – Bestätigung ausstehend',
+  'ts.rev.next.customerConfirmed': 'Bestätigt – für Abrechnung verwenden',
+  'ts.rev.next.customerRejected': 'Vom Kunden abgelehnt – klären',
+
+  'ts.rev.notice.partialAccess': tt('ts.rev.notice.partialAccess'),
+  'ts.rev.notice.wrksManageText': 'Einladungen, Aktivierungen und Pflegeaktionen sind für Ihre aktuelle Rolle nicht freigeschaltet.',
+  'ts.rev.notice.wrksManageShort': 'Einladungen und Pflegeaktionen sind für Ihre aktuelle Rolle nicht freigeschaltet.',
+  'ts.rev.notice.asgnEditText': 'Sie können Einsatzkonfigurationen sehen, aber Staffing- und Zuweisungsaktionen sind für Ihre aktuelle Rolle nicht freigeschaltet.',
+  'ts.rev.notice.retryLater': 'Bitte später erneut versuchen.',
+  'ts.rev.notice.noOrgAccess': 'Der Bereich ist für Ihren aktuellen Organisationskontext nicht freigeschaltet.',
+
+  'ts.rev.access.deniedTitle': 'Kein Zugriff',
+  'ts.rev.access.initFailTitle': 'Seite konnte nicht initialisiert werden',
+  'ts.rev.access.initFailText': 'Der aktuelle Zugriffs- und Organisationskontext ist derzeit nicht verfügbar.',
+  'ts.rev.access.noAreaTitle': 'Kein Zugriff auf diesen Bereich',
+  'ts.rev.access.noAreaText': 'Für Ihren aktuellen Organisationskontext sind hier keine operativen Bereiche freigeschaltet.',
+
+  'ts.rev.fastTrack.openedTitle': 'Staffing-Fast-Track geöffnet.',
+  'ts.rev.fastTrack.openedText': 'Der Deal verweist direkt auf die Einsatzbesetzung, aber Ihre aktuelle Rolle darf keine Staffing-Aktionen ausführen.',
+  'ts.rev.fastTrack.activeTitle': 'Staffing-Fast-Track aktiv.',
+  'ts.rev.fastTrack.activeText': '{open} offene Plätze sind direkt geladen. Sichere Direktzuweisung, Anfrage und manuelle Zuweisung laufen auf derselben Einsatzkarte weiter.',
+  'ts.rev.fastTrack.filledTitle': 'Deal-Einsatz bereits vollständig besetzt.',
+  'ts.rev.fastTrack.filledText': 'Die Schnellroute hat keine offenen Plätze mehr. Bestehende Links und Verlauf bleiben weiter über diese Seite sichtbar.',
+  'ts.rev.fastTrack.closedTitle': 'Deal-Einsatz nicht mehr offen.',
+  'ts.rev.fastTrack.closedText': 'Der direkte Staffing-Einstieg wurde aufgerufen, aber dieser Einsatz taucht nicht mehr in den offenen Deal-Einsätzen auf.',
+  'ts.rev.fastTrack.openedFromDeal': 'Direkt aus dem staffing-bereiten Deal geöffnet.',
+
+  'ts.rev.perm.generic': 'Keine Berechtigung für diese Aktion',
+  'ts.rev.perm.staffingDetails': 'Sie können Einsätze sehen, aber keine Staffing-Details öffnen.',
+  'ts.rev.perm.staffingFilter': 'Sie können Staffing-Vorschläge nicht filtern.',
+  'ts.rev.perm.staffingRefresh': 'Sie können Einsätze sehen, aber keine Staffing-Details aktualisieren.',
+  'ts.rev.perm.staffingActions': 'Sie können Einsätze sehen, aber keine Staffing- oder Zuweisungsaktionen ausführen.',
+  'ts.rev.perm.workerActivate': 'Sie können Einsatzkräfte sehen, aber nicht aktivieren oder deaktivieren.',
+  'ts.rev.perm.workerInvites': 'Sie können Einladungen für Einsatzkräfte nicht verwalten.',
+  'ts.rev.perm.workerInviteSend': 'Sie können Einsatzkräfte sehen, aber keine Einladungen versenden.',
+  'ts.rev.perm.workerCreate': 'Sie können Einsatzkräfte nicht neu anlegen.',
+  'ts.rev.perm.directAssign': 'Sie können keine direkte Einsatzzuweisung aus dem Worker-Bereich ausführen.',
+  'ts.rev.perm.choiceSet': 'Sie können keine Auswahlphase für Worker anlegen.',
+  'ts.rev.perm.choiceFinal': 'Sie können keine finale Zuweisung aus einer Auswahlphase auslösen.',
+  'ts.rev.perm.quickAssign': 'Sie können keine sichere Direktzuweisung ausführen.',
+  'ts.rev.perm.staffingRequest': 'Sie können keine Staffing-Anfragen versenden.',
+  'ts.rev.perm.waitlist': 'Sie können keine Worker auf die Waitlist setzen.',
+  'ts.rev.perm.waitlistWave': 'Sie können keine weitere Waitlist-Welle auslösen.',
+  'ts.rev.perm.dealAssign': 'Sie können Deal-Einsätze nicht zuweisen.',
+  'ts.rev.perm.lnkEdit': 'Sie können Einsatzkonfigurationen sehen, aber nicht bearbeiten.',
+  'ts.rev.perm.lnkSave': 'Sie können Einsatzkonfigurationen nicht speichern.',
+  'ts.rev.perm.lnkRole': 'Einsatzverknüpfungen sind für Ihre aktuelle Rolle nicht freigeschaltet.',
+  'ts.rev.perm.cardRole': 'Die Einsatzkarte ist für Ihre aktuelle Rolle nicht freigeschaltet.',
+  'ts.rev.perm.complaint': 'Sie können Meldungen sehen, aber nicht bearbeiten.',
+  'ts.rev.perm.replacement': 'Sie können keinen Ersatz zuweisen.',
+  'ts.rev.perm.planBlock': 'Sie können keine Einsätze planen.',
+  'ts.rev.perm.staffingRoleShort': 'Staffing- und Zuweisungsaktionen sind für Ihre aktuelle Rolle nicht freigeschaltet.',
+
+  'ts.rev.msg.error': 'Fehler',
+  'ts.rev.msg.filterLoadFailed': 'Filter konnte nicht geladen werden',
+  'ts.rev.msg.saveFailed': 'Konnte nicht gespeichert werden:',
+  'ts.rev.msg.assignError': 'Fehler bei Zuweisung',
+  'ts.rev.msg.saveError': 'Fehler beim Speichern',
+
+  'ts.rev.staffing.loadingDetails': 'Lade Staffing-Details…',
+  'ts.rev.staffing.loadFailed': 'Laden fehlgeschlagen',
+  'ts.rev.staffing.loadingContext': 'Lade Einsatz-, Konflikt- und Staffing-Kontext…',
+  'ts.rev.staffing.suggestions': 'Vorschläge & Live-Status',
+  'ts.rev.staffing.chooseWorker': 'Worker wählen…',
+  'ts.rev.staffing.noSuggestions': 'Keine geeigneten Worker-Vorschläge gefunden.',
+  'ts.rev.staffing.noWaitlist': 'Noch keine Waitlist-Einträge vorhanden.',
+  'ts.rev.staffing.noRequests': 'Noch keine aktiven Request-Interaktionen vorhanden.',
+  'ts.rev.staffing.noChoiceSets': 'Noch keine aktiven Worker-Auswahlphasen für diesen Einsatz.',
+  'ts.rev.staffing.quickAssignRunning': 'Direktzuweisung läuft…',
+  'ts.rev.staffing.quickAssignCta': 'Sichere Auswahl direkt zuweisen',
+  'ts.rev.staffing.quickAssignLabel': 'Direktzuweisung:',
+  'ts.rev.staffing.quickAssignSafe': 'Safe Case laut Guardrails',
+  'ts.rev.staffing.quickAssignBlocked': 'Nur Anfrage oder Waitlist sinnvoll',
+  'ts.rev.staffing.noExtraSignals': 'Noch keine Zusatzsignale',
+  'ts.rev.staffing.running': 'Läuft…',
+  'ts.rev.staffing.assignDirect': 'Direkt zuweisen',
+  'ts.rev.staffing.waitlistSelection': 'Auswahl auf Waitlist',
+  'ts.rev.staffing.nextWave': 'Nächste Welle',
+  'ts.rev.staffing.activeWorkers': 'Aktive Worker:',
+  'ts.rev.staffing.autoBackfill': 'Auto-Backfill aktiv:',
+  'ts.rev.staffing.autoBackfillText': 'Nachsteuerung läuft über die letzte Bulk-Kampagne.',
+  'ts.rev.staffing.guardrailHint': 'Direktzuweisung nutzt dieselben Guardrails wie die manuelle Zuweisung und führt pro Worker ein deterministisches Ergebnis zurück.',
+  'ts.rev.staffing.choiceHeading': 'Worker-Auswahlphase / Präferenzen',
+  'ts.rev.staffing.requestHeading': 'Request-Status / Worker-Kommunikation',
+  'ts.rev.staffing.openQuestions': 'Offene Fragen {q} · Reminder-Wünsche {r}',
+  'ts.rev.staffing.waitlistHeading': 'Waitlist / Nachrücker',
+  'ts.rev.staffing.detailsFollow': 'Details folgen',
+  'ts.rev.staffing.noResponse': 'Noch keine Rückmeldung',
+  'ts.rev.staffing.workerAction': 'Worker-Aktion {at}',
+  'ts.rev.staffing.dispatcherAction': 'Dispatcher-Aktion {at}',
+  'ts.rev.staffing.workerFavourite': 'Worker-Favorit',
+  'ts.rev.staffing.choiceSetFallback': 'Worker-Auswahlphase',
+  'ts.rev.staffing.deadline': 'Frist',
+  'ts.rev.staffing.selectWorkerFirst': tt('ts.rev.staffing.selectWorkerFirst'),
+  'ts.rev.staffing.assignedCount': '{n} Worker direkt zugewiesen',
+  'ts.rev.staffing.requestedCount': '{n} Worker angefragt',
+  'ts.rev.staffing.waitlistedCount': '{n} Worker auf Waitlist gesetzt',
+  'ts.rev.staffing.waitlistFailed': tt('ts.rev.staffing.waitlistFailed'),
+  'ts.rev.staffing.waveFailed': tt('ts.rev.staffing.waveFailed'),
+  'ts.rev.staffing.noTopCandidates': 'Keine freien Top-Kandidaten verfügbar',
+  'ts.rev.staffing.topFailed': tt('ts.rev.staffing.topFailed'),
+  'ts.rev.staffing.bulkMessage': 'Automatische Sammelanfrage – noch offen: {open}',
+  'ts.rev.staffing.dealAssignmentFallback': 'Deal-Einsatz',
+
+  'ts.rev.drawer.role': 'Rolle:',
+  'ts.rev.drawer.client': 'Kunde:',
+  'ts.rev.drawer.clientUnknown': 'Nicht angegeben',
+  'ts.rev.drawer.slots': 'Slots:',
+  'ts.rev.drawer.slotsValue': '{filled} besetzt · {reserved} reserviert · {open} offen von {requested}',
+  'ts.rev.drawer.workerCheck': 'Worker-Prüfung',
+  'ts.rev.drawer.score': 'Score {score}',
+  'ts.rev.drawer.noMatchContext': 'Noch kein Match-Kontext',
+  'ts.rev.drawer.fitFallback': 'Der Worker-Kontext wird nur für diese konkrete Einsatzoption bewertet.',
+  'ts.rev.drawer.liveStatus': 'Laufender Staffing-Status',
+  'ts.rev.drawer.choiceSetsForWorker': 'Auswahlphasen für diesen Worker:',
+  'ts.rev.drawer.noChoiceSet': 'Keine aktive Auswahlphase',
+  'ts.rev.drawer.manualAssign': 'Manuell zuweisen',
+  'ts.rev.drawer.manualAssignAnyway': 'Trotz Hinweis manuell zuweisen',
+  'ts.rev.drawer.manualImpossible': 'Manuell nicht möglich',
+  'ts.rev.drawer.contextClose': 'Kontext schließen',
+  'ts.rev.drawer.contextCheck': 'Kontext prüfen',
+  'ts.rev.drawer.contextLoading': 'Kontext wird nachgeladen',
+  'ts.rev.drawer.assignTitle': 'Einsatz direkt zuweisen',
+  'ts.rev.drawer.assignSubtitle': '{worker} – bestehende Assignment-Logik mit vollständigem Worker-Kontext nutzen',
+  'ts.rev.drawer.workerLoading': 'Worker-Kontext wird geladen',
+  'ts.rev.drawer.workerLoadFailed': 'Worker konnte nicht geladen werden',
+  'ts.rev.drawer.openDealsFailed': 'Offene Deal-Einsätze konnten nicht geladen werden.',
+  'ts.rev.drawer.contextFailed': 'Kontext konnte nicht geladen werden.',
+  'ts.rev.drawer.noWorkerSelected': 'Kein Worker für die Direktzuweisung ausgewählt',
+  'ts.rev.drawer.notEligible': 'Dieser Worker ist für eine manuelle Zuweisung aktuell nicht freigegeben.',
+  'ts.rev.drawer.assignedManually': 'Worker manuell dem Deal-Einsatz zugewiesen',
+  'ts.rev.drawer.confirmWorker': 'Worker: {worker}',
+  'ts.rev.drawer.confirmAssignment': 'Einsatz: {assignment}',
+  'ts.rev.drawer.warnOpenInvite': 'Für diesen Einsatz läuft bereits eine offene Staffing-Anfrage.',
+  'ts.rev.drawer.warnContacted': 'Der Worker wurde für diesen Einsatz bereits kontaktiert.',
+  'ts.rev.drawer.confirmCheck': 'Bitte prüfen:',
+  'ts.rev.drawer.confirmQuestion': 'Jetzt manuell zuweisen?',
+  'ts.rev.drawer.signalReservations': '{n} aktive Reservierungen auf diesem Einsatz',
+  'ts.rev.drawer.signalOpenInvite': 'Offene Staffing-Anfrage läuft bereits',
+  'ts.rev.drawer.signalContacted': 'Worker wurde hier bereits kontaktiert',
+  'ts.rev.drawer.signalSameClient': '{n} frühere Einsätze beim selben Kunden',
+  'ts.rev.drawer.signalChoiceSets': '{n} aktive Auswahlphasen für diesen Worker',
+
+  'ts.rev.wrk.kpiActive': 'Aktive Mitarbeiter',
+  'ts.rev.wrk.kpiInvites': 'Offene Einladungen',
+  'ts.rev.wrk.kpiInactive': 'Inaktive Accounts',
+  'ts.rev.wrk.kpiTotal': 'Gesamt',
+  'ts.rev.wrk.searchPh': 'Mitarbeiter suchen…',
+  'ts.rev.wrk.invite': '+ Einladen',
+  'ts.rev.wrk.createManual': '+ Manuell anlegen',
+  'ts.rev.wrk.colWorker': 'Mitarbeiter',
+  'ts.rev.wrk.colNumber': 'Personalnr.',
+  'ts.rev.wrk.colStatus': 'Status',
+  'ts.rev.wrk.colSince': 'Dabei seit',
+  'ts.rev.wrk.colActions': 'Aktionen',
+  'ts.rev.wrk.emptyTitle': 'Noch keine Mitarbeiter',
+  'ts.rev.wrk.emptyText': 'Laden Sie Ihre ersten Arbeitnehmer ein, damit diese ihre Stundenzettel digital einreichen können.',
+  'ts.rev.wrk.emptyCta': '+ Ersten Mitarbeiter einladen',
+  'ts.rev.wrk.invitesTitle': 'Offene Einladungen',
+  'ts.rev.wrk.noAccessTitle': 'Kein Zugriff auf Einsatzkräfte.',
+  'ts.rev.wrk.loadFailTitle': 'Einsatzkräfte konnten nicht geladen werden.',
+  'ts.rev.wrk.invitesFailTitle': 'Einladungen konnten nicht geladen werden.',
+  'ts.rev.wrk.assignAssignment': 'Einsatz zuweisen',
+  'ts.rev.wrk.showAssignments': 'Einsätze',
+  'ts.rev.wrk.active': 'Aktiv',
+  'ts.rev.wrk.inactive': 'Inaktiv',
+  'ts.rev.wrk.invitedExpires': 'Eingeladen {rel} – läuft ab {exp}',
+  'ts.rev.wrk.inviteResent': 'Einladung erneut gesendet',
+  'ts.rev.wrk.inviteRevoked': 'Einladung widerrufen',
+  'ts.rev.wrk.errNameMail': 'Bitte Vorname, Nachname und E-Mail ausfüllen.',
+  'ts.rev.wrk.errMail': 'Bitte eine gültige E-Mail-Adresse eingeben.',
+  'ts.rev.wrk.errNameMailPw': 'Bitte Vorname, Nachname, E-Mail und Passwort ausfüllen.',
+  'ts.rev.wrk.errPwLength': 'Passwort muss mindestens 8 Zeichen haben.',
+  'ts.rev.wrk.errMailExists': 'Diese E-Mail-Adresse existiert bereits.',
+  'ts.rev.wrk.created': 'Mitarbeiter {first} {last} angelegt',
+  'ts.rev.wrk.createBtn': 'Mitarbeiter anlegen',
+  'ts.rev.wrk.statActive': 'Aktive Einsätze',
+  'ts.rev.wrk.statDocs': 'Dokumente',
+  'ts.rev.wrk.availabilityNote': 'Verfügbarkeitsnotiz:',
+  'ts.rev.wrk.docsExpired': '{n} Dokumente abgelaufen.',
+  'ts.rev.wrk.docsExpiring': '{n} Nachweise laufen bald ab.',
+  'ts.rev.wrk.nextExpiry': 'Nächster Ablauf: {date}.',
+  'ts.rev.wrk.manualCheck': 'Manuelle Prüfung',
+
+  'ts.rev.asgn.kpiActive': 'Aktive Einsätze',
+  'ts.rev.asgn.kpiConfigured': 'Konfiguriert',
+  'ts.rev.asgn.kpiNoBriefing': 'Ohne Anweisungen',
+  'ts.rev.asgn.kpiWorkers': 'Mitarbeiter',
+  'ts.rev.asgn.searchPh': 'Mitarbeiter oder Kunden suchen…',
+  'ts.rev.asgn.assignCta': '+ Personal zuweisen',
+  'ts.rev.asgn.tabActive': 'Aktiv',
+  'ts.rev.asgn.tabArchive': 'Archiv',
+  'ts.rev.asgn.tabAll': 'Alle',
+  'ts.rev.asgn.viewCards': 'Karten',
+  'ts.rev.asgn.viewPlan': 'Planung',
+  'ts.rev.asgn.dealTitle': 'Deal-Einsätze (Worker zuweisen)',
+  'ts.rev.asgn.choiceSetCta': '+ Auswahlphase anlegen',
+  'ts.rev.asgn.closedTitle': 'Abgeschlossene Deals',
+  'ts.rev.asgn.closedHint': 'Vollständig besetzte, beendete oder stornierte Deals bleiben hier für Nachbearbeitung sichtbar.',
+  'ts.rev.asgn.emptyTitle': 'Keine Einsatz-Konfigurationen',
+  'ts.rev.asgn.emptyText': 'Sobald Arbeitnehmer Einsätzen zugeordnet werden, erscheinen sie hier zur Konfiguration.',
+  'ts.rev.asgn.noAccessTitle': 'Kein Zugriff auf Einsätze.',
+  'ts.rev.asgn.loadFailTitle': 'Einsätze konnten nicht geladen werden.',
+  'ts.rev.asgn.dealLoadFailTitle': 'Offene Deal-Einsätze konnten nicht geladen werden.',
+  'ts.rev.asgn.noStaffingRights': 'Keine Staffing-Rechte.',
+  'ts.rev.asgn.workerPickFailTitle': 'Worker-Auswahl konnte nicht geladen werden.',
+  'ts.rev.asgn.manualLimited': 'Manuelle Zuweisung eingeschränkt.',
+  'ts.rev.asgn.workerPickNoAccess': 'Die Worker-Auswahl ist für Ihren aktuellen Organisationskontext nicht verfügbar.',
+  'ts.rev.asgn.closedLoadFail': 'Abgeschlossene Deals konnten nicht geladen werden.',
+  'ts.rev.asgn.slotsFilled': '{filled} von {requested} besetzt',
+  'ts.rev.asgn.slots': '{filled} besetzt · {reserved} reserviert · {open} offen von {requested}',
+  'ts.rev.asgn.statusActive': 'Aktiv',
+  'ts.rev.asgn.statusArchived': 'Archiv',
+  'ts.rev.asgn.rowClient': 'Kunde',
+  'ts.rev.asgn.rowClientEmpty': 'Kein Kundenname',
+  'ts.rev.asgn.rowPeriod': 'Zeitraum',
+  'ts.rev.asgn.rowPeriodEmpty': 'Kein Datum gesetzt',
+  'ts.rev.asgn.replaceCta': 'Ersatz zuweisen',
+  'ts.rev.asgn.replaceTitle': 'Bei Krankheit/Ausfall: Ersatz ab Wirk-Datum zuweisen, Ausfallenden freistellen',
+  'ts.rev.asgn.hoursPerDay': 'h/Tag',
+
+  'ts.rev.assign.title': 'Manuelle Zuweisung → Worker',
+  'ts.rev.assign.subtitle': 'Personalangebot oder Deal-Einsatz einem Mitarbeiter zuweisen (Schichtzeiten, Kunde, Notizen)',
+  'ts.rev.assign.hint': 'Für Bulk-/Sofortzuweisung ohne Detailpflege nutzen Sie weiterhin die Sektion „Deal-Einsätze (Worker zuweisen)“ weiter unten. Dieser Drawer ist bewusst der manuelle Detailpfad.',
+  'ts.rev.assign.loading': 'Lade verfügbare Personalkapazitäten und Deal-Einsätze…',
+  'ts.rev.assign.source': 'Personal oder Deal-Einsatz',
+  'ts.rev.assign.worker': 'Mitarbeiter',
+  'ts.rev.assign.start': 'Startdatum',
+  'ts.rev.assign.end': 'Enddatum',
+  'ts.rev.assign.hoursPerDay': 'Stunden / Tag',
+  'ts.rev.assign.break': 'Pause (Min.)',
+  'ts.rev.assign.shiftStart': 'Schichtbeginn',
+  'ts.rev.assign.shiftEnd': 'Schichtende',
+  'ts.rev.assign.clientName': 'Kundenname',
+  'ts.rev.assign.clientNamePh': 'z.B. BMW AG',
+  'ts.rev.assign.notes': 'Notizen',
+  'ts.rev.assign.notesPh': 'Interne Hinweise…',
+  'ts.rev.assign.emptyTitle': 'Nichts manuell Zuweisbares',
+  'ts.rev.assign.emptyText': 'Aktuell gibt es weder freie Personalkapazitäten noch Deal-Einsätze mit offenen Plätzen in Ihrem Verantwortungsbereich.',
+  'ts.rev.assign.groupCapacity': 'Eigene Personalkapazitäten',
+  'ts.rev.assign.groupDeals': 'Deal-Einsätze mit offenen Plätzen',
+  'ts.rev.assign.optionOpenOf': '{open} offen von {total}',
+  'ts.rev.assign.capacityFallback': 'Personalkapazität',
+  'ts.rev.assign.loadFailTitle': 'Personalkapazitäten konnten derzeit nicht geladen werden.',
+  'ts.rev.assign.loadFailText': 'Bitte erneut versuchen.',
+  'ts.rev.assign.technicalDetails': 'Technische Details',
+  'ts.rev.assign.missingFields': 'Bitte Personal/Einsatz, Mitarbeiter und Startdatum auswählen.',
+  'ts.rev.assign.infoClient': 'Kunde:',
+  'ts.rev.assign.infoStaff': 'Personal:',
+  'ts.rev.assign.blockedSuffix': '— gesperrt bei diesem Kunden',
+  'ts.rev.assign.blockedTitle': '{n} Kraft/Kräfte von diesem Kunden gesperrt',
+  'ts.rev.assign.blockedHint': '— im Dropdown deaktiviert. Grund: {names}',
+  'ts.rev.assign.doneDeal': 'Deal-Einsatz zugewiesen – Worker wird benachrichtigt',
+  'ts.rev.assign.doneCapacity': 'Personal zugewiesen – Worker wird benachrichtigt',
+  'ts.rev.assign.errCapacityNotFound': 'Personalangebot nicht gefunden.',
+  'ts.rev.assign.errCapacityNotAssignable': 'Personalangebot nicht zuweisbar.',
+  'ts.rev.assign.errAssignmentNotFound': 'Deal-Einsatz nicht gefunden.',
+  'ts.rev.assign.errAssignmentNotAssignable': 'Deal-Einsatz nicht zuweisbar.',
+  'ts.rev.assign.errAssignmentFilled': 'Deal-Einsatz ist bereits voll besetzt.',
+  'ts.rev.assign.errWorkerLinked': 'Worker ist diesem Einsatz bereits zugeordnet.',
+  'ts.rev.assign.errWorkerNotFound': 'Mitarbeiter nicht gefunden.',
+  'ts.rev.assign.errWorkerInactive': 'Mitarbeiter ist inaktiv.',
+  'ts.rev.assign.errScheduleConflict': 'Zeitraum-Konflikt mit bestehendem Einsatz.',
+
+  'ts.rev.deal.errNotFound': 'Einsatz nicht gefunden.',
+  'ts.rev.deal.errNotAssignable': 'Einsatz ist aktuell nicht zuweisbar.',
+  'ts.rev.deal.errFilled': 'Einsatz ist bereits vollständig besetzt.',
+  'ts.rev.deal.errAlreadyAssigned': 'Worker ist diesem Einsatz bereits zugeordnet.',
+  'ts.rev.deal.errWorkerLinked': 'Worker hat bereits einen aktiven Link für diesen Einsatz.',
+  'ts.rev.deal.errWorkerNotFound': 'Worker nicht gefunden.',
+  'ts.rev.deal.errWorkerInactive': 'Worker ist inaktiv.',
+  'ts.rev.deal.errScheduleConflict': 'Zeitraum-Konflikt mit bestehendem Einsatz oder Reservierung.',
+  'ts.rev.deal.assigned': 'Worker dem Deal-Einsatz zugewiesen',
+  'ts.rev.deal.selectWorker': 'Bitte Worker auswählen',
+  'ts.rev.deal.noOpen': 'Keine offenen Deal-Einsätze verfügbar.',
+
+  'ts.rev.choice.title': 'Worker-Auswahlphase anlegen',
+  'ts.rev.choice.subtitle': 'Mehrere offene Einsätze für einen Worker als kontrollierte Auswahlgruppe freigeben',
+  'ts.rev.choice.hint': 'Der bestehende Staffing-Flow bleibt führend. Sie geben hier nur eine zusätzliche Präferenz- oder Auswahlphase frei; die finale Zuweisung bleibt weiterhin kontrolliert in Ihrer Hand.',
+  'ts.rev.choice.worker': 'Worker',
+  'ts.rev.choice.mode': 'Modus',
+  'ts.rev.choice.modePreference': 'Nur Präferenz',
+  'ts.rev.choice.modeRanked': 'Priorisierte Auswahl',
+  'ts.rev.choice.modeFree': 'Freie Wahl innerhalb freigegebener Optionen',
+  'ts.rev.choice.deadline': 'Antwortfrist',
+  'ts.rev.choice.titleField': 'Titel',
+  'ts.rev.choice.titlePh': 'z.B. Auswahl möglicher Einsätze für nächste Woche',
+  'ts.rev.choice.message': 'Nachricht an den Worker',
+  'ts.rev.choice.messagePh': 'Kurzer Hinweis, worauf der Worker bei der Auswahl achten soll…',
+  'ts.rev.choice.options': 'Freigegebene Einsatzoptionen',
+  'ts.rev.choice.needTwoOptions': 'Für eine Auswahlphase werden mindestens zwei offene Einsatzoptionen benötigt.',
+  'ts.rev.choice.noActiveWorkers': 'Keine aktiven Worker für eine Auswahlphase verfügbar.',
+  'ts.rev.choice.prepareFailed': 'Auswahlphase konnte nicht vorbereitet werden',
+  'ts.rev.choice.selectWorker': 'Bitte einen Worker auswählen.',
+  'ts.rev.choice.selectTwoOptions': 'Bitte mindestens zwei Einsatzoptionen freigeben.',
+  'ts.rev.choice.created': 'Auswahlphase für {n} Optionen angelegt',
+  'ts.rev.choice.createFailed': 'Auswahlphase konnte nicht angelegt werden',
+  'ts.rev.choice.errWorkerNotFound': 'Worker nicht gefunden.',
+  'ts.rev.choice.errWorkerInactive': 'Der gewählte Worker ist inaktiv.',
+  'ts.rev.choice.errInvalidMode': 'Ungültiger Auswahlmodus.',
+  'ts.rev.choice.errInvalidDeadline': 'Die Antwortfrist ist ungültig.',
+  'ts.rev.choice.errAssignmentNotFound': 'Mindestens ein Einsatz wurde nicht gefunden.',
+  'ts.rev.choice.errAssignmentNotAssignable': 'Mindestens ein Einsatz ist nicht zuweisbar.',
+  'ts.rev.choice.errAssignmentFilled': 'Mindestens ein Einsatz ist bereits vollständig besetzt.',
+  'ts.rev.choice.errNoEligible': 'Für mindestens einen Einsatz konnte kein Staffing-Invite erzeugt werden.',
+  'ts.rev.choice.errOptionActive': 'Für diesen Worker ist mindestens eine der gewählten Optionen bereits in einer aktiven Auswahlphase enthalten.',
+  'ts.rev.choice.errInviteFailed': 'Die Auswahlphase konnte nicht vollständig vorbereitet werden.',
+  'ts.rev.choice.staleReload': 'Auswahlphase konnte nicht mehr aufgelöst werden. Bitte aktualisieren.',
+  'ts.rev.choice.confirmOther': '{worker} hat eine andere Präferenz signalisiert. Diese Option trotzdem final zuweisen?',
+  'ts.rev.choice.confirmFinal': 'Diesen Einsatz jetzt final zuweisen?',
+  'ts.rev.choice.workerFallback': 'Der Worker',
+  'ts.rev.choice.overridePrompt': 'Optionale Override-Notiz für Audit und Nachvollziehbarkeit:',
+  'ts.rev.choice.finalFailed': 'Finale Zuweisung fehlgeschlagen',
+  'ts.rev.choice.errSetNotFound': 'Auswahlphase nicht gefunden.',
+  'ts.rev.choice.errOptionNotFound': 'Auswahloption nicht gefunden.',
+  'ts.rev.choice.errAlreadyAssigned': 'Die Auswahlphase ist bereits final zugewiesen.',
+  'ts.rev.choice.errAlreadyDeclined': 'Die Auswahlphase wurde bereits abgelehnt.',
+  'ts.rev.choice.errExpired': 'Die Auswahlphase ist abgelaufen.',
+  'ts.rev.choice.errCancelled': 'Die Auswahlphase wurde geschlossen.',
+  'ts.rev.choice.errReservationNotFound': 'Die Reservierung wurde nicht gefunden.',
+  'ts.rev.choice.errAsgNotFound': 'Der Einsatz wurde nicht gefunden.',
+  'ts.rev.choice.errAsgNotAssignable': 'Der Einsatz ist nicht zuweisbar.',
+  'ts.rev.choice.errReservationInactive': 'Die Reservierung ist nicht mehr aktiv.',
+  'ts.rev.choice.errReservationExpired': 'Die Reservierung ist abgelaufen.',
+  'ts.rev.choice.errAsgFilled': 'Der Einsatz ist bereits vollständig besetzt.',
+  'ts.rev.choice.errWorkerAssigned': 'Der Worker ist dort bereits zugewiesen.',
+  'ts.rev.choice.errWorkerLinked': 'Der Worker hat bereits einen aktiven Link für diesen Einsatz.',
+  'ts.rev.choice.errWorkerNotFound2': 'Worker nicht gefunden.',
+  'ts.rev.choice.errWorkerInactive2': 'Der Worker ist inaktiv.',
+  'ts.rev.choice.errScheduleConflict': 'Die finale Zuweisung kollidiert mit einem bestehenden Zeitraum.',
+  'ts.rev.choice.errAsgNotAssignable2': 'Der Einsatz ist aktuell nicht zuweisbar.',
+  'ts.rev.choice.errNoWorkersSelected': 'Bitte mindestens einen Worker auswählen.',
+
+  'ts.rev.quick.openAfter': 'Noch {n} offene Plätze nach der Direktzuweisung.',
+  'ts.rev.quick.summary': '{assigned} direkt zugewiesen · {skipped} nicht ausgeführt · offen danach {open}',
+  'ts.rev.quick.skippedLinked': 'Bereits verknüpft',
+  'ts.rev.quick.skippedFilled': 'Einsatz bereits voll',
+  'ts.rev.quick.failedNotFound': 'Worker fehlt',
+  'ts.rev.quick.failedInactive': 'Worker inaktiv',
+
+  'ts.rev.match.noReason': 'Noch keine Match-Begründung',
+  'ts.rev.match.availability': 'Verfügbarkeit',
+  'ts.rev.match.qualification': 'Nachweise',
+  'ts.rev.match.reliability': 'Zuverlässigkeit',
+
+  'ts.rev.invite.title': 'Arbeitnehmer einladen',
+  'ts.rev.invite.subtitle': 'Einladungs-E-Mail wird automatisch versendet',
+  'ts.rev.invite.howLabel': 'So funktioniert es:',
+  'ts.rev.invite.howText': 'Der Arbeitnehmer erhält einen Einladungs-Link per E-Mail. Dort setzt er sein Passwort und kann sofort seine Stundenzettel digital einreichen – kein App-Download, kein kompliziertes Setup.',
+  'ts.rev.invite.firstNamePh': 'z.B. Anna',
+  'ts.rev.invite.lastNamePh': 'z.B. Kraft',
+
+  'ts.rev.create.title': 'Mitarbeiter manuell anlegen',
+  'ts.rev.create.subtitle': 'Account wird sofort aktiv – kein Einladungslink nötig',
+  'ts.rev.create.hintLabel': 'Direkte Erstellung:',
+  'ts.rev.create.hintText': 'Der Account ist sofort aktiv. Der Mitarbeiter kann sich mit E-Mail und dem hier gesetzten Passwort im Einsatzportal anmelden.',
+  'ts.rev.create.firstNamePh': 'z.B. Max',
+  'ts.rev.create.lastNamePh': 'z.B. Müller',
+
+  'ts.rev.field.firstName': 'Vorname',
+  'ts.rev.field.lastName': 'Nachname',
+  'ts.rev.field.email': 'E-Mail-Adresse',
+  'ts.rev.field.personnelNumber': 'Personalnummer',
+  'ts.rev.field.personnelNumberPh': 'z.B. W-0042',
+  'ts.rev.field.optional': '(optional)',
+  'ts.rev.field.phone': 'Telefon',
+  'ts.rev.field.optional2': '(optional)',
+  'ts.rev.field.firstName2': 'Vorname',
+  'ts.rev.field.lastName2': 'Nachname',
+  'ts.rev.field.email2': 'E-Mail-Adresse',
+  'ts.rev.field.password': 'Passwort',
+  'ts.rev.field.passwordPh': 'Mind. 8 Zeichen',
+  'ts.rev.field.personnelNumber2': 'Personalnummer',
+  'ts.rev.field.personnelNumberPh2': 'z.B. W-0042',
+  'ts.rev.field.phone2': 'Telefon',
+  'ts.rev.field.street': 'Straße',
+  'ts.rev.field.streetPh': 'z.B. Musterstr. 12',
+  'ts.rev.field.zip': 'PLZ',
+  'ts.rev.field.zipPh': 'z.B. 80331',
+  'ts.rev.field.city': 'Stadt',
+  'ts.rev.field.cityPh': 'z.B. München',
+  'ts.rev.field.pleaseSelect': '– Bitte wählen –',
+  'ts.rev.field.pleaseSelect2': '– Bitte wählen –',
+  'ts.rev.field.pleaseSelect3': '– Bitte wählen –',
+
+  'ts.rev.wrkAssign.hint': 'Sie bleiben im operativen Worker-Bereich. Der bestehende Assignment-Flow bleibt führend; hier wird nur der direkte Einstieg mit bereits ausgewähltem Worker aktiviert.',
+  'ts.rev.wrkAssign.loading': 'Offene Deal-Einsätze und Staffing-Kontext werden geladen…',
+  'ts.rev.wrkAssign.emptyTitle': 'Keine offenen Deal-Einsätze',
+  'ts.rev.wrkAssign.emptyText': 'Für diesen Worker gibt es aktuell keine offenen Deal-basierten Einsatzoptionen zur direkten Zuweisung.',
+
+  'ts.rev.action.close': 'Schließen',
+  'ts.rev.action.close2': 'Schließen',
+  'ts.rev.action.cancel': 'Abbrechen',
+  'ts.rev.action.cancel2': 'Abbrechen',
+  'ts.rev.action.cancel3': 'Abbrechen',
+  'ts.rev.action.cancel4': 'Abbrechen',
+  'ts.rev.action.cancel5': 'Abbrechen',
+
+  'ts.rev.lnk.title': 'Einsatz konfigurieren',
+  'ts.rev.lnk.save': 'Änderungen speichern',
+  'ts.rev.lnk.hoursPerDay': 'Stunden / Tag',
+  'ts.rev.lnk.breakMinutes': 'Pause (Minuten)',
+  'ts.rev.lnk.dressCodePh': 'z.B. Sicherheitsschuhe und Warnweste erforderlich',
+  'ts.rev.lnk.internalNotes': 'Interne Notizen',
+  'ts.rev.lnk.internalNotesHint': '(nicht für Arbeitnehmer)',
+  'ts.rev.lnk.startRequired': 'Startdatum ist erforderlich.',
+  'ts.rev.lnk.saved': 'Einsatz-Konfiguration gespeichert',
+
+  'ts.rev.cmp.title': 'Ein Kunde hat ein Problem mit einer Ihrer Kräfte gemeldet — reagieren Sie direkt hier.',
+  'ts.rev.cmp.workerFallback': 'Mitarbeiter',
+  'ts.rev.cmp.clientFallback': 'Kunde',
+  'ts.rev.cmp.acknowledge': 'Angenommen',
+  'ts.rev.cmp.acknowledgeTitle': 'Dem Kunden zeigen: wir kümmern uns',
+
+  'ts.rev.rep.notFound': 'Einsatz nicht gefunden.',
+  'ts.rev.rep.endsOriginal': 'Der Ersatz übernimmt bis zum Original-Enddatum ({date}).',
+  'ts.rev.rep.endsOpen': 'Der Ersatz übernimmt den offenen Einsatz.',
+  'ts.rev.rep.effectiveDate': 'Wirk-Datum (ab wann Ersatz)',
+  'ts.rev.rep.noCandidates': 'Keine weiteren aktiven Arbeiter in Ihrer Organisation verfügbar.',
+  'ts.rev.rep.reason': 'Grund',
+  'ts.rev.rep.subtitle': 'Krankheit / Ausfall – zeitgenau ab Wirk-Datum',
+  'ts.rev.rep.errDate': 'Bitte ein Wirk-Datum wählen.',
+  'ts.rev.rep.errWorker': 'Bitte einen Ersatz-Arbeiter wählen.',
+  'ts.rev.rep.errReason': 'Bitte einen Grund angeben (mind. 3 Zeichen).',
+  'ts.rev.rep.errNotFound': 'Einsatz nicht gefunden.',
+  'ts.rev.rep.errNotActive': 'Dieser Einsatz ist nicht aktiv.',
+  'ts.rev.rep.errSameWorker': 'Ersatz und Ausfallender dürfen nicht identisch sein.',
+  'ts.rev.rep.errNotInOrg': 'Der gewählte Arbeiter gehört nicht zu Ihrer Organisation.',
+  'ts.rev.rep.errInactive': 'Der gewählte Arbeiter ist inaktiv.',
+  'ts.rev.rep.errConflict': 'Der gewählte Ersatz ist im Zeitraum bereits in einem anderen Einsatz gebucht. Bitte anderen Arbeiter oder Wirk-Datum wählen.',
+  'ts.rev.rep.errValidation': 'Ungültige Eingabe:',
+  'ts.rev.rep.failed': 'Fehler bei der Ersatz-Zuweisung',
+
+  'ts.rev.plan.blockTitle': 'Einsatz für diesen Arbeiter planen',
+  'ts.rev.plan.blockCta': '+ Block',
+  'ts.rev.plan.assignmentsInMonth': '{n} Einsätze im Monat',
+  'ts.rev.plan.legendActive': 'Aktiv',
+  'ts.rev.plan.emptyTitle': 'Keine Einsätze in {month}',
+  'ts.rev.plan.emptyText': 'Für diesen Monat sind keine Einsätze geplant. Wechseln Sie den Monat oder planen Sie einen Block.',
+  'ts.rev.plan.assignmentFallback': 'Einsatz',
+
+  'ts.rev.conf.pending': 'Bestätigung offen',
+  'ts.rev.conf.confirmed': 'Bestätigt',
+  'ts.rev.conf.declined': 'Abgelehnt',
+  'ts.rev.due.overdue': 'Überfällig',
+  'ts.rev.due.overdueTitle': 'Einreichfrist verstrichen, noch nicht eingereicht',
+  'ts.rev.due.late': 'Verspätet',
+  'ts.rev.due.lateTitle': 'Nach der Einreichfrist abgegeben',
+
+  'ts.rev.status.draft': 'Entwurf',
+  'ts.rev.status.submitted': 'Eingereicht',
+  'ts.rev.status.underReview': 'In Prüfung',
+  'ts.rev.status.needsCorrection': 'Korrektur',
+  'ts.rev.status.needsCorrectionLong': 'Korrektur ausstehend',
+  'ts.rev.status.approvedInternal': 'Intern geprüft',
+  'ts.rev.status.sentToCustomer': 'Beim Kunden',
+  'ts.rev.status.customerConfirmed': 'Vom Kunden bestätigt',
+  'ts.rev.status.customerRejected': 'Vom Kunden abgelehnt',
+  'ts.rev.status.rejected': 'Abgelehnt',
+  'ts.rev.status.accepted': 'Angenommen',
+  'ts.rev.status.posted': 'In Abrechnung',
+
+  'ts.rev.invite.stateSent': 'Offen',
+  'ts.rev.invite.stateViewed': 'Gesehen',
+  'ts.rev.invite.stateInterested': 'Rückfrage',
+  'ts.rev.invite.stateAccepted': 'Angenommen',
+  'ts.rev.invite.stateDeclined': 'Abgelehnt',
+  'ts.rev.invite.stateExpired': 'Abgelaufen',
+  'ts.rev.invite.stateCancelled': 'Geschlossen',
+
+  'ts.rev.option.selected': 'Vom Worker gewählt',
+  'ts.rev.option.preferred': 'Worker-Favorit',
+  'ts.rev.option.acceptable': 'Auch möglich',
+  'ts.rev.option.declined': 'Abgelehnt',
+  'ts.rev.choiceState.preferenceSubmitted': 'Präferenz gesendet',
+  'ts.rev.choiceState.declined': 'Abgelehnt',
+  'ts.rev.drawer.contextHeading': 'Einsatzkontext',
+  'ts.rev.drawer.period': 'Zeitraum:',
+  'ts.rev.drawer.openSuffix': 'offen',
+  'ts.rev.drawer.location': 'Ort:',
+  'ts.rev.drawer.shift': 'Schicht:',
+  'ts.rev.drawer.signals': 'Operative Signale:',
+  'ts.rev.drawer.blocker': 'Blocker:',
+  'ts.rev.drawer.missingReq': 'Fehlende Anforderungen:',
+  'ts.rev.drawer.safeCaseHints': 'Safe-Case-Hinweise:',
+  'ts.rev.drawer.alreadyAssigned': 'Bereits zugewiesen:',
+  'ts.rev.drawer.noneAssigned': 'Noch niemand final zugewiesen',
+  'ts.rev.drawer.reserved': 'Reserviert:',
+  'ts.rev.drawer.noReservations': 'Keine aktiven Reservierungen',
+  'ts.rev.drawer.choiceFallback': 'Auswahlphase',
+  'ts.rev.drawer.refresh': 'Aktualisieren',
+  'ts.rev.drawer.quickAssign': 'Sicher direkt zuweisen',
+  'ts.rev.drawer.toCard': 'Zur Einsatzkarte',
+  'ts.rev.drawer.startOpen': 'Start offen',
+  'ts.rev.drawer.openSlots': '{n} offen',
+  'ts.rev.wrk.docsWatch': 'Dokumentenlage im Blick behalten.',
+  'ts.rev.match.hardHit': 'Harter Treffer',
+  'ts.rev.match.softFit': 'Weicher Fit',
+  'ts.rev.wl.queued': 'Waitlist',
+  'ts.rev.wl.invited': 'Angefragt',
+  'ts.rev.wl.reserved': 'Reserviert',
+  'ts.rev.wl.assigned': 'Zugeordnet',
+  'ts.rev.wl.removed': 'Abgeschlossen',
+  'ts.rev.wl.fallback': 'Status',
+  'ts.rev.choice.modeFreeShort': 'Freie Wahl',
+  'ts.rev.choice.modeFallback': 'Auswahl',
+  'ts.rev.choiceState.open': 'Offen',
+  'ts.rev.choiceState.ranked': 'Ranking gesendet',
+  'ts.rev.choiceState.manualOverride': 'Manuell entschieden',
+  'ts.rev.choiceState.assigned': 'Final zugewiesen',
+  'ts.rev.choiceState.expired': 'Abgelaufen',
+  'ts.rev.choiceState.cancelled': 'Geschlossen',
+  'ts.rev.life.endsToday': 'Endet heute',
+  'ts.rev.life.expired': 'Abgelaufen',
+  'ts.rev.life.completed': 'Beendet',
+  'ts.rev.life.cancelled': 'Storniert',
+  'ts.rev.status.transferred': 'Übertragen',
+  'ts.rev.ev.created': 'erstellt',
+  'ts.rev.ev.submitted': 'eingereicht',
+  'ts.rev.ev.reviewStarted': 'Prüfung gestartet',
+  'ts.rev.ev.correctionRequested': 'Korrektur angefordert',
+  'ts.rev.ev.corrected': 'korrigiert',
+  'ts.rev.ev.approvedInternal': 'intern genehmigt',
+  'ts.rev.ev.sentToCustomer': 'an Kunden gesendet',
+  'ts.rev.ev.customerConfirmed': 'vom Kunden bestätigt',
+  'ts.rev.ev.customerRejected': 'vom Kunden abgelehnt',
+  'ts.rev.ev.posted': 'in Abrechnung gebucht',
+  'ts.rev.ev.accepted': 'ins Timesheet übernommen',
+  'ts.rev.ev.rejected': 'abgelehnt',
+  'ts.rev.ev.comment': 'kommentiert',
+  'ts.rev.card.location': 'Einsatzort',
+  'ts.rev.card.shiftTime': 'Schichtzeit',
+  'ts.rev.card.noShiftTime': 'Keine Arbeitszeit',
+  'ts.rev.card.instructions': 'Anweisungen',
+  'ts.rev.card.noInstructions': 'Keine Anweisungen',
+  'ts.rev.card.contact': 'Ansprechp.',
+  'ts.rev.card.completeness': 'Vollständigkeit',
+  'ts.rev.lnk.visibleFor': 'Diese Felder sind im Arbeitnehmer-Portal sichtbar für',
+  'ts.rev.lnk.sectionDetails': 'Einsatzdetails',
+  'ts.rev.lnk.clientName': 'Kundenname',
+  'ts.rev.lnk.clientNamePh': 'z.B. BMW AG München',
+  'ts.rev.lnk.address': 'Einsatzort / Adresse',
+  'ts.rev.lnk.addressPh': 'z.B. Lerchenauer Str. 31, 80809 München',
+  'ts.rev.lnk.meetingPoint': 'Treffpunkt',
+  'ts.rev.lnk.meetingPointPh': 'z.B. Haupteingang, Pforte A',
+  'ts.rev.lnk.startDate': 'Startdatum',
+  'ts.rev.lnk.endDate': 'Enddatum',
+  'ts.rev.lnk.sectionHours': 'Arbeitszeiten',
+  'ts.rev.lnk.shiftStart': 'Schichtbeginn',
+  'ts.rev.lnk.shiftEnd': 'Schichtende',
+  'ts.rev.lnk.sectionInstructions': 'Einsatzanweisungen',
+  'ts.rev.lnk.instructions': 'Anweisungen',
+  'ts.rev.lnk.instructionsPh': 'Sicherheitseinweisungen, Zugangscodes, besondere Hinweise…',
+  'ts.rev.lnk.dressCode': 'Kleidung / Ausrüstung',
+  'ts.rev.lnk.notesPh': 'Interne Hinweise…',
+  'ts.rev.lnk.sectionContact': 'Ansprechpartner vor Ort',
+  'ts.rev.lnk.contactName': 'Name',
+  'ts.rev.lnk.contactNamePh': 'z.B. Max Meier',
+  'ts.rev.rep.removedText': 'wird ab dem Wirk-Datum aus dem Einsatz herausgenommen und freigestellt.',
+  'ts.rev.rep.billableText': 'Bereits geleistete Tage bleiben abrechenbar.',
+  'ts.rev.rep.pleaseSelect': '– Bitte wählen –',
+  'ts.rev.rep.cancel': 'Abbrechen',
+  'ts.rev.lnk.contactPhone': 'Telefon',
+  'ts.rev.lnk.contactEmail': 'E-Mail',
+  'ts.rev.lnk.sectionDispatcher': 'Disponent / Interner Ansprechpartner',
+  'ts.rev.lnk.dispatcherName': 'Name',
+  'ts.rev.lnk.dispatcherNamePh': 'z.B. Sabine Huber',
+  'ts.rev.lnk.dispatcherPhone': 'Telefon',
+  'ts.rev.lnk.dispatcherEmail': 'E-Mail',
+  'ts.rev.bundle.noMatch': 'Keine passenden Positionen in aktueller Liste',
+  'ts.rev.bundle.sortPeriodDesc': 'Zeitraum neu→alt',
+  'ts.rev.bundle.sortPeriodAsc': 'Zeitraum alt→neu',
+  'ts.rev.bundle.noItems': 'Keine Positionen',
+  'ts.rev.detail.noEntries': 'Keine Tageseinträge vorhanden.',
+  'ts.rev.detail.noCustomerContact': 'Kein Kundenkontakt hinterlegt.',
+  'ts.rev.act.postDirect': 'Direkt in Abrechnung',
+  'ts.rev.act.contactName': 'Kundenkontakt Name',
+  'ts.rev.act.contactEmail': 'Kundenkontakt E-Mail',
+  'ts.rev.act.contactPersonPh': 'Name Ansprechpartner',
+  'ts.rev.wrk.noEmail': 'Keine E-Mail hinterlegt',
+  'ts.rev.assign.pleaseChoose': '– Bitte wählen –',
+  'ts.rev.assign.optRole': 'Rolle:',
+  'ts.rev.assign.optCity': 'Ort:',
+  'ts.rev.assign.optPeriod': 'Zeitraum:',
+  'ts.rev.dealState.open': 'Offen',
+  'ts.rev.dealState.sourcing': 'Sourcing',
+  'ts.rev.dealState.partiallyFilled': 'Teilbesetzt',
+  'ts.rev.dealState.filled': 'Besetzt',
+  'ts.rev.dealState.closed': 'Geschlossen',
+  'ts.rev.dealState.cancelled': 'Storniert',
+  'ts.rev.quick.assigned': 'Direkt zugewiesen',
+  'ts.rev.quick.notSafe': 'Nicht safe',
+  'ts.rev.quick.conflict': 'Konflikt',
+  'ts.rev.quick.notAssignable': 'Nicht zuweisbar',
+  'ts.rev.quick.failed': 'Fehlgeschlagen',
+  'ts.rev.quick.resultFallback': 'Ergebnis',
+  'ts.rev.option.rank': 'Rang {n}',
+  'ts.rev.option.expired': 'Abgelaufen',
+  'ts.rev.option.cancelled': 'Geschlossen',
+  'ts.rev.option.open': 'Offen',
+  'ts.rev.card.notSpecified': 'Nicht angegeben',
+  'ts.rev.btn.sending': 'Wird gesendet…',
+  'ts.rev.btn.creating': 'Wird angelegt…',
+  'ts.rev.btn.assigning': 'Wird zugewiesen…',
+  'ts.rev.btn.saving': 'Wird gespeichert…',
+  'ts.rev.wrk.inviteBtn': 'Einladung senden',
+  'ts.rev.assign.submitBtn': 'Zuweisen & benachrichtigen',
+  'ts.rev.choice.submitBtn': 'Auswahlphase anlegen'
+});
+TCi18n.register('en', {
+  'ts.rev.docTitle': 'Assignments & time – TempConnect',
+  'ts.rev.page.title': 'Assignments & time',
+  'ts.rev.page.subtitle': 'Workers, timesheets, client approvals and records – steered centrally in the pilot core.',
+
+  'ts.rev.company.subtitle': 'Assignment status, time approvals and billing status of your staffing agency – read-only via deals and activity.',
+  'ts.rev.company.lockTitle': 'Assignment tracking (company view)',
+  'ts.rev.company.lockText': 'This workspace is your staffing agency operations desk. As the hiring company you can follow assignment status, time approvals and billing status read-only via deals and activity.',
+
+  'ts.rev.banner.eyebrow': 'Pilot standard',
+  'ts.rev.banner.title': 'Staffing, client dispatch and approvals have to run smoothly here',
+  'ts.rev.banner.text': 'This area carries operational maturity after the deal closes: worker assignment, running assignment, timesheet approval and the visible next step for buyer and supplier.',
+  'ts.rev.banner.asideTitle': 'Focus now',
+  'ts.rev.banner.asideText': 'Clear open submissions, client approvals and staffing status first; supporting and document topics stay secondary.',
+
+  'ts.rev.onboarding.title': 'Set up the platform',
+  'ts.rev.onboarding.toggle': 'Expand/collapse',
+  'ts.rev.onboarding.dismiss': 'Hide',
+
+  'ts.rev.hub.current.title': 'Assignments & time',
+  'ts.rev.hub.current.desc': 'You are in the operational assignment and time area.',
+  'ts.rev.hub.subs.title': 'Timesheets & approvals',
+  'ts.rev.hub.subs.desc': 'Review submissions, send them to clients and steer approvals cleanly.',
+  'ts.rev.hub.workers.title': 'Workers',
+  'ts.rev.hub.workers.desc': 'Maintain workers, invitations and operational master data.',
+  'ts.rev.hub.approvals.title': 'Approval queue',
+  'ts.rev.hub.approvals.desc': 'Pending approvals across assignments, time and records.',
+  'ts.rev.hub.timesheets.title': 'Timesheets',
+  'ts.rev.hub.timesheets.desc': 'Time recording, approval and billing basis in detail.',
+  'ts.rev.hub.docs.title': 'Records & documents',
+  'ts.rev.hub.docs.desc': 'Manage documents, certificates and records close to the assignment.',
+
+  'ts.rev.tab.subs': 'Timesheet approvals',
+  'ts.rev.tab.workers': 'Workers',
+  'ts.rev.tab.asgn': 'Assignments',
+
+  'ts.rev.cust.title': 'Client dispatch of timesheets',
+  'ts.rev.cust.subtitle': 'Status of every client dispatch at a glance',
+  'ts.rev.cust.ready': 'Ready to send',
+  'ts.rev.cust.sent': 'Sent',
+  'ts.rev.cust.open': 'With the client',
+  'ts.rev.cust.confirmed': 'Confirmed',
+  'ts.rev.cust.rejected': 'Rejected',
+  'ts.rev.cust.posted': 'Billing',
+  'ts.rev.cust.openSent': 'Open sent bundles',
+  'ts.rev.cust.filterAtCustomer': 'Filter by with the client',
+  'ts.rev.cust.showRejections': 'Show rejections',
+  'ts.rev.cust.btnReady': 'Show {n} items ready to send',
+  'ts.rev.cust.btnReadyNone': 'Show items ready to send',
+  'ts.rev.cust.badgeAction': 'Action required',
+  'ts.rev.cust.badgeReady': '{n} ready to send',
+  'ts.rev.cust.badgeOpen': '{n} open with the client',
+  'ts.rev.cust.badgeAllPosted': 'All billed',
+  'ts.rev.cust.badgeFlow': 'Client flow',
+  'ts.rev.cust.hintRejected': '{n} timesheets were rejected by the client. Please review and correct them.',
+  'ts.rev.cust.hintReady': '{n} internally approved items are ready for client dispatch.',
+  'ts.rev.cust.hintOpen': '{n} items are waiting for client feedback.',
+  'ts.rev.cust.hintDone': 'All items are confirmed or in billing. Nothing to do.',
+
+  'ts.rev.bundle.prepare': 'Prepare bulk dispatch',
+  'ts.rev.bundle.week': 'Week',
+  'ts.rev.bundle.month': 'Month',
+  'ts.rev.bundle.internalOnly': 'Internally approved only',
+  'ts.rev.bundle.sentTitle': 'Sent bundles',
+  'ts.rev.bundle.flowPill': 'Client flow',
+  'ts.rev.bundle.emptyPreview': 'No approved items for bulk dispatch.',
+  'ts.rev.bundle.emptySent': 'No bulk dispatch carried out yet.',
+  'ts.rev.bundle.clientFallback': 'Client',
+  'ts.rev.bundle.positions': '{n} items',
+  'ts.rev.bundle.rangeTo': 'to',
+  'ts.rev.bundle.send': 'Bulk dispatch',
+  'ts.rev.bundle.preview': 'Preview',
+  'ts.rev.bundle.details': 'Details',
+  'ts.rev.bundle.post': 'Move to billing',
+  'ts.rev.bundle.counts': 'Items: {items} · Confirmed: {confirmed} · Billed: {posted}',
+  'ts.rev.bundle.progressSent': 'Sent {a}/{b}',
+  'ts.rev.bundle.progressConfirmed': 'Confirmed {a}/{b}',
+  'ts.rev.bundle.previewToast': 'Preview: {n} items ready for {period}',
+  'ts.rev.bundle.notFound': 'Bundle not found',
+  'ts.rev.bundle.postFailed': 'The bundle could not be posted',
+  'ts.rev.bundle.postDone': 'Bundle moved to billing ({n})',
+  'ts.rev.bundle.used': 'Used for billing',
+  'ts.rev.bundle.stillOpen': 'Still open',
+  'ts.rev.bundle.open': 'Open',
+  'ts.rev.bundle.searchPh': 'Filter worker/client/status…',
+  'ts.rev.bundle.sortHoursDesc': 'Hours high→low',
+  'ts.rev.bundle.sortHoursAsc': 'Hours low→high',
+  'ts.rev.bundle.sortStatus': 'Status',
+  'ts.rev.bundle.colWorker': 'Worker',
+  'ts.rev.bundle.colClient': 'Client',
+  'ts.rev.bundle.colPeriod': 'Period',
+  'ts.rev.bundle.colHours': 'Hours',
+  'ts.rev.bundle.colStatus': 'Status',
+  'ts.rev.bundle.colBilling': 'Billing',
+  'ts.rev.bundle.colAction': 'Action',
+  'ts.rev.bundle.statusSent': 'Sent',
+  'ts.rev.bundle.statusConfirmed': 'Confirmed',
+  'ts.rev.bundle.statusRejected': 'Rejected',
+
+  'ts.rev.bundleDrw.title': 'Bundle details',
+  'ts.rev.bundleDrw.subtitle': 'Status and billing marker per item',
+
+  'ts.rev.kpi.submitted': 'Submitted',
+  'ts.rev.kpi.inReview': 'In review',
+  'ts.rev.kpi.needsCorrection': 'Correction needed',
+  'ts.rev.kpi.approvedInternal': 'Internally checked',
+  'ts.rev.kpi.atCustomer': 'With the client',
+  'ts.rev.kpi.confirmed': 'Confirmed',
+  'ts.rev.kpi.custRejected': 'Client rejected',
+  'ts.rev.kpi.posted': 'In billing',
+
+  'ts.rev.filter.pending': 'Pending',
+  'ts.rev.filter.underReview': 'In review',
+  'ts.rev.filter.correction': 'Correction',
+  'ts.rev.filter.internal': 'Internally checked',
+  'ts.rev.filter.atCustomer': 'With the client',
+  'ts.rev.filter.confirmed': 'Confirmed',
+  'ts.rev.filter.rejected': 'Rejected',
+  'ts.rev.filter.posted': 'Billing',
+  'ts.rev.filter.all': 'All',
+
+  'ts.rev.detail.emptyTitle': 'Select a submission',
+  'ts.rev.detail.emptyText': 'Pick a submission on the left to see details and actions.',
+  'ts.rev.detail.loadError': 'Could not load:',
+  'ts.rev.detail.colDay': 'Day',
+  'ts.rev.detail.colDate': 'Date',
+  'ts.rev.detail.colRegular': 'Reg.',
+  'ts.rev.detail.colOvertime': 'OT',
+  'ts.rev.detail.colBreak': 'Break',
+  'ts.rev.detail.colFrom': 'From',
+  'ts.rev.detail.colTo': 'To',
+  'ts.rev.detail.entries': 'Daily entries',
+  'ts.rev.detail.assignmentAt': 'Assignment at:',
+  'ts.rev.detail.overtime': 'Overtime',
+  'ts.rev.detail.checkedInternal': 'Checked internally',
+  'ts.rev.detail.workerComment': 'Worker:',
+  'ts.rev.detail.reviewNote': 'Review note:',
+  'ts.rev.detail.posted': 'Timesheet posted',
+  'ts.rev.detail.postedLink': 'Open timesheet management',
+  'ts.rev.detail.breakMinutes': 'min break',
+  'ts.rev.detail.hoursPerWeek': 'h/week',
+
+  'ts.rev.detail.customerNotified': 'Client notified by email',
+  'ts.rev.detail.customerNotifiedTo': 'to',
+  'ts.rev.detail.customerNoMail': 'No client contact email on file – the client was not notified by email.',
+  'ts.rev.detail.customerRejectedAt': 'Rejected:',
+
+  'ts.rev.act.startReview': 'Start review',
+  'ts.rev.act.correction': 'Correction',
+  'ts.rev.act.correctionPh': 'What should the worker correct?',
+  'ts.rev.act.requestCorrection': 'Request correction',
+  'ts.rev.act.rejectPh': 'Why is it rejected?',
+  'ts.rev.act.sendToCustomer': 'Send to client',
+  'ts.rev.act.noteOptional': 'Note (optional)',
+  'ts.rev.act.internalNotePh': 'Internal note…',
+  'ts.rev.act.send': 'Send',
+  'ts.rev.act.customerConfirmed': 'Client confirmed',
+  'ts.rev.act.customerRejected': 'Client rejected',
+  'ts.rev.act.confirmedBy': 'Confirmed by',
+  'ts.rev.act.recordConfirmation': 'Record confirmation',
+  'ts.rev.act.reasonOrNote': 'Reason / note',
+  'ts.rev.act.customerRejectPh': 'Why did the client reject it?',
+  'ts.rev.act.backToReview': 'Back to review',
+  'ts.rev.act.needCorrectionNote': 'Please enter a correction note',
+  'ts.rev.act.doneReview': 'Review started',
+  'ts.rev.act.doneApprove': 'Approved internally',
+  'ts.rev.act.doneCorrection': 'Correction requested',
+  'ts.rev.act.doneReject': 'Rejected',
+  'ts.rev.act.sentAndMailed': 'Sent to the client and notified by email',
+  'ts.rev.act.sentNoMail': 'Sent to the client (no email address on file)',
+  'ts.rev.act.confirmationSaved': 'Client confirmation recorded',
+
+  'ts.rev.subs.emptyTitle': 'All done',
+  'ts.rev.subs.emptyText': 'No submissions in this category.',
+  'ts.rev.subs.noAccessTitle': 'No access to timesheets & approvals.',
+  'ts.rev.subs.partialTitle': 'Partial view active.',
+  'ts.rev.subs.partialAccessText': 'Some client-flow elements are not available with your current access.',
+  'ts.rev.subs.partialLoadText': 'Some additional areas could not be loaded. The approval list stays usable.',
+  'ts.rev.subs.loadFailTitle': 'Timesheets & approvals could not be loaded.',
+
+  'ts.rev.next.submitted': 'Review & approve',
+  'ts.rev.next.underReview': 'Approve or request a correction',
+  'ts.rev.next.needsCorrection': 'Waiting for the worker to correct it',
+  'ts.rev.next.approvedInternal': 'Ready – send to the client',
+  'ts.rev.next.sentToCustomer': 'With the client – confirmation pending',
+  'ts.rev.next.customerConfirmed': 'Confirmed – use for billing',
+  'ts.rev.next.customerRejected': 'Rejected by the client – clarify',
+
+  'ts.rev.notice.partialAccess': 'Partial view.',
+  'ts.rev.notice.wrksManageText': 'Invitations, activations and maintenance actions are not enabled for your current role.',
+  'ts.rev.notice.wrksManageShort': 'Invitations and maintenance actions are not enabled for your current role.',
+  'ts.rev.notice.asgnEditText': 'You can see assignment configurations, but staffing and assignment actions are not enabled for your current role.',
+  'ts.rev.notice.retryLater': 'Please try again later.',
+  'ts.rev.notice.noOrgAccess': 'This area is not enabled for your current organisation context.',
+
+  'ts.rev.access.deniedTitle': 'No access',
+  'ts.rev.access.initFailTitle': 'The page could not be initialised',
+  'ts.rev.access.initFailText': 'The current access and organisation context is unavailable right now.',
+  'ts.rev.access.noAreaTitle': 'No access to this area',
+  'ts.rev.access.noAreaText': 'No operational areas are enabled here for your current organisation context.',
+
+  'ts.rev.fastTrack.openedTitle': 'Staffing fast track opened.',
+  'ts.rev.fastTrack.openedText': 'The deal points straight at staffing, but your current role may not perform staffing actions.',
+  'ts.rev.fastTrack.activeTitle': 'Staffing fast track active.',
+  'ts.rev.fastTrack.activeText': '{open} open slots are loaded directly. Safe direct assignment, request and manual assignment all continue on the same assignment card.',
+  'ts.rev.fastTrack.filledTitle': 'Deal assignment already fully staffed.',
+  'ts.rev.fastTrack.filledText': 'The fast route has no open slots left. Existing links and history stay visible on this page.',
+  'ts.rev.fastTrack.closedTitle': 'Deal assignment no longer open.',
+  'ts.rev.fastTrack.closedText': 'The direct staffing entry was called, but this assignment no longer appears among the open deal assignments.',
+  'ts.rev.fastTrack.openedFromDeal': 'Opened directly from the staffing-ready deal.',
+
+  'ts.rev.perm.generic': 'No permission for this action',
+  'ts.rev.perm.staffingDetails': 'You can see assignments, but not open staffing details.',
+  'ts.rev.perm.staffingFilter': 'You cannot filter staffing suggestions.',
+  'ts.rev.perm.staffingRefresh': 'You can see assignments, but not refresh staffing details.',
+  'ts.rev.perm.staffingActions': 'You can see assignments, but not perform staffing or assignment actions.',
+  'ts.rev.perm.workerActivate': 'You can see workers, but not activate or deactivate them.',
+  'ts.rev.perm.workerInvites': 'You cannot manage worker invitations.',
+  'ts.rev.perm.workerInviteSend': 'You can see workers, but not send invitations.',
+  'ts.rev.perm.workerCreate': 'You cannot create new workers.',
+  'ts.rev.perm.directAssign': 'You cannot run a direct assignment from the worker area.',
+  'ts.rev.perm.choiceSet': 'You cannot create a choice phase for workers.',
+  'ts.rev.perm.choiceFinal': 'You cannot trigger a final assignment from a choice phase.',
+  'ts.rev.perm.quickAssign': 'You cannot run a safe direct assignment.',
+  'ts.rev.perm.staffingRequest': 'You cannot send staffing requests.',
+  'ts.rev.perm.waitlist': 'You cannot put workers on the waitlist.',
+  'ts.rev.perm.waitlistWave': 'You cannot trigger another waitlist wave.',
+  'ts.rev.perm.dealAssign': 'You cannot staff deal assignments.',
+  'ts.rev.perm.lnkEdit': 'You can see assignment configurations, but not edit them.',
+  'ts.rev.perm.lnkSave': 'You cannot save assignment configurations.',
+  'ts.rev.perm.lnkRole': 'Assignment links are not enabled for your current role.',
+  'ts.rev.perm.cardRole': 'The assignment card is not enabled for your current role.',
+  'ts.rev.perm.complaint': 'You can see reports, but not process them.',
+  'ts.rev.perm.replacement': 'You cannot assign a replacement.',
+  'ts.rev.perm.planBlock': 'You cannot plan assignments.',
+  'ts.rev.perm.staffingRoleShort': 'Staffing and assignment actions are not enabled for your current role.',
+
+  'ts.rev.msg.error': 'Error',
+  'ts.rev.msg.filterLoadFailed': 'The filter could not be loaded',
+  'ts.rev.msg.saveFailed': 'Could not be saved:',
+  'ts.rev.msg.assignError': 'Assignment failed',
+  'ts.rev.msg.saveError': 'Could not save',
+
+  'ts.rev.staffing.loadingDetails': 'Loading staffing details…',
+  'ts.rev.staffing.loadFailed': 'Loading failed',
+  'ts.rev.staffing.loadingContext': 'Loading assignment, conflict and staffing context…',
+  'ts.rev.staffing.suggestions': 'Suggestions & live status',
+  'ts.rev.staffing.chooseWorker': 'Choose a worker…',
+  'ts.rev.staffing.noSuggestions': 'No suitable worker suggestions found.',
+  'ts.rev.staffing.noWaitlist': 'No waitlist entries yet.',
+  'ts.rev.staffing.noRequests': 'No active request interactions yet.',
+  'ts.rev.staffing.noChoiceSets': 'No active worker choice phases for this assignment yet.',
+  'ts.rev.staffing.quickAssignRunning': 'Direct assignment running…',
+  'ts.rev.staffing.quickAssignCta': 'Assign the safe selection directly',
+  'ts.rev.staffing.quickAssignLabel': 'Direct assignment:',
+  'ts.rev.staffing.quickAssignSafe': 'Safe case per guardrails',
+  'ts.rev.staffing.quickAssignBlocked': 'Only a request or waitlist makes sense',
+  'ts.rev.staffing.noExtraSignals': 'No additional signals yet',
+  'ts.rev.staffing.running': 'Running…',
+  'ts.rev.staffing.assignDirect': 'Assign directly',
+  'ts.rev.staffing.waitlistSelection': 'Selection to waitlist',
+  'ts.rev.staffing.nextWave': 'Next wave',
+  'ts.rev.staffing.activeWorkers': 'Active workers:',
+  'ts.rev.staffing.autoBackfill': 'Auto backfill active:',
+  'ts.rev.staffing.autoBackfillText': 'Follow-up runs through the latest bulk campaign.',
+  'ts.rev.staffing.guardrailHint': 'Direct assignment uses the same guardrails as manual assignment and returns a deterministic result per worker.',
+  'ts.rev.staffing.choiceHeading': 'Worker choice phase / preferences',
+  'ts.rev.staffing.requestHeading': 'Request status / worker communication',
+  'ts.rev.staffing.openQuestions': 'Open questions {q} · Reminder requests {r}',
+  'ts.rev.staffing.waitlistHeading': 'Waitlist / standby',
+  'ts.rev.staffing.detailsFollow': 'Details to follow',
+  'ts.rev.staffing.noResponse': 'No response yet',
+  'ts.rev.staffing.workerAction': 'Worker action {at}',
+  'ts.rev.staffing.dispatcherAction': 'Dispatcher action {at}',
+  'ts.rev.staffing.workerFavourite': 'Worker favourite',
+  'ts.rev.staffing.choiceSetFallback': 'Worker choice phase',
+  'ts.rev.staffing.deadline': 'Deadline',
+  'ts.rev.staffing.selectWorkerFirst': 'Please select at least one worker',
+  'ts.rev.staffing.assignedCount': '{n} workers assigned directly',
+  'ts.rev.staffing.requestedCount': '{n} workers requested',
+  'ts.rev.staffing.waitlistedCount': '{n} workers put on the waitlist',
+  'ts.rev.staffing.waitlistFailed': 'The waitlist could not be updated',
+  'ts.rev.staffing.waveFailed': 'The waitlist wave could not be sent',
+  'ts.rev.staffing.noTopCandidates': 'No free top candidates available',
+  'ts.rev.staffing.topFailed': 'The top candidates could not be requested',
+  'ts.rev.staffing.bulkMessage': 'Automatic bulk request – still open: {open}',
+  'ts.rev.staffing.dealAssignmentFallback': 'Deal assignment',
+
+  'ts.rev.drawer.role': 'Role:',
+  'ts.rev.drawer.client': 'Client:',
+  'ts.rev.drawer.clientUnknown': 'Not specified',
+  'ts.rev.drawer.slots': 'Slots:',
+  'ts.rev.drawer.slotsValue': '{filled} filled · {reserved} reserved · {open} open of {requested}',
+  'ts.rev.drawer.workerCheck': 'Worker check',
+  'ts.rev.drawer.score': 'Score {score}',
+  'ts.rev.drawer.noMatchContext': 'No match context yet',
+  'ts.rev.drawer.fitFallback': 'The worker context is only rated for this specific assignment option.',
+  'ts.rev.drawer.liveStatus': 'Live staffing status',
+  'ts.rev.drawer.choiceSetsForWorker': 'Choice phases for this worker:',
+  'ts.rev.drawer.noChoiceSet': 'No active choice phase',
+  'ts.rev.drawer.manualAssign': 'Assign manually',
+  'ts.rev.drawer.manualAssignAnyway': 'Assign manually despite the warning',
+  'ts.rev.drawer.manualImpossible': 'Manual assignment not possible',
+  'ts.rev.drawer.contextClose': 'Close context',
+  'ts.rev.drawer.contextCheck': 'Check context',
+  'ts.rev.drawer.contextLoading': 'Context is loading',
+  'ts.rev.drawer.assignTitle': 'Assign an assignment directly',
+  'ts.rev.drawer.assignSubtitle': '{worker} – use the existing assignment logic with full worker context',
+  'ts.rev.drawer.workerLoading': 'Worker context is loading',
+  'ts.rev.drawer.workerLoadFailed': 'The worker could not be loaded',
+  'ts.rev.drawer.openDealsFailed': 'Open deal assignments could not be loaded.',
+  'ts.rev.drawer.contextFailed': 'The context could not be loaded.',
+  'ts.rev.drawer.noWorkerSelected': 'No worker selected for the direct assignment',
+  'ts.rev.drawer.notEligible': 'This worker is currently not cleared for a manual assignment.',
+  'ts.rev.drawer.assignedManually': 'Worker assigned manually to the deal assignment',
+  'ts.rev.drawer.confirmWorker': 'Worker: {worker}',
+  'ts.rev.drawer.confirmAssignment': 'Assignment: {assignment}',
+  'ts.rev.drawer.warnOpenInvite': 'An open staffing request is already running for this assignment.',
+  'ts.rev.drawer.warnContacted': 'The worker has already been contacted for this assignment.',
+  'ts.rev.drawer.confirmCheck': 'Please check:',
+  'ts.rev.drawer.confirmQuestion': 'Assign manually now?',
+  'ts.rev.drawer.signalReservations': '{n} active reservations on this assignment',
+  'ts.rev.drawer.signalOpenInvite': 'An open staffing request is already running',
+  'ts.rev.drawer.signalContacted': 'The worker has already been contacted here',
+  'ts.rev.drawer.signalSameClient': '{n} earlier assignments with the same client',
+  'ts.rev.drawer.signalChoiceSets': '{n} active choice phases for this worker',
+
+  'ts.rev.wrk.kpiActive': 'Active workers',
+  'ts.rev.wrk.kpiInvites': 'Open invitations',
+  'ts.rev.wrk.kpiInactive': 'Inactive accounts',
+  'ts.rev.wrk.kpiTotal': 'Total',
+  'ts.rev.wrk.searchPh': 'Search worker…',
+  'ts.rev.wrk.invite': '+ Invite',
+  'ts.rev.wrk.createManual': '+ Create manually',
+  'ts.rev.wrk.colWorker': 'Worker',
+  'ts.rev.wrk.colNumber': 'Personnel no.',
+  'ts.rev.wrk.colStatus': 'Status',
+  'ts.rev.wrk.colSince': 'Member since',
+  'ts.rev.wrk.colActions': 'Actions',
+  'ts.rev.wrk.emptyTitle': 'No workers yet',
+  'ts.rev.wrk.emptyText': 'Invite your first workers so they can submit their timesheets digitally.',
+  'ts.rev.wrk.emptyCta': '+ Invite the first worker',
+  'ts.rev.wrk.invitesTitle': 'Open invitations',
+  'ts.rev.wrk.noAccessTitle': 'No access to workers.',
+  'ts.rev.wrk.loadFailTitle': 'The workers could not be loaded.',
+  'ts.rev.wrk.invitesFailTitle': 'The invitations could not be loaded.',
+  'ts.rev.wrk.assignAssignment': 'Assign an assignment',
+  'ts.rev.wrk.showAssignments': 'Assignments',
+  'ts.rev.wrk.active': 'Active',
+  'ts.rev.wrk.inactive': 'Inactive',
+  'ts.rev.wrk.invitedExpires': 'Invited {rel} – expires {exp}',
+  'ts.rev.wrk.inviteResent': 'Invitation sent again',
+  'ts.rev.wrk.inviteRevoked': 'Invitation revoked',
+  'ts.rev.wrk.errNameMail': 'Please fill in first name, last name and email.',
+  'ts.rev.wrk.errMail': 'Please enter a valid email address.',
+  'ts.rev.wrk.errNameMailPw': 'Please fill in first name, last name, email and password.',
+  'ts.rev.wrk.errPwLength': 'The password must have at least 8 characters.',
+  'ts.rev.wrk.errMailExists': 'This email address already exists.',
+  'ts.rev.wrk.created': 'Worker {first} {last} created',
+  'ts.rev.wrk.createBtn': 'Create worker',
+  'ts.rev.wrk.statActive': 'Active assignments',
+  'ts.rev.wrk.statDocs': 'Documents',
+  'ts.rev.wrk.availabilityNote': 'Availability note:',
+  'ts.rev.wrk.docsExpired': '{n} documents expired.',
+  'ts.rev.wrk.docsExpiring': '{n} records expire soon.',
+  'ts.rev.wrk.nextExpiry': 'Next expiry: {date}.',
+  'ts.rev.wrk.manualCheck': 'Manual check',
+
+  'ts.rev.asgn.kpiActive': 'Active assignments',
+  'ts.rev.asgn.kpiConfigured': 'Configured',
+  'ts.rev.asgn.kpiNoBriefing': 'Without briefing',
+  'ts.rev.asgn.kpiWorkers': 'Workers',
+  'ts.rev.asgn.searchPh': 'Search worker or client…',
+  'ts.rev.asgn.assignCta': '+ Assign staff',
+  'ts.rev.asgn.tabActive': 'Active',
+  'ts.rev.asgn.tabArchive': 'Archive',
+  'ts.rev.asgn.tabAll': 'All',
+  'ts.rev.asgn.viewCards': 'Cards',
+  'ts.rev.asgn.viewPlan': 'Planning',
+  'ts.rev.asgn.dealTitle': 'Deal assignments (assign workers)',
+  'ts.rev.asgn.choiceSetCta': '+ Create a choice phase',
+  'ts.rev.asgn.closedTitle': 'Closed deals',
+  'ts.rev.asgn.closedHint': 'Fully staffed, finished or cancelled deals stay visible here for follow-up.',
+  'ts.rev.asgn.emptyTitle': 'No assignment configurations',
+  'ts.rev.asgn.emptyText': 'As soon as workers are linked to assignments they appear here for configuration.',
+  'ts.rev.asgn.noAccessTitle': 'No access to assignments.',
+  'ts.rev.asgn.loadFailTitle': 'The assignments could not be loaded.',
+  'ts.rev.asgn.dealLoadFailTitle': 'Open deal assignments could not be loaded.',
+  'ts.rev.asgn.noStaffingRights': 'No staffing rights.',
+  'ts.rev.asgn.workerPickFailTitle': 'The worker selection could not be loaded.',
+  'ts.rev.asgn.manualLimited': 'Manual assignment restricted.',
+  'ts.rev.asgn.workerPickNoAccess': 'The worker selection is not available for your current organisation context.',
+  'ts.rev.asgn.closedLoadFail': 'Closed deals could not be loaded.',
+  'ts.rev.asgn.slotsFilled': '{filled} of {requested} filled',
+  'ts.rev.asgn.slots': '{filled} filled · {reserved} reserved · {open} open of {requested}',
+  'ts.rev.asgn.statusActive': 'Active',
+  'ts.rev.asgn.statusArchived': 'Archive',
+  'ts.rev.asgn.rowClient': 'Client',
+  'ts.rev.asgn.rowClientEmpty': 'No client name',
+  'ts.rev.asgn.rowPeriod': 'Period',
+  'ts.rev.asgn.rowPeriodEmpty': 'No date set',
+  'ts.rev.asgn.replaceCta': 'Assign a replacement',
+  'ts.rev.asgn.replaceTitle': 'On sickness/absence: assign a replacement from the effective date and release the absentee',
+  'ts.rev.asgn.hoursPerDay': 'h/day',
+
+  'ts.rev.assign.title': 'Manual assignment → worker',
+  'ts.rev.assign.subtitle': 'Assign a staff offer or deal assignment to a worker (shift times, client, notes)',
+  'ts.rev.assign.hint': 'For bulk or instant assignment without detail work, keep using the section “Deal assignments (assign workers)” further down. This drawer is deliberately the manual detail path.',
+  'ts.rev.assign.loading': 'Loading available staff capacity and deal assignments…',
+  'ts.rev.assign.source': 'Staff or deal assignment',
+  'ts.rev.assign.worker': 'Worker',
+  'ts.rev.assign.start': 'Start date',
+  'ts.rev.assign.end': 'End date',
+  'ts.rev.assign.hoursPerDay': 'Hours / day',
+  'ts.rev.assign.break': 'Break (min)',
+  'ts.rev.assign.shiftStart': 'Shift start',
+  'ts.rev.assign.shiftEnd': 'Shift end',
+  'ts.rev.assign.clientName': 'Client name',
+  'ts.rev.assign.clientNamePh': 'e.g. BMW AG',
+  'ts.rev.assign.notes': 'Notes',
+  'ts.rev.assign.notesPh': 'Internal notes…',
+  'ts.rev.assign.emptyTitle': 'Nothing to assign manually',
+  'ts.rev.assign.emptyText': 'There is currently neither free staff capacity nor a deal assignment with open slots in your area of responsibility.',
+  'ts.rev.assign.groupCapacity': 'Own staff capacity',
+  'ts.rev.assign.groupDeals': 'Deal assignments with open slots',
+  'ts.rev.assign.optionOpenOf': '{open} open of {total}',
+  'ts.rev.assign.capacityFallback': 'Staff capacity',
+  'ts.rev.assign.loadFailTitle': 'Staff capacity could not be loaded right now.',
+  'ts.rev.assign.loadFailText': 'Please try again.',
+  'ts.rev.assign.technicalDetails': 'Technical details',
+  'ts.rev.assign.missingFields': 'Please choose staff/assignment, worker and start date.',
+  'ts.rev.assign.infoClient': 'Client:',
+  'ts.rev.assign.infoStaff': 'Staff:',
+  'ts.rev.assign.blockedSuffix': '— blocked at this client',
+  'ts.rev.assign.blockedTitle': '{n} worker(s) blocked by this client',
+  'ts.rev.assign.blockedHint': '— disabled in the dropdown. Reason: {names}',
+  'ts.rev.assign.doneDeal': 'Deal assignment staffed – the worker is notified',
+  'ts.rev.assign.doneCapacity': 'Staff assigned – the worker is notified',
+  'ts.rev.assign.errCapacityNotFound': 'Staff offer not found.',
+  'ts.rev.assign.errCapacityNotAssignable': 'Staff offer cannot be assigned.',
+  'ts.rev.assign.errAssignmentNotFound': 'Deal assignment not found.',
+  'ts.rev.assign.errAssignmentNotAssignable': 'Deal assignment cannot be staffed.',
+  'ts.rev.assign.errAssignmentFilled': 'The deal assignment is already fully staffed.',
+  'ts.rev.assign.errWorkerLinked': 'The worker is already linked to this assignment.',
+  'ts.rev.assign.errWorkerNotFound': 'Worker not found.',
+  'ts.rev.assign.errWorkerInactive': 'The worker is inactive.',
+  'ts.rev.assign.errScheduleConflict': 'Period conflict with an existing assignment.',
+
+  'ts.rev.deal.errNotFound': 'Assignment not found.',
+  'ts.rev.deal.errNotAssignable': 'The assignment cannot be staffed right now.',
+  'ts.rev.deal.errFilled': 'The assignment is already fully staffed.',
+  'ts.rev.deal.errAlreadyAssigned': 'The worker is already linked to this assignment.',
+  'ts.rev.deal.errWorkerLinked': 'The worker already has an active link for this assignment.',
+  'ts.rev.deal.errWorkerNotFound': 'Worker not found.',
+  'ts.rev.deal.errWorkerInactive': 'The worker is inactive.',
+  'ts.rev.deal.errScheduleConflict': 'Period conflict with an existing assignment or reservation.',
+  'ts.rev.deal.assigned': 'Worker assigned to the deal assignment',
+  'ts.rev.deal.selectWorker': 'Please select a worker',
+  'ts.rev.deal.noOpen': 'No open deal assignments available.',
+
+  'ts.rev.choice.title': 'Create a worker choice phase',
+  'ts.rev.choice.subtitle': 'Release several open assignments to one worker as a controlled choice group',
+  'ts.rev.choice.hint': 'The existing staffing flow stays in charge. Here you only release an additional preference or choice phase; the final assignment remains firmly in your hands.',
+  'ts.rev.choice.worker': 'Worker',
+  'ts.rev.choice.mode': 'Mode',
+  'ts.rev.choice.modePreference': 'Preference only',
+  'ts.rev.choice.modeRanked': 'Ranked choice',
+  'ts.rev.choice.modeFree': 'Free choice within the released options',
+  'ts.rev.choice.deadline': 'Response deadline',
+  'ts.rev.choice.titleField': 'Title',
+  'ts.rev.choice.titlePh': 'e.g. Choice of possible assignments for next week',
+  'ts.rev.choice.message': 'Message to the worker',
+  'ts.rev.choice.messagePh': 'Short note on what the worker should consider when choosing…',
+  'ts.rev.choice.options': 'Released assignment options',
+  'ts.rev.choice.needTwoOptions': 'A choice phase needs at least two open assignment options.',
+  'ts.rev.choice.noActiveWorkers': 'No active workers available for a choice phase.',
+  'ts.rev.choice.prepareFailed': 'The choice phase could not be prepared',
+  'ts.rev.choice.selectWorker': 'Please select a worker.',
+  'ts.rev.choice.selectTwoOptions': 'Please release at least two assignment options.',
+  'ts.rev.choice.created': 'Choice phase created for {n} options',
+  'ts.rev.choice.createFailed': 'The choice phase could not be created',
+  'ts.rev.choice.errWorkerNotFound': 'Worker not found.',
+  'ts.rev.choice.errWorkerInactive': 'The selected worker is inactive.',
+  'ts.rev.choice.errInvalidMode': 'Invalid choice mode.',
+  'ts.rev.choice.errInvalidDeadline': 'The response deadline is invalid.',
+  'ts.rev.choice.errAssignmentNotFound': 'At least one assignment was not found.',
+  'ts.rev.choice.errAssignmentNotAssignable': 'At least one assignment cannot be staffed.',
+  'ts.rev.choice.errAssignmentFilled': 'At least one assignment is already fully staffed.',
+  'ts.rev.choice.errNoEligible': 'No staffing invite could be created for at least one assignment.',
+  'ts.rev.choice.errOptionActive': 'For this worker at least one of the chosen options is already part of an active choice phase.',
+  'ts.rev.choice.errInviteFailed': 'The choice phase could not be prepared completely.',
+  'ts.rev.choice.staleReload': 'The choice phase could not be resolved any more. Please refresh.',
+  'ts.rev.choice.confirmOther': '{worker} signalled a different preference. Assign this option finally anyway?',
+  'ts.rev.choice.confirmFinal': 'Assign this assignment finally now?',
+  'ts.rev.choice.workerFallback': 'The worker',
+  'ts.rev.choice.overridePrompt': 'Optional override note for audit and traceability:',
+  'ts.rev.choice.finalFailed': 'The final assignment failed',
+  'ts.rev.choice.errSetNotFound': 'Choice phase not found.',
+  'ts.rev.choice.errOptionNotFound': 'Choice option not found.',
+  'ts.rev.choice.errAlreadyAssigned': 'The choice phase is already assigned finally.',
+  'ts.rev.choice.errAlreadyDeclined': 'The choice phase was already declined.',
+  'ts.rev.choice.errExpired': 'The choice phase has expired.',
+  'ts.rev.choice.errCancelled': 'The choice phase was closed.',
+  'ts.rev.choice.errReservationNotFound': 'The reservation was not found.',
+  'ts.rev.choice.errAsgNotFound': 'The assignment was not found.',
+  'ts.rev.choice.errAsgNotAssignable': 'The assignment cannot be staffed.',
+  'ts.rev.choice.errReservationInactive': 'The reservation is no longer active.',
+  'ts.rev.choice.errReservationExpired': 'The reservation has expired.',
+  'ts.rev.choice.errAsgFilled': 'The assignment is already fully staffed.',
+  'ts.rev.choice.errWorkerAssigned': 'The worker is already assigned there.',
+  'ts.rev.choice.errWorkerLinked': 'The worker already has an active link for this assignment.',
+  'ts.rev.choice.errWorkerNotFound2': 'Worker not found.',
+  'ts.rev.choice.errWorkerInactive2': 'The worker is inactive.',
+  'ts.rev.choice.errScheduleConflict': 'The final assignment collides with an existing period.',
+  'ts.rev.choice.errAsgNotAssignable2': 'The assignment cannot be staffed right now.',
+  'ts.rev.choice.errNoWorkersSelected': 'Please select at least one worker.',
+
+  'ts.rev.quick.openAfter': '{n} slots still open after the direct assignment.',
+  'ts.rev.quick.summary': '{assigned} assigned directly · {skipped} not carried out · open afterwards {open}',
+  'ts.rev.quick.skippedLinked': 'Already linked',
+  'ts.rev.quick.skippedFilled': 'Assignment already full',
+  'ts.rev.quick.failedNotFound': 'Worker missing',
+  'ts.rev.quick.failedInactive': 'Worker inactive',
+
+  'ts.rev.match.noReason': 'No match rationale yet',
+  'ts.rev.match.availability': 'Availability',
+  'ts.rev.match.qualification': 'Records',
+  'ts.rev.match.reliability': 'Reliability',
+
+  'ts.rev.invite.title': 'Invite a worker',
+  'ts.rev.invite.subtitle': 'The invitation email is sent automatically',
+  'ts.rev.invite.howLabel': 'How it works:',
+  'ts.rev.invite.howText': 'The worker receives an invitation link by email, sets a password there and can submit timesheets digitally right away – no app download, no complicated setup.',
+  'ts.rev.invite.firstNamePh': 'e.g. Anna',
+  'ts.rev.invite.lastNamePh': 'e.g. Kraft',
+
+  'ts.rev.create.title': 'Create a worker manually',
+  'ts.rev.create.subtitle': 'The account is active immediately – no invitation link needed',
+  'ts.rev.create.hintLabel': 'Direct creation:',
+  'ts.rev.create.hintText': 'The account is active immediately. The worker can sign in to the worker portal with the email and the password set here.',
+  'ts.rev.create.firstNamePh': 'e.g. Max',
+  'ts.rev.create.lastNamePh': 'e.g. Miller',
+
+  'ts.rev.field.firstName': 'First name',
+  'ts.rev.field.lastName': 'Last name',
+  'ts.rev.field.email': 'Email address',
+  'ts.rev.field.personnelNumber': 'Personnel number',
+  'ts.rev.field.personnelNumberPh': 'e.g. W-0042',
+  'ts.rev.field.optional': '(optional)',
+  'ts.rev.field.phone': 'Phone',
+  'ts.rev.field.optional2': '(optional)',
+  'ts.rev.field.firstName2': 'First name',
+  'ts.rev.field.lastName2': 'Last name',
+  'ts.rev.field.email2': 'Email address',
+  'ts.rev.field.password': 'Password',
+  'ts.rev.field.passwordPh': 'At least 8 characters',
+  'ts.rev.field.personnelNumber2': 'Personnel number',
+  'ts.rev.field.personnelNumberPh2': 'e.g. W-0042',
+  'ts.rev.field.phone2': 'Phone',
+  'ts.rev.field.street': 'Street',
+  'ts.rev.field.streetPh': 'e.g. Musterstr. 12',
+  'ts.rev.field.zip': 'Postcode',
+  'ts.rev.field.zipPh': 'e.g. 80331',
+  'ts.rev.field.city': 'City',
+  'ts.rev.field.cityPh': 'e.g. Munich',
+  'ts.rev.field.pleaseSelect': '– Please choose –',
+  'ts.rev.field.pleaseSelect2': '– Please choose –',
+  'ts.rev.field.pleaseSelect3': '– Please choose –',
+
+  'ts.rev.wrkAssign.hint': 'You stay in the operational worker area. The existing assignment flow stays in charge; this only activates the direct entry with the worker already selected.',
+  'ts.rev.wrkAssign.loading': 'Loading open deal assignments and staffing context…',
+  'ts.rev.wrkAssign.emptyTitle': 'No open deal assignments',
+  'ts.rev.wrkAssign.emptyText': 'There are currently no open deal-based assignment options for this worker to assign directly.',
+
+  'ts.rev.action.close': 'Close',
+  'ts.rev.action.close2': 'Close',
+  'ts.rev.action.cancel': 'Cancel',
+  'ts.rev.action.cancel2': 'Cancel',
+  'ts.rev.action.cancel3': 'Cancel',
+  'ts.rev.action.cancel4': 'Cancel',
+  'ts.rev.action.cancel5': 'Cancel',
+
+  'ts.rev.lnk.title': 'Configure the assignment',
+  'ts.rev.lnk.save': 'Save changes',
+  'ts.rev.lnk.hoursPerDay': 'Hours / day',
+  'ts.rev.lnk.breakMinutes': 'Break (minutes)',
+  'ts.rev.lnk.dressCodePh': 'e.g. safety shoes and high-visibility vest required',
+  'ts.rev.lnk.internalNotes': 'Internal notes',
+  'ts.rev.lnk.internalNotesHint': '(not for the worker)',
+  'ts.rev.lnk.startRequired': 'A start date is required.',
+  'ts.rev.lnk.saved': 'Assignment configuration saved',
+
+  'ts.rev.cmp.title': 'A client reported a problem with one of your workers — respond right here.',
+  'ts.rev.cmp.workerFallback': 'Worker',
+  'ts.rev.cmp.clientFallback': 'Client',
+  'ts.rev.cmp.acknowledge': 'Acknowledged',
+  'ts.rev.cmp.acknowledgeTitle': 'Show the client that you are on it',
+
+  'ts.rev.rep.notFound': 'Assignment not found.',
+  'ts.rev.rep.endsOriginal': 'The replacement takes over until the original end date ({date}).',
+  'ts.rev.rep.endsOpen': 'The replacement takes over the open assignment.',
+  'ts.rev.rep.effectiveDate': 'Effective date (replacement starts)',
+  'ts.rev.rep.noCandidates': 'No other active workers available in your organisation.',
+  'ts.rev.rep.reason': 'Reason',
+  'ts.rev.rep.subtitle': 'Sickness / absence – exact to the effective date',
+  'ts.rev.rep.errDate': 'Please choose an effective date.',
+  'ts.rev.rep.errWorker': 'Please choose a replacement worker.',
+  'ts.rev.rep.errReason': 'Please state a reason (at least 3 characters).',
+  'ts.rev.rep.errNotFound': 'Assignment not found.',
+  'ts.rev.rep.errNotActive': 'This assignment is not active.',
+  'ts.rev.rep.errSameWorker': 'Replacement and absentee must not be the same person.',
+  'ts.rev.rep.errNotInOrg': 'The chosen worker does not belong to your organisation.',
+  'ts.rev.rep.errInactive': 'The chosen worker is inactive.',
+  'ts.rev.rep.errConflict': 'The chosen replacement is already booked on another assignment in that period. Please choose another worker or effective date.',
+  'ts.rev.rep.errValidation': 'Invalid input:',
+  'ts.rev.rep.failed': 'The replacement assignment failed',
+
+  'ts.rev.plan.blockTitle': 'Plan an assignment for this worker',
+  'ts.rev.plan.blockCta': '+ Block',
+  'ts.rev.plan.assignmentsInMonth': '{n} assignments this month',
+  'ts.rev.plan.legendActive': 'Active',
+  'ts.rev.plan.emptyTitle': 'No assignments in {month}',
+  'ts.rev.plan.emptyText': 'No assignments are planned for this month. Switch the month or plan a block.',
+  'ts.rev.plan.assignmentFallback': 'Assignment',
+
+  'ts.rev.conf.pending': 'Confirmation pending',
+  'ts.rev.conf.confirmed': 'Confirmed',
+  'ts.rev.conf.declined': 'Declined',
+  'ts.rev.due.overdue': 'Overdue',
+  'ts.rev.due.overdueTitle': 'Submission deadline passed, not submitted yet',
+  'ts.rev.due.late': 'Late',
+  'ts.rev.due.lateTitle': 'Submitted after the deadline',
+
+  'ts.rev.status.draft': 'Draft',
+  'ts.rev.status.submitted': 'Submitted',
+  'ts.rev.status.underReview': 'In review',
+  'ts.rev.status.needsCorrection': 'Correction',
+  'ts.rev.status.needsCorrectionLong': 'Correction pending',
+  'ts.rev.status.approvedInternal': 'Internally checked',
+  'ts.rev.status.sentToCustomer': 'With the client',
+  'ts.rev.status.customerConfirmed': 'Confirmed by the client',
+  'ts.rev.status.customerRejected': 'Rejected by the client',
+  'ts.rev.status.rejected': 'Rejected',
+  'ts.rev.status.accepted': 'Accepted',
+  'ts.rev.status.posted': 'In billing',
+
+  'ts.rev.invite.stateSent': 'Open',
+  'ts.rev.invite.stateViewed': 'Viewed',
+  'ts.rev.invite.stateInterested': 'Question',
+  'ts.rev.invite.stateAccepted': 'Accepted',
+  'ts.rev.invite.stateDeclined': 'Declined',
+  'ts.rev.invite.stateExpired': 'Expired',
+  'ts.rev.invite.stateCancelled': 'Closed',
+
+  'ts.rev.option.selected': 'Chosen by the worker',
+  'ts.rev.option.preferred': 'Worker favourite',
+  'ts.rev.option.acceptable': 'Also possible',
+  'ts.rev.option.declined': 'Declined',
+  'ts.rev.choiceState.preferenceSubmitted': 'Preference sent',
+  'ts.rev.choiceState.declined': 'Declined',
+  'ts.rev.drawer.contextHeading': 'Assignment context',
+  'ts.rev.drawer.period': 'Period:',
+  'ts.rev.drawer.openSuffix': 'open',
+  'ts.rev.drawer.location': 'Location:',
+  'ts.rev.drawer.shift': 'Shift:',
+  'ts.rev.drawer.signals': 'Operational signals:',
+  'ts.rev.drawer.blocker': 'Blocker:',
+  'ts.rev.drawer.missingReq': 'Missing requirements:',
+  'ts.rev.drawer.safeCaseHints': 'Safe-case notes:',
+  'ts.rev.drawer.alreadyAssigned': 'Already assigned:',
+  'ts.rev.drawer.noneAssigned': 'Nobody finally assigned yet',
+  'ts.rev.drawer.reserved': 'Reserved:',
+  'ts.rev.drawer.noReservations': 'No active reservations',
+  'ts.rev.drawer.choiceFallback': 'Choice phase',
+  'ts.rev.drawer.refresh': 'Refresh',
+  'ts.rev.drawer.quickAssign': 'Assign safely and directly',
+  'ts.rev.drawer.toCard': 'Go to the assignment card',
+  'ts.rev.drawer.startOpen': 'Start open',
+  'ts.rev.drawer.openSlots': '{n} open',
+  'ts.rev.wrk.docsWatch': 'Keep an eye on the document situation.',
+  'ts.rev.match.hardHit': 'Hard match',
+  'ts.rev.match.softFit': 'Soft fit',
+  'ts.rev.wl.queued': 'Waitlist',
+  'ts.rev.wl.invited': 'Requested',
+  'ts.rev.wl.reserved': 'Reserved',
+  'ts.rev.wl.assigned': 'Assigned',
+  'ts.rev.wl.removed': 'Closed',
+  'ts.rev.wl.fallback': 'Status',
+  'ts.rev.choice.modeFreeShort': 'Free choice',
+  'ts.rev.choice.modeFallback': 'Choice',
+  'ts.rev.choiceState.open': 'Open',
+  'ts.rev.choiceState.ranked': 'Ranking sent',
+  'ts.rev.choiceState.manualOverride': 'Decided manually',
+  'ts.rev.choiceState.assigned': 'Finally assigned',
+  'ts.rev.choiceState.expired': 'Expired',
+  'ts.rev.choiceState.cancelled': 'Closed',
+  'ts.rev.life.endsToday': 'Ends today',
+  'ts.rev.life.expired': 'Expired',
+  'ts.rev.life.completed': 'Finished',
+  'ts.rev.life.cancelled': 'Cancelled',
+  'ts.rev.status.transferred': 'Transferred',
+  'ts.rev.ev.created': 'created',
+  'ts.rev.ev.submitted': 'submitted',
+  'ts.rev.ev.reviewStarted': 'review started',
+  'ts.rev.ev.correctionRequested': 'correction requested',
+  'ts.rev.ev.corrected': 'corrected',
+  'ts.rev.ev.approvedInternal': 'approved internally',
+  'ts.rev.ev.sentToCustomer': 'sent to the client',
+  'ts.rev.ev.customerConfirmed': 'confirmed by the client',
+  'ts.rev.ev.customerRejected': 'rejected by the client',
+  'ts.rev.ev.posted': 'moved to billing',
+  'ts.rev.ev.accepted': 'taken into the timesheet',
+  'ts.rev.ev.rejected': 'rejected',
+  'ts.rev.ev.comment': 'commented',
+  'ts.rev.card.location': 'Site',
+  'ts.rev.card.shiftTime': 'Shift time',
+  'ts.rev.card.noShiftTime': 'No working time',
+  'ts.rev.card.instructions': 'Instructions',
+  'ts.rev.card.noInstructions': 'No instructions',
+  'ts.rev.card.contact': 'Contact',
+  'ts.rev.card.completeness': 'Completeness',
+  'ts.rev.lnk.visibleFor': 'These fields are visible in the worker portal for',
+  'ts.rev.lnk.sectionDetails': 'Assignment details',
+  'ts.rev.lnk.clientName': 'Client name',
+  'ts.rev.lnk.clientNamePh': 'e.g. BMW AG Munich',
+  'ts.rev.lnk.address': 'Site / address',
+  'ts.rev.lnk.addressPh': 'e.g. Lerchenauer Str. 31, 80809 Munich',
+  'ts.rev.lnk.meetingPoint': 'Meeting point',
+  'ts.rev.lnk.meetingPointPh': 'e.g. main entrance, gate A',
+  'ts.rev.lnk.startDate': 'Start date',
+  'ts.rev.lnk.endDate': 'End date',
+  'ts.rev.lnk.sectionHours': 'Working hours',
+  'ts.rev.lnk.shiftStart': 'Shift start',
+  'ts.rev.lnk.shiftEnd': 'Shift end',
+  'ts.rev.lnk.sectionInstructions': 'Assignment instructions',
+  'ts.rev.lnk.instructions': 'Instructions',
+  'ts.rev.lnk.instructionsPh': 'Safety briefings, access codes, special notes…',
+  'ts.rev.lnk.dressCode': 'Clothing / equipment',
+  'ts.rev.lnk.notesPh': 'Internal notes…',
+  'ts.rev.lnk.sectionContact': 'On-site contact',
+  'ts.rev.lnk.contactName': 'Name',
+  'ts.rev.lnk.contactNamePh': 'e.g. Max Meier',
+  'ts.rev.rep.removedText': 'is taken off the assignment and released from the effective date.',
+  'ts.rev.rep.billableText': 'Days already worked stay billable.',
+  'ts.rev.rep.pleaseSelect': '– Please choose –',
+  'ts.rev.rep.cancel': 'Cancel',
+  'ts.rev.lnk.contactPhone': 'Phone',
+  'ts.rev.lnk.contactEmail': 'Email',
+  'ts.rev.lnk.sectionDispatcher': 'Dispatcher / internal contact',
+  'ts.rev.lnk.dispatcherName': 'Name',
+  'ts.rev.lnk.dispatcherNamePh': 'e.g. Sabine Huber',
+  'ts.rev.lnk.dispatcherPhone': 'Phone',
+  'ts.rev.lnk.dispatcherEmail': 'Email',
+  'ts.rev.bundle.noMatch': 'No matching items in the current list',
+  'ts.rev.bundle.sortPeriodDesc': 'Period new→old',
+  'ts.rev.bundle.sortPeriodAsc': 'Period old→new',
+  'ts.rev.bundle.noItems': 'No items',
+  'ts.rev.detail.noEntries': 'No daily entries available.',
+  'ts.rev.detail.noCustomerContact': 'No client contact on file.',
+  'ts.rev.act.postDirect': 'Straight to billing',
+  'ts.rev.act.contactName': 'Client contact name',
+  'ts.rev.act.contactEmail': 'Client contact email',
+  'ts.rev.act.contactPersonPh': 'Contact name',
+  'ts.rev.wrk.noEmail': 'No email on file',
+  'ts.rev.assign.pleaseChoose': '– Please choose –',
+  'ts.rev.assign.optRole': 'Role:',
+  'ts.rev.assign.optCity': 'Location:',
+  'ts.rev.assign.optPeriod': 'Period:',
+  'ts.rev.dealState.open': 'Open',
+  'ts.rev.dealState.sourcing': 'Sourcing',
+  'ts.rev.dealState.partiallyFilled': 'Partially filled',
+  'ts.rev.dealState.filled': 'Filled',
+  'ts.rev.dealState.closed': 'Closed',
+  'ts.rev.dealState.cancelled': 'Cancelled',
+  'ts.rev.quick.assigned': 'Assigned directly',
+  'ts.rev.quick.notSafe': 'Not safe',
+  'ts.rev.quick.conflict': 'Conflict',
+  'ts.rev.quick.notAssignable': 'Not assignable',
+  'ts.rev.quick.failed': 'Failed',
+  'ts.rev.quick.resultFallback': 'Result',
+  'ts.rev.option.rank': 'Rank {n}',
+  'ts.rev.option.expired': 'Expired',
+  'ts.rev.option.cancelled': 'Closed',
+  'ts.rev.option.open': 'Open',
+  'ts.rev.card.notSpecified': 'Not specified',
+  'ts.rev.btn.sending': 'Sending…',
+  'ts.rev.btn.creating': 'Creating…',
+  'ts.rev.btn.assigning': 'Assigning…',
+  'ts.rev.btn.saving': 'Saving…',
+  'ts.rev.wrk.inviteBtn': 'Send the invitation',
+  'ts.rev.assign.submitBtn': 'Assign & notify',
+  'ts.rev.choice.submitBtn': 'Create the choice phase'
+});
+
+/** Kurzform fuer die Uebersetzung an der Verwendungsstelle.
+ *  Bewusst "tt" und nicht "t": "t" ist in dieser Datei bereits als
+ *  Parametername vergeben (switchTab(t, opts)). */
+function tt(key, params) { return TCi18n.t(key, params); }
+
 const API='/api';
 let allSubs=[],allWrks=[],allInvs=[],subKpis={},curFilter='pending',selId=null,wrksLoaded=false;
 let allLinks=[],linksLoaded=false,editingLinkId=null,asgnFilter='active',asgnQuery='',unassignedCaps=[];
@@ -131,7 +1740,7 @@ function renderPageAccessState(title,message){
     el.innerHTML='';
     return;
   }
-  el.innerHTML=`<div class="icon">&#128274;</div><h3>${esc(title||'Kein Zugriff')}</h3><p>${esc(message||'')}</p>`;
+  el.innerHTML=`<div class="icon">&#128274;</div><h3>${esc(title||tt('ts.rev.access.deniedTitle'))}</h3><p>${esc(message||'')}</p>`;
   el.style.display='block';
 }
 
@@ -172,15 +1781,15 @@ function applyPageAccess(){
   toggleElement('wrksCreateBtn',pageAccess.permissions.workerCreate);
   setPanelNotice(
     'wrksManageNotice',
-    pageAccess.tabs.wrks&&!pageAccess.permissions.workerManage?'Ansicht mit Teilzugriff.':'',
-    pageAccess.tabs.wrks&&!pageAccess.permissions.workerManage?'Einladungen, Aktivierungen und Pflegeaktionen sind fuer Ihre aktuelle Rolle nicht freigeschaltet.':'',
+    pageAccess.tabs.wrks&&!pageAccess.permissions.workerManage?tt('ts.rev.notice.partialAccess'):'',
+    pageAccess.tabs.wrks&&!pageAccess.permissions.workerManage?tt('ts.rev.notice.wrksManageText'):'',
     'info'
   );
   toggleElement('asgnAssignBtn',pageAccess.permissions.workerEdit);
   setPanelNotice(
     'asgnEditNotice',
-    pageAccess.tabs.asgn&&!pageAccess.permissions.workerEdit?'Ansicht mit Teilzugriff.':'',
-    pageAccess.tabs.asgn&&!pageAccess.permissions.workerEdit?'Sie koennen Einsatzkonfigurationen sehen, aber Staffing- und Zuweisungsaktionen sind fuer Ihre aktuelle Rolle nicht freigeschaltet.':'',
+    pageAccess.tabs.asgn&&!pageAccess.permissions.workerEdit?tt('ts.rev.notice.partialAccess'):'',
+    pageAccess.tabs.asgn&&!pageAccess.permissions.workerEdit?tt('ts.rev.notice.asgnEditText'):'',
     'info'
   );
 }
@@ -240,8 +1849,8 @@ function renderStaffingFastTrackNotice(){
   }
   if(!pageAccess.permissions.workerEdit){
     setStaffingFastTrackNotice(
-      'Staffing-Fast-Track geöffnet.',
-      'Der Deal verweist direkt auf die Einsatzbesetzung, aber Ihre aktuelle Rolle darf keine Staffing-Aktionen ausführen.',
+      tt('ts.rev.fastTrack.openedTitle'),
+      tt('ts.rev.fastTrack.openedText'),
       'info'
     );
     return;
@@ -250,8 +1859,8 @@ function renderStaffingFastTrackNotice(){
   if(targetAssignment){
     const open=Number(targetAssignment.open_quantity||Math.max(Number(targetAssignment.requested_quantity||targetAssignment.worker_count||1)-Number(targetAssignment.filled_quantity||0)-Number(targetAssignment.reserved_quantity||0),0));
     setStaffingFastTrackNotice(
-      'Staffing-Fast-Track aktiv.',
-      `${open} offene Plätze sind direkt geladen. Sichere Direktzuweisung, Anfrage und manuelle Zuweisung laufen auf derselben Einsatzkarte weiter.`,
+      tt('ts.rev.fastTrack.activeTitle'),
+      tt('ts.rev.fastTrack.activeText', { open: open }),
       'info'
     );
     return;
@@ -259,15 +1868,15 @@ function renderStaffingFastTrackNotice(){
   const quickAssignSummary=staffingUiStateByAssignment[staffingFastTrackContext.assignmentId]?.quickAssignResult?.summary||null;
   if(quickAssignSummary&&Number(quickAssignSummary.open_quantity_after||0)===0){
     setStaffingFastTrackNotice(
-      'Deal-Einsatz bereits vollständig besetzt.',
-      'Die Schnellroute hat keine offenen Plätze mehr. Bestehende Links und Verlauf bleiben weiter über diese Seite sichtbar.',
+      tt('ts.rev.fastTrack.filledTitle'),
+      tt('ts.rev.fastTrack.filledText'),
       'success'
     );
     return;
   }
   setStaffingFastTrackNotice(
-    'Deal-Einsatz nicht mehr offen.',
-    'Der direkte Staffing-Einstieg wurde aufgerufen, aber dieser Einsatz taucht nicht mehr in den offenen Deal-Einsätzen auf.',
+    tt('ts.rev.fastTrack.closedTitle'),
+    tt('ts.rev.fastTrack.closedText'),
     'warning'
   );
 }
@@ -280,7 +1889,7 @@ function scrollDealAssignmentIntoView(assignmentId){
 }
 
 async function openStaffingPanel(assignmentId,{forceReload=false,scrollIntoView=false}={}){
-  if(!ensurePermission('workerEdit','Sie koennen Einsaetze sehen, aber keine Staffing-Details oeffnen.'))return false;
+  if(!ensurePermission('workerEdit',tt('ts.rev.perm.staffingDetails')))return false;
   const panel=document.getElementById('staffingPanel-'+assignmentId);
   if(!panel)return false;
   if(scrollIntoView)scrollDealAssignmentIntoView(assignmentId);
@@ -288,7 +1897,7 @@ async function openStaffingPanel(assignmentId,{forceReload=false,scrollIntoView=
     return true;
   }
   panel.style.display='block';
-  panel.innerHTML='<div style="padding:14px;color:var(--wk-text-muted);font-size:12px">Lade Staffing-Details…</div>';
+  panel.innerHTML='<div style="padding:14px;color:var(--wk-text-muted);font-size:12px">'+esc(tt('ts.rev.staffing.loadingDetails'))+'</div>';
   try{
     const state=getStaffingUiState(assignmentId);
     await Promise.all([
@@ -298,7 +1907,7 @@ async function openStaffingPanel(assignmentId,{forceReload=false,scrollIntoView=
     renderStaffingPanel(assignmentId);
     return true;
   }catch(e){
-    panel.innerHTML=`<div style="padding:14px;color:var(--tc-tone-danger-text);font-size:12px">${esc(e.message||'Laden fehlgeschlagen')}</div>`;
+    panel.innerHTML=`<div style="padding:14px;color:var(--tc-tone-danger-text);font-size:12px">${esc(e.message||tt('ts.rev.staffing.loadFailed'))}</div>`;
     return false;
   }
 }
@@ -494,7 +2103,7 @@ function isTransientError(error){
 
 function ensurePermission(permissionKey,message){
   if(pageAccess.permissions[permissionKey])return true;
-  toast(message||'Keine Berechtigung fuer diese Aktion','error');
+  toast(message||tt('ts.rev.perm.generic'),'error');
   return false;
 }
 
@@ -514,8 +2123,8 @@ async function initializePage(){
     pageAccess=createEmptyPageAccess();
     applyPageAccess();
     renderPageAccessState(
-      'Seite konnte nicht initialisiert werden',
-      'Der aktuelle Zugriffs- und Organisationskontext ist derzeit nicht verfuegbar.'
+      tt('ts.rev.access.initFailTitle'),
+      tt('ts.rev.access.initFailText')
     );
     return;
   }
@@ -528,8 +2137,8 @@ async function initializePage(){
     pageAccess=createEmptyPageAccess();
     applyPageAccess();
     renderPageAccessState(
-      'Einsatzverfolgung (Unternehmenssicht)',
-      'Dieser Arbeitsplatz ist der operative Einsatzleitstand Ihres Personaldienstleisters. Einsatzstatus, Zeitfreigaben und Abrechnungsstand sehen Sie als Unternehmen lesend ueber Deals und Activity.'
+      tt('ts.rev.company.lockTitle'),
+      tt('ts.rev.company.lockText')
     );
     // Audit 5: statische Dienstleister-Operator-Flaechen fuer Unternehmen ausblenden, damit die
     // "nur lesend"-Notiz nicht durch Operator-Kacheln widerlegt wird (Banner "zentral steuern",
@@ -537,7 +2146,9 @@ async function initializePage(){
     toggleElement('pilotPriorityBanner', false);
     toggleElement('verwaltungHubSection', false);
     var _sub = document.getElementById('pageSubtitle');
-    if (_sub) _sub.textContent = 'Einsatzstatus, Zeitfreigaben und Abrechnungsstand Ihres Personaldienstleisters – lesend ueber Deals und Activity.';
+    // Marker mitziehen: sonst wuerde das naechste TCi18n.apply() (Sprachwechsel)
+    // wieder den Agentur-Untertitel einsetzen und die Unternehmenssicht ueberschreiben.
+    if (_sub) { _sub.setAttribute('data-i18n', 'ts.rev.company.subtitle'); _sub.textContent = tt('ts.rev.company.subtitle'); }
     return;
   }
 
@@ -545,8 +2156,8 @@ async function initializePage(){
   const initialTab=getInitialTab();
   if(!initialTab){
     renderPageAccessState(
-      'Kein Zugriff auf diesen Bereich',
-      'Fuer Ihren aktuellen Organisationskontext sind hier keine operativen Bereiche freigeschaltet.'
+      tt('ts.rev.access.noAreaTitle'),
+      tt('ts.rev.access.noAreaText')
     );
     return;
   }
@@ -609,8 +2220,8 @@ async function loadSubs(){
     subsLoaded=true;
     setPanelNotice(
       'subsStateNotice',
-      'Kein Zugriff auf Stundenzettel & Freigaben.',
-      'Der Bereich ist fuer Ihren aktuellen Organisationskontext nicht freigeschaltet.',
+      tt('ts.rev.subs.noAccessTitle'),
+      tt('ts.rev.notice.noOrgAccess'),
       'info'
     );
     toggleElement('ldSubs',false);
@@ -641,10 +2252,10 @@ async function loadSubs(){
       const partialAccess=partialFailures.some((result)=>isAccessDeniedError(result.reason));
       setPanelNotice(
         'subsStateNotice',
-        'Teilansicht aktiv.',
+        tt('ts.rev.subs.partialTitle'),
         partialAccess
-          ? 'Einzelne Kundenflow-Elemente sind fuer Ihren aktuellen Zugriff nicht verfuegbar.'
-          : 'Einzelne Zusatzbereiche konnten nicht geladen werden. Die Freigabenliste bleibt nutzbar.',
+          ? tt('ts.rev.subs.partialAccessText')
+          : tt('ts.rev.subs.partialLoadText'),
         partialAccess?'info':'warning'
       );
     }
@@ -675,16 +2286,16 @@ async function loadSubs(){
     if(isAccessDeniedError(error)){
       setPanelNotice(
         'subsStateNotice',
-        'Kein Zugriff auf Stundenzettel & Freigaben.',
-        'Der Bereich ist fuer Ihren aktuellen Organisationskontext nicht freigeschaltet.',
+        tt('ts.rev.subs.noAccessTitle'),
+        tt('ts.rev.notice.noOrgAccess'),
         'info'
       );
       return;
     }
     setPanelNotice(
       'subsStateNotice',
-      'Stundenzettel & Freigaben konnten nicht geladen werden.',
-      error?.message||'Bitte spaeter erneut versuchen.',
+      tt('ts.rev.subs.loadFailTitle'),
+      error?.message||tt('ts.rev.notice.retryLater'),
       'danger'
     );
   }
@@ -725,8 +2336,8 @@ function updateCustomerFlowCard() {
   if (btn) {
     btn.disabled = (ready === 0 && bundlePreview.length === 0);
     btn.textContent = ready > 0
-      ? ready + ' versandbereite Positionen anzeigen'
-      : 'Versandbereite Positionen anzeigen';
+      ? tt('ts.rev.cust.btnReady', { n: ready })
+      : tt('ts.rev.cust.btnReadyNone');
   }
 
   // Flow-Badge
@@ -734,16 +2345,16 @@ function updateCustomerFlowCard() {
   if (badge) {
     if (rejected > 0) {
       badge.className = 'pill ' + tonePillClass('danger');
-      badge.textContent = 'Handlungsbedarf';
+      badge.textContent = tt('ts.rev.cust.badgeAction');
     } else if (ready > 0) {
-      badge.className = 'pill pill-pnd'; badge.textContent = ready + ' versandbereit';
+      badge.className = 'pill pill-pnd'; badge.textContent = tt('ts.rev.cust.badgeReady', { n: ready });
     } else if (openAtCustomer > 0) {
       badge.className = 'pill ' + tonePillClass('warning');
-      badge.textContent = openAtCustomer + ' offen beim Kunden';
+      badge.textContent = tt('ts.rev.cust.badgeOpen', { n: openAtCustomer });
     } else if (posted > 0 && ready === 0 && sent === 0 && rejected === 0) {
-      badge.className = 'pill pill-act'; badge.textContent = 'Alles abgerechnet';
+      badge.className = 'pill pill-act'; badge.textContent = tt('ts.rev.cust.badgeAllPosted');
     } else {
-      badge.className = 'pill pill-pnd'; badge.textContent = 'Kundenflow';
+      badge.className = 'pill pill-pnd'; badge.textContent = tt('ts.rev.cust.badgeFlow');
     }
   }
 
@@ -751,13 +2362,13 @@ function updateCustomerFlowCard() {
   const hint = document.getElementById('custFlowHint');
   if (hint) {
     if (rejected > 0) {
-      setToneHint(hint,'danger',rejected + ' Stundenzettel wurden vom Kunden abgelehnt. Bitte pruefen und korrigieren.');
+      setToneHint(hint,'danger',tt('ts.rev.cust.hintRejected', { n: rejected }));
     } else if (ready > 0) {
-      setToneHint(hint,'success',ready + ' intern freigegebene Positionen sind bereit fuer den Kundenversand.');
+      setToneHint(hint,'success',tt('ts.rev.cust.hintReady', { n: ready }));
     } else if (openAtCustomer > 0) {
-      setToneHint(hint,'warning',openAtCustomer + ' Positionen warten auf Kundenrueckmeldung.');
+      setToneHint(hint,'warning',tt('ts.rev.cust.hintOpen', { n: openAtCustomer }));
     } else if (posted > 0 && ready === 0 && sent === 0) {
-      setToneHint(hint,'success','Alle Positionen sind bestaetigt oder in Abrechnung. Kein Handlungsbedarf.');
+      setToneHint(hint,'success',tt('ts.rev.cust.hintDone'));
     } else {
       setToneHint(hint,'','');
     }
@@ -783,20 +2394,20 @@ function getFiltered(){
    deals .dm-card__nextstep. Sicht: PDL-Reviewer (Unternehmen erreichen renderSubs nicht —
    Company-Soft-Lock mit return weiter oben). */
 var SUB_NEXT_STEP = {
-  submitted:          'Prüfen & freigeben',
-  under_review:       'Freigeben oder Korrektur anfordern',
-  needs_correction:   'Wartet auf Korrektur des Mitarbeiters',
-  approved_internal:  'Bereit – an Kunde senden',
-  sent_to_customer:   'Beim Kunden – Bestätigung ausstehend',
-  customer_confirmed: 'Bestätigt – für Abrechnung verwenden',
-  customer_rejected:  'Vom Kunden abgelehnt – klären'
+  submitted:          'ts.rev.next.submitted',
+  under_review:       'ts.rev.next.underReview',
+  needs_correction:   'ts.rev.next.needsCorrection',
+  approved_internal:  'ts.rev.next.approvedInternal',
+  sent_to_customer:   'ts.rev.next.sentToCustomer',
+  customer_confirmed: 'ts.rev.next.customerConfirmed',
+  customer_rejected:  'ts.rev.next.customerRejected'
   // posted_to_timesheet: Endzustand (eigener "Für Abrechnung verwendet"-Pill)
 };
-function subNextStep(status){ return SUB_NEXT_STEP[status] || ''; }
+function subNextStep(status){ return SUB_NEXT_STEP[status] ? tt(SUB_NEXT_STEP[status]) : ''; }
 
 function renderSubs(){
   const el=document.getElementById('subList'),items=getFiltered();
-  if(!items.length){el.innerHTML='<div class="hub-empty"><div class="icon">??</div><h3>Alles erledigt</h3><p>Keine Einreichungen in dieser Kategorie.</p></div>';return;}
+  if(!items.length){el.innerHTML='<div class="hub-empty"><h3>'+esc(tt('ts.rev.subs.emptyTitle'))+'</h3><p>'+esc(tt('ts.rev.subs.emptyText'))+'</p></div>';return;}
   el.innerHTML=items.map(s=>`
     <div class="rev-item${s.id===selId?' sel':''}" onclick="selSub('${s.id}')">
       <div class="rev-ihead">
@@ -809,7 +2420,7 @@ function renderSubs(){
         <span class="rev-ihours">${parseFloat(s.total_hours||0).toFixed(1)} h</span>
       </div>
       ${subNextStep(s.status)?`<div class="rev-inextstep" style="font-size:11px;color:var(--ds-brand,#4a9eff);font-weight:600;margin-top:4px">→ ${esc(subNextStep(s.status))}</div>`:''}
-      ${s.status==='posted_to_timesheet'||s.timesheet_id?'<div style="margin-top:6px"><span class="pill pill-act">Für Abrechnung verwendet</span></div>':''}
+      ${s.status==='posted_to_timesheet'||s.timesheet_id?`<div style="margin-top:6px"><span class="pill pill-act">${esc(tt('ts.rev.bundle.used'))}</span></div>`:''}
     </div>`).join('');
 }
 
@@ -819,41 +2430,41 @@ function renderBundleCenter(){
   if(!prevEl||!sentEl)return;
 
   if(!bundlePreview.length){
-    prevEl.innerHTML='<div class="hub-empty" style="padding:16px 10px"><p>Keine freigegebenen Positionen für Sammelversand.</p></div>';
+    prevEl.innerHTML='<div class="hub-empty" style="padding:16px 10px"><p>'+esc(tt('ts.rev.bundle.emptyPreview'))+'</p></div>';
   }else{
     prevEl.innerHTML=bundlePreview.map(b=>`
       <div class="rev-item" style="margin-bottom:8px">
         <div class="rev-ihead">
-          <div class="rev-iname">${esc(b.client_name||'Kunde')} <span style="font-weight:400;color:var(--wk-text-muted)">(${esc(b.period_key||'')})</span></div>
-          <span class="pill pill-pnd">${b.submission_count||0} Positionen</span>
+          <div class="rev-iname">${esc(b.client_name||tt('ts.rev.bundle.clientFallback'))} <span style="font-weight:400;color:var(--wk-text-muted)">(${esc(b.period_key||'')})</span></div>
+          <span class="pill pill-pnd">${esc(tt('ts.rev.bundle.positions', { n: b.submission_count||0 }))}</span>
         </div>
-        <div class="rev-isub">${esc(b.earliest_week_start||'')} bis ${esc(b.latest_week_end||'')} • ${Number(b.total_hours||0).toFixed(1)} h</div>
+        <div class="rev-isub">${esc(b.earliest_week_start||'')} ${esc(tt('ts.rev.bundle.rangeTo'))} ${esc(b.latest_week_end||'')} • ${Number(b.total_hours||0).toFixed(1)} h</div>
         <div style="display:flex;gap:8px;margin-top:8px;flex-wrap:wrap">
-          <button class="wk-btn wk-btn-primary wk-btn-sm" onclick="sendBundleByKey('${esc(b.bundle_key)}')">Sammelversand</button>
-          <button class="wk-btn wk-btn-ghost wk-btn-sm" onclick="previewBundleScope('${esc(b.bundle_key)}')">Vorschau</button>
+          <button class="wk-btn wk-btn-primary wk-btn-sm" onclick="sendBundleByKey('${esc(b.bundle_key)}')">${esc(tt('ts.rev.bundle.send'))}</button>
+          <button class="wk-btn wk-btn-ghost wk-btn-sm" onclick="previewBundleScope('${esc(b.bundle_key)}')">${esc(tt('ts.rev.bundle.preview'))}</button>
         </div>
       </div>
     `).join('');
   }
 
   if(!bundleItems.length){
-    sentEl.innerHTML='<div class="hub-empty" style="padding:16px 10px"><p>Noch kein Sammelversand durchgeführt.</p></div>';
+    sentEl.innerHTML='<div class="hub-empty" style="padding:16px 10px"><p>'+esc(tt('ts.rev.bundle.emptySent'))+'</p></div>';
   }else{
     sentEl.innerHTML=bundleItems.slice(0,12).map(b=>`
       <div class="rev-item" style="margin-bottom:8px">
         <div class="rev-ihead">
-          <div class="rev-iname">${esc(b.client_name||'Kunde')}</div>
+          <div class="rev-iname">${esc(b.client_name||tt('ts.rev.bundle.clientFallback'))}</div>
           ${badgeBundleStatus(b.customer_bundle_status)}
         </div>
         <div class="rev-isub">${esc(b.customer_bundle_key||'')}</div>
         <div style="font-size:.76rem;color:var(--wk-text-muted);margin-top:3px">
-          Pos.: ${b.submission_count||0} • Bestätigt: ${b.customer_confirmed_count||0} • Abgerechnet: ${b.posted_count||0}
+          ${esc(tt('ts.rev.bundle.counts', { items: b.submission_count||0, confirmed: b.customer_confirmed_count||0, posted: b.posted_count||0 }))}
         </div>
         ${renderBundleProgressBar(b)}
         <div style="display:flex;gap:8px;margin-top:8px;flex-wrap:wrap">
-          <button class="wk-btn wk-btn-outline wk-btn-sm" onclick="openBundleDetail('${esc(b.customer_bundle_key)}')">Details</button>
+          <button class="wk-btn wk-btn-outline wk-btn-sm" onclick="openBundleDetail('${esc(b.customer_bundle_key)}')">${esc(tt('ts.rev.bundle.details'))}</button>
           <button class="wk-btn wk-btn-ghost wk-btn-sm" onclick="downloadBundleCsv('${esc(b.customer_bundle_key)}')">CSV</button>
-          <button class="wk-btn wk-btn-success wk-btn-sm" onclick="postBundle('${esc(b.customer_bundle_key)}')">In Abrechnung</button>
+          <button class="wk-btn wk-btn-success wk-btn-sm" onclick="postBundle('${esc(b.customer_bundle_key)}')">${esc(tt('ts.rev.bundle.post'))}</button>
         </div>
       </div>
     `).join('');
@@ -879,28 +2490,28 @@ function renderBundleProgressBar(b){
         <div style="position:absolute;left:0;top:0;bottom:0;width:${pPosted}%;background:var(--tc-progress-success-strong)"></div>
       </div>
       <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:4px;font-size:.71rem;color:var(--wk-text-muted)">
-        <span>Gesendet ${sent}/${total}</span>
-        <span>Bestätigt ${confirmed}/${total}</span>
+        <span>${esc(tt('ts.rev.bundle.progressSent', { a: sent, b: total }))}</span>
+        <span>${esc(tt('ts.rev.bundle.progressConfirmed', { a: confirmed, b: total }))}</span>
         <span>Abgerechnet ${posted}/${total}</span>
       </div>
     </div>`;
 }
 async function setStaffingSuggestionMode(assignmentId,hardOnly){
-  if(!ensurePermission('workerEdit','Sie koennen Staffing-Vorschlaege nicht filtern.'))return;
+  if(!ensurePermission('workerEdit',tt('ts.rev.perm.staffingFilter')))return;
   try{
     const state=getStaffingUiState(assignmentId);
     state.hardOnly=!!hardOnly;
     await loadStaffingSuggestions(assignmentId,{limit:20,only_available:true,hard_only:state.hardOnly,include_blocked:true});
     renderStaffingPanel(assignmentId);
-  }catch(e){toast(e.message||'Filter konnte nicht geladen werden','error');}
+  }catch(e){toast(e.message||tt('ts.rev.msg.filterLoadFailed'),'error');}
 }
 
 function badgeBundleStatus(st){
   const m={
-    sent:'<span class="pill pill-pnd">Gesendet</span>',
-    confirmed:'<span class="pill pill-act">Bestätigt</span>',
+    sent:'<span class="pill pill-pnd">'+esc(tt('ts.rev.bundle.statusSent'))+'</span>',
+    confirmed:'<span class="pill pill-act">'+esc(tt('ts.rev.bundle.statusConfirmed'))+'</span>',
     partially_confirmed:'<span class="pill pill-warn">Teilweise</span>',
-    rejected:'<span class="pill pill-off">Abgelehnt</span>',
+    rejected:'<span class="pill pill-off">'+esc(tt('ts.rev.bundle.statusRejected'))+'</span>',
     prepared:'<span class="pill pill-off">Vorbereitet</span>'
   };
   return m[st]||`<span class="pill pill-off">${esc(st||'offen')}</span>`;
@@ -940,27 +2551,27 @@ async function sendBundleByKey(bundleKey){
     if(!r.ok)throw new Error(d.error||'Sammelversand fehlgeschlagen');
     toast(`Sammelversand gestartet (${d.submission_count||0} Positionen)`,'success');
     await loadSubs();
-  }catch(e){toast(e.message||'Fehler','error');}
+  }catch(e){toast(e.message||tt('ts.rev.msg.error'),'error');}
 }
 
 function previewBundleScope(bundleKey){
   const meta=parseBundleKey(bundleKey);
   const list=allSubs.filter(s=>s.org_id===meta.orgId && s.status==='approved_internal' && String(s.week_start||'').startsWith(String(meta.periodKey||'').slice(0,7)));
-  if(!list.length){toast('Keine passenden Positionen in aktueller Liste','error');return;}
-  toast(`Vorschau: ${list.length} Positionen bereit für ${meta.periodKey}`,'success');
+  if(!list.length){toast(tt('ts.rev.bundle.noMatch'),'error');return;}
+  toast(tt('ts.rev.bundle.previewToast', { n: list.length, period: meta.periodKey }),'success');
 }
 
 async function openBundleDetail(bundleKey){
   try{
     const r=await fetch(`${AGENCY_BUNDLES_URL}/${encodeURIComponent(bundleKey)}`,{credentials:'include'});
     const d=await r.json();
-    if(!r.ok)throw new Error(d.error||'Bundle nicht gefunden');
+    if(!r.ok)throw new Error(d.error||tt('ts.rev.bundle.notFound'));
     currentBundleDetailItems=d.items||[];
     currentBundleDetailKey=bundleKey;
     renderBundleDetailTable();
     document.getElementById('bundleModalOverlay').classList.add('on');
     document.getElementById('bundleModal').classList.add('on');
-  }catch(e){toast(e.message||'Fehler','error');}
+  }catch(e){toast(e.message||tt('ts.rev.msg.error'),'error');}
 }
 
 function renderBundleDetailTable(){
@@ -982,7 +2593,7 @@ function renderBundleDetailTable(){
 
   const rows=items.map(it=>{
     const worker=`${it.first_name||''} ${it.last_name||''}`.trim()||it.worker_email||'–';
-    const used=(it.status==='posted_to_timesheet'||it.timesheet_id)?'<span class="pill pill-act">Für Abrechnung verwendet</span>':'<span class="pill pill-off">Noch offen</span>';
+    const used=(it.status==='posted_to_timesheet'||it.timesheet_id)?'<span class="pill pill-act">'+esc(tt('ts.rev.bundle.used'))+'</span>':'<span class="pill pill-off">'+esc(tt('ts.rev.bundle.stillOpen'))+'</span>';
     return `<tr>
       <td>${esc(worker)}</td>
       <td>${esc(it.client_name||'')}</td>
@@ -990,7 +2601,7 @@ function renderBundleDetailTable(){
       <td>${Number(it.total_hours||0).toFixed(1)} h</td>
       <td>${badge(it.status)}</td>
       <td>${used}</td>
-      <td><button class="wk-btn wk-btn-ghost wk-btn-sm" onclick="openSubmissionFromBundle('${it.id}')">Öffnen</button></td>
+      <td><button class="wk-btn wk-btn-ghost wk-btn-sm" onclick="openSubmissionFromBundle('${it.id}')">${esc(tt('ts.rev.bundle.open'))}</button></td>
     </tr>`;
   }).join('');
 
@@ -998,19 +2609,19 @@ function renderBundleDetailTable(){
   body.innerHTML=`
     <div style="margin-bottom:10px;font-size:.85rem;color:var(--wk-text-muted)">${esc(currentBundleDetailKey)}</div>
     <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px">
-      <input id="bundleDetailSearch" class="wk-input" placeholder="Filter Mitarbeiter/Kunde/Status…" style="max-width:280px" value="${esc(document.getElementById('bundleDetailSearch')?.value||'')}" oninput="renderBundleDetailTable()">
+      <input id="bundleDetailSearch" class="wk-input" placeholder="${esc(tt('ts.rev.bundle.searchPh'))}" style="max-width:280px" value="${esc(document.getElementById('bundleDetailSearch')?.value||'')}" oninput="renderBundleDetailTable()">
       <select id="bundleDetailSort" class="wk-input" style="width:180px" onchange="renderBundleDetailTable()">
-        <option value="week_desc"${sort==='week_desc'?' selected':''}>Zeitraum neu→alt</option>
-        <option value="week_asc"${sort==='week_asc'?' selected':''}>Zeitraum alt→neu</option>
-        <option value="hours_desc"${sort==='hours_desc'?' selected':''}>Stunden hoch→niedrig</option>
-        <option value="hours_asc"${sort==='hours_asc'?' selected':''}>Stunden niedrig→hoch</option>
-        <option value="status"${sort==='status'?' selected':''}>Status</option>
+        <option value="week_desc"${sort==='week_desc'?' selected':''}>${esc(tt('ts.rev.bundle.sortPeriodDesc'))}</option>
+        <option value="week_asc"${sort==='week_asc'?' selected':''}>${esc(tt('ts.rev.bundle.sortPeriodAsc'))}</option>
+        <option value="hours_desc"${sort==='hours_desc'?' selected':''}>${esc(tt('ts.rev.bundle.sortHoursDesc'))}</option>
+        <option value="hours_asc"${sort==='hours_asc'?' selected':''}>${esc(tt('ts.rev.bundle.sortHoursAsc'))}</option>
+        <option value="status"${sort==='status'?' selected':''}>${esc(tt('ts.rev.bundle.sortStatus'))}</option>
       </select>
     </div>
     <div class="wk-table-wrap">
       <table class="wk-table">
-        <thead><tr><th>Mitarbeiter</th><th>Kunde</th><th>Zeitraum</th><th>Stunden</th><th>Status</th><th>Abrechnung</th><th>Aktion</th></tr></thead>
-        <tbody>${rows||'<tr><td colspan="7">Keine Positionen</td></tr>'}</tbody>
+        <thead><tr><th>${esc(tt('ts.rev.bundle.colWorker'))}</th><th>${esc(tt('ts.rev.bundle.colClient'))}</th><th>${esc(tt('ts.rev.bundle.colPeriod'))}</th><th>${esc(tt('ts.rev.bundle.colHours'))}</th><th>${esc(tt('ts.rev.bundle.colStatus'))}</th><th>${esc(tt('ts.rev.bundle.colBilling'))}</th><th>${esc(tt('ts.rev.bundle.colAction'))}</th></tr></thead>
+        <tbody>${rows||`<tr><td colspan="7">${esc(tt('ts.rev.bundle.noItems'))}</td></tr>`}</tbody>
       </table>
     </div>`;
 }
@@ -1037,10 +2648,10 @@ async function postBundle(bundleKey){
       method:'POST',credentials:'include',headers:{'x-csrf-token':csrf}
     });
     const d=await r.json();
-    if(!r.ok)throw new Error(d.error||'Bundle konnte nicht gebucht werden');
-    toast(`Bundle in Abrechnung überführt (${d.processed||0})`,'success');
+    if(!r.ok)throw new Error(d.error||tt('ts.rev.bundle.postFailed'));
+    toast(tt('ts.rev.bundle.postDone', { n: d.processed||0 }),'success');
     await loadSubs();
-  }catch(e){toast(e.message||'Fehler','error');}
+  }catch(e){toast(e.message||tt('ts.rev.msg.error'),'error');}
 }
 async function selSub(id){
   selId=id;renderSubs();
@@ -1051,7 +2662,7 @@ async function selSub(id){
   try{
     const r=await fetch(`${AGENCY_SUBS_URL}/${id}`,{credentials:'include'});
     renderDet(await r.json());
-  }catch(e){dc.innerHTML='<div class="wk-alert wk-alert-danger"><span>??</span><span>Fehler beim Laden: '+esc(e.message)+'</span></div>';}
+  }catch(e){dc.innerHTML='<div class="wk-alert wk-alert-danger"><span>'+esc(tt('ts.rev.detail.loadError'))+' '+esc(e.message)+'</span></div>';}
 }
 function renderDet(s){
   const st=s.status;
@@ -1060,7 +2671,7 @@ function renderDet(s){
   // Tageseinträge-Tabelle
   const rows=(s.entries||[]).length?`
     <table class="rev-etable">
-      <thead><tr><th>Tag</th><th>Datum</th><th>Reg.</th><th>Überstd.</th><th>Pause</th><th>Von</th><th>Bis</th></tr></thead>
+      <thead><tr><th>${esc(tt('ts.rev.detail.colDay'))}</th><th>${esc(tt('ts.rev.detail.colDate'))}</th><th>${esc(tt('ts.rev.detail.colRegular'))}</th><th>${esc(tt('ts.rev.detail.colOvertime'))}</th><th>${esc(tt('ts.rev.detail.colBreak'))}</th><th>${esc(tt('ts.rev.detail.colFrom'))}</th><th>${esc(tt('ts.rev.detail.colTo'))}</th></tr></thead>
       <tbody>${(s.entries||[]).map(e=>`<tr>
         <td style="font-weight:600">${dayN(e.work_date)}</td>
         <td>${fmtD(e.work_date)}</td>
@@ -1069,7 +2680,7 @@ function renderDet(s){
         <td>${e.break_minutes||0} min</td><td>${e.shift_start||'–'}</td><td>${e.shift_end||'–'}</td>
       </tr>`).join('')}</tbody>
     </table>`:
-    '<p style="font-size:.85rem;color:var(--wk-text-muted);font-style:italic">Keine Tageseintrage vorhanden.</p>';
+    '<p style="font-size:.85rem;color:var(--wk-text-muted);font-style:italic">'+esc(tt('ts.rev.detail.noEntries'))+'</p>';
 
   // Planvergleich
   let planHtml='';
@@ -1081,8 +2692,8 @@ function renderDet(s){
     planHtml=`<div class="rev-stitle">Plan vs. Ist</div>
     <div class="plan-vs">
       <div class="plan-vs-item"><div class="plan-vs-label">Plan</div>
-        <div class="plan-vs-val">${planH>0?planH+' h/Woche':''} ${s.default_shift_start?s.default_shift_start.substring(0,5)+' – '+s.default_shift_end?.substring(0,5)+'':''}</div>
-        ${s.default_break_minutes?`<div style="font-size:.72rem;color:var(--wk-text-muted)">${s.default_break_minutes} min Pause</div>`:''}
+        <div class="plan-vs-val">${planH>0?planH+' '+esc(tt('ts.rev.detail.hoursPerWeek')):''} ${s.default_shift_start?s.default_shift_start.substring(0,5)+' – '+s.default_shift_end?.substring(0,5)+'':''}</div>
+        ${s.default_break_minutes?`<div style="font-size:.72rem;color:var(--wk-text-muted)">${s.default_break_minutes} ${esc(tt('ts.rev.detail.breakMinutes'))}</div>`:''}
       </div>
       <div class="plan-vs-item"><div class="plan-vs-label">Ist</div>
         <div class="plan-vs-val">${actH.toFixed(1)} h</div>
@@ -1103,19 +2714,19 @@ function renderDet(s){
     const notifEvent = (s.events||[]).find(e => e.event_type === 'sent_to_customer' && e.meta && e.meta.notified !== undefined);
     if (notifEvent) {
       if (notifEvent.meta.notified === true) {
-        custHtml += `<div style="font-size:.8rem;color:var(--tc-tone-success-text);margin-top:4px">\u2709\uFE0F Kunde per E-Mail benachrichtigt${notifEvent.meta.customer_email ? ' an ' + esc(notifEvent.meta.customer_email) : ''} \u2013 ${relT(notifEvent.created_at)}</div>`;
+        custHtml += `<div style="font-size:.8rem;color:var(--tc-tone-success-text);margin-top:4px">\u2709\uFE0F ${esc(tt('ts.rev.detail.customerNotified'))}${notifEvent.meta.customer_email ? ' ' + esc(tt('ts.rev.detail.customerNotifiedTo')) + ' ' + esc(notifEvent.meta.customer_email) : ''} \u2013 ${relT(notifEvent.created_at)}</div>`;
       } else if (notifEvent.meta.notified === false && notifEvent.meta.reason === 'no_customer_email') {
-        custHtml += `<div style="font-size:.8rem;color:var(--tc-tone-warning-text);margin-top:4px">\u26A0\uFE0F Keine Kundenkontakt-E-Mail hinterlegt \u2013 Kunde wurde nicht per E-Mail benachrichtigt.</div>`;
+        custHtml += `<div style="font-size:.8rem;color:var(--tc-tone-warning-text);margin-top:4px">\u26A0\uFE0F ${esc(tt('ts.rev.detail.customerNoMail'))}</div>`;
       } else if (notifEvent.meta.notified === false && notifEvent.meta.error) {
         custHtml += `<div style="font-size:.8rem;color:var(--tc-tone-danger-text);margin-top:4px">\u274C E-Mail-Versand fehlgeschlagen: ${esc(notifEvent.meta.error)}</div>`;
       }
     } else if (!s.customer_contact_email) {
-      custHtml += `<div style="font-size:.8rem;color:var(--wk-text-muted);margin-top:4px;font-style:italic">Kein Kundenkontakt hinterlegt.</div>`;
+      custHtml += `<div style="font-size:.8rem;color:var(--wk-text-muted);margin-top:4px;font-style:italic">${esc(tt('ts.rev.detail.noCustomerContact'))}</div>`;
     }
     if(st==='customer_confirmed'&&s.customer_confirmed_at)
       custHtml+=`<div style="font-size:.8rem;color:var(--wk-success);margin-top:4px">\u2705 Best\u00e4tigt: ${fmtD(s.customer_confirmed_at)}${s.customer_confirmed_by?` durch ${esc(s.customer_confirmed_by)}`:''}</div>`;
     if(st==='customer_rejected'&&s.customer_rejected_at)
-      custHtml+=`<div style="font-size:.8rem;color:var(--wk-warning);margin-top:4px">\u274C Abgelehnt: ${fmtD(s.customer_rejected_at)}</div>`;
+      custHtml+=`<div style="font-size:.8rem;color:var(--wk-warning);margin-top:4px">\u274C ${esc(tt('ts.rev.detail.customerRejectedAt'))} ${fmtD(s.customer_rejected_at)}</div>`;
     if(s.customer_note)
       custHtml+=`<div style="margin-top:8px;font-size:.83rem"><strong>Kundennotiz:</strong> ${esc(s.customer_note)}</div>`;
     custHtml+=`</div>`;
@@ -1133,53 +2744,53 @@ function renderDet(s){
   let actHtml='';
   if(st==='submitted'){
     actHtml=`<div class="rev-actions">
-      <button class="wk-btn wk-btn-outline" onclick="doAct('review','${s.id}')">? Prüfung starten</button>
+      <button class="wk-btn wk-btn-outline" onclick="doAct('review','${s.id}')">${esc(tt('ts.rev.act.startReview'))}</button>
     </div>`;
   } else if(st==='under_review'){
     actHtml=`<div class="rev-actions">
       <button class="wk-btn wk-btn-success" onclick="doAct('approve','${s.id}')">? Intern genehmigen</button>
-      <button class="wk-btn wk-btn-ghost" onclick="togNote('corr')">? Korrektur</button>
+      <button class="wk-btn wk-btn-ghost" onclick="togNote('corr')">${esc(tt('ts.rev.act.correction'))}</button>
       <button class="wk-btn wk-btn-danger" onclick="togNote('rej')" style="flex:0 0 auto">?</button>
     </div>
     <div id="nb-corr" class="rev-notebox">
       <label class="wk-label">Korrekturhinweis <span class="required">*</span></label>
-      <textarea class="wk-textarea" id="nt-corr" rows="2" placeholder="Was soll der Mitarbeiter korrigieren?"></textarea>
-      <button class="wk-btn wk-btn-outline wk-btn-sm" style="margin-top:8px" onclick="doAct('request-correction','${s.id}')">Korrektur anfordern</button>
+      <textarea class="wk-textarea" id="nt-corr" rows="2" placeholder="${esc(tt('ts.rev.act.correctionPh'))}"></textarea>
+      <button class="wk-btn wk-btn-outline wk-btn-sm" style="margin-top:8px" onclick="doAct('request-correction','${s.id}')">${esc(tt('ts.rev.act.requestCorrection'))}</button>
     </div>
     <div id="nb-rej" class="rev-notebox">
       <label class="wk-label">Ablehnungsgrund</label>
-      <textarea class="wk-textarea" id="nt-rej" rows="2" placeholder="Warum wird abgelehnt?"></textarea>
+      <textarea class="wk-textarea" id="nt-rej" rows="2" placeholder="${esc(tt('ts.rev.act.rejectPh'))}"></textarea>
       <button class="wk-btn wk-btn-danger wk-btn-sm" style="margin-top:8px" onclick="doAct('reject','${s.id}')">Ablehnen</button>
     </div>`;
   } else if(st==='approved_internal'){
     actHtml=`<div class="rev-actions">
-      <button class="wk-btn wk-btn-primary" onclick="togNote('send')">?? An Kunden senden</button>
-      <button class="wk-btn wk-btn-success" onclick="doAct('post-to-timesheet','${s.id}')">? Direkt in Abrechnung</button>
+      <button class="wk-btn wk-btn-primary" onclick="togNote('send')">${esc(tt('ts.rev.act.sendToCustomer'))}</button>
+      <button class="wk-btn wk-btn-success" onclick="doAct('post-to-timesheet','${s.id}')">${esc(tt('ts.rev.act.postDirect'))}</button>
     </div>
     <div id="nb-send" class="rev-notebox">
-      <label class="wk-label">Kundenkontakt Name</label>
+      <label class="wk-label">${esc(tt('ts.rev.act.contactName'))}</label>
       <input class="wk-input" id="nt-cname" placeholder="Max Meier" style="margin-bottom:8px" value="${esc(s.customer_contact_name||'')}">
-      <label class="wk-label">Kundenkontakt E-Mail</label>
+      <label class="wk-label">${esc(tt('ts.rev.act.contactEmail'))}</label>
       <input class="wk-input" id="nt-cemail" type="email" placeholder="kunde@firma.de" style="margin-bottom:8px" value="${esc(s.customer_contact_email||'')}">
-      <label class="wk-label">Notiz (optional)</label>
-      <textarea class="wk-textarea" id="nt-cnote" rows="2" placeholder="Interne Notiz…"></textarea>
-      <button class="wk-btn wk-btn-primary wk-btn-sm" style="margin-top:8px" onclick="doActSend('${s.id}')">Senden</button>
+      <label class="wk-label">${esc(tt('ts.rev.act.noteOptional'))}</label>
+      <textarea class="wk-textarea" id="nt-cnote" rows="2" placeholder="${esc(tt('ts.rev.act.internalNotePh'))}"></textarea>
+      <button class="wk-btn wk-btn-primary wk-btn-sm" style="margin-top:8px" onclick="doActSend('${s.id}')">${esc(tt('ts.rev.act.send'))}</button>
     </div>`;
   } else if(st==='sent_to_customer'){
     actHtml=`<div class="rev-actions">
-      <button class="wk-btn wk-btn-success" onclick="togNote('cconf')">? Kunde hat bestätigt</button>
-      <button class="wk-btn wk-btn-ghost"   onclick="togNote('crej')">? Kunde hat abgelehnt</button>
+      <button class="wk-btn wk-btn-success" onclick="togNote('cconf')">${esc(tt('ts.rev.act.customerConfirmed'))}</button>
+      <button class="wk-btn wk-btn-ghost"   onclick="togNote('crej')">${esc(tt('ts.rev.act.customerRejected'))}</button>
     </div>
     <div id="nb-cconf" class="rev-notebox">
-      <label class="wk-label">Bestätigt durch</label>
-      <input class="wk-input" id="nt-confby" placeholder="Name Ansprechpartner" style="margin-bottom:8px">
-      <label class="wk-label">Notiz (optional)</label>
+      <label class="wk-label">${esc(tt('ts.rev.act.confirmedBy'))}</label>
+      <input class="wk-input" id="nt-confby" placeholder="${esc(tt('ts.rev.act.contactPersonPh'))}" style="margin-bottom:8px">
+      <label class="wk-label">${esc(tt('ts.rev.act.noteOptional'))}</label>
       <textarea class="wk-textarea" id="nt-confnote" rows="2"></textarea>
-      <button class="wk-btn wk-btn-success wk-btn-sm" style="margin-top:8px" onclick="doActConf('${s.id}')">Bestätigung erfassen</button>
+      <button class="wk-btn wk-btn-success wk-btn-sm" style="margin-top:8px" onclick="doActConf('${s.id}')">${esc(tt('ts.rev.act.recordConfirmation'))}</button>
     </div>
     <div id="nb-crej" class="rev-notebox">
-      <label class="wk-label">Grund / Notiz</label>
-      <textarea class="wk-textarea" id="nt-rejnote" rows="2" placeholder="Warum hat der Kunde abgelehnt?"></textarea>
+      <label class="wk-label">${esc(tt('ts.rev.act.reasonOrNote'))}</label>
+      <textarea class="wk-textarea" id="nt-rejnote" rows="2" placeholder="${esc(tt('ts.rev.act.customerRejectPh'))}"></textarea>
       <button class="wk-btn wk-btn-ghost wk-btn-sm" style="margin-top:8px" onclick="doActCRej('${s.id}')">Ablehnung erfassen</button>
     </div>`;
   } else if(st==='customer_confirmed'){
@@ -1188,7 +2799,7 @@ function renderDet(s){
     </div>`;
   } else if(st==='customer_rejected'){
     actHtml=`<div class="rev-actions">
-      <button class="wk-btn wk-btn-outline" onclick="doAct('review','${s.id}')">? Zurück zur Prüfung</button>
+      <button class="wk-btn wk-btn-outline" onclick="doAct('review','${s.id}')">${esc(tt('ts.rev.act.backToReview'))}</button>
     </div>`;
   }
 
@@ -1200,26 +2811,26 @@ function renderDet(s){
         <div>
           <div class="rev-dname">${esc(s.first_name||'')} ${esc(s.last_name||'')}${s.personnel_number?` <span style="font-weight:400;font-size:.85rem;color:var(--wk-text-muted)">– ${esc(s.personnel_number)}</span>`:''}</div>
           <div class="rev-dmeta">${esc(s.worker_email||'')} – ${fmtWeek(s.week_start,s.week_end)}</div>
-          ${s.client_name||s.org_name?`<div style="font-size:.8rem;color:var(--wk-text-muted);margin-top:2px">Einsatz bei: <strong>${esc(s.client_name||s.org_name)}</strong></div>`:''}
+          ${s.client_name||s.org_name?`<div style="font-size:.8rem;color:var(--wk-text-muted);margin-top:2px">${esc(tt('ts.rev.detail.assignmentAt'))} <strong>${esc(s.client_name||s.org_name)}</strong></div>`:''}
         </div>${badge(st)}
       </div>
       <div class="rev-stats">
         <div><div class="rev-stat-label">Gesamtstunden</div><div class="rev-stat-val" style="color:var(--hub-accent)">${parseFloat(s.total_hours||0).toFixed(1)} h</div></div>
-        <div><div class="rev-stat-label">Überstunden</div><div class="rev-stat-val" style="color:${s.overtime_hours>0?'var(--wk-warning)':'var(--wk-text-muted)'}">${parseFloat(s.overtime_hours||0).toFixed(1)} h</div></div>
+        <div><div class="rev-stat-label">${esc(tt('ts.rev.detail.overtime'))}</div><div class="rev-stat-val" style="color:${s.overtime_hours>0?'var(--wk-warning)':'var(--wk-text-muted)'}">${parseFloat(s.overtime_hours||0).toFixed(1)} h</div></div>
         ${s.submitted_at?`<div><div class="rev-stat-label">Eingereicht</div><div style="font-size:.85rem;margin-top:2px">${fmtD(s.submitted_at)}</div></div>`:''}
-        ${s.approved_internal_at?`<div><div class="rev-stat-label">Int. Geprüft</div><div style="font-size:.85rem;margin-top:2px">${fmtD(s.approved_internal_at)}</div></div>`:''}
+        ${s.approved_internal_at?`<div><div class="rev-stat-label">${esc(tt('ts.rev.detail.checkedInternal'))}</div><div style="font-size:.85rem;margin-top:2px">${fmtD(s.approved_internal_at)}</div></div>`:''}
         ${s.posted_to_timesheet_at?`<div><div class="rev-stat-label">In Abrechnung</div><div style="font-size:.85rem;margin-top:2px">${fmtD(s.posted_to_timesheet_at)}</div></div>`:''}
       </div>
-      ${s.worker_comment?`<div class="rev-cbox wkr"><strong>Arbeitnehmer:</strong> ${esc(s.worker_comment)}</div>`:''}
-      ${s.reviewer_comment||s.correction_note?`<div class="rev-cbox rev"><strong>Prüfhinweis:</strong> ${esc(s.reviewer_comment||s.correction_note)}</div>`:''}
+      ${s.worker_comment?`<div class="rev-cbox wkr"><strong>${esc(tt('ts.rev.detail.workerComment'))}</strong> ${esc(s.worker_comment)}</div>`:''}
+      ${s.reviewer_comment||s.correction_note?`<div class="rev-cbox rev"><strong>${esc(tt('ts.rev.detail.reviewNote'))}</strong> ${esc(s.reviewer_comment||s.correction_note)}</div>`:''}
     </div>
     ${planHtml}
-    <div class="rev-stitle">Tageseinträge</div>${rows}
+    <div class="rev-stitle">${esc(tt('ts.rev.detail.entries'))}</div>${rows}
     ${custHtml}
     ${evs?`<div class="rev-stitle">Verlauf</div>${evs}`:''}
     ${actHtml}
     ${terminal?`<div class="wk-alert wk-alert-info" style="margin-top:16px"><span>??</span><span>Abgeschlossen – ${stLbl(st)}</span></div>`:''}
-    ${s.timesheet_id||s.posted_to_timesheet_at?`<div class="wk-alert wk-alert-success" style="margin-top:10px"><span>?</span><span>Stundenzettel gebucht${s.timesheet_id?` – <a href="timesheets.html" style="color:inherit;font-weight:600">In Stundenzettel-Verwaltung ?</a>`:''}</span></div>`:''}`;
+    ${s.timesheet_id||s.posted_to_timesheet_at?`<div class="wk-alert wk-alert-success" style="margin-top:10px"><span>?</span><span>${esc(tt('ts.rev.detail.posted'))}${s.timesheet_id?` – <a href="timesheets.html" style="color:inherit;font-weight:600">${esc(tt('ts.rev.detail.postedLink'))}</a>`:''}</span></div>`:''}`;
 }
 function togNote(t){
   // Alle anderen Noteboxen schließen
@@ -1230,7 +2841,7 @@ function togNote(t){
 // Generische Action: review, approve, request-correction, reject, post-to-timesheet
 async function doAct(action,id){
   let body={};
-  if(action==='request-correction'){const v=document.getElementById('nt-corr')?.value?.trim();if(!v){toast('Bitte Korrekturhinweis eingeben','error');return;}body={note:v};}
+  if(action==='request-correction'){const v=document.getElementById('nt-corr')?.value?.trim();if(!v){toast(tt('ts.rev.act.needCorrectionNote'),'error');return;}body={note:v};}
   if(action==='reject'){const v=document.getElementById('nt-rej')?.value?.trim();body={note:v||''};}
 
   // Route-Mapping: alte agency-Endpunkte
@@ -1247,13 +2858,13 @@ async function doAct(action,id){
     const r=await fetch(`${AGENCY_SUBS_URL}/${id}/${route}`,{method:'POST',credentials:'include',
       headers:{'Content-Type':'application/json','x-csrf-token':csrf},body:JSON.stringify(body)});
     const d=await r.json();
-    if(!r.ok)throw new Error(d.error||d.message||'Fehler');
-    const lbls={'review':'? Prüfung gestartet','approve':'? Intern genehmigt',
-                 'request-correction':'? Korrektur angefordert','reject':'? Abgelehnt',
+    if(!r.ok)throw new Error(d.error||d.message||tt('ts.rev.msg.error'));
+    const lbls={'review':tt('ts.rev.act.doneReview'),'approve':tt('ts.rev.act.doneApprove'),
+                 'request-correction':tt('ts.rev.act.doneCorrection'),'reject':tt('ts.rev.act.doneReject'),
                  'post-to-timesheet':'? In Abrechnung gebucht'};
     toast(lbls[action]||'OK','success');
     await loadSubs();await selSub(id);
-  }catch(e){toast(e.message||'Fehler','error');}
+  }catch(e){toast(e.message||tt('ts.rev.msg.error'),'error');}
 }
 
 // An Kunden senden
@@ -1267,10 +2878,10 @@ async function doActSend(id){
       headers:{'Content-Type':'application/json','x-csrf-token':csrf},
       body:JSON.stringify({customer_contact_name:cname,customer_contact_email:cemail,note:cnote})});
     const d=await r.json();
-    if(!r.ok)throw new Error(d.error||'Fehler');
-    const notifMsg = d.customer_notified ? '\u2709\uFE0F An Kunden gesendet und per E-Mail benachrichtigt' : '\u26A0\uFE0F An Kunden gesendet (keine E-Mail-Adresse hinterlegt)';
+    if(!r.ok)throw new Error(d.error||tt('ts.rev.msg.error'));
+    const notifMsg = d.customer_notified ? tt('ts.rev.act.sentAndMailed') : tt('ts.rev.act.sentNoMail');
     toast(notifMsg, d.customer_notified ? 'success' : 'warning');await loadSubs();await selSub(id);
-  }catch(e){toast(e.message||'Fehler','error');}
+  }catch(e){toast(e.message||tt('ts.rev.msg.error'),'error');}
 }
 
 // Kundenbestätigung
@@ -1283,9 +2894,9 @@ async function doActConf(id){
       headers:{'Content-Type':'application/json','x-csrf-token':csrf},
       body:JSON.stringify({customer_confirmed_by:by,note})});
     const d=await r.json();
-    if(!r.ok)throw new Error(d.error||'Fehler');
-    toast('? Kundenbestätigung erfasst','success');await loadSubs();await selSub(id);
-  }catch(e){toast(e.message||'Fehler','error');}
+    if(!r.ok)throw new Error(d.error||tt('ts.rev.msg.error'));
+    toast(tt('ts.rev.act.confirmationSaved'),'success');await loadSubs();await selSub(id);
+  }catch(e){toast(e.message||tt('ts.rev.msg.error'),'error');}
 }
 
 // Kundenablehnung
@@ -1297,9 +2908,9 @@ async function doActCRej(id){
       headers:{'Content-Type':'application/json','x-csrf-token':csrf},
       body:JSON.stringify({reason:note})});
     const d=await r.json();
-    if(!r.ok)throw new Error(d.error||'Fehler');
+    if(!r.ok)throw new Error(d.error||tt('ts.rev.msg.error'));
     toast('? Kundenablehnung erfasst','success');await loadSubs();await selSub(id);
-  }catch(e){toast(e.message||'Fehler','error');}
+  }catch(e){toast(e.message||tt('ts.rev.msg.error'),'error');}
 }
 
 /* WORKERS */
@@ -1308,8 +2919,8 @@ async function loadWrks(){
     wrksLoaded=true;
     setPanelNotice(
       'wrksStateNotice',
-      'Kein Zugriff auf Einsatzkraefte.',
-      'Der Bereich ist fuer Ihren aktuellen Organisationskontext nicht freigeschaltet.',
+      tt('ts.rev.wrk.noAccessTitle'),
+      tt('ts.rev.notice.noOrgAccess'),
       'info'
     );
     toggleElement('ldWrks',false);
@@ -1320,8 +2931,8 @@ async function loadWrks(){
   setPanelNotice('wrksStateNotice','','');
   setPanelNotice(
     'wrksManageNotice',
-    pageAccess.permissions.workerManage?'':'Ansicht mit Teilzugriff.',
-    pageAccess.permissions.workerManage?'':'Einladungen und Pflegeaktionen sind fuer Ihre aktuelle Rolle nicht freigeschaltet.',
+    pageAccess.permissions.workerManage?'':tt('ts.rev.notice.partialAccess'),
+    pageAccess.permissions.workerManage?'':tt('ts.rev.notice.wrksManageShort'),
     'info'
   );
   toggleElement('ldWrks',true,'block');
@@ -1352,10 +2963,10 @@ async function loadWrks(){
     if(inviteError){
       setPanelNotice(
         'wrksManageNotice',
-        isAccessDeniedError(inviteError)?'Ansicht mit Teilzugriff.':'Einladungen konnten nicht geladen werden.',
+        isAccessDeniedError(inviteError)?tt('ts.rev.notice.partialAccess'):tt('ts.rev.wrk.invitesFailTitle'),
         isAccessDeniedError(inviteError)
-          ? 'Einladungen und Pflegeaktionen sind fuer Ihre aktuelle Rolle nicht freigeschaltet.'
-          : (inviteError?.message||'Bitte spaeter erneut versuchen.'),
+          ? tt('ts.rev.notice.wrksManageShort')
+          : (inviteError?.message||tt('ts.rev.notice.retryLater')),
         isAccessDeniedError(inviteError)?'info':'warning'
       );
     }
@@ -1372,10 +2983,10 @@ async function loadWrks(){
     toggleElement('ctWrks',false);
     setPanelNotice(
       'wrksStateNotice',
-      isAccessDeniedError(error)?'Kein Zugriff auf Einsatzkraefte.':'Einsatzkraefte konnten nicht geladen werden.',
+      isAccessDeniedError(error)?tt('ts.rev.wrk.noAccessTitle'):tt('ts.rev.wrk.loadFailTitle'),
       isAccessDeniedError(error)
-        ? 'Der Bereich ist fuer Ihren aktuellen Organisationskontext nicht freigeschaltet.'
-        : (error?.message||'Bitte spaeter erneut versuchen.'),
+        ? tt('ts.rev.notice.noOrgAccess')
+        : (error?.message||tt('ts.rev.notice.retryLater')),
       isAccessDeniedError(error)?'info':'danger'
     );
   }
@@ -1404,10 +3015,10 @@ function renderWrks(q=''){
     const act=w.is_active!==false;
     const actions=[];
     if(canDirectAssign&&act){
-      actions.push(`<button class="wk-btn wk-btn-primary wk-btn-sm" onclick="openWorkerAssignDrw('${w.id||w.user_id}')">Einsatz zuweisen</button>`);
+      actions.push(`<button class="wk-btn wk-btn-primary wk-btn-sm" onclick="openWorkerAssignDrw('${w.id||w.user_id}')">${esc(tt('ts.rev.wrk.assignAssignment'))}</button>`);
     }
     if(canOpenAssignments){
-      actions.push(`<button class="wk-btn wk-btn-ghost wk-btn-sm" onclick="viewWorkerLinks('${w.id||w.user_id}')">&#9881; Einsätze</button>`);
+      actions.push(`<button class="wk-btn wk-btn-ghost wk-btn-sm" onclick="viewWorkerLinks('${w.id||w.user_id}')">&#9881; ${esc(tt('ts.rev.wrk.showAssignments'))}</button>`);
     }
     if(canManage){
       actions.push(
@@ -1421,7 +3032,7 @@ function renderWrks(q=''){
         <div><div class="wk-nname">${esc(w.first_name||'')} ${esc(w.last_name||'')}</div>
           <div class="wk-nemail">${esc(w.email||'')}</div></div></div></td>
       <td><span style="font-size:.82rem;font-family:monospace;color:var(--wk-text-muted)">${esc(w.personnel_number||'–')}</span></td>
-      <td><span class="pill ${act?'pill-act':'pill-off'}">${act?'Aktiv':'Inaktiv'}</span></td>
+      <td><span class="pill ${act?'pill-act':'pill-off'}">${esc(act?tt('ts.rev.wrk.active'):tt('ts.rev.wrk.inactive'))}</span></td>
       <td style="font-size:.82rem;color:var(--wk-text-muted)">${w.created_at?fmtD(w.created_at):'–'}</td>
       <td style="text-align:right"><div style="display:flex;gap:6px;justify-content:flex-end">
         ${actions.join('')}
@@ -1444,7 +3055,7 @@ function renderInvs(){
       <div class="inv-info">
         <div class="inv-name">${esc(inv.first_name||'')} ${esc(inv.last_name||'')} ${inv.email?`<span style="font-weight:400;color:var(--wk-text-muted)">– ${esc(inv.email)}</span>`:''}
         </div>
-        <div class="inv-meta">Eingeladen ${inv.created_at?relT(inv.created_at):''} – läuft ab ${inv.expires_at?fmtD(inv.expires_at):'–'}</div>
+        <div class="inv-meta">${esc(tt('ts.rev.wrk.invitedExpires', { rel: inv.created_at?relT(inv.created_at):'', exp: inv.expires_at?fmtD(inv.expires_at):'–' }))}</div>
       </div>
       <span class="pill pill-pnd">Ausstehend</span>
       <div class="inv-acts">
@@ -1454,28 +3065,28 @@ function renderInvs(){
     </div>`).join('');
 }
 async function togWrk(id,act){
-  if(!ensurePermission('workerManage','Sie koennen Einsatzkraefte sehen, aber nicht aktivieren oder deaktivieren.'))return;
+  if(!ensurePermission('workerManage',tt('ts.rev.perm.workerActivate')))return;
   try{
     const csrf=await getCsrf();
     const endpoint=act?`${API}/workers/${id}/activate`:`${API}/workers/${id}/deactivate`;
     const r=await fetch(endpoint,{method:'POST',credentials:'include',headers:{'x-csrf-token':csrf}});
-    if(!r.ok)throw new Error('Fehler');
+    if(!r.ok)throw new Error(tt('ts.rev.msg.error'));
     toast(act?'Aktiviert':'Deaktiviert','success');wrksLoaded=false;await loadWrks();
   }catch(e){toast(e.message,'error');}
 }
 async function resendInv(id){
-  if(!ensurePermission('workerManage','Sie koennen Einladungen fuer Einsatzkraefte nicht verwalten.'))return;
+  if(!ensurePermission('workerManage',tt('ts.rev.perm.workerInvites')))return;
   try{
     const csrf=await getCsrf();
-    const r=await fetch(`${API}/worker-invites/${id}/resend`,{method:'POST',credentials:'include',headers:{'x-csrf-token':csrf}});if(!r.ok)throw new Error('Fehler');toast('Einladung erneut gesendet ?','success');
+    const r=await fetch(`${API}/worker-invites/${id}/resend`,{method:'POST',credentials:'include',headers:{'x-csrf-token':csrf}});if(!r.ok)throw new Error(tt('ts.rev.msg.error'));toast(tt('ts.rev.wrk.inviteResent'),'success');
   }catch(e){toast(e.message,'error');}
 }
 async function revokeInv(id){
-  if(!ensurePermission('workerManage','Sie koennen Einladungen fuer Einsatzkraefte nicht verwalten.'))return;
+  if(!ensurePermission('workerManage',tt('ts.rev.perm.workerInvites')))return;
   if(!confirm('Einladung wirklich widerrufen?'))return;
   try{
     const csrf=await getCsrf();
-    const r=await fetch(`${API}/worker-invites/${id}/revoke`,{method:'POST',credentials:'include',headers:{'x-csrf-token':csrf}});if(!r.ok)throw new Error('Fehler');toast('Einladung widerrufen','success');wrksLoaded=false;await loadWrks();
+    const r=await fetch(`${API}/worker-invites/${id}/revoke`,{method:'POST',credentials:'include',headers:{'x-csrf-token':csrf}});if(!r.ok)throw new Error(tt('ts.rev.msg.error'));toast(tt('ts.rev.wrk.inviteRevoked'),'success');wrksLoaded=false;await loadWrks();
   }catch(e){toast(e.message,'error');}
 }
 
@@ -1487,7 +3098,7 @@ if(['localhost','127.0.0.1'].includes(location.hostname)){
 
 /* DRAWER: Einladen */
 function openDrw(){
-  if(!ensurePermission('workerManage','Sie koennen Einsatzkraefte sehen, aber keine Einladungen versenden.'))return;
+  if(!ensurePermission('workerManage',tt('ts.rev.perm.workerInviteSend')))return;
   document.getElementById('drwOvl').classList.add('on');
   document.getElementById('drw').classList.add('on');
   document.getElementById('invErr').style.display='none';
@@ -1496,29 +3107,29 @@ function openDrw(){
 }
 function closeDrw(){document.getElementById('drwOvl').classList.remove('on');document.getElementById('drw').classList.remove('on');}
 async function sendInv(){
-  if(!ensurePermission('workerManage','Sie koennen Einsatzkraefte sehen, aber keine Einladungen versenden.'))return;
+  if(!ensurePermission('workerManage',tt('ts.rev.perm.workerInviteSend')))return;
   const fn=document.getElementById('ifn').value.trim();
   const ln=document.getElementById('iln').value.trim();
   const em=document.getElementById('iem').value.trim();
   const pn=document.getElementById('ipn').value.trim();
   const ph=document.getElementById('iph').value.trim();
   const err=document.getElementById('invErr');
-  if(!fn||!ln||!em){err.textContent='Bitte Vorname, Nachname und E-Mail ausfüllen.';err.style.display='block';return;}
-  if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(em)){err.textContent='Bitte eine gültige E-Mail-Adresse eingeben.';err.style.display='block';return;}
-  const btn=document.getElementById('invBtn');btn.disabled=true;btn.textContent='Wird gesendet…';err.style.display='none';
+  if(!fn||!ln||!em){err.textContent=tt('ts.rev.wrk.errNameMail');err.style.display='block';return;}
+  if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(em)){err.textContent=tt('ts.rev.wrk.errMail');err.style.display='block';return;}
+  const btn=document.getElementById('invBtn');btn.disabled=true;btn.textContent=tt('ts.rev.btn.sending');err.style.display='none';
   try{
     const csrf=await getCsrf();
     const r=await fetch(`${API}/worker-invites`,{method:'POST',credentials:'include',headers:{'Content-Type':'application/json','x-csrf-token':csrf},body:JSON.stringify({first_name:fn,last_name:ln,email:em,personnel_number:pn||undefined,phone:ph||undefined})});
-    const d=await r.json();if(!r.ok)throw new Error(d.error||d.message||'Fehler');
+    const d=await r.json();if(!r.ok)throw new Error(d.error||d.message||tt('ts.rev.msg.error'));
     toast(`Einladung an ${fn} ${ln} gesendet ?`,'success');closeDrw();wrksLoaded=false;await loadWrks();
   }catch(e){err.textContent=e.message;err.style.display='block';}
-  finally{btn.disabled=false;btn.textContent='Einladung senden ?';}
+  finally{btn.disabled=false;btn.textContent=tt('ts.rev.wrk.inviteBtn');}
 }
 
 
 /* CREATE WORKER DRAWER */
 function openCreateDrw(){
-  if(!ensurePermission('workerCreate','Sie koennen Einsatzkraefte nicht neu anlegen.'))return;
+  if(!ensurePermission('workerCreate',tt('ts.rev.perm.workerCreate')))return;
   document.getElementById('crtDrwOvl').classList.add('on');
   document.getElementById('crtDrw').classList.add('on');
   document.getElementById('crtErr').style.display='none';
@@ -1527,16 +3138,16 @@ function openCreateDrw(){
 }
 function closeCreateDrw(){document.getElementById('crtDrwOvl').classList.remove('on');document.getElementById('crtDrw').classList.remove('on');}
 async function submitCreate(){
-  if(!ensurePermission('workerCreate','Sie koennen Einsatzkraefte nicht neu anlegen.'))return;
+  if(!ensurePermission('workerCreate',tt('ts.rev.perm.workerCreate')))return;
   const fn=document.getElementById('cfn').value.trim();
   const ln=document.getElementById('cln').value.trim();
   const em=document.getElementById('cem').value.trim();
   const pw=document.getElementById('cpw').value;
   const err=document.getElementById('crtErr');
-  if(!fn||!ln||!em||!pw){err.textContent='Bitte Vorname, Nachname, E-Mail und Passwort ausfüllen.';err.style.display='block';return;}
-  if(pw.length<8){err.textContent='Passwort muss mindestens 8 Zeichen haben.';err.style.display='block';return;}
-  if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(em)){err.textContent='Bitte eine gültige E-Mail-Adresse eingeben.';err.style.display='block';return;}
-  const btn=document.getElementById('crtBtn');btn.disabled=true;btn.textContent='Wird angelegt…';err.style.display='none';
+  if(!fn||!ln||!em||!pw){err.textContent=tt('ts.rev.wrk.errNameMailPw');err.style.display='block';return;}
+  if(pw.length<8){err.textContent=tt('ts.rev.wrk.errPwLength');err.style.display='block';return;}
+  if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(em)){err.textContent=tt('ts.rev.wrk.errMail');err.style.display='block';return;}
+  const btn=document.getElementById('crtBtn');btn.disabled=true;btn.textContent=tt('ts.rev.btn.creating');err.style.display='none';
   try{
     const csrf=await getCsrf();
     const body={first_name:fn,last_name:ln,email:em,password:pw};
@@ -1548,19 +3159,19 @@ async function submitCreate(){
     const r=await fetch(`${API}/workers`,{method:'POST',credentials:'include',
       headers:{'Content-Type':'application/json','x-csrf-token':csrf},body:JSON.stringify(body)});
     const d=await r.json();
-    if(!r.ok){const eMsg=d.error==='EMAIL_EXISTS'?'Diese E-Mail-Adresse existiert bereits.':(typeof d.error==='string'?d.error:d.error?.message||d.message||'Fehler');throw new Error(eMsg);}
-    toast(`Mitarbeiter ${fn} ${ln} angelegt ?`,'success');closeCreateDrw();wrksLoaded=false;await loadWrks();
+    if(!r.ok){const eMsg=d.error==='EMAIL_EXISTS'?tt('ts.rev.wrk.errMailExists'):(typeof d.error==='string'?d.error:d.error?.message||d.message||tt('ts.rev.msg.error'));throw new Error(eMsg);}
+    toast(tt('ts.rev.wrk.created', { first: fn, last: ln }),'success');closeCreateDrw();wrksLoaded=false;await loadWrks();
   }catch(e){err.textContent=e.message;err.style.display='block';}
-  finally{btn.disabled=false;btn.textContent='Mitarbeiter anlegen ?';}
+  finally{btn.disabled=false;btn.textContent=tt('ts.rev.wrk.createBtn');}
 }
 
 /* WORKER DIRECT ASSIGNMENT DRAWER */
 function renderWorkerAssignWorkerSummary(worker){
   const metrics=[
-    { label:'Aktive Einsätze', value:Number(worker?.active_assignments||0) },
+    { label:tt('ts.rev.wrk.statActive'), value:Number(worker?.active_assignments||0) },
     { label:'Skills', value:Number(worker?.skill_count||0) },
     { label:'Qualifikationen', value:Number(worker?.qualification_count||0) },
-    { label:'Dokumente', value:Number(worker?.document_count||0) }
+    { label:tt('ts.rev.wrk.statDocs'), value:Number(worker?.document_count||0) }
   ];
   const metricHtml=metrics.map((item)=>`
     <div style="padding:10px 12px;border:1px solid var(--tc-tone-neutral-border);border-radius:10px;background:var(--tc-surface-subtle)">
@@ -1576,22 +3187,22 @@ function renderWorkerAssignWorkerSummary(worker){
         <div style="min-width:0">
           <div style="font-size:15px;font-weight:800">${esc(`${worker?.first_name||''} ${worker?.last_name||''}`.trim()||worker?.email||'Worker')}</div>
           <div style="font-size:12px;color:var(--wk-text-muted);margin-top:4px">
-            ${esc(worker?.email||'Keine E-Mail hinterlegt')}${worker?.personnel_number?` · ${esc(worker.personnel_number)}`:''}
+            ${esc(worker?.email||tt('ts.rev.wrk.noEmail'))}${worker?.personnel_number?` · ${esc(worker.personnel_number)}`:''}
           </div>
         </div>
-        <span class="pill ${worker?.is_active!==false?'pill-act':'pill-off'}">${worker?.is_active!==false?'Aktiv':'Inaktiv'}</span>
+        <span class="pill ${worker?.is_active!==false?'pill-act':'pill-off'}">${esc(worker?.is_active!==false?tt('ts.rev.wrk.active'):tt('ts.rev.wrk.inactive'))}</span>
       </div>
       <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:8px;margin-top:12px">
         ${metricHtml}
       </div>
-      ${worker?.availability_note?`<div style="font-size:12px;color:var(--wk-text-muted);margin-top:12px"><strong style="color:var(--wk-text)">Verfügbarkeitsnotiz:</strong> ${esc(worker.availability_note)}</div>`:''}
+      ${worker?.availability_note?`<div style="font-size:12px;color:var(--wk-text-muted);margin-top:12px"><strong style="color:var(--wk-text)">${esc(tt('ts.rev.wrk.availabilityNote'))}</strong> ${esc(worker.availability_note)}</div>`:''}
       ${(expiredDocs>0||expiringSoon>0||worker?.next_document_expiry)?`
         <div style="margin-top:12px;padding:10px 12px;border-radius:10px;background:${expiredDocs>0?'var(--tc-tone-warning-bg-strong)':'var(--tc-tone-brand-bg)'};color:${expiredDocs>0?'var(--tc-tone-warning-strong-text)':'var(--tc-tone-brand-text)'}">
           ${expiredDocs>0
-            ? `<strong>${expiredDocs} Dokument${expiredDocs===1?'':'e'} abgelaufen.</strong>`
-            : `<strong>Dokumentenlage im Blick behalten.</strong>`}
-          ${expiringSoon>0?` ${expiringSoon} Nachweis${expiringSoon===1?'':'e'} laufen bald ab.`:''}
-          ${worker?.next_document_expiry?` Nächster Ablauf: ${esc(fmtD(worker.next_document_expiry))}.`:''}
+            ? `<strong>${esc(tt('ts.rev.wrk.docsExpired', { n: expiredDocs }))}</strong>`
+            : `<strong>${esc(tt('ts.rev.wrk.docsWatch'))}</strong>`}
+          ${expiringSoon>0?` ${esc(tt('ts.rev.wrk.docsExpiring', { n: expiringSoon }))}`:''}
+          ${worker?.next_document_expiry?` ${esc(tt('ts.rev.wrk.nextExpiry', { date: fmtD(worker.next_document_expiry) }))}`:''}
         </div>
       `:''}
     </div>
@@ -1606,7 +3217,7 @@ function workerAssignmentDecisionConfig(suggestion){
     return { cls:'pill-act', label:'Safe Case' };
   }
   if(suggestion.is_selectable){
-    return { cls:'pill-warn', label:'Manuelle Prüfung' };
+    return { cls:'pill-warn', label:tt('ts.rev.wrk.manualCheck') };
   }
   return { cls:'pill-danger', label:'Blockiert' };
 }
@@ -1622,8 +3233,8 @@ function workerAssignmentPeopleText(items,fallbackText){
 
 function buildWorkerAssignmentManualConfirmMessage(worker,assignment,suggestion,choiceSets){
   const lines=[
-    `Worker: ${(`${worker?.first_name||''} ${worker?.last_name||''}`).trim()||worker?.email||'Worker'}`,
-    `Einsatz: ${assignment?.worker_description||assignment?.request_title||'Deal-Einsatz'}`
+    tt('ts.rev.drawer.confirmWorker', { worker: (`${worker?.first_name||''} ${worker?.last_name||''}`).trim()||worker?.email||'Worker' }),
+    tt('ts.rev.drawer.confirmAssignment', { assignment: assignment?.worker_description||assignment?.request_title||tt('ts.rev.staffing.dealAssignmentFallback') })
   ];
   const warnings=[];
   const blockerText=staffingCriteriaText(suggestion?.quick_assign_blockers);
@@ -1635,14 +3246,14 @@ function buildWorkerAssignmentManualConfirmMessage(worker,assignment,suggestion,
   if(choiceSets.length){
     warnings.push(`Aktive Auswahlphase: ${choiceSets.map((choiceSet)=>`${choiceSet.title||'Auswahlphase'} (${staffingChoiceSetStatusLabel(choiceSet.status)})`).join(', ')}`);
   }
-  if(suggestion?.has_open_invite)warnings.push('Für diesen Einsatz läuft bereits eine offene Staffing-Anfrage.');
-  if(suggestion?.already_contacted)warnings.push('Der Worker wurde für diesen Einsatz bereits kontaktiert.');
-  return `${lines.join('\n')}${warnings.length?`\n\nBitte prüfen:\n- ${warnings.join('\n- ')}\n\nJetzt manuell zuweisen?`:'\n\nJetzt manuell zuweisen?'}`;
+  if(suggestion?.has_open_invite)warnings.push(tt('ts.rev.drawer.warnOpenInvite'));
+  if(suggestion?.already_contacted)warnings.push(tt('ts.rev.drawer.warnContacted'));
+  return `${lines.join('\n')}${warnings.length?`\n\n${tt('ts.rev.drawer.confirmCheck')}\n- ${warnings.join('\n- ')}\n\n${tt('ts.rev.drawer.confirmQuestion')}`:`\n\n${tt('ts.rev.drawer.confirmQuestion')}`}`;
 }
 
 function renderWorkerAssignCardBody(assignment,cardState){
   if(cardState.loading){
-    return '<div style="margin-top:12px;padding:12px;color:var(--wk-text-muted);font-size:12px;border-top:1px solid var(--tc-tone-neutral-border)">Lade Einsatz-, Konflikt- und Staffing-Kontext…</div>';
+    return '<div style="margin-top:12px;padding:12px;color:var(--wk-text-muted);font-size:12px;border-top:1px solid var(--tc-tone-neutral-border)">'+esc(tt('ts.rev.staffing.loadingContext'))+'</div>';
   }
   if(cardState.error){
     return `
@@ -1650,7 +3261,7 @@ function renderWorkerAssignCardBody(assignment,cardState){
         <div class="wk-alert wk-alert-danger"><span>&#9888;</span><span>${esc(cardState.error)}</span></div>
         <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px">
           <button class="wk-btn wk-btn-outline wk-btn-sm" onclick="refreshWorkerAssignmentCardContext('${assignment.assignment_id}')">Erneut laden</button>
-          <button class="wk-btn wk-btn-ghost wk-btn-sm" onclick="openWorkerAssignmentInStaffingTab('${assignment.assignment_id}')">Zur Einsatzkarte</button>
+          <button class="wk-btn wk-btn-ghost wk-btn-sm" onclick="openWorkerAssignmentInStaffingTab('${assignment.assignment_id}')">${esc(tt('ts.rev.drawer.toCard'))}</button>
         </div>
       </div>
     `;
@@ -1671,53 +3282,53 @@ function renderWorkerAssignCardBody(assignment,cardState){
   const signals=[];
   if(Number(suggestion?.conflict_count||0)>0)signals.push(`${Number(suggestion.conflict_count)} Einsatzkonflikt${Number(suggestion.conflict_count)===1?'':'e'}`);
   if(Number(suggestion?.reservation_conflict_count||0)>0)signals.push(`${Number(suggestion.reservation_conflict_count)} Reservierungskonflikt${Number(suggestion.reservation_conflict_count)===1?'':'e'}`);
-  if(Number(suggestion?.current_reservation_count||0)>0)signals.push(`${Number(suggestion.current_reservation_count)} aktive Reservierung${Number(suggestion.current_reservation_count)===1?'':'en'} auf diesem Einsatz`);
-  if(suggestion?.has_open_invite)signals.push('Offene Staffing-Anfrage läuft bereits');
-  if(suggestion?.already_contacted)signals.push('Worker wurde hier bereits kontaktiert');
-  if(Number(suggestion?.same_client_assignment_count||0)>0)signals.push(`${Number(suggestion.same_client_assignment_count)} frühere Einsätze beim selben Kunden`);
-  if(choiceSets.length)signals.push(`${choiceSets.length} aktive Auswahlphase${choiceSets.length===1?'':'n'} für diesen Worker`);
+  if(Number(suggestion?.current_reservation_count||0)>0)signals.push(tt('ts.rev.drawer.signalReservations', { n: Number(suggestion.current_reservation_count) }));
+  if(suggestion?.has_open_invite)signals.push(tt('ts.rev.drawer.signalOpenInvite'));
+  if(suggestion?.already_contacted)signals.push(tt('ts.rev.drawer.signalContacted'));
+  if(Number(suggestion?.same_client_assignment_count||0)>0)signals.push(tt('ts.rev.drawer.signalSameClient', { n: Number(suggestion.same_client_assignment_count) }));
+  if(choiceSets.length)signals.push(tt('ts.rev.drawer.signalChoiceSets', { n: choiceSets.length }));
   const canQuickAssign=!!(suggestion&&suggestion.quick_assign_eligible&&open>0);
   const canManualAssign=!!(suggestion&&suggestion.is_selectable&&open>0);
   return `
     <div style="margin-top:12px;border-top:1px solid var(--tc-tone-neutral-border);padding-top:12px;display:grid;gap:12px">
       <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:10px">
         <div style="padding:10px 12px;border:1px solid var(--tc-tone-neutral-border);border-radius:10px;background:var(--tc-surface-subtle)">
-          <div style="font-size:11px;color:var(--wk-text-muted);text-transform:uppercase;letter-spacing:.05em">Einsatzkontext</div>
+          <div style="font-size:11px;color:var(--wk-text-muted);text-transform:uppercase;letter-spacing:.05em">${esc(tt('ts.rev.drawer.contextHeading'))}</div>
           <div style="display:grid;gap:6px;margin-top:8px;font-size:12px">
-            <div><strong>Rolle:</strong> ${esc(requirements.role||detailAssignment.worker_description||assignment.request_title||'Deal-Einsatz')}</div>
-            <div><strong>Kunde:</strong> ${esc(detailAssignment.client_org_name||assignment.client_org_name||'Nicht angegeben')}</div>
-            <div><strong>Zeitraum:</strong> ${esc(detailAssignment.start_date?`${fmtD(detailAssignment.start_date)}${detailAssignment.planned_end_date?` – ${fmtD(detailAssignment.planned_end_date)}`:' – offen'}`:'Nicht angegeben')}</div>
-            <div><strong>Ort:</strong> ${esc(requirements.location_city||assignment.demand_location_city||'Nicht angegeben')}</div>
-            <div><strong>Schicht:</strong> ${esc(requirements.shift_model||'Nicht angegeben')}</div>
-            <div><strong>Slots:</strong> ${filled} besetzt · ${reserved} reserviert · ${open} offen von ${requested}</div>
+            <div><strong>${esc(tt('ts.rev.drawer.role'))}</strong> ${esc(requirements.role||detailAssignment.worker_description||assignment.request_title||tt('ts.rev.staffing.dealAssignmentFallback'))}</div>
+            <div><strong>${esc(tt('ts.rev.drawer.client'))}</strong> ${esc(detailAssignment.client_org_name||assignment.client_org_name||tt('ts.rev.drawer.clientUnknown'))}</div>
+            <div><strong>${esc(tt('ts.rev.drawer.period'))}</strong> ${esc(detailAssignment.start_date?`${fmtD(detailAssignment.start_date)}${detailAssignment.planned_end_date?` – ${fmtD(detailAssignment.planned_end_date)}`:` – ${tt('ts.rev.drawer.openSuffix')}`}`:tt('ts.rev.drawer.clientUnknown'))}</div>
+            <div><strong>${esc(tt('ts.rev.drawer.location'))}</strong> ${esc(requirements.location_city||assignment.demand_location_city||tt('ts.rev.drawer.clientUnknown'))}</div>
+            <div><strong>${esc(tt('ts.rev.drawer.shift'))}</strong> ${esc(requirements.shift_model||tt('ts.rev.drawer.clientUnknown'))}</div>
+            <div><strong>${esc(tt('ts.rev.drawer.slots'))}</strong> ${esc(tt('ts.rev.drawer.slotsValue', { filled: filled, reserved: reserved, open: open, requested: requested }))}</div>
           </div>
         </div>
         <div style="padding:10px 12px;border:1px solid var(--tc-tone-neutral-border);border-radius:10px;background:var(--tc-surface-subtle)">
-          <div style="font-size:11px;color:var(--wk-text-muted);text-transform:uppercase;letter-spacing:.05em">Worker-Prüfung</div>
+          <div style="font-size:11px;color:var(--wk-text-muted);text-transform:uppercase;letter-spacing:.05em">${esc(tt('ts.rev.drawer.workerCheck'))}</div>
           <div style="display:flex;justify-content:space-between;gap:8px;align-items:center;flex-wrap:wrap;margin-top:8px">
-            <div style="font-size:13px;font-weight:700">${esc(suggestion?`Score ${Number(suggestion.total_score||suggestion.score||0)}`:'Noch kein Match-Kontext')}</div>
+            <div style="font-size:13px;font-weight:700">${esc(suggestion?tt('ts.rev.drawer.score', { score: Number(suggestion.total_score||suggestion.score||0) }):tt('ts.rev.drawer.noMatchContext'))}</div>
             <span class="pill ${workerAssignmentDecisionConfig(suggestion).cls}">${esc(workerAssignmentDecisionConfig(suggestion).label)}</span>
           </div>
-          <div style="font-size:12px;color:var(--wk-text-muted);margin-top:8px">${esc(fitText||'Der Worker-Kontext wird nur für diese konkrete Einsatzoption bewertet.')}</div>
-          ${signals.length?`<div style="font-size:11px;color:var(--wk-text-muted);margin-top:8px"><strong style="color:var(--wk-text)">Operative Signale:</strong> ${esc(signals.join(' · '))}</div>`:''}
-          ${hardFailText?`<div style="font-size:11px;color:var(--tc-tone-danger-text);margin-top:8px"><strong>Blocker:</strong> ${esc(hardFailText)}</div>`:''}
-          ${missingText?`<div style="font-size:11px;color:var(--tc-tone-warning-text);margin-top:6px"><strong>Fehlende Anforderungen:</strong> ${esc(missingText)}</div>`:''}
-          ${blockerText&&!hardFailText?`<div style="font-size:11px;color:var(--tc-tone-warning-text);margin-top:6px"><strong>Safe-Case-Hinweise:</strong> ${esc(blockerText)}</div>`:''}
+          <div style="font-size:12px;color:var(--wk-text-muted);margin-top:8px">${esc(fitText||tt('ts.rev.drawer.fitFallback'))}</div>
+          ${signals.length?`<div style="font-size:11px;color:var(--wk-text-muted);margin-top:8px"><strong style="color:var(--wk-text)">${esc(tt('ts.rev.drawer.signals'))}</strong> ${esc(signals.join(' · '))}</div>`:''}
+          ${hardFailText?`<div style="font-size:11px;color:var(--tc-tone-danger-text);margin-top:8px"><strong>${esc(tt('ts.rev.drawer.blocker'))}</strong> ${esc(hardFailText)}</div>`:''}
+          ${missingText?`<div style="font-size:11px;color:var(--tc-tone-warning-text);margin-top:6px"><strong>${esc(tt('ts.rev.drawer.missingReq'))}</strong> ${esc(missingText)}</div>`:''}
+          ${blockerText&&!hardFailText?`<div style="font-size:11px;color:var(--tc-tone-warning-text);margin-top:6px"><strong>${esc(tt('ts.rev.drawer.safeCaseHints'))}</strong> ${esc(blockerText)}</div>`:''}
         </div>
       </div>
       <div style="padding:10px 12px;border:1px solid var(--tc-tone-neutral-border);border-radius:10px;background:var(--tc-surface-subtle)">
-        <div style="font-size:11px;color:var(--wk-text-muted);text-transform:uppercase;letter-spacing:.05em">Laufender Staffing-Status</div>
+        <div style="font-size:11px;color:var(--wk-text-muted);text-transform:uppercase;letter-spacing:.05em">${esc(tt('ts.rev.drawer.liveStatus'))}</div>
         <div style="display:grid;gap:6px;margin-top:8px;font-size:12px">
-          <div><strong>Bereits zugewiesen:</strong> ${workerAssignmentPeopleText(detail.current_workers,'Noch niemand final zugewiesen')}</div>
-          <div><strong>Reserviert:</strong> ${workerAssignmentPeopleText((detail.reservations||[]).filter((entry)=>entry.status==='reserved'),'Keine aktiven Reservierungen')}</div>
-          <div><strong>Auswahlphasen für diesen Worker:</strong> ${choiceSets.length?esc(choiceSets.map((choiceSet)=>`${choiceSet.title||'Auswahlphase'} (${staffingChoiceSetStatusLabel(choiceSet.status)})`).join(' · ')):'Keine aktive Auswahlphase'}</div>
+          <div><strong>${esc(tt('ts.rev.drawer.alreadyAssigned'))}</strong> ${workerAssignmentPeopleText(detail.current_workers,tt('ts.rev.drawer.noneAssigned'))}</div>
+          <div><strong>${esc(tt('ts.rev.drawer.reserved'))}</strong> ${workerAssignmentPeopleText((detail.reservations||[]).filter((entry)=>entry.status==='reserved'),tt('ts.rev.drawer.noReservations'))}</div>
+          <div><strong>${esc(tt('ts.rev.drawer.choiceSetsForWorker'))}</strong> ${choiceSets.length?esc(choiceSets.map((choiceSet)=>`${choiceSet.title||tt('ts.rev.drawer.choiceFallback')} (${staffingChoiceSetStatusLabel(choiceSet.status)})`).join(' · ')):esc(tt('ts.rev.drawer.noChoiceSet'))}</div>
         </div>
       </div>
       <div style="display:flex;gap:8px;flex-wrap:wrap">
-        <button class="wk-btn wk-btn-outline wk-btn-sm" onclick="refreshWorkerAssignmentCardContext('${assignment.assignment_id}')">Aktualisieren</button>
-        ${canQuickAssign?`<button class="wk-btn wk-btn-success wk-btn-sm" onclick="quickAssignWorkerFromDrawer('${assignment.assignment_id}')">Sicher direkt zuweisen</button>`:''}
-        <button class="wk-btn ${(canQuickAssign||!canManualAssign)?'wk-btn-ghost':'wk-btn-primary'} wk-btn-sm" ${canManualAssign?'':'disabled'} onclick="manualAssignWorkerFromDrawer('${assignment.assignment_id}')">${canQuickAssign?'Manuell zuweisen':(canManualAssign?'Trotz Hinweis manuell zuweisen':'Manuell nicht möglich')}</button>
-        <button class="wk-btn wk-btn-ghost wk-btn-sm" onclick="openWorkerAssignmentInStaffingTab('${assignment.assignment_id}')">Zur Einsatzkarte</button>
+        <button class="wk-btn wk-btn-outline wk-btn-sm" onclick="refreshWorkerAssignmentCardContext('${assignment.assignment_id}')">${esc(tt('ts.rev.drawer.refresh'))}</button>
+        ${canQuickAssign?`<button class="wk-btn wk-btn-success wk-btn-sm" onclick="quickAssignWorkerFromDrawer('${assignment.assignment_id}')">${esc(tt('ts.rev.drawer.quickAssign'))}</button>`:''}
+        <button class="wk-btn ${(canQuickAssign||!canManualAssign)?'wk-btn-ghost':'wk-btn-primary'} wk-btn-sm" ${canManualAssign?'':'disabled'} onclick="manualAssignWorkerFromDrawer('${assignment.assignment_id}')">${esc(canQuickAssign?tt('ts.rev.drawer.manualAssign'):(canManualAssign?tt('ts.rev.drawer.manualAssignAnyway'):tt('ts.rev.drawer.manualImpossible')))}</button>
+        <button class="wk-btn wk-btn-ghost wk-btn-sm" onclick="openWorkerAssignmentInStaffingTab('${assignment.assignment_id}')">${esc(tt('ts.rev.drawer.toCard'))}</button>
       </div>
     </div>
   `;
@@ -1730,10 +3341,10 @@ function renderWorkerAssignCard(assignment,worker){
   const filled=Number(assignment.filled_quantity||0);
   const reserved=Number(assignment.reserved_quantity||0);
   const open=Number(assignment.open_quantity||Math.max(requested-filled-reserved,0));
-  const start=assignment.start_date?fmtD(assignment.start_date):'Start offen';
-  const end=assignment.planned_end_date?fmtD(assignment.planned_end_date):'offen';
+  const start=assignment.start_date?fmtD(assignment.start_date):tt('ts.rev.drawer.startOpen');
+  const end=assignment.planned_end_date?fmtD(assignment.planned_end_date):tt('ts.rev.drawer.openSuffix');
   const summaryBadges=[];
-  summaryBadges.push(`<span class="pill pill-pnd">${open} offen</span>`);
+  summaryBadges.push(`<span class="pill pill-pnd">${esc(tt('ts.rev.drawer.openSlots', { n: open }))}</span>`);
   if(cardState.loaded){
     const decision=workerAssignmentDecisionConfig(cardState.suggestion);
     summaryBadges.push(`<span class="pill ${decision.cls}">${esc(decision.label)}</span>`);
@@ -1742,14 +3353,14 @@ function renderWorkerAssignCard(assignment,worker){
     <div style="border:1px solid var(--tc-tone-neutral-border);border-radius:12px;background:var(--tc-surface-emphasis);padding:14px">
       <div style="display:flex;justify-content:space-between;gap:10px;align-items:flex-start;flex-wrap:wrap">
         <div style="min-width:0;flex:1">
-          <div style="font-size:14px;font-weight:800">${esc(assignment.worker_description||assignment.request_title||'Deal-Einsatz')}</div>
+          <div style="font-size:14px;font-weight:800">${esc(assignment.worker_description||assignment.request_title||tt('ts.rev.staffing.dealAssignmentFallback'))}</div>
           <div style="font-size:12px;color:var(--wk-text-muted);margin-top:4px">
-            ${esc([assignment.client_org_name||'',`${start} – ${end}`,assignment.demand_location_city||''].filter(Boolean).join(' · ')||'Kontext wird nachgeladen')}
+            ${esc([assignment.client_org_name||'',`${start} – ${end}`,assignment.demand_location_city||''].filter(Boolean).join(' · ')||tt('ts.rev.drawer.contextLoading'))}
           </div>
         </div>
         <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;justify-content:flex-end">
           ${summaryBadges.join('')}
-          <button class="wk-btn wk-btn-outline wk-btn-sm" onclick="toggleWorkerAssignAssignment('${assignment.assignment_id}')">${expanded?'Kontext schließen':'Kontext prüfen'}</button>
+          <button class="wk-btn wk-btn-outline wk-btn-sm" onclick="toggleWorkerAssignAssignment('${assignment.assignment_id}')">${esc(expanded?tt('ts.rev.drawer.contextClose'):tt('ts.rev.drawer.contextCheck'))}</button>
         </div>
       </div>
       ${expanded?renderWorkerAssignCardBody(assignment,cardState):''}
@@ -1766,8 +3377,8 @@ function renderWorkerAssignDrw(){
   const emptyEl=document.getElementById('wrkAssignEmpty');
   const errEl=document.getElementById('wrkAssignErr');
   const listEl=document.getElementById('wrkAssignList');
-  if(titleEl)titleEl.textContent='Einsatz direkt zuweisen';
-  if(subEl)subEl.textContent=worker?`${(`${worker.first_name||''} ${worker.last_name||''}`).trim()||worker.email||'Worker'} – bestehende Assignment-Logik mit vollständigem Worker-Kontext nutzen`:'Worker-Kontext wird geladen';
+  if(titleEl)titleEl.textContent=tt('ts.rev.drawer.assignTitle');
+  if(subEl)subEl.textContent=worker?tt('ts.rev.drawer.assignSubtitle', { worker: (`${worker.first_name||''} ${worker.last_name||''}`).trim()||worker.email||'Worker' }):tt('ts.rev.drawer.workerLoading');
   if(summaryEl)summaryEl.innerHTML=worker?renderWorkerAssignWorkerSummary(worker):'';
   if(loadingEl)loadingEl.style.display=workerAssignmentDrawerState.loading?'block':'none';
   if(errEl){
@@ -1794,9 +3405,9 @@ function renderWorkerAssignDrw(){
 }
 
 async function openWorkerAssignDrw(workerId){
-  if(!ensurePermission('workerEdit','Sie koennen keine direkte Einsatzzuweisung aus dem Worker-Bereich ausführen.'))return;
+  if(!ensurePermission('workerEdit',tt('ts.rev.perm.directAssign')))return;
   const worker=getWorkerById(workerId);
-  if(!worker){toast('Worker konnte nicht geladen werden','error');return;}
+  if(!worker){toast(tt('ts.rev.drawer.workerLoadFailed'),'error');return;}
   resetWorkerAssignmentDrawerState(workerId);
   setStaffingWorkerPrefill(workerId);
   document.getElementById('wrkAssignDrwOvl').classList.add('on');
@@ -1808,7 +3419,7 @@ async function openWorkerAssignDrw(workerId){
     await loadDealAsgn();
     applyStaffingWorkerPrefill(workerId);
   }catch(error){
-    workerAssignmentDrawerState.error=error?.message||'Offene Deal-Einsätze konnten nicht geladen werden.';
+    workerAssignmentDrawerState.error=error?.message||tt('ts.rev.drawer.openDealsFailed');
   }finally{
     workerAssignmentDrawerState.loading=false;
     renderWorkerAssignDrw();
@@ -1843,7 +3454,7 @@ async function loadWorkerAssignmentCardContext(assignmentId,{force=false}={}){
     cardState.suggestion=suggestionEntry?.suggestion||null;
     cardState.loaded=true;
   }catch(error){
-    cardState.error=error?.message||'Kontext konnte nicht geladen werden.';
+    cardState.error=error?.message||tt('ts.rev.drawer.contextFailed');
     cardState.loaded=false;
   }finally{
     cardState.loading=false;
@@ -1869,7 +3480,7 @@ async function toggleWorkerAssignAssignment(assignmentId){
 async function quickAssignWorkerFromDrawer(assignmentId){
   const workerId=workerAssignmentDrawerState.workerId;
   if(!workerId){
-    toast('Kein Worker für die Direktzuweisung ausgewählt','error');
+    toast(tt('ts.rev.drawer.noWorkerSelected'),'error');
     return;
   }
   await runStaffingQuickAssign(assignmentId,[workerId]);
@@ -1882,20 +3493,20 @@ async function manualAssignWorkerFromDrawer(assignmentId){
   const suggestion=cardState.suggestion;
   const choiceSets=(cardState.detail?.choice_sets||[]).filter((choiceSet)=>choiceSet.worker_user_id===workerAssignmentDrawerState.workerId);
   if(!worker||!assignment||!suggestion||!suggestion.is_selectable){
-    toast('Dieser Worker ist für eine manuelle Zuweisung aktuell nicht freigegeben.','error');
+    toast(tt('ts.rev.drawer.notEligible'),'error');
     return;
   }
   const confirmMessage=buildWorkerAssignmentManualConfirmMessage(worker,assignment,suggestion,choiceSets);
   await assignDealWorkerRequest(assignmentId,workerAssignmentDrawerState.workerId,{
     clientName:getAssignmentClientName(assignmentId),
     confirmMessage,
-    successMessage:'Worker manuell dem Deal-Einsatz zugewiesen'
+    successMessage:tt('ts.rev.drawer.assignedManually')
   });
 }
 
 async function openWorkerAssignmentInStaffingTab(assignmentId){
   if(!pageAccess.tabs.asgn){
-    toast('Die Einsatzkarte ist fuer Ihre aktuelle Rolle nicht freigeschaltet.','error');
+    toast(tt('ts.rev.perm.cardRole'),'error');
     return;
   }
   const workerId=workerAssignmentDrawerState.workerId;
@@ -1910,7 +3521,7 @@ async function openWorkerAssignmentInStaffingTab(assignmentId){
 
 /* ASSIGN CAPACITY DRAWER */
 function openAssignDrw(){
-  if(!ensurePermission('workerEdit','Sie koennen Einsaetze sehen, aber keine Staffing- oder Zuweisungsaktionen ausfuehren.'))return;
+  if(!ensurePermission('workerEdit',tt('ts.rev.perm.staffingActions')))return;
   document.getElementById('asgDrwOvl').classList.add('on');
   document.getElementById('asgDrw').classList.add('on');
   document.getElementById('asgErr').style.display='none';
@@ -1926,7 +3537,7 @@ async function loadAssignData(){
     document.getElementById('asgContent').style.display='none';
     document.getElementById('asgEmpty').style.display='none';
     const err=document.getElementById('asgErr');
-    err.textContent='Staffing- und Zuweisungsaktionen sind fuer Ihre aktuelle Rolle nicht freigeschaltet.';
+    err.textContent=tt('ts.rev.perm.staffingRoleShort');
     err.style.display='block';
     return;
   }
@@ -1956,27 +3567,27 @@ async function loadAssignData(){
       // value traegt source-Marker, damit onCapSelect + submitAssign wissen,
       // welcher Backend-Pfad zu benutzen ist.
       const value=`${c.source}:${c.id}`;
-      const titleText=esc(c.title||c.role||(c.source==='deal_assignment'?'Deal-Einsatz':'Personal'));
+      const titleText=esc(c.title||c.role||(c.source==='deal_assignment'?tt('ts.rev.staffing.dealAssignmentFallback'):tt('ts.rev.assign.capacityFallback')));
       const locationText=c.location_city?' \u2013 '+esc(c.location_city):'';
       const dateText=c.availability_from?' \u2013 '+fmtD(c.availability_from):'';
       const remainText=(c.source==='deal_assignment'&&Number.isFinite(Number(c.remaining)))
-        ?' \u2013 '+Number(c.remaining)+' offen von '+Number(c.headcount||c.remaining)
+        ?' \u2013 '+tt('ts.rev.assign.optionOpenOf', { open: Number(c.remaining), total: Number(c.headcount||c.remaining) })
         :(c.headcount?' \u2013 '+Number(c.headcount)+' Plaetze':'');
       const clientText=c.client_org_name?' \u2013 '+esc(c.client_org_name):'';
       return `<option value="${value}">${titleText}${locationText}${dateText}${remainText}${clientText}</option>`;
     };
-    let html='<option value="">\u2013 Bitte waehlen \u2013</option>';
+    let html='<option value="">'+esc(tt('ts.rev.assign.pleaseChoose'))+'</option>';
     if(capGroup.length){
-      html+='<optgroup label="Verfügbares Personal">'+capGroup.map(renderOption).join('')+'</optgroup>';
+      html+='<optgroup label="'+esc(tt('ts.rev.assign.groupCapacity'))+'">'+capGroup.map(renderOption).join('')+'</optgroup>';
     }
     if(dealGroup.length){
-      html+='<optgroup label="Deal-Einsaetze mit offenen Plaetzen">'+dealGroup.map(renderOption).join('')+'</optgroup>';
+      html+='<optgroup label="'+esc(tt('ts.rev.assign.groupDeals'))+'">'+dealGroup.map(renderOption).join('')+'</optgroup>';
     }
     sel.innerHTML=html;
     // Populate worker select (active only)
     const wSel=document.getElementById('asgWkr');
     const activeW=allWrks.filter(w=>w.is_active!==false);
-    wSel.innerHTML='<option value="">\u2013 Bitte waehlen \u2013</option>'+activeW.map(w=>
+    wSel.innerHTML='<option value="">'+esc(tt('ts.rev.assign.pleaseChoose'))+'</option>'+activeW.map(w=>
       `<option value="${w.id||w.user_id}">${esc(w.first_name||'')} ${esc(w.last_name||'')}${w.personnel_number?' ('+esc(w.personnel_number)+')':''}</option>`
     ).join('');
   }catch(e){
@@ -1986,12 +3597,12 @@ async function loadAssignData(){
     const err=document.getElementById('asgErr');
     const code=e && e.code ? ` (${String(e.code)})` : '';
     err.innerHTML=
-      '<div style="font-weight:700;margin-bottom:4px">Verfügbares Personal konnte derzeit nicht geladen werden.</div>'
-      +'<div style="opacity:.9">Bitte erneut versuchen.'+code+'</div>'
+      '<div style="font-weight:700;margin-bottom:4px">'+esc(tt('ts.rev.assign.loadFailTitle'))+'</div>'
+      +'<div style="opacity:.9">'+esc(tt('ts.rev.assign.loadFailText'))+code+'</div>'
       +'<div style="margin-top:8px;display:flex;gap:8px;flex-wrap:wrap">'
         +'<button class="wk-btn wk-btn-outline wk-btn-sm" onclick="retryLoadAssignData()">Erneut laden</button>'
       +'</div>'
-      +'<details style="margin-top:10px;opacity:.9"><summary style="cursor:pointer">Technische Details</summary>'
+      +'<details style="margin-top:10px;opacity:.9"><summary style="cursor:pointer">'+esc(tt('ts.rev.assign.technicalDetails'))+'</summary>'
         +'<div style="margin-top:6px;font-family:monospace;font-size:.78rem;white-space:pre-wrap">unassigned-capacity-posts: '
           +esc((e && e.message) ? e.message : 'error')
         +'</div>'
@@ -2038,7 +3649,7 @@ function rebuildWorkerSelect(blockedWorkerUserIds,companyOrgId){
   // der Disponent muss den Grund sehen, nicht r\u00e4tseln, warum jemand fehlt.
   const byCompany=blocksForCompany(companyOrgId);
   let blockedCount=0;
-  wSel.innerHTML='<option value="">\u2013 Bitte waehlen\u2013'+hiddenLabel+'</option>'
+  wSel.innerHTML='<option value="">'+esc(tt('ts.rev.assign.pleaseChoose'))+hiddenLabel+'</option>'
     +available.map((w)=>{
       const uid=String(w.id||w.user_id);
       const blk=byCompany.get(uid);
@@ -2046,7 +3657,7 @@ function rebuildWorkerSelect(blockedWorkerUserIds,companyOrgId){
       if(!blk)return `<option value="${uid}">${name}</option>`;
       blockedCount++;
       const until=blk.blocked_until?(' bis '+fmtD(blk.blocked_until)):' dauerhaft';
-      return `<option value="${uid}" disabled>${name} \u2014 gesperrt bei diesem Kunden${esc(until)}</option>`;
+      return `<option value="${uid}" disabled>${name} ${esc(tt('ts.rev.assign.blockedSuffix'))}${esc(until)}</option>`;
     }).join('');
   if(prev && !blocked.has(String(prev)) && !byCompany.has(String(prev))) wSel.value=prev;
   setAssignBlockNotice(byCompany,blockedCount);
@@ -2058,8 +3669,8 @@ function setAssignBlockNotice(byCompany,count){
   const names=[...byCompany.values()].map((b)=>esc(b.reason||'ohne Grundangabe')).slice(0,3);
   info.insertAdjacentHTML('beforeend',
     '<div class="wk-alert wk-alert-warn" style="margin-top:8px;font-size:.8rem">'
-    +'<strong>'+count+' Kraft/Kr\u00e4fte von diesem Kunden gesperrt</strong> \u2014 '
-    +'im Dropdown deaktiviert. Grund: '+names.join(' \u00b7 ')
+    +'<strong>'+esc(tt('ts.rev.assign.blockedTitle', { n: count }))+'</strong> '
+    +esc(tt('ts.rev.assign.blockedHint', { names: names.join(' \u00b7 ') }))
     +'</div>');
 }
 
@@ -2092,15 +3703,15 @@ function onCapSelect(){
     ? '<span class="pill pill-pnd" style="margin-left:6px">Aus Deal</span>'
     : '<span class="pill pill-act" style="margin-left:6px">Proaktiv</span>';
   const remain=(c.source==='deal_assignment'&&Number.isFinite(Number(c.remaining)))
-    ? Number(c.remaining)+' offen von '+Number(c.headcount||c.remaining)
+    ? tt('ts.rev.assign.optionOpenOf', { open: Number(c.remaining), total: Number(c.headcount||c.remaining) })
     : (c.headcount?Number(c.headcount)+' Plaetze':'');
   info.innerHTML=`<strong>${esc(c.title||c.role||'')}</strong>${sourceBadge}`
-    +(c.role&&c.role!==c.title?`<br><span style="color:var(--wk-text-muted);font-size:.78rem">Rolle: ${esc(c.role)}</span>`:'')
-    +(c.client_org_name?`<br>Kunde: <strong>${esc(c.client_org_name)}</strong>`:'')
-    +(c.location_city?`<br>Ort: ${esc(c.location_city)}`:'')
-    +(c.availability_from?`<br>Zeitraum: ${fmtD(c.availability_from)}${c.availability_to?' \u2013 '+fmtD(c.availability_to):''}`:'')
+    +(c.role&&c.role!==c.title?`<br><span style="color:var(--wk-text-muted);font-size:.78rem">${esc(tt('ts.rev.assign.optRole'))} ${esc(c.role)}</span>`:'')
+    +(c.client_org_name?`<br>${esc(tt('ts.rev.assign.infoClient'))} <strong>${esc(c.client_org_name)}</strong>`:'')
+    +(c.location_city?`<br>${esc(tt('ts.rev.assign.optCity'))} ${esc(c.location_city)}`:'')
+    +(c.availability_from?`<br>${esc(tt('ts.rev.assign.optPeriod'))} ${fmtD(c.availability_from)}${c.availability_to?' \u2013 '+fmtD(c.availability_to):''}`:'')
     +(c.shift_model?`<br>Schichtmodell: ${esc(c.shift_model)}`:'')
-    +(remain?`<br>Personal: ${esc(remain)}`:'');
+    +(remain?`<br>${esc(tt('ts.rev.assign.infoStaff'))} ${esc(remain)}`:'');
   // Erst jetzt, damit der Sperr-Hinweis an die fertige Info-Box angehängt wird.
   rebuildWorkerSelect(Array.isArray(c.assigned_worker_user_ids)?c.assigned_worker_user_ids:[], c.client_org_id||null);
   // Pre-fill Start/End aus der Quelle (capacity.availability_* bzw. deal_assignment.start_date/planned_end_date)
@@ -2114,19 +3725,19 @@ function onCapSelect(){
   }
 }
 async function submitAssign(){
-  if(!ensurePermission('workerEdit','Sie koennen Einsaetze sehen, aber keine Staffing- oder Zuweisungsaktionen ausfuehren.'))return;
+  if(!ensurePermission('workerEdit',tt('ts.rev.perm.staffingActions')))return;
   const raw=document.getElementById('asgCap').value;
   const wkrId=document.getElementById('asgWkr').value;
   const start=document.getElementById('asgStart').value;
   const err=document.getElementById('asgErr');
   const sel=parseAssignableSelection(raw);
   if(!sel||!wkrId||!start){
-    err.textContent='Bitte Personal/Einsatz, Mitarbeiter und Startdatum auswaehlen.';
+    err.textContent=tt('ts.rev.assign.missingFields');
     err.style.display='block';
     return;
   }
   err.style.display='none';
-  const btn=document.getElementById('asgBtn');btn.disabled=true;btn.textContent='Wird zugewiesen\u2026';
+  const btn=document.getElementById('asgBtn');btn.disabled=true;btn.textContent=tt('ts.rev.btn.assigning');
   try{
     const csrf=await getCsrf();
     const commonBody={
@@ -2154,21 +3765,21 @@ async function submitAssign(){
     const d=await r.json();
     if(!r.ok){
       const msgs={
-        CAPACITY_NOT_FOUND:'Personalangebot nicht gefunden.',
-        CAPACITY_NOT_ASSIGNABLE:'Personalangebot nicht zuweisbar.',
-        ASSIGNMENT_NOT_FOUND:'Deal-Einsatz nicht gefunden.',
-        ASSIGNMENT_NOT_ASSIGNABLE:'Deal-Einsatz nicht zuweisbar.',
-        ASSIGNMENT_FILLED:'Deal-Einsatz ist bereits voll besetzt.',
-        WORKER_ALREADY_LINKED:'Worker ist diesem Einsatz bereits zugeordnet.',
-        WORKER_NOT_FOUND:'Mitarbeiter nicht gefunden.',
-        WORKER_INACTIVE:'Mitarbeiter ist inaktiv.',
-        SCHEDULE_CONFLICT:'Zeitraum-Konflikt mit bestehendem Einsatz.'
+        CAPACITY_NOT_FOUND:tt('ts.rev.assign.errCapacityNotFound'),
+        CAPACITY_NOT_ASSIGNABLE:tt('ts.rev.assign.errCapacityNotAssignable'),
+        ASSIGNMENT_NOT_FOUND:tt('ts.rev.assign.errAssignmentNotFound'),
+        ASSIGNMENT_NOT_ASSIGNABLE:tt('ts.rev.assign.errAssignmentNotAssignable'),
+        ASSIGNMENT_FILLED:tt('ts.rev.assign.errAssignmentFilled'),
+        WORKER_ALREADY_LINKED:tt('ts.rev.assign.errWorkerLinked'),
+        WORKER_NOT_FOUND:tt('ts.rev.assign.errWorkerNotFound'),
+        WORKER_INACTIVE:tt('ts.rev.assign.errWorkerInactive'),
+        SCHEDULE_CONFLICT:tt('ts.rev.assign.errScheduleConflict')
       };
-      throw new Error(msgs[d.error]||d.message||d.error||'Fehler');
+      throw new Error(msgs[d.error]||d.message||d.error||tt('ts.rev.msg.error'));
     }
     const toastMsg=sel.source==='deal_assignment'
-      ? 'Deal-Einsatz zugewiesen \u2013 Worker wird benachrichtigt'
-      : 'Personal zugewiesen \u2013 Worker wird benachrichtigt';
+      ? tt('ts.rev.assign.doneDeal')
+      : tt('ts.rev.assign.doneCapacity');
     toast(toastMsg,'success');
     closeAssignDrw();
     linksLoaded=false;
@@ -2178,10 +3789,10 @@ async function submitAssign(){
     if(pageAccess.permissions.workerEdit) await loadDealAsgn();
     await loadClosedDealAsgn();
   }catch(e){
-    err.textContent=(e && e.message) ? e.message : 'Fehler';
+    err.textContent=(e && e.message) ? e.message : tt('ts.rev.msg.error');
     err.style.display='block';
   }
-  finally{btn.disabled=false;btn.textContent='Zuweisen & benachrichtigen';}
+  finally{btn.disabled=false;btn.textContent=tt('ts.rev.assign.submitBtn');}
 }
 
 /* DEAL ASSIGNMENTS – offene Einsätze aus Deals */
@@ -2218,7 +3829,7 @@ async function loadDealAsgn(){
       return `<div class="asgn-card" id="dealAsgnCard-${a.assignment_id}" style="border-left:3px solid ${isFastTrackTarget?'var(--wk-success)':'var(--hub-accent)'}">
         <div class="asgn-card-header">
           <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">
-            <div class="asgn-card-title">${esc(a.worker_description||a.request_title||'Deal-Einsatz')}</div>
+            <div class="asgn-card-title">${esc(a.worker_description||a.request_title||tt('ts.rev.staffing.dealAssignmentFallback'))}</div>
             ${isFastTrackTarget?'<span class="pill pill-act">Fast-Track</span>':''}
           </div>
           <span class="asgn-badge asgn-badge--planned">${staffingBadgeLabel(a.staffing_status||'open')}</span>
@@ -2227,18 +3838,18 @@ async function loadDealAsgn(){
           ${a.client_org_name?'<span>&#128188; '+esc(a.client_org_name)+'</span>':''}
           <span>&#128197; ${start} – ${end}</span>
         </div>
-        ${isFastTrackTarget?'<div style="margin-top:8px;font-size:12px;color:var(--tc-tone-success-text)">Direkt aus dem staffing-bereiten Deal geöffnet.</div>':''}
+        ${isFastTrackTarget?`<div style="margin-top:8px;font-size:12px;color:var(--tc-tone-success-text)">${esc(tt('ts.rev.fastTrack.openedFromDeal'))}</div>`:''}
         <div style="margin-top:8px;font-size:12px;color:var(--wk-text-muted);line-height:1.5">
           <strong style="color:var(--wk-text)">Besetzungsstand:</strong>
-          ${filled} besetzt · ${reserved} reserviert · ${open} offen von ${requested}
+          ${esc(tt('ts.rev.asgn.slots', { filled: filled, reserved: reserved, open: open, requested: requested }))}
         </div>
         <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:10px">
           <button class="wk-btn wk-btn-primary wk-btn-sm" onclick="inviteTopWorkers('${a.assignment_id}',${inviteCount})">Beste ${inviteCount} anfragen</button>
-          <button class="wk-btn wk-btn-ghost wk-btn-sm" onclick="toggleStaffingPanel('${a.assignment_id}')">Vorschläge & Live-Status</button>
+          <button class="wk-btn wk-btn-ghost wk-btn-sm" onclick="toggleStaffingPanel('${a.assignment_id}')">${esc(tt('ts.rev.staffing.suggestions'))}</button>
         </div>
         <div style="margin-top:8px">
           <select class="wk-select" id="dealWkr-${a.assignment_id}" style="font-size:12px;padding:4px 8px;max-width:200px">
-            <option value="">Worker wählen…</option>
+            <option value="">${esc(tt('ts.rev.staffing.chooseWorker'))}</option>
           </select>
           <button class="wk-btn wk-btn-primary wk-btn-sm" id="dealAssignBtn-${a.assignment_id}" style="margin-left:6px" onclick="assignDealWorker('${a.assignment_id}')">Zuweisen</button>
         </div>
@@ -2261,7 +3872,7 @@ async function loadDealAsgn(){
       const sel=document.getElementById('dealWkr-'+a.assignment_id);
       const btn=document.getElementById('dealAssignBtn-'+a.assignment_id);
       if(sel){
-        sel.innerHTML='<option value="">Worker wählen…</option>'+activeW.map(w=>`<option value="${w.id||w.user_id}">${esc(w.first_name||'')} ${esc(w.last_name||'')}${w.personnel_number?' ('+esc(w.personnel_number)+')':''}</option>`).join('');
+        sel.innerHTML='<option value="">'+esc(tt('ts.rev.staffing.chooseWorker'))+'</option>'+activeW.map(w=>`<option value="${w.id||w.user_id}">${esc(w.first_name||'')} ${esc(w.last_name||'')}${w.personnel_number?' ('+esc(w.personnel_number)+')':''}</option>`).join('');
         sel.disabled=!activeW.length;
       }
       if(btn)btn.disabled=!activeW.length;
@@ -2273,10 +3884,10 @@ async function loadDealAsgn(){
     if(workerError){
       setPanelNotice(
         'asgnEditNotice',
-        isAccessDeniedError(workerError)?'Manuelle Zuweisung eingeschraenkt.':'Worker-Auswahl konnte nicht geladen werden.',
+        isAccessDeniedError(workerError)?tt('ts.rev.asgn.manualLimited'):tt('ts.rev.asgn.workerPickFailTitle'),
         isAccessDeniedError(workerError)
-          ? 'Die Worker-Auswahl ist fuer Ihren aktuellen Organisationskontext nicht verfuegbar.'
-          : (workerError?.message||'Bitte spaeter erneut versuchen.'),
+          ? tt('ts.rev.asgn.workerPickNoAccess')
+          : (workerError?.message||tt('ts.rev.notice.retryLater')),
         isAccessDeniedError(workerError)?'info':'warning'
       );
     }else{
@@ -2291,10 +3902,10 @@ async function loadDealAsgn(){
     if(sec)sec.style.display='none';
     setPanelNotice(
       'asgnEditNotice',
-      isAccessDeniedError(error)?'Keine Staffing-Rechte.':'Offene Deal-Einsaetze konnten nicht geladen werden.',
+      isAccessDeniedError(error)?tt('ts.rev.asgn.noStaffingRights'):tt('ts.rev.asgn.dealLoadFailTitle'),
       isAccessDeniedError(error)
-        ? 'Staffing- und Zuweisungsaktionen sind fuer Ihre aktuelle Rolle nicht freigeschaltet.'
-        : (error?.message||'Bitte spaeter erneut versuchen.'),
+        ? tt('ts.rev.perm.staffingRoleShort')
+        : (error?.message||tt('ts.rev.notice.retryLater')),
       isAccessDeniedError(error)?'info':'warning'
     );
     renderStaffingFastTrackNotice();
@@ -2342,8 +3953,8 @@ async function loadClosedDealAsgn(){
     // Andere Fehler als Info in Panel-Notice, nicht blockierend.
     setPanelNotice(
       'asgnStateNotice',
-      'Abgeschlossene Deals konnten nicht geladen werden.',
-      error?.message||'Bitte spaeter erneut versuchen.',
+      tt('ts.rev.asgn.closedLoadFail'),
+      error?.message||tt('ts.rev.notice.retryLater'),
       'warning'
     );
   }
@@ -2369,7 +3980,7 @@ function renderClosedDealCard(a){
   return '<div class="asgn-card" style="border-left:3px solid var(--wk-text-muted)">'
     +'<div class="asgn-card-header">'
     +'<div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">'
-    +'<div class="asgn-card-title">'+esc(a.worker_description||a.request_title||'Deal-Einsatz')+'</div>'
+    +'<div class="asgn-card-title">'+esc(a.worker_description||a.request_title||tt('ts.rev.staffing.dealAssignmentFallback'))+'</div>'
     +(agreementRef?'<span class="pill pill-off" style="font-family:monospace">'+agreementRef+'</span>':'')
     +'</div>'
     +'<span class="pill '+statusCfg.cls+'">'+esc(statusCfg.label)+'</span>'
@@ -2380,7 +3991,7 @@ function renderClosedDealCard(a){
     +'</div>'
     +'<div style="margin-top:8px;font-size:12px;color:var(--wk-text-muted);line-height:1.5">'
     +'<strong style="color:var(--wk-text)">Besetzung:</strong> '
-    +filled+' von '+requested+' besetzt'
+    +esc(tt('ts.rev.asgn.slotsFilled', { filled: filled, requested: requested }))
     +(linkTotal?' · '+linkActive+' aktive Verknuepfung'+(linkActive===1?'':'en')+' / '+linkTotal+' gesamt':'')
     +'</div>'
     +(detailHref?'<div style="margin-top:10px"><a class="wk-btn wk-btn-ghost wk-btn-sm" href="'+detailHref+'">Dealakte oeffnen</a></div>':'')
@@ -2388,8 +3999,8 @@ function renderClosedDealCard(a){
 }
 
 function staffingBadgeLabel(status){
-  const labels={open:'Offen',sourcing:'Sourcing',partially_filled:'Teilbesetzt',filled:'Besetzt',closed:'Geschlossen',cancelled:'Storniert'};
-  return labels[status]||'Offen';
+  const labels={open:tt('ts.rev.dealState.open'),sourcing:tt('ts.rev.dealState.sourcing'),partially_filled:tt('ts.rev.dealState.partiallyFilled'),filled:tt('ts.rev.dealState.filled'),closed:tt('ts.rev.dealState.closed'),cancelled:tt('ts.rev.dealState.cancelled')};
+  return labels[status]||tt('ts.rev.dealState.open');
 }
 function getStaffingUiState(assignmentId){
   if(!staffingUiStateByAssignment[assignmentId]){
@@ -2398,16 +4009,16 @@ function getStaffingUiState(assignmentId){
   return staffingUiStateByAssignment[assignmentId];
 }
 function staffingReasonText(reasons){
-  if(!Array.isArray(reasons)||!reasons.length)return 'Noch keine Match-Begründung';
+  if(!Array.isArray(reasons)||!reasons.length)return tt('ts.rev.match.noReason');
   return reasons.map(r=>r.label||r.reason||'').filter(Boolean).slice(0,3).join(' · ');
 }
 function staffingFactorLabel(factor){
   const labels={
-    availabilityMatch:'Verfügbarkeit',
+    availabilityMatch:tt('ts.rev.match.availability'),
     skillMatch:'Skills',
     distanceScore:'Distanz',
-    qualificationScore:'Nachweise',
-    reliabilityScore:'Zuverlässigkeit',
+    qualificationScore:tt('ts.rev.match.qualification'),
+    reliabilityScore:tt('ts.rev.match.reliability'),
     preferenceScore:'Kundenfit',
     experienceScore:'Erfahrung'
   };
@@ -2431,17 +4042,17 @@ function staffingWorkerLabel(worker){
 }
 function staffingQuickAssignStatusLabel(status){
   const labels={
-    assigned:'Direkt zugewiesen',
-    skipped_not_safe:'Nicht safe',
-    skipped_already_linked:'Bereits verknüpft',
-    skipped_assignment_filled:'Einsatz bereits voll',
-    failed_conflict:'Konflikt',
-    failed_worker_not_found:'Worker fehlt',
-    failed_worker_inactive:'Worker inaktiv',
-    failed_assignment_not_assignable:'Nicht zuweisbar',
-    failed_unknown:'Fehlgeschlagen'
+    assigned:tt('ts.rev.quick.assigned'),
+    skipped_not_safe:tt('ts.rev.quick.notSafe'),
+    skipped_already_linked:tt('ts.rev.quick.skippedLinked'),
+    skipped_assignment_filled:tt('ts.rev.quick.skippedFilled'),
+    failed_conflict:tt('ts.rev.quick.conflict'),
+    failed_worker_not_found:tt('ts.rev.quick.failedNotFound'),
+    failed_worker_inactive:tt('ts.rev.quick.failedInactive'),
+    failed_assignment_not_assignable:tt('ts.rev.quick.notAssignable'),
+    failed_unknown:tt('ts.rev.quick.failed')
   };
-  return labels[status]||status||'Ergebnis';
+  return labels[status]||status||tt('ts.rev.quick.resultFallback');
 }
 function staffingQuickAssignTone(status){
   if(status==='assigned')return 'pill-act';
@@ -2454,7 +4065,7 @@ function staffingQuickAssignReason(entry){
     return staffingCriteriaText(entry.quick_assign_blockers);
   }
   if(entry?.status==='assigned'&&Number.isFinite(Number(entry.open_quantity_after))){
-    return `Noch ${Number(entry.open_quantity_after)} offene Plätze nach der Direktzuweisung.`;
+    return tt('ts.rev.quick.openAfter', { n: Number(entry.open_quantity_after) });
   }
   return '';
 }
@@ -2473,7 +4084,7 @@ function renderStaffingQuickAssignResult(assignmentId){
   return `<div style="border:1px solid var(--tc-tone-neutral-border);border-radius:12px;padding:10px;background:var(--tc-surface-emphasis);margin-bottom:12px">
     <div style="display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap;font-size:12px;margin-bottom:8px">
       <strong>Schnellzuweisung Ergebnis</strong>
-      <span style="color:var(--wk-text-muted)">${Number(summary.assigned_count||0)} direkt zugewiesen · ${Number(summary.skipped_count||0)} nicht ausgeführt · offen danach ${Number(summary.open_quantity_after||0)}</span>
+      <span style="color:var(--wk-text-muted)">${esc(tt('ts.rev.quick.summary', { assigned: Number(summary.assigned_count||0), skipped: Number(summary.skipped_count||0), open: Number(summary.open_quantity_after||0) }))}</span>
     </div>
     <div style="display:grid;gap:8px">
       ${rows}
@@ -2485,13 +4096,13 @@ function staffingSuggestionBadge(suggestion){
     return '<span class="pill pill-danger">Blockiert</span>';
   }
   if(suggestion&&suggestion.hard_match){
-    return '<span class="pill pill-act">Harter Treffer</span>';
+    return '<span class="pill pill-act">'+esc(tt('ts.rev.match.hardHit'))+'</span>';
   }
-  return '<span class="pill pill-accent">Weicher Fit</span>';
+  return '<span class="pill pill-accent">'+esc(tt('ts.rev.match.softFit'))+'</span>';
 }
 function staffingWaitlistStatusLabel(status){
-  const labels={queued:'Waitlist',invited:'Angefragt',reserved:'Reserviert',assigned:'Zugeordnet',removed:'Abgeschlossen'};
-  return labels[status]||status||'Status';
+  const labels={queued:tt('ts.rev.wl.queued'),invited:tt('ts.rev.wl.invited'),reserved:tt('ts.rev.wl.reserved'),assigned:tt('ts.rev.wl.assigned'),removed:tt('ts.rev.wl.removed')};
+  return labels[status]||status||tt('ts.rev.wl.fallback');
 }
 function staffingParseJson(value){
   if(!value)return null;
@@ -2505,8 +4116,8 @@ function staffingFmtDateTime(value){
   return d.toLocaleString('de-DE',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'});
 }
 function staffingInviteStatusLabel(status){
-  const labels={sent:'Offen',viewed:'Gesehen',interested:'Rückfrage',accepted:'Angenommen',declined:'Abgelehnt',expired:'Abgelaufen',cancelled:'Geschlossen'};
-  return labels[status]||status||'Offen';
+  const labels={sent:tt('ts.rev.invite.stateSent'),viewed:tt('ts.rev.invite.stateViewed'),interested:tt('ts.rev.invite.stateInterested'),accepted:tt('ts.rev.invite.stateAccepted'),declined:tt('ts.rev.invite.stateDeclined'),expired:tt('ts.rev.invite.stateExpired'),cancelled:tt('ts.rev.invite.stateCancelled')};
+  return labels[status]||status||tt('ts.rev.invite.stateSent');
 }
 function staffingDeliveryLabel(status){
   const labels={pending:'Pending',queued:'Queued',delivered:'Zugestellt',failed:'Fehlgeschlagen'};
@@ -2526,36 +4137,36 @@ function staffingInviteInteractionText(invite){
 }
 function staffingChoiceSetModeLabel(mode){
   const labels={
-    preference_only:'Nur Präferenz',
-    ranked_choice:'Priorisierte Auswahl',
-    free_choice:'Freie Wahl'
+    preference_only:tt('ts.rev.choice.modePreference'),
+    ranked_choice:tt('ts.rev.choice.modeRanked'),
+    free_choice:tt('ts.rev.choice.modeFreeShort')
   };
-  return labels[mode]||'Auswahl';
+  return labels[mode]||tt('ts.rev.choice.modeFallback');
 }
 function staffingChoiceSetStatusLabel(status){
   const labels={
-    options_presented:'Offen',
-    preference_submitted:'Präferenz gesendet',
-    preference_ranked:'Ranking gesendet',
-    manual_override:'Manuell entschieden',
-    assigned:'Final zugewiesen',
-    declined:'Abgelehnt',
-    expired:'Abgelaufen',
-    cancelled:'Geschlossen'
+    options_presented:tt('ts.rev.choiceState.open'),
+    preference_submitted:tt('ts.rev.choiceState.preferenceSubmitted'),
+    preference_ranked:tt('ts.rev.choiceState.ranked'),
+    manual_override:tt('ts.rev.choiceState.manualOverride'),
+    assigned:tt('ts.rev.choiceState.assigned'),
+    declined:tt('ts.rev.choiceState.declined'),
+    expired:tt('ts.rev.choiceState.expired'),
+    cancelled:tt('ts.rev.choiceState.cancelled')
   };
-  return labels[status]||status||'Offen';
+  return labels[status]||status||tt('ts.rev.choiceState.open');
 }
 function staffingChoiceOptionStateLabel(option){
   if(option?.promoted_link_id||option?.live_state==='assigned')return 'Final zugewiesen';
   if(option?.reservation_status==='reserved')return 'Reserviert';
-  if(option?.worker_response==='selected')return 'Vom Worker gewählt';
-  if(option?.worker_response==='preferred')return 'Worker-Favorit';
-  if(Number.isFinite(Number(option?.worker_rank)))return `Rang ${Number(option.worker_rank)}`;
-  if(option?.worker_response==='acceptable')return 'Auch möglich';
-  if(option?.live_state==='declined'||option?.worker_response==='declined')return 'Abgelehnt';
-  if(option?.live_state==='expired')return 'Abgelaufen';
-  if(option?.live_state==='cancelled')return 'Geschlossen';
-  return 'Offen';
+  if(option?.worker_response==='selected')return tt('ts.rev.option.selected');
+  if(option?.worker_response==='preferred')return tt('ts.rev.option.preferred');
+  if(Number.isFinite(Number(option?.worker_rank)))return tt('ts.rev.option.rank', { n: Number(option.worker_rank) });
+  if(option?.worker_response==='acceptable')return tt('ts.rev.option.acceptable');
+  if(option?.live_state==='declined'||option?.worker_response==='declined')return tt('ts.rev.option.declined');
+  if(option?.live_state==='expired')return tt('ts.rev.option.expired');
+  if(option?.live_state==='cancelled')return tt('ts.rev.option.cancelled');
+  return tt('ts.rev.option.open');
 }
 function staffingChoiceOptionStateTone(option){
   if(option?.promoted_link_id||option?.live_state==='assigned'||option?.reservation_status==='reserved'||option?.worker_response==='selected')return 'pill-act';
@@ -2593,7 +4204,7 @@ function renderChoiceSetAssignments(selectedIds=[]){
   if(!host)return;
   const selected=new Set(Array.isArray(selectedIds)?selectedIds.filter(Boolean):[]);
   if(!openDealAssignments.length){
-    host.innerHTML='<div class="hub-empty" style="padding:16px 10px"><p>Keine offenen Deal-Einsätze verfügbar.</p></div>';
+    host.innerHTML='<div class="hub-empty" style="padding:16px 10px"><p>'+esc(tt('ts.rev.deal.noOpen'))+'</p></div>';
     return;
   }
   host.innerHTML=openDealAssignments.map((assignment)=>{
@@ -2612,7 +4223,7 @@ function renderChoiceSetAssignments(selectedIds=[]){
       <input type="checkbox" value="${assignment.assignment_id}" id="choiceSetAssignment-${assignment.assignment_id}" ${selected.has(assignment.assignment_id)?'checked':''} style="margin-top:3px">
       <div style="flex:1;min-width:0">
         <div style="display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap;font-size:12px">
-          <strong>${esc(assignment.worker_description||assignment.request_title||'Deal-Einsatz')}</strong>
+          <strong>${esc(assignment.worker_description||assignment.request_title||tt('ts.rev.staffing.dealAssignmentFallback'))}</strong>
           <span class="pill pill-pnd">${staffingBadgeLabel(assignment.staffing_status||'open')}</span>
         </div>
         <div style="font-size:11px;color:var(--wk-text-muted);margin-top:4px">${esc(meta)}</div>
@@ -2621,21 +4232,21 @@ function renderChoiceSetAssignments(selectedIds=[]){
   }).join('');
 }
 async function openChoiceSetDrw(preselectedAssignmentIds=[]){
-  if(!ensurePermission('workerEdit','Sie koennen keine Auswahlphase fuer Worker anlegen.'))return;
+  if(!ensurePermission('workerEdit',tt('ts.rev.perm.choiceSet')))return;
   if(openDealAssignments.length<2){
-    toast('Für eine Auswahlphase werden mindestens zwei offene Einsatzoptionen benötigt.','error');
+    toast(tt('ts.rev.choice.needTwoOptions'),'error');
     return;
   }
   try{
     await ensureChoiceSetWorkersLoaded();
     const activeWorkers=allWrks.filter(worker=>worker.is_active!==false);
     if(!activeWorkers.length){
-      toast('Keine aktiven Worker für eine Auswahlphase verfügbar.','error');
+      toast(tt('ts.rev.choice.noActiveWorkers'),'error');
       return;
     }
     const workerSelect=document.getElementById('choiceSetWorker');
     if(workerSelect){
-      workerSelect.innerHTML='<option value="">– Bitte wählen –</option>'+activeWorkers.map(worker=>`<option value="${worker.id||worker.user_id}">${esc(worker.first_name||'')} ${esc(worker.last_name||'')}${worker.personnel_number?' ('+esc(worker.personnel_number)+')':''}</option>`).join('');
+      workerSelect.innerHTML='<option value="">'+esc(tt('ts.rev.field.pleaseSelect'))+'</option>'+activeWorkers.map(worker=>`<option value="${worker.id||worker.user_id}">${esc(worker.first_name||'')} ${esc(worker.last_name||'')}${worker.personnel_number?' ('+esc(worker.personnel_number)+')':''}</option>`).join('');
     }
     document.getElementById('choiceSetMode').value='preference_only';
     document.getElementById('choiceSetDeadline').value=formatDateTimeLocalInput();
@@ -2647,7 +4258,7 @@ async function openChoiceSetDrw(preselectedAssignmentIds=[]){
     document.getElementById('choiceSetDrwOvl').classList.add('on');
     document.getElementById('choiceSetDrw').classList.add('on');
   }catch(error){
-    toast(error?.message||'Auswahlphase konnte nicht vorbereitet werden','error');
+    toast(error?.message||tt('ts.rev.choice.prepareFailed'),'error');
   }
 }
 function closeChoiceSetDrw(){
@@ -2655,7 +4266,7 @@ function closeChoiceSetDrw(){
   document.getElementById('choiceSetDrw').classList.remove('on');
 }
 async function submitChoiceSet(){
-  if(!ensurePermission('workerEdit','Sie koennen keine Auswahlphase fuer Worker anlegen.'))return;
+  if(!ensurePermission('workerEdit',tt('ts.rev.perm.choiceSet')))return;
   const workerUserId=document.getElementById('choiceSetWorker')?.value||'';
   const choiceMode=document.getElementById('choiceSetMode')?.value||'preference_only';
   const title=document.getElementById('choiceSetTitle')?.value?.trim()||'';
@@ -2666,16 +4277,16 @@ async function submitChoiceSet(){
     .map((assignment)=>assignment.assignment_id);
   const err=document.getElementById('choiceSetErr');
   if(!workerUserId){
-    if(err){err.textContent='Bitte einen Worker auswählen.';err.style.display='block';}
+    if(err){err.textContent=tt('ts.rev.choice.selectWorker');err.style.display='block';}
     return;
   }
   if(assignmentIds.length<2){
-    if(err){err.textContent='Bitte mindestens zwei Einsatzoptionen freigeben.';err.style.display='block';}
+    if(err){err.textContent=tt('ts.rev.choice.selectTwoOptions');err.style.display='block';}
     return;
   }
   const btn=document.getElementById('choiceSetBtn');
   if(err){err.style.display='none';err.textContent='';}
-  if(btn){btn.disabled=true;btn.textContent='Wird angelegt…';}
+  if(btn){btn.disabled=true;btn.textContent=tt('ts.rev.btn.creating');}
   try{
     const csrf=await getCsrf();
     const body={
@@ -2695,50 +4306,50 @@ async function submitChoiceSet(){
     const payload=await response.json();
     if(!response.ok){
       const messages={
-        WORKER_NOT_FOUND:'Worker nicht gefunden.',
-        WORKER_INACTIVE:'Der gewählte Worker ist inaktiv.',
-        INSUFFICIENT_OPTIONS:'Bitte mindestens zwei Einsatzoptionen freigeben.',
-        INVALID_CHOICE_MODE:'Ungültiger Auswahlmodus.',
-        INVALID_RESPONSE_DEADLINE:'Die Antwortfrist ist ungültig.',
-        ASSIGNMENT_NOT_FOUND:'Mindestens ein Einsatz wurde nicht gefunden.',
-        ASSIGNMENT_NOT_ASSIGNABLE:'Mindestens ein Einsatz ist nicht zuweisbar.',
-        ASSIGNMENT_FILLED:'Mindestens ein Einsatz ist bereits vollständig besetzt.',
-        NO_ELIGIBLE_WORKERS:'Für mindestens einen Einsatz konnte kein Staffing-Invite erzeugt werden.',
-        CHOICE_SET_OPTION_ALREADY_ACTIVE:'Für diesen Worker ist mindestens eine der gewählten Optionen bereits in einer aktiven Auswahlphase enthalten.',
-        INVITE_CREATION_FAILED:'Die Auswahlphase konnte nicht vollständig vorbereitet werden.'
+        WORKER_NOT_FOUND:tt('ts.rev.choice.errWorkerNotFound'),
+        WORKER_INACTIVE:tt('ts.rev.choice.errWorkerInactive'),
+        INSUFFICIENT_OPTIONS:tt('ts.rev.choice.selectTwoOptions'),
+        INVALID_CHOICE_MODE:tt('ts.rev.choice.errInvalidMode'),
+        INVALID_RESPONSE_DEADLINE:tt('ts.rev.choice.errInvalidDeadline'),
+        ASSIGNMENT_NOT_FOUND:tt('ts.rev.choice.errAssignmentNotFound'),
+        ASSIGNMENT_NOT_ASSIGNABLE:tt('ts.rev.choice.errAssignmentNotAssignable'),
+        ASSIGNMENT_FILLED:tt('ts.rev.choice.errAssignmentFilled'),
+        NO_ELIGIBLE_WORKERS:tt('ts.rev.choice.errNoEligible'),
+        CHOICE_SET_OPTION_ALREADY_ACTIVE:tt('ts.rev.choice.errOptionActive'),
+        INVITE_CREATION_FAILED:tt('ts.rev.choice.errInviteFailed')
       };
-      throw new Error(messages[payload.error]||payload.error||'Auswahlphase konnte nicht angelegt werden');
+      throw new Error(messages[payload.error]||payload.error||tt('ts.rev.choice.createFailed'));
     }
-    toast(`Auswahlphase für ${assignmentIds.length} Optionen angelegt`,'success');
+    toast(tt('ts.rev.choice.created', { n: assignmentIds.length }),'success');
     closeChoiceSetDrw();
     staffingDetailsByAssignment={};
     staffingSuggestionsByAssignment={};
     await loadDealAsgn();
   }catch(error){
-    if(err){err.textContent=error?.message||'Auswahlphase konnte nicht angelegt werden';err.style.display='block';}
+    if(err){err.textContent=error?.message||tt('ts.rev.choice.createFailed');err.style.display='block';}
   }finally{
-    if(btn){btn.disabled=false;btn.textContent='Auswahlphase anlegen';}
+    if(btn){btn.disabled=false;btn.textContent=tt('ts.rev.choice.submitBtn');}
   }
 }
 async function assignStaffingChoiceOption(assignmentId,choiceSetId,choiceOptionId){
-  if(!ensurePermission('workerEdit','Sie koennen keine finale Zuweisung aus einer Auswahlphase auslösen.'))return;
+  if(!ensurePermission('workerEdit',tt('ts.rev.perm.choiceFinal')))return;
   const detail=staffingDetailsByAssignment[assignmentId];
   const choiceSet=(detail?.choice_sets||[]).find((entry)=>entry.id===choiceSetId);
   const option=(choiceSet?.options||[]).find((entry)=>entry.id===choiceOptionId);
   if(!choiceSet||!option){
-    toast('Auswahlphase konnte nicht mehr aufgelöst werden. Bitte aktualisieren.','error');
+    toast(tt('ts.rev.choice.staleReload'),'error');
     return;
   }
   const workerName=choiceSet.worker?`${choiceSet.worker.first_name||''} ${choiceSet.worker.last_name||''}`.trim():'Worker';
   const optionLabel=option.request_context?.title||option.request_context?.role||'Einsatzoption';
   const isOverride=!!choiceSet.summary?.primary_option_id&&choiceSet.summary.primary_option_id!==choiceOptionId;
   const confirmText=isOverride
-    ? `${workerName||'Der Worker'} hat eine andere Präferenz signalisiert. Diese Option trotzdem final zuweisen?\n\n${optionLabel}`
-    : `Diesen Einsatz jetzt final zuweisen?\n\n${optionLabel}`;
+    ? `${tt('ts.rev.choice.confirmOther', { worker: workerName||tt('ts.rev.choice.workerFallback') })}\n\n${optionLabel}`
+    : `${tt('ts.rev.choice.confirmFinal')}\n\n${optionLabel}`;
   if(!confirm(confirmText))return;
   let notes='';
   if(isOverride){
-    const promptValue=window.prompt('Optionale Override-Notiz für Audit und Nachvollziehbarkeit:',choiceSet.manual_override_note||'');
+    const promptValue=window.prompt(tt('ts.rev.choice.overridePrompt'),choiceSet.manual_override_note||'');
     if(promptValue===null)return;
     notes=String(promptValue||'').trim();
   }
@@ -2757,25 +4368,25 @@ async function assignStaffingChoiceOption(assignmentId,choiceSetId,choiceOptionI
     const payload=await response.json();
     if(!response.ok){
       const messages={
-        CHOICE_SET_NOT_FOUND:'Auswahlphase nicht gefunden.',
-        CHOICE_OPTION_NOT_FOUND:'Auswahloption nicht gefunden.',
-        CHOICE_SET_ALREADY_ASSIGNED:'Die Auswahlphase ist bereits final zugewiesen.',
-        CHOICE_SET_ALREADY_DECLINED:'Die Auswahlphase wurde bereits abgelehnt.',
-        CHOICE_SET_EXPIRED:'Die Auswahlphase ist abgelaufen.',
-        CHOICE_SET_CANCELLED:'Die Auswahlphase wurde geschlossen.',
-        RESERVATION_NOT_FOUND:'Die Reservierung wurde nicht gefunden.',
-        ASSIGNMENT_NOT_FOUND:'Der Einsatz wurde nicht gefunden.',
-        ASSIGNMENT_NOT_ASSIGNABLE:'Der Einsatz ist nicht zuweisbar.',
-        RESERVATION_NOT_ACTIVE:'Die Reservierung ist nicht mehr aktiv.',
-        RESERVATION_EXPIRED:'Die Reservierung ist abgelaufen.',
-        ASSIGNMENT_FILLED:'Der Einsatz ist bereits vollständig besetzt.',
-        ALREADY_ASSIGNED:'Der Worker ist dort bereits zugewiesen.',
-        WORKER_ALREADY_LINKED:'Der Worker hat bereits einen aktiven Link für diesen Einsatz.',
-        WORKER_NOT_FOUND:'Worker nicht gefunden.',
-        WORKER_INACTIVE:'Der Worker ist inaktiv.',
-        SCHEDULE_CONFLICT:'Die finale Zuweisung kollidiert mit einem bestehenden Zeitraum.'
+        CHOICE_SET_NOT_FOUND:tt('ts.rev.choice.errSetNotFound'),
+        CHOICE_OPTION_NOT_FOUND:tt('ts.rev.choice.errOptionNotFound'),
+        CHOICE_SET_ALREADY_ASSIGNED:tt('ts.rev.choice.errAlreadyAssigned'),
+        CHOICE_SET_ALREADY_DECLINED:tt('ts.rev.choice.errAlreadyDeclined'),
+        CHOICE_SET_EXPIRED:tt('ts.rev.choice.errExpired'),
+        CHOICE_SET_CANCELLED:tt('ts.rev.choice.errCancelled'),
+        RESERVATION_NOT_FOUND:tt('ts.rev.choice.errReservationNotFound'),
+        ASSIGNMENT_NOT_FOUND:tt('ts.rev.choice.errAsgNotFound'),
+        ASSIGNMENT_NOT_ASSIGNABLE:tt('ts.rev.choice.errAsgNotAssignable'),
+        RESERVATION_NOT_ACTIVE:tt('ts.rev.choice.errReservationInactive'),
+        RESERVATION_EXPIRED:tt('ts.rev.choice.errReservationExpired'),
+        ASSIGNMENT_FILLED:tt('ts.rev.choice.errAsgFilled'),
+        ALREADY_ASSIGNED:tt('ts.rev.choice.errWorkerAssigned'),
+        WORKER_ALREADY_LINKED:tt('ts.rev.choice.errWorkerLinked'),
+        WORKER_NOT_FOUND:tt('ts.rev.choice.errWorkerNotFound2'),
+        WORKER_INACTIVE:tt('ts.rev.choice.errWorkerInactive2'),
+        SCHEDULE_CONFLICT:tt('ts.rev.choice.errScheduleConflict')
       };
-      throw new Error(messages[payload.error]||payload.error||'Finale Zuweisung fehlgeschlagen');
+      throw new Error(messages[payload.error]||payload.error||tt('ts.rev.choice.finalFailed'));
     }
     toast('Auswahlphase final zugewiesen','success');
     staffingDetailsByAssignment={};
@@ -2783,7 +4394,7 @@ async function assignStaffingChoiceOption(assignmentId,choiceSetId,choiceOptionI
     await loadDealAsgn();
     await loadAsgn();
   }catch(error){
-    toast(error?.message||'Finale Zuweisung fehlgeschlagen','error');
+    toast(error?.message||tt('ts.rev.choice.finalFailed'),'error');
   }
 }
 async function loadStaffingDetail(assignmentId){
@@ -2828,7 +4439,7 @@ function renderStaffingPanel(assignmentId){
   const defaultSelectionSource=quickAssignableSuggestions.length?quickAssignableSuggestions:(preferredSuggestions.length?preferredSuggestions:selectableSuggestions);
   const defaultSelectedIds=new Set(defaultSelectionSource.slice(0,defaultSelected).map(s=>s.worker_user_id));
   const quickAssignResultHtml=renderStaffingQuickAssignResult(assignmentId);
-  const quickAssignActionLabel=state.quickAssignPending?'Direktzuweisung läuft…':'Sichere Auswahl direkt zuweisen';
+  const quickAssignActionLabel=state.quickAssignPending?tt('ts.rev.staffing.quickAssignRunning'):tt('ts.rev.staffing.quickAssignCta');
   const suggestionHtml=suggested.length?suggested.map((s)=>{
     const factors=staffingFactorText(s.factor_scores);
     const missing=staffingCriteriaText(s.missing_requirements);
@@ -2854,14 +4465,14 @@ function renderStaffingPanel(assignmentId){
         <div style="font-size:12px;color:var(--wk-text-muted);margin-top:4px">${esc(factors||staffingReasonText(s.match_reasons))}</div>
         ${missing?`<div style="font-size:11px;color:var(--tc-tone-warning-text);margin-top:4px"><strong>Fehlt:</strong> ${esc(missing)}</div>`:''}
         ${hardFails?`<div style="font-size:11px;color:var(--tc-tone-danger-text);margin-top:4px"><strong>Hard-Fail:</strong> ${esc(hardFails)}</div>`:''}
-        <div style="font-size:11px;color:${s.quick_assign_eligible?'var(--tc-tone-success-text)':'var(--tc-tone-warning-text)'};margin-top:4px"><strong>Direktzuweisung:</strong> ${esc(s.quick_assign_eligible?'Safe Case laut Guardrails':(quickAssignBlockers||'Nur Anfrage oder Waitlist sinnvoll'))}</div>
+        <div style="font-size:11px;color:${s.quick_assign_eligible?'var(--tc-tone-success-text)':'var(--tc-tone-warning-text)'};margin-top:4px"><strong>${esc(tt('ts.rev.staffing.quickAssignLabel'))}</strong> ${esc(s.quick_assign_eligible?tt('ts.rev.staffing.quickAssignSafe'):(quickAssignBlockers||tt('ts.rev.staffing.quickAssignBlocked')))}</div>
         <div style="display:flex;justify-content:space-between;gap:8px;align-items:center;flex-wrap:wrap;margin-top:8px">
-          <div style="font-size:11px;color:var(--wk-text-muted)">${esc(secondaryMeta||'Noch keine Zusatzsignale')}</div>
-          ${s.quick_assign_eligible?`<button class="wk-btn wk-btn-success wk-btn-sm" ${state.quickAssignPending?'disabled':''} onclick="quickAssignSingleStaffingWorker('${assignmentId}','${s.worker_user_id}')">${state.quickAssignPending?'Läuft…':'Direkt zuweisen'}</button>`:''}
+          <div style="font-size:11px;color:var(--wk-text-muted)">${esc(secondaryMeta||tt('ts.rev.staffing.noExtraSignals'))}</div>
+          ${s.quick_assign_eligible?`<button class="wk-btn wk-btn-success wk-btn-sm" ${state.quickAssignPending?'disabled':''} onclick="quickAssignSingleStaffingWorker('${assignmentId}','${s.worker_user_id}')">${esc(state.quickAssignPending?tt('ts.rev.staffing.running'):tt('ts.rev.staffing.assignDirect'))}</button>`:''}
         </div>
       </div>
     </label>`;
-  }).join(''):`<div style="font-size:12px;color:var(--wk-text-muted)">Keine geeigneten Worker-Vorschläge gefunden.</div>`;
+  }).join(''):`<div style="font-size:12px;color:var(--wk-text-muted)">${esc(tt('ts.rev.staffing.noSuggestions'))}</div>`;
   const waitlistHtml=waitlist.length?waitlist.map((entry)=>`
     <div style="padding:8px 10px;border:1px solid var(--tc-tone-neutral-border);border-radius:10px;background:var(--tc-surface-subtle)">
       <div style="display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap;font-size:12px">
@@ -2869,7 +4480,7 @@ function renderStaffingPanel(assignmentId){
         <span>${esc(staffingWaitlistStatusLabel(entry.status))}${entry.queue_rank?` · #${Number(entry.queue_rank)}`:''}</span>
       </div>
       <div style="font-size:11px;color:var(--wk-text-muted);margin-top:4px">${esc(staffingReasonText(entry.match_reasons)||entry.removal_reason||'')}</div>
-    </div>`).join(''):`<div style="font-size:12px;color:var(--wk-text-muted)">Noch keine Waitlist-Einträge vorhanden.</div>`;
+    </div>`).join(''):`<div style="font-size:12px;color:var(--wk-text-muted)">${esc(tt('ts.rev.staffing.noWaitlist'))}</div>`;
   const inviteActivityHtml=invites.length?invites.map((invite)=>{
     const snapshot=staffingParseJson(invite.request_snapshot)||{};
     const interactionText=staffingInviteInteractionText(invite);
@@ -2892,7 +4503,7 @@ function renderStaffingPanel(assignmentId){
       ${interactionText?`<div style="font-size:11px;color:var(--tc-tone-brand-text);margin-top:6px">${esc(interactionText)}</div>`:''}
       ${reminderText?`<div style="font-size:11px;color:var(--tc-tone-warning-text);margin-top:4px">${esc(reminderText)}</div>`:''}
     </div>`;
-  }).join(''):`<div style="font-size:12px;color:var(--wk-text-muted)">Noch keine aktiven Request-Interaktionen vorhanden.</div>`;
+  }).join(''):`<div style="font-size:12px;color:var(--wk-text-muted)">${esc(tt('ts.rev.staffing.noRequests'))}</div>`;
   const choiceSetsHtml=choiceSets.length?choiceSets.map((choiceSet)=>{
     const workerName=choiceSet.worker?`${choiceSet.worker.first_name||''} ${choiceSet.worker.last_name||''}`.trim():'';
     const summary=staffingChoiceWorkerSummary(choiceSet);
@@ -2911,18 +4522,18 @@ function renderStaffingPanel(assignmentId){
         <div style="display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap;font-size:12px">
           <div style="min-width:0;flex:1">
             <div style="font-weight:600">${esc(ctx.title||ctx.role||'Einsatzoption')}</div>
-            <div style="font-size:11px;color:var(--wk-text-muted);margin-top:4px">${esc(meta||'Details folgen')}</div>
+            <div style="font-size:11px;color:var(--wk-text-muted);margin-top:4px">${esc(meta||tt('ts.rev.staffing.detailsFollow'))}</div>
           </div>
           <div style="display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end">
             ${isCurrent?'<span class="pill pill-pnd">Diese Stelle</span>':''}
-            ${isPrimary?'<span class="pill pill-accent">Worker-Favorit</span>':''}
+            ${isPrimary?`<span class="pill pill-accent">${esc(tt('ts.rev.staffing.workerFavourite'))}</span>`:''}
             <span class="pill ${staffingChoiceOptionStateTone(option)}">${esc(staffingChoiceOptionStateLabel(option))}</span>
           </div>
         </div>
         ${(option.worker_note||option.dispatcher_note)?`<div style="font-size:11px;color:var(--wk-text-muted);margin-top:6px">${esc(option.worker_note||option.dispatcher_note)}</div>`:''}
         <div style="display:flex;justify-content:space-between;gap:8px;align-items:center;flex-wrap:wrap;margin-top:8px">
           <div style="font-size:11px;color:var(--wk-text-muted)">
-            ${option.worker_responded_at?`Worker-Aktion ${esc(staffingFmtDateTime(option.worker_responded_at))}`:(option.dispatcher_updated_at?`Dispatcher-Aktion ${esc(staffingFmtDateTime(option.dispatcher_updated_at))}`:'Noch keine Rückmeldung')}
+            ${option.worker_responded_at?esc(tt('ts.rev.staffing.workerAction', { at: staffingFmtDateTime(option.worker_responded_at) })):(option.dispatcher_updated_at?esc(tt('ts.rev.staffing.dispatcherAction', { at: staffingFmtDateTime(option.dispatcher_updated_at) })):esc(tt('ts.rev.staffing.noResponse')))}
           </div>
           ${canAssign?`<button class="wk-btn wk-btn-success wk-btn-sm" onclick="assignStaffingChoiceOption('${assignmentId}','${choiceSet.id}','${option.id}')">Final zuweisen</button>`:''}
         </div>
@@ -2931,8 +4542,8 @@ function renderStaffingPanel(assignmentId){
     return `<div style="padding:10px;border:1px solid var(--tc-tone-neutral-border);border-radius:12px;background:var(--tc-surface-muted)">
       <div style="display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap;font-size:12px">
         <div>
-          <div style="font-weight:700">${esc(choiceSet.title||'Worker-Auswahlphase')}</div>
-          <div style="font-size:11px;color:var(--wk-text-muted);margin-top:4px">${esc(workerName||choiceSet.worker?.email||choiceSet.worker_user_id||'Worker')} · ${esc(staffingChoiceSetModeLabel(choiceSet.choice_mode))}${choiceSet.response_deadline_at?` · Frist ${esc(staffingFmtDateTime(choiceSet.response_deadline_at))}`:''}</div>
+          <div style="font-weight:700">${esc(choiceSet.title||tt('ts.rev.staffing.choiceSetFallback'))}</div>
+          <div style="font-size:11px;color:var(--wk-text-muted);margin-top:4px">${esc(workerName||choiceSet.worker?.email||choiceSet.worker_user_id||'Worker')} · ${esc(staffingChoiceSetModeLabel(choiceSet.choice_mode))}${choiceSet.response_deadline_at?` · ${esc(tt('ts.rev.staffing.deadline'))} ${esc(staffingFmtDateTime(choiceSet.response_deadline_at))}`:''}</div>
         </div>
         <span class="pill ${choiceSet.status==='assigned'?'pill-act':(choiceSet.status==='declined'||choiceSet.status==='expired'||choiceSet.status==='cancelled'?'pill-off':'pill-pnd')}">${esc(staffingChoiceSetStatusLabel(choiceSet.status))}</span>
       </div>
@@ -2940,7 +4551,7 @@ function renderStaffingPanel(assignmentId){
       ${choiceSet.manual_override_note?`<div style="font-size:11px;color:var(--tc-tone-warning-text);margin-top:6px"><strong>Override:</strong> ${esc(choiceSet.manual_override_note)}</div>`:''}
       <div style="display:grid;gap:8px;margin-top:10px">${optionHtml}</div>
     </div>`;
-  }).join(''):`<div style="font-size:12px;color:var(--wk-text-muted)">Noch keine aktiven Worker-Auswahlphasen für diesen Einsatz.</div>`;
+  }).join(''):`<div style="font-size:12px;color:var(--wk-text-muted)">${esc(tt('ts.rev.staffing.noChoiceSets'))}</div>`;
   panel.innerHTML=`
     <div style="padding:12px;border:1px solid var(--tc-tone-neutral-border);border-radius:12px;background:var(--tc-surface-emphasis)">
       <div style="display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;margin-bottom:10px">
@@ -2951,20 +4562,20 @@ function renderStaffingPanel(assignmentId){
           <button class="wk-btn wk-btn-outline wk-btn-sm" onclick="refreshStaffingPanel('${assignmentId}')">Aktualisieren</button>
           <button class="wk-btn wk-btn-success wk-btn-sm" ${state.quickAssignPending||Number(asg.open_quantity||0)<=0?'disabled':''} onclick="quickAssignSelectedStaffingWorkers('${assignmentId}')">${quickAssignActionLabel}</button>
           <button class="wk-btn wk-btn-primary wk-btn-sm" onclick="sendSelectedStaffingInvites('${assignmentId}')">Auswahl anfragen</button>
-          <button class="wk-btn wk-btn-ghost wk-btn-sm" onclick="queueSelectedStaffingWorkers('${assignmentId}')">Auswahl auf Waitlist</button>
-          <button class="wk-btn wk-btn-ghost wk-btn-sm" onclick="sendNextWaitlistWave('${assignmentId}')">Nächste Welle</button>
+          <button class="wk-btn wk-btn-ghost wk-btn-sm" onclick="queueSelectedStaffingWorkers('${assignmentId}')">${esc(tt('ts.rev.staffing.waitlistSelection'))}</button>
+          <button class="wk-btn wk-btn-ghost wk-btn-sm" onclick="sendNextWaitlistWave('${assignmentId}')">${esc(tt('ts.rev.staffing.nextWave'))}</button>
         </div>
       </div>
       <div style="display:grid;gap:8px;margin-bottom:10px">
-        ${currentWorkers.length?`<div style="font-size:12px;color:var(--wk-text-muted)"><strong style="color:var(--wk-text)">Aktive Worker:</strong> ${currentWorkers.map(w=>esc(`${w.first_name||''} ${w.last_name||''}`.trim()||w.worker_email||'Worker')).join(', ')}</div>`:''}
+        ${currentWorkers.length?`<div style="font-size:12px;color:var(--wk-text-muted)"><strong style="color:var(--wk-text)">${esc(tt('ts.rev.staffing.activeWorkers'))}</strong> ${currentWorkers.map(w=>esc(`${w.first_name||''} ${w.last_name||''}`.trim()||w.worker_email||'Worker')).join(', ')}</div>`:''}
         ${reservations.length?`<div style="font-size:12px;color:var(--wk-text-muted)"><strong style="color:var(--wk-text)">Reserviert:</strong> ${reservations.map(r=>esc(`${r.first_name||''} ${r.last_name||''}`.trim())).join(', ')}</div>`:''}
-        ${autoBackfillCampaign?`<div style="font-size:12px;color:var(--tc-tone-brand-text)"><strong style="color:var(--tc-tone-brand-strong-text)">Auto-Backfill aktiv:</strong> Nachsteuerung läuft über die letzte Bulk-Kampagne.</div>`:''}
-        <div style="font-size:11px;color:var(--wk-text-muted)">Direktzuweisung nutzt dieselben Guardrails wie die manuelle Zuweisung und führt pro Worker ein deterministisches Ergebnis zurück.</div>
+        ${autoBackfillCampaign?`<div style="font-size:12px;color:var(--tc-tone-brand-text)"><strong style="color:var(--tc-tone-brand-strong-text)">${esc(tt('ts.rev.staffing.autoBackfill'))}</strong> ${esc(tt('ts.rev.staffing.autoBackfillText'))}</div>`:''}
+        <div style="font-size:11px;color:var(--wk-text-muted)">${esc(tt('ts.rev.staffing.guardrailHint'))}</div>
       </div>
       ${quickAssignResultHtml}
       <div style="border-top:1px solid var(--tc-tone-neutral-border);padding-top:10px;margin-bottom:10px">
         <div style="display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap;margin-bottom:8px;font-size:12px">
-          <strong>Worker-Auswahlphase / Präferenzen</strong>
+          <strong>${esc(tt('ts.rev.staffing.choiceHeading'))}</strong>
           <span style="color:var(--wk-text-muted)">${choiceSets.length} Auswahlgruppe${choiceSets.length===1?'':'n'} sichtbar</span>
         </div>
         <div style="display:grid;gap:8px">
@@ -2973,8 +4584,8 @@ function renderStaffingPanel(assignmentId){
       </div>
       <div style="border-top:1px solid var(--tc-tone-neutral-border);padding-top:10px;margin-bottom:10px">
         <div style="display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap;margin-bottom:8px;font-size:12px">
-          <strong>Request-Status / Worker-Kommunikation</strong>
-          <span style="color:var(--wk-text-muted)">Offene Fragen ${invites.reduce((sum,i)=>sum+Number(i.question_count||0),0)} · Reminder-Wünsche ${invites.reduce((sum,i)=>sum+Number(i.reminder_request_count||0),0)}</span>
+          <strong>${esc(tt('ts.rev.staffing.requestHeading'))}</strong>
+          <span style="color:var(--wk-text-muted)">${esc(tt('ts.rev.staffing.openQuestions', { q: invites.reduce((sum,i)=>sum+Number(i.question_count||0),0), r: invites.reduce((sum,i)=>sum+Number(i.reminder_request_count||0),0) }))}</span>
         </div>
         <div style="display:grid;gap:8px">
           ${inviteActivityHtml}
@@ -2994,7 +4605,7 @@ function renderStaffingPanel(assignmentId){
       </div>
       <div style="border-top:1px solid var(--tc-tone-neutral-border);padding-top:10px">
         <div style="display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap;margin-bottom:8px;font-size:12px">
-          <strong>Waitlist / Nachrücker</strong>
+          <strong>${esc(tt('ts.rev.staffing.waitlistHeading'))}</strong>
           <span style="color:var(--wk-text-muted)">Queued ${Number(waitlistSummary.queued_count||0)} · Angefragt ${Number(waitlistSummary.invited_count||0)} · Reserviert ${Number(waitlistSummary.reserved_count||0)}</span>
         </div>
         <div style="display:grid;gap:8px">
@@ -3013,7 +4624,7 @@ async function toggleStaffingPanel(assignmentId){
   panel.style.display='none';
 }
 async function refreshStaffingPanel(assignmentId){
-  if(!ensurePermission('workerEdit','Sie koennen Einsaetze sehen, aber keine Staffing-Details aktualisieren.'))return;
+  if(!ensurePermission('workerEdit',tt('ts.rev.perm.staffingRefresh')))return;
   try{
     const state=getStaffingUiState(assignmentId);
     await Promise.all([loadStaffingDetail(assignmentId),loadStaffingSuggestions(assignmentId,{limit:20,only_available:true,hard_only:state.hardOnly,include_blocked:true})]);
@@ -3029,10 +4640,10 @@ function getSelectedStaffingWorkerIds(assignmentId){
   }).map(s=>s.worker_user_id);
 }
 async function runStaffingQuickAssign(assignmentId,workerIds){
-  if(!ensurePermission('workerEdit','Sie koennen keine sichere Direktzuweisung ausführen.'))return;
+  if(!ensurePermission('workerEdit',tt('ts.rev.perm.quickAssign')))return;
   const uniqueWorkerIds=[...new Set((Array.isArray(workerIds)?workerIds:[]).filter(Boolean))];
   if(!uniqueWorkerIds.length){
-    toast('Bitte mindestens einen Worker auswählen','error');
+    toast(tt('ts.rev.staffing.selectWorkerFirst'),'error');
     return;
   }
   const state=getStaffingUiState(assignmentId);
@@ -3053,15 +4664,15 @@ async function runStaffingQuickAssign(assignmentId,workerIds){
     const payload=await response.json();
     if(!response.ok){
       const messages={
-        ASSIGNMENT_NOT_FOUND:'Der Einsatz wurde nicht gefunden.',
-        ASSIGNMENT_NOT_ASSIGNABLE:'Der Einsatz ist aktuell nicht zuweisbar.',
-        ASSIGNMENT_FILLED:'Der Einsatz ist bereits vollständig besetzt.',
-        NO_WORKERS_SELECTED:'Bitte mindestens einen Worker auswählen.'
+        ASSIGNMENT_NOT_FOUND:tt('ts.rev.choice.errAsgNotFound'),
+        ASSIGNMENT_NOT_ASSIGNABLE:tt('ts.rev.choice.errAsgNotAssignable2'),
+        ASSIGNMENT_FILLED:tt('ts.rev.choice.errAsgFilled'),
+        NO_WORKERS_SELECTED:tt('ts.rev.choice.errNoWorkersSelected')
       };
       throw new Error(messages[payload.error]||payload.error||'Direktzuweisung fehlgeschlagen');
     }
     state.quickAssignResult=payload;
-    toast(`${Number(payload.summary?.assigned_count||0)} Worker direkt zugewiesen`,'success');
+    toast(tt('ts.rev.staffing.assignedCount', { n: Number(payload.summary?.assigned_count||0) }),'success');
     invalidateStaffingDataCache(assignmentId);
     await loadDealAsgn();
     await loadAsgn();
@@ -3087,9 +4698,9 @@ async function quickAssignSingleStaffingWorker(assignmentId,workerUserId){
   return runStaffingQuickAssign(assignmentId,[workerUserId]);
 }
 async function sendSelectedStaffingInvites(assignmentId){
-  if(!ensurePermission('workerEdit','Sie koennen keine Staffing-Anfragen versenden.'))return;
+  if(!ensurePermission('workerEdit',tt('ts.rev.perm.staffingRequest')))return;
   const workerIds=getSelectedStaffingWorkerIds(assignmentId);
-  if(!workerIds.length){toast('Bitte mindestens einen Worker auswählen','error');return;}
+  if(!workerIds.length){toast(tt('ts.rev.staffing.selectWorkerFirst'),'error');return;}
   try{
     const csrf=await getCsrf();
     const r=await fetch(`${API}/staffing-assignments/${assignmentId}/campaigns`,{
@@ -3100,14 +4711,14 @@ async function sendSelectedStaffingInvites(assignmentId){
     });
     const d=await r.json();
     if(!r.ok)throw new Error(d.error||'Bulk-Anfrage fehlgeschlagen');
-    toast(`${workerIds.length} Worker angefragt`,'success');
+    toast(tt('ts.rev.staffing.requestedCount', { n: workerIds.length }),'success');
     await refreshStaffingPanel(assignmentId);
   }catch(e){toast(e.message||'Bulk-Anfrage fehlgeschlagen','error');}
 }
 async function queueSelectedStaffingWorkers(assignmentId){
-  if(!ensurePermission('workerEdit','Sie koennen keine Worker auf die Waitlist setzen.'))return;
+  if(!ensurePermission('workerEdit',tt('ts.rev.perm.waitlist')))return;
   const workerIds=getSelectedStaffingWorkerIds(assignmentId);
-  if(!workerIds.length){toast('Bitte mindestens einen Worker auswählen','error');return;}
+  if(!workerIds.length){toast(tt('ts.rev.staffing.selectWorkerFirst'),'error');return;}
   try{
     const csrf=await getCsrf();
     const r=await fetch(`${API}/staffing-assignments/${assignmentId}/waitlist`,{
@@ -3117,13 +4728,13 @@ async function queueSelectedStaffingWorkers(assignmentId){
       body:JSON.stringify({worker_user_ids:workerIds})
     });
     const d=await r.json();
-    if(!r.ok)throw new Error(d.error||'Waitlist konnte nicht aktualisiert werden');
-    toast(`${workerIds.length} Worker auf Waitlist gesetzt`,'success');
+    if(!r.ok)throw new Error(d.error||tt('ts.rev.staffing.waitlistFailed'));
+    toast(tt('ts.rev.staffing.waitlistedCount', { n: workerIds.length }),'success');
     await refreshStaffingPanel(assignmentId);
-  }catch(e){toast(e.message||'Waitlist konnte nicht aktualisiert werden','error');}
+  }catch(e){toast(e.message||tt('ts.rev.staffing.waitlistFailed'),'error');}
 }
 async function sendNextWaitlistWave(assignmentId){
-  if(!ensurePermission('workerEdit','Sie koennen keine weitere Waitlist-Welle ausloesen.'))return;
+  if(!ensurePermission('workerEdit',tt('ts.rev.perm.waitlistWave')))return;
   try{
     const detail=staffingDetailsByAssignment[assignmentId]||await loadStaffingDetail(assignmentId);
     const openQty=Number((detail.assignment||{}).open_quantity||1);
@@ -3135,13 +4746,13 @@ async function sendNextWaitlistWave(assignmentId){
       body:JSON.stringify({limit:Math.min(Math.max(openQty*3,1),20),auto_backfill_enabled:!!(detail.campaigns||[]).find(c=>c.auto_backfill_enabled)})
     });
     const d=await r.json();
-    if(!r.ok)throw new Error(d.error||'Waitlist-Welle konnte nicht gesendet werden');
+    if(!r.ok)throw new Error(d.error||tt('ts.rev.staffing.waveFailed'));
     toast(`${Number((d.invites||[]).length||0)} Waitlist-Kandidaten angefragt`,'success');
     await refreshStaffingPanel(assignmentId);
-  }catch(e){toast(e.message||'Waitlist-Welle konnte nicht gesendet werden','error');}
+  }catch(e){toast(e.message||tt('ts.rev.staffing.waveFailed'),'error');}
 }
 async function inviteTopWorkers(assignmentId,count){
-  if(!ensurePermission('workerEdit','Sie koennen keine Staffing-Anfragen versenden.'))return;
+  if(!ensurePermission('workerEdit',tt('ts.rev.perm.staffingRequest')))return;
   try{
     const state=getStaffingUiState(assignmentId);
     const suggestionBundle=await loadStaffingSuggestions(assignmentId,{limit:Math.max(count||20,20),only_available:true,hard_only:state.hardOnly,include_blocked:false});
@@ -3149,7 +4760,7 @@ async function inviteTopWorkers(assignmentId,count){
     const suggested=(suggestionBundle.suggestions||[]).filter(s=>s.can_invite&&(state.hardOnly?s.hard_match:true));
     const targetCount=Math.min(count||20,suggested.length);
     const workerIds=suggested.slice(0,targetCount).map(s=>s.worker_user_id);
-    if(!workerIds.length){toast('Keine freien Top-Kandidaten verfügbar','error');return;}
+    if(!workerIds.length){toast(tt('ts.rev.staffing.noTopCandidates'),'error');return;}
     const csrf=await getCsrf();
     const r=await fetch(`${API}/staffing-assignments/${assignmentId}/campaigns`,{
       method:'POST',
@@ -3159,16 +4770,16 @@ async function inviteTopWorkers(assignmentId,count){
         worker_user_ids:workerIds,
         promotion_mode:'auto_finalize',
         auto_backfill_enabled:true,
-        message:`Automatische Sammelanfrage – noch offen: ${Number((detail.assignment||{}).open_quantity||0)}`
+        message:tt('ts.rev.staffing.bulkMessage', { open: Number((detail.assignment||{}).open_quantity||0) })
       })
     });
     const d=await r.json();
-    if(!r.ok)throw new Error(d.error||'Top-Kandidaten konnten nicht angefragt werden');
+    if(!r.ok)throw new Error(d.error||tt('ts.rev.staffing.topFailed'));
     toast(`${workerIds.length} Top-Kandidaten angefragt`,'success');
     await refreshStaffingPanel(assignmentId);
-  }catch(e){toast(e.message||'Top-Kandidaten konnten nicht angefragt werden','error');}
+  }catch(e){toast(e.message||tt('ts.rev.staffing.topFailed'),'error');}
 }
-async function assignDealWorkerRequest(assignmentId,workerUserId,{clientName=null,confirmMessage='',successMessage='Worker dem Deal-Einsatz zugewiesen ?'}={}){
+async function assignDealWorkerRequest(assignmentId,workerUserId,{clientName=null,confirmMessage='',successMessage=tt('ts.rev.deal.assigned')}={}){
   if(confirmMessage&&!confirm(confirmMessage))return false;
   try{
     const csrf=await getCsrf();
@@ -3180,16 +4791,16 @@ async function assignDealWorkerRequest(assignmentId,workerUserId,{clientName=nul
     const d=await r.json();
     if(!r.ok){
       const messages={
-        ASSIGNMENT_NOT_FOUND:'Einsatz nicht gefunden.',
-        ASSIGNMENT_NOT_ASSIGNABLE:'Einsatz ist aktuell nicht zuweisbar.',
-        ASSIGNMENT_FILLED:'Einsatz ist bereits vollständig besetzt.',
-        ALREADY_ASSIGNED:'Worker ist diesem Einsatz bereits zugeordnet.',
-        WORKER_ALREADY_LINKED:'Worker hat bereits einen aktiven Link für diesen Einsatz.',
-        WORKER_NOT_FOUND:'Worker nicht gefunden.',
-        WORKER_INACTIVE:'Worker ist inaktiv.',
-        SCHEDULE_CONFLICT:'Zeitraum-Konflikt mit bestehendem Einsatz oder Reservierung.'
+        ASSIGNMENT_NOT_FOUND:tt('ts.rev.deal.errNotFound'),
+        ASSIGNMENT_NOT_ASSIGNABLE:tt('ts.rev.deal.errNotAssignable'),
+        ASSIGNMENT_FILLED:tt('ts.rev.deal.errFilled'),
+        ALREADY_ASSIGNED:tt('ts.rev.deal.errAlreadyAssigned'),
+        WORKER_ALREADY_LINKED:tt('ts.rev.deal.errWorkerLinked'),
+        WORKER_NOT_FOUND:tt('ts.rev.deal.errWorkerNotFound'),
+        WORKER_INACTIVE:tt('ts.rev.deal.errWorkerInactive'),
+        SCHEDULE_CONFLICT:tt('ts.rev.deal.errScheduleConflict')
       };
-      throw new Error(messages[d.error]||d.error||'Fehler');
+      throw new Error(messages[d.error]||d.error||tt('ts.rev.msg.error'));
     }
     toast(successMessage,'success');
     invalidateStaffingDataCache(assignmentId);
@@ -3198,18 +4809,18 @@ async function assignDealWorkerRequest(assignmentId,workerUserId,{clientName=nul
     await refreshWorkerAssignmentDrawerAfterMutation(assignmentId);
     return true;
   }catch(error){
-    toast(error?.message||'Fehler bei Zuweisung','error');
+    toast(error?.message||tt('ts.rev.msg.assignError'),'error');
     return false;
   }
 }
 async function assignDealWorker(assignmentId){
-  if(!ensurePermission('workerEdit','Sie koennen Deal-Einsaetze nicht zuweisen.'))return;
+  if(!ensurePermission('workerEdit',tt('ts.rev.perm.dealAssign')))return;
   const sel=document.getElementById('dealWkr-'+assignmentId);
   const wkrId=sel?sel.value:'';
-  if(!wkrId){toast('Bitte Worker auswählen','error');return;}
+  if(!wkrId){toast(tt('ts.rev.deal.selectWorker'),'error');return;}
   await assignDealWorkerRequest(assignmentId,wkrId,{
     clientName:getAssignmentClientName(assignmentId),
-    successMessage:'Worker dem Deal-Einsatz zugewiesen ?'
+    successMessage:tt('ts.rev.deal.assigned')
   });
 }
 window.toggleStaffingPanel=toggleStaffingPanel;
@@ -3268,12 +4879,12 @@ function isCurrentAssignmentLink(link){
 function assignmentLifecyclePill(link){
   const state=assignmentLifecycleState(link);
   const map={
-    active:{cls:'pill-act',label:'Aktiv'},
-    ends_today:{cls:'pill-pend',label:'Endet heute'},
-    expired:{cls:'pill-off',label:'Abgelaufen'},
-    completed:{cls:'pill-off',label:'Beendet'},
-    cancelled:{cls:'pill-off',label:'Storniert'},
-    archived:{cls:'pill-off',label:'Archiv'}
+    active:{cls:'pill-act',label:tt('ts.rev.asgn.statusActive')},
+    ends_today:{cls:'pill-pend',label:tt('ts.rev.life.endsToday')},
+    expired:{cls:'pill-off',label:tt('ts.rev.life.expired')},
+    completed:{cls:'pill-off',label:tt('ts.rev.life.completed')},
+    cancelled:{cls:'pill-off',label:tt('ts.rev.life.cancelled')},
+    archived:{cls:'pill-off',label:tt('ts.rev.asgn.statusArchived')}
   };
   const cfg=map[state]||map.active;
   return '<span class="pill '+cfg.cls+'">'+cfg.label+'</span>';
@@ -3283,8 +4894,8 @@ async function loadAsgn(){
     linksLoaded=true;
     setPanelNotice(
       'asgnStateNotice',
-      'Kein Zugriff auf Einsaetze.',
-      'Der Bereich ist fuer Ihren aktuellen Organisationskontext nicht freigeschaltet.',
+      tt('ts.rev.asgn.noAccessTitle'),
+      tt('ts.rev.notice.noOrgAccess'),
       'info'
     );
     toggleElement('ldAsgn',false);
@@ -3322,10 +4933,10 @@ async function loadAsgn(){
     toggleElement('dealAsgnSection',false);
     setPanelNotice(
       'asgnStateNotice',
-      isAccessDeniedError(error)?'Kein Zugriff auf Einsaetze.':'Einsaetze konnten nicht geladen werden.',
+      isAccessDeniedError(error)?tt('ts.rev.asgn.noAccessTitle'):tt('ts.rev.asgn.loadFailTitle'),
       isAccessDeniedError(error)
-        ? 'Der Bereich ist fuer Ihren aktuellen Organisationskontext nicht freigeschaltet.'
-        : (error?.message||'Bitte spaeter erneut versuchen.'),
+        ? tt('ts.rev.notice.noOrgAccess')
+        : (error?.message||tt('ts.rev.notice.retryLater')),
       isAccessDeniedError(error)?'info':'danger'
     );
   }
@@ -3371,12 +4982,12 @@ function renderAsgnCard(l){
   const tf=x=>x?String(x).substring(0,5):null;
   const fv=(val,em)=>val
     ?('<span class="asgn-field-val">'+esc(String(val))+'</span>')
-    :('<span class="asgn-field-val empty">'+(em||'Nicht angegeben')+'</span>');
+    :('<span class="asgn-field-val empty">'+esc(em||tt('ts.rev.card.notSpecified'))+'</span>');
   const row=(ic,lb,val,em)=>'<div class="asgn-field-row"><span class="asgn-field-icon">'+ic+'</span><span class="asgn-field-label">'+lb+'</span>'+fv(val,em)+'</div>';
   const dr=l.start_date?(fmtD(l.start_date)+(l.end_date?' \u2013 '+fmtD(l.end_date):' (offen)')):null;
   const st=(l.default_shift_start&&l.default_shift_end)
     ?(tf(l.default_shift_start)+' \u2013 '+tf(l.default_shift_end)+' Uhr')
-    :(l.default_hours_per_day?l.default_hours_per_day+' h/Tag':null);
+    :(l.default_hours_per_day?l.default_hours_per_day+' '+tt('ts.rev.asgn.hoursPerDay'):null);
   const ct=l.contact_name||(l.contact_phone||null);
   const ctFull=ct?(l.contact_name&&l.contact_phone?(l.contact_name+' / '+l.contact_phone):ct):null;
   const filled=[l.location_address,l.client_name,l.instructions,ct,l.default_shift_start].filter(Boolean).length;
@@ -3387,7 +4998,7 @@ function renderAsgnCard(l){
     : '';
   // P1.1: Ersatz bei Krankheit/Ausfall — nur auf aktiven Einsaetzen + mit Edit-Recht
   const replaceAction=(pageAccess.permissions.workerEdit&&isCurrentAssignmentLink(l))
-    ? '<button class="wk-btn wk-btn-sm" style="background:var(--tc-tone-danger-bg,#fef1f1);color:var(--tc-tone-danger-text,#b42318);border:1px solid var(--wk-danger,#e5484d)" onclick="openReplaceModal(\''+l.id+'\')" title="Bei Krankheit/Ausfall: Ersatz ab Wirk-Datum zuweisen, Ausfallenden freistellen">&#8644; Ersatz zuweisen</button>'
+    ? '<button class="wk-btn wk-btn-sm" style="background:var(--tc-tone-danger-bg,#fef1f1);color:var(--tc-tone-danger-text,#b42318);border:1px solid var(--wk-danger,#e5484d)" onclick="openReplaceModal(\''+l.id+'\')" title="'+esc(tt('ts.rev.asgn.replaceTitle'))+'">&#8644; '+esc(tt('ts.rev.asgn.replaceCta'))+'</button>'
     : '';
   return '<div class="asgn-card">'
     +'<div class="asgn-card-head">'
@@ -3400,16 +5011,16 @@ function renderAsgnCard(l){
     +(l.worker_confirmation_status&&l.worker_confirmation_status!=='auto_confirmed'?confBadge(l.worker_confirmation_status):'')
     +'</div>'
     +'<div class="asgn-fields">'
-    +row('&#127970;','Kunde',l.client_name,'Kein Kundenname')
-    +row('&#128205;','Einsatzort',l.location_address,null)
-    +row('&#128197;','Zeitraum',dr,'Kein Datum gesetzt')
-    +row('&#128336;','Schichtzeit',st,'Keine Arbeitszeit')
-    +row('&#128203;','Anweisungen',l.instructions?l.instructions.substring(0,60)+(l.instructions.length>60?'...':''):null,'Keine Anweisungen')
-    +(ctFull?row('&#128100;','Ansprechp.',ctFull,null):'')
+    +row('&#127970;',tt('ts.rev.asgn.rowClient'),l.client_name,tt('ts.rev.asgn.rowClientEmpty'))
+    +row('&#128205;',tt('ts.rev.card.location'),l.location_address,null)
+    +row('&#128197;',tt('ts.rev.asgn.rowPeriod'),dr,tt('ts.rev.asgn.rowPeriodEmpty'))
+    +row('&#128336;',tt('ts.rev.card.shiftTime'),st,tt('ts.rev.card.noShiftTime'))
+    +row('&#128203;',tt('ts.rev.card.instructions'),l.instructions?l.instructions.substring(0,60)+(l.instructions.length>60?'...':''):null,tt('ts.rev.card.noInstructions'))
+    +(ctFull?row('&#128100;',tt('ts.rev.card.contact'),ctFull,null):'')
     +'</div>'
     +'<div style="margin:0 0 14px">'
     +'<div style="display:flex;justify-content:space-between;margin-bottom:5px">'
-    +'<span style="font-size:.71rem;color:var(--wk-text-muted);text-transform:uppercase;letter-spacing:.05em">Vollst&auml;ndigkeit</span>'
+    +'<span style="font-size:.71rem;color:var(--wk-text-muted);text-transform:uppercase;letter-spacing:.05em">'+esc(tt('ts.rev.card.completeness'))+'</span>'
     +'<span style="font-size:.74rem;font-weight:700;color:'+pc+'">'+pct+'%</span>'
     +'</div>'
     +'<div style="height:3px;border-radius:2px;background:var(--tc-progress-track)">'
@@ -3423,13 +5034,13 @@ function renderAsgnCard(l){
     +'</div>';
 }
 function openLnkDrwById(id){
-  if(!ensurePermission('workerEdit','Sie koennen Einsatzkonfigurationen sehen, aber nicht bearbeiten.'))return;
+  if(!ensurePermission('workerEdit',tt('ts.rev.perm.lnkEdit')))return;
   var l=allLinks.find(function(x){return x.id===id;});if(l)openLnkDrw(l);
 }
 function openLnkDrw(l){
-  if(!ensurePermission('workerEdit','Sie koennen Einsatzkonfigurationen sehen, aber nicht bearbeiten.'))return;
+  if(!ensurePermission('workerEdit',tt('ts.rev.perm.lnkEdit')))return;
   editingLinkId=l.id;
-  document.getElementById('lnkDrwTitle').textContent='Einsatz konfigurieren';
+  document.getElementById('lnkDrwTitle').textContent=tt('ts.rev.lnk.title');
   document.getElementById('lnkDrwSub').textContent=(l.first_name||'')+' '+(l.last_name||'')+(l.client_name?' \u00b7 '+l.client_name:'');
   const h=x=>esc(x||'');
   const dv=x=>x?String(x).substring(0,10):'';
@@ -3437,66 +5048,66 @@ function openLnkDrw(l){
   const nv=x=>(x!=null&&x!=='')?String(x):'';
   document.getElementById('lnkDrwBody').innerHTML=''
     +'<div class="wk-alert wk-alert-info" style="margin-bottom:20px;font-size:.83rem;line-height:1.5">'
-    +'<span>&#128161;</span><span>Diese Felder sind f&uuml;r <strong>'+h(l.first_name)+'</strong> im Arbeitnehmer-Portal sichtbar.</span>'
+    +'<span>&#128161;</span><span>'+esc(tt('ts.rev.lnk.visibleFor'))+' <strong>'+h(l.first_name)+'</strong>.</span>'
     +'</div>'
     +'<div class="drw-section">'
-    +'<div class="drw-section-title">Einsatzdetails</div>'
-    +'<div class="wk-form-group"><label class="wk-label">Kundenname</label>'
-    +'<input type="text" class="wk-input" id="le-client_name" value="'+h(l.client_name)+'" placeholder="z.B. BMW AG M&uuml;nchen"></div>'
-    +'<div class="wk-form-group"><label class="wk-label">Einsatzort / Adresse</label>'
-    +'<input type="text" class="wk-input" id="le-location_address" value="'+h(l.location_address)+'" placeholder="z.B. Lerchenauer Str. 31, 80809 M&uuml;nchen"></div>'
-    +'<div class="wk-form-group"><label class="wk-label">Treffpunkt</label>'
-    +'<input type="text" class="wk-input" id="le-meeting_point" value="'+h(l.meeting_point)+'" placeholder="z.B. Haupteingang, Pforte A"></div>'
+    +'<div class="drw-section-title">'+esc(tt('ts.rev.lnk.sectionDetails'))+'</div>'
+    +'<div class="wk-form-group"><label class="wk-label">'+esc(tt('ts.rev.lnk.clientName'))+'</label>'
+    +'<input type="text" class="wk-input" id="le-client_name" value="'+h(l.client_name)+'" placeholder="'+esc(tt('ts.rev.lnk.clientNamePh'))+'"></div>'
+    +'<div class="wk-form-group"><label class="wk-label">'+esc(tt('ts.rev.lnk.address'))+'</label>'
+    +'<input type="text" class="wk-input" id="le-location_address" value="'+h(l.location_address)+'" placeholder="'+esc(tt('ts.rev.lnk.addressPh'))+'"></div>'
+    +'<div class="wk-form-group"><label class="wk-label">'+esc(tt('ts.rev.lnk.meetingPoint'))+'</label>'
+    +'<input type="text" class="wk-input" id="le-meeting_point" value="'+h(l.meeting_point)+'" placeholder="'+esc(tt('ts.rev.lnk.meetingPointPh'))+'"></div>'
     +'<div class="drw-grid-2">'
-    +'<div class="wk-form-group"><label class="wk-label">Startdatum <span class="required">*</span></label>'
+    +'<div class="wk-form-group"><label class="wk-label">'+esc(tt('ts.rev.lnk.startDate'))+' <span class="required">*</span></label>'
     +'<input type="date" class="wk-input" id="le-start_date" value="'+dv(l.start_date)+'"></div>'
-    +'<div class="wk-form-group"><label class="wk-label">Enddatum</label>'
+    +'<div class="wk-form-group"><label class="wk-label">'+esc(tt('ts.rev.lnk.endDate'))+'</label>'
     +'<input type="date" class="wk-input" id="le-end_date" value="'+dv(l.end_date)+'"></div>'
     +'</div>'
     +'</div>'
     +'<div class="drw-section">'
-    +'<div class="drw-section-title">Arbeitszeiten</div>'
+    +'<div class="drw-section-title">'+esc(tt('ts.rev.lnk.sectionHours'))+'</div>'
     +'<div class="drw-grid-2">'
-    +'<div class="wk-form-group"><label class="wk-label">Schichtbeginn</label>'
+    +'<div class="wk-form-group"><label class="wk-label">'+esc(tt('ts.rev.lnk.shiftStart'))+'</label>'
     +'<input type="time" class="wk-input" id="le-default_shift_start" value="'+tv(l.default_shift_start)+'"></div>'
-    +'<div class="wk-form-group"><label class="wk-label">Schichtende</label>'
+    +'<div class="wk-form-group"><label class="wk-label">'+esc(tt('ts.rev.lnk.shiftEnd'))+'</label>'
     +'<input type="time" class="wk-input" id="le-default_shift_end" value="'+tv(l.default_shift_end)+'"></div>'
     +'</div>'
     +'<div class="drw-grid-2">'
-    +'<div class="wk-form-group"><label class="wk-label">Stunden / Tag</label>'
+    +'<div class="wk-form-group"><label class="wk-label">'+esc(tt('ts.rev.lnk.hoursPerDay'))+'</label>'
     +'<input type="number" class="wk-input" id="le-default_hours_per_day" value="'+nv(l.default_hours_per_day)+'" min="0.5" max="24" step="0.5" placeholder="8"></div>'
-    +'<div class="wk-form-group"><label class="wk-label">Pause (Minuten)</label>'
+    +'<div class="wk-form-group"><label class="wk-label">'+esc(tt('ts.rev.lnk.breakMinutes'))+'</label>'
     +'<input type="number" class="wk-input" id="le-default_break_minutes" value="'+nv(l.default_break_minutes)+'" min="0" max="120" step="5" placeholder="30"></div>'
     +'</div>'
     +'</div>'
     +'<div class="drw-section">'
-    +'<div class="drw-section-title">Einsatzanweisungen</div>'
-    +'<div class="wk-form-group"><label class="wk-label">Anweisungen</label>'
-    +'<textarea class="wk-textarea" id="le-instructions" rows="3" placeholder="Sicherheitseinweisungen, Zugangscodes, besondere Hinweise&hellip;">'+h(l.instructions)+'</textarea></div>'
-    +'<div class="wk-form-group"><label class="wk-label">Kleidung / Ausr&uuml;stung</label>'
-    +'<input type="text" class="wk-input" id="le-dress_code" value="'+h(l.dress_code)+'" placeholder="z.B. Sicherheitsschuhe und Warnweste erforderlich"></div>'
-    +'<div class="wk-form-group"><label class="wk-label">Interne Notizen <span style="font-weight:400;color:var(--wk-text-muted)">(nicht f&uuml;r Arbeitnehmer)</span></label>'
-    +'<textarea class="wk-textarea" id="le-notes" rows="2" placeholder="Interne Hinweise&hellip;">'+h(l.notes)+'</textarea></div>'
+    +'<div class="drw-section-title">'+esc(tt('ts.rev.lnk.sectionInstructions'))+'</div>'
+    +'<div class="wk-form-group"><label class="wk-label">'+esc(tt('ts.rev.lnk.instructions'))+'</label>'
+    +'<textarea class="wk-textarea" id="le-instructions" rows="3" placeholder="'+esc(tt('ts.rev.lnk.instructionsPh'))+'">'+h(l.instructions)+'</textarea></div>'
+    +'<div class="wk-form-group"><label class="wk-label">'+esc(tt('ts.rev.lnk.dressCode'))+'</label>'
+    +'<input type="text" class="wk-input" id="le-dress_code" value="'+h(l.dress_code)+'" placeholder="'+esc(tt('ts.rev.lnk.dressCodePh'))+'"></div>'
+    +'<div class="wk-form-group"><label class="wk-label">'+esc(tt('ts.rev.lnk.internalNotes'))+' <span style="font-weight:400;color:var(--wk-text-muted)">'+esc(tt('ts.rev.lnk.internalNotesHint'))+'</span></label>'
+    +'<textarea class="wk-textarea" id="le-notes" rows="2" placeholder="'+esc(tt('ts.rev.lnk.notesPh'))+'">'+h(l.notes)+'</textarea></div>'
     +'</div>'
     +'<div class="drw-section">'
-    +'<div class="drw-section-title">Ansprechpartner vor Ort</div>'
-    +'<div class="wk-form-group"><label class="wk-label">Name</label>'
-    +'<input type="text" class="wk-input" id="le-contact_name" value="'+h(l.contact_name)+'" placeholder="z.B. Max Meier"></div>'
+    +'<div class="drw-section-title">'+esc(tt('ts.rev.lnk.sectionContact'))+'</div>'
+    +'<div class="wk-form-group"><label class="wk-label">'+esc(tt('ts.rev.lnk.contactName'))+'</label>'
+    +'<input type="text" class="wk-input" id="le-contact_name" value="'+h(l.contact_name)+'" placeholder="'+esc(tt('ts.rev.lnk.contactNamePh'))+'"></div>'
     +'<div class="drw-grid-2">'
-    +'<div class="wk-form-group"><label class="wk-label">Telefon</label>'
+    +'<div class="wk-form-group"><label class="wk-label">'+esc(tt('ts.rev.lnk.contactPhone'))+'</label>'
     +'<input type="tel" class="wk-input" id="le-contact_phone" value="'+h(l.contact_phone)+'" placeholder="+49 89 &hellip;"></div>'
-    +'<div class="wk-form-group"><label class="wk-label">E-Mail</label>'
+    +'<div class="wk-form-group"><label class="wk-label">'+esc(tt('ts.rev.lnk.contactEmail'))+'</label>'
     +'<input type="email" class="wk-input" id="le-contact_email" value="'+h(l.contact_email)+'" placeholder="kontakt@firma.de"></div>'
     +'</div>'
     +'</div>'
     +'<div class="drw-section">'
-    +'<div class="drw-section-title">Disponent / Interner Ansprechpartner</div>'
-    +'<div class="wk-form-group"><label class="wk-label">Name</label>'
-    +'<input type="text" class="wk-input" id="le-dispatcher_name" value="'+h(l.dispatcher_name)+'" placeholder="z.B. Sabine Huber"></div>'
+    +'<div class="drw-section-title">'+esc(tt('ts.rev.lnk.sectionDispatcher'))+'</div>'
+    +'<div class="wk-form-group"><label class="wk-label">'+esc(tt('ts.rev.lnk.dispatcherName'))+'</label>'
+    +'<input type="text" class="wk-input" id="le-dispatcher_name" value="'+h(l.dispatcher_name)+'" placeholder="'+esc(tt('ts.rev.lnk.dispatcherNamePh'))+'"></div>'
     +'<div class="drw-grid-2">'
-    +'<div class="wk-form-group"><label class="wk-label">Telefon</label>'
+    +'<div class="wk-form-group"><label class="wk-label">'+esc(tt('ts.rev.lnk.dispatcherPhone'))+'</label>'
     +'<input type="tel" class="wk-input" id="le-dispatcher_phone" value="'+h(l.dispatcher_phone)+'" placeholder="+49 170 &hellip;"></div>'
-    +'<div class="wk-form-group"><label class="wk-label">E-Mail</label>'
+    +'<div class="wk-form-group"><label class="wk-label">'+esc(tt('ts.rev.lnk.dispatcherEmail'))+'</label>'
     +'<input type="email" class="wk-input" id="le-dispatcher_email" value="'+h(l.dispatcher_email)+'" placeholder="disponent@agentur.de"></div>'
     +'</div>'
     +'</div>'
@@ -3511,7 +5122,7 @@ function closeLnkDrw(){
   editingLinkId=null;
 }
 async function saveLnkEdit(){
-  if(!ensurePermission('workerEdit','Sie koennen Einsatzkonfigurationen nicht speichern.'))return;
+  if(!ensurePermission('workerEdit',tt('ts.rev.perm.lnkSave')))return;
   if(!editingLinkId)return;
   const gs=id=>{const e=document.getElementById('le-'+id);return e?e.value.trim()||null:undefined;};
   const body={};
@@ -3528,10 +5139,10 @@ async function saveLnkEdit(){
   const bm=document.getElementById('le-default_break_minutes')?.value?.trim();
   if(bm)body.default_break_minutes=parseInt(bm,10);
   const err=document.getElementById('lnkErr');
-  if(!sd){err.textContent='Startdatum ist erforderlich.';err.style.display='block';return;}
+  if(!sd){err.textContent=tt('ts.rev.lnk.startRequired');err.style.display='block';return;}
   err.style.display='none';
   const btn=document.getElementById('lnkSaveBtn');
-  btn.disabled=true;btn.textContent='Wird gespeichert\u2026';
+  btn.disabled=true;btn.textContent=tt('ts.rev.btn.saving');
   try{
     const csrf=await getCsrf();
     const r=await fetch(`${API}/worker-assignment-links/${editingLinkId}`,{
@@ -3541,20 +5152,20 @@ async function saveLnkEdit(){
     });
     const d=await r.json();
     if(!r.ok){
-      let msg=d.error||d.message||'Fehler';
+      let msg=d.error||d.message||tt('ts.rev.msg.error');
       if(d.error==='VALIDATION'&&d.details?.[0])msg='Ung\u00fcltige Eingabe: '+(d.details[0].message||d.details[0].path?.join('.')||'');
       throw new Error(msg);
     }
     const idx=allLinks.findIndex(l=>l.id===editingLinkId);
     if(idx>=0)allLinks[idx]=Object.assign({},allLinks[idx],d);
-    toast('Einsatz-Konfiguration gespeichert \u2713','success');
+    toast(tt('ts.rev.lnk.saved'),'success');
     closeLnkDrw();renderAsgns();setAsgnKpis();
-  }catch(e){err.textContent=e.message||'Fehler beim Speichern';err.style.display='block';}
-  finally{btn.disabled=false;btn.textContent='\u00c4nderungen speichern';}
+  }catch(e){err.textContent=e.message||tt('ts.rev.msg.saveError');err.style.display='block';}
+  finally{btn.disabled=false;btn.textContent=tt('ts.rev.lnk.save');}
 }
 async function viewWorkerLinks(workerId){
   if(!pageAccess.tabs.asgn){
-    toast('Einsatzverknuepfungen sind fuer Ihre aktuelle Rolle nicht freigeschaltet.','error');
+    toast(tt('ts.rev.perm.lnkRole'),'error');
     return;
   }
   const w=allWrks.find(x=>(x.id||x.user_id)===workerId);
@@ -3594,7 +5205,7 @@ function renderComplaintInbox(){
   if(!box)return;
   if(!complaintItems.length){box.style.display='none';box.innerHTML='';return;}
   const rows=complaintItems.map((c)=>{
-    const name=((c.first_name||'')+' '+(c.last_name||'')).trim()||'Mitarbeiter';
+    const name=((c.first_name||'')+' '+(c.last_name||'')).trim()||tt('ts.rev.cmp.workerFallback');
     const sev=CMP_SEV_LABEL[c.severity]||c.severity||'–';
     const when=c.created_at?new Date(c.created_at).toLocaleDateString('de-DE'):'';
     const canEdit=pageAccess.permissions.workerEdit;
@@ -3604,13 +5215,13 @@ function renderComplaintInbox(){
     return '<div class="wk-card" style="padding:12px 14px;margin-bottom:8px;border-left:3px solid var(--wk-danger,#e5484d)">'
       +'<div style="display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;align-items:flex-start">'
         +'<div style="min-width:220px">'
-          +'<div style="font-weight:700">'+esc(name)+' <span class="wk-sub" style="font-weight:400">· '+esc(c.company_name||'Kunde')+'</span></div>'
+          +'<div style="font-weight:700">'+esc(name)+' <span class="wk-sub" style="font-weight:400">· '+esc(c.company_name||tt('ts.rev.cmp.clientFallback'))+'</span></div>'
           +'<div class="wk-sub">Dringlichkeit: '+esc(sev)+(when?(' · gemeldet '+esc(when)):'')+'</div>'
           +'<div style="margin-top:6px">'+esc(c.reason||'')+'</div>'
         +'</div>'
         +'<div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center">'
           +replaceBtn
-          +'<button class="wk-btn wk-btn-sm" onclick="setComplaintStatus(\''+esc(c.id)+'\',\'acknowledged\')" title="Dem Kunden zeigen: wir kümmern uns">Angenommen</button>'
+          +'<button class="wk-btn wk-btn-sm" onclick="setComplaintStatus(\''+esc(c.id)+'\',\'acknowledged\')" title="'+esc(tt('ts.rev.cmp.acknowledgeTitle'))+'">'+esc(tt('ts.rev.cmp.acknowledge'))+'</button>'
           +'<button class="wk-btn wk-btn-sm wk-btn-primary" onclick="setComplaintStatus(\''+esc(c.id)+'\',\'resolved\')">Erledigt</button>'
         +'</div>'
       +'</div>'
@@ -3618,13 +5229,13 @@ function renderComplaintInbox(){
   }).join('');
   box.innerHTML='<div class="wk-alert wk-alert-warn" style="margin-bottom:10px">'
     +'<strong>'+complaintItems.length+' offene Kundenmeldung'+(complaintItems.length===1?'':'en')+'</strong> '
-    +'<span class="wk-sub">Ein Kunde hat ein Problem mit einer Ihrer Kräfte gemeldet — reagieren Sie direkt hier.</span>'
+    +'<span class="wk-sub">'+esc(tt('ts.rev.cmp.title'))+'</span>'
     +'</div>'+rows;
   box.style.display='block';
 }
 
 async function setComplaintStatus(id,status){
-  if(!ensurePermission('workerManage','Sie koennen Meldungen sehen, aber nicht bearbeiten.'))return;
+  if(!ensurePermission('workerManage',tt('ts.rev.perm.complaint')))return;
   try{
     const csrf=await getCsrf();
     await fetchJson(`${API}/workers/complaints/${encodeURIComponent(id)}`,{
@@ -3635,7 +5246,7 @@ async function setComplaintStatus(id,status){
     toast(status==='resolved'?'Meldung als erledigt markiert.':'Meldung als angenommen markiert.','success');
     loadComplaintInbox();
   }catch(error){
-    toast('Konnte nicht gespeichert werden: '+(error?.message||'Fehler'),'error');
+    toast(tt('ts.rev.msg.saveFailed')+' '+(error?.message||tt('ts.rev.msg.error')),'error');
   }
 }
 window.setComplaintStatus=setComplaintStatus;
@@ -3643,9 +5254,9 @@ window.setComplaintStatus=setComplaintStatus;
 /* ── P1.1: Ersatz bei Krankheit/Ausfall (Chef weist Ersatz ab Wirk-Datum zu) ──── */
 let replacingLinkId=null;
 function openReplaceModal(id){
-  if(!ensurePermission('workerEdit','Sie koennen Einsaetze sehen, aber nicht bearbeiten.'))return;
+  if(!ensurePermission('workerEdit',tt('ts.rev.perm.lnkEdit')))return;
   var l=allLinks.find(function(x){return x.id===id;});
-  if(!l){toast('Einsatz nicht gefunden.','error');return;}
+  if(!l){toast(tt('ts.rev.rep.notFound'),'error');return;}
   replacingLinkId=id;
   var ailingId=l.worker_user_id;
   var wname=function(w){return ((w.first_name||'')+' '+(w.last_name||'')).trim()||w.email||w.worker_email||w.personnel_number||'Arbeiter';};
@@ -3655,18 +5266,18 @@ function openReplaceModal(id){
   var todayIso=(function(){var d=new Date();return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');})();
   var ailingName=esc(((l.first_name||'')+' '+(l.last_name||'')).trim()||'Arbeiter');
   var client=l.client_name?(' · '+esc(String(l.client_name))):'';
-  var endInfo=l.end_date?('Der Ersatz übernimmt bis zum Original-Enddatum ('+esc(fmtD(l.end_date))+').'):'Der Ersatz übernimmt den offenen Einsatz.';
+  var endInfo=l.end_date?tt('ts.rev.rep.endsOriginal', { date: esc(fmtD(l.end_date)) }):tt('ts.rev.rep.endsOpen');
   var body=''
     +'<div class="wk-alert wk-alert-info" style="margin-bottom:18px;font-size:.83rem;line-height:1.5">'
-    +'<span>&#8644;</span><span><strong>'+ailingName+'</strong>'+client+' wird ab dem Wirk-Datum aus dem Einsatz herausgenommen und freigestellt. '+endInfo+' Bereits geleistete Tage bleiben abrechenbar.</span>'
+    +'<span>&#8644;</span><span><strong>'+ailingName+'</strong>'+client+' '+esc(tt('ts.rev.rep.removedText'))+' '+endInfo+' '+esc(tt('ts.rev.rep.billableText'))+'</span>'
     +'</div>'
-    +'<div class="wk-form-group"><label class="wk-label">Wirk-Datum (ab wann Ersatz) <span class="required">*</span></label>'
+    +'<div class="wk-form-group"><label class="wk-label">'+esc(tt('ts.rev.rep.effectiveDate'))+' <span class="required">*</span></label>'
     +'<input type="date" class="wk-input" id="rep-date" value="'+todayIso+'"></div>'
     +'<div class="wk-form-group"><label class="wk-label">Ersatz-Arbeiter <span class="required">*</span></label>'
-    +(cands.length?('<select class="wk-input" id="rep-worker"><option value="">– Bitte wählen –</option>'+opts+'</select>')
-      :('<div class="wk-alert wk-alert-warning" style="font-size:.82rem">Keine weiteren aktiven Arbeiter in Ihrer Organisation verfügbar.</div>'))
+    +(cands.length?('<select class="wk-input" id="rep-worker"><option value="">'+esc(tt('ts.rev.rep.pleaseSelect'))+'</option>'+opts+'</select>')
+      :('<div class="wk-alert wk-alert-warning" style="font-size:.82rem">'+esc(tt('ts.rev.rep.noCandidates'))+'</div>'))
     +'</div>'
-    +'<div class="wk-form-group"><label class="wk-label">Grund <span class="required">*</span></label>'
+    +'<div class="wk-form-group"><label class="wk-label">'+esc(tt('ts.rev.rep.reason'))+' <span class="required">*</span></label>'
     +'<textarea class="wk-textarea" id="rep-reason" rows="2" placeholder="z.B. Krankmeldung, Ausfall, Kundenwunsch…"></textarea></div>'
     +'<div id="repErr" style="display:none;padding:10px 12px;background:var(--tc-tone-danger-bg,#fef1f1);border-radius:8px;font-size:.83rem;color:var(--tc-tone-danger-text,#b42318);border-left:3px solid var(--wk-danger,#e5484d);margin-top:4px"></div>';
   var ovl=document.getElementById('repModalOvl');
@@ -3680,10 +5291,10 @@ function openReplaceModal(id){
   }
   document.getElementById('repModalBox').innerHTML=''
     +'<div style="padding:20px 22px 0"><div style="font-size:1.05rem;font-weight:700;color:var(--wk-text,#0f172a)">Ersatz zuweisen</div>'
-    +'<div style="font-size:.82rem;color:var(--wk-text-muted,#64748b);margin-top:2px">Krankheit / Ausfall – zeitgenau ab Wirk-Datum</div></div>'
+    +'<div style="font-size:.82rem;color:var(--wk-text-muted,#64748b);margin-top:2px">'+esc(tt('ts.rev.rep.subtitle'))+'</div></div>'
     +'<div style="padding:18px 22px">'+body+'</div>'
     +'<div style="display:flex;gap:10px;justify-content:flex-end;padding:0 22px 20px">'
-    +'<button class="wk-btn wk-btn-sm" style="background:var(--wk-surface-2,#f1f5f9);color:var(--wk-text,#0f172a)" onclick="closeReplaceModal()">Abbrechen</button>'
+    +'<button class="wk-btn wk-btn-sm" style="background:var(--wk-surface-2,#f1f5f9);color:var(--wk-text,#0f172a)" onclick="closeReplaceModal()">'+esc(tt('ts.rev.rep.cancel'))+'</button>'
     +'<button class="wk-btn wk-btn-sm" id="repSubmitBtn" style="background:var(--wk-danger,#e5484d);color:#fff" '+(cands.length?'':'disabled')+' onclick="submitReplace()">&#8644; Ersatz zuweisen</button>'
     +'</div>';
   ovl.style.display='flex';
@@ -3694,19 +5305,19 @@ function closeReplaceModal(){
   replacingLinkId=null;
 }
 async function submitReplace(){
-  if(!ensurePermission('workerEdit','Sie koennen keinen Ersatz zuweisen.'))return;
+  if(!ensurePermission('workerEdit',tt('ts.rev.perm.replacement')))return;
   if(!replacingLinkId)return;
   var err=document.getElementById('repErr');
   var showErr=function(m){if(err){err.textContent=m;err.style.display='block';}};
   var date=(document.getElementById('rep-date')&&document.getElementById('rep-date').value||'').trim();
   var worker=(document.getElementById('rep-worker')&&document.getElementById('rep-worker').value||'').trim();
   var reason=(document.getElementById('rep-reason')&&document.getElementById('rep-reason').value||'').trim();
-  if(!date){showErr('Bitte ein Wirk-Datum wählen.');return;}
-  if(!worker){showErr('Bitte einen Ersatz-Arbeiter wählen.');return;}
-  if(reason.length<3){showErr('Bitte einen Grund angeben (mind. 3 Zeichen).');return;}
+  if(!date){showErr(tt('ts.rev.rep.errDate'));return;}
+  if(!worker){showErr(tt('ts.rev.rep.errWorker'));return;}
+  if(reason.length<3){showErr(tt('ts.rev.rep.errReason'));return;}
   showErr('');err.style.display='none';
   var btn=document.getElementById('repSubmitBtn');
-  if(btn){btn.disabled=true;btn.textContent='Wird zugewiesen…';}
+  if(btn){btn.disabled=true;btn.textContent=tt('ts.rev.btn.assigning');}
   try{
     var csrf=await getCsrf();
     var r=await fetch(`${API}/worker-assignment-links/${replacingLinkId}/replace`,{
@@ -3716,16 +5327,16 @@ async function submitReplace(){
     });
     var d=await r.json().catch(function(){return {};});
     if(!r.ok){
-      var msg=d.error||d.message||'Fehler';
-      var map={NOT_FOUND:'Einsatz nicht gefunden.',LINK_NOT_ACTIVE:'Dieser Einsatz ist nicht aktiv.',SAME_WORKER:'Ersatz und Ausfallender dürfen nicht identisch sein.',REPLACEMENT_NOT_IN_ORG:'Der gewählte Arbeiter gehört nicht zu Ihrer Organisation.',REPLACEMENT_INACTIVE:'Der gewählte Arbeiter ist inaktiv.',SCHEDULE_CONFLICT:'Der gewählte Ersatz ist im Zeitraum bereits in einem anderen Einsatz gebucht. Bitte anderen Arbeiter oder Wirk-Datum wählen.'};
-      if(d.error==='VALIDATION'&&d.details&&d.details[0])msg='Ungültige Eingabe: '+(d.details[0].message||'');
+      var msg=d.error||d.message||tt('ts.rev.msg.error');
+      var map={NOT_FOUND:tt('ts.rev.rep.errNotFound'),LINK_NOT_ACTIVE:tt('ts.rev.rep.errNotActive'),SAME_WORKER:tt('ts.rev.rep.errSameWorker'),REPLACEMENT_NOT_IN_ORG:tt('ts.rev.rep.errNotInOrg'),REPLACEMENT_INACTIVE:tt('ts.rev.rep.errInactive'),SCHEDULE_CONFLICT:tt('ts.rev.rep.errConflict')};
+      if(d.error==='VALIDATION'&&d.details&&d.details[0])msg=tt('ts.rev.rep.errValidation')+' '+(d.details[0].message||'');
       else if(map[d.error])msg=map[d.error];
       throw new Error(msg);
     }
     toast('Ersatz zugewiesen ✓ Ausfallender ab '+fmtD(date)+' freigestellt.','success');
     closeReplaceModal();
     await loadAsgn();
-  }catch(e){showErr(e.message||'Fehler bei der Ersatz-Zuweisung');}
+  }catch(e){showErr(e.message||tt('ts.rev.rep.failed'));}
   finally{if(btn){btn.disabled=false;btn.innerHTML='&#8644; Ersatz zuweisen';}}
 }
 /* ── P1.4: Vorausplanung — Timeline je Arbeiter (clientseitig aus allLinks) ────── */
@@ -3810,7 +5421,7 @@ function renderPlanungView(){
       if(ce<cs)ce=cs;
       var left=colFor(cs);
       var width=Math.max(dayPct*0.6,(ce-cs+1)*dayPct);
-      var label=l.client_name||l.location_address||l.worker_description||'Einsatz';
+      var label=l.client_name||l.location_address||l.worker_description||tt('ts.rev.plan.assignmentFallback');
       var range=(l.start_date?fmtD(l.start_date):'?')+(l.end_date?(' – '+fmtD(l.end_date)):' (offen)');
       var contL=(s<monthStartIso?'‹ ':''), contR=(e>monthEndIso?' ›':'');
       return '<div class="plan-block '+blockClass(l)+'" style="left:'+left+'%;width:'+width+'%" '
@@ -3818,15 +5429,15 @@ function renderPlanungView(){
         +esc2(contL+label+contR)+'</div>';
     }).join('');
     var planBtn=pageAccess.permissions.workerEdit
-      ? '<button class="wk-btn wk-btn-sm wk-btn-outline plan-plusbtn" title="Einsatz für diesen Arbeiter planen" onclick="planBlockForWorker(\''+esc2(w.id)+'\')">+ Block</button>'
+      ? '<button class="wk-btn wk-btn-sm wk-btn-outline plan-plusbtn" title="'+esc(tt('ts.rev.plan.blockTitle'))+'" onclick="planBlockForWorker(\''+esc2(w.id)+'\')">'+esc(tt('ts.rev.plan.blockCta'))+'</button>'
       : '<span class="plan-plusbtn" style="width:74px"></span>';
     return '<div class="plan-row">'
-      +'<div class="plan-name">'+esc2(w.name)+'<small>'+w.links.length+' Einsatz'+(w.links.length===1?'':'e')+' im Monat</small></div>'
+      +'<div class="plan-name">'+esc2(w.name)+'<small>'+esc(tt('ts.rev.plan.assignmentsInMonth', { n: w.links.length }))+'</small></div>'
       +'<div class="plan-track">'+gridCols+todayMarker+blocks+'</div>'
       +planBtn+'</div>';
   };
   var legend='<div class="plan-legend">'
-    +'<span><i style="background:var(--wk-success,#12a150)"></i>Aktiv</span>'
+    +'<span><i style="background:var(--wk-success,#12a150)"></i>'+esc(tt('ts.rev.plan.legendActive'))+'</span>'
     +'<span><i style="background:var(--hub-accent,#3b82f6)"></i>Geplant</span>'
     +'<span><i style="background:var(--wk-warning,#d97706)"></i>Endet</span>'
     +'<span><i style="background:var(--wk-text-muted,#94a3b8)"></i>Vergangen</span>'
@@ -3839,7 +5450,7 @@ function renderPlanungView(){
     +'<button class="wk-btn wk-btn-sm wk-btn-outline" onclick="planDownloadPdf()" title="Monats-Einsatzplan als PDF herunterladen (abrechnungsrelevant)">&#8681; PDF</button>'
     +legend+'</div>';
   if(!workers.length){
-    host.innerHTML=nav+'<div class="hub-empty" style="display:block"><h3>Keine Einsätze in '+esc2(monthLabel)+'</h3><p>Für diesen Monat sind keine Einsätze geplant. Wechsle den Monat oder plane einen Block.</p></div>';
+    host.innerHTML=nav+'<div class="hub-empty" style="display:block"><h3>'+esc(tt('ts.rev.plan.emptyTitle', { month: esc2(monthLabel) }))+'</h3><p>'+esc(tt('ts.rev.plan.emptyText'))+'</p></div>';
     return;
   }
   var axisHead='<div class="plan-head"><div class="plan-name"></div><div class="plan-track plan-axis">'+gridCols+tickRow+todayMarker+'</div><span class="plan-plusbtn" style="width:74px"></span></div>';
@@ -3851,7 +5462,7 @@ function planDownloadPdf(){
   window.open(API+'/supplier/plan/monthly.pdf?year='+y+'&month='+mo,'_blank');
 }
 function planBlockForWorker(workerId){
-  if(!ensurePermission('workerEdit','Sie können keine Einsätze planen.'))return;
+  if(!ensurePermission('workerEdit',tt('ts.rev.perm.planBlock')))return;
   if(typeof setStaffingWorkerPrefill==='function')setStaffingWorkerPrefill(workerId);
   if(typeof openAssignDrw==='function'){
     openAssignDrw();
@@ -3861,54 +5472,54 @@ function planBlockForWorker(workerId){
 /* UTILS */
 function confBadge(s){
   const m={
-    pending_confirmation:'<span class="pill pill-warn" style="margin-left:6px">? Bestätigung offen</span>',
-    worker_confirmed:'<span class="pill pill-act" style="margin-left:6px">? Bestätigt</span>',
-    worker_declined:'<span class="pill pill-danger" style="margin-left:6px">? Abgelehnt</span>'
+    pending_confirmation:'<span class="pill pill-warn" style="margin-left:6px">'+esc(tt('ts.rev.conf.pending'))+'</span>',
+    worker_confirmed:'<span class="pill pill-act" style="margin-left:6px">'+esc(tt('ts.rev.conf.confirmed'))+'</span>',
+    worker_declined:'<span class="pill pill-danger" style="margin-left:6px">'+esc(tt('ts.rev.conf.declined'))+'</span>'
   };
   return m[s]||'';
 }
 // P2.1: Einreichfrist-Indikator — überfällig (offen + Frist verstrichen) / verspätet (nach Frist abgegeben) / Frist-Hinweis.
 function subDeadlineTag(s){
   if(!s)return'';
-  if(s.is_overdue) return ' <span class="wk-badge" style="background:var(--wk-danger,#e5484d);color:#fff" title="Einreichfrist verstrichen, noch nicht eingereicht">Überfällig</span>';
-  if(s.submitted_late) return ' <span class="wk-badge" style="background:var(--wk-warning,#d97706);color:#fff" title="Nach der Einreichfrist abgegeben">Verspätet</span>';
+  if(s.is_overdue) return ' <span class="wk-badge" style="background:var(--wk-danger,#e5484d);color:#fff" title="'+esc(tt('ts.rev.due.overdueTitle'))+'">'+esc(tt('ts.rev.due.overdue'))+'</span>';
+  if(s.submitted_late) return ' <span class="wk-badge" style="background:var(--wk-warning,#d97706);color:#fff" title="'+esc(tt('ts.rev.due.lateTitle'))+'">'+esc(tt('ts.rev.due.late'))+'</span>';
   if((s.status==='draft'||s.status==='needs_correction') && s.submission_deadline)
     return ' <span style="font-size:.72rem;color:var(--wk-text-muted)" title="Einreichfrist">· Frist '+esc(fmtD(s.submission_deadline))+'</span>';
   return '';
 }
 function badge(s){
   const m={
-    draft:                  '<span class="wk-badge wk-badge-draft">Entwurf</span>',
-    submitted:              '<span class="wk-badge wk-badge-submitted">Eingereicht</span>',
-    under_review:           '<span class="wk-badge wk-badge-under-review">In Pr\u00fcfung</span>',
-    needs_correction:       '<span class="wk-badge wk-badge-needs-correction">Korrektur</span>',
-    approved_internal:      '<span class="wk-badge wk-badge-approved-internal">Intern gepr\u00fcft</span>',
-    sent_to_customer:       '<span class="wk-badge wk-badge-sent-to-customer">Beim Kunden</span>',
-    customer_confirmed:     '<span class="wk-badge wk-badge-cust-confirmed">\u2713 Vom Kunden best\u00e4tigt</span>',
-    customer_rejected:      '<span class="wk-badge wk-badge-cust-rejected">\u26a0 Vom Kunden abgelehnt</span>',
-    posted_to_timesheet:    '<span class="wk-badge wk-badge-posted">\u2713 In Abrechnung</span>',
-    accepted_into_timesheet:'<span class="wk-badge wk-badge-accepted">\u2713 Angenommen</span>',
-    rejected:               '<span class="wk-badge wk-badge-rejected">Abgelehnt</span>'
+    draft:                  '<span class="wk-badge wk-badge-draft">'+esc(tt('ts.rev.status.draft'))+'</span>',
+    submitted:              '<span class="wk-badge wk-badge-submitted">'+esc(tt('ts.rev.status.submitted'))+'</span>',
+    under_review:           '<span class="wk-badge wk-badge-under-review">'+esc(tt('ts.rev.status.underReview'))+'</span>',
+    needs_correction:       '<span class="wk-badge wk-badge-needs-correction">'+esc(tt('ts.rev.status.needsCorrection'))+'</span>',
+    approved_internal:      '<span class="wk-badge wk-badge-approved-internal">'+esc(tt('ts.rev.status.approvedInternal'))+'</span>',
+    sent_to_customer:       '<span class="wk-badge wk-badge-sent-to-customer">'+esc(tt('ts.rev.status.sentToCustomer'))+'</span>',
+    customer_confirmed:     '<span class="wk-badge wk-badge-cust-confirmed">\u2713 '+esc(tt('ts.rev.status.customerConfirmed'))+'</span>',
+    customer_rejected:      '<span class="wk-badge wk-badge-cust-rejected">\u26a0 '+esc(tt('ts.rev.status.customerRejected'))+'</span>',
+    posted_to_timesheet:    '<span class="wk-badge wk-badge-posted">\u2713 '+esc(tt('ts.rev.status.posted'))+'</span>',
+    accepted_into_timesheet:'<span class="wk-badge wk-badge-accepted">\u2713 '+esc(tt('ts.rev.status.accepted'))+'</span>',
+    rejected:               '<span class="wk-badge wk-badge-rejected">'+esc(tt('ts.rev.status.rejected'))+'</span>'
   };
   return m[s]||`<span class="wk-badge wk-badge-draft">${esc(s)}</span>`;
 }
 function stLbl(s){
   const m={
-    submitted:'Eingereicht',under_review:'In Pr\u00fcfung',needs_correction:'Korrektur ausstehend',
-    approved_internal:'Intern gepr\u00fcft',sent_to_customer:'Beim Kunden',
-    customer_confirmed:'Vom Kunden best\u00e4tigt',customer_rejected:'Vom Kunden abgelehnt',
-    posted_to_timesheet:'In Abrechnung',accepted_into_timesheet:'\u00dcbertragen',
-    rejected:'Abgelehnt',draft:'Entwurf'
+    submitted:tt('ts.rev.status.submitted'),under_review:tt('ts.rev.status.underReview'),needs_correction:tt('ts.rev.status.needsCorrectionLong'),
+    approved_internal:tt('ts.rev.status.approvedInternal'),sent_to_customer:tt('ts.rev.status.sentToCustomer'),
+    customer_confirmed:tt('ts.rev.status.customerConfirmed'),customer_rejected:tt('ts.rev.status.customerRejected'),
+    posted_to_timesheet:tt('ts.rev.status.posted'),accepted_into_timesheet:tt('ts.rev.status.transferred'),
+    rejected:tt('ts.rev.status.rejected'),draft:tt('ts.rev.status.draft')
   };
   return m[s]||s;
 }
 function evLbl(t){
-  const m={created:'erstellt',submitted:'eingereicht',review_started:'Pr\u00fcfung gestartet',
-    correction_requested:'Korrektur angefordert',corrected:'korrigiert',
-    approved_internal:'intern genehmigt',sent_to_customer:'an Kunden gesendet',
-    customer_confirmed:'vom Kunden best\u00e4tigt',customer_rejected:'vom Kunden abgelehnt',
-    posted_to_timesheet:'in Abrechnung gebucht',
-    accepted:'ins Timesheet \u00fcbernommen',rejected:'abgelehnt',comment_added:'kommentiert'
+  const m={created:tt('ts.rev.ev.created'),submitted:tt('ts.rev.ev.submitted'),review_started:tt('ts.rev.ev.reviewStarted'),
+    correction_requested:tt('ts.rev.ev.correctionRequested'),corrected:tt('ts.rev.ev.corrected'),
+    approved_internal:tt('ts.rev.ev.approvedInternal'),sent_to_customer:tt('ts.rev.ev.sentToCustomer'),
+    customer_confirmed:tt('ts.rev.ev.customerConfirmed'),customer_rejected:tt('ts.rev.ev.customerRejected'),
+    posted_to_timesheet:tt('ts.rev.ev.posted'),
+    accepted:tt('ts.rev.ev.accepted'),rejected:tt('ts.rev.ev.rejected'),comment_added:tt('ts.rev.ev.comment')
   };
   return m[t]||t;
 }
@@ -3984,3 +5595,14 @@ window.planShiftMonth = planShiftMonth;
 window.planToday = planToday;
 window.planDownloadPdf = planDownloadPdf;
 window.planBlockForWorker = planBlockForWorker;
+
+/* Sprachwechsel: die Listen, Karten und Drawer dieser Seite entstehen in JS und
+   tragen deshalb keine data-i18n-Marker — TCi18n.apply() erreicht sie nicht.
+   Nach einem Wechsel wird der aktive Tab neu aufgebaut, damit Status-Pills,
+   Aktionsknoepfe und Leerzustaende nicht in der alten Sprache stehen bleiben. */
+document.addEventListener('tc:langchange', function () {
+  if (!currentTab || !pageAccess.tabs[currentTab]) return;
+  Promise.resolve(switchTab(currentTab, { force: true })).catch(function () {
+    /* Netz-/Zugriffsfehler melden bereits die jeweiligen load*-Notices. */
+  });
+});

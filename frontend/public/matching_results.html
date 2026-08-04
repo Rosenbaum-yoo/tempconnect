@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <script src="/public/js/theme.js"></script>
   <script src="/public/js/i18n.js"></script>
-  <title>Matching-Ergebnisse – TempConnect</title>
+  <title data-i18n="srch.match.docTitle">Matching-Ergebnisse – TempConnect</title>
   <link rel="stylesheet" href="/public/css/enterprise.css"/>
   <style>
     .match-card{padding:var(--ds-space-4,16px);border:1px solid var(--line);border-radius:var(--ds-radius-lg,12px);background:rgba(255,255,255,.025);margin-bottom:12px;transition:border-color .2s}
@@ -42,17 +42,21 @@
 </head>
 <body data-sla-guard="sla_access">
   <div id="paywall" class="wrap" style="display:none">
-    <nav class="ds-topbar"><div class="ds-topbar__brand"><span class="ds-topbar__brand-dot"></span>TempConnect</div><div class="ds-topbar__nav"><a href="/" class="ds-btn">Startseite</a></div></nav>
+    <nav class="ds-topbar"><div class="ds-topbar__brand"><span class="ds-topbar__brand-dot"></span>TempConnect</div><div class="ds-topbar__nav"><a href="/" class="ds-btn" data-i18n="srch.match.paywall.home">Startseite</a></div></nav>
     <div class="paywall-box">
-      <h2>Bereich nicht verfuegbar</h2>
-      <p>Aktueller Plan: <span id="paywall-current-plan" class="paywall-plan">–</span></p>
-      <a id="paywall-cta" href="/public/sla_abo.html" class="btn primary">Abo ansehen</a>
+      <h2 data-i18n="srch.match.paywall.title">Bereich nicht verfuegbar</h2>
+      <p><span data-i18n="srch.match.paywall.currentPlan">Aktueller Plan:</span> <span id="paywall-current-plan" class="paywall-plan">–</span></p>
+      <a id="paywall-cta" href="/public/sla_abo.html" class="btn primary" data-i18n="srch.match.paywall.cta">Abo ansehen</a>
     </div>
   </div>
 
   <div id="main-content" class="wrap">
     <div id="tc-shell"></div>
 
+    <!-- Titel und Untertitel setzt das Seiten-Script kontextabhaengig (Analyzer-
+         Auswahl / Personalangebot / Nachfrage) ueber TCi18n.t — deshalb KEIN
+         data-i18n hier: der Marker wuerde die kontextrichtige Fassung beim
+         naechsten apply() durch eine feste ersetzen. -->
     <div class="ds-page-header">
       <div class="ds-page-header__content">
         <h1 class="ds-page-title" id="pageTitle">Matching-Ergebnisse</h1>
@@ -62,25 +66,145 @@
 
     <div id="matchInfo" style="margin-bottom:var(--ds-space-4,16px)"></div>
     <div id="matches"></div>
-    <div id="emptyState" style="display:none" class="empty">Keine passenden Ergebnisse gefunden. Versuchen Sie andere Suchkriterien.</div>
+    <div id="emptyState" style="display:none" class="empty" data-i18n="srch.match.empty">Keine passenden Ergebnisse gefunden. Versuchen Sie andere Suchkriterien.</div>
   </div>
 
   <script src="/public/js/planFeatures.js"></script>
   <script src="/public/js/slaGuard.js"></script>
   <script>
+    /* i18n (P6.1) — Seiten-Woerterbuch des Matching-Analyzers.
+       Namensraum: srch.match. — Topbar, Navigation, Nutzerbereich und der
+       Sprach-Umschalter gehoeren der Plattform-Shell (pageShell.js).
+
+       Drei-Seiten-Regel: der Analyzer bedient Unternehmen UND Personaldienst-
+       leister auf derselben Flaeche. Die Begriffe, die sich je Rolle
+       unterscheiden (was man anlegt, wie das eigene Objekt heisst), stehen
+       deshalb als rollenspezifische Schluessel (…company.… / …agency.…) und
+       werden zur Laufzeit anhand von me.role gewaehlt — nie als eine feste
+       Fassung fuer beide.
+
+       Bewusst NICHT uebersetzt:
+       - Server-Erklaerungen (explanation.axes, quality_label, summary, gaps):
+         Text und Beschriftung kommen deterministisch aus dem Backend.
+       - API-Daten (Titel, Rollen, Staedte, Status-Rohwerte).                   */
+    TCi18n.register('de', {
+      'srch.match.docTitle': 'Matching-Ergebnisse – TempConnect',
+      'srch.match.paywall.home': 'Startseite',
+      'srch.match.paywall.title': 'Bereich nicht verfuegbar',
+      'srch.match.paywall.currentPlan': 'Aktueller Plan:',
+      'srch.match.paywall.cta': 'Abo ansehen',
+      'srch.match.empty': 'Keine passenden Ergebnisse gefunden. Versuchen Sie andere Suchkriterien.',
+
+      'srch.match.factor.role': 'Rolle',
+      'srch.match.factor.skills': 'Skills',
+      'srch.match.factor.location': 'Standort',
+      'srch.match.factor.availability': 'Verfuegbarkeit',
+      'srch.match.factor.verified': 'Verifizierung',
+      'srch.match.factor.vendorPool': 'Lieferantenpool',
+      'srch.match.factor.urgency': 'Dringlichkeit',
+      'srch.match.factor.reputation': 'Historie',
+      'srch.match.factor.smartRank': 'Smart Rank',
+      'srch.match.factor.preferredFirst': 'Bevorzugt',
+      'srch.match.factor.workerCount': 'Personalstaerke',
+      'srch.match.factor.compliance': 'Compliance',
+      'srch.match.factor.rate': 'Preisrahmen',
+
+      'srch.match.gapsLabel': 'Einschränkung:',
+      'srch.match.meta.role': 'Rolle:',
+      'srch.match.meta.city': 'Stadt:',
+      'srch.match.action.details': 'Details',
+      'srch.match.action.viewFeed': 'Im Feed ansehen',
+      'srch.match.action.createOffer': 'Angebot erstellen',
+
+      'srch.match.picker.title': 'Matching-Analyzer',
+      'srch.match.picker.subtitle': 'Waehlen Sie einen Ihrer Eintraege – wir berechnen die passendsten Treffer per Multi-Faktor-Scoring.',
+      'srch.match.picker.loading': 'Lade Ihre Eintraege…',
+      'srch.match.picker.agency.noun': 'Personalangebot',
+      'srch.match.picker.agency.create': 'Personal einstellen',
+      'srch.match.picker.company.noun': 'Anfrage',
+      'srch.match.picker.company.create': 'Arbeitsplatz anbieten',
+      'srch.match.picker.roleHint': 'Das Matching steht Unternehmen und Zeitarbeitsfirmen zur Verfuegung.',
+      'srch.match.picker.emptyTitle': 'Noch keine Eintraege',
+      'srch.match.picker.emptyText': 'Legen Sie zuerst ein {noun} an – dann zeigt der Analyzer die besten Treffer.',
+      'srch.match.picker.choose': 'Waehlen Sie ein/e {noun} fuer die Matching-Analyse:',
+      'srch.match.picker.entryFallback': 'Eintrag',
+      'srch.match.picker.cta': 'Matching ansehen',
+
+      'srch.match.title.capacity': 'Matching fuer Personalangebot',
+      'srch.match.subtitle.capacity': 'Passende Arbeitsplatzangebote für Ihr Personalangebot.',
+      'srch.match.title.demand': 'Matching fuer Nachfrage',
+      'srch.match.subtitle.demand': 'Passendes Personal für Ihre Anfrage.',
+      'srch.match.loading': 'Matching laeuft...',
+      'srch.match.error': 'Fehler: {detail}',
+      'srch.match.hits': '{count} Treffer gefunden'
+    });
+
+    TCi18n.register('en', {
+      'srch.match.docTitle': 'Matching results – TempConnect',
+      'srch.match.paywall.home': 'Home',
+      'srch.match.paywall.title': 'Area not available',
+      'srch.match.paywall.currentPlan': 'Current plan:',
+      'srch.match.paywall.cta': 'View plans',
+      'srch.match.empty': 'No matching results found. Try different search criteria.',
+
+      'srch.match.factor.role': 'Role',
+      'srch.match.factor.skills': 'Skills',
+      'srch.match.factor.location': 'Location',
+      'srch.match.factor.availability': 'Availability',
+      'srch.match.factor.verified': 'Verification',
+      'srch.match.factor.vendorPool': 'Vendor pool',
+      'srch.match.factor.urgency': 'Urgency',
+      'srch.match.factor.reputation': 'Track record',
+      'srch.match.factor.smartRank': 'Smart rank',
+      'srch.match.factor.preferredFirst': 'Preferred',
+      'srch.match.factor.workerCount': 'Headcount',
+      'srch.match.factor.compliance': 'Compliance',
+      'srch.match.factor.rate': 'Rate card',
+
+      'srch.match.gapsLabel': 'Limitation:',
+      'srch.match.meta.role': 'Role:',
+      'srch.match.meta.city': 'City:',
+      'srch.match.action.details': 'Details',
+      'srch.match.action.viewFeed': 'View in feed',
+      'srch.match.action.createOffer': 'Create offer',
+
+      'srch.match.picker.title': 'Matching analyzer',
+      'srch.match.picker.subtitle': 'Pick one of your entries – we calculate the closest matches with multi-factor scoring.',
+      'srch.match.picker.loading': 'Loading your entries…',
+      'srch.match.picker.agency.noun': 'staff offer',
+      'srch.match.picker.agency.create': 'List staff',
+      'srch.match.picker.company.noun': 'request',
+      'srch.match.picker.company.create': 'Post a job',
+      'srch.match.picker.roleHint': 'Matching is available to companies and staffing providers.',
+      'srch.match.picker.emptyTitle': 'No entries yet',
+      'srch.match.picker.emptyText': 'Create a {noun} first – then the analyzer shows you the best matches.',
+      'srch.match.picker.choose': 'Pick a {noun} for the matching analysis:',
+      'srch.match.picker.entryFallback': 'Entry',
+      'srch.match.picker.cta': 'View matching',
+
+      'srch.match.title.capacity': 'Matching for staff offer',
+      'srch.match.subtitle.capacity': 'Matching job postings for your staff offer.',
+      'srch.match.title.demand': 'Matching for demand',
+      'srch.match.subtitle.demand': 'Matching staff for your request.',
+      'srch.match.loading': 'Matching running...',
+      'srch.match.error': 'Error: {detail}',
+      'srch.match.hits': '{count} hits found'
+    });
+
     var API = "/api";
     function esc(s){return s==null?"":String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;")}
     function fmtDate(d){return d?String(d).substring(0,10):"–"}
 
     // Fallback-Beschriftung nur noch fuer Altdaten ohne Server-Erklaerung (P4.2:
     // Labels + Formulierung gehoeren dem Backend, sonst driftet jede Seite fuer sich).
-    var FACTOR_LABELS={role:"Rolle",skills:"Skills",location:"Standort",availability:"Verfuegbarkeit",verified:"Verifizierung",vendorPool:"Lieferantenpool",urgency:"Dringlichkeit",reputation:"Historie",smartRank:"Smart Rank",preferredFirst:"Bevorzugt",workerCount:"Personalstaerke",compliance:"Compliance",rate:"Preisrahmen"};
+    // Unbekannter Faktor: Rohschluessel statt Leertext — er ist ehrlicher als nichts.
+    function factorLabel(factor){return TCi18n.t('srch.match.factor.'+factor)||factor}
 
     function renderScoreBars(reasons,explanation){
       var axes=(explanation&&explanation.axes&&explanation.axes.length)
         ? explanation.axes
         : (reasons||[]).map(function(r){
-            return {label:FACTOR_LABELS[r.factor]||r.factor,points:r.points,max:r.max,
+            return {label:factorLabel(r.factor),points:r.points,max:r.max,
                     pct:r.max>0?Math.round((r.points/r.max)*100):0,
                     status:r.points>0?"partial":"missing",phrase:r.detail};
           });
@@ -102,7 +226,7 @@
         '<span class="match-why__badge">'+esc(explanation.quality_label||"")+'</span>'+
         '<span class="match-why__text">'+esc(explanation.summary||"")+'</span></div>';
       if(explanation.gaps&&explanation.gaps.length){
-        out+='<div class="match-gaps">Einschränkung: '+esc(explanation.gaps.slice(0,2).join(", "))+'</div>';
+        out+='<div class="match-gaps">'+esc(TCi18n.t('srch.match.gapsLabel'))+' '+esc(explanation.gaps.slice(0,2).join(", "))+'</div>';
       }
       return out;
     }
@@ -121,17 +245,17 @@
       var actions='';
       if(type==='capacity'){
         // Viewing matches for a capacity entry ? show requisitions/demands
-        actions='<a href="/public/company_requests.html" class="btn primary" style="font-size:12px;padding:6px 12px">Details</a>';
+        actions='<a href="/public/company_requests.html" class="btn primary" style="font-size:12px;padding:6px 12px">'+esc(TCi18n.t('srch.match.action.details'))+'</a>';
       }else{
         // Viewing matches for a demand ? show capacity posts
         var entryId=entity.id||'';
-        actions='<a href="/public/capacity_exchange_feed.html" class="btn" style="font-size:12px;padding:6px 12px">Im Feed ansehen</a>';
-        actions+=' <a href="/public/sla_angebote.html?demand_id='+encodeURIComponent(entryId)+'" class="btn primary" style="font-size:12px;padding:6px 12px">Angebot erstellen</a>';
+        actions='<a href="/public/capacity_exchange_feed.html" class="btn" style="font-size:12px;padding:6px 12px">'+esc(TCi18n.t('srch.match.action.viewFeed'))+'</a>';
+        actions+=' <a href="/public/sla_angebote.html?demand_id='+encodeURIComponent(entryId)+'" class="btn primary" style="font-size:12px;padding:6px 12px">'+esc(TCi18n.t('srch.match.action.createOffer'))+'</a>';
       }
 
       return '<div class="match-card">'+
         '<div class="match-header">'+
-        '<div><div style="font-size:15px;font-weight:700">'+esc(title)+'</div><div class="match-meta"><span>Rolle: '+esc(role)+'</span><span>Stadt: '+esc(city)+'</span><span>'+from+' – '+to+'</span></div></div>'+
+        '<div><div style="font-size:15px;font-weight:700">'+esc(title)+'</div><div class="match-meta"><span>'+esc(TCi18n.t('srch.match.meta.role'))+' '+esc(role)+'</span><span>'+esc(TCi18n.t('srch.match.meta.city'))+' '+esc(city)+'</span><span>'+from+' – '+to+'</span></div></div>'+
         '<div class="match-score">'+score+'<small>/100</small></div>'+
         '</div>'+
         renderWhy(explanation)+
@@ -142,32 +266,35 @@
 
     // Kein ?id= -> Analyzer-Auswahl: eigene Eintraege rollenabhaengig laden, dann Matching.
     async function renderPicker(){
-      document.getElementById("pageTitle").textContent="Matching-Analyzer";
-      document.getElementById("pageSubtitle").textContent="Waehlen Sie einen Ihrer Eintraege – wir berechnen die passendsten Treffer per Multi-Faktor-Scoring.";
+      document.getElementById("pageTitle").textContent=TCi18n.t('srch.match.picker.title');
+      document.getElementById("pageSubtitle").textContent=TCi18n.t('srch.match.picker.subtitle');
       var container=document.getElementById("matches");
-      container.innerHTML='<p style="color:var(--muted)">Lade Ihre Eintraege…</p>';
+      container.innerHTML='<p style="color:var(--muted)">'+esc(TCi18n.t('srch.match.picker.loading'))+'</p>';
       var me=null;
       try{ var rm=await fetch(API+"/me",{credentials:"include"}); me=rm.ok?await rm.json():null; }catch(e){}
       var role=me&&me.role, cfg;
-      if(role==="agency") cfg={type:"capacity",url:API+"/capacity-exchange/entries?limit=50",noun:"Personalangebot",create:"/public/capacity_exchange_form.html",createLabel:"Personal einstellen"};
-      else if(role==="company") cfg={type:"demand",url:API+"/marketplace/demand-requests?limit=50",noun:"Anfrage",create:"/public/marketplace_demand_create.html",createLabel:"Arbeitsplatz anbieten"};
-      else{ container.innerHTML='<p class="empty">Das Matching steht Unternehmen und Zeitarbeitsfirmen zur Verfuegung.</p>'; return; }
+      // Drei-Seiten-Regel: Substantiv und Aktion sind je Rolle andere Begriffe —
+      // die Schluessel tragen die Rolle, damit keine Seite die Sprache der
+      // Gegenseite liest.
+      if(role==="agency") cfg={type:"capacity",url:API+"/capacity-exchange/entries?limit=50",noun:TCi18n.t('srch.match.picker.agency.noun'),create:"/public/capacity_exchange_form.html",createLabel:TCi18n.t('srch.match.picker.agency.create')};
+      else if(role==="company") cfg={type:"demand",url:API+"/marketplace/demand-requests?limit=50",noun:TCi18n.t('srch.match.picker.company.noun'),create:"/public/marketplace_demand_create.html",createLabel:TCi18n.t('srch.match.picker.company.create')};
+      else{ container.innerHTML='<p class="empty">'+esc(TCi18n.t('srch.match.picker.roleHint'))+'</p>'; return; }
       var rows=[];
       try{ var r=await fetch(cfg.url,{credentials:"include"}); if(r.ok){ var d=await r.json(); rows=Array.isArray(d)?d:(d.items||(d.data&&d.data.items)||[]); } }catch(e){}
       if(!rows.length){
-        container.innerHTML='<div class="empty" style="text-align:center;padding:var(--ds-space-6,24px)"><p style="font-size:15px;font-weight:700">Noch keine Eintraege</p><p style="font-size:13px;color:var(--muted);margin:6px 0 14px">Legen Sie zuerst ein '+esc(cfg.noun)+' an – dann zeigt der Analyzer die besten Treffer.</p><a href="'+cfg.create+'" class="btn primary">'+esc(cfg.createLabel)+'</a></div>';
+        container.innerHTML='<div class="empty" style="text-align:center;padding:var(--ds-space-6,24px)"><p style="font-size:15px;font-weight:700">'+esc(TCi18n.t('srch.match.picker.emptyTitle'))+'</p><p style="font-size:13px;color:var(--muted);margin:6px 0 14px">'+esc(TCi18n.t('srch.match.picker.emptyText',{noun:cfg.noun}))+'</p><a href="'+cfg.create+'" class="btn primary">'+esc(cfg.createLabel)+'</a></div>';
         return;
       }
-      document.getElementById("matchInfo").innerHTML='<div style="font-size:13px;color:var(--muted)">Waehlen Sie ein/e '+esc(cfg.noun)+' fuer die Matching-Analyse:</div>';
+      document.getElementById("matchInfo").innerHTML='<div style="font-size:13px;color:var(--muted)">'+esc(TCi18n.t('srch.match.picker.choose',{noun:cfg.noun}))+'</div>';
       container.innerHTML=rows.map(function(it){
-        var label=esc(it.title||it.role||"Eintrag"), sub=[];
+        var label=esc(it.title||it.role||TCi18n.t('srch.match.picker.entryFallback')), sub=[];
         if(it.role&&it.role!==it.title) sub.push(esc(it.role));
         if(it.location_city) sub.push(esc(it.location_city));
         if(it.status) sub.push(esc(it.status));
         return '<button class="match-card" style="width:100%;text-align:left;cursor:pointer;display:block;font:inherit;color:inherit" onclick="pickEntry(\''+esc(it.id)+'\',\''+cfg.type+'\')">'+
           '<div style="display:flex;justify-content:space-between;align-items:center;gap:12px">'+
           '<div><div style="font-size:15px;font-weight:700">'+label+'</div>'+(sub.length?'<div class="match-meta" style="margin:4px 0 0"><span>'+sub.join(" · ")+'</span></div>':'')+'</div>'+
-          '<span class="btn primary" style="font-size:12px;padding:6px 12px;pointer-events:none">Matching ansehen →</span>'+
+          '<span class="btn primary" style="font-size:12px;padding:6px 12px;pointer-events:none">'+esc(TCi18n.t('srch.match.picker.cta'))+' →</span>'+
           '</div></button>';
       }).join("");
     }
@@ -187,31 +314,40 @@
       var url;
       if(type==="capacity"){
         url=API+"/capacity-exchange/entries/"+encodeURIComponent(id)+"/matches";
-        document.getElementById("pageTitle").textContent="Matching fuer Personalangebot";
-        document.getElementById("pageSubtitle").textContent="Passende Arbeitsplatzangebote für Ihr Personalangebot.";
+        document.getElementById("pageTitle").textContent=TCi18n.t('srch.match.title.capacity');
+        document.getElementById("pageSubtitle").textContent=TCi18n.t('srch.match.subtitle.capacity');
       }else{
         url=API+"/marketplace/demand-requests/"+encodeURIComponent(id)+"/matches";
-        document.getElementById("pageTitle").textContent="Matching fuer Nachfrage";
-        document.getElementById("pageSubtitle").textContent="Passendes Personal für Ihre Anfrage.";
+        document.getElementById("pageTitle").textContent=TCi18n.t('srch.match.title.demand');
+        document.getElementById("pageSubtitle").textContent=TCi18n.t('srch.match.subtitle.demand');
       }
 
       var container=document.getElementById("matches");
-      container.innerHTML='<p style="color:var(--muted)">Matching laeuft...</p>';
+      container.innerHTML='<p style="color:var(--muted)">'+esc(TCi18n.t('srch.match.loading'))+'</p>';
 
       try{
         var r=await fetch(url,{credentials:"include"});
-        if(!r.ok){container.innerHTML='<p style="color:var(--bad)">Fehler: '+r.status+'</p>';return;}
+        if(!r.ok){container.innerHTML='<p style="color:var(--bad)">'+esc(TCi18n.t('srch.match.error',{detail:r.status}))+'</p>';return;}
         var data=await r.json();
         var items=Array.isArray(data)?data:(data.data&&data.data.items)||data.items||data.matches||[];
         if(!items.length){container.innerHTML='';document.getElementById("emptyState").style.display="block";return;}
 
-        document.getElementById("matchInfo").innerHTML='<div style="font-size:13px;color:var(--muted)">'+items.length+' Treffer gefunden</div>';
+        document.getElementById("matchInfo").innerHTML='<div style="font-size:13px;color:var(--muted)">'+esc(TCi18n.t('srch.match.hits',{count:items.length}))+'</div>';
         container.innerHTML=items.map(function(m){return renderMatchCard(m,type)}).join("");
       }catch(e){
-        container.innerHTML='<p style="color:var(--bad)">Fehler: '+esc(e.message)+'</p>';
+        container.innerHTML='<p style="color:var(--bad)">'+esc(TCi18n.t('srch.match.error',{detail:e.message}))+'</p>';
       }
     }
     loadMatches();
+
+    /* Sprachwechsel: Titel, Untertitel und alle Karten baut dieses Script per
+       textContent/innerHTML — TCi18n.apply() erreicht sie nicht. Der Analyzer
+       ist rein lesend, ein erneuter Aufbau ist daher gefahrlos und haelt die
+       Ansicht (Auswahl oder Trefferliste) in der neuen Sprache vollstaendig. */
+    document.addEventListener('tc:langchange', function(){
+      document.getElementById("emptyState").style.display="none";
+      loadMatches();
+    });
   </script>
   <script src="/public/js/pageShell.js"></script>
   <script src="/public/js/notifications.js"></script>

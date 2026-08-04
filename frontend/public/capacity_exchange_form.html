@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <script src="/public/js/theme.js"></script>
   <script src="/public/js/i18n.js"></script>
-  <title>Personal einstellen – TempConnect</title>
+  <title data-i18n="cap.page.agency.docTitle">Personal einstellen – TempConnect</title>
   <link rel="stylesheet" href="/public/css/enterprise.css"/>
   <style>
     .ce-form-actions { display: flex; gap: var(--ds-space-3); flex-wrap: wrap; margin-top: var(--ds-space-6); }
@@ -64,11 +64,11 @@
 </head>
 <body data-sla-guard="sla_access">
   <div id="paywall" class="wrap" style="display:none">
-    <nav class="ds-topbar"><div class="ds-topbar__brand"><span class="ds-topbar__brand-dot"></span>TempConnect</div><div class="ds-topbar__nav"><a href="/" class="ds-btn">Startseite</a></div></nav>
+    <nav class="ds-topbar"><div class="ds-topbar__brand"><span class="ds-topbar__brand-dot"></span>TempConnect</div><div class="ds-topbar__nav"><a href="/" class="ds-btn" data-i18n="cap.paywall.home">Startseite</a></div></nav>
     <div class="paywall-box">
-      <h2>Bereich nicht verfuegbar</h2>
-      <p>Aktueller Plan: <span id="paywall-current-plan" class="paywall-plan">–</span></p>
-      <a id="paywall-cta" href="/public/sla_abo.html" class="btn primary">Abo ansehen</a>
+      <h2 data-i18n="cap.paywall.title">Bereich nicht verfuegbar</h2>
+      <p><span data-i18n="cap.paywall.plan">Aktueller Plan:</span> <span id="paywall-current-plan" class="paywall-plan">–</span></p>
+      <a id="paywall-cta" href="/public/sla_abo.html" class="btn primary" data-i18n="cap.paywall.cta">Abo ansehen</a>
     </div>
   </div>
 
@@ -77,11 +77,11 @@
 
     <div class="ds-page-header">
       <div class="ds-page-header__content">
-        <h1 class="ds-page-title" id="page-title">Personal einstellen</h1>
-        <p class="ds-page-subtitle" id="page-subtitle">Erfassen Sie Ihr verfügbares Personal. Pflichtfelder sind mit * markiert.</p>
+        <h1 class="ds-page-title" id="page-title" data-i18n="cap.page.agency.title">Personal einstellen</h1>
+        <p class="ds-page-subtitle" id="page-subtitle" data-i18n="cap.page.agency.subtitle">Erfassen Sie Ihr verfügbares Personal. Pflichtfelder sind mit * markiert.</p>
       </div>
       <div class="ds-page-header__actions">
-        <a href="/public/capacity_exchange_manage.html" class="ds-btn">Zurueck zur Liste</a>
+        <a href="/public/capacity_exchange_manage.html" class="ds-btn" data-i18n="cap.page.back">Zurueck zur Liste</a>
       </div>
     </div>
 
@@ -89,79 +89,79 @@
 
       <!-- Section 1: Workforce Basics -->
       <div class="ds-form-section">
-        <div class="ds-form-section__title">Personalangebot</div>
+        <div class="ds-form-section__title" data-i18n="cap.section.agency.offer">Personalangebot</div>
         <div class="ds-form-grid">
           <div class="ds-form-full ds-form-group">
-            <label class="ds-label ds-label--required" for="f-title">Titel</label>
-            <input type="text" id="f-title" class="ds-input" required maxlength="200" placeholder="z.B. 5 Lagerhelfer Raum Stuttgart"/>
+            <label class="ds-label ds-label--required" for="f-title" data-i18n="cap.f.title">Titel</label>
+            <input type="text" id="f-title" class="ds-input" required maxlength="200" placeholder="z.B. 5 Lagerhelfer Raum Stuttgart" data-i18n-ph="cap.f.titlePh"/>
           </div>
           <div class="ds-form-group">
-            <label class="ds-label ds-label--required" for="f-role">Rolle / Beruf</label>
-            <input type="text" id="f-role" class="ds-input" required maxlength="120" placeholder="z.B. Lagerhelfer"/>
+            <label class="ds-label ds-label--required" for="f-role" data-i18n="cap.f.role">Rolle / Beruf</label>
+            <input type="text" id="f-role" class="ds-input" required maxlength="120" placeholder="z.B. Lagerhelfer" data-i18n-ph="cap.f.rolePh"/>
           </div>
           <div class="ds-form-group">
-            <label class="ds-label" for="f-worker-category">Kategorie</label>
+            <label class="ds-label" for="f-worker-category" data-i18n="cap.f.category">Kategorie</label>
             <select id="f-worker-category" class="ds-select">
-              <option value="">– Keine Angabe –</option>
-              <option value="Helfer">Helfer</option>
-              <option value="Fachkraft">Fachkraft</option>
-              <option value="Spezialist">Spezialist</option>
-              <option value="Fuehrungskraft">Fuehrungskraft</option>
+              <option value="" data-i18n="cap.opt.none">– Keine Angabe –</option>
+              <option value="Helfer" data-i18n="cap.cat.helper">Helfer</option>
+              <option value="Fachkraft" data-i18n="cap.cat.skilled">Fachkraft</option>
+              <option value="Spezialist" data-i18n="cap.cat.specialist">Spezialist</option>
+              <option value="Fuehrungskraft" data-i18n="cap.cat.lead">Fuehrungskraft</option>
             </select>
           </div>
           <div class="ds-form-group">
-            <label class="ds-label" for="f-headcount">Anzahl Personen</label>
+            <label class="ds-label" for="f-headcount" data-i18n="cap.f.headcount">Anzahl Personen</label>
             <input type="number" id="f-headcount" class="ds-input" min="1" max="999" value="1"/>
           </div>
           <div class="ds-form-full ds-form-group">
-            <label class="ds-label" for="f-skills">Skills (kommagetrennt)</label>
-            <input type="text" id="f-skills" class="ds-input" placeholder="z.B. Stapler, Kommissionierung, SAP"/>
-            <span class="ds-helper">Kommagetrennte Schlagworte fuer besseres Matching.</span>
+            <label class="ds-label" for="f-skills" data-i18n="cap.f.skills">Skills (kommagetrennt)</label>
+            <input type="text" id="f-skills" class="ds-input" placeholder="z.B. Stapler, Kommissionierung, SAP" data-i18n-ph="cap.f.skillsPh"/>
+            <span class="ds-helper" data-i18n="cap.f.skillsHelp">Kommagetrennte Schlagworte fuer besseres Matching.</span>
           </div>
         </div>
       </div>
 
       <!-- Section 2: Timing -->
       <div class="ds-form-section">
-        <div class="ds-form-section__title">Zeitraum &amp; Einsatzmodell</div>
+        <div class="ds-form-section__title" data-i18n="cap.section.timing">Zeitraum &amp; Einsatzmodell</div>
         <div class="ds-form-grid">
           <div class="ds-form-group">
-            <label class="ds-label" for="f-availability-type">Verfuegbarkeitstyp</label>
+            <label class="ds-label" for="f-availability-type" data-i18n="cap.f.availType">Verfuegbarkeitstyp</label>
             <select id="f-availability-type" class="ds-select">
-              <option value="immediate">Sofort verfuegbar (heute oder morgen)</option>
-              <option value="scheduled">Geplant</option>
-              <option value="flexible">Flexibel</option>
+              <option value="immediate" data-i18n="cap.avail.immediate">Sofort verfuegbar (heute oder morgen)</option>
+              <option value="scheduled" data-i18n="cap.avail.scheduled">Geplant</option>
+              <option value="flexible" data-i18n="cap.avail.flexible">Flexibel</option>
             </select>
           </div>
           <div class="ds-form-group">
-            <label class="ds-label ds-label--required" for="f-from">Verfuegbar ab</label>
+            <label class="ds-label ds-label--required" for="f-from" data-i18n="cap.f.from">Verfuegbar ab</label>
             <input type="date" id="f-from" class="ds-input" required/>
           </div>
           <div class="ds-form-group">
-            <label class="ds-label" for="f-to">Verfuegbar bis</label>
+            <label class="ds-label" for="f-to" data-i18n="cap.f.to">Verfuegbar bis</label>
             <input type="date" id="f-to" class="ds-input"/>
-            <span class="ds-helper">Leer = unbefristet</span>
+            <span class="ds-helper" data-i18n="cap.f.toHelp">Leer = unbefristet</span>
           </div>
           <div class="ds-form-group">
-            <label class="ds-label" for="f-shift">Schichtmodell</label>
+            <label class="ds-label" for="f-shift" data-i18n="cap.f.shift">Schichtmodell</label>
             <select id="f-shift" class="ds-select">
-              <option value="">– Keine Angabe –</option>
-              <option value="day">Tagschicht</option>
-              <option value="night">Nachtschicht</option>
-              <option value="rotating">Wechselschicht</option>
-              <option value="flexible">Flexibel</option>
-              <option value="weekend">Wochenende</option>
-              <option value="on_call">Bereitschaft</option>
+              <option value="" data-i18n="cap.opt.none">– Keine Angabe –</option>
+              <option value="day" data-i18n="cap.shift.day">Tagschicht</option>
+              <option value="night" data-i18n="cap.shift.night">Nachtschicht</option>
+              <option value="rotating" data-i18n="cap.shift.rotating">Wechselschicht</option>
+              <option value="flexible" data-i18n="cap.shift.flexible">Flexibel</option>
+              <option value="weekend" data-i18n="cap.shift.weekend">Wochenende</option>
+              <option value="on_call" data-i18n="cap.shift.onCall">Bereitschaft</option>
             </select>
           </div>
           <div class="ds-form-group">
-            <label class="ds-label" for="f-employment">Einsatzart</label>
+            <label class="ds-label" for="f-employment" data-i18n="cap.f.employment">Einsatzart</label>
             <select id="f-employment" class="ds-select">
-              <option value="temporary">Arbeitnehmerueberlassung</option>
-              <option value="contract">Werkvertrag</option>
-              <option value="temp_to_perm">Temp-to-Perm</option>
-              <option value="project">Projektbasis</option>
-              <option value="on_call">Abruf</option>
+              <option value="temporary" data-i18n="cap.emp.temporary">Arbeitnehmerueberlassung</option>
+              <option value="contract" data-i18n="cap.emp.contract">Werkvertrag</option>
+              <option value="temp_to_perm" data-i18n="cap.emp.tempToPerm">Temp-to-Perm</option>
+              <option value="project" data-i18n="cap.emp.project">Projektbasis</option>
+              <option value="on_call" data-i18n="cap.emp.onCall">Abruf</option>
             </select>
           </div>
         </div>
@@ -169,7 +169,7 @@
              Belegschaft die angebotene Kopfzahl im gewaehlten Zeitraum wirklich traegt. -->
         <div id="coverage-panel" class="ce-coverage" hidden>
           <div class="ce-coverage__head">
-            <span class="ce-coverage__title">Deckung aus Ihrer Belegschaft</span>
+            <span class="ce-coverage__title" data-i18n="cap.cov.title">Deckung aus Ihrer Belegschaft</span>
             <span id="coverage-summary" class="ce-coverage__summary"></span>
           </div>
           <div id="coverage-note" class="ce-coverage__note"></div>
@@ -179,31 +179,31 @@
 
       <!-- Section 3: Location -->
       <div class="ds-form-section">
-        <div class="ds-form-section__title">Standort &amp; Einsatzgebiet</div>
+        <div class="ds-form-section__title" data-i18n="cap.section.location">Standort &amp; Einsatzgebiet</div>
         <div class="ds-form-grid">
           <div class="ds-form-group">
-            <label class="ds-label ds-label--required" for="f-city">Stadt</label>
-            <input type="text" id="f-city" class="ds-input" required maxlength="120" placeholder="z.B. Stuttgart"/>
+            <label class="ds-label ds-label--required" for="f-city" data-i18n="cap.f.city">Stadt</label>
+            <input type="text" id="f-city" class="ds-input" required maxlength="120" placeholder="z.B. Stuttgart" data-i18n-ph="cap.f.cityPh"/>
           </div>
           <div class="ds-form-group">
-            <label class="ds-label" for="f-postal">PLZ</label>
-            <input type="text" id="f-postal" class="ds-input" maxlength="20" placeholder="z.B. 70173"/>
+            <label class="ds-label" for="f-postal" data-i18n="cap.f.postal">PLZ</label>
+            <input type="text" id="f-postal" class="ds-input" maxlength="20" placeholder="z.B. 70173" data-i18n-ph="cap.f.postalPh"/>
           </div>
           <div class="ds-form-group">
-            <label class="ds-label" for="f-radius">Einsatzradius (km)</label>
+            <label class="ds-label" for="f-radius" data-i18n="cap.f.radius">Einsatzradius (km)</label>
             <input type="number" id="f-radius" class="ds-input" min="1" max="500" value="25"/>
           </div>
           <div class="ds-form-group">
-            <label class="ds-label" for="f-country">Land</label>
+            <label class="ds-label" for="f-country" data-i18n="cap.f.country">Land</label>
             <select id="f-country" class="ds-select">
-              <option value="DE" selected>Deutschland</option>
-              <option value="AT">Oesterreich</option>
-              <option value="CH">Schweiz</option>
+              <option value="DE" selected data-i18n="cap.country.de">Deutschland</option>
+              <option value="AT" data-i18n="cap.country.at">Oesterreich</option>
+              <option value="CH" data-i18n="cap.country.ch">Schweiz</option>
             </select>
           </div>
           <div class="ds-form-full ds-form-group">
-            <label class="ds-label" for="f-mobility">Mobilitaetshinweise</label>
-            <textarea id="f-mobility" class="ds-textarea" maxlength="500" rows="2" placeholder="z.B. Eigener PKW vorhanden, bundesweit einsetzbar"></textarea>
+            <label class="ds-label" for="f-mobility" data-i18n="cap.f.mobility">Mobilitaetshinweise</label>
+            <textarea id="f-mobility" class="ds-textarea" maxlength="500" rows="2" placeholder="z.B. Eigener PKW vorhanden, bundesweit einsetzbar" data-i18n-ph="cap.f.mobilityPh"></textarea>
           </div>
         </div>
         <div id="geo-status" class="ds-alert ds-alert--info" style="display:none;margin-top:var(--ds-space-3)"></div>
@@ -211,23 +211,23 @@
 
       <!-- Section 4: Qualifications -->
       <div class="ds-form-section">
-        <div class="ds-form-section__title">Qualifikationen &amp; Compliance</div>
+        <div class="ds-form-section__title" data-i18n="cap.section.qualifications">Qualifikationen &amp; Compliance</div>
         <div class="ds-form-grid">
           <div class="ds-form-full ds-form-group">
-            <label class="ds-label" for="f-qualifications">Qualifikationsprofil</label>
-            <textarea id="f-qualifications" class="ds-textarea" maxlength="2000" rows="3" placeholder="Zusammenfassung relevanter Qualifikationen und Erfahrungen"></textarea>
+            <label class="ds-label" for="f-qualifications" data-i18n="cap.f.qualifications">Qualifikationsprofil</label>
+            <textarea id="f-qualifications" class="ds-textarea" maxlength="2000" rows="3" placeholder="Zusammenfassung relevanter Qualifikationen und Erfahrungen" data-i18n-ph="cap.f.qualificationsPh"></textarea>
           </div>
           <div class="ds-form-full ds-form-group">
-            <label class="ds-label" for="f-certifications">Zertifikate / Nachweise</label>
-            <textarea id="f-certifications" class="ds-textarea" maxlength="2000" rows="2" placeholder="z.B. Staplerschein, Erste-Hilfe, Sicherheitsunterweisung"></textarea>
+            <label class="ds-label" for="f-certifications" data-i18n="cap.f.certifications">Zertifikate / Nachweise</label>
+            <textarea id="f-certifications" class="ds-textarea" maxlength="2000" rows="2" placeholder="z.B. Staplerschein, Erste-Hilfe, Sicherheitsunterweisung" data-i18n-ph="cap.f.certificationsPh"></textarea>
           </div>
           <div class="ds-form-group">
-            <label class="ds-label" for="f-compliance">Compliance-Status</label>
+            <label class="ds-label" for="f-compliance" data-i18n="cap.f.compliance">Compliance-Status</label>
             <select id="f-compliance" class="ds-select">
-              <option value="unknown">Unbekannt</option>
-              <option value="pending">In Pruefung</option>
-              <option value="partial">Teilweise</option>
-              <option value="complete">Vollstaendig</option>
+              <option value="unknown" data-i18n="cap.compliance.unknown">Unbekannt</option>
+              <option value="pending" data-i18n="cap.compliance.pending">In Pruefung</option>
+              <option value="partial" data-i18n="cap.compliance.partial">Teilweise</option>
+              <option value="complete" data-i18n="cap.compliance.complete">Vollstaendig</option>
             </select>
           </div>
         </div>
@@ -235,66 +235,66 @@
 
       <!-- Section 5: Commercial -->
       <div class="ds-form-section">
-        <div class="ds-form-section__title">Konditionen</div>
+        <div class="ds-form-section__title" data-i18n="cap.section.commercial">Konditionen</div>
         <div class="ds-form-grid">
           <div class="ds-form-group">
-            <label class="ds-label" for="f-price-type">Preistyp</label>
+            <label class="ds-label" for="f-price-type" data-i18n="cap.f.priceType">Preistyp</label>
             <select id="f-price-type" class="ds-select">
-              <option value="">– Keine Angabe –</option>
-              <option value="hourly">Stundensatz</option>
-              <option value="daily">Tagessatz</option>
-              <option value="fixed">Festpreis</option>
+              <option value="" data-i18n="cap.opt.none">– Keine Angabe –</option>
+              <option value="hourly" data-i18n="cap.price.hourly">Stundensatz</option>
+              <option value="daily" data-i18n="cap.price.daily">Tagessatz</option>
+              <option value="fixed" data-i18n="cap.price.fixed">Festpreis</option>
             </select>
           </div>
           <div class="ds-form-group">
-            <label class="ds-label" for="f-price-min">Preis min (EUR)</label>
+            <label class="ds-label" for="f-price-min" data-i18n="cap.f.priceMin">Preis min (EUR)</label>
             <input type="number" id="f-price-min" class="ds-input" step="0.01" min="0"/>
           </div>
           <div class="ds-form-group">
-            <label class="ds-label" for="f-price-max">Preis max (EUR)</label>
+            <label class="ds-label" for="f-price-max" data-i18n="cap.f.priceMax">Preis max (EUR)</label>
             <input type="number" id="f-price-max" class="ds-input" step="0.01" min="0"/>
           </div>
           <div class="ds-form-full ds-form-group">
-            <label class="ds-label" for="f-price-hint">Preishinweis</label>
-            <input type="text" id="f-price-hint" class="ds-input" maxlength="200" placeholder="z.B. Staffelpreise ab 10 MA moeglich"/>
+            <label class="ds-label" for="f-price-hint" data-i18n="cap.f.priceHint">Preishinweis</label>
+            <input type="text" id="f-price-hint" class="ds-input" maxlength="200" placeholder="z.B. Staffelpreise ab 10 MA moeglich" data-i18n-ph="cap.f.priceHintPh"/>
           </div>
           <div class="ds-form-full ds-form-group">
-            <label class="ds-label" for="f-notes">Interne Notizen</label>
-            <textarea id="f-notes" class="ds-textarea" maxlength="2000" rows="2" placeholder="Nur fuer interne Zwecke sichtbar"></textarea>
+            <label class="ds-label" for="f-notes" data-i18n="cap.f.notes">Interne Notizen</label>
+            <textarea id="f-notes" class="ds-textarea" maxlength="2000" rows="2" placeholder="Nur fuer interne Zwecke sichtbar" data-i18n-ph="cap.f.notesPh"></textarea>
           </div>
         </div>
       </div>
 
       <!-- Section 6: Visibility -->
       <div class="ds-form-section">
-        <div class="ds-form-section__title">Sichtbarkeit &amp; Steuerung</div>
+        <div class="ds-form-section__title" data-i18n="cap.section.visibility">Sichtbarkeit &amp; Steuerung</div>
         <div class="ds-form-grid">
           <div class="ds-form-group">
-            <label class="ds-label" for="f-visibility">Sichtbarkeit</label>
+            <label class="ds-label" for="f-visibility" data-i18n="cap.f.visibility">Sichtbarkeit</label>
             <select id="f-visibility" class="ds-select">
-              <option value="public">Oeffentlich</option>
-              <option value="plan_gated">Plan-beschraenkt</option>
-              <option value="vendor_pool_only">Nur Vendor-Pool</option>
-              <option value="private">Privat</option>
+              <option value="public" data-i18n="cap.vis.public">Oeffentlich</option>
+              <option value="plan_gated" data-i18n="cap.vis.planGated">Plan-beschraenkt</option>
+              <option value="vendor_pool_only" data-i18n="cap.vis.vendorPool">Nur Vendor-Pool</option>
+              <option value="private" data-i18n="cap.vis.private">Privat</option>
             </select>
           </div>
           <div class="ds-form-group">
-            <label class="ds-label" for="f-priority">Prioritaet</label>
+            <label class="ds-label" for="f-priority" data-i18n="cap.f.priority">Prioritaet</label>
             <select id="f-priority" class="ds-select">
-              <option value="normal">Normal</option>
-              <option value="elevated">Erhoet</option>
-              <option value="urgent">Dringend</option>
+              <option value="normal" data-i18n="cap.prio.normal">Normal</option>
+              <option value="elevated" data-i18n="cap.prio.elevated">Erhoeht</option>
+              <option value="urgent" data-i18n="cap.prio.urgent">Dringend</option>
             </select>
           </div>
           <div class="ds-form-group">
-            <label class="ds-label" for="f-valid-until">Gueltig bis</label>
+            <label class="ds-label" for="f-valid-until" data-i18n="cap.f.validUntil">Gueltig bis</label>
             <input type="date" id="f-valid-until" class="ds-input"/>
-            <span class="ds-helper">Auto-Ablauf nach diesem Datum</span>
+            <span class="ds-helper" data-i18n="cap.f.validUntilHelp">Auto-Ablauf nach diesem Datum</span>
           </div>
           <div class="ds-form-full ds-form-group" style="padding-top:var(--ds-space-2)">
             <label class="ce-toggle">
               <input type="checkbox" id="f-search-agent"/>
-              Such-Agent aktivieren (automatisch auf passende Anfragen matchen)
+              <span data-i18n="cap.f.searchAgent">Such-Agent aktivieren (automatisch auf passende Anfragen matchen)</span>
             </label>
           </div>
         </div>
@@ -302,20 +302,20 @@
 
       <!-- Section 7: Bildvorschau (optional) -->
       <div class="ds-form-section">
-        <div class="ds-form-section__title">Vorschaubild (optional)</div>
+        <div class="ds-form-section__title" data-i18n="cap.section.media">Vorschaubild (optional)</div>
         <div class="ce-media-grid">
           <div class="ce-media-drop">
-            <label class="ds-label" for="f-listing-image">Eintragsbild</label>
+            <label class="ds-label" for="f-listing-image" data-i18n="cap.f.listingImage">Eintragsbild</label>
             <input type="file" id="f-listing-image" class="ds-input" accept="image/png,image/jpeg,image/webp"/>
-            <div class="ce-media-helper">PNG/JPG/WEBP, max. 5 MB. Wird im Feed und in der Detailansicht bevorzugt.</div>
-            <img id="f-listing-image-preview" class="ce-media-preview" alt="Vorschau Eintragsbild"/>
+            <div class="ce-media-helper" data-i18n="cap.media.helper">PNG/JPG/WEBP, max. 5 MB. Wird im Feed und in der Detailansicht bevorzugt.</div>
+            <img id="f-listing-image-preview" class="ce-media-preview" alt="Vorschau Eintragsbild" data-i18n-aria="cap.media.previewAlt"/>
             <div class="ce-media-actions">
-              <button type="button" class="ds-btn ds-btn--sm ds-btn--ghost" id="btn-remove-listing-image">Bild entfernen</button>
+              <button type="button" class="ds-btn ds-btn--sm ds-btn--ghost" id="btn-remove-listing-image" data-i18n="cap.media.remove">Bild entfernen</button>
             </div>
           </div>
           <div class="ce-media-drop">
-            <label class="ds-label">Logo-Fallback</label>
-            <div class="ce-media-helper">
+            <label class="ds-label" data-i18n="cap.media.logoTitle">Logo-Fallback</label>
+            <div class="ce-media-helper" data-i18n="cap.media.logoHelper">
               Wenn kein Eintragsbild gesetzt wird, verwendet TempConnect automatisch das Firmenlogo aus dem bestehenden Profil. Falls dort kein Logo hinterlegt ist, wird ein neutraler Placeholder angezeigt.
             </div>
           </div>
@@ -324,14 +324,14 @@
 
       <!-- Actions -->
       <div class="ce-form-actions">
-        <button type="submit" class="ds-btn" id="btn-draft" data-target="draft">Als Entwurf speichern</button>
-        <button type="submit" class="ds-btn ds-btn--primary" id="btn-activate" data-target="active">Speichern &amp; aktivieren</button>
+        <button type="submit" class="ds-btn" id="btn-draft" data-target="draft" data-i18n="cap.btn.draft">Als Entwurf speichern</button>
+        <button type="submit" class="ds-btn ds-btn--primary" id="btn-activate" data-target="active" data-i18n="cap.btn.activate">Speichern &amp; aktivieren</button>
       </div>
 
       <div id="form-msg" style="display:none;margin-top:var(--ds-space-4)"></div>
     </form>
 
-    <p class="ds-disclaimer">Hinweis: Alle Angaben dienen der Vermittlungsunterstuetzung. TempConnect garantiert keinen Vermittlungserfolg. Angaben ohne Gewaehr.</p>
+    <p class="ds-disclaimer" data-i18n="cap.disclaimer">Hinweis: Alle Angaben dienen der Vermittlungsunterstuetzung. TempConnect garantiert keinen Vermittlungserfolg. Angaben ohne Gewaehr.</p>
   </div>
 
   <div id="toast" class="ds-toast" role="status" aria-live="polite"></div>

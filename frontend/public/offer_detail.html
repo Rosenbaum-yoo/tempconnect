@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <script src="/public/js/theme.js"></script>
   <script src="/public/js/i18n.js"></script>
-  <title>Angebotsdetail – TempConnect</title>
+  <title data-i18n="demd.od.docTitle">Angebotsdetail – TempConnect</title>
   <link rel="stylesheet" href="/public/css/enterprise.css"/>
   <style>
     .od-hero{padding:var(--ds-space-5);border-radius:var(--ds-radius-xl);border:1px solid var(--ds-border);background:rgba(255,255,255,.02);margin-bottom:var(--ds-space-4)}
@@ -92,18 +92,442 @@
 <body data-sla-guard="sla_access">
   <div class="wrap">
     <div id="tc-shell"></div>
-    <div id="od-loading" style="text-align:center;padding:var(--ds-space-10);color:var(--ds-text-secondary)">Lade Angebotsdetails&#x2026;</div>
+
+    <!-- Statische Seiten-Identitaet: die Dealakte baut ihren Inhalt komplett per
+         JS, bis dahin stand hier nur eine Ladezeile ohne jeden Kontext. Der Kopf
+         benennt die Seite ab dem ersten Frame und fuehrt zurueck in die Liste
+         (kein Sackgassen-Detail). -->
+    <div class="ds-page-header">
+      <div class="ds-page-header__content">
+        <h1 class="ds-page-title" data-i18n="demd.od.page.title">Dealakte</h1>
+        <p class="ds-page-subtitle" data-i18n="demd.od.page.subtitle">Angebot, Einsatzvereinbarung, Dokumente und Verlauf eines Deals an einem Ort.</p>
+      </div>
+      <div class="ds-page-header__actions">
+        <a href="/public/deal_management.html" class="ds-btn" data-i18n="demd.od.page.backToDeals">Meine Deals</a>
+      </div>
+    </div>
+
+    <div id="od-loading" style="text-align:center;padding:var(--ds-space-10);color:var(--ds-text-secondary)" data-i18n="demd.od.loading">Lade Angebotsdetails&#x2026;</div>
     <div id="od-content" style="display:none"></div>
   </div>
   <script src="/public/js/planFeatures.js"></script>
   <script src="/public/js/slaGuard.js"></script>
   <script src="/public/js/pageShell.js"></script>
   <script>
+  /* i18n (P6.1): Woerterbuch der Dealakte/Angebotsdetailseite (Praefix "demd.od.").
+     Topbar, Navigation und Nutzerbereich uebersetzt die Plattform-Shell
+     (pageShell.js) unter "shell." - hier stehen ausschliesslich demd.od.-Keys.
+     Werte sind IMMER Texte, nie t()-Aufrufe (Selbstverweis waere stumm leer).
+
+     Bewusst NICHT uebersetzt:
+     - Server-Rohwerte, die roh angezeigt werden (Angebotsstatus-Badge, Dokument-
+       Status-Pill, Agreement-Referenz, Assignment-ID, Signatur-Provider/-Referenz,
+       Timeline-Rohaktionen ohne bekannten Schluessel, mime_type, Dateinamen).
+     - Firmen-, Personen-, Orts- und Rollennamen aus der API.
+     - Waehrungs-/Einheitenkuerzel (EUR/h). */
+  TCi18n.register('de', {
+    'demd.od.docTitle': 'Angebotsdetail \u2013 TempConnect',
+    'demd.od.page.title': 'Dealakte',
+    'demd.od.page.subtitle': 'Angebot, Einsatzvereinbarung, Dokumente und Verlauf eines Deals an einem Ort.',
+    'demd.od.page.backToDeals': 'Meine Deals',
+    'demd.od.loading': 'Lade Angebotsdetails\u2026',
+    'demd.od.noId': 'Keine Angebots-ID.',
+    'demd.od.forbidden': 'Keine Berechtigung f\u00fcr dieses Angebot.',
+    'demd.od.notFound': 'Angebot nicht gefunden.',
+    'demd.od.err.prefix': 'Fehler: ',
+    'demd.od.err.network': 'Netzwerkfehler. Bitte erneut versuchen.',
+
+    'demd.od.capStatus.open': 'Offen',
+    'demd.od.capStatus.partially_committed': 'Teilweise dealgebunden',
+    'demd.od.capStatus.reserved': 'Reserviert',
+    'demd.od.capStatus.active': 'Aktiv',
+    'demd.od.cap.free': 'frei',
+    'demd.od.cap.total': 'gesamt',
+    'demd.od.cap.committed': 'dealgebunden',
+
+    'demd.od.agrStatus.none': 'Keine Vereinbarung',
+    'demd.od.agrStatus.pending_confirmation': 'Wartet auf Best\u00e4tigung',
+    'demd.od.agrStatus.confirmed': 'Best\u00e4tigt',
+    'demd.od.agrStatus.activated': 'Aktiviert',
+    'demd.od.agrStatus.cancelled': 'Storniert',
+    'demd.od.agrStatus.expired': 'Abgelaufen',
+
+    'demd.od.sig.notRequired': 'Nicht erforderlich',
+    'demd.od.sigStatus.pending': 'Vorbereitet / ausstehend',
+    'demd.od.sigStatus.partially_signed': 'Teilweise signiert',
+    'demd.od.sigStatus.fully_signed': 'Vollst\u00e4ndig signiert',
+    'demd.od.sigStatus.failed': 'Fehlgeschlagen',
+    'demd.od.sigStatus.expired': 'Abgelaufen',
+
+    'demd.od.action.action_required': 'Aktion erforderlich',
+    'demd.od.action.waiting': 'Warten auf Gegenseite',
+    'demd.od.action.completed': 'Abgeschlossen',
+    'demd.od.action.cancelled': 'Storniert',
+    'demd.od.action.expired': 'Abgelaufen',
+    'demd.od.action.closed': 'Geschlossen',
+
+    'demd.od.docType.conditions_sheet': 'Konditionsblatt',
+    'demd.od.docType.agreement': 'Einsatzvereinbarung',
+    'demd.od.docType.summary': 'Zusammenfassung',
+    'demd.od.docType.amendment': 'Nachtrag',
+    'demd.od.docType.cancellation': 'Stornierung',
+    'demd.od.docType.fallback': 'Dokument',
+
+    'demd.od.tl.deal.agreement_created': 'Vereinbarung erstellt',
+    'demd.od.tl.deal.agreement_confirmed': 'Vereinbarung best\u00e4tigt',
+    'demd.od.tl.deal.agreement_activated': 'Einsatz aktiviert',
+    'demd.od.tl.deal.agreement_cancelled': 'Vereinbarung storniert',
+    'demd.od.tl.deal.agreement_expired': 'Vereinbarung abgelaufen',
+    'demd.od.tl.deal.agreement_signature_prepared': 'Signaturstrecke vorbereitet',
+    'demd.od.tl.offer_asset.upload': 'Dokument hochgeladen',
+    'demd.od.tl.offer_asset.delete': 'Dokument entfernt',
+    'demd.od.tl.state_machine.transition': 'Status\u00fcbergang',
+
+    'demd.od.doc.version': 'Version',
+    'demd.od.doc.hash': 'Hash:',
+    'demd.od.open': '\u00d6ffnen',
+    'demd.od.attachment': 'Anlage',
+
+    'demd.od.offerFallback': 'Angebot',
+    'demd.od.emergency': 'Notdienst',
+    'demd.od.progress.emergency': 'Notdienst-Sofortpfad',
+    'demd.od.progress.title': 'Deal-Fortschritt',
+    'demd.od.progress.counter': '{done} von {total} Schritten erledigt',
+    'demd.od.progress.cancelled': 'Die Vereinbarung wurde storniert. Der operative Pfad ist beendet.',
+    'demd.od.progress.expired': 'Die Vereinbarung ist abgelaufen und muss neu aufgesetzt werden.',
+
+    'demd.od.step.committed': 'Teilzusage eingegangen',
+    'demd.od.step.emgAgreement': 'Sofortvereinbarung erstellt',
+    'demd.od.step.emgAgreementCta': 'Sofortvereinbarung erstellen',
+    'demd.od.step.confirmed': 'Gegenseite best\u00e4tigt',
+    'demd.od.step.emgConfirmCta': 'Sofort best\u00e4tigen',
+    'demd.od.step.emgActivated': 'Einsatz aktiviert / Dispatch',
+    'demd.od.step.created': 'Angebot erstellt',
+    'demd.od.step.sent': 'Angebot gesendet',
+    'demd.od.step.accepted': 'Konditionen akzeptiert',
+    'demd.od.step.agreement': 'Einsatzvereinbarung erstellt',
+    'demd.od.step.activated': 'Einsatz aktiviert',
+    'demd.od.step.needsAction': 'Dieser Schritt erfordert Ihre Aktion.',
+    'demd.od.step.waiting': 'Warten auf Gegenseite.',
+    'demd.od.step.assignment': 'Assignment:',
+
+    'demd.od.card.posting': 'Arbeitsplatzangebot',
+    'demd.od.card.terms': 'Konditionen',
+    'demd.od.card.capacity': 'Personalangebot (Quelle)',
+    'demd.od.card.agreement': 'Einsatzvereinbarung & Aktionen',
+    'demd.od.card.generatedDocs': 'Generierte Dokumente',
+    'demd.od.card.uploadedDocs': 'Hochgeladene Deal-Dokumente',
+    'demd.od.card.signature': 'Signaturstatus',
+    'demd.od.card.attachments': 'Weitere Anlagen',
+    'demd.od.card.staffing': 'Einsatzbesetzung',
+    'demd.od.card.timeline': 'Timeline / Dealakte',
+
+    'demd.od.field.role': 'Rolle',
+    'demd.od.field.location': 'Einsatzort',
+    'demd.od.field.period': 'Zeitraum',
+    'demd.od.field.quantity': 'Menge',
+    'demd.od.field.company': 'Unternehmen',
+    'demd.od.field.offeredQuantity': 'Angebotene Menge',
+    'demd.od.field.hourlyRate': 'Stundensatz',
+    'demd.od.field.start': 'Start',
+    'demd.od.field.end': 'Ende',
+    'demd.od.field.billing': 'Abrechnung',
+    'demd.od.field.responseTime': 'Reaktionszeit',
+    'demd.od.field.replacement': 'Ersatzstellung',
+    'demd.od.field.staff': 'Personal',
+    'demd.od.field.site': 'Standort',
+    'demd.od.field.status': 'Status',
+    'demd.od.field.available': 'Verfuegbar',
+    'demd.od.field.reference': 'Referenz',
+    'demd.od.field.version': 'Version',
+    'demd.od.field.confirmed': 'Best\u00e4tigt',
+    'demd.od.field.activated': 'Aktiviert',
+    'demd.od.field.assignment': 'Assignment',
+    'demd.od.field.required': 'Pflicht',
+    'demd.od.field.provider': 'Provider',
+    'demd.od.field.signedAt': 'Signiert am',
+    'demd.od.unit.min': 'Min',
+    'demd.od.yes': 'Ja',
+    'demd.od.no': 'Nein',
+    'demd.od.pending': 'Ausstehend',
+    'demd.od.documents': 'Dokumente',
+
+    'demd.od.agr.none': 'Noch keine Einsatzvereinbarung erstellt.',
+    'demd.od.doc.openConditions': 'Konditionsblatt \u00f6ffnen',
+    'demd.od.doc.openAgreement': 'Vereinbarung \u00f6ffnen',
+    'demd.od.act.createAgreement': 'Einsatzvereinbarung erstellen',
+    'demd.od.act.confirm': 'Vereinbarung best\u00e4tigen',
+    'demd.od.act.activate': 'Einsatz aktivieren',
+    'demd.od.act.prepareSignature': 'Signatur vorbereiten',
+    'demd.od.act.cancel': 'Vereinbarung stornieren',
+    'demd.od.act.running': 'Wird ausgef\u00fchrt\u2026',
+    'demd.od.prompt.cancelReason': 'Grund f\u00fcr die Stornierung (optional):',
+
+    'demd.od.empty.generatedDocs': 'Noch keine generierten Dokumente in der Dealakte.',
+    'demd.od.empty.uploadedDocs': 'Noch keine hochgeladenen Deal-Dokumente vorhanden.',
+    'demd.od.empty.attachments': 'Keine zus\u00e4tzlichen Anlagen vorhanden.',
+    'demd.od.empty.timeline': 'Noch keine Timeline-Ereignisse vorhanden.',
+    'demd.od.upload.cta': 'Dokument hochladen',
+    'demd.od.upload.hint': 'Erlaubt: PDF, PNG, JPG, WEBP bis 5 MB. Uploads werden der Dealakte zugeordnet.',
+    'demd.od.upload.pickFirst': 'Bitte zuerst eine Datei ausw\u00e4hlen.',
+    'demd.od.upload.running': 'Upload l\u00e4uft\u2026',
+
+    'demd.od.staffing.loading': 'Staffing-Kontext wird geladen\u2026',
+    'demd.od.staffing.forbidden': 'Staffing-Kontext ist fuer Ihre Rolle nicht freigeschaltet.',
+    'demd.od.staffing.failed': 'Staffing-Kontext konnte nicht geladen werden.',
+    'demd.od.staffing.failedWith': 'Staffing-Kontext konnte nicht geladen werden: {reason}',
+    'demd.od.staffing.errorFallback': 'Fehler',
+    'demd.od.staffing.pending': 'Sobald der Einsatz aktiviert ist, erscheinen hier Staffing-Kandidaten und der Fast-Track.',
+    'demd.od.staffing.assignment': 'Assignment',
+    'demd.od.staffing.open': '{count} offen',
+    'demd.od.staffing.full': 'Voll besetzt',
+    'demd.od.staffing.filled': '{filled} besetzt / {total} gesamt',
+    'demd.od.staffing.reserved': '{count} reserviert',
+    'demd.od.staffing.buyerNote': 'Diese Sicht fasst den aktuellen Staffing-Stand Ihres Lieferanten zusammen. Operative Zuweisungen erfolgen beim Lieferanten.',
+    'demd.od.staffing.complete': 'Der Einsatz ist vollstaendig besetzt. Stundenzettel und Freigaben laufen ueber den Agentur-Arbeitsplatz.',
+    'demd.od.staffing.toControl': 'Zum Einsatzleitstand',
+    'demd.od.staffing.noCandidates': 'Aktuell keine sicheren One-click-Kandidaten. Bitte im Einsatzleitstand Vorschlaege pruefen oder Einladungen verschicken.',
+    'demd.od.staffing.toWorkspace': 'Zum Staffing-Arbeitsplatz',
+    'demd.od.staffing.safeNote': '{count} sichere Kandidat(en) \u2013 alle hard-match und aktuell verfuegbar. Auswahl pruefen, dann direkt zuweisen.',
+    'demd.od.staffing.workerFallback': 'Arbeiter',
+    'demd.od.staffing.personnelNo': 'Personalnr.',
+    'demd.od.staffing.match': 'Match',
+    'demd.od.staffing.safePill': 'Direkt safe',
+    'demd.od.staffing.assignCta': 'Ausgewaehlte direkt zuweisen',
+    'demd.od.staffing.fullView': 'Vollansicht im Staffing-Leitstand',
+    'demd.od.staffing.pickOne': 'Bitte mindestens einen Kandidaten auswaehlen.',
+    'demd.od.staffing.assigning': 'Wird zugewiesen\u2026',
+    'demd.od.staffing.result': '{assigned} direkt zugewiesen, {skipped} uebersprungen. Noch offen: {open}.',
+
+    'demd.od.cta.assignTitle': 'Einsatz aktiv \u2013 {count} Platz(e) offen',
+    'demd.od.cta.assignText': 'Jetzt Arbeiter zuweisen \u2013 sichere Kandidaten direkt per Klick.',
+    'demd.od.cta.assignBtn': 'Arbeiter zuweisen',
+
+    'demd.od.pool.title': 'Deal erfolgreich abgeschlossen',
+    'demd.od.pool.text': 'Lieferant in Ihren Lieferantenpool aufnehmen \u2013 f\u00fcr schnellere k\u00fcnftige Vergaben.',
+    'demd.od.pool.cta': 'Lieferant in Pool aufnehmen',
+    'demd.od.pool.running': 'Wird aufgenommen\u2026',
+    'demd.od.pool.done': 'In Pool aufgenommen',
+    'demd.od.pool.errNotRequester': 'Nur der Auftraggeber des Deals kann den Lieferanten aufnehmen.',
+    'demd.od.pool.errNotCompleted': 'Der Deal ist noch nicht erfolgreich abgeschlossen.',
+    'demd.od.pool.errSelf': 'Die eigene Organisation kann nicht aufgenommen werden.',
+    'demd.od.pool.errNoOrg': 'Der Lieferant hat keine Organisation hinterlegt.',
+    'demd.od.pool.errForbidden': 'Ihnen fehlt die Berechtigung fuer den Lieferantenpool.',
+    'demd.od.pool.errOrgContext': 'Kein Organisations-Kontext aktiv.'
+  });
+  TCi18n.register('en', {
+    'demd.od.docTitle': 'Offer detail \u2013 TempConnect',
+    'demd.od.page.title': 'Deal file',
+    'demd.od.page.subtitle': 'Offer, assignment agreement, documents and history of one deal in one place.',
+    'demd.od.page.backToDeals': 'My deals',
+    'demd.od.loading': 'Loading offer details\u2026',
+    'demd.od.noId': 'No offer ID.',
+    'demd.od.forbidden': 'You are not authorised to view this offer.',
+    'demd.od.notFound': 'Offer not found.',
+    'demd.od.err.prefix': 'Error: ',
+    'demd.od.err.network': 'Network error. Please try again.',
+
+    'demd.od.capStatus.open': 'Open',
+    'demd.od.capStatus.partially_committed': 'Partly committed to deals',
+    'demd.od.capStatus.reserved': 'Reserved',
+    'demd.od.capStatus.active': 'Active',
+    'demd.od.cap.free': 'free',
+    'demd.od.cap.total': 'in total',
+    'demd.od.cap.committed': 'committed to deals',
+
+    'demd.od.agrStatus.none': 'No agreement',
+    'demd.od.agrStatus.pending_confirmation': 'Awaiting confirmation',
+    'demd.od.agrStatus.confirmed': 'Confirmed',
+    'demd.od.agrStatus.activated': 'Activated',
+    'demd.od.agrStatus.cancelled': 'Cancelled',
+    'demd.od.agrStatus.expired': 'Expired',
+
+    'demd.od.sig.notRequired': 'Not required',
+    'demd.od.sigStatus.pending': 'Prepared / pending',
+    'demd.od.sigStatus.partially_signed': 'Partly signed',
+    'demd.od.sigStatus.fully_signed': 'Fully signed',
+    'demd.od.sigStatus.failed': 'Failed',
+    'demd.od.sigStatus.expired': 'Expired',
+
+    'demd.od.action.action_required': 'Action required',
+    'demd.od.action.waiting': 'Waiting on the other side',
+    'demd.od.action.completed': 'Completed',
+    'demd.od.action.cancelled': 'Cancelled',
+    'demd.od.action.expired': 'Expired',
+    'demd.od.action.closed': 'Closed',
+
+    'demd.od.docType.conditions_sheet': 'Terms sheet',
+    'demd.od.docType.agreement': 'Assignment agreement',
+    'demd.od.docType.summary': 'Summary',
+    'demd.od.docType.amendment': 'Amendment',
+    'demd.od.docType.cancellation': 'Cancellation',
+    'demd.od.docType.fallback': 'Document',
+
+    'demd.od.tl.deal.agreement_created': 'Agreement created',
+    'demd.od.tl.deal.agreement_confirmed': 'Agreement confirmed',
+    'demd.od.tl.deal.agreement_activated': 'Assignment activated',
+    'demd.od.tl.deal.agreement_cancelled': 'Agreement cancelled',
+    'demd.od.tl.deal.agreement_expired': 'Agreement expired',
+    'demd.od.tl.deal.agreement_signature_prepared': 'Signature flow prepared',
+    'demd.od.tl.offer_asset.upload': 'Document uploaded',
+    'demd.od.tl.offer_asset.delete': 'Document removed',
+    'demd.od.tl.state_machine.transition': 'Status transition',
+
+    'demd.od.doc.version': 'Version',
+    'demd.od.doc.hash': 'Hash:',
+    'demd.od.open': 'Open',
+    'demd.od.attachment': 'Attachment',
+
+    'demd.od.offerFallback': 'Offer',
+    'demd.od.emergency': 'Emergency cover',
+    'demd.od.progress.emergency': 'Emergency fast path',
+    'demd.od.progress.title': 'Deal progress',
+    'demd.od.progress.counter': '{done} of {total} steps completed',
+    'demd.od.progress.cancelled': 'The agreement was cancelled. The operational path has ended.',
+    'demd.od.progress.expired': 'The agreement has expired and must be set up again.',
+
+    'demd.od.step.committed': 'Partial commitment received',
+    'demd.od.step.emgAgreement': 'Immediate agreement created',
+    'demd.od.step.emgAgreementCta': 'Create immediate agreement',
+    'demd.od.step.confirmed': 'Other side confirmed',
+    'demd.od.step.emgConfirmCta': 'Confirm immediately',
+    'demd.od.step.emgActivated': 'Assignment activated / dispatch',
+    'demd.od.step.created': 'Offer created',
+    'demd.od.step.sent': 'Offer sent',
+    'demd.od.step.accepted': 'Terms accepted',
+    'demd.od.step.agreement': 'Assignment agreement created',
+    'demd.od.step.activated': 'Assignment activated',
+    'demd.od.step.needsAction': 'This step requires your action.',
+    'demd.od.step.waiting': 'Waiting on the other side.',
+    'demd.od.step.assignment': 'Assignment:',
+
+    'demd.od.card.posting': 'Job posting',
+    'demd.od.card.terms': 'Terms',
+    'demd.od.card.capacity': 'Staff offer (source)',
+    'demd.od.card.agreement': 'Assignment agreement & actions',
+    'demd.od.card.generatedDocs': 'Generated documents',
+    'demd.od.card.uploadedDocs': 'Uploaded deal documents',
+    'demd.od.card.signature': 'Signature status',
+    'demd.od.card.attachments': 'Further attachments',
+    'demd.od.card.staffing': 'Assignment staffing',
+    'demd.od.card.timeline': 'Timeline / deal file',
+
+    'demd.od.field.role': 'Role',
+    'demd.od.field.location': 'Place of work',
+    'demd.od.field.period': 'Period',
+    'demd.od.field.quantity': 'Quantity',
+    'demd.od.field.company': 'Company',
+    'demd.od.field.offeredQuantity': 'Offered quantity',
+    'demd.od.field.hourlyRate': 'Hourly rate',
+    'demd.od.field.start': 'Start',
+    'demd.od.field.end': 'End',
+    'demd.od.field.billing': 'Billing',
+    'demd.od.field.responseTime': 'Response time',
+    'demd.od.field.replacement': 'Replacement cover',
+    'demd.od.field.staff': 'Staff',
+    'demd.od.field.site': 'Location',
+    'demd.od.field.status': 'Status',
+    'demd.od.field.available': 'Available',
+    'demd.od.field.reference': 'Reference',
+    'demd.od.field.version': 'Version',
+    'demd.od.field.confirmed': 'Confirmed',
+    'demd.od.field.activated': 'Activated',
+    'demd.od.field.assignment': 'Assignment',
+    'demd.od.field.required': 'Mandatory',
+    'demd.od.field.provider': 'Provider',
+    'demd.od.field.signedAt': 'Signed on',
+    'demd.od.unit.min': 'min',
+    'demd.od.yes': 'Yes',
+    'demd.od.no': 'No',
+    'demd.od.pending': 'Pending',
+    'demd.od.documents': 'documents',
+
+    'demd.od.agr.none': 'No assignment agreement created yet.',
+    'demd.od.doc.openConditions': 'Open terms sheet',
+    'demd.od.doc.openAgreement': 'Open agreement',
+    'demd.od.act.createAgreement': 'Create assignment agreement',
+    'demd.od.act.confirm': 'Confirm agreement',
+    'demd.od.act.activate': 'Activate assignment',
+    'demd.od.act.prepareSignature': 'Prepare signature',
+    'demd.od.act.cancel': 'Cancel agreement',
+    'demd.od.act.running': 'Running\u2026',
+    'demd.od.prompt.cancelReason': 'Reason for the cancellation (optional):',
+
+    'demd.od.empty.generatedDocs': 'No generated documents in the deal file yet.',
+    'demd.od.empty.uploadedDocs': 'No uploaded deal documents yet.',
+    'demd.od.empty.attachments': 'No additional attachments.',
+    'demd.od.empty.timeline': 'No timeline events yet.',
+    'demd.od.upload.cta': 'Upload document',
+    'demd.od.upload.hint': 'Allowed: PDF, PNG, JPG, WEBP up to 5 MB. Uploads are filed with the deal.',
+    'demd.od.upload.pickFirst': 'Please select a file first.',
+    'demd.od.upload.running': 'Upload running\u2026',
+
+    'demd.od.staffing.loading': 'Loading staffing context\u2026',
+    'demd.od.staffing.forbidden': 'The staffing context is not enabled for your role.',
+    'demd.od.staffing.failed': 'The staffing context could not be loaded.',
+    'demd.od.staffing.failedWith': 'The staffing context could not be loaded: {reason}',
+    'demd.od.staffing.errorFallback': 'error',
+    'demd.od.staffing.pending': 'Once the assignment is activated, staffing candidates and the fast track appear here.',
+    'demd.od.staffing.assignment': 'Assignment',
+    'demd.od.staffing.open': '{count} open',
+    'demd.od.staffing.full': 'Fully staffed',
+    'demd.od.staffing.filled': '{filled} staffed / {total} in total',
+    'demd.od.staffing.reserved': '{count} reserved',
+    'demd.od.staffing.buyerNote': 'This view summarises the current staffing status at your supplier. Operational assignments happen at the supplier.',
+    'demd.od.staffing.complete': 'The assignment is fully staffed. Timesheets and approvals run through the agency workspace.',
+    'demd.od.staffing.toControl': 'Go to the assignment control centre',
+    'demd.od.staffing.noCandidates': 'No safe one-click candidates right now. Please review suggestions or send invitations in the assignment control centre.',
+    'demd.od.staffing.toWorkspace': 'Go to the staffing workspace',
+    'demd.od.staffing.safeNote': '{count} safe candidate(s) \u2013 all hard matches and currently available. Check the selection, then assign directly.',
+    'demd.od.staffing.workerFallback': 'Worker',
+    'demd.od.staffing.personnelNo': 'Staff no.',
+    'demd.od.staffing.match': 'Match',
+    'demd.od.staffing.safePill': 'Directly safe',
+    'demd.od.staffing.assignCta': 'Assign the selected directly',
+    'demd.od.staffing.fullView': 'Full view in the staffing control centre',
+    'demd.od.staffing.pickOne': 'Please select at least one candidate.',
+    'demd.od.staffing.assigning': 'Assigning\u2026',
+    'demd.od.staffing.result': '{assigned} assigned directly, {skipped} skipped. Still open: {open}.',
+
+    'demd.od.cta.assignTitle': 'Assignment active \u2013 {count} place(s) open',
+    'demd.od.cta.assignText': 'Assign workers now \u2013 safe candidates with a single click.',
+    'demd.od.cta.assignBtn': 'Assign workers',
+
+    'demd.od.pool.title': 'Deal completed successfully',
+    'demd.od.pool.text': 'Add the supplier to your supplier pool \u2013 for faster future awards.',
+    'demd.od.pool.cta': 'Add supplier to pool',
+    'demd.od.pool.running': 'Adding\u2026',
+    'demd.od.pool.done': 'Added to pool',
+    'demd.od.pool.errNotRequester': 'Only the client of the deal can add the supplier.',
+    'demd.od.pool.errNotCompleted': 'The deal has not been completed successfully yet.',
+    'demd.od.pool.errSelf': 'You cannot add your own organisation.',
+    'demd.od.pool.errNoOrg': 'The supplier has no organisation on file.',
+    'demd.od.pool.errForbidden': 'You lack the permission for the supplier pool.',
+    'demd.od.pool.errOrgContext': 'No organisation context active.'
+  });
+
   (async function() {
     var API = '/api';
     var params = new URLSearchParams(location.search);
     var offerId = params.get('id');
-    if (!offerId) { document.getElementById('od-loading').textContent = 'Keine Angebots-ID.'; return; }
+    // Zuletzt geladener Stand - damit ein Sprachwechsel die komplett per JS
+    // gebaute Seite neu zeichnen kann, ohne erneut zu laden.
+    var lastOffer = null;
+    var lastDossier = null;
+
+    /* Die Ladezeile traegt einen i18n-Marker. Wird sie zur Fehlermeldung, muss
+       der Marker mitwandern - sonst uebersetzt ein Sprachwechsel den Fehler
+       zurueck in die Ladezeile. Bei interpolierten Texten faellt der
+       Marker weg (apply() kennt die Parameter nicht). */
+    function setLoadingText(key, params) {
+      var el = document.getElementById('od-loading');
+      if (!el) return;
+      if (params) { el.removeAttribute('data-i18n'); el.textContent = TCi18n.t(key, params); return; }
+      el.setAttribute('data-i18n', key);
+      el.textContent = TCi18n.t(key);
+    }
+
+    if (!offerId) { setLoadingText('demd.od.noId'); return; }
 
     function esc(value) {
       var d = document.createElement('div');
@@ -112,17 +536,17 @@
     }
     function fmtDate(value) {
       if (!value) return '\u2014';
-      try { return new Date(value).toLocaleDateString('de-DE'); } catch (e) { return '\u2014'; }
+      try { return new Date(value).toLocaleDateString(TCi18n.dateLocale()); } catch (e) { return '\u2014'; }
     }
     function fmtDateTime(value) {
       if (!value) return '\u2014';
-      try { return new Date(value).toLocaleString('de-DE'); } catch (e) { return '\u2014'; }
+      try { return new Date(value).toLocaleString(TCi18n.dateLocale()); } catch (e) { return '\u2014'; }
     }
     function fmtMoney(value, suffix) {
       if (value == null || value === '') return '\u2014';
       var num = Number(value);
       if (!isFinite(num)) return String(value);
-      return num.toLocaleString('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + (suffix ? ' ' + suffix : '');
+      return num.toLocaleString(TCi18n.dateLocale(), { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + (suffix ? ' ' + suffix : '');
     }
     function fmtInt(value, suffix) {
       if (value == null || value === '') return '\u2014';
@@ -135,13 +559,10 @@
       var num = Number(value);
       return isFinite(num) ? Math.max(0, Math.trunc(num)) : fallback;
     }
+    /* Status-Rohwerte bleiben Server-Enums; nur der sichtbare Text kommt aus dem
+       Woerterbuch. Unbekannter Rohwert -> t() liefert '' -> Rohwert bleibt sichtbar. */
     function capacityStatusLabel(status) {
-      return {
-        open: 'Offen',
-        partially_committed: 'Teilweise dealgebunden',
-        reserved: 'Reserviert',
-        active: 'Aktiv'
-      }[status] || status || '\u2014';
+      return (status ? TCi18n.t('demd.od.capStatus.' + status) : '') || status || '\u2014';
     }
     function capacityHeadcountSummary(offer) {
       if (!offer || !offer.capacity_post_id) return '\u2014';
@@ -149,47 +570,32 @@
       var remaining = offer.capacity_remaining_headcount != null ? Math.max(0, toCount(offer.capacity_remaining_headcount, 0)) : total;
       var committed = offer.capacity_committed_headcount != null ? Math.max(0, toCount(offer.capacity_committed_headcount, 0)) : 0;
       if (offer.capacity_commercial_status || committed > 0 || remaining !== total) {
-        return remaining + ' frei / ' + total + ' gesamt' + (committed > 0 ? ' · ' + committed + ' dealgebunden' : '');
+        return remaining + ' ' + TCi18n.t('demd.od.cap.free') + ' / ' + total + ' ' + TCi18n.t('demd.od.cap.total') +
+          (committed > 0 ? ' \u00b7 ' + committed + ' ' + TCi18n.t('demd.od.cap.committed') : '');
       }
-      return total + ' gesamt';
+      return total + ' ' + TCi18n.t('demd.od.cap.total');
     }
     function agreementStatusLabel(status) {
-      return {
-        none: 'Keine Vereinbarung',
-        pending_confirmation: 'Wartet auf Bestätigung',
-        confirmed: 'Bestätigt',
-        activated: 'Aktiviert',
-        cancelled: 'Storniert',
-        expired: 'Abgelaufen'
-      }[status || 'none'] || (status || '\u2014');
+      return TCi18n.t('demd.od.agrStatus.' + (status || 'none')) || (status || '\u2014');
     }
     function signatureStatusLabel(required, status) {
-      if (!required || status === 'not_required' || !status) return 'Nicht erforderlich';
-      return {
-        pending: 'Vorbereitet / ausstehend',
-        partially_signed: 'Teilweise signiert',
-        fully_signed: 'Vollständig signiert',
-        failed: 'Fehlgeschlagen',
-        expired: 'Abgelaufen'
-      }[status] || status;
+      if (!required || status === 'not_required' || !status) return TCi18n.t('demd.od.sig.notRequired');
+      return TCi18n.t('demd.od.sigStatus.' + status) || status;
     }
     function actionStateMeta(actionState) {
-      if (actionState === 'action_required') return { text: 'Aktion erforderlich', cls: 'od-badge--action' };
-      if (actionState === 'waiting') return { text: 'Warten auf Gegenseite', cls: 'od-badge--waiting' };
-      if (actionState === 'completed') return { text: 'Abgeschlossen', cls: 'od-badge--done' };
-      if (actionState === 'cancelled') return { text: 'Storniert', cls: 'od-badge--status' };
-      if (actionState === 'expired') return { text: 'Abgelaufen', cls: 'od-badge--status' };
-      if (actionState === 'closed') return { text: 'Geschlossen', cls: 'od-badge--status' };
-      return null;
+      var ACTION_CLS = {
+        action_required: 'od-badge--action',
+        waiting: 'od-badge--waiting',
+        completed: 'od-badge--done',
+        cancelled: 'od-badge--status',
+        expired: 'od-badge--status',
+        closed: 'od-badge--status'
+      };
+      if (!actionState || !ACTION_CLS[actionState]) return null;
+      return { text: TCi18n.t('demd.od.action.' + actionState), cls: ACTION_CLS[actionState] };
     }
     function docTypeLabel(type) {
-      return {
-        conditions_sheet: 'Konditionsblatt',
-        agreement: 'Einsatzvereinbarung',
-        summary: 'Zusammenfassung',
-        amendment: 'Nachtrag',
-        cancellation: 'Stornierung'
-      }[type] || type || 'Dokument';
+      return (type ? TCi18n.t('demd.od.docType.' + type) : '') || type || TCi18n.t('demd.od.docType.fallback');
     }
     function pillClass(status) {
       if (status === 'current' || status === 'activated' || status === 'confirmed') return 'od-pill--success';
@@ -209,18 +615,10 @@
       if (doc.asset_file_path) return assetUrl(doc.asset_file_path);
       return null;
     }
+    // Audit-Aktionen sind Server-Enums; nur der Titel ist uebersetzt. Eine
+    // unbekannte Aktion bleibt roh sichtbar statt zu verschwinden.
     function timelineTitle(action) {
-      return {
-        'deal.agreement_created': 'Vereinbarung erstellt',
-        'deal.agreement_confirmed': 'Vereinbarung bestätigt',
-        'deal.agreement_activated': 'Einsatz aktiviert',
-        'deal.agreement_cancelled': 'Vereinbarung storniert',
-        'deal.agreement_expired': 'Vereinbarung abgelaufen',
-        'deal.agreement_signature_prepared': 'Signaturstrecke vorbereitet',
-        'offer_asset.upload': 'Dokument hochgeladen',
-        'offer_asset.delete': 'Dokument entfernt',
-        'state_machine.transition': 'Statusübergang'
-      }[action] || action;
+      return (action ? TCi18n.t('demd.od.tl.' + action) : '') || action;
     }
     function timelineDetail(details) {
       if (!details) return '';
@@ -247,17 +645,17 @@
         if (!url && allowGeneratedFallback && item.document_type === 'agreement') url = API + '/marketplace/offers/' + offerId + '/document?type=agreement';
         var meta = [];
         if (item.document_type) meta.push(docTypeLabel(item.document_type));
-        if (item.version != null) meta.push('Version ' + item.version);
+        if (item.version != null) meta.push(TCi18n.t('demd.od.doc.version') + ' ' + item.version);
         if (item.generated_at) meta.push(fmtDateTime(item.generated_at));
         if (item.created_at && !item.generated_at) meta.push(fmtDateTime(item.created_at));
         html += '<div class="od-list__item">';
         html += '<div class="od-list__top"><div><div class="od-list__title">' + esc(title) + '</div><div class="od-list__meta">' + esc(meta.join(' \u00b7 ')) + '</div></div>';
         html += '<span class="od-pill ' + pillClass(item.status) + '">' + esc(item.status || 'current') + '</span></div>';
         if (item.content_hash) {
-          html += '<div class="od-note">Hash: <code>' + esc(String(item.content_hash).slice(0, 16)) + '</code></div>';
+          html += '<div class="od-note">' + esc(TCi18n.t('demd.od.doc.hash')) + ' <code>' + esc(String(item.content_hash).slice(0, 16)) + '</code></div>';
         }
         if (url) {
-          html += '<div class="od-list__actions"><a href="' + esc(url) + '" target="_blank" class="od-doc-btn">Öffnen</a></div>';
+          html += '<div class="od-list__actions"><a href="' + esc(url) + '" target="_blank" class="od-doc-btn">' + esc(TCi18n.t('demd.od.open')) + '</a></div>';
         }
         html += '</div>';
       });
@@ -273,10 +671,10 @@
         if (item.mime_type) meta.push(item.mime_type);
         if (item.created_at) meta.push(fmtDateTime(item.created_at));
         html += '<div class="od-list__item">';
-        html += '<div class="od-list__top"><div><div class="od-list__title">' + esc(item.original_name || 'Anlage') + '</div><div class="od-list__meta">' + esc(meta.join(' \u00b7 ')) + '</div></div>';
-        html += '<span class="od-pill od-pill--neutral">Anlage</span></div>';
+        html += '<div class="od-list__top"><div><div class="od-list__title">' + esc(item.original_name || TCi18n.t('demd.od.attachment')) + '</div><div class="od-list__meta">' + esc(meta.join(' \u00b7 ')) + '</div></div>';
+        html += '<span class="od-pill od-pill--neutral">' + esc(TCi18n.t('demd.od.attachment')) + '</span></div>';
         if (url) {
-          html += '<div class="od-list__actions"><a href="' + esc(url) + '" target="_blank" class="od-doc-btn">Öffnen</a></div>';
+          html += '<div class="od-list__actions"><a href="' + esc(url) + '" target="_blank" class="od-doc-btn">' + esc(TCi18n.t('demd.od.open')) + '</a></div>';
         }
         html += '</div>';
       });
@@ -304,16 +702,38 @@
     try {
       var detailResponse = await fetch(API + '/marketplace/offers/' + offerId + '/detail', { credentials: 'include' });
       if (!detailResponse.ok) {
-        document.getElementById('od-loading').textContent = detailResponse.status === 403 ? 'Keine Berechtigung für dieses Angebot.' : 'Angebot nicht gefunden.';
+        setLoadingText(detailResponse.status === 403 ? 'demd.od.forbidden' : 'demd.od.notFound');
         return;
       }
       var dossierResponse = await fetch(API + '/marketplace/offers/' + offerId + '/dossier', { credentials: 'include' });
       var o = await detailResponse.json();
       var dossier = dossierResponse.ok ? await dossierResponse.json() : null;
 
+      lastOffer = o;
+      lastDossier = dossier;
       document.getElementById('od-loading').style.display = 'none';
+      document.getElementById('od-content').style.display = 'block';
+      renderAll(o, dossier);
+
+      /* Sprachwechsel: diese Ansicht wird vollstaendig per JS gebaut, i18n.js
+         kann daran nichts nachziehen. Deshalb zeichnen wir sie aus dem bereits
+         geladenen Stand neu - ohne die Endpunkte erneut zu belasten. */
+      document.addEventListener('tc:langchange', function () {
+        if (lastOffer) renderAll(lastOffer, lastDossier);
+      });
+    } catch (e) {
+      var errEl = document.getElementById('od-loading');
+      if (errEl) {
+        errEl.removeAttribute('data-i18n');
+        errEl.textContent = TCi18n.t('demd.od.err.prefix') + e.message;
+      }
+    }
+
+    /* Baut die komplette Dealakte aus dem geladenen Stand. Als eigene Funktion,
+       damit ein Sprachwechsel exakt dieselbe Ansicht neu zeichnen kann. */
+    function renderAll(o, dossier) {
       var root = document.getElementById('od-content');
-      root.style.display = 'block';
+      if (!root) return;
 
       var isEmergency = o.urgency === 'notdienst' || o.urgency === 'critical' || o.urgency === 'urgent';
       var agSt = o.agreement_status || 'none';
@@ -331,17 +751,17 @@
       var terminal = agSt === 'cancelled' || agSt === 'expired' || o.action_required === 'closed';
 
       var steps = isEmergency ? [
-        { key: 'committed', label: 'Teilzusage eingegangen', done: true },
-        { key: 'agreement', label: 'Sofortvereinbarung erstellt', done: agSt !== 'none', action: agSt === 'none' && o.status === 'accepted' && o.action_required === 'action_required' ? 'create-agreement' : null, actionLabel: 'Sofortvereinbarung erstellen' },
-        { key: 'confirmed', label: 'Gegenseite bestätigt', done: ['confirmed', 'activated'].indexOf(agSt) !== -1, action: agSt === 'pending_confirmation' && o.action_required === 'action_required' ? 'confirm-agreement' : null, actionLabel: 'Sofort bestätigen' },
-        { key: 'activated', label: 'Einsatz aktiviert / Dispatch', done: agSt === 'activated', action: agSt === 'confirmed' && o.action_required === 'action_required' ? 'activate' : null, actionLabel: 'Einsatz aktivieren' }
+        { key: 'committed', label: TCi18n.t('demd.od.step.committed'), done: true },
+        { key: 'agreement', label: TCi18n.t('demd.od.step.emgAgreement'), done: agSt !== 'none', action: agSt === 'none' && o.status === 'accepted' && o.action_required === 'action_required' ? 'create-agreement' : null, actionLabel: TCi18n.t('demd.od.step.emgAgreementCta') },
+        { key: 'confirmed', label: TCi18n.t('demd.od.step.confirmed'), done: ['confirmed', 'activated'].indexOf(agSt) !== -1, action: agSt === 'pending_confirmation' && o.action_required === 'action_required' ? 'confirm-agreement' : null, actionLabel: TCi18n.t('demd.od.step.emgConfirmCta') },
+        { key: 'activated', label: TCi18n.t('demd.od.step.emgActivated'), done: agSt === 'activated', action: agSt === 'confirmed' && o.action_required === 'action_required' ? 'activate' : null, actionLabel: TCi18n.t('demd.od.act.activate') }
       ] : [
-        { key: 'created', label: 'Angebot erstellt', done: true },
-        { key: 'sent', label: 'Angebot gesendet', done: o.status !== 'draft' },
-        { key: 'accepted', label: 'Konditionen akzeptiert', done: o.status === 'accepted' },
-        { key: 'agreement', label: 'Einsatzvereinbarung erstellt', done: agSt !== 'none', action: agSt === 'none' && o.status === 'accepted' && o.action_required === 'action_required' ? 'create-agreement' : null, actionLabel: 'Einsatzvereinbarung erstellen' },
-        { key: 'confirmed', label: 'Gegenseite bestätigt', done: ['confirmed', 'activated'].indexOf(agSt) !== -1, action: agSt === 'pending_confirmation' && o.action_required === 'action_required' ? 'confirm-agreement' : null, actionLabel: 'Vereinbarung bestätigen' },
-        { key: 'activated', label: 'Einsatz aktiviert', done: agSt === 'activated', action: agSt === 'confirmed' && o.action_required === 'action_required' ? 'activate' : null, actionLabel: 'Einsatz aktivieren' }
+        { key: 'created', label: TCi18n.t('demd.od.step.created'), done: true },
+        { key: 'sent', label: TCi18n.t('demd.od.step.sent'), done: o.status !== 'draft' },
+        { key: 'accepted', label: TCi18n.t('demd.od.step.accepted'), done: o.status === 'accepted' },
+        { key: 'agreement', label: TCi18n.t('demd.od.step.agreement'), done: agSt !== 'none', action: agSt === 'none' && o.status === 'accepted' && o.action_required === 'action_required' ? 'create-agreement' : null, actionLabel: TCi18n.t('demd.od.act.createAgreement') },
+        { key: 'confirmed', label: TCi18n.t('demd.od.step.confirmed'), done: ['confirmed', 'activated'].indexOf(agSt) !== -1, action: agSt === 'pending_confirmation' && o.action_required === 'action_required' ? 'confirm-agreement' : null, actionLabel: TCi18n.t('demd.od.act.confirm') },
+        { key: 'activated', label: TCi18n.t('demd.od.step.activated'), done: agSt === 'activated', action: agSt === 'confirmed' && o.action_required === 'action_required' ? 'activate' : null, actionLabel: TCi18n.t('demd.od.act.activate') }
       ];
       var doneCount = steps.filter(function(s) { return s.done; }).length;
       var totalSteps = steps.length;
@@ -357,10 +777,10 @@
 
       h += '<div class="od-hero' + (isEmergency ? ' od-hero--emergency' : '') + '">';
       h += '<div class="od-hero__top"><div>';
-      h += '<div class="od-hero__title">' + esc(o.capacity_title || o.demand_title || o.demand_role || 'Angebot') + '</div>';
+      h += '<div class="od-hero__title">' + esc(o.capacity_title || o.demand_title || o.demand_role || TCi18n.t('demd.od.offerFallback')) + '</div>';
       h += '<div class="od-hero__meta">' + esc((o.capacity_location || o.demand_location || '')) + ' \u00b7 ' + esc(o.supplier_company_name || '') + ' \u2192 ' + esc(o.requester_company_name || '') + '</div>';
       h += '</div><div style="text-align:right;display:flex;gap:6px;flex-wrap:wrap;align-items:center">';
-      if (isEmergency) h += '<span class="od-badge od-badge--emergency">\u26a0 Notdienst</span>';
+      if (isEmergency) h += '<span class="od-badge od-badge--emergency">\u26a0 ' + esc(TCi18n.t('demd.od.emergency')) + '</span>';
       if (actionMeta) h += '<span class="od-badge ' + actionMeta.cls + '">' + esc(actionMeta.text) + '</span>';
       h += '<span class="od-badge od-badge--status">' + esc(o.status) + '</span>';
       if (o.capacity_post_id) h += '<span class="od-badge od-badge--status">' + esc(capacityStatusLabel(o.capacity_commercial_status || o.capacity_status)) + '</span>';
@@ -369,12 +789,12 @@
 
       h += '<div class="od-progress' + (isEmergency ? ' od-progress--emergency' : '') + '">';
       h += '<div class="od-progress__header">';
-      h += '<div class="od-progress__title">' + (isEmergency ? '\u26a1 Notdienst-Sofortpfad' : '\ud83d\udccb Deal-Fortschritt') + '</div>';
-      h += '<div class="od-progress__counter">' + doneCount + ' von ' + totalSteps + ' Schritten erledigt</div>';
+      h += '<div class="od-progress__title">' + (isEmergency ? '\u26a1 ' + esc(TCi18n.t('demd.od.progress.emergency')) : '\ud83d\udccb ' + esc(TCi18n.t('demd.od.progress.title'))) + '</div>';
+      h += '<div class="od-progress__counter">' + esc(TCi18n.t('demd.od.progress.counter', { done: doneCount, total: totalSteps })) + '</div>';
       h += '</div>';
       h += '<div class="od-progress__bar"><div class="od-progress__fill" style="width:' + progressPct + '%"></div></div>';
-      if (agSt === 'cancelled') h += '<div class="od-note">Die Vereinbarung wurde storniert. Der operative Pfad ist beendet.</div>';
-      if (agSt === 'expired') h += '<div class="od-note">Die Vereinbarung ist abgelaufen und muss neu aufgesetzt werden.</div>';
+      if (agSt === 'cancelled') h += '<div class="od-note">' + esc(TCi18n.t('demd.od.progress.cancelled')) + '</div>';
+      if (agSt === 'expired') h += '<div class="od-note">' + esc(TCi18n.t('demd.od.progress.expired')) + '</div>';
       h += '<div class="od-steps">';
       var foundCurrent = false;
       steps.forEach(function(s) {
@@ -387,12 +807,12 @@
         h += '<div class="od-step__icon ' + iconCls + '">' + iconText + '</div>';
         h += '<div><div class="od-step__label">' + esc(s.label) + '</div>';
         if (isCurrent && s.action) {
-          h += '<div style="font-size:11px;color:var(--ds-text-secondary);margin-top:2px">Dieser Schritt erfordert Ihre Aktion.</div>';
+          h += '<div style="font-size:11px;color:var(--ds-text-secondary);margin-top:2px">' + esc(TCi18n.t('demd.od.step.needsAction')) + '</div>';
           h += '<div style="margin-top:8px"><button class="ds-btn ds-btn--primary" onclick="doAction(\'' + s.action + '\', this)">' + esc(s.actionLabel) + '</button></div>';
         } else if (isCurrent) {
-          h += '<div style="font-size:11px;color:var(--ds-text-secondary);margin-top:2px">Warten auf Gegenseite.</div>';
+          h += '<div style="font-size:11px;color:var(--ds-text-secondary);margin-top:2px">' + esc(TCi18n.t('demd.od.step.waiting')) + '</div>';
         } else if (s.done && s.key === 'activated' && o.assignment_id) {
-          h += '<div style="font-size:11px;color:var(--ds-success);margin-top:2px">Assignment: ' + esc(o.assignment_id) + '</div>';
+          h += '<div style="font-size:11px;color:var(--ds-success);margin-top:2px">' + esc(TCi18n.t('demd.od.step.assignment')) + ' ' + esc(o.assignment_id) + '</div>';
         }
         h += '</div></div>';
       });
@@ -402,105 +822,105 @@
       h += '<div id="od-pool-cta"></div>';
 
       h += '<div class="od-grid">';
-      h += '<div class="od-card"><div class="od-card__title">Arbeitsplatzangebot</div>';
-      h += field('Rolle', esc(o.demand_role || '\u2014'));
-      h += field('Einsatzort', esc(o.demand_location || '\u2014'));
-      h += field('Zeitraum', esc(fmtDate(o.demand_start) + ' \u2014 ' + fmtDate(o.demand_end)));
-      h += field('Menge', esc(o.demand_headcount || '\u2014'));
-      h += field('Unternehmen', esc(o.requester_company_name || '\u2014'));
+      h += '<div class="od-card"><div class="od-card__title">' + esc(TCi18n.t('demd.od.card.posting')) + '</div>';
+      h += field(TCi18n.t('demd.od.field.role'), esc(o.demand_role || '\u2014'));
+      h += field(TCi18n.t('demd.od.field.location'), esc(o.demand_location || '\u2014'));
+      h += field(TCi18n.t('demd.od.field.period'), esc(fmtDate(o.demand_start) + ' \u2014 ' + fmtDate(o.demand_end)));
+      h += field(TCi18n.t('demd.od.field.quantity'), esc(o.demand_headcount || '\u2014'));
+      h += field(TCi18n.t('demd.od.field.company'), esc(o.requester_company_name || '\u2014'));
       h += '</div>';
-      h += '<div class="od-card"><div class="od-card__title">Konditionen</div>';
-      h += field('Angebotene Menge', esc(o.offered_quantity || '\u2014'));
-      h += field('Stundensatz', esc(fmtMoney(o.offered_hourly_rate, 'EUR/h')));
-      h += field('Start', esc(fmtDate(o.start_confirmed)));
-      h += field('Ende', esc(fmtDate(o.end_date)));
-      h += field('Abrechnung', esc(o.billing_unit || '\u2014'));
-      h += field('Reaktionszeit', fmtInt(o.response_time_minutes, 'Min'));
-      h += field('Ersatzstellung', fmtInt(o.replacement_sla_minutes, 'Min'));
+      h += '<div class="od-card"><div class="od-card__title">' + esc(TCi18n.t('demd.od.card.terms')) + '</div>';
+      h += field(TCi18n.t('demd.od.field.offeredQuantity'), esc(o.offered_quantity || '\u2014'));
+      h += field(TCi18n.t('demd.od.field.hourlyRate'), esc(fmtMoney(o.offered_hourly_rate, 'EUR/h')));
+      h += field(TCi18n.t('demd.od.field.start'), esc(fmtDate(o.start_confirmed)));
+      h += field(TCi18n.t('demd.od.field.end'), esc(fmtDate(o.end_date)));
+      h += field(TCi18n.t('demd.od.field.billing'), esc(o.billing_unit || '\u2014'));
+      h += field(TCi18n.t('demd.od.field.responseTime'), fmtInt(o.response_time_minutes, TCi18n.t('demd.od.unit.min')));
+      h += field(TCi18n.t('demd.od.field.replacement'), fmtInt(o.replacement_sla_minutes, TCi18n.t('demd.od.unit.min')));
       h += '</div>';
       if (o.capacity_post_id) {
-        h += '<div class="od-card"><div class="od-card__title">Personalangebot (Quelle)</div>';
-        h += field('Personal', esc(o.capacity_title || '\u2014'));
-        h += field('Rolle', esc(o.capacity_role || '\u2014'));
-        h += field('Standort', esc(o.capacity_location || '\u2014'));
-        h += field('Status', esc(capacityStatusLabel(o.capacity_commercial_status || o.capacity_status)));
-        h += field('Verfuegbar', esc(capacityHeadcountSummary(o)));
+        h += '<div class="od-card"><div class="od-card__title">' + esc(TCi18n.t('demd.od.card.capacity')) + '</div>';
+        h += field(TCi18n.t('demd.od.field.staff'), esc(o.capacity_title || '\u2014'));
+        h += field(TCi18n.t('demd.od.field.role'), esc(o.capacity_role || '\u2014'));
+        h += field(TCi18n.t('demd.od.field.site'), esc(o.capacity_location || '\u2014'));
+        h += field(TCi18n.t('demd.od.field.status'), esc(capacityStatusLabel(o.capacity_commercial_status || o.capacity_status)));
+        h += field(TCi18n.t('demd.od.field.available'), esc(capacityHeadcountSummary(o)));
         h += '</div>';
       }
       h += '</div>';
 
       h += '<div class="od-card od-card--full">';
-      h += '<div class="od-card__title">Einsatzvereinbarung &amp; Aktionen</div>';
+      h += '<div class="od-card__title">' + esc(TCi18n.t('demd.od.card.agreement')) + '</div>';
       h += '<div class="od-status-line">';
       h += '<span class="od-pill ' + pillClass(agSt) + '">' + esc(agreementStatusLabel(agSt)) + '</span>';
       h += '<span class="od-pill ' + pillClass(signature.status) + '">' + esc(signatureStatusLabel(signature.required, signature.status)) + '</span>';
       if (o.capacity_post_id) h += '<span class="od-pill od-pill--neutral">' + esc(capacityHeadcountSummary(o)) + '</span>';
-      if (dossier && dossier.document_count != null) h += '<span class="od-pill od-pill--neutral">' + esc(String(dossier.document_count)) + ' Dokumente</span>';
+      if (dossier && dossier.document_count != null) h += '<span class="od-pill od-pill--neutral">' + esc(String(dossier.document_count)) + ' ' + esc(TCi18n.t('demd.od.documents')) + '</span>';
       h += '</div>';
       if (agSt === 'none') {
-        h += '<div class="od-empty">Noch keine Einsatzvereinbarung erstellt.</div>';
+        h += '<div class="od-empty">' + esc(TCi18n.t('demd.od.agr.none')) + '</div>';
       } else {
         h += '<div class="od-grid" style="margin:0 0 var(--ds-space-3)">';
         h += '<div>';
-        h += field('Referenz', esc(o.agreement_ref || '\u2014'));
-        h += field('Status', esc(agreementStatusLabel(agSt)));
-        h += field('Version', esc(o.agreement_version || '\u2014'));
+        h += field(TCi18n.t('demd.od.field.reference'), esc(o.agreement_ref || '\u2014'));
+        h += field(TCi18n.t('demd.od.field.status'), esc(agreementStatusLabel(agSt)));
+        h += field(TCi18n.t('demd.od.field.version'), esc(o.agreement_version || '\u2014'));
         h += '</div><div>';
-        h += field('Bestätigt', esc(o.confirmed_at ? fmtDateTime(o.confirmed_at) : 'Ausstehend'));
-        h += field('Aktiviert', esc(o.activated_at ? fmtDateTime(o.activated_at) : 'Ausstehend'));
-        if (o.assignment_id) h += field('Assignment', esc(o.assignment_id));
+        h += field(TCi18n.t('demd.od.field.confirmed'), esc(o.confirmed_at ? fmtDateTime(o.confirmed_at) : TCi18n.t('demd.od.pending')));
+        h += field(TCi18n.t('demd.od.field.activated'), esc(o.activated_at ? fmtDateTime(o.activated_at) : TCi18n.t('demd.od.pending')));
+        if (o.assignment_id) h += field(TCi18n.t('demd.od.field.assignment'), esc(o.assignment_id));
         h += '</div></div>';
       }
       h += '<div class="od-docs">';
-      h += '<a href="' + API + '/marketplace/offers/' + offerId + '/document?type=conditions" target="_blank" class="od-doc-btn">Konditionsblatt öffnen</a>';
-      if (agSt !== 'none') h += '<a href="' + API + '/marketplace/offers/' + offerId + '/document?type=agreement" target="_blank" class="od-doc-btn">Vereinbarung öffnen</a>';
+      h += '<a href="' + API + '/marketplace/offers/' + offerId + '/document?type=conditions" target="_blank" class="od-doc-btn">' + esc(TCi18n.t('demd.od.doc.openConditions')) + '</a>';
+      if (agSt !== 'none') h += '<a href="' + API + '/marketplace/offers/' + offerId + '/document?type=agreement" target="_blank" class="od-doc-btn">' + esc(TCi18n.t('demd.od.doc.openAgreement')) + '</a>';
       h += '</div>';
       if (canCreateAgreement || canConfirm || canActivate || canPrepareSignature || canCancel) {
         h += '<div class="od-actions">';
-        if (canCreateAgreement) h += '<button class="ds-btn ds-btn--primary" onclick="doAction(\'create-agreement\', this)">Einsatzvereinbarung erstellen</button>';
-        if (canConfirm) h += '<button class="ds-btn ds-btn--primary" onclick="doAction(\'confirm-agreement\', this)">Vereinbarung bestätigen</button>';
-        if (canActivate) h += '<button class="ds-btn ds-btn--primary" onclick="doAction(\'activate\', this)">Einsatz aktivieren</button>';
-        if (canPrepareSignature) h += '<button class="ds-btn ds-btn--secondary" onclick="doAction(\'prepare-signature\', this)">Signatur vorbereiten</button>';
-        if (canCancel) h += '<button class="ds-btn ds-btn--ghost" onclick="doAction(\'cancel-agreement\', this)">Vereinbarung stornieren</button>';
+        if (canCreateAgreement) h += '<button class="ds-btn ds-btn--primary" onclick="doAction(\'create-agreement\', this)">' + esc(TCi18n.t('demd.od.act.createAgreement')) + '</button>';
+        if (canConfirm) h += '<button class="ds-btn ds-btn--primary" onclick="doAction(\'confirm-agreement\', this)">' + esc(TCi18n.t('demd.od.act.confirm')) + '</button>';
+        if (canActivate) h += '<button class="ds-btn ds-btn--primary" onclick="doAction(\'activate\', this)">' + esc(TCi18n.t('demd.od.act.activate')) + '</button>';
+        if (canPrepareSignature) h += '<button class="ds-btn ds-btn--secondary" onclick="doAction(\'prepare-signature\', this)">' + esc(TCi18n.t('demd.od.act.prepareSignature')) + '</button>';
+        if (canCancel) h += '<button class="ds-btn ds-btn--ghost" onclick="doAction(\'cancel-agreement\', this)">' + esc(TCi18n.t('demd.od.act.cancel')) + '</button>';
         h += '</div>';
       }
       h += '</div>';
 
       h += '<div class="od-grid">';
-      h += '<div class="od-card"><div class="od-card__title">Generierte Dokumente</div>';
-      h += renderDocumentList(generatedDocs, 'Noch keine generierten Dokumente in der Dealakte.', true);
+      h += '<div class="od-card"><div class="od-card__title">' + esc(TCi18n.t('demd.od.card.generatedDocs')) + '</div>';
+      h += renderDocumentList(generatedDocs, TCi18n.t('demd.od.empty.generatedDocs'), true);
       h += '</div>';
-      h += '<div class="od-card"><div class="od-card__title">Hochgeladene Deal-Dokumente</div>';
-      h += renderDocumentList(uploadedDocs, 'Noch keine hochgeladenen Deal-Dokumente vorhanden.', false);
+      h += '<div class="od-card"><div class="od-card__title">' + esc(TCi18n.t('demd.od.card.uploadedDocs')) + '</div>';
+      h += renderDocumentList(uploadedDocs, TCi18n.t('demd.od.empty.uploadedDocs'), false);
       h += '<div class="od-upload">';
-      h += '<div class="od-upload__row"><input id="od-upload-file" type="file" accept=".pdf,.png,.jpg,.jpeg,.webp"/><button class="ds-btn ds-btn--secondary" onclick="uploadDealDocument(this)">Dokument hochladen</button></div>';
-      h += '<div class="od-upload__hint">Erlaubt: PDF, PNG, JPG, WEBP bis 5 MB. Uploads werden der Dealakte zugeordnet.</div>';
+      h += '<div class="od-upload__row"><input id="od-upload-file" type="file" accept=".pdf,.png,.jpg,.jpeg,.webp"/><button class="ds-btn ds-btn--secondary" onclick="uploadDealDocument(this)">' + esc(TCi18n.t('demd.od.upload.cta')) + '</button></div>';
+      h += '<div class="od-upload__hint">' + esc(TCi18n.t('demd.od.upload.hint')) + '</div>';
       h += '</div></div>';
       h += '</div>';
 
       h += '<div class="od-grid">';
-      h += '<div class="od-card"><div class="od-card__title">Signaturstatus</div>';
-      h += field('Pflicht', esc(signature.required ? 'Ja' : 'Nein'));
-      h += field('Status', esc(signatureStatusLabel(signature.required, signature.status)));
-      h += field('Provider', esc(signature.provider || '\u2014'));
-      h += field('Referenz', esc(signature.reference || o.signature_reference || '\u2014'));
-      h += field('Signiert am', esc(fmtDateTime(signature.signed_at)));
+      h += '<div class="od-card"><div class="od-card__title">' + esc(TCi18n.t('demd.od.card.signature')) + '</div>';
+      h += field(TCi18n.t('demd.od.field.required'), esc(signature.required ? TCi18n.t('demd.od.yes') : TCi18n.t('demd.od.no')));
+      h += field(TCi18n.t('demd.od.field.status'), esc(signatureStatusLabel(signature.required, signature.status)));
+      h += field(TCi18n.t('demd.od.field.provider'), esc(signature.provider || '\u2014'));
+      h += field(TCi18n.t('demd.od.field.reference'), esc(signature.reference || o.signature_reference || '\u2014'));
+      h += field(TCi18n.t('demd.od.field.signedAt'), esc(fmtDateTime(signature.signed_at)));
       h += '</div>';
-      h += '<div class="od-card"><div class="od-card__title">Weitere Anlagen</div>';
-      h += renderAssetList(attachments, 'Keine zusätzlichen Anlagen vorhanden.');
+      h += '<div class="od-card"><div class="od-card__title">' + esc(TCi18n.t('demd.od.card.attachments')) + '</div>';
+      h += renderAssetList(attachments, TCi18n.t('demd.od.empty.attachments'));
       h += '</div>';
       h += '</div>';
 
-      // Welle 7 – Phase 6+7+8: Einsatzbesetzung-Block in der Dealakte.
+      // Welle 7 - Phase 6+7+8: Einsatzbesetzung-Block in der Dealakte.
       h += '<div class="od-card od-card--full" id="od-staffing-block" data-staffing-state="loading">';
-      h += '<div class="od-card__title">Einsatzbesetzung</div>';
-      h += '<div class="od-empty" id="od-staffing-body">Staffing-Kontext wird geladen\u2026</div>';
+      h += '<div class="od-card__title">' + esc(TCi18n.t('demd.od.card.staffing')) + '</div>';
+      h += '<div class="od-empty" id="od-staffing-body">' + esc(TCi18n.t('demd.od.staffing.loading')) + '</div>';
       h += '</div>';
 
       h += '<div class="od-card od-card--full">';
-      h += '<div class="od-card__title">Timeline / Dealakte</div>';
+      h += '<div class="od-card__title">' + esc(TCi18n.t('demd.od.card.timeline')) + '</div>';
       if (!timeline.length) {
-        h += '<div class="od-empty">Noch keine Timeline-Ereignisse vorhanden.</div>';
+        h += '<div class="od-empty">' + esc(TCi18n.t('demd.od.empty.timeline')) + '</div>';
       } else {
         h += '<div class="od-timeline">';
         timeline.forEach(function(item) {
@@ -517,11 +937,9 @@
 
       root.innerHTML = h;
       renderStaffingBlock(o).catch(function () { /* non-critical */ });
-    } catch (e) {
-      document.getElementById('od-loading').textContent = 'Fehler: ' + e.message;
     }
 
-    // Welle 7 – Phase 6+7+8: Staffing-Kontext + One-click-/Bulk-Zuweisung.
+    // Welle 7 - Phase 6+7+8: Staffing-Kontext + One-click-/Bulk-Zuweisung.
     async function renderStaffingBlock(offerRow) {
       var block = document.getElementById('od-staffing-block');
       var body = document.getElementById('od-staffing-body');
@@ -534,13 +952,13 @@
         var r = await fetch(API + '/marketplace/offers/' + offerId + '/staffing-context', { credentials: 'include' });
         if (!r.ok) {
           body.textContent = r.status === 403
-            ? 'Staffing-Kontext ist fuer Ihre Rolle nicht freigeschaltet.'
-            : 'Staffing-Kontext konnte nicht geladen werden.';
+            ? TCi18n.t('demd.od.staffing.forbidden')
+            : TCi18n.t('demd.od.staffing.failed');
           return;
         }
         var ctx = await r.json();
         if (!ctx || !ctx.assignment) {
-          body.textContent = 'Sobald der Einsatz aktiviert ist, erscheinen hier Staffing-Kandidaten und der Fast-Track.';
+          body.textContent = TCi18n.t('demd.od.staffing.pending');
           return;
         }
         var asg = ctx.assignment;
@@ -558,114 +976,116 @@
         if (assignCta) {
           assignCta.innerHTML = (isSupplier && open > 0)
             ? '<div class="od-card od-card--full" style="border-color:var(--ds-brand);display:flex;flex-wrap:wrap;gap:var(--ds-space-3);align-items:center;justify-content:space-between">'
-              + '<div><div class="od-card__title" style="margin:0">Einsatz aktiv – ' + esc(String(open)) + ' Platz(e) offen</div>'
-              + '<div style="font-size:12px;color:var(--ds-text-secondary);margin-top:2px">Jetzt Arbeiter zuweisen – sichere Kandidaten direkt per Klick.</div></div>'
-              + '<button type="button" class="ds-btn ds-btn--primary" onclick="var b=document.getElementById(\'od-staffing-block\');if(b)b.scrollIntoView({behavior:\'smooth\',block:\'start\'});">Arbeiter zuweisen →</button>'
+              + '<div><div class="od-card__title" style="margin:0">' + esc(TCi18n.t('demd.od.cta.assignTitle', { count: String(open) })) + '</div>'
+              + '<div style="font-size:12px;color:var(--ds-text-secondary);margin-top:2px">' + esc(TCi18n.t('demd.od.cta.assignText')) + '</div></div>'
+              + '<button type="button" class="ds-btn ds-btn--primary" onclick="var b=document.getElementById(\'od-staffing-block\');if(b)b.scrollIntoView({behavior:\'smooth\',block:\'start\'});">' + esc(TCi18n.t('demd.od.cta.assignBtn')) + ' \u2192</button>'
               + '</div>'
             : '';
         }
 
-        // Käufer-CTA: nach erfolgreich abgeschlossenem Deal den Lieferanten 1-Klick in den
-        // eigenen Lieferantenpool aufnehmen (Endpoint /vendor-pool/from-deal). Nur für den
-        // Auftraggeber (is_supplier=false) und nur bei "completed" (aktiviert + Ende vorbei) —
+        // Kaeufer-CTA: nach erfolgreich abgeschlossenem Deal den Lieferanten 1-Klick in den
+        // eigenen Lieferantenpool aufnehmen (Endpoint /vendor-pool/from-deal). Nur fuer den
+        // Auftraggeber (is_supplier=false) und nur bei "completed" (aktiviert + Ende vorbei) -
         // exakt die Bedingung, die der Endpoint serverseitig erzwingt.
         var poolCta = document.getElementById('od-pool-cta');
         if (poolCta) {
           var dealCompleted = offerRow.agreement_status === 'activated' && offerRow.end_date && new Date(offerRow.end_date) < new Date();
           poolCta.innerHTML = (!isSupplier && dealCompleted)
             ? '<div class="od-card od-card--full" style="display:flex;flex-wrap:wrap;gap:var(--ds-space-3);align-items:center;justify-content:space-between">'
-              + '<div><div class="od-card__title" style="margin:0">Deal erfolgreich abgeschlossen</div>'
-              + '<div style="font-size:12px;color:var(--ds-text-secondary);margin-top:2px">Lieferant in Ihren Lieferantenpool aufnehmen – für schnellere künftige Vergaben.</div></div>'
-              + '<button type="button" id="od-add-pool-btn" class="ds-btn ds-btn--primary" onclick="addSupplierToPool(this)">Lieferant in Pool aufnehmen</button>'
+              + '<div><div class="od-card__title" style="margin:0">' + esc(TCi18n.t('demd.od.pool.title')) + '</div>'
+              + '<div style="font-size:12px;color:var(--ds-text-secondary);margin-top:2px">' + esc(TCi18n.t('demd.od.pool.text')) + '</div></div>'
+              + '<button type="button" id="od-add-pool-btn" class="ds-btn ds-btn--primary" onclick="addSupplierToPool(this)">' + esc(TCi18n.t('demd.od.pool.cta')) + '</button>'
               + '</div>'
             : '';
         }
 
         var html = '';
         html += '<div class="od-status-line">';
-        html += '<span class="od-pill od-pill--neutral">Assignment ' + esc(String(asg.id).substring(0, 8)) + '</span>';
-        html += '<span class="od-pill ' + (open > 0 ? "od-pill--warn" : "od-pill--success") + '">' + (open > 0 ? open + ' offen' : 'Voll besetzt') + '</span>';
-        html += '<span class="od-pill od-pill--neutral">' + filled + ' besetzt / ' + requested + ' gesamt</span>';
-        if (reserved > 0) html += '<span class="od-pill od-pill--neutral">' + reserved + ' reserviert</span>';
+        html += '<span class="od-pill od-pill--neutral">' + esc(TCi18n.t('demd.od.staffing.assignment')) + ' ' + esc(String(asg.id).substring(0, 8)) + '</span>';
+        html += '<span class="od-pill ' + (open > 0 ? "od-pill--warn" : "od-pill--success") + '">' + esc(open > 0 ? TCi18n.t('demd.od.staffing.open', { count: open }) : TCi18n.t('demd.od.staffing.full')) + '</span>';
+        html += '<span class="od-pill od-pill--neutral">' + esc(TCi18n.t('demd.od.staffing.filled', { filled: filled, total: requested })) + '</span>';
+        if (reserved > 0) html += '<span class="od-pill od-pill--neutral">' + esc(TCi18n.t('demd.od.staffing.reserved', { count: reserved })) + '</span>';
         html += '</div>';
 
         if (!isSupplier) {
-          html += '<div class="od-note">Diese Sicht fasst den aktuellen Staffing-Stand Ihres Lieferanten zusammen. Operative Zuweisungen erfolgen beim Lieferanten.</div>';
+          html += '<div class="od-note">' + esc(TCi18n.t('demd.od.staffing.buyerNote')) + '</div>';
           body.innerHTML = html;
           return;
         }
 
         if (open <= 0) {
-          html += '<div class="od-empty" style="margin-top:var(--ds-space-3)">Der Einsatz ist vollstaendig besetzt. Stundenzettel und Freigaben laufen ueber den Agentur-Arbeitsplatz.</div>';
+          html += '<div class="od-empty" style="margin-top:var(--ds-space-3)">' + esc(TCi18n.t('demd.od.staffing.complete')) + '</div>';
           if (ctx.staffing_ready_link) {
-            html += '<div class="od-actions"><a class="ds-btn ds-btn--secondary" href="' + esc(ctx.staffing_ready_link) + '">Zum Einsatzleitstand</a></div>';
+            html += '<div class="od-actions"><a class="ds-btn ds-btn--secondary" href="' + esc(ctx.staffing_ready_link) + '">' + esc(TCi18n.t('demd.od.staffing.toControl')) + '</a></div>';
           }
           body.innerHTML = html;
           return;
         }
 
         if (safeCandidates.length === 0) {
-          html += '<div class="od-empty" style="margin-top:var(--ds-space-3)">Aktuell keine sicheren One-click-Kandidaten. Bitte im Einsatzleitstand Vorschlaege pruefen oder Einladungen verschicken.</div>';
+          html += '<div class="od-empty" style="margin-top:var(--ds-space-3)">' + esc(TCi18n.t('demd.od.staffing.noCandidates')) + '</div>';
           html += '<div class="od-actions">';
-          if (ctx.staffing_ready_link) html += '<a class="ds-btn ds-btn--primary" href="' + esc(ctx.staffing_ready_link) + '">Zum Staffing-Arbeitsplatz</a>';
+          if (ctx.staffing_ready_link) html += '<a class="ds-btn ds-btn--primary" href="' + esc(ctx.staffing_ready_link) + '">' + esc(TCi18n.t('demd.od.staffing.toWorkspace')) + '</a>';
           html += '</div>';
           body.innerHTML = html;
           return;
         }
 
         html += '<div class="od-note" style="margin-top:var(--ds-space-3)">';
-        html += esc(Math.min(safeCandidates.length, open)) + ' sichere Kandidat(en) \u2013 alle hard-match und aktuell verfuegbar. Auswahl pruefen, dann direkt zuweisen.';
+        html += esc(TCi18n.t('demd.od.staffing.safeNote', { count: Math.min(safeCandidates.length, open) }));
         html += '</div>';
         html += '<div class="od-list" style="margin-top:var(--ds-space-3)">';
         safeCandidates.forEach(function (entry) {
-          var label = [entry.first_name, entry.last_name].filter(Boolean).join(' ') || 'Worker';
-          var sub = entry.personnel_number ? 'Personalnr. ' + entry.personnel_number : '';
-          if (entry.match_score != null) sub = (sub ? sub + ' \u00b7 ' : '') + 'Match ' + Math.round(Number(entry.match_score));
+          var label = [entry.first_name, entry.last_name].filter(Boolean).join(' ') || TCi18n.t('demd.od.staffing.workerFallback');
+          var sub = entry.personnel_number ? TCi18n.t('demd.od.staffing.personnelNo') + ' ' + entry.personnel_number : '';
+          if (entry.match_score != null) sub = (sub ? sub + ' \u00b7 ' : '') + TCi18n.t('demd.od.staffing.match') + ' ' + Math.round(Number(entry.match_score));
           html += '<label class="od-list__item" style="display:flex;gap:10px;align-items:center;cursor:pointer">';
           html += '<input type="checkbox" class="od-staffing-candidate" value="' + esc(entry.worker_user_id) + '" checked />';
           html += '<div style="flex:1;min-width:0"><div class="od-list__title">' + esc(label) + '</div>';
           if (sub) html += '<div class="od-list__meta">' + esc(sub) + '</div>';
           html += '</div>';
-          html += '<span class="od-pill od-pill--success">Direkt safe</span>';
+          html += '<span class="od-pill od-pill--success">' + esc(TCi18n.t('demd.od.staffing.safePill')) + '</span>';
           html += '</label>';
         });
         html += '</div>';
 
         html += '<div class="od-actions" style="margin-top:var(--ds-space-3)">';
-        html += '<button id="od-staffing-assign-btn" class="ds-btn ds-btn--primary" onclick="quickAssignFromDeal(this)">Ausgewaehlte direkt zuweisen</button>';
-        if (ctx.staffing_ready_link) html += '<a class="ds-btn ds-btn--secondary" href="' + esc(ctx.staffing_ready_link) + '">Vollansicht im Staffing-Leitstand</a>';
+        html += '<button id="od-staffing-assign-btn" class="ds-btn ds-btn--primary" onclick="quickAssignFromDeal(this)">' + esc(TCi18n.t('demd.od.staffing.assignCta')) + '</button>';
+        if (ctx.staffing_ready_link) html += '<a class="ds-btn ds-btn--secondary" href="' + esc(ctx.staffing_ready_link) + '">' + esc(TCi18n.t('demd.od.staffing.fullView')) + '</a>';
         html += '</div>';
         html += '<div id="od-staffing-result" style="margin-top:var(--ds-space-3);display:none"></div>';
         body.innerHTML = html;
       } catch (err) {
-        body.textContent = 'Staffing-Kontext konnte nicht geladen werden: ' + (err && err.message ? err.message : 'Fehler');
+        body.textContent = TCi18n.t('demd.od.staffing.failedWith', {
+          reason: (err && err.message) ? err.message : TCi18n.t('demd.od.staffing.errorFallback')
+        });
       }
     }
 
     window.addSupplierToPool = async function (btn) {
       var orig = btn.textContent;
       btn.disabled = true;
-      btn.textContent = 'Wird aufgenommen…';
+      btn.textContent = TCi18n.t('demd.od.pool.running');
       try {
         var r = await apiPost('/vendor-pool/from-deal/' + offerId, {}, false);
         var d = await r.json().catch(function () { return {}; });
-        if (r.ok) { btn.textContent = '✓ In Pool aufgenommen'; return; }
+        if (r.ok) { btn.textContent = '\u2713 ' + TCi18n.t('demd.od.pool.done'); return; }
         var map = {
-          NOT_DEAL_REQUESTER: 'Nur der Auftraggeber des Deals kann den Lieferanten aufnehmen.',
-          DEAL_NOT_COMPLETED: 'Der Deal ist noch nicht erfolgreich abgeschlossen.',
-          CANNOT_ADD_SELF: 'Die eigene Organisation kann nicht aufgenommen werden.',
-          SUPPLIER_NO_ORG: 'Der Lieferant hat keine Organisation hinterlegt.',
-          FORBIDDEN: 'Ihnen fehlt die Berechtigung fuer den Lieferantenpool.',
-          PERMISSION_DENIED: 'Ihnen fehlt die Berechtigung fuer den Lieferantenpool.',
-          ORG_CONTEXT_REQUIRED: 'Kein Organisations-Kontext aktiv.'
+          NOT_DEAL_REQUESTER: 'demd.od.pool.errNotRequester',
+          DEAL_NOT_COMPLETED: 'demd.od.pool.errNotCompleted',
+          CANNOT_ADD_SELF: 'demd.od.pool.errSelf',
+          SUPPLIER_NO_ORG: 'demd.od.pool.errNoOrg',
+          FORBIDDEN: 'demd.od.pool.errForbidden',
+          PERMISSION_DENIED: 'demd.od.pool.errForbidden',
+          ORG_CONTEXT_REQUIRED: 'demd.od.pool.errOrgContext'
         };
         btn.disabled = false;
         btn.textContent = orig;
-        alert(map[d.error] || ('Fehler: ' + (d.error || r.status)));
+        alert(map[d.error] ? TCi18n.t(map[d.error]) : (TCi18n.t('demd.od.err.prefix') + (d.error || r.status)));
       } catch (e) {
         btn.disabled = false;
         btn.textContent = orig;
-        alert('Netzwerkfehler. Bitte erneut versuchen.');
+        alert(TCi18n.t('demd.od.err.network'));
       }
     };
 
@@ -673,17 +1093,17 @@
       var boxes = document.querySelectorAll('#od-staffing-block .od-staffing-candidate:checked');
       var ids = Array.prototype.map.call(boxes, function (b) { return b.value; }).filter(Boolean);
       if (!ids.length) {
-        alert('Bitte mindestens einen Kandidaten auswaehlen.');
+        alert(TCi18n.t('demd.od.staffing.pickOne'));
         return;
       }
       var originalText = btn.textContent;
       btn.disabled = true;
-      btn.textContent = 'Wird zugewiesen\u2026';
+      btn.textContent = TCi18n.t('demd.od.staffing.assigning');
       try {
         var r = await apiPost('/marketplace/offers/' + offerId + '/quick-assign-to-deal', { worker_user_ids: ids }, false);
         var d = await r.json();
         if (!r.ok) {
-          alert('Fehler: ' + (d.message || d.error || r.status));
+          alert(TCi18n.t('demd.od.err.prefix') + (d.message || d.error || r.status));
           btn.disabled = false;
           btn.textContent = originalText;
           return;
@@ -691,14 +1111,17 @@
         var resultBox = document.getElementById('od-staffing-result');
         if (resultBox) {
           var summary = d.summary || {};
-          var msg = (summary.assigned_count || 0) + ' direkt zugewiesen, ' + (summary.skipped_count || 0) + ' uebersprungen. Noch offen: ' + (summary.open_quantity_after || 0) + '.';
           resultBox.className = 'od-note';
           resultBox.style.display = 'block';
-          resultBox.textContent = msg;
+          resultBox.textContent = TCi18n.t('demd.od.staffing.result', {
+            assigned: summary.assigned_count || 0,
+            skipped: summary.skipped_count || 0,
+            open: summary.open_quantity_after || 0
+          });
         }
         setTimeout(function () { location.reload(); }, 1500);
       } catch (e) {
-        alert('Fehler: ' + e.message);
+        alert(TCi18n.t('demd.od.err.prefix') + e.message);
         btn.disabled = false;
         btn.textContent = originalText;
       }
@@ -709,24 +1132,24 @@
       var originalText = btn.textContent;
       var body = {};
       if (action === 'cancel-agreement') {
-        var reason = window.prompt('Grund für die Stornierung (optional):', '');
+        var reason = window.prompt(TCi18n.t('demd.od.prompt.cancelReason'), '');
         if (reason === null) return;
         body.reason = reason;
       }
       btn.disabled = true;
-      btn.textContent = 'Wird ausgeführt…';
+      btn.textContent = TCi18n.t('demd.od.act.running');
       try {
         var r = await apiPost('/marketplace/offers/' + offerId + '/' + action, body, false);
         var d = await r.json();
         if (!r.ok) {
-          alert('Fehler: ' + (d.message || d.error || r.status));
+          alert(TCi18n.t('demd.od.err.prefix') + (d.message || d.error || r.status));
           btn.disabled = false;
           btn.textContent = originalText;
           return;
         }
         location.reload();
       } catch (e) {
-        alert('Fehler: ' + e.message);
+        alert(TCi18n.t('demd.od.err.prefix') + e.message);
         btn.disabled = false;
         btn.textContent = originalText;
       }
@@ -735,12 +1158,12 @@
     window.uploadDealDocument = async function(btn) {
       var input = document.getElementById('od-upload-file');
       if (!input || !input.files || !input.files.length) {
-        alert('Bitte zuerst eine Datei auswählen.');
+        alert(TCi18n.t('demd.od.upload.pickFirst'));
         return;
       }
       var originalText = btn.textContent;
       btn.disabled = true;
-      btn.textContent = 'Upload läuft…';
+      btn.textContent = TCi18n.t('demd.od.upload.running');
       try {
         var form = new FormData();
         form.append('file', input.files[0]);
@@ -748,14 +1171,14 @@
         var r = await apiPost('/offer-assets/' + offerId + '/upload', form, true);
         var d = await r.json();
         if (!r.ok || d.success === false) {
-          alert('Fehler: ' + ((d && d.message) || (d && d.error) || r.status));
+          alert(TCi18n.t('demd.od.err.prefix') + ((d && d.message) || (d && d.error) || r.status));
           btn.disabled = false;
           btn.textContent = originalText;
           return;
         }
         location.reload();
       } catch (e) {
-        alert('Fehler: ' + e.message);
+        alert(TCi18n.t('demd.od.err.prefix') + e.message);
         btn.disabled = false;
         btn.textContent = originalText;
       }

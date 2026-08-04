@@ -5,7 +5,7 @@
   <script src="/public/js/i18n.js"></script>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Einsätze & Zeiten – TempConnect</title>
+  <title data-i18n="ts.rev.docTitle">Einsätze & Zeiten – TempConnect</title>
   <link rel="stylesheet" href="/public/css/enterprise.css">
   <link rel="stylesheet" href="worker.css">
   <style>
@@ -322,20 +322,20 @@
 
     <div class="ds-page-header">
       <div class="ds-page-header__content">
-        <h1 class="ds-page-title">Einsätze &amp; Zeiten</h1>
-        <p class="ds-page-subtitle" id="pageSubtitle">Einsatzkraefte, Stundenzettel, Kundenfreigaben und Nachweise &ndash; im Pilotkern zentral steuern.</p>
+        <h1 class="ds-page-title" data-i18n="ts.rev.page.title">Einsätze &amp; Zeiten</h1>
+        <p class="ds-page-subtitle" id="pageSubtitle" data-i18n="ts.rev.page.subtitle">Einsatzkraefte, Stundenzettel, Kundenfreigaben und Nachweise &ndash; im Pilotkern zentral steuern.</p>
       </div>
     </div>
 
     <div class="tc-priority-banner tc-priority-banner--pilot" id="pilotPriorityBanner">
       <div class="tc-priority-banner__main">
-        <div class="tc-priority-banner__eyebrow">Pilot-Standard</div>
-        <div class="tc-priority-banner__title">Besetzung, Kundenversand und Freigaben muessen hier reibungsfrei sitzen</div>
-        <p class="tc-priority-banner__text">Dieser Bereich traegt die operative Reife nach dem Dealabschluss: Worker-Zuweisung, laufender Einsatz, Stundenzettel-Freigabe und der sichtbare naechste Schritt fuer Buyer und Supplier.</p>
+        <div class="tc-priority-banner__eyebrow" data-i18n="ts.rev.banner.eyebrow">Pilot-Standard</div>
+        <div class="tc-priority-banner__title" data-i18n="ts.rev.banner.title">Besetzung, Kundenversand und Freigaben muessen hier reibungsfrei sitzen</div>
+        <p class="tc-priority-banner__text" data-i18n="ts.rev.banner.text">Dieser Bereich traegt die operative Reife nach dem Dealabschluss: Worker-Zuweisung, laufender Einsatz, Stundenzettel-Freigabe und der sichtbare naechste Schritt fuer Buyer und Supplier.</p>
       </div>
       <div class="tc-priority-banner__aside">
-        <div class="tc-priority-banner__aside-title">Fokus jetzt</div>
-        <div class="tc-priority-banner__aside-text">Offene Einreichungen, Kundenfreigaben und Besetzungsstatus zuerst glattziehen; Begleit- und Dokumententhemen bleiben nachrangig.</div>
+        <div class="tc-priority-banner__aside-title" data-i18n="ts.rev.banner.asideTitle">Fokus jetzt</div>
+        <div class="tc-priority-banner__aside-text" data-i18n="ts.rev.banner.asideText">Offene Einreichungen, Kundenfreigaben und Besetzungsstatus zuerst glattziehen; Begleit- und Dokumententhemen bleiben nachrangig.</div>
       </div>
     </div>
 
@@ -343,13 +343,13 @@
     <div id="onboarding-checklist" style="display:none;margin-bottom:var(--ds-space-4)">
       <div style="border:1px solid var(--tc-tone-brand-border);border-radius:12px;background:var(--tc-tone-brand-bg);overflow:hidden">
         <div style="display:flex;align-items:center;gap:10px;padding:10px 16px;cursor:pointer" onclick="toggleOnboarding()">
-          <span style="font-weight:700;font-size:14px;white-space:nowrap">Plattform einrichten</span>
+          <span style="font-weight:700;font-size:14px;white-space:nowrap" data-i18n="ts.rev.onboarding.title">Plattform einrichten</span>
           <span id="onboarding-subtitle" style="font-size:12px;color:var(--ds-text-secondary,var(--wk-text-muted));white-space:nowrap;overflow:hidden;text-overflow:ellipsis;flex-shrink:1;min-width:0"></span>
           <div style="flex:1;min-width:40px;max-width:160px;height:4px;border-radius:2px;background:var(--tc-progress-track);overflow:hidden">
             <div id="onboarding-progress-bar" style="height:100%;border-radius:2px;background:var(--ds-brand);transition:width .4s ease;width:0%"></div>
           </div>
-          <button id="onboarding-toggle-btn" type="button" style="background:none;border:none;color:var(--ds-text-secondary,var(--wk-text-muted));cursor:pointer;font-size:10px;padding:2px 6px;transition:transform .25s;transform:rotate(0deg)" title="Auf-/Zuklappen" onclick="event.stopPropagation();toggleOnboarding()">&#9660;</button>
-          <button id="onboarding-dismiss-btn" type="button" onclick="event.stopPropagation();dismissOnboarding()" style="background:none;border:none;color:var(--ds-text-secondary,var(--wk-text-muted));cursor:pointer;font-size:18px;padding:2px 6px;line-height:1" title="Ausblenden">&times;</button>
+          <button id="onboarding-toggle-btn" type="button" style="background:none;border:none;color:var(--ds-text-secondary,var(--wk-text-muted));cursor:pointer;font-size:10px;padding:2px 6px;transition:transform .25s;transform:rotate(0deg)" title="Auf-/Zuklappen" data-i18n-title="ts.rev.onboarding.toggle" onclick="event.stopPropagation();toggleOnboarding()">&#9660;</button>
+          <button id="onboarding-dismiss-btn" type="button" onclick="event.stopPropagation();dismissOnboarding()" style="background:none;border:none;color:var(--ds-text-secondary,var(--wk-text-muted));cursor:pointer;font-size:18px;padding:2px 6px;line-height:1" title="Ausblenden" data-i18n-title="ts.rev.onboarding.dismiss">&times;</button>
         </div>
         <div id="onboarding-body" style="max-height:0;overflow:hidden;transition:max-height .3s ease">
           <div style="padding:0 16px 14px">
@@ -364,40 +364,40 @@
       <div class="ds-hub-grid">
         <div class="ds-hub-card ds-hub-card--current ds-hub-card--accent" aria-current="page">
           <div class="ds-hub-card__content">
-            <div class="ds-hub-card__title">Einsätze &amp; Zeiten</div>
-            <p class="ds-hub-card__desc">Sie befinden sich im operativen Einsatz- und Zeitbereich.</p>
+            <div class="ds-hub-card__title" data-i18n="ts.rev.hub.current.title">Einsätze &amp; Zeiten</div>
+            <p class="ds-hub-card__desc" data-i18n="ts.rev.hub.current.desc">Sie befinden sich im operativen Einsatz- und Zeitbereich.</p>
           </div>
         </div>
         <a href="#panel-subs" class="ds-hub-card" onclick="switchTab('subs');this.blur();return false;">
           <div class="ds-hub-card__icon">&#9989;</div>
           <div class="ds-hub-card__content">
-            <div class="ds-hub-card__title">Stundenzettel &amp; Freigaben</div>
-            <p class="ds-hub-card__desc">Einreichungen pruefen, an Kunden senden und Freigaben sauber steuern.</p>
+            <div class="ds-hub-card__title" data-i18n="ts.rev.hub.subs.title">Stundenzettel &amp; Freigaben</div>
+            <p class="ds-hub-card__desc" data-i18n="ts.rev.hub.subs.desc">Einreichungen pruefen, an Kunden senden und Freigaben sauber steuern.</p>
           </div>
         </a>
         <a href="/public/mitarbeiter.html" class="ds-hub-card">
           <div class="ds-hub-card__content">
-            <div class="ds-hub-card__title">Einsatzkraefte</div>
-            <p class="ds-hub-card__desc">Einsatzkraefte, Einladungen und operative Stammdaten pflegen.</p>
+            <div class="ds-hub-card__title" data-i18n="ts.rev.hub.workers.title">Einsatzkraefte</div>
+            <p class="ds-hub-card__desc" data-i18n="ts.rev.hub.workers.desc">Einsatzkraefte, Einladungen und operative Stammdaten pflegen.</p>
           </div>
         </a>
         <a href="/public/approvals.html" class="ds-hub-card">
           <div class="ds-hub-card__icon">&#9989;</div>
           <div class="ds-hub-card__content">
-            <div class="ds-hub-card__title">Freigabe-Queue</div>
-            <p class="ds-hub-card__desc">Ausstehende Genehmigungen ueber Einsaetze, Zeiten und Nachweise hinweg.</p>
+            <div class="ds-hub-card__title" data-i18n="ts.rev.hub.approvals.title">Freigabe-Queue</div>
+            <p class="ds-hub-card__desc" data-i18n="ts.rev.hub.approvals.desc">Ausstehende Genehmigungen ueber Einsaetze, Zeiten und Nachweise hinweg.</p>
           </div>
         </a>
         <a href="/public/timesheets.html" class="ds-hub-card">
           <div class="ds-hub-card__content">
-            <div class="ds-hub-card__title">Stundenzettel</div>
-            <p class="ds-hub-card__desc">Zeiterfassung, Freigabe und Abrechnungsgrundlage im Detail.</p>
+            <div class="ds-hub-card__title" data-i18n="ts.rev.hub.timesheets.title">Stundenzettel</div>
+            <p class="ds-hub-card__desc" data-i18n="ts.rev.hub.timesheets.desc">Zeiterfassung, Freigabe und Abrechnungsgrundlage im Detail.</p>
           </div>
         </a>
         <a href="/public/sla_nachweise.html" class="ds-hub-card">
           <div class="ds-hub-card__content">
-            <div class="ds-hub-card__title">Nachweise &amp; Dokumente</div>
-            <p class="ds-hub-card__desc">Dokumente, Zertifikate und Nachweise einsatznah verwalten.</p>
+            <div class="ds-hub-card__title" data-i18n="ts.rev.hub.docs.title">Nachweise &amp; Dokumente</div>
+            <p class="ds-hub-card__desc" data-i18n="ts.rev.hub.docs.desc">Dokumente, Zertifikate und Nachweise einsatznah verwalten.</p>
           </div>
         </a>
       </div>
@@ -406,13 +406,13 @@
     <!-- Tab nav -->
     <div class="hub-tabs" id="hubTabs">
       <button class="hub-tab active" onclick="switchTab('subs')" id="tab-subs">
-        Stundenzettel-Freigaben <span class="tc" id="tc-subs">–</span>
+        <span data-i18n="ts.rev.tab.subs">Stundenzettel-Freigaben</span> <span class="tc" id="tc-subs">–</span>
       </button>
       <button class="hub-tab" onclick="switchTab('wrks')" id="tab-wrks">
-        Einsatzkraefte <span class="tc" id="tc-wrks">–</span>
+        <span data-i18n="ts.rev.tab.workers">Einsatzkraefte</span> <span class="tc" id="tc-wrks">–</span>
       </button>
       <button class="hub-tab" onclick="switchTab('asgn')" id="tab-asgn">
-        Einsätze <span class="tc" id="tc-asgn">–</span>
+        <span data-i18n="ts.rev.tab.asgn">Einsätze</span> <span class="tc" id="tc-asgn">–</span>
       </button>
     </div>
     <div id="pageAccessState" class="hub-empty" style="display:none"></div>
@@ -425,8 +425,8 @@
         <div class="ds-card" style="padding:16px 18px;margin-bottom:14px">
           <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
             <div>
-              <strong style="font-size:.95rem">Kundenversand Stundenzettel</strong>
-              <div style="font-size:.76rem;color:var(--wk-text-muted);margin-top:2px">Status aller Kundenversand-Vorgaenge auf einen Blick</div>
+              <strong style="font-size:.95rem" data-i18n="ts.rev.cust.title">Kundenversand Stundenzettel</strong>
+              <div style="font-size:.76rem;color:var(--wk-text-muted);margin-top:2px" data-i18n="ts.rev.cust.subtitle">Status aller Kundenversand-Vorgaenge auf einen Blick</div>
             </div>
             <span id="custFlowBadge" class="pill pill-pnd">Kundenflow</span>
           </div>
@@ -434,27 +434,27 @@
           <div style="display:grid;grid-template-columns:repeat(6,1fr);gap:8px;margin-bottom:14px" id="custKpiGrid">
             <div style="text-align:center;padding:8px 4px;background:var(--tc-surface-muted);border:1px solid var(--wk-border);border-radius:8px">
               <div style="font-size:1.15rem;font-weight:800;color:var(--tc-tone-success-text)" id="ck-ready">-</div>
-              <div style="font-size:.65rem;color:var(--wk-text-muted);margin-top:2px">Versandbereit</div>
+              <div style="font-size:.65rem;color:var(--wk-text-muted);margin-top:2px" data-i18n="ts.rev.cust.ready">Versandbereit</div>
             </div>
             <div style="text-align:center;padding:8px 4px;background:var(--tc-surface-muted);border:1px solid var(--wk-border);border-radius:8px">
               <div style="font-size:1.15rem;font-weight:800;color:var(--tc-tone-brand-text)" id="ck-sent">-</div>
-              <div style="font-size:.65rem;color:var(--wk-text-muted);margin-top:2px">Gesendet</div>
+              <div style="font-size:.65rem;color:var(--wk-text-muted);margin-top:2px" data-i18n="ts.rev.cust.sent">Gesendet</div>
             </div>
             <div style="text-align:center;padding:8px 4px;background:var(--tc-surface-muted);border:1px solid var(--wk-border);border-radius:8px">
               <div style="font-size:1.15rem;font-weight:800;color:var(--wk-warning)" id="ck-open">-</div>
-              <div style="font-size:.65rem;color:var(--wk-text-muted);margin-top:2px">Beim Kunden</div>
+              <div style="font-size:.65rem;color:var(--wk-text-muted);margin-top:2px" data-i18n="ts.rev.cust.open">Beim Kunden</div>
             </div>
             <div style="text-align:center;padding:8px 4px;background:var(--tc-surface-muted);border:1px solid var(--wk-border);border-radius:8px">
               <div style="font-size:1.15rem;font-weight:800;color:var(--wk-success)" id="ck-confirmed">-</div>
-              <div style="font-size:.65rem;color:var(--wk-text-muted);margin-top:2px">Bestaetigt</div>
+              <div style="font-size:.65rem;color:var(--wk-text-muted);margin-top:2px" data-i18n="ts.rev.cust.confirmed">Bestaetigt</div>
             </div>
             <div style="text-align:center;padding:8px 4px;background:var(--tc-surface-muted);border:1px solid var(--wk-border);border-radius:8px">
               <div style="font-size:1.15rem;font-weight:800;color:var(--wk-danger)" id="ck-rejected">-</div>
-              <div style="font-size:.65rem;color:var(--wk-text-muted);margin-top:2px">Abgelehnt</div>
+              <div style="font-size:.65rem;color:var(--wk-text-muted);margin-top:2px" data-i18n="ts.rev.cust.rejected">Abgelehnt</div>
             </div>
             <div style="text-align:center;padding:8px 4px;background:var(--tc-surface-muted);border:1px solid var(--wk-border);border-radius:8px">
               <div style="font-size:1.15rem;font-weight:800;color:var(--tc-tone-success-strong-text)" id="ck-posted">-</div>
-              <div style="font-size:.65rem;color:var(--wk-text-muted);margin-top:2px">Abrechnung</div>
+              <div style="font-size:.65rem;color:var(--wk-text-muted);margin-top:2px" data-i18n="ts.rev.cust.posted">Abrechnung</div>
             </div>
           </div>
           <!-- Handlungsbedarf / Status-Hinweis -->
@@ -462,66 +462,66 @@
           <!-- Aktionen -->
           <div style="display:flex;gap:8px;flex-wrap:wrap">
             <button class="wk-btn wk-btn-primary wk-btn-sm" id="custBtnSend" onclick="scrollToBundlePreview()" disabled>Versandbereite Positionen anzeigen</button>
-            <button class="wk-btn wk-btn-outline wk-btn-sm" onclick="scrollToBundleSent()">Gesendete Bundles oeffnen</button>
-            <button class="wk-btn wk-btn-ghost wk-btn-sm" onclick="setFilter('sent_to_customer')">Beim Kunden filtern</button>
-            <button class="wk-btn wk-btn-ghost wk-btn-sm" onclick="setFilter('customer_rejected')">Ablehnungen zeigen</button>
+            <button class="wk-btn wk-btn-outline wk-btn-sm" onclick="scrollToBundleSent()" data-i18n="ts.rev.cust.openSent">Gesendete Bundles oeffnen</button>
+            <button class="wk-btn wk-btn-ghost wk-btn-sm" onclick="setFilter('sent_to_customer')" data-i18n="ts.rev.cust.filterAtCustomer">Beim Kunden filtern</button>
+            <button class="wk-btn wk-btn-ghost wk-btn-sm" onclick="setFilter('customer_rejected')" data-i18n="ts.rev.cust.showRejections">Ablehnungen zeigen</button>
           </div>
         </div>
 
         <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:12px">
           <div class="ds-card" style="padding:14px">
             <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
-              <strong>Sammelversand vorbereiten</strong>
+              <strong data-i18n="ts.rev.bundle.prepare">Sammelversand vorbereiten</strong>
               <div style="display:flex;gap:8px;align-items:center">
                 <select id="bundlePeriodMode" class="wk-input" style="font-size:12px;padding:4px 8px;width:120px" onchange="onBundlePeriodModeChange()">
-                  <option value="week" selected>Woche</option>
-                  <option value="month">Monat</option>
+                  <option value="week" selected data-i18n="ts.rev.bundle.week">Woche</option>
+                  <option value="month" data-i18n="ts.rev.bundle.month">Monat</option>
                 </select>
-                <span class="pill pill-pnd">Nur intern freigegeben</span>
+                <span class="pill pill-pnd" data-i18n="ts.rev.bundle.internalOnly">Nur intern freigegeben</span>
               </div>
             </div>
             <div id="bundlePreviewList"></div>
           </div>
           <div class="ds-card" style="padding:14px">
             <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
-              <strong>Gesendete Bundles</strong>
-              <span class="pill pill-act">Kundenflow</span>
+              <strong data-i18n="ts.rev.bundle.sentTitle">Gesendete Bundles</strong>
+              <span class="pill pill-act" data-i18n="ts.rev.bundle.flowPill">Kundenflow</span>
             </div>
             <div id="bundleSentList"></div>
           </div>
         </div>
       </div>
       <div class="hub-kpis" style="grid-template-columns:repeat(8,1fr)">
-        <div class="hub-kpi"><div class="hub-kpi-num" id="k1">–</div><div class="hub-kpi-label">Eingereicht</div></div>
-        <div class="hub-kpi"><div class="hub-kpi-num o" id="k2">–</div><div class="hub-kpi-label">In Prüfung</div></div>
-        <div class="hub-kpi"><div class="hub-kpi-num r" id="k3">–</div><div class="hub-kpi-label">Korrektur nötig</div></div>
-        <div class="hub-kpi"><div class="hub-kpi-num" id="k4" style="color:var(--tc-tone-success-text)">–</div><div class="hub-kpi-label">Intern geprüft</div></div>
-        <div class="hub-kpi"><div class="hub-kpi-num" id="k5" style="color:var(--tc-tone-brand-text)">–</div><div class="hub-kpi-label">Beim Kunden</div></div>
-        <div class="hub-kpi"><div class="hub-kpi-num g" id="k6">–</div><div class="hub-kpi-label">? Bestätigt</div></div>
-        <div class="hub-kpi"><div class="hub-kpi-num o" id="k7">–</div><div class="hub-kpi-label">? Kd. abgelehnt</div></div>
-        <div class="hub-kpi"><div class="hub-kpi-num g" id="k8" style="color:var(--tc-tone-success-strong-text);font-size:1.5rem">–</div><div class="hub-kpi-label">? In Abrechnung</div></div>
+        <div class="hub-kpi"><div class="hub-kpi-num" id="k1">–</div><div class="hub-kpi-label" data-i18n="ts.rev.kpi.submitted">Eingereicht</div></div>
+        <div class="hub-kpi"><div class="hub-kpi-num o" id="k2">–</div><div class="hub-kpi-label" data-i18n="ts.rev.kpi.inReview">In Prüfung</div></div>
+        <div class="hub-kpi"><div class="hub-kpi-num r" id="k3">–</div><div class="hub-kpi-label" data-i18n="ts.rev.kpi.needsCorrection">Korrektur nötig</div></div>
+        <div class="hub-kpi"><div class="hub-kpi-num" id="k4" style="color:var(--tc-tone-success-text)">–</div><div class="hub-kpi-label" data-i18n="ts.rev.kpi.approvedInternal">Intern geprüft</div></div>
+        <div class="hub-kpi"><div class="hub-kpi-num" id="k5" style="color:var(--tc-tone-brand-text)">–</div><div class="hub-kpi-label" data-i18n="ts.rev.kpi.atCustomer">Beim Kunden</div></div>
+        <div class="hub-kpi"><div class="hub-kpi-num g" id="k6">–</div><div class="hub-kpi-label" data-i18n="ts.rev.kpi.confirmed">Bestätigt</div></div>
+        <div class="hub-kpi"><div class="hub-kpi-num o" id="k7">–</div><div class="hub-kpi-label" data-i18n="ts.rev.kpi.custRejected">Kd. abgelehnt</div></div>
+        <div class="hub-kpi"><div class="hub-kpi-num g" id="k8" style="color:var(--tc-tone-success-strong-text);font-size:1.5rem">–</div><div class="hub-kpi-label" data-i18n="ts.rev.kpi.posted">In Abrechnung</div></div>
       </div>
       <div id="ldSubs"><div class="skel"></div><div class="skel" style="opacity:.7"></div><div class="skel" style="opacity:.4"></div></div>
       <div id="ctSubs" style="display:none" class="rev-layout">
         <div class="rev-list-col">
           <div class="rev-filters">
-            <button class="rev-pill on" onclick="setFilter('pending')" id="fp">Ausstehend</button>
-            <button class="rev-pill" onclick="setFilter('under_review')" id="fu">In Prüfung</button>
-            <button class="rev-pill" onclick="setFilter('needs_correction')" id="fc">Korrektur</button>
-            <button class="rev-pill" onclick="setFilter('approved_internal')" id="fai">Intern ?</button>
-            <button class="rev-pill" onclick="setFilter('sent_to_customer')" id="fsc">Beim Kunden</button>
-            <button class="rev-pill" onclick="setFilter('customer_confirmed')" id="fcc">? Bestätigt</button>
-            <button class="rev-pill" onclick="setFilter('customer_rejected')" id="fcr">? Abgelehnt</button>
-            <button class="rev-pill" onclick="setFilter('posted_to_timesheet')" id="fpt">? Abrechnung</button>
-            <button class="rev-pill" onclick="setFilter('')" id="fall">Alle</button>
+            <button class="rev-pill on" onclick="setFilter('pending')" id="fp" data-i18n="ts.rev.filter.pending">Ausstehend</button>
+            <button class="rev-pill" onclick="setFilter('under_review')" id="fu" data-i18n="ts.rev.filter.underReview">In Prüfung</button>
+            <button class="rev-pill" onclick="setFilter('needs_correction')" id="fc" data-i18n="ts.rev.filter.correction">Korrektur</button>
+            <button class="rev-pill" onclick="setFilter('approved_internal')" id="fai" data-i18n="ts.rev.filter.internal">Intern geprüft</button>
+            <button class="rev-pill" onclick="setFilter('sent_to_customer')" id="fsc" data-i18n="ts.rev.filter.atCustomer">Beim Kunden</button>
+            <button class="rev-pill" onclick="setFilter('customer_confirmed')" id="fcc" data-i18n="ts.rev.filter.confirmed">Bestätigt</button>
+            <button class="rev-pill" onclick="setFilter('customer_rejected')" id="fcr" data-i18n="ts.rev.filter.rejected">Abgelehnt</button>
+            <button class="rev-pill" onclick="setFilter('posted_to_timesheet')" id="fpt" data-i18n="ts.rev.filter.posted">Abrechnung</button>
+            <button class="rev-pill" onclick="setFilter('')" id="fall" data-i18n="ts.rev.filter.all">Alle</button>
           </div>
           <div id="subList"></div>
         </div>
         <div id="detPanel">
           <div class="hub-empty" id="detEmpty">
             <div class="icon">??</div>
-            <h3>Einreichung auswählen</h3>
-            <p>Wählen Sie links eine Einreichung aus,<br>um Details und Aktionen anzuzeigen.</p>
+            <h3 data-i18n="ts.rev.detail.emptyTitle">Einreichung auswählen</h3>
+            <p data-i18n="ts.rev.detail.emptyText">Wählen Sie links eine Einreichung aus, um Details und Aktionen anzuzeigen.</p>
           </div>
           <div id="detContent" style="display:none" class="rev-detail"></div>
         </div>
@@ -532,17 +532,17 @@
     <div class="hub-tab-panel" id="panel-wrks">
       <div id="wrksStateNotice" class="wk-alert wk-alert-info" style="display:none;margin-bottom:14px"></div>
       <div class="hub-kpis">
-        <div class="hub-kpi"><div class="hub-kpi-num g" id="kw1">–</div><div class="hub-kpi-label">Aktive Mitarbeiter</div></div>
-        <div class="hub-kpi"><div class="hub-kpi-num" id="kw2">–</div><div class="hub-kpi-label">Offene Einladungen</div></div>
-        <div class="hub-kpi"><div class="hub-kpi-num o" id="kw3">–</div><div class="hub-kpi-label">Inaktive Accounts</div></div>
-        <div class="hub-kpi"><div class="hub-kpi-num" id="kw4">–</div><div class="hub-kpi-label">Gesamt</div></div>
+        <div class="hub-kpi"><div class="hub-kpi-num g" id="kw1">–</div><div class="hub-kpi-label" data-i18n="ts.rev.wrk.kpiActive">Aktive Mitarbeiter</div></div>
+        <div class="hub-kpi"><div class="hub-kpi-num" id="kw2">–</div><div class="hub-kpi-label" data-i18n="ts.rev.wrk.kpiInvites">Offene Einladungen</div></div>
+        <div class="hub-kpi"><div class="hub-kpi-num o" id="kw3">–</div><div class="hub-kpi-label" data-i18n="ts.rev.wrk.kpiInactive">Inaktive Accounts</div></div>
+        <div class="hub-kpi"><div class="hub-kpi-num" id="kw4">–</div><div class="hub-kpi-label" data-i18n="ts.rev.wrk.kpiTotal">Gesamt</div></div>
       </div>
       <div class="wk-toolbar">
         <div class="wk-search">
-          <input type="text" id="wSearch" placeholder="Mitarbeiter suchen…" oninput="filterW()">
+          <input type="text" id="wSearch" placeholder="Mitarbeiter suchen…" data-i18n-ph="ts.rev.wrk.searchPh" oninput="filterW()">
         </div>
-        <button class="wk-btn wk-btn-primary" id="wrksInviteBtn" onclick="openDrw()">+ Einladen</button>
-        <button class="wk-btn wk-btn-outline" id="wrksCreateBtn" onclick="openCreateDrw()">+ Manuell anlegen</button>
+        <button class="wk-btn wk-btn-primary" id="wrksInviteBtn" onclick="openDrw()" data-i18n="ts.rev.wrk.invite">+ Einladen</button>
+        <button class="wk-btn wk-btn-outline" id="wrksCreateBtn" onclick="openCreateDrw()" data-i18n="ts.rev.wrk.createManual">+ Manuell anlegen</button>
         <a id="mailpitLink" href="//localhost:8025" target="_blank" class="wk-btn wk-btn-ghost wk-btn-sm" style="display:none">? Mailpit</a>
       </div>
       <div id="wrksManageNotice" class="wk-alert wk-alert-info" style="display:none;margin-bottom:14px"></div>
@@ -551,20 +551,20 @@
         <div class="wk-table-wrap">
           <table class="wk-table">
             <thead><tr>
-              <th>Mitarbeiter</th><th>Personalnr.</th><th>Status</th>
-              <th>Dabei seit</th><th style="text-align:right">Aktionen</th>
+              <th data-i18n="ts.rev.wrk.colWorker">Mitarbeiter</th><th data-i18n="ts.rev.wrk.colNumber">Personalnr.</th><th data-i18n="ts.rev.wrk.colStatus">Status</th>
+              <th data-i18n="ts.rev.wrk.colSince">Dabei seit</th><th style="text-align:right" data-i18n="ts.rev.wrk.colActions">Aktionen</th>
             </tr></thead>
             <tbody id="wkTbody"></tbody>
           </table>
         </div>
         <div id="wkEmpty" class="hub-empty" style="display:none">
           <div class="icon">??</div>
-          <h3>Noch keine Mitarbeiter</h3>
-          <p>Laden Sie Ihre ersten Arbeitnehmer ein, damit diese<br>ihre Stundenzettel digital einreichen können.</p>
-          <button class="wk-btn wk-btn-primary" style="margin-top:14px" onclick="openDrw()">+ Ersten Mitarbeiter einladen</button>
+          <h3 data-i18n="ts.rev.wrk.emptyTitle">Noch keine Mitarbeiter</h3>
+          <p data-i18n="ts.rev.wrk.emptyText">Laden Sie Ihre ersten Arbeitnehmer ein, damit diese ihre Stundenzettel digital einreichen können.</p>
+          <button class="wk-btn wk-btn-primary" style="margin-top:14px" onclick="openDrw()" data-i18n="ts.rev.wrk.emptyCta">+ Ersten Mitarbeiter einladen</button>
         </div>
         <div id="invSection" class="inv-section" style="display:none">
-          <div class="inv-stitle">Offene Einladungen</div>
+          <div class="inv-stitle" data-i18n="ts.rev.wrk.invitesTitle">Offene Einladungen</div>
           <div class="inv-list" id="invList"></div>
         </div>
       </div>
@@ -581,32 +581,32 @@
       <section id="cmpInbox" style="display:none;margin-bottom:16px"></section>
 
       <div class="hub-kpis">
-        <div class="hub-kpi"><div class="hub-kpi-num g" id="ka1">–</div><div class="hub-kpi-label">Aktive Einsätze</div></div>
-        <div class="hub-kpi"><div class="hub-kpi-num"  id="ka2">–</div><div class="hub-kpi-label">Konfiguriert</div></div>
-        <div class="hub-kpi"><div class="hub-kpi-num o" id="ka3">–</div><div class="hub-kpi-label">Ohne Anweisungen</div></div>
-        <div class="hub-kpi"><div class="hub-kpi-num"  id="ka4">–</div><div class="hub-kpi-label">Mitarbeiter</div></div>
+        <div class="hub-kpi"><div class="hub-kpi-num g" id="ka1">–</div><div class="hub-kpi-label" data-i18n="ts.rev.asgn.kpiActive">Aktive Einsätze</div></div>
+        <div class="hub-kpi"><div class="hub-kpi-num"  id="ka2">–</div><div class="hub-kpi-label" data-i18n="ts.rev.asgn.kpiConfigured">Konfiguriert</div></div>
+        <div class="hub-kpi"><div class="hub-kpi-num o" id="ka3">–</div><div class="hub-kpi-label" data-i18n="ts.rev.asgn.kpiNoBriefing">Ohne Anweisungen</div></div>
+        <div class="hub-kpi"><div class="hub-kpi-num"  id="ka4">–</div><div class="hub-kpi-label" data-i18n="ts.rev.asgn.kpiWorkers">Mitarbeiter</div></div>
       </div>
       <div class="asgn-filter-bar">
         <div class="wk-search" style="flex:1;min-width:200px;max-width:320px">
-          <input type="text" id="aSearch" placeholder="Mitarbeiter oder Kunden suchen…" oninput="filterAsgn()">
+          <input type="text" id="aSearch" placeholder="Mitarbeiter oder Kunden suchen…" data-i18n-ph="ts.rev.asgn.searchPh" oninput="filterAsgn()">
         </div>
-        <button class="wk-btn wk-btn-primary wk-btn-sm" id="asgnAssignBtn" onclick="openAssignDrw()">+ Personal zuweisen</button>
+        <button class="wk-btn wk-btn-primary wk-btn-sm" id="asgnAssignBtn" onclick="openAssignDrw()" data-i18n="ts.rev.asgn.assignCta">+ Personal zuweisen</button>
         <div class="asgn-status-btns" id="asgnStatusBtns">
-          <button class="rev-pill on" onclick="setAsgnFilter('active',this)">Aktiv</button>
-          <button class="rev-pill" onclick="setAsgnFilter('archived',this)">Archiv</button>
-          <button class="rev-pill" onclick="setAsgnFilter('all',this)">Alle</button>
+          <button class="rev-pill on" onclick="setAsgnFilter('active',this)" data-i18n="ts.rev.asgn.tabActive">Aktiv</button>
+          <button class="rev-pill" onclick="setAsgnFilter('archived',this)" data-i18n="ts.rev.asgn.tabArchive">Archiv</button>
+          <button class="rev-pill" onclick="setAsgnFilter('all',this)" data-i18n="ts.rev.asgn.tabAll">Alle</button>
         </div>
         <div class="asgn-status-btns" id="asgnViewToggle" style="margin-left:8px">
-          <button class="rev-pill on" id="asgnViewCards" onclick="setAsgnView('cards',this)">&#9636; Karten</button>
-          <button class="rev-pill" id="asgnViewPlan" onclick="setAsgnView('planung',this)">&#9638; Planung</button>
+          <button class="rev-pill on" id="asgnViewCards" onclick="setAsgnView('cards',this)">&#9636; <span data-i18n="ts.rev.asgn.viewCards">Karten</span></button>
+          <button class="rev-pill" id="asgnViewPlan" onclick="setAsgnView('planung',this)">&#9638; <span data-i18n="ts.rev.asgn.viewPlan">Planung</span></button>
         </div>
       </div>
       <div id="asgnEditNotice" class="wk-alert wk-alert-info" style="display:none;margin-bottom:14px"></div>
       <!-- Deal-Einsätze: offene Deals ohne Worker -->
       <div id="dealAsgnSection" style="display:none;margin-bottom:24px">
         <div style="display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;align-items:center;margin-bottom:10px">
-          <h3 style="font-size:14px;font-weight:700;margin:0;color:var(--hub-accent)">Deal-Einsätze (Worker zuweisen)</h3>
-          <button class="wk-btn wk-btn-outline wk-btn-sm" id="dealChoiceSetBtn" onclick="openChoiceSetDrw()">+ Auswahlphase anlegen</button>
+          <h3 style="font-size:14px;font-weight:700;margin:0;color:var(--hub-accent)" data-i18n="ts.rev.asgn.dealTitle">Deal-Einsätze (Worker zuweisen)</h3>
+          <button class="wk-btn wk-btn-outline wk-btn-sm" id="dealChoiceSetBtn" onclick="openChoiceSetDrw()" data-i18n="ts.rev.asgn.choiceSetCta">+ Auswahlphase anlegen</button>
         </div>
         <div class="asgn-grid" id="dealAsgnGrid"></div>
       </div>
@@ -614,8 +614,8 @@
       <!-- Welle 7 Phase 3+4: Abgeschlossene Deals hart verfuegbar -->
       <div id="closedDealAsgnSection" style="display:none;margin-bottom:24px">
         <div style="display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;align-items:center;margin-bottom:10px">
-          <h3 style="font-size:14px;font-weight:700;margin:0;color:var(--wk-text)">&#9989; Abgeschlossene Deals <span id="closedDealAsgnCount" style="font-weight:500;color:var(--wk-text-muted);font-size:12px"></span></h3>
-          <div style="font-size:12px;color:var(--wk-text-muted)">Vollstaendig besetzte, beendete oder stornierte Deals bleiben hier fuer Nachbearbeitung sichtbar.</div>
+          <h3 style="font-size:14px;font-weight:700;margin:0;color:var(--wk-text)">&#9989; <span data-i18n="ts.rev.asgn.closedTitle">Abgeschlossene Deals</span> <span id="closedDealAsgnCount" style="font-weight:500;color:var(--wk-text-muted);font-size:12px"></span></h3>
+          <div style="font-size:12px;color:var(--wk-text-muted)" data-i18n="ts.rev.asgn.closedHint">Vollstaendig besetzte, beendete oder stornierte Deals bleiben hier fuer Nachbearbeitung sichtbar.</div>
         </div>
         <div class="asgn-grid" id="closedDealAsgnGrid"></div>
       </div>
@@ -624,8 +624,8 @@
         <div class="asgn-grid" id="asgnGrid"></div>
         <div id="asgnEmpty" class="hub-empty" style="display:none">
           <div class="icon">??</div>
-          <h3>Keine Einsatz-Konfigurationen</h3>
-          <p>Sobald Arbeitnehmer Einsätzen zugeordnet werden,<br>erscheinen sie hier zur Konfiguration.</p>
+          <h3 data-i18n="ts.rev.asgn.emptyTitle">Keine Einsatz-Konfigurationen</h3>
+          <p data-i18n="ts.rev.asgn.emptyText">Sobald Arbeitnehmer Einsätzen zugeordnet werden, erscheinen sie hier zur Konfiguration.</p>
         </div>
         <!-- P1.4: Vorausplanung — Timeline je Arbeiter (clientseitig aus allLinks) -->
         <div id="planungView" style="display:none"></div>
@@ -642,14 +642,14 @@
 <div class="drw drw-lg" id="bundleModal">
   <div class="drw-head">
     <div>
-      <div class="drw-title">Bundle-Details</div>
-      <div style="font-size:.8rem;color:var(--wk-text-muted);margin-top:2px">Status und Abrechnungsmarker pro Position</div>
+      <div class="drw-title" data-i18n="ts.rev.bundleDrw.title">Bundle-Details</div>
+      <div style="font-size:.8rem;color:var(--wk-text-muted);margin-top:2px" data-i18n="ts.rev.bundleDrw.subtitle">Status und Abrechnungsmarker pro Position</div>
     </div>
     <button class="drw-close" onclick="closeBundleModal()">&#x2715;</button>
   </div>
   <div class="drw-body" id="bundleModalBody"></div>
   <div class="drw-foot">
-    <button class="wk-btn wk-btn-ghost" onclick="closeBundleModal()" style="flex:1">Schließen</button>
+    <button class="wk-btn wk-btn-ghost" onclick="closeBundleModal()" style="flex:1" data-i18n="ts.rev.action.close">Schließen</button>
   </div>
 </div>
 
@@ -658,40 +658,40 @@
 <div class="drw" id="drw">
   <div class="drw-head">
     <div>
-      <div class="drw-title">Arbeitnehmer einladen</div>
-      <div style="font-size:.8rem;color:var(--wk-text-muted);margin-top:2px">Einladungs-E-Mail wird automatisch versendet</div>
+      <div class="drw-title" data-i18n="ts.rev.invite.title">Arbeitnehmer einladen</div>
+      <div style="font-size:.8rem;color:var(--wk-text-muted);margin-top:2px" data-i18n="ts.rev.invite.subtitle">Einladungs-E-Mail wird automatisch versendet</div>
     </div>
     <button class="drw-close" onclick="closeDrw()">?</button>
   </div>
   <div class="drw-body">
     <div style="padding:12px 14px;background:var(--tc-tone-brand-bg);border-radius:8px;margin-bottom:20px;font-size:.84rem;color:var(--tc-tone-brand-strong-text);border-left:3px solid var(--hub-accent);line-height:1.6">
-      <strong>So funktioniert's:</strong> Der Arbeitnehmer erhält einen Einladungs-Link per E-Mail. Dort setzt er sein Passwort und kann sofort seine Stundenzettel digital einreichen – kein App-Download, kein kompliziertes Setup.
+      <strong data-i18n="ts.rev.invite.howLabel">So funktioniert's:</strong> <span data-i18n="ts.rev.invite.howText">Der Arbeitnehmer erhält einen Einladungs-Link per E-Mail. Dort setzt er sein Passwort und kann sofort seine Stundenzettel digital einreichen – kein App-Download, kein kompliziertes Setup.</span>
     </div>
     <div class="wk-form-group">
-      <label class="wk-label">Vorname <span class="required">*</span></label>
-      <input type="text" class="wk-input" id="ifn" placeholder="z.B. Anna">
+      <label class="wk-label"><span data-i18n="ts.rev.field.firstName">Vorname</span> <span class="required">*</span></label>
+      <input type="text" class="wk-input" id="ifn" placeholder="z.B. Anna" data-i18n-ph="ts.rev.invite.firstNamePh">
     </div>
     <div class="wk-form-group">
-      <label class="wk-label">Nachname <span class="required">*</span></label>
-      <input type="text" class="wk-input" id="iln" placeholder="z.B. Kraft">
+      <label class="wk-label"><span data-i18n="ts.rev.field.lastName">Nachname</span> <span class="required">*</span></label>
+      <input type="text" class="wk-input" id="iln" placeholder="z.B. Kraft" data-i18n-ph="ts.rev.invite.lastNamePh">
     </div>
     <div class="wk-form-group">
-      <label class="wk-label">E-Mail-Adresse <span class="required">*</span></label>
+      <label class="wk-label"><span data-i18n="ts.rev.field.email">E-Mail-Adresse</span> <span class="required">*</span></label>
       <input type="email" class="wk-input" id="iem" placeholder="anna.kraft@beispiel.de">
     </div>
     <div class="wk-form-group">
-      <label class="wk-label">Personalnummer <span style="font-weight:400;color:var(--wk-text-muted)">(optional)</span></label>
-      <input type="text" class="wk-input" id="ipn" placeholder="z.B. W-0042">
+      <label class="wk-label"><span data-i18n="ts.rev.field.personnelNumber">Personalnummer</span> <span style="font-weight:400;color:var(--wk-text-muted)" data-i18n="ts.rev.field.optional">(optional)</span></label>
+      <input type="text" class="wk-input" id="ipn" placeholder="z.B. W-0042" data-i18n-ph="ts.rev.field.personnelNumberPh">
     </div>
     <div class="wk-form-group">
-      <label class="wk-label">Telefon <span style="font-weight:400;color:var(--wk-text-muted)">(optional)</span></label>
+      <label class="wk-label"><span data-i18n="ts.rev.field.phone">Telefon</span> <span style="font-weight:400;color:var(--wk-text-muted)" data-i18n="ts.rev.field.optional2">(optional)</span></label>
       <input type="tel" class="wk-input" id="iph" placeholder="+49 170 …">
     </div>
     <div id="invErr" style="display:none;padding:10px 12px;background:var(--tc-tone-danger-bg);border-radius:8px;font-size:.83rem;color:var(--tc-tone-danger-text);border-left:3px solid var(--wk-danger);margin-top:8px"></div>
   </div>
   <div class="drw-foot">
-    <button class="wk-btn wk-btn-ghost" onclick="closeDrw()" style="flex:0 0 auto">Abbrechen</button>
-    <button class="wk-btn wk-btn-primary" onclick="sendInv()" id="invBtn" style="flex:1">Einladung senden ?</button>
+    <button class="wk-btn wk-btn-ghost" onclick="closeDrw()" style="flex:0 0 auto" data-i18n="ts.rev.action.cancel">Abbrechen</button>
+    <button class="wk-btn wk-btn-primary" onclick="sendInv()" id="invBtn" style="flex:1" data-i18n="ts.rev.wrk.inviteBtn">Einladung senden</button>
   </div>
 </div>
 
@@ -700,44 +700,44 @@
 <div class="drw drw-lg" id="crtDrw">
   <div class="drw-head">
     <div>
-      <div class="drw-title">Mitarbeiter manuell anlegen</div>
-      <div style="font-size:.8rem;color:var(--wk-text-muted);margin-top:2px">Account wird sofort aktiv – kein Einladungslink n&ouml;tig</div>
+      <div class="drw-title" data-i18n="ts.rev.create.title">Mitarbeiter manuell anlegen</div>
+      <div style="font-size:.8rem;color:var(--wk-text-muted);margin-top:2px" data-i18n="ts.rev.create.subtitle">Account wird sofort aktiv – kein Einladungslink n&ouml;tig</div>
     </div>
     <button class="drw-close" onclick="closeCreateDrw()">&#x2715;</button>
   </div>
   <div class="drw-body">
     <div style="padding:12px 14px;background:var(--tc-tone-success-bg);border-radius:8px;margin-bottom:20px;font-size:.84rem;color:var(--tc-tone-success-text);border-left:3px solid var(--wk-success);line-height:1.6">
-      <strong>Direkte Erstellung:</strong> Der Account ist sofort aktiv. Der Mitarbeiter kann sich mit E-Mail und dem hier gesetzten Passwort im Einsatzportal anmelden.
+      <strong data-i18n="ts.rev.create.hintLabel">Direkte Erstellung:</strong> <span data-i18n="ts.rev.create.hintText">Der Account ist sofort aktiv. Der Mitarbeiter kann sich mit E-Mail und dem hier gesetzten Passwort im Einsatzportal anmelden.</span>
     </div>
     <div class="drw-grid-2">
-      <div class="wk-form-group"><label class="wk-label">Vorname <span class="required">*</span></label>
-        <input type="text" class="wk-input" id="cfn" placeholder="z.B. Max"></div>
-      <div class="wk-form-group"><label class="wk-label">Nachname <span class="required">*</span></label>
-        <input type="text" class="wk-input" id="cln" placeholder="z.B. M&uuml;ller"></div>
+      <div class="wk-form-group"><label class="wk-label"><span data-i18n="ts.rev.field.firstName2">Vorname</span> <span class="required">*</span></label>
+        <input type="text" class="wk-input" id="cfn" placeholder="z.B. Max" data-i18n-ph="ts.rev.create.firstNamePh"></div>
+      <div class="wk-form-group"><label class="wk-label"><span data-i18n="ts.rev.field.lastName2">Nachname</span> <span class="required">*</span></label>
+        <input type="text" class="wk-input" id="cln" placeholder="z.B. M&uuml;ller" data-i18n-ph="ts.rev.create.lastNamePh"></div>
     </div>
-    <div class="wk-form-group"><label class="wk-label">E-Mail-Adresse <span class="required">*</span></label>
+    <div class="wk-form-group"><label class="wk-label"><span data-i18n="ts.rev.field.email2">E-Mail-Adresse</span> <span class="required">*</span></label>
       <input type="email" class="wk-input" id="cem" placeholder="max.mueller@beispiel.de"></div>
-    <div class="wk-form-group"><label class="wk-label">Passwort <span class="required">*</span></label>
-      <input type="password" class="wk-input" id="cpw" placeholder="Mind. 8 Zeichen" minlength="8"></div>
+    <div class="wk-form-group"><label class="wk-label"><span data-i18n="ts.rev.field.password">Passwort</span> <span class="required">*</span></label>
+      <input type="password" class="wk-input" id="cpw" placeholder="Mind. 8 Zeichen" data-i18n-ph="ts.rev.field.passwordPh" minlength="8"></div>
     <div class="drw-grid-2">
-      <div class="wk-form-group"><label class="wk-label">Personalnummer</label>
-        <input type="text" class="wk-input" id="cpn" placeholder="z.B. W-0042"></div>
-      <div class="wk-form-group"><label class="wk-label">Telefon</label>
+      <div class="wk-form-group"><label class="wk-label" data-i18n="ts.rev.field.personnelNumber2">Personalnummer</label>
+        <input type="text" class="wk-input" id="cpn" placeholder="z.B. W-0042" data-i18n-ph="ts.rev.field.personnelNumberPh2"></div>
+      <div class="wk-form-group"><label class="wk-label" data-i18n="ts.rev.field.phone2">Telefon</label>
         <input type="tel" class="wk-input" id="cph" placeholder="+49 170 …"></div>
     </div>
-    <div class="wk-form-group"><label class="wk-label">Stra&szlig;e</label>
-      <input type="text" class="wk-input" id="cst" placeholder="z.B. Musterstr. 12"></div>
+    <div class="wk-form-group"><label class="wk-label" data-i18n="ts.rev.field.street">Stra&szlig;e</label>
+      <input type="text" class="wk-input" id="cst" placeholder="z.B. Musterstr. 12" data-i18n-ph="ts.rev.field.streetPh"></div>
     <div class="drw-grid-2">
-      <div class="wk-form-group"><label class="wk-label">PLZ</label>
-        <input type="text" class="wk-input" id="cplz" placeholder="z.B. 80331"></div>
-      <div class="wk-form-group"><label class="wk-label">Stadt</label>
-        <input type="text" class="wk-input" id="cci" placeholder="z.B. M&uuml;nchen"></div>
+      <div class="wk-form-group"><label class="wk-label" data-i18n="ts.rev.field.zip">PLZ</label>
+        <input type="text" class="wk-input" id="cplz" placeholder="z.B. 80331" data-i18n-ph="ts.rev.field.zipPh"></div>
+      <div class="wk-form-group"><label class="wk-label" data-i18n="ts.rev.field.city">Stadt</label>
+        <input type="text" class="wk-input" id="cci" placeholder="z.B. M&uuml;nchen" data-i18n-ph="ts.rev.field.cityPh"></div>
     </div>
     <div id="crtErr" style="display:none;padding:10px 12px;background:var(--tc-tone-danger-bg);border-radius:8px;font-size:.83rem;color:var(--tc-tone-danger-text);border-left:3px solid var(--wk-danger);margin-top:8px"></div>
   </div>
   <div class="drw-foot">
-    <button class="wk-btn wk-btn-ghost" onclick="closeCreateDrw()" style="flex:0 0 auto">Abbrechen</button>
-    <button class="wk-btn wk-btn-primary" onclick="submitCreate()" id="crtBtn" style="flex:1">Mitarbeiter anlegen ?</button>
+    <button class="wk-btn wk-btn-ghost" onclick="closeCreateDrw()" style="flex:0 0 auto" data-i18n="ts.rev.action.cancel2">Abbrechen</button>
+    <button class="wk-btn wk-btn-primary" onclick="submitCreate()" id="crtBtn" style="flex:1" data-i18n="ts.rev.wrk.createBtn">Mitarbeiter anlegen</button>
   </div>
 </div>
 
@@ -746,50 +746,50 @@
 <div class="drw drw-lg" id="choiceSetDrw">
   <div class="drw-head">
     <div>
-      <div class="drw-title">Worker-Auswahlphase anlegen</div>
-      <div style="font-size:.8rem;color:var(--wk-text-muted);margin-top:2px">Mehrere offene Einsätze für einen Worker als kontrollierte Auswahlgruppe freigeben</div>
+      <div class="drw-title" data-i18n="ts.rev.choice.title">Worker-Auswahlphase anlegen</div>
+      <div style="font-size:.8rem;color:var(--wk-text-muted);margin-top:2px" data-i18n="ts.rev.choice.subtitle">Mehrere offene Einsätze für einen Worker als kontrollierte Auswahlgruppe freigeben</div>
     </div>
     <button class="drw-close" onclick="closeChoiceSetDrw()">&#x2715;</button>
   </div>
   <div class="drw-body">
     <div style="padding:12px 14px;background:var(--tc-tone-brand-bg);border-radius:8px;margin-bottom:18px;font-size:.84rem;color:var(--tc-tone-brand-strong-text);border-left:3px solid var(--hub-accent);line-height:1.6">
-      Der bestehende Staffing-Flow bleibt führend. Sie geben hier nur eine zusätzliche Präferenz- oder Auswahlphase frei; die finale Zuweisung bleibt weiterhin kontrolliert in Ihrer Hand.
+      <span data-i18n="ts.rev.choice.hint">Der bestehende Staffing-Flow bleibt führend. Sie geben hier nur eine zusätzliche Präferenz- oder Auswahlphase frei; die finale Zuweisung bleibt weiterhin kontrolliert in Ihrer Hand.</span>
     </div>
     <div class="wk-form-group">
-      <label class="wk-label">Worker <span class="required">*</span></label>
-      <select class="wk-input" id="choiceSetWorker"><option value="">– Bitte wählen –</option></select>
+      <label class="wk-label"><span data-i18n="ts.rev.choice.worker">Worker</span> <span class="required">*</span></label>
+      <select class="wk-input" id="choiceSetWorker"><option value="" data-i18n="ts.rev.field.pleaseSelect">– Bitte wählen –</option></select>
     </div>
     <div class="drw-grid-2">
       <div class="wk-form-group">
-        <label class="wk-label">Modus <span class="required">*</span></label>
+        <label class="wk-label"><span data-i18n="ts.rev.choice.mode">Modus</span> <span class="required">*</span></label>
         <select class="wk-input" id="choiceSetMode">
-          <option value="preference_only">Nur Präferenz</option>
-          <option value="ranked_choice">Priorisierte Auswahl</option>
-          <option value="free_choice">Freie Wahl innerhalb freigegebener Optionen</option>
+          <option value="preference_only" data-i18n="ts.rev.choice.modePreference">Nur Präferenz</option>
+          <option value="ranked_choice" data-i18n="ts.rev.choice.modeRanked">Priorisierte Auswahl</option>
+          <option value="free_choice" data-i18n="ts.rev.choice.modeFree">Freie Wahl innerhalb freigegebener Optionen</option>
         </select>
       </div>
       <div class="wk-form-group">
-        <label class="wk-label">Antwortfrist</label>
+        <label class="wk-label" data-i18n="ts.rev.choice.deadline">Antwortfrist</label>
         <input type="datetime-local" class="wk-input" id="choiceSetDeadline">
       </div>
     </div>
     <div class="wk-form-group">
-      <label class="wk-label">Titel</label>
-      <input type="text" class="wk-input" id="choiceSetTitle" placeholder="z.B. Auswahl möglicher Einsätze für nächste Woche">
+      <label class="wk-label" data-i18n="ts.rev.choice.titleField">Titel</label>
+      <input type="text" class="wk-input" id="choiceSetTitle" placeholder="z.B. Auswahl möglicher Einsätze für nächste Woche" data-i18n-ph="ts.rev.choice.titlePh">
     </div>
     <div class="wk-form-group">
-      <label class="wk-label">Nachricht an den Worker</label>
-      <textarea class="wk-textarea" id="choiceSetMessage" rows="3" placeholder="Kurzer Hinweis, worauf der Worker bei der Auswahl achten soll…"></textarea>
+      <label class="wk-label" data-i18n="ts.rev.choice.message">Nachricht an den Worker</label>
+      <textarea class="wk-textarea" id="choiceSetMessage" rows="3" placeholder="Kurzer Hinweis, worauf der Worker bei der Auswahl achten soll…" data-i18n-ph="ts.rev.choice.messagePh"></textarea>
     </div>
     <div class="wk-form-group">
-      <label class="wk-label">Freigegebene Einsatzoptionen <span class="required">*</span></label>
+      <label class="wk-label"><span data-i18n="ts.rev.choice.options">Freigegebene Einsatzoptionen</span> <span class="required">*</span></label>
       <div id="choiceSetAssignments" style="display:grid;gap:8px;max-height:300px;overflow:auto;padding-right:4px"></div>
     </div>
     <div id="choiceSetErr" style="display:none;padding:10px 12px;background:var(--tc-tone-danger-bg);border-radius:8px;font-size:.83rem;color:var(--tc-tone-danger-text);border-left:3px solid var(--wk-danger);margin-top:8px"></div>
   </div>
   <div class="drw-foot">
-    <button class="wk-btn wk-btn-ghost" onclick="closeChoiceSetDrw()" style="flex:0 0 auto">Abbrechen</button>
-    <button class="wk-btn wk-btn-primary" onclick="submitChoiceSet()" id="choiceSetBtn" style="flex:1">Auswahlphase anlegen</button>
+    <button class="wk-btn wk-btn-ghost" onclick="closeChoiceSetDrw()" style="flex:0 0 auto" data-i18n="ts.rev.action.cancel3">Abbrechen</button>
+    <button class="wk-btn wk-btn-primary" onclick="submitChoiceSet()" id="choiceSetBtn" style="flex:1" data-i18n="ts.rev.choice.submitBtn">Auswahlphase anlegen</button>
   </div>
 </div>
 
@@ -798,26 +798,26 @@
 <div class="drw drw-lg" id="wrkAssignDrw">
   <div class="drw-head">
     <div>
-      <div class="drw-title" id="wrkAssignTitle">Einsatz direkt zuweisen</div>
+      <div class="drw-title" id="wrkAssignTitle" data-i18n="ts.rev.drawer.assignTitle">Einsatz direkt zuweisen</div>
       <div style="font-size:.8rem;color:var(--wk-text-muted);margin-top:2px" id="wrkAssignSubtitle">Worker-Kontext wird geladen</div>
     </div>
     <button class="drw-close" onclick="closeWorkerAssignDrw()">&#x2715;</button>
   </div>
   <div class="drw-body">
     <div style="padding:12px 14px;background:var(--tc-tone-brand-bg);border-radius:8px;margin-bottom:18px;font-size:.84rem;color:var(--tc-tone-brand-strong-text);border-left:3px solid var(--hub-accent);line-height:1.6">
-      Sie bleiben im operativen Worker-Bereich. Der bestehende Assignment-Flow bleibt führend; hier wird nur der direkte Einstieg mit bereits ausgewähltem Worker aktiviert.
+      <span data-i18n="ts.rev.wrkAssign.hint">Sie bleiben im operativen Worker-Bereich. Der bestehende Assignment-Flow bleibt führend; hier wird nur der direkte Einstieg mit bereits ausgewähltem Worker aktiviert.</span>
     </div>
     <div id="wrkAssignWorkerSummary"></div>
-    <div id="wrkAssignLoading" style="display:none;padding:18px 0;color:var(--wk-text-muted);font-size:.84rem">Offene Deal-Einsätze und Staffing-Kontext werden geladen…</div>
+    <div id="wrkAssignLoading" style="display:none;padding:18px 0;color:var(--wk-text-muted);font-size:.84rem" data-i18n="ts.rev.wrkAssign.loading">Offene Deal-Einsätze und Staffing-Kontext werden geladen…</div>
     <div id="wrkAssignErr" style="display:none;padding:10px 12px;background:var(--tc-tone-danger-bg);border-radius:8px;font-size:.83rem;color:var(--tc-tone-danger-text);border-left:3px solid var(--wk-danger);margin-bottom:12px"></div>
     <div id="wrkAssignEmpty" class="hub-empty" style="display:none;padding:28px 12px">
-      <h3>Keine offenen Deal-Einsätze</h3>
-      <p>Für diesen Worker gibt es aktuell keine offenen Deal-basierten Einsatzoptionen zur direkten Zuweisung.</p>
+      <h3 data-i18n="ts.rev.wrkAssign.emptyTitle">Keine offenen Deal-Einsätze</h3>
+      <p data-i18n="ts.rev.wrkAssign.emptyText">Für diesen Worker gibt es aktuell keine offenen Deal-basierten Einsatzoptionen zur direkten Zuweisung.</p>
     </div>
     <div id="wrkAssignList" style="display:grid;gap:12px"></div>
   </div>
   <div class="drw-foot">
-    <button class="wk-btn wk-btn-ghost" onclick="closeWorkerAssignDrw()" style="flex:1">Schließen</button>
+    <button class="wk-btn wk-btn-ghost" onclick="closeWorkerAssignDrw()" style="flex:1" data-i18n="ts.rev.action.close2">Schließen</button>
   </div>
 </div>
 <!-- Assign Capacity Drawer -->
@@ -825,58 +825,58 @@
 <div class="drw drw-lg" id="asgDrw">
   <div class="drw-head">
     <div>
-      <div class="drw-title">Manuelle Zuweisung &rarr; Worker</div>
-      <div style="font-size:.8rem;color:var(--wk-text-muted);margin-top:2px">Personalangebot oder Deal-Einsatz einem Mitarbeiter zuweisen (Schichtzeiten, Kunde, Notizen)</div>
+      <div class="drw-title" data-i18n="ts.rev.assign.title">Manuelle Zuweisung &rarr; Worker</div>
+      <div style="font-size:.8rem;color:var(--wk-text-muted);margin-top:2px" data-i18n="ts.rev.assign.subtitle">Personalangebot oder Deal-Einsatz einem Mitarbeiter zuweisen (Schichtzeiten, Kunde, Notizen)</div>
     </div>
     <button class="drw-close" onclick="closeAssignDrw()">&#x2715;</button>
   </div>
   <div class="drw-body" id="asgDrwBody">
     <div style="padding:10px 12px;background:var(--tc-tone-brand-bg);border-left:3px solid var(--hub-accent);border-radius:8px;margin-bottom:14px;font-size:.82rem;color:var(--tc-tone-brand-strong-text);line-height:1.5">
-      F&uuml;r Bulk-/Sofortzuweisung ohne Detailpflege nutzen Sie weiterhin die <strong>Deal-Eins&auml;tze (Worker zuweisen)</strong>-Sektion weiter unten. Dieser Drawer ist bewusst der manuelle Detailpfad.
+      <span data-i18n="ts.rev.assign.hint">F&uuml;r Bulk-/Sofortzuweisung ohne Detailpflege nutzen Sie weiterhin die Sektion &bdquo;Deal-Eins&auml;tze (Worker zuweisen)&ldquo; weiter unten. Dieser Drawer ist bewusst der manuelle Detailpfad.</span>
     </div>
-    <div id="asgLoading" style="padding:32px;text-align:center;color:var(--wk-text-muted)">Lade verfügbares Personal und Deal-Einsätze&hellip;</div>
+    <div id="asgLoading" style="padding:32px;text-align:center;color:var(--wk-text-muted)" data-i18n="ts.rev.assign.loading">Lade verfügbare Personalkapazitäten und Deal-Einsätze&hellip;</div>
     <div id="asgContent" style="display:none">
       <div class="wk-form-group">
-        <label class="wk-label">Personal oder Deal-Einsatz <span class="required">*</span></label>
-        <select class="wk-input" id="asgCap" onchange="onCapSelect()"><option value="">– Bitte w&auml;hlen –</option></select>
+        <label class="wk-label"><span data-i18n="ts.rev.assign.source">Personal oder Deal-Einsatz</span> <span class="required">*</span></label>
+        <select class="wk-input" id="asgCap" onchange="onCapSelect()"><option value="" data-i18n="ts.rev.field.pleaseSelect2">– Bitte w&auml;hlen –</option></select>
       </div>
       <div id="asgCapInfo" style="display:none;padding:12px;background:var(--tc-tone-brand-bg);border:1px solid var(--tc-tone-brand-border);border-radius:10px;margin-bottom:14px;font-size:.83rem"></div>
       <div class="wk-form-group">
-        <label class="wk-label">Mitarbeiter <span class="required">*</span></label>
-        <select class="wk-input" id="asgWkr"><option value="">– Bitte w&auml;hlen –</option></select>
+        <label class="wk-label"><span data-i18n="ts.rev.assign.worker">Mitarbeiter</span> <span class="required">*</span></label>
+        <select class="wk-input" id="asgWkr"><option value="" data-i18n="ts.rev.field.pleaseSelect3">– Bitte w&auml;hlen –</option></select>
       </div>
       <div class="drw-grid-2">
-        <div class="wk-form-group"><label class="wk-label">Startdatum <span class="required">*</span></label>
+        <div class="wk-form-group"><label class="wk-label"><span data-i18n="ts.rev.assign.start">Startdatum</span> <span class="required">*</span></label>
           <input type="date" class="wk-input" id="asgStart"></div>
-        <div class="wk-form-group"><label class="wk-label">Enddatum</label>
+        <div class="wk-form-group"><label class="wk-label" data-i18n="ts.rev.assign.end">Enddatum</label>
           <input type="date" class="wk-input" id="asgEnd"></div>
       </div>
       <div class="drw-grid-2">
-        <div class="wk-form-group"><label class="wk-label">Stunden / Tag</label>
+        <div class="wk-form-group"><label class="wk-label" data-i18n="ts.rev.assign.hoursPerDay">Stunden / Tag</label>
           <input type="number" class="wk-input" id="asgHpd" value="8" min="0.5" max="24" step="0.5"></div>
-        <div class="wk-form-group"><label class="wk-label">Pause (Min.)</label>
+        <div class="wk-form-group"><label class="wk-label" data-i18n="ts.rev.assign.break">Pause (Min.)</label>
           <input type="number" class="wk-input" id="asgBrk" value="30" min="0" max="120" step="5"></div>
       </div>
       <div class="drw-grid-2">
-        <div class="wk-form-group"><label class="wk-label">Schichtbeginn</label>
+        <div class="wk-form-group"><label class="wk-label" data-i18n="ts.rev.assign.shiftStart">Schichtbeginn</label>
           <input type="time" class="wk-input" id="asgShStart"></div>
-        <div class="wk-form-group"><label class="wk-label">Schichtende</label>
+        <div class="wk-form-group"><label class="wk-label" data-i18n="ts.rev.assign.shiftEnd">Schichtende</label>
           <input type="time" class="wk-input" id="asgShEnd"></div>
       </div>
-      <div class="wk-form-group"><label class="wk-label">Kundenname</label>
-        <input type="text" class="wk-input" id="asgClient" placeholder="z.B. BMW AG"></div>
-      <div class="wk-form-group"><label class="wk-label">Notizen</label>
-        <textarea class="wk-textarea" id="asgNotes" rows="2" placeholder="Interne Hinweise…"></textarea></div>
+      <div class="wk-form-group"><label class="wk-label" data-i18n="ts.rev.assign.clientName">Kundenname</label>
+        <input type="text" class="wk-input" id="asgClient" placeholder="z.B. BMW AG" data-i18n-ph="ts.rev.assign.clientNamePh"></div>
+      <div class="wk-form-group"><label class="wk-label" data-i18n="ts.rev.assign.notes">Notizen</label>
+        <textarea class="wk-textarea" id="asgNotes" rows="2" placeholder="Interne Hinweise…" data-i18n-ph="ts.rev.assign.notesPh"></textarea></div>
     </div>
     <div id="asgEmpty" style="display:none" class="hub-empty">
-      <div class="icon">&#9888;</div><h3>Nichts manuell Zuweisbares</h3>
-      <p>Aktuell gibt es weder verfügbares Personal noch Deal-Einsätze mit freien Plätzen in Ihrem Verantwortungsbereich.</p>
+      <div class="icon">&#9888;</div><h3 data-i18n="ts.rev.assign.emptyTitle">Nichts manuell Zuweisbares</h3>
+      <p data-i18n="ts.rev.assign.emptyText">Aktuell gibt es weder freie Personalkapazitäten noch Deal-Einsätze mit offenen Plätzen in Ihrem Verantwortungsbereich.</p>
     </div>
     <div id="asgErr" style="display:none;padding:10px 12px;background:var(--tc-tone-danger-bg);border-radius:8px;font-size:.83rem;color:var(--tc-tone-danger-text);border-left:3px solid var(--wk-danger);margin-top:8px"></div>
   </div>
   <div class="drw-foot">
-    <button class="wk-btn wk-btn-ghost" onclick="closeAssignDrw()" style="flex:0 0 auto">Abbrechen</button>
-    <button class="wk-btn wk-btn-primary" onclick="submitAssign()" id="asgBtn" style="flex:1">Zuweisen &amp; benachrichtigen</button>
+    <button class="wk-btn wk-btn-ghost" onclick="closeAssignDrw()" style="flex:0 0 auto" data-i18n="ts.rev.action.cancel4">Abbrechen</button>
+    <button class="wk-btn wk-btn-primary" onclick="submitAssign()" id="asgBtn" style="flex:1" data-i18n="ts.rev.assign.submitBtn">Zuweisen &amp; benachrichtigen</button>
   </div>
 </div>
 
@@ -885,7 +885,7 @@
 <div class="drw drw-lg" id="lnkDrw">
   <div class="drw-head">
     <div>
-      <div class="drw-title" id="lnkDrwTitle">Einsatz konfigurieren</div>
+      <div class="drw-title" id="lnkDrwTitle" data-i18n="ts.rev.lnk.title">Einsatz konfigurieren</div>
       <div style="font-size:.8rem;color:var(--wk-text-muted);margin-top:2px" id="lnkDrwSub"></div>
     </div>
     <button class="drw-close" onclick="closeLnkDrw()">&#x2715;</button>
@@ -894,8 +894,8 @@
     <!-- Wird dynamisch befüllt -->
   </div>
   <div class="drw-foot">
-    <button class="wk-btn wk-btn-ghost" onclick="closeLnkDrw()" style="flex:0 0 auto">Abbrechen</button>
-    <button class="wk-btn wk-btn-primary" onclick="saveLnkEdit()" id="lnkSaveBtn" style="flex:1">Änderungen speichern</button>
+    <button class="wk-btn wk-btn-ghost" onclick="closeLnkDrw()" style="flex:0 0 auto" data-i18n="ts.rev.action.cancel5">Abbrechen</button>
+    <button class="wk-btn wk-btn-primary" onclick="saveLnkEdit()" id="lnkSaveBtn" style="flex:1" data-i18n="ts.rev.lnk.save">Änderungen speichern</button>
   </div>
 </div>
 
