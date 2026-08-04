@@ -354,6 +354,57 @@ suite("Drei-Seiten-Gate — kein eingefrorener Rollenbegriff", () => {
     }
   });
 
+  /* ── Dritte Seite: der Arbeiter ────────────────────────────────────────
+     Warum der Arbeiter in der Terminologie nur drei Begriffe hat (und das
+     RICHTIG ist): Unternehmen und Personaldienstleister teilen sich Flaechen,
+     dort muss derselbe Ort je Rolle anders heissen. Der Arbeiter dagegen hat
+     eine EIGENE Flaeche (Einsatzportal) — dort ist alles seine Sprache, eine
+     Rollenverzweigung waere sinnlos. Seine Schutzregel ist deshalb eine
+     andere: in SEINE Flaeche darf keine Firmen-/Handelssprache sickern, die
+     ihn zum Objekt macht. */
+  const ARBEITER_FLAECHEN = [
+    "einsatzportal-dashboard.html", "einsatzportal-einsaetze.html", "einsatzportal-plan.html",
+    "einsatzportal-stundenzettel.html", "einsatzportal-benachrichtigungen.html",
+    "einsatzportal-kontakt.html", "einsatzportal-profil.html", "worker-login.html"
+  ];
+
+  it("Arbeiter-Flaechen bleiben frei von Firmen-/Handelssprache", () => {
+    // Bewusst NICHT verboten: "Disponent" — er ist die Bezugsperson des
+    // Arbeiters ("Ihr Disponent hat Ihnen den Einsatz zugewiesen"), also
+    // seine eigene Perspektive, kein Firmenjargon.
+    const VERBOTEN = [
+      { wort: "Kapazität", warum: "handelt den Arbeiter als Ware" },
+      { wort: "Kapazitaet", warum: "handelt den Arbeiter als Ware" },
+      { wort: "Personal einstellen", warum: "Agentur-Aktion, nicht Arbeiter-Sicht" },
+      { wort: "Bedarf anlegen", warum: "Unternehmens-Aktion" },
+      { wort: "Ressource", warum: "entmenschlichend" },
+      { wort: "Vermittlung steuern", warum: "Disponenten-Aktion" }
+    ];
+    const verstoesse = [];
+    for (const rel of ARBEITER_FLAECHEN) {
+      const src = read(`frontend/public/${rel}`);
+      for (const v of VERBOTEN) {
+        // Nur in sichtbaren Texten (Woerterbuch-Werte), nicht in Kommentaren/Code
+        const re = new RegExp("'[\\w.]+':\\s*'[^']*" + v.wort + "[^']*'");
+        const m = src.match(re);
+        if (m) verstoesse.push(`${rel}: „${v.wort}" (${v.warum}) → ${m[0].slice(0, 70)}`);
+      }
+    }
+    assert.deepEqual(verstoesse, [], "Firmensprache in der Arbeiter-Flaeche");
+  });
+
+  it("Arbeiter-Begriffe der Terminologie sind zweisprachig vollstaendig", () => {
+    const js = read("frontend/public/js/terminologyLabels.js");
+    const workerKeys = (block) => {
+      const m = js.match(new RegExp("var " + block + " = \\{([\\s\\S]*?)\\n  \\};"));
+      return new Set([...m[1].matchAll(/^\s{4}(\w+):\s*\{\s*worker:/gm)].map((x) => x[1]));
+    };
+    const de = workerKeys("LABELS");
+    const en = workerKeys("LABELS_EN");
+    assert.ok(de.size >= 3, "Arbeiter-Begriffe fehlen in der Terminologie");
+    assert.deepEqual([...de].filter((k) => !en.has(k)), [], "Arbeiter-Begriff ohne englische Fassung");
+  });
+
   it("Englisch verliert die Rollenunterscheidung nicht", () => {
     const js = read("frontend/public/js/terminologyLabels.js");
     const enBlock = js.match(/var LABELS_EN = \{([\s\S]*?)\n  \};/);
