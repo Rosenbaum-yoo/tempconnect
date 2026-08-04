@@ -394,6 +394,48 @@ suite("Drei-Seiten-Gate — kein eingefrorener Rollenbegriff", () => {
     "einsatzportal-kontakt.html", "einsatzportal-profil.html", "worker-login.html"
   ];
 
+  it("Aufforderung und Knopf gehoeren derselben Rolle (Hub-Nudge)", () => {
+    // Perspektiv-Audit 04.08.: Der Aktivierungs-Nudge forderte Unternehmen zu
+    // "Personal anbieten" auf, waehrend applyMarketplaceCopy genau diesen Knopf
+    // fuer sie ausblendet — die Karte verlangte etwas, wofuer sie den Weg
+    // versteckt hatte. Titel/Text muessen derselben Rolle folgen wie die CTAs.
+    const js = read("frontend/public/js/pages/enterpriseHub.js");
+    for (const rolle of ["company", "agency"]) {
+      for (const teil of ["title", "text"]) {
+        assert.match(js, new RegExp(`'ent\\.nudge\\.${teil}\\.${rolle}':`),
+          `rollenrichtige Nudge-Fassung fehlt: ${teil}/${rolle}`);
+      }
+    }
+    assert.match(js, /setI18nText\(\$\("ce-nudge-title"\), "ent\.nudge\.title\." \+ orgType\)/,
+      "Nudge-Titel wird nicht rollenrichtig gesetzt");
+    assert.match(js, /setI18nText\(\$\("ce-nudge-text"\), "ent\.nudge\.text\." \+ orgType\)/,
+      "Nudge-Text wird nicht rollenrichtig gesetzt");
+    // Die company-Fassung darf die Handlung der Gegenseite nicht nennen
+    const compTitle = js.match(/'ent\.nudge\.title\.company':\s*'([^']*)'/)[1];
+    const compText = js.match(/'ent\.nudge\.text\.company':\s*'([^']*)'/)[1];
+    for (const s of [compTitle, compText]) {
+      assert.doesNotMatch(s, /Personal (anbieten|veroeffentlichen|einstellen)/,
+        `Unternehmens-Fassung nennt eine Dienstleister-Handlung: "${s}"`);
+    }
+  });
+
+  it("ein Gegenstand, ein englischer Begriff (Arbeitsplatzangebot)", () => {
+    // Perspektiv-Audit: derselbe Gegenstand hiess auf Englisch viermal anders
+    // (Job offers / Job opening / Placement offer / My postings). "Placement"
+    // ist zudem der Agentur-Sicht vorbehalten (LABELS_EN: "Find placements").
+    const dateien = [
+      "js/pages/enterpriseHub.js", "js/pages/marketplaceFeed.js", "deal_management.html"
+    ];
+    const verstoesse = [];
+    for (const rel of dateien) {
+      const src = read(`frontend/public/${rel}`);
+      for (const m of src.matchAll(/'[\w.]+':\s*'([^']*(Job offer|Job opening|Placement offer)[^']*)'/g)) {
+        verstoesse.push(`${rel}: „${m[1]}"`);
+      }
+    }
+    assert.deepEqual(verstoesse, [], "uneinheitlicher englischer Begriff — 'job posting' ist gesetzt");
+  });
+
   it("Arbeiter-Flaechen bleiben frei von Firmen-/Handelssprache", () => {
     // Bewusst NICHT verboten: "Disponent" — er ist die Bezugsperson des
     // Arbeiters ("Ihr Disponent hat Ihnen den Einsatz zugewiesen"), also

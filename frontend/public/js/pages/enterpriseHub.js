@@ -51,8 +51,16 @@
     'ent.value.bounty': 'Bounty',
     'ent.value.details': 'Details →',
 
+    // Rollenneutrale Fassung: nur sichtbar, solange die Rolle unbekannt ist.
     'ent.nudge.title': 'Pilot-Standard starten: Arbeitsplatzangebot platzieren oder Personal anbieten',
     'ent.nudge.text': 'Starten Sie den Kernflow der Plattform: Arbeitsplatzangebot erfassen, Personal veroeffentlichen und ohne Medienbruch zum belastbaren Deal gelangen.',
+    // Rollenrichtige Fassungen — der Nudge nennt nur die Handlung, deren Knopf
+    // die Rolle auch sieht (vorher forderte er Unternehmen zu "Personal
+    // anbieten" auf, waehrend genau dieser Knopf fuer sie ausgeblendet wird).
+    'ent.nudge.title.company': 'Pilot-Standard starten: Arbeitsplatzangebot platzieren',
+    'ent.nudge.text.company': 'Starten Sie den Kernflow der Plattform: Arbeitsplatzangebot erfassen, passendes Personal finden und ohne Medienbruch zum belastbaren Deal gelangen.',
+    'ent.nudge.title.agency': 'Pilot-Standard starten: Personal einstellen',
+    'ent.nudge.text.agency': 'Starten Sie den Kernflow der Plattform: eigenes Personal veroeffentlichen, passende Arbeitsplaetze finden und ohne Medienbruch zum belastbaren Deal gelangen.',
     'ent.nudge.ctaPostStaff': 'Personal einstellen',
     'ent.nudge.ctaPostWorkplace': 'Arbeitsplatz anbieten',
     'ent.nudge.ctaMarketplace': 'Personal finden',
@@ -157,7 +165,7 @@
     'ent.paywall.cta': 'View plans',
 
     'ent.banner.eyebrow': 'Workflow standard now',
-    'ent.banner.title': 'Job offer → Deal → Placement/Assignment → Hours ',
+    'ent.banner.title': 'Job posting → Deal → Placement/Assignment → Hours ',
     'ent.banner.text': 'This platform deliberately prioritises clear usability and robust core flows. Steering, trust and admin areas stay visible, but rank behind the operational pilot core.',
     'ent.banner.pillOffers': 'Offers & placement',
     'ent.banner.pillDeal': 'Deal closing',
@@ -178,8 +186,12 @@
     'ent.value.bounty': 'Bounty',
     'ent.value.details': 'Details →',
 
-    'ent.nudge.title': 'Start the pilot standard: post a job offer or offer staff',
-    'ent.nudge.text': 'Start the platform core flow: capture a job offer, publish staff and reach a solid deal without any media break.',
+    'ent.nudge.title': 'Start the pilot standard: post a job or offer staff',
+    'ent.nudge.text': 'Start the platform core flow: capture a job posting, publish staff and reach a solid deal without any media break.',
+    'ent.nudge.title.company': 'Start the pilot standard: post a job',
+    'ent.nudge.text.company': 'Start the platform core flow: capture a job posting, find matching staff and reach a solid deal without any media break.',
+    'ent.nudge.title.agency': 'Start the pilot standard: list your staff',
+    'ent.nudge.text.agency': 'Start the platform core flow: publish your own staff, find matching placements and reach a solid deal without any media break.',
     'ent.nudge.ctaPostStaff': 'Post staff',
     'ent.nudge.ctaPostWorkplace': 'Offer a workplace',
     'ent.nudge.ctaMarketplace': 'Find staff',
@@ -196,7 +208,7 @@
     'ent.card.marketplace.agency.note': 'Early entry point for workplace search, response and match — without a smooth start the deal flow breaks too.',
 
     'ent.card.requisitions.eyebrow': 'Pilot standard',
-    'ent.card.requisitions.title': 'Job offers',
+    'ent.card.requisitions.title': 'Job postings',
     'ent.card.requisitions.desc': 'Capture and prioritise job offers and tie them into supplier and rate governance.',
     'ent.card.requisitions.note': 'Must be usable for pilot customers without questions — from the first offer to clear prioritisation.',
 
@@ -405,6 +417,15 @@
     var ctaPostWorkplace = $("ce-nudge-cta-2");  // "Arbeitsplatz anbieten" — Unternehmens-Aktion
     if (orgType === "company" && ctaPostStaff) ctaPostStaff.style.display = "none";
     if (orgType === "agency" && ctaPostWorkplace) ctaPostWorkplace.style.display = "none";
+
+    // Ueberschrift und Beschreibung MUESSEN derselben Rolle folgen wie die
+    // Knoepfe darunter. Vorher blieb hier die rollenneutrale Fassung stehen:
+    // Ein Unternehmen las "…oder Personal anbieten" — eine Handlung, deren
+    // Knopf ihm die Zeile darueber gerade weggenommen hatte.
+    if (orgType === "company" || orgType === "agency") {
+      setI18nText($("ce-nudge-title"), "ent.nudge.title." + orgType);
+      setI18nText($("ce-nudge-text"), "ent.nudge.text." + orgType);
+    }
 
     // Agentur-Sicht: Beschreibung/Fussnote auf Arbeitsplatzsuche ausrichten
     // (Company-Default bleibt unveraendert).

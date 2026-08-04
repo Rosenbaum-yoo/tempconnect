@@ -175,7 +175,7 @@
     'feed.nav.myArea.title': 'My area',
     'feed.nav.myArea.desc': 'Deals, requests, inbox and matching.',
     'feed.nav.publishStaff.desc': 'Publish your own staff in a targeted way.',
-    'feed.nav.openJobs.title': 'Available job openings',
+    'feed.nav.openJobs.title': 'Your job postings',
     'feed.nav.openJobs.desc': 'Overview of your job openings.',
     'feed.stats.active': 'Active staff',
     'feed.stats.suppliers': 'Providers',
@@ -251,8 +251,8 @@
     'feed.premium.plus': 'PREMIUM',
     'feed.type.supply': 'Staffing offer',
     'feed.type.supplyLong': 'Offer from a staffing firm',
-    'feed.type.demand': 'Job opening',
-    'feed.type.demandLong': 'Job opening from a company',
+    'feed.type.demand': 'Job posting',
+    'feed.type.demandLong': 'Job posting from a company',
     'feed.trust.successRate': '{n}% success',
     'feed.trust.verified': 'Verified',
     'feed.trust.compliance': 'Compliance',
@@ -281,7 +281,7 @@
     'feed.cta.agency.notdienst': 'List emergency staff',
     'feed.cta.agency.manage': 'Listed staff',
     'feed.cta.company.create': 'Post a job opening',
-    'feed.cta.company.list': 'My postings'
+    'feed.cta.company.list': 'My job postings'
   });
 
   function t(key, params) { return TCi18n.t(key, params); }
