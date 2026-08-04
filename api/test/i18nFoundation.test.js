@@ -303,17 +303,31 @@ suite("Drei-Seiten-Gate — kein eingefrorener Rollenbegriff", () => {
   }
 
   /**
-   * Bekannte Bestandsluecken — dokumentiert statt stillschweigend geduldet.
-   * Diese Flaechen fuehrten die Rollen-Terminologie schon VOR der
-   * i18n-Migration nicht (per `git show` belegt); die Migration hat sie also
-   * nicht verschlechtert. Sie gehoeren in eine eigene Welle, nicht in einen
-   * Drive-by-Fix. NEUE Eintraege hier brauchen eine Begruendung.
+   * Eine Seite, die nur EINE Rolle je erreicht, braucht keine Rollen-
+   * verzweigung — dort ist die feste Sprache dieser Rolle korrekt.
+   * Diese Wahrheit steht bereits in api/config/visibilityMatrix.js
+   * (allowed_org_types, serverseitig durchgesetzt). Wir lesen sie von dort,
+   * statt sie in einer Liste zu verdoppeln, die still veraltet: aendert
+   * jemand die Sichtbarkeit, zieht dieses Gate automatisch nach.
+   *
+   * (Frueher stand hier eine handgepflegte Ausnahmeliste. Ihre Begruendung
+   * fuer requisitions war schlicht falsch — "Agentur-Sicht spaeter nachziehen",
+   * obwohl eine Agentur die Seite gar nicht erreicht. Genau solche Eintraege
+   * erzeugen spaeter unnoetige Arbeit.)
    */
+  function einRollenSeiten() {
+    const src = fs.readFileSync(path.join(ROOT, "api/config/visibilityMatrix.js"), "utf8");
+    const out = new Set();
+    for (const m of src.matchAll(/page:\s*"([^"]+)"[\s\S]*?allowed_org_types:\s*\[([^\]]*)\]/g)) {
+      const typen = [...m[2].matchAll(/"(\w+)"/g)].map((x) => x[1]).filter((t) => t !== "worker");
+      if (typen.length === 1) out.add(m[1]);
+    }
+    return out;
+  }
+
+  /** Rest-Ausnahmen, die NICHT aus der Sichtbarkeit folgen — mit Begruendung. */
   const BESTANDS_AUSNAHMEN = {
-    "js/pages/requisitions.js": "Fuehrte auch vor P6 keine Rollen-Terminologie (Bestand). Company-Sicht ist der Default; Agentur-Sicht siehe Welle 'Rollenbegriffe nachziehen'.",
-    "mitarbeiter.html": "Reine Agentur-Flaeche (nur Personaldienstleister erreichen sie) — Rollenverzweigung dort ohne Nutzen.",
-    "js/pages/mitarbeiter.js": "Reine Agentur-Flaeche, siehe mitarbeiter.html.",
-    "hilfe.html": "Hilfe-Texte adressieren bewusst beide Seiten nacheinander im selben Satz."
+    "hilfe.html": "Hilfe-Texte adressieren bewusst beide Seiten nacheinander im selben Satz — eine Rollenverzweigung wuerde die jeweils andere Haelfte verstecken."
   };
 
   const FLAECHEN = [
@@ -323,10 +337,22 @@ suite("Drei-Seiten-Gate — kein eingefrorener Rollenbegriff", () => {
     "deal_management.html", "mitarbeiter.html", "js/pages/mitarbeiter.js", "hilfe.html"
   ];
 
+  /** Ausgelagerte Seiten-JS gehoert zur Sichtbarkeit ihrer Seite. */
+  const JS_ZU_SEITE = {
+    "js/pages/enterpriseHub.js": "enterprise.html",
+    "js/pages/marketplaceFeed.js": "capacity_exchange_feed.html",
+    "js/pages/requisitions.js": "requisitions.html",
+    "js/pages/mitarbeiter.js": "mitarbeiter.html"
+  };
+
   it("jeder woertlich eingefrorene Rollenbegriff wird zur Laufzeit aufgeloest", () => {
     const begriffe = rollenabhaengigeBegriffe();
+    const nurEineRolle = einRollenSeiten();
     const verstoesse = [];
     for (const rel of FLAECHEN) {
+      // Erreicht nur EINE Rolle diese Seite? Dann ist ihre feste Sprache korrekt.
+      const seite = JS_ZU_SEITE[rel] || rel;
+      if (nurEineRolle.has(seite)) continue;
       const src = read(`frontend/public/${rel}`);
       // Loest diese Flaeche Rollen ueberhaupt auf?
       const loestRollenAuf = /terminology\.get\(/.test(src) ||
