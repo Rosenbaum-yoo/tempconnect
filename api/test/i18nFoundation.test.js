@@ -268,6 +268,124 @@ suite("Plattform-Kernflow — zweisprachig (Woerterbuch ggf. im ausgelagerten JS
   });
 });
 
+/* ── Drei-Seiten-Gate: eingefrorene Rollenbegriffe aufspueren ─────────────
+   TempConnect bedient DREI Kundenseiten (Unternehmen, Personaldienstleister,
+   Arbeiter). Dieselbe Stelle traegt je Rolle bewusst verschiedene Begriffe.
+   Die Gefahr der i18n-Migration: ein rollenabhaengiger Begriff wird als
+   FESTER Woerterbuch-Wert eingefroren — dann liest eine Zeitarbeitsfirma
+   "Personal finden" statt "Arbeitsplatz finden", also die Sprache der
+   Gegenseite. Weder Syntax- noch Paritaets-Test sehen das.
+
+   Regel: Steht ein rollenabhaengiger Begriff woertlich als Woerterbuch-Wert,
+   MUSS dieselbe Flaeche ihn zur Laufzeit rollenrichtig ueberschreiben
+   (TC.terminology.get) ODER rollenspezifische Schluessel fuehren
+   (…agency.… / …company.… / …worker.…). Sonst: Ausnahme mit Begruendung. */
+suite("Drei-Seiten-Gate — kein eingefrorener Rollenbegriff", () => {
+  /** Begriffe, die sich zwischen company und agency unterscheiden. */
+  function rollenabhaengigeBegriffe() {
+    const js = read("frontend/public/js/terminologyLabels.js");
+    const block = js.match(/var LABELS = \{([\s\S]*?)\n  \};/);
+    assert.ok(block, "LABELS-Block nicht gefunden");
+    const werte = new Map(); // Begriff -> Rollen, die ihn tragen
+    for (const line of block[1].split("\n")) {
+      const m = line.match(/^\s{4}\w+:\s*\{(.+)\},?\s*$/);
+      if (!m) continue;
+      const roles = {};
+      for (const rm of m[1].matchAll(/(\w+):\s*(?:"([^"]*)"|null)/g)) roles[rm[1]] = rm[2];
+      if (roles.company && roles.agency && roles.company !== roles.agency) {
+        for (const r of ["company", "agency"]) {
+          if (roles[r]) werte.set(roles[r], r);
+        }
+      }
+    }
+    assert.ok(werte.size > 5, "zu wenige rollenabhaengige Begriffe erkannt");
+    return werte;
+  }
+
+  /**
+   * Bekannte Bestandsluecken — dokumentiert statt stillschweigend geduldet.
+   * Diese Flaechen fuehrten die Rollen-Terminologie schon VOR der
+   * i18n-Migration nicht (per `git show` belegt); die Migration hat sie also
+   * nicht verschlechtert. Sie gehoeren in eine eigene Welle, nicht in einen
+   * Drive-by-Fix. NEUE Eintraege hier brauchen eine Begruendung.
+   */
+  const BESTANDS_AUSNAHMEN = {
+    "js/pages/requisitions.js": "Fuehrte auch vor P6 keine Rollen-Terminologie (Bestand). Company-Sicht ist der Default; Agentur-Sicht siehe Welle 'Rollenbegriffe nachziehen'.",
+    "mitarbeiter.html": "Reine Agentur-Flaeche (nur Personaldienstleister erreichen sie) — Rollenverzweigung dort ohne Nutzen.",
+    "js/pages/mitarbeiter.js": "Reine Agentur-Flaeche, siehe mitarbeiter.html.",
+    "hilfe.html": "Hilfe-Texte adressieren bewusst beide Seiten nacheinander im selben Satz."
+  };
+
+  const FLAECHEN = [
+    "enterprise.html", "js/pages/enterpriseHub.js",
+    "capacity_exchange_feed.html", "js/pages/marketplaceFeed.js",
+    "requisitions.html", "js/pages/requisitions.js",
+    "deal_management.html", "mitarbeiter.html", "js/pages/mitarbeiter.js", "hilfe.html"
+  ];
+
+  it("jeder woertlich eingefrorene Rollenbegriff wird zur Laufzeit aufgeloest", () => {
+    const begriffe = rollenabhaengigeBegriffe();
+    const verstoesse = [];
+    for (const rel of FLAECHEN) {
+      const src = read(`frontend/public/${rel}`);
+      // Loest diese Flaeche Rollen ueberhaupt auf?
+      const loestRollenAuf = /terminology\.get\(/.test(src) ||
+        /'[\w.]*\.(agency|company|worker)\.[\w.]*':/.test(src);
+      if (loestRollenAuf) continue;
+      const treffer = [];
+      for (const [begriff, rolle] of begriffe) {
+        // Nur als Woerterbuch-WERT suchen (nicht in Fliesstext/Kommentaren)
+        const re = new RegExp("'[\\w.]+':\\s*'" + begriff.replace(/[.*+?^${}()|[\]\\]/g, "\\$&") + "'");
+        if (re.test(src)) treffer.push(`${begriff} (Sprache der Rolle ${rolle})`);
+      }
+      if (treffer.length && !BESTANDS_AUSNAHMEN[rel]) {
+        verstoesse.push(`${rel}: ${treffer.join(", ")}`);
+      }
+    }
+    assert.deepEqual(verstoesse, [],
+      "Rollenbegriff eingefroren, ohne Laufzeit-Aufloesung und ohne dokumentierte Ausnahme");
+  });
+
+  it("die Ausnahmeliste bleibt ehrlich: jeder Eintrag zeigt auf eine echte Datei", () => {
+    for (const rel of Object.keys(BESTANDS_AUSNAHMEN)) {
+      assert.ok(fs.existsSync(path.join(ROOT, "frontend/public", rel)),
+        `Ausnahme fuer nicht existierende Datei: ${rel}`);
+      assert.ok(BESTANDS_AUSNAHMEN[rel].length > 30, `Ausnahme ohne echte Begruendung: ${rel}`);
+    }
+  });
+
+  it("Englisch verliert die Rollenunterscheidung nicht", () => {
+    const js = read("frontend/public/js/terminologyLabels.js");
+    const enBlock = js.match(/var LABELS_EN = \{([\s\S]*?)\n  \};/);
+    assert.ok(enBlock, "LABELS_EN nicht gefunden");
+    const deBlock = js.match(/var LABELS = \{([\s\S]*?)\n  \};/)[1];
+    const parse = (block) => {
+      const out = {};
+      for (const line of block.split("\n")) {
+        const m = line.match(/^\s{4}(\w+):\s*\{(.+)\},?\s*$/);
+        if (!m) continue;
+        const roles = {};
+        for (const rm of m[2].matchAll(/(\w+):\s*(?:"([^"]*)"|null)/g)) roles[rm[1]] = rm[2] === undefined ? null : rm[2];
+        out[m[1]] = roles;
+      }
+      return out;
+    };
+    const de = parse(deBlock);
+    const en = parse(enBlock[1]);
+    const eingeebnet = [];
+    for (const key of Object.keys(de)) {
+      const d = de[key], e = en[key];
+      if (!e || !d.company || !d.agency) continue;
+      // Deutsch unterscheidet -> Englisch muss auch unterscheiden
+      if (d.company !== d.agency && e.company && e.agency && e.company === e.agency) {
+        eingeebnet.push(key);
+      }
+    }
+    assert.deepEqual(eingeebnet, [],
+      "Englisch ebnet eine Rollenunterscheidung ein, die im Deutschen besteht");
+  });
+});
+
 suite("Plattform — Terminologie ist eine Matrix aus Rolle UND Sprache", () => {
   /** Laedt terminologyLabels.js (optional mit i18n-Locale) in eine Sandbox. */
   function loadTerminology(locale) {
