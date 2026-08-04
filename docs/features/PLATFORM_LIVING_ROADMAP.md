@@ -355,8 +355,27 @@
     Interpolation, set/apply/Event) + **DE/EN-Schlüssel-Parität** der Seite (fehlende
     Übersetzung wird rot, statt still deutsch zu bleiben). Browser-verifiziert: DE↔EN live
     umgeschaltet, Konsole sauber.
-  - **Offen (nächste Wellen):** Einsatzportal-Seiten (Shell zuerst), dann Plattform-Flächen;
-    Muster steht — je Seite: `data-i18n`-Marker + `TCi18n.register` + Paritätstest.
+  - **✅ Einsatzportal komplett zweisprachig (2026-08-04):** Shell zuerst (`portalShell.js`
+    `_setupI18n` — gemeinsame `ep.nav.*` (kurz, Bottom-Nav) / `ep.navlong.*` (beschreibend,
+    Seitenleiste) / `ep.shell.*` / `ep.aria.*`), dann alle **7 Seiten** per Multi-Agent-Fan-out
+    (Dashboard, Einsätze, Plan, Stundenzettel, Benachrichtigungen, Kontakt, Profil).
+    Die im Profil gespeicherte Sprache wird angewandt (eine explizite Geräte-Wahl gewinnt),
+    jeder Wechsel wandert per PATCH zurück ins Profil → Cross-Device-Gedächtnis.
+  - **Schicht erweitert:** `data-i18n-aria` (übersetzbare aria-labels — sonst hört ein
+    Screenreader-Nutzer im EN-Modus deutsche Navigationsnamen) und `TCi18n.dateLocale()`
+    (Monats-/Wochentagsnamen wechseln mit; vorher stand im EN-Modus „März").
+  - **Drei Fehler, die erst die Prüfung zeigte:** (1) ein `*/` in einem Kommentar der
+    Benachrichtigungs-Seite beendete den Kommentar vorzeitig und machte das **gesamte
+    Inline-Script unparsebar** — die Seite wäre ohne JS gewesen; (2) eine dateiweite
+    Literal-Ersetzung traf auch die DE-**Werte** im Wörterbuch und machte daraus
+    Selbstverweise (`'key': t('key')` → stiller Leertext); (3) neu eingefügte
+    Unicode-Symbole (✓/✗/⏳) verletzten die Emoji-Regel. Alle drei sind behoben **und**
+    durch neue Gates abgesichert.
+  - Tests (`api/test/i18nFoundation.test.js`, 31 Fälle): Schicht-Sandbox, DE/EN-Parität je
+    Seite, Marker-Auflösbarkeit, **Inline-Script-Syntax jeder Seite** und **kein
+    Wörterbuch-Selbstverweis**. Zusammen mit den Wächtern: 52/52 grün.
+  - **Offen (nächste Welle):** Plattform-Flächen (Enterprise/Marktplatz) sowie das geteilte
+    Modul `portalStatus.js` (Status-/Kategorie-Labels sind dort noch einsprachig).
 
 ## Phase 7 — Visual/Media Layer (PREVIEW ZUERST)
 

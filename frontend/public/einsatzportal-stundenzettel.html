@@ -4,7 +4,8 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <script src="/public/js/theme.js"></script>
-  <title>Stundenzettel – Einsatzportal</title>
+  <script src="/public/js/i18n.js"></script>
+  <title data-i18n="ep.stundenzettel.docTitle">Stundenzettel – Einsatzportal</title>
   <link rel="stylesheet" href="einsatzportal.css">
   <style>
     /* ── Submission list ─────────────────────────────────────────── */
@@ -153,24 +154,25 @@
 <body class="ep-preauth">
 
 <aside class="ep-sidebar">
-  <div class="ep-sidebar-brand"><div class="ep-sidebar-logo">TC</div><div><div style="font-weight:800;font-size:.95rem">Einsatzportal</div><div style="font-size:.7rem;color:var(--ep-text-muted);font-weight:400">TempConnect</div></div></div>
+  <div class="ep-sidebar-brand"><div class="ep-sidebar-logo">TC</div><div><div style="font-weight:800;font-size:.95rem" data-i18n="ep.shell.brand">Einsatzportal</div><div style="font-size:.7rem;color:var(--ep-text-muted);font-weight:400">TempConnect</div></div></div>
   <nav class="ep-sidebar-nav">
-    <a class="ep-sidebar-item" href="einsatzportal-dashboard.html">Dashboard</a>
-    <a class="ep-sidebar-item" href="einsatzportal-einsaetze.html">Meine Einsätze</a>
-    <a class="ep-sidebar-item" href="einsatzportal-plan.html">Einsatzplan</a>
-    <a class="ep-sidebar-item active" href="einsatzportal-stundenzettel.html">Stundenzettel</a>
-    <a class="ep-sidebar-item" href="einsatzportal-benachrichtigungen.html">Benachrichtigungen<span class="ep-sidebar-badge" id="sb-badge" style="display:none">0</span></a>
-    <a class="ep-sidebar-item" href="einsatzportal-kontakt.html">Kontakt &amp; Hilfe</a>
-    <a class="ep-sidebar-item" href="einsatzportal-profil.html">Mein Profil</a>
+    <a class="ep-sidebar-item" href="einsatzportal-dashboard.html"><span data-i18n="ep.navlong.start">Dashboard</span></a>
+    <a class="ep-sidebar-item" href="einsatzportal-einsaetze.html"><span data-i18n="ep.navlong.einsaetze">Meine Einsätze</span></a>
+    <a class="ep-sidebar-item" href="einsatzportal-plan.html"><span data-i18n="ep.navlong.plan">Einsatzplan</span></a>
+    <a class="ep-sidebar-item active" href="einsatzportal-stundenzettel.html"><span data-i18n="ep.navlong.stunden">Stundenzettel</span></a>
+    <a class="ep-sidebar-item" href="einsatzportal-benachrichtigungen.html"><span data-i18n="ep.navlong.benachrichtigungen">Benachrichtigungen</span><span class="ep-sidebar-badge" id="sb-badge" style="display:none">0</span></a>
+    <a class="ep-sidebar-item" href="einsatzportal-kontakt.html"><span data-i18n="ep.navlong.kontakt">Kontakt &amp; Hilfe</span></a>
+    <a class="ep-sidebar-item" href="einsatzportal-profil.html"><span data-i18n="ep.navlong.profil">Mein Profil</span></a>
   </nav>
   <div class="ep-sidebar-footer">
-    <div class="ep-sidebar-user"><div class="ep-sidebar-avatar" id="sd-ava">?</div><div><div class="ep-sidebar-name" id="sd-name">Lädt…</div><div class="ep-sidebar-role">Arbeitnehmer</div></div></div>
-    <button class="ep-sidebar-item" onclick="doLogout()" style="margin-top:4px;color:var(--ep-text-muted)">Abmelden</button>
+    <div class="ep-sidebar-user"><div class="ep-sidebar-avatar" id="sd-ava">?</div><div><div class="ep-sidebar-name" id="sd-name">Lädt…</div><div class="ep-sidebar-role" data-i18n="ep.shell.role">Arbeitnehmer</div></div></div>
+    <div style="padding:6px 0"><span data-i18n-switcher></span></div>
+    <button class="ep-sidebar-item" onclick="doLogout()" style="margin-top:4px;color:var(--ep-text-muted)"><span data-i18n="ep.shell.logout">Abmelden</span></button>
   </div>
 </aside>
 
 <header class="ep-topbar">
-  <a class="ep-topbar-brand" href="einsatzportal-dashboard.html" aria-label="Zur Einsatzportal-Übersicht"><div class="ep-topbar-logo">TC</div>Stundenzettel</a>
+  <a class="ep-topbar-brand" href="einsatzportal-dashboard.html" aria-label="Zur Einsatzportal-Übersicht" data-i18n-aria="ep.stundenzettel.brandAria"><div class="ep-topbar-logo">TC</div><span data-i18n="ep.stundenzettel.title">Stundenzettel</span></a>
   <div class="ep-topbar-actions"><a class="ep-bell" href="einsatzportal-benachrichtigungen.html"><span class="ep-bell-badge" id="mob-badge" style="display:none">0</span></a></div>
 </header>
 
@@ -178,10 +180,10 @@
   <div class="ep-content">
     <div class="ep-page-header" style="display:flex;justify-content:space-between;align-items:flex-end;flex-wrap:wrap;gap:10px">
       <div>
-        <h1 class="ep-page-title">Stundenzettel</h1>
-        <p class="ep-page-sub">Ihre eingereichten Wochenberichte</p>
+        <h1 class="ep-page-title" data-i18n="ep.stundenzettel.title">Stundenzettel</h1>
+        <p class="ep-page-sub" data-i18n="ep.stundenzettel.subtitle">Ihre eingereichten Wochenberichte</p>
       </div>
-      <button class="ep-btn ep-btn-primary ep-btn-sm" id="btnNew" onclick="openNewTimesheet()" style="display:none">
+      <button class="ep-btn ep-btn-primary ep-btn-sm" id="btnNew" onclick="openNewTimesheet()" style="display:none" data-i18n="ep.stundenzettel.newBtn">
         Stunden digital eintragen
       </button>
     </div>
@@ -196,12 +198,12 @@
 
       <!-- Filter pills -->
       <div class="sub-filters">
-        <button class="sub-filter active" onclick="setFilter('all')" id="f-all">Alle</button>
-        <button class="sub-filter" onclick="setFilter('open')" id="f-open">Offen</button>
-        <button class="sub-filter" onclick="setFilter('correction')" id="f-correction">Korrektur</button>
-        <button class="sub-filter" onclick="setFilter('at_customer')" id="f-at_customer">Beim Kunden</button>
-        <button class="sub-filter" onclick="setFilter('done')" id="f-done">Abgeschlossen</button>
-        <button class="sub-filter" onclick="setFilter('rejected')" id="f-rejected">Abgelehnt</button>
+        <button class="sub-filter active" onclick="setFilter('all')" id="f-all" data-i18n="ep.stundenzettel.filterAll">Alle</button>
+        <button class="sub-filter" onclick="setFilter('open')" id="f-open" data-i18n="ep.stundenzettel.filterOpen">Offen</button>
+        <button class="sub-filter" onclick="setFilter('correction')" id="f-correction" data-i18n="ep.stundenzettel.filterCorrection">Korrektur</button>
+        <button class="sub-filter" onclick="setFilter('at_customer')" id="f-at_customer" data-i18n="ep.stundenzettel.filterAtCustomer">Beim Kunden</button>
+        <button class="sub-filter" onclick="setFilter('done')" id="f-done" data-i18n="ep.stundenzettel.filterDone">Abgeschlossen</button>
+        <button class="sub-filter" onclick="setFilter('rejected')" id="f-rejected" data-i18n="ep.stundenzettel.filterRejected">Abgelehnt</button>
       </div>
 
       <div class="sz-layout">
@@ -214,8 +216,8 @@
         <div id="subDetail">
           <!-- Empty state -->
           <div class="ep-empty" id="detEmpty">
-            <h3>Stundenzettel wählen</h3>
-            <p>Wählen Sie links einen Eintrag oder erfassen Sie neue Stunden.</p>
+            <h3 data-i18n="ep.stundenzettel.emptyTitle">Stundenzettel wählen</h3>
+            <p data-i18n="ep.stundenzettel.emptyText">Wählen Sie links einen Eintrag oder erfassen Sie neue Stunden.</p>
           </div>
 
           <!-- Status-Timeline detail -->
@@ -225,42 +227,42 @@
           <div id="editorPanel" style="display:none">
 
             <div class="ed-head">
-              <button class="ed-back-btn" onclick="closeEditor()">← Zurück</button>
+              <button class="ed-back-btn" onclick="closeEditor()" data-i18n="ep.stundenzettel.back">← Zurück</button>
               <div class="ed-week-label" id="ed-week-label">—</div>
               <span id="ed-status-badge"></span>
             </div>
 
             <!-- Wochen-Picker (nur bei neuer Submission via link_id) -->
             <div class="ed-week-picker" id="ed-week-picker" style="display:none">
-              <button class="ed-week-nav" onclick="edShiftWeek(-1)">← Vorwoche</button>
+              <button class="ed-week-nav" onclick="edShiftWeek(-1)" data-i18n="ep.stundenzettel.prevWeek">← Vorwoche</button>
               <div class="ed-week-cur" id="ed-week-cur">—</div>
-              <button class="ed-week-nav" onclick="edShiftWeek(1)">Nächste →</button>
+              <button class="ed-week-nav" onclick="edShiftWeek(1)" data-i18n="ep.stundenzettel.nextWeek">Nächste →</button>
             </div>
 
             <!-- Korrektur-Banner -->
             <div class="ep-alert ep-alert-danger" id="ed-correction-banner" style="display:none;margin-bottom:14px">
               <div>
-                <strong>Korrektur erforderlich</strong>
+                <strong data-i18n="ep.stundenzettel.correctionRequired">Korrektur erforderlich</strong>
                 <div id="ed-correction-note" style="margin-top:3px;font-size:.85rem"></div>
               </div>
             </div>
 
             <!-- Read-only-Banner -->
             <div class="ep-alert ep-alert-info" id="ed-readonly-banner" style="display:none;margin-bottom:14px">
-              <span>Gesperrt: <strong id="ed-readonly-status"></strong></span>
+              <span><span data-i18n="ep.stundenzettel.locked">Gesperrt:</span> <strong id="ed-readonly-status"></strong></span>
             </div>
 
             <!-- Reviewer-Kommentar -->
             <div class="ep-alert ep-alert-warning" id="ed-reviewer-comment" style="display:none;margin-bottom:14px">
               <div>
-                <strong>Anmerkung des Prüfers</strong>
+                <strong data-i18n="ep.stundenzettel.reviewerNote">Anmerkung des Prüfers</strong>
                 <div id="ed-reviewer-note" style="margin-top:3px;font-size:.85rem"></div>
               </div>
             </div>
 
             <!-- Einsatz-Info (aus Prefill) -->
             <div id="ed-assignment-info" style="display:none;margin-bottom:14px;padding:10px 14px;background:var(--ep-raised);border:1px solid var(--ep-border);border-radius:10px;font-size:.82rem">
-              <div style="font-weight:700;margin-bottom:4px">Einsatz-Info</div>
+              <div style="font-weight:700;margin-bottom:4px" data-i18n="ep.stundenzettel.assignmentInfo">Einsatz-Info</div>
               <div id="ed-ai-description" style="color:var(--ep-text-muted)"></div>
               <div id="ed-ai-dates" style="color:var(--ep-text-muted);margin-top:2px"></div>
               <div id="ed-ai-shift" style="color:var(--ep-text-muted);margin-top:2px"></div>
@@ -268,8 +270,8 @@
 
             <!-- Wochenraster Header -->
             <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
-              <div style="font-size:.78rem;color:var(--ep-text-muted)">Std. · Überstd. · Pause(Min.)</div>
-              <button class="ep-btn ep-btn-ghost ep-btn-sm" onclick="edToggleAdvanced()" id="ed-toggle-details" style="font-size:.78rem">+ Schichtzeiten</button>
+              <div style="font-size:.78rem;color:var(--ep-text-muted)" data-i18n="ep.stundenzettel.gridHint">Std. · Überstd. · Pause(Min.)</div>
+              <button class="ep-btn ep-btn-ghost ep-btn-sm" onclick="edToggleAdvanced()" id="ed-toggle-details" style="font-size:.78rem" data-i18n="ep.stundenzettel.showShiftTimes">+ Schichtzeiten</button>
             </div>
 
             <!-- Wochenraster -->
@@ -279,11 +281,11 @@
             <div class="ed-totals">
               <div class="ed-total-item">
                 <div class="ed-total-val" id="ed-total-hours">0,0 h</div>
-                <div class="ed-total-label">Gesamt</div>
+                <div class="ed-total-label" data-i18n="ep.stundenzettel.total">Gesamt</div>
               </div>
               <div class="ed-total-item">
                 <div class="ed-total-val" id="ed-total-overtime">0,0 h</div>
-                <div class="ed-total-label">Überstunden</div>
+                <div class="ed-total-label" data-i18n="ep.stundenzettel.overtime">Überstunden</div>
               </div>
             </div>
 
@@ -294,29 +296,29 @@
 
             <!-- Kommentar -->
             <div style="margin-top:12px">
-              <label style="font-size:.8rem;font-weight:700;color:var(--ep-text-muted);display:block;margin-bottom:6px">Kommentar (optional)</label>
+              <label style="font-size:.8rem;font-weight:700;color:var(--ep-text-muted);display:block;margin-bottom:6px" data-i18n="ep.stundenzettel.commentLabel">Kommentar (optional)</label>
               <textarea id="ed-worker-comment" rows="2"
                 style="width:100%;padding:10px 12px;border:1px solid var(--ep-border);border-radius:10px;background:var(--ep-surface);color:var(--ep-text);font-size:.86rem;resize:vertical;box-sizing:border-box"
-                placeholder="Hinweise für den Prüfer…"></textarea>
+                placeholder="Hinweise für den Prüfer…" data-i18n-ph="ep.stundenzettel.commentPh"></textarea>
             </div>
 
             <!-- Zuschläge -->
             <div style="margin-top:8px">
-              <button class="ep-btn ep-btn-ghost ep-btn-sm" onclick="edToggleZuschlaege()" id="ed-btn-zuschlaege" style="font-size:.78rem">+ Zuschläge</button>
+              <button class="ep-btn ep-btn-ghost ep-btn-sm" onclick="edToggleZuschlaege()" id="ed-btn-zuschlaege" style="font-size:.78rem" data-i18n="ep.stundenzettel.showSurcharges">+ Zuschläge</button>
               <div id="ed-zuschlaege" style="display:none;margin-top:8px;padding:12px;background:var(--ep-raised);border:1px solid var(--ep-border);border-radius:10px">
-                <div style="font-size:.78rem;font-weight:700;color:var(--ep-text-muted);margin-bottom:8px">Zuschlagsarten</div>
-                <label style="display:flex;align-items:center;gap:8px;padding:5px 0;font-size:.84rem;cursor:pointer"><input type="checkbox" id="ed-zs-nacht"> Nachtschichtzuschlag</label>
-                <label style="display:flex;align-items:center;gap:8px;padding:5px 0;font-size:.84rem;cursor:pointer"><input type="checkbox" id="ed-zs-sonn"> Sonntagsarbeit</label>
-                <label style="display:flex;align-items:center;gap:8px;padding:5px 0;font-size:.84rem;cursor:pointer"><input type="checkbox" id="ed-zs-fei"> Feiertagsarbeit</label>
-                <label style="display:flex;align-items:center;gap:8px;padding:5px 0;font-size:.84rem;cursor:pointer"><input type="checkbox" id="ed-zs-bereit"> Bereitschaftsdienst</label>
-                <label style="display:flex;align-items:center;gap:8px;padding:5px 0;font-size:.84rem;cursor:pointer"><input type="checkbox" id="ed-zs-fahrt"> Fahrtkosten vereinbart</label>
+                <div style="font-size:.78rem;font-weight:700;color:var(--ep-text-muted);margin-bottom:8px" data-i18n="ep.stundenzettel.surchargeTypes">Zuschlagsarten</div>
+                <label style="display:flex;align-items:center;gap:8px;padding:5px 0;font-size:.84rem;cursor:pointer"><input type="checkbox" id="ed-zs-nacht"> <span data-i18n="ep.stundenzettel.surchargeNight">Nachtschichtzuschlag</span></label>
+                <label style="display:flex;align-items:center;gap:8px;padding:5px 0;font-size:.84rem;cursor:pointer"><input type="checkbox" id="ed-zs-sonn"> <span data-i18n="ep.stundenzettel.surchargeSunday">Sonntagsarbeit</span></label>
+                <label style="display:flex;align-items:center;gap:8px;padding:5px 0;font-size:.84rem;cursor:pointer"><input type="checkbox" id="ed-zs-fei"> <span data-i18n="ep.stundenzettel.surchargeHoliday">Feiertagsarbeit</span></label>
+                <label style="display:flex;align-items:center;gap:8px;padding:5px 0;font-size:.84rem;cursor:pointer"><input type="checkbox" id="ed-zs-bereit"> <span data-i18n="ep.stundenzettel.surchargeOnCall">Bereitschaftsdienst</span></label>
+                <label style="display:flex;align-items:center;gap:8px;padding:5px 0;font-size:.84rem;cursor:pointer"><input type="checkbox" id="ed-zs-fahrt"> <span data-i18n="ep.stundenzettel.surchargeTravel">Fahrtkosten vereinbart</span></label>
               </div>
             </div>
 
             <!-- CTA-Bar -->
             <div class="ed-cta-bar" id="ed-cta-bar" style="display:none">
-              <button class="ep-btn ep-btn-outline ep-btn-sm" onclick="edSaveDraft()" id="ed-btn-save">Speichern</button>
-              <button class="ep-btn ep-btn-primary" onclick="edSubmitFlow()" id="ed-btn-submit">Einreichen</button>
+              <button class="ep-btn ep-btn-outline ep-btn-sm" onclick="edSaveDraft()" id="ed-btn-save" data-i18n="ep.stundenzettel.save">Speichern</button>
+              <button class="ep-btn ep-btn-primary" onclick="edSubmitFlow()" id="ed-btn-submit" data-i18n="ep.stundenzettel.submit">Einreichen</button>
             </div>
 
           </div><!-- /editorPanel -->
@@ -329,22 +331,22 @@
 <!-- Editor Confirm Overlay -->
 <div id="ed-confirm-overlay" onclick="edCloseConfirm()">
   <div class="ed-confirm-box" onclick="event.stopPropagation()">
-    <div class="ed-confirm-title">Stundenzettel einreichen?</div>
+    <div class="ed-confirm-title" data-i18n="ep.stundenzettel.confirmTitle">Stundenzettel einreichen?</div>
     <p class="ed-confirm-text" id="ed-confirm-text">Einreichung bestätigen.</p>
     <div class="ed-confirm-actions">
-      <button class="ep-btn ep-btn-outline ep-btn-sm" onclick="edCloseConfirm()">Abbrechen</button>
-      <button class="ep-btn ep-btn-primary" onclick="edDoSubmit()" id="ed-confirm-btn">Einreichen</button>
+      <button class="ep-btn ep-btn-outline ep-btn-sm" onclick="edCloseConfirm()" data-i18n="ep.stundenzettel.cancel">Abbrechen</button>
+      <button class="ep-btn ep-btn-primary" onclick="edDoSubmit()" id="ed-confirm-btn" data-i18n="ep.stundenzettel.submit">Einreichen</button>
     </div>
   </div>
 </div>
 
 <nav class="ep-bottom-nav">
-  <a class="ep-bn-item" href="einsatzportal-dashboard.html">Start</a>
-  <a class="ep-bn-item" href="einsatzportal-einsaetze.html">Einsätze</a>
-  <a class="ep-bn-item" href="einsatzportal-plan.html">Plan</a>
-  <a class="ep-bn-item active" href="einsatzportal-stundenzettel.html">Stunden</a>
-  <a class="ep-bn-item" href="einsatzportal-benachrichtigungen.html">Info<span class="ep-bn-dot" id="bn-dot" style="display:none"></span></a>
-  <a class="ep-bn-item" href="einsatzportal-profil.html">Profil</a>
+  <a class="ep-bn-item" href="einsatzportal-dashboard.html"><span data-i18n="ep.nav.start">Start</span></a>
+  <a class="ep-bn-item" href="einsatzportal-einsaetze.html"><span data-i18n="ep.nav.einsaetze">Einsätze</span></a>
+  <a class="ep-bn-item" href="einsatzportal-plan.html"><span data-i18n="ep.nav.plan">Plan</span></a>
+  <a class="ep-bn-item active" href="einsatzportal-stundenzettel.html"><span data-i18n="ep.nav.stunden">Stunden</span></a>
+  <a class="ep-bn-item" href="einsatzportal-benachrichtigungen.html"><span data-i18n="ep.nav.info">Info</span><span class="ep-bn-dot" id="bn-dot" style="display:none"></span></a>
+  <a class="ep-bn-item" href="einsatzportal-profil.html"><span data-i18n="ep.nav.profil">Profil</span></a>
 </nav>
 <div id="ep-toast"></div>
 
@@ -353,6 +355,255 @@
 <script src="/public/js/workerPortal/portalStatus.js"></script>
 <script>
 "use strict";
+
+/* ── i18n (P6.1): Seiten-Woerterbuch. Die gemeinsamen ep.nav.*- und ep.shell.*-Keys
+   registriert die Portal-Shell (portalShell.js) — hier nur ep.stundenzettel.*. ── */
+TCi18n.register('de', {
+  'ep.stundenzettel.docTitle': 'Stundenzettel – Einsatzportal',
+  'ep.stundenzettel.title': 'Stundenzettel',
+  'ep.stundenzettel.subtitle': 'Ihre eingereichten Wochenberichte',
+  'ep.stundenzettel.brandAria': 'Zur Einsatzportal-Übersicht',
+  'ep.stundenzettel.newBtn': 'Stunden digital eintragen',
+  'ep.stundenzettel.filterAll': 'Alle',
+  'ep.stundenzettel.filterOpen': 'Offen',
+  'ep.stundenzettel.filterCorrection': 'Korrektur',
+  'ep.stundenzettel.filterAtCustomer': 'Beim Kunden',
+  'ep.stundenzettel.filterDone': 'Abgeschlossen',
+  'ep.stundenzettel.filterRejected': 'Abgelehnt',
+  'ep.stundenzettel.emptyTitle': 'Stundenzettel wählen',
+  'ep.stundenzettel.emptyText': 'Wählen Sie links einen Eintrag oder erfassen Sie neue Stunden.',
+  'ep.stundenzettel.back': '← Zurück',
+  'ep.stundenzettel.prevWeek': '← Vorwoche',
+  'ep.stundenzettel.nextWeek': 'Nächste →',
+  'ep.stundenzettel.correctionRequired': 'Korrektur erforderlich',
+  'ep.stundenzettel.locked': 'Gesperrt:',
+  'ep.stundenzettel.reviewerNote': 'Anmerkung des Prüfers',
+  'ep.stundenzettel.assignmentInfo': 'Einsatz-Info',
+  'ep.stundenzettel.gridHint': 'Std. · Überstd. · Pause(Min.)',
+  'ep.stundenzettel.showShiftTimes': '+ Schichtzeiten',
+  'ep.stundenzettel.hideShiftTimes': '− Schichtzeiten',
+  'ep.stundenzettel.total': 'Gesamt',
+  'ep.stundenzettel.overtime': 'Überstunden',
+  'ep.stundenzettel.commentLabel': 'Kommentar (optional)',
+  'ep.stundenzettel.commentPh': 'Hinweise für den Prüfer…',
+  'ep.stundenzettel.showSurcharges': '+ Zuschläge',
+  'ep.stundenzettel.hideSurcharges': '− Zuschläge',
+  'ep.stundenzettel.surchargeTypes': 'Zuschlagsarten',
+  'ep.stundenzettel.surchargeNight': 'Nachtschichtzuschlag',
+  'ep.stundenzettel.surchargeSunday': 'Sonntagsarbeit',
+  'ep.stundenzettel.surchargeHoliday': 'Feiertagsarbeit',
+  'ep.stundenzettel.surchargeOnCall': 'Bereitschaftsdienst',
+  'ep.stundenzettel.surchargeTravel': 'Fahrtkosten vereinbart',
+  'ep.stundenzettel.save': 'Speichern',
+  'ep.stundenzettel.submit': 'Einreichen',
+  'ep.stundenzettel.confirmTitle': 'Stundenzettel einreichen?',
+  'ep.stundenzettel.cancel': 'Abbrechen',
+  'ep.stundenzettel.day0': 'Mo',
+  'ep.stundenzettel.day1': 'Di',
+  'ep.stundenzettel.day2': 'Mi',
+  'ep.stundenzettel.day3': 'Do',
+  'ep.stundenzettel.day4': 'Fr',
+  'ep.stundenzettel.day5': 'Sa',
+  'ep.stundenzettel.day6': 'So',
+  'ep.stundenzettel.loadError': 'Daten konnten nicht geladen werden. Bitte laden Sie die Seite neu.',
+  'ep.stundenzettel.correctionCount': '{count} Stundenzettel',
+  'ep.stundenzettel.correctionRest': 'benötigen Aufmerksamkeit. Klicken Sie auf den jeweiligen Eintrag.',
+  'ep.stundenzettel.emptyListTitle': 'Keine Einträge',
+  'ep.stundenzettel.emptyListText': 'Keine Stundenzettel für diesen Filter.',
+  'ep.stundenzettel.assignmentFallback': 'Einsatz',
+  'ep.stundenzettel.submittedOn': 'Eingereicht {date}',
+  'ep.stundenzettel.overdue': 'Überfällig',
+  'ep.stundenzettel.overdueTitle': 'Einreichfrist verstrichen',
+  'ep.stundenzettel.late': 'Verspätet',
+  'ep.stundenzettel.lateTitle': 'Nach der Einreichfrist abgegeben',
+  'ep.stundenzettel.deadline': 'Frist {date}',
+  'ep.stundenzettel.deadlineTitle': 'Einreichfrist',
+  'ep.stundenzettel.statusHistory': 'Status-Verlauf',
+  'ep.stundenzettel.hoursOverview': 'Stundenübersicht',
+  'ep.stundenzettel.hoursWord': 'Stunden',
+  'ep.stundenzettel.noteLabel': 'Anmerkung',
+  'ep.stundenzettel.submitCorrection': 'Korrektur einreichen',
+  'ep.stundenzettel.continueEditing': 'Weiter ausfüllen',
+  'ep.stundenzettel.newWeek': 'Neue Woche erfassen',
+  'ep.stundenzettel.tlDraftCreated': 'Entwurf erstellt',
+  'ep.stundenzettel.tlNotSubmitted': 'Noch nicht eingereicht',
+  'ep.stundenzettel.tlSubmitted': 'Eingereicht',
+  'ep.stundenzettel.tlAwaitReview': 'Warte auf Prüfung',
+  'ep.stundenzettel.tlOpen': 'Offen',
+  'ep.stundenzettel.tlInReview': 'In Prüfung',
+  'ep.stundenzettel.tlRunning': 'Läuft…',
+  'ep.stundenzettel.tlResultPending': 'Ergebnis ausstehend',
+  'ep.stundenzettel.tlCorrectionRequested': 'Korrektur angefordert',
+  'ep.stundenzettel.tlAwaitCorrection': 'Warte auf Korrektur',
+  'ep.stundenzettel.tlApprovedInternal': 'Intern freigegeben',
+  'ep.stundenzettel.tlForwardCustomer': 'Wird an Kunden weitergeleitet',
+  'ep.stundenzettel.tlAtCustomer': 'Beim Kunden zur Prüfung',
+  'ep.stundenzettel.tlAwaitCustomer': 'Warte auf Kundenrückmeldung',
+  'ep.stundenzettel.tlCustomerConfirmed': 'Vom Kunden bestätigt',
+  'ep.stundenzettel.tlToBilling': 'Wird in Abrechnung übertragen',
+  'ep.stundenzettel.tlCustomerRejected': 'Vom Kunden abgelehnt',
+  'ep.stundenzettel.tlPostedBilling': 'In Abrechnung übernommen',
+  'ep.stundenzettel.tlDone': 'Abgeschlossen',
+  'ep.stundenzettel.tlRejected': 'Abgelehnt',
+  'ep.stundenzettel.chooseAssignment': 'Einsatz wählen',
+  'ep.stundenzettel.fromDate': 'ab {date}',
+  'ep.stundenzettel.creating': 'Erstelle Stundenzettel…',
+  'ep.stundenzettel.errLoad': 'Fehler beim Laden',
+  'ep.stundenzettel.dupWeek': 'Für diese Woche existiert bereits ein Stundenzettel.',
+  'ep.stundenzettel.errCreate': 'Fehler beim Erstellen',
+  'ep.stundenzettel.dupWeekLocked': 'Für diese Woche existiert bereits ein gesperrter Stundenzettel.',
+  'ep.stundenzettel.errGeneric': 'Fehler',
+  'ep.stundenzettel.correctionFallback': 'Bitte überprüfen Sie Ihre Angaben.',
+  'ep.stundenzettel.infoFrom': 'Von: {date}',
+  'ep.stundenzettel.infoTo': 'Bis: {date}',
+  'ep.stundenzettel.infoShift': 'Schicht: {time}',
+  'ep.stundenzettel.infoBreak': '· Pause: {min} Min.',
+  'ep.stundenzettel.phHours': 'Std.',
+  'ep.stundenzettel.phOvertime': 'ÜS',
+  'ep.stundenzettel.phBreak': 'Min.',
+  'ep.stundenzettel.hintHours': 'Std.',
+  'ep.stundenzettel.hintOvertime': 'Über.',
+  'ep.stundenzettel.hintBreak': 'Pause',
+  'ep.stundenzettel.phFrom': 'Von',
+  'ep.stundenzettel.phTo': 'Bis',
+  'ep.stundenzettel.completeReady': 'Woche vollständig. Sie können jetzt einreichen.',
+  'ep.stundenzettel.incompleteDays': 'Noch offen: {days}. Alle Tage erfassen (auch 0 h).',
+  'ep.stundenzettel.submitTitleIncomplete': 'Bitte alle 7 Tage erfassen oder mit 0 h bestätigen.',
+  'ep.stundenzettel.draftSaved': 'Entwurf gespeichert',
+  'ep.stundenzettel.errSave': 'Fehler beim Speichern',
+  'ep.stundenzettel.fillAllDays': 'Bitte alle Tage erfassen (auch 0 h).',
+  'ep.stundenzettel.confirmText': '{action}: {total} Stunden für {range}. Sind Sie sicher?',
+  'ep.stundenzettel.missingDays': 'Bitte alle {count} fehlenden Tage ergänzen.',
+  'ep.stundenzettel.submitSuccess': 'Stunden erfolgreich eingereicht',
+  'ep.stundenzettel.weekIncomplete': 'Die Woche ist noch nicht vollständig.',
+  'ep.stundenzettel.noChanges': 'Keine Änderungen erkannt. Bitte Einträge anpassen.',
+  'ep.stundenzettel.errSubmit': 'Fehler beim Einreichen',
+  'ep.stundenzettel.weekRange': 'KW {kw} · {range}',
+  'ep.stundenzettel.weekOfYear': 'KW {kw} / {year}'
+});
+TCi18n.register('en', {
+  'ep.stundenzettel.docTitle': 'Timesheets – Worker Portal',
+  'ep.stundenzettel.title': 'Timesheets',
+  'ep.stundenzettel.subtitle': 'Your submitted weekly reports',
+  'ep.stundenzettel.brandAria': 'Go to the portal overview',
+  'ep.stundenzettel.newBtn': 'Enter hours digitally',
+  'ep.stundenzettel.filterAll': 'All',
+  'ep.stundenzettel.filterOpen': 'Open',
+  'ep.stundenzettel.filterCorrection': 'Correction',
+  'ep.stundenzettel.filterAtCustomer': 'With customer',
+  'ep.stundenzettel.filterDone': 'Completed',
+  'ep.stundenzettel.filterRejected': 'Rejected',
+  'ep.stundenzettel.emptyTitle': 'Select a timesheet',
+  'ep.stundenzettel.emptyText': 'Select an entry on the left or record new hours.',
+  'ep.stundenzettel.back': '← Back',
+  'ep.stundenzettel.prevWeek': '← Previous',
+  'ep.stundenzettel.nextWeek': 'Next →',
+  'ep.stundenzettel.correctionRequired': 'Correction required',
+  'ep.stundenzettel.locked': 'Locked:',
+  'ep.stundenzettel.reviewerNote': 'Reviewer\'s note',
+  'ep.stundenzettel.assignmentInfo': 'Assignment info',
+  'ep.stundenzettel.gridHint': 'Hrs · Overtime · Break (min)',
+  'ep.stundenzettel.showShiftTimes': '+ Shift times',
+  'ep.stundenzettel.hideShiftTimes': '− Shift times',
+  'ep.stundenzettel.total': 'Total',
+  'ep.stundenzettel.overtime': 'Overtime',
+  'ep.stundenzettel.commentLabel': 'Comment (optional)',
+  'ep.stundenzettel.commentPh': 'Notes for the reviewer…',
+  'ep.stundenzettel.showSurcharges': '+ Surcharges',
+  'ep.stundenzettel.hideSurcharges': '− Surcharges',
+  'ep.stundenzettel.surchargeTypes': 'Surcharge types',
+  'ep.stundenzettel.surchargeNight': 'Night shift surcharge',
+  'ep.stundenzettel.surchargeSunday': 'Sunday work',
+  'ep.stundenzettel.surchargeHoliday': 'Public holiday work',
+  'ep.stundenzettel.surchargeOnCall': 'On-call duty',
+  'ep.stundenzettel.surchargeTravel': 'Travel costs agreed',
+  'ep.stundenzettel.save': 'Save',
+  'ep.stundenzettel.submit': 'Submit',
+  'ep.stundenzettel.confirmTitle': 'Submit timesheet?',
+  'ep.stundenzettel.cancel': 'Cancel',
+  'ep.stundenzettel.day0': 'Mon',
+  'ep.stundenzettel.day1': 'Tue',
+  'ep.stundenzettel.day2': 'Wed',
+  'ep.stundenzettel.day3': 'Thu',
+  'ep.stundenzettel.day4': 'Fri',
+  'ep.stundenzettel.day5': 'Sat',
+  'ep.stundenzettel.day6': 'Sun',
+  'ep.stundenzettel.loadError': 'Data could not be loaded. Please reload the page.',
+  'ep.stundenzettel.correctionCount': '{count} timesheet(s)',
+  'ep.stundenzettel.correctionRest': 'need attention. Click the entry to review.',
+  'ep.stundenzettel.emptyListTitle': 'No entries',
+  'ep.stundenzettel.emptyListText': 'No timesheets for this filter.',
+  'ep.stundenzettel.assignmentFallback': 'Assignment',
+  'ep.stundenzettel.submittedOn': 'Submitted {date}',
+  'ep.stundenzettel.overdue': 'Overdue',
+  'ep.stundenzettel.overdueTitle': 'Submission deadline passed',
+  'ep.stundenzettel.late': 'Late',
+  'ep.stundenzettel.lateTitle': 'Submitted after the deadline',
+  'ep.stundenzettel.deadline': 'Due {date}',
+  'ep.stundenzettel.deadlineTitle': 'Submission deadline',
+  'ep.stundenzettel.statusHistory': 'Status history',
+  'ep.stundenzettel.hoursOverview': 'Hours overview',
+  'ep.stundenzettel.hoursWord': 'hours',
+  'ep.stundenzettel.noteLabel': 'Note',
+  'ep.stundenzettel.submitCorrection': 'Submit correction',
+  'ep.stundenzettel.continueEditing': 'Continue editing',
+  'ep.stundenzettel.newWeek': 'Record a new week',
+  'ep.stundenzettel.tlDraftCreated': 'Draft created',
+  'ep.stundenzettel.tlNotSubmitted': 'Not yet submitted',
+  'ep.stundenzettel.tlSubmitted': 'Submitted',
+  'ep.stundenzettel.tlAwaitReview': 'Awaiting review',
+  'ep.stundenzettel.tlOpen': 'Open',
+  'ep.stundenzettel.tlInReview': 'Under review',
+  'ep.stundenzettel.tlRunning': 'In progress…',
+  'ep.stundenzettel.tlResultPending': 'Result pending',
+  'ep.stundenzettel.tlCorrectionRequested': 'Correction requested',
+  'ep.stundenzettel.tlAwaitCorrection': 'Awaiting correction',
+  'ep.stundenzettel.tlApprovedInternal': 'Approved internally',
+  'ep.stundenzettel.tlForwardCustomer': 'Being forwarded to the customer',
+  'ep.stundenzettel.tlAtCustomer': 'With the customer for review',
+  'ep.stundenzettel.tlAwaitCustomer': 'Awaiting customer feedback',
+  'ep.stundenzettel.tlCustomerConfirmed': 'Confirmed by the customer',
+  'ep.stundenzettel.tlToBilling': 'Being transferred to billing',
+  'ep.stundenzettel.tlCustomerRejected': 'Rejected by the customer',
+  'ep.stundenzettel.tlPostedBilling': 'Posted to billing',
+  'ep.stundenzettel.tlDone': 'Completed',
+  'ep.stundenzettel.tlRejected': 'Rejected',
+  'ep.stundenzettel.chooseAssignment': 'Select an assignment',
+  'ep.stundenzettel.fromDate': 'from {date}',
+  'ep.stundenzettel.creating': 'Creating timesheet…',
+  'ep.stundenzettel.errLoad': 'Failed to load',
+  'ep.stundenzettel.dupWeek': 'A timesheet already exists for this week.',
+  'ep.stundenzettel.errCreate': 'Failed to create',
+  'ep.stundenzettel.dupWeekLocked': 'A locked timesheet already exists for this week.',
+  'ep.stundenzettel.errGeneric': 'Error',
+  'ep.stundenzettel.correctionFallback': 'Please review your entries.',
+  'ep.stundenzettel.infoFrom': 'From: {date}',
+  'ep.stundenzettel.infoTo': 'Until: {date}',
+  'ep.stundenzettel.infoShift': 'Shift: {time}',
+  'ep.stundenzettel.infoBreak': '· Break: {min} min',
+  'ep.stundenzettel.phHours': 'Hrs',
+  'ep.stundenzettel.phOvertime': 'OT',
+  'ep.stundenzettel.phBreak': 'Min',
+  'ep.stundenzettel.hintHours': 'Hrs',
+  'ep.stundenzettel.hintOvertime': 'OT',
+  'ep.stundenzettel.hintBreak': 'Break',
+  'ep.stundenzettel.phFrom': 'From',
+  'ep.stundenzettel.phTo': 'To',
+  'ep.stundenzettel.completeReady': 'Week complete. You can submit now.',
+  'ep.stundenzettel.incompleteDays': 'Still open: {days}. Fill in every day (0 h counts too).',
+  'ep.stundenzettel.submitTitleIncomplete': 'Please fill in all 7 days or confirm with 0 h.',
+  'ep.stundenzettel.draftSaved': 'Draft saved',
+  'ep.stundenzettel.errSave': 'Failed to save',
+  'ep.stundenzettel.fillAllDays': 'Please fill in every day (0 h counts too).',
+  'ep.stundenzettel.confirmText': '{action}: {total} hours for {range}. Are you sure?',
+  'ep.stundenzettel.missingDays': 'Please fill in the {count} missing days.',
+  'ep.stundenzettel.submitSuccess': 'Hours submitted successfully',
+  'ep.stundenzettel.weekIncomplete': 'The week is not yet complete.',
+  'ep.stundenzettel.noChanges': 'No changes detected. Please adjust your entries.',
+  'ep.stundenzettel.errSubmit': 'Failed to submit',
+  'ep.stundenzettel.weekRange': 'Week {kw} · {range}',
+  'ep.stundenzettel.weekOfYear': 'Week {kw} / {year}'
+});
 
 /* ══════════════════════════════════════════════════════════════════
    LIST / FILTER / DETAIL
@@ -390,7 +641,7 @@ let subs = [], curFilter = 'all', selId = null, assignments = [];
   } catch(e) {
     const code = e.code || e.message;
     if (code === 'NOT_AUTH') { location.href = 'worker-login.html'; return; }
-    PortalShell.showError('Daten konnten nicht geladen werden. Bitte laden Sie die Seite neu.');
+    PortalShell.showError(TCi18n.t('ep.stundenzettel.loadError'));
   }
 })();
 
@@ -414,7 +665,7 @@ function checkCorrectionBanner() {
   if (corr.length && el) {
     el.innerHTML = `
       <div class="ep-alert ep-alert-warn" style="margin-bottom:16px">
-        <span><strong>${corr.length} Stundenzettel</strong> benötigen Aufmerksamkeit. Klicken Sie auf den jeweiligen Eintrag.</span>
+        <span><strong>${TCi18n.t('ep.stundenzettel.correctionCount', { count: corr.length })}</strong> ${TCi18n.t('ep.stundenzettel.correctionRest')}</span>
       </div>`;
     el.style.display = '';
   }
@@ -443,12 +694,12 @@ function renderList() {
   const el = document.getElementById('subList');
   const list = getFiltered();
   if (!list.length) {
-    el.innerHTML = `<div class="ep-empty"><h3>Keine Einträge</h3><p>Keine Stundenzettel für diesen Filter.</p></div>`;
+    el.innerHTML = `<div class="ep-empty"><h3>${TCi18n.t('ep.stundenzettel.emptyListTitle')}</h3><p>${TCi18n.t('ep.stundenzettel.emptyListText')}</p></div>`;
     return;
   }
   el.innerHTML = list.map(s => {
     const wk = s.week_label || fmtWeek(s.week_start);
-    const client = s.client_name || s.client_display_name || 'Einsatz';
+    const client = s.client_name || s.client_display_name || TCi18n.t('ep.stundenzettel.assignmentFallback');
     return `
       <div class="sub-card${selId === s.id ? ' selected' : ''}" onclick="selSub('${esc(String(s.id))}')">
         <div class="sub-card-head">
@@ -460,13 +711,13 @@ function renderList() {
         </div>
         <div class="sub-card-foot">
           ${s.total_hours ? `<span>${s.total_hours} h</span>` : ''}
-          ${s.submitted_at ? `<span>Eingereicht ${fmtDate(s.submitted_at)}</span>` : ''}
+          ${s.submitted_at ? `<span>${TCi18n.t('ep.stundenzettel.submittedOn', { date: fmtDate(s.submitted_at) })}</span>` : ''}
           ${s.is_overdue
-            ? `<span style="color:var(--ep-danger,#e5484d);font-weight:600" title="Einreichfrist verstrichen">Überfällig</span>`
+            ? `<span style="color:var(--ep-danger,#e5484d);font-weight:600" title="${TCi18n.t('ep.stundenzettel.overdueTitle')}">${TCi18n.t('ep.stundenzettel.overdue')}</span>`
             : (s.submitted_late
-              ? `<span style="color:var(--ep-warning,#d97706);font-weight:600" title="Nach der Einreichfrist abgegeben">Verspätet</span>`
+              ? `<span style="color:var(--ep-warning,#d97706);font-weight:600" title="${TCi18n.t('ep.stundenzettel.lateTitle')}">${TCi18n.t('ep.stundenzettel.late')}</span>`
               : (((s.status === 'draft' || s.status === 'needs_correction') && s.submission_deadline)
-                ? `<span title="Einreichfrist">Frist ${fmtDate(s.submission_deadline)}</span>` : ''))}
+                ? `<span title="${TCi18n.t('ep.stundenzettel.deadlineTitle')}">${TCi18n.t('ep.stundenzettel.deadline', { date: fmtDate(s.submission_deadline) })}</span>` : ''))}
         </div>
       </div>`;
   }).join('');
@@ -510,16 +761,16 @@ function renderDetail(s) {
         </div>
       </div>
       <div class="sub-detail-body">
-        <div class="ep-section-label">Status-Verlauf</div>
+        <div class="ep-section-label">${TCi18n.t('ep.stundenzettel.statusHistory')}</div>
         <div class="status-timeline">${steps}</div>
 
         ${s.total_hours ? `
-          <div class="ep-section-label" style="margin-top:12px">Stundenübersicht</div>
+          <div class="ep-section-label" style="margin-top:12px">${TCi18n.t('ep.stundenzettel.hoursOverview')}</div>
           <div style="display:flex;gap:4px;align-items:flex-end;height:80px;margin:8px 0 4px">
             ${(s.entries||[]).map(e => {
               const h = parseFloat(e.hours_regular||0) + parseFloat(e.hours_overtime||0);
               const pct = Math.min(100, (h/12)*100);
-              const day = new Date(e.work_date).toLocaleDateString('de-DE',{weekday:'short'});
+              const day = new Date(e.work_date).toLocaleDateString(TCi18n.dateLocale(),{weekday:'short'});
               return '<div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:2px">' +
                 '<div style="font-size:10px;font-weight:700;color:var(--ep-text-muted)">' + h.toFixed(1) + 'h</div>' +
                 '<div style="width:100%;border-radius:4px 4px 0 0;background:linear-gradient(180deg,var(--ep-brand),rgba(74,158,255,.5));min-height:4px;height:' + pct + '%"></div>' +
@@ -527,24 +778,24 @@ function renderDetail(s) {
             }).join('')}
           </div>
           <div class="ep-info-row">
-            <div><div class="ep-info-label">Gesamt</div><div class="ep-info-val">${s.total_hours} Stunden</div></div>
+            <div><div class="ep-info-label">${TCi18n.t('ep.stundenzettel.total')}</div><div class="ep-info-val">${s.total_hours} ${TCi18n.t('ep.stundenzettel.hoursWord')}</div></div>
           </div>
         ` : ''}
 
         ${s.reviewer_note ? `
-          <div class="ep-section-label" style="margin-top:12px">Anmerkung</div>
+          <div class="ep-section-label" style="margin-top:12px">${TCi18n.t('ep.stundenzettel.noteLabel')}</div>
           <div class="ep-alert ep-alert-warn"><span>${esc(s.reviewer_note)}</span></div>
         ` : ''}
 
         <div style="margin-top:16px;display:flex;gap:8px;flex-wrap:wrap">
           ${editable ? `
             <button onclick="openEditorForSub('${esc(String(s.id))}')" class="ep-btn ep-btn-primary ep-btn-sm">
-              ${s.status === 'needs_correction' ? 'Korrektur einreichen' : 'Weiter ausfüllen'}
+              ${s.status === 'needs_correction' ? TCi18n.t('ep.stundenzettel.submitCorrection') : TCi18n.t('ep.stundenzettel.continueEditing')}
             </button>
           ` : ''}
           ${linkId ? `
             <button onclick="openEditorForLink('${esc(String(linkId))}')" class="ep-btn ep-btn-ghost ep-btn-sm">
-              Neue Woche erfassen
+              ${TCi18n.t('ep.stundenzettel.newWeek')}
             </button>
           ` : ''}
         </div>
@@ -556,39 +807,39 @@ function buildTimeline(s) {
   const steps = [];
   const st = s.status;
   if (st === 'draft') {
-    steps.push({ dot:'active', label:'Entwurf erstellt', date: s.created_at ? fmtDate(s.created_at) : '' });
-    steps.push({ dot:'', label:'Noch nicht eingereicht', date:'' });
+    steps.push({ dot:'active', label:TCi18n.t('ep.stundenzettel.tlDraftCreated'), date: s.created_at ? fmtDate(s.created_at) : '' });
+    steps.push({ dot:'', label:TCi18n.t('ep.stundenzettel.tlNotSubmitted'), date:'' });
   } else {
-    steps.push({ dot:'done', label:'Eingereicht', date: s.submitted_at ? fmtDate(s.submitted_at) : '' });
+    steps.push({ dot:'done', label:TCi18n.t('ep.stundenzettel.tlSubmitted'), date: s.submitted_at ? fmtDate(s.submitted_at) : '' });
     if (st === 'submitted') {
-      steps.push({ dot:'active', label:'Warte auf Prüfung', date:'Offen' });
+      steps.push({ dot:'active', label:TCi18n.t('ep.stundenzettel.tlAwaitReview'), date:TCi18n.t('ep.stundenzettel.tlOpen') });
     } else if (st === 'under_review') {
-      steps.push({ dot:'active', label:'In Prüfung', date: s.updated_at ? fmtDate(s.updated_at) : 'Läuft…' });
-      steps.push({ dot:'', label:'Ergebnis ausstehend', date:'' });
+      steps.push({ dot:'active', label:TCi18n.t('ep.stundenzettel.tlInReview'), date: s.updated_at ? fmtDate(s.updated_at) : TCi18n.t('ep.stundenzettel.tlRunning') });
+      steps.push({ dot:'', label:TCi18n.t('ep.stundenzettel.tlResultPending'), date:'' });
     } else if (st === 'needs_correction') {
-      steps.push({ dot:'warn', label:'Korrektur angefordert', date: s.updated_at ? fmtDate(s.updated_at) : '', note: s.reviewer_note || s.correction_note });
-      steps.push({ dot:'', label:'Warte auf Korrektur', date:'' });
+      steps.push({ dot:'warn', label:TCi18n.t('ep.stundenzettel.tlCorrectionRequested'), date: s.updated_at ? fmtDate(s.updated_at) : '', note: s.reviewer_note || s.correction_note });
+      steps.push({ dot:'', label:TCi18n.t('ep.stundenzettel.tlAwaitCorrection'), date:'' });
     } else if (st === 'approved_internal') {
-      steps.push({ dot:'done', label:'Intern freigegeben', date: s.updated_at ? fmtDate(s.updated_at) : '' });
-      steps.push({ dot:'active', label:'Wird an Kunden weitergeleitet', date:'' });
+      steps.push({ dot:'done', label:TCi18n.t('ep.stundenzettel.tlApprovedInternal'), date: s.updated_at ? fmtDate(s.updated_at) : '' });
+      steps.push({ dot:'active', label:TCi18n.t('ep.stundenzettel.tlForwardCustomer'), date:'' });
     } else if (st === 'sent_to_customer') {
-      steps.push({ dot:'done', label:'Intern freigegeben', date:'' });
-      steps.push({ dot:'active', label:'Beim Kunden zur Prüfung', date: s.updated_at ? fmtDate(s.updated_at) : '' });
-      steps.push({ dot:'', label:'Warte auf Kundenrückmeldung', date:'' });
+      steps.push({ dot:'done', label:TCi18n.t('ep.stundenzettel.tlApprovedInternal'), date:'' });
+      steps.push({ dot:'active', label:TCi18n.t('ep.stundenzettel.tlAtCustomer'), date: s.updated_at ? fmtDate(s.updated_at) : '' });
+      steps.push({ dot:'', label:TCi18n.t('ep.stundenzettel.tlAwaitCustomer'), date:'' });
     } else if (st === 'customer_confirmed') {
-      steps.push({ dot:'done', label:'Intern freigegeben', date:'' });
-      steps.push({ dot:'done', label:'Vom Kunden bestätigt', date: s.updated_at ? fmtDate(s.updated_at) : '' });
-      steps.push({ dot:'', label:'Wird in Abrechnung übertragen', date:'' });
+      steps.push({ dot:'done', label:TCi18n.t('ep.stundenzettel.tlApprovedInternal'), date:'' });
+      steps.push({ dot:'done', label:TCi18n.t('ep.stundenzettel.tlCustomerConfirmed'), date: s.updated_at ? fmtDate(s.updated_at) : '' });
+      steps.push({ dot:'', label:TCi18n.t('ep.stundenzettel.tlToBilling'), date:'' });
     } else if (st === 'customer_rejected') {
-      steps.push({ dot:'done', label:'Intern freigegeben', date:'' });
-      steps.push({ dot:'err', label:'Vom Kunden abgelehnt', date: s.updated_at ? fmtDate(s.updated_at) : '', note: s.customer_note });
+      steps.push({ dot:'done', label:TCi18n.t('ep.stundenzettel.tlApprovedInternal'), date:'' });
+      steps.push({ dot:'err', label:TCi18n.t('ep.stundenzettel.tlCustomerRejected'), date: s.updated_at ? fmtDate(s.updated_at) : '', note: s.customer_note });
     } else if (st === 'posted_to_timesheet' || st === 'accepted_into_timesheet') {
-      steps.push({ dot:'done', label:'Intern freigegeben', date:'' });
-      steps.push({ dot:'done', label:'Vom Kunden bestätigt', date:'' });
-      steps.push({ dot:'done', label:'In Abrechnung übernommen', date: s.updated_at ? fmtDate(s.updated_at) : '' });
-      steps.push({ dot:'done', label:'Abgeschlossen', date:'' });
+      steps.push({ dot:'done', label:TCi18n.t('ep.stundenzettel.tlApprovedInternal'), date:'' });
+      steps.push({ dot:'done', label:TCi18n.t('ep.stundenzettel.tlCustomerConfirmed'), date:'' });
+      steps.push({ dot:'done', label:TCi18n.t('ep.stundenzettel.tlPostedBilling'), date: s.updated_at ? fmtDate(s.updated_at) : '' });
+      steps.push({ dot:'done', label:TCi18n.t('ep.stundenzettel.tlDone'), date:'' });
     } else if (st === 'rejected') {
-      steps.push({ dot:'err', label:'Abgelehnt', date: s.updated_at ? fmtDate(s.updated_at) : '', note: s.reviewer_note });
+      steps.push({ dot:'err', label:TCi18n.t('ep.stundenzettel.tlRejected'), date: s.updated_at ? fmtDate(s.updated_at) : '', note: s.reviewer_note });
     }
   }
   return steps.map(step => `
@@ -613,12 +864,12 @@ function openNewTimesheet() {
     showPanel('detail');
     document.getElementById('detContent').innerHTML = `
       <div class="sub-detail">
-        <div class="sub-detail-head"><div class="sub-detail-title">Einsatz wählen</div></div>
+        <div class="sub-detail-head"><div class="sub-detail-title">${TCi18n.t('ep.stundenzettel.chooseAssignment')}</div></div>
         <div class="sub-detail-body">
           ${assignments.map(a => `
             <button onclick="openEditorForLink('${esc(String(a.id))}')"
-              class="ep-btn ep-btn-outline" style="width:100%;margin-bottom:8px;text-align:left;padding:12px">${esc(a.client_display_name || a.client_name || 'Einsatz')}
-              ${a.asg_start ? `<span style="font-size:.78rem;color:var(--ep-text-muted);margin-left:6px">ab ${fmtDate(a.asg_start)}</span>` : ''}
+              class="ep-btn ep-btn-outline" style="width:100%;margin-bottom:8px;text-align:left;padding:12px">${esc(a.client_display_name || a.client_name || TCi18n.t('ep.stundenzettel.assignmentFallback'))}
+              ${a.asg_start ? `<span style="font-size:.78rem;color:var(--ep-text-muted);margin-left:6px">${TCi18n.t('ep.stundenzettel.fromDate', { date: fmtDate(a.asg_start) })}</span>` : ''}
             </button>`).join('')}
         </div>
       </div>`;
@@ -639,7 +890,7 @@ let edPrefill = null;
 /* ── Editor öffnen für bestehende Submission ─────────────────────── */
 async function openEditorForSub(subId) {
   showPanel('editor');
-  document.getElementById('ed-week-label').textContent = 'Lädt…';
+  document.getElementById('ed-week-label').textContent = TCi18n.t('ep.shell.loading');
   try {
     await _edLoadSub(subId);
     await _edLoadPrefill(subId);
@@ -648,7 +899,7 @@ async function openEditorForSub(subId) {
   } catch(e) {
     const code = e.code || e.message;
     if (code === 'NOT_AUTH') { location.href = 'worker-login.html'; return; }
-    toast('Fehler beim Laden: ' + (e.message || code), 'error');
+    toast(TCi18n.t('ep.stundenzettel.errLoad') + ': ' + (e.message || code), 'error');
     closeEditor();
   }
 }
@@ -657,7 +908,7 @@ async function openEditorForSub(subId) {
 async function openEditorForLink(linkId) {
   edLinkId = linkId;
   showPanel('editor');
-  document.getElementById('ed-week-label').textContent = 'Erstelle Stundenzettel…';
+  document.getElementById('ed-week-label').textContent = TCi18n.t('ep.stundenzettel.creating');
   try {
     // Assignment-Daten laden
     edAssignmentData = await PortalApi.get('/worker/assignments/' + linkId);
@@ -670,11 +921,11 @@ async function openEditorForLink(linkId) {
     const code = e.code || e.message;
     if (code === 'NOT_AUTH') { location.href = 'worker-login.html'; return; }
     if (code === 'DUPLICATE_WEEK') {
-      toast('Für diese Woche existiert bereits ein Stundenzettel.', 'error');
+      toast(TCi18n.t('ep.stundenzettel.dupWeek'), 'error');
       closeEditor();
       return;
     }
-    toast('Fehler beim Erstellen: ' + (e.message || code), 'error');
+    toast(TCi18n.t('ep.stundenzettel.errCreate') + ': ' + (e.message || code), 'error');
     closeEditor();
   }
 }
@@ -687,7 +938,7 @@ async function edShiftWeek(dir) {
   const sun = new Date(d); sun.setDate(d.getDate() + 6);
   const newStart = ymd(d);
   const newEnd   = ymd(sun);
-  document.getElementById('ed-week-label').textContent = 'Lädt…';
+  document.getElementById('ed-week-label').textContent = TCi18n.t('ep.shell.loading');
   try {
     edPickedWeekStart = newStart;
     await _edCreateForWeek(newStart, newEnd);
@@ -709,13 +960,13 @@ async function edShiftWeek(dir) {
           return;
         }
       } catch { /* ignore */ }
-      toast('Für diese Woche existiert bereits ein gesperrter Stundenzettel.', 'error');
+      toast(TCi18n.t('ep.stundenzettel.dupWeekLocked'), 'error');
       // Woche zurücksetzen
       const rev = new Date(edPickedWeekStart); rev.setDate(rev.getDate() - (dir * 7));
       edPickedWeekStart = ymd(rev);
       _edRender();
     } else {
-      toast('Fehler: ' + (e.message || code), 'error');
+      toast(TCi18n.t('ep.stundenzettel.errGeneric') + ': ' + (e.message || code), 'error');
     }
   }
 }
@@ -781,7 +1032,7 @@ function _edRender() {
   _edSetById('ed-correction-banner', el => {
     el.style.display = edSub.status === 'needs_correction' ? '' : 'none';
     if (edSub.status === 'needs_correction') {
-      document.getElementById('ed-correction-note').textContent = edSub.correction_note || 'Bitte überprüfen Sie Ihre Angaben.';
+      document.getElementById('ed-correction-note').textContent = edSub.correction_note || TCi18n.t('ep.stundenzettel.correctionFallback');
     }
   });
   _edSetById('ed-readonly-banner', el => {
@@ -803,13 +1054,13 @@ function _edRender() {
     if (info) {
       const desc = edPrefill.worker_description || '';
       const dates = [
-        edPrefill.start_date       ? 'Von: ' + fmtDate(edPrefill.start_date)         : '',
-        edPrefill.planned_end_date ? 'Bis: ' + fmtDate(edPrefill.planned_end_date)   : ''
+        edPrefill.start_date       ? TCi18n.t('ep.stundenzettel.infoFrom', { date: fmtDate(edPrefill.start_date) })       : '',
+        edPrefill.planned_end_date ? TCi18n.t('ep.stundenzettel.infoTo',   { date: fmtDate(edPrefill.planned_end_date) }) : ''
       ].filter(Boolean).join(' · ');
       const shift = [
-        edPrefill.default_shift_start  ? 'Schicht: ' + edPrefill.default_shift_start  : '',
+        edPrefill.default_shift_start  ? TCi18n.t('ep.stundenzettel.infoShift', { time: edPrefill.default_shift_start })  : '',
         edPrefill.default_shift_end    ? '– '        + edPrefill.default_shift_end    : '',
-        edPrefill.default_break_minutes ? '· Pause: ' + edPrefill.default_break_minutes + ' Min.' : ''
+        edPrefill.default_break_minutes ? TCi18n.t('ep.stundenzettel.infoBreak', { min: edPrefill.default_break_minutes }) : ''
       ].filter(Boolean).join(' ');
       if (desc) document.getElementById('ed-ai-description').textContent = desc;
       if (dates) document.getElementById('ed-ai-dates').textContent = dates;
@@ -871,35 +1122,35 @@ function _edBuildWeekGrid() {
     const dis = !editable ? ' disabled' : '';
     row.innerHTML = `
       <div class="wk-day-label">
-        ${DAYS[i]}<div class="date">${d.toLocaleDateString('de-DE',{day:'2-digit',month:'2-digit'})}</div>
+        ${TCi18n.t('ep.stundenzettel.day' + i)}<div class="date">${d.toLocaleDateString(TCi18n.dateLocale(),{day:'2-digit',month:'2-digit'})}</div>
       </div>
       <div>
         <div class="wk-day-inputs">
           <div style="display:flex;flex-direction:column;align-items:center">
             <input type="number" min="0" max="24" step="0.5" class="wk-input"
               id="ed-reg-${dateStr}" value="${entry.hours_regular || defHours}"
-              placeholder="Std."${dis} onchange="edOnChange('${dateStr}')">
-            <span class="wk-input-hint">Std.</span>
+              placeholder="${TCi18n.t('ep.stundenzettel.phHours')}"${dis} onchange="edOnChange('${dateStr}')">
+            <span class="wk-input-hint">${TCi18n.t('ep.stundenzettel.hintHours')}</span>
           </div>
           <div style="display:flex;flex-direction:column;align-items:center">
             <input type="number" min="0" max="12" step="0.5" class="wk-input"
               id="ed-ot-${dateStr}" value="${entry.hours_overtime || ''}"
-              placeholder="ÜS"${dis} onchange="edOnChange('${dateStr}')">
-            <span class="wk-input-hint">Über.</span>
+              placeholder="${TCi18n.t('ep.stundenzettel.phOvertime')}"${dis} onchange="edOnChange('${dateStr}')">
+            <span class="wk-input-hint">${TCi18n.t('ep.stundenzettel.hintOvertime')}</span>
           </div>
           <div style="display:flex;flex-direction:column;align-items:center">
             <input type="number" min="0" max="120" step="5" class="wk-input"
               id="ed-brk-${dateStr}" value="${entry.break_minutes || defBreak}"
-              placeholder="Min."${dis} style="width:60px" onchange="edOnChange('${dateStr}')">
-            <span class="wk-input-hint">Pause</span>
+              placeholder="${TCi18n.t('ep.stundenzettel.phBreak')}"${dis} style="width:60px" onchange="edOnChange('${dateStr}')">
+            <span class="wk-input-hint">${TCi18n.t('ep.stundenzettel.hintBreak')}</span>
           </div>
         </div>
         <div class="advanced-row" id="ed-adv-${dateStr}" style="display:${edAdvancedVisible ? 'flex' : 'none'}">
           <input type="time" class="wk-input time" id="ed-st-${dateStr}"
-            value="${entry.shift_start || defStart}" placeholder="Von"${dis}
+            value="${entry.shift_start || defStart}" placeholder="${TCi18n.t('ep.stundenzettel.phFrom')}"${dis}
             onchange="edOnChange('${dateStr}')">
           <input type="time" class="wk-input time" id="ed-et-${dateStr}"
-            value="${entry.shift_end || defEnd}" placeholder="Bis"${dis}
+            value="${entry.shift_end || defEnd}" placeholder="${TCi18n.t('ep.stundenzettel.phTo')}"${dis}
             onchange="edOnChange('${dateStr}')">
         </div>
       </div>`;
@@ -917,7 +1168,7 @@ function edToggleAdvanced() {
     if (adv) adv.style.display = edAdvancedVisible ? 'flex' : 'none';
   }
   const btn = document.getElementById('ed-toggle-details');
-  if (btn) btn.textContent = edAdvancedVisible ? '− Schichtzeiten' : '+ Schichtzeiten';
+  if (btn) btn.textContent = edAdvancedVisible ? TCi18n.t('ep.stundenzettel.hideShiftTimes') : TCi18n.t('ep.stundenzettel.showShiftTimes');
 }
 
 function edOnChange(dateStr) {
@@ -973,10 +1224,10 @@ function _edRenderCompletion() {
     hint.style.display = 'flex';
     hint.className = c.complete ? 'ep-alert ep-alert-success' : 'ep-alert ep-alert-info';
         document.getElementById('ed-completion-text').textContent = c.complete
-      ? 'Woche vollständig. Sie können jetzt einreichen.'
-      : 'Noch offen: ' + c.missing.map(ds => new Date(ds).toLocaleDateString('de-DE',{weekday:'short'})).join(', ') + '. Alle Tage erfassen (auch 0 h).';
+      ? TCi18n.t('ep.stundenzettel.completeReady')
+      : TCi18n.t('ep.stundenzettel.incompleteDays', { days: c.missing.map(ds => new Date(ds).toLocaleDateString(TCi18n.dateLocale(),{weekday:'short'})).join(', ') });
   }
-  if (btn) { btn.disabled = !c.complete; btn.title = c.complete ? '' : 'Bitte alle 7 Tage erfassen oder mit 0 h bestätigen.'; }
+  if (btn) { btn.disabled = !c.complete; btn.title = c.complete ? '' : TCi18n.t('ep.stundenzettel.submitTitleIncomplete'); }
 }
 
 /* ── Speichern (Entwurf) ─────────────────────────────────────────── */
@@ -990,11 +1241,11 @@ async function edSaveDraft() {
       await PortalApi.post('/worker/submissions/' + edSub.id + '/comment', { note: comment });
       edSub.worker_comment = comment;
     }
-    toast('Entwurf gespeichert', 'success');
+    toast(TCi18n.t('ep.stundenzettel.draftSaved'), 'success');
   } catch(e) {
-    toast('Fehler beim Speichern: ' + (e.message || e.code || ''), 'error');
+    toast(TCi18n.t('ep.stundenzettel.errSave') + ': ' + (e.message || e.code || ''), 'error');
   } finally {
-    if (btn) { btn.disabled = false; btn.textContent = 'Speichern'; }
+    if (btn) { btn.disabled = false; btn.textContent = TCi18n.t('ep.stundenzettel.save'); }
   }
 }
 
@@ -1002,7 +1253,7 @@ async function edSaveDraft() {
 function edSubmitFlow() {
   const c = _edComputeCompletion();
   if (!c.complete) {
-    toast('Bitte alle Tage erfassen (auch 0 h).', 'error');
+    toast(TCi18n.t('ep.stundenzettel.fillAllDays'), 'error');
     return;
   }
   let reg = 0, ot = 0;
@@ -1011,9 +1262,9 @@ function edSubmitFlow() {
     ot  += parseFloat(document.getElementById('ed-ot-'  + ds)?.value || 0);
   });
   const total = (reg + ot).toFixed(1).replace('.', ',');
-  const action = edSub.status === 'needs_correction' ? 'Korrektur einreichen' : 'Einreichen';
+  const action = edSub.status === 'needs_correction' ? TCi18n.t('ep.stundenzettel.submitCorrection') : TCi18n.t('ep.stundenzettel.submit');
   document.getElementById('ed-confirm-text').textContent =
-    `${action}: ${total} Stunden für ${fmtWeekRange(edSub.week_start, edSub.week_end)}. Sind Sie sicher?`;
+    TCi18n.t('ep.stundenzettel.confirmText', { action: action, total: total, range: fmtWeekRange(edSub.week_start, edSub.week_end) });
   document.getElementById('ed-confirm-overlay').classList.add('open');
 }
 
@@ -1027,7 +1278,7 @@ async function edDoSubmit() {
   try {
     const c = _edComputeCompletion();
     if (!c.complete) {
-      toast('Bitte alle ' + c.missing.length + ' fehlenden Tage ergänzen.', 'error');
+      toast(TCi18n.t('ep.stundenzettel.missingDays', { count: c.missing.length }), 'error');
       edCloseConfirm();
       if (btn) { btn.disabled = false; btn.textContent = 'Einreichen'; }
       return;
@@ -1040,7 +1291,7 @@ async function edDoSubmit() {
     const action = edSub.status === 'needs_correction' ? 'correct' : 'submit';
     await PortalApi.post('/worker/submissions/' + edSub.id + '/' + action, {});
     edCloseConfirm();
-    toast('Stunden erfolgreich eingereicht', 'success');
+    toast(TCi18n.t('ep.stundenzettel.submitSuccess'), 'success');
     // Liste neu laden und zur Detail-Ansicht wechseln
     setTimeout(async () => {
       const savedId = edSub.id;
@@ -1051,9 +1302,9 @@ async function edDoSubmit() {
     }, 1500);
   } catch(e) {
     const code = e.code || e.message;
-    if (code === 'INCOMPLETE_WEEK') { toast('Die Woche ist noch nicht vollständig.', 'error'); }
-    else if (code === 'NO_CHANGES_DETECTED') { toast('Keine Änderungen erkannt. Bitte Einträge anpassen.', 'error'); }
-    else { toast('Fehler beim Einreichen: ' + (code || ''), 'error'); }
+    if (code === 'INCOMPLETE_WEEK') { toast(TCi18n.t('ep.stundenzettel.weekIncomplete'), 'error'); }
+    else if (code === 'NO_CHANGES_DETECTED') { toast(TCi18n.t('ep.stundenzettel.noChanges'), 'error'); }
+    else { toast(TCi18n.t('ep.stundenzettel.errSubmit') + ': ' + (code || ''), 'error'); }
     edCloseConfirm();
     if (btn) { btn.disabled = false; btn.textContent = 'Einreichen'; }
   }
@@ -1117,7 +1368,7 @@ function _getCurrentWeek() {
 function fmtWeekRange(start, end) {
   if (!start) return '';
   const s = new Date(start), e = new Date(end || start);
-  const fmt = d => d.toLocaleDateString('de-DE', { day:'2-digit', month:'2-digit' });
+  const fmt = d => d.toLocaleDateString(TCi18n.dateLocale(), { day:'2-digit', month:'2-digit' });
   const kw = getKW(s);
   return `KW ${kw} · ${fmt(s)}–${fmt(e)}`;
 }
@@ -1139,7 +1390,7 @@ function ymd(d) {
 }
 function fmtDate(d) {
   if (!d) return '';
-  return new Date(d).toLocaleDateString('de-DE', { day:'2-digit', month:'2-digit', year:'numeric' });
+  return new Date(d).toLocaleDateString(TCi18n.dateLocale(), { day:'2-digit', month:'2-digit', year:'numeric' });
 }
 function esc(s) {
   return String(s || '').replace(/[<>&"']/g, c => ({'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;',"'":'&#39;'}[c] || c));

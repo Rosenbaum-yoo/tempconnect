@@ -126,15 +126,18 @@
    */
   function _setupAccessibility() {
     var map = [
-      { sel: '.ep-sidebar',     attr: 'aria-label', val: 'Einsatzportal' },
-      { sel: '.ep-sidebar-nav', attr: 'aria-label', val: 'Hauptnavigation' },
-      { sel: '.ep-bottom-nav',  attr: 'aria-label', val: 'Kurznavigation' },
-      { sel: '.ep-bell',        attr: 'aria-label', val: 'Benachrichtigungen' }
+      { sel: '.ep-sidebar',     attr: 'aria-label', val: 'Einsatzportal',      i18n: 'ep.aria.sidebar' },
+      { sel: '.ep-sidebar-nav', attr: 'aria-label', val: 'Hauptnavigation',    i18n: 'ep.aria.mainnav' },
+      { sel: '.ep-bottom-nav',  attr: 'aria-label', val: 'Kurznavigation',     i18n: 'ep.aria.quicknav' },
+      { sel: '.ep-bell',        attr: 'aria-label', val: 'Benachrichtigungen', i18n: 'ep.aria.bell' }
     ];
     map.forEach(function (item) {
       var el = document.querySelector(item.sel);
       if (el && !el.getAttribute(item.attr)) {
         el.setAttribute(item.attr, item.val);
+        // i18n-Hook (P6): apply() haelt das aria-label sprachaktuell,
+        // sobald die Seite i18n.js laedt (data-i18n-aria in i18n.js).
+        el.setAttribute('data-i18n-aria', item.i18n);
       }
     });
     // Loading skeletons — hide from AT while loading
@@ -212,10 +215,61 @@
    * Setzt Accessibility-Attribute auf Landmark-Elementen.
    * Wirft PortalApiError('NOT_AUTH') wenn Session abgelaufen.
    */
+  /* ── i18n (P6): gemeinsames Portal-Woerterbuch + Profil-Sync ────────────
+     Nur aktiv, wenn die Seite /public/js/i18n.js laedt (progressive Migration).
+     Die Nav-/Shell-Keys leben HIER, weil jede Portal-Seite die Shell laedt —
+     Seiten registrieren nur noch ihre eigenen ep.<seite>.*-Keys. */
+  function _setupI18n(me) {
+    if (!window.TCi18n) return;
+    window.TCi18n.register('de', {
+      // Kurz = Bottom-Nav (Platz!), lang = Seitenleiste. Zwei Saetze, weil ein
+      // gemeinsamer Satz die beschreibenden Seitenleisten-Labels verkuerzt haette.
+      'ep.nav.start': 'Start', 'ep.nav.einsaetze': 'Einsätze', 'ep.nav.plan': 'Plan',
+      'ep.nav.stunden': 'Stunden', 'ep.nav.info': 'Info', 'ep.nav.profil': 'Profil',
+      'ep.nav.kontakt': 'Kontakt', 'ep.nav.benachrichtigungen': 'Benachrichtigungen',
+      'ep.navlong.start': 'Dashboard', 'ep.navlong.einsaetze': 'Meine Einsätze',
+      'ep.navlong.plan': 'Einsatzplan', 'ep.navlong.stunden': 'Stundenzettel',
+      'ep.navlong.benachrichtigungen': 'Benachrichtigungen',
+      'ep.navlong.kontakt': 'Kontakt & Hilfe', 'ep.navlong.profil': 'Mein Profil',
+      'ep.shell.logout': 'Abmelden', 'ep.shell.role': 'Arbeitnehmer',
+      'ep.shell.loading': 'Lädt…', 'ep.shell.retry': 'Erneut versuchen',
+      'ep.shell.loadError': 'Fehler beim Laden', 'ep.shell.brand': 'Einsatzportal',
+      'ep.aria.sidebar': 'Einsatzportal', 'ep.aria.mainnav': 'Hauptnavigation',
+      'ep.aria.quicknav': 'Kurznavigation', 'ep.aria.bell': 'Benachrichtigungen'
+    });
+    window.TCi18n.register('en', {
+      'ep.nav.start': 'Home', 'ep.nav.einsaetze': 'Assignments', 'ep.nav.plan': 'Schedule',
+      'ep.nav.stunden': 'Hours', 'ep.nav.info': 'Updates', 'ep.nav.profil': 'Profile',
+      'ep.nav.kontakt': 'Contact', 'ep.nav.benachrichtigungen': 'Notifications',
+      'ep.navlong.start': 'Dashboard', 'ep.navlong.einsaetze': 'My assignments',
+      'ep.navlong.plan': 'Schedule', 'ep.navlong.stunden': 'Timesheets',
+      'ep.navlong.benachrichtigungen': 'Notifications',
+      'ep.navlong.kontakt': 'Contact & help', 'ep.navlong.profil': 'My profile',
+      'ep.shell.logout': 'Sign out', 'ep.shell.role': 'Worker',
+      'ep.shell.loading': 'Loading…', 'ep.shell.retry': 'Try again',
+      'ep.shell.loadError': 'Failed to load', 'ep.shell.brand': 'Worker Portal',
+      'ep.aria.sidebar': 'Worker portal', 'ep.aria.mainnav': 'Main navigation',
+      'ep.aria.quicknav': 'Quick navigation', 'ep.aria.bell': 'Notifications'
+    });
+    // Profil-Praeferenz anwenden — aber eine EXPLIZITE Geraete-Wahl gewinnt
+    // (gleiches Prinzip wie tempconnect-theme-explicit).
+    var pref = me && me.preferred_locale;
+    if (pref && window.TCi18n.supported.indexOf(pref) >= 0 &&
+        !window.TCi18n.hasExplicitChoice() && pref !== window.TCi18n.locale()) {
+      window.TCi18n.set(pref, { explicit: false });
+    }
+    window.TCi18n.apply();
+    // Jeder spaetere Wechsel wandert ins Profil (Cross-Device-Gedaechtnis).
+    document.addEventListener('tc:langchange', function (e) {
+      PortalApi.patch('/worker/me', { preferred_locale: e.detail.locale }).catch(function () {});
+    });
+  }
+
   async function initShell() {
     _setupAccessibility();
     _setupIcons();
     var me = await loadWorkerMe();
+    _setupI18n(me);
     _reveal(); // Session bestaetigt -> Portal-Huelle einblenden (vorher .ep-preauth)
     loadUnreadCount(); // fire-and-forget — kein await
     return me;

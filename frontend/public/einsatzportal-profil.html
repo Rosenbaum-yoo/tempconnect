@@ -4,7 +4,8 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <script src="/public/js/theme.js"></script>
-  <title>Mein Profil – Einsatzportal</title>
+  <script src="/public/js/i18n.js"></script>
+  <title data-i18n="ep.profil.docTitle">Mein Profil – Einsatzportal</title>
   <link rel="stylesheet" href="einsatzportal.css">
   <style>
     .profil-card {
@@ -142,32 +143,33 @@
 <body class="ep-preauth">
 
 <aside class="ep-sidebar">
-  <div class="ep-sidebar-brand"><div class="ep-sidebar-logo">TC</div><div><div style="font-weight:800;font-size:.95rem">Einsatzportal</div><div style="font-size:.7rem;color:var(--ep-text-muted);font-weight:400">TempConnect</div></div></div>
+  <div class="ep-sidebar-brand"><div class="ep-sidebar-logo">TC</div><div><div style="font-weight:800;font-size:.95rem" data-i18n="ep.shell.brand">Einsatzportal</div><div style="font-size:.7rem;color:var(--ep-text-muted);font-weight:400">TempConnect</div></div></div>
   <nav class="ep-sidebar-nav">
-    <a class="ep-sidebar-item" href="einsatzportal-dashboard.html">Dashboard</a>
-    <a class="ep-sidebar-item" href="einsatzportal-einsaetze.html">Meine Einsätze</a>
-    <a class="ep-sidebar-item" href="einsatzportal-plan.html">Einsatzplan</a>
-    <a class="ep-sidebar-item" href="einsatzportal-stundenzettel.html">Stundenzettel</a>
-    <a class="ep-sidebar-item" href="einsatzportal-benachrichtigungen.html">Benachrichtigungen<span class="ep-sidebar-badge" id="sb-badge" style="display:none">0</span></a>
-    <a class="ep-sidebar-item" href="einsatzportal-kontakt.html">Kontakt &amp; Hilfe</a>
-    <a class="ep-sidebar-item active" href="einsatzportal-profil.html">Mein Profil</a>
+    <a class="ep-sidebar-item" href="einsatzportal-dashboard.html"><span data-i18n="ep.navlong.start">Dashboard</span></a>
+    <a class="ep-sidebar-item" href="einsatzportal-einsaetze.html"><span data-i18n="ep.navlong.einsaetze">Meine Einsätze</span></a>
+    <a class="ep-sidebar-item" href="einsatzportal-plan.html"><span data-i18n="ep.navlong.plan">Einsatzplan</span></a>
+    <a class="ep-sidebar-item" href="einsatzportal-stundenzettel.html"><span data-i18n="ep.navlong.stunden">Stundenzettel</span></a>
+    <a class="ep-sidebar-item" href="einsatzportal-benachrichtigungen.html"><span data-i18n="ep.navlong.benachrichtigungen">Benachrichtigungen</span><span class="ep-sidebar-badge" id="sb-badge" style="display:none">0</span></a>
+    <a class="ep-sidebar-item" href="einsatzportal-kontakt.html"><span data-i18n="ep.navlong.kontakt">Kontakt &amp; Hilfe</span></a>
+    <a class="ep-sidebar-item active" href="einsatzportal-profil.html"><span data-i18n="ep.navlong.profil">Mein Profil</span></a>
   </nav>
   <div class="ep-sidebar-footer">
-    <div class="ep-sidebar-user"><div class="ep-sidebar-avatar" id="sd-ava">?</div><div><div class="ep-sidebar-name" id="sd-name">Lädt…</div><div class="ep-sidebar-role">Arbeitnehmer</div></div></div>
-    <button class="ep-sidebar-item" onclick="doLogout()" style="margin-top:4px;color:var(--ep-text-muted)">Abmelden</button>
+    <div class="ep-sidebar-user"><div class="ep-sidebar-avatar" id="sd-ava">?</div><div><div class="ep-sidebar-name" id="sd-name">Lädt…</div><div class="ep-sidebar-role" data-i18n="ep.shell.role">Arbeitnehmer</div></div></div>
+    <div style="padding:6px 0"><span data-i18n-switcher></span></div>
+    <button class="ep-sidebar-item" onclick="doLogout()" style="margin-top:4px;color:var(--ep-text-muted)"><span data-i18n="ep.shell.logout">Abmelden</span></button>
   </div>
 </aside>
 
 <header class="ep-topbar">
-  <a class="ep-topbar-brand" href="einsatzportal-dashboard.html" aria-label="Zur Einsatzportal-Übersicht"><div class="ep-topbar-logo">TC</div>Mein Profil</a>
+  <a class="ep-topbar-brand" href="einsatzportal-dashboard.html" aria-label="Zur Einsatzportal-Übersicht" data-i18n-aria="ep.profil.ariaTopbarBrand"><div class="ep-topbar-logo">TC</div><span data-i18n="ep.profil.title">Mein Profil</span></a>
   <div class="ep-topbar-actions"><a class="ep-bell" href="einsatzportal-benachrichtigungen.html"><span class="ep-bell-badge" id="mob-badge" style="display:none">0</span></a></div>
 </header>
 
 <main class="ep-main">
   <div class="ep-content">
     <div class="ep-page-header">
-      <h1 class="ep-page-title">Mein Profil</h1>
-      <p class="ep-page-sub">Persönliche Daten und Kontaktinformationen</p>
+      <h1 class="ep-page-title" data-i18n="ep.profil.title">Mein Profil</h1>
+      <p class="ep-page-sub" data-i18n="ep.profil.subtitle">Persönliche Daten und Kontaktinformationen</p>
     </div>
 
     <div id="loading">
@@ -199,28 +201,28 @@
           <div class="profil-avatar" id="profAva">?</div>
           <div style="flex:1;min-width:0">
             <div class="profil-head-name" id="profName">–</div>
-            <div class="profil-head-role">Arbeitnehmer</div>
+            <div class="profil-head-role" data-i18n="ep.shell.role">Arbeitnehmer</div>
             <div class="profil-head-email" id="profEmail">–</div>
           </div>
           <!-- Profilfoto (P7b): nur im Portal sichtbar, nie in anonymen Angeboten -->
           <div style="display:flex;flex-direction:column;gap:6px;align-items:flex-end">
             <input type="file" id="photoInput" accept="image/png,image/jpeg,image/webp" style="display:none" onchange="uploadProfilePhoto(this)"/>
-            <button class="ep-btn ep-btn-outline ep-btn-sm" type="button" onclick="document.getElementById('photoInput').click()">Foto hochladen</button>
-            <button class="ep-btn ep-btn-sm" type="button" id="photoRemoveBtn" style="display:none" onclick="removeProfilePhoto()">Foto entfernen</button>
+            <button class="ep-btn ep-btn-outline ep-btn-sm" type="button" onclick="document.getElementById('photoInput').click()" data-i18n="ep.profil.photoUpload">Foto hochladen</button>
+            <button class="ep-btn ep-btn-sm" type="button" id="photoRemoveBtn" style="display:none" onclick="removeProfilePhoto()" data-i18n="ep.profil.photoRemove">Foto entfernen</button>
           </div>
         </div>
         <div class="profil-card-body">
           <div class="profil-field">
-            <div class="profil-label">Personalnummer</div>
+            <div class="profil-label" data-i18n="ep.profil.labelPersonnelNo">Personalnummer</div>
             <div class="profil-val" id="profPN">–</div>
           </div>
           <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
             <div class="profil-field">
-              <div class="profil-label">Vorname</div>
+              <div class="profil-label" data-i18n="ep.profil.labelFirstName">Vorname</div>
               <div class="profil-val" id="profFirst">–</div>
             </div>
             <div class="profil-field">
-              <div class="profil-label">Nachname</div>
+              <div class="profil-label" data-i18n="ep.profil.labelLastName">Nachname</div>
               <div class="profil-val" id="profLast">–</div>
             </div>
           </div>
@@ -231,32 +233,32 @@
       <div class="profil-card" id="person">
         <div class="profil-card-head" style="padding:14px 20px">
           <div>
-            <div style="font-weight:700;font-size:.9rem">Kontaktdaten bearbeiten</div>
-            <div style="font-size:.75rem;color:var(--ep-text-muted);margin-top:1px">Telefon und Adresse aktualisieren</div>
+            <div style="font-weight:700;font-size:.9rem" data-i18n="ep.profil.contactTitle">Kontaktdaten bearbeiten</div>
+            <div style="font-size:.75rem;color:var(--ep-text-muted);margin-top:1px" data-i18n="ep.profil.contactSub">Telefon und Adresse aktualisieren</div>
           </div>
         </div>
         <div class="profil-card-body">
           <div class="ep-form-group">
-            <label class="ep-form-label" for="fPhone">Telefonnummer</label>
+            <label class="ep-form-label" for="fPhone" data-i18n="ep.profil.labelPhone">Telefonnummer</label>
             <input type="tel" id="fPhone" class="ep-form-input" placeholder="+49 170 …">
           </div>
           <div class="ep-form-group">
-            <label class="ep-form-label" for="fStreet">Straße &amp; Hausnummer</label>
-            <input type="text" id="fStreet" class="ep-form-input" placeholder="Musterstraße 1">
+            <label class="ep-form-label" for="fStreet" data-i18n="ep.profil.labelStreet">Straße &amp; Hausnummer</label>
+            <input type="text" id="fStreet" class="ep-form-input" placeholder="Musterstraße 1" data-i18n-ph="ep.profil.phStreet">
           </div>
           <div style="display:grid;grid-template-columns:120px 1fr;gap:12px">
             <div class="ep-form-group">
-              <label class="ep-form-label" for="fPLZ">PLZ</label>
+              <label class="ep-form-label" for="fPLZ" data-i18n="ep.profil.labelZip">PLZ</label>
               <input type="text" id="fPLZ" class="ep-form-input" placeholder="12345" maxlength="10">
             </div>
             <div class="ep-form-group">
-              <label class="ep-form-label" for="fCity">Stadt</label>
+              <label class="ep-form-label" for="fCity" data-i18n="ep.profil.labelCity">Stadt</label>
               <input type="text" id="fCity" class="ep-form-input" placeholder="Berlin">
             </div>
           </div>
           <div class="profil-save-row">
-            <button class="ep-btn ep-btn-primary" id="saveBtn" onclick="saveProfile()">Änderungen speichern</button>
-            <span class="profil-success" id="saveOk">Gespeichert</span>
+            <button class="ep-btn ep-btn-primary" id="saveBtn" onclick="saveProfile()" data-i18n="ep.profil.saveBtn">Änderungen speichern</button>
+            <span class="profil-success" id="saveOk" data-i18n="ep.profil.saved">Gespeichert</span>
           </div>
           <div class="ep-alert ep-alert-danger" id="saveErr" style="display:none;margin-top:10px">
             <span id="saveErrTxt">Fehler beim Speichern.</span>
@@ -267,8 +269,8 @@
       <div class="profil-card" id="documents">
         <div class="profil-card-head" style="padding:14px 20px">
           <div>
-            <div style="font-weight:700;font-size:.9rem">Nachweise &amp; Dokumente</div>
-            <div style="font-size:.75rem;color:var(--ep-text-muted);margin-top:1px">Eigene Nachweise hochladen, Status verfolgen und Fristen im Blick behalten</div>
+            <div style="font-weight:700;font-size:.9rem" data-i18n="ep.profil.docsTitle">Nachweise &amp; Dokumente</div>
+            <div style="font-size:.75rem;color:var(--ep-text-muted);margin-top:1px" data-i18n="ep.profil.docsSub">Eigene Nachweise hochladen, Status verfolgen und Fristen im Blick behalten</div>
           </div>
         </div>
         <div class="profil-card-body">
@@ -278,48 +280,48 @@
           <div class="profil-doc-summary" id="docSummary"></div>
           <div class="profil-doc-form-grid">
             <div class="ep-form-group">
-              <label class="ep-form-label" for="docCategory">Kategorie</label>
+              <label class="ep-form-label" for="docCategory" data-i18n="ep.profil.labelDocCategory">Kategorie</label>
               <select id="docCategory" class="ep-form-input">
-                <option value="qualification">Qualifikation</option>
-                <option value="identity">Identität</option>
-                <option value="permit">Erlaubnis</option>
-                <option value="medical">Medizinisch</option>
-                <option value="training">Schulung</option>
-                <option value="other">Sonstiges</option>
+                <option value="qualification" data-i18n="ep.profil.docCatQualification">Qualifikation</option>
+                <option value="identity" data-i18n="ep.profil.docCatIdentity">Identität</option>
+                <option value="permit" data-i18n="ep.profil.docCatPermit">Erlaubnis</option>
+                <option value="medical" data-i18n="ep.profil.docCatMedical">Medizinisch</option>
+                <option value="training" data-i18n="ep.profil.docCatTraining">Schulung</option>
+                <option value="other" data-i18n="ep.profil.docCatOther">Sonstiges</option>
               </select>
             </div>
             <div class="ep-form-group">
-              <label class="ep-form-label" for="docTitle">Titel</label>
-              <input type="text" id="docTitle" class="ep-form-input" placeholder="z. B. Staplerschein">
+              <label class="ep-form-label" for="docTitle" data-i18n="ep.profil.labelDocTitle">Titel</label>
+              <input type="text" id="docTitle" class="ep-form-input" placeholder="z. B. Staplerschein" data-i18n-ph="ep.profil.phDocTitle">
             </div>
             <div class="ep-form-group">
-              <label class="ep-form-label" for="docQualification">Qualifikation / Nachweistyp</label>
-              <input type="text" id="docQualification" class="ep-form-input" placeholder="Staplerschein, Aufenthaltstitel …">
+              <label class="ep-form-label" for="docQualification" data-i18n="ep.profil.labelDocQualification">Qualifikation / Nachweistyp</label>
+              <input type="text" id="docQualification" class="ep-form-input" placeholder="Staplerschein, Aufenthaltstitel …" data-i18n-ph="ep.profil.phDocQualification">
             </div>
             <div class="ep-form-group">
-              <label class="ep-form-label" for="docIssuer">Aussteller</label>
-              <input type="text" id="docIssuer" class="ep-form-input" placeholder="DEKRA, Behörde …">
+              <label class="ep-form-label" for="docIssuer" data-i18n="ep.profil.labelDocIssuer">Aussteller</label>
+              <input type="text" id="docIssuer" class="ep-form-input" placeholder="DEKRA, Behörde …" data-i18n-ph="ep.profil.phDocIssuer">
             </div>
             <div class="ep-form-group">
-              <label class="ep-form-label" for="docValidFrom">Gültig ab</label>
+              <label class="ep-form-label" for="docValidFrom" data-i18n="ep.profil.labelDocValidFrom">Gültig ab</label>
               <input type="date" id="docValidFrom" class="ep-form-input">
             </div>
             <div class="ep-form-group">
-              <label class="ep-form-label" for="docValidUntil">Gültig bis</label>
+              <label class="ep-form-label" for="docValidUntil" data-i18n="ep.profil.labelDocValidUntil">Gültig bis</label>
               <input type="date" id="docValidUntil" class="ep-form-input">
             </div>
           </div>
           <div class="ep-form-group">
-            <label class="ep-form-label" for="docNotes">Hinweis</label>
-            <textarea id="docNotes" class="ep-form-input" rows="3" placeholder="Optionaler Hinweis für die interne Prüfung"></textarea>
+            <label class="ep-form-label" for="docNotes" data-i18n="ep.profil.labelDocNotes">Hinweis</label>
+            <textarea id="docNotes" class="ep-form-input" rows="3" placeholder="Optionaler Hinweis für die interne Prüfung" data-i18n-ph="ep.profil.phDocNotes"></textarea>
           </div>
           <div class="ep-form-group">
-            <label class="ep-form-label" for="docFile">Datei</label>
+            <label class="ep-form-label" for="docFile" data-i18n="ep.profil.labelDocFile">Datei</label>
             <input type="file" id="docFile" class="ep-form-input" accept=".pdf,.png,.jpg,.jpeg,.webp,application/pdf,image/png,image/jpeg,image/webp">
           </div>
           <div class="profil-save-row">
-            <button class="ep-btn ep-btn-primary" id="docUploadBtn" onclick="uploadDocument()">Nachweis hochladen</button>
-            <span class="profil-doc-upload-note">PDF, PNG, JPG oder WEBP bis 10 MB. Verifizierte Dokumente bleiben nach der Freigabe geschützt.</span>
+            <button class="ep-btn ep-btn-primary" id="docUploadBtn" onclick="uploadDocument()" data-i18n="ep.profil.docUploadBtn">Nachweis hochladen</button>
+            <span class="profil-doc-upload-note" data-i18n="ep.profil.docUploadNote">PDF, PNG, JPG oder WEBP bis 10 MB. Verifizierte Dokumente bleiben nach der Freigabe geschützt.</span>
           </div>
           <div class="ep-alert ep-alert-danger" id="docErr" style="display:none;margin-top:10px">
             <span id="docErrTxt">Dokument konnte nicht gespeichert werden.</span>
@@ -334,32 +336,32 @@
            woher es das weiß. Wer nichts ändert, hat nichts zu tun. -->
       <div class="profil-card" id="availCard">
         <div class="profil-card-head" style="padding:14px 20px">
-          <div style="font-weight:700;font-size:.9rem">Verfügbarkeit</div>
+          <div style="font-weight:700;font-size:.9rem" data-i18n="ep.profil.availTitle">Verfügbarkeit</div>
         </div>
         <div class="profil-card-body">
-          <p class="profil-val muted" style="margin:0 0 14px;font-size:.82rem;line-height:1.5">
+          <p class="profil-val muted" style="margin:0 0 14px;font-size:.82rem;line-height:1.5" data-i18n="ep.profil.availIntro">
             Damit passende Einsätze gefunden werden. Was aus Ihren bisherigen Einsätzen
             hervorgeht, ist bereits eingetragen – Sie müssen es nur ändern, wenn es nicht stimmt.
           </p>
 
-          <div id="availLoading" class="profil-val muted">Verfügbarkeit wird geladen…</div>
+          <div id="availLoading" class="profil-val muted" data-i18n="ep.profil.availLoading">Verfügbarkeit wird geladen…</div>
 
           <div id="availForm" style="display:none">
             <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px">
               <div class="ep-form-group">
-                <label class="ep-label" for="availFrom">Verfügbar ab</label>
+                <label class="ep-label" for="availFrom" data-i18n="ep.profil.labelAvailFrom">Verfügbar ab</label>
                 <input class="ep-input" type="date" id="availFrom">
                 <div class="profil-hint" id="availFromHint"></div>
               </div>
               <div class="ep-form-group">
-                <label class="ep-label" for="availHours">Wochenstunden</label>
-                <input class="ep-input" type="number" id="availHours" min="1" max="80" step="0.5" placeholder="z. B. 40">
+                <label class="ep-label" for="availHours" data-i18n="ep.profil.labelAvailHours">Wochenstunden</label>
+                <input class="ep-input" type="number" id="availHours" min="1" max="80" step="0.5" placeholder="z. B. 40" data-i18n-ph="ep.profil.phAvailHours">
                 <div class="profil-hint" id="availHoursHint"></div>
               </div>
             </div>
 
             <div class="ep-form-group" style="margin-top:4px">
-              <label class="ep-label" for="availRadius">Einsatzradius (km)</label>
+              <label class="ep-label" for="availRadius" data-i18n="ep.profil.labelAvailRadius">Einsatzradius (km)</label>
               <input class="ep-input" type="number" id="availRadius" min="1" max="500" step="5" style="max-width:180px">
               <div class="profil-hint" id="availRadiusHint"></div>
             </div>
@@ -367,8 +369,8 @@
             <div id="availAbsence" class="profil-hint" style="display:none;font-style:normal"></div>
 
             <div style="margin-top:14px;display:flex;gap:10px;align-items:center;flex-wrap:wrap">
-              <button class="ep-btn ep-btn-primary" id="availSaveBtn" onclick="saveAvailability()">Verfügbarkeit speichern</button>
-              <button class="ep-btn" id="availResetBtn" onclick="resetAvailability()"
+              <button class="ep-btn ep-btn-primary" id="availSaveBtn" onclick="saveAvailability()" data-i18n="ep.profil.availSaveBtn">Verfügbarkeit speichern</button>
+              <button class="ep-btn" id="availResetBtn" onclick="resetAvailability()" data-i18n="ep.profil.availResetBtn" data-i18n-title="ep.profil.availResetTitle"
                       title="Eigene Angaben löschen – danach wird die Verfügbarkeit wieder aus den Einsätzen abgeleitet.">
                 Wieder automatisch ermitteln
               </button>
@@ -380,23 +382,23 @@
       <!-- Fähigkeiten / Skills (Katalog-gebunden) -->
       <div class="profil-card" id="skills">
         <div class="profil-card-head" style="padding:14px 20px;justify-content:space-between">
-          <div style="font-weight:700;font-size:.9rem">Fähigkeiten &amp; Qualifikationen</div>
+          <div style="font-weight:700;font-size:.9rem" data-i18n="ep.profil.skillsTitle">Fähigkeiten &amp; Qualifikationen</div>
           <span class="profil-doc-badge info" id="skillCount">0 gewählt</span>
         </div>
         <div class="profil-card-body">
-          <p style="font-size:.82rem;color:var(--ep-text-muted);margin:0 0 14px">
+          <p style="font-size:.82rem;color:var(--ep-text-muted);margin:0 0 14px" data-i18n="ep.profil.skillsIntro">
             Wählen Sie alle Tätigkeiten, die Sie ausüben können. Je vollständiger Ihr Profil,
             desto mehr passende Einsätze werden Ihnen vermittelt – jede Fähigkeit wird plattformweit
             für Vermittlung und Suche genutzt.
           </p>
-          <div id="skillLoading" class="profil-val muted">Fähigkeiten werden geladen…</div>
+          <div id="skillLoading" class="profil-val muted" data-i18n="ep.profil.skillsLoading">Fähigkeiten werden geladen…</div>
           <div class="ep-alert ep-alert-danger" id="skillErr" style="display:none">
             <span id="skillErrTxt">Katalog konnte nicht geladen werden.</span>
           </div>
           <div id="skillCatalog" style="display:none"></div>
           <div class="profil-save-row" id="skillSaveRow" style="display:none">
-            <button class="ep-btn ep-btn-primary" id="skillSaveBtn" onclick="saveSkills()">Fähigkeiten speichern</button>
-            <span class="profil-doc-upload-note">Änderungen wirken sich sofort auf Ihre Sichtbarkeit für Einsätze aus.</span>
+            <button class="ep-btn ep-btn-primary" id="skillSaveBtn" onclick="saveSkills()" data-i18n="ep.profil.skillsSaveBtn">Fähigkeiten speichern</button>
+            <span class="profil-doc-upload-note" data-i18n="ep.profil.skillsSaveNote">Änderungen wirken sich sofort auf Ihre Sichtbarkeit für Einsätze aus.</span>
           </div>
         </div>
       </div>
@@ -404,25 +406,25 @@
       <!-- Sicherheit -->
       <div class="profil-card">
         <div class="profil-card-head" style="padding:14px 20px">
-          <div style="font-weight:700;font-size:.9rem">Sicherheit</div>
+          <div style="font-weight:700;font-size:.9rem" data-i18n="ep.profil.securityTitle">Sicherheit</div>
         </div>
         <div class="profil-card-body">
           <div class="ep-info-row" style="display:flex;align-items:center;gap:12px">
             <div>
-              <div class="ep-info-label">Passwort ändern</div>
-              <div class="ep-info-val" style="font-size:.8rem;color:var(--ep-text-muted)">Passwort-Änderung über den „Passwort vergessen"-Link auf der Login-Seite</div>
+              <div class="ep-info-label" data-i18n="ep.profil.pwChangeTitle">Passwort ändern</div>
+              <div class="ep-info-val" style="font-size:.8rem;color:var(--ep-text-muted)" data-i18n="ep.profil.pwChangeHint">Passwort-Änderung über den „Passwort vergessen"-Link auf der Login-Seite</div>
             </div>
           </div>
           <div style="margin-top:12px">
-            <a href="worker-login.html" class="ep-btn ep-btn-ghost ep-btn-sm">→ Zur Login-Seite</a>
+            <a href="worker-login.html" class="ep-btn ep-btn-ghost ep-btn-sm" data-i18n="ep.profil.toLogin">→ Zur Login-Seite</a>
           </div>
           <!-- Fernabmeldung (P5.1): Handy verloren -> Sitzungen aus der Ferne beenden -->
           <div style="margin-top:16px;padding-top:14px;border-top:1px solid var(--ep-border,rgba(255,255,255,.08))">
-            <div class="ep-info-label">Angemeldete Geräte</div>
+            <div class="ep-info-label" data-i18n="ep.profil.devicesTitle">Angemeldete Geräte</div>
             <div class="ep-info-val" id="sessionInfo" style="font-size:.8rem;color:var(--ep-text-muted)">Lädt…</div>
             <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px">
-              <button class="ep-btn ep-btn-primary ep-btn-sm" id="btnLogoutOthers" onclick="logoutOtherDevices()">Andere Geräte abmelden</button>
-              <button class="ep-btn ep-btn-ghost ep-btn-sm" style="color:var(--ep-danger,#f87171)" onclick="logoutEverywhere()">Überall abmelden</button>
+              <button class="ep-btn ep-btn-primary ep-btn-sm" id="btnLogoutOthers" onclick="logoutOtherDevices()" data-i18n="ep.profil.logoutOthersBtn">Andere Geräte abmelden</button>
+              <button class="ep-btn ep-btn-ghost ep-btn-sm" style="color:var(--ep-danger,#f87171)" onclick="logoutEverywhere()" data-i18n="ep.profil.logoutAllBtn">Überall abmelden</button>
             </div>
           </div>
         </div>
@@ -433,12 +435,12 @@
 </main>
 
 <nav class="ep-bottom-nav">
-  <a class="ep-bn-item" href="einsatzportal-dashboard.html">Start</a>
-  <a class="ep-bn-item" href="einsatzportal-einsaetze.html">Einsätze</a>
-  <a class="ep-bn-item" href="einsatzportal-plan.html">Plan</a>
-  <a class="ep-bn-item" href="einsatzportal-stundenzettel.html">Stunden</a>
-  <a class="ep-bn-item" href="einsatzportal-benachrichtigungen.html">Info<span class="ep-bn-dot" id="bn-dot" style="display:none"></span></a>
-  <a class="ep-bn-item active" href="einsatzportal-profil.html">Profil</a>
+  <a class="ep-bn-item" href="einsatzportal-dashboard.html"><span data-i18n="ep.nav.start">Start</span></a>
+  <a class="ep-bn-item" href="einsatzportal-einsaetze.html"><span data-i18n="ep.nav.einsaetze">Einsätze</span></a>
+  <a class="ep-bn-item" href="einsatzportal-plan.html"><span data-i18n="ep.nav.plan">Plan</span></a>
+  <a class="ep-bn-item" href="einsatzportal-stundenzettel.html"><span data-i18n="ep.nav.stunden">Stunden</span></a>
+  <a class="ep-bn-item" href="einsatzportal-benachrichtigungen.html"><span data-i18n="ep.nav.info">Info</span><span class="ep-bn-dot" id="bn-dot" style="display:none"></span></a>
+  <a class="ep-bn-item active" href="einsatzportal-profil.html"><span data-i18n="ep.nav.profil">Profil</span></a>
 </nav>
 <div id="ep-toast"></div>
 
@@ -446,6 +448,299 @@
 <script src="/public/js/workerPortal/portalShell.js"></script>
 <script src="/public/js/workerPortal/portalStatus.js"></script>
 <script>
+/* ── i18n (P6.1): Seiten-Woerterbuch. Die gemeinsamen ep.nav.*-, ep.shell.*- und
+   ep.aria.*-Keys registriert die Portal-Shell (portalShell.js) — hier nur ep.profil.*. ── */
+TCi18n.register('de', {
+  'ep.profil.docTitle': 'Mein Profil – Einsatzportal',
+  'ep.profil.title': 'Mein Profil',
+  'ep.profil.subtitle': 'Persönliche Daten und Kontaktinformationen',
+  'ep.profil.ariaTopbarBrand': 'Zur Einsatzportal-Übersicht',
+  'ep.profil.photoUpload': 'Foto hochladen',
+  'ep.profil.photoRemove': 'Foto entfernen',
+  'ep.profil.photoAlt': 'Profilfoto',
+  'ep.profil.photoTooLarge': 'Datei zu groß (max. 5 MB).',
+  'ep.profil.photoWrongType': 'Nur PNG, JPG oder WebP.',
+  'ep.profil.photoSaved': 'Profilfoto gespeichert.',
+  'ep.profil.photoUploadFailed': 'Upload fehlgeschlagen.',
+  'ep.profil.photoRemoveFailed': 'Entfernen fehlgeschlagen.',
+  'ep.profil.labelPersonnelNo': 'Personalnummer',
+  'ep.profil.labelFirstName': 'Vorname',
+  'ep.profil.labelLastName': 'Nachname',
+  'ep.profil.contactTitle': 'Kontaktdaten bearbeiten',
+  'ep.profil.contactSub': 'Telefon und Adresse aktualisieren',
+  'ep.profil.labelPhone': 'Telefonnummer',
+  'ep.profil.labelStreet': 'Straße & Hausnummer',
+  'ep.profil.phStreet': 'Musterstraße 1',
+  'ep.profil.labelZip': 'PLZ',
+  'ep.profil.labelCity': 'Stadt',
+  'ep.profil.saveBtn': 'Änderungen speichern',
+  'ep.profil.saved': 'Gespeichert',
+  'ep.profil.saving': 'Speichern…',
+  'ep.profil.saveFailed': 'Speichern fehlgeschlagen.',
+  'ep.profil.saveErrValidation': 'Ungültige Eingabe.',
+  'ep.profil.saveErrGeneric': 'Fehler beim Speichern. Bitte versuchen Sie es erneut.',
+  'ep.profil.reauth': 'Bitte melden Sie sich erneut an.',
+  'ep.profil.docsTitle': 'Nachweise & Dokumente',
+  'ep.profil.docsSub': 'Eigene Nachweise hochladen, Status verfolgen und Fristen im Blick behalten',
+  'ep.profil.labelDocCategory': 'Kategorie',
+  'ep.profil.docCatQualification': 'Qualifikation',
+  'ep.profil.docCatIdentity': 'Identität',
+  'ep.profil.docCatPermit': 'Erlaubnis',
+  'ep.profil.docCatMedical': 'Medizinisch',
+  'ep.profil.docCatTraining': 'Schulung',
+  'ep.profil.docCatOther': 'Sonstiges',
+  'ep.profil.docCatFallback': 'Dokument',
+  'ep.profil.labelDocTitle': 'Titel',
+  'ep.profil.phDocTitle': 'z. B. Staplerschein',
+  'ep.profil.labelDocQualification': 'Qualifikation / Nachweistyp',
+  'ep.profil.phDocQualification': 'Staplerschein, Aufenthaltstitel …',
+  'ep.profil.labelDocIssuer': 'Aussteller',
+  'ep.profil.phDocIssuer': 'DEKRA, Behörde …',
+  'ep.profil.labelDocValidFrom': 'Gültig ab',
+  'ep.profil.labelDocValidUntil': 'Gültig bis',
+  'ep.profil.labelDocNotes': 'Hinweis',
+  'ep.profil.phDocNotes': 'Optionaler Hinweis für die interne Prüfung',
+  'ep.profil.labelDocFile': 'Datei',
+  'ep.profil.docUploadBtn': 'Nachweis hochladen',
+  'ep.profil.docUploading': 'Upload läuft…',
+  'ep.profil.docUploadNote': 'PDF, PNG, JPG oder WEBP bis 10 MB. Verifizierte Dokumente bleiben nach der Freigabe geschützt.',
+  'ep.profil.docUploaded': 'Nachweis hochgeladen.',
+  'ep.profil.docStatusPending': 'In Prüfung',
+  'ep.profil.docStatusVerified': 'Verifiziert',
+  'ep.profil.docStatusRejected': 'Abgelehnt',
+  'ep.profil.docStatusExpired': 'Abgelaufen',
+  'ep.profil.docStatusArchived': 'Archiviert',
+  'ep.profil.docStatusOpen': 'Offen',
+  'ep.profil.docSumTotal': 'Gesamt',
+  'ep.profil.docSumExpiring': 'Fristkritisch',
+  'ep.profil.docSumAction': 'Aktion nötig',
+  'ep.profil.docAlertExpired': '{n} Nachweis(e) sind abgelaufen. Bitte laden Sie umgehend eine gültige Version hoch.',
+  'ep.profil.docAlertRejected': '{n} Nachweis(e) wurden abgelehnt. Bitte prüfen Sie die Hinweise und laden Sie Ersatz hoch.',
+  'ep.profil.docAlertExpiring': '{n} Nachweis(e) laufen in den nächsten Tagen ab. Planen Sie die Verlängerung frühzeitig ein.',
+  'ep.profil.docEmpty': 'Noch keine Nachweise hinterlegt. Laden Sie hier Ihre Dokumente für die interne Prüfung hoch.',
+  'ep.profil.docFrom': 'ab {date}',
+  'ep.profil.docUntil': 'bis {date}',
+  'ep.profil.docNoMeta': 'Ohne Zusatzangaben',
+  'ep.profil.docExpiresIn': 'Läuft in {n} Tagen ab.',
+  'ep.profil.docExpiredSince': 'Seit {date} abgelaufen.',
+  'ep.profil.docActionDelete': 'Löschen',
+  'ep.profil.docConfirmDelete': 'Dokument wirklich löschen?',
+  'ep.profil.docDeleted': 'Dokument gelöscht.',
+  'ep.profil.docDeleteLocked': 'Verifizierte Dokumente können nicht selbst gelöscht werden.',
+  'ep.profil.docDeleteFailed': 'Dokument konnte nicht gelöscht werden.',
+  'ep.profil.docErrTitle': 'Bitte einen Titel angeben.',
+  'ep.profil.docErrFile': 'Bitte eine Datei auswählen.',
+  'ep.profil.docErrTooLarge': 'Datei ist zu groß (max. 10 MB).',
+  'ep.profil.docErrMime': 'Dateityp nicht erlaubt.',
+  'ep.profil.docErrValidation': 'Bitte prüfen Sie Kategorie, Titel und Gültigkeitsdaten.',
+  'ep.profil.docErrGeneric': 'Dokument konnte nicht gespeichert werden.',
+  'ep.profil.availTitle': 'Verfügbarkeit',
+  'ep.profil.availIntro': 'Damit passende Einsätze gefunden werden. Was aus Ihren bisherigen Einsätzen hervorgeht, ist bereits eingetragen – Sie müssen es nur ändern, wenn es nicht stimmt.',
+  'ep.profil.availLoading': 'Verfügbarkeit wird geladen…',
+  'ep.profil.labelAvailFrom': 'Verfügbar ab',
+  'ep.profil.labelAvailHours': 'Wochenstunden',
+  'ep.profil.phAvailHours': 'z. B. 40',
+  'ep.profil.labelAvailRadius': 'Einsatzradius (km)',
+  'ep.profil.srcDerived': 'Aus Ihren Einsätzen übernommen.',
+  'ep.profil.srcInherited': 'Vorgabe Ihres Betriebs.',
+  'ep.profil.srcExplicit': 'Von Ihnen angegeben.',
+  'ep.profil.srcUnknown': 'Bitte ergänzen – das können wir nicht aus Ihren Einsätzen ableiten.',
+  'ep.profil.srcBusyUntil': '(Einsatz bis {date})',
+  'ep.profil.availAbsence': 'Hinweis: Für Sie ist ab {date} eine Abwesenheit gemeldet{reason}.',
+  'ep.profil.availSaveBtn': 'Verfügbarkeit speichern',
+  'ep.profil.availResetBtn': 'Wieder automatisch ermitteln',
+  'ep.profil.availResetTitle': 'Eigene Angaben löschen – danach wird die Verfügbarkeit wieder aus den Einsätzen abgeleitet.',
+  'ep.profil.availSaved': 'Verfügbarkeit gespeichert.',
+  'ep.profil.availCheckInput': 'Bitte Eingaben prüfen.',
+  'ep.profil.availResetOk': 'Wird wieder automatisch ermittelt.',
+  'ep.profil.availResetFailed': 'Zurücksetzen fehlgeschlagen.',
+  'ep.profil.availLoadFailed': 'Verfügbarkeit konnte nicht geladen werden.',
+  'ep.profil.progressWelcomeTitle': 'Willkommen – noch ein paar Angaben',
+  'ep.profil.progressWelcomeSub': 'Damit passende Einsätze zu Ihnen finden. Dauert nur wenige Minuten, und Sie können jederzeit später ergänzen.',
+  'ep.profil.progressReadyWelcomeTitle': 'Willkommen – Ihr Profil ist bereits einsatzbereit',
+  'ep.profil.progressReadyTitle': 'Ihr Profil ist einsatzbereit',
+  'ep.profil.progressAllDone': 'Alles ausgefüllt – danke.',
+  'ep.profil.progressReadySub': 'Sie können vermittelt werden. Ergänzendes ist unten markiert.',
+  'ep.profil.progressTitle': 'Profil vervollständigen',
+  'ep.profil.progressSub': 'Es fehlt noch etwas, damit Sie zu Einsätzen vermittelt werden können.',
+  'ep.profil.stepRequired': 'Erforderlich',
+  'ep.profil.stepOptional': 'Empfohlen',
+  'ep.profil.stepOpenTitle': '{req} – hier ergänzen',
+  'ep.profil.skillsTitle': 'Fähigkeiten & Qualifikationen',
+  'ep.profil.skillsIntro': 'Wählen Sie alle Tätigkeiten, die Sie ausüben können. Je vollständiger Ihr Profil, desto mehr passende Einsätze werden Ihnen vermittelt – jede Fähigkeit wird plattformweit für Vermittlung und Suche genutzt.',
+  'ep.profil.skillsLoading': 'Fähigkeiten werden geladen…',
+  'ep.profil.skillsCatalogUnavailable': 'Der Fähigkeiten-Katalog ist noch nicht verfügbar.',
+  'ep.profil.skillsLoadFailed': 'Fähigkeiten konnten nicht geladen werden.',
+  'ep.profil.skillsSaveBtn': 'Fähigkeiten speichern',
+  'ep.profil.skillsSaveNote': 'Änderungen wirken sich sofort auf Ihre Sichtbarkeit für Einsätze aus.',
+  'ep.profil.skillsCountFmt': '{n} gewählt',
+  'ep.profil.skillsSaved': 'Fähigkeiten gespeichert ({n}).',
+  'ep.profil.skillsCheckSelection': 'Bitte Auswahl prüfen.',
+  'ep.profil.securityTitle': 'Sicherheit',
+  'ep.profil.pwChangeTitle': 'Passwort ändern',
+  'ep.profil.pwChangeHint': 'Passwort-Änderung über den „Passwort vergessen"-Link auf der Login-Seite',
+  'ep.profil.toLogin': '→ Zur Login-Seite',
+  'ep.profil.devicesTitle': 'Angemeldete Geräte',
+  'ep.profil.sessionsOne': '1 aktive Sitzung',
+  'ep.profil.sessionsMany': '{n} aktive Sitzungen',
+  'ep.profil.sessionsOthers': ' — davon {n} auf anderen Geräten',
+  'ep.profil.sessionsOnlyThis': ' — nur dieses Gerät',
+  'ep.profil.sessionsNone': 'Keine aktiven Sitzungen gefunden.',
+  'ep.profil.sessionsLoadFailed': 'Sitzungen konnten nicht geladen werden.',
+  'ep.profil.logoutOthersBtn': 'Andere Geräte abmelden',
+  'ep.profil.logoutAllBtn': 'Überall abmelden',
+  'ep.profil.confirmLogoutOthers': 'Alle Sitzungen auf ANDEREN Geräten beenden? Dieses Gerät bleibt angemeldet.',
+  'ep.profil.confirmLogoutAll': 'Wirklich ÜBERALL abmelden — auch auf diesem Gerät? Sie müssen sich danach neu anmelden.',
+  'ep.profil.sessionsEndedOne': '1 Sitzung beendet.',
+  'ep.profil.sessionsEndedMany': '{n} Sitzungen beendet.',
+  'ep.profil.remoteLogoutFailed': 'Fernabmeldung fehlgeschlagen.'
+});
+TCi18n.register('en', {
+  'ep.profil.docTitle': 'My Profile – Worker Portal',
+  'ep.profil.title': 'My Profile',
+  'ep.profil.subtitle': 'Personal details and contact information',
+  'ep.profil.ariaTopbarBrand': 'Go to worker portal overview',
+  'ep.profil.photoUpload': 'Upload photo',
+  'ep.profil.photoRemove': 'Remove photo',
+  'ep.profil.photoAlt': 'Profile photo',
+  'ep.profil.photoTooLarge': 'File too large (max. 5 MB).',
+  'ep.profil.photoWrongType': 'Only PNG, JPG or WebP.',
+  'ep.profil.photoSaved': 'Profile photo saved.',
+  'ep.profil.photoUploadFailed': 'Upload failed.',
+  'ep.profil.photoRemoveFailed': 'Removal failed.',
+  'ep.profil.labelPersonnelNo': 'Personnel number',
+  'ep.profil.labelFirstName': 'First name',
+  'ep.profil.labelLastName': 'Last name',
+  'ep.profil.contactTitle': 'Edit contact details',
+  'ep.profil.contactSub': 'Update phone and address',
+  'ep.profil.labelPhone': 'Phone number',
+  'ep.profil.labelStreet': 'Street & number',
+  'ep.profil.phStreet': 'Example Street 1',
+  'ep.profil.labelZip': 'Postal code',
+  'ep.profil.labelCity': 'City',
+  'ep.profil.saveBtn': 'Save changes',
+  'ep.profil.saved': 'Saved',
+  'ep.profil.saving': 'Saving…',
+  'ep.profil.saveFailed': 'Saving failed.',
+  'ep.profil.saveErrValidation': 'Invalid input.',
+  'ep.profil.saveErrGeneric': 'Saving failed. Please try again.',
+  'ep.profil.reauth': 'Please sign in again.',
+  'ep.profil.docsTitle': 'Credentials & documents',
+  'ep.profil.docsSub': 'Upload your credentials, track their status and keep an eye on deadlines',
+  'ep.profil.labelDocCategory': 'Category',
+  'ep.profil.docCatQualification': 'Qualification',
+  'ep.profil.docCatIdentity': 'Identity',
+  'ep.profil.docCatPermit': 'Permit',
+  'ep.profil.docCatMedical': 'Medical',
+  'ep.profil.docCatTraining': 'Training',
+  'ep.profil.docCatOther': 'Other',
+  'ep.profil.docCatFallback': 'Document',
+  'ep.profil.labelDocTitle': 'Title',
+  'ep.profil.phDocTitle': 'e.g. forklift licence',
+  'ep.profil.labelDocQualification': 'Qualification / credential type',
+  'ep.profil.phDocQualification': 'Forklift licence, residence permit …',
+  'ep.profil.labelDocIssuer': 'Issuer',
+  'ep.profil.phDocIssuer': 'DEKRA, public authority …',
+  'ep.profil.labelDocValidFrom': 'Valid from',
+  'ep.profil.labelDocValidUntil': 'Valid until',
+  'ep.profil.labelDocNotes': 'Note',
+  'ep.profil.phDocNotes': 'Optional note for the internal review',
+  'ep.profil.labelDocFile': 'File',
+  'ep.profil.docUploadBtn': 'Upload credential',
+  'ep.profil.docUploading': 'Uploading…',
+  'ep.profil.docUploadNote': 'PDF, PNG, JPG or WEBP up to 10 MB. Verified documents stay protected after approval.',
+  'ep.profil.docUploaded': 'Credential uploaded.',
+  'ep.profil.docStatusPending': 'Under review',
+  'ep.profil.docStatusVerified': 'Verified',
+  'ep.profil.docStatusRejected': 'Rejected',
+  'ep.profil.docStatusExpired': 'Expired',
+  'ep.profil.docStatusArchived': 'Archived',
+  'ep.profil.docStatusOpen': 'Open',
+  'ep.profil.docSumTotal': 'Total',
+  'ep.profil.docSumExpiring': 'Expiring soon',
+  'ep.profil.docSumAction': 'Action required',
+  'ep.profil.docAlertExpired': '{n} credential(s) have expired. Please upload a valid version immediately.',
+  'ep.profil.docAlertRejected': '{n} credential(s) were rejected. Please check the notes and upload a replacement.',
+  'ep.profil.docAlertExpiring': '{n} credential(s) expire in the next few days. Plan the renewal early.',
+  'ep.profil.docEmpty': 'No credentials on file yet. Upload your documents here for the internal review.',
+  'ep.profil.docFrom': 'from {date}',
+  'ep.profil.docUntil': 'until {date}',
+  'ep.profil.docNoMeta': 'No additional details',
+  'ep.profil.docExpiresIn': 'Expires in {n} days.',
+  'ep.profil.docExpiredSince': 'Expired since {date}.',
+  'ep.profil.docActionDelete': 'Delete',
+  'ep.profil.docConfirmDelete': 'Really delete this document?',
+  'ep.profil.docDeleted': 'Document deleted.',
+  'ep.profil.docDeleteLocked': 'Verified documents cannot be deleted by you.',
+  'ep.profil.docDeleteFailed': 'Document could not be deleted.',
+  'ep.profil.docErrTitle': 'Please enter a title.',
+  'ep.profil.docErrFile': 'Please choose a file.',
+  'ep.profil.docErrTooLarge': 'File is too large (max. 10 MB).',
+  'ep.profil.docErrMime': 'File type not allowed.',
+  'ep.profil.docErrValidation': 'Please check category, title and validity dates.',
+  'ep.profil.docErrGeneric': 'Document could not be saved.',
+  'ep.profil.availTitle': 'Availability',
+  'ep.profil.availIntro': 'So that matching assignments can be found. Whatever your previous assignments already show is filled in – you only need to change it if it is not right.',
+  'ep.profil.availLoading': 'Loading availability…',
+  'ep.profil.labelAvailFrom': 'Available from',
+  'ep.profil.labelAvailHours': 'Hours per week',
+  'ep.profil.phAvailHours': 'e.g. 40',
+  'ep.profil.labelAvailRadius': 'Assignment radius (km)',
+  'ep.profil.srcDerived': 'Taken from your assignments.',
+  'ep.profil.srcInherited': 'Default set by your company.',
+  'ep.profil.srcExplicit': 'Provided by you.',
+  'ep.profil.srcUnknown': 'Please add this – we cannot derive it from your assignments.',
+  'ep.profil.srcBusyUntil': '(assignment until {date})',
+  'ep.profil.availAbsence': 'Note: an absence is on record for you from {date}{reason}.',
+  'ep.profil.availSaveBtn': 'Save availability',
+  'ep.profil.availResetBtn': 'Determine automatically again',
+  'ep.profil.availResetTitle': 'Clear your own entries – availability will then be derived from your assignments again.',
+  'ep.profil.availSaved': 'Availability saved.',
+  'ep.profil.availCheckInput': 'Please check your input.',
+  'ep.profil.availResetOk': 'Will be determined automatically again.',
+  'ep.profil.availResetFailed': 'Reset failed.',
+  'ep.profil.availLoadFailed': 'Availability could not be loaded.',
+  'ep.profil.progressWelcomeTitle': 'Welcome – just a few more details',
+  'ep.profil.progressWelcomeSub': 'So matching assignments can find you. Takes only a few minutes, and you can always add more later.',
+  'ep.profil.progressReadyWelcomeTitle': 'Welcome – your profile is already ready for assignments',
+  'ep.profil.progressReadyTitle': 'Your profile is ready for assignments',
+  'ep.profil.progressAllDone': 'Everything filled in – thank you.',
+  'ep.profil.progressReadySub': 'You can be placed on assignments. Optional additions are marked below.',
+  'ep.profil.progressTitle': 'Complete your profile',
+  'ep.profil.progressSub': 'Something is still missing before you can be placed on assignments.',
+  'ep.profil.stepRequired': 'Required',
+  'ep.profil.stepOptional': 'Recommended',
+  'ep.profil.stepOpenTitle': '{req} – add here',
+  'ep.profil.skillsTitle': 'Skills & qualifications',
+  'ep.profil.skillsIntro': 'Select all activities you can perform. The more complete your profile, the more matching assignments you will be offered – every skill is used platform-wide for matching and search.',
+  'ep.profil.skillsLoading': 'Loading skills…',
+  'ep.profil.skillsCatalogUnavailable': 'The skills catalog is not available yet.',
+  'ep.profil.skillsLoadFailed': 'Skills could not be loaded.',
+  'ep.profil.skillsSaveBtn': 'Save skills',
+  'ep.profil.skillsSaveNote': 'Changes immediately affect your visibility for assignments.',
+  'ep.profil.skillsCountFmt': '{n} selected',
+  'ep.profil.skillsSaved': 'Skills saved ({n}).',
+  'ep.profil.skillsCheckSelection': 'Please check your selection.',
+  'ep.profil.securityTitle': 'Security',
+  'ep.profil.pwChangeTitle': 'Change password',
+  'ep.profil.pwChangeHint': 'Change your password via the "Forgot password" link on the login page',
+  'ep.profil.toLogin': '→ To the login page',
+  'ep.profil.devicesTitle': 'Signed-in devices',
+  'ep.profil.sessionsOne': '1 active session',
+  'ep.profil.sessionsMany': '{n} active sessions',
+  'ep.profil.sessionsOthers': ' — {n} of them on other devices',
+  'ep.profil.sessionsOnlyThis': ' — only this device',
+  'ep.profil.sessionsNone': 'No active sessions found.',
+  'ep.profil.sessionsLoadFailed': 'Sessions could not be loaded.',
+  'ep.profil.logoutOthersBtn': 'Sign out other devices',
+  'ep.profil.logoutAllBtn': 'Sign out everywhere',
+  'ep.profil.confirmLogoutOthers': 'End all sessions on OTHER devices? This device stays signed in.',
+  'ep.profil.confirmLogoutAll': 'Really sign out EVERYWHERE — including this device? You will need to sign in again afterwards.',
+  'ep.profil.sessionsEndedOne': '1 session ended.',
+  'ep.profil.sessionsEndedMany': '{n} sessions ended.',
+  'ep.profil.remoteLogoutFailed': 'Remote sign-out failed.'
+});
+
 let me = null;
 let workerDocuments = { items: [], summary: {} };
 let skillState = { catalog: null, selected: new Map() };
@@ -461,17 +756,17 @@ function toast(msg, type) { PortalShell.toast(msg, type || ''); }
  */
 var availState = { geladen: null };
 
-var HERKUNFT_TEXT = {
-  abgeleitet:    'Aus Ihren Einsätzen übernommen.',
-  geerbt:        'Vorgabe Ihres Betriebs.',
-  ausdruecklich: 'Von Ihnen angegeben.',
-  unbekannt:     'Bitte ergänzen – das können wir nicht aus Ihren Einsätzen ableiten.'
+var HERKUNFT_KEY = {
+  abgeleitet:    'ep.profil.srcDerived',
+  geerbt:        'ep.profil.srcInherited',
+  ausdruecklich: 'ep.profil.srcExplicit',
+  unbekannt:     'ep.profil.srcUnknown'
 };
 
 function setzeHinweis(id, herkunft, zusatz) {
   var el = document.getElementById(id);
   if (!el) return;
-  el.textContent = (HERKUNFT_TEXT[herkunft] || '') + (zusatz ? ' ' + zusatz : '');
+  el.textContent = (HERKUNFT_KEY[herkunft] ? TCi18n.t(HERKUNFT_KEY[herkunft]) : '') + (zusatz ? ' ' + zusatz : '');
 }
 
 async function loadAvailability() {
@@ -487,15 +782,17 @@ async function loadAvailability() {
 
     var h = v.herkunft || {};
     setzeHinweis('availFromHint', h.available_from,
-      h.available_from === 'abgeleitet' && v.belegt_bis ? '(Einsatz bis ' + v.belegt_bis + ')' : '');
+      h.available_from === 'abgeleitet' && v.belegt_bis ? TCi18n.t('ep.profil.srcBusyUntil', { date: v.belegt_bis }) : '');
     setzeHinweis('availHoursHint', h.weekly_hours, '');
     setzeHinweis('availRadiusHint', h.radius_km, '');
 
     // Gemeldete Abwesenheit gehört sichtbar gemacht — sie schlägt jede Angabe.
     var abwEl = document.getElementById('availAbsence');
     if (v.abwesend_ab) {
-      abwEl.textContent = 'Hinweis: Für Sie ist ab ' + v.abwesend_ab + ' eine Abwesenheit gemeldet'
-        + (v.abwesenheitsgrund ? ' (' + v.abwesenheitsgrund + ')' : '') + '.';
+      abwEl.textContent = TCi18n.t('ep.profil.availAbsence', {
+        date: v.abwesend_ab,
+        reason: v.abwesenheitsgrund ? ' (' + v.abwesenheitsgrund + ')' : ''
+      });
       abwEl.style.display = '';
     } else {
       abwEl.style.display = 'none';
@@ -505,8 +802,8 @@ async function loadAvailability() {
     formEl.style.display = '';
   } catch (e) {
     loadingEl.textContent = e.code === 'NOT_AUTH'
-      ? 'Bitte melden Sie sich erneut an.'
-      : 'Verfügbarkeit konnte nicht geladen werden.';
+      ? TCi18n.t('ep.profil.reauth')
+      : TCi18n.t('ep.profil.availLoadFailed');
   }
 }
 
@@ -515,7 +812,7 @@ async function saveAvailability() {
   if (!btn) return;
   btn.disabled = true;
   var prev = btn.textContent;
-  btn.textContent = 'Speichern…';
+  btn.textContent = TCi18n.t('ep.profil.saving');
   try {
     var von = document.getElementById('availFrom').value;
     var std = document.getElementById('availHours').value;
@@ -529,9 +826,9 @@ async function saveAvailability() {
     availState.geladen = v;
     await loadAvailability();
     loadProgress().catch(function () {});
-    toast('Verfügbarkeit gespeichert.');
+    toast(TCi18n.t('ep.profil.availSaved'));
   } catch (e) {
-    toast(e.code === 'VALIDATION' ? 'Bitte Eingaben prüfen.' : 'Speichern fehlgeschlagen.', 'error');
+    toast(e.code === 'VALIDATION' ? TCi18n.t('ep.profil.availCheckInput') : TCi18n.t('ep.profil.saveFailed'), 'error');
   } finally {
     btn.disabled = false;
     btn.textContent = prev;
@@ -550,9 +847,9 @@ async function resetAvailability() {
     });
     await loadAvailability();
     loadProgress().catch(function () {});
-    toast('Wird wieder automatisch ermittelt.');
+    toast(TCi18n.t('ep.profil.availResetOk'));
   } catch (e) {
-    toast('Zurücksetzen fehlgeschlagen.', 'error');
+    toast(TCi18n.t('ep.profil.availResetFailed'), 'error');
   } finally {
     btn.disabled = false;
   }
@@ -574,17 +871,16 @@ async function loadProgress() {
   var willkommen = new URLSearchParams(location.search).get('willkommen') === '1';
 
   if (willkommen && !p.einsatzbereit) {
-    titel.textContent = 'Willkommen – noch ein paar Angaben';
-    sub.textContent = 'Damit passende Einsätze zu Ihnen finden. Dauert nur wenige Minuten,'
-                    + ' und Sie können jederzeit später ergänzen.';
+    titel.textContent = TCi18n.t('ep.profil.progressWelcomeTitle');
+    sub.textContent = TCi18n.t('ep.profil.progressWelcomeSub');
   } else if (p.einsatzbereit) {
-    titel.textContent = willkommen ? 'Willkommen – Ihr Profil ist bereits einsatzbereit' : 'Ihr Profil ist einsatzbereit';
+    titel.textContent = TCi18n.t(willkommen ? 'ep.profil.progressReadyWelcomeTitle' : 'ep.profil.progressReadyTitle');
     sub.textContent = p.fortschritt_prozent === 100
-      ? 'Alles ausgefüllt – danke.'
-      : 'Sie können vermittelt werden. Ergänzendes ist unten markiert.';
+      ? TCi18n.t('ep.profil.progressAllDone')
+      : TCi18n.t('ep.profil.progressReadySub');
   } else {
-    titel.textContent = 'Profil vervollständigen';
-    sub.textContent = 'Es fehlt noch etwas, damit Sie zu Einsätzen vermittelt werden können.';
+    titel.textContent = TCi18n.t('ep.profil.progressTitle');
+    sub.textContent = TCi18n.t('ep.profil.progressSub');
   }
 
   var stepsEl = document.getElementById('progressSteps');
@@ -596,7 +892,7 @@ async function loadProgress() {
     // SVG-Satz, nicht als Unicode-Zeichen: CLAUDE.md verbietet Emojis in produktiver
     // UI, und der Wächter api/test/uiNoEmoji.test.js setzt das durch.
     var mark = PortalShell.iconSvg(s.erledigt ? 'erledigt' : 'offen');
-    var titelAttr = s.pflicht ? 'Erforderlich' : 'Empfohlen';
+    var titelAttr = TCi18n.t(s.pflicht ? 'ep.profil.stepRequired' : 'ep.profil.stepOptional');
     var inhalt = '<span class="profil-step-mark">' + mark + '</span>' + esc(s.titel)
                + (s.pflicht ? '' : ' <span style="font-weight:400;opacity:.75">(optional)</span>');
     // Offene Schritte sind Sprungziele — ein Hinweis, der nicht hinführt, ist eine
@@ -688,7 +984,7 @@ async function saveSkills() {
       return { skill_id: entry[0], proficiency: (entry[1] && entry[1].proficiency) || 'intermediate' };
     });
     const r = await PortalApi.put('/worker/me/skills', { skills: skills });
-    toast('Fähigkeiten gespeichert (' + (r.count || 0) + ').');
+    toast(TCi18n.t('ep.profil.skillsSaved', { n: r.count || 0 }));
   } catch (e) {
     toast(e.code === 'VALIDATION' ? 'Bitte Auswahl prüfen.' : 'Speichern fehlgeschlagen.', 'error');
   } finally {
@@ -743,23 +1039,23 @@ async function loadSessions() {
 }
 
 async function logoutOtherDevices() {
-  if (!window.confirm('Alle Sitzungen auf ANDEREN Geräten beenden? Dieses Gerät bleibt angemeldet.')) return;
+  if (!window.confirm(TCi18n.t('ep.profil.confirmLogoutOthers'))) return;
   try {
     const res = await PortalApi.post('/auth/logout-all', {});
     toast((res.beendet || 0) + ' Sitzung' + (res.beendet === 1 ? '' : 'en') + ' beendet.');
     loadSessions();
   } catch (e) {
-    toast('Fernabmeldung fehlgeschlagen.', 'error');
+    toast(TCi18n.t('ep.profil.remoteLogoutFailed'), 'error');
   }
 }
 
 async function logoutEverywhere() {
-  if (!window.confirm('Wirklich ÜBERALL abmelden — auch auf diesem Gerät? Sie müssen sich danach neu anmelden.')) return;
+  if (!window.confirm(TCi18n.t('ep.profil.confirmLogoutAll'))) return;
   try {
     await PortalApi.post('/auth/logout-all', { include_current: true });
     window.location.href = 'worker-login.html';
   } catch (e) {
-    toast('Fernabmeldung fehlgeschlagen.', 'error');
+    toast(TCi18n.t('ep.profil.remoteLogoutFailed'), 'error');
   }
 }
 
@@ -781,16 +1077,16 @@ async function uploadProfilePhoto(input) {
   const file = input && input.files && input.files[0];
   if (!file) return;
   input.value = '';
-  if (file.size > 5 * 1024 * 1024) { toast('Datei zu groß (max. 5 MB).', 'error'); return; }
-  if (['image/png', 'image/jpeg', 'image/webp'].indexOf(file.type) < 0) { toast('Nur PNG, JPG oder WebP.', 'error'); return; }
+  if (file.size > 5 * 1024 * 1024) { toast(TCi18n.t('ep.profil.photoTooLarge'), 'error'); return; }
+  if (['image/png', 'image/jpeg', 'image/webp'].indexOf(file.type) < 0) { toast(TCi18n.t('ep.profil.photoWrongType'), 'error'); return; }
   try {
     const fd = new FormData();
     fd.append('file', file);
     await PortalApi.upload('/worker/me/photo', fd);
     setAvatarPhoto(true, true);
-    toast('Profilfoto gespeichert.');
+    toast(TCi18n.t('ep.profil.photoSaved'));
   } catch (e) {
-    toast('Upload fehlgeschlagen.', 'error');
+    toast(TCi18n.t('ep.profil.photoUploadFailed'), 'error');
   }
 }
 
@@ -799,7 +1095,7 @@ async function removeProfilePhoto() {
     await PortalApi.del('/worker/me/photo');
     location.reload(); // Initialen kommen aus fillProfile — sauberer Neuaufbau
   } catch (e) {
-    toast('Entfernen fehlgeschlagen.', 'error');
+    toast(TCi18n.t('ep.profil.photoRemoveFailed'), 'error');
   }
 }
 
@@ -858,7 +1154,7 @@ function docCategoryLabel(category) {
 function formatDocDate(value) {
   if (!value) return '–';
   try {
-    return new Date(value).toLocaleDateString('de-DE', { day:'2-digit', month:'2-digit', year:'numeric' });
+    return new Date(value).toLocaleDateString(TCi18n.dateLocale(), { day:'2-digit', month:'2-digit', year:'numeric' });
   } catch {
     return value;
   }
@@ -985,7 +1281,7 @@ async function uploadDocument() {
     });
     if (fileInput) fileInput.value = '';
     await loadWorkerDocuments();
-    toast('Nachweis hochgeladen.');
+    toast(TCi18n.t('ep.profil.docUploaded'));
   } catch (e) {
     errTxt.textContent = e.code === 'FILE_TOO_LARGE' ? 'Datei ist zu groß (max. 10 MB).'
       : e.code === 'INVALID_MIME' ? (e.message || 'Dateityp nicht erlaubt.')
@@ -1003,11 +1299,11 @@ function downloadDocument(documentId) {
 }
 
 async function deleteDocument(documentId) {
-  if (!window.confirm('Dokument wirklich löschen?')) return;
+  if (!window.confirm(TCi18n.t('ep.profil.docConfirmDelete'))) return;
   try {
     await PortalApi.del(`/worker/documents/${encodeURIComponent(documentId)}`);
     await loadWorkerDocuments();
-    toast('Dokument gelöscht.');
+    toast(TCi18n.t('ep.profil.docDeleted'));
   } catch (e) {
     toast(e.code === 'VERIFIED_DOCUMENT_LOCKED'
       ? 'Verifizierte Dokumente können nicht selbst gelöscht werden.'

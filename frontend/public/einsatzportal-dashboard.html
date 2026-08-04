@@ -4,7 +4,8 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <script src="/public/js/theme.js"></script>
-  <title>TempConnect – Einsatzportal</title>
+  <script src="/public/js/i18n.js"></script>
+  <title data-i18n="ep.dashboard.docTitle">TempConnect – Einsatzportal</title>
   <link rel="stylesheet" href="einsatzportal.css">
   <style>
     .ep-doc-banner {
@@ -128,54 +129,55 @@
   <div class="ep-sidebar-brand">
     <div class="ep-sidebar-logo">TC</div>
     <div>
-      <div style="font-weight:800;font-size:.95rem">Einsatzportal</div>
+      <div style="font-weight:800;font-size:.95rem" data-i18n="ep.shell.brand">Einsatzportal</div>
       <div style="font-size:.7rem;color:var(--ep-text-muted);font-weight:400">TempConnect</div>
     </div>
   </div>
   <nav class="ep-sidebar-nav">
     <a class="ep-sidebar-item active" href="einsatzportal-dashboard.html">
-      Dashboard
+      <span data-i18n="ep.nav.start">Dashboard</span>
     </a>
     <a class="ep-sidebar-item" href="einsatzportal-einsaetze.html">
-      Meine Einsätze
+      <span data-i18n="ep.nav.einsaetze">Meine Einsätze</span>
     </a>
     <a class="ep-sidebar-item" href="einsatzportal-plan.html">
-      Einsatzplan
+      <span data-i18n="ep.nav.plan">Einsatzplan</span>
     </a>
     <a class="ep-sidebar-item" href="einsatzportal-stundenzettel.html">
-      Stundenzettel
+      <span data-i18n="ep.nav.stunden">Stundenzettel</span>
     </a>
     <a class="ep-sidebar-item" href="/public/whats-new.html">
-      Was ist neu
+      <span data-i18n="ep.dashboard.nav.whatsNew">Was ist neu</span>
     </a>
     <a class="ep-sidebar-item" href="einsatzportal-benachrichtigungen.html" id="sb-notif">
-      Benachrichtigungen
+      <span data-i18n="ep.nav.benachrichtigungen">Benachrichtigungen</span>
       <span class="ep-sidebar-badge" id="sb-badge" style="display:none">0</span>
     </a>
     <a class="ep-sidebar-item" href="einsatzportal-kontakt.html">
-      Kontakt &amp; Hilfe
+      <span data-i18n="ep.nav.kontakt">Kontakt &amp; Hilfe</span>
     </a>
-    <a class="ep-sidebar-item" href="einsatzportal-profil.html">Mein Profil</a>
+    <a class="ep-sidebar-item" href="einsatzportal-profil.html"><span data-i18n="ep.navlong.profil">Mein Profil</span></a>
   </nav>
   <div class="ep-sidebar-footer">
     <div class="ep-sidebar-user">
       <div class="ep-sidebar-avatar" id="sd-ava">?</div>
       <div>
         <div class="ep-sidebar-name" id="sd-name">Wird geladen…</div>
-        <div class="ep-sidebar-role">Arbeitnehmer</div>
+        <div class="ep-sidebar-role" data-i18n="ep.shell.role">Arbeitnehmer</div>
       </div>
     </div>
+    <div style="padding:6px 0"><span data-i18n-switcher></span></div>
     <button class="ep-sidebar-item" onclick="doLogout()" style="margin-top:4px;color:var(--ep-text-muted)">
-      Abmelden
+      <span data-i18n="ep.shell.logout">Abmelden</span>
     </button>
   </div>
 </aside>
 
 <!-- ── Mobile Topbar ─────────────────────────────────────────────────────── -->
 <header class="ep-topbar">
-  <a class="ep-topbar-brand" href="einsatzportal-dashboard.html" aria-label="Zur Einsatzportal-Übersicht">
+  <a class="ep-topbar-brand" href="einsatzportal-dashboard.html" aria-label="Zur Einsatzportal-Übersicht" data-i18n-aria="ep.dashboard.aria.topbarBrand">
     <div class="ep-topbar-logo">TC</div>
-    Einsatzportal
+    <span data-i18n="ep.shell.brand">Einsatzportal</span>
   </a>
   <div class="ep-topbar-actions">
     <a class="ep-bell" href="einsatzportal-benachrichtigungen.html" id="mob-bell"><span class="ep-bell-badge" id="mob-badge" style="display:none">0</span>
@@ -200,22 +202,22 @@
 
       <!-- Pending-Confirmation-Banner -->
       <div id="pendBanner" style="display:none;background:rgba(74,158,255,.08);border:1px solid rgba(74,158,255,.22);border-radius:12px;padding:16px 18px;margin-bottom:14px">
-        <div style="font-weight:700;font-size:.92rem;margin-bottom:4px">Einsatz-Bestätigung offen</div>
+        <div style="font-weight:700;font-size:.92rem;margin-bottom:4px" data-i18n="ep.dashboard.pend.title">Einsatz-Bestätigung offen</div>
         <div style="font-size:.84rem;color:var(--ep-text-sub,var(--ep-text-muted));margin-bottom:10px" id="pendMsg">Ihr Disponent hat Ihnen einen neuen Einsatz zugewiesen.</div>
-        <a href="einsatzportal-einsaetze.html" class="ep-btn ep-btn-primary ep-btn-sm">Einsatz ansehen →</a>
+        <a href="einsatzportal-einsaetze.html" class="ep-btn ep-btn-primary ep-btn-sm" data-i18n="ep.dashboard.pend.cta">Einsatz ansehen →</a>
       </div>
 
       <!-- Korrektur-Banner -->
       <div class="ep-correction-banner" id="corrBanner" style="display:none">
-        <div class="ep-correction-title">Korrektur erforderlich</div>
+        <div class="ep-correction-title" data-i18n="ep.dashboard.corr.title">Korrektur erforderlich</div>
         <div class="ep-correction-note" id="corrNote">Ihr Stundenzettel wurde zur Korrektur zurückgegeben.</div>
-        <a id="corrLink" href="einsatzportal-stundenzettel.html" class="ep-btn ep-btn-outline ep-btn-sm" style="margin-top:10px;display:inline-flex">Jetzt korrigieren →</a>
+        <a id="corrLink" href="einsatzportal-stundenzettel.html" class="ep-btn ep-btn-outline ep-btn-sm" style="margin-top:10px;display:inline-flex" data-i18n="ep.dashboard.corr.cta">Jetzt korrigieren →</a>
       </div>
 
       <div class="ep-doc-banner" id="docBanner" data-state="warning">
         <div class="ep-doc-banner-title" id="docBannerTitle">Nachweise im Blick behalten</div>
         <div class="ep-doc-banner-text" id="docBannerText">Dokumente mit Frist oder Prüfstatus werden hier angezeigt.</div>
-        <a href="einsatzportal-profil.html#documents" class="ep-btn ep-btn-outline ep-btn-sm">Zum Dokumentbereich →</a>
+        <a href="einsatzportal-profil.html#documents" class="ep-btn ep-btn-outline ep-btn-sm" data-i18n="ep.dashboard.doc.cta">Zum Dokumentbereich →</a>
       </div>
 
       <!-- Begrüßung -->
@@ -226,24 +228,24 @@
 
       <!-- Hero: Nächster Einsatz -->
       <div class="ep-hero" id="heroCard">
-        <div class="ep-hero-label">Ihr nächster Einsatz</div>
+        <div class="ep-hero-label" data-i18n="ep.dashboard.hero.next">Ihr nächster Einsatz</div>
         <div class="ep-hero-empty">
-          <p>Kein aktiver Einsatz gefunden.<br>Ihr Disponent wird Sie benachrichtigen.</p>
+          <p><span data-i18n="ep.dashboard.hero.empty1">Kein aktiver Einsatz gefunden.</span><br><span data-i18n="ep.dashboard.hero.empty2">Ihr Disponent wird Sie benachrichtigen.</span></p>
         </div>
       </div>
 
       <!-- Stats Strip -->
       <div class="ep-stats" id="statsStrip">
-        <div class="ep-stat"><div class="ep-stat-val" id="s1">–</div><div class="ep-stat-label">Einsätze</div></div>
-        <div class="ep-stat"><div class="ep-stat-val o" id="s2">–</div><div class="ep-stat-label">Ausstehend</div></div>
-        <div class="ep-stat"><div class="ep-stat-val g" id="s3">–</div><div class="ep-stat-label">Angenommen</div></div>
-        <div class="ep-stat"><div class="ep-stat-val" id="s4">–</div><div class="ep-stat-label">Entwürfe</div></div>
+        <div class="ep-stat"><div class="ep-stat-val" id="s1">–</div><div class="ep-stat-label" data-i18n="ep.dashboard.stats.einsaetze">Einsätze</div></div>
+        <div class="ep-stat"><div class="ep-stat-val o" id="s2">–</div><div class="ep-stat-label" data-i18n="ep.dashboard.stats.pending">Ausstehend</div></div>
+        <div class="ep-stat"><div class="ep-stat-val g" id="s3">–</div><div class="ep-stat-label" data-i18n="ep.dashboard.stats.accepted">Angenommen</div></div>
+        <div class="ep-stat"><div class="ep-stat-val" id="s4">–</div><div class="ep-stat-label" data-i18n="ep.dashboard.stats.drafts">Entwürfe</div></div>
       </div>
 
       <div class="ep-card">
         <div class="ep-card-head">
-          <div class="ep-card-title">Nachweise &amp; Dokumente</div>
-          <a href="einsatzportal-profil.html#documents" class="ep-card-link">Profil öffnen →</a>
+          <div class="ep-card-title" data-i18n="ep.dashboard.doc.title">Nachweise &amp; Dokumente</div>
+          <a href="einsatzportal-profil.html#documents" class="ep-card-link" data-i18n="ep.dashboard.doc.openProfile">Profil öffnen →</a>
         </div>
         <div id="docHubContent">
           <div class="ep-skel ep-skel-sm"></div>
@@ -253,8 +255,8 @@
       <!-- Aktuelle Woche -->
       <div class="ep-card">
         <div class="ep-card-head">
-          <div class="ep-card-title">Diese Woche</div>
-          <a href="einsatzportal-stundenzettel.html" class="ep-card-link">Alle ansehen →</a>
+          <div class="ep-card-title" data-i18n="ep.dashboard.week.title">Diese Woche</div>
+          <a href="einsatzportal-stundenzettel.html" class="ep-card-link" data-i18n="ep.dashboard.week.viewAll">Alle ansehen →</a>
         </div>
         <div id="weekContent">
           <div class="ep-skel ep-skel-sm"></div>
@@ -264,15 +266,15 @@
       <!-- Letzte Einreichungen -->
       <div class="ep-card">
         <div class="ep-card-head">
-          <div class="ep-card-title">Letzte Stundenzettel</div>
-          <a href="einsatzportal-stundenzettel.html" class="ep-card-link">Alle →</a>
+          <div class="ep-card-title" data-i18n="ep.dashboard.subs.title">Letzte Stundenzettel</div>
+          <a href="einsatzportal-stundenzettel.html" class="ep-card-link" data-i18n="ep.dashboard.subs.all">Alle →</a>
         </div>
         <div id="subsList"></div>
       </div>
 
       <!-- Kontaktkarte -->
       <div id="contactCard" style="display:none">
-        <div class="ep-section-label">Ihr Ansprechpartner</div>
+        <div class="ep-section-label" data-i18n="ep.dashboard.contact.label">Ihr Ansprechpartner</div>
         <div class="ep-contact-card" id="contactInner"></div>
       </div>
 
@@ -282,12 +284,12 @@
 
 <!-- Mobile Bottom Nav -->
 <nav class="ep-bottom-nav">
-  <a class="ep-bn-item active" href="einsatzportal-dashboard.html">Start</a>
-  <a class="ep-bn-item" href="einsatzportal-einsaetze.html">Einsätze</a>
-  <a class="ep-bn-item" href="einsatzportal-plan.html">Plan</a>
-  <a class="ep-bn-item" href="einsatzportal-stundenzettel.html">Stunden</a>
-  <a class="ep-bn-item" href="einsatzportal-benachrichtigungen.html" id="bn-notif">Info<span class="ep-bn-dot" id="bn-dot" style="display:none"></span></a>
-  <a class="ep-bn-item" href="einsatzportal-profil.html">Profil</a>
+  <a class="ep-bn-item active" href="einsatzportal-dashboard.html"><span data-i18n="ep.nav.start">Start</span></a>
+  <a class="ep-bn-item" href="einsatzportal-einsaetze.html"><span data-i18n="ep.nav.einsaetze">Einsätze</span></a>
+  <a class="ep-bn-item" href="einsatzportal-plan.html"><span data-i18n="ep.nav.plan">Plan</span></a>
+  <a class="ep-bn-item" href="einsatzportal-stundenzettel.html"><span data-i18n="ep.nav.stunden">Stunden</span></a>
+  <a class="ep-bn-item" href="einsatzportal-benachrichtigungen.html" id="bn-notif"><span data-i18n="ep.nav.info">Info</span><span class="ep-bn-dot" id="bn-dot" style="display:none"></span></a>
+  <a class="ep-bn-item" href="einsatzportal-profil.html"><span data-i18n="ep.nav.profil">Profil</span></a>
 </nav>
 
 <div id="ep-toast"></div>
@@ -296,6 +298,163 @@
 <script src="/public/js/workerPortal/portalShell.js"></script>
 <script src="/public/js/workerPortal/portalStatus.js"></script>
 <script>
+/* ── i18n (P6.1): Seiten-Woerterbuch. Die gemeinsamen ep.nav.* -, ep.shell.* - und
+   ep.aria.* -Keys registriert die Portal-Shell (portalShell.js) — hier nur ep.dashboard.*. ── */
+TCi18n.register('de', {
+  'ep.dashboard.docTitle': 'TempConnect – Einsatzportal',
+  'ep.dashboard.aria.topbarBrand': 'Zur Einsatzportal-Übersicht',
+  'ep.dashboard.nav.whatsNew': 'Was ist neu',
+  'ep.dashboard.pend.title': 'Einsatz-Bestätigung offen',
+  'ep.dashboard.pend.cta': 'Einsatz ansehen →',
+  'ep.dashboard.pend.msgOneClient': 'Ihr Disponent hat Ihnen den Einsatz bei {client} zugewiesen. Bitte bestätigen Sie.',
+  'ep.dashboard.pend.msgOne': 'Ihr Disponent hat Ihnen den Einsatz zugewiesen. Bitte bestätigen Sie.',
+  'ep.dashboard.pend.msgMany': 'Sie haben {count} offene Einsatz-Bestätigungen.',
+  'ep.dashboard.corr.title': 'Korrektur erforderlich',
+  'ep.dashboard.corr.cta': 'Jetzt korrigieren →',
+  'ep.dashboard.corr.fallback': 'Bitte überprüfen Sie Ihre Einreichung und korrigieren Sie die Angaben.',
+  'ep.dashboard.err.load': 'Daten konnten nicht geladen werden. Bitte laden Sie die Seite neu.',
+  'ep.dashboard.greet.morning': 'Guten Morgen',
+  'ep.dashboard.greet.day': 'Guten Tag',
+  'ep.dashboard.greet.evening': 'Guten Abend',
+  'ep.dashboard.greet.welcome': 'Willkommen',
+  'ep.dashboard.greet.subSupplier': 'Willkommen in Ihrem Einsatzportal.',
+  'ep.dashboard.greet.subGeneric': 'Willkommen im TempConnect-Portal.',
+  'ep.dashboard.hero.next': 'Ihr nächster Einsatz',
+  'ep.dashboard.hero.active': 'Ihr aktiver Einsatz',
+  'ep.dashboard.hero.empty1': 'Kein aktiver Einsatz gefunden.',
+  'ep.dashboard.hero.empty2': 'Ihr Disponent wird Sie benachrichtigen.',
+  'ep.dashboard.hero.clientFallback': 'Ihr Einsatz',
+  'ep.dashboard.hero.from': 'ab {range}',
+  'ep.dashboard.hero.timeFmt': '{time} Uhr',
+  'ep.dashboard.hero.details': 'Details ansehen',
+  'ep.dashboard.hero.toPlan': 'Einsatzplan →',
+  'ep.dashboard.stats.einsaetze': 'Einsätze',
+  'ep.dashboard.stats.pending': 'Ausstehend',
+  'ep.dashboard.stats.accepted': 'Angenommen',
+  'ep.dashboard.stats.drafts': 'Entwürfe',
+  'ep.dashboard.kw': 'KW {kw}',
+  'ep.dashboard.week.title': 'Diese Woche',
+  'ep.dashboard.week.viewAll': 'Alle ansehen →',
+  'ep.dashboard.week.noActive': 'Kein aktiver Einsatz. Ihr Disponent richtet Sie ein.',
+  'ep.dashboard.week.noHours': 'Noch keine Stunden für KW {kw} erfasst.',
+  'ep.dashboard.week.create': 'Stundenzettel für diese Woche anlegen',
+  'ep.dashboard.week.draft': 'Entwurf für KW {kw} — noch nicht eingereicht.',
+  'ep.dashboard.week.resumeDraft': 'Entwurf fortsetzen →',
+  'ep.dashboard.week.needsCorrection': 'Korrektur erforderlich für KW {kw}.',
+  'ep.dashboard.week.st.submitted': 'Eingereicht – wird geprüft',
+  'ep.dashboard.week.st.underReview': 'In Prüfung',
+  'ep.dashboard.week.st.accepted': 'Angenommen',
+  'ep.dashboard.week.st.rejected': 'Abgelehnt',
+  'ep.dashboard.subs.title': 'Letzte Stundenzettel',
+  'ep.dashboard.subs.all': 'Alle →',
+  'ep.dashboard.subs.empty': 'Noch keine Einreichungen',
+  'ep.dashboard.subs.draft': 'Entwurf',
+  'ep.dashboard.contact.label': 'Ihr Ansprechpartner',
+  'ep.dashboard.contact.dispatcher': 'Ihr Disponent',
+  'ep.dashboard.contact.contact': 'Ansprechpartner',
+  'ep.dashboard.contact.roleDispatcher': 'Disponent',
+  'ep.dashboard.contact.roleOnsite': 'Ansprechpartner vor Ort',
+  'ep.dashboard.contact.email': 'E-Mail',
+  'ep.dashboard.contact.all': 'Alle Kontakte →',
+  'ep.dashboard.doc.title': 'Nachweise & Dokumente',
+  'ep.dashboard.doc.openProfile': 'Profil öffnen →',
+  'ep.dashboard.doc.cta': 'Zum Dokumentbereich →',
+  'ep.dashboard.doc.bannerCriticalTitle': 'Sofortiger Handlungsbedarf bei Nachweisen',
+  'ep.dashboard.doc.bannerWarnTitle': 'Nachweise laufen bald ab',
+  'ep.dashboard.doc.expiredMsg': '{count} Nachweis(e) sind bereits abgelaufen. Bitte laden Sie umgehend gültigen Ersatz hoch.',
+  'ep.dashboard.doc.rejectedMsg': '{count} Nachweis(e) wurden abgelehnt. Bitte prüfen Sie die Hinweise und ersetzen Sie die Datei.',
+  'ep.dashboard.doc.attentionMsg': '{count} Nachweis(e) benötigen bald Aufmerksamkeit{suffix}.',
+  'ep.dashboard.doc.nextDueSuffix': ', nächste Frist am {date}',
+  'ep.dashboard.doc.tiles.total': 'Gesamt',
+  'ep.dashboard.doc.tiles.verified': 'Verifiziert',
+  'ep.dashboard.doc.tiles.inReview': 'In Prüfung',
+  'ep.dashboard.doc.tiles.expiring': 'Fristkritisch',
+  'ep.dashboard.doc.tiles.action': 'Aktion nötig',
+  'ep.dashboard.doc.empty': 'Noch keine Nachweise hinterlegt.',
+  'ep.dashboard.doc.validUntil': 'Gültig bis {date}',
+  'ep.dashboard.doc.expiredSince': 'Seit {date} abgelaufen.',
+  'ep.dashboard.doc.expiresInDays': 'Läuft in {days} Tagen ab.',
+  'ep.dashboard.doc.docFallback': 'Dokument',
+  'ep.dashboard.doc.noMeta': 'Ohne Zusatzangaben'
+});
+TCi18n.register('en', {
+  'ep.dashboard.docTitle': 'TempConnect – Worker Portal',
+  'ep.dashboard.aria.topbarBrand': 'Go to portal overview',
+  'ep.dashboard.nav.whatsNew': 'What\'s new',
+  'ep.dashboard.pend.title': 'Assignment confirmation pending',
+  'ep.dashboard.pend.cta': 'View assignment →',
+  'ep.dashboard.pend.msgOneClient': 'Your dispatcher has assigned you to {client}. Please confirm.',
+  'ep.dashboard.pend.msgOne': 'Your dispatcher has assigned you a new assignment. Please confirm.',
+  'ep.dashboard.pend.msgMany': 'You have {count} pending assignment confirmations.',
+  'ep.dashboard.corr.title': 'Correction required',
+  'ep.dashboard.corr.cta': 'Correct now →',
+  'ep.dashboard.corr.fallback': 'Please review your submission and correct the entries.',
+  'ep.dashboard.err.load': 'Data could not be loaded. Please reload the page.',
+  'ep.dashboard.greet.morning': 'Good morning',
+  'ep.dashboard.greet.day': 'Good afternoon',
+  'ep.dashboard.greet.evening': 'Good evening',
+  'ep.dashboard.greet.welcome': 'Welcome',
+  'ep.dashboard.greet.subSupplier': 'Welcome to your worker portal.',
+  'ep.dashboard.greet.subGeneric': 'Welcome to the TempConnect portal.',
+  'ep.dashboard.hero.next': 'Your next assignment',
+  'ep.dashboard.hero.active': 'Your active assignment',
+  'ep.dashboard.hero.empty1': 'No active assignment found.',
+  'ep.dashboard.hero.empty2': 'Your dispatcher will notify you.',
+  'ep.dashboard.hero.clientFallback': 'Your assignment',
+  'ep.dashboard.hero.from': 'from {range}',
+  'ep.dashboard.hero.timeFmt': '{time}',
+  'ep.dashboard.hero.details': 'View details',
+  'ep.dashboard.hero.toPlan': 'Schedule →',
+  'ep.dashboard.stats.einsaetze': 'Assignments',
+  'ep.dashboard.stats.pending': 'Pending',
+  'ep.dashboard.stats.accepted': 'Accepted',
+  'ep.dashboard.stats.drafts': 'Drafts',
+  'ep.dashboard.kw': 'Week {kw}',
+  'ep.dashboard.week.title': 'This week',
+  'ep.dashboard.week.viewAll': 'View all →',
+  'ep.dashboard.week.noActive': 'No active assignment. Your dispatcher will set you up.',
+  'ep.dashboard.week.noHours': 'No hours recorded for week {kw} yet.',
+  'ep.dashboard.week.create': 'Create a timesheet for this week',
+  'ep.dashboard.week.draft': 'Draft for week {kw} — not submitted yet.',
+  'ep.dashboard.week.resumeDraft': 'Resume draft →',
+  'ep.dashboard.week.needsCorrection': 'Correction required for week {kw}.',
+  'ep.dashboard.week.st.submitted': 'Submitted – in review',
+  'ep.dashboard.week.st.underReview': 'In review',
+  'ep.dashboard.week.st.accepted': 'Accepted',
+  'ep.dashboard.week.st.rejected': 'Rejected',
+  'ep.dashboard.subs.title': 'Recent timesheets',
+  'ep.dashboard.subs.all': 'All →',
+  'ep.dashboard.subs.empty': 'No submissions yet',
+  'ep.dashboard.subs.draft': 'Draft',
+  'ep.dashboard.contact.label': 'Your contact person',
+  'ep.dashboard.contact.dispatcher': 'Your dispatcher',
+  'ep.dashboard.contact.contact': 'Contact person',
+  'ep.dashboard.contact.roleDispatcher': 'Dispatcher',
+  'ep.dashboard.contact.roleOnsite': 'On-site contact',
+  'ep.dashboard.contact.email': 'Email',
+  'ep.dashboard.contact.all': 'All contacts →',
+  'ep.dashboard.doc.title': 'Credentials & documents',
+  'ep.dashboard.doc.openProfile': 'Open profile →',
+  'ep.dashboard.doc.cta': 'Go to documents →',
+  'ep.dashboard.doc.bannerCriticalTitle': 'Immediate action required on credentials',
+  'ep.dashboard.doc.bannerWarnTitle': 'Credentials expiring soon',
+  'ep.dashboard.doc.expiredMsg': '{count} document(s) have already expired. Please upload a valid replacement immediately.',
+  'ep.dashboard.doc.rejectedMsg': '{count} document(s) were rejected. Please check the notes and replace the file.',
+  'ep.dashboard.doc.attentionMsg': '{count} document(s) need attention soon{suffix}.',
+  'ep.dashboard.doc.nextDueSuffix': ', next deadline on {date}',
+  'ep.dashboard.doc.tiles.total': 'Total',
+  'ep.dashboard.doc.tiles.verified': 'Verified',
+  'ep.dashboard.doc.tiles.inReview': 'In review',
+  'ep.dashboard.doc.tiles.expiring': 'Expiring soon',
+  'ep.dashboard.doc.tiles.action': 'Action needed',
+  'ep.dashboard.doc.empty': 'No credentials uploaded yet.',
+  'ep.dashboard.doc.validUntil': 'Valid until {date}',
+  'ep.dashboard.doc.expiredSince': 'Expired since {date}.',
+  'ep.dashboard.doc.expiresInDays': 'Expires in {days} days.',
+  'ep.dashboard.doc.docFallback': 'Document',
+  'ep.dashboard.doc.noMeta': 'No additional details'
+});
+
 let assignments = [], submissions = [], dashboard = null;
 function esc(s) { return PortalShell.esc(s); }
 
@@ -307,7 +466,7 @@ function esc(s) { return PortalShell.esc(s); }
   } catch(e) {
     const code = e.code || e.message;
     if (code === 'NOT_AUTH') { location.href = 'worker-login.html'; return; }
-    PortalShell.showError('Daten konnten nicht geladen werden. Bitte laden Sie die Seite neu.');
+    PortalShell.showError(TCi18n.t('ep.dashboard.err.load'));
   }
 })();
 async function loadAssignments() {
@@ -347,25 +506,25 @@ function render(me) {
 
   // Begrüßung
   const h = new Date().getHours();
-  const greet = h < 12 ? 'Guten Morgen' : h < 18 ? 'Guten Tag' : 'Guten Abend';
-  document.getElementById('greeting').textContent = `${greet}, ${me.first_name || 'Willkommen'}!`;
+  const greet = h < 12 ? TCi18n.t('ep.dashboard.greet.morning') : h < 18 ? TCi18n.t('ep.dashboard.greet.day') : TCi18n.t('ep.dashboard.greet.evening');
+  document.getElementById('greeting').textContent = `${greet}, ${me.first_name || TCi18n.t('ep.dashboard.greet.welcome')}!`;
   document.getElementById('greetingSub').textContent =
-    me.supplier_org_id ? 'Willkommen in Ihrem Einsatzportal.' : 'Willkommen im TempConnect-Portal.';
+    me.supplier_org_id ? TCi18n.t('ep.dashboard.greet.subSupplier') : TCi18n.t('ep.dashboard.greet.subGeneric');
 
   // Pending-Confirmation-Banner
   const pend = assignments.filter(a => isCurrentAssignment(a) && a.worker_confirmation_status === 'pending_confirmation');
   if (pend.length > 0) {
     const client = pend[0].client_display_name || pend[0].client_name || '';
     document.getElementById('pendMsg').textContent = pend.length === 1
-      ? `Ihr Disponent hat Ihnen den Einsatz${client ? ' bei ' + client : ''} zugewiesen. Bitte best\u00e4tigen Sie.`
-      : `Sie haben ${pend.length} offene Einsatz-Best\u00e4tigungen.`;
+      ? (client ? TCi18n.t('ep.dashboard.pend.msgOneClient', { client: client }) : TCi18n.t('ep.dashboard.pend.msgOne'))
+      : TCi18n.t('ep.dashboard.pend.msgMany', { count: pend.length });
     document.getElementById('pendBanner').style.display = '';
   }
 
   // Korrektur-Banner
   const corr = submissions.find(s => s.status === 'needs_correction');
   if (corr) {
-    document.getElementById('corrNote').textContent = corr.correction_note || 'Bitte \u00fcberpr\u00fcfen Sie Ihre Einreichung und korrigieren Sie die Angaben.';
+    document.getElementById('corrNote').textContent = corr.correction_note || TCi18n.t('ep.dashboard.corr.fallback');
     document.getElementById('corrLink').href = `einsatzportal-stundenzettel.html?id=${corr.id}`;
     document.getElementById('corrBanner').style.display = '';
   }
@@ -398,7 +557,7 @@ function renderHero() {
   if (!active.length) return;
 
   const a = active[0];
-  const clientName = a.client_display_name || a.client_name || 'Ihr Einsatz';
+  const clientName = a.client_display_name || a.client_name || TCi18n.t('ep.dashboard.hero.clientFallback');
   const desc = a.worker_description || a.assignment_notes || '';
   const shiftStart = a.default_shift_start ? a.default_shift_start.slice(0,5) : null;
   const shiftEnd   = a.default_shift_end   ? a.default_shift_end.slice(0,5)   : null;
@@ -406,17 +565,17 @@ function renderHero() {
   const endDate    = a.asg_end   ? fmtDate(a.asg_end)   : null;
 
   el.innerHTML = `
-    <div class="ep-hero-label">Ihr aktiver Einsatz</div>
+    <div class="ep-hero-label">${TCi18n.t('ep.dashboard.hero.active')}</div>
     <div class="ep-hero-client">${esc(clientName)}</div>
     ${desc ? `<div class="ep-hero-desc">${esc(desc)}</div>` : ''}
     <div class="ep-hero-meta">
-      ${startDate ? `<div class="ep-hero-chip"><span class="ci"></span> ab ${startDate}${endDate ? ` – ${endDate}` : ''}</div>` : ''}
-      ${shiftStart ? `<div class="ep-hero-chip"><span class="ci"></span> ${shiftStart}${shiftEnd ? ` – ${shiftEnd}` : ''} Uhr</div>` : ''}
+      ${startDate ? `<div class="ep-hero-chip"><span class="ci"></span> ${TCi18n.t('ep.dashboard.hero.from', { range: `${startDate}${endDate ? ` – ${endDate}` : ''}` })}</div>` : ''}
+      ${shiftStart ? `<div class="ep-hero-chip"><span class="ci"></span> ${TCi18n.t('ep.dashboard.hero.timeFmt', { time: `${shiftStart}${shiftEnd ? ` – ${shiftEnd}` : ''}` })}</div>` : ''}
       ${a.location_address ? `<div class="ep-hero-chip"><span class="ci"></span> ${esc(a.location_address.split(',')[0])}</div>` : ''}
     </div>
     <div style="display:flex;gap:8px;flex-wrap:wrap">
-      <a href="einsatzportal-einsaetze.html" class="ep-btn ep-btn-outline ep-btn-sm">Details ansehen</a>
-      <a href="einsatzportal-plan.html" class="ep-btn ep-btn-ghost ep-btn-sm">Einsatzplan →</a>
+      <a href="einsatzportal-einsaetze.html" class="ep-btn ep-btn-outline ep-btn-sm">${TCi18n.t('ep.dashboard.hero.details')}</a>
+      <a href="einsatzportal-plan.html" class="ep-btn ep-btn-ghost ep-btn-sm">${TCi18n.t('ep.dashboard.hero.toPlan')}</a>
     </div>`;
 }
 
@@ -428,37 +587,37 @@ function renderWeek() {
   if (!thisWeek) {
     const active = assignments.filter(a => isCurrentAssignment(a));
     if (!active.length) {
-      el.innerHTML = `<div class="ep-alert ep-alert-info"><span>ℹ️</span><span>Kein aktiver Einsatz. Ihr Disponent richtet Sie ein.</span></div>`;
+      el.innerHTML = `<div class="ep-alert ep-alert-info"><span>ℹ️</span><span>${TCi18n.t('ep.dashboard.week.noActive')}</span></div>`;
       return;
     }
     el.innerHTML = `
       <p style="font-size:.875rem;color:var(--ep-text-sub);margin-bottom:12px">
-        Noch keine Stunden für KW ${getKW(new Date(weekStart))} erfasst.
+        ${TCi18n.t('ep.dashboard.week.noHours', { kw: getKW(new Date(weekStart)) })}
       </p>
-      <a href="einsatzportal-stundenzettel.html" class="ep-btn ep-btn-primary ep-btn-full">Stundenzettel für diese Woche anlegen
+      <a href="einsatzportal-stundenzettel.html" class="ep-btn ep-btn-primary ep-btn-full">${TCi18n.t('ep.dashboard.week.create')}
       </a>`;
   } else if (thisWeek.status === 'draft') {
     el.innerHTML = `
       <div class="ep-alert ep-alert-warning" style="margin-bottom:10px">
-        <span>Entwurf für KW ${getKW(new Date(weekStart))} — noch nicht eingereicht.</span>
+        <span>${TCi18n.t('ep.dashboard.week.draft', { kw: getKW(new Date(weekStart)) })}</span>
       </div>
       <a href="einsatzportal-stundenzettel.html?id=${thisWeek.id}" class="ep-btn ep-btn-outline ep-btn-full">
-        Entwurf fortsetzen →
+        ${TCi18n.t('ep.dashboard.week.resumeDraft')}
       </a>`;
   } else if (thisWeek.status === 'needs_correction') {
     el.innerHTML = `
       <div class="ep-alert ep-alert-danger" style="margin-bottom:10px">
-        <span>Korrektur erforderlich für KW ${getKW(new Date(weekStart))}.</span>
+        <span>${TCi18n.t('ep.dashboard.week.needsCorrection', { kw: getKW(new Date(weekStart)) })}</span>
       </div>
       <a href="einsatzportal-stundenzettel.html?id=${thisWeek.id}" class="ep-btn ep-btn-danger ep-btn-full">
-        Jetzt korrigieren →
+        ${TCi18n.t('ep.dashboard.corr.cta')}
       </a>`;
   } else {
-    const lbls = { submitted:'Eingereicht – wird geprüft', under_review:'In Prüfung', accepted_into_timesheet:'Angenommen', rejected:'Abgelehnt' };
+    const lbls = { submitted:TCi18n.t('ep.dashboard.week.st.submitted'), under_review:TCi18n.t('ep.dashboard.week.st.underReview'), accepted_into_timesheet:TCi18n.t('ep.dashboard.week.st.accepted'), rejected:TCi18n.t('ep.dashboard.week.st.rejected') };
     const cls  = { submitted:'info', under_review:'warning', accepted_into_timesheet:'success', rejected:'danger' };
     el.innerHTML = `
       <div class="ep-alert ep-alert-${cls[thisWeek.status] || 'info'}">
-        <span>KW ${getKW(new Date(weekStart))}: <strong>${lbls[thisWeek.status] || thisWeek.status}</strong> · ${parseFloat(thisWeek.total_hours||0).toFixed(1)} h</span>
+        <span>${TCi18n.t('ep.dashboard.kw', { kw: getKW(new Date(weekStart)) })}: <strong>${lbls[thisWeek.status] || thisWeek.status}</strong> · ${parseFloat(thisWeek.total_hours||0).toFixed(1)} h</span>
       </div>`;
   }
 }
@@ -467,7 +626,7 @@ function renderSubs() {
   const el = document.getElementById('subsList');
   const recent = submissions.slice(0, 5);
   if (!recent.length) {
-    el.innerHTML = `<div class="ep-empty" style="padding:24px 0"><p>Noch keine Einreichungen</p></div>`;
+    el.innerHTML = `<div class="ep-empty" style="padding:24px 0"><p>${TCi18n.t('ep.dashboard.subs.empty')}</p></div>`;
     return;
   }
   el.innerHTML = recent.map(s => `
@@ -478,7 +637,7 @@ function renderSubs() {
       </div>
       <div class="ep-sub-meta">${esc(s.client_name || s.supplier_name || '')}</div>
       <div class="ep-sub-foot">
-        <span style="font-size:.78rem;color:var(--ep-text-muted)">${s.submitted_at ? fmtDate(s.submitted_at) : 'Entwurf'}</span>
+        <span style="font-size:.78rem;color:var(--ep-text-muted)">${s.submitted_at ? fmtDate(s.submitted_at) : TCi18n.t('ep.dashboard.subs.draft')}</span>
         <span class="ep-sub-hours">${parseFloat(s.total_hours||0).toFixed(1)} h</span>
       </div>
     </a>`).join('');
@@ -495,18 +654,18 @@ function renderContact() {
   const phone = a.dispatcher_phone || a.contact_phone;
   const email = a.dispatcher_email || a.contact_email;
   ci.innerHTML = `
-    <div class="ep-contact-label">${a.dispatcher_name ? 'Ihr Disponent' : 'Ansprechpartner'}</div>
+    <div class="ep-contact-label">${a.dispatcher_name ? TCi18n.t('ep.dashboard.contact.dispatcher') : TCi18n.t('ep.dashboard.contact.contact')}</div>
     <div class="ep-contact-head">
       <div class="ep-contact-avatar"></div>
       <div>
         <div class="ep-contact-name">${esc(who)}</div>
-        <div class="ep-contact-role">${a.dispatcher_name ? 'Disponent' : 'Ansprechpartner vor Ort'}</div>
+        <div class="ep-contact-role">${a.dispatcher_name ? TCi18n.t('ep.dashboard.contact.roleDispatcher') : TCi18n.t('ep.dashboard.contact.roleOnsite')}</div>
       </div>
     </div>
     <div class="ep-contact-actions">
       ${phone ? `<a class="ep-contact-action primary" href="tel:${esc(phone)}">${esc(phone)}</a>` : ''}
-      ${email ? `<a class="ep-contact-action" href="mailto:${esc(email)}">E-Mail</a>` : ''}
-      <a class="ep-contact-action" href="einsatzportal-kontakt.html">Alle Kontakte →</a>
+      ${email ? `<a class="ep-contact-action" href="mailto:${esc(email)}">${TCi18n.t('ep.dashboard.contact.email')}</a>` : ''}
+      <a class="ep-contact-action" href="einsatzportal-kontakt.html">${TCi18n.t('ep.dashboard.contact.all')}</a>
     </div>`;
 }
 
@@ -527,15 +686,15 @@ function renderDocumentHub() {
   if (banner && bannerTitle && bannerText) {
     if (expired > 0 || rejected > 0) {
       banner.dataset.state = 'critical';
-      bannerTitle.textContent = 'Sofortiger Handlungsbedarf bei Nachweisen';
+      bannerTitle.textContent = TCi18n.t('ep.dashboard.doc.bannerCriticalTitle');
       bannerText.textContent = expired > 0
-        ? `${expired} Nachweis(e) sind bereits abgelaufen. Bitte laden Sie umgehend gültigen Ersatz hoch.`
-        : `${rejected} Nachweis(e) wurden abgelehnt. Bitte prüfen Sie die Hinweise und ersetzen Sie die Datei.`;
+        ? TCi18n.t('ep.dashboard.doc.expiredMsg', { count: expired })
+        : TCi18n.t('ep.dashboard.doc.rejectedMsg', { count: rejected });
       banner.style.display = '';
     } else if (actionRequired > 0 || expiringSoon > 0) {
       banner.dataset.state = 'warning';
-      bannerTitle.textContent = 'Nachweise laufen bald ab';
-      bannerText.textContent = `${expiringSoon || actionRequired} Nachweis(e) benötigen bald Aufmerksamkeit${nextExpiry ? `, nächste Frist am ${nextExpiry}` : ''}.`;
+      bannerTitle.textContent = TCi18n.t('ep.dashboard.doc.bannerWarnTitle');
+      bannerText.textContent = TCi18n.t('ep.dashboard.doc.attentionMsg', { count: expiringSoon || actionRequired, suffix: nextExpiry ? TCi18n.t('ep.dashboard.doc.nextDueSuffix', { date: nextExpiry }) : '' });
       banner.style.display = '';
     } else {
       banner.style.display = 'none';
@@ -543,11 +702,11 @@ function renderDocumentHub() {
   }
 
   const summaryTiles = [
-    { value: summary.total || 0, label: 'Gesamt' },
-    { value: summary.verified || 0, label: 'Verifiziert' },
-    { value: summary.pending_review || 0, label: 'In Prüfung' },
-    { value: summary.expiring_soon || 0, label: 'Fristkritisch' },
-    { value: summary.action_required || 0, label: 'Aktion nötig' }
+    { value: summary.total || 0, label: TCi18n.t('ep.dashboard.doc.tiles.total') },
+    { value: summary.verified || 0, label: TCi18n.t('ep.dashboard.doc.tiles.verified') },
+    { value: summary.pending_review || 0, label: TCi18n.t('ep.dashboard.doc.tiles.inReview') },
+    { value: summary.expiring_soon || 0, label: TCi18n.t('ep.dashboard.doc.tiles.expiring') },
+    { value: summary.action_required || 0, label: TCi18n.t('ep.dashboard.doc.tiles.action') }
   ];
 
   if (!el) return;
@@ -562,7 +721,7 @@ function renderDocumentHub() {
         `).join('')}
       </div>
       <div class="ep-empty" style="padding:24px 0">
-        <p>Noch keine Nachweise hinterlegt.</p>
+        <p>${TCi18n.t('ep.dashboard.doc.empty')}</p>
       </div>`;
     return;
   }
@@ -582,20 +741,20 @@ function renderDocumentHub() {
           PortalStatus.documentCategoryLabel(doc.category),
           doc.qualification_name || null,
           doc.issuer || null,
-          doc.valid_until ? `Gültig bis ${fmtDate(doc.valid_until)}` : null
+          doc.valid_until ? TCi18n.t('ep.dashboard.doc.validUntil', { date: fmtDate(doc.valid_until) }) : null
         ].filter(Boolean).join(' · ');
         let note = doc.review_note || doc.notes || '';
         if (doc.effective_status === 'expired' && doc.valid_until) {
-          note = `Seit ${fmtDate(doc.valid_until)} abgelaufen.${note ? ' · ' + note : ''}`;
+          note = `${TCi18n.t('ep.dashboard.doc.expiredSince', { date: fmtDate(doc.valid_until) })}${note ? ' · ' + note : ''}`;
         } else if (doc.is_expiring_soon && doc.days_until_expiry != null) {
-          note = `Läuft in ${doc.days_until_expiry} Tagen ab.${note ? ' · ' + note : ''}`;
+          note = `${TCi18n.t('ep.dashboard.doc.expiresInDays', { days: doc.days_until_expiry })}${note ? ' · ' + note : ''}`;
         }
         return `
           <div class="ep-doc-item">
             <div class="ep-doc-item-head">
               <div>
-                <div class="ep-doc-item-title">${esc(doc.title || doc.original_name || 'Dokument')}</div>
-                <div class="ep-doc-item-meta">${esc(meta || 'Ohne Zusatzangaben')}</div>
+                <div class="ep-doc-item-title">${esc(doc.title || doc.original_name || TCi18n.t('ep.dashboard.doc.docFallback'))}</div>
+                <div class="ep-doc-item-meta">${esc(meta || TCi18n.t('ep.dashboard.doc.noMeta'))}</div>
               </div>
               <span class="ep-doc-badge ${PortalStatus.documentBadgeState(doc)}">${esc(PortalStatus.documentBadgeLabel(doc))}</span>
             </div>
@@ -619,13 +778,13 @@ function getKW(d) {
   return Math.floor((t-new Date(Date.UTC(y,0,1)))/604800000)+1;
 }
 function fmtDate(d) {
-  return new Date(d).toLocaleDateString('de-DE', { day:'2-digit', month:'2-digit', year:'numeric' });
+  return new Date(d).toLocaleDateString(TCi18n.dateLocale(), { day:'2-digit', month:'2-digit', year:'numeric' });
 }
 function fmtWeek(st, en) {
   if (!st) return '';
   const s=new Date(st),e=new Date(en||st);
-  const fmt = d=>d.toLocaleDateString('de-DE',{day:'2-digit',month:'2-digit'});
-  return `KW ${getKW(s)} · ${fmt(s)} – ${fmt(e)}`;
+  const fmt = d=>d.toLocaleDateString(TCi18n.dateLocale(),{day:'2-digit',month:'2-digit'});
+  return `${TCi18n.t('ep.dashboard.kw', { kw: getKW(s) })} · ${fmt(s)} – ${fmt(e)}`;
 }
 
 </script>

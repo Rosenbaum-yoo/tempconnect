@@ -4,7 +4,8 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <script src="/public/js/theme.js"></script>
-  <title>Einsatzplan – Einsatzportal</title>
+  <script src="/public/js/i18n.js"></script>
+  <title data-i18n="ep.plan.docTitle">Einsatzplan – Einsatzportal</title>
   <link rel="stylesheet" href="einsatzportal.css">
   <style>
     .week-nav {
@@ -78,30 +79,31 @@
 <aside class="ep-sidebar">
   <div class="ep-sidebar-brand"><div class="ep-sidebar-logo">TC</div><div><div style="font-weight:800;font-size:.95rem">Einsatzportal</div><div style="font-size:.7rem;color:var(--ep-text-muted);font-weight:400">TempConnect</div></div></div>
   <nav class="ep-sidebar-nav">
-    <a class="ep-sidebar-item" href="einsatzportal-dashboard.html">Dashboard</a>
-    <a class="ep-sidebar-item" href="einsatzportal-einsaetze.html">Meine Einsätze</a>
-    <a class="ep-sidebar-item active" href="einsatzportal-plan.html">Einsatzplan</a>
-    <a class="ep-sidebar-item" href="einsatzportal-stundenzettel.html">Stundenzettel</a>
-    <a class="ep-sidebar-item" href="einsatzportal-benachrichtigungen.html">Benachrichtigungen<span class="ep-sidebar-badge" id="sb-badge" style="display:none">0</span></a>
-    <a class="ep-sidebar-item" href="einsatzportal-kontakt.html">Kontakt &amp; Hilfe</a>
-    <a class="ep-sidebar-item" href="einsatzportal-profil.html">Mein Profil</a>
+    <a class="ep-sidebar-item" href="einsatzportal-dashboard.html"><span data-i18n="ep.navlong.start">Dashboard</span></a>
+    <a class="ep-sidebar-item" href="einsatzportal-einsaetze.html"><span data-i18n="ep.navlong.einsaetze">Meine Einsätze</span></a>
+    <a class="ep-sidebar-item active" href="einsatzportal-plan.html"><span data-i18n="ep.navlong.plan">Einsatzplan</span></a>
+    <a class="ep-sidebar-item" href="einsatzportal-stundenzettel.html"><span data-i18n="ep.navlong.stunden">Stundenzettel</span></a>
+    <a class="ep-sidebar-item" href="einsatzportal-benachrichtigungen.html"><span data-i18n="ep.navlong.benachrichtigungen">Benachrichtigungen</span><span class="ep-sidebar-badge" id="sb-badge" style="display:none">0</span></a>
+    <a class="ep-sidebar-item" href="einsatzportal-kontakt.html"><span data-i18n="ep.navlong.kontakt">Kontakt &amp; Hilfe</span></a>
+    <a class="ep-sidebar-item" href="einsatzportal-profil.html"><span data-i18n="ep.navlong.profil">Mein Profil</span></a>
   </nav>
   <div class="ep-sidebar-footer">
-    <div class="ep-sidebar-user"><div class="ep-sidebar-avatar" id="sd-ava">?</div><div><div class="ep-sidebar-name" id="sd-name">Lädt…</div><div class="ep-sidebar-role">Arbeitnehmer</div></div></div>
-    <button class="ep-sidebar-item" onclick="doLogout()" style="margin-top:4px;color:var(--ep-text-muted)">Abmelden</button>
+    <div class="ep-sidebar-user"><div class="ep-sidebar-avatar" id="sd-ava">?</div><div><div class="ep-sidebar-name" id="sd-name">Lädt…</div><div class="ep-sidebar-role" data-i18n="ep.shell.role">Arbeitnehmer</div></div></div>
+    <div style="padding:6px 0"><span data-i18n-switcher></span></div>
+    <button class="ep-sidebar-item" onclick="doLogout()" style="margin-top:4px;color:var(--ep-text-muted)"><span data-i18n="ep.shell.logout">Abmelden</span></button>
   </div>
 </aside>
 
 <header class="ep-topbar">
-  <a class="ep-topbar-brand" href="einsatzportal-dashboard.html" aria-label="Zur Einsatzportal-Übersicht"><div class="ep-topbar-logo">TC</div>Einsatzplan</a>
+  <a class="ep-topbar-brand" href="einsatzportal-dashboard.html" aria-label="Zur Einsatzportal-Übersicht"><div class="ep-topbar-logo">TC</div><span data-i18n="ep.plan.title">Einsatzplan</span></a>
   <div class="ep-topbar-actions"><a class="ep-bell" href="einsatzportal-benachrichtigungen.html"><span class="ep-bell-badge" id="mob-badge" style="display:none">0</span></a></div>
 </header>
 
 <main class="ep-main">
   <div class="ep-content">
     <div class="ep-page-header">
-      <h1 class="ep-page-title">Einsatzplan</h1>
-      <p class="ep-page-sub">Ihre Wochenübersicht mit allen geplanten Schichten</p>
+      <h1 class="ep-page-title" data-i18n="ep.plan.title">Einsatzplan</h1>
+      <p class="ep-page-sub" data-i18n="ep.plan.subtitle">Ihre Wochenübersicht mit allen geplanten Schichten</p>
     </div>
 
     <div id="loading">
@@ -115,12 +117,12 @@
     <div id="content" style="display:none">
       <!-- Week Navigation -->
       <div class="week-nav">
-        <button class="week-nav-btn" onclick="changeWeek(-1)">← Vorwoche</button>
+        <button class="week-nav-btn" onclick="changeWeek(-1)" data-i18n="ep.plan.prevWeek">← Vorwoche</button>
         <div>
           <div class="week-label" id="weekLabel">…</div>
           <span class="week-kw" id="weekKW"></span>
         </div>
-        <button class="week-nav-btn" onclick="changeWeek(1)">Nächste →</button>
+        <button class="week-nav-btn" onclick="changeWeek(1)" data-i18n="ep.plan.nextWeek">Nächste →</button>
       </div>
 
       <!-- Week Summary -->
@@ -133,12 +135,12 @@
 </main>
 
 <nav class="ep-bottom-nav">
-  <a class="ep-bn-item" href="einsatzportal-dashboard.html">Start</a>
-  <a class="ep-bn-item" href="einsatzportal-einsaetze.html">Einsätze</a>
-  <a class="ep-bn-item active" href="einsatzportal-plan.html">Plan</a>
-  <a class="ep-bn-item" href="einsatzportal-stundenzettel.html">Stunden</a>
-  <a class="ep-bn-item" href="einsatzportal-benachrichtigungen.html">Info<span class="ep-bn-dot" id="bn-dot" style="display:none"></span></a>
-  <a class="ep-bn-item" href="einsatzportal-profil.html">Profil</a>
+  <a class="ep-bn-item" href="einsatzportal-dashboard.html"><span data-i18n="ep.nav.start">Start</span></a>
+  <a class="ep-bn-item" href="einsatzportal-einsaetze.html"><span data-i18n="ep.nav.einsaetze">Einsätze</span></a>
+  <a class="ep-bn-item active" href="einsatzportal-plan.html"><span data-i18n="ep.nav.plan">Plan</span></a>
+  <a class="ep-bn-item" href="einsatzportal-stundenzettel.html"><span data-i18n="ep.nav.stunden">Stunden</span></a>
+  <a class="ep-bn-item" href="einsatzportal-benachrichtigungen.html"><span data-i18n="ep.nav.info">Info</span><span class="ep-bn-dot" id="bn-dot" style="display:none"></span></a>
+  <a class="ep-bn-item" href="einsatzportal-profil.html"><span data-i18n="ep.nav.profil">Profil</span></a>
 </nav>
 <div id="ep-toast"></div>
 
@@ -146,8 +148,61 @@
 <script src="/public/js/workerPortal/portalShell.js"></script>
 <script src="/public/js/workerPortal/portalStatus.js"></script>
 <script>
-const DAY_NAMES = ['So','Mo','Di','Mi','Do','Fr','Sa'];
-const DAY_NAMES_FULL = ['Sonntag','Montag','Dienstag','Mittwoch','Donnerstag','Freitag','Samstag'];
+/* ── i18n (P6.1): Seiten-Woerterbuch. Die gemeinsamen ep.nav.* - und ep.shell.* -Keys
+   registriert die Portal-Shell (portalShell.js) — hier nur ep.plan.*. ── */
+TCi18n.register('de', {
+  'ep.plan.docTitle': 'Einsatzplan – Einsatzportal',
+  'ep.plan.title': 'Einsatzplan',
+  'ep.plan.subtitle': 'Ihre Wochenübersicht mit allen geplanten Schichten',
+  'ep.plan.prevWeek': '← Vorwoche',
+  'ep.plan.nextWeek': 'Nächste →',
+  'ep.plan.weekKw': 'KW {kw} · {year}',
+  'ep.plan.day0': 'Sonntag',
+  'ep.plan.day1': 'Montag',
+  'ep.plan.day2': 'Dienstag',
+  'ep.plan.day3': 'Mittwoch',
+  'ep.plan.day4': 'Donnerstag',
+  'ep.plan.day5': 'Freitag',
+  'ep.plan.day6': 'Samstag',
+  'ep.plan.today': 'Heute',
+  'ep.plan.noShift': 'Kein Einsatz geplant',
+  'ep.plan.shiftFallback': 'Einsatz',
+  'ep.plan.timeFmt': '{time} Uhr',
+  'ep.plan.statDays': 'Einsatztage',
+  'ep.plan.statHours': 'Stunden geplant',
+  'ep.plan.weekThis': 'Diese',
+  'ep.plan.weekPast': 'Vergangene',
+  'ep.plan.weekUpcoming': 'Kommende',
+  'ep.plan.weekWord': 'Woche'
+});
+TCi18n.register('en', {
+  'ep.plan.docTitle': 'Schedule – Worker Portal',
+  'ep.plan.title': 'Schedule',
+  'ep.plan.subtitle': 'Your weekly overview of all planned shifts',
+  'ep.plan.prevWeek': '← Previous',
+  'ep.plan.nextWeek': 'Next →',
+  'ep.plan.weekKw': 'Week {kw} · {year}',
+  'ep.plan.day0': 'Sunday',
+  'ep.plan.day1': 'Monday',
+  'ep.plan.day2': 'Tuesday',
+  'ep.plan.day3': 'Wednesday',
+  'ep.plan.day4': 'Thursday',
+  'ep.plan.day5': 'Friday',
+  'ep.plan.day6': 'Saturday',
+  'ep.plan.today': 'Today',
+  'ep.plan.noShift': 'No assignment scheduled',
+  'ep.plan.shiftFallback': 'Assignment',
+  'ep.plan.timeFmt': '{time}',
+  'ep.plan.statDays': 'Assignment days',
+  'ep.plan.statHours': 'Planned hours',
+  'ep.plan.weekThis': 'This',
+  'ep.plan.weekPast': 'Past',
+  'ep.plan.weekUpcoming': 'Upcoming',
+  'ep.plan.weekWord': 'Week'
+});
+
+// Wochentagsnamen kommen seit P6 aus dem Woerterbuch (ep.plan.day0…day6) —
+// die frueheren DE-Arrays waeren eine zweite, stumm veraltende Wahrheit.
 let weekOffset = 0, scheduleData = {};
 
 function esc(s) { return PortalShell.esc(s); }
@@ -159,7 +214,7 @@ function esc(s) { return PortalShell.esc(s); }
   } catch(e) {
     const code = e.code || e.message;
     if (code === 'NOT_AUTH') { location.href = 'worker-login.html'; return; }
-    PortalShell.toast(e.message || 'Fehler beim Laden', 'error');
+    PortalShell.toast(e.message || TCi18n.t('ep.shell.loadError'), 'error');
   }
 })();
 
@@ -189,8 +244,8 @@ async function loadWeek() {
   const from = toISO(monday), to = toISO(sunday);
 
   const kw = getKW(monday);
-  document.getElementById('weekLabel').textContent = `${monday.toLocaleDateString('de-DE',{day:'2-digit',month:'long'})} – ${sunday.toLocaleDateString('de-DE',{day:'2-digit',month:'long',year:'numeric'})}`;
-  document.getElementById('weekKW').textContent = `KW ${kw} · ${monday.getFullYear()}`;
+  document.getElementById('weekLabel').textContent = `${monday.toLocaleDateString(TCi18n.dateLocale(),{day:'2-digit',month:'long'})} – ${sunday.toLocaleDateString(TCi18n.dateLocale(),{day:'2-digit',month:'long',year:'numeric'})}`;
+  document.getElementById('weekKW').textContent = TCi18n.t('ep.plan.weekKw', { kw: kw, year: monday.getFullYear() });
 
   try {
     const d = await PortalApi.get('/worker/schedule', { from, to });
@@ -240,15 +295,15 @@ function renderWeek(monday) {
       <div class="plan-day${isToday?' today':''}${!hasShift?' empty':''}">
         <div class="plan-day-head">
           <div style="display:flex;align-items:center">
-            <span class="plan-day-name">${DAY_NAMES_FULL[d.getDay()]}</span>
-            <span class="plan-day-date">${d.toLocaleDateString('de-DE',{day:'2-digit',month:'2-digit'})}</span>
-            ${isToday ? '<span class="plan-today-badge">Heute</span>' : ''}
+            <span class="plan-day-name">${TCi18n.t('ep.plan.day' + d.getDay())}</span>
+            <span class="plan-day-date">${d.toLocaleDateString(TCi18n.dateLocale(),{day:'2-digit',month:'2-digit'})}</span>
+            ${isToday ? `<span class="plan-today-badge">${TCi18n.t('ep.plan.today')}</span>` : ''}
           </div>
           ${isToday ? '<div class="plan-day-today-dot"></div>' : ''}
         </div>
         ${hasShift ? dayShifts.map(s => {
-          const client = s.client_display_name || s.client_name || 'Einsatz';
-          const timeStr = s.shift_start ? `${s.shift_start.slice(0,5)}${s.shift_end?' – '+s.shift_end.slice(0,5):''} Uhr` : '';
+          const client = s.client_display_name || s.client_name || TCi18n.t('ep.plan.shiftFallback');
+          const timeStr = s.shift_start ? TCi18n.t('ep.plan.timeFmt', { time: `${s.shift_start.slice(0,5)}${s.shift_end?' – '+s.shift_end.slice(0,5):''}` }) : '';
           return `
             <div class="plan-shift" onclick="location.href='einsatzportal-einsaetze.html'">
               <span class="plan-shift-arrow">›</span>
@@ -256,7 +311,7 @@ function renderWeek(monday) {
               ${timeStr ? `<div class="plan-shift-time">${esc(timeStr)}</div>` : ''}
               ${s.location_address ? `<div class="plan-shift-loc">${esc(s.location_address)}</div>` : ''}
             </div>`;
-        }).join('') : `<div class="plan-day-empty-hint">Kein Einsatz geplant</div>`}
+        }).join('') : `<div class="plan-day-empty-hint">${TCi18n.t('ep.plan.noShift')}</div>`}
       </div>`);
   }
 
@@ -264,9 +319,9 @@ function renderWeek(monday) {
 
   // Week summary
   document.getElementById('weekSummary').innerHTML = `
-    <div class="week-stat"><div class="week-stat-val">${totalDays}</div><div class="week-stat-lbl">Einsatztage</div></div>
-    <div class="week-stat"><div class="week-stat-val">${totalHours}</div><div class="week-stat-lbl">Stunden geplant</div></div>
-    <div class="week-stat"><div class="week-stat-val">${weekOffset === 0 ? 'Diese' : weekOffset < 0 ? 'Vergangene' : 'Kommende'}</div><div class="week-stat-lbl">Woche</div></div>`;
+    <div class="week-stat"><div class="week-stat-val">${totalDays}</div><div class="week-stat-lbl">${TCi18n.t('ep.plan.statDays')}</div></div>
+    <div class="week-stat"><div class="week-stat-val">${totalHours}</div><div class="week-stat-lbl">${TCi18n.t('ep.plan.statHours')}</div></div>
+    <div class="week-stat"><div class="week-stat-val">${weekOffset === 0 ? TCi18n.t('ep.plan.weekThis') : weekOffset < 0 ? TCi18n.t('ep.plan.weekPast') : TCi18n.t('ep.plan.weekUpcoming')}</div><div class="week-stat-lbl">${TCi18n.t('ep.plan.weekWord')}</div></div>`;
 }
 
 </script>

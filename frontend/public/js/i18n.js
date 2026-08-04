@@ -86,6 +86,11 @@
       var title = t(titles[m].getAttribute("data-i18n-title"));
       if (title) titles[m].setAttribute("title", title);
     }
+    var arias = scope.querySelectorAll("[data-i18n-aria]");
+    for (var a = 0; a < arias.length; a++) {
+      var aria = t(arias[a].getAttribute("data-i18n-aria"));
+      if (aria) arias[a].setAttribute("aria-label", aria);
+    }
     renderSwitchers(scope);
   }
 
@@ -156,6 +161,9 @@
     apply: apply,
     set: set,
     locale: function () { return current; },
+    /** BCP-47-Locale fuer toLocaleDateString & Co. — DE-Datumsformat bleibt
+     *  Default; Seiten koennen damit Monats-/Wochentagsnamen mitwechseln. */
+    dateLocale: function () { return current === "en" ? "en-GB" : "de-DE"; },
     hasExplicitChoice: hasExplicitChoice,
     supported: SUPPORTED.slice()
   };

@@ -4,6 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <script src="/public/js/theme.js"></script>
+  <script src="/public/js/i18n.js"></script>
   <title>Kontakt & Hilfe – Einsatzportal</title>
   <link rel="stylesheet" href="einsatzportal.css">
   <style>
@@ -116,32 +117,33 @@
 <body class="ep-preauth">
 
 <aside class="ep-sidebar">
-  <div class="ep-sidebar-brand"><div class="ep-sidebar-logo">TC</div><div><div style="font-weight:800;font-size:.95rem">Einsatzportal</div><div style="font-size:.7rem;color:var(--ep-text-muted);font-weight:400">TempConnect</div></div></div>
+  <div class="ep-sidebar-brand"><div class="ep-sidebar-logo">TC</div><div><div style="font-weight:800;font-size:.95rem" data-i18n="ep.shell.brand">Einsatzportal</div><div style="font-size:.7rem;color:var(--ep-text-muted);font-weight:400">TempConnect</div></div></div>
   <nav class="ep-sidebar-nav">
-    <a class="ep-sidebar-item" href="einsatzportal-dashboard.html">Dashboard</a>
-    <a class="ep-sidebar-item" href="einsatzportal-einsaetze.html">Meine Einsätze</a>
-    <a class="ep-sidebar-item" href="einsatzportal-plan.html">Einsatzplan</a>
-    <a class="ep-sidebar-item" href="einsatzportal-stundenzettel.html">Stundenzettel</a>
-    <a class="ep-sidebar-item" href="einsatzportal-benachrichtigungen.html">Benachrichtigungen<span class="ep-sidebar-badge" id="sb-badge" style="display:none">0</span></a>
-    <a class="ep-sidebar-item active" href="einsatzportal-kontakt.html">Kontakt &amp; Hilfe</a>
-    <a class="ep-sidebar-item" href="einsatzportal-profil.html">Mein Profil</a>
+    <a class="ep-sidebar-item" href="einsatzportal-dashboard.html"><span data-i18n="ep.navlong.start">Dashboard</span></a>
+    <a class="ep-sidebar-item" href="einsatzportal-einsaetze.html"><span data-i18n="ep.navlong.einsaetze">Meine Einsätze</span></a>
+    <a class="ep-sidebar-item" href="einsatzportal-plan.html"><span data-i18n="ep.navlong.plan">Einsatzplan</span></a>
+    <a class="ep-sidebar-item" href="einsatzportal-stundenzettel.html"><span data-i18n="ep.navlong.stunden">Stundenzettel</span></a>
+    <a class="ep-sidebar-item" href="einsatzportal-benachrichtigungen.html"><span data-i18n="ep.navlong.benachrichtigungen">Benachrichtigungen</span><span class="ep-sidebar-badge" id="sb-badge" style="display:none">0</span></a>
+    <a class="ep-sidebar-item active" href="einsatzportal-kontakt.html"><span data-i18n="ep.navlong.kontakt">Kontakt &amp; Hilfe</span></a>
+    <a class="ep-sidebar-item" href="einsatzportal-profil.html"><span data-i18n="ep.navlong.profil">Mein Profil</span></a>
   </nav>
   <div class="ep-sidebar-footer">
-    <div class="ep-sidebar-user"><div class="ep-sidebar-avatar" id="sd-ava">?</div><div><div class="ep-sidebar-name" id="sd-name">Lädt…</div><div class="ep-sidebar-role">Arbeitnehmer</div></div></div>
-    <button class="ep-sidebar-item" onclick="doLogout()" style="margin-top:4px;color:var(--ep-text-muted)">Abmelden</button>
+    <div class="ep-sidebar-user"><div class="ep-sidebar-avatar" id="sd-ava">?</div><div><div class="ep-sidebar-name" id="sd-name">Lädt…</div><div class="ep-sidebar-role" data-i18n="ep.shell.role">Arbeitnehmer</div></div></div>
+    <div style="padding:6px 0"><span data-i18n-switcher></span></div>
+    <button class="ep-sidebar-item" onclick="doLogout()" style="margin-top:4px;color:var(--ep-text-muted)"><span data-i18n="ep.shell.logout">Abmelden</span></button>
   </div>
 </aside>
 
 <header class="ep-topbar">
-  <a class="ep-topbar-brand" href="einsatzportal-dashboard.html" aria-label="Zur Einsatzportal-Übersicht"><div class="ep-topbar-logo">TC</div>Kontakt &amp; Hilfe</a>
+  <a class="ep-topbar-brand" href="einsatzportal-dashboard.html" aria-label="Zur Einsatzportal-Übersicht" data-i18n-aria="ep.kontakt.ariaTopbarBrand"><div class="ep-topbar-logo">TC</div><span data-i18n="ep.kontakt.title">Kontakt &amp; Hilfe</span></a>
   <div class="ep-topbar-actions"><a class="ep-bell" href="einsatzportal-benachrichtigungen.html"><span class="ep-bell-badge" id="mob-badge" style="display:none">0</span></a></div>
 </header>
 
 <main class="ep-main">
   <div class="ep-content">
     <div class="ep-page-header">
-      <h1 class="ep-page-title">Kontakt &amp; Hilfe</h1>
-      <p class="ep-page-sub">Ansprechpartner, wichtige Hinweise und häufige Fragen</p>
+      <h1 class="ep-page-title" data-i18n="ep.kontakt.title">Kontakt &amp; Hilfe</h1>
+      <p class="ep-page-sub" data-i18n="ep.kontakt.subtitle">Ansprechpartner, wichtige Hinweise und häufige Fragen</p>
     </div>
 
     <div id="loading">
@@ -152,9 +154,9 @@
     <div id="content" style="display:none">
       <!-- Tabs -->
       <div class="ktab-wrap">
-        <button class="ktab active" onclick="setKTab('contacts')" id="kt-contacts">Kontakte</button>
-        <button class="ktab" onclick="setKTab('hints')" id="kt-hints">Wichtige Hinweise</button>
-        <button class="ktab" onclick="setKTab('faq')" id="kt-faq">FAQ</button>
+        <button class="ktab active" onclick="setKTab('contacts')" id="kt-contacts" data-i18n="ep.kontakt.tabContacts">Kontakte</button>
+        <button class="ktab" onclick="setKTab('hints')" id="kt-hints" data-i18n="ep.kontakt.tabHints">Wichtige Hinweise</button>
+        <button class="ktab" onclick="setKTab('faq')" id="kt-faq" data-i18n="ep.kontakt.tabFaq">FAQ</button>
       </div>
 
       <!-- Contacts tab -->
@@ -162,39 +164,39 @@
         <div id="contactsList"></div>
 
         <div class="hint-card" style="margin-top:8px">
-          <div class="hint-head">Tipp: Schnellkontakt</div>
-          <div class="hint-body">Speichern Sie die Nummer Ihres Disponenten direkt in Ihrem Handy — so sind Sie bei Fragen oder Verspätungen sofort erreichbar.</div>
+          <div class="hint-head" data-i18n="ep.kontakt.tipTitle">Tipp: Schnellkontakt</div>
+          <div class="hint-body" data-i18n="ep.kontakt.tipBody">Speichern Sie die Nummer Ihres Disponenten direkt in Ihrem Handy — so sind Sie bei Fragen oder Verspätungen sofort erreichbar.</div>
         </div>
       </div>
 
       <!-- Hints tab -->
       <div id="tab-hints" style="display:none">
         <div class="hint-card warn">
-          <div class="hint-head">Bei Verspätung</div>
-          <div class="hint-body">Sollten Sie sich verspäten, informieren Sie <strong>sofort</strong> Ihren Disponenten oder den Ansprechpartner vor Ort. Auch eine kurzfristige Abmeldung ist besser als Nichterscheinen. Ihre Kontaktdaten finden Sie im Tab „Kontakte".</div>
-          <a class="hint-action warn-btn" href="einsatzportal-kontakt.html" onclick="setKTab('contacts');return false;">→ Zu den Kontakten</a>
+          <div class="hint-head" data-i18n="ep.kontakt.hintLateTitle">Bei Verspätung</div>
+          <div class="hint-body"><span data-i18n="ep.kontakt.hintLateBody1">Sollten Sie sich verspäten, informieren Sie </span><strong data-i18n="ep.kontakt.hintLateStrong">sofort</strong><span data-i18n="ep.kontakt.hintLateBody2"> Ihren Disponenten oder den Ansprechpartner vor Ort. Auch eine kurzfristige Abmeldung ist besser als Nichterscheinen. Ihre Kontaktdaten finden Sie im Tab „Kontakte".</span></div>
+          <a class="hint-action warn-btn" href="einsatzportal-kontakt.html" onclick="setKTab('contacts');return false;" data-i18n="ep.kontakt.hintLateAction">→ Zu den Kontakten</a>
         </div>
 
         <div class="hint-card">
-          <div class="hint-head">Stundenzettel einreichen</div>
-          <div class="hint-body">Reichen Sie Ihre Stundenzettel <strong><span id="deadline-hint">fristgerecht für die laufende Woche</span></strong> ein. Zu spät eingereichte Zettel können die Lohnabrechnung verzögern.</div>
-          <a class="hint-action" href="einsatzportal-stundenzettel.html">→ Zum Stundenzettel</a>
+          <div class="hint-head" data-i18n="ep.kontakt.hintTsTitle">Stundenzettel einreichen</div>
+          <div class="hint-body"><span data-i18n="ep.kontakt.hintTsBody1">Reichen Sie Ihre Stundenzettel </span><strong><span id="deadline-hint">fristgerecht für die laufende Woche</span></strong><span data-i18n="ep.kontakt.hintTsBody2"> ein. Zu spät eingereichte Zettel können die Lohnabrechnung verzögern.</span></div>
+          <a class="hint-action" href="einsatzportal-stundenzettel.html" data-i18n="ep.kontakt.hintTsAction">→ Zum Stundenzettel</a>
         </div>
 
         <div class="hint-card">
-          <div class="hint-head">Ausweis & Dokumente</div>
-          <div class="hint-body">Führen Sie immer Ihren gültigen Personalausweis oder Reisepass mit. Einige Einsatzorte benötigen zusätzliche Zugangsdokumente — diese erhalten Sie von Ihrem Disponenten.</div>
+          <div class="hint-head" data-i18n="ep.kontakt.hintDocsTitle">Ausweis & Dokumente</div>
+          <div class="hint-body" data-i18n="ep.kontakt.hintDocsBody">Führen Sie immer Ihren gültigen Personalausweis oder Reisepass mit. Einige Einsatzorte benötigen zusätzliche Zugangsdokumente — diese erhalten Sie von Ihrem Disponenten.</div>
         </div>
 
         <div class="hint-card warn">
-          <div class="hint-head">Krankmeldung</div>
-          <div class="hint-body">Im Krankheitsfall informieren Sie uns <strong>vor Beginn der Schicht</strong> telefonisch. Eine ärztliche Bescheinigung ist ab dem ersten Krankheitstag erforderlich.</div>
+          <div class="hint-head" data-i18n="ep.kontakt.hintSickTitle">Krankmeldung</div>
+          <div class="hint-body"><span data-i18n="ep.kontakt.hintSickBody1">Im Krankheitsfall informieren Sie uns </span><strong data-i18n="ep.kontakt.hintSickStrong">vor Beginn der Schicht</strong><span data-i18n="ep.kontakt.hintSickBody2"> telefonisch. Eine ärztliche Bescheinigung ist ab dem ersten Krankheitstag erforderlich.</span></div>
         </div>
 
         <div class="hint-card danger">
-          <div class="hint-head">Notfall am Einsatzort</div>
-          <div class="hint-body">Bei einem Arbeitsunfall oder Notfall am Einsatzort: <strong>Notruf 112</strong> anrufen, dann Ihren Disponenten informieren und den Vorfall dokumentieren.</div>
-          <a class="hint-action danger-btn" href="tel:112">Notruf 112</a>
+          <div class="hint-head" data-i18n="ep.kontakt.hintEmergencyTitle">Notfall am Einsatzort</div>
+          <div class="hint-body"><span data-i18n="ep.kontakt.hintEmergencyBody1">Bei einem Arbeitsunfall oder Notfall am Einsatzort: </span><strong data-i18n="ep.kontakt.hintEmergencyStrong">Notruf 112</strong><span data-i18n="ep.kontakt.hintEmergencyBody2"> anrufen, dann Ihren Disponenten informieren und den Vorfall dokumentieren.</span></div>
+          <a class="hint-action danger-btn" href="tel:112" data-i18n="ep.kontakt.hintEmergencyAction">Notruf 112</a>
         </div>
       </div>
 
@@ -207,12 +209,12 @@
 </main>
 
 <nav class="ep-bottom-nav">
-  <a class="ep-bn-item" href="einsatzportal-dashboard.html">Start</a>
-  <a class="ep-bn-item" href="einsatzportal-einsaetze.html">Einsätze</a>
-  <a class="ep-bn-item" href="einsatzportal-plan.html">Plan</a>
-  <a class="ep-bn-item" href="einsatzportal-stundenzettel.html">Stunden</a>
-  <a class="ep-bn-item" href="einsatzportal-benachrichtigungen.html">Info<span class="ep-bn-dot" id="bn-dot" style="display:none"></span></a>
-  <a class="ep-bn-item" href="einsatzportal-profil.html">Profil</a>
+  <a class="ep-bn-item" href="einsatzportal-dashboard.html"><span data-i18n="ep.nav.start">Start</span></a>
+  <a class="ep-bn-item" href="einsatzportal-einsaetze.html"><span data-i18n="ep.nav.einsaetze">Einsätze</span></a>
+  <a class="ep-bn-item" href="einsatzportal-plan.html"><span data-i18n="ep.nav.plan">Plan</span></a>
+  <a class="ep-bn-item" href="einsatzportal-stundenzettel.html"><span data-i18n="ep.nav.stunden">Stunden</span></a>
+  <a class="ep-bn-item" href="einsatzportal-benachrichtigungen.html"><span data-i18n="ep.nav.info">Info</span><span class="ep-bn-dot" id="bn-dot" style="display:none"></span></a>
+  <a class="ep-bn-item" href="einsatzportal-profil.html"><span data-i18n="ep.nav.profil">Profil</span></a>
 </nav>
 <div id="ep-toast"></div>
 
@@ -220,17 +222,136 @@
 <script src="/public/js/workerPortal/portalShell.js"></script>
 <script src="/public/js/workerPortal/portalStatus.js"></script>
 <script>
+/* ── i18n (P6.1): Woerterbuch dieser Seite. DE = Quelle der Wahrheit.
+   Gemeinsame ep.nav.- und ep.shell.-Keys registriert die Portal-Shell. ── */
+TCi18n.register('de', {
+  'ep.kontakt.docTitle': 'Kontakt & Hilfe – Einsatzportal',
+  'ep.kontakt.ariaTopbarBrand': 'Zur Einsatzportal-Übersicht',
+  'ep.kontakt.title': 'Kontakt & Hilfe',
+  'ep.kontakt.subtitle': 'Ansprechpartner, wichtige Hinweise und häufige Fragen',
+  'ep.kontakt.tabContacts': 'Kontakte',
+  'ep.kontakt.tabHints': 'Wichtige Hinweise',
+  'ep.kontakt.tabFaq': 'FAQ',
+  'ep.kontakt.tipTitle': 'Tipp: Schnellkontakt',
+  'ep.kontakt.tipBody': 'Speichern Sie die Nummer Ihres Disponenten direkt in Ihrem Handy — so sind Sie bei Fragen oder Verspätungen sofort erreichbar.',
+  'ep.kontakt.hintLateTitle': 'Bei Verspätung',
+  'ep.kontakt.hintLateBody1': 'Sollten Sie sich verspäten, informieren Sie ',
+  'ep.kontakt.hintLateStrong': 'sofort',
+  'ep.kontakt.hintLateBody2': ' Ihren Disponenten oder den Ansprechpartner vor Ort. Auch eine kurzfristige Abmeldung ist besser als Nichterscheinen. Ihre Kontaktdaten finden Sie im Tab „Kontakte".',
+  'ep.kontakt.hintLateAction': '→ Zu den Kontakten',
+  'ep.kontakt.hintTsTitle': 'Stundenzettel einreichen',
+  'ep.kontakt.hintTsBody1': 'Reichen Sie Ihre Stundenzettel ',
+  'ep.kontakt.hintTsBody2': ' ein. Zu spät eingereichte Zettel können die Lohnabrechnung verzögern.',
+  'ep.kontakt.hintTsAction': '→ Zum Stundenzettel',
+  'ep.kontakt.deadlineDefault': 'fristgerecht für die laufende Woche',
+  'ep.kontakt.hintDocsTitle': 'Ausweis & Dokumente',
+  'ep.kontakt.hintDocsBody': 'Führen Sie immer Ihren gültigen Personalausweis oder Reisepass mit. Einige Einsatzorte benötigen zusätzliche Zugangsdokumente — diese erhalten Sie von Ihrem Disponenten.',
+  'ep.kontakt.hintSickTitle': 'Krankmeldung',
+  'ep.kontakt.hintSickBody1': 'Im Krankheitsfall informieren Sie uns ',
+  'ep.kontakt.hintSickStrong': 'vor Beginn der Schicht',
+  'ep.kontakt.hintSickBody2': ' telefonisch. Eine ärztliche Bescheinigung ist ab dem ersten Krankheitstag erforderlich.',
+  'ep.kontakt.hintEmergencyTitle': 'Notfall am Einsatzort',
+  'ep.kontakt.hintEmergencyBody1': 'Bei einem Arbeitsunfall oder Notfall am Einsatzort: ',
+  'ep.kontakt.hintEmergencyStrong': 'Notruf 112',
+  'ep.kontakt.hintEmergencyBody2': ' anrufen, dann Ihren Disponenten informieren und den Vorfall dokumentieren.',
+  'ep.kontakt.hintEmergencyAction': 'Notruf 112',
+  'ep.kontakt.emptyNoAsgTitle': 'Keine Einsätze',
+  'ep.kontakt.emptyNoAsgBody': 'Sobald Sie einem Einsatz zugeteilt sind, erscheinen hier die Kontaktdaten.',
+  'ep.kontakt.emptyNoContactsTitle': 'Noch keine Kontaktdaten',
+  'ep.kontakt.emptyNoContactsBody': 'Ihr Disponent hat noch keine Kontaktdaten hinterlegt. Bitte melden Sie sich direkt bei TempConnect.',
+  'ep.kontakt.asgFallback': 'Einsatz',
+  'ep.kontakt.asgFrom': 'ab {date}',
+  'ep.kontakt.roleDispatcher': 'Disponent',
+  'ep.kontakt.roleOnsite': 'Ansprechpartner vor Ort',
+  'ep.kontakt.btnEmail': 'E-Mail',
+  'ep.kontakt.faq1q': 'Wo finde ich meine Einsatzzeiten?',
+  'ep.kontakt.faq1a': 'In der App unter "Einsatzplan" oder "Meine Einsätze". Dort sehen Sie alle aktuellen und kommenden Schichten mit Datum und Uhrzeit.',
+  'ep.kontakt.faq2q': 'Wie reiche ich meinen Stundenzettel ein?',
+  'ep.kontakt.faq2a': 'Gehen Sie zu "Stundenzettel" → "Neuer Stundenzettel". Tragen Sie Ihre Arbeitszeiten für die Woche ein und klicken Sie auf "Einreichen". Ihr Disponent wird die Zeiten dann prüfen.',
+  'ep.kontakt.faq3q': 'Was bedeutet "Korrektur angefordert"?',
+  'ep.kontakt.faq3a': 'Ihr Disponent hat eine Nachbesserung am Stundenzettel beantragt. Öffnen Sie den betreffenden Stundenzettel, lesen Sie den Hinweis und reichen Sie die Korrektur ein.',
+  'ep.kontakt.faq4q': 'Kann ich meine Einsätze selbst ändern?',
+  'ep.kontakt.faq4a': 'Nein. Einsatzänderungen müssen immer über Ihren Disponenten bei TempConnect laufen. Sprechen Sie ihn direkt an oder kontaktieren Sie ihn telefonisch.',
+  'ep.kontakt.faq5q': 'Was ist, wenn mein Einsatz abgesagt wird?',
+  'ep.kontakt.faq5a': 'Bei Einsatzabsagen werden Sie automatisch per Benachrichtigung informiert. Wenden Sie sich dann an Ihren Disponenten für eine Neuzuteilung.',
+  'ep.kontakt.faq6q': 'Ich habe mein Passwort vergessen. Was nun?',
+  'ep.kontakt.faq6a': 'Auf der Login-Seite finden Sie den Link "Passwort vergessen". Geben Sie Ihre E-Mail-Adresse ein und folgen Sie den Anweisungen in der E-Mail.'
+});
+TCi18n.register('en', {
+  'ep.kontakt.docTitle': 'Contact & Help – Assignment Portal',
+  'ep.kontakt.ariaTopbarBrand': 'Go to portal overview',
+  'ep.kontakt.title': 'Contact & Help',
+  'ep.kontakt.subtitle': 'Contacts, important notes and frequently asked questions',
+  'ep.kontakt.tabContacts': 'Contacts',
+  'ep.kontakt.tabHints': 'Important notes',
+  'ep.kontakt.tabFaq': 'FAQ',
+  'ep.kontakt.tipTitle': 'Tip: Quick contact',
+  'ep.kontakt.tipBody': 'Save your dispatcher\'s number directly in your phone — so you can reach out right away with questions or if you are running late.',
+  'ep.kontakt.hintLateTitle': 'If you are running late',
+  'ep.kontakt.hintLateBody1': 'If you are going to be late, inform your dispatcher or the on-site contact ',
+  'ep.kontakt.hintLateStrong': 'immediately',
+  'ep.kontakt.hintLateBody2': '. Even a short-notice cancellation is better than not showing up. You will find the contact details in the "Contacts" tab.',
+  'ep.kontakt.hintLateAction': '→ Go to contacts',
+  'ep.kontakt.hintTsTitle': 'Submitting timesheets',
+  'ep.kontakt.hintTsBody1': 'Submit your timesheets ',
+  'ep.kontakt.hintTsBody2': '. Timesheets submitted late can delay your payroll.',
+  'ep.kontakt.hintTsAction': '→ Go to timesheets',
+  'ep.kontakt.deadlineDefault': 'on time for the current week',
+  'ep.kontakt.hintDocsTitle': 'ID & documents',
+  'ep.kontakt.hintDocsBody': 'Always carry your valid ID card or passport. Some work sites require additional access documents — you will receive these from your dispatcher.',
+  'ep.kontakt.hintSickTitle': 'Sick leave',
+  'ep.kontakt.hintSickBody1': 'If you are ill, inform us by phone ',
+  'ep.kontakt.hintSickStrong': 'before the start of your shift',
+  'ep.kontakt.hintSickBody2': '. A doctor\'s certificate is required from the first day of illness.',
+  'ep.kontakt.hintEmergencyTitle': 'Emergency at the work site',
+  'ep.kontakt.hintEmergencyBody1': 'In case of a work accident or emergency at the work site: call ',
+  'ep.kontakt.hintEmergencyStrong': 'emergency number 112',
+  'ep.kontakt.hintEmergencyBody2': ', then inform your dispatcher and document the incident.',
+  'ep.kontakt.hintEmergencyAction': 'Call 112',
+  'ep.kontakt.emptyNoAsgTitle': 'No assignments',
+  'ep.kontakt.emptyNoAsgBody': 'As soon as you are assigned to a job, the contact details will appear here.',
+  'ep.kontakt.emptyNoContactsTitle': 'No contact details yet',
+  'ep.kontakt.emptyNoContactsBody': 'Your dispatcher has not added any contact details yet. Please contact TempConnect directly.',
+  'ep.kontakt.asgFallback': 'Assignment',
+  'ep.kontakt.asgFrom': 'from {date}',
+  'ep.kontakt.roleDispatcher': 'Dispatcher',
+  'ep.kontakt.roleOnsite': 'On-site contact',
+  'ep.kontakt.btnEmail': 'Email',
+  'ep.kontakt.faq1q': 'Where can I find my assignment times?',
+  'ep.kontakt.faq1a': 'In the app under "Schedule" or "Assignments". There you can see all current and upcoming shifts with date and time.',
+  'ep.kontakt.faq2q': 'How do I submit my timesheet?',
+  'ep.kontakt.faq2a': 'Go to "Timesheets" → "New timesheet". Enter your working hours for the week and click "Submit". Your dispatcher will then review the hours.',
+  'ep.kontakt.faq3q': 'What does "correction requested" mean?',
+  'ep.kontakt.faq3a': 'Your dispatcher has requested a correction to your timesheet. Open the timesheet in question, read the note and submit the correction.',
+  'ep.kontakt.faq4q': 'Can I change my assignments myself?',
+  'ep.kontakt.faq4a': 'No. Assignment changes must always go through your dispatcher at TempConnect. Speak to them directly or contact them by phone.',
+  'ep.kontakt.faq5q': 'What happens if my assignment is cancelled?',
+  'ep.kontakt.faq5a': 'If an assignment is cancelled, you are automatically notified. Then contact your dispatcher for a new assignment.',
+  'ep.kontakt.faq6q': 'I forgot my password. What now?',
+  'ep.kontakt.faq6a': 'On the login page you will find the "Forgot password" link. Enter your email address and follow the instructions in the email.'
+});
+
 let assignments = [], me = null;
 function esc(s) { return PortalShell.esc(s); }
 function toast(msg, type) { PortalShell.toast(msg, type || ''); }
 
+function applyDocTitle() { document.title = TCi18n.t('ep.kontakt.docTitle'); }
+applyDocTitle();
+/* Sprachwechsel: deklarative Knoten uebersetzt i18n.js selbst — hier nur die
+   per JS gerenderten Teile (Titel, Kontakte, FAQ, Frist-Hinweis) nachziehen. */
+document.addEventListener('tc:langchange', () => {
+  applyDocTitle();
+  renderDeadlineHint();
+  if (me) { renderContacts(); renderFaq(); }
+});
+
 const FAQS = [
-  { q:'Wo finde ich meine Einsatzzeiten?', a:'In der App unter "Einsatzplan" oder "Meine Einsätze". Dort sehen Sie alle aktuellen und kommenden Schichten mit Datum und Uhrzeit.' },
-  { q:'Wie reiche ich meinen Stundenzettel ein?', a:'Gehen Sie zu "Stundenzettel" → "Neuer Stundenzettel". Tragen Sie Ihre Arbeitszeiten für die Woche ein und klicken Sie auf "Einreichen". Ihr Disponent wird die Zeiten dann prüfen.' },
-  { q:'Was bedeutet "Korrektur angefordert"?', a:'Ihr Disponent hat eine Nachbesserung am Stundenzettel beantragt. Öffnen Sie den betreffenden Stundenzettel, lesen Sie den Hinweis und reichen Sie die Korrektur ein.' },
-  { q:'Kann ich meine Einsätze selbst ändern?', a:'Nein. Einsatzänderungen müssen immer über Ihren Disponenten bei TempConnect laufen. Sprechen Sie ihn direkt an oder kontaktieren Sie ihn telefonisch.' },
-  { q:'Was ist, wenn mein Einsatz abgesagt wird?', a:'Bei Einsatzabsagen werden Sie automatisch per Benachrichtigung informiert. Wenden Sie sich dann an Ihren Disponenten für eine Neuzuteilung.' },
-  { q:'Ich habe mein Passwort vergessen. Was nun?', a:'Auf der Login-Seite finden Sie den Link "Passwort vergessen". Geben Sie Ihre E-Mail-Adresse ein und folgen Sie den Anweisungen in der E-Mail.' },
+  { q:'ep.kontakt.faq1q', a:'ep.kontakt.faq1a' },
+  { q:'ep.kontakt.faq2q', a:'ep.kontakt.faq2a' },
+  { q:'ep.kontakt.faq3q', a:'ep.kontakt.faq3a' },
+  { q:'ep.kontakt.faq4q', a:'ep.kontakt.faq4a' },
+  { q:'ep.kontakt.faq5q', a:'ep.kontakt.faq5a' },
+  { q:'ep.kontakt.faq6q', a:'ep.kontakt.faq6a' },
 ];
 
 (async () => {
@@ -241,7 +362,7 @@ const FAQS = [
   } catch(e) {
     const code = e.code || e.message;
     if (code === 'NOT_AUTH') { location.href = 'worker-login.html'; return; }
-    PortalShell.showError(e.message || 'Fehler beim Laden');
+    PortalShell.showError(e.message || TCi18n.t('ep.shell.loadError') || 'Fehler beim Laden');
   }
 })();
 
@@ -249,35 +370,43 @@ async function load() {
   const d = await PortalApi.get('/worker/assignments');
   assignments = d.items || [];
   // B-05: populate deadline hint from backend if available, else generic fallback
-  const deadlineEl = document.getElementById('deadline-hint');
-  if (deadlineEl && me && me.timesheet_deadline_text) {
-    deadlineEl.textContent = me.timesheet_deadline_text;
-  }
+  renderDeadlineHint();
   document.getElementById('loading').style.display='none';
   document.getElementById('content').style.display='';
   renderContacts();
 }
 
+/* B-05 + P6.1: API-Wert gewinnt (nie uebersetzen), sonst lokalisierter Standardtext. */
+function renderDeadlineHint() {
+  const deadlineEl = document.getElementById('deadline-hint');
+  if (!deadlineEl) return;
+  if (me && me.timesheet_deadline_text) {
+    deadlineEl.textContent = me.timesheet_deadline_text;
+  } else {
+    deadlineEl.textContent = TCi18n.t('ep.kontakt.deadlineDefault');
+  }
+}
+
 function renderContacts() {
   const el = document.getElementById('contactsList');
   if (!assignments.length) {
-    el.innerHTML = `<div class="ep-empty"><h3>Keine Einsätze</h3><p>Sobald Sie einem Einsatz zugeteilt sind, erscheinen hier die Kontaktdaten.</p></div>`;
+    el.innerHTML = `<div class="ep-empty"><h3>${esc(TCi18n.t('ep.kontakt.emptyNoAsgTitle'))}</h3><p>${esc(TCi18n.t('ep.kontakt.emptyNoAsgBody'))}</p></div>`;
     return;
   }
 
   const byAsg = {};
   assignments.forEach(a => {
-    const client = a.client_display_name || a.client_name || 'Einsatz';
+    const client = a.client_display_name || a.client_name || TCi18n.t('ep.kontakt.asgFallback');
     const startD = a.start_date ? fmtD(a.start_date) : (a.asg_start ? fmtD(a.asg_start) : '');
-    const label = `${client}${startD?' · ab '+startD:''}`;
+    const label = `${client}${startD?' · '+TCi18n.t('ep.kontakt.asgFrom', { date: startD }):''}`;
     const contacts = [];
-    if (a.dispatcher_name) contacts.push({ name:a.dispatcher_name, role:'Disponent', phone:a.dispatcher_phone, email:a.dispatcher_email, icon:'' });
-    if (a.contact_name) contacts.push({ name:a.contact_name, role:'Ansprechpartner vor Ort', phone:a.contact_phone, email:a.contact_email, icon:'' });
+    if (a.dispatcher_name) contacts.push({ name:a.dispatcher_name, role:TCi18n.t('ep.kontakt.roleDispatcher'), phone:a.dispatcher_phone, email:a.dispatcher_email, icon:'' });
+    if (a.contact_name) contacts.push({ name:a.contact_name, role:TCi18n.t('ep.kontakt.roleOnsite'), phone:a.contact_phone, email:a.contact_email, icon:'' });
     if (contacts.length) byAsg[label] = contacts;
   });
 
   if (!Object.keys(byAsg).length) {
-    el.innerHTML = `<div class="ep-empty"><h3>Noch keine Kontaktdaten</h3><p>Ihr Disponent hat noch keine Kontaktdaten hinterlegt. Bitte melden Sie sich direkt bei TempConnect.</p></div>`;
+    el.innerHTML = `<div class="ep-empty"><h3>${esc(TCi18n.t('ep.kontakt.emptyNoContactsTitle'))}</h3><p>${esc(TCi18n.t('ep.kontakt.emptyNoContactsBody'))}</p></div>`;
     return;
   }
 
@@ -296,7 +425,7 @@ function renderContacts() {
           </div>
           <div class="kc-actions">
             ${c.phone ? `<a class="kc-btn kc-btn-phone" href="tel:${esc(c.phone)}">${esc(c.phone)}</a>` : ''}
-            ${c.email ? `<a class="kc-btn kc-btn-email" href="mailto:${esc(c.email)}">E-Mail</a>` : ''}
+            ${c.email ? `<a class="kc-btn kc-btn-email" href="mailto:${esc(c.email)}">${esc(TCi18n.t('ep.kontakt.btnEmail'))}</a>` : ''}
           </div>
         </div>`).join('')}
     </div>`).join('');
@@ -306,10 +435,10 @@ function renderFaq() {
   document.getElementById('faqList').innerHTML = FAQS.map((f,i) => `
     <div class="faq-item" id="faq-${i}">
       <div class="faq-q" onclick="toggleFaq(${i})">
-        <span>${esc(f.q)}</span>
+        <span>${esc(TCi18n.t(f.q))}</span>
         <span class="arrow">›</span>
       </div>
-      <div class="faq-a">${esc(f.a)}</div>
+      <div class="faq-a">${esc(TCi18n.t(f.a))}</div>
     </div>`).join('');
 }
 
@@ -324,7 +453,7 @@ function setKTab(tab) {
   });
 }
 
-function fmtD(d){return new Date(d).toLocaleDateString('de-DE',{day:'2-digit',month:'2-digit',year:'numeric'});}
+function fmtD(d){return new Date(d).toLocaleDateString(TCi18n.dateLocale(),{day:'2-digit',month:'2-digit',year:'numeric'});}
 </script>
 <script src="/public/js/demoBanner.js" defer></script>
 <script src="/public/js/breadcrumb.js" defer></script>

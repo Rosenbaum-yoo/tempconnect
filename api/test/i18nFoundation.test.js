@@ -132,12 +132,12 @@ suite("i18n-Schicht — Aufloesung & Uebersetzung", () => {
 
 /* ── Erste migrierte Seite: worker-login ──────────────────────────────────── */
 
-function extractDictKeys(html, locale) {
+function extractDictKeys(html, locale, minKeys = 20) {
   const re = new RegExp("TCi18n\\.register\\('" + locale + "',\\s*\\{([\\s\\S]*?)\\}\\);");
   const m = html.match(re);
   assert.ok(m, "register('" + locale + "') Block nicht gefunden");
   const keys = [...m[1].matchAll(/'([\w.]+)':/g)].map((x) => x[1]);
-  assert.ok(keys.length > 20, "Woerterbuch " + locale + " unerwartet klein");
+  assert.ok(keys.length > minKeys, "Woerterbuch " + locale + " unerwartet klein (" + keys.length + " Keys)");
   return new Set(keys);
 }
 
@@ -177,4 +177,84 @@ suite("worker-login — erste zweisprachige Seite", () => {
     assert.match(html, /preferred_locale: TCi18n\.locale\(\)/);
     assert.match(html, /await persistLocale\(csrf\)/);
   });
+});
+
+/* ── Einsatzportal: Shell-Woerterbuch + alle migrierten Seiten ────────────── */
+
+suite("Portal-Shell — gemeinsames Woerterbuch (ep.nav/ep.shell)", () => {
+  const shell = AVAILABLE ? read("frontend/public/js/workerPortal/portalShell.js") : "";
+
+  it("Shell registriert nav/shell-Keys paritaetisch + Profil-Sync ist verdrahtet", () => {
+    const de = extractDictKeys(shell, "de", 10);
+    const en = extractDictKeys(shell, "en", 10);
+    assert.deepEqual([...de].filter((k) => !en.has(k)), [], "Shell-Keys ohne EN");
+    assert.deepEqual([...en].filter((k) => !de.has(k)), [], "Shell-EN-Keys ohne DE");
+    assert.ok(de.has("ep.nav.start") && de.has("ep.shell.logout"));
+    // preferred_locale: Profil anwenden (nicht-explizit) + Wechsel persistieren
+    assert.match(shell, /hasExplicitChoice\(\)/);
+    assert.match(shell, /set\(pref, \{ explicit: false \}\)/);
+    assert.match(shell, /PortalApi\.patch\('\/worker\/me', \{ preferred_locale: e\.detail\.locale \}\)/);
+  });
+});
+
+const PORTAL_PAGES = [
+  "dashboard", "einsaetze", "plan", "stundenzettel", "benachrichtigungen", "kontakt", "profil"
+];
+
+/** Alle Inline-Scripts (ohne src) einer Seite. */
+function inlineScripts(html) {
+  return [...html.matchAll(/<script(?![^>]*\bsrc=)[^>]*>([\s\S]*?)<\/script>/g)].map((m) => m[1]);
+}
+
+suite("Einsatzportal-Seiten — Woerterbuch-Werte sind echte Texte", () => {
+  // Gelernt am 04.08.: eine Literal-Ersetzung ueber die ganze Datei trifft AUCH
+  // den DE-Wert im Woerterbuch und macht daraus 'key': TCi18n.t('key') — ein
+  // Selbstverweis, der still einen leeren Text liefert. Die Suite haette das
+  // ueber Syntax/Paritaet NICHT gesehen: beides bleibt gueltig.
+  for (const slug of ["worker-login", ...PORTAL_PAGES.map((s) => `einsatzportal-${s}`)]) {
+    it(`${slug}: kein Woerterbuch-Eintrag verweist auf sich selbst`, () => {
+      const html = read(`frontend/public/${slug}.html`);
+      const selfRefs = [...html.matchAll(/'([\w.]+)':\s*TCi18n\.t\(/g)].map((m) => m[1]);
+      assert.deepEqual(selfRefs, [], "Woerterbuch-Werte muessen Texte sein, keine t()-Aufrufe");
+    });
+  }
+});
+
+suite("Einsatzportal-Seiten — Inline-Scripts parsen (Woerterbuch-Syntax)", () => {
+  // Der teuerste Fehler dieser Migration waere ein nicht escaptes Apostroph im
+  // Woerterbuch: das reisst das GANZE Seiten-Script mit und die Seite ist tot.
+  // vm.Script parst ohne auszufuehren — genau die richtige Pruefung.
+  for (const slug of PORTAL_PAGES) {
+    it(`einsatzportal-${slug}: jedes Inline-Script ist syntaktisch gueltig`, () => {
+      const scripts = inlineScripts(read(`frontend/public/einsatzportal-${slug}.html`));
+      assert.ok(scripts.length > 0, "kein Inline-Script gefunden");
+      scripts.forEach((code, i) => {
+        assert.doesNotThrow(
+          () => new vm.Script(code, { filename: `${slug}-inline-${i}.js` }),
+          `Syntaxfehler in Inline-Script #${i} von einsatzportal-${slug}.html`
+        );
+      });
+    });
+  }
+});
+
+suite("Einsatzportal-Seiten — zweisprachig mit Schluessel-Paritaet", () => {
+  const shell = AVAILABLE ? read("frontend/public/js/workerPortal/portalShell.js") : "";
+  const shellKeys = AVAILABLE ? extractDictKeys(shell, "de", 10) : new Set();
+
+  for (const slug of PORTAL_PAGES) {
+    it(`einsatzportal-${slug}: i18n.js + Switcher + DE/EN-Paritaet + bekannte Marker`, () => {
+      const html = read(`frontend/public/einsatzportal-${slug}.html`);
+      assert.match(html, /<script src="\/public\/js\/i18n\.js"><\/script>/, "i18n.js fehlt im head");
+      assert.match(html, /data-i18n-switcher/, "Sprach-Umschalter fehlt");
+      const de = extractDictKeys(html, "de", 3);
+      const en = extractDictKeys(html, "en", 3);
+      assert.deepEqual([...de].filter((k) => !en.has(k)), [], "Keys ohne EN-Uebersetzung");
+      assert.deepEqual([...en].filter((k) => !de.has(k)), [], "EN-Keys ohne DE-Quelle");
+      const used = [...html.matchAll(/data-i18n(?:-ph|-title)?="([\w.]+)"/g)].map((m) => m[1]);
+      assert.ok(used.length >= 8, "zu wenige data-i18n-Marker (" + used.length + ")");
+      const unknown = used.filter((k) => !de.has(k) && !shellKeys.has(k));
+      assert.deepEqual(unknown, [], "Markup referenziert unbekannte Keys");
+    });
+  }
 });

@@ -75,7 +75,6 @@
       </div>
 
       <div id="inviteInvalid" class="wk-alert wk-alert-danger" style="display:none">
-        <span>⚠️</span>
         <span id="inviteInvalidText">Dieser Einladungslink ist nicht mehr gültig.</span>
       </div>
     </div>
@@ -150,7 +149,7 @@ TCi18n.register('de', {
   'wk.invite.pwMismatch': 'Passwörter stimmen nicht überein.',
   'wk.invite.pwTooShort': 'Passwort muss mindestens 8 Zeichen lang sein.',
   'wk.invite.submit': 'Konto einrichten & anmelden',
-  'wk.invite.working': '⏳ Wird eingerichtet…',
+  'wk.invite.working': 'Wird eingerichtet…',
   'wk.invite.done': 'Konto eingerichtet! Weiterleitung…',
   'wk.invite.errGeneric': 'Fehler beim Einrichten des Kontos. Bitte versuchen Sie es erneut.',
   'wk.invite.errUsed': 'Diese Einladung wurde bereits verwendet. Bitte melden Sie sich an.',
@@ -161,7 +160,7 @@ TCi18n.register('de', {
   'wk.login.subtitle': 'Melden Sie sich an, um Ihre Stunden einzureichen',
   'wk.login.pwPh': 'Ihr Passwort',
   'wk.login.submit': 'Anmelden',
-  'wk.login.working': '⏳ Anmelden…',
+  'wk.login.working': 'Anmelden…',
   'wk.login.forgot': 'Passwort vergessen?',
   'wk.login.errEmpty': 'Bitte E-Mail und Passwort eingeben.',
   'wk.login.errCreds': 'E-Mail oder Passwort falsch.',
@@ -193,7 +192,7 @@ TCi18n.register('en', {
   'wk.invite.pwMismatch': 'Passwords do not match.',
   'wk.invite.pwTooShort': 'Password must be at least 8 characters long.',
   'wk.invite.submit': 'Set up account & sign in',
-  'wk.invite.working': '⏳ Setting up…',
+  'wk.invite.working': 'Setting up…',
   'wk.invite.done': 'Account ready! Redirecting…',
   'wk.invite.errGeneric': 'Could not set up your account. Please try again.',
   'wk.invite.errUsed': 'This invitation has already been used. Please sign in.',
@@ -204,7 +203,7 @@ TCi18n.register('en', {
   'wk.login.subtitle': 'Sign in to submit your working hours',
   'wk.login.pwPh': 'Your password',
   'wk.login.submit': 'Sign in',
-  'wk.login.working': '⏳ Signing in…',
+  'wk.login.working': 'Signing in…',
   'wk.login.forgot': 'Forgot password?',
   'wk.login.errEmpty': 'Please enter your email and password.',
   'wk.login.errCreds': 'Wrong email or password.',
@@ -423,8 +422,8 @@ async function doForgotPw() {
       headers: { 'Content-Type': 'application/json', 'x-csrf-token': csrf },
       body: JSON.stringify({ email })
     });
-    msgEl.innerHTML = '<div class="wk-alert wk-alert-success"><span>✅</span><span></span></div>';
-    msgEl.querySelector('span:last-child').textContent = t('wk.forgot.sent');
+    msgEl.innerHTML = '<div class="wk-alert wk-alert-success"><span></span></div>';
+    msgEl.querySelector('span').textContent = t('wk.forgot.sent');
     msgEl.style.display = 'block';
   } catch { /* silent */ }
 }

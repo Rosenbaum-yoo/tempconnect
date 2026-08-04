@@ -4,7 +4,8 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <script src="/public/js/theme.js"></script>
-  <title>Meine Einsätze – Einsatzportal</title>
+  <script src="/public/js/i18n.js"></script>
+  <title data-i18n="ep.einsaetze.docTitle">Meine Einsätze – Einsatzportal</title>
   <link rel="stylesheet" href="einsatzportal.css">
   <style>
     @media(min-width:900px){
@@ -16,32 +17,33 @@
 <body class="ep-preauth">
 
 <aside class="ep-sidebar">
-  <div class="ep-sidebar-brand"><div class="ep-sidebar-logo">TC</div><div><div style="font-weight:800;font-size:.95rem">Einsatzportal</div><div style="font-size:.7rem;color:var(--ep-text-muted);font-weight:400">TempConnect</div></div></div>
+  <div class="ep-sidebar-brand"><div class="ep-sidebar-logo">TC</div><div><div style="font-weight:800;font-size:.95rem" data-i18n="ep.shell.brand">Einsatzportal</div><div style="font-size:.7rem;color:var(--ep-text-muted);font-weight:400">TempConnect</div></div></div>
   <nav class="ep-sidebar-nav">
-    <a class="ep-sidebar-item" href="einsatzportal-dashboard.html">Dashboard</a>
-    <a class="ep-sidebar-item active" href="einsatzportal-einsaetze.html">Meine Einsätze</a>
-    <a class="ep-sidebar-item" href="einsatzportal-plan.html">Einsatzplan</a>
-    <a class="ep-sidebar-item" href="einsatzportal-stundenzettel.html">Stundenzettel</a>
-    <a class="ep-sidebar-item" href="einsatzportal-benachrichtigungen.html">Benachrichtigungen<span class="ep-sidebar-badge" id="sb-badge" style="display:none">0</span></a>
-    <a class="ep-sidebar-item" href="einsatzportal-kontakt.html">Kontakt &amp; Hilfe</a>
-    <a class="ep-sidebar-item" href="einsatzportal-profil.html">Mein Profil</a>
+    <a class="ep-sidebar-item" href="einsatzportal-dashboard.html"><span data-i18n="ep.navlong.start">Dashboard</span></a>
+    <a class="ep-sidebar-item active" href="einsatzportal-einsaetze.html"><span data-i18n="ep.navlong.einsaetze">Meine Einsätze</span></a>
+    <a class="ep-sidebar-item" href="einsatzportal-plan.html"><span data-i18n="ep.navlong.plan">Einsatzplan</span></a>
+    <a class="ep-sidebar-item" href="einsatzportal-stundenzettel.html"><span data-i18n="ep.navlong.stunden">Stundenzettel</span></a>
+    <a class="ep-sidebar-item" href="einsatzportal-benachrichtigungen.html"><span data-i18n="ep.navlong.benachrichtigungen">Benachrichtigungen</span><span class="ep-sidebar-badge" id="sb-badge" style="display:none">0</span></a>
+    <a class="ep-sidebar-item" href="einsatzportal-kontakt.html"><span data-i18n="ep.navlong.kontakt">Kontakt &amp; Hilfe</span></a>
+    <a class="ep-sidebar-item" href="einsatzportal-profil.html"><span data-i18n="ep.navlong.profil">Mein Profil</span></a>
   </nav>
   <div class="ep-sidebar-footer">
-    <div class="ep-sidebar-user"><div class="ep-sidebar-avatar" id="sd-ava">?</div><div><div class="ep-sidebar-name" id="sd-name">Lädt…</div><div class="ep-sidebar-role">Arbeitnehmer</div></div></div>
-    <button class="ep-sidebar-item" onclick="doLogout()" style="margin-top:4px;color:var(--ep-text-muted)">Abmelden</button>
+    <div class="ep-sidebar-user"><div class="ep-sidebar-avatar" id="sd-ava">?</div><div><div class="ep-sidebar-name" id="sd-name">Lädt…</div><div class="ep-sidebar-role" data-i18n="ep.shell.role">Arbeitnehmer</div></div></div>
+    <div style="padding:6px 0"><span data-i18n-switcher></span></div>
+    <button class="ep-sidebar-item" onclick="doLogout()" style="margin-top:4px;color:var(--ep-text-muted)"><span data-i18n="ep.shell.logout">Abmelden</span></button>
   </div>
 </aside>
 
 <header class="ep-topbar">
-  <a class="ep-topbar-brand" href="einsatzportal-dashboard.html" aria-label="Zur Einsatzportal-Übersicht"><div class="ep-topbar-logo">TC</div>Meine Einsätze</a>
+  <a class="ep-topbar-brand" href="einsatzportal-dashboard.html" aria-label="Zur Einsatzportal-Übersicht" data-i18n-aria="ep.einsaetze.ariaBrand"><div class="ep-topbar-logo">TC</div><span data-i18n="ep.einsaetze.title">Meine Einsätze</span></a>
   <div class="ep-topbar-actions"><a class="ep-bell" href="einsatzportal-benachrichtigungen.html"><span class="ep-bell-badge" id="mob-badge" style="display:none">0</span></a></div>
 </header>
 
 <main class="ep-main">
   <div class="ep-content">
     <div class="ep-page-header">
-      <h1 class="ep-page-title">Meine Einsätze</h1>
-      <p class="ep-page-sub">Übersicht aller Ihrer aktuellen und vergangenen Einsätze</p>
+      <h1 class="ep-page-title" data-i18n="ep.einsaetze.title">Meine Einsätze</h1>
+      <p class="ep-page-sub" data-i18n="ep.einsaetze.subtitle">Übersicht aller Ihrer aktuellen und vergangenen Einsätze</p>
     </div>
 
     <div id="loading">
@@ -51,8 +53,8 @@
     <div id="content" style="display:none">
       <!-- Segment Tabs -->
       <div class="ep-segtabs">
-        <button class="ep-segtab active" onclick="setTab('active')" id="tab-active">Aktiv & Kommend</button>
-        <button class="ep-segtab" onclick="setTab('past')" id="tab-past">Vergangen</button>
+        <button class="ep-segtab active" onclick="setTab('active')" id="tab-active" data-i18n="ep.einsaetze.tabActive">Aktiv & Kommend</button>
+        <button class="ep-segtab" onclick="setTab('past')" id="tab-past" data-i18n="ep.einsaetze.tabPast">Vergangen</button>
       </div>
 
       <div class="asg-layout">
@@ -63,8 +65,8 @@
         <!-- Detail -->
         <div id="asgDetail">
           <div class="ep-empty" id="detEmpty">
-            <h3>Einsatz auswählen</h3>
-            <p>Wählen Sie links einen Einsatz, um alle Details zu sehen.</p>
+            <h3 data-i18n="ep.einsaetze.pickTitle">Einsatz auswählen</h3>
+            <p data-i18n="ep.einsaetze.pickText">Wählen Sie links einen Einsatz, um alle Details zu sehen.</p>
           </div>
           <div id="detContent" style="display:none"></div>
         </div>
@@ -74,12 +76,12 @@
 </main>
 
 <nav class="ep-bottom-nav">
-  <a class="ep-bn-item" href="einsatzportal-dashboard.html">Start</a>
-  <a class="ep-bn-item active" href="einsatzportal-einsaetze.html">Einsätze</a>
-  <a class="ep-bn-item" href="einsatzportal-plan.html">Plan</a>
-  <a class="ep-bn-item" href="einsatzportal-stundenzettel.html">Stunden</a>
-  <a class="ep-bn-item" href="einsatzportal-benachrichtigungen.html">Info<span class="ep-bn-dot" id="bn-dot" style="display:none"></span></a>
-  <a class="ep-bn-item" href="einsatzportal-profil.html">Profil</a>
+  <a class="ep-bn-item" href="einsatzportal-dashboard.html"><span data-i18n="ep.nav.start">Start</span></a>
+  <a class="ep-bn-item active" href="einsatzportal-einsaetze.html"><span data-i18n="ep.nav.einsaetze">Einsätze</span></a>
+  <a class="ep-bn-item" href="einsatzportal-plan.html"><span data-i18n="ep.nav.plan">Plan</span></a>
+  <a class="ep-bn-item" href="einsatzportal-stundenzettel.html"><span data-i18n="ep.nav.stunden">Stunden</span></a>
+  <a class="ep-bn-item" href="einsatzportal-benachrichtigungen.html"><span data-i18n="ep.nav.info">Info</span><span class="ep-bn-dot" id="bn-dot" style="display:none"></span></a>
+  <a class="ep-bn-item" href="einsatzportal-profil.html"><span data-i18n="ep.nav.profil">Profil</span></a>
 </nav>
 <div id="ep-toast"></div>
 
@@ -87,6 +89,152 @@
 <script src="/public/js/workerPortal/portalShell.js"></script>
 <script src="/public/js/workerPortal/portalStatus.js"></script>
 <script>
+/* ── i18n (P6): Woerterbuch dieser Seite. Gemeinsame Nav-/Shell-Keys (ep.nav.*, ep.shell.*)
+   registriert portalShell.js — hier NUR die seiteneigenen ep.einsaetze.*-Keys. ── */
+TCi18n.register('de', {
+  'ep.einsaetze.title': 'Meine Einsätze',
+  'ep.einsaetze.subtitle': 'Übersicht aller Ihrer aktuellen und vergangenen Einsätze',
+  'ep.einsaetze.docTitle': 'Meine Einsätze – Einsatzportal',
+  'ep.einsaetze.ariaBrand': 'Zur Einsatzportal-Übersicht',
+  'ep.einsaetze.tabActive': 'Aktiv & Kommend',
+  'ep.einsaetze.tabPast': 'Vergangen',
+  'ep.einsaetze.pickTitle': 'Einsatz auswählen',
+  'ep.einsaetze.pickText': 'Wählen Sie links einen Einsatz, um alle Details zu sehen.',
+  'ep.einsaetze.loadErrorPage': 'Daten konnten nicht geladen werden. Bitte laden Sie die Seite neu.',
+  'ep.einsaetze.emptyActiveTitle': 'Keine aktiven Einsätze',
+  'ep.einsaetze.emptyActiveText': 'Ihr Disponent richtet Ihre Einsätze ein.',
+  'ep.einsaetze.emptyPastTitle': 'Keine Einsätze im Verlauf',
+  'ep.einsaetze.emptyPastText': 'Hier erscheinen beendete, abgelaufene und archivierte Einsätze.',
+  'ep.einsaetze.clientFallback': 'Einsatz',
+  'ep.einsaetze.openEnd': 'offen',
+  'ep.einsaetze.shiftTimeFmt': '{time} Uhr',
+  'ep.einsaetze.detLoadError': 'Fehler beim Laden.',
+  'ep.einsaetze.infoZeitraum': 'Zeitraum',
+  'ep.einsaetze.rangeFmt': '{start} bis {end}',
+  'ep.einsaetze.infoSchichtzeit': 'Schichtzeit',
+  'ep.einsaetze.infoStundenTag': 'Stunden/Tag',
+  'ep.einsaetze.infoPause': 'Pause',
+  'ep.einsaetze.minutesFmt': '{n} Minuten',
+  'ep.einsaetze.infoEinsatzort': 'Einsatzort',
+  'ep.einsaetze.infoTreffpunkt': 'Treffpunkt',
+  'ep.einsaetze.infoTaetigkeit': 'Tätigkeit',
+  'ep.einsaetze.secAnweisungen': 'Einsatzanweisungen',
+  'ep.einsaetze.secKleidung': 'Kleidung / Ausrüstung',
+  'ep.einsaetze.secAnsprechpartner': 'Ansprechpartner',
+  'ep.einsaetze.contactOnsite': 'Ansprechpartner vor Ort',
+  'ep.einsaetze.contactDispatcher': 'Ihr Disponent',
+  'ep.einsaetze.emailLabel': 'E-Mail',
+  'ep.einsaetze.confirmTitle': 'Bestätigung erforderlich',
+  'ep.einsaetze.confirmText': 'Ihr Disponent hat Ihnen diesen Einsatz zugewiesen. Bitte bestätigen oder lehnen Sie ab.',
+  'ep.einsaetze.confirmBtn': 'Einsatz bestätigen',
+  'ep.einsaetze.declineBtn': 'Ablehnen',
+  'ep.einsaetze.declineReasonPh': 'Begründung (optional)…',
+  'ep.einsaetze.declineSubmit': 'Ablehnung absenden',
+  'ep.einsaetze.toTimesheet': 'Stundenzettel →',
+  'ep.einsaetze.viewInPlan': 'Im Plan ansehen',
+  'ep.einsaetze.reportUnavailable': 'Abwesenheit melden',
+  'ep.einsaetze.unavailTitle': 'Abwesenheit / Krankmeldung',
+  'ep.einsaetze.unavailText': 'Melden Sie sich ab einem bestimmten Datum als nicht verfügbar. Bereits geleistete Tage davor bleiben abrechenbar. Ihr Disponent wird automatisch informiert.',
+  'ep.einsaetze.unavailFrom': 'Nicht verfügbar ab *',
+  'ep.einsaetze.unavailReasonLabel': 'Grund (optional)',
+  'ep.einsaetze.unavailReasonPh': 'z.B. Krankheit, persönliche Gründe…',
+  'ep.einsaetze.unavailSubmit': 'Abwesenheit bestätigen',
+  'ep.einsaetze.cancel': 'Abbrechen',
+  'ep.einsaetze.stEndsToday': 'Endet heute',
+  'ep.einsaetze.stExpired': 'Abgelaufen',
+  'ep.einsaetze.stEnded': 'Beendet',
+  'ep.einsaetze.stCancelled': 'Storniert',
+  'ep.einsaetze.stArchived': 'Archiv',
+  'ep.einsaetze.stActive': 'Aktiv',
+  'ep.einsaetze.stPlanned': 'Geplant',
+  'ep.einsaetze.stCompleted': 'Abgeschlossen',
+  'ep.einsaetze.stExtended': 'Verlängert',
+  'ep.einsaetze.confPending': 'Bestätigung offen',
+  'ep.einsaetze.confConfirmed': 'Bestätigt',
+  'ep.einsaetze.confDeclined': 'Abgelehnt',
+  'ep.einsaetze.confUnavailable': 'Abwesend',
+  'ep.einsaetze.toastDateRequired': 'Bitte Datum angeben.',
+  'ep.einsaetze.toastUnavailDone': 'Abwesenheit gemeldet – Ihr Disponent wurde informiert.',
+  'ep.einsaetze.toastConfirmed': 'Einsatz bestätigt!',
+  'ep.einsaetze.toastDeclined': 'Einsatz abgelehnt.',
+  'ep.einsaetze.errGeneric': 'Fehler'
+});
+TCi18n.register('en', {
+  'ep.einsaetze.title': 'My assignments',
+  'ep.einsaetze.subtitle': 'An overview of all your current and past assignments',
+  'ep.einsaetze.docTitle': 'My assignments – Worker Portal',
+  'ep.einsaetze.ariaBrand': 'Go to portal overview',
+  'ep.einsaetze.tabActive': 'Active & upcoming',
+  'ep.einsaetze.tabPast': 'Past',
+  'ep.einsaetze.pickTitle': 'Select an assignment',
+  'ep.einsaetze.pickText': 'Select an assignment on the left to see all details.',
+  'ep.einsaetze.loadErrorPage': 'Could not load your data. Please reload the page.',
+  'ep.einsaetze.emptyActiveTitle': 'No active assignments',
+  'ep.einsaetze.emptyActiveText': 'Your dispatcher is setting up your assignments.',
+  'ep.einsaetze.emptyPastTitle': 'No past assignments',
+  'ep.einsaetze.emptyPastText': 'Ended, expired and archived assignments appear here.',
+  'ep.einsaetze.clientFallback': 'Assignment',
+  'ep.einsaetze.openEnd': 'open',
+  'ep.einsaetze.shiftTimeFmt': '{time}',
+  'ep.einsaetze.detLoadError': 'Failed to load.',
+  'ep.einsaetze.infoZeitraum': 'Period',
+  'ep.einsaetze.rangeFmt': '{start} to {end}',
+  'ep.einsaetze.infoSchichtzeit': 'Shift time',
+  'ep.einsaetze.infoStundenTag': 'Hours/day',
+  'ep.einsaetze.infoPause': 'Break',
+  'ep.einsaetze.minutesFmt': '{n} minutes',
+  'ep.einsaetze.infoEinsatzort': 'Work location',
+  'ep.einsaetze.infoTreffpunkt': 'Meeting point',
+  'ep.einsaetze.infoTaetigkeit': 'Duties',
+  'ep.einsaetze.secAnweisungen': 'Assignment instructions',
+  'ep.einsaetze.secKleidung': 'Clothing / equipment',
+  'ep.einsaetze.secAnsprechpartner': 'Contacts',
+  'ep.einsaetze.contactOnsite': 'On-site contact',
+  'ep.einsaetze.contactDispatcher': 'Your dispatcher',
+  'ep.einsaetze.emailLabel': 'Email',
+  'ep.einsaetze.confirmTitle': 'Confirmation required',
+  'ep.einsaetze.confirmText': 'Your dispatcher has assigned this assignment to you. Please confirm or decline.',
+  'ep.einsaetze.confirmBtn': 'Confirm assignment',
+  'ep.einsaetze.declineBtn': 'Decline',
+  'ep.einsaetze.declineReasonPh': 'Reason (optional)…',
+  'ep.einsaetze.declineSubmit': 'Submit decline',
+  'ep.einsaetze.toTimesheet': 'Timesheet →',
+  'ep.einsaetze.viewInPlan': 'View in schedule',
+  'ep.einsaetze.reportUnavailable': 'Report absence',
+  'ep.einsaetze.unavailTitle': 'Absence / sick leave',
+  'ep.einsaetze.unavailText': 'Report yourself as unavailable from a given date. Days already worked before that date remain billable. Your dispatcher is notified automatically.',
+  'ep.einsaetze.unavailFrom': 'Unavailable from *',
+  'ep.einsaetze.unavailReasonLabel': 'Reason (optional)',
+  'ep.einsaetze.unavailReasonPh': 'e.g. illness, personal reasons…',
+  'ep.einsaetze.unavailSubmit': 'Confirm absence',
+  'ep.einsaetze.cancel': 'Cancel',
+  'ep.einsaetze.stEndsToday': 'Ends today',
+  'ep.einsaetze.stExpired': 'Expired',
+  'ep.einsaetze.stEnded': 'Ended',
+  'ep.einsaetze.stCancelled': 'Cancelled',
+  'ep.einsaetze.stArchived': 'Archived',
+  'ep.einsaetze.stActive': 'Active',
+  'ep.einsaetze.stPlanned': 'Planned',
+  'ep.einsaetze.stCompleted': 'Completed',
+  'ep.einsaetze.stExtended': 'Extended',
+  'ep.einsaetze.confPending': 'Confirmation pending',
+  'ep.einsaetze.confConfirmed': 'Confirmed',
+  'ep.einsaetze.confDeclined': 'Declined',
+  'ep.einsaetze.confUnavailable': 'Absent',
+  'ep.einsaetze.toastDateRequired': 'Please enter a date.',
+  'ep.einsaetze.toastUnavailDone': 'Absence reported – your dispatcher has been notified.',
+  'ep.einsaetze.toastConfirmed': 'Assignment confirmed!',
+  'ep.einsaetze.toastDeclined': 'Assignment declined.',
+  'ep.einsaetze.errGeneric': 'Error'
+});
+function applyDocTitle() { document.title = TCi18n.t('ep.einsaetze.docTitle'); }
+applyDocTitle();
+document.addEventListener('tc:langchange', function () {
+  applyDocTitle();
+  // Liste/Empty-State neu rendern, sobald Inhalte sichtbar sind — Detail folgt beim naechsten Auswaehlen/Refresh.
+  if (document.getElementById('content').style.display !== 'none') renderList();
+});
+
 let assignments = [], curTab = 'active', selId = null;
 
 function toast(msg, type) { PortalShell.toast(msg, type || ''); }
@@ -99,7 +247,7 @@ function esc(s) { return PortalShell.esc(s); }
   } catch(e) {
     const code = e.code || e.message;
     if (code === 'NOT_AUTH') { location.href = 'worker-login.html'; return; }
-    PortalShell.showError('Daten konnten nicht geladen werden. Bitte laden Sie die Seite neu.');
+    PortalShell.showError(TCi18n.t('ep.einsaetze.loadErrorPage'));
   }
 })();
 
@@ -155,13 +303,13 @@ function renderList() {
   const el = document.getElementById('asgList');
   const list = getFiltered();
   if (!list.length) {
-    el.innerHTML = `<div class="ep-empty"><div class="icon">${curTab==='active'?'':''}</div><h3>${curTab==='active'?'Keine aktiven Einsätze':'Keine Einsätze im Verlauf'}</h3><p>${curTab==='active'?'Ihr Disponent richtet Ihre Einsätze ein.':'Hier erscheinen beendete, abgelaufene und archivierte Einsätze.'}</p></div>`;
+    el.innerHTML = `<div class="ep-empty"><div class="icon">${curTab==='active'?'':''}</div><h3>${curTab==='active'?TCi18n.t('ep.einsaetze.emptyActiveTitle'):TCi18n.t('ep.einsaetze.emptyPastTitle')}</h3><p>${curTab==='active'?TCi18n.t('ep.einsaetze.emptyActiveText'):TCi18n.t('ep.einsaetze.emptyPastText')}</p></div>`;
     return;
   }
   el.innerHTML = list.map(a => {
-    const client = a.client_display_name || a.client_name || 'Einsatz';
+    const client = a.client_display_name || a.client_name || TCi18n.t('ep.einsaetze.clientFallback');
     const startD = a.start_date ? fmtD(a.start_date) : (a.asg_start ? fmtD(a.asg_start) : '–');
-    const endD   = (a.end_date || a.asg_end) ? fmtD(a.end_date || a.asg_end) : 'offen';
+    const endD   = (a.end_date || a.asg_end) ? fmtD(a.end_date || a.asg_end) : TCi18n.t('ep.einsaetze.openEnd');
     const st     = a.assignment_status || 'planned';
     const cs = a.worker_confirmation_status||'auto_confirmed';
     return `
@@ -173,7 +321,7 @@ function renderList() {
         ${a.worker_description ? `<div class="ep-asg-desc">${esc(a.worker_description)}</div>` : ''}
         <div class="ep-asg-foot">
           <span class="ep-asg-date">${startD} – ${endD}</span>
-          ${a.default_shift_start ? `<span class="ep-asg-date">${a.default_shift_start.slice(0,5)}${a.default_shift_end?' – '+a.default_shift_end.slice(0,5):''} Uhr</span>` : ''}
+          ${a.default_shift_start ? `<span class="ep-asg-date">${TCi18n.t('ep.einsaetze.shiftTimeFmt', { time: a.default_shift_start.slice(0,5) + (a.default_shift_end ? ' – ' + a.default_shift_end.slice(0,5) : '') })}</span>` : ''}
         </div>
       </div>`;
   }).join('');
@@ -189,15 +337,15 @@ async function selAsg(id) {
     const a = await PortalApi.get(`/worker/assignments/${id}`);
     renderDetail(a);
   } catch {
-    dc.innerHTML = `<div class="ep-alert ep-alert-danger"><span>Fehler beim Laden.</span></div>`;
+    dc.innerHTML = `<div class="ep-alert ep-alert-danger"><span>${TCi18n.t('ep.einsaetze.detLoadError')}</span></div>`;
   }
 }
 
 function renderDetail(a) {
   const dc = document.getElementById('detContent');
-  const client = a.client_display_name || a.client_name || 'Einsatz';
+  const client = a.client_display_name || a.client_name || TCi18n.t('ep.einsaetze.clientFallback');
   const startD = a.start_date ? fmtD(a.start_date) : (a.asg_start ? fmtD(a.asg_start) : '–');
-  const endD   = (a.end_date||a.asg_end) ? fmtD(a.end_date||a.asg_end) : 'offen';
+  const endD   = (a.end_date||a.asg_end) ? fmtD(a.end_date||a.asg_end) : TCi18n.t('ep.einsaetze.openEnd');
 
   dc.innerHTML = `
     <div class="ep-detail">
@@ -211,50 +359,50 @@ function renderDetail(a) {
         </div>
       </div>
       <div class="ep-detail-body">
-        ${infoRow('','Zeitraum', `${startD} bis ${endD}`)}
-        ${a.default_shift_start ? infoRow('','Schichtzeit', `${a.default_shift_start.slice(0,5)}${a.default_shift_end?' – '+a.default_shift_end.slice(0,5):''} Uhr`) : ''}
-        ${a.default_hours_per_day ? infoRow('','Stunden/Tag', `${a.default_hours_per_day} h`) : ''}
-        ${a.default_break_minutes ? infoRow('','Pause', `${a.default_break_minutes} Minuten`) : ''}
-        ${a.location_address ? infoRow('','Einsatzort', a.location_address) : ''}
-        ${a.meeting_point ? infoRow('','Treffpunkt', a.meeting_point) : ''}
-        ${a.worker_description ? infoRow('','Tätigkeit', a.worker_description) : ''}
-        ${a.instructions ? `<div class="ep-section-label">Einsatzanweisungen</div><div style="background:rgba(74,158,255,.07);border-left:3px solid var(--ep-brand);border-radius:0 8px 8px 0;padding:12px 14px;font-size:.875rem;line-height:1.6;margin-bottom:12px">${esc(a.instructions)}</div>` : ''}
-        ${a.dress_code ? `<div class="ep-section-label">Kleidung / Ausrüstung</div><div style="background:rgba(251,191,36,.07);border-left:3px solid var(--ep-warning);border-radius:0 8px 8px 0;padding:10px 14px;font-size:.875rem;margin-bottom:12px">${esc(a.dress_code)}</div>` : ''}
+        ${infoRow('', TCi18n.t('ep.einsaetze.infoZeitraum'), TCi18n.t('ep.einsaetze.rangeFmt', { start: startD, end: endD }))}
+        ${a.default_shift_start ? infoRow('', TCi18n.t('ep.einsaetze.infoSchichtzeit'), TCi18n.t('ep.einsaetze.shiftTimeFmt', { time: `${a.default_shift_start.slice(0,5)}${a.default_shift_end?' – '+a.default_shift_end.slice(0,5):''}` })) : ''}
+        ${a.default_hours_per_day ? infoRow('', TCi18n.t('ep.einsaetze.infoStundenTag'), `${a.default_hours_per_day} h`) : ''}
+        ${a.default_break_minutes ? infoRow('', TCi18n.t('ep.einsaetze.infoPause'), TCi18n.t('ep.einsaetze.minutesFmt', { n: a.default_break_minutes })) : ''}
+        ${a.location_address ? infoRow('', TCi18n.t('ep.einsaetze.infoEinsatzort'), a.location_address) : ''}
+        ${a.meeting_point ? infoRow('', TCi18n.t('ep.einsaetze.infoTreffpunkt'), a.meeting_point) : ''}
+        ${a.worker_description ? infoRow('', TCi18n.t('ep.einsaetze.infoTaetigkeit'), a.worker_description) : ''}
+        ${a.instructions ? `<div class="ep-section-label">${TCi18n.t('ep.einsaetze.secAnweisungen')}</div><div style="background:rgba(74,158,255,.07);border-left:3px solid var(--ep-brand);border-radius:0 8px 8px 0;padding:12px 14px;font-size:.875rem;line-height:1.6;margin-bottom:12px">${esc(a.instructions)}</div>` : ''}
+        ${a.dress_code ? `<div class="ep-section-label">${TCi18n.t('ep.einsaetze.secKleidung')}</div><div style="background:rgba(251,191,36,.07);border-left:3px solid var(--ep-warning);border-radius:0 8px 8px 0;padding:10px 14px;font-size:.875rem;margin-bottom:12px">${esc(a.dress_code)}</div>` : ''}
 
         ${a.contact_name || a.dispatcher_name ? `
-          <div class="ep-section-label">Ansprechpartner</div>
-          ${a.contact_name ? contactBlock(a.contact_name, 'Ansprechpartner vor Ort', a.contact_phone, a.contact_email) : ''}
-          ${a.dispatcher_name ? contactBlock(a.dispatcher_name, 'Ihr Disponent', a.dispatcher_phone, a.dispatcher_email) : ''}
+          <div class="ep-section-label">${TCi18n.t('ep.einsaetze.secAnsprechpartner')}</div>
+          ${a.contact_name ? contactBlock(a.contact_name, TCi18n.t('ep.einsaetze.contactOnsite'), a.contact_phone, a.contact_email) : ''}
+          ${a.dispatcher_name ? contactBlock(a.dispatcher_name, TCi18n.t('ep.einsaetze.contactDispatcher'), a.dispatcher_phone, a.dispatcher_email) : ''}
         ` : ''}
 
         ${a.worker_confirmation_status==='pending_confirmation' && isCurrentAssignment(a) ? `
         <div style="margin-top:16px;padding:14px;background:rgba(74,158,255,.07);border:1px solid rgba(74,158,255,.2);border-radius:10px">
-          <div style="font-weight:700;font-size:.88rem;margin-bottom:6px">Best\u00e4tigung erforderlich</div>
-          <div style="font-size:.82rem;color:var(--ep-text-sub,var(--ep-text-muted));margin-bottom:10px">Ihr Disponent hat Ihnen diesen Einsatz zugewiesen. Bitte best\u00e4tigen oder lehnen Sie ab.</div>
+          <div style="font-weight:700;font-size:.88rem;margin-bottom:6px">${TCi18n.t('ep.einsaetze.confirmTitle')}</div>
+          <div style="font-size:.82rem;color:var(--ep-text-sub,var(--ep-text-muted));margin-bottom:10px">${TCi18n.t('ep.einsaetze.confirmText')}</div>
           <div style="display:flex;gap:8px;flex-wrap:wrap">
-            <button class="ep-btn ep-btn-primary ep-btn-sm" onclick="confirmAsg('${a.id}')">\u2713 Einsatz best\u00e4tigen</button>
-            <button class="ep-btn ep-btn-ghost ep-btn-sm" onclick="toggleDeclineDetail()" style="color:var(--ep-danger,#ef4444)">\u2717 Ablehnen</button>
+            <button class="ep-btn ep-btn-primary ep-btn-sm" onclick="confirmAsg('${a.id}')">${TCi18n.t('ep.einsaetze.confirmBtn')}</button>
+            <button class="ep-btn ep-btn-ghost ep-btn-sm" onclick="toggleDeclineDetail()" style="color:var(--ep-danger,#ef4444)">${TCi18n.t('ep.einsaetze.declineBtn')}</button>
           </div>
           <div id="declineDetail" style="display:none;margin-top:10px">
-            <textarea class="ep-input" id="declineReason" rows="2" placeholder="Begr\u00fcndung (optional)\u2026" style="width:100%;margin-bottom:6px;font-size:.82rem;padding:8px;border:1px solid var(--ep-border);border-radius:6px"></textarea>
-            <button class="ep-btn ep-btn-outline ep-btn-sm" onclick="declineAsg('${a.id}')" style="color:var(--ep-danger,#ef4444)">Ablehnung absenden</button>
+            <textarea class="ep-input" id="declineReason" rows="2" placeholder="${TCi18n.t('ep.einsaetze.declineReasonPh')}" style="width:100%;margin-bottom:6px;font-size:.82rem;padding:8px;border:1px solid var(--ep-border);border-radius:6px"></textarea>
+            <button class="ep-btn ep-btn-outline ep-btn-sm" onclick="declineAsg('${a.id}')" style="color:var(--ep-danger,#ef4444)">${TCi18n.t('ep.einsaetze.declineSubmit')}</button>
           </div>
         </div>` : `
         <div style="margin-top:16px;display:flex;gap:8px;flex-wrap:wrap">
-          <a href="einsatzportal-stundenzettel.html${a.id?'?link_id='+a.id:''}" class="ep-btn ep-btn-primary ep-btn-sm">Stundenzettel →</a>
-          <a href="einsatzportal-plan.html" class="ep-btn ep-btn-ghost ep-btn-sm">Im Plan ansehen</a>
-          ${canReportUnavailable(a) ? '<button class="ep-btn ep-btn-ghost ep-btn-sm" onclick="showUnavailableForm(\'' + a.id + '\')" style="color:var(--ep-danger,#ef4444)">Abwesenheit melden</button>' : ''}
+          <a href="einsatzportal-stundenzettel.html${a.id?'?link_id='+a.id:''}" class="ep-btn ep-btn-primary ep-btn-sm">${TCi18n.t('ep.einsaetze.toTimesheet')}</a>
+          <a href="einsatzportal-plan.html" class="ep-btn ep-btn-ghost ep-btn-sm">${TCi18n.t('ep.einsaetze.viewInPlan')}</a>
+          ${canReportUnavailable(a) ? '<button class="ep-btn ep-btn-ghost ep-btn-sm" onclick="showUnavailableForm(\'' + a.id + '\')" style="color:var(--ep-danger,#ef4444)">' + TCi18n.t('ep.einsaetze.reportUnavailable') + '</button>' : ''}
         </div>
         <div id="unavailableForm-${a.id}" style="display:none;margin-top:12px;padding:14px;background:rgba(239,68,68,.06);border:1px solid rgba(239,68,68,.15);border-radius:10px">
-          <div style="font-weight:700;font-size:.88rem;margin-bottom:6px">Abwesenheit / Krankmeldung</div>
-          <div style="font-size:.82rem;color:var(--ep-text-muted);margin-bottom:10px">Melden Sie sich ab einem bestimmten Datum als nicht verf\u00fcgbar. Bereits geleistete Tage davor bleiben abrechenbar. Ihr Disponent wird automatisch informiert.</div>
-          <label style="font-size:.78rem;font-weight:600;margin-bottom:4px;display:block">Nicht verf\u00fcgbar ab *</label>
+          <div style="font-weight:700;font-size:.88rem;margin-bottom:6px">${TCi18n.t('ep.einsaetze.unavailTitle')}</div>
+          <div style="font-size:.82rem;color:var(--ep-text-muted);margin-bottom:10px">${TCi18n.t('ep.einsaetze.unavailText')}</div>
+          <label style="font-size:.78rem;font-weight:600;margin-bottom:4px;display:block">${TCi18n.t('ep.einsaetze.unavailFrom')}</label>
           <input type="date" class="ep-input" id="unavailDate-${a.id}" style="margin-bottom:8px;padding:8px;font-size:.82rem" value="${new Date().toISOString().slice(0,10)}" />
-          <label style="font-size:.78rem;font-weight:600;margin-bottom:4px;display:block">Grund (optional)</label>
-          <textarea class="ep-input" id="unavailReason-${a.id}" rows="2" placeholder="z.B. Krankheit, pers\u00f6nliche Gr\u00fcnde\u2026" style="width:100%;margin-bottom:8px;font-size:.82rem;padding:8px;border:1px solid var(--ep-border);border-radius:6px"></textarea>
+          <label style="font-size:.78rem;font-weight:600;margin-bottom:4px;display:block">${TCi18n.t('ep.einsaetze.unavailReasonLabel')}</label>
+          <textarea class="ep-input" id="unavailReason-${a.id}" rows="2" placeholder="${TCi18n.t('ep.einsaetze.unavailReasonPh')}" style="width:100%;margin-bottom:8px;font-size:.82rem;padding:8px;border:1px solid var(--ep-border);border-radius:6px"></textarea>
           <div style="display:flex;gap:8px">
-            <button class="ep-btn ep-btn-outline ep-btn-sm" onclick="submitUnavailable('${a.id}')" style="color:var(--ep-danger,#ef4444)">Abwesenheit best\u00e4tigen</button>
-            <button class="ep-btn ep-btn-ghost ep-btn-sm" onclick="hideUnavailableForm('${a.id}')">Abbrechen</button>
+            <button class="ep-btn ep-btn-outline ep-btn-sm" onclick="submitUnavailable('${a.id}')" style="color:var(--ep-danger,#ef4444)">${TCi18n.t('ep.einsaetze.unavailSubmit')}</button>
+            <button class="ep-btn ep-btn-ghost ep-btn-sm" onclick="hideUnavailableForm('${a.id}')">${TCi18n.t('ep.einsaetze.cancel')}</button>
           </div>
         </div>`}
       </div>
@@ -273,7 +421,7 @@ function contactBlock(name, role, phone, email) {
       </div>
       <div class="ep-contact-actions">
         ${phone ? `<a class="ep-contact-action primary" href="tel:${esc(phone)}">${esc(phone)}</a>` : ''}
-        ${email ? `<a class="ep-contact-action" href="mailto:${esc(email)}">E-Mail</a>` : ''}
+        ${email ? `<a class="ep-contact-action" href="mailto:${esc(email)}">${TCi18n.t('ep.einsaetze.emailLabel')}</a>` : ''}
       </div>
     </div>`;
 }
@@ -281,27 +429,27 @@ function asgBadge(st) {
   const assignment = typeof st === 'string' ? { assignment_status: st } : (st || {});
   const lifecycleState = getAssignmentLifecycleState(assignment);
   const lifecycleMap = {
-    ends_today: { cls: 'ep-badge-planned', label: 'Endet heute' },
-    expired: { cls: 'ep-badge-draft', label: 'Abgelaufen' },
-    completed: { cls: 'ep-badge-completed', label: 'Beendet' },
-    cancelled: { cls: 'ep-badge-draft', label: 'Storniert' },
-    archived: { cls: 'ep-badge-draft', label: 'Archiv' }
+    ends_today: { cls: 'ep-badge-planned', label: TCi18n.t('ep.einsaetze.stEndsToday') },
+    expired: { cls: 'ep-badge-draft', label: TCi18n.t('ep.einsaetze.stExpired') },
+    completed: { cls: 'ep-badge-completed', label: TCi18n.t('ep.einsaetze.stEnded') },
+    cancelled: { cls: 'ep-badge-draft', label: TCi18n.t('ep.einsaetze.stCancelled') },
+    archived: { cls: 'ep-badge-draft', label: TCi18n.t('ep.einsaetze.stArchived') }
   };
   if (lifecycleState !== 'active' && lifecycleMap[lifecycleState]) {
     return `<span class="ep-badge ${lifecycleMap[lifecycleState].cls}">${lifecycleMap[lifecycleState].label}</span>`;
   }
   const rawStatus = assignment.assignment_status || 'planned';
   const m = { active:'ep-badge-active', planned:'ep-badge-planned', completed:'ep-badge-completed', cancelled:'ep-badge-draft', extended:'ep-badge-active' };
-  const l = { active:'Aktiv', planned:'Geplant', completed:'Abgeschlossen', cancelled:'Storniert', extended:'Verlängert' };
+  const l = { active:TCi18n.t('ep.einsaetze.stActive'), planned:TCi18n.t('ep.einsaetze.stPlanned'), completed:TCi18n.t('ep.einsaetze.stCompleted'), cancelled:TCi18n.t('ep.einsaetze.stCancelled'), extended:TCi18n.t('ep.einsaetze.stExtended') };
   return `<span class="ep-badge ${m[rawStatus]||'ep-badge-draft'}">${l[rawStatus]||rawStatus}</span>`;
 }
 function confBadge(cs) {
   if (!cs || cs==='auto_confirmed') return '';
   const m = {
-    pending_confirmation:'<span class="ep-badge" style="background:rgba(251,191,36,.12);color:#f59e0b">\u23f3 Best\u00e4tigung offen</span>',
-    worker_confirmed:'<span class="ep-badge" style="background:rgba(16,185,129,.12);color:#10b981">\u2713 Best\u00e4tigt</span>',
-    worker_declined:'<span class="ep-badge" style="background:rgba(239,68,68,.12);color:#ef4444">\u2717 Abgelehnt</span>',
-    worker_unavailable:'<span class="ep-badge" style="background:rgba(239,68,68,.12);color:#ef4444">\u26a0\ufe0f Abwesend</span>'
+    pending_confirmation:'<span class="ep-badge" style="background:rgba(251,191,36,.12);color:#f59e0b">' + TCi18n.t('ep.einsaetze.confPending') + '</span>',
+    worker_confirmed:'<span class="ep-badge" style="background:rgba(16,185,129,.12);color:#10b981">' + TCi18n.t('ep.einsaetze.confConfirmed') + '</span>',
+    worker_declined:'<span class="ep-badge" style="background:rgba(239,68,68,.12);color:#ef4444">' + TCi18n.t('ep.einsaetze.confDeclined') + '</span>',
+    worker_unavailable:'<span class="ep-badge" style="background:rgba(239,68,68,.12);color:#ef4444">' + TCi18n.t('ep.einsaetze.confUnavailable') + '</span>'
   };
   return m[cs]||'';
 }
@@ -320,20 +468,20 @@ function hideUnavailableForm(linkId) {
 async function submitUnavailable(linkId) {
   const dateVal = document.getElementById('unavailDate-' + linkId)?.value;
   const reason = (document.getElementById('unavailReason-' + linkId)?.value || '').trim();
-  if (!dateVal) { toast('Bitte Datum angeben.', 'error'); return; }
+  if (!dateVal) { toast(TCi18n.t('ep.einsaetze.toastDateRequired'), 'error'); return; }
   try {
     await PortalApi.post(`/worker/assignments/${linkId}/report-unavailable`, { unavailable_from: dateVal, reason });
-    toast('\u2713 Abwesenheit gemeldet \u2013 Ihr Disponent wurde informiert.');
+    toast(TCi18n.t('ep.einsaetze.toastUnavailDone'));
     await load();
     if (selId) await selAsg(selId);
-  } catch(e) { toast(e.message || 'Fehler', 'error'); }
+  } catch(e) { toast(e.message || TCi18n.t('ep.einsaetze.errGeneric'), 'error'); }
 }
 async function confirmAsg(linkId) {
   try {
     await PortalApi.post(`/worker/assignments/${linkId}/confirm`, {});
-    toast('\u2713 Einsatz best\u00e4tigt!'); await load();
+    toast(TCi18n.t('ep.einsaetze.toastConfirmed')); await load();
     if (selId) await selAsg(selId);
-  } catch(e) { toast(e.message||'Fehler', 'error'); }
+  } catch(e) { toast(e.message||TCi18n.t('ep.einsaetze.errGeneric'), 'error'); }
 }
 function toggleDeclineDetail() {
   const el = document.getElementById('declineDetail');
@@ -343,10 +491,10 @@ async function declineAsg(linkId) {
   const reason = (document.getElementById('declineReason')?.value||'').trim();
   try {
     await PortalApi.post(`/worker/assignments/${linkId}/decline`, { reason });
-    toast('Einsatz abgelehnt.'); await load();
-  } catch(e) { toast(e.message||'Fehler', 'error'); }
+    toast(TCi18n.t('ep.einsaetze.toastDeclined')); await load();
+  } catch(e) { toast(e.message||TCi18n.t('ep.einsaetze.errGeneric'), 'error'); }
 }
-function fmtD(d){return new Date(d).toLocaleDateString('de-DE',{day:'2-digit',month:'2-digit',year:'numeric'});}
+function fmtD(d){return new Date(d).toLocaleDateString(TCi18n.dateLocale(),{day:'2-digit',month:'2-digit',year:'numeric'});}
 </script>
 <script src="/public/js/demoBanner.js" defer></script>
 <script src="/public/js/breadcrumb.js" defer></script>
