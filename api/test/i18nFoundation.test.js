@@ -206,6 +206,160 @@ function inlineScripts(html) {
   return [...html.matchAll(/<script(?![^>]*\bsrc=)[^>]*>([\s\S]*?)<\/script>/g)].map((m) => m[1]);
 }
 
+suite("Plattform — Terminologie ist eine Matrix aus Rolle UND Sprache", () => {
+  /** Laedt terminologyLabels.js (optional mit i18n-Locale) in eine Sandbox. */
+  function loadTerminology(locale) {
+    const sandbox = {
+      document: {
+        documentElement: { setAttribute() {}, getAttribute: () => null },
+        readyState: "complete", head: { appendChild() {} },
+        getElementById: () => null, createElement: () => ({ setAttribute() {}, appendChild() {} }),
+        addEventListener() {}, dispatchEvent() {}, querySelectorAll: () => []
+      },
+      navigator: { language: "de-DE", languages: ["de-DE"] },
+      localStorage: { getItem: () => null, setItem() {} },
+      CustomEvent: class {},
+      window: {}
+    };
+    sandbox.window = sandbox;
+    vm.createContext(sandbox);
+    if (locale) sandbox.window.TCi18n = { locale: () => locale, t: () => "" };
+    new vm.Script(read("frontend/public/js/terminologyLabels.js"), { filename: "terminologyLabels.js" }).runInContext(sandbox);
+    return sandbox.window.TC.terminology;
+  }
+
+  it("beide Dimensionen bleiben erhalten: Rolle x Sprache", () => {
+    const de = loadTerminology(null);
+    const en = loadTerminology("en");
+    // Rollen-Dimension (Bestand) — darf durch i18n NICHT eingeebnet werden
+    assert.equal(de.get("marketplace", "company"), "Personal finden");
+    assert.equal(de.get("marketplace", "agency"), "Arbeitsplatz finden");
+    // Sprach-Dimension — je Rolle eine eigene Uebersetzung
+    assert.equal(en.get("marketplace", "company"), "Find staff");
+    assert.equal(en.get("marketplace", "agency"), "Find placements");
+    assert.notEqual(en.get("marketplace", "company"), en.get("marketplace", "agency"),
+      "Englisch darf die Rollenunterscheidung nicht verlieren");
+  });
+
+  it("'nicht anwendbar' (null) gilt auch auf Englisch", () => {
+    const en = loadTerminology("en");
+    assert.equal(en.get("createDemand", "agency"), null);
+    assert.equal(en.get("capacityCreate", "company"), null);
+  });
+
+  it("fehlende EN-Uebersetzung faellt auf Deutsch zurueck, nie auf den Schluessel", () => {
+    const en = loadTerminology("en");
+    const v = en.get("marketplaceActivity", "company");
+    assert.ok(v && v !== "marketplaceActivity");
+  });
+
+  it("jeder DE-Begriff hat eine EN-Entsprechung (Luecken werden sichtbar)", () => {
+    const js = read("frontend/public/js/terminologyLabels.js");
+    const block = (name) => {
+      const m = js.match(new RegExp("var " + name + " = \\{([\\s\\S]*?)\\n  \\};"));
+      assert.ok(m, name + " nicht gefunden");
+      return new Set([...m[1].matchAll(/^\s{4}(\w+):/gm)].map((x) => x[1]));
+    };
+    const de = block("LABELS");
+    const en = block("LABELS_EN");
+    assert.deepEqual([...de].filter((k) => !en.has(k)), [], "Begriffe ohne englische Fassung");
+    assert.deepEqual([...en].filter((k) => !de.has(k)), [], "EN-Begriffe ohne deutsche Quelle");
+  });
+});
+
+suite("Plattform-Seiten — i18n-Schicht eingebunden", () => {
+  it("jede Seite mit pageShell laedt auch i18n.js", () => {
+    const dir = path.join(ROOT, "frontend/public");
+    const missing = fs.readdirSync(dir)
+      .filter((f) => f.endsWith(".html"))
+      .filter((f) => fs.readFileSync(path.join(dir, f), "utf8").includes("js/pageShell.js"))
+      .filter((f) => !fs.readFileSync(path.join(dir, f), "utf8").includes("js/i18n.js"));
+    assert.deepEqual(missing, [], "Plattform-Seiten ohne i18n.js");
+  });
+
+  it("pageShell rendert Sprach-Umschalter + uebersetzt Nav und Rolle", () => {
+    const js = read("frontend/public/js/pageShell.js");
+    assert.match(js, /data-i18n-switcher/, "Umschalter fehlt in der Topbar");
+    assert.match(js, /shellT\('shell\.nav\.' \+ item\.key, item\.label\)/);
+    assert.match(js, /shellT\('shell\.role\.' \+ me\.role/);
+    // Sprachwechsel muss die per innerHTML gebaute Nav nachziehen …
+    assert.match(js, /addEventListener\("tc:langchange"/);
+    // … und danach die Rollen-Terminologie erneut anwenden (sie darf gewinnen)
+    assert.match(js, /if \(_lastOrgType\) updateNavLabels\(_lastOrgType\)/);
+  });
+});
+
+suite("portalStatus — Status-Labels zweisprachig, DE bleibt Fallback", () => {
+  /** Laedt i18n.js + portalStatus.js in EINE Sandbox (wie im Browser). */
+  function loadStatusModule({ withI18n = true, locale = "de" } = {}) {
+    const store = new Map();
+    if (locale !== "de") store.set("tempconnect-lang", locale);
+    const sandbox = {
+      localStorage: { getItem: (k) => (store.has(k) ? store.get(k) : null), setItem: (k, v) => store.set(k, String(v)) },
+      navigator: { language: "de-DE", languages: ["de-DE"] },
+      CustomEvent: class { constructor(t, o) { this.type = t; this.detail = o && o.detail; } },
+      document: {
+        documentElement: { setAttribute() {}, getAttribute: () => null },
+        readyState: "complete", head: { appendChild() {} },
+        getElementById: () => null, createElement: () => ({ setAttribute() {}, appendChild() {} }),
+        addEventListener() {}, dispatchEvent() {}, querySelectorAll: () => []
+      },
+      window: {}
+    };
+    sandbox.window = sandbox;
+    vm.createContext(sandbox);
+    if (withI18n) new vm.Script(read(MARKER_REL), { filename: "i18n.js" }).runInContext(sandbox);
+    new vm.Script(read("frontend/public/js/workerPortal/portalStatus.js"), { filename: "portalStatus.js" }).runInContext(sandbox);
+    return sandbox.window.PortalStatus;
+  }
+
+  it("DE unveraendert (Bestandsverhalten)", () => {
+    const S = loadStatusModule({ locale: "de" });
+    assert.equal(S.submissionLabel("needs_correction"), "Korrektur erforderlich");
+    assert.equal(S.assignmentLabel("pending_confirmation"), "Bestätigung ausstehend");
+    assert.equal(S.documentCategoryLabel("permit"), "Erlaubnis");
+    assert.equal(S.notificationLabel("document_expiring"), "Nachweis läuft ab");
+    assert.equal(S.documentBadgeLabel({ status: "verified" }), "Verifiziert");
+    assert.equal(S.documentBadgeLabel({ status: "pending_review", is_expiring_soon: true }), "Fristkritisch");
+  });
+
+  it("EN uebersetzt alle fuenf Label-Familien inkl. Badge-HTML", () => {
+    const S = loadStatusModule({ locale: "en" });
+    assert.equal(S.submissionLabel("needs_correction"), "Correction required");
+    assert.equal(S.assignmentLabel("pending_confirmation"), "Confirmation pending");
+    assert.equal(S.documentLabel("expired"), "Expired");
+    assert.equal(S.documentCategoryLabel("permit"), "Permit");
+    assert.equal(S.notificationLabel("document_expiring"), "Document expiring");
+    assert.match(S.submissionBadgeHtml("customer_confirmed"), /Confirmed by client/);
+    assert.match(S.submissionBadgeHtml("customer_confirmed"), /ep-badge-accepted/, "Badge-Klasse bleibt");
+    assert.equal(S.documentBadgeLabel({ status: "verified" }), "Verified");
+  });
+
+  it("ohne geladenes i18n.js: exakt das alte Verhalten (kein Absturz)", () => {
+    const S = loadStatusModule({ withI18n: false });
+    assert.equal(S.submissionLabel("draft"), "Entwurf");
+    assert.equal(S.notificationLabel("general"), "Mitteilung");
+    assert.equal(S.submissionLabel("voellig_unbekannt"), "voellig_unbekannt", "unbekannter Status bleibt roh");
+  });
+
+  it("jeder DE-Status hat eine EN-Entsprechung (keine stille Luecke)", () => {
+    const de = loadStatusModule({ locale: "de" });
+    const en = loadStatusModule({ locale: "en" });
+    const families = [
+      ["SUBMISSION_LABELS", "submissionLabel"], ["ASSIGNMENT_LABELS", "assignmentLabel"],
+      ["DOCUMENT_LABELS", "documentLabel"], ["DOCUMENT_CATEGORY_LABELS", "documentCategoryLabel"],
+      ["NOTIFICATION_LABELS", "notificationLabel"]
+    ];
+    const missing = [];
+    for (const [mapName, fn] of families) {
+      for (const key of Object.keys(de[mapName])) {
+        if (en[fn](key) === de[fn](key)) missing.push(`${mapName}.${key}`);
+      }
+    }
+    assert.deepEqual(missing, [], "Status ohne echte EN-Uebersetzung");
+  });
+});
+
 suite("Einsatzportal-Seiten — Woerterbuch-Werte sind echte Texte", () => {
   // Gelernt am 04.08.: eine Literal-Ersetzung ueber die ganze Datei trifft AUCH
   // den DE-Wert im Woerterbuch und macht daraus 'key': TCi18n.t('key') — ein

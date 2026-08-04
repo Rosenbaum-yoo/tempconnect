@@ -69,6 +69,57 @@
     finance: true
   };
 
+  /* ── i18n (P6) ─────────────────────────────────────────────────────
+     Die Shell traegt Navigation und Rollenbezeichnung auf ~49 Plattform-
+     Seiten — hier uebersetzt zu haben wirkt ueberall gleichzeitig.
+     Die DE-Texte oben bleiben Quelle UND Fallback (keine Doppelpflege).
+     Achtung Zusammenspiel: `updateNavLabels` ueberschreibt Nav-Labels
+     rollenabhaengig ueber TC.terminology — das ist die zweite Dimension
+     und seit P6 selbst sprachfaehig. */
+  var SHELL_EN = {
+    'shell.nav.uebersicht': 'Overview',
+    'shell.nav.marktplatz': 'Find staff',
+    'shell.nav.bedarfe': 'Job postings',
+    'shell.nav.deals_einsaetze': 'Deals & assignments',
+    'shell.nav.steuerung': 'Controlling',
+    'shell.navDesc.uebersicht': 'Pilot standard and next steps at a glance: offer, deal, staffing and hours before expansion areas.',
+    'shell.navDesc.marktplatz': 'Pilot standard: find staff, steer matching assignments and placement responses without media breaks.',
+    'shell.navDesc.bedarfe': 'Pilot standard: create job postings, prioritise them and turn them into solid offers.',
+    'shell.navDesc.deals_einsaetze': 'Pilot standard: close deals, run staffing, approve timesheets and keep follow-up processes clean.',
+    'shell.navDesc.steuerung': 'Downstream controlling area for supplier performance, spend, executive view and governance.',
+    'shell.navDesc.help': 'FAQ, guides, support contact and onboarding assistant.',
+    'shell.role.agency': 'Staffing agency',
+    'shell.role.company': 'Company',
+    'shell.role.worker': 'Worker',
+    'shell.role.admin': 'Admin',
+    'shell.plan.individuell': 'Custom plan',
+    'shell.menuOpen': 'Open menu'
+  };
+
+  (function registerShellI18n() {
+    if (!window.TCi18n) return;
+    var de = {};
+    for (var i = 0; i < NAV_LINKS.length; i++) {
+      var it = NAV_LINKS[i];
+      if (!it.isIcon) de['shell.nav.' + it.key] = it.label;
+      if (it.desc) de['shell.navDesc.' + it.key] = it.desc;
+    }
+    Object.keys(ROLE_LABELS).forEach(function (r) { de['shell.role.' + r] = ROLE_LABELS[r]; });
+    de['shell.plan.individuell'] = 'Individueller Tarif';
+    de['shell.menuOpen'] = 'Menü öffnen';
+    window.TCi18n.register('de', de);
+    window.TCi18n.register('en', SHELL_EN);
+  })();
+
+  /** Uebersetzt mit deutschem Bestandstext als Fallback. */
+  function shellT(key, fallback) {
+    if (window.TCi18n) {
+      var v = window.TCi18n.t(key);
+      if (v) return v;
+    }
+    return fallback;
+  }
+
   function brandHomeForUser(me) {
     if (!me || !me.id) return "/";
     if (me.role === "worker") return "/public/einsatzportal-dashboard.html";
@@ -206,6 +257,7 @@
    */
   function updateNavLabels(orgType) {
     if (!orgType || !window.TC || !window.TC.terminology) return;
+    _lastOrgType = orgType; // fuer den erneuten Aufruf nach einem Sprachwechsel
     for (var i = 0; i < NAV_LINKS.length; i++) {
       var item = NAV_LINKS[i];
       if (!item.termKey) continue;
@@ -217,6 +269,33 @@
       if (link) link.textContent = label;
     }
   }
+
+  /**
+   * Sprachwechsel (P6): die Topbar wird per innerHTML gebaut, deklarative
+   * data-i18n-Marker greifen dort also nicht. Statt die ganze Shell neu zu
+   * rendern (Zustand: offenes Menue, Badges, Fokus) werden gezielt die
+   * Nav-Texte gesetzt — und danach die Rollen-Terminologie erneut
+   * angewandt, weil sie die Sprachfassung ueberschreiben DARF.
+   */
+  function applyNavLanguage() {
+    for (var i = 0; i < NAV_LINKS.length; i++) {
+      var item = NAV_LINKS[i];
+      if (item.isIcon) continue;
+      var wrap = document.querySelector('[data-nav-key="' + item.key + '"]');
+      if (!wrap) continue;
+      var link = wrap.querySelector("a");
+      if (link) link.textContent = shellT('shell.nav.' + item.key, item.label);
+      var tip = wrap.querySelector(".tc-nav-tooltip");
+      if (tip && item.desc) tip.textContent = shellT('shell.navDesc.' + item.key, item.desc);
+    }
+    if (_lastOrgType) updateNavLabels(_lastOrgType);
+  }
+
+  var _lastOrgType = null;
+
+  document.addEventListener("tc:langchange", function () {
+    try { applyNavLanguage(); } catch (_e) { /* Shell darf daran nie scheitern */ }
+  });
 
   function dispatchShellContext(detail) {
     try {
@@ -299,6 +378,11 @@
     h += '<span class="ds-topbar__brand-dot"></span>' + esc(BRAND);
     h += '</a>';
 
+    /* Sprachwahl (P6) \u2014 direkt neben der Marke, damit sie auf JEDER
+       Plattform-Seite an derselben Stelle sitzt. Rendert nur, wenn die
+       Seite i18n.js laedt (progressive Migration). */
+    if (window.TCi18n) h += '<span data-i18n-switcher style="margin-left:10px"></span>';
+
     /* Mobile hamburger button */
     h += '<button class="tc-shell-hamburger" type="button" aria-label="Men\u00fc \u00f6ffnen" aria-expanded="false">';
     h += '<span class="tc-shell-hamburger__bar"></span>';
@@ -317,9 +401,9 @@
       var iconStyle = item.isIcon ? ' style="font-size:16px;text-decoration:none"' : '';
       var navKeyAttr = item.key ? ' data-nav-key="' + item.key + '"' : '';
       h += '<div class="tc-nav-wrap"' + navKeyAttr + '>';
-      h += '<a href="' + item.href + '" class="' + cls + '"' + iconStyle + '>' + item.label + '</a>';
+      h += '<a href="' + item.href + '" class="' + cls + '"' + iconStyle + '>' + shellT('shell.nav.' + item.key, item.label) + '</a>';
       if (item.desc) {
-        h += '<div class="tc-nav-tooltip">' + esc(item.desc) + '</div>';
+        h += '<div class="tc-nav-tooltip">' + esc(shellT('shell.navDesc.' + item.key, item.desc)) + '</div>';
       }
       h += '</div>';
     }
@@ -451,10 +535,10 @@
     var email   = me.email || "\u2013";
     var plan    = me.plan || "DEMO";
     if (plan === "FREE") plan = "DEMO";
-    var role    = ROLE_LABELS[me.role] || me.role || "\u2013";
+    var role    = shellT('shell.role.' + me.role, ROLE_LABELS[me.role]) || me.role || "\u2013";
     var orgName = me.company_name || me.org_name || "";
     var planClr = PLAN_COLORS[plan] || PLAN_COLORS.DEMO;
-    var planLabel = me.plan_display_label || (plan === "INDIVIDUELL" ? "Individueller Tarif" : plan);
+    var planLabel = me.plan_display_label || (plan === "INDIVIDUELL" ? shellT('shell.plan.individuell', "Individueller Tarif") : plan);
     var isPilot = me.pilot && me.pilot.pilot_status === "active";
     var featureBundle = me.feature_bundle || "standard";
     var memberships = Array.isArray(me.memberships) ? me.memberships : [];
@@ -520,6 +604,11 @@
     h += '</div>';
 
     container.innerHTML = h;
+
+    /* P6: Die Topbar entsteht ERST nach dem /me-Abruf — die i18n-Schicht ist
+       da laengst durchgelaufen. Ohne diesen Aufruf bliebe der Umschalter ein
+       leerer Platzhalter (und data-i18n-Marker in der Shell unuebersetzt). */
+    if (window.TCi18n) window.TCi18n.apply(container);
 
     var orgSelect = container.querySelector("#tc-org-switch");
     if (orgSelect) {

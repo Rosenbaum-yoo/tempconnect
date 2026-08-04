@@ -76,6 +76,82 @@
   };
 
   /**
+   * Englische Entsprechungen (P6). Das Label ist eine MATRIX aus Rolle UND
+   * Sprache — ein Unternehmen liest "Personal finden", eine Agentur
+   * "Arbeitsplatz finden", und beides braucht eine englische Fassung.
+   * Deshalb steht Englisch als eigene Rollen-Tabelle daneben statt als
+   * flache Uebersetzung darueber: sonst ginge eine der beiden Dimensionen
+   * verloren. Fehlt ein Key oder eine Rolle hier, greift automatisch das
+   * deutsche Original (ehrlicher Fallback, nie ein roher Schluessel).
+   * `null` bleibt "fuer diese Rolle nicht anwendbar" — auch auf Englisch.
+   */
+  var LABELS_EN = {
+    marketplace:        { company: "Find staff",              agency: "Find placements",       neutral: "Matching" },
+    marketplaceTitle:   { company: "Find staff",              agency: "Find placements",       neutral: "Matching" },
+
+    createDemand:       { company: "Post a job",              agency: null },
+    demandList:         { company: "Job postings",            agency: "Open job postings" },
+    demandDetail:       { company: "Job posting",             agency: "Job posting" },
+    demandCreate:       { company: "Create a new job posting", agency: null },
+    demandSave:         { company: "Save job posting",        agency: null },
+    demandClose:        { company: "Close job posting",       agency: null },
+    demandPublish:      { company: "Publish job posting",     agency: null },
+    demandProfile:      { company: "Role profile",            agency: "Role profile" },
+    openDemands:        { company: "Open positions",          agency: "Open job postings" },
+    fillingRate:        { company: "Fill rate",               agency: "Fill rate" },
+
+    capacityCreate:     { company: null,                      agency: "List staff" },
+    capacityList:       { company: "Available staff",         agency: "Listed staff" },
+    capacitySearch:     { company: "Find staff",              agency: "Find staff" },
+    capacityProfile:    { company: "Staff profile",           agency: "Staff profile" },
+    capacityOffer:      { company: null,                      agency: "Staff offer" },
+    capacityOffers:     { company: "Available staff",         agency: "Staff offers" },
+
+    findStaff:          { company: "Find staff",              agency: null },
+    findWorkplace:      { company: null,                      agency: "Find placements" },
+    offerWorkplace:     { company: "Post a job",              agency: null },
+    offerStaff:         { company: null,                      agency: "Offer staff" },
+    startFilling:       { company: "Start filling",           agency: null },
+    checkFilling:       { company: "Review filling",          agency: null },
+
+    navMarketplace:     { company: "Find staff",              agency: "Find placements",       neutral: "Matching" },
+    navDemands:         { company: "Job postings",            agency: "Open job postings" },
+    navCapacity:        { company: "Available staff",         agency: "List staff" },
+
+    emptyDemands:       { company: "You have not created any job postings yet.", agency: "There are currently no matching job postings." },
+    emptyCapacity:      { company: "No matching staff found at the moment.",     agency: "You have not listed any available staff yet." },
+    emptyDemandsCta:    { company: "Post a job",              agency: "Adjust filters" },
+    emptyCapacityCta:   { company: "Adjust search criteria",  agency: "List staff" },
+
+    marketplaceActivity: { company: "Matching activity",      agency: "Matching activity",     neutral: "Matching activity" },
+    staffSearch:         { company: "Find staff",             agency: "Find staff" },
+    demandCount:         { company: "Job postings",           agency: "Job postings" },
+
+    myAssignments:      { worker: "My assignments" },
+    workplaceDetail:    { worker: "Placement details" },
+    myAvailability:     { worker: "My availability" }
+  };
+
+  /**
+   * Waehlt die sprachrichtige Rollen-Tabelle. Deutsche Werte fuellen Luecken
+   * der englischen auf — eine fehlende Uebersetzung zeigt lieber Deutsch als
+   * gar nichts. Ohne geladene i18n-Schicht bleibt alles wie bisher.
+   */
+  function localizedEntry(key, entry) {
+    if (!window.TCi18n || window.TCi18n.locale() === "de") return entry;
+    var loc = LABELS_EN[key];
+    if (!loc) return entry;
+    var merged = {};
+    for (var k in entry) {
+      if (Object.prototype.hasOwnProperty.call(entry, k)) merged[k] = entry[k];
+    }
+    for (var k2 in loc) {
+      if (Object.prototype.hasOwnProperty.call(loc, k2)) merged[k2] = loc[k2];
+    }
+    return merged;
+  }
+
+  /**
    * Gibt das rollenabhaengige UI-Label fuer einen Key zurueck.
    *
    * @param {string} key       - Schluessel aus LABELS (z. B. "marketplace", "createDemand")
@@ -86,6 +162,7 @@
   function get(key, orgType, fallback) {
     var entry = LABELS[key];
     if (!entry) return fallback !== undefined ? fallback : key;
+    entry = localizedEntry(key, entry); // P6: Sprach-Dimension, Rollen-Logik unveraendert
 
     var role = String(orgType || "").trim().toLowerCase();
 

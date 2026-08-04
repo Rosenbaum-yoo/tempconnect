@@ -148,7 +148,42 @@
     (document.head || document.documentElement).appendChild(style);
   }
 
-  function init() { injectStyles(); apply(); }
+  /**
+   * Nachziehen bei dynamisch eingefuegtem Markup.
+   *
+   * Die Plattform-Shell, Modals und Drawer entstehen erst nach einem
+   * Netz-Abruf — zu diesem Zeitpunkt ist apply() laengst gelaufen. Ohne
+   * diesen Beobachter bliebe der Sprach-Umschalter dort ein leerer
+   * Platzhalter (genau der "tote Knopf", den die Projektregeln verbieten),
+   * und jede neue dynamische Flaeche muesste daran denken, selbst
+   * nachzurufen. Bewusst schlank: reagiert nur auf hinzugefuegte Elemente,
+   * prueft per Selektor auf noch unuebersetztes Markup und ist entprellt.
+   */
+  function observeDynamicMarkup() {
+    if (typeof MutationObserver !== "function" || !document.body) return;
+    var pending = false;
+    var obs = new MutationObserver(function (records) {
+      if (pending) return;
+      for (var i = 0; i < records.length; i++) {
+        var added = records[i].addedNodes;
+        for (var j = 0; j < added.length; j++) {
+          var node = added[j];
+          if (!node || node.nodeType !== 1) continue;
+          if (node.matches && (node.matches("[data-i18n],[data-i18n-ph],[data-i18n-title],[data-i18n-aria],[data-i18n-switcher]") ||
+              (node.querySelector && node.querySelector("[data-i18n],[data-i18n-switcher]")))) {
+            pending = true;
+            // Erst wenn der Render-Block fertig ist — sonst uebersetzen wir
+            // Teilbaeume mehrfach waehrend eines einzigen innerHTML-Aufbaus.
+            setTimeout(function () { pending = false; apply(); }, 0);
+            return;
+          }
+        }
+      }
+    });
+    obs.observe(document.body, { childList: true, subtree: true });
+  }
+
+  function init() { injectStyles(); apply(); observeDynamicMarkup(); }
   if (document.readyState === "loading") {
     document.addEventListener("DOMContentLoaded", init);
   } else {

@@ -374,8 +374,36 @@
   - Tests (`api/test/i18nFoundation.test.js`, 31 Fälle): Schicht-Sandbox, DE/EN-Parität je
     Seite, Marker-Auflösbarkeit, **Inline-Script-Syntax jeder Seite** und **kein
     Wörterbuch-Selbstverweis**. Zusammen mit den Wächtern: 52/52 grün.
-  - **Offen (nächste Welle):** Plattform-Flächen (Enterprise/Marktplatz) sowie das geteilte
-    Modul `portalStatus.js` (Status-/Kategorie-Labels sind dort noch einsprachig).
+  - **✅ Geteilte Schichten + Plattform-Shell (2026-08-04):**
+    - `portalStatus.js` (Status-, Dokument-, Kategorie- und Benachrichtigungs-Labels des
+      Portals) zweisprachig — die deutschen Maps bleiben Quelle **und** Fallback, nur
+      Englisch steht daneben; ohne geladene i18n-Schicht verhält sich das Modul exakt wie
+      vorher.
+    - **Der architektonische Kern dieser Welle:** `terminologyLabels.js` trug bereits eine
+      **rollenabhängige** Sprache (ein Unternehmen liest „Personal finden", eine Agentur
+      „Arbeitsplatz finden"). Ein Label ist damit `f(Rolle, Sprache)` — eine Matrix. Eine
+      naiv darübergelegte i18n-Schicht hätte eine der beiden Dimensionen eingeebnet.
+      Deshalb steht Englisch als **eigene Rollen-Tabelle** daneben (`LABELS_EN`); `null`
+      („für diese Rolle nicht anwendbar") gilt auch auf Englisch, fehlende Übersetzungen
+      fallen auf Deutsch zurück. Alle 37 Begriffe übersetzt, Lückentest erzwingt Parität.
+    - `pageShell.js`: Sprach-Umschalter in der Topbar **jeder** Plattform-Seite,
+      Navigation/Tooltips/Rollenbezeichnung/Tarifname übersetzt. Beim Sprachwechsel werden
+      die per innerHTML gebauten Nav-Texte gezielt nachgezogen und danach die
+      Rollen-Terminologie erneut angewandt (sie darf die Sprachfassung überschreiben).
+    - `i18n.js` auf **49 Plattform-Seiten** eingebunden.
+  - **Ein Fund aus dem Live-Test:** Der Umschalter blieb in der Plattform-Shell zunächst ein
+    **leerer Platzhalter** — die Shell rendert erst nach dem Nutzer-Abruf, da war die
+    i18n-Schicht längst durchgelaufen. Statt diesen einen Render-Pfad zu flicken, zieht
+    `i18n.js` jetzt dynamisch eingefügtes Markup automatisch nach (schlanker, entprellter
+    MutationObserver) — damit ist das Problem für **alle** künftigen dynamischen Flächen
+    (Modals, Drawer, Panels) gelöst statt einmalig umgangen.
+  - Verifiziert: 62/62 Tests grün; Live im Browser bewiesen — Umschalter erscheint, die
+    komplette Plattform-Navigation wechselt („Übersicht"→„Overview", „Personal
+    finden"→„Find staff", „Steuerung"→„Controlling") und sauber zurück, Konsole fehlerfrei.
+  - **Offen (nächste Welle):** die Inhalte der einzelnen Plattform-Seiten (~21.000 Zeilen,
+    Kandidat für denselben Fan-out wie beim Portal). Rahmen und Muster stehen: Schicht,
+    Umschalter, Terminologie-Matrix und Testgates sind da — je Seite bleibt nur noch
+    `data-i18n`-Markup + `TCi18n.register`.
 
 ## Phase 7 — Visual/Media Layer (PREVIEW ZUERST)
 
