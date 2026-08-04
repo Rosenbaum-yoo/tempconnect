@@ -88,6 +88,14 @@
     'shell.navDesc.deals_einsaetze': 'Pilot standard: close deals, run staffing, approve timesheets and keep follow-up processes clean.',
     'shell.navDesc.steuerung': 'Downstream controlling area for supplier performance, spend, executive view and governance.',
     'shell.navDesc.help': 'FAQ, guides, support contact and onboarding assistant.',
+    // Kontextabhaengige Tooltips (rollen- bzw. zugriffsabhaengig). Sie wurden
+    // frueher nach dem /me-Abruf als harte deutsche Strings gesetzt und haben
+    // damit auf der englischen Oberflaeche die Uebersetzung wieder zerstoert.
+    'shell.navDesc.marktplatz.company': 'Pilot standard: find staff, steer matching assignments and placement responses without media breaks.',
+    'shell.navDesc.marktplatz.agency': 'Pilot standard: offer staff, find job postings and steer placement responses without media breaks.',
+    'shell.navDesc.steuerung.base': 'Downstream controlling area for supplier performance, spend, executive view and governance.',
+    'shell.navDesc.steuerung.full': 'Downstream controlling area for supplier performance, rate cards, spend, executive view and governance.',
+    'shell.navDesc.steuerung.readOnly': 'Downstream controlling area for supplier performance, rate cards in read-only mode, spend, executive view and governance.',
     'shell.role.agency': 'Staffing agency',
     'shell.role.company': 'Company',
     'shell.role.worker': 'Worker',
@@ -104,6 +112,11 @@
       if (!it.isIcon) de['shell.nav.' + it.key] = it.label;
       if (it.desc) de['shell.navDesc.' + it.key] = it.desc;
     }
+    de['shell.navDesc.marktplatz.company'] = 'Pilot-Standard: Personal finden, passende Einsaetze und Vermittlungsreaktionen ohne Medienbruch steuern.';
+    de['shell.navDesc.marktplatz.agency'] = 'Pilot-Standard: Personal anbieten, Arbeitsplatzangebote finden und Vermittlungsreaktionen ohne Medienbruch steuern.';
+    de['shell.navDesc.steuerung.base'] = 'Nachgelagerte Steuerungs- und Ausbauflaeche fuer Lieferantenleistung, Spend, Executive-Sicht und Governance.';
+    de['shell.navDesc.steuerung.full'] = 'Nachgelagerte Steuerungs- und Ausbauflaeche fuer Lieferantenleistung, Preisrahmen, Spend, Executive-Sicht und Governance.';
+    de['shell.navDesc.steuerung.readOnly'] = 'Nachgelagerte Steuerungs- und Ausbauflaeche fuer Lieferantenleistung, Preisrahmen im Lesemodus, Spend, Executive-Sicht und Governance.';
     Object.keys(ROLE_LABELS).forEach(function (r) { de['shell.role.' + r] = ROLE_LABELS[r]; });
     de['shell.plan.individuell'] = 'Individueller Tarif';
     de['shell.menuOpen'] = 'Menü öffnen';
@@ -225,20 +238,27 @@
     };
   }
 
+  /* P6: Die Fassungen kommen aus dem Woerterbuch statt aus festen Strings —
+     sonst zerstoert dieser Aufruf nach dem /me-Abruf die uebersetzte Topbar.
+     `access.reason` bleibt bewusst wie geliefert: er stammt aus der
+     Berechtigungsschicht (resolveRateCardAccess) und gehoert dort uebersetzt,
+     nicht hier nachgebaut — sonst gaebe es zwei Wahrheiten. */
   function getSteeringNavDescription(access) {
-    if (!access || access.mode === "locked") {
-      return "Nachgelagerte Steuerungs- und Ausbauflaeche fuer Lieferantenleistung, Spend, Executive-Sicht und Governance.";
-    }
+    var base = shellT('shell.navDesc.steuerung.base',
+      "Nachgelagerte Steuerungs- und Ausbauflaeche fuer Lieferantenleistung, Spend, Executive-Sicht und Governance.");
+    if (!access || access.mode === "locked") return base;
     if (access.mode === "full") {
-      return "Nachgelagerte Steuerungs- und Ausbauflaeche fuer Lieferantenleistung, Preisrahmen, Spend, Executive-Sicht und Governance.";
+      return shellT('shell.navDesc.steuerung.full',
+        "Nachgelagerte Steuerungs- und Ausbauflaeche fuer Lieferantenleistung, Preisrahmen, Spend, Executive-Sicht und Governance.");
     }
     if (access.mode === "read_only") {
-      return "Nachgelagerte Steuerungs- und Ausbauflaeche fuer Lieferantenleistung, Preisrahmen im Lesemodus, Spend, Executive-Sicht und Governance.";
+      return shellT('shell.navDesc.steuerung.readOnly',
+        "Nachgelagerte Steuerungs- und Ausbauflaeche fuer Lieferantenleistung, Preisrahmen im Lesemodus, Spend, Executive-Sicht und Governance.");
     }
     if (access.mode === "plan_locked" || access.mode === "org_locked" || access.mode === "role_locked") {
-      return "Nachgelagerte Steuerungs- und Ausbauflaeche fuer Lieferantenleistung, Spend, Executive-Sicht und Governance. " + access.reason;
+      return base + " " + access.reason;
     }
-    return "Nachgelagerte Steuerungs- und Ausbauflaeche fuer Lieferantenleistung, Spend, Executive-Sicht und Governance.";
+    return base;
   }
 
   function updateNavLinkDescription(navKey, desc) {
@@ -288,10 +308,26 @@
       var tip = wrap.querySelector(".tc-nav-tooltip");
       if (tip && item.desc) tip.textContent = shellT('shell.navDesc.' + item.key, item.desc);
     }
+    // Die Basis-Fassung oben ist rollenNEUTRAL. Ohne die beiden folgenden
+    // Aufrufe verloere ein Sprachwechsel die rollen- und zugriffsabhaengigen
+    // Fassungen dauerhaft — eine Agentur laese danach die Company-Beschreibung.
+    applyContextualNavDescriptions();
     if (_lastOrgType) updateNavLabels(_lastOrgType);
   }
 
+  /** Rollen-/zugriffsabhaengige Tooltips aus dem gemerkten Kontext aufbauen. */
+  function applyContextualNavDescriptions() {
+    updateNavLinkDescription("steuerung", getSteeringNavDescription(_lastAccess));
+    if (!_lastOrgType) return;
+    var key = _lastOrgType === "agency" ? 'shell.navDesc.marktplatz.agency' : 'shell.navDesc.marktplatz.company';
+    var fallback = _lastOrgType === "agency"
+      ? "Pilot-Standard: Personal anbieten, Arbeitsplatzangebote finden und Vermittlungsreaktionen ohne Medienbruch steuern."
+      : "Pilot-Standard: Personal finden, passende Einsaetze und Vermittlungsreaktionen ohne Medienbruch steuern.";
+    updateNavLinkDescription("marktplatz", shellT(key, fallback));
+  }
+
   var _lastOrgType = null;
+  var _lastAccess = null;
 
   document.addEventListener("tc:langchange", function () {
     try { applyNavLanguage(); } catch (_e) { /* Shell darf daran nie scheitern */ }
@@ -349,16 +385,12 @@
     if (window.TC && window.TC.shell) {
       window.TC.shell.context = { me: me || null, rateCardAccess: access };
     }
-    updateNavLinkDescription("steuerung", getSteeringNavDescription(access));
-    if (me && me.org_type) {
-      updateNavLabels(me.org_type);
-      // Marktplatz-Tooltip rollen-aware (Label ist es bereits): Agency bietet Personal an/sucht Arbeitsplaetze;
-      // Company sucht Personal/bietet Arbeitsplaetze an. Default-HTML = Company-Sicht (Mehrheitsrolle).
-      var _ot = String(me.org_type).toLowerCase();
-      updateNavLinkDescription("marktplatz", _ot === "agency"
-        ? "Pilot-Standard: Personal anbieten, Arbeitsplatzangebote finden und Vermittlungsreaktionen ohne Medienbruch steuern."
-        : "Pilot-Standard: Personal finden, passende Einsaetze und Vermittlungsreaktionen ohne Medienbruch steuern.");
-    }
+    // Kontext merken: nach einem Sprachwechsel muessen diese Tooltips aus
+    // demselben Zustand neu aufgebaut werden (siehe applyContextualNavDescriptions).
+    _lastAccess = access;
+    if (me && me.org_type) _lastOrgType = String(me.org_type).toLowerCase();
+    applyContextualNavDescriptions();
+    if (me && me.org_type) updateNavLabels(me.org_type);
     ensureHubVisibilityLoaded(function () { applyNavVisibility(me); });
     dispatchShellContext({ me: me || null, rateCardAccess: access });
   }

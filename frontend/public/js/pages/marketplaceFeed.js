@@ -52,8 +52,8 @@
     'feed.nav.myArea.title': 'Mein Bereich',
     'feed.nav.myArea.desc': 'Deals, Anfragen, Eingaenge und Matching.',
     'feed.nav.publishStaff.desc': 'Eigenes Personal gezielt veröffentlichen.',
-    'feed.nav.openJobs.title': 'Verfügbare Arbeitsplätze',
-    'feed.nav.openJobs.desc': 'Übersicht Ihrer Arbeitsplatzangebote.',
+    'feed.nav.openJobs.title': 'Meine Arbeitsplatzangebote',
+    'feed.nav.openJobs.desc': 'Übersicht und Status Ihrer veröffentlichten Arbeitsplatzangebote.',
     'feed.stats.active': 'Aktives Personal',
     'feed.stats.suppliers': 'Dienstleister',
     'feed.stats.deals': 'Deals (30T)',
@@ -158,7 +158,7 @@
     'feed.cta.agency.notdienst': 'Notdienst einstellen',
     'feed.cta.agency.manage': 'Eingestelltes Personal',
     'feed.cta.company.create': 'Arbeitsplatz anbieten',
-    'feed.cta.company.list': 'Meine Angebote'
+    'feed.cta.company.list': 'Meine Arbeitsplatzangebote'
   });
 
   TCi18n.register('en', {
@@ -175,8 +175,8 @@
     'feed.nav.myArea.title': 'My area',
     'feed.nav.myArea.desc': 'Deals, requests, inbox and matching.',
     'feed.nav.publishStaff.desc': 'Publish your own staff in a targeted way.',
-    'feed.nav.openJobs.title': 'Your job postings',
-    'feed.nav.openJobs.desc': 'Overview of your job openings.',
+    'feed.nav.openJobs.title': 'My job postings',
+    'feed.nav.openJobs.desc': 'Overview and status of your published job postings.',
     'feed.stats.active': 'Active staff',
     'feed.stats.suppliers': 'Providers',
     'feed.stats.deals': 'Deals (30d)',
