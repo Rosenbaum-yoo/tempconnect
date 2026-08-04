@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <script src="/public/js/theme.js"></script>
   <script src="/public/js/i18n.js"></script>
-  <title>Help Center – TempConnect</title>
+  <title data-i18n="help.docTitle">Help Center – TempConnect</title>
   <link rel="stylesheet" href="/public/css/design-system.css"/>
   <style>
     .help-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: var(--ds-space-3); margin-bottom: var(--ds-space-6); }
@@ -41,8 +41,8 @@
 
     <div class="ds-page-header">
       <div class="ds-page-header__content">
-        <h1 class="ds-page-title">Help Center</h1>
-        <p class="ds-page-subtitle">Hilfe, Anleitungen, FAQ und Support-Kontakt &ndash; alles an einem Ort.</p>
+        <h1 class="ds-page-title" data-i18n="help.pageTitle">Help Center</h1>
+        <p class="ds-page-subtitle" data-i18n="help.pageSubtitle">Hilfe, Anleitungen, FAQ und Support-Kontakt &ndash; alles an einem Ort.</p>
       </div>
     </div>
 
@@ -50,13 +50,13 @@
     <div id="onboarding-checklist" style="display:none;margin-bottom:var(--ds-space-4)">
       <div style="border:1px solid rgba(74,158,255,.15);border-radius:12px;background:rgba(74,158,255,.03);overflow:hidden">
         <div style="display:flex;align-items:center;gap:10px;padding:10px 16px;cursor:pointer" onclick="toggleOnboarding()">
-          <span style="font-weight:700;font-size:14px;white-space:nowrap">Plattform einrichten</span>
+          <span style="font-weight:700;font-size:14px;white-space:nowrap" data-i18n="help.onboarding.title">Plattform einrichten</span>
           <span id="onboarding-subtitle" style="font-size:12px;color:var(--ds-text-secondary,var(--muted));white-space:nowrap;overflow:hidden;text-overflow:ellipsis;flex-shrink:1;min-width:0"></span>
           <div class="ob-progress-track" style="flex:1;min-width:40px;max-width:160px;height:4px;border-radius:2px;background:rgba(255,255,255,.08);overflow:hidden">
             <div id="onboarding-progress-bar" style="height:100%;border-radius:2px;background:var(--ds-brand,#4a9eff);transition:width .4s ease;width:0%"></div>
           </div>
-          <button id="onboarding-toggle-btn" type="button" style="background:none;border:none;color:var(--ds-text-secondary,var(--muted));cursor:pointer;font-size:10px;padding:2px 6px;transition:transform .25s;transform:rotate(0deg)" title="Auf-/Zuklappen" onclick="event.stopPropagation();toggleOnboarding()">&#9660;</button>
-          <button id="onboarding-dismiss-btn" type="button" onclick="event.stopPropagation();dismissOnboarding()" style="background:none;border:none;color:var(--ds-text-secondary,var(--muted));cursor:pointer;font-size:18px;padding:2px 6px;line-height:1" title="Ausblenden">&times;</button>
+          <button id="onboarding-toggle-btn" type="button" style="background:none;border:none;color:var(--ds-text-secondary,var(--muted));cursor:pointer;font-size:10px;padding:2px 6px;transition:transform .25s;transform:rotate(0deg)" title="Auf-/Zuklappen" data-i18n-title="help.onboarding.toggle" onclick="event.stopPropagation();toggleOnboarding()">&#9660;</button>
+          <button id="onboarding-dismiss-btn" type="button" onclick="event.stopPropagation();dismissOnboarding()" style="background:none;border:none;color:var(--ds-text-secondary,var(--muted));cursor:pointer;font-size:18px;padding:2px 6px;line-height:1" title="Ausblenden" data-i18n-title="help.onboarding.dismiss">&times;</button>
         </div>
         <div id="onboarding-body" style="max-height:0;overflow:hidden;transition:max-height .3s ease">
           <div style="padding:0 16px 14px">
@@ -71,20 +71,20 @@
       <div class="ds-hub-grid">
         <div class="ds-hub-card ds-hub-card--current ds-hub-card--success" aria-current="page">
           <div class="ds-hub-card__content">
-            <div class="ds-hub-card__title">Help Center</div>
-            <p class="ds-hub-card__desc">Sie befinden sich im Help Center.</p>
+            <div class="ds-hub-card__title" data-i18n="help.hub.current.title">Help Center</div>
+            <p class="ds-hub-card__desc" data-i18n="help.hub.current.desc">Sie befinden sich im Help Center.</p>
           </div>
         </div>
         <a href="/public/sla_hilfe.html" class="ds-hub-card">
           <div class="ds-hub-card__content">
-            <div class="ds-hub-card__title">Hilfe und Anleitung</div>
-            <p class="ds-hub-card__desc">Schritt-f&uuml;r-Schritt-Anleitungen und Dokumentation.</p>
+            <div class="ds-hub-card__title" data-i18n="help.hub.guide.title">Hilfe und Anleitung</div>
+            <p class="ds-hub-card__desc" data-i18n="help.hub.guide.desc">Schritt-f&uuml;r-Schritt-Anleitungen und Dokumentation.</p>
           </div>
         </a>
         <a href="/public/legal/kontakt.html" class="ds-hub-card">
           <div class="ds-hub-card__content">
-            <div class="ds-hub-card__title">Support und Kontakt</div>
-            <p class="ds-hub-card__desc">Kontaktformular, E-Mail-Support und Hilfe vom Team.</p>
+            <div class="ds-hub-card__title" data-i18n="help.hub.support.title">Support und Kontakt</div>
+            <p class="ds-hub-card__desc" data-i18n="help.hub.support.desc">Kontaktformular, E-Mail-Support und Hilfe vom Team.</p>
           </div>
         </a>
       </div>
@@ -93,32 +93,32 @@
     <!-- Topic Cards -->
     <div class="help-grid">
       <a href="#erste-schritte" class="help-card" style="text-decoration:none;color:inherit">
-        <h3>Erste Schritte</h3>
-        <p>Registrierung, Profil, erste Anfrage oder Personal einstellen.</p>
+        <h3 data-i18n="help.topic.start.title">Erste Schritte</h3>
+        <p data-i18n="help.topic.start.desc">Registrierung, Profil, erste Anfrage oder Personal einstellen.</p>
       </a>
       <a href="#deals" class="help-card" style="text-decoration:none;color:inherit">
-        <h3>So funktionieren Deals</h3>
-        <p>Anfragen, Angebote, Deal-Abschluss und Kontaktfreigabe.</p>
+        <h3 data-i18n="help.topic.deals.title">So funktionieren Deals</h3>
+        <p data-i18n="help.topic.deals.desc">Anfragen, Angebote, Deal-Abschluss und Kontaktfreigabe.</p>
       </a>
       <a href="#unternehmen" class="help-card" style="text-decoration:none;color:inherit">
-        <h3>Fuer Unternehmen</h3>
-        <p>Personalsuche, Suchaufträge, Matching und Beschaffung.</p>
+        <h3 data-i18n="help.topic.company.title">Fuer Unternehmen</h3>
+        <p data-i18n="help.topic.company.desc">Personalsuche, Suchaufträge, Matching und Beschaffung.</p>
       </a>
       <a href="#dienstleister" class="help-card" style="text-decoration:none;color:inherit">
-        <h3>Fuer Personaldienstleister</h3>
-        <p>Eingang, Angebote, Sichtbarkeit und Bewertungen.</p>
+        <h3 data-i18n="help.topic.provider.title">Fuer Personaldienstleister</h3>
+        <p data-i18n="help.topic.provider.desc">Eingang, Angebote, Sichtbarkeit und Bewertungen.</p>
       </a>
       <a href="#compliance" class="help-card" style="text-decoration:none;color:inherit">
-        <h3>Compliance &amp; Nachweise</h3>
-        <p>Dokumenten-Upload, Ampellogik, Verifizierung.</p>
+        <h3 data-i18n="help.topic.compliance.title">Compliance &amp; Nachweise</h3>
+        <p data-i18n="help.topic.compliance.desc">Dokumenten-Upload, Ampellogik, Verifizierung.</p>
       </a>
       <a href="#abrechnung" class="help-card" style="text-decoration:none;color:inherit">
-        <h3>Abrechnung &amp; Tarife</h3>
-        <p>Plan-Wechsel, Zahlungsmethoden, Rechnungen, Kuendigung.</p>
+        <h3 data-i18n="help.topic.billing.title">Abrechnung &amp; Tarife</h3>
+        <p data-i18n="help.topic.billing.desc">Plan-Wechsel, Zahlungsmethoden, Rechnungen, Kuendigung.</p>
       </a>
       <a href="#Marktplatz" class="help-card" style="text-decoration:none;color:inherit">
-        <h3>Vermittlung</h3>
-        <p>Personal einstellen, Vermittlung nutzen, Deals abschließen, Sichtbarkeit erhöhen.</p>
+        <h3 data-i18n="help.topic.matching.title">Vermittlung</h3>
+        <p data-i18n="help.topic.matching.desc">Personal einstellen, Vermittlung nutzen, Deals abschließen, Sichtbarkeit erhöhen.</p>
       </a>
     </div>
 
@@ -126,110 +126,110 @@
 
     <!-- FAQ Sections -->
     <div class="faq-section" id="erste-schritte">
-      <h2>Erste Schritte</h2>
+      <h2 data-i18n="help.sec.start">Erste Schritte</h2>
       <div class="faq-item">
-        <div class="faq-q" onclick="this.parentElement.classList.toggle('open')"><span>Wie registriere ich mich?</span><span class="arrow">&#9660;</span></div>
-        <div class="faq-a">Klicken Sie auf „Kostenlos starten" und geben Sie Ihre geschaeftliche E-Mail-Adresse sowie ein Passwort ein. Nach der E-Mail-Bestaetigung ist Ihr Konto sofort aktiv. Die Registrierung ist kostenlos.</div>
+        <div class="faq-q" onclick="this.parentElement.classList.toggle('open')"><span data-i18n="help.faq.start1.q">Wie registriere ich mich?</span><span class="arrow">&#9660;</span></div>
+        <div class="faq-a" data-i18n="help.faq.start1.a">Klicken Sie auf „Kostenlos starten" und geben Sie Ihre geschaeftliche E-Mail-Adresse sowie ein Passwort ein. Nach der E-Mail-Bestaetigung ist Ihr Konto sofort aktiv. Die Registrierung ist kostenlos.</div>
       </div>
       <div class="faq-item">
-        <div class="faq-q" onclick="this.parentElement.classList.toggle('open')"><span>Warum sollte ich mein Profil vervollstaendigen?</span><span class="arrow">&#9660;</span></div>
-        <div class="faq-a">Ein vollstaendiges Profil (Firmenname, Ansprechpartner, Kontaktdaten, Standort) erhoeht Ihre Sichtbarkeit im Marketplace und schafft Vertrauen bei anderen Teilnehmern. Sie koennen Ihren Profil-Fortschritt unter „Mein Profil" einsehen.</div>
+        <div class="faq-q" onclick="this.parentElement.classList.toggle('open')"><span data-i18n="help.faq.start2.q">Warum sollte ich mein Profil vervollstaendigen?</span><span class="arrow">&#9660;</span></div>
+        <div class="faq-a" data-i18n="help.faq.start2.a">Ein vollstaendiges Profil (Firmenname, Ansprechpartner, Kontaktdaten, Standort) erhoeht Ihre Sichtbarkeit im Marketplace und schafft Vertrauen bei anderen Teilnehmern. Sie koennen Ihren Profil-Fortschritt unter „Mein Profil" einsehen.</div>
       </div>
       <div class="faq-item">
-        <div class="faq-q" onclick="this.parentElement.classList.toggle('open')"><span>Was sind die ersten Schritte nach der Registrierung?</span><span class="arrow">&#9660;</span></div>
-        <div class="faq-a">1) Profil vervollstaendigen, 2) Rolle waehlen (Unternehmen oder Dienstleister), 3) Erste Suchanfrage erstellen oder Personal einstellen. Eine ausfuehrliche Anleitung finden Sie unter <a href="/public/onboarding.html" style="color:var(--ds-brand)">Erste Schritte</a>.</div>
+        <div class="faq-q" onclick="this.parentElement.classList.toggle('open')"><span data-i18n="help.faq.start3.q">Was sind die ersten Schritte nach der Registrierung?</span><span class="arrow">&#9660;</span></div>
+        <div class="faq-a"><span data-i18n="help.faq.start3.aLead">1) Profil vervollstaendigen, 2) Rolle waehlen (Unternehmen oder Dienstleister), 3) Erste Suchanfrage erstellen oder Personal einstellen. Eine ausfuehrliche Anleitung finden Sie unter </span><a href="/public/onboarding.html" style="color:var(--ds-brand)" data-i18n="help.faq.start3.aLink">Erste Schritte</a>.</div>
       </div>
     </div>
 
     <div class="faq-section" id="deals">
-      <h2>So funktionieren Deals</h2>
+      <h2 data-i18n="help.sec.deals">So funktionieren Deals</h2>
       <div class="faq-item">
-        <div class="faq-q" onclick="this.parentElement.classList.toggle('open')"><span>Was ist ein Deal?</span><span class="arrow">&#9660;</span></div>
-        <div class="faq-a">Ein Deal entsteht, wenn ein Unternehmen eine Anfrage sendet, ein Personaldienstleister ein Angebot abgibt und das Unternehmen dieses Angebot annimmt. Erst nach Deal-Abschluss werden die Kontaktdaten beider Parteien freigegeben.</div>
+        <div class="faq-q" onclick="this.parentElement.classList.toggle('open')"><span data-i18n="help.faq.deals1.q">Was ist ein Deal?</span><span class="arrow">&#9660;</span></div>
+        <div class="faq-a" data-i18n="help.faq.deals1.a">Ein Deal entsteht, wenn ein Unternehmen eine Anfrage sendet, ein Personaldienstleister ein Angebot abgibt und das Unternehmen dieses Angebot annimmt. Erst nach Deal-Abschluss werden die Kontaktdaten beider Parteien freigegeben.</div>
       </div>
       <div class="faq-item">
-        <div class="faq-q" onclick="this.parentElement.classList.toggle('open')"><span>Warum werden Kontaktdaten erst nach Deal-Abschluss freigegeben?</span><span class="arrow">&#9660;</span></div>
-        <div class="faq-a">Dies schuetzt beide Seiten vor ungewollter Kontaktaufnahme und stellt sicher, dass nur bei echtem Interesse ein Kontakt zustande kommt. Es erhoeht die Qualitaet der Interaktionen auf der Plattform.</div>
+        <div class="faq-q" onclick="this.parentElement.classList.toggle('open')"><span data-i18n="help.faq.deals2.q">Warum werden Kontaktdaten erst nach Deal-Abschluss freigegeben?</span><span class="arrow">&#9660;</span></div>
+        <div class="faq-a" data-i18n="help.faq.deals2.a">Dies schuetzt beide Seiten vor ungewollter Kontaktaufnahme und stellt sicher, dass nur bei echtem Interesse ein Kontakt zustande kommt. Es erhoeht die Qualitaet der Interaktionen auf der Plattform.</div>
       </div>
       <div class="faq-item">
-        <div class="faq-q" onclick="this.parentElement.classList.toggle('open')"><span>Kann ich einen Deal stornieren?</span><span class="arrow">&#9660;</span></div>
-        <div class="faq-a">Deals koennen vor der endgueltigen Bestaetigung abgelehnt werden. Nach einem abgeschlossenen Deal wurden die Kontaktdaten bereits freigegeben. Die weitere Zusammenarbeit regeln die Parteien direkt untereinander.</div>
+        <div class="faq-q" onclick="this.parentElement.classList.toggle('open')"><span data-i18n="help.faq.deals3.q">Kann ich einen Deal stornieren?</span><span class="arrow">&#9660;</span></div>
+        <div class="faq-a" data-i18n="help.faq.deals3.a">Deals koennen vor der endgueltigen Bestaetigung abgelehnt werden. Nach einem abgeschlossenen Deal wurden die Kontaktdaten bereits freigegeben. Die weitere Zusammenarbeit regeln die Parteien direkt untereinander.</div>
       </div>
     </div>
 
     <div class="faq-section" id="unternehmen">
-      <h2>Fuer Unternehmen</h2>
+      <h2 data-i18n="help.sec.company">Fuer Unternehmen</h2>
       <div class="faq-item">
-        <div class="faq-q" onclick="this.parentElement.classList.toggle('open')"><span>Wie sende ich eine Personalanfrage?</span><span class="arrow">&#9660;</span></div>
-        <div class="faq-a">Gehen Sie zur Personalsuche, filtern Sie nach Rolle, Region und Verfuegbarkeit, und klicken Sie bei einem passenden Angebot auf „Anfragen". Je nach Tarif haben Sie eine begrenzte oder unbegrenzte Anzahl an Anfragen pro Monat.</div>
+        <div class="faq-q" onclick="this.parentElement.classList.toggle('open')"><span data-i18n="help.faq.company1.q">Wie sende ich eine Personalanfrage?</span><span class="arrow">&#9660;</span></div>
+        <div class="faq-a" data-i18n="help.faq.company1.a">Gehen Sie zur Personalsuche, filtern Sie nach Rolle, Region und Verfuegbarkeit, und klicken Sie bei einem passenden Angebot auf „Anfragen". Je nach Tarif haben Sie eine begrenzte oder unbegrenzte Anzahl an Anfragen pro Monat.</div>
       </div>
       <div class="faq-item">
-        <div class="faq-q" onclick="this.parentElement.classList.toggle('open')"><span>Was ist ein persistenter Suchauftrag?</span><span class="arrow">&#9660;</span></div>
-        <div class="faq-a">Ab dem PLUS-Tarif koennen Sie Suchauftraege speichern. Die Plattform sucht dann kontinuierlich nach passendem Personal und benachrichtigt Sie bei neuen Treffern.</div>
+        <div class="faq-q" onclick="this.parentElement.classList.toggle('open')"><span data-i18n="help.faq.company2.q">Was ist ein persistenter Suchauftrag?</span><span class="arrow">&#9660;</span></div>
+        <div class="faq-a" data-i18n="help.faq.company2.a">Ab dem PLUS-Tarif koennen Sie Suchauftraege speichern. Die Plattform sucht dann kontinuierlich nach passendem Personal und benachrichtigt Sie bei neuen Treffern.</div>
       </div>
     </div>
 
     <div class="faq-section" id="dienstleister">
-      <h2>Fuer Personaldienstleister</h2>
+      <h2 data-i18n="help.sec.provider">Fuer Personaldienstleister</h2>
       <div class="faq-item">
-        <div class="faq-q" onclick="this.parentElement.classList.toggle('open')"><span>Wie stelle ich Personal ein?</span><span class="arrow">&#9660;</span></div>
-        <div class="faq-a">Nutzen Sie die Funktion „Personal einstellen" im Vermittlungsbereich. Geben Sie Rolle, Anzahl, Region, Verfuegbarkeit und Stundensatz an. Ihr Personal wird dann fuer suchende Unternehmen sichtbar.</div>
+        <div class="faq-q" onclick="this.parentElement.classList.toggle('open')"><span data-i18n="help.faq.provider1.q">Wie stelle ich Personal ein?</span><span class="arrow">&#9660;</span></div>
+        <div class="faq-a" data-i18n="help.faq.provider1.a">Nutzen Sie die Funktion „Personal einstellen" im Vermittlungsbereich. Geben Sie Rolle, Anzahl, Region, Verfuegbarkeit und Stundensatz an. Ihr Personal wird dann fuer suchende Unternehmen sichtbar.</div>
       </div>
       <div class="faq-item">
-        <div class="faq-q" onclick="this.parentElement.classList.toggle('open')"><span>Wie reagiere ich auf Anfragen?</span><span class="arrow">&#9660;</span></div>
-        <div class="faq-a">Eingegangene Anfragen finden Sie in Ihrem Eingang. Sie koennen jede Anfrage annehmen (und damit ein Angebot abgeben) oder ablehnen.</div>
+        <div class="faq-q" onclick="this.parentElement.classList.toggle('open')"><span data-i18n="help.faq.provider2.q">Wie reagiere ich auf Anfragen?</span><span class="arrow">&#9660;</span></div>
+        <div class="faq-a" data-i18n="help.faq.provider2.a">Eingegangene Anfragen finden Sie in Ihrem Eingang. Sie koennen jede Anfrage annehmen (und damit ein Angebot abgeben) oder ablehnen.</div>
       </div>
     </div>
 
     <div class="faq-section" id="compliance">
-      <h2>Compliance &amp; Nachweise</h2>
+      <h2 data-i18n="help.sec.compliance">Compliance &amp; Nachweise</h2>
       <div class="faq-item">
-        <div class="faq-q" onclick="this.parentElement.classList.toggle('open')"><span>Welche Dokumente kann ich hochladen?</span><span class="arrow">&#9660;</span></div>
-        <div class="faq-a">Sie koennen Gewerbeanmeldungen, AUeG-Genehmigungen, Haftpflichtversicherungen und andere branchenrelevante Nachweise hochladen. Dokumente werden mit Ablaufdatum versehen und in der Compliance-Ampel angezeigt.</div>
+        <div class="faq-q" onclick="this.parentElement.classList.toggle('open')"><span data-i18n="help.faq.compliance1.q">Welche Dokumente kann ich hochladen?</span><span class="arrow">&#9660;</span></div>
+        <div class="faq-a" data-i18n="help.faq.compliance1.a">Sie koennen Gewerbeanmeldungen, AUeG-Genehmigungen, Haftpflichtversicherungen und andere branchenrelevante Nachweise hochladen. Dokumente werden mit Ablaufdatum versehen und in der Compliance-Ampel angezeigt.</div>
       </div>
       <div class="faq-item">
-        <div class="faq-q" onclick="this.parentElement.classList.toggle('open')"><span>Was bedeuten die Ampelfarben?</span><span class="arrow">&#9660;</span></div>
-        <div class="faq-a">Gruen: Alle Dokumente gueltig. Gelb: Mindestens ein Dokument laeuft bald ab. Rot: Mindestens ein Dokument ist abgelaufen oder fehlt.</div>
+        <div class="faq-q" onclick="this.parentElement.classList.toggle('open')"><span data-i18n="help.faq.compliance2.q">Was bedeuten die Ampelfarben?</span><span class="arrow">&#9660;</span></div>
+        <div class="faq-a" data-i18n="help.faq.compliance2.a">Gruen: Alle Dokumente gueltig. Gelb: Mindestens ein Dokument laeuft bald ab. Rot: Mindestens ein Dokument ist abgelaufen oder fehlt.</div>
       </div>
     </div>
 
     <div class="faq-section" id="Marktplatz">
-      <h2>Vermittlung</h2>
+      <h2 data-i18n="help.sec.matching">Vermittlung</h2>
       <div class="faq-item">
-        <div class="faq-q" onclick="this.parentElement.classList.toggle('open')"><span>Was ist die Vermittlung?</span><span class="arrow">&#9660;</span></div>
-        <div class="faq-a">Die Vermittlung ist ein Modul der TempConnect-Plattform, auf dem Personaldienstleister ihr verfügbares Personal einstellen können. Unternehmen durchsuchen den Feed, um passendes Personal zu finden, Interesse zu bekunden und Angebote anzufordern. Ziel ist die schnellere Koordination von Personalangebot und -nachfrage.</div>
+        <div class="faq-q" onclick="this.parentElement.classList.toggle('open')"><span data-i18n="help.faq.matching1.q">Was ist die Vermittlung?</span><span class="arrow">&#9660;</span></div>
+        <div class="faq-a" data-i18n="help.faq.matching1.a">Die Vermittlung ist ein Modul der TempConnect-Plattform, auf dem Personaldienstleister ihr verfügbares Personal einstellen können. Unternehmen durchsuchen den Feed, um passendes Personal zu finden, Interesse zu bekunden und Angebote anzufordern. Ziel ist die schnellere Koordination von Personalangebot und -nachfrage.</div>
       </div>
       <div class="faq-item">
-        <div class="faq-q" onclick="this.parentElement.classList.toggle('open')"><span>Wie stelle ich verfügbares Personal ein?</span><span class="arrow">&#9660;</span></div>
-        <div class="faq-a">Gehen Sie zu „Personal einstellen" oder klicken Sie im Plattform-Dashboard auf „Personal verwalten" und dann auf „Neu einstellen". Geben Sie Rolle, Anzahl, Region, Verfuegbarkeit, Qualifikationen und Konditionen an. Sie koennen den Eintrag als Entwurf speichern oder direkt aktivieren. Aktive Eintraege erscheinen sofort im Vermittlungs-Feed.</div>
+        <div class="faq-q" onclick="this.parentElement.classList.toggle('open')"><span data-i18n="help.faq.matching2.q">Wie stelle ich verfügbares Personal ein?</span><span class="arrow">&#9660;</span></div>
+        <div class="faq-a" data-i18n="help.faq.matching2.a">Gehen Sie zu „Personal einstellen" oder klicken Sie im Plattform-Dashboard auf „Personal verwalten" und dann auf „Neu einstellen". Geben Sie Rolle, Anzahl, Region, Verfuegbarkeit, Qualifikationen und Konditionen an. Sie koennen den Eintrag als Entwurf speichern oder direkt aktivieren. Aktive Eintraege erscheinen sofort im Vermittlungs-Feed.</div>
       </div>
       <div class="faq-item">
-        <div class="faq-q" onclick="this.parentElement.classList.toggle('open')"><span>Wie finden Unternehmen verfuegbare Mitarbeiter?</span><span class="arrow">&#9660;</span></div>
-        <div class="faq-a">Im Vermittlungs-Feed koennen Unternehmen nach Rolle, Stadt, Kategorie, Schichtmodell, Compliance-Status und Verfuegbarkeitsdatum filtern. Jede Personalkarte zeigt Vertrauenssignale (verifiziert, Compliance, Deals) und Frische-Indikatoren. Per Klick koennen Sie Interesse bekunden, ein Angebot anfragen oder eine Frage stellen.</div>
+        <div class="faq-q" onclick="this.parentElement.classList.toggle('open')"><span data-i18n="help.faq.matching3.q">Wie finden Unternehmen verfuegbare Mitarbeiter?</span><span class="arrow">&#9660;</span></div>
+        <div class="faq-a" data-i18n="help.faq.matching3.a">Im Vermittlungs-Feed koennen Unternehmen nach Rolle, Stadt, Kategorie, Schichtmodell, Compliance-Status und Verfuegbarkeitsdatum filtern. Jede Personalkarte zeigt Vertrauenssignale (verifiziert, Compliance, Deals) und Frische-Indikatoren. Per Klick koennen Sie Interesse bekunden, ein Angebot anfragen oder eine Frage stellen.</div>
       </div>
       <div class="faq-item">
-        <div class="faq-q" onclick="this.parentElement.classList.toggle('open')"><span>Wie funktionieren Deals in der Vermittlung?</span><span class="arrow">&#9660;</span></div>
-        <div class="faq-a">Ein Unternehmen bekundet Interesse an einem Personalangebot. Der Dienstleister erhaelt eine Benachrichtigung und kann ein Angebot senden. Wenn beide Seiten einverstanden sind, wird ein Deal abgeschlossen. Erst dann werden Kontaktdaten freigegeben. Der gesamte Prozess wird auf der Plattform dokumentiert.</div>
+        <div class="faq-q" onclick="this.parentElement.classList.toggle('open')"><span data-i18n="help.faq.matching4.q">Wie funktionieren Deals in der Vermittlung?</span><span class="arrow">&#9660;</span></div>
+        <div class="faq-a" data-i18n="help.faq.matching4.a">Ein Unternehmen bekundet Interesse an einem Personalangebot. Der Dienstleister erhaelt eine Benachrichtigung und kann ein Angebot senden. Wenn beide Seiten einverstanden sind, wird ein Deal abgeschlossen. Erst dann werden Kontaktdaten freigegeben. Der gesamte Prozess wird auf der Plattform dokumentiert.</div>
       </div>
       <div class="faq-item">
-        <div class="faq-q" onclick="this.parentElement.classList.toggle('open')"><span>Wie erhoehe ich meine Sichtbarkeit auf TempConnect?</span><span class="arrow">&#9660;</span></div>
-        <div class="faq-a">Drei Faktoren verbessern Ihre Sichtbarkeit: 1) Vollstaendiges Firmenprofil – Profile mit allen Feldern erhalten mehr Anfragen. 2) Aktualitaet – Bestaetigen Sie Ihre Eintraege regelmaessig. Frische Eintraege werden bevorzugt angezeigt. 3) Mehrere Eintraege – Stellen Sie Personal fuer verschiedene Rollen und Regionen ein, um in mehr Suchergebnissen zu erscheinen.</div>
+        <div class="faq-q" onclick="this.parentElement.classList.toggle('open')"><span data-i18n="help.faq.matching5.q">Wie erhoehe ich meine Sichtbarkeit auf TempConnect?</span><span class="arrow">&#9660;</span></div>
+        <div class="faq-a" data-i18n="help.faq.matching5.a">Drei Faktoren verbessern Ihre Sichtbarkeit: 1) Vollstaendiges Firmenprofil – Profile mit allen Feldern erhalten mehr Anfragen. 2) Aktualitaet – Bestaetigen Sie Ihre Eintraege regelmaessig. Frische Eintraege werden bevorzugt angezeigt. 3) Mehrere Eintraege – Stellen Sie Personal fuer verschiedene Rollen und Regionen ein, um in mehr Suchergebnissen zu erscheinen.</div>
       </div>
     </div>
 
     <div class="faq-section" id="abrechnung">
-      <h2>Abrechnung &amp; Tarife</h2>
+      <h2 data-i18n="help.sec.billing">Abrechnung &amp; Tarife</h2>
       <div class="faq-item">
-        <div class="faq-q" onclick="this.parentElement.classList.toggle('open')"><span>Wie wechsle ich meinen Tarif?</span><span class="arrow">&#9660;</span></div>
-        <div class="faq-a">Gehen Sie zu <a href="/public/sla_abo.html" style="color:var(--ds-brand)">Abo-Modelle</a> und waehlen Sie den gewuenschten Tarif. Upgrades werden sofort wirksam. Downgrades gelten ab dem naechsten Abrechnungszeitraum.</div>
+        <div class="faq-q" onclick="this.parentElement.classList.toggle('open')"><span data-i18n="help.faq.billing1.q">Wie wechsle ich meinen Tarif?</span><span class="arrow">&#9660;</span></div>
+        <div class="faq-a"><span data-i18n="help.faq.billing1.aLead">Gehen Sie zu </span><a href="/public/sla_abo.html" style="color:var(--ds-brand)" data-i18n="help.faq.billing1.aLink">Abo-Modelle</a><span data-i18n="help.faq.billing1.aTail"> und waehlen Sie den gewuenschten Tarif. Upgrades werden sofort wirksam. Downgrades gelten ab dem naechsten Abrechnungszeitraum.</span></div>
       </div>
       <div class="faq-item">
-        <div class="faq-q" onclick="this.parentElement.classList.toggle('open')"><span>Wie kuendige ich mein Abo?</span><span class="arrow">&#9660;</span></div>
-        <div class="faq-a">Unter Abo-Modelle koennen Sie Ihr Abo jederzeit kuendigen. Sie wechseln dann automatisch zum kostenlosen DEMO-Zugang (14 Tage). Ihre Daten bleiben erhalten.</div>
+        <div class="faq-q" onclick="this.parentElement.classList.toggle('open')"><span data-i18n="help.faq.billing2.q">Wie kuendige ich mein Abo?</span><span class="arrow">&#9660;</span></div>
+        <div class="faq-a" data-i18n="help.faq.billing2.a">Unter Abo-Modelle koennen Sie Ihr Abo jederzeit kuendigen. Sie wechseln dann automatisch zum kostenlosen DEMO-Zugang (14 Tage). Ihre Daten bleiben erhalten.</div>
       </div>
       <div class="faq-item">
-        <div class="faq-q" onclick="this.parentElement.classList.toggle('open')"><span>Was bedeutet Pulse-Timer?</span><span class="arrow">&#9660;</span></div>
-        <div class="faq-a">Der Pulse-Timer ist die maximale Zeitspanne, innerhalb derer die Plattform einen dokumentierten Matching-Versuch fuer Ihre Anfrage unternimmt. Dies ist ein Prozessnachweis (kein Vermittlungsversprechen). Die Zeitspanne haengt vom Tarif ab (PLUS: 120 Min, PRO: 60 Min, Individueller Tarif: 30 Min).</div>
+        <div class="faq-q" onclick="this.parentElement.classList.toggle('open')"><span data-i18n="help.faq.billing3.q">Was bedeutet Pulse-Timer?</span><span class="arrow">&#9660;</span></div>
+        <div class="faq-a" data-i18n="help.faq.billing3.a">Der Pulse-Timer ist die maximale Zeitspanne, innerhalb derer die Plattform einen dokumentierten Matching-Versuch fuer Ihre Anfrage unternimmt. Dies ist ein Prozessnachweis (kein Vermittlungsversprechen). Die Zeitspanne haengt vom Tarif ab (PLUS: 120 Min, PRO: 60 Min, Individueller Tarif: 30 Min).</div>
       </div>
     </div>
 
@@ -237,29 +237,251 @@
 
     <!-- Onboarding erneut starten -->
     <section style="text-align:center;padding:var(--ds-space-4) 0">
-      <h2 style="font-size:18px;font-weight:700;margin:0 0 var(--ds-space-2)">Onboarding-Assistent</h2>
-      <p style="color:var(--ds-text-secondary);font-size:14px;margin:0 0 var(--ds-space-3);max-width:500px;margin-left:auto;margin-right:auto;line-height:1.6">Sie moechten die Einfuehrung in die Plattform erneut durchlaufen?</p>
-      <button class="ds-btn" onclick="fetch('/api/me/onboarding-reset',{method:'POST',credentials:'include',headers:{'Content-Type':'application/json'}}).then(function(){window.location.reload()}).catch(function(){alert('Fehler beim Zuruecksetzen.')})">
-        Onboarding erneut starten
-      </button>
+      <h2 style="font-size:18px;font-weight:700;margin:0 0 var(--ds-space-2)" data-i18n="help.reset.title">Onboarding-Assistent</h2>
+      <p style="color:var(--ds-text-secondary);font-size:14px;margin:0 0 var(--ds-space-3);max-width:500px;margin-left:auto;margin-right:auto;line-height:1.6" data-i18n="help.reset.desc">Sie moechten die Einfuehrung in die Plattform erneut durchlaufen?</p>
+      <button class="ds-btn" onclick="resetOnboarding(event)" data-i18n="help.reset.btn">Onboarding erneut starten</button>
     </section>
 
     <hr class="ds-divider"/>
 
     <!-- Support Contact -->
     <section style="text-align:center;padding:var(--ds-space-6) 0">
-      <h2 style="font-size:20px;font-weight:700;margin:0 0 var(--ds-space-2)">Support &amp; Kontakt</h2>
-      <p style="color:var(--ds-text-secondary);font-size:14px;margin:0 0 var(--ds-space-4);max-width:500px;margin-left:auto;margin-right:auto;line-height:1.6">Ihre Frage wurde nicht beantwortet? Kontaktieren Sie unser Support-Team. Wir antworten in der Regel innerhalb von 24 Stunden.</p>
+      <h2 style="font-size:20px;font-weight:700;margin:0 0 var(--ds-space-2)" data-i18n="help.contact.title">Support &amp; Kontakt</h2>
+      <p style="color:var(--ds-text-secondary);font-size:14px;margin:0 0 var(--ds-space-4);max-width:500px;margin-left:auto;margin-right:auto;line-height:1.6" data-i18n="help.contact.desc">Ihre Frage wurde nicht beantwortet? Kontaktieren Sie unser Support-Team. Wir antworten in der Regel innerhalb von 24 Stunden.</p>
       <div style="display:flex;gap:var(--ds-space-3);justify-content:center;flex-wrap:wrap">
-        <a href="/public/legal/kontakt.html" class="ds-btn ds-btn--primary">Kontakt aufnehmen</a>
-        <a href="/public/trust/platform-sla.html" class="ds-btn">Plattform-SLA</a>
+        <a href="/public/legal/kontakt.html" class="ds-btn ds-btn--primary" data-i18n="help.contact.btn">Kontakt aufnehmen</a>
+        <a href="/public/trust/platform-sla.html" class="ds-btn" data-i18n="help.contact.sla">Plattform-SLA</a>
       </div>
     </section>
 
-    <div class="ds-disclaimer">
+    <div class="ds-disclaimer" data-i18n="help.disclaimer">
       Inhalte dienen der Unterstuetzung und ersetzen keine rechtliche Pruefung. Angaben ohne Gewaehr.
     </div>
   </div>
+
+<script>
+/* i18n (P6.1): Seiten-Woerterbuch des Help Centers. Topbar, Navigation und
+   Nutzerbereich uebersetzt die Plattform-Shell (pageShell.js) mit ihren eigenen
+   shell-Schluesseln — hier stehen ausschliesslich help-Schluessel.
+   Nicht uebersetzt: die Onboarding-Checkliste im Band oben (Untertitel, Schritte,
+   CTA) — die rendert die gemeinsame Komponente js/onboardingChecklist.js. */
+(function () {
+  'use strict';
+
+  if (window.TCi18n) {
+    TCi18n.register('de', {
+      'help.docTitle': 'Help Center – TempConnect',
+      'help.pageTitle': 'Help Center',
+      'help.pageSubtitle': 'Hilfe, Anleitungen, FAQ und Support-Kontakt – alles an einem Ort.',
+      'help.onboarding.title': 'Plattform einrichten',
+      'help.onboarding.toggle': 'Auf-/Zuklappen',
+      'help.onboarding.dismiss': 'Ausblenden',
+      'help.hub.current.title': 'Help Center',
+      'help.hub.current.desc': 'Sie befinden sich im Help Center.',
+      'help.hub.guide.title': 'Hilfe und Anleitung',
+      'help.hub.guide.desc': 'Schritt-für-Schritt-Anleitungen und Dokumentation.',
+      'help.hub.support.title': 'Support und Kontakt',
+      'help.hub.support.desc': 'Kontaktformular, E-Mail-Support und Hilfe vom Team.',
+      'help.topic.start.title': 'Erste Schritte',
+      'help.topic.start.desc': 'Registrierung, Profil, erste Anfrage oder Personal einstellen.',
+      'help.topic.deals.title': 'So funktionieren Deals',
+      'help.topic.deals.desc': 'Anfragen, Angebote, Deal-Abschluss und Kontaktfreigabe.',
+      'help.topic.company.title': 'Fuer Unternehmen',
+      'help.topic.company.desc': 'Personalsuche, Suchaufträge, Matching und Beschaffung.',
+      'help.topic.provider.title': 'Fuer Personaldienstleister',
+      'help.topic.provider.desc': 'Eingang, Angebote, Sichtbarkeit und Bewertungen.',
+      'help.topic.compliance.title': 'Compliance & Nachweise',
+      'help.topic.compliance.desc': 'Dokumenten-Upload, Ampellogik, Verifizierung.',
+      'help.topic.billing.title': 'Abrechnung & Tarife',
+      'help.topic.billing.desc': 'Plan-Wechsel, Zahlungsmethoden, Rechnungen, Kuendigung.',
+      'help.topic.matching.title': 'Vermittlung',
+      'help.topic.matching.desc': 'Personal einstellen, Vermittlung nutzen, Deals abschließen, Sichtbarkeit erhöhen.',
+      'help.sec.start': 'Erste Schritte',
+      'help.sec.deals': 'So funktionieren Deals',
+      'help.sec.company': 'Fuer Unternehmen',
+      'help.sec.provider': 'Fuer Personaldienstleister',
+      'help.sec.compliance': 'Compliance & Nachweise',
+      'help.sec.matching': 'Vermittlung',
+      'help.sec.billing': 'Abrechnung & Tarife',
+      'help.faq.start1.q': 'Wie registriere ich mich?',
+      'help.faq.start1.a': 'Klicken Sie auf „Kostenlos starten" und geben Sie Ihre geschaeftliche E-Mail-Adresse sowie ein Passwort ein. Nach der E-Mail-Bestaetigung ist Ihr Konto sofort aktiv. Die Registrierung ist kostenlos.',
+      'help.faq.start2.q': 'Warum sollte ich mein Profil vervollstaendigen?',
+      'help.faq.start2.a': 'Ein vollstaendiges Profil (Firmenname, Ansprechpartner, Kontaktdaten, Standort) erhoeht Ihre Sichtbarkeit im Marketplace und schafft Vertrauen bei anderen Teilnehmern. Sie koennen Ihren Profil-Fortschritt unter „Mein Profil" einsehen.',
+      'help.faq.start3.q': 'Was sind die ersten Schritte nach der Registrierung?',
+      'help.faq.start3.aLead': '1) Profil vervollstaendigen, 2) Rolle waehlen (Unternehmen oder Dienstleister), 3) Erste Suchanfrage erstellen oder Personal einstellen. Eine ausfuehrliche Anleitung finden Sie unter ',
+      'help.faq.start3.aLink': 'Erste Schritte',
+      'help.faq.deals1.q': 'Was ist ein Deal?',
+      'help.faq.deals1.a': 'Ein Deal entsteht, wenn ein Unternehmen eine Anfrage sendet, ein Personaldienstleister ein Angebot abgibt und das Unternehmen dieses Angebot annimmt. Erst nach Deal-Abschluss werden die Kontaktdaten beider Parteien freigegeben.',
+      'help.faq.deals2.q': 'Warum werden Kontaktdaten erst nach Deal-Abschluss freigegeben?',
+      'help.faq.deals2.a': 'Dies schuetzt beide Seiten vor ungewollter Kontaktaufnahme und stellt sicher, dass nur bei echtem Interesse ein Kontakt zustande kommt. Es erhoeht die Qualitaet der Interaktionen auf der Plattform.',
+      'help.faq.deals3.q': 'Kann ich einen Deal stornieren?',
+      'help.faq.deals3.a': 'Deals koennen vor der endgueltigen Bestaetigung abgelehnt werden. Nach einem abgeschlossenen Deal wurden die Kontaktdaten bereits freigegeben. Die weitere Zusammenarbeit regeln die Parteien direkt untereinander.',
+      'help.faq.company1.q': 'Wie sende ich eine Personalanfrage?',
+      'help.faq.company1.a': 'Gehen Sie zur Personalsuche, filtern Sie nach Rolle, Region und Verfuegbarkeit, und klicken Sie bei einem passenden Angebot auf „Anfragen". Je nach Tarif haben Sie eine begrenzte oder unbegrenzte Anzahl an Anfragen pro Monat.',
+      'help.faq.company2.q': 'Was ist ein persistenter Suchauftrag?',
+      'help.faq.company2.a': 'Ab dem PLUS-Tarif koennen Sie Suchauftraege speichern. Die Plattform sucht dann kontinuierlich nach passendem Personal und benachrichtigt Sie bei neuen Treffern.',
+      'help.faq.provider1.q': 'Wie stelle ich Personal ein?',
+      'help.faq.provider1.a': 'Nutzen Sie die Funktion „Personal einstellen" im Vermittlungsbereich. Geben Sie Rolle, Anzahl, Region, Verfuegbarkeit und Stundensatz an. Ihr Personal wird dann fuer suchende Unternehmen sichtbar.',
+      'help.faq.provider2.q': 'Wie reagiere ich auf Anfragen?',
+      'help.faq.provider2.a': 'Eingegangene Anfragen finden Sie in Ihrem Eingang. Sie koennen jede Anfrage annehmen (und damit ein Angebot abgeben) oder ablehnen.',
+      'help.faq.compliance1.q': 'Welche Dokumente kann ich hochladen?',
+      'help.faq.compliance1.a': 'Sie koennen Gewerbeanmeldungen, AUeG-Genehmigungen, Haftpflichtversicherungen und andere branchenrelevante Nachweise hochladen. Dokumente werden mit Ablaufdatum versehen und in der Compliance-Ampel angezeigt.',
+      'help.faq.compliance2.q': 'Was bedeuten die Ampelfarben?',
+      'help.faq.compliance2.a': 'Gruen: Alle Dokumente gueltig. Gelb: Mindestens ein Dokument laeuft bald ab. Rot: Mindestens ein Dokument ist abgelaufen oder fehlt.',
+      'help.faq.matching1.q': 'Was ist die Vermittlung?',
+      'help.faq.matching1.a': 'Die Vermittlung ist ein Modul der TempConnect-Plattform, auf dem Personaldienstleister ihr verfügbares Personal einstellen können. Unternehmen durchsuchen den Feed, um passendes Personal zu finden, Interesse zu bekunden und Angebote anzufordern. Ziel ist die schnellere Koordination von Personalangebot und -nachfrage.',
+      'help.faq.matching2.q': 'Wie stelle ich verfügbares Personal ein?',
+      'help.faq.matching2.a': 'Gehen Sie zu „Personal einstellen" oder klicken Sie im Plattform-Dashboard auf „Personal verwalten" und dann auf „Neu einstellen". Geben Sie Rolle, Anzahl, Region, Verfuegbarkeit, Qualifikationen und Konditionen an. Sie koennen den Eintrag als Entwurf speichern oder direkt aktivieren. Aktive Eintraege erscheinen sofort im Vermittlungs-Feed.',
+      'help.faq.matching3.q': 'Wie finden Unternehmen verfuegbare Mitarbeiter?',
+      'help.faq.matching3.a': 'Im Vermittlungs-Feed koennen Unternehmen nach Rolle, Stadt, Kategorie, Schichtmodell, Compliance-Status und Verfuegbarkeitsdatum filtern. Jede Personalkarte zeigt Vertrauenssignale (verifiziert, Compliance, Deals) und Frische-Indikatoren. Per Klick koennen Sie Interesse bekunden, ein Angebot anfragen oder eine Frage stellen.',
+      'help.faq.matching4.q': 'Wie funktionieren Deals in der Vermittlung?',
+      'help.faq.matching4.a': 'Ein Unternehmen bekundet Interesse an einem Personalangebot. Der Dienstleister erhaelt eine Benachrichtigung und kann ein Angebot senden. Wenn beide Seiten einverstanden sind, wird ein Deal abgeschlossen. Erst dann werden Kontaktdaten freigegeben. Der gesamte Prozess wird auf der Plattform dokumentiert.',
+      'help.faq.matching5.q': 'Wie erhoehe ich meine Sichtbarkeit auf TempConnect?',
+      'help.faq.matching5.a': 'Drei Faktoren verbessern Ihre Sichtbarkeit: 1) Vollstaendiges Firmenprofil – Profile mit allen Feldern erhalten mehr Anfragen. 2) Aktualitaet – Bestaetigen Sie Ihre Eintraege regelmaessig. Frische Eintraege werden bevorzugt angezeigt. 3) Mehrere Eintraege – Stellen Sie Personal fuer verschiedene Rollen und Regionen ein, um in mehr Suchergebnissen zu erscheinen.',
+      'help.faq.billing1.q': 'Wie wechsle ich meinen Tarif?',
+      'help.faq.billing1.aLead': 'Gehen Sie zu ',
+      'help.faq.billing1.aLink': 'Abo-Modelle',
+      'help.faq.billing1.aTail': ' und waehlen Sie den gewuenschten Tarif. Upgrades werden sofort wirksam. Downgrades gelten ab dem naechsten Abrechnungszeitraum.',
+      'help.faq.billing2.q': 'Wie kuendige ich mein Abo?',
+      'help.faq.billing2.a': 'Unter Abo-Modelle koennen Sie Ihr Abo jederzeit kuendigen. Sie wechseln dann automatisch zum kostenlosen DEMO-Zugang (14 Tage). Ihre Daten bleiben erhalten.',
+      'help.faq.billing3.q': 'Was bedeutet Pulse-Timer?',
+      'help.faq.billing3.a': 'Der Pulse-Timer ist die maximale Zeitspanne, innerhalb derer die Plattform einen dokumentierten Matching-Versuch fuer Ihre Anfrage unternimmt. Dies ist ein Prozessnachweis (kein Vermittlungsversprechen). Die Zeitspanne haengt vom Tarif ab (PLUS: 120 Min, PRO: 60 Min, Individueller Tarif: 30 Min).',
+      'help.reset.title': 'Onboarding-Assistent',
+      'help.reset.desc': 'Sie moechten die Einfuehrung in die Plattform erneut durchlaufen?',
+      'help.reset.btn': 'Onboarding erneut starten',
+      'help.reset.working': 'Wird zurueckgesetzt …',
+      'help.reset.error': 'Fehler beim Zuruecksetzen.',
+      'help.contact.title': 'Support & Kontakt',
+      'help.contact.desc': 'Ihre Frage wurde nicht beantwortet? Kontaktieren Sie unser Support-Team. Wir antworten in der Regel innerhalb von 24 Stunden.',
+      'help.contact.btn': 'Kontakt aufnehmen',
+      'help.contact.sla': 'Plattform-SLA',
+      'help.disclaimer': 'Inhalte dienen der Unterstuetzung und ersetzen keine rechtliche Pruefung. Angaben ohne Gewaehr.'
+    });
+    TCi18n.register('en', {
+      'help.docTitle': 'Help Center – TempConnect',
+      'help.pageTitle': 'Help Center',
+      'help.pageSubtitle': 'Help, guides, FAQ and support contact – all in one place.',
+      'help.onboarding.title': 'Set up the platform',
+      'help.onboarding.toggle': 'Expand / collapse',
+      'help.onboarding.dismiss': 'Hide',
+      'help.hub.current.title': 'Help Center',
+      'help.hub.current.desc': 'You are in the Help Center.',
+      'help.hub.guide.title': 'Help and guides',
+      'help.hub.guide.desc': 'Step-by-step guides and documentation.',
+      'help.hub.support.title': 'Support and contact',
+      'help.hub.support.desc': 'Contact form, email support and help from the team.',
+      'help.topic.start.title': 'Getting started',
+      'help.topic.start.desc': 'Sign-up, profile, first request or listing staff.',
+      'help.topic.deals.title': 'How deals work',
+      'help.topic.deals.desc': 'Requests, offers, closing a deal and contact release.',
+      'help.topic.company.title': 'For companies',
+      'help.topic.company.desc': 'Staff search, search agents, matching and sourcing.',
+      'help.topic.provider.title': 'For staffing providers',
+      'help.topic.provider.desc': 'Inbox, offers, visibility and ratings.',
+      'help.topic.compliance.title': 'Compliance & documents',
+      'help.topic.compliance.desc': 'Document upload, status logic, verification.',
+      'help.topic.billing.title': 'Billing & plans',
+      'help.topic.billing.desc': 'Plan changes, payment methods, invoices, cancellation.',
+      'help.topic.matching.title': 'Matching',
+      'help.topic.matching.desc': 'List staff, use matching, close deals, increase visibility.',
+      'help.sec.start': 'Getting started',
+      'help.sec.deals': 'How deals work',
+      'help.sec.company': 'For companies',
+      'help.sec.provider': 'For staffing providers',
+      'help.sec.compliance': 'Compliance & documents',
+      'help.sec.matching': 'Matching',
+      'help.sec.billing': 'Billing & plans',
+      'help.faq.start1.q': 'How do I sign up?',
+      'help.faq.start1.a': 'Click "Start for free" and enter your business email address and a password. Your account is active as soon as you confirm the email. Signing up is free.',
+      'help.faq.start2.q': 'Why should I complete my profile?',
+      'help.faq.start2.a': 'A complete profile (company name, contact person, contact details, location) increases your visibility in the marketplace and builds trust with other participants. You can track your profile progress under "My profile".',
+      'help.faq.start3.q': 'What are the first steps after signing up?',
+      'help.faq.start3.aLead': '1) Complete your profile, 2) choose your role (company or staffing provider), 3) create a first search request or list staff. A detailed guide is available under ',
+      'help.faq.start3.aLink': 'Getting started',
+      'help.faq.deals1.q': 'What is a deal?',
+      'help.faq.deals1.a': 'A deal is created when a company sends a request, a staffing provider submits an offer and the company accepts that offer. The contact details of both parties are released only once the deal is closed.',
+      'help.faq.deals2.q': 'Why are contact details released only after a deal is closed?',
+      'help.faq.deals2.a': 'This protects both sides from unwanted approaches and makes sure contact is only made when there is genuine interest. It raises the quality of interactions on the platform.',
+      'help.faq.deals3.q': 'Can I cancel a deal?',
+      'help.faq.deals3.a': 'Deals can be declined before the final confirmation. Once a deal is closed, the contact details have already been released. The parties arrange any further cooperation directly between themselves.',
+      'help.faq.company1.q': 'How do I send a staffing request?',
+      'help.faq.company1.a': 'Go to the staff search, filter by role, region and availability, and click "Request" on a matching offer. Depending on your plan you have a limited or unlimited number of requests per month.',
+      'help.faq.company2.q': 'What is a persistent search agent?',
+      'help.faq.company2.a': 'From the PLUS plan onwards you can save search agents. The platform then keeps looking for matching staff and notifies you about new hits.',
+      'help.faq.provider1.q': 'How do I list staff?',
+      'help.faq.provider1.a': 'Use the "List staff" function in the matching area. Enter role, headcount, region, availability and hourly rate. Your staff then becomes visible to companies that are searching.',
+      'help.faq.provider2.q': 'How do I respond to requests?',
+      'help.faq.provider2.a': 'Incoming requests appear in your inbox. You can accept each request (which submits an offer) or decline it.',
+      'help.faq.compliance1.q': 'Which documents can I upload?',
+      'help.faq.compliance1.a': 'You can upload trade registrations, temporary employment permits, liability insurance certificates and other industry-relevant documents. Documents are stored with an expiry date and shown in the compliance status.',
+      'help.faq.compliance2.q': 'What do the status colours mean?',
+      'help.faq.compliance2.a': 'Green: all documents valid. Yellow: at least one document expires soon. Red: at least one document has expired or is missing.',
+      'help.faq.matching1.q': 'What is matching?',
+      'help.faq.matching1.a': 'Matching is a module of the TempConnect platform where staffing providers list their available staff. Companies browse the feed to find suitable staff, express interest and request offers. The goal is faster coordination of staff supply and demand.',
+      'help.faq.matching2.q': 'How do I list available staff?',
+      'help.faq.matching2.a': 'Go to "List staff", or open "Manage staff" in the platform dashboard and click "New listing". Enter role, headcount, region, availability, qualifications and terms. You can save the entry as a draft or activate it right away. Active entries appear in the matching feed immediately.',
+      'help.faq.matching3.q': 'How do companies find available staff?',
+      'help.faq.matching3.a': 'In the matching feed, companies can filter by role, city, category, shift model, compliance status and availability date. Every staff card shows trust signals (verified, compliance, deals) and recency indicators. With one click you can express interest, request an offer or ask a question.',
+      'help.faq.matching4.q': 'How do deals work in matching?',
+      'help.faq.matching4.a': 'A company expresses interest in a staff listing. The provider is notified and can send an offer. Once both sides agree, a deal is closed. Only then are the contact details released. The entire process is documented on the platform.',
+      'help.faq.matching5.q': 'How do I increase my visibility on TempConnect?',
+      'help.faq.matching5.a': 'Three factors improve your visibility: 1) A complete company profile – profiles with all fields filled in receive more requests. 2) Recency – confirm your entries regularly. Fresh entries are shown first. 3) Multiple entries – list staff for different roles and regions to appear in more search results.',
+      'help.faq.billing1.q': 'How do I change my plan?',
+      'help.faq.billing1.aLead': 'Go to ',
+      'help.faq.billing1.aLink': 'Subscription plans',
+      'help.faq.billing1.aTail': ' and choose the plan you want. Upgrades take effect immediately. Downgrades apply from the next billing period.',
+      'help.faq.billing2.q': 'How do I cancel my subscription?',
+      'help.faq.billing2.a': 'You can cancel your subscription at any time under Subscription plans. You are then moved automatically to the free DEMO access (14 days). Your data is retained.',
+      'help.faq.billing3.q': 'What does pulse timer mean?',
+      'help.faq.billing3.a': 'The pulse timer is the maximum period within which the platform makes a documented matching attempt for your request. This is proof of process, not a placement guarantee. The period depends on your plan (PLUS: 120 min, PRO: 60 min, individual plan: 30 min).',
+      'help.reset.title': 'Onboarding assistant',
+      'help.reset.desc': 'Would you like to go through the platform introduction again?',
+      'help.reset.btn': 'Restart onboarding',
+      'help.reset.working': 'Resetting …',
+      'help.reset.error': 'Reset failed.',
+      'help.contact.title': 'Support & contact',
+      'help.contact.desc': 'Your question has not been answered? Contact our support team. We usually reply within 24 hours.',
+      'help.contact.btn': 'Get in touch',
+      'help.contact.sla': 'Platform SLA',
+      'help.disclaimer': 'This content is for guidance only and does not replace a legal review. All information without warranty.'
+    });
+  }
+
+  /** Uebersetzung mit hart kodiertem DE-Notnagel: die Seite bleibt bedienbar,
+   *  falls i18n.js einmal nicht laedt (sonst waere der Knopf unten tot). */
+  function t(key, fallbackDe) {
+    var v = window.TCi18n ? window.TCi18n.t(key) : '';
+    return v || fallbackDe;
+  }
+
+  /** Onboarding-Assistent zuruecksetzen (war vorher inline im onclick). */
+  window.resetOnboarding = function resetOnboarding(evt) {
+    var btn = (evt && evt.currentTarget) || document.querySelector('[data-i18n="help.reset.btn"]');
+    if (btn) {
+      if (btn.disabled) return;
+      btn.disabled = true;
+      btn.textContent = t('help.reset.working', 'Wird zurueckgesetzt …');
+    }
+    fetch('/api/me/onboarding-reset', {
+      method: 'POST',
+      credentials: 'include',
+      headers: { 'Content-Type': 'application/json' }
+    })
+      .then(function (r) {
+        if (!r.ok) throw new Error('reset_failed');
+        window.location.reload();
+      })
+      .catch(function () {
+        if (btn) {
+          btn.disabled = false;
+          btn.textContent = t('help.reset.btn', 'Onboarding erneut starten');
+        }
+        alert(t('help.reset.error', 'Fehler beim Zuruecksetzen.'));
+      });
+  };
+})();
+</script>
+
   <script src="/public/js/pageShell.js"></script>
   <div id="tc-footer" data-tc-footer></div>
   <script src="/public/js/footer.js"></script>

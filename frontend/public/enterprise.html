@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <script src="/public/js/theme.js"></script>
   <script src="/public/js/i18n.js"></script>
-  <title>Operations-Hub – TempConnect</title>
+  <title data-i18n="ent.docTitle">Operations-Hub – TempConnect</title>
   <link rel="stylesheet" href="/public/css/enterprise.css"/>
   <style>
     /* Editorial — restliche andersfarbige Inline-Boxen an Creme/Forest angleichen
@@ -19,13 +19,13 @@
 </head>
 <body data-sla-guard="sla_access">
   <div id="paywall" class="wrap" style="display:none">
-    <nav class="ds-topbar"><div class="ds-topbar__brand"><span class="ds-topbar__brand-dot"></span>TempConnect</div><div class="ds-topbar__nav"><a href="/" class="ds-btn">Startseite</a></div></nav>
+    <nav class="ds-topbar"><div class="ds-topbar__brand"><span class="ds-topbar__brand-dot"></span>TempConnect</div><div class="ds-topbar__nav"><a href="/" class="ds-btn" data-i18n="ent.paywall.home">Startseite</a></div></nav>
     <div class="paywall-box">
-      <h2>Bereich nicht verfügbar</h2>
-      <p>Das Feature &quot;<span id="paywall-feature-name">Pulse-Bereich</span>&quot; ist mit deinem aktuellen Plan nicht nutzbar.</p>
-      <p>Aktueller Plan: <span id="paywall-current-plan" class="paywall-plan">–</span></p>
-      <p>Für diesen Bereich benötigst du mindestens einen PLUS-Plan.</p>
-      <a id="paywall-cta" href="/public/sla_abo.html" class="btn primary">Abo ansehen</a>
+      <h2 data-i18n="ent.paywall.title">Bereich nicht verfügbar</h2>
+      <p><span data-i18n="ent.paywall.featurePrefix">Das Feature &quot;</span><span id="paywall-feature-name">Pulse-Bereich</span><span data-i18n="ent.paywall.featureSuffix">&quot; ist mit deinem aktuellen Plan nicht nutzbar.</span></p>
+      <p><span data-i18n="ent.paywall.currentPlan">Aktueller Plan:</span> <span id="paywall-current-plan" class="paywall-plan">–</span></p>
+      <p data-i18n="ent.paywall.minPlan">Für diesen Bereich benötigst du mindestens einen PLUS-Plan.</p>
+      <a id="paywall-cta" href="/public/sla_abo.html" class="btn primary" data-i18n="ent.paywall.cta">Abo ansehen</a>
     </div>
   </div>
 
@@ -41,19 +41,19 @@
 
     <div class="tc-priority-banner tc-priority-banner--pilot">
       <div class="tc-priority-banner__main">
-        <div class="tc-priority-banner__eyebrow">workflow-Standard jetzt</div>
-        <div class="tc-priority-banner__title">Arbeitsplatzangebot → Deal → Besetzung/Einsatz → Zeiten </div>
-        <p class="tc-priority-banner__text">Diese Plattform priorisiert bewusst klare Bedienbarkeit und robuste Kernflows. Steuerungs-, Trust- und Admin-Bereiche bleiben sichtbar, werden aber dem operativen Pilotkern nachgeordnet.</p>
+        <div class="tc-priority-banner__eyebrow" data-i18n="ent.banner.eyebrow">workflow-Standard jetzt</div>
+        <div class="tc-priority-banner__title" data-i18n="ent.banner.title">Arbeitsplatzangebot → Deal → Besetzung/Einsatz → Zeiten </div>
+        <p class="tc-priority-banner__text" data-i18n="ent.banner.text">Diese Plattform priorisiert bewusst klare Bedienbarkeit und robuste Kernflows. Steuerungs-, Trust- und Admin-Bereiche bleiben sichtbar, werden aber dem operativen Pilotkern nachgeordnet.</p>
         <div class="tc-priority-banner__list">
-          <span class="tc-priority-pill">Angebote &amp; Vermittlung</span>
-          <span class="tc-priority-pill">Dealabschluss</span>
-          <span class="tc-priority-pill">Worker-Zuweisung</span>
-          <span class="tc-priority-pill">Stundenzettel &amp; Freigabe</span>
+          <span class="tc-priority-pill" data-i18n="ent.banner.pillOffers">Angebote &amp; Vermittlung</span>
+          <span class="tc-priority-pill" data-i18n="ent.banner.pillDeal">Dealabschluss</span>
+          <span class="tc-priority-pill" data-i18n="ent.banner.pillAssign">Worker-Zuweisung</span>
+          <span class="tc-priority-pill" data-i18n="ent.banner.pillTimesheets">Stundenzettel &amp; Freigabe</span>
         </div>
       </div>
       <div class="tc-priority-banner__aside">
-        <div class="tc-priority-banner__aside-title">Bewusst nachgelagert</div>
-        <div class="tc-priority-banner__aside-text">Executive, Trust, Admin und breitere Ausbauflächen staerken Vertrieb und Betrieb, ersetzen aber nicht den Pilotstandard. Neue Themen ziehen nur vor, wenn sie Abschluss, Demo oder Robustheit direkt verbessern.</div>
+        <div class="tc-priority-banner__aside-title" data-i18n="ent.banner.asideTitle">Bewusst nachgelagert</div>
+        <div class="tc-priority-banner__aside-text" data-i18n="ent.banner.asideText">Executive, Trust, Admin und breitere Ausbauflächen staerken Vertrieb und Betrieb, ersetzen aber nicht den Pilotstandard. Neue Themen ziehen nur vor, wenn sie Abschluss, Demo oder Robustheit direkt verbessern.</div>
       </div>
     </div>
 
@@ -64,13 +64,13 @@
       <div class="tc-onboarding__box">
         <div class="tc-onboarding__header" onclick="toggleOnboarding()">
           <span class="tc-onboarding__icon">&#9881;</span>
-          <span class="tc-onboarding__label">Plattform einrichten</span>
+          <span class="tc-onboarding__label" data-i18n="ent.onboarding.label">Plattform einrichten</span>
           <span id="onboarding-subtitle" class="tc-onboarding__subtitle"></span>
           <div class="tc-onboarding__progress">
             <div id="onboarding-progress-bar" class="tc-onboarding__progress-bar"></div>
           </div>
-          <button id="onboarding-toggle-btn" type="button" class="tc-onboarding__toggle" title="Auf-/Zuklappen" onclick="event.stopPropagation();toggleOnboarding()">&#9660;</button>
-          <button id="onboarding-dismiss-btn" type="button" class="tc-onboarding__dismiss" title="Ausblenden" onclick="event.stopPropagation();dismissOnboarding()">&times;</button>
+          <button id="onboarding-toggle-btn" type="button" class="tc-onboarding__toggle" title="Auf-/Zuklappen" data-i18n-title="ent.onboarding.toggleTitle" onclick="event.stopPropagation();toggleOnboarding()">&#9660;</button>
+          <button id="onboarding-dismiss-btn" type="button" class="tc-onboarding__dismiss" title="Ausblenden" data-i18n-title="ent.onboarding.dismissTitle" onclick="event.stopPropagation();dismissOnboarding()">&times;</button>
         </div>
         <div id="onboarding-body" class="tc-onboarding__body">
           <div class="tc-onboarding__steps">
@@ -83,15 +83,15 @@
     <!-- Erfolgs-Report: kompakte Inline-Leiste -->
     <div id="value-report-widget" style="margin-bottom:var(--ds-space-4)">
       <div style="display:flex;align-items:center;gap:var(--ds-space-4);padding:var(--ds-space-3) var(--ds-space-5);border:1px solid var(--ds-border);border-radius:var(--ds-radius-lg);background:rgba(255,255,255,.025);flex-wrap:wrap">
-        <div style="font-size:13px;font-weight:700;color:var(--ds-text-secondary);white-space:nowrap">Operativer Status</div>
+        <div style="font-size:13px;font-weight:700;color:var(--ds-text-secondary);white-space:nowrap" data-i18n="ent.value.status">Operativer Status</div>
         <div style="display:flex;gap:var(--ds-space-5);flex-wrap:wrap;flex:1">
-          <div style="text-align:center"><div id="vr-matches" style="font-size:18px;font-weight:800;color:var(--ds-success)">–</div><div style="font-size:10px;color:var(--ds-text-tertiary)">Matches</div></div>
-          <div style="text-align:center"><div id="vr-fill-hours" style="font-size:18px;font-weight:800;color:var(--ds-brand)">–</div><div style="font-size:10px;color:var(--ds-text-tertiary)">Besetzungszeit</div></div>
-          <div style="text-align:center"><div id="vr-hours-saved" style="font-size:18px;font-weight:800;color:var(--ds-accent)">–</div><div style="font-size:10px;color:var(--ds-text-tertiary)">Std. gespart</div></div>
-          <div style="text-align:center"><div id="vr-member-since" style="font-size:18px;font-weight:800">–</div><div style="font-size:10px;color:var(--ds-text-tertiary)">Mitglied seit</div></div>
-          <div style="text-align:center"><div id="vr-discount" style="font-size:18px;font-weight:800;color:var(--ds-success)">–</div><div style="font-size:10px;color:var(--ds-text-tertiary)">Bounty</div></div>
+          <div style="text-align:center"><div id="vr-matches" style="font-size:18px;font-weight:800;color:var(--ds-success)">–</div><div style="font-size:10px;color:var(--ds-text-tertiary)" data-i18n="ent.value.matches">Matches</div></div>
+          <div style="text-align:center"><div id="vr-fill-hours" style="font-size:18px;font-weight:800;color:var(--ds-brand)">–</div><div style="font-size:10px;color:var(--ds-text-tertiary)" data-i18n="ent.value.fillTime">Besetzungszeit</div></div>
+          <div style="text-align:center"><div id="vr-hours-saved" style="font-size:18px;font-weight:800;color:var(--ds-accent)">–</div><div style="font-size:10px;color:var(--ds-text-tertiary)" data-i18n="ent.value.hoursSaved">Std. gespart</div></div>
+          <div style="text-align:center"><div id="vr-member-since" style="font-size:18px;font-weight:800">–</div><div style="font-size:10px;color:var(--ds-text-tertiary)" data-i18n="ent.value.memberSince">Mitglied seit</div></div>
+          <div style="text-align:center"><div id="vr-discount" style="font-size:18px;font-weight:800;color:var(--ds-success)">–</div><div style="font-size:10px;color:var(--ds-text-tertiary)" data-i18n="ent.value.bounty">Bounty</div></div>
         </div>
-        <a href="/public/bounties.html" style="font-size:12px;color:var(--ds-brand);text-decoration:none;white-space:nowrap">Details &rarr;</a>
+        <a href="/public/bounties.html" style="font-size:12px;color:var(--ds-brand);text-decoration:none;white-space:nowrap" data-i18n="ent.value.details">Details &rarr;</a>
       </div>
     </div>
 
@@ -101,13 +101,13 @@
         <div style="display:flex;align-items:center;gap:var(--ds-space-5);flex-wrap:wrap">
           <div style="width:48px;height:48px;border-radius:var(--ds-radius-lg);background:linear-gradient(135deg,var(--ds-brand),var(--ds-accent));display:flex;align-items:center;justify-content:center;font-size:22px;color:#fff;flex-shrink:0">+</div>
           <div style="flex:1;min-width:200px">
-            <h3 style="margin:0 0 4px;font-size:16px;font-weight:800" id="ce-nudge-title">Pilot-Standard starten: Arbeitsplatzangebot platzieren oder Personal anbieten</h3>
-            <p style="margin:0;font-size:13px;color:var(--ds-text-secondary)" id="ce-nudge-text">Starten Sie den Kernflow der Plattform: Arbeitsplatzangebot erfassen, Personal veroeffentlichen und ohne Medienbruch zum belastbaren Deal gelangen.</p>
+            <h3 style="margin:0 0 4px;font-size:16px;font-weight:800" id="ce-nudge-title" data-i18n="ent.nudge.title">Pilot-Standard starten: Arbeitsplatzangebot platzieren oder Personal anbieten</h3>
+            <p style="margin:0;font-size:13px;color:var(--ds-text-secondary)" id="ce-nudge-text" data-i18n="ent.nudge.text">Starten Sie den Kernflow der Plattform: Arbeitsplatzangebot erfassen, Personal veroeffentlichen und ohne Medienbruch zum belastbaren Deal gelangen.</p>
           </div>
           <div style="display:flex;gap:var(--ds-space-2);flex-shrink:0">
-            <a href="/public/capacity_exchange_form.html" id="ce-nudge-cta-1" class="ds-btn ds-btn--primary ds-btn--sm" data-cta-write="true">Personal einstellen</a>
-            <a href="/public/marketplace_demand_create.html" id="ce-nudge-cta-2" class="ds-btn ds-btn--sm" data-cta-write="true">Arbeitsplatz anbieten</a>
-            <a href="/public/capacity_exchange_feed.html" class="ds-btn ds-btn--sm ds-btn--ghost" id="ce-nudge-cta-marketplace">Personal finden</a>
+            <a href="/public/capacity_exchange_form.html" id="ce-nudge-cta-1" class="ds-btn ds-btn--primary ds-btn--sm" data-cta-write="true" data-i18n="ent.nudge.ctaPostStaff">Personal einstellen</a>
+            <a href="/public/marketplace_demand_create.html" id="ce-nudge-cta-2" class="ds-btn ds-btn--sm" data-cta-write="true" data-i18n="ent.nudge.ctaPostWorkplace">Arbeitsplatz anbieten</a>
+            <a href="/public/capacity_exchange_feed.html" class="ds-btn ds-btn--sm ds-btn--ghost" id="ce-nudge-cta-marketplace" data-i18n="ent.nudge.ctaMarketplace">Personal finden</a>
           </div>
         </div>
       </div>
@@ -118,9 +118,9 @@
       <div class="tc-nudge__box">
         <span class="tc-nudge__icon tc-nudge__icon--sm" style="font-size:16px">&#9650;</span>
         <div class="tc-nudge__text--inline">
-          <strong style="color:var(--ds-text)">Sichtbarkeit erhöhen:</strong> Weiteres Personal verbessert Ihr Matching und Ihre Angebotschancen.
+          <strong style="color:var(--ds-text)" data-i18n="ent.publish.lead">Sichtbarkeit erhöhen:</strong> <span data-i18n="ent.publish.text">Weiteres Personal verbessert Ihr Matching und Ihre Angebotschancen.</span>
         </div>
-        <a href="/public/capacity_exchange_form.html" class="ds-btn ds-btn--sm" data-cta-write="true">Weitere einstellen</a>
+        <a href="/public/capacity_exchange_form.html" class="ds-btn ds-btn--sm" data-cta-write="true" data-i18n="ent.publish.cta">Weitere einstellen</a>
       </div>
     </div>
 
@@ -131,111 +131,111 @@
         <a href="/public/capacity_exchange_feed.html" class="ds-hub-card ds-hub-card--success" data-surface="marketplace">
           <div class="ds-hub-card__icon" style="font-size:22px;font-weight:800;font-family:system-ui">M</div>
           <div class="ds-hub-card__content">
-            <div class="ds-hub-card__eyebrow">Pilot-Standard</div>
-            <div class="ds-hub-card__title" id="hub-card-marketplace-title">Personal finden</div>
-            <p class="ds-hub-card__desc" id="hub-card-marketplace-desc">Verfuegbares Personal, Angebote, Matching und Suchauftraege im offenen Markt.</p>
-            <div class="ds-hub-card__footer-note" id="hub-card-marketplace-note">Frueher Einstieg fuer Personalsuche, Reaktion und Match &mdash; ohne glatten Start kippt auch der Dealflow.</div>
+            <div class="ds-hub-card__eyebrow" data-i18n="ent.card.marketplace.eyebrow">Pilot-Standard</div>
+            <div class="ds-hub-card__title" id="hub-card-marketplace-title" data-i18n="ent.card.marketplace.title">Personal finden</div>
+            <p class="ds-hub-card__desc" id="hub-card-marketplace-desc" data-i18n="ent.card.marketplace.desc">Verfuegbares Personal, Angebote, Matching und Suchauftraege im offenen Markt.</p>
+            <div class="ds-hub-card__footer-note" id="hub-card-marketplace-note" data-i18n="ent.card.marketplace.note">Frueher Einstieg fuer Personalsuche, Reaktion und Match &mdash; ohne glatten Start kippt auch der Dealflow.</div>
           </div>
         </a>
         <a href="/public/requisitions.html" class="ds-hub-card ds-hub-card--accent" data-surface="requisitions">
           <div class="ds-hub-card__icon" style="font-size:22px;font-weight:800;font-family:system-ui">B</div>
           <div class="ds-hub-card__content">
-            <div class="ds-hub-card__eyebrow">Pilot-Standard</div>
-            <div class="ds-hub-card__title">Arbeitsplatzangebote</div>
-            <p class="ds-hub-card__desc">Arbeitsplatzangebote erfassen, priorisieren und mit Lieferanten- sowie Preissteuerung verzahnen.</p>
-            <div class="ds-hub-card__footer-note">Muss vor Pilotkunden ohne Rueckfragen vom ersten Angebot bis zur klaren Priorisierung bedienbar sein.</div>
+            <div class="ds-hub-card__eyebrow" data-i18n="ent.card.requisitions.eyebrow">Pilot-Standard</div>
+            <div class="ds-hub-card__title" data-i18n="ent.card.requisitions.title">Arbeitsplatzangebote</div>
+            <p class="ds-hub-card__desc" data-i18n="ent.card.requisitions.desc">Arbeitsplatzangebote erfassen, priorisieren und mit Lieferanten- sowie Preissteuerung verzahnen.</p>
+            <div class="ds-hub-card__footer-note" data-i18n="ent.card.requisitions.note">Muss vor Pilotkunden ohne Rueckfragen vom ersten Angebot bis zur klaren Priorisierung bedienbar sein.</div>
           </div>
         </a>
         <a href="/public/deal_management.html" class="ds-hub-card ds-hub-card--brand" data-surface="deals">
           <div class="ds-hub-card__icon" style="font-size:22px;font-weight:800;font-family:system-ui">D</div>
           <div class="ds-hub-card__content">
-            <div class="ds-hub-card__eyebrow">Pilot-Standard</div>
-            <div class="ds-hub-card__title">Meine Deals</div>
-            <p class="ds-hub-card__desc">Angebote, Einsatzvereinbarungen, Verhandlungen und Dealstatus bis zur Aktivierung.</p>
-            <div class="ds-hub-card__footer-note">Pilotkritisch fuer Abschluss, Vereinbarung, naechsten Verantwortlichen und Aktivierung.</div>
+            <div class="ds-hub-card__eyebrow" data-i18n="ent.card.deals.eyebrow">Pilot-Standard</div>
+            <div class="ds-hub-card__title" data-i18n="ent.card.deals.title">Meine Deals</div>
+            <p class="ds-hub-card__desc" data-i18n="ent.card.deals.desc">Angebote, Einsatzvereinbarungen, Verhandlungen und Dealstatus bis zur Aktivierung.</p>
+            <div class="ds-hub-card__footer-note" data-i18n="ent.card.deals.note">Pilotkritisch fuer Abschluss, Vereinbarung, naechsten Verantwortlichen und Aktivierung.</div>
           </div>
         </a>
         <a href="/public/worker-submissions-review.html" class="ds-hub-card" data-surface="assignments" id="assignmentsHubCard">
           <div class="ds-hub-card__icon" style="font-size:22px;font-weight:800;font-family:system-ui">E</div>
           <div class="ds-hub-card__content">
-            <div class="ds-hub-card__eyebrow" id="assignmentsCardEyebrow">Pilot-Standard</div>
-            <div class="ds-hub-card__title" id="assignmentsCardTitle">Einsaetze &amp; Zeiten</div>
-            <p class="ds-hub-card__desc" id="assignmentsCardDesc">Einsatzkraefte, Stundenzettel, Freigaben und laufende Einsaetze operativ steuern.</p>
-            <div class="ds-hub-card__footer-note" id="assignmentsCardNote">Hier entscheidet sich, ob Besetzung, Kundenfreigabe und Folgeprozesse operativ belastbar laufen.</div>
+            <div class="ds-hub-card__eyebrow" id="assignmentsCardEyebrow" data-i18n="ent.card.assignments.eyebrow">Pilot-Standard</div>
+            <div class="ds-hub-card__title" id="assignmentsCardTitle" data-i18n="ent.card.assignments.title">Einsaetze &amp; Zeiten</div>
+            <p class="ds-hub-card__desc" id="assignmentsCardDesc" data-i18n="ent.card.assignments.desc">Einsatzkraefte, Stundenzettel, Freigaben und laufende Einsaetze operativ steuern.</p>
+            <div class="ds-hub-card__footer-note" id="assignmentsCardNote" data-i18n="ent.card.assignments.note">Hier entscheidet sich, ob Besetzung, Kundenfreigabe und Folgeprozesse operativ belastbar laufen.</div>
           </div>
         </a>
         <a href="/public/vendor_pool.html" class="ds-hub-card" data-surface="vendor_pool">
           <div class="ds-hub-card__icon" style="font-size:22px;font-weight:800;font-family:system-ui">L</div>
           <div class="ds-hub-card__content">
-            <div class="ds-hub-card__eyebrow">Pilot-Stabilisierung</div>
-            <div class="ds-hub-card__title">Lieferantensteuerung</div>
-            <p class="ds-hub-card__desc" id="supplierGovernanceDesc">Lieferantenpool, Bewertung und Spend auf Erfuellung ausrichten.</p>
-            <div class="ds-hub-card__footer-note" id="supplierGovernanceNote">Staerkt Abschlussquote und Steuerbarkeit, bleibt aber hinter Angeboten, Deals und Zeiten nachgelagert.</div>
+            <div class="ds-hub-card__eyebrow" data-i18n="ent.card.supplier.eyebrow">Pilot-Stabilisierung</div>
+            <div class="ds-hub-card__title" data-i18n="ent.card.supplier.title">Lieferantensteuerung</div>
+            <p class="ds-hub-card__desc" id="supplierGovernanceDesc" data-i18n="ent.card.supplier.desc">Lieferantenpool, Bewertung und Spend auf Erfuellung ausrichten.</p>
+            <div class="ds-hub-card__footer-note" id="supplierGovernanceNote" data-i18n="ent.card.supplier.note">Staerkt Abschlussquote und Steuerbarkeit, bleibt aber hinter Angeboten, Deals und Zeiten nachgelagert.</div>
           </div>
         </a>
         <!-- Plattform- und Enterprise-Schicht -->
         <a href="/public/sla_profil.html" class="ds-hub-card ds-hub-card--accent ds-hub-card--supporting" data-surface="my_company">
           <div class="ds-hub-card__icon" style="font-size:22px;font-weight:800;font-family:system-ui">U</div>
           <div class="ds-hub-card__content">
-            <div class="ds-hub-card__eyebrow">Onboarding</div>
-            <div class="ds-hub-card__title">Mein Unternehmen</div>
-            <p class="ds-hub-card__desc">Profil, Organisation, Abos und Plattform-Einrichtung.</p>
-            <div class="ds-hub-card__footer-note">Wichtig fuer sauberes Setup, aber nicht der Tagesprozess nach Livegang.</div>
+            <div class="ds-hub-card__eyebrow" data-i18n="ent.card.company.eyebrow">Onboarding</div>
+            <div class="ds-hub-card__title" data-i18n="ent.card.company.title">Mein Unternehmen</div>
+            <p class="ds-hub-card__desc" data-i18n="ent.card.company.desc">Profil, Organisation, Abos und Plattform-Einrichtung.</p>
+            <div class="ds-hub-card__footer-note" data-i18n="ent.card.company.note">Wichtig fuer sauberes Setup, aber nicht der Tagesprozess nach Livegang.</div>
           </div>
         </a>
         <a href="/public/activity.html" class="ds-hub-card ds-hub-card--supporting" data-surface="activity">
           <div class="ds-hub-card__icon" style="font-size:22px;font-weight:800;font-family:system-ui">A</div>
           <div class="ds-hub-card__content">
-            <div class="ds-hub-card__eyebrow">Pilotbetrieb</div>
-            <div class="ds-hub-card__title">Activity Center</div>
-            <p class="ds-hub-card__desc">Benachrichtigungen zu Arbeitsplatzangeboten, Deals, Einsaetzen, Freigaben und Match-Alerts.</p>
-            <div class="ds-hub-card__footer-note">Unterstuetzt den Pilotkern, ist aber Begleitflaeche statt Primär-Einstieg.</div>
+            <div class="ds-hub-card__eyebrow" data-i18n="ent.card.activity.eyebrow">Pilotbetrieb</div>
+            <div class="ds-hub-card__title" data-i18n="ent.card.activity.title">Activity Center</div>
+            <p class="ds-hub-card__desc" data-i18n="ent.card.activity.desc">Benachrichtigungen zu Arbeitsplatzangeboten, Deals, Einsaetzen, Freigaben und Match-Alerts.</p>
+            <div class="ds-hub-card__footer-note" data-i18n="ent.card.activity.note">Unterstuetzt den Pilotkern, ist aber Begleitflaeche statt Primär-Einstieg.</div>
           </div>
         </a>
         <a href="/public/bounties.html" class="ds-hub-card ds-hub-card--success ds-hub-card--supporting" data-surface="bounties">
           <div class="ds-hub-card__icon" style="font-size:22px;font-weight:800;font-family:system-ui">R</div>
           <div class="ds-hub-card__content">
-            <div class="ds-hub-card__eyebrow">Reputation</div>
-            <div class="ds-hub-card__title">Bounty &amp; Reputation</div>
-            <p class="ds-hub-card__desc">Status, Bounty-Rabatte, Meilensteine und Reputation transparent einsehen.</p>
-            <div class="ds-hub-card__footer-note">Sichtbar fuer Unternehmen und Zeitarbeitsfirmen; belohnt robuste Plattformnutzung ohne zusaetzliche Freischaltung.</div>
+            <div class="ds-hub-card__eyebrow" data-i18n="ent.card.bounties.eyebrow">Reputation</div>
+            <div class="ds-hub-card__title" data-i18n="ent.card.bounties.title">Bounty &amp; Reputation</div>
+            <p class="ds-hub-card__desc" data-i18n="ent.card.bounties.desc">Status, Bounty-Rabatte, Meilensteine und Reputation transparent einsehen.</p>
+            <div class="ds-hub-card__footer-note" data-i18n="ent.card.bounties.note">Sichtbar fuer Unternehmen und Zeitarbeitsfirmen; belohnt robuste Plattformnutzung ohne zusaetzliche Freischaltung.</div>
           </div>
         </a>
         <a href="/public/data-governance.html" class="ds-hub-card ds-hub-card--supporting" data-surface="trust_center">
           <div class="ds-hub-card__icon" style="font-size:22px;font-weight:800;font-family:system-ui">T</div>
           <div class="ds-hub-card__content">
-            <div class="ds-hub-card__eyebrow">Vertrauensschicht</div>
-            <div class="ds-hub-card__title">Trust Center</div>
-            <p class="ds-hub-card__desc">Datenschutz, Sicherheit, DSGVO-Governance und API-Dokumentation.</p>
-            <div class="ds-hub-card__footer-note">Staerkt Vertrauen und Enterprise-Reife, ersetzt aber keinen operativen Kernflow.</div>
+            <div class="ds-hub-card__eyebrow" data-i18n="ent.card.trust.eyebrow">Vertrauensschicht</div>
+            <div class="ds-hub-card__title" data-i18n="ent.card.trust.title">Trust Center</div>
+            <p class="ds-hub-card__desc" data-i18n="ent.card.trust.desc">Datenschutz, Sicherheit, DSGVO-Governance und API-Dokumentation.</p>
+            <div class="ds-hub-card__footer-note" data-i18n="ent.card.trust.note">Staerkt Vertrauen und Enterprise-Reife, ersetzt aber keinen operativen Kernflow.</div>
           </div>
         </a>
         <a href="/public/executive_dashboard.html" class="ds-hub-card ds-hub-card--brand ds-hub-card--supporting" data-surface="executive_dashboard">
           <div class="ds-hub-card__icon" style="font-size:22px;font-weight:800;font-family:system-ui">S</div>
           <div class="ds-hub-card__content">
-            <div class="ds-hub-card__eyebrow">Steuerungsschicht</div>
-            <div class="ds-hub-card__title">Steuerung &amp; Analytik</div>
-            <p class="ds-hub-card__desc">KPIs, Besetzungsdruck, Spend, Plattformzustand und Managementsicht.</p>
-            <div class="ds-hub-card__footer-note">Nachgelagerte Managementsicht &mdash; erst operative Signale, dann KPI-Aggregation.</div>
+            <div class="ds-hub-card__eyebrow" data-i18n="ent.card.executive.eyebrow">Steuerungsschicht</div>
+            <div class="ds-hub-card__title" data-i18n="ent.card.executive.title">Steuerung &amp; Analytik</div>
+            <p class="ds-hub-card__desc" data-i18n="ent.card.executive.desc">KPIs, Besetzungsdruck, Spend, Plattformzustand und Managementsicht.</p>
+            <div class="ds-hub-card__footer-note" data-i18n="ent.card.executive.note">Nachgelagerte Managementsicht &mdash; erst operative Signale, dann KPI-Aggregation.</div>
           </div>
         </a>
         <!-- Admin -->
         <a href="/public/admin_panel.html" class="ds-hub-card ds-hub-card--supporting" data-surface="admin_panel">
           <div class="ds-hub-card__icon" style="font-size:22px;font-weight:800;font-family:system-ui">X</div>
           <div class="ds-hub-card__content">
-            <div class="ds-hub-card__eyebrow">Ausbau nach Pilot</div>
-            <div class="ds-hub-card__title">Admin</div>
-            <p class="ds-hub-card__desc">Benutzer, Organisationen, Audit-Log, Metriken und Plattform-Workflows.</p>
-            <div class="ds-hub-card__footer-note">Wichtig fuer Kontrolle und Governance, aber bewusst nicht der aktuelle Kernhebel fuer Pilotabschluss.</div>
+            <div class="ds-hub-card__eyebrow" data-i18n="ent.card.admin.eyebrow">Ausbau nach Pilot</div>
+            <div class="ds-hub-card__title" data-i18n="ent.card.admin.title">Admin</div>
+            <p class="ds-hub-card__desc" data-i18n="ent.card.admin.desc">Benutzer, Organisationen, Audit-Log, Metriken und Plattform-Workflows.</p>
+            <div class="ds-hub-card__footer-note" data-i18n="ent.card.admin.note">Wichtig fuer Kontrolle und Governance, aber bewusst nicht der aktuelle Kernhebel fuer Pilotabschluss.</div>
           </div>
         </a>
         <!-- Standorte / Multi-Location -->
         <a href="/public/organization.html" class="ds-hub-card ds-hub-card--supporting" data-surface="location_management">
           <div class="ds-hub-card__icon" style="font-size:22px;font-weight:800;font-family:system-ui">L</div>
           <div class="ds-hub-card__content">
-            <div class="ds-hub-card__eyebrow">Org-Einstellungen</div>
-            <div class="ds-hub-card__title">Standorte &amp; Struktur</div>
-            <p class="ds-hub-card__desc">Standorte verwalten, Abteilungen anlegen und Org-Struktur pflegen.</p>
+            <div class="ds-hub-card__eyebrow" data-i18n="ent.card.locations.eyebrow">Org-Einstellungen</div>
+            <div class="ds-hub-card__title" data-i18n="ent.card.locations.title">Standorte &amp; Struktur</div>
+            <p class="ds-hub-card__desc" data-i18n="ent.card.locations.desc">Standorte verwalten, Abteilungen anlegen und Org-Struktur pflegen.</p>
           </div>
         </a>
       </div>

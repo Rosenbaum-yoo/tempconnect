@@ -206,6 +206,68 @@ function inlineScripts(html) {
   return [...html.matchAll(/<script(?![^>]*\bsrc=)[^>]*>([\s\S]*?)<\/script>/g)].map((m) => m[1]);
 }
 
+/* ── Plattform-Kernflow: Seiten mit teils AUSGELAGERTEM Seiten-JS ────────── */
+
+const KERNFLOW = [
+  { page: "enterprise.html", js: "js/pages/enterpriseHub.js" },
+  { page: "capacity_exchange_feed.html", js: "js/pages/marketplaceFeed.js" },
+  { page: "requisitions.html", js: "js/pages/requisitions.js" },
+  { page: "deal_management.html", js: null },
+  { page: "mitarbeiter.html", js: "js/pages/mitarbeiter.js" },
+  { page: "hilfe.html", js: null }
+];
+
+suite("Plattform-Kernflow — zweisprachig (Woerterbuch ggf. im ausgelagerten JS)", () => {
+  for (const item of KERNFLOW) {
+    it(`${item.page}: DE/EN-Paritaet, bekannte Marker, gueltige Syntax`, () => {
+      const html = read(`frontend/public/${item.page}`);
+      // Das Woerterbuch liegt entweder inline in der Seite oder in ihrer JS-Datei.
+      const dictSource = item.js ? read(`frontend/public/${item.js}`) : html;
+      const de = extractDictKeys(dictSource, "de", 3);
+      const en = extractDictKeys(dictSource, "en", 3);
+      assert.deepEqual([...de].filter((k) => !en.has(k)), [], "Keys ohne EN-Uebersetzung");
+      assert.deepEqual([...en].filter((k) => !de.has(k)), [], "EN-Keys ohne DE-Quelle");
+
+      // Marker im Markup muessen aufloesbar sein (Shell-/Portal-Keys zaehlen als bekannt).
+      const used = [...html.matchAll(/data-i18n(?:-ph|-title|-aria)?="([\w.]+)"/g)].map((m) => m[1]);
+      assert.ok(used.length >= 5, `zu wenige data-i18n-Marker (${used.length})`);
+      const unknown = used.filter((k) => !de.has(k) && !/^(shell|ep)\./.test(k));
+      assert.deepEqual(unknown, [], "Markup referenziert unbekannte Keys");
+
+      // Kein Woerterbuch-Selbstverweis (stiller Leertext)
+      assert.deepEqual([...dictSource.matchAll(/'([\w.]+)':\s*TCi18n\.t\(/g)].map((m) => m[1]), [],
+        "Woerterbuch-Werte muessen Texte sein");
+
+      // Syntax: Inline-Scripts der Seite …
+      inlineScripts(html).forEach((code, i) => {
+        assert.doesNotThrow(() => new vm.Script(code, { filename: `${item.page}-inline-${i}.js` }),
+          `Syntaxfehler im Inline-Script #${i} von ${item.page}`);
+      });
+      // … und die ausgelagerte Seiten-JS
+      if (item.js) {
+        assert.doesNotThrow(() => new vm.Script(read(`frontend/public/${item.js}`), { filename: item.js }),
+          `Syntaxfehler in ${item.js}`);
+      }
+    });
+  }
+
+  it("Zustaendigkeit bleibt getrennt: keine Seite uebersetzt Shell-Navigation selbst", () => {
+    for (const item of KERNFLOW) {
+      const html = read(`frontend/public/${item.page}`);
+      const ownNav = [...html.matchAll(/data-i18n="(shell\.nav\.[\w.]+)"/g)].map((m) => m[1]);
+      assert.deepEqual(ownNav, [], `${item.page} markiert Shell-Navigation selbst`);
+    }
+  });
+
+  it("rollenabhaengige Begriffe bleiben der Terminologie-Matrix ueberlassen", () => {
+    // Ein data-i18n-Marker auf einem Element, das TC.terminology befuellt,
+    // wuerde die rollenrichtige Fassung beim naechsten apply() ueberschreiben.
+    const feed = read("frontend/public/capacity_exchange_feed.html");
+    const h1 = feed.match(/<h1[^>]*id="feed-page-h1"[^>]*>/);
+    if (h1) assert.doesNotMatch(h1[0], /data-i18n=/, "Terminologie-Element darf keinen i18n-Marker tragen");
+  });
+});
+
 suite("Plattform — Terminologie ist eine Matrix aus Rolle UND Sprache", () => {
   /** Laedt terminologyLabels.js (optional mit i18n-Locale) in eine Sandbox. */
   function loadTerminology(locale) {

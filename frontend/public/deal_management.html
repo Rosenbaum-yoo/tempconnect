@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <script src="/public/js/theme.js"></script>
   <script src="/public/js/i18n.js"></script>
-  <title>Meine Deals - TempConnect</title>
+  <title data-i18n="deal.docTitle">Meine Deals - TempConnect</title>
   <link rel="stylesheet" href="/public/css/enterprise.css"/>
   <style>
     /* ── KPI Row ── */
@@ -78,9 +78,9 @@
   <div id="paywall" class="wrap" style="display:none">
     <nav class="ds-topbar"><div class="ds-topbar__brand"><span class="ds-topbar__brand-dot"></span>TempConnect</div></nav>
     <div class="paywall-box">
-      <h2>Bereich nicht verfuegbar</h2>
-      <p>Aktueller Plan: <span id="paywall-current-plan" class="paywall-plan">?</span></p>
-      <a id="paywall-cta" href="/public/sla_abo.html" class="btn primary">Abo ansehen</a>
+      <h2 data-i18n="deal.paywall.title">Bereich nicht verfuegbar</h2>
+      <p><span data-i18n="deal.paywall.planLabel">Aktueller Plan:</span> <span id="paywall-current-plan" class="paywall-plan">?</span></p>
+      <a id="paywall-cta" href="/public/sla_abo.html" class="btn primary" data-i18n="deal.paywall.cta">Abo ansehen</a>
     </div>
   </div>
 
@@ -89,20 +89,20 @@
 
     <div class="ds-page-header">
       <div class="ds-page-header__content">
-        <h1 class="ds-page-title">Meine Deals</h1>
-        <p class="ds-page-subtitle">Einsatzvereinbarungen, Verhandlungen und Dealakten &mdash; gegenseitenorientiert, aktionszentriert und pilotkritisch bis zur Aktivierung.</p>
+        <h1 class="ds-page-title" data-i18n="deal.page.title">Meine Deals</h1>
+        <p class="ds-page-subtitle" data-i18n="deal.page.subtitle">Einsatzvereinbarungen, Verhandlungen und Dealakten &mdash; gegenseitenorientiert, aktionszentriert und pilotkritisch bis zur Aktivierung.</p>
       </div>
     </div>
 
     <div class="tc-priority-banner tc-priority-banner--pilot">
       <div class="tc-priority-banner__main">
-        <div class="tc-priority-banner__eyebrow">Pilot-Standard</div>
-        <div class="tc-priority-banner__title">Dealabschluss muss hier ohne Interpretationsspielraum funktionieren</div>
-        <p class="tc-priority-banner__text">Angebote, Vereinbarung, Aktivierung und der naechste Verantwortliche muessen fuer beide Seiten sofort klar sein. Dieser Bereich ist die Bruecke vom Interesse zum laufenden Einsatz.</p>
+        <div class="tc-priority-banner__eyebrow" data-i18n="deal.banner.eyebrow">Pilot-Standard</div>
+        <div class="tc-priority-banner__title" data-i18n="deal.banner.title">Dealabschluss muss hier ohne Interpretationsspielraum funktionieren</div>
+        <p class="tc-priority-banner__text" data-i18n="deal.banner.text">Angebote, Vereinbarung, Aktivierung und der naechste Verantwortliche muessen fuer beide Seiten sofort klar sein. Dieser Bereich ist die Bruecke vom Interesse zum laufenden Einsatz.</p>
       </div>
       <div class="tc-priority-banner__aside">
-        <div class="tc-priority-banner__aside-title">Pilot-Mindestflow</div>
-        <div class="tc-priority-banner__aside-text">Arbeitsplatzangebot oder Personal → Deal → Einsatzvereinbarung → Aktivierung</div>
+        <div class="tc-priority-banner__aside-title" data-i18n="deal.banner.asideTitle">Pilot-Mindestflow</div>
+        <div class="tc-priority-banner__aside-text" data-i18n="deal.banner.asideText">Arbeitsplatzangebot oder Personal → Deal → Einsatzvereinbarung → Aktivierung</div>
       </div>
     </div>
 
@@ -111,24 +111,24 @@
 
     <!-- KPI Tiles -->
     <div class="dm-kpi" id="dm-kpi">
-      <div class="dm-kpi-tile"><div class="dm-kpi-tile__value dm-kpi-tile__value--brand" id="kpi-active">-</div><div class="dm-kpi-tile__label">Aktive Deals</div></div>
-      <div class="dm-kpi-tile"><div class="dm-kpi-tile__value dm-kpi-tile__value--warning" id="kpi-action">-</div><div class="dm-kpi-tile__label">Aktion erforderlich</div></div>
-      <div class="dm-kpi-tile"><div class="dm-kpi-tile__value dm-kpi-tile__value--success" id="kpi-completed">-</div><div class="dm-kpi-tile__label">Abgeschlossen</div></div>
-      <div class="dm-kpi-tile"><div class="dm-kpi-tile__value dm-kpi-tile__value--accent" id="kpi-volume">-</div><div class="dm-kpi-tile__label">Gesamtpersonen</div></div>
+      <div class="dm-kpi-tile"><div class="dm-kpi-tile__value dm-kpi-tile__value--brand" id="kpi-active">-</div><div class="dm-kpi-tile__label" data-i18n="deal.kpi.active">Aktive Deals</div></div>
+      <div class="dm-kpi-tile"><div class="dm-kpi-tile__value dm-kpi-tile__value--warning" id="kpi-action">-</div><div class="dm-kpi-tile__label" data-i18n="deal.kpi.action">Aktion erforderlich</div></div>
+      <div class="dm-kpi-tile"><div class="dm-kpi-tile__value dm-kpi-tile__value--success" id="kpi-completed">-</div><div class="dm-kpi-tile__label" data-i18n="deal.kpi.completed">Abgeschlossen</div></div>
+      <div class="dm-kpi-tile"><div class="dm-kpi-tile__value dm-kpi-tile__value--accent" id="kpi-volume">-</div><div class="dm-kpi-tile__label" data-i18n="deal.kpi.volume">Gesamtpersonen</div></div>
     </div>
 
     <div class="dm-tabs" id="dm-tabs">
-      <button class="dm-tab dm-tab--active" data-filter="active">Aktive Deals <span class="dm-tab__count" id="cnt-active"></span></button>
-      <button class="dm-tab" data-filter="completed">Abgeschlossen <span class="dm-tab__count" id="cnt-completed"></span></button>
-      <button class="dm-tab" data-filter="cancelled">Storniert <span class="dm-tab__count" id="cnt-cancelled"></span></button>
-      <button class="dm-tab" data-filter="">Alle <span class="dm-tab__count" id="cnt-all"></span></button>
+      <button class="dm-tab dm-tab--active" data-filter="active"><span data-i18n="deal.tab.active">Aktive Deals</span> <span class="dm-tab__count" id="cnt-active"></span></button>
+      <button class="dm-tab" data-filter="completed"><span data-i18n="deal.tab.completed">Abgeschlossen</span> <span class="dm-tab__count" id="cnt-completed"></span></button>
+      <button class="dm-tab" data-filter="cancelled"><span data-i18n="deal.tab.cancelled">Storniert</span> <span class="dm-tab__count" id="cnt-cancelled"></span></button>
+      <button class="dm-tab" data-filter=""><span data-i18n="deal.tab.all">Alle</span> <span class="dm-tab__count" id="cnt-all"></span></button>
     </div>
     <div class="dm-toolbar">
       <div id="dm-results" class="dm-results"></div>
       <form id="dm-search" class="dm-search">
-        <input id="dm-search-input" class="dm-search__input" type="search" placeholder="Deals, Referenz, Rolle oder Gegenseite durchsuchen"/>
-        <button type="submit" class="btn">Suchen</button>
-        <button type="button" id="dm-search-clear" class="btn" style="display:none">Zuruecksetzen</button>
+        <input id="dm-search-input" class="dm-search__input" type="search" data-i18n-ph="deal.search.ph" placeholder="Deals, Referenz, Rolle oder Gegenseite durchsuchen"/>
+        <button type="submit" class="btn" data-i18n="deal.search.submit">Suchen</button>
+        <button type="button" id="dm-search-clear" class="btn" style="display:none" data-i18n="deal.search.clear">Zuruecksetzen</button>
       </form>
     </div>
 
@@ -140,11 +140,11 @@
     <div id="dm-list" class="dm-list" style="display:none"></div>
 
     <div id="dm-empty" class="dm-empty" style="display:none">
-      <div>Keine Deals in dieser Kategorie.</div>
+      <div data-i18n="deal.empty.default">Keine Deals in dieser Kategorie.</div>
     </div>
     <div id="dm-pagination" class="dm-pagination" style="display:none">
       <div id="dm-pagination-info" class="dm-pagination__info"></div>
-      <button id="dm-load-more" type="button" class="btn">Mehr laden</button>
+      <button id="dm-load-more" type="button" class="btn" data-i18n="deal.pagination.more">Mehr laden</button>
     </div>
   </div>
 
@@ -154,6 +154,219 @@
   <script>
   (function() {
     'use strict';
+
+    /* i18n (P6.1): Seiten-Woerterbuch fuer den Deal-Kernflow.
+       Topbar, Navigation und Nutzerbereich uebersetzt die Shell (pageShell.js)
+       unter dem Praefix "shell." — hier ausschliesslich "deal." -Schluessel.
+       Werte sind IMMER Texte, nie t()-Aufrufe (Selbstverweis waere stumm leer). */
+    TCi18n.register('de', {
+      'deal.docTitle': 'Meine Deals - TempConnect',
+      'deal.paywall.title': 'Bereich nicht verfuegbar',
+      'deal.paywall.planLabel': 'Aktueller Plan:',
+      'deal.paywall.cta': 'Abo ansehen',
+      'deal.page.title': 'Meine Deals',
+      'deal.page.subtitle': 'Einsatzvereinbarungen, Verhandlungen und Dealakten — gegenseitenorientiert, aktionszentriert und pilotkritisch bis zur Aktivierung.',
+      'deal.banner.eyebrow': 'Pilot-Standard',
+      'deal.banner.title': 'Dealabschluss muss hier ohne Interpretationsspielraum funktionieren',
+      'deal.banner.text': 'Angebote, Vereinbarung, Aktivierung und der naechste Verantwortliche muessen fuer beide Seiten sofort klar sein. Dieser Bereich ist die Bruecke vom Interesse zum laufenden Einsatz.',
+      'deal.banner.asideTitle': 'Pilot-Mindestflow',
+      'deal.banner.asideText': 'Arbeitsplatzangebot oder Personal → Deal → Einsatzvereinbarung → Aktivierung',
+      'deal.kpi.active': 'Aktive Deals',
+      'deal.kpi.action': 'Aktion erforderlich',
+      'deal.kpi.completed': 'Abgeschlossen',
+      'deal.kpi.volume': 'Gesamtpersonen',
+      'deal.tab.active': 'Aktive Deals',
+      'deal.tab.completed': 'Abgeschlossen',
+      'deal.tab.cancelled': 'Storniert',
+      'deal.tab.all': 'Alle',
+      'deal.search.ph': 'Deals, Referenz, Rolle oder Gegenseite durchsuchen',
+      'deal.search.submit': 'Suchen',
+      'deal.search.clear': 'Zuruecksetzen',
+      'deal.pagination.more': 'Mehr laden',
+      'deal.pagination.loading': 'Laedt...',
+      'deal.pagination.info': '{loaded} von {total} {label} sichtbar',
+      'deal.pagination.errorMore': 'Weitere Deals konnten nicht geladen werden.',
+      'deal.error.load': 'Fehler beim Laden der Deals.',
+      'deal.filter.active': 'aktive Deals',
+      'deal.filter.completed': 'abgeschlossene Deals',
+      'deal.filter.cancelled': 'stornierte Deals',
+      'deal.filter.all': 'Deals',
+      'deal.results.noneSearch': 'Keine {label} fuer die Suche "{query}".',
+      'deal.results.none': 'Keine {label} vorhanden.',
+      'deal.results.loaded': '{loaded} von {total} {label} geladen',
+      'deal.results.total': '{total} {label}',
+      'deal.results.people': '{count} Personen',
+      'deal.results.search': 'Suche: "{query}"',
+      'deal.empty.default': 'Keine Deals in dieser Kategorie.',
+      'deal.empty.search': 'Keine {label} fuer diese Suche gefunden.',
+      'deal.empty.completed': 'Noch keine abgeschlossenen Deals vorhanden.',
+      'deal.empty.cancelled': 'Keine stornierten Deals vorhanden.',
+      'deal.empty.active': 'Keine aktiven Deals vorhanden.',
+      'deal.status.draft': 'Entwurf',
+      'deal.status.sent': 'Gesendet',
+      'deal.status.countered': 'Gegenangebot',
+      'deal.status.accepted': 'Angenommen',
+      'deal.status.rejected': 'Abgelehnt',
+      'deal.status.withdrawn': 'Zurueckgezogen',
+      'deal.agreement.none': 'Offen',
+      'deal.agreement.pending_confirmation': 'Vereinbarung erstellt',
+      'deal.agreement.confirmed': 'Bestaetigt',
+      'deal.agreement.activated': 'Einsatz aktiviert',
+      'deal.agreement.cancelled': 'Storniert',
+      'deal.agreement.expired': 'Abgelaufen',
+      'deal.action.action_required': 'Aktion erforderlich',
+      'deal.action.waiting': 'Warten auf Gegenseite',
+      'deal.action.completed': 'Abgeschlossen',
+      'deal.action.cancelled': 'Storniert',
+      'deal.action.expired': 'Abgelaufen',
+      'deal.action.closed': 'Geschlossen',
+      'deal.nextStep.action_required': 'Sie muessen handeln – naechsten Schritt ausfuehren.',
+      'deal.nextStep.waiting': 'Warten auf Gegenseite – die andere Partei ist am Zug.',
+      'deal.nextStep.completed': 'Deal abgeschlossen – Einsatz aktiviert.',
+      'deal.nextStep.cancelled': 'Vorgang storniert.',
+      'deal.nextStep.expired': 'Vereinbarung abgelaufen.',
+      'deal.nextStep.closed': 'Vorgang geschlossen.',
+      'deal.nextAction.sent.supplier': 'Angebot pruefen und annehmen oder ablehnen',
+      'deal.nextAction.sent.requester': 'Warten auf Rueckmeldung der Zeitarbeitsfirma',
+      'deal.nextAction.accepted.requester': 'Einsatzvereinbarung erstellen',
+      'deal.nextAction.accepted.supplier': 'Warten auf Vereinbarungserstellung',
+      'deal.nextAction.pending_confirmation.supplier': 'Einsatzvereinbarung bestaetigen',
+      'deal.nextAction.pending_confirmation.requester': 'Warten auf Bestaetigung durch Agentur',
+      'deal.nextAction.confirmed.requester': 'Einsatz aktivieren und Worker-Zuweisung starten',
+      'deal.nextAction.confirmed.supplier': 'Warten auf Aktivierung durch Auftraggeber',
+      'deal.card.titleFallback': 'Deal',
+      'deal.card.counterparty': 'Gegenseite:',
+      'deal.card.yourRole': 'Ihre Rolle:',
+      'deal.card.nextStepLabel': 'Naechster Schritt:',
+      'deal.card.quantity': '{count} Pers. im Deal',
+      'deal.role.supplier': 'Lieferant',
+      'deal.role.requester': 'Auftraggeber',
+      'deal.subjectType.capacity': 'Personaldeal',
+      'deal.subjectType.demand': 'Arbeitsplatzangebotsdeal',
+      'deal.subjectContext.capacity': 'Personalangebot',
+      'deal.subjectContext.demand': 'Arbeitsplatzangebot',
+      'deal.capacity.reserved': 'Reserviert',
+      'deal.capacity.partial': 'Teilgebunden',
+      'deal.capacity.open': 'Offen',
+      'deal.capacity.summaryFree': '{remaining} frei / {total} gesamt',
+      'deal.capacity.summaryAll': '{total} frei verfuegbar',
+      'deal.capacity.committedSuffix': ' · {committed} dealgebunden',
+      'deal.pool.add': '+ In Lieferantenpool (Preferred)',
+      'deal.pool.working': 'Wird aufgenommen…',
+      'deal.pool.done': 'Im Lieferantenpool',
+      'deal.pool.errNotCompleted': 'Nur abgeschlossene Deals koennen aufgenommen werden.',
+      'deal.pool.errNotRequester': 'Nur der Auftraggeber kann den Lieferanten aufnehmen.',
+      'deal.pool.errSupplierNoOrg': 'Der Lieferant hat keine Organisation hinterlegt.',
+      'deal.pool.errCannotAddSelf': 'Eigene Organisation kann nicht aufgenommen werden.',
+      'deal.pool.errOrgType': 'Lieferantenpool steht nur Unternehmen zur Verfuegung.',
+      'deal.pool.errGeneric': 'Konnte nicht aufnehmen ({code}).',
+      'deal.pool.errNetwork': 'Netzwerkfehler.'
+    });
+    TCi18n.register('en', {
+      'deal.docTitle': 'My deals - TempConnect',
+      'deal.paywall.title': 'Area not available',
+      'deal.paywall.planLabel': 'Current plan:',
+      'deal.paywall.cta': 'View plans',
+      'deal.page.title': 'My deals',
+      'deal.page.subtitle': 'Assignment agreements, negotiations and deal records — counterparty-aware, action-first and pilot-critical right through to activation.',
+      'deal.banner.eyebrow': 'Pilot standard',
+      'deal.banner.title': 'Closing a deal has to work here without room for interpretation',
+      'deal.banner.text': 'Offers, agreement, activation and whoever is up next must be immediately clear to both sides. This area is the bridge from interest to a running assignment.',
+      'deal.banner.asideTitle': 'Minimum pilot flow',
+      'deal.banner.asideText': 'Placement offer or staff → deal → assignment agreement → activation',
+      'deal.kpi.active': 'Active deals',
+      'deal.kpi.action': 'Action required',
+      'deal.kpi.completed': 'Completed',
+      'deal.kpi.volume': 'People in total',
+      'deal.tab.active': 'Active deals',
+      'deal.tab.completed': 'Completed',
+      'deal.tab.cancelled': 'Cancelled',
+      'deal.tab.all': 'All',
+      'deal.search.ph': 'Search deals, reference, role or counterparty',
+      'deal.search.submit': 'Search',
+      'deal.search.clear': 'Reset',
+      'deal.pagination.more': 'Load more',
+      'deal.pagination.loading': 'Loading...',
+      'deal.pagination.info': '{loaded} of {total} {label} visible',
+      'deal.pagination.errorMore': 'Could not load more deals.',
+      'deal.error.load': 'Failed to load deals.',
+      'deal.filter.active': 'active deals',
+      'deal.filter.completed': 'completed deals',
+      'deal.filter.cancelled': 'cancelled deals',
+      'deal.filter.all': 'deals',
+      'deal.results.noneSearch': 'No {label} for the search "{query}".',
+      'deal.results.none': 'No {label} yet.',
+      'deal.results.loaded': '{loaded} of {total} {label} loaded',
+      'deal.results.total': '{total} {label}',
+      'deal.results.people': '{count} people',
+      'deal.results.search': 'Search: "{query}"',
+      'deal.empty.default': 'No deals in this category.',
+      'deal.empty.search': 'No {label} found for this search.',
+      'deal.empty.completed': 'No completed deals yet.',
+      'deal.empty.cancelled': 'No cancelled deals.',
+      'deal.empty.active': 'No active deals.',
+      'deal.status.draft': 'Draft',
+      'deal.status.sent': 'Sent',
+      'deal.status.countered': 'Counter-offer',
+      'deal.status.accepted': 'Accepted',
+      'deal.status.rejected': 'Declined',
+      'deal.status.withdrawn': 'Withdrawn',
+      'deal.agreement.none': 'Open',
+      'deal.agreement.pending_confirmation': 'Agreement created',
+      'deal.agreement.confirmed': 'Confirmed',
+      'deal.agreement.activated': 'Assignment activated',
+      'deal.agreement.cancelled': 'Cancelled',
+      'deal.agreement.expired': 'Expired',
+      'deal.action.action_required': 'Action required',
+      'deal.action.waiting': 'Waiting for counterparty',
+      'deal.action.completed': 'Completed',
+      'deal.action.cancelled': 'Cancelled',
+      'deal.action.expired': 'Expired',
+      'deal.action.closed': 'Closed',
+      'deal.nextStep.action_required': 'It\'s on you – complete the next step.',
+      'deal.nextStep.waiting': 'Waiting for the counterparty – the other side is up.',
+      'deal.nextStep.completed': 'Deal closed – assignment activated.',
+      'deal.nextStep.cancelled': 'Case cancelled.',
+      'deal.nextStep.expired': 'Agreement expired.',
+      'deal.nextStep.closed': 'Case closed.',
+      'deal.nextAction.sent.supplier': 'Review the offer and accept or decline it',
+      'deal.nextAction.sent.requester': 'Waiting for the staffing agency to respond',
+      'deal.nextAction.accepted.requester': 'Create the assignment agreement',
+      'deal.nextAction.accepted.supplier': 'Waiting for the agreement to be created',
+      'deal.nextAction.pending_confirmation.supplier': 'Confirm the assignment agreement',
+      'deal.nextAction.pending_confirmation.requester': 'Waiting for the agency to confirm',
+      'deal.nextAction.confirmed.requester': 'Activate the assignment and start worker allocation',
+      'deal.nextAction.confirmed.supplier': 'Waiting for the client to activate',
+      'deal.card.titleFallback': 'Deal',
+      'deal.card.counterparty': 'Counterparty:',
+      'deal.card.yourRole': 'Your role:',
+      'deal.card.nextStepLabel': 'Next step:',
+      'deal.card.quantity': '{count} people in deal',
+      'deal.role.supplier': 'Supplier',
+      'deal.role.requester': 'Client',
+      'deal.subjectType.capacity': 'Staff deal',
+      'deal.subjectType.demand': 'Placement offer deal',
+      'deal.subjectContext.capacity': 'Staff offer',
+      'deal.subjectContext.demand': 'Placement offer',
+      'deal.capacity.reserved': 'Reserved',
+      'deal.capacity.partial': 'Partly committed',
+      'deal.capacity.open': 'Open',
+      'deal.capacity.summaryFree': '{remaining} free / {total} total',
+      'deal.capacity.summaryAll': '{total} available',
+      'deal.capacity.committedSuffix': ' · {committed} committed to deals',
+      'deal.pool.add': '+ Add to supplier pool (preferred)',
+      'deal.pool.working': 'Adding…',
+      'deal.pool.done': 'In supplier pool',
+      'deal.pool.errNotCompleted': 'Only completed deals can be added.',
+      'deal.pool.errNotRequester': 'Only the client can add the supplier.',
+      'deal.pool.errSupplierNoOrg': 'The supplier has no organisation on file.',
+      'deal.pool.errCannotAddSelf': 'You cannot add your own organisation.',
+      'deal.pool.errOrgType': 'The supplier pool is available to companies only.',
+      'deal.pool.errGeneric': 'Could not add ({code}).',
+      'deal.pool.errNetwork': 'Network error.'
+    });
+    var t = TCi18n.t;
+
     var currentDeals = [];
     var currentFilter = 'active';
     var currentQuery = '';
@@ -163,11 +376,13 @@
     var currentPagination = { limit: 25, offset: 0, returned: 0, total: 0, has_more: false };
     var requestSeq = 0;
     var PAGE_SIZE = 25;
-    var FILTER_LABELS = {
-      active: 'aktive Deals',
-      completed: 'abgeschlossene Deals',
-      cancelled: 'stornierte Deals',
-      all: 'Deals'
+    // 'loading' | 'ready' | 'error' — steuert, was ein Sprachwechsel neu zeichnen darf.
+    var viewState = 'loading';
+    var FILTER_KEYS = {
+      active: 'deal.filter.active',
+      completed: 'deal.filter.completed',
+      cancelled: 'deal.filter.cancelled',
+      all: 'deal.filter.all'
     };
     var loadingEl = document.getElementById('dm-loading');
     var listEl = document.getElementById('dm-list');
@@ -191,23 +406,21 @@
     function countFor(key) { return toInt(currentCounts[key], 0); }
     function headcountFor(key) { return toInt(currentHeadcounts[key], 0); }
     function selectedFilterKey() { return currentFilter || 'all'; }
-    function selectedFilterLabel() { return FILTER_LABELS[selectedFilterKey()] || FILTER_LABELS.all; }
+    function selectedFilterLabel() { return t(FILTER_KEYS[selectedFilterKey()] || FILTER_KEYS.all); }
 
-    var STATUS_LABELS = {
-      draft:'Entwurf', sent:'Gesendet', countered:'Gegenangebot', accepted:'Angenommen',
-      rejected:'Abgelehnt', withdrawn:'Zurueckgezogen'
-    };
-    var AGR_LABELS = {
-      none:'Offen', pending_confirmation:'Vereinbarung erstellt', confirmed:'Bestaetigt',
-      activated:'Einsatz aktiviert', cancelled:'Storniert', expired:'Abgelaufen'
-    };
+    // Status- und Vereinbarungs-Rohwerte des Servers sind stabile Enums; der
+    // sichtbare Text kommt aus dem Woerterbuch (deal.status. / deal.agreement.).
+    // Unbekannte Rohwerte liefern '' und fallen unten auf den Rohwert zurueck.
+    function statusLabel(status) { return t('deal.status.' + status); }
+    function agreementLabel(agr) { return t('deal.agreement.' + agr); }
+
     var ACTION_META = {
-      action_required: { text:'Aktion erforderlich', cls:'dm-badge--action' },
-      waiting: { text:'Warten auf Gegenseite', cls:'dm-badge--waiting' },
-      completed: { text:'Abgeschlossen', cls:'dm-badge--done' },
-      cancelled: { text:'Storniert', cls:'dm-badge--danger' },
-      expired: { text:'Abgelaufen', cls:'dm-badge--danger' },
-      closed: { text:'Geschlossen', cls:'dm-badge--neutral' }
+      action_required: { key:'deal.action.action_required', cls:'dm-badge--action' },
+      waiting: { key:'deal.action.waiting', cls:'dm-badge--waiting' },
+      completed: { key:'deal.action.completed', cls:'dm-badge--done' },
+      cancelled: { key:'deal.action.cancelled', cls:'dm-badge--danger' },
+      expired: { key:'deal.action.expired', cls:'dm-badge--danger' },
+      closed: { key:'deal.action.closed', cls:'dm-badge--neutral' }
     };
 
     function progressPct(deal) {
@@ -222,28 +435,13 @@
       return 10;
     }
 
-    var NEXT_STEP = {
-      action_required: 'Sie muessen handeln \u2013 naechsten Schritt ausfuehren.',
-      waiting: 'Warten auf Gegenseite \u2013 die andere Partei ist am Zug.',
-      completed: 'Deal abgeschlossen \u2013 Einsatz aktiviert.',
-      cancelled: 'Vorgang storniert.',
-      expired: 'Vereinbarung abgelaufen.',
-      closed: 'Vorgang geschlossen.'
-    };
-
-    var NEXT_ACTION_DETAIL = {
-      'sent.supplier': 'Angebot pruefen und annehmen oder ablehnen',
-      'sent.requester': 'Warten auf Rueckmeldung der Zeitarbeitsfirma',
-      'accepted.requester': 'Einsatzvereinbarung erstellen',
-      'accepted.supplier': 'Warten auf Vereinbarungserstellung',
-      'pending_confirmation.supplier': 'Einsatzvereinbarung bestaetigen',
-      'pending_confirmation.requester': 'Warten auf Bestaetigung durch Agentur',
-      'confirmed.requester': 'Einsatz aktivieren und Worker-Zuweisung starten',
-      'confirmed.supplier': 'Warten auf Aktivierung durch Auftraggeber'
-    };
+    // Naechster Schritt: 'deal.nextAction.<zustand>.<rolle>' ist die feine
+    // Fassung, 'deal.nextStep.<aktionsbedarf>' die grobe Rueckfalllinie.
+    // Beides sind Woerterbuch-Schluessel; unbekannte Kombinationen liefern ''.
+    function nextStepFallback(actionRequired) { return t('deal.nextStep.' + actionRequired); }
 
     function subjectTitle(d) {
-      return d.subject_title || d.capacity_title || d.demand_title || d.demand_role || 'Deal';
+      return d.subject_title || d.capacity_title || d.demand_title || d.demand_role || t('deal.card.titleFallback');
     }
 
     function roleLabel(d) {
@@ -297,9 +495,9 @@
 
     function capacityStatusLabel(d) {
       var status = capacityStatusKey(d);
-      if (status === 'reserved') return 'Reserviert';
-      if (status === 'partially_committed') return 'Teilgebunden';
-      if (status === 'open' || status === 'active') return 'Offen';
+      if (status === 'reserved') return t('deal.capacity.reserved');
+      if (status === 'partially_committed') return t('deal.capacity.partial');
+      if (status === 'open' || status === 'active') return t('deal.capacity.open');
       return status || '\u2014';
     }
 
@@ -315,22 +513,23 @@
       var total = totalCapacity(d);
       var remaining = remainingCapacity(d);
       var committed = committedCapacity(d);
+      var suffix = committed > 0 ? t('deal.capacity.committedSuffix', { committed: committed }) : '';
       if (capacityStatusKey(d) === 'reserved' || remaining === 0) {
-        return '0 frei / ' + total + ' gesamt' + (committed > 0 ? ' · ' + committed + ' dealgebunden' : '');
+        return t('deal.capacity.summaryFree', { remaining: 0, total: total }) + suffix;
       }
       if (committed > 0 || remaining !== total) {
-        return remaining + ' frei / ' + total + ' gesamt' + (committed > 0 ? ' · ' + committed + ' dealgebunden' : '');
+        return t('deal.capacity.summaryFree', { remaining: remaining, total: total }) + suffix;
       }
-      return total + ' frei verfuegbar';
+      return t('deal.capacity.summaryAll', { total: total });
     }
 
     function dealQuantityLabel(d) {
       var qty = dealHeadcount(d);
-      return qty ? qty + ' Pers. im Deal' : '\u2014';
+      return qty ? t('deal.card.quantity', { count: qty }) : '\u2014';
     }
 
     function subjectTypeLabel(d) {
-      return d.subject_type === 'capacity' ? 'Personaldeal' : 'Arbeitsplatzangebotsdeal';
+      return t(d.subject_type === 'capacity' ? 'deal.subjectType.capacity' : 'deal.subjectType.demand');
     }
 
     function subjectTypeBadgeClass(d) {
@@ -338,27 +537,36 @@
     }
 
     function subjectContextLabel(d) {
-      return d.subject_type === 'capacity' ? 'Personalangebot' : 'Arbeitsplatzangebot';
+      return t(d.subject_type === 'capacity' ? 'deal.subjectContext.capacity' : 'deal.subjectContext.demand');
     }
 
     function getNextActionDetail(d) {
       var agr = d.agreement_status || 'none';
       var key = (agr !== 'none' ? agr : d.status) + '.' + d.viewer_role;
-      return NEXT_ACTION_DETAIL[key] || NEXT_STEP[d.action_required] || null;
+      return t('deal.nextAction.' + key) || nextStepFallback(d.action_required) || null;
     }
 
+    // Server-Fehlercodes sind Rohwerte; der sichtbare Satz kommt aus dem Woerterbuch.
+    var POOL_ERROR_KEYS = {
+      DEAL_NOT_COMPLETED: 'deal.pool.errNotCompleted',
+      NOT_DEAL_REQUESTER: 'deal.pool.errNotRequester',
+      SUPPLIER_NO_ORG: 'deal.pool.errSupplierNoOrg',
+      CANNOT_ADD_SELF: 'deal.pool.errCannotAddSelf',
+      VENDOR_POOL_NOT_AVAILABLE_FOR_ORG_TYPE: 'deal.pool.errOrgType'
+    };
+
     async function addSupplierToPool(offerId, btn){
-      btn.disabled = true; var orig = btn.innerHTML; btn.innerHTML = 'Wird aufgenommen…';
+      btn.disabled = true; var orig = btn.innerHTML; btn.innerHTML = esc(t('deal.pool.working'));
       try{
         var tok = '';
         try{ var rc = await fetch('/api/csrf',{credentials:'include'}); var dc = await rc.json(); tok = dc.csrfToken || dc.token || ''; }catch(e){}
         var r = await fetch('/api/vendor-pool/from-deal/' + encodeURIComponent(offerId), { method:'POST', credentials:'include', headers:{'Content-Type':'application/json','x-csrf-token':tok} });
-        if(r.ok){ btn.innerHTML = '✓ Im Lieferantenpool'; btn.style.opacity = '.7'; return; }
+        if(r.ok){ btn.innerHTML = '\u2713 ' + esc(t('deal.pool.done')); btn.style.opacity = '.7'; return; }
         var e = await r.json().catch(function(){return {};});
         var code = e.error || '';
-        var msg = {DEAL_NOT_COMPLETED:'Nur abgeschlossene Deals koennen aufgenommen werden.',NOT_DEAL_REQUESTER:'Nur der Auftraggeber kann den Lieferanten aufnehmen.',SUPPLIER_NO_ORG:'Der Lieferant hat keine Organisation hinterlegt.',CANNOT_ADD_SELF:'Eigene Organisation kann nicht aufgenommen werden.',VENDOR_POOL_NOT_AVAILABLE_FOR_ORG_TYPE:'Lieferantenpool steht nur Unternehmen zur Verfuegung.'}[code] || ('Konnte nicht aufnehmen (' + (code||r.status) + ').');
+        var msg = t(POOL_ERROR_KEYS[code] || '') || t('deal.pool.errGeneric', { code: code || r.status });
         btn.disabled = false; btn.innerHTML = orig; alert(msg);
-      }catch(err){ btn.disabled = false; btn.innerHTML = orig; alert('Netzwerkfehler.'); }
+      }catch(err){ btn.disabled = false; btn.innerHTML = orig; alert(t('deal.pool.errNetwork')); }
     }
 
     function renderDeal(d) {
@@ -378,7 +586,7 @@
       html += '<span class="dm-badge ' + subjectTypeBadgeClass(d) + '">' + esc(subjectTypeLabel(d)) + '</span>';
       if (d.agreement_ref) html += '<span class="dm-card__ref">' + esc(d.agreement_ref) + '</span>';
       html += '</div>';
-      html += '<div class="dm-card__counterparty">Gegenseite: <strong>' + esc(d.counterparty_name || '\u2014') + '</strong> \u00b7 Ihre Rolle: ' + (d.viewer_role === 'supplier' ? 'Lieferant' : 'Auftraggeber') + '</div>';
+      html += '<div class="dm-card__counterparty">' + esc(t('deal.card.counterparty')) + ' <strong>' + esc(d.counterparty_name || '\u2014') + '</strong> \u00b7 ' + esc(t('deal.card.yourRole')) + ' ' + esc(t(d.viewer_role === 'supplier' ? 'deal.role.supplier' : 'deal.role.requester')) + '</div>';
       html += '<div class="dm-card__meta">';
       html += '<span class="dm-card__meta-item">' + esc(roleLabel(d)) + '</span>';
       html += '<span class="dm-card__meta-item">' + esc(locationLabel(d)) + '</span>';
@@ -394,19 +602,19 @@
         html += '</div>';
       }
       if (nextDetail && !isCancelled) {
-        html += '<div class="dm-card__nextstep"><strong>' + (isAction ? '\u25b6 Naechster Schritt: ' : '\u23f3 ') + '</strong>' + esc(nextDetail) + '</div>';
+        html += '<div class="dm-card__nextstep"><strong>' + (isAction ? '\u25b6 ' + esc(t('deal.card.nextStepLabel')) + ' ' : '\u23f3 ') + '</strong>' + esc(nextDetail) + '</div>';
       }
       // Aus erfolgreichem Deal: Auftraggeber kann den Lieferanten als PREFERRED in den Pool aufnehmen.
       if (isDone && d.viewer_role !== 'supplier') {
-        html += '<div style="margin-top:10px"><button onclick="event.stopPropagation();addSupplierToPool(\'' + esc(d.id) + '\',this)" style="font-size:12px;padding:6px 12px;border-radius:8px;border:1px solid var(--ds-brand,#1f3a2e);background:var(--ds-brand,#1f3a2e);color:#fff;cursor:pointer;font-weight:600">+ In Lieferantenpool (Preferred)</button></div>';
+        html += '<div style="margin-top:10px"><button onclick="event.stopPropagation();addSupplierToPool(\'' + esc(d.id) + '\',this)" style="font-size:12px;padding:6px 12px;border-radius:8px;border:1px solid var(--ds-brand,#1f3a2e);background:var(--ds-brand,#1f3a2e);color:#fff;cursor:pointer;font-weight:600">' + esc(t('deal.pool.add')) + '</button></div>';
       }
       html += '</div>';
 
       html += '<div class="dm-card__sidebar">';
       html += '<div class="dm-card__badges">';
-      if (am) html += '<span class="dm-badge ' + am.cls + '">' + esc(am.text) + '</span>';
+      if (am) html += '<span class="dm-badge ' + am.cls + '">' + esc(t(am.key)) + '</span>';
       if (d.capacity_post_id) html += '<span class="dm-badge ' + capacityStatusBadgeClass(d) + '">' + esc(capacityStatusLabel(d)) + '</span>';
-      html += '<span class="dm-badge dm-badge--neutral">' + esc(AGR_LABELS[agr] || STATUS_LABELS[d.status] || d.status) + '</span>';
+      html += '<span class="dm-badge dm-badge--neutral">' + esc(agreementLabel(agr) || statusLabel(d.status) || d.status) + '</span>';
       html += '</div>';
       html += '<div class="dm-pct">' + pct + '%</div>';
       html += '<div class="dm-progress"><div class="dm-progress__fill" style="width:' + pct + '%"></div></div>';
@@ -442,15 +650,15 @@
       var people = headcountFor(selectedFilterKey());
       if (!total) {
         resultsEl.textContent = currentQuery
-          ? 'Keine ' + label + ' fuer die Suche "' + currentQuery + '".'
-          : 'Keine ' + label + ' vorhanden.';
+          ? t('deal.results.noneSearch', { label: label, query: currentQuery })
+          : t('deal.results.none', { label: label });
         return;
       }
       var parts = [];
-      if (loaded < total) parts.push(loaded + ' von ' + total + ' ' + label + ' geladen');
-      else parts.push(total + ' ' + label);
-      if (people > 0) parts.push(people + ' Personen');
-      if (currentQuery) parts.push('Suche: "' + currentQuery + '"');
+      if (loaded < total) parts.push(t('deal.results.loaded', { loaded: loaded, total: total, label: label }));
+      else parts.push(t('deal.results.total', { total: total, label: label }));
+      if (people > 0) parts.push(t('deal.results.people', { count: people }));
+      if (currentQuery) parts.push(t('deal.results.search', { query: currentQuery }));
       resultsEl.textContent = parts.join(' · ');
     }
 
@@ -461,19 +669,19 @@
         return;
       }
       paginationEl.style.display = 'flex';
-      paginationInfoEl.textContent = currentDeals.length + ' von ' + total + ' ' + selectedFilterLabel() + ' sichtbar';
+      paginationInfoEl.textContent = t('deal.pagination.info', { loaded: currentDeals.length, total: total, label: selectedFilterLabel() });
       loadMoreBtn.style.display = currentPagination.has_more ? 'inline-flex' : 'none';
       loadMoreBtn.disabled = false;
-      loadMoreBtn.textContent = 'Mehr laden';
+      loadMoreBtn.textContent = t('deal.pagination.more');
     }
 
     function emptyStateMessage() {
       var label = selectedFilterLabel();
-      if (currentQuery) return 'Keine ' + label + ' fuer diese Suche gefunden.';
-      if (selectedFilterKey() === 'completed') return 'Noch keine abgeschlossenen Deals vorhanden.';
-      if (selectedFilterKey() === 'cancelled') return 'Keine stornierten Deals vorhanden.';
-      if (selectedFilterKey() === 'active') return 'Keine aktiven Deals vorhanden.';
-      return 'Keine Deals in dieser Kategorie.';
+      if (currentQuery) return t('deal.empty.search', { label: label });
+      if (selectedFilterKey() === 'completed') return t('deal.empty.completed');
+      if (selectedFilterKey() === 'cancelled') return t('deal.empty.cancelled');
+      if (selectedFilterKey() === 'active') return t('deal.empty.active');
+      return t('deal.empty.default');
     }
 
     function render() {
@@ -496,7 +704,7 @@
     function setLoading(append) {
       if (append) {
         loadMoreBtn.disabled = true;
-        loadMoreBtn.textContent = 'Laedt...';
+        loadMoreBtn.textContent = t('deal.pagination.loading');
         return;
       }
       loadingEl.innerHTML = defaultLoadingMarkup;
@@ -509,18 +717,19 @@
     function showLoadError(append) {
       if (append) {
         loadMoreBtn.disabled = false;
-        loadMoreBtn.textContent = 'Mehr laden';
-        paginationInfoEl.textContent = 'Weitere Deals konnten nicht geladen werden.';
+        loadMoreBtn.textContent = t('deal.pagination.more');
+        paginationInfoEl.textContent = t('deal.pagination.errorMore');
         paginationEl.style.display = 'flex';
         return;
       }
-      loadingEl.innerHTML = '<div class="ds-alert ds-alert--danger">Fehler beim Laden der Deals.</div>';
+      loadingEl.innerHTML = '<div class="ds-alert ds-alert--danger">' + esc(t('deal.error.load')) + '</div>';
     }
 
     function loadDeals(opts) {
       var append = !!(opts && opts.append);
       var nextOffset = append ? currentDeals.length : 0;
       var seq = ++requestSeq;
+      if (!append) viewState = 'loading';
       setLoading(append);
       var path = '/marketplace/my-deals?include_meta=1&limit=' + PAGE_SIZE + '&offset=' + nextOffset;
       if (selectedFilterKey() !== 'all') path += '&status=' + encodeURIComponent(selectedFilterKey());
@@ -540,12 +749,14 @@
           has_more: false
         };
         loadingEl.style.display = 'none';
+        viewState = 'ready';
         updateCounts();
         updateKPIs();
         updateSearchUi();
         render();
       }).catch(function() {
         if (seq !== requestSeq) return;
+        if (!append) viewState = 'error';
         showLoadError(append);
       });
     }
@@ -553,7 +764,7 @@
     document.getElementById('dm-tabs').addEventListener('click', function(ev) {
       var btn = ev.target.closest('.dm-tab');
       if (!btn) return;
-      document.querySelectorAll('.dm-tab').forEach(function(t) { t.classList.remove('dm-tab--active'); });
+      document.querySelectorAll('.dm-tab').forEach(function(tab) { tab.classList.remove('dm-tab--active'); });
       btn.classList.add('dm-tab--active');
       currentFilter = btn.getAttribute('data-filter') || '';
       loadDeals({ append: false });
@@ -580,6 +791,21 @@
       if (!currentPagination.has_more) return;
       loadDeals({ append: true });
     });
+
+    // Sprachwechsel: Karten, Zaehler und Meta-Zeilen entstehen per JS und tragen
+    // kein data-i18n — der deklarative Durchlauf der i18n-Schicht erreicht sie
+    // nicht. Ohne dieses Nachzeichnen bliebe die halbe Seite in der alten Sprache.
+    document.addEventListener('tc:langchange', function () {
+      if (viewState === 'error') { showLoadError(false); return; }
+      if (viewState !== 'ready') return;
+      updateCounts();
+      updateKPIs();
+      render();
+    });
+
+    // Der Pool-Knopf in der Karte ruft ueber ein Inline-onclick auf — das wird
+    // gegen den globalen Namensraum aufgeloest, nicht gegen diese Kapsel.
+    window.addSupplierToPool = addSupplierToPool;
 
     updateSearchUi();
     loadDeals({ append: false });

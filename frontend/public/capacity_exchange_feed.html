@@ -5,17 +5,17 @@
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <script src="/public/js/theme.js"></script>
   <script src="/public/js/i18n.js"></script>
-  <title>Vermittlung – TempConnect</title>
+  <title data-i18n="feed.docTitle">Vermittlung – TempConnect</title>
   <link rel="stylesheet" href="/public/css/enterprise.css"/>
   <link rel="stylesheet" href="/public/css/pages/marketplace-feed.css"/>
 </head>
 <body data-sla-guard="sla_access">
   <div id="paywall" class="wrap" style="display:none">
-    <nav class="ds-topbar"><div class="ds-topbar__brand"><span class="ds-topbar__brand-dot"></span>TempConnect</div><div class="ds-topbar__nav"><a href="/" class="ds-btn">Startseite</a></div></nav>
+    <nav class="ds-topbar"><div class="ds-topbar__brand"><span class="ds-topbar__brand-dot"></span>TempConnect</div><div class="ds-topbar__nav"><a href="/" class="ds-btn" data-i18n="feed.paywall.home">Startseite</a></div></nav>
     <div class="paywall-box">
-      <h2>Bereich nicht verfuegbar</h2>
-      <p>Aktueller Plan: <span id="paywall-current-plan" class="paywall-plan">?</span></p>
-      <a id="paywall-cta" href="/public/sla_abo.html" class="btn primary">Abo ansehen</a>
+      <h2 data-i18n="feed.paywall.title">Bereich nicht verfuegbar</h2>
+      <p><span data-i18n="feed.paywall.currentPlan">Aktueller Plan:</span> <span id="paywall-current-plan" class="paywall-plan">?</span></p>
+      <a id="paywall-cta" href="/public/sla_abo.html" class="btn primary" data-i18n="feed.paywall.cta">Abo ansehen</a>
     </div>
   </div>
 
@@ -32,100 +32,100 @@
     <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:var(--ds-space-4)">
       <div style="padding:14px 16px;border-radius:10px;background:var(--ds-card,rgba(255,255,255,.03));border:1px solid var(--ds-border);border-left:3px solid var(--ds-brand)" aria-current="page">
         <div id="feed-nav-label" style="font-size:14px;font-weight:700">Vermittlung</div>
-        <p style="font-size:12px;color:var(--ds-text-secondary);margin:4px 0 0">Angebote und Gesuche &mdash; der zentrale Feed.</p>
+        <p style="font-size:12px;color:var(--ds-text-secondary);margin:4px 0 0" data-i18n="feed.nav.feed.desc">Angebote und Gesuche &mdash; der zentrale Feed.</p>
       </div>
       <a id="feed-nav-card2" href="/public/capacity_search.html" style="padding:14px 16px;border-radius:10px;background:var(--ds-card,rgba(255,255,255,.03));border:1px solid var(--ds-border);border-left:3px solid var(--ds-accent);text-decoration:none;color:inherit;transition:border-color .15s" onmouseover="this.style.borderColor='var(--ds-border-hover)'" onmouseout="this.style.borderColor='var(--ds-border)'">
-        <div id="feed-nav-card2-title" style="font-size:14px;font-weight:700">Personal-Suchauftrag anlegen</div>
-        <p id="feed-nav-card2-desc" style="font-size:12px;color:var(--ds-text-secondary);margin:4px 0 0">Persistente Personalsuche mit automatischem Matching.</p>
+        <div id="feed-nav-card2-title" style="font-size:14px;font-weight:700" data-i18n="feed.nav.searchOrder.title">Personal-Suchauftrag anlegen</div>
+        <p id="feed-nav-card2-desc" style="font-size:12px;color:var(--ds-text-secondary);margin:4px 0 0" data-i18n="feed.nav.searchOrder.desc">Persistente Personalsuche mit automatischem Matching.</p>
       </a>
       <a id="feed-nav-card3" href="/public/capacity_exchange_manage.html" style="padding:14px 16px;border-radius:10px;background:var(--ds-card,rgba(255,255,255,.03));border:1px solid var(--ds-border);border-left:3px solid var(--ds-success);text-decoration:none;color:inherit;transition:border-color .15s" onmouseover="this.style.borderColor='var(--ds-border-hover)'" onmouseout="this.style.borderColor='var(--ds-border)'">
-        <div id="feed-nav-card3-title" style="font-size:14px;font-weight:700">Eingestelltes Personal</div>
-        <p id="feed-nav-card3-desc" style="font-size:12px;color:var(--ds-text-secondary);margin:4px 0 0">Eigene Verfügbarkeiten und Angebote.</p>
+        <div id="feed-nav-card3-title" style="font-size:14px;font-weight:700" data-i18n="feed.nav.myStaff.title">Eingestelltes Personal</div>
+        <p id="feed-nav-card3-desc" style="font-size:12px;color:var(--ds-text-secondary);margin:4px 0 0" data-i18n="feed.nav.myStaff.desc">Eigene Verfügbarkeiten und Angebote.</p>
       </a>
       <a href="/public/angebote_verwalten.html" style="padding:14px 16px;border-radius:10px;background:var(--ds-card,rgba(255,255,255,.03));border:1px solid var(--ds-border);border-left:3px solid #f59e0b;text-decoration:none;color:inherit;transition:border-color .15s" onmouseover="this.style.borderColor='var(--ds-border-hover)'" onmouseout="this.style.borderColor='var(--ds-border)'">
-        <div style="font-size:14px;font-weight:700">Mein Bereich</div>
-        <p style="font-size:12px;color:var(--ds-text-secondary);margin:4px 0 0">Deals, Anfragen, Eingaenge und Matching.</p>
+        <div style="font-size:14px;font-weight:700" data-i18n="feed.nav.myArea.title">Mein Bereich</div>
+        <p style="font-size:12px;color:var(--ds-text-secondary);margin:4px 0 0" data-i18n="feed.nav.myArea.desc">Deals, Anfragen, Eingaenge und Matching.</p>
       </a>
     </div>
 
     <!-- Activity / Trust Stats Bar -->
     <div id="feed-stats" class="ds-stats-row" style="margin-bottom:var(--ds-space-4)">
-      <div class="ds-stat-tile"><span class="ds-stat-tile__value" id="fs-active">?</span><span class="ds-stat-tile__label">Aktives Personal</span></div>
-      <div class="ds-stat-tile"><span class="ds-stat-tile__value" id="fs-suppliers">?</span><span class="ds-stat-tile__label">Dienstleister</span></div>
-      <div class="ds-stat-tile"><span class="ds-stat-tile__value" id="fs-deals" style="color:var(--ds-success)">?</span><span class="ds-stat-tile__label">Deals (30T)</span></div>
-      <div class="ds-stat-tile"><span class="ds-stat-tile__value" id="fs-fresh" style="color:var(--ds-brand)">?</span><span class="ds-stat-tile__label">Heute aktualisiert</span></div>
+      <div class="ds-stat-tile"><span class="ds-stat-tile__value" id="fs-active">?</span><span class="ds-stat-tile__label" data-i18n="feed.stats.active">Aktives Personal</span></div>
+      <div class="ds-stat-tile"><span class="ds-stat-tile__value" id="fs-suppliers">?</span><span class="ds-stat-tile__label" data-i18n="feed.stats.suppliers">Dienstleister</span></div>
+      <div class="ds-stat-tile"><span class="ds-stat-tile__value" id="fs-deals" style="color:var(--ds-success)">?</span><span class="ds-stat-tile__label" data-i18n="feed.stats.deals">Deals (30T)</span></div>
+      <div class="ds-stat-tile"><span class="ds-stat-tile__value" id="fs-fresh" style="color:var(--ds-brand)">?</span><span class="ds-stat-tile__label" data-i18n="feed.stats.fresh">Heute aktualisiert</span></div>
     </div>
 
     <!-- Filter Bar -->
     <div class="ce-filter">
       <div class="ds-filter-bar ce-filter__primary">
         <div class="ds-filter-item">
-          <label class="ds-label" for="ff-role">Rolle</label>
-          <input type="text" id="ff-role" class="ds-input" placeholder="z.B. Lagerhelfer" style="min-width:140px"/>
+          <label class="ds-label" for="ff-role" data-i18n="feed.filter.role">Rolle</label>
+          <input type="text" id="ff-role" class="ds-input" placeholder="z.B. Lagerhelfer" data-i18n-ph="feed.filter.rolePh" style="min-width:140px"/>
         </div>
         <div class="ds-filter-item">
-          <label class="ds-label" for="ff-city">Stadt</label>
-          <input type="text" id="ff-city" class="ds-input" placeholder="z.B. Stuttgart" style="min-width:130px"/>
+          <label class="ds-label" for="ff-city" data-i18n="feed.filter.city">Stadt</label>
+          <input type="text" id="ff-city" class="ds-input" placeholder="z.B. Stuttgart" data-i18n-ph="feed.filter.cityPh" style="min-width:130px"/>
         </div>
         <div class="ds-filter-item">
-          <label class="ds-label" for="ff-category">Kategorie</label>
+          <label class="ds-label" for="ff-category" data-i18n="feed.filter.category">Kategorie</label>
           <select id="ff-category" class="ds-select">
-            <option value="">Alle</option>
-            <option value="Helfer">Helfer</option>
-            <option value="Fachkraft">Fachkraft</option>
-            <option value="Spezialist">Spezialist</option>
-            <option value="Fuehrungskraft">Fuehrungskraft</option>
+            <option value="" data-i18n="feed.filter.all">Alle</option>
+            <option value="Helfer" data-i18n="feed.cat.helfer">Helfer</option>
+            <option value="Fachkraft" data-i18n="feed.cat.fachkraft">Fachkraft</option>
+            <option value="Spezialist" data-i18n="feed.cat.spezialist">Spezialist</option>
+            <option value="Fuehrungskraft" data-i18n="feed.cat.fuehrungskraft">Fuehrungskraft</option>
           </select>
         </div>
         <div class="ds-filter-item ce-filter__actions">
-          <button type="button" id="btn-search" class="ds-btn ds-btn--primary">Suchen</button>
-          <button type="button" id="filter-toggle" class="ds-btn ds-btn--sm ds-btn--ghost" aria-expanded="false" aria-controls="feed-advanced-filters">Weitere Filter</button>
+          <button type="button" id="btn-search" class="ds-btn ds-btn--primary" data-i18n="feed.filter.search">Suchen</button>
+          <button type="button" id="filter-toggle" class="ds-btn ds-btn--sm ds-btn--ghost" aria-expanded="false" aria-controls="feed-advanced-filters" data-i18n="feed.filters.more">Weitere Filter</button>
         </div>
       </div>
       <div id="feed-advanced-filters" class="ds-filter-bar ce-filter__advanced" hidden>
         <div class="ds-filter-item">
-          <label class="ds-label" for="ff-shift">Schichtmodell</label>
+          <label class="ds-label" for="ff-shift" data-i18n="feed.filter.shift">Schichtmodell</label>
           <select id="ff-shift" class="ds-select">
-            <option value="">Alle</option>
-            <option value="day">Tagschicht</option>
-            <option value="night">Nachtschicht</option>
-            <option value="rotating">Wechselschicht</option>
-            <option value="flexible">Flexibel</option>
-            <option value="weekend">Wochenende</option>
-            <option value="on_call">Bereitschaft</option>
+            <option value="" data-i18n="feed.filter.all">Alle</option>
+            <option value="day" data-i18n="feed.shift.day">Tagschicht</option>
+            <option value="night" data-i18n="feed.shift.night">Nachtschicht</option>
+            <option value="rotating" data-i18n="feed.shift.rotating">Wechselschicht</option>
+            <option value="flexible" data-i18n="feed.shift.flexible">Flexibel</option>
+            <option value="weekend" data-i18n="feed.shift.weekend">Wochenende</option>
+            <option value="on_call" data-i18n="feed.shift.on_call">Bereitschaft</option>
           </select>
         </div>
         <div class="ds-filter-item">
-          <label class="ds-label" for="ff-compliance">Compliance</label>
+          <label class="ds-label" for="ff-compliance" data-i18n="feed.filter.compliance">Compliance</label>
           <select id="ff-compliance" class="ds-select">
-            <option value="">Alle</option>
-            <option value="complete">Vollstaendig</option>
-            <option value="partial">Teilweise</option>
-            <option value="pending">In Pruefung</option>
+            <option value="" data-i18n="feed.filter.all">Alle</option>
+            <option value="complete" data-i18n="feed.compliance.complete">Vollstaendig</option>
+            <option value="partial" data-i18n="feed.compliance.partial">Teilweise</option>
+            <option value="pending" data-i18n="feed.compliance.pending">In Pruefung</option>
           </select>
         </div>
         <div class="ds-filter-item">
-          <label class="ds-label" for="ff-headcount">Min. Anzahl</label>
+          <label class="ds-label" for="ff-headcount" data-i18n="feed.filter.headcount">Min. Anzahl</label>
           <input type="number" id="ff-headcount" class="ds-input" min="1" placeholder="1" style="min-width:80px"/>
         </div>
         <div class="ds-filter-item">
-          <label class="ds-label" for="ff-avail-from">Verfuegbar ab</label>
+          <label class="ds-label" for="ff-avail-from" data-i18n="feed.filter.availFrom">Verfuegbar ab</label>
           <input type="date" id="ff-avail-from" class="ds-input" style="min-width:130px"/>
         </div>
         <div class="ds-filter-item">
-          <label class="ds-label" for="ff-immediate">Sofort verfuegbar</label>
+          <label class="ds-label" for="ff-immediate" data-i18n="feed.filter.immediate">Sofort verfuegbar</label>
           <label class="ce-checkbox" for="ff-immediate">
             <input type="checkbox" id="ff-immediate"/>
-            <span>Heute oder morgen</span>
+            <span data-i18n="feed.filter.immediateHint">Heute oder morgen</span>
           </label>
         </div>
         <div class="ds-filter-item">
-          <label class="ds-label" for="ff-sort">Sortierung</label>
+          <label class="ds-label" for="ff-sort" data-i18n="feed.filter.sort">Sortierung</label>
           <select id="ff-sort" class="ds-select" style="max-width:200px">
-            <option value="newest">Neueste zuerst</option>
-            <option value="priority">Prioritaet</option>
-            <option value="headcount">Anzahl (absteigend)</option>
-            <option value="freshness">Aktualitaet</option>
+            <option value="newest" data-i18n="feed.sort.newest">Neueste zuerst</option>
+            <option value="priority" data-i18n="feed.sort.priority">Prioritaet</option>
+            <option value="headcount" data-i18n="feed.sort.headcount">Anzahl (absteigend)</option>
+            <option value="freshness" data-i18n="feed.sort.freshness">Aktualitaet</option>
           </select>
         </div>
       </div>
@@ -145,20 +145,20 @@
     <!-- Empty State -->
     <div id="empty-state" style="display:none">
       <div class="ds-empty">
-        <div class="ds-empty__title">Kein passendes Personal gefunden</div>
-        <p class="ds-empty__text">Versuchen Sie andere Filterkriterien oder erweitern Sie Ihre Suche.</p>
-        <button class="ds-btn" onclick="document.getElementById('ff-role').value='';document.getElementById('ff-city').value='';loadFeed(1)">Filter zuruecksetzen</button>
+        <div class="ds-empty__title" data-i18n="feed.empty.title">Kein passendes Personal gefunden</div>
+        <p class="ds-empty__text" data-i18n="feed.empty.text">Versuchen Sie andere Filterkriterien oder erweitern Sie Ihre Suche.</p>
+        <button class="ds-btn" data-i18n="feed.empty.reset" onclick="document.getElementById('ff-role').value='';document.getElementById('ff-city').value='';loadFeed(1)">Filter zuruecksetzen</button>
       </div>
     </div>
 
     <!-- Pagination -->
     <div id="pagination" class="ce-pagination" style="display:none">
-      <button id="btn-prev" class="ds-btn ds-btn--sm" disabled>Zurueck</button>
+      <button id="btn-prev" class="ds-btn ds-btn--sm" data-i18n="feed.pagination.prev" disabled>Zurueck</button>
       <span id="page-info" class="ce-pagination__info"></span>
-      <button id="btn-next" class="ds-btn ds-btn--sm">Weiter</button>
+      <button id="btn-next" class="ds-btn ds-btn--sm" data-i18n="feed.pagination.next">Weiter</button>
     </div>
 
-    <p class="ds-disclaimer">Alle Angaben ohne Gewaehr. TempConnect vermittelt, garantiert aber keinen Vermittlungserfolg.</p>
+    <p class="ds-disclaimer" data-i18n="feed.disclaimer">Alle Angaben ohne Gewaehr. TempConnect vermittelt, garantiert aber keinen Vermittlungserfolg.</p>
   </div>
 
   <script src="/public/js/api.js"></script>
@@ -168,18 +168,30 @@
 
   <script src="/public/js/terminologyLabels.js"></script>
   <script>
-    // Track C Phase 4 — Rollenabhängige Seitenbeschriftung
-    document.addEventListener('tc:shell-context', function(e) {
-      var me = e && e.detail && e.detail.me;
-      if (!me || !window.TC || !window.TC.terminology) return;
-      var orgType = String(me.org_type || '').trim().toLowerCase();
-      var label = window.TC.terminology.get('marketplace', orgType, null);
-      if (!label) return;
-      var h1 = document.getElementById('feed-page-h1');
-      var navLabel = document.getElementById('feed-nav-label');
-      if (h1) h1.textContent = label;
-      if (navLabel) navLabel.textContent = label;
-    });
+    // Track C Phase 4 — Rollenabhängige Seitenbeschriftung.
+    // Die Begriffe kommen aus terminologyLabels.js (Rolle x Sprache) — kein
+    // data-i18n auf h1/Nav-Label, sonst würde die Sprachschicht die
+    // rollenrichtige Fassung überschreiben. Beim Sprachwechsel wird die
+    // Terminologie stattdessen erneut abgefragt.
+    (function() {
+      var lastOrgType = null;
+      function applyTerminology(orgType) {
+        if (!orgType || !window.TC || !window.TC.terminology) return;
+        var label = window.TC.terminology.get('marketplace', orgType, null);
+        if (!label) return;
+        var h1 = document.getElementById('feed-page-h1');
+        var navLabel = document.getElementById('feed-nav-label');
+        if (h1) h1.textContent = label;
+        if (navLabel) navLabel.textContent = label;
+      }
+      document.addEventListener('tc:shell-context', function(e) {
+        var me = e && e.detail && e.detail.me;
+        if (!me) return;
+        lastOrgType = String(me.org_type || '').trim().toLowerCase();
+        applyTerminology(lastOrgType);
+      });
+      document.addEventListener('tc:langchange', function() { applyTerminology(lastOrgType); });
+    })();
   </script>
   <script src="/public/js/pageShell.js"></script>
   <script src="/public/js/notifications.js"></script>

@@ -4,6 +4,304 @@
 (function() {
   'use strict';
 
+  /* ── i18n (P6.1) ─────────────────────────────────────────────────────────
+     Woerterbuch dieser Seite. Es steht bewusst GANZ oben: die Karten-Render-
+     Helfer weiter unten greifen im selben Lauf darauf zu.
+
+     Bruecke statt harter Abhaengigkeit: die Datei wird auch in einer
+     vm-Sandbox ohne geladene i18n-Schicht ausgefuehrt (Render-Tests). Ohne
+     window.TCi18n uebernimmt ein lokaler Ersatz mit exakt dem heutigen
+     deutschen Verhalten — kein Absturz, kein leerer Text.
+     Woerterbuch-WERTE sind immer Texte, nie t()-Aufrufe. */
+  var TCi18n = (typeof window !== 'undefined' && window.TCi18n) ? window.TCi18n : createLocalI18n();
+
+  function createLocalI18n() {
+    var dicts = { de: {}, en: {} };
+    return {
+      register: function(locale, entries) {
+        var target = dicts[locale];
+        if (!target || !entries) return;
+        for (var k in entries) {
+          if (Object.prototype.hasOwnProperty.call(entries, k)) target[k] = entries[k];
+        }
+      },
+      t: function(key, params) {
+        var val = dicts.de[key];
+        if (val == null) return "";
+        if (!params) return val;
+        return String(val).replace(/\{(\w+)\}/g, function(m, name) {
+          return Object.prototype.hasOwnProperty.call(params, name) ? String(params[name]) : m;
+        });
+      },
+      locale: function() { return "de"; },
+      dateLocale: function() { return "de-DE"; }
+    };
+  }
+
+  TCi18n.register('de', {
+    'feed.docTitle': 'Vermittlung – TempConnect',
+    'feed.paywall.home': 'Startseite',
+    'feed.paywall.title': 'Bereich nicht verfuegbar',
+    'feed.paywall.currentPlan': 'Aktueller Plan:',
+    'feed.paywall.cta': 'Abo ansehen',
+    'feed.nav.feed.desc': 'Angebote und Gesuche — der zentrale Feed.',
+    'feed.nav.searchOrder.title': 'Personal-Suchauftrag anlegen',
+    'feed.nav.searchOrder.desc': 'Persistente Personalsuche mit automatischem Matching.',
+    'feed.nav.myStaff.title': 'Eingestelltes Personal',
+    'feed.nav.myStaff.desc': 'Eigene Verfügbarkeiten und Angebote.',
+    'feed.nav.myArea.title': 'Mein Bereich',
+    'feed.nav.myArea.desc': 'Deals, Anfragen, Eingaenge und Matching.',
+    'feed.nav.publishStaff.desc': 'Eigenes Personal gezielt veröffentlichen.',
+    'feed.nav.openJobs.title': 'Verfügbare Arbeitsplätze',
+    'feed.nav.openJobs.desc': 'Übersicht Ihrer Arbeitsplatzangebote.',
+    'feed.stats.active': 'Aktives Personal',
+    'feed.stats.suppliers': 'Dienstleister',
+    'feed.stats.deals': 'Deals (30T)',
+    'feed.stats.fresh': 'Heute aktualisiert',
+    'feed.filter.role': 'Rolle',
+    'feed.filter.rolePh': 'z.B. Lagerhelfer',
+    'feed.filter.city': 'Stadt',
+    'feed.filter.cityPh': 'z.B. Stuttgart',
+    'feed.filter.category': 'Kategorie',
+    'feed.filter.all': 'Alle',
+    'feed.filter.search': 'Suchen',
+    'feed.filter.shift': 'Schichtmodell',
+    'feed.filter.compliance': 'Compliance',
+    'feed.filter.headcount': 'Min. Anzahl',
+    'feed.filter.availFrom': 'Verfuegbar ab',
+    'feed.filter.immediate': 'Sofort verfuegbar',
+    'feed.filter.immediateHint': 'Heute oder morgen',
+    'feed.filter.sort': 'Sortierung',
+    'feed.filters.more': 'Weitere Filter',
+    'feed.filters.collapse': 'Filter einklappen',
+    'feed.cat.helfer': 'Helfer',
+    'feed.cat.fachkraft': 'Fachkraft',
+    'feed.cat.spezialist': 'Spezialist',
+    'feed.cat.fuehrungskraft': 'Fuehrungskraft',
+    'feed.shift.day': 'Tagschicht',
+    'feed.shift.night': 'Nachtschicht',
+    'feed.shift.rotating': 'Wechselschicht',
+    'feed.shift.flexible': 'Flexibel',
+    'feed.shift.weekend': 'Wochenende',
+    'feed.shift.on_call': 'Bereitschaft',
+    'feed.compliance.complete': 'Vollstaendig',
+    'feed.compliance.partial': 'Teilweise',
+    'feed.compliance.pending': 'In Pruefung',
+    'feed.compliance.unknown': 'Unbekannt',
+    'feed.sort.newest': 'Neueste zuerst',
+    'feed.sort.priority': 'Prioritaet',
+    'feed.sort.headcount': 'Anzahl (absteigend)',
+    'feed.sort.freshness': 'Aktualitaet',
+    'feed.empty.title': 'Kein passendes Personal gefunden',
+    'feed.empty.titleLocation': 'Kein passendes Personal für Standort {location}',
+    'feed.empty.text': 'Versuchen Sie andere Filterkriterien oder erweitern Sie Ihre Suche.',
+    'feed.empty.reset': 'Filter zuruecksetzen',
+    'feed.pagination.prev': 'Zurueck',
+    'feed.pagination.next': 'Weiter',
+    'feed.pagination.pageInfo': 'Seite {page} von {total}',
+    'feed.disclaimer': 'Alle Angaben ohne Gewaehr. TempConnect vermittelt, garantiert aber keinen Vermittlungserfolg.',
+    'feed.results.one': '1 Eintrag gefunden',
+    'feed.results.many': '{n} Eintraege gefunden',
+    'feed.context.agencyInter': 'Inter-Agency Matching ist aktiv: Neben Unternehmens-Nachfragen werden qualifizierte Nachfragen von Zeitarbeitsfirmen kontrolliert einbezogen.',
+    'feed.context.agency': 'Standardmodus aktiv: Priorisiert werden passende Nachfragen von Unternehmen.',
+    'feed.context.company': 'Standardmodus aktiv: Priorisiert wird passendes Personal von Zeitarbeitsfirmen.',
+    'feed.error.load': 'Fehler beim Laden des Personals.',
+    'feed.preview.alt': 'Vorschau',
+    'feed.preview.supply': 'Angebot',
+    'feed.preview.demand': 'Nachfrage',
+    'feed.hc.people': '{n} Personen',
+    'feed.hc.supplySplit': '{remaining} frei / {total} gesamt',
+    'feed.hc.dealBound': '{n} dealgebunden',
+    'feed.hc.demandSplit': '{remaining} offen / {total} gesamt',
+    'feed.hc.bound': '{n} gebunden',
+    'feed.scarcity.free': 'Nur noch {n} frei',
+    'feed.scarcity.open': 'Nur noch {n} offen',
+    'feed.skills.more': '+{n} weitere',
+    'feed.freshness.current': 'Aktuell',
+    'feed.employment.temporary': 'ANUe',
+    'feed.employment.contract': 'Werkvertrag',
+    'feed.employment.temp_to_perm': 'Temp-to-Perm',
+    'feed.employment.project': 'Projekt',
+    'feed.employment.on_call': 'Abruf',
+    'feed.premium.enterprise': 'PARTNER: INDIVIDUELLER TARIF',
+    'feed.premium.pro': 'PREMIUM PRO',
+    'feed.premium.plus': 'PREMIUM',
+    'feed.type.supply': 'Zeitarbeitsangebot',
+    'feed.type.supplyLong': 'Angebot einer Zeitarbeitsfirma',
+    'feed.type.demand': 'Arbeitsplatzangebot',
+    'feed.type.demandLong': 'Arbeitsplatzangebot eines Unternehmens',
+    'feed.trust.successRate': '{n}% Erfolg',
+    'feed.trust.verified': 'Verifiziert',
+    'feed.trust.compliance': 'Compliance',
+    'feed.trust.subscriber': 'Aktiver Abonnent',
+    'feed.trust.deals': '{n} Deals',
+    'feed.trust.recent': 'Kuerzlich bestaetigt',
+    'feed.price.from': 'ab {v} EUR',
+    'feed.price.to': 'bis {v} EUR',
+    'feed.headline.available': '{n} {role} verfuegbar',
+    'feed.headline.reserved': '{n} {role} reserviert',
+    'feed.headline.wanted': '{n} {role} gesucht',
+    'feed.card.fromIn': 'ab {date} in {city}',
+    'feed.card.save': 'Merken',
+    'feed.card.saved': 'Gemerkt',
+    'feed.prio.notdienst': 'Notdienst',
+    'feed.prio.urgent': 'Dringend',
+    'feed.prio.elevated': 'Erhoeht',
+    'feed.kind.poolSingle': 'Sammelangebot',
+    'feed.kind.poolMulti': 'Sammelangebot · Multi-Skill',
+    'feed.kind.bundle': 'Komplettprofil (mehrere Skills)',
+    'feed.kind.single': 'Einzelprofil',
+    'feed.badge.boosted': 'Hervorgehoben',
+    'feed.status.reserved': 'Reserviert',
+    'feed.status.partiallyCovered': 'Teilgedeckt',
+    'feed.cta.agency.create': 'Personal einstellen',
+    'feed.cta.agency.notdienst': 'Notdienst einstellen',
+    'feed.cta.agency.manage': 'Eingestelltes Personal',
+    'feed.cta.company.create': 'Arbeitsplatz anbieten',
+    'feed.cta.company.list': 'Meine Angebote'
+  });
+
+  TCi18n.register('en', {
+    'feed.docTitle': 'Marketplace – TempConnect',
+    'feed.paywall.home': 'Home',
+    'feed.paywall.title': 'Area not available',
+    'feed.paywall.currentPlan': 'Current plan:',
+    'feed.paywall.cta': 'View plans',
+    'feed.nav.feed.desc': 'Offers and requests — the central feed.',
+    'feed.nav.searchOrder.title': 'Create a staffing search request',
+    'feed.nav.searchOrder.desc': 'Persistent staff search with automatic matching.',
+    'feed.nav.myStaff.title': 'Listed staff',
+    'feed.nav.myStaff.desc': 'Your own availabilities and offers.',
+    'feed.nav.myArea.title': 'My area',
+    'feed.nav.myArea.desc': 'Deals, requests, inbox and matching.',
+    'feed.nav.publishStaff.desc': 'Publish your own staff in a targeted way.',
+    'feed.nav.openJobs.title': 'Available job openings',
+    'feed.nav.openJobs.desc': 'Overview of your job openings.',
+    'feed.stats.active': 'Active staff',
+    'feed.stats.suppliers': 'Providers',
+    'feed.stats.deals': 'Deals (30d)',
+    'feed.stats.fresh': 'Updated today',
+    'feed.filter.role': 'Role',
+    'feed.filter.rolePh': 'e.g. warehouse assistant',
+    'feed.filter.city': 'City',
+    'feed.filter.cityPh': 'e.g. Stuttgart',
+    'feed.filter.category': 'Category',
+    'feed.filter.all': 'All',
+    'feed.filter.search': 'Search',
+    'feed.filter.shift': 'Shift model',
+    'feed.filter.compliance': 'Compliance',
+    'feed.filter.headcount': 'Min. headcount',
+    'feed.filter.availFrom': 'Available from',
+    'feed.filter.immediate': 'Available immediately',
+    'feed.filter.immediateHint': 'Today or tomorrow',
+    'feed.filter.sort': 'Sorting',
+    'feed.filters.more': 'More filters',
+    'feed.filters.collapse': 'Collapse filters',
+    'feed.cat.helfer': 'Assistant',
+    'feed.cat.fachkraft': 'Skilled worker',
+    'feed.cat.spezialist': 'Specialist',
+    'feed.cat.fuehrungskraft': 'Manager',
+    'feed.shift.day': 'Day shift',
+    'feed.shift.night': 'Night shift',
+    'feed.shift.rotating': 'Rotating shift',
+    'feed.shift.flexible': 'Flexible',
+    'feed.shift.weekend': 'Weekend',
+    'feed.shift.on_call': 'On call',
+    'feed.compliance.complete': 'Complete',
+    'feed.compliance.partial': 'Partial',
+    'feed.compliance.pending': 'Under review',
+    'feed.compliance.unknown': 'Unknown',
+    'feed.sort.newest': 'Newest first',
+    'feed.sort.priority': 'Priority',
+    'feed.sort.headcount': 'Headcount (descending)',
+    'feed.sort.freshness': 'Freshness',
+    'feed.empty.title': 'No matching staff found',
+    'feed.empty.titleLocation': 'No matching staff for location {location}',
+    'feed.empty.text': 'Try different filter criteria or broaden your search.',
+    'feed.empty.reset': 'Reset filters',
+    'feed.pagination.prev': 'Back',
+    'feed.pagination.next': 'Next',
+    'feed.pagination.pageInfo': 'Page {page} of {total}',
+    'feed.disclaimer': 'All information without guarantee. TempConnect brokers introductions but does not guarantee a successful placement.',
+    'feed.results.one': '1 entry found',
+    'feed.results.many': '{n} entries found',
+    'feed.context.agencyInter': 'Inter-agency matching is active: alongside company demand, qualified demand from staffing firms is included in a controlled way.',
+    'feed.context.agency': 'Standard mode active: matching demand from companies is prioritised.',
+    'feed.context.company': 'Standard mode active: matching staff from staffing firms is prioritised.',
+    'feed.error.load': 'Could not load staff.',
+    'feed.preview.alt': 'Preview',
+    'feed.preview.supply': 'Offer',
+    'feed.preview.demand': 'Demand',
+    'feed.hc.people': '{n} people',
+    'feed.hc.supplySplit': '{remaining} free / {total} total',
+    'feed.hc.dealBound': '{n} deal-bound',
+    'feed.hc.demandSplit': '{remaining} open / {total} total',
+    'feed.hc.bound': '{n} committed',
+    'feed.scarcity.free': 'Only {n} left',
+    'feed.scarcity.open': 'Only {n} still open',
+    'feed.skills.more': '+{n} more',
+    'feed.freshness.current': 'Current',
+    'feed.employment.temporary': 'Temp staffing',
+    'feed.employment.contract': 'Contract for work',
+    'feed.employment.temp_to_perm': 'Temp-to-perm',
+    'feed.employment.project': 'Project',
+    'feed.employment.on_call': 'On demand',
+    'feed.premium.enterprise': 'PARTNER: CUSTOM PLAN',
+    'feed.premium.pro': 'PREMIUM PRO',
+    'feed.premium.plus': 'PREMIUM',
+    'feed.type.supply': 'Staffing offer',
+    'feed.type.supplyLong': 'Offer from a staffing firm',
+    'feed.type.demand': 'Job opening',
+    'feed.type.demandLong': 'Job opening from a company',
+    'feed.trust.successRate': '{n}% success',
+    'feed.trust.verified': 'Verified',
+    'feed.trust.compliance': 'Compliance',
+    'feed.trust.subscriber': 'Active subscriber',
+    'feed.trust.deals': '{n} deals',
+    'feed.trust.recent': 'Recently confirmed',
+    'feed.price.from': 'from {v} EUR',
+    'feed.price.to': 'up to {v} EUR',
+    'feed.headline.available': '{n} {role} available',
+    'feed.headline.reserved': '{n} {role} reserved',
+    'feed.headline.wanted': '{n} {role} wanted',
+    'feed.card.fromIn': 'from {date} in {city}',
+    'feed.card.save': 'Save',
+    'feed.card.saved': 'Saved',
+    'feed.prio.notdienst': 'Emergency',
+    'feed.prio.urgent': 'Urgent',
+    'feed.prio.elevated': 'Elevated',
+    'feed.kind.poolSingle': 'Pool offer',
+    'feed.kind.poolMulti': 'Pool offer · multi-skill',
+    'feed.kind.bundle': 'Full profile (multiple skills)',
+    'feed.kind.single': 'Single profile',
+    'feed.badge.boosted': 'Featured',
+    'feed.status.reserved': 'Reserved',
+    'feed.status.partiallyCovered': 'Partially covered',
+    'feed.cta.agency.create': 'List staff',
+    'feed.cta.agency.notdienst': 'List emergency staff',
+    'feed.cta.agency.manage': 'Listed staff',
+    'feed.cta.company.create': 'Post a job opening',
+    'feed.cta.company.list': 'My postings'
+  });
+
+  function t(key, params) { return TCi18n.t(key, params); }
+
+  /** Text setzen UND den Schluessel am Knoten hinterlegen: ein spaeterer
+   *  Sprachwechsel (TCi18n.apply) findet den Knoten dann wieder. */
+  function setI18n(el, key) {
+    if (!el) return;
+    el.setAttribute("data-i18n", key);
+    el.textContent = t(key);
+  }
+  /** Text mit Platzhaltern: der Marker wird bewusst ENTFERNT — apply() kennt
+   *  keine Parameter und wuerde den Satz beim Sprachwechsel verstuemmeln.
+   *  Diese Stellen werden stattdessen beim Neurendern erneut gesetzt. */
+  function setI18nParams(el, key, params) {
+    if (!el) return;
+    el.removeAttribute("data-i18n");
+    el.textContent = t(key, params);
+  }
+
   var PAGE_SIZE = 25;
   var currentPage = 1;
 
@@ -58,18 +356,20 @@
     var remaining = remainingHeadcount(entry);
     var committed = committedHeadcount(entry);
     if (entry && (entry.status === "reserved" || committed > 0 || remaining !== total)) {
-      return remaining + " frei / " + total + " gesamt" + (committed > 0 ? " · " + committed + " dealgebunden" : "");
+      return t('feed.hc.supplySplit', { remaining: remaining, total: total }) +
+        (committed > 0 ? " · " + t('feed.hc.dealBound', { n: committed }) : "");
     }
-    return total + " Personen";
+    return t('feed.hc.people', { n: total });
   }
   function demandHeadcountLabel(entry) {
     var total = demandTotalHeadcount(entry);
     var remaining = demandRemainingHeadcount(entry);
     var committed = demandCommittedHeadcount(entry);
     if (entry && (entry.status === "partially_covered" || committed > 0 || remaining !== total)) {
-      return remaining + " offen / " + total + " gesamt" + (committed > 0 ? " · " + committed + " gebunden" : "");
+      return t('feed.hc.demandSplit', { remaining: remaining, total: total }) +
+        (committed > 0 ? " · " + t('feed.hc.bound', { n: committed }) : "");
     }
-    return total + " Personen";
+    return t('feed.hc.people', { n: total });
   }
 
   // Ehrliche Knappheit (Welle 5): nur wenn real Plaetze gebunden sind UND wenig
@@ -84,7 +384,7 @@
     if (committed <= 0 && remaining === total) return null;
     if (remaining <= 0) return null;
     if (remaining > Math.max(1, Math.floor(total / 3))) return null;
-    return { remaining: remaining, label: "Nur noch " + remaining + (isDemand ? " offen" : " frei") };
+    return { remaining: remaining, label: t(isDemand ? 'feed.scarcity.open' : 'feed.scarcity.free', { n: remaining }) };
   }
 
   // Skill-Chips (Welle 5): macht den Multi-Skill-Fan-out auf Buendel-/Sammelkarten
@@ -94,21 +394,24 @@
     if (tags.length < 2) return "";
     var shown = tags.slice(0, 4);
     var html = '<div class="ce-card__skills">';
-    shown.forEach(function(t) { html += '<span class="ds-badge ds-badge--neutral ce-skill-chip">' + esc(t) + '</span>'; });
-    if (tags.length > shown.length) html += '<span class="ds-badge ds-badge--neutral ce-skill-chip ce-skill-chip--more">+' + (tags.length - shown.length) + ' weitere</span>';
+    shown.forEach(function(tag) { html += '<span class="ds-badge ds-badge--neutral ce-skill-chip">' + esc(tag) + '</span>'; });
+    if (tags.length > shown.length) {
+      html += '<span class="ds-badge ds-badge--neutral ce-skill-chip ce-skill-chip--more">' +
+        esc(t('feed.skills.more', { n: tags.length - shown.length })) + '</span>';
+    }
     html += '</div>';
     return html;
   }
 
-  var SHIFT_LABELS = { day:"Tagschicht", night:"Nachtschicht", rotating:"Wechselschicht", flexible:"Flexibel", weekend:"Wochenende", on_call:"Bereitschaft" };
-  var EMPLOYMENT_LABELS = { temporary:"ANUe", contract:"Werkvertrag", temp_to_perm:"Temp-to-Perm", project:"Projekt", on_call:"Abruf" };
-  var COMPLIANCE_LABELS = { unknown:"Unbekannt", pending:"In Pruefung", partial:"Teilweise", complete:"Vollstaendig" };
+  var SHIFT_LABEL_KEYS = { day:"feed.shift.day", night:"feed.shift.night", rotating:"feed.shift.rotating", flexible:"feed.shift.flexible", weekend:"feed.shift.weekend", on_call:"feed.shift.on_call" };
+  var EMPLOYMENT_LABEL_KEYS = { temporary:"feed.employment.temporary", contract:"feed.employment.contract", temp_to_perm:"feed.employment.temp_to_perm", project:"feed.employment.project", on_call:"feed.employment.on_call" };
+  var COMPLIANCE_LABEL_KEYS = { unknown:"feed.compliance.unknown", pending:"feed.compliance.pending", partial:"feed.compliance.partial", complete:"feed.compliance.complete" };
   var COMPLIANCE_COLORS = { complete:"--green", partial:"--yellow", pending:"--yellow", unknown:"--grey" };
 
   function freshnessHtml(ts) {
     if (!ts) return '<span class="ce-freshness"><span class="ce-freshness__dot ce-freshness__dot--stale"></span></span>';
     var h = (Date.now() - new Date(ts).getTime()) / 36e5;
-    if (h < 48) return '<span class="ce-freshness"><span class="ce-freshness__dot ce-freshness__dot--fresh"></span>Aktuell</span>';
+    if (h < 48) return '<span class="ce-freshness"><span class="ce-freshness__dot ce-freshness__dot--fresh"></span>' + esc(t('feed.freshness.current')) + '</span>';
     if (h < 96) return '<span class="ce-freshness"><span class="ce-freshness__dot ce-freshness__dot--aging"></span></span>';
     return '<span class="ce-freshness"><span class="ce-freshness__dot ce-freshness__dot--stale"></span></span>';
   }
@@ -121,22 +424,23 @@
   };
 
   var PREMIUM_TIERS = {
-    ENTERPRISE: { css: 'ce-premium-badge--enterprise', label: '&#9733; PARTNER: INDIVIDUELLER TARIF', cardCss: 'ce-card--premium-enterprise' },
-    PRO:        { css: 'ce-premium-badge--pro',        label: '&#9733; PREMIUM PRO',       cardCss: 'ce-card--premium-pro' },
-    PLUS:       { css: 'ce-premium-badge--plus',       label: '&#9733; PREMIUM',           cardCss: 'ce-card--premium-plus' }
+    ENTERPRISE: { css: 'ce-premium-badge--enterprise', labelKey: 'feed.premium.enterprise', cardCss: 'ce-card--premium-enterprise' },
+    PRO:        { css: 'ce-premium-badge--pro',        labelKey: 'feed.premium.pro',        cardCss: 'ce-card--premium-pro' },
+    PLUS:       { css: 'ce-premium-badge--plus',       labelKey: 'feed.premium.plus',       cardCss: 'ce-card--premium-plus' }
   };
 
-  // Gegenseitenorientierte Labels
+  // Gegenseitenorientierte Labels. Der lange Text erklaert das Badge als
+  // Tooltip — dieselbe Aussage, ohne die Karte zu ueberladen.
   var FEED_TYPE_LABELS = {
-    supply: { badge: '&#128188; Zeitarbeitsangebot', badgeCls: 'ce-type-badge--supply', label: 'Angebot einer Zeitarbeitsfirma' },
-    demand: { badge: '&#128270; Arbeitsplatzangebot', badgeCls: 'ce-type-badge--demand', label: 'Arbeitsplatzangebot eines Unternehmens' }
+    supply: { icon: '&#128188;', badgeKey: 'feed.type.supply', badgeCls: 'ce-type-badge--supply', labelKey: 'feed.type.supplyLong' },
+    demand: { icon: '&#128270;', badgeKey: 'feed.type.demand', badgeCls: 'ce-type-badge--demand', labelKey: 'feed.type.demandLong' }
   };
 
   function premiumBadgeHtml(item) {
     if (!item || !item.subscription_plan) return "";
     var tier = PREMIUM_TIERS[item.subscription_plan];
     if (!tier) return "";
-    return '<span class="ce-premium-badge ' + tier.css + '">' + tier.label + '</span>';
+    return '<span class="ce-premium-badge ' + tier.css + '">&#9733; ' + esc(t(tier.labelKey)) + '</span>';
   }
 
   function premiumCardClass(item) {
@@ -152,7 +456,7 @@
     if (item.reputation_score != null) html += Math.round(item.reputation_score) + ' ';
     html += item.reputation_grade + '</span>';
     if (item.deal_success_rate != null) {
-      html += '<span class="ds-trust-badge" style="font-size:11px">' + Math.round(item.deal_success_rate) + '% Erfolg</span>';
+      html += '<span class="ds-trust-badge" style="font-size:11px">' + esc(t('feed.trust.successRate', { n: Math.round(item.deal_success_rate) })) + '</span>';
     }
     return html;
   }
@@ -160,16 +464,16 @@
   function trustBadges(ts) {
     if (!ts) return "";
     var html = "";
-    if (ts.supplier_verified) html += '<span class="ds-trust-badge ds-trust-badge--verified">&#10003; Verifiziert</span>';
-    if (ts.compliance_complete) html += '<span class="ds-trust-badge ds-trust-badge--compliance">Compliance</span>';
-    if (ts.active_subscriber) html += '<span class="ds-trust-badge ds-trust-badge--active">Aktiver Abonnent</span>';
-    if (ts.completed_deals > 0) html += '<span class="ds-trust-badge ds-trust-badge--deals">' + ts.completed_deals + ' Deals</span>';
-    if (ts.recently_confirmed) html += '<span class="ds-trust-badge ds-trust-badge--response">Kuerzlich bestaetigt</span>';
+    if (ts.supplier_verified) html += '<span class="ds-trust-badge ds-trust-badge--verified">&#10003; ' + esc(t('feed.trust.verified')) + '</span>';
+    if (ts.compliance_complete) html += '<span class="ds-trust-badge ds-trust-badge--compliance">' + esc(t('feed.trust.compliance')) + '</span>';
+    if (ts.active_subscriber) html += '<span class="ds-trust-badge ds-trust-badge--active">' + esc(t('feed.trust.subscriber')) + '</span>';
+    if (ts.completed_deals > 0) html += '<span class="ds-trust-badge ds-trust-badge--deals">' + esc(t('feed.trust.deals', { n: ts.completed_deals })) + '</span>';
+    if (ts.recently_confirmed) html += '<span class="ds-trust-badge ds-trust-badge--response">' + esc(t('feed.trust.recent')) + '</span>';
     return html;
   }
 
   function previewPlaceholderHtml(e) {
-    var label = e.feed_type === "demand" ? "Nachfrage" : "Angebot";
+    var label = t(e.feed_type === "demand" ? 'feed.preview.demand' : 'feed.preview.supply');
     return '<div class="ce-card__preview-fallback" data-preview-placeholder="1">' +
       '<span class="ce-card__preview-fallback-icon" aria-hidden="true">&#128247;</span>' +
       '<span class="ce-card__preview-fallback-label">' + esc(label) + '</span>' +
@@ -177,8 +481,8 @@
   }
 
   function renderCard(e) {
-    var shift = e.shift_model ? SHIFT_LABELS[e.shift_model] || e.shift_model : null;
-    var compLabel = COMPLIANCE_LABELS[e.compliance_status] || "";
+    var shift = e.shift_model ? (t(SHIFT_LABEL_KEYS[e.shift_model]) || e.shift_model) : null;
+    var compLabel = COMPLIANCE_LABEL_KEYS[e.compliance_status] ? t(COMPLIANCE_LABEL_KEYS[e.compliance_status]) : "";
     var compColor = COMPLIANCE_COLORS[e.compliance_status] || "--grey";
     var totalPeople = totalHeadcount(e);
     var freePeople = remainingHeadcount(e);
@@ -187,8 +491,8 @@
     if (e.price_hint) { priceHtml = esc(e.price_hint); }
     else if (e.price_min != null || e.price_max != null) {
       var parts = [];
-      if (e.price_min != null) parts.push("ab " + Number(e.price_min).toFixed(2) + " EUR");
-      if (e.price_max != null) parts.push("bis " + Number(e.price_max).toFixed(2) + " EUR");
+      if (e.price_min != null) parts.push(esc(t('feed.price.from', { v: Number(e.price_min).toFixed(2) })));
+      if (e.price_max != null) parts.push(esc(t('feed.price.to', { v: Number(e.price_max).toFixed(2) })));
       priceHtml = parts.join(" ");
     }
 
@@ -209,41 +513,41 @@
     html += '<div class="ce-card__content">';
     html += '<div class="ce-card__head">';
     var ftl = FEED_TYPE_LABELS[e.feed_type] || FEED_TYPE_LABELS.supply;
-    html += '<span class="ce-type-badge ' + ftl.badgeCls + '">' + ftl.badge + '</span> ';
+    html += '<span class="ce-type-badge ' + ftl.badgeCls + '" title="' + esc(t(ftl.labelKey)) + '">' + ftl.icon + ' ' + esc(t(ftl.badgeKey)) + '</span> ';
     // Professionelle Headline: "15 Produktionshelfer verfuegbar" statt generischer Titel
     var headline = e.title;
     if (!isDemandCard && e.headcount && e.role) {
       headline = freePeople > 0
-        ? freePeople + ' ' + e.role + ' verfuegbar'
-        : totalPeople + ' ' + e.role + ' reserviert';
+        ? t('feed.headline.available', { n: freePeople, role: e.role })
+        : t('feed.headline.reserved', { n: totalPeople, role: e.role });
     } else if (isDemandCard && e.headcount && e.role) {
-      headline = demandRemaining + ' ' + e.role + ' gesucht';
+      headline = t('feed.headline.wanted', { n: demandRemaining, role: e.role });
     }
     html += '<div style="flex:1;min-width:0"><div class="ce-card__title">' + esc(headline) + '</div>';
     var subParts = [esc(e.role)];
     if (e.worker_category) subParts.push(esc(e.worker_category));
-    if (e.location_city) subParts.push('ab ' + fmtDate(e.availability_from) + ' in ' + esc(e.location_city));
-    html += '<div class="ce-card__role">' + subParts.join(' \u00b7 ') + '</div></div>';
+    if (e.location_city) subParts.push(esc(t('feed.card.fromIn', { date: fmtDate(e.availability_from), city: e.location_city })));
+    html += '<div class="ce-card__role">' + subParts.join(' · ') + '</div></div>';
     html += '<div style="display:flex;align-items:center;gap:var(--ds-space-2)">';
     html += freshnessHtml(e.last_confirmed_at);
-    if (e.priority_level === "notdienst") html += '<span class="ds-badge ds-badge--danger">Notdienst</span>';
-    else if (e.priority_level === "urgent") html += '<span class="ds-badge ds-badge--danger">Dringend</span>';
-    else if (e.priority_level === "elevated") html += '<span class="ds-badge ds-badge--warning">Erhoeht</span>';
+    if (e.priority_level === "notdienst") html += '<span class="ds-badge ds-badge--danger">' + esc(t('feed.prio.notdienst')) + '</span>';
+    else if (e.priority_level === "urgent") html += '<span class="ds-badge ds-badge--danger">' + esc(t('feed.prio.urgent')) + '</span>';
+    else if (e.priority_level === "elevated") html += '<span class="ds-badge ds-badge--warning">' + esc(t('feed.prio.elevated')) + '</span>';
     if (!isDemandCard) {
-      if (e.offer_kind === "pool_single_skill") html += '<span class="ds-badge ds-badge--neutral">Sammelangebot</span>';
-      else if (e.offer_kind === "pool_multi_skill") html += '<span class="ds-badge ds-badge--neutral">Sammelangebot · Multi-Skill</span>';
-      else if (e.offer_kind === "bundle") html += '<span class="ds-badge ds-badge--neutral">Komplettprofil (mehrere Skills)</span>';
-      else if (e.offer_kind === "single_skill") html += '<span class="ds-badge ds-badge--neutral">Einzelprofil</span>';
-      if (Number(e.placement_boost_level) > 0) html += '<span class="ds-badge ds-badge--warning">★ Hervorgehoben</span>';
+      if (e.offer_kind === "pool_single_skill") html += '<span class="ds-badge ds-badge--neutral">' + esc(t('feed.kind.poolSingle')) + '</span>';
+      else if (e.offer_kind === "pool_multi_skill") html += '<span class="ds-badge ds-badge--neutral">' + esc(t('feed.kind.poolMulti')) + '</span>';
+      else if (e.offer_kind === "bundle") html += '<span class="ds-badge ds-badge--neutral">' + esc(t('feed.kind.bundle')) + '</span>';
+      else if (e.offer_kind === "single_skill") html += '<span class="ds-badge ds-badge--neutral">' + esc(t('feed.kind.single')) + '</span>';
+      if (Number(e.placement_boost_level) > 0) html += '<span class="ds-badge ds-badge--warning">★ ' + esc(t('feed.badge.boosted')) + '</span>';
     }
-    if (!isDemandCard && e.status === "reserved") html += '<span class="ds-badge ds-badge--neutral">Reserviert</span>';
-    else if (!isDemandCard && committedPeople > 0) html += '<span class="ds-badge ds-badge--neutral">' + committedPeople + ' dealgebunden</span>';
-    if (isDemandCard && e.status === "partially_covered") html += '<span class="ds-badge ds-badge--neutral">Teilgedeckt</span>';
-    if (isDemandCard && demandCommitted > 0) html += '<span class="ds-badge ds-badge--neutral">' + demandCommitted + ' gebunden</span>';
+    if (!isDemandCard && e.status === "reserved") html += '<span class="ds-badge ds-badge--neutral">' + esc(t('feed.status.reserved')) + '</span>';
+    else if (!isDemandCard && committedPeople > 0) html += '<span class="ds-badge ds-badge--neutral">' + esc(t('feed.hc.dealBound', { n: committedPeople })) + '</span>';
+    if (isDemandCard && e.status === "partially_covered") html += '<span class="ds-badge ds-badge--neutral">' + esc(t('feed.status.partiallyCovered')) + '</span>';
+    if (isDemandCard && demandCommitted > 0) html += '<span class="ds-badge ds-badge--neutral">' + esc(t('feed.hc.bound', { n: demandCommitted })) + '</span>';
     var scarcity = scarcitySignal(e, isDemandCard);
     if (scarcity) html += '<span class="ds-badge ds-badge--warning ce-scarcity-badge">' + esc(scarcity.label) + '</span>';
-    if (e.employment_type) html += '<span class="ds-badge ds-badge--neutral">' + esc(EMPLOYMENT_LABELS[e.employment_type] || e.employment_type) + '</span>';
-    html += '<button class="ce-card__save" data-save-id="' + esc(e.id) + '" title="Merken" onclick="event.stopPropagation();window._saveCap(this)">&#9734; Merken</button>';
+    if (e.employment_type) html += '<span class="ds-badge ds-badge--neutral">' + esc(t(EMPLOYMENT_LABEL_KEYS[e.employment_type]) || e.employment_type) + '</span>';
+    html += '<button class="ce-card__save" data-save-id="' + esc(e.id) + '" title="' + esc(t('feed.card.save')) + '" onclick="event.stopPropagation();window._saveCap(this)">&#9734; ' + esc(t('feed.card.save')) + '</button>';
     html += '</div></div>';
     if (rankLabels.length) {
       html += '<div class="ce-card__meta" style="margin-bottom:var(--ds-space-2)">';
@@ -360,19 +664,20 @@
         feedEl.innerHTML = "";
         var locLbl = (function() { try { return sessionStorage.getItem("tc.activeLocationName") || null; } catch (_e) { return null; } })();
         var titleEl = emptyEl.querySelector(".ds-empty__title");
-        if (titleEl) titleEl.textContent = locLbl ? "Kein passendes Personal für Standort " + locLbl : "Kein passendes Personal gefunden";
+        if (locLbl) setI18nParams(titleEl, 'feed.empty.titleLocation', { location: locLbl });
+        else setI18n(titleEl, 'feed.empty.title');
         emptyEl.style.display = "block";
         infoEl.textContent = "";
         return;
       }
 
-      infoEl.textContent = total + " Eintr" + (total !== 1 ? "aege" : "ag") + " gefunden";
+      infoEl.textContent = total === 1 ? t('feed.results.one') : t('feed.results.many', { n: total });
       if (ctx.viewer_role === "agency" && ctx.inter_agency_enabled) {
-        contextEl.textContent = "Inter-Agency Matching ist aktiv: Neben Unternehmens-Nachfragen werden qualifizierte Nachfragen von Zeitarbeitsfirmen kontrolliert einbezogen.";
+        contextEl.textContent = t('feed.context.agencyInter');
       } else if (ctx.viewer_role === "agency") {
-        contextEl.textContent = "Standardmodus aktiv: Priorisiert werden passende Nachfragen von Unternehmen.";
+        contextEl.textContent = t('feed.context.agency');
       } else if (ctx.viewer_role === "company") {
-        contextEl.textContent = "Standardmodus aktiv: Priorisiert wird passendes Personal von Zeitarbeitsfirmen.";
+        contextEl.textContent = t('feed.context.company');
       } else {
         contextEl.textContent = "";
       }
@@ -401,7 +706,7 @@
               var img = document.createElement("img");
               var rawPath = String(logos[oid] || "");
               img.src = toAssetUrl(rawPath);
-              img.alt = "Vorschau";
+              img.alt = t('feed.preview.alt');
               img.className = "ce-card__preview-image";
               img.loading = "lazy";
               img.onerror = function() {
@@ -418,7 +723,7 @@
       var totalPages = Math.ceil(total / PAGE_SIZE);
       if (totalPages > 1) {
         pagEl.style.display = "flex";
-        document.getElementById("page-info").textContent = "Seite " + currentPage + " von " + totalPages;
+        setI18nParams(document.getElementById("page-info"), 'feed.pagination.pageInfo', { page: currentPage, total: totalPages });
         document.getElementById("btn-prev").disabled = currentPage <= 1;
         document.getElementById("btn-next").disabled = currentPage >= totalPages;
       } else {
@@ -426,7 +731,7 @@
       }
     })
     .catch(function() {
-      feedEl.innerHTML = '<div class="ds-alert ds-alert--danger">Fehler beim Laden des Personals.</div>';
+      feedEl.innerHTML = '<div class="ds-alert ds-alert--danger">' + esc(t('feed.error.load')) + '</div>';
     });
   }
 
@@ -543,7 +848,7 @@
     if (!advancedFiltersEl || !advancedToggle) return;
     advancedFiltersEl.hidden = !open;
     advancedToggle.setAttribute("aria-expanded", open ? "true" : "false");
-    advancedToggle.textContent = open ? "Filter einklappen" : "Weitere Filter";
+    setI18n(advancedToggle, open ? 'feed.filters.collapse' : 'feed.filters.more');
     if (open && opts && opts.focus) {
       var firstField = advancedFiltersEl.querySelector("input, select");
       if (firstField) firstField.focus();
@@ -585,7 +890,7 @@
     TC.api.post("/capacity-exchange/entries/" + id + "/interactions", { interaction_type: "save", message: null })
     .then(function() {
       btn.disabled = false;
-      btn.innerHTML = "&#9733; Gemerkt"; btn.classList.add("saved");
+      btn.innerHTML = "&#9733; " + esc(t('feed.card.saved')); btn.classList.add("saved");
     }).catch(function() { btn.disabled = false; });
   };
 
@@ -603,36 +908,47 @@
 
   loadFeed(1);
 
-  // Test-Hook: reine Render-Helfer fuer vm-Sandbox-Tests (kein Betriebspfad).
-  if (typeof window !== "undefined") {
-    window.__mpFeedTestHooks = { renderCard: renderCard, scarcitySignal: scarcitySignal, skillChipsHtml: skillChipsHtml };
-  }
-})();
-
-  /* ── Role-based CTAs ───────────────────────────────── */
-(function() {
+  /* ── Role-based CTAs ─────────────────────────────────
+     Liegt bewusst INNERHALB dieser IIFE: so nutzen die Rollen-CTAs dasselbe
+     Woerterbuch und dieselbe t()-Bruecke wie der Feed. Wo JS eine Beschriftung
+     ersetzt, wandert der i18n-Schluessel per setI18n mit an den Knoten —
+     sonst wuerde ein Sprachwechsel die rollenrichtige Fassung ueberschreiben. */
   TC.api.get("/me").then(function(me) {
     var cta = document.getElementById("feed-ctas");
     if (!cta) return;
     if (me.role === "agency") {
-      cta.innerHTML = '<a href="/public/capacity_exchange_form.html" class="ds-btn ds-btn--primary ds-btn--sm">Personal einstellen</a><a href="/public/capacity_exchange_notdienst.html" class="ds-btn ds-btn--sm" style="border-color:var(--ds-warning,#f59e0b);color:var(--ds-warning,#f59e0b);font-weight:700">Notdienst einstellen</a><a href="/public/capacity_exchange_manage.html" class="ds-btn ds-btn--sm ds-btn--ghost">Eingestelltes Personal</a>';
+      cta.innerHTML =
+        '<a href="/public/capacity_exchange_form.html" class="ds-btn ds-btn--primary ds-btn--sm" data-i18n="feed.cta.agency.create">' + esc(t('feed.cta.agency.create')) + '</a>' +
+        '<a href="/public/capacity_exchange_notdienst.html" class="ds-btn ds-btn--sm" style="border-color:var(--ds-warning,#f59e0b);color:var(--ds-warning,#f59e0b);font-weight:700" data-i18n="feed.cta.agency.notdienst">' + esc(t('feed.cta.agency.notdienst')) + '</a>' +
+        '<a href="/public/capacity_exchange_manage.html" class="ds-btn ds-btn--sm ds-btn--ghost" data-i18n="feed.cta.agency.manage">' + esc(t('feed.cta.agency.manage')) + '</a>';
       // Karte 2: ein Personal-Suchauftrag (capacity_search = "Personal finden") ist company-only.
       // Fuer Dienstleister stattdessen "Personal einstellen" (Create) -> passt zu Karte 3 (Personal verwalten).
       var ac2 = document.getElementById("feed-nav-card2");
-      var ac2t = document.getElementById("feed-nav-card2-title");
-      var ac2d = document.getElementById("feed-nav-card2-desc");
       if (ac2) ac2.href = "/public/capacity_exchange_form.html";
-      if (ac2t) ac2t.textContent = "Personal einstellen";
-      if (ac2d) ac2d.textContent = "Eigenes Personal gezielt veröffentlichen.";
+      setI18n(document.getElementById("feed-nav-card2-title"), 'feed.cta.agency.create');
+      setI18n(document.getElementById("feed-nav-card2-desc"), 'feed.nav.publishStaff.desc');
     } else if (me.role === "company") {
-      cta.innerHTML = '<a href="/public/marketplace_demand_create.html" class="ds-btn ds-btn--primary ds-btn--sm">Arbeitsplatz anbieten</a><a href="/public/marketplace_demand_list.html" class="ds-btn ds-btn--sm ds-btn--ghost">Meine Angebote</a>';
+      cta.innerHTML =
+        '<a href="/public/marketplace_demand_create.html" class="ds-btn ds-btn--primary ds-btn--sm" data-i18n="feed.cta.company.create">' + esc(t('feed.cta.company.create')) + '</a>' +
+        '<a href="/public/marketplace_demand_list.html" class="ds-btn ds-btn--sm ds-btn--ghost" data-i18n="feed.cta.company.list">' + esc(t('feed.cta.company.list')) + '</a>';
       // Einsatzunternehmen bieten Arbeitsplaetze an (kein eigenes Personal): Karte 3 = Uebersicht der eigenen Arbeitsplatzangebote.
       var c3 = document.getElementById("feed-nav-card3");
-      var c3t = document.getElementById("feed-nav-card3-title");
-      var c3d = document.getElementById("feed-nav-card3-desc");
       if (c3) c3.href = "/public/marketplace_demand_list.html";
-      if (c3t) c3t.textContent = "Verfügbare Arbeitsplätze";
-      if (c3d) c3d.textContent = "Übersicht Ihrer Arbeitsplatzangebote.";
+      setI18n(document.getElementById("feed-nav-card3-title"), 'feed.nav.openJobs.title');
+      setI18n(document.getElementById("feed-nav-card3-desc"), 'feed.nav.openJobs.desc');
     }
   }).catch(function() {});
+
+  /* Sprachwechsel: das statische Markup zieht TCi18n.apply selbst nach. Die per
+     JS gebauten Flaechen (Feed-Karten, Trefferzeile, Kontexthinweis, Seiten-
+     zaehler) muessen dagegen neu gerendert werden — sonst blieben sie deutsch. */
+  document.addEventListener("tc:langchange", function() {
+    if (advancedFiltersEl && advancedToggle) setAdvancedFilters(!advancedFiltersEl.hidden);
+    loadFeed(currentPage);
+  });
+
+  // Test-Hook: reine Render-Helfer fuer vm-Sandbox-Tests (kein Betriebspfad).
+  if (typeof window !== "undefined") {
+    window.__mpFeedTestHooks = { renderCard: renderCard, scarcitySignal: scarcitySignal, skillChipsHtml: skillChipsHtml };
+  }
 })();

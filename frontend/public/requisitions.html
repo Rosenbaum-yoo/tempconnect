@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <script src="/public/js/theme.js"></script>
   <script src="/public/js/i18n.js"></script>
-  <title>Arbeitsplatzangebote – TempConnect</title>
+  <title data-i18n="req.docTitle">Arbeitsplatzangebote – TempConnect</title>
   <link rel="stylesheet" href="/public/css/enterprise.css"/>
   <style>
     .filter-row { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 16px; align-items: center; }
@@ -56,45 +56,45 @@
 
     <div class="ds-page-header">
       <div class="ds-page-header__content">
-        <h1 class="ds-page-title">Arbeitsplatzangebote</h1>
-        <p class="ds-page-subtitle">Arbeitsplatzangebote erfassen, priorisieren und durch den Freigabe-Workflow steuern.</p>
+        <h1 class="ds-page-title" data-i18n="req.page.title">Arbeitsplatzangebote</h1>
+        <p class="ds-page-subtitle" data-i18n="req.page.subtitle">Arbeitsplatzangebote erfassen, priorisieren und durch den Freigabe-Workflow steuern.</p>
       </div>
       <div class="ds-page-header__actions">
-        <a class="btn primary" href="/public/requisition_create.html">+ Neues Arbeitsplatzangebot</a>
+        <a class="btn primary" href="/public/requisition_create.html" data-i18n="req.page.create">+ Neues Arbeitsplatzangebot</a>
       </div>
     </div>
     <div class="link-row">
-      <a class="btn" href="/public/vendor_pool.html">Lieferantenpool</a>
-      <a id="reqRateCardLink" class="btn" href="/public/rate-cards.html">Preisrahmen</a>
-      <a class="btn" href="/public/supplier_scorecard.html">Lieferantenbewertung</a>
-      <a class="btn" href="/public/spend-analytics.html">Spend Analytics</a>
+      <a class="btn" href="/public/vendor_pool.html" data-i18n="req.nav.vendorPool">Lieferantenpool</a>
+      <a id="reqRateCardLink" class="btn" href="/public/rate-cards.html" data-i18n="req.nav.rateCards">Preisrahmen</a>
+      <a class="btn" href="/public/supplier_scorecard.html" data-i18n="req.nav.scorecard">Lieferantenbewertung</a>
+      <a class="btn" href="/public/spend-analytics.html" data-i18n="req.nav.spend">Spend Analytics</a>
     </div>
     <div id="reqState" class="page-state" aria-live="polite"></div>
 
     <div class="filter-row" style="padding:var(--ds-space-4);border:1px solid var(--ds-border);border-radius:var(--ds-radius-lg);background:rgba(255,255,255,.015)">
-      <select id="fStatus"><option value="">Alle Status</option>
+      <select id="fStatus"><option value="" data-i18n="req.filter.allStatus">Alle Status</option>
         <option>DRAFT</option><option>PENDING_APPROVAL</option><option>APPROVED</option>
         <option>OPEN</option><option>IN_REVIEW</option><option>SHORTLISTED</option>
         <option>PARTIALLY_FILLED</option><option>FILLED</option><option>CLOSED</option><option>CANCELLED</option>
       </select>
-      <select id="fUrgency"><option value="">Alle Dringlichkeiten</option>
-        <option value="normal">Normal</option><option value="high">Hoch</option>
-        <option value="urgent">Dringend</option><option value="notdienst">Notdienst</option>
+      <select id="fUrgency"><option value="" data-i18n="req.filter.allUrgency">Alle Dringlichkeiten</option>
+        <option value="normal" data-i18n="req.filter.urgencyNormal">Normal</option><option value="high" data-i18n="req.filter.urgencyHigh">Hoch</option>
+        <option value="urgent" data-i18n="req.filter.urgencyUrgent">Dringend</option><option value="notdienst" data-i18n="req.filter.urgencyNotdienst">Notdienst</option>
       </select>
-      <label style="margin:0"><input type="checkbox" id="fMine"> Nur meine</label>
-      <button class="btn" onclick="loadList()">Filtern</button>
+      <label style="margin:0"><input type="checkbox" id="fMine"> <span data-i18n="req.filter.mine">Nur meine</span></label>
+      <button class="btn" onclick="loadList()" data-i18n="req.filter.apply">Filtern</button>
     </div>
 
     <table class="table" id="reqTable">
       <thead><tr>
-        <th>Titel</th><th>Rolle</th><th>Status</th><th>Dringlichkeit</th><th>Headcount</th><th>Erstellt</th>
+        <th data-i18n="req.table.title">Titel</th><th data-i18n="req.table.role">Rolle</th><th data-i18n="req.table.status">Status</th><th data-i18n="req.table.urgency">Dringlichkeit</th><th data-i18n="req.table.headcount">Headcount</th><th data-i18n="req.table.created">Erstellt</th>
       </tr></thead>
       <tbody id="reqBody"></tbody>
     </table>
     <div id="emptyMsg" class="ds-empty" style="display:none">
       <div class="ds-empty__title" id="emptyTitle">Keine Arbeitsplatzangebote gefunden</div>
       <div class="ds-empty__text" id="emptyText">Sie haben noch keine Arbeitsplatzangebote erstellt oder passen Sie die Filterkriterien an.</div>
-      <div id="emptyActions" style="margin-top:10px"><a class="btn primary" href="/public/requisition_create.html">Jetzt Arbeitsplatz anbieten</a></div>
+      <div id="emptyActions" style="margin-top:10px"><a class="btn primary" href="/public/requisition_create.html" data-i18n="req.empty.cta">Jetzt Arbeitsplatz anbieten</a></div>
     </div>
   </div>
 
@@ -103,7 +103,7 @@
     <div class="panel" style="max-width:680px">
       <div style="display:flex;justify-content:space-between;align-items:center">
         <h2 id="detTitle" style="margin:0">–</h2>
-        <button class="btn" onclick="closeDetail()">Schliessen</button>
+        <button class="btn" onclick="closeDetail()" data-i18n="req.detail.close">Schliessen</button>
       </div>
       <div id="detContent" style="margin-top:16px"></div>
     </div>

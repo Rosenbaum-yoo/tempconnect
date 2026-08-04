@@ -400,10 +400,32 @@
   - Verifiziert: 62/62 Tests grün; Live im Browser bewiesen — Umschalter erscheint, die
     komplette Plattform-Navigation wechselt („Übersicht"→„Overview", „Personal
     finden"→„Find staff", „Steuerung"→„Controlling") und sauber zurück, Konsole fehlerfrei.
-  - **Offen (nächste Welle):** die Inhalte der einzelnen Plattform-Seiten (~21.000 Zeilen,
-    Kandidat für denselben Fan-out wie beim Portal). Rahmen und Muster stehen: Schicht,
-    Umschalter, Terminologie-Matrix und Testgates sind da — je Seite bleibt nur noch
-    `data-i18n`-Markup + `TCi18n.register`.
+  - **✅ Plattform-Kernflow zweisprachig (2026-08-04):** die sechs Seiten, die ein Nutzer im
+    Pilot wirklich durchläuft — `enterprise` (Hub), `capacity_exchange_feed` (Marktplatz),
+    `requisitions`, `deal_management`, `mitarbeiter`, `hilfe` — per Fan-out migriert.
+    Priorisiert wurde nach Kernflow, nicht alphabetisch.
+    - **Muster-Unterschied zum Portal:** vier dieser Seiten haben ihr JS **ausgelagert**
+      (`js/pages/*.js`); dort gehört das Wörterbuch hin, nicht in die HTML. Das Test-Gate
+      liest die Quelle deshalb je Seite aus HTML **oder** JS-Datei.
+    - **Zwei Konflikte, die die Agenten korrekt erkannt haben:** (1) `TCi18n.apply()` setzt
+      markierte Elemente auf den Wörterbuch-Wert zurück und hätte damit die rollenabhängige
+      Terminologie überschrieben — gelöst über einen Helfer, der den Marker bei
+      Terminologie-Text entfernt, plus erneutes Anwenden der Rollenschicht nach
+      `tc:langchange` (dieselbe Reihenfolge wie in `pageShell`). (2) `marketplaceFeed.js`
+      wird von `api/test/marketplaceFeedCard.test.js` in einer Sandbox **ohne** i18n-Schicht
+      ausgeführt — die Datei fällt deshalb auf einen lokalen deutschen Ersatz zurück, statt
+      dort leere Texte zu liefern.
+    - Neue Gates: DE/EN-Parität je Seite (Quelle: HTML oder ausgelagertes JS), Marker-
+      Auflösbarkeit, Syntax beider Schichten, kein Wörterbuch-Selbstverweis, **Zuständigkeits-
+      Trennung** (keine Seite übersetzt Shell-Navigation oder Terminologie-Elemente selbst).
+  - Verifiziert: 81/81 Tests grün (inkl. der Render-Tests aus Welle 5c); live im Browser —
+    Seiteninhalt **und** Navigation wechseln gemeinsam („Hilfe, Anleitungen, FAQ…" → „Help,
+    guides, FAQ…", „Plattform einrichten" → „Set up the platform") und sauber zurück,
+    Konsole fehlerfrei.
+  - **Offen (nächste Welle):** die restlichen ~43 Plattform-Seiten (Admin, Analytics,
+    Spezialflächen) — geringere Pilot-Priorität, gleiches Muster, Gate ist bereits da:
+    neue Seiten nur in die `KERNFLOW`-Liste in `api/test/i18nFoundation.test.js` eintragen.
+    Ebenfalls offen: `slaGuard.js` (Paywall-Featurenamen) und `onboardingChecklist.js`.
 
 ## Phase 7 — Visual/Media Layer (PREVIEW ZUERST)
 

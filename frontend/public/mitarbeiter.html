@@ -5,7 +5,7 @@
   <script src="/public/js/i18n.js"></script>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>TempConnect – Mitarbeiter verwalten</title>
+  <title data-i18n="mit.docTitle">TempConnect – Mitarbeiter verwalten</title>
   <link rel="stylesheet" href="/public/css/enterprise.css">
   <style>
     body { background: var(--wk-bg); color: var(--wk-text); }
@@ -147,7 +147,7 @@
 <body data-sla-guard="sla_access">
   <div id="paywall" class="wrap" style="display:none">
     <nav class="ds-topbar"><div class="ds-topbar__brand"><span class="ds-topbar__brand-dot"></span>TempConnect</div></nav>
-    <div class="paywall-box"><h2>Bereich nicht verf&uuml;gbar</h2><p>Aktueller Plan: <span id="paywall-current-plan" class="paywall-plan">&ndash;</span></p><a id="paywall-cta" href="/public/sla_abo.html" class="btn primary">Abo ansehen</a></div>
+    <div class="paywall-box"><h2 data-i18n="mit.paywall.title">Bereich nicht verf&uuml;gbar</h2><p><span data-i18n="mit.paywall.currentPlan">Aktueller Plan:</span> <span id="paywall-current-plan" class="paywall-plan">&ndash;</span></p><a id="paywall-cta" href="/public/sla_abo.html" class="btn primary" data-i18n="mit.paywall.cta">Abo ansehen</a></div>
   </div>
   <div id="main-content" class="page-wrap">
     <!-- pageShell ersetzt eigene Topbar -->
@@ -166,99 +166,99 @@
 
     <div class="ds-page-header">
       <div class="ds-page-header__content">
-        <h1 class="ds-page-title">Mitarbeiter</h1>
-        <p class="ds-page-subtitle">Workforce-Hub: Personalstammdaten, Skills, Qualifikationen und Einsatzhistorie.</p>
+        <h1 class="ds-page-title" data-i18n="mit.page.title">Mitarbeiter</h1>
+        <p class="ds-page-subtitle" data-i18n="mit.page.subtitle">Workforce-Hub: Personalstammdaten, Skills, Qualifikationen und Einsatzhistorie.</p>
       </div>
       <div class="ds-page-header__actions">
-        <a class="btn" href="/public/worker-submissions-review.html">Worker Self-Service</a>
-        <button class="btn primary" onclick="showTab('create')">+ Anlegen</button>
+        <a class="btn" href="/public/worker-submissions-review.html" data-i18n="mit.page.selfService">Worker Self-Service</a>
+        <button class="btn primary" onclick="showTab('create')" data-i18n="mit.page.createCta">+ Anlegen</button>
       </div>
     </div>
 
     <!-- Tabs -->
     <div class="tabs">
-      <button class="tab-btn active" data-tab="list" onclick="showTab('list')">Mitarbeiter <span class="badge" id="workerCount">0</span></button>
-      <button class="tab-btn" data-tab="live" onclick="showTab('live')">Live-Belegschaft</button>
-      <button class="tab-btn" data-tab="skills" onclick="showTab('skills')">Profil &amp; Talent Hub</button>
-      <button class="tab-btn" data-tab="create" onclick="showTab('create')">Manuell anlegen</button>
-      <button class="tab-btn" data-tab="invite" onclick="showTab('invite')">Einladen</button>
-      <button class="tab-btn" data-tab="invites" onclick="showTab('invites')">Einladungen <span class="badge" id="inviteCount">0</span></button>
-      <button class="tab-btn" data-tab="csvimport" onclick="showTab('csvimport')">CSV-Import</button>
+      <button class="tab-btn active" data-tab="list" onclick="showTab('list')"><span data-i18n="mit.tab.list">Mitarbeiter</span> <span class="badge" id="workerCount">0</span></button>
+      <button class="tab-btn" data-tab="live" onclick="showTab('live')" data-i18n="mit.tab.live">Live-Belegschaft</button>
+      <button class="tab-btn" data-tab="skills" onclick="showTab('skills')" data-i18n="mit.tab.skills">Profil &amp; Talent Hub</button>
+      <button class="tab-btn" data-tab="create" onclick="showTab('create')" data-i18n="mit.tab.create">Manuell anlegen</button>
+      <button class="tab-btn" data-tab="invite" onclick="showTab('invite')" data-i18n="mit.tab.invite">Einladen</button>
+      <button class="tab-btn" data-tab="invites" onclick="showTab('invites')"><span data-i18n="mit.tab.invites">Einladungen</span> <span class="badge" id="inviteCount">0</span></button>
+      <button class="tab-btn" data-tab="csvimport" onclick="showTab('csvimport')" data-i18n="mit.tab.csv">CSV-Import</button>
     </div>
 
     <!-- Panel: Mitarbeiter-Liste -->
     <div id="panel-list" class="panel active">
       <div class="search-bar">
-        <input type="text" id="searchInput" placeholder="Suche nach Name, E-Mail, Personalnr..." oninput="filterWorkers()">
+        <input type="text" id="searchInput" placeholder="Suche nach Name, E-Mail, Personalnr..." data-i18n-ph="mit.list.searchPh" oninput="filterWorkers()">
         <select id="filterStatus" style="width:auto;min-width:140px;margin-bottom:0" onchange="loadWorkers()">
-          <option value="">Alle</option>
-          <option value="true">Aktiv</option>
-          <option value="false">Inaktiv</option>
+          <option value="" data-i18n="mit.list.filterAll">Alle</option>
+          <option value="true" data-i18n="mit.list.filterActive">Aktiv</option>
+          <option value="false" data-i18n="mit.list.filterInactive">Inaktiv</option>
         </select>
-        <button class="btn primary" style="width:auto;white-space:nowrap;margin-bottom:0" onclick="openPoolGen()">+ Sammelangebot</button>
-        <button class="btn" style="width:auto;white-space:nowrap;margin-bottom:0" onclick="inviteAllUnregistered()" title="Alle noch nicht registrierten Mitarbeiter ins Einsatzportal einladen">Alle einladen</button>
+        <button class="btn primary" style="width:auto;white-space:nowrap;margin-bottom:0" onclick="openPoolGen()" data-i18n="mit.list.poolOffer">+ Sammelangebot</button>
+        <button class="btn" style="width:auto;white-space:nowrap;margin-bottom:0" onclick="inviteAllUnregistered()" title="Alle noch nicht registrierten Mitarbeiter ins Einsatzportal einladen" data-i18n-title="mit.list.inviteAllTitle" data-i18n="mit.list.inviteAll">Alle einladen</button>
       </div>
       <div id="workerList">
-        <div class="empty-state">Mitarbeiter werden geladen...</div>
+        <div class="empty-state" data-i18n="mit.list.loading">Mitarbeiter werden geladen...</div>
       </div>
     </div>
 
     <!-- Panel: Live-Belegschaft (Disposition) -->
     <div id="panel-live" class="panel">
       <div class="search-bar">
-        <input type="text" id="liveSearch" placeholder="Mitarbeiter suchen..." oninput="filterLiveBoard()">
+        <input type="text" id="liveSearch" placeholder="Mitarbeiter suchen..." data-i18n-ph="mit.live.searchPh" oninput="filterLiveBoard()">
         <span id="liveUpdated" style="font-size:12px;color:var(--wk-text-muted);align-self:center;white-space:nowrap"></span>
       </div>
       <div id="liveKpis" style="display:flex;flex-wrap:wrap;gap:10px;margin-bottom:8px"></div>
-      <div id="liveList"><div class="empty-state">Live-Belegschaft wird geladen...</div></div>
+      <div id="liveList"><div class="empty-state" data-i18n="mit.live.loading">Live-Belegschaft wird geladen...</div></div>
     </div>
 
     <!-- Panel: Manuell anlegen -->
     <div id="panel-create" class="panel">
       <div class="form-card">
-        <h2 style="margin:0 0 16px;font-size:18px">Neuen Mitarbeiter anlegen</h2>
-        <p style="font-size:13px;color:var(--wk-text-muted);margin:0 0 20px">Der Mitarbeiter erhaelt einen Account und kann sich im Worker Self-Service Portal anmelden.</p>
+        <h2 style="margin:0 0 16px;font-size:18px" data-i18n="mit.create.title">Neuen Mitarbeiter anlegen</h2>
+        <p style="font-size:13px;color:var(--wk-text-muted);margin:0 0 20px" data-i18n="mit.create.intro">Der Mitarbeiter erhaelt einen Account und kann sich im Worker Self-Service Portal anmelden.</p>
         <div class="form-grid">
           <div>
-            <label>Vorname *</label>
+            <label data-i18n="mit.field.firstNameReq">Vorname *</label>
             <input type="text" id="cFirstName" placeholder="Max">
           </div>
           <div>
-            <label>Nachname *</label>
+            <label data-i18n="mit.field.lastNameReq">Nachname *</label>
             <input type="text" id="cLastName" placeholder="Mustermann">
           </div>
           <div>
-            <label>E-Mail *</label>
+            <label data-i18n="mit.field.emailReq">E-Mail *</label>
             <input type="email" id="cEmail" placeholder="max@example.de">
           </div>
           <div>
-            <label>Personalnummer</label>
+            <label data-i18n="mit.field.personnelNr">Personalnummer</label>
             <input type="text" id="cPersonnelNr" placeholder="P-001">
           </div>
           <div>
-            <label>Telefon</label>
+            <label data-i18n="mit.field.phone">Telefon</label>
             <input type="text" id="cPhone" placeholder="+49 ...">
           </div>
           <div>
-            <label>Stadt</label>
+            <label data-i18n="mit.field.city">Stadt</label>
             <input type="text" id="cCity" placeholder="Berlin">
           </div>
           <div>
-            <label>Strasse</label>
-            <input type="text" id="cStreet" placeholder="Musterstr. 1">
+            <label data-i18n="mit.field.street">Strasse</label>
+            <input type="text" id="cStreet" placeholder="Musterstr. 1" data-i18n-ph="mit.ph.street">
           </div>
           <div>
-            <label>PLZ</label>
+            <label data-i18n="mit.field.postal">PLZ</label>
             <input type="text" id="cPostal" placeholder="10115">
           </div>
           <div class="full">
-            <label>Passwort (min. 8 Zeichen, optional — wird sonst generiert)</label>
-            <input type="password" id="cPassword" placeholder="Passwort fuer den Mitarbeiter">
+            <label data-i18n="mit.create.passwordLabel">Passwort (min. 8 Zeichen, optional — wird sonst generiert)</label>
+            <input type="password" id="cPassword" placeholder="Passwort fuer den Mitarbeiter" data-i18n-ph="mit.create.passwordPh">
           </div>
         </div>
         <div class="form-actions">
-          <button class="btn" onclick="showTab('list')">Abbrechen</button>
-          <button class="btn primary" id="btnCreate" onclick="createWorker()">Mitarbeiter anlegen</button>
+          <button class="btn" onclick="showTab('list')" data-i18n="mit.action.cancel">Abbrechen</button>
+          <button class="btn primary" id="btnCreate" onclick="createWorker()" data-i18n="mit.create.submit">Mitarbeiter anlegen</button>
         </div>
       </div>
     </div>
@@ -266,29 +266,29 @@
     <!-- Panel: Einladen -->
     <div id="panel-invite" class="panel">
       <div class="form-card">
-        <h2 style="margin:0 0 16px;font-size:18px">Mitarbeiter per E-Mail einladen</h2>
-        <p style="font-size:13px;color:var(--wk-text-muted);margin:0 0 20px">Der Mitarbeiter erhaelt eine E-Mail mit einem Link zur Registrierung im Worker-Portal.</p>
+        <h2 style="margin:0 0 16px;font-size:18px" data-i18n="mit.invite.title">Mitarbeiter per E-Mail einladen</h2>
+        <p style="font-size:13px;color:var(--wk-text-muted);margin:0 0 20px" data-i18n="mit.invite.intro">Der Mitarbeiter erhaelt eine E-Mail mit einem Link zur Registrierung im Worker-Portal.</p>
         <div class="form-grid">
           <div>
-            <label>Vorname *</label>
+            <label data-i18n="mit.field.firstNameReq">Vorname *</label>
             <input type="text" id="iFirstName" placeholder="Max">
           </div>
           <div>
-            <label>Nachname *</label>
+            <label data-i18n="mit.field.lastNameReq">Nachname *</label>
             <input type="text" id="iLastName" placeholder="Mustermann">
           </div>
           <div>
-            <label>E-Mail *</label>
+            <label data-i18n="mit.field.emailReq">E-Mail *</label>
             <input type="email" id="iEmail" placeholder="max@example.de">
           </div>
           <div>
-            <label>Personalnummer</label>
+            <label data-i18n="mit.field.personnelNr">Personalnummer</label>
             <input type="text" id="iPersonnelNr" placeholder="P-001">
           </div>
         </div>
         <div class="form-actions">
-          <button class="btn" onclick="showTab('list')">Abbrechen</button>
-          <button class="btn primary" id="btnInvite" onclick="inviteWorker()">Einladung senden</button>
+          <button class="btn" onclick="showTab('list')" data-i18n="mit.action.cancel">Abbrechen</button>
+          <button class="btn primary" id="btnInvite" onclick="inviteWorker()" data-i18n="mit.invite.submit">Einladung senden</button>
         </div>
       </div>
     </div>
@@ -296,223 +296,223 @@
     <!-- Panel: Profil & Talent Hub -->
     <div id="panel-skills" class="panel">
       <div style="background:var(--tc-tone-brand-bg);border:1px solid var(--tc-tone-brand-border);border-radius:12px;padding:16px 18px;margin-bottom:18px">
-        <strong style="font-size:14px">Profil &amp; Talent Hub</strong>
-        <p style="font-size:13px;color:var(--wk-text-muted);margin:6px 0 0">Der bestehende Worker-Bestand wird hier zum zentralen Mitarbeiterprofil ausgebaut: Stammdaten, Skills, Qualifikationen, interne Einsatzsicht und kontrollierte externe Freigabe in einer Ansicht.</p>
+        <strong style="font-size:14px" data-i18n="mit.hub.title">Profil &amp; Talent Hub</strong>
+        <p style="font-size:13px;color:var(--wk-text-muted);margin:6px 0 0" data-i18n="mit.hub.intro">Der bestehende Worker-Bestand wird hier zum zentralen Mitarbeiterprofil ausgebaut: Stammdaten, Skills, Qualifikationen, interne Einsatzsicht und kontrollierte externe Freigabe in einer Ansicht.</p>
       </div>
       <div style="display:flex;gap:10px;margin-bottom:16px;flex-wrap:wrap;align-items:center">
         <select id="skillsWorkerSelect" style="flex:1;min-width:240px;max-width:360px;margin:0" onchange="loadWorkerSkills()">
-          <option value="">Mitarbeiter ausw&auml;hlen...</option>
+          <option value="" data-i18n="mit.hub.selectWorker">Mitarbeiter ausw&auml;hlen...</option>
         </select>
-        <button class="btn" onclick="populateSkillsWorkerSelect()">Aktualisieren</button>
+        <button class="btn" onclick="populateSkillsWorkerSelect()" data-i18n="mit.action.refresh">Aktualisieren</button>
       </div>
       <div id="skillsWorkerPanel" style="display:none">
         <div id="skillsWorkerHeader"></div>
         <div class="hub-grid">
           <div class="form-card">
-            <h3 style="font-size:14px;font-weight:800;margin:0 0 12px">Stammdaten &amp; internes Profil</h3>
+            <h3 style="font-size:14px;font-weight:800;margin:0 0 12px" data-i18n="mit.hub.masterData">Stammdaten &amp; internes Profil</h3>
             <div class="form-grid">
               <div>
-                <label>Telefon</label>
+                <label data-i18n="mit.field.phone">Telefon</label>
                 <input type="text" id="profilePhone" placeholder="+49 ...">
               </div>
               <div>
-                <label>Geburtsdatum</label>
+                <label data-i18n="mit.field.birthDate">Geburtsdatum</label>
                 <input type="date" id="profileBirthDate">
               </div>
               <div>
-                <label>Stra&szlig;e</label>
-                <input type="text" id="profileStreet" placeholder="Musterstra&szlig;e 1">
+                <label data-i18n="mit.field.street">Stra&szlig;e</label>
+                <input type="text" id="profileStreet" placeholder="Musterstra&szlig;e 1" data-i18n-ph="mit.ph.streetLong">
               </div>
               <div>
-                <label>PLZ</label>
+                <label data-i18n="mit.field.postal">PLZ</label>
                 <input type="text" id="profilePostal" placeholder="10115">
               </div>
               <div>
-                <label>Stadt</label>
+                <label data-i18n="mit.field.city">Stadt</label>
                 <input type="text" id="profileCity" placeholder="Berlin">
               </div>
               <div>
-                <label>Sprache / Locale</label>
+                <label data-i18n="mit.field.locale">Sprache / Locale</label>
                 <input type="text" id="profileLocale" placeholder="de">
               </div>
               <div class="full">
-                <label>Interne Verf&uuml;gbarkeitsnotiz</label>
-                <input type="text" id="availabilityNoteInput" placeholder="z.B. ab n&auml;chster Woche im Raum Hamburg verf&uuml;gbar">
+                <label data-i18n="mit.field.availabilityNote">Interne Verf&uuml;gbarkeitsnotiz</label>
+                <input type="text" id="availabilityNoteInput" placeholder="z.B. ab n&auml;chster Woche im Raum Hamburg verf&uuml;gbar" data-i18n-ph="mit.ph.availabilityNote">
               </div>
               <div class="full">
-                <label>Kurzprofil / Lebenslauftext</label>
-                <textarea id="profileTextarea" rows="5" placeholder="Freitext: Erfahrungen, Besonderheiten, Einsatzpr&auml;ferenzen, fachlicher Werdegang..."></textarea>
+                <label data-i18n="mit.field.profileText">Kurzprofil / Lebenslauftext</label>
+                <textarea id="profileTextarea" rows="5" placeholder="Freitext: Erfahrungen, Besonderheiten, Einsatzpr&auml;ferenzen, fachlicher Werdegang..." data-i18n-ph="mit.ph.profileText"></textarea>
               </div>
               <div class="full">
-                <label>Interne Notizen</label>
-                <textarea id="profileNotes" rows="3" placeholder="Nur intern sichtbar"></textarea>
+                <label data-i18n="mit.field.internalNotes">Interne Notizen</label>
+                <textarea id="profileNotes" rows="3" placeholder="Nur intern sichtbar" data-i18n-ph="mit.ph.internalNotes"></textarea>
               </div>
             </div>
           </div>
           <div class="form-card">
-            <h3 style="font-size:14px;font-weight:800;margin:0 0 12px">Skills &amp; Kompetenzen</h3>
-            <div style="font-size:12px;color:var(--wk-text-muted);margin:0 0 12px">Breiter, einsatz- und matchingorientierter Skill-Katalog f&uuml;r alle typischen Workforce-Szenarien. Zertifikate, Scheine und formale Nachweise bitte weiterhin separat unter Qualifikationen pflegen.</div>
+            <h3 style="font-size:14px;font-weight:800;margin:0 0 12px" data-i18n="mit.skills.title">Skills &amp; Kompetenzen</h3>
+            <div style="font-size:12px;color:var(--wk-text-muted);margin:0 0 12px" data-i18n="mit.skills.intro">Breiter, einsatz- und matchingorientierter Skill-Katalog f&uuml;r alle typischen Workforce-Szenarien. Zertifikate, Scheine und formale Nachweise bitte weiterhin separat unter Qualifikationen pflegen.</div>
             <div class="skill-catalog-toolbar">
-              <input type="text" id="skillCatalogSearch" placeholder="Skill-Katalog filtern (z.B. Logistik, Schweissen, Office)..." oninput="renderSkillCatalog()">
-              <button class="btn" type="button" onclick="clearAllSkills()">Auswahl leeren</button>
+              <input type="text" id="skillCatalogSearch" placeholder="Skill-Katalog filtern (z.B. Logistik, Schweissen, Office)..." data-i18n-ph="mit.skills.filterPh" oninput="renderSkillCatalog()">
+              <button class="btn" type="button" onclick="clearAllSkills()" data-i18n="mit.skills.clearAll">Auswahl leeren</button>
             </div>
             <div id="skillCatalogMeta" class="skill-catalog-meta"></div>
             <div id="skillCatalogSections" class="skill-catalog-grid"></div>
-            <div class="hub-section-title" style="margin:16px 0 8px">Ausgew&auml;hlte Skills</div>
+            <div class="hub-section-title" style="margin:16px 0 8px" data-i18n="mit.skills.selected">Ausgew&auml;hlte Skills</div>
             <div id="skillSelectionSummary" class="skill-selection-summary"></div>
             <div id="skillTagsList" style="display:flex;flex-wrap:wrap;gap:6px;min-height:32px;margin-bottom:12px"></div>
-            <div class="hub-section-title" style="margin:0 0 8px">Zus&auml;tzlicher Spezial-Skill</div>
+            <div class="hub-section-title" style="margin:0 0 8px" data-i18n="mit.skills.extraTitle">Zus&auml;tzlicher Spezial-Skill</div>
             <div style="display:flex;gap:6px">
-              <input type="text" id="newSkillInput" placeholder="Skill eingeben (z.B. Schweissen)" style="flex:1;margin:0" onkeydown="if(event.key==='Enter'){event.preventDefault();addSkillTag();}">
-              <button class="btn primary" onclick="addSkillTag()">+ Hinzuf&uuml;gen</button>
+              <input type="text" id="newSkillInput" placeholder="Skill eingeben (z.B. Schweissen)" data-i18n-ph="mit.skills.extraPh" style="flex:1;margin:0" onkeydown="if(event.key==='Enter'){event.preventDefault();addSkillTag();}">
+              <button class="btn primary" onclick="addSkillTag()" data-i18n="mit.action.add">+ Hinzuf&uuml;gen</button>
             </div>
-            <div style="margin-top:12px;font-size:12px;color:var(--wk-text-muted)">Sonderf&auml;lle, kundenspezifische Begriffe und seltene Nischen-Kompetenzen k&ouml;nnen hier erg&auml;nzt werden und bleiben zusammen mit der Checkbox-Auswahl in `skill_tags` gespeichert.</div>
+            <div style="margin-top:12px;font-size:12px;color:var(--wk-text-muted)" data-i18n="mit.skills.extraHint">Sonderf&auml;lle, kundenspezifische Begriffe und seltene Nischen-Kompetenzen k&ouml;nnen hier erg&auml;nzt werden und bleiben zusammen mit der Checkbox-Auswahl gespeichert.</div>
           </div>
           <div class="form-card">
-            <h3 style="font-size:14px;font-weight:800;margin:0 0 12px">Qualifikationen &amp; Nachweise</h3>
+            <h3 style="font-size:14px;font-weight:800;margin:0 0 12px" data-i18n="mit.qual.title">Qualifikationen &amp; Nachweise</h3>
             <div id="qualificationsList" style="display:flex;flex-direction:column;gap:8px;min-height:32px;margin-bottom:12px"></div>
             <div class="form-grid">
               <div>
-                <label>Bezeichnung</label>
-                <input type="text" id="newQualName" placeholder="z.B. Staplerschein">
+                <label data-i18n="mit.qual.name">Bezeichnung</label>
+                <input type="text" id="newQualName" placeholder="z.B. Staplerschein" data-i18n-ph="mit.qual.namePh">
               </div>
               <div>
-                <label>Aussteller</label>
-                <input type="text" id="newQualIssuer" placeholder="T&Uuml;V / DEKRA / intern">
+                <label data-i18n="mit.qual.issuer">Aussteller</label>
+                <input type="text" id="newQualIssuer" placeholder="T&Uuml;V / DEKRA / intern" data-i18n-ph="mit.qual.issuerPh">
               </div>
               <div>
-                <label>G&uuml;ltig bis</label>
+                <label data-i18n="mit.qual.validUntil">G&uuml;ltig bis</label>
                 <input type="date" id="newQualExpiry">
               </div>
               <div>
-                <label>Nachweis / Dokument</label>
-                <input type="text" id="newQualDocument" placeholder="PDF / Scan / Referenz">
+                <label data-i18n="mit.qual.document">Nachweis / Dokument</label>
+                <input type="text" id="newQualDocument" placeholder="PDF / Scan / Referenz" data-i18n-ph="mit.qual.documentPh">
               </div>
               <div class="full">
-                <label>Notiz</label>
-                <input type="text" id="newQualNote" placeholder="Optionaler Hinweis">
+                <label data-i18n="mit.qual.note">Notiz</label>
+                <input type="text" id="newQualNote" placeholder="Optionaler Hinweis" data-i18n-ph="mit.qual.notePh">
               </div>
             </div>
-            <button class="btn" style="margin-top:6px;width:100%" onclick="addQualification()">+ Qualifikation hinzuf&uuml;gen</button>
+            <button class="btn" style="margin-top:6px;width:100%" onclick="addQualification()" data-i18n="mit.qual.add">+ Qualifikation hinzuf&uuml;gen</button>
           </div>
           <div class="form-card hub-card--wide">
-            <h3 style="font-size:14px;font-weight:800;margin:0 0 8px">Nachweisakte &amp; Dokumente</h3>
-            <p style="font-size:12px;color:var(--wk-text-muted);margin:0 0 12px">Seri&ouml;se Personalakten-Sicht: dokumentierte Nachweise, interne Pr&uuml;fung, G&uuml;ltigkeiten und Dateiablage direkt am Mitarbeiterprofil.</p>
+            <h3 style="font-size:14px;font-weight:800;margin:0 0 8px" data-i18n="mit.doc.title">Nachweisakte &amp; Dokumente</h3>
+            <p style="font-size:12px;color:var(--wk-text-muted);margin:0 0 12px" data-i18n="mit.doc.intro">Seri&ouml;se Personalakten-Sicht: dokumentierte Nachweise, interne Pr&uuml;fung, G&uuml;ltigkeiten und Dateiablage direkt am Mitarbeiterprofil.</p>
             <div id="workerDocumentStats" style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:14px"></div>
             <div class="hub-grid">
               <div>
-                <div class="hub-section-title">Hinterlegte Nachweise</div>
+                <div class="hub-section-title" data-i18n="mit.doc.stored">Hinterlegte Nachweise</div>
                 <div id="workerDocumentList" class="hub-list"></div>
               </div>
               <div>
-                <div class="hub-section-title">Neuen Nachweis hinterlegen</div>
+                <div class="hub-section-title" data-i18n="mit.doc.addTitle">Neuen Nachweis hinterlegen</div>
                 <div class="form-grid">
                   <div>
-                    <label>Kategorie</label>
+                    <label data-i18n="mit.doc.category">Kategorie</label>
                     <select id="workerDocumentCategory">
-                      <option value="qualification">Qualifikation</option>
-                      <option value="identity">Identit&auml;t</option>
-                      <option value="permit">Erlaubnis</option>
-                      <option value="medical">Medizin</option>
-                      <option value="training">Training</option>
-                      <option value="other">Sonstiges</option>
+                      <option value="qualification" data-i18n="mit.doc.cat.qualification">Qualifikation</option>
+                      <option value="identity" data-i18n="mit.doc.cat.identity">Identit&auml;t</option>
+                      <option value="permit" data-i18n="mit.doc.cat.permit">Erlaubnis</option>
+                      <option value="medical" data-i18n="mit.doc.cat.medical">Medizin</option>
+                      <option value="training" data-i18n="mit.doc.cat.training">Training</option>
+                      <option value="other" data-i18n="mit.doc.cat.other">Sonstiges</option>
                     </select>
                   </div>
                   <div>
-                    <label>Titel / Nachweis</label>
-                    <input type="text" id="workerDocumentTitle" placeholder="z.B. Staplerschein PDF">
+                    <label data-i18n="mit.doc.titleField">Titel / Nachweis</label>
+                    <input type="text" id="workerDocumentTitle" placeholder="z.B. Staplerschein PDF" data-i18n-ph="mit.doc.titlePh">
                   </div>
                   <div>
-                    <label>Verkn&uuml;pfte Qualifikation</label>
-                    <input type="text" id="workerDocumentQualification" placeholder="z.B. Staplerschein">
+                    <label data-i18n="mit.doc.linkedQual">Verkn&uuml;pfte Qualifikation</label>
+                    <input type="text" id="workerDocumentQualification" placeholder="z.B. Staplerschein" data-i18n-ph="mit.qual.namePh">
                   </div>
                   <div>
-                    <label>Aussteller</label>
-                    <input type="text" id="workerDocumentIssuer" placeholder="DEKRA / T&Uuml;V / intern">
+                    <label data-i18n="mit.qual.issuer">Aussteller</label>
+                    <input type="text" id="workerDocumentIssuer" placeholder="DEKRA / T&Uuml;V / intern" data-i18n-ph="mit.doc.issuerPh">
                   </div>
                   <div>
-                    <label>G&uuml;ltig ab</label>
+                    <label data-i18n="mit.doc.validFrom">G&uuml;ltig ab</label>
                     <input type="date" id="workerDocumentValidFrom">
                   </div>
                   <div>
-                    <label>G&uuml;ltig bis</label>
+                    <label data-i18n="mit.qual.validUntil">G&uuml;ltig bis</label>
                     <input type="date" id="workerDocumentValidUntil">
                   </div>
                   <div class="full">
-                    <label>Datei</label>
+                    <label data-i18n="mit.doc.file">Datei</label>
                     <input type="file" id="workerDocumentFile" accept=".pdf,.png,.jpg,.jpeg,.webp,application/pdf,image/png,image/jpeg,image/webp">
                   </div>
                   <div class="full">
-                    <label>Interne Notiz</label>
-                    <textarea id="workerDocumentNotes" rows="3" placeholder="Pr&uuml;fhinweis, Einschr&auml;nkung, interne Einordnung"></textarea>
+                    <label data-i18n="mit.doc.note">Interne Notiz</label>
+                    <textarea id="workerDocumentNotes" rows="3" placeholder="Pr&uuml;fhinweis, Einschr&auml;nkung, interne Einordnung" data-i18n-ph="mit.doc.notePh"></textarea>
                   </div>
                 </div>
                 <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px">
-                  <button class="btn primary" onclick="uploadWorkerDocument()">Nachweis hochladen</button>
+                  <button class="btn primary" onclick="uploadWorkerDocument()" data-i18n="mit.doc.upload">Nachweis hochladen</button>
                 </div>
-                <div style="margin-top:8px;font-size:12px;color:var(--wk-text-muted)">Erlaubt: PDF, PNG, JPG, WEBP bis 10 MB. Externe Freigabe bleibt davon strikt getrennt.</div>
+                <div style="margin-top:8px;font-size:12px;color:var(--wk-text-muted)" data-i18n="mit.doc.uploadHint">Erlaubt: PDF, PNG, JPG, WEBP bis 10 MB. Externe Freigabe bleibt davon strikt getrennt.</div>
               </div>
             </div>
           </div>
           <div class="form-card">
-            <h3 style="font-size:14px;font-weight:800;margin:0 0 12px">Account &amp; Einsatzportal</h3>
+            <h3 style="font-size:14px;font-weight:800;margin:0 0 12px" data-i18n="mit.linkage.title">Account &amp; Einsatzportal</h3>
             <div id="workerLinkageInfo" class="hub-linkage"></div>
           </div>
           <div class="form-card hub-card--wide">
-            <h3 style="font-size:14px;font-weight:800;margin:0 0 12px">Operativer Kontext</h3>
+            <h3 style="font-size:14px;font-weight:800;margin:0 0 12px" data-i18n="mit.ops.title">Operativer Kontext</h3>
             <div id="workerOpsStats" style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:14px"></div>
             <div class="hub-grid">
               <div>
-                <div class="hub-section-title">Eins&auml;tze &amp; Zuweisungen</div>
+                <div class="hub-section-title" data-i18n="mit.ops.assignments">Eins&auml;tze &amp; Zuweisungen</div>
                 <div id="workerAssignmentTimeline" class="hub-list"></div>
               </div>
               <div>
-                <div class="hub-section-title">Submissions / Stundenzettel</div>
+                <div class="hub-section-title" data-i18n="mit.ops.submissions">Submissions / Stundenzettel</div>
                 <div id="workerSubmissionTimeline" class="hub-list"></div>
               </div>
             </div>
           </div>
           <div class="form-card hub-card--wide">
-            <h3 style="font-size:14px;font-weight:800;margin:0 0 8px">Externe Profilfreigabe</h3>
-            <p style="font-size:12px;color:var(--wk-text-muted);margin:0 0 12px">Kein automatischer Public-Mode: Sichtbar werden ausschlie&szlig;lich die explizit freigegebenen Felder.</p>
+            <h3 style="font-size:14px;font-weight:800;margin:0 0 8px" data-i18n="mit.public.title">Externe Profilfreigabe</h3>
+            <p style="font-size:12px;color:var(--wk-text-muted);margin:0 0 12px" data-i18n="mit.public.intro">Kein automatischer Public-Mode: Sichtbar werden ausschlie&szlig;lich die explizit freigegebenen Felder.</p>
             <label style="font-size:13px;cursor:pointer;display:flex;align-items:center;gap:8px">
               <input type="checkbox" id="profilePublic" onchange="updatePublicProfileControls()">
-              <span>Profil extern freigeben</span>
+              <span data-i18n="mit.public.toggle">Profil extern freigeben</span>
             </label>
             <div id="publicProfileFields" class="public-field-grid">
-              <label class="public-field-option"><input type="checkbox" data-public-field="name" onchange="updatePublicProfileControls()"><span><strong>Name</strong><br><span style="color:var(--wk-text-muted)">Vollst&auml;ndiger Name</span></span></label>
-              <label class="public-field-option"><input type="checkbox" data-public-field="city" onchange="updatePublicProfileControls()"><span><strong>Ort</strong><br><span style="color:var(--wk-text-muted)">Nur Stadt, keine genaue Adresse</span></span></label>
-              <label class="public-field-option"><input type="checkbox" data-public-field="skill_tags" onchange="updatePublicProfileControls()"><span><strong>Skills</strong><br><span style="color:var(--wk-text-muted)">Kompetenzen &amp; Tags</span></span></label>
-              <label class="public-field-option"><input type="checkbox" data-public-field="qualifications" onchange="updatePublicProfileControls()"><span><strong>Qualifikationen</strong><br><span style="color:var(--wk-text-muted)">Zertifikate &amp; Nachweise</span></span></label>
-              <label class="public-field-option"><input type="checkbox" data-public-field="profile_text" onchange="updatePublicProfileControls()"><span><strong>Kurzprofil</strong><br><span style="color:var(--wk-text-muted)">Freigegebener Beschreibungstext</span></span></label>
-              <label class="public-field-option"><input type="checkbox" data-public-field="availability_note" onchange="updatePublicProfileControls()"><span><strong>Verf&uuml;gbarkeit</strong><br><span style="color:var(--wk-text-muted)">Manuelle interne Freigabenotiz</span></span></label>
+              <label class="public-field-option"><input type="checkbox" data-public-field="name" onchange="updatePublicProfileControls()"><span><strong data-i18n="mit.public.f.name">Name</strong><br><span style="color:var(--wk-text-muted)" data-i18n="mit.public.f.nameDesc">Vollst&auml;ndiger Name</span></span></label>
+              <label class="public-field-option"><input type="checkbox" data-public-field="city" onchange="updatePublicProfileControls()"><span><strong data-i18n="mit.public.f.city">Ort</strong><br><span style="color:var(--wk-text-muted)" data-i18n="mit.public.f.cityDesc">Nur Stadt, keine genaue Adresse</span></span></label>
+              <label class="public-field-option"><input type="checkbox" data-public-field="skill_tags" onchange="updatePublicProfileControls()"><span><strong data-i18n="mit.public.f.skills">Skills</strong><br><span style="color:var(--wk-text-muted)" data-i18n="mit.public.f.skillsDesc">Kompetenzen &amp; Tags</span></span></label>
+              <label class="public-field-option"><input type="checkbox" data-public-field="qualifications" onchange="updatePublicProfileControls()"><span><strong data-i18n="mit.public.f.quals">Qualifikationen</strong><br><span style="color:var(--wk-text-muted)" data-i18n="mit.public.f.qualsDesc">Zertifikate &amp; Nachweise</span></span></label>
+              <label class="public-field-option"><input type="checkbox" data-public-field="profile_text" onchange="updatePublicProfileControls()"><span><strong data-i18n="mit.public.f.profileText">Kurzprofil</strong><br><span style="color:var(--wk-text-muted)" data-i18n="mit.public.f.profileTextDesc">Freigegebener Beschreibungstext</span></span></label>
+              <label class="public-field-option"><input type="checkbox" data-public-field="availability_note" onchange="updatePublicProfileControls()"><span><strong data-i18n="mit.public.f.availability">Verf&uuml;gbarkeit</strong><br><span style="color:var(--wk-text-muted)" data-i18n="mit.public.f.availabilityDesc">Manuelle interne Freigabenotiz</span></span></label>
             </div>
             <div class="public-share-box">
-              <div class="hub-section-title">Share-Link</div>
+              <div class="hub-section-title" data-i18n="mit.public.shareLink">Share-Link</div>
               <input type="text" id="publicProfileLink" readonly value="">
               <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px">
-                <button class="btn" onclick="copyPublicProfileLink()">Link kopieren</button>
-                <a class="btn" id="publicProfilePreviewLink" href="#" target="_blank" rel="noopener">Vorschau &ouml;ffnen</a>
+                <button class="btn" onclick="copyPublicProfileLink()" data-i18n="mit.public.copyLink">Link kopieren</button>
+                <a class="btn" id="publicProfilePreviewLink" href="#" target="_blank" rel="noopener" data-i18n="mit.public.preview">Vorschau &ouml;ffnen</a>
               </div>
               <div id="publicProfilePreviewSummary" style="margin-top:10px;font-size:12px;color:var(--wk-text-muted)"></div>
             </div>
           </div>
         </div>
         <div class="hub-actions">
-          <button class="btn" onclick="resetWorkerHubSelection()">Auswahl zur&uuml;cksetzen</button>
-          <button class="btn primary" onclick="saveWorkerHub()">Profil-Hub speichern</button>
+          <button class="btn" onclick="resetWorkerHubSelection()" data-i18n="mit.hub.resetSelection">Auswahl zur&uuml;cksetzen</button>
+          <button class="btn primary" onclick="saveWorkerHub()" data-i18n="mit.hub.save">Profil-Hub speichern</button>
         </div>
       </div>
       <div id="skillsEmptyHint" style="text-align:center;padding:40px;color:var(--wk-text-muted)">
-        <div style="font-weight:700;margin-bottom:6px">Mitarbeiter ausw&auml;hlen</div>
-        <div style="font-size:13px">W&auml;hlen Sie oben einen Mitarbeiter aus, um Profil, Skills, Qualifikationen, Einsatzkontext und externe Freigabe zentral zu verwalten.</div>
+        <div style="font-weight:700;margin-bottom:6px" data-i18n="mit.hub.emptyTitle">Mitarbeiter ausw&auml;hlen</div>
+        <div style="font-size:13px" data-i18n="mit.hub.emptyText">W&auml;hlen Sie oben einen Mitarbeiter aus, um Profil, Skills, Qualifikationen, Einsatzkontext und externe Freigabe zentral zu verwalten.</div>
       </div>
     </div>
 
     <!-- Panel: Einladungen -->
     <div id="panel-invites" class="panel">
       <div id="inviteList">
-        <div class="empty-state">Einladungen werden geladen...</div>
+        <div class="empty-state" data-i18n="mit.invites.loading">Einladungen werden geladen...</div>
       </div>
     </div>
 
@@ -521,19 +521,19 @@
       <div class="form-card">
         <!-- Wizard Step Indicator -->
         <div style="display:flex;gap:4px;margin-bottom:20px" id="csv-steps">
-          <div class="csv-step csv-step--active" data-step="1"><span class="csv-step__num">1</span> Upload</div>
-          <div class="csv-step" data-step="2"><span class="csv-step__num">2</span> Mapping</div>
-          <div class="csv-step" data-step="3"><span class="csv-step__num">3</span> Validierung</div>
-          <div class="csv-step" data-step="4"><span class="csv-step__num">4</span> Import</div>
+          <div class="csv-step csv-step--active" data-step="1"><span class="csv-step__num">1</span> <span data-i18n="mit.csv.step1">Upload</span></div>
+          <div class="csv-step" data-step="2"><span class="csv-step__num">2</span> <span data-i18n="mit.csv.step2">Mapping</span></div>
+          <div class="csv-step" data-step="3"><span class="csv-step__num">3</span> <span data-i18n="mit.csv.step3">Validierung</span></div>
+          <div class="csv-step" data-step="4"><span class="csv-step__num">4</span> <span data-i18n="mit.csv.step4">Import</span></div>
         </div>
 
         <!-- Step 1: Upload -->
         <div id="csv-step-1" class="csv-wizard-step">
-          <h2 style="font-size:18px;font-weight:800;margin:0 0 8px">CSV-Datei hochladen</h2>
-          <p style="font-size:13px;color:var(--wk-text-muted);margin:0 0 16px">W&auml;hlen Sie eine CSV-Datei mit Ihren Mitarbeiterdaten. Unterst&uuml;tzte Trennzeichen: Komma, Semikolon, Tab.</p>
+          <h2 style="font-size:18px;font-weight:800;margin:0 0 8px" data-i18n="mit.csv.uploadTitle">CSV-Datei hochladen</h2>
+          <p style="font-size:13px;color:var(--wk-text-muted);margin:0 0 16px" data-i18n="mit.csv.uploadIntro">W&auml;hlen Sie eine CSV-Datei mit Ihren Mitarbeiterdaten. Unterst&uuml;tzte Trennzeichen: Komma, Semikolon, Tab.</p>
           <div id="csv-dropzone" style="border:2px dashed var(--tc-dash-border);border-radius:14px;padding:40px 20px;text-align:center;cursor:pointer;transition:border-color .2s;background:var(--tc-surface-subtle)">
-            <div style="font-size:14px;font-weight:600;margin-bottom:4px">CSV-Datei hierher ziehen oder klicken</div>
-            <div style="font-size:12px;color:var(--wk-text-muted)">Max. 1000 Datens&auml;tze &bull; .csv Format</div>
+            <div style="font-size:14px;font-weight:600;margin-bottom:4px" data-i18n="mit.csv.dropzone">CSV-Datei hierher ziehen oder klicken</div>
+            <div style="font-size:12px;color:var(--wk-text-muted)" data-i18n="mit.csv.dropzoneMeta">Max. 1000 Datens&auml;tze &bull; .csv Format</div>
             <input type="file" id="csv-file-input" accept=".csv,.txt" style="display:none">
           </div>
           <div id="csv-file-info" style="display:none;margin-top:12px;padding:12px;border:1px solid var(--tc-tone-success-border);border-radius:10px;background:var(--tc-tone-success-bg)">
@@ -541,7 +541,7 @@
             <span style="color:var(--wk-text-muted);font-size:12px;margin-left:8px" id="csv-file-meta"></span>
           </div>
           <div style="margin-top:8px;font-size:12px;color:var(--wk-text-muted)">
-            <details><summary style="cursor:pointer;font-weight:600">Beispiel-CSV</summary>
+            <details><summary style="cursor:pointer;font-weight:600" data-i18n="mit.csv.example">Beispiel-CSV</summary>
               <pre style="background:var(--tc-input-bg);padding:10px;border-radius:8px;margin-top:6px;font-size:11px;overflow-x:auto;font-family:monospace">first_name;last_name;email;phone;city;personnel_number
 Max;Muster;max@example.com;0170123456;Berlin;P001
 Anna;Beispiel;anna@example.com;0157987654;M&uuml;nchen;P002</pre>
@@ -551,39 +551,39 @@ Anna;Beispiel;anna@example.com;0157987654;M&uuml;nchen;P002</pre>
 
         <!-- Step 2: Mapping -->
         <div id="csv-step-2" class="csv-wizard-step" style="display:none">
-          <h2 style="font-size:18px;font-weight:800;margin:0 0 8px">Spalten zuordnen</h2>
-          <p style="font-size:13px;color:var(--wk-text-muted);margin:0 0 16px">Ordnen Sie die CSV-Spalten den TempConnect-Feldern zu. Pflichtfelder sind mit * markiert.</p>
+          <h2 style="font-size:18px;font-weight:800;margin:0 0 8px" data-i18n="mit.csv.mapTitle">Spalten zuordnen</h2>
+          <p style="font-size:13px;color:var(--wk-text-muted);margin:0 0 16px" data-i18n="mit.csv.mapIntro">Ordnen Sie die CSV-Spalten den TempConnect-Feldern zu. Pflichtfelder sind mit * markiert.</p>
           <div id="csv-mapping-grid" style="display:grid;grid-template-columns:1fr auto 1fr;gap:8px 12px;align-items:center"></div>
           <div style="margin-top:16px;display:flex;gap:8px;justify-content:flex-end">
-            <button class="btn" onclick="csvGoStep(1)">Zur&uuml;ck</button>
-            <button class="btn primary" onclick="csvGoStep(3)">Validierung starten &rarr;</button>
+            <button class="btn" onclick="csvGoStep(1)" data-i18n="mit.action.back">Zur&uuml;ck</button>
+            <button class="btn primary" onclick="csvGoStep(3)" data-i18n="mit.csv.startValidation">Validierung starten &rarr;</button>
           </div>
         </div>
 
         <!-- Step 3: Validation -->
         <div id="csv-step-3" class="csv-wizard-step" style="display:none">
-          <h2 style="font-size:18px;font-weight:800;margin:0 0 8px">Validierung &amp; Vorschau</h2>
+          <h2 style="font-size:18px;font-weight:800;margin:0 0 8px" data-i18n="mit.csv.validationTitle">Validierung &amp; Vorschau</h2>
           <div id="csv-validation-summary" style="display:flex;gap:12px;margin-bottom:16px;flex-wrap:wrap"></div>
           <div style="margin-bottom:12px">
             <label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer">
-              <span>Bei Duplikaten:</span>
+              <span data-i18n="mit.csv.onDuplicates">Bei Duplikaten:</span>
               <select id="csv-dup-strategy" style="width:auto;min-width:180px;margin-bottom:0">
-                <option value="skip">&Uuml;berspringen</option>
-                <option value="update">Aktualisieren</option>
+                <option value="skip" data-i18n="mit.csv.dupSkip">&Uuml;berspringen</option>
+                <option value="update" data-i18n="mit.csv.dupUpdate">Aktualisieren</option>
               </select>
             </label>
           </div>
           <div id="csv-validation-table" style="max-height:350px;overflow-y:auto;border:1px solid var(--wk-border);border-radius:10px"></div>
           <div id="csv-validation-errors" style="display:none;margin-top:12px"></div>
           <div style="margin-top:16px;display:flex;gap:8px;justify-content:flex-end">
-            <button class="btn" onclick="csvGoStep(2)">Zur&uuml;ck</button>
-            <button class="btn primary" id="csv-btn-import" onclick="csvExecuteImport()" disabled>Import starten</button>
+            <button class="btn" onclick="csvGoStep(2)" data-i18n="mit.action.back">Zur&uuml;ck</button>
+            <button class="btn primary" id="csv-btn-import" onclick="csvExecuteImport()" disabled data-i18n="mit.csv.startImport">Import starten</button>
           </div>
         </div>
 
         <!-- Step 4: Import Result -->
         <div id="csv-step-4" class="csv-wizard-step" style="display:none">
-          <h2 style="font-size:18px;font-weight:800;margin:0 0 8px">Import-Ergebnis</h2>
+          <h2 style="font-size:18px;font-weight:800;margin:0 0 8px" data-i18n="mit.csv.resultTitle">Import-Ergebnis</h2>
           <div id="csv-progress" style="display:none;margin-bottom:16px">
             <div style="height:8px;border-radius:99px;background:var(--tc-progress-track);overflow:hidden">
               <div id="csv-progress-bar" style="height:100%;border-radius:99px;background:linear-gradient(90deg,var(--ds-brand),var(--ds-success));width:0%;transition:width .3s"></div>
@@ -593,8 +593,8 @@ Anna;Beispiel;anna@example.com;0157987654;M&uuml;nchen;P002</pre>
           <div id="csv-result-summary" style="margin-bottom:16px"></div>
           <div id="csv-result-details" style="max-height:350px;overflow-y:auto"></div>
           <div style="margin-top:16px;display:flex;gap:8px;justify-content:flex-end">
-            <button class="btn" onclick="csvReset()">Neuer Import</button>
-            <button class="btn primary" onclick="showTab('list');loadWorkers()">Zur Mitarbeiterliste</button>
+            <button class="btn" onclick="csvReset()" data-i18n="mit.csv.newImport">Neuer Import</button>
+            <button class="btn primary" onclick="showTab('list');loadWorkers()" data-i18n="mit.csv.toList">Zur Mitarbeiterliste</button>
           </div>
         </div>
       </div>
@@ -604,44 +604,44 @@ Anna;Beispiel;anna@example.com;0157987654;M&uuml;nchen;P002</pre>
   <!-- Edit-Modal -->
   <div class="modal-bg" id="editModal">
     <div class="modal-panel">
-      <h2>Mitarbeiter bearbeiten</h2>
+      <h2 data-i18n="mit.edit.title">Mitarbeiter bearbeiten</h2>
       <div class="form-grid">
         <div>
-          <label>Vorname</label>
+          <label data-i18n="mit.field.firstName">Vorname</label>
           <input type="text" id="eFirstName">
         </div>
         <div>
-          <label>Nachname</label>
+          <label data-i18n="mit.field.lastName">Nachname</label>
           <input type="text" id="eLastName">
         </div>
         <div>
-          <label>Personalnummer</label>
+          <label data-i18n="mit.field.personnelNr">Personalnummer</label>
           <input type="text" id="ePersonnelNr">
         </div>
         <div>
-          <label>Telefon</label>
+          <label data-i18n="mit.field.phone">Telefon</label>
           <input type="text" id="ePhone">
         </div>
         <div>
-          <label>Stadt</label>
+          <label data-i18n="mit.field.city">Stadt</label>
           <input type="text" id="eCity">
         </div>
         <div>
-          <label>Strasse</label>
+          <label data-i18n="mit.field.street">Strasse</label>
           <input type="text" id="eStreet">
         </div>
         <div>
-          <label>PLZ</label>
+          <label data-i18n="mit.field.postal">PLZ</label>
           <input type="text" id="ePostal">
         </div>
         <div>
-          <label>Notizen</label>
+          <label data-i18n="mit.field.notes">Notizen</label>
           <input type="text" id="eNotes">
         </div>
       </div>
       <div class="form-actions" style="margin-top:16px">
-        <button class="btn" onclick="closeEditModal()">Abbrechen</button>
-        <button class="btn primary" onclick="saveEdit()">Speichern</button>
+        <button class="btn" onclick="closeEditModal()" data-i18n="mit.action.cancel">Abbrechen</button>
+        <button class="btn primary" onclick="saveEdit()" data-i18n="mit.action.save">Speichern</button>
       </div>
     </div>
   </div>
@@ -666,8 +666,8 @@ Anna;Beispiel;anna@example.com;0157987654;M&uuml;nchen;P002</pre>
       <h2 id="ogTitle">Angebote generieren</h2>
       <div id="ogBody"></div>
       <div class="form-actions" style="margin-top:16px" id="ogFooter">
-        <button class="btn" onclick="closeOfferGenModal()">Abbrechen</button>
-        <button class="btn primary" id="ogGenerateBtn" onclick="generateOffers()">Ausgewählte Angebote erstellen</button>
+        <button class="btn" onclick="closeOfferGenModal()" data-i18n="mit.action.cancel">Abbrechen</button>
+        <button class="btn primary" id="ogGenerateBtn" onclick="generateOffers()" data-i18n="mit.og.submit">Ausgewählte Angebote erstellen</button>
       </div>
     </div>
   </div>
@@ -675,19 +675,19 @@ Anna;Beispiel;anna@example.com;0157987654;M&uuml;nchen;P002</pre>
   <!-- Sammelangebot-Generator (Welle 4a) -->
   <div class="modal-bg" id="poolGenModal">
     <div class="modal-panel" style="max-width:640px">
-      <h2>Sammelangebot erstellen</h2>
-      <p style="font-size:12.5px;color:var(--ds-text-muted,#64748b);margin:0 0 14px">Bündeln Sie mehrere freie Mitarbeiter mit derselben Fähigkeit in <strong>einem</strong> Angebot – „N auf einmal anbieten".</p>
+      <h2 data-i18n="mit.pool.title">Sammelangebot erstellen</h2>
+      <p style="font-size:12.5px;color:var(--ds-text-muted,#64748b);margin:0 0 14px" data-i18n="mit.pool.intro">Bündeln Sie mehrere freie Mitarbeiter mit derselben Fähigkeit in einem Angebot – „N auf einmal anbieten".</p>
       <div style="margin-bottom:12px">
-        <label style="display:block;font-size:12px;font-weight:700;margin-bottom:6px">Fähigkeiten (eine oder mehrere)</label>
+        <label style="display:block;font-size:12px;font-weight:700;margin-bottom:6px" data-i18n="mit.pool.skillsLabel">Fähigkeiten (eine oder mehrere)</label>
         <select id="poolSkill" onchange="addPoolSkill()" style="width:100%;padding:9px 12px;border:1.5px solid var(--ds-border,#e2e8f0);border-radius:8px;font-size:13px;background:#fff">
-          <option value="">Fähigkeit hinzufügen…</option>
+          <option value="" data-i18n="mit.pool.addSkill">Fähigkeit hinzufügen…</option>
         </select>
         <div id="poolSelectedSkills" class="og-chips" style="margin-top:8px"></div>
       </div>
       <div id="poolBody"></div>
       <div class="form-actions" id="poolFooter" style="margin-top:16px;display:none">
-        <button class="btn" onclick="closePoolGenModal()">Abbrechen</button>
-        <button class="btn primary" id="poolGenerateBtn" onclick="generatePool()">Sammelangebot erstellen</button>
+        <button class="btn" onclick="closePoolGenModal()" data-i18n="mit.action.cancel">Abbrechen</button>
+        <button class="btn primary" id="poolGenerateBtn" onclick="generatePool()" data-i18n="mit.pool.submit">Sammelangebot erstellen</button>
       </div>
     </div>
   </div>
