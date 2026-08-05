@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <script src="/public/js/theme.js"></script>
   <script src="/public/js/i18n.js"></script>
-  <title>Preisrahmen – TempConnect</title>
+  <title data-i18n="sc.b.docTitle">Preisrahmen – TempConnect</title>
   <link rel="stylesheet" href="/public/css/enterprise.css"/>
   <style>
     .kpi-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: var(--ds-space-3); margin-bottom: var(--ds-space-5); }
@@ -53,56 +53,57 @@
 
     <div class="ds-page-header">
       <div class="ds-page-header__content">
-        <h1 class="ds-page-title">Preisrahmen</h1>
-        <p class="ds-page-subtitle">Ziel- und Maximalsaetze pro Rolle, Region und Lieferant steuern.</p>
+        <h1 class="ds-page-title" data-i18n="sc.b.page.title">Preisrahmen</h1>
+        <p class="ds-page-subtitle" data-i18n="sc.b.page.subtitle">Ziel- und Maximalsaetze pro Rolle, Region und Lieferant steuern.</p>
       </div>
       <div class="ds-page-header__actions">
-        <button id="rateCardCreateBtn" class="btn primary" data-feature-key="rate_card_management" onclick="openCreateModal()">+ Neuer Preisrahmen</button>
+        <button id="rateCardCreateBtn" class="btn primary" data-feature-key="rate_card_management" onclick="openCreateModal()" data-i18n="sc.b.action.create">+ Neuer Preisrahmen</button>
       </div>
     </div>
     <div class="link-row">
-      <a class="btn" data-feature-key="supplier_management" href="/public/vendor_pool.html">Lieferantenpool</a>
-      <a class="btn" href="/public/requisitions.html">Angebote</a>
-      <a class="btn" data-feature-key="spend_analytics" href="/public/spend-analytics.html">Spend &amp; Kosten</a>
-      <a class="btn" data-feature-key="supplier_ratings" href="/public/supplier_scorecard.html">Lieferantenbewertung</a>
+      <a class="btn" data-feature-key="supplier_management" href="/public/vendor_pool.html" data-i18n="sc.b.nav.vendorPool">Lieferantenpool</a>
+      <a class="btn" href="/public/requisitions.html" data-i18n="sc.b.nav.requisitions">Angebote</a>
+      <a class="btn" data-feature-key="spend_analytics" href="/public/spend-analytics.html" data-i18n="sc.b.nav.spend">Spend &amp; Kosten</a>
+      <a class="btn" data-feature-key="supplier_ratings" href="/public/supplier_scorecard.html" data-i18n="sc.b.nav.scorecard">Lieferantenbewertung</a>
     </div>
     <div id="rateCardContextBadge" class="context-badge"></div>
     <div id="rateCardState" class="page-state"></div>
 
     <!-- KPI Tiles -->
-    <div class="kpi-grid" id="kpiGrid"><div class="kpi-tile"><span class="kpi-val">–</span><span class="kpi-label">Lade…</span></div></div>
+    <div class="kpi-grid" id="kpiGrid"><div class="kpi-tile"><span class="kpi-val">–</span><span class="kpi-label" data-i18n="sc.b.loading">Lade…</span></div></div>
 
-    <!-- Filters -->
+    <!-- Filters — option[value] bleibt unveraendert: die Werte gehen als
+         status= / compliance_status= an den Server, nur die Labels sind zweisprachig. -->
     <div class="filter-row">
-      <div><label style="margin:0;font-size:11px;color:var(--ds-text-secondary)">Status</label>
-        <select id="fStatus" onchange="refreshRateCards()"><option value="">Alle</option><option value="active">Aktiv</option><option value="draft">Entwurf</option><option value="expired">Abgelaufen</option><option value="archived">Archiviert</option></select></div>
-      <div><label style="margin:0;font-size:11px;color:var(--ds-text-secondary)">Compliance (30 Tage)</label>
-        <select id="fComplianceStatus" onchange="refreshRateCards()"><option value="">Alle</option><option value="at_risk">Warnung / Verstoß</option><option value="warning">Nur Warnung</option><option value="non_compliant">Nur Verstoß</option></select></div>
-      <div><label style="margin:0;font-size:11px;color:var(--ds-text-secondary)">Rolle</label>
-        <input id="fRole" type="text" placeholder="z.B. Schweißer" onkeydown="if(event.key==='Enter')refreshRateCards()"/></div>
-      <div><label style="margin:0;font-size:11px;color:var(--ds-text-secondary)">Region</label>
-        <input id="fRegion" type="text" placeholder="z.B. München" onkeydown="if(event.key==='Enter')refreshRateCards()"/></div>
-      <div><label style="margin:0;font-size:11px;color:var(--ds-text-secondary)">Lieferant</label>
-        <select id="fSupplier" onchange="refreshRateCards()"><option value="">Alle Lieferanten</option></select></div>
-      <button class="btn" data-feature-key="rate_card_management" onclick="refreshRateCards()">Filtern</button>
+      <div><label style="margin:0;font-size:11px;color:var(--ds-text-secondary)" data-i18n="sc.b.filter.status">Status</label>
+        <select id="fStatus" onchange="refreshRateCards()"><option value="" data-i18n="sc.b.filter.all">Alle</option><option value="active" data-i18n="sc.b.status.active">Aktiv</option><option value="draft" data-i18n="sc.b.status.draft">Entwurf</option><option value="expired" data-i18n="sc.b.status.expired">Abgelaufen</option><option value="archived" data-i18n="sc.b.status.archived">Archiviert</option></select></div>
+      <div><label style="margin:0;font-size:11px;color:var(--ds-text-secondary)" data-i18n="sc.b.filter.compliance">Compliance (30 Tage)</label>
+        <select id="fComplianceStatus" onchange="refreshRateCards()"><option value="" data-i18n="sc.b.filter.all">Alle</option><option value="at_risk" data-i18n="sc.b.comp.atRisk">Warnung / Verstoß</option><option value="warning" data-i18n="sc.b.comp.warning">Nur Warnung</option><option value="non_compliant" data-i18n="sc.b.comp.nonCompliant">Nur Verstoß</option></select></div>
+      <div><label style="margin:0;font-size:11px;color:var(--ds-text-secondary)" data-i18n="sc.b.filter.role">Rolle</label>
+        <input id="fRole" type="text" placeholder="z.B. Schweißer" data-i18n-ph="sc.b.filter.rolePh" onkeydown="if(event.key==='Enter')refreshRateCards()"/></div>
+      <div><label style="margin:0;font-size:11px;color:var(--ds-text-secondary)" data-i18n="sc.b.filter.region">Region</label>
+        <input id="fRegion" type="text" placeholder="z.B. München" data-i18n-ph="sc.b.filter.regionPh" onkeydown="if(event.key==='Enter')refreshRateCards()"/></div>
+      <div><label style="margin:0;font-size:11px;color:var(--ds-text-secondary)" data-i18n="sc.b.filter.supplier">Lieferant</label>
+        <select id="fSupplier" onchange="refreshRateCards()"><option value="" data-i18n="sc.b.filter.allSuppliers">Alle Lieferanten</option></select></div>
+      <button class="btn" data-feature-key="rate_card_management" onclick="refreshRateCards()" data-i18n="sc.b.filter.apply">Filtern</button>
     </div>
 
     <!-- Table -->
     <div class="section">
-      <h3>Preisrahmen</h3>
+      <h3 data-i18n="sc.b.section.list">Preisrahmen</h3>
       <div id="tableWrap">
         <table>
           <thead><tr>
-            <th>Rolle</th><th>Region</th><th>Vendor</th><th>Ziel €/h</th><th>Max €/h</th><th>Gültig ab</th><th>Status</th><th>Aktionen</th>
+            <th data-i18n="sc.b.col.role">Rolle</th><th data-i18n="sc.b.col.region">Region</th><th data-i18n="sc.b.col.vendor">Vendor</th><th data-i18n="sc.b.col.target">Ziel €/h</th><th data-i18n="sc.b.col.max">Max €/h</th><th data-i18n="sc.b.col.validFrom">Gültig ab</th><th data-i18n="sc.b.col.status">Status</th><th data-i18n="sc.b.col.actions">Aktionen</th>
           </tr></thead>
-          <tbody id="tableBody"><tr><td colspan="8" class="empty-state">Lade…</td></tr></tbody>
+          <tbody id="tableBody"><tr><td colspan="8" class="empty-state" data-i18n="sc.b.loading">Lade…</td></tr></tbody>
         </table>
       </div>
     </div>
 
     <!-- Compliance Summary -->
     <div class="section">
-      <h3>Preisrahmen-Compliance (30 Tage)</h3>
+      <h3 data-i18n="sc.b.section.compliance">Preisrahmen-Compliance (30 Tage)</h3>
       <div class="kpi-grid" id="complianceGrid" style="grid-template-columns:repeat(4,1fr)"></div>
     </div>
   </div>
@@ -110,24 +111,24 @@
   <!-- Create/Edit Modal (hidden) -->
   <div id="modalOverlay" class="modal-overlay" style="display:none" onclick="if(event.target===this)closeModal()">
     <div class="modal">
-      <h2 id="modalTitle">Neuer Preisrahmen</h2>
+      <h2 id="modalTitle" data-i18n="sc.b.modal.title">Neuer Preisrahmen</h2>
       <form id="rcForm" onsubmit="return saveCard(event)">
         <input type="hidden" id="editId" value=""/>
         <div class="form-grid">
-          <div><label>Rolle / Kategorie *</label><input id="fmRole" required placeholder="z.B. Schweißer"/></div>
-          <div><label>Region</label><input id="fmRegion" placeholder="Stadt / Bundesland"/></div>
-          <div class="full"><label>Lieferant (optional)</label><select id="fmSupplierOrg"><option value="">Alle Lieferanten</option></select></div>
-          <div><label>Ziel-Satz (Cent) *</label><input id="fmTarget" type="number" min="1" required placeholder="3500 = 35,00 €"/></div>
-          <div><label>Max-Satz (Cent) *</label><input id="fmMax" type="number" min="1" required placeholder="4500 = 45,00 €"/></div>
-          <div><label>Min-Satz (Cent)</label><input id="fmMin" type="number" min="0" placeholder="optional"/></div>
-          <div><label>Gültig ab *</label><input id="fmFrom" type="date" required/></div>
-          <div><label>Gültig bis</label><input id="fmTo" type="date"/></div>
-          <div><label>ÜZ-Zuschlag %</label><input id="fmOT" type="number" step="0.1" value="25.0"/></div>
-          <div class="full"><label>Notizen</label><textarea id="fmNotes" rows="2" placeholder="Interne Notiz…"></textarea></div>
+          <div><label data-i18n="sc.b.form.role">Rolle / Kategorie *</label><input id="fmRole" required placeholder="z.B. Schweißer" data-i18n-ph="sc.b.filter.rolePh"/></div>
+          <div><label data-i18n="sc.b.form.region">Region</label><input id="fmRegion" placeholder="Stadt / Bundesland" data-i18n-ph="sc.b.form.regionPh"/></div>
+          <div class="full"><label data-i18n="sc.b.form.supplier">Lieferant (optional)</label><select id="fmSupplierOrg"><option value="" data-i18n="sc.b.filter.allSuppliers">Alle Lieferanten</option></select></div>
+          <div><label data-i18n="sc.b.form.target">Ziel-Satz (Cent) *</label><input id="fmTarget" type="number" min="1" required placeholder="3500 = 35,00 €" data-i18n-ph="sc.b.form.targetPh"/></div>
+          <div><label data-i18n="sc.b.form.max">Max-Satz (Cent) *</label><input id="fmMax" type="number" min="1" required placeholder="4500 = 45,00 €" data-i18n-ph="sc.b.form.maxPh"/></div>
+          <div><label data-i18n="sc.b.form.min">Min-Satz (Cent)</label><input id="fmMin" type="number" min="0" placeholder="optional" data-i18n-ph="sc.b.form.minPh"/></div>
+          <div><label data-i18n="sc.b.form.validFrom">Gültig ab *</label><input id="fmFrom" type="date" required/></div>
+          <div><label data-i18n="sc.b.form.validTo">Gültig bis</label><input id="fmTo" type="date"/></div>
+          <div><label data-i18n="sc.b.form.overtime">ÜZ-Zuschlag %</label><input id="fmOT" type="number" step="0.1" value="25.0"/></div>
+          <div class="full"><label data-i18n="sc.b.form.notes">Notizen</label><textarea id="fmNotes" rows="2" placeholder="Interne Notiz…" data-i18n-ph="sc.b.form.notesPh"></textarea></div>
         </div>
         <div class="btn-row">
-          <button type="button" class="btn" onclick="closeModal()">Abbrechen</button>
-          <button type="submit" class="btn primary" id="saveBtn" data-feature-key="rate_card_management">Speichern</button>
+          <button type="button" class="btn" onclick="closeModal()" data-i18n="sc.b.form.cancel">Abbrechen</button>
+          <button type="submit" class="btn primary" id="saveBtn" data-feature-key="rate_card_management" data-i18n="sc.b.form.save">Speichern</button>
         </div>
       </form>
     </div>
@@ -136,6 +137,391 @@
   <script src="/public/js/entitlements.js"></script>
 
   <script>
+  /* ── Woerterbuch (P6.1, DE/EN) fuer rate-cards.html ───────────────────────
+     Zweiter Unter-Namensraum "sc.b." der Lieferanten-/Konditionsgruppe, damit
+     nichts mit supplier_scorecard.html ("sc.") kollidiert. i18n.js liegt im
+     <head>, der Sprach-Umschalter kommt aus pageShell.js.
+
+     Bewusst NICHT uebersetzt:
+     - Topbar/Navigation/Nutzerbereich (pageShell.js)
+     - API-Datenwerte: Rollen-/Kategoriebezeichnung, Region, Lieferantenname,
+       Status-Rohwerte (draft/active/expired/archived), Betraege, Datumswerte
+     - option[value] aller Filter (status=, compliance_status=, supplier_org_id=)
+     - result.message / result.error aus der API (serverseitig formuliert)
+
+     Rollenlage: rate-cards.html ist laut api/config/visibilityMatrix.js auf
+     allowed_org_types ["company"] begrenzt — nur die Unternehmensseite erreicht
+     die Inhalte. Ihre feste Buyer-Sprache ("Lieferant") ist damit korrekt.
+     Erreicht eine Zeitarbeitsfirma die Seite doch, sieht sie ausschliesslich
+     die org_locked-Sperrtafel; deren Verweis nutzt "Vermittlung" — das ist der
+     NEUTRALE Begriff aus terminologyLabels.js, kein rollenabhaengiger, und
+     darf deshalb fest im Woerterbuch stehen.                                  */
+  TCi18n.register('de', {
+    'sc.b.docTitle': 'Preisrahmen – TempConnect',
+    'sc.b.page.title': 'Preisrahmen',
+    'sc.b.page.subtitle': 'Ziel- und Maximalsaetze pro Rolle, Region und Lieferant steuern.',
+    'sc.b.action.create': '+ Neuer Preisrahmen',
+
+    'sc.b.nav.vendorPool': 'Lieferantenpool',
+    'sc.b.nav.requisitions': 'Angebote',
+    'sc.b.nav.spend': 'Spend & Kosten',
+    'sc.b.nav.scorecard': 'Lieferantenbewertung',
+    'sc.b.nav.vendorSteering': 'Lieferantensteuerung',
+    'sc.b.nav.plans': 'Tarif ansehen',
+    'sc.b.nav.marketplace': 'Zur Vermittlung',
+    'sc.b.nav.deals': 'Zu Deals & Einsaetzen',
+    'sc.b.nav.overview': 'Zur Uebersicht',
+
+    'sc.b.loading': 'Lade…',
+    'sc.b.filter.status': 'Status',
+    'sc.b.filter.compliance': 'Compliance (30 Tage)',
+    'sc.b.filter.role': 'Rolle',
+    'sc.b.filter.rolePh': 'z.B. Schweißer',
+    'sc.b.filter.region': 'Region',
+    'sc.b.filter.regionPh': 'z.B. München',
+    'sc.b.filter.supplier': 'Lieferant',
+    'sc.b.filter.all': 'Alle',
+    'sc.b.filter.allSuppliers': 'Alle Lieferanten',
+    'sc.b.filter.apply': 'Filtern',
+    'sc.b.filter.supplierFallback': 'Lieferant',
+
+    'sc.b.status.active': 'Aktiv',
+    'sc.b.status.draft': 'Entwurf',
+    'sc.b.status.expired': 'Abgelaufen',
+    'sc.b.status.archived': 'Archiviert',
+    'sc.b.comp.atRisk': 'Warnung / Verstoß',
+    'sc.b.comp.warning': 'Nur Warnung',
+    'sc.b.comp.nonCompliant': 'Nur Verstoß',
+    'sc.b.comp.compliant': 'Nur compliant',
+
+    'sc.b.section.list': 'Preisrahmen',
+    'sc.b.section.compliance': 'Preisrahmen-Compliance (30 Tage)',
+    'sc.b.col.role': 'Rolle',
+    'sc.b.col.region': 'Region',
+    'sc.b.col.vendor': 'Vendor',
+    'sc.b.col.target': 'Ziel €/h',
+    'sc.b.col.max': 'Max €/h',
+    'sc.b.col.validFrom': 'Gültig ab',
+    'sc.b.col.status': 'Status',
+    'sc.b.col.actions': 'Aktionen',
+    'sc.b.cell.allSuppliers': 'Alle',
+    'sc.b.cell.global': 'Global',
+    'sc.b.cell.scorecardTitle': 'Lieferantenbewertung oeffnen',
+    'sc.b.row.activate': 'Aktivieren',
+    'sc.b.row.archive': 'Archivieren',
+    'sc.b.row.scorecard': 'Bewertung',
+    'sc.b.row.spend': 'Kosten',
+
+    'sc.b.modal.title': 'Neuer Preisrahmen',
+    'sc.b.form.role': 'Rolle / Kategorie *',
+    'sc.b.form.region': 'Region',
+    'sc.b.form.regionPh': 'Stadt / Bundesland',
+    'sc.b.form.supplier': 'Lieferant (optional)',
+    'sc.b.form.target': 'Ziel-Satz (Cent) *',
+    'sc.b.form.targetPh': '3500 = 35,00 €',
+    'sc.b.form.max': 'Max-Satz (Cent) *',
+    'sc.b.form.maxPh': '4500 = 45,00 €',
+    'sc.b.form.min': 'Min-Satz (Cent)',
+    'sc.b.form.minPh': 'optional',
+    'sc.b.form.validFrom': 'Gültig ab *',
+    'sc.b.form.validTo': 'Gültig bis',
+    'sc.b.form.overtime': 'ÜZ-Zuschlag %',
+    'sc.b.form.notes': 'Notizen',
+    'sc.b.form.notesPh': 'Interne Notiz…',
+    'sc.b.form.cancel': 'Abbrechen',
+    'sc.b.form.save': 'Speichern',
+
+    'sc.b.access.noContextTitle': 'Preisrahmen derzeit nicht verfuegbar',
+    'sc.b.access.noContextText': 'Der Nutzerkontext konnte nicht geladen werden. Bitte melden Sie sich erneut an oder aktualisieren Sie die Seite.',
+    'sc.b.access.planTitle': 'Preisrahmen sind in Ihrem Tarif nicht freigeschaltet',
+    'sc.b.access.planText': 'Die Preisrahmen-Steuerung ist ein Procurement-/Governance-Modul ab PRO bzw. Individuell.',
+    'sc.b.access.planTextShort': 'Die Preisrahmen-Steuerung ist ab PRO bzw. Individuell verfuegbar.',
+    'sc.b.access.agencyTitle': 'Preisrahmen sind aus Zeitarbeitsfirmen-Sicht bewusst gesperrt',
+    'sc.b.access.agencyText': 'Dieser Bereich ist in TempConnect eine buyer-seitige Konditions- und Procurement-Steuerung fuer Einsatzunternehmen.',
+    'sc.b.access.roleTitle': 'Ihre Rolle hat keinen Zugriff auf Preisrahmen',
+    'sc.b.access.roleText': 'Preisrahmen bleiben fuer leseberechtigte Procurement-/Steuerungsrollen sichtbar und werden fuer andere Rollen bewusst nicht geoeffnet.',
+    'sc.b.access.readonlyTitle': 'Preisrahmen im Read-only-Modus',
+    'sc.b.access.readonlyText': 'Ihre Rolle darf Preisrahmen lesen, aber nicht anlegen, aktivieren oder archivieren.',
+    'sc.b.access.orgTitle': 'Preisrahmen sind fuer diese Organisation nicht verfuegbar',
+    'sc.b.access.orgText': 'Preisrahmen stehen nur fuer Unternehmensorganisationen zur Verfuegung.',
+    'sc.b.access.blockedTitle': 'Preisrahmen nicht verfuegbar',
+    'sc.b.access.blockedText': 'Preisrahmen sind derzeit nicht verfuegbar.',
+    'sc.b.access.blockedRow': 'Preisrahmen sind fuer Ihren aktuellen Organisationskontext nicht verfuegbar.',
+
+    'sc.b.write.title': 'Preisrahmen sind fuer Ihre Rolle schreibgeschuetzt',
+    'sc.b.write.text': '{action} ist nur fuer Rollen mit Preisrahmen-Schreibrecht verfuegbar.',
+    'sc.b.write.generic': 'Diese Aktion',
+    'sc.b.write.create': 'Das Anlegen neuer Preisrahmen',
+    'sc.b.write.save': 'Das Speichern von Preisrahmen',
+    'sc.b.write.activate': 'Das Aktivieren von Preisrahmen',
+    'sc.b.write.archive': 'Das Archivieren von Preisrahmen',
+
+    'sc.b.state.initTitle': 'Preisrahmen werden geladen',
+    'sc.b.state.initText': 'Kontext, Filter und Kennzahlen werden vorbereitet.',
+    'sc.b.state.drilldownTitle': 'Executive-Drilldown wird geladen',
+    'sc.b.state.loadingDrilldown': 'Aktive Preisrahmen und gefilterte Kennzahlen fuer das Dashboard-Zeitfenster werden aktualisiert.',
+    'sc.b.state.loadingDefault': 'Liste und gefilterte Kennzahlen werden aktualisiert.',
+    'sc.b.state.csrfTitle': 'Initialisierung teilweise eingeschränkt',
+    'sc.b.state.csrfText': 'Das Sicherheitstoken konnte nicht geladen werden. Schreibaktionen koennen voruebergehend fehlschlagen.',
+    'sc.b.state.listFailTitle': 'Preisrahmen derzeit nicht verfügbar',
+    'sc.b.state.listFailText': 'Die Preisrahmenliste konnte nicht geladen werden.',
+    'sc.b.state.drilldownIncompleteTitle': 'Executive-Drilldown unvollständig',
+    'sc.b.state.drilldownIncompleteText': 'Das Zeitfenster für den KPI-Drilldown fehlt. Es werden nur die aktuell sichtbaren Filter angewendet.',
+    'sc.b.state.partialTitle': 'Teilweise Daten fehlen',
+    'sc.b.state.partialText': '{issues} konnten nicht geladen werden. Die Preisrahmenliste bleibt verfügbar.',
+    'sc.b.state.extraMissing': ' Zusätzlich fehlen {issues}.',
+    'sc.b.state.postMutationSuffix': ' {issues} bleiben derzeit eingeschränkt.',
+    'sc.b.issue.supplierFilter': 'Lieferantenfilter',
+    'sc.b.issue.stats': 'Preisrahmen-Statistik',
+    'sc.b.issue.separator': ', ',
+
+    'sc.b.loading.compliance': 'Preisrahmen-Compliance wird geladen.',
+    'sc.b.stats.unavailable': 'Statistik nicht verfuegbar',
+    'sc.b.stats.complianceFail': 'Preisrahmen-Compliance konnte derzeit nicht geladen werden.',
+    'sc.b.list.loadFail': 'Die Preisrahmenliste konnte derzeit nicht geladen werden.',
+
+    'sc.b.empty.drilldownFiltered': 'Keine aktiven Preisrahmen ueberlappen das Dashboard-Zeitfenster fuer die aktuelle Auswahl.',
+    'sc.b.empty.drilldown': 'Es gibt derzeit keine aktiven Preisrahmen, deren Gueltigkeit das Dashboard-Zeitfenster ueberlappt.',
+    'sc.b.empty.filteredLoc': 'Keine Preisrahmen fuer Standort {loc} und diese Auswahl vorhanden.',
+    'sc.b.empty.filtered': 'Keine Preisrahmen fuer diese Auswahl vorhanden.',
+    'sc.b.empty.noneLoc': 'Noch keine Preisrahmen fuer Standort {loc}.',
+    'sc.b.empty.none': 'Noch keine Preisrahmen vorhanden. Legen Sie jetzt den ersten Preisrahmen an.',
+
+    'sc.b.ctx.drilldownTitle': 'Executive-Drilldown: Aktive Preisrahmen',
+    'sc.b.ctx.drilldownText': 'Die Seite bleibt auf aktive Preisrahmen begrenzt, deren Gültigkeit das Dashboard-Zeitfenster {from} bis {to} überlappt.',
+    'sc.b.ctx.period': 'Zeitraum',
+    'sc.b.ctx.status': 'Status',
+    'sc.b.ctx.compliance': 'Compliance',
+    'sc.b.ctx.role': 'Rolle',
+    'sc.b.ctx.region': 'Region',
+    'sc.b.ctx.supplier': 'Lieferant',
+    'sc.b.ctx.activeContext': 'Aktiver Preisrahmen-Kontext: ',
+    'sc.b.ctx.locationNote': 'Konditionsrahmen gelten org-weit – Standort „{loc}“ hat keinen Einfluss auf Preisrahmen.',
+    'sc.b.ctx.reset': 'Filter zuruecksetzen',
+    'sc.b.ctx.lockedStatusTitle': 'Im Executive-Drilldown bleibt der Status auf aktive Preisrahmen begrenzt.',
+
+    'sc.b.kpi.activeInWindow': 'Aktiv im Fenster',
+    'sc.b.kpi.rolesInWindow': 'Rollen im Fenster',
+    'sc.b.kpi.vendorSpecific': 'Lieferantenspezifisch',
+    'sc.b.kpi.total': 'Gesamt',
+    'sc.b.kpi.active': 'Aktiv',
+    'sc.b.kpi.draft': 'Entwurf',
+    'sc.b.kpi.expired': 'Abgelaufen',
+    'sc.b.kpi.roles': 'Rollen',
+    'sc.b.kpi.checked': 'Geprüft',
+    'sc.b.kpi.compliant': 'Compliant',
+    'sc.b.kpi.warning': 'Warnung',
+    'sc.b.kpi.nonCompliant': 'Nicht konform',
+
+    'sc.b.confirm.activate': 'Preisrahmen aktivieren?',
+    'sc.b.confirm.archive': 'Preisrahmen archivieren?',
+    'sc.b.save.invalidTitle': 'Ungueltiger Preisrahmen',
+    'sc.b.save.invalidText': 'Ziel-Satz darf nicht ueber Max-Satz liegen.',
+    'sc.b.save.updatedTitle': 'Preisrahmen aktualisiert',
+    'sc.b.save.createdTitle': 'Preisrahmen angelegt',
+    'sc.b.save.updatedText': 'Der Preisrahmen wurde erfolgreich aktualisiert.',
+    'sc.b.save.createdText': 'Der Preisrahmen wurde erfolgreich angelegt.',
+    'sc.b.save.partialText': 'Die Änderung wurde gespeichert, aber die aktualisierte Ansicht konnte nicht vollständig geladen werden.',
+    'sc.b.save.failTitle': 'Speichern fehlgeschlagen',
+    'sc.b.save.failText': 'Der Preisrahmen konnte nicht gespeichert werden.',
+    'sc.b.activate.okTitle': 'Preisrahmen aktiviert',
+    'sc.b.activate.okText': 'Der Preisrahmen wurde erfolgreich aktiviert.',
+    'sc.b.activate.partialText': 'Die Aktivierung war erfolgreich, aber die aktualisierte Ansicht konnte nicht vollständig geladen werden.',
+    'sc.b.activate.failTitle': 'Aktivierung fehlgeschlagen',
+    'sc.b.activate.failText': 'Der Preisrahmen konnte nicht aktiviert werden.',
+    'sc.b.archive.okTitle': 'Preisrahmen archiviert',
+    'sc.b.archive.okText': 'Der Preisrahmen wurde erfolgreich archiviert.',
+    'sc.b.archive.partialText': 'Die Archivierung war erfolgreich, aber die aktualisierte Ansicht konnte nicht vollständig geladen werden.',
+    'sc.b.archive.failTitle': 'Archivierung fehlgeschlagen',
+    'sc.b.archive.failText': 'Der Preisrahmen konnte nicht archiviert werden.',
+
+    'sc.b.error.forbidden': 'Keine Berechtigung.',
+    'sc.b.error.network': 'Netzwerkfehler oder Server nicht erreichbar.'
+  });
+  TCi18n.register('en', {
+    'sc.b.docTitle': 'Rate cards – TempConnect',
+    'sc.b.page.title': 'Rate cards',
+    'sc.b.page.subtitle': 'Steer target and maximum rates per role, region and supplier.',
+    'sc.b.action.create': '+ New rate card',
+
+    'sc.b.nav.vendorPool': 'Supplier pool',
+    'sc.b.nav.requisitions': 'Job postings',
+    'sc.b.nav.spend': 'Spend & cost',
+    'sc.b.nav.scorecard': 'Supplier scorecard',
+    'sc.b.nav.vendorSteering': 'Supplier steering',
+    'sc.b.nav.plans': 'View plans',
+    'sc.b.nav.marketplace': 'Go to matching',
+    'sc.b.nav.deals': 'Go to deals & assignments',
+    'sc.b.nav.overview': 'Go to the overview',
+
+    'sc.b.loading': 'Loading…',
+    'sc.b.filter.status': 'Status',
+    'sc.b.filter.compliance': 'Compliance (30 days)',
+    'sc.b.filter.role': 'Role',
+    'sc.b.filter.rolePh': 'e.g. welder',
+    'sc.b.filter.region': 'Region',
+    'sc.b.filter.regionPh': 'e.g. Munich',
+    'sc.b.filter.supplier': 'Supplier',
+    'sc.b.filter.all': 'All',
+    'sc.b.filter.allSuppliers': 'All suppliers',
+    'sc.b.filter.apply': 'Apply filters',
+    'sc.b.filter.supplierFallback': 'Supplier',
+
+    'sc.b.status.active': 'Active',
+    'sc.b.status.draft': 'Draft',
+    'sc.b.status.expired': 'Expired',
+    'sc.b.status.archived': 'Archived',
+    'sc.b.comp.atRisk': 'Warning / breach',
+    'sc.b.comp.warning': 'Warning only',
+    'sc.b.comp.nonCompliant': 'Breach only',
+    'sc.b.comp.compliant': 'Compliant only',
+
+    'sc.b.section.list': 'Rate cards',
+    'sc.b.section.compliance': 'Rate card compliance (30 days)',
+    'sc.b.col.role': 'Role',
+    'sc.b.col.region': 'Region',
+    'sc.b.col.vendor': 'Supplier',
+    'sc.b.col.target': 'Target €/h',
+    'sc.b.col.max': 'Max €/h',
+    'sc.b.col.validFrom': 'Valid from',
+    'sc.b.col.status': 'Status',
+    'sc.b.col.actions': 'Actions',
+    'sc.b.cell.allSuppliers': 'All',
+    'sc.b.cell.global': 'Global',
+    'sc.b.cell.scorecardTitle': 'Open supplier scorecard',
+    'sc.b.row.activate': 'Activate',
+    'sc.b.row.archive': 'Archive',
+    'sc.b.row.scorecard': 'Scorecard',
+    'sc.b.row.spend': 'Cost',
+
+    'sc.b.modal.title': 'New rate card',
+    'sc.b.form.role': 'Role / category *',
+    'sc.b.form.region': 'Region',
+    'sc.b.form.regionPh': 'City / state',
+    'sc.b.form.supplier': 'Supplier (optional)',
+    'sc.b.form.target': 'Target rate (cents) *',
+    'sc.b.form.targetPh': '3500 = €35.00',
+    'sc.b.form.max': 'Maximum rate (cents) *',
+    'sc.b.form.maxPh': '4500 = €45.00',
+    'sc.b.form.min': 'Minimum rate (cents)',
+    'sc.b.form.minPh': 'optional',
+    'sc.b.form.validFrom': 'Valid from *',
+    'sc.b.form.validTo': 'Valid until',
+    'sc.b.form.overtime': 'Overtime surcharge %',
+    'sc.b.form.notes': 'Notes',
+    'sc.b.form.notesPh': 'Internal note…',
+    'sc.b.form.cancel': 'Cancel',
+    'sc.b.form.save': 'Save',
+
+    'sc.b.access.noContextTitle': 'Rate cards currently unavailable',
+    'sc.b.access.noContextText': 'The user context could not be loaded. Please sign in again or refresh the page.',
+    'sc.b.access.planTitle': 'Rate cards are not enabled on your plan',
+    'sc.b.access.planText': 'Rate card steering is a procurement and governance module available from PRO and Individual upwards.',
+    'sc.b.access.planTextShort': 'Rate card steering is available from PRO and Individual upwards.',
+    'sc.b.access.agencyTitle': 'Rate cards are deliberately locked for staffing companies',
+    'sc.b.access.agencyText': 'In TempConnect this area is a buyer-side rate and procurement control for hiring companies.',
+    'sc.b.access.roleTitle': 'Your role has no access to rate cards',
+    'sc.b.access.roleText': 'Rate cards stay visible to procurement and steering roles with read access and are deliberately not opened for other roles.',
+    'sc.b.access.readonlyTitle': 'Rate cards in read-only mode',
+    'sc.b.access.readonlyText': 'Your role may read rate cards but not create, activate or archive them.',
+    'sc.b.access.orgTitle': 'Rate cards are not available for this organisation',
+    'sc.b.access.orgText': 'Rate cards are available to company organisations only.',
+    'sc.b.access.blockedTitle': 'Rate cards unavailable',
+    'sc.b.access.blockedText': 'Rate cards are currently unavailable.',
+    'sc.b.access.blockedRow': 'Rate cards are not available for your current organisation context.',
+
+    'sc.b.write.title': 'Rate cards are read-only for your role',
+    'sc.b.write.text': '{action} is available only to roles with rate card write permission.',
+    'sc.b.write.generic': 'This action',
+    'sc.b.write.create': 'Creating new rate cards',
+    'sc.b.write.save': 'Saving rate cards',
+    'sc.b.write.activate': 'Activating rate cards',
+    'sc.b.write.archive': 'Archiving rate cards',
+
+    'sc.b.state.initTitle': 'Loading rate cards',
+    'sc.b.state.initText': 'Context, filters and key figures are being prepared.',
+    'sc.b.state.drilldownTitle': 'Loading executive drilldown',
+    'sc.b.state.loadingDrilldown': 'Active rate cards and filtered key figures for the dashboard period are being refreshed.',
+    'sc.b.state.loadingDefault': 'List and filtered key figures are being refreshed.',
+    'sc.b.state.csrfTitle': 'Initialisation partly limited',
+    'sc.b.state.csrfText': 'The security token could not be loaded. Write actions may fail temporarily.',
+    'sc.b.state.listFailTitle': 'Rate cards currently unavailable',
+    'sc.b.state.listFailText': 'The rate card list could not be loaded.',
+    'sc.b.state.drilldownIncompleteTitle': 'Executive drilldown incomplete',
+    'sc.b.state.drilldownIncompleteText': 'The time window for the KPI drilldown is missing. Only the currently visible filters are applied.',
+    'sc.b.state.partialTitle': 'Some data is missing',
+    'sc.b.state.partialText': '{issues} could not be loaded. The rate card list stays available.',
+    'sc.b.state.extraMissing': ' In addition, {issues} are missing.',
+    'sc.b.state.postMutationSuffix': ' {issues} remain limited for now.',
+    'sc.b.issue.supplierFilter': 'supplier filter',
+    'sc.b.issue.stats': 'rate card statistics',
+    'sc.b.issue.separator': ', ',
+
+    'sc.b.loading.compliance': 'Rate card compliance is loading.',
+    'sc.b.stats.unavailable': 'Statistics unavailable',
+    'sc.b.stats.complianceFail': 'Rate card compliance could not be loaded right now.',
+    'sc.b.list.loadFail': 'The rate card list could not be loaded right now.',
+
+    'sc.b.empty.drilldownFiltered': 'No active rate cards overlap the dashboard period for the current selection.',
+    'sc.b.empty.drilldown': 'There are currently no active rate cards whose validity overlaps the dashboard period.',
+    'sc.b.empty.filteredLoc': 'No rate cards for location {loc} and this selection.',
+    'sc.b.empty.filtered': 'No rate cards for this selection.',
+    'sc.b.empty.noneLoc': 'No rate cards yet for location {loc}.',
+    'sc.b.empty.none': 'No rate cards yet. Create the first rate card now.',
+
+    'sc.b.ctx.drilldownTitle': 'Executive drilldown: active rate cards',
+    'sc.b.ctx.drilldownText': 'The page stays limited to active rate cards whose validity overlaps the dashboard period {from} to {to}.',
+    'sc.b.ctx.period': 'Period',
+    'sc.b.ctx.status': 'Status',
+    'sc.b.ctx.compliance': 'Compliance',
+    'sc.b.ctx.role': 'Role',
+    'sc.b.ctx.region': 'Region',
+    'sc.b.ctx.supplier': 'Supplier',
+    'sc.b.ctx.activeContext': 'Active rate card context: ',
+    'sc.b.ctx.locationNote': 'Rate frameworks apply org-wide – location “{loc}” has no effect on rate cards.',
+    'sc.b.ctx.reset': 'Reset filters',
+    'sc.b.ctx.lockedStatusTitle': 'In the executive drilldown the status stays limited to active rate cards.',
+
+    'sc.b.kpi.activeInWindow': 'Active in period',
+    'sc.b.kpi.rolesInWindow': 'Roles in period',
+    'sc.b.kpi.vendorSpecific': 'Supplier-specific',
+    'sc.b.kpi.total': 'Total',
+    'sc.b.kpi.active': 'Active',
+    'sc.b.kpi.draft': 'Draft',
+    'sc.b.kpi.expired': 'Expired',
+    'sc.b.kpi.roles': 'Roles',
+    'sc.b.kpi.checked': 'Checked',
+    'sc.b.kpi.compliant': 'Compliant',
+    'sc.b.kpi.warning': 'Warning',
+    'sc.b.kpi.nonCompliant': 'Non-compliant',
+
+    'sc.b.confirm.activate': 'Activate rate card?',
+    'sc.b.confirm.archive': 'Archive rate card?',
+    'sc.b.save.invalidTitle': 'Invalid rate card',
+    'sc.b.save.invalidText': 'The target rate must not exceed the maximum rate.',
+    'sc.b.save.updatedTitle': 'Rate card updated',
+    'sc.b.save.createdTitle': 'Rate card created',
+    'sc.b.save.updatedText': 'The rate card was updated successfully.',
+    'sc.b.save.createdText': 'The rate card was created successfully.',
+    'sc.b.save.partialText': 'The change was saved, but the refreshed view could not be loaded completely.',
+    'sc.b.save.failTitle': 'Saving failed',
+    'sc.b.save.failText': 'The rate card could not be saved.',
+    'sc.b.activate.okTitle': 'Rate card activated',
+    'sc.b.activate.okText': 'The rate card was activated successfully.',
+    'sc.b.activate.partialText': 'The activation succeeded, but the refreshed view could not be loaded completely.',
+    'sc.b.activate.failTitle': 'Activation failed',
+    'sc.b.activate.failText': 'The rate card could not be activated.',
+    'sc.b.archive.okTitle': 'Rate card archived',
+    'sc.b.archive.okText': 'The rate card was archived successfully.',
+    'sc.b.archive.partialText': 'The archiving succeeded, but the refreshed view could not be loaded completely.',
+    'sc.b.archive.failTitle': 'Archiving failed',
+    'sc.b.archive.failText': 'The rate card could not be archived.',
+
+    'sc.b.error.forbidden': 'No permission.',
+    'sc.b.error.network': 'Network error or server unreachable.'
+  });
+  var t = function(key, params) { return TCi18n.t(key, params); };
+
     var csrfToken = '';
     var rateCardLoadVersion = 0;
     var rateCardSupplierOptionsIssue = false;
@@ -200,8 +586,8 @@
           tone: 'warn',
           canRead: false,
           canWrite: false,
-          title: 'Preisrahmen derzeit nicht verfuegbar',
-          text: 'Der Nutzerkontext konnte nicht geladen werden. Bitte melden Sie sich erneut an oder aktualisieren Sie die Seite.'
+          titleKey: 'sc.b.access.noContextTitle',
+          textKey: 'sc.b.access.noContextText'
         };
       }
       if (!planAllowed) {
@@ -210,8 +596,8 @@
           tone: 'warn',
           canRead: false,
           canWrite: false,
-          title: 'Preisrahmen sind in Ihrem Tarif nicht freigeschaltet',
-          text: 'Die Preisrahmen-Steuerung ist ein Procurement-/Governance-Modul ab PRO bzw. Individuell.'
+          titleKey: 'sc.b.access.planTitle',
+          textKey: 'sc.b.access.planText'
         };
       }
       if (roleType === 'agency') {
@@ -220,8 +606,8 @@
           tone: 'info',
           canRead: false,
           canWrite: false,
-          title: 'Preisrahmen sind aus Zeitarbeitsfirmen-Sicht bewusst gesperrt',
-          text: 'Dieser Bereich ist in TempConnect eine buyer-seitige Konditions- und Procurement-Steuerung fuer Einsatzunternehmen.'
+          titleKey: 'sc.b.access.agencyTitle',
+          textKey: 'sc.b.access.agencyText'
         };
       }
       if (!canReadRateCardsForMe(me)) {
@@ -230,8 +616,8 @@
           tone: 'warn',
           canRead: false,
           canWrite: false,
-          title: 'Ihre Rolle hat keinen Zugriff auf Preisrahmen',
-          text: 'Preisrahmen bleiben fuer leseberechtigte Procurement-/Steuerungsrollen sichtbar und werden fuer andere Rollen bewusst nicht geoeffnet.'
+          titleKey: 'sc.b.access.roleTitle',
+          textKey: 'sc.b.access.roleText'
         };
       }
       if (!canWriteRateCardsForMe(me)) {
@@ -240,8 +626,8 @@
           tone: 'info',
           canRead: true,
           canWrite: false,
-          title: 'Preisrahmen im Read-only-Modus',
-          text: 'Ihre Rolle darf Preisrahmen lesen, aber nicht anlegen, aktivieren oder archivieren.'
+          titleKey: 'sc.b.access.readonlyTitle',
+          textKey: 'sc.b.access.readonlyText'
         };
       }
       return {
@@ -249,9 +635,21 @@
         tone: 'good',
         canRead: true,
         canWrite: true,
-        title: '',
-        text: ''
+        titleKey: '',
+        textKey: ''
       };
+    }
+    /* Zugriffslage haelt SCHLUESSEL statt fertiger Saetze: beim Sprachwechsel
+       rendert dieselbe Lage sofort in der neuen Sprache, ohne /api/me erneut zu
+       fragen. textRaw traegt ausschliesslich vom Server formulierte Meldungen. */
+    function accessTitle(access) {
+      if (access && access.titleKey) return t(access.titleKey);
+      return t('sc.b.access.blockedTitle');
+    }
+    function accessText(access) {
+      if (access && access.textRaw) return access.textRaw;
+      if (access && access.textKey) return t(access.textKey);
+      return t('sc.b.access.blockedText');
     }
     function getRateCardBlockedPanel() {
       var panel = document.getElementById('rateCardBlockedPanel');
@@ -269,29 +667,31 @@
     function renderRateCardBlockedPanel(access) {
       var panel = getRateCardBlockedPanel();
       if (!panel) return;
-      var body = '<div class="section-note">' + esc(access && access.text || 'Preisrahmen sind derzeit nicht verfuegbar.') + '</div>';
+      var body = '<div class="section-note">' + esc(accessText(access)) + '</div>';
       var links = '';
       if (access && access.mode === 'plan_locked') {
         links =
           '<div class="link-row" style="margin-top:14px">' +
-            '<a class="btn primary" href="/public/sla_abo.html">Tarif ansehen</a>' +
-            '<a class="btn" data-feature-key="supplier_management" href="/public/vendor_pool.html">Lieferantenpool</a>' +
+            '<a class="btn primary" href="/public/sla_abo.html">' + esc(t('sc.b.nav.plans')) + '</a>' +
+            '<a class="btn" data-feature-key="supplier_management" href="/public/vendor_pool.html">' + esc(t('sc.b.nav.vendorPool')) + '</a>' +
           '</div>';
       } else if (access && access.mode === 'org_locked') {
+        // "Vermittlung" ist der NEUTRALE Begriff der Terminologie-Matrix
+        // (company/agency teilen ihn) — als fester Wert also unbedenklich.
         links =
           '<div class="link-row" style="margin-top:14px">' +
-            '<a class="btn primary" href="/public/capacity_exchange_feed.html">Zur Vermittlung</a>' +
-            '<a class="btn" href="/public/deal_management.html">Zu Deals &amp; Einsaetzen</a>' +
+            '<a class="btn primary" href="/public/capacity_exchange_feed.html">' + esc(t('sc.b.nav.marketplace')) + '</a>' +
+            '<a class="btn" href="/public/deal_management.html">' + esc(t('sc.b.nav.deals')) + '</a>' +
           '</div>';
       } else {
         links =
           '<div class="link-row" style="margin-top:14px">' +
-            '<a class="btn primary" href="/public/enterprise.html">Zur Uebersicht</a>' +
-            '<a class="btn" data-feature-key="supplier_management" href="/public/vendor_pool.html">Lieferantensteuerung</a>' +
+            '<a class="btn primary" href="/public/enterprise.html">' + esc(t('sc.b.nav.overview')) + '</a>' +
+            '<a class="btn" data-feature-key="supplier_management" href="/public/vendor_pool.html">' + esc(t('sc.b.nav.vendorSteering')) + '</a>' +
           '</div>';
       }
       panel.innerHTML =
-        '<h3>' + esc(access && access.title || 'Preisrahmen nicht verfuegbar') + '</h3>' +
+        '<h3>' + esc(accessTitle(access)) + '</h3>' +
         body +
         links;
       panel.style.display = '';
@@ -330,33 +730,35 @@
       if (!access.canRead) {
         setRateCardContentVisibility(false);
         renderRateCardBlockedPanel(access);
-        showRateCardState(access.tone || 'warn', access.title || 'Preisrahmen nicht verfuegbar', access.text || '');
+        showRateCardState(access.tone || 'warn', accessTitle(access), accessText(access));
         applyRateCardDomLocks(document);
         return;
       }
       hideRateCardBlockedPanel();
       setRateCardContentVisibility(true);
       if (access.mode === 'read_only') {
-        showRateCardState(access.tone || 'info', access.title || 'Preisrahmen im Read-only-Modus', access.text || '');
+        showRateCardState(access.tone || 'info', accessTitle(access), accessText(access));
       }
       applyRateCardDomLocks(document);
     }
-    function ensureRateCardWriteAccess(actionLabel) {
+    /** actionKey ist ein Woerterbuch-Schluessel, kein fertiger Satz — sonst
+     *  stuende die Aktion beim Sprachwechsel in der alten Sprache da. */
+    function ensureRateCardWriteAccess(actionKey) {
       if (rateCardAccess.canWrite) return true;
       showRateCardState(
         'warn',
-        'Preisrahmen sind fuer Ihre Rolle schreibgeschuetzt',
-        (actionLabel || 'Diese Aktion') + ' ist nur fuer Rollen mit Preisrahmen-Schreibrecht verfuegbar.'
+        t('sc.b.write.title'),
+        t('sc.b.write.text', { action: t(actionKey || 'sc.b.write.generic') })
       );
       return false;
     }
     function esc(s) { var d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
     function centsToEur(c) { return c != null ? (c / 100).toFixed(2) : '–'; }
-    function formatDateDe(value) {
+    function formatDate(value) {
       if (!value) return '';
       var date = new Date(value);
       if (Number.isNaN(date.getTime())) return value;
-      return date.toLocaleDateString('de-DE');
+      return date.toLocaleDateString(TCi18n.dateLocale());
     }
     function isWindowOverlapDrilldown() {
       return rateCardView.statusGroup === 'window_overlap_30d' && rateCardView.windowDateFrom && rateCardView.windowDateTo;
@@ -367,7 +769,7 @@
       if (rateCardView.lockedStatus) {
         statusEl.value = rateCardView.lockedStatus;
         statusEl.disabled = true;
-        statusEl.title = 'Im Executive-Drilldown bleibt der Status auf aktive Preisrahmen begrenzt.';
+        statusEl.title = t('sc.b.ctx.lockedStatusTitle');
       } else {
         statusEl.disabled = false;
         statusEl.title = '';
@@ -409,33 +811,37 @@
       try { sessionStorage.setItem(RATE_CARD_FILTER_STORAGE_KEY, JSON.stringify(filters || {})); } catch (e) {}
     }
     function setStatsLoading() {
-      document.getElementById('kpiGrid').innerHTML = '<div class="kpi-tile"><span class="kpi-val">–</span><span class="kpi-label">Lade…</span></div>';
-      document.getElementById('complianceGrid').innerHTML = gridNote('Preisrahmen-Compliance wird geladen.');
+      document.getElementById('kpiGrid').innerHTML = '<div class="kpi-tile"><span class="kpi-val">–</span><span class="kpi-label">' + esc(t('sc.b.loading')) + '</span></div>';
+      document.getElementById('complianceGrid').innerHTML = gridNote(t('sc.b.loading.compliance'));
     }
     function setRateCardLoading() {
-      document.getElementById('tableBody').innerHTML = '<tr><td colspan="8" class="empty-state">Lade…</td></tr>';
+      document.getElementById('tableBody').innerHTML = '<tr><td colspan="8" class="empty-state">' + esc(t('sc.b.loading')) + '</td></tr>';
     }
     function collectRateCardIssues() {
       var issues = [];
-      if (rateCardSupplierOptionsIssue) issues.push('Lieferantenfilter');
-      if (rateCardStatsIssue) issues.push('Preisrahmen-Statistik');
+      if (rateCardSupplierOptionsIssue) issues.push(t('sc.b.issue.supplierFilter'));
+      if (rateCardStatsIssue) issues.push(t('sc.b.issue.stats'));
       return issues;
+    }
+    function joinIssues(issues) { return issues.join(t('sc.b.issue.separator')); }
+    function extraMissing(issues) {
+      return issues.length ? t('sc.b.state.extraMissing', { issues: joinIssues(issues) }) : '';
     }
     function syncRateCardState(listFailed) {
       if (!rateCardAccess.canRead) return;
       var issues = collectRateCardIssues();
       if (listFailed) {
-        showRateCardState('bad', 'Preisrahmen derzeit nicht verfügbar', 'Die Preisrahmenliste konnte nicht geladen werden.' + (issues.length ? ' Zusätzlich fehlen ' + issues.join(', ') + '.' : ''));
+        showRateCardState('bad', t('sc.b.state.listFailTitle'), t('sc.b.state.listFailText') + extraMissing(issues));
         return;
       }
       if (rateCardView.statusGroup === 'window_overlap_30d' && !isWindowOverlapDrilldown()) {
-        showRateCardState('warn', 'Executive-Drilldown unvollständig', 'Das Zeitfenster für den KPI-Drilldown fehlt. Es werden nur die aktuell sichtbaren Filter angewendet.' + (issues.length ? ' Zusätzlich fehlen ' + issues.join(', ') + '.' : ''));
+        showRateCardState('warn', t('sc.b.state.drilldownIncompleteTitle'), t('sc.b.state.drilldownIncompleteText') + extraMissing(issues));
         return;
       }
       if (issues.length) {
-        showRateCardState('warn', 'Teilweise Daten fehlen', issues.join(', ') + ' konnten nicht geladen werden. Die Preisrahmenliste bleibt verfügbar.');
+        showRateCardState('warn', t('sc.b.state.partialTitle'), t('sc.b.state.partialText', { issues: joinIssues(issues) }));
       } else if (rateCardAccess.mode === 'read_only') {
-        showRateCardState('info', 'Preisrahmen im Read-only-Modus', 'Ihre Rolle darf Preisrahmen lesen, aber nicht anlegen, aktivieren oder archivieren.');
+        showRateCardState('info', t('sc.b.access.readonlyTitle'), t('sc.b.access.readonlyText'));
       } else {
         clearRateCardState();
       }
@@ -443,7 +849,7 @@
     function renderPostMutationState(title, text) {
       var issues = collectRateCardIssues();
       if (issues.length) {
-        showRateCardState('warn', title, text + ' ' + issues.join(', ') + ' bleiben derzeit eingeschränkt.');
+        showRateCardState('warn', title, text + t('sc.b.state.postMutationSuffix', { issues: joinIssues(issues) }));
       } else {
         showRateCardState('good', title, text);
       }
@@ -518,8 +924,10 @@
           tone: 'info',
           canRead: false,
           canWrite: false,
-          title: 'Preisrahmen sind fuer diese Organisation nicht verfuegbar',
-          text: result.message || 'Preisrahmen stehen nur fuer Unternehmensorganisationen zur Verfuegung.'
+          titleKey: 'sc.b.access.orgTitle',
+          textKey: 'sc.b.access.orgText',
+          // Serverseitig formulierte Meldung gewinnt und wird NICHT uebersetzt.
+          textRaw: result.message || ''
         };
       }
       if (result.error === 'FEATURE_NOT_ALLOWED' && result.feature === 'rate_card_management') {
@@ -528,8 +936,8 @@
           tone: 'warn',
           canRead: false,
           canWrite: false,
-          title: 'Preisrahmen sind in Ihrem Tarif nicht freigeschaltet',
-          text: 'Die Preisrahmen-Steuerung ist ab PRO bzw. Individuell verfuegbar.'
+          titleKey: 'sc.b.access.planTitle',
+          textKey: 'sc.b.access.planTextShort'
         };
       }
       return null;
@@ -565,10 +973,10 @@
           try { data = JSON.parse(text); } catch (err) { data = {}; }
         }
         if (r.ok) return data;
-        if (!data.error) data.error = r.status === 403 ? 'Keine Berechtigung.' : 'HTTP ' + r.status;
+        if (!data.error) data.error = r.status === 403 ? t('sc.b.error.forbidden') : 'HTTP ' + r.status;
         return data;
       } catch (e) {
-        return { error: 'Netzwerkfehler oder Server nicht erreichbar.' };
+        return { error: t('sc.b.error.network') };
       }
     }
 
@@ -578,11 +986,13 @@
       return sel.selectedOptions[0].textContent || '';
     }
 
+    /* Rohwert (at_risk/warning/…) bleibt der Server-Filterwert; nur das
+       angezeigte Etikett ist zweisprachig. */
     function complianceStatusLabel(value) {
-      if (value === 'at_risk') return 'Warnung / Verstoß';
-      if (value === 'warning') return 'Nur Warnung';
-      if (value === 'non_compliant') return 'Nur Verstoß';
-      if (value === 'compliant') return 'Nur compliant';
+      if (value === 'at_risk') return t('sc.b.comp.atRisk');
+      if (value === 'warning') return t('sc.b.comp.warning');
+      if (value === 'non_compliant') return t('sc.b.comp.nonCompliant');
+      if (value === 'compliant') return t('sc.b.comp.compliant');
       return '';
     }
 
@@ -596,17 +1006,18 @@
       var locId = getLocHeader();
       var locLbl = getLocLabel();
       if (isWindowOverlapDrilldown()) {
-        title = 'Executive-Drilldown: Aktive Rate Cards';
-        text = 'Die Seite bleibt auf aktive Preisrahmen begrenzt, deren Gültigkeit das Dashboard-Zeitfenster ' + formatDateDe(rateCardView.windowDateFrom) + ' bis ' + formatDateDe(rateCardView.windowDateTo) + ' überlappt.';
-        parts.push('Zeitraum <strong>' + esc(formatDateDe(rateCardView.windowDateFrom) + ' – ' + formatDateDe(rateCardView.windowDateTo)) + '</strong>');
-        parts.push('Status <strong>active</strong>');
+        title = t('sc.b.ctx.drilldownTitle');
+        text = t('sc.b.ctx.drilldownText', { from: formatDate(rateCardView.windowDateFrom), to: formatDate(rateCardView.windowDateTo) });
+        parts.push(esc(t('sc.b.ctx.period')) + ' <strong>' + esc(formatDate(rateCardView.windowDateFrom) + ' – ' + formatDate(rateCardView.windowDateTo)) + '</strong>');
+        // "active" ist der Status-Rohwert der API, kein Anzeigetext.
+        parts.push(esc(t('sc.b.ctx.status')) + ' <strong>active</strong>');
       } else if (filters.status) {
-        parts.push('Status <strong>' + esc(filters.status) + '</strong>');
+        parts.push(esc(t('sc.b.ctx.status')) + ' <strong>' + esc(filters.status) + '</strong>');
       }
-      if (filters.complianceStatus) parts.push('Compliance <strong>' + esc(complianceStatusLabel(filters.complianceStatus)) + '</strong>');
-      if (filters.role) parts.push('Rolle <strong>' + esc(filters.role) + '</strong>');
-      if (filters.region) parts.push('Region <strong>' + esc(filters.region) + '</strong>');
-      if (filters.supplierOrgId) parts.push('Lieferant <strong>' + esc(supplierName) + '</strong>');
+      if (filters.complianceStatus) parts.push(esc(t('sc.b.ctx.compliance')) + ' <strong>' + esc(complianceStatusLabel(filters.complianceStatus)) + '</strong>');
+      if (filters.role) parts.push(esc(t('sc.b.ctx.role')) + ' <strong>' + esc(filters.role) + '</strong>');
+      if (filters.region) parts.push(esc(t('sc.b.ctx.region')) + ' <strong>' + esc(filters.region) + '</strong>');
+      if (filters.supplierOrgId) parts.push(esc(t('sc.b.ctx.supplier')) + ' <strong>' + esc(supplierName) + '</strong>');
       var badge = document.getElementById('rateCardContextBadge');
       if (!title && !parts.length && !locId) {
         badge.style.display = 'none';
@@ -617,50 +1028,52 @@
       badge.innerHTML =
         (title ? '<strong>' + esc(title) + '</strong>' : '') +
         (text ? '<div style="margin-top:6px">' + esc(text) + '</div>' : '') +
-        (parts.length ? '<div style="margin-top:6px">Aktiver Preisrahmen-Kontext: ' + parts.join(' &bull; ') + '</div>' : '') +
-        (locId ? '<div style="margin-top:8px;color:var(--ds-text-secondary);font-size:12px">Konditionsrahmen gelten org-weit – Standort „' + esc(locLbl || locId) + '“ hat keinen Einfluss auf Preisrahmen.</div>' : '') +
-        ((title || parts.length) ? '<div style="margin-top:6px"><a href="/public/rate-cards.html" style="color:var(--brand);font-size:12px">Filter zuruecksetzen &times;</a></div>' : '');
+        (parts.length ? '<div style="margin-top:6px">' + esc(t('sc.b.ctx.activeContext')) + parts.join(' &bull; ') + '</div>' : '') +
+        (locId ? '<div style="margin-top:8px;color:var(--ds-text-secondary);font-size:12px">' + esc(t('sc.b.ctx.locationNote', { loc: locLbl || locId })) + '</div>' : '') +
+        ((title || parts.length) ? '<div style="margin-top:6px"><a href="/public/rate-cards.html" style="color:var(--brand);font-size:12px">' + esc(t('sc.b.ctx.reset')) + ' &times;</a></div>' : '');
     }
     function renderKpiTiles(cards) {
       var tiles;
       if (isWindowOverlapDrilldown()) {
         tiles = [
-          { label: 'Aktiv im Fenster', val: cards.total || cards.active || 0, color: 'var(--good)' },
-          { label: 'Rollen im Fenster', val: cards.role_categories || 0, color: 'var(--brand)' },
-          { label: 'Lieferantenspezifisch', val: cards.vendor_specific || 0, color: '#7c5cff' }
+          { label: t('sc.b.kpi.activeInWindow'), val: cards.total || cards.active || 0, color: 'var(--good)' },
+          { label: t('sc.b.kpi.rolesInWindow'), val: cards.role_categories || 0, color: 'var(--brand)' },
+          { label: t('sc.b.kpi.vendorSpecific'), val: cards.vendor_specific || 0, color: '#7c5cff' }
         ];
       } else {
         tiles = [
-          { label: 'Gesamt', val: cards.total || 0, color: 'var(--text)' },
-          { label: 'Aktiv', val: cards.active || 0, color: 'var(--good)' },
-          { label: 'Entwurf', val: cards.draft || 0, color: 'var(--ds-text-secondary)' },
-          { label: 'Abgelaufen', val: cards.expired || 0, color: 'var(--bad)' },
-          { label: 'Rollen', val: cards.role_categories || 0, color: 'var(--brand)' },
-          { label: 'Lieferantenspezifisch', val: cards.vendor_specific || 0, color: '#7c5cff' }
+          { label: t('sc.b.kpi.total'), val: cards.total || 0, color: 'var(--text)' },
+          { label: t('sc.b.kpi.active'), val: cards.active || 0, color: 'var(--good)' },
+          { label: t('sc.b.kpi.draft'), val: cards.draft || 0, color: 'var(--ds-text-secondary)' },
+          { label: t('sc.b.kpi.expired'), val: cards.expired || 0, color: 'var(--bad)' },
+          { label: t('sc.b.kpi.roles'), val: cards.role_categories || 0, color: 'var(--brand)' },
+          { label: t('sc.b.kpi.vendorSpecific'), val: cards.vendor_specific || 0, color: '#7c5cff' }
         ];
       }
-      document.getElementById('kpiGrid').innerHTML = tiles.map(function(t) {
-        return '<div class="kpi-tile"><span class="kpi-val" style="color:' + t.color + '">' + esc(String(t.val)) + '</span><span class="kpi-label">' + esc(t.label) + '</span></div>';
+      // Laufvariable heisst bewusst NICHT t — das wuerde die Uebersetzerfunktion
+      // in diesem Block verdecken.
+      document.getElementById('kpiGrid').innerHTML = tiles.map(function(tile) {
+        return '<div class="kpi-tile"><span class="kpi-val" style="color:' + tile.color + '">' + esc(String(tile.val)) + '</span><span class="kpi-label">' + esc(tile.label) + '</span></div>';
       }).join('');
     }
     function renderComplianceTiles(comp) {
       document.getElementById('complianceGrid').innerHTML = [
-        { label: 'Geprüft', val: comp.total_checks || 0, color: 'var(--text)' },
-        { label: 'Compliant', val: comp.compliant || 0, color: 'var(--good)' },
-        { label: 'Warnung', val: comp.warnings || 0, color: 'var(--warn)' },
-        { label: 'Nicht konform', val: comp.non_compliant || 0, color: 'var(--bad)' }
-      ].map(function(t) {
-        return '<div class="kpi-tile"><span class="kpi-val" style="color:' + t.color + '">' + esc(String(t.val)) + '</span><span class="kpi-label">' + esc(t.label) + '</span></div>';
+        { label: t('sc.b.kpi.checked'), val: comp.total_checks || 0, color: 'var(--text)' },
+        { label: t('sc.b.kpi.compliant'), val: comp.compliant || 0, color: 'var(--good)' },
+        { label: t('sc.b.kpi.warning'), val: comp.warnings || 0, color: 'var(--warn)' },
+        { label: t('sc.b.kpi.nonCompliant'), val: comp.non_compliant || 0, color: 'var(--bad)' }
+      ].map(function(tile) {
+        return '<div class="kpi-tile"><span class="kpi-val" style="color:' + tile.color + '">' + esc(String(tile.val)) + '</span><span class="kpi-label">' + esc(tile.label) + '</span></div>';
       }).join('');
     }
     function buildRateCardLoadingText() {
       return isWindowOverlapDrilldown()
-        ? 'Aktive Preisrahmen und gefilterte Kennzahlen fuer das Dashboard-Zeitfenster werden aktualisiert.'
-        : 'Liste und gefilterte Kennzahlen werden aktualisiert.';
+        ? t('sc.b.state.loadingDrilldown')
+        : t('sc.b.state.loadingDefault');
     }
 
     async function init() {
-      showRateCardState('info', 'Preisrahmen werden geladen', 'Kontext, Filter und Kennzahlen werden vorbereitet.');
+      showRateCardState('info', t('sc.b.state.initTitle'), t('sc.b.state.initText'));
       setStatsLoading();
       setRateCardLoading();
       currentMe = await fetchCurrentMe();
@@ -672,7 +1085,7 @@
           var csrf = await fetch('/api/csrf', { credentials: 'include' });
           if (csrf.ok) { var d = await csrf.json(); csrfToken = d.csrfToken || ''; }
         } catch (e) {
-          showRateCardState('warn', 'Initialisierung teilweise eingeschränkt', 'Das Sicherheitstoken konnte nicht geladen werden. Schreibaktionen koennen voruebergehend fehlschlagen.');
+          showRateCardState('warn', t('sc.b.state.csrfTitle'), t('sc.b.state.csrfText'));
         }
       }
       var hasUrlFilters = rateCardQuery.has('status_group') || rateCardQuery.has('date_from') || rateCardQuery.has('date_to') ||
@@ -704,21 +1117,23 @@
       var sel = document.getElementById('fmSupplierOrg');
       var filterSel = document.getElementById('fSupplier');
       if (!sel) return;
+      // value="" bleibt leer (Server-Filter) — nur das Label ist zweisprachig.
+      var allOption = '<option value="">' + esc(t('sc.b.filter.allSuppliers')) + '</option>';
       if (!d || d.error) {
         rateCardSupplierOptionsIssue = true;
-        sel.innerHTML = '<option value="">Alle Lieferanten</option>';
-        if (filterSel) filterSel.innerHTML = '<option value="">Alle Lieferanten</option>';
+        sel.innerHTML = allOption;
+        if (filterSel) filterSel.innerHTML = allOption;
         return;
       }
       var items = (d && d.items) || [];
       rateCardSupplierOptionsIssue = false;
       var options = items.map(function(it){
         var id = it.supplier_org_id || '';
-        var name = it.supplier_org_name || it.supplier_org_id || 'Lieferant';
+        var name = it.supplier_org_name || it.supplier_org_id || t('sc.b.filter.supplierFallback');
         return '<option value="' + esc(id) + '">' + esc(name) + '</option>';
       }).join('');
-      sel.innerHTML = '<option value="">Alle Lieferanten</option>' + options;
-      if (filterSel) filterSel.innerHTML = '<option value="">Alle Lieferanten</option>' + options;
+      sel.innerHTML = allOption + options;
+      if (filterSel) filterSel.innerHTML = allOption + options;
       if (preselectedId) {
         ensureSelectOption(sel, preselectedId, preselectedName || preselectedId);
         ensureSelectOption(filterSel, preselectedId, preselectedName || preselectedId);
@@ -732,8 +1147,8 @@
       if (applyRateCardApiErrorState(d)) return { status: 'blocked' };
       if (!d || d.error || !d.data) {
         rateCardStatsIssue = true;
-        document.getElementById('kpiGrid').innerHTML = '<div class="kpi-tile"><span class="kpi-val">!</span><span class="kpi-label">Statistik nicht verfuegbar</span></div>';
-        document.getElementById('complianceGrid').innerHTML = gridNote('Preisrahmen-Compliance konnte derzeit nicht geladen werden.');
+        document.getElementById('kpiGrid').innerHTML = '<div class="kpi-tile"><span class="kpi-val">!</span><span class="kpi-label">' + esc(t('sc.b.stats.unavailable')) + '</span></div>';
+        document.getElementById('complianceGrid').innerHTML = gridNote(t('sc.b.stats.complianceFail'));
         return { status: 'error' };
       }
       rateCardStatsIssue = false;
@@ -751,11 +1166,11 @@
       var body = document.getElementById('tableBody');
       if (loadId !== rateCardLoadVersion) return { status: 'stale' };
       if (applyRateCardApiErrorState(d)) {
-        body.innerHTML = '<tr><td colspan=\"8\" class=\"empty-state\">Preisrahmen sind fuer Ihren aktuellen Organisationskontext nicht verfuegbar.</td></tr>';
+        body.innerHTML = '<tr><td colspan=\"8\" class=\"empty-state\">' + esc(t('sc.b.access.blockedRow')) + '</td></tr>';
         return { status: 'blocked' };
       }
       if (!d || d.error || !d.data || !d.data.items) {
-        body.innerHTML = '<tr><td colspan="8" class="empty-state">Die Preisrahmenliste konnte derzeit nicht geladen werden.</td></tr>';
+        body.innerHTML = '<tr><td colspan="8" class="empty-state">' + esc(t('sc.b.list.loadFail')) + '</td></tr>';
         return { status: 'error' };
       }
       if (!d.data.items.length) {
@@ -763,32 +1178,34 @@
         var locLbl = getLocLabel();
         var emptyText = isWindowOverlapDrilldown()
           ? (hasScopedFilter
-            ? 'Keine aktiven Preisrahmen ueberlappen das Dashboard-Zeitfenster fuer die aktuelle Auswahl.'
-            : 'Es gibt derzeit keine aktiven Preisrahmen, deren Gueltigkeit das Dashboard-Zeitfenster ueberlappt.')
+            ? t('sc.b.empty.drilldownFiltered')
+            : t('sc.b.empty.drilldown'))
           : (hasScopedFilter
-            ? (locLbl ? 'Keine Preisrahmen fuer Standort ' + locLbl + ' und diese Auswahl vorhanden.' : 'Keine Preisrahmen fuer diese Auswahl vorhanden.')
-            : (locLbl ? 'Noch keine Preisrahmen fuer Standort ' + locLbl + '.' : 'Noch keine Preisrahmen vorhanden. Legen Sie jetzt den ersten Preisrahmen an.'));
+            ? (locLbl ? t('sc.b.empty.filteredLoc', { loc: locLbl }) : t('sc.b.empty.filtered'))
+            : (locLbl ? t('sc.b.empty.noneLoc', { loc: locLbl }) : t('sc.b.empty.none')));
         body.innerHTML = '<tr><td colspan="8" class="empty-state">' + esc(emptyText) + '</td></tr>';
         return { status: 'empty' };
       }
 
       body.innerHTML = d.data.items.map(function(rc) {
         var badge = '<span class="badge badge-' + rc.status + '">' + esc(rc.status) + '</span>';
+        // Lieferantenname, Region und Status-Rohwert sind API-Daten und bleiben
+        // unuebersetzt; nur die Platzhalter-Etiketten sind zweisprachig.
         var vendor = rc.supplier_name && rc.supplier_org_id
-          ? '<a href="' + buildScorecardUrl(rc.supplier_org_id, rc.supplier_name) + '" style="color:inherit;text-decoration:underline;text-decoration-color:rgba(255,255,255,.2)" title="Lieferantenbewertung oeffnen">' + esc(rc.supplier_name) + '</a>'
-          : (rc.supplier_name || '<span style="color:var(--ds-text-secondary)">Alle</span>');
-        var regionLabel = rc.region || (rc.location_name || '<span style="color:var(--ds-text-secondary)">Global</span>');
+          ? '<a href="' + buildScorecardUrl(rc.supplier_org_id, rc.supplier_name) + '" style="color:inherit;text-decoration:underline;text-decoration-color:rgba(255,255,255,.2)" title="' + esc(t('sc.b.cell.scorecardTitle')) + '">' + esc(rc.supplier_name) + '</a>'
+          : (rc.supplier_name || '<span style="color:var(--ds-text-secondary)">' + esc(t('sc.b.cell.allSuppliers')) + '</span>');
+        var regionLabel = rc.region || (rc.location_name || '<span style="color:var(--ds-text-secondary)">' + esc(t('sc.b.cell.global')) + '</span>');
         var validFrom = rc.valid_from ? rc.valid_from.slice(0,10) : '–';
         var actions = '';
         if (rateCardAccess.canWrite && rc.status === 'draft') {
-          actions += '<button class="btn" data-feature-key="rate_card_management" style="padding:2px 8px;font-size:11px" onclick="activateCard(\''+rc.id+'\')">Aktivieren</button> ';
+          actions += '<button class="btn" data-feature-key="rate_card_management" style="padding:2px 8px;font-size:11px" onclick="activateCard(\''+rc.id+'\')">' + esc(t('sc.b.row.activate')) + '</button> ';
         }
         if (rateCardAccess.canWrite && (rc.status === 'draft' || rc.status === 'active')) {
-          actions += '<button class="btn" data-feature-key="rate_card_management" style="padding:2px 8px;font-size:11px" onclick="archiveCard(\''+rc.id+'\')">Archivieren</button>';
+          actions += '<button class="btn" data-feature-key="rate_card_management" style="padding:2px 8px;font-size:11px" onclick="archiveCard(\''+rc.id+'\')">' + esc(t('sc.b.row.archive')) + '</button>';
         }
         if (rc.supplier_org_id) {
-          actions += ' <a class="btn" data-feature-key="supplier_ratings" style="padding:2px 8px;font-size:11px" href="' + buildScorecardUrl(rc.supplier_org_id, rc.supplier_name || '') + '">Bewertung</a>';
-          actions += ' <a class="btn" data-feature-key="spend_analytics" style="padding:2px 8px;font-size:11px" href="' + buildSpendUrl(rc.supplier_org_id, rc.supplier_name || '', rc.role_category, rc.region || rc.location_name || '') + '">Kosten</a>';
+          actions += ' <a class="btn" data-feature-key="supplier_ratings" style="padding:2px 8px;font-size:11px" href="' + buildScorecardUrl(rc.supplier_org_id, rc.supplier_name || '') + '">' + esc(t('sc.b.row.scorecard')) + '</a>';
+          actions += ' <a class="btn" data-feature-key="spend_analytics" style="padding:2px 8px;font-size:11px" href="' + buildSpendUrl(rc.supplier_org_id, rc.supplier_name || '', rc.role_category, rc.region || rc.location_name || '') + '">' + esc(t('sc.b.row.spend')) + '</a>';
         }
         return '<tr>'+
           '<td><strong>'+esc(rc.role_category)+'</strong></td>'+
@@ -820,7 +1237,7 @@
       }
       var loadId = ++rateCardLoadVersion;
       renderContextBadge(preSupplierName);
-      showRateCardState('info', isWindowOverlapDrilldown() ? 'Executive-Drilldown wird geladen' : 'Preisrahmen werden geladen', buildRateCardLoadingText());
+      showRateCardState('info', isWindowOverlapDrilldown() ? t('sc.b.state.drilldownTitle') : t('sc.b.state.initTitle'), buildRateCardLoadingText());
       setStatsLoading();
       setRateCardLoading();
       var results = await Promise.all([loadStats(loadId), loadCards(loadId, preSupplierName)]);
@@ -832,9 +1249,11 @@
     }
 
     function openCreateModal() {
-      if (!ensureRateCardWriteAccess('Das Anlegen neuer Preisrahmen')) return;
+      if (!ensureRateCardWriteAccess('sc.b.write.create')) return;
       document.getElementById('editId').value = '';
-      document.getElementById('modalTitle').textContent = 'Neuer Preisrahmen';
+      // Marker bleibt stehen (parameterloser Schluessel) — apply() darf hier
+      // ruhig nachziehen, es ist derselbe Text.
+      document.getElementById('modalTitle').textContent = t('sc.b.modal.title');
       document.getElementById('rcForm').reset();
       document.getElementById('fmOT').value = '25.0';
       document.getElementById('fmRole').value = document.getElementById('fRole').value.trim();
@@ -849,11 +1268,11 @@
 
     async function saveCard(e) {
       e.preventDefault();
-      if (!ensureRateCardWriteAccess('Das Speichern von Preisrahmen')) return false;
+      if (!ensureRateCardWriteAccess('sc.b.write.save')) return false;
       var target = parseInt(document.getElementById('fmTarget').value, 10);
       var max = parseInt(document.getElementById('fmMax').value, 10);
       if (target > max) {
-        showRateCardState('warn', 'Ungueltiger Preisrahmen', 'Ziel-Satz darf nicht ueber Max-Satz liegen.');
+        showRateCardState('warn', t('sc.b.save.invalidTitle'), t('sc.b.save.invalidText'));
         return false;
       }
 
@@ -881,52 +1300,72 @@
       if (result && !result.error) {
         closeModal();
         var refreshResult = await refreshRateCards();
+        var savedTitle = editId ? t('sc.b.save.updatedTitle') : t('sc.b.save.createdTitle');
         if (refreshResult && refreshResult.status === 'error') {
-          showRateCardState('warn', editId ? 'Preisrahmen aktualisiert' : 'Preisrahmen angelegt', 'Die Änderung wurde gespeichert, aber die aktualisierte Ansicht konnte nicht vollständig geladen werden.');
+          showRateCardState('warn', savedTitle, t('sc.b.save.partialText'));
         } else {
-          renderPostMutationState(editId ? 'Preisrahmen aktualisiert' : 'Preisrahmen angelegt', editId ? 'Der Preisrahmen wurde erfolgreich aktualisiert.' : 'Der Preisrahmen wurde erfolgreich angelegt.');
+          renderPostMutationState(savedTitle, editId ? t('sc.b.save.updatedText') : t('sc.b.save.createdText'));
         }
       } else {
-        showRateCardState('bad', 'Speichern fehlgeschlagen', parseApiError(result, 'Der Preisrahmen konnte nicht gespeichert werden.'));
+        // parseApiError liefert bevorzugt die Server-Meldung — die bleibt, wie sie ist.
+        showRateCardState('bad', t('sc.b.save.failTitle'), parseApiError(result, t('sc.b.save.failText')));
       }
       return false;
     }
 
     async function activateCard(id) {
-      if (!ensureRateCardWriteAccess('Das Aktivieren von Preisrahmen')) return;
-      if (!confirm('Preisrahmen aktivieren?')) return;
+      if (!ensureRateCardWriteAccess('sc.b.write.activate')) return;
+      if (!confirm(t('sc.b.confirm.activate'))) return;
       var result = await api('/rate-cards/' + id + '/activate', { method: 'POST', body: {} });
       if (applyRateCardApiErrorState(result)) return;
       if (result && !result.error) {
         var refreshResult = await refreshRateCards();
         if (refreshResult && refreshResult.status === 'error') {
-          showRateCardState('warn', 'Preisrahmen aktiviert', 'Die Aktivierung war erfolgreich, aber die aktualisierte Ansicht konnte nicht vollständig geladen werden.');
+          showRateCardState('warn', t('sc.b.activate.okTitle'), t('sc.b.activate.partialText'));
         } else {
-          renderPostMutationState('Preisrahmen aktiviert', 'Der Preisrahmen wurde erfolgreich aktiviert.');
+          renderPostMutationState(t('sc.b.activate.okTitle'), t('sc.b.activate.okText'));
         }
       } else {
-        showRateCardState('bad', 'Aktivierung fehlgeschlagen', parseApiError(result, 'Der Preisrahmen konnte nicht aktiviert werden.'));
+        showRateCardState('bad', t('sc.b.activate.failTitle'), parseApiError(result, t('sc.b.activate.failText')));
       }
     }
 
     async function archiveCard(id) {
-      if (!ensureRateCardWriteAccess('Das Archivieren von Preisrahmen')) return;
-      if (!confirm('Preisrahmen archivieren?')) return;
+      if (!ensureRateCardWriteAccess('sc.b.write.archive')) return;
+      if (!confirm(t('sc.b.confirm.archive'))) return;
       var result = await api('/rate-cards/' + id + '/archive', { method: 'POST', body: {} });
       if (applyRateCardApiErrorState(result)) return;
       if (result && !result.error) {
         var refreshResult = await refreshRateCards();
         if (refreshResult && refreshResult.status === 'error') {
-          showRateCardState('warn', 'Preisrahmen archiviert', 'Die Archivierung war erfolgreich, aber die aktualisierte Ansicht konnte nicht vollständig geladen werden.');
+          showRateCardState('warn', t('sc.b.archive.okTitle'), t('sc.b.archive.partialText'));
         } else {
-          renderPostMutationState('Preisrahmen archiviert', 'Der Preisrahmen wurde erfolgreich archiviert.');
+          renderPostMutationState(t('sc.b.archive.okTitle'), t('sc.b.archive.okText'));
         }
       } else {
-        showRateCardState('bad', 'Archivierung fehlgeschlagen', parseApiError(result, 'Der Preisrahmen konnte nicht archiviert werden.'));
+        showRateCardState('bad', t('sc.b.archive.failTitle'), parseApiError(result, t('sc.b.archive.failText')));
       }
     }
 
     init();
+
+    /* Sprachwechsel: Kontext-Badge, KPI-Kacheln, Tabelle, Sperrtafel und
+       Zustandsbanner entstehen alle per innerHTML aus JS — die deklarative
+       Hydration erreicht sie nicht. Sie werden hier gezielt neu aufgebaut,
+       sonst bliebe die halbe Seite in der alten Sprache stehen. */
+    document.addEventListener('tc:langchange', function () {
+      applyRateCardContextDefaults();
+      applyRateCardAccess(rateCardAccess);
+      if (!rateCardAccess.canRead) return;
+      var sel = document.getElementById('fSupplier');
+      var modalSel = document.getElementById('fmSupplierOrg');
+      [sel, modalSel].forEach(function (el) {
+        if (el && el.options.length && el.options[0].value === '') {
+          el.options[0].textContent = t('sc.b.filter.allSuppliers');
+        }
+      });
+      refreshRateCards(selectedSupplierName(), false);
+    });
   </script>
 <script src="/public/js/pageShell.js"></script>
 <script src="/public/js/notifications.js" defer></script>

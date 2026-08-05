@@ -5,8 +5,326 @@
 (function () {
   'use strict';
 
+  /* ── Woerterbuch (P6.1, DE/EN) ───────────────────────────────────────────
+     Ort: Anfang der ausgelagerten Seiten-JS. company-timesheets.html laedt
+     i18n.js im head und dieses Modul ausschliesslich dort — TCi18n ist also
+     garantiert vorhanden, bevor eine Zeile hier laeuft.
+
+     Drei-Seiten-Regel: Diese Flaeche erreicht NUR die Unternehmensseite.
+     api/routes/companyTimesheets.js legt requireCompanyOrg vor JEDE Route
+     (COMPANY_TIMESHEETS_NOT_AVAILABLE_FOR_ORG_TYPE); eine Zeitarbeitsfirma
+     sieht statt der Seite den notCompany-Zustand. Die feste Kaeufer-Sprache
+     ("Ihre Zeitarbeitsfirma sendet Ihnen …") ist hier deshalb korrekt und
+     darf NICHT ueber terminologyLabels rollenverzweigt werden — es gibt
+     keine zweite Rolle, die diese Texte je zu sehen bekommt.
+
+     Bewusst NICHT uebersetzt:
+     - Status-Rohwerte in den option[value] des Filters (gehen an den Server)
+     - API-Daten: Namen, Personalnummern, Firmennamen, Rollen, Gruende
+     - Topbar/Navigation/Nutzerbereich (pageShell.js)                        */
+  TCi18n.register('de', {
+    'cts.docTitle': 'Stundenzettel-Eingang – TempConnect',
+
+    'cts.paywall.title': 'Anmeldung erforderlich',
+    'cts.paywall.text': 'Bitte melden Sie sich an, um empfangene Stundenzettel zu prüfen.',
+    'cts.paywall.cta': 'Anmelden',
+    'cts.gate.title': 'Nur für Unternehmen',
+    'cts.gate.text': 'Der Stundenzettel-Eingang steht Unternehmens-/Käufer-Organisationen zur Verfügung. Ihre aktive Organisation ist keine Unternehmens-Organisation.',
+
+    'cts.page.title': 'Stundenzettel-Eingang',
+    'cts.page.subtitle': 'Von Ihren Zeitarbeitsfirmen gesendete Stundenzettel Ihrer eingesetzten Kräfte prüfen, bestätigen oder zur Korrektur zurückweisen.',
+    'cts.banner.1': 'Ihre Zeitarbeitsfirma sendet Ihnen hier die Stundenzettel der bei Ihnen eingesetzten Kräfte zur Freigabe.',
+    'cts.banner.confirm': 'Bestätigen',
+    'cts.banner.2': 'Sie geprüfte Zeiten oder weisen Sie sie mit einer',
+    'cts.banner.reason': 'Begründung',
+    'cts.banner.3': 'zurück – transparent und nachvollziehbar, direkt in der Plattform.',
+
+    'cts.tab.timesheets': 'Stundenzettel-Eingang',
+    'cts.tab.live': 'Live-Belegschaft',
+    'cts.tab.complaints': 'Meine Meldungen',
+    'cts.tab.blocklist': 'Sperrliste',
+
+    'cts.kpi.review': 'Zu prüfen',
+    'cts.kpi.confirmed': 'Bestätigt',
+    'cts.kpi.rejected': 'Zurückgewiesen',
+    'cts.kpi.hours': 'Bestätigte Stunden',
+
+    'cts.filter.all': 'Alle empfangenen',
+    'cts.filter.review': 'Nur zu prüfen',
+    'cts.filter.confirmed': 'Bestätigt',
+    'cts.filter.rejected': 'Zurückgewiesen',
+    'cts.filter.posted': 'Abgerechnet',
+
+    'cts.th.worker': 'Mitarbeiter',
+    'cts.th.agency': 'Zeitarbeitsfirma',
+    'cts.th.week': 'Woche',
+    'cts.th.hours': 'Stunden',
+    'cts.th.status': 'Status',
+    'cts.th.role': 'Rolle',
+    'cts.th.shift': 'Schicht',
+    'cts.th.since': 'Seit',
+    'cts.th.until': 'Bis',
+    'cts.th.severity': 'Dringlichkeit',
+    'cts.th.reason': 'Grund',
+    'cts.th.reported': 'Gemeldet',
+    'cts.th.blockedUntil': 'Gesperrt bis',
+
+    'cts.status.sent_to_customer': 'Zu prüfen',
+    'cts.status.customer_confirmed': 'Bestätigt',
+    'cts.status.customer_rejected': 'Zurückgewiesen',
+    'cts.status.posted_to_timesheet': 'Abgerechnet',
+
+    'cts.action.refresh': 'Aktualisieren',
+    'cts.action.review': 'Prüfen',
+    'cts.action.detail': 'Detail',
+    'cts.action.close': 'Schließen',
+    'cts.action.confirm': 'Bestätigen',
+    'cts.action.reject': 'Zurückweisen',
+    'cts.action.cancel': 'Abbrechen',
+    'cts.action.report': 'Melden',
+    'cts.action.reportTitle': 'Problem mit dieser Kraft an die Zeitarbeitsfirma melden',
+    'cts.action.block': 'Sperren',
+    'cts.action.blockTitle': 'Diese Kraft für Ihr Unternehmen sperren',
+    'cts.action.unblock': 'Freigeben',
+
+    'cts.state.loading': 'Wird geladen…',
+    'cts.count.entries': '{count} Einträge',
+    'cts.count.onAssignment': '{count} im Einsatz',
+    'cts.count.blocked': '{count} gesperrt',
+    'cts.count.reports': '{count} Meldungen',
+    'cts.count.reportsOne': '1 Meldung',
+    'cts.count.reportsOpen': '{count} offen',
+
+    'cts.empty.timesheets': 'Keine empfangenen Stundenzettel. Sobald Ihre Zeitarbeitsfirma Zeiten zur Freigabe sendet, erscheinen sie hier.',
+    'cts.empty.live': 'Aktuell arbeitet niemand bei Ihnen. Sobald Kräfte im Einsatz sind, erscheinen sie hier live.',
+    'cts.empty.blocklist': 'Keine gesperrten Kräfte. Im Bereich Live-Belegschaft können Sie eine Kraft sperren.',
+    'cts.empty.complaints': 'Noch keine Meldungen. Im Bereich Live-Belegschaft können Sie ein Problem melden.',
+
+    'cts.week.until': 'bis',
+    'cts.abbr.overtime': 'Ü',
+    'cts.detail.noEntries': 'Keine Tageseinträge erfasst.',
+    'cts.detail.inclOvertime': 'inkl. Ü {hours} h',
+    'cts.detail.break': 'Pause {minutes} min',
+    'cts.detail.total': 'Gesamt',
+    'cts.detail.note': 'Notiz: {text}',
+    'cts.detail.feedback': 'Ihre Rückmeldung: {text}',
+
+    'cts.live.banner.1': 'Echtzeit-Überblick: Diese Kräfte Ihrer Zeitarbeitsfirmen sind',
+    'cts.live.banner.strong': 'aktuell bei Ihnen im Einsatz',
+    'cts.live.banner.2': '– automatisch aus den laufenden Einsätzen Ihrer Organisation.',
+    'cts.live.kpi.active': 'Aktuell im Einsatz',
+    'cts.live.kpi.ending': 'Endet in Kürze',
+    'cts.live.kpi.agencies': 'Zeitarbeitsfirmen',
+    'cts.live.searchPh': 'Mitarbeiter oder Firma…',
+    'cts.live.badge.soon': 'Endet bald',
+    'cts.live.badge.active': 'Im Einsatz',
+    'cts.live.openEnd': 'offen',
+
+    'cts.cmp.banner': 'Ihre Meldungen an die Zeitarbeitsfirmen — mit aktuellem Bearbeitungsstand. Der zuständige Disponent wird bei jeder Meldung sofort benachrichtigt und kann Ersatz stellen.',
+    'cts.cmp.filter.all': 'Alle Meldungen',
+    'cts.cmp.status.open': 'Offen',
+    'cts.cmp.status.acknowledged': 'Angenommen',
+    'cts.cmp.status.resolved': 'Erledigt',
+    'cts.cmp.sev.low': 'Niedrig',
+    'cts.cmp.sev.medium': 'Mittel',
+    'cts.cmp.sev.high': 'Hoch',
+    'cts.cmp.title': 'Problem melden',
+    'cts.cmp.modalBanner': 'Ihre Meldung geht an die zuständige Zeitarbeitsfirma. Diese kann reagieren – z. B. einen Ersatz stellen.',
+    'cts.cmp.severityLabel': 'Dringlichkeit',
+    'cts.cmp.sevOpt.low': 'Niedrig – Hinweis',
+    'cts.cmp.sevOpt.medium': 'Mittel – bitte prüfen',
+    'cts.cmp.sevOpt.high': 'Hoch – dringend / Ersatz nötig',
+    'cts.cmp.reasonLabel': 'Was ist das Problem?',
+    'cts.cmp.reasonPh': 'z. B. wiederholt zu spät, Qualität unzureichend, Verhalten vor Ort',
+    'cts.cmp.submit': 'Melden',
+    'cts.cmp.busy': 'Wird gemeldet…',
+    'cts.cmp.errReason': 'Bitte beschreiben Sie das Problem (mind. 3 Zeichen).',
+
+    'cts.bl.banner.1': 'Gesperrte Kräfte werden diesem Unternehmen von den Zeitarbeitsfirmen',
+    'cts.bl.banner.strong': 'nicht mehr zugewiesen',
+    'cts.bl.banner.2': '. Sie entscheiden: dauerhaft, befristet (z. B. 3 Monate) oder wieder freigeben.',
+    'cts.block.until': 'bis {date}',
+    'cts.block.permanent': 'dauerhaft',
+
+    'cts.blk.title': 'Kraft sperren',
+    'cts.blk.duration': 'Dauer',
+    'cts.blk.dur.permanent': 'Dauerhaft (nie wieder)',
+    'cts.blk.dur.3m': 'Befristet: 3 Monate',
+    'cts.blk.dur.custom': 'Befristet: bis Datum…',
+    'cts.blk.reasonLabel': 'Grund (wird der Zeitarbeitsfirma angezeigt)',
+    'cts.blk.reasonPh': 'z. B. wiederholt unentschuldigt gefehlt',
+    'cts.blk.submit': 'Sperren',
+    'cts.blk.errDate': 'Bitte ein Datum wählen.',
+
+    'cts.reject.prompt': 'Grund der Zurückweisung (wird der Zeitarbeitsfirma angezeigt):',
+    'cts.reject.reasonRequired': 'Bitte einen Grund angeben (mind. 3 Zeichen).',
+
+    'cts.err.generic': 'Fehler',
+    'cts.err.load': 'Konnte nicht geladen werden: {detail}',
+    'cts.err.detail': 'Fehler beim Laden: {detail}',
+    'cts.err.confirm': 'Bestätigung fehlgeschlagen: {detail}',
+    'cts.err.reject': 'Zurückweisung fehlgeschlagen: {detail}',
+    'cts.err.block': 'Sperren fehlgeschlagen: {detail}',
+    'cts.err.unblock': 'Freigeben fehlgeschlagen: {detail}',
+    'cts.err.report': 'Melden fehlgeschlagen: {detail}',
+    'cts.fallback.worker': 'Mitarbeiter'
+  });
+  TCi18n.register('en', {
+    'cts.docTitle': 'Incoming timesheets – TempConnect',
+
+    'cts.paywall.title': 'Sign-in required',
+    'cts.paywall.text': 'Please sign in to review the timesheets you have received.',
+    'cts.paywall.cta': 'Sign in',
+    'cts.gate.title': 'For companies only',
+    'cts.gate.text': 'Incoming timesheets are available to company and buyer organisations. Your active organisation is not a company organisation.',
+
+    'cts.page.title': 'Incoming timesheets',
+    'cts.page.subtitle': 'Review, confirm or send back for correction the timesheets your staffing firms submit for the staff assigned to you.',
+    'cts.banner.1': 'Your staffing firm submits the timesheets of the staff assigned to you here for approval.',
+    'cts.banner.confirm': 'Confirm',
+    'cts.banner.2': 'the hours you have checked, or reject them with a',
+    'cts.banner.reason': 'reason',
+    'cts.banner.3': '— transparent and traceable, right inside the platform.',
+
+    'cts.tab.timesheets': 'Incoming timesheets',
+    'cts.tab.live': 'Live workforce',
+    'cts.tab.complaints': 'My reports',
+    'cts.tab.blocklist': 'Block list',
+
+    'cts.kpi.review': 'To review',
+    'cts.kpi.confirmed': 'Confirmed',
+    'cts.kpi.rejected': 'Rejected',
+    'cts.kpi.hours': 'Confirmed hours',
+
+    'cts.filter.all': 'All received',
+    'cts.filter.review': 'To review only',
+    'cts.filter.confirmed': 'Confirmed',
+    'cts.filter.rejected': 'Rejected',
+    'cts.filter.posted': 'Invoiced',
+
+    'cts.th.worker': 'Staff member',
+    'cts.th.agency': 'Staffing firm',
+    'cts.th.week': 'Week',
+    'cts.th.hours': 'Hours',
+    'cts.th.status': 'Status',
+    'cts.th.role': 'Role',
+    'cts.th.shift': 'Shift',
+    'cts.th.since': 'Since',
+    'cts.th.until': 'Until',
+    'cts.th.severity': 'Urgency',
+    'cts.th.reason': 'Reason',
+    'cts.th.reported': 'Reported',
+    'cts.th.blockedUntil': 'Blocked until',
+
+    'cts.status.sent_to_customer': 'To review',
+    'cts.status.customer_confirmed': 'Confirmed',
+    'cts.status.customer_rejected': 'Rejected',
+    'cts.status.posted_to_timesheet': 'Invoiced',
+
+    'cts.action.refresh': 'Refresh',
+    'cts.action.review': 'Review',
+    'cts.action.detail': 'Details',
+    'cts.action.close': 'Close',
+    'cts.action.confirm': 'Confirm',
+    'cts.action.reject': 'Reject',
+    'cts.action.cancel': 'Cancel',
+    'cts.action.report': 'Report',
+    'cts.action.reportTitle': 'Report an issue with this staff member to the staffing firm',
+    'cts.action.block': 'Block',
+    'cts.action.blockTitle': 'Block this staff member for your company',
+    'cts.action.unblock': 'Unblock',
+
+    'cts.state.loading': 'Loading…',
+    'cts.count.entries': '{count} entries',
+    'cts.count.onAssignment': '{count} on assignment',
+    'cts.count.blocked': '{count} blocked',
+    'cts.count.reports': '{count} reports',
+    'cts.count.reportsOne': '1 report',
+    'cts.count.reportsOpen': '{count} open',
+
+    'cts.empty.timesheets': 'No timesheets received. As soon as your staffing firm submits hours for approval, they appear here.',
+    'cts.empty.live': 'Nobody is working at your site right now. As soon as staff are on assignment, they appear here live.',
+    'cts.empty.blocklist': 'No blocked staff. You can block a staff member in the Live workforce tab.',
+    'cts.empty.complaints': 'No reports yet. You can report an issue in the Live workforce tab.',
+
+    'cts.week.until': 'until',
+    'cts.abbr.overtime': 'OT',
+    'cts.detail.noEntries': 'No daily entries recorded.',
+    'cts.detail.inclOvertime': 'incl. OT {hours} h',
+    'cts.detail.break': 'Break {minutes} min',
+    'cts.detail.total': 'Total',
+    'cts.detail.note': 'Note: {text}',
+    'cts.detail.feedback': 'Your feedback: {text}',
+
+    'cts.live.banner.1': 'Real-time overview: these staff from your staffing firms are',
+    'cts.live.banner.strong': 'currently on assignment with you',
+    'cts.live.banner.2': '— pulled automatically from the running assignments of your organisation.',
+    'cts.live.kpi.active': 'Currently on assignment',
+    'cts.live.kpi.ending': 'Ending shortly',
+    'cts.live.kpi.agencies': 'Staffing firms',
+    'cts.live.searchPh': 'Staff member or company…',
+    'cts.live.badge.soon': 'Ending soon',
+    'cts.live.badge.active': 'On assignment',
+    'cts.live.openEnd': 'open',
+
+    'cts.cmp.banner': 'Your reports to the staffing firms — with the current processing status. The responsible scheduler is notified immediately for every report and can provide a replacement.',
+    'cts.cmp.filter.all': 'All reports',
+    'cts.cmp.status.open': 'Open',
+    'cts.cmp.status.acknowledged': 'Acknowledged',
+    'cts.cmp.status.resolved': 'Resolved',
+    'cts.cmp.sev.low': 'Low',
+    'cts.cmp.sev.medium': 'Medium',
+    'cts.cmp.sev.high': 'High',
+    'cts.cmp.title': 'Report an issue',
+    'cts.cmp.modalBanner': 'Your report goes to the responsible staffing firm. They can react — for example by providing a replacement.',
+    'cts.cmp.severityLabel': 'Urgency',
+    'cts.cmp.sevOpt.low': 'Low – for information',
+    'cts.cmp.sevOpt.medium': 'Medium – please review',
+    'cts.cmp.sevOpt.high': 'High – urgent / replacement needed',
+    'cts.cmp.reasonLabel': 'What is the problem?',
+    'cts.cmp.reasonPh': 'e.g. repeatedly late, quality insufficient, conduct on site',
+    'cts.cmp.submit': 'Report',
+    'cts.cmp.busy': 'Sending…',
+    'cts.cmp.errReason': 'Please describe the problem (at least 3 characters).',
+
+    'cts.bl.banner.1': 'The staffing firms will',
+    'cts.bl.banner.strong': 'no longer assign blocked staff to this company',
+    'cts.bl.banner.2': '. You decide: permanently, for a fixed period (e.g. 3 months) or release them again.',
+    'cts.block.until': 'until {date}',
+    'cts.block.permanent': 'permanent',
+
+    'cts.blk.title': 'Block staff member',
+    'cts.blk.duration': 'Duration',
+    'cts.blk.dur.permanent': 'Permanent (never again)',
+    'cts.blk.dur.3m': 'Fixed period: 3 months',
+    'cts.blk.dur.custom': 'Fixed period: until a date…',
+    'cts.blk.reasonLabel': 'Reason (shown to the staffing firm)',
+    'cts.blk.reasonPh': 'e.g. repeated unexcused absence',
+    'cts.blk.submit': 'Block',
+    'cts.blk.errDate': 'Please choose a date.',
+
+    'cts.reject.prompt': 'Reason for the rejection (shown to the staffing firm):',
+    'cts.reject.reasonRequired': 'Please provide a reason (at least 3 characters).',
+
+    'cts.err.generic': 'Error',
+    'cts.err.load': 'Could not be loaded: {detail}',
+    'cts.err.detail': 'Error while loading: {detail}',
+    'cts.err.confirm': 'Confirmation failed: {detail}',
+    'cts.err.reject': 'Rejection failed: {detail}',
+    'cts.err.block': 'Blocking failed: {detail}',
+    'cts.err.unblock': 'Unblocking failed: {detail}',
+    'cts.err.report': 'Reporting failed: {detail}',
+    'cts.fallback.worker': 'Staff member'
+  });
+
+  /** Uebersetzung an der Verwendungsstelle. */
+  function t(key, params) { return TCi18n.t(key, params); }
+  /** Fehlerdetail aus einem API-Fehler — Code/Message bleiben roh (Diagnose). */
+  function errDetail(e) { return (e && (e.code || e.message)) || t('cts.err.generic'); }
+
   var _rows = [];
   var _current = null;
+  var _tsLoaded = false;
 
   // Escaped auch Apostrophe: Werte landen u.a. in onclick="fn('…')" — ohne &#39; könnte
   // ein Wert aus dem JS-String-Literal ausbrechen (heute nur DB-UUIDs, morgen evtl. Namen).
@@ -15,29 +333,36 @@
     return String(v).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
       .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
   }
+  // Datum bleibt bewusst selbst formatiert (feste zweistellige Teile). toLocaleDateString
+  // wuerde im Deutschen "2.6.2026" statt "02.06.2026" liefern — die Tabellenspalten
+  // sollen aber gleich breit bleiben. Englisch bekommt die en-GB-Reihenfolge dd/mm/yyyy.
   function fmtDate(d) {
     if (!d) return '–';
     var p = String(d).split('T')[0].split('-');
-    return p.length === 3 ? (p[2] + '.' + p[1] + '.' + p[0]) : '–';
+    if (p.length !== 3) return '–';
+    return TCi18n.locale() === 'en' ? (p[2] + '/' + p[1] + '/' + p[0]) : (p[2] + '.' + p[1] + '.' + p[0]);
   }
   function fmtH(v) { return parseFloat(v || 0).toFixed(2).replace(/\.00$/, '').replace(/(\.\d)$/, '$10'); }
   function workerName(r) {
-    return ((r.first_name || '') + ' ' + (r.last_name || '')).trim() || r.worker_email || 'Mitarbeiter';
+    return ((r.first_name || '') + ' ' + (r.last_name || '')).trim() || r.worker_email || t('cts.fallback.worker');
   }
   function isCompanyGateError(e) {
     var c = ((e && (e.code || e.error)) || '') + '';
     return /COMPANY_TIMESHEETS|BUYER_ORG|ORG_TYPE|NO_ORG_MEMBERSHIP|ORG_CONTEXT_REQUIRED/.test(c);
   }
 
-  var STATUS = {
-    sent_to_customer:    { cls: 'ct-badge--review', label: 'Zu prüfen' },
-    customer_confirmed:  { cls: 'ct-badge--ok',     label: 'Bestätigt' },
-    customer_rejected:   { cls: 'ct-badge--rej',    label: 'Zurückgewiesen' },
-    posted_to_timesheet: { cls: 'ct-badge--done',   label: 'Abgerechnet' }
+  // Rohwert -> Badge-Klasse. Das Label kommt zur Laufzeit aus dem Woerterbuch
+  // (cts.status.<rohwert>), damit ein Sprachwechsel es mitnimmt.
+  var STATUS_CLASS = {
+    sent_to_customer:    'ct-badge--review',
+    customer_confirmed:  'ct-badge--ok',
+    customer_rejected:   'ct-badge--rej',
+    posted_to_timesheet: 'ct-badge--done'
   };
   function badge(status) {
-    var s = STATUS[status] || { cls: '', label: status };
-    return '<span class="ct-badge ' + s.cls + '">' + esc(s.label) + '</span>';
+    var cls = STATUS_CLASS[status] || '';
+    var label = t('cts.status.' + status) || status;
+    return '<span class="ct-badge ' + cls + '">' + esc(label) + '</span>';
   }
 
   function show(which) {
@@ -60,13 +385,14 @@
     try {
       var data = await TC.api.get('/company/submissions' + q);
       _rows = (data && data.items) || [];
+      _tsLoaded = true;
       renderTable(_rows);
       updateKPIs(_rows);
-      document.getElementById('ctCount').textContent = _rows.length + ' Einträge';
+      document.getElementById('ctCount').textContent = t('cts.count.entries', { count: _rows.length });
     } catch (e) {
       if (isCompanyGateError(e)) { show('notCompany'); return; }
       document.getElementById('ctBody').innerHTML =
-        '<tr><td colspan="6" class="ct-empty">Konnte nicht geladen werden: ' + esc(e.code || e.message || 'Fehler') + '</td></tr>';
+        '<tr><td colspan="6" class="ct-empty">' + esc(t('cts.err.load', { detail: errDetail(e) })) + '</td></tr>';
     }
   }
   window.ctLoad = ctLoad;
@@ -74,7 +400,7 @@
   function renderTable(list) {
     var tb = document.getElementById('ctBody');
     if (!list.length) {
-      tb.innerHTML = '<tr><td colspan="6" class="ct-empty">Keine empfangenen Stundenzettel. Sobald Ihre Zeitarbeitsfirma Zeiten zur Freigabe sendet, erscheinen sie hier.</td></tr>';
+      tb.innerHTML = '<tr><td colspan="6" class="ct-empty">' + esc(t('cts.empty.timesheets')) + '</td></tr>';
       return;
     }
     tb.innerHTML = list.map(function (r) {
@@ -83,12 +409,12 @@
         '<td><div style="font-weight:600">' + esc(workerName(r)) + '</div>' +
           (r.personnel_number ? '<div class="ct-sub">' + esc(r.personnel_number) + '</div>' : '') + '</td>' +
         '<td>' + esc(r.supplier_name || '–') + '</td>' +
-        '<td>' + fmtDate(r.week_start) + '<div class="ct-sub">bis ' + fmtDate(r.week_end) + '</div></td>' +
+        '<td>' + fmtDate(r.week_start) + '<div class="ct-sub">' + esc(t('cts.week.until')) + ' ' + fmtDate(r.week_end) + '</div></td>' +
         '<td><strong>' + fmtH(r.total_hours) + ' h</strong>' +
-          (parseFloat(r.overtime_hours || 0) > 0 ? '<div class="ct-sub">Ü ' + fmtH(r.overtime_hours) + ' h</div>' : '') + '</td>' +
+          (parseFloat(r.overtime_hours || 0) > 0 ? '<div class="ct-sub">' + esc(t('cts.abbr.overtime')) + ' ' + fmtH(r.overtime_hours) + ' h</div>' : '') + '</td>' +
         '<td>' + badge(r.status) + '</td>' +
         '<td style="text-align:right"><button class="ct-btn' + (canAct ? ' ct-btn--ok' : '') + '" onclick="ctOpen(\'' + esc(r.id) + '\')">' +
-          (canAct ? 'Prüfen' : 'Detail') + '</button></td>' +
+          esc(t(canAct ? 'cts.action.review' : 'cts.action.detail')) + '</button></td>' +
       '</tr>';
     }).join('');
   }
@@ -107,7 +433,7 @@
 
   async function ctOpen(id) {
     try { _current = await TC.api.get('/company/submissions/' + id); }
-    catch (e) { alert('Fehler beim Laden: ' + (e.code || e.message || '')); return; }
+    catch (e) { alert(t('cts.err.detail', { detail: errDetail(e) })); return; }
     renderDetail(_current);
     document.getElementById('ctModal').classList.add('active');
   }
@@ -116,7 +442,7 @@
   function renderDetail(ts) {
     document.getElementById('ctDetailTitle').textContent = workerName(ts);
     document.getElementById('ctDetailMeta').innerHTML =
-      esc(ts.supplier_name || '–') + ' &nbsp;·&nbsp; ' + fmtDate(ts.week_start) + ' bis ' + fmtDate(ts.week_end) +
+      esc(ts.supplier_name || '–') + ' &nbsp;·&nbsp; ' + fmtDate(ts.week_start) + ' ' + esc(t('cts.week.until')) + ' ' + fmtDate(ts.week_end) +
       ' &nbsp;·&nbsp; ' + badge(ts.status);
 
     var entries = ts.entries || [];
@@ -126,25 +452,25 @@
             (e.shift_start ? ' <span class="ct-sub">' + esc(e.shift_start) + '–' + esc(e.shift_end || '?') + '</span>' : '') +
             (e.notes ? '<div class="ct-sub">' + esc(e.notes) + '</div>' : '') + '</div>' +
             '<div style="text-align:right"><strong>' + fmtH(parseFloat(e.hours_regular || 0) + parseFloat(e.hours_overtime || 0)) + ' h</strong>' +
-            (parseFloat(e.hours_overtime || 0) > 0 ? '<div class="ct-sub">inkl. Ü ' + fmtH(e.hours_overtime) + ' h</div>' : '') +
-            (e.break_minutes > 0 ? '<div class="ct-sub">Pause ' + e.break_minutes + ' min</div>' : '') + '</div></div>';
+            (parseFloat(e.hours_overtime || 0) > 0 ? '<div class="ct-sub">' + esc(t('cts.detail.inclOvertime', { hours: fmtH(e.hours_overtime) })) + '</div>' : '') +
+            (e.break_minutes > 0 ? '<div class="ct-sub">' + esc(t('cts.detail.break', { minutes: e.break_minutes })) + '</div>' : '') + '</div></div>';
         }).join('')
-      : '<div class="ct-sub">Keine Tageseinträge erfasst.</div>';
+      : '<div class="ct-sub">' + esc(t('cts.detail.noEntries')) + '</div>';
 
     document.getElementById('ctDetailBody').innerHTML =
       rows +
       '<div style="display:flex;justify-content:space-between;margin-top:12px;padding-top:10px;border-top:2px solid var(--ds-border,#e2e8f0);font-weight:700">' +
-        '<span>Gesamt</span><span>' + fmtH(ts.total_hours) + ' h' +
-        (parseFloat(ts.overtime_hours || 0) > 0 ? ' (Ü ' + fmtH(ts.overtime_hours) + ' h)' : '') + '</span></div>' +
-      (ts.worker_comment ? '<div class="ct-sub" style="margin-top:8px">Notiz: ' + esc(ts.worker_comment) + '</div>' : '') +
-      (ts.customer_note ? '<div class="ct-sub" style="margin-top:4px">Ihre Rückmeldung: ' + esc(ts.customer_note) + '</div>' : '');
+        '<span>' + esc(t('cts.detail.total')) + '</span><span>' + fmtH(ts.total_hours) + ' h' +
+        (parseFloat(ts.overtime_hours || 0) > 0 ? ' (' + esc(t('cts.abbr.overtime')) + ' ' + fmtH(ts.overtime_hours) + ' h)' : '') + '</span></div>' +
+      (ts.worker_comment ? '<div class="ct-sub" style="margin-top:8px">' + t('cts.detail.note', { text: esc(ts.worker_comment) }) + '</div>' : '') +
+      (ts.customer_note ? '<div class="ct-sub" style="margin-top:4px">' + t('cts.detail.feedback', { text: esc(ts.customer_note) }) + '</div>' : '');
 
     var err = document.getElementById('ctDetailErr'); err.style.display = 'none';
     var acts = document.getElementById('ctDetailActions');
-    var btns = ['<button class="ct-btn" onclick="ctClose()">Schließen</button>'];
+    var btns = ['<button class="ct-btn" onclick="ctClose()">' + esc(t('cts.action.close')) + '</button>'];
     if (ts.status === 'sent_to_customer') {
-      btns.push('<button class="ct-btn ct-btn--rej" onclick="ctReject()">Zurückweisen</button>');
-      btns.push('<button class="ct-btn ct-btn--ok" onclick="ctConfirm()">Bestätigen</button>');
+      btns.push('<button class="ct-btn ct-btn--rej" onclick="ctReject()">' + esc(t('cts.action.reject')) + '</button>');
+      btns.push('<button class="ct-btn ct-btn--ok" onclick="ctConfirm()">' + esc(t('cts.action.confirm')) + '</button>');
     }
     acts.innerHTML = btns.join('');
   }
@@ -162,22 +488,22 @@
     try {
       await TC.api.post('/company/submissions/' + _current.id + '/confirm', {});
       ctClose(); ctLoad();
-    } catch (e) { detailErr('Bestätigung fehlgeschlagen: ' + (e.code || e.message || 'Fehler')); }
+    } catch (e) { detailErr(t('cts.err.confirm', { detail: errDetail(e) })); }
   }
   window.ctConfirm = ctConfirm;
 
   async function ctReject() {
     if (!_current) return;
-    var reason = window.prompt('Grund der Zurückweisung (wird der Zeitarbeitsfirma angezeigt):', '');
+    var reason = window.prompt(t('cts.reject.prompt'), '');
     if (reason === null) return;
     reason = reason.trim();
-    if (reason.length < 3) { detailErr('Bitte einen Grund angeben (mind. 3 Zeichen).'); return; }
+    if (reason.length < 3) { detailErr(t('cts.reject.reasonRequired')); return; }
     try {
       await TC.api.post('/company/submissions/' + _current.id + '/reject', { reason: reason });
       ctClose(); ctLoad();
     } catch (e) {
-      detailErr(e.code === 'REASON_REQUIRED' ? 'Bitte einen Grund angeben (mind. 3 Zeichen).'
-        : 'Zurückweisung fehlgeschlagen: ' + (e.code || e.message || 'Fehler'));
+      detailErr(e.code === 'REASON_REQUIRED' ? t('cts.reject.reasonRequired')
+        : t('cts.err.reject', { detail: errDetail(e) }));
     }
   }
   window.ctReject = ctReject;
@@ -188,6 +514,8 @@
   var _complaintsLoaded = false;
   var _liveTimer = null;
   var _liveRows = [];
+  var _blockRows = [];
+  var _complaintRows = [];
   var _blkWorkerId = null;
 
   var VIEWS = { timesheets: 'viewTimesheets', live: 'viewLive', complaints: 'viewComplaints', blocklist: 'viewBlocklist' };
@@ -215,28 +543,28 @@
       var workers = (data && data.workers) || [];
       renderLive(workers);
       updateLiveKPIs((data && data.kpis) || {});
-      document.getElementById('lwCount').textContent = workers.length + ' im Einsatz';
     } catch (e) {
       if (isCompanyGateError(e)) { show('notCompany'); return; }
       document.getElementById('lwBody').innerHTML =
-        '<tr><td colspan="7" class="ct-empty">Konnte nicht geladen werden: ' + esc(e.code || e.message || 'Fehler') + '</td></tr>';
+        '<tr><td colspan="8" class="ct-empty">' + esc(t('cts.err.load', { detail: errDetail(e) })) + '</td></tr>';
     }
   }
   window.ctLoadLive = ctLoadLive;
 
   function liveBadge(status) {
     return status === 'endet_bald'
-      ? '<span class="ct-badge ct-badge--soon">Endet bald</span>'
-      : '<span class="ct-badge ct-badge--live">Im Einsatz</span>';
+      ? '<span class="ct-badge ct-badge--soon">' + esc(t('cts.live.badge.soon')) + '</span>'
+      : '<span class="ct-badge ct-badge--live">' + esc(t('cts.live.badge.active')) + '</span>';
   }
   function renderLive(list) {
     _liveRows = list || [];
+    document.getElementById('lwCount').textContent = t('cts.count.onAssignment', { count: _liveRows.length });
     var tb = document.getElementById('lwBody');
-    if (!list.length) {
-      tb.innerHTML = '<tr><td colspan="8" class="ct-empty">Aktuell arbeitet niemand bei Ihnen. Sobald Kräfte im Einsatz sind, erscheinen sie hier live.</td></tr>';
+    if (!_liveRows.length) {
+      tb.innerHTML = '<tr><td colspan="8" class="ct-empty">' + esc(t('cts.empty.live')) + '</td></tr>';
       return;
     }
-    tb.innerHTML = list.map(function (r) {
+    tb.innerHTML = _liveRows.map(function (r) {
       var shift = (r.shift_start && r.shift_end) ? (String(r.shift_start).slice(0, 5) + '–' + String(r.shift_end).slice(0, 5)) : '–';
       return '<tr>' +
         '<td><div style="font-weight:600">' + esc(workerName(r)) + '</div>' + (r.personnel_number ? '<div class="ct-sub">' + esc(r.personnel_number) + '</div>' : '') + '</td>' +
@@ -244,11 +572,11 @@
         '<td>' + esc(r.role || r.worker_description || '–') + '</td>' +
         '<td>' + shift + '</td>' +
         '<td>' + fmtDate(r.start_date) + '</td>' +
-        '<td>' + (r.effective_end_date ? fmtDate(r.effective_end_date) : 'offen') + '</td>' +
+        '<td>' + (r.effective_end_date ? fmtDate(r.effective_end_date) : esc(t('cts.live.openEnd'))) + '</td>' +
         '<td>' + liveBadge(r.live_status) + '</td>' +
         '<td style="text-align:right;white-space:nowrap">' +
-          '<button class="ct-btn" style="margin-right:4px" onclick="ctComplain(\'' + esc(r.worker_user_id) + '\')" title="Problem mit dieser Kraft an die Zeitarbeitsfirma melden">Melden</button>' +
-          '<button class="ct-btn ct-btn--rej" onclick="ctBlock(\'' + esc(r.worker_user_id) + '\')" title="Diese Kraft für Ihr Unternehmen sperren">Sperren</button>' +
+          '<button class="ct-btn" style="margin-right:4px" onclick="ctComplain(\'' + esc(r.worker_user_id) + '\')" title="' + esc(t('cts.action.reportTitle')) + '">' + esc(t('cts.action.report')) + '</button>' +
+          '<button class="ct-btn ct-btn--rej" onclick="ctBlock(\'' + esc(r.worker_user_id) + '\')" title="' + esc(t('cts.action.blockTitle')) + '">' + esc(t('cts.action.block')) + '</button>' +
         '</td>' +
       '</tr>';
     }).join('');
@@ -296,7 +624,7 @@
     if (dur === '3m') { var d = new Date(); d.setMonth(d.getMonth() + 3); until = isoDate(d); }
     else if (dur === 'custom') {
       until = (document.getElementById('blkUntil').value || '').trim();
-      if (!until) { blkErr('Bitte ein Datum wählen.'); return; }
+      if (!until) { blkErr(t('cts.blk.errDate')); return; }
     }
     var reason = (document.getElementById('blkReason').value || '').trim();
     try {
@@ -309,7 +637,7 @@
       ctBlkClose();
       _blocklistLoaded = false;
       ctLoadBlocklist();
-    } catch (e) { blkErr('Sperren fehlgeschlagen: ' + (e.code || e.message || 'Fehler')); }
+    } catch (e) { blkErr(t('cts.err.block', { detail: errDetail(e) })); }
   }
   window.ctBlkSubmit = ctBlkSubmit;
 
@@ -320,41 +648,44 @@
       renderBlocklist((data && data.items) || []);
     } catch (e) {
       if (isCompanyGateError(e)) { show('notCompany'); return; }
-      document.getElementById('blBody').innerHTML = '<tr><td colspan="5" class="ct-empty">Konnte nicht geladen werden: ' + esc(e.code || e.message || 'Fehler') + '</td></tr>';
+      document.getElementById('blBody').innerHTML =
+        '<tr><td colspan="5" class="ct-empty">' + esc(t('cts.err.load', { detail: errDetail(e) })) + '</td></tr>';
     }
   }
   window.ctLoadBlocklist = ctLoadBlocklist;
 
   function renderBlocklist(list) {
-    document.getElementById('blCount').textContent = list.length + ' gesperrt';
+    _blockRows = list || [];
+    document.getElementById('blCount').textContent = t('cts.count.blocked', { count: _blockRows.length });
     var tb = document.getElementById('blBody');
-    if (!list.length) {
-      tb.innerHTML = '<tr><td colspan="5" class="ct-empty">Keine gesperrten Kräfte. In „Live-Belegschaft“ können Sie eine Kraft sperren.</td></tr>';
+    if (!_blockRows.length) {
+      tb.innerHTML = '<tr><td colspan="5" class="ct-empty">' + esc(t('cts.empty.blocklist')) + '</td></tr>';
       return;
     }
-    tb.innerHTML = list.map(function (b) {
-      var until = b.blocked_until ? ('bis ' + fmtDate(b.blocked_until)) : 'dauerhaft';
+    tb.innerHTML = _blockRows.map(function (b) {
+      var until = b.blocked_until ? t('cts.block.until', { date: fmtDate(b.blocked_until) }) : t('cts.block.permanent');
       return '<tr>' +
         '<td><div style="font-weight:600">' + esc(workerName(b)) + '</div>' + (b.personnel_number ? '<div class="ct-sub">' + esc(b.personnel_number) + '</div>' : '') + '</td>' +
         '<td>' + esc(b.agency_name || '–') + '</td>' +
         '<td>' + esc(b.reason || '–') + '</td>' +
         '<td>' + esc(until) + '</td>' +
-        '<td style="text-align:right"><button class="ct-btn ct-btn--ok" onclick="ctUnblock(\'' + esc(b.worker_user_id) + '\')">Freigeben</button></td>' +
+        '<td style="text-align:right"><button class="ct-btn ct-btn--ok" onclick="ctUnblock(\'' + esc(b.worker_user_id) + '\')">' + esc(t('cts.action.unblock')) + '</button></td>' +
       '</tr>';
     }).join('');
   }
 
   /* ── Meine Meldungen: Rückkanal zu den gemeldeten Problemen ─────────────── */
   // Status-Werte exakt wie der CHECK in Migration 150: open | acknowledged | resolved.
-  var CMP_STATUS = {
-    open:         { label: 'Offen',      cls: 'ct-badge--review' },
-    acknowledged: { label: 'Angenommen', cls: 'ct-badge--done' },
-    resolved:     { label: 'Erledigt',   cls: 'ct-badge--ok' }
+  // Das Label kommt zur Laufzeit aus dem Woerterbuch, die Karte haelt nur die Optik.
+  var CMP_STATUS_CLASS = {
+    open:         'ct-badge--review',
+    acknowledged: 'ct-badge--done',
+    resolved:     'ct-badge--ok'
   };
-  var CMP_SEVERITY = {
-    low:    { label: 'Niedrig', cls: 'ct-badge--done' },
-    medium: { label: 'Mittel',  cls: 'ct-badge--review' },
-    high:   { label: 'Hoch',    cls: 'ct-badge--rej' }
+  var CMP_SEVERITY_CLASS = {
+    low:    'ct-badge--done',
+    medium: 'ct-badge--review',
+    high:   'ct-badge--rej'
   };
 
   async function ctLoadComplaints() {
@@ -366,30 +697,34 @@
     } catch (e) {
       if (isCompanyGateError(e)) { show('notCompany'); return; }
       document.getElementById('cmpBody').innerHTML =
-        '<tr><td colspan="6" class="ct-empty">Konnte nicht geladen werden: ' + esc(e.code || e.message || 'Fehler') + '</td></tr>';
+        '<tr><td colspan="6" class="ct-empty">' + esc(t('cts.err.load', { detail: errDetail(e) })) + '</td></tr>';
     }
   }
   window.ctLoadComplaints = ctLoadComplaints;
 
   function renderComplaints(list) {
-    var open = list.filter(function (c) { return c.status === 'open' || c.status === 'in_progress'; }).length;
+    _complaintRows = list || [];
+    var open = _complaintRows.filter(function (c) { return c.status === 'open' || c.status === 'in_progress'; }).length;
     document.getElementById('cmpCount').textContent =
-      list.length + (list.length === 1 ? ' Meldung' : ' Meldungen') + (open ? (' · ' + open + ' offen') : '');
+      (_complaintRows.length === 1 ? t('cts.count.reportsOne') : t('cts.count.reports', { count: _complaintRows.length })) +
+      (open ? (' · ' + t('cts.count.reportsOpen', { count: open })) : '');
     var tb = document.getElementById('cmpBody');
-    if (!list.length) {
-      tb.innerHTML = '<tr><td colspan="6" class="ct-empty">Noch keine Meldungen. In „Live-Belegschaft“ können Sie ein Problem melden.</td></tr>';
+    if (!_complaintRows.length) {
+      tb.innerHTML = '<tr><td colspan="6" class="ct-empty">' + esc(t('cts.empty.complaints')) + '</td></tr>';
       return;
     }
-    tb.innerHTML = list.map(function (c) {
-      var st = CMP_STATUS[c.status] || { label: c.status || '–', cls: 'ct-badge--done' };
-      var sv = CMP_SEVERITY[c.severity] || { label: c.severity || '–', cls: 'ct-badge--done' };
+    tb.innerHTML = _complaintRows.map(function (c) {
+      var stCls = CMP_STATUS_CLASS[c.status] || 'ct-badge--done';
+      var svCls = CMP_SEVERITY_CLASS[c.severity] || 'ct-badge--done';
+      var stLabel = t('cts.cmp.status.' + c.status) || c.status || '–';
+      var svLabel = t('cts.cmp.sev.' + c.severity) || c.severity || '–';
       return '<tr>' +
         '<td><div style="font-weight:600">' + esc(workerName(c)) + '</div>' +
           (c.personnel_number ? '<div class="ct-sub">' + esc(c.personnel_number) + '</div>' : '') + '</td>' +
         '<td>' + esc(c.agency_name || '–') + '</td>' +
-        '<td><span class="ct-badge ' + sv.cls + '">' + esc(sv.label) + '</span></td>' +
+        '<td><span class="ct-badge ' + svCls + '">' + esc(svLabel) + '</span></td>' +
         '<td>' + esc(c.reason || '–') + '</td>' +
-        '<td><span class="ct-badge ' + st.cls + '">' + esc(st.label) + '</span></td>' +
+        '<td><span class="ct-badge ' + stCls + '">' + esc(stLabel) + '</span></td>' +
         '<td>' + fmtDate(c.created_at) + '</td>' +
       '</tr>';
     }).join('');
@@ -399,7 +734,7 @@
     try {
       await TC.api.delete('/company/blocklist/' + workerId);
       ctLoadBlocklist();
-    } catch (e) { alert('Freigeben fehlgeschlagen: ' + (e.code || e.message || '')); }
+    } catch (e) { alert(t('cts.err.unblock', { detail: errDetail(e) })); }
   }
   window.ctUnblock = ctUnblock;
 
@@ -426,9 +761,9 @@
     if (!_cmpWorkerId) return;
     var reason = (document.getElementById('cmpReason').value || '').trim();
     var err = document.getElementById('cmpErr');
-    if (reason.length < 3) { err.textContent = 'Bitte beschreiben Sie das Problem (mind. 3 Zeichen).'; err.style.display = ''; return; }
+    if (reason.length < 3) { err.textContent = t('cts.cmp.errReason'); err.style.display = ''; return; }
     var btn = document.getElementById('cmpSubmit');
-    btn.disabled = true; btn.textContent = 'Wird gemeldet…';
+    btn.disabled = true; btn.textContent = t('cts.cmp.busy');
     try {
       await TC.api.post('/company/complaints', {
         worker_user_id: _cmpWorkerId,
@@ -441,10 +776,26 @@
       _complaintsLoaded = false;
       ctLoadComplaints();
     } catch (e) {
-      err.textContent = 'Melden fehlgeschlagen: ' + (e.code || e.message || 'Fehler'); err.style.display = '';
-    } finally { btn.disabled = false; btn.textContent = 'Melden'; }
+      err.textContent = t('cts.err.report', { detail: errDetail(e) }); err.style.display = '';
+    } finally { btn.disabled = false; btn.textContent = t('cts.cmp.submit'); }
   }
   window.ctCompSubmit = ctCompSubmit;
+
+  /* Sprachwechsel: alles, was JS gebaut hat, traegt bewusst KEINEN data-i18n-Marker
+     (sonst wuerde das naechste apply() Zeilen mit Laufzeitwerten entkernen). Deshalb
+     zeichnen wir die bereits geladenen Listen aus dem Cache neu — ohne einen
+     einzigen zusaetzlichen Netzabruf. */
+  document.addEventListener('tc:langchange', function () {
+    if (_tsLoaded) {
+      renderTable(_rows);
+      updateKPIs(_rows);
+      document.getElementById('ctCount').textContent = t('cts.count.entries', { count: _rows.length });
+    }
+    if (_liveLoaded) renderLive(_liveRows);
+    if (_blocklistLoaded) renderBlocklist(_blockRows);
+    if (_complaintsLoaded) renderComplaints(_complaintRows);
+    if (_current) renderDetail(_current);
+  });
 
   // Modal-Klick außerhalb schließt
   document.getElementById('ctModal').addEventListener('click', function (e) { if (e.target === this) ctClose(); });

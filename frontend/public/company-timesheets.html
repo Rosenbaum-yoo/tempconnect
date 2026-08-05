@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <script src="/public/js/theme.js"></script>
   <script src="/public/js/i18n.js"></script>
-  <title>Stundenzettel-Eingang – TempConnect</title>
+  <title data-i18n="cts.docTitle">Stundenzettel-Eingang – TempConnect</title>
   <link rel="stylesheet" href="/public/css/enterprise.css"/>
   <style>
     .ct-wrap { max-width:1200px; margin:0 auto; padding:20px; }
@@ -45,9 +45,9 @@
   <!-- Nicht angemeldet -->
   <div id="paywall" class="ct-wrap" style="display:none">
     <div style="max-width:440px;margin:60px auto;text-align:center">
-      <h2>Anmeldung erforderlich</h2>
-      <p>Bitte melden Sie sich an, um empfangene Stundenzettel zu prüfen.</p>
-      <a href="/" class="ct-btn ct-btn--ok" style="display:inline-block;margin-top:12px;text-decoration:none">Anmelden</a>
+      <h2 data-i18n="cts.paywall.title">Anmeldung erforderlich</h2>
+      <p data-i18n="cts.paywall.text">Bitte melden Sie sich an, um empfangene Stundenzettel zu prüfen.</p>
+      <a href="/" class="ct-btn ct-btn--ok" style="display:inline-block;margin-top:12px;text-decoration:none" data-i18n="cts.paywall.cta">Anmelden</a>
     </div>
   </div>
 
@@ -56,8 +56,8 @@
     <div id="tc-shell-nc"></div>
     <div style="max-width:520px;margin:50px auto;text-align:center">
       <div style="font-size:2rem">&#127970;</div>
-      <h2>Nur für Unternehmen</h2>
-      <p>Der Stundenzettel-Eingang steht Unternehmens-/Käufer-Organisationen zur Verfügung. Ihre aktive Organisation ist keine Unternehmens-Organisation.</p>
+      <h2 data-i18n="cts.gate.title">Nur für Unternehmen</h2>
+      <p data-i18n="cts.gate.text">Der Stundenzettel-Eingang steht Unternehmens-/Käufer-Organisationen zur Verfügung. Ihre aktive Organisation ist keine Unternehmens-Organisation.</p>
     </div>
   </div>
 
@@ -67,93 +67,94 @@
 
     <div class="ds-page-header">
       <div class="ds-page-header__content">
-        <h1 class="ds-page-title">Stundenzettel-Eingang</h1>
-        <p class="ds-page-subtitle">Von Ihren Zeitarbeitsfirmen gesendete Stundenzettel Ihrer eingesetzten Kräfte prüfen, bestätigen oder zur Korrektur zurückweisen.</p>
+        <h1 class="ds-page-title" data-i18n="cts.page.title">Stundenzettel-Eingang</h1>
+        <p class="ds-page-subtitle" data-i18n="cts.page.subtitle">Von Ihren Zeitarbeitsfirmen gesendete Stundenzettel Ihrer eingesetzten Kräfte prüfen, bestätigen oder zur Korrektur zurückweisen.</p>
       </div>
     </div>
 
     <div class="ct-banner">
-      Ihre Zeitarbeitsfirma sendet Ihnen hier die Stundenzettel der bei Ihnen eingesetzten Kräfte zur Freigabe.
-      <strong>Bestätigen</strong> Sie geprüfte Zeiten oder weisen Sie sie mit einer <strong>Begründung</strong> zurück –
-      transparent und nachvollziehbar, direkt in der Plattform.
+      <span data-i18n="cts.banner.1">Ihre Zeitarbeitsfirma sendet Ihnen hier die Stundenzettel der bei Ihnen eingesetzten Kräfte zur Freigabe.</span>
+      <strong data-i18n="cts.banner.confirm">Bestätigen</strong> <span data-i18n="cts.banner.2">Sie geprüfte Zeiten oder weisen Sie sie mit einer</span>
+      <strong data-i18n="cts.banner.reason">Begründung</strong> <span data-i18n="cts.banner.3">zurück – transparent und nachvollziehbar, direkt in der Plattform.</span>
     </div>
 
     <div class="ct-tabs">
-      <button class="ct-tab ct-tab--active" id="tabTimesheets" onclick="ctView('timesheets')">Stundenzettel-Eingang</button>
-      <button class="ct-tab" id="tabLive" onclick="ctView('live')"><span class="ct-live-dot"></span>Live-Belegschaft</button>
-      <button class="ct-tab" id="tabComplaints" onclick="ctView('complaints')">Meine Meldungen</button>
-      <button class="ct-tab" id="tabBlocklist" onclick="ctView('blocklist')">Sperrliste</button>
+      <button class="ct-tab ct-tab--active" id="tabTimesheets" onclick="ctView('timesheets')" data-i18n="cts.tab.timesheets">Stundenzettel-Eingang</button>
+      <button class="ct-tab" id="tabLive" onclick="ctView('live')"><span class="ct-live-dot"></span><span data-i18n="cts.tab.live">Live-Belegschaft</span></button>
+      <button class="ct-tab" id="tabComplaints" onclick="ctView('complaints')" data-i18n="cts.tab.complaints">Meine Meldungen</button>
+      <button class="ct-tab" id="tabBlocklist" onclick="ctView('blocklist')" data-i18n="cts.tab.blocklist">Sperrliste</button>
     </div>
 
     <div id="viewTimesheets">
     <div class="ct-kpis">
-      <div class="ct-kpi"><div class="ct-kpi__val" id="kpiReview" style="color:var(--ds-warning)">–</div><div class="ct-kpi__label">Zu prüfen</div></div>
-      <div class="ct-kpi"><div class="ct-kpi__val" id="kpiConfirmed" style="color:var(--ds-success)">–</div><div class="ct-kpi__label">Bestätigt</div></div>
-      <div class="ct-kpi"><div class="ct-kpi__val" id="kpiRejected" style="color:var(--ds-danger)">–</div><div class="ct-kpi__label">Zurückgewiesen</div></div>
-      <div class="ct-kpi"><div class="ct-kpi__val" id="kpiHours">–</div><div class="ct-kpi__label">Bestätigte Stunden</div></div>
+      <div class="ct-kpi"><div class="ct-kpi__val" id="kpiReview" style="color:var(--ds-warning)">–</div><div class="ct-kpi__label" data-i18n="cts.kpi.review">Zu prüfen</div></div>
+      <div class="ct-kpi"><div class="ct-kpi__val" id="kpiConfirmed" style="color:var(--ds-success)">–</div><div class="ct-kpi__label" data-i18n="cts.kpi.confirmed">Bestätigt</div></div>
+      <div class="ct-kpi"><div class="ct-kpi__val" id="kpiRejected" style="color:var(--ds-danger)">–</div><div class="ct-kpi__label" data-i18n="cts.kpi.rejected">Zurückgewiesen</div></div>
+      <div class="ct-kpi"><div class="ct-kpi__val" id="kpiHours">–</div><div class="ct-kpi__label" data-i18n="cts.kpi.hours">Bestätigte Stunden</div></div>
     </div>
 
     <div class="ct-toolbar">
       <select id="filterStatus" class="ct-btn" onchange="ctLoad()">
-        <option value="">Alle empfangenen</option>
-        <option value="sent_to_customer">Nur zu prüfen</option>
-        <option value="customer_confirmed">Bestätigt</option>
-        <option value="customer_rejected">Zurückgewiesen</option>
-        <option value="posted_to_timesheet">Abgerechnet</option>
+        <option value="" data-i18n="cts.filter.all">Alle empfangenen</option>
+        <option value="sent_to_customer" data-i18n="cts.filter.review">Nur zu prüfen</option>
+        <option value="customer_confirmed" data-i18n="cts.filter.confirmed">Bestätigt</option>
+        <option value="customer_rejected" data-i18n="cts.filter.rejected">Zurückgewiesen</option>
+        <option value="posted_to_timesheet" data-i18n="cts.filter.posted">Abgerechnet</option>
       </select>
-      <button class="ct-btn" onclick="ctLoad()">Aktualisieren</button>
+      <button class="ct-btn" onclick="ctLoad()" data-i18n="cts.action.refresh">Aktualisieren</button>
       <span id="ctCount" class="ct-sub"></span>
     </div>
 
     <table class="ct-table">
       <thead><tr>
-        <th>Mitarbeiter</th><th>Zeitarbeitsfirma</th><th>Woche</th><th>Stunden</th><th>Status</th><th></th>
+        <th data-i18n="cts.th.worker">Mitarbeiter</th><th data-i18n="cts.th.agency">Zeitarbeitsfirma</th><th data-i18n="cts.th.week">Woche</th><th data-i18n="cts.th.hours">Stunden</th><th data-i18n="cts.th.status">Status</th><th></th>
       </tr></thead>
-      <tbody id="ctBody"><tr><td colspan="6" class="ct-empty">Wird geladen…</td></tr></tbody>
+      <tbody id="ctBody"><tr><td colspan="6" class="ct-empty" data-i18n="cts.state.loading">Wird geladen…</td></tr></tbody>
     </table>
     </div><!-- /viewTimesheets -->
 
     <div id="viewLive" style="display:none">
       <div class="ct-banner">
-        Echtzeit-Überblick: Diese Kräfte Ihrer Zeitarbeitsfirmen sind <strong>aktuell bei Ihnen im Einsatz</strong> –
-        automatisch aus den laufenden Einsätzen Ihrer Organisation.
+        <span data-i18n="cts.live.banner.1">Echtzeit-Überblick: Diese Kräfte Ihrer Zeitarbeitsfirmen sind</span>
+        <strong data-i18n="cts.live.banner.strong">aktuell bei Ihnen im Einsatz</strong>
+        <span data-i18n="cts.live.banner.2">– automatisch aus den laufenden Einsätzen Ihrer Organisation.</span>
       </div>
       <div class="ct-kpis">
-        <div class="ct-kpi"><div class="ct-kpi__val" id="lwTotal" style="color:var(--ds-success)">–</div><div class="ct-kpi__label">Aktuell im Einsatz</div></div>
-        <div class="ct-kpi"><div class="ct-kpi__val" id="lwEnds" style="color:var(--ds-warning)">–</div><div class="ct-kpi__label">Endet in Kürze</div></div>
-        <div class="ct-kpi"><div class="ct-kpi__val" id="lwAgencies">–</div><div class="ct-kpi__label">Zeitarbeitsfirmen</div></div>
+        <div class="ct-kpi"><div class="ct-kpi__val" id="lwTotal" style="color:var(--ds-success)">–</div><div class="ct-kpi__label" data-i18n="cts.live.kpi.active">Aktuell im Einsatz</div></div>
+        <div class="ct-kpi"><div class="ct-kpi__val" id="lwEnds" style="color:var(--ds-warning)">–</div><div class="ct-kpi__label" data-i18n="cts.live.kpi.ending">Endet in Kürze</div></div>
+        <div class="ct-kpi"><div class="ct-kpi__val" id="lwAgencies">–</div><div class="ct-kpi__label" data-i18n="cts.live.kpi.agencies">Zeitarbeitsfirmen</div></div>
       </div>
       <div class="ct-toolbar">
-        <input id="lwSearch" class="ct-btn" placeholder="Mitarbeiter oder Firma…" oninput="ctLiveDebounce()" style="min-width:220px"/>
-        <button class="ct-btn" onclick="ctLoadLive()">Aktualisieren</button>
+        <input id="lwSearch" class="ct-btn" placeholder="Mitarbeiter oder Firma…" data-i18n-ph="cts.live.searchPh" oninput="ctLiveDebounce()" style="min-width:220px"/>
+        <button class="ct-btn" onclick="ctLoadLive()" data-i18n="cts.action.refresh">Aktualisieren</button>
         <span id="lwCount" class="ct-sub"></span>
       </div>
       <table class="ct-table">
         <thead><tr>
-          <th>Mitarbeiter</th><th>Zeitarbeitsfirma</th><th>Rolle</th><th>Schicht</th><th>Seit</th><th>Bis</th><th>Status</th><th></th>
+          <th data-i18n="cts.th.worker">Mitarbeiter</th><th data-i18n="cts.th.agency">Zeitarbeitsfirma</th><th data-i18n="cts.th.role">Rolle</th><th data-i18n="cts.th.shift">Schicht</th><th data-i18n="cts.th.since">Seit</th><th data-i18n="cts.th.until">Bis</th><th data-i18n="cts.th.status">Status</th><th></th>
         </tr></thead>
         <tbody id="lwBody"><tr><td colspan="8" class="ct-empty">–</td></tr></tbody>
       </table>
     </div><!-- /viewLive -->
 
     <div id="viewComplaints" style="display:none">
-      <div class="ct-banner">
+      <div class="ct-banner" data-i18n="cts.cmp.banner">
         Ihre Meldungen an die Zeitarbeitsfirmen — mit aktuellem Bearbeitungsstand.
         Der zuständige Disponent wird bei jeder Meldung sofort benachrichtigt und kann Ersatz stellen.
       </div>
       <div class="ct-toolbar">
         <select id="cmpFilterStatus" class="ct-btn" onchange="ctLoadComplaints()">
-          <option value="">Alle Meldungen</option>
-          <option value="open">Offen</option>
-          <option value="acknowledged">Angenommen</option>
-          <option value="resolved">Erledigt</option>
+          <option value="" data-i18n="cts.cmp.filter.all">Alle Meldungen</option>
+          <option value="open" data-i18n="cts.cmp.status.open">Offen</option>
+          <option value="acknowledged" data-i18n="cts.cmp.status.acknowledged">Angenommen</option>
+          <option value="resolved" data-i18n="cts.cmp.status.resolved">Erledigt</option>
         </select>
-        <button class="ct-btn" onclick="ctLoadComplaints()">Aktualisieren</button>
+        <button class="ct-btn" onclick="ctLoadComplaints()" data-i18n="cts.action.refresh">Aktualisieren</button>
         <span id="cmpCount" class="ct-sub"></span>
       </div>
       <table class="ct-table">
         <thead><tr>
-          <th>Mitarbeiter</th><th>Zeitarbeitsfirma</th><th>Dringlichkeit</th><th>Grund</th><th>Status</th><th>Gemeldet</th>
+          <th data-i18n="cts.th.worker">Mitarbeiter</th><th data-i18n="cts.th.agency">Zeitarbeitsfirma</th><th data-i18n="cts.th.severity">Dringlichkeit</th><th data-i18n="cts.th.reason">Grund</th><th data-i18n="cts.th.status">Status</th><th data-i18n="cts.th.reported">Gemeldet</th>
         </tr></thead>
         <tbody id="cmpBody"><tr><td colspan="6" class="ct-empty">–</td></tr></tbody>
       </table>
@@ -161,16 +162,16 @@
 
     <div id="viewBlocklist" style="display:none">
       <div class="ct-banner">
-        Gesperrte Kräfte werden diesem Unternehmen von den Zeitarbeitsfirmen <strong>nicht mehr zugewiesen</strong>.
-        Sie entscheiden: dauerhaft, befristet (z.&nbsp;B. 3&nbsp;Monate) oder wieder freigeben.
+        <span data-i18n="cts.bl.banner.1">Gesperrte Kräfte werden diesem Unternehmen von den Zeitarbeitsfirmen</span>
+        <strong data-i18n="cts.bl.banner.strong">nicht mehr zugewiesen</strong><span data-i18n="cts.bl.banner.2">. Sie entscheiden: dauerhaft, befristet (z. B. 3 Monate) oder wieder freigeben.</span>
       </div>
       <div class="ct-toolbar">
-        <button class="ct-btn" onclick="ctLoadBlocklist()">Aktualisieren</button>
+        <button class="ct-btn" onclick="ctLoadBlocklist()" data-i18n="cts.action.refresh">Aktualisieren</button>
         <span id="blCount" class="ct-sub"></span>
       </div>
       <table class="ct-table">
         <thead><tr>
-          <th>Mitarbeiter</th><th>Zeitarbeitsfirma</th><th>Grund</th><th>Gesperrt bis</th><th></th>
+          <th data-i18n="cts.th.worker">Mitarbeiter</th><th data-i18n="cts.th.agency">Zeitarbeitsfirma</th><th data-i18n="cts.th.reason">Grund</th><th data-i18n="cts.th.blockedUntil">Gesperrt bis</th><th></th>
         </tr></thead>
         <tbody id="blBody"><tr><td colspan="5" class="ct-empty">–</td></tr></tbody>
       </table>
@@ -191,23 +192,23 @@
   <!-- Sperren-Modal -->
   <div id="ctBlockModal" class="ct-modal">
     <div class="ct-modal__box" style="max-width:460px">
-      <div style="padding:20px 22px 0"><div style="font-size:1.1rem;font-weight:700">Kraft sperren</div>
+      <div style="padding:20px 22px 0"><div style="font-size:1.1rem;font-weight:700" data-i18n="cts.blk.title">Kraft sperren</div>
         <div id="blkWorkerName" class="ct-sub" style="margin-top:3px"></div></div>
       <div style="padding:16px 22px">
-        <label class="ct-sub" style="display:block;margin-bottom:4px">Dauer</label>
+        <label class="ct-sub" style="display:block;margin-bottom:4px" data-i18n="cts.blk.duration">Dauer</label>
         <select id="blkDuration" class="ct-btn" style="width:100%;margin-bottom:12px" onchange="ctBlkDurChange()">
-          <option value="permanent">Dauerhaft (nie wieder)</option>
-          <option value="3m">Befristet: 3 Monate</option>
-          <option value="custom">Befristet: bis Datum…</option>
+          <option value="permanent" data-i18n="cts.blk.dur.permanent">Dauerhaft (nie wieder)</option>
+          <option value="3m" data-i18n="cts.blk.dur.3m">Befristet: 3 Monate</option>
+          <option value="custom" data-i18n="cts.blk.dur.custom">Befristet: bis Datum…</option>
         </select>
         <input type="date" id="blkUntil" class="ct-btn" style="width:100%;margin-bottom:12px;display:none"/>
-        <label class="ct-sub" style="display:block;margin-bottom:4px">Grund (wird der Zeitarbeitsfirma angezeigt)</label>
-        <textarea id="blkReason" class="ct-btn" style="width:100%;min-height:64px;resize:vertical" placeholder="z. B. wiederholt unentschuldigt gefehlt"></textarea>
+        <label class="ct-sub" style="display:block;margin-bottom:4px" data-i18n="cts.blk.reasonLabel">Grund (wird der Zeitarbeitsfirma angezeigt)</label>
+        <textarea id="blkReason" class="ct-btn" style="width:100%;min-height:64px;resize:vertical" placeholder="z. B. wiederholt unentschuldigt gefehlt" data-i18n-ph="cts.blk.reasonPh"></textarea>
         <div id="blkErr" style="display:none;margin-top:8px;padding:8px 10px;background:#fee2e2;color:#991b1b;border-radius:8px;font-size:.83rem"></div>
       </div>
       <div style="display:flex;gap:10px;justify-content:flex-end;padding:0 22px 20px">
-        <button class="ct-btn" onclick="ctBlkClose()">Abbrechen</button>
-        <button class="ct-btn ct-btn--rej" id="blkSubmit" onclick="ctBlkSubmit()">Sperren</button>
+        <button class="ct-btn" onclick="ctBlkClose()" data-i18n="cts.action.cancel">Abbrechen</button>
+        <button class="ct-btn ct-btn--rej" id="blkSubmit" onclick="ctBlkSubmit()" data-i18n="cts.blk.submit">Sperren</button>
       </div>
     </div>
   </div>
@@ -215,25 +216,25 @@
   <!-- Beschwerde-Modal -->
   <div id="ctComplaintModal" class="ct-modal">
     <div class="ct-modal__box" style="max-width:460px">
-      <div style="padding:20px 22px 0"><div style="font-size:1.1rem;font-weight:700">Problem melden</div>
+      <div style="padding:20px 22px 0"><div style="font-size:1.1rem;font-weight:700" data-i18n="cts.cmp.title">Problem melden</div>
         <div id="cmpWorkerName" class="ct-sub" style="margin-top:3px"></div></div>
       <div style="padding:16px 22px">
-        <div class="ct-banner" style="margin:0 0 12px">
-          Ihre Meldung geht an die zuständige Zeitarbeitsfirma. Diese kann reagieren – z.&nbsp;B. einen Ersatz stellen.
+        <div class="ct-banner" style="margin:0 0 12px" data-i18n="cts.cmp.modalBanner">
+          Ihre Meldung geht an die zuständige Zeitarbeitsfirma. Diese kann reagieren – z. B. einen Ersatz stellen.
         </div>
-        <label class="ct-sub" style="display:block;margin-bottom:4px">Dringlichkeit</label>
+        <label class="ct-sub" style="display:block;margin-bottom:4px" data-i18n="cts.cmp.severityLabel">Dringlichkeit</label>
         <select id="cmpSeverity" class="ct-btn" style="width:100%;margin-bottom:12px">
-          <option value="low">Niedrig – Hinweis</option>
-          <option value="medium" selected>Mittel – bitte prüfen</option>
-          <option value="high">Hoch – dringend / Ersatz nötig</option>
+          <option value="low" data-i18n="cts.cmp.sevOpt.low">Niedrig – Hinweis</option>
+          <option value="medium" selected data-i18n="cts.cmp.sevOpt.medium">Mittel – bitte prüfen</option>
+          <option value="high" data-i18n="cts.cmp.sevOpt.high">Hoch – dringend / Ersatz nötig</option>
         </select>
-        <label class="ct-sub" style="display:block;margin-bottom:4px">Was ist das Problem?</label>
-        <textarea id="cmpReason" class="ct-btn" style="width:100%;min-height:72px;resize:vertical" placeholder="z. B. wiederholt zu spät, Qualität unzureichend, Verhalten vor Ort"></textarea>
+        <label class="ct-sub" style="display:block;margin-bottom:4px" data-i18n="cts.cmp.reasonLabel">Was ist das Problem?</label>
+        <textarea id="cmpReason" class="ct-btn" style="width:100%;min-height:72px;resize:vertical" placeholder="z. B. wiederholt zu spät, Qualität unzureichend, Verhalten vor Ort" data-i18n-ph="cts.cmp.reasonPh"></textarea>
         <div id="cmpErr" style="display:none;margin-top:8px;padding:8px 10px;background:#fee2e2;color:#991b1b;border-radius:8px;font-size:.83rem"></div>
       </div>
       <div style="display:flex;gap:10px;justify-content:flex-end;padding:0 22px 20px">
-        <button class="ct-btn" onclick="ctCompClose()">Abbrechen</button>
-        <button class="ct-btn ct-btn--rej" id="cmpSubmit" onclick="ctCompSubmit()">Melden</button>
+        <button class="ct-btn" onclick="ctCompClose()" data-i18n="cts.action.cancel">Abbrechen</button>
+        <button class="ct-btn ct-btn--rej" id="cmpSubmit" onclick="ctCompSubmit()" data-i18n="cts.cmp.submit">Melden</button>
       </div>
     </div>
   </div>

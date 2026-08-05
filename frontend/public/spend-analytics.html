@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <script src="/public/js/theme.js"></script>
   <script src="/public/js/i18n.js"></script>
-  <title>Spend & Kosten – TempConnect</title>
+  <title data-i18n="sp.docTitle">Spend & Kosten – TempConnect</title>
   <link rel="stylesheet" href="/public/css/enterprise.css"/>
   <style>
     .kpi-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: var(--ds-space-3); margin-bottom: var(--ds-space-5); }
@@ -60,86 +60,374 @@
 
     <div class="ds-page-header">
       <div class="ds-page-header__content">
-        <h1 class="ds-page-title">Spend &amp; Kosten</h1>
-        <p class="ds-page-subtitle">Kosten, Preisabweichungen und Lieferantenspend nach Arbeitsplatzangebot, Region und Zeitverlauf steuern.</p>
+        <h1 class="ds-page-title" data-i18n="sp.page.title">Spend &amp; Kosten</h1>
+        <p class="ds-page-subtitle" data-i18n="sp.page.subtitle">Kosten, Preisabweichungen und Lieferantenspend nach Arbeitsplatzangebot, Region und Zeitverlauf steuern.</p>
       </div>
     </div>
     <div class="link-row">
-      <a class="btn" data-feature-key="enterprise_analytics" href="/public/executive_dashboard.html">Steuerung &amp; Analytik</a>
-      <a id="spendRateCardLink" class="btn" data-feature-key="rate_card_management" href="/public/rate-cards.html">Preisrahmen</a>
-      <a class="btn" data-feature-key="supplier_management" href="/public/vendor_pool.html">Lieferantenpool</a>
-      <a class="btn" href="/public/requisitions.html">Angebote</a>
+      <a class="btn" data-feature-key="enterprise_analytics" href="/public/executive_dashboard.html" data-i18n="sp.nav.executive">Steuerung &amp; Analytik</a>
+      <a id="spendRateCardLink" class="btn" data-feature-key="rate_card_management" href="/public/rate-cards.html" data-i18n="sp.nav.rateCards">Preisrahmen</a>
+      <a class="btn" data-feature-key="supplier_management" href="/public/vendor_pool.html" data-i18n="sp.nav.vendorPool">Lieferantenpool</a>
+      <a class="btn" href="/public/requisitions.html" data-i18n="sp.nav.requisitions">Angebote</a>
     </div>
     <!-- Kontext-Badge: wird bei URL-Parameter-Drilldown eingeblendet -->
     <div id="spendContextBadge" style="display:none"></div>
     <div id="spendState" class="page-state"></div>
     <div class="link-row" style="margin-top:-6px">
-      <button class="btn" type="button" data-feature-key="spend_analytics" data-spend-finance-export onclick="exportSpendFinanceTruth('csv')">Finance Snapshot CSV</button>
-      <button class="btn" type="button" data-feature-key="spend_analytics" data-spend-finance-export onclick="exportSpendFinanceTruth('json')">Finance Snapshot JSON</button>
-      <span id="spendFinanceExportStatus" class="ds-text-sm" style="color:var(--ds-text-secondary);display:inline-flex;align-items:center">Auditfähiger Finance-Snapshot verfügbar.</span>
+      <button class="btn" type="button" data-feature-key="spend_analytics" data-spend-finance-export onclick="exportSpendFinanceTruth('csv')" data-i18n="sp.export.csv">Finance Snapshot CSV</button>
+      <button class="btn" type="button" data-feature-key="spend_analytics" data-spend-finance-export onclick="exportSpendFinanceTruth('json')" data-i18n="sp.export.json">Finance Snapshot JSON</button>
+      <span id="spendFinanceExportStatus" class="ds-text-sm" style="color:var(--ds-text-secondary);display:inline-flex;align-items:center" data-i18n="sp.export.ready">Auditfähiger Finance-Snapshot verfügbar.</span>
     </div>
 
     <!-- Filters -->
     <div class="filter-row">
-      <div><label>Von</label><input id="fFrom" type="date"/></div>
-      <div><label>Bis</label><input id="fTo" type="date"/></div>
-      <div><label>Kategorie</label><input id="fCat" type="text" placeholder="z.B. Pflege"/></div>
-      <div><label>Region</label><input id="fRegion" type="text" placeholder="z.B. München"/></div>
-      <div><label>Lieferant</label><select id="fVendor" onchange="loadAll()"><option value="">Alle Lieferanten</option></select></div>
-      <button class="btn primary" data-feature-key="spend_analytics" onclick="loadAll()">Aktualisieren</button>
+      <div><label data-i18n="sp.filter.from">Von</label><input id="fFrom" type="date"/></div>
+      <div><label data-i18n="sp.filter.to">Bis</label><input id="fTo" type="date"/></div>
+      <div><label data-i18n="sp.filter.category">Kategorie</label><input id="fCat" type="text" placeholder="z.B. Pflege" data-i18n-ph="sp.filter.categoryPh"/></div>
+      <div><label data-i18n="sp.filter.region">Region</label><input id="fRegion" type="text" placeholder="z.B. München" data-i18n-ph="sp.filter.regionPh"/></div>
+      <div><label data-i18n="sp.filter.vendor">Lieferant</label><select id="fVendor" onchange="loadAll()"><option value="" data-i18n="sp.filter.allVendors">Alle Lieferanten</option></select></div>
+      <button class="btn primary" data-feature-key="spend_analytics" onclick="loadAll()" data-i18n="sp.filter.refresh">Aktualisieren</button>
     </div>
 
     <!-- KPI Tiles -->
     <div id="spendScopeBar" style="display:none"></div>
-    <div class="kpi-grid" id="kpiGrid"><div class="kpi-tile"><span class="kpi-val">–</span><span class="kpi-label">Lade…</span></div></div>
+    <!-- Kein data-i18n auf Wert/Label der Kachel: setKpiState() ersetzt das Grid
+         und fuehrt den Marker fuer den Label-Schluessel selbst mit. -->
+    <div class="kpi-grid" id="kpiGrid"><div class="kpi-tile"><span class="kpi-val">–</span><span class="kpi-label" data-i18n="sp.state.loading">Lade…</span></div></div>
 
     <!-- Spend by Vendor -->
     <div class="section">
-      <h3>Spend nach Lieferant (Top 10)</h3>
-      <div id="vendorChart" class="bar-chart"><div class="empty-state">Lade…</div></div>
+      <h3 data-i18n="sp.sec.vendor">Spend nach Lieferant (Top 10)</h3>
+      <div id="vendorChart" class="bar-chart"><div class="empty-state" data-i18n="sp.state.loading">Lade…</div></div>
     </div>
 
     <!-- Spend by Category -->
     <div class="section">
-      <h3>Spend nach Rolle</h3>
-      <div id="categoryChart" class="bar-chart"><div class="empty-state">Lade…</div></div>
+      <h3 data-i18n="sp.sec.category">Spend nach Rolle</h3>
+      <div id="categoryChart" class="bar-chart"><div class="empty-state" data-i18n="sp.state.loading">Lade…</div></div>
     </div>
 
     <!-- Spend by Region -->
     <div class="section">
-      <h3>Spend nach Region</h3>
-      <div id="regionChart" class="bar-chart"><div class="empty-state">Lade…</div></div>
+      <h3 data-i18n="sp.sec.region">Spend nach Region</h3>
+      <div id="regionChart" class="bar-chart"><div class="empty-state" data-i18n="sp.state.loading">Lade…</div></div>
     </div>
 
     <!-- Spend over Time -->
     <div class="section">
-      <h3>Kostenverlauf</h3>
-      <div id="timeChart" class="time-chart"><div class="empty-state" style="width:100%">Lade…</div></div>
+      <h3 data-i18n="sp.sec.time">Kostenverlauf</h3>
+      <div id="timeChart" class="time-chart"><div class="empty-state" style="width:100%" data-i18n="sp.state.loading">Lade…</div></div>
       <div id="timeLabels" class="time-labels"></div>
     </div>
 
     <!-- Rate Comparison -->
     <div id="spendRateComparisonSection" class="section">
-      <h3>Preisrahmen-Abgleich: Ist vs. Preisrahmen</h3>
+      <h3 data-i18n="sp.sec.rate">Preisrahmen-Abgleich: Ist vs. Preisrahmen</h3>
       <div id="rateTable"></div>
     </div>
 
     <!-- Top Cost Drivers -->
     <div class="section">
-      <h3>Top Kostentreiber</h3>
-      <div id="costDrivers" class="bar-chart"><div class="empty-state">Lade…</div></div>
+      <h3 data-i18n="sp.sec.drivers">Top Kostentreiber</h3>
+      <div id="costDrivers" class="bar-chart"><div class="empty-state" data-i18n="sp.state.loading">Lade…</div></div>
     </div>
 
     <!-- Trends -->
     <div class="section">
-      <h3>Spend-Trends zum Vormonat</h3>
-      <table id="trendsTable"><tbody><tr><td class="empty-state">Lade…</td></tr></tbody></table>
+      <h3 data-i18n="sp.sec.trends">Spend-Trends zum Vormonat</h3>
+      <table id="trendsTable"><tbody><tr><td class="empty-state" data-i18n="sp.state.loading">Lade…</td></tr></tbody></table>
     </div>
   </div>
 
   <script src="/public/js/surfaceAccess.js"></script>
   <script src="/public/js/entitlements.js"></script>
   <script>
+  /* Woerterbuch (P6.1, DE/EN) fuer spend-analytics.html.
+
+     Bewusst NICHT hier uebersetzt:
+     - Topbar/Navigation/Nutzerbereich/Sprach-Umschalter (pageShell.js + i18n.js)
+     - API-Datenwerte: Lieferanten- und Kategorienamen, Regionen, Perioden,
+       Status-Rohwerte und die Fehlercodes des Servers
+     - value-Attribute der Filter (gehen unveraendert an den Server)
+     - Waehrungssymbol, Stundenkuerzel h, Trendpfeile
+
+     Rollenbegriffe: spend-analytics.html ist laut api/config/visibilityMatrix.js
+     ausschliesslich fuer allowed_org_types ["company"] erreichbar. Die feste
+     Einkaufssicht (Lieferant / Preisrahmen / Spend) ist hier also korrekt —
+     eine Rollenverzweigung ueber TC.terminology waere toter Code.               */
+  (function() {
+    if (!window.TCi18n) return;
+    TCi18n.register('de', {
+      'sp.docTitle': 'Spend & Kosten – TempConnect',
+      'sp.page.title': 'Spend & Kosten',
+      'sp.page.subtitle': 'Kosten, Preisabweichungen und Lieferantenspend nach Arbeitsplatzangebot, Region und Zeitverlauf steuern.',
+
+      'sp.nav.executive': 'Steuerung & Analytik',
+      'sp.nav.rateCards': 'Preisrahmen',
+      'sp.nav.vendorPool': 'Lieferantenpool',
+      'sp.nav.requisitions': 'Angebote',
+
+      'sp.export.csv': 'Finance Snapshot CSV',
+      'sp.export.json': 'Finance Snapshot JSON',
+      'sp.export.ready': 'Auditfähiger Finance-Snapshot verfügbar.',
+      'sp.export.hidden': 'Finance-Snapshot bleibt fuer diese Rolle ausgeblendet.',
+      'sp.export.working': 'Finance-Export wird erstellt…',
+      'sp.export.done': 'Finance-Export bereitgestellt.',
+      'sp.export.failed': 'Finance-Export fehlgeschlagen: {reason}',
+      'sp.export.unknownError': 'Unbekannter Fehler',
+      'sp.export.unavailable': 'Export derzeit nicht verfügbar',
+
+      'sp.filter.from': 'Von',
+      'sp.filter.to': 'Bis',
+      'sp.filter.category': 'Kategorie',
+      'sp.filter.categoryPh': 'z.B. Pflege',
+      'sp.filter.region': 'Region',
+      'sp.filter.regionPh': 'z.B. München',
+      'sp.filter.vendor': 'Lieferant',
+      'sp.filter.allVendors': 'Alle Lieferanten',
+      'sp.filter.refresh': 'Aktualisieren',
+
+      'sp.sec.vendor': 'Spend nach Lieferant (Top 10)',
+      'sp.sec.category': 'Spend nach Rolle',
+      'sp.sec.region': 'Spend nach Region',
+      'sp.sec.time': 'Kostenverlauf',
+      'sp.sec.rate': 'Preisrahmen-Abgleich: Ist vs. Preisrahmen',
+      'sp.sec.drivers': 'Top Kostentreiber',
+      'sp.sec.trends': 'Spend-Trends zum Vormonat',
+
+      'sp.state.loading': 'Lade…',
+      'sp.state.initTitle': 'Spend-Analyse wird geladen',
+      'sp.state.initText': 'Filter, Lieferantenkontext und Managementdaten werden vorbereitet.',
+      'sp.state.reloadText': 'KPI-Karten, Verteilungen und Trends werden aktualisiert.',
+      'sp.state.hiddenTitle': 'Spend-Sicht ausgeblendet',
+      'sp.state.failTitle': 'Spend-Analyse derzeit nicht verfügbar',
+      'sp.state.failText': 'Die Auswertungen konnten nicht geladen werden. Filter und Drilldowns bleiben erhalten.',
+      'sp.state.partialTitle': 'Teilweise Daten fehlen',
+      'sp.state.partialText': '{sections} konnten nicht geladen werden. Die restliche Analyse bleibt verfügbar.',
+
+      'sp.scope.org': 'Org:',
+      'sp.scope.orgTitle': 'Organisation – alle Spend-Daten sind auf diese Org beschraenkt',
+      'sp.scope.location': 'Standort:',
+      'sp.scope.locationTitle': 'Standort-Kontext – Alle Standorte bedeutet org-weite Auswertung',
+      'sp.scope.period': 'Zeitraum:',
+      'sp.scope.periodTitle': 'Analysezeitraum der dargestellten Spend-Kennzahlen',
+      'sp.scope.asOf': 'Datenstand:',
+      'sp.scope.asOfTitle': 'Zeitpunkt der Datenberechnung auf dem Server',
+      'sp.scope.allLocations': 'Alle Standorte',
+      'sp.scope.wholePeriod': 'Gesamter Zeitraum',
+
+      'sp.access.default': 'Spend & Kosten ist fuer diese Rolle derzeit nicht freigeschaltet.',
+      'sp.lock.category': 'Spend nach Rolle bleibt fuer diese Rolle ausgeblendet.',
+      'sp.lock.region': 'Spend nach Region bleibt fuer diese Rolle ausgeblendet.',
+      'sp.lock.rate': 'Preisrahmen-Abgleich ist ohne Spend-Zugriff nicht verfügbar.',
+      'sp.lock.drivers': 'Top-Kostentreiber bleiben fuer diese Rolle ausgeblendet.',
+
+      'sp.kpi.unavailable': 'Uebersicht nicht verfuegbar',
+      'sp.kpi.locked': 'Spend-Sicht gesperrt',
+      'sp.kpi.total': 'Gesamtausgaben',
+      'sp.kpi.avgRate': 'Ø Stundensatz',
+      'sp.kpi.assignments': 'Einsaetze',
+      'sp.kpi.vendors': 'Lieferanten',
+      'sp.kpi.overtime': 'Überstunden',
+      'sp.kpi.forecast': 'Prognose',
+      'sp.kpi.overRate': 'Ueber Preisrahmen',
+      'sp.kpi.hours': 'Stunden',
+
+      'sp.badge.prefix': 'Drilldown-Filter:',
+      'sp.badge.role': 'Rolle/Kategorie:',
+      'sp.badge.region': 'Region:',
+      'sp.badge.vendor': 'Lieferant:',
+      'sp.badge.reset': 'Filter zuruecksetzen',
+
+      'sp.chart.noData': 'Keine Daten.',
+      'sp.chart.noDataLoc': 'Keine Daten für Standort {loc}.',
+      'sp.chart.unknown': 'Unbekannt',
+      'sp.chart.scorecardTitle': 'Lieferantenbewertung oeffnen',
+      'sp.vendorFallback': 'Lieferant',
+      'sp.drivers.allVendors': 'Alle',
+
+      'sp.section.kpi': 'KPI-Übersicht',
+      'sp.section.vendor': 'Spend nach Lieferant',
+      'sp.section.category': 'Spend nach Rolle',
+      'sp.section.region': 'Spend nach Region',
+      'sp.section.time': 'Kostenverlauf',
+      'sp.section.rate': 'Preisrahmen-Abgleich',
+      'sp.section.drivers': 'Kostentreiber',
+      'sp.section.trends': 'Spend-Trends',
+      'sp.section.vendorFilter': 'Lieferantenfilter',
+
+      'sp.err.vendor': 'Spend nach Lieferant konnte derzeit nicht geladen werden.',
+      'sp.empty.vendor': 'Keine Spend-Daten fuer Lieferanten im aktuellen Filter.',
+      'sp.err.category': 'Spend nach Rolle konnte derzeit nicht geladen werden.',
+      'sp.empty.category': 'Keine Spend-Daten fuer Rollen im aktuellen Filter.',
+      'sp.err.region': 'Spend nach Region konnte derzeit nicht geladen werden.',
+      'sp.empty.region': 'Keine Spend-Daten fuer Regionen im aktuellen Filter.',
+      'sp.err.time': 'Der Kostenverlauf konnte derzeit nicht geladen werden.',
+      'sp.empty.time': 'Keine Zeitreihe fuer den aktuellen Filter.',
+      'sp.err.rate': 'Der Preisrahmen-Abgleich konnte derzeit nicht geladen werden.',
+      'sp.empty.rate': 'Keine Preisrahmen-Abgleichsdaten fuer den aktuellen Filter verfuegbar.',
+      'sp.err.drivers': 'Top-Kostentreiber konnten derzeit nicht geladen werden.',
+      'sp.empty.drivers': 'Keine Kostentreiber fuer den aktuellen Filter vorhanden.',
+      'sp.err.trends': 'Spend-Trends konnten derzeit nicht geladen werden.',
+      'sp.empty.trends': 'Keine Trend-Daten fuer den aktuellen Filter.',
+
+      'sp.rate.th.category': 'Kategorie',
+      'sp.rate.th.supplier': 'Lieferant',
+      'sp.rate.th.actual': 'Ist Ø',
+      'sp.rate.th.target': 'Ziel',
+      'sp.rate.th.max': 'Max',
+      'sp.rate.th.deviation': 'Abweichung',
+      'sp.rate.th.assignments': 'Einsaetze',
+
+      'sp.trend.th.month': 'Monat',
+      'sp.trend.th.spend': 'Spend',
+      'sp.trend.th.hours': 'Stunden',
+      'sp.trend.th.prev': 'Vormonat',
+      'sp.trend.th.mom': 'MoM Δ'
+    });
+    TCi18n.register('en', {
+      'sp.docTitle': 'Spend & costs – TempConnect',
+      'sp.page.title': 'Spend & costs',
+      'sp.page.subtitle': 'Steer costs, rate deviations and supplier spend by job posting, region and time.',
+
+      'sp.nav.executive': 'Steering & analytics',
+      'sp.nav.rateCards': 'Rate cards',
+      'sp.nav.vendorPool': 'Supplier pool',
+      'sp.nav.requisitions': 'Job postings',
+
+      'sp.export.csv': 'Finance snapshot CSV',
+      'sp.export.json': 'Finance snapshot JSON',
+      'sp.export.ready': 'Audit-ready finance snapshot available.',
+      'sp.export.hidden': 'The finance snapshot stays hidden for this role.',
+      'sp.export.working': 'Preparing the finance export…',
+      'sp.export.done': 'Finance export ready.',
+      'sp.export.failed': 'Finance export failed: {reason}',
+      'sp.export.unknownError': 'Unknown error',
+      'sp.export.unavailable': 'Export currently unavailable',
+
+      'sp.filter.from': 'From',
+      'sp.filter.to': 'To',
+      'sp.filter.category': 'Category',
+      'sp.filter.categoryPh': 'e.g. nursing',
+      'sp.filter.region': 'Region',
+      'sp.filter.regionPh': 'e.g. Munich',
+      'sp.filter.vendor': 'Supplier',
+      'sp.filter.allVendors': 'All suppliers',
+      'sp.filter.refresh': 'Refresh',
+
+      'sp.sec.vendor': 'Spend by supplier (top 10)',
+      'sp.sec.category': 'Spend by role',
+      'sp.sec.region': 'Spend by region',
+      'sp.sec.time': 'Cost over time',
+      'sp.sec.rate': 'Rate card check: actual vs. rate card',
+      'sp.sec.drivers': 'Top cost drivers',
+      'sp.sec.trends': 'Spend trends vs. previous month',
+
+      'sp.state.loading': 'Loading…',
+      'sp.state.initTitle': 'Loading the spend analysis',
+      'sp.state.initText': 'Filters, supplier context and management data are being prepared.',
+      'sp.state.reloadText': 'KPI tiles, distributions and trends are being refreshed.',
+      'sp.state.hiddenTitle': 'Spend view hidden',
+      'sp.state.failTitle': 'Spend analysis currently unavailable',
+      'sp.state.failText': 'The analyses could not be loaded. Filters and drilldowns are kept.',
+      'sp.state.partialTitle': 'Some data is missing',
+      'sp.state.partialText': '{sections} could not be loaded. The rest of the analysis stays available.',
+
+      'sp.scope.org': 'Org:',
+      'sp.scope.orgTitle': 'Organisation – all spend data is limited to this org',
+      'sp.scope.location': 'Location:',
+      'sp.scope.locationTitle': 'Location context – All locations means an org-wide analysis',
+      'sp.scope.period': 'Period:',
+      'sp.scope.periodTitle': 'Analysis period of the spend figures shown',
+      'sp.scope.asOf': 'As of:',
+      'sp.scope.asOfTitle': 'Point in time the server calculated this data',
+      'sp.scope.allLocations': 'All locations',
+      'sp.scope.wholePeriod': 'Entire period',
+
+      'sp.access.default': 'Spend & costs is currently not enabled for this role.',
+      'sp.lock.category': 'Spend by role stays hidden for this role.',
+      'sp.lock.region': 'Spend by region stays hidden for this role.',
+      'sp.lock.rate': 'The rate card check is unavailable without spend access.',
+      'sp.lock.drivers': 'Top cost drivers stay hidden for this role.',
+
+      'sp.kpi.unavailable': 'Overview unavailable',
+      'sp.kpi.locked': 'Spend view locked',
+      'sp.kpi.total': 'Total spend',
+      'sp.kpi.avgRate': 'Avg. hourly rate',
+      'sp.kpi.assignments': 'Assignments',
+      'sp.kpi.vendors': 'Suppliers',
+      'sp.kpi.overtime': 'Overtime',
+      'sp.kpi.forecast': 'Forecast',
+      'sp.kpi.overRate': 'Above rate card',
+      'sp.kpi.hours': 'Hours',
+
+      'sp.badge.prefix': 'Drilldown filter:',
+      'sp.badge.role': 'Role/category:',
+      'sp.badge.region': 'Region:',
+      'sp.badge.vendor': 'Supplier:',
+      'sp.badge.reset': 'Reset filters',
+
+      'sp.chart.noData': 'No data.',
+      'sp.chart.noDataLoc': 'No data for location {loc}.',
+      'sp.chart.unknown': 'Unknown',
+      'sp.chart.scorecardTitle': 'Open supplier scorecard',
+      'sp.vendorFallback': 'Supplier',
+      'sp.drivers.allVendors': 'All',
+
+      'sp.section.kpi': 'KPI overview',
+      'sp.section.vendor': 'Spend by supplier',
+      'sp.section.category': 'Spend by role',
+      'sp.section.region': 'Spend by region',
+      'sp.section.time': 'Cost over time',
+      'sp.section.rate': 'Rate card check',
+      'sp.section.drivers': 'Cost drivers',
+      'sp.section.trends': 'Spend trends',
+      'sp.section.vendorFilter': 'Supplier filter',
+
+      'sp.err.vendor': 'Spend by supplier could not be loaded right now.',
+      'sp.empty.vendor': 'No supplier spend data for the current filter.',
+      'sp.err.category': 'Spend by role could not be loaded right now.',
+      'sp.empty.category': 'No role spend data for the current filter.',
+      'sp.err.region': 'Spend by region could not be loaded right now.',
+      'sp.empty.region': 'No region spend data for the current filter.',
+      'sp.err.time': 'The cost timeline could not be loaded right now.',
+      'sp.empty.time': 'No time series for the current filter.',
+      'sp.err.rate': 'The rate card check could not be loaded right now.',
+      'sp.empty.rate': 'No rate card comparison data available for the current filter.',
+      'sp.err.drivers': 'Top cost drivers could not be loaded right now.',
+      'sp.empty.drivers': 'No cost drivers for the current filter.',
+      'sp.err.trends': 'Spend trends could not be loaded right now.',
+      'sp.empty.trends': 'No trend data for the current filter.',
+
+      'sp.rate.th.category': 'Category',
+      'sp.rate.th.supplier': 'Supplier',
+      'sp.rate.th.actual': 'Actual Ø',
+      'sp.rate.th.target': 'Target',
+      'sp.rate.th.max': 'Max',
+      'sp.rate.th.deviation': 'Deviation',
+      'sp.rate.th.assignments': 'Assignments',
+
+      'sp.trend.th.month': 'Month',
+      'sp.trend.th.spend': 'Spend',
+      'sp.trend.th.hours': 'Hours',
+      'sp.trend.th.prev': 'Previous month',
+      'sp.trend.th.mom': 'MoM Δ'
+    });
+  })();
+
+  /** Uebersetzung an der Verwendungsstelle (i18n.js liegt im head). */
+  function t(key, params) { return (window.TCi18n && window.TCi18n.t(key, params)) || ''; }
+  /** BCP-47-Locale fuer Datums- und Zahlformate (DE bleibt Default). */
+  function fmtLocale() { return (window.TCi18n && window.TCi18n.dateLocale()) || 'de-DE'; }
+  /** Markiertes Markup fuer parameterlose Schluessel — ueberlebt den Sprachwechsel. */
+  function stateHtml(key, wide) {
+    return '<div class="empty-state" data-i18n="' + key + '"' + (wide ? ' style="width:100%"' : '') +
+      '>' + esc(t(key)) + '</div>';
+  }
+  function sectionNoteKey(key) {
+    return '<div class="section-note" data-i18n="' + key + '">' + esc(t(key)) + '</div>';
+  }
+
     var csrfToken = '';
     var spendLoadVersion = 0;
     var spendVendorOptionsIssue = false;
@@ -153,19 +441,19 @@
       }
     }
     function esc(s) { var d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
-    function eurFmt(cents) { return (cents / 100).toLocaleString('de-DE', { minimumFractionDigits: 0, maximumFractionDigits: 0 }); }
-    function eurFull(cents) { return (cents / 100).toLocaleString('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 }); }
+    function eurFmt(cents) { return (cents / 100).toLocaleString(fmtLocale(), { minimumFractionDigits: 0, maximumFractionDigits: 0 }); }
+    function eurFull(cents) { return (cents / 100).toLocaleString(fmtLocale(), { minimumFractionDigits: 2, maximumFractionDigits: 2 }); }
     function fmtDate(iso) {
       if (!iso) return '–';
       var d = new Date(iso);
       if (isNaN(d.getTime())) return String(iso);
-      return d.toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' });
+      return d.toLocaleDateString(fmtLocale(), { day: '2-digit', month: '2-digit', year: 'numeric' });
     }
     function fmtDateTime(iso) {
       if (!iso) return '–';
       var d = new Date(iso);
       if (isNaN(d.getTime())) return String(iso);
-      return d.toLocaleString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+      return d.toLocaleString(fmtLocale(), { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
     }
     function renderScopeBar(scope, generatedAt) {
       var bar = document.getElementById('spendScopeBar');
@@ -174,28 +462,27 @@
       var orgName = (currentMe && currentMe.org_name) || scope.org_id || '–';
       var locName = null;
       try { locName = sessionStorage.getItem('tc.activeLocationName'); } catch (_e) {}
-      var locDisplay = locName || scope.location_id || 'Alle Standorte';
+      var locDisplay = locName || scope.location_id || t('sp.scope.allLocations');
       var periodDisplay = scope.date_from || scope.date_to
         ? fmtDate(scope.date_from) + ' – ' + fmtDate(scope.date_to)
-        : 'Gesamter Zeitraum';
+        : t('sp.scope.wholePeriod');
       var standDisplay = generatedAt ? fmtDateTime(generatedAt) : '–';
       bar.setAttribute('style',
         'padding:6px 0 10px;font-size:12px;color:var(--ds-text-secondary);' +
         'display:flex;flex-wrap:wrap;gap:14px;align-items:center;' +
         'border-bottom:1px solid var(--ds-border);margin-bottom:14px');
+      // Kein data-i18n auf den Werten (Org-Name, Standort, Zeitraum sind Laufzeitwerte);
+      // die Beschriftungen tragen den Marker und ueberleben so den Sprachwechsel.
+      function scopeCell(labelKey, titleKey, value) {
+        return '<span title="' + esc(t(titleKey)) + '" data-i18n-title="' + titleKey + '">' +
+          '<strong style="color:var(--ds-text)" data-i18n="' + labelKey + '">' + esc(t(labelKey)) + '</strong> ' +
+          esc(value) + '</span>';
+      }
       bar.innerHTML =
-        '<span title="Organisation – alle Spend-Daten sind auf diese Org beschraenkt">' +
-          '<strong style="color:var(--ds-text)">Org:</strong> ' + esc(orgName) +
-        '</span>' +
-        '<span title="Standort-Kontext – Alle Standorte bedeutet org-weite Auswertung">' +
-          '<strong style="color:var(--ds-text)">Standort:</strong> ' + esc(locDisplay) +
-        '</span>' +
-        '<span title="Analysezeitraum der dargestellten Spend-Kennzahlen">' +
-          '<strong style="color:var(--ds-text)">Zeitraum:</strong> ' + esc(periodDisplay) +
-        '</span>' +
-        '<span title="Zeitpunkt der Datenberechnung auf dem Server">' +
-          '<strong style="color:var(--ds-text)">Datenstand:</strong> ' + esc(standDisplay) +
-        '</span>';
+        scopeCell('sp.scope.org', 'sp.scope.orgTitle', orgName) +
+        scopeCell('sp.scope.location', 'sp.scope.locationTitle', locDisplay) +
+        scopeCell('sp.scope.period', 'sp.scope.periodTitle', periodDisplay) +
+        scopeCell('sp.scope.asOf', 'sp.scope.asOfTitle', standDisplay);
     }
     function resolveSurfaceAccess(me, key) {
       if (window.TC && window.TC.surfaceAccess && typeof window.TC.surfaceAccess.resolve === 'function') {
@@ -218,13 +505,14 @@
         button.style.display = spendAnalyticsAccess.canExport ? '' : 'none';
       });
       if (!spendAnalyticsAccess.canExport) {
-        setSpendFinanceExportStatus('Finance-Snapshot bleibt fuer diese Rolle ausgeblendet.', 'muted');
+        setSpendFinanceExportStatusKey('sp.export.hidden', 'muted');
       }
       applySpendDomLocks(document);
     }
     function describeSpendAccess(access) {
       if (!access || access.canRead) return '';
-      return access.reason || 'Spend & Kosten ist fuer diese Rolle derzeit nicht freigeschaltet.';
+      // access.reason kommt aus surfaceAccess.js (Backend-Wahrheit) und bleibt roh.
+      return access.reason || t('sp.access.default');
     }
     function renderPageState(id, tone, title, text) {
       var el = document.getElementById(id);
@@ -253,14 +541,25 @@
     function writeStoredSpendFilters(filters) {
       try { sessionStorage.setItem(SPEND_FILTER_STORAGE_KEY, JSON.stringify(filters || {})); } catch (e) {}
     }
-    function setKpiState(value, label) {
-      document.getElementById('kpiGrid').innerHTML = '<div class="kpi-tile"><span class="kpi-val">' + esc(value) + '</span><span class="kpi-label">' + esc(label) + '</span></div>';
+    /** labelKey ist ein Woerterbuch-Schluessel — der Marker wandert mit ins Markup. */
+    function setKpiState(value, labelKey) {
+      document.getElementById('kpiGrid').innerHTML = '<div class="kpi-tile"><span class="kpi-val">' + esc(value) +
+        '</span><span class="kpi-label" data-i18n="' + labelKey + '">' + esc(t(labelKey)) + '</span></div>';
     }
+    /** Freitext (enthaelt Laufzeitwerte): Marker entfernen, sonst setzt das
+     *  naechste apply() die Fassung ohne Werte zurueck. */
     function setSpendFinanceExportStatus(message, tone) {
       var target = document.getElementById('spendFinanceExportStatus');
       if (!target) return;
       target.style.color = tone === 'good' ? 'var(--good)' : tone === 'bad' ? 'var(--bad)' : tone === 'warn' ? 'var(--warn)' : 'var(--ds-text-secondary)';
+      target.removeAttribute('data-i18n');
       target.textContent = message || '';
+    }
+    /** Parameterloser Schluessel: Text setzen UND Marker mitfuehren. */
+    function setSpendFinanceExportStatusKey(key, tone) {
+      setSpendFinanceExportStatus(t(key), tone);
+      var target = document.getElementById('spendFinanceExportStatus');
+      if (target) target.setAttribute('data-i18n', key);
     }
     function setSpendFinanceExportButtonsDisabled(disabled) {
       Array.from(document.querySelectorAll('button[data-spend-finance-export]')).forEach(function (button) {
@@ -291,7 +590,7 @@
       if (normalized !== 'csv' && normalized !== 'json') return;
       if (!spendAnalyticsAccess.canExport) return;
       setSpendFinanceExportButtonsDisabled(true);
-      setSpendFinanceExportStatus('Finance-Export wird erstellt…', 'muted');
+      setSpendFinanceExportStatusKey('sp.export.working', 'muted');
       try {
         if (normalized === 'csv') {
           var response = await fetch('/api/reporting/finance-truth/export?format=csv', { credentials: 'include' });
@@ -305,28 +604,30 @@
           saveSpendExportBlob(blob, fileName);
         } else {
           var payload = await api('/reporting/finance-truth/export?format=json');
-          if (!payload) throw new Error('Export derzeit nicht verfügbar');
+          if (!payload) throw new Error(t('sp.export.unavailable'));
           var jsonBlob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json;charset=utf-8' });
           saveSpendExportBlob(jsonBlob, 'finance-truth-' + new Date().toISOString().slice(0, 10) + '.json');
         }
-        setSpendFinanceExportStatus('Finance-Export bereitgestellt.', 'good');
+        setSpendFinanceExportStatusKey('sp.export.done', 'good');
       } catch (error) {
-        setSpendFinanceExportStatus('Finance-Export fehlgeschlagen: ' + ((error && error.message) || 'Unbekannter Fehler'), 'bad');
+        setSpendFinanceExportStatus(t('sp.export.failed', {
+          reason: (error && error.message) || t('sp.export.unknownError')
+        }), 'bad');
       } finally {
         setSpendFinanceExportButtonsDisabled(false);
       }
     }
     function setSpendLoadingState() {
       renderScopeBar(null, null);
-      setKpiState('–', 'Lade…');
-      document.getElementById('vendorChart').innerHTML = '<div class="empty-state">Lade…</div>';
-      document.getElementById('categoryChart').innerHTML = '<div class="empty-state">Lade…</div>';
-      document.getElementById('regionChart').innerHTML = '<div class="empty-state">Lade…</div>';
-      document.getElementById('timeChart').innerHTML = '<div class="empty-state" style="width:100%">Lade…</div>';
+      setKpiState('–', 'sp.state.loading');
+      document.getElementById('vendorChart').innerHTML = stateHtml('sp.state.loading');
+      document.getElementById('categoryChart').innerHTML = stateHtml('sp.state.loading');
+      document.getElementById('regionChart').innerHTML = stateHtml('sp.state.loading');
+      document.getElementById('timeChart').innerHTML = stateHtml('sp.state.loading', true);
       document.getElementById('timeLabels').innerHTML = '';
-      document.getElementById('rateTable').innerHTML = '<div class="empty-state">Lade…</div>';
-      document.getElementById('costDrivers').innerHTML = '<div class="empty-state">Lade…</div>';
-      document.getElementById('trendsTable').innerHTML = '<tbody><tr><td class="empty-state">Lade…</td></tr></tbody>';
+      document.getElementById('rateTable').innerHTML = stateHtml('sp.state.loading');
+      document.getElementById('costDrivers').innerHTML = stateHtml('sp.state.loading');
+      document.getElementById('trendsTable').innerHTML = '<tbody><tr><td class="empty-state" data-i18n="sp.state.loading">' + esc(t('sp.state.loading')) + '</td></tr></tbody>';
     }
     function isCurrentSpendLoad(loadId) { return loadId === spendLoadVersion; }
 
@@ -368,24 +669,29 @@
     function getFilters(filters) {
       var values = filters || currentSpendFilters();
       var qs = '';
+      // Bewusst NICHT "t": das waere der Woerterbuch-Helfer dieser Seite.
       var f = values.dateFrom;
-      var t = values.dateTo;
+      var dTo = values.dateTo;
       var c = values.category;
       var rg = values.region;
       var vendor = values.vendorId;
       if (f) qs += '&date_from=' + f;
-      if (t) qs += '&date_to=' + t;
+      if (dTo) qs += '&date_to=' + dTo;
       if (c) qs += '&category=' + encodeURIComponent(c);
       if (rg) qs += '&region=' + encodeURIComponent(rg);
       if (vendor) qs += '&vendor_id=' + encodeURIComponent(vendor);
       return qs ? '?' + qs.slice(1) : '';
     }
 
+    /** value="" bleibt unveraendert (geht an den Server) — nur der Text ist zweisprachig. */
+    function allVendorsOption() {
+      return '<option value="" data-i18n="sp.filter.allVendors">' + esc(t('sp.filter.allVendors')) + '</option>';
+    }
     async function loadVendorOptions() {
       if (!spendAnalyticsAccess.canRead) {
         spendVendorOptionsIssue = false;
         var lockedSel = document.getElementById('fVendor');
-        if (lockedSel) lockedSel.innerHTML = '<option value="">Alle Lieferanten</option>';
+        if (lockedSel) lockedSel.innerHTML = allVendorsOption();
         return;
       }
       var data = await api('/suppliers/enriched?limit=100');
@@ -393,13 +699,14 @@
       if (!sel) return;
       if (!data) {
         spendVendorOptionsIssue = true;
-        sel.innerHTML = '<option value="">Alle Lieferanten</option>';
+        sel.innerHTML = allVendorsOption();
         return;
       }
       var items = (data && data.items) || [];
       spendVendorOptionsIssue = false;
-      sel.innerHTML = '<option value="">Alle Lieferanten</option>' + items.map(function(item) {
-        return '<option value="' + esc(item.supplier_org_id || '') + '">' + esc(item.supplier_org_name || item.supplier_org_id || 'Vendor') + '</option>';
+      // Lieferantennamen sind API-Daten und bleiben unuebersetzt.
+      sel.innerHTML = allVendorsOption() + items.map(function(item) {
+        return '<option value="' + esc(item.supplier_org_id || '') + '">' + esc(item.supplier_org_name || item.supplier_org_id || t('sp.vendorFallback')) + '</option>';
       }).join('');
     }
 
@@ -409,9 +716,9 @@
       var vendorId = document.getElementById('fVendor').value;
       var supplierName = selectedVendorName() || preSupplierName || '';
       var contextParts = [];
-      if (preRole) contextParts.push('Rolle/Kategorie: <strong>' + esc(preRole) + '</strong>');
-      if (preRegion) contextParts.push('Region: <strong>' + esc(preRegion) + '</strong>');
-      if (vendorId) contextParts.push('Lieferant: <strong>' + esc(supplierName) + '</strong>');
+      if (preRole) contextParts.push(esc(t('sp.badge.role')) + ' <strong>' + esc(preRole) + '</strong>');
+      if (preRegion) contextParts.push(esc(t('sp.badge.region')) + ' <strong>' + esc(preRegion) + '</strong>');
+      if (vendorId) contextParts.push(esc(t('sp.badge.vendor')) + ' <strong>' + esc(supplierName) + '</strong>');
       var badge = document.getElementById('spendContextBadge');
       if (!contextParts.length) {
         badge.style.display = 'none';
@@ -419,27 +726,28 @@
         return;
       }
       badge.style.cssText = 'display:block;background:rgba(74,158,255,.08);border:1px solid rgba(74,158,255,.2);border-radius:8px;padding:10px 14px;font-size:13px;margin-bottom:14px;color:var(--ds-text-secondary)';
-      badge.innerHTML = 'Drilldown-Filter: ' + contextParts.join(' &bull; ')
-        + ' &nbsp;<a href="/public/spend-analytics.html" style="color:var(--brand);font-size:12px">Filter zuruecksetzen &times;</a>';
+      badge.innerHTML = esc(t('sp.badge.prefix')) + ' ' + contextParts.join(' &bull; ')
+        + ' &nbsp;<a href="/public/spend-analytics.html" style="color:var(--brand);font-size:12px">'
+        + '<span data-i18n="sp.badge.reset">' + esc(t('sp.badge.reset')) + '</span> &times;</a>';
     }
 
     async function init() {
-      showSpendState('info', 'Spend-Analyse wird geladen', 'Filter, Lieferantenkontext und Managementdaten werden vorbereitet.');
+      showSpendState('info', t('sp.state.initTitle'), t('sp.state.initText'));
       currentMe = await api('/me');
       spendAnalyticsAccess = resolveSurfaceAccess(currentMe, 'spend_analytics');
       rateCardAccess = resolveSurfaceAccess(currentMe, 'rate_cards');
       applySpendAccess();
       if (!spendAnalyticsAccess.canRead) {
-        setKpiState('–', 'Spend-Sicht gesperrt');
+        setKpiState('–', 'sp.kpi.locked');
         document.getElementById('vendorChart').innerHTML = sectionNote(describeSpendAccess(spendAnalyticsAccess));
-        document.getElementById('categoryChart').innerHTML = sectionNote('Spend nach Rolle bleibt fuer diese Rolle ausgeblendet.');
-        document.getElementById('regionChart').innerHTML = sectionNote('Spend nach Region bleibt fuer diese Rolle ausgeblendet.');
+        document.getElementById('categoryChart').innerHTML = sectionNoteKey('sp.lock.category');
+        document.getElementById('regionChart').innerHTML = sectionNoteKey('sp.lock.region');
         document.getElementById('timeChart').innerHTML = '<div class="empty-state" style="width:100%">' + esc(describeSpendAccess(spendAnalyticsAccess)) + '</div>';
         document.getElementById('timeLabels').innerHTML = '';
-        document.getElementById('rateTable').innerHTML = sectionNote('Preisrahmen-Abgleich ist ohne Spend-Zugriff nicht verfügbar.');
-        document.getElementById('costDrivers').innerHTML = sectionNote('Top-Kostentreiber bleiben fuer diese Rolle ausgeblendet.');
+        document.getElementById('rateTable').innerHTML = sectionNoteKey('sp.lock.rate');
+        document.getElementById('costDrivers').innerHTML = sectionNoteKey('sp.lock.drivers');
         document.getElementById('trendsTable').innerHTML = '<tbody><tr><td class="empty-state">' + esc(describeSpendAccess(spendAnalyticsAccess)) + '</td></tr></tbody>';
-        showSpendState('info', 'Spend-Sicht ausgeblendet', describeSpendAccess(spendAnalyticsAccess));
+        showSpendState('info', t('sp.state.hiddenTitle'), describeSpendAccess(spendAnalyticsAccess));
         return;
       }
       // URL-Parameter-Drilldown: ?role=&category=&supplier=&from=&to=
@@ -472,7 +780,7 @@
       var loadId = ++spendLoadVersion;
       var qs = getFilters(filterState);
       renderContextBadge();
-      showSpendState('info', 'Spend-Analyse wird geladen', 'KPI-Karten, Verteilungen und Trends werden aktualisiert.');
+      showSpendState('info', t('sp.state.initTitle'), t('sp.state.reloadText'));
       setSpendLoadingState();
       var results = await Promise.all([
         loadSummary(qs, loadId),
@@ -480,17 +788,21 @@
         loadCategories(qs, loadId),
         loadRegions(qs, loadId),
         loadTimeline(qs, loadId),
+        // Der blockierte Zweig traegt bewusst weiterhin den deutschen Literal-Namen:
+        // status 'blocked' wird von der Fehlerliste unten herausgefiltert, der Wert
+        // erreicht also nie die Oberflaeche — und api/test/procurementCrossLinks.test.js
+        // prueft genau diese Zeile als Nachweis des Rate-Card-Zugriffsgates.
         rateCardAccess.canRead ? loadRateComparison(qs, loadId) : Promise.resolve({ section: 'Preisrahmen-Abgleich', status: 'blocked' }),
         loadCostDrivers(qs, loadId),
         loadTrends(qs, loadId)
       ]);
       if (!isCurrentSpendLoad(loadId)) return;
       var failures = results.filter(function(r) { return r && r.status === 'error'; }).map(function(r) { return r.section; });
-      if (spendVendorOptionsIssue) failures.unshift('Lieferantenfilter');
+      if (spendVendorOptionsIssue) failures.unshift(t('sp.section.vendorFilter'));
       if (results.every(function(r) { return r && r.status === 'error'; })) {
-        showSpendState('bad', 'Spend-Analyse derzeit nicht verfügbar', 'Die Auswertungen konnten nicht geladen werden. Filter und Drilldowns bleiben erhalten.');
+        showSpendState('bad', t('sp.state.failTitle'), t('sp.state.failText'));
       } else if (failures.length) {
-        showSpendState('warn', 'Teilweise Daten fehlen', failures.join(', ') + ' konnten nicht geladen werden. Die restliche Analyse bleibt verfügbar.');
+        showSpendState('warn', t('sp.state.partialTitle'), t('sp.state.partialText', { sections: failures.join(', ') }));
       } else {
         clearSpendState();
       }
@@ -499,44 +811,54 @@
 
     async function loadSummary(qs, loadId) {
       var d = await api('/spend-analytics/summary' + qs);
-      if (!isCurrentSpendLoad(loadId)) return { section: 'KPI-Übersicht', status: 'stale' };
+      if (!isCurrentSpendLoad(loadId)) return { section: t('sp.section.kpi'), status: 'stale' };
       if (!d || !d.data) {
         renderScopeBar(null, null);
-        setKpiState('!', 'Uebersicht nicht verfuegbar');
-        return { section: 'KPI-Übersicht', status: 'error' };
+        setKpiState('!', 'sp.kpi.unavailable');
+        return { section: t('sp.section.kpi'), status: 'error' };
       }
       var s = d.data;
+      // labelKey statt Text: die Kachel traegt den Marker und folgt dem Sprachwechsel.
       document.getElementById('kpiGrid').innerHTML = [
-        { label: 'Gesamtausgaben', val: eurFmt(s.total_spend_cents) + ' €', color: 'var(--brand)' },
-        { label: 'Ø Stundensatz', val: eurFull(s.avg_rate_cents) + ' €', color: 'var(--text)' },
-        { label: 'Einsaetze', val: s.assignment_count, color: 'var(--text)' },
-        { label: 'Lieferanten', val: s.vendor_count, color: '#7c5cff' },
-        { label: 'Überstunden', val: eurFmt(s.overtime_spend_cents) + ' €', color: 'var(--warn)' },
-        { label: 'Prognose', val: eurFmt(s.projected_spend_cents) + ' €', color: 'var(--ds-text-secondary)' },
-        { label: 'Ueber Preisrahmen', val: eurFmt(s.over_rate_spend_cents) + ' €', color: 'var(--bad)' },
-        { label: 'Stunden', val: Number(s.total_hours).toLocaleString('de-DE', {maximumFractionDigits:0}), color: 'var(--good)' }
-      ].map(function(t) {
-        return '<div class="kpi-tile"><span class="kpi-val" style="color:'+t.color+'">'+esc(String(t.val))+'</span><span class="kpi-label">'+esc(t.label)+'</span></div>';
+        { labelKey: 'sp.kpi.total', val: eurFmt(s.total_spend_cents) + ' €', color: 'var(--brand)' },
+        { labelKey: 'sp.kpi.avgRate', val: eurFull(s.avg_rate_cents) + ' €', color: 'var(--text)' },
+        { labelKey: 'sp.kpi.assignments', val: s.assignment_count, color: 'var(--text)' },
+        { labelKey: 'sp.kpi.vendors', val: s.vendor_count, color: '#7c5cff' },
+        { labelKey: 'sp.kpi.overtime', val: eurFmt(s.overtime_spend_cents) + ' €', color: 'var(--warn)' },
+        { labelKey: 'sp.kpi.forecast', val: eurFmt(s.projected_spend_cents) + ' €', color: 'var(--ds-text-secondary)' },
+        { labelKey: 'sp.kpi.overRate', val: eurFmt(s.over_rate_spend_cents) + ' €', color: 'var(--bad)' },
+        { labelKey: 'sp.kpi.hours', val: Number(s.total_hours).toLocaleString(fmtLocale(), {maximumFractionDigits:0}), color: 'var(--good)' }
+      ].map(function(tile) {
+        return '<div class="kpi-tile"><span class="kpi-val" style="color:'+tile.color+'">'+esc(String(tile.val))+
+          '</span><span class="kpi-label" data-i18n="'+tile.labelKey+'">'+esc(t(tile.labelKey))+'</span></div>';
       }).join('');
       renderScopeBar(d.scope || null, d.generated_at || null);
-      return { section: 'KPI-Übersicht', status: 'ok' };
+      return { section: t('sp.section.kpi'), status: 'ok' };
     }
 
     function renderBarChart(containerId, items, labelKey, valKey, color, linkFn) {
       var el = document.getElementById(containerId);
-      if (!items || !items.length) { var locLbl = getLocLabel(); el.innerHTML = '<div class="empty-state">' + (locLbl ? 'Keine Daten für Standort ' + locLbl + '.' : 'Keine Daten.') + '</div>'; return; }
+      if (!items || !items.length) {
+        var locLbl = getLocLabel();
+        // Mit Standortnamen ist der Text ein Laufzeitwert -> ohne Marker.
+        el.innerHTML = locLbl
+          ? '<div class="empty-state">' + esc(t('sp.chart.noDataLoc', { loc: locLbl })) + '</div>'
+          : stateHtml('sp.chart.noData');
+        return;
+      }
       var max = Math.max.apply(null, items.map(function(i) { return Number(i[valKey]) || 0; }));
       el.innerHTML = items.map(function(i) {
         var v = Number(i[valKey]) || 0;
         var pct = max > 0 ? (v / max * 100) : 0;
-        var labelHtml = esc(i[labelKey] || 'Unbekannt');
-        // Vendor-Bars: Klick oeffnet Scorecard
+        // Kategorie-/Lieferantennamen sind API-Daten; nur der Fallback ist uebersetzt.
+        var labelHtml = esc(i[labelKey] || t('sp.chart.unknown'));
+        // Vendor-Bars: Klick oeffnet die Lieferantenbewertung
         if (linkFn) {
           var href = linkFn(i);
-          labelHtml = href ? '<a href="'+href+'" style="color:inherit;text-decoration:underline;text-decoration-color:rgba(255,255,255,.2)" title="Scorecard oeffnen">'+labelHtml+'</a>' : labelHtml;
+          labelHtml = href ? '<a href="'+href+'" style="color:inherit;text-decoration:underline;text-decoration-color:rgba(255,255,255,.2)" title="'+esc(t('sp.chart.scorecardTitle'))+'">'+labelHtml+'</a>' : labelHtml;
         }
         return '<div class="bar-row">' +
-          '<span class="bar-label" title="'+esc(i[labelKey] || 'Unbekannt')+'">'+labelHtml+'</span>' +
+          '<span class="bar-label" title="'+esc(i[labelKey] || t('sp.chart.unknown'))+'">'+labelHtml+'</span>' +
           '<div class="bar-track"><div class="bar-fill" style="width:'+pct.toFixed(1)+'%;background:'+(color||'var(--brand)')+'"></div></div>' +
           '<span class="bar-val">'+eurFmt(v)+' €</span></div>';
       }).join('');
@@ -544,14 +866,14 @@
 
     async function loadVendors(qs, loadId) {
       var d = await api('/spend-analytics/by-vendor' + qs + (qs ? '&' : '?') + 'limit=10');
-      if (!isCurrentSpendLoad(loadId)) return { section: 'Spend nach Lieferant', status: 'stale' };
+      if (!isCurrentSpendLoad(loadId)) return { section: t('sp.section.vendor'), status: 'stale' };
       if (!d) {
-        document.getElementById('vendorChart').innerHTML = sectionNote('Spend nach Lieferant konnte derzeit nicht geladen werden.');
-        return { section: 'Spend nach Lieferant', status: 'error' };
+        document.getElementById('vendorChart').innerHTML = sectionNoteKey('sp.err.vendor');
+        return { section: t('sp.section.vendor'), status: 'error' };
       }
       if (!d.data || !d.data.length) {
-        document.getElementById('vendorChart').innerHTML = '<div class="empty-state">Keine Spend-Daten fuer Lieferanten im aktuellen Filter.</div>';
-        return { section: 'Spend nach Lieferant', status: 'empty' };
+        document.getElementById('vendorChart').innerHTML = stateHtml('sp.empty.vendor');
+        return { section: t('sp.section.vendor'), status: 'empty' };
       }
       // Vendor-Bars sind klickbar -> Scorecard Deep-Link
       renderBarChart('vendorChart', d.data, 'supplier_name', 'spend_cents', 'var(--brand)', function(item) {
@@ -559,53 +881,53 @@
         return '/public/supplier_scorecard.html?agencyId=' + encodeURIComponent(item.supplier_id)
           + '&agencyName=' + encodeURIComponent(item.supplier_name || '');
       });
-      return { section: 'Spend nach Lieferant', status: 'ok' };
+      return { section: t('sp.section.vendor'), status: 'ok' };
     }
 
     async function loadCategories(qs, loadId) {
       var d = await api('/spend-analytics/by-category' + qs);
-      if (!isCurrentSpendLoad(loadId)) return { section: 'Spend nach Rolle', status: 'stale' };
+      if (!isCurrentSpendLoad(loadId)) return { section: t('sp.section.category'), status: 'stale' };
       if (!d) {
-        document.getElementById('categoryChart').innerHTML = sectionNote('Spend nach Rolle konnte derzeit nicht geladen werden.');
-        return { section: 'Spend nach Rolle', status: 'error' };
+        document.getElementById('categoryChart').innerHTML = sectionNoteKey('sp.err.category');
+        return { section: t('sp.section.category'), status: 'error' };
       }
       if (!d.data || !d.data.length) {
-        document.getElementById('categoryChart').innerHTML = '<div class="empty-state">Keine Spend-Daten fuer Rollen im aktuellen Filter.</div>';
-        return { section: 'Spend nach Rolle', status: 'empty' };
+        document.getElementById('categoryChart').innerHTML = stateHtml('sp.empty.category');
+        return { section: t('sp.section.category'), status: 'empty' };
       }
       renderBarChart('categoryChart', d.data, 'category', 'spend_cents', '#7c5cff');
-      return { section: 'Spend nach Rolle', status: 'ok' };
+      return { section: t('sp.section.category'), status: 'ok' };
     }
 
     async function loadRegions(qs, loadId) {
       var d = await api('/spend-analytics/by-region' + qs);
-      if (!isCurrentSpendLoad(loadId)) return { section: 'Spend nach Region', status: 'stale' };
+      if (!isCurrentSpendLoad(loadId)) return { section: t('sp.section.region'), status: 'stale' };
       if (!d) {
-        document.getElementById('regionChart').innerHTML = sectionNote('Spend nach Region konnte derzeit nicht geladen werden.');
-        return { section: 'Spend nach Region', status: 'error' };
+        document.getElementById('regionChart').innerHTML = sectionNoteKey('sp.err.region');
+        return { section: t('sp.section.region'), status: 'error' };
       }
       if (!d.data || !d.data.length) {
-        document.getElementById('regionChart').innerHTML = '<div class="empty-state">Keine Spend-Daten fuer Regionen im aktuellen Filter.</div>';
-        return { section: 'Spend nach Region', status: 'empty' };
+        document.getElementById('regionChart').innerHTML = stateHtml('sp.empty.region');
+        return { section: t('sp.section.region'), status: 'empty' };
       }
       renderBarChart('regionChart', d.data, 'region', 'spend_cents', '#4aa3ff');
-      return { section: 'Spend nach Region', status: 'ok' };
+      return { section: t('sp.section.region'), status: 'ok' };
     }
 
     async function loadTimeline(qs, loadId) {
       var d = await api('/spend-analytics/over-time' + qs);
       var el = document.getElementById('timeChart');
       var labels = document.getElementById('timeLabels');
-      if (!isCurrentSpendLoad(loadId)) return { section: 'Kostenverlauf', status: 'stale' };
+      if (!isCurrentSpendLoad(loadId)) return { section: t('sp.section.time'), status: 'stale' };
       if (!d) {
-        el.innerHTML = sectionNote('Der Kostenverlauf konnte derzeit nicht geladen werden.');
+        el.innerHTML = sectionNoteKey('sp.err.time');
         labels.innerHTML = '';
-        return { section: 'Kostenverlauf', status: 'error' };
+        return { section: t('sp.section.time'), status: 'error' };
       }
       if (!d.data || !d.data.length) {
-        el.innerHTML = '<div class="empty-state" style="width:100%">Keine Zeitreihe fuer den aktuellen Filter.</div>';
+        el.innerHTML = stateHtml('sp.empty.time', true);
         labels.innerHTML = '';
-        return { section: 'Kostenverlauf', status: 'empty' };
+        return { section: t('sp.section.time'), status: 'empty' };
       }
       var items = d.data;
       var max = Math.max.apply(null, items.map(function(i) { return Number(i.spend_cents) || 0; }));
@@ -617,22 +939,26 @@
       labels.innerHTML = items.map(function(i) {
         return '<span>'+(i.period ? i.period.slice(5,7)+'/'+i.period.slice(2,4) : '')+'</span>';
       }).join('');
-      return { section: 'Kostenverlauf', status: 'ok' };
+      return { section: t('sp.section.time'), status: 'ok' };
     }
 
     async function loadRateComparison(qs, loadId) {
       var d = await api('/spend-analytics/rate-comparison' + qs);
       var el = document.getElementById('rateTable');
-      if (!isCurrentSpendLoad(loadId)) return { section: 'Preisrahmen-Abgleich', status: 'stale' };
+      if (!isCurrentSpendLoad(loadId)) return { section: t('sp.section.rate'), status: 'stale' };
       if (!d) {
-        el.innerHTML = sectionNote('Der Preisrahmen-Abgleich konnte derzeit nicht geladen werden.');
-        return { section: 'Preisrahmen-Abgleich', status: 'error' };
+        el.innerHTML = sectionNoteKey('sp.err.rate');
+        return { section: t('sp.section.rate'), status: 'error' };
       }
       if (!d.data || !d.data.length) {
-        el.innerHTML = '<div class="empty-state">Keine Preisrahmen-Abgleichsdaten fuer den aktuellen Filter verfuegbar.</div>';
-        return { section: 'Preisrahmen-Abgleich', status: 'empty' };
+        el.innerHTML = stateHtml('sp.empty.rate');
+        return { section: t('sp.section.rate'), status: 'empty' };
       }
-      var html = '<table><thead><tr><th>Kategorie</th><th>Lieferant</th><th>Ist Ø</th><th>Ziel</th><th>Max</th><th>Abweichung</th><th>Einsaetze</th></tr></thead><tbody>';
+      var rateTh = ['sp.rate.th.category', 'sp.rate.th.supplier', 'sp.rate.th.actual', 'sp.rate.th.target',
+        'sp.rate.th.max', 'sp.rate.th.deviation', 'sp.rate.th.assignments'].map(function(key) {
+        return '<th data-i18n="' + key + '">' + esc(t(key)) + '</th>';
+      }).join('');
+      var html = '<table><thead><tr>' + rateTh + '</tr></thead><tbody>';
       d.data.forEach(function(r) {
         var cls = r.deviation_cents <= 0 ? 'deviation-good' : (r.actual_avg_cents <= r.max_avg_cents ? 'deviation-warn' : 'deviation-bad');
         var sign = r.deviation_cents > 0 ? '+' : '';
@@ -645,50 +971,55 @@
       });
       html += '</tbody></table>';
       el.innerHTML = html;
-      return { section: 'Preisrahmen-Abgleich', status: 'ok' };
+      return { section: t('sp.section.rate'), status: 'ok' };
     }
 
     async function loadCostDrivers(qs, loadId) {
       var d = await api('/spend-analytics/top-cost-drivers' + qs);
-      if (!isCurrentSpendLoad(loadId)) return { section: 'Kostentreiber', status: 'stale' };
+      if (!isCurrentSpendLoad(loadId)) return { section: t('sp.section.drivers'), status: 'stale' };
       if (!d) {
-        document.getElementById('costDrivers').innerHTML = sectionNote('Top-Kostentreiber konnten derzeit nicht geladen werden.');
-        return { section: 'Kostentreiber', status: 'error' };
+        document.getElementById('costDrivers').innerHTML = sectionNoteKey('sp.err.drivers');
+        return { section: t('sp.section.drivers'), status: 'error' };
       }
       if (!d.data || !d.data.length) {
-        document.getElementById('costDrivers').innerHTML = '<div class="empty-state">Keine Kostentreiber fuer den aktuellen Filter vorhanden.</div>';
-        return { section: 'Kostentreiber', status: 'empty' };
+        document.getElementById('costDrivers').innerHTML = stateHtml('sp.empty.drivers');
+        return { section: t('sp.section.drivers'), status: 'empty' };
       }
-      var items = d.data.map(function(i) { return { label: (i.category||'?') + ' / ' + (i.supplier_name||'Alle'), spend_cents: i.spend_cents }; });
+      // Kategorie und Lieferantenname sind API-Daten; nur der Sammel-Fallback ist uebersetzt.
+      var items = d.data.map(function(i) { return { label: (i.category||'?') + ' / ' + (i.supplier_name||t('sp.drivers.allVendors')), spend_cents: i.spend_cents }; });
       renderBarChart('costDrivers', items, 'label', 'spend_cents', 'var(--warn)');
-      return { section: 'Kostentreiber', status: 'ok' };
+      return { section: t('sp.section.drivers'), status: 'ok' };
     }
 
     async function loadTrends(qs, loadId) {
       var d = await api('/spend-analytics/trends' + qs);
       var el = document.getElementById('trendsTable');
-      if (!isCurrentSpendLoad(loadId)) return { section: 'Spend-Trends', status: 'stale' };
+      if (!isCurrentSpendLoad(loadId)) return { section: t('sp.section.trends'), status: 'stale' };
       if (!d) {
-        el.innerHTML = '<tbody><tr><td class="empty-state">' + esc('Spend-Trends konnten derzeit nicht geladen werden.') + '</td></tr></tbody>';
-        return { section: 'Spend-Trends', status: 'error' };
+        el.innerHTML = '<tbody><tr><td class="empty-state" data-i18n="sp.err.trends">' + esc(t('sp.err.trends')) + '</td></tr></tbody>';
+        return { section: t('sp.section.trends'), status: 'error' };
       }
       if (!d.data || !d.data.length) {
-        el.innerHTML = '<tbody><tr><td class="empty-state">Keine Trend-Daten fuer den aktuellen Filter.</td></tr></tbody>';
-        return { section: 'Spend-Trends', status: 'empty' };
+        el.innerHTML = '<tbody><tr><td class="empty-state" data-i18n="sp.empty.trends">' + esc(t('sp.empty.trends')) + '</td></tr></tbody>';
+        return { section: t('sp.section.trends'), status: 'empty' };
       }
-      var html = '<thead><tr><th>Monat</th><th>Spend</th><th>Stunden</th><th>Vormonat</th><th>MoM Δ</th></tr></thead><tbody>';
+      var trendTh = ['sp.trend.th.month', 'sp.trend.th.spend', 'sp.trend.th.hours',
+        'sp.trend.th.prev', 'sp.trend.th.mom'].map(function(key) {
+        return '<th data-i18n="' + key + '">' + esc(t(key)) + '</th>';
+      }).join('');
+      var html = '<thead><tr>' + trendTh + '</tr></thead><tbody>';
       d.data.forEach(function(r) {
         var month = r.period ? r.period.slice(0, 7) : '–';
         var cls = r.mom_change_pct == null ? 'trend-neutral' : (r.mom_change_pct > 0 ? 'trend-up' : 'trend-down');
         var arrow = r.mom_change_pct == null ? '–' : (r.mom_change_pct > 0 ? '▲' : (r.mom_change_pct < 0 ? '▼' : '●'));
         html += '<tr><td>'+esc(month)+'</td><td class="rate-display">'+eurFmt(r.spend_cents)+' €</td>' +
-          '<td>'+Number(r.hours || 0).toLocaleString('de-DE',{maximumFractionDigits:0})+' h</td>' +
+          '<td>'+Number(r.hours || 0).toLocaleString(fmtLocale(),{maximumFractionDigits:0})+' h</td>' +
           '<td class="rate-display">'+(r.prev_spend_cents != null ? eurFmt(r.prev_spend_cents)+' €' : '–')+'</td>' +
           '<td class="'+cls+'">'+arrow+' '+(r.mom_change_pct != null ? (r.mom_change_pct > 0 ? '+' : '')+r.mom_change_pct.toFixed(1)+'%' : '–')+'</td></tr>';
       });
       html += '</tbody>';
       el.innerHTML = html;
-      return { section: 'Spend-Trends', status: 'ok' };
+      return { section: t('sp.section.trends'), status: 'ok' };
     }
 
     init();

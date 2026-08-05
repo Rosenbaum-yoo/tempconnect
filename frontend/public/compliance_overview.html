@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <script src="/public/js/theme.js"></script>
   <script src="/public/js/i18n.js"></script>
-  <title>Compliance – TempConnect</title>
+  <title data-i18n="apv.b.docTitle">Compliance – TempConnect</title>
   <link rel="stylesheet" href="/public/css/enterprise.css"/>
   <style>
     .filter-row { display:flex; gap:10px; flex-wrap:wrap; margin-bottom:16px; align-items:center; }
@@ -56,39 +56,43 @@
     <div id="tc-shell"></div>
     <div class="ds-page-header">
       <div class="ds-page-header__content">
-        <h1 class="ds-page-title">Compliance</h1>
-        <p class="ds-page-subtitle">Dokumente mit Ampellogik verwalten, Ablauftermine ueberwachen und Verifizierungen durchfuehren.</p>
+        <h1 class="ds-page-title" data-i18n="apv.b.page.title">Compliance</h1>
+        <p class="ds-page-subtitle" data-i18n="apv.b.page.subtitle">Dokumente mit Ampellogik verwalten, Ablauftermine ueberwachen und Verifizierungen durchfuehren.</p>
       </div>
       <div class="ds-page-header__actions">
-        <button id="complianceUploadButton" class="ds-btn ds-btn--primary" onclick="showUpload()">+ Dokument hochladen</button>
+        <button id="complianceUploadButton" class="ds-btn ds-btn--primary" onclick="showUpload()" data-i18n="apv.b.action.upload">+ Dokument hochladen</button>
       </div>
     </div>
     <div id="complianceContextBadge" class="context-badge"></div>
     <div id="complianceState" class="page-state"></div>
     <div id="rateCardRiskBox"></div>
-    <div class="stat-grid" id="statsGrid"><div class="stat-cell"><b>&ndash;</b><span>Lade&hellip;</span></div></div>
+    <div class="stat-grid" id="statsGrid"><div class="stat-cell"><b>&ndash;</b><span data-i18n="apv.b.loading">Lade&hellip;</span></div></div>
+    <!-- Filter: option[value] bleibt unveraendert (Query-Parameter an den Server). -->
     <div class="filter-row">
-      <select id="fDocType" onchange="loadDocs()"><option value="">Alle Typen</option><option value="aueg_erlaubnis">AUeG-Erlaubnis</option><option value="unbedenklichkeit">Unbedenklichkeit</option><option value="uvv_nachweis">UVV-Nachweis</option><option value="versicherung">Versicherung</option><option value="zertifikat">Zertifikat</option><option value="gewerbeanmeldung">Gewerbeanmeldung</option><option value="handelsregister">Handelsregister</option><option value="datenschutz">Datenschutz</option><option value="arbeitssicherheit">Arbeitssicherheit</option><option value="qualifikation">Qualifikation</option><option value="sonstige">Sonstige</option></select>
-      <select id="fDocStatus" onchange="loadDocs()"><option value="">Alle Status</option><option value="pending">Ausstehend</option><option value="verified">Verifiziert</option><option value="rejected">Abgelehnt</option><option value="expired">Abgelaufen</option></select>
+      <select id="fDocType" onchange="loadDocs()"><option value="" data-i18n="apv.b.filter.allTypes">Alle Typen</option><option value="aueg_erlaubnis" data-i18n="apv.b.docType.aueg_erlaubnis">AUeG-Erlaubnis</option><option value="unbedenklichkeit" data-i18n="apv.b.docType.unbedenklichkeit">Unbedenklichkeit</option><option value="uvv_nachweis" data-i18n="apv.b.docType.uvv_nachweis">UVV-Nachweis</option><option value="versicherung" data-i18n="apv.b.docType.versicherung">Versicherung</option><option value="zertifikat" data-i18n="apv.b.docType.zertifikat">Zertifikat</option><option value="gewerbeanmeldung" data-i18n="apv.b.docType.gewerbeanmeldung">Gewerbeanmeldung</option><option value="handelsregister" data-i18n="apv.b.docType.handelsregister">Handelsregister</option><option value="datenschutz" data-i18n="apv.b.docType.datenschutz">Datenschutz</option><option value="arbeitssicherheit" data-i18n="apv.b.docType.arbeitssicherheit">Arbeitssicherheit</option><option value="qualifikation" data-i18n="apv.b.docType.qualifikation">Qualifikation</option><option value="sonstige" data-i18n="apv.b.docType.sonstige">Sonstige</option></select>
+      <select id="fDocStatus" onchange="loadDocs()"><option value="" data-i18n="apv.b.filter.allStatus">Alle Status</option><option value="pending" data-i18n="apv.b.docStatus.pending">Ausstehend</option><option value="verified" data-i18n="apv.b.docStatus.verified">Verifiziert</option><option value="rejected" data-i18n="apv.b.docStatus.rejected">Abgelehnt</option><option value="expired" data-i18n="apv.b.docStatus.expired">Abgelaufen</option></select>
     </div>
-    <table class="table"><thead><tr><th>Ampel</th><th>Typ</th><th>Name</th><th>Status</th><th>Gueltig bis</th><th>Organisation</th><th>Aktionen</th></tr></thead><tbody id="docBody"><tr><td colspan="7" style="text-align:center;padding:24px;color:var(--ds-text-secondary)">Lade&hellip;</td></tr></tbody></table>
-    <div id="emptyMsg" class="ds-empty" style="display:none"><div class="ds-empty__title">Keine Compliance-Dokumente</div><div class="ds-empty__text">Laden Sie Ihr erstes Dokument hoch.</div><button id="emptyUploadAction" class="ds-btn ds-btn--primary" onclick="showUpload()" style="margin-top:12px">+ Dokument hochladen</button></div>
+    <table class="table"><thead><tr><th data-i18n="apv.b.th.trafficLight">Ampel</th><th data-i18n="apv.b.th.type">Typ</th><th data-i18n="apv.b.th.name">Name</th><th data-i18n="apv.b.th.status">Status</th><th data-i18n="apv.b.th.validUntil">Gueltig bis</th><th data-i18n="apv.b.th.organization">Organisation</th><th data-i18n="apv.b.th.actions">Aktionen</th></tr></thead><tbody id="docBody"><tr><td colspan="7" style="text-align:center;padding:24px;color:var(--ds-text-secondary)" data-i18n="apv.b.loading">Lade&hellip;</td></tr></tbody></table>
+    <!-- Kein data-i18n auf Titel/Text des Leerzustands: setEmptyState() setzt beide
+         situationsabhaengig ueber t() (Zugriff, Drilldown, Ladefehler). -->
+    <div id="emptyMsg" class="ds-empty" style="display:none"><div class="ds-empty__title">Keine Compliance-Dokumente</div><div class="ds-empty__text">Laden Sie Ihr erstes Dokument hoch.</div><button id="emptyUploadAction" class="ds-btn ds-btn--primary" onclick="showUpload()" style="margin-top:12px" data-i18n="apv.b.action.upload">+ Dokument hochladen</button></div>
   </div>
 
   <!-- Upload Modal -->
   <div class="modal" id="uploadModal" onclick="if(event.target===this)closeUpload()">
     <div class="panel" style="max-width:520px;width:92vw">
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px"><h2 style="margin:0;font-size:18px">Dokument hochladen</h2><button onclick="closeUpload()" style="background:none;border:none;color:var(--ds-text-secondary);font-size:18px;cursor:pointer">&times;</button></div>
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px"><h2 style="margin:0;font-size:18px" data-i18n="apv.b.upload.title">Dokument hochladen</h2><button onclick="closeUpload()" style="background:none;border:none;color:var(--ds-text-secondary);font-size:18px;cursor:pointer" title="Schliessen" data-i18n-title="apv.b.upload.close" aria-label="Schliessen" data-i18n-aria="apv.b.upload.close">&times;</button></div>
       <form id="uploadForm" onsubmit="submitUpload(event)">
         <div class="form-grid">
-          <div><label>Dokumenttyp *</label><select id="uDocType" required><option value="">Bitte waehlen</option><option value="aueg_erlaubnis">AUeG-Erlaubnis</option><option value="unbedenklichkeit">Unbedenklichkeit</option><option value="uvv_nachweis">UVV-Nachweis</option><option value="versicherung">Versicherung</option><option value="zertifikat">Zertifikat</option><option value="gewerbeanmeldung">Gewerbeanmeldung</option><option value="handelsregister">Handelsregister</option><option value="datenschutz">Datenschutz</option><option value="arbeitssicherheit">Arbeitssicherheit</option><option value="qualifikation">Qualifikation</option><option value="sonstige">Sonstige</option></select></div>
-          <div><label>Name *</label><input id="uDocName" required maxlength="200" placeholder="z.B. AUeG 2026"/></div>
-          <div><label>Gueltig von</label><input id="uFrom" type="date"/></div>
-          <div><label>Gueltig bis</label><input id="uUntil" type="date"/></div>
-          <div class="form-full"><label>Datei (PDF, PNG, JPG &mdash; max. 10 MB)</label><div class="file-drop" id="fileDrop" onclick="document.getElementById('uFile').click()"><div style="font-size:13px;color:var(--ds-text-secondary)">Klicken oder Datei ziehen</div><div class="name" id="fileName" style="display:none"></div></div><input type="file" id="uFile" accept=".pdf,.png,.jpg,.jpeg,.webp" style="display:none" onchange="onFileSelect(this)"/></div>
-          <div class="form-full"><label>Notizen</label><textarea id="uNotes" rows="2" maxlength="2000" placeholder="Optional&hellip;"></textarea></div>
+          <div><label data-i18n="apv.b.upload.docType">Dokumenttyp *</label><select id="uDocType" required><option value="" data-i18n="apv.b.upload.choose">Bitte waehlen</option><option value="aueg_erlaubnis" data-i18n="apv.b.docType.aueg_erlaubnis">AUeG-Erlaubnis</option><option value="unbedenklichkeit" data-i18n="apv.b.docType.unbedenklichkeit">Unbedenklichkeit</option><option value="uvv_nachweis" data-i18n="apv.b.docType.uvv_nachweis">UVV-Nachweis</option><option value="versicherung" data-i18n="apv.b.docType.versicherung">Versicherung</option><option value="zertifikat" data-i18n="apv.b.docType.zertifikat">Zertifikat</option><option value="gewerbeanmeldung" data-i18n="apv.b.docType.gewerbeanmeldung">Gewerbeanmeldung</option><option value="handelsregister" data-i18n="apv.b.docType.handelsregister">Handelsregister</option><option value="datenschutz" data-i18n="apv.b.docType.datenschutz">Datenschutz</option><option value="arbeitssicherheit" data-i18n="apv.b.docType.arbeitssicherheit">Arbeitssicherheit</option><option value="qualifikation" data-i18n="apv.b.docType.qualifikation">Qualifikation</option><option value="sonstige" data-i18n="apv.b.docType.sonstige">Sonstige</option></select></div>
+          <div><label data-i18n="apv.b.upload.name">Name *</label><input id="uDocName" required maxlength="200" placeholder="z.B. AUeG 2026" data-i18n-ph="apv.b.upload.namePh"/></div>
+          <div><label data-i18n="apv.b.upload.validFrom">Gueltig von</label><input id="uFrom" type="date"/></div>
+          <div><label data-i18n="apv.b.upload.validUntil">Gueltig bis</label><input id="uUntil" type="date"/></div>
+          <div class="form-full"><label data-i18n="apv.b.upload.file">Datei (PDF, PNG, JPG &mdash; max. 10 MB)</label><div class="file-drop" id="fileDrop" onclick="document.getElementById('uFile').click()"><div style="font-size:13px;color:var(--ds-text-secondary)" data-i18n="apv.b.upload.drop">Klicken oder Datei ziehen</div><div class="name" id="fileName" style="display:none"></div></div><input type="file" id="uFile" accept=".pdf,.png,.jpg,.jpeg,.webp" style="display:none" onchange="onFileSelect(this)"/></div>
+          <div class="form-full"><label data-i18n="apv.b.upload.notes">Notizen</label><textarea id="uNotes" rows="2" maxlength="2000" placeholder="Optional&hellip;" data-i18n-ph="apv.b.upload.notesPh"></textarea></div>
         </div>
-        <div style="margin-top:16px;display:flex;gap:8px;justify-content:flex-end"><button type="button" class="ds-btn" onclick="closeUpload()">Abbrechen</button><button type="submit" class="ds-btn ds-btn--primary" id="btnUpload">Hochladen</button></div>
+        <!-- Kein data-i18n auf #btnUpload: submitUpload() wechselt die Beschriftung (ueber t()). -->
+        <div style="margin-top:16px;display:flex;gap:8px;justify-content:flex-end"><button type="button" class="ds-btn" onclick="closeUpload()" data-i18n="apv.b.upload.cancel">Abbrechen</button><button type="submit" class="ds-btn ds-btn--primary" id="btnUpload">Hochladen</button></div>
       </form>
     </div>
   </div>
@@ -96,10 +100,339 @@
 <script src="/public/js/surfaceAccess.js"></script>
 <script>
 'use strict';
+
+/* Woerterbuch (P6.1, DE/EN) fuer compliance_overview.html — Namensraum apv.b.*
+   (zweiter Unter-Namensraum der Freigabe-/Compliance-Gruppe; approvals.html
+   fuehrt apv.*, damit sich beide Seiten im gemeinsamen Register nicht in die
+   Quere kommen.)
+
+   Bewusst NICHT hier uebersetzt:
+   - Topbar/Navigation/Nutzerbereich und der Sprach-Umschalter (pageShell.js)
+   - option[value] der Filter (doc_type/status gehen als Query an den Server)
+   - Dokumentnamen, Organisationsnamen und der rohe traffic_light-Wert
+   - access.reason aus dem Backend (serverseitig formulierte Begruendung;
+     der Woerterbuch-Text ist nur der Ersatz, wenn keine geliefert wird)
+
+   Drei-Seiten-Regel: Compliance ist fuer Unternehmen UND Personaldienstleister
+   erreichbar (enterpriseSurfaceAccessService: compliance_overview in beiden
+   Zweigen). Die Seite fuehrt jedoch keinen rollenabhaengigen Begriff aus
+   terminologyLabels.js — Dokument, Freigabe, Verifizierung heissen auf beiden
+   Seiten gleich. Deshalb kein TC.terminology-Block, aber auch bewusst keine
+   Formulierung, die eine der beiden Rollen adressiert.                        */
+if(window.TCi18n){
+TCi18n.register('de', {
+  'apv.b.docTitle': 'Compliance – TempConnect',
+  'apv.b.page.title': 'Compliance',
+  'apv.b.page.subtitle': 'Dokumente mit Ampellogik verwalten, Ablauftermine überwachen und Verifizierungen durchführen.',
+  'apv.b.action.upload': '+ Dokument hochladen',
+  'apv.b.loading': 'Lade…',
+
+  'apv.b.filter.allTypes': 'Alle Typen',
+  'apv.b.filter.allStatus': 'Alle Status',
+
+  'apv.b.docType.aueg_erlaubnis': 'AÜG-Erlaubnis',
+  'apv.b.docType.unbedenklichkeit': 'Unbedenklichkeit',
+  'apv.b.docType.uvv_nachweis': 'UVV-Nachweis',
+  'apv.b.docType.versicherung': 'Versicherung',
+  'apv.b.docType.zertifikat': 'Zertifikat',
+  'apv.b.docType.gewerbeanmeldung': 'Gewerbeanmeldung',
+  'apv.b.docType.handelsregister': 'Handelsregister',
+  'apv.b.docType.datenschutz': 'Datenschutz',
+  'apv.b.docType.arbeitssicherheit': 'Arbeitssicherheit',
+  'apv.b.docType.qualifikation': 'Qualifikation',
+  'apv.b.docType.sonstige': 'Sonstige',
+
+  'apv.b.docStatus.pending': 'Ausstehend',
+  'apv.b.docStatus.verified': 'Verifiziert',
+  'apv.b.docStatus.rejected': 'Abgelehnt',
+  'apv.b.docStatus.expired': 'Abgelaufen',
+
+  'apv.b.th.trafficLight': 'Ampel',
+  'apv.b.th.type': 'Typ',
+  'apv.b.th.name': 'Name',
+  'apv.b.th.status': 'Status',
+  'apv.b.th.validUntil': 'Gültig bis',
+  'apv.b.th.organization': 'Organisation',
+  'apv.b.th.actions': 'Aktionen',
+
+  'apv.b.stats.total': 'Gesamt',
+  'apv.b.stats.verified': 'Verifiziert',
+  'apv.b.stats.pending': 'Ausstehend',
+  'apv.b.stats.rejected': 'Abgelehnt',
+  'apv.b.stats.expired': 'Abgelaufen',
+  'apv.b.stats.expiringSoon': 'Bald ablaufend',
+  'apv.b.stats.docRisks': 'Dokumentenrisiken',
+
+  'apv.b.note.statsUnavailable': 'Dokumentenstatistik konnte derzeit nicht geladen werden.',
+  'apv.b.note.riskStatsUnavailable': 'Dokumentenrisiken im 30-Tage-Fenster konnten derzeit nicht geladen werden.',
+  'apv.b.note.rateCardUnavailable': 'Rate-Card-Risiken der letzten 30 Tage konnten derzeit nicht geladen werden.',
+  'apv.b.access.hiddenDefault': 'Compliance bleibt für diese Rolle derzeit ausgeblendet.',
+
+  'apv.b.badge.riskWindow': 'Executive-Risikofenster: {scope} der kommenden bzw. letzten 30 Tage.',
+  'apv.b.badge.scopeBoth': 'Dokumentenrisiken und Rate-Card-Risiken',
+  'apv.b.badge.scopeDocs': 'Dokumentenrisiken',
+  'apv.b.badge.reset': 'Filter zurücksetzen',
+
+  'apv.b.rateCard.title': 'Rate-Card-Risiken (30 Tage)',
+  'apv.b.rateCard.introDrilldown': 'Dieser Block ergänzt das Executive-Risikofenster um Preisrahmen-Warnungen und Verstöße der letzten 30 Tage.',
+  'apv.b.rateCard.intro': 'Preisrahmen-Warnungen und Verstöße der letzten 30 Tage als ergänzende Compliance-Sicht.',
+  'apv.b.rateCard.checked': 'Geprüft',
+  'apv.b.rateCard.warning': 'Warnung',
+  'apv.b.rateCard.violation': 'Verstoß',
+  'apv.b.rateCard.atRisk': 'Gefährdet',
+  'apv.b.rateCard.openAtRisk': 'Warnung / Verstoß öffnen',
+  'apv.b.rateCard.onlyViolations': 'Nur Verstöße',
+
+  'apv.b.state.loadingTitle': 'Compliance wird geladen',
+  'apv.b.state.loadingRiskBoth': 'Dokumentenrisiken und Rate-Card-Risiken werden für das 30-Tage-Risikofenster geladen.',
+  'apv.b.state.loadingRiskDocs': 'Dokumentenrisiken werden für das 30-Tage-Risikofenster geladen.',
+  'apv.b.state.loadingBoth': 'Dokumente, Kennzahlen und ergänzende Rate-Card-Risiken werden geladen.',
+  'apv.b.state.loadingDocs': 'Dokumente und Kennzahlen werden geladen.',
+  'apv.b.state.partialTitle': 'Teilweise Daten fehlen',
+  'apv.b.state.partialText': '{parts} konnten nicht geladen werden. Die Seite bleibt dennoch nutzbar.',
+  'apv.b.state.readOnlyTitle': 'Compliance read-only',
+  'apv.b.state.readOnlyText': 'Uploads und Änderungen bleiben in dieser Rolle gesperrt.',
+  'apv.b.state.hiddenTitle': 'Compliance ausgeblendet',
+  'apv.b.state.orgMissingTitle': 'Organisation fehlt',
+  'apv.b.state.orgMissingText': 'Ohne Organisationskontext kann die Compliance-Sicht nicht geladen werden.',
+  'apv.b.state.unavailableTitle': 'Compliance derzeit nicht verfügbar',
+  'apv.b.state.unavailableText': 'Die Dokumentliste konnte nicht geladen werden.',
+  'apv.b.state.unavailableExtra': ' Zusätzlich fehlen {parts}.',
+
+  'apv.b.part.docStats': 'Dokumentenstatistik',
+  'apv.b.part.rateCardRisks': 'Rate-Card-Risiken',
+  'apv.b.part.join': ' und ',
+
+  'apv.b.empty.uploadOnlyTitle': 'Upload ohne Cockpit-Zugriff',
+  'apv.b.empty.uploadOnlyText': 'Dokument-Uploads bleiben möglich, die interne Compliance-Sicht bleibt für diese Rolle jedoch ausgeblendet.',
+  'apv.b.empty.contextTitle': 'Compliance-Kontext fehlt',
+  'apv.b.empty.contextText': 'Dem aktuellen Nutzer ist keine Organisation zugeordnet.',
+  'apv.b.empty.loadFailTitle': 'Compliance-Dokumente konnten nicht geladen werden',
+  'apv.b.empty.loadFailText': 'Die Dokumentliste ist derzeit nicht verfügbar.',
+  'apv.b.empty.riskNoneTitle': 'Keine Dokumentrisiken im 30-Tage-Fenster',
+  'apv.b.empty.riskNoneText': 'Aktuell gibt es keine abgelehnten, abgelaufenen oder bald ablaufenden Dokumente.',
+  'apv.b.empty.noneTitle': 'Keine Compliance-Dokumente',
+  'apv.b.empty.noneUpload': 'Laden Sie Ihr erstes Dokument hoch.',
+  'apv.b.empty.noneReadOnly': 'In dieser Rolle sind keine dokumentbezogenen Schreibaktionen freigegeben.',
+
+  'apv.b.upload.title': 'Dokument hochladen',
+  'apv.b.upload.close': 'Schließen',
+  'apv.b.upload.docType': 'Dokumenttyp *',
+  'apv.b.upload.choose': 'Bitte wählen',
+  'apv.b.upload.name': 'Name *',
+  'apv.b.upload.namePh': 'z.B. AÜG 2026',
+  'apv.b.upload.validFrom': 'Gültig von',
+  'apv.b.upload.validUntil': 'Gültig bis',
+  'apv.b.upload.file': 'Datei (PDF, PNG, JPG — max. 10 MB)',
+  'apv.b.upload.drop': 'Klicken oder Datei ziehen',
+  'apv.b.upload.notes': 'Notizen',
+  'apv.b.upload.notesPh': 'Optional…',
+  'apv.b.upload.cancel': 'Abbrechen',
+  'apv.b.upload.submit': 'Hochladen',
+  'apv.b.upload.submitting': 'Wird hochgeladen…',
+  'apv.b.upload.blockedTitle': 'Upload nicht freigegeben',
+  'apv.b.upload.blockedText': 'Dokument-Uploads bleiben in dieser Rolle gesperrt.',
+  'apv.b.upload.okTitle': 'Dokument hochgeladen',
+  'apv.b.upload.okText': 'Das Compliance-Dokument wurde erfolgreich gespeichert.',
+  'apv.b.upload.failTitle': 'Upload fehlgeschlagen',
+  'apv.b.upload.failText': 'Das Dokument konnte nicht hochgeladen werden.',
+  'apv.b.upload.failNetwork': 'Das Dokument konnte wegen eines Netzwerk- oder Serverfehlers nicht hochgeladen werden.',
+  'apv.b.upload.fileSize': '{name} ({size} MB)',
+
+  'apv.b.act.download': 'Download',
+  'apv.b.act.verify': 'Verifizieren',
+  'apv.b.act.reject': 'Ablehnen',
+  'apv.b.act.delete': 'Löschen',
+
+  'apv.b.verify.blockedTitle': 'Verifizierung nicht freigegeben',
+  'apv.b.verify.blockedText': 'Dokument-Verifikationen bleiben in dieser Rolle gesperrt.',
+  'apv.b.verify.confirm': 'Dokument verifizieren?',
+  'apv.b.verify.okTitle': 'Dokument verifiziert',
+  'apv.b.verify.okText': 'Das Dokument wurde erfolgreich verifiziert.',
+  'apv.b.verify.failTitle': 'Verifizierung fehlgeschlagen',
+  'apv.b.verify.failText': 'Das Dokument konnte nicht verifiziert werden.',
+
+  'apv.b.reject.blockedTitle': 'Ablehnung nicht freigegeben',
+  'apv.b.reject.blockedText': 'Dokument-Ablehnungen bleiben in dieser Rolle gesperrt.',
+  'apv.b.reject.prompt': 'Ablehnungsgrund (optional):',
+  'apv.b.reject.okTitle': 'Dokument abgelehnt',
+  'apv.b.reject.okText': 'Das Dokument wurde erfolgreich abgelehnt.',
+  'apv.b.reject.failTitle': 'Ablehnung fehlgeschlagen',
+  'apv.b.reject.failText': 'Das Dokument konnte nicht abgelehnt werden.',
+
+  'apv.b.delete.blockedTitle': 'Löschen nicht freigegeben',
+  'apv.b.delete.blockedText': 'Dokument-Löschungen bleiben in dieser Rolle gesperrt.',
+  'apv.b.delete.confirm': 'Dokument wirklich löschen?',
+  'apv.b.delete.okTitle': 'Dokument gelöscht',
+  'apv.b.delete.okText': 'Das Dokument wurde erfolgreich entfernt.',
+  'apv.b.delete.failTitle': 'Löschen fehlgeschlagen',
+  'apv.b.delete.failText': 'Das Dokument konnte nicht gelöscht werden.',
+
+  'apv.b.error.network': 'Netzwerkfehler oder Server nicht erreichbar.'
+});
+TCi18n.register('en', {
+  'apv.b.docTitle': 'Compliance – TempConnect',
+  'apv.b.page.title': 'Compliance',
+  'apv.b.page.subtitle': 'Manage documents with traffic-light logic, monitor expiry dates and run verifications.',
+  'apv.b.action.upload': '+ Upload document',
+  'apv.b.loading': 'Loading…',
+
+  'apv.b.filter.allTypes': 'All types',
+  'apv.b.filter.allStatus': 'All statuses',
+
+  'apv.b.docType.aueg_erlaubnis': 'Employee leasing licence (AÜG)',
+  'apv.b.docType.unbedenklichkeit': 'Tax clearance certificate',
+  'apv.b.docType.uvv_nachweis': 'Accident prevention record (UVV)',
+  'apv.b.docType.versicherung': 'Insurance',
+  'apv.b.docType.zertifikat': 'Certificate',
+  'apv.b.docType.gewerbeanmeldung': 'Trade registration',
+  'apv.b.docType.handelsregister': 'Commercial register extract',
+  'apv.b.docType.datenschutz': 'Data protection',
+  'apv.b.docType.arbeitssicherheit': 'Occupational safety',
+  'apv.b.docType.qualifikation': 'Qualification',
+  'apv.b.docType.sonstige': 'Other',
+
+  'apv.b.docStatus.pending': 'Pending',
+  'apv.b.docStatus.verified': 'Verified',
+  'apv.b.docStatus.rejected': 'Rejected',
+  'apv.b.docStatus.expired': 'Expired',
+
+  'apv.b.th.trafficLight': 'Traffic light',
+  'apv.b.th.type': 'Type',
+  'apv.b.th.name': 'Name',
+  'apv.b.th.status': 'Status',
+  'apv.b.th.validUntil': 'Valid until',
+  'apv.b.th.organization': 'Organisation',
+  'apv.b.th.actions': 'Actions',
+
+  'apv.b.stats.total': 'Total',
+  'apv.b.stats.verified': 'Verified',
+  'apv.b.stats.pending': 'Pending',
+  'apv.b.stats.rejected': 'Rejected',
+  'apv.b.stats.expired': 'Expired',
+  'apv.b.stats.expiringSoon': 'Expiring soon',
+  'apv.b.stats.docRisks': 'Document risks',
+
+  'apv.b.note.statsUnavailable': 'The document statistics could not be loaded right now.',
+  'apv.b.note.riskStatsUnavailable': 'Document risks in the 30-day window could not be loaded right now.',
+  'apv.b.note.rateCardUnavailable': 'Rate card risks of the last 30 days could not be loaded right now.',
+  'apv.b.access.hiddenDefault': 'Compliance stays hidden for this role at the moment.',
+
+  'apv.b.badge.riskWindow': 'Executive risk window: {scope} for the coming and the last 30 days.',
+  'apv.b.badge.scopeBoth': 'document risks and rate card risks',
+  'apv.b.badge.scopeDocs': 'document risks',
+  'apv.b.badge.reset': 'Reset filters',
+
+  'apv.b.rateCard.title': 'Rate card risks (30 days)',
+  'apv.b.rateCard.introDrilldown': 'This block adds rate card warnings and breaches of the last 30 days to the executive risk window.',
+  'apv.b.rateCard.intro': 'Rate card warnings and breaches of the last 30 days as a complementary compliance view.',
+  'apv.b.rateCard.checked': 'Checked',
+  'apv.b.rateCard.warning': 'Warning',
+  'apv.b.rateCard.violation': 'Breach',
+  'apv.b.rateCard.atRisk': 'At risk',
+  'apv.b.rateCard.openAtRisk': 'Open warnings / breaches',
+  'apv.b.rateCard.onlyViolations': 'Breaches only',
+
+  'apv.b.state.loadingTitle': 'Loading compliance',
+  'apv.b.state.loadingRiskBoth': 'Document risks and rate card risks are being loaded for the 30-day risk window.',
+  'apv.b.state.loadingRiskDocs': 'Document risks are being loaded for the 30-day risk window.',
+  'apv.b.state.loadingBoth': 'Documents, key figures and complementary rate card risks are being loaded.',
+  'apv.b.state.loadingDocs': 'Documents and key figures are being loaded.',
+  'apv.b.state.partialTitle': 'Some data is missing',
+  'apv.b.state.partialText': '{parts} could not be loaded. The page remains usable nonetheless.',
+  'apv.b.state.readOnlyTitle': 'Compliance is read-only',
+  'apv.b.state.readOnlyText': 'Uploads and changes stay locked for this role.',
+  'apv.b.state.hiddenTitle': 'Compliance hidden',
+  'apv.b.state.orgMissingTitle': 'Organisation missing',
+  'apv.b.state.orgMissingText': 'Without an organisation context the compliance view cannot be loaded.',
+  'apv.b.state.unavailableTitle': 'Compliance currently unavailable',
+  'apv.b.state.unavailableText': 'The document list could not be loaded.',
+  'apv.b.state.unavailableExtra': ' In addition, {parts} are missing.',
+
+  'apv.b.part.docStats': 'document statistics',
+  'apv.b.part.rateCardRisks': 'rate card risks',
+  'apv.b.part.join': ' and ',
+
+  'apv.b.empty.uploadOnlyTitle': 'Upload without cockpit access',
+  'apv.b.empty.uploadOnlyText': 'Document uploads stay possible, but the internal compliance view remains hidden for this role.',
+  'apv.b.empty.contextTitle': 'Compliance context missing',
+  'apv.b.empty.contextText': 'The current user is not assigned to an organisation.',
+  'apv.b.empty.loadFailTitle': 'Compliance documents could not be loaded',
+  'apv.b.empty.loadFailText': 'The document list is currently unavailable.',
+  'apv.b.empty.riskNoneTitle': 'No document risks in the 30-day window',
+  'apv.b.empty.riskNoneText': 'There are currently no rejected, expired or soon-expiring documents.',
+  'apv.b.empty.noneTitle': 'No compliance documents',
+  'apv.b.empty.noneUpload': 'Upload your first document.',
+  'apv.b.empty.noneReadOnly': 'This role has no document-related write actions enabled.',
+
+  'apv.b.upload.title': 'Upload document',
+  'apv.b.upload.close': 'Close',
+  'apv.b.upload.docType': 'Document type *',
+  'apv.b.upload.choose': 'Please choose',
+  'apv.b.upload.name': 'Name *',
+  'apv.b.upload.namePh': 'e.g. AÜG 2026',
+  'apv.b.upload.validFrom': 'Valid from',
+  'apv.b.upload.validUntil': 'Valid until',
+  'apv.b.upload.file': 'File (PDF, PNG, JPG — max. 10 MB)',
+  'apv.b.upload.drop': 'Click or drag a file here',
+  'apv.b.upload.notes': 'Notes',
+  'apv.b.upload.notesPh': 'Optional…',
+  'apv.b.upload.cancel': 'Cancel',
+  'apv.b.upload.submit': 'Upload',
+  'apv.b.upload.submitting': 'Uploading…',
+  'apv.b.upload.blockedTitle': 'Upload not permitted',
+  'apv.b.upload.blockedText': 'Document uploads stay locked for this role.',
+  'apv.b.upload.okTitle': 'Document uploaded',
+  'apv.b.upload.okText': 'The compliance document was saved successfully.',
+  'apv.b.upload.failTitle': 'Upload failed',
+  'apv.b.upload.failText': 'The document could not be uploaded.',
+  'apv.b.upload.failNetwork': 'The document could not be uploaded because of a network or server error.',
+  'apv.b.upload.fileSize': '{name} ({size} MB)',
+
+  'apv.b.act.download': 'Download',
+  'apv.b.act.verify': 'Verify',
+  'apv.b.act.reject': 'Reject',
+  'apv.b.act.delete': 'Delete',
+
+  'apv.b.verify.blockedTitle': 'Verification not permitted',
+  'apv.b.verify.blockedText': 'Document verifications stay locked for this role.',
+  'apv.b.verify.confirm': 'Verify this document?',
+  'apv.b.verify.okTitle': 'Document verified',
+  'apv.b.verify.okText': 'The document was verified successfully.',
+  'apv.b.verify.failTitle': 'Verification failed',
+  'apv.b.verify.failText': 'The document could not be verified.',
+
+  'apv.b.reject.blockedTitle': 'Rejection not permitted',
+  'apv.b.reject.blockedText': 'Document rejections stay locked for this role.',
+  'apv.b.reject.prompt': 'Reason for rejection (optional):',
+  'apv.b.reject.okTitle': 'Document rejected',
+  'apv.b.reject.okText': 'The document was rejected successfully.',
+  'apv.b.reject.failTitle': 'Rejection failed',
+  'apv.b.reject.failText': 'The document could not be rejected.',
+
+  'apv.b.delete.blockedTitle': 'Deletion not permitted',
+  'apv.b.delete.blockedText': 'Document deletions stay locked for this role.',
+  'apv.b.delete.confirm': 'Really delete this document?',
+  'apv.b.delete.okTitle': 'Document deleted',
+  'apv.b.delete.okText': 'The document was removed successfully.',
+  'apv.b.delete.failTitle': 'Deletion failed',
+  'apv.b.delete.failText': 'The document could not be deleted.',
+
+  'apv.b.error.network': 'Network error or server unreachable.'
+});
+}
+/** Uebersetzung mit ehrlichem Fallback — nie der rohe Schluessel in der UI. */
+function ct(key,params){return (window.TCi18n?TCi18n.t(key,params):'')||'';}
+function cDateLocale(){return window.TCi18n?TCi18n.dateLocale():'de-DE';}
+/** Anzeigename fuer einen API-Rohwert; ohne Uebersetzung bleibt der Rohwert stehen. */
+function docTypeLabel(v){return ct('apv.b.docType.'+v)||v;}
+function docStatusLabel(v){return ct('apv.b.docStatus.'+v)||v;}
+
 var _csrf='',_orgId=null,activeStatusGroup='',currentMe=null,complianceAccess={canRead:false,canWrite:false,canUpload:false,canVerify:false,canDelete:false,canManage:false,mode:'hidden',reason:''},rateCardAccess={canRead:false,canWrite:false,mode:'hidden',reason:''};
 var COMPLIANCE_FILTER_STORAGE_KEY='tc.compliance.filters.v1';
-var TL={aueg_erlaubnis:'AUeG-Erlaubnis',unbedenklichkeit:'Unbedenklichkeit',uvv_nachweis:'UVV-Nachweis',versicherung:'Versicherung',zertifikat:'Zertifikat',gewerbeanmeldung:'Gewerbeanmeldung',handelsregister:'Handelsregister',datenschutz:'Datenschutz',arbeitssicherheit:'Arbeitssicherheit',qualifikation:'Qualifikation',sonstige:'Sonstige'};
-var SL={verified:'Verifiziert',pending:'Ausstehend',rejected:'Abgelehnt',expired:'Abgelaufen'};
+/* Typ- und Status-Beschriftungen kommen jetzt zweisprachig aus dem Woerterbuch
+   (docTypeLabel/docStatusLabel). Die Rohwerte selbst bleiben unangetastet —
+   sie tragen weiterhin Filter-Query und Badge-Klasse. */
 function readStoredComplianceFilters(){try{var raw=sessionStorage.getItem(COMPLIANCE_FILTER_STORAGE_KEY);if(!raw)return {};var parsed=JSON.parse(raw);return parsed&&typeof parsed==='object'?parsed:{};}catch(e){return {};}}
 function writeStoredComplianceFilters(filters){try{sessionStorage.setItem(COMPLIANCE_FILTER_STORAGE_KEY,JSON.stringify(filters||{}));}catch(e){}}
 function readUrlComplianceFilters(){var params=new URLSearchParams(window.location.search||'');var filters={};if(params.has('doc_type'))filters.docType=params.get('doc_type')||'';if(params.has('status'))filters.docStatus=params.get('status')||'';if(params.has('doc_status'))filters.docStatus=params.get('doc_status')||'';if(params.has('status_group'))filters.statusGroup=params.get('status_group')||'';return filters;}
@@ -110,21 +443,21 @@ function renderPageState(tone,title,text){var el=document.getElementById('compli
 function showComplianceState(tone,title,text){renderPageState(tone,title,text);}
 function clearComplianceState(){renderPageState();}
 function sectionNote(text){return '<div class="section-note">'+esc(text)+'</div>';}
-function describeComplianceAccess(access){if(!access||access.canRead)return '';return access.reason||'Compliance bleibt fuer diese Rolle derzeit ausgeblendet.';}
+function describeComplianceAccess(access){if(!access||access.canRead)return '';return access.reason||ct('apv.b.access.hiddenDefault');}
 function applyComplianceAccess(){var uploadButton=document.getElementById('complianceUploadButton');if(uploadButton)uploadButton.style.display=complianceAccess.canUpload?'':'none';var uploadAction=document.getElementById('emptyUploadAction');if(uploadAction)uploadAction.style.display=complianceAccess.canUpload?'':'none';Array.prototype.forEach.call(document.querySelectorAll('#fDocType,#fDocStatus'),function(control){control.disabled=!complianceAccess.canRead;});}
 function isRiskWindowDrilldown(){return activeStatusGroup==='risk_window_30d';}
 function parseApiError(result,fallback){if(!result)return fallback;if(typeof result.error==='string'&&result.error)return result.error;if(typeof result.message==='string'&&result.message)return result.message;if(Array.isArray(result.details)&&result.details.length)return result.details.join(', ');if(typeof result.details==='string'&&result.details)return result.details;return fallback;}
 function setEmptyState(title,text,showUpload){var empty=document.getElementById('emptyMsg');if(!empty)return;var titleEl=empty.querySelector('.ds-empty__title');var textEl=empty.querySelector('.ds-empty__text');if(titleEl)titleEl.textContent=title||'';if(textEl)textEl.textContent=text||'';var upload=document.getElementById('emptyUploadAction');if(upload)upload.style.display=showUpload===false?'none':'';empty.style.display='';}
 function hideEmptyState(){var empty=document.getElementById('emptyMsg');if(empty)empty.style.display='none';}
-function renderContextBadge(){var badge=document.getElementById('complianceContextBadge');if(!badge)return;if(isRiskWindowDrilldown()){badge.style.display='';badge.innerHTML='Executive-Risikofenster: '+(rateCardAccess.canRead?'Dokumentenrisiken und Rate-Card-Risiken':'Dokumentenrisiken')+' der kommenden bzw. letzten 30 Tage. <a href=\"/public/compliance_overview.html\" style=\"color:var(--brand);font-size:12px\">Filter zuruecksetzen &times;</a>';}else{badge.style.display='none';badge.innerHTML='';}}
+function renderContextBadge(){var badge=document.getElementById('complianceContextBadge');if(!badge)return;if(isRiskWindowDrilldown()){var scope=ct(rateCardAccess.canRead?'apv.b.badge.scopeBoth':'apv.b.badge.scopeDocs');badge.style.display='';badge.innerHTML=esc(ct('apv.b.badge.riskWindow',{scope:scope}))+' <a href=\"/public/compliance_overview.html\" style=\"color:var(--brand);font-size:12px\">'+esc(ct('apv.b.badge.reset'))+' &times;</a>';}else{badge.style.display='none';badge.innerHTML='';}}
 function riskWindowCutoff(){var d=new Date();d.setHours(23,59,59,999);d.setDate(d.getDate()+30);return d;}
 function isDocInRiskWindow(doc){if(!doc)return false;if(doc.status==='rejected'||doc.status==='expired')return true;if(doc.status!=='verified'||!doc.valid_until)return false;var until=new Date(doc.valid_until);if(Number.isNaN(until.getTime()))return false;return until.getTime()<=riskWindowCutoff().getTime();}
 function buildRiskWindowDocStats(items){var stats={total_risk:0,rejected:0,expired:0,expiring_soon:0};(items||[]).forEach(function(doc){if(!doc)return;stats.total_risk+=1;if(doc.status==='rejected')stats.rejected+=1;else if(doc.status==='expired')stats.expired+=1;else if(doc.status==='verified')stats.expiring_soon+=1;});return stats;}
-function renderDocStats(stats,options){var el=document.getElementById('statsGrid');if(!el)return;var opts=options||{};if(!stats){el.innerHTML=sectionNote(opts.message||'Dokumentenstatistik konnte derzeit nicht geladen werden.');return;}if(opts.riskWindow){el.innerHTML='<div class="stat-cell"><b>'+esc(String(stats.total_risk||0))+'</b><span>Dokumentenrisiken</span></div>'+'<div class="stat-cell"><b style="color:#f87171">'+esc(String(stats.rejected||0))+'</b><span>Abgelehnt</span></div>'+'<div class="stat-cell"><b style="color:#f87171">'+esc(String(stats.expired||0))+'</b><span>Abgelaufen</span></div>'+'<div class="stat-cell"><b style="color:#fbbf24">'+esc(String(stats.expiring_soon||0))+'</b><span>Bald ablaufend</span></div>';return;}el.innerHTML='<div class="stat-cell"><b>'+esc(String(stats.total||0))+'</b><span>Gesamt</span></div>'+'<div class="stat-cell"><b style="color:#34d399">'+esc(String(stats.verified||0))+'</b><span>Verifiziert</span></div>'+'<div class="stat-cell"><b style="color:#fbbf24">'+esc(String(stats.pending||0))+'</b><span>Ausstehend</span></div>'+'<div class="stat-cell"><b style="color:#f87171">'+esc(String(stats.rejected||0))+'</b><span>Abgelehnt</span></div>'+'<div class="stat-cell"><b style="color:#f87171">'+esc(String(stats.expired||0))+'</b><span>Abgelaufen</span></div>'+(stats.expiring_soon>0?'<div class="stat-cell"><b style="color:#fbbf24">'+esc(String(stats.expiring_soon))+'</b><span>Bald ablaufend</span></div>':'');}
-function renderRateCardRiskBox(stats){var box=document.getElementById('rateCardRiskBox');if(!box)return;if(!rateCardAccess.canRead){box.innerHTML='';box.style.display='none';return;}box.style.display='';if(!stats){box.innerHTML=sectionNote('Rate-Card-Risiken der letzten 30 Tage konnten derzeit nicht geladen werden.');return;}var comp=stats.compliance_30d||{};var riskTotal=Number(comp.warnings||0)+Number(comp.non_compliant||0);var intro=activeStatusGroup==='risk_window_30d'?'Dieser Block ergänzt das Executive-Risikofenster um Preisrahmen-Warnungen und Verstöße der letzten 30 Tage.':'Preisrahmen-Warnungen und Verstöße der letzten 30 Tage als ergänzende Compliance-Sicht.';box.innerHTML='<div class=\"risk-summary\"><div class=\"page-state__title\">Rate-Card-Risiken (30 Tage)</div><div class=\"page-state__text\">'+esc(intro)+'</div><div class=\"stat-grid\" style=\"margin:12px 0 0\"><div class=\"stat-cell\"><b>'+esc(String(comp.total_checks||0))+'</b><span>Geprüft</span></div><div class=\"stat-cell\"><b style=\"color:#fbbf24\">'+esc(String(comp.warnings||0))+'</b><span>Warnung</span></div><div class=\"stat-cell\"><b style=\"color:#f87171\">'+esc(String(comp.non_compliant||0))+'</b><span>Verstoß</span></div><div class=\"stat-cell\"><b style=\"color:'+(riskTotal>0?'#f87171':'#34d399')+'\">'+esc(String(riskTotal))+'</b><span>At Risk</span></div></div><div class=\"risk-summary__actions\"><a class=\"act-btn\" href=\"/public/rate-cards.html?compliance_status=at_risk\">Warnung / Verstoß öffnen</a><a class=\"act-btn\" href=\"/public/rate-cards.html?compliance_status=non_compliant\">Nur Verstöße</a></div></div>';}
+function renderDocStats(stats,options){var el=document.getElementById('statsGrid');if(!el)return;var opts=options||{};if(!stats){el.innerHTML=sectionNote(opts.message||ct('apv.b.note.statsUnavailable'));return;}if(opts.riskWindow){el.innerHTML='<div class="stat-cell"><b>'+esc(String(stats.total_risk||0))+'</b><span>'+esc(ct('apv.b.stats.docRisks'))+'</span></div>'+'<div class="stat-cell"><b style="color:#f87171">'+esc(String(stats.rejected||0))+'</b><span>'+esc(ct('apv.b.stats.rejected'))+'</span></div>'+'<div class="stat-cell"><b style="color:#f87171">'+esc(String(stats.expired||0))+'</b><span>'+esc(ct('apv.b.stats.expired'))+'</span></div>'+'<div class="stat-cell"><b style="color:#fbbf24">'+esc(String(stats.expiring_soon||0))+'</b><span>'+esc(ct('apv.b.stats.expiringSoon'))+'</span></div>';return;}el.innerHTML='<div class="stat-cell"><b>'+esc(String(stats.total||0))+'</b><span>'+esc(ct('apv.b.stats.total'))+'</span></div>'+'<div class="stat-cell"><b style="color:#34d399">'+esc(String(stats.verified||0))+'</b><span>'+esc(ct('apv.b.stats.verified'))+'</span></div>'+'<div class="stat-cell"><b style="color:#fbbf24">'+esc(String(stats.pending||0))+'</b><span>'+esc(ct('apv.b.stats.pending'))+'</span></div>'+'<div class="stat-cell"><b style="color:#f87171">'+esc(String(stats.rejected||0))+'</b><span>'+esc(ct('apv.b.stats.rejected'))+'</span></div>'+'<div class="stat-cell"><b style="color:#f87171">'+esc(String(stats.expired||0))+'</b><span>'+esc(ct('apv.b.stats.expired'))+'</span></div>'+(stats.expiring_soon>0?'<div class="stat-cell"><b style="color:#fbbf24">'+esc(String(stats.expiring_soon))+'</b><span>'+esc(ct('apv.b.stats.expiringSoon'))+'</span></div>':'');}
+function renderRateCardRiskBox(stats){var box=document.getElementById('rateCardRiskBox');if(!box)return;if(!rateCardAccess.canRead){box.innerHTML='';box.style.display='none';return;}box.style.display='';if(!stats){box.innerHTML=sectionNote(ct('apv.b.note.rateCardUnavailable'));return;}var comp=stats.compliance_30d||{};var riskTotal=Number(comp.warnings||0)+Number(comp.non_compliant||0);var intro=ct(activeStatusGroup==='risk_window_30d'?'apv.b.rateCard.introDrilldown':'apv.b.rateCard.intro');box.innerHTML='<div class=\"risk-summary\"><div class=\"page-state__title\">'+esc(ct('apv.b.rateCard.title'))+'</div><div class=\"page-state__text\">'+esc(intro)+'</div><div class=\"stat-grid\" style=\"margin:12px 0 0\"><div class=\"stat-cell\"><b>'+esc(String(comp.total_checks||0))+'</b><span>'+esc(ct('apv.b.rateCard.checked'))+'</span></div><div class=\"stat-cell\"><b style=\"color:#fbbf24\">'+esc(String(comp.warnings||0))+'</b><span>'+esc(ct('apv.b.rateCard.warning'))+'</span></div><div class=\"stat-cell\"><b style=\"color:#f87171\">'+esc(String(comp.non_compliant||0))+'</b><span>'+esc(ct('apv.b.rateCard.violation'))+'</span></div><div class=\"stat-cell\"><b style=\"color:'+(riskTotal>0?'#f87171':'#34d399')+'\">'+esc(String(riskTotal))+'</b><span>'+esc(ct('apv.b.rateCard.atRisk'))+'</span></div></div><div class=\"risk-summary__actions\"><a class=\"act-btn\" href=\"/public/rate-cards.html?compliance_status=at_risk\">'+esc(ct('apv.b.rateCard.openAtRisk'))+'</a><a class=\"act-btn\" href=\"/public/rate-cards.html?compliance_status=non_compliant\">'+esc(ct('apv.b.rateCard.onlyViolations'))+'</a></div></div>';}
 async function getCsrf(){if(_csrf)return _csrf;try{var r=await fetch('/api/csrf',{credentials:'include'});var d=await r.json();_csrf=d.token||'';}catch{}return _csrf;}
 async function apiGet(p){try{var r=await fetch('/api'+p,{credentials:'include'});if(r.status===401){location.href='/';return null;}return r.ok?r.json():null;}catch{return null;}}
-async function apiMut(m,p,b){try{var csrf=await getCsrf();var r=await fetch('/api'+p,{method:m,credentials:'include',headers:{'Content-Type':'application/json','x-csrf-token':csrf},body:JSON.stringify(b)});if(r.status===401){location.href='/';return null;}return await r.json();}catch{return { error:'Netzwerkfehler oder Server nicht erreichbar.' };}}
+async function apiMut(m,p,b){try{var csrf=await getCsrf();var r=await fetch('/api'+p,{method:m,credentials:'include',headers:{'Content-Type':'application/json','x-csrf-token':csrf},body:JSON.stringify(b)});if(r.status===401){location.href='/';return null;}return await r.json();}catch{return { error:ct('apv.b.error.network') };}}
 
 (async function(){
   var urlP=new URLSearchParams(window.location.search);
@@ -132,11 +465,11 @@ async function apiMut(m,p,b){try{var csrf=await getCsrf();var r=await fetch('/ap
   applyComplianceFilterDefaults();
   var me=await apiGet('/me');if(!me)return;
   currentMe=me;complianceAccess=resolveSurfaceAccess(currentMe,'compliance_overview');rateCardAccess=resolveSurfaceAccess(currentMe,'rate_cards');applyComplianceAccess();renderContextBadge();
-  if(!complianceAccess.canRead){document.getElementById('docBody').innerHTML='';renderDocStats(null,{message:describeComplianceAccess(complianceAccess)});renderRateCardRiskBox(null);setEmptyState(complianceAccess.canUpload?'Upload ohne Cockpit-Zugriff':'Compliance ausgeblendet',complianceAccess.canUpload?'Dokument-Uploads bleiben moeglich, die interne Compliance-Sicht bleibt fuer diese Rolle jedoch ausgeblendet.':describeComplianceAccess(complianceAccess),complianceAccess.canUpload);showComplianceState('info','Compliance ausgeblendet',describeComplianceAccess(complianceAccess));return;}
+  if(!complianceAccess.canRead){document.getElementById('docBody').innerHTML='';renderDocStats(null,{message:describeComplianceAccess(complianceAccess)});renderRateCardRiskBox(null);setEmptyState(ct(complianceAccess.canUpload?'apv.b.empty.uploadOnlyTitle':'apv.b.state.hiddenTitle'),complianceAccess.canUpload?ct('apv.b.empty.uploadOnlyText'):describeComplianceAccess(complianceAccess),complianceAccess.canUpload);showComplianceState('info',ct('apv.b.state.hiddenTitle'),describeComplianceAccess(complianceAccess));return;}
   if(me.org_id)_orgId=me.org_id;
   else try{var o=await apiGet('/org/overview');if(o&&o.data&&o.data.organization)_orgId=o.data.organization.id;}catch{}
   if(_orgId)loadDocs(false);
-  else{document.getElementById('docBody').innerHTML='';renderRateCardRiskBox(null);setEmptyState('Compliance-Kontext fehlt','Dem aktuellen Nutzer ist keine Organisation zugeordnet.',complianceAccess.canUpload);showComplianceState('warn','Organisation fehlt','Ohne Organisationskontext kann die Compliance-Sicht nicht geladen werden.');}
+  else{document.getElementById('docBody').innerHTML='';renderRateCardRiskBox(null);setEmptyState(ct('apv.b.empty.contextTitle'),ct('apv.b.empty.contextText'),complianceAccess.canUpload);showComplianceState('warn',ct('apv.b.state.orgMissingTitle'),ct('apv.b.state.orgMissingText'));}
 })();
 
 async function loadDocs(persist){
@@ -144,7 +477,7 @@ async function loadDocs(persist){
   var shouldPersist=persist!==false;
   var allowPersist=shouldPersist&&!activeStatusGroup;
   renderContextBadge();
-  showComplianceState('info','Compliance wird geladen',isRiskWindowDrilldown()?(rateCardAccess.canRead?'Dokumentenrisiken und Rate-Card-Risiken werden für das 30-Tage-Risikofenster geladen.':'Dokumentenrisiken werden für das 30-Tage-Risikofenster geladen.'):(rateCardAccess.canRead?'Dokumente, Kennzahlen und ergänzende Rate-Card-Risiken werden geladen.':'Dokumente und Kennzahlen werden geladen.'));
+  showComplianceState('info',ct('apv.b.state.loadingTitle'),ct(isRiskWindowDrilldown()?(rateCardAccess.canRead?'apv.b.state.loadingRiskBoth':'apv.b.state.loadingRiskDocs'):(rateCardAccess.canRead?'apv.b.state.loadingBoth':'apv.b.state.loadingDocs')));
   var qs='',dt=document.getElementById('fDocType').value,ds=document.getElementById('fDocStatus').value;
   if(allowPersist)writeStoredComplianceFilters({docType:dt||'',docStatus:ds||''});
   if(dt)qs+='&doc_type='+dt;if(ds)qs+='&status='+ds;
@@ -153,54 +486,67 @@ async function loadDocs(persist){
   else{
     var stats=await apiGet('/compliance-documents/stats/'+encodeURIComponent(_orgId));
     if(stats){renderDocStats(stats.data||stats);}
-    else{renderDocStats(null,{message:'Dokumentenstatistik konnte derzeit nicht geladen werden.'});partialIssues.push('Dokumentenstatistik');}
+    else{renderDocStats(null,{message:ct('apv.b.note.statsUnavailable')});partialIssues.push(ct('apv.b.part.docStats'));}
   }
   if(rateCardAccess.canRead){var rateCardStats=await apiGet('/rate-cards/stats');
   if(rateCardStats&&(rateCardStats.data||rateCardStats.compliance_30d)){renderRateCardRiskBox(rateCardStats.data||rateCardStats);}
-  else{renderRateCardRiskBox(null);partialIssues.push('Rate-Card-Risiken');}}
+  else{renderRateCardRiskBox(null);partialIssues.push(ct('apv.b.part.rateCardRisks'));}}
   else{renderRateCardRiskBox(null);}
   var dd=await apiGet('/compliance-documents?'+qs.replace(/^&/,''));
   var items=(dd&&dd.data&&dd.data.items)||(dd&&dd.items)||[];
-  if(!dd){document.getElementById('docBody').innerHTML='';if(isRiskWindowDrilldown())renderDocStats(null,{message:'Dokumentenrisiken im 30-Tage-Fenster konnten derzeit nicht geladen werden.'});setEmptyState('Compliance-Dokumente konnten nicht geladen werden','Die Dokumentliste ist derzeit nicht verfügbar.',false);showComplianceState('bad','Compliance derzeit nicht verfügbar','Die Dokumentliste konnte nicht geladen werden.'+(partialIssues.length?' Zusätzlich fehlen '+partialIssues.join(', ')+'.':''));return;}
+  if(!dd){document.getElementById('docBody').innerHTML='';if(isRiskWindowDrilldown())renderDocStats(null,{message:ct('apv.b.note.riskStatsUnavailable')});setEmptyState(ct('apv.b.empty.loadFailTitle'),ct('apv.b.empty.loadFailText'),false);showComplianceState('bad',ct('apv.b.state.unavailableTitle'),ct('apv.b.state.unavailableText')+(partialIssues.length?ct('apv.b.state.unavailableExtra',{parts:partialIssues.join(', ')}):''));return;}
   if(isRiskWindowDrilldown()){items=items.filter(isDocInRiskWindow);renderDocStats(buildRiskWindowDocStats(items),{riskWindow:true});}
   var tbody=document.getElementById('docBody'),empty=document.getElementById('emptyMsg');
-  if(!items.length){tbody.innerHTML='';if(isRiskWindowDrilldown()){setEmptyState('Keine Dokumentrisiken im 30-Tage-Fenster','Aktuell gibt es keine abgelehnten, abgelaufenen oder bald ablaufenden Dokumente.',false);}else{setEmptyState('Keine Compliance-Dokumente',complianceAccess.canUpload?'Laden Sie Ihr erstes Dokument hoch.':'In dieser Rolle sind keine dokumentbezogenen Schreibaktionen freigegeben.',complianceAccess.canUpload);}if(partialIssues.length)showComplianceState('warn','Teilweise Daten fehlen',partialIssues.join(' und ')+' konnten nicht geladen werden. Die Seite bleibt dennoch nutzbar.');else if(complianceAccess.mode==='read_only')showComplianceState('info','Compliance read-only',complianceAccess.reason||'Uploads und Änderungen bleiben in dieser Rolle gesperrt.');else clearComplianceState();return;}
+  if(!items.length){tbody.innerHTML='';if(isRiskWindowDrilldown()){setEmptyState(ct('apv.b.empty.riskNoneTitle'),ct('apv.b.empty.riskNoneText'),false);}else{setEmptyState(ct('apv.b.empty.noneTitle'),ct(complianceAccess.canUpload?'apv.b.empty.noneUpload':'apv.b.empty.noneReadOnly'),complianceAccess.canUpload);}renderPartialOrModeState(partialIssues);return;}
   hideEmptyState();
   tbody.innerHTML=items.map(function(d){
     var tl=d.traffic_light||'grey',sc=d.status==='verified'?'ds-verified':d.status==='pending'?'ds-pending':d.status==='rejected'?'ds-rejected':'ds-expired';
-    var until=d.valid_until?new Date(d.valid_until).toLocaleDateString('de-DE'):'–';
+    var until=d.valid_until?new Date(d.valid_until).toLocaleDateString(cDateLocale()):'–';
     var act='';
-    if(d.file_ref)act+='<button class="act-btn dl" onclick="window.open(\'/api/compliance-documents/'+d.id+'/download\',\'_blank\')" title="Download">&darr;</button>';
-    if(d.status==='pending'&&complianceAccess.canVerify){act+='<button class=\"act-btn good\" onclick=\"verifyDoc(\\''+d.id+'\\')\" title=\"Verifizieren\">&#10003;</button>';act+='<button class=\"act-btn bad\" onclick=\"rejectDoc(\\''+d.id+'\\')\" title=\"Ablehnen\">&#10007;</button>';}
-    if(complianceAccess.canDelete)act+='<button class=\"act-btn\" onclick=\"deleteDoc(\\''+d.id+'\\')\" title=\"Loeschen\" style=\"opacity:.4\">&times;</button>';
-    return '<tr class="doc-row"><td><span class="tl tl-'+tl+'"></span></td><td style="font-size:12px">'+esc(TL[d.doc_type]||d.doc_type)+'</td><td><strong>'+esc(d.doc_name||'–')+'</strong></td><td><span class="doc-status '+sc+'">'+esc(SL[d.status]||d.status)+'</span></td><td style="font-size:12px;color:var(--ds-text-secondary)">'+until+'</td><td style="font-size:12px;color:var(--ds-text-secondary)">'+esc(d.org_name||'–')+'</td><td style="white-space:nowrap">'+act+'</td></tr>';
+    if(d.file_ref)act+='<button class="act-btn dl" onclick="window.open(\'/api/compliance-documents/'+esc(d.id)+'/download\',\'_blank\')" title="'+esc(ct('apv.b.act.download'))+'">&darr;</button>';
+    if(d.status==='pending'&&complianceAccess.canVerify){act+='<button class="act-btn good" onclick="verifyDoc(\''+esc(d.id)+'\')" title="'+esc(ct('apv.b.act.verify'))+'">&#10003;</button>';act+='<button class="act-btn bad" onclick="rejectDoc(\''+esc(d.id)+'\')" title="'+esc(ct('apv.b.act.reject'))+'">&#10007;</button>';}
+    if(complianceAccess.canDelete)act+='<button class="act-btn" onclick="deleteDoc(\''+esc(d.id)+'\')" title="'+esc(ct('apv.b.act.delete'))+'" style="opacity:.4">&times;</button>';
+    return '<tr class="doc-row"><td><span class="tl tl-'+tl+'"></span></td><td style="font-size:12px">'+esc(docTypeLabel(d.doc_type))+'</td><td><strong>'+esc(d.doc_name||'–')+'</strong></td><td><span class="doc-status '+sc+'">'+esc(docStatusLabel(d.status))+'</span></td><td style="font-size:12px;color:var(--ds-text-secondary)">'+esc(until)+'</td><td style="font-size:12px;color:var(--ds-text-secondary)">'+esc(d.org_name||'–')+'</td><td style="white-space:nowrap">'+act+'</td></tr>';
   }).join('');
-  if(partialIssues.length)showComplianceState('warn','Teilweise Daten fehlen',partialIssues.join(' und ')+' konnten nicht geladen werden. Die Seite bleibt dennoch nutzbar.');else if(complianceAccess.mode==='read_only')showComplianceState('info','Compliance read-only',complianceAccess.reason||'Uploads und Änderungen bleiben in dieser Rolle gesperrt.');else clearComplianceState();
+  renderPartialOrModeState(partialIssues);
 }
 
-function showUpload(){if(!complianceAccess.canUpload){showComplianceState('info','Upload nicht freigegeben','Dokument-Uploads bleiben in dieser Rolle gesperrt.');return;}document.getElementById('uploadModal').classList.add('show');}
+/** Teil-Ausfall vor Read-only vor "alles gut" — an beiden Ausgaengen von loadDocs identisch. */
+function renderPartialOrModeState(partialIssues){
+  if(partialIssues&&partialIssues.length)showComplianceState('warn',ct('apv.b.state.partialTitle'),ct('apv.b.state.partialText',{parts:partialIssues.join(ct('apv.b.part.join'))}));
+  else if(complianceAccess.mode==='read_only')showComplianceState('info',ct('apv.b.state.readOnlyTitle'),complianceAccess.reason||ct('apv.b.state.readOnlyText'));
+  else clearComplianceState();
+}
+
+function showUpload(){if(!complianceAccess.canUpload){showComplianceState('info',ct('apv.b.upload.blockedTitle'),ct('apv.b.upload.blockedText'));return;}document.getElementById('uploadModal').classList.add('show');}
 function closeUpload(){document.getElementById('uploadModal').classList.remove('show');}
-function onFileSelect(i){var n=document.getElementById('fileName');if(i.files&&i.files[0]){n.textContent=i.files[0].name+' ('+(i.files[0].size/1024/1024).toFixed(1)+' MB)';n.style.display='';}else n.style.display='none';}
+function onFileSelect(i){var n=document.getElementById('fileName');if(i.files&&i.files[0]){n.textContent=ct('apv.b.upload.fileSize',{name:i.files[0].name,size:(i.files[0].size/1024/1024).toFixed(1)});n.style.display='';}else n.style.display='none';}
 (function(){var d=document.getElementById('fileDrop');if(!d)return;d.addEventListener('dragover',function(e){e.preventDefault();d.style.borderColor='#4a9eff';});d.addEventListener('dragleave',function(){d.style.borderColor='';});d.addEventListener('drop',function(e){e.preventDefault();d.style.borderColor='';var i=document.getElementById('uFile');if(e.dataTransfer.files.length){i.files=e.dataTransfer.files;onFileSelect(i);}});})();
 
 async function submitUpload(e){
-  if(!complianceAccess.canUpload){showComplianceState('info','Upload nicht freigegeben','Dokument-Uploads bleiben in dieser Rolle gesperrt.');return;}
+  if(!complianceAccess.canUpload){showComplianceState('info',ct('apv.b.upload.blockedTitle'),ct('apv.b.upload.blockedText'));return;}
   e.preventDefault();var csrf=await getCsrf();var fd=new FormData();
   fd.append('doc_type',document.getElementById('uDocType').value);
   fd.append('doc_name',document.getElementById('uDocName').value.trim());
   var f=document.getElementById('uFrom').value,u=document.getElementById('uUntil').value,n=document.getElementById('uNotes').value;
   if(f)fd.append('valid_from',f);if(u)fd.append('valid_until',u);if(n)fd.append('notes',n);
   var fi=document.getElementById('uFile');if(fi.files[0])fd.append('file',fi.files[0]);
-  document.getElementById('btnUpload').disabled=true;document.getElementById('btnUpload').textContent='Wird hochgeladen\u2026';
+  document.getElementById('btnUpload').disabled=true;document.getElementById('btnUpload').textContent=ct('apv.b.upload.submitting');
   try{var r=await fetch('/api/compliance-documents',{method:'POST',credentials:'include',headers:{'x-csrf-token':csrf},body:fd});
-    if(r.ok){closeUpload();document.getElementById('uploadForm').reset();document.getElementById('fileName').style.display='none';showComplianceState('good','Dokument hochgeladen','Das Compliance-Dokument wurde erfolgreich gespeichert.');loadDocs();}
-    else{var d=await r.json();showComplianceState('bad','Upload fehlgeschlagen',parseApiError(d,'Das Dokument konnte nicht hochgeladen werden.'));}
-  }catch(err){showComplianceState('bad','Upload fehlgeschlagen','Das Dokument konnte wegen eines Netzwerk- oder Serverfehlers nicht hochgeladen werden.');}
-  finally{document.getElementById('btnUpload').disabled=false;document.getElementById('btnUpload').textContent='Hochladen';}
+    if(r.ok){closeUpload();document.getElementById('uploadForm').reset();document.getElementById('fileName').style.display='none';showComplianceState('good',ct('apv.b.upload.okTitle'),ct('apv.b.upload.okText'));loadDocs();}
+    else{var d=await r.json();showComplianceState('bad',ct('apv.b.upload.failTitle'),parseApiError(d,ct('apv.b.upload.failText')));}
+  }catch(err){showComplianceState('bad',ct('apv.b.upload.failTitle'),ct('apv.b.upload.failNetwork'));}
+  finally{document.getElementById('btnUpload').disabled=false;document.getElementById('btnUpload').textContent=ct('apv.b.upload.submit');}
 }
-async function verifyDoc(id){if(!complianceAccess.canVerify){showComplianceState('info','Verifizierung nicht freigegeben','Dokument-Verifikationen bleiben in dieser Rolle gesperrt.');return;}if(!confirm('Dokument verifizieren?'))return;var r=await apiMut('POST','/compliance-documents/'+id+'/verify',{});if(r&&!r.error){showComplianceState('good','Dokument verifiziert','Das Dokument wurde erfolgreich verifiziert.');loadDocs();}else showComplianceState('bad','Verifizierung fehlgeschlagen',parseApiError(r,'Das Dokument konnte nicht verifiziert werden.'));}
-async function rejectDoc(id){if(!complianceAccess.canVerify){showComplianceState('info','Ablehnung nicht freigegeben','Dokument-Ablehnungen bleiben in dieser Rolle gesperrt.');return;}var reason=prompt('Ablehnungsgrund (optional):');if(reason===null)return;var r=await apiMut('POST','/compliance-documents/'+id+'/reject',{reason:reason||null});if(r&&!r.error){showComplianceState('good','Dokument abgelehnt','Das Dokument wurde erfolgreich abgelehnt.');loadDocs();}else showComplianceState('bad','Ablehnung fehlgeschlagen',parseApiError(r,'Das Dokument konnte nicht abgelehnt werden.'));}
-async function deleteDoc(id){if(!complianceAccess.canDelete){showComplianceState('info','Löschen nicht freigegeben','Dokument-Löschungen bleiben in dieser Rolle gesperrt.');return;}if(!confirm('Dokument wirklich loeschen?'))return;var r=await apiMut('DELETE','/compliance-documents/'+id,{});if(r&&!r.error){showComplianceState('good','Dokument gelöscht','Das Dokument wurde erfolgreich entfernt.');loadDocs();}else showComplianceState('bad','Löschen fehlgeschlagen',parseApiError(r,'Das Dokument konnte nicht gelöscht werden.'));}
+async function verifyDoc(id){if(!complianceAccess.canVerify){showComplianceState('info',ct('apv.b.verify.blockedTitle'),ct('apv.b.verify.blockedText'));return;}if(!confirm(ct('apv.b.verify.confirm')))return;var r=await apiMut('POST','/compliance-documents/'+id+'/verify',{});if(r&&!r.error){showComplianceState('good',ct('apv.b.verify.okTitle'),ct('apv.b.verify.okText'));loadDocs();}else showComplianceState('bad',ct('apv.b.verify.failTitle'),parseApiError(r,ct('apv.b.verify.failText')));}
+async function rejectDoc(id){if(!complianceAccess.canVerify){showComplianceState('info',ct('apv.b.reject.blockedTitle'),ct('apv.b.reject.blockedText'));return;}var reason=prompt(ct('apv.b.reject.prompt'));if(reason===null)return;var r=await apiMut('POST','/compliance-documents/'+id+'/reject',{reason:reason||null});if(r&&!r.error){showComplianceState('good',ct('apv.b.reject.okTitle'),ct('apv.b.reject.okText'));loadDocs();}else showComplianceState('bad',ct('apv.b.reject.failTitle'),parseApiError(r,ct('apv.b.reject.failText')));}
+async function deleteDoc(id){if(!complianceAccess.canDelete){showComplianceState('info',ct('apv.b.delete.blockedTitle'),ct('apv.b.delete.blockedText'));return;}if(!confirm(ct('apv.b.delete.confirm')))return;var r=await apiMut('DELETE','/compliance-documents/'+id,{});if(r&&!r.error){showComplianceState('good',ct('apv.b.delete.okTitle'),ct('apv.b.delete.okText'));loadDocs();}else showComplianceState('bad',ct('apv.b.delete.failTitle'),parseApiError(r,ct('apv.b.delete.failText')));}
+
+/* Sprachwechsel: Statistik-Kacheln, Rate-Card-Block, Tabelle und Leerzustand
+   entstehen per innerHTML — die deklarative Hydration erreicht sie nicht.
+   Ohne diesen Neuaufbau bliebe die halbe Seite in der alten Sprache stehen.
+   loadDocs(false) laesst die gespeicherten Filter unberuehrt. */
+document.addEventListener('tc:langchange',function(){if(complianceAccess.canRead&&_orgId)loadDocs(false);else renderContextBadge();});
 </script>
   <script src="/public/js/pageShell.js"></script>
   <script src="/public/js/notifications.js"></script>

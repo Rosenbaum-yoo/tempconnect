@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <script src="/public/js/theme.js"></script>
   <script src="/public/js/i18n.js"></script>
-  <title>Integrationen &mdash; TempConnect</title>
+  <title data-i18n="sp.b.docTitle">Integrationen &ndash; TempConnect</title>
   <link rel="stylesheet" href="/public/css/enterprise.css"/>
   <style>
     .int-grid{display:grid;gap:var(--ds-space-4);grid-template-columns:repeat(auto-fill,minmax(340px,1fr));margin-top:var(--ds-space-4)}
@@ -62,58 +62,64 @@
 
     <div class="ds-page-header">
       <div class="ds-page-header__content">
-        <h1 class="ds-page-title">Integrationen &amp; Schnittstellen</h1>
-        <p class="ds-page-subtitle">Plattform an Ihre Systeme anbinden: Echtzeit-Webhooks (Slack/Teams) sowie ERP-, Lohn- &amp; Buchhaltungs-Anbindung (DATEV/SAP/zvoove).</p>
+        <h1 class="ds-page-title" data-i18n="sp.b.page.title">Integrationen &amp; Schnittstellen</h1>
+        <p class="ds-page-subtitle" data-i18n="sp.b.page.subtitle">Plattform an Ihre Systeme anbinden: Echtzeit-Webhooks (Slack/Teams) sowie ERP-, Lohn- &amp; Buchhaltungs-Anbindung (DATEV/SAP/zvoove).</p>
       </div>
     </div>
 
-    <h2 class="ds-page-title" style="font-size:20px;margin-top:var(--ds-space-6)">Slack &amp; Teams (Echtzeit-Benachrichtigungen)</h2>
+    <h2 class="ds-page-title" style="font-size:20px;margin-top:var(--ds-space-6)" data-i18n="sp.b.sec.webhooks">Slack &amp; Teams (Echtzeit-Benachrichtigungen)</h2>
     <div style="display:flex;justify-content:flex-end;margin-bottom:var(--ds-space-2)">
-      <button class="btn primary" id="btnAdd" data-feature-key="integrations" onclick="openModal()">+ Integration hinzuf&uuml;gen</button>
+      <button class="btn primary" id="btnAdd" data-feature-key="integrations" onclick="openModal()" data-i18n="sp.b.btn.add">+ Integration hinzuf&uuml;gen</button>
     </div>
 
     <div id="list" class="int-grid">
-      <p style="color:var(--ds-text-secondary,var(--muted));font-size:13px;grid-column:1/-1">Lade Integrationen&hellip;</p>
+      <p style="color:var(--ds-text-secondary,var(--muted));font-size:13px;grid-column:1/-1" data-i18n="sp.b.list.loading">Lade Integrationen&hellip;</p>
     </div>
 
     <!-- ── ERP-/Lohn-/Buchhaltungs-Anbindung (DATEV / SAP / zvoove) ── -->
     <div class="ds-page-header" style="margin-top:var(--ds-space-8)">
       <div class="ds-page-header__content">
-        <h2 class="ds-page-title" style="font-size:20px">ERP-, Lohn- &amp; Buchhaltungs-Anbindung</h2>
-        <p class="ds-page-subtitle">DATEV, SAP, zvoove &amp; Co. anbinden: Mandant/Konten hinterlegen und Exporte f&uuml;r Steuerberater bzw. Lohnb&uuml;ro ziehen.</p>
+        <h2 class="ds-page-title" style="font-size:20px" data-i18n="sp.b.sec.erp">ERP-, Lohn- &amp; Buchhaltungs-Anbindung</h2>
+        <p class="ds-page-subtitle" data-i18n="sp.b.sec.erpText">DATEV, SAP, zvoove &amp; Co. anbinden: Mandant/Konten hinterlegen und Exporte f&uuml;r Steuerberater bzw. Lohnb&uuml;ro ziehen.</p>
       </div>
     </div>
 
+    <!-- Das Download-Zeichen steht bewusst AUSSERHALB des uebersetzten Textes:
+         data-i18n ersetzt den kompletten textContent, das Zeichen wuerde sonst
+         zum Woerterbuch-Inhalt werden. -->
     <div id="datevExports" style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:var(--ds-space-3)">
-      <a class="ds-btn ds-btn--sm" href="/api/invoices/export/datev" data-feature-key="integrations">&#11015; DATEV Fibu-Buchungsstapel (Rechnungen)</a>
-      <a class="ds-btn ds-btn--sm" href="/api/timesheets/export/datev-lohn" data-feature-key="integrations">&#11015; DATEV Lohn-Bewegungsdaten (Stunden)</a>
-      <a class="ds-btn ds-btn--sm" href="/api/invoices/export" data-feature-key="integrations">&#11015; Rechnungen-CSV (generisch)</a>
+      <a class="ds-btn ds-btn--sm" href="/api/invoices/export/datev" data-feature-key="integrations">&#11015; <span data-i18n="sp.b.export.datevFibu">DATEV Fibu-Buchungsstapel (Rechnungen)</span></a>
+      <a class="ds-btn ds-btn--sm" href="/api/timesheets/export/datev-lohn" data-feature-key="integrations">&#11015; <span data-i18n="sp.b.export.datevLohn">DATEV Lohn-Bewegungsdaten (Stunden)</span></a>
+      <a class="ds-btn ds-btn--sm" href="/api/invoices/export" data-feature-key="integrations">&#11015; <span data-i18n="sp.b.export.invoicesCsv">Rechnungen-CSV (generisch)</span></a>
     </div>
 
     <div style="display:flex;justify-content:flex-end;margin-bottom:var(--ds-space-2)">
-      <button class="btn primary" id="btnAddErp" data-feature-key="integrations" onclick="openErpModal()">+ Konnektor hinzuf&uuml;gen</button>
+      <button class="btn primary" id="btnAddErp" data-feature-key="integrations" onclick="openErpModal()" data-i18n="sp.b.btn.addErp">+ Konnektor hinzuf&uuml;gen</button>
     </div>
     <div id="erpList" class="int-grid">
-      <p style="color:var(--ds-text-secondary,var(--muted));font-size:13px;grid-column:1/-1">Lade Konnektoren&hellip;</p>
+      <p style="color:var(--ds-text-secondary,var(--muted));font-size:13px;grid-column:1/-1" data-i18n="sp.b.erpList.loading">Lade Konnektoren&hellip;</p>
     </div>
   </div>
 
   <!-- Create/Edit Modal -->
   <div class="int-modal-bg" id="modal">
     <div class="int-modal">
-      <h3 id="modalTitle">Neue Integration</h3>
+      <!-- openModal() setzt diesen Titel ueber setI18nText() (Marker wandert mit). -->
+      <h3 id="modalTitle" data-i18n="sp.b.modal.newIntegration">Neue Integration</h3>
       <input type="hidden" id="editId"/>
-      <label>Provider</label>
+      <label data-i18n="sp.b.form.provider">Provider</label>
+      <!-- Produktnamen und value-Attribute bleiben unveraendert (value geht an den Server). -->
       <select id="fProvider"><option value="slack">Slack</option><option value="teams">Microsoft Teams</option></select>
-      <label>Label (optional)</label>
-      <input id="fLabel" placeholder="z.B. #recruiting-channel"/>
-      <label>Webhook-URL</label>
+      <label data-i18n="sp.b.form.label">Label (optional)</label>
+      <input id="fLabel" placeholder="z.B. #recruiting-channel" data-i18n-ph="sp.b.form.labelPh"/>
+      <label data-i18n="sp.b.form.webhookUrl">Webhook-URL</label>
+      <!-- Kein data-i18n-ph: openModal() setzt hier die maskierte Bestands-URL. -->
       <input id="fUrl" placeholder="https://hooks.slack.com/services/..."/>
-      <label style="margin-bottom:var(--ds-space-2)">Events</label>
+      <label style="margin-bottom:var(--ds-space-2)" data-i18n="sp.b.form.events">Events</label>
       <div class="int-modal__events" id="eventCheckboxes"></div>
       <div class="int-modal__footer">
-        <button class="btn" onclick="closeModal()">Abbrechen</button>
-        <button class="btn primary" id="btnSave" data-feature-key="integrations" onclick="saveIntegration()">Speichern</button>
+        <button class="btn" onclick="closeModal()" data-i18n="sp.b.btn.cancel">Abbrechen</button>
+        <button class="btn primary" id="btnSave" data-feature-key="integrations" onclick="saveIntegration()" data-i18n="sp.b.btn.save">Speichern</button>
       </div>
     </div>
   </div>
@@ -121,30 +127,33 @@
   <!-- Create/Edit ERP-Konnektor Modal -->
   <div class="int-modal-bg" id="erpModal">
     <div class="int-modal">
-      <h3 id="erpModalTitle">Neuer Konnektor</h3>
+      <!-- openErpModal() setzt diesen Titel ueber setI18nText() (Marker wandert mit). -->
+      <h3 id="erpModalTitle" data-i18n="sp.b.modal.newErp">Neuer Konnektor</h3>
       <input type="hidden" id="erpEditId"/>
-      <label>System</label>
+      <label data-i18n="sp.b.erp.system">System</label>
+      <!-- Produktnamen bleiben unuebersetzt; nur die deutschen Zusaetze sind Sprache.
+           Die value-Attribute gehen unveraendert an den Server. -->
       <select id="erpSystem">
-        <option value="datev">DATEV (Lohn + Fibu)</option>
+        <option value="datev" data-i18n="sp.b.erp.datevOption">DATEV (Lohn + Fibu)</option>
         <option value="sap_successfactors">SAP SuccessFactors</option>
         <option value="sap_hcm">SAP HCM / ERP</option>
         <option value="zvoove">zvoove / Landwehr</option>
         <option value="personio">Personio</option>
-        <option value="generic">Generisch</option>
+        <option value="generic" data-i18n="sp.b.erp.generic">Generisch</option>
       </select>
-      <label>Mandant / Client-ID (optional)</label>
-      <input id="erpClient" placeholder="z.B. DATEV-Mandanten-Nr"/>
-      <label>Label (optional)</label>
-      <input id="erpLabel" placeholder="z.B. Steuerberatung Mueller"/>
-      <label>Endpoint-URL (optional, fuer API-Push)</label>
+      <label data-i18n="sp.b.erp.client">Mandant / Client-ID (optional)</label>
+      <input id="erpClient" placeholder="z.B. DATEV-Mandanten-Nr" data-i18n-ph="sp.b.erp.clientPh"/>
+      <label data-i18n="sp.b.form.label">Label (optional)</label>
+      <input id="erpLabel" placeholder="z.B. Steuerberatung Mueller" data-i18n-ph="sp.b.erp.labelPh"/>
+      <label data-i18n="sp.b.erp.endpoint">Endpoint-URL (optional, fuer API-Push)</label>
       <input id="erpEndpoint" placeholder="https://&hellip;"/>
-      <label>Status</label>
-      <select id="erpStatus"><option value="active">Aktiv</option><option value="paused">Pausiert</option><option value="disabled">Deaktiviert</option></select>
-      <label>Konfiguration (JSON &mdash; z.B. DATEV Berater/Mandant/Konten)</label>
+      <label data-i18n="sp.b.erp.status">Status</label>
+      <select id="erpStatus"><option value="active" data-i18n="sp.b.erp.statusActive">Aktiv</option><option value="paused" data-i18n="sp.b.erp.statusPaused">Pausiert</option><option value="disabled" data-i18n="sp.b.erp.statusDisabled">Deaktiviert</option></select>
+      <label data-i18n="sp.b.erp.config">Konfiguration (JSON &ndash; z.B. DATEV Berater/Mandant/Konten)</label>
       <textarea id="erpConfig" rows="6" style="width:100%;font-family:ui-monospace,Menlo,Consolas,monospace;font-size:12px" placeholder='{ "berater_nr":"12345", "mandant_nr":"678", "debitor_konto":"10000", "erloes_konto":{"19":"8400"}, "lohn":{"lohnart_regular":"1","lohnart_overtime":"2"} }'></textarea>
       <div class="int-modal__footer">
-        <button class="btn" onclick="closeErpModal()">Abbrechen</button>
-        <button class="btn primary" id="btnSaveErp" data-feature-key="integrations" onclick="saveErpMapping()">Speichern</button>
+        <button class="btn" onclick="closeErpModal()" data-i18n="sp.b.btn.cancel">Abbrechen</button>
+        <button class="btn primary" id="btnSaveErp" data-feature-key="integrations" onclick="saveErpMapping()" data-i18n="sp.b.btn.save">Speichern</button>
       </div>
     </div>
   </div>
@@ -156,6 +165,193 @@
   <script src="/public/js/slaGuard.js"></script>
   <script src="/public/js/entitlements.js"></script>
   <script>
+    /* Woerterbuch (P6.1, DE/EN) fuer integrations.html.
+       Eigener Unter-Namensraum sp.b.*, damit nichts mit spend-analytics.html
+       (sp.*) kollidiert — beide Seiten teilen keine JS-Datei.
+
+       Bewusst NICHT hier uebersetzt:
+       - Topbar/Navigation/Nutzerbereich/Sprach-Umschalter (pageShell.js + i18n.js)
+       - Produkt-/Systemnamen (Slack, Microsoft Teams, DATEV, SAP, zvoove, Personio)
+       - Event-Schluessel aus /integrations/events und Fehlercodes des Servers
+       - Roh-Status der Konnektor-Karte (API-Wert) und alle value-Attribute
+       - URL-/JSON-Beispiele in Platzhaltern
+
+       Rollenbegriffe: integrations.html ist laut api/config/visibilityMatrix.js
+       ausschliesslich fuer allowed_org_types ["company"] erreichbar (zusaetzlich
+       owner/admin). Eine feste Unternehmenssicht ist hier also korrekt.        */
+    if (window.TCi18n) {
+      TCi18n.register('de', {
+        'sp.b.docTitle': 'Integrationen – TempConnect',
+        'sp.b.page.title': 'Integrationen & Schnittstellen',
+        'sp.b.page.subtitle': 'Plattform an Ihre Systeme anbinden: Echtzeit-Webhooks (Slack/Teams) sowie ERP-, Lohn- & Buchhaltungs-Anbindung (DATEV/SAP/zvoove).',
+
+        'sp.b.sec.webhooks': 'Slack & Teams (Echtzeit-Benachrichtigungen)',
+        'sp.b.sec.erp': 'ERP-, Lohn- & Buchhaltungs-Anbindung',
+        'sp.b.sec.erpText': 'DATEV, SAP, zvoove & Co. anbinden: Mandant/Konten hinterlegen und Exporte für Steuerberater bzw. Lohnbüro ziehen.',
+
+        'sp.b.export.datevFibu': 'DATEV Fibu-Buchungsstapel (Rechnungen)',
+        'sp.b.export.datevLohn': 'DATEV Lohn-Bewegungsdaten (Stunden)',
+        'sp.b.export.invoicesCsv': 'Rechnungen-CSV (generisch)',
+
+        'sp.b.btn.add': '+ Integration hinzufügen',
+        'sp.b.btn.addErp': '+ Konnektor hinzufügen',
+        'sp.b.btn.cancel': 'Abbrechen',
+        'sp.b.btn.save': 'Speichern',
+
+        'sp.b.list.loading': 'Lade Integrationen…',
+        'sp.b.erpList.loading': 'Lade Konnektoren…',
+
+        'sp.b.modal.newIntegration': 'Neue Integration',
+        'sp.b.modal.editIntegration': 'Integration bearbeiten',
+        'sp.b.modal.newErp': 'Neuer Konnektor',
+        'sp.b.modal.editErp': 'Konnektor bearbeiten',
+
+        'sp.b.form.provider': 'Provider',
+        'sp.b.form.label': 'Label (optional)',
+        'sp.b.form.labelPh': 'z.B. #recruiting-channel',
+        'sp.b.form.webhookUrl': 'Webhook-URL',
+        'sp.b.form.webhookUrlPh': 'Webhook-URL eingeben',
+        'sp.b.form.events': 'Events',
+
+        'sp.b.erp.system': 'System',
+        'sp.b.erp.datevOption': 'DATEV (Lohn + Fibu)',
+        'sp.b.erp.generic': 'Generisch',
+        'sp.b.erp.client': 'Mandant / Client-ID (optional)',
+        'sp.b.erp.clientPh': 'z.B. DATEV-Mandanten-Nr',
+        'sp.b.erp.labelPh': 'z.B. Steuerberatung Mueller',
+        'sp.b.erp.endpoint': 'Endpoint-URL (optional, fuer API-Push)',
+        'sp.b.erp.status': 'Status',
+        'sp.b.erp.statusActive': 'Aktiv',
+        'sp.b.erp.statusPaused': 'Pausiert',
+        'sp.b.erp.statusDisabled': 'Deaktiviert',
+        'sp.b.erp.config': 'Konfiguration (JSON – z.B. DATEV Berater/Mandant/Konten)',
+
+        'sp.b.card.active': 'Aktiv',
+        'sp.b.card.inactive': 'Inaktiv',
+        'sp.b.card.test': 'Test',
+        'sp.b.card.edit': 'Bearbeiten',
+        'sp.b.card.activate': 'Aktivieren',
+        'sp.b.card.deactivate': 'Deaktivieren',
+        'sp.b.card.lastSuccess': 'Letzter Erfolg:',
+        'sp.b.card.lastError': 'Letzter Fehler:',
+        'sp.b.card.lastSync': 'Letzter Sync:',
+        'sp.b.card.client': 'Mandant/Client:',
+
+        'sp.b.empty.intTitle': 'Noch keine Integrationen',
+        'sp.b.empty.intText': 'Erstellen Sie eine Slack- oder Teams-Integration, um Plattform-Events in Echtzeit zu empfangen.',
+        'sp.b.empty.erpTitle': 'Noch kein Konnektor',
+        'sp.b.empty.erpText': 'Binden Sie DATEV, SAP oder zvoove an, um Rechnungen/Stunden ins Ziel-System zu uebergeben.',
+
+        'sp.b.err.load': 'Fehler beim Laden.',
+        'sp.b.err.network': 'Netzwerkfehler.',
+
+        'sp.b.toast.error': 'Fehler',
+        'sp.b.toast.network': 'Netzwerkfehler',
+        'sp.b.toast.urlRequired': 'Webhook-URL erforderlich',
+        'sp.b.toast.updated': 'Integration aktualisiert',
+        'sp.b.toast.created': 'Integration erstellt',
+        'sp.b.toast.deleted': 'Geloescht',
+        'sp.b.toast.testOk': 'Test erfolgreich – Nachricht gesendet.',
+        'sp.b.toast.testFailed': 'Test fehlgeschlagen: {reason}',
+        'sp.b.toast.unknown': 'Unbekannt',
+        'sp.b.toast.invalidJson': 'Konfiguration ist kein gueltiges JSON',
+        'sp.b.toast.duplicate': 'Fuer dieses System existiert bereits ein Konnektor',
+        'sp.b.toast.erpUpdated': 'Konnektor aktualisiert',
+        'sp.b.toast.erpCreated': 'Konnektor erstellt',
+
+        'sp.b.confirm.deleteIntegration': 'Integration wirklich loeschen?',
+        'sp.b.confirm.deleteErp': 'Konnektor wirklich loeschen?'
+      });
+      TCi18n.register('en', {
+        'sp.b.docTitle': 'Integrations – TempConnect',
+        'sp.b.page.title': 'Integrations & interfaces',
+        'sp.b.page.subtitle': 'Connect the platform to your systems: real-time webhooks (Slack/Teams) plus ERP, payroll and accounting links (DATEV/SAP/zvoove).',
+
+        'sp.b.sec.webhooks': 'Slack & Teams (real-time notifications)',
+        'sp.b.sec.erp': 'ERP, payroll & accounting link',
+        'sp.b.sec.erpText': 'Connect DATEV, SAP, zvoove and others: store the client and accounts, then pull exports for your tax advisor or payroll office.',
+
+        'sp.b.export.datevFibu': 'DATEV accounting batch (invoices)',
+        'sp.b.export.datevLohn': 'DATEV payroll movement data (hours)',
+        'sp.b.export.invoicesCsv': 'Invoices CSV (generic)',
+
+        'sp.b.btn.add': '+ Add integration',
+        'sp.b.btn.addErp': '+ Add connector',
+        'sp.b.btn.cancel': 'Cancel',
+        'sp.b.btn.save': 'Save',
+
+        'sp.b.list.loading': 'Loading integrations…',
+        'sp.b.erpList.loading': 'Loading connectors…',
+
+        'sp.b.modal.newIntegration': 'New integration',
+        'sp.b.modal.editIntegration': 'Edit integration',
+        'sp.b.modal.newErp': 'New connector',
+        'sp.b.modal.editErp': 'Edit connector',
+
+        'sp.b.form.provider': 'Provider',
+        'sp.b.form.label': 'Label (optional)',
+        'sp.b.form.labelPh': 'e.g. #recruiting-channel',
+        'sp.b.form.webhookUrl': 'Webhook URL',
+        'sp.b.form.webhookUrlPh': 'Enter the webhook URL',
+        'sp.b.form.events': 'Events',
+
+        'sp.b.erp.system': 'System',
+        'sp.b.erp.datevOption': 'DATEV (payroll + accounting)',
+        'sp.b.erp.generic': 'Generic',
+        'sp.b.erp.client': 'Client / client ID (optional)',
+        'sp.b.erp.clientPh': 'e.g. DATEV client number',
+        'sp.b.erp.labelPh': 'e.g. Mueller Tax Advisors',
+        'sp.b.erp.endpoint': 'Endpoint URL (optional, for API push)',
+        'sp.b.erp.status': 'Status',
+        'sp.b.erp.statusActive': 'Active',
+        'sp.b.erp.statusPaused': 'Paused',
+        'sp.b.erp.statusDisabled': 'Disabled',
+        'sp.b.erp.config': 'Configuration (JSON – e.g. DATEV advisor/client/accounts)',
+
+        'sp.b.card.active': 'Active',
+        'sp.b.card.inactive': 'Inactive',
+        'sp.b.card.test': 'Test',
+        'sp.b.card.edit': 'Edit',
+        'sp.b.card.activate': 'Activate',
+        'sp.b.card.deactivate': 'Deactivate',
+        'sp.b.card.lastSuccess': 'Last success:',
+        'sp.b.card.lastError': 'Last error:',
+        'sp.b.card.lastSync': 'Last sync:',
+        'sp.b.card.client': 'Client:',
+
+        'sp.b.empty.intTitle': 'No integrations yet',
+        'sp.b.empty.intText': 'Create a Slack or Teams integration to receive platform events in real time.',
+        'sp.b.empty.erpTitle': 'No connector yet',
+        'sp.b.empty.erpText': 'Connect DATEV, SAP or zvoove to hand invoices and hours over to the target system.',
+
+        'sp.b.err.load': 'Could not load.',
+        'sp.b.err.network': 'Network error.',
+
+        'sp.b.toast.error': 'Error',
+        'sp.b.toast.network': 'Network error',
+        'sp.b.toast.urlRequired': 'Webhook URL required',
+        'sp.b.toast.updated': 'Integration updated',
+        'sp.b.toast.created': 'Integration created',
+        'sp.b.toast.deleted': 'Deleted',
+        'sp.b.toast.testOk': 'Test successful – message sent.',
+        'sp.b.toast.testFailed': 'Test failed: {reason}',
+        'sp.b.toast.unknown': 'Unknown',
+        'sp.b.toast.invalidJson': 'The configuration is not valid JSON',
+        'sp.b.toast.duplicate': 'A connector already exists for this system',
+        'sp.b.toast.erpUpdated': 'Connector updated',
+        'sp.b.toast.erpCreated': 'Connector created',
+
+        'sp.b.confirm.deleteIntegration': 'Really delete this integration?',
+        'sp.b.confirm.deleteErp': 'Really delete this connector?'
+      });
+    }
+    /** Uebersetzung an der Verwendungsstelle (i18n.js liegt im head). */
+    function t(key, params) { return (window.TCi18n && window.TCi18n.t(key, params)) || ''; }
+    /** BCP-47-Locale fuer Datumsformate (DE bleibt Default). */
+    function fmtLocale() { return (window.TCi18n && window.TCi18n.dateLocale()) || 'de-DE'; }
+    /** Text setzen UND Marker mitfuehren (nur parameterlose Schluessel). */
+    function setI18nText(el, key) { if (!el) return; el.setAttribute('data-i18n', key); el.textContent = t(key); }
+
     const API = '/api';
     let csrf = '';
     let allEvents = [];
@@ -171,11 +367,12 @@
       }
     }
 
+    // Bewusst nicht "t" als lokaler Name: das ist der Woerterbuch-Helfer.
     function toast(msg, ok) {
-      const t = document.getElementById('toast');
-      t.textContent = msg;
-      t.className = 'toast show ' + (ok ? 'toast--ok' : 'toast--err');
-      setTimeout(() => t.classList.remove('show'), 3200);
+      const el = document.getElementById('toast');
+      el.textContent = msg;
+      el.className = 'toast show ' + (ok ? 'toast--ok' : 'toast--err');
+      setTimeout(() => el.classList.remove('show'), 3200);
     }
 
     async function loadEvents() {
@@ -210,11 +407,11 @@
 
     function openModal(item) {
       document.getElementById('editId').value = item ? item.id : '';
-      document.getElementById('modalTitle').textContent = item ? 'Integration bearbeiten' : 'Neue Integration';
+      setI18nText(document.getElementById('modalTitle'), item ? 'sp.b.modal.editIntegration' : 'sp.b.modal.newIntegration');
       document.getElementById('fProvider').value = item ? item.provider : 'slack';
       document.getElementById('fLabel').value = item ? item.label || '' : '';
       document.getElementById('fUrl').value = item ? '' : ''; // URL masked — leave blank for edits
-      if (item) document.getElementById('fUrl').placeholder = item.webhook_url || 'Webhook-URL eingeben';
+      if (item) document.getElementById('fUrl').placeholder = item.webhook_url || t('sp.b.form.webhookUrlPh');
       else document.getElementById('fUrl').placeholder = 'https://hooks.slack.com/services/...';
       renderEventCheckboxes(item ? item.enabled_events : allEvents);
       document.getElementById('modal').classList.add('open');
@@ -232,7 +429,7 @@
       };
       const url = document.getElementById('fUrl').value.trim();
       if (url) body.webhook_url = url;
-      if (!id && !url) { toast('Webhook-URL erforderlich', false); return; }
+      if (!id && !url) { toast(t('sp.b.toast.urlRequired'), false); return; }
 
       const method = id ? 'PATCH' : 'POST';
       const endpoint = id ? API + '/integrations/' + id : API + '/integrations';
@@ -242,21 +439,22 @@
           headers: { 'Content-Type': 'application/json', 'x-csrf-token': tok },
           body: JSON.stringify(body)
         });
-        if (!r.ok) { const e = await r.json().catch(() => ({})); toast(e.error || 'Fehler', false); return; }
-        toast(id ? 'Integration aktualisiert' : 'Integration erstellt', true);
+        // e.error ist ein Server-Fehlercode und bleibt roh.
+        if (!r.ok) { const e = await r.json().catch(() => ({})); toast(e.error || t('sp.b.toast.error'), false); return; }
+        toast(t(id ? 'sp.b.toast.updated' : 'sp.b.toast.created'), true);
         closeModal();
         loadList();
-      } catch (e) { toast('Netzwerkfehler', false); }
+      } catch (e) { toast(t('sp.b.toast.network'), false); }
     }
 
     async function deleteIntegration(id) {
-      if (!confirm('Integration wirklich loeschen?')) return;
+      if (!confirm(t('sp.b.confirm.deleteIntegration'))) return;
       const tok = await getCSRF();
       try {
         await fetch(API + '/integrations/' + id, { method: 'DELETE', credentials: 'include', headers: { 'x-csrf-token': tok } });
-        toast('Geloescht', true);
+        toast(t('sp.b.toast.deleted'), true);
         loadList();
-      } catch { toast('Fehler', false); }
+      } catch { toast(t('sp.b.toast.error'), false); }
     }
 
     async function testIntegration(id) {
@@ -264,8 +462,8 @@
       try {
         const r = await fetch(API + '/integrations/' + id + '/test', { method: 'POST', credentials: 'include', headers: { 'x-csrf-token': tok } });
         const d = await r.json();
-        toast(d.ok ? 'Test erfolgreich — Nachricht gesendet!' : 'Test fehlgeschlagen: ' + (d.error || 'Unbekannt'), d.ok);
-      } catch { toast('Netzwerkfehler', false); }
+        toast(d.ok ? t('sp.b.toast.testOk') : t('sp.b.toast.testFailed', { reason: d.error || t('sp.b.toast.unknown') }), d.ok);
+      } catch { toast(t('sp.b.toast.network'), false); }
     }
 
     async function toggleActive(id, isActive) {
@@ -277,18 +475,28 @@
           body: JSON.stringify({ is_active: !isActive })
         });
         loadList();
-      } catch { toast('Fehler', false); }
+      } catch { toast(t('sp.b.toast.error'), false); }
+    }
+
+    /** Parameterlose Meldungen tragen den Marker mit und ueberleben den Sprachwechsel. */
+    function errHtml(key) {
+      return '<p style="color:#f87171" data-i18n="' + key + '">' + esc(t(key)) + '</p>';
+    }
+    function emptyHtml(titleKey, textKey) {
+      return '<div style="text-align:center;padding:var(--ds-space-6);grid-column:1/-1">' +
+        '<p style="font-size:15px;font-weight:700" data-i18n="' + titleKey + '">' + esc(t(titleKey)) + '</p>' +
+        '<p style="font-size:13px;color:var(--ds-text-secondary,var(--muted))" data-i18n="' + textKey + '">' + esc(t(textKey)) + '</p></div>';
     }
 
     async function loadList() {
       const c = document.getElementById('list');
       try {
         const r = await fetch(API + '/integrations', { credentials: 'include' });
-        if (!r.ok) { c.innerHTML = '<p style="color:#f87171">Fehler beim Laden.</p>'; return; }
+        if (!r.ok) { c.innerHTML = errHtml('sp.b.err.load'); return; }
         const d = await r.json();
         const items = d.items || [];
         if (!items.length) {
-          c.innerHTML = '<div style="text-align:center;padding:var(--ds-space-6);grid-column:1/-1"><p style="font-size:15px;font-weight:700">Noch keine Integrationen</p><p style="font-size:13px;color:var(--ds-text-secondary,var(--muted))">Erstellen Sie eine Slack- oder Teams-Integration, um Plattform-Events in Echtzeit zu empfangen.</p></div>';
+          c.innerHTML = emptyHtml('sp.b.empty.intTitle', 'sp.b.empty.intText');
           applyIntegrationDomLocks(document);
           return;
         }
@@ -299,30 +507,36 @@
           return `<div class="int-card">
             <div class="int-card__head">
               <span class="int-card__label">${esc(it.label || it.provider.toUpperCase())}</span>
-              <span class="int-card__status ${active?'int-card__status--active':'int-card__status--inactive'}">${active?'Aktiv':'Inaktiv'}</span>
+              <span class="int-card__status ${active?'int-card__status--active':'int-card__status--inactive'}" data-i18n="${active?'sp.b.card.active':'sp.b.card.inactive'}">${esc(t(active?'sp.b.card.active':'sp.b.card.inactive'))}</span>
             </div>
             <div class="int-card__url">${esc(it.webhook_url)}</div>
             <div class="int-card__events">${events.map(e=>`<span class="int-card__evt">${esc(e)}</span>`).join('')}${moreCount>0?`<span class="int-card__evt">+${moreCount}</span>`:''}</div>
             <div class="int-card__actions">
-              <button class="ds-btn ds-btn--sm" data-feature-key="integrations" onclick='testIntegration("${it.id}")'>&#9889; Test</button>
-              <button class="ds-btn ds-btn--sm" data-feature-key="integrations" onclick='openModal(${JSON.stringify(it).replace(/'/g,"&#39;")})'>&#9998; Bearbeiten</button>
-              <button class="ds-btn ds-btn--sm" data-feature-key="integrations" onclick='toggleActive("${it.id}",${active})'>${active?'Deaktivieren':'Aktivieren'}</button>
+              <button class="ds-btn ds-btn--sm" data-feature-key="integrations" onclick='testIntegration("${it.id}")'>&#9889; <span data-i18n="sp.b.card.test">${esc(t('sp.b.card.test'))}</span></button>
+              <button class="ds-btn ds-btn--sm" data-feature-key="integrations" onclick='openModal(${JSON.stringify(it).replace(/'/g,"&#39;")})'>&#9998; <span data-i18n="sp.b.card.edit">${esc(t('sp.b.card.edit'))}</span></button>
+              <button class="ds-btn ds-btn--sm" data-feature-key="integrations" onclick='toggleActive("${it.id}",${active})' data-i18n="${active?'sp.b.card.deactivate':'sp.b.card.activate'}">${esc(t(active?'sp.b.card.deactivate':'sp.b.card.activate'))}</button>
               <button class="ds-btn ds-btn--sm" data-feature-key="integrations" style="color:#f87171" onclick='deleteIntegration("${it.id}")'>&times;</button>
             </div>
-            ${it.last_success_at?`<div class="int-card__last">Letzter Erfolg: ${new Date(it.last_success_at).toLocaleString('de-DE')}</div>`:''}
-            ${it.last_error?`<div class="int-card__error">Letzter Fehler: ${esc(it.last_error)}</div>`:''}
+            ${it.last_success_at?`<div class="int-card__last">${esc(t('sp.b.card.lastSuccess'))} ${esc(new Date(it.last_success_at).toLocaleString(fmtLocale()))}</div>`:''}
+            ${it.last_error?`<div class="int-card__error">${esc(t('sp.b.card.lastError'))} ${esc(it.last_error)}</div>`:''}
           </div>`;
         }).join('');
         applyIntegrationDomLocks(document);
-      } catch { c.innerHTML = '<p style="color:#f87171">Netzwerkfehler.</p>'; }
+      } catch { c.innerHTML = errHtml('sp.b.err.network'); }
     }
 
     /* ── ERP-/Buchhaltungs-Konnektoren (org_erp_mappings) ── */
-    const ERP_LABELS = { datev:'DATEV', sap_successfactors:'SAP SuccessFactors', sap_hcm:'SAP HCM / ERP', zvoove:'zvoove / Landwehr', personio:'Personio', generic:'Generisch' };
+    // Systemnamen sind Produktnamen und bleiben unuebersetzt — nur "Generisch" ist Sprache.
+    const ERP_LABELS = { datev:'DATEV', sap_successfactors:'SAP SuccessFactors', sap_hcm:'SAP HCM / ERP', zvoove:'zvoove / Landwehr', personio:'Personio' };
+    function erpLabel(systemType) {
+      const key = String(systemType || '');
+      if (key === 'generic') return t('sp.b.erp.generic');
+      return ERP_LABELS[key] || key;
+    }
 
     function openErpModal(item) {
       document.getElementById('erpEditId').value = item ? item.id : '';
-      document.getElementById('erpModalTitle').textContent = item ? 'Konnektor bearbeiten' : 'Neuer Konnektor';
+      setI18nText(document.getElementById('erpModalTitle'), item ? 'sp.b.modal.editErp' : 'sp.b.modal.newErp');
       const sys = document.getElementById('erpSystem');
       sys.value = item ? item.system_type : 'datev';
       sys.disabled = !!item; // system_type ist eindeutiger Schluessel je Org → bei Edit fix
@@ -340,7 +554,7 @@
       const tok = await getCSRF();
       let sync_config = {};
       const raw = document.getElementById('erpConfig').value.trim();
-      if (raw) { try { sync_config = JSON.parse(raw); } catch { toast('Konfiguration ist kein gueltiges JSON', false); return; } }
+      if (raw) { try { sync_config = JSON.parse(raw); } catch { toast(t('sp.b.toast.invalidJson'), false); return; } }
       const body = {
         external_client_id: document.getElementById('erpClient').value.trim() || undefined,
         label: document.getElementById('erpLabel').value.trim(),
@@ -353,47 +567,48 @@
       const endpoint = id ? API + '/org/erp-mappings/' + id : API + '/org/erp-mappings';
       try {
         const r = await fetch(endpoint, { method, credentials:'include', headers:{'Content-Type':'application/json','x-csrf-token':tok}, body: JSON.stringify(body) });
-        if (!r.ok) { const e = await r.json().catch(()=>({})); toast(e.error === 'DUPLICATE' ? 'Fuer dieses System existiert bereits ein Konnektor' : (e.error || 'Fehler'), false); return; }
-        toast(id ? 'Konnektor aktualisiert' : 'Konnektor erstellt', true);
+        if (!r.ok) { const e = await r.json().catch(()=>({})); toast(e.error === 'DUPLICATE' ? t('sp.b.toast.duplicate') : (e.error || t('sp.b.toast.error')), false); return; }
+        toast(t(id ? 'sp.b.toast.erpUpdated' : 'sp.b.toast.erpCreated'), true);
         closeErpModal(); loadErpMappings();
-      } catch { toast('Netzwerkfehler', false); }
+      } catch { toast(t('sp.b.toast.network'), false); }
     }
 
     async function deleteErpMapping(id) {
-      if (!confirm('Konnektor wirklich loeschen?')) return;
+      if (!confirm(t('sp.b.confirm.deleteErp'))) return;
       const tok = await getCSRF();
-      try { await fetch(API + '/org/erp-mappings/' + id, { method:'DELETE', credentials:'include', headers:{'x-csrf-token':tok} }); toast('Geloescht', true); loadErpMappings(); }
-      catch { toast('Fehler', false); }
+      try { await fetch(API + '/org/erp-mappings/' + id, { method:'DELETE', credentials:'include', headers:{'x-csrf-token':tok} }); toast(t('sp.b.toast.deleted'), true); loadErpMappings(); }
+      catch { toast(t('sp.b.toast.error'), false); }
     }
 
     async function loadErpMappings() {
       const c = document.getElementById('erpList');
       try {
         const r = await fetch(API + '/org/erp-mappings', { credentials:'include' });
-        if (!r.ok) { c.innerHTML = '<p style="color:#f87171">Fehler beim Laden.</p>'; return; }
+        if (!r.ok) { c.innerHTML = errHtml('sp.b.err.load'); return; }
         const d = await r.json(); const items = d.items || [];
         if (!items.length) {
-          c.innerHTML = '<div style="text-align:center;padding:var(--ds-space-6);grid-column:1/-1"><p style="font-size:15px;font-weight:700">Noch kein Konnektor</p><p style="font-size:13px;color:var(--ds-text-secondary,var(--muted))">Binden Sie DATEV, SAP oder zvoove an, um Rechnungen/Stunden ins Ziel-System zu uebergeben.</p></div>';
+          c.innerHTML = emptyHtml('sp.b.empty.erpTitle', 'sp.b.empty.erpText');
           applyIntegrationDomLocks(document); return;
         }
         c.innerHTML = items.map(it => {
+          // st ist der Roh-Status aus der API und bleibt unveraendert stehen.
           const st = it.status || 'active'; const active = st === 'active';
           return `<div class="int-card">
             <div class="int-card__head">
-              <span class="int-card__label">${esc(ERP_LABELS[it.system_type] || it.system_type)}</span>
+              <span class="int-card__label">${esc(erpLabel(it.system_type))}</span>
               <span class="int-card__status ${active?'int-card__status--active':'int-card__status--inactive'}">${esc(st)}</span>
             </div>
-            ${it.external_client_id?`<div class="int-card__url">Mandant/Client: ${esc(it.external_client_id)}</div>`:''}
+            ${it.external_client_id?`<div class="int-card__url">${esc(t('sp.b.card.client'))} ${esc(it.external_client_id)}</div>`:''}
             ${it.label?`<div class="int-card__events"><span class="int-card__evt">${esc(it.label)}</span></div>`:''}
             <div class="int-card__actions">
-              <button class="ds-btn ds-btn--sm" data-feature-key="integrations" onclick='openErpModal(${JSON.stringify(it).replace(/'/g,"&#39;")})'>&#9998; Bearbeiten</button>
+              <button class="ds-btn ds-btn--sm" data-feature-key="integrations" onclick='openErpModal(${JSON.stringify(it).replace(/'/g,"&#39;")})'>&#9998; <span data-i18n="sp.b.card.edit">${esc(t('sp.b.card.edit'))}</span></button>
               <button class="ds-btn ds-btn--sm" data-feature-key="integrations" style="color:#f87171" onclick='deleteErpMapping("${it.id}")'>&times;</button>
             </div>
-            ${it.last_sync_at?`<div class="int-card__last">Letzter Sync: ${new Date(it.last_sync_at).toLocaleString('de-DE')}</div>`:''}
+            ${it.last_sync_at?`<div class="int-card__last">${esc(t('sp.b.card.lastSync'))} ${esc(new Date(it.last_sync_at).toLocaleString(fmtLocale()))}</div>`:''}
           </div>`;
         }).join('');
         applyIntegrationDomLocks(document);
-      } catch { c.innerHTML = '<p style="color:#f87171">Netzwerkfehler.</p>'; }
+      } catch { c.innerHTML = errHtml('sp.b.err.network'); }
     }
 
     function esc(s) { if (!s) return ''; const d = document.createElement('div'); d.textContent = s; return d.innerHTML; }

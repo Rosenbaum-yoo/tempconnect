@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <script src="/public/js/theme.js"></script>
   <script src="/public/js/i18n.js"></script>
-  <title>Dokumente &amp; PDFs &ndash; TempConnect</title>
+  <title data-i18n="doc.docTitle">Dokumente &amp; PDFs &ndash; TempConnect</title>
   <link rel="stylesheet" href="/public/css/design-system.css"/>
   <style>
     .dc-stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:var(--ds-space-3);margin:var(--ds-space-4) 0}
@@ -43,11 +43,11 @@
 
     <div class="ds-page-header">
       <div class="ds-page-header__content">
-        <h1 class="ds-page-title">Dokumente &amp; PDFs</h1>
-        <p class="ds-page-subtitle">Ihr zentraler Dokumenten-Tresor: Rechnungen, Vertraege, Policies und Nachweise sicher ablegen, verwalten und als PDF herunterladen.</p>
+        <h1 class="ds-page-title" data-i18n="doc.page.title">Dokumente &amp; PDFs</h1>
+        <p class="ds-page-subtitle" data-i18n="doc.page.subtitle">Ihr zentraler Dokumenten-Tresor: Rechnungen, Vertraege, Policies und Nachweise sicher ablegen, verwalten und als PDF herunterladen.</p>
       </div>
       <div class="ds-page-header__actions">
-        <button class="ds-btn ds-btn--primary" id="btnNew" style="display:none" onclick="toggleUpload()">+ Dokument hochladen</button>
+        <button class="ds-btn ds-btn--primary" id="btnNew" style="display:none" onclick="toggleUpload()" data-i18n="doc.page.upload">+ Dokument hochladen</button>
       </div>
     </div>
 
@@ -55,35 +55,35 @@
 
     <!-- Upload -->
     <div class="dc-card" id="uploadCard" style="display:none">
-      <h3 style="margin:0 0 var(--ds-space-3);font-size:16px;font-weight:700">Neues Dokument</h3>
+      <h3 style="margin:0 0 var(--ds-space-3);font-size:16px;font-weight:700" data-i18n="doc.upload.heading">Neues Dokument</h3>
       <div class="dc-grid2">
-        <div class="dc-field"><label>Titel *</label><input id="f-title" placeholder="z.B. Rechnung Mai 2026"/></div>
-        <div class="dc-field"><label>Datei (PDF, Bild &middot; max. 15 MB)</label><input type="file" id="f-file" accept=".pdf,.png,.jpg,.jpeg,.webp"/></div>
-        <div class="dc-field"><label>Typ</label><select id="f-type"></select></div>
-        <div class="dc-field"><label>Kategorie</label><select id="f-cat"></select></div>
-        <div class="dc-field"><label>Gueltig bis (optional)</label><input type="date" id="f-valid"/></div>
-        <div class="dc-field"><label>Aufbewahrung bis (optional, DSGVO/GoBD)</label><input type="date" id="f-retention"/></div>
+        <div class="dc-field"><label data-i18n="doc.field.title">Titel *</label><input id="f-title" placeholder="z.B. Rechnung Mai 2026" data-i18n-ph="doc.field.titlePh"/></div>
+        <div class="dc-field"><label data-i18n="doc.field.file">Datei (PDF, Bild &middot; max. 15 MB)</label><input type="file" id="f-file" accept=".pdf,.png,.jpg,.jpeg,.webp"/></div>
+        <div class="dc-field"><label data-i18n="doc.field.type">Typ</label><select id="f-type"></select></div>
+        <div class="dc-field"><label data-i18n="doc.field.cat">Kategorie</label><select id="f-cat"></select></div>
+        <div class="dc-field"><label data-i18n="doc.field.valid">Gueltig bis (optional)</label><input type="date" id="f-valid"/></div>
+        <div class="dc-field"><label data-i18n="doc.field.retention">Aufbewahrung bis (optional, DSGVO/GoBD)</label><input type="date" id="f-retention"/></div>
       </div>
-      <div class="dc-field"><label>Notiz (optional)</label><textarea id="f-notes" rows="2"></textarea></div>
+      <div class="dc-field"><label data-i18n="doc.field.notes">Notiz (optional)</label><textarea id="f-notes" rows="2"></textarea></div>
       <div style="display:flex;gap:var(--ds-space-2);justify-content:flex-end">
-        <button class="ds-btn" onclick="toggleUpload()">Abbrechen</button>
-        <button class="ds-btn ds-btn--primary" id="btnUpload" onclick="uploadDoc()">Hochladen</button>
+        <button class="ds-btn" onclick="toggleUpload()" data-i18n="doc.upload.cancel">Abbrechen</button>
+        <button class="ds-btn ds-btn--primary" id="btnUpload" onclick="uploadDoc()" data-i18n="doc.upload.submit">Hochladen</button>
       </div>
       <div id="upMsg" style="margin-top:var(--ds-space-2);font-size:12px"></div>
     </div>
 
     <!-- Filter -->
     <div class="dc-filters">
-      <div class="dc-field" style="margin:0"><label>Typ</label><select id="flt-type"></select></div>
-      <div class="dc-field" style="margin:0"><label>Kategorie</label><select id="flt-cat"></select></div>
-      <div class="dc-field" style="margin:0"><label>Status</label><select id="flt-status"><option value="">Alle</option><option value="active">Aktiv</option><option value="archived">Archiviert</option></select></div>
-      <button class="ds-btn" onclick="exportZip()" style="margin-left:auto">Als ZIP exportieren</button>
+      <div class="dc-field" style="margin:0"><label data-i18n="doc.field.type">Typ</label><select id="flt-type"></select></div>
+      <div class="dc-field" style="margin:0"><label data-i18n="doc.field.cat">Kategorie</label><select id="flt-cat"></select></div>
+      <div class="dc-field" style="margin:0"><label data-i18n="doc.field.status">Status</label><select id="flt-status"><option value="" data-i18n="doc.filter.all">Alle</option><option value="active" data-i18n="doc.status.active">Aktiv</option><option value="archived" data-i18n="doc.status.archived">Archiviert</option></select></div>
+      <button class="ds-btn" onclick="exportZip()" style="margin-left:auto" data-i18n="doc.filter.exportZip">Als ZIP exportieren</button>
     </div>
 
     <div class="dc-card" style="padding:0;overflow-x:auto">
       <table class="dc-table">
-        <thead><tr><th>Titel</th><th>Typ</th><th>Kategorie</th><th>Groesse</th><th>Datum</th><th>Status</th><th style="text-align:right">Aktionen</th></tr></thead>
-        <tbody id="dc-rows"><tr><td colspan="7" style="padding:var(--ds-space-5);color:var(--ds-text-secondary)">Lade Dokumente&hellip;</td></tr></tbody>
+        <thead><tr><th data-i18n="doc.table.title">Titel</th><th data-i18n="doc.table.type">Typ</th><th data-i18n="doc.table.cat">Kategorie</th><th data-i18n="doc.table.size">Groesse</th><th data-i18n="doc.table.date">Datum</th><th data-i18n="doc.table.status">Status</th><th style="text-align:right" data-i18n="doc.table.actions">Aktionen</th></tr></thead>
+        <tbody id="dc-rows"><tr><td colspan="7" style="padding:var(--ds-space-5);color:var(--ds-text-secondary)" data-i18n="doc.table.loading">Lade Dokumente&hellip;</td></tr></tbody>
       </table>
     </div>
   </div>
@@ -96,40 +96,229 @@
   <script>
   (function(){
     "use strict";
+
+    /* ── Woerterbuch (P6.1, DE/EN) ────────────────────────────────────────────
+       i18n.js liegt bereits im head; dieses Inline-Script laeuft ausschliesslich
+       auf documents-center.html, TCi18n ist hier also garantiert vorhanden.
+
+       Bewusst NICHT uebersetzt:
+       - Topbar, Navigation, Nutzerbereich und Sprach-Umschalter (pageShell.js)
+       - die option[value] der Filter (document_type / content_category / status)
+         und der Statusrohwert "archived": diese Werte gehen an den Server
+       - API-Daten (Dokumenttitel, Originaldateiname, Datum, Groesse)
+       Drei-Seiten-Regel: der Dokumenten-Tresor kennt keinen rollenabhaengigen
+       Begriff aus terminologyLabels.js — Rechnung, Vertrag und Nachweis heissen
+       fuer Unternehmen, Personaldienstleister und Arbeiter identisch. Deshalb
+       ist die feste Woerterbuch-Fassung hier korrekt.                          */
+    TCi18n.register('de', {
+      'doc.docTitle': 'Dokumente & PDFs – TempConnect',
+      'doc.page.title': 'Dokumente & PDFs',
+      'doc.page.subtitle': 'Ihr zentraler Dokumenten-Tresor: Rechnungen, Vertraege, Policies und Nachweise sicher ablegen, verwalten und als PDF herunterladen.',
+      'doc.page.upload': '+ Dokument hochladen',
+
+      'doc.stat.total': 'Dokumente',
+      'doc.stat.active': 'Aktiv',
+      'doc.stat.archived': 'Archiviert',
+      'doc.stat.storage': 'Speicher',
+
+      'doc.upload.heading': 'Neues Dokument',
+      'doc.upload.cancel': 'Abbrechen',
+      'doc.upload.submit': 'Hochladen',
+
+      'doc.field.title': 'Titel *',
+      'doc.field.titlePh': 'z.B. Rechnung Mai 2026',
+      'doc.field.file': 'Datei (PDF, Bild · max. 15 MB)',
+      'doc.field.type': 'Typ',
+      'doc.field.cat': 'Kategorie',
+      'doc.field.valid': 'Gueltig bis (optional)',
+      'doc.field.retention': 'Aufbewahrung bis (optional, DSGVO/GoBD)',
+      'doc.field.notes': 'Notiz (optional)',
+      'doc.field.status': 'Status',
+
+      'doc.filter.all': 'Alle',
+      'doc.filter.exportZip': 'Als ZIP exportieren',
+      'doc.status.active': 'Aktiv',
+      'doc.status.archived': 'Archiviert',
+
+      'doc.table.title': 'Titel',
+      'doc.table.type': 'Typ',
+      'doc.table.cat': 'Kategorie',
+      'doc.table.size': 'Groesse',
+      'doc.table.date': 'Datum',
+      'doc.table.status': 'Status',
+      'doc.table.actions': 'Aktionen',
+      'doc.table.loading': 'Lade Dokumente…',
+
+      'doc.type.invoice': 'Rechnung',
+      'doc.type.contract': 'Vertrag',
+      'doc.type.policy': 'Richtlinie',
+      'doc.type.certificate': 'Zertifikat/Nachweis',
+      'doc.type.report': 'Bericht',
+      'doc.type.correspondence': 'Korrespondenz',
+      'doc.type.other': 'Sonstiges',
+
+      'doc.cat.financial': 'Finanzen',
+      'doc.cat.legal': 'Rechtliches',
+      'doc.cat.operational': 'Betrieb',
+      'doc.cat.hr': 'Personal',
+      'doc.cat.other': 'Sonstiges',
+
+      'doc.action.download': 'Download',
+      'doc.action.archive': 'Archivieren',
+      'doc.action.reactivate': 'Reaktivieren',
+      'doc.action.delete': 'Loeschen',
+      'doc.badge.auto': 'Auto',
+      'doc.badge.autoTitle': 'Automatisch von der Plattform abgelegt',
+
+      'doc.state.forbidden': 'Kein Zugriff auf den Dokumenten-Tresor.',
+      'doc.state.loadError': 'Fehler beim Laden.',
+      'doc.state.network': 'Netzwerkfehler.',
+      'doc.empty.title': 'Noch keine Dokumente',
+      'doc.empty.manage': 'Laden Sie Ihr erstes Dokument hoch.',
+      'doc.empty.readonly': 'Hier erscheinen die Dokumente Ihrer Organisation.',
+
+      'doc.msg.titleRequired': 'Titel ist erforderlich.',
+      'doc.msg.uploading': 'Lade hoch…',
+      'doc.msg.uploadError': 'Fehler: {detail}',
+      'doc.msg.uploaded': 'Dokument hochgeladen.',
+      'doc.msg.actionFailed': 'Aktion fehlgeschlagen.',
+      'doc.msg.deleteConfirm': 'Dokument unwiderruflich loeschen?',
+      'doc.msg.deleted': 'Geloescht.',
+      'doc.msg.deleteFailed': 'Loeschen fehlgeschlagen.'
+    });
+    TCi18n.register('en', {
+      'doc.docTitle': 'Documents & PDFs – TempConnect',
+      'doc.page.title': 'Documents & PDFs',
+      'doc.page.subtitle': 'Your central document vault: file, manage and download invoices, contracts, policies and proofs as PDF.',
+      'doc.page.upload': '+ Upload document',
+
+      'doc.stat.total': 'Documents',
+      'doc.stat.active': 'Active',
+      'doc.stat.archived': 'Archived',
+      'doc.stat.storage': 'Storage',
+
+      'doc.upload.heading': 'New document',
+      'doc.upload.cancel': 'Cancel',
+      'doc.upload.submit': 'Upload',
+
+      'doc.field.title': 'Title *',
+      'doc.field.titlePh': 'e.g. invoice May 2026',
+      'doc.field.file': 'File (PDF, image · max. 15 MB)',
+      'doc.field.type': 'Type',
+      'doc.field.cat': 'Category',
+      'doc.field.valid': 'Valid until (optional)',
+      'doc.field.retention': 'Retention until (optional, GDPR/GoBD)',
+      'doc.field.notes': 'Note (optional)',
+      'doc.field.status': 'Status',
+
+      'doc.filter.all': 'All',
+      'doc.filter.exportZip': 'Export as ZIP',
+      'doc.status.active': 'Active',
+      'doc.status.archived': 'Archived',
+
+      'doc.table.title': 'Title',
+      'doc.table.type': 'Type',
+      'doc.table.cat': 'Category',
+      'doc.table.size': 'Size',
+      'doc.table.date': 'Date',
+      'doc.table.status': 'Status',
+      'doc.table.actions': 'Actions',
+      'doc.table.loading': 'Loading documents…',
+
+      'doc.type.invoice': 'Invoice',
+      'doc.type.contract': 'Contract',
+      'doc.type.policy': 'Policy',
+      'doc.type.certificate': 'Certificate / proof',
+      'doc.type.report': 'Report',
+      'doc.type.correspondence': 'Correspondence',
+      'doc.type.other': 'Other',
+
+      'doc.cat.financial': 'Finance',
+      'doc.cat.legal': 'Legal',
+      'doc.cat.operational': 'Operations',
+      'doc.cat.hr': 'HR',
+      'doc.cat.other': 'Other',
+
+      'doc.action.download': 'Download',
+      'doc.action.archive': 'Archive',
+      'doc.action.reactivate': 'Reactivate',
+      'doc.action.delete': 'Delete',
+      'doc.badge.auto': 'Auto',
+      'doc.badge.autoTitle': 'Filed automatically by the platform',
+
+      'doc.state.forbidden': 'No access to the document vault.',
+      'doc.state.loadError': 'The documents could not be loaded.',
+      'doc.state.network': 'Network error.',
+      'doc.empty.title': 'No documents yet',
+      'doc.empty.manage': 'Upload your first document.',
+      'doc.empty.readonly': 'The documents of your organisation appear here.',
+
+      'doc.msg.titleRequired': 'A title is required.',
+      'doc.msg.uploading': 'Uploading…',
+      'doc.msg.uploadError': 'Error: {detail}',
+      'doc.msg.uploaded': 'Document uploaded.',
+      'doc.msg.actionFailed': 'Action failed.',
+      'doc.msg.deleteConfirm': 'Delete this document permanently?',
+      'doc.msg.deleted': 'Deleted.',
+      'doc.msg.deleteFailed': 'Deletion failed.'
+    });
+    function t(k, p){ return TCi18n.t(k, p); }
+
     var API = "/api", csrf = "", CAN_MANAGE = false;
-    var TYPE_LABELS = { invoice:"Rechnung", contract:"Vertrag", policy:"Richtlinie", certificate:"Zertifikat/Nachweis", report:"Bericht", correspondence:"Korrespondenz", other:"Sonstiges" };
-    var CAT_LABELS  = { financial:"Finanzen", legal:"Rechtliches", operational:"Betrieb", hr:"Personal", other:"Sonstiges" };
+    /* Rohwerte bleiben die Wahrheit (sie gehen als option[value] an den Server);
+       die Beschriftung kommt zur Laufzeit aus dem Woerterbuch. */
+    var TYPE_KEYS = ["invoice","contract","policy","certificate","report","correspondence","other"];
+    var CAT_KEYS  = ["financial","legal","operational","hr","other"];
+    var lastStats = null;
 
     function esc(s){ if(s==null) return ""; var d=document.createElement("div"); d.textContent=String(s); return d.innerHTML; }
     function fmtBytes(b){ b=Number(b)||0; if(b<1024) return b+" B"; if(b<1048576) return (b/1024).toFixed(0)+" KB"; return (b/1048576).toFixed(1)+" MB"; }
     function fmtDate(d){ return d ? String(d).substring(0,10) : "–"; }
-    function toast(msg, ok){ var t=document.getElementById("toast"); t.textContent=msg; t.className="toast show "+(ok?"toast--ok":"toast--err"); setTimeout(function(){t.classList.remove("show");},3500); }
+    function toast(msg, ok){ var el=document.getElementById("toast"); el.textContent=msg; el.className="toast show "+(ok?"toast--ok":"toast--err"); setTimeout(function(){el.classList.remove("show");},3500); }
     async function getCSRF(){ if(csrf) return csrf; try{ var r=await fetch(API+"/csrf",{credentials:"include"}); var d=await r.json(); csrf=d.csrfToken||d.token||""; }catch(e){} return csrf; }
-    function opts(map, withAll){ var h = withAll ? '<option value="">Alle</option>' : ''; for(var k in map) h+='<option value="'+k+'">'+esc(map[k])+'</option>'; return h; }
+    function label(prefix, key){ return t(prefix+key) || key; }
+    function opts(keys, prefix, withAll){
+      var h = withAll ? '<option value="">'+esc(t('doc.filter.all'))+'</option>' : '';
+      for(var i=0;i<keys.length;i++) h+='<option value="'+keys[i]+'">'+esc(label(prefix,keys[i]))+'</option>';
+      return h;
+    }
     function parseList(d){ return (d&&d.data&&d.data.items) || (d&&d.items) || (Array.isArray(d)?d:[]); }
     function parseObj(d){ return (d&&d.data) || d || {}; }
 
+    /* Selects neu beschriften, ohne die gewaehlten Rohwerte zu verlieren. */
+    function fillSelects(){
+      var ids = ["f-type","f-cat","flt-type","flt-cat"], keep = {};
+      ids.forEach(function(id){ var el=document.getElementById(id); if(el && el.options.length) keep[id]=el.value; });
+      document.getElementById("f-type").innerHTML   = opts(TYPE_KEYS,'doc.type.',false);
+      document.getElementById("f-cat").innerHTML    = opts(CAT_KEYS,'doc.cat.',false);
+      document.getElementById("flt-type").innerHTML = opts(TYPE_KEYS,'doc.type.',true);
+      document.getElementById("flt-cat").innerHTML  = opts(CAT_KEYS,'doc.cat.',true);
+      ids.forEach(function(id){ var el=document.getElementById(id); if(el && keep[id]!=null) el.value=keep[id]; });
+    }
+
     function renderStats(s){
-      s = s || {};
+      lastStats = s = s || {};
       var html = '';
-      html += '<div class="dc-stat"><div class="dc-stat__num">'+(s.total||0)+'</div><div class="dc-stat__label">Dokumente</div></div>';
-      html += '<div class="dc-stat"><div class="dc-stat__num">'+(s.active||0)+'</div><div class="dc-stat__label">Aktiv</div></div>';
-      html += '<div class="dc-stat"><div class="dc-stat__num">'+(s.archived||0)+'</div><div class="dc-stat__label">Archiviert</div></div>';
-      html += '<div class="dc-stat"><div class="dc-stat__num">'+fmtBytes(s.total_size_bytes)+'</div><div class="dc-stat__label">Speicher</div></div>';
+      html += '<div class="dc-stat"><div class="dc-stat__num">'+(s.total||0)+'</div><div class="dc-stat__label">'+esc(t('doc.stat.total'))+'</div></div>';
+      html += '<div class="dc-stat"><div class="dc-stat__num">'+(s.active||0)+'</div><div class="dc-stat__label">'+esc(t('doc.stat.active'))+'</div></div>';
+      html += '<div class="dc-stat"><div class="dc-stat__num">'+(s.archived||0)+'</div><div class="dc-stat__label">'+esc(t('doc.stat.archived'))+'</div></div>';
+      html += '<div class="dc-stat"><div class="dc-stat__num">'+fmtBytes(s.total_size_bytes)+'</div><div class="dc-stat__label">'+esc(t('doc.stat.storage'))+'</div></div>';
       document.getElementById("dc-stats").innerHTML = html;
     }
 
     function rowHtml(it){
-      var actions = it.file_ref ? '<a href="'+API+'/document-center/'+esc(it.id)+'/download">Download</a>' : '';
+      var actions = it.file_ref ? '<a href="'+API+'/document-center/'+esc(it.id)+'/download">'+esc(t('doc.action.download'))+'</a>' : '';
       if(CAN_MANAGE){
-        actions += '<button onclick="archiveDoc(\''+esc(it.id)+'\')">'+(it.status==="archived"?"Reaktivieren":"Archivieren")+'</button>';
-        actions += '<button onclick="deleteDoc(\''+esc(it.id)+'\')" style="color:var(--ds-danger,#8f2d2d)">Loeschen</button>';
+        actions += '<button onclick="archiveDoc(\''+esc(it.id)+'\')">'+esc(it.status==="archived"?t('doc.action.reactivate'):t('doc.action.archive'))+'</button>';
+        actions += '<button onclick="deleteDoc(\''+esc(it.id)+'\')" style="color:var(--ds-danger,#8f2d2d)">'+esc(t('doc.action.delete'))+'</button>';
       }
-      var badge = it.status==="archived" ? '<span class="dc-badge dc-badge--archived">Archiviert</span>' : '<span class="dc-badge">Aktiv</span>';
+      var badge = it.status==="archived"
+        ? '<span class="dc-badge dc-badge--archived">'+esc(t('doc.status.archived'))+'</span>'
+        : '<span class="dc-badge">'+esc(t('doc.status.active'))+'</span>';
       return '<tr>'+
-        '<td><strong>'+esc(it.title)+'</strong>'+(it.source&&it.source!=="upload"?' <span class="dc-badge" title="Automatisch von der Plattform abgelegt">Auto</span>':'')+(it.original_name?'<div style="font-size:11px;color:var(--ds-text-secondary)">'+esc(it.original_name)+'</div>':'')+'</td>'+
-        '<td>'+esc(TYPE_LABELS[it.document_type]||it.document_type)+'</td>'+
-        '<td>'+esc(CAT_LABELS[it.content_category]||it.content_category)+'</td>'+
+        '<td><strong>'+esc(it.title)+'</strong>'+(it.source&&it.source!=="upload"?' <span class="dc-badge" title="'+esc(t('doc.badge.autoTitle'))+'">'+esc(t('doc.badge.auto'))+'</span>':'')+(it.original_name?'<div style="font-size:11px;color:var(--ds-text-secondary)">'+esc(it.original_name)+'</div>':'')+'</td>'+
+        '<td>'+esc(t('doc.type.'+it.document_type)||it.document_type)+'</td>'+
+        '<td>'+esc(t('doc.cat.'+it.content_category)||it.content_category)+'</td>'+
         '<td>'+fmtBytes(it.file_size_bytes)+'</td>'+
         '<td>'+fmtDate(it.created_at)+'</td>'+
         '<td>'+badge+'</td>'+
@@ -139,16 +328,16 @@
 
     async function loadDocs(){
       var p = new URLSearchParams();
-      var t=document.getElementById("flt-type").value, c=document.getElementById("flt-cat").value, st=document.getElementById("flt-status").value;
-      if(t) p.set("document_type",t); if(c) p.set("content_category",c); if(st) p.set("status",st);
+      var ty=document.getElementById("flt-type").value, c=document.getElementById("flt-cat").value, st=document.getElementById("flt-status").value;
+      if(ty) p.set("document_type",ty); if(c) p.set("content_category",c); if(st) p.set("status",st);
       var tb = document.getElementById("dc-rows");
       try{
         var r = await fetch(API+"/document-center?"+p.toString(),{credentials:"include"});
-        if(!r.ok){ tb.innerHTML='<tr><td colspan="7" style="padding:var(--ds-space-5);color:var(--ds-danger,#8f2d2d)">'+(r.status===403?"Kein Zugriff auf den Dokumenten-Tresor.":"Fehler beim Laden.")+'</td></tr>'; return; }
+        if(!r.ok){ tb.innerHTML='<tr><td colspan="7" style="padding:var(--ds-space-5);color:var(--ds-danger,#8f2d2d)">'+esc(r.status===403?t('doc.state.forbidden'):t('doc.state.loadError'))+'</td></tr>'; return; }
         var items = parseList(await r.json());
-        if(!items.length){ tb.innerHTML='<tr><td colspan="7" style="padding:var(--ds-space-6);text-align:center;color:var(--ds-text-secondary)"><strong>Noch keine Dokumente</strong><br>'+(CAN_MANAGE?"Laden Sie Ihr erstes Dokument hoch.":"Hier erscheinen die Dokumente Ihrer Organisation.")+'</td></tr>'; return; }
+        if(!items.length){ tb.innerHTML='<tr><td colspan="7" style="padding:var(--ds-space-6);text-align:center;color:var(--ds-text-secondary)"><strong>'+esc(t('doc.empty.title'))+'</strong><br>'+esc(CAN_MANAGE?t('doc.empty.manage'):t('doc.empty.readonly'))+'</td></tr>'; return; }
         tb.innerHTML = items.map(rowHtml).join("");
-      }catch(e){ tb.innerHTML='<tr><td colspan="7" style="padding:var(--ds-space-5);color:var(--ds-danger,#8f2d2d)">Netzwerkfehler.</td></tr>'; }
+      }catch(e){ tb.innerHTML='<tr><td colspan="7" style="padding:var(--ds-space-5);color:var(--ds-danger,#8f2d2d)">'+esc(t('doc.state.network'))+'</td></tr>'; }
     }
 
     async function loadStats(){
@@ -161,8 +350,8 @@
       var title=(document.getElementById("f-title").value||"").trim();
       var file=document.getElementById("f-file").files[0];
       var msg=document.getElementById("upMsg");
-      if(!title){ msg.style.color="var(--ds-danger,#8f2d2d)"; msg.textContent="Titel ist erforderlich."; return; }
-      var btn=document.getElementById("btnUpload"); btn.disabled=true; msg.style.color="var(--ds-text-secondary)"; msg.textContent="Lade hoch…";
+      if(!title){ msg.style.color="var(--ds-danger,#8f2d2d)"; msg.textContent=t('doc.msg.titleRequired'); return; }
+      var btn=document.getElementById("btnUpload"); btn.disabled=true; msg.style.color="var(--ds-text-secondary)"; msg.textContent=t('doc.msg.uploading');
       var fd=new FormData();
       fd.append("title",title);
       fd.append("document_type",document.getElementById("f-type").value);
@@ -174,37 +363,44 @@
       try{
         var tok=await getCSRF();
         var r=await fetch(API+"/document-center",{method:"POST",credentials:"include",headers:{"x-csrf-token":tok},body:fd});
-        if(!r.ok){ var e=await r.json().catch(function(){return{};}); msg.style.color="var(--ds-danger,#8f2d2d)"; msg.textContent="Fehler: "+((e.error&&(e.error.message||e.error))||r.status); btn.disabled=false; return; }
-        toast("Dokument hochgeladen.",true);
+        if(!r.ok){ var e=await r.json().catch(function(){return{};}); msg.style.color="var(--ds-danger,#8f2d2d)"; msg.textContent=t('doc.msg.uploadError',{detail:(e.error&&(e.error.message||e.error))||r.status}); btn.disabled=false; return; }
+        toast(t('doc.msg.uploaded'),true);
         document.getElementById("f-title").value=""; document.getElementById("f-file").value=""; document.getElementById("f-notes").value=""; document.getElementById("f-valid").value=""; document.getElementById("f-retention").value="";
         msg.textContent=""; btn.disabled=false; toggleUpload(); loadStats(); loadDocs();
-      }catch(e){ msg.style.color="var(--ds-danger,#8f2d2d)"; msg.textContent="Netzwerkfehler."; btn.disabled=false; }
+      }catch(e){ msg.style.color="var(--ds-danger,#8f2d2d)"; msg.textContent=t('doc.state.network'); btn.disabled=false; }
     };
 
     window.archiveDoc = async function(id){
       var tok=await getCSRF();
-      try{ var r=await fetch(API+"/document-center/"+id+"/archive",{method:"POST",credentials:"include",headers:{"x-csrf-token":tok}}); if(r.ok){ loadStats(); loadDocs(); } else toast("Aktion fehlgeschlagen.",false); }catch(e){ toast("Netzwerkfehler.",false); }
+      try{ var r=await fetch(API+"/document-center/"+id+"/archive",{method:"POST",credentials:"include",headers:{"x-csrf-token":tok}}); if(r.ok){ loadStats(); loadDocs(); } else toast(t('doc.msg.actionFailed'),false); }catch(e){ toast(t('doc.state.network'),false); }
     };
 
     window.deleteDoc = async function(id){
-      if(!confirm("Dokument unwiderruflich loeschen?")) return;
+      if(!confirm(t('doc.msg.deleteConfirm'))) return;
       var tok=await getCSRF();
-      try{ var r=await fetch(API+"/document-center/"+id,{method:"DELETE",credentials:"include",headers:{"x-csrf-token":tok}}); if(r.ok){ toast("Geloescht.",true); loadStats(); loadDocs(); } else toast("Loeschen fehlgeschlagen.",false); }catch(e){ toast("Netzwerkfehler.",false); }
+      try{ var r=await fetch(API+"/document-center/"+id,{method:"DELETE",credentials:"include",headers:{"x-csrf-token":tok}}); if(r.ok){ toast(t('doc.msg.deleted'),true); loadStats(); loadDocs(); } else toast(t('doc.msg.deleteFailed'),false); }catch(e){ toast(t('doc.state.network'),false); }
     };
 
     window.exportZip = function(){
       var p=new URLSearchParams();
-      var t=document.getElementById("flt-type").value, c=document.getElementById("flt-cat").value, st=document.getElementById("flt-status").value;
-      if(t) p.set("document_type",t); if(c) p.set("content_category",c); if(st) p.set("status",st);
+      var ty=document.getElementById("flt-type").value, c=document.getElementById("flt-cat").value, st=document.getElementById("flt-status").value;
+      if(ty) p.set("document_type",ty); if(c) p.set("content_category",c); if(st) p.set("status",st);
       window.location.href = API+"/document-center/export/zip?"+p.toString();
     };
 
     // Init
-    document.getElementById("f-type").innerHTML = opts(TYPE_LABELS,false);
-    document.getElementById("f-cat").innerHTML = opts(CAT_LABELS,false);
-    document.getElementById("flt-type").innerHTML = opts(TYPE_LABELS,true);
-    document.getElementById("flt-cat").innerHTML = opts(CAT_LABELS,true);
+    fillSelects();
     ["flt-type","flt-cat","flt-status"].forEach(function(id){ document.getElementById(id).addEventListener("change",loadDocs); });
+
+    /* Sprachwechsel: die per innerHTML gebauten Flaechen (Selects, Kennzahlen,
+       Tabelle) tragen keine data-i18n-Marker — apply() erreicht sie nicht.
+       Deshalb hier nachziehen; die Kennzahlen kommen aus dem letzten Stand,
+       ein erneuter Netzabruf waere reine Verschwendung. */
+    document.addEventListener("tc:langchange", function(){
+      fillSelects();
+      if(lastStats) renderStats(lastStats);
+      loadDocs();
+    });
 
     (async function(){
       try{ var r=await fetch(API+"/me",{credentials:"include"}); var me=r.ok?await r.json():null; CAN_MANAGE = !!(me && ["owner","admin","finance"].indexOf(me.org_role)>=0); }catch(e){}

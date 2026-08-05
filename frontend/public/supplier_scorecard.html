@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <script src="/public/js/theme.js"></script>
   <script src="/public/js/i18n.js"></script>
-  <title>Lieferanten-Bewertung – TempConnect</title>
+  <title data-i18n="sc.docTitle">Lieferanten-Bewertung – TempConnect</title>
   <link rel="stylesheet" href="/public/css/enterprise.css"/>
   <style>
     .grade { font-size: 42px; font-weight: 800; text-align: center; margin: 14px 0; }
@@ -64,12 +64,15 @@
 </head>
 <body data-sla-guard="sla_access">
   <div id="paywall" class="wrap" style="display:none">
-    <nav class="ds-topbar"><div class="ds-topbar__brand"><span class="ds-topbar__brand-dot"></span>TempConnect</div><div class="ds-topbar__nav"><a href="/" class="ds-btn">Startseite</a></div></nav>
+    <nav class="ds-topbar"><div class="ds-topbar__brand"><span class="ds-topbar__brand-dot"></span>TempConnect</div><div class="ds-topbar__nav"><a href="/" class="ds-btn" data-i18n="sc.paywall.home">Startseite</a></div></nav>
     <div class="paywall-box">
-      <h2>Bereich nicht verfügbar</h2>
-      <p>Das Feature &quot;<span id="paywall-feature-name">Pulse-Bereich</span>&quot; ist mit deinem aktuellen Plan nicht nutzbar.</p>
-      <p>Aktueller Plan: <span id="paywall-current-plan" class="paywall-plan">–</span></p>
-      <a id="paywall-cta" href="/public/sla_abo.html" class="btn primary">Abo ansehen</a>
+      <h2 data-i18n="sc.paywall.title">Bereich nicht verfügbar</h2>
+      <!-- Kein Marker auf dem Absatz: den Feature-Namen setzt slaGuard.js zur
+           Laufzeit. Ein data-i18n auf dem <p> wuerde den Span beim naechsten
+           apply() ueberschreiben — deshalb tragen nur die festen Haelften Marker. -->
+      <p><span data-i18n="sc.paywall.featurePre">Das Feature „</span><span id="paywall-feature-name">Pulse-Bereich</span><span data-i18n="sc.paywall.featurePost">“ ist mit deinem aktuellen Plan nicht nutzbar.</span></p>
+      <p><span data-i18n="sc.paywall.currentPlan">Aktueller Plan:</span> <span id="paywall-current-plan" class="paywall-plan">–</span></p>
+      <a id="paywall-cta" href="/public/sla_abo.html" class="btn primary" data-i18n="sc.paywall.cta">Abo ansehen</a>
     </div>
     <div id="scorecardPaywallState" class="page-state"></div>
     <div id="scorecardPaywallContext" class="context-banner"></div>
@@ -79,19 +82,23 @@
 
     <div class="ds-page-header">
       <div class="ds-page-header__content">
-        <h1 class="ds-page-title">Lieferantenbewertung</h1>
-        <p class="ds-page-subtitle" id="scorecardSubtitle">Scorecard, Performance und Risiko-Signale je Lieferant im Lieferantenpool.</p>
+        <h1 class="ds-page-title" data-i18n="sc.page.title">Lieferantenbewertung</h1>
+        <!-- Der Untertitel traegt spaeter den Lieferantennamen (Laufzeitwert).
+             Solange er den festen Text zeigt, fuehrt er den Marker mit; sobald
+             JS den Namen setzt, faellt der Marker weg (setPlainText), sonst
+             wuerde die naechste apply()-Runde den Namen wieder wegwischen. -->
+        <p class="ds-page-subtitle" id="scorecardSubtitle" data-i18n="sc.page.subtitle">Scorecard, Performance und Risiko-Signale je Lieferant im Lieferantenpool.</p>
       </div>
       <div class="ds-page-header__actions">
-        <a id="scorecardVendorPoolBackLink" class="btn" href="/public/vendor_pool.html">&larr; Lieferantensteuerung</a>
+        <a id="scorecardVendorPoolBackLink" class="btn" href="/public/vendor_pool.html">&larr; <span data-i18n="sc.nav.vendorSteering">Lieferantensteuerung</span></a>
       </div>
     </div>
 
     <div class="link-row">
-      <a id="scorecardVendorPoolNavLink" class="btn" href="/public/vendor_pool.html">Lieferantenpool</a>
-      <a class="btn" href="/public/requisitions.html">Angebote</a>
-      <a id="scorecardRateCardNavLink" class="btn" href="/public/rate-cards.html">Preisrahmen</a>
-      <a id="scorecardSpendNavLink" class="btn" href="/public/spend-analytics.html">Spend &amp; Kosten</a>
+      <a id="scorecardVendorPoolNavLink" class="btn" href="/public/vendor_pool.html" data-i18n="sc.nav.vendorPool">Lieferantenpool</a>
+      <a class="btn" href="/public/requisitions.html" data-i18n="sc.nav.requisitions">Angebote</a>
+      <a id="scorecardRateCardNavLink" class="btn" href="/public/rate-cards.html" data-i18n="sc.nav.rateCards">Preisrahmen</a>
+      <a id="scorecardSpendNavLink" class="btn" href="/public/spend-analytics.html" data-i18n="sc.nav.spend">Spend &amp; Kosten</a>
     </div>
     <div id="scorecardState" class="page-state"></div>
     <div id="scorecardContext" class="context-banner"></div>
@@ -99,41 +106,265 @@
     <div class="card">
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px 20px;align-items:end">
         <div>
-          <label for="window">Zeitraum</label>
+          <label for="window" data-i18n="sc.filter.window">Zeitraum</label>
+          <!-- option[value] bleibt unveraendert: der Wert geht als window= an den Server. -->
           <select id="window" style="margin-bottom:0">
-            <option value="30">30 Tage</option>
-            <option value="90">90 Tage</option>
+            <option value="30" data-i18n="sc.filter.days30">30 Tage</option>
+            <option value="90" data-i18n="sc.filter.days90">90 Tage</option>
           </select>
         </div>
         <div>
-          <label for="supplierSelect">Lieferant aus Lieferantenpool</label>
+          <label for="supplierSelect" data-i18n="sc.filter.supplierLabel">Lieferant aus Lieferantenpool</label>
           <select id="supplierSelect" style="margin-bottom:0">
-            <option value="">Lieferant auswaehlen</option>
+            <option value="" data-i18n="sc.filter.supplierPlaceholder">Lieferant auswaehlen</option>
           </select>
         </div>
         <div>
-          <label for="agencyId">Lieferanten-ID (manuell, optional)</label>
+          <label for="agencyId" data-i18n="sc.filter.idLabel">Lieferanten-ID (manuell, optional)</label>
           <input type="text" id="agencyId" placeholder="UUID" style="margin-bottom:0"/>
         </div>
         <div style="display:flex;gap:8px;align-items:flex-end">
-          <button type="button" class="btn primary" style="flex:1" id="btnLoad">Bewertung laden</button>
-          <a id="btnRateCardLink" class="btn" href="#" target="_blank" style="display:none" title="Lieferantenspezifische Preisrahmen">Preisrahmen &rarr;</a>
-          <a id="btnSpendLink" class="btn" href="#" target="_blank" style="display:none" title="Spend &amp; Kosten fuer diesen Lieferanten">Spend &amp; Kosten &rarr;</a>
+          <button type="button" class="btn primary" style="flex:1" id="btnLoad" data-i18n="sc.action.load">Bewertung laden</button>
+          <!-- Der Pfeil bleibt ausserhalb des Markers: data-i18n setzt textContent,
+               ein uebersetzter Text mit Pfeil wuerde das Zeichen ins Woerterbuch ziehen. -->
+          <a id="btnRateCardLink" class="btn" href="#" target="_blank" style="display:none" title="Lieferantenspezifische Preisrahmen" data-i18n-title="sc.action.rateCardTitle"><span data-i18n="sc.nav.rateCards">Preisrahmen</span> &rarr;</a>
+          <a id="btnSpendLink" class="btn" href="#" target="_blank" style="display:none" title="Spend &amp; Kosten fuer diesen Lieferanten" data-i18n-title="sc.action.spendTitle"><span data-i18n="sc.nav.spend">Spend &amp; Kosten</span> &rarr;</a>
         </div>
       </div>
       <div class="action-row">
-        <a id="scorecardVendorPoolActionLink" class="btn" href="/public/vendor_pool.html">Lieferantenpool</a>
+        <a id="scorecardVendorPoolActionLink" class="btn" href="/public/vendor_pool.html" data-i18n="sc.nav.vendorPool">Lieferantenpool</a>
       </div>
+      <!-- Bewusst OHNE data-i18n: updateScorecardHint() schreibt diesen Absatz
+           je nach Rechtelage neu (und mit <code>-Markup) — ein Marker wuerde die
+           rollenrichtige Fassung beim naechsten apply() plattmachen. Die
+           Uebersetzung passiert dort ueber TCi18n.t(). -->
       <p id="supplierScorecardHint" class="helper" style="margin-top:8px">Tipp: Lieferant aus dem Lieferantenpool waehlen oder URL-Parameter <code>?agencyId=uuid</code> nutzen. Aus dieser Sicht gelangen Sie direkt zu Preisrahmen und Spend &amp; Kosten fuer genau diesen Lieferanten.</p>
     </div>
     <div id="out">
-      <p class="empty">Lieferant waehlen und „Bewertung laden“ klicken.</p>
+      <p class="empty" data-i18n="sc.empty.initial">Lieferant waehlen und „Bewertung laden“ klicken.</p>
     </div>
   </div>
   <script src="/public/js/planFeatures.js"></script>
   <script src="/public/js/surfaceAccess.js"></script>
   <script src="/public/js/slaGuard.js"></script>
   <script>
+  /* ── Woerterbuch (P6.1, DE/EN) fuer supplier_scorecard.html ───────────────
+     Namensraum "sc.". i18n.js liegt bereits im <head>.
+
+     Bewusst NICHT uebersetzt:
+     - Topbar/Navigation/Nutzerbereich und der Sprach-Umschalter (pageShell.js)
+     - API-Datenwerte: Lieferantenname, Tier, Status, Kategorie, Vertragstitel,
+       Feldnamen der Aenderungshistorie, Notiztexte, Autorennamen
+     - access.reason aus surfaceAccess.js (serverseitig/zentral gepflegt)
+     - option[value] des Zeitraumfilters (geht als window= an den Server)
+
+     Rollenlage: supplier_scorecard.html ist laut api/config/visibilityMatrix.js
+     auf allowed_org_types ["company"] begrenzt — nur die Unternehmensseite
+     erreicht sie. Ihre feste Einkaufs-/Buyer-Sprache ("Lieferant") ist damit
+     korrekt; eine Rollenverzweigung ueber TC.terminology waere hier ohne
+     Adressat. Keiner der Werte unten steht in terminologyLabels.js.           */
+  TCi18n.register('de', {
+    'sc.docTitle': 'Lieferanten-Bewertung – TempConnect',
+
+    'sc.paywall.home': 'Startseite',
+    'sc.paywall.title': 'Bereich nicht verfügbar',
+    'sc.paywall.featurePre': 'Das Feature „',
+    'sc.paywall.featurePost': '“ ist mit deinem aktuellen Plan nicht nutzbar.',
+    'sc.paywall.currentPlan': 'Aktueller Plan:',
+    'sc.paywall.cta': 'Abo ansehen',
+
+    'sc.page.title': 'Lieferantenbewertung',
+    'sc.page.subtitle': 'Scorecard, Performance und Risiko-Signale je Lieferant im Lieferantenpool.',
+    'sc.page.subtitleFor': 'Lieferantenbewertung fuer: {name}',
+
+    'sc.nav.vendorSteering': 'Lieferantensteuerung',
+    'sc.nav.vendorPool': 'Lieferantenpool',
+    'sc.nav.requisitions': 'Angebote',
+    'sc.nav.rateCards': 'Preisrahmen',
+    'sc.nav.spend': 'Spend & Kosten',
+
+    'sc.filter.window': 'Zeitraum',
+    'sc.filter.days30': '30 Tage',
+    'sc.filter.days90': '90 Tage',
+    'sc.filter.supplierLabel': 'Lieferant aus Lieferantenpool',
+    'sc.filter.supplierPlaceholder': 'Lieferant auswaehlen',
+    'sc.filter.supplierFallback': 'Lieferant',
+    'sc.filter.idLabel': 'Lieferanten-ID (manuell, optional)',
+
+    'sc.action.load': 'Bewertung laden',
+    'sc.action.rateCardTitle': 'Lieferantenspezifische Preisrahmen',
+    'sc.action.spendTitle': 'Spend & Kosten fuer diesen Lieferanten',
+    'sc.action.saveNote': 'Notiz speichern',
+    'sc.action.notePlaceholder': 'Operative Notiz, Steuerungs-Hinweis oder Gespraechsprotokoll',
+
+    'sc.hint.defaultPre': 'Tipp: Lieferant aus dem Lieferantenpool waehlen oder URL-Parameter ',
+    'sc.hint.defaultPost': ' nutzen. Aus dieser Sicht gelangen Sie direkt zu Preisrahmen und Spend & Kosten fuer genau diesen Lieferanten.',
+    'sc.hint.noPool': 'Tipp: Die Scorecard kann direkt per Lieferanten-ID oder Deep-Link geoeffnet werden. Lieferantenpool-Auswahl und Beziehungsprofil bleiben fuer diese Rolle ausgeblendet.',
+    'sc.hint.noRateCard': 'Tipp: Lieferant aus dem Lieferantenpool waehlen oder URL-Parameter ?agencyId=uuid nutzen. Preisrahmen bleiben aus dieser Sicht buyer-seitig reserviert; Spend & Kosten kann weiter lieferantenspezifisch geoeffnet werden.',
+
+    'sc.access.default': 'Die Lieferantenbewertung ist fuer diese Rolle derzeit nicht freigeschaltet.',
+    'sc.state.hiddenTitle': 'Lieferantenbewertung ausgeblendet',
+    'sc.state.noPoolTitle': 'Lieferantenbewertung ohne Pool-Kontext',
+    'sc.state.noPoolText': 'Die Scorecard bleibt lesbar. Lieferantenpool-Auswahl und Beziehungsprofil werden fuer diese Rolle bewusst nicht geladen.',
+    'sc.state.readonlyTitle': 'Lieferantenbewertung read-only',
+    'sc.state.readonlyText': 'Notizen und operative Pflege bleiben fuer diese Rolle gesperrt.',
+
+    'sc.empty.initial': 'Lieferant waehlen und „Bewertung laden“ klicken.',
+    'sc.empty.pickSupplier': 'Bitte zunaechst einen Lieferanten auswaehlen oder manuell eine Lieferanten-ID eingeben.',
+    'sc.empty.enterId': 'Bitte eine Lieferanten-ID eingeben oder einen Deep-Link mit ?agencyId=uuid verwenden.',
+    'sc.empty.unavailable': 'Bewertung nicht verfügbar oder keine Berechtigung.',
+
+    'sc.ctx.supplier': 'Lieferant',
+    'sc.ctx.relation': 'Lieferantenbeziehung',
+    'sc.ctx.relationHidden': 'in dieser Rolle ausgeblendet',
+    'sc.ctx.tier': 'Tier',
+    'sc.ctx.status': 'Status',
+    'sc.ctx.category': 'Kategorie',
+
+    'sc.card.performance': 'Leistungs-Scorecard',
+    'sc.card.relation': 'Lieferantenbeziehung',
+    'sc.card.compliance': 'Compliance & Verträge',
+    'sc.card.reputation': 'Reputation & Wirtschaftlichkeit',
+    'sc.card.history': 'Letzte Änderungen',
+    'sc.card.notes': 'Notizen',
+
+    'sc.kpi.window': 'Zeitraum: {days} Tage',
+    'sc.kpi.fillRate': 'Besetzungsquote',
+    'sc.kpi.onTime': 'Puenktlichkeit',
+    'sc.kpi.slaBreach': 'SLA-Bruchquote',
+    'sc.kpi.quality': 'Qualitaet (Ø Rating)',
+    'sc.kpi.totals': 'Anfragen erhalten: {received}, angenommen: {accepted}, abgeschlossen: {finalized}.',
+
+    'sc.metric.tier': 'Tier',
+    'sc.metric.status': 'Status',
+    'sc.metric.category': 'Kategorie',
+    'sc.metric.activeWorkers': 'Aktive Einsatzkraefte',
+    'sc.metric.docsTotal': 'Dokumente gesamt',
+    'sc.metric.docsApproved': 'Freigegeben',
+    'sc.metric.docsPending': 'Ausstehend',
+    'sc.metric.contracts': 'Aktive Verträge',
+    'sc.metric.reputation': 'Reputation',
+    'sc.metric.reputationGrade': 'Reputation-Grad',
+    'sc.metric.stars': 'Sterne',
+
+    'sc.relation.validity': 'Gueltig von {from} bis {to}.',
+    'sc.relation.none': 'Dieser Lieferant ist in Ihrem Lieferantenpool noch nicht als konkrete Beziehung hinterlegt. Performance-Daten koennen trotzdem verfuegbar sein.',
+
+    'sc.contract.fallback': 'Vertrag',
+    'sc.contract.statusFallback': 'aktiv',
+    'sc.contract.validUntil': 'gueltig bis',
+    'sc.contract.none': 'Keine aktiven Verträge im konsolidierten Profil gefunden.',
+
+    'sc.history.fallback': 'Änderung',
+    'sc.history.system': 'System',
+    'sc.history.empty': 'Noch keine dokumentierten Änderungen fuer diesen Lieferanten.',
+
+    'sc.notes.team': 'Team',
+    'sc.notes.empty': 'Noch keine Notizen vorhanden.',
+    'sc.notes.locked': 'Notizen sind in dieser Rolle nicht pflegbar oder erst verfuegbar, sobald eine Vendor-Pool-Beziehung sichtbar ist.'
+  });
+  TCi18n.register('en', {
+    'sc.docTitle': 'Supplier scorecard – TempConnect',
+
+    'sc.paywall.home': 'Home',
+    'sc.paywall.title': 'Area not available',
+    'sc.paywall.featurePre': 'The feature “',
+    'sc.paywall.featurePost': '” is not available on your current plan.',
+    'sc.paywall.currentPlan': 'Current plan:',
+    'sc.paywall.cta': 'View subscription',
+
+    'sc.page.title': 'Supplier scorecard',
+    'sc.page.subtitle': 'Scorecard, performance and risk signals per supplier in the supplier pool.',
+    'sc.page.subtitleFor': 'Supplier scorecard for: {name}',
+
+    'sc.nav.vendorSteering': 'Supplier steering',
+    'sc.nav.vendorPool': 'Supplier pool',
+    'sc.nav.requisitions': 'Job postings',
+    'sc.nav.rateCards': 'Rate cards',
+    'sc.nav.spend': 'Spend & cost',
+
+    'sc.filter.window': 'Period',
+    'sc.filter.days30': '30 days',
+    'sc.filter.days90': '90 days',
+    'sc.filter.supplierLabel': 'Supplier from the supplier pool',
+    'sc.filter.supplierPlaceholder': 'Select a supplier',
+    'sc.filter.supplierFallback': 'Supplier',
+    'sc.filter.idLabel': 'Supplier ID (manual, optional)',
+
+    'sc.action.load': 'Load scorecard',
+    'sc.action.rateCardTitle': 'Supplier-specific rate cards',
+    'sc.action.spendTitle': 'Spend & cost for this supplier',
+    'sc.action.saveNote': 'Save note',
+    'sc.action.notePlaceholder': 'Operational note, steering remark or meeting record',
+
+    'sc.hint.defaultPre': 'Tip: pick a supplier from the supplier pool or use the URL parameter ',
+    'sc.hint.defaultPost': '. From this view you go straight to rate cards and spend & cost for exactly this supplier.',
+    'sc.hint.noPool': 'Tip: the scorecard can be opened directly via supplier ID or deep link. Supplier pool selection and the relationship profile stay hidden for this role.',
+    'sc.hint.noRateCard': 'Tip: pick a supplier from the supplier pool or use the URL parameter ?agencyId=uuid. Rate cards remain reserved for the buyer side in this view; spend & cost can still be opened per supplier.',
+
+    'sc.access.default': 'The supplier scorecard is currently not enabled for this role.',
+    'sc.state.hiddenTitle': 'Supplier scorecard hidden',
+    'sc.state.noPoolTitle': 'Supplier scorecard without pool context',
+    'sc.state.noPoolText': 'The scorecard stays readable. Supplier pool selection and the relationship profile are deliberately not loaded for this role.',
+    'sc.state.readonlyTitle': 'Supplier scorecard read-only',
+    'sc.state.readonlyText': 'Notes and operational upkeep remain locked for this role.',
+
+    'sc.empty.initial': 'Select a supplier and click “Load scorecard”.',
+    'sc.empty.pickSupplier': 'Please select a supplier first or enter a supplier ID manually.',
+    'sc.empty.enterId': 'Please enter a supplier ID or use a deep link with ?agencyId=uuid.',
+    'sc.empty.unavailable': 'Scorecard unavailable or no permission.',
+
+    'sc.ctx.supplier': 'Supplier',
+    'sc.ctx.relation': 'Supplier relationship',
+    'sc.ctx.relationHidden': 'hidden for this role',
+    'sc.ctx.tier': 'Tier',
+    'sc.ctx.status': 'Status',
+    'sc.ctx.category': 'Category',
+
+    'sc.card.performance': 'Performance scorecard',
+    'sc.card.relation': 'Supplier relationship',
+    'sc.card.compliance': 'Compliance & contracts',
+    'sc.card.reputation': 'Reputation & commercials',
+    'sc.card.history': 'Latest changes',
+    'sc.card.notes': 'Notes',
+
+    'sc.kpi.window': 'Period: {days} days',
+    'sc.kpi.fillRate': 'Fill rate',
+    'sc.kpi.onTime': 'On-time rate',
+    'sc.kpi.slaBreach': 'SLA breach rate',
+    'sc.kpi.quality': 'Quality (avg. rating)',
+    'sc.kpi.totals': 'Requests received: {received}, accepted: {accepted}, finalised: {finalized}.',
+
+    'sc.metric.tier': 'Tier',
+    'sc.metric.status': 'Status',
+    'sc.metric.category': 'Category',
+    'sc.metric.activeWorkers': 'Staff on assignment',
+    'sc.metric.docsTotal': 'Documents total',
+    'sc.metric.docsApproved': 'Approved',
+    'sc.metric.docsPending': 'Pending',
+    'sc.metric.contracts': 'Active contracts',
+    'sc.metric.reputation': 'Reputation',
+    'sc.metric.reputationGrade': 'Reputation grade',
+    'sc.metric.stars': 'Stars',
+
+    'sc.relation.validity': 'Valid from {from} until {to}.',
+    'sc.relation.none': 'This supplier is not yet recorded as a concrete relationship in your supplier pool. Performance data may still be available.',
+
+    'sc.contract.fallback': 'Contract',
+    'sc.contract.statusFallback': 'active',
+    'sc.contract.validUntil': 'valid until',
+    'sc.contract.none': 'No active contracts found in the consolidated profile.',
+
+    'sc.history.fallback': 'Change',
+    'sc.history.system': 'System',
+    'sc.history.empty': 'No documented changes for this supplier yet.',
+
+    'sc.notes.team': 'Team',
+    'sc.notes.empty': 'No notes yet.',
+    'sc.notes.locked': 'Notes cannot be maintained in this role, or become available only once a vendor pool relationship is visible.'
+  });
+  var t = function(key, params) { return TCi18n.t(key, params); };
+
     var API = "/api";
     var urlParams = new URLSearchParams(window.location.search);
     var preselectedAgencyId = urlParams.get('agencyId') || '';
@@ -156,7 +387,22 @@
     }
     function fmtDate(v) {
       if (!v) return '–';
-      try { return new Date(v).toLocaleDateString('de-DE'); } catch (e) { return v; }
+      try { return new Date(v).toLocaleDateString(TCi18n.dateLocale()); } catch (e) { return v; }
+    }
+    /** Untertitel: fester Text traegt den Marker, der Lieferantenname nicht —
+     *  sonst setzt die naechste apply()-Runde die Fassung ohne Namen zurueck. */
+    var currentSupplierLabel = '';
+    function updateSubtitle(name) {
+      if (typeof name === 'string') currentSupplierLabel = name;
+      var sub = document.getElementById('scorecardSubtitle');
+      if (!sub) return;
+      if (currentSupplierLabel) {
+        sub.removeAttribute('data-i18n');
+        sub.textContent = t('sc.page.subtitleFor', { name: currentSupplierLabel });
+      } else {
+        sub.setAttribute('data-i18n', 'sc.page.subtitle');
+        sub.textContent = t('sc.page.subtitle');
+      }
     }
     function resolveSurfaceAccess(me, key) {
       if (window.TC && window.TC.surfaceAccess && typeof window.TC.surfaceAccess.resolve === 'function') {
@@ -178,8 +424,9 @@
       el.style.display = '';
     }
     function describeScorecardAccess(access) {
+      // access.reason kommt aus surfaceAccess.js — zentral gepflegt, hier nicht uebersetzt.
       if (!access || access.canRead) return '';
-      return access.reason || 'Die Lieferantenbewertung ist fuer diese Rolle derzeit nicht freigeschaltet.';
+      return access.reason || t('sc.access.default');
     }
     function updateScorecardHint() {
       var hint = document.getElementById('supplierScorecardHint');
@@ -189,14 +436,14 @@
         return;
       }
       if (!vendorPoolAccess.canRead) {
-        hint.textContent = 'Tipp: Die Scorecard kann direkt per Lieferanten-ID oder Deep-Link geoeffnet werden. Lieferantenpool-Auswahl und Beziehungsprofil bleiben fuer diese Rolle ausgeblendet.';
+        hint.textContent = t('sc.hint.noPool');
         return;
       }
       if (!rateCardAccess.canRead) {
-        hint.textContent = 'Tipp: Lieferant aus dem Lieferantenpool waehlen oder URL-Parameter ?agencyId=uuid nutzen. Preisrahmen bleiben aus dieser Sicht buyer-seitig reserviert; Spend & Kosten kann weiter lieferantenspezifisch geoeffnet werden.';
+        hint.textContent = t('sc.hint.noRateCard');
         return;
       }
-      hint.innerHTML = 'Tipp: Lieferant aus dem Lieferantenpool waehlen oder URL-Parameter <code>?agencyId=uuid</code> nutzen. Aus dieser Sicht gelangen Sie direkt zu Preisrahmen und Spend &amp; Kosten fuer genau diesen Lieferanten.';
+      hint.innerHTML = esc(t('sc.hint.defaultPre')) + '<code>?agencyId=uuid</code>' + esc(t('sc.hint.defaultPost'));
     }
     function applySurfaceAccess() {
       var vendorLinks = [
@@ -230,10 +477,11 @@
 
     function fillSupplierDropdown(items) {
       var sel = document.getElementById("supplierSelect");
-      var base = '<option value="">Lieferant auswaehlen</option>';
+      // value="" bleibt leer (Server-Filter); nur das Label ist zweisprachig.
+      var base = '<option value="">' + esc(t('sc.filter.supplierPlaceholder')) + '</option>';
       if (!items || !items.length) { sel.innerHTML = base; return; }
       sel.innerHTML = base + items.map(function(it) {
-        var label = (it.supplier_org_name || it.supplier_org_id || 'Supplier');
+        var label = (it.supplier_org_name || it.supplier_org_id || t('sc.filter.supplierFallback'));
         if (it.tier) label += ' · ' + it.tier;
         return '<option value="' + esc(it.supplier_org_id || '') + '">' + esc(label) + '</option>';
       }).join("");
@@ -266,14 +514,15 @@
     function renderContext(profile, supplierName) {
       var box = document.getElementById('scorecardContext');
       var parts = [];
-      if (supplierName) parts.push('Lieferant: <strong>' + esc(supplierName) + '</strong>');
+      // Werte (Name, Tier, Status, Kategorie) sind API-Daten und bleiben unuebersetzt.
+      if (supplierName) parts.push(esc(t('sc.ctx.supplier')) + ': <strong>' + esc(supplierName) + '</strong>');
       if (!vendorPoolAccess.canRead && supplierName) {
-        parts.push('Lieferantenbeziehung: <strong>in dieser Rolle ausgeblendet</strong>');
+        parts.push(esc(t('sc.ctx.relation')) + ': <strong>' + esc(t('sc.ctx.relationHidden')) + '</strong>');
       }
       if (profile && profile.vendor_pool) {
-        parts.push('Tier: <strong>' + esc(profile.vendor_pool.tier || '–') + '</strong>');
-        parts.push('Status: <strong>' + esc(profile.vendor_pool.status || '–') + '</strong>');
-        if (profile.vendor_pool.category) parts.push('Kategorie: <strong>' + esc(profile.vendor_pool.category) + '</strong>');
+        parts.push(esc(t('sc.ctx.tier')) + ': <strong>' + esc(profile.vendor_pool.tier || '–') + '</strong>');
+        parts.push(esc(t('sc.ctx.status')) + ': <strong>' + esc(profile.vendor_pool.status || '–') + '</strong>');
+        if (profile.vendor_pool.category) parts.push(esc(t('sc.ctx.category')) + ': <strong>' + esc(profile.vendor_pool.category) + '</strong>');
       }
       if (!parts.length) {
         box.style.display = 'none';
@@ -288,7 +537,7 @@
       var out = document.getElementById("out");
       var data = scorecard || (profile && profile.scorecard) || null;
       if (!data && !profile) {
-        out.innerHTML = '<p class="empty">Bewertung nicht verfügbar oder keine Berechtigung.</p>';
+        out.innerHTML = '<p class="empty">' + esc(t('sc.empty.unavailable')) + '</p>';
         return;
       }
 
@@ -303,80 +552,86 @@
 
       var html = '<div class="cockpit-grid">';
       html += '<div class="cockpit-card">';
-      html += '<h3>Leistungs-Scorecard</h3>';
+      html += '<h3>' + esc(t('sc.card.performance')) + '</h3>';
       html += '<div class="grade ' + cls + '">' + esc((data && data.grade) || "–") + '</div>';
-      html += '<p style="text-align:center;color:var(--muted);margin:0 0 14px">Zeitraum: ' + esc(String(windowDays)) + ' Tage' + (supplierName ? ' · ' + esc(supplierName) : '') + '</p>';
+      html += '<p style="text-align:center;color:var(--muted);margin:0 0 14px">' + esc(t('sc.kpi.window', { days: String(windowDays) })) + (supplierName ? ' · ' + esc(supplierName) : '') + '</p>';
       html += '<div class="kpi">';
-      html += '<div><b>' + (data ? pct(data.fill_rate) : '–') + '</b><span>Besetzungsquote</span></div>';
-      html += '<div><b>' + (data ? pct(data.on_time_rate) : '–') + '</b><span>Puenktlichkeit</span></div>';
-      html += '<div><b>' + (data ? pct(data.sla_breach_rate) : '–') + '</b><span>SLA-Bruchquote</span></div>';
-      html += '<div><b>' + (data && data.avg_rating != null ? Number(data.avg_rating).toFixed(1) : '–') + '</b><span>Qualitaet (Ø Rating)</span></div>';
+      html += '<div><b>' + (data ? pct(data.fill_rate) : '–') + '</b><span>' + esc(t('sc.kpi.fillRate')) + '</span></div>';
+      html += '<div><b>' + (data ? pct(data.on_time_rate) : '–') + '</b><span>' + esc(t('sc.kpi.onTime')) + '</span></div>';
+      html += '<div><b>' + (data ? pct(data.sla_breach_rate) : '–') + '</b><span>' + esc(t('sc.kpi.slaBreach')) + '</span></div>';
+      html += '<div><b>' + (data && data.avg_rating != null ? Number(data.avg_rating).toFixed(1) : '–') + '</b><span>' + esc(t('sc.kpi.quality')) + '</span></div>';
       html += '</div>';
       if (data && data.totals) {
-        html += '<p class="helper">Anfragen erhalten: ' + (data.totals.requests_received || 0) + ', angenommen: ' + (data.totals.requests_accepted || 0) + ', abgeschlossen: ' + (data.totals.requests_finalized || 0) + '.</p>';
+        html += '<p class="helper">' + esc(t('sc.kpi.totals', {
+          received: String(data.totals.requests_received || 0),
+          accepted: String(data.totals.requests_accepted || 0),
+          finalized: String(data.totals.requests_finalized || 0)
+        })) + '</p>';
       }
       html += '</div>';
 
       html += '<div class="cockpit-card">';
-      html += '<h3>Lieferantenbeziehung</h3>';
+      html += '<h3>' + esc(t('sc.card.relation')) + '</h3>';
       if (vendor) {
         html += '<div class="metric-grid">';
-        html += '<div class="metric"><b>' + esc(vendor.tier || '–') + '</b><span>Tier</span></div>';
-        html += '<div class="metric"><b>' + esc(vendor.status || '–') + '</b><span>Status</span></div>';
-        html += '<div class="metric"><b>' + esc(vendor.category || '–') + '</b><span>Kategorie</span></div>';
-        html += '<div class="metric"><b>' + esc(String(profile.active_workers || 0)) + '</b><span>Aktive Einsatzkraefte</span></div>';
+        html += '<div class="metric"><b>' + esc(vendor.tier || '–') + '</b><span>' + esc(t('sc.metric.tier')) + '</span></div>';
+        html += '<div class="metric"><b>' + esc(vendor.status || '–') + '</b><span>' + esc(t('sc.metric.status')) + '</span></div>';
+        html += '<div class="metric"><b>' + esc(vendor.category || '–') + '</b><span>' + esc(t('sc.metric.category')) + '</span></div>';
+        html += '<div class="metric"><b>' + esc(String(profile.active_workers || 0)) + '</b><span>' + esc(t('sc.metric.activeWorkers')) + '</span></div>';
         html += '</div>';
-        html += '<p class="helper">Gueltig von ' + fmtDate(vendor.valid_from) + ' bis ' + fmtDate(vendor.valid_until) + '.</p>';
+        html += '<p class="helper">' + esc(t('sc.relation.validity', { from: fmtDate(vendor.valid_from), to: fmtDate(vendor.valid_until) })) + '</p>';
       } else {
-        html += '<p class="empty-mini">Dieser Lieferant ist in Ihrem Lieferantenpool noch nicht als konkrete Beziehung hinterlegt. Performance-Daten koennen trotzdem verfuegbar sein.</p>';
+        html += '<p class="empty-mini">' + esc(t('sc.relation.none')) + '</p>';
       }
       html += '</div>';
 
       html += '<div class="cockpit-card">';
-      html += '<h3>Compliance & Vertraege</h3>';
+      html += '<h3>' + esc(t('sc.card.compliance')) + '</h3>';
       html += '<div class="metric-grid">';
-      html += '<div class="metric"><b>' + esc(String((compliance && compliance.total) || 0)) + '</b><span>Dokumente gesamt</span></div>';
-      html += '<div class="metric"><b>' + esc(String((compliance && compliance.approved) || 0)) + '</b><span>Freigegeben</span></div>';
-      html += '<div class="metric"><b>' + esc(String((compliance && compliance.pending) || 0)) + '</b><span>Ausstehend</span></div>';
-      html += '<div class="metric"><b>' + esc(String(contracts.length || 0)) + '</b><span>Aktive Verträge</span></div>';
+      html += '<div class="metric"><b>' + esc(String((compliance && compliance.total) || 0)) + '</b><span>' + esc(t('sc.metric.docsTotal')) + '</span></div>';
+      html += '<div class="metric"><b>' + esc(String((compliance && compliance.approved) || 0)) + '</b><span>' + esc(t('sc.metric.docsApproved')) + '</span></div>';
+      html += '<div class="metric"><b>' + esc(String((compliance && compliance.pending) || 0)) + '</b><span>' + esc(t('sc.metric.docsPending')) + '</span></div>';
+      html += '<div class="metric"><b>' + esc(String(contracts.length || 0)) + '</b><span>' + esc(t('sc.metric.contracts')) + '</span></div>';
       html += '</div>';
       html += contracts.length ? '<div class="list-stack" style="margin-top:12px">' + contracts.slice(0, 4).map(function(c) {
-        return '<div class="list-item"><div><strong>' + esc(c.title || c.contract_type || 'Vertrag') + '</strong><div class="item-meta">' + esc(c.status || 'aktiv') + '</div></div><div style="text-align:right"><strong>' + fmtDate(c.valid_until) + '</strong><div class="item-meta">gueltig bis</div></div></div>';
-      }).join('') + '</div>' : '<p class="helper">Keine aktiven Verträge im konsolidierten Profil gefunden.</p>';
+        // Titel/Vertragstyp/Status sind API-Daten — nur die Fallbacks sind unsere Sprache.
+        return '<div class="list-item"><div><strong>' + esc(c.title || c.contract_type || t('sc.contract.fallback')) + '</strong><div class="item-meta">' + esc(c.status || t('sc.contract.statusFallback')) + '</div></div><div style="text-align:right"><strong>' + fmtDate(c.valid_until) + '</strong><div class="item-meta">' + esc(t('sc.contract.validUntil')) + '</div></div></div>';
+      }).join('') + '</div>' : '<p class="helper">' + esc(t('sc.contract.none')) + '</p>';
       html += '</div>';
 
       html += '<div class="cockpit-card">';
-      html += '<h3>Reputation & Wirtschaftlichkeit</h3>';
+      html += '<h3>' + esc(t('sc.card.reputation')) + '</h3>';
       html += '<div class="metric-grid">';
-      html += '<div class="metric"><b>' + esc(String((reputation && reputation.reputation_score) != null && reputation && reputation.reputation_score != null ? reputation.reputation_score : '–')) + '</b><span>Reputation</span></div>';
-      html += '<div class="metric"><b>' + esc(reputation && reputation.grade ? reputation.grade : '–') + '</b><span>Reputation-Grad</span></div>';
-      html += '<div class="metric"><b>' + (reputation && reputation.avg_stars != null ? esc(Number(reputation.avg_stars).toFixed(1)) + ' ★' : '–') + '</b><span>Sterne</span></div>';
-      html += '<div class="metric"><b>' + esc(String(profile && profile.active_workers != null ? profile.active_workers : 0)) + '</b><span>Aktive Einsatzkraefte</span></div>';
+      html += '<div class="metric"><b>' + esc(String((reputation && reputation.reputation_score) != null && reputation && reputation.reputation_score != null ? reputation.reputation_score : '–')) + '</b><span>' + esc(t('sc.metric.reputation')) + '</span></div>';
+      html += '<div class="metric"><b>' + esc(reputation && reputation.grade ? reputation.grade : '–') + '</b><span>' + esc(t('sc.metric.reputationGrade')) + '</span></div>';
+      html += '<div class="metric"><b>' + (reputation && reputation.avg_stars != null ? esc(Number(reputation.avg_stars).toFixed(1)) + ' ★' : '–') + '</b><span>' + esc(t('sc.metric.stars')) + '</span></div>';
+      html += '<div class="metric"><b>' + esc(String(profile && profile.active_workers != null ? profile.active_workers : 0)) + '</b><span>' + esc(t('sc.metric.activeWorkers')) + '</span></div>';
       html += '</div>';
       html += '<div class=\"action-row\">'
-        + (vendorPoolAccess.canRead ? '<a class=\"btn\" href=\"/public/vendor_pool.html\">Lieferantenpool</a>' : '')
-        + '<a class=\"btn\" href=\"' + document.getElementById('btnRateCardLink').href + '\" target=\"_blank\" ' + (document.getElementById('btnRateCardLink').style.display === 'none' ? 'style=\"display:none\"' : '') + '>Preisrahmen &rarr;</a>'
-        + '<a class=\"btn\" href=\"' + document.getElementById('btnSpendLink').href + '\" target=\"_blank\" ' + (document.getElementById('btnSpendLink').style.display === 'none' ? 'style=\"display:none\"' : '') + '>Spend &amp; Kosten &rarr;</a>'
+        + (vendorPoolAccess.canRead ? '<a class=\"btn\" href=\"/public/vendor_pool.html\">' + esc(t('sc.nav.vendorPool')) + '</a>' : '')
+        + '<a class=\"btn\" href=\"' + document.getElementById('btnRateCardLink').href + '\" target=\"_blank\" ' + (document.getElementById('btnRateCardLink').style.display === 'none' ? 'style=\"display:none\"' : '') + '>' + esc(t('sc.nav.rateCards')) + ' &rarr;</a>'
+        + '<a class=\"btn\" href=\"' + document.getElementById('btnSpendLink').href + '\" target=\"_blank\" ' + (document.getElementById('btnSpendLink').style.display === 'none' ? 'style=\"display:none\"' : '') + '>' + esc(t('sc.nav.spend')) + ' &rarr;</a>'
         + '</div>';
       html += '</div>';
       html += '</div>';
 
       html += '<div class="cockpit-grid">';
       html += '<div class="cockpit-card">';
-      html += '<h3>Letzte Änderungen</h3>';
+      html += '<h3>' + esc(t('sc.card.history')) + '</h3>';
       html += history.length ? '<div class="list-stack">' + history.map(function(item) {
-        return '<div class="list-item"><div><strong>' + esc(item.field_changed || 'Änderung') + '</strong><div class="item-meta">' + esc(item.old_value || '–') + ' → ' + esc(item.new_value || '–') + '</div></div><div style="text-align:right"><strong>' + fmtDate(item.created_at) + '</strong><div class="item-meta">' + esc(item.changed_by_name || item.changed_by_email || 'System') + '</div></div></div>';
-      }).join('') + '</div>' : '<div class="empty-mini">Noch keine dokumentierten Änderungen fuer diesen Lieferanten.</div>';
+        // field_changed / old_value / new_value / Namen sind API-Daten.
+        return '<div class="list-item"><div><strong>' + esc(item.field_changed || t('sc.history.fallback')) + '</strong><div class="item-meta">' + esc(item.old_value || '–') + ' → ' + esc(item.new_value || '–') + '</div></div><div style="text-align:right"><strong>' + fmtDate(item.created_at) + '</strong><div class="item-meta">' + esc(item.changed_by_name || item.changed_by_email || t('sc.history.system')) + '</div></div></div>';
+      }).join('') + '</div>' : '<div class="empty-mini">' + esc(t('sc.history.empty')) + '</div>';
       html += '</div>';
 
       html += '<div class="cockpit-card">';
-      html += '<h3>Notizen</h3>';
+      html += '<h3>' + esc(t('sc.card.notes')) + '</h3>';
       if (scorecardAccess.canAnnotate && vendor && vendor.id) {
-        html += '<form class="note-form" onsubmit="return submitVendorNote(event)"><textarea id="newVendorNote" rows="3" maxlength="2000" placeholder="Operative Notiz, Steuerungs-Hinweis oder Gespraechsprotokoll"></textarea><button type="submit" class="btn primary">Notiz speichern</button></form>';
+        html += '<form class="note-form" onsubmit="return submitVendorNote(event)"><textarea id="newVendorNote" rows="3" maxlength="2000" placeholder="' + esc(t('sc.action.notePlaceholder')) + '"></textarea><button type="submit" class="btn primary">' + esc(t('sc.action.saveNote')) + '</button></form>';
       }
       html += notes.length ? '<div class="list-stack">' + notes.map(function(item) {
-        return '<div class="list-item"><div><strong>' + esc(item.author_name || item.author_email || 'Team') + '</strong><div class="item-meta">' + esc(item.note_text || '') + '</div></div><div style="text-align:right"><strong>' + fmtDate(item.created_at) + '</strong></div></div>';
-      }).join('') + '</div>' : '<div class=\"empty-mini\">' + (scorecardAccess.canAnnotate && vendor && vendor.id ? 'Noch keine Notizen vorhanden.' : 'Notizen sind in dieser Rolle nicht pflegbar oder erst verfuegbar, sobald eine Vendor-Pool-Beziehung sichtbar ist.') + '</div>';
+        return '<div class="list-item"><div><strong>' + esc(item.author_name || item.author_email || t('sc.notes.team')) + '</strong><div class="item-meta">' + esc(item.note_text || '') + '</div></div><div style="text-align:right"><strong>' + fmtDate(item.created_at) + '</strong></div></div>';
+      }).join('') + '</div>' : '<div class=\"empty-mini\">' + esc(scorecardAccess.canAnnotate && vendor && vendor.id ? t('sc.notes.empty') : t('sc.notes.locked')) + '</div>';
       html += '</div>';
       html += '</div>';
 
@@ -397,24 +652,21 @@
         document.getElementById("out").innerHTML = '<p class="empty">' + esc(describeScorecardAccess(scorecardAccess)) + '</p>';
         updateActionLinks('', '');
         renderContext(null, '');
-        renderScorecardState('info', 'Lieferantenbewertung ausgeblendet', describeScorecardAccess(scorecardAccess));
+        renderScorecardState('info', t('sc.state.hiddenTitle'), describeScorecardAccess(scorecardAccess));
         return;
       }
       var windowDays = parseInt(document.getElementById("window").value, 10) || 30;
       var agencyId = (document.getElementById("agencyId").value || "").trim() || (document.getElementById("supplierSelect").value || "").trim();
       var supplierName = findSupplierName(agencyId) || agencyId;
       if (!agencyId) {
-        document.getElementById("out").innerHTML = '<p class="empty">' + (vendorPoolAccess.canRead ? 'Bitte zunaechst einen Lieferanten auswaehlen oder manuell eine Lieferanten-ID eingeben.' : 'Bitte eine Lieferanten-ID eingeben oder einen Deep-Link mit ?agencyId=uuid verwenden.') + '</p>';
+        document.getElementById("out").innerHTML = '<p class="empty">' + esc(vendorPoolAccess.canRead ? t('sc.empty.pickSupplier') : t('sc.empty.enterId')) + '</p>';
         updateActionLinks('', '');
         renderContext(null, '');
         return;
       }
 
       updateActionLinks(agencyId, supplierName);
-      if (supplierName) {
-        var sub = document.getElementById('scorecardSubtitle');
-        if (sub) sub.textContent = 'Lieferantenbewertung fuer: ' + supplierName;
-      }
+      if (supplierName) updateSubtitle(supplierName);
 
       var scorecard = await api("/suppliers/" + encodeURIComponent(agencyId) + "/scorecard?window=" + windowDays);
       var profile = null;
@@ -464,7 +716,7 @@
 
       if (!scorecardAccess.canRead) {
         document.getElementById("out").innerHTML = '<p class="empty">' + esc(describeScorecardAccess(scorecardAccess)) + '</p>';
-        renderScorecardState('info', 'Lieferantenbewertung ausgeblendet', describeScorecardAccess(scorecardAccess));
+        renderScorecardState('info', t('sc.state.hiddenTitle'), describeScorecardAccess(scorecardAccess));
         return;
       }
 
@@ -477,9 +729,9 @@
       }
 
       if (!vendorPoolAccess.canRead) {
-        renderScorecardState('info', 'Lieferantenbewertung ohne Pool-Kontext', 'Die Scorecard bleibt lesbar. Lieferantenpool-Auswahl und Beziehungsprofil werden fuer diese Rolle bewusst nicht geladen.');
+        renderScorecardState('info', t('sc.state.noPoolTitle'), t('sc.state.noPoolText'));
       } else if (!scorecardAccess.canAnnotate) {
-        renderScorecardState('info', 'Lieferantenbewertung read-only', scorecardAccess.reason || 'Notizen und operative Pflege bleiben fuer diese Rolle gesperrt.');
+        renderScorecardState('info', t('sc.state.readonlyTitle'), scorecardAccess.reason || t('sc.state.readonlyText'));
       } else {
         renderScorecardState();
       }
@@ -491,14 +743,32 @@
         var sel = document.getElementById("supplierSelect");
         if (sel) sel.value = preselectedAgencyId;
         updateActionLinks(preselectedAgencyId, preselectedAgencyName || findSupplierName(preselectedAgencyId));
-        if (preselectedAgencyName) {
-          var sub = document.getElementById('scorecardSubtitle');
-          if (sub) sub.textContent = 'Lieferantenbewertung fuer: ' + preselectedAgencyName;
-        }
+        if (preselectedAgencyName) updateSubtitle(preselectedAgencyName);
         await loadScorecard();
       }
     }
     init();
+
+    /* Sprachwechsel: alles, was per innerHTML/textContent aus JS entsteht,
+       traegt keinen Marker (bzw. haelt Laufzeitwerte) — die deklarative
+       Hydration erreicht es nicht. Diese Flaechen bauen wir gezielt neu auf,
+       sonst bliebe die halbe Seite in der alten Sprache stehen. */
+    document.addEventListener('tc:langchange', function () {
+      updateSubtitle();
+      updateScorecardHint();
+      var sel = document.getElementById('supplierSelect');
+      var keep = sel ? sel.value : '';
+      if (sel && sel.options.length && sel.options[0].value === '') {
+        sel.options[0].textContent = t('sc.filter.supplierPlaceholder');
+        sel.value = keep;
+      }
+      if (scorecardAccess.canRead) {
+        loadScorecard();
+      } else {
+        document.getElementById('out').innerHTML = '<p class="empty">' + esc(describeScorecardAccess(scorecardAccess)) + '</p>';
+        renderScorecardState('info', t('sc.state.hiddenTitle'), describeScorecardAccess(scorecardAccess));
+      }
+    });
   </script>
   <script src="/public/js/pageShell.js"></script>
   <script src="/public/js/notifications.js" defer></script>

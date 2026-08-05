@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <script src="/public/js/theme.js"></script>
   <script src="/public/js/i18n.js"></script>
-  <title>Lieferantensteuerung – TempConnect</title>
+  <title data-i18n="exe.vp.docTitle">Lieferantensteuerung – TempConnect</title>
   <link rel="stylesheet" href="/public/css/enterprise.css"/>
   <style>
     .filter-row { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 16px; align-items: center; }
@@ -59,29 +59,29 @@
 
     <div class="ds-page-header">
       <div class="ds-page-header__content">
-        <h1 class="ds-page-title">Lieferantenpool</h1>
-        <p class="ds-page-subtitle">Bevorzugte Lieferanten, Tier-Stufen und Performance als nachgelagerte Steuerungsschicht fuer wiederkehrende Arbeitsplatzangebote steuern.</p>
+        <h1 class="ds-page-title" data-i18n="exe.vp.page.title">Lieferantenpool</h1>
+        <p class="ds-page-subtitle" data-i18n="exe.vp.page.subtitle">Bevorzugte Lieferanten, Tier-Stufen und Performance als nachgelagerte Steuerungsschicht fuer wiederkehrende Arbeitsplatzangebote steuern.</p>
       </div>
       <div class="ds-page-header__actions">
-        <button id="vendorPoolAddButton" class="btn primary" data-feature-key="supplier_management" onclick="showAdd()">+ Lieferant hinzufuegen</button>
+        <button id="vendorPoolAddButton" class="btn primary" data-feature-key="supplier_management" data-i18n="exe.vp.addBtn" onclick="showAdd()">+ Lieferant hinzufuegen</button>
       </div>
     </div>
     <div class="tc-priority-banner tc-priority-banner--supporting">
       <div class="tc-priority-banner__main">
-        <div class="tc-priority-banner__eyebrow">Steuerungsschicht</div>
-        <div class="tc-priority-banner__title">Lieferantensteuerung verbessert den Pilotkern, ersetzt ihn aber nicht</div>
-        <p class="tc-priority-banner__text">Nutzen Sie den Pool, um Coverage, Preferred Vendors und Preisdisziplin rund um echte Arbeitsplatzangebote zu verbessern. Der operative Kern bleibt trotzdem Arbeitsplatzangebot, Deal, Besetzung und Zeiten.</p>
+        <div class="tc-priority-banner__eyebrow" data-i18n="exe.vp.banner.eyebrow">Steuerungsschicht</div>
+        <div class="tc-priority-banner__title" data-i18n="exe.vp.banner.title">Lieferantensteuerung verbessert den Pilotkern, ersetzt ihn aber nicht</div>
+        <p class="tc-priority-banner__text" data-i18n="exe.vp.banner.text">Nutzen Sie den Pool, um Coverage, Preferred Vendors und Preisdisziplin rund um echte Arbeitsplatzangebote zu verbessern. Der operative Kern bleibt trotzdem Arbeitsplatzangebot, Deal, Besetzung und Zeiten.</p>
       </div>
       <div class="tc-priority-banner__aside">
-        <div class="tc-priority-banner__aside-title">Bewusste Reihenfolge</div>
-        <div class="tc-priority-banner__aside-text">Erst Kernflows glattziehen, danach Tiering, Bewertungen und Spend tiefer optimieren.</div>
+        <div class="tc-priority-banner__aside-title" data-i18n="exe.vp.banner.asideTitle">Bewusste Reihenfolge</div>
+        <div class="tc-priority-banner__aside-text" data-i18n="exe.vp.banner.asideText">Erst Kernflows glattziehen, danach Tiering, Bewertungen und Spend tiefer optimieren.</div>
       </div>
     </div>
     <div class="link-row">
-      <a class="btn" href="/public/requisitions.html">Angebote</a>
-      <a id="vendorPoolRateCardLink" class="btn" data-feature-key="rate_card_management" href="/public/rate-cards.html">Preisrahmen</a>
-      <a class="btn" data-feature-key="supplier_ratings" href="/public/supplier_scorecard.html">Lieferantenbewertung</a>
-      <a id="vendorPoolSpendLink" class="btn" data-feature-key="spend_analytics" href="/public/spend-analytics.html">Spend &amp; Kosten</a>
+      <a class="btn" href="/public/requisitions.html" data-i18n="exe.vp.nav.req">Angebote</a>
+      <a id="vendorPoolRateCardLink" class="btn" data-feature-key="rate_card_management" href="/public/rate-cards.html" data-i18n="exe.vp.nav.rates">Preisrahmen</a>
+      <a class="btn" data-feature-key="supplier_ratings" href="/public/supplier_scorecard.html" data-i18n="exe.vp.nav.scorecard">Lieferantenbewertung</a>
+      <a id="vendorPoolSpendLink" class="btn" data-feature-key="spend_analytics" href="/public/spend-analytics.html" data-i18n="exe.vp.nav.spend">Spend &amp; Kosten</a>
     </div>
     <div id="poolState" class="page-state" aria-live="polite"></div>
     <div id="poolContext" class="section-note" style="display:none;margin:0 0 14px"></div>
@@ -90,32 +90,36 @@
     <div class="management-row" id="managementRow"></div>
     <div class="insight-grid">
       <div class="insight-card">
-        <h3 id="topPerformersTitle">Top-Lieferanten im Pool</h3>
-        <div id="topPerformersBox" class="empty-mini">Lade Management-KPIs…</div>
+        <!-- Marker bleiben gueltig: jede JS-Aktualisierung laeuft ueber
+             vpSetText()/vpSetHtml() und pflegt den Marker mit. -->
+        <h3 id="topPerformersTitle" data-i18n="exe.vp.insight.top">Top-Lieferanten im Pool</h3>
+        <div id="topPerformersBox" class="empty-mini" data-i18n="exe.vp.insight.loadingKpi">Lade Management-KPIs…</div>
       </div>
       <div class="insight-card">
-        <h3 id="recentChangesTitle">Letzte Änderungen</h3>
-        <div id="recentChangesBox" class="empty-mini">Lade Änderungsverlauf…</div>
+        <h3 id="recentChangesTitle" data-i18n="exe.vp.insight.changes">Letzte Änderungen</h3>
+        <div id="recentChangesBox" class="empty-mini" data-i18n="exe.vp.insight.loadingChanges">Lade Änderungsverlauf…</div>
       </div>
     </div>
 
     <div class="filter-row">
-      <label style="margin:0">Organisation:</label>
-      <input id="fClientOrg" style="width:260px;margin:0" placeholder="Wird automatisch aus Ihrem Kontext geladen" readonly/>
-      <select id="fTier"><option value="">Alle Tiers</option>
+      <label style="margin:0" data-i18n="exe.vp.filter.org">Organisation:</label>
+      <input id="fClientOrg" style="width:260px;margin:0" placeholder="Wird automatisch aus Ihrem Kontext geladen" data-i18n-ph="exe.vp.filter.orgPh" readonly/>
+      <!-- Die Tier-Werte sind Server-Enums und gehen als Filterwert an die API —
+           sie werden bewusst NICHT uebersetzt. -->
+      <select id="fTier"><option value="" data-i18n="exe.vp.filter.allTiers">Alle Tiers</option>
         <option>PREFERRED</option><option>SECONDARY</option><option>TRIAL</option>
         <option>RESTRICTED</option><option>BLOCKED</option>
       </select>
-      <button class="btn" onclick="loadPool()">Laden</button>
+      <button class="btn" onclick="loadPool()" data-i18n="exe.vp.filter.load">Laden</button>
     </div>
 
     <table class="table">
-      <thead><tr><th>Lieferant</th><th>Tier</th><th>Kategorie</th><th>Status</th><th>Performance</th><th>Steuerung</th><th>Aktionen</th></tr></thead>
+      <thead><tr><th data-i18n="exe.vp.th.supplier">Lieferant</th><th data-i18n="exe.vp.th.tier">Tier</th><th data-i18n="exe.vp.th.category">Kategorie</th><th data-i18n="exe.vp.th.status">Status</th><th data-i18n="exe.vp.th.performance">Performance</th><th data-i18n="exe.vp.th.governance">Steuerung</th><th data-i18n="exe.vp.th.actions">Aktionen</th></tr></thead>
       <tbody id="poolBody"></tbody>
     </table>
     <div id="emptyMsg" class="ds-empty" style="display:none">
-      <div class="ds-empty__title" id="poolEmptyTitle">Keine Lieferanten im Pool</div>
-      <div class="ds-empty__text" id="poolEmptyText">Noch keine Lieferantenbeziehung vorhanden. Fuegen Sie jetzt einen Lieferanten hinzu.</div>
+      <div class="ds-empty__title" id="poolEmptyTitle" data-i18n="exe.vp.empty.noneTitle">Keine Lieferanten im Pool</div>
+      <div class="ds-empty__text" id="poolEmptyText" data-i18n="exe.vp.empty.noneText">Noch keine Lieferantenbeziehung vorhanden. Fuegen Sie jetzt einen Lieferanten hinzu.</div>
     </div>
   </div>
 
@@ -123,31 +127,31 @@
   <div class="modal" id="addModal">
     <div class="panel" style="max-width:520px">
       <div style="display:flex;justify-content:space-between;align-items:center">
-        <h2 style="margin:0">Lieferanten zum Pool hinzufuegen</h2>
-        <button class="btn" onclick="closeAdd()">Abbrechen</button>
+        <h2 style="margin:0" data-i18n="exe.vp.modal.title">Lieferanten zum Pool hinzufuegen</h2>
+        <button class="btn" onclick="closeAdd()" data-i18n="exe.vp.modal.cancel">Abbrechen</button>
       </div>
       <form id="addForm" style="margin-top:16px" onsubmit="submitAdd(event)">
         <div class="form-grid">
-          <div class="form-full"><label>Client Org ID *</label><input id="aClientOrg" required readonly/></div>
-          <div class="form-full"><label>Lieferant suchen *</label>
+          <div class="form-full"><label data-i18n="exe.vp.modal.clientOrg">Client Org ID *</label><input id="aClientOrg" required readonly/></div>
+          <div class="form-full"><label data-i18n="exe.vp.modal.searchSupplier">Lieferant suchen *</label>
             <div style="display:flex;gap:8px;align-items:center">
-              <input id="aSupplierSearch" placeholder="Lieferantenname oder Organisation eingeben (mind. 2 Zeichen)"/>
-              <button type="button" class="btn" data-feature-key="supplier_management" onclick="lookupSuppliers()">Suchen</button>
+              <input id="aSupplierSearch" placeholder="Lieferantenname oder Organisation eingeben (mind. 2 Zeichen)" data-i18n-ph="exe.vp.modal.searchPh"/>
+              <button type="button" class="btn" data-feature-key="supplier_management" onclick="lookupSuppliers()" data-i18n="exe.vp.modal.searchBtn">Suchen</button>
             </div>
             <div id="supplierLookupResults" style="margin-top:8px"></div>
           </div>
-          <div class="form-full"><label>Lieferanten-Org-ID *</label><input id="aSupplierOrg" required/></div>
-          <div><label>Tier</label>
+          <div class="form-full"><label data-i18n="exe.vp.modal.supplierOrg">Lieferanten-Org-ID *</label><input id="aSupplierOrg" required/></div>
+          <div><label data-i18n="exe.vp.modal.tier">Tier</label>
             <select id="aTier"><option value="SECONDARY">SECONDARY</option><option value="PREFERRED">PREFERRED</option><option value="TRIAL">TRIAL</option><option value="RESTRICTED">RESTRICTED</option></select>
           </div>
-          <div><label>Kategorie</label><input id="aCategory" maxlength="120"/></div>
-          <div><label>Gueltig von</label><input id="aFrom" type="date"/></div>
-          <div><label>Gueltig bis</label><input id="aUntil" type="date"/></div>
-          <div class="form-full"><label>Grund</label><textarea id="aReason" rows="2" maxlength="2000"></textarea></div>
+          <div><label data-i18n="exe.vp.modal.category">Kategorie</label><input id="aCategory" maxlength="120"/></div>
+          <div><label data-i18n="exe.vp.modal.validFrom">Gueltig von</label><input id="aFrom" type="date"/></div>
+          <div><label data-i18n="exe.vp.modal.validUntil">Gueltig bis</label><input id="aUntil" type="date"/></div>
+          <div class="form-full"><label data-i18n="exe.vp.modal.reason">Grund</label><textarea id="aReason" rows="2" maxlength="2000"></textarea></div>
         </div>
         <div style="margin-top:12px;display:flex;gap:8px">
-          <button type="submit" class="btn primary" data-feature-key="supplier_management">Hinzufuegen</button>
-          <button type="button" class="btn" onclick="closeAdd()">Abbrechen</button>
+          <button type="submit" class="btn primary" data-feature-key="supplier_management" data-i18n="exe.vp.modal.submit">Hinzufuegen</button>
+          <button type="button" class="btn" onclick="closeAdd()" data-i18n="exe.vp.modal.cancel">Abbrechen</button>
         </div>
       </form>
     </div>

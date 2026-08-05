@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <script src="/public/js/theme.js"></script>
   <script src="/public/js/i18n.js"></script>
-  <title>Offene Freigaben &ndash; TempConnect</title>
+  <title data-i18n="apv.docTitle">Offene Freigaben &ndash; TempConnect</title>
   <link rel="stylesheet" href="/public/css/enterprise.css"/>
   <link rel="stylesheet" href="/public/css/approval-badges.css"/>
 </head>
@@ -15,36 +15,36 @@
 
     <div class="ds-page-header">
       <div class="ds-page-header__content">
-        <h1 class="ds-page-title">Offene Freigaben <span id="total-badge" class="approval-badge approval-badge--pending" style="display:none;font-size:13px;vertical-align:middle"></span></h1>
-        <p class="ds-page-subtitle">Alle Vorg&auml;nge, die auf Ihre Entscheidung warten &ndash; Freigaben, Einreichungen, Anfragen und Einsatzbest&auml;tigungen.</p>
+        <h1 class="ds-page-title"><span data-i18n="apv.page.title">Offene Freigaben</span> <span id="total-badge" class="approval-badge approval-badge--pending" style="display:none;font-size:13px;vertical-align:middle"></span></h1>
+        <p class="ds-page-subtitle" data-i18n="apv.page.subtitle">Alle Vorg&auml;nge, die auf Ihre Entscheidung warten &ndash; Freigaben, Einreichungen, Anfragen und Einsatzbest&auml;tigungen.</p>
       </div>
       <div class="ds-page-header__actions">
-        <button id="btn-refresh" class="ds-btn ds-btn--sm" title="Aktualisieren">&#8635; Aktualisieren</button>
+        <button id="btn-refresh" class="ds-btn ds-btn--sm" title="Aktualisieren" data-i18n-title="apv.action.refreshTitle"><span aria-hidden="true">&#8635;</span> <span data-i18n="apv.action.refresh">Aktualisieren</span></button>
       </div>
     </div>
 
     <!-- KPI Strip -->
     <div class="approval-kpi-strip" id="kpi-strip">
-      <div class="approval-kpi"><span class="approval-kpi__value" id="kpi-total">-</span><span class="approval-kpi__label">Gesamt offen</span></div>
-      <div class="approval-kpi"><span class="approval-kpi__value" id="kpi-approvals" style="color:var(--ds-warning)">-</span><span class="approval-kpi__label">Freigaben</span></div>
-      <div class="approval-kpi"><span class="approval-kpi__value" id="kpi-submissions" style="color:var(--ds-brand)">-</span><span class="approval-kpi__label">Einreichungen</span></div>
-      <div class="approval-kpi"><span class="approval-kpi__value" id="kpi-requests" style="color:var(--ds-accent)">-</span><span class="approval-kpi__label">Anfragen</span></div>
-      <div class="approval-kpi"><span class="approval-kpi__value" id="kpi-assignments" style="color:var(--ds-success)">-</span><span class="approval-kpi__label">Eins&auml;tze</span></div>
+      <div class="approval-kpi"><span class="approval-kpi__value" id="kpi-total">-</span><span class="approval-kpi__label" data-i18n="apv.kpi.total">Gesamt offen</span></div>
+      <div class="approval-kpi"><span class="approval-kpi__value" id="kpi-approvals" style="color:var(--ds-warning)">-</span><span class="approval-kpi__label" data-i18n="apv.kpi.approvals">Freigaben</span></div>
+      <div class="approval-kpi"><span class="approval-kpi__value" id="kpi-submissions" style="color:var(--ds-brand)">-</span><span class="approval-kpi__label" data-i18n="apv.kpi.submissions">Einreichungen</span></div>
+      <div class="approval-kpi"><span class="approval-kpi__value" id="kpi-requests" style="color:var(--ds-accent)">-</span><span class="approval-kpi__label" data-i18n="apv.kpi.requests">Anfragen</span></div>
+      <div class="approval-kpi"><span class="approval-kpi__value" id="kpi-assignments" style="color:var(--ds-success)">-</span><span class="approval-kpi__label" data-i18n="apv.kpi.assignments">Eins&auml;tze</span></div>
     </div>
 
-    <!-- Filters -->
+    <!-- Filters — data-filter-Werte bleiben unveraendert (Client-Filter auf Server-Typen). -->
     <div class="approval-filters" id="filters">
-      <button class="approval-filter-pill approval-filter-pill--active" data-filter="all">Alle</button>
-      <button class="approval-filter-pill" data-filter="approval_request">Freigaben</button>
-      <button class="approval-filter-pill" data-filter="submission">Einreichungen</button>
-      <button class="approval-filter-pill" data-filter="request">Anfragen</button>
-      <button class="approval-filter-pill" data-filter="assignment_confirmation">Eins&auml;tze</button>
+      <button class="approval-filter-pill approval-filter-pill--active" data-filter="all" data-i18n="apv.filter.all">Alle</button>
+      <button class="approval-filter-pill" data-filter="approval_request" data-i18n="apv.filter.approvals">Freigaben</button>
+      <button class="approval-filter-pill" data-filter="submission" data-i18n="apv.filter.submissions">Einreichungen</button>
+      <button class="approval-filter-pill" data-filter="request" data-i18n="apv.filter.requests">Anfragen</button>
+      <button class="approval-filter-pill" data-filter="assignment_confirmation" data-i18n="apv.filter.assignments">Eins&auml;tze</button>
     </div>
 
     <!-- Items list -->
     <div id="items-list" style="display:flex;flex-direction:column;gap:8px">
       <div class="empty" style="padding:48px 24px;text-align:center">
-        <div style="font-size:13px;color:var(--ds-text-secondary)">Lade offene Freigaben&hellip;</div>
+        <div style="font-size:13px;color:var(--ds-text-secondary)" data-i18n="apv.list.loading">Lade offene Freigaben&hellip;</div>
       </div>
     </div>
   </div>
@@ -52,14 +52,16 @@
   <!-- Decision Modal -->
   <div class="modal" id="decision-modal">
     <div class="panel" style="max-width:440px">
+      <!-- Kein data-i18n auf #modal-title/#modal-desc: beide werden je Aktion
+           bzw. mit Laufzeitwerten aus dem JS gesetzt (dort ueber t()). -->
       <h2 id="modal-title" style="font-size:16px;margin:0 0 12px">Entscheidung</h2>
       <p id="modal-desc" style="font-size:13px;color:var(--ds-text-secondary);margin:0 0 14px"></p>
-      <label style="font-size:12px;color:var(--ds-text-secondary);font-weight:700">Begr&uuml;ndung (optional)</label>
-      <textarea id="modal-reason" class="approval-reason" placeholder="Optionale Begr&uuml;ndung&hellip;"></textarea>
+      <label style="font-size:12px;color:var(--ds-text-secondary);font-weight:700" data-i18n="apv.modal.reasonLabel">Begr&uuml;ndung (optional)</label>
+      <textarea id="modal-reason" class="approval-reason" placeholder="Optionale Begr&uuml;ndung&hellip;" data-i18n-ph="apv.modal.reasonPh"></textarea>
       <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:12px">
-        <button class="ds-btn ds-btn--sm" id="modal-cancel">Abbrechen</button>
-        <button class="approval-btn approval-btn--reject ds-btn--sm" id="modal-reject" style="display:none">Ablehnen</button>
-        <button class="approval-btn approval-btn--approve ds-btn--sm" id="modal-approve" style="display:none">Freigeben</button>
+        <button class="ds-btn ds-btn--sm" id="modal-cancel" data-i18n="apv.modal.cancel">Abbrechen</button>
+        <button class="approval-btn approval-btn--reject ds-btn--sm" id="modal-reject" style="display:none" data-i18n="apv.modal.reject">Ablehnen</button>
+        <button class="approval-btn approval-btn--approve ds-btn--sm" id="modal-approve" style="display:none" data-i18n="apv.modal.approve">Freigeben</button>
       </div>
     </div>
   </div>
@@ -67,9 +69,10 @@
   <!-- History / Audit Drawer -->
   <div class="modal" id="history-modal">
     <div class="panel" style="max-width:520px;max-height:80vh;overflow-y:auto">
-      <h2 style="font-size:16px;margin:0 0 14px">Freigabe-Historie</h2>
+      <h2 style="font-size:16px;margin:0 0 14px" data-i18n="apv.history.title">Freigabe-Historie</h2>
+      <!-- Kein data-i18n auf #history-list: loadHistory() ersetzt den Inhalt (ueber t()). -->
       <div id="history-list" style="font-size:13px;color:var(--ds-text-secondary)">Lade&hellip;</div>
-      <div style="text-align:right;margin-top:14px"><button class="ds-btn ds-btn--sm" id="history-close">Schlie&szlig;en</button></div>
+      <div style="text-align:right;margin-top:14px"><button class="ds-btn ds-btn--sm" id="history-close" data-i18n="apv.history.close">Schlie&szlig;en</button></div>
     </div>
   </div>
 
@@ -79,21 +82,143 @@
   <script src="/public/js/pageShell.js"></script>
   <script src="/public/js/footer.js"></script>
   <script>
+  /* Woerterbuch (P6.1, DE/EN) fuer approvals.html — Namensraum apv.*
+
+     Bewusst NICHT hier uebersetzt:
+     - Topbar/Navigation/Nutzerbereich und der Sprach-Umschalter (pageShell.js)
+     - item.status_label / item.sla_status / h.status: Server-Werte bzw. rohe
+       Status-Enums. Sie tragen zugleich die Badge-Klasse — eine Uebersetzung
+       waere eine Schattenwahrheit neben der API.
+     - data-filter-Werte (approval_request, submission, ...): Typwerte der API.
+
+     Drei-Seiten-Regel: die Seite fuehrt keinen rollenabhaengigen Begriff aus
+     terminologyLabels.js (Freigabe/Einreichung/Anfrage/Einsatz heissen fuer
+     Unternehmen wie fuer Personaldienstleister gleich) — deshalb kein
+     TC.terminology-Block noetig.                                             */
+  (function() {
+    if (!window.TCi18n) return;
+    TCi18n.register('de', {
+      'apv.docTitle': 'Offene Freigaben – TempConnect',
+      'apv.page.title': 'Offene Freigaben',
+      'apv.page.subtitle': 'Alle Vorgänge, die auf Ihre Entscheidung warten – Freigaben, Einreichungen, Anfragen und Einsatzbestätigungen.',
+      'apv.action.refresh': 'Aktualisieren',
+      'apv.action.refreshTitle': 'Aktualisieren',
+
+      'apv.kpi.total': 'Gesamt offen',
+      'apv.kpi.approvals': 'Freigaben',
+      'apv.kpi.submissions': 'Einreichungen',
+      'apv.kpi.requests': 'Anfragen',
+      'apv.kpi.assignments': 'Einsätze',
+
+      'apv.filter.all': 'Alle',
+      'apv.filter.approvals': 'Freigaben',
+      'apv.filter.submissions': 'Einreichungen',
+      'apv.filter.requests': 'Anfragen',
+      'apv.filter.assignments': 'Einsätze',
+
+      'apv.list.loading': 'Lade offene Freigaben…',
+      'apv.empty.category': 'Keine Einträge in dieser Kategorie.',
+      'apv.empty.all': 'Keine offenen Freigaben — alles erledigt!',
+
+      'apv.item.approveTitle': 'Freigeben',
+      'apv.item.rejectTitle': 'Ablehnen',
+      'apv.item.open': 'öffnen',
+      'apv.item.history': 'Historie',
+      'apv.item.historyTitle': 'Historie',
+      'apv.item.hours': '{hours} Std.',
+
+      'apv.time.now': 'gerade eben',
+      'apv.time.minutes': '{n} Min.',
+      'apv.time.hours': '{n} Std.',
+      'apv.time.days': '{n} Tg.',
+
+      'apv.modal.approve': 'Freigeben',
+      'apv.modal.reject': 'Ablehnen',
+      'apv.modal.cancel': 'Abbrechen',
+      'apv.modal.reasonLabel': 'Begründung (optional)',
+      'apv.modal.reasonPh': 'Optionale Begründung…',
+
+      'apv.history.title': 'Freigabe-Historie',
+      'apv.history.close': 'Schließen',
+      'apv.history.loading': 'Lade…',
+      'apv.history.empty': 'Keine Historie vorhanden.',
+      'apv.history.error': 'Fehler beim Laden der Historie.',
+
+      'apv.error.load': 'Fehler beim Laden: {msg}',
+      'apv.error.status': 'Fehler: {code}',
+      'apv.error.action': 'Aktion fehlgeschlagen: {msg}'
+    });
+    TCi18n.register('en', {
+      'apv.docTitle': 'Open approvals – TempConnect',
+      'apv.page.title': 'Open approvals',
+      'apv.page.subtitle': 'Everything waiting for your decision – approvals, submissions, requests and assignment confirmations.',
+      'apv.action.refresh': 'Refresh',
+      'apv.action.refreshTitle': 'Refresh',
+
+      'apv.kpi.total': 'Open in total',
+      'apv.kpi.approvals': 'Approvals',
+      'apv.kpi.submissions': 'Submissions',
+      'apv.kpi.requests': 'Requests',
+      'apv.kpi.assignments': 'Assignments',
+
+      'apv.filter.all': 'All',
+      'apv.filter.approvals': 'Approvals',
+      'apv.filter.submissions': 'Submissions',
+      'apv.filter.requests': 'Requests',
+      'apv.filter.assignments': 'Assignments',
+
+      'apv.list.loading': 'Loading open approvals…',
+      'apv.empty.category': 'No entries in this category.',
+      'apv.empty.all': 'No open approvals — everything is done!',
+
+      'apv.item.approveTitle': 'Approve',
+      'apv.item.rejectTitle': 'Reject',
+      'apv.item.open': 'open',
+      'apv.item.history': 'History',
+      'apv.item.historyTitle': 'History',
+      'apv.item.hours': '{hours} hrs',
+
+      'apv.time.now': 'just now',
+      'apv.time.minutes': '{n} min',
+      'apv.time.hours': '{n} h',
+      'apv.time.days': '{n} d',
+
+      'apv.modal.approve': 'Approve',
+      'apv.modal.reject': 'Reject',
+      'apv.modal.cancel': 'Cancel',
+      'apv.modal.reasonLabel': 'Reason (optional)',
+      'apv.modal.reasonPh': 'Optional reason…',
+
+      'apv.history.title': 'Approval history',
+      'apv.history.close': 'Close',
+      'apv.history.loading': 'Loading…',
+      'apv.history.empty': 'No history available.',
+      'apv.history.error': 'The history could not be loaded.',
+
+      'apv.error.load': 'Could not load: {msg}',
+      'apv.error.status': 'Error: {code}',
+      'apv.error.action': 'Action failed: {msg}'
+    });
+  })();
+
   (function() {
     "use strict";
 
     var _csrf = null;
     var _items = [];
     var _filter = "all";
+    var _loaded = false;
 
     /* ── Helpers ──────────────────────────────────────────── */
+    function t(key, params) { return (window.TCi18n ? TCi18n.t(key, params) : "") || ""; }
+    function dateLocale() { return window.TCi18n ? TCi18n.dateLocale() : "de-DE"; }
     function esc(s) { var d = document.createElement("div"); d.textContent = s; return d.innerHTML; }
     function relTime(iso) {
       var s = (Date.now() - new Date(iso).getTime()) / 1000;
-      if (s < 60) return "gerade eben";
-      if (s < 3600) return Math.floor(s / 60) + " Min.";
-      if (s < 86400) return Math.floor(s / 3600) + " Std.";
-      return Math.floor(s / 86400) + " Tg.";
+      if (s < 60) return t("apv.time.now");
+      if (s < 3600) return t("apv.time.minutes", { n: Math.floor(s / 60) });
+      if (s < 86400) return t("apv.time.hours", { n: Math.floor(s / 3600) });
+      return t("apv.time.days", { n: Math.floor(s / 86400) });
     }
     function getCsrf() {
       if (_csrf) return Promise.resolve(_csrf);
@@ -124,7 +249,7 @@
       var filtered = _filter === "all" ? _items : _items.filter(function(i) { return i.type === _filter; });
 
       if (!filtered.length) {
-        var msg = _items.length ? "Keine Eintr\u00e4ge in dieser Kategorie." : "Keine offenen Freigaben \u2014 alles erledigt!";
+        var msg = _items.length ? t("apv.empty.category") : t("apv.empty.all");
         list.innerHTML =
           '<div style="padding:48px 24px;text-align:center">' +
             '<div style="font-size:36px;margin-bottom:12px;opacity:.5">&#10003;</div>' +
@@ -140,14 +265,14 @@
         var actions = '';
         if (item.type === "approval_request" && item.can_decide) {
           actions =
-            '<button class="approval-btn approval-btn--approve" data-action="approve" data-id="' + esc(item.id) + '" title="Freigeben">&#10003;</button>' +
-            '<button class="approval-btn approval-btn--reject" data-action="reject" data-id="' + esc(item.id) + '" title="Ablehnen">&#10007;</button>';
+            '<button class="approval-btn approval-btn--approve" data-action="approve" data-id="' + esc(item.id) + '" title="' + esc(t("apv.item.approveTitle")) + '">&#10003;</button>' +
+            '<button class="approval-btn approval-btn--reject" data-action="reject" data-id="' + esc(item.id) + '" title="' + esc(t("apv.item.rejectTitle")) + '">&#10007;</button>';
         } else if (item.link_path) {
-          actions = '<a href="' + esc(item.link_path) + '" class="approval-btn approval-btn--review">&ouml;ffnen &rarr;</a>';
+          actions = '<a href="' + esc(item.link_path) + '" class="approval-btn approval-btn--review">' + esc(t("apv.item.open")) + ' &rarr;</a>';
         }
 
         var historyBtn = item.type === "approval_request"
-          ? ' <button class="approval-btn" data-history="' + esc(item.entity_type) + ':' + esc(item.entity_id) + '" style="padding:4px 8px;font-size:11px" title="Historie">Historie</button>'
+          ? ' <button class="approval-btn" data-history="' + esc(item.entity_type) + ':' + esc(item.entity_id) + '" style="padding:4px 8px;font-size:11px" title="' + esc(t("apv.item.historyTitle")) + '">' + esc(t("apv.item.history")) + '</button>'
           : '';
 
         return '<div class="approval-item" data-item-id="' + esc(item.id) + '">' +
@@ -158,7 +283,7 @@
               badge +
               '<span>' + esc(item.subtitle || '') + '</span>' +
               '<span>' + relTime(item.created_at) + '</span>' +
-              (item.total_hours ? '<span>' + item.total_hours + ' Std.</span>' : '') +
+              (item.total_hours ? '<span>' + esc(t("apv.item.hours", { hours: item.total_hours })) + '</span>' : '') +
               (item.sla_status && item.sla_status !== 'OK' ? '<span class="approval-badge approval-badge--rejected" style="font-size:10px">' + esc(item.sla_status) + '</span>' : '') +
             '</p>' +
           '</div>' +
@@ -176,6 +301,7 @@
         })
         .then(function(data) {
           if (!data) return;
+          _loaded = true;
           _items = data.items || [];
           updateKpis(data.summary || { total: 0, approval_requests: 0, submissions: 0, requests: 0, assignments: 0 });
           render();
@@ -183,7 +309,7 @@
         .catch(function(e) {
           document.getElementById("items-list").innerHTML =
             '<div class="empty" style="padding:24px;text-align:center;color:var(--ds-danger)">' +
-            'Fehler beim Laden: ' + esc(e.message) + '</div>';
+            esc(t("apv.error.load", { msg: e.message })) + '</div>';
         });
     }
 
@@ -209,7 +335,7 @@
         _pendingId = actionBtn.dataset.id;
         var modal = document.getElementById("decision-modal");
         var item = _items.find(function(i) { return i.id === _pendingId; });
-        document.getElementById("modal-title").textContent = _pendingAction === "approve" ? "Freigeben" : "Ablehnen";
+        document.getElementById("modal-title").textContent = _pendingAction === "approve" ? t("apv.modal.approve") : t("apv.modal.reject");
         document.getElementById("modal-desc").textContent = item ? item.title + " \u2014 " + item.subtitle : "";
         document.getElementById("modal-reason").value = "";
         document.getElementById("modal-approve").style.display = _pendingAction === "approve" ? "inline-flex" : "none";
@@ -240,7 +366,7 @@
           body: JSON.stringify({ reason: reason })
         });
       }).then(function(r) {
-        if (!r.ok) throw new Error("Fehler: " + r.status);
+        if (!r.ok) throw new Error(t("apv.error.status", { code: r.status }));
         document.getElementById("decision-modal").classList.remove("show");
         // Remove item from list
         _items = _items.filter(function(i) { return i.id !== _pendingId; });
@@ -256,7 +382,7 @@
         updateKpis(summary);
         render();
       }).catch(function(e) {
-        alert("Aktion fehlgeschlagen: " + e.message);
+        alert(t("apv.error.action", { msg: e.message }));
       });
     }
 
@@ -267,13 +393,13 @@
     function loadHistory(entityType, entityId) {
       var modal = document.getElementById("history-modal");
       var list = document.getElementById("history-list");
-      list.innerHTML = "Lade&hellip;";
+      list.textContent = t("apv.history.loading");
       modal.classList.add("show");
       fetch("/api/approvals/history/" + encodeURIComponent(entityType) + "/" + encodeURIComponent(entityId), { credentials: "include" })
         .then(function(r) { return r.ok ? r.json() : { items: [] }; })
         .then(function(data) {
           var items = data.items || [];
-          if (!items.length) { list.innerHTML = "Keine Historie vorhanden."; return; }
+          if (!items.length) { list.textContent = t("apv.history.empty"); return; }
           list.innerHTML = items.map(function(h) {
             var badge = h.status === "approved" ? "approved" : h.status === "rejected" ? "rejected" : h.status === "expired" ? "expired" : "pending";
             return '<div style="padding:8px 0;border-bottom:1px solid rgba(255,255,255,.06)">' +
@@ -283,11 +409,11 @@
               '<span style="font-size:12px">' + esc(h.requested_by_email || '') + '</span>' +
               (h.approved_by_email ? ' &rarr; <span style="font-size:12px">' + esc(h.approved_by_email) + '</span>' : '') +
               (h.reason ? '<div style="font-size:11px;color:var(--ds-text-tertiary);margin-top:2px">' + esc(h.reason) + '</div>' : '') +
-              '<div style="font-size:10px;color:var(--ds-text-tertiary)">' + new Date(h.created_at).toLocaleString("de-DE") + '</div>' +
+              '<div style="font-size:10px;color:var(--ds-text-tertiary)">' + esc(new Date(h.created_at).toLocaleString(dateLocale())) + '</div>' +
             '</div>';
           }).join("");
         })
-        .catch(function() { list.innerHTML = "Fehler beim Laden der Historie."; });
+        .catch(function() { list.textContent = t("apv.history.error"); });
     }
 
     document.getElementById("history-close").addEventListener("click", function() {
@@ -296,6 +422,19 @@
 
     /* ── Refresh ──────────────────────────────────────────── */
     document.getElementById("btn-refresh").addEventListener("click", load);
+
+    /* ── Sprachwechsel ────────────────────────────────────
+       Die per innerHTML gebaute Liste (Karten, Empty-State, Relativzeiten)
+       traegt die deklarative Hydration nicht — sie wird hier neu gezeichnet,
+       sonst bliebe die halbe Seite in der alten Sprache stehen. Ein offenes
+       Entscheidungs-Modal bekommt seinen Titel ebenfalls neu gesetzt. */
+    document.addEventListener("tc:langchange", function() {
+      if (_loaded) render();
+      if (_pendingAction) {
+        document.getElementById("modal-title").textContent =
+          _pendingAction === "approve" ? t("apv.modal.approve") : t("apv.modal.reject");
+      }
+    });
 
     /* ── Auto-Refresh (60s) ──────────────────────────────── */
     setInterval(load, 60000);

@@ -1,43 +1,195 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="de">
 <head>
   <meta charset="utf-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <script src="/public/js/theme.js"></script>
   <script src="/public/js/i18n.js"></script>
-  <title>Meine Anfragen – TempConnect</title>
+  <title data-i18n="cts.b.docTitle">Meine Anfragen – TempConnect</title>
   <link rel="stylesheet" href="/public/css/enterprise.css"/>
   <link rel="stylesheet" href="/public/css/approval-badges.css"/>
   <style>.item-row{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;padding:12px 0;border-bottom:1px solid var(--line);}.item-row:last-child{border-bottom:none;}</style>
 </head>
 <body data-sla-guard="sla_access">
   <div id="paywall" class="wrap" style="display:none">
-    <nav class="ds-topbar"><div class="ds-topbar__brand"><span class="ds-topbar__brand-dot"></span>TempConnect</div><div class="ds-topbar__nav"><a href="/" class="ds-btn">Startseite</a></div></nav>
+    <nav class="ds-topbar"><div class="ds-topbar__brand"><span class="ds-topbar__brand-dot"></span>TempConnect</div><div class="ds-topbar__nav"><a href="/" class="ds-btn" data-i18n="cts.b.paywall.home">Startseite</a></div></nav>
     <div class="paywall-box">
-      <h2>Bereich nicht verfügbar</h2>
-      <p>Das Feature &quot;<span id="paywall-feature-name">Pulse-Bereich</span>&quot; ist mit deinem aktuellen Plan nicht nutzbar.</p>
-      <p>Aktueller Plan: <span id="paywall-current-plan" class="paywall-plan">–</span></p>
-      <a id="paywall-cta" href="/public/sla_abo.html" class="btn primary">Abo ansehen</a>
+      <h2 data-i18n="cts.b.paywall.title">Bereich nicht verfügbar</h2>
+      <!-- Kein data-i18n auf dem ganzen Satz: slaGuard.js schreibt den Feature-Namen
+           zur Laufzeit in die Mitte. Ein Marker auf dem <p> wuerde den Namen beim
+           naechsten apply() wieder herausloeschen. -->
+      <p><span data-i18n="cts.b.paywall.featurePre">Das Feature &quot;</span><span id="paywall-feature-name">Pulse-Bereich</span><span data-i18n="cts.b.paywall.featurePost">&quot; ist mit deinem aktuellen Plan nicht nutzbar.</span></p>
+      <p><span data-i18n="cts.b.paywall.currentPlan">Aktueller Plan:</span> <span id="paywall-current-plan" class="paywall-plan">–</span></p>
+      <a id="paywall-cta" href="/public/sla_abo.html" class="btn primary" data-i18n="cts.b.paywall.cta">Abo ansehen</a>
     </div>
   </div>
   <div id="main-content" class="wrap">
     <div id="tc-shell"></div>
-    <h1>Meine Anfragen</h1>
-    <p style="color:var(--muted);margin:0 0 16px">Pulse-Timer und Compliance-Ampel pro Anfrage. Klicken Sie auf Details für Countdown, Gründe und Lieferanten-Bewertung.</p>
+    <h1 data-i18n="cts.b.page.title">Meine Anfragen</h1>
+    <p style="color:var(--muted);margin:0 0 16px" data-i18n="cts.b.page.subtitle">Pulse-Timer und Compliance-Ampel pro Anfrage. Klicken Sie auf Details für Countdown, Gründe und Lieferanten-Bewertung.</p>
     <div id="list"></div>
   </div>
   <script src="/public/js/planFeatures.js"></script>
   <script src="/public/js/slaGuard.js"></script>
   <script>
+    /* Woerterbuch (P6.1, DE/EN) fuer company_requests.html — zweiter Unter-
+       Namensraum der Gruppe (cts.b.*), damit nichts mit dem Stundenzettel-
+       Eingang (cts.*) kollidiert.
+
+       Drei-Seiten-Regel: Diese Seite ist NICHT einseitig. /api/my/requests/sent
+       haengt nur an requireAuth (api/routes/requests.js) — sowohl ein
+       Unternehmen als auch eine Zeitarbeitsfirma sieht hier ihre gesendeten
+       Anfragen. Der einzige rollenabhaengige Begriff (der Weg, auf dem man
+       eine Anfrage sendet) ist deshalb NICHT als ein fester Wert eingefroren,
+       sondern liegt in rollenspezifischen Schluesseln
+       (cts.b.empty.company.text / cts.b.empty.agency.text) und wird zur
+       Laufzeit aus dem Shell-Kontext (org_type) gewaehlt; ohne bekannten
+       org_type greift die neutrale Fassung.
+
+       Bewusst NICHT uebersetzt:
+       - Status-Rohwerte (SENT, ACCEPTED, …) und der Compliance-Rohwert
+         (GREEN/YELLOW/RED) — das sind Serverwerte, keine UI-Sprache
+       - API-Daten: Rollen-, Firmen- und Partnernamen
+       - Topbar/Navigation/Nutzerbereich (pageShell.js)                       */
+    TCi18n.register('de', {
+      'cts.b.docTitle': 'Meine Anfragen – TempConnect',
+      'cts.b.paywall.home': 'Startseite',
+      'cts.b.paywall.title': 'Bereich nicht verfügbar',
+      'cts.b.paywall.featurePre': 'Das Feature "',
+      'cts.b.paywall.featurePost': '" ist mit deinem aktuellen Plan nicht nutzbar.',
+      'cts.b.paywall.currentPlan': 'Aktueller Plan:',
+      'cts.b.paywall.cta': 'Abo ansehen',
+
+      'cts.b.page.title': 'Meine Anfragen',
+      'cts.b.page.subtitle': 'Pulse-Timer und Compliance-Ampel pro Anfrage. Klicken Sie auf Details für Countdown, Gründe und Lieferanten-Bewertung.',
+      'cts.b.action.details': 'Details (Pulse & Scorecard)',
+
+      'cts.b.status.SENT': 'Gesendet',
+      'cts.b.status.ACCEPTED': 'Angenommen',
+      'cts.b.status.DECLINED': 'Abgelehnt',
+      'cts.b.status.FILLED': 'Besetzt',
+      'cts.b.status.FINALIZED': 'Abgeschlossen',
+      'cts.b.status.CANCELED': 'Storniert',
+      'cts.b.status.CREATED': 'Erstellt',
+      'cts.b.status.OFFER_SENT': 'Angebot gesendet',
+      'cts.b.status.CONFIRMED': 'Bestätigt',
+      'cts.b.status.ASSIGNMENT_STARTED': 'Einsatz gestartet',
+      'cts.b.status.COMPLETED': 'Abgeschlossen',
+
+      'cts.b.sla.breached': 'Pulse überschritten',
+      'cts.b.sla.expired': 'Abgelaufen',
+      'cts.b.sla.minutes': '{min} min',
+
+      'cts.b.fallback.request': 'Anfrage',
+      'cts.b.fallback.partner': 'Partner',
+
+      'cts.b.empty.text': 'Noch keine Anfragen. Über die Vermittlung oder die Startseite können Sie Anfragen senden.',
+      'cts.b.empty.company.text': 'Noch keine Anfragen. Nutzen Sie "Personal finden" oder die Startseite, um Anfragen zu senden.',
+      'cts.b.empty.agency.text': 'Noch keine Anfragen. Nutzen Sie "Arbeitsplatz finden" oder die Startseite, um Anfragen zu senden.',
+      'cts.b.error.load': 'Die Anfragen konnten derzeit nicht geladen werden. Bitte laden Sie die Seite erneut.'
+    });
+    TCi18n.register('en', {
+      'cts.b.docTitle': 'My requests – TempConnect',
+      'cts.b.paywall.home': 'Home',
+      'cts.b.paywall.title': 'Area not available',
+      'cts.b.paywall.featurePre': 'The feature "',
+      'cts.b.paywall.featurePost': '" is not included in your current plan.',
+      'cts.b.paywall.currentPlan': 'Current plan:',
+      'cts.b.paywall.cta': 'View plans',
+
+      'cts.b.page.title': 'My requests',
+      'cts.b.page.subtitle': 'Pulse timer and compliance signal per request. Open the details for the countdown, reasons and the supplier scorecard.',
+      'cts.b.action.details': 'Details (pulse & scorecard)',
+
+      'cts.b.status.SENT': 'Sent',
+      'cts.b.status.ACCEPTED': 'Accepted',
+      'cts.b.status.DECLINED': 'Declined',
+      'cts.b.status.FILLED': 'Filled',
+      'cts.b.status.FINALIZED': 'Completed',
+      'cts.b.status.CANCELED': 'Cancelled',
+      'cts.b.status.CREATED': 'Created',
+      'cts.b.status.OFFER_SENT': 'Offer sent',
+      'cts.b.status.CONFIRMED': 'Confirmed',
+      'cts.b.status.ASSIGNMENT_STARTED': 'Assignment started',
+      'cts.b.status.COMPLETED': 'Completed',
+
+      'cts.b.sla.breached': 'Pulse exceeded',
+      'cts.b.sla.expired': 'Expired',
+      'cts.b.sla.minutes': '{min} min',
+
+      'cts.b.fallback.request': 'Request',
+      'cts.b.fallback.partner': 'Partner',
+
+      'cts.b.empty.text': 'No requests yet. You can send requests from Matching or from the start page.',
+      'cts.b.empty.company.text': 'No requests yet. Use "Find staff" or the start page to send requests.',
+      'cts.b.empty.agency.text': 'No requests yet. Use "Find placements" or the start page to send requests.',
+      'cts.b.error.load': 'The requests could not be loaded right now. Please reload the page.'
+    });
+
     var API="/api";
-    var STATUS_MAP={SENT:{badge:"pending",label:"Gesendet"},ACCEPTED:{badge:"approved",label:"Angenommen"},DECLINED:{badge:"rejected",label:"Abgelehnt"},FILLED:{badge:"completed",label:"Besetzt"},FINALIZED:{badge:"completed",label:"Abgeschlossen"},CANCELED:{badge:"expired",label:"Storniert"},CREATED:{badge:"pending",label:"Erstellt"},OFFER_SENT:{badge:"in-review",label:"Angebot gesendet"},CONFIRMED:{badge:"approved",label:"Best\u00e4tigt"},ASSIGNMENT_STARTED:{badge:"in-review",label:"Einsatz gestartet"},COMPLETED:{badge:"completed",label:"Abgeschlossen"}};
+    function t(key, params){ return TCi18n.t(key, params); }
+
+    /* Rohwert -> Badge-Optik. Das Label kommt zur Laufzeit aus dem Woerterbuch
+       (cts.b.status.<ROHWERT>), damit ein Sprachwechsel es mitnimmt. */
+    var STATUS_BADGE={SENT:"pending",ACCEPTED:"approved",DECLINED:"rejected",FILLED:"completed",FINALIZED:"completed",CANCELED:"expired",CREATED:"pending",OFFER_SENT:"in-review",CONFIRMED:"approved",ASSIGNMENT_STARTED:"in-review",COMPLETED:"completed"};
     function esc(s){if(!s)return "";return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;").replace(/'/g,"&#39;");}
     function api(path){return fetch(API+path,{credentials:"include"});}
     function checkAuth(r){if(r.status===401){window.location.href="/";return false;}return true;}
-    function slaBadge(respondBy,status){if(status==="BREACHED")return '<span class="approval-badge approval-badge--rejected"><span class="approval-badge__dot"></span>Pulse \u00fcberschritten</span>';if(!respondBy)return '';var min=Math.floor((new Date(respondBy).getTime()-Date.now())/60000);if(min<=0)return '<span class="approval-badge approval-badge--rejected"><span class="approval-badge__dot"></span>Abgelaufen</span>';if(min<=15)return '<span class="approval-badge approval-badge--correction"><span class="approval-badge__dot"></span>'+min+' min</span>';return '<span class="approval-badge approval-badge--approved"><span class="approval-badge__dot"></span>'+min+' min</span>';}
-    function compBadge(s){if(!s)return "";var c=(s+"").toUpperCase(),cls=c==="GREEN"?"approved":c==="YELLOW"?"correction":"rejected";return '<span class="approval-badge approval-badge--'+cls+'"><span class="approval-badge__dot"></span>'+esc(s)+'</span>';}
-    function reqStatusBadge(s){var m=STATUS_MAP[s]||{badge:"pending",label:s||"?"};return '<span class="approval-badge approval-badge--'+m.badge+'"><span class="approval-badge__dot"></span>'+esc(m.label)+'</span>';}
-    api("/my/requests/sent").then(function(r){if(!checkAuth(r))return;return r.ok?r.json():null;}).then(function(data){var list=document.getElementById("list");if(!data||!data.length){list.innerHTML="<div class=\"empty\">Noch keine Anfragen. Nutzen Sie die Personalsuche oder die Startseite, um Anfragen zu senden.</div>";return;}var html="";data.forEach(function(r){var role=esc(r.role||r.capacity_role||r.listing_category||"Anfrage");var partner=esc(r.receiver_company||r.receiver_email||"Partner");html+='<div class="card"><div class="item-row"><div>'+compBadge(r.compliance_status)+' '+slaBadge(r.sla_respond_by,r.sla_status)+' <strong>'+role+'</strong> &bull; '+partner+' '+reqStatusBadge(r.status)+'</div><a href="/public/request_detail.html?id='+encodeURIComponent(r.id)+'" class="btn primary">Details (Pulse &amp; Scorecard)</a></div></div>';});list.innerHTML=html;});
+    function badgeHtml(cls,label){return '<span class="approval-badge approval-badge--'+cls+'"><span class="approval-badge__dot"></span>'+esc(label)+'</span>';}
+    function slaBadge(respondBy,status){
+      if(status==="BREACHED")return badgeHtml("rejected",t("cts.b.sla.breached"));
+      if(!respondBy)return '';
+      var min=Math.floor((new Date(respondBy).getTime()-Date.now())/60000);
+      if(min<=0)return badgeHtml("rejected",t("cts.b.sla.expired"));
+      return badgeHtml(min<=15?"correction":"approved",t("cts.b.sla.minutes",{min:min}));
+    }
+    /* Compliance-Rohwert (GREEN/YELLOW/RED) bleibt unuebersetzt: das ist ein
+       Serverwert und wird in der Detailansicht genau so wieder auftauchen. */
+    function compBadge(s){if(!s)return "";var c=(s+"").toUpperCase(),cls=c==="GREEN"?"approved":c==="YELLOW"?"correction":"rejected";return badgeHtml(cls,s);}
+    function reqStatusBadge(s){return badgeHtml(STATUS_BADGE[s]||"pending", t("cts.b.status."+s)||s||"?");}
+
+    /* Rollenrichtiger Leerzustand: der Weg, auf dem man eine Anfrage sendet,
+       heisst je Seite anders. Ohne bekannten org_type bleibt es neutral. */
+    var _orgType=null;
+    var _data=null;
+    var _error=false;
+    function emptyText(){
+      var byRole=(_orgType==="company"||_orgType==="agency")?t("cts.b.empty."+_orgType+".text"):"";
+      return byRole||t("cts.b.empty.text");
+    }
+
+    function render(){
+      var list=document.getElementById("list");
+      if(!list)return;
+      /* Fehler ist NICHT dasselbe wie "noch keine Anfragen" — sonst liest ein
+         Serverfehler sich wie ein leerer Posteingang. */
+      if(_error){list.innerHTML='<div class="empty">'+esc(t("cts.b.error.load"))+'</div>';return;}
+      if(_data===null)return;
+      if(!_data.length){list.innerHTML='<div class="empty">'+esc(emptyText())+'</div>';return;}
+      var html="";
+      _data.forEach(function(r){
+        var role=esc(r.role||r.capacity_role||r.listing_category||t("cts.b.fallback.request"));
+        var partner=esc(r.receiver_company||r.receiver_email||t("cts.b.fallback.partner"));
+        html+='<div class="card"><div class="item-row"><div>'+compBadge(r.compliance_status)+' '+slaBadge(r.sla_respond_by,r.sla_status)+' <strong>'+role+'</strong> &bull; '+partner+' '+reqStatusBadge(r.status)+'</div><a href="/public/request_detail.html?id='+encodeURIComponent(r.id)+'" class="btn primary">'+esc(t("cts.b.action.details"))+'</a></div></div>';
+      });
+      list.innerHTML=html;
+    }
+
+    api("/my/requests/sent")
+      .then(function(r){if(!checkAuth(r))return null;if(!r.ok){_error=true;return null;}return r.json();})
+      .then(function(data){if(!_error)_data=Array.isArray(data)?data:[];render();})
+      .catch(function(){_error=true;render();});
+
+    /* Die Karten baut JS ohne data-i18n-Marker (sie tragen Laufzeitwerte, ein
+       Marker wuerde sie beim naechsten apply() entkernen). Deshalb zeichnen wir
+       sie bei Sprachwechsel — und sobald die Rolle bekannt ist — aus dem
+       Zwischenspeicher neu, ohne zusaetzlichen Netzabruf. */
+    document.addEventListener("tc:shell-context",function(e){
+      var me=e&&e.detail&&e.detail.me;
+      _orgType=me?(String(me.org_type||"").trim().toLowerCase()||null):null;
+      render();
+    });
+    document.addEventListener("tc:langchange",render);
   </script>
   <script src="/public/js/pageShell.js"></script>
   <div id="tc-footer" data-tc-footer></div>

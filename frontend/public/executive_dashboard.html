@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <script src="/public/js/theme.js"></script>
   <script src="/public/js/i18n.js"></script>
-  <title>Steuerung & Analytik – TempConnect</title>
+  <title data-i18n="exe.docTitle">Steuerung &amp; Analytik – TempConnect</title>
   <link rel="stylesheet" href="/public/css/enterprise.css"/>
   <link rel="stylesheet" href="/public/css/pages/executive-dashboard.css"/>
 </head>
@@ -15,27 +15,27 @@
 
     <div class="ds-page-header">
       <div class="ds-page-header__content">
-        <h1 class="ds-page-title">Steuerung &amp; Analytik</h1>
-        <p class="ds-page-subtitle">Lieferantenleistung, Besetzungsdruck, Spend, Qualit&auml;t und Plattformzustand als nachgelagerte Managementsicht im Blick.</p>
+        <h1 class="ds-page-title" data-i18n="exe.page.title">Steuerung &amp; Analytik</h1>
+        <p class="ds-page-subtitle" data-i18n="exe.page.subtitle">Lieferantenleistung, Besetzungsdruck, Spend, Qualit&auml;t und Plattformzustand als nachgelagerte Managementsicht im Blick.</p>
       </div>
       <div class="ds-page-header__actions">
         <div style="display:flex;gap:8px;align-items:center">
-          <input id="quickSearch" type="text" placeholder="Schnellsuche&hellip;" style="width:200px;margin:0" onkeydown="if(event.key==='Enter')runQuickSearch()"/>
-          <button class="btn" data-feature-key="enterprise_analytics" onclick="runQuickSearch()">Suchen</button>
-          <button class="btn primary" data-feature-key="enterprise_analytics" onclick="loadDashboard()">Aktualisieren</button>
+          <input id="quickSearch" type="text" placeholder="Schnellsuche&hellip;" data-i18n-ph="exe.search.ph" style="width:200px;margin:0" onkeydown="if(event.key==='Enter')runQuickSearch()"/>
+          <button class="btn" data-feature-key="enterprise_analytics" data-i18n="exe.search.btn" onclick="runQuickSearch()">Suchen</button>
+          <button class="btn primary" data-feature-key="enterprise_analytics" data-i18n="exe.refresh" onclick="loadDashboard()">Aktualisieren</button>
         </div>
       </div>
     </div>
 
     <div class="tc-priority-banner tc-priority-banner--supporting">
       <div class="tc-priority-banner__main">
-        <div class="tc-priority-banner__eyebrow">Steuerungsschicht</div>
-        <div class="tc-priority-banner__title">Diese Sicht aggregiert den Pilotbetrieb &mdash; sie ersetzt nicht den operativen Einstieg</div>
-        <p class="tc-priority-banner__text">Executive-KPIs, Spend und Lieferantenleistung helfen bei Priorisierung und Vertrieb, muessen aber dem operativen Kern folgen. Erst wenn Arbeitsplatzangebote, Deals und Zeiten sauber laufen, haben diese Kennzahlen die richtige Wirkung.</p>
+        <div class="tc-priority-banner__eyebrow" data-i18n="exe.banner.eyebrow">Steuerungsschicht</div>
+        <div class="tc-priority-banner__title" data-i18n="exe.banner.title">Diese Sicht aggregiert den Pilotbetrieb &mdash; sie ersetzt nicht den operativen Einstieg</div>
+        <p class="tc-priority-banner__text" data-i18n="exe.banner.text">Executive-KPIs, Spend und Lieferantenleistung helfen bei Priorisierung und Vertrieb, muessen aber dem operativen Kern folgen. Erst wenn Arbeitsplatzangebote, Deals und Zeiten sauber laufen, haben diese Kennzahlen die richtige Wirkung.</p>
       </div>
       <div class="tc-priority-banner__aside">
-        <div class="tc-priority-banner__aside-title">Bewusst nachgelagert</div>
-        <div class="tc-priority-banner__aside-text">Nutzen Sie diese Seite fuer Managemententscheidungen, nicht als Ersatz fuer Arbeitsplatzangebots-, Deal- oder Einsatzarbeit.</div>
+        <div class="tc-priority-banner__aside-title" data-i18n="exe.banner.asideTitle">Bewusst nachgelagert</div>
+        <div class="tc-priority-banner__aside-text" data-i18n="exe.banner.asideText">Nutzen Sie diese Seite fuer Managemententscheidungen, nicht als Ersatz fuer Arbeitsplatzangebots-, Deal- oder Einsatzarbeit.</div>
       </div>
     </div>
     <div id="executiveState" class="page-state"></div>
@@ -44,13 +44,13 @@
     <div id="onboarding-checklist" class="tc-onboarding">
       <div class="tc-onboarding__box">
         <div class="tc-onboarding__header" onclick="toggleOnboarding()">
-          <span class="tc-onboarding__label">Plattform einrichten</span>
+          <span class="tc-onboarding__label" data-i18n="exe.onb.label">Plattform einrichten</span>
           <span id="onboarding-subtitle" class="tc-onboarding__subtitle"></span>
           <div class="tc-onboarding__progress">
             <div id="onboarding-progress-bar" class="tc-onboarding__progress-bar"></div>
           </div>
-          <button id="onboarding-toggle-btn" type="button" class="tc-onboarding__toggle" title="Auf-/Zuklappen" onclick="event.stopPropagation();toggleOnboarding()">&#9660;</button>
-          <button id="onboarding-dismiss-btn" type="button" class="tc-onboarding__dismiss" title="Ausblenden" onclick="event.stopPropagation();dismissOnboarding()">&times;</button>
+          <button id="onboarding-toggle-btn" type="button" class="tc-onboarding__toggle" title="Auf-/Zuklappen" data-i18n-title="exe.onb.toggle" onclick="event.stopPropagation();toggleOnboarding()">&#9660;</button>
+          <button id="onboarding-dismiss-btn" type="button" class="tc-onboarding__dismiss" title="Ausblenden" data-i18n-title="exe.action.hide" onclick="event.stopPropagation();dismissOnboarding()">&times;</button>
         </div>
         <div id="onboarding-body" class="tc-onboarding__body">
           <div class="tc-onboarding__steps">
@@ -65,56 +65,56 @@
       <div class="ds-hub-grid">
         <div class="ds-hub-card ds-hub-card--current ds-hub-card--brand" aria-current="page">
           <div class="ds-hub-card__content">
-            <div class="ds-hub-card__title">Steuerung &amp; Analytik</div>
-            <p class="ds-hub-card__desc">Sie befinden sich im Management- und Steuerungsbereich.</p>
+            <div class="ds-hub-card__title" data-i18n="exe.hub.current.title">Steuerung &amp; Analytik</div>
+            <p class="ds-hub-card__desc" data-i18n="exe.hub.current.desc">Sie befinden sich im Management- und Steuerungsbereich.</p>
           </div>
         </div>
         <a href="#kpiGrid" class="ds-hub-card" onclick="document.getElementById('kpiGrid').scrollIntoView({behavior:'smooth'});return false;">
           <div class="ds-hub-card__content">
-            <div class="ds-hub-card__title">Management-KPIs</div>
-            <p class="ds-hub-card__desc">KPIs, SLA-Compliance und Plattform-&Uuml;bersicht.</p>
+            <div class="ds-hub-card__title" data-i18n="exe.hub.kpi.title">Management-KPIs</div>
+            <p class="ds-hub-card__desc" data-i18n="exe.hub.kpi.desc">KPIs, SLA-Compliance und Plattform-&Uuml;bersicht.</p>
           </div>
         </a>
         <a href="/public/vendor_pool.html" class="ds-hub-card" data-feature-key="supplier_management">
           <div class="ds-hub-card__content">
-            <div class="ds-hub-card__title">Lieferantenpool</div>
-            <p class="ds-hub-card__desc">Lieferantenpool verwalten und für Arbeitsplatzangebote qualifizieren.</p>
+            <div class="ds-hub-card__title" data-i18n="exe.hub.vendor.title">Lieferantenpool</div>
+            <p class="ds-hub-card__desc" data-i18n="exe.hub.vendor.desc">Lieferantenpool verwalten und für Arbeitsplatzangebote qualifizieren.</p>
           </div>
         </a>
         <a href="/public/supplier_scorecard.html" class="ds-hub-card" data-feature-key="supplier_ratings">
           <div class="ds-hub-card__content">
-            <div class="ds-hub-card__title">Lieferanten-Bewertung</div>
-            <p class="ds-hub-card__desc">Scorecard, Performance und Qualit&auml;tskennzahlen.</p>
+            <div class="ds-hub-card__title" data-i18n="exe.hub.scorecard.title">Lieferanten-Bewertung</div>
+            <p class="ds-hub-card__desc" data-i18n="exe.hub.scorecard.desc">Scorecard, Performance und Qualit&auml;tskennzahlen.</p>
           </div>
         </a>
         <a id="executiveRateCardHubLink" href="/public/rate-cards.html" class="ds-hub-card ds-hub-card--accent" data-feature-key="rate_card_management">
           <div class="ds-hub-card__content">
-            <div class="ds-hub-card__title">Preisrahmen</div>
-            <p class="ds-hub-card__desc">Stundensatz-Tabellen und Preisvereinbarungen.</p>
+            <div class="ds-hub-card__title" data-i18n="exe.hub.rates.title">Preisrahmen</div>
+            <p class="ds-hub-card__desc" data-i18n="exe.hub.rates.desc">Stundensatz-Tabellen und Preisvereinbarungen.</p>
           </div>
         </a>
         <a href="/public/spend-analytics.html" class="ds-hub-card" data-feature-key="spend_analytics">
           <div class="ds-hub-card__content">
-            <div class="ds-hub-card__title">Spend &amp; Kosten</div>
-            <p class="ds-hub-card__desc">Ausgabenanalyse, Budgets und Kostentrends.</p>
+            <div class="ds-hub-card__title" data-i18n="exe.hub.spend.title">Spend &amp; Kosten</div>
+            <p class="ds-hub-card__desc" data-i18n="exe.hub.spend.desc">Ausgabenanalyse, Budgets und Kostentrends.</p>
           </div>
         </a>
         <a href="/public/system-health.html" class="ds-hub-card ds-hub-card--success">
           <div class="ds-hub-card__content">
-            <div class="ds-hub-card__title">System &amp; Plattform Health</div>
-            <p class="ds-hub-card__desc">System-Status, Verf&uuml;gbarkeit, Plattform-Metriken und Infrastruktur.</p>
+            <div class="ds-hub-card__title" data-i18n="exe.hub.health.title">System &amp; Plattform Health</div>
+            <p class="ds-hub-card__desc" data-i18n="exe.hub.health.desc">System-Status, Verf&uuml;gbarkeit, Plattform-Metriken und Infrastruktur.</p>
           </div>
         </a>
         <a href="/public/requisitions.html" class="ds-hub-card">
           <div class="ds-hub-card__content">
-            <div class="ds-hub-card__title">Arbeitsplatzangebote</div>
-            <p class="ds-hub-card__desc">Personalanforderungen und Angebotserfassung.</p>
+            <div class="ds-hub-card__title" data-i18n="exe.hub.req.title">Arbeitsplatzangebote</div>
+            <p class="ds-hub-card__desc" data-i18n="exe.hub.req.desc">Personalanforderungen und Angebotserfassung.</p>
           </div>
         </a>
         <a href="/public/compliance_overview.html" class="ds-hub-card ds-hub-card--warning" data-feature-key="data_governance">
           <div class="ds-hub-card__content">
-            <div class="ds-hub-card__title">Compliance</div>
-            <p class="ds-hub-card__desc">Regelkonformit&auml;t, Audits und Dokumentenstatus.</p>
+            <div class="ds-hub-card__title" data-i18n="exe.hub.compliance.title">Compliance</div>
+            <p class="ds-hub-card__desc" data-i18n="exe.hub.compliance.desc">Regelkonformit&auml;t, Audits und Dokumentenstatus.</p>
           </div>
         </a>
       </div>
@@ -122,8 +122,8 @@
 
     <div class="dash-filter-row">
       <div class="ds-filter-item">
-        <label style="margin:0">Organisation</label>
-        <select id="orgFilter" style="width:220px;margin:0"><option value="">Alle Organisationen</option></select>
+        <label style="margin:0" data-i18n="exe.filter.org">Organisation</label>
+        <select id="orgFilter" style="width:220px;margin:0"><option value="" data-i18n="exe.filter.allOrgs">Alle Organisationen</option></select>
       </div>
     </div>
 
@@ -131,13 +131,16 @@
     <div id="onboardingBanner" class="dash-onboarding-banner" style="display:none">
       <div class="dash-onboarding-banner__layout">
         <div>
-          <div class="dash-onboarding-banner__title">Onboarding fortsetzen</div>
+          <div class="dash-onboarding-banner__title" data-i18n="exe.onbBanner.title">Onboarding fortsetzen</div>
+          <!-- Kein data-i18n auf dem Text: checkOnboarding() setzt ihn je nach
+               naechstem Schritt ueber setI18nText() (Marker wird dort gesetzt). -->
           <div class="dash-onboarding-banner__text" id="onboardingBannerText">Vervollstaendigen Sie Ihr Profil, um alle Funktionen nutzen zu koennen.</div>
         </div>
         <div class="dash-onboarding-banner__actions">
+          <!-- Kein data-i18n: enthaelt einen Laufzeitwert (Fortschritt in Prozent). -->
           <div class="dash-onboarding-banner__pct" id="onboardingBannerPct"></div>
-          <button class="btn primary" onclick="location.href='/public/onboarding.html'">Weiter einrichten</button>
-          <button class="btn" onclick="dismissOnboardingBanner()" title="Ausblenden">&#10005;</button>
+          <button class="btn primary" data-i18n="exe.onbBanner.cta" onclick="location.href='/public/onboarding.html'">Weiter einrichten</button>
+          <button class="btn" onclick="dismissOnboardingBanner()" title="Ausblenden" data-i18n-title="exe.action.hide">&#10005;</button>
         </div>
       </div>
     </div>
@@ -150,57 +153,58 @@
 
     <!-- Procurement Pulse -->
     <div class="dash-section">
-      <h3>Procurement Pulse (30 Tage)</h3>
+      <h3 data-i18n="exe.sec.pulse">Procurement Pulse (30 Tage)</h3>
       <div class="kpi-grid" id="procurementPulseGrid" style="grid-template-columns:repeat(auto-fill,minmax(180px,1fr))"></div>
     </div>
 
     <!-- Kritischer Besetzungsdruck (Arbeitsplatzangebote) -->
     <div class="dash-section">
-      <h3>Kritischer Besetzungsdruck <a href="/public/requisitions.html?status_group=backlog" class="dash-section__link">Backlog &rarr;</a></h3>
-      <div id="criticalReqSection"><p class="ds-text-sm ds-text-muted">Lade&hellip;</p></div>
+      <h3><span data-i18n="exe.sec.critical">Kritischer Besetzungsdruck</span> <a href="/public/requisitions.html?status_group=backlog" class="dash-section__link"><span data-i18n="exe.link.backlog">Backlog</span> &rarr;</a></h3>
+      <div id="criticalReqSection"><p class="ds-text-sm ds-text-muted" data-i18n="exe.state.loading">Lade&hellip;</p></div>
     </div>
 
     <!-- Arbeitsplatzangebote nach Status -->
     <div class="dash-section">
-      <h3>Arbeitsplatzangebote nach Status <a href="/public/requisitions.html" class="dash-section__link">Alle Angebote &rarr;</a></h3>
+      <h3><span data-i18n="exe.sec.reqStatus">Arbeitsplatzangebote nach Status</span> <a href="/public/requisitions.html" class="dash-section__link"><span data-i18n="exe.link.allReq">Alle Angebote</span> &rarr;</a></h3>
       <div class="bar-chart" id="reqChart"></div>
     </div>
 
     <!-- SLA Compliance -->
     <div class="dash-section">
-      <h3>SLA Compliance (30 Tage)</h3>
+      <h3 data-i18n="exe.sec.sla">SLA Compliance (30 Tage)</h3>
       <div id="slaSection"></div>
     </div>
 
     <!-- Compliance Dokumente -->
     <div class="dash-section">
-      <h3>Compliance Dokumente</h3>
+      <h3 data-i18n="exe.sec.compliance">Compliance Dokumente</h3>
       <div id="compSection"></div>
     </div>
 
     <!-- Plattform-Statistik -->
     <div class="dash-section">
-      <h3>Plattform</h3>
+      <h3 data-i18n="exe.sec.platform">Plattform</h3>
       <div class="kpi-grid" id="platformGrid"></div>
     </div>
 
     <!-- Quick-Search Ergebnisse (versteckt) -->
     <div class="dash-section" id="quickSearchSection" style="display:none">
-      <h3>Suchergebnisse</h3>
+      <h3 data-i18n="exe.sec.searchResults">Suchergebnisse</h3>
       <div id="quickSearchResults"></div>
     </div>
 
     <!-- Spend Overview -->
     <div class="dash-section">
-      <h3>Spend Overview (30 Tage) <a href="/public/spend-analytics.html" class="dash-section__link" data-feature-key="spend_analytics">Details →</a></h3>
+      <h3><span data-i18n="exe.sec.spend">Spend Overview (30 Tage)</span> <a href="/public/spend-analytics.html" class="dash-section__link" data-feature-key="spend_analytics"><span data-i18n="exe.link.details">Details</span> &rarr;</a></h3>
       <div class="kpi-grid" id="spendGrid" style="grid-template-columns:repeat(auto-fill,minmax(140px,1fr))"></div>
     </div>
 
     <div class="dash-section">
-      <h3>Finance Truth <a href="/public/admin_panel.html" class="dash-section__link">Revenue-Konsole →</a></h3>
+      <h3><span data-i18n="exe.sec.finance">Finance Truth</span> <a href="/public/admin_panel.html" class="dash-section__link"><span data-i18n="exe.link.revenueConsole">Revenue-Konsole</span> &rarr;</a></h3>
       <div style="display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:10px">
-        <button class="btn" type="button" data-feature-key="basic_analytics" onclick="exportExecutiveFinanceTruth('csv')">Export CSV</button>
-        <button class="btn" type="button" data-feature-key="basic_analytics" onclick="exportExecutiveFinanceTruth('json')">Export JSON</button>
+        <button class="btn" type="button" data-feature-key="basic_analytics" data-i18n="exe.finance.exportCsv" onclick="exportExecutiveFinanceTruth('csv')">Export CSV</button>
+        <button class="btn" type="button" data-feature-key="basic_analytics" data-i18n="exe.finance.exportJson" onclick="exportExecutiveFinanceTruth('json')">Export JSON</button>
+        <!-- Kein data-i18n: setFinanceExportStatus() setzt den Text ueber t(). -->
         <span id="financeExportStatus" class="ds-text-sm ds-text-muted" aria-live="polite"></span>
       </div>
       <div class="kpi-grid" id="financeGrid" style="grid-template-columns:repeat(auto-fill,minmax(160px,1fr))"></div>
@@ -208,38 +212,38 @@
     </div>
 
     <div class="dash-section">
-      <h3>SaaS Retention &amp; Usage Truth <a href="/public/admin_panel.html?tab=revenue" class="dash-section__link">Revenue-Drilldown →</a></h3>
+      <h3><span data-i18n="exe.sec.retention">SaaS Retention &amp; Usage Truth</span> <a href="/public/admin_panel.html?tab=revenue" class="dash-section__link"><span data-i18n="exe.link.revenueDrill">Revenue-Drilldown</span> &rarr;</a></h3>
       <div class="kpi-grid" id="retentionGrid" style="grid-template-columns:repeat(auto-fill,minmax(160px,1fr))"></div>
       <div id="retentionDetail"></div>
     </div>
 
     <div class="dash-section">
-      <h3>Pilot &amp; Conversion Truth <a href="/public/admin_panel.html?tab=revenue" class="dash-section__link">Funnel-Drilldown →</a></h3>
+      <h3><span data-i18n="exe.sec.pilot">Pilot &amp; Conversion Truth</span> <a href="/public/admin_panel.html?tab=revenue" class="dash-section__link"><span data-i18n="exe.link.funnelDrill">Funnel-Drilldown</span> &rarr;</a></h3>
       <div class="kpi-grid" id="pilotConversionGrid" style="grid-template-columns:repeat(auto-fill,minmax(160px,1fr))"></div>
       <div id="pilotConversionDetail"></div>
     </div>
 
     <!-- Vermittlungsaktivität -->
     <div class="dash-section">
-      <h3>Vermittlungsaktivität</h3>
+      <h3 data-i18n="exe.sec.ce">Vermittlungsaktivität</h3>
       <div class="kpi-grid" id="ceGrid" style="grid-template-columns:repeat(auto-fill,minmax(140px,1fr))"></div>
     </div>
 
     <!-- Activity Feed Mini-Timeline -->
     <div class="dash-section">
-      <h3>Letzte Aktivitäten</h3>
-      <div id="activityTimeline"><p class="ds-text-sm ds-text-muted">Lade…</p></div>
+      <h3 data-i18n="exe.sec.activity">Letzte Aktivitäten</h3>
+      <div id="activityTimeline"><p class="ds-text-sm ds-text-muted" data-i18n="exe.state.loading">Lade…</p></div>
     </div>
 
     <!-- DSGVO Compliance -->
     <div class="dash-section">
-      <h3>DSGVO Compliance <a href="/public/data-governance.html" class="dash-section__link" data-feature-key="data_governance">Governance &rarr;</a></h3>
+      <h3><span data-i18n="exe.sec.dsgvo">DSGVO Compliance</span> <a href="/public/data-governance.html" class="dash-section__link" data-feature-key="data_governance"><span data-i18n="exe.link.governance">Governance</span> &rarr;</a></h3>
       <div class="kpi-grid" id="dsgvoGrid" style="grid-template-columns:repeat(auto-fill,minmax(140px,1fr))"></div>
     </div>
 
     <!-- Platform Health (Live-Status) -->
     <div class="dash-section">
-      <h3>Platform Health <a href="/public/system-health.html" class="dash-section__link">Details &rarr;</a></h3>
+      <h3><span data-i18n="exe.sec.health">Platform Health</span> <a href="/public/system-health.html" class="dash-section__link"><span data-i18n="exe.link.details">Details</span> &rarr;</a></h3>
       <div class="kpi-grid" id="healthGrid" style="grid-template-columns:repeat(auto-fill,minmax(140px,1fr))"></div>
     </div>
   </div>
