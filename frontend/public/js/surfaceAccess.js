@@ -146,13 +146,68 @@
     return normalized;
   }
 
+  /* ── i18n (P6) ──────────────────────────────────────────────────────────
+     Die Sperr-Begruendungen dieses Moduls erscheinen auf VIELEN Seiten
+     (Preisrahmen, Lieferantenpool, Spend, Compliance, Scorecard …) und waren
+     damit der Grund, warum auf englisch gestellten Flaechen noch deutsche
+     Saetze standen.
+
+     Bewusst minimal-invasiv: statt zwanzig Aufrufstellen umzuschreiben, wird
+     genau dort uebersetzt, wo JEDE Begruendung durchlaeuft — in softLocked
+     und readOnly. Der deutsche Bestandstext bleibt Quelle UND Schluessel;
+     ohne geladene i18n-Schicht verhaelt sich das Modul exakt wie vorher.
+     Eine unbekannte Begruendung faellt auf ihren deutschen Wortlaut zurueck,
+     nie auf Leertext. */
+  var REASONS_EN = {
+    'Preisrahmen bleiben fuer berechtigte PRO-/Individuell-Zugaenge reserviert.':
+      'Rate cards remain reserved for eligible PRO/Custom plans.',
+    'Preisrahmen bleiben in dieser Steuerungsschicht buyer-seitig fuer Unternehmensorganisationen reserviert.':
+      'In this controlling layer, rate cards remain reserved for company organisations on the buyer side.',
+    'Preisrahmen bleiben in Ihrer Sicht lesbar, Veraenderungen erfolgen ueber schreibberechtigte Procurement-Rollen.':
+      'Rate cards stay readable in your view; changes are made by procurement roles with write access.',
+    'Lieferantensteuerung bleibt in Ihrer Rolle lesbar; Tiering und Statusaenderungen erfolgen ueber schreibberechtigte Procurement-Rollen.':
+      'Supplier management stays readable in your role; tiering and status changes are made by procurement roles with write access.',
+    'Lieferantenbewertung bleibt in Ihrer Rolle lesbar; Notizen und operative Pflege erfolgen ueber freigegebene Procurement-Rollen.':
+      'Supplier scoring stays readable in your role; notes and day-to-day upkeep are handled by approved procurement roles.',
+    'Spend & Kosten bleibt fuer berechtigte PRO-/Individuell-Zugaenge reserviert.':
+      'Spend & cost remains reserved for eligible PRO/Custom plans.',
+    'Spend & Kosten bleibt fuer Executive-/Finance-Rollen reserviert.':
+      'Spend & cost remains reserved for executive and finance roles.',
+    'Steuerung & Analytik bleibt fuer Executive-/Finance-Rollen reserviert.':
+      'Controlling & analytics remains reserved for executive and finance roles.',
+    'Dieses interne Compliance-Cockpit ist keine reine Upload-Oberflaeche. Sicht, Verifikation und Pflege bleiben an freigegebene Rollen gebunden.':
+      'This internal compliance cockpit is not a plain upload surface. Visibility, verification and upkeep remain tied to approved roles.',
+    'Compliance bleibt nur fuer freigegebene Rollen lesbar.':
+      'Compliance remains readable only for approved roles.'
+  };
+
+  var _i18nRegistered = false;
+  function translateReason(reason) {
+    if (!reason) return '';
+    if (!window.TCi18n) return reason;
+    if (!_i18nRegistered) {
+      var de = {}, en = {};
+      Object.keys(REASONS_EN).forEach(function (text, i) {
+        var key = 'shared.access.r' + i;
+        de[key] = text;              // deutscher Bestandstext = Quelle
+        en[key] = REASONS_EN[text];
+      });
+      window.TCi18n.register('de', de);
+      window.TCi18n.register('en', en);
+      _i18nRegistered = true;
+    }
+    var idx = Object.keys(REASONS_EN).indexOf(reason);
+    if (idx < 0) return reason;      // unbekannter Grund: Wortlaut behalten
+    return window.TCi18n.t('shared.access.r' + idx) || reason;
+  }
+
   function softLocked(reason, extra, mode) {
     return Object.assign({
       state: 'soft_locked',
       mode: mode || 'soft_locked',
       canRead: false,
       canWrite: false,
-      reason: reason || ''
+      reason: translateReason(reason)
     }, extra || {});
   }
 
@@ -162,7 +217,7 @@
       mode: mode || 'read_only',
       canRead: true,
       canWrite: false,
-      reason: reason || ''
+      reason: translateReason(reason)
     }, extra || {});
   }
 

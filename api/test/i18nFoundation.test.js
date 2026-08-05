@@ -606,6 +606,52 @@ suite("Plattform-Seiten — i18n-Schicht eingebunden", () => {
   });
 });
 
+suite("surfaceAccess — Sperr-Begruendungen zweisprachig", () => {
+  // Diese Begruendungen ("warum ist die Flaeche gesperrt") erscheinen auf
+  // vielen Seiten. Sie waren der Grund, warum auf englisch gestellten
+  // Flaechen noch deutsche Saetze standen. Uebersetzt wird an der EINEN
+  // Stelle, durch die jede Begruendung laeuft (softLocked/readOnly).
+  function load(locale) {
+    const sb = {
+      window: {}, navigator: { language: "de", languages: ["de"] },
+      localStorage: { getItem: () => null, setItem() {} },
+      document: {
+        documentElement: { setAttribute() {}, getAttribute: () => null },
+        readyState: "complete", head: { appendChild() {} },
+        getElementById: () => null, createElement: () => ({ setAttribute() {}, appendChild() {} }),
+        addEventListener() {}, dispatchEvent() {}, querySelectorAll: () => []
+      },
+      CustomEvent: class {}, console
+    };
+    sb.window = sb;
+    vm.createContext(sb);
+    if (locale) new vm.Script(read(MARKER_REL), { filename: "i18n.js" }).runInContext(sb);
+    if (locale === "en") sb.window.TCi18n.set("en");
+    new vm.Script(read("frontend/public/js/surfaceAccess.js"), { filename: "surfaceAccess.js" }).runInContext(sb);
+    return sb.window.TC.surfaceAccess;
+  }
+  const probe = (api) => api.resolve({ plan: "BASIS", org_type: "agency", org_role: "member" }, "rate_cards").reason || "";
+
+  it("DE unveraendert, EN uebersetzt, ohne Schicht deutscher Fallback", () => {
+    const de = probe(load("de")), en = probe(load("en")), ohne = probe(load(null));
+    assert.match(de, /Preisrahmen/);
+    assert.match(en, /Rate cards/);
+    assert.doesNotMatch(en, /Preisrahmen/, "EN darf keinen deutschen Rest tragen");
+    assert.equal(ohne, de, "ohne i18n-Schicht exakt das alte Verhalten");
+  });
+
+  it("jede deutsche Begruendung hat eine englische Fassung", () => {
+    const js = read("frontend/public/js/surfaceAccess.js");
+    const map = js.match(/var REASONS_EN = \{([\s\S]*?)\n  \};/);
+    assert.ok(map, "REASONS_EN nicht gefunden");
+    const paare = [...map[1].matchAll(/'([^']+)':\s*\n?\s*'([^']+)'/g)];
+    assert.ok(paare.length >= 8, `zu wenige Begruendungen erfasst (${paare.length})`);
+    for (const [, deText, enText] of paare) {
+      assert.notEqual(deText, enText, `unuebersetzt: ${deText.slice(0, 40)}`);
+    }
+  });
+});
+
 suite("portalStatus — Status-Labels zweisprachig, DE bleibt Fallback", () => {
   /** Laedt i18n.js + portalStatus.js in EINE Sandbox (wie im Browser). */
   function loadStatusModule({ withI18n = true, locale = "de" } = {}) {
