@@ -5,32 +5,83 @@
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <script src="/public/js/theme.js"></script>
   <script src="/public/js/i18n.js"></script>
-  <title>Gespeicherte Suchaufträge – TempConnect</title>
+  <title data-i18n="slj.a.docTitle">Gespeicherte Suchaufträge – TempConnect</title>
   <link rel="stylesheet" href="/public/css/enterprise.css"/>
   <style>.item-row{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;padding:12px 0;border-bottom:1px solid var(--line);}.item-row:last-child{border-bottom:none;}</style>
 </head>
 <body data-sla-guard="sla_access">
   <div id="paywall" class="wrap" style="display:none">
-    <nav class="ds-topbar"><div class="ds-topbar__brand"><span class="ds-topbar__brand-dot"></span>TempConnect</div><div class="ds-topbar__nav"><a href="/" class="ds-btn">Startseite</a></div></nav>
+    <nav class="ds-topbar"><div class="ds-topbar__brand"><span class="ds-topbar__brand-dot"></span>TempConnect</div><div class="ds-topbar__nav"><a href="/" class="ds-btn" data-i18n="slj.a.paywall.home">Startseite</a></div></nav>
     <div class="paywall-box">
-      <h2>Bereich nicht verfügbar</h2>
-      <p>Das Feature &quot;<span id="paywall-feature-name">Pulse-Bereich</span>&quot; ist mit deinem aktuellen Plan nicht nutzbar.</p>
-      <p>Aktueller Plan: <span id="paywall-current-plan" class="paywall-plan">–</span></p>
-      <a id="paywall-cta" href="/public/sla_abo.html" class="btn primary">Abo ansehen</a>
+      <h2 data-i18n="slj.a.paywall.title">Bereich nicht verfügbar</h2>
+      <p><span data-i18n="slj.a.paywall.featurePrefix">Das Feature &quot;</span><span id="paywall-feature-name">Pulse-Bereich</span><span data-i18n="slj.a.paywall.featureSuffix">&quot; ist mit deinem aktuellen Plan nicht nutzbar.</span></p>
+      <p><span data-i18n="slj.a.paywall.currentPlan">Aktueller Plan:</span> <span id="paywall-current-plan" class="paywall-plan">–</span></p>
+      <a id="paywall-cta" href="/public/sla_abo.html" class="btn primary" data-i18n="slj.a.paywall.cta">Abo ansehen</a>
     </div>
   </div>
   <div id="main-content" class="wrap">
     <div id="tc-shell"></div>
-    <h1>Gespeicherte Suchaufträge</h1>
-    <p style="color:var(--muted);margin:0 0 16px">Laufende Suchaufträge – Detail ansehen oder neuen anlegen.</p>
+    <h1 data-i18n="slj.a.page.title">Gespeicherte Suchaufträge</h1>
+    <p style="color:var(--muted);margin:0 0 16px" data-i18n="slj.a.page.subtitle">Laufende Suchaufträge – Detail ansehen oder neuen anlegen.</p>
     <div id="list"></div>
   </div>
   <script src="/public/js/planFeatures.js"></script>
   <script src="/public/js/slaGuard.js"></script>
   <script>
+    /* i18n (P6.1) — Seiten-Woerterbuch der gespeicherten Suchauftraege.
+       Namensraum: slj.a. — Topbar, Navigation, Nutzerbereich und der
+       Sprach-Umschalter gehoeren der Plattform-Shell (pageShell.js).
+
+       Bewusst NICHT hier uebersetzt:
+       - "Pulse-Bereich" (#paywall-feature-name): den Text schreibt js/slaGuard.js
+         zur Laufzeit und uebersetzt ihn ueber seinen eigenen shared.access.*-Key.
+       - Der Plan-Name (#paywall-current-plan) ist ein Server-Enum.
+       - Status-Rohwerte (open / paused / closed) und sla_status: Server-Enums
+         aus der API-Antwort, keine UI-Texte.
+       - API-Daten (Titel der Suchauftraege) — nie uebersetzen.                */
+    TCi18n.register('de', {
+      'slj.a.docTitle': 'Gespeicherte Suchaufträge – TempConnect',
+      'slj.a.paywall.home': 'Startseite',
+      'slj.a.paywall.title': 'Bereich nicht verfügbar',
+      'slj.a.paywall.featurePrefix': 'Das Feature "',
+      'slj.a.paywall.featureSuffix': '" ist mit deinem aktuellen Plan nicht nutzbar.',
+      'slj.a.paywall.currentPlan': 'Aktueller Plan:',
+      'slj.a.paywall.cta': 'Abo ansehen',
+
+      'slj.a.page.title': 'Gespeicherte Suchaufträge',
+      'slj.a.page.subtitle': 'Laufende Suchaufträge – Detail ansehen oder neuen anlegen.',
+
+      'slj.a.empty.text': 'Noch keine Suchaufträge.',
+      'slj.a.empty.link': 'Personal finden',
+      'slj.a.empty.cta': 'Suchauftrag anlegen.',
+      'slj.a.error.load': 'Suchaufträge konnten nicht geladen werden.',
+      'slj.a.job.untitled': 'Suchauftrag',
+      'slj.a.action.details': 'Details'
+    });
+    TCi18n.register('en', {
+      'slj.a.docTitle': 'Saved search requests – TempConnect',
+      'slj.a.paywall.home': 'Home',
+      'slj.a.paywall.title': 'Area not available',
+      'slj.a.paywall.featurePrefix': 'The feature "',
+      'slj.a.paywall.featureSuffix': '" is not included in your current plan.',
+      'slj.a.paywall.currentPlan': 'Current plan:',
+      'slj.a.paywall.cta': 'View plans',
+
+      'slj.a.page.title': 'Saved search requests',
+      'slj.a.page.subtitle': 'Active search requests – open the details or create a new one.',
+
+      'slj.a.empty.text': 'No search requests yet.',
+      'slj.a.empty.link': 'Find staff',
+      'slj.a.empty.cta': 'create a search request.',
+      'slj.a.error.load': 'The search requests could not be loaded.',
+      'slj.a.job.untitled': 'Search request',
+      'slj.a.action.details': 'Details'
+    });
+
     var API = "/api";
     function esc(s){if(!s)return "";return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;").replace(/'/g,"&#39;");}
     function checkAuth(r){if(r.status===401){window.location.href="/";return false;}return true;}
+    function loadJobs() {
     fetch(API + "/sla/search-jobs", { credentials: "include" }).then(function(r) {
       if (!checkAuth(r)) return null;
       if (!r.ok) return [];
@@ -39,21 +90,31 @@
       var list = document.getElementById("list");
       if (!list) return;
       if (!Array.isArray(jobs) || jobs.length === 0) {
-        list.innerHTML = "<div class=\"empty\">Noch keine Suchaufträge. <a href=\"/public/capacity_search.html\">Personal finden</a> &rarr; Suchauftrag anlegen.</div>";
+        list.innerHTML = "<div class=\"empty\">" + esc(TCi18n.t("slj.a.empty.text")) +
+          " <a href=\"/public/capacity_search.html\">" + esc(TCi18n.t("slj.a.empty.link")) + "</a> &rarr; " +
+          esc(TCi18n.t("slj.a.empty.cta")) + "</div>";
         return;
       }
       var html = "";
       jobs.forEach(function(j) {
-        var title = esc(j.title || "Suchauftrag");
+        var title = esc(j.title || TCi18n.t("slj.a.job.untitled"));
         var status = (j.status || "open");
         var sla = j.sla_status ? " – " + esc(j.sla_status) : "";
-        html += "<div class=\"card\"><div class=\"item-row\"><div><strong>" + title + "</strong> <span class=\"tag muted\">" + status + sla + "</span></div><a href=\"/public/sla_search_job_detail.html?id=" + encodeURIComponent(j.id) + "\" class=\"btn primary\">Details</a></div></div>";
+        html += "<div class=\"card\"><div class=\"item-row\"><div><strong>" + title + "</strong> <span class=\"tag muted\">" + status + sla + "</span></div><a href=\"/public/sla_search_job_detail.html?id=" + encodeURIComponent(j.id) + "\" class=\"btn primary\">" + esc(TCi18n.t("slj.a.action.details")) + "</a></div></div>";
       });
       list.innerHTML = html;
     }).catch(function() {
       var list = document.getElementById("list");
-      if (list) list.innerHTML = "<div class=\"empty\">Suchaufträge konnten nicht geladen werden.</div>";
+      if (list) list.innerHTML = "<div class=\"empty\">" + esc(TCi18n.t("slj.a.error.load")) + "</div>";
     });
+    }
+
+    loadJobs();
+
+    /* Sprachwechsel: die Liste entsteht per innerHTML und traegt daher keine
+       deklarativen Marker — sie wird hier neu aufgebaut, sonst bliebe sie in
+       der alten Sprache stehen. */
+    document.addEventListener("tc:langchange", loadJobs);
   </script>
   <script src="/public/js/pageShell.js"></script>
   <script src="/public/js/notifications.js"></script>

@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <script src="/public/js/theme.js"></script>
   <script src="/public/js/i18n.js"></script>
-  <title>Angebote erstellen (Pulse-sicher) – TempConnect</title>
+  <title data-i18n="slj.c.docTitle">Angebote erstellen (Pulse-sicher) – TempConnect</title>
   <link rel="stylesheet" href="/public/css/enterprise.css"/>
   <style>
     .form-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 12px; }
@@ -21,38 +21,38 @@
 </head>
 <body data-sla-guard="sla_offers_create">
   <div id="paywall" class="wrap" style="display:none">
-    <nav class="ds-topbar"><div class="ds-topbar__brand"><span class="ds-topbar__brand-dot"></span>TempConnect</div><div class="ds-topbar__nav"><a href="/" class="ds-btn">Startseite</a></div></nav>
+    <nav class="ds-topbar"><div class="ds-topbar__brand"><span class="ds-topbar__brand-dot"></span>TempConnect</div><div class="ds-topbar__nav"><a href="/" class="ds-btn" data-i18n="slj.c.paywall.home">Startseite</a></div></nav>
     <div class="paywall-box">
-      <h2>Bereich nicht verfügbar</h2>
-      <p>Das Feature &quot;<span id="paywall-feature-name">Angebote erstellen</span>&quot; ist mit deinem aktuellen Plan nicht nutzbar.</p>
-      <p>Aktueller Plan: <span id="paywall-current-plan" class="paywall-plan">–</span></p>
-      <a id="paywall-cta" href="/public/sla_abo.html" class="btn primary">Abo ansehen</a>
+      <h2 data-i18n="slj.c.paywall.title">Bereich nicht verfügbar</h2>
+      <p><span data-i18n="slj.c.paywall.featurePrefix">Das Feature &quot;</span><span id="paywall-feature-name">Angebote erstellen</span><span data-i18n="slj.c.paywall.featureSuffix">&quot; ist mit deinem aktuellen Plan nicht nutzbar.</span></p>
+      <p><span data-i18n="slj.c.paywall.currentPlan">Aktueller Plan:</span> <span id="paywall-current-plan" class="paywall-plan">–</span></p>
+      <a id="paywall-cta" href="/public/sla_abo.html" class="btn primary" data-i18n="slj.c.paywall.cta">Abo ansehen</a>
     </div>
   </div>
   <div id="main-content" class="wrap">
     <div id="tc-shell"></div>
-    <h1>Angebote erstellen (Pulse-sicher)</h1>
-    <p style="color:var(--muted);margin:0 0 16px">Personalangebote mit Best-effort-Vorlagen. Fehlende Informationen werden als „Bitte prüfen" markiert.</p>
+    <h1 data-i18n="slj.c.page.title">Angebote erstellen (Pulse-sicher)</h1>
+    <p style="color:var(--muted);margin:0 0 16px" data-i18n="slj.c.page.subtitle">Personalangebote mit Best-effort-Vorlagen. Fehlende Informationen werden als „Bitte prüfen" markiert.</p>
 
     <form id="offerForm">
       <!-- Request / Personalangebot -->
       <div class="card">
-        <h3 class="section-title" style="margin-top:0">Anfrage / Personalangebot</h3>
+        <h3 class="section-title" style="margin-top:0" data-i18n="slj.c.sec.request">Anfrage / Personalangebot</h3>
         <div class="form-grid">
           <div>
-            <label for="of_demand_id">Anfrage auswählen</label>
-            <select id="of_demand_id" name="demand_id"><option value="">Lade…</option></select>
+            <label for="of_demand_id" data-i18n="slj.c.f.demand">Anfrage auswählen</label>
+            <select id="of_demand_id" name="demand_id"><option value="" data-i18n="slj.c.demand.loading">Lade…</option></select>
           </div>
           <div>
-            <label for="of_quantity">Angebotene Menge</label>
+            <label for="of_quantity" data-i18n="slj.c.f.quantity">Angebotene Menge</label>
             <input type="number" id="of_quantity" name="offered_quantity" min="1" value="1"/>
           </div>
           <div>
-            <label for="of_start">Startdatum</label>
+            <label for="of_start" data-i18n="slj.c.f.start">Startdatum</label>
             <input type="date" id="of_start" name="start_confirmed"/>
           </div>
           <div>
-            <label for="of_end">Enddatum / Dauer</label>
+            <label for="of_end" data-i18n="slj.c.f.end">Enddatum / Dauer</label>
             <input type="date" id="of_end" name="end_date"/>
           </div>
         </div>
@@ -60,35 +60,35 @@
 
       <!-- Pricing -->
       <div class="card">
-        <h3 class="section-title" style="margin-top:0">Pricing</h3>
+        <h3 class="section-title" style="margin-top:0" data-i18n="slj.c.sec.pricing">Pricing</h3>
         <div class="form-grid">
           <div>
-            <label for="of_hourly_rate">Stundensatz (EUR)</label>
-            <input type="number" id="of_hourly_rate" name="offered_hourly_rate" min="0" step="0.01" placeholder="z. B. 28.50"/>
+            <label for="of_hourly_rate" data-i18n="slj.c.f.hourlyRate">Stundensatz (EUR)</label>
+            <input type="number" id="of_hourly_rate" name="offered_hourly_rate" min="0" step="0.01" placeholder="z. B. 28.50" data-i18n-ph="slj.c.ph.hourlyRate"/>
           </div>
           <div>
-            <label for="of_night">Zuschlag Nacht (%)</label>
+            <label for="of_night" data-i18n="slj.c.f.night">Zuschlag Nacht (%)</label>
             <input type="number" id="of_night" name="surcharge_night" min="0" step="1" placeholder="25"/>
           </div>
           <div>
-            <label for="of_weekend">Zuschlag Wochenende (%)</label>
+            <label for="of_weekend" data-i18n="slj.c.f.weekend">Zuschlag Wochenende (%)</label>
             <input type="number" id="of_weekend" name="surcharge_weekend" min="0" step="1" placeholder="50"/>
           </div>
           <div>
-            <label for="of_holiday">Zuschlag Feiertag (%)</label>
+            <label for="of_holiday" data-i18n="slj.c.f.holiday">Zuschlag Feiertag (%)</label>
             <input type="number" id="of_holiday" name="surcharge_holiday" min="0" step="1" placeholder="100"/>
           </div>
           <div>
-            <label for="of_min_hours">Mindeststunden pro Schicht</label>
+            <label for="of_min_hours" data-i18n="slj.c.f.minHours">Mindeststunden pro Schicht</label>
             <input type="number" id="of_min_hours" name="min_hours_per_shift" min="0" step="0.5" placeholder="8"/>
           </div>
           <div>
-            <label for="of_billing">Abrechnungseinheit</label>
+            <label for="of_billing" data-i18n="slj.c.f.billing">Abrechnungseinheit</label>
             <select id="of_billing" name="billing_unit">
-              <option value="hourly">Stündlich</option>
-              <option value="daily">Täglich</option>
-              <option value="weekly">Wöchentlich</option>
-              <option value="monthly">Monatlich</option>
+              <option value="hourly" data-i18n="slj.c.billing.hourly">Stündlich</option>
+              <option value="daily" data-i18n="slj.c.billing.daily">Täglich</option>
+              <option value="weekly" data-i18n="slj.c.billing.weekly">Wöchentlich</option>
+              <option value="monthly" data-i18n="slj.c.billing.monthly">Monatlich</option>
             </select>
           </div>
         </div>
@@ -96,18 +96,18 @@
 
       <!-- SLA -->
       <div class="card">
-        <h3 class="section-title" style="margin-top:0">SLA</h3>
+        <h3 class="section-title" style="margin-top:0" data-i18n="slj.c.sec.sla">SLA</h3>
         <div class="form-grid">
           <div>
-            <label for="of_valid_until">Angebot gültig bis</label>
+            <label for="of_valid_until" data-i18n="slj.c.f.validUntil">Angebot gültig bis</label>
             <input type="datetime-local" id="of_valid_until" name="validity_until"/>
           </div>
           <div>
-            <label for="of_replace_sla">Ersatz-SLA (Minuten)</label>
+            <label for="of_replace_sla" data-i18n="slj.c.f.replaceSla">Ersatz-SLA (Minuten)</label>
             <input type="number" id="of_replace_sla" name="replacement_sla_minutes" min="0" placeholder="120"/>
           </div>
           <div>
-            <label for="of_response_time">Reaktionszeit bei Ausfall (Min.)</label>
+            <label for="of_response_time" data-i18n="slj.c.f.responseTime">Reaktionszeit bei Ausfall (Min.)</label>
             <input type="number" id="of_response_time" name="response_time_minutes" min="0" placeholder="60"/>
           </div>
         </div>
@@ -115,43 +115,175 @@
 
       <!-- Operations -->
       <div class="card">
-        <h3 class="section-title" style="margin-top:0">Operations</h3>
+        <h3 class="section-title" style="margin-top:0" data-i18n="slj.c.sec.operations">Operations</h3>
         <div class="form-grid">
           <div>
-            <label for="of_contact">Ansprechpartner</label>
-            <input type="text" id="of_contact" name="contact_name" placeholder="Name"/>
+            <label for="of_contact" data-i18n="slj.c.f.contact">Ansprechpartner</label>
+            <input type="text" id="of_contact" name="contact_name" placeholder="Name" data-i18n-ph="slj.c.ph.contact"/>
           </div>
           <div>
-            <label for="of_phone">Telefonnummer</label>
+            <label for="of_phone" data-i18n="slj.c.f.phone">Telefonnummer</label>
             <input type="tel" id="of_phone" name="contact_phone" placeholder="+49…"/>
           </div>
           <div style="grid-column:1/-1">
-            <label for="of_notes">Notizen</label>
-            <textarea id="of_notes" name="notes" rows="3" placeholder="Optionale Bemerkungen"></textarea>
+            <label for="of_notes" data-i18n="slj.c.f.notes">Notizen</label>
+            <textarea id="of_notes" name="notes" rows="3" placeholder="Optionale Bemerkungen" data-i18n-ph="slj.c.ph.notes"></textarea>
           </div>
         </div>
       </div>
 
       <!-- Compliance -->
       <div class="card">
-        <h3 class="section-title" style="margin-top:0">Compliance</h3>
-        <div class="check-row"><input type="checkbox" id="of_qual" name="qualification_met"/><label for="of_qual">Qualifikation erfüllt</label></div>
-        <div class="check-row"><input type="checkbox" id="of_proofs" name="proofs_available"/><label for="of_proofs">Nachweise vorhanden</label></div>
-        <div class="check-row"><input type="checkbox" id="of_ppe" name="ppe_required"/><label for="of_ppe">PPE erforderlich</label></div>
+        <h3 class="section-title" style="margin-top:0" data-i18n="slj.c.sec.compliance">Compliance</h3>
+        <div class="check-row"><input type="checkbox" id="of_qual" name="qualification_met"/><label for="of_qual" data-i18n="slj.c.f.qualification">Qualifikation erfüllt</label></div>
+        <div class="check-row"><input type="checkbox" id="of_proofs" name="proofs_available"/><label for="of_proofs" data-i18n="slj.c.f.proofs">Nachweise vorhanden</label></div>
+        <div class="check-row"><input type="checkbox" id="of_ppe" name="ppe_required"/><label for="of_ppe" data-i18n="slj.c.f.ppe">PPE erforderlich</label></div>
       </div>
 
       <div style="margin-top:16px;display:flex;gap:10px">
-        <button type="submit" class="btn primary">Angebot erstellen (Entwurf)</button>
-        <a href="/public/capacity_search.html" class="btn">Zurück</a>
+        <button type="submit" class="btn primary" data-i18n="slj.c.action.submit">Angebot erstellen (Entwurf)</button>
+        <a href="/public/capacity_search.html" class="btn" data-i18n="slj.c.action.back">Zurück</a>
       </div>
       <div id="offerStatus"></div>
     </form>
 
-    <p class="sla-disclaimer" style="margin-top:24px">Hinweis: Inhalte dienen der Unterstützung und ersetzen keine rechtliche Prüfung. Angaben ohne Gewähr.</p>
+    <p class="sla-disclaimer" style="margin-top:24px" data-i18n="slj.c.disclaimer">Hinweis: Inhalte dienen der Unterstützung und ersetzen keine rechtliche Prüfung. Angaben ohne Gewähr.</p>
   </div>
   <script src="/public/js/planFeatures.js"></script>
   <script src="/public/js/slaGuard.js"></script>
   <script>
+    /* i18n (P6.1) — Seiten-Woerterbuch der Angebotserstellung.
+       Namensraum: slj.c. — Topbar, Navigation, Nutzerbereich und der
+       Sprach-Umschalter gehoeren der Plattform-Shell (pageShell.js).
+
+       Bewusst NICHT hier uebersetzt:
+       - "Angebote erstellen" (#paywall-feature-name): den Text schreibt
+         js/slaGuard.js zur Laufzeit und uebersetzt ihn ueber seinen eigenen
+         shared.access.*-Key. Der Plan-Name ist ein Server-Enum.
+       - value-Attribute der Abrechnungseinheit (hourly / daily / weekly /
+         monthly): Server-Enums, die so an die API zurueckgehen.
+       - Die Anfrage-Optionen im Dropdown: Titel, Rolle und Status stammen aus
+         der API-Antwort — API-Daten werden nie uebersetzt.
+       - Fehlertexte aus der API-Antwort (res.data.error) — Serverwortlaut.     */
+    TCi18n.register('de', {
+      'slj.c.docTitle': 'Angebote erstellen (Pulse-sicher) – TempConnect',
+      'slj.c.paywall.home': 'Startseite',
+      'slj.c.paywall.title': 'Bereich nicht verfügbar',
+      'slj.c.paywall.featurePrefix': 'Das Feature "',
+      'slj.c.paywall.featureSuffix': '" ist mit deinem aktuellen Plan nicht nutzbar.',
+      'slj.c.paywall.currentPlan': 'Aktueller Plan:',
+      'slj.c.paywall.cta': 'Abo ansehen',
+
+      'slj.c.page.title': 'Angebote erstellen (Pulse-sicher)',
+      'slj.c.page.subtitle': 'Personalangebote mit Best-effort-Vorlagen. Fehlende Informationen werden als „Bitte prüfen" markiert.',
+
+      'slj.c.sec.request': 'Anfrage / Personalangebot',
+      'slj.c.sec.pricing': 'Pricing',
+      'slj.c.sec.sla': 'SLA',
+      'slj.c.sec.operations': 'Operations',
+      'slj.c.sec.compliance': 'Compliance',
+
+      'slj.c.f.demand': 'Anfrage auswählen',
+      'slj.c.f.quantity': 'Angebotene Menge',
+      'slj.c.f.start': 'Startdatum',
+      'slj.c.f.end': 'Enddatum / Dauer',
+      'slj.c.f.hourlyRate': 'Stundensatz (EUR)',
+      'slj.c.f.night': 'Zuschlag Nacht (%)',
+      'slj.c.f.weekend': 'Zuschlag Wochenende (%)',
+      'slj.c.f.holiday': 'Zuschlag Feiertag (%)',
+      'slj.c.f.minHours': 'Mindeststunden pro Schicht',
+      'slj.c.f.billing': 'Abrechnungseinheit',
+      'slj.c.f.validUntil': 'Angebot gültig bis',
+      'slj.c.f.replaceSla': 'Ersatz-SLA (Minuten)',
+      'slj.c.f.responseTime': 'Reaktionszeit bei Ausfall (Min.)',
+      'slj.c.f.contact': 'Ansprechpartner',
+      'slj.c.f.phone': 'Telefonnummer',
+      'slj.c.f.notes': 'Notizen',
+      'slj.c.f.qualification': 'Qualifikation erfüllt',
+      'slj.c.f.proofs': 'Nachweise vorhanden',
+      'slj.c.f.ppe': 'PPE erforderlich',
+
+      'slj.c.ph.hourlyRate': 'z. B. 28.50',
+      'slj.c.ph.contact': 'Name',
+      'slj.c.ph.notes': 'Optionale Bemerkungen',
+
+      'slj.c.billing.hourly': 'Stündlich',
+      'slj.c.billing.daily': 'Täglich',
+      'slj.c.billing.weekly': 'Wöchentlich',
+      'slj.c.billing.monthly': 'Monatlich',
+
+      'slj.c.action.submit': 'Angebot erstellen (Entwurf)',
+      'slj.c.action.back': 'Zurück',
+      'slj.c.disclaimer': 'Hinweis: Inhalte dienen der Unterstützung und ersetzen keine rechtliche Prüfung. Angaben ohne Gewähr.',
+
+      'slj.c.demand.loading': 'Lade…',
+      'slj.c.demand.choose': '– Bitte auswählen –',
+      'slj.c.demand.loadError': 'Fehler beim Laden',
+      'slj.c.msg.chooseDemand': 'Bitte eine Anfrage auswählen.',
+      'slj.c.msg.created': 'Angebot erstellt (Entwurf). ID: {id}',
+      'slj.c.msg.error': 'Fehler: {message}',
+      'slj.c.msg.network': 'Netzwerkfehler.'
+    });
+    TCi18n.register('en', {
+      'slj.c.docTitle': 'Create offers (Pulse-safe) – TempConnect',
+      'slj.c.paywall.home': 'Home',
+      'slj.c.paywall.title': 'Area not available',
+      'slj.c.paywall.featurePrefix': 'The feature "',
+      'slj.c.paywall.featureSuffix': '" is not included in your current plan.',
+      'slj.c.paywall.currentPlan': 'Current plan:',
+      'slj.c.paywall.cta': 'View plans',
+
+      'slj.c.page.title': 'Create offers (Pulse-safe)',
+      'slj.c.page.subtitle': 'Staffing offers with best-effort templates. Missing information is flagged as "please check".',
+
+      'slj.c.sec.request': 'Request / staffing offer',
+      'slj.c.sec.pricing': 'Pricing',
+      'slj.c.sec.sla': 'SLA',
+      'slj.c.sec.operations': 'Operations',
+      'slj.c.sec.compliance': 'Compliance',
+
+      'slj.c.f.demand': 'Select a request',
+      'slj.c.f.quantity': 'Offered quantity',
+      'slj.c.f.start': 'Start date',
+      'slj.c.f.end': 'End date / duration',
+      'slj.c.f.hourlyRate': 'Hourly rate (EUR)',
+      'slj.c.f.night': 'Night surcharge (%)',
+      'slj.c.f.weekend': 'Weekend surcharge (%)',
+      'slj.c.f.holiday': 'Public holiday surcharge (%)',
+      'slj.c.f.minHours': 'Minimum hours per shift',
+      'slj.c.f.billing': 'Billing unit',
+      'slj.c.f.validUntil': 'Offer valid until',
+      'slj.c.f.replaceSla': 'Replacement SLA (minutes)',
+      'slj.c.f.responseTime': 'Response time on drop-out (min.)',
+      'slj.c.f.contact': 'Contact person',
+      'slj.c.f.phone': 'Phone number',
+      'slj.c.f.notes': 'Notes',
+      'slj.c.f.qualification': 'Qualification met',
+      'slj.c.f.proofs': 'Proof documents available',
+      'slj.c.f.ppe': 'PPE required',
+
+      'slj.c.ph.hourlyRate': 'e.g. 28.50',
+      'slj.c.ph.contact': 'Name',
+      'slj.c.ph.notes': 'Optional remarks',
+
+      'slj.c.billing.hourly': 'Hourly',
+      'slj.c.billing.daily': 'Daily',
+      'slj.c.billing.weekly': 'Weekly',
+      'slj.c.billing.monthly': 'Monthly',
+
+      'slj.c.action.submit': 'Create offer (draft)',
+      'slj.c.action.back': 'Back',
+      'slj.c.disclaimer': 'Note: this content is provided as support and does not replace a legal review. All information without warranty.',
+
+      'slj.c.demand.loading': 'Loading…',
+      'slj.c.demand.choose': '– Please select –',
+      'slj.c.demand.loadError': 'Error while loading',
+      'slj.c.msg.chooseDemand': 'Please select a request.',
+      'slj.c.msg.created': 'Offer created (draft). ID: {id}',
+      'slj.c.msg.error': 'Error: {message}',
+      'slj.c.msg.network': 'Network error.'
+    });
+
     var API = "/api";
     function esc(s){if(!s)return "";return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;").replace(/'/g,"&#39;");}
     function idempotencyKey(){try{return crypto.randomUUID();}catch(e){return "x-"+Math.random().toString(36).slice(2)+"-"+Date.now();}}
@@ -165,7 +297,9 @@
       return r.ok ? r.json() : [];
     }).then(function(demands) {
       var sel = document.getElementById("of_demand_id");
-      sel.innerHTML = '<option value="">– Bitte auswählen –</option>';
+      /* data-i18n bleibt am Platzhalter: beim Sprachwechsel zieht die
+         deklarative Hydration ihn nach, ohne die Auswahl zu verlieren. */
+      sel.innerHTML = '<option value="" data-i18n="slj.c.demand.choose">' + esc(TCi18n.t('slj.c.demand.choose')) + '</option>';
       (Array.isArray(demands) ? demands : []).forEach(function(d) {
         var opt = document.createElement("option");
         opt.value = d.id;
@@ -174,7 +308,7 @@
       });
       if (params.get("demand_id")) sel.value = params.get("demand_id");
     }).catch(function() {
-      document.getElementById("of_demand_id").innerHTML = '<option value="">Fehler beim Laden</option>';
+      document.getElementById("of_demand_id").innerHTML = '<option value="" data-i18n="slj.c.demand.loadError">' + esc(TCi18n.t('slj.c.demand.loadError')) + '</option>';
     });
 
     // Prefill aus URL-Parametern
@@ -185,7 +319,7 @@
     document.getElementById("offerForm").onsubmit = function(e) {
       e.preventDefault();
       var demandId = document.getElementById("of_demand_id").value;
-      if (!demandId) { alert("Bitte eine Anfrage auswählen."); return; }
+      if (!demandId) { alert(TCi18n.t('slj.c.msg.chooseDemand')); return; }
       var body = {
         offered_quantity: parseInt(document.getElementById("of_quantity").value, 10) || 1,
         offered_hourly_rate: parseFloat(document.getElementById("of_hourly_rate").value) || null,
@@ -227,14 +361,14 @@
       }).then(function(res) {
         if (!res) return;
         if (res.ok) {
-          statusEl.textContent = "Angebot erstellt (Entwurf). ID: " + (res.data.id || "–");
+          statusEl.textContent = TCi18n.t('slj.c.msg.created', { id: res.data.id || "–" });
           statusEl.className = "success"; statusEl.style.display = "block";
         } else {
-          statusEl.textContent = "Fehler: " + (res.data.error || JSON.stringify(res.data));
+          statusEl.textContent = TCi18n.t('slj.c.msg.error', { message: res.data.error || JSON.stringify(res.data) });
           statusEl.className = "error"; statusEl.style.display = "block";
         }
       }).catch(function() {
-        statusEl.textContent = "Netzwerkfehler.";
+        statusEl.textContent = TCi18n.t('slj.c.msg.network');
         statusEl.className = "error"; statusEl.style.display = "block";
       });
     };

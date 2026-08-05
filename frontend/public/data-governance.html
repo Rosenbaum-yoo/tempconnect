@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <script src="/public/js/theme.js"></script>
   <script src="/public/js/i18n.js"></script>
-  <title>Trust Center – TempConnect</title>
+  <title data-i18n="adm.b.docTitle">Trust Center – TempConnect</title>
   <link rel="stylesheet" href="/public/css/enterprise.css"/>
   <style>
     .kpi-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: var(--ds-space-3); margin-bottom: var(--ds-space-5); }
@@ -86,11 +86,11 @@
 
     <div class="ds-page-header">
       <div class="ds-page-header__content">
-        <h1 class="ds-page-title">Trust Center</h1>
-        <p class="ds-page-subtitle">Rechtliches, Datenschutz, Sicherheit, Compliance und Governance.</p>
+        <h1 class="ds-page-title" data-i18n="adm.b.page.title">Trust Center</h1>
+        <p class="ds-page-subtitle" data-i18n="adm.b.page.subtitle">Rechtliches, Datenschutz, Sicherheit, Compliance und Governance.</p>
       </div>
       <div class="ds-page-header__actions">
-        <button id="dataGovernanceRequestButton" class="btn primary" onclick="openRequestModal()" title="DSGVO-/Betroffenen-Anfrage anlegen: Datenexport (Art. 15/20), Löschung (Art. 17), Berichtigung (Art. 16) oder Einschränkung (Art. 18) für Benutzer, Worker oder Organisation.">+ Neue DSGVO-Anfrage</button>
+        <button id="dataGovernanceRequestButton" class="btn primary" onclick="openRequestModal()" data-i18n="adm.b.page.newRequest" data-i18n-title="adm.b.page.newRequestTitle" title="DSGVO-/Betroffenen-Anfrage anlegen: Datenexport (Art. 15/20), Löschung (Art. 17), Berichtigung (Art. 16) oder Einschränkung (Art. 18) für Benutzer, Worker oder Organisation.">+ Neue DSGVO-Anfrage</button>
       </div>
     </div>
     <div id="dataGovernanceState" class="page-state"></div>
@@ -99,13 +99,13 @@
     <div id="onboarding-checklist" style="display:none;margin-bottom:var(--ds-space-4)">
       <div style="border:1px solid rgba(74,158,255,.15);border-radius:12px;background:rgba(74,158,255,.03);overflow:hidden">
         <div style="display:flex;align-items:center;gap:10px;padding:10px 16px;cursor:pointer" onclick="toggleOnboarding()">
-          <span style="font-weight:700;font-size:14px;white-space:nowrap">Plattform einrichten</span>
+          <span style="font-weight:700;font-size:14px;white-space:nowrap" data-i18n="adm.b.onb.label">Plattform einrichten</span>
           <span id="onboarding-subtitle" style="font-size:12px;color:var(--ds-text-secondary,var(--muted));white-space:nowrap;overflow:hidden;text-overflow:ellipsis;flex-shrink:1;min-width:0"></span>
           <div style="flex:1;min-width:40px;max-width:160px;height:4px;border-radius:2px;background:rgba(255,255,255,.08);overflow:hidden">
             <div id="onboarding-progress-bar" style="height:100%;border-radius:2px;background:var(--ds-brand,#4a9eff);transition:width .4s ease;width:0%"></div>
           </div>
-          <button id="onboarding-toggle-btn" type="button" style="background:none;border:none;color:var(--ds-text-secondary,var(--muted));cursor:pointer;font-size:10px;padding:2px 6px;transition:transform .25s;transform:rotate(0deg)" title="Auf-/Zuklappen" onclick="event.stopPropagation();toggleOnboarding()">&#9660;</button>
-          <button id="onboarding-dismiss-btn" type="button" onclick="event.stopPropagation();dismissOnboarding()" style="background:none;border:none;color:var(--ds-text-secondary,var(--muted));cursor:pointer;font-size:18px;padding:2px 6px;line-height:1" title="Ausblenden">&times;</button>
+          <button id="onboarding-toggle-btn" type="button" style="background:none;border:none;color:var(--ds-text-secondary,var(--muted));cursor:pointer;font-size:10px;padding:2px 6px;transition:transform .25s;transform:rotate(0deg)" data-i18n-title="adm.b.onb.toggle" title="Auf-/Zuklappen" onclick="event.stopPropagation();toggleOnboarding()">&#9660;</button>
+          <button id="onboarding-dismiss-btn" type="button" onclick="event.stopPropagation();dismissOnboarding()" style="background:none;border:none;color:var(--ds-text-secondary,var(--muted));cursor:pointer;font-size:18px;padding:2px 6px;line-height:1" data-i18n-title="adm.b.onb.dismiss" title="Ausblenden">&times;</button>
         </div>
         <div id="onboarding-body" style="max-height:0;overflow:hidden;transition:max-height .3s ease">
           <div style="padding:0 16px 14px">
@@ -120,56 +120,56 @@
       <div class="ds-hub-grid">
         <div class="ds-hub-card ds-hub-card--current ds-hub-card--warning" aria-current="page">
           <div class="ds-hub-card__content">
-            <div class="ds-hub-card__title">Trust Center</div>
-            <p class="ds-hub-card__desc">Sie befinden sich im Trust Center.</p>
+            <div class="ds-hub-card__title" data-i18n="adm.b.hub.current">Trust Center</div>
+            <p class="ds-hub-card__desc" data-i18n="adm.b.hub.currentDesc">Sie befinden sich im Trust Center.</p>
           </div>
         </div>
         <a href="/public/legal/impressum.html" class="ds-hub-card">
           <div class="ds-hub-card__content">
-            <div class="ds-hub-card__title">Impressum</div>
-            <p class="ds-hub-card__desc">Gesetzlich vorgeschriebene Anbieterinformationen.</p>
+            <div class="ds-hub-card__title" data-i18n="adm.b.hub.imprint">Impressum</div>
+            <p class="ds-hub-card__desc" data-i18n="adm.b.hub.imprintDesc">Gesetzlich vorgeschriebene Anbieterinformationen.</p>
           </div>
         </a>
         <a href="/public/legal/agb.html" class="ds-hub-card">
           <div class="ds-hub-card__content">
-            <div class="ds-hub-card__title">AGB Anlage 1</div>
-            <p class="ds-hub-card__desc">Allgemeine Gesch&auml;ftsbedingungen und Anlagen.</p>
+            <div class="ds-hub-card__title" data-i18n="adm.b.hub.terms">AGB Anlage 1</div>
+            <p class="ds-hub-card__desc" data-i18n="adm.b.hub.termsDesc">Allgemeine Gesch&auml;ftsbedingungen und Anlagen.</p>
           </div>
         </a>
         <a href="/public/legal/datenschutz.html" class="ds-hub-card">
           <div class="ds-hub-card__content">
-            <div class="ds-hub-card__title">Datenschutz</div>
-            <p class="ds-hub-card__desc">Datenschutzerkl&auml;rung und Verarbeitungshinweise.</p>
+            <div class="ds-hub-card__title" data-i18n="adm.b.hub.privacy">Datenschutz</div>
+            <p class="ds-hub-card__desc" data-i18n="adm.b.hub.privacyDesc">Datenschutzerkl&auml;rung und Verarbeitungshinweise.</p>
           </div>
         </a>
         <a href="/public/trust/security.html" class="ds-hub-card ds-hub-card--brand">
           <div class="ds-hub-card__content">
-            <div class="ds-hub-card__title">Sicherheit</div>
-            <p class="ds-hub-card__desc">Sicherheitsma&szlig;nahmen, Penetrationstests und Zertifizierungen.</p>
+            <div class="ds-hub-card__title" data-i18n="adm.b.hub.security">Sicherheit</div>
+            <p class="ds-hub-card__desc" data-i18n="adm.b.hub.securityDesc">Sicherheitsma&szlig;nahmen, Penetrationstests und Zertifizierungen.</p>
           </div>
         </a>
         <a href="/public/about.html" class="ds-hub-card">
           <div class="ds-hub-card__content">
-            <div class="ds-hub-card__title">&Uuml;ber uns</div>
-            <p class="ds-hub-card__desc">Unternehmen, Team und Mission von TempConnect.</p>
+            <div class="ds-hub-card__title" data-i18n="adm.b.hub.about">&Uuml;ber uns</div>
+            <p class="ds-hub-card__desc" data-i18n="adm.b.hub.aboutDesc">Unternehmen, Team und Mission von TempConnect.</p>
           </div>
         </a>
         <a href="/public/trust/platform-sla.html" class="ds-hub-card">
           <div class="ds-hub-card__content">
-            <div class="ds-hub-card__title">SLA</div>
-            <p class="ds-hub-card__desc">Service-Level-Agreements und Verf&uuml;gbarkeitsgarantien.</p>
+            <div class="ds-hub-card__title" data-i18n="adm.b.hub.sla">SLA</div>
+            <p class="ds-hub-card__desc" data-i18n="adm.b.hub.slaDesc">Service-Level-Agreements und Verf&uuml;gbarkeitsgarantien.</p>
           </div>
         </a>
         <a href="#panel-inventory" class="ds-hub-card ds-hub-card--warning" onclick="switchTab('inventory');return false;">
           <div class="ds-hub-card__content">
-            <div class="ds-hub-card__title">DSGVO Data Governance</div>
-            <p class="ds-hub-card__desc">Dateninventar, L&ouml;schanfragen, Aufbewahrung und Anonymisierung.</p>
+            <div class="ds-hub-card__title" data-i18n="adm.b.hub.governance">DSGVO Data Governance</div>
+            <p class="ds-hub-card__desc" data-i18n="adm.b.hub.governanceDesc">Dateninventar, L&ouml;schanfragen, Aufbewahrung und Anonymisierung.</p>
           </div>
         </a>
         <a href="/public/api-docs.html" class="ds-hub-card ds-hub-card--accent">
           <div class="ds-hub-card__content">
-            <div class="ds-hub-card__title">API-Dokumentation</div>
-            <p class="ds-hub-card__desc">REST-API-Referenz, Endpunkte und Integrationsanleitungen.</p>
+            <div class="ds-hub-card__title" data-i18n="adm.b.hub.api">API-Dokumentation</div>
+            <p class="ds-hub-card__desc" data-i18n="adm.b.hub.apiDesc">REST-API-Referenz, Endpunkte und Integrationsanleitungen.</p>
           </div>
         </a>
       </div>
@@ -177,20 +177,20 @@
 
     <!-- Tabs -->
     <div class="tabs">
-      <div id="dataGovernanceTabInventory" class="tab active" data-tab="inventory" onclick="switchTab('inventory')">Dateninventar</div>
-      <div id="dataGovernanceTabRequests" class="tab" data-tab="requests" onclick="switchTab('requests')">DSGVO-Anfragen</div>
-      <div id="dataGovernanceTabRetention" class="tab" data-tab="retention" onclick="switchTab('retention')">Aufbewahrung</div>
-      <div id="dataGovernanceTabActions" class="tab" data-tab="actions" onclick="switchTab('actions')">Export &amp; Anonymisierung</div>
+      <div id="dataGovernanceTabInventory" class="tab active" data-tab="inventory" onclick="switchTab('inventory')" data-i18n="adm.b.tab.inventory">Dateninventar</div>
+      <div id="dataGovernanceTabRequests" class="tab" data-tab="requests" onclick="switchTab('requests')" data-i18n="adm.b.tab.requests">DSGVO-Anfragen</div>
+      <div id="dataGovernanceTabRetention" class="tab" data-tab="retention" onclick="switchTab('retention')" data-i18n="adm.b.tab.retention">Aufbewahrung</div>
+      <div id="dataGovernanceTabActions" class="tab" data-tab="actions" onclick="switchTab('actions')" data-i18n="adm.b.tab.actions">Export &amp; Anonymisierung</div>
     </div>
 
     <!-- TAB: Dateninventar -->
     <div class="tab-panel active" id="panel-inventory">
       <div class="kpi-grid" id="catGrid"></div>
       <div class="section" id="dataGovernanceExportUserSection">
-        <h3>Datenkategorien nach DSGVO</h3>
+        <h3 data-i18n="adm.b.inv.heading">Datenkategorien nach DSGVO</h3>
         <table>
-          <thead><tr><th>Kategorie</th><th>Beschreibung</th><th>Tabellen</th><th>Aufbewahrung</th></tr></thead>
-          <tbody id="catTable"><tr><td colspan="4" class="empty-state">Lade…</td></tr></tbody>
+          <thead><tr><th data-i18n="adm.b.inv.colCategory">Kategorie</th><th data-i18n="adm.b.inv.colDescription">Beschreibung</th><th data-i18n="adm.b.inv.colTables">Tabellen</th><th data-i18n="adm.b.inv.colRetention">Aufbewahrung</th></tr></thead>
+          <tbody id="catTable"><tr><td colspan="4" class="empty-state" data-i18n="adm.b.state.loading">Lade…</td></tr></tbody>
         </table>
       </div>
     </div>
@@ -198,17 +198,17 @@
     <!-- TAB: DSGVO-Anfragen -->
     <div class="tab-panel" id="panel-requests">
       <div class="filter-row">
-        <div><label style="margin:0;font-size:11px;color:var(--ds-text-secondary)">Status</label>
-          <select id="fReqStatus" onchange="loadRequests()"><option value="">Alle</option><option value="pending">Offen</option><option value="in_progress">In Bearbeitung</option><option value="completed">Abgeschlossen</option><option value="rejected">Abgelehnt</option></select></div>
-        <div><label style="margin:0;font-size:11px;color:var(--ds-text-secondary)">Typ</label>
-          <select id="fReqType" onchange="loadRequests()"><option value="">Alle</option><option value="export">Export</option><option value="deletion">Löschung</option><option value="rectification">Berichtigung</option><option value="restriction">Einschränkung</option></select></div>
-        <button class="btn" onclick="loadRequests()">Filtern</button>
+        <div><label style="margin:0;font-size:11px;color:var(--ds-text-secondary)" data-i18n="adm.b.filter.status">Status</label>
+          <select id="fReqStatus" onchange="loadRequests()"><option value="" data-i18n="adm.b.filter.all">Alle</option><option value="pending" data-i18n="adm.b.filter.pending">Offen</option><option value="in_progress" data-i18n="adm.b.filter.inProgress">In Bearbeitung</option><option value="completed" data-i18n="adm.b.filter.completed">Abgeschlossen</option><option value="rejected" data-i18n="adm.b.filter.rejected">Abgelehnt</option></select></div>
+        <div><label style="margin:0;font-size:11px;color:var(--ds-text-secondary)" data-i18n="adm.b.filter.type">Typ</label>
+          <select id="fReqType" onchange="loadRequests()"><option value="" data-i18n="adm.b.filter.all">Alle</option><option value="export" data-i18n="adm.b.filter.export">Export</option><option value="deletion" data-i18n="adm.b.filter.deletion">Löschung</option><option value="rectification" data-i18n="adm.b.filter.rectification">Berichtigung</option><option value="restriction" data-i18n="adm.b.filter.restriction">Einschränkung</option></select></div>
+        <button class="btn" onclick="loadRequests()" data-i18n="adm.b.filter.apply">Filtern</button>
       </div>
       <div class="section" id="dataGovernanceAnonymizeSection">
-        <h3>DSGVO-Anfragen</h3>
+        <h3 data-i18n="adm.b.req.heading">DSGVO-Anfragen</h3>
         <table>
-          <thead><tr><th>Typ</th><th>Betroffener</th><th>Erstellt</th><th>Status</th><th>Bearbeiter</th><th>Aktionen</th></tr></thead>
-          <tbody id="reqTable"><tr><td colspan="6" class="empty-state">Lade…</td></tr></tbody>
+          <thead><tr><th data-i18n="adm.b.req.colType">Typ</th><th data-i18n="adm.b.req.colSubject">Betroffener</th><th data-i18n="adm.b.req.colCreated">Erstellt</th><th data-i18n="adm.b.req.colStatus">Status</th><th data-i18n="adm.b.req.colHandler">Bearbeiter</th><th data-i18n="adm.b.req.colActions">Aktionen</th></tr></thead>
+          <tbody id="reqTable"><tr><td colspan="6" class="empty-state" data-i18n="adm.b.state.loading">Lade…</td></tr></tbody>
         </table>
       </div>
     </div>
@@ -216,15 +216,15 @@
     <!-- TAB: Aufbewahrung / Retention -->
     <div class="tab-panel" id="panel-retention">
       <div class="section">
-        <h3>Aufbewahrungsfristen</h3>
+        <h3 data-i18n="adm.b.ret.heading">Aufbewahrungsfristen</h3>
         <table>
-          <thead><tr><th>Tabelle</th><th>Frist</th><th>Grund</th><th>Betroffene</th><th>Status</th></tr></thead>
-          <tbody id="retTable"><tr><td colspan="5" class="empty-state">Lade…</td></tr></tbody>
+          <thead><tr><th data-i18n="adm.b.ret.colTable">Tabelle</th><th data-i18n="adm.b.ret.colPeriod">Frist</th><th data-i18n="adm.b.ret.colReason">Grund</th><th data-i18n="adm.b.ret.colAffected">Betroffene</th><th data-i18n="adm.b.ret.colStatus">Status</th></tr></thead>
+          <tbody id="retTable"><tr><td colspan="5" class="empty-state" data-i18n="adm.b.state.loading">Lade…</td></tr></tbody>
         </table>
       </div>
       <div class="btn-row" style="justify-content:flex-start;gap:12px">
-        <button id="dataGovernanceRetentionDryRunButton" class="btn" onclick="runRetentionCleanup(true)">Dry-Run Bereinigung</button>
-        <button id="dataGovernanceRetentionCleanupButton" class="btn primary" onclick="runRetentionCleanup(false)">Bereinigung durchführen</button>
+        <button id="dataGovernanceRetentionDryRunButton" class="btn" onclick="runRetentionCleanup(true)" data-i18n="adm.b.ret.dryRun">Dry-Run Bereinigung</button>
+        <button id="dataGovernanceRetentionCleanupButton" class="btn primary" onclick="runRetentionCleanup(false)" data-i18n="adm.b.ret.cleanup">Bereinigung durchführen</button>
       </div>
       <pre id="cleanupResult" style="display:none;margin-top:16px;padding:16px;border:1px solid var(--ds-border);border-radius:8px;font-size:12px;background:rgba(0,0,0,.2);overflow-x:auto"></pre>
     </div>
@@ -232,25 +232,25 @@
     <!-- TAB: Export & Anonymisierung -->
     <div class="tab-panel" id="panel-actions">
       <div class="section">
-        <h3>Benutzer-Datenexport</h3>
-        <div class="info-box">Art. 15/20 DSGVO — Vollständiger Export aller personenbezogenen Daten eines Nutzers als JSON-Download.</div>
+        <h3 data-i18n="adm.b.act.exportUserHeading">Benutzer-Datenexport</h3>
+        <div class="info-box" data-i18n="adm.b.act.exportUserInfo">Art. 15/20 DSGVO — Vollständiger Export aller personenbezogenen Daten eines Nutzers als JSON-Download.</div>
         <div style="display:flex;gap:8px;align-items:flex-end">
-          <div><label style="font-size:12px;color:var(--ds-text-secondary);font-weight:600">User-ID</label><input id="exportUserId" placeholder="UUID" style="width:320px"/></div>
-          <button id="dataGovernanceExportUserButton" class="btn primary" onclick="exportUser()">Export starten</button>
+          <div><label style="font-size:12px;color:var(--ds-text-secondary);font-weight:600" data-i18n="adm.b.act.userId">User-ID</label><input id="exportUserId" placeholder="UUID" data-i18n-ph="adm.b.act.uuid" style="width:320px"/></div>
+          <button id="dataGovernanceExportUserButton" class="btn primary" onclick="exportUser()" data-i18n="adm.b.act.exportStart">Export starten</button>
         </div>
       </div>
       <div class="section" id="dataGovernanceExportOrgSection">
-        <h3>Org-Datenexport</h3>
-        <div class="info-box">Gesamtexport aller organisationsbezogenen Daten für die Datenschutzakte.</div>
-        <button id="dataGovernanceExportOrgButton" class="btn primary" onclick="exportOrg()">Org-Export starten</button>
+        <h3 data-i18n="adm.b.act.exportOrgHeading">Org-Datenexport</h3>
+        <div class="info-box" data-i18n="adm.b.act.exportOrgInfo">Gesamtexport aller organisationsbezogenen Daten für die Datenschutzakte.</div>
+        <button id="dataGovernanceExportOrgButton" class="btn primary" onclick="exportOrg()" data-i18n="adm.b.act.exportOrgStart">Org-Export starten</button>
       </div>
       <div class="section">
-        <h3>Benutzer anonymisieren</h3>
-        <div class="warn-box">Art. 17 DSGVO — Unwiderrufliche Anonymisierung. Kategorie-A-Daten (PII) werden überschrieben, B anonymisiert, D gelöscht. Kategorie C bleibt erhalten.</div>
+        <h3 data-i18n="adm.b.act.anonHeading">Benutzer anonymisieren</h3>
+        <div class="warn-box" data-i18n="adm.b.act.anonWarn">Art. 17 DSGVO — Unwiderrufliche Anonymisierung. Kategorie-A-Daten (PII) werden überschrieben, B anonymisiert, D gelöscht. Kategorie C bleibt erhalten.</div>
         <div style="display:flex;gap:8px;align-items:flex-end">
-          <div><label style="font-size:12px;color:var(--ds-text-secondary);font-weight:600">User-ID</label><input id="anonUserId" placeholder="UUID" style="width:320px"/></div>
-          <button id="dataGovernanceCheckAnonButton" class="btn" onclick="checkAnon()">Prüfen</button>
-          <button id="dataGovernanceExecAnonButton" class="btn primary" onclick="execAnon()">Anonymisieren</button>
+          <div><label style="font-size:12px;color:var(--ds-text-secondary);font-weight:600" data-i18n="adm.b.act.userId">User-ID</label><input id="anonUserId" placeholder="UUID" data-i18n-ph="adm.b.act.uuid" style="width:320px"/></div>
+          <button id="dataGovernanceCheckAnonButton" class="btn" onclick="checkAnon()" data-i18n="adm.b.act.check">Prüfen</button>
+          <button id="dataGovernanceExecAnonButton" class="btn primary" onclick="execAnon()" data-i18n="adm.b.act.anonymize">Anonymisieren</button>
         </div>
         <pre id="anonResult" style="display:none;margin-top:16px;padding:16px;border:1px solid var(--ds-border);border-radius:8px;font-size:12px;background:rgba(0,0,0,.2);overflow-x:auto"></pre>
       </div>
@@ -260,19 +260,19 @@
   <!-- Neue Anfrage Modal -->
   <div id="modalOverlay" class="modal-overlay" style="display:none" onclick="if(event.target===this)closeModal()">
     <div class="modal">
-      <h2>Neue DSGVO-Anfrage</h2>
+      <h2 data-i18n="adm.b.modal.title">Neue DSGVO-Anfrage</h2>
       <form id="reqForm" onsubmit="return submitRequest(event)">
         <div class="form-grid">
-          <div><label>Anfrage-Typ *</label>
-            <select id="fmType" required><option value="">Bitte wählen</option><option value="export">Datenexport (Art. 15/20)</option><option value="deletion">Löschung (Art. 17)</option><option value="rectification">Berichtigung (Art. 16)</option><option value="restriction">Einschränkung (Art. 18)</option></select></div>
-          <div><label>Betroffenen-Typ *</label>
-            <select id="fmSubjectType" required><option value="">Bitte wählen</option><option value="user">Benutzer</option><option value="worker">Worker</option><option value="organization">Organisation</option></select></div>
-          <div class="full"><label>Betroffenen-ID</label><input id="fmSubjectId" placeholder="UUID (optional)"/></div>
-          <div class="full"><label>Notizen</label><textarea id="fmNotes" rows="3" placeholder="Weitere Details…"></textarea></div>
+          <div><label data-i18n="adm.b.modal.type">Anfrage-Typ *</label>
+            <select id="fmType" required><option value="" data-i18n="adm.b.modal.choose">Bitte wählen</option><option value="export" data-i18n="adm.b.modal.typeExport">Datenexport (Art. 15/20)</option><option value="deletion" data-i18n="adm.b.modal.typeDeletion">Löschung (Art. 17)</option><option value="rectification" data-i18n="adm.b.modal.typeRectification">Berichtigung (Art. 16)</option><option value="restriction" data-i18n="adm.b.modal.typeRestriction">Einschränkung (Art. 18)</option></select></div>
+          <div><label data-i18n="adm.b.modal.subjectType">Betroffenen-Typ *</label>
+            <select id="fmSubjectType" required><option value="" data-i18n="adm.b.modal.choose">Bitte wählen</option><option value="user" data-i18n="adm.b.modal.subjectUser">Benutzer</option><option value="worker" data-i18n="adm.b.modal.subjectWorker">Worker</option><option value="organization" data-i18n="adm.b.modal.subjectOrg">Organisation</option></select></div>
+          <div class="full"><label data-i18n="adm.b.modal.subjectId">Betroffenen-ID</label><input id="fmSubjectId" placeholder="UUID (optional)" data-i18n-ph="adm.b.modal.subjectIdPh"/></div>
+          <div class="full"><label data-i18n="adm.b.modal.notes">Notizen</label><textarea id="fmNotes" rows="3" placeholder="Weitere Details…" data-i18n-ph="adm.b.modal.notesPh"></textarea></div>
         </div>
         <div class="btn-row">
-          <button type="button" class="btn" onclick="closeModal()">Abbrechen</button>
-          <button type="submit" class="btn primary">Anfrage erstellen</button>
+          <button type="button" class="btn" onclick="closeModal()" data-i18n="adm.b.modal.cancel">Abbrechen</button>
+          <button type="submit" class="btn primary" data-i18n="adm.b.modal.submit">Anfrage erstellen</button>
         </div>
       </form>
     </div>

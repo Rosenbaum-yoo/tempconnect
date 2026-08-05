@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <script src="/public/js/theme.js"></script>
   <script src="/public/js/i18n.js"></script>
-  <title>Hilfe und Anleitung – TempConnect</title>
+  <title data-i18n="slp.b.docTitle">Hilfe und Anleitung – TempConnect</title>
   <link rel="stylesheet" href="/public/css/enterprise.css"/>
   <style>
     .help-grid { display: grid; grid-template-columns: 260px 1fr; gap: var(--ds-space-6, 24px); align-items: start; }
@@ -43,311 +43,722 @@
   <div id="main-content" class="wrap">
     <div id="tc-shell"></div>
 
-    <h1 style="margin-bottom:4px">Hilfe und Anleitung</h1>
-    <p style="color:var(--muted);margin:0 0 24px;font-size:14px">Alles Wichtige zu den Bereichen und Ablaeufen in TempConnect.</p>
+    <h1 style="margin-bottom:4px" data-i18n="slp.b.page.title">Hilfe und Anleitung</h1>
+    <p style="color:var(--muted);margin:0 0 24px;font-size:14px" data-i18n="slp.b.page.subtitle">Alles Wichtige zu den Bereichen und Ablaeufen in TempConnect.</p>
 
     <div class="help-grid">
       <nav class="help-nav">
-        <a href="#ueberblick">Ueberblick</a>
-        <a href="#rollen">Rollen in TempConnect</a>
-        <a href="#Marktplatz">Vermittlung</a>
-        <a href="#marketplace">Marketplace (Nachfragen)</a>
-        <a href="#suchauftraege">Suchauftraege</a>
-        <a href="#matching">Matching und Pulse</a>
-        <a href="#angebote">Angebote und Deals</a>
-        <a href="#zuweisung">Zuweisung und Einsatz</a>
-        <a href="#einsatzportal">Einsatzportal</a>
-        <a href="#stundenzettel">Stundenzettel</a>
-        <a href="#nachweise">Nachweise und Compliance</a>
-        <a href="#plaene">Tarife und Plaene</a>
-        <a href="#faq">Haeufige Fragen</a>
-        <a href="#kontakt">Kontakt</a>
+        <a href="#ueberblick" data-i18n="slp.b.nav.overview">Ueberblick</a>
+        <a href="#rollen" data-i18n="slp.b.nav.roles">Rollen in TempConnect</a>
+        <a href="#Marktplatz" data-i18n="slp.b.nav.exchange">Vermittlung</a>
+        <a href="#marketplace" data-i18n="slp.b.nav.marketplace">Marketplace (Nachfragen)</a>
+        <a href="#suchauftraege" data-i18n="slp.b.nav.searches">Suchauftraege</a>
+        <a href="#matching" data-i18n="slp.b.nav.matching">Matching und Pulse</a>
+        <a href="#angebote" data-i18n="slp.b.nav.offers">Angebote und Deals</a>
+        <a href="#zuweisung" data-i18n="slp.b.nav.assignment">Zuweisung und Einsatz</a>
+        <a href="#einsatzportal" data-i18n="slp.b.nav.portal">Einsatzportal</a>
+        <a href="#stundenzettel" data-i18n="slp.b.nav.timesheets">Stundenzettel</a>
+        <a href="#nachweise" data-i18n="slp.b.nav.compliance">Nachweise und Compliance</a>
+        <a href="#plaene" data-i18n="slp.b.nav.plans">Tarife und Plaene</a>
+        <a href="#faq" data-i18n="slp.b.nav.faq">Haeufige Fragen</a>
+        <a href="#kontakt" data-i18n="slp.b.nav.contact">Kontakt</a>
       </nav>
 
       <div>
         <div class="help-section" id="ueberblick">
-          <h2>Ueberblick</h2>
-          <p>TempConnect ist eine B2B-Plattform fuer die Vermittlung von Zeitarbeitskraeften und verfügbarem Personal. Sie verbindet Unternehmen mit Personalbedarf und Zeitarbeitsfirmen mit verfügbarem Personal.</p>
-          <p>Die Plattform umfasst:</p>
+          <h2 data-i18n="slp.b.ov.h2">Ueberblick</h2>
+          <p data-i18n="slp.b.ov.p1">TempConnect ist eine B2B-Plattform fuer die Vermittlung von Zeitarbeitskraeften und verfügbarem Personal. Sie verbindet Unternehmen mit Personalbedarf und Zeitarbeitsfirmen mit verfügbarem Personal.</p>
+          <p data-i18n="slp.b.ov.p2">Die Plattform umfasst:</p>
           <ul>
-            <li><strong>Vermittlung</strong> &ndash; Anbieter stellen verfügbares Personal ein, Unternehmen suchen und kontaktieren passende Angebote.</li>
-            <li><strong>Marketplace</strong> &ndash; Unternehmen erstellen Personalbedarfe (Nachfragen), TempConnect matched automatisch passende Anbieter.</li>
-            <li><strong>Suchauftraege</strong> &ndash; Persistente Suchen mit automatischem Matching und Benachrichtigung.</li>
-            <li><strong>Pulse-System</strong> &ndash; Prozessnachweis, der dokumentiert, wann Matching-Versuche und Benachrichtigungen erfolgt sind.</li>
-            <li><strong>Einsatzportal</strong> &ndash; Verwaltung von Zuweisungen, Einsaetzen und Stundenzetteln fuer Worker.</li>
+            <li><strong data-i18n="slp.b.ov.li1.name">Vermittlung</strong> &ndash; <span data-i18n="slp.b.ov.li1.text">Anbieter stellen verfügbares Personal ein, Unternehmen suchen und kontaktieren passende Angebote.</span></li>
+            <li><strong data-i18n="slp.b.ov.li2.name">Marketplace</strong> &ndash; <span data-i18n="slp.b.ov.li2.text">Unternehmen erstellen Personalbedarfe (Nachfragen), TempConnect matched automatisch passende Anbieter.</span></li>
+            <li><strong data-i18n="slp.b.ov.li3.name">Suchauftraege</strong> &ndash; <span data-i18n="slp.b.ov.li3.text">Persistente Suchen mit automatischem Matching und Benachrichtigung.</span></li>
+            <li><strong data-i18n="slp.b.ov.li4.name">Pulse-System</strong> &ndash; <span data-i18n="slp.b.ov.li4.text">Prozessnachweis, der dokumentiert, wann Matching-Versuche und Benachrichtigungen erfolgt sind.</span></li>
+            <li><strong data-i18n="slp.b.ov.li5.name">Einsatzportal</strong> &ndash; <span data-i18n="slp.b.ov.li5.text">Verwaltung von Zuweisungen, Einsaetzen und Stundenzetteln fuer Worker.</span></li>
           </ul>
         </div>
 
         <div class="help-section" id="rollen">
-          <h2>Rollen in TempConnect</h2>
-          <p>Jeder Account hat eine Hauptrolle, die bestimmt, welche Bereiche und Aktionen verfuegbar sind.</p>
+          <h2 data-i18n="slp.b.ro.h2">Rollen in TempConnect</h2>
+          <p data-i18n="slp.b.ro.p">Jeder Account hat eine Hauptrolle, die bestimmt, welche Bereiche und Aktionen verfuegbar sind.</p>
           <div class="help-roles">
             <div class="help-role-card">
-              <div class="help-role-card__name">Unternehmen</div>
-              <div class="help-role-card__desc">Erstellt Personalbedarfe (Nachfragen), sucht Personal, nimmt Angebote an, verwaltet Zuweisungen und Stundenzettel.</div>
+              <div class="help-role-card__name" data-i18n="slp.b.ro.company.name">Unternehmen</div>
+              <div class="help-role-card__desc" data-i18n="slp.b.ro.company.desc">Erstellt Personalbedarfe (Nachfragen), sucht Personal, nimmt Angebote an, verwaltet Zuweisungen und Stundenzettel.</div>
             </div>
             <div class="help-role-card">
-              <div class="help-role-card__name">Zeitarbeitsfirma</div>
-              <div class="help-role-card__desc">Stellt verfügbares Personal ein, reagiert auf Nachfragen, erstellt Angebote, koordiniert Worker-Einsaetze.</div>
+              <div class="help-role-card__name" data-i18n="slp.b.ro.agency.name">Zeitarbeitsfirma</div>
+              <div class="help-role-card__desc" data-i18n="slp.b.ro.agency.desc">Stellt verfügbares Personal ein, reagiert auf Nachfragen, erstellt Angebote, koordiniert Worker-Einsaetze.</div>
             </div>
             <div class="help-role-card">
-              <div class="help-role-card__name">Worker</div>
-              <div class="help-role-card__desc">Sieht zugewiesene Einsaetze im Einsatzportal, erfasst Stundenzettel, laedt Nachweise hoch.</div>
+              <div class="help-role-card__name" data-i18n="slp.b.ro.worker.name">Worker</div>
+              <div class="help-role-card__desc" data-i18n="slp.b.ro.worker.desc">Sieht zugewiesene Einsaetze im Einsatzportal, erfasst Stundenzettel, laedt Nachweise hoch.</div>
             </div>
             <div class="help-role-card">
-              <div class="help-role-card__name">Admin</div>
-              <div class="help-role-card__desc">Plattform-Administration, Nutzerverwaltung, Compliance-Uebersicht, Reporting.</div>
+              <div class="help-role-card__name" data-i18n="slp.b.ro.admin.name">Admin</div>
+              <div class="help-role-card__desc" data-i18n="slp.b.ro.admin.desc">Plattform-Administration, Nutzerverwaltung, Compliance-Uebersicht, Reporting.</div>
             </div>
           </div>
-          <h3>Org-Rollen (innerhalb einer Organisation)</h3>
-          <p>Innerhalb einer Organisation koennen Mitgliedern spezifische Rollen zugewiesen werden: Owner, Admin, Programm-Manager, Hiring-Manager, Supplier-Manager, Finanzen, Recruiter, Dispatcher, Viewer. Jede Rolle hat unterschiedliche Berechtigungen.</p>
+          <h3 data-i18n="slp.b.ro.orgH3">Org-Rollen (innerhalb einer Organisation)</h3>
+          <p data-i18n="slp.b.ro.orgP">Innerhalb einer Organisation koennen Mitgliedern spezifische Rollen zugewiesen werden: Owner, Admin, Programm-Manager, Hiring-Manager, Supplier-Manager, Finanzen, Recruiter, Dispatcher, Viewer. Jede Rolle hat unterschiedliche Berechtigungen.</p>
         </div>
 
         <div class="help-section" id="Marktplatz">
-          <h2>Vermittlung</h2>
-          <p>Die Vermittlung ist der zentrale Bereich für verfügbares Personal.</p>
-          <h3>Fuer Zeitarbeitsfirmen (Anbieter)</h3>
+          <h2 data-i18n="slp.b.ex.h2">Vermittlung</h2>
+          <p data-i18n="slp.b.ex.p">Die Vermittlung ist der zentrale Bereich für verfügbares Personal.</p>
+          <h3 data-i18n="slp.b.ex.h3agency">Fuer Zeitarbeitsfirmen (Anbieter)</h3>
           <div class="help-card">
-            <div class="help-card__title">Personal einstellen</div>
-            <div class="help-card__text">Ueber &laquo;Personal verwalten&raquo; erstellen Sie Eintraege mit Rolle, Standort, Verfuegbarkeit, Anzahl und Konditionen. Neue Eintraege starten als Entwurf und muessen aktiviert werden.</div>
+            <div class="help-card__title" data-i18n="slp.b.ex.c1.title">Personal einstellen</div>
+            <div class="help-card__text" data-i18n="slp.b.ex.c1.text">Ueber &laquo;Personal verwalten&raquo; erstellen Sie Eintraege mit Rolle, Standort, Verfuegbarkeit, Anzahl und Konditionen. Neue Eintraege starten als Entwurf und muessen aktiviert werden.</div>
           </div>
           <div class="help-card">
-            <div class="help-card__title">Aktualitaet bestaetigen</div>
-            <div class="help-card__text">Aktive Eintraege sollten regelmaessig bestaetigt werden. Nicht bestaetigte Eintraege (ueber 96h) werden als &laquo;veraltet&raquo; markiert und erhalten weniger Sichtbarkeit.</div>
+            <div class="help-card__title" data-i18n="slp.b.ex.c2.title">Aktualitaet bestaetigen</div>
+            <div class="help-card__text" data-i18n="slp.b.ex.c2.text">Aktive Eintraege sollten regelmaessig bestaetigt werden. Nicht bestaetigte Eintraege (ueber 96h) werden als &laquo;veraltet&raquo; markiert und erhalten weniger Sichtbarkeit.</div>
           </div>
           <div class="help-card">
-            <div class="help-card__title">Status-Uebergaenge</div>
-            <div class="help-card__text">Entwurf &rarr; Aktiv &rarr; Pausiert / Besetzt / Archiviert. Abgelaufene Eintraege koennen reaktiviert werden.</div>
+            <div class="help-card__title" data-i18n="slp.b.ex.c3.title">Status-Uebergaenge</div>
+            <div class="help-card__text" data-i18n="slp.b.ex.c3.text">Entwurf &rarr; Aktiv &rarr; Pausiert / Besetzt / Archiviert. Abgelaufene Eintraege koennen reaktiviert werden.</div>
           </div>
-          <h3>Fuer Unternehmen (Suchende)</h3>
+          <h3 data-i18n="slp.b.ex.h3company">Fuer Unternehmen (Suchende)</h3>
           <div class="help-card">
-            <div class="help-card__title">Personalsuche</div>
-            <div class="help-card__text">Im Feed sehen Sie alle aktiven Personalangebote. Filtern Sie nach Rolle, Standort und Verfuegbarkeit. Klicken Sie auf einen Eintrag fuer Details und Kontaktmoeglichkeiten.</div>
+            <div class="help-card__title" data-i18n="slp.b.ex.c4.title">Personalsuche</div>
+            <div class="help-card__text" data-i18n="slp.b.ex.c4.text">Im Feed sehen Sie alle aktiven Personalangebote. Filtern Sie nach Rolle, Standort und Verfuegbarkeit. Klicken Sie auf einen Eintrag fuer Details und Kontaktmoeglichkeiten.</div>
           </div>
           <div class="help-card">
-            <div class="help-card__title">Interaktionen</div>
-            <div class="help-card__text">Bei Interesse: Interesse bekunden, Angebot anfragen, Frage stellen oder direkt Kontakt aufnehmen. Der Anbieter wird ueber jede Interaktion benachrichtigt.</div>
+            <div class="help-card__title" data-i18n="slp.b.ex.c5.title">Interaktionen</div>
+            <div class="help-card__text" data-i18n="slp.b.ex.c5.text">Bei Interesse: Interesse bekunden, Angebot anfragen, Frage stellen oder direkt Kontakt aufnehmen. Der Anbieter wird ueber jede Interaktion benachrichtigt.</div>
           </div>
         </div>
 
         <div class="help-section" id="marketplace">
-          <h2>Marketplace (Nachfragen)</h2>
-          <p>Der Marketplace ermoeglicht es Unternehmen, konkrete Personalbedarfe einzustellen. TempConnect matched automatisch mit passendem Personal.</p>
-          <h3>Typischer Ablauf</h3>
+          <h2 data-i18n="slp.b.mk.h2">Marketplace (Nachfragen)</h2>
+          <p data-i18n="slp.b.mk.p">Der Marketplace ermoeglicht es Unternehmen, konkrete Personalbedarfe einzustellen. TempConnect matched automatisch mit passendem Personal.</p>
+          <h3 data-i18n="slp.b.mk.h3">Typischer Ablauf</h3>
           <div class="help-flow">
-            <span class="help-flow__step">Nachfrage erstellen</span>
+            <span class="help-flow__step" data-i18n="slp.b.mk.step1">Nachfrage erstellen</span>
             <span class="help-flow__arrow">&rarr;</span>
-            <span class="help-flow__step">Automatisches Matching</span>
+            <span class="help-flow__step" data-i18n="slp.b.mk.step2">Automatisches Matching</span>
             <span class="help-flow__arrow">&rarr;</span>
-            <span class="help-flow__step">Anbieter benachrichtigt</span>
+            <span class="help-flow__step" data-i18n="slp.b.mk.step3">Anbieter benachrichtigt</span>
             <span class="help-flow__arrow">&rarr;</span>
-            <span class="help-flow__step">Angebote erhalten</span>
+            <span class="help-flow__step" data-i18n="slp.b.mk.step4">Angebote erhalten</span>
             <span class="help-flow__arrow">&rarr;</span>
-            <span class="help-flow__step">Angebot annehmen</span>
+            <span class="help-flow__step" data-i18n="slp.b.mk.step5">Angebot annehmen</span>
             <span class="help-flow__arrow">&rarr;</span>
-            <span class="help-flow__step">Zuweisung</span>
+            <span class="help-flow__step" data-i18n="slp.b.mk.step6">Zuweisung</span>
           </div>
           <div class="help-card">
-            <div class="help-card__title">Nachfrage erstellen</div>
-            <div class="help-card__text">Geben Sie Rolle, Standort, Zeitraum, Anzahl und Dringlichkeit an. Optional: Skills, Budget und PLZ. Nach Absenden startet das automatische Matching.</div>
+            <div class="help-card__title" data-i18n="slp.b.mk.c1.title">Nachfrage erstellen</div>
+            <div class="help-card__text" data-i18n="slp.b.mk.c1.text">Geben Sie Rolle, Standort, Zeitraum, Anzahl und Dringlichkeit an. Optional: Skills, Budget und PLZ. Nach Absenden startet das automatische Matching.</div>
           </div>
           <div class="help-card">
-            <div class="help-card__title">Matches und Angebote</div>
-            <div class="help-card__text">Passende Anbieter werden automatisch ermittelt und benachrichtigt. Angebote koennen angenommen oder abgelehnt werden. Bei Annahme wird automatisch eine Zuweisung erstellt.</div>
+            <div class="help-card__title" data-i18n="slp.b.mk.c2.title">Matches und Angebote</div>
+            <div class="help-card__text" data-i18n="slp.b.mk.c2.text">Passende Anbieter werden automatisch ermittelt und benachrichtigt. Angebote koennen angenommen oder abgelehnt werden. Bei Annahme wird automatisch eine Zuweisung erstellt.</div>
           </div>
         </div>
 
         <div class="help-section" id="suchauftraege">
-          <h2>Suchauftraege</h2>
-          <p>Persistente Suchen, die im Hintergrund laufen und bei neuen Treffern automatisch benachrichtigen.</p>
+          <h2 data-i18n="slp.b.se.h2">Suchauftraege</h2>
+          <p data-i18n="slp.b.se.p">Persistente Suchen, die im Hintergrund laufen und bei neuen Treffern automatisch benachrichtigen.</p>
           <div class="help-card">
-            <div class="help-card__title">Suchauftrag anlegen</div>
-            <div class="help-card__text">Definieren Sie Suchtyp (Personalangebot oder Nachfrage), Rolle, Standort und Dringlichkeit. Sofort nach Anlage wird ein erstes Matching durchgefuehrt.</div>
+            <div class="help-card__title" data-i18n="slp.b.se.c1.title">Suchauftrag anlegen</div>
+            <div class="help-card__text" data-i18n="slp.b.se.c1.text">Definieren Sie Suchtyp (Personalangebot oder Nachfrage), Rolle, Standort und Dringlichkeit. Sofort nach Anlage wird ein erstes Matching durchgefuehrt.</div>
           </div>
           <div class="help-card">
-            <div class="help-card__title">Verwaltung</div>
-            <div class="help-card__text">Suchauftraege koennen pausiert, fortgesetzt, bearbeitet oder geschlossen werden. In der Detailansicht sehen Sie Treffer, Pulse-Events und koennen den Report exportieren.</div>
+            <div class="help-card__title" data-i18n="slp.b.se.c2.title">Verwaltung</div>
+            <div class="help-card__text" data-i18n="slp.b.se.c2.text">Suchauftraege koennen pausiert, fortgesetzt, bearbeitet oder geschlossen werden. In der Detailansicht sehen Sie Treffer, Pulse-Events und koennen den Report exportieren.</div>
           </div>
         </div>
 
         <div class="help-section" id="matching">
-          <h2>Matching und Pulse-System</h2>
-          <p>Das Pulse-System ist der Prozessnachweis von TempConnect. Es dokumentiert transparent, wann und wie Matching-Versuche und Benachrichtigungen stattgefunden haben.</p>
-          <h3>Was dokumentiert Pulse?</h3>
+          <h2 data-i18n="slp.b.ma.h2">Matching und Pulse-System</h2>
+          <p data-i18n="slp.b.ma.p">Das Pulse-System ist der Prozessnachweis von TempConnect. Es dokumentiert transparent, wann und wie Matching-Versuche und Benachrichtigungen stattgefunden haben.</p>
+          <h3 data-i18n="slp.b.ma.h3what">Was dokumentiert Pulse?</h3>
           <ul>
-            <li>Zeitpunkt des Matching-Starts</li>
-            <li>Anzahl gepruefter Kandidaten und gefundener Treffer</li>
-            <li>Zeitpunkt und Anzahl versendeter Benachrichtigungen</li>
-            <li>Ob die Pulse-Frist eingehalten (MET) oder ueberschritten (BREACHED) wurde</li>
+            <li data-i18n="slp.b.ma.li1">Zeitpunkt des Matching-Starts</li>
+            <li data-i18n="slp.b.ma.li2">Anzahl gepruefter Kandidaten und gefundener Treffer</li>
+            <li data-i18n="slp.b.ma.li3">Zeitpunkt und Anzahl versendeter Benachrichtigungen</li>
+            <li data-i18n="slp.b.ma.li4">Ob die Pulse-Frist eingehalten (MET) oder ueberschritten (BREACHED) wurde</li>
           </ul>
-          <h3>Pulse-Status</h3>
+          <h3 data-i18n="slp.b.ma.h3status">Pulse-Status</h3>
           <div class="help-card">
-            <div class="help-card__text"><strong>RUNNING</strong> &ndash; Pulse laeuft, Frist noch offen.<br><strong>MET</strong> &ndash; Matching und Benachrichtigung innerhalb der Frist erfolgt.<br><strong>BREACHED</strong> &ndash; Frist ueberschritten.</div>
+            <!-- RUNNING / MET / BREACHED sind Server-Enums und bleiben als Rohwert stehen. -->
+            <div class="help-card__text"><strong>RUNNING</strong> &ndash; <span data-i18n="slp.b.ma.stRunning">Pulse laeuft, Frist noch offen.</span><br><strong>MET</strong> &ndash; <span data-i18n="slp.b.ma.stMet">Matching und Benachrichtigung innerhalb der Frist erfolgt.</span><br><strong>BREACHED</strong> &ndash; <span data-i18n="slp.b.ma.stBreached">Frist ueberschritten.</span></div>
           </div>
-          <p><strong>Wichtig:</strong> Pulse ist ein Prozessnachweis. Es wird kein Vermittlungserfolg zugesagt oder garantiert.</p>
+          <p><strong data-i18n="slp.b.ma.importantLabel">Wichtig:</strong> <span data-i18n="slp.b.ma.importantText">Pulse ist ein Prozessnachweis. Es wird kein Vermittlungserfolg zugesagt oder garantiert.</span></p>
         </div>
 
         <div class="help-section" id="angebote">
-          <h2>Angebote und Deals</h2>
-          <p>Wenn ein Anbieter auf eine Nachfrage reagiert, erstellt er ein Angebot mit Konditionen.</p>
+          <h2 data-i18n="slp.b.of.h2">Angebote und Deals</h2>
+          <p data-i18n="slp.b.of.p">Wenn ein Anbieter auf eine Nachfrage reagiert, erstellt er ein Angebot mit Konditionen.</p>
           <div class="help-card">
-            <div class="help-card__title">Angebot erstellen (Anbieter)</div>
-            <div class="help-card__text">Stundensatz, angebotene Anzahl, Startzeitpunkt, Zuschlaege und Konditionen definieren.</div>
+            <div class="help-card__title" data-i18n="slp.b.of.c1.title">Angebot erstellen (Anbieter)</div>
+            <div class="help-card__text" data-i18n="slp.b.of.c1.text">Stundensatz, angebotene Anzahl, Startzeitpunkt, Zuschlaege und Konditionen definieren.</div>
           </div>
           <div class="help-card">
-            <div class="help-card__title">Angebot annehmen (Unternehmen)</div>
-            <div class="help-card__text">Pruefen, annehmen oder ablehnen. Bei Annahme wird automatisch eine geplante Zuweisung erstellt.</div>
+            <div class="help-card__title" data-i18n="slp.b.of.c2.title">Angebot annehmen (Unternehmen)</div>
+            <div class="help-card__text" data-i18n="slp.b.of.c2.text">Pruefen, annehmen oder ablehnen. Bei Annahme wird automatisch eine geplante Zuweisung erstellt.</div>
           </div>
           <div class="help-card">
-            <div class="help-card__title">Gegenangebot</div>
-            <div class="help-card__text">Wenn Konditionen nicht passen, koennen Sie ein Gegenangebot senden.</div>
+            <div class="help-card__title" data-i18n="slp.b.of.c3.title">Gegenangebot</div>
+            <div class="help-card__text" data-i18n="slp.b.of.c3.text">Wenn Konditionen nicht passen, koennen Sie ein Gegenangebot senden.</div>
           </div>
         </div>
 
         <div class="help-section" id="zuweisung">
-          <h2>Zuweisung und Einsatz</h2>
-          <p>Nach Annahme eines Angebots wird eine Zuweisung (Assignment) erstellt.</p>
+          <h2 data-i18n="slp.b.as.h2">Zuweisung und Einsatz</h2>
+          <p data-i18n="slp.b.as.p">Nach Annahme eines Angebots wird eine Zuweisung (Assignment) erstellt.</p>
           <div class="help-flow">
-            <span class="help-flow__step">Geplant</span>
+            <span class="help-flow__step" data-i18n="slp.b.as.step1">Geplant</span>
             <span class="help-flow__arrow">&rarr;</span>
-            <span class="help-flow__step">Bestaetigt</span>
+            <span class="help-flow__step" data-i18n="slp.b.as.step2">Bestaetigt</span>
             <span class="help-flow__arrow">&rarr;</span>
-            <span class="help-flow__step">Aktiv</span>
+            <span class="help-flow__step" data-i18n="slp.b.as.step3">Aktiv</span>
             <span class="help-flow__arrow">&rarr;</span>
-            <span class="help-flow__step">Abgeschlossen</span>
+            <span class="help-flow__step" data-i18n="slp.b.as.step4">Abgeschlossen</span>
           </div>
-          <p>Die Zuweisung enthaelt Worker-Beschreibung, Anzahl, Zeitraum, Stundensatz und Notizen. Der Anbieter kann konkrete Worker zuweisen.</p>
+          <p data-i18n="slp.b.as.p2">Die Zuweisung enthaelt Worker-Beschreibung, Anzahl, Zeitraum, Stundensatz und Notizen. Der Anbieter kann konkrete Worker zuweisen.</p>
         </div>
 
         <div class="help-section" id="einsatzportal">
-          <h2>Einsatzportal (Worker Self Service)</h2>
-          <p>Der Bereich fuer Worker (Zeitarbeitskraefte):</p>
+          <h2 data-i18n="slp.b.po.h2">Einsatzportal (Worker Self Service)</h2>
+          <p data-i18n="slp.b.po.p">Der Bereich fuer Worker (Zeitarbeitskraefte):</p>
           <ul>
-            <li><strong>Dashboard</strong> &ndash; Uebersicht ueber aktuelle Einsaetze und wichtige Informationen.</li>
-            <li><strong>Einsaetze</strong> &ndash; Liste aller zugewiesenen Einsaetze mit Details zu Ort, Zeitraum und Ansprechpartner.</li>
-            <li><strong>Einsatzplan</strong> &ndash; Kalender-/Planansicht der eigenen Einsaetze.</li>
-            <li><strong>Stundenzettel</strong> &ndash; Erfassung und Uebersicht der geleisteten Stunden.</li>
-            <li><strong>Profil</strong> &ndash; Eigene Stammdaten und Qualifikationen verwalten.</li>
-            <li><strong>Benachrichtigungen</strong> &ndash; Informationen zu neuen Einsaetzen und Aenderungen.</li>
-            <li><strong>Kontakt</strong> &ndash; Direkter Kontakt zum Disponenten oder Ansprechpartner.</li>
+            <li><strong data-i18n="slp.b.po.li1.name">Dashboard</strong> &ndash; <span data-i18n="slp.b.po.li1.text">Uebersicht ueber aktuelle Einsaetze und wichtige Informationen.</span></li>
+            <li><strong data-i18n="slp.b.po.li2.name">Einsaetze</strong> &ndash; <span data-i18n="slp.b.po.li2.text">Liste aller zugewiesenen Einsaetze mit Details zu Ort, Zeitraum und Ansprechpartner.</span></li>
+            <li><strong data-i18n="slp.b.po.li3.name">Einsatzplan</strong> &ndash; <span data-i18n="slp.b.po.li3.text">Kalender-/Planansicht der eigenen Einsaetze.</span></li>
+            <li><strong data-i18n="slp.b.po.li4.name">Stundenzettel</strong> &ndash; <span data-i18n="slp.b.po.li4.text">Erfassung und Uebersicht der geleisteten Stunden.</span></li>
+            <li><strong data-i18n="slp.b.po.li5.name">Profil</strong> &ndash; <span data-i18n="slp.b.po.li5.text">Eigene Stammdaten und Qualifikationen verwalten.</span></li>
+            <li><strong data-i18n="slp.b.po.li6.name">Benachrichtigungen</strong> &ndash; <span data-i18n="slp.b.po.li6.text">Informationen zu neuen Einsaetzen und Aenderungen.</span></li>
+            <li><strong data-i18n="slp.b.po.li7.name">Kontakt</strong> &ndash; <span data-i18n="slp.b.po.li7.text">Direkter Kontakt zum Disponenten oder Ansprechpartner.</span></li>
           </ul>
         </div>
 
         <div class="help-section" id="stundenzettel">
-          <h2>Stundenzettel</h2>
-          <p>Stundenzettel werden pro Zuweisung und Abrechnungsperiode erfasst.</p>
+          <h2 data-i18n="slp.b.ts.h2">Stundenzettel</h2>
+          <p data-i18n="slp.b.ts.p">Stundenzettel werden pro Zuweisung und Abrechnungsperiode erfasst.</p>
           <div class="help-card">
-            <div class="help-card__title">Ablauf</div>
-            <div class="help-card__text">Worker erfasst Stunden &rarr; Stundenzettel eingereicht &rarr; Pruefer genehmigt oder lehnt ab &rarr; Abrechnung.</div>
+            <div class="help-card__title" data-i18n="slp.b.ts.c1.title">Ablauf</div>
+            <div class="help-card__text" data-i18n="slp.b.ts.c1.text">Worker erfasst Stunden &rarr; Stundenzettel eingereicht &rarr; Pruefer genehmigt oder lehnt ab &rarr; Abrechnung.</div>
           </div>
-          <p>Stundenzettel-Vorlagen koennen vom Unternehmen definiert werden fuer einheitliche Erfassung.</p>
+          <p data-i18n="slp.b.ts.p2">Stundenzettel-Vorlagen koennen vom Unternehmen definiert werden fuer einheitliche Erfassung.</p>
         </div>
 
         <div class="help-section" id="nachweise">
-          <h2>Nachweise und Compliance</h2>
+          <h2 data-i18n="slp.b.co.h2">Nachweise und Compliance</h2>
           <div class="help-card">
-            <div class="help-card__title">Nachweise hochladen</div>
-            <div class="help-card__text">Unter &laquo;Nachweise&raquo; koennen Sie Gewerbeanmeldung, AUeG-Erlaubnis, Versicherungsnachweise und Zertifikate hochladen.</div>
+            <div class="help-card__title" data-i18n="slp.b.co.c1.title">Nachweise hochladen</div>
+            <div class="help-card__text" data-i18n="slp.b.co.c1.text">Unter &laquo;Nachweise&raquo; koennen Sie Gewerbeanmeldung, AUeG-Erlaubnis, Versicherungsnachweise und Zertifikate hochladen.</div>
           </div>
           <div class="help-card">
-            <div class="help-card__title">Compliance-Status</div>
-            <div class="help-card__text">Automatisch ermittelt: Unbekannt, In Pruefung, Teilweise, Vollstaendig. Vollstaendige Compliance erhoeht Vertrauen und Sichtbarkeit.</div>
+            <div class="help-card__title" data-i18n="slp.b.co.c2.title">Compliance-Status</div>
+            <div class="help-card__text" data-i18n="slp.b.co.c2.text">Automatisch ermittelt: Unbekannt, In Pruefung, Teilweise, Vollstaendig. Vollstaendige Compliance erhoeht Vertrauen und Sichtbarkeit.</div>
           </div>
           <div class="help-card">
-            <div class="help-card__title">Vertrauenssignale</div>
-            <div class="help-card__text">In der Detailansicht sehen Suchende: Verifizierung, Compliance-Status, Anzahl Deals, Profilvollstaendigkeit und Reputations-Score.</div>
+            <div class="help-card__title" data-i18n="slp.b.co.c3.title">Vertrauenssignale</div>
+            <div class="help-card__text" data-i18n="slp.b.co.c3.text">In der Detailansicht sehen Suchende: Verifizierung, Compliance-Status, Anzahl Deals, Profilvollstaendigkeit und Reputations-Score.</div>
           </div>
         </div>
 
         <div class="help-section" id="plaene">
-          <h2>Tarife und Plaene</h2>
+          <h2 data-i18n="slp.b.pn.h2">Tarife und Plaene</h2>
           <div class="plan-grid">
+            <!-- DEMO/BASIS/PLUS/PRO sind kanonische Plan-Schluessel und bleiben
+                 unveraendert; nur die Feature-Beschreibungen sind zweisprachig. -->
             <div class="plan-card">
               <div class="plan-card__name" style="color:#8d9bba">DEMO</div>
-              <div class="plan-card__features">14-Tage-Testzugang, grundlegende Plattformnutzung</div>
+              <div class="plan-card__features" data-i18n="slp.b.pn.demo">14-Tage-Testzugang, grundlegende Plattformnutzung</div>
             </div>
             <div class="plan-card">
               <div class="plan-card__name" style="color:#4a9eff">BASIS</div>
-              <div class="plan-card__features">Erweiterte Funktionen, grundlegendes Matching</div>
+              <div class="plan-card__features" data-i18n="slp.b.pn.basis">Erweiterte Funktionen, grundlegendes Matching</div>
             </div>
             <div class="plan-card">
               <div class="plan-card__name" style="color:#34d399">PLUS</div>
-              <div class="plan-card__features">Voller SLA-Zugang, Vermittlung, Marketplace, Pulse</div>
+              <div class="plan-card__features" data-i18n="slp.b.pn.plus">Voller SLA-Zugang, Vermittlung, Marketplace, Pulse</div>
             </div>
             <div class="plan-card">
               <div class="plan-card__name" style="color:#a855f7">PRO</div>
-              <div class="plan-card__features">Alle PLUS-Features plus Notdienst, Priority-Matching</div>
+              <div class="plan-card__features" data-i18n="slp.b.pn.pro">Alle PLUS-Features plus Notdienst, Priority-Matching</div>
             </div>
             <div class="plan-card">
-              <div class="plan-card__name" style="color:#f43f5e">INDIVIDUELLER TARIF</div>
-              <div class="plan-card__features">Individuelle Konfiguration, API-Zugang, dedizierter Support</div>
+              <div class="plan-card__name" style="color:#f43f5e" data-i18n="slp.b.pn.individualName">INDIVIDUELLER TARIF</div>
+              <div class="plan-card__features" data-i18n="slp.b.pn.individual">Individuelle Konfiguration, API-Zugang, dedizierter Support</div>
             </div>
           </div>
-          <p><a href="/public/sla_abo.html" style="color:#3b82f6;text-decoration:underline">Tarife und Preise ansehen</a></p>
+          <p><a href="/public/sla_abo.html" style="color:#3b82f6;text-decoration:underline" data-i18n="slp.b.pn.link">Tarife und Preise ansehen</a></p>
         </div>
 
         <div class="help-section" id="faq">
-          <h2>Haeufige Fragen</h2>
+          <h2 data-i18n="slp.b.faq.h2">Haeufige Fragen</h2>
           <div class="faq-item">
-            <div class="faq-item__q">Wie finde ich passendes Personal?</div>
-            <div class="faq-item__a">Nutzen Sie die <a href="/public/capacity_exchange_feed.html" style="color:#3b82f6">Vermittlung</a> und filtern nach Rolle, Standort und Verfuegbarkeit. Oder erstellen Sie eine <a href="/public/marketplace_demand_create.html" style="color:#3b82f6">Nachfrage</a> fuer automatisches Matching.</div>
+            <div class="faq-item__q" data-i18n="slp.b.faq.q1">Wie finde ich passendes Personal?</div>
+            <div class="faq-item__a"><span data-i18n="slp.b.faq.a1.pre">Nutzen Sie die</span> <a href="/public/capacity_exchange_feed.html" style="color:#3b82f6" data-i18n="slp.b.faq.a1.link1">Vermittlung</a> <span data-i18n="slp.b.faq.a1.mid">und filtern nach Rolle, Standort und Verfuegbarkeit. Oder erstellen Sie eine</span> <a href="/public/marketplace_demand_create.html" style="color:#3b82f6" data-i18n="slp.b.faq.a1.link2">Nachfrage</a> <span data-i18n="slp.b.faq.a1.post">fuer automatisches Matching.</span></div>
           </div>
           <div class="faq-item">
-            <div class="faq-item__q">Was bedeutet der Pulse-Timer?</div>
-            <div class="faq-item__a">Die Zeitspanne, in der TempConnect einen Matching-Versuch und Benachrichtigung durchfuehrt. Prozessnachweis, kein Vermittlungsversprechen.</div>
+            <div class="faq-item__q" data-i18n="slp.b.faq.q2">Was bedeutet der Pulse-Timer?</div>
+            <div class="faq-item__a" data-i18n="slp.b.faq.a2">Die Zeitspanne, in der TempConnect einen Matching-Versuch und Benachrichtigung durchfuehrt. Prozessnachweis, kein Vermittlungsversprechen.</div>
           </div>
           <div class="faq-item">
-            <div class="faq-item__q">Wer kann Nachfragen erstellen?</div>
-            <div class="faq-item__a">Accounts mit Rolle &laquo;Unternehmen&raquo; und mindestens PLUS-Plan.</div>
+            <div class="faq-item__q" data-i18n="slp.b.faq.q3">Wer kann Nachfragen erstellen?</div>
+            <div class="faq-item__a" data-i18n="slp.b.faq.a3">Accounts mit Rolle &laquo;Unternehmen&raquo; und mindestens PLUS-Plan.</div>
           </div>
           <div class="faq-item">
-            <div class="faq-item__q">Wer kann Personal einstellen?</div>
-            <div class="faq-item__a">Accounts mit Rolle &laquo;Zeitarbeitsfirma&raquo; und mindestens PLUS-Plan.</div>
+            <div class="faq-item__q" data-i18n="slp.b.faq.q4">Wer kann Personal einstellen?</div>
+            <div class="faq-item__a" data-i18n="slp.b.faq.a4">Accounts mit Rolle &laquo;Zeitarbeitsfirma&raquo; und mindestens PLUS-Plan.</div>
           </div>
           <div class="faq-item">
-            <div class="faq-item__q">Was passiert nach Annahme eines Angebots?</div>
-            <div class="faq-item__a">Es wird automatisch eine Zuweisung (Assignment) erstellt. Der Anbieter kann dann Worker zuweisen.</div>
+            <div class="faq-item__q" data-i18n="slp.b.faq.q5">Was passiert nach Annahme eines Angebots?</div>
+            <div class="faq-item__a" data-i18n="slp.b.faq.a5">Es wird automatisch eine Zuweisung (Assignment) erstellt. Der Anbieter kann dann Worker zuweisen.</div>
           </div>
           <div class="faq-item">
-            <div class="faq-item__q">Wie funktionieren Org-Mitgliedschaften?</div>
-            <div class="faq-item__a">Organisationen koennen mehrere Mitglieder mit verschiedenen Rollen haben. Mitglieder koennen auf Nachfragen und Personalangebote der Organisation zugreifen.</div>
+            <div class="faq-item__q" data-i18n="slp.b.faq.q6">Wie funktionieren Org-Mitgliedschaften?</div>
+            <div class="faq-item__a" data-i18n="slp.b.faq.a6">Organisationen koennen mehrere Mitglieder mit verschiedenen Rollen haben. Mitglieder koennen auf Nachfragen und Personalangebote der Organisation zugreifen.</div>
           </div>
           <div class="faq-item">
-            <div class="faq-item__q">Wie erfasse ich Stundenzettel?</div>
-            <div class="faq-item__a">Worker im <a href="/public/einsatzportal-stundenzettel.html" style="color:#3b82f6">Einsatzportal</a>. Unternehmen pruefen und genehmigen unter &laquo;Stundenzettel&raquo;.</div>
+            <div class="faq-item__q" data-i18n="slp.b.faq.q7">Wie erfasse ich Stundenzettel?</div>
+            <div class="faq-item__a"><span data-i18n="slp.b.faq.a7.pre">Worker im</span> <a href="/public/einsatzportal-stundenzettel.html" style="color:#3b82f6" data-i18n="slp.b.faq.a7.link">Einsatzportal</a><span data-i18n="slp.b.faq.a7.post">. Unternehmen pruefen und genehmigen unter &laquo;Stundenzettel&raquo;.</span></div>
           </div>
           <div class="faq-item">
-            <div class="faq-item__q">Wo finde ich Compliance-Dokumente?</div>
-            <div class="faq-item__a">Unter <a href="/public/sla_nachweise.html" style="color:#3b82f6">Nachweise</a> Dokumente hochladen und verwalten.</div>
+            <div class="faq-item__q" data-i18n="slp.b.faq.q8">Wo finde ich Compliance-Dokumente?</div>
+            <div class="faq-item__a"><span data-i18n="slp.b.faq.a8.pre">Unter</span> <a href="/public/sla_nachweise.html" style="color:#3b82f6" data-i18n="slp.b.faq.a8.link">Nachweise</a> <span data-i18n="slp.b.faq.a8.post">Dokumente hochladen und verwalten.</span></div>
           </div>
           <div class="faq-item">
-            <div class="faq-item__q">Garantiert TempConnect Vermittlungserfolg?</div>
-            <div class="faq-item__a">Nein. TempConnect unterstuetzt den Vermittlungsprozess und dokumentiert diesen transparent (Pulse). Kein Vermittlungserfolg garantiert.</div>
+            <div class="faq-item__q" data-i18n="slp.b.faq.q9">Garantiert TempConnect Vermittlungserfolg?</div>
+            <div class="faq-item__a" data-i18n="slp.b.faq.a9">Nein. TempConnect unterstuetzt den Vermittlungsprozess und dokumentiert diesen transparent (Pulse). Kein Vermittlungserfolg garantiert.</div>
           </div>
         </div>
 
         <div class="help-section" id="kontakt">
-          <h2>Kontakt und Support</h2>
+          <h2 data-i18n="slp.b.ct.h2">Kontakt und Support</h2>
           <div class="help-card">
-            <div class="help-card__title">E-Mail-Support</div>
+            <div class="help-card__title" data-i18n="slp.b.ct.mail.title">E-Mail-Support</div>
             <div class="help-card__text"><a href="mailto:support@tempconnect.example.com" style="color:#3b82f6">support@tempconnect.example.com</a></div>
           </div>
           <div class="help-card">
-            <div class="help-card__title">Weitere Ressourcen</div>
+            <div class="help-card__title" data-i18n="slp.b.ct.more.title">Weitere Ressourcen</div>
             <div class="help-card__text">
-              <a href="/public/sla_abo.html" style="color:#3b82f6;margin-right:16px">Abo-Modelle</a>
-              <a href="/public/sla_profil.html" style="color:#3b82f6;margin-right:16px">Firmenprofil</a>
-              <a href="/public/sla_nachweise.html" style="color:#3b82f6;margin-right:16px">Nachweise</a>
-              <a href="/public/sla_angebote.html" style="color:#3b82f6">Angebote</a>
+              <a href="/public/sla_abo.html" style="color:#3b82f6;margin-right:16px" data-i18n="slp.b.ct.link.abo">Abo-Modelle</a>
+              <a href="/public/sla_profil.html" style="color:#3b82f6;margin-right:16px" data-i18n="slp.b.ct.link.profile">Firmenprofil</a>
+              <a href="/public/sla_nachweise.html" style="color:#3b82f6;margin-right:16px" data-i18n="slp.b.ct.link.records">Nachweise</a>
+              <a href="/public/sla_angebote.html" style="color:#3b82f6" data-i18n="slp.b.ct.link.offers">Angebote</a>
             </div>
           </div>
-          <p style="color:var(--muted);font-size:12px;margin-top:16px">Support-Prioritaeten orientieren sich an den Tarifen. PRO- und Kunden mit individuellem Tarif erhalten bevorzugten Support.</p>
+          <p style="color:var(--muted);font-size:12px;margin-top:16px" data-i18n="slp.b.ct.note">Support-Prioritaeten orientieren sich an den Tarifen. PRO- und Kunden mit individuellem Tarif erhalten bevorzugten Support.</p>
         </div>
       </div>
     </div>
 
-    <p class="sla-disclaimer">Hinweis: Inhalte dienen der Unterstuetzung und ersetzen keine rechtliche Pruefung. Angaben ohne Gewaehr. TempConnect garantiert keinen Vermittlungserfolg.</p>
+    <p class="sla-disclaimer" data-i18n="slp.b.disclaimer">Hinweis: Inhalte dienen der Unterstuetzung und ersetzen keine rechtliche Pruefung. Angaben ohne Gewaehr. TempConnect garantiert keinen Vermittlungserfolg.</p>
   </div>
+
+<script>
+/* Woerterbuch (P6.1, DE/EN) — Namensraum der Gruppe: slp.
+   Unter-Namensraum dieser Seite: slp.b. Die Seite hat keine ausgelagerte
+   Page-JS-Datei, deshalb steht das Woerterbuch hier im Haupt-Inline-Script.
+
+   Bewusst NICHT uebersetzt:
+   - Topbar, Navigation und Nutzerbereich (pageShell.js, eigene Schluessel)
+   - Plan-Schluessel DEMO/BASIS/PLUS/PRO (kanonische Werte)
+   - Pulse-Status RUNNING/MET/BREACHED (Server-Enums)
+   - die Support-Adresse und alle href-Ziele
+
+   Die Seite erklaert bewusst BEIDE Marktseiten nebeneinander (Unternehmen und
+   Zeitarbeitsfirma) und laeuft nicht ueber TC.terminology.get(...) — sie
+   benutzt durchgehend die neutrale Begriffsebene. */
+(function () {
+  'use strict';
+  if (!window.TCi18n) return;
+
+  TCi18n.register('de', {
+    'slp.b.docTitle': 'Hilfe und Anleitung – TempConnect',
+    'slp.b.page.title': 'Hilfe und Anleitung',
+    'slp.b.page.subtitle': 'Alles Wichtige zu den Bereichen und Ablaeufen in TempConnect.',
+
+    'slp.b.nav.overview': 'Ueberblick',
+    'slp.b.nav.roles': 'Rollen in TempConnect',
+    'slp.b.nav.exchange': 'Vermittlung',
+    'slp.b.nav.marketplace': 'Marketplace (Nachfragen)',
+    'slp.b.nav.searches': 'Suchauftraege',
+    'slp.b.nav.matching': 'Matching und Pulse',
+    'slp.b.nav.offers': 'Angebote und Deals',
+    'slp.b.nav.assignment': 'Zuweisung und Einsatz',
+    'slp.b.nav.portal': 'Einsatzportal',
+    'slp.b.nav.timesheets': 'Stundenzettel',
+    'slp.b.nav.compliance': 'Nachweise und Compliance',
+    'slp.b.nav.plans': 'Tarife und Plaene',
+    'slp.b.nav.faq': 'Haeufige Fragen',
+    'slp.b.nav.contact': 'Kontakt',
+
+    'slp.b.ov.h2': 'Ueberblick',
+    'slp.b.ov.p1': 'TempConnect ist eine B2B-Plattform fuer die Vermittlung von Zeitarbeitskraeften und verfügbarem Personal. Sie verbindet Unternehmen mit Personalbedarf und Zeitarbeitsfirmen mit verfügbarem Personal.',
+    'slp.b.ov.p2': 'Die Plattform umfasst:',
+    'slp.b.ov.li1.name': 'Vermittlung',
+    'slp.b.ov.li1.text': 'Anbieter stellen verfügbares Personal ein, Unternehmen suchen und kontaktieren passende Angebote.',
+    'slp.b.ov.li2.name': 'Marketplace',
+    'slp.b.ov.li2.text': 'Unternehmen erstellen Personalbedarfe (Nachfragen), TempConnect matched automatisch passende Anbieter.',
+    'slp.b.ov.li3.name': 'Suchauftraege',
+    'slp.b.ov.li3.text': 'Persistente Suchen mit automatischem Matching und Benachrichtigung.',
+    'slp.b.ov.li4.name': 'Pulse-System',
+    'slp.b.ov.li4.text': 'Prozessnachweis, der dokumentiert, wann Matching-Versuche und Benachrichtigungen erfolgt sind.',
+    'slp.b.ov.li5.name': 'Einsatzportal',
+    'slp.b.ov.li5.text': 'Verwaltung von Zuweisungen, Einsaetzen und Stundenzetteln fuer Worker.',
+
+    'slp.b.ro.h2': 'Rollen in TempConnect',
+    'slp.b.ro.p': 'Jeder Account hat eine Hauptrolle, die bestimmt, welche Bereiche und Aktionen verfuegbar sind.',
+    'slp.b.ro.company.name': 'Unternehmen',
+    'slp.b.ro.company.desc': 'Erstellt Personalbedarfe (Nachfragen), sucht Personal, nimmt Angebote an, verwaltet Zuweisungen und Stundenzettel.',
+    'slp.b.ro.agency.name': 'Zeitarbeitsfirma',
+    'slp.b.ro.agency.desc': 'Stellt verfügbares Personal ein, reagiert auf Nachfragen, erstellt Angebote, koordiniert Worker-Einsaetze.',
+    'slp.b.ro.worker.name': 'Worker',
+    'slp.b.ro.worker.desc': 'Sieht zugewiesene Einsaetze im Einsatzportal, erfasst Stundenzettel, laedt Nachweise hoch.',
+    'slp.b.ro.admin.name': 'Admin',
+    'slp.b.ro.admin.desc': 'Plattform-Administration, Nutzerverwaltung, Compliance-Uebersicht, Reporting.',
+    'slp.b.ro.orgH3': 'Org-Rollen (innerhalb einer Organisation)',
+    'slp.b.ro.orgP': 'Innerhalb einer Organisation koennen Mitgliedern spezifische Rollen zugewiesen werden: Owner, Admin, Programm-Manager, Hiring-Manager, Supplier-Manager, Finanzen, Recruiter, Dispatcher, Viewer. Jede Rolle hat unterschiedliche Berechtigungen.',
+
+    'slp.b.ex.h2': 'Vermittlung',
+    'slp.b.ex.p': 'Die Vermittlung ist der zentrale Bereich für verfügbares Personal.',
+    'slp.b.ex.h3agency': 'Fuer Zeitarbeitsfirmen (Anbieter)',
+    'slp.b.ex.c1.title': 'Personal einstellen',
+    'slp.b.ex.c1.text': 'Ueber «Personal verwalten» erstellen Sie Eintraege mit Rolle, Standort, Verfuegbarkeit, Anzahl und Konditionen. Neue Eintraege starten als Entwurf und muessen aktiviert werden.',
+    'slp.b.ex.c2.title': 'Aktualitaet bestaetigen',
+    'slp.b.ex.c2.text': 'Aktive Eintraege sollten regelmaessig bestaetigt werden. Nicht bestaetigte Eintraege (ueber 96h) werden als «veraltet» markiert und erhalten weniger Sichtbarkeit.',
+    'slp.b.ex.c3.title': 'Status-Uebergaenge',
+    'slp.b.ex.c3.text': 'Entwurf → Aktiv → Pausiert / Besetzt / Archiviert. Abgelaufene Eintraege koennen reaktiviert werden.',
+    'slp.b.ex.h3company': 'Fuer Unternehmen (Suchende)',
+    'slp.b.ex.c4.title': 'Personalsuche',
+    'slp.b.ex.c4.text': 'Im Feed sehen Sie alle aktiven Personalangebote. Filtern Sie nach Rolle, Standort und Verfuegbarkeit. Klicken Sie auf einen Eintrag fuer Details und Kontaktmoeglichkeiten.',
+    'slp.b.ex.c5.title': 'Interaktionen',
+    'slp.b.ex.c5.text': 'Bei Interesse: Interesse bekunden, Angebot anfragen, Frage stellen oder direkt Kontakt aufnehmen. Der Anbieter wird ueber jede Interaktion benachrichtigt.',
+
+    'slp.b.mk.h2': 'Marketplace (Nachfragen)',
+    'slp.b.mk.p': 'Der Marketplace ermoeglicht es Unternehmen, konkrete Personalbedarfe einzustellen. TempConnect matched automatisch mit passendem Personal.',
+    'slp.b.mk.h3': 'Typischer Ablauf',
+    'slp.b.mk.step1': 'Nachfrage erstellen',
+    'slp.b.mk.step2': 'Automatisches Matching',
+    'slp.b.mk.step3': 'Anbieter benachrichtigt',
+    'slp.b.mk.step4': 'Angebote erhalten',
+    'slp.b.mk.step5': 'Angebot annehmen',
+    'slp.b.mk.step6': 'Zuweisung',
+    'slp.b.mk.c1.title': 'Nachfrage erstellen',
+    'slp.b.mk.c1.text': 'Geben Sie Rolle, Standort, Zeitraum, Anzahl und Dringlichkeit an. Optional: Skills, Budget und PLZ. Nach Absenden startet das automatische Matching.',
+    'slp.b.mk.c2.title': 'Matches und Angebote',
+    'slp.b.mk.c2.text': 'Passende Anbieter werden automatisch ermittelt und benachrichtigt. Angebote koennen angenommen oder abgelehnt werden. Bei Annahme wird automatisch eine Zuweisung erstellt.',
+
+    'slp.b.se.h2': 'Suchauftraege',
+    'slp.b.se.p': 'Persistente Suchen, die im Hintergrund laufen und bei neuen Treffern automatisch benachrichtigen.',
+    'slp.b.se.c1.title': 'Suchauftrag anlegen',
+    'slp.b.se.c1.text': 'Definieren Sie Suchtyp (Personalangebot oder Nachfrage), Rolle, Standort und Dringlichkeit. Sofort nach Anlage wird ein erstes Matching durchgefuehrt.',
+    'slp.b.se.c2.title': 'Verwaltung',
+    'slp.b.se.c2.text': 'Suchauftraege koennen pausiert, fortgesetzt, bearbeitet oder geschlossen werden. In der Detailansicht sehen Sie Treffer, Pulse-Events und koennen den Report exportieren.',
+
+    'slp.b.ma.h2': 'Matching und Pulse-System',
+    'slp.b.ma.p': 'Das Pulse-System ist der Prozessnachweis von TempConnect. Es dokumentiert transparent, wann und wie Matching-Versuche und Benachrichtigungen stattgefunden haben.',
+    'slp.b.ma.h3what': 'Was dokumentiert Pulse?',
+    'slp.b.ma.li1': 'Zeitpunkt des Matching-Starts',
+    'slp.b.ma.li2': 'Anzahl gepruefter Kandidaten und gefundener Treffer',
+    'slp.b.ma.li3': 'Zeitpunkt und Anzahl versendeter Benachrichtigungen',
+    'slp.b.ma.li4': 'Ob die Pulse-Frist eingehalten (MET) oder ueberschritten (BREACHED) wurde',
+    'slp.b.ma.h3status': 'Pulse-Status',
+    'slp.b.ma.stRunning': 'Pulse laeuft, Frist noch offen.',
+    'slp.b.ma.stMet': 'Matching und Benachrichtigung innerhalb der Frist erfolgt.',
+    'slp.b.ma.stBreached': 'Frist ueberschritten.',
+    'slp.b.ma.importantLabel': 'Wichtig:',
+    'slp.b.ma.importantText': 'Pulse ist ein Prozessnachweis. Es wird kein Vermittlungserfolg zugesagt oder garantiert.',
+
+    'slp.b.of.h2': 'Angebote und Deals',
+    'slp.b.of.p': 'Wenn ein Anbieter auf eine Nachfrage reagiert, erstellt er ein Angebot mit Konditionen.',
+    'slp.b.of.c1.title': 'Angebot erstellen (Anbieter)',
+    'slp.b.of.c1.text': 'Stundensatz, angebotene Anzahl, Startzeitpunkt, Zuschlaege und Konditionen definieren.',
+    'slp.b.of.c2.title': 'Angebot annehmen (Unternehmen)',
+    'slp.b.of.c2.text': 'Pruefen, annehmen oder ablehnen. Bei Annahme wird automatisch eine geplante Zuweisung erstellt.',
+    'slp.b.of.c3.title': 'Gegenangebot',
+    'slp.b.of.c3.text': 'Wenn Konditionen nicht passen, koennen Sie ein Gegenangebot senden.',
+
+    'slp.b.as.h2': 'Zuweisung und Einsatz',
+    'slp.b.as.p': 'Nach Annahme eines Angebots wird eine Zuweisung (Assignment) erstellt.',
+    'slp.b.as.step1': 'Geplant',
+    'slp.b.as.step2': 'Bestaetigt',
+    'slp.b.as.step3': 'Aktiv',
+    'slp.b.as.step4': 'Abgeschlossen',
+    'slp.b.as.p2': 'Die Zuweisung enthaelt Worker-Beschreibung, Anzahl, Zeitraum, Stundensatz und Notizen. Der Anbieter kann konkrete Worker zuweisen.',
+
+    'slp.b.po.h2': 'Einsatzportal (Worker Self Service)',
+    'slp.b.po.p': 'Der Bereich fuer Worker (Zeitarbeitskraefte):',
+    'slp.b.po.li1.name': 'Dashboard',
+    'slp.b.po.li1.text': 'Uebersicht ueber aktuelle Einsaetze und wichtige Informationen.',
+    'slp.b.po.li2.name': 'Einsaetze',
+    'slp.b.po.li2.text': 'Liste aller zugewiesenen Einsaetze mit Details zu Ort, Zeitraum und Ansprechpartner.',
+    'slp.b.po.li3.name': 'Einsatzplan',
+    'slp.b.po.li3.text': 'Kalender-/Planansicht der eigenen Einsaetze.',
+    'slp.b.po.li4.name': 'Stundenzettel',
+    'slp.b.po.li4.text': 'Erfassung und Uebersicht der geleisteten Stunden.',
+    'slp.b.po.li5.name': 'Profil',
+    'slp.b.po.li5.text': 'Eigene Stammdaten und Qualifikationen verwalten.',
+    'slp.b.po.li6.name': 'Benachrichtigungen',
+    'slp.b.po.li6.text': 'Informationen zu neuen Einsaetzen und Aenderungen.',
+    'slp.b.po.li7.name': 'Kontakt',
+    'slp.b.po.li7.text': 'Direkter Kontakt zum Disponenten oder Ansprechpartner.',
+
+    'slp.b.ts.h2': 'Stundenzettel',
+    'slp.b.ts.p': 'Stundenzettel werden pro Zuweisung und Abrechnungsperiode erfasst.',
+    'slp.b.ts.c1.title': 'Ablauf',
+    'slp.b.ts.c1.text': 'Worker erfasst Stunden → Stundenzettel eingereicht → Pruefer genehmigt oder lehnt ab → Abrechnung.',
+    'slp.b.ts.p2': 'Stundenzettel-Vorlagen koennen vom Unternehmen definiert werden fuer einheitliche Erfassung.',
+
+    'slp.b.co.h2': 'Nachweise und Compliance',
+    'slp.b.co.c1.title': 'Nachweise hochladen',
+    'slp.b.co.c1.text': 'Unter «Nachweise» koennen Sie Gewerbeanmeldung, AUeG-Erlaubnis, Versicherungsnachweise und Zertifikate hochladen.',
+    'slp.b.co.c2.title': 'Compliance-Status',
+    'slp.b.co.c2.text': 'Automatisch ermittelt: Unbekannt, In Pruefung, Teilweise, Vollstaendig. Vollstaendige Compliance erhoeht Vertrauen und Sichtbarkeit.',
+    'slp.b.co.c3.title': 'Vertrauenssignale',
+    'slp.b.co.c3.text': 'In der Detailansicht sehen Suchende: Verifizierung, Compliance-Status, Anzahl Deals, Profilvollstaendigkeit und Reputations-Score.',
+
+    'slp.b.pn.h2': 'Tarife und Plaene',
+    'slp.b.pn.demo': '14-Tage-Testzugang, grundlegende Plattformnutzung',
+    'slp.b.pn.basis': 'Erweiterte Funktionen, grundlegendes Matching',
+    'slp.b.pn.plus': 'Voller SLA-Zugang, Vermittlung, Marketplace, Pulse',
+    'slp.b.pn.pro': 'Alle PLUS-Features plus Notdienst, Priority-Matching',
+    'slp.b.pn.individualName': 'INDIVIDUELLER TARIF',
+    'slp.b.pn.individual': 'Individuelle Konfiguration, API-Zugang, dedizierter Support',
+    'slp.b.pn.link': 'Tarife und Preise ansehen',
+
+    'slp.b.faq.h2': 'Haeufige Fragen',
+    'slp.b.faq.q1': 'Wie finde ich passendes Personal?',
+    'slp.b.faq.a1.pre': 'Nutzen Sie die',
+    'slp.b.faq.a1.link1': 'Vermittlung',
+    'slp.b.faq.a1.mid': 'und filtern nach Rolle, Standort und Verfuegbarkeit. Oder erstellen Sie eine',
+    'slp.b.faq.a1.link2': 'Nachfrage',
+    'slp.b.faq.a1.post': 'fuer automatisches Matching.',
+    'slp.b.faq.q2': 'Was bedeutet der Pulse-Timer?',
+    'slp.b.faq.a2': 'Die Zeitspanne, in der TempConnect einen Matching-Versuch und Benachrichtigung durchfuehrt. Prozessnachweis, kein Vermittlungsversprechen.',
+    'slp.b.faq.q3': 'Wer kann Nachfragen erstellen?',
+    'slp.b.faq.a3': 'Accounts mit Rolle «Unternehmen» und mindestens PLUS-Plan.',
+    'slp.b.faq.q4': 'Wer kann Personal einstellen?',
+    'slp.b.faq.a4': 'Accounts mit Rolle «Zeitarbeitsfirma» und mindestens PLUS-Plan.',
+    'slp.b.faq.q5': 'Was passiert nach Annahme eines Angebots?',
+    'slp.b.faq.a5': 'Es wird automatisch eine Zuweisung (Assignment) erstellt. Der Anbieter kann dann Worker zuweisen.',
+    'slp.b.faq.q6': 'Wie funktionieren Org-Mitgliedschaften?',
+    'slp.b.faq.a6': 'Organisationen koennen mehrere Mitglieder mit verschiedenen Rollen haben. Mitglieder koennen auf Nachfragen und Personalangebote der Organisation zugreifen.',
+    'slp.b.faq.q7': 'Wie erfasse ich Stundenzettel?',
+    'slp.b.faq.a7.pre': 'Worker im',
+    'slp.b.faq.a7.link': 'Einsatzportal',
+    'slp.b.faq.a7.post': '. Unternehmen pruefen und genehmigen unter «Stundenzettel».',
+    'slp.b.faq.q8': 'Wo finde ich Compliance-Dokumente?',
+    'slp.b.faq.a8.pre': 'Unter',
+    'slp.b.faq.a8.link': 'Nachweise',
+    'slp.b.faq.a8.post': 'Dokumente hochladen und verwalten.',
+    'slp.b.faq.q9': 'Garantiert TempConnect Vermittlungserfolg?',
+    'slp.b.faq.a9': 'Nein. TempConnect unterstuetzt den Vermittlungsprozess und dokumentiert diesen transparent (Pulse). Kein Vermittlungserfolg garantiert.',
+
+    'slp.b.ct.h2': 'Kontakt und Support',
+    'slp.b.ct.mail.title': 'E-Mail-Support',
+    'slp.b.ct.more.title': 'Weitere Ressourcen',
+    'slp.b.ct.link.abo': 'Abo-Modelle',
+    'slp.b.ct.link.profile': 'Firmenprofil',
+    'slp.b.ct.link.records': 'Nachweise',
+    'slp.b.ct.link.offers': 'Angebote',
+    'slp.b.ct.note': 'Support-Prioritaeten orientieren sich an den Tarifen. PRO- und Kunden mit individuellem Tarif erhalten bevorzugten Support.',
+
+    'slp.b.disclaimer': 'Hinweis: Inhalte dienen der Unterstuetzung und ersetzen keine rechtliche Pruefung. Angaben ohne Gewaehr. TempConnect garantiert keinen Vermittlungserfolg.'
+  });
+
+  TCi18n.register('en', {
+    'slp.b.docTitle': 'Help and guidance – TempConnect',
+    'slp.b.page.title': 'Help and guidance',
+    'slp.b.page.subtitle': 'Everything you need to know about the areas and workflows in TempConnect.',
+
+    'slp.b.nav.overview': 'Overview',
+    'slp.b.nav.roles': 'Roles in TempConnect',
+    'slp.b.nav.exchange': 'Staffing exchange',
+    'slp.b.nav.marketplace': 'Marketplace (demands)',
+    'slp.b.nav.searches': 'Saved searches',
+    'slp.b.nav.matching': 'Matching and Pulse',
+    'slp.b.nav.offers': 'Offers and deals',
+    'slp.b.nav.assignment': 'Staffing and assignment',
+    'slp.b.nav.portal': 'Assignment portal',
+    'slp.b.nav.timesheets': 'Timesheets',
+    'slp.b.nav.compliance': 'Records and compliance',
+    'slp.b.nav.plans': 'Plans and pricing',
+    'slp.b.nav.faq': 'Frequently asked questions',
+    'slp.b.nav.contact': 'Contact',
+
+    'slp.b.ov.h2': 'Overview',
+    'slp.b.ov.p1': 'TempConnect is a B2B platform for placing temporary workers and available staff. It connects companies that need staff with staffing firms that have staff available.',
+    'slp.b.ov.p2': 'The platform covers:',
+    'slp.b.ov.li1.name': 'Staffing exchange',
+    'slp.b.ov.li1.text': 'Suppliers list available staff, companies search and contact matching offers.',
+    'slp.b.ov.li2.name': 'Marketplace',
+    'slp.b.ov.li2.text': 'Companies create staffing demands, TempConnect automatically matches suitable suppliers.',
+    'slp.b.ov.li3.name': 'Saved searches',
+    'slp.b.ov.li3.text': 'Persistent searches with automatic matching and notification.',
+    'slp.b.ov.li4.name': 'Pulse system',
+    'slp.b.ov.li4.text': 'Process evidence documenting when matching attempts and notifications took place.',
+    'slp.b.ov.li5.name': 'Assignment portal',
+    'slp.b.ov.li5.text': 'Management of staffing records, assignments and timesheets for workers.',
+
+    'slp.b.ro.h2': 'Roles in TempConnect',
+    'slp.b.ro.p': 'Every account has a primary role that determines which areas and actions are available.',
+    'slp.b.ro.company.name': 'Company',
+    'slp.b.ro.company.desc': 'Creates staffing demands, searches for staff, accepts offers, manages staffing records and timesheets.',
+    'slp.b.ro.agency.name': 'Staffing firm',
+    'slp.b.ro.agency.desc': 'Lists available staff, responds to demands, creates offers, coordinates worker assignments.',
+    'slp.b.ro.worker.name': 'Worker',
+    'slp.b.ro.worker.desc': 'Sees assigned work in the assignment portal, records timesheets, uploads compliance records.',
+    'slp.b.ro.admin.name': 'Admin',
+    'slp.b.ro.admin.desc': 'Platform administration, user management, compliance overview, reporting.',
+    'slp.b.ro.orgH3': 'Org roles (within an organisation)',
+    'slp.b.ro.orgP': 'Within an organisation, members can be given specific roles: owner, admin, programme manager, hiring manager, supplier manager, finance, recruiter, dispatcher, viewer. Each role carries different permissions.',
+
+    'slp.b.ex.h2': 'Staffing exchange',
+    'slp.b.ex.p': 'The staffing exchange is the central area for available staff.',
+    'slp.b.ex.h3agency': 'For staffing firms (suppliers)',
+    'slp.b.ex.c1.title': 'List staff',
+    'slp.b.ex.c1.text': 'Under «Manage staff» you create entries with role, location, availability, headcount and terms. New entries start as a draft and have to be activated.',
+    'slp.b.ex.c2.title': 'Confirm that entries are current',
+    'slp.b.ex.c2.text': 'Active entries should be confirmed regularly. Entries not confirmed for more than 96h are flagged as «outdated» and lose visibility.',
+    'slp.b.ex.c3.title': 'Status transitions',
+    'slp.b.ex.c3.text': 'Draft → active → paused / filled / archived. Expired entries can be reactivated.',
+    'slp.b.ex.h3company': 'For companies (searching)',
+    'slp.b.ex.c4.title': 'Find staff',
+    'slp.b.ex.c4.text': 'The feed shows all active staff offers. Filter by role, location and availability. Click an entry for details and contact options.',
+    'slp.b.ex.c5.title': 'Interactions',
+    'slp.b.ex.c5.text': 'If interested: register interest, request an offer, ask a question or make contact directly. The supplier is notified of every interaction.',
+
+    'slp.b.mk.h2': 'Marketplace (demands)',
+    'slp.b.mk.p': 'The marketplace lets companies post concrete staffing demands. TempConnect automatically matches them with suitable staff.',
+    'slp.b.mk.h3': 'Typical flow',
+    'slp.b.mk.step1': 'Create demand',
+    'slp.b.mk.step2': 'Automatic matching',
+    'slp.b.mk.step3': 'Suppliers notified',
+    'slp.b.mk.step4': 'Offers received',
+    'slp.b.mk.step5': 'Accept offer',
+    'slp.b.mk.step6': 'Staffing record',
+    'slp.b.mk.c1.title': 'Create demand',
+    'slp.b.mk.c1.text': 'Enter role, location, period, headcount and urgency. Optional: skills, budget and postcode. Automatic matching starts once you submit.',
+    'slp.b.mk.c2.title': 'Matches and offers',
+    'slp.b.mk.c2.text': 'Suitable suppliers are identified and notified automatically. Offers can be accepted or declined. On acceptance a staffing record is created automatically.',
+
+    'slp.b.se.h2': 'Saved searches',
+    'slp.b.se.p': 'Persistent searches that run in the background and notify you automatically about new matches.',
+    'slp.b.se.c1.title': 'Create a saved search',
+    'slp.b.se.c1.text': 'Define the search type (staff offer or demand), role, location and urgency. A first matching run starts immediately after you create it.',
+    'slp.b.se.c2.title': 'Management',
+    'slp.b.se.c2.text': 'Saved searches can be paused, resumed, edited or closed. The detail view shows matches and Pulse events, and lets you export the report.',
+
+    'slp.b.ma.h2': 'Matching and the Pulse system',
+    'slp.b.ma.p': 'The Pulse system is TempConnect’s process evidence. It transparently documents when and how matching attempts and notifications took place.',
+    'slp.b.ma.h3what': 'What does Pulse document?',
+    'slp.b.ma.li1': 'The time the matching run started',
+    'slp.b.ma.li2': 'The number of candidates checked and matches found',
+    'slp.b.ma.li3': 'The time and number of notifications sent',
+    'slp.b.ma.li4': 'Whether the Pulse deadline was met (MET) or exceeded (BREACHED)',
+    'slp.b.ma.h3status': 'Pulse status',
+    'slp.b.ma.stRunning': 'Pulse is running, the deadline is still open.',
+    'slp.b.ma.stMet': 'Matching and notification happened within the deadline.',
+    'slp.b.ma.stBreached': 'Deadline exceeded.',
+    'slp.b.ma.importantLabel': 'Important:',
+    'slp.b.ma.importantText': 'Pulse is process evidence. No placement success is promised or guaranteed.',
+
+    'slp.b.of.h2': 'Offers and deals',
+    'slp.b.of.p': 'When a supplier responds to a demand, they create an offer with terms.',
+    'slp.b.of.c1.title': 'Create an offer (supplier)',
+    'slp.b.of.c1.text': 'Define hourly rate, headcount offered, start time, surcharges and terms.',
+    'slp.b.of.c2.title': 'Accept an offer (company)',
+    'slp.b.of.c2.text': 'Review, accept or decline. On acceptance a planned staffing record is created automatically.',
+    'slp.b.of.c3.title': 'Counter-offer',
+    'slp.b.of.c3.text': 'If the terms do not fit, you can send a counter-offer.',
+
+    'slp.b.as.h2': 'Staffing and assignment',
+    'slp.b.as.p': 'Once an offer is accepted, a staffing record (assignment) is created.',
+    'slp.b.as.step1': 'Planned',
+    'slp.b.as.step2': 'Confirmed',
+    'slp.b.as.step3': 'Active',
+    'slp.b.as.step4': 'Completed',
+    'slp.b.as.p2': 'The staffing record holds the worker description, headcount, period, hourly rate and notes. The supplier can assign specific workers.',
+
+    'slp.b.po.h2': 'Assignment portal (worker self service)',
+    'slp.b.po.p': 'The area for workers (temporary staff):',
+    'slp.b.po.li1.name': 'Dashboard',
+    'slp.b.po.li1.text': 'Overview of current assignments and important information.',
+    'slp.b.po.li2.name': 'Assignments',
+    'slp.b.po.li2.text': 'List of all assigned work with details on location, period and contact person.',
+    'slp.b.po.li3.name': 'Assignment plan',
+    'slp.b.po.li3.text': 'Calendar and planning view of your own assignments.',
+    'slp.b.po.li4.name': 'Timesheets',
+    'slp.b.po.li4.text': 'Recording and overview of the hours worked.',
+    'slp.b.po.li5.name': 'Profile',
+    'slp.b.po.li5.text': 'Manage your own master data and qualifications.',
+    'slp.b.po.li6.name': 'Notifications',
+    'slp.b.po.li6.text': 'Information on new assignments and changes.',
+    'slp.b.po.li7.name': 'Contact',
+    'slp.b.po.li7.text': 'Direct contact with the dispatcher or contact person.',
+
+    'slp.b.ts.h2': 'Timesheets',
+    'slp.b.ts.p': 'Timesheets are recorded per staffing record and billing period.',
+    'slp.b.ts.c1.title': 'Flow',
+    'slp.b.ts.c1.text': 'Worker records hours → timesheet submitted → reviewer approves or rejects → billing.',
+    'slp.b.ts.p2': 'Timesheet templates can be defined by the company for consistent recording.',
+
+    'slp.b.co.h2': 'Records and compliance',
+    'slp.b.co.c1.title': 'Upload compliance records',
+    'slp.b.co.c1.text': 'Under «Records» you can upload your trade registration, AUeG permit, insurance certificates and other certificates.',
+    'slp.b.co.c2.title': 'Compliance status',
+    'slp.b.co.c2.text': 'Determined automatically: unknown, in review, partial, complete. Full compliance increases trust and visibility.',
+    'slp.b.co.c3.title': 'Trust signals',
+    'slp.b.co.c3.text': 'In the detail view, searchers see: verification, compliance status, number of deals, profile completeness and reputation score.',
+
+    'slp.b.pn.h2': 'Plans and pricing',
+    'slp.b.pn.demo': '14-day trial access, basic platform usage',
+    'slp.b.pn.basis': 'Extended functions, basic matching',
+    'slp.b.pn.plus': 'Full SLA access, staffing exchange, marketplace, Pulse',
+    'slp.b.pn.pro': 'All PLUS features plus emergency cover and priority matching',
+    'slp.b.pn.individualName': 'CUSTOM PLAN',
+    'slp.b.pn.individual': 'Individual configuration, API access, dedicated support',
+    'slp.b.pn.link': 'View plans and pricing',
+
+    'slp.b.faq.h2': 'Frequently asked questions',
+    'slp.b.faq.q1': 'How do I find suitable staff?',
+    'slp.b.faq.a1.pre': 'Use the',
+    'slp.b.faq.a1.link1': 'staffing exchange',
+    'slp.b.faq.a1.mid': 'and filter by role, location and availability. Or create a',
+    'slp.b.faq.a1.link2': 'demand',
+    'slp.b.faq.a1.post': 'for automatic matching.',
+    'slp.b.faq.q2': 'What does the Pulse timer mean?',
+    'slp.b.faq.a2': 'The period within which TempConnect performs a matching attempt and sends notifications. Process evidence, not a placement promise.',
+    'slp.b.faq.q3': 'Who can create demands?',
+    'slp.b.faq.a3': 'Accounts with the role «company» and at least the PLUS plan.',
+    'slp.b.faq.q4': 'Who can list staff?',
+    'slp.b.faq.a4': 'Accounts with the role «staffing firm» and at least the PLUS plan.',
+    'slp.b.faq.q5': 'What happens after an offer is accepted?',
+    'slp.b.faq.a5': 'A staffing record (assignment) is created automatically. The supplier can then assign workers.',
+    'slp.b.faq.q6': 'How do org memberships work?',
+    'slp.b.faq.a6': 'Organisations can have several members with different roles. Members can access the organisation’s demands and staff offers.',
+    'slp.b.faq.q7': 'How do I record timesheets?',
+    'slp.b.faq.a7.pre': 'Workers do this in the',
+    'slp.b.faq.a7.link': 'assignment portal',
+    'slp.b.faq.a7.post': '. Companies review and approve them under «Timesheets».',
+    'slp.b.faq.q8': 'Where do I find compliance documents?',
+    'slp.b.faq.a8.pre': 'Under',
+    'slp.b.faq.a8.link': 'Records',
+    'slp.b.faq.a8.post': 'you can upload and manage documents.',
+    'slp.b.faq.q9': 'Does TempConnect guarantee placement success?',
+    'slp.b.faq.a9': 'No. TempConnect supports the placement process and documents it transparently (Pulse). No placement success is guaranteed.',
+
+    'slp.b.ct.h2': 'Contact and support',
+    'slp.b.ct.mail.title': 'Email support',
+    'slp.b.ct.more.title': 'Further resources',
+    'slp.b.ct.link.abo': 'Subscription plans',
+    'slp.b.ct.link.profile': 'Company profile',
+    'slp.b.ct.link.records': 'Records',
+    'slp.b.ct.link.offers': 'Offers',
+    'slp.b.ct.note': 'Support priorities follow the plans. PRO customers and customers on a custom plan receive priority support.',
+
+    'slp.b.disclaimer': 'Note: this content is for guidance only and does not replace a legal review. All information without warranty. TempConnect does not guarantee placement success.'
+  });
+})();
+</script>
 
   <script src="/public/js/planFeatures.js"></script>
   <script src="/public/js/slaGuard.js"></script>

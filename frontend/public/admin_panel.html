@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <script src="/public/js/theme.js"></script>
   <script src="/public/js/i18n.js"></script>
-  <title>Admin Panel – TempConnect</title>
+  <title data-i18n="adm.a.docTitle">Admin Panel – TempConnect</title>
   <link rel="stylesheet" href="/public/css/enterprise.css"/>
   <link rel="stylesheet" href="/public/css/pages/admin-panel.css"/>
 </head>
@@ -17,8 +17,8 @@
 
     <div class="ds-page-header">
       <div class="ds-page-header__content">
-        <h1 class="ds-page-title">Admin Panel</h1>
-        <p class="ds-page-subtitle">Benutzer, Organisationen, Audit-Log und Plattform-Metriken.</p>
+        <h1 class="ds-page-title" data-i18n="adm.a.page.title">Admin Panel</h1>
+        <p class="ds-page-subtitle" data-i18n="adm.a.page.subtitle">Benutzer, Organisationen, Audit-Log und Plattform-Metriken.</p>
       </div>
     </div>
 
@@ -26,13 +26,13 @@
     <div id="onboarding-checklist" class="tc-onboarding">
       <div class="tc-onboarding__box">
         <div class="tc-onboarding__header" onclick="toggleOnboarding()">
-          <span class="tc-onboarding__label">Plattform einrichten</span>
+          <span class="tc-onboarding__label" data-i18n="adm.a.onb.label">Plattform einrichten</span>
           <span id="onboarding-subtitle" class="tc-onboarding__subtitle"></span>
           <div class="tc-onboarding__progress">
             <div id="onboarding-progress-bar" class="tc-onboarding__progress-bar"></div>
           </div>
-          <button id="onboarding-toggle-btn" type="button" class="tc-onboarding__toggle" title="Auf-/Zuklappen" onclick="event.stopPropagation();toggleOnboarding()">&#9660;</button>
-          <button id="onboarding-dismiss-btn" type="button" class="tc-onboarding__dismiss" title="Ausblenden" onclick="event.stopPropagation();dismissOnboarding()">&times;</button>
+          <button id="onboarding-toggle-btn" type="button" class="tc-onboarding__toggle" data-i18n-title="adm.a.onb.toggle" title="Auf-/Zuklappen" onclick="event.stopPropagation();toggleOnboarding()">&#9660;</button>
+          <button id="onboarding-dismiss-btn" type="button" class="tc-onboarding__dismiss" data-i18n-title="adm.a.onb.dismiss" title="Ausblenden" onclick="event.stopPropagation();dismissOnboarding()">&times;</button>
         </div>
         <div id="onboarding-body" class="tc-onboarding__body">
           <div class="tc-onboarding__steps">
@@ -57,29 +57,29 @@
     <div id="admin-content" class="admin-workspace" style="display:none">
       <div class="admin-workspace__header">
         <div>
-          <h2 class="admin-workspace__title">Plattform-Arbeitsbereich</h2>
-          <p class="admin-workspace__subtitle">Operative Plattformsteuerung für freigeschaltete Admin-Bereiche.</p>
+          <h2 class="admin-workspace__title" data-i18n="adm.a.ws.title">Plattform-Arbeitsbereich</h2>
+          <p class="admin-workspace__subtitle" data-i18n="adm.a.ws.subtitle">Operative Plattformsteuerung für freigeschaltete Admin-Bereiche.</p>
         </div>
         <div id="adminWorkspaceMeta" class="admin-workspace__meta"></div>
       </div>
       <div class="tab-bar" id="tabBar">
-        <button class="tab-btn active" data-tab="users">Benutzer</button>
-        <button class="tab-btn" data-tab="orgs">Organisationen</button>
-        <button class="tab-btn" data-tab="activity">Aktivitäten</button>
-        <button class="tab-btn" data-tab="requests">Requests</button>
-        <button class="tab-btn" data-tab="audit">Audit-Log</button>
-        <button class="tab-btn" data-tab="metrics">Metriken</button>
-        <button class="tab-btn" data-tab="strategic">Kooperationsanfragen</button>
-        <button class="tab-btn" data-tab="revenue">Revenue</button>
-        <button class="tab-btn" data-tab="features">Feature-Flags</button>
-        <button class="tab-btn" data-tab="releases">Produkt-Updates</button>
+        <button class="tab-btn active" data-tab="users" data-i18n="adm.a.tab.users">Benutzer</button>
+        <button class="tab-btn" data-tab="orgs" data-i18n="adm.a.tab.orgs">Organisationen</button>
+        <button class="tab-btn" data-tab="activity" data-i18n="adm.a.tab.activity">Aktivitäten</button>
+        <button class="tab-btn" data-tab="requests" data-i18n="adm.a.tab.requests">Requests</button>
+        <button class="tab-btn" data-tab="audit" data-i18n="adm.a.tab.audit">Audit-Log</button>
+        <button class="tab-btn" data-tab="metrics" data-i18n="adm.a.tab.metrics">Metriken</button>
+        <button class="tab-btn" data-tab="strategic" data-i18n="adm.a.tab.strategic">Kooperationsanfragen</button>
+        <button class="tab-btn" data-tab="revenue" data-i18n="adm.a.tab.revenue">Revenue</button>
+        <button class="tab-btn" data-tab="features" data-i18n="adm.a.tab.features">Feature-Flags</button>
+        <button class="tab-btn" data-tab="releases" data-i18n="adm.a.tab.releases">Produkt-Updates</button>
       </div>
 
       <!-- Users Tab -->
       <div class="tab-panel active" id="tab-users">
         <div class="search-bar">
-          <input id="userSearch" type="text" placeholder="Benutzer suchen (Name, E-Mail, Firma)…" onkeydown="if(event.key==='Enter')loadUsers()"/>
-          <button class="btn primary" onclick="loadUsers()">Suchen</button>
+          <input id="userSearch" type="text" placeholder="Benutzer suchen (Name, E-Mail, Firma)…" data-i18n-ph="adm.a.users.searchPh" onkeydown="if(event.key==='Enter')loadUsers()"/>
+          <button class="btn primary" onclick="loadUsers()" data-i18n="adm.a.users.search">Suchen</button>
         </div>
         <div id="usersTable"></div>
         <div id="usersPaging" class="admin-paging"></div>
@@ -95,21 +95,21 @@
       <div class="tab-panel" id="tab-activity">
         <div class="search-bar">
           <select id="actFeedType" style="width:auto;min-width:140px">
-            <option value="">Alle Aktionstypen</option>
-            <option value="CREATE">Erstellen</option>
-            <option value="UPDATE">Aktualisieren</option>
-            <option value="DELETE">Löschen</option>
-            <option value="APPROVAL">Freigabe</option>
-            <option value="SUBMISSION">Einreichung</option>
-            <option value="STATUS_CHANGE">Statusänderung</option>
-            <option value="LOGIN">Anmeldung</option>
-            <option value="ROLE_CHANGE">Rollenänderung</option>
-            <option value="SECURITY">Sicherheit</option>
-            <option value="CONFIG_CHANGE">Konfiguration</option>
+            <option value="" data-i18n="adm.a.act.allTypes">Alle Aktionstypen</option>
+            <option value="CREATE" data-i18n="adm.a.act.create">Erstellen</option>
+            <option value="UPDATE" data-i18n="adm.a.act.update">Aktualisieren</option>
+            <option value="DELETE" data-i18n="adm.a.act.delete">Löschen</option>
+            <option value="APPROVAL" data-i18n="adm.a.act.approval">Freigabe</option>
+            <option value="SUBMISSION" data-i18n="adm.a.act.submission">Einreichung</option>
+            <option value="STATUS_CHANGE" data-i18n="adm.a.act.statusChange">Statusänderung</option>
+            <option value="LOGIN" data-i18n="adm.a.act.login">Anmeldung</option>
+            <option value="ROLE_CHANGE" data-i18n="adm.a.act.roleChange">Rollenänderung</option>
+            <option value="SECURITY" data-i18n="adm.a.act.security">Sicherheit</option>
+            <option value="CONFIG_CHANGE" data-i18n="adm.a.act.config">Konfiguration</option>
           </select>
-          <input id="actFeedFrom" type="date" title="Von"/>
-          <input id="actFeedTo" type="date" title="Bis"/>
-          <button class="btn primary" onclick="loadActivityFeed()">Filtern</button>
+          <input id="actFeedFrom" type="date" data-i18n-title="adm.a.filter.from" title="Von"/>
+          <input id="actFeedTo" type="date" data-i18n-title="adm.a.filter.to" title="Bis"/>
+          <button class="btn primary" onclick="loadActivityFeed()" data-i18n="adm.a.filter.apply">Filtern</button>
         </div>
         <div id="activityTimeline" class="admin-paging" style="margin-top:12px"></div>
         <div id="activityPaging" class="admin-paging" style="margin-top:12px"></div>
@@ -119,7 +119,7 @@
       <div class="tab-panel" id="tab-requests">
         <div class="search-bar">
           <select id="boReqStatus" style="width:auto;min-width:170px">
-            <option value="">Alle Status</option>
+            <option value="" data-i18n="adm.a.filter.allStatus">Alle Status</option>
             <option value="SENT">SENT</option>
             <option value="ACCEPTED">ACCEPTED</option>
             <option value="DECLINED">DECLINED</option>
@@ -127,7 +127,7 @@
             <option value="FINALIZED">FINALIZED</option>
             <option value="CANCELED">CANCELED</option>
           </select>
-          <button class="btn primary" onclick="loadBackofficeRequests()">Filtern</button>
+          <button class="btn primary" onclick="loadBackofficeRequests()" data-i18n="adm.a.filter.apply">Filtern</button>
         </div>
         <div id="boRequestsTable"></div>
         <div id="boRequestsPaging" class="admin-paging"></div>
@@ -136,31 +136,31 @@
       <!-- Audit Log Tab -->
       <div class="tab-panel" id="tab-audit">
         <div class="search-bar">
-          <input id="auditActor" type="text" placeholder="Benutzer / E-Mail…" style="max-width:180px"/>
-          <input id="auditOrg" type="text" placeholder="Organisation…" style="max-width:180px"/>
-          <input id="auditEntity" type="text" placeholder="Entity Type…" style="max-width:160px"/>
-          <input id="auditAction" type="text" placeholder="Action…" style="max-width:160px"/>
+          <input id="auditActor" type="text" placeholder="Benutzer / E-Mail…" data-i18n-ph="adm.a.audit.actorPh" style="max-width:180px"/>
+          <input id="auditOrg" type="text" placeholder="Organisation…" data-i18n-ph="adm.a.audit.orgPh" style="max-width:180px"/>
+          <input id="auditEntity" type="text" placeholder="Entity Type…" data-i18n-ph="adm.a.audit.entityPh" style="max-width:160px"/>
+          <input id="auditAction" type="text" placeholder="Action…" data-i18n-ph="adm.a.audit.actionPh" style="max-width:160px"/>
           <select id="auditActionType" style="width:auto;min-width:140px">
-            <option value="">Alle Typen</option>
+            <option value="" data-i18n="adm.a.audit.allTypes">Alle Typen</option>
             <option value="CREATE">Create</option>
             <option value="UPDATE">Update</option>
             <option value="DELETE">Delete</option>
-            <option value="STATUS_CHANGE">Statuswechsel</option>
+            <option value="STATUS_CHANGE" data-i18n="adm.a.audit.statusChange">Statuswechsel</option>
             <option value="LOGIN">Login</option>
-            <option value="ROLE_CHANGE">Rollenwechsel</option>
+            <option value="ROLE_CHANGE" data-i18n="adm.a.audit.roleChange">Rollenwechsel</option>
             <option value="SECURITY">Security</option>
             <option value="CONFIG_CHANGE">Config</option>
           </select>
           <select id="auditStatus" style="width:auto;min-width:130px">
-            <option value="">Alle Status</option>
+            <option value="" data-i18n="adm.a.filter.allStatus">Alle Status</option>
             <option value="SUCCESS">SUCCESS</option>
             <option value="DENIED">DENIED</option>
             <option value="FAILED">FAILED</option>
           </select>
           <input id="auditFrom" type="date"/>
           <input id="auditTo" type="date"/>
-          <button class="btn primary" onclick="loadAudit()">Filtern</button>
-          <a id="auditExportLink" class="btn" href="/api/admin/audit-log/export/csv">CSV Export</a>
+          <button class="btn primary" onclick="loadAudit()" data-i18n="adm.a.filter.apply">Filtern</button>
+          <a id="auditExportLink" class="btn" href="/api/admin/audit-log/export/csv" data-i18n="adm.a.audit.exportCsv">CSV Export</a>
         </div>
         <div id="auditTable"></div>
         <div id="auditDetail" class="admin-detail-panel"></div>
@@ -182,16 +182,16 @@
       <div class="tab-panel" id="tab-strategic">
         <div class="search-bar">
           <select id="scStatus" style="width:auto;min-width:190px">
-            <option value="">Alle Status</option>
-            <option value="eingegangen">Eingegangen</option>
-            <option value="rueckfrage_offen">Rückfrage offen</option>
-            <option value="angebot_erstellt">Angebot erstellt</option>
-            <option value="bestaetigt">Bestätigt</option>
-            <option value="aktiviert">Aktiviert</option>
-            <option value="abgelehnt">Abgelehnt</option>
-            <option value="abgeschlossen">Abgeschlossen</option>
+            <option value="" data-i18n="adm.a.filter.allStatus">Alle Status</option>
+            <option value="eingegangen" data-i18n="adm.a.sc.eingegangen">Eingegangen</option>
+            <option value="rueckfrage_offen" data-i18n="adm.a.sc.rueckfrage_offen">Rückfrage offen</option>
+            <option value="angebot_erstellt" data-i18n="adm.a.sc.angebot_erstellt">Angebot erstellt</option>
+            <option value="bestaetigt" data-i18n="adm.a.sc.bestaetigt">Bestätigt</option>
+            <option value="aktiviert" data-i18n="adm.a.sc.aktiviert">Aktiviert</option>
+            <option value="abgelehnt" data-i18n="adm.a.sc.abgelehnt">Abgelehnt</option>
+            <option value="abgeschlossen" data-i18n="adm.a.sc.abgeschlossen">Abgeschlossen</option>
           </select>
-          <button class="btn primary" onclick="loadStrategicRequests()">Filtern</button>
+          <button class="btn primary" onclick="loadStrategicRequests()" data-i18n="adm.a.filter.apply">Filtern</button>
         </div>
         <div id="strategicTable"></div>
         <div id="strategicPaging" class="admin-paging"></div>
@@ -200,75 +200,75 @@
       <!-- Product releases (What's New) -->
       <div class="tab-panel" id="tab-releases">
         <p style="color:var(--ds-text-secondary,#8d9bba);max-width:720px;margin-bottom:16px">
-          Release Notes f&uuml;r Kunden und interne Tester. Zielgruppe &uuml;ber Rollen-Tags, optional Mindest-Plan und Feature-Key aus <code>planFeatures</code>.
-          Modal nur f&uuml;r gro&szlig;e Releases; E-Mail gezielt (Cap pro Lauf, kein Spam).
+          <span data-i18n="adm.a.rel.introA">Release Notes f&uuml;r Kunden und interne Tester. Zielgruppe &uuml;ber Rollen-Tags, optional Mindest-Plan und Feature-Key aus</span>
+          <code>planFeatures</code><span data-i18n="adm.a.rel.introB">. Modal nur f&uuml;r gro&szlig;e Releases; E-Mail gezielt (Cap pro Lauf, kein Spam).</span>
         </p>
         <form id="pr-form" class="fo-form" style="margin-bottom:28px">
           <div class="fo-field fo-field--wide">
-            <label class="fo-label">Titel</label>
-            <input id="pr-title" type="text" required maxlength="500" class="ds-input" placeholder="Kurzer Release-Titel"/>
+            <label class="fo-label" data-i18n="adm.a.rel.title">Titel</label>
+            <input id="pr-title" type="text" required maxlength="500" class="ds-input" placeholder="Kurzer Release-Titel" data-i18n-ph="adm.a.rel.titlePh"/>
           </div>
           <div class="fo-field fo-field--wide">
-            <label class="fo-label">Kurzbeschreibung</label>
-            <textarea id="pr-summary" class="ds-input" rows="2" placeholder="Ein Satz f&uuml;r Inbox / E-Mail"></textarea>
+            <label class="fo-label" data-i18n="adm.a.rel.summary">Kurzbeschreibung</label>
+            <textarea id="pr-summary" class="ds-input" rows="2" placeholder="Ein Satz f&uuml;r Inbox / E-Mail" data-i18n-ph="adm.a.rel.summaryPh"></textarea>
           </div>
           <div class="fo-field fo-field--wide">
-            <label class="fo-label">Detail (optional)</label>
+            <label class="fo-label" data-i18n="adm.a.rel.body">Detail (optional)</label>
             <textarea id="pr-body" class="ds-input" rows="4"></textarea>
           </div>
           <div class="fo-field">
-            <label class="fo-label">Feature-Key (Anzeige)</label>
-            <input id="pr-feature" type="text" class="ds-input" placeholder="z. B. capacity_exchange_matching"/>
+            <label class="fo-label" data-i18n="adm.a.rel.featureKey">Feature-Key (Anzeige)</label>
+            <input id="pr-feature" type="text" class="ds-input" placeholder="z. B. capacity_exchange_matching" data-i18n-ph="adm.a.rel.featureKeyPh"/>
           </div>
           <div class="fo-field">
-            <label class="fo-label">Pflicht-Feature (Gate)</label>
-            <input id="pr-req-feature" type="text" class="ds-input" placeholder="Nur Nutzer mit Plan-Zugriff"/>
+            <label class="fo-label" data-i18n="adm.a.rel.reqFeature">Pflicht-Feature (Gate)</label>
+            <input id="pr-req-feature" type="text" class="ds-input" placeholder="Nur Nutzer mit Plan-Zugriff" data-i18n-ph="adm.a.rel.reqFeaturePh"/>
           </div>
           <div class="fo-field">
-            <label class="fo-label">Mindest-Plan</label>
+            <label class="fo-label" data-i18n="adm.a.rel.minPlan">Mindest-Plan</label>
             <select id="pr-min-plan" class="ds-select">
-              <option value="">Alle Pl&auml;ne</option>
+              <option value="" data-i18n="adm.a.rel.allPlans">Alle Pl&auml;ne</option>
               <option value="DEMO">DEMO</option>
               <option value="BASIS">BASIS</option>
               <option value="PLUS">PLUS</option>
               <option value="PRO">PRO</option>
-              <option value="ENTERPRISE">Individueller Tarif</option>
+              <option value="ENTERPRISE" data-i18n="adm.a.plan.individuell">Individueller Tarif</option>
             </select>
           </div>
           <div class="fo-field">
-            <label class="fo-label">Sichtbarkeit</label>
+            <label class="fo-label" data-i18n="adm.a.rel.visibility">Sichtbarkeit</label>
             <select id="pr-visibility" class="ds-select">
-              <option value="public">&Ouml;ffentlich (Kunden)</option>
-              <option value="internal">Intern (Admin / platform_admin)</option>
+              <option value="public" data-i18n="adm.a.rel.visPublic">&Ouml;ffentlich (Kunden)</option>
+              <option value="internal" data-i18n="adm.a.rel.visInternal">Intern (Admin / platform_admin)</option>
             </select>
           </div>
           <div class="fo-field">
-            <label class="fo-label">Status</label>
+            <label class="fo-label" data-i18n="adm.a.rel.status">Status</label>
             <select id="pr-status" class="ds-select">
-              <option value="draft">Entwurf</option>
-              <option value="published">Ver&ouml;ffentlicht</option>
+              <option value="draft" data-i18n="adm.a.rel.statusDraft">Entwurf</option>
+              <option value="published" data-i18n="adm.a.rel.statusPublished">Ver&ouml;ffentlicht</option>
             </select>
           </div>
           <div class="fo-field">
-            <label class="fo-label">Priorit&auml;t (Modal-Sortierung)</label>
+            <label class="fo-label" data-i18n="adm.a.rel.priority">Priorit&auml;t (Modal-Sortierung)</label>
             <input id="pr-priority" type="number" class="ds-input" value="0"/>
           </div>
           <div class="fo-field fo-field--wide">
-            <label class="fo-label">Zielgruppe (leer = alle Rollen)</label>
+            <label class="fo-label" data-i18n="adm.a.rel.audience">Zielgruppe (leer = alle Rollen)</label>
             <div style="display:flex;flex-wrap:wrap;gap:12px;font-size:13px">
-              <label><input type="checkbox" name="pr-aud" value="worker"/> Worker</label>
-              <label><input type="checkbox" name="pr-aud" value="agency"/> Zeitarbeit</label>
-              <label><input type="checkbox" name="pr-aud" value="company"/> Unternehmen</label>
-              <label><input type="checkbox" name="pr-aud" value="supplier_user"/> Lieferant (Org-Rolle)</label>
-              <label><input type="checkbox" name="pr-aud" value="admin"/> Plattform-Admin</label>
+              <label><input type="checkbox" name="pr-aud" value="worker"/> <span data-i18n="adm.a.rel.audWorker">Worker</span></label>
+              <label><input type="checkbox" name="pr-aud" value="agency"/> <span data-i18n="adm.a.rel.audAgency">Zeitarbeit</span></label>
+              <label><input type="checkbox" name="pr-aud" value="company"/> <span data-i18n="adm.a.rel.audCompany">Unternehmen</span></label>
+              <label><input type="checkbox" name="pr-aud" value="supplier_user"/> <span data-i18n="adm.a.rel.audSupplier">Lieferant (Org-Rolle)</span></label>
+              <label><input type="checkbox" name="pr-aud" value="admin"/> <span data-i18n="adm.a.rel.audAdmin">Plattform-Admin</span></label>
             </div>
           </div>
           <div class="fo-field fo-field--wide" style="display:flex;flex-wrap:wrap;gap:16px;align-items:center">
-            <label><input type="checkbox" id="pr-inapp" checked/> In-App (Badge / Strip)</label>
-            <label><input type="checkbox" id="pr-modal"/> Als Modal (einmal pro Session)</label>
-            <label><input type="checkbox" id="pr-email"/> E-Mail beim Publish</label>
+            <label><input type="checkbox" id="pr-inapp" checked/> <span data-i18n="adm.a.rel.inapp">In-App (Badge / Strip)</span></label>
+            <label><input type="checkbox" id="pr-modal"/> <span data-i18n="adm.a.rel.modal">Als Modal (einmal pro Session)</span></label>
+            <label><input type="checkbox" id="pr-email"/> <span data-i18n="adm.a.rel.email">E-Mail beim Publish</span></label>
           </div>
-          <button type="submit" class="btn primary">Eintrag anlegen</button>
+          <button type="submit" class="btn primary" data-i18n="adm.a.rel.submit">Eintrag anlegen</button>
         </form>
         <div id="pr-table"></div>
       </div>
@@ -277,26 +277,26 @@
       <div class="tab-panel" id="tab-features">
         <div class="fo-form">
           <div class="fo-field fo-field--wide">
-            <label class="fo-label">Feature-Key</label>
-            <select id="foFeatureKey"><option value="">Lade...</option></select>
+            <label class="fo-label" data-i18n="adm.a.fo.featureKey">Feature-Key</label>
+            <select id="foFeatureKey"><option value="" data-i18n="adm.a.fo.loading">Lade...</option></select>
           </div>
           <div class="fo-field">
-            <label class="fo-label">Org-ID (leer = global)</label>
-            <input id="foOrgId" type="number" placeholder="Alle Orgs"/>
+            <label class="fo-label" data-i18n="adm.a.fo.orgId">Org-ID (leer = global)</label>
+            <input id="foOrgId" type="number" placeholder="Alle Orgs" data-i18n-ph="adm.a.fo.orgIdPh"/>
           </div>
           <div class="fo-field">
-            <label class="fo-label">Aktiviert</label>
-            <select id="foEnabled"><option value="true">Ja</option><option value="false">Nein</option></select>
+            <label class="fo-label" data-i18n="adm.a.fo.enabled">Aktiviert</label>
+            <select id="foEnabled"><option value="true" data-i18n="adm.a.common.yes">Ja</option><option value="false" data-i18n="adm.a.common.no">Nein</option></select>
           </div>
           <div class="fo-field fo-field--reason">
-            <label class="fo-label">Grund</label>
-            <input id="foReason" type="text" placeholder="Optional"/>
+            <label class="fo-label" data-i18n="adm.a.fo.reason">Grund</label>
+            <input id="foReason" type="text" placeholder="Optional" data-i18n-ph="adm.a.fo.reasonPh"/>
           </div>
           <div class="fo-field fo-field--expires">
-            <label class="fo-label">Ablauf (optional)</label>
+            <label class="fo-label" data-i18n="adm.a.fo.expires">Ablauf (optional)</label>
             <input id="foExpires" type="datetime-local"/>
           </div>
-          <button class="btn primary" onclick="saveFeatureOverride()">Override speichern</button>
+          <button class="btn primary" onclick="saveFeatureOverride()" data-i18n="adm.a.fo.save">Override speichern</button>
         </div>
         <div id="foTable"></div>
       </div>

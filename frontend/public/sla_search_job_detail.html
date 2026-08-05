@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <script src="/public/js/theme.js"></script>
   <script src="/public/js/i18n.js"></script>
-  <title>Suchauftrag – TempConnect</title>
+  <title data-i18n="slj.b.docTitle">Suchauftrag – TempConnect</title>
   <link rel="stylesheet" href="/public/css/enterprise.css"/>
   <style>
     .status-badge { display: inline-block; padding: 4px 10px; border-radius: 6px; font-size: 13px; font-weight: 600; }
@@ -23,44 +23,44 @@
 </head>
 <body data-sla-guard="sla_access">
   <div id="paywall" class="wrap" style="display:none">
-    <nav class="ds-topbar"><div class="ds-topbar__brand"><span class="ds-topbar__brand-dot"></span>TempConnect</div><div class="ds-topbar__nav"><a href="/" class="ds-btn">Startseite</a></div></nav>
+    <nav class="ds-topbar"><div class="ds-topbar__brand"><span class="ds-topbar__brand-dot"></span>TempConnect</div><div class="ds-topbar__nav"><a href="/" class="ds-btn" data-i18n="slj.b.paywall.home">Startseite</a></div></nav>
     <div class="paywall-box">
-      <h2>Bereich nicht verfügbar</h2>
-      <p>Das Feature &quot;<span id="paywall-feature-name">Pulse-Bereich</span>&quot; ist mit deinem aktuellen Plan nicht nutzbar.</p>
-      <p>Aktueller Plan: <span id="paywall-current-plan" class="paywall-plan">–</span></p>
-      <a id="paywall-cta" href="/public/sla_abo.html" class="btn primary">Abo ansehen</a>
+      <h2 data-i18n="slj.b.paywall.title">Bereich nicht verfügbar</h2>
+      <p><span data-i18n="slj.b.paywall.featurePrefix">Das Feature &quot;</span><span id="paywall-feature-name">Pulse-Bereich</span><span data-i18n="slj.b.paywall.featureSuffix">&quot; ist mit deinem aktuellen Plan nicht nutzbar.</span></p>
+      <p><span data-i18n="slj.b.paywall.currentPlan">Aktueller Plan:</span> <span id="paywall-current-plan" class="paywall-plan">–</span></p>
+      <a id="paywall-cta" href="/public/sla_abo.html" class="btn primary" data-i18n="slj.b.paywall.cta">Abo ansehen</a>
     </div>
   </div>
 
   <div id="main-content" class="wrap" style="display:none">
     <div id="tc-shell"></div>
-    <div id="root"><p class="empty">Lade Suchauftrag…</p></div>
+    <div id="root"><p class="empty" data-i18n="slj.b.state.loading">Lade Suchauftrag…</p></div>
   </div>
 
   <!-- Edit Modal -->
   <div id="modalEditJob" class="modal-overlay" style="display:none" aria-hidden="true">
     <div class="modal-box" style="background:var(--card,#1a1a1a);border:1px solid var(--line);border-radius:8px;padding:24px;max-width:480px;width:100%">
-      <h3 style="margin:0 0 16px">Suchauftrag bearbeiten</h3>
+      <h3 style="margin:0 0 16px" data-i18n="slj.b.edit.title">Suchauftrag bearbeiten</h3>
       <form id="formEditJob">
-        <label style="display:block;margin-bottom:4px;font-size:13px">Titel <span style="color:var(--bad)">*</span></label>
+        <label style="display:block;margin-bottom:4px;font-size:13px"><span data-i18n="slj.b.edit.fieldTitle">Titel</span> <span style="color:var(--bad)">*</span></label>
         <input type="text" id="editTitle" required style="width:100%;margin-bottom:12px;padding:8px;background:rgba(255,255,255,.06);border:1px solid var(--line);border-radius:4px;color:inherit"/>
-        <label style="display:block;margin-bottom:4px;font-size:13px">Rolle</label>
+        <label style="display:block;margin-bottom:4px;font-size:13px" data-i18n="slj.b.edit.fieldRole">Rolle</label>
         <input type="text" id="editRole" style="width:100%;margin-bottom:12px;padding:8px;background:rgba(255,255,255,.06);border:1px solid var(--line);border-radius:4px;color:inherit"/>
-        <label style="display:block;margin-bottom:4px;font-size:13px">Ort</label>
+        <label style="display:block;margin-bottom:4px;font-size:13px" data-i18n="slj.b.edit.fieldCity">Ort</label>
         <input type="text" id="editCity" style="width:100%;margin-bottom:12px;padding:8px;background:rgba(255,255,255,.06);border:1px solid var(--line);border-radius:4px;color:inherit"/>
-        <label style="display:block;margin-bottom:4px;font-size:13px">Radius (km)</label>
+        <label style="display:block;margin-bottom:4px;font-size:13px" data-i18n="slj.b.edit.fieldRadius">Radius (km)</label>
         <input type="number" id="editRadius" min="1" max="500" style="width:100%;margin-bottom:12px;padding:8px;background:rgba(255,255,255,.06);border:1px solid var(--line);border-radius:4px;color:inherit"/>
-        <label style="display:block;margin-bottom:4px;font-size:13px">Anzahl</label>
+        <label style="display:block;margin-bottom:4px;font-size:13px" data-i18n="slj.b.edit.fieldHeadcount">Anzahl</label>
         <input type="number" id="editHeadcount" min="1" max="999" style="width:100%;margin-bottom:12px;padding:8px;background:rgba(255,255,255,.06);border:1px solid var(--line);border-radius:4px;color:inherit"/>
-        <label style="display:block;margin-bottom:4px;font-size:13px">Dringlichkeit</label>
+        <label style="display:block;margin-bottom:4px;font-size:13px" data-i18n="slj.b.edit.fieldUrgency">Dringlichkeit</label>
         <select id="editUrgency" style="width:100%;margin-bottom:12px;padding:8px;background:rgba(255,255,255,.06);border:1px solid var(--line);border-radius:4px;color:inherit">
-          <option value="normal">Normal</option>
-          <option value="plus">Plus</option>
-          <option value="notdienst">Notdienst</option>
+          <option value="normal" data-i18n="slj.b.urgency.normal">Normal</option>
+          <option value="plus" data-i18n="slj.b.urgency.plus">Plus</option>
+          <option value="notdienst" data-i18n="slj.b.urgency.notdienst">Notdienst</option>
         </select>
         <div style="display:flex;gap:10px;margin-top:16px">
-          <button type="submit" class="btn primary">Speichern</button>
-          <button type="button" class="btn" id="btnCloseEdit">Abbrechen</button>
+          <button type="submit" class="btn primary" data-i18n="slj.b.edit.save">Speichern</button>
+          <button type="button" class="btn" id="btnCloseEdit" data-i18n="slj.b.edit.cancel">Abbrechen</button>
         </div>
       </form>
     </div>
@@ -70,6 +70,147 @@
   <script src="/public/js/planFeatures.js"></script>
   <script src="/public/js/slaGuard.js"></script>
   <script>
+    /* i18n (P6.1) — Seiten-Woerterbuch der Suchauftrags-Detailansicht.
+       Namensraum: slj.b. — Topbar, Navigation, Nutzerbereich und der
+       Sprach-Umschalter gehoeren der Plattform-Shell (pageShell.js).
+
+       Bewusst NICHT hier uebersetzt:
+       - "Pulse-Bereich" (#paywall-feature-name): den Text schreibt js/slaGuard.js
+         zur Laufzeit und uebersetzt ihn ueber seinen eigenen shared.access.*-Key.
+       - Der Plan-Name (#paywall-current-plan) ist ein Server-Enum.
+       - Status- und Pulse-Rohwerte (open / paused / closed, RUNNING / MET /
+         BREACHED) sowie die Dringlichkeits-value-Attribute: Server-Enums, die
+         so an die API zurueckgehen.
+       - "Pulse" selbst ist ein Produktname und bleibt in beiden Sprachen gleich.
+       - Fehlertexte aus der API-Antwort (err.error) — Serverwortlaut.
+       - Der Dateiname des JSON-Exports: stabiler Bezeichner, keine UI-Sprache. */
+    TCi18n.register('de', {
+      'slj.b.docTitle': 'Suchauftrag – TempConnect',
+      'slj.b.paywall.home': 'Startseite',
+      'slj.b.paywall.title': 'Bereich nicht verfügbar',
+      'slj.b.paywall.featurePrefix': 'Das Feature "',
+      'slj.b.paywall.featureSuffix': '" ist mit deinem aktuellen Plan nicht nutzbar.',
+      'slj.b.paywall.currentPlan': 'Aktueller Plan:',
+      'slj.b.paywall.cta': 'Abo ansehen',
+
+      'slj.b.state.loading': 'Lade Suchauftrag…',
+      'slj.b.state.noId': 'Keine ID.',
+      'slj.b.state.notFound': 'Suchauftrag nicht gefunden.',
+      'slj.b.state.loadError': 'Fehler beim Laden.',
+
+      'slj.b.edit.title': 'Suchauftrag bearbeiten',
+      'slj.b.edit.fieldTitle': 'Titel',
+      'slj.b.edit.fieldRole': 'Rolle',
+      'slj.b.edit.fieldCity': 'Ort',
+      'slj.b.edit.fieldRadius': 'Radius (km)',
+      'slj.b.edit.fieldHeadcount': 'Anzahl',
+      'slj.b.edit.fieldUrgency': 'Dringlichkeit',
+      'slj.b.edit.save': 'Speichern',
+      'slj.b.edit.cancel': 'Abbrechen',
+      'slj.b.urgency.normal': 'Normal',
+      'slj.b.urgency.plus': 'Plus',
+      'slj.b.urgency.notdienst': 'Notdienst',
+
+      'slj.b.nudge.title': 'Tipp: So verbesserst du deine Sichtbarkeit (ohne Gewähr)',
+      'slj.b.nudge.profileText': 'Vollständige Profildaten erhöhen die Match-Qualität.',
+      'slj.b.nudge.profileCta': 'Zum Profil',
+      'slj.b.nudge.proofsText': 'Verifizierte Anbieter werden bevorzugt angezeigt (wenn verfügbar).',
+      'slj.b.nudge.proofsCta': 'Nachweise hochladen',
+      'slj.b.nudge.offerText': 'Erstelle ein Angebot/Listing, damit Matches schneller reagieren können.',
+      'slj.b.nudge.offerCta': 'Angebot erstellen',
+      'slj.b.nudge.dismiss': 'Verstanden',
+
+      'slj.b.job.untitled': 'Suchauftrag',
+      'slj.b.detail.type': 'Typ:',
+      'slj.b.detail.role': 'Rolle:',
+      'slj.b.detail.city': 'Ort:',
+      'slj.b.detail.radius': 'Radius:',
+      'slj.b.detail.pulseStarted': 'Pulse gestartet: {date}',
+      'slj.b.detail.pulseDue': 'Pulse bis: {date}',
+
+      'slj.b.action.pause': 'Pausieren',
+      'slj.b.action.resume': 'Fortsetzen',
+      'slj.b.action.close': 'Schließen',
+      'slj.b.action.edit': 'Bearbeiten',
+      'slj.b.action.delete': 'Löschen',
+      'slj.b.action.export': 'Report exportieren (JSON)',
+
+      'slj.b.events.title': 'Pulse & Aktivität',
+      'slj.b.events.empty': 'Keine Einträge.',
+      'slj.b.matches.title': 'Treffer ({count})',
+      'slj.b.matches.empty': 'Noch keine Treffer.',
+
+      'slj.b.msg.confirmDelete': 'Suchauftrag "{title}" wirklich löschen? Alle Matches und Events werden entfernt.',
+      'slj.b.msg.error': 'Fehler',
+      'slj.b.msg.generic': 'Fehler.',
+      'slj.b.msg.saveFailed': 'Fehler beim Speichern.',
+      'slj.b.msg.deleteFailed': 'Fehler beim Löschen.',
+      'slj.b.msg.actionFailed': 'Aktion fehlgeschlagen.'
+    });
+    TCi18n.register('en', {
+      'slj.b.docTitle': 'Search request – TempConnect',
+      'slj.b.paywall.home': 'Home',
+      'slj.b.paywall.title': 'Area not available',
+      'slj.b.paywall.featurePrefix': 'The feature "',
+      'slj.b.paywall.featureSuffix': '" is not included in your current plan.',
+      'slj.b.paywall.currentPlan': 'Current plan:',
+      'slj.b.paywall.cta': 'View plans',
+
+      'slj.b.state.loading': 'Loading search request…',
+      'slj.b.state.noId': 'No ID.',
+      'slj.b.state.notFound': 'Search request not found.',
+      'slj.b.state.loadError': 'Error while loading.',
+
+      'slj.b.edit.title': 'Edit search request',
+      'slj.b.edit.fieldTitle': 'Title',
+      'slj.b.edit.fieldRole': 'Role',
+      'slj.b.edit.fieldCity': 'City',
+      'slj.b.edit.fieldRadius': 'Radius (km)',
+      'slj.b.edit.fieldHeadcount': 'Headcount',
+      'slj.b.edit.fieldUrgency': 'Urgency',
+      'slj.b.edit.save': 'Save',
+      'slj.b.edit.cancel': 'Cancel',
+      'slj.b.urgency.normal': 'Normal',
+      'slj.b.urgency.plus': 'Plus',
+      'slj.b.urgency.notdienst': 'Emergency cover',
+
+      'slj.b.nudge.title': 'Tip: how to improve your visibility (without warranty)',
+      'slj.b.nudge.profileText': 'Complete profile data improves the match quality.',
+      'slj.b.nudge.profileCta': 'Go to profile',
+      'slj.b.nudge.proofsText': 'Verified providers are shown with priority (where available).',
+      'slj.b.nudge.proofsCta': 'Upload proof documents',
+      'slj.b.nudge.offerText': 'Create an offer or listing so matches can respond faster.',
+      'slj.b.nudge.offerCta': 'Create an offer',
+      'slj.b.nudge.dismiss': 'Got it',
+
+      'slj.b.job.untitled': 'Search request',
+      'slj.b.detail.type': 'Type:',
+      'slj.b.detail.role': 'Role:',
+      'slj.b.detail.city': 'City:',
+      'slj.b.detail.radius': 'Radius:',
+      'slj.b.detail.pulseStarted': 'Pulse started: {date}',
+      'slj.b.detail.pulseDue': 'Pulse due: {date}',
+
+      'slj.b.action.pause': 'Pause',
+      'slj.b.action.resume': 'Resume',
+      'slj.b.action.close': 'Close',
+      'slj.b.action.edit': 'Edit',
+      'slj.b.action.delete': 'Delete',
+      'slj.b.action.export': 'Export report (JSON)',
+
+      'slj.b.events.title': 'Pulse & activity',
+      'slj.b.events.empty': 'No entries.',
+      'slj.b.matches.title': 'Matches ({count})',
+      'slj.b.matches.empty': 'No matches yet.',
+
+      'slj.b.msg.confirmDelete': 'Really delete the search request "{title}"? All matches and events will be removed.',
+      'slj.b.msg.error': 'Error',
+      'slj.b.msg.generic': 'Error.',
+      'slj.b.msg.saveFailed': 'Error while saving.',
+      'slj.b.msg.deleteFailed': 'Error while deleting.',
+      'slj.b.msg.actionFailed': 'The action failed.'
+    });
+
     var API = "/api";
     function esc(s){if(!s)return "";return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;").replace(/'/g,"&#39;");}
     var params = new URLSearchParams(window.location.search);
@@ -101,7 +242,12 @@
       try { localStorage.setItem(nudgeKey(userId), "true"); } catch (e) {}
     }
 
+    /* Letzter Renderzustand — der Sprachwechsel baut die per innerHTML
+       erzeugte Detailflaeche damit unveraendert in der neuen Sprache neu auf. */
+    var lastJob = null, lastUserId = null, lastShowNudges = false;
+
     function render(job, userId, showNudges) {
+      lastJob = job; lastUserId = userId; lastShowNudges = !!showNudges;
       var status = (job.status || "open").toLowerCase();
       var slaStatus = (job.sla_status || "").toUpperCase();
       var statusCls = status === "closed" ? "closed" : status === "paused" ? "paused" : "open";
@@ -110,60 +256,63 @@
       var html = "";
       if (showNudges) {
         html += "<div class=\"card\" id=\"nudge-block\" style=\"margin-bottom:16px\">";
-        html += "<h3 style=\"margin:0 0 10px;font-size:14px;color:var(--muted)\">Tipp: So verbesserst du deine Sichtbarkeit (ohne Gewähr)</h3>";
-        html += "<p style=\"margin:0 0 12px;font-size:13px;color:var(--muted)\">Vollständige Profildaten erhöhen die Match-Qualität.</p>";
-        html += "<p style=\"margin:0 0 12px\"><a href=\"/public/sla_profil.html\" class=\"btn\">Zum Profil</a></p>";
-        html += "<p style=\"margin:0 0 12px;font-size:13px;color:var(--muted)\">Verifizierte Anbieter werden bevorzugt angezeigt (wenn verfügbar).</p>";
-        html += "<p style=\"margin:0 0 12px\"><a href=\"/public/sla_nachweise.html\" class=\"btn\">Nachweise hochladen</a></p>";
-        html += "<p style=\"margin:0 0 12px;font-size:13px;color:var(--muted)\">Erstelle ein Angebot/Listing, damit Matches schneller reagieren können.</p>";
-        html += "<p style=\"margin:0 0 12px\"><a href=\"/public/sla_angebote.html\" class=\"btn\">Angebot erstellen</a></p>";
-        html += "<button type=\"button\" class=\"btn\" id=\"nudge-verstanden\" style=\"margin-top:8px\">Verstanden</button>";
+        html += "<h3 style=\"margin:0 0 10px;font-size:14px;color:var(--muted)\">" + esc(TCi18n.t("slj.b.nudge.title")) + "</h3>";
+        html += "<p style=\"margin:0 0 12px;font-size:13px;color:var(--muted)\">" + esc(TCi18n.t("slj.b.nudge.profileText")) + "</p>";
+        html += "<p style=\"margin:0 0 12px\"><a href=\"/public/sla_profil.html\" class=\"btn\">" + esc(TCi18n.t("slj.b.nudge.profileCta")) + "</a></p>";
+        html += "<p style=\"margin:0 0 12px;font-size:13px;color:var(--muted)\">" + esc(TCi18n.t("slj.b.nudge.proofsText")) + "</p>";
+        html += "<p style=\"margin:0 0 12px\"><a href=\"/public/sla_nachweise.html\" class=\"btn\">" + esc(TCi18n.t("slj.b.nudge.proofsCta")) + "</a></p>";
+        html += "<p style=\"margin:0 0 12px;font-size:13px;color:var(--muted)\">" + esc(TCi18n.t("slj.b.nudge.offerText")) + "</p>";
+        html += "<p style=\"margin:0 0 12px\"><a href=\"/public/sla_angebote.html\" class=\"btn\">" + esc(TCi18n.t("slj.b.nudge.offerCta")) + "</a></p>";
+        html += "<button type=\"button\" class=\"btn\" id=\"nudge-verstanden\" style=\"margin-top:8px\">" + esc(TCi18n.t("slj.b.nudge.dismiss")) + "</button>";
         html += "</div>";
       }
 
-      html += "<div class=\"card\"><h1 style=\"margin:0 0 8px\">" + esc(job.title || "Suchauftrag") + "</h1>";
+      html += "<div class=\"card\"><h1 style=\"margin:0 0 8px\">" + esc(job.title || TCi18n.t("slj.b.job.untitled")) + "</h1>";
       html += "<p style=\"margin:0;color:var(--muted)\"><span class=\"status-badge " + statusCls + "\">" + esc(status) + "</span>";
       if (slaStatus) html += " <span class=\"sla-badge " + slaCls + "\">Pulse " + esc(slaStatus) + "</span>";
       html += "</p>";
-      html += "<p style=\"margin:8px 0 0\"><strong>Typ:</strong> " + esc(job.target_type || "–") + " – <strong>Rolle:</strong> " + esc(job.role || "–") + " – <strong>Ort:</strong> " + esc(job.location_city || "–") + " – <strong>Radius:</strong> " + (job.radius_km != null ? job.radius_km + " km" : "–") + "</p>";
-      if (job.sla_started_at) html += "<p style=\"margin:4px 0 0;font-size:13px;color:var(--muted)\">Pulse gestartet: " + new Date(job.sla_started_at).toLocaleString("de-DE") + "</p>";
-      if (job.sla_due_at) html += "<p style=\"margin:2px 0 0;font-size:13px;color:var(--muted)\">Pulse bis: " + new Date(job.sla_due_at).toLocaleString("de-DE") + "</p>";
+      html += "<p style=\"margin:8px 0 0\"><strong>" + esc(TCi18n.t("slj.b.detail.type")) + "</strong> " + esc(job.target_type || "–") +
+        " – <strong>" + esc(TCi18n.t("slj.b.detail.role")) + "</strong> " + esc(job.role || "–") +
+        " – <strong>" + esc(TCi18n.t("slj.b.detail.city")) + "</strong> " + esc(job.location_city || "–") +
+        " – <strong>" + esc(TCi18n.t("slj.b.detail.radius")) + "</strong> " + (job.radius_km != null ? job.radius_km + " km" : "–") + "</p>";
+      if (job.sla_started_at) html += "<p style=\"margin:4px 0 0;font-size:13px;color:var(--muted)\">" + esc(TCi18n.t("slj.b.detail.pulseStarted", { date: new Date(job.sla_started_at).toLocaleString(TCi18n.dateLocale()) })) + "</p>";
+      if (job.sla_due_at) html += "<p style=\"margin:2px 0 0;font-size:13px;color:var(--muted)\">" + esc(TCi18n.t("slj.b.detail.pulseDue", { date: new Date(job.sla_due_at).toLocaleString(TCi18n.dateLocale()) })) + "</p>";
 
       var canAct = status !== "closed";
       if (canAct) {
         html += "<div class=\"actions\">";
-        if (status === "open") html += "<button type=\"button\" class=\"btn\" data-action=\"pause\">Pausieren</button>";
-        if (status === "paused") html += "<button type=\"button\" class=\"btn primary\" data-action=\"resume\">Fortsetzen</button>";
-        html += "<button type=\"button\" class=\"btn\" data-action=\"close\">Schließen</button>";
-        html += "<button type=\"button\" class=\"btn\" id=\"btnEditJob\">Bearbeiten</button>";
-        html += "<button type=\"button\" class=\"btn\" style=\"color:var(--bad)\" id=\"btnDeleteJob\">Löschen</button>";
-        html += "<button type=\"button\" class=\"btn\" id=\"btnExportReport\">Report exportieren (JSON)</button>";
+        if (status === "open") html += "<button type=\"button\" class=\"btn\" data-action=\"pause\">" + esc(TCi18n.t("slj.b.action.pause")) + "</button>";
+        if (status === "paused") html += "<button type=\"button\" class=\"btn primary\" data-action=\"resume\">" + esc(TCi18n.t("slj.b.action.resume")) + "</button>";
+        html += "<button type=\"button\" class=\"btn\" data-action=\"close\">" + esc(TCi18n.t("slj.b.action.close")) + "</button>";
+        html += "<button type=\"button\" class=\"btn\" id=\"btnEditJob\">" + esc(TCi18n.t("slj.b.action.edit")) + "</button>";
+        html += "<button type=\"button\" class=\"btn\" style=\"color:var(--bad)\" id=\"btnDeleteJob\">" + esc(TCi18n.t("slj.b.action.delete")) + "</button>";
+        html += "<button type=\"button\" class=\"btn\" id=\"btnExportReport\">" + esc(TCi18n.t("slj.b.action.export")) + "</button>";
         html += "</div>";
       } else {
         html += "<div class=\"actions\">";
-        html += "<button type=\"button\" class=\"btn\" style=\"color:var(--bad)\" id=\"btnDeleteJob\">Löschen</button>";
-        html += "<button type=\"button\" class=\"btn\" id=\"btnExportReport\">Report exportieren (JSON)</button>";
+        html += "<button type=\"button\" class=\"btn\" style=\"color:var(--bad)\" id=\"btnDeleteJob\">" + esc(TCi18n.t("slj.b.action.delete")) + "</button>";
+        html += "<button type=\"button\" class=\"btn\" id=\"btnExportReport\">" + esc(TCi18n.t("slj.b.action.export")) + "</button>";
         html += "</div>";
       }
       html += "</div>";
 
       var events = job.sla_events || [];
-      html += "<div class=\"card\" style=\"margin-top:16px\"><h3 style=\"margin:0 0 10px\">Pulse &amp; Aktivität</h3>";
+      html += "<div class=\"card\" style=\"margin-top:16px\"><h3 style=\"margin:0 0 10px\">" + esc(TCi18n.t("slj.b.events.title")) + "</h3>";
       if (events.length === 0) {
-        html += "<p class=\"empty\">Keine Einträge.</p>";
+        html += "<p class=\"empty\">" + esc(TCi18n.t("slj.b.events.empty")) + "</p>";
       } else {
         html += "<ul style=\"list-style:none;padding:0;margin:0\">";
         events.forEach(function(e) {
-          html += "<li style=\"padding:8px 0;border-bottom:1px solid var(--line);font-size:13px;color:var(--muted)\"><strong>" + esc(e.event_type || "") + "</strong> " + (e.created_at ? new Date(e.created_at).toLocaleString("de-DE") : "") + "</li>";
+          html += "<li style=\"padding:8px 0;border-bottom:1px solid var(--line);font-size:13px;color:var(--muted)\"><strong>" + esc(e.event_type || "") + "</strong> " + (e.created_at ? new Date(e.created_at).toLocaleString(TCi18n.dateLocale()) : "") + "</li>";
         });
         html += "</ul>";
       }
       html += "</div>";
 
       var matches = job.matches || [];
-      html += "<div class=\"card\" style=\"margin-top:16px\"><h3 style=\"margin:0 0 10px\">Treffer (" + matches.length + ")</h3>";
+      html += "<div class=\"card\" style=\"margin-top:16px\"><h3 style=\"margin:0 0 10px\">" + esc(TCi18n.t("slj.b.matches.title", { count: matches.length })) + "</h3>";
       if (matches.length === 0) {
-        html += "<p class=\"empty\">Noch keine Treffer.</p>";
+        html += "<p class=\"empty\">" + esc(TCi18n.t("slj.b.matches.empty")) + "</p>";
       } else {
         matches.forEach(function(m) {
           var title = m.capacity_title || m.demand_title || "–";
@@ -191,6 +340,7 @@
       if (verstandenBtn) {
         verstandenBtn.onclick = function() {
           markNudgesSeen(userId);
+          lastShowNudges = false;
           var block = document.getElementById("nudge-block");
           if (block) block.remove();
         };
@@ -228,24 +378,24 @@
         return api('/sla/search-jobs/' + id, { method: 'PUT', csrf: token, body: body });
       }).then(function(r) {
         if (!checkAuth(r)) return;
-        if (!r.ok) { r.json().then(function(err) { alert(err.error || 'Fehler'); }); return; }
+        if (!r.ok) { r.json().then(function(err) { alert(err.error || TCi18n.t('slj.b.msg.error')); }); return; }
         var el = document.getElementById('modalEditJob');
         el.style.display = 'none';
         el.setAttribute('aria-hidden', 'true');
         load();
-      }).catch(function() { alert('Fehler beim Speichern.'); });
+      }).catch(function() { alert(TCi18n.t('slj.b.msg.saveFailed')); });
     });
 
     function deleteJob(job) {
-      if (!confirm('Suchauftrag "' + (job.title || '') + '" wirklich löschen? Alle Matches und Events werden entfernt.')) return;
+      if (!confirm(TCi18n.t('slj.b.msg.confirmDelete', { title: job.title || '' }))) return;
       getCsrf().then(function(csrf) {
         var token = csrf && (csrf.csrfToken || csrf.token);
         return api('/sla/search-jobs/' + id, { method: 'DELETE', csrf: token });
       }).then(function(r) {
         if (!checkAuth(r)) return;
-        if (!r.ok) { r.json().then(function(err) { alert(err.error || 'Fehler'); }); return; }
+        if (!r.ok) { r.json().then(function(err) { alert(err.error || TCi18n.t('slj.b.msg.error')); }); return; }
         window.location.href = '/public/sla_search_jobs_list.html';
-      }).catch(function() { alert('Fehler beim Löschen.'); });
+      }).catch(function() { alert(TCi18n.t('slj.b.msg.deleteFailed')); });
     }
 
     function doAction(action) {
@@ -256,11 +406,11 @@
       }).then(function(r) {
         if (!checkAuth(r)) return;
         if (!r.ok) {
-          r.json().catch(function(){ return {}; }).then(function(err) { alert((err && err.error) ? err.error : "Aktion fehlgeschlagen."); });
+          r.json().catch(function(){ return {}; }).then(function(err) { alert((err && err.error) ? err.error : TCi18n.t("slj.b.msg.actionFailed")); });
           return;
         }
         load();
-      }).catch(function() { alert("Fehler."); });
+      }).catch(function() { alert(TCi18n.t("slj.b.msg.generic")); });
     }
 
     function exportReport() {
@@ -275,7 +425,7 @@
     }
 
     function load() {
-      if (!id) { document.getElementById("root").innerHTML = "<p class=\"empty\">Keine ID.</p>"; return; }
+      if (!id) { document.getElementById("root").innerHTML = "<p class=\"empty\" data-i18n=\"slj.b.state.noId\">" + esc(TCi18n.t("slj.b.state.noId")) + "</p>"; return; }
       var userId = null;
       api("/me").then(function(r) {
         if (r.ok) return r.json();
@@ -286,8 +436,8 @@
       }).then(function(r) {
         if (!r) return null;
         if (!checkAuth(r)) return null;
-        if (r.status === 404) { document.getElementById("root").innerHTML = "<p class=\"empty\">Suchauftrag nicht gefunden.</p>"; return null; }
-        if (!r.ok) { document.getElementById("root").innerHTML = "<p class=\"empty\">Fehler beim Laden.</p>"; return null; }
+        if (r.status === 404) { document.getElementById("root").innerHTML = "<p class=\"empty\" data-i18n=\"slj.b.state.notFound\">" + esc(TCi18n.t("slj.b.state.notFound")) + "</p>"; return null; }
+        if (!r.ok) { document.getElementById("root").innerHTML = "<p class=\"empty\" data-i18n=\"slj.b.state.loadError\">" + esc(TCi18n.t("slj.b.state.loadError")) + "</p>"; return null; }
         return r.json();
       }).then(function(job) {
         if (!job) return;
@@ -296,6 +446,14 @@
         render(job, userId, showNudges);
       });
     }
+    /* Sprachwechsel: die deklarativ markierten Knoten (Modal, Paywall, Lade-
+       Zustand) zieht TCi18n selbst nach. Die komplette Detailflaeche entsteht
+       per innerHTML — sie wird hier aus dem letzten Renderzustand neu gebaut,
+       ohne die API erneut zu belasten. */
+    document.addEventListener("tc:langchange", function() {
+      if (lastJob) render(lastJob, lastUserId, lastShowNudges);
+    });
+
     // Warte auf slaGuardPassed bevor wir laden
     document.addEventListener("slaGuardPassed", function(ev) {
       if (ev.detail && ev.detail.passed) load();

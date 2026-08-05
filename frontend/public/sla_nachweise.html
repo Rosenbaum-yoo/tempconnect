@@ -5,32 +5,71 @@
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <script src="/public/js/theme.js"></script>
   <script src="/public/js/i18n.js"></script>
-  <title>Nachweise – TempConnect</title>
+  <title data-i18n="slj.d.docTitle">Nachweise – TempConnect</title>
   <link rel="stylesheet" href="/public/css/enterprise.css"/>
 </head>
 <body data-sla-guard="sla_proofs">
   <div id="paywall" class="wrap" style="display:none">
-    <nav class="ds-topbar"><div class="ds-topbar__brand"><span class="ds-topbar__brand-dot"></span>TempConnect</div><div class="ds-topbar__nav"><a href="/" class="ds-btn">Startseite</a></div></nav>
+    <nav class="ds-topbar"><div class="ds-topbar__brand"><span class="ds-topbar__brand-dot"></span>TempConnect</div><div class="ds-topbar__nav"><a href="/" class="ds-btn" data-i18n="slj.d.paywall.home">Startseite</a></div></nav>
     <div class="paywall-box">
-      <h2>Bereich nicht verfuegbar</h2>
-      <p>Das Feature Nachweise ist mit deinem aktuellen Plan nicht nutzbar.</p>
-      <p>Aktueller Plan: <span id="paywall-current-plan" class="paywall-plan">–</span></p>
-      <a id="paywall-cta" href="/public/sla_abo.html" class="btn primary">Abo ansehen</a>
+      <h2 data-i18n="slj.d.paywall.title">Bereich nicht verfuegbar</h2>
+      <p data-i18n="slj.d.paywall.text">Das Feature Nachweise ist mit deinem aktuellen Plan nicht nutzbar.</p>
+      <p><span data-i18n="slj.d.paywall.currentPlan">Aktueller Plan:</span> <span id="paywall-current-plan" class="paywall-plan">–</span></p>
+      <a id="paywall-cta" href="/public/sla_abo.html" class="btn primary" data-i18n="slj.d.paywall.cta">Abo ansehen</a>
     </div>
   </div>
   <div id="main-content" class="wrap">
     <div id="tc-shell"></div>
-    <h1>Nachweise</h1>
-    <p style="color:var(--muted);margin:0 0 16px">Upload und Verwaltung von Nachweisen (Pulse-safe).</p>
+    <h1 data-i18n="slj.d.page.title">Nachweise</h1>
+    <p style="color:var(--muted);margin:0 0 16px" data-i18n="slj.d.page.subtitle">Upload und Verwaltung von Nachweisen (Pulse-safe).</p>
     <div class="card">
-      <label>Nachweis-Upload</label>
-      <p class="muted">Der Nachweis-Upload wird in Kuerze freigeschaltet. Sobald er verfuegbar ist, koennen hier Dokumente (PDF/JPG/PNG) hochgeladen und verwaltet werden.</p>
+      <label data-i18n="slj.d.upload.label">Nachweis-Upload</label>
+      <p class="muted" data-i18n="slj.d.upload.text">Der Nachweis-Upload wird in Kuerze freigeschaltet. Sobald er verfuegbar ist, koennen hier Dokumente (PDF/JPG/PNG) hochgeladen und verwaltet werden.</p>
     </div>
-    <div id="proof-list" class="empty">Keine Nachweise vorhanden.</div>
-    <p class="sla-disclaimer">Hinweis: Inhalte dienen der Unterstuetzung und ersetzen keine rechtliche Pruefung. Angaben ohne Gewaehr.</p>
+    <div id="proof-list" class="empty" data-i18n="slj.d.list.empty">Keine Nachweise vorhanden.</div>
+    <p class="sla-disclaimer" data-i18n="slj.d.disclaimer">Hinweis: Inhalte dienen der Unterstuetzung und ersetzen keine rechtliche Pruefung. Angaben ohne Gewaehr.</p>
   </div>
   <script src="/public/js/planFeatures.js"></script>
   <script src="/public/js/slaGuard.js"></script>
+  <script>
+    /* i18n (P6.1) — Seiten-Woerterbuch der Nachweise-Seite.
+       Namensraum: slj.d. — Topbar, Navigation, Nutzerbereich und der
+       Sprach-Umschalter gehoeren der Plattform-Shell (pageShell.js).
+
+       Bewusst NICHT uebersetzt:
+       - Der Plan-Name im Paywall-Block: den Text setzt js/slaGuard.js zur
+         Laufzeit aus dem Plan-Schluessel der Session.                         */
+    TCi18n.register('de', {
+      'slj.d.docTitle': 'Nachweise – TempConnect',
+      'slj.d.paywall.home': 'Startseite',
+      'slj.d.paywall.title': 'Bereich nicht verfuegbar',
+      'slj.d.paywall.text': 'Das Feature Nachweise ist mit deinem aktuellen Plan nicht nutzbar.',
+      'slj.d.paywall.currentPlan': 'Aktueller Plan:',
+      'slj.d.paywall.cta': 'Abo ansehen',
+
+      'slj.d.page.title': 'Nachweise',
+      'slj.d.page.subtitle': 'Upload und Verwaltung von Nachweisen (Pulse-safe).',
+      'slj.d.upload.label': 'Nachweis-Upload',
+      'slj.d.upload.text': 'Der Nachweis-Upload wird in Kuerze freigeschaltet. Sobald er verfuegbar ist, koennen hier Dokumente (PDF/JPG/PNG) hochgeladen und verwaltet werden.',
+      'slj.d.list.empty': 'Keine Nachweise vorhanden.',
+      'slj.d.disclaimer': 'Hinweis: Inhalte dienen der Unterstuetzung und ersetzen keine rechtliche Pruefung. Angaben ohne Gewaehr.'
+    });
+    TCi18n.register('en', {
+      'slj.d.docTitle': 'Proof documents – TempConnect',
+      'slj.d.paywall.home': 'Home',
+      'slj.d.paywall.title': 'Area not available',
+      'slj.d.paywall.text': 'The proof documents feature is not included in your current plan.',
+      'slj.d.paywall.currentPlan': 'Current plan:',
+      'slj.d.paywall.cta': 'View plans',
+
+      'slj.d.page.title': 'Proof documents',
+      'slj.d.page.subtitle': 'Upload and manage proof documents (Pulse-safe).',
+      'slj.d.upload.label': 'Proof document upload',
+      'slj.d.upload.text': 'The proof document upload is being enabled shortly. Once it is available you can upload and manage documents (PDF/JPG/PNG) here.',
+      'slj.d.list.empty': 'No proof documents yet.',
+      'slj.d.disclaimer': 'Note: this content is provided as support and does not replace a legal review. All information without warranty.'
+    });
+  </script>
   <script src="/public/js/pageShell.js"></script>
   <script src="/public/js/notifications.js"></script>
   <div id="tc-footer" data-tc-footer></div>

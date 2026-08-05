@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <script src="/public/js/theme.js"></script>
   <script src="/public/js/i18n.js"></script>
-  <title>Abo-Modelle – TempConnect</title>
+  <title data-i18n="pr.b.docTitle">Abo-Modelle – TempConnect</title>
   <link rel="stylesheet" href="/public/css/design-system.css"/>
   <style>
     body { background: radial-gradient(ellipse 1100px 600px at 15% -5%, rgba(74,158,255,.14), transparent 60%),
@@ -183,17 +183,17 @@
 
     <!-- Hero -->
     <section style="text-align:center;padding:var(--ds-space-10) 0 var(--ds-space-4)">
-      <div class="section-label">Abo-Modelle &amp; Tarife</div>
-      <h1 class="section-heading" style="font-size:clamp(26px,4vw,38px)">Waehlen Sie den passenden Tarif</h1>
-      <p class="section-desc" style="margin:var(--ds-space-2) auto 0">Upgrade oder Downgrade jederzeit moeglich. Alle Tarife monatlich kuendbar.</p>
+      <div class="section-label" data-i18n="pr.b.hero.eyebrow">Abo-Modelle &amp; Tarife</div>
+      <h1 class="section-heading" style="font-size:clamp(26px,4vw,38px)" data-i18n="pr.b.hero.title">Waehlen Sie den passenden Tarif</h1>
+      <p class="section-desc" style="margin:var(--ds-space-2) auto 0" data-i18n="pr.b.hero.sub">Upgrade oder Downgrade jederzeit moeglich. Alle Tarife monatlich kuendbar.</p>
     </section>
 
     <!-- Success/Cancel banners (from Stripe redirect) -->
     <div id="successBanner" class="success-banner">
-      <strong>Zahlung erfolgreich!</strong> Dein Abo wurde aktiviert. Die Seite wird aktualisiert.
+      <strong data-i18n="pr.b.banner.successStrong">Zahlung erfolgreich!</strong> <span data-i18n="pr.b.banner.successText">Dein Abo wurde aktiviert. Die Seite wird aktualisiert.</span>
     </div>
     <div id="cancelBanner" class="cancel-banner">
-      <strong>Zahlung abgebrochen.</strong> Du kannst den Checkout jederzeit erneut starten.
+      <strong data-i18n="pr.b.banner.cancelStrong">Zahlung abgebrochen.</strong> <span data-i18n="pr.b.banner.cancelText">Du kannst den Checkout jederzeit erneut starten.</span>
     </div>
 
     <!-- Account-Status + Limits-Block (Welle 8 Schritt 7, dynamisch via /api/me/entitlements) -->
@@ -241,26 +241,26 @@
     <hr class="ds-divider"/>
 
     <!-- Plan Grid (existierender Renderer aus slaAbo.js) -->
-    <h2 class="section-heading" style="margin-top:var(--ds-space-4)">Tarif wechseln</h2>
-    <p class="section-desc" style="margin-bottom:var(--ds-space-3)">Standardtarife BASIS/PLUS/PRO koennen Sie direkt buchen. Individuelle Tarife laufen ueber unser Tarif-Team.</p>
+    <h2 class="section-heading" style="margin-top:var(--ds-space-4)" data-i18n="pr.b.plans.title">Tarif wechseln</h2>
+    <p class="section-desc" style="margin-bottom:var(--ds-space-3)" data-i18n="pr.b.plans.sub">Standardtarife BASIS/PLUS/PRO koennen Sie direkt buchen. Individuelle Tarife laufen ueber unser Tarif-Team.</p>
     <div class="plan-grid" id="planGrid"></div>
 
     <!-- Trust Row -->
     <div class="ds-trust-row" style="margin-top:var(--ds-space-6)">
-      <div class="ds-trust-item">DSGVO-konform</div>
-      <div class="ds-trust-item">Hosting in Deutschland</div>
-      <div class="ds-trust-item">Monatlich kuendbar</div>
-      <div class="ds-trust-item">Kein Lock-in</div>
+      <div class="ds-trust-item" data-i18n="pr.b.trust.gdpr">DSGVO-konform</div>
+      <div class="ds-trust-item" data-i18n="pr.b.trust.hosting">Hosting in Deutschland</div>
+      <div class="ds-trust-item" data-i18n="pr.b.trust.monthly">Monatlich kuendbar</div>
+      <div class="ds-trust-item" data-i18n="pr.b.trust.lockin">Kein Lock-in</div>
     </div>
 
     <!-- Bounty-Rabatt Teaser -->
     <div id="bountyTeaser" style="display:none;margin-top:var(--ds-space-5)">
       <div style="padding:var(--ds-space-4) var(--ds-space-5);border:1px solid rgba(57,217,138,.2);border-radius:14px;background:rgba(57,217,138,.03);display:flex;align-items:center;gap:var(--ds-space-4);flex-wrap:wrap">
         <div style="flex:1;min-width:200px">
-          <div style="font-weight:700;font-size:14px">Bis zu 20% Bounty-Rabatt verdienen</div>
-          <div style="font-size:12px;color:var(--ds-text-secondary);margin-top:2px;line-height:1.5">Gute Leistung zahlt sich aus &mdash; sammeln Sie Bounties durch Performance, Aktivitaet und Treue und senken Sie dauerhaft Ihren Abo-Preis.<span id="bountyTeaserCurrent" style="display:none;font-weight:600;color:var(--ds-success)"></span></div>
+          <div style="font-weight:700;font-size:14px" data-i18n="pr.b.bounty.title">Bis zu 20% Bounty-Rabatt verdienen</div>
+          <div style="font-size:12px;color:var(--ds-text-secondary);margin-top:2px;line-height:1.5"><span data-i18n="pr.b.bounty.desc">Gute Leistung zahlt sich aus &mdash; sammeln Sie Bounties durch Performance, Aktivitaet und Treue und senken Sie dauerhaft Ihren Abo-Preis.</span><span id="bountyTeaserCurrent" style="display:none;font-weight:600;color:var(--ds-success)"></span></div>
         </div>
-        <a href="/public/bounties.html" class="ds-btn ds-btn--success ds-btn--sm" style="white-space:nowrap">Bounties ansehen</a>
+        <a href="/public/bounties.html" class="ds-btn ds-btn--success ds-btn--sm" style="white-space:nowrap" data-i18n="pr.b.bounty.cta">Bounties ansehen</a>
       </div>
     </div>
 
@@ -270,21 +270,21 @@
         <div style="display:flex;align-items:center;gap:var(--ds-space-4);flex-wrap:wrap">
           <div style="flex:1;min-width:200px">
             <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
-              <span style="font-weight:700;font-size:14px">Empfehlungsprogramm</span>
-              <span id="slaRefPilotBadge" style="display:none;font-size:10px;font-weight:700;background:rgba(57,217,138,.15);color:var(--ds-success);padding:2px 8px;border-radius:10px">Pilotkunde</span>
+              <span style="font-weight:700;font-size:14px" data-i18n="pr.b.ref.title">Empfehlungsprogramm</span>
+              <span id="slaRefPilotBadge" style="display:none;font-size:10px;font-weight:700;background:rgba(57,217,138,.15);color:var(--ds-success);padding:2px 8px;border-radius:10px" data-i18n="pr.b.ref.pilotBadge">Pilotkunde</span>
             </div>
             <div id="slaRefDesc" style="font-size:12px;color:var(--ds-text-secondary);margin-top:3px;line-height:1.5"></div>
           </div>
           <div id="slaRefStats" style="display:flex;gap:var(--ds-space-4);flex-shrink:0"></div>
-          <a href="/public/bounties.html#referralSection" class="ds-btn ds-btn--primary ds-btn--sm" style="white-space:nowrap">Details &amp; Einladen</a>
+          <a href="/public/bounties.html#referralSection" class="ds-btn ds-btn--primary ds-btn--sm" style="white-space:nowrap" data-i18n="pr.b.ref.cta">Details &amp; Einladen</a>
         </div>
 
         <!-- Referral-Code Schnellzugriff -->
         <div id="slaRefCodeRow" style="display:none;margin-top:var(--ds-space-3);padding-top:var(--ds-space-3);border-top:1px solid rgba(74,158,255,.12);display:flex;align-items:center;gap:10px;flex-wrap:wrap">
-          <span style="font-size:12px;color:var(--ds-text-secondary)">Ihr Code:</span>
+          <span style="font-size:12px;color:var(--ds-text-secondary)" data-i18n="pr.b.ref.codeLabel">Ihr Code:</span>
           <code id="slaRefCode" style="font-size:16px;font-weight:900;letter-spacing:2px;background:rgba(255,255,255,.06);padding:4px 12px;border-radius:6px">---</code>
-          <button onclick="(function(){var c=document.getElementById('slaRefCode').textContent;navigator.clipboard.writeText(window.location.origin+'/?ref='+c);var b=document.getElementById('slaRefCopied');b.style.display='inline';setTimeout(function(){b.style.display='none'},2500)})()" class="ds-btn ds-btn--sm" style="font-size:11px;padding:3px 10px">Link kopieren</button>
-          <span id="slaRefCopied" style="display:none;font-size:11px;color:var(--ds-success)">Kopiert!</span>
+          <button onclick="(function(){var c=document.getElementById('slaRefCode').textContent;navigator.clipboard.writeText(window.location.origin+'/?ref='+c);var b=document.getElementById('slaRefCopied');b.style.display='inline';setTimeout(function(){b.style.display='none'},2500)})()" class="ds-btn ds-btn--sm" style="font-size:11px;padding:3px 10px" data-i18n="pr.b.ref.copy">Link kopieren</button>
+          <span id="slaRefCopied" style="display:none;font-size:11px;color:var(--ds-success)" data-i18n="pr.b.ref.copied">Kopiert!</span>
         </div>
       </div>
     </div>
@@ -293,109 +293,111 @@
 
     <!-- Feature Comparison Table -->
     <section class="ds-section" style="text-align:center">
-      <div class="section-label">Vergleich</div>
-      <h2 class="section-heading">Alle Features im Detail</h2>
-      <p class="section-desc" style="margin:0 auto var(--ds-space-4)">Detaillierter Vergleich aller Funktionen nach Tarif.</p>
+      <div class="section-label" data-i18n="pr.b.cmp.eyebrow">Vergleich</div>
+      <h2 class="section-heading" data-i18n="pr.b.cmp.title">Alle Features im Detail</h2>
+      <p class="section-desc" style="margin:0 auto var(--ds-space-4)" data-i18n="pr.b.cmp.desc">Detaillierter Vergleich aller Funktionen nach Tarif.</p>
     </section>
 
     <div class="comparison-wrap">
       <table class="comparison-table">
         <thead>
           <tr>
-            <th>Funktion</th>
+            <th data-i18n="pr.b.cmp.thFunction">Funktion</th>
             <th>DEMO</th>
             <th>BASIS</th>
             <th class="highlight">PLUS</th>
             <th>PRO</th>
-            <th>INDIVIDUELLER TARIF</th>
+            <th data-i18n="pr.b.cmp.thIndividuell">INDIVIDUELLER TARIF</th>
           </tr>
         </thead>
         <tbody>
           <!-- Marketplace -->
-          <tr class="group-row"><td colspan="6">Marketplace &amp; Anfragen</td></tr>
-          <tr><td>Marketplace durchsuchen</td><td class="check">&#10003;</td><td class="check">&#10003;</td><td class="check">&#10003;</td><td class="check">&#10003;</td><td class="check">&#10003;</td></tr>
-          <tr><td>Anfragen senden</td><td class="cross">&times;</td><td class="value">5 / Monat</td><td class="value">20 / Monat</td><td class="value">Unbegrenzt</td><td class="value">Unbegrenzt</td></tr>
-          <tr><td>Anfragen empfangen</td><td class="cross">&times;</td><td class="value">5 / Monat</td><td class="value">20 / Monat</td><td class="value">Unbegrenzt</td><td class="value">Unbegrenzt</td></tr>
-          <tr><td>Angebote erstellen</td><td class="cross">&times;</td><td class="value">5 / Monat</td><td class="value">20 / Monat</td><td class="value">Unbegrenzt</td><td class="value">Unbegrenzt</td></tr>
-          <tr><td>Profil-Listing</td><td class="cross">&times;</td><td class="check">&#10003;</td><td class="check">&#10003;</td><td class="check">&#10003;</td><td class="check">&#10003;</td></tr>
-          <tr><td>Erhoehte Sichtbarkeit</td><td class="cross">&times;</td><td class="cross">&times;</td><td class="check">&#10003;</td><td class="check">&#10003;</td><td class="check">&#10003;</td></tr>
-          <tr><td>Prioritaets-Platzierung</td><td class="cross">&times;</td><td class="cross">&times;</td><td class="cross">&times;</td><td class="check">&#10003;</td><td class="check">&#10003;</td></tr>
-          <tr><td>Arbeiter pro Deal / Anfrage</td><td class="cross">&times;</td><td class="value">3</td><td class="value">10</td><td class="value">20</td><td class="value">Unbegrenzt</td></tr>
+          <tr class="group-row"><td colspan="6" data-i18n="pr.b.grp.marketplace">Marketplace &amp; Anfragen</td></tr>
+          <tr><td data-i18n="pr.b.f.marketplaceSearch">Marketplace durchsuchen</td><td class="check">&#10003;</td><td class="check">&#10003;</td><td class="check">&#10003;</td><td class="check">&#10003;</td><td class="check">&#10003;</td></tr>
+          <tr><td data-i18n="pr.b.f.requestsSend">Anfragen senden</td><td class="cross">&times;</td><td class="value" data-i18n="pr.b.val.m5">5 / Monat</td><td class="value" data-i18n="pr.b.val.m20">20 / Monat</td><td class="value" data-i18n="pr.b.val.unlimited">Unbegrenzt</td><td class="value" data-i18n="pr.b.val.unlimited">Unbegrenzt</td></tr>
+          <tr><td data-i18n="pr.b.f.requestsReceive">Anfragen empfangen</td><td class="cross">&times;</td><td class="value" data-i18n="pr.b.val.m5">5 / Monat</td><td class="value" data-i18n="pr.b.val.m20">20 / Monat</td><td class="value" data-i18n="pr.b.val.unlimited">Unbegrenzt</td><td class="value" data-i18n="pr.b.val.unlimited">Unbegrenzt</td></tr>
+          <tr><td data-i18n="pr.b.f.offersCreate">Angebote erstellen</td><td class="cross">&times;</td><td class="value" data-i18n="pr.b.val.m5">5 / Monat</td><td class="value" data-i18n="pr.b.val.m20">20 / Monat</td><td class="value" data-i18n="pr.b.val.unlimited">Unbegrenzt</td><td class="value" data-i18n="pr.b.val.unlimited">Unbegrenzt</td></tr>
+          <tr><td data-i18n="pr.b.f.profileListing">Profil-Listing</td><td class="cross">&times;</td><td class="check">&#10003;</td><td class="check">&#10003;</td><td class="check">&#10003;</td><td class="check">&#10003;</td></tr>
+          <tr><td data-i18n="pr.b.f.visibility">Erhoehte Sichtbarkeit</td><td class="cross">&times;</td><td class="cross">&times;</td><td class="check">&#10003;</td><td class="check">&#10003;</td><td class="check">&#10003;</td></tr>
+          <tr><td data-i18n="pr.b.f.priorityPlacement">Prioritaets-Platzierung</td><td class="cross">&times;</td><td class="cross">&times;</td><td class="cross">&times;</td><td class="check">&#10003;</td><td class="check">&#10003;</td></tr>
+          <tr><td data-i18n="pr.b.f.workersPerDeal">Arbeiter pro Deal / Anfrage</td><td class="cross">&times;</td><td class="value">3</td><td class="value">10</td><td class="value">20</td><td class="value" data-i18n="pr.b.val.unlimited">Unbegrenzt</td></tr>
 
           <!-- Vermittlung -->
-          <tr class="group-row"><td colspan="6">Vermittlung</td></tr>
-          <tr><td>Boerse durchsuchen</td><td class="check">&#10003;</td><td class="check">&#10003;</td><td class="check">&#10003;</td><td class="check">&#10003;</td><td class="check">&#10003;</td></tr>
-          <tr><td>Personal einstellen</td><td class="cross">&times;</td><td class="value">3 Eintraege</td><td class="value">20 Eintraege</td><td class="value">Unbegrenzt</td><td class="value">Unbegrenzt</td></tr>
-          <tr><td>Interesse bekunden / Deals</td><td class="cross">&times;</td><td class="value">5 / Monat</td><td class="value">20 / Monat</td><td class="value">Unbegrenzt</td><td class="value">Unbegrenzt</td></tr>
-          <tr><td>Vertrauenssignale &amp; Badges</td><td class="cross">&times;</td><td class="cross">&times;</td><td class="check">&#10003;</td><td class="check">&#10003;</td><td class="check">&#10003;</td></tr>
-          <tr><td>Aktivitaets-Statistiken</td><td class="cross">&times;</td><td class="cross">&times;</td><td class="check">&#10003;</td><td class="check">&#10003;</td><td class="check">&#10003;</td></tr>
+          <tr class="group-row"><td colspan="6" data-i18n="pr.b.grp.matching">Vermittlung</td></tr>
+          <tr><td data-i18n="pr.b.f.exchangeSearch">Boerse durchsuchen</td><td class="check">&#10003;</td><td class="check">&#10003;</td><td class="check">&#10003;</td><td class="check">&#10003;</td><td class="check">&#10003;</td></tr>
+          <!-- "Personal einstellen" bleibt bewusst deutsch: rollenabhaengiger Begriff aus
+               terminologyLabels.js (capacityCreate), diese Seite ist fuer company UND agency offen. -->
+          <tr><td>Personal einstellen</td><td class="cross">&times;</td><td class="value" data-i18n="pr.b.val.e3">3 Eintraege</td><td class="value" data-i18n="pr.b.val.e20">20 Eintraege</td><td class="value" data-i18n="pr.b.val.unlimited">Unbegrenzt</td><td class="value" data-i18n="pr.b.val.unlimited">Unbegrenzt</td></tr>
+          <tr><td data-i18n="pr.b.f.interestDeals">Interesse bekunden / Deals</td><td class="cross">&times;</td><td class="value" data-i18n="pr.b.val.m5">5 / Monat</td><td class="value" data-i18n="pr.b.val.m20">20 / Monat</td><td class="value" data-i18n="pr.b.val.unlimited">Unbegrenzt</td><td class="value" data-i18n="pr.b.val.unlimited">Unbegrenzt</td></tr>
+          <tr><td data-i18n="pr.b.f.trustBadges">Vertrauenssignale &amp; Badges</td><td class="cross">&times;</td><td class="cross">&times;</td><td class="check">&#10003;</td><td class="check">&#10003;</td><td class="check">&#10003;</td></tr>
+          <tr><td data-i18n="pr.b.f.activityStats">Aktivitaets-Statistiken</td><td class="cross">&times;</td><td class="cross">&times;</td><td class="check">&#10003;</td><td class="check">&#10003;</td><td class="check">&#10003;</td></tr>
 
           <!-- Matching -->
-          <tr class="group-row"><td colspan="6">Matching &amp; Scoring</td></tr>
-          <tr><td>Basis-Matching (Rolle, Skills, Standort)</td><td class="cross">&times;</td><td class="check">&#10003;</td><td class="check">&#10003;</td><td class="check">&#10003;</td><td class="check">&#10003;</td></tr>
-          <tr><td>Instant Match (13-Faktor-Scoring)</td><td class="cross">&times;</td><td class="cross">&times;</td><td class="check">&#10003;</td><td class="check">&#10003;</td><td class="check">&#10003;</td></tr>
-          <tr><td>Smart Ranking (AI-gestuetzte Signale)</td><td class="cross">&times;</td><td class="cross">&times;</td><td class="cross">&times;</td><td class="check">&#10003;</td><td class="check">&#10003;</td></tr>
-          <tr><td>Erklaerbares Ranking (Breakdown)</td><td class="cross">&times;</td><td class="cross">&times;</td><td class="cross">&times;</td><td class="check">&#10003;</td><td class="check">&#10003;</td></tr>
-          <tr><td>Match-Alerts &amp; Benachrichtigungen</td><td class="cross">&times;</td><td class="cross">&times;</td><td class="check">&#10003;</td><td class="check">&#10003;</td><td class="check">&#10003;</td></tr>
-          <tr><td>Preferred-First-Boost im Matching</td><td class="cross">&times;</td><td class="cross">&times;</td><td class="cross">&times;</td><td class="cross">&times;</td><td class="check">&#10003;</td></tr>
+          <tr class="group-row"><td colspan="6" data-i18n="pr.b.grp.scoring">Matching &amp; Scoring</td></tr>
+          <tr><td data-i18n="pr.b.f.basicMatching">Basis-Matching (Rolle, Skills, Standort)</td><td class="cross">&times;</td><td class="check">&#10003;</td><td class="check">&#10003;</td><td class="check">&#10003;</td><td class="check">&#10003;</td></tr>
+          <tr><td data-i18n="pr.b.f.instantMatch">Instant Match (13-Faktor-Scoring)</td><td class="cross">&times;</td><td class="cross">&times;</td><td class="check">&#10003;</td><td class="check">&#10003;</td><td class="check">&#10003;</td></tr>
+          <tr><td data-i18n="pr.b.f.smartRanking">Smart Ranking (AI-gestuetzte Signale)</td><td class="cross">&times;</td><td class="cross">&times;</td><td class="cross">&times;</td><td class="check">&#10003;</td><td class="check">&#10003;</td></tr>
+          <tr><td data-i18n="pr.b.f.explainableRanking">Erklaerbares Ranking (Breakdown)</td><td class="cross">&times;</td><td class="cross">&times;</td><td class="cross">&times;</td><td class="check">&#10003;</td><td class="check">&#10003;</td></tr>
+          <tr><td data-i18n="pr.b.f.matchAlerts">Match-Alerts &amp; Benachrichtigungen</td><td class="cross">&times;</td><td class="cross">&times;</td><td class="check">&#10003;</td><td class="check">&#10003;</td><td class="check">&#10003;</td></tr>
+          <tr><td data-i18n="pr.b.f.preferredBoost">Preferred-First-Boost im Matching</td><td class="cross">&times;</td><td class="cross">&times;</td><td class="cross">&times;</td><td class="cross">&times;</td><td class="check">&#10003;</td></tr>
 
           <!-- Operative Workflows -->
-          <tr class="group-row"><td colspan="6">Operative Workflows</td></tr>
-          <tr><td>Digitale Stundenzettel</td><td class="cross">&times;</td><td class="cross">&times;</td><td class="check">&#10003;</td><td class="check">&#10003;</td><td class="check">&#10003;</td></tr>
-          <tr><td>ArbZG-Pausenvalidierung</td><td class="cross">&times;</td><td class="cross">&times;</td><td class="check">&#10003;</td><td class="check">&#10003;</td><td class="check">&#10003;</td></tr>
-          <tr><td>Digitale Unterschrift</td><td class="cross">&times;</td><td class="cross">&times;</td><td class="check">&#10003;</td><td class="check">&#10003;</td><td class="check">&#10003;</td></tr>
-          <tr><td>Batch-Genehmigung (Stundenzettel)</td><td class="cross">&times;</td><td class="cross">&times;</td><td class="check">&#10003;</td><td class="check">&#10003;</td><td class="check">&#10003;</td></tr>
-          <tr><td>Operative Rechnungsstellung</td><td class="cross">&times;</td><td class="cross">&times;</td><td class="check">&#10003;</td><td class="check">&#10003;</td><td class="check">&#10003;</td></tr>
-          <tr><td>Rechnungs-KPI-Dashboard</td><td class="cross">&times;</td><td class="cross">&times;</td><td class="check">&#10003;</td><td class="check">&#10003;</td><td class="check">&#10003;</td></tr>
-          <tr><td>CSV-Export (Rechnungen)</td><td class="cross">&times;</td><td class="cross">&times;</td><td class="check">&#10003;</td><td class="check">&#10003;</td><td class="check">&#10003;</td></tr>
+          <tr class="group-row"><td colspan="6" data-i18n="pr.b.grp.workflows">Operative Workflows</td></tr>
+          <tr><td data-i18n="pr.b.f.timesheets">Digitale Stundenzettel</td><td class="cross">&times;</td><td class="cross">&times;</td><td class="check">&#10003;</td><td class="check">&#10003;</td><td class="check">&#10003;</td></tr>
+          <tr><td data-i18n="pr.b.f.arbzg">ArbZG-Pausenvalidierung</td><td class="cross">&times;</td><td class="cross">&times;</td><td class="check">&#10003;</td><td class="check">&#10003;</td><td class="check">&#10003;</td></tr>
+          <tr><td data-i18n="pr.b.f.signature">Digitale Unterschrift</td><td class="cross">&times;</td><td class="cross">&times;</td><td class="check">&#10003;</td><td class="check">&#10003;</td><td class="check">&#10003;</td></tr>
+          <tr><td data-i18n="pr.b.f.batchApproval">Batch-Genehmigung (Stundenzettel)</td><td class="cross">&times;</td><td class="cross">&times;</td><td class="check">&#10003;</td><td class="check">&#10003;</td><td class="check">&#10003;</td></tr>
+          <tr><td data-i18n="pr.b.f.invoicing">Operative Rechnungsstellung</td><td class="cross">&times;</td><td class="cross">&times;</td><td class="check">&#10003;</td><td class="check">&#10003;</td><td class="check">&#10003;</td></tr>
+          <tr><td data-i18n="pr.b.f.invoiceKpi">Rechnungs-KPI-Dashboard</td><td class="cross">&times;</td><td class="cross">&times;</td><td class="check">&#10003;</td><td class="check">&#10003;</td><td class="check">&#10003;</td></tr>
+          <tr><td data-i18n="pr.b.f.csvExport">CSV-Export (Rechnungen)</td><td class="cross">&times;</td><td class="cross">&times;</td><td class="check">&#10003;</td><td class="check">&#10003;</td><td class="check">&#10003;</td></tr>
 
           <!-- Emergency & Pricing -->
-          <tr class="group-row"><td colspan="6">Notdienst &amp; Preisvorschlaege</td></tr>
-          <tr><td>Emergency Staffing / Notdienst</td><td class="cross">&times;</td><td class="cross">&times;</td><td class="check">&#10003;</td><td class="check">&#10003;</td><td class="check">&#10003;</td></tr>
-          <tr><td>5-Stufen-Urgency-Modell</td><td class="cross">&times;</td><td class="cross">&times;</td><td class="check">&#10003;</td><td class="check">&#10003;</td><td class="check">&#10003;</td></tr>
-          <tr><td>Auto-Eskalation</td><td class="cross">&times;</td><td class="cross">&times;</td><td class="cross">&times;</td><td class="check">&#10003;</td><td class="check">&#10003;</td></tr>
-          <tr><td>Smart Pricing (Preisvorschlaege)</td><td class="cross">&times;</td><td class="cross">&times;</td><td class="check">&#10003;</td><td class="check">&#10003;</td><td class="check">&#10003;</td></tr>
+          <tr class="group-row"><td colspan="6" data-i18n="pr.b.grp.emergency">Notdienst &amp; Preisvorschlaege</td></tr>
+          <tr><td data-i18n="pr.b.f.emergencyStaffing">Emergency Staffing / Notdienst</td><td class="cross">&times;</td><td class="cross">&times;</td><td class="check">&#10003;</td><td class="check">&#10003;</td><td class="check">&#10003;</td></tr>
+          <tr><td data-i18n="pr.b.f.urgencyModel">5-Stufen-Urgency-Modell</td><td class="cross">&times;</td><td class="cross">&times;</td><td class="check">&#10003;</td><td class="check">&#10003;</td><td class="check">&#10003;</td></tr>
+          <tr><td data-i18n="pr.b.f.autoEscalation">Auto-Eskalation</td><td class="cross">&times;</td><td class="cross">&times;</td><td class="cross">&times;</td><td class="check">&#10003;</td><td class="check">&#10003;</td></tr>
+          <tr><td data-i18n="pr.b.f.smartPricing">Smart Pricing (Preisvorschlaege)</td><td class="cross">&times;</td><td class="cross">&times;</td><td class="check">&#10003;</td><td class="check">&#10003;</td><td class="check">&#10003;</td></tr>
 
           <!-- Reputation -->
-          <tr class="group-row"><td colspan="6">Reputation &amp; Bewertung</td></tr>
-          <tr><td>Reputation-Score &amp; Grade</td><td class="cross">&times;</td><td class="cross">&times;</td><td class="check">&#10003;</td><td class="check">&#10003;</td><td class="check">&#10003;</td></tr>
-          <tr><td>Lieferanten-Bewertungen</td><td class="cross">&times;</td><td class="cross">&times;</td><td class="cross">&times;</td><td class="check">&#10003;</td><td class="check">&#10003;</td></tr>
-          <tr><td>Top-Supplier Leaderboard</td><td class="cross">&times;</td><td class="cross">&times;</td><td class="cross">&times;</td><td class="check">&#10003;</td><td class="check">&#10003;</td></tr>
+          <tr class="group-row"><td colspan="6" data-i18n="pr.b.grp.reputation">Reputation &amp; Bewertung</td></tr>
+          <tr><td data-i18n="pr.b.f.reputationScore">Reputation-Score &amp; Grade</td><td class="cross">&times;</td><td class="cross">&times;</td><td class="check">&#10003;</td><td class="check">&#10003;</td><td class="check">&#10003;</td></tr>
+          <tr><td data-i18n="pr.b.f.supplierRatings">Lieferanten-Bewertungen</td><td class="cross">&times;</td><td class="cross">&times;</td><td class="cross">&times;</td><td class="check">&#10003;</td><td class="check">&#10003;</td></tr>
+          <tr><td data-i18n="pr.b.f.topSupplier">Top-Supplier Leaderboard</td><td class="cross">&times;</td><td class="cross">&times;</td><td class="cross">&times;</td><td class="check">&#10003;</td><td class="check">&#10003;</td></tr>
 
           <!-- Pulse & SLA -->
-          <tr class="group-row"><td colspan="6">Pulse &amp; SLA</td></tr>
-          <tr><td>Persistente Suchauftraege</td><td class="cross">&times;</td><td class="cross">&times;</td><td class="check">&#10003;</td><td class="check">&#10003;</td><td class="check">&#10003;</td></tr>
-          <tr><td>Pulse-Timer</td><td class="cross">&times;</td><td class="cross">&times;</td><td class="value">120 Min</td><td class="value">60 Min</td><td class="value">30 Min</td></tr>
-          <tr><td>Plattformverfuegbarkeit</td><td class="value">Best Effort</td><td class="value">Best Effort</td><td class="value">99 %</td><td class="value">99 %</td><td class="value">99,5 %</td></tr>
+          <tr class="group-row"><td colspan="6" data-i18n="pr.b.grp.pulse">Pulse &amp; SLA</td></tr>
+          <tr><td data-i18n="pr.b.f.persistentSearch">Persistente Suchauftraege</td><td class="cross">&times;</td><td class="cross">&times;</td><td class="check">&#10003;</td><td class="check">&#10003;</td><td class="check">&#10003;</td></tr>
+          <tr><td data-i18n="pr.b.f.pulseTimer">Pulse-Timer</td><td class="cross">&times;</td><td class="cross">&times;</td><td class="value" data-i18n="pr.b.val.min120">120 Min</td><td class="value" data-i18n="pr.b.val.min60">60 Min</td><td class="value" data-i18n="pr.b.val.min30">30 Min</td></tr>
+          <tr><td data-i18n="pr.b.f.availability">Plattformverfuegbarkeit</td><td class="value" data-i18n="pr.b.val.bestEffort">Best Effort</td><td class="value" data-i18n="pr.b.val.bestEffort">Best Effort</td><td class="value" data-i18n="pr.b.val.pct99">99 %</td><td class="value" data-i18n="pr.b.val.pct99">99 %</td><td class="value" data-i18n="pr.b.val.pct995">99,5 %</td></tr>
 
           <!-- Analytics & Tools -->
-          <tr class="group-row"><td colspan="6">Analysen &amp; Tools</td></tr>
-          <tr><td>Dashboard individueller Tarife</td><td class="cross">&times;</td><td class="cross">&times;</td><td class="check">&#10003;</td><td class="check">&#10003;</td><td class="check">&#10003;</td></tr>
-          <tr><td>Compliance-Ampel &amp; Scorecard</td><td class="cross">&times;</td><td class="cross">&times;</td><td class="check">&#10003;</td><td class="check">&#10003;</td><td class="check">&#10003;</td></tr>
-          <tr><td>Erweiterte Analysen</td><td class="cross">&times;</td><td class="cross">&times;</td><td class="cross">&times;</td><td class="check">&#10003;</td><td class="check">&#10003;</td></tr>
+          <tr class="group-row"><td colspan="6" data-i18n="pr.b.grp.analytics">Analysen &amp; Tools</td></tr>
+          <tr><td data-i18n="pr.b.f.individuellDashboard">Dashboard individueller Tarife</td><td class="cross">&times;</td><td class="cross">&times;</td><td class="check">&#10003;</td><td class="check">&#10003;</td><td class="check">&#10003;</td></tr>
+          <tr><td data-i18n="pr.b.f.complianceScorecard">Compliance-Ampel &amp; Scorecard</td><td class="cross">&times;</td><td class="cross">&times;</td><td class="check">&#10003;</td><td class="check">&#10003;</td><td class="check">&#10003;</td></tr>
+          <tr><td data-i18n="pr.b.f.advancedAnalytics">Erweiterte Analysen</td><td class="cross">&times;</td><td class="cross">&times;</td><td class="cross">&times;</td><td class="check">&#10003;</td><td class="check">&#10003;</td></tr>
 
 
           <!-- Sicherheit & Authentifizierung -->
-          <tr class="group-row"><td colspan="6">Sicherheit &amp; Authentifizierung</td></tr>
-          <tr><td>MFA / TOTP (2-Faktor)</td><td class="cross">&times;</td><td class="cross">&times;</td><td class="check">&#10003;</td><td class="check">&#10003;</td><td class="check">&#10003;</td></tr>
-          <tr><td>SSO / SAML Login</td><td class="cross">&times;</td><td class="cross">&times;</td><td class="cross">&times;</td><td class="check">&#10003;</td><td class="check">&#10003;</td></tr>
-          <tr><td>SSO Admin-Konfiguration</td><td class="cross">&times;</td><td class="cross">&times;</td><td class="cross">&times;</td><td class="check">&#10003;</td><td class="check">&#10003;</td></tr>
-          <tr><td>Enforce SSO (Passwort-Login blockieren)</td><td class="cross">&times;</td><td class="cross">&times;</td><td class="cross">&times;</td><td class="cross">&times;</td><td class="check">&#10003;</td></tr>
-          <tr><td>SP Metadata &amp; IDP-Integration</td><td class="cross">&times;</td><td class="cross">&times;</td><td class="cross">&times;</td><td class="check">&#10003;</td><td class="check">&#10003;</td></tr>
+          <tr class="group-row"><td colspan="6" data-i18n="pr.b.grp.security">Sicherheit &amp; Authentifizierung</td></tr>
+          <tr><td data-i18n="pr.b.f.mfa">MFA / TOTP (2-Faktor)</td><td class="cross">&times;</td><td class="cross">&times;</td><td class="check">&#10003;</td><td class="check">&#10003;</td><td class="check">&#10003;</td></tr>
+          <tr><td data-i18n="pr.b.f.sso">SSO / SAML Login</td><td class="cross">&times;</td><td class="cross">&times;</td><td class="cross">&times;</td><td class="check">&#10003;</td><td class="check">&#10003;</td></tr>
+          <tr><td data-i18n="pr.b.f.ssoAdmin">SSO Admin-Konfiguration</td><td class="cross">&times;</td><td class="cross">&times;</td><td class="cross">&times;</td><td class="check">&#10003;</td><td class="check">&#10003;</td></tr>
+          <tr><td data-i18n="pr.b.f.ssoEnforce">Enforce SSO (Passwort-Login blockieren)</td><td class="cross">&times;</td><td class="cross">&times;</td><td class="cross">&times;</td><td class="cross">&times;</td><td class="check">&#10003;</td></tr>
+          <tr><td data-i18n="pr.b.f.spMetadata">SP Metadata &amp; IDP-Integration</td><td class="cross">&times;</td><td class="cross">&times;</td><td class="cross">&times;</td><td class="check">&#10003;</td><td class="check">&#10003;</td></tr>
           <!-- Individueller Tarif -->
-          <tr class="group-row"><td colspan="6">Funktionen des individuellen Tarifs</td></tr>
-          <tr><td>Vendor Pool Management</td><td class="cross">&times;</td><td class="cross">&times;</td><td class="cross">&times;</td><td class="cross">&times;</td><td class="check">&#10003;</td></tr>
-          <tr><td>Preferred-First &amp; Coverage-Analyse</td><td class="cross">&times;</td><td class="cross">&times;</td><td class="cross">&times;</td><td class="cross">&times;</td><td class="check">&#10003;</td></tr>
-          <tr><td>Multi-Abteilungen &amp; Teams</td><td class="cross">&times;</td><td class="cross">&times;</td><td class="cross">&times;</td><td class="cross">&times;</td><td class="check">&#10003;</td></tr>
-          <tr><td>Freigabe-Workflows</td><td class="cross">&times;</td><td class="cross">&times;</td><td class="cross">&times;</td><td class="cross">&times;</td><td class="check">&#10003;</td></tr>
-          <tr><td>Vertragsmanagement</td><td class="cross">&times;</td><td class="cross">&times;</td><td class="cross">&times;</td><td class="cross">&times;</td><td class="check">&#10003;</td></tr>
-          <tr><td>Reporting fuer individuelle Tarife &amp; Audit</td><td class="cross">&times;</td><td class="cross">&times;</td><td class="cross">&times;</td><td class="cross">&times;</td><td class="check">&#10003;</td></tr>
+          <tr class="group-row"><td colspan="6" data-i18n="pr.b.grp.individuell">Funktionen des individuellen Tarifs</td></tr>
+          <tr><td data-i18n="pr.b.f.vendorPool">Vendor Pool Management</td><td class="cross">&times;</td><td class="cross">&times;</td><td class="cross">&times;</td><td class="cross">&times;</td><td class="check">&#10003;</td></tr>
+          <tr><td data-i18n="pr.b.f.coverage">Preferred-First &amp; Coverage-Analyse</td><td class="cross">&times;</td><td class="cross">&times;</td><td class="cross">&times;</td><td class="cross">&times;</td><td class="check">&#10003;</td></tr>
+          <tr><td data-i18n="pr.b.f.departments">Multi-Abteilungen &amp; Teams</td><td class="cross">&times;</td><td class="cross">&times;</td><td class="cross">&times;</td><td class="cross">&times;</td><td class="check">&#10003;</td></tr>
+          <tr><td data-i18n="pr.b.f.approvalWorkflows">Freigabe-Workflows</td><td class="cross">&times;</td><td class="cross">&times;</td><td class="cross">&times;</td><td class="cross">&times;</td><td class="check">&#10003;</td></tr>
+          <tr><td data-i18n="pr.b.f.contracts">Vertragsmanagement</td><td class="cross">&times;</td><td class="cross">&times;</td><td class="cross">&times;</td><td class="cross">&times;</td><td class="check">&#10003;</td></tr>
+          <tr><td data-i18n="pr.b.f.individuellReporting">Reporting fuer individuelle Tarife &amp; Audit</td><td class="cross">&times;</td><td class="cross">&times;</td><td class="cross">&times;</td><td class="cross">&times;</td><td class="check">&#10003;</td></tr>
 
           <!-- Support -->
-          <tr class="group-row"><td colspan="6">Support</td></tr>
-          <tr><td>E-Mail-Support</td><td class="cross">&times;</td><td class="check">&#10003;</td><td class="check">&#10003;</td><td class="check">&#10003;</td><td class="check">&#10003;</td></tr>
-          <tr><td>Priorisierter Support</td><td class="cross">&times;</td><td class="cross">&times;</td><td class="cross">&times;</td><td class="check">&#10003;</td><td class="check">&#10003;</td></tr>
-          <tr><td>Dedizierter Ansprechpartner</td><td class="cross">&times;</td><td class="cross">&times;</td><td class="cross">&times;</td><td class="cross">&times;</td><td class="check">&#10003;</td></tr>
+          <tr class="group-row"><td colspan="6" data-i18n="pr.b.grp.support">Support</td></tr>
+          <tr><td data-i18n="pr.b.f.emailSupport">E-Mail-Support</td><td class="cross">&times;</td><td class="check">&#10003;</td><td class="check">&#10003;</td><td class="check">&#10003;</td><td class="check">&#10003;</td></tr>
+          <tr><td data-i18n="pr.b.f.prioritySupport">Priorisierter Support</td><td class="cross">&times;</td><td class="cross">&times;</td><td class="cross">&times;</td><td class="check">&#10003;</td><td class="check">&#10003;</td></tr>
+          <tr><td data-i18n="pr.b.f.dedicatedContact">Dedizierter Ansprechpartner</td><td class="cross">&times;</td><td class="cross">&times;</td><td class="cross">&times;</td><td class="cross">&times;</td><td class="check">&#10003;</td></tr>
         </tbody>
       </table>
     </div>
@@ -405,20 +407,20 @@
     <!-- Aktueller Plan & Zahlungshistorie -->
     <section style="display:grid;grid-template-columns:1fr 1fr;gap:var(--ds-space-4);margin-bottom:var(--ds-space-6)">
       <div class="info-card">
-        <h3>Aktueller Plan</h3>
+        <h3 data-i18n="pr.b.current.title">Aktueller Plan</h3>
         <div id="currentPlanInfo"></div>
         <div style="margin-top:var(--ds-space-4)">
           <button class="ds-btn" id="btnCancelSub" style="background:rgba(255,92,122,.12);border-color:rgba(255,92,122,.3);color:#ffd0d8;font-size:13px" onclick="cancelSubscription()">Abo kuendigen</button>
         </div>
       </div>
       <div class="info-card">
-        <h3>Zahlungshistorie</h3>
-        <div id="paymentHistory"><span style="color:var(--ds-text-secondary)">Lade…</span></div>
+        <h3 data-i18n="pr.b.history.title">Zahlungshistorie</h3>
+        <div id="paymentHistory"><span style="color:var(--ds-text-secondary)" data-i18n="pr.b.history.loading">Lade…</span></div>
       </div>
     </section>
 
     <!-- Disclaimer -->
-    <div class="ds-disclaimer">
+    <div class="ds-disclaimer" data-i18n="pr.b.disclaimer">
       Alle Preise verstehen sich in EUR netto zzgl. gesetzlicher MwSt. Hinweis: Inhalte dienen der Unterstuetzung und ersetzen keine rechtliche Pruefung. Angaben ohne Gewaehr.
     </div>
   </div>
@@ -427,31 +429,31 @@
   <div class="checkout-modal" id="checkoutModal">
     <div class="checkout-panel">
       <div style="display:flex;justify-content:space-between;align-items:center">
-        <h2>Abo abschliessen</h2>
+        <h2 data-i18n="pr.b.co.title">Abo abschliessen</h2>
         <button class="ds-btn" onclick="closeCheckout()" style="padding:6px 12px;font-size:14px">&#10005;</button>
       </div>
 
       <div id="checkoutPlanInfo" style="padding:var(--ds-space-4);border-radius:var(--ds-radius-md);border:1px solid var(--ds-border);background:rgba(255,255,255,.02)"></div>
 
       <div style="margin-top:var(--ds-space-4)">
-        <label style="display:block;font-size:12px;color:var(--ds-text-secondary);margin:0 0 6px;font-weight:700;text-transform:uppercase;letter-spacing:.04em">Zahlungsmethode waehlen</label>
+        <label style="display:block;font-size:12px;color:var(--ds-text-secondary);margin:0 0 6px;font-weight:700;text-transform:uppercase;letter-spacing:.04em" data-i18n="pr.b.co.methodLabel">Zahlungsmethode waehlen</label>
         <div class="payment-methods" id="paymentMethods"></div>
       </div>
 
       <div id="checkoutDemoSection" style="display:none;margin-top:var(--ds-space-4);padding:var(--ds-space-4);border-radius:var(--ds-radius-md);background:rgba(57,217,138,.08);border:1px solid rgba(57,217,138,.25)">
-        <p style="margin:0 0 10px"><b>Demo-Modus aktiv</b></p>
-        <p style="margin:0 0 12px;font-size:13px;color:var(--ds-text-secondary)">Im Demo-Modus wird keine echte Zahlung durchgefuehrt. Du erhaeltst sofort vollen Zugriff.</p>
-        <button class="ds-btn ds-btn--primary" id="btnDemoConfirm" style="width:100%;background:rgba(57,217,138,.2);border-color:rgba(57,217,138,.4);color:#c8ffe7">Zahlung simulieren und Plan aktivieren</button>
+        <p style="margin:0 0 10px"><b data-i18n="pr.b.co.demoTitle">Demo-Modus aktiv</b></p>
+        <p style="margin:0 0 12px;font-size:13px;color:var(--ds-text-secondary)" data-i18n="pr.b.co.demoText">Im Demo-Modus wird keine echte Zahlung durchgefuehrt. Du erhaeltst sofort vollen Zugriff.</p>
+        <button class="ds-btn ds-btn--primary" id="btnDemoConfirm" style="width:100%;background:rgba(57,217,138,.2);border-color:rgba(57,217,138,.4);color:#c8ffe7" data-i18n="pr.b.co.demoBtn">Zahlung simulieren und Plan aktivieren</button>
       </div>
 
       <div id="checkoutStripeSection" style="display:none;margin-top:var(--ds-space-4);padding:var(--ds-space-4);border-radius:var(--ds-radius-md);background:rgba(99,91,255,.08);border:1px solid rgba(99,91,255,.25)">
-        <p style="margin:0 0 10px"><b>Stripe Checkout</b></p>
-        <p style="margin:0 0 12px;font-size:13px;color:var(--ds-text-secondary)">Du wirst zu Stripe weitergeleitet, um die Zahlung sicher abzuschliessen. Unterstuetzte Methoden: Kreditkarte, SEPA-Lastschrift, Sofort, Giropay.</p>
-        <p style="margin:0 0 12px;font-size:13px;color:var(--ds-success)">Du erhaeltst sofort vollen Zugriff nach Zahlungseingang.</p>
-        <button class="ds-btn" id="btnStripeCheckout" style="width:100%;background:#635bff;border-color:transparent;color:#fff">Weiter zu Stripe Checkout</button>
+        <p style="margin:0 0 10px"><b data-i18n="pr.b.co.stripeTitle">Stripe Checkout</b></p>
+        <p style="margin:0 0 12px;font-size:13px;color:var(--ds-text-secondary)" data-i18n="pr.b.co.stripeText">Du wirst zu Stripe weitergeleitet, um die Zahlung sicher abzuschliessen. Unterstuetzte Methoden: Kreditkarte, SEPA-Lastschrift, Sofort, Giropay.</p>
+        <p style="margin:0 0 12px;font-size:13px;color:var(--ds-success)" data-i18n="pr.b.co.stripeInstant">Du erhaeltst sofort vollen Zugriff nach Zahlungseingang.</p>
+        <button class="ds-btn" id="btnStripeCheckout" style="width:100%;background:#635bff;border-color:transparent;color:#fff" data-i18n="pr.b.co.stripeBtn">Weiter zu Stripe Checkout</button>
       </div>
 
-      <p style="margin-top:var(--ds-space-4);font-size:12px;color:var(--ds-text-secondary)">Du kannst dein Abo jederzeit kuendigen.</p>
+      <p style="margin-top:var(--ds-space-4);font-size:12px;color:var(--ds-text-secondary)" data-i18n="pr.b.co.cancelAnytime">Du kannst dein Abo jederzeit kuendigen.</p>
       <div id="checkoutStatus" style="display:none;margin-top:var(--ds-space-3);color:var(--ds-text-secondary);font-size:13px"></div>
     </div>
   </div>
@@ -472,11 +474,11 @@
           </ul>
         </div>
         <div id="dgBountyWarn" style="display:none;padding:var(--ds-space-3);border-radius:var(--ds-radius-md);border:1px solid rgba(57,217,138,.25);background:rgba(57,217,138,.05);margin-bottom:var(--ds-space-3)">
-          <div style="font-size:13px"><strong style="color:var(--ds-success)">Bounty-Rabatt</strong>: Sie haben <span id="dgBountyPct">0</span>% Bounty-Rabatt erarbeitet. Bei Downgrade verfallen alle wiederkehrenden Bounties.</div>
+          <div style="font-size:13px"><strong style="color:var(--ds-success)" data-i18n="pr.b.dg.bountyStrong">Bounty-Rabatt</strong><span data-i18n="pr.b.dg.bountyText1">: Sie haben</span> <span id="dgBountyPct">0</span><span data-i18n="pr.b.dg.bountyText2">% Bounty-Rabatt erarbeitet. Bei Downgrade verfallen alle wiederkehrenden Bounties.</span></div>
         </div>
         <div style="display:flex;gap:var(--ds-space-2);justify-content:flex-end">
-          <button class="ds-btn" onclick="closeDowngrade()">Abbrechen</button>
-          <button class="ds-btn" style="background:var(--ds-warning-muted);border-color:rgba(251,191,36,.35);color:var(--ds-warning)" onclick="dgShowStep(2)">Trotzdem fortfahren</button>
+          <button class="ds-btn" onclick="closeDowngrade()" data-i18n="pr.b.dg.cancel">Abbrechen</button>
+          <button class="ds-btn" style="background:var(--ds-warning-muted);border-color:rgba(251,191,36,.35);color:var(--ds-warning)" onclick="dgShowStep(2)" data-i18n="pr.b.dg.continue">Trotzdem fortfahren</button>
         </div>
       </div>
 
@@ -485,13 +487,13 @@
         <div style="padding:var(--ds-space-4);border-radius:var(--ds-radius-md);border:1px solid rgba(74,158,255,.2);background:rgba(74,158,255,.04);margin:var(--ds-space-3) 0">
           <div id="dgAltTitle" style="font-weight:700;font-size:14px;margin-bottom:var(--ds-space-2);color:var(--ds-brand)">Alternativen zum Downgrade</div>
           <div style="font-size:13px;color:var(--ds-text-secondary);line-height:1.7">
-            <div style="margin-bottom:8px"><strong>Wechsel auf niedrigeren Plan</strong> statt vollstaendiger Kuendigung &ndash; behalten Sie Basiszugang und Ihren Reputations-Score.</div>
+            <div style="margin-bottom:8px"><strong data-i18n="pr.b.dg.altSwitchStrong">Wechsel auf niedrigeren Plan</strong> <span data-i18n="pr.b.dg.altSwitchText">statt vollstaendiger Kuendigung &ndash; behalten Sie Basiszugang und Ihren Reputations-Score.</span></div>
             <div style="margin-bottom:8px" id="dgAltSuggestion"></div>
-            <div><strong>Unzufrieden?</strong> Kontaktieren Sie unser <a href="/public/hilfe.html" style="color:var(--ds-brand)">Support-Team</a> &ndash; wir finden eine L&ouml;sung.</div>
+            <div><strong data-i18n="pr.b.dg.altUnhappyStrong">Unzufrieden?</strong> <span data-i18n="pr.b.dg.altUnhappyText">Kontaktieren Sie unser</span> <a href="/public/hilfe.html" style="color:var(--ds-brand)" data-i18n="pr.b.dg.altSupportLink">Support-Team</a> <span data-i18n="pr.b.dg.altUnhappyTail">&ndash; wir finden eine L&ouml;sung.</span></div>
           </div>
         </div>
         <div style="display:flex;gap:var(--ds-space-2);justify-content:flex-end">
-          <button class="ds-btn" onclick="dgShowStep(1)">Zurueck</button>
+          <button class="ds-btn" onclick="dgShowStep(1)" data-i18n="pr.b.dg.back">Zurueck</button>
           <button id="dgStep2ConfirmBtn" class="ds-btn" style="background:rgba(255,92,122,.15);border-color:rgba(255,92,122,.3);color:#ffd0d8" onclick="dgShowStep(3)">Downgrade bestaetigen</button>
         </div>
       </div>
@@ -500,11 +502,11 @@
       <div id="dgStep3" style="display:none">
         <div style="text-align:center;padding:var(--ds-space-5) 0">
           <div style="font-size:36px;margin-bottom:var(--ds-space-2)">&#9888;</div>
-          <div style="font-size:15px;font-weight:700;margin-bottom:var(--ds-space-2)">Letzte Warnung</div>
+          <div style="font-size:15px;font-weight:700;margin-bottom:var(--ds-space-2)" data-i18n="pr.b.dg.lastWarning">Letzte Warnung</div>
           <p style="font-size:13px;color:var(--ds-text-secondary);max-width:360px;margin:0 auto var(--ds-space-4);line-height:1.6" id="dgFinalText">Sind Sie sicher? Diese Aktion kann nicht sofort rueckgaengig gemacht werden.</p>
         </div>
         <div style="display:flex;gap:var(--ds-space-2);justify-content:center">
-          <button class="ds-btn" onclick="closeDowngrade()" style="flex:1;max-width:200px">Doch behalten</button>
+          <button class="ds-btn" onclick="closeDowngrade()" style="flex:1;max-width:200px" data-i18n="pr.b.dg.keep">Doch behalten</button>
           <button class="ds-btn" id="dgConfirmBtn" style="flex:1;max-width:200px;background:rgba(255,92,122,.2);border-color:rgba(255,92,122,.4);color:#ffd0d8" onclick="dgExecute()">Jetzt downgraden</button>
         </div>
       </div>

@@ -737,6 +737,182 @@ suite("Einsatzportal-Seiten — Woerterbuch-Werte sind echte Texte", () => {
   }
 });
 
+suite("Geteilte Module — slaGuard + onboardingChecklist zweisprachig", () => {
+  // Diese beiden Module erzeugen Texte auf VIELEN bereits migrierten Seiten
+  // (Paywall-Featurename, Onboarding-Schritte). Sie waren der Grund, warum auf
+  // englisch gestellten Seiten noch deutsche Saetze standen. Beide muessen auch
+  // OHNE geladene i18n-Schicht funktionieren — nicht jede einbindende Seite
+  // garantiert sie.
+  const SLA = "frontend/public/js/slaGuard.js";
+  const ONB = "frontend/public/js/onboardingChecklist.js";
+
+  function el() {
+    return {
+      style: {}, textContent: "", innerHTML: "", scrollHeight: 80,
+      _a: {}, getAttribute(n) { return Object.prototype.hasOwnProperty.call(this._a, n) ? this._a[n] : null; },
+      setAttribute(n, v) { this._a[n] = String(v); },
+      appendChild() {}, querySelector: () => null, querySelectorAll: () => [], matches: () => false
+    };
+  }
+
+  /** Baut eine Browser-nahe Sandbox: echtes i18n.js (optional) + Mini-DOM. */
+  function sandbox({ withI18n = true, locale = "de", guard = null, ids = [] } = {}) {
+    const store = new Map();
+    const nodes = {};
+    for (const id of ids) nodes[id] = el();
+    const listeners = {};
+    const body = el();
+    if (guard) body.setAttribute("data-sla-guard", guard);
+    const sb = {
+      console, setTimeout,
+      localStorage: { getItem: (k) => (store.has(k) ? store.get(k) : null), setItem: (k, v) => store.set(k, String(v)) },
+      navigator: { language: "de-DE", languages: ["de-DE"] },
+      CustomEvent: class { constructor(t, o) { this.type = t; this.detail = o && o.detail; } },
+      document: {
+        readyState: "complete", body, documentElement: el(), head: el(),
+        getElementById: (id) => nodes[id] || null,
+        createElement: () => el(), querySelectorAll: () => [], querySelector: () => null,
+        addEventListener: (t, fn) => { (listeners[t] = listeners[t] || []).push(fn); },
+        dispatchEvent: (ev) => { (listeners[ev.type] || []).forEach((fn) => fn(ev)); return true; }
+      },
+      fetch: () => Promise.reject(new Error("kein fetch-Stub")),
+      window: {}
+    };
+    sb.window = sb;
+    sb.nodes = nodes;
+    vm.createContext(sb);
+    if (withI18n) {
+      new vm.Script(read(MARKER_REL), { filename: "i18n.js" }).runInContext(sb);
+      if (locale === "en") sb.window.TCi18n.set("en");
+    }
+    return sb;
+  }
+
+  const tick = () => new Promise((r) => setTimeout(r, 15));
+
+  async function runGuard(opts) {
+    const sb = sandbox({ ...opts, guard: opts.guard || "sla_offers_create",
+      ids: ["main-content", "paywall", "paywall-feature-name", "paywall-current-plan", "paywall-cta"] });
+    sb.fetch = () => Promise.resolve({ ok: true, status: 200, json: () => Promise.resolve({ plan: "DEMO" }) });
+    sb.PlanFeatures = { load: () => Promise.resolve({}), hasFeature: () => false };
+    new vm.Script(read(SLA), { filename: "slaGuard.js" }).runInContext(sb);
+    await tick();
+    return sb;
+  }
+
+  const STATUS = {
+    success: true,
+    data: {
+      dismissed: false, progress_pct: 25,
+      steps: [
+        { key: "profile_complete", label: "Profil vervollständigen", description: "Firmenname, Stadt und Telefon ausfüllen.", link: "/public/sla_profil.html", completed: true },
+        { key: "first_demand", label: "Erstes Arbeitsplatzangebot erstellen", description: "Veröffentlichen Sie Ihr erstes Arbeitsplatzangebot, damit Personaldienstleister Sie finden.", link: "/public/marketplace_demand_create.html", completed: false },
+        { key: "kuenftiger_schritt", label: "Ganz neuer Schritt", description: "Kommt spaeter aus dem Katalog.", link: "/public/x.html", completed: false }
+      ]
+    }
+  };
+
+  async function runChecklist(opts) {
+    const sb = sandbox({ ...opts, ids: ["onboarding-checklist", "onboarding-subtitle", "onboarding-progress-bar", "onboarding-steps", "onboarding-body"] });
+    sb.fetch = (url) => (String(url).indexOf("/api/onboarding/status") === 0
+      ? Promise.resolve({ ok: true, json: () => Promise.resolve(STATUS) })
+      : Promise.resolve({ ok: true, json: () => Promise.resolve({ role: "company" }) }));
+    new vm.Script(read(ONB), { filename: "onboardingChecklist.js" }).runInContext(sb);
+    await tick();
+    return sb;
+  }
+
+  it("slaGuard: DE unveraendert, EN uebersetzt, ohne Schicht deutscher Fallback", async () => {
+    const de = await runGuard({ locale: "de" });
+    const en = await runGuard({ locale: "en" });
+    const ohne = await runGuard({ withI18n: false });
+    assert.equal(de.nodes["paywall-feature-name"].textContent, "Angebote erstellen");
+    assert.equal(en.nodes["paywall-feature-name"].textContent, "Create offers");
+    assert.equal(ohne.nodes["paywall-feature-name"].textContent, "Angebote erstellen", "ohne i18n exakt das alte Verhalten");
+    assert.equal(de.nodes["paywall"].style.display, "block");
+    assert.equal(de.nodes["main-content"].style.display, "none");
+    assert.equal(en.nodes["paywall-current-plan"].textContent, "DEMO", "Plan-Rohwert bleibt unuebersetzt");
+  });
+
+  it("slaGuard: Sprachwechsel zieht den Feature-Namen nach, unbekanntes Feature bleibt roh", async () => {
+    const sb = await runGuard({ locale: "en" });
+    sb.window.TCi18n.set("de");
+    assert.equal(sb.nodes["paywall-feature-name"].textContent, "Angebote erstellen");
+    sb.window.TCi18n.set("en");
+    assert.equal(sb.nodes["paywall-feature-name"].textContent, "Create offers");
+    const unbekannt = await runGuard({ locale: "en", guard: "sla_kuenftig" });
+    assert.equal(unbekannt.nodes["paywall-feature-name"].textContent, "sla_kuenftig");
+  });
+
+  it("onboardingChecklist: DE bleibt Backend-Text, EN uebersetzt, ohne Schicht deutscher Fallback", async () => {
+    const de = await runChecklist({ locale: "de" });
+    const en = await runChecklist({ locale: "en" });
+    const ohne = await runChecklist({ withI18n: false });
+    assert.equal(de.nodes["onboarding-subtitle"].textContent, "1 von 3 Schritten abgeschlossen");
+    assert.equal(en.nodes["onboarding-subtitle"].textContent, "1 of 3 steps completed");
+    assert.equal(ohne.nodes["onboarding-subtitle"].textContent, "1 von 3 Schritten abgeschlossen");
+    assert.match(de.nodes["onboarding-steps"].innerHTML, /Erstes Arbeitsplatzangebot erstellen/);
+    assert.match(en.nodes["onboarding-steps"].innerHTML, /Create your first job posting/);
+    assert.doesNotMatch(en.nodes["onboarding-steps"].innerHTML, /Arbeitsplatzangebot/, "EN darf keinen deutschen Rest tragen");
+    assert.match(en.nodes["onboarding-steps"].innerHTML, /Ganz neuer Schritt/, "neuer Katalog-Schritt faellt ehrlich auf DE zurueck");
+    assert.equal(de.nodes["onboarding-progress-bar"].style.width, "25%", "Datenwerte bleiben unberuehrt");
+    assert.match(de.nodes["onboarding-steps"].innerHTML, /\/public\/marketplace_demand_create\.html/, "API-Links bleiben unberuehrt");
+  });
+
+  it("onboardingChecklist: Sprachwechsel rendert aus dem Cache, nach Ausblenden bleibt es aus", async () => {
+    const sb = await runChecklist({ locale: "en" });
+    let calls = 0;
+    const vorher = sb.fetch;
+    sb.fetch = (u) => { calls++; return vorher(u); };
+    sb.window.TCi18n.set("de");
+    assert.match(sb.nodes["onboarding-steps"].innerHTML, /Erstes Arbeitsplatzangebot erstellen/);
+    assert.equal(calls, 0, "Sprachwechsel darf keinen neuen Netz-Abruf ausloesen");
+    sb.window.dismissOnboarding();
+    sb.nodes["onboarding-steps"].innerHTML = "";
+    sb.window.TCi18n.set("en");
+    assert.equal(sb.nodes["onboarding-steps"].innerHTML, "", "ausgeblendete Liste darf nicht zurueckkehren");
+  });
+
+  it("beide Module registrieren DE/EN exakt paritaetisch, Werte sind echte Texte", () => {
+    const sb = sandbox({});
+    const seen = { de: {}, en: {} };
+    const echt = sb.window.TCi18n.register;
+    sb.window.TCi18n.register = (loc, entries) => { Object.assign(seen[loc], entries); return echt(loc, entries); };
+    sb.PlanFeatures = { load: () => Promise.resolve({}), hasFeature: () => true };
+    new vm.Script(read(SLA), { filename: "slaGuard.js" }).runInContext(sb);
+    new vm.Script(read(ONB), { filename: "onboardingChecklist.js" }).runInContext(sb);
+    const deKeys = Object.keys(seen.de).sort();
+    assert.deepEqual(deKeys, Object.keys(seen.en).sort(), "DE/EN-Keysets weichen ab");
+    assert.ok(deKeys.length >= 22, `zu wenige Keys registriert (${deKeys.length})`);
+    const platz = (s) => (String(s).match(/\{\w+\}/g) || []).sort().join(",");
+    for (const k of deKeys) {
+      assert.ok(k.startsWith("shared."), `Key ausserhalb des Namensraums: ${k}`);
+      assert.notEqual(seen.de[k], seen.en[k], `unuebersetzt: ${k}`);
+      assert.equal(platz(seen.de[k]), platz(seen.en[k]), `Platzhalter weichen ab: ${k}`);
+      assert.doesNotMatch(String(seen.de[k]) + String(seen.en[k]), /TCi18n\.t\(/, `t()-Aufruf als Wert: ${k}`);
+    }
+  });
+
+  it("der DE-Spiegel der Onboarding-Schritte deckt sich mit dem Backend-Katalog", () => {
+    const js = read(ONB);
+    const svc = read("api/services/onboardingService.js");
+    const eintraege = [...svc.matchAll(/key:\s*"([a-z_]+)",\s*\n\s*label:\s*"([^"]+)",\s*\n\s*description:\s*"([^"]+)"/g)];
+    assert.ok(eintraege.length >= 8, `Katalog nicht erkannt (${eintraege.length})`);
+    for (const [, key, label, beschreibung] of eintraege) {
+      assert.ok(js.includes(`'shared.onboarding.step.${key}.label': '${label}'`), `DE-Spiegel weicht ab: ${key}.label`);
+      assert.ok(js.includes(`'shared.onboarding.step.${key}.desc': '${beschreibung}'`), `DE-Spiegel weicht ab: ${key}.desc`);
+      assert.ok(js.includes(`'shared.onboarding.step.${key}.label': '`), `EN-Fassung fehlt: ${key}`);
+    }
+  });
+
+  it("die englische Begriffswelt bleibt eingehalten", () => {
+    const js = read(ONB) + read(SLA);
+    assert.doesNotMatch(js, /job offer|job opening|placement offer/i, "verbotene Uebersetzung von Arbeitsplatzangebot");
+    assert.match(read(ONB), /'shared\.onboarding\.step\.first_capacity\.label': 'List staff'/);
+    assert.match(read(ONB), /Create your first job posting/);
+  });
+});
+
 suite("Einsatzportal-Seiten — Inline-Scripts parsen (Woerterbuch-Syntax)", () => {
   // Der teuerste Fehler dieser Migration waere ein nicht escaptes Apostroph im
   // Woerterbuch: das reisst das GANZE Seiten-Script mit und die Seite ist tot.
