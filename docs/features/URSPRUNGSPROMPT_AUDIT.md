@@ -21,7 +21,26 @@
 |---|---|---|---|
 | A1 | Chef lädt Mitarbeiter über TempConnect ein | ✅ | `POST /worker-invites` + `/bulk` + `/:id/resend` + `/:id/revoke` — `api/routes/workers.js:777` |
 | A2 | Einladung per E-Mail | ✅ | Mailversand im Invite-Service |
-| A2b | …oder WhatsApp / SMS | ❌ | Kein SMS-/WhatsApp-Provider im Code (keine Treffer für Twilio o. ä.) |
+| A2b | …oder WhatsApp / SMS | 🟡 | Entscheidungsschicht gebaut und getestet, Versand-Adapter offen — siehe unten |
+
+### Nachgerüstet: zweiter Einladungskanal (Entscheidungsschicht)
+
+`api/services/smsProviderService.js` spiegelt bewusst das vorhandene Muster aus
+`emailProviderService.js` / `billingProviderService.js` (`resolve` / `describe`,
+console-first). Damit ist der Kanal **ohne neue Abhängigkeit und ohne Vertrag** baubar,
+testbar und vorführbar; der Anbieter ist später eine einzige Umgebungsvariable.
+
+- Ohne Konfiguration: `console` — es geht **nichts** nach draußen. Ein stiller
+  Fehlversand ist damit ausgeschlossen.
+- `SMS_PROVIDER=twilio` **ohne** Zugangsdaten ist die teuerste Fehlkonfiguration: sieht
+  richtig aus, versendet nichts. Genau die **warnt** jetzt, statt zu schweigen.
+- `canSendInvite()` trennt „Anbieter aktiv" von „Mobilnummer vorhanden" — ohne Nummer ist
+  der beste Anbieter wertlos, und diese Prüfung gehört an eine Stelle.
+- WhatsApp ist nur dort als Fähigkeit gemeldet, wo es sie real gibt (Twilio).
+
+**Ehrlich bleibt offen:** Der eigentliche Versand-Adapter. Solange kein Anbieter gewählt
+ist, gehen Einladungen weiterhin nur per E-Mail raus. Was gebaut ist, ist die
+Entscheidung — nicht die Zustellung. `api/test/smsProvider.test.js` (11 Tests).
 | A3 | Link führt ins Einsatzportal | ✅ | `GET /auth/worker/invite/:token`, `POST /auth/worker/accept-invite` — `api/routes/auth.js:405` |
 | A4 | Skills werden **bei der Registrierung** abgefragt | ✅ | siehe unten — war besser gebaut, als mein erster Durchgang erkannt hat |
 
@@ -40,10 +59,21 @@ Mein erster Audit-Durchgang hat den Aufnahme-Weg zu eng geprüft. Er ist vollst�
 4. Offene Schritte sind **Sprungziele** (`href="#skills"`) — „ein Hinweis, der nicht
    hinführt, ist eine Sackgasse".
 
-**Der einzige verbleibende Unterschied zum Prompt** („er muss alles ausfüllen"): Die
-Aufnahme ist heute **geführt, aber nicht bindend**. Ein Arbeiter kann die Schritte
-überspringen und das Portal trotzdem nutzen — er ist dann nur nicht `einsatzbereit`.
-Ob daraus eine echte Sperre werden soll, ist eine Owner-Entscheidung, keine Lücke.
+**Seit 2026-08-06 ist die Aufnahme verbindlich** (Owner-Freigabe). Wer die
+Pflichtschritte nicht abgeschlossen hat, landet beim Öffnen einer Portalseite auf dem
+Profil (`?willkommen=1&aufnahme=1`, mit Erklärung statt kommentarloser Umleitung).
+
+**Die Ausnahme ist der wichtigere Teil.** Gesperrt wird ausschließlich, wer **noch nie
+einen Einsatz hatte** (`zugang_beschraenkt` im Backend). Denn wer bereits gearbeitet
+hat, muss seinen **Stundenzettel einreichen können — auch mit halbem Profil**. Eine
+Sperre würde ihn nicht von einem Angebot abschneiden, sondern von einer Pflicht, an der
+sein Geld hängt. Ebenfalls immer offen: das Profil selbst (sonst gäbe es keinen Weg aus
+der Sperre) und Kontakt & Hilfe (wer nicht weiterkommt, muss fragen können). Schlägt der
+Abruf fehl, wird **niemand** ausgesperrt.
+
+Die Regel steht im Backend, nicht in der Seite — sonst gäbe es wieder mehrere Antworten
+auf dieselbe Frage. Durchgesetzt wird sie zentral in `portalShell.initShell()`.
+`api/test/workerOnboardingGate.test.js` (7 Tests) sichert vor allem die Ausnahme.
 | A6 | Skills plattformweit verwendbar | ✅ | Katalog → Angebotsgenerator → Marktplatz/Suche (siehe C) |
 
 **Offen:** A2b — zweiter Einladungskanal. Für Zeitarbeit relevant: Gewerbliche

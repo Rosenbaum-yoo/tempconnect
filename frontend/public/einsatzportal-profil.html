@@ -607,6 +607,8 @@ TCi18n.register('de', {
   'ep.profil.skillsSaveNote': 'Änderungen wirken sich sofort auf Ihre Sichtbarkeit für Einsätze aus.',
   'ep.profil.skillsReauth': 'Bitte melden Sie sich erneut an.',
   'ep.profil.skillsLoadFailed': 'Fähigkeiten konnten nicht geladen werden.',
+  'ep.profil.progressGateTitle': 'Noch ein paar Angaben, dann geht es los',
+  'ep.profil.progressGateSub': 'Ihre Zeitarbeitsfirma kann Sie erst einplanen, wenn diese Punkte stehen. Danach ist das Portal vollständig für Sie geöffnet.',
   'ep.profil.ownSkillTitle': 'Fähigkeit fehlt im Katalog?',
   'ep.profil.ownSkillHint': 'Tragen Sie sie hier ein. Wir prüfen zuerst, ob es sie schon unter anderem Namen gibt.',
   'ep.profil.ownSkillPh': 'z. B. Hubarbeitsbühne, Kranschein, Wundmanagement',
@@ -770,6 +772,8 @@ TCi18n.register('en', {
   'ep.profil.skillsSaveNote': 'Changes immediately affect your visibility for assignments.',
   'ep.profil.skillsReauth': 'Please sign in again.',
   'ep.profil.skillsLoadFailed': 'Skills could not be loaded.',
+  'ep.profil.progressGateTitle': 'A few more details, then you are set',
+  'ep.profil.progressGateSub': 'Your agency can only schedule you once these points are complete. After that the portal is fully open to you.',
   'ep.profil.ownSkillTitle': 'Skill missing from the catalogue?',
   'ep.profil.ownSkillHint': 'Add it here. We first check whether it already exists under another name.',
   'ep.profil.ownSkillPh': 'e.g. aerial work platform, crane licence, wound care',
@@ -938,7 +942,14 @@ async function loadProgress() {
   // Jemand, der sich gerade sein Konto eingerichtet hat, hat nichts „versäumt".
   var willkommen = new URLSearchParams(location.search).get('willkommen') === '1';
 
-  if (willkommen && !p.einsatzbereit) {
+  // Umgeleitet, weil die Aufnahme noch offen ist: sagen, was fehlt und warum —
+  // eine kommentarlose Umleitung wirkt wie ein Fehler.
+  var wegenAufnahme = new URLSearchParams(location.search).get('aufnahme') === '1';
+
+  if (wegenAufnahme && !p.einsatzbereit) {
+    titel.textContent = TCi18n.t('ep.profil.progressGateTitle');
+    sub.textContent = TCi18n.t('ep.profil.progressGateSub');
+  } else if (willkommen && !p.einsatzbereit) {
     titel.textContent = TCi18n.t('ep.profil.progressWelcomeTitle');
     sub.textContent = TCi18n.t('ep.profil.progressWelcomeSub');
   } else if (p.einsatzbereit) {

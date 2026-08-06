@@ -265,11 +265,43 @@
     });
   }
 
+  /* ── Verbindliche Aufnahme (Owner-Freigabe 2026-08-06) ─────────────────────
+     Wer frisch eingeladen wurde, soll die Aufnahme abschliessen, bevor er sich
+     im Portal umsieht — vorher ist dort ohnehin nichts.
+
+     Zwei Flaechen bleiben IMMER offen, und zwar mit Absicht:
+       - das Profil selbst, sonst gaebe es keinen Weg aus der Sperre heraus,
+       - Kontakt & Hilfe, denn wer nicht weiterkommt, muss fragen koennen.
+         Eine Sperre ohne Ausweg ist keine Fuehrung, sondern eine Falle.
+
+     Ob ueberhaupt gesperrt werden DARF, entscheidet der Server
+     (`zugang_beschraenkt`) — er weiss als Einziger, ob die Kraft schon einmal
+     im Einsatz war. Wer bereits gearbeitet hat, wird nie gesperrt: er muss
+     seinen Stundenzettel einreichen koennen, auch mit halbem Profil. */
+  var AUFNAHME_FREI = ['einsatzportal-profil.html', 'einsatzportal-kontakt.html'];
+
+  async function _enforceOnboarding() {
+    var seite = (location.pathname.split('/').pop() || '').toLowerCase();
+    if (AUFNAHME_FREI.indexOf(seite) >= 0) return;
+    try {
+      var p = await PortalApi.get('/worker/me/onboarding');
+      if (p && p.zugang_beschraenkt) {
+        // `aufnahme=1` sagt der Profilseite, warum jemand dort gelandet ist —
+        // ohne diesen Hinweis wirkt die Umleitung wie ein Fehler.
+        location.replace('einsatzportal-profil.html?willkommen=1&aufnahme=1');
+        return true;
+      }
+    } catch (e) { /* Zweifel gehen zugunsten des Zugangs aus: nie wegen eines
+                     fehlgeschlagenen Abrufs aussperren. */ }
+    return false;
+  }
+
   async function initShell() {
     _setupAccessibility();
     _setupIcons();
     var me = await loadWorkerMe();
     _setupI18n(me);
+    if (await _enforceOnboarding()) return me; // Umleitung laeuft — nichts mehr aufbauen
     _reveal(); // Session bestaetigt -> Portal-Huelle einblenden (vorher .ep-preauth)
     loadUnreadCount(); // fire-and-forget — kein await
     return me;

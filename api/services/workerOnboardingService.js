@@ -56,15 +56,18 @@ function fehlendeFelder(profil, felder) {
 export async function getOnboardingProgress(pool, profil) {
   if (!profil?.id) return null;
 
-  // Beide Abfragen sind unabhaengig — parallel statt nacheinander.
-  const [{ rows: skillZeilen }, { rows: dokZeilen }, verfuegbarkeit] = await Promise.all([
+  // Alle Abfragen sind unabhaengig — parallel statt nacheinander.
+  const [{ rows: skillZeilen }, { rows: dokZeilen }, verfuegbarkeit, { rows: einsatzZeilen }] = await Promise.all([
     pool.query("SELECT 1 FROM worker_profile_skills WHERE worker_profile_id = $1 LIMIT 1", [profil.id]),
     pool.query(
       `SELECT 1 FROM worker_profile_documents
         WHERE worker_user_id = $1 AND (status IS NULL OR status <> 'archived') LIMIT 1`,
       [profil.user_id]
     ),
-    availabilitySvc.resolveAvailability(pool, profil.id)
+    availabilitySvc.resolveAvailability(pool, profil.id),
+    // Hat diese Kraft jemals einen Einsatz gehabt? Entscheidet, ob die Aufnahme
+    // verbindlich sein DARF — siehe zugang_beschraenkt weiter unten.
+    pool.query("SELECT 1 FROM worker_assignment_links WHERE worker_user_id = $1 LIMIT 1", [profil.user_id])
   ]);
 
   const personOffen = fehlendeFelder(profil, PERSON_PFLICHTFELDER);
@@ -108,12 +111,28 @@ export async function getOnboardingProgress(pool, profil) {
   // 75 % stehen, obwohl die Kraft laengst disponierbar ist.
   const erledigtGesamt = schritte.filter((s) => s.erledigt).length;
 
+  const einsatzbereit = erledigtPflicht === pflicht.length;
+  const hatteEinsatz = einsatzZeilen.length > 0;
+
   return {
     schritte,
     erledigt_pflicht: erledigtPflicht,
     gesamt_pflicht: pflicht.length,
     fortschritt_prozent: Math.round((erledigtGesamt / schritte.length) * 100),
-    einsatzbereit: erledigtPflicht === pflicht.length,
+    einsatzbereit,
+    /**
+     * Darf das Portal die Aufnahme VERBINDLICH machen (Owner-Freigabe 2026-08-06)?
+     *
+     * Nur fuer Kraefte, die noch nie einen Einsatz hatten. Der Unterschied ist
+     * kein Detail, sondern der Unterschied zwischen "unfertiges Profil" und
+     * "kommt nicht an sein Geld": Wer bereits gearbeitet hat, muss seinen
+     * Stundenzettel einreichen koennen — auch mit halbem Profil. Eine Sperre
+     * wuerde ihn von einer PFLICHT abschneiden, nicht von einem Angebot.
+     *
+     * Frisch Eingeladene verlieren dagegen nichts: fuer sie ist das Portal ohne
+     * Faehigkeiten ohnehin leer, und genau dort wirkt die Fuehrung.
+     */
+    zugang_beschraenkt: !einsatzbereit && !hatteEinsatz,
     naechster_schritt: schritte.find((s) => !s.erledigt)?.key || null
   };
 }
