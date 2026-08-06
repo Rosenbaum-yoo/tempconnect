@@ -27,6 +27,7 @@ Dominanter Einstiegs-ICP: groessere Einsatzunternehmen mit wiederkehrenden Zeita
 | [ENTERPRISE-SALES-STORY-VERIFICATION.md](ENTERPRISE-SALES-STORY-VERIFICATION.md) | Backend-Verifikation: SLA-Breach, Scorecard, Cron, curl. |
 | [MODEL-B-LIVE-CAPACITY-FEED.md](MODEL-B-LIVE-CAPACITY-FEED.md) | Architektur, Transaktionen, Sicherheit (Capacity-Feed). |
 | [SENDGRID-EINRICHTEN.md](SENDGRID-EINRICHTEN.md) | SendGrid einrichten, API-Key, Sender, Domain (DNS). |
+| [TWILIO-EINRICHTEN.md](TWILIO-EINRICHTEN.md) | Zweiter Einladungskanal (SMS, später WhatsApp): Zugangsdaten, Konfiguration, verbleibende ~20 Codezeilen, Kosten. |
 | [SENDGRID-KURZ-ERKLAERT.md](SENDGRID-KURZ-ERKLAERT.md) | SendGrid kurz erklärt, .env-Beispiel (nur Platzhalter). |
 | [ENTERPRISE-HARDENING-PATCH.md](ENTERPRISE-HARDENING-PATCH.md) | Idempotency, Audit, Reserve-Lockdown, Status-Maschine, Cron; Idempotency Enterprise (Migration 012). |
 | [THEME-SYSTEM.md](THEME-SYSTEM.md) | Dark/Light-Theming: Tokens (`--ds-*`, `--tc-*`), `theme.js`, Toggle, Speicherung, Erweiterungshinweise. |
