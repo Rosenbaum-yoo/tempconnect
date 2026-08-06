@@ -94,22 +94,40 @@ Die Besetzbarkeits-Vorschau nennt **keine Namen** — passend zum bestehenden
 
 ## 4. Offene Owner-Entscheidungen
 
-| # | Frage | Empfehlung |
-|---|---|---|
-| **E1** | Ab welchem Vorlauf zählt ein Storno „kurzfristig"? | **< 48 h vor Einsatzbeginn = doppeltes Gewicht; ≥ 14 Tage = zählt nicht in die Quote.** Dazwischen einfach. |
-| **E2** | Welche Stornogründe zählen **nicht** gegen die Quote? | „Kunde hat abgesagt" (bei der Agentur) und „Kraft erkrankt" mit Nachweis. Alles andere zählt. |
-| **E3** | Höhe des Zuverlässigkeits-Bounty | **3 %** (Kategorie `performance`), Fenster 90 Tage ohne Storno. |
-| **E4** | Wird die Quote der Gegenseite **angezeigt** oder wirkt sie nur im Ranking? | Anzeigen — Transparenz ist der Wirkmechanismus. Aber erst ab einer Mindestzahl Deals (z. B. 5), sonst bestraft sie Neulinge. |
+**Alle vier am 2026-08-06 vom Owner entschieden — wie vorgeschlagen:**
 
-> Ohne E1 und E2 kann Welle B nicht abgeschlossen werden — die Gewichtung ist sonst geraten.
+| # | Frage | Entscheidung |
+|---|---|---|
+| **E1** | Ab welchem Vorlauf zählt ein Storno „kurzfristig"? | ✅ **< 48 h vor Einsatzbeginn = doppeltes Gewicht; ≥ 14 Tage = zählt nicht.** Dazwischen einfach. |
+| **E2** | Welche Stornogründe zählen **nicht** gegen die Quote? | ✅ `customer_cancelled` (bei der Agentur) und `worker_sick` mit Nachweis. Alles andere zählt. |
+| **E3** | Höhe des Zuverlässigkeits-Bounty | ✅ **3 %** (Kategorie `performance`), Fenster 90 Tage ohne Storno. |
+| **E4** | Quote anzeigen oder nur im Ranking? | ✅ **Anzeigen**, aber erst ab **5 Deals** — sonst bestraft sie Neulinge. |
 
 ---
 
 ## 5. Wellen
 
-### Welle A — Storno-Erfassung schärfen *(Fundament, keine Sichtbarkeit)*
+### Welle A — Storno-Erfassung schärfen ✅ *(erledigt 2026-08-06)*
 
 **Ziel:** Ein Storno wird auswertbar. Noch ohne Folgen — die kommen in B.
+
+**Umgesetzt:** Migration 163 (`offer_cancellations`), `reason_code` als Pflicht-Enum,
+`cancelled_by_side` **aus der Sitzung** (nicht aus dem Rumpf — sonst könnte sich der
+Stornierende als die andere Partei ausgeben), `lead_time_hours` in `Europe/Berlin`,
+`api/test/offerCancellation.test.js` (18 Tests).
+
+> **Der Test hat sofort einen echten Fehler gefangen.** Die erste Fassung der
+> Vorlaufberechnung nutzte den bequemen Einzeiler
+> `new Date(d.toLocaleString("en-US", { timeZone }))`. Der misst aber die Differenz
+> zwischen Zielzone und **Zeitzone des Rechners** — auf einem deutschen Rechner also
+> konstant 0. Der Fehler wäre in der Entwicklung nie aufgefallen und erst auf einem
+> UTC-Server zugeschlagen, mit zwei Stunden Versatz an der 48-Stunden-Schwelle.
+> Ersetzt durch `Intl.formatToParts`. **Merksatz: Zeitzonen nie über die Maschinenzeit
+> herleiten.**
+
+**Signaturwechsel:** `cancelAgreement(pool, offerId, actorId, { reason_code, note, side })`
+statt eines Freitext-Strings. Ein einziger produktiver Aufrufer (die Route) — die neun
+roten Bestandstests waren reine Aufruf- und Mock-Pflege, alle Zusicherungen unverändert.
 
 - Migration: `offer_cancellations` (oder Spalten an `offers`) mit
   `reason_code` (Enum), `cancelled_by_user_id`, `cancelled_by_side` (company/agency),

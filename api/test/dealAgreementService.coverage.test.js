@@ -417,13 +417,13 @@ describe("createEmergencyAgreement", () => {
 describe("cancelAgreement", () => {
   it("NOT_FOUND when offer missing", async () => {
     const pool = matchPool([["FROM offers WHERE id", { rows: [] }]]);
-    const r = await svc.cancelAgreement(pool, "off-1", "actor", "reason");
+    const r = await svc.cancelAgreement(pool, "off-1", "actor", { reason_code: "other", note: "reason", side: "company" });
     assert.deepEqual(r, { error: "NOT_FOUND" });
   });
 
   it("INVALID_AGREEMENT_STATUS for terminal status (none cannot cancel)", async () => {
     const pool = matchPool([["FROM offers WHERE id", { rows: [{ id: "off-1", agreement_status: "none" }] }]]);
-    const r = await svc.cancelAgreement(pool, "off-1", "actor");
+    const r = await svc.cancelAgreement(pool, "off-1", "actor", { reason_code: "other", side: "company" });
     assert.strictEqual(r.error, "INVALID_AGREEMENT_STATUS");
     assert.strictEqual(r.current, "none");
   });
@@ -434,7 +434,7 @@ describe("cancelAgreement", () => {
       ["FROM offers WHERE id", { rows: [offerRow] }],
       ["agreement_status = 'cancelled'", { rows: [{ ...offerRow, agreement_status: "cancelled" }] }]
     ]);
-    const r = await svc.cancelAgreement(pool, "off-1", "actor", "no longer needed");
+    const r = await svc.cancelAgreement(pool, "off-1", "actor", { reason_code: "other", note: "no longer needed", side: "company" });
     assert.strictEqual(r.offer.agreement_status, "cancelled");
     assert.deepEqual(r.staffing_reset, { assignment_cancelled: false, reservations_released: 0, invites_cancelled: 0 });
   });
@@ -448,7 +448,7 @@ describe("cancelAgreement", () => {
       ["assignment_staffing_reservations", { rowCount: 2 }],
       ["assignment_staffing_invites", { rowCount: 3 }]
     ]);
-    const r = await svc.cancelAgreement(pool, "off-1", "actor", "rollback");
+    const r = await svc.cancelAgreement(pool, "off-1", "actor", { reason_code: "mistake", note: "rollback", side: "agency" });
     assert.strictEqual(r.offer.agreement_status, "cancelled");
     assert.strictEqual(r.staffing_reset.assignment_cancelled, true);
     assert.strictEqual(r.staffing_reset.reservations_released, 2);
@@ -462,7 +462,7 @@ describe("cancelAgreement", () => {
       ["agreement_status = 'cancelled'", { rows: [{ ...offerRow, agreement_status: "cancelled" }] }],
       ["UPDATE assignments SET status = 'cancelled'", new Error("schema drift")]
     ]);
-    const r = await svc.cancelAgreement(pool, "off-1", "actor");
+    const r = await svc.cancelAgreement(pool, "off-1", "actor", { reason_code: "other", side: "company" });
     assert.strictEqual(r.offer.agreement_status, "cancelled");
     assert.ok(r.staffing_reset.error.includes("schema drift"));
     assert.strictEqual(r.staffing_reset.assignment_cancelled, false);

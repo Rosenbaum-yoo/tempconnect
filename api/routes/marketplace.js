@@ -276,6 +276,15 @@ async function getLockedCapacityPost(client, capacityPostId) {
 /**
  * @param {{ pool, requireAuth, requireFeature, sendMail, getUserAndPlan, logger }} deps
  */
+/**
+ * Storno-Angaben (P8 Welle A). `reason_code` ist Pflicht und geschlossen;
+ * `note` ist der Freitext fuer Menschen und bleibt bewusst optional.
+ */
+const cancelAgreementSchema = z.object({
+  reason_code: z.enum(["customer_cancelled", "worker_sick", "worker_quit", "date_moved", "mistake", "other"]),
+  note: z.string().max(2000).optional().nullable()
+});
+
 export function createMarketplaceRouter(deps) {
   const { pool, requireAuth, requireFeature, sendMail, getUserAndPlan, logger } = deps;
   const router = Router();
@@ -1562,12 +1571,36 @@ export function createMarketplaceRouter(deps) {
         return res.status(403).json({ error: "FORBIDDEN" });
       }
 
-      const result = await dealAgreementService.cancelAgreement(pool, req.params.id, req.session.userId, req.body?.reason);
+      // P8 Welle A: Der Grund ist Pflicht und stammt aus einer geschlossenen Liste.
+      // Ohne ihn liesse sich nicht unterscheiden, ob jemand unverschuldet storniert
+      // (Kunde sagt ab) oder einfach besser vermittelt hat — genau diese
+      // Unterscheidung traegt die Zuverlaessigkeitsquote (Welle B).
+      const parsedCancel = cancelAgreementSchema.safeParse(req.body || {});
+      if (!parsedCancel.success) {
+        return res.status(400).json({
+          error: "VALIDATION",
+          allowed_reasons: dealAgreementService.CANCELLATION_REASONS,
+          details: parsedCancel.error.issues
+        });
+      }
+      // Die Seite kommt aus der Sitzung, NICHT aus dem Rumpf: wer storniert hat,
+      // darf sich nicht selbst als die andere Partei ausgeben.
+      const side = full.supplier_company_id === req.session.userId ? "agency" : "company";
+
+      const result = await dealAgreementService.cancelAgreement(pool, req.params.id, req.session.userId, {
+        reason_code: parsedCancel.data.reason_code,
+        note: parsedCancel.data.note || null,
+        side
+      });
       if (result.error) {
-        const status = result.error === "NOT_FOUND" ? 404 : 409;
+        const status = result.error === "NOT_FOUND" ? 404
+          : result.error === "REASON_REQUIRED" ? 400 : 409;
         return res.status(status).json(result);
       }
-      res.locals.audit = { action: "deal.agreement_cancelled", entity_type: "offer", entity_id: req.params.id, details: { reason: req.body?.reason } };
+      res.locals.audit = {
+        action: "deal.agreement_cancelled", entity_type: "offer", entity_id: req.params.id,
+        details: { reason_code: parsedCancel.data.reason_code, side }
+      };
       try {
         const counterparty = full.requester_company_id === req.session.userId
           ? full.supplier_company_id : full.requester_company_id;

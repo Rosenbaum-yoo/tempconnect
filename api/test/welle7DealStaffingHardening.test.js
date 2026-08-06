@@ -112,14 +112,20 @@ describe("Welle 7 – Phase 9: cancelAgreement Staffing-Reaktivierung", () => {
             if (sql.includes("INSERT INTO audit_log") || sql.includes("INSERT INTO state_transitions")) {
               return { rows: [], rowCount: 1 };
             }
-            throw new Error(`Unexpected SQL: ${sql}`);
+            // Mig 163: Storno-Erfassung. Der Aufruf ist ein reines Nebenprodukt des
+      // Stornos und traegt keine Zusicherung dieser Suite — er muss nur
+      // durchlaufen, sonst bricht der Mock-Pool den Vorgang ab.
+      if (/INSERT INTO offer_cancellations/i.test(sql)) {
+        return { rows: [], rowCount: 1 };
+      }
+      throw new Error(`Unexpected SQL: ${sql}`);
           },
           release() {}
         };
       }
     };
 
-    const result = await cancelAgreement(pool, offer.id, "actor-1", "Kundenrueckzug");
+    const result = await cancelAgreement(pool, offer.id, "actor-1", { reason_code: "customer_cancelled", note: "Kundenrueckzug", side: "agency" });
     assert.equal(result.offer.agreement_status, "cancelled");
     assert.ok(result.staffing_reset);
     assert.equal(result.staffing_reset.assignment_cancelled, true);
@@ -166,14 +172,20 @@ describe("Welle 7 – Phase 9: cancelAgreement Staffing-Reaktivierung", () => {
             if (sql.includes("INSERT INTO audit_log") || sql.includes("INSERT INTO state_transitions")) {
               return { rows: [], rowCount: 1 };
             }
-            throw new Error(`Unexpected SQL: ${sql}`);
+            // Mig 163: Storno-Erfassung. Der Aufruf ist ein reines Nebenprodukt des
+      // Stornos und traegt keine Zusicherung dieser Suite — er muss nur
+      // durchlaufen, sonst bricht der Mock-Pool den Vorgang ab.
+      if (/INSERT INTO offer_cancellations/i.test(sql)) {
+        return { rows: [], rowCount: 1 };
+      }
+      throw new Error(`Unexpected SQL: ${sql}`);
           },
           release() {}
         };
       }
     };
 
-    const result = await cancelAgreement(pool, offer.id, "actor-2", null);
+    const result = await cancelAgreement(pool, offer.id, "actor-2", { reason_code: "other", side: "company" });
     assert.equal(result.offer.agreement_status, "cancelled");
     assert.ok(result.staffing_reset);
     assert.equal(result.staffing_reset.assignment_cancelled, false);

@@ -78,7 +78,7 @@ describe("Agreement lifecycle demand release", () => {
       }
     });
 
-    const result = await cancelAgreement(harness.pool, offer.id, "requester-1", "Projekt gestoppt");
+    const result = await cancelAgreement(harness.pool, offer.id, "requester-1", { reason_code: "customer_cancelled", note: "Projekt gestoppt", side: "company" });
     assert.ok(result.demand);
     assert.strictEqual(result.demand.status, "open");
     assert.strictEqual(result.demand.remaining_open_count, 3);
@@ -332,6 +332,12 @@ function makeCapacityReleasePool({ offer, nextAgreementStatus, demand, demandAgg
           rowCount: 1
         };
       }
+      // Mig 163: Storno-Erfassung. Der Aufruf ist ein reines Nebenprodukt des
+      // Stornos und traegt keine Zusicherung dieser Suite — er muss nur
+      // durchlaufen, sonst bricht der Mock-Pool den Vorgang ab.
+      if (/INSERT INTO offer_cancellations/i.test(sql)) {
+        return { rows: [], rowCount: 1 };
+      }
       throw new Error(`Unexpected SQL: ${sql}`);
     }
   };
@@ -357,7 +363,7 @@ describe("Agreement lifecycle capacity release", () => {
     };
     const harness = makeCapacityReleasePool({ offer, nextAgreementStatus: "cancelled" });
 
-    const result = await cancelAgreement(harness.pool, offer.id, "requester-1", "Projekt gestoppt");
+    const result = await cancelAgreement(harness.pool, offer.id, "requester-1", { reason_code: "customer_cancelled", note: "Projekt gestoppt", side: "company" });
     assert.ok(result.offer);
     assert.strictEqual(result.offer.agreement_status, "cancelled");
     assert.ok(result.capacity);

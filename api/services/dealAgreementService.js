@@ -514,14 +514,84 @@ export async function createEmergencyAgreement(pool, { demandId, commitmentId, c
 /* ── Agreement stornieren ──────────────────────────── */
 
 /**
- * Storniert eine Einsatzvereinbarung (aus pending_confirmation oder confirmed).
- * Terminal-Status: cancelled.
+ * Zulaessige Stornogruende (P8 Welle A, Mig 163).
+ *
+ * Geschlossene Liste, weil sich aus "Kunde hat kurzfristig abgesagt" keine Quote
+ * rechnen laesst. Freitext gehoert in `note` — fuer Menschen, nicht fuer Statistik.
+ * 'other' ist bewusst dabei: ohne Sammelposten waehlen Nutzer irgendetwas Falsches,
+ * und dann luegen ALLE Kategorien.
+ */
+export const CANCELLATION_REASONS = Object.freeze([
+  "customer_cancelled", "worker_sick", "worker_quit", "date_moved", "mistake", "other"
+]);
+
+/**
+ * Vorlauf in Stunden zwischen Storno und Einsatzbeginn.
+ *
+ * DACH-Zeit: Das Startdatum ist ein reines Datum ohne Zeitzone. Wird es als UTC
+ * gelesen, liegt der Beginn im Sommer zwei Stunden zu frueh — bei einer
+ * 48-Stunden-Schwelle entscheidet das ueber die Gewichtung eines Stornos.
+ * Deshalb wird der Tagesbeginn ausdruecklich in Europe/Berlin angesetzt.
+ *
+ * NEGATIVE Werte sind gewollt: nach Einsatzbeginn storniert ist der teuerste Fall
+ * ueberhaupt und muss unterscheidbar bleiben, nicht auf 0 geklemmt werden.
+ *
+ * @returns {number|null} null, wenn kein Beginn bekannt ist
+ */
+export function berechneVorlaufStunden(startDate, jetzt = new Date()) {
+  if (!startDate) return null;
+  const tag = String(startDate).slice(0, 10);
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(tag)) return null;
+  const mitternachtUtc = Date.parse(`${tag}T00:00:00Z`);
+  if (Number.isNaN(mitternachtUtc)) return null;
+  const beginn = mitternachtUtc - zeitzonenVersatzMs(new Date(mitternachtUtc), "Europe/Berlin");
+  return Math.round((beginn - jetzt.getTime()) / 3600000);
+}
+
+/**
+ * UTC-Versatz einer Zeitzone zu einem Zeitpunkt, in Millisekunden (Sommerzeit inklusive).
+ *
+ * Bewusst ueber `Intl.formatToParts` und NICHT ueber
+ * `new Date(d.toLocaleString("en-US", { timeZone }))`: Der bequeme Einzeiler misst
+ * die Differenz zwischen Zielzone und ZEITZONE DES RECHNERS und liefert auf einem
+ * deutschen Rechner konstant 0 — der Fehler faellt in der Entwicklung nie auf und
+ * schlaegt erst auf einem UTC-Server zu. Genau diese Falle hat
+ * test/offerCancellation.test.js beim ersten Lauf aufgedeckt.
+ */
+function zeitzonenVersatzMs(zeitpunkt, zone) {
+  const teile = new Intl.DateTimeFormat("en-US", {
+    timeZone: zone, hour12: false,
+    year: "numeric", month: "2-digit", day: "2-digit",
+    hour: "2-digit", minute: "2-digit", second: "2-digit"
+  }).formatToParts(zeitpunkt).reduce((acc, t) => {
+    if (t.type !== "literal") acc[t.type] = Number(t.value);
+    return acc;
+  }, {});
+  // 24 statt 00 kommt bei hour12:false vor und wuerde sonst einen Tag verschieben.
+  const stunde = teile.hour % 24;
+  const alsUtc = Date.UTC(teile.year, teile.month - 1, teile.day, stunde, teile.minute, teile.second);
+  return alsUtc - zeitpunkt.getTime();
+}
+
+/**
+ * Storniert eine Einsatzvereinbarung (aus pending_confirmation, confirmed oder
+ * activated). Terminal-Status: cancelled.
+ *
+ * Der Grund ist seit P8 Welle A PFLICHT. Ohne ihn liesse sich nicht unterscheiden,
+ * ob jemand unverschuldet storniert (Kunde sagt ab) oder einfach besser vermittelt
+ * hat — und genau diese Unterscheidung traegt die Zuverlaessigkeitsquote.
+ *
  * @param {import('pg').Pool} pool
  * @param {string} offerId
  * @param {string} actorId - User der storniert
- * @param {string} [reason] - optionaler Stornierungsgrund
+ * @param {{reason_code:string, note?:string|null, side:'company'|'agency'}} angaben
  */
-export async function cancelAgreement(pool, offerId, actorId, reason) {
+export async function cancelAgreement(pool, offerId, actorId, angaben = {}) {
+  const reasonCode = angaben?.reason_code;
+  if (!CANCELLATION_REASONS.includes(reasonCode)) {
+    return { error: "REASON_REQUIRED", allowed: CANCELLATION_REASONS };
+  }
+  const reason = angaben?.note || null;
   return await withTransaction(pool, async (client) => {
     const { rows } = await client.query(
       "SELECT * FROM offers WHERE id = $1 FOR UPDATE",
@@ -548,10 +618,30 @@ export async function cancelAgreement(pool, offerId, actorId, reason) {
       [offerId]
     );
 
+    // Storno-Erfassung (P8 Welle A, Mig 163): Rohdaten fuer die Zuverlaessigkeits-
+    // quote. Bewusst OHNE fertiges Gewicht — die Regeln werden sich einspielen,
+    // und gespeicherte Gewichte muessten bei jeder Aenderung nachgezogen werden.
+    const startDatum = offer.start_confirmed || offer.assignment_start_date || null;
+    const vorlauf = berechneVorlaufStunden(startDatum);
+    await client.query(
+      `INSERT INTO offer_cancellations
+         (offer_id, reason_code, note, cancelled_by_user_id, cancelled_by_side,
+          assignment_start_date, lead_time_hours)
+       VALUES ($1,$2,$3,$4,$5,$6,$7)
+       ON CONFLICT (offer_id) DO NOTHING`,
+      [offerId, reasonCode, reason, actorId, angaben.side, startDatum, vorlauf]
+    );
+
     await logTransition(client, {
       entityType: "AGREEMENT", from, to: "cancelled",
       entity_id: offerId, actor_id: actorId,
-      details: { agreement_ref: offer.agreement_ref, reason: reason || null }
+      details: {
+        agreement_ref: offer.agreement_ref,
+        reason_code: reasonCode,
+        note: reason || null,
+        side: angaben.side,
+        lead_time_hours: vorlauf
+      }
     });
 
     // Welle 7 – Phase 9: Storno-Reaktivierung fuer Staffing-Nebenwirkungen.
