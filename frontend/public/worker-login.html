@@ -94,6 +94,15 @@
         <input type="password" id="loginPassword" class="wk-input" placeholder="Ihr Passwort" data-i18n-ph="wk.login.pwPh" autocomplete="current-password">
       </div>
 
+      <!-- Geteilte Rechner (Lagerbuero, Pfoertnerloge) sind bei Einsatzkraeften die
+           Regel, nicht die Ausnahme. Deshalb ist die Wahl hier sichtbar — und
+           bewusst NICHT vorangekreuzt: wer sich merken lassen will, sagt es. -->
+      <label class="wk-form-group" style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:.85rem">
+        <input type="checkbox" id="loginRemember" style="width:auto;margin:0">
+        <span data-i18n="wk.login.remember">Auf diesem Gerät angemeldet bleiben</span>
+      </label>
+      <div class="wk-hint" style="font-size:.75rem;opacity:.75;margin:-6px 0 10px" data-i18n="wk.login.rememberHint">Ohne Haken werden Sie abgemeldet, sobald Sie das Browserfenster schließen.</div>
+
       <button class="wk-btn wk-btn-primary wk-btn-full" id="loginBtn" onclick="doLogin()" data-i18n="wk.login.submit">
         Anmelden
       </button>
@@ -161,6 +170,8 @@ TCi18n.register('de', {
   'wk.login.pwPh': 'Ihr Passwort',
   'wk.login.submit': 'Anmelden',
   'wk.login.working': 'Anmelden…',
+  'wk.login.remember': 'Auf diesem Gerät angemeldet bleiben',
+  'wk.login.rememberHint': 'Ohne Haken werden Sie abgemeldet, sobald Sie das Browserfenster schließen.',
   'wk.login.forgot': 'Passwort vergessen?',
   'wk.login.errEmpty': 'Bitte E-Mail und Passwort eingeben.',
   'wk.login.errCreds': 'E-Mail oder Passwort falsch.',
@@ -204,6 +215,8 @@ TCi18n.register('en', {
   'wk.login.pwPh': 'Your password',
   'wk.login.submit': 'Sign in',
   'wk.login.working': 'Signing in…',
+  'wk.login.remember': 'Stay signed in on this device',
+  'wk.login.rememberHint': 'Without the tick you are signed out as soon as you close the browser window.',
   'wk.login.forgot': 'Forgot password?',
   'wk.login.errEmpty': 'Please enter your email and password.',
   'wk.login.errCreds': 'Wrong email or password.',
@@ -378,7 +391,7 @@ async function doLogin() {
     const res = await fetch(`${API}/auth/login`, {
       method: 'POST', credentials: 'include',
       headers: { 'Content-Type': 'application/json', 'x-csrf-token': csrf },
-      body: JSON.stringify({ email, password: pw })
+      body: JSON.stringify({ email, password: pw, remember_me: document.getElementById("loginRemember").checked })
     });
     const data = await res.json();
     if (!res.ok) throw new Error(data.error || 'LOGIN_FAILED');

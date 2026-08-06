@@ -190,7 +190,7 @@ bleibt der plan-gated Sichtbarkeitshebel. Sauber gedacht.
 | # | Anforderung | Stand | Beleg |
 |---|---|---|---|
 | E24 | Arbeitsplatzangebote mit 1+ Mitarbeitern / 1+ Skills | ✅ | Requisitions |
-| E25 | Zeitarbeitsfirma bucht bei Zeitarbeitsfirma (Trust Center) | 🟡 | 2 Treffer, Umfang **ungeprüft** |
+| E25 | Zeitarbeitsfirma bucht bei Zeitarbeitsfirma (Trust Center) | ✅ | `is_inter_agency` im Feed, **plan-gesteuert** über `planCatalog.js`/`planFeatures.js`, einstellbar via `settings.js`/`orgControlCenter.js`, getestet (`pilotModel`, `capacityFeedRanking`) |
 
 ---
 
@@ -200,7 +200,7 @@ bleibt der plan-gated Sichtbarkeitshebel. Sauber gedacht.
 |---|---|---|---|
 | F26 | Landing: KI-Bilder + Video | ❌ | Drop-in gebaut, Bilddateien fehlen — **Owner-Aufgabe** (P7c) |
 | F27 | Upload-Bereiche frei von KI-Bildern | ✅ | Profilfoto (Einsatzportal), Firmenfoto, Angebotsfoto |
-| F28 | Landing-Layout links/rechts, Preview zuerst | 🟡 | **ungeprüft** |
+| F28 | Landing-Layout links/rechts, Preview zuerst | ⛔ | blockiert durch F26 — ein Wechsel-Layout ohne die Bilder ist nicht bewertbar. Owner-Aufgabe zuerst. |
 
 ---
 
@@ -290,7 +290,33 @@ war die gesamte Suite dabei grün.**
 
 | # | Anforderung | Stand | Beleg |
 |---|---|---|---|
-| K47 | Ausloggen beim Fenster-Schließen? Mehrere Tabs? Härtung | 🟡 | Session-Konfiguration vorhanden, gefordertes Verhalten **nicht bestätigt** |
+| K47 | Ausloggen beim Fenster-Schließen? Mehrere Tabs? Härtung | ✅ | gemessen und ergänzt — siehe unten |
+
+### Gemessen 2026-08-06: Session — die Antwort auf beide Fragen
+
+**Mehrere Tabs:** funktionieren, bauartbedingt. Die Sitzung hängt am Cookie, nicht am Tab.
+
+**Fenster schließen = ausloggen:** war **nicht** der Fall — und sollte es als Grundregel
+auch nicht sein. Ein versehentlich geschlossener Tab darf einen Disponenten nicht mitten
+in der Disposition hinauswerfen.
+
+Bereits vorhanden war eine ungewöhnlich saubere Härtung (P5.1, Owner-Entscheidung
+2026-08-01): Leerlauf-Frist 8 Stunden (rollend), **absolutes Höchstalter 7 Tage**
+(`enforceAbsoluteLifetime` — `express-session` kann das nicht), Session-Rotation bei
+jedem Login gegen Fixation, getrennte Cookie-Pfade für Plattform und Staff,
+Staff-Sitzung 4 Stunden, Fernabmeldung aller Geräte.
+
+**Ergänzt:** Genau ein Ort widerspricht der Grundregel — der **geteilte Rechner**.
+Lagerbüro, Pförtnerloge, Werkstatt-PC sind bei gewerblichen Einsatzkräften die Regel.
+Bleibt dort eine Sitzung acht Stunden offen, sieht der Nächste fremde Stundenzettel.
+Deshalb entscheidet jetzt der Anmeldende: Ohne „Auf diesem Gerät angemeldet bleiben"
+bekommt das Cookie keine Ablaufzeit und stirbt mit dem Fenster. Im Worker-Portal ist die
+Wahl sichtbar und **bewusst nicht vorangekreuzt**.
+
+Die Wahl kann die serverseitigen Fristen nur **verkürzen, nie verlängern** — sonst wäre
+sie ein Weg, die Sicherheitsentscheidung auszuhebeln. Ohne Angabe bleibt es beim
+Bestandsverhalten, damit das Update niemanden überraschend abmeldet.
+`api/test/sessionDeviceBinding.test.js` (8 Tests).
 
 ---
 
@@ -299,7 +325,7 @@ war die gesamte Suite dabei grün.**
 | # | Anforderung | Stand | Beleg |
 |---|---|---|---|
 | L48 | CSV-Import geprüft und perfektioniert | ✅ | 4-Schritt-Assistent: Upload → Mapping → Validierung → Import |
-| L49 | E-Mail automatisch in die Einladung vorbefüllt | 🟡 | **ungeprüft** |
+| L49 | E-Mail automatisch in die Einladung vorbefüllt | ✅ | `inviteFromRow()` — 1-Klick-Einladung aus der Mitarbeiterliste; Bulk dedupliziert über `listInvitableWorkers` + `ON CONFLICT DO NOTHING` auf dem partiellen Unique-Index aus Mig 159 (race-sicher bei parallelen Klicks) |
 | L50 | „Alle einladen" für noch nicht Registrierte, ohne Kollision | ✅ | `mit.list.inviteAll` — „Alle noch nicht registrierten Mitarbeiter einladen" |
 
 ---

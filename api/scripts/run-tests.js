@@ -147,9 +147,26 @@ if (selectedFiles.length === 0) {
 //
 // Der Flake in `me.route.coverage.test.js` zeigt sich nur im vollen Lauf, nie in
 // Teilmengen, und nie auf Zuruf: die Datei faellt als GANZES aus ("test failed"),
-// waehrend alle 65 Untertests gruen sind — ein Muster, das typischerweise von einer
-// Rejection ausserhalb eines Tests kommt. Wer sie erst bei Auftreten von Hand
+// waehrend alle Untertests gruen sind. Wer die Sonde erst bei Auftreten von Hand
 // anhaengt, hat den Lauf schon verloren, in dem sie passiert ist.
+//
+// GEMESSEN AM 2026-08-06 — die Vermutung "Rejection ausserhalb eines Tests" traegt
+// nicht. Im fehlgeschlagenen Lauf stand im Protokoll:
+//
+//   Assertion failed: !(handle->flags & UV_HANDLE_CLOSING), file src\win\async.c, line 76
+//
+// Das ist eine native libuv-Zusicherung beim PROZESSENDE unter Windows: ein Handle
+// wird waehrend des Schliessens erneut geschlossen. Ausloeser ist das Zusammenspiel
+// von `--test-force-exit` mit noch offenen Handles der Testdatei — der Kindprozess
+// stirbt beim Aufraeumen, nachdem alle Tests bereits gruen waren. Es ist also kein
+// fehlgeschlagener Test, sondern ein Abbruch danach.
+//
+// Der unmittelbar folgende Lauf war ohne Aenderung gruen (7832 Tests, 0 Fehler) —
+// die Sporadik passt zu einer Wettlaufsituation, nicht zu einem Logikfehler.
+// Echte Behebung: offene Handles der Datei vor dem Ende schliessen; dann kann
+// `--test-force-exit` dort nichts mehr abschneiden. Bis dahin gilt: taucht genau
+// diese Zeile auf, ist der Lauf zu wiederholen und NICHT als roter Test zu werten.
+// Ein Lauf, der ohne sie rot ist, ist dagegen echt.
 //
 // Die Sonde installiert nur Ereignis-Handler und kostet nichts, solange nichts
 // passiert. NODE_OPTIONS statt eines eigenen `--import`-Arguments, weil node:test

@@ -10,7 +10,7 @@ import { writeAudit } from "../services/auditLog.js";
 import { trackProductEvent, deriveCustomerSegment } from "../services/productAnalyticsService.js";
 import { catchAsync } from "../utils/routeHandler.js";
 import { domainLogger, swallow } from "../utils/logger.js";
-import { stampSession, destroyAllUserSessions, countUserSessions } from "../services/sessionSecurityService.js";
+import { stampSession, bindSessionToDevice, destroyAllUserSessions, countUserSessions } from "../services/sessionSecurityService.js";
 import { isEnforceSSO } from "../services/ssoService.js";
 import * as totpService from "../services/totpService.js";
 
@@ -47,7 +47,10 @@ const registerSchema = z.object({
 
 const loginSchema = z.object({
   email: z.string().email().max(254),
-  password: z.string().min(1).max(128)
+  password: z.string().min(1).max(128),
+  // Ohne Angabe bleibt es beim Bestandsverhalten (Geraet merken) — ein Update
+  // darf niemanden ueberraschend beim naechsten Fensterschliessen abmelden.
+  remember_me: z.boolean().optional().default(true)
 });
 
 /**
@@ -232,7 +235,7 @@ export function createAuthRouter(deps) {
   router.post("/auth/login", authLimiter, catchAsync(async (req, res) => {
     const parsed = loginSchema.safeParse(req.body);
     if (!parsed.success) return res.status(400).json({ error: "VALIDATION", details: parsed.error.issues });
-    const { email, password } = parsed.data;
+    const { email, password, remember_me: rememberMe } = parsed.data;
     const creds = await authService.getUserCredentials(pool, email);
     if (!creds) {
       // Login FAILED: Benutzer nicht gefunden — Security-Event loggen (fire-and-forget)
@@ -281,6 +284,9 @@ export function createAuthRouter(deps) {
     await new Promise((resolve, reject) => req.session.regenerate((err) => err ? reject(err) : resolve()));
     req.session.userId = creds.id;
     stampSession(req.session); // P5.1: Hoechstalter zaehlt ab hier
+    // Geteilte Rechner (Lagerbuero, Pfoertnerloge): ohne "angemeldet bleiben"
+    // stirbt die Sitzung mit dem Fenster. Verkuerzt die Fristen, verlaengert nie.
+    bindSessionToDevice(req.session, rememberMe !== false);
     req.session.userRole = creds.role;  // needed by requireWorkerRole gate
     const me = await getUserAndPlan(creds.id);
     try {

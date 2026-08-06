@@ -44,6 +44,42 @@ export function stampSession(session) {
 }
 
 /**
+ * Bindung an das Browserfenster (Owner-Frage 2026-08-06: "soll man beim Schliessen
+ * des Fensters ausgeloggt werden?").
+ *
+ * ANTWORT IN ZWEI TEILEN
+ * Mehrere Tabs funktionieren immer — die Sitzung haengt am Cookie, nicht am Tab.
+ * Das Schliessen des Fensters meldet dagegen standardmaessig NICHT ab, und das ist
+ * fuer eine Disposition richtig so: ein versehentlich geschlossener Tab darf einen
+ * Disponenten nicht mitten in der Arbeit hinauswerfen.
+ *
+ * FALSCH IST ES NUR AN EINEM ORT: am geteilten Rechner. Genau dort arbeiten
+ * gewerbliche Einsatzkraefte — Lagerbuero, Pfoertnerloge, Werkstatt-PC. Bleibt dort
+ * eine Sitzung acht Stunden offen, sieht der Naechste fremde Stundenzettel.
+ *
+ * Deshalb entscheidet der Anmeldende: ohne "angemeldet bleiben" bekommt der Cookie
+ * KEINE Ablaufzeit und ist damit ein reines Browser-Sitzungs-Cookie — es stirbt mit
+ * dem Fenster. Die serverseitigen Fristen (Leerlauf, Hoechstalter) gelten unveraendert
+ * weiter; diese Wahl kann sie nur verkuerzen, nie verlaengern.
+ *
+ * @param {object} session   req.session (NACH regenerate)
+ * @param {boolean} remember true = Geraet merken (Standard-Frist), false = bis Fenster zu
+ */
+export function bindSessionToDevice(session, remember) {
+  if (!session?.cookie) return;
+  if (remember) {
+    session.cookie.maxAge = IDLE_TIMEOUT_MS;
+    session.persistent = true;
+  } else {
+    // null (nicht 0/undefined): express-session laesst `expires` dann weg — der
+    // Browser verwirft das Cookie beim Schliessen.
+    session.cookie.expires = null;
+    session.cookie.maxAge = null;
+    session.persistent = false;
+  }
+}
+
+/**
  * Middleware: verwirft Sitzungen, die ihr Hoechstalter ueberschritten haben.
  *
  * Die Leerlauf-Frist erledigt `express-session` selbst (`maxAge` + `rolling`); hier geht
