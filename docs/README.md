@@ -4,6 +4,8 @@ Dominanter Einstiegs-ICP: groessere Einsatzunternehmen mit wiederkehrenden Zeita
 
 **Einstieg für KI und Menschen:** [ENTERPRISE-FEATURES-FOR-KI.md](ENTERPRISE-FEATURES-FOR-KI.md) – beschreibt, was gebaut wurde und wo es liegt (Backend, Frontend, Enterprise-Features, Navigation, Sicherheit).
 
+**Fortsetzung in einem neuen Chat:** [NAECHSTE-SCHRITTE.md](NAECHSTE-SCHRITTE.md) – Übergabe: aktueller Arbeitsstand, Arbeitsumgebung, verbindliche Arbeitsregeln, offene Punkte.
+
 ---
 
 ## Wichtige Dokumente
