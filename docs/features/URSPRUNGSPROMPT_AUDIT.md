@@ -212,7 +212,37 @@ bleibt der plan-gated Sichtbarkeitshebel. Sauber gedacht.
 | G30 | DACH-Zeit statt UTC (Datum war ein Tag zu weit) | ✅ | `api/utils/dateDE.js` → `todayDE()`, plattformweit |
 | G31 | Frist für Einreichung | ✅ | `submission_deadline` |
 | G31b | Eingereichte nicht mehr änderbar (nur nach Ablehnung) | ✅ | `EDITABLE = ['draft','needs_correction']` |
-| G32/33 | Nach Auftragsende zurück in Live-Belegschaft & Marktplatz | 🟡 | **ungeprüft** — Zeitlogik nicht nachgefahren |
+| G32/33 | Nach Auftragsende zurück in Live-Belegschaft & Marktplatz | ✅ | Code korrekt — **aber der Auslöser fehlte**, siehe unten |
+
+### Gemessen 2026-08-06: der Code war richtig, gerufen hat ihn niemand
+
+Die Logik ist besser gebaut, als der Prompt verlangt hat — **ohne Cron und damit ohne
+Drift**:
+
+- **Verfügbarkeit** wird beim Lesen hergeleitet (`workerAvailabilityService`): aus
+  `worker_assignment_links.end_date` ergibt sich „verfügbar ab dem Tag danach"; liegt das
+  Ende in der Vergangenheit, ist die Kraft heute frei. Ein Einsatz **ohne** Enddatum
+  liefert ehrlich „unbekannt" statt einer Schätzung — „ein falsches ‚ab morgen' erzeugt
+  Angebote, die die Agentur nicht halten kann".
+- **Marktplatz-Sichtbarkeit** über `workerOfferReservationService`: Angebote eingesetzter
+  Kräfte werden pausiert (`worker_reserved=TRUE`) und **am Tag nach `end_date`
+  automatisch reaktiviert**. Set-basiert, idempotent, Europe/Berlin.
+
+**Der Defekt lag daneben, nicht darin.** Dieser Sweep hängt an
+`POST /api/internal/staffing-maintenance` — und dieser Endpunkt stand **in keinem
+Cron-Plan**. Im Betrieb wäre also nie ein Angebot wieder freigegeben worden: Die Kraft
+verschwindet bei Zuweisung aus dem Marktplatz und taucht **nie wieder auf**.
+
+Der Abgleich Code ↔ Plan ergab **16 von 25 internen Endpunkten ohne Eintrag**, darunter
+die Notdienst-Eskalation und der DSGVO-Aufbewahrungslauf. In die Gegenrichtung taktete
+der Plan `run-search-jobs` — **einen Endpunkt, den es im Code nie gab**; ein Cron darauf
+lief seit jeher ins Leere.
+
+Beides behoben in `docs/SCHEDULER.md`. Damit es nicht wiederkommt, wacht jetzt
+`api/test/schedulerConsistency.test.js` darüber: Jeder `/internal/*`-Endpunkt muss
+entweder getaktet **oder** mit Begründung ausgenommen sein — und der Plan darf keine
+Endpunkte erfinden. **Diese Lücke lag zwischen Code und Betrieb, nicht im Code — deshalb
+war die gesamte Suite dabei grün.**
 | G34 | Monatsplanung vorausplanen | ✅ | `api/routes/workers.js` |
 | G35 | Downloadbare Planungs-PDFs | ✅ | `api/services/workforceSchedulePdfService.js` |
 

@@ -152,7 +152,7 @@ CRON_SECRET="<INTERNAL_CRON_SECRET>"
 LB="https://tempconnect.de"
 */5 * * * * curl -sf -X POST "$LB/api/internal/sla-scan" -H "X-Internal-Secret: $CRON_SECRET"
 */5 * * * * curl -sf -X POST "$LB/api/internal/expire-reservations" -H "X-Internal-Secret: $CRON_SECRET"
-*/5 * * * * curl -sf -X POST "$LB/api/internal/run-search-jobs" -H "X-Internal-Secret: $CRON_SECRET"
+*/15 * * * * curl -sf -X POST "$LB/api/internal/sla-search-scan" -H "X-Internal-Secret: $CRON_SECRET"
 0 */6 * * * curl -sf -X POST "$LB/api/internal/cleanup-idempotency" -H "X-Internal-Secret: $CRON_SECRET"
 ```
 
