@@ -414,6 +414,33 @@ Stellen**. Die beiden heute gefundenen Einsatzportal-Bugs waren vor der Messung 
 „grün" — gebaut, verdrahtet, getestet, und trotzdem kam man nicht ins Ausfüllen. Für
 9 Punkte gilt derselbe Vorbehalt.
 
+### E2E ist seit 2026-08-06 lauffähig — und hat sofort geliefert
+
+Owner-Freigabe erteilt, Playwright installiert.
+`e2e/tests/einsatzportal-aufnahme-gate.spec.js` (7 Tests, alle grün) beweist im **echten
+Browser**, was Unit-Tests grundsätzlich nicht können:
+
+- Der Aufnahme-Riegel greift (Umleitung aufs Profil mit `aufnahme=1`) — **und** Profil
+  und Kontakt bleiben erreichbar.
+- Die Wochenkarte öffnet bei einem Entwurf **direkt den Editor** statt einer
+  Zwischenansicht — genau der gemeldete Befund „es lassen sich keine Stundenzettel
+  bearbeiten".
+- „← Zurück" führt wirklich zurück und nicht in den geleerten Editor.
+
+**Zwei Test-Entwurfsfehler dabei gefunden — an der eigenen Suite:**
+
+1. Die Klickpfad-Fixture legte dem Riegel-Worker einen Einsatz an und hob den Riegel
+   damit **dauerhaft** auf (die Datenbank bleibt über Läufe hinweg bestehen). Nach dem
+   ersten grünen Lauf wären die Riegel-Tests für immer rot gewesen. → zwei getrennte
+   Test-Kräfte.
+2. Die Fixture legte bei jedem Test neu an und lief in Plan-/Rate-Grenzen (403).
+   → wiederverwenden statt neu anlegen. Eine Suite, die zufällig rot wird, ist schlimmer
+   als keine.
+
+Die bestehende Smoke-Suite hätte beide Befunde **nicht** gefangen: Sie prüft nur, dass
+nicht auf `worker-login.html` umgeleitet wird — eine Umleitung aufs Profil sieht für sie
+wie ein Erfolg aus.
+
 **Was das kostet, sie zu schließen:** Eine authentifizierte E2E-Fahrt. Die Suite legt sich
 ihren Test-Worker selbst an (`e2e/tests/einsatzportal-worker-flow.spec.js`), es fehlt nur
 `npm install` + Playwright-Browser. Damit werden aus 9 Vermutungen 9 Messwerte — und die
