@@ -387,6 +387,55 @@
         </div>
       </div>
 
+      <!-- Einsatzfaehigkeit (Mig 162). id="placement" = Sprungziel des gleichnamigen
+           Aufnahme-Schritts; der Fortschritt verlinkt direkt hierher. -->
+      <div class="profil-card" id="placement">
+        <div class="profil-card-head" style="padding:14px 20px">
+          <div style="font-weight:700;font-size:.9rem" data-i18n="ep.profil.placeTitle">Einsatzfähigkeit</div>
+        </div>
+        <div class="profil-card-body">
+          <p class="profil-val muted" style="margin:0 0 14px;font-size:.82rem;line-height:1.5" data-i18n="ep.profil.placeIntro">
+            Diese Angaben entscheiden, welche Einsätze überhaupt zu Ihnen passen. Alles freiwillig –
+            je mehr Sie ausfüllen, desto weniger unpassende Vorschläge bekommen Sie.
+          </p>
+
+          <div class="profil-field">
+            <label class="profil-label" data-i18n="ep.profil.placeAge">Ich bin über 18 Jahre alt</label>
+            <select id="pfAge">
+              <option value="" data-i18n="ep.profil.placeNoAnswer">Keine Angabe</option>
+              <option value="true" data-i18n="ep.profil.placeYes">Ja</option>
+              <option value="false" data-i18n="ep.profil.placeNo">Nein</option>
+            </select>
+            <div class="profil-doc-upload-note" data-i18n="ep.profil.placeAgeHint">Nur diese eine Frage – Ihr Geburtsdatum brauchen wir nicht. Unter 18 gelten Schutzregeln (keine Nachtschicht).</div>
+          </div>
+
+          <div class="profil-field">
+            <label class="profil-label" data-i18n="ep.profil.placeShifts">Wann können Sie arbeiten?</label>
+            <div id="pfShifts" class="skill-chip-wrap" style="padding:0"></div>
+          </div>
+
+          <div class="profil-field">
+            <label class="profil-label" data-i18n="ep.profil.placeLicence">Führerschein / Berechtigungen</label>
+            <div id="pfLicence" class="skill-chip-wrap" style="padding:0"></div>
+            <label class="skill-chip" style="margin-top:8px">
+              <input type="checkbox" id="pfVehicle"><span data-i18n="ep.profil.placeVehicle">Eigenes Fahrzeug vorhanden</span>
+            </label>
+          </div>
+
+          <div class="profil-field">
+            <label class="profil-label" data-i18n="ep.profil.placeEmergency">Notfallkontakt</label>
+            <input id="pfEmName" maxlength="120" data-i18n-ph="ep.profil.placeEmNamePh" placeholder="Name der Person">
+            <input id="pfEmPhone" maxlength="50" style="margin-top:8px" data-i18n-ph="ep.profil.placeEmPhonePh" placeholder="Telefonnummer">
+            <div class="profil-doc-upload-note" data-i18n="ep.profil.placeEmHint">Sieht nur Ihre Zeitarbeitsfirma – und nur, wenn Ihnen im Einsatz etwas zustößt.</div>
+          </div>
+
+          <div class="profil-save-row">
+            <button class="ep-btn ep-btn-primary" id="pfSaveBtn" onclick="savePlacement()" data-i18n="ep.profil.placeSaveBtn">Angaben speichern</button>
+            <span class="profil-doc-upload-note" data-i18n="ep.profil.placeSaveNote">Wirkt sich sofort darauf aus, welche Einsätze Ihnen vorgeschlagen werden.</span>
+          </div>
+        </div>
+      </div>
+
       <!-- Fähigkeiten / Skills (Katalog-gebunden) -->
       <div class="profil-card" id="skills">
         <div class="profil-card-head" style="padding:14px 20px;justify-content:space-between">
@@ -609,6 +658,31 @@ TCi18n.register('de', {
   'ep.profil.skillsLoadFailed': 'Fähigkeiten konnten nicht geladen werden.',
   'ep.profil.progressGateTitle': 'Noch ein paar Angaben, dann geht es los',
   'ep.profil.progressGateSub': 'Ihre Zeitarbeitsfirma kann Sie erst einplanen, wenn diese Punkte stehen. Danach ist das Portal vollständig für Sie geöffnet.',
+  'ep.profil.placeTitle': 'Einsatzfähigkeit',
+  'ep.profil.placeIntro': 'Diese Angaben entscheiden, welche Einsätze überhaupt zu Ihnen passen. Alles freiwillig – je mehr Sie ausfüllen, desto weniger unpassende Vorschläge bekommen Sie.',
+  'ep.profil.placeAge': 'Ich bin über 18 Jahre alt',
+  'ep.profil.placeAgeHint': 'Nur diese eine Frage – Ihr Geburtsdatum brauchen wir nicht. Unter 18 gelten Schutzregeln (keine Nachtschicht).',
+  'ep.profil.placeNoAnswer': 'Keine Angabe',
+  'ep.profil.placeYes': 'Ja',
+  'ep.profil.placeNo': 'Nein',
+  'ep.profil.placeShifts': 'Wann können Sie arbeiten?',
+  'ep.profil.placeLicence': 'Führerschein / Berechtigungen',
+  'ep.profil.placeVehicle': 'Eigenes Fahrzeug vorhanden',
+  'ep.profil.placeEmergency': 'Notfallkontakt',
+  'ep.profil.placeEmNamePh': 'Name der Person',
+  'ep.profil.placeEmPhonePh': 'Telefonnummer',
+  'ep.profil.placeEmHint': 'Sieht nur Ihre Zeitarbeitsfirma – und nur, wenn Ihnen im Einsatz etwas zustößt.',
+  'ep.profil.placeSaveBtn': 'Angaben speichern',
+  'ep.profil.placeSaveNote': 'Wirkt sich sofort darauf aus, welche Einsätze Ihnen vorgeschlagen werden.',
+  'ep.profil.placeSaved': 'Angaben gespeichert.',
+  'ep.profil.placeInvalid': 'Bitte Eingaben prüfen.',
+  'ep.profil.shift.frueh': 'Frühschicht',
+  'ep.profil.shift.spaet': 'Spätschicht',
+  'ep.profil.shift.nacht': 'Nachtschicht',
+  'ep.profil.shift.wochenende': 'Wochenende',
+  'ep.profil.shift.feiertag': 'Feiertage',
+  'ep.profil.lic.stapler': 'Staplerschein',
+  'ep.profil.lic.kran': 'Kranschein',
   'ep.profil.ownSkillTitle': 'Fähigkeit fehlt im Katalog?',
   'ep.profil.ownSkillHint': 'Tragen Sie sie hier ein. Wir prüfen zuerst, ob es sie schon unter anderem Namen gibt.',
   'ep.profil.ownSkillPh': 'z. B. Hubarbeitsbühne, Kranschein, Wundmanagement',
@@ -774,6 +848,31 @@ TCi18n.register('en', {
   'ep.profil.skillsLoadFailed': 'Skills could not be loaded.',
   'ep.profil.progressGateTitle': 'A few more details, then you are set',
   'ep.profil.progressGateSub': 'Your agency can only schedule you once these points are complete. After that the portal is fully open to you.',
+  'ep.profil.placeTitle': 'Placement details',
+  'ep.profil.placeIntro': 'These details decide which assignments can match you at all. All voluntary – the more you fill in, the fewer unsuitable suggestions you get.',
+  'ep.profil.placeAge': 'I am over 18 years old',
+  'ep.profil.placeAgeHint': 'Just this one question – we do not need your date of birth. Under 18 there are protective rules (no night shifts).',
+  'ep.profil.placeNoAnswer': 'No answer',
+  'ep.profil.placeYes': 'Yes',
+  'ep.profil.placeNo': 'No',
+  'ep.profil.placeShifts': 'When can you work?',
+  'ep.profil.placeLicence': 'Driving licence / permits',
+  'ep.profil.placeVehicle': 'Own vehicle available',
+  'ep.profil.placeEmergency': 'Emergency contact',
+  'ep.profil.placeEmNamePh': 'Name of the person',
+  'ep.profil.placeEmPhonePh': 'Phone number',
+  'ep.profil.placeEmHint': 'Only your staffing agency sees this – and only if something happens to you on assignment.',
+  'ep.profil.placeSaveBtn': 'Save details',
+  'ep.profil.placeSaveNote': 'Immediately affects which assignments are suggested to you.',
+  'ep.profil.placeSaved': 'Details saved.',
+  'ep.profil.placeInvalid': 'Please check your input.',
+  'ep.profil.shift.frueh': 'Early shift',
+  'ep.profil.shift.spaet': 'Late shift',
+  'ep.profil.shift.nacht': 'Night shift',
+  'ep.profil.shift.wochenende': 'Weekend',
+  'ep.profil.shift.feiertag': 'Public holidays',
+  'ep.profil.lic.stapler': 'Forklift licence',
+  'ep.profil.lic.kran': 'Crane licence',
   'ep.profil.ownSkillTitle': 'Skill missing from the catalogue?',
   'ep.profil.ownSkillHint': 'Add it here. We first check whether it already exists under another name.',
   'ep.profil.ownSkillPh': 'e.g. aerial work platform, crane licence, wound care',
@@ -924,6 +1023,90 @@ async function resetAvailability() {
     toast(TCi18n.t('ep.profil.availResetFailed'), 'error');
   } finally {
     btn.disabled = false;
+  }
+}
+
+/* ── Einsatzfaehigkeit (Mig 162) ───────────────────────────────────────────
+   Schichten und Fuehrerscheinklassen sind geschlossene Mengen, keine Freitexte:
+   "CE", "C/E" und "Lkw" meinen dasselbe und wuerden das Matching in
+   Schreibvarianten zerlegen — derselbe Grund, aus dem der Skill-Katalog
+   kuratiert ist. Die Werte gehen unveraendert an den Server, uebersetzt wird
+   nur die Beschriftung. */
+const SHIFT_KEYS   = ['frueh', 'spaet', 'nacht', 'wochenende', 'feiertag'];
+const LICENCE_KEYS = ['B', 'BE', 'C1', 'C1E', 'C', 'CE', 'D1', 'D', 'DE', 'AM', 'A1', 'A2', 'A', 'L', 'T', 'stapler', 'kran'];
+let placementState = { shifts: new Set(), licences: new Set() };
+
+function renderPlacementChips() {
+  const shiftBox = document.getElementById('pfShifts');
+  const licBox   = document.getElementById('pfLicence');
+  if (shiftBox) {
+    shiftBox.innerHTML = SHIFT_KEYS.map(function (k) {
+      const an = placementState.shifts.has(k) ? ' checked' : '';
+      return '<label class="skill-chip"><input type="checkbox" value="' + k + '"' + an +
+        ' onchange="togglePlacement(\'shifts\', this)"><span>' +
+        esc(TCi18n.t('ep.profil.shift.' + k)) + '</span></label>';
+    }).join('');
+  }
+  if (licBox) {
+    licBox.innerHTML = LICENCE_KEYS.map(function (k) {
+      const an = placementState.licences.has(k) ? ' checked' : '';
+      // Klassenbezeichnungen (B, CE, …) sind amtlich und bleiben unuebersetzt;
+      // nur Stapler/Kran tragen einen Namen.
+      const label = (k === 'stapler' || k === 'kran') ? TCi18n.t('ep.profil.lic.' + k) : k;
+      return '<label class="skill-chip"><input type="checkbox" value="' + k + '"' + an +
+        ' onchange="togglePlacement(\'licences\', this)"><span>' + esc(label) + '</span></label>';
+    }).join('');
+  }
+}
+
+function togglePlacement(gruppe, input) {
+  const menge = placementState[gruppe];
+  if (input.checked) menge.add(input.value); else menge.delete(input.value);
+}
+
+function fillPlacement(profil) {
+  const p = profil || {};
+  placementState.shifts   = new Set(Array.isArray(p.shift_readiness) ? p.shift_readiness : []);
+  placementState.licences = new Set(Array.isArray(p.driving_licence_classes) ? p.driving_licence_classes : []);
+  // Dreiwertig: '' = nicht beantwortet. Bewusst nicht als Haken, denn "nicht
+  // gesetzt" und "Nein" sind hier nicht dasselbe.
+  const age = document.getElementById('pfAge');
+  if (age) age.value = (p.is_of_age === true) ? 'true' : (p.is_of_age === false ? 'false' : '');
+  const veh = document.getElementById('pfVehicle');
+  if (veh) veh.checked = p.has_own_vehicle === true;
+  const emN = document.getElementById('pfEmName');
+  if (emN) emN.value = p.emergency_contact_name || '';
+  const emP = document.getElementById('pfEmPhone');
+  if (emP) emP.value = p.emergency_contact_phone || '';
+  renderPlacementChips();
+}
+
+async function savePlacement() {
+  const btn = document.getElementById('pfSaveBtn');
+  if (!btn) return;
+  btn.disabled = true;
+  const vorher = btn.textContent;
+  btn.textContent = TCi18n.t('ep.profil.saving');
+  try {
+    const rohAlter = document.getElementById('pfAge').value;
+    await PortalApi.patch('/worker/me', {
+      // '' -> null: die Angabe bewusst zuruecknehmen koennen.
+      is_of_age: rohAlter === '' ? null : rohAlter === 'true',
+      shift_readiness: Array.from(placementState.shifts),
+      driving_licence_classes: Array.from(placementState.licences),
+      has_own_vehicle: document.getElementById('pfVehicle').checked,
+      emergency_contact_name: document.getElementById('pfEmName').value.trim() || null,
+      emergency_contact_phone: document.getElementById('pfEmPhone').value.trim() || null
+    });
+    toast(TCi18n.t('ep.profil.placeSaved'));
+    // Der Aufnahme-Fortschritt haengt an diesen Angaben — sonst zeigte er weiter
+    // "offen", obwohl gerade ausgefuellt wurde.
+    loadProgress().catch(function () {});
+  } catch (e) {
+    toast(TCi18n.t(e.code === 'VALIDATION' ? 'ep.profil.placeInvalid' : 'ep.profil.saveFailed'), 'error');
+  } finally {
+    btn.disabled = false;
+    btn.textContent = vorher;
   }
 }
 
@@ -1167,6 +1350,7 @@ async function saveSkills() {
   try {
     me = await PortalShell.initShell();
     fillProfile(me);
+    fillPlacement(me);
     await loadWorkerDocuments().catch(function() {
       workerDocuments = { items: [], summary: {} };
       renderDocuments();

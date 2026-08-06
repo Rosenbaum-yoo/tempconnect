@@ -45,12 +45,36 @@ const entrySchema = z.object({
   notes:          z.string().max(2000).optional().nullable()
 });
 
+/* Fuehrerscheinklassen als geschlossene Menge (Mig 162).
+   Freitext waere hier fatal: "CE", "C/E" und "Lkw" meinen dasselbe und wuerden
+   das Matching in Schreibvarianten zerlegen — derselbe Grund, aus dem der
+   Skill-Katalog kuratiert ist. */
+const LICENCE_CLASSES = ["AM","A1","A2","A","B","BE","C1","C1E","C","CE","D1","D1E","D","DE","L","T","stapler","kran"];
+/* Schichtbereitschaft — bewusst grob. Feinere Raster (Wechselschicht, Rufbereitschaft)
+   erst, wenn die Disposition sie wirklich unterscheidet. */
+const SHIFTS = ["frueh","spaet","nacht","wochenende","feiertag"];
+
 const updateProfileSchema = z.object({
   phone:           z.string().max(50).optional().nullable(),
   street:          z.string().max(200).optional().nullable(),
   postal_code:     z.string().max(20).optional().nullable(),
   city:            z.string().max(100).optional().nullable(),
-  preferred_locale: z.string().max(5).optional()
+  preferred_locale: z.string().max(5).optional(),
+
+  /* Vermittlungsrelevante Angaben (Mig 162, Owner-Entscheidung 2026-08-06).
+     Alle optional UND null-bar — dieselbe Regel wie bei der Verfuegbarkeit:
+     weggelassen = unveraendert, null = Angabe zuruecknehmen. Ohne diese
+     Unterscheidung koennte man eine einmal gesetzte Angabe nie loeschen.
+
+     is_of_age ist BEWUSST ein Ja/Nein und kein Geburtsdatum: fuer die
+     Vermittlung zaehlt genau die Schwelle des Jugendarbeitsschutzgesetzes,
+     das exakte Datum beantwortet keine weitere Frage. */
+  is_of_age:               z.boolean().optional().nullable(),
+  driving_licence_classes: z.array(z.enum(LICENCE_CLASSES)).max(20).optional(),
+  has_own_vehicle:         z.boolean().optional().nullable(),
+  shift_readiness:         z.array(z.enum(SHIFTS)).max(10).optional(),
+  emergency_contact_name:  z.string().max(120).optional().nullable(),
+  emergency_contact_phone: z.string().max(50).optional().nullable()
 });
 
 /* Verfuegbarkeit (Welle 2).

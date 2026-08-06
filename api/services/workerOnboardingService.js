@@ -1,6 +1,6 @@
 /**
- * Aufnahme-Fortschritt einer Einsatzkraft — eine Wahrheit, vier Schritte
- * (Multi-Skill Welle 2).
+ * Aufnahme-Fortschritt einer Einsatzkraft — eine Wahrheit, fuenf Schritte
+ * (Multi-Skill Welle 2; Schritt "Einsatzfaehigkeit" ergaenzt 2026-08-06, Mig 162).
  *
  * WARUM DAS IM BACKEND STEHT UND NICHT IN DER SEITE
  * Der Assistent zeigt einen Fortschritt, das Portal-Dashboard einen Hinweis "Profil
@@ -13,6 +13,9 @@
  *   Person       — Name und Erreichbarkeit. Ohne Telefon ist niemand disponierbar.
  *   Faehigkeiten — mindestens eine. Ohne Skill erzeugt der Angebotsgenerator nichts.
  *   Verfuegbarkeit — beantwortet, was sich nicht herleiten liess.
+ *   Einsatzfaehigkeit — EMPFOHLEN. Volljaehrigkeit, Schichtbereitschaft,
+ *                  Notfallkontakt: Angaben, die JEDEN betreffen und die
+ *                  Trefferquote heben, ohne jemanden auszuschliessen.
  *   Nachweise    — EMPFOHLEN, nicht Pflicht.
  *
  * Die Nachweise sind bewusst kein Pflichtschritt: welche Papiere noetig sind, haengt an
@@ -28,11 +31,35 @@ export const SCHRITTE = Object.freeze([
   { key: "person",        titel: "Persoenliche Daten", pflicht: true },
   { key: "skills",        titel: "Faehigkeiten",       pflicht: true },
   { key: "availability",  titel: "Verfuegbarkeit",     pflicht: true },
+  { key: "placement",     titel: "Einsatzfaehigkeit",  pflicht: false },
   { key: "documents",     titel: "Nachweise",          pflicht: false }
 ]);
 
 /** Ohne diese Angaben ist niemand disponierbar. */
 const PERSON_PFLICHTFELDER = ["first_name", "last_name", "phone"];
+
+/**
+ * Was den Schritt "Einsatzfaehigkeit" erledigt (Mig 162).
+ *
+ * Bewusst NICHT alle neuen Felder: Der Fuehrerschein zaehlt hier nicht mit, weil
+ * er nur fuer einen Teil der Einsaetze relevant ist — eine Lagerkraft ohne
+ * Fahrerlaubnis waere sonst dauerhaft "unvollstaendig", obwohl ihr nichts fehlt.
+ * Ein Hinweis, der bei der Haelfte der Leute falsch ist, wird ignoriert und
+ * entwertet damit alle anderen.
+ *
+ * Was zaehlt, sind die drei Angaben, die JEDEN betreffen:
+ *   is_of_age               — Jugendarbeitsschutz (Nacht, Gefahrstoffe, Stunden)
+ *   shift_readiness         — sonst schlaegt das Matching Unannehmbares vor
+ *   emergency_contact_phone — Arbeitsschutz auf fremdem Werksgelaende
+ */
+function placementOffen(profil) {
+  const offen = [];
+  if (profil?.is_of_age === null || profil?.is_of_age === undefined) offen.push("is_of_age");
+  if (!Array.isArray(profil?.shift_readiness) || profil.shift_readiness.length === 0) offen.push("shift_readiness");
+  const notfall = profil?.emergency_contact_phone;
+  if (notfall === null || notfall === undefined || String(notfall).trim() === "") offen.push("emergency_contact_phone");
+  return offen;
+}
 
 function fehlendeFelder(profil, felder) {
   return felder.filter((f) => {
@@ -71,6 +98,7 @@ export async function getOnboardingProgress(pool, profil) {
   ]);
 
   const personOffen = fehlendeFelder(profil, PERSON_PFLICHTFELDER);
+  const placementLuecken = placementOffen(profil);
   const verfuegbarkeitOffen = verfuegbarkeit?.offene_fragen || [];
 
   const schritte = [
@@ -97,6 +125,14 @@ export async function getOnboardingProgress(pool, profil) {
     },
     {
       ...SCHRITTE[3],
+      erledigt: placementLuecken.length === 0,
+      offen: placementLuecken,
+      hinweis: placementLuecken.length === 0
+        ? null
+        : "Empfohlen — ohne diese Angaben passen weniger Eins\u00e4tze zu Ihnen."
+    },
+    {
+      ...SCHRITTE[4],
       erledigt: dokZeilen.length > 0,
       offen: dokZeilen.length > 0 ? [] : ["documents"],
       hinweis: "Empfohlen — welche Nachweise noetig sind, haengt vom Einsatz ab."

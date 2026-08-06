@@ -97,7 +97,7 @@ Registrierungen genau bei der Zielgruppe, die den Marktplatz füllt.
 
 | # | Anforderung | Stand | Beleg |
 |---|---|---|---|
-| B7 | Formular nimmt **alle** persönlichen Daten auf | 🟡 | `einsatzportal-profil.html` |
+| B7 | Formular nimmt die **vermittlungsrelevanten** Daten auf | ✅ | **Nachgerüstet 2026-08-06** (Mig 162), siehe unten |
 | B8 | Fähigkeiten per Checkbox | ✅ | `renderSkillCatalog()` → `<input type="checkbox">` je Skill |
 | B9 | Kategorie-Katalog (z. B. Pflege → Pflege-Skills) | ✅ | `GET /skills/catalog`, `api/services/skillCatalogService.js`; UI als aufklappbare `<details>` je Kategorie |
 | B10 | Skills **manuell** eingeben / erweitern / ändern | ✅ | **Nachgerüstet 2026-08-06**, siehe unten |
@@ -140,6 +140,44 @@ die in keiner Katalog-Kategorie stehen.
 (`POST /skills/propose`), `api/services/capacityOfferGeneratorService.js`,
 `api/services/workerService.js`, `frontend/public/einsatzportal-profil.html`,
 `api/test/skillPropose.test.js` (10 Tests).
+
+### Nachgerüstet: Einsatzfähigkeit (Mig 162)
+
+Owner-Entscheidung 2026-08-06 — alle vier Felder, Alter als Ja/Nein, keine Lohndaten,
+alles optional.
+
+| Feld | Warum es eine Vermittlungsentscheidung ändert |
+|---|---|
+| **Über 18 (Ja/Nein)** | Jugendarbeitsschutz: keine Nachtarbeit, keine Gefahrstoffe, begrenzte Stunden. **Kein Geburtsdatum** — für die Vermittlung zählt genau diese eine Schwelle, das exakte Datum beantwortet keine weitere Frage. `NULL` heißt „nicht beantwortet", nicht „minderjährig": eine unbeantwortete Frage darf niemanden ausschließen. |
+| **Schichtbereitschaft** | Früh / Spät / Nacht / Wochenende / Feiertag. Ohne sie schlägt das Matching Einsätze vor, die die Kraft gar nicht annehmen kann — der teuerste Fehlvorschlag, weil er beide Seiten Zeit kostet. |
+| **Führerschein + Fahrzeug** | 17 Klassen inkl. Stapler- und Kranschein. Entscheidet bei Logistik, Fahrdienst und Bau direkt über die Vermittelbarkeit. |
+| **Notfallkontakt** | Arbeitsschutz: Bei einem Unfall auf fremdem Werksgelände weiß sonst niemand, wen man anruft. Sichtbar nur für die eigene Zeitarbeitsfirma. |
+
+**Geschlossene Mengen statt Freitext.** „CE", „C/E" und „Lkw" meinen dasselbe — als
+Freitext würden sie das Matching in Schreibvarianten zerlegen, derselbe Grund, aus dem
+der Skill-Katalog kuratiert ist. Beide Spalten tragen einen GIN-Index, damit „wer hat
+CE?" und „wer kann Nachtschicht?" Abfragen sind und keine Textsuche.
+
+**Die Arbeitserlaubnis bekam bewusst keine eigene Spalte.** Sie läuft über die vorhandene
+Nachweis-Verwaltung (Kategorie `permit`) — dort hat sie bereits Gültigkeitsdatum,
+Ablauf-Erinnerung und Prüfstatus. Eine zweite Wahrheit daneben wäre genau der Fehler, den
+dieses Projekt sonst vermeidet.
+
+**Keine Lohndaten.** IBAN, Sozialversicherungsnummer und Steuer-ID bleiben draußen und
+sind **per Test festgeschrieben** — der Punkt, den ein späterer Ausbau am leichtesten
+aufweicht („das eine Feld noch"). Sie verbessern die Vermittlung um null und machen ein
+Datenleck meldepflichtig.
+
+**Als fünfter Aufnahme-Schritt sichtbar, aber nicht blockierend.** Er zählt in den
+Fortschritt und ist Sprungziel. Der **Führerschein zählt bewusst nicht** in die
+Erledigung: Eine Lagerkraft ohne Fahrerlaubnis wäre sonst dauerhaft „unvollständig",
+obwohl ihr nichts fehlt — und ein Hinweis, der bei der Hälfte der Leute falsch ist, wird
+ignoriert und entwertet alle anderen.
+
+**Dateien:** `sql/migrations/162_worker_placement_facts.sql`,
+`api/routes/workerPortal.js`, `api/services/workerService.js`,
+`api/services/workerOnboardingService.js`, `frontend/public/einsatzportal-profil.html`,
+`api/test/workerPlacementFacts.test.js` (15 Tests).
 
 **B7 im Detail — vorhanden:** Vor-/Nachname, E-Mail, Personalnummer, Telefon, Straße,
 PLZ, Ort, verfügbar ab, Wochenstunden, Einsatzradius, Profilfoto, Dokumente/Zertifikate
@@ -353,7 +391,7 @@ Bestandsverhalten, damit das Update niemanden überraschend abmeldet.
 
 ## Bilanz
 
-**30 erfüllt · 9 teilweise oder ungeprüft · 2 fehlen**
+**36 erfüllt · 5 ungeprüft (brauchen E2E) · 1 offen (Owner) · 1 blockiert**
 *(Stand nach der Nachrüstung vom 2026-08-06.)*
 
 **Die verbleibenden Lücken:**

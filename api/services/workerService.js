@@ -888,7 +888,10 @@ export async function updateWorkerProfile(pool, workerUserId, supplierOrgId, dat
   const allowed = ["first_name","last_name","personnel_number","phone",
                    "street","postal_code","city","country","notes","preferred_locale",
                    "date_of_birth","skill_tags","qualifications","profile_text",
-                   "profile_public","public_profile_fields","availability_note"];
+                   "profile_public","public_profile_fields","availability_note",
+                   // Vermittlungsrelevante Angaben (Mig 162)
+                   "is_of_age","driving_licence_classes","has_own_vehicle",
+                   "shift_readiness","emergency_contact_name","emergency_contact_phone"];
   for (const key of allowed) {
     if (normalized[key] !== undefined) {
       params.push(normalized[key]);

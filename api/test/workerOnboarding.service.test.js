@@ -15,7 +15,14 @@ import { getOnboardingProgress, SCHRITTE } from "../services/workerOnboardingSer
 
 const PROFIL_VOLL = {
   id: "wp-1", user_id: "u-1", supplier_org_id: "org-1",
-  first_name: "Anna", last_name: "Muster", phone: "+49 170 1234567"
+  first_name: "Anna", last_name: "Muster", phone: "+49 170 1234567",
+  // Seit Mig 162 gehoert die Einsatzfaehigkeit zu "mit allem" (Owner-Entscheidung
+  // 2026-08-06). Reine Fixture-Pflege — die Zusicherung darunter (100 %) ist
+  // unveraendert und prueft weiterhin dasselbe: wer alles ausgefuellt hat, sieht 100 %.
+  is_of_age: true,
+  shift_readiness: ["frueh", "spaet"],
+  emergency_contact_name: "Max Muster",
+  emergency_contact_phone: "+49 170 7654321"
 };
 
 /** @param {{skills?:boolean, docs?:boolean, verfuegbarkeit?:object}} opts */
@@ -54,9 +61,12 @@ describe("Fortschritt", () => {
     assert.equal(out.naechster_schritt, null);
   });
 
-  it("zaehlt vier Schritte — die Reihenfolge ist die des Assistenten", async () => {
+  it("zaehlt fuenf Schritte — die Reihenfolge ist die des Assistenten", async () => {
+    // "placement" kam am 2026-08-06 dazu (Mig 162, Owner-Entscheidung): vermittlungs-
+    // relevante Angaben, empfohlen statt Pflicht. Die eigentliche Zusicherung ist die
+    // Zeile darunter — Liste und SCHRITTE muessen deckungsgleich bleiben.
     const out = await getOnboardingProgress(poolStub({ verfuegbarkeit: MIT_HISTORIE }), PROFIL_VOLL);
-    assert.deepEqual(out.schritte.map((s) => s.key), ["person", "skills", "availability", "documents"]);
+    assert.deepEqual(out.schritte.map((s) => s.key), ["person", "skills", "availability", "placement", "documents"]);
     assert.deepEqual(out.schritte.map((s) => s.key), SCHRITTE.map((s) => s.key));
   });
 });
@@ -69,7 +79,9 @@ describe("einsatzbereit vs. vollstaendig — der Unterschied, der zaehlt", () =>
       poolStub({ docs: false, verfuegbarkeit: MIT_HISTORIE }), PROFIL_VOLL
     );
     assert.equal(out.einsatzbereit, true, "Nachweise duerfen die Vermittlung nicht blockieren");
-    assert.equal(out.fortschritt_prozent, 75, "Im Fortschritt fehlen sie trotzdem");
+    // 80 statt 75: der Nenner ist seit Mig 162 fuenf Schritte, nicht vier. Geprueft
+    // wird unveraendert dasselbe — die Nachweise fehlen im Fortschritt.
+    assert.equal(out.fortschritt_prozent, 80, "Im Fortschritt fehlen sie trotzdem");
     assert.equal(out.naechster_schritt, "documents");
   });
 
