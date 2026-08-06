@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <script src="/public/js/theme.js"></script>
   <script src="/public/js/i18n.js"></script>
-  <title>Was ist neu – TempConnect</title>
+  <title data-i18n="rst.b.docTitle">Was ist neu – TempConnect</title>
   <link rel="stylesheet" href="/public/css/enterprise.css"/>
 </head>
 <body>
@@ -14,13 +14,13 @@
 
     <div class="ds-page-header">
       <div class="ds-page-header__content">
-        <h1 class="ds-page-title">Produkt-Updates</h1>
-        <p class="ds-page-subtitle">Release Notes und relevante Neuerungen f&uuml;r Ihre Rolle und Ihren Plan &mdash; ohne Newsletter, ohne Spam.</p>
+        <h1 class="ds-page-title" data-i18n="rst.b.page.title">Produkt-Updates</h1>
+        <p class="ds-page-subtitle" data-i18n="rst.b.page.subtitle">Release Notes und relevante Neuerungen f&uuml;r Ihre Rolle und Ihren Plan &mdash; ohne Newsletter, ohne Spam.</p>
       </div>
     </div>
 
-    <div id="tc-pu-loading" class="ds-section" style="color:var(--ds-text-secondary,#8d9bba)">Lade Eintr&auml;ge&hellip;</div>
-    <div id="tc-pu-empty" class="ds-section" style="display:none;color:var(--ds-text-secondary,#8d9bba)">
+    <div id="tc-pu-loading" class="ds-section" data-i18n="rst.b.state.loading" style="color:var(--ds-text-secondary,#8d9bba)">Lade Eintr&auml;ge&hellip;</div>
+    <div id="tc-pu-empty" class="ds-section" data-i18n="rst.b.state.empty" style="display:none;color:var(--ds-text-secondary,#8d9bba)">
       Aktuell keine Eintr&auml;ge, die f&uuml;r Ihr Konto sichtbar sind.
     </div>
     <div id="tc-pu-list" class="ds-section" style="display:none;padding-top:0"></div>
@@ -34,7 +34,41 @@
   <script src="/public/js/footer.js"></script>
   <script src="/public/js/breadcrumb.js" defer></script>
   <script>
+  /* Woerterbuch (P6.1, DE/EN) fuer whats-new.html — Namensraum rst.b.*.
+
+     Die Seite ist rollenneutral: Produkt-Updates erreichen Unternehmen,
+     Personaldienstleister und Staff gleichermassen, deshalb friert sie
+     keinen rollenabhaengigen Begriff aus terminologyLabels.js ein.
+
+     Bewusst NICHT uebersetzt:
+     - Titel, Zusammenfassung und Fliesstext der Eintraege (redaktionelle
+       Inhalte aus /api/product-releases)
+     - der Feature-Schluessel (technischer Rohwert, verlinkt Code und Eintrag)
+     - Topbar/Navigation/Nutzerbereich (pageShell.js)                        */
+  TCi18n.register('de', {
+    'rst.b.docTitle': 'Was ist neu – TempConnect',
+    'rst.b.page.title': 'Produkt-Updates',
+    'rst.b.page.subtitle': 'Release Notes und relevante Neuerungen für Ihre Rolle und Ihren Plan — ohne Newsletter, ohne Spam.',
+    'rst.b.state.loading': 'Lade Einträge…',
+    'rst.b.state.empty': 'Aktuell keine Einträge, die für Ihr Konto sichtbar sind.',
+    'rst.b.state.error': 'Einträge konnten nicht geladen werden.',
+    'rst.b.badge.draft': 'Entwurf',
+    'rst.b.badge.internal': 'Intern',
+    'rst.b.entry.feature': 'Feature:'
+  });
+  TCi18n.register('en', {
+    'rst.b.docTitle': 'What’s new – TempConnect',
+    'rst.b.page.title': 'Product updates',
+    'rst.b.page.subtitle': 'Release notes and changes relevant to your role and plan — no newsletter, no spam.',
+    'rst.b.state.loading': 'Loading entries…',
+    'rst.b.state.empty': 'No entries are currently visible for your account.',
+    'rst.b.state.error': 'Entries could not be loaded.',
+    'rst.b.badge.draft': 'Draft',
+    'rst.b.badge.internal': 'Internal',
+    'rst.b.entry.feature': 'Feature:'
+  });
   (function () {
+    function t(key, params) { return TCi18n.t(key, params); }
     function esc(s) {
       var d = document.createElement("div");
       d.textContent = s;
@@ -43,7 +77,7 @@
     function fmtDate(iso) {
       if (!iso) return "";
       try {
-        return new Date(iso).toLocaleDateString("de-DE", { year: "numeric", month: "long", day: "numeric" });
+        return new Date(iso).toLocaleDateString(TCi18n.dateLocale(), { year: "numeric", month: "long", day: "numeric" });
       } catch (e) { return ""; }
     }
     function render(items) {
@@ -58,26 +92,39 @@
       list.style.display = "block";
       var h = "";
       items.forEach(function (e) {
-        var draft = e.status === "draft" ? '<span class="tag" style="margin-left:8px;background:rgba(251,191,36,.2);color:#fbbf24;font-size:11px">Entwurf</span>' : "";
-        var internal = e.visibility === "internal" ? '<span class="tag" style="margin-left:8px;font-size:11px">Intern</span>' : "";
+        var draft = e.status === "draft" ? '<span class="tag" style="margin-left:8px;background:rgba(251,191,36,.2);color:#fbbf24;font-size:11px">' + esc(t('rst.b.badge.draft')) + '</span>' : "";
+        var internal = e.visibility === "internal" ? '<span class="tag" style="margin-left:8px;font-size:11px">' + esc(t('rst.b.badge.internal')) + '</span>' : "";
         h += '<article class="tc-pu-card" style="margin-bottom:20px;padding:22px 24px;border-radius:14px;border:1px solid var(--line,rgba(255,255,255,.1));background:var(--card,#1a1d24)">';
         h += '<div style="font-size:12px;color:var(--ds-text-secondary,#8d9bba);margin-bottom:6px">' + esc(fmtDate(e.published_at || e.created_at)) + draft + internal + "</div>";
         h += "<h2 style=\"margin:0 0 10px;font-size:1.15rem;line-height:1.35\">" + esc(e.title || "") + "</h2>";
         if (e.summary) h += "<p style=\"margin:0 0 12px;color:var(--ds-text-secondary,#b8c3d9);line-height:1.55;font-size:14px\">" + esc(e.summary) + "</p>";
         if (e.body) h += "<div style=\"font-size:14px;line-height:1.6;color:var(--text,#e8eaef);white-space:pre-wrap\">" + esc(e.body) + "</div>";
-        if (e.feature_key) h += "<div style=\"margin-top:14px;font-size:12px;color:var(--ds-text-secondary,#6b7a90)\">Feature: <code style=\"font-size:11px\">" + esc(e.feature_key) + "</code></div>";
+        if (e.feature_key) h += "<div style=\"margin-top:14px;font-size:12px;color:var(--ds-text-secondary,#6b7a90)\">" + esc(t('rst.b.entry.feature')) + " <code style=\"font-size:11px\">" + esc(e.feature_key) + "</code></div>";
         h += "</article>";
       });
       list.innerHTML = h;
     }
+    // Sprachwechsel: Datum, Status-Abzeichen und die Feature-Zeile haengen an
+    // der Sprache \u2014 die Liste wird deshalb aus dem Cache neu gezeichnet, ohne
+    // erneuten Netz-Abruf. Die redaktionellen Inhalte selbst bleiben unberuehrt.
+    var cache = null;
+    document.addEventListener("tc:langchange", function () {
+      if (cache) render(cache);
+    });
+
     TC.api.get("/product-releases")
       .then(function (d) {
         var items = (d && d.data && d.data.items) || [];
+        cache = items;
         render(items);
         return TC.api.post("/product-releases/mark-all-seen", {});
       })
       .catch(function () {
-        document.getElementById("tc-pu-loading").textContent = "Eintr\u00e4ge konnten nicht geladen werden.";
+        var load = document.getElementById("tc-pu-loading");
+        // Marker mitfuehren, damit ein spaeterer Sprachwechsel die Fehlermeldung
+        // uebersetzt statt sie auf "Lade Eintraege" zurueckzusetzen.
+        load.setAttribute("data-i18n", "rst.b.state.error");
+        load.textContent = t('rst.b.state.error');
       });
   })();
   </script>

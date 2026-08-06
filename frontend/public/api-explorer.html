@@ -6,7 +6,7 @@
   <meta name="robots" content="noindex"/>
   <script src="/public/js/theme.js"></script>
   <script src="/public/js/i18n.js"></script>
-  <title>API-Explorer – TempConnect</title>
+  <title data-i18n="rst.c.docTitle">API-Explorer – TempConnect</title>
   <link rel="stylesheet" href="/public/css/design-system.css"/>
   <style>
     .ax-wrap{max-width:1100px;margin:0 auto;padding:var(--ds-space-6) var(--ds-space-4)}
@@ -44,20 +44,88 @@
   <div class="ax-wrap">
     <div id="tc-shell"></div>
     <div class="ax-hero">
-      <span class="ax-badge">Auto-generiert aus Zod</span>
+      <span class="ax-badge" data-i18n="rst.c.hero.badge">Auto-generiert aus Zod</span>
+      <!-- Kein data-i18n auf #ax-title/#ax-desc: beide werden aus der geladenen
+           Spezifikation befuellt (Titel + Version, Beschreibung). Ein Marker
+           wuerde diese Laufzeitwerte beim naechsten apply() wieder loeschen. -->
       <h1 id="ax-title" style="margin:10px 0 4px;font-size:24px">API-Explorer</h1>
       <p id="ax-desc" style="font-size:13px;color:var(--ds-text-secondary);line-height:1.55;margin:0;max-width:760px"></p>
-      <div class="ax-meta" id="ax-meta"></div>
+      <!-- Beschriftung und Zahl sind getrennt: die Zahlen kommen zur Laufzeit in
+           die <b>-Elemente, die uebersetzbaren Woerter tragen den Marker. -->
+      <div class="ax-meta" id="ax-meta">
+        <span><b id="ax-count-ops">–</b> <span data-i18n="rst.c.meta.endpoints">Endpunkte</span></span>
+        <span><b id="ax-count-schemas">–</b> <span data-i18n="rst.c.meta.schemas">Schemas</span></span>
+        <span><span data-i18n="rst.c.meta.openapi">OpenAPI</span> <b id="ax-openapi">–</b></span>
+        <span><a id="ax-spec-link" href="/api/openapi/spec.json" style="color:var(--ds-brand)">spec.json</a></span>
+        <span><a href="/public/api-docs.html" style="color:var(--ds-brand)" data-i18n="rst.c.meta.prose">Prosa-Doku</a></span>
+      </div>
     </div>
-    <div id="ax-content"><div class="ax-state">Lade Spezifikation…</div></div>
+    <div id="ax-content"><div class="ax-state" data-i18n="rst.c.state.loading">Lade Spezifikation…</div></div>
   </div>
 
   <script src="/public/js/pageShell.js"></script>
   <div id="tc-footer" data-tc-footer></div>
   <script src="/public/js/footer.js"></script>
   <script>
+  /* Woerterbuch (P6.1, DE/EN) fuer api-explorer.html — Namensraum rst.c.*.
+
+     Die Seite ist rollenneutral: sie beschreibt die technische Schnittstelle,
+     nicht den Marktplatz — es gibt hier keinen rollenabhaengigen Begriff aus
+     terminologyLabels.js, der eingefroren werden koennte.
+
+     Bewusst NICHT uebersetzt:
+     - alles aus der Spezifikation: Titel, Version, Beschreibung, Tag-Namen und
+       -Beschreibungen, Pfade, Methoden, Feldnamen, Typen, Antwort-Codes und
+       deren Beschreibungen (/api/openapi/spec.json — Vertragstext der API)
+     - "spec.json" (Dateiname) und die HTTP-Methoden-Abzeichen
+     - Topbar/Navigation/Nutzerbereich (pageShell.js)                        */
+  TCi18n.register('de', {
+    'rst.c.docTitle': 'API-Explorer – TempConnect',
+    'rst.c.hero.badge': 'Auto-generiert aus Zod',
+    'rst.c.meta.endpoints': 'Endpunkte',
+    'rst.c.meta.schemas': 'Schemas',
+    'rst.c.meta.openapi': 'OpenAPI',
+    'rst.c.meta.prose': 'Prosa-Doku',
+    'rst.c.state.loading': 'Lade Spezifikation…',
+    'rst.c.state.error': 'Spezifikation konnte nicht geladen werden ({grund}).',
+    'rst.c.op.secured': 'geschützt',
+    'rst.c.op.securedTitle': 'Auth + CSRF erforderlich',
+    'rst.c.sec.body': 'Request-Body',
+    'rst.c.sec.params': 'Parameter',
+    'rst.c.sec.responses': 'Antworten',
+    'rst.c.th.field': 'Feld',
+    'rst.c.th.type': 'Typ',
+    'rst.c.th.desc': 'Beschreibung',
+    'rst.c.th.name': 'Name',
+    'rst.c.th.in': 'In',
+    'rst.c.body.unstructured': 'kein strukturierter Body',
+    'rst.c.tag.other': 'Sonstige'
+  });
+  TCi18n.register('en', {
+    'rst.c.docTitle': 'API explorer – TempConnect',
+    'rst.c.hero.badge': 'Auto-generated from Zod',
+    'rst.c.meta.endpoints': 'endpoints',
+    'rst.c.meta.schemas': 'schemas',
+    'rst.c.meta.openapi': 'OpenAPI',
+    'rst.c.meta.prose': 'Written docs',
+    'rst.c.state.loading': 'Loading specification…',
+    'rst.c.state.error': 'The specification could not be loaded ({grund}).',
+    'rst.c.op.secured': 'protected',
+    'rst.c.op.securedTitle': 'Auth + CSRF required',
+    'rst.c.sec.body': 'Request body',
+    'rst.c.sec.params': 'Parameters',
+    'rst.c.sec.responses': 'Responses',
+    'rst.c.th.field': 'Field',
+    'rst.c.th.type': 'Type',
+    'rst.c.th.desc': 'Description',
+    'rst.c.th.name': 'Name',
+    'rst.c.th.in': 'In',
+    'rst.c.body.unstructured': 'no structured body',
+    'rst.c.tag.other': 'Other'
+  });
   (function(){
     "use strict";
+    function t(key, params){ return TCi18n.t(key, params); }
     function esc(s){ var d=document.createElement("div"); d.textContent=s==null?"":String(s); return d.innerHTML; }
     var SPEC = "/api/openapi/spec.json";
 
@@ -79,14 +147,15 @@
     }
     function propsTable(spec, schema){
       var s = resolveRef(spec, schema);
-      if (!s.properties) return '<div style="font-size:12px;color:var(--ds-text-tertiary)">' + (s.type ? esc(s.type) : "kein strukturierter Body") + '</div>';
+      if (!s.properties) return '<div style="font-size:12px;color:var(--ds-text-tertiary)">' + (s.type ? esc(s.type) : esc(t('rst.c.body.unstructured'))) + '</div>';
       var req = s.required || [];
       var rows = Object.keys(s.properties).map(function(k){
         var p = s.properties[k];
         return '<tr><td><code>' + esc(k) + '</code>' + (req.indexOf(k)>=0 ? ' <span class="ax-req">*</span>' : '') +
           '</td><td>' + typeLabel(p) + '</td><td>' + (p.description ? esc(p.description) : "") + '</td></tr>';
       }).join("");
-      return '<table class="ax-t"><thead><tr><th>Feld</th><th>Typ</th><th>Beschreibung</th></tr></thead><tbody>' + rows + '</tbody></table>';
+      return '<table class="ax-t"><thead><tr><th>' + esc(t('rst.c.th.field')) + '</th><th>' + esc(t('rst.c.th.type')) +
+        '</th><th>' + esc(t('rst.c.th.desc')) + '</th></tr></thead><tbody>' + rows + '</tbody></table>';
     }
 
     function renderOp(spec, path, method, op){
@@ -96,16 +165,17 @@
       var head = '<div class="ax-op__head">' +
         '<span class="ax-m ' + esc(method) + '">' + esc(method.toUpperCase()) + '</span>' +
         '<span class="ax-path">' + esc(path) + '</span>' +
-        '<span class="ax-sum">' + (secure ? '<span class="ax-lock" title="Auth + CSRF erforderlich">&#128274; geschützt</span> &middot; ' : '') + esc(op.summary || "") + '</span></div>';
+        '<span class="ax-sum">' + (secure ? '<span class="ax-lock" title="' + esc(t('rst.c.op.securedTitle')) + '">&#128274; ' + esc(t('rst.c.op.secured')) + '</span> &middot; ' : '') + esc(op.summary || "") + '</span></div>';
       var body = '<div class="ax-body">';
       var reqSchema = op.requestBody && op.requestBody.content && op.requestBody.content["application/json"] && op.requestBody.content["application/json"].schema;
-      if (reqSchema){ body += '<div class="ax-sec">Request-Body</div>' + propsTable(spec, reqSchema); }
+      if (reqSchema){ body += '<div class="ax-sec">' + esc(t('rst.c.sec.body')) + '</div>' + propsTable(spec, reqSchema); }
       var params = (op.parameters||[]).filter(function(p){return p.in==="query"||p.in==="path";});
       if (params.length){
-        body += '<div class="ax-sec">Parameter</div><table class="ax-t"><thead><tr><th>Name</th><th>In</th><th>Typ</th></tr></thead><tbody>' +
+        body += '<div class="ax-sec">' + esc(t('rst.c.sec.params')) + '</div><table class="ax-t"><thead><tr><th>' +
+          esc(t('rst.c.th.name')) + '</th><th>' + esc(t('rst.c.th.in')) + '</th><th>' + esc(t('rst.c.th.type')) + '</th></tr></thead><tbody>' +
           params.map(function(p){return '<tr><td><code>'+esc(p.name)+'</code>'+(p.required?' <span class="ax-req">*</span>':'')+'</td><td>'+esc(p.in)+'</td><td>'+typeLabel(p.schema)+'</td></tr>';}).join("") + '</tbody></table>';
       }
-      body += '<div class="ax-sec">Antworten</div>';
+      body += '<div class="ax-sec">' + esc(t('rst.c.sec.responses')) + '</div>';
       Object.keys(op.responses||{}).forEach(function(code){
         var ok = code.charAt(0)==="2";
         body += '<div class="ax-resp"><span class="ax-rc ' + (ok?"ok":"err") + '">' + esc(code) + '</span><span>' + esc((op.responses[code]||{}).description||"") + '</span></div>';
@@ -116,31 +186,25 @@
       return div;
     }
 
-    fetch(SPEC, { credentials: "include" }).then(function(r){
-      if (!r.ok) throw new Error("HTTP " + r.status);
-      return r.json();
-    }).then(function(spec){
+    function renderSpec(spec){
       document.getElementById("ax-title").textContent = (spec.info.title || "API") + " v" + (spec.info.version || "");
       document.getElementById("ax-desc").textContent = spec.info.description || "";
       var paths = spec.paths || {};
       var opCount = 0; Object.keys(paths).forEach(function(p){ opCount += Object.keys(paths[p]).length; });
-      document.getElementById("ax-meta").innerHTML =
-        '<span><b>' + opCount + '</b> Endpunkte</span>' +
-        '<span><b>' + Object.keys(spec.components.schemas||{}).length + '</b> Schemas</span>' +
-        '<span>OpenAPI <b>' + esc(spec.openapi) + '</b></span>' +
-        '<span><a href="' + SPEC + '" style="color:var(--ds-brand)">spec.json</a></span>' +
-        '<span><a href="/public/api-docs.html" style="color:var(--ds-brand)">Prosa-Doku</a></span>';
+      document.getElementById("ax-count-ops").textContent = String(opCount);
+      document.getElementById("ax-count-schemas").textContent = String(Object.keys((spec.components && spec.components.schemas) || {}).length);
+      document.getElementById("ax-openapi").textContent = spec.openapi || "";
 
       // Nach Tags gruppieren
       var byTag = {};
       Object.keys(paths).forEach(function(p){
         Object.keys(paths[p]).forEach(function(m){
           var op = paths[p][m];
-          var tag = (op.tags && op.tags[0]) || "Sonstige";
+          var tag = (op.tags && op.tags[0]) || t('rst.c.tag.other');
           (byTag[tag] = byTag[tag] || []).push({ path:p, method:m, op:op });
         });
       });
-      var tagMeta = {}; (spec.tags||[]).forEach(function(t){ tagMeta[t.name]=t.description; });
+      var tagMeta = {}; (spec.tags||[]).forEach(function(tg){ tagMeta[tg.name]=tg.description; });
       var content = document.getElementById("ax-content");
       content.innerHTML = "";
       Object.keys(byTag).sort().forEach(function(tag){
@@ -150,9 +214,29 @@
         byTag[tag].forEach(function(e){ sec.appendChild(renderOp(spec, e.path, e.method, e.op)); });
         content.appendChild(sec);
       });
-    }).catch(function(e){
-      document.getElementById("ax-content").innerHTML = '<div class="ax-state">Spezifikation konnte nicht geladen werden (' + esc(e.message) + ').</div>';
+    }
+
+    // Die Abschnitts-Ueberschriften, Tabellenkoepfe und das Schloss-Abzeichen
+    // entstehen beim Rendern — nach einem Sprachwechsel wird deshalb aus dem
+    // Cache neu gezeichnet statt die Spezifikation erneut zu laden.
+    var cache = null, letzterFehler = null;
+    function zeigeFehler(grund){
+      letzterFehler = grund;
+      document.getElementById("ax-content").innerHTML =
+        '<div class="ax-state">' + esc(t('rst.c.state.error', { grund: grund })) + '</div>';
+    }
+    document.addEventListener("tc:langchange", function(){
+      if (cache) renderSpec(cache);
+      else if (letzterFehler !== null) zeigeFehler(letzterFehler);
     });
+
+    fetch(SPEC, { credentials: "include" }).then(function(r){
+      if (!r.ok) throw new Error("HTTP " + r.status);
+      return r.json();
+    }).then(function(spec){
+      cache = spec;
+      renderSpec(spec);
+    }).catch(function(e){ zeigeFehler(e.message); });
   })();
   </script>
 </body>

@@ -2,7 +2,7 @@
 
 > **Stand:** 2026-08-05 · Branch `release/enterprise-premium-market-ready` · letzter Commit `3d1b8eb`
 > **Zweck:** Diese Datei allein genügt, um P6 ohne Rückfragen fortzusetzen.
-> Erst lesen, dann Abschnitt 7 abarbeiten.
+> Erst lesen, dann Abschnitt 6 abarbeiten.
 
 ---
 
@@ -123,6 +123,37 @@ i18n-Schicht aus — die Datei hat deshalb einen lokalen DE-Ersatz).
 - **`surfaceAccess.js`** (Sperr-Begründungen, auf vielen Seiten sichtbar) — `636ecab`
 - **Welle C** (slaGuard, onboardingChecklist, Admin, Data-Governance, Preise, Abo,
   SLA-Flächen) — `3d1b8eb`
+- **Welle D — die zehn Restseiten** (`rst.a`–`rst.j`): bounties, whats-new,
+  api-explorer, agency_inbox, angebote_verwalten, request_detail,
+  requisition_create, enterprise_anfrage, company_profile_public, sla_profil.
+  Damit hat **jede** Seite mit `i18n.js` ein Wörterbuch — die Suchschleife aus
+  Abschnitt 7 liefert keine Treffer mehr.
+
+Dabei mit behoben (auf den migrierten Seiten gefunden, nicht gesucht):
+
+| Fund | Wirkung vorher |
+|---|---|
+| `requisition_create.html` + `integrations.html` lasen `d.csrfToken`, `GET /api/csrf` liefert aber `{ token }` | Header leer → **jede** Erstellung/Mutation endete in `403 CSRF_INVALID` |
+| `request_detail.html`: `slaBoxHtml` wurde gebaut, aber nie eingehängt; `#slaSetBtn` ohne Handler | Pulse-Frist ließ sich gar nicht ändern (toter Zweig + toter Knopf) |
+| `request_detail.html`: Ladekette ohne `.catch` | Netzwerkfehler ließ die Seite dauerhaft auf „Lade Anfrage…" stehen |
+| `enterpriseAnfrage.js`: `renderAddons()` setzte den Haken nicht aus `selectedAddons` | erneutes Rendern (Katalog nachgeladen) verlor die sichtbare Auswahl |
+| `requisition_create.html`: Server-Meldung ging roh in `innerHTML` | fehlendes `esc()` (Projektregel) |
+
+**Aus früheren P6-Wellen liegengeblieben** (erst durch die Vollsuite sichtbar — die
+Wellen A–C wurden nur gegen die vier i18n-Gates geprüft, nicht gegen `run-tests.js`):
+
+| Fund | Wirkung |
+|---|---|
+| `matching_results.html` und `js/pages/enterpriseAnfrage.js` riefen `TCi18n` **ohne Brücke** auf | beide werden in vm-Sandboxen **ohne** i18n-Schicht ausgeführt → `ReferenceError`, **18 Tests rot** (`matchingResultsPage`, `enterprisePrefill`) |
+| Beide registrierten `tc:langchange` ungeschützt | `TypeError: document.addEventListener is not a function` im minimalen Sandbox-DOM |
+| `test/timesheetSource.test.js` prüfte das Literal `title="Direkt erfasst` | die i18n-Migration verschob den Text ins Wörterbuch → spröder Test, ersetzt durch eine **Verhaltens**-Prüfung in beiden Sprachen |
+| `docs/features/P6_I18N_UEBERGABE.md` war verwaist | `docsConsistency` schlug zu Recht an → jetzt aus `docs/README.md` verlinkt |
+
+> **Lehre für jede weitere Welle:** die vier i18n-Gates reichen **nicht**. Vor dem Commit
+> `cd api && node scripts/run-tests.js` fahren — ohne Pipe, sonst verschluckt die Shell
+> den Exit-Code. Merksatz: ein Seiten-Skript, das in einer vm-Sandbox läuft, braucht die
+> **lokale i18n-Brücke** (Vorbild: `js/pages/marketplaceFeed.js`) und einen Guard um
+> `document.addEventListener`.
 
 Nebenbei behoben: nginx lieferte den Einladungslink `/worker-login.html?invite=…` als
 **Landing** aus (Einladung war eine Sackgasse); `slaGuard` schrieb rohe Schlüssel in den
@@ -132,17 +163,28 @@ Paywall-Satz; „1 Eintraeg"; „Erhoet".
 
 ## 6. Offen
 
-1. **Neun Restseiten** (Session-Limit, Reset war 18:30). Sie waren halb migriert
-   (Marker gesetzt, **kein** Wörterbuch) und wurden deshalb bewusst auf den letzten
-   sauberen Stand **zurückgesetzt** — in einem Zug neu migrieren:
-   `bounties.html` (+ `js/pages/bounties.js`), `whats-new.html`, `api-explorer.html`,
-   `agency_inbox.html`, `angebote_verwalten.html`, `request_detail.html`,
-   `requisition_create.html`, `enterprise_anfrage.html` (+ `js/pages/enterpriseAnfrage.js`),
-   `company_profile_public.html`, `sla_profil.html` (+ `js/pages/slaProfil.js`).
+1. ~~Neun Restseiten~~ — **erledigt** (Welle D, siehe Abschnitt 5).
 2. **P7c**: die vier KI-Bilder + Hero-Video für die Landing. Prompts liegen fertig in
    `docs/mockups/LANDING_KI_BILD_PROMPTS.md`; der Drop-in ist gebaut — Dateien nur unter
    `frontend/public/img/landing/` mit den dort genannten Namen ablegen, dann erscheinen
-   sie automatisch.
+   sie automatisch. **Owner-Aufgabe** (Bildmaterial), kein Code offen.
+
+### Muster, die Welle D ergänzt hat
+
+- **Sprachwechsel ohne Netz-Abruf.** Alles, was als HTML-String entsteht, wird bei
+  `tc:langchange` aus dem zuletzt geladenen Datensatz neu gezeichnet (Cache-Variable
+  je Seite). Kein `fetch` beim Umschalten.
+- **Marker mitführen statt entfernen.** Ändert JS den Text eines markierten Elements
+  auf eine *andere* Übersetzung (Fehlerzustand, Knopf „Wird gesendet…"), wird das
+  `data-i18n`-Attribut **mitgesetzt**. So übersetzt der nächste `apply()` den
+  aktuellen Zustand, statt auf die Ruhefassung zurückzufallen.
+- **Beschriftung und Laufzeitwert trennen.** Statt den Marker wegzulassen, wird das
+  Markup geteilt: `<span data-i18n>Endpunkte</span>` neben `<b id="…">42</b>`.
+  Gilt auch für Pflicht-Sterne und Checkboxen (`<label><input><span data-i18n>`) —
+  ein Marker auf dem Elternelement löscht sonst das Kind.
+- **Gesendeter Text bleibt deutsch.** In `enterpriseAnfrage.js` steht dafür eine
+  eigene Konstante `KONTEXT_DE`; sie füllt das Anmerkungsfeld, das an unser
+  Tarif-Team geht — unabhängig von der Anzeigesprache.
 
 ---
 

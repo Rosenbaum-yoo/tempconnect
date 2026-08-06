@@ -42,11 +42,16 @@ async function loadWorkerForOrg(pool, workerProfileId, orgId) {
 }
 
 async function loadWorkerSkills(pool, workerProfileId) {
+  // status='approved' (Mig 160): aus einem noch nicht kuratierten Vorschlag darf
+  // KEIN Marktplatz-Angebot entstehen. Sonst stuende im Marktplatz eine
+  // Faehigkeit, nach der niemand sucht, weil es sie im Katalog nicht gibt —
+  // und die Angebotszahl waere aufgeblaeht statt echt.
   const { rows } = await pool.query(
     `SELECT wps.skill_id, ps.name, ps.category, wps.is_primary
        FROM worker_profile_skills wps
        JOIN platform_skills ps ON ps.id = wps.skill_id
       WHERE wps.worker_profile_id = $1
+        AND ps.status = 'approved'
       ORDER BY wps.is_primary DESC, ps.name`,
     [workerProfileId]
   );

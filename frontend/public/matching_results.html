@@ -86,7 +86,35 @@
        Bewusst NICHT uebersetzt:
        - Server-Erklaerungen (explanation.axes, quality_label, summary, gaps):
          Text und Beschriftung kommen deterministisch aus dem Backend.
-       - API-Daten (Titel, Rollen, Staedte, Status-Rohwerte).                   */
+       - API-Daten (Titel, Rollen, Staedte, Status-Rohwerte).
+
+       Bruecke statt harter Abhaengigkeit (wie js/pages/marketplaceFeed.js): dieses
+       Inline-Script wird auch in einer vm-Sandbox OHNE geladene i18n-Schicht
+       ausgefuehrt (test/matchingResultsPage.test.js prueft dort, dass die
+       Server-Erklaerung wirklich im DOM landet). Ohne window.TCi18n uebernimmt
+       ein lokaler Ersatz mit exakt dem deutschen Verhalten — kein Absturz.      */
+    var TCi18n = (typeof window !== 'undefined' && window.TCi18n) ? window.TCi18n : (function(){
+      var dicts = { de: {}, en: {} };
+      return {
+        register: function(locale, entries){
+          var target = dicts[locale];
+          if (!target || !entries) return;
+          for (var k in entries) {
+            if (Object.prototype.hasOwnProperty.call(entries, k)) target[k] = entries[k];
+          }
+        },
+        t: function(key, params){
+          var val = dicts.de[key];
+          if (val == null) return "";
+          if (!params) return val;
+          return String(val).replace(/\{(\w+)\}/g, function(m, name){
+            return Object.prototype.hasOwnProperty.call(params, name) ? String(params[name]) : m;
+          });
+        },
+        locale: function(){ return "de"; },
+        dateLocale: function(){ return "de-DE"; }
+      };
+    })();
     TCi18n.register('de', {
       'srch.match.docTitle': 'Matching-Ergebnisse – TempConnect',
       'srch.match.paywall.home': 'Startseite',
@@ -344,10 +372,14 @@
        textContent/innerHTML — TCi18n.apply() erreicht sie nicht. Der Analyzer
        ist rein lesend, ein erneuter Aufbau ist daher gefahrlos und haelt die
        Ansicht (Auswahl oder Trefferliste) in der neuen Sprache vollstaendig. */
-    document.addEventListener('tc:langchange', function(){
-      document.getElementById("emptyState").style.display="none";
-      loadMatches();
-    });
+    // Gleiche Ueberlegung wie bei der i18n-Bruecke oben: in der vm-Sandbox gibt
+    // es keinen Ereignis-Bus. Dann entfaellt nur das Nachladen beim Sprachwechsel.
+    if (typeof document.addEventListener === 'function') {
+      document.addEventListener('tc:langchange', function(){
+        document.getElementById("emptyState").style.display="none";
+        loadMatches();
+      });
+    }
   </script>
   <script src="/public/js/pageShell.js"></script>
   <script src="/public/js/notifications.js"></script>

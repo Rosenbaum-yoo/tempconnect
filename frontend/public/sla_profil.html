@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <script src="/public/js/theme.js"></script>
   <script src="/public/js/i18n.js"></script>
-  <title>Mein Unternehmen – TempConnect</title>
+  <title data-i18n="rst.j.docTitle">Mein Unternehmen – TempConnect</title>
   <link rel="stylesheet" href="/public/css/enterprise.css"/>
   <style>
     .ep-grid{display:grid;grid-template-columns:280px 1fr;gap:var(--ds-space-6);align-items:flex-start}
@@ -84,12 +84,14 @@
 </head>
 <body data-sla-guard="sla_profile">
   <div id="paywall" class="wrap" style="display:none">
-    <nav class="ds-topbar"><div class="ds-topbar__brand"><span class="ds-topbar__brand-dot"></span>TempConnect</div><div class="ds-topbar__nav"><a href="/" class="ds-btn">Startseite</a></div></nav>
+    <nav class="ds-topbar"><div class="ds-topbar__brand"><span class="ds-topbar__brand-dot"></span>TempConnect</div><div class="ds-topbar__nav"><a href="/" class="ds-btn" data-i18n="rst.j.paywall.home">Startseite</a></div></nav>
     <div class="paywall-box">
-      <h2>Bereich nicht verfügbar</h2>
-      <p>Das Feature &quot;<span id="paywall-feature-name">Profil</span>&quot; ist mit deinem aktuellen Plan nicht nutzbar.</p>
-      <p>Aktueller Plan: <span id="paywall-current-plan" class="paywall-plan">–</span></p>
-      <a id="paywall-cta" href="/public/sla_abo.html" class="btn primary">Abo ansehen</a>
+      <h2 data-i18n="rst.j.paywall.title">Bereich nicht verfügbar</h2>
+      <!-- Kein Marker auf dem ganzen Satz: slaGuard.js schreibt den Feature-Namen
+           zur Laufzeit in die Mitte; ein apply() wuerde ihn sonst wieder loeschen. -->
+      <p><span data-i18n="rst.j.paywall.featurePre">Das Feature &quot;</span><span id="paywall-feature-name">Profil</span><span data-i18n="rst.j.paywall.featurePost">&quot; ist mit deinem aktuellen Plan nicht nutzbar.</span></p>
+      <p><span data-i18n="rst.j.paywall.currentPlan">Aktueller Plan:</span> <span id="paywall-current-plan" class="paywall-plan">–</span></p>
+      <a id="paywall-cta" href="/public/sla_abo.html" class="btn primary" data-i18n="rst.j.paywall.cta">Abo ansehen</a>
     </div>
   </div>
 
@@ -98,11 +100,11 @@
 
     <div class="ds-page-header">
       <div class="ds-page-header__content">
-        <h1 class="ds-page-title">Mein Unternehmen</h1>
-        <p class="ds-page-subtitle">Firmenprofil, Abo-Modelle, Organisation, Integrationen und Plattform-Einrichtung &ndash; zentral verwalten.</p>
+        <h1 class="ds-page-title" data-i18n="rst.j.page.title">Mein Unternehmen</h1>
+        <p class="ds-page-subtitle" data-i18n="rst.j.page.subtitle">Firmenprofil, Abo-Modelle, Organisation, Integrationen und Plattform-Einrichtung &ndash; zentral verwalten.</p>
       </div>
       <div class="ds-page-header__actions">
-        <a href="/public/company_profile_public.html" class="ep-btn" id="preview-btn" style="display:none">Oeffentliches Profil</a>
+        <a href="/public/company_profile_public.html" class="ep-btn" id="preview-btn" style="display:none" data-i18n="rst.j.page.publicProfile">Oeffentliches Profil</a>
       </div>
     </div>
 
@@ -110,13 +112,13 @@
     <div id="onboarding-checklist" style="display:none;margin-bottom:var(--ds-space-4)">
       <div style="border:1px solid rgba(74,158,255,.15);border-radius:12px;background:rgba(74,158,255,.03);overflow:hidden">
         <div style="display:flex;align-items:center;gap:10px;padding:10px 16px;cursor:pointer" onclick="toggleOnboarding()">
-          <span style="font-weight:700;font-size:14px;white-space:nowrap">Plattform einrichten</span>
+          <span style="font-weight:700;font-size:14px;white-space:nowrap" data-i18n="rst.j.onboarding.title">Plattform einrichten</span>
           <span id="onboarding-subtitle" style="font-size:12px;color:var(--ds-text-secondary,var(--muted));white-space:nowrap;overflow:hidden;text-overflow:ellipsis;flex-shrink:1;min-width:0"></span>
           <div style="flex:1;min-width:40px;max-width:160px;height:4px;border-radius:2px;background:rgba(255,255,255,.08);overflow:hidden">
             <div id="onboarding-progress-bar" style="height:100%;border-radius:2px;background:var(--ds-brand,#4a9eff);transition:width .4s ease;width:0%"></div>
           </div>
-          <button id="onboarding-toggle-btn" type="button" style="background:none;border:none;color:var(--ds-text-secondary,var(--muted));cursor:pointer;font-size:10px;padding:2px 6px;transition:transform .25s;transform:rotate(0deg)" title="Auf-/Zuklappen" onclick="event.stopPropagation();toggleOnboarding()">&#9660;</button>
-          <button id="onboarding-dismiss-btn" type="button" onclick="event.stopPropagation();dismissOnboarding()" style="background:none;border:none;color:var(--ds-text-secondary,var(--muted));cursor:pointer;font-size:18px;padding:2px 6px;line-height:1" title="Ausblenden">&times;</button>
+          <button id="onboarding-toggle-btn" type="button" style="background:none;border:none;color:var(--ds-text-secondary,var(--muted));cursor:pointer;font-size:10px;padding:2px 6px;transition:transform .25s;transform:rotate(0deg)" data-i18n-title="rst.j.onboarding.toggle" title="Auf-/Zuklappen" onclick="event.stopPropagation();toggleOnboarding()">&#9660;</button>
+          <button id="onboarding-dismiss-btn" type="button" onclick="event.stopPropagation();dismissOnboarding()" style="background:none;border:none;color:var(--ds-text-secondary,var(--muted));cursor:pointer;font-size:18px;padding:2px 6px;line-height:1" data-i18n-title="rst.j.onboarding.dismiss" title="Ausblenden">&times;</button>
         </div>
         <div id="onboarding-body" style="max-height:0;overflow:hidden;transition:max-height .3s ease">
           <div style="padding:0 16px 14px">
@@ -131,44 +133,44 @@
       <div class="ds-hub-grid">
         <div class="ds-hub-card ds-hub-card--current ds-hub-card--brand" aria-current="page">
           <div class="ds-hub-card__content">
-            <div class="ds-hub-card__title">Mein Unternehmen</div>
-            <p class="ds-hub-card__desc">Sie befinden sich im Unternehmensbereich.</p>
+            <div class="ds-hub-card__title" data-i18n="rst.j.hub.self.title">Mein Unternehmen</div>
+            <p class="ds-hub-card__desc" data-i18n="rst.j.hub.self.desc">Sie befinden sich im Unternehmensbereich.</p>
           </div>
         </div>
         <a href="#sec-overview" class="ds-hub-card" onclick="document.getElementById('sec-overview').scrollIntoView({behavior:'smooth'});return false;">
           <div class="ds-hub-card__content">
-            <div class="ds-hub-card__title">Firmenprofil</div>
-            <p class="ds-hub-card__desc">Firmenprofil, Standorte, Zertifizierungen und Kompetenzen.</p>
+            <div class="ds-hub-card__title" data-i18n="rst.j.hub.profile.title">Firmenprofil</div>
+            <p class="ds-hub-card__desc" data-i18n="rst.j.hub.profile.desc">Firmenprofil, Standorte, Zertifizierungen und Kompetenzen.</p>
           </div>
         </a>
         <a href="/public/sla_abo.html" class="ds-hub-card">
           <div class="ds-hub-card__content">
-            <div class="ds-hub-card__title">Abo-Modelle</div>
-            <p class="ds-hub-card__desc">DEMO, BASIS, PLUS, PRO, Individueller Tarif &ndash; Tarife und Features.</p>
+            <div class="ds-hub-card__title" data-i18n="rst.j.hub.plans.title">Abo-Modelle</div>
+            <p class="ds-hub-card__desc" data-i18n="rst.j.hub.plans.desc">DEMO, BASIS, PLUS, PRO, Individueller Tarif &ndash; Tarife und Features.</p>
           </div>
         </a>
         <a href="/public/organization.html" class="ds-hub-card ds-hub-card--brand" data-feature="org_settings">
           <div class="ds-hub-card__content">
-            <div class="ds-hub-card__title">Organisation</div>
-            <p class="ds-hub-card__desc">Mitglieder, API&nbsp;Keys, Webhooks, Audit-Log und Sicherheit.</p>
+            <div class="ds-hub-card__title" data-i18n="rst.j.hub.org.title">Organisation</div>
+            <p class="ds-hub-card__desc" data-i18n="rst.j.hub.org.desc">Mitglieder, API&nbsp;Keys, Webhooks, Audit-Log und Sicherheit.</p>
           </div>
         </a>
         <a href="/public/integrations.html" class="ds-hub-card ds-hub-card--accent">
           <div class="ds-hub-card__content">
-            <div class="ds-hub-card__title">Integrationen</div>
-            <p class="ds-hub-card__desc">Slack- und Teams-Webhooks konfigurieren, Events empfangen.</p>
+            <div class="ds-hub-card__title" data-i18n="rst.j.hub.integrations.title">Integrationen</div>
+            <p class="ds-hub-card__desc" data-i18n="rst.j.hub.integrations.desc">Slack- und Teams-Webhooks konfigurieren, Events empfangen.</p>
           </div>
         </a>
         <a href="/public/documents-center.html" class="ds-hub-card ds-hub-card--success">
           <div class="ds-hub-card__content">
-            <div class="ds-hub-card__title">Dokumente &amp; PDFs</div>
-            <p class="ds-hub-card__desc">Rechnungen, Vertraege, Policies und Nachweise sicher ablegen, verwalten und als PDF herunterladen.</p>
+            <div class="ds-hub-card__title" data-i18n="rst.j.hub.docs.title">Dokumente &amp; PDFs</div>
+            <p class="ds-hub-card__desc" data-i18n="rst.j.hub.docs.desc">Rechnungen, Vertraege, Policies und Nachweise sicher ablegen, verwalten und als PDF herunterladen.</p>
           </div>
         </a>
       </div>
     </div>
 
-    <div id="ep-loading" class="ep-loading">Profil wird geladen &ndash;</div>
+    <div id="ep-loading" class="ep-loading" data-i18n="rst.j.state.loading">Profil wird geladen &ndash;</div>
 
     <div id="ep-main" class="ep-grid" style="display:none">
       <!-- --- Sidebar --------------------------------------- -->
@@ -181,16 +183,16 @@
               <text class="ep-ring-pct" id="ring-pct" x="20" y="23" text-anchor="middle">0%</text>
             </svg>
           </div>
-          <div style="text-align:center;font-size:12px;font-weight:700;color:var(--ds-text-secondary);text-transform:uppercase;letter-spacing:.06em;margin-bottom:var(--ds-space-3)">Profil-Vollstaendigkeit</div>
+          <div style="text-align:center;font-size:12px;font-weight:700;color:var(--ds-text-secondary);text-transform:uppercase;letter-spacing:.06em;margin-bottom:var(--ds-space-3)" data-i18n="rst.j.side.completeness">Profil-Vollstaendigkeit</div>
           <nav class="ep-nav" id="ep-nav"></nav>
         </div>
 
         <!-- Scorecard widget -->
         <div class="ep-card" id="scorecard-widget" style="display:none;padding:var(--ds-space-4);margin-top:var(--ds-space-4)">
-          <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--ds-text-secondary);margin-bottom:var(--ds-space-3)">Lieferanten-Bewertung</div>
+          <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--ds-text-secondary);margin-bottom:var(--ds-space-3)" data-i18n="rst.j.side.scorecard">Lieferanten-Bewertung</div>
           <div id="scorecard-body"></div>
           <div style="margin-top:var(--ds-space-3);text-align:center">
-            <a href="/public/supplier_scorecard.html" style="font-size:11px;color:var(--ds-brand);font-weight:600">Details ansehen &rarr;</a>
+            <a href="/public/supplier_scorecard.html" style="font-size:11px;color:var(--ds-brand);font-weight:600" data-i18n="rst.j.side.details">Details ansehen &rarr;</a>
           </div>
         </div>
       </aside>
@@ -200,8 +202,8 @@
         <!-- Section 1: Overview -->
         <div class="ep-card" id="sec-overview">
           <div class="ep-card-head">
-            <div class="ep-card-title">Unternehmensuebersicht</div>
-            <button class="ep-btn ep-btn--sm" onclick="EP.toggleEdit('overview')">Bearbeiten</button>
+            <div class="ep-card-title" data-i18n="rst.j.sec.overview">Unternehmensuebersicht</div>
+            <button class="ep-btn ep-btn--sm" onclick="EP.toggleEdit('overview')" data-i18n="rst.j.action.edit">Bearbeiten</button>
           </div>
           <div id="overview-view"></div>
           <div id="overview-edit" style="display:none"></div>
@@ -210,35 +212,35 @@
         <!-- Section: Company Photo -->
         <div class="ep-card" id="sec-photo">
           <div class="ep-card-head">
-            <div class="ep-card-title">Firmenbild / Standort</div>
+            <div class="ep-card-title" data-i18n="rst.j.sec.photo">Firmenbild / Standort</div>
           </div>
-          <p style="font-size:12px;color:var(--ds-text-secondary);margin:0 0 var(--ds-space-3)">Laden Sie ein Foto Ihres Firmengebaeudes oder Standorts hoch. Das Bild erscheint auf Ihrem oeffentlichen Profil.</p>
+          <p style="font-size:12px;color:var(--ds-text-secondary);margin:0 0 var(--ds-space-3)" data-i18n="rst.j.photo.desc">Laden Sie ein Foto Ihres Firmengebaeudes oder Standorts hoch. Das Bild erscheint auf Ihrem oeffentlichen Profil.</p>
           <div id="photo-preview" style="margin-bottom:var(--ds-space-3)"></div>
           <div style="display:flex;gap:var(--ds-space-2);align-items:center">
             <input type="file" id="photoInput" accept="image/png,image/jpeg,image/webp" style="display:none" onchange="uploadPhoto(this)"/>
-            <button class="ep-btn ep-btn--primary ep-btn--sm" onclick="document.getElementById('photoInput').click()">Foto hochladen</button>
-            <span style="font-size:11px;color:var(--ds-text-tertiary)">PNG, JPG oder WebP &mdash; max. 5 MB</span>
+            <button class="ep-btn ep-btn--primary ep-btn--sm" onclick="document.getElementById('photoInput').click()" data-i18n="rst.j.photo.upload">Foto hochladen</button>
+            <span style="font-size:11px;color:var(--ds-text-tertiary)" data-i18n="rst.j.photo.hint">PNG, JPG oder WebP &mdash; max. 5 MB</span>
           </div>
         </div>
 
         <!-- Section: Sicherheit & Geräte (P5.1 Fernabmeldung) -->
         <div class="ep-card" id="sec-security">
           <div class="ep-card-head">
-            <div class="ep-card-title">Sicherheit &amp; Geräte</div>
+            <div class="ep-card-title" data-i18n="rst.j.sec.security">Sicherheit &amp; Geräte</div>
           </div>
-          <p style="font-size:12px;color:var(--ds-text-secondary);margin:0 0 var(--ds-space-3)">Gerät verloren oder an einem fremden Rechner angemeldet geblieben? Hier beenden Sie Sitzungen Ihres Kontos aus der Ferne.</p>
-          <div id="security-sessions" style="font-size:13px;margin-bottom:var(--ds-space-3)">Lädt&hellip;</div>
+          <p style="font-size:12px;color:var(--ds-text-secondary);margin:0 0 var(--ds-space-3)" data-i18n="rst.j.security.desc">Gerät verloren oder an einem fremden Rechner angemeldet geblieben? Hier beenden Sie Sitzungen Ihres Kontos aus der Ferne.</p>
+          <div id="security-sessions" style="font-size:13px;margin-bottom:var(--ds-space-3)" data-i18n="rst.j.security.loading">Lädt&hellip;</div>
           <div style="display:flex;gap:var(--ds-space-2);flex-wrap:wrap">
-            <button class="ep-btn ep-btn--primary ep-btn--sm" id="btn-logout-others" onclick="EP.logoutOtherDevices()">Andere Geräte abmelden</button>
-            <button class="ep-btn ep-btn--sm" style="border-color:var(--ds-danger);color:var(--ds-danger)" onclick="EP.logoutEverywhere()">Überall abmelden (inkl. dieses Gerät)</button>
+            <button class="ep-btn ep-btn--primary ep-btn--sm" id="btn-logout-others" onclick="EP.logoutOtherDevices()" data-i18n="rst.j.security.logoutOthers">Andere Geräte abmelden</button>
+            <button class="ep-btn ep-btn--sm" style="border-color:var(--ds-danger);color:var(--ds-danger)" onclick="EP.logoutEverywhere()" data-i18n="rst.j.security.logoutAll">Überall abmelden (inkl. dieses Gerät)</button>
           </div>
         </div>
 
         <!-- Section 2: Basic User Data -->
         <div class="ep-card" id="sec-basic">
           <div class="ep-card-head">
-            <div class="ep-card-title">Kontakt &amp; Stammdaten</div>
-            <button class="ep-btn ep-btn--sm" onclick="EP.toggleEdit('basic')">Bearbeiten</button>
+            <div class="ep-card-title" data-i18n="rst.j.sec.basic">Kontakt &amp; Stammdaten</div>
+            <button class="ep-btn ep-btn--sm" onclick="EP.toggleEdit('basic')" data-i18n="rst.j.action.edit">Bearbeiten</button>
           </div>
           <div id="basic-view"></div>
           <div id="basic-edit" style="display:none"></div>
@@ -247,8 +249,8 @@
         <!-- Section 3: Capabilities -->
         <div class="ep-card" id="sec-capabilities">
           <div class="ep-card-head">
-            <div class="ep-card-title">Kompetenzen &amp; Dienstleistungen</div>
-            <button class="ep-btn ep-btn--sm" onclick="EP.toggleEdit('capabilities')">Bearbeiten</button>
+            <div class="ep-card-title" data-i18n="rst.j.sec.capabilities">Kompetenzen &amp; Dienstleistungen</div>
+            <button class="ep-btn ep-btn--sm" onclick="EP.toggleEdit('capabilities')" data-i18n="rst.j.action.edit">Bearbeiten</button>
           </div>
           <div id="capabilities-view"></div>
           <div id="capabilities-edit" style="display:none"></div>
@@ -257,8 +259,8 @@
         <!-- Section 4: Locations -->
         <div class="ep-card" id="sec-locations">
           <div class="ep-card-head">
-            <div class="ep-card-title">Standorte</div>
-            <button class="ep-btn ep-btn--sm ep-btn--primary" onclick="EP.showAddLocation()">+ Standort</button>
+            <div class="ep-card-title" data-i18n="rst.j.sec.locations">Standorte</div>
+            <button class="ep-btn ep-btn--sm ep-btn--primary" onclick="EP.showAddLocation()" data-i18n="rst.j.action.addLocation">+ Standort</button>
           </div>
           <div id="locations-list"></div>
           <div id="location-form" style="display:none"></div>
@@ -267,8 +269,8 @@
         <!-- Section 5: Certifications -->
         <div class="ep-card" id="sec-certifications">
           <div class="ep-card-head">
-            <div class="ep-card-title">Zertifizierungen</div>
-            <button class="ep-btn ep-btn--sm ep-btn--primary" onclick="EP.showAddCert()">+ Zertifikat</button>
+            <div class="ep-card-title" data-i18n="rst.j.sec.certifications">Zertifizierungen</div>
+            <button class="ep-btn ep-btn--sm ep-btn--primary" onclick="EP.showAddCert()" data-i18n="rst.j.action.addCert">+ Zertifikat</button>
           </div>
           <div id="certs-list"></div>
           <div id="cert-form" style="display:none"></div>
@@ -277,8 +279,8 @@
         <!-- Section 6: Contacts -->
         <div class="ep-card" id="sec-contacts">
           <div class="ep-card-head">
-            <div class="ep-card-title">Ansprechpartner</div>
-            <button class="ep-btn ep-btn--sm ep-btn--primary" onclick="EP.showAddContact()">+ Kontakt</button>
+            <div class="ep-card-title" data-i18n="rst.j.sec.contacts">Ansprechpartner</div>
+            <button class="ep-btn ep-btn--sm ep-btn--primary" onclick="EP.showAddContact()" data-i18n="rst.j.action.addContact">+ Kontakt</button>
           </div>
           <div id="contacts-list"></div>
           <div id="contact-form" style="display:none"></div>
@@ -287,8 +289,8 @@
         <!-- Compliance status -->
         <div class="ep-card" id="sec-compliance" style="display:none">
           <div class="ep-card-head">
-            <div class="ep-card-title">Compliance-Status</div>
-            <a href="/public/compliance_overview.html" class="ep-btn ep-btn--sm">Verwalten &rarr;</a>
+            <div class="ep-card-title" data-i18n="rst.j.sec.compliance">Compliance-Status</div>
+            <a href="/public/compliance_overview.html" class="ep-btn ep-btn--sm" data-i18n="rst.j.action.manage">Verwalten &rarr;</a>
           </div>
           <div id="compliance-body"></div>
         </div>
@@ -296,7 +298,7 @@
         <!-- M-10: Promotions / Bounties (profile_bounties — INDIVIDUELL, maturity-gated) -->
         <div class="ep-card" id="sec-promotions">
           <div class="ep-card-head">
-            <div class="ep-card-title">Promotions &amp; Sichtbarkeits-Boosts</div>
+            <div class="ep-card-title" data-i18n="rst.j.sec.promotions">Promotions &amp; Sichtbarkeits-Boosts</div>
             <span id="promo-status-badge" style="display:none;font-size:10px;font-weight:700;padding:2px 8px;border-radius:20px;text-transform:uppercase;background:rgba(57,217,138,.12);color:var(--ds-success);border:1px solid rgba(57,217,138,.25)"></span>
           </div>
           <!-- Coming-soon state (default — shown until feature is live) -->
@@ -304,29 +306,31 @@
             <div style="display:flex;align-items:flex-start;gap:var(--ds-space-4);padding:var(--ds-space-4);border:1px solid rgba(251,191,36,.2);border-radius:var(--ds-radius-md);background:rgba(251,191,36,.04)">
               <span style="font-size:28px;flex-shrink:0">&#9733;</span>
               <div>
-                <div style="font-size:14px;font-weight:700;margin-bottom:var(--ds-space-1)">Demnächst verfügbar</div>
-                <p style="font-size:12px;color:var(--ds-text-secondary);line-height:1.6;margin:0 0 var(--ds-space-2)">
+                <div style="font-size:14px;font-weight:700;margin-bottom:var(--ds-space-1)" data-i18n="rst.j.promo.soonTitle">Demnächst verfügbar</div>
+                <p style="font-size:12px;color:var(--ds-text-secondary);line-height:1.6;margin:0 0 var(--ds-space-2)" data-i18n="rst.j.promo.soonText">
                   Mit Promotions können Sie Ihr Profil gezielt hervorheben — durch Featured-Badge, Such-Boost oder Kategorie-Top-Platzierung.
                   Alle Promotions werden von TempConnect geprüft und freigegeben.
                 </p>
-                <div style="font-size:11px;color:var(--ds-text-tertiary)">Verfügbar ab INDIVIDUELL-Plan &middot; Aktivierung durch TempConnect-Staff</div>
+                <div style="font-size:11px;color:var(--ds-text-tertiary)" data-i18n="rst.j.promo.soonNote">Verfügbar ab INDIVIDUELL-Plan &middot; Aktivierung durch TempConnect-Staff</div>
               </div>
             </div>
           </div>
           <!-- Active bounty UI (shown when feature is available) -->
           <div id="promo-body" style="display:none">
-            <div id="promo-loading" style="font-size:13px;color:var(--ds-text-secondary)">Wird geladen&hellip;</div>
+            <div id="promo-loading" style="font-size:13px;color:var(--ds-text-secondary)" data-i18n="rst.j.state.busy">Wird geladen&hellip;</div>
             <div id="promo-list-area" style="display:none">
               <div id="promo-list" style="margin-bottom:var(--ds-space-3)"></div>
               <div style="border-top:1px solid var(--ds-border);padding-top:var(--ds-space-3);margin-top:var(--ds-space-2)">
-                <div style="font-size:12px;font-weight:700;margin-bottom:var(--ds-space-2)">Neuen Antrag stellen</div>
+                <div style="font-size:12px;font-weight:700;margin-bottom:var(--ds-space-2)" data-i18n="rst.j.promo.newRequest">Neuen Antrag stellen</div>
                 <div style="display:flex;gap:var(--ds-space-2);flex-wrap:wrap;align-items:center">
                   <select id="promo-type-select" style="padding:6px 10px;border-radius:var(--ds-radius-sm);border:1px solid var(--ds-border);background:var(--ds-bg-raised);color:var(--ds-text);font-size:13px">
-                    <option value="featured_badge">Featured-Badge</option>
-                    <option value="search_boost">Such-Boost</option>
-                    <option value="category_top">Kategorie-Top</option>
+                    <!-- Nur die Beschriftungen sind uebersetzt; die value-Attribute
+                         gehen unveraendert an /api/profile-bounties/me. -->
+                    <option value="featured_badge" data-i18n="rst.j.promo.typeFeatured">Featured-Badge</option>
+                    <option value="search_boost" data-i18n="rst.j.promo.typeBoost">Such-Boost</option>
+                    <option value="category_top" data-i18n="rst.j.promo.typeTop">Kategorie-Top</option>
                   </select>
-                  <button class="ep-btn ep-btn--primary ep-btn--sm" id="promo-create-btn">Antrag erstellen</button>
+                  <button class="ep-btn ep-btn--primary ep-btn--sm" id="promo-create-btn" data-i18n="rst.j.promo.create">Antrag erstellen</button>
                 </div>
                 <div id="promo-create-err" style="display:none;font-size:11px;color:var(--ds-danger);margin-top:4px"></div>
               </div>
@@ -337,29 +341,29 @@
         <!-- M-09: Profilreichweite (profile_analytics_basic — PRO/INDIVIDUELL, soft-gated) -->
         <div class="ep-card" id="sec-profilreichweite" style="display:none">
           <div class="ep-card-head">
-            <div class="ep-card-title">Profilreichweite</div>
+            <div class="ep-card-title" data-i18n="rst.j.sec.reach">Profilreichweite</div>
             <span id="pr-vis-status" style="font-size:11px;color:var(--ds-text-secondary)"></span>
           </div>
-          <div id="pr-loading" style="font-size:13px;color:var(--ds-text-secondary);padding:var(--ds-space-2) 0">Wird geladen&hellip;</div>
+          <div id="pr-loading" style="font-size:13px;color:var(--ds-text-secondary);padding:var(--ds-space-2) 0" data-i18n="rst.j.state.busy">Wird geladen&hellip;</div>
           <div id="pr-body" style="display:none">
             <!-- KPI row -->
             <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:var(--ds-space-3);margin-bottom:var(--ds-space-4)" id="pr-kpis">
               <div class="ep-kpi-card" id="pr-views7">
-                <div class="ep-kpi-label">Aufrufe (7 Tage)</div>
+                <div class="ep-kpi-label" data-i18n="rst.j.reach.views7">Aufrufe (7 Tage)</div>
                 <div class="ep-kpi-value" id="pr-views7-val">–</div>
               </div>
               <div class="ep-kpi-card" id="pr-views30">
-                <div class="ep-kpi-label">Aufrufe (30 Tage)</div>
+                <div class="ep-kpi-label" data-i18n="rst.j.reach.views30">Aufrufe (30 Tage)</div>
                 <div class="ep-kpi-value" id="pr-views30-val">–</div>
               </div>
               <div class="ep-kpi-card" id="pr-likes">
-                <div class="ep-kpi-label">Likes</div>
+                <div class="ep-kpi-label" data-i18n="rst.j.reach.likes">Likes</div>
                 <div class="ep-kpi-value" id="pr-likes-val">–</div>
               </div>
             </div>
             <!-- Ranking row -->
             <div id="pr-rank-row" style="display:none;padding:var(--ds-space-3);border:1px solid var(--ds-border);border-radius:var(--ds-radius-md);background:rgba(255,255,255,.02)">
-              <div style="font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--ds-text-secondary);margin-bottom:4px">Marketplace-Ranking</div>
+              <div style="font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--ds-text-secondary);margin-bottom:4px" data-i18n="rst.j.reach.ranking">Marketplace-Ranking</div>
               <div style="display:flex;align-items:center;gap:var(--ds-space-3)">
                 <span id="pr-rank-segment" style="font-size:16px;font-weight:900"></span>
                 <span id="pr-rank-position" style="font-size:12px;color:var(--ds-text-secondary)"></span>
@@ -384,16 +388,21 @@
   (function(){
     "use strict";
     function $(id){ return document.getElementById(id); }
+    function tr(key, params){ return TCi18n.t(key, params); }
+    function esc(s){ var d=document.createElement("div"); d.textContent=s==null?"":String(s); return d.innerHTML; }
 
-    var BOUNTY_TYPE_LABELS = {
-      featured_badge: "Featured-Badge",
-      search_boost:   "Such-Boost",
-      category_top:   "Kategorie-Top"
+    /* Beschriftungen werden erst beim Rendern aufgeloest, nicht beim Parsen:
+       das Woerterbuch registriert js/pages/slaProfil.js (defer) und damit vor
+       DOMContentLoaded — feste Objekt-Literale waeren hier zu frueh. */
+    var BOUNTY_TYPE_KEYS = {
+      featured_badge: "rst.j.promo.typeFeatured",
+      search_boost:   "rst.j.promo.typeBoost",
+      category_top:   "rst.j.promo.typeTop"
     };
-    var STATUS_LABELS = {
-      draft:    "Entwurf", pending:   "In Prüfung", approved: "Genehmigt",
-      active:   "Aktiv",   rejected:  "Abgelehnt",  expired:  "Abgelaufen",
-      cancelled:"Storniert"
+    var STATUS_KEYS = {
+      draft: "rst.j.st.draft", pending: "rst.j.st.pending", approved: "rst.j.st.approved",
+      active: "rst.j.st.active", rejected: "rst.j.st.rejected", expired: "rst.j.st.expired",
+      cancelled: "rst.j.st.cancelled"
     };
     var STATUS_COLORS = {
       draft:"var(--ds-text-secondary)", pending:"var(--ds-warning)", approved:"var(--ds-brand)",
@@ -405,31 +414,32 @@
       var el = $("promo-list");
       if (!el) return;
       if (!items || !items.length) {
-        el.innerHTML = "<div style='font-size:12px;color:var(--ds-text-secondary)'>Noch keine Anträge.</div>";
+        el.innerHTML = "<div style='font-size:12px;color:var(--ds-text-secondary)'>" + esc(tr('rst.j.promo.empty')) + "</div>";
         return;
       }
       var html = "";
       items.forEach(function(b) {
-        var label  = BOUNTY_TYPE_LABELS[b.bounty_type] || b.bounty_type;
-        var status = STATUS_LABELS[b.status] || b.status;
+        var label  = (BOUNTY_TYPE_KEYS[b.bounty_type] ? tr(BOUNTY_TYPE_KEYS[b.bounty_type]) : b.bounty_type);
+        var status = (STATUS_KEYS[b.status] ? tr(STATUS_KEYS[b.status]) : b.status);
         var color  = STATUS_COLORS[b.status] || "var(--ds-text)";
         html += "<div style='display:flex;align-items:center;justify-content:space-between;padding:var(--ds-space-2) 0;border-bottom:1px solid rgba(255,255,255,.04)'>";
         html += "<div>";
-        html += "<span style='font-size:13px;font-weight:600'>" + label + "</span>";
+        html += "<span style='font-size:13px;font-weight:600'>" + esc(label) + "</span>";
         if (b.staff_note) {
-          html += "<div style='font-size:11px;color:var(--ds-text-secondary);margin-top:2px'>Hinweis Staff: " + b.staff_note.substring(0,80) + "</div>";
+          html += "<div style='font-size:11px;color:var(--ds-text-secondary);margin-top:2px'>" + esc(tr('rst.j.promo.staffNote')) + " " + esc(b.staff_note.substring(0,80)) + "</div>";
         }
         html += "</div>";
         html += "<div style='display:flex;align-items:center;gap:var(--ds-space-2)'>";
-        html += "<span style='font-size:11px;font-weight:700;color:" + color + "'>" + status + "</span>";
+        html += "<span style='font-size:11px;font-weight:700;color:" + color + "'>" + esc(status) + "</span>";
         if (b.status === "draft" || b.status === "pending") {
-          html += "<button class='ep-btn ep-btn--sm ep-btn--danger' onclick='promoCancel(\"" + b.id + "\")'>Stornieren</button>";
+          html += "<button class='ep-btn ep-btn--sm ep-btn--danger' onclick='promoCancel(\"" + esc(b.id) + "\")'>" + esc(tr('rst.j.promo.cancel')) + "</button>";
         }
         html += "</div></div>";
       });
       el.innerHTML = html;
     }
 
+    var _letzteAntraege = null;
     async function loadPromotions() {
       try {
         var r = await fetch("/api/profile-bounties/me", { credentials: "include" });
@@ -438,6 +448,7 @@
 
         var res = await r.json();
         var items = res.data || [];
+        _letzteAntraege = items;
 
         // Feature is available — switch to active UI
         var cs = $("promo-coming-soon");
@@ -450,7 +461,7 @@
         renderBountyList(items);
         if (loading) loading.style.display = "none";
         if (listArea) listArea.style.display = "block";
-        if (badge) { badge.textContent = "Aktiv"; badge.style.display = "inline-block"; }
+        if (badge) { badge.setAttribute("data-i18n", "rst.j.promo.badgeActive"); badge.textContent = tr('rst.j.promo.badgeActive'); badge.style.display = "inline-block"; }
 
       } catch(e) {}
     }
@@ -458,7 +469,7 @@
     // Expose cancel for inline onclick
     window.promoCancel = async function(id) {
       if (!id) return;
-      if (!confirm("Antrag wirklich stornieren?")) return;
+      if (!confirm(tr('rst.j.promo.confirmCancel'))) return;
       try {
         var csrfR = await fetch("/api/csrf-token", { credentials: "include" });
         var csrfToken = "";
@@ -493,12 +504,12 @@
           });
           var res = await r.json();
           if (!r.ok) {
-            if (errEl) { errEl.textContent = (res.error && res.error.message) || "Antrag fehlgeschlagen."; errEl.style.display = "block"; }
+            if (errEl) { errEl.textContent = (res.error && res.error.message) || tr('rst.j.promo.createFailed'); errEl.style.display = "block"; }
             return;
           }
           loadPromotions(); // Reload list
         } catch(e) {
-          if (errEl) { errEl.textContent = "Netzwerkfehler."; errEl.style.display = "block"; }
+          if (errEl) { errEl.textContent = tr('rst.j.promo.networkError'); errEl.style.display = "block"; }
         } finally {
           createBtn.disabled = false;
         }
@@ -510,6 +521,9 @@
     } else {
       loadPromotions();
     }
+    // Die Antragsliste entsteht als HTML-String — nach einem Sprachwechsel wird
+    // sie aus dem letzten Ergebnis neu gezeichnet, ohne erneuten Netz-Abruf.
+    document.addEventListener("tc:langchange", function(){ if (_letzteAntraege) renderBountyList(_letzteAntraege); });
   })();
   </script>
 
@@ -518,16 +532,34 @@
   (function(){
     "use strict";
     function $(id){ return document.getElementById(id); }
-    function fmt(n){ return (n == null || n === undefined) ? "–" : Number(n).toLocaleString("de-DE"); }
+    function tr(key, params){ return TCi18n.t(key, params); }
+    function fmt(n){ return (n == null || n === undefined) ? "–" : Number(n).toLocaleString(TCi18n.dateLocale()); }
 
-    var SEGMENT_LABELS = {
-      UNRATED: "Nicht bewertet", BRONZE: "Bronze", SILVER: "Silber",
-      GOLD: "Gold", PLATINUM: "Platin"
+    /* Wie oben: Schluessel statt fester Texte, damit das Woerterbuch aus
+       slaProfil.js zum Zeitpunkt des Renderns bereits registriert ist. */
+    var SEGMENT_KEYS = {
+      UNRATED: "rst.j.seg.unrated", BRONZE: "rst.j.seg.bronze", SILVER: "rst.j.seg.silver",
+      GOLD: "rst.j.seg.gold", PLATINUM: "rst.j.seg.platinum"
     };
     var SEGMENT_COLORS = {
       UNRATED: "var(--ds-text-secondary)", BRONZE: "#cd7f32",
       SILVER: "#aab5c4", GOLD: "#f5b43e", PLATINUM: "#a78bfa"
     };
+
+    /* Marker mitfuehren: der Sichtbarkeits-Hinweis wird nur einmal geladen,
+       ein Sprachwechsel uebersetzt ihn dann ueber apply(). */
+    function setHint(el, key, color) {
+      if (!el) return;
+      el.setAttribute("data-i18n", key);
+      el.textContent = tr(key);
+      if (color) el.style.color = color;
+    }
+    function setStatus(el, key, color) {
+      if (!el) return;
+      el.setAttribute("data-i18n", key);
+      el.textContent = tr(key);
+      el.style.color = color;
+    }
 
     async function loadProfilreichweite() {
       try {
@@ -559,10 +591,10 @@
             var rankSeg = $("pr-rank-segment");
             var rankPos = $("pr-rank-position");
             if (seg && rankRow && rankSeg) {
-              rankSeg.textContent = SEGMENT_LABELS[seg] || seg;
+              rankSeg.textContent = SEGMENT_KEYS[seg] ? tr(SEGMENT_KEYS[seg]) : seg;
               rankSeg.style.color = SEGMENT_COLORS[seg] || "var(--ds-text)";
               if (rankPos && pos != null) {
-                rankPos.textContent = "Platz #" + pos.toLocaleString("de-DE");
+                rankPos.textContent = tr('rst.j.reach.position', { n: pos.toLocaleString(TCi18n.dateLocale()) });
               }
               rankRow.style.display = "block";
             }
@@ -579,22 +611,20 @@
             var statusEl = $("pr-vis-status");
             if (vs && hint) {
               if (vs.status === "approved" && vs.is_public) {
-                hint.textContent = "Ihr Profil ist derzeit im Marketplace sichtbar.";
-                hint.style.color = "var(--ds-success)";
-                if (statusEl) { statusEl.textContent = "Sichtbar"; statusEl.style.color = "var(--ds-success)"; }
+                setHint(hint, 'rst.j.vis.visible', "var(--ds-success)");
+                setStatus(statusEl, 'rst.j.vis.visibleShort', "var(--ds-success)");
               } else if (vs.status === "submitted") {
-                hint.textContent = "Ihr Profil wird gerade geprüft. Sie werden benachrichtigt.";
-                if (statusEl) { statusEl.textContent = "In Prüfung"; statusEl.style.color = "var(--ds-warning)"; }
+                setHint(hint, 'rst.j.vis.review', "");
+                setStatus(statusEl, 'rst.j.vis.reviewShort', "var(--ds-warning)");
               } else if (vs.status === "draft" || !vs.status) {
-                hint.innerHTML = "Profil noch nicht eingereicht. <a href=\"/public/sla_profil.html\" style=\"color:var(--ds-brand)\">Jetzt einreichen &rarr;</a>";
+                hint.removeAttribute("data-i18n");
+                hint.innerHTML = tr('rst.j.vis.draft') + " <a href=\"/public/sla_profil.html\" style=\"color:var(--ds-brand)\" data-i18n=\"rst.j.vis.draftLink\">" + tr('rst.j.vis.draftLink') + "</a>";
               } else if (vs.status === "rejected") {
-                hint.textContent = "Profil wurde abgelehnt. Bitte beheben Sie die angegebenen Mängel und reichen Sie erneut ein.";
-                hint.style.color = "var(--ds-danger)";
-                if (statusEl) { statusEl.textContent = "Abgelehnt"; statusEl.style.color = "var(--ds-danger)"; }
+                setHint(hint, 'rst.j.vis.rejected', "var(--ds-danger)");
+                setStatus(statusEl, 'rst.j.vis.rejectedShort', "var(--ds-danger)");
               } else if (vs.status === "suspended") {
-                hint.textContent = "Profil ist derzeit suspendiert. Bitte kontaktieren Sie den Support.";
-                hint.style.color = "var(--ds-danger)";
-                if (statusEl) { statusEl.textContent = "Suspendiert"; statusEl.style.color = "var(--ds-danger)"; }
+                setHint(hint, 'rst.j.vis.suspended', "var(--ds-danger)");
+                setStatus(statusEl, 'rst.j.vis.suspendedShort', "var(--ds-danger)");
               }
             }
           }
@@ -621,7 +651,7 @@
     }
   })();
   </script>
-  <p class="sla-disclaimer" style="margin-top:var(--ds-space-6)">Hinweis: Inhalte dienen der Unterstützung und ersetzen keine rechtliche Prüfung. Angaben ohne Gewähr.</p>
+  <p class="sla-disclaimer" style="margin-top:var(--ds-space-6)" data-i18n="rst.j.disclaimer">Hinweis: Inhalte dienen der Unterstützung und ersetzen keine rechtliche Prüfung. Angaben ohne Gewähr.</p>
   <script src="/public/js/pageShell.js"></script>
   <script src="/public/js/notifications.js"></script>
   <div id="tc-footer" data-tc-footer></div>

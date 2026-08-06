@@ -1,0 +1,285 @@
+# Ursprungsprompt — Punkt-für-Punkt-Audit
+
+> **Stand:** 2026-08-06 · Branch `release/enterprise-premium-market-ready`
+> **Frage, die dieses Dokument beantwortet:** Ist aus dem Ursprungsprompt wirklich alles
+> erledigt?
+> **Methode:** Nicht „gibt es die Datei", sondern „macht sie, was da steht". Jeder Punkt
+> trägt einen Dateibeleg. Was ich nicht selbst laufen sehen konnte, steht als
+> **ungeprüft** — nicht als erfüllt.
+
+| Zeichen | Bedeutung |
+|---|---|
+| ✅ | erfüllt, Beleg vorhanden |
+| 🟡 | teilweise / Entscheidung offen / nicht live verifiziert |
+| ❌ | fehlt |
+
+---
+
+## A — Einladungsverfahren nach Vertragsunterzeichnung
+
+| # | Anforderung | Stand | Beleg |
+|---|---|---|---|
+| A1 | Chef lädt Mitarbeiter über TempConnect ein | ✅ | `POST /worker-invites` + `/bulk` + `/:id/resend` + `/:id/revoke` — `api/routes/workers.js:777` |
+| A2 | Einladung per E-Mail | ✅ | Mailversand im Invite-Service |
+| A2b | …oder WhatsApp / SMS | ❌ | Kein SMS-/WhatsApp-Provider im Code (keine Treffer für Twilio o. ä.) |
+| A3 | Link führt ins Einsatzportal | ✅ | `GET /auth/worker/invite/:token`, `POST /auth/worker/accept-invite` — `api/routes/auth.js:405` |
+| A4 | Skills werden **bei der Registrierung** abgefragt | ✅ | siehe unten — war besser gebaut, als mein erster Durchgang erkannt hat |
+
+### Richtigstellung: die Aufnahme fragt Fähigkeiten bereits ab
+
+Mein erster Audit-Durchgang hat den Aufnahme-Weg zu eng geprüft. Er ist vollständig:
+
+1. `worker-login.html` leitet nach Annahme der Einladung bewusst **ins Profil**, nicht
+   aufs Dashboard — mit `?willkommen=1` („Wer gerade erst eingeladen wurde, hat ein
+   leeres Profil. Das Dashboard zeigt ihm leere Listen und keinen Weg nach vorn.").
+2. `GET /worker/me/onboarding` (`api/services/workerOnboardingService.js`) ist die **eine**
+   Wahrheit über den Fortschritt — bewusst im Backend, damit Assistent, Dashboard und
+   Disposition nicht drei verschiedene Antworten geben.
+3. Vier Schritte, **Fähigkeiten ist Pflicht**: Person → Fähigkeiten → Verfügbarkeit →
+   Nachweise (letztere bewusst optional, weil die nötigen Papiere je Branche variieren).
+4. Offene Schritte sind **Sprungziele** (`href="#skills"`) — „ein Hinweis, der nicht
+   hinführt, ist eine Sackgasse".
+
+**Der einzige verbleibende Unterschied zum Prompt** („er muss alles ausfüllen"): Die
+Aufnahme ist heute **geführt, aber nicht bindend**. Ein Arbeiter kann die Schritte
+überspringen und das Portal trotzdem nutzen — er ist dann nur nicht `einsatzbereit`.
+Ob daraus eine echte Sperre werden soll, ist eine Owner-Entscheidung, keine Lücke.
+| A6 | Skills plattformweit verwendbar | ✅ | Katalog → Angebotsgenerator → Marktplatz/Suche (siehe C) |
+
+**Offen:** A2b — zweiter Einladungskanal. Für Zeitarbeit relevant: Gewerbliche
+Arbeitskräfte lesen häufiger WhatsApp als E-Mail. Ohne zweiten Kanal verlierst du
+Registrierungen genau bei der Zielgruppe, die den Marktplatz füllt.
+
+---
+
+## B — Formular & Skill-Erfassung im Einsatzportal
+
+| # | Anforderung | Stand | Beleg |
+|---|---|---|---|
+| B7 | Formular nimmt **alle** persönlichen Daten auf | 🟡 | `einsatzportal-profil.html` |
+| B8 | Fähigkeiten per Checkbox | ✅ | `renderSkillCatalog()` → `<input type="checkbox">` je Skill |
+| B9 | Kategorie-Katalog (z. B. Pflege → Pflege-Skills) | ✅ | `GET /skills/catalog`, `api/services/skillCatalogService.js`; UI als aufklappbare `<details>` je Kategorie |
+| B10 | Skills **manuell** eingeben / erweitern / ändern | ✅ | **Nachgerüstet 2026-08-06**, siehe unten |
+
+### Nachgerüstet: eigene Fähigkeiten (Mig 160)
+
+Bis 2026-08-06 konnten Arbeiter ausschließlich Katalog-Skills ankreuzen, und die
+Oberfläche sendete stumm `proficiency: 'intermediate'` — ein Spezialist sah damit aus
+wie jemand mit Grundkenntnissen, obwohl das Backend die vier Stufen seit Mig 145 kennt.
+
+**Warum kein einfaches Freitextfeld in den Katalog:** `platform_skills` ist die
+gemeinsame Matching-Achse. Dürfte jeder Arbeiter Zeilen anlegen, zerfiele
+„Gabelstaplerfahrer" binnen Wochen in vier Schreibweisen — und ein Unternehmen, das nach
+einer davon sucht, fände drei Viertel der passenden Arbeiter **nicht** mehr. Der Katalog
+würde die Suche zerstören, die er ermöglichen soll.
+
+**Gebaut wurde deshalb: erst suchen, dann anlegen.**
+
+| Eingabe | Ergebnis |
+|---|---|
+| „Krankenschwester" | → **Gesundheits- und Krankenpflege** (Alias-Treffer, sofort auffindbar) |
+| „ITS" | → **Intensivpflege** (Alias-Treffer) |
+| „altenPFLEGE" | → **Altenpflege** (Namenstreffer, Groß-/Kleinschreibung egal) |
+| „Hubarbeitsbühne" | → neuer Vorschlag `status='proposed'`, wartet auf Kuratierung |
+
+Die ersten drei Zeilen sind **an echten Katalogdaten verifiziert**, nicht konstruiert.
+
+Ein Vorschlag gehört dem Arbeiter, ist für seine Agentur sichtbar und trägt am Profil
+das Kennzeichen „in Prüfung" — er erscheint aber **weder** im Auswahlkatalog der anderen
+**noch** erzeugt er automatische Marktplatz-Angebote (`loadWorkerSkills` filtert auf
+`status='approved'`). Sonst stünde im Marktplatz eine Fähigkeit, nach der niemand suchen
+kann, und die Angebotszahl wäre aufgebläht statt echt.
+
+Dazu die Niveau-Auswahl (Grundkenntnisse / Geübt / Erfahren / Spezialist) in einer
+Liste „Ihre Fähigkeiten" — dort finden sich auch selbst eingetragene Fähigkeiten wieder,
+die in keiner Katalog-Kategorie stehen.
+
+**Dateien:** `sql/migrations/160_worker_proposed_skills.sql`,
+`api/services/skillCatalogService.js` (`proposeSkill`), `api/routes/skills.js`
+(`POST /skills/propose`), `api/services/capacityOfferGeneratorService.js`,
+`api/services/workerService.js`, `frontend/public/einsatzportal-profil.html`,
+`api/test/skillPropose.test.js` (10 Tests).
+
+**B7 im Detail — vorhanden:** Vor-/Nachname, E-Mail, Personalnummer, Telefon, Straße,
+PLZ, Ort, verfügbar ab, Wochenstunden, Einsatzradius, Profilfoto, Dokumente/Zertifikate
+inkl. Aussteller und Gültigkeitszeitraum.
+
+**B7 — nicht erfasst:** Geburtsdatum, Staatsangehörigkeit, Sozialversicherungsnummer,
+Steuer-ID, Bankverbindung, Führerscheinklassen, Notfallkontakt, Arbeitserlaubnis.
+
+> **Das ist eine Entscheidung, kein Bug.** Der Prompt sagt „alles Wichtige, das soll
+> lange dauern". Dagegen steht Datenminimierung (DSGVO Art. 5): Lohndaten wie IBAN und
+> SV-Nummer gehören üblicherweise ins Lohnsystem der Zeitarbeitsfirma, nicht in eine
+> Vermittlungsplattform — sie erhöhen deine Haftung, ohne die Vermittlung zu verbessern.
+> **Empfehlung:** Vermittlungsrelevantes aufnehmen (Führerscheinklassen, Arbeitserlaubnis,
+> Schichtbereitschaft, Notfallkontakt), Abrechnungsdaten bewusst draußen lassen.
+> Owner-Entscheidung nötig.
+
+**B10** ist die härtere Lücke: Ein Katalog kann nie vollständig sein. Ohne Freitext geht
+genau das Wissen verloren, das einen Arbeiter unterscheidbar macht — und das ist der
+Rohstoff des Multi-Skill-USP.
+
+**Nebenbefund:** Trotz P6-Migration stehen in `einsatzportal-profil.html` noch harte
+deutsche Strings im JS (`' gewählt'`, `'Speichern…'`, `'Bitte Auswahl prüfen.'`,
+`'Speichern fehlgeschlagen.'`). Die i18n-Gates prüfen Marker und Parität, nicht
+vergessene Literale.
+
+---
+
+## C — Multi-Skill-Angebotsmanagement (USP)
+
+**Vollständig gebaut, und zwar gut.** `api/services/capacityOfferGeneratorService.js`
+
+| # | Anforderung | Stand | Beleg |
+|---|---|---|---|
+| C11 | Je Skill ein Angebot pro Arbeiter | ✅ | `buildSingleSkillOfferData()` |
+| C12 | Zusätzlich ein Gesamt-Skill-Angebot (N+1) | ✅ | `buildBundleOfferData()` |
+| C13 | Premium-Versionen | ✅ | `PREMIUM_BOOST_LEVEL`, `premium: boolean` im Schema |
+| C15 | Kein zweites Angebot für denselben Skill | ✅ | **DB-Unique-Index** `capacity_posts_single_skill_unique_idx` — atomar erzwungen, nicht nur App-Logik; Duplikat wird als `already_exists` übersprungen |
+| C16 | Viele Arbeiter mit gleichem Skill gebündelt | ✅ | `POST /capacity-exchange/pool/generate` — bis 500 Arbeiter × 20 Skills |
+| C18 | Pauschales Helfer-Sammelangebot | ✅ | dieselbe Route ohne Skill-Filterung |
+| C19 | Keine eigene Kachel, bestehende Bereiche erweitert | ✅ | integriert in `capacity_exchange` |
+
+Der Generator nutzt `todayDE()` (DACH-Zeit) und erzeugt als `draft` — die Aktivierung
+bleibt der plan-gated Sichtbarkeitshebel. Sauber gedacht.
+
+---
+
+## D — Angebotsformulare
+
+| # | Anforderung | Stand | Beleg |
+|---|---|---|---|
+| D21 | Standard / Notdienst / Premium-Standard / Premium-Notdienst | ✅ | `priority_level: normal\|notdienst` × `premium: boolean` |
+| D22 | Vorschläge wie eine Suchleiste | ✅ | `buildOfferSuggestions()`, `buildPoolSuggestion()` |
+| D23 | Anzahl, Reservierung, Konflikt bei bereits zugewiesen | ✅ | `api/services/workerOfferReservationService.js` |
+
+---
+
+## E — Unternehmensseite
+
+| # | Anforderung | Stand | Beleg |
+|---|---|---|---|
+| E24 | Arbeitsplatzangebote mit 1+ Mitarbeitern / 1+ Skills | ✅ | Requisitions |
+| E25 | Zeitarbeitsfirma bucht bei Zeitarbeitsfirma (Trust Center) | 🟡 | 2 Treffer, Umfang **ungeprüft** |
+
+---
+
+## F — Bilder & Leben
+
+| # | Anforderung | Stand | Beleg |
+|---|---|---|---|
+| F26 | Landing: KI-Bilder + Video | ❌ | Drop-in gebaut, Bilddateien fehlen — **Owner-Aufgabe** (P7c) |
+| F27 | Upload-Bereiche frei von KI-Bildern | ✅ | Profilfoto (Einsatzportal), Firmenfoto, Angebotsfoto |
+| F28 | Landing-Layout links/rechts, Preview zuerst | 🟡 | **ungeprüft** |
+
+---
+
+## G — Ersatz, Zeit, Stundenzettel
+
+| # | Anforderung | Stand | Beleg |
+|---|---|---|---|
+| G29 | Krankmeldung → Ersatz zuweisen, voll verdrahtet | ✅ | `api/services/assignmentStaffingService.js` |
+| G30 | DACH-Zeit statt UTC (Datum war ein Tag zu weit) | ✅ | `api/utils/dateDE.js` → `todayDE()`, plattformweit |
+| G31 | Frist für Einreichung | ✅ | `submission_deadline` |
+| G31b | Eingereichte nicht mehr änderbar (nur nach Ablehnung) | ✅ | `EDITABLE = ['draft','needs_correction']` |
+| G32/33 | Nach Auftragsende zurück in Live-Belegschaft & Marktplatz | 🟡 | **ungeprüft** — Zeitlogik nicht nachgefahren |
+| G34 | Monatsplanung vorausplanen | ✅ | `api/routes/workers.js` |
+| G35 | Downloadbare Planungs-PDFs | ✅ | `api/services/workforceSchedulePdfService.js` |
+
+---
+
+## H — Live-Überwachung & Beschwerden
+
+| # | Anforderung | Stand | Beleg |
+|---|---|---|---|
+| H36 | Unternehmen verfolgt live, wer arbeitet | ✅ | `GET /company/live-workforce` |
+| H37 | Beschwerde melden, Ersatz anfordern | ✅ | `GET/POST /company/complaints`, `companyComplaintService.js` |
+| H38 | Sperrliste, Chef kann nicht mehr zuweisen + Benachrichtigung | ✅ | `companyBlocklistService.js`, `test/workerBlockNotification.test.js` |
+| H39 | Unternehmen entscheidet: nie / in 3 Monaten / wieder | ✅ | Blocklist mit Ablauf |
+
+---
+
+## I — Matching & Activity
+
+| # | Anforderung | Stand | Beleg |
+|---|---|---|---|
+| I40 | Bidirektionales Sofort-Matching + Benachrichtigungen | ✅ | `api/services/matchTriggerService.js`, Mig 151 |
+| I41 | Activity Center voll verdrahtet | ✅ | `activityFeedService.js`, `GET /activity-feed` |
+
+---
+
+## J — Einsatzportal
+
+| # | Anforderung | Stand | Beleg |
+|---|---|---|---|
+| J42 | Bugs fixen | 🟡 | **2 heute gefunden und behoben** (siehe unten); weitere nicht ausgeschlossen |
+| J45 | Unternehmen nimmt Stundenzettel entgegen | ✅ | `GET /company/submissions`, `POST /:id/confirm` |
+| J46 | Live-Belegschaft zur Einsatzüberwachung | ✅ | siehe H36 |
+
+**Heute behoben in `einsatzportal-stundenzettel.html`:**
+1. `closeEditor()` füllte die Detailansicht, **schaltete aber nie auf sie um** und kehrte
+   vorher zurück → „← Zurück" ließ den Nutzer im geleerten Editor stehen.
+2. Kartenklick führte auf eine Status-Zwischenansicht statt ins Ausfüllen. Jetzt: bei
+   `draft`/`needs_correction` direkt in den Editor.
+3. Karten waren `<div>` mit `onclick` — jetzt `role="button"`, `tabindex`, Enter/Leertaste,
+   sichtbarer Fokusring.
+
+---
+
+## K — Session & Sicherheit
+
+| # | Anforderung | Stand | Beleg |
+|---|---|---|---|
+| K47 | Ausloggen beim Fenster-Schließen? Mehrere Tabs? Härtung | 🟡 | Session-Konfiguration vorhanden, gefordertes Verhalten **nicht bestätigt** |
+
+---
+
+## L — CSV-Import
+
+| # | Anforderung | Stand | Beleg |
+|---|---|---|---|
+| L48 | CSV-Import geprüft und perfektioniert | ✅ | 4-Schritt-Assistent: Upload → Mapping → Validierung → Import |
+| L49 | E-Mail automatisch in die Einladung vorbefüllt | 🟡 | **ungeprüft** |
+| L50 | „Alle einladen" für noch nicht Registrierte, ohne Kollision | ✅ | `mit.list.inviteAll` — „Alle noch nicht registrierten Mitarbeiter einladen" |
+
+---
+
+## M — Zuletzt genannte Punkte
+
+| # | Anforderung | Stand |
+|---|---|---|
+| M51 | Umschalter Deutsch / Englisch | ✅ P6 abgeschlossen, jede Seite mit `i18n.js` hat ein Wörterbuch |
+| M52 | Stundenzettel im Einsatzportal bearbeitbar | ✅ heute behoben |
+| M53 | Wochenkarte anklickbar → führt ins Ausfüllen | ✅ heute behoben |
+
+---
+
+## Bilanz
+
+**30 erfüllt · 9 teilweise oder ungeprüft · 2 fehlen**
+*(Stand nach der Nachrüstung vom 2026-08-06.)*
+
+**Die verbleibenden Lücken:**
+1. **A2b** — kein zweiter Einladungskanal (WhatsApp/SMS). Trifft die Registrierungsquote
+   genau bei gewerblichen Arbeitskräften. Nach der Config-Taxonomie des Projekts wäre
+   das ein Tier-1-Provider (`SMS_PROVIDER`, console-first) — ohne externen Vertrag baubar.
+2. **F26** — Landing-Bilder. Owner-Aufgabe, kein Code offen.
+
+**Geschlossen am 2026-08-06:** B10 (eigene Fähigkeiten + Niveau, Mig 160).
+
+**Ebenfalls behoben (i18n-Reste auf derselben Seite):** `einsatzportal-profil.html`
+trug trotz P6-Migration noch harte deutsche Literale im JS. Dabei kam heraus, dass
+`ep.profil.skillsCountFmt`, `ep.profil.saving` und `ep.profil.saveFailed` **längst
+existierten**, der Code sie aber nicht benutzte — und dass ich beim Nachrüsten selbst
+Duplikate angelegt hatte. Beides bereinigt: vorhandene Schlüssel werden wiederverwendet
+statt verdoppelt.
+
+**Die Wahrheit über die 🟡:** Das sind keine bekannten Defekte, sondern **ungemessene
+Stellen**. Die beiden heute gefundenen Einsatzportal-Bugs waren vor der Messung ebenfalls
+„grün" — gebaut, verdrahtet, getestet, und trotzdem kam man nicht ins Ausfüllen. Für
+9 Punkte gilt derselbe Vorbehalt.
+
+**Was das kostet, sie zu schließen:** Eine authentifizierte E2E-Fahrt. Die Suite legt sich
+ihren Test-Worker selbst an (`e2e/tests/einsatzportal-worker-flow.spec.js`), es fehlt nur
+`npm install` + Playwright-Browser. Damit werden aus 9 Vermutungen 9 Messwerte — und die
+Prüfungen bleiben als Regressionsschutz für die Folgeprojekte liegen.

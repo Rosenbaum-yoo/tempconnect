@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <script src="/public/js/theme.js"></script>
   <script src="/public/js/i18n.js"></script>
-  <title>Anfrage – TempConnect</title>
+  <title data-i18n="rst.f.docTitle">Anfrage – TempConnect</title>
   <link rel="stylesheet" href="/public/css/enterprise.css"/>
   <style>
     .timer-big { font-size: 28px; text-align: center; padding: 20px; font-weight: 800; }
@@ -23,10 +23,118 @@
 <body>
   <div class="wrap">
     <div id="tc-shell"></div>
-    <div id="root"><p class="empty">Lade Anfrage…</p></div>
+    <!-- Die vier Zustaende stehen als echtes Markup da, statt zur Laufzeit als
+         String zusammengesetzt zu werden: so traegt jeder seinen i18n-Marker und
+         der Netzwerkfehler hat ueberhaupt erst eine Anzeige (vorher lief der
+         Abruf ohne catch ins Leere und die Seite blieb auf "Lade Anfrage" stehen). -->
+    <div id="rdLoading" class="empty" data-i18n="rst.f.state.loading">Lade Anfrage…</div>
+    <div id="rdNoId" class="empty" data-i18n="rst.f.state.noId" style="display:none">Keine Anfrage-ID.</div>
+    <div id="rdNotFound" class="empty" data-i18n="rst.f.state.notFound" style="display:none">Anfrage nicht gefunden.</div>
+    <div id="rdError" class="empty" data-i18n="rst.f.state.error" style="display:none">Anfrage konnte nicht geladen werden. Bitte erneut versuchen.</div>
+    <div id="root"></div>
   </div>
   <script>
+    /* Woerterbuch (P6.1, DE/EN) fuer request_detail.html — Namensraum rst.f.*.
+
+       Drei-Seiten-Regel: Die Anfrage-Detailseite zeigt BEIDE Seiten desselben
+       Vorgangs (Anfragesteller und Empfaenger) und wird von Unternehmen wie
+       Personaldienstleistern geoeffnet. Die Beschriftungen bleiben deshalb
+       bewusst rollenneutral ("Anfragesteller"/"Empfaenger" statt
+       "Kunde"/"Lieferant") und frieren keinen Begriff aus
+       terminologyLabels.js ein.
+
+       Bewusst NICHT uebersetzt:
+       - Status- und Compliance-Rohwerte (SENT/OFFERED/GREEN/…), Ereignis-Typen
+         und Compliance-Begruendungen — sie kommen aus /api/requests/:id
+       - Rolle, Firmennamen, Einsatzort, Datumsangaben (Datenwerte)
+       - der Pulse-Minutenwert im Auswahlfeld (geht an /api/requests/:id/sla)
+       - Topbar/Navigation/Nutzerbereich (pageShell.js)                       */
+    TCi18n.register('de', {
+      'rst.f.docTitle': 'Anfrage – TempConnect',
+      'rst.f.state.loading': 'Lade Anfrage…',
+      'rst.f.state.noId': 'Keine Anfrage-ID.',
+      'rst.f.state.notFound': 'Anfrage nicht gefunden.',
+      'rst.f.state.error': 'Anfrage konnte nicht geladen werden. Bitte erneut versuchen.',
+      'rst.f.timer.breached': 'Pulse Überschritten',
+      'rst.f.timer.resolved': 'Erledigt',
+      'rst.f.timer.unset': 'Pulse nicht konfiguriert',
+      'rst.f.timer.expired': 'Abgelaufen',
+      'rst.f.timer.remaining': '{rest} verbleibend',
+      'rst.f.timer.respondBy': 'Antwort bis:',
+      'rst.f.compliance.title': 'Compliance',
+      'rst.f.compliance.why': 'Warum? (klicken)',
+      'rst.f.compliance.noHints': 'Keine Hinweise.',
+      'rst.f.score.title': 'Supplier Scorecard',
+      'rst.f.score.grade': 'Grade {g}',
+      'rst.f.score.fill': 'Fill-rate',
+      'rst.f.score.onTime': 'On-time',
+      'rst.f.score.quality': 'Quality',
+      'rst.f.score.breach': 'Pulse breach',
+      'rst.f.req.title': 'Anfrage',
+      'rst.f.req.role': 'Rolle:',
+      'rst.f.req.status': 'Status:',
+      'rst.f.req.requester': 'Anfragesteller:',
+      'rst.f.req.receiver': 'Empfänger:',
+      'rst.f.req.location': 'Einsatzort:',
+      'rst.f.req.start': 'Start:',
+      'rst.f.action.accept': 'Annehmen',
+      'rst.f.action.decline': 'Ablehnen',
+      'rst.f.sla.title': 'Pulse Ändern',
+      'rst.f.sla.set': 'Pulse setzen',
+      'rst.f.sla.saving': 'Wird gesetzt …',
+      'rst.f.sla.failed': 'Pulse konnte nicht gesetzt werden.',
+      'rst.f.events.title': 'Pulse & Escalation',
+      'rst.f.events.empty': 'Keine Pulse-Aktivität.',
+      'rst.f.err.generic': 'Fehler'
+    });
+    TCi18n.register('en', {
+      'rst.f.docTitle': 'Request – TempConnect',
+      'rst.f.state.loading': 'Loading request…',
+      'rst.f.state.noId': 'No request ID.',
+      'rst.f.state.notFound': 'Request not found.',
+      'rst.f.state.error': 'The request could not be loaded. Please try again.',
+      'rst.f.timer.breached': 'Pulse breached',
+      'rst.f.timer.resolved': 'Done',
+      'rst.f.timer.unset': 'Pulse not configured',
+      'rst.f.timer.expired': 'Expired',
+      'rst.f.timer.remaining': '{rest} remaining',
+      'rst.f.timer.respondBy': 'Reply by:',
+      'rst.f.compliance.title': 'Compliance',
+      'rst.f.compliance.why': 'Why? (click)',
+      'rst.f.compliance.noHints': 'No findings.',
+      'rst.f.score.title': 'Supplier scorecard',
+      'rst.f.score.grade': 'Grade {g}',
+      'rst.f.score.fill': 'Fill rate',
+      'rst.f.score.onTime': 'On time',
+      'rst.f.score.quality': 'Quality',
+      'rst.f.score.breach': 'Pulse breach',
+      'rst.f.req.title': 'Request',
+      'rst.f.req.role': 'Role:',
+      'rst.f.req.status': 'Status:',
+      'rst.f.req.requester': 'Requester:',
+      'rst.f.req.receiver': 'Recipient:',
+      'rst.f.req.location': 'Work location:',
+      'rst.f.req.start': 'Start:',
+      'rst.f.action.accept': 'Accept',
+      'rst.f.action.decline': 'Decline',
+      'rst.f.sla.title': 'Change pulse',
+      'rst.f.sla.set': 'Set pulse',
+      'rst.f.sla.saving': 'Saving …',
+      'rst.f.sla.failed': 'The pulse could not be set.',
+      'rst.f.events.title': 'Pulse & escalation',
+      'rst.f.events.empty': 'No pulse activity.',
+      'rst.f.err.generic': 'Error'
+    });
+
     var API = "/api";
+    function t(key, params){ return TCi18n.t(key, params); }
+    /** Genau einen der vier Zustandsblöcke zeigen (oder keinen, dann rendert #root). */
+    function showState(id) {
+      ["rdLoading", "rdNoId", "rdNotFound", "rdError"].forEach(function (k) {
+        document.getElementById(k).style.display = (k === id) ? "" : "none";
+      });
+      if (id) document.getElementById("root").innerHTML = "";
+    }
     function esc(s){if(!s)return "";return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;").replace(/'/g,"&#39;");}
     var id = (new URLSearchParams(window.location.search)).get("id");
 
@@ -55,13 +163,13 @@
       return "green";
     }
     function timerText(respondBy, status) {
-      if (status === "BREACHED") return "Pulse Überschritten";
-      if (status === "RESOLVED") return "Erledigt";
-      if (!respondBy) return "Pulse nicht konfiguriert";
+      if (status === "BREACHED") return t('rst.f.timer.breached');
+      if (status === "RESOLVED") return t('rst.f.timer.resolved');
+      if (!respondBy) return t('rst.f.timer.unset');
       var min = Math.floor((new Date(respondBy).getTime() - Date.now()) / 60000);
-      if (min <= 0) return "Abgelaufen";
+      if (min <= 0) return t('rst.f.timer.expired');
       var h = Math.floor(min / 60), m = min % 60;
-      return (h ? h + "h " : "") + m + " min verbleibend";
+      return t('rst.f.timer.remaining', { rest: (h ? h + "h " : "") + m + " min" });
     }
 
     function render(req) {
@@ -73,57 +181,62 @@
       var reasons = Array.isArray(req.compliance_reasons) && req.compliance_reasons.length
         ? req.compliance_reasons.map(function(x) { return (x && x.message) ? x.message : (typeof x === "string" ? x : JSON.stringify(x || "")); }).filter(Boolean)
         : [];
-      var reasonsHtml = reasons.length ? "<ul>" + reasons.map(function(m) { return "<li>" + esc(m) + "</li>"; }).join("") + "</ul>" : "<span>Keine Hinweise.</span>";
+      var reasonsHtml = reasons.length ? "<ul>" + reasons.map(function(m) { return "<li>" + esc(m) + "</li>"; }).join("") + "</ul>" : "<span>" + esc(t('rst.f.compliance.noHints')) + "</span>";
       var scoreHtml = "";
       if (req.scorecard && (req.scorecard.grade || req.scorecard.fill_rate != null)) {
         var s = req.scorecard;
         var g = (s.grade || "–").toUpperCase();
-        scoreHtml = "<div class=\"card\"><h3 style=\"margin:0 0 8px\">Supplier Scorecard</h3><span class=\"score-badge " + (g === "A" ? "a" : g === "B" ? "b" : "c") + "\">Grade " + esc(s.grade || "–") + "</span>";
+        scoreHtml = "<div class=\"card\"><h3 style=\"margin:0 0 8px\">" + esc(t('rst.f.score.title')) + "</h3><span class=\"score-badge " + (g === "A" ? "a" : g === "B" ? "b" : "c") + "\">" + esc(t('rst.f.score.grade', { g: s.grade || "–" })) + "</span>";
         scoreHtml += "<div class=\"kpi-row\" style=\"margin-top:12px;display:grid;grid-template-columns:repeat(4,1fr);gap:10px;font-size:13px\">";
-        scoreHtml += "<div><b>" + (s.fill_rate != null ? (s.fill_rate * 100).toFixed(0) + "%" : "–") + "</b><span class=\"muted\">Fill-rate</span></div>";
-        scoreHtml += "<div><b>" + (s.on_time_rate != null ? (s.on_time_rate * 100).toFixed(0) + "%" : "–") + "</b><span class=\"muted\">On-time</span></div>";
-        scoreHtml += "<div><b>" + (s.avg_rating != null ? s.avg_rating.toFixed(1) : "–") + "</b><span class=\"muted\">Quality</span></div>";
-        scoreHtml += "<div><b>" + (s.sla_breach_rate != null ? (s.sla_breach_rate * 100).toFixed(0) + "%" : "–") + "</b><span class=\"muted\">Pulse breach</span></div></div></div>";
+        scoreHtml += "<div><b>" + (s.fill_rate != null ? (s.fill_rate * 100).toFixed(0) + "%" : "–") + "</b><span class=\"muted\">" + esc(t('rst.f.score.fill')) + "</span></div>";
+        scoreHtml += "<div><b>" + (s.on_time_rate != null ? (s.on_time_rate * 100).toFixed(0) + "%" : "–") + "</b><span class=\"muted\">" + esc(t('rst.f.score.onTime')) + "</span></div>";
+        scoreHtml += "<div><b>" + (s.avg_rating != null ? s.avg_rating.toFixed(1) : "–") + "</b><span class=\"muted\">" + esc(t('rst.f.score.quality')) + "</span></div>";
+        scoreHtml += "<div><b>" + (s.sla_breach_rate != null ? (s.sla_breach_rate * 100).toFixed(0) + "%" : "–") + "</b><span class=\"muted\">" + esc(t('rst.f.score.breach')) + "</span></div></div></div>";
       }
       var eventsHtml = "";
       if (Array.isArray(req.sla_events) && req.sla_events.length) {
         eventsHtml = "<ul style=\"list-style:none;padding:0;margin:0\">" + req.sla_events.map(function(e) {
-          return "<li style=\"padding:8px 0;border-bottom:1px solid var(--line);font-size:13px;color:var(--muted)\"><strong>" + esc(e.event_type || "") + "</strong> " + (e.created_at ? new Date(e.created_at).toLocaleString("de-DE") : "") + "</li>";
+          return "<li style=\"padding:8px 0;border-bottom:1px solid var(--line);font-size:13px;color:var(--muted)\"><strong>" + esc(e.event_type || "") + "</strong> " + (e.created_at ? new Date(e.created_at).toLocaleString(TCi18n.dateLocale()) : "") + "</li>";
         }).join("") + "</ul>";
-      } else eventsHtml = "<p class=\"empty\">Keine Pulse-Aktivität.</p>";
+      } else eventsHtml = "<p class=\"empty\">" + esc(t('rst.f.events.empty')) + "</p>";
       var actionsHtml = "";
       if (canRespond) {
-        actionsHtml = "<div class=\"actions\"><button class=\"btn good\" data-action=\"ACCEPTED\">Annehmen</button><button class=\"btn bad\" data-action=\"DECLINED\">Ablehnen</button></div>";
+        actionsHtml = "<div class=\"actions\"><button class=\"btn good\" data-action=\"ACCEPTED\">" + esc(t('rst.f.action.accept')) + "</button><button class=\"btn bad\" data-action=\"DECLINED\">" + esc(t('rst.f.action.decline')) + "</button></div>";
       }
       var isRequester = req.requester_id === window._userId;
       var showSlaBox = isRequester && req.status === "SENT";
       var slaBoxHtml = "";
       if (showSlaBox) {
-        slaBoxHtml = "<div class=\"card\" style=\"margin-top:12px\"><h3 style=\"margin:0 0 8px;font-size:14px\">Pulse Ändern</h3>";
+        slaBoxHtml = "<div class=\"card\" style=\"margin-top:12px\"><h3 style=\"margin:0 0 8px;font-size:14px\">" + esc(t('rst.f.sla.title')) + "</h3>";
         slaBoxHtml += "<div style=\"display:flex;align-items:center;gap:10px;flex-wrap:wrap\">";
         slaBoxHtml += "<select id=\"sla_select\" style=\"max-width:120px\"><option value=\"30\">30 min</option><option value=\"60\">60 min</option><option value=\"120\">120 min</option><option value=\"240\">240 min</option><option value=\"480\">480 min</option></select>";
-        slaBoxHtml += "<button type=\"button\" class=\"btn primary\" id=\"slaSetBtn\">Pulse setzen</button></div></div>";
+        slaBoxHtml += "<button type=\"button\" class=\"btn primary\" id=\"slaSetBtn\">" + esc(t('rst.f.sla.set')) + "</button>";
+        slaBoxHtml += "<span id=\"slaSetMsg\" class=\"muted\" style=\"font-size:13px\"></span></div></div>";
       }
 
       var html = "<div class=\"card\"><div class=\"timer-big " + timerCls + "\" id=\"timerDisplay\">" + timerText(req.sla_respond_by, req.sla_status) + "</div>";
-      html += "<p style=\"text-align:center;margin:0;color:var(--muted);font-size:14px\">Antwort bis: " + (req.sla_respond_by ? new Date(req.sla_respond_by).toLocaleString("de-DE") : "–") + "</p></div>";
+      html += "<p style=\"text-align:center;margin:0;color:var(--muted);font-size:14px\">" + esc(t('rst.f.timer.respondBy')) + " " + (req.sla_respond_by ? new Date(req.sla_respond_by).toLocaleString(TCi18n.dateLocale()) : "–") + "</p></div>";
+      // Der Pulse-Kasten wurde bisher gebaut, aber nie eingehaengt — er stand als
+      // toter Zweig im Renderer. Er gehoert direkt unter die Uhr, die er stellt.
+      html += slaBoxHtml;
 
       if (req.compliance_status) {
-        html += "<div class=\"card\"><h3 style=\"margin:0 0 8px\">Compliance <span class=\"tag " + compCls + "\">" + esc(req.compliance_status) + "</span></h3>";
-        html += "<div class=\"accordion-toggle\" id=\"accordionWhy\" onclick=\"document.getElementById('accordionBody').classList.toggle('show')\">Warum? (klicken)</div>";
+        html += "<div class=\"card\"><h3 style=\"margin:0 0 8px\">" + esc(t('rst.f.compliance.title')) + " <span class=\"tag " + compCls + "\">" + esc(req.compliance_status) + "</span></h3>";
+        html += "<div class=\"accordion-toggle\" id=\"accordionWhy\" onclick=\"document.getElementById('accordionBody').classList.toggle('show')\">" + esc(t('rst.f.compliance.why')) + "</div>";
         html += "<div class=\"accordion-body\" id=\"accordionBody\">" + reasonsHtml + "</div></div>";
       }
       html += scoreHtml;
-      html += "<div class=\"card\"><h3 style=\"margin:0 0 10px\">Anfrage</h3>";
-      html += "<p><strong>Rolle:</strong> " + esc(req.role || req.capacity_role || req.listing_category || "–") + "</p>";
-      html += "<p><strong>Status:</strong> " + esc(req.status || "–") + "</p>";
-      if (req.requester_company) html += "<p><strong>Anfragesteller:</strong> " + esc(req.requester_company) + "</p>";
-      if (req.receiver_company) html += "<p><strong>Empfänger:</strong> " + esc(req.receiver_company) + "</p>";
-      if (req.location_text) html += "<p><strong>Einsatzort:</strong> " + esc(req.location_text) + "</p>";
-      if (req.start_date) html += "<p><strong>Start:</strong> " + esc(req.start_date) + "</p>";
+      html += "<div class=\"card\"><h3 style=\"margin:0 0 10px\">" + esc(t('rst.f.req.title')) + "</h3>";
+      html += "<p><strong>" + esc(t('rst.f.req.role')) + "</strong> " + esc(req.role || req.capacity_role || req.listing_category || "–") + "</p>";
+      html += "<p><strong>" + esc(t('rst.f.req.status')) + "</strong> " + esc(req.status || "–") + "</p>";
+      if (req.requester_company) html += "<p><strong>" + esc(t('rst.f.req.requester')) + "</strong> " + esc(req.requester_company) + "</p>";
+      if (req.receiver_company) html += "<p><strong>" + esc(t('rst.f.req.receiver')) + "</strong> " + esc(req.receiver_company) + "</p>";
+      if (req.location_text) html += "<p><strong>" + esc(t('rst.f.req.location')) + "</strong> " + esc(req.location_text) + "</p>";
+      if (req.start_date) html += "<p><strong>" + esc(t('rst.f.req.start')) + "</strong> " + esc(req.start_date) + "</p>";
       html += actionsHtml + "</div>";
-      html += "<div class=\"card\"><h3 style=\"margin:0 0 10px\">Pulse & Escalation</h3>" + eventsHtml + "</div>";
+      html += "<div class=\"card\"><h3 style=\"margin:0 0 10px\">" + esc(t('rst.f.events.title')) + "</h3>" + eventsHtml + "</div>";
 
+      showState(null);
       document.getElementById("root").innerHTML = html;
       if (req.sla_respond_by && req.sla_status === "OK") {
         window._timerReq = req;
@@ -135,6 +248,28 @@
       document.querySelectorAll("[data-action]").forEach(function(btn) {
         btn.onclick = function() { setStatus(btn.getAttribute("data-action")); };
       });
+      var slaBtn = document.getElementById("slaSetBtn");
+      if (slaBtn) slaBtn.onclick = function() { setSla(slaBtn); };
+    }
+
+    /** Pulse-Frist neu setzen (POST /requests/:id/sla). */
+    function setSla(btn) {
+      var sel = document.getElementById("sla_select");
+      var msg = document.getElementById("slaSetMsg");
+      var minutes = parseInt(sel && sel.value, 10) || 60;
+      btn.disabled = true;
+      msg.textContent = t('rst.f.sla.saving');
+      getCsrf().then(function(csrf) {
+        return api("/requests/" + id + "/sla", { method: "POST", body: { sla_minutes: minutes }, csrf: csrf && csrf.token });
+      }).then(function(r) {
+        if (!checkAuth(r)) return;
+        if (r.ok) { msg.textContent = ""; load(); return; }
+        btn.disabled = false;
+        msg.textContent = t('rst.f.sla.failed');
+      }).catch(function() {
+        btn.disabled = false;
+        msg.textContent = t('rst.f.sla.failed');
+      });
     }
 
     function setStatus(status) {
@@ -143,12 +278,13 @@
       }).then(function(r) {
         if (!checkAuth(r)) return;
         if (r.ok) { load(); return; }
-        r.json().then(function(j) { alert(j.error || "Fehler"); });
+        r.json().then(function(j) { alert(j.error || t('rst.f.err.generic')); });
       });
     }
 
     function load() {
-      if (!id) { document.getElementById("root").innerHTML = "<p class=\"empty\">Keine Anfrage-ID.</p>"; return; }
+      if (!id) { showState("rdNoId"); return; }
+      showState("rdLoading");
       api("/me").then(function(r) {
         if (!checkAuth(r)) return;
         return r.ok ? r.json() : null;
@@ -157,14 +293,29 @@
         return api("/requests/" + id);
       }).then(function(r) {
         if (!checkAuth(r)) return;
-        if (!r.ok) { document.getElementById("root").innerHTML = "<p class=\"empty\">Anfrage nicht gefunden.</p>"; return; }
+        if (!r.ok) { showState("rdNotFound"); return; }
         return r.json();
       }).then(function(req) {
         if (!req) return;
         if (window._timerId) clearInterval(window._timerId);
+        window._req = req;
         render(req);
+      }).catch(function() {
+        // Bisher fehlte dieser Zweig: ein Netzwerkfehler liess die Seite
+        // dauerhaft auf "Lade Anfrage…" stehen.
+        showState("rdError");
       });
     }
+
+    // Der gesamte Detailblock entsteht als HTML-String — nach einem Sprachwechsel
+    // wird er aus dem zuletzt geladenen Datensatz neu gezeichnet, ohne neuen Abruf.
+    document.addEventListener("tc:langchange", function() {
+      if (window._req) {
+        if (window._timerId) clearInterval(window._timerId);
+        render(window._req);
+      }
+    });
+
     load();
   </script>
   <script src="/public/js/pageShell.js"></script>

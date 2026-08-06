@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <script src="/public/js/theme.js"></script>
   <script src="/public/js/i18n.js"></script>
-  <title>Mein Bereich – TempConnect</title>
+  <title data-i18n="rst.e.docTitle">Mein Bereich – TempConnect</title>
   <link rel="stylesheet" href="/public/css/enterprise.css"/>
   <style>
     .tab-bar{display:flex;gap:4px;border-bottom:1px solid var(--line);margin-bottom:16px}
@@ -32,11 +32,11 @@
 </head>
 <body data-sla-guard="sla_access">
   <div id="paywall" class="wrap" style="display:none">
-    <nav class="ds-topbar"><div class="ds-topbar__brand"><span class="ds-topbar__brand-dot"></span>TempConnect</div><div class="ds-topbar__nav"><a href="/" class="ds-btn">Startseite</a></div></nav>
+    <nav class="ds-topbar"><div class="ds-topbar__brand"><span class="ds-topbar__brand-dot"></span>TempConnect</div><div class="ds-topbar__nav"><a href="/" class="ds-btn" data-i18n="rst.e.paywall.home">Startseite</a></div></nav>
     <div class="paywall-box">
-      <h2>Bereich nicht verfuegbar</h2>
-      <p>Aktueller Plan: <span id="paywall-current-plan" class="paywall-plan">–</span></p>
-      <a id="paywall-cta" href="/public/sla_abo.html" class="btn primary">Abo ansehen</a>
+      <h2 data-i18n="rst.e.paywall.title">Bereich nicht verfuegbar</h2>
+      <p><span data-i18n="rst.e.paywall.currentPlan">Aktueller Plan:</span> <span id="paywall-current-plan" class="paywall-plan">–</span></p>
+      <a id="paywall-cta" href="/public/sla_abo.html" class="btn primary" data-i18n="rst.e.paywall.cta">Abo ansehen</a>
     </div>
   </div>
 
@@ -45,55 +45,55 @@
 
     <div class="ds-page-header">
       <div class="ds-page-header__content">
-        <h1 class="ds-page-title">Mein Bereich</h1>
-        <p class="ds-page-subtitle">Ihre pers&ouml;nlichen Anfragen, Eing&auml;nge, Matching-Ergebnisse und Angebote &ndash; zentral an einem Ort.</p>
+        <h1 class="ds-page-title" data-i18n="rst.e.page.title">Mein Bereich</h1>
+        <p class="ds-page-subtitle" data-i18n="rst.e.page.subtitle">Ihre pers&ouml;nlichen Anfragen, Eing&auml;nge, Matching-Ergebnisse und Angebote &ndash; zentral an einem Ort.</p>
       </div>
       <div class="ds-page-header__actions">
-        <a href="/public/capacity_exchange_feed.html" class="ds-btn">&larr; Zur Vermittlung</a>
+        <a href="/public/capacity_exchange_feed.html" class="ds-btn" data-i18n="rst.e.page.back">&larr; Zur Vermittlung</a>
       </div>
     </div>
 
     <!-- Quick-Access Cards -->
     <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:var(--ds-space-3,12px);margin-bottom:var(--ds-space-5,20px)">
       <a href="/public/agency_inbox.html" style="padding:16px;border:1px solid var(--line);border-radius:12px;background:rgba(255,255,255,.025);text-decoration:none;color:inherit;transition:border-color .15s" onmouseover="this.style.borderColor='var(--brand)'" onmouseout="this.style.borderColor='var(--line)'">
-        <div style="font-size:14px;font-weight:700">Eingang</div>
-        <div style="font-size:12px;color:var(--muted);margin-top:2px">Neue Reaktionen und R&uuml;ckmeldungen pr&uuml;fen.</div>
+        <div style="font-size:14px;font-weight:700" data-i18n="rst.e.card.inbox.title">Eingang</div>
+        <div style="font-size:12px;color:var(--muted);margin-top:2px" data-i18n="rst.e.card.inbox.desc">Neue Reaktionen und R&uuml;ckmeldungen pr&uuml;fen.</div>
       </a>
       <a href="/public/company_requests.html" style="padding:16px;border:1px solid var(--line);border-radius:12px;background:rgba(255,255,255,.025);text-decoration:none;color:inherit;transition:border-color .15s" onmouseover="this.style.borderColor='var(--brand)'" onmouseout="this.style.borderColor='var(--line)'">
-        <div style="font-size:14px;font-weight:700">Meine Anfragen</div>
-        <div style="font-size:12px;color:var(--muted);margin-top:2px">Laufende Arbeitsplatzangebote und Anfragen verwalten.</div>
+        <div style="font-size:14px;font-weight:700" data-i18n="rst.e.card.requests.title">Meine Anfragen</div>
+        <div style="font-size:12px;color:var(--muted);margin-top:2px" data-i18n="rst.e.card.requests.desc">Laufende Arbeitsplatzangebote und Anfragen verwalten.</div>
       </a>
       <a href="/public/sla_search_jobs_list.html" style="padding:16px;border:1px solid var(--line);border-radius:12px;background:rgba(255,255,255,.025);text-decoration:none;color:inherit;transition:border-color .15s" onmouseover="this.style.borderColor='var(--brand)'" onmouseout="this.style.borderColor='var(--line)'">
-        <div style="font-size:14px;font-weight:700">Gespeicherte Suchauftr&auml;ge</div>
-        <div style="font-size:12px;color:var(--muted);margin-top:2px">Automatische Suchlogiken wiederfinden.</div>
+        <div style="font-size:14px;font-weight:700" data-i18n="rst.e.card.searches.title">Gespeicherte Suchauftr&auml;ge</div>
+        <div style="font-size:12px;color:var(--muted);margin-top:2px" data-i18n="rst.e.card.searches.desc">Automatische Suchlogiken wiederfinden.</div>
       </a>
       <a href="/public/matching_results.html" style="padding:16px;border:1px solid var(--line);border-radius:12px;background:rgba(255,255,255,.025);text-decoration:none;color:inherit;transition:border-color .15s" onmouseover="this.style.borderColor='var(--brand)'" onmouseout="this.style.borderColor='var(--line)'">
         <div style="font-size:20px;margin-bottom:6px">&#11088;</div>
-        <div style="font-size:14px;font-weight:700">Matching Engine</div>
-        <div style="font-size:12px;color:var(--muted);margin-top:2px">Passende Vorschl&auml;ge und Treffer nutzen.</div>
+        <div style="font-size:14px;font-weight:700" data-i18n="rst.e.card.matching.title">Matching Engine</div>
+        <div style="font-size:12px;color:var(--muted);margin-top:2px" data-i18n="rst.e.card.matching.desc">Passende Vorschl&auml;ge und Treffer nutzen.</div>
       </a>
       <a href="/public/deal_management.html" style="padding:16px;border:1px solid var(--line);border-radius:12px;background:rgba(255,255,255,.025);text-decoration:none;color:inherit;transition:border-color .15s" onmouseover="this.style.borderColor='var(--brand)'" onmouseout="this.style.borderColor='var(--line)'">
         <div style="font-size:20px;margin-bottom:6px">D</div>
-        <div style="font-size:14px;font-weight:700">Meine Deals</div>
-        <div style="font-size:12px;color:var(--muted);margin-top:2px">Einsatzvereinbarungen, Verhandlungen und Dealakten.</div>
+        <div style="font-size:14px;font-weight:700" data-i18n="rst.e.card.deals.title">Meine Deals</div>
+        <div style="font-size:12px;color:var(--muted);margin-top:2px" data-i18n="rst.e.card.deals.desc">Einsatzvereinbarungen, Verhandlungen und Dealakten.</div>
       </a>
     </div>
 
     <!-- Angebote Section -->
     <div style="border:1px solid var(--line);border-radius:12px;padding:20px;background:rgba(255,255,255,.015)">
-      <h2 style="font-size:16px;font-weight:700;margin:0 0 4px">Angebote verwalten</h2>
-      <p style="font-size:12px;color:var(--muted);margin:0 0 16px">Gesendete und erhaltene Angebote einsehen und bearbeiten.</p>
+      <h2 style="font-size:16px;font-weight:700;margin:0 0 4px" data-i18n="rst.e.offers.title">Angebote verwalten</h2>
+      <p style="font-size:12px;color:var(--muted);margin:0 0 16px" data-i18n="rst.e.offers.subtitle">Gesendete und erhaltene Angebote einsehen und bearbeiten.</p>
 
       <div class="tab-bar" id="tabBar">
-        <button class="tab-btn active" data-tab="received">Erhaltene Angebote</button>
-        <button class="tab-btn" data-tab="sent">Meine Angebote</button>
+        <button class="tab-btn active" data-tab="received" data-i18n="rst.e.tab.received">Erhaltene Angebote</button>
+        <button class="tab-btn" data-tab="sent" data-i18n="rst.e.tab.sent">Meine Angebote</button>
       </div>
 
       <div class="tab-panel active" id="tab-received">
-        <div id="receivedOffers"><p style="color:var(--muted)">Lade Angebote...</p></div>
+        <div id="receivedOffers"><p style="color:var(--muted)" data-i18n="rst.e.loading">Lade Angebote...</p></div>
       </div>
       <div class="tab-panel" id="tab-sent">
-        <div id="sentOffers"><p style="color:var(--muted)">Lade Angebote...</p></div>
+        <div id="sentOffers"><p style="color:var(--muted)" data-i18n="rst.e.loading">Lade Angebote...</p></div>
       </div>
     </div>
   </div>
@@ -101,10 +101,131 @@
   <script src="/public/js/planFeatures.js"></script>
   <script src="/public/js/slaGuard.js"></script>
   <script>
+    /* Woerterbuch (P6.1, DE/EN) fuer angebote_verwalten.html — Unter-Namensraum
+       rst.e.*.
+
+       Drei-Seiten-Regel: Die Seite ist zweiseitig (Angebote gesendet UND
+       erhalten) und an sla_access gebunden, also fuer Unternehmen wie fuer
+       Personaldienstleister erreichbar. Der Gegenseiten-Begriff haengt am
+       Modus, nicht an der Rolle: im Tab "Meine Angebote" ist die Gegenseite
+       der Auftraggeber, im Tab "Erhaltene Angebote" der Lieferant. Beide
+       liegen deshalb in eigenen Schluesseln (…counterparty.buyer /
+       …counterparty.supplier) und werden je Modus gewaehlt.
+
+       Bewusst NICHT uebersetzt:
+       - Status-Rohwerte (draft/sent/accepted/…) und viewer_state-Rohwerte —
+         Server-Enums, die auch als CSS-Klassenteil dienen
+       - na.viewer_label: kommt fertig formuliert vom Server und hat Vorrang
+       - API-Daten (Titel, Rolle, Firmenname, Stadt) und EUR-Betraege
+       - Topbar/Navigation/Nutzerbereich (pageShell.js)                       */
+    TCi18n.register('de', {
+      'rst.e.docTitle': 'Mein Bereich – TempConnect',
+      'rst.e.paywall.home': 'Startseite',
+      'rst.e.paywall.title': 'Bereich nicht verfuegbar',
+      'rst.e.paywall.currentPlan': 'Aktueller Plan:',
+      'rst.e.paywall.cta': 'Abo ansehen',
+      'rst.e.page.title': 'Mein Bereich',
+      'rst.e.page.subtitle': 'Ihre persönlichen Anfragen, Eingänge, Matching-Ergebnisse und Angebote – zentral an einem Ort.',
+      'rst.e.page.back': '← Zur Vermittlung',
+      'rst.e.card.inbox.title': 'Eingang',
+      'rst.e.card.inbox.desc': 'Neue Reaktionen und Rückmeldungen prüfen.',
+      'rst.e.card.requests.title': 'Meine Anfragen',
+      'rst.e.card.requests.desc': 'Laufende Arbeitsplatzangebote und Anfragen verwalten.',
+      'rst.e.card.searches.title': 'Gespeicherte Suchaufträge',
+      'rst.e.card.searches.desc': 'Automatische Suchlogiken wiederfinden.',
+      'rst.e.card.matching.title': 'Matching Engine',
+      'rst.e.card.matching.desc': 'Passende Vorschläge und Treffer nutzen.',
+      'rst.e.card.deals.title': 'Meine Deals',
+      'rst.e.card.deals.desc': 'Einsatzvereinbarungen, Verhandlungen und Dealakten.',
+      'rst.e.offers.title': 'Angebote verwalten',
+      'rst.e.offers.subtitle': 'Gesendete und erhaltene Angebote einsehen und bearbeiten.',
+      'rst.e.tab.received': 'Erhaltene Angebote',
+      'rst.e.tab.sent': 'Meine Angebote',
+      'rst.e.loading': 'Lade Angebote...',
+      'rst.e.status.draft': 'Entwurf',
+      'rst.e.status.sent': 'Gesendet',
+      'rst.e.status.accepted': 'Angenommen',
+      'rst.e.status.rejected': 'Abgelehnt',
+      'rst.e.status.countered': 'Gegenangebot',
+      'rst.e.status.withdrawn': 'Zurueckgezogen',
+      'rst.e.view.action_required': 'Aktion erforderlich',
+      'rst.e.view.waiting_on_counterparty': 'Warten auf Gegenseite',
+      'rst.e.view.closed': 'Abgeschlossen',
+      'rst.e.action.send': 'Absenden',
+      'rst.e.action.withdraw': 'Zurueckziehen',
+      'rst.e.action.accept': 'Annehmen',
+      'rst.e.action.reject': 'Ablehnen',
+      'rst.e.action.counter': 'Gegenangebot',
+      'rst.e.card.demandFallback': 'Nachfrage',
+      'rst.e.counterparty.buyer': 'Auftraggeber:',
+      'rst.e.counterparty.supplier': 'Lieferant:',
+      'rst.e.meta.city': 'Stadt:',
+      'rst.e.meta.rate': 'Rate:',
+      'rst.e.meta.quantity': 'Menge:',
+      'rst.e.meta.created': 'Erstellt:',
+      'rst.e.meta.perHour': '/Std.',
+      'rst.e.empty.sent': 'Sie haben noch keine Angebote gesendet.',
+      'rst.e.empty.received': 'Keine offenen Angebote – alle erledigt.',
+      'rst.e.empty.error': 'Fehler beim Laden.',
+      'rst.e.prompt.counter': 'Gegenangebot / Hinweis (optional):'
+    });
+    TCi18n.register('en', {
+      'rst.e.docTitle': 'My area – TempConnect',
+      'rst.e.paywall.home': 'Home',
+      'rst.e.paywall.title': 'Area not available',
+      'rst.e.paywall.currentPlan': 'Current plan:',
+      'rst.e.paywall.cta': 'View plans',
+      'rst.e.page.title': 'My area',
+      'rst.e.page.subtitle': 'Your own requests, inbox, matching results and offers – all in one place.',
+      'rst.e.page.back': '← Back to placement',
+      'rst.e.card.inbox.title': 'Inbox',
+      'rst.e.card.inbox.desc': 'Review new responses and replies.',
+      'rst.e.card.requests.title': 'My requests',
+      'rst.e.card.requests.desc': 'Manage running job postings and requests.',
+      'rst.e.card.searches.title': 'Saved searches',
+      'rst.e.card.searches.desc': 'Find your automated searches again.',
+      'rst.e.card.matching.title': 'Matching engine',
+      'rst.e.card.matching.desc': 'Use matching suggestions and hits.',
+      'rst.e.card.deals.title': 'My deals',
+      'rst.e.card.deals.desc': 'Assignment agreements, negotiations and deal files.',
+      'rst.e.offers.title': 'Manage offers',
+      'rst.e.offers.subtitle': 'View and edit the offers you sent and received.',
+      'rst.e.tab.received': 'Received offers',
+      'rst.e.tab.sent': 'My offers',
+      'rst.e.loading': 'Loading offers...',
+      'rst.e.status.draft': 'Draft',
+      'rst.e.status.sent': 'Sent',
+      'rst.e.status.accepted': 'Accepted',
+      'rst.e.status.rejected': 'Declined',
+      'rst.e.status.countered': 'Counter-offer',
+      'rst.e.status.withdrawn': 'Withdrawn',
+      'rst.e.view.action_required': 'Action required',
+      'rst.e.view.waiting_on_counterparty': 'Waiting on counterparty',
+      'rst.e.view.closed': 'Closed',
+      'rst.e.action.send': 'Send',
+      'rst.e.action.withdraw': 'Withdraw',
+      'rst.e.action.accept': 'Accept',
+      'rst.e.action.reject': 'Decline',
+      'rst.e.action.counter': 'Counter-offer',
+      'rst.e.card.demandFallback': 'Demand',
+      'rst.e.counterparty.buyer': 'Client:',
+      'rst.e.counterparty.supplier': 'Supplier:',
+      'rst.e.meta.city': 'City:',
+      'rst.e.meta.rate': 'Rate:',
+      'rst.e.meta.quantity': 'Quantity:',
+      'rst.e.meta.created': 'Created:',
+      'rst.e.meta.perHour': '/hr',
+      'rst.e.empty.sent': 'You have not sent any offers yet.',
+      'rst.e.empty.received': 'No open offers – everything is handled.',
+      'rst.e.empty.error': 'Loading failed.',
+      'rst.e.prompt.counter': 'Counter-offer / note (optional):'
+    });
+
     var API="/api";
     var _csrf=null;
+    function t(k,p){return TCi18n.t(k,p)}
     function esc(s){return s==null?"":String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;")}
-    function fmtDate(d){return d?new Date(d).toLocaleDateString("de-DE"):"–"}
+    function fmtDate(d){return d?new Date(d).toLocaleDateString(TCi18n.dateLocale()):"–"}
     function fmtEur(v){return v!=null?(Number(v).toFixed(2)+" EUR"):"–"}
 
     function getCsrf(){
@@ -112,12 +233,12 @@
       return fetch(API+"/csrf",{credentials:"include"}).then(function(r){return r.ok?r.json():{}}).then(function(d){_csrf=d.csrfToken||d.token;return _csrf});
     }
 
-    var STATUS_LABELS={draft:"Entwurf",sent:"Gesendet",accepted:"Angenommen",rejected:"Abgelehnt",countered:"Gegenangebot",withdrawn:"Zurueckgezogen"};
-    var VIEW_STATE_LABELS={
-      action_required:"Aktion erforderlich",
-      waiting_on_counterparty:"Warten auf Gegenseite",
-      closed:"Abgeschlossen"
-    };
+    /* Status- und Viewer-State-Rohwerte bleiben Server-Enums; nur ihr Label
+       wird zur Anzeigezeit uebersetzt (kein eingefrorener Wert im Woerterbuch). */
+    var STATUS_KEYS=["draft","sent","accepted","rejected","countered","withdrawn"];
+    function statusLabel(s){return STATUS_KEYS.indexOf(s)>=0?t("rst.e.status."+s):""}
+    var VIEW_STATE_KEYS=["action_required","waiting_on_counterparty","closed"];
+    function viewStateLabel(s){return VIEW_STATE_KEYS.indexOf(s)>=0?t("rst.e.view."+s):""}
     var VIEW_STATE_CLASSES={
       action_required:"viewer-action-required",
       waiting_on_counterparty:"viewer-waiting",
@@ -126,35 +247,35 @@
 
     function statusBadge(s){
       var cls="status-"+(s||"draft");
-      return '<span class="status-badge '+cls+'">'+(STATUS_LABELS[s]||s||"–")+'</span>';
+      return '<span class="status-badge '+cls+'">'+esc(statusLabel(s)||s||"–")+'</span>';
     }
 
     function offerActions(offer,mode){
       var btns=[];
       var na=offer.next_action||{};
       if(mode==="sent"){
-        if(na.actions&&na.actions.includes("send"))btns.push('<button class="btn primary" style="font-size:12px;padding:6px 12px" onclick="changeStatus(\''+offer.id+'\',\'sent\')">Absenden</button>');
-        if(na.actions&&na.actions.includes("withdraw"))btns.push('<button class="btn bad" style="font-size:12px;padding:6px 12px" onclick="withdrawOffer(\''+offer.id+'\')">Zurueckziehen</button>');
+        if(na.actions&&na.actions.includes("send"))btns.push('<button class="btn primary" style="font-size:12px;padding:6px 12px" onclick="changeStatus(\''+offer.id+'\',\'sent\')">'+esc(t("rst.e.action.send"))+'</button>');
+        if(na.actions&&na.actions.includes("withdraw"))btns.push('<button class="btn bad" style="font-size:12px;padding:6px 12px" onclick="withdrawOffer(\''+offer.id+'\')">'+esc(t("rst.e.action.withdraw"))+'</button>');
       }
       if(mode==="received"){
-        if(na.actions&&na.actions.includes("accept"))btns.push('<button class="btn good" style="font-size:12px;padding:6px 12px" onclick="acceptOffer(\''+offer.id+'\')">Annehmen</button>');
-        if(na.actions&&na.actions.includes("reject"))btns.push('<button class="btn bad" style="font-size:12px;padding:6px 12px" onclick="rejectOffer(\''+offer.id+'\')">Ablehnen</button>');
-        if(na.actions&&na.actions.includes("counter"))btns.push('<button class="btn" style="font-size:12px;padding:6px 12px" onclick="counterOfferPrompt(\''+offer.id+'\')">Gegenangebot</button>');
+        if(na.actions&&na.actions.includes("accept"))btns.push('<button class="btn good" style="font-size:12px;padding:6px 12px" onclick="acceptOffer(\''+offer.id+'\')">'+esc(t("rst.e.action.accept"))+'</button>');
+        if(na.actions&&na.actions.includes("reject"))btns.push('<button class="btn bad" style="font-size:12px;padding:6px 12px" onclick="rejectOffer(\''+offer.id+'\')">'+esc(t("rst.e.action.reject"))+'</button>');
+        if(na.actions&&na.actions.includes("counter"))btns.push('<button class="btn" style="font-size:12px;padding:6px 12px" onclick="counterOfferPrompt(\''+offer.id+'\')">'+esc(t("rst.e.action.counter"))+'</button>');
       }
       return btns.join(" ");
     }
 
     function renderOfferCard(o,mode){
-      var title=o.demand_title||"Nachfrage";
+      var title=o.demand_title||t("rst.e.card.demandFallback");
       var counterparty=mode==="sent"?(o.requester_name||"–"):(o.supplier_name||"–");
-      var cpLabel=mode==="sent"?"Auftraggeber":"Lieferant";
-      var rate=o.offered_hourly_rate?fmtEur(o.offered_hourly_rate)+"/Std.":"–";
+      var cpLabel=mode==="sent"?t("rst.e.counterparty.buyer"):t("rst.e.counterparty.supplier");
+      var rate=o.offered_hourly_rate?fmtEur(o.offered_hourly_rate)+t("rst.e.meta.perHour"):"–";
       var na=o.next_action||{};
       var vsCls=VIEW_STATE_CLASSES[na.viewer_state]||"viewer-closed";
-      var vsText=na.viewer_label||(VIEW_STATE_LABELS[na.viewer_state]||na.viewer_state||"–");
-      var vs=na.viewer_state?('<span class="status-badge '+vsCls+'" style="margin-left:6px">'+vsText+'</span>'):'';
+      var vsText=na.viewer_label||viewStateLabel(na.viewer_state)||na.viewer_state||"–";
+      var vs=na.viewer_state?('<span class="status-badge '+vsCls+'" style="margin-left:6px">'+esc(vsText)+'</span>'):'';
       return '<div class="offer-card"><div class="offer-header"><div class="offer-title">'+esc(title)+' – '+esc(o.demand_role||"")+'</div><div>'+statusBadge(o.status)+vs+'</div></div>'+
-        '<div class="offer-meta"><span>'+cpLabel+': '+esc(counterparty)+'</span><span>Stadt: '+esc(o.demand_city||"–")+'</span><span>Rate: '+rate+'</span><span>Menge: '+(o.offered_quantity||1)+'</span><span>Erstellt: '+fmtDate(o.created_at)+'</span></div>'+
+        '<div class="offer-meta"><span>'+esc(cpLabel)+' '+esc(counterparty)+'</span><span>'+esc(t("rst.e.meta.city"))+' '+esc(o.demand_city||"–")+'</span><span>'+esc(t("rst.e.meta.rate"))+' '+esc(rate)+'</span><span>'+esc(t("rst.e.meta.quantity"))+' '+(o.offered_quantity||1)+'</span><span>'+esc(t("rst.e.meta.created"))+' '+esc(fmtDate(o.created_at))+'</span></div>'+
         '<div class="offer-actions">'+offerActions(o,mode)+'</div></div>';
     }
 
@@ -162,15 +283,15 @@
       try{
         var r=await fetch(API+"/marketplace/my-offers",{credentials:"include"});
         var d=await r.json();var items=(d.data&&d.data.items)||[];
-        document.getElementById("sentOffers").innerHTML=items.length?items.map(function(o){return renderOfferCard(o,"sent")}).join(""):'<p class="empty">Sie haben noch keine Angebote gesendet.</p>';
-      }catch(e){document.getElementById("sentOffers").innerHTML='<p class="empty">Fehler beim Laden.</p>';}
+        document.getElementById("sentOffers").innerHTML=items.length?items.map(function(o){return renderOfferCard(o,"sent")}).join(""):'<p class="empty">'+esc(t("rst.e.empty.sent"))+'</p>';
+      }catch(e){document.getElementById("sentOffers").innerHTML='<p class="empty">'+esc(t("rst.e.empty.error"))+'</p>';}
     }
     async function loadReceivedOffers(){
       try{
         var r=await fetch(API+"/marketplace/received-offers",{credentials:"include"});
         var d=await r.json();var items=(d.data&&d.data.items)||[];
-        document.getElementById("receivedOffers").innerHTML=items.length?items.map(function(o){return renderOfferCard(o,"received")}).join(""):'<p class="empty">Keine offenen Angebote – alle erledigt.</p>';
-      }catch(e){document.getElementById("receivedOffers").innerHTML='<p class="empty">Fehler beim Laden.</p>';}
+        document.getElementById("receivedOffers").innerHTML=items.length?items.map(function(o){return renderOfferCard(o,"received")}).join(""):'<p class="empty">'+esc(t("rst.e.empty.received"))+'</p>';
+      }catch(e){document.getElementById("receivedOffers").innerHTML='<p class="empty">'+esc(t("rst.e.empty.error"))+'</p>';}
     }
 
     async function changeStatus(id,status){
@@ -195,7 +316,7 @@
     }
 
     async function counterOfferPrompt(id){
-      var note=prompt("Gegenangebot / Hinweis (optional):","");
+      var note=prompt(t("rst.e.prompt.counter"),"");
       if(note==null)return;
       var token=await getCsrf();
       await fetch(API+"/marketplace/offers/"+id+"/counter",{method:"POST",credentials:"include",headers:{"Content-Type":"application/json","x-csrf-token":token||""},body:JSON.stringify({notes:note})});

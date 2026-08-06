@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <script src="/public/js/theme.js"></script>
   <script src="/public/js/i18n.js"></script>
-  <title>Bounties &amp; Belohnungen – TempConnect</title>
+  <title data-i18n="rst.a.docTitle">Bounties &amp; Belohnungen – TempConnect</title>
   <link rel="stylesheet" href="/public/css/design-system.css"/>
   <style>
     body { background: radial-gradient(ellipse 1000px 500px at 20% -5%, rgba(57,217,138,.1), transparent 55%),
@@ -177,75 +177,77 @@
 
     <!-- Hero -->
     <section style="text-align:center;padding:var(--ds-space-10) 0 0">
-      <div class="section-label">Bounties &amp; Belohnungen</div>
-      <h1 class="section-heading" style="font-size:clamp(26px,4vw,38px)">Verdienen Sie sich Ihren Rabatt</h1>
-      <p style="color:var(--ds-text-secondary);font-size:15px;max-width:600px;margin:var(--ds-space-2) auto 0;line-height:1.6">Gute Leistung wird belohnt. Sammeln Sie Bounties durch Performance, Aktivitaet und Treue &mdash; und senken Sie dauerhaft Ihren Abo-Preis.</p>
+      <div class="section-label" data-i18n="rst.a.hero.label">Bounties &amp; Belohnungen</div>
+      <h1 class="section-heading" style="font-size:clamp(26px,4vw,38px)" data-i18n="rst.a.hero.title">Verdienen Sie sich Ihren Rabatt</h1>
+      <p style="color:var(--ds-text-secondary);font-size:15px;max-width:600px;margin:var(--ds-space-2) auto 0;line-height:1.6" data-i18n="rst.a.hero.text">Gute Leistung wird belohnt. Sammeln Sie Bounties durch Performance, Aktivitaet und Treue &mdash; und senken Sie dauerhaft Ihren Abo-Preis.</p>
     </section>
 
     <!-- Discount Hero -->
     <div class="discount-hero" id="discountHero">
       <div class="discount-value" id="discountValue">0<span>%</span></div>
-      <div class="discount-label">Ihr aktueller Bounty-Rabatt</div>
+      <div class="discount-label" data-i18n="rst.a.discount.label">Ihr aktueller Bounty-Rabatt</div>
       <div class="discount-bar-wrap">
         <div class="discount-bar-bg"><div class="discount-bar" id="discountBar" style="width:0%"></div></div>
-        <div class="discount-cap">Max. <span id="maxDiscount">25</span>% Rabatt moeglich</div>
+        <!-- Kein data-i18n auf der ganzen Zeile: #maxDiscount wird zur Laufzeit
+             befuellt und wuerde beim naechsten apply() ueberschrieben. -->
+        <div class="discount-cap"><span data-i18n="rst.a.discount.capPre">Max. </span><span id="maxDiscount">25</span><span data-i18n="rst.a.discount.capPost">% Rabatt moeglich</span></div>
       </div>
     </div>
 
     <!-- ═══════ Status-Abzeichen / Tiers ═══════ -->
     <div style="margin-top:var(--ds-space-6)">
-      <h3 style="font-size:16px;font-weight:700;margin:0 0 var(--ds-space-1)">Ihr Status-Abzeichen</h3>
-      <p style="font-size:13px;color:var(--ds-text-secondary);margin:0 0 var(--ds-space-3)">Je mehr Bounties Sie verdienen, desto hoeher steigt Ihr Status &mdash; und Ihr maximaler Rabatt.</p>
+      <h3 style="font-size:16px;font-weight:700;margin:0 0 var(--ds-space-1)" data-i18n="rst.a.tiers.title">Ihr Status-Abzeichen</h3>
+      <p style="font-size:13px;color:var(--ds-text-secondary);margin:0 0 var(--ds-space-3)" data-i18n="rst.a.tiers.subtitle">Je mehr Bounties Sie verdienen, desto hoeher steigt Ihr Status &mdash; und Ihr maximaler Rabatt.</p>
       <div class="tier-grid" id="tierGrid">
         <!-- Bronze -->
         <div class="tier-card locked" id="tierBronze" style="border-color:rgba(205,127,50,.35)" onclick="showTierModal('bronze')">
-          <div class="tier-name" style="color:#cd7f32">Bronze</div>
-          <div class="tier-max" style="color:#cd7f32">max. 8% Rabatt</div>
+          <div class="tier-name" style="color:#cd7f32" data-i18n="rst.a.tier.bronze.name">Bronze</div>
+          <div class="tier-max" style="color:#cd7f32" data-i18n="rst.a.tier.bronze.max">max. 8% Rabatt</div>
           <div class="tier-checks">
-            <div class="pending" data-check="bronze-bounties">&#9723; 1 Bounty verdienen</div>
+            <div class="pending" data-check="bronze-bounties">&#9723; <span data-i18n="rst.a.tier.bronze.check1">1 Bounty verdienen</span></div>
           </div>
         </div>
         <!-- Silber -->
         <div class="tier-card locked" id="tierSilver" style="border-color:rgba(192,192,192,.35)" onclick="showTierModal('silver')">
-          <div class="tier-name" style="color:#c0c0c0">Silber</div>
-          <div class="tier-max" style="color:#c0c0c0">max. 10% Rabatt</div>
+          <div class="tier-name" style="color:#c0c0c0" data-i18n="rst.a.tier.silver.name">Silber</div>
+          <div class="tier-max" style="color:#c0c0c0" data-i18n="rst.a.tier.silver.max">max. 10% Rabatt</div>
           <div class="tier-checks">
-            <div class="pending" data-check="silver-bounties">&#9723; 3 Bounties verdienen</div>
-            <div class="pending" data-check="silver-months">&#9723; 3 Monate Abo-Laufzeit</div>
+            <div class="pending" data-check="silver-bounties">&#9723; <span data-i18n="rst.a.tier.silver.check1">3 Bounties verdienen</span></div>
+            <div class="pending" data-check="silver-months">&#9723; <span data-i18n="rst.a.tier.silver.check2">3 Monate Abo-Laufzeit</span></div>
           </div>
         </div>
         <!-- Gold -->
         <div class="tier-card locked" id="tierGold" style="border-color:rgba(255,215,0,.35)" onclick="showTierModal('gold')">
-          <div class="tier-name" style="color:#ffd700">Gold</div>
-          <div class="tier-max" style="color:#ffd700">max. 15% Rabatt</div>
+          <div class="tier-name" style="color:#ffd700" data-i18n="rst.a.tier.gold.name">Gold</div>
+          <div class="tier-max" style="color:#ffd700" data-i18n="rst.a.tier.gold.max">max. 15% Rabatt</div>
           <div class="tier-checks">
-            <div class="pending" data-check="gold-bounties">&#9723; 5 Bounties verdienen</div>
-            <div class="pending" data-check="gold-months">&#9723; 6 Monate Abo-Laufzeit</div>
-            <div class="pending" data-check="gold-deals">&#9723; 10 abgeschlossene Deals</div>
+            <div class="pending" data-check="gold-bounties">&#9723; <span data-i18n="rst.a.tier.gold.check1">5 Bounties verdienen</span></div>
+            <div class="pending" data-check="gold-months">&#9723; <span data-i18n="rst.a.tier.gold.check2">6 Monate Abo-Laufzeit</span></div>
+            <div class="pending" data-check="gold-deals">&#9723; <span data-i18n="rst.a.tier.gold.check3">10 abgeschlossene Deals</span></div>
           </div>
         </div>
         <!-- Platin -->
         <div class="tier-card locked" id="tierPlatinum" style="border-color:rgba(229,228,226,.3)" onclick="showTierModal('platinum')">
-          <div class="tier-name" style="color:#e5e4e2">Platin</div>
-          <div class="tier-max" style="color:#e5e4e2">max. 20% Rabatt</div>
+          <div class="tier-name" style="color:#e5e4e2" data-i18n="rst.a.tier.platinum.name">Platin</div>
+          <div class="tier-max" style="color:#e5e4e2" data-i18n="rst.a.tier.platinum.max">max. 20% Rabatt</div>
           <div class="tier-checks">
-            <div class="pending" data-check="platin-bounties">&#9723; 8 Bounties verdienen</div>
-            <div class="pending" data-check="platin-months">&#9723; 18 Monate Abo-Laufzeit</div>
-            <div class="pending" data-check="platin-deals">&#9723; 50 abgeschlossene Deals</div>
-            <div class="pending" data-check="platin-rating">&#9723; &#216; 4.2 Bewertung</div>
+            <div class="pending" data-check="platin-bounties">&#9723; <span data-i18n="rst.a.tier.platinum.check1">8 Bounties verdienen</span></div>
+            <div class="pending" data-check="platin-months">&#9723; <span data-i18n="rst.a.tier.platinum.check2">18 Monate Abo-Laufzeit</span></div>
+            <div class="pending" data-check="platin-deals">&#9723; <span data-i18n="rst.a.tier.platinum.check3">50 abgeschlossene Deals</span></div>
+            <div class="pending" data-check="platin-rating">&#9723; &#216; <span data-i18n="rst.a.tier.platinum.check4">4.2 Bewertung</span></div>
           </div>
         </div>
         <!-- Diamant -->
         <div class="tier-card locked" id="tierDiamond" style="border-color:rgba(185,242,255,.3)" onclick="showTierModal('diamond')">
-          <div class="tier-name" style="color:#b9f2ff">Diamant</div>
-          <div class="tier-max" style="color:#b9f2ff">max. 25% Rabatt</div>
+          <div class="tier-name" style="color:#b9f2ff" data-i18n="rst.a.tier.diamond.name">Diamant</div>
+          <div class="tier-max" style="color:#b9f2ff" data-i18n="rst.a.tier.diamond.max">max. 25% Rabatt</div>
           <div class="tier-checks">
-            <div class="pending" data-check="diamant-bounties">&#9723; 10 Bounties verdienen</div>
-            <div class="pending" data-check="diamant-months">&#9723; 60 Monate (5 Jahre)</div>
-            <div class="pending" data-check="diamant-deals">&#9723; 100 abgeschlossene Deals</div>
-            <div class="pending" data-check="diamant-rating">&#9723; &#216; 4.5 Bewertung</div>
-            <div class="pending" data-check="diamant-complaints">&#9723; 0 Beschwerden (12M)</div>
-            <div class="pending" data-check="diamant-top">&#9723; Top 10% aller Anbieter</div>
+            <div class="pending" data-check="diamant-bounties">&#9723; <span data-i18n="rst.a.tier.diamond.check1">10 Bounties verdienen</span></div>
+            <div class="pending" data-check="diamant-months">&#9723; <span data-i18n="rst.a.tier.diamond.check2">60 Monate (5 Jahre)</span></div>
+            <div class="pending" data-check="diamant-deals">&#9723; <span data-i18n="rst.a.tier.diamond.check3">100 abgeschlossene Deals</span></div>
+            <div class="pending" data-check="diamant-rating">&#9723; &#216; <span data-i18n="rst.a.tier.diamond.check4">4.5 Bewertung</span></div>
+            <div class="pending" data-check="diamant-complaints">&#9723; <span data-i18n="rst.a.tier.diamond.check5">0 Beschwerden (12M)</span></div>
+            <div class="pending" data-check="diamant-top">&#9723; <span data-i18n="rst.a.tier.diamond.check6">Top 10% aller Anbieter</span></div>
           </div>
         </div>
       </div>
@@ -253,164 +255,164 @@
 
     <!-- ═══════ So funktioniert's ═══════ -->
     <div style="margin-top:var(--ds-space-6)">
-      <h3 style="font-size:16px;font-weight:700;margin:0 0 var(--ds-space-1)">So funktioniert das Bounty-System</h3>
-      <p style="font-size:13px;color:var(--ds-text-secondary);margin:0 0 var(--ds-space-2)">In 4 einfachen Schritten zu dauerhaften Rabatten auf Ihr Abo.</p>
+      <h3 style="font-size:16px;font-weight:700;margin:0 0 var(--ds-space-1)" data-i18n="rst.a.how.title">So funktioniert das Bounty-System</h3>
+      <p style="font-size:13px;color:var(--ds-text-secondary);margin:0 0 var(--ds-space-2)" data-i18n="rst.a.how.subtitle">In 4 einfachen Schritten zu dauerhaften Rabatten auf Ihr Abo.</p>
       <div class="how-grid">
         <div class="how-step">
           <div class="hw-num">1</div>
-          <h4>Plattform nutzen</h4>
-          <p>Stellen Sie Personal ein, bearbeiten Sie Anfragen zuverlaessig und schliessen Sie Deals ab.</p>
+          <h4 data-i18n="rst.a.how.s1.title">Plattform nutzen</h4>
+          <p data-i18n="rst.a.how.s1.text">Stellen Sie Personal ein, bearbeiten Sie Anfragen zuverlaessig und schliessen Sie Deals ab.</p>
         </div>
         <div class="how-step">
           <div class="hw-num">2</div>
-          <h4>Bounties verdienen</h4>
-          <p>Fuer gute Performance, Aktivitaet, Treue und Community-Engagement erhalten Sie automatisch Bounties.</p>
+          <h4 data-i18n="rst.a.how.s2.title">Bounties verdienen</h4>
+          <p data-i18n="rst.a.how.s2.text">Fuer gute Performance, Aktivitaet, Treue und Community-Engagement erhalten Sie automatisch Bounties.</p>
         </div>
         <div class="how-step">
           <div class="hw-num">3</div>
-          <h4>Status aufsteigen</h4>
-          <p>Mit mehr Bounties steigen Sie von Bronze ueber Silber und Gold bis Platin oder Diamant auf.</p>
+          <h4 data-i18n="rst.a.how.s3.title">Status aufsteigen</h4>
+          <p data-i18n="rst.a.how.s3.text">Mit mehr Bounties steigen Sie von Bronze ueber Silber und Gold bis Platin oder Diamant auf.</p>
         </div>
         <div class="how-step">
           <div class="hw-num">4</div>
-          <h4>Rabatt kassieren</h4>
-          <p>Jede Stufe erh&ouml;ht Ihren maximalen Rabatt &mdash; bis zu 25% auf den Jahresvertrag. Automatisch angerechnet.</p>
+          <h4 data-i18n="rst.a.how.s4.title">Rabatt kassieren</h4>
+          <p data-i18n="rst.a.how.s4.text">Jede Stufe erh&ouml;ht Ihren maximalen Rabatt &mdash; bis zu 25% auf den Jahresvertrag. Automatisch angerechnet.</p>
         </div>
       </div>
       <div style="margin-top:var(--ds-space-4);padding:var(--ds-space-4);border:1px solid rgba(57,217,138,.2);border-radius:var(--ds-radius-lg);background:rgba(57,217,138,.04)">
-        <div style="font-weight:700;font-size:14px;margin-bottom:6px">Bounty-Kategorien</div>
+        <div style="font-weight:700;font-size:14px;margin-bottom:6px" data-i18n="rst.a.cat.title">Bounty-Kategorien</div>
         <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:var(--ds-space-3);font-size:13px;color:var(--ds-text-secondary)">
-          <div><strong style="color:var(--ds-text)">Performance</strong><br/>Schnelle Reaktionszeiten, hohe Zuverlaessigkeit, gute Bewertungen</div>
-          <div><strong style="color:var(--ds-text)">Aktivitaet</strong><br/>Regelmaessige Personaleintraege, Profil aktuell halten, aktive Teilnahme</div>
-          <div><strong style="color:var(--ds-text)">Loyalitaet</strong><br/>Langfristige Abo-Laufzeit, Vertragstreue, wiederkehrende Zusammenarbeit</div>
-          <div><strong style="color:var(--ds-text)">Community</strong><br/>Kunden werben, Feedback geben, Umfragen ausfuellen</div>
+          <div><strong style="color:var(--ds-text)" data-i18n="rst.a.cat.performance.name">Performance</strong><br/><span data-i18n="rst.a.cat.performance.text">Schnelle Reaktionszeiten, hohe Zuverlaessigkeit, gute Bewertungen</span></div>
+          <div><strong style="color:var(--ds-text)" data-i18n="rst.a.cat.activity.name">Aktivitaet</strong><br/><span data-i18n="rst.a.cat.activity.text">Regelmaessige Personaleintraege, Profil aktuell halten, aktive Teilnahme</span></div>
+          <div><strong style="color:var(--ds-text)" data-i18n="rst.a.cat.loyalty.name">Loyalitaet</strong><br/><span data-i18n="rst.a.cat.loyalty.text">Langfristige Abo-Laufzeit, Vertragstreue, wiederkehrende Zusammenarbeit</span></div>
+          <div><strong style="color:var(--ds-text)" data-i18n="rst.a.cat.community.name">Community</strong><br/><span data-i18n="rst.a.cat.community.text">Kunden werben, Feedback geben, Umfragen ausfuellen</span></div>
         </div>
       </div>
     </div>
 
     <!-- Milestones -->
     <div style="margin-top:var(--ds-space-5)">
-      <h3 style="font-size:16px;font-weight:700;margin:0 0 var(--ds-space-2)">Meilensteine</h3>
+      <h3 style="font-size:16px;font-weight:700;margin:0 0 var(--ds-space-2)" data-i18n="rst.a.milestones.title">Meilensteine</h3>
       <div class="milestone-row" id="milestoneRow">
-        <div class="no-milestones">Lade Meilensteine&hellip;</div>
+        <div class="no-milestones" data-i18n="rst.a.milestones.loading">Lade Meilensteine&hellip;</div>
       </div>
     </div>
 
     <!-- Category Tabs -->
     <div class="cat-tabs" id="catTabs">
-      <button class="cat-tab active" data-cat="all">Alle</button>
-      <button class="cat-tab" data-cat="performance">Performance</button>
-      <button class="cat-tab" data-cat="activity">Aktivitaet</button>
-      <button class="cat-tab" data-cat="loyalty">Loyalitaet</button>
-      <button class="cat-tab" data-cat="community">Community</button>
+      <button class="cat-tab active" data-cat="all" data-i18n="rst.a.tab.all">Alle</button>
+      <button class="cat-tab" data-cat="performance" data-i18n="rst.a.tab.performance">Performance</button>
+      <button class="cat-tab" data-cat="activity" data-i18n="rst.a.tab.activity">Aktivitaet</button>
+      <button class="cat-tab" data-cat="loyalty" data-i18n="rst.a.tab.loyalty">Loyalitaet</button>
+      <button class="cat-tab" data-cat="community" data-i18n="rst.a.tab.community">Community</button>
     </div>
 
     <!-- Bounty Grid -->
     <div class="bounty-grid" id="bountyGrid">
-      <div style="grid-column:1/-1;text-align:center;padding:var(--ds-space-6);color:var(--ds-text-secondary)">Lade Bounties&hellip;</div>
+      <div style="grid-column:1/-1;text-align:center;padding:var(--ds-space-6);color:var(--ds-text-secondary)" data-i18n="rst.a.grid.loading">Lade Bounties&hellip;</div>
     </div>
 
     <!-- Annual Plan Calculator -->
     <div class="calc-card" id="calcCard" style="display:none">
-      <h3>Jahresplan-Rechner</h3>
-      <p style="font-size:13px;color:var(--ds-text-secondary);margin:0 0 var(--ds-space-3)">Wechseln Sie zum Jahresplan und kombinieren Sie Ihren Bounty-Rabatt.</p>
-      <div class="calc-row"><span class="label">Monatspreis</span><span class="amount" id="calcMonthly">–</span></div>
-      <div class="calc-row strike"><span class="label">Jahreszahlung (12 Monate)</span><span class="amount" id="calcYearly12">–</span></div>
-      <div class="calc-row"><span class="label">Jahresplan (10 Monate)</span><span class="amount" id="calcYearly10">–</span></div>
-      <div class="calc-row savings" id="calcBountyRow" style="display:none"><span class="label">Bounty-Rabatt (<span id="calcBountyPct">0</span>%)</span><span class="amount" id="calcBountyAmount">–</span></div>
-      <div class="calc-row total"><span class="label">Ihr Jahrespreis</span><span class="amount" id="calcTotal">–</span></div>
-      <div class="calc-row savings" id="calcSavingsRow"><span class="label">Ersparnis gegenueber monatlich</span><span class="amount" id="calcSavings">–</span></div>
-      <div class="calc-note">Preise in EUR netto. Bounty-Rabatt wird bei Jahresvertrag automatisch angerechnet.</div>
+      <h3 data-i18n="rst.a.calc.title">Jahresplan-Rechner</h3>
+      <p style="font-size:13px;color:var(--ds-text-secondary);margin:0 0 var(--ds-space-3)" data-i18n="rst.a.calc.subtitle">Wechseln Sie zum Jahresplan und kombinieren Sie Ihren Bounty-Rabatt.</p>
+      <div class="calc-row"><span class="label" data-i18n="rst.a.calc.monthly">Monatspreis</span><span class="amount" id="calcMonthly">–</span></div>
+      <div class="calc-row strike"><span class="label" data-i18n="rst.a.calc.yearly12">Jahreszahlung (12 Monate)</span><span class="amount" id="calcYearly12">–</span></div>
+      <div class="calc-row"><span class="label" data-i18n="rst.a.calc.yearly10">Jahresplan (10 Monate)</span><span class="amount" id="calcYearly10">–</span></div>
+      <!-- Kein data-i18n auf dem Label: #calcBountyPct traegt einen Laufzeitwert. -->
+      <div class="calc-row savings" id="calcBountyRow" style="display:none"><span class="label"><span data-i18n="rst.a.calc.bountyPre">Bounty-Rabatt (</span><span id="calcBountyPct">0</span><span data-i18n="rst.a.calc.bountyPost">%)</span></span><span class="amount" id="calcBountyAmount">–</span></div>
+      <div class="calc-row total"><span class="label" data-i18n="rst.a.calc.total">Ihr Jahrespreis</span><span class="amount" id="calcTotal">–</span></div>
+      <div class="calc-row savings" id="calcSavingsRow"><span class="label" data-i18n="rst.a.calc.savings">Ersparnis gegenueber monatlich</span><span class="amount" id="calcSavings">–</span></div>
+      <div class="calc-note" data-i18n="rst.a.calc.note">Preise in EUR netto. Bounty-Rabatt wird bei Jahresvertrag automatisch angerechnet.</div>
     </div>
 
     <!-- ═══════ Referral-Programm ═══════ -->
     <div id="referralSection" style="margin-top:var(--ds-space-6)">
       <div style="border:1px solid rgba(74,158,255,.25);border-radius:var(--ds-radius-xl);background:rgba(74,158,255,.03);padding:var(--ds-space-5)">
         <div style="display:flex;align-items:center;gap:10px;margin-bottom:var(--ds-space-3)">
-          <h3 style="font-size:18px;font-weight:800;margin:0">Empfehlungsprogramm</h3>
-          <span id="refPilotBadge" style="display:none;font-size:11px;font-weight:700;background:rgba(57,217,138,.15);color:var(--ds-success);padding:3px 10px;border-radius:12px">Pilotkunde</span>
+          <h3 style="font-size:18px;font-weight:800;margin:0" data-i18n="rst.a.ref.title">Empfehlungsprogramm</h3>
+          <span id="refPilotBadge" style="display:none;font-size:11px;font-weight:700;background:rgba(57,217,138,.15);color:var(--ds-success);padding:3px 10px;border-radius:12px" data-i18n="rst.a.ref.pilotBadge">Pilotkunde</span>
         </div>
 
         <!-- Pilot-Info -->
         <div id="refPilotInfo" style="display:none;margin-bottom:var(--ds-space-4);padding:var(--ds-space-3);border:1px solid rgba(57,217,138,.2);border-radius:10px;background:rgba(57,217,138,.04)">
-          <div style="font-weight:700;font-size:14px;margin-bottom:4px">Pilotkunden-Vorteile</div>
-          <div style="font-size:13px;color:var(--ds-text-secondary);line-height:1.6">
-            <strong>1 Monat gratis</strong> als Basis. Fuer jeden geworbenen Kunden + gelieferte Umfrage erhalten Sie <strong>1 weiteren Gratis-Monat</strong> (max. 6 Kunden = max. 7 Monate gratis).
-          </div>
+          <div style="font-weight:700;font-size:14px;margin-bottom:4px" data-i18n="rst.a.ref.pilot.title">Pilotkunden-Vorteile</div>
+          <!-- Satz in Teilstuecke zerlegt, damit die <strong>-Hervorhebung erhalten
+               bleibt: data-i18n setzt textContent und wuerde Auszeichnung sonst plaetten. -->
+          <div style="font-size:13px;color:var(--ds-text-secondary);line-height:1.6"><strong data-i18n="rst.a.ref.pilot.b1">1 Monat gratis</strong><span data-i18n="rst.a.ref.pilot.t1"> als Basis. Fuer jeden geworbenen Kunden + gelieferte Umfrage erhalten Sie </span><strong data-i18n="rst.a.ref.pilot.b2">1 weiteren Gratis-Monat</strong><span data-i18n="rst.a.ref.pilot.t2"> (max. 6 Kunden = max. 7 Monate gratis).</span></div>
           <div style="display:flex;gap:var(--ds-space-4);margin-top:var(--ds-space-2);flex-wrap:wrap">
-            <div style="text-align:center"><div id="refFreeMonths" style="font-size:28px;font-weight:900;color:var(--ds-success)">1</div><div style="font-size:11px;color:var(--ds-text-tertiary)">Gratis-Monate</div></div>
-            <div style="text-align:center"><div id="refFreeRemaining" style="font-size:28px;font-weight:900;color:var(--ds-brand)">1</div><div style="font-size:11px;color:var(--ds-text-tertiary)">davon verbleibend</div></div>
+            <div style="text-align:center"><div id="refFreeMonths" style="font-size:28px;font-weight:900;color:var(--ds-success)">1</div><div style="font-size:11px;color:var(--ds-text-tertiary)" data-i18n="rst.a.ref.pilot.freeMonths">Gratis-Monate</div></div>
+            <div style="text-align:center"><div id="refFreeRemaining" style="font-size:28px;font-weight:900;color:var(--ds-brand)">1</div><div style="font-size:11px;color:var(--ds-text-tertiary)" data-i18n="rst.a.ref.pilot.remaining">davon verbleibend</div></div>
           </div>
         </div>
 
         <!-- Nicht-Pilot-Info -->
         <div id="refCashbackInfo" style="display:none;margin-bottom:var(--ds-space-4);padding:var(--ds-space-3);border:1px solid rgba(124,92,255,.2);border-radius:10px;background:rgba(124,92,255,.04)">
-          <div style="font-weight:700;font-size:14px;margin-bottom:4px">Cashback-Programm</div>
-          <div style="font-size:13px;color:var(--ds-text-secondary);line-height:1.6">
-            Werben Sie neue Kunden + Umfrage = <strong>1 Monat Geld zurueck</strong> (max. 6 Monate). Ihr erster Monat war bereits gratis!
-          </div>
+          <div style="font-weight:700;font-size:14px;margin-bottom:4px" data-i18n="rst.a.ref.cashback.title">Cashback-Programm</div>
+          <div style="font-size:13px;color:var(--ds-text-secondary);line-height:1.6"><span data-i18n="rst.a.ref.cashback.t1">Werben Sie neue Kunden + Umfrage = </span><strong data-i18n="rst.a.ref.cashback.b1">1 Monat Geld zurueck</strong><span data-i18n="rst.a.ref.cashback.t2"> (max. 6 Monate). Ihr erster Monat war bereits gratis!</span></div>
           <div style="display:flex;gap:var(--ds-space-4);margin-top:var(--ds-space-2);flex-wrap:wrap">
-            <div style="text-align:center"><div id="refCashbackEarned" style="font-size:28px;font-weight:900;color:var(--ds-accent)">0</div><div style="font-size:11px;color:var(--ds-text-tertiary)">Monate Cashback</div></div>
-            <div style="text-align:center"><div id="refCashbackMax" style="font-size:28px;font-weight:900;color:var(--ds-text-tertiary)">6</div><div style="font-size:11px;color:var(--ds-text-tertiary)">max. moeglich</div></div>
+            <div style="text-align:center"><div id="refCashbackEarned" style="font-size:28px;font-weight:900;color:var(--ds-accent)">0</div><div style="font-size:11px;color:var(--ds-text-tertiary)" data-i18n="rst.a.ref.cashback.earned">Monate Cashback</div></div>
+            <div style="text-align:center"><div id="refCashbackMax" style="font-size:28px;font-weight:900;color:var(--ds-text-tertiary)">6</div><div style="font-size:11px;color:var(--ds-text-tertiary)" data-i18n="rst.a.ref.cashback.max">max. moeglich</div></div>
           </div>
         </div>
 
         <!-- Referral-Code & Link -->
         <div style="margin-bottom:var(--ds-space-4)">
-          <div style="font-weight:700;font-size:13px;margin-bottom:6px">Ihr Empfehlungscode</div>
+          <div style="font-weight:700;font-size:13px;margin-bottom:6px" data-i18n="rst.a.ref.code.title">Ihr Empfehlungscode</div>
           <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
             <code id="refCode" style="font-size:20px;font-weight:900;letter-spacing:2px;background:rgba(255,255,255,.06);padding:8px 16px;border-radius:8px;border:1px solid var(--ds-border)">---</code>
-            <button onclick="copyRefLink()" class="ds-btn ds-btn--sm ds-btn--primary" style="white-space:nowrap">Link kopieren</button>
+            <button onclick="copyRefLink()" class="ds-btn ds-btn--sm ds-btn--primary" style="white-space:nowrap" data-i18n="rst.a.ref.code.copy">Link kopieren</button>
           </div>
-          <div id="refCopyMsg" style="display:none;font-size:12px;color:var(--ds-success);margin-top:4px">Link in die Zwischenablage kopiert!</div>
+          <div id="refCopyMsg" style="display:none;font-size:12px;color:var(--ds-success);margin-top:4px" data-i18n="rst.a.ref.code.copied">Link in die Zwischenablage kopiert!</div>
         </div>
 
         <!-- Einladung senden -->
         <div style="margin-bottom:var(--ds-space-4)">
-          <div style="font-weight:700;font-size:13px;margin-bottom:6px">Kunden einladen</div>
+          <div style="font-weight:700;font-size:13px;margin-bottom:6px" data-i18n="rst.a.ref.invite.title">Kunden einladen</div>
           <div style="display:flex;gap:8px;flex-wrap:wrap">
-            <input id="refInviteEmail" type="email" placeholder="E-Mail des Kontakts" style="flex:1;min-width:200px;padding:8px 12px;font-size:13px"/>
-            <button onclick="sendRefInvite()" class="ds-btn ds-btn--sm ds-btn--success" style="white-space:nowrap">Einladen</button>
+            <input id="refInviteEmail" type="email" placeholder="E-Mail des Kontakts" data-i18n-ph="rst.a.ref.invite.ph" style="flex:1;min-width:200px;padding:8px 12px;font-size:13px"/>
+            <button onclick="sendRefInvite()" class="ds-btn ds-btn--sm ds-btn--success" style="white-space:nowrap" data-i18n="rst.a.ref.invite.btn">Einladen</button>
           </div>
+          <!-- #refInviteMsg bleibt ohne Marker: der Text entsteht erst zur Laufzeit. -->
           <div id="refInviteMsg" style="display:none;font-size:12px;margin-top:4px"></div>
-          <div style="font-size:11px;color:var(--ds-text-tertiary);margin-top:4px">Verbleibende Einladungen: <span id="refRemaining">6</span> von 6</div>
+          <div style="font-size:11px;color:var(--ds-text-tertiary);margin-top:4px"><span data-i18n="rst.a.ref.invite.remainingPre">Verbleibende Einladungen: </span><span id="refRemaining">6</span><span data-i18n="rst.a.ref.invite.remainingPost"> von 6</span></div>
         </div>
 
         <!-- Meine Referrals -->
         <div id="refList" style="display:none">
-          <div style="font-weight:700;font-size:13px;margin-bottom:6px">Ihre Empfehlungen</div>
+          <div style="font-weight:700;font-size:13px;margin-bottom:6px" data-i18n="rst.a.ref.list.title">Ihre Empfehlungen</div>
           <div id="refListBody" style="display:flex;flex-direction:column;gap:6px"></div>
         </div>
 
         <!-- Umfrage (fuer geworbene Kunden) -->
         <div id="refSurveySection" style="display:none;margin-top:var(--ds-space-4);padding:var(--ds-space-4);border:1px solid rgba(255,204,0,.3);border-radius:10px;background:rgba(255,204,0,.04)">
-          <div style="font-weight:700;font-size:14px;margin-bottom:8px">Umfrage ausfuellen &amp; Bonus aktivieren</div>
-          <div style="font-size:13px;color:var(--ds-text-secondary);margin-bottom:var(--ds-space-3);line-height:1.5">
+          <div style="font-weight:700;font-size:14px;margin-bottom:8px" data-i18n="rst.a.ref.survey.title">Umfrage ausfuellen &amp; Bonus aktivieren</div>
+          <div style="font-size:13px;color:var(--ds-text-secondary);margin-bottom:var(--ds-space-3);line-height:1.5" data-i18n="rst.a.ref.survey.text">
             Fuellen Sie diese kurze Umfrage aus, damit Ihr Empfehler seinen Gratis-Monat erhaelt.
           </div>
           <div style="display:flex;flex-direction:column;gap:var(--ds-space-2)">
-            <label style="font-size:12px;font-weight:600">Wie bewerten Sie TempConnect? (1-5 Sterne)</label>
+            <label style="font-size:12px;font-weight:600" data-i18n="rst.a.ref.survey.ratingLabel">Wie bewerten Sie TempConnect? (1-5 Sterne)</label>
             <div id="refSurveyStars" style="display:flex;gap:6px;font-size:24px;cursor:pointer">
               <span data-star="1">&#9734;</span><span data-star="2">&#9734;</span><span data-star="3">&#9734;</span><span data-star="4">&#9734;</span><span data-star="5">&#9734;</span>
             </div>
-            <label style="font-size:12px;font-weight:600;margin-top:8px">Feedback (optional)</label>
-            <textarea id="refSurveyFeedback" rows="2" placeholder="Was gefaellt Ihnen? Was koennen wir verbessern?" style="font-size:13px;padding:8px"></textarea>
-            <label style="font-size:12px;font-weight:600;margin-top:4px">Wie haben Sie von TempConnect erfahren?</label>
-            <input id="refSurveyHow" type="text" placeholder="z.B. Empfehlung, Google, Messe..." style="font-size:13px;padding:8px"/>
-            <button onclick="submitRefSurvey()" class="ds-btn ds-btn--primary ds-btn--sm" style="margin-top:8px;align-self:flex-start">Umfrage absenden</button>
+            <label style="font-size:12px;font-weight:600;margin-top:8px" data-i18n="rst.a.ref.survey.feedbackLabel">Feedback (optional)</label>
+            <textarea id="refSurveyFeedback" rows="2" placeholder="Was gefaellt Ihnen? Was koennen wir verbessern?" data-i18n-ph="rst.a.ref.survey.feedbackPh" style="font-size:13px;padding:8px"></textarea>
+            <label style="font-size:12px;font-weight:600;margin-top:4px" data-i18n="rst.a.ref.survey.howLabel">Wie haben Sie von TempConnect erfahren?</label>
+            <input id="refSurveyHow" type="text" placeholder="z.B. Empfehlung, Google, Messe..." data-i18n-ph="rst.a.ref.survey.howPh" style="font-size:13px;padding:8px"/>
+            <button onclick="submitRefSurvey()" class="ds-btn ds-btn--primary ds-btn--sm" style="margin-top:8px;align-self:flex-start" data-i18n="rst.a.ref.survey.submit">Umfrage absenden</button>
           </div>
           <div id="refSurveyMsg" style="display:none;font-size:12px;margin-top:6px"></div>
         </div>
 
         <!-- Pilot werden -->
         <div id="refBecomePilot" style="display:none;margin-top:var(--ds-space-3);text-align:center">
-          <button onclick="registerPilot()" class="ds-btn ds-btn--primary">Als Pilotkunde registrieren &mdash; 1 Monat gratis</button>
-          <div style="font-size:11px;color:var(--ds-text-tertiary);margin-top:6px">Werben Sie bis zu 6 Kunden und erhalten Sie bis zu 7 Monate gratis.</div>
+          <button onclick="registerPilot()" class="ds-btn ds-btn--primary" data-i18n="rst.a.ref.pilotCta">Als Pilotkunde registrieren &mdash; 1 Monat gratis</button>
+          <div style="font-size:11px;color:var(--ds-text-tertiary);margin-top:6px" data-i18n="rst.a.ref.pilotCtaNote">Werben Sie bis zu 6 Kunden und erhalten Sie bis zu 7 Monate gratis.</div>
         </div>
       </div>
     </div>
 
-    <div class="ds-disclaimer" style="margin-top:var(--ds-space-6)">
+    <div class="ds-disclaimer" style="margin-top:var(--ds-space-6)" data-i18n="rst.a.disclaimer">
       Bounty-Rabatte werden bei Wechsel auf den Jahresvertrag angerechnet. Wiederkehrende Bounties verfallen, wenn die Bedingung nicht mehr erfuellt ist. Maximaler Gesamtrabatt: 20%. Alle Angaben ohne Gewaehr.
     </div>
   </div>
@@ -424,46 +426,38 @@
       </div>
       <div id="tierModalBody"></div>
       <div style="margin-top:var(--ds-space-4);text-align:right">
-        <button onclick="closeTierModal()" class="ds-btn ds-btn--sm">Verstanden</button>
+        <button onclick="closeTierModal()" class="ds-btn ds-btn--sm" data-i18n="rst.a.modal.understood">Verstanden</button>
       </div>
     </div>
   </div>
   <script>
+    /* TIER_INFO haelt nur noch Struktur + i18n-Schluessel. Der Text wird
+       erst beim Oeffnen des Modals aufgeloest — das Woerterbuch (rst.a.*)
+       registriert js/pages/bounties.js, das nach diesem Script laedt. Ein
+       Woerterbuch-Wert waere hier also noch gar nicht verfuegbar. */
     var TIER_INFO = {
-      bronze: { icon: '\u{1F949}', name: 'Bronze', color: '#cd7f32', max: '8%', reqs: [
-        { text: 'Mindestens 1 Bounty verdienen', how: 'Deals abschliessen, Profil pflegen, Bewertungen erhalten' }
-      ]},
-      silver: { icon: '\u{1F948}', name: 'Silber', color: '#c0c0c0', max: '10%', reqs: [
-        { text: 'Mindestens 3 Bounties verdienen', how: 'Regelmaessig Personal einstellen und Deals abwickeln' },
-        { text: '3 Monate aktive Abo-Laufzeit', how: 'Einfach dabei bleiben und die Plattform nutzen' }
-      ]},
-      gold: { icon: '\u{1F947}', name: 'Gold', color: '#ffd700', max: '15%', reqs: [
-        { text: '5 Bounties verdienen', how: 'Performance-Bounties durch schnelle Reaktion und gute Bewertungen' },
-        { text: '6 Monate Abo-Laufzeit', how: 'Loyalitaets-Bounty wird automatisch gutgeschrieben' },
-        { text: '10 abgeschlossene Deals', how: 'Deals bis zum Abschluss bringen (nicht nur Anfragen)' }
-      ]},
-      platinum: { icon: '\u{1F4A0}', name: 'Platin', color: '#e5e4e2', max: '20%', reqs: [
-        { text: '8 Bounties verdienen', how: 'Kombination aus Performance, Aktivitaet und Community' },
-        { text: '18 Monate Abo-Laufzeit', how: 'Treue zaehlt sich aus' },
-        { text: '50 abgeschlossene Deals', how: 'Zeigt Ihre Zuverlaessigkeit als Partner' },
-        { text: 'Durchschnitt 4.2 Sterne Bewertung', how: 'Qualitaet in Kommunikation und Zusammenarbeit' }
-      ]},
-      diamond: { icon: '\u{1F48E}', name: 'Diamant', color: '#b9f2ff', max: '25%', reqs: [
-        { text: '10 Bounties verdienen', how: 'Alle Bounty-Kategorien abdecken' },
-        { text: '60 Monate (5 Jahre) Abo-Laufzeit', how: 'Langfristige Partnerschaft' },
-        { text: '100 abgeschlossene Deals', how: 'Top-Performer auf der Plattform' },
-        { text: 'Durchschnitt 4.5 Sterne', how: 'Exzellente Qualitaet und Zuverlaessigkeit' },
-        { text: '0 Beschwerden in 12 Monaten', how: 'Professionelle Abwicklung ohne Konflikte' },
-        { text: 'Top 10% aller Anbieter', how: 'Ranking basiert auf Gesamtperformance' }
-      ]}
+      bronze:   { icon: '\u{1F949}', nameKey: 'rst.a.tier.bronze.name',   color: '#cd7f32', max: '8%',  infoKey: 'bronze',   reqCount: 1 },
+      silver:   { icon: '\u{1F948}', nameKey: 'rst.a.tier.silver.name',   color: '#c0c0c0', max: '10%', infoKey: 'silver',   reqCount: 2 },
+      gold:     { icon: '\u{1F947}', nameKey: 'rst.a.tier.gold.name',     color: '#ffd700', max: '15%', infoKey: 'gold',     reqCount: 3 },
+      platinum: { icon: '\u{1F4A0}', nameKey: 'rst.a.tier.platinum.name', color: '#e5e4e2', max: '20%', infoKey: 'platinum', reqCount: 4 },
+      diamond:  { icon: '\u{1F48E}', nameKey: 'rst.a.tier.diamond.name',  color: '#b9f2ff', max: '25%', infoKey: 'diamond',  reqCount: 6 }
     };
+    function tierEsc(s) { return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
     function showTierModal(key) {
-      var t = TIER_INFO[key]; if (!t) return;
-      document.getElementById('tierModalTitle').innerHTML = t.icon + ' ' + t.name + ' <span style="font-size:14px;color:' + t.color + ';margin-left:8px">max. ' + t.max + ' Rabatt</span>';
-      var html = '<p style="font-size:13px;color:var(--ds-text-secondary);margin:0 0 var(--ds-space-3)">So erreichen Sie den ' + t.name + '-Status:</p>';
-      t.reqs.forEach(function(r) {
-        html += '<div class="req"><span style="font-size:16px">\u{2611}</span><div><div style="font-weight:600">' + r.text + '</div><div style="font-size:12px;color:var(--ds-text-secondary);margin-top:2px">' + r.how + '</div></div></div>';
-      });
+      var tier = TIER_INFO[key]; if (!tier) return;
+      var tt = function (k, p) { return TCi18n.t(k, p); };
+      var name = tt(tier.nameKey);
+      document.getElementById('tierModalTitle').innerHTML = tier.icon + ' ' + tierEsc(name) +
+        ' <span style="font-size:14px;color:' + tier.color + ';margin-left:8px">' +
+        tierEsc(tt('rst.a.modal.maxDiscount', { max: tier.max })) + '</span>';
+      var html = '<p style="font-size:13px;color:var(--ds-text-secondary);margin:0 0 var(--ds-space-3)">' +
+        tierEsc(tt('rst.a.modal.intro', { name: name })) + '</p>';
+      for (var i = 1; i <= tier.reqCount; i++) {
+        var base = 'rst.a.info.' + tier.infoKey + '.r' + i;
+        html += '<div class="req"><span style="font-size:16px">\u{2611}</span><div><div style="font-weight:600">' +
+          tierEsc(tt(base + '.text')) + '</div><div style="font-size:12px;color:var(--ds-text-secondary);margin-top:2px">' +
+          tierEsc(tt(base + '.how')) + '</div></div></div>';
+      }
       document.getElementById('tierModalBody').innerHTML = html;
       document.getElementById('tierModal').classList.add('show');
     }

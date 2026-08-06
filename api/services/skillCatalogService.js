@@ -52,10 +52,13 @@ function orderCategories(a, b) {
  *   generated_at:string}>}
  */
 export async function getSkillCatalog(pool, { includeInactive = false } = {}) {
+  // status='approved' (Mig 160): noch nicht kuratierte Vorschlaege einzelner
+  // Arbeiter duerfen NICHT im Auswahlkatalog aller anderen auftauchen — sonst
+  // zerfaellt die gemeinsame Matching-Achse in Schreibvarianten.
   const { rows } = await pool.query(
     `SELECT id, name, category, aliases, usage_count
        FROM platform_skills
-      ${includeInactive ? "" : "WHERE is_active = TRUE"}
+      WHERE status = 'approved'${includeInactive ? "" : " AND is_active = TRUE"}
       ORDER BY category NULLS LAST, name ASC`
   );
 
@@ -109,11 +112,76 @@ export async function listCategories(pool) {
 export async function resolveSkillIds(pool, skillIds = []) {
   const ids = [...new Set((skillIds || []).filter(Boolean))];
   if (!ids.length) return [];
+  // Bewusst OHNE status-Filter: ein Arbeiter darf einen selbst vorgeschlagenen
+  // Skill in seinem Profil fuehren, solange er kuratiert wird. Ausgeschlossen
+  // wird er erst dort, wo er die ganze Plattform beruehrt (Katalog, Angebote).
   const { rows } = await pool.query(
-    `SELECT id, name, category
+    `SELECT id, name, category, status
        FROM platform_skills
       WHERE id = ANY($1::uuid[]) AND is_active = TRUE`,
     [ids]
   );
   return rows;
+}
+
+/** Vergleichsform: Gross-/Kleinschreibung, Mehrfach-Leerzeichen und Rand egal. */
+function normalizeName(value) {
+  return String(value || "").trim().replace(/\s+/g, " ");
+}
+
+/**
+ * Eigene Faehigkeit eintragen (Mig 160).
+ *
+ * Erst suchen, dann anlegen — und zwar in dieser Reihenfolge, weil der haeufigste
+ * Fall NICHT eine neue Faehigkeit ist, sondern eine andere Schreibweise einer
+ * vorhandenen ("Stapler" fuer "Gabelstaplerfahrer"). Wird ein Treffer gefunden,
+ * bekommt der Arbeiter den KURATIERTEN Skill — damit ist er sofort auffindbar,
+ * ohne dass jemand etwas freigeben muss.
+ *
+ * Erst wenn wirklich nichts passt, entsteht ein Vorschlag (status='proposed').
+ * Er gehoert dem Arbeiter, ist fuer seine Agentur sichtbar und wartet auf
+ * Kuratierung — er verschmutzt aber weder den Katalog noch den Marktplatz.
+ *
+ * @returns {Promise<{skill:{id,name,category,status}, matched:boolean, matched_on:'name'|'alias'|null}>}
+ */
+export async function proposeSkill(pool, { name, userId = null, orgId = null, category = null }) {
+  const clean = normalizeName(name);
+  if (clean.length < 2 || clean.length > 100) {
+    throw Object.assign(new Error("INVALID_SKILL_NAME"), { code: "INVALID_SKILL_NAME" });
+  }
+
+  // 1) Exakter Name (case-insensitive) unter den kuratierten Skills
+  const byName = await pool.query(
+    `SELECT id, name, category, status
+       FROM platform_skills
+      WHERE status = 'approved' AND is_active = TRUE AND LOWER(name) = LOWER($1)
+      LIMIT 1`,
+    [clean]
+  );
+  if (byName.rows[0]) return { skill: byName.rows[0], matched: true, matched_on: "name" };
+
+  // 2) Bekannte Schreibvariante (aliases[]). Genau dafuer gibt es die Spalte.
+  const byAlias = await pool.query(
+    `SELECT id, name, category, status
+       FROM platform_skills
+      WHERE status = 'approved' AND is_active = TRUE
+        AND EXISTS (
+          SELECT 1 FROM unnest(aliases) a WHERE LOWER(a) = LOWER($1)
+        )
+      LIMIT 1`,
+    [clean]
+  );
+  if (byAlias.rows[0]) return { skill: byAlias.rows[0], matched: true, matched_on: "alias" };
+
+  // 3) Wirklich neu -> Vorschlag. ON CONFLICT (name) faengt den Fall ab, dass
+  //    zwei Arbeiter zeitgleich dieselbe Faehigkeit vorschlagen: der zweite
+  //    bekommt denselben Datensatz statt eines Fehlers.
+  const inserted = await pool.query(
+    `INSERT INTO platform_skills (name, category, status, proposed_by_user_id, proposed_by_org_id)
+     VALUES ($1, $2, 'proposed', $3, $4)
+     ON CONFLICT (name) DO UPDATE SET updated_at = NOW()
+     RETURNING id, name, category, status`,
+    [clean, category, userId, orgId]
+  );
+  return { skill: inserted.rows[0], matched: false, matched_on: null };
 }

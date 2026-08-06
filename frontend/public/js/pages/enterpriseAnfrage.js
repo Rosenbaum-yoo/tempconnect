@@ -8,8 +8,338 @@
    `enterprise_config`-Backend-Logik kompatibel (EUR-Werte; Server multipliziert
    *100 zu Cents).
    ═════════════════════════════════════════════════════ */
-  (function() {
+(function() {
+  'use strict';
+
+  /* ── Bruecke statt harter Abhaengigkeit (wie js/pages/marketplaceFeed.js) ──
+     Diese Datei wird auch in einer vm-Sandbox OHNE geladene i18n-Schicht
+     ausgefuehrt (test/enterprisePrefill.test.js prueft dort das Vorbefuellen
+     der Kontaktfelder). Ohne window.TCi18n uebernimmt ein lokaler Ersatz mit
+     exakt dem heutigen deutschen Verhalten — kein Absturz, kein leerer Text. */
+  var TCi18n = (typeof window !== 'undefined' && window.TCi18n) ? window.TCi18n : createLocalI18n();
+
+  function createLocalI18n() {
+    var dicts = { de: {}, en: {} };
+    return {
+      register: function(locale, entries) {
+        var target = dicts[locale];
+        if (!target || !entries) return;
+        for (var k in entries) {
+          if (Object.prototype.hasOwnProperty.call(entries, k)) target[k] = entries[k];
+        }
+      },
+      t: function(key, params) {
+        var val = dicts.de[key];
+        if (val == null) return "";
+        if (!params) return val;
+        return String(val).replace(/\{(\w+)\}/g, function(m, name) {
+          return Object.prototype.hasOwnProperty.call(params, name) ? String(params[name]) : m;
+        });
+      },
+      locale: function() { return "de"; },
+      dateLocale: function() { return "de-DE"; }
+    };
+  }
+
+/* ── Woerterbuch (P6.1, DE/EN) ─────────────────────────────────────────────
+   Woerterbuch der ganzen Seite: enterprise_anfrage.html laedt i18n.js im head
+   und hat kein eigenes Inline-Script; alle rst.h.*-Schluessel stehen hier.
+
+   Drei-Seiten-Regel: Der individuelle Tarif richtet sich ausschliesslich an
+   Einsatzunternehmen (Hero: "fuer Einsatzunternehmen"), die Gegenseite bucht
+   ihn nicht. Die feste Unternehmenssprache ist hier also korrekt; kein
+   rollenabhaengiger Begriff aus terminologyLabels.js wird eingefroren.
+
+   Englische Begriffswelt: "Arbeitsplatzangebot" = job posting, "Lieferant" =
+   supplier, "Preisrahmen" = rate card, "Freigabe" = approval, "Tarif" = plan.
+
+   Bewusst NICHT uebersetzt:
+   - Name, Beschreibung und Einheit der Add-ons (Katalogdaten aus
+     /api/public/catalog) sowie alle Preise und Plan-Rohwerte
+   - Server-Fehlermeldungen (data.message) und Rollen-Rohwerte
+   - der Text, der in das Anmerkungsfeld VORAUSGEFUELLT und damit an unser
+     Tarif-Team GESENDET wird (siehe KONTEXT_DE) — die Sprache des Lesenden
+     steht beim Absenden nicht fest, deshalb bleibt er deutsch
+   - Topbar/Navigation/Nutzerbereich (pageShell.js)                          */
+TCi18n.register('de', {
+  'rst.h.docTitle': 'Individuellen Tarif für Lieferantensteuerung konfigurieren – TempConnect',
+  'rst.h.hero.label': 'Individueller Tarif',
+  'rst.h.hero.title': 'Konfigurieren Sie Ihren individuellen Tarif für Einsatzunternehmen',
+  'rst.h.hero.desc': 'Für wiederkehrende Zeitarbeitsbedarfe mit mehreren Lieferanten, Preisrahmen, Freigaben und Standorten. Waehlen Sie Zusatzmodule, die Ihre Lieferantensteuerung staerker machen.',
+  'rst.h.incl.title': '✅ Im Standard des individuellen Tarifs enthalten',
+  'rst.h.incl.desc': 'Alles aus PRO plus die buyer-first Steuerungsmodule für wiederkehrende Zeitarbeit — sofort verfuegbar.',
+  'rst.h.incl.1': 'Unbegrenzte Arbeitsplatzangebote & Angebote',
+  'rst.h.incl.2': '13-Faktor-Matching & Ranking',
+  'rst.h.incl.3': 'Lieferantenpool & Preferred First',
+  'rst.h.incl.4': 'Preisrahmen & Rate Compliance',
+  'rst.h.incl.5': 'Spend & Kostenanalytik',
+  'rst.h.incl.6': 'Multi-Abteilungen & Standorte',
+  'rst.h.incl.7': 'Freigabe-Workflows',
+  'rst.h.incl.8': 'Vertragsmanagement',
+  'rst.h.incl.9': 'Compliance-Management',
+  'rst.h.incl.10': 'Audit- & Executive-Reporting',
+  'rst.h.incl.11': 'Digitale Stundenzettel & Rechnungsbezug',
+  'rst.h.incl.12': 'Emergency Staffing / Notdienst',
+  'rst.h.incl.13': 'Pulse-Timer (30 Min)',
+  'rst.h.incl.14': '99,5 % Plattformverfuegbarkeit',
+  'rst.h.incl.15': 'Dedizierter Ansprechpartner',
+  'rst.h.addons.title': 'Zusatzmodule hinzubuchen',
+  'rst.h.addons.desc': 'Optionale Erweiterungen — waehlen Sie nur, was Sie brauchen.',
+  'rst.h.addons.loading': 'Lade Add-ons…',
+  'rst.h.addons.error': 'Add-ons konnten nicht geladen werden.',
+  'rst.h.addons.retry': 'Erneut versuchen',
+  'rst.h.addons.empty': 'Aktuell keine Add-ons verfügbar.',
+  'rst.h.addons.soon': 'Bald verfügbar',
+  'rst.h.addons.owned': 'Bereits gebucht',
+  'rst.h.addons.unitMonthly': '/Monat',
+  'rst.h.addons.unitOnce': 'einmalig',
+  'rst.h.seats.title': 'Benutzer-Kontingent',
+  'rst.h.seats.desc': 'Der Standard des individuellen Tarifs beinhaltet bis zu 50 Benutzer. Darueber hinaus: 29 EUR / Nutzer / Monat.',
+  'rst.h.seats.count': 'Anzahl Benutzer:',
+  'rst.h.seats.included': 'Im Standard enthalten',
+  'rst.h.seats.surcharge': '+{betrag} EUR/Monat',
+  'rst.h.ctx.label': 'Anfrage-Kontext',
+  'rst.h.ctx.title': 'Individueller Tarif auf Anfrage',
+  'rst.h.ctx.fromAbo': 'Sie starten eine Anfrage aus den Abo-Modellen. Wir nehmen Ihre Anforderungen auf und erstellen ein individuelles Angebot.',
+  'rst.h.ctx.default': 'Sie starten eine Anfrage fuer den individuellen Tarif. Unser Team begleitet Sie bis zum Angebot.',
+  'rst.h.ctx.source': 'Quelle',
+  'rst.h.ctx.currentPlan': 'Aktueller Plan',
+  'rst.h.ctx.interest': 'Interesse',
+  'rst.h.ctx.goal': 'Ziel',
+  'rst.h.ctx.planIndividuell': 'Individueller Tarif',
+  'rst.h.ctx.srcSlaAbo': 'Abo-Modelle',
+  'rst.h.ctx.intentUpgrade': 'Upgrade auf individuellen Tarif',
+  'rst.h.ctx.intentRequest': 'Individuellen Tarif anfragen',
+  'rst.h.contact.title': 'Kontakt & Rechnungsdaten',
+  'rst.h.contact.desc': 'Unser Tarif-Team meldet sich innerhalb von 24 Stunden bei Ihnen, um Standorte, Lieferanten und Bedarfsvolumen zu qualifizieren.',
+  'rst.h.f.company': 'Firma *',
+  'rst.h.f.contact': 'Ansprechpartner *',
+  'rst.h.f.email': 'E-Mail *',
+  'rst.h.f.role': 'Rolle / Funktion',
+  'rst.h.f.phone': 'Telefon',
+  'rst.h.f.street': 'Strasse & Nr.',
+  'rst.h.f.city': 'PLZ / Ort',
+  'rst.h.f.vat': 'USt-IdNr.',
+  'rst.h.f.start': 'Erwarteter Start',
+  'rst.h.f.tech': 'Technische Anforderungen (optional, Mehrfachauswahl)',
+  'rst.h.f.notes': 'Anmerkungen / Anforderungen',
+  'rst.h.f.sites': 'Anzahl Standorte (optional)',
+  'rst.h.f.region': 'Region / Scope (optional)',
+  'rst.h.f.context': 'Kontext (optional)',
+  'rst.h.ph.company': 'Muster GmbH',
+  'rst.h.ph.contact': 'Max Mustermann',
+  'rst.h.ph.role': 'z.B. Einkauf, HR, Geschäftsführung',
+  'rst.h.ph.street': 'Musterstrasse 1',
+  'rst.h.ph.notes': 'Besondere Anforderungen, Anzahl Standorte, aktive Lieferanten, Integrationen, Bedarfe pro Monat...',
+  'rst.h.ph.sites': 'z.B. 12',
+  'rst.h.ph.region': 'z.B. DACH, EU',
+  'rst.h.ph.context': 'Kurz: Worum geht es, welche Eckdaten helfen fuer eine qualifizierte Rueckmeldung?',
+  'rst.h.tech.sso': 'SSO / SAML',
+  'rst.h.tech.ssoDesc': 'z.B. Azure AD, Okta, Keycloak',
+  'rst.h.tech.mfa': 'MFA-Pflicht',
+  'rst.h.tech.mfaDesc': 'Zwei-Faktor fuer alle Admin-Nutzer',
+  'rst.h.tech.api': 'REST-API / Integration',
+  'rst.h.tech.apiDesc': 'API-Keys, Webhooks, ERP-Anbindung',
+  'rst.h.tech.compliance': 'Compliance & Audit',
+  'rst.h.tech.complianceDesc': 'Audit-Log, DSGVO-Export, Pruefpfade',
+  'rst.h.collab.label': 'Interesse an strategischer Zusammenarbeit / Rahmenkonditionen',
+  'rst.h.collab.optIn': 'Ich moechte ein qualifiziertes Kooperationsinteresse fuer eine moegliche Zusammenarbeit im individuellen Tarif anfragen.',
+  'rst.h.collab.optInNote': 'Kein unmittelbarer Vertragsabschluss ueber die Plattform.',
+  'rst.h.ss.headline': '⚡ Direkt buchen & sofort freischalten',
+  'rst.h.ss.desc': 'Ihre Auswahl ergibt einen festen Monatspreis. Buchen Sie den individuellen Tarif direkt und sicher über unseren Zahlungsdienstleister – die Freischaltung erfolgt automatisch nach erfolgreicher Zahlung.',
+  'rst.h.ss.book': 'Jetzt buchen & freischalten',
+  'rst.h.ss.preparing': 'Wird vorbereitet…',
+  'rst.h.ss.redirect': 'Weiterleitung zu Stripe…',
+  'rst.h.ss.note': 'Enthält Ihre Auswahl Komponenten, die wir individuell für Sie ausarbeiten, leiten wir Sie automatisch in den Anfrage-Prozess – es wird dann nichts berechnet.',
+  'rst.h.submit.hint': 'Nach Absenden erhalten Sie eine Zusammenfassung per E-Mail. Unser Tarif-Team erstellt Ihnen ein verbindliches Angebot.',
+  'rst.h.submit.send': 'Anfrage absenden',
+  'rst.h.submit.sending': 'Wird gesendet…',
+  'rst.h.success.title': '✅ Anfrage erfolgreich gesendet!',
+  'rst.h.success.text': 'Vielen Dank fuer Ihr Interesse am individuellen Tarif. Unser Team wird sich innerhalb von 24 Stunden bei Ihnen melden und ein individuelles Angebot erstellen.',
+  'rst.h.success.back': 'Zurueck zu den Abo-Modellen',
+  'rst.h.success.previewIntro': 'Ihre unverbindliche Kostenvorschau wurde erzeugt.',
+  'rst.h.success.previewDocId': 'Dokument-ID:',
+  'rst.h.success.previewDownload': 'Kostenvorschau herunterladen',
+  'rst.h.success.previewNote': 'Unverbindliche Preview; das verbindliche Angebot folgt nach Pruefung durch das Tarif-Team.',
+  'rst.h.inv.title': 'Kostenvorschau',
+  'rst.h.inv.badge': 'INDIVIDUELLER TARIF',
+  'rst.h.inv.base': 'Basispaket individueller Tarif',
+  'rst.h.inv.baseHint': 'Alle Standard-Features, bis {n} Nutzer',
+  'rst.h.inv.extraSeats': 'Zusaetzliche Nutzer',
+  'rst.h.inv.monthly': 'Monatlich',
+  'rst.h.inv.onetime': 'Einmalig',
+  'rst.h.inv.note': 'Alle Preise in EUR netto zzgl. gesetzlicher MwSt. Dies ist eine unverbindliche Kostenvorschau. Das verbindliche Angebot erhalten Sie nach Pruefung durch unser Tarif-Team.',
+  'rst.h.inv.print': 'Kostenvorschau drucken',
+  'rst.h.disclaimer': 'Alle Preise verstehen sich in EUR netto zzgl. gesetzlicher MwSt. Die angezeigte Kostenvorschau ist unverbindlich. Das verbindliche Angebot wird nach individueller Pruefung erstellt. Alle Angaben ohne Gewaehr.',
+  'rst.h.err.required': 'Bitte Firma, Ansprechpartner und E-Mail ausfuellen.',
+  'rst.h.err.offline': 'Verbindung fehlgeschlagen. Bitte Internetverbindung pruefen und erneut versuchen.',
+  'rst.h.err.server': 'Server nicht erreichbar. Bitte spaeter erneut versuchen.',
+  'rst.h.err.status': 'Anfrage fehlgeschlagen (Status {status}).',
+  'rst.h.err.validationPath': 'Bitte Eingaben pruefen ({pfad}).',
+  'rst.h.err.validation': 'Bitte Eingaben pruefen.',
+  'rst.h.err.rateLimited': 'Zu viele Anfragen in kurzer Zeit. Bitte einige Minuten warten.',
+  'rst.h.err.duplicate': 'Wir haben bereits eine offene Anfrage zu dieser E-Mail. Wir melden uns in Kuerze.',
+  'rst.h.err.csrf': 'Sicherheitstoken abgelaufen. Bitte Seite neu laden und erneut versuchen.',
+  'rst.h.err.generic': 'Anfrage fehlgeschlagen. Bitte erneut versuchen.',
+  'rst.h.err.selection': 'Bitte Auswahl pruefen.',
+  'rst.h.err.invalidSeats': 'Bitte eine gueltige Nutzeranzahl (mindestens 1) waehlen.',
+  'rst.h.err.unknownAddon': 'Ein gewaehltes Zusatzmodul ist nicht verfuegbar. Bitte Seite neu laden.',
+  'rst.h.err.addonInactive': 'Ein gewaehltes Zusatzmodul ist derzeit nicht buchbar.',
+  'rst.h.err.addonSoon': 'Ein gewaehltes Zusatzmodul ist noch nicht verfuegbar.',
+  'rst.h.err.addonNotForPlan': 'Ein gewaehltes Zusatzmodul ist fuer diesen Tarif nicht buchbar.',
+  'rst.h.err.orgRequired': 'Bitte melden Sie sich mit Ihrem Unternehmenskonto an, um direkt zu buchen.',
+  'rst.h.err.quoteFreeze': 'Der Preis konnte nicht fixiert werden. Bitte erneut versuchen.',
+  'rst.h.err.stripe': 'Die Zahlung konnte nicht gestartet werden. Bitte erneut versuchen.',
+  'rst.h.err.forbidden': 'Zugriff verweigert. Bitte anmelden und ggf. die Zwei-Faktor-Authentifizierung abschliessen.',
+  'rst.h.err.checkoutOffline': 'Verbindung fehlgeschlagen. Bitte erneut versuchen.',
+  'rst.h.err.checkoutGeneric': 'Buchung fehlgeschlagen. Bitte erneut versuchen.'
+});
+TCi18n.register('en', {
+  'rst.h.docTitle': 'Configure a custom plan for supplier management – TempConnect',
+  'rst.h.hero.label': 'Custom plan',
+  'rst.h.hero.title': 'Configure your custom plan for client companies',
+  'rst.h.hero.desc': 'For recurring temporary staffing demand across several suppliers, rate cards, approvals and locations. Choose the add-on modules that strengthen your supplier management.',
+  'rst.h.incl.title': '✅ Included in the custom plan as standard',
+  'rst.h.incl.desc': 'Everything in PRO plus the buyer-first control modules for recurring temporary staffing — available immediately.',
+  'rst.h.incl.1': 'Unlimited job postings & offers',
+  'rst.h.incl.2': '13-factor matching & ranking',
+  'rst.h.incl.3': 'Supplier pool & preferred first',
+  'rst.h.incl.4': 'Rate cards & rate compliance',
+  'rst.h.incl.5': 'Spend & cost analytics',
+  'rst.h.incl.6': 'Multiple departments & locations',
+  'rst.h.incl.7': 'Approval workflows',
+  'rst.h.incl.8': 'Contract management',
+  'rst.h.incl.9': 'Compliance management',
+  'rst.h.incl.10': 'Audit & executive reporting',
+  'rst.h.incl.11': 'Digital timesheets & invoice reference',
+  'rst.h.incl.12': 'Emergency staffing',
+  'rst.h.incl.13': 'Pulse timer (30 min)',
+  'rst.h.incl.14': '99.5 % platform availability',
+  'rst.h.incl.15': 'Dedicated contact person',
+  'rst.h.addons.title': 'Add optional modules',
+  'rst.h.addons.desc': 'Optional extensions — pick only what you need.',
+  'rst.h.addons.loading': 'Loading add-ons…',
+  'rst.h.addons.error': 'Add-ons could not be loaded.',
+  'rst.h.addons.retry': 'Try again',
+  'rst.h.addons.empty': 'No add-ons available at the moment.',
+  'rst.h.addons.soon': 'Coming soon',
+  'rst.h.addons.owned': 'Already booked',
+  'rst.h.addons.unitMonthly': '/month',
+  'rst.h.addons.unitOnce': 'one-off',
+  'rst.h.seats.title': 'User allowance',
+  'rst.h.seats.desc': 'The custom plan includes up to 50 users as standard. Beyond that: EUR 29 per user per month.',
+  'rst.h.seats.count': 'Number of users:',
+  'rst.h.seats.included': 'Included as standard',
+  'rst.h.seats.surcharge': '+{betrag} EUR/month',
+  'rst.h.ctx.label': 'Request context',
+  'rst.h.ctx.title': 'Custom plan on request',
+  'rst.h.ctx.fromAbo': 'You are starting a request from the plan overview. We will record your requirements and prepare an individual quote.',
+  'rst.h.ctx.default': 'You are starting a request for the custom plan. Our team will guide you through to the quote.',
+  'rst.h.ctx.source': 'Source',
+  'rst.h.ctx.currentPlan': 'Current plan',
+  'rst.h.ctx.interest': 'Interest',
+  'rst.h.ctx.goal': 'Goal',
+  'rst.h.ctx.planIndividuell': 'Custom plan',
+  'rst.h.ctx.srcSlaAbo': 'Plans',
+  'rst.h.ctx.intentUpgrade': 'Upgrade to the custom plan',
+  'rst.h.ctx.intentRequest': 'Request the custom plan',
+  'rst.h.contact.title': 'Contact & billing details',
+  'rst.h.contact.desc': 'Our plan team will contact you within 24 hours to qualify locations, suppliers and demand volume.',
+  'rst.h.f.company': 'Company *',
+  'rst.h.f.contact': 'Contact person *',
+  'rst.h.f.email': 'Email *',
+  'rst.h.f.role': 'Role / function',
+  'rst.h.f.phone': 'Phone',
+  'rst.h.f.street': 'Street & no.',
+  'rst.h.f.city': 'Postcode / city',
+  'rst.h.f.vat': 'VAT ID',
+  'rst.h.f.start': 'Expected start',
+  'rst.h.f.tech': 'Technical requirements (optional, multiple choice)',
+  'rst.h.f.notes': 'Notes / requirements',
+  'rst.h.f.sites': 'Number of locations (optional)',
+  'rst.h.f.region': 'Region / scope (optional)',
+  'rst.h.f.context': 'Context (optional)',
+  'rst.h.ph.company': 'Example Ltd',
+  'rst.h.ph.contact': 'Jane Doe',
+  'rst.h.ph.role': 'e.g. procurement, HR, management',
+  'rst.h.ph.street': 'Example Street 1',
+  'rst.h.ph.notes': 'Special requirements, number of locations, active suppliers, integrations, demand per month...',
+  'rst.h.ph.sites': 'e.g. 12',
+  'rst.h.ph.region': 'e.g. DACH, EU',
+  'rst.h.ph.context': 'Briefly: what is it about, which key facts help us reply in a qualified way?',
+  'rst.h.tech.sso': 'SSO / SAML',
+  'rst.h.tech.ssoDesc': 'e.g. Azure AD, Okta, Keycloak',
+  'rst.h.tech.mfa': 'Mandatory MFA',
+  'rst.h.tech.mfaDesc': 'Two-factor for all admin users',
+  'rst.h.tech.api': 'REST API / integration',
+  'rst.h.tech.apiDesc': 'API keys, webhooks, ERP connection',
+  'rst.h.tech.compliance': 'Compliance & audit',
+  'rst.h.tech.complianceDesc': 'Audit log, GDPR export, audit trails',
+  'rst.h.collab.label': 'Interest in strategic collaboration / framework conditions',
+  'rst.h.collab.optIn': 'I would like to register qualified interest in a possible collaboration within the custom plan.',
+  'rst.h.collab.optInNote': 'No contract is concluded directly via the platform.',
+  'rst.h.ss.headline': '⚡ Book directly & activate immediately',
+  'rst.h.ss.desc': 'Your selection results in a fixed monthly price. Book the custom plan directly and securely via our payment provider – activation happens automatically once payment succeeds.',
+  'rst.h.ss.book': 'Book & activate now',
+  'rst.h.ss.preparing': 'Preparing…',
+  'rst.h.ss.redirect': 'Redirecting to Stripe…',
+  'rst.h.ss.note': 'If your selection contains components we tailor individually for you, we will move you into the request process automatically – nothing is charged in that case.',
+  'rst.h.submit.hint': 'After submitting you receive a summary by email. Our plan team will prepare a binding quote for you.',
+  'rst.h.submit.send': 'Send request',
+  'rst.h.submit.sending': 'Sending…',
+  'rst.h.success.title': '✅ Request sent successfully!',
+  'rst.h.success.text': 'Thank you for your interest in the custom plan. Our team will contact you within 24 hours and prepare an individual quote.',
+  'rst.h.success.back': 'Back to the plans',
+  'rst.h.success.previewIntro': 'Your non-binding cost preview has been generated.',
+  'rst.h.success.previewDocId': 'Document ID:',
+  'rst.h.success.previewDownload': 'Download cost preview',
+  'rst.h.success.previewNote': 'Non-binding preview; the binding quote follows once our plan team has reviewed it.',
+  'rst.h.inv.title': 'Cost preview',
+  'rst.h.inv.badge': 'CUSTOM PLAN',
+  'rst.h.inv.base': 'Custom plan base package',
+  'rst.h.inv.baseHint': 'All standard features, up to {n} users',
+  'rst.h.inv.extraSeats': 'Additional users',
+  'rst.h.inv.monthly': 'Monthly',
+  'rst.h.inv.onetime': 'One-off',
+  'rst.h.inv.note': 'All prices in EUR net plus statutory VAT. This is a non-binding cost preview. You receive the binding quote once our plan team has reviewed it.',
+  'rst.h.inv.print': 'Print cost preview',
+  'rst.h.disclaimer': 'All prices are in EUR net plus statutory VAT. The cost preview shown is non-binding. The binding quote is issued after an individual review. All information without guarantee.',
+  'rst.h.err.required': 'Please fill in company, contact person and email.',
+  'rst.h.err.offline': 'Connection failed. Please check your internet connection and try again.',
+  'rst.h.err.server': 'Server unreachable. Please try again later.',
+  'rst.h.err.status': 'Request failed (status {status}).',
+  'rst.h.err.validationPath': 'Please check your input ({pfad}).',
+  'rst.h.err.validation': 'Please check your input.',
+  'rst.h.err.rateLimited': 'Too many requests in a short time. Please wait a few minutes.',
+  'rst.h.err.duplicate': 'We already have an open request for this email address. We will be in touch shortly.',
+  'rst.h.err.csrf': 'Security token expired. Please reload the page and try again.',
+  'rst.h.err.generic': 'Request failed. Please try again.',
+  'rst.h.err.selection': 'Please check your selection.',
+  'rst.h.err.invalidSeats': 'Please choose a valid number of users (at least 1).',
+  'rst.h.err.unknownAddon': 'One selected module is not available. Please reload the page.',
+  'rst.h.err.addonInactive': 'One selected module cannot be booked at the moment.',
+  'rst.h.err.addonSoon': 'One selected module is not available yet.',
+  'rst.h.err.addonNotForPlan': 'One selected module cannot be booked on this plan.',
+  'rst.h.err.orgRequired': 'Please sign in with your company account to book directly.',
+  'rst.h.err.quoteFreeze': 'The price could not be fixed. Please try again.',
+  'rst.h.err.stripe': 'The payment could not be started. Please try again.',
+  'rst.h.err.forbidden': 'Access denied. Please sign in and complete two-factor authentication if required.',
+  'rst.h.err.checkoutOffline': 'Connection failed. Please try again.',
+  'rst.h.err.checkoutGeneric': 'Booking failed. Please try again.'
+});
+
+    function t(key, params) { return TCi18n.t(key, params); }
     function R() { return (window.TC && window.TC.catalog) ? window.TC.catalog : null; }
+
+    /* Deutsche Kontext-Bezeichnungen fuer den VORAUSGEFUELLTEN Anmerkungstext.
+       Dieser Text wird mitgesendet und von unserem Tarif-Team gelesen — er
+       bleibt deshalb deutsch, unabhaengig von der Anzeigesprache. */
+    var KONTEXT_DE = {
+      source: { sla_abo: "Abo-Modelle", pricing: "Pricing", landing: "Landing", enterprise: "Enterprise" },
+      intent: { upgrade: "Upgrade auf individuellen Tarif", request: "Individuellen Tarif anfragen" },
+      planIndividuell: "Individueller Tarif",
+      quelle: "Quelle", interesse: "Interesse", aktuellerPlan: "Aktueller Plan", ziel: "Ziel"
+    };
 
     /* ── Catalog-State (gefuellt im init aus /api/public/catalog) ─── */
     var ADDONS = [];                  // Aktive Add-ons (interval=monthly|onetime)
@@ -31,7 +361,7 @@
       if (!a) return null;
       var priceEur = (typeof a.price_cents === "number" && isFinite(a.price_cents))
         ? Math.round(a.price_cents / 100) : 0;
-      var unit = (a.interval === "onetime") ? "einmalig" : "/Monat";
+      var unit = (a.interval === "onetime") ? t('rst.h.addons.unitOnce') : t('rst.h.addons.unitMonthly');
       return {
         id: a.key,
         name: a.name,
@@ -63,14 +393,14 @@
       grid.innerHTML = "";
       if (!catalogReady) {
         if (catalogError) {
-          grid.innerHTML = '<div class="addon-empty" style="padding:var(--ds-space-4);color:var(--ds-text-secondary);font-size:13px">Add-ons konnten nicht geladen werden. <button type="button" class="ds-btn ds-btn--sm" style="margin-left:8px" onclick="location.reload()">Erneut versuchen</button></div>';
+          grid.innerHTML = '<div class="addon-empty" style="padding:var(--ds-space-4);color:var(--ds-text-secondary);font-size:13px">' + esc(t('rst.h.addons.error')) + ' <button type="button" class="ds-btn ds-btn--sm" style="margin-left:8px" onclick="location.reload()">' + esc(t('rst.h.addons.retry')) + '</button></div>';
         } else {
-          grid.innerHTML = '<div class="addon-empty" style="padding:var(--ds-space-4);color:var(--ds-text-secondary);font-size:13px">Lade Add-ons&hellip;</div>';
+          grid.innerHTML = '<div class="addon-empty" style="padding:var(--ds-space-4);color:var(--ds-text-secondary);font-size:13px">' + esc(t('rst.h.addons.loading')) + '</div>';
         }
         return;
       }
       if (!ADDONS.length) {
-        grid.innerHTML = '<div class="addon-empty" style="padding:var(--ds-space-4);color:var(--ds-text-secondary);font-size:13px">Aktuell keine Add-ons verf&uuml;gbar.</div>';
+        grid.innerHTML = '<div class="addon-empty" style="padding:var(--ds-space-4);color:var(--ds-text-secondary);font-size:13px">' + esc(t('rst.h.addons.empty')) + '</div>';
         return;
       }
       ADDONS.forEach(function(a) {
@@ -84,13 +414,17 @@
         var cb = document.createElement("input");
         cb.type = "checkbox";
         cb.disabled = a.soon === true || owned;   // bereits gebucht -> nicht erneut buchbar
-        if (owned) cb.checked = true;
+        // Bereits getroffene Auswahl ueberlebt ein erneutes Rendern (Katalog
+        // nachgeladen, Sprache gewechselt) — sonst waere der Haken weg, die
+        // Auswahl im Zustand aber noch da.
+        cb.checked = owned || selectedAddons[a.id] === true;
+        if (cb.checked && !owned) item.classList.add("selected");
         cb.onchange = function() { if (!owned) toggleAddon(a.id, cb.checked); };
 
         var info = document.createElement("div");
         info.className = "addon-info";
-        var soonHtml = a.soon ? " <span class='soon-tag'>Bald verf\u00fcgbar</span>" : "";
-        var ownedHtml = owned ? " <span class='owned-tag'>Bereits gebucht</span>" : "";
+        var soonHtml = a.soon ? " <span class='soon-tag'>" + esc(t('rst.h.addons.soon')) + "</span>" : "";
+        var ownedHtml = owned ? " <span class='owned-tag'>" + esc(t('rst.h.addons.owned')) + "</span>" : "";
         info.innerHTML = "<div class='addon-name'>" + esc(a.name) + soonHtml + ownedHtml + "</div><div class='addon-desc'>" + esc(a.desc) + "</div>";
 
         var price = document.createElement("div");
@@ -116,7 +450,15 @@
         if (fmtBase) baseLine.textContent = fmtBase;
       }
       var hint = document.querySelector(".invoice-line.base + div");
-      if (hint) hint.textContent = "Alle Standard-Features, bis " + SEAT_INCLUDED + " Nutzer";
+      if (hint) hint.textContent = t('rst.h.inv.baseHint', { n: SEAT_INCLUDED });
+    }
+
+    /** Knopfbeschriftung mitsamt Marker setzen (Ruhe- und Wartezustand). */
+    function setBtnLabel(btn, key, busy) {
+      if (!btn) return;
+      btn.setAttribute("data-i18n", key);
+      btn.textContent = t(key);
+      btn.disabled = !!busy;
     }
 
     function toggleAddon(id, checked) {
@@ -159,12 +501,12 @@
       var seatLabel = document.getElementById("seatCostLabel");
       var seatLine = document.getElementById("invoiceSeatLine");
       if (extraSeats > 0) {
-        seatLabel.textContent = "+" + seatCost + " EUR/Monat";
+        seatLabel.textContent = t('rst.h.seats.surcharge', { betrag: seatCost });
         seatLine.style.display = "flex";
         document.getElementById("invoiceSeatQty").textContent = extraSeats + " x " + SEAT_PRICE + " EUR";
         document.getElementById("invoiceSeatAmount").textContent = seatCost + " EUR";
       } else {
-        seatLabel.textContent = "Im Standard enthalten";
+        seatLabel.textContent = t('rst.h.seats.included');
         seatLine.style.display = "none";
       }
 
@@ -191,7 +533,7 @@
       var contactRole = document.getElementById("fContactRole") ? document.getElementById("fContactRole").value.trim() : "";
 
       if (!company || !contact || !email) {
-        alert("Bitte Firma, Ansprechpartner und E-Mail ausfuellen.");
+        alert(t('rst.h.err.required'));
         return;
       }
 
@@ -199,8 +541,9 @@
       if (errEl) { errEl.style.display = "none"; errEl.textContent = ""; }
 
       var btn = document.getElementById("btnSubmit");
-      btn.disabled = true;
-      btn.textContent = "Wird gesendet\u2026";
+      // Auch die Wartebeschriftung traegt ihren Marker, damit ein Sprachwechsel
+      // waehrend des Absendens den Knopf nicht zurueckstellt.
+      setBtnLabel(btn, 'rst.h.submit.sending', true);
 
       // Konfiguration einsammeln
       var seats = parseInt(document.getElementById("seatCount").value) || 50;
@@ -272,9 +615,9 @@
 
       function describeError(httpStatus, payloadData) {
         if (!payloadData) {
-          if (httpStatus === 0) return "Verbindung fehlgeschlagen. Bitte Internetverbindung pruefen und erneut versuchen.";
-          if (httpStatus >= 500) return "Server nicht erreichbar. Bitte spaeter erneut versuchen.";
-          return "Anfrage fehlgeschlagen (Status " + httpStatus + ").";
+          if (httpStatus === 0) return t('rst.h.err.offline');
+          if (httpStatus >= 500) return t('rst.h.err.server');
+          return t('rst.h.err.status', { status: httpStatus });
         }
         // Backend liefert in v1 entweder { error: "CODE", message } oder
         // { error: { code, message } }.
@@ -285,16 +628,16 @@
           if (Array.isArray(details) && details.length) {
             var first = details[0];
             var path = Array.isArray(first.path) ? first.path.join(".") : (first.path || "");
-            return "Bitte Eingaben pruefen" + (path ? " (" + path + ")" : "") + ".";
+            return path ? t('rst.h.err.validationPath', { pfad: path }) : t('rst.h.err.validation');
           }
-          return "Bitte Eingaben pruefen.";
+          return t('rst.h.err.validation');
         }
-        if (code === "RATE_LIMITED") return "Zu viele Anfragen in kurzer Zeit. Bitte einige Minuten warten.";
-        if (code === "DUPLICATE_OPEN_REQUEST") return "Wir haben bereits eine offene Anfrage zu dieser E-Mail. Wir melden uns in Kuerze.";
-        if (code === "CSRF_INVALID") return "Sicherheitstoken abgelaufen. Bitte Seite neu laden und erneut versuchen.";
+        if (code === "RATE_LIMITED") return t('rst.h.err.rateLimited');
+        if (code === "DUPLICATE_OPEN_REQUEST") return t('rst.h.err.duplicate');
+        if (code === "CSRF_INVALID") return t('rst.h.err.csrf');
         if (msg) return msg;
         if (typeof code === "string") return code;
-        return "Anfrage fehlgeschlagen. Bitte erneut versuchen.";
+        return t('rst.h.err.generic');
       }
 
       // Backend-Call. Public-Visitors bekommen via GET /api/csrf eine Session.
@@ -318,8 +661,7 @@
         .then(function(result) {
           if (!result.ok) {
             showError(describeError(result.status, result.data));
-            btn.disabled = false;
-            btn.textContent = "Anfrage absenden";
+            setBtnLabel(btn, 'rst.h.submit.send', false);
             return;
           }
           showSuccess(result.data && result.data.data ? result.data.data : result.data);
@@ -327,8 +669,7 @@
         .catch(function(e) {
           showError(describeError(0, null));
           if (e && e.message && window.console) { window.console.warn("enterprise-request submit failed", e); }
-          btn.disabled = false;
-          btn.textContent = "Anfrage absenden";
+          setBtnLabel(btn, 'rst.h.submit.send', false);
         });
     };
 
@@ -360,12 +701,12 @@
       block.style.borderRadius = "var(--ds-radius-md)";
       block.style.background = "rgba(0,0,0,.08)";
       block.innerHTML =
-        '<div style="font-size:12px;color:var(--ds-text-secondary);margin-bottom:6px">Ihre unverbindliche Kostenvorschau wurde erzeugt.</div>' +
-        '<div style="font-size:13px;margin-bottom:8px"><strong>Dokument-ID:</strong> <code>' + esc(doc.id) + '</code>' +
+        '<div style="font-size:12px;color:var(--ds-text-secondary);margin-bottom:6px">' + esc(t('rst.h.success.previewIntro')) + '</div>' +
+        '<div style="font-size:13px;margin-bottom:8px"><strong>' + esc(t('rst.h.success.previewDocId')) + '</strong> <code>' + esc(doc.id) + '</code>' +
           (doc.document_number ? ' <span style="color:var(--ds-text-secondary)">(' + esc(doc.document_number) + ')</span>' : '') +
         '</div>' +
-        '<a class="ds-btn ds-btn--primary" href="' + esc(url) + '" target="_blank" rel="noopener">Kostenvorschau herunterladen</a>' +
-        '<div style="font-size:11px;color:var(--ds-text-tertiary);margin-top:8px">Unverbindliche Preview; das verbindliche Angebot folgt nach Pruefung durch das Tarif-Team.</div>';
+        '<a class="ds-btn ds-btn--primary" href="' + esc(url) + '" target="_blank" rel="noopener">' + esc(t('rst.h.success.previewDownload')) + '</a>' +
+        '<div style="font-size:11px;color:var(--ds-text-tertiary);margin-top:8px">' + esc(t('rst.h.success.previewNote')) + '</div>';
       var actions = document.getElementById("successActions");
       if (actions && actions.parentNode === success) {
         success.insertBefore(block, actions);
@@ -549,13 +890,13 @@
     function getPlanLabel(plan) {
       var key = normalizePlanKey(plan);
       if (!key) return "";
-      if (key === "INDIVIDUELL") return "Individueller Tarif";
+      if (key === "INDIVIDUELL") return t('rst.h.ctx.planIndividuell');
       return key;
     }
     function getSourceLabel(source) {
       var s = String(source || "").toLowerCase();
       var map = {
-        sla_abo: "Abo-Modelle",
+        sla_abo: t('rst.h.ctx.srcSlaAbo'),
         pricing: "Pricing",
         landing: "Landing",
         enterprise: "Enterprise"
@@ -565,8 +906,8 @@
     function getIntentLabel(intent) {
       var i = String(intent || "").toLowerCase();
       if (!i) return "";
-      if (i === "upgrade") return "Upgrade auf individuellen Tarif";
-      if (i === "request") return "Individuellen Tarif anfragen";
+      if (i === "upgrade") return t('rst.h.ctx.intentUpgrade');
+      if (i === "request") return t('rst.h.ctx.intentRequest');
       return i;
     }
     function parseContextParams() {
@@ -604,16 +945,16 @@
       var textEl = document.getElementById("contextBannerText");
       if (textEl) {
         if (ctx.source === "sla_abo") {
-          textEl.textContent = "Sie starten eine Anfrage aus den Abo-Modellen. Wir nehmen Ihre Anforderungen auf und erstellen ein individuelles Angebot.";
+          textEl.textContent = t('rst.h.ctx.fromAbo');
         } else {
-          textEl.textContent = "Sie starten eine Anfrage fuer den individuellen Tarif. Unser Team begleitet Sie bis zum Angebot.";
+          textEl.textContent = t('rst.h.ctx.default');
         }
       }
       var meta = [];
-      if (ctx.sourceLabel) meta.push("Quelle: " + ctx.sourceLabel);
-      if (ctx.currentPlanLabel) meta.push("Aktueller Plan: " + ctx.currentPlanLabel);
-      if (ctx.planLabel) meta.push("Interesse: " + ctx.planLabel);
-      if (ctx.intentLabel) meta.push("Ziel: " + ctx.intentLabel);
+      if (ctx.sourceLabel) meta.push(t('rst.h.ctx.source') + ": " + ctx.sourceLabel);
+      if (ctx.currentPlanLabel) meta.push(t('rst.h.ctx.currentPlan') + ": " + ctx.currentPlanLabel);
+      if (ctx.planLabel) meta.push(t('rst.h.ctx.interest') + ": " + ctx.planLabel);
+      if (ctx.intentLabel) meta.push(t('rst.h.ctx.goal') + ": " + ctx.intentLabel);
       var metaEl = document.getElementById("contextBannerMeta");
       if (metaEl) metaEl.textContent = meta.join(" • ");
     }
@@ -622,12 +963,27 @@
       var notes = document.getElementById("fNotes");
       if (!notes) return;
       if (safeTrim(notes.value)) return;
+      // Dieser Text wird MITGESENDET (Anmerkungsfeld) und von unserem Tarif-Team
+      // gelesen — er bleibt deshalb deutsch, auch wenn die Oberflaeche auf
+      // Englisch steht. Deshalb KONTEXT_DE statt der uebersetzten Label.
+      function planDe(key) { return key === "INDIVIDUELL" ? KONTEXT_DE.planIndividuell : (key || ""); }
+      var srcDe = KONTEXT_DE.source[String(ctx.source || "").toLowerCase()] || ctx.source || "";
+      var intentDe = KONTEXT_DE.intent[String(ctx.intent || "").toLowerCase()] || ctx.intent || "";
       var parts = [];
-      if (ctx.sourceLabel) parts.push("Quelle: " + ctx.sourceLabel);
-      if (ctx.planLabel) parts.push("Interesse: " + ctx.planLabel);
-      if (ctx.currentPlanLabel) parts.push("Aktueller Plan: " + ctx.currentPlanLabel);
-      if (ctx.intentLabel) parts.push("Ziel: " + ctx.intentLabel);
+      if (srcDe) parts.push(KONTEXT_DE.quelle + ": " + srcDe);
+      if (planDe(ctx.plan)) parts.push(KONTEXT_DE.interesse + ": " + planDe(ctx.plan));
+      if (planDe(ctx.currentPlan)) parts.push(KONTEXT_DE.aktuellerPlan + ": " + planDe(ctx.currentPlan));
+      if (intentDe) parts.push(KONTEXT_DE.ziel + ": " + intentDe);
       if (parts.length) notes.value = parts.join(" · ");
+    }
+
+    /** Kontext-Beschriftungen nach einem Sprachwechsel neu aufloesen. */
+    function refreshContextLabels(ctx) {
+      if (!ctx) return;
+      ctx.sourceLabel = getSourceLabel(ctx.source);
+      ctx.planLabel = getPlanLabel(ctx.plan);
+      ctx.currentPlanLabel = getPlanLabel(ctx.currentPlan);
+      ctx.intentLabel = getIntentLabel(ctx.intent);
     }
     function prepareSuccessReturn(ctx) {
       var actions = document.getElementById("successActions");
@@ -641,7 +997,7 @@
 
     /* ── Helpers ──────────────────────────────────────────── */
     function esc(s) { return String(s || "").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;"); }
-    function fmtPrice(n) { return n.toLocaleString("de-DE"); }
+    function fmtPrice(n) { return n.toLocaleString(TCi18n.dateLocale()); }
 
     /* ── Self-Service Direktbuchung (Phase 2, Slice E) ──────────
        Eingeloggte Org-Nutzer mit aktivem Stripe buchen den individuellen
@@ -687,33 +1043,33 @@
 
     function resetSelfServiceButton() {
       var btn = document.getElementById("btnSelfServiceCheckout");
-      if (btn) { btn.disabled = false; btn.textContent = "Jetzt buchen & freischalten"; }
+      setBtnLabel(btn, 'rst.h.ss.book', false);
     }
 
     function describeQuoteErrors(errors) {
-      if (!Array.isArray(errors) || !errors.length) return "Bitte Auswahl pruefen.";
+      if (!Array.isArray(errors) || !errors.length) return t('rst.h.err.selection');
       var codes = {
-        INVALID_SEATS: "Bitte eine gueltige Nutzeranzahl (mindestens 1) waehlen.",
-        UNKNOWN_ADDON: "Ein gewaehltes Zusatzmodul ist nicht verfuegbar. Bitte Seite neu laden.",
-        ADDON_INACTIVE: "Ein gewaehltes Zusatzmodul ist derzeit nicht buchbar.",
-        ADDON_COMING_SOON: "Ein gewaehltes Zusatzmodul ist noch nicht verfuegbar.",
-        ADDON_NOT_FOR_PLAN: "Ein gewaehltes Zusatzmodul ist fuer diesen Tarif nicht buchbar."
+        INVALID_SEATS: t('rst.h.err.invalidSeats'),
+        UNKNOWN_ADDON: t('rst.h.err.unknownAddon'),
+        ADDON_INACTIVE: t('rst.h.err.addonInactive'),
+        ADDON_COMING_SOON: t('rst.h.err.addonSoon'),
+        ADDON_NOT_FOR_PLAN: t('rst.h.err.addonNotForPlan')
       };
       var first = errors[0] || {};
-      return codes[first.code] || "Bitte Auswahl pruefen.";
+      return codes[first.code] || t('rst.h.err.selection');
     }
 
     function describeCheckoutError(httpStatus, data) {
       var code = data && data.error ? (data.error.code || data.error) : null;
-      if (code === "ORG_REQUIRED") return "Bitte melden Sie sich mit Ihrem Unternehmenskonto an, um direkt zu buchen.";
-      if (code === "QUOTE_FREEZE_FAILED") return "Der Preis konnte nicht fixiert werden. Bitte erneut versuchen.";
-      if (code === "STRIPE_ERROR") return "Die Zahlung konnte nicht gestartet werden. Bitte erneut versuchen.";
-      if (code === "CSRF_INVALID") return "Sicherheitstoken abgelaufen. Bitte Seite neu laden und erneut versuchen.";
-      if (httpStatus === 401 || httpStatus === 403) return "Zugriff verweigert. Bitte anmelden und ggf. die Zwei-Faktor-Authentifizierung abschliessen.";
-      if (httpStatus === 0) return "Verbindung fehlgeschlagen. Bitte erneut versuchen.";
-      if (httpStatus >= 500) return "Server nicht erreichbar. Bitte spaeter erneut versuchen.";
+      if (code === "ORG_REQUIRED") return t('rst.h.err.orgRequired');
+      if (code === "QUOTE_FREEZE_FAILED") return t('rst.h.err.quoteFreeze');
+      if (code === "STRIPE_ERROR") return t('rst.h.err.stripe');
+      if (code === "CSRF_INVALID") return t('rst.h.err.csrf');
+      if (httpStatus === 401 || httpStatus === 403) return t('rst.h.err.forbidden');
+      if (httpStatus === 0) return t('rst.h.err.checkoutOffline');
+      if (httpStatus >= 500) return t('rst.h.err.server');
       if (data && data.message) return data.message;
-      return "Buchung fehlgeschlagen. Bitte erneut versuchen.";
+      return t('rst.h.err.checkoutGeneric');
     }
 
     window.submitSelfServiceCheckout = function() {
@@ -721,13 +1077,13 @@
       var contact = document.getElementById("fContact").value.trim();
       var email   = document.getElementById("fEmail").value.trim();
       if (!company || !contact || !email) {
-        showSelfServiceError("Bitte Firma, Ansprechpartner und E-Mail ausfuellen.");
+        showSelfServiceError(t('rst.h.err.required'));
         return;
       }
       var errEl = document.getElementById("selfServiceError");
       if (errEl) { errEl.style.display = "none"; errEl.textContent = ""; }
       var btn = document.getElementById("btnSelfServiceCheckout");
-      if (btn) { btn.disabled = true; btn.textContent = "Wird vorbereitet…"; }
+      setBtnLabel(btn, 'rst.h.ss.preparing', true);
 
       var seats = parseInt(document.getElementById("seatCount").value, 10) || 50;
       if (seats < 1) seats = 1;
@@ -765,7 +1121,7 @@
         .then(function(result) {
           var data = result.data || {};
           if (result.ok && data.ok && data.mode === "stripe" && data.redirect_url) {
-            if (btn) btn.textContent = "Weiterleitung zu Stripe…";
+            setBtnLabel(btn, 'rst.h.ss.redirect', true);
             window.location.href = data.redirect_url;
             return;
           }
@@ -833,6 +1189,27 @@
       renderAddons();
       window.recalc();
     });
+
+    // Sprachwechsel: Add-on-Liste, Kostenvorschau und Kontext-Banner entstehen
+    // zur Laufzeit — sie werden aus dem bereits geladenen Katalog neu gezeichnet,
+    // ohne erneuten Netz-Abruf. Die Einheiten (/Monat, einmalig) haengen an der
+    // Sprache und werden dabei ueber mapCatalogAddon neu gesetzt.
+    // Gleiche Ueberlegung wie bei der i18n-Bruecke oben: die Datei laeuft auch
+    // in einer vm-Sandbox mit minimalem DOM. Fehlt der Ereignis-Bus, entfaellt
+    // nur das Nachzeichnen beim Sprachwechsel — der Rest arbeitet normal weiter.
+    if (typeof document.addEventListener === "function") {
+      document.addEventListener("tc:langchange", function () {
+        ADDONS = ADDONS.map(function (a) {
+          a.unit = (a.type === "onetime") ? t('rst.h.addons.unitOnce') : t('rst.h.addons.unitMonthly');
+          return a;
+        });
+        applyBaselineToDom();
+        renderAddons();
+        window.recalc();
+        refreshContextLabels(requestContext);
+        applyContextBanner(requestContext);
+      });
+    }
 
     Promise.all([
       loadPaymentConfig(),

@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <script src="/public/js/theme.js"></script>
   <script src="/public/js/i18n.js"></script>
-  <title>Firmenprofil – TempConnect</title>
+  <title data-i18n="rst.i.docTitle">Firmenprofil – TempConnect</title>
   <link rel="stylesheet" href="/public/css/enterprise.css"/>
   <style>
     .pp-hero{display:flex;align-items:center;gap:var(--ds-space-5);padding:var(--ds-space-6);border:1px solid var(--ds-border);border-radius:var(--ds-radius-lg);background:var(--ds-bg-surface);margin-bottom:var(--ds-space-6)}
@@ -66,7 +66,7 @@
   <div class="wrap">
     <div id="tc-shell"></div>
 
-    <div id="pp-loading" class="pp-loading">Profil wird geladen –</div>
+    <div id="pp-loading" class="pp-loading" data-i18n="rst.i.state.loading">Profil wird geladen –</div>
     <div id="pp-main" style="display:none">
       <!-- Hero -->
       <div class="pp-hero" id="pp-hero"></div>
@@ -79,12 +79,12 @@
       <!-- Strategic collaboration CTA -->
       <div id="scr-cooperation-cta" style="display:none">
         <div class="scr-cta-card">
-          <div class="scr-cta-title">Interesse an strategischer Zusammenarbeit</div>
-          <p class="scr-cta-desc">
+          <div class="scr-cta-title" data-i18n="rst.i.cta.title">Interesse an strategischer Zusammenarbeit</div>
+          <p class="scr-cta-desc" data-i18n="rst.i.cta.desc">
             Hier koennen Sie qualifiziertes Kooperationsinteresse an eine moegliche Rahmenkondition anfragen —
             ohne sofortigen Vertragsabschluss.
           </p>
-          <button id="scr-cooperation-open" class="ds-btn" style="max-width:420px;width:100%" disabled>
+          <button id="scr-cooperation-open" class="ds-btn" style="max-width:420px;width:100%" data-i18n="rst.i.cta.open" disabled>
             Anfrage starten
           </button>
           <div id="scr-cooperation-hint" style="margin-top:var(--ds-space-2);font-size:12px;color:var(--ds-text-secondary)"></div>
@@ -109,76 +109,76 @@
     <div id="scr-modal" class="scr-modal" role="dialog" aria-modal="true" aria-labelledby="scr-modal-title">
       <div class="scr-modal-header">
         <div>
-          <h3 id="scr-modal-title">Kooperationsinteresse fuer individuellen Tarif senden</h3>
-          <p>
+          <h3 id="scr-modal-title" data-i18n="rst.i.modal.title">Kooperationsinteresse fuer individuellen Tarif senden</h3>
+          <p data-i18n="rst.i.modal.subtitle">
             Ihre Anfrage dient der qualifizierten Anbahnung. TempConnect schliesst hier keinen Rahmenvertrag direkt fuer Sie ab.
           </p>
         </div>
-        <button id="scr-modal-close" class="ds-btn ds-btn--ghost" style="font-size:12px">Schliessen</button>
+        <button id="scr-modal-close" class="ds-btn ds-btn--ghost" style="font-size:12px" data-i18n="rst.i.modal.close">Schliessen</button>
       </div>
 
       <form id="scr-modal-form" autocomplete="off">
         <div class="scr-grid">
           <div class="scr-field">
-            <div class="scr-label">Anfrage-Unternehmen</div>
+            <div class="scr-label" data-i18n="rst.i.f.company">Anfrage-Unternehmen</div>
             <input class="scr-input" id="scr-requester-company" disabled />
           </div>
           <div class="scr-field">
-            <div class="scr-label">Ansprechpartner</div>
+            <div class="scr-label" data-i18n="rst.i.f.contact">Ansprechpartner</div>
             <input class="scr-input" id="scr-requester-contact" disabled />
           </div>
           <div class="scr-field">
-            <div class="scr-label">E-Mail</div>
+            <div class="scr-label" data-i18n="rst.i.f.email">E-Mail</div>
             <input class="scr-input" id="scr-requester-email" disabled />
           </div>
           <div class="scr-field">
-            <div class="scr-label">Telefon (optional)</div>
+            <div class="scr-label" data-i18n="rst.i.f.phone">Telefon (optional)</div>
             <input class="scr-input" id="scr-requester-phone" />
           </div>
 
           <div class="scr-field">
-            <div class="scr-label">Region / Scope (optional)</div>
-            <input class="scr-input" id="scr-region-scope" placeholder="z.B. DACH, EU, mehrere Regionen" />
+            <div class="scr-label" data-i18n="rst.i.f.region">Region / Scope (optional)</div>
+            <input class="scr-input" id="scr-region-scope" data-i18n-ph="rst.i.ph.region" placeholder="z.B. DACH, EU, mehrere Regionen" />
           </div>
           <div class="scr-field">
-            <div class="scr-label">Anzahl Standorte (optional)</div>
-            <input class="scr-input" id="scr-site-count" type="number" min="1" max="10000" placeholder="z.B. 12" />
+            <div class="scr-label" data-i18n="rst.i.f.sites">Anzahl Standorte (optional)</div>
+            <input class="scr-input" id="scr-site-count" type="number" min="1" max="10000" data-i18n-ph="rst.i.ph.sites" placeholder="z.B. 12" />
           </div>
 
           <div class="scr-field scr-row-full">
-            <div class="scr-label">Erwartetes Anfragevolumen (optional)</div>
-            <input class="scr-input" id="scr-expected-volume" placeholder="Kurz beschreiben (z.B. 50+ Stellen/Monat)" />
+            <div class="scr-label" data-i18n="rst.i.f.volume">Erwartetes Anfragevolumen (optional)</div>
+            <input class="scr-input" id="scr-expected-volume" data-i18n-ph="rst.i.ph.volume" placeholder="Kurz beschreiben (z.B. 50+ Stellen/Monat)" />
           </div>
 
           <div class="scr-field scr-row-full">
-            <div class="scr-label">Interessen / Rahmenkonditionen</div>
+            <div class="scr-label" data-i18n="rst.i.f.interests">Interessen / Rahmenkonditionen</div>
             <label style="display:flex;gap:10px;align-items:flex-start;margin-top:6px;font-size:13px;color:var(--ds-text-secondary)">
               <input type="checkbox" id="scr-interest-framework" checked />
-              <span>Interesse an Rahmenkonditionen / strategischer Zusammenarbeit im individuellen Tarif</span>
+              <span data-i18n="rst.i.opt.framework">Interesse an Rahmenkonditionen / strategischer Zusammenarbeit im individuellen Tarif</span>
             </label>
             <label style="display:flex;gap:10px;align-items:flex-start;margin-top:10px;font-size:13px;color:var(--ds-text-secondary)">
               <input type="checkbox" id="scr-interest-strategic" checked />
-              <span>Interesse an strategischer Kooperation (qualifizierte Anbahnung)</span>
+              <span data-i18n="rst.i.opt.strategic">Interesse an strategischer Kooperation (qualifizierte Anbahnung)</span>
             </label>
             <label style="display:flex;gap:10px;align-items:flex-start;margin-top:10px;font-size:13px;color:var(--ds-text-secondary)">
               <input type="checkbox" id="scr-interest-multi-site" checked />
-              <span>Multi-Standort / zentrale Betreuung (Setup fuer individuellen Tarif)</span>
+              <span data-i18n="rst.i.opt.multiSite">Multi-Standort / zentrale Betreuung (Setup fuer individuellen Tarif)</span>
             </label>
           </div>
 
           <div class="scr-field scr-row-full">
-            <div class="scr-label">Kurzbeschreibung / Kontext (optional)</div>
-            <textarea class="scr-textarea" id="scr-message" placeholder="Worum geht es konkret? Welche Eckdaten helfen fuer die qualifizierte Rueckmeldung?"></textarea>
+            <div class="scr-label" data-i18n="rst.i.f.message">Kurzbeschreibung / Kontext (optional)</div>
+            <textarea class="scr-textarea" id="scr-message" data-i18n-ph="rst.i.ph.message" placeholder="Worum geht es konkret? Welche Eckdaten helfen fuer die qualifizierte Rueckmeldung?"></textarea>
           </div>
         </div>
 
         <div class="scr-actions">
-          <div class="scr-hint">
+          <div class="scr-hint" data-i18n="rst.i.modal.hint">
             Nach dem Absenden wird die Anfrage im System qualifiziert und zur Bearbeitung im Umfeld des individuellen Tarifs bereitgestellt.
           </div>
           <div style="display:flex;gap:var(--ds-space-3);align-items:center">
-            <button type="button" id="scr-modal-cancel" class="ds-btn ds-btn--ghost">Abbrechen</button>
-            <button type="submit" id="scr-modal-submit" class="ds-btn">Senden</button>
+            <button type="button" id="scr-modal-cancel" class="ds-btn ds-btn--ghost" data-i18n="rst.i.modal.cancel">Abbrechen</button>
+            <button type="submit" id="scr-modal-submit" class="ds-btn" data-i18n="rst.i.modal.submit">Senden</button>
           </div>
         </div>
 
@@ -189,8 +189,154 @@
   </div>
 
   <script>
+  /* Woerterbuch (P6.1, DE/EN) fuer company_profile_public.html — Namensraum rst.i.*.
+
+     Drei-Seiten-Regel: Das oeffentliche Firmenprofil zeigt SOWOHL das eigene
+     Profil als auch das einer fremden Organisation und wird von Unternehmen
+     wie Personaldienstleistern geoeffnet. Die Beschriftungen bleiben deshalb
+     rollenneutral und frieren keinen Begriff aus terminologyLabels.js ein.
+     Einzige Ausnahme ist die Lieferanten-Bewertung: die Scorecard bewertet
+     begrifflich immer den Liefernden ("Lieferant" = supplier), unabhaengig
+     davon, wer sie liest.
+
+     Bewusst NICHT uebersetzt:
+     - alle Profildaten (Firmenname, Beschreibung, Kompetenz-Schlagworte,
+       Standorte, Zertifikatsnamen, Ansprechpartner) — Kundeninhalte
+     - Bounty-Namen/-Beschreibungen und Status-Bezeichnungen aus /api/bounties
+     - Server-Begruendungen der Eignungspruefung (eligibility.reasons)
+     - Topbar/Navigation/Nutzerbereich (pageShell.js)
+
+     Der Helfer heisst hier tr() statt t(): "t" ist in dieser Datei bereits als
+     Schleifen- und Tier-Variable vergeben.                                   */
+  TCi18n.register('de', {
+    'rst.i.docTitle': 'Firmenprofil – TempConnect',
+    'rst.i.state.loading': 'Profil wird geladen –',
+    'rst.i.state.error': 'Profil konnte nicht geladen werden.',
+    'rst.i.hero.fallbackName': 'Unternehmen',
+    'rst.i.hero.employees': '{n} Mitarbeiter',
+    'rst.i.hero.photoAlt': 'Firmenfoto von {name}',
+    'rst.i.completeness': 'Profil-Vollstaendigkeit',
+    'rst.i.card.about': 'Ueber uns',
+    'rst.i.card.capabilities': 'Kompetenzen',
+    'rst.i.card.locations': 'Standorte',
+    'rst.i.card.certifications': 'Zertifizierungen',
+    'rst.i.card.contacts': 'Ansprechpartner',
+    'rst.i.card.scorecard': 'Lieferanten-Bewertung',
+    'rst.i.card.bounties': 'Bounty-Abzeichen & Status',
+    'rst.i.cap.staff_categories': 'Personalkategorien',
+    'rst.i.cap.industries_served': 'Branchen',
+    'rst.i.cap.typical_roles': 'Rollen',
+    'rst.i.cap.availability_regions': 'Regionen',
+    'rst.i.cap.languages': 'Sprachen',
+    'rst.i.cap.specializations': 'Spezialisierungen',
+    'rst.i.cert.expired': 'Abgelaufen',
+    'rst.i.cert.active': 'Aktiv',
+    'rst.i.kpi.fillRate': 'Fill Rate',
+    'rst.i.kpi.onTime': 'Puenktlichkeit',
+    'rst.i.kpi.breaches': 'SLA-Brueche',
+    'rst.i.badge.listed': 'Im Marketplace gelistet',
+    'rst.i.badge.featured': 'Featured',
+    'rst.i.tier.status': '{name}-Status',
+    'rst.i.tier.maxSaving': 'Max. Rewards-Ersparnis:',
+    'rst.i.tier.currentSaving': 'Aktuelle Ersparnis:',
+    'rst.i.tier.ofMax': '/ max. {pct}%',
+    'rst.i.cta.title': 'Interesse an strategischer Zusammenarbeit',
+    'rst.i.cta.desc': 'Hier koennen Sie qualifiziertes Kooperationsinteresse an eine moegliche Rahmenkondition anfragen — ohne sofortigen Vertragsabschluss.',
+    'rst.i.cta.open': 'Anfrage starten',
+    'rst.i.cta.blocked': 'Freigabe erforderlich.',
+    'rst.i.cta.allowed': 'Freigabe vorhanden. Anfrage startet qualifiziert und enterprise-nah.',
+    'rst.i.modal.title': 'Kooperationsinteresse fuer individuellen Tarif senden',
+    'rst.i.modal.subtitle': 'Ihre Anfrage dient der qualifizierten Anbahnung. TempConnect schliesst hier keinen Rahmenvertrag direkt fuer Sie ab.',
+    'rst.i.modal.close': 'Schliessen',
+    'rst.i.modal.hint': 'Nach dem Absenden wird die Anfrage im System qualifiziert und zur Bearbeitung im Umfeld des individuellen Tarifs bereitgestellt.',
+    'rst.i.modal.cancel': 'Abbrechen',
+    'rst.i.modal.submit': 'Senden',
+    'rst.i.f.company': 'Anfrage-Unternehmen',
+    'rst.i.f.contact': 'Ansprechpartner',
+    'rst.i.f.email': 'E-Mail',
+    'rst.i.f.phone': 'Telefon (optional)',
+    'rst.i.f.region': 'Region / Scope (optional)',
+    'rst.i.f.sites': 'Anzahl Standorte (optional)',
+    'rst.i.f.volume': 'Erwartetes Anfragevolumen (optional)',
+    'rst.i.f.interests': 'Interessen / Rahmenkonditionen',
+    'rst.i.f.message': 'Kurzbeschreibung / Kontext (optional)',
+    'rst.i.ph.region': 'z.B. DACH, EU, mehrere Regionen',
+    'rst.i.ph.sites': 'z.B. 12',
+    'rst.i.ph.volume': 'Kurz beschreiben (z.B. 50+ Stellen/Monat)',
+    'rst.i.ph.message': 'Worum geht es konkret? Welche Eckdaten helfen fuer die qualifizierte Rueckmeldung?',
+    'rst.i.opt.framework': 'Interesse an Rahmenkonditionen / strategischer Zusammenarbeit im individuellen Tarif',
+    'rst.i.opt.strategic': 'Interesse an strategischer Kooperation (qualifizierte Anbahnung)',
+    'rst.i.opt.multiSite': 'Multi-Standort / zentrale Betreuung (Setup fuer individuellen Tarif)',
+    'rst.i.send.ok': 'Interessenanfrage gesendet. Wir melden uns.',
+    'rst.i.send.failed': 'Senden fehlgeschlagen.',
+    'rst.i.send.httpError': 'Fehler (HTTP {status})'
+  });
+  TCi18n.register('en', {
+    'rst.i.docTitle': 'Company profile – TempConnect',
+    'rst.i.state.loading': 'Loading profile –',
+    'rst.i.state.error': 'The profile could not be loaded.',
+    'rst.i.hero.fallbackName': 'Company',
+    'rst.i.hero.employees': '{n} employees',
+    'rst.i.hero.photoAlt': 'Company photo of {name}',
+    'rst.i.completeness': 'Profile completeness',
+    'rst.i.card.about': 'About us',
+    'rst.i.card.capabilities': 'Capabilities',
+    'rst.i.card.locations': 'Locations',
+    'rst.i.card.certifications': 'Certifications',
+    'rst.i.card.contacts': 'Contacts',
+    'rst.i.card.scorecard': 'Supplier rating',
+    'rst.i.card.bounties': 'Bounty badges & status',
+    'rst.i.cap.staff_categories': 'Staff categories',
+    'rst.i.cap.industries_served': 'Industries',
+    'rst.i.cap.typical_roles': 'Roles',
+    'rst.i.cap.availability_regions': 'Regions',
+    'rst.i.cap.languages': 'Languages',
+    'rst.i.cap.specializations': 'Specialisations',
+    'rst.i.cert.expired': 'Expired',
+    'rst.i.cert.active': 'Active',
+    'rst.i.kpi.fillRate': 'Fill rate',
+    'rst.i.kpi.onTime': 'On time',
+    'rst.i.kpi.breaches': 'SLA breaches',
+    'rst.i.badge.listed': 'Listed in the marketplace',
+    'rst.i.badge.featured': 'Featured',
+    'rst.i.tier.status': '{name} status',
+    'rst.i.tier.maxSaving': 'Max. rewards saving:',
+    'rst.i.tier.currentSaving': 'Current saving:',
+    'rst.i.tier.ofMax': '/ max. {pct}%',
+    'rst.i.cta.title': 'Interested in strategic collaboration',
+    'rst.i.cta.desc': 'Here you can register qualified interest in a possible framework agreement — without entering a contract right away.',
+    'rst.i.cta.open': 'Start request',
+    'rst.i.cta.blocked': 'Approval required.',
+    'rst.i.cta.allowed': 'Approval in place. Your request starts qualified and enterprise-ready.',
+    'rst.i.modal.title': 'Send collaboration interest for a custom plan',
+    'rst.i.modal.subtitle': 'Your request serves the qualified first contact. TempConnect does not conclude a framework agreement on your behalf here.',
+    'rst.i.modal.close': 'Close',
+    'rst.i.modal.hint': 'After submission the request is qualified in the system and prepared for processing in the context of the custom plan.',
+    'rst.i.modal.cancel': 'Cancel',
+    'rst.i.modal.submit': 'Send',
+    'rst.i.f.company': 'Requesting company',
+    'rst.i.f.contact': 'Contact person',
+    'rst.i.f.email': 'Email',
+    'rst.i.f.phone': 'Phone (optional)',
+    'rst.i.f.region': 'Region / scope (optional)',
+    'rst.i.f.sites': 'Number of locations (optional)',
+    'rst.i.f.volume': 'Expected request volume (optional)',
+    'rst.i.f.interests': 'Interests / framework conditions',
+    'rst.i.f.message': 'Short description / context (optional)',
+    'rst.i.ph.region': 'e.g. DACH, EU, several regions',
+    'rst.i.ph.sites': 'e.g. 12',
+    'rst.i.ph.volume': 'Describe briefly (e.g. 50+ positions/month)',
+    'rst.i.ph.message': 'What is this about? Which key facts help us reply in a qualified way?',
+    'rst.i.opt.framework': 'Interested in framework conditions / strategic collaboration within the custom plan',
+    'rst.i.opt.strategic': 'Interested in strategic cooperation (qualified first contact)',
+    'rst.i.opt.multiSite': 'Multi-site / central account management (setup for the custom plan)',
+    'rst.i.send.ok': 'Request sent. We will get back to you.',
+    'rst.i.send.failed': 'Sending failed.',
+    'rst.i.send.httpError': 'Error (HTTP {status})'
+  });
   (function(){
     "use strict";
+    function tr(key, params){ return TCi18n.t(key, params); }
     function esc(s){ return String(s==null?"":s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;").replace(/'/g,"&#x27;"); }
     function $(id){ return document.getElementById(id); }
 
@@ -207,6 +353,7 @@
         if(!r.ok) throw new Error("HTTP "+r.status);
         var res = await r.json();
         var data = res.data || res;
+        _profil = data;
         $("pp-loading").style.display="none";
         $("pp-main").style.display="block";
         render(data);
@@ -215,21 +362,31 @@
         // M-08: show marketplace visibility badge when viewing another org's profile
         if (targetId) loadVisibilityBadge(targetId);
       }catch(e){
-        $("pp-loading").innerHTML="<p style='color:var(--ds-danger)'>Profil konnte nicht geladen werden.</p>";
+        // Marker mitfuehren: ein spaeterer Sprachwechsel uebersetzt die Meldung,
+        // statt sie auf "Profil wird geladen" zurueckzusetzen.
+        var ladeEl = $("pp-loading");
+        ladeEl.setAttribute("data-i18n", "rst.i.state.error");
+        ladeEl.style.color = "var(--ds-danger)";
+        ladeEl.textContent = tr('rst.i.state.error');
       }
     }
+
+    // Der ganze Profilblock entsteht als HTML-String — nach einem Sprachwechsel
+    // wird er aus dem geladenen Datensatz neu gezeichnet, ohne neuen Abruf.
+    var _profil = null;
+    document.addEventListener("tc:langchange", function(){ if (_profil) render(_profil); });
 
     function render(d){
       // Hero
       var u=d.user||{}, p=d.profile||{};
-      var name = p.legal_name || u.company_name || "Unternehmen";
+      var name = p.legal_name || u.company_name || tr('rst.i.hero.fallbackName');
       var initials = name.substring(0,2).toUpperCase();
       var heroHtml = "<div class='pp-avatar'>"+esc(initials)+"</div><div class='pp-hero-body'>";
       heroHtml += "<h1>"+esc(name)+"</h1>";
       var sub = [];
       if(p.industry_focus) sub.push(esc(p.industry_focus));
       if(p.headquarters_city) sub.push(esc(p.headquarters_city));
-      if(p.company_size) sub.push(esc(p.company_size)+" Mitarbeiter");
+      if(p.company_size) sub.push(esc(tr('rst.i.hero.employees', { n: p.company_size })));
       heroHtml += "<p>"+sub.join(" &middot; ")+"</p>";
       if(p.website) heroHtml += "<p style='margin-top:4px'><a href='"+esc(p.website)+"' target='_blank' style='color:var(--ds-brand);font-size:12px'>"+esc(p.website)+"</a></p>";
       heroHtml += "</div>";
@@ -240,7 +397,7 @@
       if(c.percentage!==undefined){
         var pct=c.percentage;
         var color=pct>=80?"var(--ds-success)":pct>=40?"var(--ds-warning)":"var(--ds-danger)";
-        $("pp-completeness").innerHTML="<div style='padding:var(--ds-space-3) var(--ds-space-5);border:1px solid var(--ds-border);border-radius:var(--ds-radius-lg);background:var(--ds-bg-surface);display:flex;align-items:center;gap:var(--ds-space-4)'><div style='font-size:12px;font-weight:700;color:var(--ds-text-secondary);white-space:nowrap'>Profil-Vollstaendigkeit</div><div style='flex:1;height:6px;border-radius:3px;background:rgba(255,255,255,.06);overflow:hidden'><div style='height:100%;width:"+pct+"%;border-radius:3px;background:"+color+";transition:width .4s'></div></div><div style='font-size:14px;font-weight:900;color:"+color+"'>"+pct+"%</div></div>";
+        $("pp-completeness").innerHTML="<div style='padding:var(--ds-space-3) var(--ds-space-5);border:1px solid var(--ds-border);border-radius:var(--ds-radius-lg);background:var(--ds-bg-surface);display:flex;align-items:center;gap:var(--ds-space-4)'><div style='font-size:12px;font-weight:700;color:var(--ds-text-secondary);white-space:nowrap'>"+esc(tr('rst.i.completeness'))+"</div><div style='flex:1;height:6px;border-radius:3px;background:rgba(255,255,255,.06);overflow:hidden'><div style='height:100%;width:"+pct+"%;border-radius:3px;background:"+color+";transition:width .4s'></div></div><div style='font-size:14px;font-weight:900;color:"+color+"'>"+pct+"%</div></div>";
         $("pp-completeness").style.display="block";
       }
 
@@ -249,12 +406,12 @@
 
       // Firmenfoto (P7b) — erscheint nur, wenn hochgeladen
       if(p.photo_url){
-        gridHtml += "<div class='pp-card' style='grid-column:1/-1;padding:0;overflow:hidden'><img src='"+esc(p.photo_url)+"' alt='Firmenfoto von "+esc(name)+"' loading='lazy' style='display:block;width:100%;max-height:340px;object-fit:cover'/></div>";
+        gridHtml += "<div class='pp-card' style='grid-column:1/-1;padding:0;overflow:hidden'><img src='"+esc(p.photo_url)+"' alt='"+esc(tr('rst.i.hero.photoAlt', { name: name }))+"' loading='lazy' style='display:block;width:100%;max-height:340px;object-fit:cover'/></div>";
       }
 
       // Description
       if(p.company_description){
-        gridHtml += "<div class='pp-card' style='grid-column:1/-1'><div class='pp-card-title'>Ueber uns</div><p style='font-size:13px;line-height:1.7;color:var(--ds-text-secondary)'>"+esc(p.company_description)+"</p></div>";
+        gridHtml += "<div class='pp-card' style='grid-column:1/-1'><div class='pp-card-title'>"+esc(tr('rst.i.card.about'))+"</div><p style='font-size:13px;line-height:1.7;color:var(--ds-text-secondary)'>"+esc(p.company_description)+"</p></div>";
       }
 
       // Capabilities
@@ -263,13 +420,12 @@
       ["staff_categories","industries_served","typical_roles","availability_regions","languages","specializations"].forEach(function(k){
         var arr=cap[k]||[];
         if(arr.length){
-          var labels={staff_categories:"Personalkategorien",industries_served:"Branchen",typical_roles:"Rollen",availability_regions:"Regionen",languages:"Sprachen",specializations:"Spezialisierungen"};
-          capHtml+="<div style='margin-bottom:var(--ds-space-3)'><div style='font-size:11px;color:var(--ds-text-tertiary);text-transform:uppercase;letter-spacing:.04em;margin-bottom:4px'>"+(labels[k]||k)+"</div>";
-          arr.forEach(function(t){ capHtml+="<span class='pp-tag'>"+esc(t)+"</span>"; });
+          capHtml+="<div style='margin-bottom:var(--ds-space-3)'><div style='font-size:11px;color:var(--ds-text-tertiary);text-transform:uppercase;letter-spacing:.04em;margin-bottom:4px'>"+esc(tr('rst.i.cap.'+k)||k)+"</div>";
+          arr.forEach(function(tag){ capHtml+="<span class='pp-tag'>"+esc(tag)+"</span>"; });
           capHtml+="</div>";
         }
       });
-      if(capHtml) gridHtml+="<div class='pp-card'><div class='pp-card-title'>Kompetenzen</div>"+capHtml+"</div>";
+      if(capHtml) gridHtml+="<div class='pp-card'><div class='pp-card-title'>"+esc(tr('rst.i.card.capabilities'))+"</div>"+capHtml+"</div>";
 
       // Locations
       var locs=d.locations||[];
@@ -278,7 +434,7 @@
         locs.forEach(function(l){
           locHtml+="<div class='pp-row'><span>"+esc(l.city||"–")+(l.is_headquarters?" <span class='pp-badge' style='background:var(--ds-success-muted);color:var(--ds-success)'>HQ</span>":"")+"</span><span class='lbl'>"+esc(l.country||"")+(l.radius_km?" – "+l.radius_km+" km":"")+"</span></div>";
         });
-        gridHtml+="<div class='pp-card'><div class='pp-card-title'>Standorte</div>"+locHtml+"</div>";
+        gridHtml+="<div class='pp-card'><div class='pp-card-title'>"+esc(tr('rst.i.card.locations'))+"</div>"+locHtml+"</div>";
       }
 
       // Certifications
@@ -288,10 +444,10 @@
         certs.forEach(function(c){
           var color=c.is_expired?"var(--ds-danger-muted)":c.status==="active"?"var(--ds-success-muted)":"var(--ds-warning-muted)";
           var tc=c.is_expired?"var(--ds-danger)":c.status==="active"?"var(--ds-success)":"var(--ds-warning)";
-          var label=c.is_expired?"Abgelaufen":c.status==="active"?"Aktiv":esc(c.status||"");
+          var label=c.is_expired?esc(tr('rst.i.cert.expired')):c.status==="active"?esc(tr('rst.i.cert.active')):esc(c.status||"");
           certHtml+="<div class='pp-row'><span>"+esc(c.cert_name)+(c.issuer?" <span style='color:var(--ds-text-tertiary);font-size:11px'>"+esc(c.issuer)+"</span>":"")+"</span><span class='pp-badge' style='background:"+color+";color:"+tc+"'>"+label+"</span></div>";
         });
-        gridHtml+="<div class='pp-card'><div class='pp-card-title'>Zertifizierungen</div>"+certHtml+"</div>";
+        gridHtml+="<div class='pp-card'><div class='pp-card-title'>"+esc(tr('rst.i.card.certifications'))+"</div>"+certHtml+"</div>";
       }
 
       // Contacts
@@ -301,7 +457,7 @@
         contacts.forEach(function(c){
           conHtml+="<div class='pp-row'><span>"+esc(c.name)+(c.role_title?" <span style='color:var(--ds-text-tertiary);font-size:11px'>"+esc(c.role_title)+"</span>":"")+"</span></div>";
         });
-        gridHtml+="<div class='pp-card'><div class='pp-card-title'>Ansprechpartner</div>"+conHtml+"</div>";
+        gridHtml+="<div class='pp-card'><div class='pp-card-title'>"+esc(tr('rst.i.card.contacts'))+"</div>"+conHtml+"</div>";
       }
 
       $("pp-grid").innerHTML=gridHtml;
@@ -311,12 +467,12 @@
       if(s&&s.grade){
         var colors={A:"var(--ds-success)",B:"var(--ds-warning)",C:"var(--ds-danger)"};
         var bg={A:"var(--ds-success-muted)",B:"var(--ds-warning-muted)",C:"var(--ds-danger-muted)"};
-        var scHtml="<div class='pp-card'><div class='pp-card-title'>Lieferanten-Bewertung</div><div class='pp-score'>";
+        var scHtml="<div class='pp-card'><div class='pp-card-title'>"+esc(tr('rst.i.card.scorecard'))+"</div><div class='pp-score'>";
         scHtml+="<div class='pp-score-grade' style='background:"+(bg[s.grade]||bg.C)+";color:"+(colors[s.grade]||colors.C)+"'>"+esc(s.grade)+"</div>";
         scHtml+="<div class='pp-kpis'>";
-        scHtml+="<div class='pp-kpi'><div class='v'>"+Math.round((s.fill_rate||0)*100)+"%</div><div class='l'>Fill Rate</div></div>";
-        scHtml+="<div class='pp-kpi'><div class='v'>"+Math.round((s.on_time_rate||0)*100)+"%</div><div class='l'>Puenktlichkeit</div></div>";
-        scHtml+="<div class='pp-kpi'><div class='v'>"+(s.sla_breach_count||0)+"</div><div class='l'>SLA-Brueche</div></div>";
+        scHtml+="<div class='pp-kpi'><div class='v'>"+Math.round((s.fill_rate||0)*100)+"%</div><div class='l'>"+esc(tr('rst.i.kpi.fillRate'))+"</div></div>";
+        scHtml+="<div class='pp-kpi'><div class='v'>"+Math.round((s.on_time_rate||0)*100)+"%</div><div class='l'>"+esc(tr('rst.i.kpi.onTime'))+"</div></div>";
+        scHtml+="<div class='pp-kpi'><div class='v'>"+(s.sla_breach_count||0)+"</div><div class='l'>"+esc(tr('rst.i.kpi.breaches'))+"</div></div>";
         scHtml+="</div></div></div>";
         $("pp-scorecard").innerHTML=scHtml;
         $("pp-scorecard").style.display="block";
@@ -329,7 +485,13 @@
       setupStrategicCollaborationCTA(d);
     }
 
+    // Der CTA haengt an Sitzung und Eignungspruefung, nicht an der Sprache — er
+    // wird deshalb genau einmal aufgebaut. Der Hinweistext traegt seinen Marker,
+    // damit ihn ein Sprachwechsel ohne erneuten Abruf uebersetzt.
+    var _ctaAufgebaut = false;
     async function setupStrategicCollaborationCTA(profileData){
+      if (_ctaAufgebaut) return;
+      _ctaAufgebaut = true;
       var ctaWrap = $("scr-cooperation-cta");
       var openBtn = $("scr-cooperation-open");
       var hintEl = $("scr-cooperation-hint");
@@ -356,13 +518,22 @@
 
       if (!eligibility || eligibility.allowed !== true) {
         openBtn.disabled = true;
-        hintEl.textContent = (eligibility && eligibility.reasons && eligibility.reasons.length) ? eligibility.reasons[0] : "Freigabe erforderlich.";
+        var serverGrund = (eligibility && eligibility.reasons && eligibility.reasons.length) ? eligibility.reasons[0] : null;
+        if (serverGrund) {
+          // Server-Begruendung: kein Marker, sonst ueberschreibt apply() sie.
+          hintEl.removeAttribute("data-i18n");
+          hintEl.textContent = serverGrund;
+        } else {
+          hintEl.setAttribute("data-i18n", "rst.i.cta.blocked");
+          hintEl.textContent = tr('rst.i.cta.blocked');
+        }
         ctaWrap.style.display = "block";
         return;
       }
 
       openBtn.disabled = false;
-      hintEl.textContent = "Freigabe vorhanden. Anfrage startet qualifiziert und enterprise-nah.";
+      hintEl.setAttribute("data-i18n", "rst.i.cta.allowed");
+      hintEl.textContent = tr('rst.i.cta.allowed');
       ctaWrap.style.display = "block";
 
       openBtn.onclick = function() {
@@ -433,17 +604,17 @@
             var msg = (resp.data && resp.data.reasons && resp.data.reasons.length) ? String(resp.data.reasons[0])
               : (resp.data && resp.data.error && resp.data.error.message) ? resp.data.error.message
               : (resp.data && resp.data.error) ? String(resp.data.error)
-              : ("Fehler (HTTP " + resp.status + ")");
+              : tr('rst.i.send.httpError', { status: resp.status });
             errEl.textContent = msg;
             errEl.style.display = "block";
             return;
           }
-          errEl.textContent = "Interessenanfrage gesendet. Wir melden uns."; 
+          errEl.textContent = tr('rst.i.send.ok');
           errEl.style.color = "var(--ds-success)";
           errEl.style.display = "block";
           setTimeout(function() { closeStrategicCollabModal(); }, 650);
         }).catch(function(e){
-          errEl.textContent = e && e.message ? e.message : "Senden fehlgeschlagen.";
+          errEl.textContent = e && e.message ? e.message : tr('rst.i.send.failed');
           errEl.style.display = "block";
         }).finally(function(){
           submitBtn.disabled = false;
@@ -504,17 +675,21 @@
         if (!area) return;
         var html = "<span class='pp-marketplace-badge'>";
         html += "<svg width='10' height='10' viewBox='0 0 10 10' fill='currentColor' aria-hidden='true'><path d='M5 0L6.12 3.38H9.51L6.88 5.47L7.94 8.09L5 6.18L2.06 8.09L3.12 5.47L.49 3.38H3.88Z'/></svg>";
-        html += "Im Marketplace gelistet</span>";
+        html += esc(tr('rst.i.badge.listed')) + "</span>";
         // Featured badge — only if backend signals it (maturity-gated: currently always false)
         if (res.data && res.data.is_featured) {
-          html += " <span class='pp-featured-badge'>Featured</span>";
+          html += " <span class='pp-featured-badge'>" + esc(tr('rst.i.badge.featured')) + "</span>";
         }
         area.innerHTML = html;
         area.style.display = "block";
       }).catch(function() {});
     }
 
+    // Abruf und Darstellung getrennt: der Sprachwechsel zeichnet aus dem Cache
+    // neu, ohne die Bounty-Liste erneut zu holen.
+    var _bounties = null;
     function loadBountyBadges(userId) {
+      if (_bounties) { renderBountyBadges(_bounties); return; }
       var url = userId
         ? "/api/bounties/me?user_id=" + encodeURIComponent(userId)
         : "/api/bounties/me";
@@ -522,11 +697,18 @@
         .then(function(r) { return r.ok ? r.json() : null; })
         .then(function(data) {
           if (!data || !data.items) return;
+          _bounties = data;
+          renderBountyBadges(data);
+        })
+        .catch(function() {});
+    }
+
+    function renderBountyBadges(data) {
           var earned = data.items.filter(function(b) { return b.status === "earned"; });
           if (!earned.length && !data.tier) return;
           var el = $("pp-bounty-badges");
           var html = "<div class='pp-card' style='grid-column:1/-1'>";
-          html += "<div class='pp-card-title'>Bounty-Abzeichen &amp; Status</div>";
+          html += "<div class='pp-card-title'>" + esc(tr('rst.i.card.bounties')) + "</div>";
 
           // ── Tier Status Badge (prominent) ────────────────
           var t = data.tier;
@@ -534,8 +716,8 @@
             html += "<div style='display:flex;align-items:center;gap:14px;padding:14px 18px;border-radius:14px;border:1.5px solid " + (t.color || "#999") + ";background:" + (t.bg_color || "rgba(255,255,255,.03)") + ";margin-bottom:14px'>";
             html += "<span style='font-size:36px'>" + (t.icon || "") + "</span>";
             html += "<div>";
-            html += "<div style='font-size:18px;font-weight:900;color:" + (t.color || "#fff") + "'>" + esc(t.name_de) + "-Status</div>";
-            html += "<div style='font-size:12px;color:var(--ds-text-secondary)'>Max. Rewards-Ersparnis: <strong>" + t.max_discount_pct + "%</strong></div>";
+            html += "<div style='font-size:18px;font-weight:900;color:" + (t.color || "#fff") + "'>" + esc(tr('rst.i.tier.status', { name: t.name_de })) + "</div>";
+            html += "<div style='font-size:12px;color:var(--ds-text-secondary)'>" + esc(tr('rst.i.tier.maxSaving')) + " <strong>" + t.max_discount_pct + "%</strong></div>";
             html += "</div>";
             // Tier progress bar (visual: sort_order / 5)
             var tierPct = { bronze: 20, silver: 40, gold: 60, platinum: 80, diamond: 100 };
@@ -553,8 +735,8 @@
           // ── Discount Summary ─────────────────────────────
           if (data.total_discount_pct > 0) {
             html += "<div style='font-size:12px;color:var(--ds-text-secondary);margin-bottom:10px'>";
-            html += "Aktuelle Ersparnis: <strong style='color:var(--ds-success)'>" + data.total_discount_pct + "%</strong>";
-            html += " / max. " + data.max_discount_pct + "%";
+            html += esc(tr('rst.i.tier.currentSaving')) + " <strong style='color:var(--ds-success)'>" + data.total_discount_pct + "%</strong>";
+            html += " " + esc(tr('rst.i.tier.ofMax', { pct: data.max_discount_pct }));
             html += "</div>";
           }
 
@@ -581,8 +763,6 @@
           html += "</div>";
           el.innerHTML = html;
           el.style.display = "block";
-        })
-        .catch(function() {});
     }
 
     load();

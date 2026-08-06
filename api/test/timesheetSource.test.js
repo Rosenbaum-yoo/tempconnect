@@ -129,8 +129,30 @@ describe("Anzeige", () => {
   });
 
   it("erklaert die Kennzeichnung im Klartext, nicht nur als Kuerzel", () => {
-    assert.match(page, /Ohne Worker-Nachweis/);
-    assert.match(page, /title="Direkt erfasst/);
+    // Geprueft wird das VERHALTEN: das Abzeichen traegt eine Kurzform UND eine
+    // Klartext-Erklaerung im title. Seit der i18n-Migration (P6) stehen beide
+    // Texte im Woerterbuch statt als Literal im Markup — die frueheren
+    // Literal-Treffer (/title="Direkt erfasst/) pruefen deshalb ein
+    // Implementierungsdetail und wurden ersetzt, nicht abgeschwaecht:
+    // die Erklaerung muss weiterhin existieren, laenger als die Kurzform sein
+    // UND als title verdrahtet werden — jetzt zusaetzlich in BEIDEN Sprachen.
+    const label = (locale) => {
+      const block = page.match(new RegExp("TCi18n\\.register\\('" + locale + "',\\s*\\{[\\s\\S]*?\\}\\);"));
+      assert.ok(block, `Woerterbuch ${locale} nicht gefunden`);
+      const kurz = block[0].match(/'ts\.source\.manual':\s*'([^']+)'/);
+      const lang = block[0].match(/'ts\.source\.manualTitle':\s*'([^']+)'/);
+      assert.ok(kurz, `Kurzform fehlt (${locale})`);
+      assert.ok(lang, `Klartext-Erklaerung fehlt (${locale})`);
+      return { kurz: kurz[1], lang: lang[1] };
+    };
+    for (const locale of ["de", "en"]) {
+      const { kurz, lang } = label(locale);
+      assert.ok(lang.length > kurz.length + 10,
+        `Erklaerung (${locale}) ist keine echte Erklaerung: "${lang}"`);
+    }
+    assert.match(label("de").lang, /Direkt erfasst/, "deutsche Fassung darf sich nicht still aendern");
+    // … und sie landet wirklich im title-Attribut des Abzeichens
+    assert.match(page, /title="' \+ esc\(t\('ts\.source\.manualTitle'\)\) \+ '"/);
   });
 
   it("ist im Zellen-Markup tatsaechlich verdrahtet", () => {

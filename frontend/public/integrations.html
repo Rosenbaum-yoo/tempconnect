@@ -358,7 +358,10 @@
 
     async function getCSRF() {
       if (csrf) return csrf;
-      try { const r = await fetch(API + '/csrf', { credentials: 'include' }); const d = await r.json(); csrf = d.csrfToken || ''; } catch {}
+      // GET /api/csrf antwortet mit { token: … }; das frueher allein gelesene
+      // Feld csrfToken existiert nicht — der Header blieb leer und jede
+      // Mutation endete in 403 CSRF_INVALID.
+      try { const r = await fetch(API + '/csrf', { credentials: 'include' }); const d = await r.json(); csrf = d.csrfToken || d.token || ''; } catch {}
       return csrf;
     }
     function applyIntegrationDomLocks(root) {

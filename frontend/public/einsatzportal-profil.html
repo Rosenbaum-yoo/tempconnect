@@ -95,6 +95,14 @@
     .skill-group[open] > summary { border-bottom:1px solid var(--ep-border); }
     .skill-group-count { margin-left:auto; font-size:.7rem; color:var(--ep-text-muted); background:var(--ep-surface); border:1px solid var(--ep-border); border-radius:20px; padding:1px 8px; }
     .skill-chip-wrap { display:flex; flex-wrap:wrap; gap:8px; padding:14px; }
+    /* Gewaehlte Faehigkeiten mit Niveau-Auswahl */
+    .skill-sel-row { display:flex; align-items:center; gap:10px; padding:8px 0; border-bottom:1px solid var(--ep-border); }
+    .skill-sel-row:last-child { border-bottom:none; }
+    .skill-sel-name { flex:1; font-size:.82rem; font-weight:600; }
+    .skill-sel-level { max-width:170px; font-size:.78rem; }
+    .skill-pending { font-size:.68rem; font-weight:700; text-transform:uppercase; letter-spacing:.04em;
+                     background:var(--ep-raised); border:1px solid var(--ep-border); border-radius:20px;
+                     padding:1px 8px; margin-left:6px; color:var(--ep-text-muted); }
     .skill-chip { display:inline-flex; align-items:center; gap:7px; padding:7px 12px; border:1.5px solid var(--ep-border); border-radius:20px; font-size:.8rem; cursor:pointer; user-select:none; transition:border-color .15s, background .15s; }
     .skill-chip:hover { border-color:var(--ep-brand); }
     .skill-chip input { accent-color:var(--ep-brand); margin:0; }
@@ -396,6 +404,30 @@
             <span id="skillErrTxt">Katalog konnte nicht geladen werden.</span>
           </div>
           <div id="skillCatalog" style="display:none"></div>
+
+          <!-- Eigene Faehigkeit: der Katalog kann nie vollstaendig sein. Was hier
+               eingetragen wird, wird zuerst gegen bekannte Schreibweisen geprueft
+               ("Stapler" findet "Gabelstaplerfahrer") — nur wirklich Neues wird
+               als Vorschlag aufgenommen. -->
+          <div id="skillOwnBox" style="display:none;margin-top:14px">
+            <div class="ep-section-label" data-i18n="ep.profil.ownSkillTitle">Fähigkeit fehlt im Katalog?</div>
+            <p class="profil-doc-upload-note" data-i18n="ep.profil.ownSkillHint">Tragen Sie sie hier ein. Wir prüfen zuerst, ob es sie schon unter anderem Namen gibt.</p>
+            <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px">
+              <input id="ownSkillInput" maxlength="100" style="flex:1;min-width:200px"
+                     data-i18n-ph="ep.profil.ownSkillPh" placeholder="z. B. Hubarbeitsbühne, Kranschein, Wundmanagement"
+                     onkeydown="if(event.key==='Enter'){event.preventDefault();addOwnSkill()}"/>
+              <button class="ep-btn ep-btn-outline ep-btn-sm" onclick="addOwnSkill()" id="ownSkillBtn" data-i18n="ep.profil.ownSkillAdd">Hinzufügen</button>
+            </div>
+            <div id="ownSkillMsg" class="profil-doc-upload-note" style="margin-top:6px"></div>
+          </div>
+
+          <!-- Gewaehlte Faehigkeiten mit Niveau. Das Backend kennt vier Stufen
+               seit Mig 145 — bis hierher hat die Oberflaeche sie verschenkt. -->
+          <div id="selectedSkillsBox" style="display:none;margin-top:16px">
+            <div class="ep-section-label" data-i18n="ep.profil.selectedTitle">Ihre Fähigkeiten</div>
+            <div id="selectedSkills"></div>
+          </div>
+
           <div class="profil-save-row" id="skillSaveRow" style="display:none">
             <button class="ep-btn ep-btn-primary" id="skillSaveBtn" onclick="saveSkills()" data-i18n="ep.profil.skillsSaveBtn">Fähigkeiten speichern</button>
             <span class="profil-doc-upload-note" data-i18n="ep.profil.skillsSaveNote">Änderungen wirken sich sofort auf Ihre Sichtbarkeit für Einsätze aus.</span>
@@ -573,6 +605,24 @@ TCi18n.register('de', {
   'ep.profil.skillsLoadFailed': 'Fähigkeiten konnten nicht geladen werden.',
   'ep.profil.skillsSaveBtn': 'Fähigkeiten speichern',
   'ep.profil.skillsSaveNote': 'Änderungen wirken sich sofort auf Ihre Sichtbarkeit für Einsätze aus.',
+  'ep.profil.skillsReauth': 'Bitte melden Sie sich erneut an.',
+  'ep.profil.skillsLoadFailed': 'Fähigkeiten konnten nicht geladen werden.',
+  'ep.profil.ownSkillTitle': 'Fähigkeit fehlt im Katalog?',
+  'ep.profil.ownSkillHint': 'Tragen Sie sie hier ein. Wir prüfen zuerst, ob es sie schon unter anderem Namen gibt.',
+  'ep.profil.ownSkillPh': 'z. B. Hubarbeitsbühne, Kranschein, Wundmanagement',
+  'ep.profil.ownSkillAdd': 'Hinzufügen',
+  'ep.profil.ownSkillMatched': '„{eingabe}" führen wir als „{name}" — hinzugefügt.',
+  'ep.profil.ownSkillProposed': '„{name}" aufgenommen. Wir prüfen sie, danach zählt sie für die Vermittlung.',
+  'ep.profil.ownSkillTooShort': 'Bitte mindestens zwei Zeichen eingeben.',
+  'ep.profil.ownSkillFailed': 'Konnte nicht hinzugefügt werden. Bitte erneut versuchen.',
+  'ep.profil.skillPending': 'in Prüfung',
+  'ep.profil.skillLevel': 'Ihr Niveau',
+  'ep.profil.level.beginner': 'Grundkenntnisse',
+  'ep.profil.level.intermediate': 'Geübt',
+  'ep.profil.level.advanced': 'Erfahren',
+  'ep.profil.level.expert': 'Spezialist',
+  'ep.profil.selectedTitle': 'Ihre Fähigkeiten',
+  'ep.profil.selectedEmpty': 'Noch nichts gewählt. Kreuzen Sie oben an, was Sie können.',
   'ep.profil.skillsCountFmt': '{n} gewählt',
   'ep.profil.skillsSaved': 'Fähigkeiten gespeichert ({n}).',
   'ep.profil.skillsCheckSelection': 'Bitte Auswahl prüfen.',
@@ -718,6 +768,24 @@ TCi18n.register('en', {
   'ep.profil.skillsLoadFailed': 'Skills could not be loaded.',
   'ep.profil.skillsSaveBtn': 'Save skills',
   'ep.profil.skillsSaveNote': 'Changes immediately affect your visibility for assignments.',
+  'ep.profil.skillsReauth': 'Please sign in again.',
+  'ep.profil.skillsLoadFailed': 'Skills could not be loaded.',
+  'ep.profil.ownSkillTitle': 'Skill missing from the catalogue?',
+  'ep.profil.ownSkillHint': 'Add it here. We first check whether it already exists under another name.',
+  'ep.profil.ownSkillPh': 'e.g. aerial work platform, crane licence, wound care',
+  'ep.profil.ownSkillAdd': 'Add',
+  'ep.profil.ownSkillMatched': 'We list “{eingabe}” as “{name}” — added.',
+  'ep.profil.ownSkillProposed': '“{name}” recorded. We review it, then it counts towards placements.',
+  'ep.profil.ownSkillTooShort': 'Please enter at least two characters.',
+  'ep.profil.ownSkillFailed': 'Could not be added. Please try again.',
+  'ep.profil.skillPending': 'under review',
+  'ep.profil.skillLevel': 'Your level',
+  'ep.profil.level.beginner': 'Basic',
+  'ep.profil.level.intermediate': 'Practised',
+  'ep.profil.level.advanced': 'Experienced',
+  'ep.profil.level.expert': 'Specialist',
+  'ep.profil.selectedTitle': 'Your skills',
+  'ep.profil.selectedEmpty': 'Nothing selected yet. Tick above what you can do.',
   'ep.profil.skillsCountFmt': '{n} selected',
   'ep.profil.skillsSaved': 'Skills saved ({n}).',
   'ep.profil.skillsCheckSelection': 'Please check your selection.',
@@ -923,28 +991,111 @@ async function loadSkills() {
     skillState.catalog = catalog;
     skillState.selected = new Map();
     (mine.items || []).forEach(function (s) {
-      skillState.selected.set(s.skill_id, { proficiency: s.proficiency || 'intermediate' });
+      skillState.selected.set(s.skill_id, {
+        proficiency: s.proficiency || 'intermediate',
+        name: s.name || s.skill_id,
+        status: s.status || 'approved'
+      });
     });
     loadingEl.style.display = 'none';
     if (catalog && catalog.available) {
       renderSkillCatalog();
+      renderSelectedSkills();
       catEl.style.display = '';
       saveRow.style.display = '';
+      document.getElementById('skillOwnBox').style.display = '';
+      document.getElementById('selectedSkillsBox').style.display = '';
     } else {
       loadingEl.style.display = '';
-      loadingEl.textContent = 'Der Fähigkeiten-Katalog ist noch nicht verfügbar.';
+      loadingEl.setAttribute('data-i18n', 'ep.profil.skillsCatalogUnavailable');
+      loadingEl.textContent = TCi18n.t('ep.profil.skillsCatalogUnavailable');
     }
   } catch (e) {
     loadingEl.style.display = 'none';
-    document.getElementById('skillErrTxt').textContent =
-      e.code === 'NOT_AUTH' ? 'Bitte melden Sie sich erneut an.' : 'Fähigkeiten konnten nicht geladen werden.';
+    document.getElementById('skillErrTxt').textContent = TCi18n.t(
+      e.code === 'NOT_AUTH' ? 'ep.profil.skillsReauth' : 'ep.profil.skillsLoadFailed'
+    );
     errEl.style.display = 'flex';
   }
 }
 
+const SKILL_LEVELS = ['beginner', 'intermediate', 'advanced', 'expert'];
+
 function updateSkillCount() {
   const el = document.getElementById('skillCount');
-  if (el) el.textContent = skillState.selected.size + ' gewählt';
+  if (el) el.textContent = TCi18n.t('ep.profil.skillsCountFmt', { n: skillState.selected.size });
+}
+
+/**
+ * Gewählte Fähigkeiten als eigene Liste — aus zwei Gründen:
+ *  1. Das Niveau gehört sichtbar dazu. Das Backend kennt vier Stufen seit
+ *     Migration 145; die Oberfläche hat bisher stumm 'intermediate' gesendet.
+ *     Ein Spezialist sah damit aus wie jemand mit Grundkenntnissen.
+ *  2. Selbst eingetragene Fähigkeiten stehen in keiner Katalog-Kategorie und
+ *     hätten sonst keinen Ort, an dem der Arbeiter sie wiederfindet.
+ */
+function renderSelectedSkills() {
+  const box = document.getElementById('selectedSkills');
+  if (!box) return;
+  if (!skillState.selected.size) {
+    box.innerHTML = '<p class="profil-doc-upload-note">' + esc(TCi18n.t('ep.profil.selectedEmpty')) + '</p>';
+    return;
+  }
+  const rows = [];
+  skillState.selected.forEach(function (val, id) {
+    const level = val.proficiency || 'intermediate';
+    const optionen = SKILL_LEVELS.map(function (lv) {
+      return '<option value="' + lv + '"' + (lv === level ? ' selected' : '') + '>' +
+        esc(TCi18n.t('ep.profil.level.' + lv)) + '</option>';
+    }).join('');
+    const pending = val.status === 'proposed'
+      ? ' <span class="skill-pending">' + esc(TCi18n.t('ep.profil.skillPending')) + '</span>'
+      : '';
+    rows.push(
+      '<div class="skill-sel-row">' +
+        '<span class="skill-sel-name">' + esc(val.name || id) + pending + '</span>' +
+        '<select class="skill-sel-level" aria-label="' + esc(TCi18n.t('ep.profil.skillLevel')) + '"' +
+          ' onchange="setSkillLevel(\'' + esc(id) + '\', this.value)">' + optionen + '</select>' +
+      '</div>'
+    );
+  });
+  box.innerHTML = rows.join('');
+}
+
+function setSkillLevel(id, level) {
+  const entry = skillState.selected.get(id);
+  if (entry) entry.proficiency = level;
+}
+
+/** Eigene Fähigkeit eintragen (POST /skills/propose). */
+async function addOwnSkill() {
+  const input = document.getElementById('ownSkillInput');
+  const msg   = document.getElementById('ownSkillMsg');
+  const btn   = document.getElementById('ownSkillBtn');
+  const name  = (input.value || '').trim();
+  if (name.length < 2) { msg.textContent = TCi18n.t('ep.profil.ownSkillTooShort'); return; }
+  btn.disabled = true;
+  try {
+    const r = await PortalApi.post('/skills/propose', { name: name });
+    const skill = r.skill || {};
+    skillState.selected.set(skill.id, {
+      proficiency: 'intermediate',
+      name: skill.name,
+      status: skill.status
+    });
+    input.value = '';
+    // Ehrliche Rückmeldung: Der Arbeiter soll wissen, ob seine Eingabe sofort
+    // zählt (Treffer im Katalog) oder erst nach einer Prüfung (echter Vorschlag).
+    msg.textContent = r.matched
+      ? TCi18n.t('ep.profil.ownSkillMatched', { eingabe: name, name: skill.name })
+      : TCi18n.t('ep.profil.ownSkillProposed', { name: skill.name });
+    renderSkillCatalog();
+    renderSelectedSkills();
+  } catch (e) {
+    msg.textContent = TCi18n.t('ep.profil.ownSkillFailed');
+  } finally {
+    btn.disabled = false;
+  }
 }
 
 function renderSkillCatalog() {
@@ -954,6 +1105,7 @@ function renderSkillCatalog() {
     const chips = (cat.skills || []).map(function (sk) {
       const checked = skillState.selected.has(sk.id) ? 'checked' : '';
       return '<label class="skill-chip"><input type="checkbox" value="' + esc(sk.id) + '" ' + checked +
+        ' data-skill-name="' + esc(sk.name) + '"' +
         ' onchange="toggleSkill(this)"><span>' + esc(sk.name) + '</span></label>';
     }).join('');
     return '<details class="skill-group"><summary>' + esc(cat.category) +
@@ -966,11 +1118,18 @@ function renderSkillCatalog() {
 function toggleSkill(input) {
   const id = input.value;
   if (input.checked) {
-    skillState.selected.set(id, skillState.selected.get(id) || { proficiency: 'intermediate' });
+    // Name mitfuehren: die Auswahlliste unten zeigt Namen, nicht UUIDs.
+    const vorhanden = skillState.selected.get(id);
+    skillState.selected.set(id, vorhanden || {
+      proficiency: 'intermediate',
+      name: input.getAttribute('data-skill-name') || id,
+      status: 'approved'
+    });
   } else {
     skillState.selected.delete(id);
   }
   updateSkillCount();
+  renderSelectedSkills();
 }
 
 async function saveSkills() {
@@ -978,7 +1137,7 @@ async function saveSkills() {
   if (!btn) return;
   btn.disabled = true;
   const prevLabel = btn.textContent;
-  btn.textContent = 'Speichern…';
+  btn.textContent = TCi18n.t('ep.profil.saving');
   try {
     const skills = Array.from(skillState.selected.entries()).map(function (entry) {
       return { skill_id: entry[0], proficiency: (entry[1] && entry[1].proficiency) || 'intermediate' };
@@ -986,7 +1145,7 @@ async function saveSkills() {
     const r = await PortalApi.put('/worker/me/skills', { skills: skills });
     toast(TCi18n.t('ep.profil.skillsSaved', { n: r.count || 0 }));
   } catch (e) {
-    toast(e.code === 'VALIDATION' ? 'Bitte Auswahl prüfen.' : 'Speichern fehlgeschlagen.', 'error');
+    toast(TCi18n.t(e.code === 'VALIDATION' ? 'ep.profil.skillsCheckSelection' : 'ep.profil.saveFailed'), 'error');
   } finally {
     btn.disabled = false;
     btn.textContent = prevLabel;
@@ -1317,7 +1476,7 @@ async function saveProfile() {
   const errEl  = document.getElementById('saveErr');
   const errTxt = document.getElementById('saveErrTxt');
 
-  btn.disabled = true; btn.textContent = 'Speichern…';
+  btn.disabled = true; btn.textContent = TCi18n.t('ep.profil.saving');
   okEl.style.display = 'none'; errEl.style.display = 'none';
 
   const data = {

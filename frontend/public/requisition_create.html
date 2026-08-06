@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <script src="/public/js/theme.js"></script>
   <script src="/public/js/i18n.js"></script>
-  <title>Neues Arbeitsplatzangebot – TempConnect</title>
+  <title data-i18n="rst.g.docTitle">Neues Arbeitsplatzangebot – TempConnect</title>
   <link rel="stylesheet" href="/public/css/enterprise.css"/>
   <style>
     .rc-wrap { max-width: 880px; }
@@ -29,11 +29,11 @@
 
     <div class="ds-page-header">
       <div class="ds-page-header__content">
-        <h1 class="ds-page-title">Neues Arbeitsplatzangebot</h1>
-        <p class="ds-page-subtitle">Erfassen Sie Eckdaten, Bedarf, Einsatzort und Anforderungen. Nach dem Anlegen läuft das Angebot durch den Freigabe-Workflow.</p>
+        <h1 class="ds-page-title" data-i18n="rst.g.page.title">Neues Arbeitsplatzangebot</h1>
+        <p class="ds-page-subtitle" data-i18n="rst.g.page.subtitle">Erfassen Sie Eckdaten, Bedarf, Einsatzort und Anforderungen. Nach dem Anlegen läuft das Angebot durch den Freigabe-Workflow.</p>
       </div>
       <div class="ds-page-header__actions">
-        <a class="btn" href="/public/requisitions.html">&larr; Zur Übersicht</a>
+        <a class="btn" href="/public/requisitions.html" data-i18n="rst.g.page.back">&larr; Zur Übersicht</a>
       </div>
     </div>
 
@@ -41,52 +41,56 @@
 
     <form id="rcForm" novalidate>
       <div class="rc-card">
-        <h2 class="rc-card__title">Eckdaten</h2>
-        <p class="rc-card__hint">Titel und Rolle sind Pflicht.</p>
+        <h2 class="rc-card__title" data-i18n="rst.g.basics.title">Eckdaten</h2>
+        <p class="rc-card__hint" data-i18n="rst.g.basics.hint">Titel und Rolle sind Pflicht.</p>
         <div class="rc-grid">
-          <div class="rc-field"><label>Titel <span class="rc-req">*</span></label><input id="cTitle" required minlength="3" maxlength="200" placeholder="z.B. Lagerarbeiter Logistikzentrum"/></div>
-          <div class="rc-field"><label>Rolle <span class="rc-req">*</span></label><input id="cRole" required maxlength="120" placeholder="z.B. Lagerarbeiter"/></div>
-          <div class="rc-field rc-full"><label>Beschreibung</label><textarea id="cDesc" rows="4" maxlength="4000" placeholder="Aufgaben, Schichten, Besonderheiten …"></textarea></div>
+          <!-- Der Pflicht-Stern steht als eigenes Element neben dem Marker: ein
+               data-i18n auf dem ganzen <label> wuerde ihn beim apply() loeschen. -->
+          <div class="rc-field"><label><span data-i18n="rst.g.f.title">Titel</span> <span class="rc-req">*</span></label><input id="cTitle" required minlength="3" maxlength="200" data-i18n-ph="rst.g.ph.title" placeholder="z.B. Lagerarbeiter Logistikzentrum"/></div>
+          <div class="rc-field"><label><span data-i18n="rst.g.f.role">Rolle</span> <span class="rc-req">*</span></label><input id="cRole" required maxlength="120" data-i18n-ph="rst.g.ph.role" placeholder="z.B. Lagerarbeiter"/></div>
+          <div class="rc-field rc-full"><label data-i18n="rst.g.f.desc">Beschreibung</label><textarea id="cDesc" rows="4" maxlength="4000" data-i18n-ph="rst.g.ph.desc" placeholder="Aufgaben, Schichten, Besonderheiten …"></textarea></div>
         </div>
       </div>
 
       <div class="rc-card">
-        <h2 class="rc-card__title">Bedarf &amp; Zeitraum</h2>
-        <p class="rc-card__hint">Wie viele Personen, wie dringend und für welchen Zeitraum.</p>
+        <h2 class="rc-card__title" data-i18n="rst.g.demand.title">Bedarf &amp; Zeitraum</h2>
+        <p class="rc-card__hint" data-i18n="rst.g.demand.hint">Wie viele Personen, wie dringend und für welchen Zeitraum.</p>
         <div class="rc-grid">
-          <div class="rc-field"><label>Headcount</label><input id="cHead" type="number" min="1" max="999" value="1"/></div>
-          <div class="rc-field"><label>Dringlichkeit</label>
-            <select id="cUrg"><option value="normal">Normal</option><option value="high">Hoch</option><option value="urgent">Dringend</option><option value="notdienst">Notdienst</option></select>
+          <div class="rc-field"><label data-i18n="rst.g.f.headcount">Headcount</label><input id="cHead" type="number" min="1" max="999" value="1"/></div>
+          <div class="rc-field"><label data-i18n="rst.g.f.urgency">Dringlichkeit</label>
+            <!-- Nur die Beschriftungen sind uebersetzt; die value-Attribute gehen
+                 unveraendert an /api/requisitions und bleiben deutschfrei. -->
+            <select id="cUrg"><option value="normal" data-i18n="rst.g.urg.normal">Normal</option><option value="high" data-i18n="rst.g.urg.high">Hoch</option><option value="urgent" data-i18n="rst.g.urg.urgent">Dringend</option><option value="notdienst" data-i18n="rst.g.urg.notdienst">Notdienst</option></select>
           </div>
-          <div class="rc-field"><label>Startdatum</label><input id="cStart" type="date"/></div>
-          <div class="rc-field"><label>Enddatum</label><input id="cEnd" type="date"/></div>
+          <div class="rc-field"><label data-i18n="rst.g.f.start">Startdatum</label><input id="cStart" type="date"/></div>
+          <div class="rc-field"><label data-i18n="rst.g.f.end">Enddatum</label><input id="cEnd" type="date"/></div>
         </div>
       </div>
 
       <div class="rc-card">
-        <h2 class="rc-card__title">Einsatzort</h2>
-        <p class="rc-card__hint">Wo der Einsatz stattfindet und in welchem Umkreis gesucht wird.</p>
+        <h2 class="rc-card__title" data-i18n="rst.g.place.title">Einsatzort</h2>
+        <p class="rc-card__hint" data-i18n="rst.g.place.hint">Wo der Einsatz stattfindet und in welchem Umkreis gesucht wird.</p>
         <div class="rc-grid">
-          <div class="rc-field"><label>Stadt</label><input id="cCity" maxlength="200" placeholder="z.B. Dortmund"/></div>
-          <div class="rc-field"><label>PLZ</label><input id="cPostal" maxlength="10"/></div>
-          <div class="rc-field"><label>Umkreis (km)</label><input id="cRadius" type="number" min="1" max="500" value="25"/></div>
+          <div class="rc-field"><label data-i18n="rst.g.f.city">Stadt</label><input id="cCity" maxlength="200" data-i18n-ph="rst.g.ph.city" placeholder="z.B. Dortmund"/></div>
+          <div class="rc-field"><label data-i18n="rst.g.f.postal">PLZ</label><input id="cPostal" maxlength="10"/></div>
+          <div class="rc-field"><label data-i18n="rst.g.f.radius">Umkreis (km)</label><input id="cRadius" type="number" min="1" max="500" value="25"/></div>
         </div>
       </div>
 
       <div class="rc-card">
-        <h2 class="rc-card__title">Anforderungen &amp; Budget</h2>
-        <p class="rc-card__hint">Optional. Skills helfen beim Matching, das Budget steuert Vorschläge.</p>
+        <h2 class="rc-card__title" data-i18n="rst.g.req.title">Anforderungen &amp; Budget</h2>
+        <p class="rc-card__hint" data-i18n="rst.g.req.hint">Optional. Skills helfen beim Matching, das Budget steuert Vorschläge.</p>
         <div class="rc-grid">
-          <div class="rc-field rc-full"><label>Skills (kommagetrennt)</label><input id="cSkills" placeholder="z.B. Schweißen, SPS, Gabelstapler"/></div>
-          <div class="rc-field"><label>Budget min (Cent)</label><input id="cBudgetMin" type="number" min="0"/></div>
-          <div class="rc-field"><label>Budget max (Cent)</label><input id="cBudgetMax" type="number" min="0"/></div>
-          <div class="rc-field rc-full"><label class="rc-check"><input type="checkbox" id="cApproval"> Freigabe erforderlich</label></div>
+          <div class="rc-field rc-full"><label data-i18n="rst.g.f.skills">Skills (kommagetrennt)</label><input id="cSkills" data-i18n-ph="rst.g.ph.skills" placeholder="z.B. Schweißen, SPS, Gabelstapler"/></div>
+          <div class="rc-field"><label data-i18n="rst.g.f.budgetMin">Budget min (Cent)</label><input id="cBudgetMin" type="number" min="0"/></div>
+          <div class="rc-field"><label data-i18n="rst.g.f.budgetMax">Budget max (Cent)</label><input id="cBudgetMax" type="number" min="0"/></div>
+          <div class="rc-field rc-full"><label class="rc-check"><input type="checkbox" id="cApproval"> <span data-i18n="rst.g.f.approval">Freigabe erforderlich</span></label></div>
         </div>
       </div>
 
       <div class="rc-actions">
-        <button type="submit" id="rcSubmit" class="btn primary">Arbeitsplatzangebot erstellen</button>
-        <a class="btn" href="/public/requisitions.html">Abbrechen</a>
+        <button type="submit" id="rcSubmit" class="btn primary" data-i18n="rst.g.action.submit">Arbeitsplatzangebot erstellen</button>
+        <a class="btn" href="/public/requisitions.html" data-i18n="rst.g.action.cancel">Abbrechen</a>
       </div>
     </form>
   </div>
@@ -98,22 +102,128 @@
   <script src="/public/js/demoBanner.js" defer></script>
   <script src="/public/js/breadcrumb.js" defer></script>
   <script>
+  /* Woerterbuch (P6.1, DE/EN) fuer requisition_create.html — Namensraum rst.g.*.
+
+     Drei-Seiten-Regel: Arbeitsplatzangebote legt ausschliesslich die
+     Unternehmensseite an (visibilityMatrix: requisitions -> allowed_org_types
+     ["company"]). Die feste Unternehmenssprache ist hier also korrekt; ein
+     Personaldienstleister erreicht die Seite nicht.
+
+     Englische Begriffswelt: "Arbeitsplatzangebot" = job posting (nie job offer /
+     job opening / placement offer), "Freigabe" = approval.
+
+     Bewusst NICHT uebersetzt:
+     - die value-Attribute der Dringlichkeit (normal/high/urgent/notdienst) —
+       sie gehen an /api/requisitions
+     - Server-Fehlermeldungen aus der Antwort (data.message/data.error)
+     - Topbar/Navigation/Nutzerbereich (pageShell.js)                        */
+  TCi18n.register('de', {
+    'rst.g.docTitle': 'Neues Arbeitsplatzangebot – TempConnect',
+    'rst.g.page.title': 'Neues Arbeitsplatzangebot',
+    'rst.g.page.subtitle': 'Erfassen Sie Eckdaten, Bedarf, Einsatzort und Anforderungen. Nach dem Anlegen läuft das Angebot durch den Freigabe-Workflow.',
+    'rst.g.page.back': '← Zur Übersicht',
+    'rst.g.basics.title': 'Eckdaten',
+    'rst.g.basics.hint': 'Titel und Rolle sind Pflicht.',
+    'rst.g.f.title': 'Titel',
+    'rst.g.f.role': 'Rolle',
+    'rst.g.f.desc': 'Beschreibung',
+    'rst.g.ph.title': 'z.B. Lagerarbeiter Logistikzentrum',
+    'rst.g.ph.role': 'z.B. Lagerarbeiter',
+    'rst.g.ph.desc': 'Aufgaben, Schichten, Besonderheiten …',
+    'rst.g.demand.title': 'Bedarf & Zeitraum',
+    'rst.g.demand.hint': 'Wie viele Personen, wie dringend und für welchen Zeitraum.',
+    'rst.g.f.headcount': 'Headcount',
+    'rst.g.f.urgency': 'Dringlichkeit',
+    'rst.g.urg.normal': 'Normal',
+    'rst.g.urg.high': 'Hoch',
+    'rst.g.urg.urgent': 'Dringend',
+    'rst.g.urg.notdienst': 'Notdienst',
+    'rst.g.f.start': 'Startdatum',
+    'rst.g.f.end': 'Enddatum',
+    'rst.g.place.title': 'Einsatzort',
+    'rst.g.place.hint': 'Wo der Einsatz stattfindet und in welchem Umkreis gesucht wird.',
+    'rst.g.f.city': 'Stadt',
+    'rst.g.f.postal': 'PLZ',
+    'rst.g.f.radius': 'Umkreis (km)',
+    'rst.g.ph.city': 'z.B. Dortmund',
+    'rst.g.req.title': 'Anforderungen & Budget',
+    'rst.g.req.hint': 'Optional. Skills helfen beim Matching, das Budget steuert Vorschläge.',
+    'rst.g.f.skills': 'Skills (kommagetrennt)',
+    'rst.g.ph.skills': 'z.B. Schweißen, SPS, Gabelstapler',
+    'rst.g.f.budgetMin': 'Budget min (Cent)',
+    'rst.g.f.budgetMax': 'Budget max (Cent)',
+    'rst.g.f.approval': 'Freigabe erforderlich',
+    'rst.g.action.submit': 'Arbeitsplatzangebot erstellen',
+    'rst.g.action.submitting': 'Wird erstellt …',
+    'rst.g.action.cancel': 'Abbrechen',
+    'rst.g.err.createTitle': 'Erstellung fehlgeschlagen',
+    'rst.g.err.networkTitle': 'Netzwerkfehler',
+    'rst.g.err.networkText': 'Server nicht erreichbar. Bitte erneut versuchen.'
+  });
+  TCi18n.register('en', {
+    'rst.g.docTitle': 'New job posting – TempConnect',
+    'rst.g.page.title': 'New job posting',
+    'rst.g.page.subtitle': 'Enter the key facts, demand, work location and requirements. Once created, the posting runs through the approval workflow.',
+    'rst.g.page.back': '← Back to overview',
+    'rst.g.basics.title': 'Key facts',
+    'rst.g.basics.hint': 'Title and role are required.',
+    'rst.g.f.title': 'Title',
+    'rst.g.f.role': 'Role',
+    'rst.g.f.desc': 'Description',
+    'rst.g.ph.title': 'e.g. Warehouse worker, logistics centre',
+    'rst.g.ph.role': 'e.g. Warehouse worker',
+    'rst.g.ph.desc': 'Tasks, shifts, anything special …',
+    'rst.g.demand.title': 'Demand & period',
+    'rst.g.demand.hint': 'How many people, how urgent and for which period.',
+    'rst.g.f.headcount': 'Headcount',
+    'rst.g.f.urgency': 'Urgency',
+    'rst.g.urg.normal': 'Normal',
+    'rst.g.urg.high': 'High',
+    'rst.g.urg.urgent': 'Urgent',
+    'rst.g.urg.notdienst': 'Emergency service',
+    'rst.g.f.start': 'Start date',
+    'rst.g.f.end': 'End date',
+    'rst.g.place.title': 'Work location',
+    'rst.g.place.hint': 'Where the assignment takes place and within which radius you are searching.',
+    'rst.g.f.city': 'City',
+    'rst.g.f.postal': 'Postcode',
+    'rst.g.f.radius': 'Radius (km)',
+    'rst.g.ph.city': 'e.g. Dortmund',
+    'rst.g.req.title': 'Requirements & budget',
+    'rst.g.req.hint': 'Optional. Skills improve matching, the budget steers suggestions.',
+    'rst.g.f.skills': 'Skills (comma-separated)',
+    'rst.g.ph.skills': 'e.g. Welding, PLC, forklift',
+    'rst.g.f.budgetMin': 'Budget min (cents)',
+    'rst.g.f.budgetMax': 'Budget max (cents)',
+    'rst.g.f.approval': 'Approval required',
+    'rst.g.action.submit': 'Create job posting',
+    'rst.g.action.submitting': 'Creating …',
+    'rst.g.action.cancel': 'Cancel',
+    'rst.g.err.createTitle': 'Creation failed',
+    'rst.g.err.networkTitle': 'Network error',
+    'rst.g.err.networkText': 'Server unreachable. Please try again.'
+  });
   (function () {
     "use strict";
     function $(id) { return document.getElementById(id); }
+    function t(key, params) { return TCi18n.t(key, params); }
+    function esc(s) { var d = document.createElement("div"); d.textContent = s == null ? "" : String(s); return d.innerHTML; }
 
     function setState(kind, title, text) {
       var el = $("rcState");
       el.style.display = "";
       el.className = "page-state page-state--" + (kind === "bad" ? "bad" : kind === "good" ? "good" : "info");
-      el.innerHTML = '<strong>' + title + '</strong><br><span style="font-size:13px">' + text + '</span>';
+      el.innerHTML = '<strong>' + esc(title) + '</strong><br><span style="font-size:13px">' + esc(text) + '</span>';
       el.scrollIntoView({ behavior: "smooth", block: "nearest" });
     }
 
     async function getCsrf() {
       try {
         var r = await fetch("/api/csrf", { credentials: "include" });
-        if (r.ok) { var d = await r.json(); return d.csrfToken || ""; }
+        // GET /api/csrf antwortet mit { token: … } — das frueher gelesene
+        // Feld csrfToken existiert nicht, der Header blieb dadurch leer und
+        // JEDE Erstellung endete in 403 CSRF_INVALID.
+        if (r.ok) { var d = await r.json(); return d.csrfToken || d.token || ""; }
       } catch (e) { /* ignore */ }
       return "";
     }
@@ -142,9 +252,14 @@
       e.preventDefault();
       if (!$("rcForm").reportValidity()) return;
       var btn = $("rcSubmit");
-      var orig = btn.textContent;
-      btn.disabled = true;
-      btn.textContent = "Wird erstellt …";
+      // Auch der Wartezustand traegt seinen Marker: ein Sprachwechsel waehrend
+      // des Absendens darf den Knopf nicht auf die Ruhebeschriftung zuruecksetzen.
+      function setBtn(key, busy) {
+        btn.setAttribute("data-i18n", key);
+        btn.textContent = t(key);
+        btn.disabled = !!busy;
+      }
+      setBtn('rst.g.action.submitting', true);
       try {
         var token = await getCsrf();
         var r = await fetch("/api/requisitions", {
@@ -161,13 +276,11 @@
           window.location.href = "/public/requisitions.html?created=1";
           return;
         }
-        setState("bad", "Erstellung fehlgeschlagen", (data && (data.message || data.error)) || ("HTTP " + r.status));
-        btn.disabled = false;
-        btn.textContent = orig;
+        setState("bad", t('rst.g.err.createTitle'), (data && (data.message || data.error)) || ("HTTP " + r.status));
+        setBtn('rst.g.action.submit', false);
       } catch (err) {
-        setState("bad", "Netzwerkfehler", "Server nicht erreichbar. Bitte erneut versuchen.");
-        btn.disabled = false;
-        btn.textContent = orig;
+        setState("bad", t('rst.g.err.networkTitle'), t('rst.g.err.networkText'));
+        setBtn('rst.g.action.submit', false);
       }
     }
 

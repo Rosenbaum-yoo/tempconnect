@@ -5,27 +5,66 @@
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <script src="/public/js/theme.js"></script>
   <script src="/public/js/i18n.js"></script>
-  <title>Eingang – TempConnect</title>
+  <title data-i18n="rst.d.docTitle">Eingang – TempConnect</title>
   <link rel="stylesheet" href="/public/css/enterprise.css"/>
   <link rel="stylesheet" href="/public/css/approval-badges.css"/>
 </head>
 <body data-sla-guard="sla_access">
   <div id="paywall" class="wrap" style="display:none">
-    <nav class="ds-topbar"><div class="ds-topbar__brand"><span class="ds-topbar__brand-dot"></span>TempConnect</div><div class="ds-topbar__nav"><a href="/" class="ds-btn">Startseite</a></div></nav>
+    <nav class="ds-topbar"><div class="ds-topbar__brand"><span class="ds-topbar__brand-dot"></span>TempConnect</div><div class="ds-topbar__nav"><a href="/" class="ds-btn" data-i18n="rst.d.paywall.home">Startseite</a></div></nav>
     <div class="paywall-box">
-      <h2>Bereich nicht verfügbar</h2>
-      <p>Das Feature &quot;<span id="paywall-feature-name">Pulse-Bereich</span>&quot; ist mit deinem aktuellen Plan nicht nutzbar.</p>
-      <p>Aktueller Plan: <span id="paywall-current-plan" class="paywall-plan">–</span></p>
-      <a id="paywall-cta" href="/public/sla_abo.html" class="btn primary">Abo ansehen</a>
+      <h2 data-i18n="rst.d.paywall.title">Bereich nicht verfügbar</h2>
+      <!-- Kein data-i18n auf dem ganzen Satz: slaGuard.js schreibt den Feature-Namen
+           zur Laufzeit in die Mitte. Ein Marker auf dem <p> wuerde den Namen beim
+           naechsten apply() wieder herausloeschen. -->
+      <p><span data-i18n="rst.d.paywall.featurePre">Das Feature &quot;</span><span id="paywall-feature-name">Pulse-Bereich</span><span data-i18n="rst.d.paywall.featurePost">&quot; ist mit deinem aktuellen Plan nicht nutzbar.</span></p>
+      <p><span data-i18n="rst.d.paywall.currentPlan">Aktueller Plan:</span> <span id="paywall-current-plan" class="paywall-plan">–</span></p>
+      <a id="paywall-cta" href="/public/sla_abo.html" class="btn primary" data-i18n="rst.d.paywall.cta">Abo ansehen</a>
     </div>
   </div>
   <div id="main-content" class="wrap">
     <div id="tc-shell"></div>
-    <h1>Eingegangene Anfragen</h1>
+    <h1 data-i18n="rst.d.page.title">Eingegangene Anfragen</h1>
     <div id="list"></div>
   </div>
   <script src="/public/js/planFeatures.js"></script>
   <script src="/public/js/slaGuard.js"></script>
+  <script>
+    /* Woerterbuch (P6.1, DE/EN) fuer agency_inbox.html — Unter-Namensraum
+       rst.d.*. Die Seite hat kein eigenes Inline-Script; das Woerterbuch
+       steht deshalb hier, vor dem Seiten-Skript.
+
+       Drei-Seiten-Regel: Der Eingang haengt an sla_access und wird sowohl von
+       Zeitarbeitsfirmen als auch von Unternehmen genutzt. Die Ueberschrift
+       bleibt deshalb bewusst rollenneutral ("Eingegangene Anfragen" /
+       "Incoming requests") und friert keinen rollenabhaengigen Begriff ein.
+
+       Bewusst NICHT hier uebersetzt:
+       - der Feature-Name im Paywall-Satz (kommt aus slaGuard.js)
+       - der Plan-Rohwert (DEMO/BASIS/…) — Server-Enum
+       - die Trefferliste in #list (js/agency_inbox.js, eigene Datei)
+       - Topbar/Navigation/Nutzerbereich (pageShell.js)                       */
+    TCi18n.register('de', {
+      'rst.d.docTitle': 'Eingang – TempConnect',
+      'rst.d.paywall.home': 'Startseite',
+      'rst.d.paywall.title': 'Bereich nicht verfügbar',
+      'rst.d.paywall.featurePre': 'Das Feature "',
+      'rst.d.paywall.featurePost': '" ist mit deinem aktuellen Plan nicht nutzbar.',
+      'rst.d.paywall.currentPlan': 'Aktueller Plan:',
+      'rst.d.paywall.cta': 'Abo ansehen',
+      'rst.d.page.title': 'Eingegangene Anfragen'
+    });
+    TCi18n.register('en', {
+      'rst.d.docTitle': 'Inbox – TempConnect',
+      'rst.d.paywall.home': 'Home',
+      'rst.d.paywall.title': 'Area not available',
+      'rst.d.paywall.featurePre': 'The feature "',
+      'rst.d.paywall.featurePost': '" is not included in your current plan.',
+      'rst.d.paywall.currentPlan': 'Current plan:',
+      'rst.d.paywall.cta': 'View plans',
+      'rst.d.page.title': 'Incoming requests'
+    });
+  </script>
   <script src="/public/js/agency_inbox.js"></script>
   <script src="/public/js/pageShell.js"></script>
   <div id="tc-footer" data-tc-footer></div>

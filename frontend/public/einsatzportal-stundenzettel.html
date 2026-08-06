@@ -24,6 +24,9 @@
     }
     .sub-card:hover { border-color:var(--ep-brand); background:var(--ep-raised); }
     .sub-card.selected { border-color:var(--ep-brand); box-shadow:0 0 0 1px var(--ep-brand); }
+    /* Tastatur-Bedienung sichtbar machen: die Karte ist role="button", also muss
+       der Fokus erkennbar sein — sonst ist sie per Tab zwar erreichbar, aber blind. */
+    .sub-card:focus-visible { outline:2px solid var(--ep-brand); outline-offset:2px; }
     .sub-card-head { display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:8px; }
     .sub-card-title { font-weight:700; font-size:.9rem; }
     .sub-card-meta { font-size:.78rem; color:var(--ep-text-muted); margin-top:3px; }
@@ -701,7 +704,10 @@ function renderList() {
     const wk = s.week_label || fmtWeek(s.week_start);
     const client = s.client_name || s.client_display_name || TCi18n.t('ep.stundenzettel.assignmentFallback');
     return `
-      <div class="sub-card${selId === s.id ? ' selected' : ''}" onclick="selSub('${esc(String(s.id))}')">
+      <div class="sub-card${selId === s.id ? ' selected' : ''}" role="button" tabindex="0"
+           aria-pressed="${selId === s.id ? 'true' : 'false'}"
+           onclick="selSub('${esc(String(s.id))}')"
+           onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();selSub('${esc(String(s.id))}')}">
         <div class="sub-card-head">
           <div>
             <div class="sub-card-title">${esc(wk)}</div>
@@ -734,10 +740,18 @@ function showPanel(which) {
 function selSub(id) {
   selId = id;
   renderList();
+  const s = subs.find(x => x.id === id);
+  /* Eine Wochenkarte anzuklicken heisst fuer den Arbeiter "Stunden eintragen".
+     Ist die Woche noch bearbeitbar (Entwurf oder Korrektur erbeten), fuehrt der
+     Klick deshalb DIREKT ins Ausfuellen — vorher landete man auf einer
+     Status-Zwischenansicht und brauchte einen zweiten Klick, obwohl es bei
+     einem Entwurf noch gar keine Historie zu sehen gibt.
+     Bereits eingereichte oder abgeschlossene Wochen zeigen weiterhin die
+     Status-Historie: dort gibt es nichts mehr auszufuellen. */
+  if (s && EDITABLE.includes(s.status)) { openEditorForSub(s.id); return; }
   const dc = document.getElementById('detContent');
   showPanel('detail');
   dc.innerHTML = '<div class="ep-skel" style="height:220px"></div>';
-  const s = subs.find(x => x.id === id);
   if (s) renderDetail(s);
 }
 
@@ -977,7 +991,9 @@ function closeEditor() {
   edPickedWeekStart = null; edAdvancedVisible = false; edPrefill = null;
   if (selId) {
     const s = subs.find(x => x.id === selId);
-    if (s) { renderDetail(s); return; }
+    // renderDetail() fuellt nur den Inhalt — ohne showPanel('detail') blieb der
+    // (soeben geleerte) Editor sichtbar und "← Zurueck" fuehrte ins Nichts.
+    if (s) { showPanel('detail'); renderDetail(s); return; }
   }
   showPanel('empty');
 }

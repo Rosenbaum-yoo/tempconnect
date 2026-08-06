@@ -908,7 +908,10 @@ export async function updateWorkerProfile(pool, workerUserId, supplierOrgId, dat
 
 export async function getWorkerSkills(pool, workerProfileId) {
   const { rows } = await pool.query(
-    `SELECT wps.id, wps.skill_id, ps.name, ps.category,
+    // ps.status (Mig 160): selbst eingetragene Faehigkeiten warten ggf. noch auf
+    // Kuratierung. Der Arbeiter soll das an seinem Profil SEHEN, statt sich zu
+    // wundern, warum die Faehigkeit nirgends auftaucht.
+    `SELECT wps.id, wps.skill_id, ps.name, ps.category, ps.status,
             wps.proficiency, wps.years_experience, wps.is_primary,
             wps.certified, wps.certificate_ref, wps.source
        FROM worker_profile_skills wps

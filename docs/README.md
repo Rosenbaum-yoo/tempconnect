@@ -79,6 +79,8 @@ Dominanter Einstiegs-ICP: groessere Einsatzunternehmen mit wiederkehrenden Zeita
 | [ONBOARDING_SYSTEM.md](ONBOARDING_SYSTEM.md) | Einführung neuer Organisationen und Nutzer. |
 | [RATE_CARDS.md](RATE_CARDS.md) | Konditionsrahmen: Aufbau, Geltung, Sichtbarkeit. |
 | [features/MULTI_SKILL_ANGEBOTSMANAGEMENT.md](features/MULTI_SKILL_ANGEBOTSMANAGEMENT.md) | Multi-Skill-Angebote — Alleinstellungsmerkmal, Wellenplan. |
+| [features/P6_I18N_UEBERGABE.md](features/P6_I18N_UEBERGABE.md) | Zweisprachigkeit DE/EN: Architektur der Sprachschicht, verbindliche Migrationsregeln, Gates und Stand. |
+| [features/URSPRUNGSPROMPT_AUDIT.md](features/URSPRUNGSPROMPT_AUDIT.md) | Punkt-für-Punkt-Abgleich des Ursprungsprompts gegen den Code: erfüllt / teilweise / fehlt, mit Dateibelegen. |
 
 **Support-Ops**
 
