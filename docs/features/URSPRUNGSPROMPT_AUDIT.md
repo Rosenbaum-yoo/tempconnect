@@ -38,9 +38,20 @@ testbar und vorführbar; der Anbieter ist später eine einzige Umgebungsvariable
   der beste Anbieter wertlos, und diese Prüfung gehört an eine Stelle.
 - WhatsApp ist nur dort als Fähigkeit gemeldet, wo es sie real gibt (Twilio).
 
-**Ehrlich bleibt offen:** Der eigentliche Versand-Adapter. Solange kein Anbieter gewählt
-ist, gehen Einladungen weiterhin nur per E-Mail raus. Was gebaut ist, ist die
-Entscheidung — nicht die Zustellung. `api/test/smsProvider.test.js` (11 Tests).
+**Ergänzt 2026-08-06 — die Zustellung ist jetzt verdrahtet.** Mig 161 gibt der Einladung
+eine Mobilnummer (nullable, ohne Nummer bleibt es beim E-Mail-Weg) und einen Stempel
+`sms_sent_at` — sonst ließe sich „nicht versucht“ nicht von „fehlgeschlagen“ unterscheiden.
+Die 1-Klick-Einladung aus der Mitarbeiterliste gibt die Nummer aus dem Profil mit.
+
+Die wichtigste Eigenschaft ist nicht, dass eine SMS rausgeht, sondern dass ihr Ausbleiben
+**nichts kaputt macht**: Die SMS läuft nach der E-Mail, in eigenem `try`, und `sendSms`
+wirft unter keinen Umständen. Eine Einladung, die scheitert, weil kein SMS-Anbieter
+konfiguriert ist, wäre eine Verschlechterung gegenüber vorher.
+
+**Was bewusst noch fehlt:** der Netzaufruf zum Anbieter. Ohne gewählten Anbieter wäre das
+ungetesteter Code mit Kostenrisiko — der Adapter meldet stattdessen ehrlich
+`reason: NO_ADAPTER`. Sobald du Twilio oder MessageBird sagst, kommt genau **ein** Fall
+in `sendSms` dazu. `api/test/smsProvider.test.js` (11) + `smsInviteDelivery.test.js` (14).
 | A3 | Link führt ins Einsatzportal | ✅ | `GET /auth/worker/invite/:token`, `POST /auth/worker/accept-invite` — `api/routes/auth.js:405` |
 | A4 | Skills werden **bei der Registrierung** abgefragt | ✅ | siehe unten — war besser gebaut, als mein erster Durchgang erkannt hat |
 

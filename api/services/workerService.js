@@ -586,7 +586,7 @@ export async function createWorkerAccount(pool, {
 /* ── Einladung erstellen + versenden ────────────────────────────────────────── */
 
 export async function createWorkerInvite(pool, {
-  supplierOrgId, invitedBy, email, firstName, lastName, personnelNumber
+  supplierOrgId, invitedBy, email, firstName, lastName, personnelNumber, phone = null
 }) {
   // Prüfe: existiert bereits ein aktiver Worker mit dieser E-Mail in der Org?
   const { rows: existing } = await pool.query(
@@ -604,13 +604,15 @@ export async function createWorkerInvite(pool, {
   const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000); // 7 Tage
 
   const { rows: [invite] } = await pool.query(
+    // phone (Mig 161): zweiter Zustellweg. Nullable — ohne Nummer bleibt es
+    // beim E-Mail-Weg, der Ablauf aendert sich dadurch nicht.
     `INSERT INTO worker_invites
        (supplier_org_id, invited_by, email, first_name, last_name,
-        personnel_number, token, token_hash, expires_at)
-     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)
-     RETURNING id, email, first_name, last_name, expires_at, status`,
+        personnel_number, phone, token, token_hash, expires_at)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)
+     RETURNING id, email, first_name, last_name, phone, expires_at, status`,
     [supplierOrgId, invitedBy, email.toLowerCase().trim(),
-     firstName, lastName, personnelNumber || null,
+     firstName, lastName, personnelNumber || null, phone || null,
      token, tokenHash, expiresAt]
   );
 

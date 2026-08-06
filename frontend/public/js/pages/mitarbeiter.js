@@ -1542,7 +1542,9 @@ function inviteFromRow(profileId) {
   if (!w || !w.email) { toast(TCi18n.t("mit.err.noEmailOnWorker"), "err"); return; }
   api("/worker-invites", {
     method: "POST",
-    body: { first_name: w.first_name, last_name: w.last_name, email: w.email, personnel_number: w.personnel_number || undefined }
+    // Nummer mitgeben (Mig 161): gewerbliche Kraefte lesen eine SMS zuverlaessiger
+    //   als ein Postfach. Ohne Nummer bleibt es beim E-Mail-Weg.
+    body: { first_name: w.first_name, last_name: w.last_name, email: w.email, personnel_number: w.personnel_number || undefined, phone: w.phone || undefined }
   }).then(function() {
     toast(TCi18n.t("mit.ok.inviteSentTo", { email: w.email }));
     loadWorkers();

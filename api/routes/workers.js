@@ -15,6 +15,7 @@ import { hasFeature } from "../config/planFeatures.js";
 import * as assignmentStaffingService from "../services/assignmentStaffingService.js";
 import * as dealStaffingFastTrackService from "../services/dealStaffingFastTrackService.js";
 import * as workerService from "../services/workerService.js";
+import * as smsService from "../services/smsService.js";
 import * as workforceService from "../services/workforceService.js";
 import * as submissionSvc from "../services/workerSubmissionService.js";
 import * as billingMetrics from "../services/billingMetricsService.js";
@@ -63,7 +64,9 @@ const inviteSchema = z.object({
   email:            z.string().email().max(254),
   first_name:       z.string().min(1).max(100),
   last_name:        z.string().min(1).max(100),
-  personnel_number: z.string().max(50).optional().nullable()
+  personnel_number: z.string().max(50).optional().nullable(),
+  // Zweiter Zustellweg (Mig 161). Optional: ohne Nummer bleibt es bei E-Mail.
+  phone:            z.string().max(40).optional().nullable()
 });
 
 const updateProfileSchema = z.object({
@@ -790,7 +793,8 @@ export function createWorkersRouter(deps) {
         email:          parsed.data.email,
         firstName:      parsed.data.first_name,
         lastName:       parsed.data.last_name,
-        personnelNumber: parsed.data.personnel_number
+        personnelNumber: parsed.data.personnel_number,
+        phone:          parsed.data.phone
       });
 
       if (result.error === "INVITE_ALREADY_PENDING") {
@@ -817,9 +821,29 @@ export function createWorkersRouter(deps) {
         logger.warn({ err: mailErr?.message }, "Worker-Invite E-Mail konnte nicht gesendet werden");
       }
 
+      // Zweiter Zustellweg: gewerbliche Einsatzkraefte lesen eine SMS zuverlaessiger
+      // als ein Postfach. Bewusst NACH der E-Mail und ohne Abbruch — die E-Mail ist
+      // der verlaessliche Kanal, die SMS die Zugabe.
+      let smsErgebnis = { sent: false, reason: "NO_PHONE" };
+      if (invite.phone) {
+        try {
+          smsErgebnis = await smsService.sendSms(deps.config || {}, {
+            phone: invite.phone,
+            text: smsService.buildInviteSms({ firstName: invite.first_name, inviteUrl })
+          });
+          if (smsErgebnis.sent) {
+            await pool.query("UPDATE worker_invites SET sms_sent_at = NOW() WHERE id = $1", [invite.id]);
+          }
+        } catch (smsErr) {
+          logger.warn({ err: smsErr?.message, invite_id: invite.id }, "Worker-Invite SMS fehlgeschlagen");
+        }
+      }
+
       res.locals.audit = {
         action: "worker.invite_sent", entity_type: "worker_invite",
-        entity_id: invite.id, details: { email: invite.email }
+        entity_id: invite.id,
+        // Kein Klartext der Nummer ins Audit (S-2) — nur ob der Zweitweg griff.
+        details: { email: invite.email, sms_sent: smsErgebnis.sent === true, sms_reason: smsErgebnis.reason }
       };
       try {
         await trackProductEventFromRequest(pool, req, "worker_invite_sent", {
@@ -827,7 +851,7 @@ export function createWorkersRouter(deps) {
           metadata: { invite_id: invite.id }
         });
       } catch { /* analytics non-critical */ }
-      res.status(201).json({ invite });
+      res.status(201).json({ invite, sms: { sent: smsErgebnis.sent, reason: smsErgebnis.reason } });
     } catch (err) { next(err); }
   });
 
