@@ -1,6 +1,7 @@
 # Nächste Schritte — Übergabe für einen neuen Chat
 
-> **Stand:** 2026-08-06 · Branch `release/enterprise-premium-market-ready` · Commit `cfe9ff3`
+> **Stand:** 2026-08-07 · Branch `release/enterprise-premium-market-ready` · letzter Commit `c80d343`
+> · **P8 Wellen A–E vollständig, uncommitted** (Owner-Freigabe steht aus)
 > **Zweck:** Einstiegspunkt. Diese Datei sagt, wo etwas steht und wo es weitergeht —
 > sie wiederholt die Detailpläne **nicht**, sondern verweist auf sie.
 
@@ -57,18 +58,54 @@
 
 ## 4. Wo es weitergeht
 
-### Sofort: P8 Welle B
+### Erledigt: P8 Welle B *(2026-08-07, uncommitted)*
 
-`deal_success_rate` beleben. Die Spalte steuert das Feed-Ranking
-(`capacityExchangeService.js:843`), wurde aber **nie geschrieben** — ein Storno kostet
-deshalb bis heute nichts. Rohdaten liegen seit Welle A in `offer_cancellations`.
+`deal_success_rate` lebt. Migration 164 (`deal_reliability` + `offer_cancellations.from_status`),
+`dealReliabilityService.js`, Cron `POST /api/internal/recompute-deal-reliability` (täglich 4:45)
+plus ereignisgetriebener Nachlauf direkt nach dem Storno. Am echten Entwicklungsbestand
+gemessen: vorher **0** gesetzte Werte, nachher 5 gerechnete Parteien und 2 Spiegelwerte.
+Details und die drei Entscheidungen über den Wellenplan hinaus: P8, Abschnitt 5.
 
-Gewichtung (Owner entschieden): **< 48 h vor Beginn doppelt · ≥ 14 Tage gar nicht ·
-`customer_cancelled` und `worker_sick` zählen nicht gegen die Agentur · Quote erst ab
-5 Deals sichtbar.** Details und Gates in P8, Abschnitt 5.
+### Erledigt: P8 Welle C *(2026-08-07, uncommitted)*
 
-Danach: **C** (Zuverlässigkeits-Bounty 3 %) → **D** (3-Schritte-Bestätigung) → **E**
-(Besetzbarkeits-Vorschau, unabhängig und jederzeit vorziehbar).
+Zuverlässigkeits-Bounty als **Leiter**: `zuverlaessiger_partner` (90 Tage sauber, 3 %) wird
+von `zero_complaint` (365 Tage sauber, 3 %) abgelöst — kein doppelter Rabatt für dieselbe
+Tugend. Migration 165. Dabei hat sich `zero_complaint` als zweiter geerbter Defekt entpuppt:
+es zählt `requests.status='CANCELED'` — den **falschen Storno-Kanal**. Der Agreement-Storno
+(`cancelAgreement`) fasst `requests` nie an, also behält ein notorischer Kurzfrist-Stornierer
+seine 3 % Rabatt für „null Stornos". Mitrepariert. Details in P8, Abschnitt 5.
+
+### Erledigt: P8 Welle D *(2026-08-07, uncommitted)*
+
+Assistent mit 3 Schritten beim Abschluss, 2 beim Storno; die Folgen kommen aus zwei neuen
+lesenden Endpunkten und sind **gerechnet, nicht getextet**. Dabei kam der dritte geerbte
+Defekt heraus: Der Storno-Button war seit Welle A **tot** — er schickte Freitext `reason`,
+die Route verlangt seither `reason_code` aus einem Enum → 400.
+
+**Klickpfad nachgewiesen:** `e2e/tests/deal-commitment-wizard.spec.js` baut die Fixture über
+die echte API auf und klickt sich durch — 13 Tests grün. Gate D ist damit verhaltensmäßig
+belegt (ohne Grund kein zweiter Schritt, Abbruch ändert nichts am Zustand), und ein
+Browser-Klick erzeugt nachweislich einen auswertbaren Storno samt sofortiger Neuberechnung.
+Details in P8, Abschnitt 5.
+
+### Erledigt: P8 Welle E *(2026-08-07, uncommitted)*
+
+Besetzbarkeits-Vorschau beim Überfahren einer Bedarfs-Karte. Nutzt die **bestehende**
+Rechenmaschine `checkOfferCoverage` (Multi-Skill Welle 6) und verdichtet sie **anonym** —
+Zahlen, Katalog-Rollen, Datumsangaben, keine Person. Gate E gehalten: 0 Abfragen beim
+Rendern, Laden erst am `mouseenter`, jede Antwort gemerkt.
+
+> **P8 ist komplett: alle fünf Wellen gebaut, alle Gates A–E nachgewiesen.**
+
+### Fallstricke für künftige UI-Tests (teuer gelernt)
+
+1. **Cookie-Banner zuerst wegklicken** (`#tc-cc-reject`, „Nur notwendige"). Er liegt mit
+   `z-index: 2147483000` über allem; der Fehler sieht wie ein Klick-Timeout aus.
+2. **Nie `waitForLoadState("networkidle")`** — die Seiten pollen Benachrichtigungen, der
+   Zustand tritt nie ein. Auf das fachliche Ergebnis pollen.
+3. **Sprache festnageln** (`tempconnect-lang`), bevor gegen Text geprüft wird.
+4. **Deals über `accept-deal` aufbauen**, nicht über `POST /demand-requests/:id/offers` —
+   letzteres erzeugt ein `draft`-Angebot, das keine Route auf `sent` heben kann.
 
 ### Wartet auf den Owner
 
@@ -103,4 +140,51 @@ Danach: **C** (Zuverlässigkeits-Bounty 3 %) → **D** (3-Schritte-Bestätigung)
 | `ff88098` | P8-Wellenplan |
 | `cfe9ff3` | **P8 Welle A**: Storno-Erfassung (Mig 163) |
 
-Vollsuite zuletzt: **7879 Tests, 0 Fehler, 13 übersprungen.**
+Vollsuite zuletzt: **7927 Tests, 0 Fehler, 13 übersprungen** (2026-08-07, nach Welle B
+inkl. der Fixes aus der Gegenprüfung).
+
+## 6. Uncommitted im Baum (Stand 2026-08-07)
+
+P8 Welle B ist vollständig, verifiziert und wartet auf Owner-Freigabe zum Commit:
+
+| Datei | Art |
+|---|---|
+| `sql/migrations/164_deal_reliability.sql` | neu · **im Dev-Stand bereits eingespielt** |
+| `api/services/dealReliabilityService.js` | neu |
+| `api/test/dealReliability.test.js` | neu (46 Tests) |
+| `api/test/integration/deal-reliability.flow.test.js` | neu (10 Tests, DB-gated) |
+| `api/services/dealAgreementService.js` | `from_status` · Nachlauf nach dem Storno · **Join auf `demand_requests` (E1-Fix)** |
+| `api/services/reputationService.js` | Vorrang für die neue Quelle · Label „Zuverlässigkeit" |
+| `api/routes/internal.js` | Cron-Endpunkt |
+| `api/test/capacityFeedRanking.test.js` | 2 Gate-B-Tests + `reputations`-Parameter im Mock |
+| `api/test/{dealAgreement,welle7DealStaffingHardening,dealAgreementService.coverage}.test.js` | reine Fixture-Pflege: Mock-Matcher auf die neue Storno-Abfrage |
+| `docs/SCHEDULER.md` | Takt + Crontab-Zeile |
+| `frontend/public/js/pages/{marketplaceFeed,capacityExchangeDetail,vendorPool}.js` | Beschriftung DE/EN |
+| `sql/migrations/165_reliability_bounty.sql` | neu (Welle C) · **im Dev-Stand eingespielt** |
+| `api/services/bountyService.js` | `reliability_streak` · Ablösung katalog-gesteuert · Begründungstexte |
+| `api/routes/bounties.js` | reicht die Begründungen durch |
+| `api/test/bountyService.coverage.test.js` | 8 neue Tests · 2 alte ersetzt (kodierten den Defekt als Soll) |
+| `frontend/public/bounties.html`, `js/pages/bounties.js` | Begründungs-Kachel |
+| `api/services/dealCommitmentService.js` | neu (Welle D) — Vorschau-Aggregator |
+| `api/test/dealCommitment.test.js` | neu (24 Tests) |
+| `e2e/tests/deal-commitment-guards.spec.js` | neu — Server-Riegel der Vorschauen |
+| `e2e/tests/deal-commitment-wizard.spec.js` | neu — Fixture + Klickpfad (13 Tests) |
+| `api/routes/marketplace.js` | 2 lesende Vorschau-Endpunkte |
+| `api/services/dealAgreementService.js` | zusätzlich: `berechneVorlaufStunden` versteht Date-Objekte |
+| `frontend/public/offer_detail.html` | Assistent (3/2 Schritte), DE+EN, ersetzt den toten `window.prompt` |
+| `api/services/capacityOfferMatchService.js` | Welle E: anonyme Verdichtung (`fasseDeckungAnonymZusammen`) |
+| `api/routes/capacityExchange.js` | Welle E: `GET /demands/:id/coverage` (lesend, agency-only) |
+| `api/test/capacityCoveragePreview.test.js` | neu (16 Tests) |
+| `frontend/public/js/pages/marketplaceFeed.js`, `css/pages/marketplace-feed.css` | Hover-Vorschau, DE+EN |
+| `docs/features/P8_DEAL_VERBINDLICHKEIT.md`, diese Datei | Doku |
+
+> **Der wichtigste Fund der Welle steckt in `dealAgreementService.js`:** Der Fallback für den
+> Einsatzbeginn zeigte auf `offer.assignment_start_date` — eine Spalte, die es auf `offers`
+> gar nicht gibt. Dadurch blieb der Vorlauf bei **8 von 15** bestätigten Angeboten `NULL` und
+> die 48-Stunden-Regel zündete dort nie. Der Defekt stammt aus Welle A und war bis zur
+> adversarischen Gegenprüfung unsichtbar, weil die Vorlaufberechnung selbst korrekt und
+> getestet war — nur ihr Eingabewert kam nie an. Details in P8, Abschnitt 5.
+
+Getrennt davon liegen weiter die unversionierten Geschäftsdokumente
+(`docs/launch/`, UG-PDF, `docs/aktuellesitzung/`) — deshalb beim Commit **immer**
+gezielt `git add <dateien>`, nie `git add -A`.
