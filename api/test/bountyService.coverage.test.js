@@ -147,6 +147,9 @@ describe("bountyService — evaluateBounties", () => {
       if (sql.includes("reputation_score >= $1")) return ok([{ rank: dataRows.rank || 0 }]);
       if (sql.includes("FROM referrals")) return ok([{ active: dataRows.referralCount || 0 }]);
       if (sql.includes("FROM mentoring_sessions")) return ok([{ count: dataRows.mentoringCount || 0 }]);
+      // P8 Welle C: Zuverlaessigkeits-Streak (dealReliabilityService)
+      if (sql.includes("'agency'::text")) return ok(dataRows.streakNenner || []);
+      if (sql.includes("FROM offer_cancellations c")) return ok(dataRows.streakStornos || []);
       // writes
       if (sql.includes("INSERT INTO user_bounties") || sql.includes("UPDATE user_bounties")) {
         if (captureWrites) captureWrites({ sql, params });
@@ -234,18 +237,100 @@ describe("bountyService — evaluateBounties", () => {
     assert.strictEqual(r.earned, true);
   });
 
-  it("zero_complaints_12m earns when 0 canceled and >=3 completed", async () => {
-    const r = await evaluatesEarned({ threshold_type: "zero_complaints_12m", threshold_value: {} },
-      { deals: { canceled: 0, completed: 5 } });
+  /* ── P8 Welle C: reliability_streak ersetzt zero_complaints_12m ──────────
+   *
+   * Die beiden frueheren Tests an dieser Stelle pruefen den Typ
+   * `zero_complaints_12m`. Sie waren gruen und haben trotzdem einen Defekt
+   * ZEMENTIERT: die Bedingung zaehlt `requests.status = 'CANCELED'` — den
+   * FALSCHEN Storno-Kanal. `requests` ist der Alt-Pfad; dort wird 'CANCELED'
+   * zwar geschrieben (`PATCH /api/requests/:id` ->
+   * `releaseReservationAndSetStatus`), aber `dealAgreementService.cancelAgreement`
+   * fasst die Tabelle nie an. Wer eine Einsatzvereinbarung kurz vor Beginn
+   * platzen laesst, behaelt deshalb 3 % Rabatt fuer "null Stornos".
+   * Der Test hat das nie bemerkt, weil er `canceled` selbst als Fixture setzt:
+   * er prueft eine Rechnung, deren Eingabewert aus dem relevanten Kanal nie
+   * kommt.
+   *
+   * Ersetzt durch Tests gegen die echte Quelle (`offer_cancellations` ueber
+   * `dealReliabilityService.gewichteStorno`). Begruendung nach §0.9: der alte
+   * Test kodierte nachweislich einen Bug als Soll.
+   * ──────────────────────────────────────────────────────────────────────── */
+
+  const STREAK = { threshold_type: "reliability_streak", threshold_value: { days: 90, min_binding_deals: 3 } };
+
+  it("reliability_streak wird vergeben bei genug Deals und ohne zaehlenden Storno", async () => {
+    const r = await evaluatesEarned(STREAK, {
+      streakNenner: [{ party_user_id: "u1", party_side: "agency", binding_deals: 4 }],
+      streakStornos: []
+    });
     assert.strictEqual(r.earned, true);
     assert.strictEqual(r.progress, 100);
+    assert.match(r.note, /90 Tage ohne gewichteten Storno/);
   });
 
-  it("zero_complaints_12m NOT earned when canceled > 0 (progress 0)", async () => {
-    const r = await evaluatesEarned({ threshold_type: "zero_complaints_12m", threshold_value: {} },
-      { deals: { canceled: 2, completed: 5 } });
+  it("reliability_streak entfaellt nach einem zaehlenden Storno und nennt das Datum", async () => {
+    const vorGestern = new Date(Date.now() - 2 * 86400000).toISOString();
+    const r = await evaluatesEarned(STREAK, {
+      streakNenner: [{ party_user_id: "u1", party_side: "agency", binding_deals: 6 }],
+      streakStornos: [{
+        party_user_id: "u1", party_side: "agency", reason_code: "worker_quit",
+        from_status: "confirmed", lead_time_hours: 10, created_at: vorGestern
+      }]
+    });
     assert.strictEqual(r.earned, false);
-    assert.strictEqual(r.progress, 0);
+    assert.match(r.note, /Entfallen durch Storno am/);
+    assert.match(r.note, /wieder verfuegbar/);
+  });
+
+  it("reliability_streak ueberlebt einen entschuldigten Storno (E2)", async () => {
+    const gestern = new Date(Date.now() - 86400000).toISOString();
+    const r = await evaluatesEarned(STREAK, {
+      streakNenner: [{ party_user_id: "u1", party_side: "agency", binding_deals: 6 }],
+      streakStornos: [{
+        party_user_id: "u1", party_side: "agency", reason_code: "customer_cancelled",
+        from_status: "confirmed", lead_time_hours: 3, created_at: gestern
+      }]
+    });
+    assert.strictEqual(r.earned, true,
+      "eine Kundenabsage trifft die Agentur unverschuldet — dieselbe Regel wie bei der Quote");
+  });
+
+  it("reliability_streak wird nicht fuers Nichtstun vergeben", async () => {
+    const r = await evaluatesEarned(STREAK, { streakNenner: [], streakStornos: [] });
+    assert.strictEqual(r.earned, false);
+    assert.match(r.note, /Noch keine verbindlichen Abschluesse/);
+  });
+
+  it("reliability_streak nennt die fehlende Zahl an Abschluessen", async () => {
+    const r = await evaluatesEarned(STREAK, {
+      streakNenner: [{ party_user_id: "u1", party_side: "agency", binding_deals: 1 }],
+      streakStornos: []
+    });
+    assert.strictEqual(r.earned, false);
+    assert.match(r.note, /Noch 2 verbindliche Abschluesse/);
+  });
+
+  it("reliability_streak faellt, wenn EINE Marktseite unzuverlaessig ist", async () => {
+    const gestern = new Date(Date.now() - 86400000).toISOString();
+    const r = await evaluatesEarned(STREAK, {
+      streakNenner: [
+        { party_user_id: "u1", party_side: "agency", binding_deals: 9 },
+        { party_user_id: "u1", party_side: "company", binding_deals: 4 }
+      ],
+      streakStornos: [{
+        party_user_id: "u1", party_side: "company", reason_code: "mistake",
+        from_status: "confirmed", lead_time_hours: 5, created_at: gestern
+      }]
+    });
+    assert.strictEqual(r.earned, false,
+      "wer als Auftraggeber kurzfristig absagt, ist kein zuverlaessiger Partner");
+  });
+
+  it("der alte Typ am falschen Storno-Kanal vergibt nichts mehr", async () => {
+    const r = await evaluatesEarned({ threshold_type: "zero_complaints_12m", threshold_value: {} },
+      { deals: { canceled: 0, completed: 5 } });
+    assert.strictEqual(r.earned, false,
+      "ohne Migration 165 soll das Bounty wegfallen statt weiter am falschen Kanal gemessen zu werden");
   });
 
   it("avg_communication earns at threshold (progress split 50/50)", async () => {
@@ -323,20 +408,54 @@ describe("bountyService — evaluateBounties", () => {
     assert.strictEqual(r.progress, 0);
   });
 
-  it("handleReplacements deactivates loyalty_1y when both 1y and 2y active", async () => {
+  // Die Abloesung liest `replaces` seit P8 Welle C aus dem KATALOG statt aus
+  // einer fest verdrahteten If-Kette. Das Verhalten bleibt identisch; ohne die
+  // Verallgemeinerung haette das zweite Paar (zero_complaint loest
+  // zuverlaessiger_partner ab) den Rabatt still verdoppelt.
+  it("handleReplacements deaktiviert das abgeloeste Bounty (Katalog-gesteuert)", async () => {
     const writes = [];
-    const bounty = { id: "b1", key: "completed_deals", is_recurring: false, threshold_type: "completed_deals", threshold_value: { min_deals: 50 } };
+    const katalog = [
+      { id: "b1", key: "completed_deals", is_recurring: false, threshold_type: "completed_deals", threshold_value: { min_deals: 50 } },
+      { id: "b2", key: "loyalty_2y", is_recurring: false, threshold_type: "subscription_age", threshold_value: { months: 24, replaces: "loyalty_1y" } }
+    ];
     const pool = patternPool((sql, params) => {
-      if (sql.includes("FROM bounties ORDER BY sort_order")) return ok([bounty]);
+      if (sql.includes("FROM bounties ORDER BY sort_order")) return ok(katalog);
       if (sql.includes("emergency_completed")) return ok([{ completed: 60 }]);
       if (sql.includes("INSERT INTO user_bounties")) return ok([], 1);
-      if (sql.includes("b.key IN ('loyalty_1y', 'loyalty_2y')")) return ok([{ key: "loyalty_1y", is_active: true }, { key: "loyalty_2y", is_active: true }]);
-      if (sql.includes("bounties WHERE key = 'loyalty_1y'")) { writes.push({ sql, params }); return ok([], 1); }
+      // Lesepfad von handleReplacements: aktive Bounties des Nutzers
+      if (sql.includes("FROM user_bounties ub") && sql.includes("is_active = TRUE")) {
+        return ok([{ key: "loyalty_1y" }, { key: "loyalty_2y" }]);
+      }
+      if (sql.includes("UPDATE user_bounties SET is_active = FALSE") && sql.includes("key = ANY")) {
+        writes.push({ sql, params });
+        return ok([], 1);
+      }
       return ok([{}]);
     });
     await svc.evaluateBounties(pool, "u1");
     assert.strictEqual(writes.length, 1);
-    assert.match(writes[0].sql, /UPDATE user_bounties SET is_active = FALSE/);
+    assert.deepStrictEqual(writes[0].params[1], ["loyalty_1y"],
+      "genau das abgeloeste Bounty wird deaktiviert, nicht der Sieger");
+  });
+
+  it("handleReplacements ruehrt nichts an, wenn nur eine Stufe aktiv ist", async () => {
+    const writes = [];
+    const katalog = [
+      { id: "b2", key: "loyalty_2y", is_recurring: false, threshold_type: "subscription_age", threshold_value: { months: 24, replaces: "loyalty_1y" } }
+    ];
+    const pool = patternPool((sql, params) => {
+      if (sql.includes("FROM bounties ORDER BY sort_order")) return ok(katalog);
+      if (sql.includes("MIN(created_at) AS first_sub")) return ok([{ first_sub: null }]);
+      if (sql.includes("INSERT INTO user_bounties")) return ok([], 1);
+      if (sql.includes("FROM user_bounties ub") && sql.includes("is_active = TRUE")) return ok([{ key: "loyalty_1y" }]);
+      if (sql.includes("UPDATE user_bounties SET is_active = FALSE") && sql.includes("key = ANY")) {
+        writes.push({ sql, params });
+        return ok([], 1);
+      }
+      return ok([{}]);
+    });
+    await svc.evaluateBounties(pool, "u1");
+    assert.strictEqual(writes.length, 0);
   });
 });
 
@@ -505,6 +624,44 @@ describe("bountyService — getBountyStatus", () => {
     assert.ok(res.tier);
     assert.strictEqual(res.tier.key, "gold");
     assert.strictEqual(res.tier.max_discount_pct, 15);
+  });
+
+  // P8 Welle C: die untere Stufe einer Leiter erschien vorher als
+  // "In Arbeit / 100 %" MIT Erfolgstext, gab aber 0 % Rabatt — das liest sich
+  // wie einbehaltenes Geld. Sie wird jetzt ausdruecklich als abgeloest markiert.
+  it("markiert die abgeloeste Stufe einer Leiter statt sie als 'In Arbeit' zu zeigen", async () => {
+    const catalog = [
+      { key: "zuverlaessiger_partner", name_de: "Zuverlaessiger Partner", description_de: "d", category: "performance", icon: "Z", discount_pct: 3, is_recurring: true, threshold_value: { days: 90 } },
+      { key: "zero_complaint", name_de: "Null-Beschwerde-Streak", description_de: "d", category: "performance", icon: "S", discount_pct: 3, is_recurring: true, threshold_value: { days: 365, replaces: "zuverlaessiger_partner" } }
+    ];
+    const userBounties = [
+      { key: "zuverlaessiger_partner", is_active: false, progress: 100, earned_at: "2026-05-01" },
+      { key: "zero_complaint", is_active: true, progress: 100, earned_at: "2026-08-01" }
+    ];
+    const notes = new Map([["zuverlaessiger_partner", "90 Tage ohne gewichteten Storno."]]);
+    const res = await svc.getBountyStatus(
+      statusPool({ catalog, userBounties, discountSum: 3, tierRow: null }), "u1", { notes });
+
+    const byKey = Object.fromEntries(res.items.map((i) => [i.key, i]));
+    assert.strictEqual(byKey.zero_complaint.status, "earned");
+    assert.strictEqual(byKey.zuverlaessiger_partner.status, "superseded");
+    assert.strictEqual(byKey.zuverlaessiger_partner.superseded_by, "zero_complaint");
+    assert.match(byKey.zuverlaessiger_partner.note, /Abgeloest durch "Null-Beschwerde-Streak"/,
+      "die Abloesungs-Erklaerung schlaegt den Erfolgstext — sonst wirkt der Rabatt einbehalten");
+    assert.strictEqual(res.total_discount_pct, 3, "kein doppelter Rabatt fuer dieselbe Tugend");
+  });
+
+  it("markiert NICHT als abgeloest, solange die obere Stufe nicht aktiv ist", async () => {
+    const catalog = [
+      { key: "zuverlaessiger_partner", name_de: "Z", description_de: "d", category: "performance", icon: "Z", discount_pct: 3, is_recurring: true, threshold_value: {} },
+      { key: "zero_complaint", name_de: "S", description_de: "d", category: "performance", icon: "S", discount_pct: 3, is_recurring: true, threshold_value: { replaces: "zuverlaessiger_partner" } }
+    ];
+    const userBounties = [{ key: "zuverlaessiger_partner", is_active: true, progress: 100, earned_at: "2026-05-01" }];
+    const res = await svc.getBountyStatus(
+      statusPool({ catalog, userBounties, discountSum: 3, tierRow: null }), "u1");
+    const byKey = Object.fromEntries(res.items.map((i) => [i.key, i]));
+    assert.strictEqual(byKey.zuverlaessiger_partner.status, "earned");
+    assert.strictEqual(byKey.zuverlaessiger_partner.superseded_by, null);
   });
 
   it("falls back to FALLBACK_MAX_DISCOUNT_PCT and null tier when no tier exists", async () => {

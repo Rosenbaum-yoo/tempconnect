@@ -72,6 +72,15 @@
     .bounty-card.locked .bounty-status { color: var(--ds-text-tertiary); }
     .bounty-pct { color: var(--ds-text-tertiary); }
     .bounty-recurring { font-size: 10px; color: var(--ds-text-tertiary); margin-top: 4px; }
+    /* P8 Welle C: Begruendung, warum ein Bounty gerade nicht gilt. Bewusst
+       ruhig statt alarmierend — es ist eine Erklaerung, kein Fehler. */
+    .bounty-note {
+      font-size: 11px; line-height: 1.45; margin-top: 8px;
+      padding: 6px 8px; border-radius: 6px;
+      border-left: 2px solid var(--ds-warning);
+      background: var(--ds-surface-2, rgba(127,127,127,.06));
+      color: var(--ds-text-secondary);
+    }
 
     /* Milestones */
     .milestone-row { display: flex; flex-wrap: wrap; gap: var(--ds-space-2); margin: var(--ds-space-3) 0; }

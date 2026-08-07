@@ -14,10 +14,15 @@ export function createBountyRouter(deps) {
   router.get("/bounties/me", requireAuth, async (req, res) => {
     try {
       // Re-evaluate bounties on each view (lightweight enough)
-      await bountyService.evaluateBounties(pool, req.session.userId);
+      const ergebnisse = await bountyService.evaluateBounties(pool, req.session.userId);
       await bountyService.checkAndAwardMilestones(pool, req.session.userId);
 
-      const status = await bountyService.getBountyStatus(pool, req.session.userId);
+      // Die Begruendungen entstehen bei der Auswertung; sie hier
+      // durchzureichen spart eine zweite Runde derselben Abfragen.
+      const notes = new Map(
+        (ergebnisse || []).filter((r) => r.note).map((r) => [r.key, r.note])
+      );
+      const status = await bountyService.getBountyStatus(pool, req.session.userId, { notes });
       res.json(status);
     } catch (e) {
       logger.error({ err: e.message }, "GET /bounties/me");

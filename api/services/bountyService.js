@@ -7,6 +7,8 @@
 
 import { getActiveReferralCount } from "./referralProgramService.js";
 import { getUserMaxDiscount, evaluateAndPromoteTier, getUserTier } from "./bountyTierService.js";
+import { ladeZuverlaessigkeitsStreak } from "./dealReliabilityService.js";
+import { dateOnlyDE } from "../utils/dateDE.js";
 
 const FALLBACK_MAX_DISCOUNT_PCT = 25;
 
@@ -55,11 +57,18 @@ export async function getUserDiscount(pool, userId) {
 
 export async function evaluateBounties(pool, userId) {
   const catalog = await getBountyCatalog(pool);
-  const data = await gatherUserData(pool, userId);
+  // Nur die Fenster laden, die der Katalog wirklich braucht — sonst rechnet
+  // jeder Aufruf Zeitraeume, die kein Bounty abfragt.
+  const streakWindows = [...new Set(
+    catalog
+      .filter((b) => b.threshold_type === "reliability_streak")
+      .map((b) => Number(b.threshold_value?.days) || 90)
+  )];
+  const data = await gatherUserData(pool, userId, { streakWindows });
   const results = [];
 
   for (const bounty of catalog) {
-    const { earned, progress } = checkBountyCondition(bounty, data);
+    const { earned, progress, note } = checkBountyCondition(bounty, data);
 
     // Upsert user_bounties
     if (earned) {
@@ -92,18 +101,18 @@ export async function evaluateBounties(pool, userId) {
       );
     }
 
-    results.push({ key: bounty.key, earned, progress });
+    results.push({ key: bounty.key, earned, progress, note: note || null });
   }
 
-  // Handle loyalty_2y replacing loyalty_1y
-  await handleReplacements(pool, userId);
+  // Abloesungen (z. B. loyalty_2y schlaegt loyalty_1y, 365-Tage-Streak schlaegt 90-Tage)
+  await handleReplacements(pool, userId, catalog);
 
   return results;
 }
 
 /* ── Gather all user data needed for evaluation ────────────── */
 
-async function gatherUserData(pool, userId) {
+async function gatherUserData(pool, userId, opts = {}) {
   const data = {};
 
   // Basic user info
@@ -207,6 +216,24 @@ async function gatherUserData(pool, userId) {
     data.referralCount = await getActiveReferralCount(pool, userId);
   } catch { data.referralCount = 0; }
 
+  // Zuverlaessigkeits-Streak je Fenster (P8 Welle C).
+  //
+  // Die Quelle ist `dealReliabilityService` — dieselbe, aus der die
+  // Zuverlaessigkeitsquote entsteht. Ein Bounty, das "ohne Storno" selbst
+  // definiert, driftet beim ersten Regelwechsel von der angezeigten Quote weg;
+  // dann behauptet dieselbe Oberflaeche zwei Wahrheiten ueber denselben Vorgang.
+  data.reliabilityStreaks = new Map();
+  for (const days of opts.streakWindows || []) {
+    try {
+      // Der Nachweis "es gab ueberhaupt Geschaeft" laeuft bewusst ueber ein
+      // festes Jahr, nicht ueber die Streak-Laenge — sonst waere die kurze
+      // Stufe fuer ruhige Partner unerreichbar, waehrend sie die lange halten.
+      data.reliabilityStreaks.set(days, await ladeZuverlaessigkeitsStreak(
+        pool, [userId], { windowDays: days, dealWindowDays: 365 }
+      ));
+    } catch { data.reliabilityStreaks.set(days, new Map()); }
+  }
+
   // Mentoring sessions completed (as mentor)
   try {
     const { rows } = await pool.query(
@@ -220,6 +247,12 @@ async function gatherUserData(pool, userId) {
 }
 
 /* ── Check individual bounty condition ─────────────────────── */
+
+/** Tagesdatum in deutscher Schreibweise, Zeitzone Europe/Berlin. */
+function tagDE(wert) {
+  const iso = dateOnlyDE(wert);
+  return iso ? iso.split("-").reverse().join(".") : "unbekannt";
+}
 
 function checkBountyCondition(bounty, data) {
   const tv = bounty.threshold_value || {};
@@ -236,9 +269,63 @@ function checkBountyCondition(bounty, data) {
       const needed = tv.percentile || 10;
       return { earned: pct <= needed, progress: Math.min(100, ((100 - pct) / (100 - needed)) * 100) };
     }
-    case 'zero_complaints_12m': {
-      const canceled = Number(data.deals?.canceled || 0);
-      return { earned: canceled === 0 && (data.deals?.completed || 0) >= 3, progress: canceled === 0 ? 100 : 0 };
+    // P8 Welle C. Loest `zero_complaints_12m` ab, das `requests.status='CANCELED'`
+    // zaehlte — den FALSCHEN Storno-Kanal. `requests` ist der Alt-Pfad; dort
+    // wird 'CANCELED' zwar geschrieben (PATCH /api/requests/:id ->
+    // releaseReservationAndSetStatus), aber der Agreement-Storno
+    // (dealAgreementService.cancelAgreement) fasst die Tabelle nie an. Wer eine
+    // Einsatzvereinbarung kurz vor Beginn platzen liess, behielt deshalb 3 %
+    // Rabatt fuer "null Stornos". Der alte Fall ist bewusst ERSATZLOS entfernt:
+    // laeuft eine Datenbank ohne Migration 165, faellt das Bounty weg statt
+    // weiter am falschen Kanal gemessen zu werden.
+    case 'reliability_streak': {
+      const days = Number(tv.days) || 90;
+      const minDeals = Number(tv.min_binding_deals) || 3;
+      const proFenster = data.reliabilityStreaks?.get(days);
+      if (!proFenster) return { earned: false, progress: 0 };
+
+      // Nur Marktseiten, auf denen die Partei ueberhaupt Geschaeft gemacht hat.
+      const relevant = [...proFenster.values()].filter((e) => e.binding_deals > 0);
+      if (!relevant.length) {
+        return {
+          earned: false, progress: 0,
+          note: `Noch keine verbindlichen Abschluesse in den letzten ${days} Tagen.`
+        };
+      }
+
+      const maxDeals = Math.max(...relevant.map((e) => e.binding_deals));
+      const minSauber = Math.min(...relevant.map((e) => e.days_clean));
+      const dealAnteil = Math.min(50, (maxDeals / minDeals) * 50);
+      const sauberAnteil = Math.min(50, (minSauber / days) * 50);
+      const progress = Math.round(dealAnteil + sauberAnteil);
+
+      if (maxDeals < minDeals) {
+        return {
+          earned: false, progress,
+          note: `Noch ${minDeals - maxDeals} verbindliche Abschluesse bis zur Freischaltung.`
+        };
+      }
+
+      // Wer auf EINER Seite unzuverlaessig ist, ist kein zuverlaessiger Partner —
+      // auch wenn die andere Seite sauber ist.
+      const mitStorno = relevant
+        .filter((e) => e.days_clean < days && e.last_counted_cancellation)
+        .sort((a, b) => new Date(b.last_counted_cancellation) - new Date(a.last_counted_cancellation));
+
+      if (mitStorno.length) {
+        const juengster = mitStorno[0];
+        const wiederAb = new Date(new Date(juengster.last_counted_cancellation).getTime() + days * 86400000);
+        return {
+          earned: false, progress,
+          note: `Entfallen durch Storno am ${tagDE(juengster.last_counted_cancellation)}. `
+              + `Baut sich neu auf und ist ab ${tagDE(wiederAb)} wieder verfuegbar.`
+        };
+      }
+
+      return {
+        earned: true, progress: 100,
+        note: `${days} Tage ohne gewichteten Storno bei ${maxDeals} verbindlichen Abschluessen.`
+      };
     }
     case 'avg_communication': {
       const avg = Number(data.ratingStats?.avg_communication || 0);
@@ -307,23 +394,37 @@ function checkBountyCondition(bounty, data) {
 
 /* ── Handle bounty replacements (e.g. 2y replaces 1y) ──────── */
 
-async function handleReplacements(pool, userId) {
-  // If loyalty_2y is active, deactivate loyalty_1y
+async function handleReplacements(pool, userId, catalog) {
+  // Die Abloesung steht als `replaces` im Katalog (Migration 053 fuer
+  // loyalty_2y -> loyalty_1y, Migration 165 fuer zero_complaint ->
+  // zuverlaessiger_partner). Frueher stand das Paar hier fest verdrahtet —
+  // ein zweites Paar haette den Rabatt still verdoppelt, weil niemand die
+  // Funktion angefasst haette.
   try {
+    const eintraege = catalog?.length ? catalog : await getBountyCatalog(pool);
+    const paare = eintraege
+      .map((b) => ({ sieger: b.key, verlierer: b.threshold_value?.replaces }))
+      .filter((p) => p.verlierer);
+    if (!paare.length) return;
+
     const { rows } = await pool.query(
-      `SELECT ub.is_active, b.key FROM user_bounties ub
+      `SELECT b.key FROM user_bounties ub
        JOIN bounties b ON b.id = ub.bounty_id
-       WHERE ub.user_id = $1 AND b.key IN ('loyalty_1y', 'loyalty_2y') AND ub.is_active = TRUE`,
+       WHERE ub.user_id = $1 AND ub.is_active = TRUE`,
       [userId]
     );
-    const keys = rows.map(r => r.key);
-    if (keys.includes('loyalty_2y') && keys.includes('loyalty_1y')) {
-      await pool.query(
-        `UPDATE user_bounties SET is_active = FALSE, updated_at = NOW()
-         WHERE user_id = $1 AND bounty_id = (SELECT id FROM bounties WHERE key = 'loyalty_1y')`,
-        [userId]
-      );
-    }
+    const aktiv = new Set(rows.map((r) => r.key));
+    const abzuloesen = [...new Set(
+      paare.filter((p) => aktiv.has(p.sieger) && aktiv.has(p.verlierer)).map((p) => p.verlierer)
+    )];
+    if (!abzuloesen.length) return;
+
+    await pool.query(
+      `UPDATE user_bounties SET is_active = FALSE, updated_at = NOW()
+       WHERE user_id = $1
+         AND bounty_id IN (SELECT id FROM bounties WHERE key = ANY($2::text[]))`,
+      [userId, abzuloesen]
+    );
   } catch { /* non-critical */ }
 }
 
@@ -439,7 +540,15 @@ export async function getValueReport(pool, userId) {
 
 /* ── Full Bounty Status (catalog + user progress) ──────────── */
 
-export async function getBountyStatus(pool, userId) {
+export async function getBountyStatus(pool, userId, opts = {}) {
+  // `notes` kommt aus `evaluateBounties` und traegt den Klartext, WARUM ein
+  // Bounty gerade nicht gilt ("Entfallen durch Storno am 12.08., wieder ab
+  // 10.11."). Ohne diesen Satz sieht der Nutzer nur eine graue Kachel und
+  // lernt nichts — dann wirkt der Anreiz nicht, weil die Folge unsichtbar ist
+  // (P8 Leitentscheidung 3.4).
+  const notes = opts.notes instanceof Map
+    ? opts.notes
+    : new Map(Object.entries(opts.notes || {}));
   const catalog = await getBountyCatalog(pool);
   const userBounties = await getUserBounties(pool, userId);
   const discount = await getUserDiscount(pool, userId);
@@ -458,10 +567,23 @@ export async function getBountyStatus(pool, userId) {
     userMap.set(ub.key, ub);
   }
 
+  // Abgeloeste Stufen kenntlich machen. Ohne das erscheint die untere Stufe
+  // einer Leiter als "In Arbeit, 100 %" MIT Erfolgstext, gibt aber 0 % Rabatt —
+  // das liest sich wie einbehaltenes Geld. Vorher betraf das nur die seltene
+  // loyalty-Leiter; mit der Zuverlaessigkeits-Leiter sieht es kuenftig jeder
+  // saubere Partner.
+  const abgeloestDurch = new Map();
+  for (const b of catalog) {
+    const verlierer = b.threshold_value?.replaces;
+    if (verlierer && userMap.get(b.key)?.is_active) abgeloestDurch.set(verlierer, b);
+  }
+
   const items = catalog.map(b => {
     const ub = userMap.get(b.key);
+    const sieger = abgeloestDurch.get(b.key);
     let status = 'locked';
     if (ub?.is_active) status = 'earned';
+    else if (sieger) status = 'superseded';
     else if (ub && Number(ub.progress) > 0) status = 'in_progress';
 
     return {
@@ -474,7 +596,11 @@ export async function getBountyStatus(pool, userId) {
       is_recurring: b.is_recurring,
       status,
       progress: ub ? Number(ub.progress) : 0,
-      earned_at: ub?.earned_at || null
+      earned_at: ub?.earned_at || null,
+      superseded_by: sieger ? sieger.key : null,
+      note: sieger
+        ? `Abgeloest durch "${sieger.name_de}" — der Rabatt steckt dort.`
+        : (notes.get(b.key) || null)
     };
   });
 

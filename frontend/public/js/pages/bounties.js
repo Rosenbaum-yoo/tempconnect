@@ -96,6 +96,7 @@ TCi18n.register('de', {
   'rst.a.status.earned': 'Verdient',
   'rst.a.status.in_progress': 'In Arbeit',
   'rst.a.status.locked': 'Gesperrt',
+  'rst.a.status.superseded': 'Abgeloest',
   'rst.a.status.earnedAt': '{label} am {date}',
   'rst.a.recurring': 'Wiederkehrend — verfaellt bei Nicht-Erfuellung',
 
@@ -269,6 +270,7 @@ TCi18n.register('en', {
   'rst.a.status.earned': 'Earned',
   'rst.a.status.in_progress': 'In progress',
   'rst.a.status.locked': 'Locked',
+  'rst.a.status.superseded': 'Superseded',
   'rst.a.status.earnedAt': '{label} on {date}',
   'rst.a.recurring': 'Recurring — expires if the condition is no longer met',
 
@@ -370,7 +372,8 @@ TCi18n.register('en', {
 
   (function() {
     var PRICES = { DEMO: 0, BASIS: 150, PLUS: 499, PRO: 799, ENTERPRISE: 2499 };
-    var STATUS_KEYS = ['earned', 'in_progress', 'locked'];
+    // 'superseded' = untere Stufe einer Leiter, deren Rabatt in der oberen steckt.
+    var STATUS_KEYS = ['earned', 'in_progress', 'locked', 'superseded'];
     var activeCategory = 'all';
     var bountyData = null;
     var userPlan = 'DEMO';
@@ -443,6 +446,12 @@ TCi18n.register('en', {
               '<span class="bounty-pct">' + pct + '%</span>' +
             '</div>' +
             (b.is_recurring ? '<div class="bounty-recurring">&#128260; ' + esc(t('rst.a.recurring')) + '</div>' : '') +
+            // P8 Welle C: Klartext, WARUM das Bounty gerade nicht gilt bzw. was
+            // noch fehlt. Eine graue Kachel ohne Begruendung erzieht niemanden —
+            // der Anreiz wirkt nur, wenn die Folge benannt ist.
+            // Der Text kommt fertig formuliert vom Server (`note`), damit
+            // Bounty-Regel und Erklaerung nicht auseinanderlaufen koennen.
+            (b.note ? '<div class="bounty-note">' + esc(b.note) + '</div>' : '') +
           '</div>';
 
         grid.appendChild(card);
