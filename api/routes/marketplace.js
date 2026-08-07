@@ -23,6 +23,7 @@ import { renderConditionsSheet, renderAgreementDocument } from "../services/agre
 import * as dealDossierService from "../services/dealDossierService.js";
 import * as dealStaffingFastTrackService from "../services/dealStaffingFastTrackService.js";
 import * as assignmentStaffingService from "../services/assignmentStaffingService.js";
+import * as dealCommitmentService from "../services/dealCommitmentService.js";
 import * as workerNotifications from "../services/workerNotificationService.js";
 import { swallow } from "../utils/logger.js";
 import {
@@ -1557,6 +1558,34 @@ export function createMarketplaceRouter(deps) {
       res.json(result);
     } catch (e) {
       logger.error({ err: e }, "POST /marketplace/offers/:id/activate");
+      res.status(500).json({ error: "SERVER_ERROR" });
+    }
+  });
+
+  // P8 Welle D — Vorschauen fuer die mehrstufige Bestaetigung.
+  //
+  // Beide sind LESEND: keine Mutation, kein Audit. Eine Vorschau ist keine
+  // Handlung (gleiches Muster wie /capacity-exchange/offer-coverage). Die
+  // Beteiligtenpruefung steckt im Service, damit Route und Storno-Pfad
+  // dieselbe Regel benutzen und nicht auseinanderlaufen.
+  router.get("/marketplace/offers/:id/commitment-preview", requireAuth, slaAccess, async (req, res) => {
+    try {
+      const out = await dealCommitmentService.buildCommitmentPreview(pool, req.params.id, req.session.userId);
+      if (out.error) return res.status(out.error === "NOT_FOUND" ? 404 : 403).json(out);
+      res.json(out);
+    } catch (e) {
+      logger.error({ err: e }, "GET /marketplace/offers/:id/commitment-preview");
+      res.status(500).json({ error: "SERVER_ERROR" });
+    }
+  });
+
+  router.get("/marketplace/offers/:id/cancellation-impact", requireAuth, slaAccess, async (req, res) => {
+    try {
+      const out = await dealCommitmentService.buildCancellationImpact(pool, req.params.id, req.session.userId);
+      if (out.error) return res.status(out.error === "NOT_FOUND" ? 404 : 403).json(out);
+      res.json(out);
+    } catch (e) {
+      logger.error({ err: e }, "GET /marketplace/offers/:id/cancellation-impact");
       res.status(500).json({ error: "SERVER_ERROR" });
     }
   });
