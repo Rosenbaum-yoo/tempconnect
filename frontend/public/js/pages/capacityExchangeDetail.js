@@ -314,8 +314,8 @@ TCi18n.register('de', {
   'capm.fresh.stale': 'Veraltet',
 
   'capm.trust.none': 'Keine Signale',
-  'capm.trust.successRate': '{pct}% Erfolgsrate',
-  'capm.trust.successRateTitle': 'Anteil erfolgreich abgeschlossener Deals',
+  'capm.trust.successRate': '{pct}% Zuverlässigkeit',
+  'capm.trust.successRateTitle': 'Anteil eingehaltener verbindlicher Zusagen der letzten 12 Monate. Stornos weniger als 48 Stunden vor Beginn zählen doppelt, ab 14 Tagen Vorlauf gar nicht. Kundenabsagen und Krankmeldungen zählen nicht gegen die Zeitarbeitsfirma. Sichtbar ab 5 Abschlüssen.',
   'capm.trust.responseTime': '{label} Antwortzeit',
   'capm.trust.verified': 'Verifiziert',
   'capm.trust.verifiedTitle': 'Mindestens ein Nachweis wurde verifiziert',
@@ -701,8 +701,8 @@ TCi18n.register('en', {
   'capm.fresh.stale': 'Outdated',
 
   'capm.trust.none': 'No signals',
-  'capm.trust.successRate': '{pct}% success rate',
-  'capm.trust.successRateTitle': 'Share of successfully closed deals',
+  'capm.trust.successRate': '{pct}% reliability',
+  'capm.trust.successRateTitle': 'Share of binding commitments honoured over the last 12 months. Cancellations less than 48 hours before the start count double, those with 14 days notice or more do not count at all. Client cancellations and sick leave are not held against the staffing agency. Shown from 5 closed deals onwards.',
   'capm.trust.responseTime': '{label} response time',
   'capm.trust.verified': 'Verified',
   'capm.trust.verifiedTitle': 'At least one proof has been verified',
@@ -1620,7 +1620,7 @@ function capmSetPlain(el, text) {
         html += '</span>';
       }
 
-      // Deal success rate
+      // Zuverlaessigkeitsquote (P8 Welle B) — Feldname bleibt deal_success_rate
       if (ts.deal_success_rate != null) {
         var dsColor = ts.deal_success_rate >= 80 ? 'var(--ds-success)' : ts.deal_success_rate >= 60 ? 'var(--ds-warning)' : 'var(--ds-danger)';
         html += '<span class="ds-trust-badge" style="color:' + dsColor + ';font-weight:600" title="' + esc(t("capm.trust.successRateTitle")) + '">&#10003; ' + esc(t("capm.trust.successRate", { pct: Math.round(ts.deal_success_rate) })) + '</span>';

@@ -94,7 +94,8 @@ describe("Welle 7 – Phase 9: cancelAgreement Staffing-Reaktivierung", () => {
             if (sql === "BEGIN" || sql === "COMMIT" || sql === "ROLLBACK") {
               return { rows: [], rowCount: 0 };
             }
-            if (sql === "SELECT * FROM offers WHERE id = $1 FOR UPDATE") {
+            if (sql === "SELECT * FROM offers WHERE id = $1 FOR UPDATE"
+                || sql.includes("FROM offers o")) {
               return { rows: [offer], rowCount: 1 };
             }
             if (sql.includes("UPDATE offers SET") && sql.includes("agreement_status = 'cancelled'")) {
@@ -163,7 +164,8 @@ describe("Welle 7 – Phase 9: cancelAgreement Staffing-Reaktivierung", () => {
             if (sql === "BEGIN" || sql === "COMMIT" || sql === "ROLLBACK") {
               return { rows: [], rowCount: 0 };
             }
-            if (sql === "SELECT * FROM offers WHERE id = $1 FOR UPDATE") {
+            if (sql === "SELECT * FROM offers WHERE id = $1 FOR UPDATE"
+                || sql.includes("FROM offers o")) {
               return { rows: [offer], rowCount: 1 };
             }
             if (sql.includes("UPDATE offers SET") && sql.includes("agreement_status = 'cancelled'")) {

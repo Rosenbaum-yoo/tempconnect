@@ -416,13 +416,13 @@ describe("createEmergencyAgreement", () => {
 // ═══════════════════════════════════════════════════════════════
 describe("cancelAgreement", () => {
   it("NOT_FOUND when offer missing", async () => {
-    const pool = matchPool([["FROM offers WHERE id", { rows: [] }]]);
+    const pool = matchPool([["FROM offers o", { rows: [] }]]);
     const r = await svc.cancelAgreement(pool, "off-1", "actor", { reason_code: "other", note: "reason", side: "company" });
     assert.deepEqual(r, { error: "NOT_FOUND" });
   });
 
   it("INVALID_AGREEMENT_STATUS for terminal status (none cannot cancel)", async () => {
-    const pool = matchPool([["FROM offers WHERE id", { rows: [{ id: "off-1", agreement_status: "none" }] }]]);
+    const pool = matchPool([["FROM offers o", { rows: [{ id: "off-1", agreement_status: "none" }] }]]);
     const r = await svc.cancelAgreement(pool, "off-1", "actor", { reason_code: "other", side: "company" });
     assert.strictEqual(r.error, "INVALID_AGREEMENT_STATUS");
     assert.strictEqual(r.current, "none");
@@ -431,7 +431,7 @@ describe("cancelAgreement", () => {
   it("cancels pending_confirmation (no assignment → no staffing reset)", async () => {
     const offerRow = { id: "off-1", agreement_status: "pending_confirmation", demand_request_id: null, capacity_post_id: null, assignment_id: null };
     const pool = matchPool([
-      ["FROM offers WHERE id", { rows: [offerRow] }],
+      ["FROM offers o", { rows: [offerRow] }],
       ["agreement_status = 'cancelled'", { rows: [{ ...offerRow, agreement_status: "cancelled" }] }]
     ]);
     const r = await svc.cancelAgreement(pool, "off-1", "actor", { reason_code: "other", note: "no longer needed", side: "company" });
@@ -442,7 +442,7 @@ describe("cancelAgreement", () => {
   it("cancels activated deal and resets staffing side-effects", async () => {
     const offerRow = { id: "off-1", agreement_status: "activated", assignment_id: "asg-1", demand_request_id: "dem-1", capacity_post_id: "cap-1" };
     const pool = matchPool([
-      ["FROM offers WHERE id", { rows: [offerRow] }],
+      ["FROM offers o", { rows: [offerRow] }],
       ["agreement_status = 'cancelled'", { rows: [{ ...offerRow, agreement_status: "cancelled" }] }],
       ["UPDATE assignments SET status = 'cancelled'", { rowCount: 1 }],
       ["assignment_staffing_reservations", { rowCount: 2 }],
@@ -458,7 +458,7 @@ describe("cancelAgreement", () => {
   it("staffing reset errors are captured, cancel still succeeds", async () => {
     const offerRow = { id: "off-1", agreement_status: "activated", assignment_id: "asg-1", demand_request_id: null, capacity_post_id: null };
     const pool = matchPool([
-      ["FROM offers WHERE id", { rows: [offerRow] }],
+      ["FROM offers o", { rows: [offerRow] }],
       ["agreement_status = 'cancelled'", { rows: [{ ...offerRow, agreement_status: "cancelled" }] }],
       ["UPDATE assignments SET status = 'cancelled'", new Error("schema drift")]
     ]);

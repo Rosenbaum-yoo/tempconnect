@@ -41,6 +41,7 @@ freigegeben**, und der DSGVO-Aufbewahrungs-Sweep lief nicht.
 | `POST /api/internal/usage-limit-scan` | stündlich | Planlimits greifen verzögert oder gar nicht |
 | `POST /api/internal/recompute-supplier-metrics` | täglich | Lieferanten-Scorecards veralten still |
 | `POST /api/internal/recompute-compliance` | täglich | Compliance-Ampeln veralten still |
+| `POST /api/internal/recompute-deal-reliability` | täglich | Zuverlässigkeitsquote friert nach dem letzten Storno ein — niemand kann sich freiarbeiten, und das rollierende 365-Tage-Fenster schiebt sich nie weiter (P8 Welle B) |
 | `POST /api/internal/reveal-due-feedback` | täglich | beidseitig verdecktes Deal-Feedback wird nie enthüllt |
 | `POST /api/internal/document-center-retention-sweep` | täglich | **Aufbewahrungsfristen laufen ab, ohne dass gelöscht wird** (DSGVO) |
 | `POST /api/internal/product-analytics-rollup` | täglich | Analytics-Rohdaten werden nie verdichtet |
@@ -62,6 +63,7 @@ freigegeben**, und der DSGVO-Aufbewahrungs-Sweep lief nicht.
 0  4 * * *   curl -sf -X POST "$LB_URL/api/internal/recompute-supplier-metrics"      -H "X-Internal-Secret: $CRON_SECRET" > /dev/null
 15 4 * * *   curl -sf -X POST "$LB_URL/api/internal/recompute-compliance"            -H "X-Internal-Secret: $CRON_SECRET" > /dev/null
 30 4 * * *   curl -sf -X POST "$LB_URL/api/internal/reveal-due-feedback"             -H "X-Internal-Secret: $CRON_SECRET" > /dev/null
+45 4 * * *   curl -sf -X POST "$LB_URL/api/internal/recompute-deal-reliability"      -H "X-Internal-Secret: $CRON_SECRET" > /dev/null
 ```
 
 ### Bewusst NICHT geplant

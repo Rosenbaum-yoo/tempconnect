@@ -18,6 +18,7 @@ import * as assignmentService from "./assignmentService.js";
 import * as rbacService from "./rbacService.js";
 import * as auditLog from "./auditLog.js";
 import * as capacityExchangeService from "./capacityExchangeService.js";
+import * as dealReliabilityService from "./dealReliabilityService.js";
 import * as marketplaceService from "./marketplaceService.js";
 import { createDocumentRecord, computeContentHash } from "./dealDossierService.js";
 import { renderConditionsSheet, renderAgreementDocument } from "./agreementDocumentService.js";
@@ -540,7 +541,18 @@ export const CANCELLATION_REASONS = Object.freeze([
  */
 export function berechneVorlaufStunden(startDate, jetzt = new Date()) {
   if (!startDate) return null;
-  const tag = String(startDate).slice(0, 10);
+  // Ein Date-Objekt ist ein gueltiger Einsatzbeginn und darf nicht als
+  // "unbekannt" durchfallen. `db/pool.js` laedt zwar `typeParsers.js`, sodass
+  // DATE-Spalten ueber den App-Pool als Zeichenkette ankommen — aber jeder
+  // eigene Pool (Worker, Wartungsskript) bekommt Date-Objekte, und
+  // `String(date)` ergibt "Sat Jun 11 2026 …". Der Regex unten wuerde das
+  // verwerfen und stillschweigend Gewicht 1 statt 2 liefern: E1 waere aus,
+  // ohne dass irgendetwas rot wird. Genau dieselbe Falle wie der tote
+  // Spalten-Fallback, nur eine Ebene tiefer.
+  const roh = startDate instanceof Date
+    ? (Number.isNaN(startDate.getTime()) ? "" : startDate.toISOString())
+    : String(startDate);
+  const tag = roh.slice(0, 10);
   if (!/^\d{4}-\d{2}-\d{2}$/.test(tag)) return null;
   const mitternachtUtc = Date.parse(`${tag}T00:00:00Z`);
   if (Number.isNaN(mitternachtUtc)) return null;
@@ -592,9 +604,23 @@ export async function cancelAgreement(pool, offerId, actorId, angaben = {}) {
     return { error: "REASON_REQUIRED", allowed: CANCELLATION_REASONS };
   }
   const reason = angaben?.note || null;
-  return await withTransaction(pool, async (client) => {
+  const ergebnis = await withTransaction(pool, async (client) => {
+    // Der Join auf die Nachfrage ist NICHT Deko: `offers.start_confirmed` ist
+    // optional (Mig 016, kein NOT NULL; das Angebotsformular hat kein
+    // `required`), und ohne zweiten Weg zum Einsatzbeginn bliebe der Vorlauf
+    // bei jedem Angebot ohne bestaetigtes Startdatum NULL — die 48-Stunden-
+    // Regel (E1) wuerde dort nie zuenden, ein Storno drei Stunden vor Beginn
+    // zaehlte einfach statt doppelt. Im Entwicklungsbestand betraf das 8 von
+    // 15 bestaetigten Angeboten.
+    // `demand_requests.start_date` ist NOT NULL und ueber
+    // `offers.demand_request_id` (ebenfalls NOT NULL) immer erreichbar.
+    // Dieselbe Aufloesung wie in `activateAgreement` — sonst gingen Storno und
+    // Aktivierung von verschiedenen Startdaten aus.
     const { rows } = await client.query(
-      "SELECT * FROM offers WHERE id = $1 FOR UPDATE",
+      `SELECT o.*, d.start_date AS demand_start
+         FROM offers o
+         JOIN demand_requests d ON d.id = o.demand_request_id
+        WHERE o.id = $1 FOR UPDATE OF o`,
       [offerId]
     );
     const offer = rows[0];
@@ -621,15 +647,19 @@ export async function cancelAgreement(pool, offerId, actorId, angaben = {}) {
     // Storno-Erfassung (P8 Welle A, Mig 163): Rohdaten fuer die Zuverlaessigkeits-
     // quote. Bewusst OHNE fertiges Gewicht — die Regeln werden sich einspielen,
     // und gespeicherte Gewichte muessten bei jeder Aenderung nachgezogen werden.
-    const startDatum = offer.start_confirmed || offer.assignment_start_date || null;
+    const startDatum = offer.start_confirmed || offer.demand_start || null;
     const vorlauf = berechneVorlaufStunden(startDatum);
+    // `from_status` (Mig 164): Ein Rueckzug VOR der beidseitigen Bestaetigung
+    // ist legitimes Verhandeln, kein Wortbruch — nur wer aus `confirmed` oder
+    // `activated` storniert, bricht eine Zusage. Ohne diese Spalte stuende der
+    // Vorzustand nur im Audit-Log (JSONB) und waere nicht aggregierbar.
     await client.query(
       `INSERT INTO offer_cancellations
          (offer_id, reason_code, note, cancelled_by_user_id, cancelled_by_side,
-          assignment_start_date, lead_time_hours)
-       VALUES ($1,$2,$3,$4,$5,$6,$7)
+          assignment_start_date, lead_time_hours, from_status)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8)
        ON CONFLICT (offer_id) DO NOTHING`,
-      [offerId, reasonCode, reason, actorId, angaben.side, startDatum, vorlauf]
+      [offerId, reasonCode, reason, actorId, angaben.side, startDatum, vorlauf, from]
     );
 
     await logTransition(client, {
@@ -716,6 +746,17 @@ export async function cancelAgreement(pool, offerId, actorId, angaben = {}) {
 
     return { offer: updated[0], demand: syncedDemand, capacity: syncedCapacity, staffing_reset: staffingReset };
   });
+
+  // P8 Welle B: Die Folge muss sofort spuerbar sein, nicht erst nach dem
+  // naechsten Cron-Lauf — sonst behauptet die Bestaetigung (Welle D) eine
+  // Konsequenz, die der Nutzer beim Nachsehen nicht findet.
+  //
+  // Bewusst AUSSERHALB der Transaktion: die Quote ist eine Ableitung. Sie darf
+  // einen fachlich korrekten Storno niemals zurueckrollen. Der Aufruf wirft nie.
+  if (ergebnis && !ergebnis.error) {
+    await dealReliabilityService.refreshReliabilityForOfferParty(pool, offerId, angaben.side);
+  }
+  return ergebnis;
 }
 
 /* ── Agreement ablaufen lassen (Cron/System) ──────── */

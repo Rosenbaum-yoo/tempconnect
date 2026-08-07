@@ -262,7 +262,8 @@ function makeCapacityReleasePool({ offer, nextAgreementStatus, demand, demandAgg
   const pool = {
     query: async (sql, params) => {
       queries.push({ sql, params });
-      if (sql === "SELECT * FROM offers WHERE id = $1 FOR UPDATE") {
+      if (sql === "SELECT * FROM offers WHERE id = $1 FOR UPDATE"
+          || sql.includes("FROM offers o")) {
         return { rows: [offer], rowCount: 1 };
       }
       if (sql.includes("UPDATE offers SET") && sql.includes(`agreement_status = '${nextAgreementStatus}'`)) {

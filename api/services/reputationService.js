@@ -278,7 +278,7 @@ export async function getPublicReputationCard(pool, supplierId) {
   // Signal 2: Deal-Erfolgsquote
   signals.push({
     key: 'deal_success',
-    label: 'Abschlussquote',
+    label: 'Zuverlässigkeit',
     value: rep.deal_success_rate != null ? Number(rep.deal_success_rate) : null,
     display: rep.deal_success_rate != null ? `${Number(rep.deal_success_rate).toFixed(0)}%` : 'Zu wenig Daten',
     detail: rep.total_deals > 0 ? `${rep.completed_deals}/${rep.total_deals} Deals` : null,
@@ -461,7 +461,25 @@ export async function recomputeReputation(pool, supplierId) {
   } catch { /* timesheets table may not exist in test environments */ }
 
   // ── 5. Compute derived scores ──
-  const dealSuccessRate = computeDealSuccessRate(completedDeals, totalDeals);
+  // P8 Welle B: `deal_reliability` ist die Quelle der Wahrheit fuer
+  // `deal_success_rate`; diese Tabelle spiegelt sie nur (siehe Migration 164).
+  // Der Legacy-Wert unten rechnet aus `requests` — einem Pfad, der neben dem
+  // heutigen Angebots-/Agreement-Flow laeuft. Ohne diesen Vorrang wuerde ein
+  // spaeterer Aufrufer von `recomputeReputation` die frisch gerechnete Quote
+  // still mit einer aelteren Wahrheit ueberschreiben.
+  let dealSuccessRate = computeDealSuccessRate(completedDeals, totalDeals);
+  try {
+    const { rows: relRows } = await pool.query(
+      `SELECT reliability_rate FROM deal_reliability
+        WHERE party_user_id = $1 AND party_side = 'agency'`,
+      [supplierId]
+    );
+    if (relRows.length > 0) {
+      dealSuccessRate = relRows[0].reliability_rate != null
+        ? Number(relRows[0].reliability_rate)
+        : null;
+    }
+  } catch { /* Migration 164 noch nicht eingespielt — Legacy-Wert bleibt */ }
   const activityScore = computeActivityScore(activeListings, responseRate90d);
   const reputationScore = computeReputationScore(avgStars, dealSuccessRate, responseTimeScore);
   const scoreGrade = computeScoreGrade(reputationScore);

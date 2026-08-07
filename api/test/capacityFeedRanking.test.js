@@ -4,7 +4,7 @@ import { browseFeed } from "../services/capacityExchangeService.js";
 import { canInteractWithCapacity, canInteractWithDemand } from "../services/capacityInteractionPolicy.js";
 import { computePremiumBoost } from "../services/reputationService.js";
 
-function buildMockPool({ supplyRows, demandRows, plans = [] }) {
+function buildMockPool({ supplyRows, demandRows, plans = [], reputations = [] }) {
   return {
     query: async (sql) => {
       if (sql.includes("SELECT COUNT(*)::int AS cnt FROM capacity_posts")) {
@@ -45,7 +45,7 @@ function buildMockPool({ supplyRows, demandRows, plans = [] }) {
         return { rows: [] };
       }
       if (sql.includes("FROM supplier_reputation")) {
-        return { rows: [] };
+        return { rows: reputations };
       }
       if (sql.includes("FROM subscriptions")) {
         return { rows: plans };
@@ -314,6 +314,60 @@ describe("placement boost: capped and fair", () => {
 
   it("free plan gets zero boost", () => {
     assert.strictEqual(computePremiumBoost("FREE", 100), 0);
+  });
+});
+
+// ══ P8 Welle B — Gate B: die Quote wirkt nachweisbar im Ranking ══
+//
+// Bis Welle B war `deal_success_rate` immer NULL. Der Ranking-Term dafuer
+// existierte, hat aber nie etwas bewirkt — dieser Test haelt fest, dass der
+// Weg von der Kennzahl zur Sichtbarkeit tatsaechlich geschlossen ist.
+
+describe("P8/B: Zuverlaessigkeitsquote im Feed-Ranking", () => {
+  function zweiAnbieter(reputations) {
+    const now = new Date().toISOString();
+    const basis = {
+      feed_type: "supply", role: "Lagerhelfer", skill_tags: [], location_city: "Berlin",
+      location_lat: null, location_lng: null, radius_km: 25,
+      availability_from: "2026-03-20", availability_to: null,
+      created_at: now, updated_at: now, priority_level: "normal"
+    };
+    return buildMockPool({
+      supplyRows: [
+        { ...basis, id: "s-zuverlaessig", supplier_company_id: "sup-gut" },
+        { ...basis, id: "s-ohne-daten", supplier_company_id: "sup-neu" }
+      ],
+      demandRows: [],
+      reputations
+    });
+  }
+
+  it("hebt den zuverlaessigen Anbieter ueber den ohne Datenlage", async () => {
+    const pool = zweiAnbieter([
+      { supplier_id: "sup-gut", grade: "GOLD", reputation_score: null, deal_success_rate: 100, ranking_score: null },
+      { supplier_id: "sup-neu", grade: "UNRATED", reputation_score: null, deal_success_rate: null, ranking_score: null }
+    ]);
+    const result = await browseFeed(pool, { viewer_role: "company", limit: 25, page: 1 });
+
+    const gut = result.items.find((i) => i.id === "s-zuverlaessig");
+    const neu = result.items.find((i) => i.id === "s-ohne-daten");
+    assert.ok(gut.rank_score > neu.rank_score,
+      "eine Quote, die das Ranking nicht bewegt, ist Deko");
+    assert.strictEqual(gut.deal_success_rate, 100);
+    assert.strictEqual(neu.deal_success_rate, null,
+      "'noch keine Daten' darf nicht als 0 % an die Oberflaeche gehen");
+    assert.strictEqual(result.items[0].id, "s-zuverlaessig");
+  });
+
+  it("straft eine schlechte Quote gegenueber einer guten ab", async () => {
+    const pool = zweiAnbieter([
+      { supplier_id: "sup-gut", grade: "GOLD", reputation_score: null, deal_success_rate: 100, ranking_score: null },
+      { supplier_id: "sup-neu", grade: "BRONZE", reputation_score: null, deal_success_rate: 40, ranking_score: null }
+    ]);
+    const result = await browseFeed(pool, { viewer_role: "company", limit: 25, page: 1 });
+    const gut = result.items.find((i) => i.id === "s-zuverlaessig");
+    const schwach = result.items.find((i) => i.id === "s-ohne-daten");
+    assert.ok(gut.rank_score > schwach.rank_score);
   });
 });
 

@@ -19,6 +19,7 @@ import * as recurringBillingService from "../services/recurringBillingService.js
 import * as infrastructureSnapshotService from "../services/infrastructureSnapshotService.js";
 import * as documentCenterService from "../services/documentCenterService.js";
 import * as dealFeedbackService from "../services/dealFeedbackService.js";
+import * as dealReliabilityService from "../services/dealReliabilityService.js";
 import fs from "node:fs";
 import path from "node:path";
 
@@ -198,6 +199,37 @@ export function createInternalRouter(deps) {
       res.json({ ok: true });
     } catch (e) {
       logger.error({ err: e, path: "recompute-supplier-metrics", clientIp }, "Cron failed");
+      res.status(500).json({ error: "SERVER_ERROR" });
+    }
+  });
+
+  // P8 Welle B: Zuverlaessigkeitsquote je Partei neu rechnen.
+  //
+  // Warum trotz ereignisgetriebenem Nachlauf beim Storno ein Cron noetig ist:
+  // Der Nenner (verbindlich gewordene Deals) waechst auch OHNE Storno — und das
+  // rollierende 365-Tage-Fenster laesst alte Stornos von selbst herausfallen.
+  // Ohne diesen Lauf bliebe eine Quote nach dem letzten Storno fuer immer
+  // stehen, und niemand koennte sich freiarbeiten.
+  router.post("/internal/recompute-deal-reliability", cronRateLimit, checkCronAuth, async (req, res) => {
+    const clientIp = req.ip || req.socket?.remoteAddress || "unknown";
+    try {
+      const limit = Math.min(
+        dealReliabilityService.MAX_BATCH_SIZE,
+        parseInt(req.body?.batch_size, 10) || 500
+      );
+      const windowDays = parseInt(req.body?.window_days, 10) || undefined;
+      const result = await dealReliabilityService.recomputeReliability(pool, { limit, windowDays });
+      await dealReliabilityService.auditRecompute(pool, result);
+      if (result.truncated) {
+        // Kein stilles Abschneiden: wer das Limit reisst, muss es im Log sehen.
+        logger.warn({ path: "recompute-deal-reliability", clientIp, limit },
+          "Batch-Limit erreicht — nicht alle Parteien gerechnet");
+      }
+      logger.info({ path: "recompute-deal-reliability", clientIp, ...result },
+        "Cron recompute-deal-reliability completed");
+      res.json({ ok: true, ...result });
+    } catch (e) {
+      logger.error({ err: e, path: "recompute-deal-reliability", clientIp }, "Cron failed");
       res.status(500).json({ error: "SERVER_ERROR" });
     }
   });
