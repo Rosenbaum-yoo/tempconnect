@@ -266,3 +266,121 @@ function naechsterTag(datum) {
   d.setUTCDate(d.getUTCDate() + 1);
   return d.toISOString().slice(0, 10);
 }
+
+function vortag(datum) {
+  if (!datum) return null;
+  const d = new Date(`${datum}T00:00:00Z`);
+  d.setUTCDate(d.getUTCDate() - 1);
+  return d.toISOString().slice(0, 10);
+}
+
+/* ── Anonyme Besetzbarkeits-Vorschau (P8 Welle E) ───────────────────────── */
+
+/** Wie viele Rollen die Vorschau hoechstens nennt. Mehr liest niemand im Vorbeifahren. */
+const ROLLEN_LIMIT = 4;
+
+/**
+ * Verdichtet eine Deckungsprüfung zu dem, was die Gegenseite sehen DARF.
+ *
+ * WARUM ES DIESE ZWEITE FUNKTION GIBT
+ * `checkOfferCoverage` liefert Namen, Wohnort und Profil-Ids — richtig fuer das
+ * eigene Angebotsformular, wo der Disponent seine eigenen Leute sieht. Fuer die
+ * Vorschau am fremden Bedarf waere das ein Bruch von Leitentscheidung 3.5
+ * (Anonymitaet bis zum Deal) und nebenbei ein Datenschutzproblem: Die Vorschau
+ * liefe ueber eine Flaeche, die auch der Bedarfsteller mittelbar beeinflusst.
+ * Deshalb geht hier NUR heraus, was man auch einem Aussenstehenden sagen wuerde:
+ * Zahlen, Katalog-Rollen, Datumsangaben. Keine Person.
+ *
+ * Rein rechnend, ohne DB — damit die Regel "keine Namen" einzeln testbar bleibt
+ * und nicht in einer Route versteckt ist.
+ *
+ * @param {object} deckung  Ergebnis von `checkOfferCoverage`
+ * @param {{heute?:string}} [opts]
+ */
+export function fasseDeckungAnonymZusammen(deckung, opts = {}) {
+  const heute = opts.heute || todayDE();
+  const gefordert = Math.max(1, Number(deckung?.gefordert) || 1);
+
+  if (!deckung || deckung.auswertbar === false) {
+    return {
+      auswertbar: false,
+      grund: "keine_auswertbare_faehigkeit",
+      gefordert,
+      sofort_verfuegbar: 0,
+      luecke: gefordert,
+      rollen: [],
+      vollstaendig_ab: null,
+      vollstaendig_moeglich: false,
+      gebunden: [],
+      gebunden_ohne_ende: 0,
+      unbekannte_faehigkeiten: deckung?.unbekannte_faehigkeiten || []
+    };
+  }
+
+  const kandidaten = deckung.kandidaten || [];
+  const frei = kandidaten.filter((k) => k.zustand === ZUSTAND.FREI);
+  const spaeter = kandidaten.filter((k) => k.zustand !== ZUSTAND.FREI);
+
+  // Rollen aus den Katalog-Treffern der FREIEN Kraefte. Katalognamen sind
+  // Referenzdaten, keine Personendaten — sie duerfen genannt werden.
+  const zaehler = new Map();
+  for (const k of frei) {
+    for (const name of k.treffer_namen || []) {
+      if (!name) continue;
+      zaehler.set(name, (zaehler.get(name) || 0) + 1);
+    }
+  }
+  const rollen = [...zaehler.entries()]
+    .map(([name, anzahl]) => ({ name, anzahl }))
+    .sort((a, b) => b.anzahl - a.anzahl || a.name.localeCompare(b.name))
+    .slice(0, ROLLEN_LIMIT);
+
+  // Ab wann waere der Bedarf VOLLSTAENDIG gedeckt? Die spaeter frei werdenden
+  // Kraefte werden nach ihrem Freidatum aufgefuellt, bis die Kopfzahl erreicht
+  // ist. Wer kein bekanntes Freidatum hat (Einsatz ohne Enddatum), zaehlt
+  // bewusst NICHT mit — hier wird nicht geraten (Rangfolge aus Welle 2).
+  let vollstaendigAb = null;
+  let vollstaendigMoeglich = frei.length >= gefordert;
+  if (vollstaendigMoeglich) {
+    vollstaendigAb = heute;
+  } else {
+    const mitDatum = spaeter
+      .filter((k) => k.frei_ab)
+      .map((k) => k.frei_ab)
+      .sort();
+    let summe = frei.length;
+    for (const datum of mitDatum) {
+      summe += 1;
+      if (summe >= gefordert) { vollstaendigAb = datum; vollstaendigMoeglich = true; break; }
+    }
+  }
+
+  // Gebundene Kraefte nach "bis wann" gruppieren — das ist die Zeile, die dem
+  // Disponenten sagt, ob sich Warten lohnt.
+  const bisZaehler = new Map();
+  let ohneEnde = 0;
+  for (const k of spaeter) {
+    if (!k.frei_ab) { ohneEnde += 1; continue; }
+    const bis = vortag(k.frei_ab);
+    bisZaehler.set(bis, (bisZaehler.get(bis) || 0) + 1);
+  }
+  const gebunden = [...bisZaehler.entries()]
+    .map(([bis, anzahl]) => ({ bis, anzahl }))
+    .sort((a, b) => String(a.bis).localeCompare(String(b.bis)));
+
+  return {
+    auswertbar: true,
+    // Ehrliche Leermeldung statt leerem Kaestchen (Gate E).
+    grund: kandidaten.length === 0 ? "keine_passende_kraft" : null,
+    zeitraum: deckung.zeitraum,
+    gefordert,
+    sofort_verfuegbar: frei.length,
+    luecke: Math.max(0, gefordert - frei.length),
+    rollen,
+    vollstaendig_ab: vollstaendigAb,
+    vollstaendig_moeglich: vollstaendigMoeglich,
+    gebunden,
+    gebunden_ohne_ende: ohneEnde,
+    unbekannte_faehigkeiten: deckung.unbekannte_faehigkeiten || []
+  };
+}

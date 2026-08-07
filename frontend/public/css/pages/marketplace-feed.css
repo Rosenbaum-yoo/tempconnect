@@ -139,6 +139,27 @@
 .ce-card__meta-item { display: flex; align-items: center; gap: 4px; }
 .ce-card__trust     { display: flex; flex-wrap: wrap; gap: var(--ds-space-2); }
 
+/* P8 Welle E — Besetzbarkeits-Vorschau.
+   Beim Rendern leer und ohne Rand: erst wenn beim Ueberfahren Inhalt kommt,
+   entsteht ueberhaupt ein Kasten. Ein dauerhaft sichtbares leeres Kaestchen
+   waere genau das, was Gate E ausschliesst. */
+.ce-card__coverage:empty { display: none; }
+.ce-card__coverage {
+  margin-top: var(--ds-space-2);
+  padding: 8px 10px;
+  border-left: 2px solid var(--ds-brand);
+  border-radius: 6px;
+  background: var(--ds-surface-2, rgba(127, 127, 127, .06));
+  font-size: 12px;
+  line-height: 1.5;
+}
+.ce-coverage__head  { font-weight: 700; }
+.ce-coverage__roles { color: var(--ds-text-secondary); }
+.ce-coverage__ok    { color: var(--ds-success); }
+.ce-coverage__gap   { color: var(--ds-danger); }
+.ce-coverage__bound { color: var(--ds-warning); }
+.ce-coverage__muted { color: var(--ds-text-tertiary); }
+
 /* ── Freshness Indicator ──────────────────────────────── */
 .ce-freshness     { display: inline-flex; align-items: center; gap: 4px; font-size: 12px; }
 .ce-freshness__dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }

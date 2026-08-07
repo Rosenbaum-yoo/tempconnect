@@ -9,6 +9,7 @@ import { Router } from "express";
 import * as capacityExchangeService from "../services/capacityExchangeService.js";
 import * as capacityOfferGeneratorService from "../services/capacityOfferGeneratorService.js";
 import * as capacityOfferMatchService from "../services/capacityOfferMatchService.js";
+import * as marketplaceService from "../services/marketplaceService.js";
 import * as matchingEngine from "../services/matchingEngine.js";
 import * as auditLog from "../services/auditLog.js";
 import { dispatch } from "../services/notificationMatrix.js";
@@ -285,6 +286,60 @@ export function createCapacityExchangeRouter(deps) {
     } catch (e) {
       if (e.code === "ORG_REQUIRED") return res.status(403).json({ error: "ORG_REQUIRED" });
       logger.error({ err: e }, "GET /capacity-exchange/offer-coverage");
+      res.status(500).json({ error: "SERVER_ERROR" });
+    }
+  });
+
+  /* ── Supplier: Besetzbarkeits-Vorschau am fremden Bedarf (P8 Welle E) ──── */
+
+  // "Koennte ich das ueberhaupt liefern?" — beantwortet beim Ueberfahren einer
+  // Bedarfs-Karte im Feed, nicht beim Rendern der Liste. Ein Feed mit 50
+  // Eintraegen darf dafuer KEINE einzige Abfrage ausloesen (Gate E); die
+  // Oberflaeche laedt erst bei Bedarf und merkt sich die Antwort.
+  //
+  // Dieselbe Rechenmaschine wie die Formular-Vorschau (`checkOfferCoverage`) —
+  // eine zweite Deckungslogik wuerde beim ersten Regelwechsel auseinanderlaufen.
+  // Verdichtet wird sie hier aber ANONYM: keine Namen, keine Wohnorte, keine
+  // Profil-Ids (Leitentscheidung 3.5). Lesend, kein Audit — eine Vorschau ist
+  // keine Handlung.
+  router.get("/capacity-exchange/demands/:id/coverage",
+    requireAuth, requireScope("read:capacity"), ceBasic, async (req, res) => {
+    try {
+      const me = req.user;
+      if (me?.role !== "agency") return res.status(403).json({ error: "AGENCY_ONLY" });
+      if (!req.orgId) return res.status(403).json({ error: "ORG_REQUIRED" });
+
+      const demand = await marketplaceService.getDemandById(pool, req.params.id);
+      // Geschlossene Bedarfe haben nichts vorzuschauen. 404 statt 403: die
+      // Existenz eines fremden geschlossenen Bedarfs geht die Agentur nichts an.
+      if (!demand || demand.status === "closed" || demand.status === "fulfilled") {
+        return res.status(404).json({ error: "NOT_FOUND" });
+      }
+
+      // Die noch offene Kopfzahl ist die ehrliche Bezugsgroesse: bei einem zur
+      // Haelfte gedeckten Bedarf waere "0 von 10" eine Sackgassen-Anzeige.
+      const gefordert = Number(demand.remaining_open_count) > 0
+        ? Number(demand.remaining_open_count)
+        : Number(demand.headcount) || 1;
+
+      const deckung = await capacityOfferMatchService.checkOfferCoverage(pool, {
+        orgId: req.orgId,
+        // Rolle UND Faehigkeiten: der Rollentext ist bei vielen Bedarfen der
+        // einzige auswertbare Begriff, die Skill-Liste bleibt oft leer.
+        skillTags: [demand.role, ...(demand.skill_tags || [])].filter(Boolean),
+        headcount: gefordert,
+        from: demand.start_date || null,
+        to: demand.end_date || null,
+        alleSkills: false
+      });
+
+      res.json({
+        demand_id: demand.id,
+        ...capacityOfferMatchService.fasseDeckungAnonymZusammen(deckung)
+      });
+    } catch (e) {
+      if (e.code === "ORG_REQUIRED") return res.status(403).json({ error: "ORG_REQUIRED" });
+      logger.error({ err: e }, "GET /capacity-exchange/demands/:id/coverage");
       res.status(500).json({ error: "SERVER_ERROR" });
     }
   });

@@ -130,7 +130,17 @@
     'feed.type.supplyLong': 'Angebot einer Zeitarbeitsfirma',
     'feed.type.demand': 'Arbeitsplatzangebot',
     'feed.type.demandLong': 'Arbeitsplatzangebot eines Unternehmens',
-    'feed.trust.successRate': '{n}% Erfolg',
+    'feed.trust.successRate': '{n}% zuverlässig',
+    /* P8 Welle E — Besetzbarkeits-Vorschau */
+    'feed.cov.loading': 'Prüfe Besetzbarkeit…',
+    'feed.cov.notEvaluable': 'Zu diesem Bedarf lässt sich keine Fähigkeit auswerten.',
+    'feed.cov.noMatch': 'Keine passende Kraft in Ihrer Belegschaft.',
+    'feed.cov.available': '{n} von {total} Kräften sofort verfügbar',
+    'feed.cov.full': 'Vollständig besetzbar',
+    'feed.cov.fullFrom': 'Vollständig besetzbar ab {date}',
+    'feed.cov.gap': 'Es fehlen {n} Kräfte — auch später',
+    'feed.cov.bound': '{n} Kraft bis {date} gebunden',
+    'feed.cov.boundOpen': '{n} Kraft gebunden, Ende offen',
     'feed.trust.verified': 'Verifiziert',
     'feed.trust.compliance': 'Compliance',
     'feed.trust.subscriber': 'Aktiver Abonnent',
@@ -253,7 +263,17 @@
     'feed.type.supplyLong': 'Offer from a staffing firm',
     'feed.type.demand': 'Job posting',
     'feed.type.demandLong': 'Job posting from a company',
-    'feed.trust.successRate': '{n}% success',
+    'feed.trust.successRate': '{n}% reliable',
+    /* P8 wave E — staffability preview */
+    'feed.cov.loading': 'Checking staffability…',
+    'feed.cov.notEvaluable': 'No skill on this request can be evaluated.',
+    'feed.cov.noMatch': 'No matching worker in your workforce.',
+    'feed.cov.available': '{n} of {total} workers available right away',
+    'feed.cov.full': 'Fully staffable',
+    'feed.cov.fullFrom': 'Fully staffable from {date}',
+    'feed.cov.gap': '{n} workers short — also later on',
+    'feed.cov.bound': '{n} worker committed until {date}',
+    'feed.cov.boundOpen': '{n} worker committed, end date open',
     'feed.trust.verified': 'Verified',
     'feed.trust.compliance': 'Compliance',
     'feed.trust.subscriber': 'Active subscriber',
@@ -480,6 +500,87 @@
       '</div>';
   }
 
+  /* ══ P8 Welle E — Besetzbarkeits-Vorschau beim Ueberfahren ═══════════════
+     "Koennte ich das liefern?" ist die Frage, die eine Zeitarbeitsfirma vor
+     jeder Reaktion stellt. Sie hier zu beantworten spart den Umweg ueber die
+     Detailseite und die eigene Belegschaftsliste.
+
+     Gate E: beim Rendern der Liste darf KEINE Abfrage laufen. Deshalb haengt
+     der Loader an mouseenter/focusin und nicht am Render, und jede Antwort
+     wird gemerkt — wer zweimal ueber dieselbe Karte faehrt, fragt einmal.
+
+     Anonym (Leitentscheidung 3.5): die Antwort enthaelt Zahlen, Katalog-Rollen
+     und Datumsangaben — keine Namen. Das erzwingt der Server, nicht diese Datei. */
+  var deckungCache = {};
+
+  function deckungText(d) {
+    if (!d || d.auswertbar === false) {
+      return '<span class="ce-coverage__muted">' + esc(t('feed.cov.notEvaluable')) + '</span>';
+    }
+    if (d.grund === 'keine_passende_kraft') {
+      return '<span class="ce-coverage__muted">' + esc(t('feed.cov.noMatch')) + '</span>';
+    }
+    var h = '<div class="ce-coverage__head">'
+          + esc(t('feed.cov.available', { n: d.sofort_verfuegbar, total: d.gefordert }))
+          + '</div>';
+    if (d.rollen && d.rollen.length) {
+      h += '<div class="ce-coverage__roles">'
+         + d.rollen.map(function (r) { return esc(r.anzahl + '× ' + r.name); }).join(' · ')
+         + '</div>';
+    }
+    if (d.luecke === 0) {
+      h += '<div class="ce-coverage__ok">' + esc(t('feed.cov.full')) + '</div>';
+    } else if (d.vollstaendig_moeglich && d.vollstaendig_ab) {
+      h += '<div class="ce-coverage__ok">' + esc(t('feed.cov.fullFrom', { date: fmtDate(d.vollstaendig_ab) })) + '</div>';
+    } else {
+      h += '<div class="ce-coverage__gap">' + esc(t('feed.cov.gap', { n: d.luecke })) + '</div>';
+    }
+    (d.gebunden || []).slice(0, 2).forEach(function (g) {
+      h += '<div class="ce-coverage__bound">⚠ ' + esc(t('feed.cov.bound', { n: g.anzahl, date: fmtDate(g.bis) })) + '</div>';
+    });
+    if (d.gebunden_ohne_ende > 0) {
+      h += '<div class="ce-coverage__bound">⚠ ' + esc(t('feed.cov.boundOpen', { n: d.gebunden_ohne_ende })) + '</div>';
+    }
+    return h;
+  }
+
+  function ladeDeckung(slot) {
+    var id = slot.getAttribute('data-coverage-for');
+    if (!id || slot.dataset.state) return;          // laeuft schon oder ist fertig
+    if (deckungCache[id]) {                          // schon einmal geholt
+      slot.dataset.state = 'done';
+      slot.innerHTML = deckungText(deckungCache[id]);
+      return;
+    }
+    slot.dataset.state = 'loading';
+    slot.innerHTML = '<span class="ce-coverage__muted">' + esc(t('feed.cov.loading')) + '</span>';
+    TC.api.get('/capacity-exchange/demands/' + encodeURIComponent(id) + '/coverage')
+      .then(function (d) {
+        deckungCache[id] = d;
+        slot.dataset.state = 'done';
+        slot.innerHTML = deckungText(d);
+      })
+      .catch(function () {
+        // Eine Vorschau darf die Karte nicht kaputt machen: still zurueck auf
+        // leer, damit ein erneutes Ueberfahren es nochmal versuchen kann.
+        delete slot.dataset.state;
+        slot.innerHTML = '';
+      });
+  }
+
+  /** Bindet den Loader an alle Bedarfs-Karten der aktuellen Seite. */
+  function bindeDeckungsVorschau(container, viewerRole) {
+    // Nur Zeitarbeitsfirmen haben eine Belegschaft — fuer alle anderen bleibt
+    // das Fach leer und es wird nie etwas geladen.
+    if (viewerRole !== 'agency') return;
+    container.querySelectorAll('.ce-card__coverage[data-coverage-for]').forEach(function (slot) {
+      var karte = slot.closest('.ce-card') || slot;
+      karte.addEventListener('mouseenter', function () { ladeDeckung(slot); });
+      // Tastaturbedienung: Fokus loest dieselbe Vorschau aus.
+      karte.addEventListener('focusin', function () { ladeDeckung(slot); });
+    });
+  }
+
   function renderCard(e) {
     var shift = e.shift_model ? (t(SHIFT_LABEL_KEYS[e.shift_model]) || e.shift_model) : null;
     var compLabel = COMPLIANCE_LABEL_KEYS[e.compliance_status] ? t(COMPLIANCE_LABEL_KEYS[e.compliance_status]) : "";
@@ -572,6 +673,10 @@
     var trust = trustBadges(e.trust_signals);
     var trustAll = premBadge + repBadge + trust;
     if (trustAll) html += '<div class="ce-card__trust">' + trustAll + '</div>';
+    // P8 Welle E: leeres Fach fuer die Besetzbarkeits-Vorschau. Beim Rendern
+    // passiert hier NICHTS — kein Fetch, kein Inhalt. Gefuellt wird erst beim
+    // Ueberfahren (Gate E: 50 Karten = 0 zusaetzliche Abfragen).
+    if (isDemandCard) html += '<div class="ce-card__coverage" data-coverage-for="' + esc(e.id) + '"></div>';
 
     html += '</div>';
     html += '</div>';
@@ -685,6 +790,9 @@
       items.forEach(function(e) { html += renderCard(e); });
       feedEl.innerHTML = html;
       emptyEl.style.display = "none";
+
+      // P8 Welle E: Vorschau-Loader binden — bindet NUR Listener, laedt nichts.
+      bindeDeckungsVorschau(feedEl, ctx.viewer_role);
 
       // Bind card clicks
       feedEl.querySelectorAll(".ce-card[data-id]").forEach(function(card) {
