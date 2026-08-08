@@ -5,6 +5,116 @@
 
 ---
 
+## Realitätsabgleich 2026-08-08 — Zwischenstand, NICHT vollständig
+
+> Diese Liste stammt vom 2026-05-26 und war seither ungepflegt. Der Abgleich gegen den
+> heutigen Code lief mit einer bewussten Asymmetrie: Jedes „erledigt" musste einen
+> Dateibeleg tragen und wurde anschließend von einem Skeptiker angegriffen — denn ein
+> fälschlich abgehakter Blocker verschwindet von der Startliste, „noch offen" ist der
+> harmlose Irrtum.
+>
+> **Das Ergebnis rechtfertigt den Aufwand: von 7 „erledigt"-Urteilen haben nur 2 gehalten.**
+
+### Geprüft und bestätigt erledigt
+
+| # | Beleg |
+|---|---|
+| **P1-06** Worker-Portal Abgrenzung | `api/test/hubVisibility.test.js:345-405`, 36/36 grün, Skip-Guard griff nicht. Die Suite iteriert dynamisch über `listSurfaces()` (12 Surfaces) statt gegen eine Kurzliste — Umgehungsversuche über `org_role=owner`, `surface_access`-Override und Legacy-Format sind mitgeprüft. |
+| **P2-05** `app_notdienst.html` Plan-Gate | Seite ist ein 14-Zeilen-Redirect-Stub; `frontendCanonicalPages.test.js` 16/16 grün. Kein ungegatetes Notdienst-UI mehr vorhanden. Plan-Gate der Fähigkeit selbst: `planFeatures.js:109`. |
+
+### Zurückgestuft — als „erledigt" gemeldet, hält aber nicht
+
+**Diese fünf dürfen NICHT von der Startliste gestrichen werden.**
+
+| # | Was wirklich fehlt |
+|---|---|
+| **P1-07** API-Key-Scopes auf Finance-Routen | `requireScope` ist echt und auf 6 Invoice-Routen verdrahtet — aber `requireAuth` weist API-Key-Requests schon vorher mit 401 ab, das Gate wird nie erreicht. Der grüne Test benutzt einen **gefälschten** Auth-Guard (`alwaysPassAuth`) und beweist deshalb nicht, was das Verify-Kriterium verlangt. Zusätzlich: 11 Routen unter `/invoices/operational/*` (u. a. `generate`, `issue`, `paid`, `void`, CSV-Export) haben **gar kein** Scope-Gate. |
+| **P2-01** INDIVIDUELL Tier-Schwellen | Config-Ebene fertig, Frontend nicht: `pageShell.js:594` zeigt weiter die alten Klassen. |
+| **P2-02** Spend Analytics Scope-Display | Scope-Leiste existiert und ist verdrahtet, **kann aber eine falsche Standort-Aussage anzeigen**. |
+| **P2-03** Vendor Pool + Rate Cards Scope-Hinweise | Code vorhanden, **nie erreichbar**: `TC.api` ist auf beiden Seiten nicht geladen, der Hinweis kann nicht rendern. Kleiner Fix, aber heute wirkungslos. |
+| **P2-04** Migrations-Lücke 111 | Zweiteilig; der Entscheidungsteil (OE-05) ist im Entscheidungsboard bis heute **unbeantwortet**. |
+
+### Bestätigt offen
+
+| # | Rest |
+|---|---|
+| **P1-05** OpenAPI-Drift | Entweder die Abgrenzung festschreiben (spec.json = externer Integrationsvertrag) oder die Lücke schließen. |
+| **P1-08** Cross-Tenant RLS Deny-by-Default | Org-Kontext hängt nicht im Query-Pfad. |
+
+### Nachgeholt am 2026-08-08 — die restlichen 10 Punkte
+
+Der erste Lauf hatte drei Prüfer an Netzfehler verloren. Der zweite Lauf ist vollständig
+durchgelaufen (10/10) und hat die Verify-Kommandos **tatsächlich ausgeführt**, statt nur
+Code zu lesen — `release-verify.sh` gegen ein echtes `git archive`-Staging, und der
+Produktions-Boot mit `FEATURE_GATE_BYPASS=true`.
+
+#### Erledigt
+
+| # | Nachweis |
+|---|---|
+| **P0-06** `.env` nicht im Release-Artefakt | Vierfach abgesichert und nachgestellt: `release-verify.sh` zählt jede Nicht-`.example`-Datei als Verstoß; die Dateien sind gar nicht getrackt; `git archive` kann Ungetracktes nicht aufnehmen; CI spiegelt die Regel. Lauf gegen Staging: 3× „Beispiel-Datei erlaubt", 0 Treffer. |
+| **P0-08** `FEATURE_GATE_BYPASS` in Produktion | Verify-Kommando wörtlich ausgeführt: `NODE_ENV=production FEATURE_GATE_BYPASS=true node server.js` → **Exit 1** mit „ist in Produktion verboten", vor `createApp`. Die Tests dazu benutzen den echten Validator, keine Attrappe. |
+| **P2-06** `meine(agb).html` | Alt-Datei existiert nicht mehr, Redirect-Stub steht, kein Verweis mehr im Code. 16/16 grün, Skip-Guard griff nicht. |
+| **P2-07** `api_docs.html`-Duplikat | 14-Zeilen-Redirect-Stub, keine `href`-Verweise mehr auf die Alt-Schreibweise. |
+
+#### Bestätigt offen
+
+| # | Was fehlt |
+|---|---|
+| **P0-07** Release-Artefakt | **`.claude/` liegt im Artefakt.** Selbst nachgezählt: **8 Dateien sind versioniert**, obwohl `.gitignore` sie listet — Ignore greift nicht für bereits getrackte Dateien. Sie landen über `git archive` im Kundenpaket, und genau daran ist der Gesamtlauf von `release-verify.sh` **rot**. Inhalt selbst geprüft: **keine Geheimnisse**, nur internes Agenten-Werkzeug (Slash-Kommandos, Hooks, Lern-Konfiguration). Also kein Leck, aber der dokumentierte Release-Weg ist blockiert. Fix: `git rm -r --cached .claude` oder ein `rm -rf` nach dem `git archive` — **Owner-Entscheidung**, weil es die lokale Werkzeugkette berührt. |
+| **P1-02** SSO-Abhängigkeit | Owner muss OE-03 formal entscheiden. Bei „nicht ausliefern": SSO-Zeilen in `pricing.html`/`sla_abo.html` von Haken auf „auf Anfrage" umstellen. |
+| **P1-03** E2E Pilot-Core | Der CI-Job ist rot; Logs vom 2026-07-30 sind abgelaufen, Lauf muss neu ausgelöst werden. |
+
+#### Owner-gated — kein Code-Defekt, nur du kannst es tun
+
+| # | Aufwand |
+|---|---|
+| **P0-04** Secret-Rotation | 20–30 Min am Prod-Server. **Ein Punkt daraus ist dringlicher als der Rest:** In der Git-Historie liegt ein Web3Forms-Key (historische Fundstellen bestätigt; es gibt bereits einen Commit „Secret-Scan über die Historie"). Da das Repo öffentlich ist, hilft Löschen im HEAD nicht — **nur Rotation beim Anbieter**. |
+| **P1-01** Staff-CC-Ops | DNS, TLS, Nginx-VHost, `STAFF_USER_IDS` + `STAFF_SESSION_SECRET`. 0,5–1 Tag. |
+| **P1-04** Backup/Restore-Drill | 2 h Drill + Run-Log. Parallel reparierbar: der CI-Job „Backup & Restore Drill" ist rot. |
+
+#### Nebenbefund, der nicht auf der Liste stand
+
+`docker-compose.demo.yml` setzt `NODE_ENV: production` **und** `FEATURE_GATE_BYPASS: "true"`.
+Seit P0-08 scharf ist, **kann dieser Stack nicht mehr starten** — die API bricht beim Boot ab.
+Entweder `NODE_ENV` auf `demo`/`development` setzen oder den Bypass durch ein
+Demo-Entitlement ersetzen.
+
+### Stand nach beiden Läufen
+
+**19 Punkte, alle beurteilt.** 6 erledigt · 5 offen · 5 zurückgestuft (waren als „erledigt"
+gemeldet, halten aber nicht) · 3 owner-gated.
+
+> **Die Lehre aus dem ersten Lauf gilt weiter:** Von 7 „erledigt"-Urteilen hielten nur 2 der
+> Gegenprüfung stand. Ein grüner Test beweist nichts, wenn er die echte Middleware durch eine
+> Attrappe ersetzt — bei P1-07 stand `alwaysPassAuth` statt `requireAuth` im Test, und das
+> Gate wurde nie erreicht.
+
+### Nachtrag 2026-08-08 — zwei neue Punkte aus P9/A1
+
+**P1-14 🟠 `reputationService` hat keinen Aufrufer.** `recomputeReputation` wird nur von
+`batchRecompute` gerufen, und `batchRecompute` von nichts außer Tests — keine Route, kein Cron,
+kein Job. Folge: `supplier_reputation.reputation_score` und `activity_score` sind leer, `grade`
+steht überall auf `UNRATED`. Betroffen ist alles, was aus dieser Tabelle liest; das Bounty
+`top_supplier` war dadurch für jeden Nutzer unerreichbar und ist bis auf Weiteres abgeschaltet
+(Migration 166). Zu klären ist nicht *ob*, sondern *wann* neu gerechnet wird: Cron wie bei
+`deal_reliability` (täglich) oder ereignisgesteuert nach Bewertung/Deal-Abschluss.
+Zusatz: `assignmentService.js:277` schreibt in `supplier_reputation` in Spalten, die es dort
+nicht gibt (`supplier_org_id`/`score`) — im stummen `try/catch`, also seit jeher wirkungslos.
+Diese Leiche gehört mit weg.
+
+**P0-14 ✅ Referral-Gutschrift konnte sich vervielfachen** *(am 2026-08-08 geschlossen)*.
+`qualifyReferralReward` buchte die Gutschrift und setzte **danach** `reward_applied = TRUE` —
+ohne Transaktion und mit einem Status (`'qualified'`), den `referrals_status_check` verbietet.
+Der zweite Schritt brach also immer ab, die Sperre wurde nie gesetzt, und derselbe geworbene
+Kunde hätte bis zu 6 Gutschriften statt einer ausgelöst (Grenze: 1/Monat, 6 gesamt). Der Pfad
+hängt live im Zahlungsfluss (`routes/payment.js:632`) und war dort in ein stummes `catch {}`
+gewickelt. Behoben: Status `'active'`, beide Schreibvorgänge in `withTransaction`, Fehler wird
+geloggt. Wirksam geworden wäre der Defekt beim ersten geworbenen zahlenden Kunden — also nach
+Marktstart.
+
+---
+
 ## Legende
 
 | Symbol | Priorität | Bedeutung |

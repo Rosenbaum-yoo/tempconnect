@@ -631,7 +631,13 @@ export function createPaymentRouter(deps) {
           try {
             const { qualifyReferralReward } = await import("../services/referralProgramService.js");
             await qualifyReferralReward(pool, userId);
-          } catch { /* referral non-critical */ }
+          } catch (referralErr) {
+            // Bewusst nicht blockierend — eine Zahlung darf an der Werbepraemie
+            // nicht scheitern. Aber sichtbar: hier stand ein stummes `catch {}`,
+            // und darum blieb unbemerkt, dass der Statusschritt jedes Mal gegen
+            // die CHECK-Bedingung lief (P9/A1).
+            logger.warn({ err: referralErr.message, userId }, "Referral-Reward konnte nicht gebucht werden");
+          }
         } catch (e) {
           logger.error({ err: e }, "Stripe webhook processing");
         }

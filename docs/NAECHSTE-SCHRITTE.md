@@ -1,7 +1,8 @@
 # Nächste Schritte — Übergabe für einen neuen Chat
 
-> **Stand:** 2026-08-07 · Branch `release/enterprise-premium-market-ready` · letzter Commit `c80d343`
-> · **P8 Wellen A–E vollständig, uncommitted** (Owner-Freigabe steht aus)
+> **Stand:** 2026-08-07 · Branch `release/enterprise-premium-market-ready` · letzter Commit `67b0282`
+> · **P8 abgeschlossen und committet** · **P9 geplant, noch nicht begonnen** — siehe Abschnitt 4
+> · nicht gepusht
 > **Zweck:** Einstiegspunkt. Diese Datei sagt, wo etwas steht und wo es weitergeht —
 > sie wiederholt die Detailpläne **nicht**, sondern verweist auf sie.
 
@@ -12,7 +13,8 @@
 | Datei | Wofür |
 |---|---|
 | `AGENTS.md`, `.agents/skills/tempconnect-project/SKILL.md`, `CLAUDE.md` | Pflicht vor dem ersten Edit |
-| [features/P8_DEAL_VERBINDLICHKEIT.md](features/P8_DEAL_VERBINDLICHKEIT.md) | **Aktuelle Arbeit.** Wellen A–E, Leitentscheidungen, Owner-Entscheidungen |
+| [features/P9_BOUNTY_MERKLISTE_ENTITLEMENTS.md](features/P9_BOUNTY_MERKLISTE_ENTITLEMENTS.md) | **Aktuelle Arbeit.** Spuren A/B/C mit Wellen und Gates — hier weitermachen |
+| [features/P8_DEAL_VERBINDLICHKEIT.md](features/P8_DEAL_VERBINDLICHKEIT.md) | Abgeschlossen. Wellen A–E, Leitentscheidungen, Nachprüfung des Ursprungsauftrags |
 | [features/URSPRUNGSPROMPT_AUDIT.md](features/URSPRUNGSPROMPT_AUDIT.md) | Punkt-für-Punkt-Stand des großen Ursprungsprompts |
 | [features/P6_I18N_UEBERGABE.md](features/P6_I18N_UEBERGABE.md) | Zweisprachigkeit: Regeln für jede neue sichtbare Zeichenkette |
 | [TWILIO-EINRICHTEN.md](TWILIO-EINRICHTEN.md) | SMS-Kanal: was der Owner tut, was im Code fehlt (~20 Zeilen) |
@@ -58,7 +60,48 @@
 
 ## 4. Wo es weitergeht
 
-### Erledigt: P8 Welle B *(2026-08-07, uncommitted)*
+### Sofort: P9 — drei Spuren aus den Owner-Abschnitten 2–4
+
+Vollständige Arbeitsanweisung mit Wellen und Gates:
+**[features/P9_BOUNTY_MERKLISTE_ENTITLEMENTS.md](features/P9_BOUNTY_MERKLISTE_ENTITLEMENTS.md)**
+
+| Spur | Abschnitt | Kern | Beginnen mit |
+|---|---|---|---|
+| **A** | 2 | Bounty-System wahrheitsfähig, zuschaltbar, voll verdrahtet | **A1 — Wahrheitsprüfung aller 15 Bedingungen** |
+| **B** | 3 | Merkliste für Angebote, beidseitig, Reiter bei „Meine Deals" | B1 — Merken-Knopf wird ein Schalter |
+| **C** | 4 | Freischaltung nach Zahlung, Feature-Gates plattformweit härten | C1 — den konkreten Preisrahmen-Fall klären |
+
+Eine Spur nach der anderen, nicht parallel. **A1 zuerst** — jede spätere Welle baut sonst
+auf einer Bedingung auf, die vielleicht nichts misst.
+
+> **A1 ist erledigt** *(2026-08-08)*. Die Wahrheitstabelle über alle 15 Bedingungen steht in der
+> P9-Datei. Kurzfassung von 15: **7** messen richtig, **3** messen den falschen Pfad, **2** behaupten
+> ein Zeitfenster, das sie nicht prüfen, **2** hatten eine tote Quelle, **1** verlangte eine andere
+> Zahl als beworben. `top_supplier` (5 % Rabatt) war für jeden Nutzer
+> **rechnerisch unerreichbar** und ist jetzt abgeschaltet — nicht gelöscht. Beim zweiten toten
+> Bounty hing mehr dran als ein Abzeichen: der Referral-Belohnungsschritt schrieb einen Status,
+> den die Datenbank per CHECK verbietet, wodurch die Wiederholungssperre nie gesetzt wurde —
+> **ein geworbener Kunde hätte bis zu 6 Gutschriften statt einer ausgelöst**. Der Pfad hängt live
+> im Zahlungsfluss. Behoben, in eine Transaktion gefasst, mit Test abgesichert.
+> Nächste Welle: **A3** (falsche Pfade und Zeitfenster) oder **A4** (Rabatt erreicht die Rechnung).
+
+> **Der schwerste Einzelbefund aus der Bestandsaufnahme:** Der Bounty-Rabatt erreicht keine
+> Rechnung. `getUserDiscount()` wird nur von Anzeige-Pfaden aufgerufen; im gesamten Geldpfad
+> (`invoiceService`, `recurringBillingService`, `paymentService`, `planCatalog`) kommt
+> `discount` nicht ein einziges Mal vor. Die Plattform zeigt „6 % Rabatt" und stellt die
+> volle Summe in Rechnung. Das ist **P9 Spur A, Welle A4** — und es hängt an der offenen
+> Owner-Frage A-E1 (jede Rechnung oder nur Jahresvertrag?).
+
+**Owner-Entscheidungen:** A-E1 (Rabatt **monatlich**, auf jede Rechnung) und A-E2 (Anstupser
+**auch per E-Mail**) sind beantwortet. Offen ist nur noch **C-E1** — automatische Freischaltung
+nach Zahlung oder erst nach Freigabe im Staff-Center.
+
+Die frühere Notiz „das Konto `elmiraaaa@…` existiert lokal nicht" war **falsch** und ist gestrichen:
+die prüfende Abfrage lief gegen `org_members` statt `org_memberships`, brach ab, und die leere
+Ausgabe wurde als Befund gelesen. Das Konto existiert (company/owner/INDIVIDUELL) und war die
+Grundlage für C1.
+
+### Erledigt: P8 Welle B *(2026-08-07, committet)*
 
 `deal_success_rate` lebt. Migration 164 (`deal_reliability` + `offer_cancellations.from_status`),
 `dealReliabilityService.js`, Cron `POST /api/internal/recompute-deal-reliability` (täglich 4:45)
@@ -66,7 +109,7 @@ plus ereignisgetriebener Nachlauf direkt nach dem Storno. Am echten Entwicklungs
 gemessen: vorher **0** gesetzte Werte, nachher 5 gerechnete Parteien und 2 Spiegelwerte.
 Details und die drei Entscheidungen über den Wellenplan hinaus: P8, Abschnitt 5.
 
-### Erledigt: P8 Welle C *(2026-08-07, uncommitted)*
+### Erledigt: P8 Welle C *(2026-08-07, committet)*
 
 Zuverlässigkeits-Bounty als **Leiter**: `zuverlaessiger_partner` (90 Tage sauber, 3 %) wird
 von `zero_complaint` (365 Tage sauber, 3 %) abgelöst — kein doppelter Rabatt für dieselbe
@@ -75,7 +118,7 @@ es zählt `requests.status='CANCELED'` — den **falschen Storno-Kanal**. Der Ag
 (`cancelAgreement`) fasst `requests` nie an, also behält ein notorischer Kurzfrist-Stornierer
 seine 3 % Rabatt für „null Stornos". Mitrepariert. Details in P8, Abschnitt 5.
 
-### Erledigt: P8 Welle D *(2026-08-07, uncommitted)*
+### Erledigt: P8 Welle D *(2026-08-07, committet)*
 
 Assistent mit 3 Schritten beim Abschluss, 2 beim Storno; die Folgen kommen aus zwei neuen
 lesenden Endpunkten und sind **gerechnet, nicht getextet**. Dabei kam der dritte geerbte
@@ -88,7 +131,7 @@ belegt (ohne Grund kein zweiter Schritt, Abbruch ändert nichts am Zustand), und
 Browser-Klick erzeugt nachweislich einen auswertbaren Storno samt sofortiger Neuberechnung.
 Details in P8, Abschnitt 5.
 
-### Erledigt: P8 Welle E *(2026-08-07, uncommitted)*
+### Erledigt: P8 Welle E *(2026-08-07, committet)*
 
 Besetzbarkeits-Vorschau beim Überfahren einer Bedarfs-Karte. Nutzt die **bestehende**
 Rechenmaschine `checkOfferCoverage` (Multi-Skill Welle 6) und verdichtet sie **anonym** —
@@ -117,8 +160,17 @@ Rendern, Laden erst am `mouseenter`, jede Antwort gemerkt.
 
 ### Bekannte offene Punkte
 
-- `docs/releases/OPEN_BLOCKERS.md` ist **veraltet** (führt Erledigtes als offen). Vor
-  Nutzung gegen die Realität prüfen.
+- `docs/releases/OPEN_BLOCKERS.md` — **vollständig abgeglichen am 2026-08-08**, Ergebnis steht
+  oben in der Datei. 19 Punkte: 6 erledigt · 5 offen · 5 zurückgestuft · 3 owner-gated.
+  Die Vermutung „führt Erledigtes als offen" war nur zur Hälfte richtig — von 7
+  „erledigt"-Urteilen hielten nach adversarischer Gegenprüfung **nur 2**.
+  **Drei Dinge, die du wissen solltest:**
+  (a) **`.claude/` liegt im Release-Artefakt** — 8 Dateien sind versioniert, obwohl
+  `.gitignore` sie listet (Ignore greift nicht rückwirkend). Deshalb ist `release-verify.sh`
+  rot und der dokumentierte Release-Weg blockiert. Kein Leck (Inhalt geprüft), aber ein
+  Blocker. (b) In der **Git-Historie liegt ein Web3Forms-Key**; das Repo ist öffentlich —
+  nur Rotation beim Anbieter hilft. (c) `docker-compose.demo.yml` ist seit P0-08
+  **startunfähig** (`NODE_ENV=production` + Bypass).
 - **13 Tests laufen im Normallauf nicht** (`skipped`) — die DB-gebundenen, darunter
   Org-Boundary und Cross-Tenant-Isolation. Sie brauchen `DATABASE_URL`.
   „Übersprungen" ist nicht „grün".

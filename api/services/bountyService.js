@@ -14,9 +14,14 @@ const FALLBACK_MAX_DISCOUNT_PCT = 25;
 
 /* ── Bounty Catalog ────────────────────────────────────────── */
 
-export async function getBountyCatalog(pool) {
+export async function getBountyCatalog(pool, opts = {}) {
+  // Abgeschaltete Bounties (`is_active = FALSE`, Migration 166) werden weder
+  // geprueft noch angezeigt. Ihre Historie in `user_bounties` bleibt erhalten,
+  // damit eine spaetere Wiedereinschaltung nichts neu erfinden muss.
   const { rows } = await pool.query(
-    `SELECT * FROM bounties ORDER BY sort_order`
+    opts.includeInactive
+      ? `SELECT * FROM bounties ORDER BY sort_order`
+      : `SELECT * FROM bounties WHERE is_active ORDER BY sort_order`
   );
   return rows;
 }
@@ -29,7 +34,7 @@ export async function getUserBounties(pool, userId) {
             b.discount_pct, b.threshold_type, b.threshold_value, b.is_recurring
      FROM user_bounties ub
      JOIN bounties b ON b.id = ub.bounty_id
-     WHERE ub.user_id = $1
+     WHERE ub.user_id = $1 AND b.is_active
      ORDER BY b.sort_order`,
     [userId]
   );
@@ -43,7 +48,7 @@ export async function getUserDiscount(pool, userId) {
     `SELECT COALESCE(SUM(b.discount_pct), 0) AS total
      FROM user_bounties ub
      JOIN bounties b ON b.id = ub.bounty_id
-     WHERE ub.user_id = $1 AND ub.is_active = TRUE`,
+     WHERE ub.user_id = $1 AND ub.is_active = TRUE AND b.is_active`,
     [userId]
   );
   const raw = Number(rows[0]?.total || 0);
@@ -82,10 +87,26 @@ export async function evaluateBounties(pool, userId) {
         [userId, bounty.id, progress]
       );
     } else if (bounty.is_recurring) {
-      // Revoke recurring bounties when condition no longer met
+      // Wiederkehrendes Bounty nicht (mehr) erfuellt.
+      //
+      // Hier stand ein reines UPDATE. Das trifft nichts, solange es noch keine
+      // Zeile gibt — und eine Zeile entsteht nur beim ersten Verdienen. Wer ein
+      // wiederkehrendes Bounty noch nie erreicht hatte, bekam also nie einen
+      // Fortschritt gespeichert: `getBountyStatus` fand keine Zeile und zeigte
+      // dauerhaft "locked, 0 %", auch bei 85 % Fortschritt. Nachmessbar war das
+      // daran, dass genau die fuenf nie verdienten wiederkehrenden Bounties als
+      // einzige ueberhaupt keine `user_bounties`-Zeile hatten.
+      //
+      // GREATEST waere hier falsch: ein Streak kann legitim zurueckfallen, und
+      // ein eingefrorener Hoechststand wuerde Fortschritt behaupten, den es
+      // nicht mehr gibt.
       await pool.query(
-        `UPDATE user_bounties SET is_active = FALSE, progress = $3, updated_at = NOW()
-         WHERE user_id = $1 AND bounty_id = $2`,
+        `INSERT INTO user_bounties (user_id, bounty_id, is_active, progress)
+         VALUES ($1, $2, FALSE, $3)
+         ON CONFLICT (user_id, bounty_id) DO UPDATE SET
+           is_active = FALSE,
+           progress = $3,
+           updated_at = NOW()`,
         [userId, bounty.id, progress]
       );
     } else {
@@ -384,7 +405,11 @@ function checkBountyCondition(bounty, data) {
     }
     case 'mentoring': {
       const mentoringCount = data.mentoringCount || 0;
-      const needed = tv.min_sessions || 5;
+      // Der Katalog konfiguriert `min_mentored` (3), gelesen wurde `min_sessions`.
+      // Den Schluessel gibt es dort nicht, also griff still der Default 5:
+      // beworben waren 3 Mentorings, verlangt wurden 5. Beide Schreibweisen
+      // werden jetzt akzeptiert, der Katalogwert gewinnt.
+      const needed = Number(tv.min_mentored ?? tv.min_sessions) || 3;
       return { earned: mentoringCount >= needed, progress: Math.min(100, (mentoringCount / needed) * 100) };
     }
     default:
@@ -410,7 +435,7 @@ async function handleReplacements(pool, userId, catalog) {
     const { rows } = await pool.query(
       `SELECT b.key FROM user_bounties ub
        JOIN bounties b ON b.id = ub.bounty_id
-       WHERE ub.user_id = $1 AND ub.is_active = TRUE`,
+       WHERE ub.user_id = $1 AND ub.is_active = TRUE AND b.is_active`,
       [userId]
     );
     const aktiv = new Set(rows.map((r) => r.key));

@@ -47,7 +47,7 @@ const ok = (rows = [], rowCount) => ({ rows, rowCount: rowCount == null ? rows.l
 describe("bountyService — getBountyCatalog", () => {
   it("returns rows ordered by sort_order (passes through DB rows)", async () => {
     const catalog = [{ id: "b1", key: "k1", sort_order: 1 }, { id: "b2", key: "k2", sort_order: 2 }];
-    const pool = patternPool((sql) => sql.includes("FROM bounties") ? ok(catalog) : ok());
+    const pool = patternPool((sql) => sql.includes("SELECT * FROM bounties") ? ok(catalog) : ok());
     const res = await svc.getBountyCatalog(pool);
     assert.deepStrictEqual(res, catalog);
     assert.match(pool.calls[0].sql, /ORDER BY sort_order/);
@@ -133,7 +133,7 @@ describe("bountyService — evaluateBounties", () => {
   // rows by SQL pattern, and records the user_bounties write SQL.
   function evalPool({ bounty, dataRows = {}, captureWrites }) {
     return patternPool((sql, params) => {
-      if (sql.includes("FROM bounties ORDER BY sort_order")) return ok([bounty]);
+      if (sql.includes("SELECT * FROM bounties")) return ok([bounty]);
       // gatherUserData queries
       if (sql.includes("created_at, is_verified FROM users")) return ok([{ created_at: dataRows.userCreatedAt || null, is_verified: true }]);
       if (sql.includes("MIN(created_at) AS first_sub FROM subscriptions")) return ok([{ first_sub: dataRows.firstSubDate || null }]);
@@ -176,14 +176,28 @@ describe("bountyService — evaluateBounties", () => {
     assert.deepStrictEqual(writes[0].params, ["u1", "b1", 100]);
   });
 
-  it("revokes a recurring bounty (UPDATE is_active=FALSE) when condition not met", async () => {
+  /*
+   * KORRIGIERT (P9/A1). Die alte Erwartung verlangte hier ein reines
+   * `UPDATE user_bounties SET is_active = FALSE` — und schrieb damit genau den
+   * Defekt als Soll fest: ein UPDATE trifft nichts, solange keine Zeile
+   * existiert, und eine Zeile entstand nur beim ersten Verdienen. Wer ein
+   * wiederkehrendes Bounty noch nie erreicht hatte, bekam nie einen Fortschritt
+   * gespeichert und sah dauerhaft "0 %". Nachweis in der Entwicklungsdatenbank:
+   * genau die fuenf nie verdienten wiederkehrenden Bounties hatten als einzige
+   * ueberhaupt keine user_bounties-Zeile.
+   * Sollzustand ist ein Upsert, der beides kann: anlegen und entziehen.
+   */
+  it("entzieht ein wiederkehrendes Bounty UND haelt den Fortschritt fest", async () => {
     const writes = [];
     const bounty = { id: "b9", key: "blitz", is_recurring: true, threshold_type: "completed_deals", threshold_value: { min_deals: 50 } };
     const pool = evalPool({ bounty, dataRows: { deals: { completed: 1 } }, captureWrites: (w) => writes.push(w) });
     const res = await svc.evaluateBounties(pool, "u1");
     assert.strictEqual(res[0].earned, false);
     assert.strictEqual(writes.length, 1);
-    assert.match(writes[0].sql, /UPDATE user_bounties SET is_active = FALSE/);
+    assert.match(writes[0].sql, /INSERT INTO user_bounties/);
+    assert.match(writes[0].sql, /ON CONFLICT \(user_id, bounty_id\) DO UPDATE/);
+    assert.match(writes[0].sql, /is_active = FALSE/, "der Entzug muss weiterhin greifen");
+    assert.strictEqual(writes[0].params[2], 2, "1 von 50 Deals = 2 % Fortschritt, nicht 0");
   });
 
   it("non-recurring & not earned → progress-tracking upsert (no activation)", async () => {
@@ -201,7 +215,7 @@ describe("bountyService — evaluateBounties", () => {
     const pool = evalPool({ bounty: undefined });
     // empty catalog: override the catalog query to return []
     const pool2 = patternPool((sql) => {
-      if (sql.includes("FROM bounties ORDER BY sort_order")) return ok([]);
+      if (sql.includes("SELECT * FROM bounties")) return ok([]);
       if (sql.includes("b.key IN ('loyalty_1y', 'loyalty_2y')")) return ok([]);
       return ok([{}]); // gatherUserData rows
     });
@@ -419,7 +433,7 @@ describe("bountyService — evaluateBounties", () => {
       { id: "b2", key: "loyalty_2y", is_recurring: false, threshold_type: "subscription_age", threshold_value: { months: 24, replaces: "loyalty_1y" } }
     ];
     const pool = patternPool((sql, params) => {
-      if (sql.includes("FROM bounties ORDER BY sort_order")) return ok(katalog);
+      if (sql.includes("SELECT * FROM bounties")) return ok(katalog);
       if (sql.includes("emergency_completed")) return ok([{ completed: 60 }]);
       if (sql.includes("INSERT INTO user_bounties")) return ok([], 1);
       // Lesepfad von handleReplacements: aktive Bounties des Nutzers
@@ -444,7 +458,7 @@ describe("bountyService — evaluateBounties", () => {
       { id: "b2", key: "loyalty_2y", is_recurring: false, threshold_type: "subscription_age", threshold_value: { months: 24, replaces: "loyalty_1y" } }
     ];
     const pool = patternPool((sql, params) => {
-      if (sql.includes("FROM bounties ORDER BY sort_order")) return ok(katalog);
+      if (sql.includes("SELECT * FROM bounties")) return ok(katalog);
       if (sql.includes("MIN(created_at) AS first_sub")) return ok([{ first_sub: null }]);
       if (sql.includes("INSERT INTO user_bounties")) return ok([], 1);
       if (sql.includes("FROM user_bounties ub") && sql.includes("is_active = TRUE")) return ok([{ key: "loyalty_1y" }]);
@@ -582,7 +596,7 @@ describe("bountyService — getValueReport", () => {
 describe("bountyService — getBountyStatus", () => {
   function statusPool({ catalog, userBounties, discountSum, tierRow }) {
     return patternPool((sql) => {
-      if (sql.includes("FROM bounties ORDER BY sort_order")) return ok(catalog);
+      if (sql.includes("SELECT * FROM bounties")) return ok(catalog);
       // getUserDiscount's SUM query ALSO contains "FROM user_bounties ub" — match it first.
       if (sql.includes("SUM(b.discount_pct)")) return ok([{ total: discountSum }]);
       if (sql.includes("FROM user_bounties ub")) return ok(userBounties);

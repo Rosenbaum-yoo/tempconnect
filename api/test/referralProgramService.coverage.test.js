@@ -272,7 +272,7 @@ describe("submitSurvey", () => {
 
   it("returns SURVEY_ALREADY_SUBMITTED when a survey row exists", async () => {
     const pool = trackingPool([
-      { match: "r.status IN ('registered','survey_done','qualified')", rows: [{ id: "ref1" }] },
+      { match: "r.status IN ('registered','survey_done','active')", rows: [{ id: "ref1" }] },
       { match: "SELECT id FROM referral_surveys WHERE referral_id", rows: [{ id: "s1" }] },
     ]);
     const result = await svc.submitSurvey(pool, "u1", {});
@@ -282,7 +282,7 @@ describe("submitSurvey", () => {
 
   it("saves survey with provided values and marks referral survey_completed", async () => {
     const pool = trackingPool([
-      { match: "r.status IN ('registered','survey_done','qualified')", rows: [{ id: "ref1" }] },
+      { match: "r.status IN ('registered','survey_done','active')", rows: [{ id: "ref1" }] },
       { match: "SELECT id FROM referral_surveys WHERE referral_id", rows: [] },
       { match: "INSERT INTO referral_surveys", rows: [] },
       { match: "UPDATE referrals SET survey_completed = TRUE", rows: [] },
@@ -298,7 +298,7 @@ describe("submitSurvey", () => {
 
   it("applies defaults: rating 4, nulls, would_recommend true when not explicitly false", async () => {
     const pool = trackingPool([
-      { match: "r.status IN ('registered','survey_done','qualified')", rows: [{ id: "ref2" }] },
+      { match: "r.status IN ('registered','survey_done','active')", rows: [{ id: "ref2" }] },
       { match: "SELECT id FROM referral_surveys WHERE referral_id", rows: [] },
       { match: "INSERT INTO referral_surveys", rows: [] },
       { match: "UPDATE referrals SET survey_completed = TRUE", rows: [] },
@@ -311,7 +311,7 @@ describe("submitSurvey", () => {
 
   it("treats would_recommend === false as false", async () => {
     const pool = trackingPool([
-      { match: "r.status IN ('registered','survey_done','qualified')", rows: [{ id: "ref3" }] },
+      { match: "r.status IN ('registered','survey_done','active')", rows: [{ id: "ref3" }] },
       { match: "SELECT id FROM referral_surveys WHERE referral_id", rows: [] },
       { match: "INSERT INTO referral_surveys", rows: [] },
       { match: "UPDATE referrals SET survey_completed = TRUE", rows: [] },
@@ -378,14 +378,25 @@ describe("qualifyReferralReward", () => {
     assert.match(result.month, monthRe);
   });
 
-  it("books a free_month reward and marks referral qualified on the happy path", async () => {
+  /*
+   * KORRIGIERT (P9/A1). Diese Erwartung war nachweislich falsch: sie hat
+   * `UPDATE referrals SET status = 'qualified'` als Soll festgeschrieben.
+   * Die CHECK-Bedingung `referrals_status_check` erlaubt aber nur
+   * pending, registered, survey_done, active, expired — an der echten Datenbank
+   * nachgestellt und mit Fehler 23514 bestaetigt. Der Mock-Pool kennt keine
+   * Constraints, darum blieb der Test gruen, waehrend der Schritt in Produktion
+   * jedes Mal abbrach: Gutschrift gebucht, `reward_applied` nie gesetzt, und
+   * damit die Wiederholungssperre offen (bis zu 6 Gutschriften statt einer).
+   * Sollzustand ist 'active' — der Endzustand, den auch getActiveReferralCount zaehlt.
+   */
+  it("bucht die Gutschrift und setzt das Referral auf 'active' (Wert, den die DB erlaubt)", async () => {
     const pool = trackingPool([
       { match: "r.reward_applied = FALSE", rows: [pendingReferral] },
       { match: "SELECT plan FROM subscriptions", rows: [{ plan: "INDIVIDUELL" }] },
       { match: "SELECT COUNT(*)::int AS total FROM referral_rewards", rows: [{ total: 0 }] },
       { match: "SELECT COUNT(*)::int AS cnt FROM referral_rewards", rows: [{ cnt: 0 }] },
       { match: "INSERT INTO referral_rewards", rows: [] },
-      { match: "UPDATE referrals SET status = 'qualified'", rows: [] },
+      { match: "UPDATE referrals SET status = 'active'", rows: [] },
     ]);
     const result = await svc.qualifyReferralReward(pool, "buyer1");
     assert.equal(result.ok, true);
@@ -400,8 +411,11 @@ describe("qualifyReferralReward", () => {
     assert.match(ins.params[3], /Gratis-Monat/);
     assert.match(ins.params[3], /INDIVIDUELL/);
     // Referral state transition.
-    const upd = findCall(pool.calls, "UPDATE referrals SET status = 'qualified'");
+    const upd = findCall(pool.calls, "UPDATE referrals SET status = 'active'");
     assert.deepEqual(upd.params, ["ref1"]);
+    // Gutschrift und Sperrvermerk muessen gemeinsam gelten, sonst bleibt bei
+    // einem Fehler die Gutschrift ohne Sperre stehen.
+    assert.ok(findCall(pool.calls, "BEGIN"), "Reward-Buchung laeuft in einer Transaktion");
   });
 
   it("uses cashback description when reward_type is cashback", async () => {
@@ -412,7 +426,7 @@ describe("qualifyReferralReward", () => {
       { match: "SELECT COUNT(*)::int AS total FROM referral_rewards", rows: [{ total: 0 }] },
       { match: "SELECT COUNT(*)::int AS cnt FROM referral_rewards", rows: [{ cnt: 0 }] },
       { match: "INSERT INTO referral_rewards", rows: [] },
-      { match: "UPDATE referrals SET status = 'qualified'", rows: [] },
+      { match: "UPDATE referrals SET status = 'active'", rows: [] },
     ]);
     const result = await svc.qualifyReferralReward(pool, "buyer2");
     assert.equal(result.ok, true);

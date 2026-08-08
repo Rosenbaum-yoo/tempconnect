@@ -7,6 +7,7 @@
  */
 
 import crypto from "crypto";
+import { withTransaction } from "../utils/transaction.js";
 
 const MAX_REFERRAL_REWARDS = 6;
 const MAX_REWARDS_PER_MONTH = 1;
@@ -152,7 +153,9 @@ export async function submitSurvey(pool, userId, surveyData) {
   const { rows: refRows } = await pool.query(
     `SELECT r.* FROM referrals r
      WHERE r.referred_user_id = $1
-       AND r.status IN ('registered','survey_done','qualified')
+       -- 'active' ist der Endzustand nach gebuchter Gutschrift. Hier stand
+       -- 'qualified' — ein Wert, den die CHECK-Bedingung nie zugelassen hat.
+       AND r.status IN ('registered','survey_done','active')
      ORDER BY r.created_at ASC LIMIT 1`,
     [userId]
   );
@@ -238,16 +241,31 @@ export async function qualifyReferralReward(pool, referredUserId) {
     ? `Gratis-Monat: ${referral.referred_email} hat qualifiziertes Abo (${referredPlan}) abgeschlossen`
     : `Monatsgutschrift: ${referral.referred_email} hat qualifiziertes Abo (${referredPlan}) abgeschlossen`;
 
-  await pool.query(
-    `INSERT INTO referral_rewards (user_id, referral_id, reward_type, description, month_label)
-     VALUES ($1, $2, $3, $4, $5)`,
-    [referral.referrer_id, referral.id, rewardType, description, monthLabel]
-  );
+  // Gutschrift und Sperrvermerk gehoeren zusammen.
+  //
+  // Vorher waren das zwei getrennte Aufrufe, und der zweite schrieb den Status
+  // 'qualified'. Diesen Wert kennt die CHECK-Bedingung `referrals_status_check`
+  // nicht (erlaubt sind pending, registered, survey_done, active, expired) —
+  // das UPDATE brach also immer ab. Die Gutschrift war da zwar schon gebucht,
+  // aber `reward_applied` blieb FALSE. Genau dieses Feld ist oben in Schritt 1
+  // die Wiederholungssperre: der naechste Lauf fand dasselbe Referral erneut und
+  // buchte noch eine Gutschrift — bis zu 6 statt einer pro geworbenem Kunden.
+  //
+  // 'active' ist der von der Datenbank vorgesehene Endzustand und zugleich der
+  // Wert, den `getActiveReferralCount` zaehlt. Damit zaehlt ein erfolgreich
+  // geworbenes Unternehmen endlich fuer das Netzwerk-Builder-Bounty.
+  await withTransaction(pool, async (client) => {
+    await client.query(
+      `INSERT INTO referral_rewards (user_id, referral_id, reward_type, description, month_label)
+       VALUES ($1, $2, $3, $4, $5)`,
+      [referral.referrer_id, referral.id, rewardType, description, monthLabel]
+    );
 
-  await pool.query(
-    `UPDATE referrals SET status = 'qualified', reward_applied = TRUE, reward_applied_at = NOW(), updated_at = NOW() WHERE id = $1`,
-    [referral.id]
-  );
+    await client.query(
+      `UPDATE referrals SET status = 'active', reward_applied = TRUE, reward_applied_at = NOW(), updated_at = NOW() WHERE id = $1`,
+      [referral.id]
+    );
+  });
 
   return { ok: true, referral_id: referral.id, reward_type: rewardType, month: monthLabel };
 }
