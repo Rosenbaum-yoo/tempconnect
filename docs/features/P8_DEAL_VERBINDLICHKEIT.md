@@ -520,6 +520,45 @@ Ohne passende Kraft erscheint eine ehrliche Leermeldung, kein leeres Kästchen.
 
 ---
 
+## 5b. Nachprüfung des Ursprungsauftrags (2026-08-07)
+
+Der Owner-Auftrag wurde nach Abschluss aller Wellen noch einmal Satz für Satz gegen den
+gebauten Stand gehalten. Alles erfüllt — mit **einer** Einschränkung, die hier festgehalten
+gehört, weil sie beim ersten Durchgang nicht auffiel.
+
+| Ursprungssatz | Stand |
+|---|---|
+| „Möglichkeiten für beide Seiten, Deals zurückzunehmen bzw. abzubrechen" | ✅ Welle A, beidseitig, Seite aus der Sitzung |
+| „Sollten wir dazu Strafen aufstellen?" | ✅ entschieden: nein (3.1) — Strafen erzeugen Ausweichverhalten |
+| „Oder in den Bountys verankern (bei 0 Rücknahmen = -%)" | ⚠️ **siehe unten** |
+| „Deals verpflichtend wie Artikelverkauf?" | ✅ entschieden: nein (3.3) — erzeugt Falschangaben statt Verbindlichkeit |
+| „Deal-Abschluss mit mehreren Schritten im Modal" | ✅ Welle D, 3 Schritte + 2 beim Storno |
+| „Was sollte in 3 Schritten abgefragt werden?" | ✅ Was / Wer & Wie / Verbindlichkeit — Begründung in 3.4 |
+| „Beim Überfahren sehen, welcher Worker frei ist, ob voll besetzbar" | ✅ Welle E, anonym, 0 Feed-Kosten |
+
+### Die Einschränkung: „-% auf das Konto bzw. nächste Abrechnung"
+
+Der Ursprungsauftrag verlangt den Rabatt **auf der Abrechnung**. Gebaut ist er als
+Rabattprozent im Bounty-System — und dort endet er auch:
+
+`getUserDiscount()` wird ausschließlich von Anzeige-Pfaden aufgerufen
+(`GET /api/bounties/discount`, Wertbericht, Bounty-Statusseite). Im gesamten Geldpfad —
+`invoiceService`, `recurringBillingService`, `paymentService`, `planCatalog` — kommt
+`discount` **kein einziges Mal** vor; `createInvoice(pool, {amountCents})` nimmt einen rohen
+Betrag und zieht nichts ab.
+
+**Die Plattform zeigt einen Rabatt an und stellt die volle Summe in Rechnung.** Dieselbe
+Fehlerklasse wie `deal_success_rate` vor Welle B — diesmal aber mit Geld statt Sichtbarkeit,
+und damit die unangenehmere Variante: Ein Kunde, der „6 % Rabatt" liest und eine ungekürzte
+Rechnung bekommt, hat recht, wenn er sich beschwert.
+
+Das ist **bewusst nicht in P8 repariert**: Es gehört in die Abrechnungskette, nicht in die
+Deal-Verbindlichkeit, und es berührt eine offene Preisfrage (jede Rechnung oder nur der
+Jahresvertrag?). Übergeben an
+**[P9 Spur A, Welle A4](P9_BOUNTY_MERKLISTE_ENTITLEMENTS.md)** samt Owner-Entscheidung A-E1.
+
+---
+
 ## 6. Reihenfolge und Begründung
 
 **A → B → C → D**, E jederzeit unabhängig. — *So gebaut; alle fünf Wellen liegen vor.*
