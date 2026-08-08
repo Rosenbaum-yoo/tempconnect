@@ -576,9 +576,43 @@
     function resolveRateCardAccess(me) {
       var plan = normalizePlan(me && me.plan);
       var roleType = String(me && me.role || '').toLowerCase();
-      var planAllowed = typeof PlanFeatures !== 'undefined'
-        ? PlanFeatures.hasFeature(plan, 'rate_card_management')
-        : (plan === 'PRO' || plan === 'INDIVIDUELL');
+
+      /* P9 C1 — die Zugriffslage kommt vom Server, nicht aus dieser Datei.
+         `/api/me` liefert `surface_access.rate_cards` bereits fertig aufgeloest
+         (Plan + Org-Typ + Rolle) aus `enterpriseSurfaceAccessService` — derselben
+         Wahrheit, die auch die Backend-Guards benutzen. Diese Seite hat die Regel
+         danebengestellt nachgebaut, und der Nachbau war kaputt:
+         `PlanFeatures.hasFeature()` liest aus einer Matrix, die erst
+         `PlanFeatures.load()` per `/api/plan-features` fuellt — diese Seite ruft
+         `load()` nie auf und bindet auch `slaGuard.js` nicht ein. Die Matrix blieb
+         also dauerhaft leer, `hasFeature()` lieferte immer `false`, und die Seite
+         war fuer JEDEN Nutzer auf JEDEM Plan `plan_locked`. `hasFeature` kann
+         "nicht erlaubt" nicht von "noch nicht geladen" unterscheiden. */
+      var srv = me && me.surface_access && me.surface_access.rate_cards;
+      if (srv && srv.mode) {
+        var lagen = {
+          full:        { tone: 'good', canRead: true,  titleKey: '',                          textKey: '' },
+          read_only:   { tone: 'info', canRead: true,  titleKey: 'sc.b.access.readonlyTitle', textKey: 'sc.b.access.readonlyText' },
+          plan_locked: { tone: 'warn', canRead: false, titleKey: 'sc.b.access.planTitle',     textKey: 'sc.b.access.planText' },
+          org_locked:  { tone: 'info', canRead: false, titleKey: 'sc.b.access.agencyTitle',   textKey: 'sc.b.access.agencyText' },
+          role_locked: { tone: 'warn', canRead: false, titleKey: 'sc.b.access.roleTitle',     textKey: 'sc.b.access.roleText' }
+        };
+        var lage = lagen[srv.mode];
+        if (lage) {
+          return {
+            mode: srv.mode,
+            tone: lage.tone,
+            canRead: srv.canRead != null ? !!srv.canRead : lage.canRead,
+            canWrite: !!srv.canWrite,
+            titleKey: lage.titleKey,
+            textKey: lage.textKey
+          };
+        }
+      }
+
+      /* Ersatzweg, falls eine alte Sitzung noch kein `surface_access` liefert.
+         Bewusst OHNE `PlanFeatures.hasFeature` — siehe oben. */
+      var planAllowed = (plan === 'PRO' || plan === 'INDIVIDUELL');
 
       if (!me) {
         return {
