@@ -116,6 +116,20 @@ auf einer Bedingung auf, die vielleicht nichts misst.
 > **Gemeldet, nicht behoben:** der Notdienst-Antwortpfad liefert produktiv 500, weil zwei Spalten
 > abgefragt werden, die es nicht gibt — `OPEN_BLOCKERS.md`, P1-15.
 > Nächste Welle: **A4** (Rabatt erreicht die Rechnung — monatlich, wie entschieden).
+
+> **A4 ist erledigt** *(2026-08-09)*. Der schwerste Einzelbefund ist geschlossen: Die Rechnung
+> weist den Treue-Rabatt jetzt **getrennt** aus (Brutto, Satz, Abzug, Quelle — Migration 170) und
+> die monatliche Folgerechnung zieht ihn wirklich ab. Der Satz ist **eingefroren**: ein späterer
+> Bounty-Verlust ändert keine gestellte Rechnung. Rückwärtsprobe erfüllt — ohne Bounty ist der
+> Betrag identisch zu vorher.
+> **Bewusst nicht** im Stripe-Checkout eingerechnet: der läuft im Abo-Modus mit festem Preis, ein
+> Rabatt dort gälte für immer und widerspräche „monatlich neu bewertet". Begründung steht im Code
+> und wird per Test gehalten; bei scharfem Stripe-Recurring ist ein Coupon je Rechnung der Weg.
+> **Nebenbei gefunden:** jede Rechnung trug einen Abrechnungszeitraum, der **einen Tag zu früh**
+> begann (der klassische UTC-Off-by-one, den die DACH-first-Regel benennt) — behoben. Und ein
+> Datenbank-Trigger schützt jetzt die fremden Schreibpfade (operative Rechnungen, Korrekturläufe),
+> die an der neuen Prüfregel gebrochen wären.
+> Nächste Welle: **A5** (selbstlaufende Anstupser — per E-Mail erlaubt, A-E2).
 > Nächste Welle: **A3** (falsche Pfade und Zeitfenster) oder **A4** (Rabatt erreicht die Rechnung).
 
 > **Der schwerste Einzelbefund aus der Bestandsaufnahme:** Der Bounty-Rabatt erreicht keine

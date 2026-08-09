@@ -34,6 +34,9 @@
  */
 
 import * as invoiceService from "./invoiceService.js";
+// P9/A4: Der Treue-Rabatt wirkt auf JEDE Folgerechnung (Owner-Entscheidung A-E1,
+// 2026-08-08 — monatlich, nicht nur auf den Jahresvertrag).
+import { getUserDiscount } from "./bountyService.js";
 import * as auditLog from "./auditLog.js";
 import { getPlanPriceCentsByKey, normalizePlanKey } from "../config/planCatalog.js";
 import { dunningEmail } from "./emailHtmlTemplates.js";
@@ -218,6 +221,18 @@ export async function generateRecurringInvoices(pool, opts = {}) {
       // bis COMMIT und ist zugleich Idempotenz-/Concurrency-Guard (kein Doppel-Invoice).
       // createInvoice erhält den Transaktions-Client; withTransaction erkennt den geschachtelten
       // Client (.release vorhanden) und öffnet KEINE zweite Transaktion.
+      // Rabattsatz VOR der Transaktion aufloesen: es ist ein Lesevorgang ueber
+      // mehrere Tabellen und haette in der Transaktion nur die Sperre verlaengert.
+      // Faellt er aus, wird trotzdem abgerechnet — aber sichtbar, nicht stumm:
+      // eine Rechnung ohne Rabatt ist ein Fehler, den jemand sehen muss.
+      let rabattSatz = 0;
+      try {
+        rabattSatz = Number(await getUserDiscount(pool, s.user_id)) || 0;
+      } catch (e) {
+        logger?.warn?.({ err: e?.message, userId: s.user_id },
+          "Folgerechnung: Rabattsatz nicht ermittelbar, Rechnung ohne Rabatt");
+      }
+
       const invoice = await withTransaction(pool, async (client) => {
         const { rowCount } = await client.query(
           `UPDATE subscriptions
@@ -232,7 +247,12 @@ export async function generateRecurringInvoices(pool, opts = {}) {
           userId: s.user_id,
           plan: s.plan,
           amountCents: Number(billing.amountCents),
+          // Eingefroren: der Satz von heute steht in dieser Zeile. Verliert der
+          // Kunde das Bounty naechsten Monat, bleibt diese Rechnung unveraendert.
+          discountPct: rabattSatz,
+          discountSource: rabattSatz > 0 ? "bounty" : null,
           notes: `Automatische Folgerechnung (Abo-Verlängerung) — Periode ab ${new Date(s.current_period_end).toISOString().slice(0, 10)}`
+            + (rabattSatz > 0 ? ` · Treue-Rabatt ${rabattSatz} % beruecksichtigt` : "")
         });
       });
 

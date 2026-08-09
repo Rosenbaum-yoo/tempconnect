@@ -396,6 +396,67 @@ byte-identisch zu heute.
 > Rechnung, nicht nur auf den Jahresvertrag. Der Jahresplan-Rechner auf der Bounty-Seite
 > bleibt als Zusatzargument bestehen, ist aber nicht mehr die einzige Wirkstelle.
 
+### A4 ist erledigt *(2026-08-09)*
+
+Der schwerste Einzelbefund der Bestandsaufnahme ist geschlossen: Die Plattform zeigte einen
+Treue-Rabatt an und stellte den vollen Betrag in Rechnung.
+
+**Die Rechnung weist den Rabatt jetzt getrennt aus** (Migration 170): Bruttobetrag, Satz,
+Abzugsbetrag und Quelle stehen als eigene Spalten neben dem Nettobetrag. Bewusst **kein** stiller
+Abzug auf `amount_cents` — sonst stünde bei einer Rückfrage des Kunden oder in einer Prüfung eine
+Zahl ohne Herkunft.
+
+**Eingefroren:** Der Satz steht in der Zeile. Verliert der Kunde das Bounty im Juni, bleibt die
+Mai-Rechnung unverändert. Sie ist ein Beleg, kein Ausblick.
+
+**Rückwärtsprobe erfüllt:** Ohne Bounty sind Betrag, Steuer und Summe identisch zu vorher — mit
+Test festgehalten.
+
+#### Drei Entscheidungen, die Begründung verdienen
+
+**1. Der Rabatt gilt auf den Plan, nicht auf Einmalgebühren.** Ein Treuerabatt bezieht sich auf das
+Abo, nicht auf eine gebuchte Premium-Anzeige. Bei 10 % auf 799 € Plan + 50 € Anzeige werden 79,90 €
+abgezogen, nicht 84,90 €.
+
+**2. Keine Minus-Position in `invoice_items`.** Der naheliegende Weg wäre eine Rabattzeile mit
+negativem Betrag. Die Tabelle hat aber `CHECK (unit_amount_cents >= 0)` und
+`CHECK (total_cents >= 0)`. Eine Geld-Schutzregel aufzuweichen, nur um eine Darstellung zu
+ermöglichen, ist der falsche Tausch — die Spalten weisen den Rabatt genauso getrennt aus.
+
+**3. Der Stripe-Checkout rechnet bewusst keinen Rabatt ein.** Er läuft im Abo-Modus mit festem
+`price_data`. Ein dort eingerechneter Rabatt gälte für **jede** künftige Abbuchung, dauerhaft
+eingefroren: Verliert der Kunde das Bounty, zöge Stripe trotzdem weiter reduziert ein; verdient er
+eines dazu, käme es nie an. Das widerspricht A-E1 („monatlich" heißt monatlich **neu** bewertet).
+Der Rabatt wirkt deshalb dort, wo die Forderung monatlich neu entsteht. Die Rechnung, die der
+Checkout über den Webhook erzeugt, bekommt bewusst keinen Rabatt — sie ist ein Beleg über das, was
+Stripe eingezogen hat, und muss auf den Cent damit übereinstimmen. Wird Stripe-Wiederkehr scharf
+geschaltet, ist der richtige Weg ein Coupon je Rechnung, kein gesenkter Abo-Preis. Die Begründung
+steht im Code und wird per Test dort gehalten.
+
+#### Zwei Funde nebenbei
+
+**Jede Rechnung trug einen Abrechnungszeitraum, der einen Tag zu früh begann.**
+`new Date(jahr, monat, 1).toISOString().split("T")[0]` ist lokale Mitternacht, die in der
+Sommerzeit zwei Stunden zurückgeschoben wird — auf den **letzten Tag des Vormonats**. Auf einem
+Beleg ist das kein Schönheitsfehler. Behoben mit `dateOnlyDE`, genau der Off-by-one, den die
+DACH-first-Regel des Projekts benennt. Gefunden beim Schreiben des Tests, nicht gesucht.
+
+**Fremde Schreibpfade hätten an der neuen Prüfregel gebrochen.** `operationalInvoiceService` legt
+operative Rechnungen an, ohne die neuen Spalten zu kennen, und rechnet bei Korrekturen
+`amount_cents` aus der Positionssumme neu. Statt jeden Schreiber einzeln nachzurüsten (und den
+nächsten zu vergessen), hängt die Folge an der Ursache: ein Trigger setzt den Bruttobetrag für
+rabattfreie Rechnungen selbst. Wer einen Rabatt ausweist, muss beide Werte bewusst liefern — genau
+dort soll es auffallen. An der echten Datenbank in drei Fällen nachgemessen.
+
+**Gate A4 erfüllt.** `api/test/rechnungRabatt.test.js` (14 Prüfungen): getrennter Ausweis,
+Rückwärtsprobe, Einfrieren, Rabatt nur auf den Plan, kein negativer Endbetrag, der echte
+Folgerechnungs-Pfad mit eingeschleustem `createInvoice`, und DB-gestützt die Prüfregel samt Trigger.
+
+**Sichtbar für die Buchhaltung:** Der CSV-Export trägt drei neue Spalten (`gross_eur`,
+`discount_pct`, `discount_eur`) — angehängt, nicht einsortiert, damit positionsbasierte Abnehmer
+nicht brechen. Ein niedrigerer Betrag ohne Begründung wäre in der Buchhaltung dasselbe Problem wie
+auf der Rechnung.
+
 #### Welle A5 — Selbstlaufende Anstupser
 
 Benachrichtigungen zum Bounty-Status über den bestehenden `dispatch()`-Pfad und die

@@ -19,8 +19,25 @@ describe("exportInvoicesCsv — header", () => {
     const header = csv.split("\n")[0];
     assert.strictEqual(
       header,
-      "invoice_number,billing_name,plan,billing_period_start,billing_period_end,amount_eur,tax_eur,total_eur,status,issued_at,paid_at"
+      "invoice_number,billing_name,plan,billing_period_start,billing_period_end,"
+      + "amount_eur,tax_eur,total_eur,status,issued_at,paid_at,"
+      // P9/A4: ohne diese drei steht in der Buchhaltung ein niedrigerer Betrag
+      // ohne Begruendung.
+      + "gross_eur,discount_pct,discount_eur"
     );
+  });
+
+  it("die bestehenden Spalten behalten ihre Position", () => {
+    // Neue Spalten werden ANGEHAENGT, nicht einsortiert: wer die Datei
+    // positionsbasiert einliest (Buchhaltungssoftware, Makros), braeche sonst
+    // beim naechsten Feld, das jemand fuer "logisch passender" haelt.
+    const spalten = exportInvoicesCsv([]).split("\n")[0].split(",");
+    assert.deepEqual(spalten.slice(0, 11), [
+      "invoice_number", "billing_name", "plan",
+      "billing_period_start", "billing_period_end",
+      "amount_eur", "tax_eur", "total_eur",
+      "status", "issued_at", "paid_at"
+    ]);
   });
 });
 

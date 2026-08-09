@@ -143,6 +143,25 @@ export function createPaymentRouter(deps) {
       res.locals.audit = { action: "payment.checkout", entity_type: "payment_session", entity_id: checkoutId, details: { plan, method: "demo", amount: planInfo.price } };
       return res.json({ checkout_id: checkoutId, mode: "demo", plan, amount: planInfo.price, currency: "EUR" });
     }
+    // P9/A4 — WARUM HIER KEIN BOUNTY-RABATT EINGERECHNET WIRD
+    //
+    // Naheliegend waere, `unit_amount` um den Treue-Rabatt zu senken. Das waere
+    // falsch: der Checkout laeuft im Stripe-Modus `subscription` mit festem
+    // `price_data`. Ein dort eingerechneter Rabatt gilt fuer JEDE kuenftige
+    // Abbuchung — dauerhaft eingefroren. Verliert der Kunde sein Bounty, zoege
+    // Stripe trotzdem weiter den reduzierten Betrag ein; verdient er ein weiteres
+    // dazu, kaeme es nie an. Beides widerspricht der Owner-Entscheidung A-E1
+    // ("monatlich, auf jede Rechnung" — also monatlich NEU bewertet).
+    //
+    // Der Rabatt wirkt darum dort, wo die Forderung monatlich neu entsteht:
+    // `recurringBillingService` → `invoiceService.createInvoice`. Die Rechnung,
+    // die dieser Checkout ueber den Webhook erzeugt, bekommt bewusst KEINEN
+    // Rabatt uebergeben — sie ist ein Beleg ueber das, was Stripe eingezogen hat,
+    // und muss auf den Cent damit uebereinstimmen.
+    //
+    // Wenn Stripe-Wiederkehr scharf geschaltet wird, ist der richtige Weg ein
+    // Coupon je Rechnung (invoice-level), nicht ein gesenkter Abo-Preis.
+    // Festgehalten in docs/releases/OPEN_BLOCKERS.md.
     if (paymentMethod === "stripe" && stripe) {
       try {
         const stripeSession = await stripe.checkout.sessions.create({

@@ -10,8 +10,30 @@
 
 import { withTransaction } from "../utils/transaction.js";
 import { swallow } from "../utils/logger.js";
+import { dateOnlyDE } from "../utils/dateDE.js";
 
 const TAX_RATE_PCT = 19.0;
+
+/**
+ * Rechnet den Bounty-Rabatt aus (P9 Welle A4).
+ *
+ * Der Rabatt gilt auf den PLANBETRAG, nicht auf Einmalgebuehren: ein Treuerabatt
+ * bezieht sich auf das Abo, nicht auf eine gebuchte Premium-Anzeige. Ihn dort
+ * mitlaufen zu lassen waere grosszuegig, aber unsauber — und beim naechsten
+ * Preisgespraech nicht mehr erklaerbar.
+ *
+ * Kaufmaennisch gerundet und nach oben gedeckelt: mehr als der Planbetrag kann
+ * nie abgezogen werden, auch wenn eine Fehlkonfiguration >100 % liefert.
+ *
+ * @returns {{ satz: number, betragCents: number }}
+ */
+export function berechneRabatt(planNettoCents, rabattProzent) {
+  const satz = Number(rabattProzent);
+  if (!Number.isFinite(satz) || satz <= 0) return { satz: 0, betragCents: 0 };
+  const begrenzt = Math.min(100, satz);
+  const betrag = Math.min(planNettoCents, Math.round(planNettoCents * begrenzt / 100));
+  return { satz: begrenzt, betragCents: Math.max(0, betrag) };
+}
 
 /**
  * Generate a sequential invoice number from the DB sequence.
@@ -40,7 +62,14 @@ async function nextInvoiceNumber(client) {
  * @returns {Promise<object>} Invoice row
  */
 export async function createInvoice(pool, opts) {
-  const { orgId, userId, plan, amountCents, paymentSessionId, stripeInvoiceId, notes } = opts;
+  const {
+    orgId, userId, plan, amountCents, paymentSessionId, stripeInvoiceId, notes,
+    // P9/A4: Rabattsatz wird vom Aufrufer uebergeben und hier EINGEFROREN.
+    // Bewusst nicht selbst nachgeschlagen: der Aufrufer weiss, ob der Betrag
+    // bereits rabattiert eingezogen wurde (Stripe-Checkout) oder ob dieser
+    // Beleg die Forderung selbst ist (Folgerechnung).
+    discountPct, discountSource
+  } = opts;
   const normalizedAmountCents = Number(amountCents);
   if (!plan || !Number.isFinite(normalizedAmountCents) || normalizedAmountCents < 0) {
     throw new Error("INVALID_INVOICE_INPUT");
@@ -60,7 +89,13 @@ export async function createInvoice(pool, opts) {
     const { lockPendingCharges, markChargesInvoiced } = await import("./premiumListingService.js");
     const premiumCharges = orgId ? await lockPendingCharges(client, orgId) : [];
     const premiumCents = premiumCharges.reduce((s, c) => s + (Number(c.amount_cents) || 0), 0);
-    const combinedNetCents = netAmountCents + premiumCents;
+
+    // P9/A4: Der Rabatt greift auf den Planbetrag, nicht auf die Einmalgebuehren.
+    // Ohne Rabatt sind bruttoNettoCents und combinedNetCents identisch — der
+    // Betrag ist dann byte-genau der von vorher.
+    const rabatt = berechneRabatt(netAmountCents, discountPct);
+    const bruttoNettoCents = netAmountCents + premiumCents;
+    const combinedNetCents = bruttoNettoCents - rabatt.betragCents;
     const taxAmount = Math.round(combinedNetCents * TAX_RATE_PCT / 100);
     const totalCents = combinedNetCents + taxAmount;
 
@@ -70,15 +105,24 @@ export async function createInvoice(pool, opts) {
          billing_period_start, billing_period_end,
          plan, amount_cents, tax_rate_pct, tax_amount_cents, total_cents,
          currency, status, payment_session_id, stripe_invoice_id,
-         issued_at, due_at, notes
-       ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,'issued',$12,$13,NOW(),$14,$15)
+         issued_at, due_at, notes,
+         gross_amount_cents, discount_pct, discount_amount_cents, discount_source
+       ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,'issued',$12,$13,NOW(),$14,$15,$16,$17,$18,$19)
        RETURNING *`,
       [
         invoiceNumber,
         orgId || null,
         userId,
-        periodStart.toISOString().split("T")[0],
-        periodEnd.toISOString().split("T")[0],
+        // dateOnlyDE statt toISOString().split("T")[0]:
+        //
+        // `new Date(jahr, monat, 1)` ist lokale Mitternacht. In der Sommerzeit
+        // (+02:00) schiebt toISOString() das um zwei Stunden zurueck — auf den
+        // letzten Tag des VORMONATS. Jede Rechnung trug damit einen
+        // Abrechnungszeitraum, der einen Tag zu frueh begann und endete; auf
+        // einem Beleg ist das kein Schoenheitsfehler. Genau der Off-by-one, den
+        // die DACH-first-Regel des Projekts benennt.
+        dateOnlyDE(periodStart),
+        dateOnlyDE(periodEnd),
         plan,
         combinedNetCents,
         TAX_RATE_PCT,
@@ -88,7 +132,11 @@ export async function createInvoice(pool, opts) {
         paymentSessionId || null,
         stripeInvoiceId || null,
         dueAt.toISOString(),
-        notes || null
+        notes || null,
+        bruttoNettoCents,
+        rabatt.satz,
+        rabatt.betragCents,
+        rabatt.betragCents > 0 ? (discountSource || "bounty") : null
       ]
     );
 
@@ -234,7 +282,12 @@ export function exportInvoicesCsv(invoices) {
     "invoice_number", "billing_name", "plan",
     "billing_period_start", "billing_period_end",
     "amount_eur", "tax_eur", "total_eur",
-    "status", "issued_at", "paid_at"
+    "status", "issued_at", "paid_at",
+    // P9/A4 bewusst ANGEHAENGT statt einsortiert: wer die Datei positionsbasiert
+    // liest, bricht sonst. Ohne diese drei Spalten steht in der Buchhaltung ein
+    // niedrigerer Betrag ohne Begruendung — genau das, was die Rabattfelder
+    // verhindern sollen.
+    "gross_eur", "discount_pct", "discount_eur"
   ];
 
   const esc = (v) => {
@@ -255,8 +308,11 @@ export function exportInvoicesCsv(invoices) {
     esc(((inv.tax_amount_cents || 0) / 100).toFixed(2)),
     esc(((inv.total_cents || 0) / 100).toFixed(2)),
     esc(inv.status),
-    esc(inv.issued_at ? new Date(inv.issued_at).toISOString().split("T")[0] : ""),
-    esc(inv.paid_at ? new Date(inv.paid_at).toISOString().split("T")[0] : "")
+    esc(inv.issued_at ? dateOnlyDE(inv.issued_at) : ""),
+    esc(inv.paid_at ? dateOnlyDE(inv.paid_at) : ""),
+    esc((((inv.gross_amount_cents ?? inv.amount_cents) || 0) / 100).toFixed(2)),
+    esc(Number(inv.discount_pct || 0).toFixed(2)),
+    esc(((inv.discount_amount_cents || 0) / 100).toFixed(2))
   ].join(","));
 
   return [headers.join(","), ...rows].join("\n");
