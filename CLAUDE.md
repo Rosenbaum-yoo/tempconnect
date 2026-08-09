@@ -128,6 +128,27 @@ Naechster Schritt:
   - Support-Ops (`/support-ops/`)
 - Keine Vermischung von Session-/Berechtigungswelten.
 
+### Wofür welche Fläche da ist (Owner-Vorgabe 2026-08-08, verbindlich)
+
+Die Trennung oben sagt, dass die Flächen getrennt bleiben müssen. Sie sagt nicht, **was** in
+welche gehört — diese Lücke hat schon einmal zu einer Fehlplatzierung geführt. Deshalb:
+
+| Fläche | Für wen | Wofür |
+|---|---|---|
+| **Staff Control Center** | das TempConnect-Team | Verwaltung der Plattform: Pilotverwaltung, Kataloge, Moderation, Konfiguration |
+| **Owner Control Center** | die Eigentümer | der **kundenspezifische** Verwaltungsaufwand |
+| **Support Center** | Support | Anfragen aus dem Publikum an TempConnect **und** Support zwischen Zeitarbeitsfirmen und Unternehmen, beidseitig |
+
+**Entscheidungsfrage vor jedem neuen Modul, in dieser Reihenfolge:**
+1. Kommt es von außen oder läuft es zwischen zwei Kunden? → Support Center
+2. Betrifft es genau **einen** Kunden (Vertrag, Konditionen, Eskalation)? → OCC
+3. Betrifft es die Plattform als Ganzes oder die Arbeit des Teams? → Staff CC
+
+„Es geht um Geld" verschiebt nichts in die Owner-Fläche — maßgeblich ist, **wen** die Sache
+betrifft, nicht wie schwer sie wiegt. Ist die Antwort nicht eindeutig, wird **gefragt**, nicht
+abgeleitet: Produkt-Taxonomie steht nicht im Code. Vollständig inkl. Registry und
+Namenskollisionen: `docs/FLAECHEN.md`, erzwungen durch `api/test/flaechenZuordnung.test.js`.
+
 ## Backend-Regeln
 - Routen nur fuer HTTP/Validation; Business-Logik in `api/services/*`.
 - Zod-Validation an Eingangsgrenzen.
