@@ -90,6 +90,30 @@ gemeldet, halten aber nicht) · 3 owner-gated.
 > Attrappe ersetzt — bei P1-07 stand `alwaysPassAuth` statt `requireAuth` im Test, und das
 > Gate wurde nie erreicht.
 
+### Nachtrag 2026-08-09 — ein Punkt aus P9/A3
+
+**P1-15 🟠 Der Notdienst-Antwortpfad ist tot (500 in Produktion).**
+`api/services/emergencyStaffingService.js` liest und schreibt an vier Stellen
+(`:265-267`, `:322-326`, `:431`, `:451-452`) die Spalten
+`demand_requests.supplier_response_count` und `.first_supplier_response_at`.
+**Beide existieren nicht** — kein Treffer in `sql/`, live bestätigt mit
+`ERROR: column "supplier_response_count" does not exist`. Folge:
+`POST /api/emergency/:id/respond` (`routes/emergency.js:141`) und
+`GET /api/emergency/dashboard` (`:129`) laufen in den `catch` und liefern **500**.
+Der einzige Endpunkt, der eine Notdienst-Reaktion erfassen soll, funktioniert nicht.
+
+Die zugehörigen Tests sind grün, weil ihre Mock-Pools die Spalten erfinden
+(`emergencyStaffing.test.js:187`, `emergencyStaffingService.coverage.test.js:424/442`,
+`emergency.route.coverage.test.js:336`) — dieselbe Blindstelle, die in der
+Pre-Launch-Review schon einmal einen Webhook-Defekt durchgelassen hat.
+
+Zwei Wege: entweder die Spalten per Migration nachziehen, oder auf das bereits
+vorhandene `demand_requests.latest_response_at` umstellen (Mig 070, gesetzt in
+`emergencyCommitmentService.js:127-132`, heute 0 von 38 Zeilen belegt). Der zweite
+Weg ist der ehrlichere — die Spalte existiert und wird bereits gepflegt.
+Nicht in P9/A3 behoben: A3 macht Bounty-Beschreibungen ehrlich, es repariert nicht
+den Notdienst-Fluss. Der Fund stammt aus derselben Prüfung.
+
 ### Nachtrag 2026-08-08 — zwei neue Punkte aus P9/A1
 
 **P1-14 🟠 `reputationService` hat keinen Aufrufer.** `recomputeReputation` wird nur von

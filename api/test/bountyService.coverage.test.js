@@ -138,10 +138,23 @@ describe("bountyService — evaluateBounties", () => {
       if (sql.includes("created_at, is_verified FROM users")) return ok([{ created_at: dataRows.userCreatedAt || null, is_verified: true }]);
       if (sql.includes("MIN(created_at) AS first_sub FROM subscriptions")) return ok([{ first_sub: dataRows.firstSubDate || null }]);
       if (sql.includes("FROM supplier_reputation WHERE supplier_id")) return ok(dataRows.reputation ? [dataRows.reputation] : []);
-      if (sql.includes("AVG(reliability)") && sql.includes("FROM ratings WHERE rated_id")) return ok([dataRows.ratingStats || {}]);
-      if (sql.includes("emergency_completed")) return ok([dataRows.deals || {}]);
+      // P9/A3: Bewertungen kommen jetzt in ZWEI Fenstern und mit
+      // Moderationsfilter. Die Fenster-Abfrage zuerst pruefen — sie enthaelt
+      // dieselbe Aggregation plus die Zeitgrenze.
+      if (sql.includes("AVG(r.reliability)") && sql.includes("INTERVAL '1 month'")) {
+        return ok([dataRows.ratingStatsFenster || dataRows.ratingStats || {}]);
+      }
+      if (sql.includes("AVG(r.reliability)")) return ok([dataRows.ratingStats || {}]);
+      // P9/A3: Abschluesse zaehlen beide Kanaele; Notdienst hat eine eigene Abfrage.
+      if (sql.includes("WITH abschluesse AS")) {
+        return ok([{ completed: (dataRows.deals || {}).completed || 0 }]);
+      }
+      if (sql.includes("emergency_completed")) {
+        return ok([{ emergency_completed: (dataRows.deals || {}).emergency_completed || 0 }]);
+      }
       if (sql.includes("avg_response_minutes")) return ok([dataRows.responseStats || {}]);
-      if (sql.includes("FROM capacity_posts")) return ok([{ active: dataRows.activeListings || 0 }]);
+      // P9/A3: gezaehlt wird, was im Fenster eingestellt wurde.
+      if (sql.includes("FROM capacity_posts")) return ok([{ eingestellt: dataRows.activeListings || 0 }]);
       if (sql.includes("FROM ratings WHERE rater_id")) return ok([{ given: dataRows.ratingsGiven || 0 }]);
       if (sql.includes("COUNT(*)::int AS total FROM supplier_reputation WHERE grade")) return ok([{ total: dataRows.repTotal || 0 }]);
       if (sql.includes("reputation_score >= $1")) return ok([{ rank: dataRows.rank || 0 }]);
@@ -482,10 +495,16 @@ describe("bountyService — checkAndAwardMilestones", () => {
       if (sql.includes("created_at, is_verified FROM users")) return ok([{ created_at: dataRows.userCreatedAt || null }]);
       if (sql.includes("MIN(created_at) AS first_sub")) return ok([{ first_sub: null }]);
       if (sql.includes("FROM supplier_reputation WHERE supplier_id")) return ok([]);
-      if (sql.includes("AVG(reliability)") && sql.includes("rated_id")) return ok([dataRows.ratingStats || {}]);
-      if (sql.includes("emergency_completed")) return ok([dataRows.deals || {}]);
+      if (sql.includes("AVG(r.reliability)")) return ok([dataRows.ratingStats || {}]);
+      // P9/A3: Abschluesse ueber beide Kanaele, Notdienst mit eigener Abfrage.
+      if (sql.includes("WITH abschluesse AS")) {
+        return ok([{ completed: (dataRows.deals || {}).completed || 0 }]);
+      }
+      if (sql.includes("emergency_completed")) {
+        return ok([{ emergency_completed: (dataRows.deals || {}).emergency_completed || 0 }]);
+      }
       if (sql.includes("avg_response_minutes")) return ok([dataRows.responseStats || {}]);
-      if (sql.includes("FROM capacity_posts")) return ok([{ active: 0 }]);
+      if (sql.includes("FROM capacity_posts")) return ok([{ eingestellt: 0 }]);
       if (sql.includes("FROM ratings WHERE rater_id")) return ok([{ given: dataRows.ratingsGiven || 0 }]);
       if (sql.includes("COUNT(*)::int AS total FROM supplier_reputation WHERE grade")) return ok([{ total: 0 }]);
       if (sql.includes("FROM referrals")) return ok([{ active: 0 }]);
@@ -554,7 +573,9 @@ describe("bountyService — getUserMilestones", () => {
 describe("bountyService — getValueReport", () => {
   function valuePool({ totalMatches, avgHours, memberSince, thisMonth, discountSum = 0, tierMax = 25 }) {
     return patternPool((sql) => {
-      if (sql.includes("AS total_matches")) return ok([{ total_matches: totalMatches }]);
+      // P9/A3: Der Wertbericht benutzt jetzt dieselbe Zaehlung wie das Bounty
+      // (zaehleAbschluesse) — vorher zaehlten beide getrennt und verschieden.
+      if (sql.includes("WITH abschluesse AS")) return ok([{ completed: totalMatches }]);
       if (sql.includes("AS avg_hours")) return ok([{ avg_hours: avgHours }]);
       if (sql.includes("created_at FROM users WHERE id")) return ok([{ created_at: memberSince }]);
       if (sql.includes("sent_this_month")) return ok([thisMonth || {}]);

@@ -312,6 +312,73 @@ Beschreibung **korrigieren**. Beides ist zulässig; Schweigen ist es nicht.
 **Gate A3:** Kein Bounty-Text behauptet einen Zeitraum, den die Bedingung nicht prüft. Ein
 Test hält das fest (Beschreibung ↔ `threshold_value` ↔ ausgewertete Felder).
 
+### A3 ist erledigt *(2026-08-09)*
+
+Sechs Bedingungen versprachen etwas anderes, als sie maßen. Vier werden jetzt **gemessen**,
+eine wurde **umgeschrieben**, eine kam beim Prüfen dazu.
+
+| Bounty | Vorher | Jetzt |
+|---|---|---|
+| `reliability_seal` | „6 Monate durchgehend", gemessen wurde der Gesamtschnitt | 6-Monats-Fenster wird gemessen; Mindestzahl steht im Text statt versteckt im Code |
+| `communication_pro` | zählte auch `pending` und **abgelehnte** Bewertungen | nur freigegebene — „Bewertung" heißt jetzt überall dasselbe |
+| `power_user` | nur Alt-Kanal, nur Anbieterseite, mit einem unerreichbaren Status | beide Kanäle, beide Marktseiten, entdoppelt |
+| `blitz_responder` | rechnete auf `updated_at`; Ignorieren **verbesserte** die Antwortzeit | Marktplatz-Kanal ab Benachrichtigung, Nenner aus `matches` |
+| `emergency_hero` | Alt-Quelle mit 0 Treffern seit jeher | `demand_requests.urgency = 'notdienst'` |
+| `marketplace_active` | „5 pro Monat über 6 Monate", gezählt wurde der Bestand | **umgeschrieben**: „in den letzten 6 Monaten eingestellt" |
+| `top_supplier` | „12 Monate durchgehend im Top 10 %" | **umgeschrieben**: „Aktuell im Top 10 %" — gemessen wird eine Momentaufnahme |
+
+**Warum `marketplace_active` als einziges umgeschrieben wurde.** Der Verlauf ist nachweislich
+nicht rekonstruierbar: `capacity_posts` hat keine Status-Historie — keine Historientabelle, keinen
+Trigger, und das Audit-Log deckt nur einen Teil der Übergänge ab (17 von 33 Posts haben gar keinen
+Eintrag). „War im März aktiv" ist für keinen einzigen Bestandspost belegbar. Der aktuelle Bestand
+als Ersatz wäre zudem fremdbestimmt: die Plan-Quote begrenzt ihn, und zwei automatische Abschalter
+(14 Tage ohne Bestätigung, Worker anderweitig reserviert) senken ihn ohne Zutun des Anbieters.
+Gemessen wird deshalb, was der Anbieter wirklich getan hat.
+
+**`top_supplier` hat der Wächter selbst gefunden** — nachdem ich alle fünf bekannten Fälle
+abgearbeitet hatte. Genau dafür ist er da.
+
+#### Drei Funde, die schwerer wiegen als die Zeitfenster
+
+**1. Bewertungen hatten eine Moderation, der Rabatt-Pfad ignorierte sie.** Eine Bewertung wird beim
+Anlegen als `pending` eingetragen (Mig 120); das öffentliche Profil zeigt nur Freigegebenes. Der
+Bounty-Pfad hatte diesen Filter nicht. Folge: eine frische Bewertung war auf dem Profil unsichtbar,
+zählte aber sofort auf einen Dauerrabatt — und eine als **Fälschung abgelehnte** Bewertung
+verschwand vom Profil, blieb aber im Rabatt-Schnitt stehen, weil `rejected` die Zeile nicht löscht.
+Am echten Datenbestand nachgewiesen und mit einem Test festgehalten, der eine Bewertung anlegt,
+ablehnt und prüft, dass sie aus der Zählung fällt, während ihre Zeile bestehen bleibt.
+
+**2. Ignorieren verbesserte die eigene Antwortzeit.** Die alte Messung mittelte
+`updated_at − created_at` über **alle** Anfragen der letzten 90 Tage. Bei nie beantworteten ist
+`updated_at ≈ created_at` — sie zogen den Schnitt nach unten. Dazu kommt: `updated_at` wird auf
+`requests` von SLA-Scans, Eskalationsstufen und der DSGVO-Anonymisierung mitgeschrieben und bedeutet
+nicht „beantwortet". Die SLA-Felder derselben Tabelle wären der richtige Ort — sie werden aber nie
+gefüllt: `markSlaMet` hat für `requests` keinen Aufrufer, alle 47 Zeilen stehen auf `sla_status='OK'`,
+**0** mit `sla_met_at`.
+
+**3. Zwei Zahlen für dieselbe Frage.** Der Wertbericht („erfolgreiche Matches") zählte anders als das
+Bounty — beide nur im Alt-Kanal, aber mit unterschiedlichem Personenbezug. Beide benutzen jetzt
+dieselbe Funktion `zaehleAbschluesse`. Nebenbei entfernt: der Status `'COMPLETED'` an drei Stellen,
+der auf `requests` nicht erreichbar ist (kein Codepfad führt hin, die Übergangstabelle kennt ihn nicht).
+
+#### Gemeldet, aber nicht in A3 behoben
+
+**Der Notdienst-Antwortpfad ist tot.** `emergencyStaffingService` liest und schreibt an vier Stellen
+`demand_requests.supplier_response_count` und `.first_supplier_response_at` — **beide Spalten
+existieren nicht** (kein Treffer in `sql/`, live bestätigt mit `column does not exist`). Folge:
+`POST /api/emergency/:id/respond` und `GET /api/emergency/dashboard` laufen in den Fehlerzweig und
+liefern **500**. Die zugehörigen Tests sind grün, weil ihre Attrappen die Spalte erfinden — dieselbe
+Blindstelle, die schon einmal einen Webhook-Defekt durchgelassen hat. Aufgenommen in
+`docs/releases/OPEN_BLOCKERS.md`.
+
+**Gate A3 erfüllt.** `api/test/bountyZeitfenster.test.js` hält Beschreibung, Schwellenwert und
+ausgewertetes Feld nebeneinander: 22 Prüfungen, darunter eine Registry, die eine neue Bedingung
+ohne bewusste Erklärung rot werden lässt, und der DB-gestützte Textabgleich über den echten Katalog.
+
+**Schwellenhöhen bleiben unverändert** — sie sind eine Geschäftsentscheidung. Zur Einordnung: mit der
+jetzt vollständigen Zählung liegt der höchste Wert im Bestand bei **12** von 50 geforderten
+Abschlüssen. Ob 50 die richtige Zahl ist, entscheidet der Owner.
+
 #### Welle A4 — Der Rabatt erreicht die Rechnung
 
 Der Kern von „voll verdrahten". `createInvoice` bekommt den Rabatt als eigenes Feld

@@ -103,6 +103,19 @@ auf einer Bedingung auf, die vielleicht nichts misst.
 > beiläufig im selben Request neu berechnet wurde. Übertragbare Lehre in `SKILL.md`: wer einen
 > Effekt an einen neuen Auslöser hängt, muss suchen, welcher *materialisierte abgeleitete*
 > Zustand bisher nur deshalb stimmte, weil der alte Pfad ihn mitgenommen hat.
+
+> **A3 ist erledigt** *(2026-08-09)*. Sieben Bounty-Texte sagen jetzt dasselbe wie ihre Messung:
+> vier werden **gemessen** (6-Monats-Fenster bei Bewertungen, beide Deal-Kanäle bei „erfolgreichen
+> Abschlüssen", echte Antwortzeit im Marktplatz-Kanal, Notdienst im lebenden Kanal), zwei wurden
+> **umgeschrieben**, weil das Versprochene nachweislich nicht messbar ist. Das siebte hat der
+> Wächter selbst gefunden, nachdem ich die bekannten fünf abgearbeitet hatte.
+> **Drei Funde wiegen schwerer als die Zeitfenster:** eine als Fälschung **abgelehnte** Bewertung
+> zählte weiter auf den Rabatt (der Bounty-Pfad kannte die Moderation nicht); das **Ignorieren**
+> einer Anfrage verbesserte die eigene Antwortzeit; und der Wertbericht zählte „erfolgreiche
+> Matches" anders als das Bounty. Alles behoben, alles mit Test.
+> **Gemeldet, nicht behoben:** der Notdienst-Antwortpfad liefert produktiv 500, weil zwei Spalten
+> abgefragt werden, die es nicht gibt — `OPEN_BLOCKERS.md`, P1-15.
+> Nächste Welle: **A4** (Rabatt erreicht die Rechnung — monatlich, wie entschieden).
 > Nächste Welle: **A3** (falsche Pfade und Zeitfenster) oder **A4** (Rabatt erreicht die Rechnung).
 
 > **Der schwerste Einzelbefund aus der Bestandsaufnahme:** Der Bounty-Rabatt erreicht keine

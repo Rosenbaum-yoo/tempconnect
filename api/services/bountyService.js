@@ -61,6 +61,52 @@ export async function getBountyCatalog(pool, opts = {}) {
   return rows;
 }
 
+/**
+ * Zaehlt die erfolgreichen Abschluesse eines Nutzers — die EINE Definition.
+ *
+ * Bewusst als eigene Funktion und von beiden Aufrufern genutzt (Bounty-Bedingung
+ * und Wertbericht). Vorher zaehlten beide getrennt und unterschiedlich: das
+ * Bounty nur `receiver_id`, der Bericht beide Seiten — aber beide nur den
+ * Alt-Kanal. Zwei Zahlen fuer dieselbe Frage auf zwei Oberflaechen sind schlimmer
+ * als eine falsche.
+ *
+ * Was zaehlt:
+ *   - Alt-Kanal: `requests` mit Status FINALIZED, beide Marktseiten. 'COMPLETED'
+ *     ist dort nicht erreichbar — kein Codepfad fuehrt hin, die Uebergangstabelle
+ *     kennt den Wert nicht.
+ *   - Marktplatz: `offers` mit `confirmed_at`, beide Marktseiten. `status =
+ *     'accepted'` taugt NICHT: die Sofort-Pfade setzen das, bevor eine
+ *     Vereinbarung besteht. Verbindlich wird ein Angebot erst in confirmAgreement.
+ *
+ * COUNT(DISTINCT) ist kein Vorratsbeschluss: es gibt keine Datenbankregel gegen
+ * Selbstgeschaefte, und nur einer von vier Angebotspfaden blockt sie.
+ */
+export async function zaehleAbschluesse(pool, userId) {
+  const { rows } = await pool.query(
+    `WITH abschluesse AS (
+       SELECT 'legacy_empfangen'::text AS quelle, r.id::text AS vorgang
+         FROM requests r
+        WHERE r.receiver_id = $1 AND r.status = 'FINALIZED'
+       UNION
+       SELECT 'legacy_gestellt', r.id::text
+         FROM requests r
+        WHERE r.requester_id = $1 AND r.status = 'FINALIZED'
+       UNION
+       SELECT 'vereinbarung_anbieter', o.id::text
+         FROM offers o
+        WHERE o.supplier_company_id = $1 AND o.confirmed_at IS NOT NULL
+       UNION
+       SELECT 'vereinbarung_auftraggeber', o.id::text
+         FROM offers o
+         JOIN demand_requests d ON d.id = o.demand_request_id
+        WHERE d.requester_company_id = $1 AND o.confirmed_at IS NOT NULL
+     )
+     SELECT COUNT(DISTINCT vorgang)::int AS completed FROM abschluesse`,
+    [userId]
+  );
+  return rows[0]?.completed || 0;
+}
+
 /* ── Verwaltungssicht (Owner Control Center) ───────────────────
  *
  * Bewusst mit Vergabe-Zahlen: "abschalten" ist ohne die Antwort auf "wie viele
@@ -409,50 +455,150 @@ async function gatherUserData(pool, userId, opts = {}) {
     data.reputation = rows[0] || null;
   } catch { data.reputation = null; }
 
-  // Rating stats
+  // Bewertungen — zwei Fenster, ein Moderationsfilter (P9 Welle A3).
+  //
+  // MODERATION: Eine Bewertung wird beim Anlegen mit `pending` in
+  // `profile_review_moderation` eingetragen (Mig 120). Das oeffentliche Profil
+  // zeigt nur `approved` bzw. Altbestand ohne Moderationszeile. Der Rabatt-Pfad
+  // hat diesen Filter bisher NICHT gehabt — mit zwei Folgen: eine frisch
+  // abgegebene Bewertung war auf dem Profil unsichtbar, zaehlte aber sofort auf
+  // einen Dauerrabatt; und eine als Faelschung ABGELEHNTE Bewertung verschwand
+  // vom Profil, blieb aber im Rabatt-Schnitt stehen, weil `rejected` die Zeile
+  // in `ratings` nicht loescht. "Bewertung" muss ueberall dasselbe heissen.
+  //
+  // ZWEI FENSTER: `reliability_seal` verspricht einen 6-Monats-Zeitraum,
+  // `communication_pro` verspricht keinen. Ein gemeinsamer Filter wuerde dem
+  // einen sein Fenster nehmen oder dem anderen eines aufzwingen.
+  const RATING_FREIGABE = `LEFT JOIN profile_review_moderation prm ON prm.rating_id = r.id
+       WHERE r.rated_id = $1 AND (prm.id IS NULL OR prm.status = 'approved')`;
   try {
     const { rows } = await pool.query(
       `SELECT COUNT(*)::int AS total_ratings,
-              ROUND(AVG(reliability)::numeric, 2) AS avg_reliability,
-              ROUND(AVG(communication)::numeric, 2) AS avg_communication
-       FROM ratings WHERE rated_id = $1`, [userId]
+              ROUND(AVG(r.reliability)::numeric, 2) AS avg_reliability,
+              ROUND(AVG(r.communication)::numeric, 2) AS avg_communication
+         FROM ratings r ${RATING_FREIGABE}`, [userId]
     );
     data.ratingStats = rows[0] || {};
   } catch { data.ratingStats = {}; }
 
-  // Deal counts
   try {
+    const monate = Number(opts.ratingWindowMonths) || 6;
     const { rows } = await pool.query(
-      `SELECT
-         COUNT(*) FILTER (WHERE status IN ('FINALIZED','COMPLETED'))::int AS completed,
-         COUNT(*) FILTER (WHERE status = 'CANCELED')::int AS canceled,
-         COUNT(*) FILTER (WHERE priority = 'NOTDIENST' AND status IN ('FINALIZED','COMPLETED'))::int AS emergency_completed
-       FROM requests WHERE receiver_id = $1`, [userId]
+      `SELECT COUNT(*)::int AS total_ratings,
+              ROUND(AVG(r.reliability)::numeric, 2) AS avg_reliability,
+              ROUND(AVG(r.communication)::numeric, 2) AS avg_communication
+         FROM ratings r ${RATING_FREIGABE}
+          AND r.created_at >= NOW() - ($2 * INTERVAL '1 month')`,
+      [userId, monate]
     );
-    data.deals = rows[0] || {};
+    data.ratingStatsFenster = rows[0] || {};
+  } catch { data.ratingStatsFenster = {}; }
+
+  // Erfolgreiche Abschluesse — beide Kanaele, beide Marktseiten (P9 Welle A3).
+  //
+  // Bisher wurde nur `requests` mit `receiver_id` gezaehlt. Das hatte drei
+  // Fehler auf einmal: der Marktplatz-Kanal aus P8 (bestaetigte Vereinbarungen)
+  // zaehlte gar nicht mit, der Statuswert 'COMPLETED' ist auf `requests`
+  // ueberhaupt nicht erreichbar (kein Codepfad fuehrt dorthin), und
+  // `receiver_id` praemiert nur die Anbieterseite — obwohl der Auftraggeber den
+  // Abschluss ausloest.
+  //
+  // Verbindlich wird ein Angebot ausschliesslich mit `confirmed_at`
+  // (`dealAgreementService.confirmAgreement`). `offers.status = 'accepted'`
+  // taugt nicht: die Sofort-Pfade setzen das, bevor eine Vereinbarung besteht.
+  //
+  // Die Entdopplung ist kein Vorratsbeschluss: es gibt keine DB-Regel, die
+  // verhindert, dass jemand beide Seiten desselben Geschaefts ist, und nur einer
+  // von vier Angebotspfaden blockt Selbstgeschaefte.
+  try {
+    data.deals = { completed: await zaehleAbschluesse(pool, userId) };
   } catch { data.deals = {}; }
 
-  // Response time (90 days)
+  // Notdienst — im lebenden Kanal gemessen (P9 Welle A3).
+  //
+  // Die alte Quelle (`requests.priority = 'NOTDIENST'` mit FINALIZED) hat noch
+  // nie einen Treffer geliefert: der Notdienst laeuft ueber
+  // `emergencyStaffingService` und damit ueber `demand_requests.urgency`.
   try {
     const { rows } = await pool.query(
-      `SELECT
-         COUNT(*)::int AS total_received,
-         COUNT(*) FILTER (WHERE status NOT IN ('SENT','CREATED'))::int AS responded,
-         ROUND(AVG(EXTRACT(EPOCH FROM (updated_at - created_at)) / 60)::numeric, 1) AS avg_response_minutes
-       FROM requests
-       WHERE receiver_id = $1 AND created_at >= NOW() - INTERVAL '90 days'`, [userId]
+      `SELECT COUNT(DISTINCT d.id)::int AS emergency_completed
+         FROM demand_requests d
+         LEFT JOIN offers o ON o.demand_request_id = d.id AND o.confirmed_at IS NOT NULL
+        WHERE d.urgency = 'notdienst'
+          AND d.status = 'fulfilled'
+          AND (d.requester_company_id = $1 OR o.supplier_company_id = $1)`,
+      [userId]
+    );
+    data.deals.emergency_completed = rows[0]?.emergency_completed || 0;
+  } catch { data.deals.emergency_completed = 0; }
+
+  // Antwortzeit — im Marktplatz-Kanal, mit messbarem Nenner (P9 Welle A3).
+  //
+  // Die alte Messung war in zwei Richtungen falsch. Sie rechnete
+  // AVG(updated_at - created_at) auf `requests`; `updated_at` wird dort aber von
+  // SLA-Scans, Eskalationsstufen und der DSGVO-Anonymisierung mitgeschrieben und
+  // bedeutet nicht "beantwortet". Und sie zaehlte NIE beantwortete Anfragen mit:
+  // dort ist updated_at ~ created_at, was den Schnitt SENKT — wer eine Anfrage
+  // ignorierte, verbesserte damit seine Antwortzeit.
+  //
+  // Hier ist der Nenner echt: `matches` haelt fest, ueber welchen Bedarf eine
+  // Kapazitaet benachrichtigt wurde (Status 'notified'). Beantwortet heisst:
+  // es gibt ein Angebot dieser Firma zu diesem Bedarf. Die Zeit zaehlt ab der
+  // Benachrichtigung, nicht ab dem Anlegen des Bedarfs.
+  try {
+    const monate = Number(opts.responseWindowMonths) || 3;
+    const { rows } = await pool.query(
+      `WITH benachrichtigt AS (
+         SELECT DISTINCT m.demand_request_id, m.created_at AS notified_at
+           FROM matches m
+           JOIN capacity_posts c ON c.id = m.capacity_post_id
+          WHERE c.supplier_company_id = $1
+            AND m.status = 'notified'
+            AND m.created_at >= NOW() - ($2 * INTERVAL '1 month')
+       ),
+       reaktion AS (
+         SELECT b.demand_request_id,
+                MIN(o.created_at) AS erste_antwort,
+                MIN(b.notified_at) AS notified_at
+           FROM benachrichtigt b
+           LEFT JOIN offers o
+             ON o.demand_request_id = b.demand_request_id
+            AND o.supplier_company_id = $1
+            AND o.created_at >= b.notified_at
+          GROUP BY b.demand_request_id
+       )
+       SELECT COUNT(*)::int AS total_received,
+              COUNT(*) FILTER (WHERE erste_antwort IS NOT NULL)::int AS responded,
+              ROUND(AVG(EXTRACT(EPOCH FROM (erste_antwort - notified_at)) / 60)
+                    FILTER (WHERE erste_antwort IS NOT NULL)::numeric, 1) AS avg_response_minutes
+         FROM reaktion`,
+      [userId, monate]
     );
     data.responseStats = rows[0] || {};
   } catch { data.responseStats = {}; }
 
-  // Active listings (capacity_posts)
+  // Kapazitaeten — eingestellt im Fenster, nicht aktueller Bestand (P9 Welle A3).
+  //
+  // Versprochen war "5 aktive Kapazitaeten pro Monat ueber 6 Monate". Das ist
+  // nicht messbar: es gibt keine Status-Historie auf `capacity_posts` — keine
+  // Historientabelle, keinen Trigger, und das Audit-Log deckt nur einen Teil der
+  // Uebergaenge ab (17 von 33 Posts haben gar keinen Eintrag). "War im Maerz
+  // aktiv" laesst sich fuer keinen Bestandspost belegen.
+  //
+  // Der aktuelle Bestand als Ersatz waere zudem fremdbestimmt: die Plan-Quote
+  // begrenzt ihn, und zwei automatische Abschalter (14 Tage ohne Bestaetigung,
+  // Worker anderweitig reserviert) senken ihn ohne Zutun des Anbieters.
+  // Gemessen wird deshalb, was der Anbieter wirklich getan hat: eingestellt.
   try {
+    const monate = Number(opts.listingWindowMonths) || 6;
     const { rows } = await pool.query(
-      `SELECT COUNT(*)::int AS active FROM capacity_posts
-       WHERE supplier_company_id = $1 AND status = 'active'`, [userId]
+      `SELECT COUNT(*)::int AS eingestellt FROM capacity_posts
+        WHERE supplier_company_id = $1
+          AND created_at >= NOW() - ($2 * INTERVAL '1 month')`,
+      [userId, monate]
     );
-    data.activeListings = rows[0]?.active || 0;
-  } catch { data.activeListings = 0; }
+    data.listingsImFenster = rows[0]?.eingestellt || 0;
+  } catch { data.listingsImFenster = 0; }
 
   // Ratings given
   try {
@@ -528,10 +674,38 @@ function checkBountyCondition(bounty, data) {
 
   switch (bounty.threshold_type) {
     case 'avg_reliability_6m': {
-      const avg = Number(data.ratingStats?.avg_reliability || 0);
-      const total = Number(data.ratingStats?.total_ratings || 0);
-      const needed = tv.min_stars || 4.5;
-      return { earned: avg >= needed && total >= 5, progress: Math.min(100, (avg / needed) * 100) };
+      // Fenster-Werte, nicht Gesamtzeit (P9/A3): die Beschreibung verspricht
+      // einen Zeitraum, also wird er auch gemessen.
+      const avg = Number(data.ratingStatsFenster?.avg_reliability || 0);
+      const total = Number(data.ratingStatsFenster?.total_ratings || 0);
+      const needed = Number(tv.min_stars) || 4.5;
+      const minRatings = Number(tv.min_ratings) || 5;
+      const monate = Number(tv.months) || 6;
+
+      // Der Fortschritt bildet BEIDE Huerden ab. Vorher zaehlte nur der
+      // Sternedurchschnitt: wer eine einzige 5-Sterne-Bewertung hatte, sah eine
+      // gesperrte Kachel mit 100 % und ohne ein Wort Erklaerung.
+      const sterneAnteil = needed > 0 ? Math.min(50, (avg / needed) * 50) : 0;
+      const anzahlAnteil = minRatings > 0 ? Math.min(50, (total / minRatings) * 50) : 50;
+      const progress = Math.round(sterneAnteil + anzahlAnteil);
+
+      if (total < minRatings) {
+        return {
+          earned: false, progress,
+          note: `Noch ${minRatings - total} freigegebene Bewertungen in den letzten `
+              + `${monate} Monaten bis zur Freischaltung.`
+        };
+      }
+      if (avg < needed) {
+        return {
+          earned: false, progress,
+          note: `Durchschnitt der letzten ${monate} Monate: ${avg.toFixed(2)} von ${needed} Sternen.`
+        };
+      }
+      return {
+        earned: true, progress: 100,
+        note: `Ø ${avg.toFixed(2)} Sterne aus ${total} Bewertungen der letzten ${monate} Monate.`
+      };
     }
     case 'top_percentile_12m': {
       const pct = data.percentileRank || 100;
@@ -597,37 +771,114 @@ function checkBountyCondition(bounty, data) {
       };
     }
     case 'avg_communication': {
+      // Bewusst OHNE Zeitfenster — die Beschreibung verspricht keines. Die
+      // Bewertungen sind seit A3 aber moderationsgefiltert: gezaehlt wird nur,
+      // was die Plattform auch oeffentlich als Bewertung zeigt.
       const avg = Number(data.ratingStats?.avg_communication || 0);
       const total = Number(data.ratingStats?.total_ratings || 0);
-      const needed = tv.min_stars || 4.8;
-      const minRatings = tv.min_ratings || 20;
-      const starProg = Math.min(50, (avg / needed) * 50);
-      const ratingProg = Math.min(50, (total / minRatings) * 50);
-      return { earned: avg >= needed && total >= minRatings, progress: starProg + ratingProg };
+      const needed = Number(tv.min_stars) || 4.8;
+      const minRatings = Number(tv.min_ratings) || 20;
+      const progress = Math.round(
+        Math.min(50, (avg / needed) * 50) + Math.min(50, (total / minRatings) * 50)
+      );
+      if (total < minRatings) {
+        return {
+          earned: false, progress,
+          note: `Noch ${minRatings - total} freigegebene Bewertungen bis zur Freischaltung.`
+        };
+      }
+      if (avg < needed) {
+        return { earned: false, progress, note: `Ø Kommunikation: ${avg.toFixed(2)} von ${needed}.` };
+      }
+      return { earned: true, progress: 100, note: `Ø ${avg.toFixed(2)} aus ${total} Bewertungen.` };
     }
     case 'completed_deals': {
       const completed = Number(data.deals?.completed || 0);
-      const needed = tv.min_deals || 50;
-      return { earned: completed >= needed, progress: Math.min(100, (completed / needed) * 100) };
+      const needed = Number(tv.min_deals) || 50;
+      const progress = Math.min(100, Math.round((completed / needed) * 100));
+      if (completed >= needed) {
+        return { earned: true, progress: 100, note: `${completed} erfolgreiche Abschluesse.` };
+      }
+      return {
+        earned: false, progress,
+        note: `${completed} von ${needed} erfolgreichen Abschluessen — Marktplatz-Vereinbarungen `
+            + `und Anfragen zusammen, beide Marktseiten.`
+      };
     }
     case 'response_time_3m': {
-      const avgMin = Number(data.responseStats?.avg_response_minutes || 999);
       const total = Number(data.responseStats?.total_received || 0);
       const responded = Number(data.responseStats?.responded || 0);
-      const rate = total > 0 ? (responded / total) * 100 : 0;
-      const maxMin = tv.max_minutes || 30;
-      const minRate = tv.min_rate || 90;
-      return { earned: avgMin <= maxMin && rate >= minRate && total >= 5, progress: Math.min(100, ((maxMin / Math.max(1, avgMin)) * 50) + ((rate / minRate) * 50)) };
+      const maxMin = Number(tv.max_minutes) || 30;
+      const minRate = Number(tv.min_rate) || 90;
+      const minVolumen = Number(tv.min_volume) || 5;
+      const monate = Number(tv.months) || 3;
+
+      if (total < minVolumen) {
+        return {
+          earned: false, progress: Math.min(100, Math.round((total / minVolumen) * 100)),
+          note: `Noch zu wenige Bedarfe in den letzten ${monate} Monaten `
+              + `(${total} von ${minVolumen}), um eine Antwortzeit auszuweisen.`
+        };
+      }
+
+      // avg_response_minutes ist NULL, solange gar nicht geantwortet wurde —
+      // dann gibt es keine Antwortzeit, nicht eine unendlich gute.
+      const avgMin = data.responseStats?.avg_response_minutes == null
+        ? null : Number(data.responseStats.avg_response_minutes);
+      const rate = (responded / total) * 100;
+      const zeitAnteil = avgMin == null ? 0 : Math.min(50, (maxMin / Math.max(1, avgMin)) * 50);
+      const quoteAnteil = Math.min(50, (rate / minRate) * 50);
+      const progress = Math.round(zeitAnteil + quoteAnteil);
+
+      if (rate < minRate) {
+        return {
+          earned: false, progress,
+          note: `Auf ${Math.round(rate)} % der Bedarfe geantwortet, noetig sind ${minRate} %.`
+        };
+      }
+      if (avgMin == null || avgMin > maxMin) {
+        return {
+          earned: false, progress,
+          note: avgMin == null
+            ? "Noch keine Antwort erfasst."
+            : `Ø Antwortzeit ${Math.round(avgMin)} Min, noetig sind unter ${maxMin} Min.`
+        };
+      }
+      return {
+        earned: true, progress: 100,
+        note: `Ø ${Math.round(avgMin)} Min auf ${Math.round(rate)} % von ${total} Bedarfen.`
+      };
     }
     case 'emergency_deals': {
       const completed = Number(data.deals?.emergency_completed || 0);
-      const needed = tv.min_deals || 10;
-      return { earned: completed >= needed, progress: Math.min(100, (completed / needed) * 100) };
+      const needed = Number(tv.min_deals) || 10;
+      const progress = Math.min(100, Math.round((completed / needed) * 100));
+      if (completed >= needed) {
+        return { earned: true, progress: 100, note: `${completed} besetzte Notdienst-Bedarfe.` };
+      }
+      return {
+        earned: false, progress,
+        note: `${completed} von ${needed} besetzten Notdienst-Bedarfen.`
+      };
     }
     case 'active_listings_6m': {
-      const active = data.activeListings || 0;
-      const needed = tv.min_listings || 5;
-      return { earned: active >= needed, progress: Math.min(100, (active / needed) * 100) };
+      // Gezaehlt wird, was im Fenster EINGESTELLT wurde — der aktuelle Bestand
+      // waere fremdbestimmt (Plan-Quote, automatische Abschalter), und ein
+      // Verlauf ist mangels Status-Historie nicht rekonstruierbar (P9/A3).
+      const eingestellt = Number(data.listingsImFenster) || 0;
+      const needed = Number(tv.min_listings) || 5;
+      const monate = Number(tv.months) || 6;
+      const progress = Math.min(100, Math.round((eingestellt / needed) * 100));
+      if (eingestellt >= needed) {
+        return {
+          earned: true, progress: 100,
+          note: `${eingestellt} Kapazitaeten in den letzten ${monate} Monaten eingestellt.`
+        };
+      }
+      return {
+        earned: false, progress,
+        note: `${eingestellt} von ${needed} Kapazitaeten in den letzten ${monate} Monaten.`
+      };
     }
     case 'subscription_age': {
       const firstSub = data.firstSubDate ? new Date(data.firstSubDate) : null;
@@ -758,22 +1009,22 @@ export async function getUserMilestones(pool, userId) {
 export async function getValueReport(pool, userId) {
   const report = {};
 
-  // Successful matches
+  // Erfolgreiche Abschluesse — dieselbe Definition wie beim Bounty (P9/A3).
+  // Vorher zaehlte der Bericht nur den Alt-Kanal; das Bounty daneben zaehlte
+  // etwas anderes. Zwei Zahlen fuer dieselbe Frage auf zwei Oberflaechen.
   try {
-    const { rows } = await pool.query(
-      `SELECT COUNT(*)::int AS total_matches
-       FROM requests WHERE (requester_id = $1 OR receiver_id = $1)
-         AND status IN ('FINALIZED','COMPLETED')`, [userId]
-    );
-    report.total_matches = rows[0]?.total_matches || 0;
+    report.total_matches = await zaehleAbschluesse(pool, userId);
   } catch { report.total_matches = 0; }
 
   // Average fill time (hours from created to finalized)
   try {
     const { rows } = await pool.query(
+      // Nur FINALIZED: 'COMPLETED' ist auf `requests` nicht erreichbar (kein
+      // Codepfad fuehrt dorthin, die Uebergangstabelle kennt den Wert nicht).
+      // Er mitzufuehren suggeriert eine Menge, die es nicht gibt.
       `SELECT ROUND(AVG(EXTRACT(EPOCH FROM (updated_at - created_at)) / 3600)::numeric, 1) AS avg_hours
        FROM requests WHERE (requester_id = $1 OR receiver_id = $1)
-         AND status IN ('FINALIZED','COMPLETED')`, [userId]
+         AND status = 'FINALIZED'`, [userId]
     );
     report.avg_fill_hours = rows[0]?.avg_hours ? Number(rows[0].avg_hours) : null;
   } catch { report.avg_fill_hours = null; }
@@ -797,7 +1048,7 @@ export async function getValueReport(pool, userId) {
       `SELECT
          COUNT(*) FILTER (WHERE requester_id = $1)::int AS sent_this_month,
          COUNT(*) FILTER (WHERE receiver_id = $1)::int AS received_this_month,
-         COUNT(*) FILTER (WHERE status IN ('FINALIZED','COMPLETED'))::int AS matched_this_month
+         COUNT(*) FILTER (WHERE status = 'FINALIZED')::int AS matched_this_month
        FROM requests
        WHERE (requester_id = $1 OR receiver_id = $1)
          AND created_at >= date_trunc('month', NOW())`, [userId]

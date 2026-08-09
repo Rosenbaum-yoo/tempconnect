@@ -86,8 +86,9 @@ describe("P9/A1 · Fortschritt wird auch vor dem ersten Verdienen gespeichert", 
     }];
     const pool = trackingPool([
       { match: "FROM bounties", rows: katalog },
-      // 3 von 5 Kapazitaeten -> 60 % Fortschritt, aber noch nicht verdient.
-      { match: "FROM capacity_posts", rows: [{ active: 3 }] }
+      // 3 von 5 Kapazitaeten im Fenster -> 60 % Fortschritt, noch nicht verdient.
+      // (Seit P9/A3 zaehlt die Abfrage, was eingestellt wurde, nicht den Bestand.)
+      { match: "FROM capacity_posts", rows: [{ eingestellt: 3 }] }
     ]);
 
     await bounty.evaluateBounties(pool, "u1");
