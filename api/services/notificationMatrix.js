@@ -330,6 +330,39 @@ const MATRIX = {
     title: 'Stundenzettel digital unterschrieben',
     recipientStrategy: 'assignment_stakeholders',
     linkPath: '/public/timesheets.html'
+  },
+
+  /* ── Bounty-Anstupser (P9 Welle A5) ──────────────────────────
+   *
+   * Drei Anlaesse, mehr nicht. Der Titel ist bewusst kurz und der Klartext
+   * kommt als `context.message` aus `bountyNudgeService` — dort steht die
+   * Regel, hier nur die Zustellung.
+   *
+   * WICHTIG: Jeder Typ hier braucht einen Eintrag im CHECK von
+   * `notifications.type` (Migration 171) UND in der Surface-Map. Fehlt eines
+   * von beiden, scheitert der INSERT still — genau die Drift, die Migration
+   * 139 einmal schliessen musste.
+   */
+  'bounty.near': {
+    type: 'bounty_near',
+    severity: 'info',
+    title: 'Fast geschafft',
+    recipientStrategy: 'bounty_owner',
+    linkPath: '/public/bounties.html'
+  },
+  'bounty.earned': {
+    type: 'bounty_earned',
+    severity: 'success',
+    title: 'Rabatt freigeschaltet',
+    recipientStrategy: 'bounty_owner',
+    linkPath: '/public/bounties.html'
+  },
+  'bounty.lost': {
+    type: 'bounty_lost',
+    severity: 'warning',
+    title: 'Rabatt entfallen',
+    recipientStrategy: 'bounty_owner',
+    linkPath: '/public/bounties.html'
   }
 };
 
@@ -400,8 +433,10 @@ export async function dispatch(pool, eventKey, context = {}) {
         if (rows[0]?.email) {
           await enqueue(emailQueue, 'notification-email', {
             to: rows[0].email,
-            subject: config.title,
-            text: context.message || config.title
+            subject: context.emailSubject || config.title,
+            // `emailText` erlaubt einen abweichenden Mailtext — gebraucht z. B.
+            // fuer den Abmeldeweg, der in der In-App-Meldung nur stoeren wuerde.
+            text: context.emailText || context.message || config.title
           });
         }
       } catch (e) {

@@ -130,6 +130,21 @@ auf einer Bedingung auf, die vielleicht nichts misst.
 > Datenbank-Trigger schützt jetzt die fremden Schreibpfade (operative Rechnungen, Korrekturläufe),
 > die an der neuen Prüfregel gebrochen wären.
 > Nächste Welle: **A5** (selbstlaufende Anstupser — per E-Mail erlaubt, A-E2).
+
+> **A5 ist erledigt** *(2026-08-09)* — damit ist **Spur A vollständig**. Drei Anlässe (kurz davor,
+> verdient, entfallen) über den bestehenden Benachrichtigungspfad, mit täglichem Lauf
+> `POST /api/internal/bounty-nudges` (in `docs/SCHEDULER.md` getaktet). Der eigene Lauf war nötig,
+> weil „verdient" und „entfallen" sonst nur entstehen, wenn jemand ohnehin auf seine Bounty-Seite
+> schaut. Höchstens **eine Mail pro Nutzer und Woche**; „kurz davor" geht nie per Mail.
+> **Am echten Bestand zweimal ausgeführt:** beim ersten Mal zugestellt, beim zweiten nichts erneut.
+> Der erste echte Lauf deckte zwei Fehler in meinem Entwurf auf, die alle Attrappen durchgelassen
+> hatten: eine UUID-Spalte bekam einen Schlüssel (49 von 50 Nutzern mit Fehler), und ein
+> Fehlschlag hätte die Wochensperre gesetzt, ohne dass etwas ankam. Beides behoben.
+> Neuer Wächter `benachrichtigungsSpiegel.test.js`: ein Benachrichtigungstyp muss an **drei** Orten
+> stimmen (DB-CHECK, Surface-Map, handgepflegte Kopie im Frontend) — das war bisher eine Bitte im
+> Kommentar, jetzt ist es eine Zusicherung.
+> **Offen in Spur A:** nichts. Als Nächstes **Spur B** (Merkliste) oder **Spur C2/C3**
+> (Freischaltung nach Zahlung, plattformweite Härtung).
 > Nächste Welle: **A3** (falsche Pfade und Zeitfenster) oder **A4** (Rabatt erreicht die Rechnung).
 
 > **Der schwerste Einzelbefund aus der Bestandsaufnahme:** Der Bounty-Rabatt erreicht keine

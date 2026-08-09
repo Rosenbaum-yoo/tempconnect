@@ -64,7 +64,12 @@ const SURFACE_BY_TYPE = {
   timesheet_signed: "assignments",
 
   // Gamification / Meilensteine → Bounties-Card
-  milestone: "bounties"
+  milestone: "bounties",
+
+  // Bounty-Anstupser (P9 Welle A5) — dieselbe Hub-Karte wie die Meilensteine.
+  bounty_near: "bounties",
+  bounty_earned: "bounties",
+  bounty_lost: "bounties"
   // general, system und worker-only Typen → null (kein Hub-Card-Badge)
 };
 

@@ -478,6 +478,68 @@ Schlüssel pro (Nutzer, Bounty, Anlass, Woche).
 > Empfehlung In-App-only — eine Mail für „noch 2 Deals" ist der Anlass, mit dem man sich
 > Abmeldungen einhandelt. Falls du sie doch als Mail willst, sag Bescheid.
 
+### A5 ist erledigt *(2026-08-09)*
+
+Drei Anlässe, kein neuer Kanal, ein eigener Lauf.
+
+**Warum ein eigener Lauf.** „Verdient" und „Entfallen" entstehen in `evaluateBounties` — und das
+lief bisher ausschließlich, wenn ein Nutzer selbst seine Bounty-Seite öffnet. Ein Anstupser, der
+voraussetzt, dass man ohnehin hinsieht, ist keiner. Deshalb der tägliche Cron
+`POST /api/internal/bounty-nudges`, in `docs/SCHEDULER.md` getaktet.
+
+| Anlass | Kanal | Text |
+|---|---|---|
+| kurz davor | nur In-App | „Fast geschafft bei *Marktplatz-Aktiv* (2 % Rabatt): 4 von 5 Kapazitäten in den letzten 6 Monaten." |
+| verdient | In-App + E-Mail | „*Gründungsmitglied* freigeschaltet. Ab der nächsten Rechnung 3 % Rabatt." |
+| entfallen | In-App + E-Mail | Begründung kommt aus der Bedingung selbst (P8 Welle C: Datum + wann wieder verfügbar) |
+
+Beide Beispieltexte stammen aus einem **echten Lauf gegen die Datenbank**, nicht aus dem Entwurf.
+Der „kurz davor"-Satz zeigt, dass die Wellen zusammenspielen: sein Klartext ist die ehrliche
+Begründung aus A3.
+
+**„Kurz davor" geht nie per Mail.** Eine E-Mail für „noch zwei Abschlüsse" ist genau der Anlass,
+mit dem man sich Abmeldungen einhandelt. In der App ist der Hinweis nützlich, im Postfach nicht.
+
+**Höchstens eine Anstupser-Mail pro Nutzer und Woche** (A-E2), In-App darf häufiger. Idempotent
+über `bounty_nudges` mit UNIQUE (Nutzer, Bounty, Anlass, Woche, Kanal); die Woche wird in
+`Europe/Berlin` gebildet, sonst rutscht ein Sonntagabend in die Folgewoche und hebelt die Sperre aus.
+Jede Mail trägt den Abmeldeweg — dafür nimmt `dispatch()` jetzt einen abweichenden `emailText`,
+der in der In-App-Meldung nur stören würde.
+
+#### Was der echte Lauf gezeigt hat — und die Attrappen nicht
+
+Der erste Lauf gegen die Datenbank meldete **49 von 50 Nutzern mit Fehler** und stellte nichts zu:
+`notifications.entity_id` ist eine **UUID-Spalte**, übergeben wurde der Bounty-*Schlüssel*.
+Mein Mock-Pool nimmt jede Zeichenkette an — mein Test hatte den Fehler sogar als Soll
+festgeschrieben („entity_id muss das Bounty benennen"). Beides korrigiert; der Test prüft jetzt die
+Kennung **und** dass der Schlüssel dort nicht wieder auftaucht.
+
+Derselbe Lauf zeigte einen zweiten Fehler in meinem Entwurf: Der Vermerk wurde **vor** dem Versand
+gesetzt (damit ein Abbruch keinen doppelten Anstupser erzeugt) — aber bei einem Fehlschlag blieb
+die Wochensperre stehen, obwohl nie etwas ankam. Jetzt wird der Vermerk bei einem Fehler
+zurückgenommen: höchstens einmal, aber mit Wiederholung beim nächsten Lauf statt einer stillen
+Aussetzung für sieben Tage.
+
+#### Der Wächter gegen die halbe Verdrahtung
+
+Ein Benachrichtigungstyp muss an **drei** Orten stimmen: im CHECK von `notifications.type`
+(sonst scheitert der INSERT still — die Lehre aus Migration 139), in der Surface-Map des Servers,
+und in `hubCardBadges.js` — dort steht eine **handgepflegte Kopie** mit dem Kommentar „bei Änderung
+dort synchron halten". Eine Bitte ist keine Zusicherung.
+`api/test/benachrichtigungsSpiegel.test.js` macht eine daraus: er vergleicht beide Zuordnungen und
+prüft DB-gestützt, dass jeder Matrix-Typ im CHECK steht. Gegenprobe gelaufen — ein entfernter Typ
+macht ihn rot und benennt ihn samt Fläche.
+
+**Migration 171 schreibt die Typliste nicht ab, sondern erweitert sie aus dem Bestand.** Die Liste
+in Migration 139 ist inzwischen veraltet; wer sie kopiert, löscht die neueren Typen wieder — ein
+stiller Rückschritt, der erst auffällt, wenn eine Benachrichtigung ausbleibt. Die Migration liest
+die geltende Liste, hängt an und prüft, dass nichts geschrumpft ist.
+
+**Gate A5 erfüllt.** Typen im CHECK und in der Surface-Map, höchstens eine Mail pro Nutzer und
+Woche, idempotent über (Nutzer, Bounty, Anlass, Woche). Belege: `api/test/bountyAnstupser.test.js`
+(18 Prüfungen), `api/test/benachrichtigungsSpiegel.test.js` (6), Migration 171 — und der Lauf gegen
+die echte Datenbank, zweimal ausgeführt: beim zweiten Mal wurde nichts erneut zugestellt.
+
 ### A.3 Reihenfolge
 
 **A1 → A2 → A3 → A4 → A5.** A1 zuerst, weil jede spätere Welle sonst auf einer Bedingung

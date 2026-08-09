@@ -113,6 +113,32 @@ export function createInternalRouter(deps) {
     }
   });
 
+  /* Bounty-Anstupser (P9 Welle A5): drei Anlaesse — kurz davor, verdient,
+     entfallen. Der Lauf ist noetig, weil "verdient"/"entfallen" sonst nur
+     entstehen, wenn ein Nutzer selbst seine Bounty-Seite oeffnet; ein Anstupser,
+     der das voraussetzt, ist keiner. Zustellung ueber den bestehenden
+     dispatch()-Pfad, hoechstens eine Mail je Nutzer und Woche, idempotent ueber
+     `bounty_nudges`. */
+  router.post("/internal/bounty-nudges", cronRateLimit, checkCronAuth, async (req, res) => {
+    const clientIp = req.ip || req.socket?.remoteAddress || "unknown";
+    try {
+      const { laufeAnstupserDurch } = await import("../services/bountyNudgeService.js");
+      const result = await laufeAnstupserDurch(pool, { logger, limit: Number(req.body?.limit) || undefined });
+      if (result.inApp > 0 || result.mail > 0) {
+        await auditLog.writeAudit(pool, {
+          action: "bounty.nudges_batch",
+          entity_type: "bounty",
+          details: { nutzer: result.nutzer, in_app: result.inApp, mail: result.mail, fehler: result.fehler }
+        });
+      }
+      logger.info({ path: "bounty-nudges", clientIp, ...result }, "Cron bounty-nudges completed");
+      res.json({ ok: true, ...result });
+    } catch (err) {
+      logger.error({ err, path: "bounty-nudges", clientIp }, "Cron bounty-nudges failed");
+      res.status(500).json({ ok: false, error: "BOUNTY_NUDGES_FAILED" });
+    }
+  });
+
   /* SaaS-Self-Service-Billing: wiederkehrende Folge-Rechnungen am Periodenende.
      No-Op solange RECURRING_BILLING_ENABLED=false (Default) — kein Auto-Billing
      vor UG-Gründung. AN: aktive bezahlte Subscriptions mit abgelaufener Periode

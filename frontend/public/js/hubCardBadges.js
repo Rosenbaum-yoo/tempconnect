@@ -26,7 +26,7 @@
     trust_center: ["compliance_expiring", "compliance_expired", "compliance_verified"],
     my_company: ["sla_warning", "sla_breached"],
     assignments: ["timesheet_submitted", "timesheet_approved", "timesheet_rejected", "timesheet_signed"],
-    bounties: ["milestone"]
+    bounties: ["milestone", "bounty_near", "bounty_earned", "bounty_lost"]
   };
   var SURFACE_FOR_TYPE = {};
   Object.keys(TYPES_BY_SURFACE).forEach(function (surf) {
