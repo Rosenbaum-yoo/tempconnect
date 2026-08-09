@@ -908,9 +908,12 @@ TCi18n.register('en', {
       applyDowngradeTexts();
       // Bounty warning
       fetch('/api/bounties/discount', { credentials: 'include' }).then(function(r) { return r.ok ? r.json() : null; }).then(function(d) {
-        if (d && d.total_discount_pct > 0) {
+        // Der Endpunkt liefert `discount_pct`, nicht `total_discount_pct` (siehe
+        // routes/bounties.js). Der falsche Feldname liess die Warnung nie
+        // erscheinen — 20 Zeilen weiter oben liest dieselbe Datei es richtig.
+        if (d && d.discount_pct > 0) {
           document.getElementById('dgBountyWarn').style.display = 'block';
-          document.getElementById('dgBountyPct').textContent = d.total_discount_pct;
+          document.getElementById('dgBountyPct').textContent = d.discount_pct;
         } else {
           document.getElementById('dgBountyWarn').style.display = 'none';
         }

@@ -97,6 +97,8 @@ TCi18n.register('de', {
   'rst.a.status.in_progress': 'In Arbeit',
   'rst.a.status.locked': 'Gesperrt',
   'rst.a.status.superseded': 'Abgeloest',
+  'rst.a.status.retired': 'Aktion beendet',
+  'rst.a.status.unavailable': 'Zurzeit nicht verfuegbar',
   'rst.a.status.earnedAt': '{label} am {date}',
   'rst.a.recurring': 'Wiederkehrend — verfaellt bei Nicht-Erfuellung',
 
@@ -271,6 +273,8 @@ TCi18n.register('en', {
   'rst.a.status.in_progress': 'In progress',
   'rst.a.status.locked': 'Locked',
   'rst.a.status.superseded': 'Superseded',
+  'rst.a.status.retired': 'Programme ended',
+  'rst.a.status.unavailable': 'Currently unavailable',
   'rst.a.status.earnedAt': '{label} on {date}',
   'rst.a.recurring': 'Recurring — expires if the condition is no longer met',
 
@@ -373,7 +377,10 @@ TCi18n.register('en', {
   (function() {
     var PRICES = { DEMO: 0, BASIS: 150, PLUS: 499, PRO: 799, ENTERPRISE: 2499 };
     // 'superseded' = untere Stufe einer Leiter, deren Rabatt in der oberen steckt.
-    var STATUS_KEYS = ['earned', 'in_progress', 'locked', 'superseded'];
+    // 'retired'     = das Bounty wurde abgeschaltet. Wer es verdient hatte, sieht es
+    //                 weiter (Historie), bekommt aber keinen Rabatt mehr dafuer.
+    // 'unavailable' = ausserhalb des Kampagnenzeitraums, also gerade nicht verdienbar.
+    var STATUS_KEYS = ['earned', 'in_progress', 'locked', 'superseded', 'retired', 'unavailable'];
     var activeCategory = 'all';
     var bountyData = null;
     var userPlan = 'DEMO';

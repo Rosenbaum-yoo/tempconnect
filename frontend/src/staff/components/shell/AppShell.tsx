@@ -43,6 +43,7 @@ const Automation           = lazy(() => import("@scc/modules/automation"));
 const StaffAccess          = lazy(() => import("@scc/modules/staff-access"));
 const SupportVendors       = lazy(() => import("@scc/modules/support-vendors"));
 const MarketplaceVisibility = lazy(() => import("@scc/modules/marketplace-visibility"));
+const BountyCatalog        = lazy(() => import("@scc/modules/bounty-catalog"));
 const SearchModeration      = lazy(() => import("@scc/modules/search-moderation"));
 const DataGovernance        = lazy(() => import("@scc/modules/data-governance"));
 const DocumentVault         = lazy(() => import("@scc/modules/document-vault"));
@@ -107,6 +108,7 @@ function ActiveModule({ active }: { active: AreaKey }) {
       {active === "staff-access"          && <StaffAccess />}
       {active === "support-vendors"       && <SupportVendors />}
       {active === "marketplace-visibility" && <MarketplaceVisibility />}
+      {active === "bounty-catalog"       && <BountyCatalog />}
       {active === "search-moderation"      && <SearchModeration />}
       {active === "data-governance"        && <DataGovernance />}
       {active === "document-vault"         && <DocumentVault />}

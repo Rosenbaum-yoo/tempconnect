@@ -133,9 +133,18 @@ async function bountiesInGefahr(pool, userId, jetzt) {
          JOIN bounties b ON b.id = ub.bounty_id
         WHERE ub.user_id = $1
           AND ub.is_active = TRUE
+          -- Ohne diesen Filter droht der Storno-Dialog mit einem Rabatt, den es
+          -- seit dem Abschalten des Bounties (Mig 166) gar nicht mehr gibt.
+          -- Eine Warnung, die uebertreibt, verliert beim zweiten Mal ihre Wirkung.
+          AND b.is_active
+          -- Dasselbe gilt fuer den Kampagnenzeitraum (Mig 167): ausserhalb des
+          -- Fensters ueberspringt evaluateBounties den Eintrag und kann die
+          -- Vergabe gar nicht mehr entziehen — es steht also nichts auf dem Spiel.
+          AND (b.available_from  IS NULL OR b.available_from  <= $2::date)
+          AND (b.available_until IS NULL OR b.available_until >= $2::date)
           AND b.threshold_type = 'reliability_streak'
         ORDER BY b.sort_order`,
-      [userId]
+      [userId, dateOnlyDE(jetzt) || dateOnlyDE(new Date())]
     );
     return rows.map((r) => {
       const tage = Number(r.threshold_value?.days) || 90;

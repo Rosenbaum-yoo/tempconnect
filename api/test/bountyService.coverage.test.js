@@ -595,8 +595,16 @@ describe("bountyService — getValueReport", () => {
 // ═══════════════════════════════════════════════════════════════
 describe("bountyService — getBountyStatus", () => {
   function statusPool({ catalog, userBounties, discountSum, tierRow }) {
+    // `bounties.is_active` ist seit Migration 166 NOT NULL DEFAULT TRUE. Eine
+    // Katalogzeile ohne dieses Feld gibt es in der Datenbank nicht — die Fixtures
+    // stammen aus der Zeit davor. getBountyStatus liest den Katalog inzwischen
+    // inklusive abgeschalteter Eintraege (P9/A2, damit verdiente Abzeichen in der
+    // Historie sichtbar bleiben) und braucht das Feld deshalb wirklich.
+    const katalogMitSchalter = (catalog || []).map(
+      (b) => (Object.prototype.hasOwnProperty.call(b, "is_active") ? b : { ...b, is_active: true })
+    );
     return patternPool((sql) => {
-      if (sql.includes("SELECT * FROM bounties")) return ok(catalog);
+      if (sql.includes("SELECT * FROM bounties")) return ok(katalogMitSchalter);
       // getUserDiscount's SUM query ALSO contains "FROM user_bounties ub" — match it first.
       if (sql.includes("SUM(b.discount_pct)")) return ok([{ total: discountSum }]);
       if (sql.includes("FROM user_bounties ub")) return ok(userBounties);

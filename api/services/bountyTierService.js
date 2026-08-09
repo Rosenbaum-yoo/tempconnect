@@ -100,7 +100,16 @@ async function gatherTierData(pool, userId) {
   // Earned bounties count
   try {
     const { rows } = await pool.query(
-      "SELECT COUNT(*)::int AS count FROM user_bounties WHERE user_id = $1 AND is_active = TRUE",
+      // Der Join auf `bounties` ist Pflicht, nicht Zierde: ohne ihn zaehlt eine
+      // Vergabe weiter mit, deren Bounty abgeschaltet wurde (Mig 166). Diese
+      // Zahl entscheidet ueber `min_bounties` und damit ueber die Stufe — und
+      // die Stufe hebt die Rabatt-Obergrenze. Ein verwaister Eintrag waere also
+      // bares Geld. Der Trigger aus Mig 168 raeumt solche Zeilen zwar auf; der
+      // Filter haelt auch, wenn jemand die Daten anders veraendert.
+      `SELECT COUNT(*)::int AS count
+         FROM user_bounties ub
+         JOIN bounties b ON b.id = ub.bounty_id
+        WHERE ub.user_id = $1 AND ub.is_active = TRUE AND b.is_active`,
       [userId]
     );
     data.earnedBounties = rows[0]?.count || 0;

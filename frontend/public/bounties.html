@@ -70,6 +70,18 @@
     .bounty-card.earned .bounty-status { color: var(--ds-success); }
     .bounty-card.in_progress .bounty-status { color: var(--ds-brand); }
     .bounty-card.locked .bounty-status { color: var(--ds-text-tertiary); }
+    /* P9 Welle A2: beendete Aktionen ('retired') und Kampagnen ausserhalb ihres
+       Zeitraums ('unavailable'). Gedaempft statt alarmierend — beides ist kein
+       Fehler des Nutzers, und die Begruendung steht ohnehin in .bounty-note. */
+    .bounty-card.retired,
+    .bounty-card.unavailable { opacity: .72; }
+    .bounty-card.retired .bounty-progress,
+    .bounty-card.unavailable .bounty-progress,
+    /* 'superseded' hatte bisher gar keine Fuellfarbe: die abgeloeste Stufe steht
+       auf 100 % und zeigte trotzdem eine leere Leiste. */
+    .bounty-card.superseded .bounty-progress { background: var(--ds-text-tertiary); }
+    .bounty-card.retired .bounty-status,
+    .bounty-card.unavailable .bounty-status { color: var(--ds-text-tertiary); }
     .bounty-pct { color: var(--ds-text-tertiary); }
     .bounty-recurring { font-size: 10px; color: var(--ds-text-tertiary); margin-top: 4px; }
     /* P8 Welle C: Begruendung, warum ein Bounty gerade nicht gilt. Bewusst

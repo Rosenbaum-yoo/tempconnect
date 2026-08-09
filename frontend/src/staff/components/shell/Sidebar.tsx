@@ -24,6 +24,7 @@ export type AreaKey =
   | "automation"
   | "staff-access"
   | "support-vendors"
+  | "bounty-catalog"
   | "marketplace-visibility"
   | "search-moderation"
   | "data-governance"
@@ -47,6 +48,10 @@ export const AREAS: NavItem[] = [
   { key: "platform",              label: "Platform",             group: "Strategie" },
   { key: "revenue",               label: "Revenue",              group: "Strategie" },
   { key: "billing",               label: "Billing",              group: "Strategie" },
+  // Rabatt-Katalog steht bei Revenue/Billing, nicht bei "Marketplace": es ist ein
+  // Preishebel. Der Name grenzt ihn zugleich von "Marketplace Visibility →
+  // Bounties" ab, wo es um bezahlte Sichtbarkeit je Kunde geht.
+  { key: "bounty-catalog",        label: "Rabatt-Katalog",       group: "Strategie" },
   { key: "support",               label: "Support",              group: "Operations" },
   { key: "mail",                  label: "Mail & Notifications", group: "Operations" },
   { key: "operations",            label: "Operations",           group: "Operations" },

@@ -689,10 +689,18 @@
     // neu, ohne die Bounty-Liste erneut zu holen.
     var _bounties = null;
     function loadBountyBadges(userId) {
+      // WICHTIG: `/api/bounties/me` liefert ausschliesslich die Bounties des
+      // ANGEMELDETEN Nutzers — der Parameter user_id wird serverseitig ignoriert
+      // (routes/bounties.js liest nur req.session.userId). Auf einem fremden
+      // Profil wurden dadurch die eigenen Auszeichnungen und der eigene
+      // Rabatt-Status als die der fremden Firma dargestellt.
+      //
+      // Bis es einen oeffentlichen Endpunkt fuer fremde Profile gibt, wird hier
+      // lieber nichts gezeigt als etwas Falsches. Eine oeffentliche Auskunft
+      // ueber fremde Bounties ist eine Produktentscheidung, keine Fussnote.
+      if (userId) return;
       if (_bounties) { renderBountyBadges(_bounties); return; }
-      var url = userId
-        ? "/api/bounties/me?user_id=" + encodeURIComponent(userId)
-        : "/api/bounties/me";
+      var url = "/api/bounties/me";
       fetch(url, { credentials: "include" })
         .then(function(r) { return r.ok ? r.json() : null; })
         .then(function(data) {

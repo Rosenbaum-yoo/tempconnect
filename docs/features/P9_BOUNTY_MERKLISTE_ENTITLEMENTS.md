@@ -195,6 +195,115 @@ mehr und **entzieht** sie bei wiederkehrenden.
 Bounty verschwindet aus der Vergabe, bleibt aber in der Historie sichtbar und erklärt sich
 in der Oberfläche („nicht mehr verfügbar"), statt kommentarlos zu fehlen.
 
+### A2 ist erledigt *(2026-08-08)*
+
+Ein Bounty zu schalten ist jetzt ein Klick im **Staff Control Center → Rabatt-Katalog**, kein Deploy.
+
+**Zwei Hebel mit bewusst verschiedener Wirkung.** Das war die eigentliche Entwurfsfrage:
+
+| Hebel | Wirkung |
+|---|---|
+| **Not-Aus** (`is_active`) | beendet sofort alles — keine Vergabe, kein Rabatt, **laufende Vergaben werden entzogen** |
+| **Zeitraum** (`available_from`/`until`, Mig 167) | steuert nur, **wann** man es verdienen kann. Wer es im Fenster verdient hat, behält es |
+
+Die Trennung ist kein Detail: einem zahlenden Kunden einen bereits gewährten Rabatt still
+wegzunehmen, weil eine Aktion ausgelaufen ist, wäre ein Support-Vorfall. Wer eine Aktion wirklich
+sofort beenden muss, hat den Not-Aus — und der sagt genau das, was er tut. Beides steht
+ausgeschrieben in der Oberfläche, samt der Zahl der betroffenen Kunden **vor** dem Klick.
+
+**Der Entzug hängt an der Datenbank, nicht am Dienst** (Mig 168, Trigger). Gate A2 verlangt
+„Abschalten ist ein `UPDATE` — kein Deploy". Genau dann kann das Abschalten auch aus Hand-SQL,
+einer Migration oder einem künftigen zweiten Bedienweg kommen. Ein Entzug, der nur im
+Anwendungsdienst steht, greift dort nicht. Am echten Bestand nachgemessen: 3 laufende Vergaben →
+0 beim Abschalten, und beim Wiedereinschalten bleibt es bei 0 — zurückgegeben wird nichts, das
+entscheidet die Bedingung bei der nächsten Auswertung.
+
+#### Drei Defekte, die A2 nebenbei gefunden hat
+
+| Fund | Warum es zählt |
+|---|---|
+| `bountyTierService.js:103` zählt `user_bounties` **ohne Join** auf `bounties` | Eine verwaiste Vergabe zählt weiter für die Stufen-Beförderung — und die Stufe hebt die Rabatt-**Obergrenze**. Ein abgeschaltetes Bounty hätte also indirekt weiter Geld gekostet. |
+| `dealCommitmentService.js:133` filtert nicht auf `b.is_active` | Der Storno-Dialog drohte mit einem Rabatt, den es seit Mig 166 nicht mehr gibt. Eine Warnung, die übertreibt, verliert beim zweiten Mal ihre Wirkung. (Eigener P8-Code, durch Mig 166 veraltet.) |
+| Gate-Verstoß in meiner eigenen A1-Arbeit | Mein A1-Filter ließ ein **verdientes** Abzeichen kommentarlos verschwinden, sobald das Bounty abgeschaltet wurde. Gate A2 verlangt wörtlich, dass es „in der Historie sichtbar bleibt und sich erklärt". Korrigiert: neue Status `retired` und `unavailable`, beide zweisprachig. |
+
+**Kein Cron für `evaluateBounties`** — bestätigt, nicht vermutet: einziger Aufrufer ist
+`GET /api/bounties/me`. Deshalb wirkt der Zeitraum **lesend** (jede Anzeige und jede
+Rabattsumme prüft ihn), statt auf eine Neubewertung zu warten, die nie käme.
+
+**Gate A2 erfüllt.** Abschalten ist ein `UPDATE`; ein abgeschaltetes Bounty verschwindet aus der
+Vergabe, bleibt in der Historie sichtbar und erklärt sich in der Oberfläche.
+
+#### Die Fehlplatzierung — und was dagegen jetzt greift
+
+A2 wurde zuerst im **Owner Control Center** gebaut. Die Ableitung „Rabatt = Preishebel =
+Owner-Schicht" wirkte aus dem Code plausibel; das Produktmodell des Owners sagt etwas anderes:
+Staff Control Center = Verwaltung durch das Team, OCC = **kundenspezifischer** Aufwand, Support
+Center = Anfragen von außen und zwischen Kunden. Ein plattformweiter Katalog ist Team-Verwaltung.
+
+Die Ursache war keine Unachtsamkeit, sondern eine Lücke: `CLAUDE.md` verlangte, dass die Flächen
+getrennt bleiben, sagte aber nirgends, **was** in welche gehört. Es gab nichts, wogegen die
+Ableitung prüfbar gewesen wäre. Geschlossen durch:
+
+- `docs/FLAECHEN.md` — Zuständigkeiten, Entscheidungsfrage, Registry aller Module, Namenskollisionen
+- Dieselbe Regel in `CLAUDE.md` (Kritische Produkt-Abgrenzung) und `SKILL.md`
+- `api/test/flaechenZuordnung.test.js` — jedes Modulverzeichnis muss in der Registry stehen, sonst rot.
+  Der Test kann die richtige Antwort nicht kennen, aber er verhindert, dass die Frage
+  stillschweigend übergangen wird. Gegenprobe gelaufen: ein undokumentiertes Modul macht ihn rot.
+
+Umgezogen statt doppelt gebaut. Dienst und Datenbank waren platzierungsneutral — nur Route,
+Modul und Navigation hingen an der Fläche.
+
+**Belege:** `api/test/staffBountyKatalog.test.js` (20 Prüfungen, inkl. struktureller Zusicherung,
+dass Step-up und Begründungspflicht **vor** dem Handler hängen), `api/test/flaechenZuordnung.test.js`,
+Migrationen 167 und 168.
+
+**Offen aus A2:** eine Bedienoberfläche zum **Anlegen** neuer Bounties gibt es bewusst nicht —
+jede Bedingung braucht Auswertungscode. Was schaltbar ist, ist Konfiguration: an/aus, Zeitraum,
+Rabattsatz.
+
+#### Adversarische Gegenprüfung — 12 bestätigte Befunde, alle geschlossen
+
+Nach dem Bau lief eine Prüfung mit fünf unabhängigen Blickwinkeln (Geld, Datenbank,
+Zugriff, Semantik, Verdrahtung); jeder Befund wurde anschließend von einem weiteren
+Durchgang zu **widerlegen** versucht. 20 Befunde, 12 haben die Widerlegung überstanden.
+**Acht davon gingen auf die A2-Arbeit selbst zurück.**
+
+Der schwerste ist der lehrreichste — und war eine **Folge des Triggers**:
+
+> Der Trigger entzieht die Vergabe. Die daraus abgeleitete **Stufe** (Bronze … Diamant) liegt
+> aber materialisiert in `user_bounty_tiers`, und die Stufe bestimmt die Rabatt-**Obergrenze**.
+> Bis A2 hielt das nur zufällig: eine Vergabe wurde ausschließlich innerhalb von
+> `evaluateBounties` entzogen, und im selben Request folgte immer die Stufen-Neubewertung.
+> Der Trigger ist der **erste Pfad, der außerhalb dieses Requests entzieht** — und hat die
+> stillschweigende Kopplung gebrochen. Folge: ein Kunde behält die zu hohe Obergrenze, bis er
+> zufällig seine Bounty-Seite öffnet. Behoben, indem der Schaltvorgang die Stufen der
+> Betroffenen nachzieht; die Halter werden **vor** dem Schreiben gelesen, weil der Trigger die
+> Information im selben Moment löscht.
+
+| # | Befund | Behandlung |
+|---|---|---|
+| 1 | Stufe/Obergrenze blieb nach dem Not-Aus stehen | Schaltvorgang zieht die Stufen der Betroffenen nach, Zahl steht im Audit |
+| 2 | Unmögliche Daten (`2026-13-01`) passierten die Prüfung und **löschten die Grenze still** — aus dem Tippfehler wurde „unbefristet" bei Antwort 200 | Kalender-Prüfung mit Rückvergleich statt bloßer Formprüfung |
+| 3 | Teil-Update des Zeitraums lief in den DB-CHECK → 500 | Prüfung gegen den **Endstand**: Bestand wird vor der Prüfung geladen |
+| 4 | `discount_pct: null` setzte den Rabatt still auf 0 % (`Number(null) === 0`) | Typprüfung wie bei `is_active`; null/bool/Array werden abgewiesen |
+| 5 | Jede Änderung an einem aktiven Bounty wurde als „eingeschaltet" protokolliert | Aktion aus der **tatsächlichen** Änderung abgeleitet, nicht aus dem Vorhandensein des Feldes |
+| 6 | Rabattänderung an einem abgeschalteten Bounty überschrieb den Abschaltgrund | Begründung wird nur beim echten Abschalten übernommen |
+| 7 | Oberfläche sendete auch unveränderte Felder | Nur geänderte Felder gehen raus |
+| 8 | Storno-Dialog drohte mit einem Rabatt außerhalb des Zeitraums | Zeitraum-Filter ergänzt |
+| 9 | `total_discount_pct` (alte Obergrenze) neben `max_discount_pct` (neue) in derselben Antwort — Balken mit 126 % Breite | Reihenfolge gedreht: erst Stufe, dann Rabatt |
+| 10 | Downgrade-Warnung „Sie verlieren X % Rabatt" las ein Feld, das der Endpunkt nicht liefert — erschien **nie** | Feldname korrigiert |
+| 11 | Öffentliches Firmenprofil zeigte die Abzeichen des **Betrachters** als die der fremden Firma | Anzeige auf fremden Profilen entfernt; ein öffentlicher Endpunkt ist eine Produktentscheidung, keine Fußnote |
+| 12 | `scc-pill--ok` / `.superseded .bounty-progress` existierten nicht | vorhandene Klassen bzw. Regel ergänzt |
+
+Befunde 9–12 waren **nicht** von A2 verursacht, sondern lagen schon vorher — A2 hat sie
+sichtbar gemacht. Sie sind trotzdem geschlossen, weil sie in denselben Dateien liegen und
+jeweils eine Zeile kosten.
+
+**Bekannter Flatterfehler (nicht von A2):** `test/me.route.coverage.test.js` bringt den
+Testläufer unter Windows gelegentlich mit `Assertion failed: !(handle->flags & UV_HANDLE_CLOSING)`
+(libuv, `src/win/async.c`) zum Absturz — ein Teardown-Rennen. Zweimal hintereinander gemessen:
+Lauf 1 Absturz, Lauf 2 68/68 grün, unveränderter Code. Betrifft `/me`-Routen, nichts aus P9.
+
 #### Welle A3 — Zeitfenster ehrlich machen
 
 Für jede Bedingung, die einen Zeitraum verspricht, entweder den Zeitraum **messen** oder die

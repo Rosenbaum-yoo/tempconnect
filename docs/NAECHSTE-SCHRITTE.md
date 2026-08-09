@@ -83,6 +83,26 @@ auf einer Bedingung auf, die vielleicht nichts misst.
 > den die Datenbank per CHECK verbietet, wodurch die Wiederholungssperre nie gesetzt wurde —
 > **ein geworbener Kunde hätte bis zu 6 Gutschriften statt einer ausgelöst**. Der Pfad hängt live
 > im Zahlungsfluss. Behoben, in eine Transaktion gefasst, mit Test abgesichert.
+
+> **A2 ist erledigt** *(2026-08-08)*. Bounties lassen sich jetzt im **Staff Control Center →
+> Rabatt-Katalog** schalten: an/aus, Kampagnenzeitraum, Rabattsatz — ein Klick, kein Deploy.
+> Zwei Hebel mit bewusst verschiedener Wirkung: der **Not-Aus** beendet sofort alles und entzieht
+> laufende Vergaben (Trigger in der Datenbank, greift auch bei Hand-SQL); der **Zeitraum** steuert
+> nur, wann man ein Bounty verdienen kann — Verdientes bleibt. Vor dem Abschalten steht die Zahl
+> der betroffenen Kunden im Dialog.
+> Nebenbei drei Defekte gefunden: die Stufen-Berechnung zählte verwaiste Vergaben mit (hob die
+> Rabatt-Obergrenze), der Storno-Dialog drohte mit einem abgeschalteten Rabatt, und mein eigener
+> A1-Filter ließ verdiente Abzeichen kommentarlos verschwinden.
+> **Wichtige Korrektur:** A2 wurde zuerst im OCC gebaut und auf Owner-Hinweis ins Staff Control
+> Center umgezogen — plattformweite Kataloge sind Team-Verwaltung. Damit das nicht wiederkommt,
+> gibt es jetzt `docs/FLAECHEN.md` (Zuständigkeiten + Entscheidungsfrage + Registry) und
+> `api/test/flaechenZuordnung.test.js`, der jedes nicht eingetragene Modul rot macht.
+> **Adversarische Gegenprüfung danach:** 20 Befunde, 12 haben die Widerlegung überstanden, alle
+> geschlossen. Der schwerste war eine Folge des Triggers selbst: er entzieht die Vergabe, aber die
+> daraus abgeleitete **Stufe** (= Rabatt-Obergrenze) blieb stehen, weil sie bis dahin immer
+> beiläufig im selben Request neu berechnet wurde. Übertragbare Lehre in `SKILL.md`: wer einen
+> Effekt an einen neuen Auslöser hängt, muss suchen, welcher *materialisierte abgeleitete*
+> Zustand bisher nur deshalb stimmte, weil der alte Pfad ihn mitgenommen hat.
 > Nächste Welle: **A3** (falsche Pfade und Zeitfenster) oder **A4** (Rabatt erreicht die Rechnung).
 
 > **Der schwerste Einzelbefund aus der Bestandsaufnahme:** Der Bounty-Rabatt erreicht keine

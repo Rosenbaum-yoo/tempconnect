@@ -8,9 +8,44 @@
 import { getActiveReferralCount } from "./referralProgramService.js";
 import { getUserMaxDiscount, evaluateAndPromoteTier, getUserTier } from "./bountyTierService.js";
 import { ladeZuverlaessigkeitsStreak } from "./dealReliabilityService.js";
-import { dateOnlyDE } from "../utils/dateDE.js";
+import { dateOnlyDE, todayDE } from "../utils/dateDE.js";
 
 const FALLBACK_MAX_DISCOUNT_PCT = 25;
+
+/* ── Verfuegbarkeit eines Katalog-Eintrags ─────────────────────
+ *
+ * Zwei Hebel, bewusst mit unterschiedlicher Wirkung — sonst gibt es nur einen
+ * groben Schalter fuer zwei sehr verschiedene Absichten:
+ *
+ *   is_active = FALSE            Not-Aus. Das Bounty ist weg: keine neue Vergabe,
+ *                                kein Rabatt, laufende Vergaben werden entzogen.
+ *   available_from/until (Mig 167)  Zeitplan. Bestimmt, WANN man es verdienen kann.
+ *                                Wer es innerhalb des Fensters verdient hat, behaelt
+ *                                es danach.
+ *
+ * Warum das Fenster nur das Verdienen begrenzt: einem zahlenden Kunden einen
+ * bereits gewaehrten Rabatt still wegzunehmen, weil eine Aktion ausgelaufen ist,
+ * ist ein Support-Vorfall. Wer eine Aktion wirklich sofort beenden muss, hat den
+ * Not-Aus — und der sagt genau das, was er tut.
+ */
+export function istVerfuegbar(bounty, heute = todayDE()) {
+  if (!bounty) return false;
+  const von = dateOnlyDE(bounty.available_from);
+  const bis = dateOnlyDE(bounty.available_until);
+  if (von && heute < von) return false;
+  if (bis && heute > bis) return false;
+  return true;
+}
+
+/** Klartext, warum ein Eintrag gerade nicht verdienbar ist (oder null). */
+export function verfuegbarkeitsHinweis(bounty, heute = todayDE()) {
+  const von = dateOnlyDE(bounty?.available_from);
+  const bis = dateOnlyDE(bounty?.available_until);
+  const tag = (iso) => iso.split("-").reverse().join(".");
+  if (von && heute < von) return `Diese Aktion startet am ${tag(von)}.`;
+  if (bis && heute > bis) return `Diese Aktion ist am ${tag(bis)} ausgelaufen.`;
+  return null;
+}
 
 /* ── Bounty Catalog ────────────────────────────────────────── */
 
@@ -26,15 +61,215 @@ export async function getBountyCatalog(pool, opts = {}) {
   return rows;
 }
 
+/* ── Verwaltungssicht (Owner Control Center) ───────────────────
+ *
+ * Bewusst mit Vergabe-Zahlen: "abschalten" ist ohne die Antwort auf "wie viele
+ * Kunden haelt das gerade?" eine Blindentscheidung. Die Zahl steht deshalb neben
+ * dem Schalter und nicht in einem Bericht, den niemand vorher oeffnet.
+ */
+export async function ladeVerwaltungsKatalog(pool) {
+  const { rows } = await pool.query(
+    `SELECT b.id, b.key, b.name_de, b.description_de, b.category, b.icon,
+            b.discount_pct, b.threshold_type, b.threshold_value, b.is_recurring,
+            b.is_active, b.inactive_reason, b.available_from, b.available_until,
+            b.sort_order, b.updated_at,
+            COUNT(ub.id) FILTER (WHERE ub.is_active)::int AS aktive_vergaben,
+            COUNT(ub.id)::int                              AS vergaben_gesamt
+       FROM bounties b
+       LEFT JOIN user_bounties ub ON ub.bounty_id = b.id
+      GROUP BY b.id
+      ORDER BY b.sort_order`
+  );
+
+  const heute = todayDE();
+  return rows.map((b) => ({
+    key: b.key,
+    name_de: b.name_de,
+    description_de: b.description_de,
+    category: b.category,
+    icon: b.icon,
+    discount_pct: Number(b.discount_pct),
+    threshold_type: b.threshold_type,
+    threshold_value: b.threshold_value,
+    is_recurring: b.is_recurring,
+    is_active: b.is_active,
+    inactive_reason: b.inactive_reason || null,
+    available_from: dateOnlyDE(b.available_from),
+    available_until: dateOnlyDE(b.available_until),
+    // Der abgeleitete Zustand gehoert in die Antwort, nicht in die Oberflaeche:
+    // sonst rechnet jede Ansicht die Regel neu und die erste weicht ab.
+    verdienbar: b.is_active && istVerfuegbar(b, heute),
+    hinweis: b.is_active ? verfuegbarkeitsHinweis(b, heute) : (b.inactive_reason || null),
+    aktive_vergaben: b.aktive_vergaben,
+    vergaben_gesamt: b.vergaben_gesamt,
+    updated_at: b.updated_at || null
+  }));
+}
+
+/** Erlaubte Felder am Katalog-Eintrag. Alles andere braucht Code, nicht Konfiguration. */
+export const SCHALTBARE_FELDER = Object.freeze([
+  "is_active", "inactive_reason", "available_from", "available_until", "discount_pct"
+]);
+
+/** Rabattgrenze aus Migration 053 (CHECK discount_pct BETWEEN 0 AND 20). */
+export const MAX_DISCOUNT_PCT_JE_BOUNTY = 20;
+
+const DATUM_MUSTER = /^\d{4}-\d{2}-\d{2}$/;
+
+/**
+ * Ein Datum muss nicht nur die richtige FORM haben, sondern im Kalender existieren.
+ *
+ * Die Form allein reicht nicht: "2026-13-01" besteht das Muster, wird beim
+ * Schreiben aber zu Invalid Date und landete dadurch als NULL in der Spalte —
+ * und NULL heisst laut Migration 167 "laeuft unbefristet". Aus einem Tippfehler
+ * wurde so still eine Kampagne ohne Ende, mit Antwort 200.
+ */
+function istEchtesDatum(iso) {
+  if (typeof iso !== "string" || !DATUM_MUSTER.test(iso)) return false;
+  const [jahr, monat, tag] = iso.split("-").map(Number);
+  const d = new Date(Date.UTC(jahr, monat - 1, tag));
+  return d.getUTCFullYear() === jahr && d.getUTCMonth() === monat - 1 && d.getUTCDate() === tag;
+}
+
+/**
+ * Prueft die Felder einer Katalog-Aenderung.
+ *
+ * Bestaetigung und Begruendung pruefen im Staff Control Center die vorgelagerten
+ * Wachen (`requireConfirmAndReason`); hier geht es nur um die Fachwerte. Die
+ * Pruefung liegt bewusst im Dienst und nicht in der Route: so ist sie ohne
+ * HTTP-Attrappe testbar, und ein zweiter Bedienweg muesste sie nicht nachbauen.
+ *
+ * Gibt ein Ergebnisobjekt zurueck statt zu werfen — Hausmuster der SCC-Routen.
+ */
+export function pruefeKatalogAenderung(body = {}, bestand = null) {
+  const key = String(body.bounty_key || "").trim();
+  if (!key) {
+    return { ok: false, code: "BOUNTY_KEY_REQUIRED", message: "bounty_key ist erforderlich." };
+  }
+
+  const aenderungen = {};
+
+  if (Object.prototype.hasOwnProperty.call(body, "is_active")) {
+    if (typeof body.is_active !== "boolean") {
+      return { ok: false, code: "IS_ACTIVE_INVALID", message: "is_active muss true oder false sein." };
+    }
+    aenderungen.is_active = body.is_active;
+  }
+  if (Object.prototype.hasOwnProperty.call(body, "inactive_reason")) {
+    aenderungen.inactive_reason = String(body.inactive_reason || "").trim();
+  }
+
+  for (const feld of ["available_from", "available_until"]) {
+    if (!Object.prototype.hasOwnProperty.call(body, feld)) continue;
+    const wert = body[feld];
+    if (wert === null || wert === "") { aenderungen[feld] = null; continue; }
+    if (!istEchtesDatum(wert)) {
+      return {
+        ok: false, code: "DATE_INVALID",
+        message: `${feld} muss ein gueltiges Datum in der Form JJJJ-MM-TT sein oder leer.`
+      };
+    }
+    aenderungen[feld] = wert;
+  }
+
+  // Die Grenzen muessen gegen den ENDSTAND geprueft werden, nicht nur gegen das,
+  // was im Request steht. Wer nur den Beginn verschiebt, waehrend in der Datenbank
+  // schon ein frueheres Ende steht, wuerde sonst an der Pruefung vorbeilaufen und
+  // erst am CHECK der Datenbank scheitern — als 500 statt als verstaendlicher Hinweis.
+  const von = Object.prototype.hasOwnProperty.call(aenderungen, "available_from")
+    ? aenderungen.available_from : (bestand?.available_from ?? null);
+  const bis = Object.prototype.hasOwnProperty.call(aenderungen, "available_until")
+    ? aenderungen.available_until : (bestand?.available_until ?? null);
+  if (von && bis && bis < von) {
+    return {
+      ok: false, code: "DATE_RANGE_INVALID",
+      message: `Das Ende (${bis}) liegt vor dem Beginn (${von}).`
+    };
+  }
+
+  if (Object.prototype.hasOwnProperty.call(body, "discount_pct")) {
+    const roh = body.discount_pct;
+    // Bewusst mit Typpruefung: `Number(null)` ist 0, `Number(true)` ist 1 und
+    // `Number([])` ist 0. Da null bei den Datumsfeldern ausdruecklich "Feld leeren"
+    // bedeutet, haette dieselbe Schreibweise hier den Rabatt still auf 0 gesetzt.
+    const istZahl = typeof roh === "number"
+      || (typeof roh === "string" && roh.trim() !== "" && /^-?\d+(\.\d+)?$/.test(roh.trim()));
+    const pct = istZahl ? Number(roh) : NaN;
+    if (!istZahl || !Number.isFinite(pct) || pct < 0 || pct > MAX_DISCOUNT_PCT_JE_BOUNTY) {
+      return {
+        ok: false, code: "DISCOUNT_OUT_OF_RANGE",
+        message: `discount_pct muss zwischen 0 und ${MAX_DISCOUNT_PCT_JE_BOUNTY} liegen.`
+      };
+    }
+    aenderungen.discount_pct = pct;
+  }
+
+  if (!Object.keys(aenderungen).length) {
+    return { ok: false, code: "NO_CHANGES", message: "Es wurde kein aenderbares Feld uebergeben." };
+  }
+  return { ok: true, key, aenderungen };
+}
+
+/**
+ * Aendert einen Katalog-Eintrag. Gibt den neuen Stand zurueck oder null, wenn es
+ * den Schluessel nicht gibt.
+ *
+ * Der Entzug laufender Vergaben beim Abschalten passiert NICHT hier, sondern im
+ * Trigger aus Migration 168 — damit er auch dann greift, wenn jemand den Schalter
+ * per Hand-SQL umlegt. Zwei Orte fuer dieselbe Folge waeren zwei Wahrheiten.
+ */
+export async function aendereKatalogEintrag(pool, key, aenderungen = {}) {
+  const setzen = [];
+  const werte = [];
+  const nimm = (spalte, wert) => {
+    werte.push(wert);
+    setzen.push(`${spalte} = $${werte.length}`);
+  };
+
+  if (Object.prototype.hasOwnProperty.call(aenderungen, "is_active")) {
+    nimm("is_active", Boolean(aenderungen.is_active));
+  }
+  if (Object.prototype.hasOwnProperty.call(aenderungen, "inactive_reason")) {
+    const t = String(aenderungen.inactive_reason || "").trim();
+    nimm("inactive_reason", t || null);
+  }
+  for (const feld of ["available_from", "available_until"]) {
+    if (Object.prototype.hasOwnProperty.call(aenderungen, feld)) {
+      nimm(feld, dateOnlyDE(aenderungen[feld]) || null);
+    }
+  }
+  if (Object.prototype.hasOwnProperty.call(aenderungen, "discount_pct")) {
+    nimm("discount_pct", Number(aenderungen.discount_pct));
+  }
+
+  if (!setzen.length) return null;
+  setzen.push("updated_at = NOW()");
+
+  werte.push(key);
+  const { rows } = await pool.query(
+    `UPDATE bounties SET ${setzen.join(", ")} WHERE key = $${werte.length} RETURNING *`,
+    werte
+  );
+  return rows[0] || null;
+}
+
 /* ── User Bounties ─────────────────────────────────────────── */
 
 export async function getUserBounties(pool, userId) {
   const { rows } = await pool.query(
+    // Bewusst OHNE Filter auf b.is_active: was ein Nutzer verdient hat, bleibt in
+    // seiner Historie sichtbar, auch wenn die Aktion inzwischen beendet ist. Ein
+    // Abzeichen, das kommentarlos verschwindet, liest sich wie ein Fehler oder wie
+    // Wortbruch. Die Oberflaeche kennzeichnet es stattdessen als beendet — dafuer
+    // reicht `bounty_is_active` mit. (Der Rabatt endet trotzdem sofort, das
+    // entscheidet getUserDiscount, nicht diese Liste.)
     `SELECT ub.*, b.key, b.name_de, b.description_de, b.category, b.icon,
-            b.discount_pct, b.threshold_type, b.threshold_value, b.is_recurring
+            b.discount_pct, b.threshold_type, b.threshold_value, b.is_recurring,
+            b.is_active AS bounty_is_active, b.inactive_reason,
+            b.available_from, b.available_until
      FROM user_bounties ub
      JOIN bounties b ON b.id = ub.bounty_id
-     WHERE ub.user_id = $1 AND b.is_active
+     WHERE ub.user_id = $1
      ORDER BY b.sort_order`,
     [userId]
   );
@@ -71,8 +306,21 @@ export async function evaluateBounties(pool, userId) {
   )];
   const data = await gatherUserData(pool, userId, { streakWindows });
   const results = [];
+  const heute = todayDE();
 
   for (const bounty of catalog) {
+    // Ausserhalb des Kampagnenfensters (Mig 167) wird nichts geschrieben: keine
+    // neue Vergabe — aber auch kein Entzug. Ein Fenster steuert, WANN man etwas
+    // verdienen kann, nicht wie lange man es behaelt. Wer sofort stoppen will,
+    // nimmt den Not-Aus (is_active = FALSE), der laufende Vergaben mitnimmt.
+    if (!istVerfuegbar(bounty, heute)) {
+      results.push({
+        key: bounty.key, earned: false, progress: 0,
+        note: verfuegbarkeitsHinweis(bounty, heute)
+      });
+      continue;
+    }
+
     const { earned, progress, note } = checkBountyCondition(bounty, data);
 
     // Upsert user_bounties
@@ -574,17 +822,25 @@ export async function getBountyStatus(pool, userId, opts = {}) {
   const notes = opts.notes instanceof Map
     ? opts.notes
     : new Map(Object.entries(opts.notes || {}));
-  const catalog = await getBountyCatalog(pool);
+  // Bewusst inklusive abgeschalteter Eintraege: ein Bounty, das ein Nutzer
+  // verdient hat, muss sichtbar bleiben und sich erklaeren, statt kommentarlos
+  // zu fehlen. Nie verdiente abgeschaltete Eintraege werden unten aussortiert —
+  // die waren nie ein Angebot an diesen Nutzer.
+  const catalog = await getBountyCatalog(pool, { includeInactive: true });
   const userBounties = await getUserBounties(pool, userId);
-  const discount = await getUserDiscount(pool, userId);
 
-  // Tier evaluation + promotion
+  // Reihenfolge ist hier die Aussage: erst die Stufe neu bestimmen, DANN den
+  // Rabatt. Umgekehrt wurde die Summe noch mit der alten Obergrenze gedeckelt,
+  // waehrend die Antwort daneben schon die neue nannte — die Oberflaeche zeigte
+  // dann "19 %" direkt neben "max. 15 %" und einen Fortschrittsbalken mit 126 %
+  // Breite. Beim naechsten Laden stand ploetzlich eine andere Zahl.
   let tier = null;
   try {
     await evaluateAndPromoteTier(pool, userId);
     tier = await getUserTier(pool, userId);
   } catch { /* tier tables may not exist */ }
 
+  const discount = await getUserDiscount(pool, userId);
   const maxPct = tier ? Number(tier.max_discount_pct) : FALLBACK_MAX_DISCOUNT_PCT;
 
   const userMap = new Map();
@@ -603,31 +859,56 @@ export async function getBountyStatus(pool, userId, opts = {}) {
     if (verlierer && userMap.get(b.key)?.is_active) abgeloestDurch.set(verlierer, b);
   }
 
-  const items = catalog.map(b => {
-    const ub = userMap.get(b.key);
-    const sieger = abgeloestDurch.get(b.key);
-    let status = 'locked';
-    if (ub?.is_active) status = 'earned';
-    else if (sieger) status = 'superseded';
-    else if (ub && Number(ub.progress) > 0) status = 'in_progress';
+  const heute = todayDE();
 
-    return {
-      key: b.key,
-      name_de: b.name_de,
-      description_de: b.description_de,
-      category: b.category,
-      icon: b.icon,
-      discount_pct: Number(b.discount_pct),
-      is_recurring: b.is_recurring,
-      status,
-      progress: ub ? Number(ub.progress) : 0,
-      earned_at: ub?.earned_at || null,
-      superseded_by: sieger ? sieger.key : null,
-      note: sieger
-        ? `Abgeloest durch "${sieger.name_de}" — der Rabatt steckt dort.`
-        : (notes.get(b.key) || null)
-    };
-  });
+  const items = catalog
+    // Abgeschaltet und nie verdient = war fuer diesen Nutzer nie ein Angebot.
+    .filter((b) => b.is_active || userMap.has(b.key))
+    .map(b => {
+      const ub = userMap.get(b.key);
+      const sieger = abgeloestDurch.get(b.key);
+      const verfuegbar = istVerfuegbar(b, heute);
+
+      // Reihenfolge ist die Aussage:
+      // 'retired' zuerst — ein beendetes Bounty bleibt beendet, egal was sonst gilt.
+      // 'earned' vor 'unavailable' — wer es im Fenster verdient hat, behaelt es
+      // auch nach Ablauf der Aktion.
+      let status = 'locked';
+      if (!b.is_active) status = 'retired';
+      else if (ub?.is_active) status = 'earned';
+      else if (sieger) status = 'superseded';
+      else if (!verfuegbar) status = 'unavailable';
+      else if (ub && Number(ub.progress) > 0) status = 'in_progress';
+
+      let note = notes.get(b.key) || null;
+      if (status === 'retired') {
+        note = ub?.is_active || Number(ub?.progress) > 0
+          ? 'Diese Aktion wurde beendet. Das Abzeichen bleibt in deiner Historie, '
+            + 'gewaehrt aber keinen Rabatt mehr.'
+          : 'Diese Aktion wurde beendet.';
+      } else if (status === 'superseded') {
+        note = `Abgeloest durch "${sieger.name_de}" — der Rabatt steckt dort.`;
+      } else if (status === 'unavailable') {
+        note = verfuegbarkeitsHinweis(b, heute) || note;
+      }
+
+      return {
+        key: b.key,
+        name_de: b.name_de,
+        description_de: b.description_de,
+        category: b.category,
+        icon: b.icon,
+        discount_pct: Number(b.discount_pct),
+        is_recurring: b.is_recurring,
+        status,
+        progress: ub ? Number(ub.progress) : 0,
+        earned_at: ub?.earned_at || null,
+        superseded_by: sieger ? sieger.key : null,
+        available_from: dateOnlyDE(b.available_from),
+        available_until: dateOnlyDE(b.available_until),
+        note
+      };
+    });
 
   return {
     items,

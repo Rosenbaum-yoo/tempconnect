@@ -87,6 +87,14 @@ import {
   approveRating, rejectRating, getPendingModerationQueue
 } from "../services/ratingService.js";
 import * as bountySvc from "../services/profileBountyService.js";
+// Zwei verschiedene Dinge mit demselben Namen — die Alias-Namen halten sie
+// auseinander: `bountySvc` = bezahlte Marktplatz-Sichtbarkeit je Kunde,
+// `bountyKatalog` = plattformweiter Treue-/Leistungsrabatt-Katalog (P9 A2).
+import * as bountyKatalog from "../services/bountyService.js";
+// Stufen nachziehen, wenn ein Abschalten Vergaben entzieht — die Stufe liegt
+// materialisiert in user_bounty_tiers und heilt sonst erst beim naechsten Besuch
+// der Bounty-Seite des Kunden.
+import { evaluateAndPromoteTier } from "../services/bountyTierService.js";
 
 // SCC WAVE 02: Typed-Confirmation-Text für critical Feature-Flags
 function computeFeatureFlagConfirmation(flagKey, enabled) {
@@ -2132,6 +2140,176 @@ export function createStaffControlCenterRouter(deps) {
         res.json({ success: true, data: result.row });
       } catch (err) {
         logger?.error({ err }, "SCC search-moderation resolve");
+        res.status(500).json({ success: false, error: { code: "SCC_INTERNAL_ERROR" } });
+      }
+    }
+  );
+
+  /* ── Rabatt-Katalog (P9 Welle A2) ────────────────────────────
+   *
+   * NICHT ZU VERWECHSELN mit /marketplace-visibility/bounties weiter oben.
+   * Das sind zwei verschiedene Dinge, die historisch denselben Namen tragen:
+   *   profile_bounties  = bezahlte Marktplatz-Sichtbarkeit, je Kunde, Freigabe-Workflow
+   *   bounties          = Treue-/Leistungsrabatte, plattformweiter Katalog  ← hier
+   *
+   * Was hier geschaltet wird, ist Konfiguration: an/aus, Kampagnenzeitraum,
+   * Rabattsatz. Die Bedingung selbst (`threshold_type`) bleibt Code — ein
+   * Katalogeintrag mit einer Bedingung, die kein Auswertungscode kennt, faellt
+   * still in den default-Zweig und wird nie vergeben. Genau diese Sorte
+   * lautloser Defekt hat Welle A1 aufgeraeumt.
+   *
+   * Der Entzug laufender Vergaben beim Abschalten passiert im Trigger aus
+   * Migration 168, nicht hier — damit er auch bei Hand-SQL greift.
+   */
+
+  /** Liste: der volle Katalog inklusive abgeschalteter Eintraege */
+  router.get("/bounty-catalog", requireStaff, async (_req, res) => {
+    try {
+      const items = await bountyKatalog.ladeVerwaltungsKatalog(pool);
+      res.json({
+        success: true,
+        data: {
+          items,
+          aktiv: items.filter((b) => b.is_active).length,
+          verdienbar: items.filter((b) => b.verdienbar).length,
+          max_discount_pct_je_bounty: bountyKatalog.MAX_DISCOUNT_PCT_JE_BOUNTY
+        }
+      });
+    } catch (err) {
+      logger?.error({ err }, "SCC bounty catalog");
+      res.status(500).json({ success: false, error: { code: "SCC_INTERNAL_ERROR" } });
+    }
+  });
+
+  /** Aktion: Eintrag schalten / Zeitraum / Rabattsatz (Step-up High) */
+  router.post("/bounty-catalog/update",
+    requireStaff, mfaGuard, requireStepUpHigh, requireConfirmAndReason,
+    async (req, res) => {
+      const schluessel = String(req.body?.bounty_key || "").trim();
+      if (!schluessel) {
+        return res.status(400).json({
+          success: false,
+          error: { code: "BOUNTY_KEY_REQUIRED", message: "bounty_key ist erforderlich." }
+        });
+      }
+
+      try {
+        // Der Bestand wird VOR der Pruefung geladen: ein Teil-Update (nur der
+        // Beginn, waehrend das Ende schon in der Datenbank steht) laesst sich sonst
+        // nicht gegen den Endstand pruefen und schlaegt erst am CHECK der Datenbank
+        // fehl — als 500 statt als verstaendlicher Hinweis.
+        const vorherAlle = await bountyKatalog.ladeVerwaltungsKatalog(pool);
+        const vorher = vorherAlle.find((b) => b.key === schluessel);
+        if (!vorher) {
+          return res.status(404).json({
+            success: false,
+            error: { code: "BOUNTY_NOT_FOUND", message: `Kein Bounty mit dem Schluessel "${schluessel}".` }
+          });
+        }
+
+        const pruefung = bountyKatalog.pruefeKatalogAenderung(req.body || {}, vorher);
+        if (!pruefung.ok) {
+          return res.status(400).json({
+            success: false,
+            error: { code: pruefung.code, message: pruefung.message }
+          });
+        }
+
+        // Was sich WIRKLICH aendert. Die Oberflaeche schickt alle Felder mit,
+        // auch unveraenderte — daraus abzuleiten, was passiert ist, wuerde jede
+        // Rabattaenderung an einem aktiven Bounty als "eingeschaltet" auditieren
+        // und den Vorgang "geaendert" praktisch unerreichbar machen.
+        const wirdAbgeschaltet = vorher.is_active === true && pruefung.aenderungen.is_active === false;
+        const wirdEingeschaltet = vorher.is_active === false && pruefung.aenderungen.is_active === true;
+
+        const aenderungen = { ...pruefung.aenderungen };
+        // Nur beim tatsaechlichen Abschalten die Begruendung als interne Notiz
+        // uebernehmen. Sonst wuerde eine spaetere Rabattaenderung an einem bereits
+        // abgeschalteten Bounty den urspruenglichen Abschaltgrund ueberschreiben —
+        // und genau dieser Text erklaert dem Nutzer in der Kachel, warum es weg ist.
+        if (wirdAbgeschaltet && !aenderungen.inactive_reason) {
+          aenderungen.inactive_reason = req.sccReason;
+        }
+
+        // Wer das Bounty gerade haelt — vor dem Schreiben festhalten, denn der
+        // Trigger aus Migration 168 loescht diese Information im selben Moment.
+        const betroffene = wirdAbgeschaltet
+          ? (await pool.query(
+              `SELECT ub.user_id FROM user_bounties ub
+                 JOIN bounties b ON b.id = ub.bounty_id
+                WHERE b.key = $1 AND ub.is_active`, [schluessel]
+            )).rows.map((r) => r.user_id)
+          : [];
+
+        const neu = await bountyKatalog.aendereKatalogEintrag(pool, schluessel, aenderungen);
+        if (!neu) {
+          return res.status(404).json({
+            success: false,
+            error: { code: "BOUNTY_NOT_FOUND", message: `Kein Bounty mit dem Schluessel "${schluessel}".` }
+          });
+        }
+
+        // Der Trigger entzieht die Vergabe — aber die daraus abgeleitete Stufe
+        // (und damit die Rabatt-OBERGRENZE) steht materialisiert in
+        // user_bounty_tiers und wird nur bei einem Besuch der Bounty-Seite neu
+        // bestimmt. Ohne diese Reparatur behaelt ein Kunde die zu hohe Obergrenze,
+        // bis er zufaellig seine Bounty-Seite oeffnet. Die Menge ist durch die
+        // Zahl der Halter begrenzt und dem Owner im Dialog vorher angezeigt.
+        let stufenNachgezogen = 0;
+        for (const userId of betroffene) {
+          try {
+            await evaluateAndPromoteTier(pool, userId);
+            stufenNachgezogen += 1;
+          } catch (e) {
+            logger?.warn?.({ err: e, userId }, "SCC bounty catalog: Stufe konnte nicht nachgezogen werden");
+          }
+        }
+
+        // Wie viele Vergaben das Abschalten gekostet hat, gehoert ins Audit —
+        // sonst ist die Tragweite der Entscheidung spaeter nicht mehr ablesbar.
+        const entzogeneVergaben = wirdAbgeschaltet ? vorher.aktive_vergaben : 0;
+        const aktion = wirdAbgeschaltet ? "staff.bounty_catalog.disabled"
+          : wirdEingeschaltet ? "staff.bounty_catalog.enabled"
+          : "staff.bounty_catalog.updated";
+
+        await writeStaffAudit(pool, {
+          actorId: req.sccActorId, area: "commercial",
+          action: aktion,
+          entityType: "bounty", entityId: neu.id,
+          status: "ok", reason: req.sccReason, confirmed: true,
+          riskLevel: wirdAbgeschaltet ? "high" : "medium",
+          ...auditContextFromReq(req),
+          details: {
+            bounty_key: schluessel,
+            geaenderte_felder: Object.keys(aenderungen),
+            vorher: {
+              is_active: vorher.is_active,
+              discount_pct: vorher.discount_pct,
+              available_from: vorher.available_from,
+              available_until: vorher.available_until
+            },
+            nachher: {
+              is_active: neu.is_active,
+              discount_pct: Number(neu.discount_pct),
+              available_from: neu.available_from ? String(neu.available_from).slice(0, 10) : null,
+              available_until: neu.available_until ? String(neu.available_until).slice(0, 10) : null
+            },
+            entzogene_vergaben: entzogeneVergaben,
+            stufen_nachgezogen: stufenNachgezogen
+          }
+        }).catch((e) => logger?.warn?.({ err: e }, "SCC bounty catalog audit failed"));
+
+        const aktualisiert = await bountyKatalog.ladeVerwaltungsKatalog(pool);
+        res.json({
+          success: true,
+          data: {
+            bounty: aktualisiert.find((b) => b.key === schluessel) || null,
+            entzogene_vergaben: entzogeneVergaben,
+            stufen_nachgezogen: stufenNachgezogen
+          }
+        });
+      } catch (err) {
+        logger?.error({ err, key: schluessel }, "SCC bounty catalog update");
         res.status(500).json({ success: false, error: { code: "SCC_INTERNAL_ERROR" } });
       }
     }
