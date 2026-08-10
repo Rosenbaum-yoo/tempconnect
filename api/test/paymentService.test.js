@@ -155,11 +155,26 @@ describe("getLatestStripeSessionForCustomerPortal", () => {
 // ═══════════════════════════════════════════════════════════════
 
 describe("activatePlan — insert subscription", () => {
-  it("inserts active subscription row", async () => {
+  /*
+   * ANGEPASST (P9/C2). Vorher wurde geprueft, dass die ERSTE Abfrage das INSERT
+   * ist. Genau das war der Defekt: `activatePlan` fuegte nur ein und liess das
+   * bisherige Abo auf 'active' stehen — 341 Zeilen fuer 312 Nutzer, und der
+   * monatliche Rechnungslauf haette 27 Kunden zwei Rechnungen geschickt.
+   * Jetzt wird erst geschlossen, dann angelegt. Die eigentliche Zusage (aktive
+   * Zeile mit dem richtigen Plan) bleibt unveraendert geprueft.
+   */
+  it("closes the previous subscription, then inserts the active row", async () => {
     const pool = capturePool();
     await activatePlan(pool, "u1", "PRO");
-    assert.ok(pool.queries[0].sql.includes("INSERT INTO subscriptions"));
-    assert.deepStrictEqual(pool.queries[0].params, ["u1", "PRO"]);
+
+    const zu = pool.queries.find((q) => q.sql.includes("UPDATE subscriptions"));
+    const neu = pool.queries.find((q) => q.sql.includes("INSERT INTO subscriptions"));
+    assert.ok(zu, "das bisherige Abo muss geschlossen werden");
+    assert.ok(neu, "das neue Abo muss angelegt werden");
+    assert.ok(pool.queries.indexOf(zu) < pool.queries.indexOf(neu),
+      "andersherum verletzte der INSERT den eindeutigen Index aus Migration 173");
+    assert.deepStrictEqual(neu.params, ["u1", "PRO"]);
+    assert.deepStrictEqual(zu.params, ["u1"]);
   });
 });
 

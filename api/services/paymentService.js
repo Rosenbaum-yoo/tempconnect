@@ -2,6 +2,8 @@
  * Payment-Service: SQL-Queries fuer Zahlungen und Abo-Verwaltung.
  */
 
+import { withTransaction } from "../utils/transaction.js";
+
 /** Payment-Session erstellen. */
 export async function createPaymentSession(pool, { id, userId, plan, amount, method, stripeSessionId, orgId = null, requestId = null }) {
   if (stripeSessionId) {
@@ -89,11 +91,36 @@ export async function activatePlan(pool, userId, plan) {
   if (normalizedPlan === "DEMO") normalizedPlan = "FREE";
   if (normalizedPlan === "ENTERPRISE" || normalizedPlan === "INDIVIDUAL") normalizedPlan = "INDIVIDUELL";
   const interval = ["FREE", "DEMO"].includes(normalizedPlan) ? "14 days" : "1 month";
-  await pool.query(
-    `INSERT INTO subscriptions (user_id, plan, status, current_period_start, current_period_end)
-     VALUES ($1, $2, 'active', NOW(), NOW() + INTERVAL '${interval}')`,
-    [userId, normalizedPlan]
-  );
+
+  // P9/C2: Erst das alte Abo schliessen, dann das neue anlegen — in EINER
+  // Transaktion.
+  //
+  // Vorher wurde nur eingefuegt. Jede Planaenderung liess die alte Zeile auf
+  // 'active' stehen: im Bestand 341 Zeilen fuer 312 Nutzer. Die Anzeige merkte
+  // davon nichts (ueberall gewinnt die neueste Zeile), die monatliche
+  // Folgerechnung aber schon — sie waehlt nach `status = 'active'` und haette
+  // 290 Zeilen bei 263 Nutzern aufgegriffen: 27 Kunden mit zwei Rechnungen fuer
+  // denselben Monat.
+  //
+  // 'canceled' ist der richtige Endzustand: das Abo endet, weil ein anderes an
+  // seine Stelle tritt. `canceled_at` haelt fest, wann.
+  await withTransaction(pool, async (client) => {
+    await client.query(
+      `UPDATE subscriptions
+          SET status = 'canceled',
+              canceled_at = COALESCE(canceled_at, NOW()),
+              cancel_source = COALESCE(cancel_source, 'plan_replaced'),
+              updated_at = NOW()
+        WHERE user_id = $1
+          AND status IN ('active', 'past_due', 'canceling')`,
+      [userId]
+    );
+    await client.query(
+      `INSERT INTO subscriptions (user_id, plan, status, current_period_start, current_period_end)
+       VALUES ($1, $2, 'active', NOW(), NOW() + INTERVAL '${interval}')`,
+      [userId, normalizedPlan]
+    );
+  });
 }
 
 /** Payment-Session Status pruefen (fuer Webhook-Idempotenz). */

@@ -405,6 +405,7 @@ describe("POST /payment/confirm", () => {
       { rows: [{ status: "pending", plan: "PLUS", method: "demo", amount: 29, org_id: null }] },
       // activatePlan
       { rows: [] },
+      { rows: [] },
       // completePaymentSession
       { rows: [] }
     );
@@ -440,7 +441,10 @@ describe("POST /payment/confirm", () => {
   it("demo confirm still succeeds when invoice creation fails", async () => {
     const pool = sequencePool(
       { rows: [{ status: "pending", plan: "PRO", method: "demo", amount: 49, org_id: null }] },
-      { rows: [] }, // activatePlan
+      // activatePlan schliesst seit P9/C2 zuerst das bisherige Abo (UPDATE) und
+      // legt dann das neue an (INSERT) — zwei Abfragen statt einer.
+      { rows: [] },
+      { rows: [] },
       { rows: [] } // completePaymentSession
     );
     const deps = baseDeps(pool, {
@@ -552,7 +556,10 @@ describe("POST /payment/webhook/stripe", () => {
   it("checkout.session.completed activates plan", async () => {
     const pool = sequencePool(
       { rows: [{ status: "pending" }] },  // getPaymentSessionStatus
-      { rows: [] },                         // activatePlan
+      // activatePlan: seit P9/C2 erst das bisherige Abo schliessen (UPDATE),
+      // dann das neue anlegen (INSERT).
+      { rows: [] },
+      { rows: [] },
       { rows: [{ org_id: null }] },         // getPaymentSession (org fallback)
       { rows: [] }                          // completePaymentSession
     );

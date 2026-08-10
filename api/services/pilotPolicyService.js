@@ -185,15 +185,13 @@ export async function convertPilotForOrganization(pool, { orgId, actorUserId = n
           [orgId]
         );
         if (members[0]) {
-          let normalizedPlan = String(targetPlan || "FREE").toUpperCase();
-          if (normalizedPlan === "DEMO") normalizedPlan = "FREE";
-          if (normalizedPlan === "ENTERPRISE" || normalizedPlan === "INDIVIDUAL") normalizedPlan = "INDIVIDUELL";
-          const interval = ["FREE", "DEMO"].includes(normalizedPlan) ? "14 days" : "1 month";
-          await pool.query(
-            `INSERT INTO subscriptions (user_id, plan, status, current_period_start, current_period_end)
-             VALUES ($1, $2, 'active', NOW(), NOW() + INTERVAL '${interval}')`,
-            [members[0].user_id, normalizedPlan]
-          );
+          // P9/C2: derselbe Weg wie nach einer Zahlung — er schliesst das
+          // bisherige Abo, statt eine zweite aktive Zeile daneben zu legen.
+          // Vorher lag hier eine Kopie der Normalisierung UND ein reines INSERT:
+          // ein Pilotkunde hatte danach zwei aktive Abos, und der Rechnungslauf
+          // haette beide abgerechnet.
+          const { activatePlan } = await import("./paymentService.js");
+          await activatePlan(pool, members[0].user_id, targetPlan);
         }
       } catch { /* non-critical: subscription creation is best-effort */ }
     }

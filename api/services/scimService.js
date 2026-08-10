@@ -126,7 +126,7 @@ export async function provisionUser(pool, orgId, { userName, displayName, enterp
       userId = nu[0].id;
       created = true;
       await client.query(
-        "INSERT INTO subscriptions (user_id, plan, status, current_period_start, current_period_end) VALUES ($1,'DEMO','active',NOW(),NOW() + INTERVAL '14 days')",
+        "INSERT INTO subscriptions (user_id, plan, status, current_period_start, current_period_end) VALUES ($1,'DEMO','active',NOW(),NOW() + INTERVAL '14 days') ON CONFLICT (user_id) WHERE status = 'active' DO NOTHING",
         [userId]);
     }
     // Mitgliedschaft sicherstellen + aktivieren (robust ohne Annahme über Conflict-Target).

@@ -743,6 +743,52 @@ Handlung — es sei denn, der Owner will sie ausdrücklich (siehe C-E1). Der Bet
 Kill-Switch (`access_suspended_at`) bleibt in jedem Fall wirksam; er wurde am 2026-06-16
 eigens dafür eingebaut.
 
+### C2 ist erledigt *(2026-08-09)*
+
+> **C-E1 — entschieden am 2026-08-09:** ✅ **Automatisch nach Zahlung.** Zwischen bestätigter
+> Zahlung und nutzbarer Funktion liegt keine manuelle Handlung. Der Betreiber-Kill-Switch
+> (`access_suspended_at`) bleibt unberührt.
+
+**Der Automatismus lief bereits** — `activatePlan` wird direkt aus dem Zahlungs-Webhook und aus
+dem Bestätigungspfad gerufen, auch für INDIVIDUELL (dort über `applyApprovedChange` als Brücke).
+Es gab keine wartende Staff-Freigabe.
+
+**Aber der Zustand danach war falsch.** `activatePlan` hat bei jeder Planänderung nur
+*eingefügt*, nie das bisherige Abo geschlossen. Im Bestand: **341 Abo-Zeilen für 312 Nutzer**,
+alle auf `active`. Derselbe Fehler im Pilotpfad, der die Logik dupliziert hatte.
+
+Sichtbar war davon nichts: Die Plan-Auflösung nimmt überall die neueste Zeile, der Kunde sah
+immer den richtigen Plan. **Die monatliche Folgerechnung wählt aber nach `status = 'active'`** —
+sie hätte **290 Zeilen bei 263 Nutzern** aufgegriffen: **27 Kunden mit zwei Rechnungen für
+denselben Monat.** Ein Defekt, der erst beim ersten echten Abrechnungslauf sichtbar geworden
+wäre, und dann beim Kunden.
+
+| | vorher | nachher |
+|---|---|---|
+| aktive Abos / Nutzer | 341 / 312 | **312 / 312** |
+| Zeilen im Rechnungslauf | 290 bei 263 Nutzern | **263 bei 263** |
+
+**Behoben an drei Stellen:**
+1. `activatePlan` schließt das bisherige Abo (`active`, `past_due`, `canceling`) und legt das
+   neue an — in **einer** Transaktion. Bricht es dazwischen ab, stünde der Kunde sonst nach
+   bezahlter Rechnung ohne Abo da.
+2. Der Pilotpfad benutzt denselben Weg, statt die Logik ein zweites Mal zu führen.
+3. Migration 173 bereinigt den Bestand (29 Zeilen geschlossen, **nichts gelöscht**) und sichert
+   die Regel mit einem partiellen eindeutigen Index: höchstens ein aktives Abo je Nutzer. Damit
+   kann kein künftiger Schreibpfad die Dublette wieder einführen.
+
+Die vier Registrierungspfade (Anmeldung, Nutzeranlage, SSO, SCIM) legen für **neue** Nutzer ein
+DEMO-Abo an und tragen jetzt `ON CONFLICT … DO NOTHING` — bei einer Wiederanlage bleibt das
+bestehende Abo bestehen, statt am Index zu scheitern.
+
+**Warum ein Index und nicht nur der Code:** `subscriptions` wird von sechs Stellen beschrieben.
+Jede einzeln nachzurüsten heißt, die siebte zu vergessen. Die Regel gehört dorthin, wo sie
+niemand umgehen kann.
+
+**Gate C2 erfüllt.** Belege: `api/test/freischaltungNachZahlung.test.js` (8 Prüfungen, davon 2
+gegen die echte Datenbank: zweimal freischalten hinterlässt genau ein Abo, und ein zweites
+aktives wird von der Datenbank abgelehnt).
+
 > **Offene Owner-Entscheidung C-E1 — die eine, die wirklich zählt:**
 > **Automatisch nach Zahlung** oder **erst nach Freigabe im Staff Center?**
 >

@@ -137,7 +137,11 @@ async function insertSubscription(pool, userId, plan, status = "active") {
   const interval = getBillingIntervalForPlan(normalizedPlan);
   await pool.query(
     `INSERT INTO subscriptions (user_id, plan, status, current_period_start, current_period_end)
-     VALUES ($1, $2, $3, NOW(), NOW() + INTERVAL '${interval}')`,
+     VALUES ($1, $2, $3, NOW(), NOW() + INTERVAL '${interval}')
+     -- P9/C2: hoechstens ein aktives Abo je Nutzer (Mig 173). Bei einer
+     -- Wiederanlage (SSO/SCIM-Reprovisionierung) bleibt das bestehende bestehen,
+     -- statt am Index zu scheitern.
+     ON CONFLICT (user_id) WHERE status = 'active' DO NOTHING`,
     [userId, normalizedPlan, status]
   );
   return normalizedPlan;

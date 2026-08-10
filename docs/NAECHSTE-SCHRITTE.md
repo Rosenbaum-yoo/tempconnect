@@ -140,8 +140,17 @@ auf einer Bedingung auf, die vielleicht nichts misst.
 > schickte an den Kapazitäts-Endpunkt, bekam 404, und der Fehler wurde stumm verschluckt. Und die
 > 10-Minuten-Entdopplung hätte den Schalter unbrauchbar gemacht: merken, entfernen, sofort erneut
 > merken wäre verschluckt worden. Migration 172 macht „Merken" zu einem Zustand.
-> **Offen bleibt Spur C** (Freischaltung nach Zahlung, plattformweite Härtung) — dort ist C1
-> erledigt, C2 und C3 stehen aus, und **C-E1 ist die letzte offene Owner-Entscheidung**.
+> **C2 ist erledigt** *(2026-08-09)*. **C-E1 entschieden: automatisch nach Zahlung**, ohne
+> Staff-Freigabe; der Kill-Switch bleibt unberührt. Der Automatismus lief bereits — aber der
+> **Zustand danach war falsch**: `activatePlan` fügte nur ein und ließ das bisherige Abo auf
+> `active` stehen (341 Zeilen für 312 Nutzer). Sichtbar war nichts, weil überall die neueste
+> Zeile gewinnt — **die monatliche Folgerechnung hätte 27 Kunden zwei Rechnungen für denselben
+> Monat geschickt.** Behoben: Schließen und Anlegen in einer Transaktion, der Pilotpfad benutzt
+> denselben Weg, Migration 173 bereinigt den Bestand und sichert „ein aktives Abo je Nutzer" mit
+> einem eindeutigen Index. Gemessen: Rechnungslauf vorher 290 Zeilen/263 Nutzer → jetzt 263/263.
+> **Offen bleibt nur noch C3** (plattformweite Härtung der Feature-Gates): keine Fläche sichtbar,
+> die beim Klick 403 liefert; keine gesperrt, für die bezahlt wurde. Grundlage sind die
+> vorhandene `visibilityMatrix` und `entitlementRouteGates.test.js`.
 
 > **A5 ist erledigt** *(2026-08-09)* — damit ist **Spur A vollständig**. Drei Anlässe (kurz davor,
 > verdient, entfallen) über den bestehenden Benachrichtigungspfad, mit täglichem Lauf
