@@ -256,7 +256,165 @@ function requireWorkerFeature(getUserAndPlan) {
 /* ── Router ──────────────────────────────────────────────────────────────────── */
 
 
+/*
+ * P10/D4 — tolerante Feldregeln.
+ *
+ * Ein Export aus einer Zeitarbeitsfirma liefert deutsche Schreibweisen: das
+ * Geburtsdatum als TT.MM.JJJJ, das Land als "Deutschland". Beides scheiterte am
+ * Schema, obwohl der Wert eindeutig ist. Das ist keine Nachlaessigkeit des
+ * Kunden, sondern unsere Aufgabe: was zweifelsfrei gemeint ist, wird umgewandelt
+ * statt abgelehnt.
+ *
+ * JEDE Umwandlung erscheint im Zeilenbericht ("Land Deutschland -> DE"). Eine
+ * stille Korrektur waere schlimmer als eine Ablehnung — niemand soll raten
+ * muessen, was mit seinen Daten passiert ist.
+ */
+
+/** Die haeufigsten Laender im DACH-Umfeld und ihre Nachbarn. */
+const LAND_NACH_ISO = Object.freeze({
+  deutschland: "DE", germany: "DE", brd: "DE",
+  oesterreich: "AT", österreich: "AT", austria: "AT",
+  schweiz: "CH", switzerland: "CH", suisse: "CH",
+  polen: "PL", poland: "PL", tschechien: "CZ", "tschechische republik": "CZ",
+  ungarn: "HU", hungary: "HU", rumaenien: "RO", rumänien: "RO", romania: "RO",
+  slowakei: "SK", slovakia: "SK", kroatien: "HR", croatia: "HR",
+  bulgarien: "BG", bulgaria: "BG", italien: "IT", italy: "IT",
+  frankreich: "FR", france: "FR", niederlande: "NL", netherlands: "NL",
+  belgien: "BE", belgium: "BE", spanien: "ES", spain: "ES",
+  portugal: "PT", tuerkei: "TR", türkei: "TR", turkey: "TR"
+});
+
+/** TT.MM.JJJJ (auch mit / oder -) nach ISO. Gibt null zurueck, wenn unklar. */
+export function normalisiereDatum(wert) {
+  if (typeof wert !== "string") return { wert, hinweis: null };
+  const roh = wert.trim();
+  if (!roh) return { wert: null, hinweis: null };
+  if (/^\d{4}-\d{2}-\d{2}$/.test(roh)) return { wert: roh, hinweis: null };
+
+  const m = /^(\d{1,2})[.\/-](\d{1,2})[.\/-](\d{4})$/.exec(roh);
+  if (!m) return { wert: roh, hinweis: null };   // unklar -> die Pruefung meldet es
+  const iso = `${m[3]}-${String(m[2]).padStart(2, "0")}-${String(m[1]).padStart(2, "0")}`;
+  return { wert: iso, hinweis: `Geburtsdatum ${roh} → ${iso}` };
+}
+
+/** Klartext-Land nach ISO-2. Unbekanntes bleibt unveraendert. */
+export function normalisiereLand(wert) {
+  if (typeof wert !== "string") return { wert, hinweis: null };
+  const roh = wert.trim();
+  if (!roh) return { wert: null, hinweis: null };
+  if (/^[A-Za-z]{2}$/.test(roh)) return { wert: roh.toUpperCase(), hinweis: null };
+
+  const iso = LAND_NACH_ISO[roh.toLowerCase()];
+  if (!iso) return { wert: roh, hinweis: null };  // unklar -> die Pruefung meldet es
+  return { wert: iso, hinweis: `Land ${roh} → ${iso}` };
+}
+
+/**
+ * E-Mail: Rand-Leerzeichen und Grossschreibung sind kein Fehler des Kunden.
+ * Manche Exporte (Outlook, CRM) schreiben "mailto:" oder spitze Klammern davor.
+ */
+export function normalisiereEmail(wert) {
+  if (typeof wert !== "string") return { wert, hinweis: null };
+  let roh = wert.trim();
+  if (!roh) return { wert: null, hinweis: null };
+
+  const vorher = roh;
+  roh = roh.replace(/^<|>$/g, "").replace(/^mailto:/i, "").trim();
+  // "Anna Beck <anna@firma.de>" -> die Adresse in den Klammern gewinnt.
+  const inKlammern = /<([^<>@\s]+@[^<>@\s]+)>/.exec(vorher);
+  if (inKlammern) roh = inKlammern[1];
+  roh = roh.toLowerCase();
+
+  // Gross-/Kleinschreibung und Rand-Leerzeichen sind kosmetisch — kein Hinweis,
+  // sonst ertrinkt der Bericht in Belanglosigkeiten. Ein echter Umbau schon.
+  const hinweis = vorher.trim().toLowerCase() !== roh ? `E-Mail ${vorher} → ${roh}` : null;
+  return { wert: roh, hinweis };
+}
+
+/**
+ * Deutsche Postleitzahlen haben fuenf Stellen. Excel behandelt "01067" als Zahl
+ * und macht 1067 daraus — das ist keine PLZ aus Dresden mehr, das ist gar keine.
+ * Nur bei eindeutigem DE-Bezug ergaenzen, sonst waere es Raterei (AT und CH
+ * haben vierstellige PLZ).
+ */
+export function normalisierePlz(wert, land) {
+  if (typeof wert !== "string") return { wert, hinweis: null };
+  const roh = wert.trim();
+  if (!roh) return { wert: null, hinweis: null };
+  if (land !== "DE" || !/^\d{4}$/.test(roh)) return { wert: roh, hinweis: null };
+  const ergaenzt = `0${roh}`;
+  return { wert: ergaenzt, hinweis: `Postleitzahl ${roh} → ${ergaenzt} (fuehrende Null)` };
+}
+
+/** Alle Felder, die als Text gespeichert werden. */
+const TEXTFELDER = Object.freeze([
+  "email", "first_name", "last_name", "personnel_number", "phone",
+  "street", "postal_code", "city", "country", "date_of_birth", "notes"
+]);
+
+/**
+ * Wandelt um, was zweifelsfrei gemeint ist, und sammelt die Hinweise.
+ *
+ * Reihenfolge ist wichtig: erst Grundreinigung (Zahl->Text, trimmen,
+ * ""->null), dann die inhaltlichen Regeln — die PLZ-Regel braucht das bereits
+ * normalisierte Land.
+ */
+export function normalisiereZeile(roh) {
+  if (!roh || typeof roh !== "object") return { daten: roh, hinweise: [] };
+  const daten = { ...roh };
+  const hinweise = [];
+
+  /*
+   * Grundreinigung. Excel liefert Personalnummern und PLZ als ZAHL, nicht als
+   * Text — `z.string()` lehnte das ab, obwohl der Wert einwandfrei ist. Und
+   * eine Zelle mit Leerzeichen ist eine leere Zelle, kein Inhalt.
+   */
+  for (const feld of TEXTFELDER) {
+    const v = daten[feld];
+    if (typeof v === "number" && Number.isFinite(v)) daten[feld] = String(v);
+    else if (typeof v === "string") {
+      const t = v.trim();
+      daten[feld] = t === "" ? null : t;
+    }
+  }
+
+  const email = normalisiereEmail(daten.email);
+  if (email.hinweis) hinweise.push(email.hinweis);
+  if (daten.email !== undefined) daten.email = email.wert;
+
+  const datum = normalisiereDatum(daten.date_of_birth);
+  if (datum.hinweis) hinweise.push(datum.hinweis);
+  if (daten.date_of_birth !== undefined) daten.date_of_birth = datum.wert;
+
+  const land = normalisiereLand(daten.country);
+  if (land.hinweis) hinweise.push(land.hinweis);
+  if (daten.country !== undefined) daten.country = land.wert;
+
+  const plz = normalisierePlz(daten.postal_code, daten.country);
+  if (plz.hinweis) hinweise.push(plz.hinweis);
+  if (daten.postal_code !== undefined) daten.postal_code = plz.wert;
+
+  return { daten, hinweise };
+}
+
 const importItemSchema = z.object({
+  /*
+   * P10/D4 — D-E1 ("Import ohne E-Mail, wenn Personalnummer vorhanden") ist vom
+   * Owner ENTSCHIEDEN, aber hier BEWUSST NOCH NICHT umgesetzt.
+   *
+   * Das Datenmodell laesst es nicht zu: `users.email` ist NOT NULL,
+   * `users.password_hash` ist NOT NULL, und `worker_profiles.user_id` ist NOT
+   * NULL — ein Mitarbeiterprofil braucht zwingend ein Benutzerkonto, und ein
+   * Benutzerkonto zwingend eine E-Mail. Zusaetzlich lehnt
+   * `workerService.bulkImportWorkers` Zeilen ohne E-Mail selbst ab.
+   *
+   * Das Schema hier zu oeffnen wuerde die Zeile annehmen und eine Ebene tiefer
+   * scheitern lassen — ein Versprechen, das die Datenbank bricht. Schlimmer als
+   * eine klare Ablehnung.
+   *
+   * Was D-E1 wirklich kostet, steht in docs/features/P10_IMPORT_LIVE_ZEIT.md
+   * (Welle D5). Es ist eine Datenmodell-Entscheidung, keine Feldregel.
+   */
   email:            z.string().email().max(254),
   first_name:       z.string().min(1).max(100),
   last_name:        z.string().min(1).max(100),
@@ -265,7 +423,7 @@ const importItemSchema = z.object({
   street:           z.string().max(200).optional().nullable(),
   postal_code:      z.string().max(20).optional().nullable(),
   city:             z.string().max(100).optional().nullable(),
-  country:          z.string().max(3).optional().nullable(),
+  country:          z.string().length(2).optional().nullable(),
   date_of_birth:    z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional().nullable(),
   notes:            z.string().max(4000).optional().nullable()
 });
@@ -297,13 +455,20 @@ export function pruefeZeilen(rohZeilen) {
   const gueltig = [];
   const zeilenNummern = [];
   const fehler = [];
+  const hinweise = [];
 
   rohZeilen.forEach((roh, i) => {
     const zeile = Number.isInteger(roh?._row) && roh._row > 0 ? roh._row : i + 1;
-    const einzeln = importItemSchema.safeParse(roh);
+    // P10/D4: erst umwandeln, was zweifelsfrei gemeint ist, dann pruefen.
+    const { daten, hinweise: umgewandelt } = normalisiereZeile(roh);
+    const einzeln = importItemSchema.safeParse(daten);
+
     if (einzeln.success) {
       gueltig.push(einzeln.data);
       zeilenNummern.push(zeile);
+      // Umwandlungen sichtbar machen — eine stille Korrektur waere schlimmer als
+      // eine Ablehnung.
+      for (const h of umgewandelt) hinweise.push({ row: zeile, message: h });
       return;
     }
     for (const issue of einzeln.error.issues) {
@@ -317,7 +482,7 @@ export function pruefeZeilen(rohZeilen) {
     }
   });
 
-  return { gueltig, zeilenNummern, fehler };
+  return { gueltig, zeilenNummern, fehler, hinweise };
 }
 
 export function createWorkersRouter(deps) {
@@ -374,7 +539,7 @@ export function createWorkersRouter(deps) {
         return res.status(402).json({ error: "WORKER_LIMIT_EXCEEDED", plan_limits: limits });
       }
 
-      const { gueltig, zeilenNummern, fehler } = pruefeZeilen(parsed.data.workers);
+      const { gueltig, zeilenNummern, fehler, hinweise } = pruefeZeilen(parsed.data.workers);
 
       // Nichts Gueltiges dabei: trotzdem 200 mit Bericht. Ein 400 wuerde die
       // Oberflaeche zurueck auf "Fehler: VALIDATION" werfen — die Wand, die
@@ -403,6 +568,10 @@ export function createWorkersRouter(deps) {
       // Import geschafft haben.
       result.errors = [...fehler, ...(result.errors || [])];
       result.total_rows = parsed.data.workers.length;
+      // Jede stille Korrektur wird ausgewiesen. Wer "Deutschland" schreibt und
+      // "DE" gespeichert bekommt, muss das erfahren — sonst ist Toleranz nur
+      // eine hoefliche Form von Datenverlust.
+      result.notices = hinweise;
 
       res.locals.audit = {
         action: "worker.bulk_import",

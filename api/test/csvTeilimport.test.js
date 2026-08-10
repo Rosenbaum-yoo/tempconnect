@@ -34,7 +34,10 @@ describe("P10/D2 · Struktur: eine Pruefstelle, Teilimport", () => {
   });
 
   it("jede Zeile wird einzeln geprueft", () => {
-    assert.match(ohneKommentare, /importItemSchema\.safeParse\(roh\)/);
+    // ANGEPASST (P10/D4): vorher wurde auf `safeParse(roh)` geprueft. Seit D4
+    // laeuft die Zeile erst durch die Umwandlung und heisst dann `daten` — der
+    // Variablenname war nie die Zusicherung, die Einzelpruefung ist es.
+    assert.match(ohneKommentare, /importItemSchema\.safeParse\(/);
     assert.match(ohneKommentare, /function pruefeZeilen/);
   });
 
@@ -63,7 +66,15 @@ describe("P10/D2 · Gute Zeilen kommen durch, schlechte werden benannt", () => {
     for (let i = 2; i <= 101; i++) zeilen.push(gut(i));
     zeilen[10] = { _row: 12, email: "keine-mail", first_name: "A", last_name: "B" };
     zeilen[30] = { _row: 32, email: "c@example.de", first_name: "", last_name: "B" };
-    zeilen[60] = { _row: 62, email: "d@example.de", first_name: "A", last_name: "B", date_of_birth: "12.03.1988" };
+    /*
+     * ANGEPASST (P10/D4). Diese Zeile war frueher wegen "12.03.1988"
+     * fehlerhaft. Seit den toleranten Feldregeln wird genau dieser Wert
+     * umgewandelt statt abgelehnt — er taugt nicht mehr als Beispiel fuer einen
+     * Fehler. Ein zweistelliges Jahr bleibt bewusst mehrdeutig und damit
+     * ungueltig. Die Zusicherungen darunter sind unveraendert: 97 gute Zeilen
+     * kommen durch, die Meldungen nennen die echten CSV-Zeilen.
+     */
+    zeilen[60] = { _row: 62, email: "d@example.de", first_name: "A", last_name: "B", date_of_birth: "12.03.88" };
 
     const r = pruefeZeilen(zeilen);
     assert.equal(r.gueltig.length, 97, "vorher waeren ALLE 100 verworfen worden");
@@ -73,7 +84,10 @@ describe("P10/D2 · Gute Zeilen kommen durch, schlechte werden benannt", () => {
   });
 
   it("jeder Fehler nennt Zeile, Feld und Grund", () => {
-    const r = pruefeZeilen([{ _row: 7, email: "x@y.de", first_name: "A", last_name: "B", date_of_birth: "12.03.1988" }]);
+    // ANGEPASST (P10/D4): "12.03.1988" wird jetzt umgewandelt. Ein
+    // zweistelliges Jahr bleibt ungueltig — 1988 oder 2088 ist bei einem
+    // Geburtsdatum kein Detail. Alle Zusicherungen unveraendert.
+    const r = pruefeZeilen([{ _row: 7, email: "x@y.de", first_name: "A", last_name: "B", date_of_birth: "12.03.88" }]);
     assert.equal(r.gueltig.length, 0);
     assert.equal(r.fehler[0].row, 7);
     assert.equal(r.fehler[0].field, "date_of_birth");

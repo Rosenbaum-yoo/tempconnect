@@ -86,8 +86,9 @@ längst — `api/utils/dateDE.js` und die DACH-first-Direktive. Sie werden nur n
 Der Owner will das ausdrücklich auch auf die Folgeprojekte übertragen.
 
 **Owner-Entscheidungen:** D-E1 ist **entschieden (ja** — Import ohne E-Mail erlaubt, wenn eine
-Personalnummer vorhanden ist; Umsetzung in Welle D4). Offen bleibt E-E1 (welche Zustände die
-Live-Belegschaft führt — erst nach E1 beantwortbar).
+Personalnummer vorhanden ist), **aber im heutigen Datenmodell nicht umsetzbar** → neue Welle D5
+und neue Frage **D-E2** (welcher der drei Wege, Empfehlung **B**). Offen bleibt E-E1 (welche
+Zustände die Live-Belegschaft führt — erst nach E1 beantwortbar).
 
 > **D1 ist erledigt** *(2026-08-11)*. Der Import zeigt jetzt **Zeile · Spalte — Grund** statt des
 > nackten Wortes „VALIDATION". Der Defekt war eine verschwiegene Auskunft: der Server liefert die
@@ -106,8 +107,24 @@ Live-Belegschaft führt — erst nach E1 beantwortbar).
 > **Dritter Zeilenversatz gefunden:** auch der Importdienst nummeriert mit dem Index seiner
 > eigenen Liste statt mit der CSV-Zeile — derselbe Fehler wie im Browser, eine Ebene tiefer.
 > Über `_row` mitgeführt und in der Route zurückübersetzt.
-> Nächste Welle: **D3** (Spaltentabelle mit Synonymen) oder **D4** (tolerante Feldregeln, dort
-> wird auch D-E1 umgesetzt: Import ohne E-Mail bei vorhandener Personalnummer).
+> **D4 ist erledigt** *(2026-08-11)*. Der Import versteht jetzt, was gemeint ist: `12.03.1988` →
+> `1988-03-12`, `Deutschland` → `DE`, `Anna Beck <anna@firma.de>` → die Adresse, Personalnummer
+> als Excel-Zahl → Text, PLZ `1067` bei Land `DE` → `01067` (Excel verschluckt die führende Null).
+> **Wo es mehrdeutig wird, wird weiterhin abgelehnt** — ein zweistelliges Jahr (1988 oder 2088?)
+> und ein unbekanntes Land. Jede Umwandlung ist **vor** dem Import in der Vorschau sichtbar und
+> steht **nach** dem Import im Bericht; eine stille Korrektur an Personendaten wäre nicht
+> hinnehmbar.
+> **Die Zwei-Wahrheiten-Falle wurde diesmal strukturell geschlossen:** die Regeln stehen
+> zwangsläufig zweimal (Browser für die Vorschau, Server als Prüfstelle), und ein Test führt
+> **beide** an derselben Falltabelle aus — 18 Fälle plus alle 33 Länder. Weicht eine Seite ab,
+> wird er rot. Negativkontrolle gelaufen.
+> **Neuer Blocker gefunden — D-E1 ist nicht lieferbar:** `users.email` NOT NULL,
+> `users.password_hash` NOT NULL, `worker_profiles.user_id` NOT NULL. Ein Mitarbeiterprofil hängt
+> zwingend an einem Konto, ein Konto zwingend an einer E-Mail. Das Schema zu öffnen hätte die
+> Zeile angenommen und eine Ebene tiefer scheitern lassen — ein Versprechen, das die Datenbank
+> bricht. Als **Welle D5** mit drei bewerteten Wegen dokumentiert; **Empfehlung B**
+> (`worker_profiles.user_id` nullbar, Konto entsteht erst bei der Einladung).
+> Nächste Welle: **D3** (Spaltentabelle mit Synonymen) oder **D5** (braucht vorher D-E2).
 
 ---
 

@@ -41,7 +41,17 @@ Zusätzlich der Owner-Wunsch: **variable Spaltennamen** müssen abgefangen werde
 > **D-E1 — entschieden am 2026-08-11:** ✅ **Ja.** Ein Mitarbeiter **ohne E-Mail** ist
 > importierbar, wenn eine Personalnummer vorhanden ist. Ohne E-Mail gibt es keinen
 > Portal-Zugang, aber sehr wohl einen Stammdatensatz — und genau den will man beim Erstimport
-> anlegen. Die Einladung wird später nachgereicht. **Umsetzung in Welle D4.**
+> anlegen. Die Einladung wird später nachgereicht.
+>
+> ⛔ **Nicht in D4 umsetzbar — die Datenbank lässt es nicht zu.** Bei der Umsetzung
+> aufgefallen: `users.email` ist `NOT NULL`, `users.password_hash` ist `NOT NULL`, und
+> `worker_profiles.user_id` ist `NOT NULL`. Ein Mitarbeiterprofil braucht also zwingend ein
+> Benutzerkonto, und ein Benutzerkonto zwingend eine E-Mail-Adresse. Das Formular-Schema zu
+> öffnen hätte die Zeile angenommen und eine Ebene tiefer scheitern lassen — ein Versprechen,
+> das die Datenbank bricht. Das wäre schlimmer als die heutige klare Ablehnung.
+> **Verschoben nach Welle D5**, wo es hingehört: es ist eine Datenmodell-Entscheidung, keine
+> Feldregel. Der heutige Zustand ist in `csvFeldregeln.test.js` festgehalten und wird rot,
+> sobald jemand das Schema öffnet, ohne die Datenbank mitzuziehen.
 
 ### D1 ist erledigt *(2026-08-11)*
 
@@ -143,25 +153,73 @@ Erkennungsregeln, die der Owner ausdrücklich genannt hat:
 zugeordnet. Neue Synonyme sind ein `INSERT`, kein Deploy. Ein Test hält fest, dass Wizard und
 Validierung **dieselbe** Tabelle benutzen — zwei Listen wären zwei Wahrheiten.
 
-#### Welle D4 — Tolerante Feldregeln
+### D4 ist erledigt *(2026-08-11)*
 
-- `date_of_birth` akzeptiert `TT.MM.JJJJ` und `JJJJ-MM-TT` und normalisiert nach ISO
-  (über `todayDE`-Denke: kein roher UTC-Schnitt).
-- `country` akzeptiert Klartext und normalisiert auf ISO-2 („Deutschland" → „DE").
-- `email` wird **optional**, wenn eine Personalnummer vorhanden ist — sonst bleibt sie Pflicht.
-  *(Owner-Entscheidung D-E1 nötig, siehe unten.)*
+Der Import versteht jetzt, was gemeint ist, statt auf ISO zu bestehen:
 
-**Gate D4:** Ein realistischer Export einer Zeitarbeitsfirma geht ohne Handarbeit durch. Jede
-Normalisierung ist im Zeilenbericht sichtbar („Land `Deutschland` → `DE`"), damit niemand rät.
+| Was ankommt | Was gespeichert wird | Warum das eindeutig ist |
+|---|---|---|
+| `12.03.1988`, `12/03/1988`, `1.3.1988` | `1988-03-12` | deutsche Schreibweise, vierstelliges Jahr |
+| `12.03.88` | **abgelehnt** | 1988 oder 2088? Bei einem Geburtsdatum kein Detail |
+| `Deutschland`, `germany`, `de` | `DE` | 33 Länder aus dem DACH-Umfeld und den Nachbarn |
+| `Absurdistan` | **abgelehnt** | ein erfundenes Land wäre schlimmer als ein Fehler |
+| `Anna Beck <anna@firma.de>` | `anna@firma.de` | Outlook-Export, die Adresse steht in den Klammern |
+| `  Anna.Beck@Firma.DE ` | `anna.beck@firma.de` | Rand-Leerzeichen und Großschreibung |
+| PLZ `1067` bei Land `DE` | `01067` | Excel verschluckt die führende Null |
+| PLZ `1010` bei Land `AT` | `1010` | AT und CH haben vierstellige PLZ — hier wird **nicht** geraten |
+| Personalnummer als Zahl `4711` | `"4711"` | Excel macht daraus eine Zahl, `z.string()` lehnte sie ab |
+| Zelle mit `"   "` | leer | sonst steht ein Leerzeichen als Wohnort in der Personalakte |
+
+**Gate D4 erfüllt:** Ein realistischer Export geht ohne Handarbeit durch. **Jede** Umwandlung
+erscheint vor dem Import in der Vorschau (`↻ wird umgewandelt: Land Deutschland → DE`) und nach
+dem Import im Bericht (`notices`). Eine stille Korrektur an Personendaten wäre nicht hinnehmbar —
+Toleranz darf keine höfliche Form von Datenverlust sein.
+
+**Die Regel steht zwangsläufig zweimal** (Browser für die Vorschau, Server als einzige
+Prüfstelle) — und zwei Kopien driften immer. Genau daraus ist der ursprüngliche Defekt
+entstanden. `api/test/csvFeldregeln.browser.test.js` führt **beide** Umsetzungen an derselben
+Falltabelle aus (18 Fälle + alle 33 Länder) und wird rot, sobald eine Seite abweicht.
+Negativkontrolle gelaufen: ein geändertes Länderkürzel im Browser lässt den Test fallen.
+
+*Geändert:* `api/routes/workers.js` (Normalisierung + `notices` in der Antwort),
+`frontend/public/js/pages/mitarbeiter.js` (dieselben Regeln, Prüfung erst **nach** der
+Umwandlung, 6 neue Texte in DE und EN), `frontend/public/mitarbeiter.html` (Hinweiszeile).
+*Neu:* `api/test/csvFeldregeln.test.js` (22), `api/test/csvFeldregeln.browser.test.js` (22).
+
+#### Welle D5 — Mitarbeiter ohne E-Mail *(offen, braucht Owner-Entscheidung)*
+
+Die Owner-Entscheidung D-E1 steht (**ja**), ist aber im heutigen Datenmodell nicht umsetzbar.
+Der Befund, wörtlich aus der Datenbank:
+
+```
+users.email          NOT NULL
+users.password_hash  NOT NULL
+worker_profiles.user_id  NOT NULL
+```
+
+Ein Mitarbeiterprofil hängt zwingend an einem Benutzerkonto, ein Benutzerkonto zwingend an einer
+E-Mail. Zusätzlich lehnt `workerService.bulkImportWorkers` Zeilen ohne E-Mail selbst ab.
+
+**Drei Wege, mit sehr unterschiedlichem Preis:**
+
+| Weg | Was passiert | Preis | Bewertung |
+|---|---|---|---|
+| **A — Platzhalter-Adresse** | `p-4711@import.local` wird erzeugt | eine Migration, ein Tag | ❌ Fake-Daten in der Personalakte. Verstößt gegen „kein Fake-Data". Was passiert beim Einladen? |
+| **B — Profil ohne Konto** | `worker_profiles.user_id` wird nullbar, das Konto entsteht erst bei der Einladung | Migration + jede Stelle prüfen, die heute `user_id` als gesetzt annimmt | ✅ **Empfehlung.** Bildet die Wirklichkeit ab: ein Mitarbeiter existiert, bevor er sich anmeldet. Trägt auch in die Folgeprojekte. |
+| **C — Konto ohne E-Mail** | `users.email` wird nullbar | rührt an Anmeldung, Passwort-Zurücksetzen, Benachrichtigungen, Rechnungen | ❌ Größte Fläche, größtes Risiko, kleinster Gewinn |
+
+**Gate D5:** Ein Import mit Personalnummer und ohne E-Mail legt einen echten Stammdatensatz an.
+Der Mitarbeiter erscheint in der Liste, ist bearbeitbar, und eine spätere Einladung erzeugt das
+Konto und verbindet es. Kein Platzhalter taucht irgendwo in der Oberfläche auf.
 
 ### D.3 Reihenfolge
 
-**D1 → D2 → D3 → D4.** Erst sehen, dann teilweise importieren, dann erkennen, dann tolerieren.
+**D1 → D2 → D4 → D3 → D5.** Erst sehen, dann teilweise importieren, dann tolerieren, dann
+erkennen — D5 zuletzt, weil es als einziges an die Datenbank rührt.
 
-> **Owner-Entscheidung D-E1:** Soll ein Mitarbeiter **ohne E-Mail** importierbar sein, wenn eine
-> Personalnummer vorhanden ist? *Meine Empfehlung: ja.* Ohne E-Mail gibt es keinen Portal-Zugang,
-> aber sehr wohl einen Stammdatensatz — und genau den will man beim Erstimport anlegen.
-> Die Einladung kann später nachgereicht werden.
+> **Warum D4 vor D3:** Die toleranten Feldregeln (D4) waren ohne Vorarbeit lieferbar und lösen
+> den größten Teil der gemeldeten Fehlschläge. Die Spaltentabelle (D3) ist die aufwendigere
+> Arbeit und baut auf den Regeln auf, die D4 gerade festgelegt hat.
 
 ---
 
@@ -290,5 +348,6 @@ Unverändert aus P9 — sie haben sich getragen:
 
 | Kennung | Frage | Empfehlung |
 |---|---|---|
-| **D-E1** | Mitarbeiter ohne E-Mail importierbar, wenn Personalnummer vorhanden? | ja — Stammdatensatz jetzt, Einladung später |
+| **D-E1** | Mitarbeiter ohne E-Mail importierbar, wenn Personalnummer vorhanden? | ✅ entschieden: ja — aber die Datenbank lässt es nicht zu, siehe **D-E2** |
+| **D-E2** | Welchen Weg für D5? Platzhalter-Adresse (A), Profil ohne Konto (B), Konto ohne E-Mail (C)? | **B** — `worker_profiles.user_id` nullbar. Bildet ab, dass ein Mitarbeiter existiert, bevor er sich anmeldet; kein Fake-Data; überträgt sich auf die Folgeprojekte |
 | **E-E1** | Welche Zustände soll die Live-Belegschaft führen? (verfügbar, im Einsatz, krank, Montage, …) | erst E1 abwarten: gebaut wird nur, was eine Quelle hat |

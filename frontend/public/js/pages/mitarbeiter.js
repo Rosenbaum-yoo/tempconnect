@@ -430,6 +430,12 @@ TCi18n.register('de', {
   'mit.csv.fileMeta': '{rows} Datensätze · {columns} Spalten',
   'mit.csv.errMissingRequired': 'Pflichtfelder nicht zugeordnet: {fields}',
   'mit.csv.errFieldMissing': '{field} fehlt',
+  'mit.csv.noticeEmail': 'E-Mail {from} → {to}',
+  'mit.csv.noticeDate': 'Geburtsdatum {from} → {to}',
+  'mit.csv.noticeCountry': 'Land {from} → {to}',
+  'mit.csv.noticePostal': 'Postleitzahl {from} → {to} (führende Null)',
+  'mit.csv.rowConverted': 'wird umgewandelt',
+  'mit.csv.kpiConverted': 'umgewandelt',
   'mit.csv.errInvalidEmail': 'Ungültige E-Mail',
   'mit.csv.errDuplicateEmail': 'Doppelte E-Mail in CSV (Zeile {row})',
   'mit.csv.kpiTotal': 'Gesamt',
@@ -921,6 +927,12 @@ TCi18n.register('en', {
   'mit.csv.fileMeta': '{rows} records · {columns} columns',
   'mit.csv.errMissingRequired': 'Required fields not mapped: {fields}',
   'mit.csv.errFieldMissing': '{field} missing',
+  'mit.csv.noticeEmail': 'Email {from} → {to}',
+  'mit.csv.noticeDate': 'Date of birth {from} → {to}',
+  'mit.csv.noticeCountry': 'Country {from} → {to}',
+  'mit.csv.noticePostal': 'Postal code {from} → {to} (leading zero)',
+  'mit.csv.rowConverted': 'will be converted',
+  'mit.csv.kpiConverted': 'converted',
   'mit.csv.errInvalidEmail': 'Invalid email',
   'mit.csv.errDuplicateEmail': 'Duplicate email in CSV (row {row})',
   'mit.csv.kpiTotal': 'Total',
@@ -2750,6 +2762,85 @@ var CSV_FIELDS = [
   { key: "notes",            labelKey: "mit.field.notes",          required: false, aliases: ["notes","notizen","bemerkung","kommentar","comment","anmerkung","info"] }
 ];
 
+/*
+ * P10/D4 — tolerante Feldregeln, Browser-Seite.
+ *
+ * WICHTIG: Diese Regeln muessen Zeichen fuer Zeichen dieselben sein wie in
+ * api/routes/workers.js (normalisiereZeile). Sonst entstehen wieder zwei
+ * Wahrheiten — diesmal umgekehrt: die Vorschau markiert eine Zeile rot, die
+ * der Server anstandslos annimmt. api/test/csvFeldregeln.browser.test.js
+ * vergleicht beide Seiten an einer gemeinsamen Falltabelle und wird rot, sobald
+ * eine Seite abweicht.
+ */
+var CSV_LAND_NACH_ISO = {
+  deutschland: "DE", germany: "DE", brd: "DE",
+  oesterreich: "AT", "österreich": "AT", austria: "AT",
+  schweiz: "CH", switzerland: "CH", suisse: "CH",
+  polen: "PL", poland: "PL", tschechien: "CZ", "tschechische republik": "CZ",
+  ungarn: "HU", hungary: "HU", rumaenien: "RO", "rumänien": "RO", romania: "RO",
+  slowakei: "SK", slovakia: "SK", kroatien: "HR", croatia: "HR",
+  bulgarien: "BG", bulgaria: "BG", italien: "IT", italy: "IT",
+  frankreich: "FR", france: "FR", niederlande: "NL", netherlands: "NL",
+  belgien: "BE", belgium: "BE", spanien: "ES", spain: "ES",
+  portugal: "PT", tuerkei: "TR", "türkei": "TR", turkey: "TR"
+};
+
+/**
+ * Wandelt die Zeile an Ort und Stelle um und gibt die Hinweise zurueck.
+ * Leere Felder bleiben "" (nicht null) — die Vorschau arbeitet mit Zeichenketten.
+ */
+function csvNormalisiereZeile(d) {
+  var hinweise = [];
+
+  // E-Mail: "Anna Beck <anna@firma.de>", "mailto:...", Grossschreibung.
+  if (d.email) {
+    var vorher = d.email;
+    var wert = d.email.trim();
+    var inKlammern = /<([^<>@\s]+@[^<>@\s]+)>/.exec(wert);
+    if (inKlammern) wert = inKlammern[1];
+    else wert = wert.replace(/^</, "").replace(/>$/, "").replace(/^mailto:/i, "").trim();
+    wert = wert.toLowerCase();
+    if (vorher.trim().toLowerCase() !== wert) {
+      hinweise.push(TCi18n.t("mit.csv.noticeEmail", { from: vorher, to: wert }));
+    }
+    d.email = wert;
+  }
+
+  // Geburtsdatum: TT.MM.JJJJ (auch / und -) nach ISO. Zweistellige Jahre NICHT
+  // — 1988 oder 2088 ist bei einem Geburtsdatum kein Detail.
+  if (d.date_of_birth && !/^\d{4}-\d{2}-\d{2}$/.test(d.date_of_birth)) {
+    var m = /^(\d{1,2})[.\/-](\d{1,2})[.\/-](\d{4})$/.exec(d.date_of_birth);
+    if (m) {
+      var iso = m[3] + "-" + ("0" + m[2]).slice(-2) + "-" + ("0" + m[1]).slice(-2);
+      hinweise.push(TCi18n.t("mit.csv.noticeDate", { from: d.date_of_birth, to: iso }));
+      d.date_of_birth = iso;
+    }
+  }
+
+  // Land: Klartext nach ISO-2. Unbekanntes bleibt stehen und faellt in die Pruefung.
+  if (d.country) {
+    if (/^[A-Za-z]{2}$/.test(d.country)) {
+      d.country = d.country.toUpperCase();
+    } else {
+      var land = CSV_LAND_NACH_ISO[d.country.toLowerCase()];
+      if (land) {
+        hinweise.push(TCi18n.t("mit.csv.noticeCountry", { from: d.country, to: land }));
+        d.country = land;
+      }
+    }
+  }
+
+  // Postleitzahl: Excel verschluckt die fuehrende Null (01067 -> 1067). Nur bei
+  // eindeutigem DE-Bezug ergaenzen — AT und CH haben vierstellige PLZ.
+  if (d.postal_code && d.country === "DE" && /^\d{4}$/.test(d.postal_code)) {
+    var plz = "0" + d.postal_code;
+    hinweise.push(TCi18n.t("mit.csv.noticePostal", { from: d.postal_code, to: plz }));
+    d.postal_code = plz;
+  }
+
+  return hinweise;
+}
+
 /** Anzeigename eines CSV-Feldes (mit "*" bei Pflichtfeldern, wie im Woerterbuch). */
 function csvFieldLabel(field) {
   return (field && TCi18n.t(field.labelKey)) || (field && field.key) || "";
@@ -2937,23 +3028,37 @@ function csvRunValidation() {
   var validated = [];
   var okCount = 0;
   var errCount = 0;
+  var convCount = 0;
   var emails = {};
 
   _csvData.rows.forEach(function(row) {
-    var rec = { _row: row._row, _errors: [], _data: {} };
+    var rec = { _row: row._row, _errors: [], _notices: [], _data: {} };
+
+    // 1. Rohwerte einsammeln.
     CSV_FIELDS.forEach(function(f) {
       var csvCol = mappedFields[f.key];
-      var val = csvCol ? (row[csvCol] || "").trim() : "";
+      rec._data[f.key] = csvCol ? (row[csvCol] || "").trim() : "";
+    });
+
+    // 2. Umwandeln, was zweifelsfrei gemeint ist — mit DENSELBEN Regeln wie der
+    //    Server (siehe csvNormalisiereZeile). Wuerde die Vorschau strenger
+    //    pruefen als der Import, waere sie eine Luege in die andere Richtung:
+    //    rote Zeilen, die problemlos durchgehen.
+    rec._notices = csvNormalisiereZeile(rec._data);
+
+    // 3. Erst jetzt pruefen — auf den Werten, die wirklich gesendet werden.
+    CSV_FIELDS.forEach(function(f) {
+      var val = rec._data[f.key];
       if (f.required && !val) { rec._errors.push(TCi18n.t("mit.csv.errFieldMissing", { field: csvFieldName(f) })); }
       if (f.key === "email" && val && !emailRe.test(val)) { rec._errors.push(TCi18n.t("mit.csv.errInvalidEmail")); }
       if (f.key === "email" && val) {
-        var lower = val.toLowerCase();
-        if (emails[lower]) { rec._errors.push(TCi18n.t("mit.csv.errDuplicateEmail", { row: emails[lower] })); }
-        else { emails[lower] = row._row; }
+        if (emails[val]) { rec._errors.push(TCi18n.t("mit.csv.errDuplicateEmail", { row: emails[val] })); }
+        else { emails[val] = row._row; }
       }
-      rec._data[f.key] = val;
     });
+
     if (rec._errors.length > 0) errCount++; else okCount++;
+    if (rec._notices.length > 0) convCount++;
     validated.push(rec);
   });
   _csvData.validated = validated;
@@ -2962,7 +3067,10 @@ function csvRunValidation() {
   summary.innerHTML =
     '<div class="csv-kpi info"><span class="num">' + validated.length + '</span> ' + esc(TCi18n.t("mit.csv.kpiTotal")) + '</div>' +
     '<div class="csv-kpi ok"><span class="num">' + okCount + '</span> ' + esc(TCi18n.t("mit.csv.kpiValid")) + '</div>' +
-    '<div class="csv-kpi err"><span class="num">' + errCount + '</span> ' + esc(TCi18n.t("mit.csv.kpiErrors")) + '</div>';
+    '<div class="csv-kpi err"><span class="num">' + errCount + '</span> ' + esc(TCi18n.t("mit.csv.kpiErrors")) + '</div>' +
+    (convCount > 0
+      ? '<div class="csv-kpi info"><span class="num">' + convCount + '</span> ' + esc(TCi18n.t("mit.csv.kpiConverted")) + '</div>'
+      : '');
 
   csvCheckDuplicates(function(dupInfo) {
     _csvData.dupInfo = dupInfo || {};
@@ -2999,6 +3107,14 @@ function csvRenderValidationTable() {
       statusHtml = '<span class="csv-val-dup">\u2194 ' + esc(TCi18n.t("mit.csv.rowDuplicate")) + '</span>';
     } else {
       statusHtml = '<span class="csv-val-ok">\u2714 ' + esc(TCi18n.t("mit.csv.rowOk")) + '</span>';
+    }
+    // P10/D4: Umgewandelte Werte werden benannt, nicht stillschweigend ersetzt.
+    // Es sind Personendaten \u2014 wer "Deutschland" schreibt und "DE" gespeichert
+    // bekommt, muss das VOR dem Import sehen, nicht danach suchen muessen.
+    if (rec._notices && rec._notices.length) {
+      statusHtml += '<div class="csv-val-note meta">\u21bb ' +
+        esc(TCi18n.t("mit.csv.rowConverted")) + ': ' +
+        rec._notices.map(function(n) { return esc(n); }).join(" \u00b7 ") + '</div>';
     }
     html += '<tr><td>' + rec._row + '</td><td class="meta">' + esc(email) + '</td><td>' + esc(rec._data.first_name) + '</td><td>' + esc(rec._data.last_name) + '</td><td>' + statusHtml + '</td></tr>';
   });
