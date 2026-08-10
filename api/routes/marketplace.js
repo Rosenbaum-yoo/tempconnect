@@ -2113,6 +2113,53 @@ export function createMarketplaceRouter(deps) {
     }
   });
 
+  /* ── Merkliste (P9 Welle B2) ─────────────────────────────────────
+   *
+   * Beide Richtungen in einer Liste: ein Unternehmen sieht gemerkte Kapazitaeten,
+   * eine Zeitarbeitsfirma gemerkte Bedarfe. Die Gegenseitenlogik ergibt sich aus
+   * dem, was jemand merken konnte — es braucht keinen Rollenfilter obendrauf.
+   *
+   * ORG-GRENZE: gelesen wird ausschliesslich die EIGENE Merkliste
+   * (`company_user_id = req.session.userId`). Es gibt bewusst keinen Parameter,
+   * mit dem man eine fremde anfordern koennte.
+   */
+  router.get("/marketplace/watchlist", requireAuth, async (req, res) => {
+    try {
+      const items = await capacityExchangeService.ladeMerkliste(pool, req.session.userId, {
+        limit: req.query.limit ? parseInt(req.query.limit, 10) : undefined
+      });
+      res.json({
+        items,
+        total: items.length,
+        // Der Zaehler fuer den Reiter zaehlt nur, was noch verfolgbar ist —
+        // eine "3" neben lauter vergebenen Eintraegen waere eine falsche Zusage.
+        offen: items.filter((i) => i.zustand === "offen").length
+      });
+    } catch (e) {
+      logger.error({ err: e }, "GET /marketplace/watchlist");
+      res.status(500).json({ error: "SERVER_ERROR" });
+    }
+  });
+
+  /* ── Gemerkten Bedarf wieder entfernen (P9 Welle B1) ─────────────
+   *
+   * Bewusst OHNE die Pruefung `isDemandCommerciallyOpen` des POST-Zwillings:
+   * Einen geschlossenen Bedarf muss man von seiner Liste nehmen koennen —
+   * sonst waere sie genau dann nicht aufraeumbar, wenn sie voll alter Eintraege
+   * ist. Entfernt wird ausschliesslich die eigene Merkung.
+   */
+  router.delete("/marketplace/demand-requests/:id/interactions/save", requireAuth, async (req, res) => {
+    try {
+      const ergebnis = await capacityExchangeService.entferneMerkung(
+        pool, req.session.userId, { demandRequestId: req.params.id }
+      );
+      res.json({ ok: true, gemerkt: false, entfernt: ergebnis.entfernt });
+    } catch (e) {
+      logger.error({ err: e }, "DELETE /marketplace/demand-requests/:id/interactions/save");
+      res.status(500).json({ error: "SERVER_ERROR" });
+    }
+  });
+
   router.post("/marketplace/demand-requests/:id/interactions", requireAuth, slaAccess, async (req, res) => {
     try {
       const demandId = req.params.id;

@@ -647,10 +647,27 @@ export async function browseFeed(pool, opts = {}) {
   const limit = Math.min(100, opts.limit || 25);
   const offset = (page - 1) * limit;
 
+  // P9/B1: Der Merk-Zustand faehrt in DERSELBEN Abfrage mit — kein Rundlauf je
+  // Karte und auch keine zusaetzliche Sammelabfrage. Ohne angemeldeten Betrachter
+  // ist nichts gemerkt, dann steht dort schlicht FALSE.
+  let merkParam = null;
+  if (viewerUserId) {
+    params.push(viewerUserId);
+    merkParam = `$${idx}`;
+    idx++;
+  }
+  const supplyGemerkt = merkParam
+    ? `EXISTS (SELECT 1 FROM capacity_interactions ci_merk
+                WHERE ci_merk.capacity_post_id = cp.id
+                  AND ci_merk.company_user_id = ${merkParam}
+                  AND ci_merk.interaction_type = 'save')`
+    : "FALSE";
+
   // Build supply query with current filters
   const supplyCte = `
     SELECT ${ENTRY_SELECT},
-           COALESCE(cp.updated_at, cp.created_at) AS sort_date
+           COALESCE(cp.updated_at, cp.created_at) AS sort_date,
+           ${supplyGemerkt} AS gemerkt
     ${ENTRY_JOINS}
     WHERE ${where.join(' AND ')}`;
 
@@ -682,7 +699,13 @@ export async function browseFeed(pool, opts = {}) {
       u.email AS supplier_email,
       NULL::text AS org_name,
       'demand'::text AS feed_type,
-      COALESCE(dr.updated_at, dr.created_at) AS sort_date
+      COALESCE(dr.updated_at, dr.created_at) AS sort_date,
+      -- P9/B1: gemerkte Bedarfe, aus derselben Abfrage. $2 ist der Betrachter;
+      -- ohne angemeldeten Nutzer bleibt es FALSE.
+      EXISTS (SELECT 1 FROM capacity_interactions ci_merk
+               WHERE ci_merk.demand_request_id = dr.id
+                 AND ci_merk.company_user_id = $2
+                 AND ci_merk.interaction_type = 'save') AS gemerkt
     FROM demand_requests dr
     JOIN users u ON u.id = dr.requester_company_id
     WHERE ${demandVisibilityWhere}
@@ -719,7 +742,8 @@ export async function browseFeed(pool, opts = {}) {
   if (supplyRows.length < limit) {
     const demandLimit = limit - supplyRows.length;
     const { rows: dr } = await pool.query(
-      `${demandCte} ORDER BY COALESCE(dr.updated_at, dr.created_at) DESC LIMIT $1`, [demandLimit]);
+      `${demandCte} ORDER BY COALESCE(dr.updated_at, dr.created_at) DESC LIMIT $1`,
+      [demandLimit, viewerUserId]);
     demandRows = dr;
   }
 
@@ -1002,6 +1026,21 @@ export async function browseFeed(pool, opts = {}) {
 /* ── INTERACTIONS ─────────────────────────────────── */
 
 export async function createInteraction(pool, capacityPostId, companyUserId, data) {
+  // P9/B1: "Merken" ist ein Zustand. Die zeitliche Entdopplung unten passt zu
+  // Ereignissen (Frage, Kontakt), nicht zu einem Schalter — sie wuerde ein
+  // erneutes Merken innerhalb von 10 Minuten verschlucken.
+  if (data.interaction_type === "save") {
+    const r = await merkeEintrag(pool, companyUserId, { capacityPostId });
+    if (!r.neu) return null;   // stand schon drauf — der Aufrufer liest das als "deduped"
+    const { rows: gesetzt } = await pool.query(
+      `SELECT * FROM capacity_interactions
+        WHERE capacity_post_id = $1 AND company_user_id = $2 AND interaction_type = 'save'
+        LIMIT 1`,
+      [capacityPostId, companyUserId]
+    );
+    return gesetzt[0] || null;
+  }
+
   const { rows } = await pool.query(
     `INSERT INTO capacity_interactions (capacity_post_id, company_user_id, interaction_type, message, requisition_id)
      SELECT $1, $2, $3, $4, $5
@@ -1025,6 +1064,149 @@ export async function createInteraction(pool, capacityPostId, companyUserId, dat
   return rows[0] || null;
 }
 
+/* ── Merken: ein Zustand, kein Ereignis (P9 Welle B1) ─────────────────────
+ *
+ * `save` liegt bewusst weiter in `capacity_interactions` — keine Parallelstruktur.
+ * Es verhaelt sich dort aber anders als die uebrigen Typen: die zeitliche
+ * Entdopplung (10 Minuten) ist fuer einen Schalter falsch. Wer merkt, entfernt und
+ * gleich wieder merkt, bekaeme sonst keinen neuen Eintrag — der Schalter liesse
+ * sich nicht wieder einschalten. Der eindeutige Index aus Migration 172 macht das
+ * Setzen stattdessen idempotent.
+ *
+ * `ziel` ist genau eines von beiden: { capacityPostId } oder { demandRequestId }.
+ * Die Tabelle erzwingt das ohnehin (capacity_interactions_one_target_chk).
+ */
+export async function merkeEintrag(pool, userId, ziel = {}) {
+  const kapazitaet = ziel.capacityPostId || null;
+  const bedarf = ziel.demandRequestId || null;
+  if (Boolean(kapazitaet) === Boolean(bedarf)) {
+    throw new Error("MERKEN_GENAU_EIN_ZIEL");
+  }
+  const { rows } = await pool.query(
+    `INSERT INTO capacity_interactions (capacity_post_id, demand_request_id, company_user_id, interaction_type)
+     VALUES ($1, $2, $3, 'save')
+     ON CONFLICT DO NOTHING
+     RETURNING *`,
+    [kapazitaet, bedarf, userId]
+  );
+  // Kein RETURNING heisst: stand schon auf der Liste. Fuer den Aufrufer ist das
+  // ein Erfolg, kein Fehler — der gewuenschte Zustand ist erreicht.
+  return { gemerkt: true, neu: rows.length > 0 };
+}
+
+/** Nimmt eine Merkung zurueck. `entfernt: false` heisst: stand gar nicht drauf. */
+export async function entferneMerkung(pool, userId, ziel = {}) {
+  const kapazitaet = ziel.capacityPostId || null;
+  const bedarf = ziel.demandRequestId || null;
+  if (Boolean(kapazitaet) === Boolean(bedarf)) {
+    throw new Error("MERKEN_GENAU_EIN_ZIEL");
+  }
+  const { rowCount } = await pool.query(
+    `DELETE FROM capacity_interactions
+      WHERE company_user_id = $3
+        AND interaction_type = 'save'
+        AND capacity_post_id IS NOT DISTINCT FROM $1
+        AND demand_request_id IS NOT DISTINCT FROM $2`,
+    [kapazitaet, bedarf, userId]
+  );
+  return { gemerkt: false, entfernt: rowCount > 0 };
+}
+
+/**
+ * Die Merkliste eines Nutzers — beide Richtungen (P9 Welle B2).
+ *
+ * Ein Unternehmen merkt sich Kapazitaeten, eine Zeitarbeitsfirma Bedarfe. Beides
+ * liegt in derselben Tabelle und kommt hier in EINER Abfrage zurueck, nach
+ * Merk-Zeitpunkt sortiert.
+ *
+ * ANGEREICHERT UM DEN LEBENSZUSTAND — das ist der Punkt der Welle:
+ * Ein gemerkter Bedarf, der laengst besetzt ist, wird als besetzt AUSGEWIESEN und
+ * nicht ausgeblendet. Verschwinden liesse die Liste kaputt wirken ("ich hatte da
+ * doch was gemerkt"); stillschweigend weiter als offen zu zeigen waere gelogen.
+ *
+ * `zustand` ist bewusst eine kleine, geschlossene Menge:
+ *   offen        kann noch verfolgt werden
+ *   vergeben     besetzt bzw. reserviert — nur noch Historie
+ *   abgelaufen   Zeitraum vorbei
+ *   entfernt     die Quelle gibt es nicht mehr (kommt durch ON DELETE CASCADE
+ *                praktisch nicht vor, ist aber kein Grund fuer eine leere Zeile)
+ */
+export async function ladeMerkliste(pool, userId, opts = {}) {
+  const limit = Math.min(Math.max(Number(opts.limit) || 100, 1), 200);
+  const heute = todayDateString();
+
+  const { rows } = await pool.query(
+    `SELECT
+       ci.created_at AS gemerkt_am,
+       'supply'::text AS art,
+       cp.id, cp.title, cp.role, cp.skill_tags, cp.headcount,
+       cp.location_city, cp.location_postal,
+       cp.availability_from, cp.availability_to,
+       cp.price_min, cp.price_max, cp.price_type,
+       cp.status,
+       cp.supplier_company_id AS gegenseite_user_id,
+       u.company_name AS gegenseite_name
+     FROM capacity_interactions ci
+     JOIN capacity_posts cp ON cp.id = ci.capacity_post_id
+     LEFT JOIN users u ON u.id = cp.supplier_company_id
+    WHERE ci.company_user_id = $1
+      AND ci.interaction_type = 'save'
+      AND ci.capacity_post_id IS NOT NULL
+
+    UNION ALL
+
+    SELECT
+       ci.created_at AS gemerkt_am,
+       'demand'::text AS art,
+       dr.id, dr.title, dr.role, dr.skill_tags, dr.headcount,
+       dr.location_city, dr.location_postal,
+       dr.start_date AS availability_from, dr.end_date AS availability_to,
+       dr.budget_min AS price_min, dr.budget_max AS price_max, NULL::text AS price_type,
+       dr.status,
+       dr.requester_company_id AS gegenseite_user_id,
+       u.company_name AS gegenseite_name
+     FROM capacity_interactions ci
+     JOIN demand_requests dr ON dr.id = ci.demand_request_id
+     LEFT JOIN users u ON u.id = dr.requester_company_id
+    WHERE ci.company_user_id = $1
+      AND ci.interaction_type = 'save'
+      AND ci.demand_request_id IS NOT NULL
+
+    ORDER BY gemerkt_am DESC
+    LIMIT $2`,
+    [userId, limit]
+  );
+
+  return rows.map((r) => ({
+    ...r,
+    zustand: merklistenZustand(r, heute),
+    // Deep-Link auf den konkreten Eintrag, nicht auf die Uebersicht
+    // (CLAUDE.md: keine Sackgassen).
+    link: r.art === "demand"
+      ? `/public/marketplace_feed.html?demand=${r.id}`
+      : `/public/capacity_exchange_detail.html?id=${r.id}`
+  }));
+}
+
+/** Der Lebenszustand eines gemerkten Eintrags — klein und geschlossen gehalten. */
+export function merklistenZustand(eintrag, heute = todayDateString()) {
+  if (!eintrag || !eintrag.id) return "entfernt";
+  const status = String(eintrag.status || "").toLowerCase();
+
+  if (eintrag.art === "demand") {
+    if (status === "fulfilled") return "vergeben";
+    if (status === "expired" || status === "cancelled") return "abgelaufen";
+  } else {
+    if (status === "filled" || status === "reserved") return "vergeben";
+    if (status === "expired" || status === "archived") return "abgelaufen";
+    if (status === "paused") return "abgelaufen";
+  }
+
+  const bis = eintrag.availability_to ? normalizeDateOnly(eintrag.availability_to) : null;
+  if (bis && bis < heute) return "abgelaufen";
+  return "offen";
+}
+
 /**
  * Interaction on a demand_request (Nachfrage): agency/supplier responds to company bedarf.
  * @param {import('pg').Pool} pool
@@ -1032,6 +1214,19 @@ export async function createInteraction(pool, capacityPostId, companyUserId, dat
  * @param {string} actorUserId - must not be the demand requester
  */
 export async function createDemandInteraction(pool, demandRequestId, actorUserId, data) {
+  // P9/B1: wie bei Kapazitaeten — Merken ist ein Zustand, keine Wiederholung.
+  if (data.interaction_type === "save") {
+    const r = await merkeEintrag(pool, actorUserId, { demandRequestId });
+    if (!r.neu) return null;
+    const { rows: gesetzt } = await pool.query(
+      `SELECT * FROM capacity_interactions
+        WHERE demand_request_id = $1 AND company_user_id = $2 AND interaction_type = 'save'
+        LIMIT 1`,
+      [demandRequestId, actorUserId]
+    );
+    return gesetzt[0] || null;
+  }
+
   const { rows } = await pool.query(
     `INSERT INTO capacity_interactions (capacity_post_id, demand_request_id, company_user_id, interaction_type, message, requisition_id)
      SELECT NULL, $1, $2, $3, $4, $5

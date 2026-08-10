@@ -603,6 +603,50 @@ Marktplatz-Seite und Deep-Link je Eintrag auf das konkrete Angebot (nicht auf di
 Leerzustand erklärt, wie man etwas merkt, statt nur „keine Einträge" zu zeigen.
 DE + EN, gleiche Schlüssel.
 
+### Spur B ist erledigt *(2026-08-09)*
+
+Aus dem Knopf, der nichts tat, ist eine benutzbare Merkliste geworden — beidseitig.
+
+**B1 — der Schalter.** Der Knopf zeigt jetzt seinen Zustand, statt ihn zu verbrauchen, und der
+Feed liefert ihn **in derselben Abfrage** mit (kein Nachladen je Karte). Der Gegenweg existiert:
+`DELETE …/interactions/save`, für Kapazitäten und Bedarfe.
+
+**B2 — die Liste.** `GET /marketplace/watchlist` liefert beide Richtungen in einer Abfrage,
+nach Merk-Zeitpunkt sortiert, angereichert um den Lebenszustand: *offen*, *vergeben*,
+*abgelaufen*, *entfernt*. Gelesen wird ausschließlich die eigene Liste — es gibt bewusst keinen
+Parameter, mit dem man eine fremde anfordern könnte.
+
+**B3 — der Reiter.** „Merkliste" bei *Meine Deals*, mit Zähler, Quicklink auf den Marktplatz und
+Deep-Link je Eintrag. Entfernen geht direkt aus der Liste. Der Leerzustand erklärt den Weg
+(„Im Marktplatz auf den Stern tippen") statt nur „keine Einträge" zu melden. DE und EN.
+
+#### Zwei Defekte, die dabei ans Licht kamen
+
+**Der Knopf war auf Bedarfs-Karten seit jeher wirkungslos.** Er wird auf *allen* Karten gerendert,
+schickte aber immer an den Kapazitäts-Endpunkt. Für eine Bedarfs-ID findet der nichts → 404 → und
+der Fehler wurde vom `.catch` stumm verschluckt. Eine Zeitarbeitsfirma konnte sich noch nie einen
+Bedarf merken. Jetzt kennt der Knopf sein Ziel (`data-save-kind`).
+
+**Die 10-Minuten-Falle.** `createInteraction` entdoppelt über ein Zeitfenster — richtig für
+Ereignisse wie Frage oder Kontakt, tödlich für einen Schalter: merken, entfernen, sofort erneut
+merken hätte den zweiten Klick verschluckt, und der Schalter ließe sich nicht wieder einschalten.
+Migration 172 macht `save` über einen partiellen eindeutigen Index zu einem **Zustand**; mehrfaches
+Merken ist damit folgenlos statt gefährlich. Am echten Bestand nachgespielt: merken → entfernen →
+sofort erneut merken wirkt.
+
+#### Gates
+
+- **B1 erfüllt:** Zweimal klicken hebt sich auf, ein Neuladen zeigt den Zustand, 50 Karten
+  erzeugen keine zusätzliche Abfrage (per Test gezählt).
+- **B2 erfüllt:** Ein gemerkter, inzwischen geschlossener Eintrag wird als geschlossen
+  **ausgewiesen und nicht ausgeblendet**. Org-Grenze per Test: beide Zweige der Abfrage sind auf
+  den Betrachter eingeschränkt, und niemand kann fremde Merkungen entfernen (am Bestand geprüft).
+- **B3 erfüllt:** Reiter für beide Marktseiten, erklärender Leerzustand, DE + EN mit gleichen
+  Schlüsseln (per Test gezählt: jeder Schlüssel genau zweimal).
+
+**Belege:** `api/test/merkenSchalter.test.js` (13 Prüfungen, davon 2 gegen die echte Datenbank),
+`api/test/merkliste.test.js` (16 Prüfungen), Migration 172.
+
 ### B.3 Reihenfolge
 
 **B1 → B2 → B3.** Der Schalter zuerst, weil eine Liste, die man nicht leeren kann, den

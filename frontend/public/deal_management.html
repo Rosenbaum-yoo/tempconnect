@@ -122,6 +122,10 @@
       <button class="dm-tab" data-filter="completed"><span data-i18n="deal.tab.completed">Abgeschlossen</span> <span class="dm-tab__count" id="cnt-completed"></span></button>
       <button class="dm-tab" data-filter="cancelled"><span data-i18n="deal.tab.cancelled">Storniert</span> <span class="dm-tab__count" id="cnt-cancelled"></span></button>
       <button class="dm-tab" data-filter=""><span data-i18n="deal.tab.all">Alle</span> <span class="dm-tab__count" id="cnt-all"></span></button>
+      <!-- P9/B3: Merkliste als eigener Reiter. Der Zaehler zeigt nur die noch
+           offenen Eintraege — eine Zahl neben lauter vergebenen waere eine
+           falsche Zusage. -->
+      <button class="dm-tab" data-filter="watchlist"><span data-i18n="deal.tab.watchlist">Merkliste</span> <span class="dm-tab__count" id="cnt-watchlist"></span></button>
     </div>
     <div class="dm-toolbar">
       <div id="dm-results" class="dm-results"></div>
@@ -176,6 +180,16 @@
       'deal.kpi.completed': 'Abgeschlossen',
       'deal.kpi.volume': 'Gesamtpersonen',
       'deal.tab.active': 'Aktive Deals',
+      'deal.tab.watchlist': 'Merkliste',
+      'deal.wl.open': 'Offen',
+      'deal.wl.taken': 'Vergeben',
+      'deal.wl.expired': 'Abgelaufen',
+      'deal.wl.removed': 'Nicht mehr vorhanden',
+      'deal.wl.unsave': 'Nicht mehr merken',
+      'deal.wl.toMarket': 'Zum Marktplatz',
+      'deal.wl.empty': 'Noch nichts gemerkt. Im Marktplatz auf den Stern einer Karte tippen — der Eintrag erscheint dann hier.',
+      'deal.wl.kind.supply': 'Kapazitaet',
+      'deal.wl.kind.demand': 'Bedarf',
       'deal.tab.completed': 'Abgeschlossen',
       'deal.tab.cancelled': 'Storniert',
       'deal.tab.all': 'Alle',
@@ -279,6 +293,16 @@
       'deal.kpi.completed': 'Completed',
       'deal.kpi.volume': 'People in total',
       'deal.tab.active': 'Active deals',
+      'deal.tab.watchlist': 'Watchlist',
+      'deal.wl.open': 'Open',
+      'deal.wl.taken': 'Taken',
+      'deal.wl.expired': 'Expired',
+      'deal.wl.removed': 'No longer available',
+      'deal.wl.unsave': 'Remove from list',
+      'deal.wl.toMarket': 'Go to marketplace',
+      'deal.wl.empty': 'Nothing saved yet. Tap the star on a marketplace card and it will show up here.',
+      'deal.wl.kind.supply': 'Capacity',
+      'deal.wl.kind.demand': 'Demand',
       'deal.tab.completed': 'Completed',
       'deal.tab.cancelled': 'Cancelled',
       'deal.tab.all': 'All',
@@ -761,12 +785,102 @@
       });
     }
 
+    /* ── Merkliste (P9 Welle B3) ────────────────────────────────────
+     *
+     * Eigener Ladeweg, weil die Merkliste keine Deals sind: sie hat keine
+     * Seitenzahl, keine Suche und einen anderen Zustandsbegriff. Sie teilt sich
+     * aber Liste, Leerzustand und Ladeanzeige — kein zweiter Seitenaufbau.
+     */
+    var ZUSTAND_TEXT = {
+      offen: 'deal.wl.open',
+      vergeben: 'deal.wl.taken',
+      abgelaufen: 'deal.wl.expired',
+      entfernt: 'deal.wl.removed'
+    };
+
+    function renderMerkEintrag(e) {
+      var zustandKey = ZUSTAND_TEXT[e.zustand] || ZUSTAND_TEXT.offen;
+      var abgelegt = e.zustand !== 'offen';
+      var ort = [e.location_city, e.location_postal].filter(Boolean).join(' ');
+      var html = '<div class="dm-card" style="' + (abgelegt ? 'opacity:.7' : '') + '">';
+      html += '<div class="dm-card__head">';
+      html += '<a class="dm-card__title" href="' + esc(e.link) + '">' + esc(e.title || '–') + '</a>';
+      html += '<span class="ds-badge ds-badge--neutral">' + esc(t('deal.wl.kind.' + e.art)) + '</span>';
+      html += '<span class="ds-badge ' + (abgelegt ? 'ds-badge--neutral' : 'ds-badge--success') + '">' + esc(t(zustandKey)) + '</span>';
+      html += '</div>';
+      html += '<div class="dm-card__meta">';
+      if (e.gegenseite_name) html += '<span>' + esc(e.gegenseite_name) + '</span>';
+      if (e.role) html += '<span>' + esc(e.role) + '</span>';
+      if (ort) html += '<span>' + esc(ort) + '</span>';
+      html += '</div>';
+      html += '<div class="dm-card__meta">';
+      html += '<button class="btn" data-unsave-id="' + esc(e.id) + '" data-unsave-kind="' + esc(e.art) + '">'
+           + esc(t('deal.wl.unsave')) + '</button>';
+      html += '</div></div>';
+      return html;
+    }
+
+    function renderMerkliste(daten) {
+      var items = (daten && daten.items) || [];
+      paginationEl.style.display = 'none';
+      resultsEl.textContent = '';
+      var zaehler = document.getElementById('cnt-watchlist');
+      if (zaehler) zaehler.textContent = daten && daten.offen ? '(' + daten.offen + ')' : '';
+
+      if (!items.length) {
+        listEl.style.display = 'none';
+        emptyEl.style.display = 'block';
+        // Der Leerzustand erklaert den Weg, statt nur "keine Eintraege" zu sagen.
+        emptyEl.innerHTML = '<div>' + esc(t('deal.wl.empty')) + '</div>'
+          + '<div style="margin-top:var(--ds-space-3)"><a class="btn btn--primary" href="/public/marketplace_feed.html">'
+          + esc(t('deal.wl.toMarket')) + '</a></div>';
+        return;
+      }
+
+      emptyEl.style.display = 'none';
+      listEl.style.display = 'flex';
+      var html = '<div style="margin-bottom:var(--ds-space-3)"><a class="btn" href="/public/marketplace_feed.html">'
+        + esc(t('deal.wl.toMarket')) + '</a></div>';
+      items.forEach(function(e) { html += renderMerkEintrag(e); });
+      listEl.innerHTML = html;
+    }
+
+    function loadMerkliste() {
+      setLoading(false);
+      TC.api.get('/marketplace/watchlist')
+        .then(function(daten) {
+          loadingEl.style.display = 'none';
+          renderMerkliste(daten);
+        })
+        .catch(function() {
+          loadingEl.style.display = 'none';
+          showLoadError(false);
+        });
+    }
+
+    // Entfernen direkt aus der Liste — sonst muesste man zum Merken zurueck an
+    // den Ort, an dem man gemerkt hat.
+    listEl.addEventListener('click', function(ev) {
+      var btn = ev.target.closest('[data-unsave-id]');
+      if (!btn) return;
+      var id = btn.getAttribute('data-unsave-id');
+      var istBedarf = btn.getAttribute('data-unsave-kind') === 'demand';
+      btn.disabled = true;
+      var pfad = istBedarf
+        ? '/marketplace/demand-requests/' + encodeURIComponent(id) + '/interactions/save'
+        : '/capacity-exchange/entries/' + encodeURIComponent(id) + '/interactions/save';
+      TC.api.delete(pfad)
+        .then(function() { loadMerkliste(); })
+        .catch(function() { btn.disabled = false; });
+    });
+
     document.getElementById('dm-tabs').addEventListener('click', function(ev) {
       var btn = ev.target.closest('.dm-tab');
       if (!btn) return;
       document.querySelectorAll('.dm-tab').forEach(function(tab) { tab.classList.remove('dm-tab--active'); });
       btn.classList.add('dm-tab--active');
       currentFilter = btn.getAttribute('data-filter') || '';
+      if (currentFilter === 'watchlist') { loadMerkliste(); return; }
       loadDeals({ append: false });
     });
 

@@ -593,6 +593,38 @@ export function createCapacityExchangeRouter(deps) {
 
   /* ── Company: Create interaction ──────────────────── */
 
+  /* ── Merken zuruecknehmen (P9 Welle B1) ─────────────────────
+   *
+   * Der Gegenweg zu `interaction_type: "save"`. Bewusst als eigener, benannter
+   * Pfad statt als DELETE auf die Interaktions-ID: der Nutzer kennt den Eintrag,
+   * den er entfernen will, nicht die Kennung seiner Merkung.
+   *
+   * Kein Zugriffs-Check auf den Eintrag noetig — entfernt wird ausschliesslich die
+   * EIGENE Merkung (`company_user_id = req.session.userId`). Fremde Merklisten
+   * sind darueber nicht erreichbar.
+   */
+  router.delete("/capacity-exchange/entries/:id/interactions/save",
+    requireAuth, requireScope("write:capacity"), async (req, res) => {
+      try {
+        const ergebnis = await capacityExchangeService.entferneMerkung(
+          pool, req.session.userId, { capacityPostId: req.params.id }
+        );
+        if (ergebnis.entfernt) {
+          await auditLog.writeAuditEnhanced(pool, req, {
+            action: "capacity_exchange.interaction.unsave",
+            entity_type: "capacity_post",
+            entity_id: req.params.id,
+            details: { capacity_post_id: req.params.id }
+          });
+        }
+        // Auch wenn nichts zu entfernen war, ist der gewuenschte Zustand erreicht.
+        res.json({ ok: true, gemerkt: false, entfernt: ergebnis.entfernt });
+      } catch (e) {
+        logger.error({ err: e }, "DELETE /capacity-exchange/entries/:id/interactions/save");
+        res.status(500).json({ error: "SERVER_ERROR" });
+      }
+    });
+
   router.post("/capacity-exchange/entries/:id/interactions", requireAuth, requireScope("write:capacity"), async (req, res) => {
     try {
       const parsed = interactionSchema.safeParse(req.body);

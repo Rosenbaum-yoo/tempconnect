@@ -68,7 +68,7 @@ Vollständige Arbeitsanweisung mit Wellen und Gates:
 | Spur | Abschnitt | Kern | Beginnen mit |
 |---|---|---|---|
 | **A** | 2 | Bounty-System wahrheitsfähig, zuschaltbar, voll verdrahtet | **A1 — Wahrheitsprüfung aller 15 Bedingungen** |
-| **B** | 3 | Merkliste für Angebote, beidseitig, Reiter bei „Meine Deals" | B1 — Merken-Knopf wird ein Schalter |
+| **B** | 3 | ✅ **erledigt** — Merkliste beidseitig, Reiter bei „Meine Deals" | — |
 | **C** | 4 | Freischaltung nach Zahlung, Feature-Gates plattformweit härten | C1 — den konkreten Preisrahmen-Fall klären |
 
 Eine Spur nach der anderen, nicht parallel. **A1 zuerst** — jede spätere Welle baut sonst
@@ -130,6 +130,18 @@ auf einer Bedingung auf, die vielleicht nichts misst.
 > Datenbank-Trigger schützt jetzt die fremden Schreibpfade (operative Rechnungen, Korrekturläufe),
 > die an der neuen Prüfregel gebrochen wären.
 > Nächste Welle: **A5** (selbstlaufende Anstupser — per E-Mail erlaubt, A-E2).
+
+> **Spur B ist erledigt** *(2026-08-09)*. Der Merken-Knopf ist ein **Schalter** (zeigt seinen
+> Zustand, lässt sich zurücknehmen), es gibt eine **Merkliste** über beide Marktseiten
+> (`GET /marketplace/watchlist`) und einen **Reiter** bei „Meine Deals" mit Zähler, Quicklink und
+> Deep-Link je Eintrag. Geschlossene Einträge werden als *vergeben* / *abgelaufen* ausgewiesen,
+> nicht ausgeblendet.
+> **Zwei Defekte dabei gefunden:** Auf Bedarfs-Karten war der Knopf seit jeher wirkungslos — er
+> schickte an den Kapazitäts-Endpunkt, bekam 404, und der Fehler wurde stumm verschluckt. Und die
+> 10-Minuten-Entdopplung hätte den Schalter unbrauchbar gemacht: merken, entfernen, sofort erneut
+> merken wäre verschluckt worden. Migration 172 macht „Merken" zu einem Zustand.
+> **Offen bleibt Spur C** (Freischaltung nach Zahlung, plattformweite Härtung) — dort ist C1
+> erledigt, C2 und C3 stehen aus, und **C-E1 ist die letzte offene Owner-Entscheidung**.
 
 > **A5 ist erledigt** *(2026-08-09)* — damit ist **Spur A vollständig**. Drei Anlässe (kurz davor,
 > verdient, entfallen) über den bestehenden Benachrichtigungspfad, mit täglichem Lauf

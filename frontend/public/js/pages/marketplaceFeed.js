@@ -154,6 +154,7 @@
     'feed.card.fromIn': 'ab {date} in {city}',
     'feed.card.save': 'Merken',
     'feed.card.saved': 'Gemerkt',
+    'feed.card.unsave': 'Nicht mehr merken',
     'feed.prio.notdienst': 'Notdienst',
     'feed.prio.urgent': 'Dringend',
     'feed.prio.elevated': 'Erhoeht',
@@ -287,6 +288,7 @@
     'feed.card.fromIn': 'from {date} in {city}',
     'feed.card.save': 'Save',
     'feed.card.saved': 'Saved',
+    'feed.card.unsave': 'Remove from list',
     'feed.prio.notdienst': 'Emergency',
     'feed.prio.urgent': 'Urgent',
     'feed.prio.elevated': 'Elevated',
@@ -648,7 +650,19 @@
     var scarcity = scarcitySignal(e, isDemandCard);
     if (scarcity) html += '<span class="ds-badge ds-badge--warning ce-scarcity-badge">' + esc(scarcity.label) + '</span>';
     if (e.employment_type) html += '<span class="ds-badge ds-badge--neutral">' + esc(t(EMPLOYMENT_LABEL_KEYS[e.employment_type]) || e.employment_type) + '</span>';
-    html += '<button class="ce-card__save" data-save-id="' + esc(e.id) + '" title="' + esc(t('feed.card.save')) + '" onclick="event.stopPropagation();window._saveCap(this)">&#9734; ' + esc(t('feed.card.save')) + '</button>';
+    // P9/B1: Der Knopf zeigt den Zustand, statt ihn zu verbrauchen. `gemerkt`
+    // kommt aus derselben Feed-Abfrage — kein Nachladen je Karte. `data-save-kind`
+    // ist noetig, weil Bedarfe und Kapazitaeten verschiedene Endpunkte haben;
+    // vorher ging der Knopf auf Bedarfs-Karten still ins Leere (404).
+    var istGemerkt = e.gemerkt === true;
+    html += '<button class="ce-card__save' + (istGemerkt ? ' saved' : '')
+         + '" data-save-id="' + esc(e.id) + '"'
+         + ' data-save-kind="' + (isDemandCard ? 'demand' : 'supply') + '"'
+         + ' data-saved="' + (istGemerkt ? '1' : '0') + '"'
+         + ' title="' + esc(t(istGemerkt ? 'feed.card.unsave' : 'feed.card.save')) + '"'
+         + ' onclick="event.stopPropagation();window._saveCap(this)">'
+         + (istGemerkt ? '&#9733; ' : '&#9734; ')
+         + esc(t(istGemerkt ? 'feed.card.saved' : 'feed.card.save')) + '</button>';
     html += '</div></div>';
     if (rankLabels.length) {
       html += '<div class="ce-card__meta" style="margin-bottom:var(--ds-space-2)">';
@@ -992,14 +1006,45 @@
   }
 
   // Quick-save / bookmark
+  /**
+   * Merken als Schalter (P9 Welle B1).
+   *
+   * Vorher: ein Klick, dann dauerhaft deaktiviert — es gab kein Zurueck, und auf
+   * Bedarfs-Karten ging der Aufruf an den Kapazitaets-Endpunkt und lief stumm ins
+   * Leere. Jetzt kennt der Knopf seinen Zustand und sein Ziel.
+   */
+  function zeichneMerkKnopf(btn, gemerkt) {
+    btn.setAttribute("data-saved", gemerkt ? "1" : "0");
+    btn.classList.toggle("saved", gemerkt);
+    btn.title = t(gemerkt ? 'feed.card.unsave' : 'feed.card.save');
+    btn.innerHTML = (gemerkt ? "&#9733; " : "&#9734; ")
+      + esc(t(gemerkt ? 'feed.card.saved' : 'feed.card.save'));
+  }
+
   window._saveCap = function(btn) {
     var id = btn.getAttribute("data-save-id");
+    var istBedarf = btn.getAttribute("data-save-kind") === "demand";
+    var gemerkt = btn.getAttribute("data-saved") === "1";
+    var basis = istBedarf
+      ? "/marketplace/demand-requests/" + encodeURIComponent(id) + "/interactions"
+      : "/capacity-exchange/entries/" + encodeURIComponent(id) + "/interactions";
+
     btn.disabled = true;
-    TC.api.post("/capacity-exchange/entries/" + id + "/interactions", { interaction_type: "save", message: null })
-    .then(function() {
+    // TC.api heisst die Methode `delete` (siehe js/api.js) — `del` gibt es nicht
+    // und waere ein TypeError, der den Knopf dauerhaft deaktiviert zurueckliesse.
+    var vorgang = gemerkt
+      ? TC.api.delete(basis + "/save")
+      : TC.api.post(basis, { interaction_type: "save", message: null });
+
+    vorgang.then(function() {
       btn.disabled = false;
-      btn.innerHTML = "&#9733; " + esc(t('feed.card.saved')); btn.classList.add("saved");
-    }).catch(function() { btn.disabled = false; });
+      zeichneMerkKnopf(btn, !gemerkt);
+    }).catch(function() {
+      // Zustand NICHT umschalten: sonst zeigt der Knopf etwas an, das nicht
+      // gespeichert wurde — genau der Fehler, den diese Welle behebt.
+      btn.disabled = false;
+      zeichneMerkKnopf(btn, gemerkt);
+    });
   };
 
 
