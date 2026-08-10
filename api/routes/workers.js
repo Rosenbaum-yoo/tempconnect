@@ -255,6 +255,71 @@ function requireWorkerFeature(getUserAndPlan) {
 
 /* ── Router ──────────────────────────────────────────────────────────────────── */
 
+
+const importItemSchema = z.object({
+  email:            z.string().email().max(254),
+  first_name:       z.string().min(1).max(100),
+  last_name:        z.string().min(1).max(100),
+  personnel_number: z.string().max(50).optional().nullable(),
+  phone:            z.string().max(50).optional().nullable(),
+  street:           z.string().max(200).optional().nullable(),
+  postal_code:      z.string().max(20).optional().nullable(),
+  city:             z.string().max(100).optional().nullable(),
+  country:          z.string().max(3).optional().nullable(),
+  date_of_birth:    z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional().nullable(),
+  notes:            z.string().max(4000).optional().nullable()
+});
+
+/*
+ * P10/D2 — der Server ist die einzige Pruefstelle.
+ *
+ * Vorher: `workers: z.array(importItemSchema)`. Eine einzige unpassende Zeile
+ * liess den GESAMTEN Import mit 400 scheitern — 99 gute Datensaetze gingen
+ * wegen eines Tippfehlers in Zeile 7 verloren. Dazu prueft der Wizard im
+ * Browser selbst und schwaecher als dieses Schema: er meldete "gueltig", der
+ * Server lehnte ab. Zwei Pruefungen, zwei Wahrheiten.
+ *
+ * Jetzt: der Umschlag wird geprueft, JEDE Zeile einzeln. Gueltige werden
+ * importiert, ungueltige einzeln zurueckgemeldet — im selben Format, das der
+ * Dienst ohnehin liefert ({row, email, error, message}).
+ *
+ * `_row` traegt die echte CSV-Zeile mit. Ohne sie zaehlt alles den
+ * Array-Index, und jeder Hinweis zeigt auf die falsche Zeile, sobald vorher
+ * etwas herausgefiltert wurde.
+ */
+const importEnvelopeSchema = z.object({
+  workers:      z.array(z.unknown()).min(1).max(1000),
+  on_duplicate: z.enum(["skip", "update"]).default("skip")
+});
+
+/** Zerlegt die Nutzlast in importierbare Zeilen und Vorab-Fehler. */
+export function pruefeZeilen(rohZeilen) {
+  const gueltig = [];
+  const zeilenNummern = [];
+  const fehler = [];
+
+  rohZeilen.forEach((roh, i) => {
+    const zeile = Number.isInteger(roh?._row) && roh._row > 0 ? roh._row : i + 1;
+    const einzeln = importItemSchema.safeParse(roh);
+    if (einzeln.success) {
+      gueltig.push(einzeln.data);
+      zeilenNummern.push(zeile);
+      return;
+    }
+    for (const issue of einzeln.error.issues) {
+      fehler.push({
+        row: zeile,
+        email: typeof roh?.email === "string" ? roh.email : null,
+        error: "VALIDATION",
+        field: Array.isArray(issue.path) && issue.path.length ? String(issue.path[0]) : null,
+        message: issue.message
+      });
+    }
+  });
+
+  return { gueltig, zeilenNummern, fehler };
+}
+
 export function createWorkersRouter(deps) {
   const { pool, requireAuth, logger, getUserAndPlan, requestLimiter } = deps;
   // inviteLimiter: prevent email-bomb via invite endpoints (applies to POST GETs).
@@ -294,29 +359,12 @@ export function createWorkersRouter(deps) {
 
   /* ── CSV Bulk-Import ───────────────────────────────────────────────────────── */
 
-  const importItemSchema = z.object({
-    email:            z.string().email().max(254),
-    first_name:       z.string().min(1).max(100),
-    last_name:        z.string().min(1).max(100),
-    personnel_number: z.string().max(50).optional().nullable(),
-    phone:            z.string().max(50).optional().nullable(),
-    street:           z.string().max(200).optional().nullable(),
-    postal_code:      z.string().max(20).optional().nullable(),
-    city:             z.string().max(100).optional().nullable(),
-    country:          z.string().max(3).optional().nullable(),
-    date_of_birth:    z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional().nullable(),
-    notes:            z.string().max(4000).optional().nullable()
-  });
-
-  const importSchema = z.object({
-    workers:      z.array(importItemSchema).min(1).max(1000),
-    on_duplicate: z.enum(["skip", "update"]).default("skip")
-  });
-
   router.post("/workers/import", ...base, requireScope("write:workers"), rperm("worker.create"), async (req, res, next) => {
     try {
-      const parsed = importSchema.safeParse(req.body);
+      const parsed = importEnvelopeSchema.safeParse(req.body);
       if (!parsed.success) {
+        // Nur noch der Umschlag kann hart scheitern: keine Liste, leer, oder zu
+        // gross. Fehler INNERHALB der Zeilen fuehren nicht mehr zum Abbruch.
         return res.status(400).json({ error: "VALIDATION", details: parsed.error.issues });
       }
 
@@ -326,12 +374,35 @@ export function createWorkersRouter(deps) {
         return res.status(402).json({ error: "WORKER_LIMIT_EXCEEDED", plan_limits: limits });
       }
 
-      const result = await workerService.bulkImportWorkers(pool, {
-        supplierOrgId: req.orgId,
-        workers:       parsed.data.workers,
-        onDuplicate:   parsed.data.on_duplicate,
-        createdBy:     req.session.userId
-      });
+      const { gueltig, zeilenNummern, fehler } = pruefeZeilen(parsed.data.workers);
+
+      // Nichts Gueltiges dabei: trotzdem 200 mit Bericht. Ein 400 wuerde die
+      // Oberflaeche zurueck auf "Fehler: VALIDATION" werfen — die Wand, die
+      // Welle D1 gerade abgetragen hat.
+      const result = gueltig.length
+        ? await workerService.bulkImportWorkers(pool, {
+            supplierOrgId: req.orgId,
+            workers:       gueltig,
+            onDuplicate:   parsed.data.on_duplicate,
+            createdBy:     req.session.userId
+          })
+        : { created: [], updated: [], skipped: [], errors: [] };
+
+      // Der Dienst nummeriert die Zeilen als Index seiner EIGENEN Liste (i + 1).
+      // Das ist nicht die CSV-Zeile, sobald ungueltige vorher aussortiert wurden.
+      // Hier zurueckuebersetzen, damit jede Meldung auf die echte Zeile zeigt.
+      const echteZeile = (n) => zeilenNummern[Number(n) - 1] ?? n;
+      for (const feld of ["created", "updated", "skipped", "errors"]) {
+        if (Array.isArray(result[feld])) {
+          result[feld] = result[feld].map((e) => (
+            e && e.row != null ? { ...e, row: echteZeile(e.row) } : e
+          ));
+        }
+      }
+      // Vorab-Fehler zuerst: sie betreffen Zeilen, die es gar nicht bis zum
+      // Import geschafft haben.
+      result.errors = [...fehler, ...(result.errors || [])];
+      result.total_rows = parsed.data.workers.length;
 
       res.locals.audit = {
         action: "worker.bulk_import",

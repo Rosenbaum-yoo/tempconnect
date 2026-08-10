@@ -146,9 +146,20 @@ suite("P10/D1 · Die Seite wirft die Auskunft nicht mehr weg", () => {
   });
 
   it("die Zeilennummern werden parallel zum gesendeten Array gefuehrt", () => {
-    assert.match(quelle, /gesendeteZeilen/);
-    assert.match(quelle, /_errors\.length === 0[\s\S]{0,120}return r\._row/,
-      "dieselbe Filterregel wie beim Aufbau der Nutzlast — sonst laufen die Indizes auseinander");
+    /*
+     * ANGEPASST (P10/D2). Vorher wurde hier geprueft, dass BEIDE Listen mit
+     * `_errors.length === 0` filtern. Diesen Vorfilter gibt es nicht mehr: seit
+     * D2 gehen ALLE Zeilen an den Server, weil er die einzige Pruefstelle ist.
+     * Die Zusicherung bleibt inhaltlich dieselbe — beide Listen muessen aus
+     * derselben Menge in derselben Reihenfolge entstehen, sonst zeigt jede
+     * Meldung auf die falsche Zeile.
+     */
+    assert.match(quelle, /gesendeteZeilen = _csvData\.validated\.map/);
+    assert.match(quelle, /var workers = _csvData\.validated\.map/);
+    assert.ok(!/gesendeteZeilen[\s\S]{0,200}\.filter\(/.test(quelle),
+      "ein Vorfilter auf einer der beiden Listen wuerde die Indizes verschieben");
+    assert.match(quelle, /_row: r\._row/,
+      "die echte CSV-Zeile muss mitgesendet werden — der Server nummeriert sonst den Array-Index");
   });
 
   it("alle neuen Texte stehen in beiden Sprachen", () => {

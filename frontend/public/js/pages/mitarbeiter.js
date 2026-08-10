@@ -3089,19 +3089,23 @@ function csvExecuteImport() {
   // Datei, sobald ungueltige Zeilen vorher herausgefiltert wurden. Ohne diese
   // Zuordnung zeigt ein Fehlerhinweis auf die falsche Zeile, was schlimmer ist
   // als gar keiner.
-  var gesendeteZeilen = _csvData.validated
-    .filter(function(r) { return r._errors.length === 0; })
-    .map(function(r) { return r._row; });
-  var workers = _csvData.validated
-    .filter(function(r) { return r._errors.length === 0; })
-    .map(function(r) {
-      var clean = {};
-      Object.keys(r._data).forEach(function(k) {
-        var v = r._data[k];
-        clean[k] = (v === "" || v === undefined) ? null : v;
-      });
-      return clean;
+  // P10/D2: ALLE Zeilen gehen an den Server — er ist die einzige Pruefstelle.
+  //
+  // Vorher hat der Browser vorgefiltert und nur weitergereicht, was er selbst
+  // fuer gueltig hielt. Seine Pruefung ist aber schwaecher als das Server-Schema:
+  // er meldete "gueltig", der Server lehnte ab — zwei Pruefungen, zwei Wahrheiten.
+  // Der Validierungsschritt im Wizard bleibt als VORSCHAU erhalten; er entscheidet
+  // nur nicht mehr. `_row` traegt die echte CSV-Zeile mit, damit jede Meldung
+  // darauf zeigt und nicht auf einen Array-Index.
+  var gesendeteZeilen = _csvData.validated.map(function(r) { return r._row; });
+  var workers = _csvData.validated.map(function(r) {
+    var clean = { _row: r._row };
+    Object.keys(r._data).forEach(function(k) {
+      var v = r._data[k];
+      clean[k] = (v === "" || v === undefined) ? null : v;
     });
+    return clean;
+  });
 
   if (workers.length === 0) {
     bar.style.width = "100%";
@@ -3165,7 +3169,11 @@ function csvShowResult(res) {
     html += '<div style="margin-bottom:16px">';
     res.errors.forEach(function(err) {
       html += '<div style="padding:6px 10px;margin-bottom:4px;border-radius:8px;background:var(--tc-tone-danger-bg);border:1px solid var(--tc-tone-danger-border);font-size:12px">';
-      html += '<strong>' + esc(TCi18n.t("mit.csv.rowLabel", { row: err.row || '?' })) + '</strong> ' + esc(err.error || err.message || TCi18n.t("mit.csv.unknownError"));
+      // P10/D2: die BEGRUENDUNG zuerst, nicht der technische Code. "VALIDATION"
+      // sagt dem Nutzer nichts; "Erwartet JJJJ-MM-TT" sagt ihm, was zu tun ist.
+      html += '<strong>' + esc(TCi18n.t("mit.csv.rowLabel", { row: err.row || '?' })) + '</strong> ';
+      if (err.field) html += '<em>' + esc(csvSpalteFuerFeld(err.field)) + '</em> — ';
+      html += esc(err.message || err.error || TCi18n.t("mit.csv.unknownError"));
       if (err.email) html += ' <span style="color:var(--wk-text-muted)">(' + esc(err.email) + ')</span>';
       html += '</div>';
     });

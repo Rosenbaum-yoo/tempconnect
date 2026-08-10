@@ -98,7 +98,16 @@ Live-Belegschaft führt — erst nach E1 beantwortbar).
 > was er für gültig hält — der Server lehnt es trotzdem ab. **Die Browser-Prüfung ist schwächer
 > als das Server-Schema.** Zwei Prüfungen, zwei Wahrheiten. D2 und D4 müssen beide aus derselben
 > Quelle speisen, sonst bleibt der Wizard ein Versprechen, das der Server bricht.
-> Nächste Welle: **D2** (Teilimport statt Alles-oder-nichts).
+> **D2 ist erledigt** *(2026-08-11)*. **Owner-Entscheidung: der Server ist die einzige
+> Prüfstelle.** Gültige Zeilen werden importiert, ungültige einzeln gemeldet — 100 Zeilen mit 3
+> Fehlern ergeben 97 Importe und 3 Meldungen mit Zeile, Feld und Grund. Vorher ließ **eine**
+> unpassende Zeile den ganzen Import scheitern. Die Oberfläche schickt jetzt alles; ihr
+> Validierungsschritt bleibt als Vorschau, entscheidet aber nicht mehr.
+> **Dritter Zeilenversatz gefunden:** auch der Importdienst nummeriert mit dem Index seiner
+> eigenen Liste statt mit der CSV-Zeile — derselbe Fehler wie im Browser, eine Ebene tiefer.
+> Über `_row` mitgeführt und in der Route zurückübersetzt.
+> Nächste Welle: **D3** (Spaltentabelle mit Synonymen) oder **D4** (tolerante Feldregeln, dort
+> wird auch D-E1 umgesetzt: Import ohne E-Mail bei vorhandener Personalnummer).
 
 ---
 

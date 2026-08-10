@@ -86,6 +86,38 @@ Zeile, welche Spalte, welcher Grund. Der Wizard hat dafür bereits einen Validie
 **Gate D1:** Eine fehlerhafte Datei erzeugt eine Liste „Zeile 7: Geburtsdatum `12.03.1988` — erwartet
 `JJJJ-MM-TT`", nicht das Wort „VALIDATION". Jeder Fehler nennt Zeile **und** Spalte.
 
+### D2 ist erledigt *(2026-08-11)* — Owner-Entscheidung: der Server ist die einzige Wahrheit
+
+Gültige Zeilen werden importiert, ungültige einzeln zurückgemeldet. Eine Datei mit 100 Zeilen,
+davon 3 fehlerhaft, importiert **97** und meldet **3** mit Zeile, Feld und Grund.
+
+**Was vorher passierte:** `workers: z.array(importItemSchema)` — eine einzige unpassende Zeile
+ließ den *gesamten* Import mit 400 scheitern. 99 gute Datensätze gingen wegen eines Tippfehlers
+in Zeile 7 verloren.
+
+**Die Entscheidung dahinter.** D1 hatte gezeigt, dass der Wizard im Browser selbst prüft — und
+schwächer als der Server. Zwei Prüfstellen, zwei Wahrheiten. Zur Wahl standen: die Regeln an
+beide ausliefern, oder eine Prüfstelle abschaffen. Der Owner hat den **ersten Weg** gewählt:
+**der Server prüft, sonst niemand.** Damit ist die Drift nicht verwaltet, sondern beseitigt.
+
+Konkret:
+- Der Umschlag wird geprüft (Liste, nicht leer, höchstens 1000), **jede Zeile einzeln**.
+- Die Oberfläche sendet **alle** Zeilen. Der Validierungsschritt im Wizard bleibt als *Vorschau*
+  erhalten — er entscheidet nur nicht mehr.
+- Ohne eine einzige gültige Zeile gibt es trotzdem **200 mit Bericht**, kein 400. Ein 400 würde
+  die Oberfläche zurück auf die Wand werfen, die D1 gerade abgetragen hat.
+
+**Ein dritter Zeilenversatz, gefunden beim Bauen.** `bulkImportWorkers` nummeriert seine Meldungen
+mit dem Index seiner *eigenen* Liste (`i + 1`) — nicht mit der CSV-Zeile. Sobald etwas vorher
+aussortiert wird, zeigt jede Meldung daneben. Derselbe Fehler wie im Browser (D1), nur eine Ebene
+tiefer. Gelöst durch `_row` als Transportangabe und Rückübersetzung in der Route; der Dienst
+bleibt unangetastet. `_row` wird vor dem Import entfernt — eine Transportangabe ist kein
+Stammdatenfeld.
+
+**Gate D2 erfüllt.** Belege: `api/test/csvTeilimport.test.js` (8 Prüfungen, davon 4 mit wirklich
+ausgeführter Zerlegung, inklusive des Gate-Falls 100/3/97). Rückwärtsprobe: eine fehlerfreie
+Datei verhält sich exakt wie vorher.
+
 #### Welle D2 — Teilimport statt Alles-oder-nichts
 
 Gültige Zeilen werden importiert, ungültige einzeln zurückgemeldet — mit der Möglichkeit, nur
