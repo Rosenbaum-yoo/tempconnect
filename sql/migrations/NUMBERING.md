@@ -1,17 +1,23 @@
 # Migration Numbering Reference
 
-> Last updated: 2026-07-26 — 153 KI-Ranking-Cache, 154 Sperr-Benachrichtigung,
-> 155 Webhook-Retry-Index (Nachzug zu 122), 156 Herkunft von Stundenzetteln,
-> 157 Verfuegbarkeit von Einsatzkraeften (Multi-Skill Welle 2)
+> Last updated: 2026-08-10 — 166–169 Bounty-Zeitraum und -Entzug, 170 Bounty-Rabatt
+> auf der Rechnung, 171 Anstupser, 172 Merken ist ein Zustand, 173 ein aktives Abo
+> je Nutzer, 174 CSV-Spaltentabelle (P10/D3)
 
 This document records known legacy numbering anomalies and establishes the rule
 for all future migrations.
+
+> **Diese Zeile wird geprüft, nicht gepflegt.** Sie ist zwischen 2026-07-26 und
+> 2026-08-10 sechzehn Migrationen lang falsch gewesen („Next: 158", real 173) —
+> eine handgeschriebene Zahl über einem wachsenden Verzeichnis veraltet
+> zwangsläufig. `api/test/migrationsNummern.test.js` liest das Verzeichnis und
+> lässt die Angabe unten rot werden, sobald sie nicht mehr stimmt.
 
 ---
 
 ## Rule: Next migration number
 
-**Next migration MUST start at: 158**
+**Next migration MUST start at: 175**
 
 Format: `<NNN>_<short_description>.sql` (three-digit zero-padded)
 
@@ -78,8 +84,8 @@ alphabetical order within the number (e.g. `064_capacity_…` before `064_strate
 
 ## Checklist for new migrations
 
-1. Use the next sequential number (currently **158**)
-2. File name: `158_<short_snake_case>.sql`
+1. Use the next sequential number (currently **175**)
+2. File name: `175_<short_snake_case>.sql`
 3. Wrap DDL in a transaction if the DB supports transactional DDL
 4. Include a `-- Migration NNN:` comment header with a brief description
 5. Use `SET client_min_messages TO WARNING;` to suppress noise

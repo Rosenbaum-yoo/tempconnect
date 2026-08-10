@@ -36,19 +36,54 @@ DECLARE
   gesamt    TEXT[];
   vorher    INT;
   nachher   INT;
+  def       TEXT;
+  roh       TEXT;
 BEGIN
-  SELECT array_agg(m[1] ORDER BY ord)
-    INTO bestand
-    FROM regexp_matches(
-           pg_get_constraintdef((SELECT oid FROM pg_constraint
-                                  WHERE conrelid = 'notifications'::regclass
-                                    AND conname = 'notifications_type_check')),
-           '''([a-z_]+)''::text', 'g'
-         ) WITH ORDINALITY AS a(m, ord);
+  /*
+   * NACHGEBESSERT (2026-08-10) — der Lese-Teil war nicht mehrfach lauffaehig.
+   *
+   * Urspruenglich stand hier das Muster '''([a-z_]+)''::text'. Es setzte die
+   * Form ARRAY['a'::text, 'b'::text] voraus — genau die, die vorgefunden wurde.
+   * Nur schreibt der Block unten die Bedingung ueber format(%L::text[]) neu,
+   * und PostgreSQL rendert sie danach als EINE Zeichenkette:
+   *     CHECK (type = ANY ('{a,b,c}'::text[]))
+   * Darin gibt es keine Anfuehrungszeichen um die einzelnen Werte mehr. Das
+   * Muster fand nichts, `bestand` wurde NULL, und die Migration brach mit
+   * "nicht gefunden" ab — obwohl die Bedingung da war und alle Typen enthielt.
+   *
+   * Die Folge war kein Schoenheitsfehler: der Runner bricht die GANZE Kette ab
+   * (exit 1), der api-Dienst wartet auf service_completed_successfully und
+   * startet gar nicht mehr. Genau so ist diese Umgebung stehengeblieben.
+   *
+   * Jetzt werden BEIDE Darstellungen gelesen — die Literal-Form zuerst, die
+   * ARRAY[]-Form als Rueckfall. Der Block ist damit wirklich mehrfach
+   * lauffaehig, wie sein Kommentar es ohnehin behauptet.
+   */
+  SELECT pg_get_constraintdef(oid)
+    INTO def
+    FROM pg_constraint
+   WHERE conrelid = 'notifications'::regclass
+     AND conname  = 'notifications_type_check';
 
-  IF bestand IS NULL THEN
+  IF def IS NULL THEN
     RAISE EXCEPTION 'notifications_type_check nicht gefunden — Migration abgebrochen, '
                     'lieber laut scheitern als eine Typliste raten';
+  END IF;
+
+  -- Form 1: '{a,b,c}'::text[] — so rendert PostgreSQL nach einem format(%L).
+  roh := (regexp_match(def, '''(\{.*\})''::text\[\]'))[1];
+  IF roh IS NOT NULL THEN
+    bestand := roh::TEXT[];
+  ELSE
+    -- Form 2: ARRAY['a'::text, 'b'::text] — die urspruengliche Schreibweise.
+    SELECT array_agg(m[1] ORDER BY ord)
+      INTO bestand
+      FROM regexp_matches(def, '''([a-z_]+)''', 'g') WITH ORDINALITY AS a(m, ord);
+  END IF;
+
+  IF bestand IS NULL OR array_length(bestand, 1) IS NULL THEN
+    RAISE EXCEPTION 'Typliste aus notifications_type_check nicht lesbar (%) — abgebrochen, '
+                    'lieber laut scheitern als eine Typliste raten', left(def, 120);
   END IF;
 
   vorher := array_length(bestand, 1);

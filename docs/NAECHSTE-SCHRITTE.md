@@ -124,7 +124,24 @@ Zustände die Live-Belegschaft führt — erst nach E1 beantwortbar).
 > Zeile angenommen und eine Ebene tiefer scheitern lassen — ein Versprechen, das die Datenbank
 > bricht. Als **Welle D5** mit drei bewerteten Wegen dokumentiert; **Empfehlung B**
 > (`worker_profiles.user_id` nullbar, Konto entsteht erst bei der Einladung).
-> Nächste Welle: **D3** (Spaltentabelle mit Synonymen) oder **D5** (braucht vorher D-E2).
+> **D3 ist erledigt** *(2026-08-10)*. Spaltennamen sind jetzt **Daten**: zwei Tabellen
+> (`csv_import_fields`, `csv_import_field_aliases`), 11 Felder, 95 Schreibweisen. Der eigentliche
+> Fehler saß tiefer als ein fehlendes Synonym — die Erkennung entfernte Punkte und Bindestriche,
+> ließ aber den Unterstrich stehen und die Umlaute ungefaltet, weshalb der Alias `geb_datum` die
+> Datei-Überschrift `Gebdatum` **nie** treffen konnte. Eine Regel gilt jetzt überall, und die
+> Datenbank erzwingt sie selbst.
+> **Die Zuordnung ist auf den Server gewandert.** Die Aufgabe verlangte nur eine gemeinsame
+> Tabelle; das hätte den Algorithmus zweimal stehen lassen — dieselbe Falle wie bei den Ländern
+> in D4. Jetzt liefert eine Route Katalog *und* fertige Zuordnung, und die Seite hat gar keine
+> Feldliste mehr. Sie kann also auch keine veraltete haben.
+> Drei Stufen: Alias → Priorität (`Name` und `Nachname` in einer Datei: die eindeutige gewinnt)
+> → Inhalt (Werte mit `@` sind die E-Mail-Spalte). Ein Datum wird **bewusst nicht** geraten,
+> `Eintrittsdatum` sähe genauso aus.
+> **Das Versprechen wird wörtlich eingelöst:** ordnet ein Kunde eine unbekannte Spalte von Hand
+> zu, gibt es „Schreibweise merken" — ein `INSERT`, kein Deploy, org-gebunden.
+> **Nebenbefund geschlossen:** `NUMBERING.md` nannte 16 Migrationen lang die falsche nächste
+> Nummer (158 statt 174). Jetzt prüft ein Test das Verzeichnis, statt der Datei zu glauben.
+> Nächste Welle: **D5** (braucht vorher D-E2) oder Spur **E** (Live-Belegschaft, offen: E-E1).
 
 ---
 

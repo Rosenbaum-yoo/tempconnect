@@ -430,6 +430,17 @@ TCi18n.register('de', {
   'mit.csv.fileMeta': '{rows} Datensätze · {columns} Spalten',
   'mit.csv.errMissingRequired': 'Pflichtfelder nicht zugeordnet: {fields}',
   'mit.csv.errFieldMissing': '{field} fehlt',
+  'mit.csv.mapLoading': 'Spalten werden zugeordnet …',
+  'mit.csv.mapNotReady': 'Die Spaltenzuordnung ist noch nicht bereit. Bitte kurz warten.',
+  'mit.csv.mapError': 'Die Spaltenzuordnung konnte nicht geladen werden.',
+  'mit.csv.mapRetry': 'Erneut versuchen',
+  'mit.csv.mapViaContent': 'am Inhalt erkannt ({percent} % der Werte passen)',
+  'mit.csv.mapViaOwn': 'Ihre gemerkte Schreibweise',
+  'mit.csv.mapAmbiguous': 'mehrdeutig – eine eindeutigere Spalte wurde als {field} übernommen',
+  'mit.csv.rememberAlias': 'Schreibweise merken',
+  'mit.csv.rememberHint': 'Beim nächsten Import wird diese Spaltenüberschrift automatisch erkannt – nur für Ihr Unternehmen.',
+  'mit.csv.rememberDone': 'Schreibweise gemerkt',
+  'mit.csv.rememberFailed': 'Die Schreibweise konnte nicht gemerkt werden.',
   'mit.csv.noticeEmail': 'E-Mail {from} → {to}',
   'mit.csv.noticeDate': 'Geburtsdatum {from} → {to}',
   'mit.csv.noticeCountry': 'Land {from} → {to}',
@@ -927,6 +938,17 @@ TCi18n.register('en', {
   'mit.csv.fileMeta': '{rows} records · {columns} columns',
   'mit.csv.errMissingRequired': 'Required fields not mapped: {fields}',
   'mit.csv.errFieldMissing': '{field} missing',
+  'mit.csv.mapLoading': 'Matching columns …',
+  'mit.csv.mapNotReady': 'The column mapping is not ready yet. Please wait a moment.',
+  'mit.csv.mapError': 'The column mapping could not be loaded.',
+  'mit.csv.mapRetry': 'Try again',
+  'mit.csv.mapViaContent': 'detected from content ({percent}% of values match)',
+  'mit.csv.mapViaOwn': 'your saved spelling',
+  'mit.csv.mapAmbiguous': 'ambiguous – a clearer column was used as {field}',
+  'mit.csv.rememberAlias': 'Remember this spelling',
+  'mit.csv.rememberHint': 'Next time this column heading is recognised automatically – for your company only.',
+  'mit.csv.rememberDone': 'Spelling remembered',
+  'mit.csv.rememberFailed': 'The spelling could not be saved.',
   'mit.csv.noticeEmail': 'Email {from} → {to}',
   'mit.csv.noticeDate': 'Date of birth {from} → {to}',
   'mit.csv.noticeCountry': 'Country {from} → {to}',
@@ -2744,23 +2766,34 @@ function saveProfile() { saveWorkerHub(); }
 /* ══════════════════════════════════════════════════════════
    CSV-Import Wizard
    ══════════════════════════════════════════════════════════ */
-var _csvData = { headers: [], rows: [], mapping: {}, validated: [], dupInfo: {} };
+var _csvData = { headers: [], rows: [], mapping: {}, validated: [], dupInfo: {}, katalog: null, gemerkt: [] };
 
-/* labelKey = Anzeige (uebersetzt), key + aliases = Datenvertrag (bleiben roh:
-   die Aliase matchen echte CSV-Kopfzeilen und duerfen nie uebersetzt werden). */
-var CSV_FIELDS = [
-  { key: "email",            labelKey: "mit.field.emailReq",       required: true,  aliases: ["email","e-mail","mail","e_mail","emailaddress","e-mailadresse"] },
-  { key: "first_name",       labelKey: "mit.field.firstNameReq",   required: true,  aliases: ["first_name","vorname","firstname","given_name","givenname","vname"] },
-  { key: "last_name",        labelKey: "mit.field.lastNameReq",    required: true,  aliases: ["last_name","nachname","lastname","surname","family_name","familyname","nname","zuname"] },
-  { key: "personnel_number", labelKey: "mit.field.personnelNr",    required: false, aliases: ["personnel_number","personalnummer","personnelnumber","personal_nr","personnr","pnr","mitarbeiter_nr","employee_id","mitarbeiternummer","staffnr"] },
-  { key: "phone",            labelKey: "mit.field.phone",          required: false, aliases: ["phone","telefon","tel","telephone","mobile","handy","mobilnummer","mobiltelefon","rufnummer"] },
-  { key: "street",           labelKey: "mit.field.street",         required: false, aliases: ["street","strasse","stra\u00dfe","address","adresse","anschrift"] },
-  { key: "postal_code",      labelKey: "mit.field.postal",         required: false, aliases: ["postal_code","plz","postalcode","zip","zipcode","postleitzahl"] },
-  { key: "city",             labelKey: "mit.field.city",           required: false, aliases: ["city","stadt","ort","wohnort","location","standort"] },
-  { key: "country",          labelKey: "mit.field.country",        required: false, aliases: ["country","land","laendercode","countrycode"] },
-  { key: "date_of_birth",    labelKey: "mit.field.birthDate",      required: false, aliases: ["date_of_birth","geburtsdatum","dob","birthday","birthdate","geburtstag","geb_datum"] },
-  { key: "notes",            labelKey: "mit.field.notes",          required: false, aliases: ["notes","notizen","bemerkung","kommentar","comment","anmerkung","info"] }
-];
+/*
+ * P10/D3 \u2014 die Feldliste kommt vom Server, nicht mehr von hier.
+ *
+ * Bis D2 stand an dieser Stelle CSV_FIELDS: elf Felder mit je einer Handvoll
+ * fest verdrahteter Synonyme. Drei Folgen, alle drei real geworden:
+ *   1. Jede neue Schreibweise eines Kunden brauchte einen Deploy.
+ *   2. Der Server kannte die Zuordnung ueberhaupt nicht.
+ *   3. Ausgerechnet "Gebdatum" traf nicht, weil der Alias "geb_datum" hiess und
+ *      die Erkennung Punkte entfernte, den Unterstrich aber stehen liess.
+ *
+ * Jetzt liefert POST /workers/import/map-columns beides: den Feldkatalog UND
+ * die fertige Zuordnung. Diese Seite haelt keine Liste mehr \u2014 sie kann also
+ * auch keine veraltete halten.
+ *
+ * _csvData.katalog = { fields, mapping, matched, unmatched, ambiguous, missing_required }
+ */
+function csvFelder() {
+  return (_csvData.katalog && _csvData.katalog.fields) || [];
+}
+
+/** Der Treffer-Eintrag zu einer Spalte, oder null. */
+function csvTrefferFuer(header) {
+  var t = (_csvData.katalog && _csvData.katalog.matched) || [];
+  for (var i = 0; i < t.length; i++) if (t[i].header === header) return t[i];
+  return null;
+}
 
 /*
  * P10/D4 — tolerante Feldregeln, Browser-Seite.
@@ -2841,13 +2874,26 @@ function csvNormalisiereZeile(d) {
   return hinweise;
 }
 
-/** Anzeigename eines CSV-Feldes (mit "*" bei Pflichtfeldern, wie im Woerterbuch). */
+/**
+ * Anzeigename eines CSV-Feldes (mit "*" bei Pflichtfeldern, wie im Woerterbuch).
+ * Nimmt sowohl die Serverform (label_key/field_key) als auch die alte Form.
+ */
 function csvFieldLabel(field) {
-  return (field && TCi18n.t(field.labelKey)) || (field && field.key) || "";
+  if (!field) return "";
+  var key = field.label_key || field.labelKey;
+  return (key && TCi18n.t(key)) || field.field_key || field.key || "";
 }
 /** Anzeigename ohne Pflicht-Sternchen \u2014 fuer Fehlermeldungen. */
 function csvFieldName(field) {
   return csvFieldLabel(field).replace(" *", "");
+}
+/** Anzeigename zu einem blossen Feldschluessel. */
+function csvFieldNameByKey(fieldKey) {
+  var felder = csvFelder();
+  for (var i = 0; i < felder.length; i++) {
+    if (felder[i].field_key === fieldKey) return csvFieldName(felder[i]);
+  }
+  return fieldKey;
 }
 // Enterprise: Zusaetzliche Felder koennen per Org-Konfiguration hinzugefuegt werden
 // z.B. Abteilung, Kostenstelle, Qualifikation, Fuehrerschein etc.
@@ -2955,25 +3001,63 @@ function csvGoStep(n) {
 }
 
 /* ── Step 2: Column Mapping ──────────────────────────── */
-function csvAutoMap() {
-  var mapping = {};
-  _csvData.headers.forEach(function(h) {
-    var lower = h.toLowerCase().replace(/[^a-z0-9_äöüß]/g, "");
-    for (var i = 0; i < CSV_FIELDS.length; i++) {
-      var f = CSV_FIELDS[i];
-      for (var j = 0; j < f.aliases.length; j++) {
-        if (lower === f.aliases[j].replace(/[^a-z0-9_äöüß]/g, "")) {
-          if (!mapping[h]) mapping[h] = f.key;
-          break;
-        }
-      }
+
+/** Bis zu 20 nicht-leere Werte je Spalte — Grundlage der Inhaltserkennung. */
+function csvSpaltenProben() {
+  return _csvData.headers.map(function(h) {
+    var proben = [];
+    for (var i = 0; i < _csvData.rows.length && proben.length < 20; i++) {
+      var v = _csvData.rows[i][h];
+      if (typeof v === "string" && v.trim() !== "") proben.push(v.slice(0, 500));
     }
+    return { header: String(h).slice(0, 300), proben: proben };
   });
-  return mapping;
 }
 
+/**
+ * Holt Feldkatalog und Zuordnung vom Server — genau einmal je Datei.
+ *
+ * Ein erneuter Aufruf (Sprachwechsel, Aenderung im Auswahlfeld) zeichnet nur
+ * neu. Wuerde er nachladen, verwuerfe er jede Zuordnung, die der Nutzer von
+ * Hand korrigiert hat.
+ */
 function csvBuildMapping() {
-  _csvData.mapping = csvAutoMap();
+  if (_csvData.katalog) { csvRenderMapping(); return; }
+
+  var grid = document.getElementById("csv-mapping-grid");
+  if (grid) grid.innerHTML = '<div class="meta">' + esc(TCi18n.t("mit.csv.mapLoading")) + '</div>';
+
+  api("/workers/import/map-columns", { method: "POST", body: { columns: csvSpaltenProben() } })
+    .then(function(res) {
+      _csvData.katalog = res || {};
+      _csvData.mapping = (res && res.mapping) || {};
+      csvRenderMapping();
+    })
+    .catch(function(e) {
+      /*
+       * Bewusst KEIN stiller Rueckfall auf eine eingebaute Liste. Der Katalog
+       * ist die Wahrheit; eine zweite, aeltere Wahrheit im Browser waere genau
+       * das Problem, das diese Welle abschafft. Also: sagen, was los ist, und
+       * einen Weg zurueck anbieten.
+       */
+      if (!grid) return;
+      grid.innerHTML =
+        '<div class="csv-map-error">' +
+          '<div>' + esc(e && (e.message || e.error) ? (e.message || e.error) : TCi18n.t("mit.csv.mapError")) + '</div>' +
+          '<button type="button" class="btn btn-sm" onclick="csvRetryMapping()">' +
+            esc(TCi18n.t("mit.csv.mapRetry")) +
+          '</button>' +
+        '</div>';
+    });
+}
+
+/** Nach einem Ladefehler noch einmal versuchen. */
+function csvRetryMapping() {
+  _csvData.katalog = null;
+  csvBuildMapping();
+}
+
+function csvRenderMapping() {
   var grid = document.getElementById("csv-mapping-grid");
   var html = '<div style="font-size:11px;font-weight:700;color:var(--wk-text-muted);text-transform:uppercase">' + esc(TCi18n.t("mit.csv.colCsv")) + '</div>' +
              '<div></div>' +
@@ -2983,19 +3067,80 @@ function csvBuildMapping() {
     for (var i = 0; i < Math.min(3, _csvData.rows.length); i++) {
       if (_csvData.rows[i][h]) { sample = _csvData.rows[i][h]; break; }
     }
+    var jsH = esc(h).replace(/'/g, "\\'");
     html += '<div class="csv-mapping-row">';
     html += '<div class="csv-col-name">' + esc(h) + (sample ? '<br><span style="font-size:11px;color:var(--wk-text-muted);font-weight:400">' + esc(TCi18n.t("mit.csv.sample", { value: sample })) + '</span>' : '') + '</div>';
     html += '<div class="csv-arrow">\u2192</div>';
-    html += '<select onchange="csvUpdateMapping(\'' + esc(h).replace(/'/g, "\\'") + '\', this.value)">';
+    html += '<div>';
+    html += '<select onchange="csvUpdateMapping(\'' + jsH + '\', this.value)">';
     html += '<option value="">' + esc(TCi18n.t("mit.csv.doNotImport")) + '</option>';
-    CSV_FIELDS.forEach(function(f) {
-      var sel = (_csvData.mapping[h] === f.key) ? ' selected' : '';
-      html += '<option value="' + f.key + '"' + sel + '>' + esc(csvFieldLabel(f)) + '</option>';
+    csvFelder().forEach(function(f) {
+      var sel = (_csvData.mapping[h] === f.field_key) ? ' selected' : '';
+      html += '<option value="' + esc(f.field_key) + '"' + sel + '>' + esc(csvFieldLabel(f)) + '</option>';
     });
     html += '</select>';
+    html += csvMappingHinweis(h, jsH);
+    html += '</div>';
     html += '</div>';
   });
   grid.innerHTML = html;
+}
+
+/**
+ * Sagt je Spalte, WARUM sie so zugeordnet ist. Eine Zuordnung, die niemand
+ * nachvollziehen kann, ist eine Zumutung \u2014 besonders wenn sie mal danebenliegt.
+ */
+function csvMappingHinweis(header, jsH) {
+  var k = _csvData.katalog || {};
+  var treffer = csvTrefferFuer(header);
+
+  if (treffer && treffer.via === "inhalt") {
+    return '<div class="csv-map-note meta">' +
+      esc(TCi18n.t("mit.csv.mapViaContent", { percent: treffer.anteil })) + '</div>';
+  }
+  if (treffer && treffer.via === "alias_eigen") {
+    return '<div class="csv-map-note meta">' + esc(TCi18n.t("mit.csv.mapViaOwn")) + '</div>';
+  }
+
+  // Verdraengt: eine eindeutigere Spalte hat dasselbe Feld bekommen.
+  var mehrdeutig = (k.ambiguous || []).filter(function(a) { return a.header === header; })[0];
+  if (mehrdeutig && !_csvData.mapping[header]) {
+    return '<div class="csv-map-note meta">' +
+      esc(TCi18n.t("mit.csv.mapAmbiguous", { field: csvFieldNameByKey(mehrdeutig.field_key) })) + '</div>';
+  }
+
+  /*
+   * Unbekannte Spalte, von Hand zugeordnet: genau hier wird das Versprechen
+   * eingeloest, dass eine neue Schreibweise ein INSERT ist und kein Deploy.
+   * Beim naechsten Import kennt der Katalog sie.
+   */
+  var warUnbekannt = (k.unmatched || []).indexOf(header) >= 0;
+  if (warUnbekannt && _csvData.mapping[header]) {
+    if ((_csvData.gemerkt || []).indexOf(header) >= 0) {
+      return '<div class="csv-map-note meta">\u2714 ' + esc(TCi18n.t("mit.csv.rememberDone")) + '</div>';
+    }
+    return '<div class="csv-map-note">' +
+      '<button type="button" class="btn btn-link btn-sm" onclick="csvMerkeSchreibweise(\'' + jsH + '\')" ' +
+        'title="' + esc(TCi18n.t("mit.csv.rememberHint")) + '">' +
+        esc(TCi18n.t("mit.csv.rememberAlias")) +
+      '</button></div>';
+  }
+  return "";
+}
+
+/** Merkt die Schreibweise dieser Spalte fuer die eigene Organisation. */
+function csvMerkeSchreibweise(header) {
+  var fieldKey = _csvData.mapping[header];
+  if (!fieldKey) return;
+  api("/workers/import/field-alias", { method: "POST", body: { field_key: fieldKey, header: header } })
+    .then(function() {
+      _csvData.gemerkt = (_csvData.gemerkt || []).concat([header]);
+      toast(TCi18n.t("mit.csv.rememberDone"), "ok");
+      csvRenderMapping();
+    })
+    .catch(function(e) {
+      toast((e && (e.message || e.error)) || TCi18n.t("mit.csv.rememberFailed"), "err");
+    });
 }
 
 function csvUpdateMapping(csvCol, fieldKey) {
@@ -3007,17 +3152,30 @@ function csvUpdateMapping(csvCol, fieldKey) {
   } else {
     delete _csvData.mapping[csvCol];
   }
-  csvBuildMapping();
+  csvRenderMapping();
 }
 
 /* ── Step 3: Validation ──────────────────────────────── */
 function csvRunValidation() {
+  /*
+   * Ohne Feldkatalog gibt es nichts zu pruefen — und das ist gefaehrlicher, als
+   * es klingt: eine leere Feldliste bedeutet keine Pflichtfelder, keine Werte,
+   * also lauter fehlerfreie LEERE Datensaetze. Seit die Zuordnung vom Server
+   * kommt (D3), ist dieser Zustand zwischen Dateiwahl und Antwort real
+   * erreichbar. Lieber zurueck auf Schritt 2 als ein stiller Leerimport.
+   */
+  if (!csvFelder().length) {
+    toast(TCi18n.t("mit.csv.mapNotReady"), "err");
+    csvGoStep(2);
+    return;
+  }
+
   var mappedFields = {};
   Object.keys(_csvData.mapping).forEach(function(csvCol) {
     mappedFields[_csvData.mapping[csvCol]] = csvCol;
   });
-  var required = CSV_FIELDS.filter(function(f) { return f.required; });
-  var missingRequired = required.filter(function(f) { return !mappedFields[f.key]; });
+  var required = csvFelder().filter(function(f) { return f.is_required; });
+  var missingRequired = required.filter(function(f) { return !mappedFields[f.field_key]; });
   if (missingRequired.length > 0) {
     toast(TCi18n.t("mit.csv.errMissingRequired", { fields: missingRequired.map(csvFieldLabel).join(", ") }), "err");
     csvGoStep(2);
@@ -3035,9 +3193,9 @@ function csvRunValidation() {
     var rec = { _row: row._row, _errors: [], _notices: [], _data: {} };
 
     // 1. Rohwerte einsammeln.
-    CSV_FIELDS.forEach(function(f) {
-      var csvCol = mappedFields[f.key];
-      rec._data[f.key] = csvCol ? (row[csvCol] || "").trim() : "";
+    csvFelder().forEach(function(f) {
+      var csvCol = mappedFields[f.field_key];
+      rec._data[f.field_key] = csvCol ? (row[csvCol] || "").trim() : "";
     });
 
     // 2. Umwandeln, was zweifelsfrei gemeint ist — mit DENSELBEN Regeln wie der
@@ -3047,11 +3205,11 @@ function csvRunValidation() {
     rec._notices = csvNormalisiereZeile(rec._data);
 
     // 3. Erst jetzt pruefen — auf den Werten, die wirklich gesendet werden.
-    CSV_FIELDS.forEach(function(f) {
-      var val = rec._data[f.key];
-      if (f.required && !val) { rec._errors.push(TCi18n.t("mit.csv.errFieldMissing", { field: csvFieldName(f) })); }
-      if (f.key === "email" && val && !emailRe.test(val)) { rec._errors.push(TCi18n.t("mit.csv.errInvalidEmail")); }
-      if (f.key === "email" && val) {
+    csvFelder().forEach(function(f) {
+      var val = rec._data[f.field_key];
+      if (f.is_required && !val) { rec._errors.push(TCi18n.t("mit.csv.errFieldMissing", { field: csvFieldName(f) })); }
+      if (f.field_key === "email" && val && !emailRe.test(val)) { rec._errors.push(TCi18n.t("mit.csv.errInvalidEmail")); }
+      if (f.field_key === "email" && val) {
         if (emails[val]) { rec._errors.push(TCi18n.t("mit.csv.errDuplicateEmail", { row: emails[val] })); }
         else { emails[val] = row._row; }
       }
@@ -3318,7 +3476,8 @@ function csvShowResult(res) {
 
 /* ── Reset Wizard ────────────────────────────────────── */
 function csvReset() {
-  _csvData = { headers: [], rows: [], mapping: {}, validated: [], dupInfo: {} };
+  // katalog zuruecksetzen: eine neue Datei hat andere Spalten.
+  _csvData = { headers: [], rows: [], mapping: {}, validated: [], dupInfo: {}, katalog: null, gemerkt: [] };
   document.getElementById("csv-file-input").value = "";
   document.getElementById("csv-file-info").style.display = "none";
   document.getElementById("csv-mapping-grid").innerHTML = "";
@@ -3368,6 +3527,8 @@ window.copyPublicProfileLink = copyPublicProfileLink;
 window.saveSkills = saveSkills;
 window.saveProfile = saveProfile;
 window.csvUpdateMapping = csvUpdateMapping;
+window.csvRetryMapping = csvRetryMapping;
+window.csvMerkeSchreibweise = csvMerkeSchreibweise;
 window.csvExecuteImport = csvExecuteImport;
 window.csvReset = csvReset;
 

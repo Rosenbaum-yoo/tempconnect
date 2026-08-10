@@ -81,6 +81,13 @@
     .csv-val-dup { color:var(--tc-tone-warning-text); }
     /* P10/D4: umgewandelte Werte werden ausgewiesen, nicht still ersetzt. */
     .csv-val-note { margin-top:2px;font-size:12px;line-height:1.35; }
+    /* P10/D3: jede Spalte sagt, warum sie so zugeordnet ist. */
+    .csv-map-note { margin-top:4px;font-size:11px;line-height:1.35; }
+    .csv-map-note .btn-link { padding:0;font-size:11px; }
+    .csv-map-error { display:flex;flex-direction:column;gap:8px;align-items:flex-start;
+                     grid-column:1 / -1;padding:12px;border-radius:10px;
+                     border:1px solid var(--wk-border);background:var(--wk-surface);
+                     color:var(--tc-tone-danger-strong-text); }
     .csv-kpi { display:inline-flex;align-items:center;gap:6px;padding:8px 14px;border-radius:10px;border:1px solid var(--wk-border);font-size:13px;font-weight:700; background: var(--wk-surface); }
     .csv-kpi .num { font-size:18px;font-weight:900; }
     .csv-kpi.ok { border-color:var(--tc-tone-success-border);color:var(--tc-tone-success-strong-text); }

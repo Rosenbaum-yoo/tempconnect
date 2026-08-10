@@ -137,7 +137,104 @@ diese zu korrigieren und nachzuladen. Der Endpunkt bekommt einen Zeilenbericht
 **Gate D2:** Eine Datei mit 100 Zeilen, davon 3 fehlerhaft, importiert 97 und meldet 3 mit Grund.
 Rückwärtsprobe: eine fehlerfreie Datei verhält sich exakt wie heute.
 
-#### Welle D3 — Die Spaltentabelle
+### D3 ist erledigt *(2026-08-10)*
+
+**Der eigentliche Fehler saß tiefer als „ein Synonym fehlt".** Die Erkennung entfernte Punkte
+und Bindestriche, ließ aber den Unterstrich stehen und die Umlaute ungefaltet:
+
+```
+"Geb.-Datum"  → "gebdatum"     "Straße"  → "straße"
+"geb_datum"   → "geb_datum"    Alias:      "strasse"
+```
+
+Der Alias hieß `geb_datum`, die Datei sagte `Gebdatum` — die beiden konnten sich **nie** treffen.
+Genau der Fall, den der Owner gemeldet hat. Es gibt jetzt eine Regel, und sie gilt überall:
+klein schreiben, Umlaute falten (`ae/oe/ue/ss`), alles außer `a-z0-9` entfernen. Die Datenbank
+erzwingt sie selbst (`CHECK (alias_key ~ '^[a-z0-9]+$')`) — ein Alias, der sie verletzt, ließe
+sich gar nicht erst einfügen und könnte nie treffen.
+
+**Die Zuordnung ist auf den Server gewandert.** Die Spezifikation verlangte eine Tabelle, aus der
+sich Wizard *und* Prüfung speisen. Das allein hätte den Algorithmus zweimal stehen lassen —
+dieselbe Falle wie bei den Ländern in D4, die heute nur ein Vergleichstest zusammenhält. Also:
+`POST /workers/import/map-columns` bekommt die Überschriften und je Spalte bis zu 20 Beispielwerte
+und liefert Feldkatalog **und** fertige Zuordnung. Die Seite hat **keine Feldliste mehr** — sie
+kann also auch keine veraltete haben.
+
+**Drei Stufen, in dieser Reihenfolge:**
+
+| Stufe | Beispiel | Regel |
+|---|---|---|
+| Überschrift trifft Alias | `Gebdatum` → `date_of_birth` | 95 Schreibweisen, DE und EN |
+| Priorität entscheidet | `Name` **und** `Nachname` in einer Datei | die eindeutige Spalte gewinnt; `Name` allein zählt weiterhin |
+| Inhalt verrät das Feld | Spalte ohne Namen, Werte mit `@` | nur bei eindeutigem Muster, ab 60 % Trefferquote |
+
+Ein Datum bekommt **bewusst kein** Inhaltsmuster: `Eintrittsdatum` sähe aus wie ein Geburtsdatum.
+Lieber nicht zuordnen als falsch zuordnen — eine falsche Spalte schreibt stillschweigend falsche
+Daten in Personalakten.
+
+**Jede Spalte sagt, warum sie so zugeordnet ist** („am Inhalt erkannt (100 % der Werte passen)",
+„mehrdeutig – eine eindeutigere Spalte wurde als Nachname übernommen"). Eine Zuordnung, die
+niemand nachvollziehen kann, ist eine Zumutung — besonders wenn sie mal danebenliegt.
+
+**Und das Versprechen wird wörtlich eingelöst.** Ordnet ein Kunde eine unbekannte Spalte von Hand
+zu, erscheint „Schreibweise merken". Ein Klick, ein `INSERT` — beim nächsten Import wird sie
+automatisch erkannt. Org-gebunden: die Schreibweise eines Kunden verändert die Zuordnung aller
+anderen nicht. Kundeneigene Einträge stechen die allgemeinen, weil sie den konkreten Export
+beschreiben.
+
+**Gate D3 erfüllt.** Belege: `api/test/csvSpaltentabelle.test.js` (36) und
+`csvSpaltentabelle.browser.test.js` (18). Am echten Katalog verifiziert — ein realistischer
+Export (`Nachname, Name, Vorname, Gebdatum, Kontakt, Wohnort, MA-Nr., Kostenstelle`) wird ohne
+Handarbeit zugeordnet, `Name` als mehrdeutig benannt, `Kostenstelle` offen gelassen. Beide neuen
+Routen antworten unangemeldet mit 403, eine erfundene Route mit 404.
+
+*Neu:* `sql/migrations/174_csv_spaltentabelle.sql` (2 Tabellen, 11 Felder, 95 Aliase),
+`api/services/csvFieldCatalogService.js`, zwei Routen in `api/routes/workers.js`.
+*Geändert:* `frontend/public/js/pages/mitarbeiter.js` (`CSV_FIELDS` und `csvAutoMap` ersatzlos
+ausgebaut, 10 neue Texte in DE und EN), `frontend/public/mitarbeiter.html`.
+
+#### Drei Nebenbefunde, alle sofort geschlossen
+
+**1. `NUMBERING.md` war 16 Migrationen lang falsch.** Sie nannte seit dem 2026-07-26 „Next
+migration MUST start at: 158", während real 173 vergeben war. Eine handgeschriebene Zahl über
+einem wachsenden Verzeichnis veraltet zwangsläufig. `api/test/migrationsNummern.test.js` liest
+jetzt das Verzeichnis und lässt die Angabe rot werden; zusätzlich prüft er auf Doppelnummern ab
+158 und darauf, dass jede neue Migration ihren Rückweg nennt.
+
+**2. Migration 171 (P9) konnte kein zweites Mal laufen — und legte damit den API-Start lahm.**
+Beim Aufsetzen der Umgebung brach die Migrationskette ab:
+
+```
+psql:/migrations/171_bounty_anstupser.sql: ERROR: notifications_type_check nicht gefunden
+FEHLER: Migration 171 fehlgeschlagen — Abbruch
+```
+
+Die Migration liest die bestehende Typliste mit dem Muster `'wert'::text` — der Form, die sie
+vorfand. Dann schreibt sie die Bedingung über `format(%L::text[])` neu, und PostgreSQL rendert
+sie danach als **eine** Zeichenkette: `CHECK (type = ANY ('{a,b,c}'::text[]))`. Darin gibt es
+keine Anführungszeichen um die Einzelwerte mehr. Beim zweiten Lauf fand das Muster nichts, und
+die Migration brach ab — obwohl die Bedingung da war und alle 79 Typen enthielt. Ihr eigener
+Kommentar behauptete „idempotent bei Mehrfachlauf"; der *Anhänge*-Teil war es, der *Lese*-Teil
+nicht.
+
+Das ist kein Schönheitsfehler: `sql/migrate.sh` beendet die **ganze** Kette mit `exit 1`, und der
+`api`-Dienst wartet auf `service_completed_successfully` — er startet dann gar nicht mehr.
+Ausgelöst wird es von jeder Wiederherstellung, jedem Teilabbruch und jeder von Hand
+eingespielten Datei. 171 liest jetzt beide Darstellungen. Ein Test in `migrationsNummern.test.js`
+schlägt an, wenn eine Migration wieder eine CHECK-Bedingung über ein Cast-Muster liest, das sie
+durch ihr eigenes Schreiben zerstört. Negativkontrolle gelaufen.
+
+**3. Die Migrations-Tests liefen im Container gar nicht.** `sql/` war dort nicht gemountet — fünf
+Prüfungen übersprangen lautlos. Jetzt gibt es einen Lese-Mount (`docker-compose.yml`, nach dem
+Vorbild des bereits vorhandenen Frontend-Mounts). Dabei gleich die nächste Stufe derselben Falle:
+Docker legt das Ziel eines Bind-Mounts auf dem Host als **leeres** Verzeichnis an
+(`api/sql/migrations`), und eine Pfadsuche per `existsSync` hätte genau dieses leere Verzeichnis
+gefunden und danach nichts mehr geprüft. Die Tests verlangen jetzt ein Verzeichnis, in dem
+wirklich Migrationen liegen. Im Container: **112 Tests, 0 übersprungen.**
+
+---
+
+#### Welle D3 — Die Spaltentabelle *(Ursprungsauftrag)*
 
 Eine **Tabelle** (Datenbank, nicht Code), die Spaltenüberschriften auf TempConnect-Felder
 abbildet: je Zielfeld beliebig viele Synonyme, mit Sprache und Priorität. Das Mapping des Wizards
@@ -220,6 +317,13 @@ erkennen — D5 zuletzt, weil es als einziges an die Datenbank rührt.
 > **Warum D4 vor D3:** Die toleranten Feldregeln (D4) waren ohne Vorarbeit lieferbar und lösen
 > den größten Teil der gemeldeten Fehlschläge. Die Spaltentabelle (D3) ist die aufwendigere
 > Arbeit und baut auf den Regeln auf, die D4 gerade festgelegt hat.
+
+**Stand:** D1 ✅ · D2 ✅ · D4 ✅ · D3 ✅ · D5 offen *(braucht Owner-Entscheidung D-E2)*.
+
+> **Was D3 für D5 verändert hat:** Der Feldkatalog liegt jetzt in `csv_import_fields`, und ein
+> Test hält Code und Tabelle deckungsgleich. Wird in D5 ein Weg gewählt, bei dem `email` nicht
+> mehr Pflicht ist, ist das genau **eine** Zeile in dieser Tabelle plus die Datenmodell-Änderung
+> — nicht mehr eine Liste im Browser, eine im Zod-Schema und eine im Dienst.
 
 ---
 

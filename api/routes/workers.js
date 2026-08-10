@@ -15,6 +15,7 @@ import { hasFeature } from "../config/planFeatures.js";
 import * as assignmentStaffingService from "../services/assignmentStaffingService.js";
 import * as dealStaffingFastTrackService from "../services/dealStaffingFastTrackService.js";
 import * as workerService from "../services/workerService.js";
+import * as csvFieldCatalog from "../services/csvFieldCatalogService.js";
 import * as smsService from "../services/smsService.js";
 import * as workforceService from "../services/workforceService.js";
 import * as submissionSvc from "../services/workerSubmissionService.js";
@@ -346,8 +347,15 @@ export function normalisierePlz(wert, land) {
   return { wert: ergaenzt, hinweis: `Postleitzahl ${roh} → ${ergaenzt} (fuehrende Null)` };
 }
 
-/** Alle Felder, die als Text gespeichert werden. */
-const TEXTFELDER = Object.freeze([
+/**
+ * Alle Felder, die der Import kennt (und als Text speichert).
+ *
+ * Exportiert, weil dieselbe Liste seit P10/D3 auch in der Tabelle
+ * `csv_import_fields` steht — der Wizard bezieht sie von dort. Zwei Orte, eine
+ * Wahrheit: `api/test/csvSpaltentabelle.test.js` vergleicht beide und wird rot,
+ * sobald hier ein Feld dazukommt, das die Datenbank nicht kennt (oder umgekehrt).
+ */
+export const TEXTFELDER = Object.freeze([
   "email", "first_name", "last_name", "personnel_number", "phone",
   "street", "postal_code", "city", "country", "date_of_birth", "notes"
 ]);
@@ -450,6 +458,27 @@ const importEnvelopeSchema = z.object({
   on_duplicate: z.enum(["skip", "update"]).default("skip")
 });
 
+/*
+ * P10/D3 — die Zuordnung von Spaltenueberschriften.
+ *
+ * Die Ueberschriften und ein paar Beispielwerte je Spalte. Die Proben braucht
+ * die Inhaltserkennung: die E-Mail-Spalte ist die, deren Werte ein "@" tragen,
+ * auch wenn die Ueberschrift "Kontakt" heisst. Bewusst gedeckelt — es geht um
+ * ein Merkmal, nicht um die Daten selbst.
+ */
+const spaltenSchema = z.object({
+  columns: z.array(z.object({
+    header: z.string().max(300),
+    proben: z.array(z.string().max(500)).max(20).optional().default([])
+  })).min(1).max(200)
+});
+
+/** Eine Schreibweise, die sich diese Organisation merken will. */
+const aliasSchema = z.object({
+  field_key: z.string().min(1).max(64),
+  header:    z.string().min(1).max(200)
+});
+
 /** Zerlegt die Nutzlast in importierbare Zeilen und Vorab-Fehler. */
 export function pruefeZeilen(rohZeilen) {
   const gueltig = [];
@@ -519,6 +548,81 @@ export function createWorkersRouter(deps) {
         return res.status(404).json({ error: "NOT_FOUND" });
       }
       res.json(worker);
+    } catch (err) { next(err); }
+  });
+
+  /* ── CSV: Spaltenzuordnung (P10/D3) ────────────────────────────────────────── */
+
+  /*
+   * Ordnet Spaltenueberschriften den Zielfeldern zu — und liefert gleich den
+   * Feldkatalog mit, damit der Wizard keine eigene Liste mehr braucht.
+   *
+   * WARUM DAS HIER PASSIERT UND NICHT IM BROWSER
+   * Bis D2 hatte der Wizard eine eigene Feldliste mit eigenen Synonymen. Der
+   * Server kannte sie nicht. Genau daraus entstand die Klasse von Fehlern, die
+   * diese Spur seit D1 abarbeitet: zwei Listen, zwei Wahrheiten, und der
+   * Nutzer zwischen beiden. Ab jetzt gibt es eine Liste, und sie steht in der
+   * Datenbank — eine neue Schreibweise ist ein INSERT, kein Deploy.
+   */
+  router.post("/workers/import/map-columns", ...base, requireScope("write:workers"), rperm("worker.create"), async (req, res, next) => {
+    try {
+      const parsed = spaltenSchema.safeParse(req.body);
+      if (!parsed.success) {
+        return res.status(400).json({ error: "VALIDATION", details: parsed.error.issues });
+      }
+
+      const katalog = await csvFieldCatalog.ladeFeldkatalog(pool, { orgId: req.orgId });
+      const ergebnis = csvFieldCatalog.ordneSpaltenZu(katalog, parsed.data.columns);
+
+      res.json({
+        fields:            katalog.felder,
+        mapping:           ergebnis.zuordnung,
+        matched:           ergebnis.treffer,
+        unmatched:         ergebnis.offen,
+        ambiguous:         ergebnis.mehrdeutig,
+        missing_required:  csvFieldCatalog.fehlendePflichtfelder(katalog, ergebnis.zuordnung)
+      });
+    } catch (err) { next(err); }
+  });
+
+  /*
+   * Merkt sich eine Schreibweise fuer diese Organisation.
+   *
+   * Das ist der Teil, der das Versprechen einloest: ordnet ein Kunde eine
+   * unbekannte Spalte einmal von Hand zu, kennt der Import sie beim naechsten
+   * Mal. Org-gebunden — die Schreibweise eines Kunden darf die Zuordnung aller
+   * anderen nicht veraendern.
+   */
+  router.post("/workers/import/field-alias", ...base, requireScope("write:workers"), rperm("worker.create"), async (req, res, next) => {
+    try {
+      const parsed = aliasSchema.safeParse(req.body);
+      if (!parsed.success) {
+        return res.status(400).json({ error: "VALIDATION", details: parsed.error.issues });
+      }
+
+      const ergebnis = await csvFieldCatalog.merkeAlias(pool, {
+        orgId:     req.orgId,
+        fieldKey:  parsed.data.field_key,
+        header:    parsed.data.header,
+        createdBy: req.session.userId
+      });
+
+      if (!ergebnis.gespeichert) {
+        return res.status(400).json({ error: ergebnis.grund });
+      }
+
+      res.locals.audit = {
+        action:      "worker.csv_alias_learned",
+        entity_type: "csv_import_field_alias",
+        entity_id:   ergebnis.alias.id,
+        details: {
+          field_key:   parsed.data.field_key,
+          alias_key:   ergebnis.alias.alias_key,
+          alias_label: ergebnis.alias.alias_label
+        }
+      };
+
+      res.status(201).json({ alias: ergebnis.alias });
     } catch (err) { next(err); }
   });
 

@@ -143,6 +143,11 @@ services:
       - uploads:/app/uploads
       # Lese-Mount fuer Frontend-JS — benoetigt fuer visibilityMatrix-Tests (drift protection + hubVisibility)
       - ./frontend/public/js:/app/frontend/public/js:ro
+      # Lese-Mount fuer Migrationen — benoetigt fuer die Tests, die Migrationsdateien
+      # selbst pruefen (Rollback-Block, Nummernvergabe, Feldliste gegen Code).
+      # Ohne diesen Mount uebersprangen sie im Container lautlos: eine gruene Suite,
+      # die weniger prueft, als sie behauptet.
+      - ./sql/migrations:/app/sql/migrations:ro
     command: ["npm", "run", "start"]
     healthcheck:
       test: ["CMD", "wget", "-q", "--spider", "http://localhost:3000/health"]
