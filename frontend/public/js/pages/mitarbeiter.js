@@ -449,6 +449,11 @@ TCi18n.register('de', {
   'mit.csv.importDone': 'Import abgeschlossen!',
   'mit.csv.importFailed': 'Import fehlgeschlagen',
   'mit.csv.errorPrefix': 'Fehler: {message}',
+  // P10/D1: Der Server nennt Zeile, Spalte und Grund — die zeigen wir jetzt an.
+  'mit.csv.errRowsInvalid': '{count} Zeile(n) wurden vom Server abgelehnt',
+  'mit.csv.errRowLabel': 'Zeile {row}',
+  'mit.csv.errRowUnknown': 'Zeile unbekannt',
+  'mit.csv.errMore': '… und {count} weitere',
   'mit.csv.inviteImportedCta': 'Jetzt alle {count} importierten Mitarbeiter einladen',
   'mit.csv.rowLabel': 'Zeile {row}:',
   'mit.csv.unknownError': 'Unbekannter Fehler',
@@ -935,6 +940,11 @@ TCi18n.register('en', {
   'mit.csv.importDone': 'Import complete.',
   'mit.csv.importFailed': 'Import failed',
   'mit.csv.errorPrefix': 'Error: {message}',
+  // P10/D1: the server names row, column and reason — now shown to the user.
+  'mit.csv.errRowsInvalid': '{count} row(s) were rejected by the server',
+  'mit.csv.errRowLabel': 'Row {row}',
+  'mit.csv.errRowUnknown': 'Unknown row',
+  'mit.csv.errMore': '… and {count} more',
   'mit.csv.inviteImportedCta': 'Invite all {count} imported workers now',
   'mit.csv.rowLabel': 'Row {row}:',
   'mit.csv.unknownError': 'Unknown error',
@@ -2996,6 +3006,69 @@ function csvRenderValidationTable() {
   el.innerHTML = html;
 }
 
+/* ── P10/D1: Serverfehler lesbar machen ──────────────────────
+ *
+ * Der Import-Endpunkt prueft mit Zod und antwortet bei einem Verstoss mit
+ * { error: "VALIDATION", details: [...] }. Jeder Eintrag traegt einen `path` der
+ * Form ["workers", <index>, "<feld>"] und eine Begruendung. Bisher zeigte die
+ * Seite davon nichts — der Nutzer sah das Wort "VALIDATION" und eine leere Box.
+ *
+ * Zwei Uebersetzungen sind noetig, damit die Auskunft brauchbar ist:
+ *   Index -> CSV-Zeile   (der Server zaehlt das gesendete Array, nicht die Datei)
+ *   Feld  -> Spaltenkopf (der Nutzer kennt "Gebdatum", nicht "date_of_birth")
+ */
+
+/** Welche CSV-Spalte wurde auf dieses Zielfeld gemappt? */
+function csvSpalteFuerFeld(feldKey) {
+  var m = _csvData.mapping || {};
+  for (var kopf in m) {
+    if (Object.prototype.hasOwnProperty.call(m, kopf) && m[kopf] === feldKey) return kopf;
+  }
+  return feldKey;
+}
+
+/**
+ * Baut aus den Zod-Hinweisen eine Liste "Zeile N · Spalte — Grund".
+ * @returns {{anzahl:number, html:string}|null} null, wenn nichts Verwertbares dabei ist
+ */
+function csvFehlerListe(details, gesendeteZeilen) {
+  if (!Array.isArray(details) || details.length === 0) return null;
+  var MAX = 20;
+  var zeilen = gesendeteZeilen || [];
+
+  var eintraege = details.map(function(d) {
+    var p = (d && d.path) || [];
+    var idx = (typeof p[1] === "number") ? p[1] : null;
+    var feld = (typeof p[2] === "string") ? p[2] : null;
+    return {
+      zeile: (idx !== null && zeilen[idx] != null) ? zeilen[idx] : null,
+      spalte: feld ? csvSpalteFuerFeld(feld) : null,
+      grund: (d && d.message) || ""
+    };
+  }).filter(function(e) { return e.zeile !== null || e.spalte || e.grund; });
+
+  if (!eintraege.length) return null;
+
+  var html = '<div class="csv-fehlerliste" style="margin-top:10px">';
+  eintraege.slice(0, MAX).forEach(function(e) {
+    var kopf = e.zeile !== null
+      ? TCi18n.t("mit.csv.errRowLabel", { row: e.zeile })
+      : TCi18n.t("mit.csv.errRowUnknown");
+    html += '<div style="padding:6px 8px;border-left:2px solid var(--tc-tone-danger-border);'
+          + 'margin-bottom:4px;font-size:12px">'
+          + '<b>' + esc(kopf) + '</b>'
+          + (e.spalte ? ' &middot; ' + esc(e.spalte) : '')
+          + '<span style="color:var(--wk-text-muted)"> — ' + esc(e.grund) + '</span>'
+          + '</div>';
+  });
+  if (eintraege.length > MAX) {
+    html += '<div style="font-size:12px;color:var(--wk-text-muted)">'
+          + esc(TCi18n.t("mit.csv.errMore", { count: eintraege.length - MAX })) + '</div>';
+  }
+  html += '</div>';
+  return { anzahl: eintraege.length, html: html };
+}
+
 /* ── Step 4: Execute Import ──────────────────────────── */
 function csvExecuteImport() {
   var btn = document.getElementById("csv-btn-import");
@@ -3011,6 +3084,14 @@ function csvExecuteImport() {
   ptext.textContent = TCi18n.t("mit.csv.transferring");
 
   var strategy = document.getElementById("csv-dup-strategy").value;
+  // P10/D1: Die CSV-Zeilennummern parallel mitfuehren. Der Server nummeriert die
+  // Eintraege im gesendeten Array (0,1,2 …) — das ist NICHT die Zeile in der
+  // Datei, sobald ungueltige Zeilen vorher herausgefiltert wurden. Ohne diese
+  // Zuordnung zeigt ein Fehlerhinweis auf die falsche Zeile, was schlimmer ist
+  // als gar keiner.
+  var gesendeteZeilen = _csvData.validated
+    .filter(function(r) { return r._errors.length === 0; })
+    .map(function(r) { return r._row; });
   var workers = _csvData.validated
     .filter(function(r) { return r._errors.length === 0; })
     .map(function(r) {
@@ -3045,8 +3126,17 @@ function csvExecuteImport() {
               : e.error === "WORKER_LIMIT_EXCEEDED" ? TCi18n.t("mit.err.limitReached")
               : (e.message || e.error || TCi18n.t("mit.csv.importFailed"));
       showWorkerUpgradeFromError(e);
-      ptext.textContent = TCi18n.t("mit.csv.errorPrefix", { message: msg });
-      document.getElementById("csv-result-summary").innerHTML = '<div class="csv-kpi err" style="width:100%"><span class="num">!</span> ' + esc(msg) + '</div>';
+      // P10/D1: Der Server sagt in `details` GENAU, welche Zeile und welches Feld
+      // ihn stoeren. Vorher wurde das weggeworfen und nur "VALIDATION" angezeigt —
+      // eine Wand statt einer Auskunft.
+      var liste = csvFehlerListe(e.details, gesendeteZeilen);
+      ptext.textContent = TCi18n.t("mit.csv.errorPrefix", {
+        message: liste ? TCi18n.t("mit.csv.errRowsInvalid", { count: liste.anzahl }) : msg
+      });
+      document.getElementById("csv-result-summary").innerHTML =
+        '<div class="csv-kpi err" style="width:100%"><span class="num">!</span> '
+        + esc(liste ? TCi18n.t("mit.csv.errRowsInvalid", { count: liste.anzahl }) : msg) + '</div>'
+        + (liste ? liste.html : "");
     });
 }
 

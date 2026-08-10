@@ -38,6 +38,46 @@ Zusätzlich der Owner-Wunsch: **variable Spaltennamen** müssen abgefangen werde
 
 ### D.2 Wellen
 
+> **D-E1 — entschieden am 2026-08-11:** ✅ **Ja.** Ein Mitarbeiter **ohne E-Mail** ist
+> importierbar, wenn eine Personalnummer vorhanden ist. Ohne E-Mail gibt es keinen
+> Portal-Zugang, aber sehr wohl einen Stammdatensatz — und genau den will man beim Erstimport
+> anlegen. Die Einladung wird später nachgereicht. **Umsetzung in Welle D4.**
+
+### D1 ist erledigt *(2026-08-11)*
+
+Der Import sagt jetzt, was los ist: statt des nackten Wortes „VALIDATION" steht dort eine Liste
+**Zeile · Spalte — Grund**.
+
+**Der Defekt war eine verschwiegene Auskunft.** Der Server liefert in `details` zu jedem Verstoß
+den Pfad `["workers", <index>, "<feld>"]` und die Begründung (`api/routes/workers.js:320`). Die
+Seite hat dieses Feld **nie angefasst** — sie zeigte `e.error`, also „VALIDATION", und eine leere
+Box. Der Server wusste die Antwort, die Oberfläche verschwieg sie.
+
+**Zwei Übersetzungen mussten dazu stimmen:**
+
+1. **Index → CSV-Zeile.** Der Server zählt das *gesendete* Array. Ungültige Zeilen filtert der
+   Wizard vorher heraus — ohne parallel mitgeführte Zeilennummern zeigt der Hinweis auf die
+   falsche Zeile. Das wäre schlimmer als gar keiner. Gelöst über `gesendeteZeilen`, aufgebaut mit
+   *derselben* Filterregel wie die Nutzlast.
+2. **Feld → Spaltenkopf.** Der Nutzer kennt „Gebdatum", nicht `date_of_birth`. Die Rückauflösung
+   nutzt das Mapping des Wizards; ohne Zuordnung fällt sie auf den Feldnamen zurück — lieber der
+   interne Name als gar keine Angabe.
+
+Lange Listen werden bei 20 Einträgen gedeckelt, die Gesamtzahl bleibt aber sichtbar. Ist keine
+Zeile zuzuordnen, steht „Zeile unbekannt" — eine erfundene Nummer wäre schlimmer als das
+Eingeständnis.
+
+**Gate D1 erfüllt.** Belege: `api/test/csvImportFehler.test.js` (9 Prüfungen). Die
+Zuordnungslogik wird dabei **wirklich ausgeführt** (vm-Sandbox mit gestellter Umgebung), nicht nur
+im Quelltext gesucht — inklusive des Falls, dass der Array-Index nicht als Zeilennummer
+durchschlagen darf.
+
+**Was D1 sichtbar gemacht hat — und was daraus für D2 folgt:** Der Wizard hat eine *eigene*
+Prüfung im Browser (`_csvData.validated` mit `_errors`) und sendet nur Zeilen, die er selbst für
+gültig hält. Dass der Server sie trotzdem ablehnt, heißt: **die Browser-Prüfung ist schwächer als
+das Server-Schema.** Zwei Prüfungen, zwei Wahrheiten. D2 und D4 müssen beide aus derselben Quelle
+speisen — sonst bleibt der Wizard ein Versprechen, das der Server bricht.
+
 #### Welle D1 — Der Import sagt, was los ist *(zuerst)*
 
 Ohne diesen Schritt sucht jeder weitere blind. Die Antwort des Servers **anzeigen**: welche

@@ -85,8 +85,20 @@ gefunden wurde (Abrechnungszeitraum begann einen Tag zu früh). Werkzeug und Reg
 längst — `api/utils/dateDE.js` und die DACH-first-Direktive. Sie werden nur nicht überall benutzt.
 Der Owner will das ausdrücklich auch auf die Folgeprojekte übertragen.
 
-**Zwei Owner-Entscheidungen offen:** D-E1 (Import ohne E-Mail, wenn Personalnummer vorhanden?)
-und E-E1 (welche Zustände die Live-Belegschaft führt — erst nach E1 beantwortbar).
+**Owner-Entscheidungen:** D-E1 ist **entschieden (ja** — Import ohne E-Mail erlaubt, wenn eine
+Personalnummer vorhanden ist; Umsetzung in Welle D4). Offen bleibt E-E1 (welche Zustände die
+Live-Belegschaft führt — erst nach E1 beantwortbar).
+
+> **D1 ist erledigt** *(2026-08-11)*. Der Import zeigt jetzt **Zeile · Spalte — Grund** statt des
+> nackten Wortes „VALIDATION". Der Defekt war eine verschwiegene Auskunft: der Server liefert die
+> Details seit jeher, die Seite hat das Feld nie angefasst. Zwei Übersetzungen mussten dafür
+> stimmen — Server-Index → echte CSV-Zeile (der Wizard filtert vorher, die Indizes laufen sonst
+> auseinander) und Feldname → Spaltenkopf, wie er in der Datei steht.
+> **Was dabei sichtbar wurde und D2 prägt:** Der Wizard prüft im Browser selbst und sendet nur,
+> was er für gültig hält — der Server lehnt es trotzdem ab. **Die Browser-Prüfung ist schwächer
+> als das Server-Schema.** Zwei Prüfungen, zwei Wahrheiten. D2 und D4 müssen beide aus derselben
+> Quelle speisen, sonst bleibt der Wizard ein Versprechen, das der Server bricht.
+> Nächste Welle: **D2** (Teilimport statt Alles-oder-nichts).
 
 ---
 
