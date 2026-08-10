@@ -111,7 +111,7 @@ export const VISIBILITY_MATRIX = [
   },
   // Staff
   {
-    page: "staff/index.html",
+    page: "staff/staff.html",   // Vite-Einstieg laut nginx (nicht index.html)
     gating_strategy: "staff_gated",
     surfaces: [],
     allowed_roles: ["company"],
@@ -164,35 +164,6 @@ export const VISIBILITY_MATRIX = [
     requires_individuell: false,
     has_backend_guard: true,
     has_upgrade_cta: true,
-    requires_staff_approval: false
-  },
-  // Reports
-  {
-    page: "reports.html",
-    gating_strategy: "plan_gated",
-    surfaces: [],
-    feature_key: "basic_analytics",
-    allowed_roles: ["company", "agency"],
-    allowed_user_roles: [],
-    allowed_org_types: ["company", "agency"],
-    requires_pilot: false,
-    requires_individuell: false,
-    has_backend_guard: true,
-    has_upgrade_cta: true,
-    requires_staff_approval: false
-  },
-  // Benachrichtigungen
-  {
-    page: "notifications.html",
-    gating_strategy: "always_open",
-    surfaces: [],
-    allowed_roles: ["company", "agency"],
-    allowed_user_roles: [],
-    allowed_org_types: ["company", "agency"],
-    requires_pilot: false,
-    requires_individuell: false,
-    has_backend_guard: false,
-    has_upgrade_cta: false,
     requires_staff_approval: false
   },
   // Supplier Scorecard
@@ -255,9 +226,11 @@ export const VISIBILITY_MATRIX = [
     has_upgrade_cta: true,
     requires_staff_approval: false
   },
-  // Deals
+  // Deals (P9/C3: hiess frueher deals.html — die Datei gibt es nicht mehr, die
+  // Flaeche lebt unter deal_management.html und ist dort ueber slaGuard.js
+  // wirklich gesperrt. Der alte Eintrag verwies ins Leere.)
   {
-    page: "deals.html",
+    page: "deal_management.html",
     gating_strategy: "plan_gated",
     surfaces: ["deals"],
     feature_key: "deal_workflow",
@@ -269,23 +242,25 @@ export const VISIBILITY_MATRIX = [
     has_backend_guard: true,
     has_upgrade_cta: true,
     requires_staff_approval: false
-  },
-  // Assignments
-  {
-    page: "assignments.html",
-    gating_strategy: "individuell_only",
-    surfaces: ["assignments"],
-    feature_key: "assignments",
-    allowed_roles: ["company", "agency"],
-    allowed_user_roles: [],
-    allowed_org_types: ["company", "agency"],
-    requires_pilot: false,
-    requires_individuell: true,
-    has_backend_guard: true,
-    has_upgrade_cta: true,
-    requires_staff_approval: false
   }
 ];
+
+/*
+ * P9/C3 — ENTFERNT, weil die Seiten nicht existieren:
+ *
+ *   reports.html       trug gar keine Flaeche (surfaces: []) und nur den
+ *                      Schluessel `basic_analytics`. Den fuehren heute
+ *                      executive_dashboard.html und organization.html, die
+ *                      eigene Eintraege haben.
+ *   assignments.html   Die Hub-Karte `assignments` zeigt auf
+ *                      worker-submissions-review.html. Diese Seite ist NICHT
+ *                      plan-gesperrt (kein slaGuard) — den Eintrag auf sie
+ *                      umzubiegen haette eine Sperre behauptet, die es nicht gibt.
+ *
+ * Beide Eintraege standen jahrelang in der "einzigen Wahrheit", ohne dass es
+ * auffiel: der Schema-Test prueft Felder, nicht Existenz. Genau diese Luecke
+ * schliesst jetzt `visibilityMatrix.test.js` — jede genannte Seite muss es geben.
+ */
 
 /**
  * Gibt alle eindeutigen Hub-Surface-Keys zurueck, die in der Matrix referenziert werden.

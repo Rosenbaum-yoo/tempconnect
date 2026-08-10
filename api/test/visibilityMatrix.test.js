@@ -53,8 +53,16 @@ function loadHubSurfaceKeys() {
 }
 
 describe("VISIBILITY_MATRIX schema", () => {
-  it("hat mindestens 15 Eintraege (alle Hauptbereiche abgedeckt)", () => {
-    assert.ok(VISIBILITY_MATRIX.length >= 15, "Erwartet mindestens 15 Matrix-Eintraege");
+  /*
+   * P9/C3: Die Zahl war vorher 15 — erfuellt allerdings ZULETZT von drei
+   * Eintraegen fuer Seiten, die es gar nicht gibt (reports.html, deals.html,
+   * assignments.html). Eine Mindestzahl ist ein schwacher Ersatz fuer Abdeckung:
+   * sie zaehlt Geister mit. Die echte Abdeckungspruefung ist die Namensliste
+   * weiter unten ("Hauptbereiche sind abgedeckt"), ergaenzt um den Existenztest.
+   * Die Untergrenze bleibt als grober Schutz gegen versehentliches Leeren.
+   */
+  it("hat mindestens 12 Eintraege (Untergrenze gegen versehentliches Leeren)", () => {
+    assert.ok(VISIBILITY_MATRIX.length >= 12, "Erwartet mindestens 12 Matrix-Eintraege");
   });
 
   it("alle Eintraege haben Pflichtfelder", () => {
@@ -106,12 +114,16 @@ describe("VISIBILITY_MATRIX schema", () => {
       "vendor_pool.html",
       "requisitions.html",
       "sla_abo.html",
-      "staff/index.html",
+      // P9/C3 korrigiert: der Vite-Einstieg heisst staff.html (nginx-Fallback),
+      // nicht index.html.
+      "staff/staff.html",
       "admin_panel.html",
       "organization.html",
       "integrations.html",
-      "reports.html",
-      "notifications.html"
+      // reports.html und notifications.html sind entfernt: beide Seiten
+      // existieren nicht und werden von nichts verlinkt. Sie hier weiter zu
+      // verlangen hiesse, Geister zur Pflicht zu machen.
+      "deal_management.html"
     ];
     for (const p of expected) {
       assert.ok(pages.has(p), `Hauptbereich fehlt in Matrix: ${p}`);
@@ -333,3 +345,71 @@ if (HUB_VISIBILITY_AVAILABLE) {
     });
   });
 }
+
+/* ── P9/C3: Die Matrix darf nur Seiten nennen, die es gibt ──────────────── */
+
+describe("VISIBILITY_MATRIX zeigt auf echte Seiten", {
+  skip: !HUB_VISIBILITY_AVAILABLE && "frontend/ nicht verfuegbar"
+}, () => {
+  /*
+   * WARUM ES DIESEN TEST GIBT
+   * Die Matrix nennt sich "Single Source of Truth" — der Schema-Test prueft aber
+   * nur Felder, nicht Existenz. Dadurch standen drei Eintraege fuer Seiten darin,
+   * die es gar nicht (mehr) gibt: reports.html, deals.html, assignments.html.
+   * Auf keine davon verwies irgendein Link. Eine Wahrheit, die auf Geister zeigt,
+   * ist keine — und jeder Test, der auf ihr aufbaut, prueft die Geister mit.
+   */
+  /*
+   * Ausnahme mit Grund: `staff/` ist Build-Ausgabe von Vite (gitignored). Auf
+   * einem frischen Checkout existiert die Datei erst nach `npm run build:scc`.
+   * Der Pfad wird trotzdem geprueft — nur eben gegen den nginx-Einstieg, nicht
+   * gegen das Dateisystem. Genau dieser Pfad war falsch (index.html statt
+   * staff.html), deshalb bleibt er hier ausdruecklich stehen.
+   */
+  const BUILD_AUSGABEN = new Set(["staff/staff.html"]);
+
+  it("jede genannte Seite existiert im Frontend", () => {
+    const fehlend = [];
+    for (const row of VISIBILITY_MATRIX) {
+      if (BUILD_AUSGABEN.has(row.page)) continue;
+      const datei = path.join(ROOT, "frontend/public", row.page);
+      if (!fs.existsSync(datei)) fehlend.push(row.page);
+    }
+    assert.deepEqual(fehlend, [],
+      "Diese Seiten stehen in der Matrix, existieren aber nicht:\n" + fehlend.join("\n")
+      + "\nEntweder umbenannt (dann Eintrag umbiegen) oder entfernt (dann Eintrag "
+      + "loeschen und im Kommentar festhalten, wo die Funktion jetzt lebt).");
+  });
+
+  it("jede plan-gesperrte Seite laedt ihre Sperre auch wirklich", () => {
+    /*
+     * Der Defekt aus Welle C1: `rate-cards.html` hat mit
+     * `PlanFeatures.hasFeature()` gearbeitet, ohne die Matrix je zu laden
+     * (`PlanFeatures.load()` bzw. `slaGuard.js`). Die Matrix blieb leer,
+     * hasFeature lieferte IMMER false — die Seite war fuer jeden Nutzer auf
+     * jedem Plan gesperrt, auch fuer zahlende.
+     *
+     * Zulaessig ist genau eines von dreien:
+     *   - slaGuard.js einbinden (laedt die Matrix),
+     *   - PlanFeatures.load() selbst aufrufen,
+     *   - die fertig aufgeloeste Server-Wahrheit `surface_access` lesen.
+     * Nichts davon = die Seite entscheidet auf leerer Grundlage.
+     */
+    const ohne = [];
+    for (const row of VISIBILITY_MATRIX) {
+      if (!row.feature_key) continue;
+      const datei = path.join(ROOT, "frontend/public", row.page);
+      if (!fs.existsSync(datei)) continue;   // der Existenztest oben meldet das
+      const html = fs.readFileSync(datei, "utf8");
+      const code = html.replace(/\/\*[\s\S]*?\*\//g, "").replace(/^[ \t]*\/\/.*$/gm, "");
+      const nutztHasFeature = /PlanFeatures\.hasFeature\(/.test(code);
+      const hatGrundlage = /slaGuard\.js/.test(html)
+        || /PlanFeatures\.load\(/.test(code)
+        || /surface_access/.test(code);
+      if (nutztHasFeature && !hatGrundlage) ohne.push(row.page);
+    }
+    assert.deepEqual(ohne, [],
+      "Diese Seiten fragen PlanFeatures.hasFeature, ohne die Matrix zu laden — "
+      + "sie sperren damit JEDEN Nutzer aus, auch zahlende:\n" + ohne.join("\n"));
+  });
+});

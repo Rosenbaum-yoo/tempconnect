@@ -802,6 +802,42 @@ aktives wird von der Datenbank abgelehnt).
 > Zeit und den Kunden Geduld — und sie schützt vor nichts, was der Kill-Switch nicht
 > ohnehin abdeckt.
 
+### C3 ist erledigt *(2026-08-11)* — Spur C und damit P9 vollständig
+
+Die Härtung begann mit einer Überraschung: **Die „Single Source of Truth" war in 5 von 17 Zeilen
+falsch.** Die Sichtbarkeits-Matrix nannte Seiten, die es nicht gibt — und niemand merkte es, weil
+der vorhandene Test nur *Felder* prüft, nicht *Existenz*.
+
+| Eintrag | Wirklichkeit | Behandlung |
+|---|---|---|
+| `deals.html` | existiert nicht; die Fläche lebt unter `deal_management.html` und ist dort über `slaGuard.js` **wirklich** gesperrt | umgebogen |
+| `reports.html` | existiert nicht, trug gar keine Fläche; `basic_analytics` führen heute `executive_dashboard.html` und `organization.html` | entfernt |
+| `assignments.html` | existiert nicht; die Hub-Karte zeigt auf `worker-submissions-review.html` — **die ist nicht plan-gesperrt** | entfernt (Umbiegen hätte eine Sperre behauptet, die es nicht gibt) |
+| `staff/index.html` | falscher Dateiname; der Vite-Einstieg heißt laut nginx `staff/staff.html` | korrigiert |
+| `notifications.html` | existiert nicht; Benachrichtigungen leben in der Glocke, nicht auf einer Seite | entfernt |
+
+Auf **keine** dieser Seiten verwies irgendein Link. Sie standen einfach da — und jeder Test, der
+auf der Matrix aufbaut, hat die Geister mitgeprüft.
+
+#### Die zweite Hälfte des Gates
+
+„Keine Fläche gesperrt, für die bezahlt wurde" ist genau der C1-Defekt: `rate-cards.html` fragte
+`PlanFeatures.hasFeature()`, ohne die Matrix je zu laden — sie lieferte **immer** `false`, die
+Seite war für jeden Nutzer auf jedem Plan gesperrt. Alle 12 feature-gesperrten Seiten wurden auf
+dieselbe Falle geprüft: **keine trägt sie mehr.** Ein Wächter hält das jetzt fest — zulässig ist
+genau eines von dreien: `slaGuard.js` einbinden, `PlanFeatures.load()` selbst rufen, oder die
+fertig aufgelöste Server-Wahrheit `surface_access` lesen. Nichts davon heißt: die Seite entscheidet
+auf leerer Grundlage.
+
+**Eine Zählprüfung korrigiert:** Der Schema-Test verlangte „mindestens 15 Einträge" — erfüllt
+zuletzt **von den drei Geistern**. Eine Mindestzahl ist ein schwacher Ersatz für Abdeckung; die
+echte Prüfung ist die Namensliste plus der neue Existenztest. Untergrenze auf 12 gesenkt, als
+grober Schutz gegen versehentliches Leeren.
+
+**Gate C3 erfüllt.** Belege: `api/test/visibilityMatrix.test.js` (jetzt 29 Prüfungen, davon zwei
+neue: Existenz jeder genannten Seite, und keine Seite entscheidet auf leerer Feature-Matrix).
+Volle Suite 8131/0.
+
 #### Welle C3 — Plattformweite Härtung
 
 Alle Feature-Gates einmal systematisch durchgehen: Sperrt jede Fläche aus dem **richtigen**

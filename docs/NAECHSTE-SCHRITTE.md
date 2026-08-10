@@ -60,7 +60,62 @@
 
 ## 4. Wo es weitergeht
 
-### Sofort: P9 — drei Spuren aus den Owner-Abschnitten 2–4
+### Sofort: P10 — drei Spuren aus den Owner-Abschnitten 5–7
+
+**Arbeitsanweisung: [features/P10_IMPORT_LIVE_ZEIT.md](features/P10_IMPORT_LIVE_ZEIT.md)** —
+dort stehen Ist-Stand, Wellen und Gates. Ein neuer Chat liest diese Datei und dann P10, mehr nicht.
+
+| Spur | Abschnitt | Kern | Beginnen mit |
+|---|---|---|---|
+| **D** | 5 | CSV-Import und Mitarbeiterverwaltung reparieren | **D1 — der Import sagt, was los ist** |
+| **E** | 6 | Live-Belegschaft echt verfolgbar (Reiter je Zustand) | E1 — welche Zustände es überhaupt gibt |
+| **F** | 7 | Systemzeit im Einsatzportal (falscher Tag markiert) | F1 — alle UTC-Schnitte finden |
+
+**Warum D1 zuerst:** Der Import bricht heute mit dem nackten Wort „VALIDATION" ab, obwohl der
+Server im Feld `details` genau sagt, welche Zeile und welche Spalte schuld sind
+(`api/routes/workers.js:320`). Solange das nicht sichtbar ist, sucht jede weitere Welle blind.
+
+**Fünf belegte Gründe, warum der Import scheitert** (alle am Code, nicht vermutet):
+eine einzige schlechte Zeile verwirft alles (`z.array`), `email` ist Pflicht, `date_of_birth`
+akzeptiert nur `JJJJ-MM-TT` (deutsche Exporte liefern `TT.MM.JJJJ`), `country` erlaubt drei
+Zeichen („Deutschland" scheitert), und die Fehlerdetails werden nicht angezeigt.
+
+**Spur F ist ein Wiedergänger:** derselbe UTC-Off-by-one, der in P9/A4 auf der **Rechnung**
+gefunden wurde (Abrechnungszeitraum begann einen Tag zu früh). Werkzeug und Regel existieren
+längst — `api/utils/dateDE.js` und die DACH-first-Direktive. Sie werden nur nicht überall benutzt.
+Der Owner will das ausdrücklich auch auf die Folgeprojekte übertragen.
+
+**Zwei Owner-Entscheidungen offen:** D-E1 (Import ohne E-Mail, wenn Personalnummer vorhanden?)
+und E-E1 (welche Zustände die Live-Belegschaft führt — erst nach E1 beantwortbar).
+
+---
+
+### Erledigt: P9 — drei Spuren aus den Owner-Abschnitten 2–4 *(vollständig, 2026-08-11)*
+
+**Alle drei Spuren abgeschlossen und committet:** A1–A5, B1–B3, C1–C3.
+Kurzbilanz der Funde, die dabei ans Licht kamen — jeder einzelne war unsichtbar, weil eine
+ausbleibende Wirkung keine Fehlermeldung erzeugt:
+
+| Fund | Wirkung, wenn unentdeckt |
+|---|---|
+| Referral-Gutschrift ohne Sperrvermerk | ein geworbener Kunde hätte **6 Gutschriften statt einer** ausgelöst |
+| Doppelte Abo-Zeilen (C2) | **27 Kunden zwei Rechnungen** für denselben Monat |
+| Bounty-Rabatt erreichte keine Rechnung (A4) | Rabatt angezeigt, voller Betrag berechnet |
+| Abgelehnte Bewertungen zählten weiter (A3) | Fälschungen erhöhten dauerhaft den Rabatt |
+| Abrechnungszeitraum einen Tag zu früh (A4) | falsches Datum auf jedem Beleg |
+| Merken-Knopf auf Bedarfen wirkungslos (B1) | eine ganze Marktseite konnte nichts merken |
+| 5 von 17 Matrix-Zeilen zeigten auf Geister (C3) | jeder Test darauf prüfte Nicht-Existentes |
+
+**Neue Wächter, die das künftig rot machen:** `docs/FLAECHEN.md` + `flaechenZuordnung.test.js`
+(Modul in falscher Fläche), `bountyZeitfenster.test.js` (Text ↔ Schwelle ↔ Messung),
+`benachrichtigungsSpiegel.test.js` (Server ↔ Oberfläche), `visibilityMatrix.test.js`
+(Seiten-Existenz + leere Feature-Matrix), `invoices_rabatt_stimmig` +
+`subscriptions_ein_aktives_je_nutzer_idx` (Datenbank-Invarianten).
+
+Details: **[features/P9_BOUNTY_MERKLISTE_ENTITLEMENTS.md](features/P9_BOUNTY_MERKLISTE_ENTITLEMENTS.md)**
+
+<details>
+<summary>Ursprüngliche P9-Übersicht (Verlauf)</summary>
 
 Vollständige Arbeitsanweisung mit Wellen und Gates:
 **[features/P9_BOUNTY_MERKLISTE_ENTITLEMENTS.md](features/P9_BOUNTY_MERKLISTE_ENTITLEMENTS.md)**
@@ -183,6 +238,8 @@ Die frühere Notiz „das Konto `elmiraaaa@…` existiert lokal nicht" war **fal
 die prüfende Abfrage lief gegen `org_members` statt `org_memberships`, brach ab, und die leere
 Ausgabe wurde als Befund gelesen. Das Konto existiert (company/owner/INDIVIDUELL) und war die
 Grundlage für C1.
+
+</details>
 
 ### Erledigt: P8 Welle B *(2026-08-07, committet)*
 
