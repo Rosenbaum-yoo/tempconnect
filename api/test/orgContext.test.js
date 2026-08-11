@@ -81,6 +81,33 @@ function mockRes() {
 // ═══════════════════════════════════════════════════════════════
 
 describe("orgContextMiddleware — no session", () => {
+  /*
+   * MUTATION-KILL (Welle 2). `if (!req.session?.userId) return next();` liess
+   * sich zu `false` mutieren, ohne dass ein Test es merkte — der bestehende
+   * Test daneben prueft nur, DASS next() kommt, nicht dass vorher NICHTS
+   * passiert ist.
+   *
+   * Ohne die Abkuerzung laeuft ein unangemeldeter Request durch die gesamte
+   * Org-Aufloesung: Datenbankabfragen fuer einen Benutzer, den es nicht gibt,
+   * bei jedem Aufruf, auch von aussen ausloesbar. Kein Datenabfluss — die
+   * Abfragen liefern nichts —, aber unnoetige Last auf einem Pfad, den jeder
+   * ohne Anmeldung erreicht.
+   */
+  it("fragt ohne Anmeldung nicht die Datenbank", async () => {
+    let abfragen = 0;
+    const pool = { query: async () => { abfragen++; return { rows: [] }; } };
+    const mw = orgContextMiddleware(pool);
+    const req = { headers: {}, session: {} };   // angemeldet: nein
+    let nextCalled = false;
+
+    await mw(req, mockRes(), () => { nextCalled = true; });
+
+    assert.ok(nextCalled);
+    assert.strictEqual(abfragen, 0,
+      "die Abkuerzung muss VOR jeder Abfrage greifen — sonst ist der Pfad ohne Anmeldung erreichbar");
+    assert.strictEqual(req.orgId, undefined, "und es darf kein Org-Kontext entstehen");
+  });
+
   it("calls next() immediately when no session", async () => {
     const mw = orgContextMiddleware(noQueryPool());
     let nextCalled = false;
@@ -155,6 +182,35 @@ describe("orgContextMiddleware — invalid UUID headers return 400", () => {
     assert.equal(nextCalled, false);
     assert.equal(res._status, 400);
     assert.equal(res._body?.error, "INVALID_LOCATION_ID");
+  });
+
+  /*
+   * MUTATION-KILL (Welle 2). `if (fallbackOrg && !UUID_RE.test(...)) fallbackOrg = null;`
+   * liess sich zu `false` mutieren und ueberlebte: der bestehende Test daneben
+   * belegt nur, dass KEIN 400 kommt — nicht, dass der ungueltige Wert wirklich
+   * verworfen wird.
+   *
+   * Ohne das Verwerfen wandert eine ungepruefte Zeichenkette aus query/body in
+   * die Org-Aufloesung und landet als Parameter in der Datenbankabfrage. Die
+   * Abfrage findet nichts, aber die Absicht der Zeile — nur UUIDs weiterreichen
+   * — waere unbelegt. Genau solche stillen Filter sind es wert, festgenagelt zu
+   * werden.
+   */
+  it("reicht eine ungueltige org_id aus query nicht an die Datenbank weiter", async () => {
+    const gesehen = [];
+    const pool = {
+      query: async (_sql, params = []) => {
+        gesehen.push(...params);
+        return { rows: [] };
+      }
+    };
+    const mw = orgContextMiddleware(pool);
+    const req = mockReq({ query: { org_id: "'; DROP TABLE users; --" } });
+
+    await mw(req, mockRes(), () => {});
+
+    assert.ok(!gesehen.includes("'; DROP TABLE users; --"),
+      "der ungueltige Wert muss verworfen werden, bevor er irgendeine Abfrage erreicht");
   });
 
   it("silently ignores invalid UUID in query.org_id (not a header → no 400)", async () => {
