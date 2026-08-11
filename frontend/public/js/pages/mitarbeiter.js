@@ -55,6 +55,10 @@ TCi18n.register('de', {
   'mit.meta.publiclyShared': 'extern freigegeben',
   'mit.status.active': 'Aktiv',
   'mit.status.inactive': 'Inaktiv',
+  'mit.reg.noAccount': 'kein Konto',
+  'mit.reg.dataOnly': 'Nur Stammdaten',
+  'mit.reg.noAccountHint': 'Erfasst, aber noch nicht eingeladen — für Einsätze, Stundenzettel und Dokumente wird ein Konto gebraucht. Einladen genügt.',
+  'mit.reg.askEmail': 'E-Mail-Adresse für {name} — die Einladung geht an diese Adresse:',
   'mit.reg.registered': 'Registriert',
   'mit.reg.invited': 'Eingeladen',
   'mit.reg.inviteExpired': 'Einladung abgelaufen',
@@ -581,6 +585,10 @@ TCi18n.register('en', {
   'mit.meta.publiclyShared': 'shared externally',
   'mit.status.active': 'Active',
   'mit.status.inactive': 'Inactive',
+  'mit.reg.noAccount': 'no account',
+  'mit.reg.dataOnly': 'Record only',
+  'mit.reg.noAccountHint': 'On file but not yet invited — assignments, timesheets and documents need an account. An invitation is all it takes.',
+  'mit.reg.askEmail': 'Email address for {name} — the invitation will be sent there:',
   'mit.reg.registered': 'Registered',
   'mit.reg.invited': 'Invited',
   'mit.reg.inviteExpired': 'Invitation expired',
@@ -1488,24 +1496,38 @@ function renderWorkers() {
     html += '<tr>' +
       '<td class="name">' + esc(w.first_name || "") + ' ' + esc(w.last_name || "") +
         (profileMeta.length ? '<div class="meta">' + esc(profileMeta.join(" · ")) + '</div>' : '') + '</td>' +
-      '<td class="meta">' + esc(w.email || "") + '</td>' +
+      /*
+       * P10/D5 — der Mitarbeiter wird ueber sein PROFIL adressiert, nicht ueber
+       * sein Konto. Wer noch nicht eingeladen wurde, hat keines: `w.user_id`
+       * waere leer, und aus dem Aufruf wuerde woertlich openEdit('null').
+       * `w.id` ist seit D5 immer die Profil-ID, und die Route nimmt beide.
+       */
+      '<td class="meta">' + (w.email ? esc(w.email) : '<span class="tag muted">' + esc(TCi18n.t("mit.reg.noAccount")) + '</span>') + '</td>' +
       '<td class="meta">' + esc(w.personnel_number || "–") + '</td>' +
       '<td class="meta">' + esc(w.phone || "–") + '</td>' +
       '<td><span class="status-dot ' + (isActive ? 'active' : 'inactive') + '"></span>' + esc(isActive ? TCi18n.t("mit.status.active") : TCi18n.t("mit.status.inactive")) +
         // Einladungs-/Registrierungsstatus (7c-Bonus): sichtbar in der Liste,
         // nicht nur im Einladungen-Tab — Farben wie renderInvites.
-        (w.is_verified ? '<div class="meta"><span class="tag green">' + esc(TCi18n.t("mit.reg.registered")) + '</span></div>'
+        // P10/D5: "nur Stammdaten" kommt VOR allem anderen — dieser Mensch ist
+        // erfasst, aber nicht einsatzfaehig, und das darf niemanden ueberraschen.
+        (w.has_account === false ? '<div class="meta"><span class="tag muted" title="' + esc(TCi18n.t("mit.reg.noAccountHint")) + '">' + esc(TCi18n.t("mit.reg.dataOnly")) + '</span></div>'
+          : w.is_verified ? '<div class="meta"><span class="tag green">' + esc(TCi18n.t("mit.reg.registered")) + '</span></div>'
           : w.invite_status === 'pending' ? '<div class="meta"><span class="tag yellow">' + esc(TCi18n.t("mit.reg.invited")) + '</span></div>'
           : w.invite_status === 'expired' ? '<div class="meta"><span class="tag muted">' + esc(TCi18n.t("mit.reg.inviteExpired")) + '</span></div>'
-          : '<div class="meta"><span class="tag muted">' + esc(TCi18n.t("mit.reg.notRegistered")) + '</span></div>') + '</td>' +
+          : '<div class="meta"><span class="tag muted">' + esc(TCi18n.t("mit.reg.notRegistered")) + '</span></div>') +
+        (w.has_account === false && w.invite_status === 'pending'
+          ? '<div class="meta"><span class="tag yellow">' + esc(TCi18n.t("mit.reg.invited")) + '</span></div>' : '') + '</td>' +
       '<td style="white-space:nowrap">' +
-        '<button class="action-btn" onclick="openWorkerProfileHub(\'' + w.user_id + '\')">' + esc(TCi18n.t("mit.action.profile")) + '</button> ' +
-        '<button class="action-btn" onclick="openEdit(\'' + w.user_id + '\')">' + esc(TCi18n.t("mit.action.edit")) + '</button> ' +
+        '<button class="action-btn" onclick="openWorkerProfileHub(\'' + (w.user_id || w.id) + '\')">' + esc(TCi18n.t("mit.action.profile")) + '</button> ' +
+        '<button class="action-btn" onclick="openEdit(\'' + (w.user_id || w.id) + '\')">' + esc(TCi18n.t("mit.action.edit")) + '</button> ' +
         '<button class="action-btn" onclick="openOfferGen(\'' + w.profile_id + '\')">' + esc(TCi18n.t("mit.action.offers")) + '</button> ' +
-        (w.is_verified === false && w.invite_status !== 'pending' ? '<button class="action-btn" onclick="inviteFromRow(\'' + w.profile_id + '\')" title="' + esc(TCi18n.t("mit.action.inviteTitle")) + '">' + esc(TCi18n.t("mit.action.invite")) + '</button> ' : '') +
+        // Ohne Konto ist das Einladen der WICHTIGSTE Weg — nicht der versteckte.
+        (w.has_account === false && w.invite_status !== 'pending'
+          ? '<button class="action-btn good" onclick="inviteOhneKonto(\'' + w.profile_id + '\')" title="' + esc(TCi18n.t("mit.reg.noAccountHint")) + '">' + esc(TCi18n.t("mit.action.invite")) + '</button> '
+          : (w.is_verified === false && w.invite_status !== 'pending' ? '<button class="action-btn" onclick="inviteFromRow(\'' + w.profile_id + '\')" title="' + esc(TCi18n.t("mit.action.inviteTitle")) + '">' + esc(TCi18n.t("mit.action.invite")) + '</button> ' : '')) +
         (isActive
-          ? '<button class="action-btn danger" onclick="toggleActive(\'' + w.user_id + '\', false)">' + esc(TCi18n.t("mit.action.deactivate")) + '</button>'
-          : '<button class="action-btn good" onclick="toggleActive(\'' + w.user_id + '\', true)">' + esc(TCi18n.t("mit.action.activate")) + '</button>') +
+          ? '<button class="action-btn danger" onclick="toggleActive(\'' + (w.user_id || w.id) + '\', false)">' + esc(TCi18n.t("mit.action.deactivate")) + '</button>'
+          : '<button class="action-btn good" onclick="toggleActive(\'' + (w.user_id || w.id) + '\', true)">' + esc(TCi18n.t("mit.action.activate")) + '</button>') +
       '</td></tr>';
   });
   html += '</tbody></table>';
@@ -1595,6 +1617,55 @@ function inviteFromRow(profileId) {
     loadInvites();
   }).catch(function(e) {
     toast(e.error === "INVITE_ALREADY_PENDING" ? TCi18n.t("mit.err.invitePending") : (e.message || e.error || TCi18n.t("mit.err.inviteFailed")), "err");
+  });
+}
+
+/**
+ * P10/D5 — Einladung fuer einen Mitarbeiter, der noch kein Konto hat.
+ *
+ * Der Unterschied zu inviteFromRow: dort ist die Adresse bekannt, hier gibt es
+ * keine. Genau deshalb existiert dieser Mensch als reiner Stammdatensatz. Die
+ * Adresse wird jetzt erfragt — nicht beim Import erfunden.
+ *
+ * `worker_profile_id` geht mit: ohne diesen Bezug legte die Annahme der
+ * Einladung ein ZWEITES Profil an, und Personalnummer, Anschrift und Notizen
+ * blieben an einem verwaisten Datensatz zurueck.
+ */
+function inviteOhneKonto(profileId) {
+  var w = (_workers || []).filter(function(x) { return x.profile_id === profileId; })[0];
+  if (!w) return;
+
+  var email = window.prompt(
+    TCi18n.t("mit.reg.askEmail", { name: (w.first_name || "") + " " + (w.last_name || "") }),
+    ""
+  );
+  if (email === null) return;
+  email = String(email).trim();
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+    toast(TCi18n.t("mit.csv.errInvalidEmail"), "err");
+    return;
+  }
+
+  api("/worker-invites", {
+    method: "POST",
+    body: {
+      first_name:        w.first_name,
+      last_name:         w.last_name,
+      email:             email,
+      personnel_number:  w.personnel_number || undefined,
+      phone:             w.phone || undefined,
+      worker_profile_id: profileId
+    }
+  }).then(function() {
+    toast(TCi18n.t("mit.ok.inviteSentTo", { email: email }));
+    loadWorkers();
+    loadInvites();
+  }).catch(function(e) {
+    toast(
+      e.error === "INVITE_ALREADY_PENDING" ? TCi18n.t("mit.err.invitePending")
+        : (e.message || e.error || TCi18n.t("mit.err.inviteFailed")),
+      "err"
+    );
   });
 }
 

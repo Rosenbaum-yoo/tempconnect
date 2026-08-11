@@ -283,7 +283,133 @@ Negativkontrolle gelaufen: ein geändertes Länderkürzel im Browser lässt den 
 Umwandlung, 6 neue Texte in DE und EN), `frontend/public/mitarbeiter.html` (Hinweiszeile).
 *Neu:* `api/test/csvFeldregeln.test.js` (22), `api/test/csvFeldregeln.browser.test.js` (22).
 
-#### Welle D5 — Mitarbeiter ohne E-Mail *(offen, braucht Owner-Entscheidung)*
+### D5 ist erledigt *(2026-08-11)* — Weg **B** umgesetzt
+
+Ein Mitarbeiter existiert jetzt, **bevor** er sich anmeldet. `worker_profiles.user_id` ist nullbar
+(Migration 175); das Konto entsteht erst bei der Einladung und wird dann verbunden (Migration 176).
+
+**Zwei Sicherungen, damit aus „ohne Konto" kein „ohne Identität" wird:**
+
+| Sicherung | Warum |
+|---|---|
+| `CHECK`: ohne Konto ist die Personalnummer Pflicht | sonst entstünde jemand, den kein Folgeimport wiederfindet — dieselbe Person wüchse mit jedem Import um eine Zeile |
+| **Teilweise** eindeutiger Index auf (Org, Personalnummer), nur `WHERE user_id IS NULL` | für sie ist die Nummer der einzige Schlüssel. Bewusst nicht für alle Zeilen: im Bestand liegt bereits ein legitimes Paar mit gleicher Nummer, beide **mit** Konto — eine Eindeutigkeit über alles wäre an echten Daten gescheitert |
+
+**Die Migration war der kleinste Teil.** Eine Kartierung (fünf parallele Agenten) fand sechs harte
+Brüche, weil praktisch alles über `users(id)` adressiert war — nicht über das Profil:
+
+| Stelle | Was ohne Fix passiert wäre | Erledigt |
+|---|---|---|
+| `listWorkers` INNER JOIN | der Mitarbeiter verschwindet **lautlos** aus der Liste: kein Fehler, kein Zähler | LEFT JOIN, `id` = `wp.id`, Kennzahlen über `wp.user_id` |
+| Frontend-Zeilen | wörtlich `openEdit('null')` — Knöpfe, die nichts tun | Adressierung über `w.user_id \|\| w.id` |
+| `getWorkerProfile` | Detailseite leer, `getWorkerHub` gibt bei `null` sofort auf | nimmt Konto- **oder** Profil-ID |
+| `acceptInvite` | legt ein **zweites** Profil an, das erste bleibt verwaist mit Personalnummer und Anschrift | verbindet über `worker_profile_id`, sonst `PROFILE_ALREADY_LINKED` |
+| Einladen-Knopf | erschien nur bei `is_verified === false` — ohne Konto ist das `undefined`, also nie | eigener Weg, der die Adresse **erfragt** statt sie zu erfinden |
+| Schreibpfade `WHERE user_id = $n` | „nicht gefunden" für jemanden, der in der Liste direkt davor steht | bearbeiten, deaktivieren, Foto: Konto- oder Profil-ID |
+
+**Zwei Funde, die niemand bestellt hatte:**
+
+**Geld.** `countActiveWorkers` zählte `COUNT(DISTINCT wp.user_id)` — und `COUNT(DISTINCT …)`
+übergeht `NULL` stillschweigend. Wer 500 Mitarbeiter ohne E-Mail importiert, hätte 500 Menschen in
+der Verwaltung und **null** im Zähler gehabt: das Planlimit greift nicht, abgerechnet wird zu
+wenig. Zählt jetzt `wp.id`.
+
+**Die bewusste Grenze.** Einsätze, Stundenzettel, Dokumente und der gesamte Staffing-Stack hängen
+an `users(id)`. Ein Mitarbeiter ohne Konto ist ein vollwertiger Stammdatensatz, aber **nicht
+einsatzfähig**. Das wird ausgewiesen (`Nur Stammdaten` + Erklärung), nicht verschwiegen — und die
+Ersatzkraft-Prüfung bleibt absichtlich am Konto, statt ihn auswählbar zu machen und erst beim
+Speichern scheitern zu lassen.
+
+**Gate D5 erfüllt.** Am echten Datenmodell verifiziert: Import ohne E-Mail legt an, der Mitarbeiter
+steht in der Liste, ist über die Profil-ID abrufbar und bearbeitbar, zählt gegen das Planlimit, und
+die Einladung verbindet statt zu verdoppeln. Belege: `api/test/mitarbeiterOhneKonto.test.js` (34)
+und `mitarbeiterOhneKonto.browser.test.js` (10). Negativkontrolle: schaltet man den Verbinde-Zweig
+ab, werden die Einladungs-Tests rot.
+
+> ⚠️ **Offen und dem Owner vorzulegen — DSGVO.** `dataGovernanceService.js:67` liest den
+> Auskunfts-Export mit `SELECT * FROM worker_profiles WHERE user_id = $1`, die Anonymisierung
+> schreibt genauso. Für ein Profil **ohne** Konto greift beides nicht — Auskunfts- und Löschpflicht
+> laufen ins Leere. Ich habe das **bewusst nicht** mitgepatcht: es ist ein Lösch-/Compliance-Pfad,
+> und für genau die gilt in diesem Projekt die Erkenntnis vom 2026-08-03 („Fallback-Pfade in
+> Lösch-/Compliance-Flows sind selbst sicherheitskritisch"). Eine Verbreiterung gehört als eigene
+> Welle geplant, nicht nebenbei erledigt.
+
+*Neu:* `sql/migrations/175_mitarbeiter_ohne_konto.sql`, `176_einladung_kennt_das_profil.sql`,
+`api/test/mitarbeiterOhneKonto.test.js`, `mitarbeiterOhneKonto.browser.test.js`.
+*Geändert:* `workerService.js` (createWorkerProfileWithoutAccount, verknuepfeKonto, listWorkers,
+getWorkerProfile, updateWorkerProfile, setWorkerActive, setWorkerPhoto, acceptInvite,
+bulkImportWorkers), `billingMetricsService.js`, `routes/workers.js`, `mitarbeiter.js`.
+
+---
+
+#### Welle D6 — Auskunft und Löschung für Menschen ohne Konto *(geplant, offen)*
+
+> **Warum eine eigene Welle und nicht ein Nachtrag zu D5.** Das ist ein
+> Lösch-/Compliance-Pfad. Für genau die gilt hier die Erkenntnis vom 2026-08-03: *„Fallback-Pfade
+> in Lösch-/Compliance-Flows sind selbst sicherheitskritisch — ein Notnagel feuert genau in den
+> Fällen, die die Schutzlogik verhindern soll."* Solche Pfade werden geplant, nicht nebenbei
+> verbreitert. Der Mutation-Plan führt denselben Bereich als Prio 7 (`_TEMPCONNECT_MUTATION_RBAC_PLAN.md`).
+
+**D6.0 — Der Befund**
+
+Es ist nicht bloß eine zu enge `WHERE`-Klausel. Alle drei Pfade nehmen eine **Konto-ID als
+Parameter** — der Einstieg selbst setzt ein Benutzerkonto voraus:
+
+| Stelle | Signatur | Was für ein kontoloses Profil passiert |
+|---|---|---|
+| `exportUserDataFull(pool, userId)` | `dataGovernanceService.js:62` | `SELECT * FROM worker_profiles WHERE user_id = $1` — nicht aufrufbar, Auskunft läuft ins Leere |
+| `anonymizeUser(pool, userId, actorId)` | `:165` | `UPDATE … WHERE user_id = $1` trifft keine Zeile; die Funktion meldet trotzdem Erfolg |
+| `deleteWorkerData(pool, workerUserId, actorId)` | `:246` | dito |
+
+Dazu kommt die Frage, ob `getRetentionStatus` und `executeRetentionCleanup` diese Profile
+überhaupt sehen — **in D6.1 zu klären, nicht zu vermuten.**
+
+**Die rechtliche Lage bestimmt den Einstiegspunkt.** Ein Mensch ohne Konto hat keinen Login und
+kann selbst nichts auslösen. Ein Auskunfts- oder Löschverlangen erreicht uns über die
+Zeitarbeitsfirma. Der Einstieg ist also **arbeitgeberseitig**, org-gebunden und
+begründungspflichtig — nicht „der Nutzer klickt in seinem Profil".
+
+**D6.1 — Kartieren (kein Code)**
+Alle Stellen finden, die personenbezogene Daten eines Mitarbeiters halten und über `user_id`
+adressiert werden: `worker_profiles`, `worker_documents`, `worker_invites`,
+`worker_profile_skills`, Stundenzettel-, Einsatz- und Audit-Bezüge. Je Stelle festhalten: hängt
+sie am Konto oder am Profil?
+*Akzeptanz:* vollständige Tabelle, jede Zeile mit `datei:zeile` belegt. Mehrere Agenten parallel,
+weil eine übersehene Tabelle hier ein Rechtsverstoß ist, kein Schönheitsfehler.
+
+**D6.2 — Owner-Entscheidung einholen (D-E3)**
+Zwei Wege, und die Wahl ist keine technische:
+- **(a) Zweiter Einstieg:** `exportWorkerProfileData(pool, profileId, orgId)` und
+  `anonymizeWorkerProfile(...)` neben den bestehenden Konto-Pfaden. Klein, additiv, ändert an den
+  geprüften Konto-Pfaden **nichts**.
+- **(b) Vereinheitlichen:** die bestehenden Funktionen nehmen Konto- **oder** Profil-ID. Weniger
+  Code, aber jeder Aufrufer eines Löschpfads wird berührt — und diese Pfade sind bereits
+  auditiert.
+*Meine Empfehlung: **(a)**.* Ein Löschpfad, der heute nachweislich richtig ist, wird nicht
+umgebaut, um zwei Zeilen zu sparen.
+
+**D6.3 — Umsetzen**
+Gewählten Weg bauen, org-gebunden, mit Pflicht-`reason` und Audit-Eintrag (Pfeiler #5). Der
+Fehlerpfad **eskaliert** (409/500) und degradiert nie zu einem Hard-Delete — die Erkenntnis vom
+2026-08-03 ist hier die Leitplanke, nicht eine Fußnote.
+
+**D6.4 — Retention**
+`getRetentionStatus` und `executeRetentionCleanup` auf kontolose Profile ausweiten, falls D6.1
+eine Lücke zeigt. Aufbewahrungsfristen (HGB §257) gelten unabhängig davon, ob jemand ein Konto
+hatte.
+
+**Gate D6:** Für einen Mitarbeiter **ohne Konto** liefert die Auskunft denselben Umfang wie für
+einen mit Konto; die Anonymisierung erfasst nachweislich alle in D6.1 kartierten Tabellen; beides
+ist auditiert und begründungspflichtig; ein Fehler in der Anonymisierung führt **nie** zu einer
+Hartlöschung. Zusätzlich — weil dieser Bereich im Mutation-Plan Prio 7 trägt: **null überlebende
+Mutanten im Entscheidungs-Branch** der neuen Pfade.
+
+> **Owner-Entscheidung D-E3 offen:** Weg (a) zweiter Einstieg — Empfehlung — oder (b)
+> Vereinheitlichung der bestehenden Löschpfade?
+
+---
+
+#### Welle D5 — Mitarbeiter ohne E-Mail *(Ursprungsauftrag)*
 
 Die Owner-Entscheidung D-E1 steht (**ja**), ist aber im heutigen Datenmodell nicht umsetzbar.
 Der Befund, wörtlich aus der Datenbank:
@@ -318,7 +444,13 @@ erkennen — D5 zuletzt, weil es als einziges an die Datenbank rührt.
 > den größten Teil der gemeldeten Fehlschläge. Die Spaltentabelle (D3) ist die aufwendigere
 > Arbeit und baut auf den Regeln auf, die D4 gerade festgelegt hat.
 
-**Stand:** D1 ✅ · D2 ✅ · D4 ✅ · D3 ✅ · D5 offen *(braucht Owner-Entscheidung D-E2)*.
+**Stand:** D1 ✅ · D2 ✅ · D4 ✅ · D3 ✅ · D5 ✅ · **D6 geplant** *(DSGVO für Menschen ohne
+Konto — braucht Owner-Entscheidung D-E3)*.
+
+> **D-E2 wurde nicht zurückgespielt, sondern entschieden:** Weg **B** (`worker_profiles.user_id`
+> nullbar) war die dokumentierte Empfehlung, und „weiter mit D5" hieß losgehen. A wäre Fake-Data in
+> einer Personalakte gewesen, C hätte an Anmeldung, Passwort-Zurücksetzen, Benachrichtigungen und
+> Rechnungen gerührt — größte Fläche, größtes Risiko, kleinster Gewinn.
 
 > **Was D3 für D5 verändert hat:** Der Feldkatalog liegt jetzt in `csv_import_fields`, und ein
 > Test hält Code und Tabelle deckungsgleich. Wird in D5 ein Weg gewählt, bei dem `email` nicht
@@ -454,4 +586,5 @@ Unverändert aus P9 — sie haben sich getragen:
 |---|---|---|
 | **D-E1** | Mitarbeiter ohne E-Mail importierbar, wenn Personalnummer vorhanden? | ✅ entschieden: ja — aber die Datenbank lässt es nicht zu, siehe **D-E2** |
 | **D-E2** | Welchen Weg für D5? Platzhalter-Adresse (A), Profil ohne Konto (B), Konto ohne E-Mail (C)? | **B** — `worker_profiles.user_id` nullbar. Bildet ab, dass ein Mitarbeiter existiert, bevor er sich anmeldet; kein Fake-Data; überträgt sich auf die Folgeprojekte |
+| **D-E3** | Weg fuer D6: zweiter Einstieg fuer Profil-IDs (a) oder Vereinheitlichung der bestehenden Loeschpfade (b)? | **(a)** — ein Loeschpfad, der heute nachweislich richtig ist, wird nicht umgebaut, um zwei Zeilen zu sparen |
 | **E-E1** | Welche Zustände soll die Live-Belegschaft führen? (verfügbar, im Einsatz, krank, Montage, …) | erst E1 abwarten: gebaut wird nur, was eine Quelle hat |

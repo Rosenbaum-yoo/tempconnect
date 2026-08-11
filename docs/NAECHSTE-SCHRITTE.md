@@ -141,7 +141,31 @@ Zustände die Live-Belegschaft führt — erst nach E1 beantwortbar).
 > zu, gibt es „Schreibweise merken" — ein `INSERT`, kein Deploy, org-gebunden.
 > **Nebenbefund geschlossen:** `NUMBERING.md` nannte 16 Migrationen lang die falsche nächste
 > Nummer (158 statt 174). Jetzt prüft ein Test das Verzeichnis, statt der Datei zu glauben.
-> Nächste Welle: **D5** (braucht vorher D-E2) oder Spur **E** (Live-Belegschaft, offen: E-E1).
+> **D5 ist erledigt** *(2026-08-11)* — **Spur D ist damit vollständig.** Ein Mitarbeiter existiert
+> jetzt, bevor er sich anmeldet: `worker_profiles.user_id` ist nullbar (Mig 175), das Konto
+> entsteht erst bei der Einladung und wird verbunden (Mig 176). Weg **B** — A wäre Fake-Data in
+> einer Personalakte gewesen, C hätte an Anmeldung und Abrechnung gerührt.
+> **Die Migration war der kleinste Teil.** Eine Kartierung mit fünf parallelen Agenten fand sechs
+> harte Brüche, weil praktisch alles über `users(id)` adressiert war: die Liste ließ den
+> Mitarbeiter lautlos verschwinden (INNER JOIN), die Knöpfe erzeugten wörtlich `openEdit('null')`,
+> und die Annahme der Einladung hätte ein **zweites** Profil angelegt, während das erste mit
+> Personalnummer und Anschrift verwaist zurückblieb.
+> **Ein Geld-Fund nebenbei:** `countActiveWorkers` zählte `COUNT(DISTINCT wp.user_id)` — das
+> übergeht `NULL` still. 500 importierte Mitarbeiter hätten **null** im Zähler ergeben: Planlimit
+> ohne Wirkung, Abrechnung zu niedrig.
+> **Bewusste Grenze, sichtbar gemacht:** ohne Konto ist der Mitarbeiter erfasst, aber nicht
+> einsatzfähig (Einsätze/Stundenzettel/Dokumente hängen an `users(id)`). Die Liste weist das als
+> „Nur Stammdaten" aus, mit Erklärung und Einladen-Knopf.
+> ⚠️ **Als eigene Welle D6 geplant** *(Owner-Auftrag 2026-08-11)*: die DSGVO-Pfade greifen für
+> Profile ohne Konto nicht. Und es ist nicht bloß eine zu enge `WHERE`-Klausel — **alle drei**
+> Funktionen (`exportUserDataFull`, `anonymizeUser`, `deleteWorkerData`) nehmen eine **Konto-ID
+> als Parameter**, der Einstieg selbst setzt ein Benutzerkonto voraus. Ein Mensch ohne Login kann
+> selbst nichts auslösen; das Verlangen erreicht uns über die Zeitarbeitsfirma, der Einstieg ist
+> also arbeitgeberseitig und begründungspflichtig. Vier Phasen (kartieren → Owner-Entscheidung
+> D-E3 → umsetzen → Retention) mit Gate in `P10_IMPORT_LIVE_ZEIT.md`. Bewusst **nicht** nebenbei
+> gepatcht: für Lösch-/Compliance-Pfade gilt die Erkenntnis vom 2026-08-03.
+> Nächstes: **Mutation-Testing Welle 0** (`_TEMPCONNECT_MUTATION_RBAC_PLAN.md`) oder Spur **E**
+> (Live-Belegschaft, offen: E-E1).
 
 ---
 

@@ -399,18 +399,38 @@ async function queryWorkerDocuments(pool, { workerUserId, supplierOrgId, limit =
 
 /* ── Worker-Profil abrufen ──────────────────────────────────────────────────── */
 
-export async function getWorkerProfile(pool, userId) {
+/**
+ * Holt ein Mitarbeiterprofil.
+ *
+ * P10/D5 — der Schluessel darf die Konto-ID ODER die Profil-ID sein.
+ *
+ * Bis hierher war `user_id` der einzige Weg zu einem Mitarbeiter: die Route
+ * heisst /workers/:id, und :id war immer eine Konto-ID. Seit Migration 175 gibt
+ * es Mitarbeiter ohne Konto — fuer sie existiert diese Konto-ID nicht, und die
+ * Oberflaeche kann sie folglich nicht adressieren.
+ *
+ * Beide Formen zuzulassen ist gefahrlos: es sind UUIDs aus verschiedenen
+ * Tabellen, eine Verwechslung ist praktisch ausgeschlossen. Der Alternativweg
+ * spart den Umbau saemtlicher /workers/:id-Aufrufer — das waere ein groesserer
+ * Eingriff mit mehr Risiko als Nutzen.
+ *
+ * Ausserdem LEFT JOIN statt JOIN: mit INNER JOIN faende diese Funktion einen
+ * kontolosen Mitarbeiter nicht, und getWorkerHub gibt bei `null` sofort auf —
+ * die Detailseite waere leer, ohne dass jemand erfaehrt warum.
+ */
+export async function getWorkerProfile(pool, idOderUserId) {
   const { rows } = await pool.query(
     `SELECT wp.*, u.email, u.is_verified, u.created_at AS account_created_at,
+            (wp.user_id IS NOT NULL) AS has_account,
             om.is_active AS org_membership_active
      FROM worker_profiles wp
-     JOIN users u ON u.id = wp.user_id
+     LEFT JOIN users u ON u.id = wp.user_id
      LEFT JOIN org_memberships om
        ON om.user_id = wp.user_id
       AND om.org_id = wp.supplier_org_id
       AND om.role_key = 'worker'
-     WHERE wp.user_id = $1`,
-    [userId]
+     WHERE wp.user_id = $1 OR wp.id = $1`,
+    [idOderUserId]
   );
   return normalizeWorkerProfileRecord(rows[0] || null);
 }
@@ -447,8 +467,23 @@ export async function listWorkers(pool, { supplierOrgId, isActive = null, search
     where += ` AND (wp.first_name ILIKE $${n} OR wp.last_name ILIKE $${n} OR u.email ILIKE $${n} OR wp.personnel_number ILIKE $${n})`;
   }
   params.push(limit, offset);
+  /*
+   * P10/D5 — die Zeilen-Identitaet ist das PROFIL, nicht das Konto.
+   *
+   * Vorher stand hier `u.id AS id` und ein INNER JOIN auf users. Beides bricht,
+   * sobald ein Mitarbeiter erfasst ist, aber noch kein Konto hat (Migration 175):
+   * der INNER JOIN loescht ihn lautlos aus der Liste — kein Fehler, kein Zaehler,
+   * er ist einfach weg —, und selbst mit LEFT JOIN waere seine Zeilen-ID NULL, so
+   * dass die Oberflaeche `onclick="...('null')"` erzeugt.
+   *
+   * `id` ist deshalb ab jetzt `wp.id` und damit immer vorhanden. `user_id` bleibt
+   * als eigenes Feld erhalten und ist NULL, solange niemand eingeladen wurde.
+   * Die Kennzahl-Unterabfragen korrelieren ueber `wp.user_id`: ohne Konto liefert
+   * `= NULL` keine Zeilen, die Zaehler stehen also korrekt auf 0.
+   */
   const { rows } = await pool.query(
-    `SELECT wp.id AS profile_id, u.id AS id, u.id AS user_id, u.email, u.is_verified,
+    `SELECT wp.id AS profile_id, wp.id AS id, u.id AS user_id, u.email, u.is_verified,
+            (wp.user_id IS NOT NULL) AS has_account,
             wp.first_name, wp.last_name, wp.personnel_number,
             wp.phone, wp.is_active, wp.preferred_locale,
             wp.created_at, wp.profile_public, wp.public_profile_slug,
@@ -456,16 +491,16 @@ export async function listWorkers(pool, { supplierOrgId, isActive = null, search
             COALESCE(array_length(wp.skill_tags, 1), 0) AS skill_count,
             COALESCE(jsonb_array_length(COALESCE(wp.qualifications, '[]'::jsonb)), 0) AS qualification_count,
             (SELECT COUNT(*) FROM worker_profile_documents wpd
-             WHERE wpd.worker_user_id = u.id
+             WHERE wpd.worker_user_id = wp.user_id
                AND wpd.supplier_org_id = wp.supplier_org_id) AS document_count,
             (SELECT COUNT(*) FROM worker_profile_documents wpd
-             WHERE wpd.worker_user_id = u.id
+             WHERE wpd.worker_user_id = wp.user_id
                AND wpd.supplier_org_id = wp.supplier_org_id
                AND wpd.status = 'verified'
                AND wpd.valid_until IS NOT NULL
                AND wpd.valid_until < CURRENT_DATE) AS expired_document_count,
             (SELECT COUNT(*) FROM worker_profile_documents wpd
-             WHERE wpd.worker_user_id = u.id
+             WHERE wpd.worker_user_id = wp.user_id
                AND wpd.supplier_org_id = wp.supplier_org_id
                AND wpd.status = 'verified'
                AND wpd.valid_until IS NOT NULL
@@ -473,27 +508,33 @@ export async function listWorkers(pool, { supplierOrgId, isActive = null, search
                AND wpd.valid_until <= CURRENT_DATE + ${WORKER_DOCUMENT_EXPIRY_WARNING_DAYS}) AS expiring_soon_document_count,
             (SELECT MIN(wpd.valid_until)
              FROM worker_profile_documents wpd
-             WHERE wpd.worker_user_id = u.id
+             WHERE wpd.worker_user_id = wp.user_id
                AND wpd.supplier_org_id = wp.supplier_org_id
                AND wpd.status = 'verified'
                AND wpd.valid_until IS NOT NULL
                AND wpd.valid_until >= CURRENT_DATE) AS next_document_expiry,
             (SELECT COUNT(*) FROM worker_assignment_links wal
              JOIN assignments a ON a.id = wal.assignment_id
-             WHERE wal.worker_user_id = u.id
+             WHERE wal.worker_user_id = wp.user_id
                AND wal.is_active = TRUE
                AND ${workerAssignmentIsCurrentSql}) AS active_assignments,
             (SELECT COUNT(*) FROM worker_time_submissions wts
-             WHERE wts.worker_user_id = u.id
+             WHERE wts.worker_user_id = wp.user_id
                AND wts.status NOT IN ('rejected','superseded')) AS total_submissions,
             inv.invite_status, inv.invite_expires_at
      FROM worker_profiles wp
-     JOIN users u ON u.id = wp.user_id
+     LEFT JOIN users u ON u.id = wp.user_id
      LEFT JOIN LATERAL (
        SELECT wi.status AS invite_status, wi.expires_at AS invite_expires_at
          FROM worker_invites wi
         WHERE wi.supplier_org_id = wp.supplier_org_id
-          AND LOWER(wi.email) = LOWER(u.email)
+          -- Zwei Wege zur Einladung: ueber den Profilbezug (Mig 176) fuer
+          -- Mitarbeiter ohne Konto, ueber die Adresse fuer alle uebrigen. Ohne
+          -- den ersten Weg haette ausgerechnet der Erstimport nie einen
+          -- Einladungsstatus — dort gibt es keine u.email, an der man ihn
+          -- festmachen koennte.
+          AND (wi.worker_profile_id = wp.id
+               OR (u.email IS NOT NULL AND LOWER(wi.email) = LOWER(u.email)))
         ORDER BY (wi.status = 'accepted') DESC, wi.created_at DESC
         LIMIT 1
      ) inv ON TRUE
@@ -583,10 +624,92 @@ export async function createWorkerAccount(pool, {
   }
 }
 
+/**
+ * P10/D5 — legt einen Mitarbeiter OHNE Benutzerkonto an.
+ *
+ * WARUM ES DAS GIBT
+ * Beim Erstimport hat eine Zeitarbeitsfirma die Personalnummer, den Namen und
+ * die Anschrift — aber oft keine dienstliche E-Mail. Bis Migration 175 war ein
+ * solcher Mensch schlicht nicht anlegbar: das Profil brauchte ein Konto, das
+ * Konto eine Adresse. Jetzt gilt, was ohnehin wahr ist: ein Mitarbeiter
+ * EXISTIERT, bevor er sich anmeldet.
+ *
+ * WAS SO EIN PROFIL KANN UND WAS NICHT
+ * Es ist ein vollwertiger Stammdatensatz: sichtbar, bearbeitbar, auswertbar.
+ * Es ist NICHT einsatzfaehig — Einsaetze, Stundenzettel, Dokumente und der
+ * gesamte Staffing-Stack haengen an `users(id)`, nicht am Profil. Das ist keine
+ * Nachlaessigkeit, sondern die Grenze dieser Welle: wer eingesetzt werden soll,
+ * wird eingeladen, und dabei entsteht sein Konto (siehe verknuepfeKonto).
+ * Die Oberflaeche muss diesen Zustand ausweisen, nicht verschweigen.
+ *
+ * Kein Konto heisst KEIN Platzhalter: keine erfundene Adresse, kein
+ * Zufallspasswort, keine org_memberships-Zeile. Ein halbes Konto waere
+ * schlimmer als keines — es saehe fuer jede Pruefung wie ein echtes aus.
+ */
+export async function createWorkerProfileWithoutAccount(pool, {
+  supplierOrgId, firstName, lastName, personnelNumber,
+  phone, street, postalCode, city, country = "DE",
+  dateOfBirth = null, notes = null, createdBy
+}) {
+  const nummer = typeof personnelNumber === "string" ? personnelNumber.trim() : "";
+  if (!nummer) {
+    // Dieselbe Regel wie die CHECK-Bedingung in Migration 175 — hier nur
+    // frueher und mit einer Begruendung, die ein Mensch lesen kann.
+    const err = new Error("Ohne E-Mail ist die Personalnummer Pflicht — sonst ist der Datensatz nicht wiederauffindbar.");
+    err.code = "PERSONNEL_NUMBER_REQUIRED";
+    throw err;
+  }
+
+  const { rows: [profile] } = await pool.query(
+    `INSERT INTO worker_profiles
+       (user_id, supplier_org_id, first_name, last_name, personnel_number,
+        phone, street, postal_code, city, country, date_of_birth, notes, created_by)
+     VALUES (NULL,$1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)
+     RETURNING *`,
+    [supplierOrgId, firstName, lastName, nummer,
+     phone || null, street || null, postalCode || null, city || null,
+     country, dateOfBirth || null, notes || null, createdBy || null]
+  );
+
+  if (!profile) {
+    // Kann im Normalbetrieb nicht eintreten (RETURNING *). Ohne diesen Zweig
+    // waere die Meldung im Fehlerfall "Cannot read properties of null" — eine
+    // Sackgasse fuer jeden, der sie im Importbericht liest.
+    const err = new Error("Mitarbeiter konnte nicht angelegt werden — die Datenbank lieferte keinen Datensatz zurueck.");
+    err.code = "PROFILE_INSERT_EMPTY";
+    throw err;
+  }
+
+  return { user: null, profile: normalizeWorkerProfileRecord(profile) };
+}
+
+/**
+ * P10/D5 — haengt ein bestehendes kontoloses Profil an ein frisch erzeugtes Konto.
+ *
+ * Der Gegenweg zu createWorkerProfileWithoutAccount: aus dem Stammdatensatz wird
+ * ein einsetzbarer Mitarbeiter. Bewusst eng gefasst — es wird NUR verbunden, was
+ * noch kein Konto hat. Ein Profil einem anderen Konto zuzuschlagen waere eine
+ * Identitaetsverwechslung mit Datenzugriff als Folge.
+ */
+export async function verknuepfeKonto(pool, { profileId, supplierOrgId, userId }) {
+  const { rows } = await pool.query(
+    `UPDATE worker_profiles
+        SET user_id = $1, updated_at = NOW()
+      WHERE id = $2
+        AND supplier_org_id = $3
+        AND user_id IS NULL
+      RETURNING *`,
+    [userId, profileId, supplierOrgId]
+  );
+  if (!rows.length) return null;
+  return normalizeWorkerProfileRecord(rows[0]);
+}
+
 /* ── Einladung erstellen + versenden ────────────────────────────────────────── */
 
 export async function createWorkerInvite(pool, {
-  supplierOrgId, invitedBy, email, firstName, lastName, personnelNumber, phone = null
+  supplierOrgId, invitedBy, email, firstName, lastName, personnelNumber, phone = null,
+  workerProfileId = null
 }) {
   // Prüfe: existiert bereits ein aktiver Worker mit dieser E-Mail in der Org?
   const { rows: existing } = await pool.query(
@@ -606,14 +729,17 @@ export async function createWorkerInvite(pool, {
   const { rows: [invite] } = await pool.query(
     // phone (Mig 161): zweiter Zustellweg. Nullable — ohne Nummer bleibt es
     // beim E-Mail-Weg, der Ablauf aendert sich dadurch nicht.
+    // worker_profile_id (Mig 176, P10/D5): zeigt auf einen bereits erfassten
+    // Mitarbeiter. Beim Annehmen wird dann VERBUNDEN statt ein zweites Profil
+    // angelegt. NULL = Einladung an jemanden, den es noch nicht gibt.
     `INSERT INTO worker_invites
        (supplier_org_id, invited_by, email, first_name, last_name,
-        personnel_number, phone, token, token_hash, expires_at)
-     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)
-     RETURNING id, email, first_name, last_name, phone, expires_at, status`,
+        personnel_number, phone, token, token_hash, expires_at, worker_profile_id)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)
+     RETURNING id, email, first_name, last_name, phone, expires_at, status, worker_profile_id`,
     [supplierOrgId, invitedBy, email.toLowerCase().trim(),
      firstName, lastName, personnelNumber || null, phone || null,
-     token, tokenHash, expiresAt]
+     token, tokenHash, expiresAt, workerProfileId || null]
   );
 
   return { invite, token }; // token wird per Mail versendet, NICHT gespeichert
@@ -750,18 +876,65 @@ export async function acceptInvite(pool, { token, passwordHash }) {
       [user.id, invite.supplier_org_id]
     );
 
-    // Worker-Profil anlegen
-    const { rows: [profile] } = await client.query(
-      `INSERT INTO worker_profiles
-         (user_id, supplier_org_id, first_name, last_name, personnel_number, created_by)
-       VALUES ($1,$2,$3,$4,$5,$6)
-       ON CONFLICT (user_id) DO UPDATE
-         SET first_name = EXCLUDED.first_name, last_name = EXCLUDED.last_name,
-             personnel_number = EXCLUDED.personnel_number, updated_at = NOW()
-       RETURNING *`,
-      [user.id, invite.supplier_org_id, invite.first_name, invite.last_name,
-       invite.personnel_number || null, invite.invited_by]
-    );
+    /*
+     * Worker-Profil: verbinden, wenn es den Menschen schon gibt — sonst anlegen.
+     *
+     * P10/D5. Der INSERT unten ist ausdruecklich NICHT der Weg fuer einen
+     * bereits erfassten Mitarbeiter. Sein `ON CONFLICT (user_id)` greift nur,
+     * wenn schon ein Profil mit genau dieser Konto-ID existiert — bei einem
+     * frisch erzeugten Konto also nie. Fuer jemanden, der als kontoloses Profil
+     * in der Datenbank steht (Erstimport ohne E-Mail), entstuende hier ein
+     * ZWEITES Profil, und das erste bliebe verwaist zurueck: mit seiner
+     * Personalnummer, seiner Anschrift, seinen Notizen — und ohne Verbindung zu
+     * dem Konto, das gerade fuer ihn angelegt wurde.
+     *
+     * Traegt die Einladung einen Profilbezug (Mig 176), wird deshalb VERBUNDEN.
+     * Die Bedingung `user_id IS NULL` ist die Sicherung: ein Profil, das bereits
+     * an einem Konto haengt, wird nie umgehaengt — das waere eine
+     * Identitaetsverwechslung mit Datenzugriff als Folge.
+     */
+    let profile = null;
+
+    if (invite.worker_profile_id) {
+      const { rows } = await client.query(
+        `UPDATE worker_profiles
+            SET user_id     = $1,
+                first_name  = COALESCE(NULLIF($3, ''), first_name),
+                last_name   = COALESCE(NULLIF($4, ''), last_name),
+                updated_at  = NOW()
+          WHERE id = $2
+            AND supplier_org_id = $5
+            AND user_id IS NULL
+          RETURNING *`,
+        [user.id, invite.worker_profile_id, invite.first_name || "",
+         invite.last_name || "", invite.supplier_org_id]
+      );
+      profile = rows[0] || null;
+
+      if (!profile) {
+        /*
+         * Der Profilbezug zeigt ins Leere oder das Profil haengt bereits an
+         * einem Konto. Beides ist ein Zustand, den niemand still uebergehen
+         * darf: ein zweites Profil anzulegen waere genau der Schaden, den
+         * dieser Zweig verhindern soll.
+         */
+        await client.query("ROLLBACK");
+        return { error: "PROFILE_ALREADY_LINKED" };
+      }
+    } else {
+      const { rows } = await client.query(
+        `INSERT INTO worker_profiles
+           (user_id, supplier_org_id, first_name, last_name, personnel_number, created_by)
+         VALUES ($1,$2,$3,$4,$5,$6)
+         ON CONFLICT (user_id) DO UPDATE
+           SET first_name = EXCLUDED.first_name, last_name = EXCLUDED.last_name,
+               personnel_number = EXCLUDED.personnel_number, updated_at = NOW()
+         RETURNING *`,
+        [user.id, invite.supplier_org_id, invite.first_name, invite.last_name,
+         invite.personnel_number || null, invite.invited_by]
+      );
+      profile = rows[0];
+    }
 
     // Invite abschließen
     await client.query(
@@ -851,8 +1024,11 @@ export async function setWorkerActive(pool, workerUserId, supplierOrgId, isActiv
   try {
     await client.query("BEGIN");
     await client.query(
+      // P10/D5: der Schluessel darf die Konto- ODER die Profil-ID sein. Ohne den
+      // zweiten Weg liesse sich ein noch nicht eingeladener Mitarbeiter weder
+      // deaktivieren noch reaktivieren — das UPDATE traefe schlicht keine Zeile.
       `UPDATE worker_profiles SET is_active=$1, updated_at=NOW()
-       WHERE user_id=$2 AND supplier_org_id=$3`,
+       WHERE (user_id=$2 OR id=$2) AND supplier_org_id=$3`,
       [isActive, workerUserId, supplierOrgId]
     );
     if (!isActive) {
@@ -901,8 +1077,13 @@ export async function updateWorkerProfile(pool, workerUserId, supplierOrgId, dat
   if (!fields.length) return null;
   params.push(workerUserId, supplierOrgId);
   const { rows } = await pool.query(
+    // P10/D5: Konto- ODER Profil-ID. Ohne den zweiten Weg waere ein noch nicht
+    // eingeladener Mitarbeiter nicht bearbeitbar — das UPDATE traefe keine
+    // Zeile, und die Oberflaeche meldete "nicht gefunden" fuer jemanden, der
+    // in der Liste direkt davor steht.
     `UPDATE worker_profiles SET ${fields.join(", ")}, updated_at=NOW()
-     WHERE user_id=$${params.length - 1} AND supplier_org_id=$${params.length}
+     WHERE (user_id=$${params.length - 1} OR id=$${params.length - 1})
+       AND supplier_org_id=$${params.length}
      RETURNING *`,
     params
   );
@@ -1323,13 +1504,14 @@ export async function deleteWorkerDocument(pool, documentId, workerUserId, suppl
  */
 export async function setWorkerPhoto(pool, { workerUserId, supplierOrgId, fileRef, mime }) {
   const { rows } = await pool.query(
+    // P10/D5: Konto- ODER Profil-ID — ein Foto gehoert zum Menschen, nicht zum Zugang.
     `WITH old AS (
        SELECT photo_file_ref FROM worker_profiles
-        WHERE user_id = $1 AND supplier_org_id = $2
+        WHERE (user_id = $1 OR id = $1) AND supplier_org_id = $2
      )
      UPDATE worker_profiles wp
         SET photo_file_ref = $3, photo_mime = $4, updated_at = NOW()
-      WHERE wp.user_id = $1 AND wp.supplier_org_id = $2
+      WHERE (wp.user_id = $1 OR wp.id = $1) AND wp.supplier_org_id = $2
       RETURNING (SELECT photo_file_ref FROM old) AS previous_file_ref`,
     [workerUserId, supplierOrgId, fileRef, mime]
   );
@@ -2210,15 +2392,32 @@ export async function assignDealToWorker(pool, {
 export async function bulkImportWorkers(pool, { supplierOrgId, workers, onDuplicate = "skip", createdBy }) {
   const result = { created: [], updated: [], skipped: [], errors: [] };
 
-  // 1) Lade existierende Emails in dieser Org (für Duplikat-Erkennung)
+  /*
+   * 1) Bestand dieser Org laden — fuer die Duplikat-Erkennung.
+   *
+   * P10/D5: LEFT JOIN statt JOIN. Seit Migration 175 kann ein Profil ohne Konto
+   * existieren; ein INNER JOIN haette diese Menschen hier unsichtbar gemacht,
+   * und jeder Folgeimport haette sie ein zweites Mal angelegt — dieselbe Person
+   * doppelt in der Personalakte, ohne dass irgendetwas rot wird.
+   */
   const { rows: existingWorkers } = await pool.query(
-    `SELECT u.email, u.id AS user_id, wp.first_name, wp.last_name
+    `SELECT u.email, u.id AS user_id, wp.id AS profile_id,
+            wp.first_name, wp.last_name, wp.personnel_number
      FROM worker_profiles wp
-     JOIN users u ON u.id = wp.user_id
+     LEFT JOIN users u ON u.id = wp.user_id
      WHERE wp.supplier_org_id = $1`,
     [supplierOrgId]
   );
-  const existingEmails = new Map(existingWorkers.map(w => [w.email.toLowerCase(), w]));
+  const existingEmails = new Map(
+    existingWorkers.filter(w => w.email).map(w => [w.email.toLowerCase(), w])
+  );
+  // Zweiter Schluessel fuer Menschen ohne Konto: die Personalnummer ist dort das
+  // einzige Wiedererkennungsmerkmal (Migration 175 erzwingt ihre Eindeutigkeit).
+  const existingPersonalnummern = new Map(
+    existingWorkers
+      .filter(w => !w.user_id && typeof w.personnel_number === "string" && w.personnel_number.trim())
+      .map(w => [w.personnel_number.trim().toLowerCase(), w])
+  );
 
   // 2) Auch globale Email-Duplikate prüfen (andere Rollen)
   const allEmails = workers.map(w => w.email?.toLowerCase?.().trim()).filter(Boolean);
@@ -2237,11 +2436,97 @@ export async function bulkImportWorkers(pool, { supplierOrgId, workers, onDuplic
     const email = w.email?.toLowerCase?.().trim();
 
     // Basis-Validierung
-    if (!email || !w.first_name?.trim() || !w.last_name?.trim()) {
+    if (!w.first_name?.trim() || !w.last_name?.trim()) {
       result.errors.push({ row: rowNum, email: email || null, error: "MISSING_REQUIRED_FIELDS",
-        message: "Email, Vorname und Nachname sind Pflichtfelder." });
+        message: "Vorname und Nachname sind Pflichtfelder." });
       continue;
     }
+
+    /*
+     * P10/D5 — kein E-Mail-Zwang mehr, aber auch kein Datensatz ohne Identitaet.
+     *
+     * Ohne E-Mail traegt die Personalnummer die Wiedererkennung. Fehlt beides,
+     * entstuende jemand, den kein Folgeimport wiederfindet: dieselbe Person
+     * waechst mit jedem Import um eine Zeile, und keine Auswertung koennte die
+     * Dubletten zusammenfuehren.
+     */
+    const personalnummer = typeof w.personnel_number === "string" ? w.personnel_number.trim() : "";
+    if (!email) {
+      if (!personalnummer) {
+        result.errors.push({ row: rowNum, email: null, error: "MISSING_IDENTITY",
+          message: "Ohne E-Mail ist die Personalnummer Pflicht — sonst ist der Datensatz nicht wiederauffindbar." });
+        continue;
+      }
+
+      const bekannt = existingPersonalnummern.get(personalnummer.toLowerCase());
+      if (bekannt) {
+        if (onDuplicate === "update") {
+          try {
+            const felder = {};
+            if (w.first_name?.trim()) felder.first_name = w.first_name.trim();
+            if (w.last_name?.trim())  felder.last_name  = w.last_name.trim();
+            for (const [ziel, quelle] of [["phone", "phone"], ["street", "street"],
+                                          ["postal_code", "postal_code"], ["city", "city"],
+                                          ["notes", "notes"], ["date_of_birth", "date_of_birth"]]) {
+              if (w[quelle] !== undefined) felder[ziel] = w[quelle] || null;
+            }
+            const gesetzt = Object.keys(felder);
+            if (!gesetzt.length) {
+              result.skipped.push({ row: rowNum, email: null, reason: "UPDATE_NO_CHANGES" });
+            } else {
+              const werte = gesetzt.map((k) => felder[k]);
+              await pool.query(
+                `UPDATE worker_profiles
+                    SET ${gesetzt.map((k, i) => `${k} = $${i + 1}`).join(", ")}, updated_at = NOW()
+                  WHERE id = $${gesetzt.length + 1} AND supplier_org_id = $${gesetzt.length + 2}`,
+                [...werte, bekannt.profile_id, supplierOrgId]
+              );
+              result.updated.push({ row: rowNum, email: null, profile_id: bekannt.profile_id,
+                personnel_number: personalnummer, name: `${w.first_name.trim()} ${w.last_name.trim()}` });
+            }
+          } catch (err) {
+            result.errors.push({ row: rowNum, email: null, error: "UPDATE_FAILED", message: err.message });
+          }
+        } else {
+          result.skipped.push({ row: rowNum, email: null, reason: "DUPLICATE_IN_ORG",
+            message: `Personalnummer ${personalnummer} gehoert bereits zu ${bekannt.first_name} ${bekannt.last_name}.` });
+        }
+        continue;
+      }
+
+      try {
+        const { profile } = await createWorkerProfileWithoutAccount(pool, {
+          supplierOrgId,
+          firstName:       w.first_name.trim(),
+          lastName:        w.last_name.trim(),
+          personnelNumber: personalnummer,
+          phone:           w.phone || null,
+          street:          w.street || null,
+          postalCode:      w.postal_code || null,
+          city:            w.city || null,
+          country:         w.country || "DE",
+          dateOfBirth:     w.date_of_birth || null,
+          notes:           w.notes || null,
+          createdBy
+        });
+
+        result.created.push({ row: rowNum, email: null, user_id: null, profile_id: profile.id,
+          personnel_number: personalnummer, needs_invite: true,
+          name: `${w.first_name.trim()} ${w.last_name.trim()}` });
+
+        // Damit dieselbe Nummer im selben Durchlauf nicht zweimal anlegt.
+        existingPersonalnummern.set(personalnummer.toLowerCase(), {
+          profile_id: profile.id, first_name: w.first_name.trim(),
+          last_name: w.last_name.trim(), personnel_number: personalnummer, user_id: null
+        });
+      } catch (err) {
+        result.errors.push({ row: rowNum, email: null,
+          error: err.code === "PERSONNEL_NUMBER_REQUIRED" ? err.code : "CREATE_FAILED",
+          message: err.message });
+      }
+      continue;
+    }
+
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
       result.errors.push({ row: rowNum, email, error: "INVALID_EMAIL",
         message: "Ungültige E-Mail-Adresse." });

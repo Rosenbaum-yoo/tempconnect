@@ -507,7 +507,16 @@ describe("updateWorkerProfile", () => {
     // worker + org are the last two params
     assert.strictEqual(params[params.length - 2], "w1");
     assert.strictEqual(params[params.length - 1], "o1");
-    assert.match(sql, /WHERE user_id=\$\d+ AND supplier_org_id=\$\d+/);
+    /*
+     * ANGEPASST (P10/D5). Die Zusicherung ist unveraendert: der Mitarbeiter UND
+     * seine Organisation binden die Zeile. Nur der Adressweg ist breiter
+     * geworden — seit Migration 175 kann ein Mitarbeiter erfasst sein, ohne ein
+     * Konto zu haben, und waere ueber user_id allein nicht bearbeitbar.
+     * Die Org-Bedingung wird hier ausdruecklich mitgeprueft: sie ist die
+     * Mandantengrenze und darf beim Verbreitern nicht verlorengehen.
+     */
+    assert.match(sql, /WHERE \(user_id=\$\d+ OR id=\$\d+\)/);
+    assert.match(sql, /AND supplier_org_id=\$\d+/);
   });
 });
 
@@ -1043,8 +1052,64 @@ describe("bulkImportWorkers", () => {
     });
     assert.strictEqual(res.created.length, 0);
     assert.strictEqual(res.errors.length, 2);
-    assert.strictEqual(res.errors[0].error, "MISSING_REQUIRED_FIELDS");
+    /*
+     * ANGEPASST (P10/D5). Die Zusicherung ist unveraendert: eine Zeile ohne
+     * verwertbare Identitaet wird abgelehnt. Nur die BEGRUENDUNG hat sich
+     * geaendert, weil die Owner-Entscheidung D-E1 den E-Mail-Zwang aufgehoben
+     * hat. Es heisst jetzt nicht mehr "E-Mail fehlt", sondern "ohne E-Mail
+     * braucht es eine Personalnummer" — die Zeile hier hat beides nicht.
+     */
+    assert.strictEqual(res.errors[0].error, "MISSING_IDENTITY");
     assert.strictEqual(res.errors[1].error, "INVALID_EMAIL");
+  });
+
+  it("nimmt eine Zeile ohne E-Mail an, wenn eine Personalnummer da ist (P10/D5)", async () => {
+    /*
+     * Nur ZWEI Abfragen: Bestand laden, dann das Profil anlegen. Die globale
+     * Adresspruefung entfaellt, weil diese Zeile gar keine E-Mail hat — genau
+     * das ist der Punkt dieser Welle.
+     */
+    const pool = sequencePool(
+      { rows: [] },
+      { rows: [{ id: "p1", supplier_org_id: "o1", first_name: "Anna", last_name: "Beck",
+                 personnel_number: "P-4711", user_id: null }] }
+    );
+    const res = await svc.bulkImportWorkers(pool, {
+      supplierOrgId: "o1",
+      workers: [{ first_name: "Anna", last_name: "Beck", personnel_number: "P-4711" }],
+      createdBy: "u1"
+    });
+
+    assert.strictEqual(res.errors.length, 0, "vor D5 war genau das ein MISSING_REQUIRED_FIELDS");
+    assert.strictEqual(res.created.length, 1);
+    assert.strictEqual(res.created[0].email, null);
+    assert.strictEqual(res.created[0].user_id, null, "es darf KEIN Konto entstehen");
+    assert.strictEqual(res.created[0].needs_invite, true,
+      "die Oberflaeche muss erfahren, dass dieser Mensch noch nicht einsatzfaehig ist");
+  });
+
+  it("legt denselben Menschen nicht zweimal an, wenn die Personalnummer schon da ist", async () => {
+    /*
+     * Ohne E-Mail traegt die Personalnummer die Wiedererkennung. Wuerde der
+     * Bestand nur ueber Adressen geladen (INNER JOIN auf users), waere ein
+     * kontoloser Mitarbeiter hier unsichtbar — und jeder Folgeimport legte ihn
+     * erneut an. Dieselbe Person doppelt in der Personalakte, ohne Fehler.
+     */
+    const pool = sequencePool(
+      { rows: [{ email: null, user_id: null, profile_id: "p1",
+                 first_name: "Anna", last_name: "Beck", personnel_number: "P-4711" }] },
+      { rows: [] }
+    );
+    const res = await svc.bulkImportWorkers(pool, {
+      supplierOrgId: "o1",
+      workers: [{ first_name: "Anna", last_name: "Beck", personnel_number: " p-4711 " }],
+      onDuplicate: "skip",
+      createdBy: "u1"
+    });
+
+    assert.strictEqual(res.created.length, 0, "Schreibweise und Leerzeichen duerfen nichts aendern");
+    assert.strictEqual(res.skipped.length, 1);
+    assert.strictEqual(res.skipped[0].reason, "DUPLICATE_IN_ORG");
   });
 
   it("skips an in-org duplicate when onDuplicate='skip'", async () => {

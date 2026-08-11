@@ -18,8 +18,20 @@ const billingAssignmentIsCurrentSql = buildAssignmentActivePredicateSql({
  * Supplier zugeordnet sind UND aktive Assignment-Links haben)
  */
 export async function countActiveWorkers(pool, supplierOrgId) {
+  /*
+   * P10/D5 — gezaehlt wird das PROFIL, nicht das Konto.
+   *
+   * Vorher stand hier COUNT(DISTINCT wp.user_id). Seit Migration 175 kann ein
+   * Mitarbeiter erfasst sein, ohne ein Konto zu haben — und COUNT(DISTINCT ...)
+   * uebergeht NULL-Werte stillschweigend. Wer 500 Mitarbeiter ohne E-Mail
+   * importiert, haette also 500 Menschen in der Verwaltung und null im Zaehler:
+   * das Planlimit greift nicht, und abgerechnet wird zu wenig.
+   *
+   * wp.id ist immer vorhanden und je Profil eindeutig — die Zahl stimmt damit
+   * unabhaengig davon, wer schon eingeladen wurde.
+   */
   const { rows } = await pool.query(
-    `SELECT COUNT(DISTINCT wp.user_id) AS cnt
+    `SELECT COUNT(DISTINCT wp.id) AS cnt
      FROM worker_profiles wp
      WHERE wp.supplier_org_id = $1
        AND wp.is_active = TRUE`,

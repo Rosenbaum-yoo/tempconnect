@@ -67,7 +67,20 @@ const inviteSchema = z.object({
   last_name:        z.string().min(1).max(100),
   personnel_number: z.string().max(50).optional().nullable(),
   // Zweiter Zustellweg (Mig 161). Optional: ohne Nummer bleibt es bei E-Mail.
-  phone:            z.string().max(40).optional().nullable()
+  phone:            z.string().max(40).optional().nullable(),
+  /*
+   * P10/D5 — die Einladung eines BEREITS ERFASSTEN Mitarbeiters.
+   *
+   * Der Erstimport legt Menschen ohne E-Mail an (nur Stammdaten). Wird so jemand
+   * spaeter eingeladen, traegt die Einladung hier sein Profil. Beim Annehmen
+   * wird dieses Profil mit dem neuen Konto VERBUNDEN, statt ein zweites
+   * anzulegen — sonst blieben Personalnummer, Anschrift und Notizen an einem
+   * verwaisten Datensatz zurueck.
+   *
+   * Die E-Mail bleibt Pflicht: eine Einladung ohne Zustelladresse waere keine.
+   * Sie wird beim Einladen erfragt, nicht beim Import erfunden.
+   */
+  worker_profile_id: z.string().uuid().optional().nullable()
 });
 
 const updateProfileSchema = z.object({
@@ -1131,6 +1144,29 @@ export function createWorkersRouter(deps) {
         return res.status(402).json({ error: "WORKER_LIMIT_EXCEEDED", plan_limits: limits });
       }
 
+      /*
+       * P10/D5 — der Profilbezug wird serverseitig geprueft, nicht geglaubt.
+       *
+       * Er kommt aus dem Browser und entscheidet, welches Profil spaeter an ein
+       * neues Konto gehaengt wird. Ungeprueft koennte jemand die Einladung eines
+       * fremden Mitarbeiters auf sein eigenes Profil zeigen lassen. Zwei
+       * Bedingungen: das Profil gehoert dieser Organisation, und es hat noch
+       * kein Konto.
+       */
+      if (parsed.data.worker_profile_id) {
+        const { rows } = await pool.query(
+          `SELECT id FROM worker_profiles
+            WHERE id = $1 AND supplier_org_id = $2 AND user_id IS NULL`,
+          [parsed.data.worker_profile_id, req.orgId]
+        );
+        if (!rows.length) {
+          return res.status(404).json({
+            error: "PROFILE_NOT_INVITABLE",
+            message: "Dieser Mitarbeiter gehoert nicht zu Ihrer Organisation oder hat bereits ein Konto."
+          });
+        }
+      }
+
       const result = await workerService.createWorkerInvite(pool, {
         supplierOrgId:  req.orgId,
         invitedBy:      req.session.userId,
@@ -1138,7 +1174,8 @@ export function createWorkersRouter(deps) {
         firstName:      parsed.data.first_name,
         lastName:       parsed.data.last_name,
         personnelNumber: parsed.data.personnel_number,
-        phone:          parsed.data.phone
+        phone:          parsed.data.phone,
+        workerProfileId: parsed.data.worker_profile_id || null
       });
 
       if (result.error === "INVITE_ALREADY_PENDING") {
