@@ -56,6 +56,7 @@ Dominanter Einstiegs-ICP: groessere Einsatzunternehmen mit wiederkehrenden Zeita
 | [HETZNER_HA_RUNBOOK.md](HETZNER_HA_RUNBOOK.md) | Hochverfügbarkeit auf Hetzner: Aufbau und Umschaltung. |
 | [BACKUP_DISASTER_RECOVERY.md](BACKUP_DISASTER_RECOVERY.md) | Sicherung und Wiederanlauf — inklusive Wiederherstellungsprobe. |
 | [SECURITY_INCIDENTS.md](SECURITY_INCIDENTS.md) | Vorgehen bei Sicherheitsvorfällen: melden, eindämmen, aufarbeiten. |
+| [ORG_GRENZE_BEFUND.md](ORG_GRENZE_BEFUND.md) | Die Mandantengrenze steht 80-mal einzeln in den Routen statt einmal im Helfer. Befund, Folgen und der Plan für Welle 3b. |
 
 **Architektur**
 

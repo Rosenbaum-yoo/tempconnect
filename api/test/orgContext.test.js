@@ -430,6 +430,58 @@ describe("orgContextMiddleware — location security", () => {
     assert.strictEqual(req.locationScope, 'bound');
   });
 
+  /*
+   * MUTATION-KILL (Welle 2). Sechs Mutanten ueberlebten in dieser einen Zeile:
+   *
+   *     if (isBound && cached.locationId !== membershipLocationId) {
+   *       delete req.session._locationCache;
+   *
+   * Feuert die Bereinigung nicht, laeuft der else-Zweig: der zwischengespeicherte
+   * Standort wird aufgeloest und — weil isBound gilt — mit scope 'bound'
+   * uebernommen. Ein an Standort A gebundenes Mitglied arbeitet dann auf
+   * Standort B, innerhalb derselben Organisation und ohne jede Meldung.
+   *
+   * Der bestehende Test daneben deckt nur den ORG-Wechsel ab. Der gefaehrlichere
+   * Fall ist der hier: gleiche Org, veralteter Standort, gebundene Mitgliedschaft.
+   * Es ist der dritte Fundort derselben Klasse — nach getAllowedLocationsForMembership
+   * und der Standort-Bindung in Welle 1.
+   */
+  it("verwirft einen zwischengespeicherten Standort, der nicht der gebundene ist", async () => {
+    /*
+     * Der Mock antwortet hier ABSICHTLICH abhaengig vom Parameter. Mit einer
+     * festen Antwort haette der Test nicht getrennt: er saehe dieselbe Zeile,
+     * egal ob nach dem gebundenen oder nach dem zwischengespeicherten Standort
+     * gefragt wurde — und der Mutant haette ueberlebt. (Genau daran ist dieser
+     * Test im ersten Anlauf gescheitert.) Beide Standorte existieren in der Org;
+     * unterschieden wird ausschliesslich ueber die ANGEFRAGTE ID.
+     */
+    const namen = { [LOC_A]: "HQ", [LOC_B]: "Fremder Standort" };
+    let n = 0;
+    const pool = {
+      query: async (_sql, params = []) => {
+        n++;
+        if (n === 1) return { rows: [{ org_id: ORG_ID }] };
+        if (n === 2) return { rows: [MEMBERSHIP_BOUND] };
+        const gefragt = params.find((p) => namen[p]);
+        return gefragt ? { rows: [{ id: gefragt, name: namen[gefragt] }] } : { rows: [] };
+      }
+    };
+    const mw = orgContextMiddleware(pool);
+    const req = mockReq({
+      session: {
+        userId:         USER_ID,
+        _locationCache: { locationId: LOC_B, locationName: "Fremder Standort" }
+      }
+    });
+
+    await mw(req, mockRes(), () => {});
+
+    assert.notStrictEqual(req.locationId, LOC_B,
+      "der zwischengespeicherte Standort darf die Bindung nicht aushebeln");
+    assert.strictEqual(req.locationId, LOC_A,
+      "das Mitglied gehoert auf seinen gebundenen Standort");
+  });
+
   it("stale cached location for wrong org gets cleared on org switch", async () => {
     const pool = sequencePool(
       { rows: [{ ...MEMBERSHIP, org_id: ORG_ID_B, org_name: "New" }] }  // new org

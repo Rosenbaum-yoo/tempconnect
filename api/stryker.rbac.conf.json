@@ -4,11 +4,11 @@
   "testRunner": "command",
   "coverageAnalysis": "off",
   "mutate": [
-    "utils/orgContext.js",
-    "middleware/orgContext.js"
+    "utils/orgBoundary.js",
+    "services/enterpriseSurfaceAccessService.js"
   ],
   "commandRunner": {
-    "command": "node --test --test-force-exit test/orgContext.test.js test/rlsTenantIsolation.test.js"
+    "command": "node --test --test-force-exit test/orgBoundary.test.js test/enterpriseSurfaceAccessService.test.js"
   },
   "reporters": ["clear-text", "html", "json"],
   "htmlReporter": { "fileName": "reports/mutation/rbac/index.html" },
