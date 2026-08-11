@@ -86,6 +86,85 @@ describe("enterpriseSurfaceAccessService", () => {
     assert.equal(access.compliance_overview.mode, "full");
   });
 
+  /*
+   * MUTATION-KILL (Welle 3). isProPlus beginnt mit
+   *
+   *     if (!plan) return false;
+   *
+   * Der Mutant dreht das in `return true` — und ueberlebte. Eine Organisation
+   * OHNE Planangabe bekaeme damit PRO-Flaechen frei: Spend Analytics, Rate
+   * Cards und Data Governance. Also bezahlte Auswertungen, fremde
+   * Konditionsrahmen und die Datenschutz-Flaeche.
+   *
+   * Der Kommentar ueber der Funktion nennt sie ausdruecklich "bypass-sicher" —
+   * eine Absicht, die bisher niemand nachgewiesen hat.
+   *
+   * Erreichbar ist das: resolveEnterpriseSurfaceAccess hat zwar plan = "DEMO"
+   * als Vorgabe, die aber nicht greift, wenn null AUSDRUECKLICH uebergeben
+   * wird. Genau das liefert ein leeres plan-Feld aus der Datenbank
+   * (services/userService.js reicht den Org-Plan unveraendert durch).
+   */
+  for (const [bezeichnung, plan] of [
+    ["null",           null],
+    ["leerer String",  ""],
+    ["undefined",      undefined]
+  ]) {
+    it(`sperrt PRO-Flaechen, wenn der Plan ${bezeichnung} ist`, () => {
+      const access = resolveEnterpriseSurfaceAccess({
+        plan,
+        role: "company",
+        orgType: "company",
+        orgRole: "owner"
+      });
+
+      assert.equal(access.spend_analytics.mode, "plan_locked",
+        "ohne Planangabe darf keine bezahlte Auswertung offenstehen");
+      assert.equal(access.rate_cards.mode, "plan_locked",
+        "Konditionsrahmen sind Vertragsdaten");
+      assert.equal(access.data_governance.mode, "plan_locked",
+        "die Datenschutz-Flaeche ist die heikelste von dreien");
+    });
+  }
+
+  /*
+   * MUTATION-KILL (Welle 3). isProPlus normalisiert Alt-Schreibweisen:
+   *
+   *     if (p === "ENTERPRISE" || p === "INDIVIDUAL") p = "INDIVIDUELL";
+   *     if (p === "FREE") p = "DEMO";
+   *
+   * Fuenf Mutanten ueberlebten hier, weil kein Test je einen dieser Aliase
+   * uebergeben hat. Faellt die Normalisierung weg, verliert ein zahlender
+   * INDIVIDUELL-Kunde mit Alt-Eintrag "ENTERPRISE" seine Flaechen — Spend
+   * Analytics, Rate Cards, Data Governance stuenden ploetzlich auf
+   * plan_locked.
+   *
+   * Die Aliase existieren, WEIL echte Daten sie enthalten (CLAUDE.md: ENTERPRISE
+   * ist kein oeffentlicher Plan, sondern ein Funktionsniveau innerhalb
+   * INDIVIDUELL). Eine Umwandlung, die niemand prueft, ist eine Zusage ohne
+   * Deckung.
+   */
+  for (const alias of ["ENTERPRISE", "INDIVIDUAL", "individuell", "  PRO  "]) {
+    it(`erkennt "${alias}" als PRO-Niveau`, () => {
+      const access = resolveEnterpriseSurfaceAccess({
+        plan: alias,
+        role: "company",
+        orgType: "company",
+        orgRole: "owner"
+      });
+      assert.equal(access.spend_analytics.mode, "full",
+        `"${alias}" ist ein zahlender Kunde — die Flaeche muss offen sein`);
+      assert.equal(access.rate_cards.mode, "full");
+    });
+  }
+
+  it("behandelt \"FREE\" wie DEMO und sperrt die PRO-Flaechen", () => {
+    const access = resolveEnterpriseSurfaceAccess({
+      plan: "FREE", role: "company", orgType: "company", orgRole: "owner"
+    });
+    assert.equal(access.spend_analytics.mode, "plan_locked");
+    assert.equal(access.data_governance.mode, "plan_locked");
+  });
+
   it("plan-locks spend, governance, and rate cards below PRO even for company owners", () => {
     const access = resolveEnterpriseSurfaceAccess({
       plan: "DEMO",
