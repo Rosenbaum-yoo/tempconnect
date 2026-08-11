@@ -25,6 +25,7 @@
     "test:coverage:critical": "node scripts/coverage-critical-check.js",
     "test:coverage:report": "c8 report",
     "test:mutation:subscription": "stryker run stryker.subscription.conf.json",
+    "test:mutation:rbac": "stryker run stryker.rbac.conf.json",
     "perf:smoke": "node scripts/perf-smoke.js",
     "lint": "eslint . --max-warnings=0",
     "lint:fix": "eslint . --fix",

@@ -485,3 +485,16 @@ Zusätzlich verbindlich (Quelle: globale `~/CLAUDE.md` §0.10–§0.13 — gelte
 - **§0.11 Hype-Verantwortung:** Projekt zusätzlich trend-/hype-fähig bauen; regelmäßig umsetzbare Hype-Ideen liefern (Mechanismus „Hype Radar").
 - **§0.12 Mehrfach-Verifikation + audit-feste Doku:** Arbeit mehrfach prüfen bis perfekt; Doku muss jederzeit einer echten, zeitgenauen Prüfung standhalten (automatisiert, wo möglich).
 - **§0.13 Multi-Strategie & Multi-Agent:** Probleme auf mehreren Wegen lösen; bei Sackgassen mehrere (Sub-)Agenten parallel einsetzen.
+
+---
+
+## Mutation-Testing-Direktive (Owner 2026-08-10, verbindlich)
+
+Coverage beweist „Zeile lief", nicht „Bug wird gefangen". Für sicherheits-, geld- und compliance-kritische Logik ist **Mutation Testing (Stryker, command-Runner)** die Pflicht-Verifikation (§0.12 Mehrfach-Verifikation).
+
+- **Wann Pflicht:** wo ein stiller Logik-Flip zu 403→200, frei-statt-bezahlt, kein-Audit, falschem-Betrag oder illegalem Status-Übergang führt. Reines UI/Format/Logging: nicht mutieren.
+- **Gate je Bereich:** Score-Ziel **+ null überlebende Mutanten im Entscheidungs-Branch** (wichtiger als die reine Prozentzahl).
+- **Methode:** ein Bereich pro Welle; DB-freie Mock-Pool-Tests in den `commandRunner`; Diffs uncommitted bis Owner-Freigabe.
+- **Projekt-Plan (RBAC/Org-Boundary):** `_TEMPCONNECT_MUTATION_RBAC_PLAN.md`.
+- **Projektübergreifende Methodik (Blueprint für Folgeprojekte):** `../MUTATION_TESTING_PLAYBOOK.md`.
+- **Priorisierung weiterer Bereiche:** Roadmap-Tabelle im Projekt-Plan (Auth/Session, Plan-Entitlement, Geld-Mathematik, Audit, State-Machine, CSRF/Idempotency, DSGVO-Löschung).

@@ -73,3 +73,7 @@ Format:
 - Tests dort ausfuehren, wo betroffen; nicht blind "alle Tests" starten.
 - Bei UI-Aenderungen: Token-/Design-System-Konformitaet pruefen.
 - Bei Berechtigungen: Backend-Gate + Frontend-Sichtbarkeit synchron halten.
+
+## Mutation Testing (verbindlich für kritische Logik)
+
+Vor „fertig" bei RBAC-, Org-Boundary-, Auth-, Billing-, Audit- oder State-Machine-Logik: Mutation Testing statt nur Coverage. Methodik & Reihenfolge: `../MUTATION_TESTING_PLAYBOOK.md`. Projekt-Umsetzung: `_TEMPCONNECT_MUTATION_RBAC_PLAN.md`. Befehl: `npm run test:mutation:<bereich>`. Gate: Score-Ziel + null Survivor im Entscheidungs-Branch. Nur DB-freie Tests in den command runner; Diffs uncommitted bis Freigabe.
