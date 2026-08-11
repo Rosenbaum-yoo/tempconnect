@@ -22,6 +22,7 @@ import {
   locationBelongsToOrg,
   canAccessLocation,
   getAllowedLocationsForMembership,
+  updateMemberScope,
   CROSS_LOCATION_ROLES
 } from "../services/rbacService.js";
 
@@ -136,6 +137,20 @@ describe("getPrimaryOrg", () => {
     assert.deepStrictEqual(result, MEMBERSHIP);
     assert.strictEqual(pool.queries.length, 2);
     assert.ok(pool.queries[0].sql.includes("SELECT org_id FROM users"));
+    /*
+     * MUTATION-KILL (Welle 1). Bis hierher pruefte der Test nur die ERSTE
+     * Abfrage. Streicht man `if (orgId)`, laeuft der Code in den Rueckfall —
+     * ebenfalls zwei Abfragen, ebenfalls dieselbe erste. Der Mutant ueberlebte.
+     *
+     * Der Unterschied ist nicht kosmetisch: der Rueckfall liefert die AELTESTE
+     * aktive Mitgliedschaft. Weicht sie von `users.org_id` ab, bekommt der
+     * Nutzer den falschen Mandantenkontext — und darauf baut jede weitere
+     * Berechtigungspruefung auf.
+     */
+    assert.ok(pool.queries[1].params.includes("org-1"),
+      "der Schnellpfad muss die Mitgliedschaft zu users.org_id laden");
+    assert.ok(!pool.queries[1].sql.includes("ORDER BY om.created_at"),
+      "das ist der Rueckfall — er darf hier gar nicht erst laufen");
   });
 
   it("fallback: uses first active membership when users.org_id is null", async () => {
@@ -539,6 +554,22 @@ describe("getAllowedLocationsForMembership", () => {
     const result = await getAllowedLocationsForMembership(pool, membership);
     assert.strictEqual(result.length, 1);
     assert.strictEqual(result[0].id, "loc-a");
+
+    /*
+     * MUTATION-KILL (Welle 1). Der Mock beantwortet JEDE Abfrage mit derselben
+     * Zeile. Streicht man den `if (membership.location_id)`-Rumpf, faellt der
+     * Code in die org-weite Abfrage — und bekommt vom Mock wieder genau diese
+     * eine Zeile. Beide Zusicherungen oben blieben gruen, der Mutant ueberlebte.
+     *
+     * Was dabei durchginge, ist keine Kleinigkeit: ein an EINEN Standort
+     * gebundenes Mitglied saehe jede Niederlassung der Organisation. Deshalb
+     * wird hier nicht das Ergebnis geprueft, sondern WELCHE Abfrage lief.
+     */
+    assert.strictEqual(pool.queries.length, 1);
+    assert.ok(pool.queries[0].params.includes("loc-a"),
+      "es muss gezielt der gebundene Standort geladen werden");
+    assert.ok(!pool.queries[0].sql.includes("ORDER BY is_hq DESC"),
+      "das ist die org-weite Liste — sie wuerde die Standortbindung aushebeln");
   });
 
   it("bound membership returns empty array if bound location is inactive/missing", async () => {
@@ -565,5 +596,63 @@ describe("getAllowedLocationsForMembership", () => {
     const pool = mockPool({ rows: [] });
     const result = await getAllowedLocationsForMembership(pool, null);
     assert.deepStrictEqual(result, []);
+  });
+});
+
+/* ═══════════════════════════════════════════════════════════
+   updateMemberScope
+   ═══════════════════════════════════════════════════════════
+
+   NEU (Mutation-Welle 1). Diese Funktion hatte keinen einzigen Test — alle
+   Mutanten darin ueberlebten zwangslaeufig. Sie schreibt den Standort- und
+   Abteilungs-Scope eines Mitglieds, also genau die Bindung, die
+   getAllowedLocationsForMembership danach auswertet. Ein stiller Fehler hier
+   erweitert Zugriff, ohne dass irgendwo eine Rolle geaendert wird. */
+
+describe("updateMemberScope", () => {
+  const ROW = { id: "m1", org_id: "org-1", location_id: "loc-a", department_id: "dep-1" };
+
+  it("schreibt Standort und Abteilung wirklich", async () => {
+    const pool = mockPool({ rows: [ROW] });
+    const result = await updateMemberScope(pool, "org-1", "m1", {
+      location_id: "loc-a", department_id: "dep-1"
+    });
+
+    assert.deepStrictEqual(result, ROW);
+    /*
+     * MUTATION-KILL: `location_id ?? null` wurde zu `location_id && null`
+     * mutiert — der Wert wird damit IMMER null. Das Mitglied verliert seine
+     * Standortbindung und wird org-weit, ohne dass jemand eine Rolle aendert.
+     * Ohne diese Zusicherung faellt das keinem Test auf.
+     */
+    assert.strictEqual(pool.queries[0].params[2], "loc-a",
+      "der Standort muss geschrieben werden, nicht null");
+    assert.strictEqual(pool.queries[0].params[3], "dep-1",
+      "die Abteilung ebenso");
+  });
+
+  it("bindet die Aenderung an die Organisation", async () => {
+    const pool = mockPool({ rows: [ROW] });
+    await updateMemberScope(pool, "org-1", "m1", { location_id: "loc-a", department_id: null });
+    assert.ok(pool.queries[0].sql.includes("org_id = $2"),
+      "ohne Org-Bedingung liesse sich der Scope eines fremden Mitglieds aendern");
+    assert.strictEqual(pool.queries[0].params[1], "org-1");
+    assert.ok(pool.queries[0].sql.includes("is_active = TRUE"),
+      "eine deaktivierte Mitgliedschaft wird nicht stillschweigend wiederbelebt");
+  });
+
+  it("macht aus 'kein Standort' ein echtes NULL, nicht undefined", async () => {
+    const pool = mockPool({ rows: [{ ...ROW, location_id: null, department_id: null }] });
+    await updateMemberScope(pool, "org-1", "m1", {});
+    assert.strictEqual(pool.queries[0].params[2], null);
+    assert.strictEqual(pool.queries[0].params[3], null);
+  });
+
+  it("gibt null zurueck, wenn nichts getroffen wurde", async () => {
+    // Fremde Org oder inaktive Mitgliedschaft: das UPDATE trifft keine Zeile.
+    const pool = mockPool({ rows: [] });
+    const result = await updateMemberScope(pool, "org-fremd", "m1", { location_id: "loc-a" });
+    assert.strictEqual(result, null,
+      "ein stiller Erfolg waere hier das gefaehrlichste Ergebnis");
   });
 });

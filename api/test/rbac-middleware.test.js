@@ -173,6 +173,120 @@ describe("requirePermission — explicit org_id", () => {
     assert.strictEqual(res.statusCode, 403);
     assert.strictEqual(res.body.error, "ORG_CONTEXT_MISMATCH");
   });
+  /*
+   * MUTATION-KILL (Welle 1). Der Test darueber prueft nur, dass ein
+   * ABWEICHENDES org_id blockiert. Die Gegenrichtung fehlte komplett: kein Test
+   * setzte `req.orgId` UND ein dazu passendes `org_id`. Die Bedingung
+   *
+   *     if (req.orgId && explicitOrg && explicitOrg !== req.orgId)
+   *
+   * brach also immer schon am ersten Glied ab — der Mutant, der sie durch
+   * `true` ersetzt (Schutz feuert IMMER), ueberlebte unbemerkt.
+   *
+   * Das ist kein Sicherheits-, sondern ein Verfuegbarkeitsdefekt: jede legitime
+   * Anfrage, die ihre eigene Org ausdruecklich mitschickt, waere mit 403
+   * abgewiesen worden. Solche Fehler sind besonders teuer, weil sie wie ein
+   * Berechtigungsproblem aussehen und beim Kunden als solches gesucht werden.
+   */
+  it("laesst durch, wenn das explizite org_id dem aktiven Kontext ENTSPRICHT", async () => {
+    const pool = sequencePool({ rows: [OWNER_MEMBERSHIP] });
+    const logger = mockLogger();
+    const mw = requirePermission("requisition.create", { pool, logger });
+    const req = mockReq({
+      orgId: ORG_ID,
+      orgMembership: OWNER_MEMBERSHIP,
+      query: { org_id: ORG_ID }        // identisch — kein Konflikt
+    });
+    const res = mockRes();
+    let nextCalled = false;
+
+    await mw(req, res, () => { nextCalled = true; });
+
+    assert.ok(nextCalled, "die eigene Org ausdruecklich mitzuschicken darf nie blockieren");
+    assert.notStrictEqual(res.body?.error, "ORG_CONTEXT_MISMATCH");
+  });
+
+  /*
+   * MUTATION-KILL (Welle 1). Die Ausnahme fuer platform_admin war dokumentiert,
+   * aber ungeprueft — deshalb ueberlebte der Mutant, der
+   * `if (roleKey !== "platform_admin")` durch `true` ersetzt und die Ausnahme
+   * damit abschafft. Eine Ausnahme, die niemand testet, ist eine Absicht ohne
+   * Nachweis.
+   */
+  it("laesst platform_admin ueber Org-Grenzen hinweg arbeiten", async () => {
+    const pool = sequencePool({ rows: [{ ...OWNER_MEMBERSHIP, org_id: "org-other-999" }] });
+    const logger = mockLogger();
+    const mw = requirePermission("requisition.create", { pool, logger });
+    const req = mockReq({
+      orgId: ORG_ID,
+      orgMembership: { ...OWNER_MEMBERSHIP, role_key: "platform_admin" },
+      query: { org_id: "org-other-999" }
+    });
+    const res = mockRes();
+    let nextCalled = false;
+
+    await mw(req, res, () => { nextCalled = true; });
+
+    assert.notStrictEqual(res.body?.error, "ORG_CONTEXT_MISMATCH",
+      "genau dafuer ist die Ausnahme da — sonst kann die Plattformverwaltung nicht arbeiten");
+    assert.ok(nextCalled || res.statusCode !== 403 || res.body?.error !== "ORG_CONTEXT_MISMATCH");
+  });
+
+  /*
+   * MUTATION-KILL (Welle 1, zweite Runde). Dasselbe wie in requireRole — und
+   * genau deshalb hier noch einmal: die Zeile
+   *
+   *     const roleKey = req.orgMembership?.role_key || req.orgRole || null;
+   *
+   * steht in BEIDEN Middlewares. Ich hatte den Test zuerst nur fuer requireRole
+   * geschrieben; in requirePermission ueberlebte der Mutant weiter. Doppelte
+   * Logik braucht doppelte Tests, auch wenn sie sich wortgleich lesen.
+   *
+   * Ohne das `?.` wirft der Zugriff, wenn orgContext nicht gelaufen ist: aus
+   * einem sauberen 403 wuerde ein 500, und im Log staende ein TypeError statt
+   * der Ursache.
+   */
+  it("stuerzt nicht ab, wenn gar keine Mitgliedschaft am Request haengt", async () => {
+    const pool = sequencePool();  // darf nicht aufgerufen werden
+    const logger = mockLogger();
+    const mw = requirePermission("requisition.create", { pool, logger });
+    const req = mockReq({
+      orgId: ORG_ID,
+      query: { org_id: "org-other-999" }
+      // orgMembership fehlt absichtlich
+    });
+    const res = mockRes();
+
+    await mw(req, res, () => assert.fail("next() darf nicht aufgerufen werden"));
+
+    assert.strictEqual(res.statusCode, 403, "ein sauberes Verbot, kein Serverfehler");
+    assert.strictEqual(res.body.error, "ORG_CONTEXT_MISMATCH");
+  });
+
+  /*
+   * MUTATION-KILL (Welle 1, zweite Runde). `req.query?.org_id` und
+   * `req.params?.org_id` — das optionale Zugreifen ueberlebte, weil jeder
+   * bisherige Test ein vollstaendig ausgestattetes Request-Objekt uebergibt.
+   *
+   * Der Autor hat das `?.` bewusst gesetzt. Ein Test, der es belegt, haelt die
+   * Absicht fest: die Middleware darf auch an einem minimalen Request nicht
+   * werfen — etwa wenn sie ausserhalb einer vollstaendigen Express-Kette
+   * aufgerufen wird, wie es in Tests und Hilfsskripten vorkommt.
+   */
+  it("kommt mit einem minimalen Request ohne query/params zurecht", async () => {
+    const pool = sequencePool({ rows: [OWNER_MEMBERSHIP] });
+    const logger = mockLogger();
+    const mw = requirePermission("requisition.create", { pool, logger });
+    const req = { session: { userId: USER_ID }, orgId: ORG_ID, orgMembership: OWNER_MEMBERSHIP };
+    const res = mockRes();
+    let nextCalled = false;
+
+    await mw(req, res, () => { nextCalled = true; });
+
+    assert.ok(nextCalled, "ohne query und params darf nichts werfen");
+    assert.strictEqual(res.body, null, "kein Fehler gemeldet");
+  });
+
   it("grants access when user has matching permission in org", async () => {
     // checkPermission → getMembership → 1 query returning owner
     const pool = sequencePool({ rows: [OWNER_MEMBERSHIP] });
@@ -455,6 +569,90 @@ describe("requireRole — explicit org_id", () => {
     assert.strictEqual(res.statusCode, 403);
     assert.strictEqual(res.body.error, "ORG_CONTEXT_MISMATCH");
   });
+  /*
+   * MUTATION-KILL (Welle 1). Der Org-Kontext-Guard steht ZWEIMAL in
+   * middleware/rbac.js — einmal in requirePermission, einmal hier in
+   * requireRole. Die Tests deckten bisher nur die erste Kopie ab; in der
+   * zweiten ueberlebten dieselben Mutanten unbemerkt weiter.
+   *
+   * Das ist die eigentliche Lehre dieser Welle: doppelte Logik braucht
+   * doppelte Tests. Eine gruene Suite sagt nichts darueber, ob beide Kopien
+   * geprueft werden — Mutation Testing schon.
+   */
+  it("laesst durch, wenn das explizite org_id dem aktiven Kontext ENTSPRICHT", async () => {
+    const pool = sequencePool({ rows: [OWNER_MEMBERSHIP] });
+    const logger = mockLogger();
+    const mw = requireRole(["owner"], { pool, logger });
+    const req = mockReq({
+      orgId: ORG_ID,
+      orgMembership: OWNER_MEMBERSHIP,
+      query: { org_id: ORG_ID }
+    });
+    const res = mockRes();
+    let nextCalled = false;
+
+    await mw(req, res, () => { nextCalled = true; });
+
+    assert.ok(nextCalled, "die eigene Org mitzuschicken darf nie blockieren");
+    assert.notStrictEqual(res.body?.error, "ORG_CONTEXT_MISMATCH");
+  });
+
+  it("laesst platform_admin ueber Org-Grenzen hinweg arbeiten", async () => {
+    const pool = sequencePool({ rows: [{ ...OWNER_MEMBERSHIP, org_id: "org-other-999" }] });
+    const logger = mockLogger();
+    const mw = requireRole(["owner"], { pool, logger });
+    const req = mockReq({
+      orgId: ORG_ID,
+      orgMembership: { ...OWNER_MEMBERSHIP, role_key: "platform_admin" },
+      query: { org_id: "org-other-999" }
+    });
+    const res = mockRes();
+
+    await mw(req, res, () => {});
+
+    assert.notStrictEqual(res.body?.error, "ORG_CONTEXT_MISMATCH",
+      "ohne diese Ausnahme kann die Plattformverwaltung nicht arbeiten");
+  });
+
+  /*
+   * MUTATION-KILL (Welle 1). `req.orgMembership?.role_key` — ohne das `?.`
+   * wirft der Zugriff, wenn orgContext nicht gelaufen ist. Aus einem sauberen
+   * 403 wuerde ein 500: der Nutzer sieht einen Serverfehler statt einer
+   * Berechtigungsmeldung, und im Log steht ein TypeError statt der Ursache.
+   */
+  it("stuerzt nicht ab, wenn gar keine Mitgliedschaft am Request haengt", async () => {
+    const pool = sequencePool({ rows: [] });
+    const logger = mockLogger();
+    const mw = requireRole(["owner"], { pool, logger });
+    const req = mockReq({
+      orgId: ORG_ID,
+      query: { org_id: "org-other-999" }
+      // orgMembership fehlt absichtlich
+    });
+    const res = mockRes();
+
+    await mw(req, res, () => {});
+
+    assert.strictEqual(res.statusCode, 403, "ein sauberes Verbot, kein Serverfehler");
+    assert.strictEqual(res.body.error, "ORG_CONTEXT_MISMATCH");
+  });
+
+  // MUTATION-KILL (Welle 1): Gegenstueck zum gleichnamigen Test bei
+  // requirePermission — dieselbe Zeile, zweite Kopie, eigener Nachweis.
+  it("kommt mit einem minimalen Request ohne query/params zurecht", async () => {
+    const pool = sequencePool({ rows: [OWNER_MEMBERSHIP] });
+    const logger = mockLogger();
+    const mw = requireRole(["owner"], { pool, logger });
+    const req = { session: { userId: USER_ID }, orgId: ORG_ID, orgMembership: OWNER_MEMBERSHIP };
+    const res = mockRes();
+    let nextCalled = false;
+
+    await mw(req, res, () => { nextCalled = true; });
+
+    assert.ok(nextCalled, "ohne query und params darf nichts werfen");
+    assert.strictEqual(res.body, null, "kein Fehler gemeldet");
+  });
+
   it("grants access when user role matches one of the allowed roles", async () => {
     const pool = sequencePool({ rows: [OWNER_MEMBERSHIP] });
     const logger = mockLogger();
