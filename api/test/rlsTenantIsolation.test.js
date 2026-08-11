@@ -139,6 +139,35 @@ describe("withStaffContext", () => {
     );
   });
 
+  /*
+   * MUTATION-KILL (Welle 2). Die beiden Tests daneben pruefen nur, DASS
+   * geworfen wird. Das reicht nicht: ein Wurf, der erst NACH dem Setzen des
+   * Bypass passiert, wuerde ebenso "geworfen" heissen — und haette den
+   * Cross-Org-Zugang in der Zwischenzeit bereits geoeffnet.
+   *
+   * Hier wird deshalb der NEBENEFFEKT geprueft: ohne Begruendung darf nicht
+   * einmal eine Verbindung aus dem Pool genommen werden. Die Audit-Pflicht ist
+   * damit strukturell abgesichert, nicht nur durch die Fehlermeldung.
+   */
+  it("nimmt ohne Begruendung nicht einmal eine Verbindung — kein Bypass, kein Nebeneffekt", async () => {
+    const log = [];
+    let verbindungen = 0;
+    const pool = {
+      async connect() { verbindungen++; return makeMockClient(log); }
+    };
+
+    await assert.rejects(
+      () => withStaffContext(pool, async () => {}, { reason: "" }),
+      /reason.*Pflichtfeld/
+    );
+
+    assert.equal(verbindungen, 0,
+      "die Pruefung muss VOR der Transaktion greifen — sonst ist der Bypass kurzzeitig offen");
+    assert.equal(log.length, 0, "kein einziges SET LOCAL darf abgesetzt worden sein");
+    assert.ok(!log.some((q) => q.params?.[0] === "staff"),
+      "ein gesetzter Staff-Bypass ohne Audit-Begruendung ist genau der Zustand, den diese Pruefung verhindert");
+  });
+
   it("wirft wenn opts fehlt komplett", async () => {
     const pool = { async connect() { return makeMockClient(); } };
 

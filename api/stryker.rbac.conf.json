@@ -4,11 +4,11 @@
   "testRunner": "command",
   "coverageAnalysis": "off",
   "mutate": [
-    "services/rbacService.js",
-    "middleware/rbac.js"
+    "utils/orgContext.js",
+    "middleware/orgContext.js"
   ],
   "commandRunner": {
-    "command": "node --test --test-force-exit test/rbacService.test.js test/rbac.test.js test/rbac-middleware.test.js test/rbac-hardening.test.js test/rbacLastOwner.test.js test/security/permission-bypass.test.js test/security/role-escalation.test.js test/security/rbac-security.test.js"
+    "command": "node --test --test-force-exit test/orgContext.test.js test/rlsTenantIsolation.test.js"
   },
   "reporters": ["clear-text", "html", "json"],
   "htmlReporter": { "fileName": "reports/mutation/rbac/index.html" },

@@ -49,6 +49,28 @@ describe("rbacService — Last-Owner-Schutz", () => {
       (err) => err.code === "LAST_OWNER" && err.status === 409
     );
     assert.ok(!ranUpdate(pool), "UPDATE darf bei Block nicht ausgefuehrt werden");
+
+    /*
+     * MUTATION-KILL (Welle 1). `assertNotLastOwner` waehlt ueber
+     * `const byId = !!target.membershipId` zwischen zwei Abfragen:
+     *
+     *     byId ? "... WHERE id = $1 ..." : "... WHERE user_id = $1 ..."
+     *
+     * Dreht ein Mutant dieses `!!` in ein `!`, sucht die Abfrage in der
+     * FALSCHEN Spalte, findet nichts — und `if (!rowCount) return;`
+     * ueberspringt den Schutz vollstaendig. Die letzte Eigentuemer-Rolle einer
+     * Organisation liesse sich entfernen, die Firma bliebe ohne Administrator.
+     *
+     * Unbemerkt blieb das, weil der Mock auf /SELECT 1 FROM org_memberships/
+     * trifft — das passt auf BEIDE Varianten, also war die Spalte egal. Genau
+     * dieselbe Wurzel wie beim Standort-Fund: der Test prueft das Ergebnis,
+     * nicht WELCHE Abfrage lief.
+     */
+    const guard = pool.calls.find((c) => /SELECT 1 FROM org_memberships/i.test(c.sql));
+    assert.ok(/user_id = \$1/.test(guard.sql),
+      "beim Ziel {userId} muss ueber user_id gesucht werden");
+    assert.strictEqual(guard.params[0], "u1");
+    assert.strictEqual(guard.params[1], "org1", "und org-gebunden");
   });
 
   it("erlaubt Demotion, wenn weitere aktive Owner existieren", async () => {
@@ -100,6 +122,15 @@ describe("rbacService — Last-Owner-Schutz", () => {
       (err) => err.code === "LAST_OWNER"
     );
     assert.ok(!ranUpdate(pool));
+
+    // MUTATION-KILL (Welle 1): Gegenstueck zum Test oben. Beide Aufrufformen
+    // brauchen den Nachweis, sonst faellt die Inversion von `byId` nur in einer
+    // von beiden auf — und ein Mutant ueberlebt in der anderen.
+    const guard = pool.calls.find((c) => /SELECT 1 FROM org_memberships/i.test(c.sql));
+    assert.ok(/WHERE id = \$1/.test(guard.sql),
+      "beim Ziel {membershipId} muss ueber die Mitgliedschafts-ID gesucht werden");
+    assert.strictEqual(guard.params[0], "m1");
+    assert.strictEqual(guard.params[1], "org1", "und org-gebunden");
   });
 
   it("countActiveOwners liefert die Anzahl aktiver Owner", async () => {
