@@ -799,6 +799,103 @@ describe("orgContextMiddleware — die Standortauflösung Zeile für Zeile", () 
   }
 });
 
+/* ═══════════════════════════════════════════════════════════════════════════
+ * Die Bindung muss den Request überleben
+ * ═══════════════════════════════════════════════════════════════════════════
+ *
+ * MUTATION-KILL (Welle 2). `defaultLocationId: membership.location_id || null`
+ * liess sich zu `membership.location_id && null` mutieren — der Wert wird damit
+ * IMMER null. Zwei Mutanten, an zwei Stellen (Header-Pfad und Haupt-Org-Pfad).
+ *
+ * Innerhalb EINES Requests fällt das nicht auf: dort liefert
+ * `activeMembership.location_id` die Bindung direkt. Erst beim NÄCHSTEN Request
+ * schlägt es zu — dann nämlich, wenn der Sitzungs-Cache greift und
+ * `req.orgMembership` bewusst NICHT gesetzt wird ("avoid stale data on cache
+ * path", Zeile 120). Die Bindung kommt dort ausschliesslich aus
+ * `_orgCache.defaultLocationId`.
+ *
+ * Steht dort null, gilt ein standortgebundenes Mitglied als ungebunden — und
+ * darf sich per X-Location-Id auf jeden Standort seiner Organisation setzen.
+ * Ein Test, der nur einen Request betrachtet, kann das prinzipiell nicht sehen.
+ */
+describe("orgContextMiddleware — die Standortbindung ueberlebt den Request", () => {
+  function poolFuer(membership) {
+    return {
+      query: async (sql, params = []) => {
+        if (/org_locations/i.test(sql)) return { rows: [{ id: params[0], name: "Ort" }] };
+        return { rows: membership ? [membership] : [] };
+      }
+    };
+  }
+
+  it("legt die Bindung im Sitzungs-Cache ab", async () => {
+    const gebunden = { ...MEMBERSHIP, location_id: LOC_A };
+    const req = mockReq({ headers: { "x-org-id": ORG_ID } });
+
+    await orgContextMiddleware(poolFuer(gebunden))(req, mockRes(), () => {});
+
+    assert.strictEqual(req.session._orgCache?.defaultLocationId, LOC_A,
+      "ohne diesen Wert ist die Bindung beim naechsten Request vergessen");
+  });
+
+  it("legt die Bindung auch ab, wenn die Org aus der Haupt-Mitgliedschaft kommt", async () => {
+    /*
+     * Der Cache wird an ZWEI Stellen geschrieben: im Header-Pfad und hier, wenn
+     * gar kein Org-Wunsch vorlag und getPrimaryOrg entscheidet. Beide brauchen
+     * ihren eigenen Nachweis — sonst ueberlebt der Mutant in der einen Kopie,
+     * waehrend die andere geprueft ist. Genau dieses Muster hat sich in Welle 1
+     * dreimal gezeigt.
+     */
+    const gebunden = { ...MEMBERSHIP, location_id: LOC_A };
+    const req = mockReq({});   // kein Header, kein Cache
+
+    await orgContextMiddleware(poolFuer(gebunden))(req, mockRes(), () => {});
+
+    assert.strictEqual(req.session._orgCache?.defaultLocationId, LOC_A,
+      "auch ohne ausdruecklichen Org-Wunsch muss die Bindung gemerkt werden");
+  });
+
+  it("verweigert im Folge-Request den fremden Standort — allein aus dem Cache", async () => {
+    /*
+     * Zweiter Request: kein X-Org-Id, also greift der Cache-Pfad. Dort wird
+     * req.orgMembership absichtlich nicht gesetzt — die Bindung kann nur noch
+     * aus dem Cache kommen.
+     */
+    const req = mockReq({
+      headers: { "x-location-id": LOC_B },
+      session: {
+        userId: USER_ID,
+        _orgCache: { orgId: ORG_ID, role: "member", name: "Test GmbH", defaultLocationId: LOC_A }
+      }
+    });
+    const res = mockRes();
+
+    await orgContextMiddleware(poolFuer(null))(req, res, () => {});
+
+    assert.strictEqual(res._status, 403,
+      "die gemerkte Bindung muss den fremden Standort abweisen");
+    assert.strictEqual(res._body.error, "LOCATION_ACCESS_DENIED");
+  });
+
+  it("laesst im Folge-Request den EIGENEN Standort zu", async () => {
+    // Gegenprobe: die Bindung darf nicht pauschal blockieren.
+    const req = mockReq({
+      headers: { "x-location-id": LOC_A },
+      session: {
+        userId: USER_ID,
+        _orgCache: { orgId: ORG_ID, role: "member", name: "Test GmbH", defaultLocationId: LOC_A }
+      }
+    });
+    const res = mockRes();
+
+    await orgContextMiddleware(poolFuer(null))(req, res, () => {});
+
+    assert.strictEqual(res._status, 200, "der eigene Standort ist kein Verstoss");
+    assert.strictEqual(req.locationId, LOC_A);
+    assert.strictEqual(req.locationScope, "bound");
+  });
+});
+
 describe("orgContextMiddleware — req.departmentId", () => {
   it("sets req.departmentId from membership.department_id", async () => {
     const pool = sequencePool(
