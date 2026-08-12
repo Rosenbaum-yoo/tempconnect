@@ -585,6 +585,6 @@ Unverändert aus P9 — sie haben sich getragen:
 | Kennung | Frage | Empfehlung |
 |---|---|---|
 | **D-E1** | Mitarbeiter ohne E-Mail importierbar, wenn Personalnummer vorhanden? | ✅ entschieden: ja — aber die Datenbank lässt es nicht zu, siehe **D-E2** |
-| **D-E2** | Welchen Weg für D5? Platzhalter-Adresse (A), Profil ohne Konto (B), Konto ohne E-Mail (C)? | **B** — `worker_profiles.user_id` nullbar. Bildet ab, dass ein Mitarbeiter existiert, bevor er sich anmeldet; kein Fake-Data; überträgt sich auf die Folgeprojekte |
+| **D-E2** | Welchen Weg für D5? Platzhalter-Adresse (A), Profil ohne Konto (B), Konto ohne E-Mail (C)? | ✅ entschieden 2026-08-11: **B** — `worker_profiles.user_id` nullbar. Bildet ab, dass ein Mitarbeiter existiert, bevor er sich anmeldet; kein Fake-Data; überträgt sich auf die Folgeprojekte |
 | **D-E3** | Weg fuer D6: zweiter Einstieg fuer Profil-IDs (a) oder Vereinheitlichung der bestehenden Loeschpfade (b)? | **(a)** — ein Loeschpfad, der heute nachweislich richtig ist, wird nicht umgebaut, um zwei Zeilen zu sparen |
 | **E-E1** | Welche Zustände soll die Live-Belegschaft führen? (verfügbar, im Einsatz, krank, Montage, …) | erst E1 abwarten: gebaut wird nur, was eine Quelle hat |

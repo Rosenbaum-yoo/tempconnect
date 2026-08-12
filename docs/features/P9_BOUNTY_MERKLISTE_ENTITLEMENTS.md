@@ -789,7 +789,9 @@ niemand umgehen kann.
 gegen die echte Datenbank: zweimal freischalten hinterlässt genau ein Abo, und ein zweites
 aktives wird von der Datenbank abgelehnt).
 
-> **Offene Owner-Entscheidung C-E1 — die eine, die wirklich zählt:**
+> **Owner-Entscheidung C-E1 — ✅ entschieden am 2026-08-11: automatisch nach Zahlung.**
+> *(Der ursprüngliche Wortlaut der Frage bleibt hier stehen, weil die Begründung darunter
+> weiterhin gilt.)*
 > **Automatisch nach Zahlung** oder **erst nach Freigabe im Staff Center?**
 >
 > Meine Empfehlung: **automatisch, mit Ausnahmen.** Standardpläne (BASIS/PLUS/PRO) schalten
