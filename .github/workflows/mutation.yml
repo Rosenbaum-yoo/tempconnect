@@ -56,7 +56,14 @@ jobs:
       # Vorbedingung aus dem Plan: auf einer roten oder flakigen Suite ist jeder
       # Mutation-Score wertlos. Deshalb erst die normale Suite, und nur wenn sie
       # grün ist, der teure Lauf.
-      - name: Suite muss grün sein
+      #
+      # BEWUSST OHNE POSTGRES-DIENST. Dieser Job braucht keine Datenbank: alle
+      # Testdateien im Mutations-Kommando sind DB-frei (das ist Bedingung, sonst
+      # wäre der Lauf nichtdeterministisch). Die rund 13 DB-gebundenen Tests der
+      # Gesamtsuite werden hier also übersprungen — dieser Vorlauf ist damit ein
+      # schwächeres Gatter als ci.yml und ersetzt es NICHT. Er prüft genau das,
+      # worauf der Mutations-Lauf aufbaut.
+      - name: Suite muss grün sein (ohne DB — siehe Kommentar)
         working-directory: ./api
         run: node scripts/run-tests.js
 
