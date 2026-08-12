@@ -93,6 +93,59 @@ describe("orgContextMiddleware — no session", () => {
    * Abfragen liefern nichts —, aber unnoetige Last auf einem Pfad, den jeder
    * ohne Anmeldung erreicht.
    */
+  /*
+   * MUTATION-KILL (Welle 2). `req.setOrgContext` ist der Weg, über den eine
+   * Route den Mandanten-Kontext in ihre Transaktion setzt:
+   *
+   *     SET LOCAL app.current_org_id = <org>
+   *     SET LOCAL app.rls_bypass     = ''
+   *
+   * Drei Mutanten überlebten hier — der Block liess sich leeren, die Bedingung
+   * umdrehen. Fehlt der Helfer, greift die Row-Level-Security nicht: entweder
+   * bricht der Aufruf laut (`undefined is not a function`), oder ein Aufrufer
+   * mit `if (req.setOrgContext)` überspringt ihn stillschweigend — und dann
+   * läuft die Abfrage ohne Mandantenfilter.
+   *
+   * Der Reset auf '' ist dabei so wichtig wie das Setzen: ohne ihn kann eine
+   * wiederverwendete Pool-Verbindung einen Staff-Bypass aus einem früheren
+   * Request behalten.
+   */
+  it("stellt setOrgContext bereit und setzt damit Org UND Bypass-Reset", async () => {
+    const pool = { query: async () => ({ rows: [{ ...MEMBERSHIP, org_id: ORG_ID }] }) };
+    const mw = orgContextMiddleware(pool);
+    const req = mockReq({ headers: { "x-org-id": ORG_ID } });
+
+    await mw(req, mockRes(), () => {});
+
+    assert.strictEqual(typeof req.setOrgContext, "function",
+      "ohne diesen Helfer setzt keine Route den Mandanten-Kontext");
+
+    const abgesetzt = [];
+    await req.setOrgContext({ query: async (sql, params) => { abgesetzt.push({ sql, params }); return {}; } });
+
+    const org = abgesetzt.find((q) => q.sql.includes("current_org_id"));
+    assert.ok(org, "app.current_org_id muss gesetzt werden");
+    assert.strictEqual(org.params[0], ORG_ID, "und zwar auf die aufgelöste Org");
+
+    const bypass = abgesetzt.find((q) => q.sql.includes("rls_bypass"));
+    assert.ok(bypass, "der Staff-Bypass muss ausdrücklich zurückgesetzt werden");
+    assert.strictEqual(bypass.params[0], "",
+      "ein stehengebliebenes 'staff' aus einer wiederverwendeten Verbindung wäre ein Cross-Org-Leseweg");
+  });
+
+  it("setzt setOrgContext NICHT, wenn keine Org aufgelöst wurde", async () => {
+    // Ohne Org gibt es nichts zu setzen — ein Helfer, der `null` in
+    // app.current_org_id schriebe, wäre schlimmer als keiner.
+    const pool = { query: async () => ({ rows: [] }) };
+    const mw = orgContextMiddleware(pool);
+    const req = mockReq({});
+
+    await mw(req, mockRes(), () => {});
+
+    assert.strictEqual(req.orgId, undefined);
+    assert.strictEqual(req.setOrgContext, undefined);
+  });
+
   it("fragt ohne Anmeldung nicht die Datenbank", async () => {
     let abfragen = 0;
     const pool = { query: async () => { abfragen++; return { rows: [] }; } };
