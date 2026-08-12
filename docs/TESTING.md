@@ -195,6 +195,85 @@ See [COVERAGE.md](./COVERAGE.md) for thresholds, interpretation, and CI integrat
 
 ---
 
+## Mutation Testing — was Coverage nicht beweist
+
+Coverage sagt: **„diese Zeile wurde ausgeführt"**. Mutation Testing sagt:
+**„ein eingebauter Bug wird von einem Test gefangen"**. Der Unterschied ist
+nicht akademisch — in dieser Codebasis hat er dreißig Testlücken sichtbar
+gemacht, die alle bei grüner Suite und hoher Coverage bestanden. Ein Beispiel
+aus dem Bestand:
+
+```js
+// Test: mockPool({ rows: [LOC_ROW] })  → antwortet auf JEDE Abfrage gleich
+const result = await getAllowedLocationsForMembership(pool, membership);
+assert.strictEqual(result.length, 1);          // grün
+```
+
+Entfernt man den Rumpf von `if (membership.location_id)`, fällt der Code in die
+org-weite Abfrage — und bekommt vom Mock dieselbe Zeile zurück. Der Test bleibt
+grün, obwohl ein an einen Standort gebundenes Mitglied jetzt **alle**
+Niederlassungen sähe. Die Lehre, die sich durch alle Wellen zieht: **ein Test,
+der das Ergebnis prüft statt WELCHE Abfrage lief, beweist nichts.**
+
+### Ausführen
+
+```bash
+cd api && npm run test:mutation:rbac        # ~1 h, 1292 Mutanten
+```
+
+Bericht danach unter `api/reports/mutation/rbac/index.html` — dort steht je
+Zeile, welcher eingebaute Bug überlebt hat. `reports/` ist gitignored.
+
+### Wann ein Bereich mutiert wird
+
+Nicht überall — jeder Mutant kostet einen kompletten Testlauf. Die Faustregel
+aus der Projektdirektive: **„Würde ein umgedrehtes `if` hier zu 403→200,
+frei-statt-bezahlt, kein-Audit oder falschem Betrag führen?"** Reines
+UI/Format/Logging wird nicht mutiert.
+
+### Das Gate
+
+Score-Ziel **und** null überlebende Mutanten im Entscheidungs-Branch — Letzteres
+wiegt schwerer als die Prozentzahl. **100 % sind kein Ziel:** es gibt
+äquivalente Mutanten ohne beobachtbare Wirkung (z. B. eine Zuweisung nach
+bestandener Prüfung, wo beide Werte ohnehin identisch sind). Die zu „töten"
+hiesse, Tests auf Implementierungsdetails zu schreiben. Jeder verbleibende
+Überlebende wird stattdessen mit einem Satz Begründung eingestuft.
+
+### Zwei Fallen, beide real aufgetreten
+
+- **`incremental: true` beim `command`-Runner.** Stryker sieht dort nur *einen*
+  „Test" (das ganze Kommando) und bemerkt nicht, wenn sich die Testliste ändert.
+  Ein Lauf übernahm die Ergebnisse eines früheren mit halber Testmenge — das
+  Gate hätte auf einer erfundenen Zahl bestanden. Bei jeder Änderung des
+  Kommandos `stryker-incremental.json` **löschen**.
+- **Pfadauflösung über `process.cwd()`.** Stryker läuft in
+  `api/.stryker-tmp/sandbox-XXXXXX/`. Tests, die Projektdateien über feste
+  Ebenen suchen, brechen dort ab oder überspringen lautlos. Aufwärts suchen, bis
+  die Datei wirklich gefunden ist.
+
+### Stand und Plan
+
+| Bereich | Score |
+|---|---|
+| `services/rbacService.js` | 95,04 % |
+| `middleware/rbac.js` | 87,82 % |
+| `utils/orgContext.js` | 93,94 % |
+| `middleware/orgContext.js` | 86,96 % |
+| `utils/orgBoundary.js` | 82,20 % |
+| `services/enterpriseSurfaceAccessService.js` | 89,29 % |
+
+Weitere Bereiche in der Reihenfolge ihrer Wirkung: Auth/Session-Trennung,
+Plan-Entitlement, Geld-Mathematik, Audit-Trail, Status-Maschinen,
+CSRF/Idempotency, DSGVO-Löschung. Je Bereich eine eigene
+`stryker.<bereich>.conf.json` nach demselben Muster.
+
+Nächtlich in CI über [`.github/workflows/mutation.yml`](../.github/workflows/mutation.yml);
+der Bericht wird 30 Tage als Artefakt aufbewahrt. Architektur-Befund zur
+Mandantengrenze: [ORG_GRENZE_BEFUND.md](./ORG_GRENZE_BEFUND.md).
+
+---
+
 ## Integration Test Helpers (`test/integration/helpers.js`)
 
 | Export | Description |

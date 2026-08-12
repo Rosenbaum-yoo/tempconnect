@@ -1,0 +1,75 @@
+name: Mutation Testing (RBAC & Org-Boundary)
+
+# WARUM EIN EIGENER WORKFLOW
+# Mutation Testing führt für JEDEN Mutanten die gesamte Testmenge aus. Der
+# Aggregat-Lauf über RBAC, Org-Kontext und Org-Grenze umfasst rund 1300
+# Mutanten und braucht etwa eine Stunde. In jedem Pull Request wäre das
+# untragbar — deshalb nachts, plus auf Abruf.
+#
+# WAS ER BEWEIST, das die normale Suite nicht beweist
+# Coverage sagt "Zeile wurde ausgeführt". Dieser Lauf sagt "ein eingebauter Bug
+# wird von einem Test gefangen". Für die Mandantengrenze und die
+# Berechtigungsmatrix ist das der Unterschied zwischen geprüft und gehofft.
+#
+# Vollständiger Plan, Wellen und Gates: _TEMPCONNECT_MUTATION_RBAC_PLAN.md
+# Architektur-Befund zur Org-Grenze: docs/ORG_GRENZE_BEFUND.md
+
+on:
+  schedule:
+    # 03:30 UTC — nach dem wöchentlichen CI-Lauf (02:17 montags), täglich.
+    - cron: '30 3 * * *'
+  workflow_dispatch:
+    inputs:
+      grund:
+        description: 'Warum wird der Lauf von Hand ausgelöst?'
+        required: false
+        default: 'manuelle Prüfung'
+
+concurrency:
+  group: mutation-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  NODE_VERSION: '20'
+
+jobs:
+  mutation-rbac:
+    name: RBAC, Org-Kontext, Org-Grenze
+    runs-on: ubuntu-latest
+    # Der Lauf dauert ~1 h. Grosszügig, aber nicht unbegrenzt: ein Lauf, der
+    # 90 Minuten überschreitet, hat ein anderes Problem als Rechenzeit.
+    timeout-minutes: 90
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          cache-dependency-path: api/package-lock.json
+
+      - name: Abhängigkeiten
+        working-directory: ./api
+        run: npm ci
+
+      # Vorbedingung aus dem Plan: auf einer roten oder flakigen Suite ist jeder
+      # Mutation-Score wertlos. Deshalb erst die normale Suite, und nur wenn sie
+      # grün ist, der teure Lauf.
+      - name: Suite muss grün sein
+        working-directory: ./api
+        run: node scripts/run-tests.js
+
+      - name: Mutation-Lauf
+        working-directory: ./api
+        run: npm run test:mutation:rbac
+
+      # Der Bericht ist das eigentliche Werkzeug: er zeigt je Zeile, welcher
+      # eingebaute Bug überlebt hat. Ohne ihn bleibt nur eine Zahl.
+      - name: Bericht sichern
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: mutation-report-rbac
+          path: api/reports/mutation/rbac/
+          retention-days: 30

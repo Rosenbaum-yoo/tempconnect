@@ -4,11 +4,15 @@
   "testRunner": "command",
   "coverageAnalysis": "off",
   "mutate": [
+    "services/rbacService.js",
+    "middleware/rbac.js",
     "utils/orgContext.js",
-    "middleware/orgContext.js"
+    "middleware/orgContext.js",
+    "utils/orgBoundary.js",
+    "services/enterpriseSurfaceAccessService.js"
   ],
   "commandRunner": {
-    "command": "node --test --test-force-exit test/orgContext.test.js test/rlsTenantIsolation.test.js"
+    "command": "node --test --test-force-exit test/rbacService.test.js test/rbac.test.js test/rbac-middleware.test.js test/rbac-hardening.test.js test/rbacLastOwner.test.js test/security/permission-bypass.test.js test/security/role-escalation.test.js test/security/rbac-security.test.js test/orgContext.test.js test/rlsTenantIsolation.test.js test/orgBoundary.test.js test/enterpriseSurfaceAccessService.test.js test/visibilityMatrix.test.js test/rateCardAccessGate.test.js"
   },
   "reporters": [
     "clear-text",
@@ -22,12 +26,13 @@
     "fileName": "reports/mutation/rbac/mutation.json"
   },
   "thresholds": {
-    "high": 85,
-    "low": 70,
+    "high": 90,
+    "low": 80,
     "break": 0
   },
   "concurrency": "50%",
   "timeoutMS": 60000,
-  "incremental": false,
+  "incremental": true,
+  "incrementalFile": "reports/mutation/rbac/stryker-incremental.json",
   "cleanTempDir": "always"
 }
