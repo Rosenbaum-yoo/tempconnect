@@ -2,6 +2,146 @@ import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 import { resolveEnterpriseSurfaceAccess } from "../services/enterpriseSurfaceAccessService.js";
 
+/* ═══════════════════════════════════════════════════════════════════════════
+ * Die Flächenmatrix, Zeile für Zeile
+ * ═══════════════════════════════════════════════════════════════════════════
+ *
+ * MUTATION-WELLE 3. Der Dienst entscheidet für ~10 Flächen je einen Modus und
+ * bis zu fünf Fähigkeiten — rund 60 boolesche Aussagen. Geprüft waren davon
+ * eine Handvoll, entsprechend überlebten 92 Mutanten: jedes `isAdmin`, das zu
+ * `true` wird, jedes `proPlan &&`, das wegfällt.
+ *
+ * Einzeltests dafür wären unlesbar. Stattdessen eine Tabelle: je Kontext die
+ * ERWARTETE Zeile der Matrix, vollständig. Das ist zugleich die einzige
+ * lesbare Fassung dessen, was das Produkt eigentlich zusagt — wer wissen will,
+ * was ein Disponent im DEMO-Tarif sieht, liest hier eine Zeile statt fünf
+ * Verzweigungen im Dienst.
+ *
+ * Rollenmengen (aus dem Dienst):
+ *   ADMIN   = platform_admin, owner, admin
+ *   SENIOR  = ADMIN + program_manager
+ *   MANAGER = SENIOR + supplier_manager
+ */
+const FAELLE = [
+  {
+    was: "Agentur, Eigentümer",
+    ctx: { plan: "PRO", orgType: "agency", orgRole: "owner" },
+    erwartet: {
+      vendor_pool:         { mode: "org_locked" },
+      supplier_scorecard:  { mode: "org_locked" },
+      rate_cards:          { mode: "org_locked" },
+      spend_analytics:     { mode: "org_locked" },
+      executive_dashboard: { mode: "org_locked" },
+      data_governance:     { mode: "org_locked" },
+      compliance_overview: { mode: "full", canRead: true, canUpload: true, canVerify: true, canDelete: true, canManage: true },
+      audit_trail:         { mode: "full", canRead: true, canExport: true, canFilter: true },
+      multi_location:      { mode: "full", canRead: true, canWrite: true, canManage: true }
+    }
+  },
+  {
+    was: "Agentur, einfacher Mitarbeiter",
+    ctx: { plan: "PRO", orgType: "agency", orgRole: "supplier_user" },
+    erwartet: {
+      vendor_pool:         { mode: "org_locked" },
+      compliance_overview: { mode: "full", canRead: true, canUpload: true, canVerify: false, canDelete: false, canManage: false },
+      audit_trail:         { mode: "full", canRead: true, canExport: false, canFilter: true },
+      multi_location:      { mode: "full", canRead: true, canWrite: false, canManage: false }
+    }
+  },
+  {
+    was: "Unternehmen PRO, Eigentümer",
+    ctx: { plan: "PRO", orgType: "company", orgRole: "owner" },
+    erwartet: {
+      vendor_pool:         { mode: "full", canRead: true, canManage: true, canInvite: true, canWrite: true },
+      supplier_scorecard:  { mode: "full", canRead: true, canAnnotate: true, canExport: true, canWrite: true },
+      rate_cards:          { mode: "full", canRead: true, canWrite: true, canPublish: true, canExport: true },
+      spend_analytics:     { mode: "full", canRead: true, canWrite: true, canExport: true, canDrilldown: true, canCompare: true },
+      executive_dashboard: { mode: "full", canRead: true, canExport: true },
+      data_governance:     { mode: "full", canRead: true, canExport: true, canAnonymize: true, canRetention: true, canRequests: true },
+      compliance_overview: { mode: "full", canRead: true, canUpload: true, canVerify: true, canDelete: true, canManage: true }
+    }
+  },
+  {
+    was: "Unternehmen PRO, Buchhaltung",
+    ctx: { plan: "PRO", orgType: "company", orgRole: "finance" },
+    erwartet: {
+      // finance ist weder Admin noch Senior noch Manager
+      vendor_pool:         { mode: "read_only", canRead: true, canManage: false, canInvite: false, canWrite: false },
+      supplier_scorecard:  { mode: "read_only", canRead: true, canAnnotate: false, canExport: true, canWrite: false },
+      // Sonderfall: darf exportieren, aber nicht schreiben
+      rate_cards:          { mode: "full", canRead: true, canWrite: false, canPublish: false, canExport: true },
+      spend_analytics:     { mode: "full", canRead: true, canWrite: false, canExport: true, canDrilldown: true, canCompare: false },
+      executive_dashboard: { mode: "role_locked", canRead: false, canExport: false },
+      data_governance:     { mode: "role_locked", canRead: false, canExport: false, canAnonymize: false, canRetention: false, canRequests: false },
+      compliance_overview: { mode: "read_only", canRead: true, canUpload: false, canVerify: false, canDelete: false, canManage: false },
+      audit_trail:         { mode: "full", canRead: true, canExport: false, canFilter: true }
+    }
+  },
+  {
+    was: "Unternehmen PRO, Programmleitung",
+    ctx: { plan: "PRO", orgType: "company", orgRole: "program_manager" },
+    erwartet: {
+      // Senior und Manager, aber NICHT Admin
+      vendor_pool:         { mode: "full", canRead: true, canManage: false, canInvite: true, canWrite: true },
+      supplier_scorecard:  { mode: "full", canRead: true, canAnnotate: true, canExport: true, canWrite: true },
+      rate_cards:          { mode: "full", canRead: true, canWrite: false, canPublish: false, canExport: false },
+      spend_analytics:     { mode: "full", canRead: true, canWrite: false, canExport: true, canDrilldown: true, canCompare: true },
+      executive_dashboard: { mode: "full", canRead: true, canExport: true },
+      data_governance:     { mode: "role_locked", canRead: false },
+      compliance_overview: { mode: "full", canRead: true, canUpload: true, canVerify: true, canDelete: false, canManage: false }
+    }
+  },
+  {
+    was: "Unternehmen PRO, Lieferantenbetreuung",
+    ctx: { plan: "PRO", orgType: "company", orgRole: "supplier_manager" },
+    erwartet: {
+      // Manager, aber weder Senior noch Admin
+      vendor_pool:         { mode: "full", canRead: true, canManage: false, canInvite: true, canWrite: true },
+      supplier_scorecard:  { mode: "full", canRead: true, canAnnotate: true, canExport: true, canWrite: false },
+      executive_dashboard: { mode: "role_locked", canRead: false, canExport: false },
+      spend_analytics:     { mode: "full", canCompare: false }
+    }
+  },
+  {
+    was: "Unternehmen PRO, Lieferanten-Nutzer",
+    ctx: { plan: "PRO", orgType: "company", orgRole: "supplier_user" },
+    erwartet: {
+      // Sonderfall: gesperrt, darf aber hochladen
+      compliance_overview: { mode: "role_locked", canRead: false, canUpload: true, canVerify: false, canDelete: false, canManage: false }
+    }
+  },
+  {
+    was: "Unternehmen DEMO, Eigentümer",
+    ctx: { plan: "DEMO", orgType: "company", orgRole: "owner" },
+    erwartet: {
+      // Rolle voll, Plan sperrt — die bezahlten Flächen bleiben zu
+      vendor_pool:         { mode: "full", canRead: true, canManage: true },
+      rate_cards:          { mode: "plan_locked", canRead: false, canWrite: false, canPublish: false, canExport: false },
+      spend_analytics:     { mode: "plan_locked", canRead: false, canWrite: false, canExport: false, canDrilldown: false, canCompare: false },
+      data_governance:     { mode: "plan_locked", canRead: false, canExport: false, canAnonymize: false, canRetention: false, canRequests: false },
+      executive_dashboard: { mode: "full", canRead: true, canExport: true },
+      audit_trail:         { mode: "full", canRead: true, canExport: true, canFilter: true }
+    }
+  }
+];
+
+describe("enterpriseSurfaceAccessService — die Matrix Zeile für Zeile", () => {
+  for (const fall of FAELLE) {
+    it(fall.was, () => {
+      const access = resolveEnterpriseSurfaceAccess({ role: fall.ctx.orgType, ...fall.ctx });
+      for (const [flaeche, felder] of Object.entries(fall.erwartet)) {
+        assert.ok(access[flaeche], `Fläche ${flaeche} fehlt in der Antwort`);
+        for (const [feld, soll] of Object.entries(felder)) {
+          assert.strictEqual(
+            access[flaeche][feld], soll,
+            `${fall.was} → ${flaeche}.${feld}: erwartet ${soll}, bekommen ${access[flaeche][feld]}`
+          );
+        }
+      }
+    });
+  }
+});
+
 describe("enterpriseSurfaceAccessService", () => {
   it("grants full buyer and governance surfaces to a PRO company owner", () => {
     const access = resolveEnterpriseSurfaceAccess({

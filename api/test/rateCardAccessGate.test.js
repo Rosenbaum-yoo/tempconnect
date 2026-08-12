@@ -28,10 +28,36 @@ import { fileURLToPath } from "node:url";
 import { resolveEnterpriseSurfaceAccess } from "../services/enterpriseSurfaceAccessService.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const REPO_ROOT = path.resolve(__dirname, "..", "..");
-const SEITE = path.join(REPO_ROOT, "frontend/public/rate-cards.html");
 
-const vorhanden = fs.existsSync(SEITE);
+/*
+ * NACHGEBESSERT (2026-08-11, Mutation-Welle 3). `path.resolve(__dirname, "..", "..")`
+ * setzt voraus, dass die Testdatei genau zwei Ebenen unter dem Repo liegt. Unter
+ * Stryker stimmt das nicht: der Lauf findet in api/.stryker-tmp/sandbox-XXXXXX/
+ * statt, zwei Ebenen aufwaerts landen in .stryker-tmp — die Seite ist dort nicht,
+ * die Suite skippt lautlos, und der Mutations-Score behauptet eine Abdeckung,
+ * die es im Lauf gar nicht gab.
+ *
+ * Jetzt wird aufwaerts gesucht, bis die Datei wirklich gefunden ist.
+ */
+const SEITE_REL = "frontend/public/rate-cards.html";
+
+function findeDatei(startVerzeichnisse, relPfad) {
+  for (const start of startVerzeichnisse) {
+    let dir = path.resolve(start);
+    for (let i = 0; i < 8; i++) {
+      const kandidat = path.join(dir, relPfad);
+      if (fs.existsSync(kandidat)) return kandidat;
+      const eltern = path.dirname(dir);
+      if (eltern === dir) break;
+      dir = eltern;
+    }
+  }
+  return null;
+}
+
+const SEITE = findeDatei([process.cwd(), __dirname], SEITE_REL);
+
+const vorhanden = Boolean(SEITE);
 const suite = vorhanden ? describe : describe.skip;
 
 suite("P9/C1 · Preisrahmen-Zugriff kommt vom Server", () => {

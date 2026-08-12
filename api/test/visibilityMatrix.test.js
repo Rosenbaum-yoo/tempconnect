@@ -33,9 +33,34 @@ import { resolveEnterpriseSurfaceAccess } from "../services/enterpriseSurfaceAcc
 // mehr still uebersprungen (Test-Integritaet, CLAUDE.md §0).
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const HUB_VISIBILITY_REL = "frontend/public/js/hubVisibility.js";
-const _ROOT_DOCKER = process.cwd();                         // /app im Docker-API-Container
-const _ROOT_LOCAL = path.resolve(__dirname, "..", "..");    // <repo> ueber api/test/
-const ROOT = fs.existsSync(path.join(_ROOT_DOCKER, HUB_VISIBILITY_REL)) ? _ROOT_DOCKER : _ROOT_LOCAL;
+
+/*
+ * NACHGEBESSERT (2026-08-11, Mutation-Welle 3). Vorher wurden genau ZWEI
+ * Kandidaten geprueft: process.cwd() und zwei Ebenen ueber der Testdatei. Beide
+ * scheitern unter Stryker, weil der Lauf in api/.stryker-tmp/sandbox-XXXXXX/
+ * stattfindet — dort liegt weder ein frontend/ noch fuehren zwei Ebenen
+ * aufwaerts zum Repo. Folge: der gesamte Welle-3-Lauf brach im Trockenlauf ab.
+ *
+ * Statt eine dritte feste Ebene zu raten, wird jetzt AUFWAERTS GESUCHT, bis ein
+ * Verzeichnis die Datei wirklich enthaelt. Das deckt jede Verschachtelung ab —
+ * lokal (cwd=api/), Docker (/app mit Lese-Mount) und den Stryker-Sandbox — und
+ * bleibt richtig, wenn sich das Layout aendert.
+ */
+function findeWurzel(startVerzeichnisse, relPfad) {
+  for (const start of startVerzeichnisse) {
+    let dir = path.resolve(start);
+    for (let i = 0; i < 8; i++) {
+      if (fs.existsSync(path.join(dir, relPfad))) return dir;
+      const eltern = path.dirname(dir);
+      if (eltern === dir) break;   // Dateisystem-Wurzel erreicht
+      dir = eltern;
+    }
+  }
+  return null;
+}
+
+const ROOT = findeWurzel([process.cwd(), __dirname], HUB_VISIBILITY_REL)
+  || path.resolve(__dirname, "..", "..");
 
 const HUB_VISIBILITY_FILE = path.join(ROOT, HUB_VISIBILITY_REL);
 const HUB_VISIBILITY_AVAILABLE = fs.existsSync(HUB_VISIBILITY_FILE);
