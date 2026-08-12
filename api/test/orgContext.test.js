@@ -93,6 +93,41 @@ describe("orgContextMiddleware — no session", () => {
    * Abfragen liefern nichts —, aber unnoetige Last auf einem Pfad, den jeder
    * ohne Anmeldung erreicht.
    */
+  it("fragt ohne Anmeldung nicht die Datenbank", async () => {
+    let abfragen = 0;
+    const pool = { query: async () => { abfragen++; return { rows: [] }; } };
+    const mw = orgContextMiddleware(pool);
+    const req = { headers: {}, session: {} };   // angemeldet: nein
+    let nextCalled = false;
+
+    await mw(req, mockRes(), () => { nextCalled = true; });
+
+    assert.ok(nextCalled);
+    assert.strictEqual(abfragen, 0,
+      "die Abkuerzung muss VOR jeder Abfrage greifen — sonst ist der Pfad ohne Anmeldung erreichbar");
+    assert.strictEqual(req.orgId, undefined, "und es darf kein Org-Kontext entstehen");
+  });
+
+  it("calls next() immediately when no session", async () => {
+    const mw = orgContextMiddleware(noQueryPool());
+    let nextCalled = false;
+    await mw({ headers: {}, query: {}, body: {} }, mockRes(), () => { nextCalled = true; });
+    assert.ok(nextCalled);
+  });
+
+  it("calls next() when session exists but userId is missing", async () => {
+    const mw = orgContextMiddleware(noQueryPool());
+    let nextCalled = false;
+    await mw(mockReq({ session: {} }), mockRes(), () => { nextCalled = true; });
+    assert.ok(nextCalled);
+  });
+});
+
+// ═══════════════════════════════════════════════════════════════
+// setOrgContext — der Helfer, ueber den RLS gesetzt wird
+// ═══════════════════════════════════════════════════════════════
+
+describe("orgContextMiddleware — setOrgContext", () => {
   /*
    * MUTATION-KILL (Welle 2). `req.setOrgContext` ist der Weg, über den eine
    * Route den Mandanten-Kontext in ihre Transaktion setzt:
@@ -146,34 +181,6 @@ describe("orgContextMiddleware — no session", () => {
     assert.strictEqual(req.setOrgContext, undefined);
   });
 
-  it("fragt ohne Anmeldung nicht die Datenbank", async () => {
-    let abfragen = 0;
-    const pool = { query: async () => { abfragen++; return { rows: [] }; } };
-    const mw = orgContextMiddleware(pool);
-    const req = { headers: {}, session: {} };   // angemeldet: nein
-    let nextCalled = false;
-
-    await mw(req, mockRes(), () => { nextCalled = true; });
-
-    assert.ok(nextCalled);
-    assert.strictEqual(abfragen, 0,
-      "die Abkuerzung muss VOR jeder Abfrage greifen — sonst ist der Pfad ohne Anmeldung erreichbar");
-    assert.strictEqual(req.orgId, undefined, "und es darf kein Org-Kontext entstehen");
-  });
-
-  it("calls next() immediately when no session", async () => {
-    const mw = orgContextMiddleware(noQueryPool());
-    let nextCalled = false;
-    await mw({ headers: {}, query: {}, body: {} }, mockRes(), () => { nextCalled = true; });
-    assert.ok(nextCalled);
-  });
-
-  it("calls next() when session exists but userId is missing", async () => {
-    const mw = orgContextMiddleware(noQueryPool());
-    let nextCalled = false;
-    await mw(mockReq({ session: {} }), mockRes(), () => { nextCalled = true; });
-    assert.ok(nextCalled);
-  });
 });
 
 // ═══════════════════════════════════════════════════════════════
@@ -649,6 +656,148 @@ describe("orgContextMiddleware — location security", () => {
 // ═══════════════════════════════════════════════════════════════
 // req.departmentId
 // ═══════════════════════════════════════════════════════════════
+
+/* ═══════════════════════════════════════════════════════════════════════════
+ * Die Standortauflösung, Zeile für Zeile
+ * ═══════════════════════════════════════════════════════════════════════════
+ *
+ * MUTATION-WELLE 2. Die Auflösung hängt an vier Größen — Header, Bindung der
+ * Mitgliedschaft, Sitzungs-Cache, Existenz des Standorts — und mündet in fünf
+ * mögliche Ausgänge: 'bound', 'active', 'org', kein Kontext, oder ein 403.
+ * Das sind gut sechzig Zeilen verschachtelter Zweige, und rund vierzig
+ * Mutanten überlebten darin.
+ *
+ * Einzeltests je Zweig hätten dasselbe Problem erzeugt wie beim Flächen-Dienst:
+ * unlesbar und trotzdem lückenhaft. Also eine Tabelle — je Zeile ein Kontext,
+ * je Zeile das vollständige erwartete Ergebnis.
+ *
+ * WICHTIG am Mock: er antwortet PARAMETERABHÄNGIG. Ein Mock, der jede
+ * Standortabfrage gleich beantwortet, kann nicht unterscheiden, WELCHER Standort
+ * geladen wurde — und genau daran ist mein erster Versuch für die
+ * Cache-Bereinigung gescheitert (er blieb grün, obwohl der Mutant lebte).
+ */
+function ortsPool({ membership, vorhanden = [LOC_A, LOC_B] }) {
+  const namen = { [LOC_A]: "HQ", [LOC_B]: "Zweigstelle" };
+  return {
+    query: async (sql, params = []) => {
+      if (/org_locations/i.test(sql)) {
+        const gefragt = params[0];
+        return vorhanden.includes(gefragt)
+          ? { rows: [{ id: gefragt, name: namen[gefragt] }] }
+          : { rows: [] };
+      }
+      return { rows: membership ? [membership] : [] };
+    }
+  };
+}
+
+const GEBUNDEN   = { ...MEMBERSHIP, location_id: LOC_A };
+const UNGEBUNDEN = { ...MEMBERSHIP, location_id: null };
+
+const STANDORT_FAELLE = [
+  {
+    was: "Header, ungebunden, Standort existiert → frei gewählt",
+    membership: UNGEBUNDEN,
+    req: { headers: { "x-location-id": LOC_B } },
+    erwartet: { locationId: LOC_B, locationName: "Zweigstelle", locationScope: "active" },
+    cacheDanach: { locationId: LOC_B }
+  },
+  {
+    was: "Header, gebunden, Header = Bindung → bestätigt",
+    membership: GEBUNDEN,
+    req: { headers: { "x-location-id": LOC_A } },
+    erwartet: { locationId: LOC_A, locationScope: "bound" }
+  },
+  {
+    was: "Header, gebunden, Header ≠ Bindung → 403, und zwar OHNE Abfrage",
+    membership: GEBUNDEN,
+    req: { headers: { "x-location-id": LOC_B } },
+    status: 403,
+    fehler: "LOCATION_ACCESS_DENIED",
+    keineOrtsabfrage: true          // die Bindung entscheidet, bevor die DB gefragt wird
+  },
+  {
+    was: "Header, ungebunden, Standort gehört nicht zur Org → 403",
+    membership: UNGEBUNDEN,
+    req: { headers: { "x-location-id": LOC_B } },
+    vorhanden: [LOC_A],             // LOC_B existiert nicht (mehr)
+    status: 403,
+    fehler: "LOCATION_NOT_IN_ORG"
+  },
+  {
+    was: "kein Header, Cache gesetzt, ungebunden → Cache gilt",
+    membership: UNGEBUNDEN,
+    req: { session: { userId: USER_ID, _locationCache: { locationId: LOC_B, locationName: "Zweigstelle" } } },
+    erwartet: { locationId: LOC_B, locationScope: "active" }
+  },
+  {
+    was: "kein Header, Cache = Bindung → gebunden",
+    membership: GEBUNDEN,
+    req: { session: { userId: USER_ID, _locationCache: { locationId: LOC_A, locationName: "HQ" } } },
+    erwartet: { locationId: LOC_A, locationScope: "bound" }
+  },
+  {
+    was: "kein Header, Cache zeigt auf einen geloeschten Standort → faellt auf die Bindung zurueck",
+    membership: GEBUNDEN,
+    req: { session: { userId: USER_ID, _locationCache: { locationId: LOC_B, locationName: "Weg" } } },
+    vorhanden: [LOC_A],
+    erwartet: { locationId: LOC_A, locationScope: "bound" }
+  },
+  {
+    was: "kein Header, kein Cache, gebunden → Standort der Mitgliedschaft",
+    membership: GEBUNDEN,
+    req: {},
+    erwartet: { locationId: LOC_A, locationScope: "bound" }
+  },
+  {
+    was: "kein Header, kein Cache, ungebunden → org-weit",
+    membership: UNGEBUNDEN,
+    req: {},
+    erwartet: { locationId: undefined, locationScope: "org" }
+  },
+  {
+    was: "keine Mitgliedschaft → gar kein Standort-Kontext",
+    membership: null,
+    req: {},
+    erwartet: { locationId: undefined, locationScope: null }
+  }
+];
+
+describe("orgContextMiddleware — die Standortauflösung Zeile für Zeile", () => {
+  for (const fall of STANDORT_FAELLE) {
+    it(fall.was, async () => {
+      const pool = ortsPool({ membership: fall.membership, vorhanden: fall.vorhanden });
+      const gestellt = [];
+      const beobachtet = {
+        query: async (sql, params) => { gestellt.push({ sql, params }); return pool.query(sql, params); }
+      };
+
+      const mw = orgContextMiddleware(beobachtet);
+      const req = mockReq(fall.req);
+      const res = mockRes();
+      await mw(req, res, () => {});
+
+      if (fall.status) {
+        assert.strictEqual(res._status, fall.status, `${fall.was}: Status`);
+        assert.strictEqual(res._body.error, fall.fehler, `${fall.was}: Fehlercode`);
+        if (fall.keineOrtsabfrage) {
+          assert.ok(!gestellt.some((q) => /org_locations/i.test(q.sql)),
+            "die Bindung muss entscheiden, bevor die Datenbank ueberhaupt gefragt wird");
+        }
+        return;
+      }
+
+      for (const [feld, soll] of Object.entries(fall.erwartet)) {
+        assert.strictEqual(req[feld], soll,
+          `${fall.was} → ${feld}: erwartet ${soll}, bekommen ${req[feld]}`);
+      }
+      if (fall.cacheDanach) {
+        assert.strictEqual(req.session._locationCache?.locationId, fall.cacheDanach.locationId,
+          "eine ausdrueckliche Wahl per Header muss in der Sitzung erhalten bleiben");
+      }
+    });
+  }
+});
 
 describe("orgContextMiddleware — req.departmentId", () => {
   it("sets req.departmentId from membership.department_id", async () => {
