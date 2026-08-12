@@ -321,6 +321,41 @@ describe("orgContextMiddleware — explicit org via header", () => {
     assert.strictEqual(req.orgId, undefined);
   });
 
+  /*
+   * MUTATION-KILL (Welle 2). `if (!req.orgId) { … }` — der Rückfall auf
+   * Sitzungs-Cache bzw. Haupt-Org — liess sich zu `true` mutieren und überlebte.
+   *
+   * Über den HEADER ist das folgenlos: dort wird `_orgCache` unmittelbar davor
+   * auf dieselbe Org gesetzt, der Rückfall stellt also denselben Wert wieder her.
+   * Über den QUERY-Parameter nicht: dort bleibt der Cache unberührt (die
+   * Aktualisierung hängt an `if (explicitOrgHeader)`), und ein noch stehender
+   * Cache aus einer früheren Org gewinnt.
+   *
+   * Folge: der Nutzer arbeitet in Org A weiter, obwohl er ausdrücklich Org B
+   * angefragt hat — bei beiden ist er Mitglied, es ist also kein Zugriffsbruch,
+   * aber er sieht die Daten der falschen Firma. In einer Mandantenanwendung ist
+   * das die Sorte Fehler, die man erst bemerkt, wenn jemand etwas ins falsche
+   * Unternehmen schreibt.
+   */
+  it("ein org_id aus query sticht einen noch stehenden Sitzungs-Cache", async () => {
+    const mw = orgContextMiddleware({
+      query: async () => ({ rows: [{ ...MEMBERSHIP, org_id: ORG_ID_B, org_name: "Zweite" }] })
+    });
+    const req = mockReq({
+      query: { org_id: ORG_ID_B },
+      session: {
+        userId:    USER_ID,
+        _orgCache: { orgId: ORG_ID, role: "owner", name: "Erste", defaultLocationId: null }
+      }
+    });
+
+    await mw(req, mockRes(), () => {});
+
+    assert.strictEqual(req.orgId, ORG_ID_B,
+      "die ausdrücklich angefragte Org muss gewinnen, nicht der alte Cache");
+    assert.strictEqual(req.orgName, "Zweite");
+  });
+
   it("explicit org_id from query param is accepted (valid UUID)", async () => {
     const pool = sequencePool({ rows: [MEMBERSHIP] });
     const mw = orgContextMiddleware(pool);

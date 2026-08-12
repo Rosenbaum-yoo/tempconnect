@@ -4,11 +4,11 @@
   "testRunner": "command",
   "coverageAnalysis": "off",
   "mutate": [
-    "utils/orgBoundary.js",
-    "services/enterpriseSurfaceAccessService.js"
+    "utils/orgContext.js",
+    "middleware/orgContext.js"
   ],
   "commandRunner": {
-    "command": "node --test --test-force-exit test/orgBoundary.test.js test/enterpriseSurfaceAccessService.test.js test/visibilityMatrix.test.js test/rateCardAccessGate.test.js"
+    "command": "node --test --test-force-exit test/orgContext.test.js test/rlsTenantIsolation.test.js"
   },
   "reporters": [
     "clear-text",
