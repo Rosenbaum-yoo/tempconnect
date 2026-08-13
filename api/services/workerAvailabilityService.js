@@ -103,6 +103,29 @@ export async function resolveAvailability(pool, workerProfileId) {
     [profil.user_id]
   );
 
+  /* Abwesenheit am MENSCHEN (Mig 177, Welle E2). Sie kam nach diesem Dienst dazu
+   * und muss hier gelesen werden, sonst entstuende genau die Schattenwahrheit,
+   * die das Projekt verbietet: der Disponent meldet jemanden krank, und der
+   * Angebotsgenerator bietet ihn weiter an. Die naechste noch nicht beendete
+   * Abwesenheit genuegt — vergangene sagen ueber die Zukunft nichts. */
+  const { rows: [abwesenheit] } = await pool.query(
+    `SELECT art, von, bis
+       FROM worker_absences
+      WHERE worker_profile_id = $1
+        AND supplier_org_id = $2
+        AND aufgehoben_am IS NULL
+        AND (bis IS NULL OR bis >= CURRENT_DATE)
+      ORDER BY von ASC
+      LIMIT 1`,
+    [profil.id, profil.supplier_org_id]
+  );
+
+  const abwesendVon = alsDatum(abwesenheit?.von);
+  const abwesendBis = alsDatum(abwesenheit?.bis);
+  // "laeuft gerade" heisst: der Zeitraum hat begonnen. Eine erst kommende
+  // Abwesenheit blockiert heute nichts — sie wird nur mitgeteilt.
+  const abwesendJetzt = Boolean(abwesendVon && abwesendVon <= heute());
+
   const offeneFragen = [];
 
   // ── verfuegbar ab ─────────────────────────────────────────────────────────
@@ -127,6 +150,26 @@ export async function resolveAvailability(pool, workerProfileId) {
     // Keine Historie = neue Kraft. Das ist genau der Fall, den der Aufnahme-Assistent
     // abdeckt: eine Frage statt einer Annahme.
     offeneFragen.push("available_from");
+  }
+
+  /* ── Die laufende Abwesenheit schlaegt jede Herleitung ──────────────────────
+   * Auch eine ausdrueckliche Angabe: "verfuegbar ab 01.09." wurde geschrieben,
+   * bevor jemand krank wurde. Ein Angebot, das die Agentur nicht halten kann,
+   * ist teurer als eine Luecke im Formular. */
+  if (abwesendJetzt) {
+    if (abwesendBis) {
+      const wiederDa = tagDanach(abwesendBis);
+      if (!availableFrom || availableFrom < wiederDa) {
+        availableFrom = wiederDa;
+        herkunftAb = HERKUNFT.ABGELEITET;
+      }
+    } else {
+      // Offenes Ende: niemand weiss, wann die Kraft zurueckkommt. Raten waere hier
+      // am schaedlichsten — deshalb ehrlich unbekannt und eine Frage daraus machen.
+      availableFrom = null;
+      herkunftAb = HERKUNFT.UNBEKANNT;
+      if (!offeneFragen.includes("available_from")) offeneFragen.push("available_from");
+    }
   }
 
   // ── Umfang ────────────────────────────────────────────────────────────────
@@ -168,8 +211,13 @@ export async function resolveAvailability(pool, workerProfileId) {
       radius_km: herkunftRadius
     },
     belegt_bis: historie?.unbefristet_gebunden ? null : alsDatum(historie?.letztes_ende),
-    abwesend_ab: alsDatum(historie?.abwesend_ab),
-    abwesenheitsgrund: historie?.abwesenheitsgrund || null,
+    /* Die Abmeldung am Menschen gewinnt gegen die am Einsatz: sie hat eine
+     * auswertbare Art statt eines Freitextes, und sie gilt auch ohne Einsatz.
+     * Die Einsatz-Felder bleiben Rueckfallebene fuer den Bestand. */
+    abwesend_ab: abwesendVon || alsDatum(historie?.abwesend_ab),
+    abwesend_bis: abwesenheit ? abwesendBis : null,
+    abwesenheitsgrund: abwesenheit?.art || historie?.abwesenheitsgrund || null,
+    abwesenheit_quelle: abwesenheit ? "profil" : (historie?.abwesend_ab ? "einsatz" : null),
     offene_fragen: offeneFragen
   };
 }

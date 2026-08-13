@@ -536,10 +536,27 @@ export async function getCompanyLiveWorkforce(pool, companyOrgId, filters = {}) 
   return { available: true, workers: rows, kpis, scope, generated_at: new Date().toISOString() };
 }
 
+/* Die Zustaende der Tafel sind AUSSCHLIESSEND — jeder Mensch steht in genau einem.
+ * Die Rangfolge ist bewusst und wird von Gate E4 geprueft (Summe der Reiter = Gesamtzahl):
+ *
+ *   inaktiv   schlaegt alles: wer nicht mehr beschaeftigt ist, ist keine Disposition wert.
+ *   abwesend  schlaegt den Einsatz: wer krank ist, ist heute nicht da — auch wenn
+ *             der Einsatz formal laeuft. Genau das ist die Information, wegen der
+ *             der Disponent auf die Tafel schaut. Der Einsatz-Kontext (Kunde,
+ *             Enddatum) bleibt in der Zeile stehen, damit sichtbar ist, WO die
+ *             Kraft fehlt.
+ *   endet_bald / im_einsatz / verfuegbar wie bisher.
+ */
 export async function getWorkerLiveBoard(pool, supplierOrgId, filters = {}) {
   const scope = { supplier_org_id: supplierOrgId || null, ends_soon_days: LIVE_BOARD_ENDS_SOON_DAYS };
-  const emptyKpis = { total: 0, im_einsatz: 0, verfuegbar: 0, endet_bald: 0, inaktiv: 0, open_timesheets: 0, auslastung_pct: 0 };
-  if (!supplierOrgId) return { available: false, workers: [], kpis: emptyKpis, scope };
+  const emptyKpis = {
+    total: 0, im_einsatz: 0, verfuegbar: 0, endet_bald: 0, abwesend: 0, inaktiv: 0,
+    open_timesheets: 0, auslastung_pct: 0,
+    abwesend_nach_art: { krank: 0, urlaub: 0, termin: 0, sonstiges: 0 }
+  };
+  if (!supplierOrgId) {
+    return { available: false, workers: [], kpis: { ...emptyKpis, abwesend_nach_art: { ...emptyKpis.abwesend_nach_art } }, scope };
+  }
 
   const lifecycleStateSql = buildAssignmentLifecycleStateSql({ assignmentAlias: "a", linkAlias: "wal" });
   const effEndSql = buildAssignmentEffectiveEndDateSql({ assignmentAlias: "a", linkAlias: "wal" });
@@ -557,15 +574,32 @@ export async function getWorkerLiveBoard(pool, supplierOrgId, filters = {}) {
     `SELECT wp.id, wp.user_id, wp.first_name, wp.last_name, wp.personnel_number, wp.is_active,
             cur.assignment_id, cur.assignment_status, cur.client_name, cur.start_date,
             cur.effective_end_date, cur.lifecycle_state,
+            abw.id AS absence_id, abw.art AS absence_art,
+            abw.von AS absence_von, abw.bis AS absence_bis, abw.notiz AS absence_notiz,
             COALESCE(ts.pending_count, 0)::int AS open_timesheets,
             CASE
               WHEN wp.is_active = FALSE THEN 'inaktiv'
+              WHEN abw.id IS NOT NULL THEN 'abwesend'
               WHEN cur.assignment_id IS NULL THEN 'verfuegbar'
               WHEN cur.effective_end_date IS NOT NULL
                    AND cur.effective_end_date <= CURRENT_DATE + ${LIVE_BOARD_ENDS_SOON_DAYS} THEN 'endet_bald'
               ELSE 'im_einsatz'
             END AS live_status
        FROM worker_profiles wp
+       /* Abwesenheit haengt am PROFIL (Mig 177), nicht am Konto — sonst faenden
+        * importierte Mitarbeiter ohne Benutzerkonto hier nie statt. CURRENT_DATE,
+        * weil die Datenbank auf Europe/Berlin laeuft (wie bei endet_bald oben). */
+       LEFT JOIN LATERAL (
+         SELECT ab.id, ab.art, ab.von, ab.bis, ab.notiz
+           FROM worker_absences ab
+          WHERE ab.worker_profile_id = wp.id
+            AND ab.supplier_org_id = $1
+            AND ab.aufgehoben_am IS NULL
+            AND ab.von <= CURRENT_DATE
+            AND (ab.bis IS NULL OR ab.bis >= CURRENT_DATE)
+          ORDER BY ab.von DESC
+          LIMIT 1
+       ) abw ON TRUE
        LEFT JOIN LATERAL (
          SELECT a.id AS assignment_id, a.status AS assignment_status, o.name AS client_name,
                 wal.start_date, ${effEndSql} AS effective_end_date, ${lifecycleStateSql} AS lifecycle_state
@@ -591,14 +625,22 @@ export async function getWorkerLiveBoard(pool, supplierOrgId, filters = {}) {
     params
   );
 
-  const kpis = { ...emptyKpis, total: rows.length };
+  const kpis = { ...emptyKpis, total: rows.length, abwesend_nach_art: { ...emptyKpis.abwesend_nach_art } };
   rows.forEach((r) => {
     if (r.live_status === "inaktiv") kpis.inaktiv++;
+    else if (r.live_status === "abwesend") {
+      kpis.abwesend++;
+      const art = r.absence_art;
+      if (Object.prototype.hasOwnProperty.call(kpis.abwesend_nach_art, art)) kpis.abwesend_nach_art[art]++;
+    }
     else if (r.live_status === "verfuegbar") kpis.verfuegbar++;
     else if (r.live_status === "endet_bald") kpis.endet_bald++;
     else if (r.live_status === "im_einsatz") kpis.im_einsatz++;
     kpis.open_timesheets += r.open_timesheets || 0;
   });
+  /* Auslastung: Abwesende zaehlen zur einsatzfaehigen Belegschaft, sind aber nicht
+   * im Einsatz — sie druecken die Quote, und das ist richtig so. Wer krank ist,
+   * bringt keinen Umsatz; eine Kennzahl, die das wegrechnet, beschoenigt. */
   const onAssignment = kpis.im_einsatz + kpis.endet_bald;
   const activeWorkers = kpis.total - kpis.inaktiv;
   kpis.auslastung_pct = activeWorkers > 0 ? Math.round((onAssignment / activeWorkers) * 100) : 0;

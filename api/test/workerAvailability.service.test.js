@@ -35,7 +35,7 @@ function inTagen(n) {
 /**
  * Pool-Attrappe: erste Abfrage = Profil (+ Betriebseinstellung), zweite = Einsatzhistorie.
  */
-function poolStub({ profil = {}, historie = {} } = {}) {
+function poolStub({ profil = {}, historie = {}, abwesenheit = null } = {}) {
   const calls = [];
   return {
     calls,
@@ -54,6 +54,11 @@ function poolStub({ profil = {}, historie = {} } = {}) {
           letztes_ende: null, unbefristet_gebunden: false, schnitt_stunden_tag: null,
           abwesend_ab: null, abwesenheitsgrund: null, ...historie
         }] };
+      }
+      // Abwesenheit am Menschen (Mig 177). Ohne Vorgabe: keine Zeile — genau
+      // der Zustand vor Welle E2, damit die Bestandstests unveraendert gelten.
+      if (/FROM worker_absences/i.test(s)) {
+        return { rows: abwesenheit ? [abwesenheit] : [] };
       }
       return { rows: [] };
     }
@@ -255,5 +260,96 @@ describe("setAvailability", () => {
   it("fremde Org bekommt NOT_FOUND, nicht die Daten", async () => {
     const pool = updatePool([]);
     assert.deepEqual(await setAvailability(pool, PROFIL_ID, { weekly_hours: 20 }, "org-fremd"), { error: "NOT_FOUND" });
+  });
+});
+
+/* ═══════════════════════════════════════════════════════════════════════════
+ * Abwesenheit am Menschen (Welle E2, Mig 177)
+ *
+ * WARUM DIESE GRUPPE HIER STEHT UND NICHT BEI DER TAFEL
+ * Welle E2 hat eine zweite Verfuegbarkeits-Wahrheit eingefuehrt. Wenn dieser
+ * Dienst sie nicht liest, entsteht genau die Schattenwahrheit, die das Projekt
+ * verbietet: der Disponent meldet jemanden krank, die Tafel zeigt es — und der
+ * Angebotsgenerator bietet denselben Menschen weiter einem Kunden an. Ein
+ * Angebot, das die Agentur nicht halten kann, kostet mehr als eine Luecke im
+ * Formular.
+ * ═══════════════════════════════════════════════════════════════════════════ */
+
+describe("Abwesenheit schlaegt die Herleitung", () => {
+  it("waehrend einer laufenden Krankmeldung ist die Kraft ab dem Tag danach frei", async () => {
+    const out = await resolveAvailability(
+      poolStub({ abwesenheit: { art: "krank", von: inTagen(-2), bis: inTagen(3) } }),
+      PROFIL_ID
+    );
+    assert.equal(out.available_from, inTagen(4), "am letzten Krankheitstag ist sie noch nicht zurueck");
+    assert.equal(out.herkunft.available_from, HERKUNFT.ABGELEITET);
+    assert.equal(out.abwesenheitsgrund, "krank", "die Art ist auswertbar, kein Freitext");
+    assert.equal(out.abwesenheit_quelle, "profil");
+  });
+
+  it("ein offenes Ende macht die Verfuegbarkeit ehrlich unbekannt statt sie zu raten", async () => {
+    const out = await resolveAvailability(
+      poolStub({ abwesenheit: { art: "krank", von: inTagen(-1), bis: null } }),
+      PROFIL_ID
+    );
+    assert.equal(out.available_from, null);
+    assert.equal(out.herkunft.available_from, HERKUNFT.UNBEKANNT);
+    assert.ok(out.offene_fragen.includes("available_from"), "daraus wird eine Frage, kein erfundenes Datum");
+  });
+
+  it("schlaegt sogar die AUSDRUECKLICHE Angabe — die wurde vor der Krankmeldung geschrieben", async () => {
+    const out = await resolveAvailability(
+      poolStub({
+        profil: { available_from: inTagen(1) },
+        abwesenheit: { art: "krank", von: inTagen(0), bis: inTagen(10) }
+      }),
+      PROFIL_ID
+    );
+    assert.equal(out.available_from, inTagen(11),
+      "sonst erzeugte der Generator ein Angebot fuer jemanden, der nachweislich krank ist");
+  });
+
+  it("eine erst KOMMENDE Abwesenheit blockiert heute nichts — sie wird nur mitgeteilt", async () => {
+    const out = await resolveAvailability(
+      poolStub({
+        historie: { letztes_ende: "2020-01-01" },
+        abwesenheit: { art: "urlaub", von: inTagen(30), bis: inTagen(44) }
+      }),
+      PROFIL_ID
+    );
+    assert.equal(out.available_from, heute(), "die Kraft ist jetzt frei");
+    assert.equal(out.abwesend_ab, inTagen(30), "der Urlaub steht trotzdem in der Antwort");
+    assert.equal(out.abwesend_bis, inTagen(44));
+  });
+
+  it("die Abmeldung am Menschen gewinnt gegen die alte am Einsatz", async () => {
+    const out = await resolveAvailability(
+      poolStub({
+        historie: { abwesend_ab: inTagen(5), abwesenheitsgrund: "krankgeschrieben bis Freitag" },
+        abwesenheit: { art: "urlaub", von: inTagen(1), bis: inTagen(9) }
+      }),
+      PROFIL_ID
+    );
+    assert.equal(out.abwesend_ab, inTagen(1));
+    assert.equal(out.abwesenheitsgrund, "urlaub");
+    assert.equal(out.abwesenheit_quelle, "profil", "der Freitext am Einsatz bleibt nur Rueckfallebene");
+  });
+
+  it("ohne Abwesenheit aendert sich nichts am Bestandsverhalten", async () => {
+    const out = await resolveAvailability(poolStub({ historie: { letztes_ende: inTagen(10) } }), PROFIL_ID);
+    assert.equal(out.available_from, inTagen(11));
+    assert.equal(out.abwesend_ab, null);
+    assert.equal(out.abwesenheit_quelle, null);
+  });
+
+  it("fragt die Abwesenheit org-gebunden und ohne zurueckgenommene Eintraege ab", async () => {
+    const pool = poolStub({ abwesenheit: { art: "krank", von: inTagen(0), bis: inTagen(2) } });
+    await resolveAvailability(pool, PROFIL_ID);
+    const frage = pool.calls.find((c) => /FROM worker_absences/i.test(c.sql));
+    assert.ok(frage, "die neue Quelle wird ueberhaupt gelesen");
+    assert.ok(/supplier_org_id = \$2/.test(frage.sql), "Mandantengrenze auch hier");
+    assert.ok(/aufgehoben_am IS NULL/.test(frage.sql), "eine zurueckgenommene Meldung blockiert niemanden");
+    assert.ok(/bis IS NULL OR bis >= CURRENT_DATE/.test(frage.sql), "vergangene Abwesenheiten sagen nichts ueber die Zukunft");
+    assert.equal(frage.params[1], ORG_ID);
   });
 });

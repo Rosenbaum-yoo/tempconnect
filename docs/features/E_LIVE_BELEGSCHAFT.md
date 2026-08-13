@@ -51,7 +51,7 @@ erfasst werden.
 
 ## E.2 Wellen
 
-### Welle E2 — Das Datenmodell für Abwesenheit *(zuerst)*
+### Welle E2 — Das Datenmodell für Abwesenheit ✅ *(erledigt 2026-08-13)*
 
 Ohne sie kann E3 nichts anzeigen und E4 nichts protokollieren.
 
@@ -68,6 +68,65 @@ Ohne sie kann E3 nichts anzeigen und E4 nichts protokollieren.
 **Gate E2:** Eine Abwesenheit lässt sich für einen Mitarbeiter **ohne laufenden
 Einsatz** erfassen und erscheint in der Live-Belegschaft. Ein Test belegt, dass
 sich zwei überlappende Abwesenheiten nicht anlegen lassen.
+
+> **Gate E2 ist erfüllt und gegen die echte Datenbank belegt**
+> (`api/test/integration/workerAbwesenheit.flow.test.js`, 10/10 grün — geprüft
+> an einem Profil **ohne Benutzerkonto und ohne Einsatz**, dem härtesten Fall).
+
+**Was gebaut wurde**
+
+| Teil | Ort |
+|---|---|
+| Migration | `sql/migrations/177_abwesenheit_gehoert_zum_menschen.sql` |
+| Dienst | `api/services/workerAbsenceService.js` |
+| Endpunkte | `GET/POST /api/workers/absences`, `POST /api/workers/absences/:id/aufheben` |
+| Tafel | `getWorkerLiveBoard` führt `abwesend` + `abwesend_nach_art` |
+| Oberfläche | `mitarbeiter.html` (Dialog) + `js/pages/mitarbeiter.js` (Abmelden / Zurücknehmen, DE + EN) |
+| **Die Leser** | `workerAvailabilityService` und `capacityOfferMatchService` lesen die neue Quelle mit |
+| Tests | `workerAbwesenheit.test.js` (20) · `abwesenheitOberflaeche.test.js` (13) · Integration (12) · je 7/3 neue in den beiden Leser-Suiten |
+
+**Warum die beiden Leser dazugehören und nicht in eine spätere Welle**
+
+Eine neue Wahrheitsquelle ist erst fertig, wenn ihre Leser mitgeliefert sind.
+Ohne diesen Schritt hätte E2 eine Schattenwahrheit erzeugt: der Disponent meldet
+jemanden krank, die Tafel zeigt es — und der Angebotsgenerator bietet denselben
+Menschen im selben Moment einem Kunden an. Beide Dienste kannten bisher nur die
+einsatzgebundene Abmeldung.
+
+- `resolveAvailability`: eine laufende Abwesenheit schlägt jede Herleitung, auch
+  die *ausdrückliche* Angabe — die wurde geschrieben, bevor jemand krank wurde.
+  Bei offenem Ende wird „verfügbar ab" ehrlich **unbekannt** statt geraten.
+- `checkOfferCoverage`: ein zusätzliches `LATERAL` im bestehenden Statement
+  (kein N+1). Anders als die alte Abmeldung kennt die neue ein Ende — die
+  Antwort kann jetzt sagen, ab wann es wieder geht.
+
+**Drei Entscheidungen, die der Plan offen ließ — und warum sie so fielen**
+
+1. **Ein Teil-Index reicht nicht.** Der Plan nannte einen Teil-Index gegen
+   Überlappungen. Ein Index auf `(worker_profile_id, von)` verhindert aber nur
+   denselben *Starttag*, nicht die Überschneidung: 10.–20. und 15.–25. haben
+   verschiedene Starttage und überlappen trotzdem. Gebaut wurde deshalb eine
+   `EXCLUDE`-Bedingung über `daterange` (erste Nutzung von `btree_gist` im
+   Repo). Sie hält auch gegen zwei gleichzeitige Anfragen — eine Prüfung im
+   Anwendungscode täte das nicht.
+2. **Zurücknehmen statt Löschen.** Eine zurückgezogene Krankmeldung ist ein
+   Vorgang, kein Nichts. `aufgehoben_am` entwertet die Zeile, ohne sie zu
+   entfernen — sonst hätte der Zeitstrahl aus E5 eine Lücke, die niemand
+   erklären kann. Die Überlappungssperre gilt nur für gültige Zeilen, sonst
+   blockierte ein Irrtum den Zeitraum für immer.
+3. **Abwesend schlägt den laufenden Einsatz.** Die Zustände der Tafel sind
+   ausschließend (Gate E4: Summe = Gesamtzahl). Rangfolge: `inaktiv` >
+   `abwesend` > `endet_bald`/`im_einsatz`/`verfügbar`. Wer krank ist, ist heute
+   nicht da — auch wenn der Einsatz formal läuft; genau deswegen schaut der
+   Disponent auf die Tafel. Der Einsatzkontext bleibt in der Zeile stehen, damit
+   sichtbar ist, **wo** die Kraft fehlt. Folge: Abwesende drücken die
+   Auslastungsquote. Das ist gewollt — wer krank ist, bringt keinen Umsatz.
+
+**Was E2 offen lässt** — die Abwesenheit wird bisher nur vom Disponenten
+erfasst. Eine Selbstabmeldung durch den Mitarbeiter im Worker-Portal ist
+bewusst *nicht* gebaut: sie ist ein eigener Vertrauens- und
+Benachrichtigungspfad (wer erfährt davon, wie schnell, mit welchem Nachweis)
+und gehört nicht nebenbei in eine Datenmodell-Welle.
 
 ### Welle E3 — Montage als Eigenschaft des Einsatzes
 
@@ -114,7 +173,8 @@ ohne Protokolleintrag nicht möglich ist.
 
 ## Reihenfolge
 
-**E2 → E3 → E4 → E5.** Erst die Quellen, dann die Anzeige, dann der Verlauf.
+**~~E2~~ → E3 → E4 → E5.** Erst die Quellen, dann die Anzeige, dann der Verlauf.
+Nächster Schritt: **E3** (Montage als Eigenschaft des Einsatzes).
 
 Die Versuchung ist, mit den Reitern anzufangen — sie sind das Sichtbare. Das
 wäre falsch: ein Reiter ohne Datenquelle ist eine Zusage, die das Produkt nicht

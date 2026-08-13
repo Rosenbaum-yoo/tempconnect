@@ -185,7 +185,10 @@ export async function checkOfferCoverage(pool, {
             bindung.letztes_ende   AS letztes_ende,
             bindung.unbefristet    AS unbefristet,
             bindung.abwesend_ab    AS abwesend_ab,
-            bindung.abwesenheitsgrund AS abwesenheitsgrund
+            bindung.abwesenheitsgrund AS abwesenheitsgrund,
+            abw.von                AS person_abwesend_ab,
+            abw.bis                AS person_abwesend_bis,
+            abw.art                AS person_abwesenheitsart
        FROM kandidat k
        LEFT JOIN LATERAL (
          SELECT COUNT(*) AS anzahl,
@@ -205,6 +208,22 @@ export async function checkOfferCoverage(pool, {
            FROM worker_assignment_links wal
           WHERE wal.worker_user_id = k.user_id AND wal.is_active = TRUE
        ) bindung ON TRUE
+       /* Abwesenheit am MENSCHEN (Mig 177, Welle E2) — nur solche, die den
+        * angefragten Zeitraum schneiden. Ohne diesen Zweig boete der Generator
+        * eine nachweislich krank gemeldete Kraft weiter an: die Tafel wuesste
+        * es, der Kunde erfuehre es nicht. Set-basiert im selben Statement,
+        * kein zusaetzlicher Rundlauf je Kandidat. */
+       LEFT JOIN LATERAL (
+         SELECT ab.von, ab.bis, ab.art
+           FROM worker_absences ab
+          WHERE ab.worker_profile_id = k.id
+            AND ab.supplier_org_id = $2
+            AND ab.aufgehoben_am IS NULL
+            AND ab.von <= $4::date
+            AND (ab.bis IS NULL OR ab.bis >= $3::date)
+          ORDER BY ab.von ASC
+          LIMIT 1
+       ) abw ON TRUE
       WHERE ($5::boolean IS NOT TRUE OR k.treffer = $6)
       ORDER BY k.treffer DESC, k.last_name, k.first_name`,
     [zuordnungIds, orgId, von, bis || OFFENES_ENDE, alleSkills, gruppenAnzahl, zuordnungGruppen]
@@ -220,11 +239,22 @@ export async function checkOfferCoverage(pool, {
     let frei_ab = null;
     let grund = null;
 
+    const personAbwesendAb = alsDatum(r.person_abwesend_ab);
+    const personAbwesendBis = alsDatum(r.person_abwesend_bis);
+
     if (konflikte > 0) {
       zustand = ZUSTAND.VERPLANT;
       grund = r.konflikt_kunde || null;
       // Ohne Enddatum ist das Ende unbekannt — hier wird bewusst nicht geraten (Welle 2).
       frei_ab = r.konflikt_offen ? null : naechsterTag(alsDatum(r.konflikt_bis));
+    } else if (personAbwesendAb) {
+      /* Die Ueberschneidung mit dem angefragten Zeitraum hat bereits die Abfrage
+       * geprueft — eine zweite Datumsrechnung hier waere eine zweite Wahrheit.
+       * Anders als die alte Abmeldung am Einsatz kennt diese ein Ende, also kann
+       * die Antwort sagen, ab wann es wieder geht. */
+      zustand = ZUSTAND.ABWESEND;
+      grund = r.person_abwesenheitsart || null;
+      frei_ab = personAbwesendBis ? naechsterTag(personAbwesendBis) : null;
     } else if (abwesendAb && (!bis || abwesendAb <= (bis || OFFENES_ENDE)) && abwesendAb >= heute) {
       zustand = ZUSTAND.ABWESEND;
       grund = r.abwesenheitsgrund || null;

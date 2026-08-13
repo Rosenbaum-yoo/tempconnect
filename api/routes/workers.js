@@ -24,6 +24,7 @@ import * as workerNotifications from "../services/workerNotificationService.js";
 import * as workerOfferReservationService from "../services/workerOfferReservationService.js";
 import * as workforceSchedulePdf from "../services/workforceSchedulePdfService.js";
 import * as complaintSvc from "../services/companyComplaintService.js";
+import * as absenceSvc from "../services/workerAbsenceService.js";
 import * as blocklistSvc from "../services/companyBlocklistService.js";
 import { trackProductEventFromRequest } from "../services/productAnalyticsService.js";
 import { swallow } from "../utils/logger.js";
@@ -59,6 +60,16 @@ const createWorkerSchema = z.object({
   city:             z.string().max(100).optional().nullable(),
   country:          z.string().max(3).default("DE"),
   password:         z.string().min(8).max(128).optional()
+});
+
+/* Abwesenheit am Menschen (P10/E2, Mig 177). `bis` optional = offenes Ende —
+ * "krank ab Montag, Rueckkehr unklar" ist der Normalfall, nicht die Ausnahme. */
+const absenceCreateSchema = z.object({
+  worker_profile_id: z.string().regex(uuidRx),
+  art:               z.enum(absenceSvc.ABSENCE_ARTEN),
+  von:               z.string().regex(dateRx),
+  bis:               z.string().regex(dateRx).optional().nullable(),
+  notiz:             z.string().max(2000).optional().nullable()
 });
 
 const inviteSchema = z.object({
@@ -812,6 +823,78 @@ export function createWorkersRouter(deps) {
         limit: parseInt(req.query.limit, 10) || 300
       });
       res.json(board);
+    } catch (err) { next(err); }
+  });
+
+  /* ── Abwesenheit (P10 Spur E / Welle E2) ─────────────────────────────────────
+   * Abwesenheit gehoert zum MENSCHEN, nicht zum Auftrag (Owner-Entscheidung E-E2).
+   * Deshalb `worker_profile_id` statt `worker_user_id`: ein importierter
+   * Mitarbeiter ohne Benutzerkonto (Mig 175) muss sich abmelden lassen — er ist
+   * genau der Fall, fuer den diese Welle gebaut wurde.
+   * MUSS vor "/workers/:userId" stehen, sonst faengt :userId "absences". */
+  router.get("/workers/absences", ...base, requireScope("read:workers"), rperm("worker.view"), async (req, res, next) => {
+    try {
+      const result = await absenceSvc.listAbsences(pool, req.orgId, {
+        workerProfileId: req.query.worker_profile_id || null,
+        art:             req.query.art || null,
+        aktivAm:         req.query.aktiv_am || null,
+        ab:              req.query.ab || null,
+        bis:             req.query.bis || null,
+        nurAktuelle:     req.query.aktuell === "1" || req.query.aktuell === "true",
+        mitAufgehobenen: req.query.mit_aufgehobenen === "1",
+        limit:           parseInt(req.query.limit, 10) || 200
+      });
+      res.json(result);
+    } catch (err) { next(err); }
+  });
+
+  router.post("/workers/absences", ...base, requireScope("write:workers"), rperm("worker.manage"), async (req, res, next) => {
+    try {
+      const parsed = absenceCreateSchema.safeParse(req.body || {});
+      if (!parsed.success) {
+        return res.status(400).json({ error: "VALIDATION", details: parsed.error.issues });
+      }
+      const result = await absenceSvc.createAbsence(pool, req.orgId, {
+        workerProfileId: parsed.data.worker_profile_id,
+        art:             parsed.data.art,
+        von:             parsed.data.von,
+        bis:             parsed.data.bis || null,
+        notiz:           parsed.data.notiz || null,
+        erfasstVon:      req.session.userId
+      });
+      if (result.error) return res.status(result.status || 400).json(result);
+
+      /* Wer war krank gemeldet, von wem, ab wann — eine Personalangabe ohne
+       * Urheber laesst sich spaeter nicht mehr klaeren. */
+      res.locals.audit = {
+        action: "supplier.worker_absence.create", entity_type: "worker_absence",
+        entity_id: result.absence.id,
+        details: {
+          worker_profile_id: parsed.data.worker_profile_id,
+          art: parsed.data.art, von: parsed.data.von, bis: parsed.data.bis || null,
+          responsible_actor_user_id: req.session.userId
+        }
+      };
+      res.status(201).json(result);
+    } catch (err) { next(err); }
+  });
+
+  /* Zuruecknehmen statt loeschen: die Zeile bleibt in der Akte (aufgehoben_am),
+   * damit der Zeitstrahl aus Welle E5 keine unerklaerliche Luecke bekommt. */
+  router.post("/workers/absences/:id([0-9a-fA-F-]{36})/aufheben", ...base, requireScope("write:workers"), rperm("worker.manage"), async (req, res, next) => {
+    try {
+      const grund = String(req.body?.grund || "").trim();
+      const result = await absenceSvc.cancelAbsence(pool, req.orgId, req.params.id, {
+        userId: req.session.userId, grund: grund || null
+      });
+      if (result.error) return res.status(result.status || 400).json(result);
+
+      res.locals.audit = {
+        action: "supplier.worker_absence.cancel", entity_type: "worker_absence",
+        entity_id: req.params.id,
+        details: { grund: grund || null, responsible_actor_user_id: req.session.userId }
+      };
+      res.json(result);
     } catch (err) { next(err); }
   });
 

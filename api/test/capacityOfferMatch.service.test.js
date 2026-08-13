@@ -152,6 +152,47 @@ describe("Deckung", () => {
     assert.equal(out.kandidaten[0].grund, "krank");
   });
 
+  /* Welle E2: die Abmeldung am MENSCHEN muss hier ankommen. Sonst wuesste die
+     Live-Belegschaft von der Krankmeldung — und der Angebotsgenerator boete
+     dieselbe Kraft im selben Moment einem Kunden an. */
+  it("eine Krankmeldung am Menschen nimmt die Kraft aus dem Angebot", async () => {
+    const pool = mockPool({
+      katalog: [{ id: S_PFLEGE, name: "Altenpflege", category: "Pflege", suchbegriff: "altenpflege" }],
+      kandidaten: [kandidat({ person_abwesend_ab: inTagen(-1), person_abwesend_bis: inTagen(6), person_abwesenheitsart: "krank" })]
+    });
+    const out = await checkOfferCoverage(pool, { orgId: ORG, skillTags: ["altenpflege"], headcount: 1, to: inTagen(10) });
+    assert.equal(out.kandidaten[0].zustand, ZUSTAND.ABWESEND);
+    assert.equal(out.kandidaten[0].grund, "krank", "die Art ist auswertbar, nicht geratener Freitext");
+    assert.equal(out.kandidaten[0].frei_ab, inTagen(7), "anders als die alte Abmeldung kennt diese ein Ende");
+    assert.equal(out.frei, 0, "sie darf nicht als frei gezaehlt werden");
+  });
+
+  it("bei offenem Ende nennt sie keinen Rueckkehrtag, statt einen zu erfinden", async () => {
+    const pool = mockPool({
+      katalog: [{ id: S_PFLEGE, name: "Altenpflege", category: "Pflege", suchbegriff: "altenpflege" }],
+      kandidaten: [kandidat({ person_abwesend_ab: inTagen(0), person_abwesend_bis: null, person_abwesenheitsart: "krank" })]
+    });
+    const out = await checkOfferCoverage(pool, { orgId: ORG, skillTags: ["altenpflege"], headcount: 1 });
+    assert.equal(out.kandidaten[0].zustand, ZUSTAND.ABWESEND);
+    assert.equal(out.kandidaten[0].frei_ab, null);
+  });
+
+  it("die Abwesenheit wird org-gebunden, ueberlappend und ohne aufgehobene Eintraege gelesen", async () => {
+    const pool = mockPool({
+      katalog: [{ id: S_PFLEGE, name: "Altenpflege", category: "Pflege", suchbegriff: "altenpflege" }],
+      kandidaten: [kandidat()]
+    });
+    await checkOfferCoverage(pool, { orgId: ORG, skillTags: ["altenpflege"], headcount: 1 });
+    const abfrage = pool.calls.find((c) => /worker_absences/i.test(c.sql));
+    assert.ok(abfrage, "die neue Quelle wird ueberhaupt gelesen");
+    assert.ok(/ab\.supplier_org_id = \$2/.test(abfrage.sql), "Mandantengrenze");
+    assert.ok(/ab\.aufgehoben_am IS NULL/.test(abfrage.sql), "zurueckgenommene Meldungen zaehlen nicht");
+    assert.ok(/ab\.von <= \$4::date/.test(abfrage.sql) && /ab\.bis IS NULL OR ab\.bis >= \$3::date/.test(abfrage.sql),
+      "nur Abwesenheiten, die den angefragten Zeitraum wirklich schneiden");
+    assert.ok(/ab\.worker_profile_id = k\.id/.test(abfrage.sql),
+      "am Profil verknuepft — ueber das Konto faende die importierte Belegschaft nie statt");
+  });
+
   it("bleibt ruhig, solange keine Faehigkeit eingetippt ist", async () => {
     const out = await checkOfferCoverage(mockPool(), { orgId: ORG, skillTags: [], headcount: 4 });
     assert.equal(out.auswertbar, false, "Ein halb ausgefuelltes Formular ist kein Fehlerfall");

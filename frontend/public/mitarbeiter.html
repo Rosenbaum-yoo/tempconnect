@@ -701,9 +701,49 @@ Anna;Beispiel;anna@example.com;0157987654;M&uuml;nchen;P002</pre>
     </div>
   </div>
 
+  <!-- Abwesenheit erfassen (Welle E2) — am Menschen, nicht am Einsatz -->
+  <div class="modal-bg" id="absenceModal">
+    <div class="modal-panel" style="max-width:520px">
+      <h2 data-i18n="mit.live.absence.title">Abwesenheit erfassen</h2>
+      <p id="absenceWorker" style="font-size:13px;font-weight:700;margin:0 0 4px"></p>
+      <p style="font-size:12.5px;color:var(--ds-text-muted,#64748b);margin:0 0 14px" data-i18n="mit.live.absence.intro">Die Abwesenheit gilt für den Menschen — unabhängig davon, ob gerade ein Einsatz läuft.</p>
+      <div class="form-grid">
+        <div>
+          <label data-i18n="mit.live.absence.artLabel">Grund</label>
+          <select id="absenceArt">
+            <option value="krank" data-i18n="mit.live.absence.art.krank">Krank</option>
+            <option value="urlaub" data-i18n="mit.live.absence.art.urlaub">Urlaub</option>
+            <option value="termin" data-i18n="mit.live.absence.art.termin">Termin</option>
+            <option value="sonstiges" data-i18n="mit.live.absence.art.sonstiges">Sonstiges</option>
+          </select>
+        </div>
+        <div></div>
+        <div>
+          <label data-i18n="mit.live.absence.fromLabel">Von</label>
+          <input type="date" id="absenceVon">
+        </div>
+        <div>
+          <label data-i18n="mit.live.absence.toLabel">Bis (leer = Ende offen)</label>
+          <input type="date" id="absenceBis">
+        </div>
+        <div style="grid-column:1/-1">
+          <label data-i18n="mit.live.absence.noteLabel">Notiz (optional)</label>
+          <input type="text" id="absenceNotiz" maxlength="2000">
+        </div>
+      </div>
+      <div id="absenceError" style="display:none;font-size:12.5px;color:var(--ds-danger,#b91c1c);margin-top:12px"></div>
+      <div class="form-actions" style="margin-top:16px">
+        <button class="btn" onclick="closeAbsenceModal()" data-i18n="mit.action.cancel">Abbrechen</button>
+        <button class="btn primary" id="absenceSubmitBtn" onclick="saveAbsence()" data-i18n="mit.live.absence.submit">Abwesenheit erfassen</button>
+      </div>
+    </div>
+  </div>
+
   <!-- Toast -->
   <div class="toast" id="toast"></div>
 
+<!-- Kalendertag in Europe/Berlin (window.TCDate) — muss vor mitarbeiter.js geladen sein. -->
+<script src="/public/js/dateDE.js"></script>
 <script src="/public/js/planFeatures.js"></script>
 <script src="/public/js/slaGuard.js"></script>
 <script defer src="/public/js/pages/mitarbeiter.js"></script>

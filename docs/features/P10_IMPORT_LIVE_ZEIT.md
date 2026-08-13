@@ -479,6 +479,25 @@ ein Reiter „krank", den keine Datenquelle füllt, ist die nächste tote Fläch
 
 ### E.2 Wellen
 
+> **Diese Wellen-Einteilung ist überholt — maßgeblich ist
+> [E_LIVE_BELEGSCHAFT.md](E_LIVE_BELEGSCHAFT.md).**
+>
+> Sie stammt aus der Zeit *vor* der Messung. E1 hat am 2026-08-13 ergeben, dass
+> „krank" nur eine halbe Quelle hat und „Montage" gar keine — damit war der
+> Schritt „Reiter mit echten Zahlen" nicht der zweite, sondern der vierte.
+> Nach den Owner-Entscheidungen E-E1 bis E-E3 lautet die Reihenfolge:
+>
+> | Welle | Inhalt | Stand |
+> |---|---|---|
+> | E1 | Zustandswahrheit gemessen | ✅ 2026-08-13 |
+> | E2 | Datenmodell für Abwesenheit (`worker_absences`, Mig 177) | ✅ 2026-08-13 |
+> | E3 | Montage als Eigenschaft des Einsatzes | offen |
+> | E4 | Die Reiter *(= das frühere „E2" unten)* | offen |
+> | E5 | Zustands-Protokoll *(= das frühere „E3" unten)* | offen |
+>
+> Die Abschnitte darunter bleiben als Beleg stehen, wie der Plan vor der Messung
+> aussah — sie werden nicht mehr abgearbeitet.
+
 #### Welle E1 — Die Zustandswahrheit *(zuerst, nicht verhandelbar)*
 
 Für jeden gewünschten Zustand (verfügbar, im Einsatz, krank, Montage, …) beantworten:
@@ -587,4 +606,6 @@ Unverändert aus P9 — sie haben sich getragen:
 | **D-E1** | Mitarbeiter ohne E-Mail importierbar, wenn Personalnummer vorhanden? | ✅ entschieden: ja — aber die Datenbank lässt es nicht zu, siehe **D-E2** |
 | **D-E2** | Welchen Weg für D5? Platzhalter-Adresse (A), Profil ohne Konto (B), Konto ohne E-Mail (C)? | ✅ entschieden 2026-08-11: **B** — `worker_profiles.user_id` nullbar. Bildet ab, dass ein Mitarbeiter existiert, bevor er sich anmeldet; kein Fake-Data; überträgt sich auf die Folgeprojekte |
 | **D-E3** | Weg fuer D6: zweiter Einstieg fuer Profil-IDs (a) oder Vereinheitlichung der bestehenden Loeschpfade (b)? | **(a)** — ein Loeschpfad, der heute nachweislich richtig ist, wird nicht umgebaut, um zwei Zeilen zu sparen |
-| **E-E1** | Welche Zustände soll die Live-Belegschaft führen? (verfügbar, im Einsatz, krank, Montage, …) | erst E1 abwarten: gebaut wird nur, was eine Quelle hat |
+| **E-E1** | Welche Zustände soll die Live-Belegschaft führen? (verfügbar, im Einsatz, krank, Montage, …) | ✅ entschieden 2026-08-13: **voller Umfang** — die vier vorhandenen plus `abwesend` mit getrennten Gründen plus Montage. Grundlage war die Messung aus E1, nicht eine Vermutung |
+| **E-E2** | Abmeldung am Einsatz oder am Profil? | ✅ entschieden 2026-08-13: **am Profil.** Umgesetzt in Welle E2 (Migration 177, `worker_absences`) — wer keinen Einsatz hat, konnte sich vorher überhaupt nicht abmelden |
+| **E-E3** | Verlauf ableiten oder protokollieren? | ✅ entschieden 2026-08-13: **echtes Zustands-Protokoll** (Welle E5, `worker_status_events`) |

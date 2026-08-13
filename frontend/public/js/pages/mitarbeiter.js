@@ -97,10 +97,35 @@ TCi18n.register('de', {
   'mit.live.status.endingSoon': 'Endet bald',
   'mit.live.status.onAssignment': 'Im Einsatz',
   'mit.live.status.available': 'Verfügbar',
+  'mit.live.status.absent': 'Abwesend',
   'mit.live.status.inactive': 'Inaktiv',
   'mit.live.kpi.utilization': 'Auslastung',
   'mit.live.kpi.openTimesheets': 'Stundenzettel offen',
   'mit.live.kpi.workforce': 'Belegschaft',
+
+  /* Abwesenheit (Welle E2) — gehört zum Menschen, nicht zum Einsatz */
+  'mit.live.absence.title': 'Abwesenheit erfassen',
+  'mit.live.absence.intro': 'Die Abwesenheit gilt für den Menschen — unabhängig davon, ob gerade ein Einsatz läuft.',
+  'mit.live.absence.artLabel': 'Grund',
+  'mit.live.absence.fromLabel': 'Von',
+  'mit.live.absence.toLabel': 'Bis (leer = Ende offen)',
+  'mit.live.absence.noteLabel': 'Notiz (optional)',
+  'mit.live.absence.submit': 'Abwesenheit erfassen',
+  'mit.live.absence.reportBtn': 'Abmelden',
+  'mit.live.absence.revokeBtn': 'Zurücknehmen',
+  'mit.live.absence.saved': 'Abwesenheit erfasst.',
+  'mit.live.absence.revoked': 'Abwesenheit zurückgenommen.',
+  'mit.live.absence.confirmRevoke': 'Abwesenheit wirklich zurücknehmen?',
+  'mit.live.absence.saveError': 'Abwesenheit konnte nicht gespeichert werden.',
+  'mit.live.absence.overlap': 'Für diesen Zeitraum ist bereits eine Abwesenheit erfasst: {art} ab {von}.',
+  'mit.live.absence.invalidRange': 'Das Enddatum liegt vor dem Startdatum.',
+  'mit.live.absence.since': 'seit {date}',
+  'mit.live.absence.till': 'bis {date}',
+  'mit.live.absence.openEnd': 'Ende offen',
+  'mit.live.absence.art.krank': 'Krank',
+  'mit.live.absence.art.urlaub': 'Urlaub',
+  'mit.live.absence.art.termin': 'Termin',
+  'mit.live.absence.art.sonstiges': 'Sonstiges',
 
   /* Anlegen / Einladen */
   'mit.create.title': 'Neuen Mitarbeiter anlegen',
@@ -625,10 +650,34 @@ TCi18n.register('en', {
   'mit.live.status.endingSoon': 'Ending soon',
   'mit.live.status.onAssignment': 'On assignment',
   'mit.live.status.available': 'Available',
+  'mit.live.status.absent': 'Absent',
   'mit.live.status.inactive': 'Inactive',
   'mit.live.kpi.utilization': 'Utilisation',
   'mit.live.kpi.openTimesheets': 'Open timesheets',
   'mit.live.kpi.workforce': 'Workforce',
+
+  'mit.live.absence.title': 'Record an absence',
+  'mit.live.absence.intro': 'The absence belongs to the person — whether or not an assignment is currently running.',
+  'mit.live.absence.artLabel': 'Reason',
+  'mit.live.absence.fromLabel': 'From',
+  'mit.live.absence.toLabel': 'Until (empty = open-ended)',
+  'mit.live.absence.noteLabel': 'Note (optional)',
+  'mit.live.absence.submit': 'Record absence',
+  'mit.live.absence.reportBtn': 'Report absent',
+  'mit.live.absence.revokeBtn': 'Withdraw',
+  'mit.live.absence.saved': 'Absence recorded.',
+  'mit.live.absence.revoked': 'Absence withdrawn.',
+  'mit.live.absence.confirmRevoke': 'Really withdraw this absence?',
+  'mit.live.absence.saveError': 'The absence could not be saved.',
+  'mit.live.absence.overlap': 'An absence already covers this period: {art} from {von}.',
+  'mit.live.absence.invalidRange': 'The end date is before the start date.',
+  'mit.live.absence.since': 'since {date}',
+  'mit.live.absence.till': 'until {date}',
+  'mit.live.absence.openEnd': 'open-ended',
+  'mit.live.absence.art.krank': 'Sick',
+  'mit.live.absence.art.urlaub': 'Holiday',
+  'mit.live.absence.art.termin': 'Appointment',
+  'mit.live.absence.art.sonstiges': 'Other',
 
   'mit.create.title': 'Add a new worker',
   'mit.create.intro': 'The worker receives an account and can sign in to the worker self-service portal.',
@@ -1355,11 +1404,16 @@ var LIVE_POLL_MS = 30000;
 /* Die Status-SCHLUESSEL (endet_bald, …) kommen roh vom Server und bleiben —
    uebersetzt wird nur das Label an der Verwendungsstelle. */
 var LIVE_STATUS = {
+  abwesend:   { labelKey: "mit.live.status.absent",      color: "var(--ds-danger,#dc2626)" },
   endet_bald: { labelKey: "mit.live.status.endingSoon", color: "var(--ds-warning,#f59e0b)" },
   im_einsatz: { labelKey: "mit.live.status.onAssignment", color: "var(--ds-brand,#4a9eff)" },
   verfuegbar: { labelKey: "mit.live.status.available",  color: "var(--ds-success,#34d399)" },
   inaktiv:    { labelKey: "mit.live.status.inactive",    color: "var(--ds-text-tertiary,#8d9bba)" }
 };
+/* Zuletzt geladene Zeilen — der Abmelde-Dialog braucht den Namen zum Profil,
+   und der soll nicht durch ein onclick-Attribut gereicht werden (Anfuehrungs-
+   zeichen in Namen sind real: O'Brien). */
+var _liveWorkers = [];
 
 function startLiveBoard() {
   loadLiveBoard();
@@ -1392,18 +1446,28 @@ function renderLiveKpis(k) {
            '<div style="font-size:24px;font-weight:800;color:' + (color || "var(--ds-text,#0f172a)") + '">' + esc(String(val != null ? val : "–")) + '</div>' +
            '<div style="font-size:12px;color:var(--wk-text-muted,#64748b)">' + esc(label) + '</div></div>';
   }
+  /* Die Aufschluesselung der Abwesenheit steht IM Kachel-Untertitel — "3 abwesend"
+     allein sagt dem Disponenten nicht, ob er Ersatz braucht (krank) oder laengst
+     wusste, dass jemand fehlt (Urlaub). */
+  var nachArt = k.abwesend_nach_art || {};
+  var artTeile = [];
+  ["krank", "urlaub", "termin", "sonstiges"].forEach(function(a) {
+    if (nachArt[a]) artTeile.push(TCi18n.t("mit.live.absence.art." + a) + " " + nachArt[a]);
+  });
   el.innerHTML =
     tile(TCi18n.t("mit.live.kpi.utilization"), (k.auslastung_pct != null ? k.auslastung_pct + " %" : "–"), "var(--ds-brand,#4a9eff)") +
     tile(TCi18n.t("mit.live.status.onAssignment"), (k.im_einsatz || 0) + (k.endet_bald ? " (+" + k.endet_bald + ")" : ""), null) +
     tile(TCi18n.t("mit.live.status.available"), k.verfuegbar || 0, "var(--ds-success,#34d399)") +
     tile(TCi18n.t("mit.live.status.endingSoon"), k.endet_bald || 0, "var(--ds-warning,#f59e0b)") +
+    tile(TCi18n.t("mit.live.status.absent") + (artTeile.length ? " · " + artTeile.join(" · ") : ""), k.abwesend || 0, "var(--ds-danger,#dc2626)") +
     tile(TCi18n.t("mit.live.kpi.openTimesheets"), k.open_timesheets || 0, null) +
     tile(TCi18n.t("mit.live.kpi.workforce"), k.total || 0, null);
 }
 function renderLiveList(workers) {
   var el = document.getElementById("liveList"); if (!el) return;
+  _liveWorkers = workers || [];
   if (!workers.length) { el.innerHTML = '<div class="empty-state">' + esc(TCi18n.t("mit.live.empty")) + '</div>'; return; }
-  var order = ["endet_bald", "im_einsatz", "verfuegbar", "inaktiv"]; // Handlungsbedarf zuerst
+  var order = ["abwesend", "endet_bald", "im_einsatz", "verfuegbar", "inaktiv"]; // Handlungsbedarf zuerst
   var html = "";
   order.forEach(function(st) {
     var group = workers.filter(function(w) { return w.live_status === st; });
@@ -1415,20 +1479,131 @@ function renderLiveList(workers) {
       var name = esc(((w.first_name || "") + " " + (w.last_name || "")).trim() || "—") +
                  (w.personnel_number ? ' <span style="color:var(--wk-text-muted,#64748b);font-weight:400">#' + esc(w.personnel_number) + '</span>' : "");
       var sub = [];
+      /* Abwesenheit zuerst: sie ist der Grund, warum die Zeile hier oben steht.
+         Der Einsatz-Kontext bleibt trotzdem stehen — der Disponent muss sehen,
+         WO die Kraft gerade fehlt, sonst weiss er nicht, wen er anrufen muss. */
+      if (w.live_status === "abwesend" && w.absence_art) {
+        var absParts = [TCi18n.t("mit.live.absence.art." + w.absence_art) || w.absence_art];
+        if (w.absence_von) absParts.push(TCi18n.t("mit.live.absence.since", { date: formatDateLabel(w.absence_von) }));
+        absParts.push(w.absence_bis
+          ? TCi18n.t("mit.live.absence.till", { date: formatDateLabel(w.absence_bis) })
+          : TCi18n.t("mit.live.absence.openEnd"));
+        sub.push(esc(absParts.join(" · ")));
+      }
       if (w.client_name) sub.push(esc(TCi18n.t("mit.live.atClient", { client: w.client_name })));
       if (w.effective_end_date) sub.push(esc(TCi18n.t("mit.live.until", { date: formatDateLabel(w.effective_end_date) })));
       var ts = (w.open_timesheets > 0)
         ? '<a href="/public/worker-submissions-review.html" class="badge" style="background:var(--ds-warning-muted,rgba(245,158,11,.15));color:var(--ds-warning,#b45309);text-decoration:none">' + esc(TCi18n.t("mit.live.timesheetsBadge", { count: w.open_timesheets })) + '</a>'
         : "";
+      /* Inaktive bekommen keine Abmeldung: wer nicht mehr beschaeftigt ist, kann
+         nicht krank gemeldet werden — ein Knopf dafuer waere eine Sackgasse. */
+      var aktion = "";
+      if (w.live_status === "abwesend" && w.absence_id) {
+        aktion = '<button class="btn" style="padding:5px 10px;font-size:12px" onclick="revokeAbsence(\'' + esc(w.absence_id) + '\')">' +
+                 esc(TCi18n.t("mit.live.absence.revokeBtn")) + '</button>';
+      } else if (w.live_status !== "inaktiv" && w.id) {
+        aktion = '<button class="btn" style="padding:5px 10px;font-size:12px" onclick="openAbsenceModal(\'' + esc(w.id) + '\')">' +
+                 esc(TCi18n.t("mit.live.absence.reportBtn")) + '</button>';
+      }
       html += '<div class="card" style="display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:8px">' +
                 '<div><div style="font-weight:700">' + name + '</div>' +
                 (sub.length ? '<div style="font-size:13px;color:var(--wk-text-muted,#64748b)">' + sub.join(" · ") + '</div>' : "") + '</div>' +
-                '<div style="display:flex;gap:8px;align-items:center;flex-shrink:0">' + ts +
+                '<div style="display:flex;gap:8px;align-items:center;flex-shrink:0">' + ts + aktion +
                   '<span class="badge" style="background:transparent;border:1px solid ' + cfg.color + ';color:' + cfg.color + '">' + esc(statusLabel) + '</span>' +
                 '</div></div>';
     });
   });
   el.innerHTML = html;
+}
+
+/* ── Abwesenheit erfassen (Welle E2) ─────────────────────
+ * Der Dialog haengt am PROFIL (worker_profile_id), nicht am Konto — genau
+ * deshalb funktioniert er auch fuer importierte Mitarbeiter ohne Login. */
+var _absenceProfileId = null;
+
+function openAbsenceModal(profileId) {
+  _absenceProfileId = profileId || null;
+  if (!_absenceProfileId) return;
+
+  var w = (_liveWorkers || []).filter(function(x) { return x.id === profileId; })[0];
+  var name = w ? (((w.first_name || "") + " " + (w.last_name || "")).trim()) : "";
+  if (w && w.personnel_number) name += " · #" + w.personnel_number;
+  var nameEl = document.getElementById("absenceWorker");
+  if (nameEl) nameEl.textContent = name;
+
+  document.getElementById("absenceArt").value = "krank";
+  // Kalendertag in Europe/Berlin — ein UTC-Schnitt liefert hier ganztaegig den Vortag.
+  document.getElementById("absenceVon").value = (window.TCDate && TCDate.todayDE) ? TCDate.todayDE() : "";
+  document.getElementById("absenceBis").value = "";
+  document.getElementById("absenceNotiz").value = "";
+  showAbsenceError("");
+  document.getElementById("absenceModal").classList.add("show");
+}
+
+function closeAbsenceModal() {
+  document.getElementById("absenceModal").classList.remove("show");
+  _absenceProfileId = null;
+}
+
+function showAbsenceError(msg) {
+  var el = document.getElementById("absenceError"); if (!el) return;
+  el.textContent = msg || "";
+  el.style.display = msg ? "" : "none";
+}
+
+function saveAbsence() {
+  if (!_absenceProfileId) return;
+  var von = document.getElementById("absenceVon").value;
+  var bis = document.getElementById("absenceBis").value;
+  if (!von) { showAbsenceError(TCi18n.t("mit.live.absence.invalidRange")); return; }
+  if (bis && bis < von) { showAbsenceError(TCi18n.t("mit.live.absence.invalidRange")); return; }
+
+  var btn = document.getElementById("absenceSubmitBtn");
+  if (btn) btn.disabled = true;
+  showAbsenceError("");
+
+  api("/workers/absences", {
+    method: "POST",
+    body: {
+      worker_profile_id: _absenceProfileId,
+      art: document.getElementById("absenceArt").value,
+      von: von,
+      bis: bis || null,
+      notiz: document.getElementById("absenceNotiz").value || null
+    }
+  }).then(function() {
+    closeAbsenceModal();
+    toast(TCi18n.t("mit.live.absence.saved"), "ok");
+    loadLiveBoard();
+  }).catch(function(e) {
+    /* Der Fehler wird GEZEIGT, nicht geschluckt — das war das durchgaengige
+       Muster der 85 Audit-Befunde vom 2026-08-13. */
+    if (e && e.error === "ABSENCE_OVERLAP") {
+      var k = e.conflict || {};
+      showAbsenceError(TCi18n.t("mit.live.absence.overlap", {
+        art: TCi18n.t("mit.live.absence.art." + k.art) || k.art || "—",
+        von: k.von ? formatDateLabel(k.von) : "—"
+      }));
+      return;
+    }
+    if (e && e.error === "INVALID_RANGE") { showAbsenceError(TCi18n.t("mit.live.absence.invalidRange")); return; }
+    showAbsenceError(e && (e.message || e.error) ? (e.message || e.error) : TCi18n.t("mit.live.absence.saveError"));
+  }).then(function() {
+    if (btn) btn.disabled = false;
+  });
+}
+
+function revokeAbsence(absenceId) {
+  if (!absenceId) return;
+  if (!confirm(TCi18n.t("mit.live.absence.confirmRevoke"))) return;
+  api("/workers/absences/" + encodeURIComponent(absenceId) + "/aufheben", { method: "POST", body: {} })
+    .then(function() {
+      toast(TCi18n.t("mit.live.absence.revoked"), "ok");
+      loadLiveBoard();
+    })
+    .catch(function(e) {
+      toast((e && (e.message || e.error)) || TCi18n.t("mit.live.absence.saveError"), "err");
+    });
 }
 
 /* ── Init ────────────────────────────────────────────── */

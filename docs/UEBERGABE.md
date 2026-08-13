@@ -39,7 +39,14 @@ Abschnitten, die ich in Spuren mit **Wellen und Gates** schneide.
 ```bash
 cd api && node scripts/run-tests.js          # offizieller Runner, ohne Pipe
 ```
-Stand: **8362 Tests**, davon 13 übersprungen (DB-gated).
+Stand: **8404 Tests**, davon 13 übersprungen (DB-gated).
+
+Die DB-gestützten Tests laufen im Container, wo `DB_HOST` gesetzt ist — auf dem
+Host überspringen sie sich selbst. Was gegen das echte Schema geprüft sein muss
+(Constraints, LATERALs, Casts), gehört deshalb zusätzlich dorthin:
+```bash
+docker exec tempconnect_api sh -c "cd /app && node --test --test-force-exit test/integration/<datei>"
+```
 
 Im Container (nur `api/` und Lese-Mounts sind dort sichtbar):
 ```bash
@@ -73,7 +80,7 @@ Lastabhängig. **Als eigene Aufgabe ausgelagert, nicht nebenbei anfassen.**
 | Abschnitt | Spur | Stand |
 |---|---|---|
 | 5 CSV-Import | D | **fertig** — D1–D5 ✅. Offen: **D6** (DSGVO für Mitarbeiter ohne Konto), geplant, braucht **D-E3** |
-| 6 Live-Belegschaft | E | **E1 ✅ gemessen**, alle drei Entscheidungen gefallen. Weiter mit **E2** (Tabelle worker_absences). Plan: features/E_LIVE_BELEGSCHAFT.md |
+| 6 Live-Belegschaft | E | **E1 ✅ gemessen, E2 ✅ gebaut** (Mig 177 `worker_absences`, Dienst, Endpunkte, Tafel, Oberfläche, 30 Tests — Gate an der echten DB belegt). Weiter mit **E3** (Montage am Einsatz). Plan: features/E_LIVE_BELEGSCHAFT.md |
 | 7 Systemzeit | F | **fertig** — F1 kartiert (33 Fehler), F2 behoben, F3 Wächter mit Grundlinie 39. Landkarte: features/F1_SYSTEMZEIT_LANDKARTE.md |
 
 > Der Owner hat angekündigt, dass es **Abschnitte bis 12** gibt. Sie sind noch nicht durchgegeben.
