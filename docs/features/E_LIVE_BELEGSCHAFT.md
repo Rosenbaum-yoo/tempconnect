@@ -128,7 +128,7 @@ bewusst *nicht* gebaut: sie ist ein eigener Vertrauens- und
 Benachrichtigungspfad (wer erfährt davon, wie schnell, mit welchem Nachweis)
 und gehört nicht nebenbei in eine Datenmodell-Welle.
 
-### Welle E3 — Montage als Eigenschaft des Einsatzes
+### Welle E3 — Montage als Eigenschaft des Einsatzes ✅ *(erledigt 2026-08-13)*
 
 - Feld am Einsatz (`worker_assignment_links` oder `assignments` — **erst prüfen,
   wo es fachlich hingehört**), nicht am Menschen.
@@ -137,6 +137,50 @@ und gehört nicht nebenbei in eine Datenmodell-Welle.
 **Gate E3:** Ein als Montage erfasster Einsatz erscheint in der Live-Belegschaft
 unter Montage statt unter „im Einsatz". Ohne Erfassung kein Reiter — ein leerer
 Reiter ist schlimmer als keiner.
+
+> **Gate E3 ist erfüllt und gegen die echte Datenbank belegt** — ein real
+> angelegter Einsatz mit `is_montage = TRUE` steht unter *Montage*, nicht unter
+> *im Einsatz* (`workerAbwesenheit.flow.test.js`, 15/15).
+
+**Die offene Frage aus dem Plan — vom Schema beantwortet, nicht geraten**
+
+| Tabelle | kennt sie einen Ort? |
+|---|---|
+| `assignments` | **nein** — Auftraggeber, Zeitraum, Satz, Kopfzahl. Kein Ortsfeld. |
+| `worker_assignment_links` | **ja, vollständig** — `location_address`, `location_lat/lng`, `meeting_point`, `client_name`, `instructions`, `dress_code`, `contact_*` |
+
+Montage heißt „auswärts mit Übernachtung" — eine Aussage über den **Ort**, an den
+dieser Mensch fährt. Sie gehört neben `location_address`, nicht in eine Tabelle,
+die keinen Ort kennt. Der Nebeneffekt ist fachlich richtig: zwei Kräfte
+desselben Auftrags können auf verschiedene Baustellen gehen — dieses Schema
+sieht das ausdrücklich vor, und nur dort lässt es sich abbilden.
+
+**Was gebaut wurde**
+
+| Teil | Ort |
+|---|---|
+| Migration | `sql/migrations/178_montage_gehoert_zum_einsatzort.sql` (`is_montage`) |
+| Erfassung | Einsatz-Editor in `js/pages/workerSubmissionsReview.js`, direkt unter der Adresse |
+| Route | `PATCH /api/worker-assignment-links/:id` — Zod + Feld-Whitelist |
+| Tafel | `live_status = 'montage'` + eigener Zählwert |
+| Mitarbeiter-Sicht | Hinweis im Einsatzportal: *„Auswärtseinsatz mit Übernachtung – plane die An- und Abreise ein."* |
+| Tests | 6 Einheit · 6 Oberfläche · 3 gegen das echte Schema |
+
+**Zwei Entscheidungen, die der Plan nicht vorgab**
+
+1. **Montage überdeckt „endet bald", nicht umgekehrt.** Sonst verschwände eine
+   Kraft aus dem Montage-Reiter, nur weil ihr Einsatz in sechs Tagen endet — der
+   Reiter beantwortete „wer übernachtet gerade auswärts" dann falsch. Das nahende
+   Ende geht trotzdem nicht verloren: es wird als eigenes Feld geführt und steht
+   sichtbar in der Zeile.
+2. **Montage zählt voll als Einsatz in der Auslastung.** Die Kraft arbeitet, sie
+   schläft nur woanders. Zählte man sie nicht mit, sänke die Quote genau dann,
+   wenn der Betrieb am meisten leistet.
+
+**Bewusst nicht gebaut:** Unterkunft und Auslöse. Die Unterkunft steht bereits in
+`meeting_point`/`instructions`, die Auslöse ist Abrechnung statt Disposition. Ein
+Feld, das niemand füllt, ist schlimmer als keins — kommt die Lohnseite, ist sie
+eine eigene Welle mit eigenem Gate.
 
 ### Welle E4 — Die Reiter
 
@@ -173,8 +217,8 @@ ohne Protokolleintrag nicht möglich ist.
 
 ## Reihenfolge
 
-**~~E2~~ → E3 → E4 → E5.** Erst die Quellen, dann die Anzeige, dann der Verlauf.
-Nächster Schritt: **E3** (Montage als Eigenschaft des Einsatzes).
+**~~E2~~ → ~~E3~~ → E4 → E5.** Erst die Quellen, dann die Anzeige, dann der Verlauf.
+Beide Quellen stehen. Nächster Schritt: **E4** (die Reiter).
 
 Die Versuchung ist, mit den Reitern anzufangen — sie sind das Sichtbare. Das
 wäre falsch: ein Reiter ohne Datenquelle ist eine Zusage, die das Produkt nicht

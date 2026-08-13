@@ -545,12 +545,17 @@ export async function getCompanyLiveWorkforce(pool, companyOrgId, filters = {}) 
  *             der Disponent auf die Tafel schaut. Der Einsatz-Kontext (Kunde,
  *             Enddatum) bleibt in der Zeile stehen, damit sichtbar ist, WO die
  *             Kraft fehlt.
- *   endet_bald / im_einsatz / verfuegbar wie bisher.
+ *   montage   schlaegt endet_bald UND im_einsatz (Welle E3). Der Reiter "Montage"
+ *             muss vollstaendig beantworten, wer gerade auswaerts uebernachtet —
+ *             eine Kraft, die daraus verschwindet, weil ihr Einsatz in sechs Tagen
+ *             endet, macht den Reiter zur Luege. Das nahende Ende geht nicht
+ *             verloren: Enddatum und ein eigener Hinweis stehen in der Zeile.
+ *   im_einsatz / verfuegbar wie bisher.
  */
 export async function getWorkerLiveBoard(pool, supplierOrgId, filters = {}) {
   const scope = { supplier_org_id: supplierOrgId || null, ends_soon_days: LIVE_BOARD_ENDS_SOON_DAYS };
   const emptyKpis = {
-    total: 0, im_einsatz: 0, verfuegbar: 0, endet_bald: 0, abwesend: 0, inaktiv: 0,
+    total: 0, im_einsatz: 0, verfuegbar: 0, endet_bald: 0, montage: 0, abwesend: 0, inaktiv: 0,
     open_timesheets: 0, auslastung_pct: 0,
     abwesend_nach_art: { krank: 0, urlaub: 0, termin: 0, sonstiges: 0 }
   };
@@ -576,11 +581,17 @@ export async function getWorkerLiveBoard(pool, supplierOrgId, filters = {}) {
             cur.effective_end_date, cur.lifecycle_state,
             abw.id AS absence_id, abw.art AS absence_art,
             abw.von AS absence_von, abw.bis AS absence_bis, abw.notiz AS absence_notiz,
+            COALESCE(cur.is_montage, FALSE) AS is_montage,
             COALESCE(ts.pending_count, 0)::int AS open_timesheets,
+            /* Endet der Einsatz bald? Wird getrennt vom Zustand gefuehrt, weil
+             * 'montage' ihn ueberdeckt — die Zeile soll den Hinweis trotzdem zeigen. */
+            (cur.effective_end_date IS NOT NULL
+             AND cur.effective_end_date <= CURRENT_DATE + ${LIVE_BOARD_ENDS_SOON_DAYS}) AS endet_bald,
             CASE
               WHEN wp.is_active = FALSE THEN 'inaktiv'
               WHEN abw.id IS NOT NULL THEN 'abwesend'
               WHEN cur.assignment_id IS NULL THEN 'verfuegbar'
+              WHEN cur.is_montage THEN 'montage'
               WHEN cur.effective_end_date IS NOT NULL
                    AND cur.effective_end_date <= CURRENT_DATE + ${LIVE_BOARD_ENDS_SOON_DAYS} THEN 'endet_bald'
               ELSE 'im_einsatz'
@@ -602,7 +613,8 @@ export async function getWorkerLiveBoard(pool, supplierOrgId, filters = {}) {
        ) abw ON TRUE
        LEFT JOIN LATERAL (
          SELECT a.id AS assignment_id, a.status AS assignment_status, o.name AS client_name,
-                wal.start_date, ${effEndSql} AS effective_end_date, ${lifecycleStateSql} AS lifecycle_state
+                wal.start_date, wal.is_montage,
+                ${effEndSql} AS effective_end_date, ${lifecycleStateSql} AS lifecycle_state
            FROM worker_assignment_links wal
            JOIN assignments a ON a.id = wal.assignment_id
            LEFT JOIN organizations o ON o.id = a.org_id
@@ -634,14 +646,18 @@ export async function getWorkerLiveBoard(pool, supplierOrgId, filters = {}) {
       if (Object.prototype.hasOwnProperty.call(kpis.abwesend_nach_art, art)) kpis.abwesend_nach_art[art]++;
     }
     else if (r.live_status === "verfuegbar") kpis.verfuegbar++;
+    else if (r.live_status === "montage") kpis.montage++;
     else if (r.live_status === "endet_bald") kpis.endet_bald++;
     else if (r.live_status === "im_einsatz") kpis.im_einsatz++;
     kpis.open_timesheets += r.open_timesheets || 0;
   });
   /* Auslastung: Abwesende zaehlen zur einsatzfaehigen Belegschaft, sind aber nicht
    * im Einsatz — sie druecken die Quote, und das ist richtig so. Wer krank ist,
-   * bringt keinen Umsatz; eine Kennzahl, die das wegrechnet, beschoenigt. */
-  const onAssignment = kpis.im_einsatz + kpis.endet_bald;
+   * bringt keinen Umsatz; eine Kennzahl, die das wegrechnet, beschoenigt.
+   * Montage zaehlt dagegen VOLL als Einsatz — die Kraft arbeitet, sie schlaeft nur
+   * woanders. Waere sie hier nicht mitgezaehlt, saenke die Auslastung genau dann,
+   * wenn der Betrieb am meisten leistet. */
+  const onAssignment = kpis.im_einsatz + kpis.endet_bald + kpis.montage;
   const activeWorkers = kpis.total - kpis.inaktiv;
   kpis.auslastung_pct = activeWorkers > 0 ? Math.round((onAssignment / activeWorkers) * 100) : 0;
 

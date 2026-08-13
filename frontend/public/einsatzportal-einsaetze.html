@@ -118,6 +118,8 @@ TCi18n.register('de', {
   'ep.einsaetze.minutesFmt': '{n} Minuten',
   'ep.einsaetze.infoEinsatzort': 'Einsatzort',
   'ep.einsaetze.infoTreffpunkt': 'Treffpunkt',
+  'ep.einsaetze.infoMontage': 'Montage',
+  'ep.einsaetze.montageHinweis': 'Auswärtseinsatz mit Übernachtung – plane die An- und Abreise ein.',
   'ep.einsaetze.infoTaetigkeit': 'Tätigkeit',
   'ep.einsaetze.secAnweisungen': 'Einsatzanweisungen',
   'ep.einsaetze.secKleidung': 'Kleidung / Ausrüstung',
@@ -186,6 +188,8 @@ TCi18n.register('en', {
   'ep.einsaetze.minutesFmt': '{n} minutes',
   'ep.einsaetze.infoEinsatzort': 'Work location',
   'ep.einsaetze.infoTreffpunkt': 'Meeting point',
+  'ep.einsaetze.infoMontage': 'Away assignment',
+  'ep.einsaetze.montageHinweis': 'Away assignment with overnight stay – plan your travel there and back.',
   'ep.einsaetze.infoTaetigkeit': 'Duties',
   'ep.einsaetze.secAnweisungen': 'Assignment instructions',
   'ep.einsaetze.secKleidung': 'Clothing / equipment',
@@ -369,6 +373,7 @@ function renderDetail(a) {
         ${a.default_break_minutes ? infoRow('', TCi18n.t('ep.einsaetze.infoPause'), TCi18n.t('ep.einsaetze.minutesFmt', { n: a.default_break_minutes })) : ''}
         ${a.location_address ? infoRow('', TCi18n.t('ep.einsaetze.infoEinsatzort'), a.location_address) : ''}
         ${a.meeting_point ? infoRow('', TCi18n.t('ep.einsaetze.infoTreffpunkt'), a.meeting_point) : ''}
+        ${a.is_montage ? `<div style="display:flex;gap:10px;align-items:flex-start;background:rgba(139,92,246,.09);border-left:3px solid var(--ep-accent,#8b5cf6);border-radius:0 8px 8px 0;padding:10px 14px;font-size:.875rem;margin:10px 0"><strong>${esc(TCi18n.t('ep.einsaetze.infoMontage'))}</strong><span>${esc(TCi18n.t('ep.einsaetze.montageHinweis'))}</span></div>` : ''}
         ${a.worker_description ? infoRow('', TCi18n.t('ep.einsaetze.infoTaetigkeit'), a.worker_description) : ''}
         ${a.instructions ? `<div class="ep-section-label">${TCi18n.t('ep.einsaetze.secAnweisungen')}</div><div style="background:rgba(74,158,255,.07);border-left:3px solid var(--ep-brand);border-radius:0 8px 8px 0;padding:12px 14px;font-size:.875rem;line-height:1.6;margin-bottom:12px">${esc(a.instructions)}</div>` : ''}
         ${a.dress_code ? `<div class="ep-section-label">${TCi18n.t('ep.einsaetze.secKleidung')}</div><div style="background:rgba(251,191,36,.07);border-left:3px solid var(--ep-warning);border-radius:0 8px 8px 0;padding:10px 14px;font-size:.875rem;margin-bottom:12px">${esc(a.dress_code)}</div>` : ''}

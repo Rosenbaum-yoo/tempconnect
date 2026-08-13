@@ -132,7 +132,12 @@ const updateAssignmentLinkSchema = z.object({
   default_shift_start:   z.string().regex(timeRx).optional().nullable(),
   default_shift_end:     z.string().regex(timeRx).optional().nullable(),
   default_break_minutes: z.number().int().min(0).max(120).optional(),
-  notes:                 z.string().max(2000).optional().nullable()
+  notes:                 z.string().max(2000).optional().nullable(),
+  // P10/E3: Auswaertseinsatz mit Uebernachtung. Steht bewusst hier und nicht am
+  // Auftrag — die Ortswahrheit (location_address, meeting_point) haengt an dieser
+  // Verknuepfung, und zwei Kraefte desselben Auftrags koennen an verschiedene
+  // Orte fahren.
+  is_montage:            z.boolean().optional()
 });
 
 const assignmentLinkSchema = z.object({
@@ -1493,7 +1498,8 @@ export function createWorkersRouter(deps) {
         "contact_name","contact_phone","contact_email",
         "dispatcher_name","dispatcher_phone","dispatcher_email",
         "start_date","end_date","default_hours_per_day",
-        "default_shift_start","default_shift_end","default_break_minutes","notes"
+        "default_shift_start","default_shift_end","default_break_minutes","notes",
+        "is_montage"
       ];
       for (const key of allowed) {
         if (parsed.data[key] !== undefined) {

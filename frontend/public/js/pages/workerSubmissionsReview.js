@@ -746,6 +746,8 @@ TCi18n.register('de', {
   'ts.rev.lnk.addressPh': 'z.B. Lerchenauer Str. 31, 80809 München',
   'ts.rev.lnk.meetingPoint': 'Treffpunkt',
   'ts.rev.lnk.meetingPointPh': 'z.B. Haupteingang, Pforte A',
+  'ts.rev.lnk.montage': 'Montage (Auswärtseinsatz mit Übernachtung)',
+  'ts.rev.lnk.montageHint': 'Erscheint in der Live-Belegschaft unter „Montage“ – und der Mitarbeiter sieht im Einsatzportal, dass er auswärts übernachtet.',
   'ts.rev.lnk.startDate': 'Startdatum',
   'ts.rev.lnk.endDate': 'Enddatum',
   'ts.rev.lnk.sectionHours': 'Arbeitszeiten',
@@ -1539,6 +1541,8 @@ TCi18n.register('en', {
   'ts.rev.lnk.addressPh': 'e.g. Lerchenauer Str. 31, 80809 Munich',
   'ts.rev.lnk.meetingPoint': 'Meeting point',
   'ts.rev.lnk.meetingPointPh': 'e.g. main entrance, gate A',
+  'ts.rev.lnk.montage': 'Away assignment with overnight stay',
+  'ts.rev.lnk.montageHint': 'Shows up under “Away assignment” in the live workforce – and the worker sees in the portal that they stay overnight.',
   'ts.rev.lnk.startDate': 'Start date',
   'ts.rev.lnk.endDate': 'End date',
   'ts.rev.lnk.sectionHours': 'Working hours',
@@ -5058,6 +5062,13 @@ function openLnkDrw(l){
     +'<input type="text" class="wk-input" id="le-location_address" value="'+h(l.location_address)+'" placeholder="'+esc(tt('ts.rev.lnk.addressPh'))+'"></div>'
     +'<div class="wk-form-group"><label class="wk-label">'+esc(tt('ts.rev.lnk.meetingPoint'))+'</label>'
     +'<input type="text" class="wk-input" id="le-meeting_point" value="'+h(l.meeting_point)+'" placeholder="'+esc(tt('ts.rev.lnk.meetingPointPh'))+'"></div>'
+    /* P10/E3 — Montage steht neben der Adresse, weil sie eine Aussage ueber den
+       Ort ist. Ohne diese Erfassung bliebe der Reiter "Montage" in der
+       Live-Belegschaft dauerhaft leer. */
+    +'<div class="wk-form-group"><label class="wk-label" style="display:flex;align-items:center;gap:8px;cursor:pointer">'
+    +'<input type="checkbox" id="le-is_montage" style="width:auto;margin:0"'+(l.is_montage?' checked':'')+'>'
+    +'<span>'+esc(tt('ts.rev.lnk.montage'))+'</span></label>'
+    +'<div style="font-size:.78rem;color:var(--wk-text-muted,#64748b);margin-top:4px">'+esc(tt('ts.rev.lnk.montageHint'))+'</div></div>'
     +'<div class="drw-grid-2">'
     +'<div class="wk-form-group"><label class="wk-label">'+esc(tt('ts.rev.lnk.startDate'))+' <span class="required">*</span></label>'
     +'<input type="date" class="wk-input" id="le-start_date" value="'+dv(l.start_date)+'"></div>'
@@ -5138,6 +5149,10 @@ async function saveLnkEdit(){
   if(hp)body.default_hours_per_day=parseFloat(hp);
   const bm=document.getElementById('le-default_break_minutes')?.value?.trim();
   if(bm)body.default_break_minutes=parseInt(bm,10);
+  // Ein Schalter hat keinen leeren Zustand: er wird immer mitgeschickt, sonst
+  // liesse sich eine faelschlich gesetzte Montage nie wieder abwaehlen.
+  const mont=document.getElementById('le-is_montage');
+  if(mont)body.is_montage=!!mont.checked;
   const err=document.getElementById('lnkErr');
   if(!sd){err.textContent=tt('ts.rev.lnk.startRequired');err.style.display='block';return;}
   err.style.display='none';

@@ -98,6 +98,7 @@ TCi18n.register('de', {
   'mit.live.status.onAssignment': 'Im Einsatz',
   'mit.live.status.available': 'Verfügbar',
   'mit.live.status.absent': 'Abwesend',
+  'mit.live.status.montage': 'Montage',
   'mit.live.status.inactive': 'Inaktiv',
   'mit.live.kpi.utilization': 'Auslastung',
   'mit.live.kpi.openTimesheets': 'Stundenzettel offen',
@@ -651,6 +652,7 @@ TCi18n.register('en', {
   'mit.live.status.onAssignment': 'On assignment',
   'mit.live.status.available': 'Available',
   'mit.live.status.absent': 'Absent',
+  'mit.live.status.montage': 'Away assignment',
   'mit.live.status.inactive': 'Inactive',
   'mit.live.kpi.utilization': 'Utilisation',
   'mit.live.kpi.openTimesheets': 'Open timesheets',
@@ -1405,6 +1407,7 @@ var LIVE_POLL_MS = 30000;
    uebersetzt wird nur das Label an der Verwendungsstelle. */
 var LIVE_STATUS = {
   abwesend:   { labelKey: "mit.live.status.absent",      color: "var(--ds-danger,#dc2626)" },
+  montage:    { labelKey: "mit.live.status.montage",     color: "var(--ds-accent,#8b5cf6)" },
   endet_bald: { labelKey: "mit.live.status.endingSoon", color: "var(--ds-warning,#f59e0b)" },
   im_einsatz: { labelKey: "mit.live.status.onAssignment", color: "var(--ds-brand,#4a9eff)" },
   verfuegbar: { labelKey: "mit.live.status.available",  color: "var(--ds-success,#34d399)" },
@@ -1459,6 +1462,7 @@ function renderLiveKpis(k) {
     tile(TCi18n.t("mit.live.status.onAssignment"), (k.im_einsatz || 0) + (k.endet_bald ? " (+" + k.endet_bald + ")" : ""), null) +
     tile(TCi18n.t("mit.live.status.available"), k.verfuegbar || 0, "var(--ds-success,#34d399)") +
     tile(TCi18n.t("mit.live.status.endingSoon"), k.endet_bald || 0, "var(--ds-warning,#f59e0b)") +
+    tile(TCi18n.t("mit.live.status.montage"), k.montage || 0, "var(--ds-accent,#8b5cf6)") +
     tile(TCi18n.t("mit.live.status.absent") + (artTeile.length ? " · " + artTeile.join(" · ") : ""), k.abwesend || 0, "var(--ds-danger,#dc2626)") +
     tile(TCi18n.t("mit.live.kpi.openTimesheets"), k.open_timesheets || 0, null) +
     tile(TCi18n.t("mit.live.kpi.workforce"), k.total || 0, null);
@@ -1467,7 +1471,7 @@ function renderLiveList(workers) {
   var el = document.getElementById("liveList"); if (!el) return;
   _liveWorkers = workers || [];
   if (!workers.length) { el.innerHTML = '<div class="empty-state">' + esc(TCi18n.t("mit.live.empty")) + '</div>'; return; }
-  var order = ["abwesend", "endet_bald", "im_einsatz", "verfuegbar", "inaktiv"]; // Handlungsbedarf zuerst
+  var order = ["abwesend", "endet_bald", "montage", "im_einsatz", "verfuegbar", "inaktiv"]; // Handlungsbedarf zuerst
   var html = "";
   order.forEach(function(st) {
     var group = workers.filter(function(w) { return w.live_status === st; });
@@ -1492,6 +1496,12 @@ function renderLiveList(workers) {
       }
       if (w.client_name) sub.push(esc(TCi18n.t("mit.live.atClient", { client: w.client_name })));
       if (w.effective_end_date) sub.push(esc(TCi18n.t("mit.live.until", { date: formatDateLabel(w.effective_end_date) })));
+      /* 'montage' ueberdeckt 'endet_bald' im Zustand — der Hinweis darf deshalb
+         nicht verloren gehen, sonst uebersieht der Disponent genau die Rueckkehr,
+         die er planen muss. */
+      if (w.endet_bald && w.live_status === "montage") {
+        sub.push('<span style="color:var(--ds-warning,#b45309);font-weight:600">' + esc(TCi18n.t("mit.live.status.endingSoon")) + '</span>');
+      }
       var ts = (w.open_timesheets > 0)
         ? '<a href="/public/worker-submissions-review.html" class="badge" style="background:var(--ds-warning-muted,rgba(245,158,11,.15));color:var(--ds-warning,#b45309);text-decoration:none">' + esc(TCi18n.t("mit.live.timesheetsBadge", { count: w.open_timesheets })) + '</a>'
         : "";

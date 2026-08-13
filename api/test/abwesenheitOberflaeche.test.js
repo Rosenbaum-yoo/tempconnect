@@ -238,6 +238,57 @@ suite("Welle E2 — die Abwesenheit in der Oberflaeche", () => {
     assert.ok(route.includes('/workers/absences/:id([0-9a-fA-F-]{36})/aufheben'), "auch der Aufheben-Pfad");
   });
 
+  /* ── Welle E3: Montage ──────────────────────────────────────────────────── */
+
+  it("Montage hat in beiden Sprachen ein Label", () => {
+    assert.ok(woerter.de["mit.live.status.montage"]);
+    assert.ok(woerter.en["mit.live.status.montage"]);
+  });
+
+  it("eine Montage-Zeile steht unter Montage und zeigt den Kunden", () => {
+    const out = render([{
+      id: "m1", first_name: "Mont", last_name: "Auswaerts", live_status: "montage",
+      is_montage: true, client_name: "Werk Sued", effective_end_date: "2026-09-30", open_timesheets: 0
+    }]);
+    assert.ok(out.includes("Montage"));
+    assert.ok(out.includes("Werk Sued"));
+    assert.ok(out.includes("openAbsenceModal('m1')"), "auch von der Montage kann man sich abmelden");
+  });
+
+  it("das nahende Ende bleibt in der Zeile sichtbar, obwohl der Zustand 'montage' heisst", () => {
+    // Sonst uebersieht der Disponent genau die Rueckkehr, die er planen muss.
+    const out = render([{
+      id: "m2", first_name: "A", last_name: "B", live_status: "montage",
+      is_montage: true, endet_bald: true, effective_end_date: "2026-08-18", open_timesheets: 0
+    }]);
+    assert.ok(out.includes("Endet bald"), "der Hinweis darf nicht verschwinden");
+  });
+
+  it("die Kachel zeigt Montage getrennt", () => {
+    ctx.renderLiveKpis({ total: 3, montage: 2, abwesend_nach_art: {} });
+    assert.ok(elemente.liveKpis.innerHTML.includes("Montage"));
+  });
+
+  it("der Einsatz-Editor bietet den Schalter an — sonst bleibt der Reiter leer", () => {
+    const rev = fs.readFileSync(path.join(ROOT, "frontend/public/js/pages/workerSubmissionsReview.js"), "utf8");
+    assert.ok(rev.includes('id="le-is_montage"'), "Schalter im Formular");
+    assert.ok(/body\.is_montage\s*=\s*!!mont\.checked/.test(rev),
+      "ein Schalter wird IMMER mitgeschickt — sonst liesse sich eine falsch gesetzte Montage nie abwaehlen");
+    const route = fs.readFileSync(path.join(ROOT, "api/routes/workers.js"), "utf8");
+    assert.ok(/"is_montage"/.test(route), "und die Route laesst das Feld auch durch");
+    assert.ok(/is_montage:\s+z\.boolean\(\)\.optional\(\)/.test(route), "mit Validierung");
+  });
+
+  it("der Mitarbeiter erfaehrt im Einsatzportal, dass er auswaerts uebernachtet", () => {
+    const ep = fs.readFileSync(path.join(ROOT, "frontend/public/einsatzportal-einsaetze.html"), "utf8");
+    assert.ok(ep.includes("a.is_montage"), "die Karte wertet das Feld aus");
+    assert.ok(ep.includes("'ep.einsaetze.montageHinweis': 'Ausw"), "DE-Hinweis vorhanden");
+    assert.ok(/'ep\.einsaetze\.montageHinweis': 'Away assignment/.test(ep), "EN-Hinweis vorhanden");
+    const svc = fs.readFileSync(path.join(ROOT, "api/services/workerService.js"), "utf8");
+    assert.ok((svc.match(/wal\.is_montage/g) || []).length >= 3,
+      "alle drei Leser-Abfragen reichen das Feld durch — sonst zeigt die Karte nie etwas");
+  });
+
   it("der Fehlerfall wird gezeigt, nicht geschluckt", () => {
     // Genau das Muster, das der Audit 85-mal fand: .catch(function(){}) ohne Ausgabe.
     const abschnitt = js.slice(js.indexOf("function saveAbsence"), js.indexOf("function revokeAbsence"));

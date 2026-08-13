@@ -265,3 +265,104 @@ function plusTage(n) {
     timeZone: "Europe/Berlin", year: "numeric", month: "2-digit", day: "2-digit"
   }).format(d);
 }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+ * Gate E3 — ein als Montage erfasster Einsatz erscheint unter Montage
+ *
+ * Der Mock kann bestaetigen, dass der CASE-Zweig existiert. Ob die Spalte
+ * wirklich da ist, ob der LATERAL sie durchreicht und ob die Rangfolge am
+ * echten Datensatz greift, zeigt nur ein echter Einsatz.
+ * ═══════════════════════════════════════════════════════════════════════════ */
+
+describe("Welle E3 — Montage am realen Schema", { skip: !hasDb && "No database configured" }, () => {
+  let pool;
+  let org;
+  let firma;
+  let nutzer;
+  let profil;
+  let auftrag;
+
+  before(async () => {
+    if (!hasDb) return;
+    pool = createPool();
+    org = await createSupplierOrg(pool, "E3 Testagentur");
+    firma = await createSupplierOrg(pool, "E3 Kundenbetrieb");
+
+    const stempel = `${Date.now()}${Math.random().toString(36).slice(2, 6)}`;
+    const { rows: u } = await pool.query(
+      `INSERT INTO users (email, password_hash, role) VALUES ($1, 'x', 'worker') RETURNING id`,
+      [`e3-${stempel}@test.tempconnect.invalid`]
+    );
+    nutzer = u[0].id;
+
+    const { rows: p } = await pool.query(
+      `INSERT INTO worker_profiles (user_id, supplier_org_id, first_name, last_name, personnel_number)
+       VALUES ($1, $2, 'Mont', 'Auswaerts', $3) RETURNING id`,
+      [nutzer, org, `E3-${stempel}`]
+    );
+    profil = p[0].id;
+
+    const { rows: a } = await pool.query(
+      `INSERT INTO assignments (org_id, supplier_org_id, start_date, planned_end_date, status)
+       VALUES ($1, $2, CURRENT_DATE - 5, CURRENT_DATE + 60, 'active') RETURNING id`,
+      [firma, org]
+    );
+    auftrag = a[0].id;
+
+    await pool.query(
+      `INSERT INTO worker_assignment_links
+         (worker_user_id, assignment_id, org_id, supplier_org_id, start_date, end_date, is_montage)
+       VALUES ($1, $2, $3, $4, CURRENT_DATE - 5, CURRENT_DATE + 60, TRUE)`,
+      [nutzer, auftrag, firma, org]
+    );
+  });
+
+  after(async () => {
+    if (!hasDb || !pool) return;
+    await pool.query("DELETE FROM worker_assignment_links WHERE supplier_org_id = $1", [org]).catch(() => {});
+    await pool.query("DELETE FROM assignments WHERE supplier_org_id = $1", [org]).catch(() => {});
+    await pool.query("DELETE FROM worker_absences WHERE supplier_org_id = $1", [org]).catch(() => {});
+    await pool.query("DELETE FROM worker_profiles WHERE supplier_org_id = $1", [org]).catch(() => {});
+    await pool.query("DELETE FROM users WHERE id = $1", [nutzer]).catch(() => {});
+    await pool.query("DELETE FROM organizations WHERE id = ANY($1::uuid[])", [[org, firma]]).catch(() => {});
+    await pool.end();
+  });
+
+  it("steht unter 'montage' statt unter 'im Einsatz' (Gate E3)", async () => {
+    const board = await getWorkerLiveBoard(pool, org);
+    const zeile = board.workers.find((w) => w.id === profil);
+    assert.ok(zeile, "die Kraft steht auf der Tafel");
+    assert.strictEqual(zeile.live_status, "montage");
+    assert.strictEqual(zeile.is_montage, true);
+    assert.strictEqual(board.kpis.montage, 1);
+    assert.strictEqual(board.kpis.im_einsatz, 0, "sie darf nicht doppelt gezaehlt werden");
+    assert.strictEqual(board.kpis.auslastung_pct, 100, "Montage ist voller Einsatz");
+  });
+
+  it("eine Krankmeldung schlaegt die Montage — wer krank ist, ist zu Hause", async () => {
+    await pool.query(
+      `INSERT INTO worker_absences (worker_profile_id, supplier_org_id, art, von, bis)
+       VALUES ($1, $2, 'krank', CURRENT_DATE, CURRENT_DATE + 2)`,
+      [profil, org]
+    );
+    const board = await getWorkerLiveBoard(pool, org);
+    const zeile = board.workers.find((w) => w.id === profil);
+    assert.strictEqual(zeile.live_status, "abwesend");
+    assert.strictEqual(board.kpis.montage, 0);
+    // Der Einsatzzusammenhang bleibt sichtbar: der Disponent muss wissen, WO sie fehlt.
+    assert.ok(zeile.assignment_id, "der laufende Einsatz steht weiter in der Zeile");
+    assert.strictEqual(zeile.is_montage, true, "und dass es eine Montage war, geht nicht verloren");
+  });
+
+  it("das nahende Ende wird getrennt gefuehrt, damit 'montage' es nicht verschluckt", async () => {
+    await pool.query("DELETE FROM worker_absences WHERE worker_profile_id = $1", [profil]);
+    await pool.query(
+      "UPDATE worker_assignment_links SET end_date = CURRENT_DATE + 2 WHERE worker_user_id = $1",
+      [nutzer]
+    );
+    const board = await getWorkerLiveBoard(pool, org);
+    const zeile = board.workers.find((w) => w.id === profil);
+    assert.strictEqual(zeile.live_status, "montage", "der Reiter bleibt vollstaendig");
+    assert.strictEqual(zeile.endet_bald, true, "und der Hinweis geht trotzdem nicht verloren");
+  });
+});

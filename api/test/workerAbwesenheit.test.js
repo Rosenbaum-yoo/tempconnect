@@ -325,3 +325,82 @@ describe("Live-Belegschaft — der Zustand 'abwesend'", () => {
     assert.deepEqual(res.kpis.abwesend_nach_art, { krank: 0, urlaub: 0, termin: 0, sonstiges: 0 });
   });
 });
+
+/* ═══════════════════════════════════════════════════════════════════════════
+ * Welle E3 — Montage als Eigenschaft des Einsatzortes
+ *
+ * Der Plan liess offen, ob das Feld an `assignments` oder an
+ * `worker_assignment_links` gehoert. Das Schema hat geantwortet: `assignments`
+ * kennt keinen Ort, `worker_assignment_links` traegt die gesamte Ortswahrheit
+ * (location_address, meeting_point, contact_*). Montage heisst "auswaerts mit
+ * Uebernachtung" — eine Aussage ueber den Ort.
+ * ═══════════════════════════════════════════════════════════════════════════ */
+
+describe("Live-Belegschaft — der Zustand 'montage'", () => {
+  it("liest das Feld am Einsatz-Link, nicht am Auftrag", async () => {
+    const { pool, gesehen } = spionPool({ rows: [] });
+    await getWorkerLiveBoard(pool, ORG);
+    const sql = gesehen[0].sql;
+    assert.ok(/wal\.is_montage/.test(sql), "die Quelle ist der Einsatz-Link");
+    assert.ok(!/a\.is_montage/.test(sql), "nicht der Auftrag — der kennt keinen Ort");
+    assert.ok(/WHEN cur\.is_montage THEN 'montage'/.test(sql));
+  });
+
+  it("Rangfolge: montage ueberdeckt 'endet bald' und 'im Einsatz', nicht aber Abwesenheit", async () => {
+    const { pool, gesehen } = spionPool({ rows: [] });
+    await getWorkerLiveBoard(pool, ORG);
+    const sql = gesehen[0].sql;
+    const pos = (t) => sql.indexOf(t);
+    assert.ok(pos("THEN 'abwesend'") < pos("THEN 'montage'"),
+      "wer krank ist, ist nicht auf Montage — er ist zu Hause");
+    assert.ok(pos("THEN 'montage'") < pos("THEN 'endet_bald'"),
+      "sonst verschwaende eine Kraft aus dem Montage-Reiter, nur weil ihr Einsatz bald endet — " +
+      "der Reiter wuerde die Frage 'wer uebernachtet gerade auswaerts' falsch beantworten");
+  });
+
+  it("das nahende Ende geht nicht verloren, obwohl der Zustand es ueberdeckt", async () => {
+    const { pool, gesehen } = spionPool({ rows: [] });
+    await getWorkerLiveBoard(pool, ORG);
+    assert.ok(/\) AS endet_bald/.test(gesehen[0].sql),
+      "als eigenes Feld neben dem Zustand — die Zeile zeigt den Hinweis weiter an");
+  });
+
+  it("zaehlt Montage als Einsatz in der Auslastung — die Kraft arbeitet, sie schlaeft nur woanders", async () => {
+    const { pool } = spionPool({
+      rows: [
+        { id: "p1", live_status: "montage",    open_timesheets: 0 },
+        { id: "p2", live_status: "montage",    open_timesheets: 0 },
+        { id: "p3", live_status: "im_einsatz", open_timesheets: 0 },
+        { id: "p4", live_status: "verfuegbar", open_timesheets: 0 }
+      ]
+    });
+    const res = await getWorkerLiveBoard(pool, ORG);
+    assert.strictEqual(res.kpis.montage, 2);
+    // onAssignment = 2 Montage + 1 im Einsatz = 3; aktiv = 4 -> 75 %
+    assert.strictEqual(res.kpis.auslastung_pct, 75,
+      "waere Montage nicht mitgezaehlt, saenke die Auslastung genau dann, wenn der Betrieb am meisten leistet");
+  });
+
+  it("die Summe der Zustaende bleibt die Gesamtzahl (Gate E4)", async () => {
+    const { pool } = spionPool({
+      rows: [
+        { id: "p1", live_status: "montage",    open_timesheets: 0 },
+        { id: "p2", live_status: "abwesend",   absence_art: "krank", open_timesheets: 0 },
+        { id: "p3", live_status: "endet_bald", open_timesheets: 0 },
+        { id: "p4", live_status: "im_einsatz", open_timesheets: 0 },
+        { id: "p5", live_status: "verfuegbar", open_timesheets: 0 },
+        { id: "p6", live_status: "inaktiv",    open_timesheets: 0 }
+      ]
+    });
+    const k = (await getWorkerLiveBoard(pool, ORG)).kpis;
+    assert.strictEqual(
+      k.montage + k.abwesend + k.endet_bald + k.im_einsatz + k.verfuegbar + k.inaktiv,
+      k.total, "kein Mensch doppelt, keiner unsichtbar");
+  });
+
+  it("Zero-State kennt den Reiter ebenfalls", async () => {
+    const { pool } = spionPool({ rows: [] });
+    const res = await getWorkerLiveBoard(pool, null);
+    assert.strictEqual(res.kpis.montage, 0);
+  });
+});
