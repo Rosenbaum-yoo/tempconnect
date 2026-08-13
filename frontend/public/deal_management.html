@@ -832,14 +832,14 @@
         emptyEl.style.display = 'block';
         // Der Leerzustand erklaert den Weg, statt nur "keine Eintraege" zu sagen.
         emptyEl.innerHTML = '<div>' + esc(t('deal.wl.empty')) + '</div>'
-          + '<div style="margin-top:var(--ds-space-3)"><a class="btn btn--primary" href="/public/marketplace_feed.html">'
+          + '<div style="margin-top:var(--ds-space-3)"><a class="btn btn--primary" href="/public/marketplace_demand_list.html">'
           + esc(t('deal.wl.toMarket')) + '</a></div>';
         return;
       }
 
       emptyEl.style.display = 'none';
       listEl.style.display = 'flex';
-      var html = '<div style="margin-bottom:var(--ds-space-3)"><a class="btn" href="/public/marketplace_feed.html">'
+      var html = '<div style="margin-bottom:var(--ds-space-3)"><a class="btn" href="/public/marketplace_demand_list.html">'
         + esc(t('deal.wl.toMarket')) + '</a></div>';
       items.forEach(function(e) { html += renderMerkEintrag(e); });
       listEl.innerHTML = html;

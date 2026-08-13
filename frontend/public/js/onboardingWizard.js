@@ -202,18 +202,63 @@
   }
 
   // ── API helpers ────────────────────────────────────────
+  /*
+   * CSRF-Token bei Mutationen (2026-08-13).
+   *
+   * Vorher setzte dieser Helfer nur Content-Type. csrfProtect haengt global
+   * unter app.use("/api/", ...) — also endete JEDER schreibende Aufruf des
+   * Wizards in 403 CSRF_INVALID. Betroffen waren alle sechs: die drei Aufrufe
+   * von /me/onboarding-complete, /me/onboarding-reset, PUT /me/profile und
+   * PUT /company-profile.
+   *
+   * Auffallen konnte es niemandem, weil jeder Aufrufer den Fehler mit
+   * .catch(function(){}) verschluckt. Die Folge war nicht "eine Fehlermeldung",
+   * sondern: die im Wizard eingegebenen Profildaten wurden nie gespeichert, und
+   * "nicht mehr anzeigen" wurde serverseitig nie gesetzt — DESHALB erschien der
+   * Wizard bei jedem Login erneut.
+   *
+   * Das Token wird einmal geholt und gemerkt; bei einem abgelaufenen Token
+   * (403) wird es genau einmal neu geholt und der Aufruf wiederholt — dasselbe
+   * Muster wie in js/pages/mitarbeiter.js.
+   */
+  var _csrf = null;
+
+  function holeCsrf() {
+    if (_csrf) return Promise.resolve(_csrf);
+    return fetch("/api/csrf", { credentials: "include" })
+      .then(function (r) { return r.ok ? r.json() : null; })
+      .then(function (d) { _csrf = (d && d.csrfToken) || null; return _csrf; })
+      .catch(function () { return null; });
+  }
+
   function api(path, opts) {
     opts = opts || {};
-    var fetchOpts = {
-      method: opts.method || "GET",
-      credentials: "include",
-      headers: { "Content-Type": "application/json" }
-    };
-    if (opts.body) fetchOpts.body = JSON.stringify(opts.body);
-    return fetch("/api" + path, fetchOpts).then(function (r) {
-      if (!r.ok) throw new Error("API " + r.status);
-      return r.json();
-    });
+    var method = opts.method || "GET";
+
+    function sende(token) {
+      var headers = { "Content-Type": "application/json" };
+      if (token) headers["x-csrf-token"] = token;
+      var fetchOpts = { method: method, credentials: "include", headers: headers };
+      if (opts.body) fetchOpts.body = JSON.stringify(opts.body);
+      return fetch("/api" + path, fetchOpts);
+    }
+
+    function auswerten(r, schonWiederholt) {
+      if (r.ok) return r.json();
+      // Abgelaufenes Token: einmal neu holen und wiederholen.
+      if (r.status === 403 && !schonWiederholt && method !== "GET") {
+        _csrf = null;
+        return holeCsrf().then(function (t) {
+          return sende(t).then(function (r2) { return auswerten(r2, true); });
+        });
+      }
+      throw new Error("API " + r.status);
+    }
+
+    if (method === "GET") {
+      return sende(null).then(function (r) { return auswerten(r, true); });
+    }
+    return holeCsrf().then(sende).then(function (r) { return auswerten(r, false); });
   }
 
   // ── Profile completeness check ─────────────────────────

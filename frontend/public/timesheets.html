@@ -117,9 +117,12 @@
           </tbody>
         </table>
       </div>
-      <div id="loadMoreWrap" style="text-align:center;margin-top:var(--ds-space-3);display:none">
-        <button class="btn" onclick="loadMore()" data-i18n="ts.action.loadMore">Weitere laden</button>
-      </div>
+      <!-- Nachlade-Knopf entfernt (2026-08-13): er stand dauerhaft auf
+           display:none und rief loadMore() — eine Funktion, die es nie gab.
+           Ein Knopf, der weder sichtbar ist noch funktioniert, ist kein
+           Bedienelement, sondern eine Falle fuer den naechsten Leser.
+           Die Liste ist bei 100 Eintraegen gedeckelt; das ist ein eigener
+           Befund und wird nicht hier verdeckt. -->
     </div>
   </div>
 

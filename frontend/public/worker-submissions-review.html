@@ -899,6 +899,33 @@
   </div>
 </div>
 
+<script>
+  /*
+   * Die beiden Knoepfe des Kundenabrechnungs-Blocks (Zeilen 464/465) riefen
+   * scrollToBundlePreview() und scrollToBundleSent() — Funktionen, die es im
+   * gesamten Frontend nirgends gab. Der erste ist die HAUPTAKTION: er wird
+   * aktiv geschaltet, sobald versandbereite Positionen existieren, beschriftet
+   * sich mit "N Positionen an Kunde senden" und tat beim Klick nichts ausser
+   * einem ReferenceError in der Konsole.
+   *
+   * Gefunden vom Frontend-Audit (2026-08-13), festgenagelt durch
+   * api/test/frontendVerdrahtung.test.js.
+   */
+  function scrollToBundle(id) {
+    var ziel = document.getElementById(id);
+    if (!ziel) return;
+    ziel.scrollIntoView({ behavior: "smooth", block: "start" });
+    // Kurz hervorheben — sonst weiss der Nutzer nach dem Sprung nicht, wohin.
+    ziel.style.transition = "outline-color .8s ease";
+    ziel.style.outline = "2px solid var(--ds-brand, #0070f3)";
+    ziel.style.outlineOffset = "4px";
+    setTimeout(function () { ziel.style.outlineColor = "transparent"; }, 1200);
+  }
+  function scrollToBundlePreview() { scrollToBundle("bundlePreviewList"); }
+  function scrollToBundleSent()    { scrollToBundle("bundleSentList"); }
+  window.scrollToBundlePreview = scrollToBundlePreview;
+  window.scrollToBundleSent    = scrollToBundleSent;
+</script>
 <script src="/public/js/pageShell.js"></script>
 <script defer src="/public/js/pages/workerSubmissionsReview.js"></script>
 <script src="/public/js/demoBanner.js" defer></script>
