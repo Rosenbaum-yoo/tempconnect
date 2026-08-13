@@ -28,6 +28,13 @@ function scheduleCapacitySweeps() {
     .catch((e) => logger.warn({ err: e.message }, "Could not schedule capacity-expiry sweep"));
   q.upsertJobScheduler("capacity-stale-daily", { pattern: "30 3 * * *" }, { name: "capacity-stale-check" })
     .catch((e) => logger.warn({ err: e.message }, "Could not schedule capacity-stale sweep"));
+  /* P10/E5 — Aufbewahrung des Zustands-Protokolls (24 Monate). Taeglich 04:00,
+   * nach den Capacity-Sweeps. Ohne Redis laeuft dieser Takt nicht; die Tabelle
+   * waechst dann weiter. Deshalb steht die Frist zusaetzlich als Funktion in der
+   * Datenbank (Mig 179) und laesst sich jederzeit von Hand ausloesen:
+   *   SELECT worker_status_events_aufraeumen(); */
+  q.upsertJobScheduler("worker-status-events-retention-daily", { pattern: "0 4 * * *" }, { name: "worker-status-events-retention" })
+    .catch((e) => logger.warn({ err: e.message }, "Could not schedule status-events retention sweep"));
 }
 
 export function startWorkers() {

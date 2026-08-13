@@ -73,6 +73,7 @@ TCi18n.register('de', {
   'mit.action.deactivate': 'Deaktivieren',
   'mit.action.activate': 'Aktivieren',
   'mit.action.cancel': 'Abbrechen',
+  'mit.action.close': 'Schließen',
   'mit.action.save': 'Speichern',
   'mit.action.back': 'Zurück',
   'mit.action.refresh': 'Aktualisieren',
@@ -116,6 +117,19 @@ TCi18n.register('de', {
   'mit.live.truncated': 'Es werden die ersten {count} Mitarbeiter gezählt und angezeigt. Nutzen Sie die Suche, um gezielt zu filtern.',
   'mit.live.detail.open': 'Personalakte öffnen',
   'mit.live.detail.notFound': 'Dieser Mitarbeiter steht nicht in der Auswahl des Profil-Hubs.',
+
+  /* Zustands-Zeitstrahl (Welle E5) */
+  'mit.live.verlauf.btn': 'Verlauf',
+  'mit.live.verlauf.title': 'Verlauf',
+  'mit.live.verlauf.intro': 'Jede Zustandsänderung der letzten 90 Tage – mitgeschrieben an der Quelle, nicht nachträglich abgeleitet.',
+  'mit.live.verlauf.loading': 'Verlauf wird geladen …',
+  'mit.live.verlauf.error': 'Der Verlauf konnte nicht geladen werden.',
+  'mit.live.verlauf.empty': 'In den letzten {tage} Tagen hat sich nichts geändert.',
+  'mit.live.verlauf.wechsel': '{von} → {nach}',
+  'mit.live.verlauf.beginn': 'Erstmals erfasst als {nach}',
+  'mit.live.verlauf.durch.abwesenheit': 'ausgelöst durch eine Abwesenheit',
+  'mit.live.verlauf.durch.einsatz': 'ausgelöst durch einen Einsatz',
+  'mit.live.verlauf.durch.profil': 'ausgelöst durch eine Änderung am Profil',
 
   /* Abwesenheit (Welle E2) — gehört zum Menschen, nicht zum Einsatz */
   'mit.live.absence.title': 'Abwesenheit erfassen',
@@ -641,6 +655,7 @@ TCi18n.register('en', {
   'mit.action.deactivate': 'Deactivate',
   'mit.action.activate': 'Activate',
   'mit.action.cancel': 'Cancel',
+  'mit.action.close': 'Close',
   'mit.action.save': 'Save',
   'mit.action.back': 'Back',
   'mit.action.refresh': 'Refresh',
@@ -682,6 +697,18 @@ TCi18n.register('en', {
   'mit.live.truncated': 'Only the first {count} workers are counted and shown. Use the search to narrow it down.',
   'mit.live.detail.open': 'Open personnel file',
   'mit.live.detail.notFound': 'This worker is not in the profile hub selection.',
+
+  'mit.live.verlauf.btn': 'History',
+  'mit.live.verlauf.title': 'History',
+  'mit.live.verlauf.intro': 'Every state change of the last 90 days – recorded at the source, not derived afterwards.',
+  'mit.live.verlauf.loading': 'Loading history …',
+  'mit.live.verlauf.error': 'The history could not be loaded.',
+  'mit.live.verlauf.empty': 'Nothing changed in the last {tage} days.',
+  'mit.live.verlauf.wechsel': '{von} → {nach}',
+  'mit.live.verlauf.beginn': 'First recorded as {nach}',
+  'mit.live.verlauf.durch.abwesenheit': 'triggered by an absence',
+  'mit.live.verlauf.durch.einsatz': 'triggered by an assignment',
+  'mit.live.verlauf.durch.profil': 'triggered by a profile change',
 
   'mit.live.absence.title': 'Record an absence',
   'mit.live.absence.intro': 'The absence belongs to the person — whether or not an assignment is currently running.',
@@ -1697,11 +1724,17 @@ function renderLiveList(workers) {
       /* Inaktive bekommen keine Abmeldung: wer nicht mehr beschaeftigt ist, kann
          nicht krank gemeldet werden — ein Knopf dafuer waere eine Sackgasse. */
       var aktion = "";
+      /* Der Verlauf steht jeder Zeile offen — auch inaktiven. Gerade bei ihnen ist
+         die Frage "was ist passiert" die haeufigste. */
+      if (w.id) {
+        aktion += '<button class="btn" style="padding:5px 10px;font-size:12px" onclick="openTimeline(\'' + esc(w.id) + '\')">' +
+                  esc(TCi18n.t("mit.live.verlauf.btn")) + '</button>';
+      }
       if (w.live_status === "abwesend" && w.absence_id) {
-        aktion = '<button class="btn" style="padding:5px 10px;font-size:12px" onclick="revokeAbsence(\'' + esc(w.absence_id) + '\')">' +
+        aktion += '<button class="btn" style="padding:5px 10px;font-size:12px" onclick="revokeAbsence(\'' + esc(w.absence_id) + '\')">' +
                  esc(TCi18n.t("mit.live.absence.revokeBtn")) + '</button>';
       } else if (w.live_status !== "inaktiv" && w.id) {
-        aktion = '<button class="btn" style="padding:5px 10px;font-size:12px" onclick="openAbsenceModal(\'' + esc(w.id) + '\')">' +
+        aktion += '<button class="btn" style="padding:5px 10px;font-size:12px" onclick="openAbsenceModal(\'' + esc(w.id) + '\')">' +
                  esc(TCi18n.t("mit.live.absence.reportBtn")) + '</button>';
       }
       html += '<div class="card" style="display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:8px">' +
@@ -1790,6 +1823,64 @@ function saveAbsence() {
   }).then(function() {
     if (btn) btn.disabled = false;
   });
+}
+
+/* ── Zustands-Zeitstrahl (Welle E5) ──────────────────────
+ * Nur lesend. Geschrieben wird das Protokoll von Triggern an den Quelltabellen —
+ * es gibt hier bewusst keinen Weg, einen Eintrag von Hand zu erzeugen. */
+var TIMELINE_TAGE = 90;
+
+function openTimeline(profileId) {
+  if (!profileId) return;
+  var w = (_liveWorkers || []).filter(function(x) { return x.id === profileId; })[0];
+  var nameEl = document.getElementById("timelineWorker");
+  if (nameEl) {
+    var n = w ? (((w.first_name || "") + " " + (w.last_name || "")).trim()) : "";
+    if (w && w.personnel_number) n += " · #" + w.personnel_number;
+    nameEl.textContent = n;
+  }
+  var body = document.getElementById("timelineBody");
+  if (body) body.innerHTML = '<div class="empty-state">' + esc(TCi18n.t("mit.live.verlauf.loading")) + '</div>';
+  document.getElementById("timelineModal").classList.add("show");
+
+  api("/workers/status-timeline?worker_profile_id=" + encodeURIComponent(profileId) + "&tage=" + TIMELINE_TAGE)
+    .then(function(data) { renderTimeline((data && data.items) || [], (data && data.scope) || {}); })
+    .catch(function(e) {
+      if (body) body.innerHTML = '<div class="empty-state">' + esc((e && (e.message || e.error)) || TCi18n.t("mit.live.verlauf.error")) + '</div>';
+    });
+}
+
+function closeTimeline() {
+  document.getElementById("timelineModal").classList.remove("show");
+}
+
+function timelineZustandLabel(zustand) {
+  var cfg = LIVE_STATUS[zustand];
+  return (cfg && TCi18n.t(cfg.labelKey)) || zustand || "—";
+}
+
+function renderTimeline(items, scope) {
+  var el = document.getElementById("timelineBody"); if (!el) return;
+  if (!items.length) {
+    el.innerHTML = '<div class="empty-state">' + esc(TCi18n.t("mit.live.verlauf.empty", { tage: scope.tage || TIMELINE_TAGE })) + '</div>';
+    return;
+  }
+  el.innerHTML = items.map(function(e) {
+    var farbe = (LIVE_STATUS[e.nach_zustand] && LIVE_STATUS[e.nach_zustand].color) || "var(--ds-text,#0f172a)";
+    /* Das erste Ereignis eines Menschen hat keinen Vorzustand. "— → verfügbar"
+       zu zeigen waere eine erfundene Vorgeschichte. */
+    var titel = e.von_zustand
+      ? TCi18n.t("mit.live.verlauf.wechsel", { von: timelineZustandLabel(e.von_zustand), nach: timelineZustandLabel(e.nach_zustand) })
+      : TCi18n.t("mit.live.verlauf.beginn", { nach: timelineZustandLabel(e.nach_zustand) });
+    var wann = e.zeitpunkt ? new Date(e.zeitpunkt).toLocaleString(TCi18n.dateLocale()) : "";
+    var durch = TCi18n.t("mit.live.verlauf.durch." + e.ausgeloest_durch) || "";
+    return '<div style="display:flex;gap:12px;padding:10px 0;border-bottom:1px solid var(--ds-border,rgba(0,0,0,.08))">' +
+             '<div style="width:6px;flex-shrink:0;border-radius:3px;background:' + farbe + '"></div>' +
+             '<div style="flex:1">' +
+               '<div style="font-weight:700;font-size:13px">' + esc(titel) + '</div>' +
+               '<div style="font-size:12px;color:var(--wk-text-muted,#64748b)">' + esc(wann) + (durch ? ' · ' + esc(durch) : '') + '</div>' +
+             '</div></div>';
+  }).join("");
 }
 
 function revokeAbsence(absenceId) {

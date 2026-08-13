@@ -42,6 +42,17 @@ export function startCapacityWorker() {
         return { ...result, demandExpired: demandResult.expired };
       }
 
+      /* P10/E5 — Aufbewahrung des Zustands-Protokolls (24 Monate, Owner
+       * 2026-08-13). Laeuft in dieser Queue mit, weil sie bereits einen
+       * taeglichen Takt hat; eine eigene Queue fuer einen DELETE waere
+       * Infrastruktur ohne Gegenwert. Die Frist selbst steht in der Datenbank. */
+      case "worker-status-events-retention": {
+        const { aufbewahrungDurchsetzen } = await import("../services/workerStatusEventService.js");
+        const result = await aufbewahrungDurchsetzen(pool);
+        logger.info({ jobId: job.id, geloescht: result.geloescht }, "Zustands-Protokoll aufgeraeumt (24 Monate)");
+        return result;
+      }
+
       case "capacity-stale-check": {
         const { findStaleEntries } = await import("../services/capacityExchangeService.js");
         const staleDays = job.data?.staleDays || 7;

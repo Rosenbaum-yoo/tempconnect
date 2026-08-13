@@ -30,6 +30,12 @@ import {
   cancelAbsence
 } from "../services/workerAbsenceService.js";
 import { getWorkerLiveBoard } from "../services/workforceService.js";
+import {
+  STATUS_EVENT_ZUSTAENDE,
+  STATUS_EVENT_AUSLOESER,
+  getStatusTimeline,
+  aufbewahrungDurchsetzen
+} from "../services/workerStatusEventService.js";
 import { todayDE } from "../utils/dateDE.js";
 
 const ORG = "11111111-1111-1111-1111-111111111111";
@@ -402,5 +408,90 @@ describe("Live-Belegschaft — der Zustand 'montage'", () => {
     const { pool } = spionPool({ rows: [] });
     const res = await getWorkerLiveBoard(pool, null);
     assert.strictEqual(res.kpis.montage, 0);
+  });
+});
+
+/* ═══════════════════════════════════════════════════════════════════════════
+ * Welle E5 — der Zeitstrahl
+ *
+ * Das Protokoll selbst entsteht in der Datenbank (Trigger, Mig 179); dass es
+ * sich nicht umgehen laesst, belegt test/integration/zustandsprotokoll.flow.test.js
+ * mit rohem SQL. Hier geht es um den LESENDEN Dienst: bleibt er an der
+ * Mandantengrenze, fragt er das richtige Fenster ab, und verweigert er die
+ * Auskunft ueber ein fremdes Profil?
+ * ═══════════════════════════════════════════════════════════════════════════ */
+
+describe("workerStatusEventService — getStatusTimeline", () => {
+  it("ohne Org oder Profil: Zero-State statt Fehler", async () => {
+    const { pool, gesehen } = spionPool({ rows: [] });
+    const res = await getStatusTimeline(pool, null, PROFIL);
+    assert.strictEqual(res.available, false);
+    assert.deepEqual(res.items, []);
+    assert.strictEqual(gesehen.length, 0);
+  });
+
+  it("holt den Menschen org-gebunden, bevor er sein Protokoll herausgibt", async () => {
+    const { pool, gesehen } = spionPool(async (sql) => {
+      if (/FROM worker_profiles wp/.test(sql)) return { rows: [{ id: PROFIL, first_name: "A", last_name: "B" }] };
+      return { rows: [] };
+    });
+    await getStatusTimeline(pool, ORG, PROFIL, { tage: 90 });
+    assert.ok(/wp\.id = \$2 AND wp\.supplier_org_id = \$1/.test(gesehen[0].sql),
+      "Profil UND Org im selben WHERE");
+
+    const abfrage = gesehen[1];
+    assert.ok(/FROM worker_status_events e/.test(abfrage.sql));
+    assert.ok(/e\.supplier_org_id = \$1/.test(abfrage.sql), "auch das Protokoll bleibt org-gebunden");
+    assert.ok(/e\.zeitpunkt >= NOW\(\) - \(\$3 \|\| ' days'\)::interval/.test(abfrage.sql),
+      "das Zeitfenster ist ein Parameter, keine eingebaute Zahl");
+    assert.strictEqual(abfrage.params[2], "90");
+    assert.ok(/ORDER BY e\.zeitpunkt DESC/.test(abfrage.sql), "neueste zuerst — der Disponent liest von oben");
+  });
+
+  it("ein fremdes Profil bekommt 403, ein unbekanntes 404", async () => {
+    let n = 0;
+    const { pool } = spionPool(async () => {
+      n++;
+      if (n === 1) return { rows: [] };
+      return { rows: [{ supplier_org_id: FREMDE_ORG }] };
+    });
+    const res = await getStatusTimeline(pool, ORG, PROFIL);
+    assert.strictEqual(res.error, "ORG_BOUNDARY_VIOLATION");
+    assert.strictEqual(res.status, 403);
+
+    const { pool: p2 } = spionPool({ rows: [] });
+    const res2 = await getStatusTimeline(p2, ORG, PROFIL);
+    assert.strictEqual(res2.error, "NOT_FOUND");
+    assert.strictEqual(res2.status, 404);
+  });
+
+  it("das Fenster ist gedeckelt — 90 Tage Standard, hoechstens zwei Jahre", async () => {
+    const bau = (tage) => {
+      const { pool, gesehen } = spionPool(async (sql) => {
+        if (/FROM worker_profiles wp/.test(sql)) return { rows: [{ id: PROFIL }] };
+        return { rows: [] };
+      });
+      return getStatusTimeline(pool, ORG, PROFIL, { tage }).then((r) => ({ r, gesehen }));
+    };
+    assert.strictEqual((await bau(undefined)).r.scope.tage, 90);
+    assert.strictEqual((await bau(99999)).r.scope.tage, 730, "nicht mehr, als die Aufbewahrung hergibt");
+    assert.strictEqual((await bau(0)).r.scope.tage, 90);
+  });
+
+  it("kennt genau die Zustaende und Ausloeser aus dem CHECK der Migration", () => {
+    assert.deepEqual([...STATUS_EVENT_ZUSTAENDE], ["verfuegbar", "im_einsatz", "montage", "abwesend", "inaktiv"]);
+    assert.ok(!STATUS_EVENT_ZUSTAENDE.includes("endet_bald"),
+      "eine Frist ist kein Zustand — sie hat keinen Ausloeser und gehoert nicht ins Protokoll");
+    assert.deepEqual([...STATUS_EVENT_AUSLOESER], ["abwesenheit", "einsatz", "profil"]);
+  });
+
+  it("die Aufbewahrungsfrist steht in der Datenbank, nicht im Dienst", async () => {
+    // Zwei Zahlen an zwei Orten heisst, dass die zweite irgendwann die falsche ist.
+    const { pool, gesehen } = spionPool({ rows: [{ geloescht: 7 }] });
+    const res = await aufbewahrungDurchsetzen(pool);
+    assert.strictEqual(res.geloescht, 7);
+    assert.ok(/worker_status_events_aufraeumen\(\)/.test(gesehen[0].sql));
+    assert.ok(!/24|months|INTERVAL/i.test(gesehen[0].sql),
+      "der Dienst nennt keine Frist — er loest nur aus");
   });
 });

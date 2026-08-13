@@ -25,6 +25,7 @@ import * as workerOfferReservationService from "../services/workerOfferReservati
 import * as workforceSchedulePdf from "../services/workforceSchedulePdfService.js";
 import * as complaintSvc from "../services/companyComplaintService.js";
 import * as absenceSvc from "../services/workerAbsenceService.js";
+import * as statusEventSvc from "../services/workerStatusEventService.js";
 import * as blocklistSvc from "../services/companyBlocklistService.js";
 import { trackProductEventFromRequest } from "../services/productAnalyticsService.js";
 import { swallow } from "../utils/logger.js";
@@ -899,6 +900,22 @@ export function createWorkersRouter(deps) {
         entity_id: req.params.id,
         details: { grund: grund || null, responsible_actor_user_id: req.session.userId }
       };
+      res.json(result);
+    } catch (err) { next(err); }
+  });
+
+  /* ── Zustands-Zeitstrahl (P10 Spur E / Welle E5) ─────────────────────────────
+   * Rein lesend. Geschrieben wird das Protokoll von Triggern an den Quelltabellen
+   * (Mig 179) — es gibt hier bewusst KEINEN Schreib-Endpunkt, weil ein solcher
+   * suggerierte, das Protokoll liesse sich von Hand pflegen.
+   * MUSS vor "/workers/:userId" stehen. */
+  router.get("/workers/status-timeline", ...base, requireScope("read:workers"), rperm("worker.view"), async (req, res, next) => {
+    try {
+      const result = await statusEventSvc.getStatusTimeline(
+        pool, req.orgId, req.query.worker_profile_id || null,
+        { tage: parseInt(req.query.tage, 10) || undefined, limit: parseInt(req.query.limit, 10) || undefined }
+      );
+      if (result.error) return res.status(result.status || 400).json(result);
       res.json(result);
     } catch (err) { next(err); }
   });

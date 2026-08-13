@@ -493,7 +493,7 @@ ein Reiter „krank", den keine Datenquelle füllt, ist die nächste tote Fläch
 > | E2 | Datenmodell für Abwesenheit (`worker_absences`, Mig 177) | ✅ 2026-08-13 |
 > | E3 | Montage als Eigenschaft des Einsatzes (Mig 178) | ✅ 2026-08-13 |
 > | E4 | Die Reiter *(= das frühere „E2" unten)* | ✅ 2026-08-13 |
-> | E5 | Zustands-Protokoll *(= das frühere „E3" unten)* | offen |
+> | E5 | Zustands-Protokoll *(= das frühere „E3" unten)* | ✅ 2026-08-13 |
 >
 > Die Abschnitte darunter bleiben als Beleg stehen, wie der Plan vor der Messung
 > aussah — sie werden nicht mehr abgearbeitet.

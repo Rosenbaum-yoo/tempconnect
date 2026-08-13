@@ -249,7 +249,7 @@ Der Deep-Link erscheint nur, wenn es ein Ziel gibt — und wenn der Mensch nicht
 der Auswahl des Profil-Hubs steht, sagt die Oberfläche das, statt wortlos auf dem
 Platzhalter zu landen.
 
-### Welle E5 — Das Zustands-Protokoll
+### Welle E5 — Das Zustands-Protokoll ✅ *(erledigt 2026-08-13)*
 
 - Tabelle `worker_status_events`: `worker_profile_id`, `von_zustand`,
   `nach_zustand`, `ausgeloest_durch`, `zeitpunkt`, `bezug` (Einsatz/Abwesenheit).
@@ -266,12 +266,73 @@ Platzhalter zu landen.
 90 Tage mit Zeitpunkt und Auslöser. Ein Test belegt, dass ein Zustandswechsel
 ohne Protokolleintrag nicht möglich ist.
 
+> **Gate E5 ist erfüllt** — belegt mit **rohem SQL, ganz ohne Anwendungscode**
+> (`api/test/integration/zustandsprotokoll.flow.test.js`, 13/13).
+
+**Die Zusage ließ nur eine Bauweise zu**
+
+„Ein Zustandswechsel *ohne Protokolleintrag ist nicht möglich*" ist eine harte
+Aussage. Ein Dienst, der brav `protokolliere()` aufruft, kann sie nicht
+einlösen: die nächste Route, der nächste Import, ein Hotfix per `psql` — jeder
+Pfad, der die Quelle ändert, ohne den Dienst zu benutzen, hinterlässt eine
+Lücke, die niemand bemerkt. Ein Test hätte dann nur beweisen können, dass
+*unser* Code protokolliert.
+
+Deshalb steht das Protokoll **in der Datenbank**, als Trigger an den drei
+Tabellen, aus denen der Zustand entsteht. Ein `UPDATE` um drei Uhr nachts wird
+genauso mitgeschrieben wie ein Klick. Genau das prüft der Test: er schreibt
+ausschließlich rohes SQL.
+
+**Eine Definition des Zustands, nicht zwei.** Ein Trigger, der die
+Fallunterscheidung der Tafel in PL/pgSQL nachbaut, wäre eine zweite Wahrheit —
+und die driftet, sobald jemand nur eine Stelle anfasst. Es gibt deshalb die
+Funktion `worker_live_status()`, und eine **Abgleichprobe** vergleicht sie an
+denselben Daten mit dem, was die Tafel anzeigt.
+
+**Warum `endet_bald` nicht im Protokoll steht.** Es ist keine Änderung, sondern
+eine **Frist**: niemand löst sie aus, sie tritt durch Zeitablauf ein. Im
+Protokoll wäre sie ein Ereignis ohne Ursache — und ein Trigger kann sie gar
+nicht sehen, weil zum Zeitpunkt des Übergangs keine Zeile geschrieben wird. Ein
+nächtlicher Job, der solche Übergänge nachträgt, wurde verworfen: er verpasst
+genau die kurzen Zustände, wegen derer der Plan das Protokoll verlangt. Die
+Tafel zeigt die Frist weiterhin — als Verfeinerung von „im Einsatz".
+
+**Aufbewahrung: 24 Monate** (Owner-Entscheidung 2026-08-13, **vor** dem Bau
+getroffen). Die Frist steht als Funktion in der Datenbank, nicht im
+Anwendungscode — zwei Zahlen an zwei Orten heißt, dass die zweite irgendwann die
+falsche ist. Ausgelöst täglich um 04:00 über die vorhandene Job-Infrastruktur;
+ohne Redis läuft der Takt nicht, deshalb ist der Handgriff dokumentiert:
+`SELECT worker_status_events_aufraeumen();`
+
+**Mengengerüst:** ein Ereignis je Wechsel je Mensch. Bei 300 Kunden × 200
+Kräften × ~30 Wechseln im Jahr sind das ~1,8 Mio Zeilen in 24 Monaten —
+unkritisch, solange Index und Aufbewahrung stehen.
+
+| Teil | Ort |
+|---|---|
+| Migration | `sql/migrations/179_zustandsprotokoll_an_der_quelle.sql` |
+| Zustands-Definition | `worker_live_status()` — von den Triggern benutzt, gegen die Tafel geprüft |
+| Trigger | `worker_absences`, `worker_assignment_links` (nur zustandstragende Spalten), `worker_profiles` |
+| Dienst | `api/services/workerStatusEventService.js` — **liest nur** |
+| Endpunkt | `GET /api/workers/status-timeline` |
+| Aufbewahrung | `worker_status_events_aufraeumen()` + täglicher Job 04:00 |
+| Oberfläche | „Verlauf" je Zeile → Zeitstrahl im Dialog (DE/EN) |
+| Tests | 6 Einheit · 5 Oberfläche · 13 gegen das echte Schema |
+
+**Ein Detail, das beim Bauen auffiel:** eine Adressänderung am Einsatz darf kein
+Ereignis erzeugen. Ohne die Bedingung „nur bei echter Änderung" füllte sich der
+Zeitstrahl mit `montage → montage`, und die eine echte Änderung ginge darin
+unter. Das ist als `CHECK` in der Tabelle festgehalten, nicht nur als Absicht im
+Trigger.
+
 ---
 
 ## Reihenfolge
 
-**~~E2~~ → ~~E3~~ → ~~E4~~ → E5.** Erst die Quellen, dann die Anzeige, dann der Verlauf.
-Quellen und Anzeige stehen. Nächster Schritt: **E5** (das Zustands-Protokoll).
+**~~E2~~ → ~~E3~~ → ~~E4~~ → ~~E5~~.** Erst die Quellen, dann die Anzeige, dann der Verlauf.
+
+**Spur E ist abgeschlossen.** Alle fünf Wellen erledigt, alle Gates belegt —
+E2/E3/E5 gegen die echte Datenbank, E4 am gerenderten Markup.
 
 Die Versuchung ist, mit den Reitern anzufangen — sie sind das Sichtbare. Das
 wäre falsch: ein Reiter ohne Datenquelle ist eine Zusage, die das Produkt nicht

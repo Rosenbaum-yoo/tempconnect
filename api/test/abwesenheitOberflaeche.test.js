@@ -120,6 +120,9 @@ suite("Spur E — die Live-Belegschaft in der Oberflaeche", () => {
     hole("liveBreakdown");
     hole("liveTruncated");
     hole("toast");
+    hole("timelineBody");
+    hole("timelineWorker");
+    hole("timelineModal");
   });
 
   /* ── Die Woerterbuecher ─────────────────────────────────────────────────── */
@@ -426,6 +429,56 @@ suite("Spur E — die Live-Belegschaft in der Oberflaeche", () => {
     const out = render([{ id: "", first_name: "Ohne", last_name: "Konto", live_status: "verfuegbar", open_timesheets: 0 }]);
     assert.ok(out.includes("Ohne Konto"));
     assert.ok(!out.includes("openWorkerDetail("));
+  });
+
+  /* ── Welle E5: der Zeitstrahl ───────────────────────────────────────────── */
+
+  it("jede Zeile bietet den Verlauf an — auch die inaktive", () => {
+    // Gerade bei einem stillgelegten Profil ist "was ist passiert" die
+    // haeufigste Frage.
+    const out = render([{ id: "v1", first_name: "Alt", last_name: "Weg", live_status: "inaktiv", open_timesheets: 0 }]);
+    assert.ok(out.includes("openTimeline('v1')"));
+    assert.ok(out.includes("Verlauf"));
+  });
+
+  it("der Zeitstrahl nennt Wechsel, Zeitpunkt und Ausloeser", () => {
+    ctx.renderTimeline([
+      { id: "e2", von_zustand: "im_einsatz", nach_zustand: "abwesend", ausgeloest_durch: "abwesenheit", zeitpunkt: "2026-08-12T09:15:00.000Z" },
+      { id: "e1", von_zustand: null, nach_zustand: "im_einsatz", ausgeloest_durch: "einsatz", zeitpunkt: "2026-08-01T07:00:00.000Z" }
+    ], { tage: 90 });
+    const out = elemente.timelineBody.innerHTML;
+    assert.ok(out.includes("Im Einsatz") && out.includes("Abwesend"), "beide Zustaende benannt");
+    assert.ok(out.includes("ausgel\u00f6st durch eine Abwesenheit"), "der Ausloeser steht dabei");
+    assert.ok(out.includes("2026"), "und der Zeitpunkt");
+  });
+
+  it("das erste Ereignis erfindet keine Vorgeschichte", () => {
+    // "— → verfügbar" waere eine Behauptung ueber eine Zeit, in der es den
+    // Datensatz noch nicht gab.
+    ctx.renderTimeline([
+      { id: "e1", von_zustand: null, nach_zustand: "verfuegbar", ausgeloest_durch: "profil", zeitpunkt: "2026-08-01T07:00:00.000Z" }
+    ], { tage: 90 });
+    const out = elemente.timelineBody.innerHTML;
+    assert.ok(out.includes("Erstmals erfasst als"), "es wird als Beginn benannt, nicht als Wechsel");
+    assert.ok(!out.includes("\u2192"), "kein Pfeil ohne linke Seite");
+  });
+
+  it("ein leerer Verlauf nennt das Fenster, das wirklich abgefragt wurde", () => {
+    ctx.renderTimeline([], { tage: 90 });
+    assert.ok(elemente.timelineBody.innerHTML.includes("90"));
+  });
+
+  it("der Verlauf ist zweisprachig und wird nur gelesen", () => {
+    for (const k of ["mit.live.verlauf.btn", "mit.live.verlauf.empty", "mit.live.verlauf.beginn",
+                     "mit.live.verlauf.durch.abwesenheit", "mit.live.verlauf.durch.einsatz",
+                     "mit.live.verlauf.durch.profil"]) {
+      assert.ok(woerter.de[k], `DE fehlt: ${k}`);
+      assert.ok(woerter.en[k], `EN fehlt: ${k}`);
+    }
+    // Kein Schreibpfad in der Oberflaeche: das Protokoll entsteht in der
+    // Datenbank, und ein Knopf dafuer waere ein falsches Versprechen.
+    assert.ok(js.includes('api("/workers/status-timeline'), "es wird gelesen");
+    assert.ok(!/status-timeline[^)]*method:\s*"POST"/.test(js), "und nicht geschrieben");
   });
 
   it("der Fehlerfall wird gezeigt, nicht geschluckt", () => {

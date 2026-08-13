@@ -4,7 +4,8 @@
 > auf der Rechnung, 171 Anstupser, 172 Merken ist ein Zustand, 173 ein aktives Abo
 > je Nutzer, 174 CSV-Spaltentabelle (P10/D3), 175 Mitarbeiter ohne Konto, 176 Einladung kennt das Profil (P10/D5),
 > 177 Abwesenheit gehoert zum Menschen (P10/E2, erste Nutzung von btree_gist + EXCLUDE),
-> 178 Montage gehoert zum Einsatzort (P10/E3)
+> 178 Montage gehoert zum Einsatzort (P10/E3),
+> 179 Zustandsprotokoll an der Quelle (P10/E5, erste Trigger auf worker_*)
 
 This document records known legacy numbering anomalies and establishes the rule
 for all future migrations.
@@ -19,7 +20,7 @@ for all future migrations.
 
 ## Rule: Next migration number
 
-**Next migration MUST start at: 179**
+**Next migration MUST start at: 180**
 
 Format: `<NNN>_<short_description>.sql` (three-digit zero-padded)
 
@@ -86,8 +87,8 @@ alphabetical order within the number (e.g. `064_capacity_…` before `064_strate
 
 ## Checklist for new migrations
 
-1. Use the next sequential number (currently **179**)
-2. File name: `179_<short_snake_case>.sql`
+1. Use the next sequential number (currently **180**)
+2. File name: `180_<short_snake_case>.sql`
 3. Wrap DDL in a transaction if the DB supports transactional DDL
 4. Include a `-- Migration NNN:` comment header with a brief description
 5. Use `SET client_min_messages TO WARNING;` to suppress noise
