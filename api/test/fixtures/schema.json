@@ -1,0 +1,5512 @@
+{
+  "_hinweis": "GENERIERT — nicht von Hand bearbeiten. Neu erzeugen mit: npm run schema:snapshot (liest die laufende Datenbank im Container tempconnect_db).",
+  "erzeugt_am": "2026-08-13T21:11:45.241Z",
+  "quelle": "docker exec tempconnect_db psql -U tempconnect -d tempconnect",
+  "migrations_fingerabdruck": {
+    "init": "e58bf420517bc3b859b7d1b775c4c82522167386530d203698f40a3669662c75",
+    "dateien": 184,
+    "hash": "3bd2e48d9b0f67d63a0da9468be69aaf5cd10a55c8b0590ee34e9e14a4435710"
+  },
+  "sichten": [
+    "activity_feed"
+  ],
+  "funktionen": [
+    "armor",
+    "bounty_entzug_bei_abschaltung",
+    "cash_dist",
+    "crypt",
+    "current_org_id",
+    "date_dist",
+    "dearmor",
+    "decrypt",
+    "decrypt_iv",
+    "digest",
+    "encrypt",
+    "encrypt_iv",
+    "f_unaccent",
+    "float4_dist",
+    "float8_dist",
+    "gbt_bit_compress",
+    "gbt_bit_consistent",
+    "gbt_bit_penalty",
+    "gbt_bit_picksplit",
+    "gbt_bit_same",
+    "gbt_bit_union",
+    "gbt_bool_compress",
+    "gbt_bool_consistent",
+    "gbt_bool_fetch",
+    "gbt_bool_penalty",
+    "gbt_bool_picksplit",
+    "gbt_bool_same",
+    "gbt_bool_union",
+    "gbt_bpchar_compress",
+    "gbt_bpchar_consistent",
+    "gbt_bytea_compress",
+    "gbt_bytea_consistent",
+    "gbt_bytea_penalty",
+    "gbt_bytea_picksplit",
+    "gbt_bytea_same",
+    "gbt_bytea_union",
+    "gbt_cash_compress",
+    "gbt_cash_consistent",
+    "gbt_cash_distance",
+    "gbt_cash_fetch",
+    "gbt_cash_penalty",
+    "gbt_cash_picksplit",
+    "gbt_cash_same",
+    "gbt_cash_union",
+    "gbt_date_compress",
+    "gbt_date_consistent",
+    "gbt_date_distance",
+    "gbt_date_fetch",
+    "gbt_date_penalty",
+    "gbt_date_picksplit",
+    "gbt_date_same",
+    "gbt_date_union",
+    "gbt_decompress",
+    "gbt_enum_compress",
+    "gbt_enum_consistent",
+    "gbt_enum_fetch",
+    "gbt_enum_penalty",
+    "gbt_enum_picksplit",
+    "gbt_enum_same",
+    "gbt_enum_union",
+    "gbt_float4_compress",
+    "gbt_float4_consistent",
+    "gbt_float4_distance",
+    "gbt_float4_fetch",
+    "gbt_float4_penalty",
+    "gbt_float4_picksplit",
+    "gbt_float4_same",
+    "gbt_float4_union",
+    "gbt_float8_compress",
+    "gbt_float8_consistent",
+    "gbt_float8_distance",
+    "gbt_float8_fetch",
+    "gbt_float8_penalty",
+    "gbt_float8_picksplit",
+    "gbt_float8_same",
+    "gbt_float8_union",
+    "gbt_inet_compress",
+    "gbt_inet_consistent",
+    "gbt_inet_penalty",
+    "gbt_inet_picksplit",
+    "gbt_inet_same",
+    "gbt_inet_union",
+    "gbt_int2_compress",
+    "gbt_int2_consistent",
+    "gbt_int2_distance",
+    "gbt_int2_fetch",
+    "gbt_int2_penalty",
+    "gbt_int2_picksplit",
+    "gbt_int2_same",
+    "gbt_int2_union",
+    "gbt_int4_compress",
+    "gbt_int4_consistent",
+    "gbt_int4_distance",
+    "gbt_int4_fetch",
+    "gbt_int4_penalty",
+    "gbt_int4_picksplit",
+    "gbt_int4_same",
+    "gbt_int4_union",
+    "gbt_int8_compress",
+    "gbt_int8_consistent",
+    "gbt_int8_distance",
+    "gbt_int8_fetch",
+    "gbt_int8_penalty",
+    "gbt_int8_picksplit",
+    "gbt_int8_same",
+    "gbt_int8_union",
+    "gbt_intv_compress",
+    "gbt_intv_consistent",
+    "gbt_intv_decompress",
+    "gbt_intv_distance",
+    "gbt_intv_fetch",
+    "gbt_intv_penalty",
+    "gbt_intv_picksplit",
+    "gbt_intv_same",
+    "gbt_intv_union",
+    "gbt_macad8_compress",
+    "gbt_macad8_consistent",
+    "gbt_macad8_fetch",
+    "gbt_macad8_penalty",
+    "gbt_macad8_picksplit",
+    "gbt_macad8_same",
+    "gbt_macad8_union",
+    "gbt_macad_compress",
+    "gbt_macad_consistent",
+    "gbt_macad_fetch",
+    "gbt_macad_penalty",
+    "gbt_macad_picksplit",
+    "gbt_macad_same",
+    "gbt_macad_union",
+    "gbt_numeric_compress",
+    "gbt_numeric_consistent",
+    "gbt_numeric_penalty",
+    "gbt_numeric_picksplit",
+    "gbt_numeric_same",
+    "gbt_numeric_union",
+    "gbt_oid_compress",
+    "gbt_oid_consistent",
+    "gbt_oid_distance",
+    "gbt_oid_fetch",
+    "gbt_oid_penalty",
+    "gbt_oid_picksplit",
+    "gbt_oid_same",
+    "gbt_oid_union",
+    "gbt_text_compress",
+    "gbt_text_consistent",
+    "gbt_text_penalty",
+    "gbt_text_picksplit",
+    "gbt_text_same",
+    "gbt_text_union",
+    "gbt_time_compress",
+    "gbt_time_consistent",
+    "gbt_time_distance",
+    "gbt_time_fetch",
+    "gbt_time_penalty",
+    "gbt_time_picksplit",
+    "gbt_time_same",
+    "gbt_time_union",
+    "gbt_timetz_compress",
+    "gbt_timetz_consistent",
+    "gbt_ts_compress",
+    "gbt_ts_consistent",
+    "gbt_ts_distance",
+    "gbt_ts_fetch",
+    "gbt_ts_penalty",
+    "gbt_ts_picksplit",
+    "gbt_ts_same",
+    "gbt_ts_union",
+    "gbt_tstz_compress",
+    "gbt_tstz_consistent",
+    "gbt_tstz_distance",
+    "gbt_uuid_compress",
+    "gbt_uuid_consistent",
+    "gbt_uuid_fetch",
+    "gbt_uuid_penalty",
+    "gbt_uuid_picksplit",
+    "gbt_uuid_same",
+    "gbt_uuid_union",
+    "gbt_var_decompress",
+    "gbt_var_fetch",
+    "gbtreekey16_in",
+    "gbtreekey16_out",
+    "gbtreekey2_in",
+    "gbtreekey2_out",
+    "gbtreekey32_in",
+    "gbtreekey32_out",
+    "gbtreekey4_in",
+    "gbtreekey4_out",
+    "gbtreekey8_in",
+    "gbtreekey8_out",
+    "gbtreekey_var_in",
+    "gbtreekey_var_out",
+    "gen_random_bytes",
+    "gen_random_uuid",
+    "gen_salt",
+    "gin_extract_query_trgm",
+    "gin_extract_value_trgm",
+    "gin_trgm_consistent",
+    "gin_trgm_triconsistent",
+    "gtrgm_compress",
+    "gtrgm_consistent",
+    "gtrgm_decompress",
+    "gtrgm_distance",
+    "gtrgm_in",
+    "gtrgm_options",
+    "gtrgm_out",
+    "gtrgm_penalty",
+    "gtrgm_picksplit",
+    "gtrgm_same",
+    "gtrgm_union",
+    "hmac",
+    "int2_dist",
+    "int4_dist",
+    "int8_dist",
+    "interval_dist",
+    "is_staff_context",
+    "oid_dist",
+    "pgp_armor_headers",
+    "pgp_key_id",
+    "pgp_pub_decrypt",
+    "pgp_pub_decrypt_bytea",
+    "pgp_pub_encrypt",
+    "pgp_pub_encrypt_bytea",
+    "pgp_sym_decrypt",
+    "pgp_sym_decrypt_bytea",
+    "pgp_sym_encrypt",
+    "pgp_sym_encrypt_bytea",
+    "rechnung_bruttobetrag_pflegen",
+    "set_limit",
+    "show_limit",
+    "show_trgm",
+    "similarity",
+    "similarity_dist",
+    "similarity_op",
+    "strict_word_similarity",
+    "strict_word_similarity_commutator_op",
+    "strict_word_similarity_dist_commutator_op",
+    "strict_word_similarity_dist_op",
+    "strict_word_similarity_op",
+    "time_dist",
+    "ts_dist",
+    "tstz_dist",
+    "unaccent",
+    "unaccent_init",
+    "unaccent_lexize",
+    "uuid_generate_v1",
+    "uuid_generate_v1mc",
+    "uuid_generate_v3",
+    "uuid_generate_v4",
+    "uuid_generate_v5",
+    "uuid_nil",
+    "uuid_ns_dns",
+    "uuid_ns_oid",
+    "uuid_ns_url",
+    "uuid_ns_x500",
+    "word_similarity",
+    "word_similarity_commutator_op",
+    "word_similarity_dist_commutator_op",
+    "word_similarity_dist_op",
+    "word_similarity_op",
+    "worker_live_status",
+    "worker_status_events_aufraeumen",
+    "worker_status_protokoll_trigger",
+    "worker_status_protokollieren"
+  ],
+  "enums": [],
+  "tabellen": {
+    "_migrations": {
+      "spalten": [
+        "applied_at",
+        "id",
+        "name"
+      ],
+      "nicht_null": [
+        "applied_at",
+        "id",
+        "name"
+      ]
+    },
+    "activity_feed": {
+      "spalten": [
+        "action",
+        "actor_company",
+        "actor_email",
+        "actor_id",
+        "actor_name",
+        "created_at",
+        "entity_id",
+        "entity_type",
+        "id",
+        "metadata",
+        "org_id"
+      ],
+      "nicht_null": []
+    },
+    "agency_api_keys": {
+      "spalten": [
+        "agency_id",
+        "created_at",
+        "id",
+        "key_hash",
+        "last_used_at",
+        "name",
+        "revoked_at"
+      ],
+      "nicht_null": [
+        "agency_id",
+        "created_at",
+        "id",
+        "key_hash",
+        "name"
+      ]
+    },
+    "ai_match_rankings": {
+      "spalten": [
+        "baseline_score",
+        "cache_read_tokens",
+        "cost_micro_cents",
+        "created_at",
+        "id",
+        "input_fingerprint",
+        "input_tokens",
+        "latency_ms",
+        "model",
+        "org_id",
+        "output_tokens",
+        "pair_key",
+        "rank_position",
+        "rank_score",
+        "reason"
+      ],
+      "nicht_null": [
+        "cache_read_tokens",
+        "cost_micro_cents",
+        "created_at",
+        "id",
+        "input_fingerprint",
+        "input_tokens",
+        "model",
+        "output_tokens",
+        "pair_key"
+      ]
+    },
+    "approval_requests": {
+      "spalten": [
+        "approved_by",
+        "created_at",
+        "decided_at",
+        "entity_id",
+        "entity_type",
+        "expires_at",
+        "id",
+        "org_id",
+        "reason",
+        "requested_by",
+        "status"
+      ],
+      "nicht_null": [
+        "created_at",
+        "entity_id",
+        "entity_type",
+        "id",
+        "requested_by",
+        "status"
+      ]
+    },
+    "assignment_staffing_campaigns": {
+      "spalten": [
+        "accepted_count",
+        "assignment_id",
+        "auto_backfill_enabled",
+        "cancelled_at",
+        "cancelled_count",
+        "completed_at",
+        "created_at",
+        "created_by",
+        "declined_count",
+        "expired_count",
+        "id",
+        "interested_count",
+        "last_auto_backfill_at",
+        "message",
+        "name",
+        "org_id",
+        "promotion_mode",
+        "reservation_window_minutes",
+        "sent_count",
+        "source_campaign_id",
+        "started_at",
+        "status",
+        "supplier_org_id",
+        "target_quantity",
+        "updated_at",
+        "viewed_count"
+      ],
+      "nicht_null": [
+        "accepted_count",
+        "assignment_id",
+        "auto_backfill_enabled",
+        "cancelled_count",
+        "created_at",
+        "declined_count",
+        "expired_count",
+        "id",
+        "interested_count",
+        "promotion_mode",
+        "reservation_window_minutes",
+        "sent_count",
+        "started_at",
+        "status",
+        "updated_at",
+        "viewed_count"
+      ]
+    },
+    "assignment_staffing_choice_options": {
+      "spalten": [
+        "assignment_id",
+        "campaign_id",
+        "choice_set_id",
+        "created_at",
+        "dispatcher_note",
+        "dispatcher_state",
+        "dispatcher_updated_at",
+        "id",
+        "invite_id",
+        "option_order",
+        "supplier_org_id",
+        "updated_at",
+        "worker_note",
+        "worker_rank",
+        "worker_responded_at",
+        "worker_response",
+        "worker_user_id"
+      ],
+      "nicht_null": [
+        "assignment_id",
+        "choice_set_id",
+        "created_at",
+        "dispatcher_state",
+        "id",
+        "invite_id",
+        "option_order",
+        "supplier_org_id",
+        "updated_at",
+        "worker_response",
+        "worker_user_id"
+      ]
+    },
+    "assignment_staffing_choice_sets": {
+      "spalten": [
+        "assigned_at",
+        "cancelled_at",
+        "choice_mode",
+        "created_at",
+        "created_by",
+        "declined_at",
+        "expired_at",
+        "final_assignment_id",
+        "final_choice_option_id",
+        "final_link_id",
+        "id",
+        "manual_override_at",
+        "manual_override_note",
+        "message",
+        "presented_at",
+        "responded_at",
+        "response_deadline_at",
+        "status",
+        "supplier_org_id",
+        "title",
+        "updated_at",
+        "viewed_at",
+        "worker_note",
+        "worker_user_id"
+      ],
+      "nicht_null": [
+        "choice_mode",
+        "created_at",
+        "id",
+        "presented_at",
+        "status",
+        "supplier_org_id",
+        "updated_at",
+        "worker_user_id"
+      ]
+    },
+    "assignment_staffing_events": {
+      "spalten": [
+        "actor_id",
+        "assignment_id",
+        "campaign_id",
+        "choice_option_id",
+        "choice_set_id",
+        "created_at",
+        "event_type",
+        "id",
+        "invite_id",
+        "meta",
+        "new_values",
+        "old_values",
+        "reservation_id"
+      ],
+      "nicht_null": [
+        "assignment_id",
+        "created_at",
+        "event_type",
+        "id"
+      ]
+    },
+    "assignment_staffing_invites": {
+      "spalten": [
+        "accepted_at",
+        "assignment_id",
+        "campaign_id",
+        "cancelled_at",
+        "created_by",
+        "declined_at",
+        "delivery_attempt_count",
+        "delivery_last_attempt_at",
+        "delivery_last_error",
+        "delivery_last_success_at",
+        "delivery_status",
+        "expired_at",
+        "expires_at",
+        "id",
+        "interested_at",
+        "last_reminder_sent_at",
+        "last_worker_action_at",
+        "org_id",
+        "personal_message",
+        "remind_after",
+        "reminder_count",
+        "reminder_requested_at",
+        "request_snapshot",
+        "responded_at",
+        "response_note",
+        "score",
+        "score_reasons",
+        "sent_at",
+        "status",
+        "supplier_org_id",
+        "updated_at",
+        "viewed_at",
+        "worker_user_id"
+      ],
+      "nicht_null": [
+        "assignment_id",
+        "campaign_id",
+        "delivery_attempt_count",
+        "delivery_status",
+        "id",
+        "reminder_count",
+        "request_snapshot",
+        "score_reasons",
+        "sent_at",
+        "status",
+        "supplier_org_id",
+        "updated_at",
+        "worker_user_id"
+      ]
+    },
+    "assignment_staffing_messages": {
+      "spalten": [
+        "actor_id",
+        "assignment_id",
+        "body",
+        "campaign_id",
+        "created_at",
+        "id",
+        "invite_id",
+        "message_type",
+        "meta",
+        "sender_role",
+        "worker_user_id"
+      ],
+      "nicht_null": [
+        "assignment_id",
+        "created_at",
+        "id",
+        "invite_id",
+        "message_type",
+        "meta",
+        "sender_role",
+        "worker_user_id"
+      ]
+    },
+    "assignment_staffing_reservations": {
+      "spalten": [
+        "assignment_id",
+        "campaign_id",
+        "created_by",
+        "expires_at",
+        "id",
+        "invite_id",
+        "org_id",
+        "promoted_at",
+        "promoted_link_id",
+        "release_reason",
+        "released_at",
+        "reserved_at",
+        "status",
+        "supplier_org_id",
+        "updated_at",
+        "worker_user_id"
+      ],
+      "nicht_null": [
+        "assignment_id",
+        "id",
+        "reserved_at",
+        "status",
+        "supplier_org_id",
+        "updated_at",
+        "worker_user_id"
+      ]
+    },
+    "assignment_staffing_waitlist": {
+      "spalten": [
+        "assigned_at",
+        "assignment_id",
+        "created_at",
+        "created_by",
+        "current_campaign_id",
+        "current_invite_id",
+        "current_reservation_id",
+        "factor_scores",
+        "hard_failures",
+        "hard_match",
+        "id",
+        "invited_at",
+        "is_selectable",
+        "last_evaluated_at",
+        "match_reasons",
+        "missing_requirements",
+        "org_id",
+        "promoted_link_id",
+        "queue_rank",
+        "queued_at",
+        "removal_reason",
+        "removed_at",
+        "reserved_at",
+        "root_campaign_id",
+        "score",
+        "soft_score",
+        "source_campaign_id",
+        "status",
+        "supplier_org_id",
+        "updated_at",
+        "worker_user_id"
+      ],
+      "nicht_null": [
+        "assignment_id",
+        "created_at",
+        "factor_scores",
+        "hard_failures",
+        "hard_match",
+        "id",
+        "is_selectable",
+        "match_reasons",
+        "missing_requirements",
+        "queue_rank",
+        "status",
+        "supplier_org_id",
+        "updated_at",
+        "worker_user_id"
+      ]
+    },
+    "assignments": {
+      "spalten": [
+        "actual_end_date",
+        "cancel_reason",
+        "cancelled_at",
+        "completed_at",
+        "completed_by",
+        "contract_id",
+        "created_at",
+        "created_by",
+        "deal_request_id",
+        "demand_request_id",
+        "department_id",
+        "filled_quantity",
+        "hourly_rate_cents",
+        "id",
+        "location_id",
+        "notes",
+        "offer_id",
+        "open_quantity",
+        "org_id",
+        "planned_end_date",
+        "requested_quantity",
+        "requisition_id",
+        "reserved_quantity",
+        "staffing_last_recalculated_at",
+        "staffing_notes",
+        "staffing_status",
+        "start_date",
+        "status",
+        "supplier_org_id",
+        "updated_at",
+        "worker_count",
+        "worker_description"
+      ],
+      "nicht_null": [
+        "created_at",
+        "filled_quantity",
+        "id",
+        "requested_quantity",
+        "reserved_quantity",
+        "staffing_notes",
+        "staffing_status",
+        "start_date",
+        "status",
+        "updated_at",
+        "worker_count"
+      ]
+    },
+    "audit_log": {
+      "spalten": [
+        "action",
+        "action_type",
+        "actor_id",
+        "capacity_id",
+        "created_at",
+        "details",
+        "entity_id",
+        "entity_type",
+        "id",
+        "ip_address",
+        "new_values",
+        "old_values",
+        "org_id",
+        "request_id",
+        "reservation_id",
+        "status",
+        "user_agent"
+      ],
+      "nicht_null": [
+        "action",
+        "created_at",
+        "entity_type",
+        "id",
+        "status"
+      ]
+    },
+    "automation_jobs": {
+      "spalten": [
+        "category",
+        "created_at",
+        "description",
+        "id",
+        "last_run_at",
+        "last_run_status",
+        "max_retries",
+        "name",
+        "next_run_at",
+        "requires_confirm",
+        "retry_on_failure",
+        "risk_level",
+        "runbook_id",
+        "schedule",
+        "status",
+        "trigger",
+        "updated_at"
+      ],
+      "nicht_null": [
+        "category",
+        "created_at",
+        "id",
+        "max_retries",
+        "name",
+        "requires_confirm",
+        "retry_on_failure",
+        "risk_level",
+        "status",
+        "trigger",
+        "updated_at"
+      ]
+    },
+    "billing_usage_metrics": {
+      "spalten": [
+        "created_at",
+        "id",
+        "meta",
+        "metric_date",
+        "metric_type",
+        "org_id",
+        "value"
+      ],
+      "nicht_null": [
+        "created_at",
+        "id",
+        "metric_date",
+        "metric_type",
+        "org_id",
+        "value"
+      ]
+    },
+    "bounties": {
+      "spalten": [
+        "available_from",
+        "available_until",
+        "category",
+        "created_at",
+        "description_de",
+        "discount_pct",
+        "icon",
+        "id",
+        "inactive_reason",
+        "is_active",
+        "is_recurring",
+        "key",
+        "name_de",
+        "sort_order",
+        "threshold_type",
+        "threshold_value",
+        "updated_at"
+      ],
+      "nicht_null": [
+        "category",
+        "created_at",
+        "description_de",
+        "discount_pct",
+        "icon",
+        "id",
+        "is_active",
+        "is_recurring",
+        "key",
+        "name_de",
+        "sort_order",
+        "threshold_type",
+        "threshold_value",
+        "updated_at"
+      ]
+    },
+    "bounty_nudges": {
+      "spalten": [
+        "anlass",
+        "bounty_key",
+        "created_at",
+        "id",
+        "kanal",
+        "user_id",
+        "woche"
+      ],
+      "nicht_null": [
+        "anlass",
+        "bounty_key",
+        "created_at",
+        "id",
+        "kanal",
+        "user_id",
+        "woche"
+      ]
+    },
+    "bounty_tiers": {
+      "spalten": [
+        "bg_color",
+        "color",
+        "conditions",
+        "icon",
+        "id",
+        "key",
+        "max_discount_pct",
+        "name_de",
+        "sort_order"
+      ],
+      "nicht_null": [
+        "bg_color",
+        "color",
+        "conditions",
+        "icon",
+        "id",
+        "key",
+        "max_discount_pct",
+        "name_de",
+        "sort_order"
+      ]
+    },
+    "capacities": {
+      "spalten": [
+        "agency_id",
+        "available_from",
+        "available_workers",
+        "city",
+        "created_at",
+        "external_id",
+        "hourly_rate_cents",
+        "id",
+        "is_active",
+        "latitude",
+        "longitude",
+        "note",
+        "postal_code",
+        "radius_km",
+        "region",
+        "role",
+        "tags",
+        "updated_at"
+      ],
+      "nicht_null": [
+        "agency_id",
+        "available_from",
+        "available_workers",
+        "created_at",
+        "id",
+        "is_active",
+        "radius_km",
+        "region",
+        "role",
+        "updated_at"
+      ]
+    },
+    "capacity_interactions": {
+      "spalten": [
+        "capacity_post_id",
+        "company_user_id",
+        "created_at",
+        "demand_request_id",
+        "id",
+        "interaction_type",
+        "message",
+        "requisition_id"
+      ],
+      "nicht_null": [
+        "company_user_id",
+        "created_at",
+        "id",
+        "interaction_type"
+      ]
+    },
+    "capacity_post_pool_members": {
+      "spalten": [
+        "capacity_post_id",
+        "created_at",
+        "id",
+        "worker_profile_id"
+      ],
+      "nicht_null": [
+        "capacity_post_id",
+        "created_at",
+        "id",
+        "worker_profile_id"
+      ]
+    },
+    "capacity_posts": {
+      "spalten": [
+        "availability_from",
+        "availability_to",
+        "availability_type",
+        "certifications_summary",
+        "compliance_status",
+        "country",
+        "created_at",
+        "created_by",
+        "department_id",
+        "employment_type",
+        "featured_until",
+        "headcount",
+        "id",
+        "is_active",
+        "is_anonymous",
+        "is_search_agent",
+        "last_confirmed_at",
+        "location_city",
+        "location_id",
+        "location_lat",
+        "location_lng",
+        "location_postal",
+        "mobility_notes",
+        "notes",
+        "offer_kind",
+        "org_id",
+        "placement_boost_level",
+        "price_hint",
+        "price_max",
+        "price_min",
+        "price_type",
+        "primary_skill_id",
+        "priority_level",
+        "qualification_summary",
+        "radius_km",
+        "role",
+        "shift_model",
+        "skill_tags",
+        "status",
+        "supplier_company_id",
+        "title",
+        "updated_at",
+        "valid_until",
+        "visibility_status",
+        "worker_category",
+        "worker_profile_id",
+        "worker_reserved",
+        "worker_reserved_at"
+      ],
+      "nicht_null": [
+        "availability_from",
+        "created_at",
+        "headcount",
+        "id",
+        "is_active",
+        "is_anonymous",
+        "is_search_agent",
+        "location_city",
+        "offer_kind",
+        "placement_boost_level",
+        "radius_km",
+        "role",
+        "status",
+        "supplier_company_id",
+        "title",
+        "updated_at",
+        "worker_reserved"
+      ]
+    },
+    "capacity_reservations": {
+      "spalten": [
+        "capacity_id",
+        "created_at",
+        "expires_at",
+        "id",
+        "quantity",
+        "request_id",
+        "status"
+      ],
+      "nicht_null": [
+        "capacity_id",
+        "created_at",
+        "expires_at",
+        "id",
+        "quantity",
+        "status"
+      ]
+    },
+    "catalog_versions": {
+      "spalten": [
+        "changelog",
+        "created_at",
+        "created_by",
+        "currency",
+        "id",
+        "is_active",
+        "retired_at",
+        "size_tier_thresholds",
+        "snapshot_json",
+        "version"
+      ],
+      "nicht_null": [
+        "created_at",
+        "currency",
+        "id",
+        "is_active",
+        "snapshot_json",
+        "version"
+      ]
+    },
+    "commercial_offers": {
+      "spalten": [
+        "approved_at",
+        "approved_by",
+        "billing_cycle",
+        "contract_duration_months",
+        "created_at",
+        "current_price_eur",
+        "id",
+        "occ_decision_id",
+        "org_id",
+        "org_name",
+        "requested_price_eur",
+        "requested_users",
+        "revenue_impact_eur",
+        "source",
+        "special_conditions",
+        "status",
+        "title",
+        "updated_at"
+      ],
+      "nicht_null": [
+        "created_at",
+        "id",
+        "source",
+        "status",
+        "updated_at"
+      ]
+    },
+    "company_capabilities": {
+      "spalten": [
+        "availability_regions",
+        "created_at",
+        "id",
+        "industries_served",
+        "languages",
+        "specializations",
+        "staff_categories",
+        "typical_roles",
+        "updated_at",
+        "user_id"
+      ],
+      "nicht_null": [
+        "created_at",
+        "id",
+        "updated_at",
+        "user_id"
+      ]
+    },
+    "company_certifications": {
+      "spalten": [
+        "cert_name",
+        "cert_type",
+        "created_at",
+        "expires_at",
+        "id",
+        "issued_at",
+        "issuer",
+        "status",
+        "updated_at",
+        "user_id"
+      ],
+      "nicht_null": [
+        "cert_name",
+        "cert_type",
+        "created_at",
+        "id",
+        "status",
+        "updated_at",
+        "user_id"
+      ]
+    },
+    "company_contacts": {
+      "spalten": [
+        "created_at",
+        "email",
+        "id",
+        "is_primary",
+        "name",
+        "phone",
+        "role_title",
+        "updated_at",
+        "user_id"
+      ],
+      "nicht_null": [
+        "created_at",
+        "id",
+        "is_primary",
+        "name",
+        "updated_at",
+        "user_id"
+      ]
+    },
+    "company_locations": {
+      "spalten": [
+        "city",
+        "country",
+        "created_at",
+        "id",
+        "is_headquarters",
+        "label",
+        "latitude",
+        "longitude",
+        "postal_code",
+        "radius_km",
+        "updated_at",
+        "user_id"
+      ],
+      "nicht_null": [
+        "city",
+        "created_at",
+        "id",
+        "is_headquarters",
+        "updated_at",
+        "user_id"
+      ]
+    },
+    "company_profiles": {
+      "spalten": [
+        "company_description",
+        "company_size",
+        "contact_email",
+        "contact_phone",
+        "created_at",
+        "headquarters_city",
+        "headquarters_country",
+        "id",
+        "industry_focus",
+        "legal_name",
+        "linkedin_url",
+        "logo_url",
+        "photo_url",
+        "updated_at",
+        "user_id",
+        "website",
+        "year_founded"
+      ],
+      "nicht_null": [
+        "created_at",
+        "id",
+        "updated_at",
+        "user_id"
+      ]
+    },
+    "company_worker_blocklist": {
+      "spalten": [
+        "blocked_until",
+        "company_org_id",
+        "created_at",
+        "created_by",
+        "id",
+        "reason",
+        "supplier_org_id",
+        "updated_at",
+        "worker_user_id"
+      ],
+      "nicht_null": [
+        "company_org_id",
+        "created_at",
+        "id",
+        "updated_at",
+        "worker_user_id"
+      ]
+    },
+    "compliance_documents": {
+      "spalten": [
+        "created_at",
+        "doc_name",
+        "doc_type",
+        "file_ref",
+        "id",
+        "notes",
+        "org_id",
+        "rejection_reason",
+        "reminder_sent_at",
+        "status",
+        "updated_at",
+        "uploaded_by",
+        "valid_from",
+        "valid_until",
+        "verified_at",
+        "verified_by"
+      ],
+      "nicht_null": [
+        "created_at",
+        "doc_name",
+        "doc_type",
+        "id",
+        "org_id",
+        "status",
+        "updated_at"
+      ]
+    },
+    "compliance_policies": {
+      "spalten": [
+        "company_id",
+        "created_at",
+        "id",
+        "required_certifications",
+        "required_fields",
+        "role_pattern",
+        "strict_mode",
+        "updated_at"
+      ],
+      "nicht_null": [
+        "created_at",
+        "id",
+        "strict_mode",
+        "updated_at"
+      ]
+    },
+    "contracts": {
+      "spalten": [
+        "buyer_org_id",
+        "contract_type",
+        "created_at",
+        "created_by",
+        "description",
+        "file_ref",
+        "id",
+        "internal_notes",
+        "status",
+        "supplier_org_id",
+        "terminated_at",
+        "terminated_by",
+        "termination_reason",
+        "terms_summary",
+        "title",
+        "updated_at",
+        "valid_from",
+        "valid_until"
+      ],
+      "nicht_null": [
+        "buyer_org_id",
+        "contract_type",
+        "created_at",
+        "id",
+        "status",
+        "supplier_org_id",
+        "title",
+        "updated_at"
+      ]
+    },
+    "credit_accounts": {
+      "spalten": [
+        "balance",
+        "created_at",
+        "lifetime_earned",
+        "lifetime_spent",
+        "updated_at",
+        "user_id"
+      ],
+      "nicht_null": [
+        "balance",
+        "lifetime_earned",
+        "lifetime_spent",
+        "user_id"
+      ]
+    },
+    "credit_packages": {
+      "spalten": [
+        "bonus_pct",
+        "created_at",
+        "credits",
+        "id",
+        "is_active",
+        "name",
+        "price_eur"
+      ],
+      "nicht_null": [
+        "credits",
+        "id",
+        "name",
+        "price_eur"
+      ]
+    },
+    "credit_transactions": {
+      "spalten": [
+        "amount",
+        "created_at",
+        "description",
+        "id",
+        "reference_id",
+        "source",
+        "type",
+        "user_id"
+      ],
+      "nicht_null": [
+        "amount",
+        "id",
+        "type",
+        "user_id"
+      ]
+    },
+    "csv_import_field_aliases": {
+      "spalten": [
+        "alias_key",
+        "alias_label",
+        "created_at",
+        "created_by",
+        "field_key",
+        "id",
+        "is_active",
+        "language",
+        "org_id",
+        "priority"
+      ],
+      "nicht_null": [
+        "alias_key",
+        "alias_label",
+        "created_at",
+        "field_key",
+        "id",
+        "is_active",
+        "priority"
+      ]
+    },
+    "csv_import_fields": {
+      "spalten": [
+        "created_at",
+        "field_key",
+        "is_active",
+        "is_required",
+        "label_key",
+        "sort_order",
+        "value_pattern"
+      ],
+      "nicht_null": [
+        "created_at",
+        "field_key",
+        "is_active",
+        "is_required",
+        "label_key",
+        "sort_order"
+      ]
+    },
+    "data_governance_requests": {
+      "spalten": [
+        "completed_at",
+        "completed_by",
+        "created_at",
+        "id",
+        "notes",
+        "org_id",
+        "request_type",
+        "requested_by",
+        "result_summary",
+        "status",
+        "subject_id",
+        "subject_type"
+      ],
+      "nicht_null": [
+        "created_at",
+        "id",
+        "org_id",
+        "request_type",
+        "status",
+        "subject_type"
+      ]
+    },
+    "deal_documents": {
+      "spalten": [
+        "agreement_ref",
+        "agreement_version",
+        "asset_id",
+        "content_hash",
+        "created_at",
+        "document_type",
+        "generated_at",
+        "generated_by",
+        "id",
+        "offer_id",
+        "source",
+        "status",
+        "title",
+        "updated_at",
+        "version"
+      ],
+      "nicht_null": [
+        "created_at",
+        "document_type",
+        "generated_at",
+        "id",
+        "offer_id",
+        "source",
+        "status",
+        "title",
+        "updated_at",
+        "version"
+      ]
+    },
+    "deal_feedback": {
+      "spalten": [
+        "actor_user_id",
+        "assignment_id",
+        "comment",
+        "created_at",
+        "dimensions",
+        "direction",
+        "id",
+        "moderation",
+        "rated_org_id",
+        "rater_org_id",
+        "reply",
+        "reply_at",
+        "revealed_at",
+        "sentiment",
+        "status"
+      ],
+      "nicht_null": [
+        "assignment_id",
+        "created_at",
+        "dimensions",
+        "direction",
+        "id",
+        "moderation",
+        "rated_org_id",
+        "rater_org_id",
+        "sentiment",
+        "status"
+      ]
+    },
+    "deal_reliability": {
+      "spalten": [
+        "binding_deals",
+        "cancellations_excused",
+        "cancellations_total",
+        "computed_at",
+        "party_side",
+        "party_user_id",
+        "reliability_rate",
+        "weighted_cancellations",
+        "window_days"
+      ],
+      "nicht_null": [
+        "binding_deals",
+        "cancellations_excused",
+        "cancellations_total",
+        "computed_at",
+        "party_side",
+        "party_user_id",
+        "weighted_cancellations",
+        "window_days"
+      ]
+    },
+    "demand_requests": {
+      "spalten": [
+        "budget_max",
+        "budget_min",
+        "cancelled_at",
+        "closed_at",
+        "created_at",
+        "currently_committed_count",
+        "end_date",
+        "escalation_level",
+        "featured_until",
+        "first_matching_attempt_at",
+        "first_notification_sent_at",
+        "first_supplier_response_at",
+        "fulfilled_at",
+        "headcount",
+        "id",
+        "latest_response_at",
+        "location_city",
+        "location_lat",
+        "location_lng",
+        "location_postal",
+        "overfill_allowed",
+        "partial_fulfillment_allowed",
+        "radius_km",
+        "remaining_open_count",
+        "requester_company_id",
+        "required_total_count",
+        "requirements",
+        "role",
+        "shifts",
+        "skill_tags",
+        "sla_breached_at",
+        "sla_due_at",
+        "sla_met_at",
+        "sla_minutes",
+        "sla_started_at",
+        "sla_status",
+        "start_date",
+        "status",
+        "supplier_response_count",
+        "title",
+        "updated_at",
+        "urgency"
+      ],
+      "nicht_null": [
+        "created_at",
+        "currently_committed_count",
+        "escalation_level",
+        "headcount",
+        "id",
+        "location_city",
+        "overfill_allowed",
+        "partial_fulfillment_allowed",
+        "radius_km",
+        "requester_company_id",
+        "required_total_count",
+        "role",
+        "start_date",
+        "status",
+        "supplier_response_count",
+        "title",
+        "updated_at",
+        "urgency"
+      ]
+    },
+    "demand_sla_events": {
+      "spalten": [
+        "created_at",
+        "demand_request_id",
+        "event_type",
+        "id",
+        "payload"
+      ],
+      "nicht_null": [
+        "created_at",
+        "demand_request_id",
+        "event_type",
+        "id"
+      ]
+    },
+    "deployments": {
+      "spalten": [
+        "created_at",
+        "deployed_at",
+        "deployed_by",
+        "duration_ms",
+        "env",
+        "id",
+        "notes",
+        "post_checks",
+        "risk_level",
+        "rollback_ready",
+        "status",
+        "version"
+      ],
+      "nicht_null": [
+        "created_at",
+        "deployed_at",
+        "env",
+        "id",
+        "post_checks",
+        "risk_level",
+        "rollback_ready",
+        "status"
+      ]
+    },
+    "document_center": {
+      "spalten": [
+        "content_category",
+        "created_at",
+        "document_type",
+        "file_ref",
+        "file_size_bytes",
+        "id",
+        "mime_type",
+        "notes",
+        "org_id",
+        "original_name",
+        "retention_delete_at",
+        "source",
+        "source_ref",
+        "status",
+        "title",
+        "updated_at",
+        "uploaded_by",
+        "valid_from",
+        "valid_until"
+      ],
+      "nicht_null": [
+        "content_category",
+        "created_at",
+        "document_type",
+        "id",
+        "org_id",
+        "source",
+        "status",
+        "title",
+        "updated_at"
+      ]
+    },
+    "email_verification_tokens": {
+      "spalten": [
+        "consumed_at",
+        "created_at",
+        "expires_at",
+        "id",
+        "token_hash",
+        "user_id"
+      ],
+      "nicht_null": [
+        "created_at",
+        "expires_at",
+        "id",
+        "token_hash",
+        "user_id"
+      ]
+    },
+    "emergency_provider_commitment_events": {
+      "spalten": [
+        "actor_user_id",
+        "commitment_id",
+        "created_at",
+        "demand_request_id",
+        "event_type",
+        "id",
+        "new_values",
+        "old_values"
+      ],
+      "nicht_null": [
+        "commitment_id",
+        "created_at",
+        "demand_request_id",
+        "event_type",
+        "id"
+      ]
+    },
+    "emergency_provider_commitments": {
+      "spalten": [
+        "agreement_offer_id",
+        "committed_at",
+        "committed_quantity",
+        "conditions_snapshot",
+        "demand_request_id",
+        "hourly_rate_cents",
+        "id",
+        "note",
+        "replacement_sla_minutes",
+        "response_time_minutes",
+        "start_time",
+        "status",
+        "supplier_company_id",
+        "updated_at"
+      ],
+      "nicht_null": [
+        "committed_at",
+        "committed_quantity",
+        "demand_request_id",
+        "id",
+        "status",
+        "supplier_company_id",
+        "updated_at"
+      ]
+    },
+    "flagged_search_queries": {
+      "spalten": [
+        "created_at",
+        "first_seen_at",
+        "hit_count",
+        "id",
+        "ip",
+        "last_seen_at",
+        "matched_terms",
+        "org_id",
+        "query_norm",
+        "raw_query",
+        "resolution_note",
+        "reviewed_at",
+        "reviewed_by",
+        "severity",
+        "status",
+        "updated_at",
+        "user_agent",
+        "user_id"
+      ],
+      "nicht_null": [
+        "created_at",
+        "first_seen_at",
+        "hit_count",
+        "id",
+        "last_seen_at",
+        "matched_terms",
+        "query_norm",
+        "raw_query",
+        "severity",
+        "status",
+        "updated_at"
+      ]
+    },
+    "idempotency_keys": {
+      "spalten": [
+        "created_at",
+        "expires_at",
+        "key",
+        "method",
+        "path",
+        "request_hash",
+        "response_body",
+        "response_status",
+        "scope",
+        "user_id"
+      ],
+      "nicht_null": [
+        "created_at",
+        "expires_at",
+        "key",
+        "method",
+        "path",
+        "response_body",
+        "response_status",
+        "scope"
+      ]
+    },
+    "infrastructure_snapshots": {
+      "spalten": [
+        "backup_age_h",
+        "collected_at",
+        "cpu_percent",
+        "created_at",
+        "deployment_status",
+        "deployment_version",
+        "disk_percent",
+        "docker_running_count",
+        "docker_unhealthy_count",
+        "env",
+        "host_name",
+        "id",
+        "metadata",
+        "ram_percent",
+        "tls_days_remaining"
+      ],
+      "nicht_null": [
+        "collected_at",
+        "created_at",
+        "docker_running_count",
+        "docker_unhealthy_count",
+        "env",
+        "host_name",
+        "id",
+        "metadata"
+      ]
+    },
+    "internal_user_roles": {
+      "spalten": [
+        "assigned_at",
+        "assigned_by",
+        "id",
+        "internal_role_key",
+        "is_active",
+        "updated_at",
+        "user_id"
+      ],
+      "nicht_null": [
+        "assigned_at",
+        "id",
+        "internal_role_key",
+        "is_active",
+        "updated_at",
+        "user_id"
+      ]
+    },
+    "invoice_items": {
+      "spalten": [
+        "assignment_id",
+        "created_at",
+        "description",
+        "id",
+        "invoice_id",
+        "item_type",
+        "quantity",
+        "timesheet_id",
+        "total_cents",
+        "unit_amount_cents"
+      ],
+      "nicht_null": [
+        "created_at",
+        "description",
+        "id",
+        "invoice_id",
+        "item_type",
+        "quantity",
+        "total_cents",
+        "unit_amount_cents"
+      ]
+    },
+    "invoices": {
+      "spalten": [
+        "amount_cents",
+        "assignment_id",
+        "billing_contact_name",
+        "billing_period_end",
+        "billing_period_start",
+        "created_at",
+        "currency",
+        "discount_amount_cents",
+        "discount_pct",
+        "discount_source",
+        "due_at",
+        "dunning_level",
+        "gross_amount_cents",
+        "id",
+        "invoice_number",
+        "invoice_type",
+        "issued_at",
+        "last_dunning_at",
+        "notes",
+        "org_id",
+        "overtime_surcharge_pct",
+        "paid_at",
+        "payment_session_id",
+        "plan",
+        "reference_number",
+        "status",
+        "stripe_invoice_id",
+        "supplier_org_id",
+        "tax_amount_cents",
+        "tax_rate_pct",
+        "total_cents",
+        "updated_at",
+        "user_id"
+      ],
+      "nicht_null": [
+        "amount_cents",
+        "billing_period_end",
+        "billing_period_start",
+        "created_at",
+        "currency",
+        "discount_amount_cents",
+        "discount_pct",
+        "dunning_level",
+        "gross_amount_cents",
+        "id",
+        "invoice_number",
+        "invoice_type",
+        "plan",
+        "status",
+        "tax_amount_cents",
+        "tax_rate_pct",
+        "total_cents",
+        "updated_at"
+      ]
+    },
+    "listing_analytics": {
+      "spalten": [
+        "capacity_post_id",
+        "click_count",
+        "deal_count",
+        "last_viewed_at",
+        "match_count",
+        "updated_at",
+        "view_count"
+      ],
+      "nicht_null": [
+        "capacity_post_id",
+        "click_count",
+        "deal_count",
+        "match_count",
+        "updated_at",
+        "view_count"
+      ]
+    },
+    "listings": {
+      "spalten": [
+        "category",
+        "city",
+        "created_at",
+        "id",
+        "is_active",
+        "latitude",
+        "longitude",
+        "notdienst",
+        "note",
+        "org_id",
+        "owner_id",
+        "postal_code",
+        "qty",
+        "region",
+        "start_date",
+        "type",
+        "updated_at"
+      ],
+      "nicht_null": [
+        "category",
+        "created_at",
+        "id",
+        "is_active",
+        "notdienst",
+        "owner_id",
+        "qty",
+        "region",
+        "type",
+        "updated_at"
+      ]
+    },
+    "match_alerts": {
+      "spalten": [
+        "counterpart_id",
+        "counterpart_type",
+        "created_at",
+        "id",
+        "is_read",
+        "job_id",
+        "match_count",
+        "match_reasons",
+        "match_score",
+        "pair_key",
+        "severity",
+        "source_id",
+        "source_type",
+        "user_id"
+      ],
+      "nicht_null": [
+        "created_at",
+        "id",
+        "is_read",
+        "match_count",
+        "severity",
+        "user_id"
+      ]
+    },
+    "match_logs": {
+      "spalten": [
+        "created_at",
+        "id",
+        "match_type",
+        "org_id",
+        "outcome",
+        "reasons",
+        "score",
+        "source_id",
+        "target_id"
+      ],
+      "nicht_null": [
+        "created_at",
+        "id",
+        "match_type",
+        "outcome"
+      ]
+    },
+    "matches": {
+      "spalten": [
+        "capacity_post_id",
+        "created_at",
+        "demand_request_id",
+        "id",
+        "match_score",
+        "reasons",
+        "status",
+        "updated_at"
+      ],
+      "nicht_null": [
+        "capacity_post_id",
+        "created_at",
+        "demand_request_id",
+        "id",
+        "reasons",
+        "status",
+        "updated_at"
+      ]
+    },
+    "mentoring_sessions": {
+      "spalten": [
+        "completed_at",
+        "created_at",
+        "description",
+        "feedback_mentee",
+        "feedback_mentor",
+        "id",
+        "mentee_id",
+        "mentor_id",
+        "rating",
+        "scheduled_at",
+        "status",
+        "topic",
+        "updated_at"
+      ],
+      "nicht_null": [
+        "id",
+        "mentee_id",
+        "mentor_id",
+        "status",
+        "topic"
+      ]
+    },
+    "notification_preferences": {
+      "spalten": [
+        "channel_email",
+        "channel_in_app",
+        "created_at",
+        "event_category",
+        "id",
+        "updated_at",
+        "user_id"
+      ],
+      "nicht_null": [
+        "channel_email",
+        "channel_in_app",
+        "created_at",
+        "event_category",
+        "id",
+        "updated_at",
+        "user_id"
+      ]
+    },
+    "notifications": {
+      "spalten": [
+        "created_at",
+        "entity_id",
+        "entity_type",
+        "id",
+        "is_read",
+        "link_path",
+        "message",
+        "org_id",
+        "severity",
+        "title",
+        "type",
+        "user_id"
+      ],
+      "nicht_null": [
+        "created_at",
+        "id",
+        "is_read",
+        "severity",
+        "title",
+        "type",
+        "user_id"
+      ]
+    },
+    "occ_decisions": {
+      "spalten": [
+        "approval_context",
+        "assigned_to",
+        "commercial_context",
+        "contact_email",
+        "contact_name",
+        "created_at",
+        "decided_at",
+        "decided_by",
+        "decision_outcome",
+        "decision_reason",
+        "description",
+        "details",
+        "feature_context",
+        "id",
+        "operational_context",
+        "org_id",
+        "org_name",
+        "owner_decision_required",
+        "owner_review_required",
+        "priority",
+        "related_entities",
+        "requested_action",
+        "requestor_email",
+        "requestor_id",
+        "resolved_at",
+        "risk_level",
+        "sla_deadline",
+        "sla_state",
+        "source",
+        "status",
+        "subtype",
+        "summary",
+        "support_context",
+        "tags",
+        "title",
+        "type",
+        "updated_at",
+        "user_id"
+      ],
+      "nicht_null": [
+        "created_at",
+        "id",
+        "owner_decision_required",
+        "owner_review_required",
+        "priority",
+        "related_entities",
+        "risk_level",
+        "source",
+        "status",
+        "tags",
+        "title",
+        "type",
+        "updated_at"
+      ]
+    },
+    "occ_owner_access": {
+      "spalten": [
+        "granted_at",
+        "granted_by",
+        "id",
+        "notes",
+        "occ_role",
+        "revoked_at",
+        "user_id"
+      ],
+      "nicht_null": [
+        "granted_at",
+        "id",
+        "occ_role",
+        "user_id"
+      ]
+    },
+    "offer_assets": {
+      "spalten": [
+        "asset_type",
+        "created_at",
+        "deal_document_id",
+        "demand_request_id",
+        "file_path",
+        "file_size",
+        "id",
+        "marketplace_offer_id",
+        "mime_type",
+        "offer_id",
+        "original_name",
+        "source_type"
+      ],
+      "nicht_null": [
+        "asset_type",
+        "created_at",
+        "file_path",
+        "id",
+        "source_type"
+      ]
+    },
+    "offer_cancellations": {
+      "spalten": [
+        "assignment_start_date",
+        "cancelled_by_side",
+        "cancelled_by_user_id",
+        "created_at",
+        "from_status",
+        "id",
+        "lead_time_hours",
+        "note",
+        "offer_id",
+        "reason_code"
+      ],
+      "nicht_null": [
+        "cancelled_by_side",
+        "created_at",
+        "id",
+        "offer_id",
+        "reason_code"
+      ]
+    },
+    "offers": {
+      "spalten": [
+        "activated_at",
+        "activated_by",
+        "agreement_ref",
+        "agreement_snapshot",
+        "agreement_status",
+        "agreement_version",
+        "assignment_id",
+        "attachments",
+        "billing_unit",
+        "cancellation_policy",
+        "capacity_post_id",
+        "compliance_check",
+        "confirmed_at",
+        "confirmed_by",
+        "contact_name",
+        "contact_phone",
+        "created_at",
+        "demand_request_id",
+        "end_date",
+        "id",
+        "min_hours_per_shift",
+        "notes",
+        "offered_hourly_rate",
+        "offered_quantity",
+        "price_max",
+        "price_min",
+        "price_type",
+        "price_value",
+        "replacement_sla_minutes",
+        "response_time_minutes",
+        "signature_provider",
+        "signature_reference",
+        "signature_required",
+        "signature_status",
+        "signed_at",
+        "signed_by_party_a",
+        "signed_by_party_b",
+        "start_confirmed",
+        "status",
+        "supplier_company_id",
+        "surcharges",
+        "terms",
+        "updated_at",
+        "validity_until"
+      ],
+      "nicht_null": [
+        "agreement_version",
+        "created_at",
+        "demand_request_id",
+        "id",
+        "signature_required",
+        "status",
+        "supplier_company_id",
+        "updated_at"
+      ]
+    },
+    "ops_incidents": {
+      "spalten": [
+        "acknowledged_at",
+        "acknowledged_by",
+        "created_at",
+        "details",
+        "id",
+        "opened_by",
+        "opened_reason",
+        "org_id",
+        "resolution_note",
+        "resolved_at",
+        "resolved_by",
+        "severity",
+        "signal_code",
+        "source",
+        "status",
+        "title",
+        "updated_at"
+      ],
+      "nicht_null": [
+        "created_at",
+        "details",
+        "id",
+        "opened_reason",
+        "severity",
+        "source",
+        "status",
+        "title",
+        "updated_at"
+      ]
+    },
+    "org_active_addons": {
+      "spalten": [
+        "activated_at",
+        "activated_by",
+        "addon_key",
+        "addon_name",
+        "created_at",
+        "deactivated_at",
+        "deactivated_by",
+        "expires_at",
+        "id",
+        "interval",
+        "metadata",
+        "org_id",
+        "price_cents",
+        "source",
+        "source_request_id",
+        "status",
+        "updated_at"
+      ],
+      "nicht_null": [
+        "activated_at",
+        "addon_key",
+        "addon_name",
+        "created_at",
+        "id",
+        "metadata",
+        "org_id",
+        "source",
+        "status",
+        "updated_at"
+      ]
+    },
+    "org_api_keys": {
+      "spalten": [
+        "created_at",
+        "created_by",
+        "expires_at",
+        "id",
+        "is_active",
+        "key_hash",
+        "key_prefix",
+        "label",
+        "last_used_at",
+        "org_id",
+        "scopes",
+        "updated_at"
+      ],
+      "nicht_null": [
+        "created_at",
+        "id",
+        "is_active",
+        "key_hash",
+        "key_prefix",
+        "label",
+        "org_id",
+        "scopes",
+        "updated_at"
+      ]
+    },
+    "org_departments": {
+      "spalten": [
+        "cost_center",
+        "created_at",
+        "id",
+        "is_active",
+        "location_id",
+        "name",
+        "org_id"
+      ],
+      "nicht_null": [
+        "created_at",
+        "id",
+        "is_active",
+        "name",
+        "org_id"
+      ]
+    },
+    "org_erp_mappings": {
+      "spalten": [
+        "created_at",
+        "created_by",
+        "endpoint_url",
+        "external_client_id",
+        "id",
+        "label",
+        "last_error",
+        "last_sync_at",
+        "org_id",
+        "status",
+        "sync_config",
+        "system_type",
+        "updated_at"
+      ],
+      "nicht_null": [
+        "created_at",
+        "id",
+        "label",
+        "org_id",
+        "status",
+        "sync_config",
+        "system_type",
+        "updated_at"
+      ]
+    },
+    "org_integrations": {
+      "spalten": [
+        "created_at",
+        "created_by",
+        "enabled_events",
+        "id",
+        "is_active",
+        "label",
+        "last_error",
+        "last_success_at",
+        "org_id",
+        "provider",
+        "signing_secret",
+        "updated_at",
+        "webhook_url"
+      ],
+      "nicht_null": [
+        "created_at",
+        "enabled_events",
+        "id",
+        "is_active",
+        "label",
+        "org_id",
+        "provider",
+        "updated_at",
+        "webhook_url"
+      ]
+    },
+    "org_invitations": {
+      "spalten": [
+        "accepted_at",
+        "accepted_by",
+        "created_at",
+        "email",
+        "expires_at",
+        "id",
+        "invited_by",
+        "org_id",
+        "role_key",
+        "status",
+        "token_hash"
+      ],
+      "nicht_null": [
+        "created_at",
+        "email",
+        "expires_at",
+        "id",
+        "org_id",
+        "role_key",
+        "status",
+        "token_hash"
+      ]
+    },
+    "org_locations": {
+      "spalten": [
+        "city",
+        "country",
+        "created_at",
+        "id",
+        "is_active",
+        "is_hq",
+        "latitude",
+        "longitude",
+        "name",
+        "org_id",
+        "postal_code",
+        "street"
+      ],
+      "nicht_null": [
+        "city",
+        "country",
+        "created_at",
+        "id",
+        "is_active",
+        "is_hq",
+        "name",
+        "org_id"
+      ]
+    },
+    "org_memberships": {
+      "spalten": [
+        "cost_center",
+        "created_at",
+        "department_id",
+        "division",
+        "employee_number",
+        "hr_department",
+        "id",
+        "is_active",
+        "location_id",
+        "org_id",
+        "role_key",
+        "updated_at",
+        "user_id"
+      ],
+      "nicht_null": [
+        "created_at",
+        "id",
+        "is_active",
+        "org_id",
+        "role_key",
+        "updated_at",
+        "user_id"
+      ]
+    },
+    "org_settings": {
+      "spalten": [
+        "approval_required",
+        "auto_match_enabled",
+        "branding",
+        "compliance_strictness",
+        "created_at",
+        "default_radius_km",
+        "id",
+        "inter_agency_matching_enabled",
+        "inter_agency_supply_visible",
+        "notification_preferences",
+        "org_id",
+        "preferred_supplier_only",
+        "updated_at"
+      ],
+      "nicht_null": [
+        "approval_required",
+        "auto_match_enabled",
+        "branding",
+        "compliance_strictness",
+        "created_at",
+        "default_radius_km",
+        "id",
+        "inter_agency_matching_enabled",
+        "inter_agency_supply_visible",
+        "notification_preferences",
+        "org_id",
+        "preferred_supplier_only",
+        "updated_at"
+      ]
+    },
+    "org_sso_config": {
+      "spalten": [
+        "attribute_mapping",
+        "created_at",
+        "enforce_sso",
+        "id",
+        "idp_certificate",
+        "idp_entity_id",
+        "idp_sso_url",
+        "is_active",
+        "org_id",
+        "sp_entity_id",
+        "updated_at"
+      ],
+      "nicht_null": [
+        "id",
+        "idp_certificate",
+        "idp_entity_id",
+        "idp_sso_url",
+        "org_id"
+      ]
+    },
+    "organizations": {
+      "spalten": [
+        "access_suspended_at",
+        "access_suspended_by",
+        "access_suspended_kind",
+        "access_suspended_reason",
+        "account_type",
+        "billing_contact",
+        "billing_email",
+        "billing_mode",
+        "commercial_register",
+        "company_size_class",
+        "converted_at",
+        "created_at",
+        "custom_limit_listings",
+        "custom_limit_multi_org_slots",
+        "custom_limit_sites",
+        "custom_limit_suppliers",
+        "custom_limit_users",
+        "custom_quote_pending",
+        "customer_stage",
+        "employee_count_approx",
+        "enforce_mfa",
+        "feature_bundle",
+        "has_used_pilot",
+        "id",
+        "individual_contract_note",
+        "individual_contract_price_cents",
+        "individual_tier_auto",
+        "is_active",
+        "legal_name",
+        "logo_url",
+        "name",
+        "onboarding_completed_at",
+        "parent_org_id",
+        "pilot_ended_at",
+        "pilot_exception_allowed",
+        "pilot_exception_granted_at",
+        "pilot_exception_granted_by",
+        "pilot_exception_reason",
+        "pilot_price_cents",
+        "pilot_started_at",
+        "pilot_status",
+        "plan",
+        "slug",
+        "target_plan_after_pilot",
+        "tax_id",
+        "type",
+        "updated_at",
+        "website"
+      ],
+      "nicht_null": [
+        "account_type",
+        "billing_mode",
+        "created_at",
+        "custom_quote_pending",
+        "feature_bundle",
+        "has_used_pilot",
+        "id",
+        "is_active",
+        "name",
+        "pilot_exception_allowed",
+        "pilot_status",
+        "plan",
+        "slug",
+        "type",
+        "updated_at"
+      ]
+    },
+    "owner_control_access_audit": {
+      "spalten": [
+        "action",
+        "created_at",
+        "id",
+        "metadata",
+        "note",
+        "performed_by",
+        "user_id"
+      ],
+      "nicht_null": [
+        "action",
+        "created_at",
+        "id",
+        "metadata"
+      ]
+    },
+    "payment_sessions": {
+      "spalten": [
+        "amount",
+        "completed_at",
+        "created_at",
+        "id",
+        "method",
+        "org_id",
+        "plan",
+        "request_id",
+        "status",
+        "stripe_payment_intent",
+        "stripe_session_id",
+        "stripe_subscription_id",
+        "user_id"
+      ],
+      "nicht_null": [
+        "amount",
+        "created_at",
+        "id",
+        "method",
+        "plan",
+        "status",
+        "user_id"
+      ]
+    },
+    "pilot_preregistrations": {
+      "spalten": [
+        "capacity_or_need",
+        "cohort",
+        "company_size",
+        "confirm_token_hash",
+        "consent_at",
+        "contact_name",
+        "created_at",
+        "einsatzort_confirmed",
+        "email",
+        "id",
+        "ip",
+        "message",
+        "org_name",
+        "phone",
+        "referred_by",
+        "region",
+        "sector",
+        "side",
+        "source",
+        "status",
+        "updated_at",
+        "user_agent"
+      ],
+      "nicht_null": [
+        "cohort",
+        "contact_name",
+        "created_at",
+        "einsatzort_confirmed",
+        "email",
+        "id",
+        "org_name",
+        "region",
+        "side",
+        "status",
+        "updated_at"
+      ]
+    },
+    "plan_usage_rules": {
+      "spalten": [
+        "created_at",
+        "id",
+        "included_units",
+        "is_active",
+        "max_units",
+        "metric_type",
+        "notes",
+        "overage_price_cents",
+        "plan",
+        "updated_at"
+      ],
+      "nicht_null": [
+        "created_at",
+        "id",
+        "included_units",
+        "is_active",
+        "metric_type",
+        "plan",
+        "updated_at"
+      ]
+    },
+    "platform_events": {
+      "spalten": [
+        "actor_id",
+        "created_at",
+        "entity_id",
+        "entity_type",
+        "event_type",
+        "id",
+        "metadata",
+        "org_id",
+        "target_org_id"
+      ],
+      "nicht_null": [
+        "created_at",
+        "event_type",
+        "id"
+      ]
+    },
+    "platform_skills": {
+      "spalten": [
+        "aliases",
+        "category",
+        "created_at",
+        "id",
+        "is_active",
+        "merged_into_skill_id",
+        "name",
+        "proposed_by_org_id",
+        "proposed_by_user_id",
+        "status",
+        "updated_at",
+        "usage_count"
+      ],
+      "nicht_null": [
+        "created_at",
+        "id",
+        "is_active",
+        "name",
+        "status",
+        "updated_at",
+        "usage_count"
+      ]
+    },
+    "premium_listing_charges": {
+      "spalten": [
+        "amount_cents",
+        "created_at",
+        "currency",
+        "description",
+        "id",
+        "invoice_id",
+        "invoiced_at",
+        "listing_id",
+        "listing_type",
+        "org_id",
+        "status",
+        "user_id"
+      ],
+      "nicht_null": [
+        "amount_cents",
+        "created_at",
+        "currency",
+        "description",
+        "id",
+        "listing_id",
+        "listing_type",
+        "org_id",
+        "status"
+      ]
+    },
+    "product_analytics_daily_rollups": {
+      "spalten": [
+        "created_at",
+        "event_name",
+        "events_count",
+        "flow_key",
+        "id",
+        "lifecycle_segment",
+        "rollup_date",
+        "sessions_count",
+        "updated_at",
+        "user_role",
+        "users_count"
+      ],
+      "nicht_null": [
+        "created_at",
+        "event_name",
+        "events_count",
+        "id",
+        "lifecycle_segment",
+        "rollup_date",
+        "sessions_count",
+        "updated_at",
+        "users_count"
+      ]
+    },
+    "product_analytics_events": {
+      "spalten": [
+        "anonymous_id",
+        "component_name",
+        "customer_segment",
+        "dedupe_key",
+        "event_category",
+        "event_name",
+        "feature_context",
+        "flow_key",
+        "id",
+        "importance",
+        "journey_id",
+        "metadata",
+        "occurred_at",
+        "org_id",
+        "org_role",
+        "page_path",
+        "received_at",
+        "route_name",
+        "session_id",
+        "source",
+        "step_name",
+        "user_id",
+        "user_plan",
+        "user_role"
+      ],
+      "nicht_null": [
+        "customer_segment",
+        "event_name",
+        "id",
+        "metadata",
+        "occurred_at",
+        "received_at",
+        "session_id",
+        "source"
+      ]
+    },
+    "product_analytics_funnel_definitions": {
+      "spalten": [
+        "created_at",
+        "flow_name",
+        "funnel_key",
+        "id",
+        "is_active",
+        "title",
+        "updated_at"
+      ],
+      "nicht_null": [
+        "created_at",
+        "flow_name",
+        "funnel_key",
+        "id",
+        "is_active",
+        "title",
+        "updated_at"
+      ]
+    },
+    "product_analytics_funnel_steps": {
+      "spalten": [
+        "event_name",
+        "funnel_id",
+        "id",
+        "is_completion",
+        "step_name",
+        "step_order"
+      ],
+      "nicht_null": [
+        "event_name",
+        "funnel_id",
+        "id",
+        "is_completion",
+        "step_name",
+        "step_order"
+      ]
+    },
+    "product_analytics_journeys": {
+      "spalten": [
+        "abandoned_at",
+        "completed_at",
+        "context",
+        "dropoff_step",
+        "flow_name",
+        "id",
+        "journey_id",
+        "lifecycle_segment",
+        "outcome",
+        "session_id",
+        "started_at"
+      ],
+      "nicht_null": [
+        "context",
+        "flow_name",
+        "id",
+        "journey_id",
+        "lifecycle_segment",
+        "session_id",
+        "started_at"
+      ]
+    },
+    "product_analytics_sessions": {
+      "spalten": [
+        "anonymous_id",
+        "app_area",
+        "consent_status",
+        "ended_at",
+        "entry_path",
+        "exit_path",
+        "id",
+        "last_seen_at",
+        "lifecycle_segment",
+        "membership_id",
+        "metadata",
+        "org_id",
+        "org_role",
+        "org_type",
+        "referrer",
+        "replay_enabled",
+        "session_id",
+        "started_at",
+        "user_id",
+        "user_role"
+      ],
+      "nicht_null": [
+        "consent_status",
+        "id",
+        "last_seen_at",
+        "lifecycle_segment",
+        "metadata",
+        "replay_enabled",
+        "session_id",
+        "started_at"
+      ]
+    },
+    "product_release_entries": {
+      "spalten": [
+        "audiences",
+        "body",
+        "created_at",
+        "created_by",
+        "email_sent_at",
+        "feature_key",
+        "id",
+        "min_plan",
+        "priority",
+        "published_at",
+        "required_feature_key",
+        "send_email_on_publish",
+        "show_as_modal",
+        "show_in_app",
+        "status",
+        "summary",
+        "title",
+        "updated_at",
+        "visibility"
+      ],
+      "nicht_null": [
+        "audiences",
+        "created_at",
+        "id",
+        "priority",
+        "send_email_on_publish",
+        "show_as_modal",
+        "show_in_app",
+        "status",
+        "title",
+        "updated_at",
+        "visibility"
+      ]
+    },
+    "profile_abuse_reports": {
+      "spalten": [
+        "created_at",
+        "details",
+        "id",
+        "reason",
+        "reported_org_id",
+        "reporter_org_id",
+        "reporter_user_id",
+        "resolution_note",
+        "reviewed_at",
+        "reviewed_by",
+        "status",
+        "updated_at"
+      ],
+      "nicht_null": [
+        "created_at",
+        "id",
+        "reason",
+        "reported_org_id",
+        "status",
+        "updated_at"
+      ]
+    },
+    "profile_bounties": {
+      "spalten": [
+        "activated_at",
+        "approved_at",
+        "approved_by",
+        "bounty_type",
+        "created_at",
+        "expires_at",
+        "id",
+        "org_id",
+        "rejected_at",
+        "rejected_by",
+        "rejection_reason",
+        "requested_by",
+        "staff_note",
+        "status",
+        "updated_at"
+      ],
+      "nicht_null": [
+        "bounty_type",
+        "created_at",
+        "id",
+        "org_id",
+        "requested_by",
+        "status",
+        "updated_at"
+      ]
+    },
+    "profile_favorites": {
+      "spalten": [
+        "created_at",
+        "favorited_org_id",
+        "id",
+        "note",
+        "owner_user_id"
+      ],
+      "nicht_null": [
+        "created_at",
+        "favorited_org_id",
+        "id",
+        "owner_user_id"
+      ]
+    },
+    "profile_likes": {
+      "spalten": [
+        "created_at",
+        "id",
+        "liked_org_id",
+        "liker_org_id",
+        "liker_user_id"
+      ],
+      "nicht_null": [
+        "created_at",
+        "id",
+        "liked_org_id",
+        "liker_org_id",
+        "liker_user_id"
+      ]
+    },
+    "profile_ranking_snapshots": {
+      "spalten": [
+        "activity_score",
+        "created_at",
+        "effective_rank_score",
+        "id",
+        "org_id",
+        "premium_boost",
+        "rank_position",
+        "rank_segment",
+        "ranking_score",
+        "reputation_score",
+        "snapshot_date"
+      ],
+      "nicht_null": [
+        "created_at",
+        "id",
+        "org_id",
+        "ranking_score",
+        "snapshot_date"
+      ]
+    },
+    "profile_review_moderation": {
+      "spalten": [
+        "created_at",
+        "flag_reason",
+        "id",
+        "moderated_at",
+        "moderated_by",
+        "rating_id",
+        "rejection_reason",
+        "status",
+        "updated_at"
+      ],
+      "nicht_null": [
+        "created_at",
+        "id",
+        "rating_id",
+        "status",
+        "updated_at"
+      ]
+    },
+    "profile_view_events": {
+      "spalten": [
+        "id",
+        "ip_hash",
+        "referrer_section",
+        "ua_hash",
+        "viewed_at",
+        "viewed_org_id",
+        "viewer_org_id",
+        "viewer_user_id"
+      ],
+      "nicht_null": [
+        "id",
+        "ip_hash",
+        "ua_hash",
+        "viewed_at",
+        "viewed_org_id"
+      ]
+    },
+    "profile_visibility_settings": {
+      "spalten": [
+        "approved_at",
+        "created_at",
+        "id",
+        "is_public",
+        "org_id",
+        "rejection_reason",
+        "reviewed_at",
+        "reviewed_by",
+        "status",
+        "submitted_at",
+        "suspended_at",
+        "suspended_reason",
+        "updated_at"
+      ],
+      "nicht_null": [
+        "created_at",
+        "id",
+        "is_public",
+        "org_id",
+        "status",
+        "updated_at"
+      ]
+    },
+    "proofs": {
+      "spalten": [
+        "company_id",
+        "created_at",
+        "file_ref",
+        "id",
+        "status",
+        "type"
+      ],
+      "nicht_null": [
+        "company_id",
+        "created_at",
+        "file_ref",
+        "id",
+        "status",
+        "type"
+      ]
+    },
+    "rate_card_checks": {
+      "spalten": [
+        "actual_rate_cents",
+        "checked_at",
+        "checked_by",
+        "compliance_status",
+        "deviation_cents",
+        "deviation_pct",
+        "entity_id",
+        "entity_type",
+        "id",
+        "max_rate_cents",
+        "org_id",
+        "rate_card_id",
+        "role_category",
+        "supplier_org_id",
+        "target_rate_cents"
+      ],
+      "nicht_null": [
+        "actual_rate_cents",
+        "checked_at",
+        "compliance_status",
+        "deviation_cents",
+        "deviation_pct",
+        "entity_id",
+        "entity_type",
+        "id",
+        "max_rate_cents",
+        "org_id",
+        "rate_card_id",
+        "target_rate_cents"
+      ]
+    },
+    "rate_cards": {
+      "spalten": [
+        "contract_id",
+        "created_at",
+        "created_by",
+        "currency",
+        "department_id",
+        "emergency_surcharge_pct",
+        "id",
+        "location_id",
+        "max_rate_cents",
+        "min_rate_cents",
+        "notes",
+        "org_id",
+        "overtime_surcharge_pct",
+        "region",
+        "role_category",
+        "status",
+        "supplier_org_id",
+        "target_rate_cents",
+        "updated_at",
+        "updated_by",
+        "valid_from",
+        "valid_to"
+      ],
+      "nicht_null": [
+        "created_at",
+        "currency",
+        "emergency_surcharge_pct",
+        "id",
+        "max_rate_cents",
+        "org_id",
+        "overtime_surcharge_pct",
+        "role_category",
+        "status",
+        "target_rate_cents",
+        "updated_at",
+        "valid_from"
+      ]
+    },
+    "ratings": {
+      "spalten": [
+        "comment",
+        "communication",
+        "created_at",
+        "id",
+        "org_id",
+        "quality",
+        "rated_id",
+        "rater_id",
+        "reliability",
+        "request_id",
+        "stars"
+      ],
+      "nicht_null": [
+        "communication",
+        "created_at",
+        "id",
+        "quality",
+        "rated_id",
+        "rater_id",
+        "reliability",
+        "request_id",
+        "stars"
+      ]
+    },
+    "referral_codes": {
+      "spalten": [
+        "code",
+        "created_at",
+        "id",
+        "is_pilot",
+        "pilot_free_months_base",
+        "user_id"
+      ],
+      "nicht_null": [
+        "code",
+        "created_at",
+        "id",
+        "is_pilot",
+        "pilot_free_months_base",
+        "user_id"
+      ]
+    },
+    "referral_rewards": {
+      "spalten": [
+        "amount_eur",
+        "applied_at",
+        "description",
+        "id",
+        "month_label",
+        "referral_id",
+        "reward_type",
+        "user_id"
+      ],
+      "nicht_null": [
+        "applied_at",
+        "id",
+        "reward_type",
+        "user_id"
+      ]
+    },
+    "referral_surveys": {
+      "spalten": [
+        "completed_at",
+        "feedback",
+        "how_found",
+        "id",
+        "rating",
+        "referral_id",
+        "user_id",
+        "would_recommend"
+      ],
+      "nicht_null": [
+        "completed_at",
+        "id",
+        "rating",
+        "referral_id",
+        "user_id",
+        "would_recommend"
+      ]
+    },
+    "referrals": {
+      "spalten": [
+        "created_at",
+        "id",
+        "referral_code",
+        "referred_email",
+        "referred_user_id",
+        "referrer_id",
+        "reward_applied",
+        "reward_applied_at",
+        "reward_type",
+        "status",
+        "survey_completed",
+        "survey_completed_at",
+        "updated_at"
+      ],
+      "nicht_null": [
+        "created_at",
+        "id",
+        "referral_code",
+        "referred_email",
+        "referrer_id",
+        "reward_applied",
+        "reward_type",
+        "status",
+        "survey_completed",
+        "updated_at"
+      ]
+    },
+    "reports": {
+      "spalten": [
+        "comment",
+        "created_at",
+        "id",
+        "reason",
+        "reported_user_id",
+        "reporter_id",
+        "request_id"
+      ],
+      "nicht_null": [
+        "created_at",
+        "id",
+        "reason",
+        "reported_user_id",
+        "reporter_id"
+      ]
+    },
+    "request_compliance": {
+      "spalten": [
+        "computed_at",
+        "reasons",
+        "request_id",
+        "status"
+      ],
+      "nicht_null": [
+        "computed_at",
+        "reasons",
+        "request_id",
+        "status"
+      ]
+    },
+    "requests": {
+      "spalten": [
+        "capacity_id",
+        "contact_email",
+        "contact_phone",
+        "created_at",
+        "deal_id",
+        "duration_days",
+        "end_date",
+        "escalation_level",
+        "first_matching_attempt_at",
+        "first_notification_sent_at",
+        "id",
+        "listing_id",
+        "location_text",
+        "max_hourly_rate_cents",
+        "message",
+        "notes",
+        "org_id",
+        "priority",
+        "qualification_tags",
+        "quantity",
+        "receiver_id",
+        "region",
+        "requester_id",
+        "required_certifications",
+        "role",
+        "shift_schedule",
+        "sla_breached_at",
+        "sla_met_at",
+        "sla_minutes",
+        "sla_respond_by",
+        "sla_started_at",
+        "sla_status",
+        "start_date",
+        "status",
+        "updated_at",
+        "urgency"
+      ],
+      "nicht_null": [
+        "created_at",
+        "id",
+        "priority",
+        "receiver_id",
+        "requester_id",
+        "sla_minutes",
+        "sla_respond_by",
+        "sla_status",
+        "status",
+        "updated_at"
+      ]
+    },
+    "requisition_candidates": {
+      "spalten": [
+        "availability_date",
+        "capacity_post_id",
+        "charge_rate_cents",
+        "compliance_status",
+        "contract_type",
+        "created_at",
+        "expiration_date",
+        "id",
+        "internal_notes",
+        "markup_percent",
+        "match_reasons",
+        "match_score",
+        "offer_id",
+        "rejected_reason",
+        "requisition_id",
+        "reviewed_at",
+        "reviewed_by",
+        "shortlisted_at",
+        "status",
+        "submitted_at",
+        "supplier_org_id",
+        "updated_at",
+        "withdrawn_at"
+      ],
+      "nicht_null": [
+        "created_at",
+        "id",
+        "requisition_id",
+        "status",
+        "updated_at"
+      ]
+    },
+    "requisition_distribution_stages": {
+      "spalten": [
+        "activated_at",
+        "auto_advance_hours",
+        "completed_at",
+        "created_at",
+        "id",
+        "label",
+        "pool_tier",
+        "requisition_id",
+        "stage_number",
+        "status"
+      ],
+      "nicht_null": [
+        "created_at",
+        "id",
+        "pool_tier",
+        "requisition_id",
+        "stage_number",
+        "status"
+      ]
+    },
+    "requisition_events": {
+      "spalten": [
+        "actor_id",
+        "created_at",
+        "event_type",
+        "id",
+        "payload",
+        "requisition_id"
+      ],
+      "nicht_null": [
+        "created_at",
+        "event_type",
+        "id",
+        "requisition_id"
+      ]
+    },
+    "requisitions": {
+      "spalten": [
+        "approval_required",
+        "approved_at",
+        "approved_by",
+        "assigned_to",
+        "budget_max_cents",
+        "budget_min_cents",
+        "cancel_reason",
+        "cancelled_at",
+        "closed_at",
+        "created_at",
+        "created_by",
+        "demand_request_id",
+        "department_id",
+        "description",
+        "end_date",
+        "filled_at",
+        "headcount",
+        "id",
+        "latitude",
+        "location_city",
+        "location_id",
+        "location_postal",
+        "longitude",
+        "org_id",
+        "priority",
+        "qualifications",
+        "radius_km",
+        "role",
+        "search_job_id",
+        "shift_requirements",
+        "skill_tags",
+        "sla_breached_at",
+        "sla_due_at",
+        "sla_met_at",
+        "sla_minutes",
+        "sla_status",
+        "start_date",
+        "status",
+        "title",
+        "updated_at",
+        "urgency"
+      ],
+      "nicht_null": [
+        "approval_required",
+        "created_at",
+        "created_by",
+        "headcount",
+        "id",
+        "priority",
+        "radius_km",
+        "role",
+        "status",
+        "title",
+        "updated_at",
+        "urgency"
+      ]
+    },
+    "reviews": {
+      "spalten": [
+        "created_at",
+        "id",
+        "request_id",
+        "reviewee_id",
+        "reviewer_id",
+        "stars",
+        "text",
+        "visible_at"
+      ],
+      "nicht_null": [
+        "created_at",
+        "id",
+        "request_id",
+        "reviewee_id",
+        "reviewer_id",
+        "stars",
+        "visible_at"
+      ]
+    },
+    "risk_signals": {
+      "spalten": [
+        "area",
+        "audit_id",
+        "created_at",
+        "decision_id",
+        "drilldown_path",
+        "entity_id",
+        "entity_type",
+        "id",
+        "level",
+        "message",
+        "recommended_action",
+        "resolved_at",
+        "source",
+        "title"
+      ],
+      "nicht_null": [
+        "area",
+        "created_at",
+        "id",
+        "level",
+        "message",
+        "title"
+      ]
+    },
+    "search_history": {
+      "spalten": [
+        "created_at",
+        "id",
+        "last_used_at",
+        "org_id",
+        "query",
+        "query_norm",
+        "result_count",
+        "search_count",
+        "type",
+        "user_id"
+      ],
+      "nicht_null": [
+        "created_at",
+        "id",
+        "last_used_at",
+        "query",
+        "query_norm",
+        "result_count",
+        "search_count",
+        "type",
+        "user_id"
+      ]
+    },
+    "search_sync_log": {
+      "spalten": [
+        "action",
+        "created_at",
+        "entity_id",
+        "entity_type",
+        "error_message",
+        "id",
+        "last_synced_at"
+      ],
+      "nicht_null": [
+        "action",
+        "created_at",
+        "entity_id",
+        "entity_type",
+        "id",
+        "last_synced_at"
+      ]
+    },
+    "session": {
+      "spalten": [
+        "expire",
+        "sess",
+        "sid"
+      ],
+      "nicht_null": [
+        "expire",
+        "sess",
+        "sid"
+      ]
+    },
+    "sla_events": {
+      "spalten": [
+        "created_at",
+        "details",
+        "event_type",
+        "id",
+        "request_id"
+      ],
+      "nicht_null": [
+        "created_at",
+        "event_type",
+        "id",
+        "request_id"
+      ]
+    },
+    "sla_search_events": {
+      "spalten": [
+        "created_at",
+        "event_type",
+        "id",
+        "payload",
+        "search_job_id"
+      ],
+      "nicht_null": [
+        "created_at",
+        "event_type",
+        "id",
+        "search_job_id"
+      ]
+    },
+    "sla_search_jobs": {
+      "spalten": [
+        "closed_at",
+        "created_at",
+        "first_matching_attempt_at",
+        "first_notification_sent_at",
+        "headcount",
+        "id",
+        "location_city",
+        "location_lat",
+        "location_lng",
+        "location_postal",
+        "owner_company_id",
+        "owner_type",
+        "radius_km",
+        "role",
+        "skill_tags",
+        "sla_breached_at",
+        "sla_due_at",
+        "sla_met_at",
+        "sla_minutes",
+        "sla_started_at",
+        "sla_status",
+        "status",
+        "target_type",
+        "title",
+        "updated_at",
+        "urgency"
+      ],
+      "nicht_null": [
+        "created_at",
+        "headcount",
+        "id",
+        "owner_company_id",
+        "owner_type",
+        "radius_km",
+        "status",
+        "target_type",
+        "title",
+        "updated_at",
+        "urgency"
+      ]
+    },
+    "sla_search_matches": {
+      "spalten": [
+        "capacity_post_id",
+        "created_at",
+        "demand_request_id",
+        "id",
+        "match_score",
+        "reasons",
+        "search_job_id",
+        "status",
+        "updated_at"
+      ],
+      "nicht_null": [
+        "created_at",
+        "id",
+        "reasons",
+        "search_job_id",
+        "status",
+        "updated_at"
+      ]
+    },
+    "sso_sessions": {
+      "spalten": [
+        "created_at",
+        "expires_at",
+        "id",
+        "idp_session_id",
+        "org_id",
+        "user_id"
+      ],
+      "nicht_null": [
+        "id",
+        "org_id",
+        "user_id"
+      ]
+    },
+    "staff_control_audit_log": {
+      "spalten": [
+        "action",
+        "actor_id",
+        "area",
+        "confirmed",
+        "created_at",
+        "details",
+        "entity_id",
+        "entity_type",
+        "id",
+        "ip",
+        "reason",
+        "risk_level",
+        "status",
+        "step_up_at",
+        "user_agent"
+      ],
+      "nicht_null": [
+        "action",
+        "area",
+        "confirmed",
+        "created_at",
+        "details",
+        "id",
+        "risk_level",
+        "status"
+      ]
+    },
+    "staff_control_decisions": {
+      "spalten": [
+        "area",
+        "confirmed_at",
+        "confirmed_by",
+        "decision",
+        "details",
+        "id",
+        "linked_entity_id",
+        "linked_entity_type",
+        "reason",
+        "reversible",
+        "reverted_at",
+        "reverted_by",
+        "title"
+      ],
+      "nicht_null": [
+        "area",
+        "confirmed_at",
+        "confirmed_by",
+        "decision",
+        "details",
+        "id",
+        "reversible",
+        "title"
+      ]
+    },
+    "staff_control_feature_flags": {
+      "spalten": [
+        "description",
+        "flag_key",
+        "is_enabled",
+        "reason",
+        "risk_level",
+        "updated_at",
+        "updated_by"
+      ],
+      "nicht_null": [
+        "flag_key",
+        "is_enabled",
+        "risk_level",
+        "updated_at"
+      ]
+    },
+    "staff_control_runbook_runs": {
+      "spalten": [
+        "actor_id",
+        "details",
+        "finished_at",
+        "id",
+        "reason",
+        "rollback_triggered",
+        "runbook_id",
+        "runbook_key",
+        "runbook_version",
+        "started_at",
+        "status",
+        "step_results"
+      ],
+      "nicht_null": [
+        "details",
+        "id",
+        "rollback_triggered",
+        "runbook_id",
+        "runbook_key",
+        "runbook_version",
+        "started_at",
+        "status",
+        "step_results"
+      ]
+    },
+    "staff_control_runbooks": {
+      "spalten": [
+        "created_at",
+        "created_by",
+        "description",
+        "id",
+        "is_enabled",
+        "key",
+        "name",
+        "requires_confirm",
+        "risk_level",
+        "steps",
+        "updated_at",
+        "version"
+      ],
+      "nicht_null": [
+        "created_at",
+        "id",
+        "is_enabled",
+        "key",
+        "name",
+        "requires_confirm",
+        "risk_level",
+        "steps",
+        "updated_at",
+        "version"
+      ]
+    },
+    "staff_customer_request_assignments": {
+      "spalten": [
+        "assigned_at",
+        "assigned_by",
+        "id",
+        "released_at",
+        "released_reason",
+        "request_id",
+        "staff_id"
+      ],
+      "nicht_null": [
+        "assigned_at",
+        "id",
+        "request_id",
+        "staff_id"
+      ]
+    },
+    "staff_customer_request_messages": {
+      "spalten": [
+        "author_staff_id",
+        "body",
+        "created_at",
+        "id",
+        "is_internal",
+        "meta",
+        "request_id"
+      ],
+      "nicht_null": [
+        "body",
+        "created_at",
+        "id",
+        "is_internal",
+        "meta",
+        "request_id"
+      ]
+    },
+    "staff_session": {
+      "spalten": [
+        "expire",
+        "sess",
+        "sid"
+      ],
+      "nicht_null": [
+        "expire",
+        "sess",
+        "sid"
+      ]
+    },
+    "strategic_collaboration_requests": {
+      "spalten": [
+        "assigned_at",
+        "assigned_by",
+        "assigned_to_user_id",
+        "base_price_cents",
+        "city",
+        "contact_email",
+        "contact_name",
+        "contact_phone",
+        "created_at",
+        "expected_start_date",
+        "expected_volume",
+        "id",
+        "interest_enterprise_support",
+        "interest_framework_conditions",
+        "interest_strategic_cooperation",
+        "message",
+        "monthly_estimate_cents",
+        "needs_enterprise_multi_site",
+        "onetime_estimate_cents",
+        "ops_notes",
+        "plan_requested",
+        "region_scope",
+        "request_type",
+        "requested_modules",
+        "requester_company_name",
+        "requester_org_id",
+        "requester_user_id",
+        "seat_price_cents",
+        "seats_included",
+        "seats_requested",
+        "selected_addons",
+        "site_count",
+        "source_context",
+        "status",
+        "status_updated_at",
+        "status_updated_by",
+        "street",
+        "submitted_ip",
+        "submitted_user_agent",
+        "target_org_id",
+        "target_user_id",
+        "updated_at",
+        "vat_id"
+      ],
+      "nicht_null": [
+        "contact_email",
+        "contact_name",
+        "created_at",
+        "id",
+        "interest_enterprise_support",
+        "interest_framework_conditions",
+        "interest_strategic_cooperation",
+        "needs_enterprise_multi_site",
+        "request_type",
+        "requested_modules",
+        "requester_company_name",
+        "selected_addons",
+        "source_context",
+        "status",
+        "updated_at"
+      ]
+    },
+    "submissions": {
+      "spalten": [
+        "availability_from",
+        "availability_to",
+        "candidate_email",
+        "candidate_name",
+        "candidate_phone",
+        "cover_note",
+        "created_at",
+        "hourly_rate",
+        "id",
+        "match_score",
+        "metadata",
+        "rejection_reason",
+        "requisition_id",
+        "resume_ref",
+        "reviewed_at",
+        "reviewed_by",
+        "role",
+        "status",
+        "submitted_by",
+        "supplier_org_id",
+        "updated_at"
+      ],
+      "nicht_null": [
+        "candidate_name",
+        "created_at",
+        "id",
+        "requisition_id",
+        "status",
+        "supplier_org_id",
+        "updated_at"
+      ]
+    },
+    "subscription_documents": {
+      "spalten": [
+        "contact_email",
+        "contact_name",
+        "content",
+        "content_hash",
+        "created_at",
+        "currency",
+        "data_snapshot",
+        "document_number",
+        "document_type",
+        "download_count",
+        "effective_from",
+        "effective_until",
+        "format",
+        "id",
+        "issued_at",
+        "issued_by",
+        "last_downloaded_at",
+        "last_downloaded_by",
+        "org_id",
+        "status",
+        "subscription_request_id",
+        "superseded_by",
+        "title",
+        "total_cents",
+        "updated_at"
+      ],
+      "nicht_null": [
+        "content",
+        "content_hash",
+        "created_at",
+        "currency",
+        "data_snapshot",
+        "document_number",
+        "document_type",
+        "download_count",
+        "format",
+        "id",
+        "issued_at",
+        "status",
+        "title",
+        "updated_at"
+      ]
+    },
+    "subscription_notification_log": {
+      "spalten": [
+        "context_id",
+        "context_type",
+        "created_at",
+        "dispatched_via",
+        "event_key",
+        "id",
+        "idempotency_key",
+        "mail_error",
+        "mail_message_id",
+        "mail_status",
+        "notification_id",
+        "payload",
+        "recipient_email",
+        "recipient_role",
+        "recipient_user_id"
+      ],
+      "nicht_null": [
+        "context_id",
+        "context_type",
+        "created_at",
+        "dispatched_via",
+        "event_key",
+        "id",
+        "idempotency_key",
+        "payload",
+        "recipient_role"
+      ]
+    },
+    "subscription_request_status_history": {
+      "spalten": [
+        "changed_by",
+        "created_at",
+        "details",
+        "from_status",
+        "id",
+        "reason",
+        "request_id",
+        "to_status"
+      ],
+      "nicht_null": [
+        "created_at",
+        "details",
+        "id",
+        "request_id",
+        "to_status"
+      ]
+    },
+    "subscription_requests": {
+      "spalten": [
+        "activated_at",
+        "approved_at",
+        "approved_by",
+        "assigned_at",
+        "assigned_staff_id",
+        "billing_effective_from",
+        "cancellation_effective_at",
+        "contact_email",
+        "contact_name",
+        "contact_phone",
+        "context",
+        "created_at",
+        "current_individual_tier",
+        "current_plan",
+        "desired_addons",
+        "desired_features",
+        "desired_individual_tier",
+        "desired_plan",
+        "downgrade_impact_snapshot",
+        "effective_from",
+        "effective_until",
+        "employee_count",
+        "expected_end_date",
+        "expected_start_date",
+        "id",
+        "industry",
+        "is_self_service",
+        "lifecycle_last_processed_at",
+        "monthly_volume",
+        "offer_expires_at",
+        "org_id",
+        "proposed_price_cents",
+        "proposed_term_months",
+        "quote_catalog_version",
+        "quote_frozen_at",
+        "quote_snapshot",
+        "region_scope",
+        "rejected_at",
+        "rejected_by",
+        "rejection_reason",
+        "request_type",
+        "requester_company_name",
+        "requires_staff_approval",
+        "site_count",
+        "source_strategic_request_id",
+        "staff_notes",
+        "status",
+        "status_updated_at",
+        "status_updated_by",
+        "submitted_ip",
+        "submitted_user_agent",
+        "supplier_count",
+        "updated_at",
+        "user_count",
+        "user_id"
+      ],
+      "nicht_null": [
+        "contact_email",
+        "context",
+        "created_at",
+        "desired_addons",
+        "desired_features",
+        "downgrade_impact_snapshot",
+        "id",
+        "is_self_service",
+        "quote_snapshot",
+        "request_type",
+        "requires_staff_approval",
+        "status",
+        "status_updated_at",
+        "updated_at"
+      ]
+    },
+    "subscriptions": {
+      "spalten": [
+        "cancel_at",
+        "cancel_reason",
+        "cancel_requested_at",
+        "cancel_requested_by",
+        "cancel_source",
+        "canceled_at",
+        "created_at",
+        "current_period_end",
+        "current_period_start",
+        "id",
+        "plan",
+        "status",
+        "trial_ends_at",
+        "trial_mode",
+        "updated_at",
+        "user_id"
+      ],
+      "nicht_null": [
+        "created_at",
+        "id",
+        "plan",
+        "status",
+        "trial_mode",
+        "updated_at",
+        "user_id"
+      ]
+    },
+    "supplier_metrics": {
+      "spalten": [
+        "agency_id",
+        "avg_rating",
+        "offers_submitted",
+        "requests_accepted",
+        "requests_finalized",
+        "requests_received",
+        "sla_breaches",
+        "updated_at",
+        "window_days"
+      ],
+      "nicht_null": [
+        "agency_id",
+        "offers_submitted",
+        "requests_accepted",
+        "requests_finalized",
+        "requests_received",
+        "sla_breaches",
+        "updated_at",
+        "window_days"
+      ]
+    },
+    "supplier_reputation": {
+      "spalten": [
+        "activity_score",
+        "avg_communication",
+        "avg_quality",
+        "avg_reliability",
+        "avg_stars",
+        "completed_deals",
+        "deal_success_rate",
+        "grade",
+        "id",
+        "ranking_score",
+        "reputation_score",
+        "response_time_score",
+        "supplier_id",
+        "timesheet_reliability_score",
+        "total_deals",
+        "total_ratings",
+        "updated_at"
+      ],
+      "nicht_null": [
+        "completed_deals",
+        "grade",
+        "id",
+        "supplier_id",
+        "total_deals",
+        "total_ratings",
+        "updated_at"
+      ]
+    },
+    "support_agents": {
+      "spalten": [
+        "allowed_actions",
+        "allowed_case_types",
+        "allowed_queues",
+        "created_at",
+        "data_scope",
+        "id",
+        "is_active",
+        "role",
+        "scope",
+        "updated_at",
+        "user_id",
+        "vendor_id"
+      ],
+      "nicht_null": [
+        "allowed_actions",
+        "allowed_case_types",
+        "allowed_queues",
+        "created_at",
+        "data_scope",
+        "id",
+        "is_active",
+        "role",
+        "scope",
+        "updated_at",
+        "user_id"
+      ]
+    },
+    "support_audit_log": {
+      "spalten": [
+        "action",
+        "after_state",
+        "agent_id",
+        "before_state",
+        "case_id",
+        "created_at",
+        "id",
+        "ip_address",
+        "reason"
+      ],
+      "nicht_null": [
+        "action",
+        "created_at",
+        "id"
+      ]
+    },
+    "support_case_events": {
+      "spalten": [
+        "actor_agent_id",
+        "case_id",
+        "created_at",
+        "detail",
+        "event",
+        "id"
+      ],
+      "nicht_null": [
+        "case_id",
+        "created_at",
+        "detail",
+        "event",
+        "id"
+      ]
+    },
+    "support_case_notes": {
+      "spalten": [
+        "author_agent_id",
+        "body",
+        "case_id",
+        "created_at",
+        "id",
+        "note_type"
+      ],
+      "nicht_null": [
+        "body",
+        "case_id",
+        "created_at",
+        "id",
+        "note_type"
+      ]
+    },
+    "support_cases": {
+      "spalten": [
+        "assigned_to_agent_id",
+        "case_number",
+        "case_type",
+        "closed_at",
+        "created_at",
+        "description",
+        "escalation_case_id",
+        "escalation_target",
+        "id",
+        "is_escalated",
+        "priority",
+        "queue_id",
+        "related_occ_request_id",
+        "reporter_org_id",
+        "reporter_user_id",
+        "sla_first_responded_at",
+        "sla_first_response_deadline",
+        "sla_resolution_deadline",
+        "sla_resolved_at",
+        "status",
+        "subject",
+        "updated_at"
+      ],
+      "nicht_null": [
+        "case_number",
+        "case_type",
+        "created_at",
+        "id",
+        "is_escalated",
+        "priority",
+        "status",
+        "subject",
+        "updated_at"
+      ]
+    },
+    "support_escalations": {
+      "spalten": [
+        "case_id",
+        "created_at",
+        "created_by_agent_id",
+        "id",
+        "priority",
+        "reason",
+        "related_occ_request_id",
+        "resolution_note",
+        "resolved_at",
+        "resolved_by_agent_id",
+        "status",
+        "summary",
+        "target"
+      ],
+      "nicht_null": [
+        "case_id",
+        "created_at",
+        "id",
+        "priority",
+        "reason",
+        "status",
+        "summary",
+        "target"
+      ]
+    },
+    "support_knowledge": {
+      "spalten": [
+        "allowed_roles",
+        "body",
+        "category",
+        "created_at",
+        "id",
+        "is_active",
+        "tags",
+        "title",
+        "updated_at"
+      ],
+      "nicht_null": [
+        "allowed_roles",
+        "body",
+        "category",
+        "created_at",
+        "id",
+        "is_active",
+        "tags",
+        "title",
+        "updated_at"
+      ]
+    },
+    "support_queues": {
+      "spalten": [
+        "description",
+        "id",
+        "is_active",
+        "name",
+        "sla_first_response_h",
+        "sla_resolution_h",
+        "type"
+      ],
+      "nicht_null": [
+        "id",
+        "is_active",
+        "name",
+        "sla_first_response_h",
+        "sla_resolution_h"
+      ]
+    },
+    "support_tickets": {
+      "spalten": [
+        "affected_users",
+        "assigned_to",
+        "closed_at",
+        "contact_email",
+        "created_at",
+        "escalated",
+        "escalation_reason",
+        "first_response_at",
+        "id",
+        "org_id",
+        "org_name",
+        "owner_decision_required",
+        "reopened_count",
+        "resolved_at",
+        "severity",
+        "sla_deadline",
+        "sla_state",
+        "status",
+        "ticket_id",
+        "title",
+        "updated_at"
+      ],
+      "nicht_null": [
+        "created_at",
+        "escalated",
+        "id",
+        "owner_decision_required",
+        "reopened_count",
+        "severity",
+        "status",
+        "title",
+        "updated_at"
+      ]
+    },
+    "support_vendors": {
+      "spalten": [
+        "allowed_ip_cidrs",
+        "contract_ref",
+        "created_at",
+        "id",
+        "is_active",
+        "name",
+        "scope_policy",
+        "status",
+        "updated_at",
+        "verified_at",
+        "verified_by"
+      ],
+      "nicht_null": [
+        "allowed_ip_cidrs",
+        "created_at",
+        "id",
+        "is_active",
+        "name",
+        "scope_policy",
+        "status",
+        "updated_at"
+      ]
+    },
+    "tempconnect_staff": {
+      "spalten": [
+        "access_reason",
+        "created_at",
+        "created_by",
+        "display_name",
+        "email",
+        "expires_at",
+        "is_active",
+        "last_access_at",
+        "last_mfa_at",
+        "last_reviewed_at",
+        "notes",
+        "requires_step_up",
+        "reviewed_by",
+        "revoked_at",
+        "revoked_by",
+        "role",
+        "scope",
+        "totp_secret_hash",
+        "user_id"
+      ],
+      "nicht_null": [
+        "created_at",
+        "email",
+        "is_active",
+        "requires_step_up",
+        "role",
+        "user_id"
+      ]
+    },
+    "timesheet_entries": {
+      "spalten": [
+        "break_minutes",
+        "created_at",
+        "hours_overtime",
+        "hours_regular",
+        "id",
+        "notes",
+        "shift_end",
+        "shift_start",
+        "timesheet_id",
+        "updated_at",
+        "work_date"
+      ],
+      "nicht_null": [
+        "break_minutes",
+        "created_at",
+        "hours_overtime",
+        "hours_regular",
+        "id",
+        "timesheet_id",
+        "updated_at",
+        "work_date"
+      ]
+    },
+    "timesheet_template_assignments": {
+      "spalten": [
+        "assignment_id",
+        "created_at",
+        "created_by",
+        "id",
+        "is_default",
+        "org_id",
+        "supplier_org_id",
+        "template_id"
+      ],
+      "nicht_null": [
+        "created_at",
+        "id",
+        "is_default",
+        "supplier_org_id",
+        "template_id"
+      ]
+    },
+    "timesheet_template_fields": {
+      "spalten": [
+        "default_value",
+        "field_key",
+        "field_label",
+        "field_type",
+        "id",
+        "is_required",
+        "options",
+        "sort_order",
+        "template_id"
+      ],
+      "nicht_null": [
+        "field_key",
+        "field_label",
+        "field_type",
+        "id",
+        "is_required",
+        "template_id"
+      ]
+    },
+    "timesheet_templates": {
+      "spalten": [
+        "created_at",
+        "created_by",
+        "default_break_minutes",
+        "default_hours_per_day",
+        "default_shift_end",
+        "default_shift_start",
+        "description",
+        "id",
+        "is_active",
+        "name",
+        "require_break",
+        "require_notes",
+        "require_shift_times",
+        "show_activity",
+        "show_cost_center",
+        "show_customer_sign",
+        "show_holiday_surcharge",
+        "show_night_surcharge",
+        "show_overtime",
+        "show_sunday_surcharge",
+        "supplier_org_id",
+        "template_type",
+        "updated_at",
+        "version"
+      ],
+      "nicht_null": [
+        "created_at",
+        "id",
+        "is_active",
+        "name",
+        "require_break",
+        "require_notes",
+        "require_shift_times",
+        "show_activity",
+        "show_cost_center",
+        "show_customer_sign",
+        "show_holiday_surcharge",
+        "show_night_surcharge",
+        "show_overtime",
+        "show_sunday_surcharge",
+        "supplier_org_id",
+        "template_type",
+        "updated_at",
+        "version"
+      ]
+    },
+    "timesheets": {
+      "spalten": [
+        "approved_at",
+        "approved_by",
+        "assignment_id",
+        "cancelled_at",
+        "cancelled_by",
+        "created_at",
+        "created_by",
+        "id",
+        "invoice_id",
+        "notes",
+        "org_id",
+        "overtime_hours",
+        "rejected_at",
+        "rejected_by",
+        "rejection_reason",
+        "source",
+        "status",
+        "submitted_at",
+        "submitted_by",
+        "supplier_org_id",
+        "total_hours",
+        "updated_at",
+        "week_end",
+        "week_start",
+        "worker_identifier",
+        "worker_name"
+      ],
+      "nicht_null": [
+        "created_at",
+        "id",
+        "org_id",
+        "overtime_hours",
+        "source",
+        "status",
+        "supplier_org_id",
+        "total_hours",
+        "updated_at",
+        "week_end",
+        "week_start",
+        "worker_name"
+      ]
+    },
+    "usage_counters": {
+      "spalten": [
+        "broadcasts_sent",
+        "created_at",
+        "id",
+        "notdienst_requests_sent",
+        "period",
+        "requests_sent",
+        "updated_at",
+        "user_id"
+      ],
+      "nicht_null": [
+        "broadcasts_sent",
+        "created_at",
+        "id",
+        "notdienst_requests_sent",
+        "period",
+        "requests_sent",
+        "updated_at",
+        "user_id"
+      ]
+    },
+    "user_bounties": {
+      "spalten": [
+        "bounty_id",
+        "created_at",
+        "earned_at",
+        "expires_at",
+        "id",
+        "is_active",
+        "progress",
+        "updated_at",
+        "user_id"
+      ],
+      "nicht_null": [
+        "bounty_id",
+        "created_at",
+        "earned_at",
+        "id",
+        "is_active",
+        "updated_at",
+        "user_id"
+      ]
+    },
+    "user_bounty_tiers": {
+      "spalten": [
+        "created_at",
+        "id",
+        "promoted_at",
+        "tier_key",
+        "updated_at",
+        "user_id"
+      ],
+      "nicht_null": [
+        "created_at",
+        "id",
+        "promoted_at",
+        "tier_key",
+        "updated_at",
+        "user_id"
+      ]
+    },
+    "user_milestones": {
+      "spalten": [
+        "icon",
+        "id",
+        "milestone_key",
+        "milestone_label",
+        "notified",
+        "reached_at",
+        "user_id"
+      ],
+      "nicht_null": [
+        "icon",
+        "id",
+        "milestone_key",
+        "milestone_label",
+        "notified",
+        "reached_at",
+        "user_id"
+      ]
+    },
+    "user_onboarding_progress": {
+      "spalten": [
+        "auto_detected",
+        "completed",
+        "completed_at",
+        "created_at",
+        "id",
+        "org_id",
+        "step_key",
+        "updated_at",
+        "user_id"
+      ],
+      "nicht_null": [
+        "auto_detected",
+        "completed",
+        "created_at",
+        "id",
+        "step_key",
+        "updated_at",
+        "user_id"
+      ]
+    },
+    "user_product_release_ack": {
+      "spalten": [
+        "modal_dismissed_at",
+        "release_id",
+        "seen_at",
+        "user_id"
+      ],
+      "nicht_null": [
+        "release_id",
+        "user_id"
+      ]
+    },
+    "users": {
+      "spalten": [
+        "city",
+        "company_city",
+        "company_country",
+        "company_name",
+        "company_register_court",
+        "company_register_number",
+        "company_street",
+        "company_vat_id",
+        "company_zip",
+        "contact_person",
+        "created_at",
+        "customer_stage",
+        "email",
+        "email_verified_at",
+        "employee_count",
+        "handelsregister_number",
+        "id",
+        "is_demo",
+        "is_verified",
+        "latitude",
+        "longitude",
+        "mfa_backup_codes",
+        "mfa_enabled",
+        "mfa_secret",
+        "onboarding_completed",
+        "org_id",
+        "password_hash",
+        "phone",
+        "postal_code",
+        "role",
+        "street",
+        "totp_enabled",
+        "totp_secret",
+        "totp_verified_at",
+        "updated_at",
+        "vat_id",
+        "verification_token"
+      ],
+      "nicht_null": [
+        "created_at",
+        "email",
+        "id",
+        "is_demo",
+        "is_verified",
+        "onboarding_completed",
+        "password_hash",
+        "role",
+        "totp_enabled",
+        "updated_at"
+      ]
+    },
+    "vendor_pool": {
+      "spalten": [
+        "assigned_by",
+        "category",
+        "client_org_id",
+        "created_at",
+        "department_id",
+        "id",
+        "invitation_email",
+        "invitation_sent_at",
+        "invitation_status",
+        "location_id",
+        "notes",
+        "reason",
+        "status",
+        "supplier_org_id",
+        "tier",
+        "updated_at",
+        "valid_from",
+        "valid_until"
+      ],
+      "nicht_null": [
+        "client_org_id",
+        "created_at",
+        "id",
+        "status",
+        "supplier_org_id",
+        "tier",
+        "updated_at"
+      ]
+    },
+    "warp_executions": {
+      "spalten": [
+        "actor_email",
+        "actor_id",
+        "audit_id",
+        "deployment_id",
+        "dry_run",
+        "duration_ms",
+        "error",
+        "finished_at",
+        "host_name",
+        "id",
+        "incident_id",
+        "reason",
+        "risk_level",
+        "runbook_id",
+        "runbook_name",
+        "started_at",
+        "status",
+        "step_results",
+        "trigger_source"
+      ],
+      "nicht_null": [
+        "actor_email",
+        "dry_run",
+        "id",
+        "reason",
+        "risk_level",
+        "runbook_name",
+        "started_at",
+        "status",
+        "step_results",
+        "trigger_source"
+      ]
+    },
+    "warp_hosts": {
+      "spalten": [
+        "allowed_actions",
+        "connection_notes",
+        "created_at",
+        "env",
+        "id",
+        "ip",
+        "last_checked_at",
+        "last_error",
+        "last_used_at",
+        "last_used_by",
+        "name",
+        "region",
+        "risk_state",
+        "role",
+        "ssh_ready",
+        "status",
+        "tags",
+        "updated_at"
+      ],
+      "nicht_null": [
+        "allowed_actions",
+        "created_at",
+        "env",
+        "id",
+        "name",
+        "risk_state",
+        "role",
+        "ssh_ready",
+        "status",
+        "tags",
+        "updated_at"
+      ]
+    },
+    "warp_runbooks": {
+      "spalten": [
+        "category",
+        "created_at",
+        "description",
+        "estimated_duration_s",
+        "id",
+        "is_enabled",
+        "last_executed_at",
+        "last_status",
+        "name",
+        "preconditions",
+        "requires_confirm",
+        "requires_reason",
+        "risk_level",
+        "steps",
+        "target_hosts",
+        "updated_at"
+      ],
+      "nicht_null": [
+        "category",
+        "created_at",
+        "id",
+        "is_enabled",
+        "name",
+        "preconditions",
+        "requires_confirm",
+        "requires_reason",
+        "risk_level",
+        "steps",
+        "target_hosts",
+        "updated_at"
+      ]
+    },
+    "webhook_deliveries": {
+      "spalten": [
+        "attempt",
+        "completed_at",
+        "created_at",
+        "error_message",
+        "event_key",
+        "http_status",
+        "id",
+        "integration_id",
+        "max_attempts",
+        "next_retry_at",
+        "payload",
+        "status"
+      ],
+      "nicht_null": [
+        "attempt",
+        "created_at",
+        "event_key",
+        "id",
+        "integration_id",
+        "max_attempts",
+        "status"
+      ]
+    },
+    "worker_absences": {
+      "spalten": [
+        "art",
+        "aufgehoben_am",
+        "aufgehoben_von",
+        "aufhebung_grund",
+        "bis",
+        "erfasst_am",
+        "erfasst_von",
+        "id",
+        "notiz",
+        "supplier_org_id",
+        "von",
+        "worker_profile_id"
+      ],
+      "nicht_null": [
+        "art",
+        "erfasst_am",
+        "id",
+        "supplier_org_id",
+        "von",
+        "worker_profile_id"
+      ]
+    },
+    "worker_assignment_links": {
+      "spalten": [
+        "assignment_id",
+        "capacity_post_id",
+        "client_name",
+        "contact_email",
+        "contact_name",
+        "contact_phone",
+        "created_at",
+        "created_by",
+        "deal_request_id",
+        "default_break_minutes",
+        "default_hours_per_day",
+        "default_shift_end",
+        "default_shift_start",
+        "dispatcher_email",
+        "dispatcher_name",
+        "dispatcher_phone",
+        "dress_code",
+        "end_date",
+        "id",
+        "instructions",
+        "is_active",
+        "is_montage",
+        "location_address",
+        "location_lat",
+        "location_lng",
+        "meeting_point",
+        "notes",
+        "org_id",
+        "role",
+        "start_date",
+        "supplier_org_id",
+        "unavailable_from",
+        "unavailable_reason",
+        "unavailable_reported_at",
+        "updated_at",
+        "worker_confirmation_status",
+        "worker_confirmed_at",
+        "worker_declined_at",
+        "worker_declined_reason",
+        "worker_user_id"
+      ],
+      "nicht_null": [
+        "assignment_id",
+        "created_at",
+        "id",
+        "is_active",
+        "is_montage",
+        "org_id",
+        "role",
+        "start_date",
+        "supplier_org_id",
+        "updated_at",
+        "worker_confirmation_status",
+        "worker_user_id"
+      ]
+    },
+    "worker_billing_snapshots": {
+      "spalten": [
+        "active_seats",
+        "active_workers",
+        "approved_ts",
+        "billing_note",
+        "created_at",
+        "id",
+        "org_id",
+        "plan",
+        "snapshot_month",
+        "submitted_ts"
+      ],
+      "nicht_null": [
+        "active_seats",
+        "active_workers",
+        "approved_ts",
+        "created_at",
+        "id",
+        "org_id",
+        "snapshot_month",
+        "submitted_ts"
+      ]
+    },
+    "worker_complaints": {
+      "spalten": [
+        "assignment_link_id",
+        "company_org_id",
+        "created_at",
+        "created_by",
+        "id",
+        "reason",
+        "severity",
+        "status",
+        "supplier_org_id",
+        "updated_at",
+        "worker_user_id"
+      ],
+      "nicht_null": [
+        "company_org_id",
+        "created_at",
+        "id",
+        "reason",
+        "severity",
+        "status",
+        "updated_at",
+        "worker_user_id"
+      ]
+    },
+    "worker_invites": {
+      "spalten": [
+        "accepted_at",
+        "created_at",
+        "email",
+        "expires_at",
+        "first_name",
+        "id",
+        "invited_by",
+        "last_name",
+        "last_sent_at",
+        "personnel_number",
+        "phone",
+        "resend_count",
+        "sms_sent_at",
+        "status",
+        "supplier_org_id",
+        "token",
+        "token_hash",
+        "worker_profile_id",
+        "worker_user_id"
+      ],
+      "nicht_null": [
+        "created_at",
+        "email",
+        "expires_at",
+        "first_name",
+        "id",
+        "invited_by",
+        "last_name",
+        "last_sent_at",
+        "resend_count",
+        "status",
+        "supplier_org_id",
+        "token",
+        "token_hash"
+      ]
+    },
+    "worker_profile_documents": {
+      "spalten": [
+        "category",
+        "created_at",
+        "expiry_notice_sent_at",
+        "expiry_reminder_sent_at",
+        "file_ref",
+        "file_size_bytes",
+        "id",
+        "issuer",
+        "mime_type",
+        "notes",
+        "original_name",
+        "qualification_name",
+        "review_note",
+        "status",
+        "supplier_org_id",
+        "title",
+        "updated_at",
+        "uploaded_by",
+        "valid_from",
+        "valid_until",
+        "verified_at",
+        "verified_by",
+        "worker_user_id"
+      ],
+      "nicht_null": [
+        "category",
+        "created_at",
+        "id",
+        "status",
+        "supplier_org_id",
+        "title",
+        "updated_at",
+        "worker_user_id"
+      ]
+    },
+    "worker_profile_skills": {
+      "spalten": [
+        "certificate_ref",
+        "certified",
+        "created_at",
+        "id",
+        "is_primary",
+        "proficiency",
+        "skill_id",
+        "source",
+        "updated_at",
+        "worker_profile_id",
+        "years_experience"
+      ],
+      "nicht_null": [
+        "certified",
+        "created_at",
+        "id",
+        "is_primary",
+        "proficiency",
+        "skill_id",
+        "source",
+        "updated_at",
+        "worker_profile_id"
+      ]
+    },
+    "worker_profiles": {
+      "spalten": [
+        "availability_note",
+        "available_from",
+        "city",
+        "country",
+        "created_at",
+        "created_by",
+        "date_of_birth",
+        "driving_licence_classes",
+        "emergency_contact_name",
+        "emergency_contact_phone",
+        "first_name",
+        "has_own_vehicle",
+        "iban_last4",
+        "id",
+        "is_active",
+        "is_of_age",
+        "last_name",
+        "notes",
+        "personnel_number",
+        "phone",
+        "photo_file_ref",
+        "photo_mime",
+        "postal_code",
+        "preferred_locale",
+        "profile_public",
+        "profile_text",
+        "public_profile_fields",
+        "public_profile_slug",
+        "qualifications",
+        "shift_readiness",
+        "skill_tags",
+        "street",
+        "supplier_org_id",
+        "travel_radius_km",
+        "updated_at",
+        "user_id",
+        "weekly_hours"
+      ],
+      "nicht_null": [
+        "country",
+        "created_at",
+        "driving_licence_classes",
+        "first_name",
+        "id",
+        "is_active",
+        "last_name",
+        "preferred_locale",
+        "profile_public",
+        "public_profile_fields",
+        "public_profile_slug",
+        "qualifications",
+        "shift_readiness",
+        "skill_tags",
+        "supplier_org_id",
+        "updated_at"
+      ]
+    },
+    "worker_status_events": {
+      "spalten": [
+        "ausgeloest_durch",
+        "bezug_id",
+        "bezug_typ",
+        "id",
+        "nach_zustand",
+        "supplier_org_id",
+        "von_zustand",
+        "worker_profile_id",
+        "zeitpunkt"
+      ],
+      "nicht_null": [
+        "ausgeloest_durch",
+        "id",
+        "nach_zustand",
+        "supplier_org_id",
+        "worker_profile_id",
+        "zeitpunkt"
+      ]
+    },
+    "worker_submission_events": {
+      "spalten": [
+        "actor_id",
+        "created_at",
+        "event_type",
+        "id",
+        "meta",
+        "note",
+        "submission_id"
+      ],
+      "nicht_null": [
+        "created_at",
+        "event_type",
+        "id",
+        "submission_id"
+      ]
+    },
+    "worker_time_submission_entries": {
+      "spalten": [
+        "break_minutes",
+        "created_at",
+        "hours_overtime",
+        "hours_regular",
+        "id",
+        "notes",
+        "shift_end",
+        "shift_start",
+        "submission_id",
+        "updated_at",
+        "work_date"
+      ],
+      "nicht_null": [
+        "break_minutes",
+        "created_at",
+        "hours_overtime",
+        "hours_regular",
+        "id",
+        "submission_id",
+        "updated_at",
+        "work_date"
+      ]
+    },
+    "worker_time_submissions": {
+      "spalten": [
+        "accepted_at",
+        "accepted_by",
+        "approved_internal_at",
+        "approved_internal_by",
+        "assignment_id",
+        "correction_note",
+        "created_at",
+        "customer_bundle_key",
+        "customer_bundle_period_from",
+        "customer_bundle_period_to",
+        "customer_bundle_ref",
+        "customer_bundle_sent_at",
+        "customer_bundle_sent_by",
+        "customer_bundle_status",
+        "customer_confirmed_at",
+        "customer_confirmed_by",
+        "customer_contact_email",
+        "customer_contact_name",
+        "customer_note",
+        "customer_rejected_at",
+        "id",
+        "org_id",
+        "overtime_hours",
+        "posted_to_timesheet_at",
+        "posted_to_timesheet_by",
+        "rejected_at",
+        "rejected_by",
+        "reviewed_at",
+        "reviewed_by",
+        "reviewer_comment",
+        "sent_to_customer_at",
+        "sent_to_customer_by",
+        "status",
+        "submission_deadline",
+        "submitted_at",
+        "submitted_by",
+        "submitted_late",
+        "supplier_org_id",
+        "template_id",
+        "timesheet_id",
+        "total_hours",
+        "updated_at",
+        "week_end",
+        "week_start",
+        "worker_assignment_link_id",
+        "worker_comment",
+        "worker_user_id"
+      ],
+      "nicht_null": [
+        "created_at",
+        "id",
+        "org_id",
+        "overtime_hours",
+        "status",
+        "submitted_late",
+        "supplier_org_id",
+        "total_hours",
+        "updated_at",
+        "week_end",
+        "week_start",
+        "worker_user_id"
+      ]
+    }
+  }
+}

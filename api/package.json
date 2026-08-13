@@ -33,6 +33,7 @@
     "build": "node --check app.js && node --check server.js && tsc --noEmit",
     "audit:check": "node scripts/audit-coverage-check.js",
     "openapi:generate": "node scripts/generate-openapi.js",
+    "schema:snapshot": "node scripts/schema-snapshot.js",
     "qa": "npm run lint && npm run audit:check && npm run test && npm run build",
     "qa:full": "npm run lint && npm run audit:check && npm run test:coverage && npm run test:coverage:check && npm run build",
     "list-routes": "node scripts/list-routes.js",
