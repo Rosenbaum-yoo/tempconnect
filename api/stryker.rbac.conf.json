@@ -26,9 +26,9 @@
     "fileName": "reports/mutation/rbac/mutation.json"
   },
   "thresholds": {
-    "high": 90,
-    "low": 80,
-    "break": 0
+    "high": 92,
+    "low": 86,
+    "break": 86
   },
   "concurrency": "50%",
   "timeoutMS": 60000,
