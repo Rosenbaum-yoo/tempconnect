@@ -36,6 +36,13 @@ All files below are applied and **must stay as-is**.
 
 ### 1. Duplicate numbers (both files applied, both must stay)
 
+> **Nachgetragen am 2026-08-14.** Diese Liste nannte fuenf Duplikate; es sind
+> sieben (plus die beiden `b`-Varianten unten). `130` und `140` fehlten seit ihrer
+> Entstehung. Aufgefallen ist es beim Durchleuchten der Plattform — nicht durch
+> einen Test, denn `migrationsNummern.test.js` prueft nur die naechste freie
+> Nummer. Seit W2 erzwingt `api/test/dokuWaechter.test.js`, dass **jede** doppelt
+> belegte Nummer hier steht.
+
 | Number | File A | File B |
 |--------|--------|--------|
 | 064 | `064_capacity_interactions_demand.sql` | `064_strategic_collaboration_requests.sql` |
@@ -43,6 +50,8 @@ All files below are applied and **must stay as-is**.
 | 074 | `074_tariff_contract_model.sql` | `074_worker_profile_hub.sql` |
 | 075 | `075_dealflow_interaction_types.sql` | `075_worker_profile_documents.sql` |
 | 086 | `086_customer_stage_contract_requested_fix.sql` | `086_operational_invoice_truth_hardening.sql` |
+| 130 | `130_org_integrations.sql` | `130_payment_session_request_link.sql` |
+| 140 | `140_notification_types_worker_portal.sql` | `140_support_vendor_verification.sql` |
 
 Both files in each pair are sorted alphabetically and applied in that order
 by the runner. The schema state is correct. No action required.
