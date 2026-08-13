@@ -4,7 +4,7 @@
 > sobald in einem Arbeitsplan eine offene Owner-Entscheidung auftaucht, die hier fehlt.
 > Eine Übergabe, die man vergessen kann, ist keine.
 
-**Stand: 2026-08-11** · Branch `release/enterprise-premium-market-ready`
+**Stand: 2026-08-13** · Branch `release/enterprise-premium-market-ready`
 
 ---
 
@@ -39,7 +39,7 @@ Abschnitten, die ich in Spuren mit **Wellen und Gates** schneide.
 ```bash
 cd api && node scripts/run-tests.js          # offizieller Runner, ohne Pipe
 ```
-Stand: **8349 Tests**, davon 13 übersprungen (DB-gated).
+Stand: **8362 Tests**, davon 13 übersprungen (DB-gated).
 
 Im Container (nur `api/` und Lese-Mounts sind dort sichtbar):
 ```bash
@@ -73,8 +73,8 @@ Lastabhängig. **Als eigene Aufgabe ausgelagert, nicht nebenbei anfassen.**
 | Abschnitt | Spur | Stand |
 |---|---|---|
 | 5 CSV-Import | D | **fertig** — D1–D5 ✅. Offen: **D6** (DSGVO für Mitarbeiter ohne Konto), geplant, braucht **D-E3** |
-| 6 Live-Belegschaft | E | **nicht begonnen.** E1 Zustände messen → E2 Reiter → E3 Zeitstrahl. Braucht **E-E1** |
-| 7 Systemzeit | F | **nicht begonnen.** F1 UTC-Schnitte finden → F2 mit `dateDE` beheben → F3 Wächtertest |
+| 6 Live-Belegschaft | E | **E1 ✅ gemessen**, alle drei Entscheidungen gefallen. Weiter mit **E2** (Tabelle worker_absences). Plan: features/E_LIVE_BELEGSCHAFT.md |
+| 7 Systemzeit | F | **fertig** — F1 kartiert (33 Fehler), F2 behoben, F3 Wächter mit Grundlinie 39. Landkarte: features/F1_SYSTEMZEIT_LANDKARTE.md |
 
 > Der Owner hat angekündigt, dass es **Abschnitte bis 12** gibt. Sie sind noch nicht durchgegeben.
 
@@ -89,10 +89,11 @@ Lastabhängig. **Als eigene Aufgabe ausgelagert, nicht nebenbei anfassen.**
 | `utils/orgBoundary.js` | 82,20 % | ✅ |
 | `services/enterpriseSurfaceAccessService.js` | 89,29 % | ✅ |
 
-Wellen 0–3 abgeschlossen, **dreißig Testlücken geschlossen, null Produktionsbugs** —
+Wellen 0–4 abgeschlossen (Aggregat 91,49 %, Break-Schwelle 86, nächtlicher CI-Job), **dreißig Testlücken geschlossen, null Produktionsbugs** —
 kein Produktionscode angefasst, jeder Kill von Hand gegenkontrolliert.
-Welle 4 läuft: Aggregat-Konfiguration und CI-Job stehen, **P4.2 (Break-Threshold
-scharf schalten auf erreichten Score minus 5) ist offen.**
+Zusätzlich: drei Frontend-Wächter (api/test/frontendVerdrahtung.test.js) — tote
+onclick-Handler, fehlendes CSRF, Sackgassen-Links. Sie haben den Multi-Agenten-Audit
+(docs/FRONTEND_REIFEGRAD_AUDIT.md, 85 Befunde) unabhängig reproduziert.
 
 ---
 
@@ -104,8 +105,8 @@ scharf schalten auf erreichten Score minus 5) ist offen.**
   Profil-IDs **(a, empfohlen)** oder Vereinheitlichung der bestehenden Löschpfade (b).
   *Ein Löschpfad, der heute nachweislich richtig ist, wird nicht umgebaut, um zwei
   Zeilen zu sparen.*
-- **E-E1** — Welche Zustände die Live-Belegschaft führen soll. Erst nach E1
-  beantwortbar: gebaut wird nur, was eine Datenquelle hat.
+- ~~E-E1/E-E2/E-E3~~ ✅ entschieden am 2026-08-13 (siehe features/E_LIVE_BELEGSCHAFT.md):
+  voller Umfang, Abmeldung ans Profil, echtes Zustands-Protokoll.
 - **D-M1** — Welle 3b: die 80 Inline-Org-Grenzen konsolidieren oder einen
   Wächter-Test bauen? Erst 3b.2 abwarten (zeigen die Kopien Abweichungen?).
 

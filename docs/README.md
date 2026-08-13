@@ -66,6 +66,7 @@ Dominanter Einstiegs-ICP: groessere Einsatzunternehmen mit wiederkehrenden Zeita
 |----------|--------|
 | [ARCHITEKTUR.md](ARCHITEKTUR.md) | Gesamtaufbau der Plattform auf Deutsch. |
 | [FLAECHEN.md](FLAECHEN.md) | **Vor jedem neuen Modul lesen:** was gehört ins Staff Control Center, was ins Owner Control Center, was ins Support Center. Wird per Test erzwungen. |
+| [features/E_LIVE_BELEGSCHAFT.md](features/E_LIVE_BELEGSCHAFT.md) | Live-Belegschaft: gemessener Ist-Stand der Zustaende, die drei Owner-Entscheidungen und die Wellen E2-E5. |
 | [features/F1_SYSTEMZEIT_LANDKARTE.md](features/F1_SYSTEMZEIT_LANDKARTE.md) | 33 belegte Datumsfehler und ihre Ursache: pg liefert DATE als lokale Mitternacht, der UTC-Schnitt ergibt ganztaegig den Vortag. |
 | [features/P10_IMPORT_LIVE_ZEIT.md](features/P10_IMPORT_LIVE_ZEIT.md) | **Nächste Sitzung startet hier:** CSV-Import (Spur D), echte Live-Belegschaft (E), Systemzeit im Einsatzportal (F) — mit Wellen, Gates und Ist-Stand. |
 | [ENTERPRISE_ARCHITECTURE.md](ENTERPRISE_ARCHITECTURE.md) | Enterprise-Schicht: Mandanten, Standorte, Freigaben. |
