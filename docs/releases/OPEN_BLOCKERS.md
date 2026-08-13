@@ -92,7 +92,7 @@ gemeldet, halten aber nicht) · 3 owner-gated.
 
 ### Nachtrag 2026-08-09 — ein Punkt aus P9/A3
 
-**P1-15 🟠 Der Notdienst-Antwortpfad ist tot (500 in Produktion).**
+**P1-15 ✅ Der Notdienst-Antwortpfad ist tot (500 in Produktion)** *(geschlossen am 2026-08-13, Migration 180)*.
 `api/services/emergencyStaffingService.js` liest und schreibt an vier Stellen
 (`:265-267`, `:322-326`, `:431`, `:451-452`) die Spalten
 `demand_requests.supplier_response_count` und `.first_supplier_response_at`.
@@ -107,10 +107,26 @@ Die zugehörigen Tests sind grün, weil ihre Mock-Pools die Spalten erfinden
 `emergency.route.coverage.test.js:336`) — dieselbe Blindstelle, die in der
 Pre-Launch-Review schon einmal einen Webhook-Defekt durchgelassen hat.
 
-Zwei Wege: entweder die Spalten per Migration nachziehen, oder auf das bereits
-vorhandene `demand_requests.latest_response_at` umstellen (Mig 070, gesetzt in
-`emergencyCommitmentService.js:127-132`, heute 0 von 38 Zeilen belegt). Der zweite
-Weg ist der ehrlichere — die Spalte existiert und wird bereits gepflegt.
+Zwei Wege standen zur Wahl: die Spalten per Migration nachziehen, oder auf das
+vorhandene `demand_requests.latest_response_at` umstellen (Mig 070). Dieser
+Eintrag hielt den zweiten Weg für den ehrlicheren. **Bei der Umsetzung am
+2026-08-13 fiel die Wahl trotzdem auf den ersten — und der Grund war das Wort
+„latest“:**
+
+Das Dashboard rechnet `AVG(first_supplier_response_at - created_at)`, also die Zeit
+bis zur **ersten** Reaktion. `latest_response_at` trägt die **letzte**. Bei mehr als
+einer Antwort hätte die Kennzahl weiter eine Zahl geliefert — nur eben eine andere
+als die, die sie behauptet. Eine stille Bedeutungsänderung an einer Notdienst-
+Kennzahl ist teurer als eine Spalte. Dazu fehlte dem zweiten Weg der Zähler
+vollständig; er hätte bei jedem Dashboard-Aufruf aus der Ereignistabelle gezählt
+werden müssen.
+
+Gebaut wurde deshalb `sql/migrations/180_notdienst_antwortpfad.sql`: beide Spalten,
+`NOT NULL DEFAULT 0` für den Zähler, plus ein CHECK, der Zähler und Zeitstempel
+nicht auseinanderlaufen lässt. Der Beleg liegt bewusst in einem **DB-gestützten**
+Test (`api/test/integration/notdienstAntwortpfad.flow.test.js`, 5/5) — ein weiterer
+Mock hätte denselben Fehler erneut zugedeckt. Die alten Mock-Tests bleiben
+unverändert; sie prüfen die Rechenregel, nicht die Schreibbarkeit.
 Nicht in P9/A3 behoben: A3 macht Bounty-Beschreibungen ehrlich, es repariert nicht
 den Notdienst-Fluss. Der Fund stammt aus derselben Prüfung.
 

@@ -16,7 +16,7 @@ gehärtet, nicht neu gebaut. Der Owner ist kein Entwickler; Arbeit läuft in
 Abschnitten, die ich in Spuren mit **Wellen und Gates** schneide.
 
 **Arbeitsrhythmus:** Owner sagt „weiter mit X" → ich liefere eine Welle → Output-Block
-→ Owner sagt „ja committen und weiter". **Nie ohne ausdrückliche Freigabe committen.**
+→ Owner sagt „ja committen und weiter". **Commit sofort nach grüner Suite, ohne Nachfrage** (Owner 2026-08-13). Nur der **Push** wartet auf eine ausdrückliche Zusage.
 
 ---
 
@@ -39,7 +39,7 @@ Abschnitten, die ich in Spuren mit **Wellen und Gates** schneide.
 ```bash
 cd api && node scripts/run-tests.js          # offizieller Runner, ohne Pipe
 ```
-Stand: **8441 Tests**, davon 13 übersprungen (DB-gated).
+Stand: **8446 Tests** (5 davon DB-gated, laufen nur im Container), davon 13 übersprungen (DB-gated).
 
 Die DB-gestützten Tests laufen im Container, wo `DB_HOST` gesetzt ist — auf dem
 Host überspringen sie sich selbst. Was gegen das echte Schema geprüft sein muss
@@ -121,10 +121,13 @@ onclick-Handler, fehlendes CSRF, Sackgassen-Links. Sie haben den Multi-Agenten-A
 
 - **Welle 3b** — 80 Mandantengrenzen stehen einzeln in 18 Route-Dateien.
   Braucht Owner-Freigabe, weil ihre Auflösung Produktionscode berührt.
-- **P1-14** `reputationService` hat keinen Aufrufer → `top_supplier` ist
-  mathematisch unerreichbar.
-- **P1-15** Notfall-Antwortpfad liefert 500: `demand_requests.supplier_response_count`
-  und `.first_supplier_response_at` existieren nicht.
+- **P1-14** `reputationService` hat keinen Aufrufer. Präzisiert am 2026-08-13:
+  das Bounty `top_supplier` ist **bereits abgeschaltet** (`is_active = f` mit
+  Begründung in der Datenbank, Mig 166) — offen ist nur noch, **wann** die
+  Reputation neu gerechnet wird (Cron oder ereignisgesteuert). Kein Fehler nach
+  außen, eine ruhende Funktion.
+- ~~**P1-15** Notfall-Antwortpfad liefert 500~~ ✅ **geschlossen 2026-08-13**
+  (Migration 180; Beleg `test/integration/notdienstAntwortpfad.flow.test.js`, 5/5).
 - **Owner-eigene Punkte:** Secret-Rotation (inkl. Web3Forms-Key in der Git-Historie),
   Staff-CC-Betriebseinrichtung, Backup-Wiederherstellungsprobe.
 
