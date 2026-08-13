@@ -57,6 +57,7 @@ Dominanter Einstiegs-ICP: groessere Einsatzunternehmen mit wiederkehrenden Zeita
 | [BACKUP_DISASTER_RECOVERY.md](BACKUP_DISASTER_RECOVERY.md) | Sicherung und Wiederanlauf — inklusive Wiederherstellungsprobe. |
 | [SECURITY_INCIDENTS.md](SECURITY_INCIDENTS.md) | Vorgehen bei Sicherheitsvorfällen: melden, eindämmen, aufarbeiten. |
 | [UEBERGABE.md](UEBERGABE.md) | **Zuerst lesen, wenn eine neue Sitzung beginnt:** Stand, eiserne Regeln, offene Owner-Entscheidungen. Wird per Test gegen die Arbeitspläne abgeglichen. |
+| [FRONTEND_REIFEGRAD_AUDIT.md](FRONTEND_REIFEGRAD_AUDIT.md) | 85 belegte Befunde: wo das Frontend hinter dem mutationsgeprueften Backend zurueckbleibt. Tote Knoepfe, verschluckte 403, rund 90 Endpunkte ohne Oberflaeche. |
 | [ORG_GRENZE_BEFUND.md](ORG_GRENZE_BEFUND.md) | Die Mandantengrenze steht 80-mal einzeln in den Routen statt einmal im Helfer. Befund, Folgen und der Plan für Welle 3b. |
 
 **Architektur**
