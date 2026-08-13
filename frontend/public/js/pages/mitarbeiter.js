@@ -2652,7 +2652,12 @@ function renderWorkerLinkage(worker) {
 }
 
 function getOperationalAssignmentBadge(item) {
-  var today = new Date().toISOString().slice(0, 10);
+  /* Klasse HEUTE_IN_UTC. Der Vergleichstag wurde per toISOString() aus UTC geschnitten.
+     Zwischen 00:00 und 02:00 Berliner Zeit war das der Vortag: ein heute endender Einsatz
+     bekam die Kennzeichnung "endet heute" nicht, ein gestern beendeter stand noch als
+     laufend in der Mitarbeiterliste. endDate kommt als reiner Datumsstring aus einer
+     DATE-Spalte, der Stringvergleich unten bleibt damit gueltig. */
+  var today = TCDate.todayDE();
   var state = item && item.assignment_lifecycle_state;
   if (!state) {
     if (item && item.assignment_status === "completed") state = "completed";

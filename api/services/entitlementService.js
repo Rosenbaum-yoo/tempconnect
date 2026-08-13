@@ -29,6 +29,7 @@ import { hasFeature, isPilotCustomer as _isPilotCustomer, MATURITY_GATES } from 
 import { PLAN_CATALOG as _PLAN_CATALOG, FEATURE_CATALOG, ADDON_CATALOG, INDIVIDUELL_BASELINE } from "../config/planCatalog.js";
 import { PLAN_LIMITS } from "./userService.js";
 import * as usageMetering from "./usageMeteringService.js";
+import { dateOnlyDE } from "../utils/dateDE.js";
 
 const OPEN_REQUEST_STATUSES = ["draft", "submitted", "under_review", "needs_clarification", "offered", "accepted"];
 
@@ -386,7 +387,12 @@ function computeSubscriptionStatus({ orgRow, subscription, plan, pilotActive }) 
         const graceMs = BILLING_GRACE_PERIOD_DAYS * 24 * 60 * 60 * 1000;
         const graceCutoff = new Date(subscription.current_period_end).getTime() + graceMs;
         if (graceCutoff > Date.now()) {
-          const cutoffDate = new Date(graceCutoff).toISOString().slice(0, 10);
+          // F2/DB_WERT_NACH_UTC: `current_period_end` kommt aus der DB als lokale Zeit;
+          // `.toISOString().slice(0,10)` rechnete sie nach UTC zurueck. Der Kunde las dadurch
+          // "Zugang aktiv bis 19.08.", obwohl der Zugang noch den ganzen 20.08. laeuft. Nur der
+          // angezeigte Kalendertag wird umgestellt — die Grace-Entscheidung oben vergleicht
+          // weiterhin exakte Zeitpunkte (graceCutoff > Date.now()).
+          const cutoffDate = dateOnlyDE(graceCutoff);
           return {
             active: true,
             status: "past_due_grace",

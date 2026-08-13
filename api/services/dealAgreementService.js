@@ -23,6 +23,7 @@ import * as marketplaceService from "./marketplaceService.js";
 import { createDocumentRecord, computeContentHash } from "./dealDossierService.js";
 import { renderConditionsSheet, renderAgreementDocument } from "./agreementDocumentService.js";
 import { swallow } from "../utils/logger.js";
+import { todayDE, dateOnlyDE } from "../utils/dateDE.js";
 
 /* ── Agreement-Ref Generator ──────────────────────── */
 
@@ -362,7 +363,11 @@ export async function activateAgreement(pool, offerId, actorId) {
         worker_description: offer.demand_role || offer.demand_title || null,
         requested_quantity: offer.offered_quantity || offer.demand_headcount || 1,
         worker_count: offer.offered_quantity || offer.demand_headcount || 1,
-        start_date: offer.start_confirmed || offer.demand_start || new Date().toISOString().slice(0, 10),
+        // Klasse HEUTE_IN_UTC: `new Date().toISOString().slice(0,10)` haette zwischen
+        // 00:00 und 02:00 deutscher Zeit den Vortag geliefert. Eine nachts aktivierte
+        // Vereinbarung ohne bestaetigtes Startdatum waere damit rueckdatiert im
+        // Einsatzportal erschienen und sofort in die "laufend"-Logik gefallen.
+        start_date: offer.start_confirmed || offer.demand_start || todayDE(),
         planned_end_date: offer.end_date || offer.demand_end || null,
         hourly_rate_cents: offer.offered_hourly_rate ? Math.round(offer.offered_hourly_rate * 100) : null,
         notes: `Einsatzvereinbarung ${offer.agreement_ref} – aus Angebot #${offer.id}`,
@@ -450,7 +455,10 @@ export async function createEmergencyAgreement(pool, { demandId, commitmentId, c
         commitment.supplier_company_id,
         conditions?.quantity || commitment.committed_quantity,
         conditions?.hourly_rate || null,
-        conditions?.start_time || new Date().toISOString().slice(0, 10),
+        // Klasse HEUTE_IN_UTC: Notdienst-Sofortvereinbarungen werden typischerweise
+        // nachts ausgeloest — genau im Fenster 00:00–02:00, in dem der UTC-Schnitt den
+        // Vortag ergab. Der Einsatz stand dann laut Beleg am Vortag begonnen.
+        conditions?.start_time || todayDE(),
         conditions?.terms || null,
         conditions?.note || commitment.note || "Notdienst-Sofortvereinbarung",
         conditions?.replacement_sla_minutes || null,
@@ -549,8 +557,15 @@ export function berechneVorlaufStunden(startDate, jetzt = new Date()) {
   // verwerfen und stillschweigend Gewicht 1 statt 2 liefern: E1 waere aus,
   // ohne dass irgendetwas rot wird. Genau dieselbe Falle wie der tote
   // Spalten-Fallback, nur eine Ebene tiefer.
+  //
+  // Klasse DB_WERT_NACH_UTC: `startDate.toISOString()` hat den Tag eines Date-Objekts
+  // um lokale Mitternacht (Berlin = 22:00/23:00 UTC des Vortags) ganztaegig auf den
+  // Vortag geschoben. Der Vorlauf war damit 24 Stunden zu gross und die
+  // Vorlaufklasse zu milde: eine Absage 12 Stunden vor Beginn waere als
+  // "mehr als ein Tag vorher" gewichtet worden. `dateOnlyDE` liefert den
+  // Kalendertag in Europe/Berlin; die Zeitzonenrechnung darunter bleibt unveraendert.
   const roh = startDate instanceof Date
-    ? (Number.isNaN(startDate.getTime()) ? "" : startDate.toISOString())
+    ? (dateOnlyDE(startDate) || "")
     : String(startDate);
   const tag = roh.slice(0, 10);
   if (!/^\d{4}-\d{2}-\d{2}$/.test(tag)) return null;

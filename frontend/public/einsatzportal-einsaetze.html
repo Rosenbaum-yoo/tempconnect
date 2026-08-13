@@ -85,6 +85,7 @@
 </nav>
 <div id="ep-toast"></div>
 
+<script src="/public/js/dateDE.js"></script>
 <script src="/public/js/workerPortal/portalApi.js"></script>
 <script src="/public/js/workerPortal/portalShell.js"></script>
 <script src="/public/js/workerPortal/portalStatus.js"></script>
@@ -268,8 +269,11 @@ function setTab(t) {
   document.getElementById('detContent').style.display='none';
 }
 
+// Klasse HEUTE_IN_UTC: der UTC-Schnitt lieferte zwischen 00:00 und 02:00
+// deutscher Zeit den Vortag. Ein gestern beendeter Einsatz wurde dann als
+// "endet heute" etikettiert, ein heute endender galt als noch laufend.
 function todayIso() {
-  return new Date().toISOString().slice(0,10);
+  return TCDate.todayDE();
 }
 function getAssignmentLifecycleState(a) {
   if (typeof a?.assignment_lifecycle_state === 'string' && a.assignment_lifecycle_state) {
@@ -397,7 +401,10 @@ function renderDetail(a) {
           <div style="font-weight:700;font-size:.88rem;margin-bottom:6px">${TCi18n.t('ep.einsaetze.unavailTitle')}</div>
           <div style="font-size:.82rem;color:var(--ep-text-muted);margin-bottom:10px">${TCi18n.t('ep.einsaetze.unavailText')}</div>
           <label style="font-size:.78rem;font-weight:600;margin-bottom:4px;display:block">${TCi18n.t('ep.einsaetze.unavailFrom')}</label>
-          <input type="date" class="ep-input" id="unavailDate-${a.id}" style="margin-bottom:8px;padding:8px;font-size:.82rem" value="${new Date().toISOString().slice(0,10)}" />
+          <!-- Klasse HEUTE_IN_UTC: nachts 00:00-02:00 stand der Vortag im Feld.
+               Der Arbeiter meldete sich damit fuer den falschen Tag ab und die
+               Disposition plante ihn faelschlich ein. -->
+          <input type="date" class="ep-input" id="unavailDate-${a.id}" style="margin-bottom:8px;padding:8px;font-size:.82rem" value="${todayIso()}" />
           <label style="font-size:.78rem;font-weight:600;margin-bottom:4px;display:block">${TCi18n.t('ep.einsaetze.unavailReasonLabel')}</label>
           <textarea class="ep-input" id="unavailReason-${a.id}" rows="2" placeholder="${TCi18n.t('ep.einsaetze.unavailReasonPh')}" style="width:100%;margin-bottom:8px;font-size:.82rem;padding:8px;border:1px solid var(--ep-border);border-radius:6px"></textarea>
           <div style="display:flex;gap:8px">

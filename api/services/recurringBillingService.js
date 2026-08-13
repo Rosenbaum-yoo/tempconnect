@@ -41,6 +41,7 @@ import * as auditLog from "./auditLog.js";
 import { getPlanPriceCentsByKey, normalizePlanKey } from "../config/planCatalog.js";
 import { dunningEmail } from "./emailHtmlTemplates.js";
 import { withTransaction } from "../utils/transaction.js";
+import { dateOnlyDE } from "../utils/dateDE.js";
 
 /* ── Konstanten ────────────────────────────────────────────── */
 
@@ -251,7 +252,12 @@ export async function generateRecurringInvoices(pool, opts = {}) {
           // Kunde das Bounty naechsten Monat, bleibt diese Rechnung unveraendert.
           discountPct: rabattSatz,
           discountSource: rabattSatz > 0 ? "bounty" : null,
-          notes: `Automatische Folgerechnung (Abo-Verlängerung) — Periode ab ${new Date(s.current_period_end).toISOString().slice(0, 10)}`
+          // Klasse DB_WERT_NACH_UTC: current_period_end kam korrekt aus der DB und
+          // wurde per toISOString().slice(0,10) nach UTC zurueckgerechnet. Auf dem
+          // Beleg stand dadurch ein Periodenbeginn, der einen Tag vor dem
+          // tatsaechlichen liegt — derselbe Off-by-one, der in invoiceService.js
+          // fuer billing_period_start/end bereits behoben ist.
+          notes: `Automatische Folgerechnung (Abo-Verlängerung) — Periode ab ${dateOnlyDE(s.current_period_end)}`
             + (rabattSatz > 0 ? ` · Treue-Rabatt ${rabattSatz} % beruecksichtigt` : "")
         });
       });
@@ -348,8 +354,12 @@ export async function runDunningSweep(pool, opts = {}) {
       const email = inv.user_email;
       if (!email) { skipped++; continue; } // kein Empfänger → ohne Versand keine Markierung
 
+      // Klasse DB_WERT_NACH_UTC: das Fristende wird aus due_at (DB) berechnet und
+      // war per toISOString().slice(0,10) nach UTC zurueckgerechnet. Die dem Kunden
+      // kommunizierte Schonfrist endete auf dem Papier einen Tag frueher als im
+      // System — er haette geglaubt, die Frist verpasst zu haben, oder umgekehrt.
       const graceUntil = dueAt
-        ? new Date(dueAt.getTime() + BILLING_GRACE_PERIOD_DAYS * DAY_MS).toISOString().slice(0, 10)
+        ? dateOnlyDE(new Date(dueAt.getTime() + BILLING_GRACE_PERIOD_DAYS * DAY_MS))
         : null;
       const downloadUrl = baseUrl ? `${baseUrl}/public/sla_abo.html` : "";
 
@@ -357,7 +367,11 @@ export async function runDunningSweep(pool, opts = {}) {
         invoiceNumber: inv.invoice_number,
         amount: (Number(inv.total_cents) || 0) / 100,
         currency: inv.currency || "EUR",
-        dueDate: dueAt ? dueAt.toISOString().slice(0, 10) : "—",
+        // Klasse DB_WERT_NACH_UTC: due_at kam korrekt aus der DB und wurde nach UTC
+        // zurueckgerechnet. Der Kunde las im Mahnbrief ein Faelligkeitsdatum, das
+        // einen Tag vor dem tatsaechlichen liegt — eine falsche Frist in einem
+        // zahlungsrelevanten Schreiben.
+        dueDate: dueAt ? (dateOnlyDE(dueAt) || "—") : "—",
         orgName: inv.org_name || "Ihre Organisation",
         level: targetLevel,
         daysOverdue,

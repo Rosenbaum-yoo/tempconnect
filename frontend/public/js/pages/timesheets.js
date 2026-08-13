@@ -588,13 +588,15 @@ TCi18n.register('en', {
 
   /* ── Create Timesheet ──────────────────────────────── */
   function openCreateModal() {
-    var now = new Date();
-    var day = now.getDay();
-    var diff = (day === 0) ? -6 : 1 - day;
-    var mon = new Date(now); mon.setDate(now.getDate() + diff);
-    var fri = new Date(mon); fri.setDate(mon.getDate() + 4);
-    document.getElementById('fWeekStart').value = fmtISO(mon);
-    document.getElementById('fWeekEnd').value = fmtISO(fri);
+    /* Klasse HEUTE_IN_UTC. Die Wochengrenzen wurden lokal aus new Date() berechnet und
+       danach per toISOString() nach UTC geschnitten. Zwischen 00:00 und 02:00 Berliner Zeit
+       stand der UTC-Tag noch im Vortag: das voreingestellte Fenster rutschte auf Sonntag bis
+       Donnerstag, der Freitag fehlte im neuen Stundenzettel. TCDate.mondayDE rechnet den
+       Wochenmontag in Europe/Berlin, addDaysDE addiert ohne Zeitzonen-Drift. */
+    var mon = TCDate.mondayDE(new Date());
+    var fri = TCDate.addDaysDE(mon, 4);
+    document.getElementById('fWeekStart').value = mon;
+    document.getElementById('fWeekEnd').value = fri;
     document.getElementById('fWorkerName').value = '';
     document.getElementById('fWorkerIdent').value = '';
     document.getElementById('fOrgId').value = '';
@@ -654,7 +656,8 @@ TCi18n.register('en', {
     return dt.toLocaleDateString(loc) + ' ' + dt.toLocaleTimeString(loc, { hour: '2-digit', minute: '2-digit' });
   }
   function fmtH(v) { return parseFloat(v || 0).toFixed(2).replace('.00','').replace(/\.(\d)$/,'.$10'); }
-  function fmtISO(d) { return d.toISOString().split('T')[0]; }
+  /* fmtISO wurde entfernt: der einzige Aufrufer (openCreateModal) nutzt jetzt TCDate.
+     Ein UTC-Schnitt-Helfer, der herumliegt, wird sonst beim naechsten Mal wieder benutzt. */
   function badge(status) {
     var label = {
       draft: t('ts.status.draft'),

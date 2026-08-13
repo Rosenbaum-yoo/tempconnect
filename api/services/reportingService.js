@@ -8,6 +8,7 @@ import * as emergencyStaffingService from "./emergencyStaffingService.js";
 import { zeroPilotConversionTruth } from "./pilotConversionTruthService.js";
 import { zeroSaaSRetentionTruth } from "./retentionMetricsService.js";
 import { getRevenueMetrics } from "./revenueMetricsService.js";
+import { todayDE, dateOnlyDE } from "../utils/dateDE.js";
 
 const EXECUTIVE_WINDOW_DAYS = 30;
 const MS_PER_DAY = 24 * 60 * 60 * 1000;
@@ -198,8 +199,11 @@ function zeroCriticalStaffing(window, available = true) {
   };
 }
 
+// F2/HEUTE_IN_UTC: `.toISOString().slice(0,10)` schneidet nach UTC. In Europe/Berlin
+// ist das zwischen 00:00 und 02:00 der Vortag. Der Fensterrand ist ein nutzersichtbarer
+// Kalendertag (Scope-Leiste), also als Berliner Datum bilden.
 function toIsoDate(date) {
-  return new Date(date).toISOString().slice(0, 10);
+  return dateOnlyDE(date);
 }
 
 function buildWindow(days = EXECUTIVE_WINDOW_DAYS) {
@@ -209,7 +213,10 @@ function buildWindow(days = EXECUTIVE_WINDOW_DAYS) {
     days,
     label: `${days} Tage`,
     date_from: toIsoDate(from),
-    date_to: toIsoDate(to)
+    // F2/HEUTE_IN_UTC: Fensterende ist "heute". Nach UTC geschnitten stand hier nachts
+    // "Zeitraum 14.07.-11.08.", obwohl bereits der 12.08. war — die Fensterlaenge stimmte,
+    // die genannten Kalendertage waren um einen Tag verschoben.
+    date_to: todayDE()
   };
 }
 

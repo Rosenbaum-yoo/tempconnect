@@ -69,6 +69,7 @@
     </div>
   </div>
 
+  <script src="/public/js/dateDE.js"></script>
   <script src="/public/js/pageShell.js"></script>
   <script src="/public/js/notifications.js"></script>
   <div id="tc-footer" data-tc-footer></div>
@@ -144,7 +145,10 @@
 
   (function(){
     "use strict";
-    document.getElementById("nd-from").value = new Date().toISOString().slice(0, 10);
+    // Klasse HEUTE_IN_UTC: nachts 00:00-02:00 stand der Vortag im Feld. Die
+    // Notdienst-Anfrage wurde damit mit einem Startdatum in der Vergangenheit
+    // erzeugt — serverseitig ablehnbar oder falsch gematcht.
+    document.getElementById("nd-from").value = TCDate.todayDE();
 
     /**
      * Meldung setzen, die ein spaeterer Sprachwechsel korrekt nachzieht.

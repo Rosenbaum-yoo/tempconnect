@@ -4,6 +4,8 @@
  * All functions are pure (no DB access) — call with pre-fetched data.
  */
 
+import { dateOnlyDE } from "../utils/dateDE.js";
+
 /* ── Shared Helpers ────────────────────────────────────────── */
 
 /**
@@ -30,16 +32,28 @@ export function toCsvRow(values) {
 
 /**
  * Format a date value for CSV output (ISO date or empty).
+ *
+ * Klasse DB_WERT_NACH_UTC: die Aufrufer geben DATE-Spalten herein
+ * (timesheets.week_start / week_end). node-postgres parst DATE als LOKALE
+ * Mitternacht; in Europe/Berlin ist das 22:00/23:00 UTC des Vortags. Mit
+ * toISOString() trug jeder Stundenzettel-CSV-Export ganztaegig — nicht nur
+ * nachts — die Abrechnungswoche einen Tag zu frueh: Montag 10.08. erschien als
+ * Sonntag 09.08. Dieser Export geht in die Lohnabrechnung.
+ *
  * @param {*} v
  * @returns {string}
  */
 function fmtDate(v) {
   if (!v) return "";
-  try { return new Date(v).toISOString().split("T")[0]; } catch { return ""; }
+  return dateOnlyDE(v) || "";
 }
 
 /**
  * Format a datetime value for CSV output (ISO datetime or empty).
+ *
+ * Bewusst UTC: submitted_at / approved_at / rejected_at / created_at sind
+ * Zeitstempel mit Uhrzeit, kein Kalendertag. Hier ist UTC richtig und gewollt.
+ *
  * @param {*} v
  * @returns {string}
  */

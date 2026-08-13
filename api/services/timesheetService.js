@@ -9,6 +9,7 @@
 import * as auditLog from './auditLog.js';
 import { getTemplateForAssignment } from './timesheetTemplateService.js';
 import { withTransaction } from '../utils/transaction.js';
+import { dateOnlyDE } from '../utils/dateDE.js';
 
 /* ── Hilfsfunktionen ────────────────────────────────────────────────────────── */
 
@@ -476,6 +477,25 @@ export async function prefillFromAssignment(pool, { assignmentId, supplierOrgId,
     if (wpRows[0]) workerName = `${wpRows[0].first_name} ${wpRows[0].last_name}`.trim();
   }
 
+  // Wochenraster VOR dem Anlegen bestimmen — sonst bliebe bei unparsbarem Zeitraum
+  // ein Timesheet ohne Tageseintraege zurueck.
+  //
+  // Klasse DB_WERT_NACH_UTC: week_start/week_end sind reine Kalendertage. Zuvor lief
+  // die Tagesschleife mit LOKALER Datums-Arithmetik (getDate/setDate) und schnitt das
+  // Ergebnis per toISOString nach UTC — lokale Mitternacht Berlin ist 22:00/23:00 UTC
+  // des Vortags, also lagen alle Arbeitstage ganztaegig einen Tag zu frueh. In der
+  // Woche der Zeitumstellung (29.03.) kam der Wochentag zusaetzlich doppelt und der
+  // Folgetag fehlte, weil der Sprung von CET auf CEST den UTC-Zeitpunkt zurueckzog.
+  // Deshalb: Kalendertag in Europe/Berlin bestimmen und rein in UTC weiterzaehlen —
+  // UTC kennt keine Zeitumstellung, jeder Schritt ist exakt ein Kalendertag.
+  const startIso = dateOnlyDE(weekStart);
+  const endIso = dateOnlyDE(weekEnd);
+  const startMs = startIso ? Date.parse(`${startIso}T00:00:00Z`) : NaN;
+  const endMs = endIso ? Date.parse(`${endIso}T00:00:00Z`) : NaN;
+  if (!Number.isFinite(startMs) || !Number.isFinite(endMs)) {
+    return { error: 'INVALID_DATE_RANGE', message: 'week_start/week_end ist kein gueltiger Kalendertag' };
+  }
+
   // Timesheet erstellen
   const tsResult = await createTimesheet(pool, {
     org_id: asg.org_id,
@@ -492,10 +512,8 @@ export async function prefillFromAssignment(pool, { assignmentId, supplierOrgId,
 
   // Tageseintraege fuer Mo-Fr (oder Sa/So je nach Zeitraum) vorbelegen
   const entries = [];
-  const start = new Date(weekStart);
-  const end = new Date(weekEnd);
-  for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
-    const dayOfWeek = d.getDay(); // 0=So, 6=Sa
+  for (let d = new Date(startMs); d.getTime() <= endMs; d.setUTCDate(d.getUTCDate() + 1)) {
+    const dayOfWeek = d.getUTCDay(); // 0=So, 6=Sa
     const isWorkday = dayOfWeek >= 1 && dayOfWeek <= 5;
     const workDate = d.toISOString().slice(0, 10);
     const entry = await addEntry(pool, tsResult.timesheet.id, {

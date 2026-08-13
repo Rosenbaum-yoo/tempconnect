@@ -294,6 +294,7 @@
 
 <div id="ep-toast"></div>
 
+<script src="/public/js/dateDE.js"></script>
 <script src="/public/js/workerPortal/portalApi.js"></script>
 <script src="/public/js/workerPortal/portalShell.js"></script>
 <script src="/public/js/workerPortal/portalStatus.js"></script>
@@ -484,8 +485,11 @@ async function loadDashboard() {
     dashboard = { document_hub: { summary: {}, recent_documents: [] } };
   }
 }
+// Klasse HEUTE_IN_UTC: der UTC-Schnitt lieferte zwischen 00:00 und 02:00
+// deutscher Zeit den Vortag. Ein gestern beendeter Einsatz blieb in dieser
+// Zeitspanne faelschlich "aktiv" und erzeugte Hero-Karte und Pending-Banner.
 function todayIso() {
-  return new Date().toISOString().slice(0,10);
+  return TCDate.todayDE();
 }
 function getAssignmentLifecycleBucket(a) {
   if (a?.assignment_lifecycle_bucket === 'active' || a?.assignment_lifecycle_bucket === 'history') {
@@ -765,11 +769,18 @@ function renderDocumentHub() {
 }
 
 /* ── Utils ────────────────────────────────────────────────────────── */
+/*
+ * Klasse HEUTE_IN_UTC: der Wochenanfang wurde aus lokalen Komponenten gebildet,
+ * aber per toISOString() nach UTC geschnitten. Nachts 00:00-02:00 kippte
+ * weekStart auf den Sonntag, der Abgleich mit week_start des Stundenzettels
+ * schlug fehl und die Karte "Diese Woche" zeigte einen vorhandenen
+ * Stundenzettel nicht an. Zusaetzlich war getDay() lokal, der Schnitt UTC —
+ * zwei Zeitzonen in einer Berechnung. TCDate.mondayDE rechnet durchgehend in
+ * Europe/Berlin.
+ */
 function getCurWeek() {
-  const now = new Date(), day = now.getDay();
-  const mon = new Date(now); mon.setDate(now.getDate() - (day===0?6:day-1));
-  const sun = new Date(mon); sun.setDate(mon.getDate()+6);
-  return { weekStart: mon.toISOString().slice(0,10), weekEnd: sun.toISOString().slice(0,10) };
+  const weekStart = TCDate.mondayDE(new Date());
+  return { weekStart: weekStart, weekEnd: TCDate.addDaysDE(weekStart, 6) };
 }
 function getKW(d) {
   const t = new Date(Date.UTC(d.getFullYear(),d.getMonth(),d.getDate()));

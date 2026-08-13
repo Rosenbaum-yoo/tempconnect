@@ -144,6 +144,7 @@
 </nav>
 <div id="ep-toast"></div>
 
+<script src="/public/js/dateDE.js"></script>
 <script src="/public/js/workerPortal/portalApi.js"></script>
 <script src="/public/js/workerPortal/portalShell.js"></script>
 <script src="/public/js/workerPortal/portalStatus.js"></script>
@@ -218,17 +219,33 @@ function esc(s) { return PortalShell.esc(s); }
   }
 })();
 
-function getMonday(offset) {
-  const now = new Date();
-  const day = now.getDay(); // 0=Sun
-  const monday = new Date(now);
-  monday.setHours(0,0,0,0);
-  const diff = day === 0 ? -6 : 1 - day;
-  monday.setDate(now.getDate() + diff + offset * 7);
-  return monday;
+/*
+ * Klasse DB_WERT_NACH_UTC (mit HEUTE_IN_UTC als Ausloeser): getMonday() setzte
+ * per setHours(0,0,0,0) LOKALE Mitternacht, toISO() rechnete sie danach per
+ * toISOString() nach UTC zurueck. Lokale Mitternacht Berlin ist 22:00/23:00 UTC
+ * des Vortags — der Plan zeigte deshalb RUND UM DIE UHR den Vortag (Owner-
+ * Meldung: Mittwoch, obwohl Dienstag war), fragte So–Sa statt Mo–So ab und
+ * ordnete Schichten dem falschen Wochentag zu.
+ *
+ * Fuehrend ist jetzt der ISO-Kalendertag aus TCDate; er allein bestimmt
+ * Abfragefenster, Zuordnung und Heute-Markierung. Date-Objekte werden nur noch
+ * fuer die ANZEIGE gebaut (getDay, toLocaleDateString, getKW) — deshalb lokale
+ * Mitternacht, nicht UTC, und nirgends mehr ein toISOString darauf.
+ */
+function isoToDate(iso) {
+  const t = String(iso).slice(0,10).split('-');
+  return new Date(+t[0], +t[1] - 1, +t[2]);
 }
 
-function toISO(d) { return d.toISOString().slice(0,10); }
+function getMondayIso(offset) {
+  return TCDate.addDaysDE(TCDate.mondayDE(new Date()), (offset || 0) * 7);
+}
+
+/*
+ * Die frueheren Wrapper getMonday()/toISO() sind entfallen: sie hatten nach der
+ * Umstellung keinen Aufrufer mehr und waeren als zweiter, UTC-naher Datumsweg
+ * genau die Rueckfall-Falle, die diesen Fehler verursacht hat.
+ */
 
 function getKW(d) {
   const jan4 = new Date(d.getFullYear(), 0, 4);
@@ -239,9 +256,11 @@ function getKW(d) {
 }
 
 async function loadWeek() {
-  const monday = getMonday(weekOffset);
-  const sunday = new Date(monday); sunday.setDate(monday.getDate() + 6);
-  const from = toISO(monday), to = toISO(sunday);
+  const mondayIso = getMondayIso(weekOffset);
+  const sundayIso = TCDate.addDaysDE(mondayIso, 6);
+  const monday = isoToDate(mondayIso);
+  const sunday = isoToDate(sundayIso);
+  const from = mondayIso, to = sundayIso;
 
   const kw = getKW(monday);
   document.getElementById('weekLabel').textContent = `${monday.toLocaleDateString(TCi18n.dateLocale(),{day:'2-digit',month:'long'})} – ${sunday.toLocaleDateString(TCi18n.dateLocale(),{day:'2-digit',month:'long',year:'numeric'})}`;
@@ -253,20 +272,19 @@ async function loadWeek() {
     const items = d.items || [];
     scheduleData = {};
     for (let i = 0; i < 7; i++) {
-      const day = new Date(monday); day.setDate(monday.getDate() + i);
-      const iso = toISO(day);
+      const iso = TCDate.addDaysDE(mondayIso, i);
       scheduleData[iso] = items.filter(item =>
         item.start_date <= iso && (!item.end_date || item.end_date >= iso)
       );
     }
     document.getElementById('loading').style.display='none';
     document.getElementById('content').style.display='';
-    renderWeek(monday);
+    renderWeek(mondayIso);
   } catch {
     document.getElementById('loading').style.display='none';
     document.getElementById('content').style.display='';
     scheduleData = {};
-    renderWeek(monday);
+    renderWeek(mondayIso);
   }
 }
 
@@ -277,14 +295,17 @@ function changeWeek(dir) {
   loadWeek();
 }
 
-function renderWeek(monday) {
-  const today = toISO(new Date());
+function renderWeek(mondayIso) {
+  // Klasse HEUTE_IN_UTC: der Heute-Vergleich lief ueber den UTC-Schnitt. In
+  // Kombination mit dem Vortags-Versatz oben stand die Heute-Markierung auf dem
+  // falschen Tag — teils gar nicht, teils auf dem Nachbartag.
+  const today = TCDate.todayDE();
   let totalDays = 0, totalHours = 0;
 
   const rows = [];
   for (let i = 0; i < 7; i++) {
-    const d = new Date(monday); d.setDate(monday.getDate() + i);
-    const iso = toISO(d);
+    const iso = TCDate.addDaysDE(mondayIso, i);
+    const d = isoToDate(iso);
     const isToday = iso === today;
     const dayShifts = scheduleData[iso] || [];
     const hasShift = dayShifts.length > 0;

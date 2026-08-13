@@ -12,6 +12,7 @@ import {
   buildAssignmentEffectiveEndDateSql,
   normalizeAssignmentLifecycleBucket
 } from "./assignmentLifecycleService.js";
+import { todayDE, dateOnlyDE } from "../utils/dateDE.js";
 
 const workforceAssignmentEffectiveEndDateSql = buildAssignmentEffectiveEndDateSql({ assignmentAlias: "a" });
 const workforceAssignmentLifecycleStateSql = buildAssignmentLifecycleStateSql({ assignmentAlias: "a" });
@@ -22,17 +23,28 @@ const workforceAssignmentIsHistorySql = buildAssignmentHistoryPredicateSql({ ass
 function normalizeIsoDateValue(value) {
   if (!value) return null;
   if (value instanceof Date) {
-    return Number.isFinite(value.getTime()) ? value.toISOString().slice(0, 10) : null;
+    // Klasse DB_WERT_NACH_UTC: pg macht aus einer DATE-Spalte ohne den Typparser aus
+    // db/typeParsers.js ein Date um LOKALE Mitternacht (Berlin = 22:00/23:00 UTC des
+    // Vortags). `toISOString().slice(0,10)` lieferte deshalb ganztaegig den Vortag —
+    // in der Workforce-Uebersicht standen Einsatzbeginn und -ende einen Tag zu frueh.
+    return Number.isFinite(value.getTime()) ? dateOnlyDE(value) : null;
   }
   const text = String(value).trim();
   if (!text) return null;
+  // Reine Kalendertage ('YYYY-MM-DD', so liefert der Typparser DATE-Spalten) bleiben
+  // unveraendert — ein Kalendertag hat keine Zeitzone und darf nicht umgerechnet werden.
   const directMatch = text.match(/^(\d{4}-\d{2}-\d{2})/);
   if (directMatch) return directMatch[1];
-  const parsed = Date.parse(text);
-  return Number.isFinite(parsed) ? new Date(parsed).toISOString().slice(0, 10) : null;
+  // Klasse DB_WERT_NACH_UTC: gleiche Verschiebung fuer nicht-ISO-Datumsstrings
+  // (z. B. 'Sat Jun 11 2026 00:00:00 GMT+0200'), die lokal geparst werden.
+  return Number.isFinite(Date.parse(text)) ? dateOnlyDE(text) : null;
 }
 
-function getCalendarDayDiff(targetDate, referenceDate = new Date().toISOString().slice(0, 10)) {
+// Klasse HEUTE_IN_UTC: der Vorgabewert bestimmte "heute" per UTC-Schnitt und war
+// zwischen 00:00 und 02:00 der Vortag. Der Nutzer las dann "Einsatz endet in 3 Tagen",
+// obwohl es 4 waren; die 14-Tage-Warnung und die error/warning-Grenze bei 3 Tagen
+// loesten einen Tag zu frueh aus.
+function getCalendarDayDiff(targetDate, referenceDate = todayDE()) {
   const normalizedTargetDate = normalizeIsoDateValue(targetDate);
   const normalizedReferenceDate = normalizeIsoDateValue(referenceDate);
   if (!normalizedTargetDate || !normalizedReferenceDate) return null;

@@ -9,6 +9,7 @@
  */
 
 import { assertLocationBelongsToOrg, assertDepartmentBelongsToOrg } from "../utils/orgBoundary.js";
+import { todayDE } from "../utils/dateDE.js";
 
 function appendRateCardWindowFilters(where, params, filters = {}, alias = "rc") {
   if (filters.dateFrom && filters.dateTo) {
@@ -295,7 +296,12 @@ export async function expireBatch(pool) {
 export async function findApplicableRateCard(pool, {
   orgId, supplierOrgId = null, role, region = null, locationId = null, date = null
 }) {
-  const effectiveDate = date || new Date().toISOString().slice(0, 10);
+  // Klasse HEUTE_IN_UTC: "heute" wurde per toISOString().slice(0,10) bestimmt.
+  // Zwischen 00:00 und 02:00 deutscher Zeit lieferte das den Vortag und wurde
+  // gegen valid_from / valid_to (DATE) verglichen: ein heute in Kraft tretender
+  // Stundensatz wurde nicht gefunden, ein gestern ausgelaufener noch angewendet
+  // — es waere zum falschen Preis abgerechnet worden.
+  const effectiveDate = date || todayDE();
   const params = [orgId, role, effectiveDate];
   let idx = 4;
 

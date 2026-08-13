@@ -199,9 +199,10 @@
   }
 
   function defaultExpectedStartDate() {
-    var d = new Date();
-    d.setDate(d.getDate() + 1);
-    return d.toISOString().slice(0, 10);
+    /* Klasse HEUTE_IN_UTC. Morgen wurde lokal berechnet und dann nach UTC geschnitten.
+       Zwischen 00:00 und 02:00 Berliner Zeit ergab das wieder den heutigen Tag — als
+       gewuenschter Vertragsbeginn ginge ein um einen Tag falsches Datum an den Vertrieb. */
+    return TCDate.addDaysDE(TCDate.todayDE(), 1);
   }
 
   function accountPayloadBase(message) {

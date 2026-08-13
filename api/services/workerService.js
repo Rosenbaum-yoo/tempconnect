@@ -8,6 +8,7 @@ import * as assignmentStaffingService from "./assignmentStaffingService.js";
 import { isWorkerBlockedForCompany } from "./companyBlocklistService.js";
 import * as submissionSvc from "./workerSubmissionService.js";
 import { withTransaction } from "../utils/transaction.js";
+import { todayDE, dateOnlyDE } from "../utils/dateDE.js";
 import {
   buildAssignmentActivePredicateSql,
   buildAssignmentHistoryPredicateSql,
@@ -107,20 +108,29 @@ function parseJsonValue(value, fallback) {
   return value;
 }
 
+// Klasse HEUTE_IN_UTC: der Referenztag der Ablaufwarnung. Ueber toISOString()
+// galt zwischen 00:00 und 02:00 deutscher Zeit noch der Vortag — "laeuft in 31
+// Tagen" statt 30, und ein heute ablaufendes Dokument zaehlte noch als gueltig.
 function todayIsoDate() {
-  return new Date().toISOString().slice(0, 10);
+  return todayDE();
 }
+// Klasse DB_WERT_NACH_UTC: valid_until/valid_from sind DATE-Spalten. node-postgres
+// parst sie als lokale Mitternacht (Europe/Berlin) = 22:00/23:00 UTC des Vortags;
+// toISOString() lieferte deshalb GANZTAEGIG den Vortag. Folge: jedes Ablaufdatum
+// eines Arbeiter-Dokuments einen Tag zu frueh, Restlaufzeit um 1 zu niedrig, und
+// die Ampel springt einen Tag zu frueh auf "abgelaufen" — ein noch gueltiger
+// Fuehrerschein blockiert den Einsatz.
 function normalizeIsoDateValue(value) {
   if (!value) return null;
   if (value instanceof Date) {
-    return Number.isFinite(value.getTime()) ? value.toISOString().slice(0, 10) : null;
+    return Number.isFinite(value.getTime()) ? dateOnlyDE(value) : null;
   }
   const text = String(value).trim();
   if (!text) return null;
   const directMatch = text.match(/^(\d{4}-\d{2}-\d{2})/);
   if (directMatch) return directMatch[1];
   const parsed = Date.parse(text);
-  return Number.isFinite(parsed) ? new Date(parsed).toISOString().slice(0, 10) : null;
+  return Number.isFinite(parsed) ? dateOnlyDE(parsed) : null;
 }
 
 export function getWorkerDocumentDaysUntilExpiry(document, referenceDate = todayIsoDate()) {

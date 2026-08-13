@@ -1,5 +1,6 @@
 import { classifyCompanySize } from "./pricingTierService.js";
 import { STEP_CATALOG } from "./onboardingService.js";
+import { todayDE, dateOnlyDE } from "../utils/dateDE.js";
 
 const COHORT_WINDOW_DAYS = 180;
 const MS_PER_DAY = 24 * 60 * 60 * 1000;
@@ -57,8 +58,12 @@ const ONBOARDING_STEPS = STEP_CATALOG
     label: step.label
   }));
 
+// F2/HEUTE_IN_UTC: `.toISOString().slice(0,10)` schneidet nach UTC. In Europe/Berlin
+// ist das zwischen 00:00 und 02:00 der Vortag. Die Kohortenspanne ist ein nutzersichtbarer
+// Kalendertag, also als Berliner Datum bilden. Die `from`/`to`-Instants bleiben unveraendert,
+// da sie fuer die SQL-Filterung als Zeitpunkte gebraucht werden.
 function toIsoDate(date) {
-  return new Date(date).toISOString().slice(0, 10);
+  return dateOnlyDE(date);
 }
 
 function buildWindow(days = COHORT_WINDOW_DAYS) {
@@ -68,7 +73,9 @@ function buildWindow(days = COHORT_WINDOW_DAYS) {
     days,
     label: `${days} Tage`,
     date_from: toIsoDate(from),
-    date_to: toIsoDate(to),
+    // F2/HEUTE_IN_UTC: Spannenende ist "heute". Nach UTC geschnitten nannte die angezeigte
+    // Kohortenspanne nachts den Vortag als Endedatum.
+    date_to: todayDE(),
     from,
     to
   };

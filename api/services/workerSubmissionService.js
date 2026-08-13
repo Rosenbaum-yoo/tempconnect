@@ -8,6 +8,7 @@ import { sendMail } from "./emailService.js";
 import { timesheetSentToCustomerEmail } from "./emailHtmlTemplates.js";
 import { config } from "../config/index.js";
 import { swallow } from "../utils/logger.js";
+import { dateOnlyDE } from "../utils/dateDE.js";
 
 /* ── Statusübergänge ────────────────────────────────────────────────────────── */
 
@@ -34,8 +35,23 @@ function normalizePeriodMode(periodMode) {
   return periodMode === "month" ? "month" : "week";
 }
 
+/**
+ * Klasse DB_WERT_NACH_UTC — gemeinsame Basis aller Wochen-/Monatsrechnungen hier.
+ *
+ * `week_start`/`work_date` sind DATE-Spalten. node-postgres parst sie als LOKALE
+ * Mitternacht; der Container laeuft auf Europe/Berlin, also 22:00/23:00 UTC des
+ * VORTAGS. Jede nachfolgende UTC-Arithmetik (getUTCDay/setUTCHours/toISOString)
+ * rechnet damit ganztaegig mit dem falschen Kalendertag.
+ * Deshalb wird hier zuerst der lokale Kalendertag bestimmt und dann als echte
+ * UTC-Mitternacht verankert — ab da ist die UTC-Arithmetik unten wieder korrekt.
+ */
+function toDateOnlyUtc(dateLike) {
+  const iso = dateOnlyDE(dateLike);
+  return iso ? new Date(`${iso}T00:00:00.000Z`) : new Date(NaN);
+}
+
 function startOfWeekUtc(dateLike) {
-  const d = new Date(dateLike);
+  const d = toDateOnlyUtc(dateLike);
   const day = d.getUTCDay(); // 0 Sun..6 Sat
   const diff = day === 0 ? -6 : 1 - day;
   d.setUTCDate(d.getUTCDate() + diff);
@@ -44,14 +60,17 @@ function startOfWeekUtc(dateLike) {
 }
 
 function startOfMonthUtc(dateLike) {
-  const d = new Date(dateLike);
+  const d = toDateOnlyUtc(dateLike);
   d.setUTCDate(1);
   d.setUTCHours(0, 0, 0, 0);
   return d;
 }
 
+// Klasse DB_WERT_NACH_UTC: ohne die Verankerung in toDateOnlyUtc faellt der
+// Periodenschluessel einer am Monatsersten beginnenden Woche in den Vormonat —
+// die Sammelfreigabe erschiene dann unter "Juli" statt "August".
 function toIsoDate(d) {
-  return d.toISOString().slice(0, 10);
+  return toDateOnlyUtc(d).toISOString().slice(0, 10);
 }
 
 function periodKeyFromWeekStart(weekStart, periodMode) {
@@ -65,13 +84,15 @@ function buildBundleKey(orgId, periodMode, periodKey) {
 }
 
 function toUtcDateOnly(dateLike) {
-  const d = new Date(dateLike);
-  d.setUTCHours(0, 0, 0, 0);
-  return d;
+  return toDateOnlyUtc(dateLike);
 }
 
+// Klasse DB_WERT_NACH_UTC: work_date/week_start kommen als lokale Mitternacht an.
+// Ohne Normalisierung waeren die erwarteten Arbeitstage einer Woche komplett um
+// einen Tag verschoben — die Vollstaendigkeitspruefung meldete dann Tage als
+// fehlend, die eingetragen sind, und uebersaehe die echte Luecke.
 function formatIsoDate(dateLike) {
-  return toUtcDateOnly(dateLike).toISOString().slice(0, 10);
+  return toDateOnlyUtc(dateLike).toISOString().slice(0, 10);
 }
 
 function expectedWeekDates(weekStart, weekEnd) {
@@ -352,9 +373,14 @@ export async function upsertEntry(pool, submissionId, workerUserId, entry) {
       );
       const link = linkRows[0];
       if (link && link.worker_confirmation_status === 'worker_unavailable' && link.unavailable_from) {
+        // Klasse DB_WERT_NACH_UTC: unavailable_from ist eine DATE-Spalte und kommt
+        // als lokale Mitternacht (Europe/Berlin) an. Ueber toISOString() waere der
+        // Cutoff ganztaegig der Vortag — der letzte tatsaechlich gearbeitete Tag vor
+        // der Abmeldung wuerde abgelehnt und dem Nutzer ein zu fruehes Abmeldedatum
+        // genannt. Das sind nicht erfasste Arbeitsstunden.
         const cutoff = typeof link.unavailable_from === 'string'
           ? link.unavailable_from.slice(0, 10)
-          : new Date(link.unavailable_from).toISOString().slice(0, 10);
+          : dateOnlyDE(link.unavailable_from);
         if (entry.work_date >= cutoff) {
           return { error: "DATE_AFTER_UNAVAILABLE", unavailable_from: cutoff };
         }
@@ -559,8 +585,14 @@ export async function requestCorrection(pool, submissionId, reviewerUserId, corr
   if (!sub) return { error: "NOT_FOUND" };
 
   // Ziel 4: Snapshot der aktuellen Entries für späteren Vergleich sichern
+  // Klasse DB_WERT_NACH_UTC: work_date ueber formatIsoDate (Europe/Berlin) statt
+  // toISOString(). Sonst nennt das Korrektur-Protokoll durchgaengig den falschen
+  // Arbeitstag ("am 09.08. wurden 8 auf 6 Stunden geaendert"), und der fruehere
+  // String/Date-Zweig lieferte fuer denselben Tag je nach pg-Parser zwei
+  // verschiedene Werte. formatIsoDate wird bewusst auch in submitCorrected()
+  // benutzt, damit der spaetere JSON-Vergleich beide Seiten identisch normalisiert.
   const snapshot = (sub.entries || []).map(e => ({
-    work_date: typeof e.work_date === 'string' ? e.work_date.slice(0, 10) : new Date(e.work_date).toISOString().slice(0, 10),
+    work_date: formatIsoDate(e.work_date),
     hours_regular: parseFloat(e.hours_regular || 0),
     hours_overtime: parseFloat(e.hours_overtime || 0),
     break_minutes: parseInt(e.break_minutes || 0, 10),
@@ -614,8 +646,11 @@ export async function submitCorrected(pool, submissionId, workerUserId) {
   const prevSnapshot = snapEvents[0]?.meta?.entries_snapshot || null;
 
   // Aktuelle Entries normalisieren
+  // Klasse DB_WERT_NACH_UTC: identische Normalisierung wie im Snapshot oben —
+  // beide Seiten muessen denselben Kalendertag liefern, sonst meldet der Vergleich
+  // eine Aenderung, die keine ist (oder uebersieht eine echte).
   const currentEntries = (sub.entries || []).map(e => ({
-    work_date: typeof e.work_date === 'string' ? e.work_date.slice(0, 10) : new Date(e.work_date).toISOString().slice(0, 10),
+    work_date: formatIsoDate(e.work_date),
     hours_regular: parseFloat(e.hours_regular || 0),
     hours_overtime: parseFloat(e.hours_overtime || 0),
     break_minutes: parseInt(e.break_minutes || 0, 10),
