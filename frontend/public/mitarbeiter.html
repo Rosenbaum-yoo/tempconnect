@@ -17,6 +17,22 @@
     .tab-btn:hover { color: var(--wk-text); }
     .tab-btn.active { color: var(--ds-brand); border-bottom-color: var(--ds-brand); }
     .tab-btn .badge { background: var(--tc-tone-brand-bg); border: 1px solid var(--tc-tone-brand-border); color: var(--ds-brand); border-radius: 20px; padding: 1px 8px; font-size: 11px; font-weight: 800; }
+
+    /* Welle E4 — Zustands-Reiter der Live-Belegschaft.
+       Eigene Klassen statt .tab-btn: das sind Filter innerhalb einer Seite, keine
+       Seitenwechsel. Wer sie gleich aussehen liesse, verspraeche das Falsche. */
+    .live-tabs { display: flex; flex-wrap: wrap; gap: 8px; margin: 4px 0 12px; }
+    .live-tab { display: inline-flex; align-items: center; gap: 7px; padding: 7px 13px; border-radius: 20px; border: 1.5px solid var(--ds-border, #e2e8f0); background: var(--ds-bg-surface, #fff); color: var(--wk-text-muted, #64748b); font-size: 13px; font-weight: 600; cursor: pointer; transition: border-color .15s, color .15s, background .15s; }
+    .live-tab:hover { color: var(--wk-text, #0f172a); }
+    .live-tab:focus-visible { outline: 2px solid var(--ds-brand, #4a9eff); outline-offset: 2px; }
+    .live-tab[aria-selected="true"] { border-color: currentColor; background: var(--ds-surface-2, #f1f5f9); font-weight: 800; }
+    .live-tab .live-tab-count { font-variant-numeric: tabular-nums; font-weight: 800; }
+    .live-tab[data-leer="1"] { opacity: .55; }
+    .live-breakdown { display: flex; flex-wrap: wrap; gap: 8px; margin: -4px 0 12px; }
+    .live-chip { display: inline-flex; align-items: center; gap: 6px; padding: 4px 11px; border-radius: 14px; font-size: 12px; background: var(--ds-surface-2, #f1f5f9); color: var(--wk-text-muted, #64748b); }
+    .live-chip strong { color: var(--wk-text, #0f172a); font-variant-numeric: tabular-nums; }
+    .live-hinweis { padding: 10px 14px; margin-bottom: 10px; border-radius: 8px; font-size: 12.5px; background: var(--ds-warning-bg, #fffbeb); border: 1px solid var(--ds-warning-border, #fde68a); color: var(--ds-warning-text, #b45309); }
+    #liveList:focus-visible { outline: 2px solid var(--ds-brand, #4a9eff); outline-offset: 4px; border-radius: 8px; }
     .panel { display: none; }
     .panel.active { display: block; }
     .search-bar { display: flex; gap: 10px; margin-bottom: 16px; flex-wrap: wrap; }
@@ -219,7 +235,12 @@
         <span id="liveUpdated" style="font-size:12px;color:var(--wk-text-muted);align-self:center;white-space:nowrap"></span>
       </div>
       <div id="liveKpis" style="display:flex;flex-wrap:wrap;gap:10px;margin-bottom:8px"></div>
-      <div id="liveList"><div class="empty-state" data-i18n="mit.live.loading">Live-Belegschaft wird geladen...</div></div>
+      <!-- Welle E4: die Reiter. Zaehlwerte aus DERSELBEN Abfrage wie die Liste —
+           gefiltert wird im Browser, nicht per Nachladen. -->
+      <div id="liveTruncated" class="live-hinweis" style="display:none"></div>
+      <div id="liveTabs" class="live-tabs" role="tablist" aria-label="Zustaende der Belegschaft"></div>
+      <div id="liveBreakdown" class="live-breakdown" style="display:none"></div>
+      <div id="liveList" role="tabpanel" tabindex="0"><div class="empty-state" data-i18n="mit.live.loading">Live-Belegschaft wird geladen...</div></div>
     </div>
 
     <!-- Panel: Manuell anlegen -->

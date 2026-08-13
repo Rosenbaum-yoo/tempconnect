@@ -104,6 +104,19 @@ TCi18n.register('de', {
   'mit.live.kpi.openTimesheets': 'Stundenzettel offen',
   'mit.live.kpi.workforce': 'Belegschaft',
 
+  /* Reiter (Welle E4) */
+  'mit.live.tab.all': 'Alle',
+  'mit.live.leer.gefiltert': 'In diesem Zustand ist gerade niemand.',
+  'mit.live.leer.verfuegbar': 'Gerade ist niemand frei – die ganze Belegschaft ist eingeplant.',
+  'mit.live.leer.im_einsatz': 'Gerade ist niemand im Einsatz.',
+  'mit.live.leer.endet_bald': 'In den nächsten {tage} Tagen endet kein Einsatz.',
+  'mit.live.leer.montage': 'Niemand ist gerade auf Montage.',
+  'mit.live.leer.abwesend': 'Niemand ist gerade abgemeldet – keine Krankmeldung, kein Urlaub.',
+  'mit.live.leer.inaktiv': 'Alle Mitarbeiter sind aktiv.',
+  'mit.live.truncated': 'Es werden die ersten {count} Mitarbeiter gezählt und angezeigt. Nutzen Sie die Suche, um gezielt zu filtern.',
+  'mit.live.detail.open': 'Personalakte öffnen',
+  'mit.live.detail.notFound': 'Dieser Mitarbeiter steht nicht in der Auswahl des Profil-Hubs.',
+
   /* Abwesenheit (Welle E2) — gehört zum Menschen, nicht zum Einsatz */
   'mit.live.absence.title': 'Abwesenheit erfassen',
   'mit.live.absence.intro': 'Die Abwesenheit gilt für den Menschen — unabhängig davon, ob gerade ein Einsatz läuft.',
@@ -657,6 +670,18 @@ TCi18n.register('en', {
   'mit.live.kpi.utilization': 'Utilisation',
   'mit.live.kpi.openTimesheets': 'Open timesheets',
   'mit.live.kpi.workforce': 'Workforce',
+
+  'mit.live.tab.all': 'All',
+  'mit.live.leer.gefiltert': 'Nobody is in this state right now.',
+  'mit.live.leer.verfuegbar': 'Nobody is free right now – the entire workforce is assigned.',
+  'mit.live.leer.im_einsatz': 'Nobody is on assignment right now.',
+  'mit.live.leer.endet_bald': 'No assignment ends within the next {tage} days.',
+  'mit.live.leer.montage': 'Nobody is on an away assignment right now.',
+  'mit.live.leer.abwesend': 'Nobody is reported absent – no sick leave, no holiday.',
+  'mit.live.leer.inaktiv': 'All workers are active.',
+  'mit.live.truncated': 'Only the first {count} workers are counted and shown. Use the search to narrow it down.',
+  'mit.live.detail.open': 'Open personnel file',
+  'mit.live.detail.notFound': 'This worker is not in the profile hub selection.',
 
   'mit.live.absence.title': 'Record an absence',
   'mit.live.absence.intro': 'The absence belongs to the person — whether or not an assignment is currently running.',
@@ -1393,7 +1418,9 @@ function showTab(name) {
   var tab = document.querySelector('.tab-btn[data-tab="' + name + '"]');
   if (tab) tab.classList.add("active");
   if (name === "invites") loadInvites();
-  if (name === "skills") populateSkillsWorkerSelect();
+  // Die Auswahl wird gefuellt, DANN die Vormerkung aus der Live-Belegschaft
+  // eingeloest — vorher gibt es die Option noch nicht, die gesetzt werden soll.
+  if (name === "skills") populateSkillsWorkerSelect().then(applyPendingHubWorker);
   if (name === "live") startLiveBoard(); else stopLiveBoard();
 }
 
@@ -1419,6 +1446,14 @@ var LIVE_STATUS = {
 var _liveWorkers = [];
 
 function startLiveBoard() {
+  /* Reiter aus der Adresse wiederherstellen: wer "#live-abwesend" oeffnet — aus
+     einem Lesezeichen, einer Nachricht oder spaeter aus einer Benachrichtigung —
+     landet direkt bei den Krankmeldungen, nicht auf der Gesamtliste. */
+  var hash = String((window.location && window.location.hash) || "");
+  if (hash.indexOf("#live-") === 0) {
+    var gewuenscht = hash.slice(6);
+    if (LIVE_TAB_ORDER.indexOf(gewuenscht) >= 0) _liveFilter = gewuenscht;
+  }
   loadLiveBoard();
   if (_liveTimer) clearInterval(_liveTimer);
   _liveTimer = setInterval(loadLiveBoard, LIVE_POLL_MS);
@@ -1433,7 +1468,11 @@ function filterLiveBoard() {
 function loadLiveBoard() {
   var q = (document.getElementById("liveSearch") || {}).value || "";
   return api("/workers/live-board" + (q ? "?search=" + encodeURIComponent(q) : "")).then(function(data) {
-    renderLiveKpis((data && data.kpis) || {});
+    _liveKpis = (data && data.kpis) || {};
+    _liveScope = (data && data.scope) || {};
+    renderLiveKpis(_liveKpis);
+    renderLiveTruncated(data && data.truncated, _liveScope);
+    renderLiveTabs(_liveKpis);
     renderLiveList((data && data.workers) || []);
     var u = document.getElementById("liveUpdated");
     if (u) u.textContent = TCi18n.t("mit.live.asOf", { time: new Date().toLocaleTimeString(TCi18n.dateLocale()) });
@@ -1442,6 +1481,139 @@ function loadLiveBoard() {
     if (l) l.innerHTML = '<div class="empty-state">' + esc(TCi18n.t("mit.live.loadError")) + '</div>';
   });
 }
+
+/* ── Die Reiter (Welle E4) ───────────────────────────────
+ * Ein Reiter je Zustand, Zaehlwert aus DERSELBEN Antwort wie die Liste. Gefiltert
+ * wird im Browser: sechs Abfragen fuer sechs Reiter waeren sechsmal so teuer und
+ * koennten sich zeitlich widersprechen — Reiter A gezaehlt um 10:00:03, Reiter B
+ * um 10:00:05, und die Summe stimmt nicht mehr mit der Gesamtzahl.
+ * Deshalb: eine Abfrage, eine Wahrheit, ein Zeitpunkt. */
+var LIVE_TAB_ORDER = ["alle", "abwesend", "endet_bald", "montage", "im_einsatz", "verfuegbar", "inaktiv"];
+var _liveFilter = "alle";
+var _liveKpis = {};
+var _liveScope = {};
+
+function liveTabLabel(status) {
+  if (status === "alle") return TCi18n.t("mit.live.tab.all");
+  var cfg = LIVE_STATUS[status];
+  return (cfg && TCi18n.t(cfg.labelKey)) || status;
+}
+function liveTabCount(k, status) {
+  if (status === "alle") return k.total || 0;
+  return k[status] || 0;
+}
+
+function renderLiveTabs(k) {
+  var el = document.getElementById("liveTabs"); if (!el) return;
+  k = k || {};
+  el.innerHTML = LIVE_TAB_ORDER.map(function(st) {
+    var cfg = LIVE_STATUS[st];
+    var farbe = (cfg && cfg.color) || "var(--ds-text,#0f172a)";
+    var anzahl = liveTabCount(k, st);
+    var aktiv = (_liveFilter === st);
+    /* Ein leerer Reiter wird gedaempft, aber NICHT versteckt: "niemand ist krank
+       gemeldet" ist eine Antwort, und wer den Reiter verschwinden laesst, zwingt
+       den Nutzer zu raten, ob er die Frage falsch gestellt hat. */
+    return '<button class="live-tab" role="tab" type="button"' +
+           ' id="liveTab-' + esc(st) + '"' +
+           ' aria-selected="' + (aktiv ? "true" : "false") + '"' +
+           ' aria-controls="liveList"' +
+           ' tabindex="' + (aktiv ? "0" : "-1") + '"' +
+           ' data-status="' + esc(st) + '"' +
+           ' data-leer="' + (anzahl ? "0" : "1") + '"' +
+           ' style="color:' + farbe + '"' +
+           ' onclick="setLiveFilter(\'' + esc(st) + '\')"' +
+           ' onkeydown="liveTabKey(event)">' +
+           '<span>' + esc(liveTabLabel(st)) + '</span>' +
+           '<span class="live-tab-count">' + esc(String(anzahl)) + '</span>' +
+           '</button>';
+  }).join("");
+
+  // Aufschluesselung nach Grund — dort, wo die Frage gestellt wird.
+  var bd = document.getElementById("liveBreakdown");
+  if (bd) {
+    var nachArt = k.abwesend_nach_art || {};
+    var chips = ["krank", "urlaub", "termin", "sonstiges"].filter(function(a) { return nachArt[a]; })
+      .map(function(a) {
+        return '<span class="live-chip">' + esc(TCi18n.t("mit.live.absence.art." + a)) +
+               ' <strong>' + esc(String(nachArt[a])) + '</strong></span>';
+      });
+    var zeigen = (_liveFilter === "abwesend") && chips.length > 0;
+    bd.innerHTML = zeigen ? chips.join("") : "";
+    bd.style.display = zeigen ? "flex" : "none";
+  }
+}
+
+function setLiveFilter(status, opts) {
+  if (LIVE_TAB_ORDER.indexOf(status) < 0) status = "alle";
+  _liveFilter = status;
+  /* Der Reiter steht in der Adresse: eine Krankmeldungs-Ansicht laesst sich so
+     verschicken, als Lesezeichen ablegen und spaeter aus einer Benachrichtigung
+     heraus direkt anspringen. */
+  try {
+    if (window.history && history.replaceState) {
+      history.replaceState(null, "", "#live-" + status);
+    }
+  } catch (e) { /* Adresszeile ist ein Zusatz, kein Zustand */ }
+  renderLiveTabs(_liveKpis);
+  renderLiveList(_liveWorkers);
+  if (!(opts && opts.silent)) {
+    var btn = document.getElementById("liveTab-" + status);
+    if (btn && btn.focus) btn.focus();
+  }
+}
+
+/* Pfeiltasten wandern durch die Reiter (WAI-ARIA Tabs). Ohne das ist eine
+   Reiterleiste mit der Tastatur eine Sackgasse — sieben Tabstopps, bevor die
+   Liste erreicht ist. */
+function liveTabKey(ev) {
+  var taste = ev && ev.key;
+  var schritt = (taste === "ArrowRight" || taste === "ArrowDown") ? 1
+              : (taste === "ArrowLeft" || taste === "ArrowUp") ? -1 : 0;
+  var i = LIVE_TAB_ORDER.indexOf(_liveFilter);
+  if (schritt) {
+    ev.preventDefault();
+    setLiveFilter(LIVE_TAB_ORDER[(i + schritt + LIVE_TAB_ORDER.length) % LIVE_TAB_ORDER.length]);
+  } else if (taste === "Home") {
+    ev.preventDefault(); setLiveFilter(LIVE_TAB_ORDER[0]);
+  } else if (taste === "End") {
+    ev.preventDefault(); setLiveFilter(LIVE_TAB_ORDER[LIVE_TAB_ORDER.length - 1]);
+  }
+}
+
+function renderLiveTruncated(truncated, scope) {
+  var el = document.getElementById("liveTruncated"); if (!el) return;
+  if (!truncated) { el.style.display = "none"; el.textContent = ""; return; }
+  /* Eine stille Deckelung liest sich wie Vollstaendigkeit. Wenn die Zaehlwerte
+     nur eine Teilmenge beschreiben, muss das dort stehen, wo gezaehlt wird. */
+  el.textContent = TCi18n.t("mit.live.truncated", { count: (scope && scope.limit) || 300 });
+  el.style.display = "";
+}
+
+/* Sprung in die Personalakte — auf den konkreten Menschen, nicht auf die
+   Uebersicht. Der Hub-Reiter fuellt seine Auswahl selbst; die Vormerkung wird
+   dort eingeloest, damit die Liste nicht zweimal geladen wird. */
+var _pendingHubWorker = null;
+function openWorkerDetail(profileId) {
+  var w = (_liveWorkers || []).filter(function(x) { return x.id === profileId; })[0];
+  var ziel = w && (w.user_id || w.id);
+  if (!ziel) return;
+  _pendingHubWorker = String(ziel);
+  showTab("skills");
+}
+function applyPendingHubWorker() {
+  if (!_pendingHubWorker) return;
+  var ziel = _pendingHubWorker;
+  _pendingHubWorker = null;
+  var sel = document.getElementById("skillsWorkerSelect");
+  if (!sel) return;
+  sel.value = ziel;
+  // Steht der Mensch nicht in der Auswahl (z. B. jenseits der geladenen Menge),
+  // landet der Nutzer sonst wortlos auf dem Platzhalter.
+  if (sel.value !== ziel) { toast(TCi18n.t("mit.live.detail.notFound"), "err"); return; }
+  loadWorkerSkills();
+}
+
 function renderLiveKpis(k) {
   var el = document.getElementById("liveKpis"); if (!el) return;
   function tile(label, val, color) {
@@ -1449,39 +1621,56 @@ function renderLiveKpis(k) {
            '<div style="font-size:24px;font-weight:800;color:' + (color || "var(--ds-text,#0f172a)") + '">' + esc(String(val != null ? val : "–")) + '</div>' +
            '<div style="font-size:12px;color:var(--wk-text-muted,#64748b)">' + esc(label) + '</div></div>';
   }
-  /* Die Aufschluesselung der Abwesenheit steht IM Kachel-Untertitel — "3 abwesend"
-     allein sagt dem Disponenten nicht, ob er Ersatz braucht (krank) oder laengst
-     wusste, dass jemand fehlt (Urlaub). */
-  var nachArt = k.abwesend_nach_art || {};
-  var artTeile = [];
-  ["krank", "urlaub", "termin", "sonstiges"].forEach(function(a) {
-    if (nachArt[a]) artTeile.push(TCi18n.t("mit.live.absence.art." + a) + " " + nachArt[a]);
-  });
+  /* Nur noch die Kennzahlen, die KEIN Reiter ist. Die Zustands-Zahlen stehen seit
+     Welle E4 in den Reitern — zweimal dieselbe Zahl an zwei Orten heisst, dass
+     eine von beiden irgendwann falsch ist. */
   el.innerHTML =
     tile(TCi18n.t("mit.live.kpi.utilization"), (k.auslastung_pct != null ? k.auslastung_pct + " %" : "–"), "var(--ds-brand,#4a9eff)") +
-    tile(TCi18n.t("mit.live.status.onAssignment"), (k.im_einsatz || 0) + (k.endet_bald ? " (+" + k.endet_bald + ")" : ""), null) +
-    tile(TCi18n.t("mit.live.status.available"), k.verfuegbar || 0, "var(--ds-success,#34d399)") +
-    tile(TCi18n.t("mit.live.status.endingSoon"), k.endet_bald || 0, "var(--ds-warning,#f59e0b)") +
-    tile(TCi18n.t("mit.live.status.montage"), k.montage || 0, "var(--ds-accent,#8b5cf6)") +
-    tile(TCi18n.t("mit.live.status.absent") + (artTeile.length ? " · " + artTeile.join(" · ") : ""), k.abwesend || 0, "var(--ds-danger,#dc2626)") +
     tile(TCi18n.t("mit.live.kpi.openTimesheets"), k.open_timesheets || 0, null) +
     tile(TCi18n.t("mit.live.kpi.workforce"), k.total || 0, null);
 }
+
 function renderLiveList(workers) {
   var el = document.getElementById("liveList"); if (!el) return;
   _liveWorkers = workers || [];
-  if (!workers.length) { el.innerHTML = '<div class="empty-state">' + esc(TCi18n.t("mit.live.empty")) + '</div>'; return; }
-  var order = ["abwesend", "endet_bald", "montage", "im_einsatz", "verfuegbar", "inaktiv"]; // Handlungsbedarf zuerst
+  var sichtbar = (_liveFilter === "alle")
+    ? _liveWorkers
+    : _liveWorkers.filter(function(w) { return w.live_status === _liveFilter; });
+
+  if (!sichtbar.length) {
+    /* Jeder Reiter erklaert seine Leere mit eigenen Worten. "Keine Eintraege"
+       beantwortet die Frage nicht, die der Nutzer gerade gestellt hat. */
+    var key = (_liveFilter === "alle")
+      ? (_liveWorkers.length ? "mit.live.leer.gefiltert" : "mit.live.empty")
+      : "mit.live.leer." + _liveFilter;
+    var text = TCi18n.t(key, { tage: _liveScope.ends_soon_days || 7 }) || TCi18n.t("mit.live.empty");
+    el.innerHTML = '<div class="empty-state">' + esc(text) + '</div>';
+    return;
+  }
+
+  // Im Reiter "alle" bleibt die Gruppierung — sonst waere die Tafel eine
+  // undifferenzierte Liste. In einem einzelnen Reiter waere sie sinnlos.
+  var order = (_liveFilter === "alle")
+    ? ["abwesend", "endet_bald", "montage", "im_einsatz", "verfuegbar", "inaktiv"] // Handlungsbedarf zuerst
+    : [_liveFilter];
   var html = "";
   order.forEach(function(st) {
-    var group = workers.filter(function(w) { return w.live_status === st; });
+    var group = sichtbar.filter(function(w) { return w.live_status === st; });
     if (!group.length) return;
     var cfg = LIVE_STATUS[st] || { labelKey: null, color: "var(--ds-text,#0f172a)" };
     var statusLabel = (cfg.labelKey && TCi18n.t(cfg.labelKey)) || st;
     html += '<div style="margin:18px 0 8px;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:' + cfg.color + '">' + esc(statusLabel) + ' (' + group.length + ')</div>';
     group.forEach(function(w) {
-      var name = esc(((w.first_name || "") + " " + (w.last_name || "")).trim() || "—") +
-                 (w.personnel_number ? ' <span style="color:var(--wk-text-muted,#64748b);font-weight:400">#' + esc(w.personnel_number) + '</span>' : "");
+      /* Der Name ist der Deep-Link — auf DIESEN Menschen, nicht auf die
+         Uebersicht. Ein Verweis, der nur in die Naehe des Ziels fuehrt, laesst
+         den Nutzer die Suche ein zweites Mal machen. */
+      var klartext = esc(((w.first_name || "") + " " + (w.last_name || "")).trim() || "—");
+      var name = (w.id
+        ? '<button type="button" onclick="openWorkerDetail(\'' + esc(w.id) + '\')"' +
+          ' style="background:none;border:none;padding:0;font:inherit;color:inherit;font-weight:700;cursor:pointer;text-align:left;text-decoration:underline;text-decoration-style:dotted;text-underline-offset:3px"' +
+          ' title="' + esc(TCi18n.t("mit.live.detail.open")) + '">' + klartext + '</button>'
+        : klartext) +
+        (w.personnel_number ? ' <span style="color:var(--wk-text-muted,#64748b);font-weight:400">#' + esc(w.personnel_number) + '</span>' : "");
       var sub = [];
       /* Abwesenheit zuerst: sie ist der Grund, warum die Zeile hier oben steht.
          Der Einsatz-Kontext bleibt trotzdem stehen — der Disponent muss sehen,

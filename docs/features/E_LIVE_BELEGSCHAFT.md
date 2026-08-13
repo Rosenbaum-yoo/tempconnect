@@ -182,7 +182,7 @@ sieht das ausdrücklich vor, und nur dort lässt es sich abbilden.
 Feld, das niemand füllt, ist schlimmer als keins — kommt die Lohnseite, ist sie
 eine eigene Welle mit eigenem Gate.
 
-### Welle E4 — Die Reiter
+### Welle E4 — Die Reiter ✅ *(erledigt 2026-08-13)*
 
 - Reiter je Zustand: verfügbar · im Einsatz · endet bald · Montage · abwesend
   (mit Untergliederung nach Art) · inaktiv.
@@ -195,6 +195,59 @@ eine eigene Welle mit eigenem Gate.
 **Gate E4:** Jeder Reiter ist real auslösbar und zeigt echte Daten. Die Summe
 der Reiter-Zählwerte entspricht der Gesamtzahl — kein Mensch fällt zwischen zwei
 Reiter, keiner erscheint doppelt.
+
+> **Gate E4 ist erfüllt.** Ein Test liest die Zählwerte aus dem **gerenderten
+> Markup** und rechnet sie zusammen — nicht aus dem Objekt, aus dem sie stammen.
+> Eine Summe, die nur im Datenmodell stimmt, sagt nichts über die Tafel.
+
+**Warum im Browser gefiltert wird und nicht nachgeladen**
+
+Sechs Reiter könnten sechs Abfragen sein. Sie wären nicht nur sechsmal so teuer,
+sie könnten sich **widersprechen**: Reiter A gezählt um 10:00:03, Reiter B um
+10:00:05 — und die Summe passt nicht mehr zur Gesamtzahl, obwohl kein Fehler
+vorliegt. Eine Abfrage, eine Wahrheit, ein Zeitpunkt. Der Reiterwechsel ist damit
+außerdem verzögerungsfrei.
+
+**Was der Reihe nach entschieden wurde**
+
+1. **Der Reiter steht in der Adresse** (`#live-abwesend`). Eine
+   Krankmeldungs-Ansicht lässt sich verschicken, als Lesezeichen ablegen und
+   später aus einer Benachrichtigung heraus direkt anspringen. Ohne das wäre
+   jeder künftige Deep-Link auf „die Live-Belegschaft" beschränkt — und genau
+   das ist die Sackgasse, die dieses Repo an anderen Stellen schon hat.
+2. **Leere Reiter bleiben stehen, nur gedämpft.** „Niemand ist krank gemeldet"
+   *ist* eine Antwort. Wer den Reiter verschwinden lässt, zwingt den Nutzer zu
+   raten, ob er die Frage falsch gestellt hat.
+3. **Jeder Leerzustand mit eigenen Worten**, und „endet bald" nennt das echte
+   Zeitfenster aus `scope.ends_soon_days` statt einer eingetippten 7 — die wäre
+   gelogen, sobald der Server das Fenster ändert.
+4. **Die Kacheln führen nur noch, was kein Reiter ist** (Auslastung, offene
+   Stundenzettel, Belegschaft). Dieselbe Zahl an zwei Orten heißt, dass eine von
+   beiden irgendwann falsch ist.
+5. **Tastatur und Screenreader**: `role="tablist"`, genau ein `aria-selected`,
+   roving `tabindex`, Pfeiltasten/Home/End. Ohne das sind sieben Reiter sieben
+   Tabstopps, bevor die Liste erreicht ist.
+6. **Die Deckelung wird ausgesprochen.** Die Tafel lädt höchstens 300 Zeilen;
+   die Reiter zählen genau diese. Der Server liefert jetzt `scope.limit` und
+   `truncated`, die Oberfläche sagt es. Eine stille Deckelung liest sich wie
+   Vollständigkeit — das ist der Unterschied zwischen einer Kennzahl und einer
+   Behauptung.
+
+**Was gebaut wurde**
+
+| Teil | Ort |
+|---|---|
+| Reiterleiste | `mitarbeiter.html` (`#liveTabs`, eigene Klassen) + `mitarbeiter.js` |
+| Filter/Zustand | `_liveFilter`, `setLiveFilter`, `liveTabKey`, Adress-Synchronisierung |
+| Deep-Link | Name der Zeile → `openWorkerDetail` → Profil-Hub mit vorgewähltem Menschen |
+| Ehrliche Menge | `getWorkerLiveBoard` liefert `scope.limit` + `truncated` |
+| Tests | 30 Oberfläche (vm-Sandbox) · 3 Backend zur Deckelung |
+
+**Ein Sonderfall, der beim Bauen auffiel:** ein Mitarbeiter ohne Konto (Mig 175)
+darf seinen Namen behalten, aber keinen Verweis bekommen, der ins Leere führt.
+Der Deep-Link erscheint nur, wenn es ein Ziel gibt — und wenn der Mensch nicht in
+der Auswahl des Profil-Hubs steht, sagt die Oberfläche das, statt wortlos auf dem
+Platzhalter zu landen.
 
 ### Welle E5 — Das Zustands-Protokoll
 
@@ -217,8 +270,8 @@ ohne Protokolleintrag nicht möglich ist.
 
 ## Reihenfolge
 
-**~~E2~~ → ~~E3~~ → E4 → E5.** Erst die Quellen, dann die Anzeige, dann der Verlauf.
-Beide Quellen stehen. Nächster Schritt: **E4** (die Reiter).
+**~~E2~~ → ~~E3~~ → ~~E4~~ → E5.** Erst die Quellen, dann die Anzeige, dann der Verlauf.
+Quellen und Anzeige stehen. Nächster Schritt: **E5** (das Zustands-Protokoll).
 
 Die Versuchung ist, mit den Reitern anzufangen — sie sind das Sichtbare. Das
 wäre falsch: ein Reiter ohne Datenquelle ist eine Zusage, die das Produkt nicht

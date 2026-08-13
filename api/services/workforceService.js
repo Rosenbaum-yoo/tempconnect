@@ -553,7 +553,16 @@ export async function getCompanyLiveWorkforce(pool, companyOrgId, filters = {}) 
  *   im_einsatz / verfuegbar wie bisher.
  */
 export async function getWorkerLiveBoard(pool, supplierOrgId, filters = {}) {
-  const scope = { supplier_org_id: supplierOrgId || null, ends_soon_days: LIVE_BOARD_ENDS_SOON_DAYS };
+  /* Die Obergrenze gehoert in den Scope, nicht nur ins SQL. Die Reiter aus Welle E4
+   * zaehlen die geladenen Zeilen — wird die Menge abgeschnitten, zaehlen sie zu
+   * wenig, ohne dass jemand es merkt. Eine stille Deckelung liest sich wie
+   * Vollstaendigkeit; deshalb sagt die Antwort es ausdruecklich. */
+  const limit = Math.min(500, Math.max(1, Number(filters.limit) || 300));
+  const scope = {
+    supplier_org_id: supplierOrgId || null,
+    ends_soon_days: LIVE_BOARD_ENDS_SOON_DAYS,
+    limit
+  };
   const emptyKpis = {
     total: 0, im_einsatz: 0, verfuegbar: 0, endet_bald: 0, montage: 0, abwesend: 0, inaktiv: 0,
     open_timesheets: 0, auslastung_pct: 0,
@@ -573,7 +582,6 @@ export async function getWorkerLiveBoard(pool, supplierOrgId, filters = {}) {
     searchClause = `AND (wp.first_name ILIKE $${idx} OR wp.last_name ILIKE $${idx} OR wp.personnel_number ILIKE $${idx})`;
     params.push(`%${filters.search}%`); idx++;
   }
-  const limit = Math.min(500, Math.max(1, Number(filters.limit) || 300));
 
   const { rows } = await pool.query(
     `SELECT wp.id, wp.user_id, wp.first_name, wp.last_name, wp.personnel_number, wp.is_active,
@@ -661,5 +669,12 @@ export async function getWorkerLiveBoard(pool, supplierOrgId, filters = {}) {
   const activeWorkers = kpis.total - kpis.inaktiv;
   kpis.auslastung_pct = activeWorkers > 0 ? Math.round((onAssignment / activeWorkers) * 100) : 0;
 
-  return { available: true, workers: rows, kpis, scope, generated_at: new Date().toISOString() };
+  /* Wurde die Liste am Limit abgeschnitten? Dann sind die Reiter-Zaehlwerte eine
+   * Teilmenge, und die Oberflaeche muss das sagen duerfen. Der Wert ist bewusst
+   * eine Vermutung ("genau am Limit") statt eines zweiten COUNT(*): eine zweite
+   * Abfrage ueber die ganze Belegschaft bei jedem 30-Sekunden-Takt waere teuer
+   * fuer eine Auskunft, die nur im Ausnahmefall gebraucht wird. */
+  const truncated = rows.length >= limit;
+
+  return { available: true, workers: rows, kpis, scope, truncated, generated_at: new Date().toISOString() };
 }

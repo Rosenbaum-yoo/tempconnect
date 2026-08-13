@@ -1,5 +1,6 @@
 /**
- * Welle E2, Oberflaeche — die Tafel wird wirklich gerendert, nicht nur behauptet.
+ * Spur E, Oberflaeche (Wellen E2–E4) — die Tafel wird wirklich gerendert,
+ * nicht nur behauptet.
  *
  * WARUM DIESER TEST SO GEBAUT IST
  * Der Frontend-Audit vom 2026-08-13 fand 85 Befunde, und das Muster war immer
@@ -46,7 +47,7 @@ function findeWurzel() {
 const ROOT = findeWurzel();
 const suite = ROOT ? describe : describe.skip;
 
-suite("Welle E2 — die Abwesenheit in der Oberflaeche", () => {
+suite("Spur E — die Live-Belegschaft in der Oberflaeche", () => {
   let ctx;
   let elemente;
   let html;
@@ -115,6 +116,10 @@ suite("Welle E2 — die Abwesenheit in der Oberflaeche", () => {
 
     hole("liveList");
     hole("liveKpis");
+    hole("liveTabs");
+    hole("liveBreakdown");
+    hole("liveTruncated");
+    hole("toast");
   });
 
   /* ── Die Woerterbuecher ─────────────────────────────────────────────────── */
@@ -217,12 +222,29 @@ suite("Welle E2 — die Abwesenheit in der Oberflaeche", () => {
 
   /* ── Die Kachel ─────────────────────────────────────────────────────────── */
 
-  it("die Kachel schluesselt nach Art auf — 'drei abwesend' allein hilft niemandem", () => {
-    ctx.renderLiveKpis({ total: 5, abwesend: 3, abwesend_nach_art: { krank: 2, urlaub: 1, termin: 0, sonstiges: 0 } });
+  it("die Aufschluesselung nach Grund steht am Abwesenheits-Reiter", () => {
+    /* Bis E3 stand sie in einer Kachel. Seit E4 tragen die Reiter die
+       Zustands-Zahlen — dieselbe Zusicherung, anderer Ort: 'drei abwesend' allein
+       sagt dem Disponenten nicht, ob er Ersatz braucht (krank) oder es laengst
+       wusste (Urlaub). */
+    ctx.setLiveFilter("abwesend", { silent: true });
+    ctx.renderLiveTabs({ total: 5, abwesend: 3, abwesend_nach_art: { krank: 2, urlaub: 1, termin: 0, sonstiges: 0 } });
+    const out = elemente.liveBreakdown.innerHTML;
+    assert.ok(/Krank[\s\S]*?2/.test(out), "krank wird beziffert — davon haengt ab, ob Ersatz noetig ist");
+    assert.ok(/Urlaub[\s\S]*?1/.test(out));
+    assert.ok(!out.includes("Termin"), "was null ist, wird nicht aufgezaehlt");
+    assert.strictEqual(elemente.liveBreakdown.style.display, "flex");
+    ctx.setLiveFilter("alle", { silent: true });
+  });
+
+  it("keine Zahl steht doppelt: die Kacheln fuehren nur noch, was kein Reiter ist", () => {
+    // Zweimal dieselbe Zahl an zwei Orten heisst, dass eine von beiden
+    // irgendwann falsch ist.
+    ctx.renderLiveKpis({ total: 5, abwesend: 3, im_einsatz: 1, verfuegbar: 1, auslastung_pct: 20, open_timesheets: 0 });
     const out = elemente.liveKpis.innerHTML;
-    assert.ok(out.includes("Krank 2"), "krank wird beziffert — davon haengt ab, ob Ersatz noetig ist");
-    assert.ok(out.includes("Urlaub 1"));
-    assert.ok(!out.includes("Termin 0"), "was null ist, wird nicht aufgezaehlt");
+    assert.ok(out.includes("Auslastung") && out.includes("Belegschaft"));
+    assert.ok(!out.includes("Abwesend") && !out.includes("Verfügbar"),
+      "Zustands-Zahlen gehoeren seit E4 ausschliesslich in die Reiter");
   });
 
   /* ── Der schreibende Aufruf ─────────────────────────────────────────────── */
@@ -264,9 +286,11 @@ suite("Welle E2 — die Abwesenheit in der Oberflaeche", () => {
     assert.ok(out.includes("Endet bald"), "der Hinweis darf nicht verschwinden");
   });
 
-  it("die Kachel zeigt Montage getrennt", () => {
-    ctx.renderLiveKpis({ total: 3, montage: 2, abwesend_nach_art: {} });
-    assert.ok(elemente.liveKpis.innerHTML.includes("Montage"));
+  it("Montage bekommt einen eigenen Reiter mit eigener Zahl", () => {
+    ctx.renderLiveTabs({ total: 3, montage: 2, abwesend_nach_art: {} });
+    const out = elemente.liveTabs.innerHTML;
+    assert.ok(out.includes("Montage"));
+    assert.ok(/data-status="montage"[\s\S]*?>2</.test(out), "mit dem Zaehlwert aus derselben Antwort");
   });
 
   it("der Einsatz-Editor bietet den Schalter an — sonst bleibt der Reiter leer", () => {
@@ -287,6 +311,121 @@ suite("Welle E2 — die Abwesenheit in der Oberflaeche", () => {
     const svc = fs.readFileSync(path.join(ROOT, "api/services/workerService.js"), "utf8");
     assert.ok((svc.match(/wal\.is_montage/g) || []).length >= 3,
       "alle drei Leser-Abfragen reichen das Feld durch — sonst zeigt die Karte nie etwas");
+  });
+
+  /* ── Welle E4: die Reiter ───────────────────────────────────────────────── */
+
+  it("jeder Reiter hat in beiden Sprachen ein Label und einen eigenen Leerzustand", () => {
+    for (const st of ctx.LIVE_TAB_ORDER) {
+      const leerKey = st === "alle" ? "mit.live.empty" : "mit.live.leer." + st;
+      assert.ok(woerter.de[leerKey], `DE fehlt: ${leerKey}`);
+      assert.ok(woerter.en[leerKey], `EN fehlt: ${leerKey}`);
+    }
+    assert.ok(woerter.de["mit.live.tab.all"] && woerter.en["mit.live.tab.all"]);
+  });
+
+  it("die Zaehlwerte der Reiter ergeben zusammen die Gesamtzahl (Gate E4)", () => {
+    const kpis = { total: 12, abwesend: 3, endet_bald: 2, montage: 1, im_einsatz: 4, verfuegbar: 1, inaktiv: 1, abwesend_nach_art: {} };
+    ctx.renderLiveTabs(kpis);
+    const zahlen = {};
+    for (const m of elemente.liveTabs.innerHTML.matchAll(/data-status="([a-z_]+)"[\s\S]*?live-tab-count">(\d+)</g)) {
+      zahlen[m[1]] = Number(m[2]);
+    }
+    const summe = ctx.LIVE_TAB_ORDER
+      .filter((st) => st !== "alle")
+      .reduce((n, st) => n + (zahlen[st] || 0), 0);
+    assert.strictEqual(summe, zahlen.alle,
+      "kein Mensch faellt zwischen zwei Reiter, keiner erscheint doppelt");
+    assert.strictEqual(zahlen.alle, kpis.total);
+  });
+
+  it("ein leerer Reiter bleibt sichtbar — nur gedaempft", () => {
+    // Ihn zu verstecken zwaenge den Nutzer zu raten, ob er die Frage falsch
+    // gestellt hat. "Niemand ist krank gemeldet" IST eine Antwort.
+    ctx.renderLiveTabs({ total: 1, im_einsatz: 1, abwesend: 0, abwesend_nach_art: {} });
+    const out = elemente.liveTabs.innerHTML;
+    assert.ok(out.includes('data-status="abwesend"'), "der Reiter ist da");
+    assert.ok(/data-status="abwesend"[^>]*data-leer="1"/.test(out), "und als leer gekennzeichnet");
+  });
+
+  it("ein Reiter filtert wirklich — und die anderen Zustaende verschwinden", () => {
+    const zeilen = [
+      { id: "a1", first_name: "Krank", last_name: "K", live_status: "abwesend", absence_id: "x", absence_art: "krank", absence_von: "2026-08-13", open_timesheets: 0 },
+      { id: "a2", first_name: "Frei", last_name: "F", live_status: "verfuegbar", open_timesheets: 0 }
+    ];
+    ctx.setLiveFilter("abwesend", { silent: true });
+    ctx.renderLiveList(zeilen);
+    const out = elemente.liveList.innerHTML;
+    assert.ok(out.includes("Krank"));
+    assert.ok(!out.includes(">Frei"), "die verfuegbare Kraft gehoert nicht in diesen Reiter");
+    ctx.setLiveFilter("alle", { silent: true });
+  });
+
+  it("jeder leere Reiter erklaert seine Leere mit eigenen Worten", () => {
+    const faelle = {
+      abwesend: "abgemeldet",
+      montage: "Montage",
+      verfuegbar: "frei",
+      inaktiv: "aktiv"
+    };
+    for (const [status, wort] of Object.entries(faelle)) {
+      ctx.setLiveFilter(status, { silent: true });
+      ctx.renderLiveList([{ id: "x", live_status: "im_einsatz", first_name: "A", last_name: "B", open_timesheets: 0 }]);
+      assert.ok(elemente.liveList.innerHTML.includes(wort),
+        `der Leerzustand von "${status}" sagt nicht, worum es ging`);
+    }
+    ctx.setLiveFilter("alle", { silent: true });
+  });
+
+  it("der Leerzustand von 'endet bald' nennt das echte Zeitfenster des Servers", () => {
+    // Eine fest eingetippte 7 waere gelogen, sobald der Server das Fenster aendert.
+    ctx.setLiveFilter("endet_bald", { silent: true });
+    ctx.renderLiveList([]);
+    assert.ok(elemente.liveList.innerHTML.includes("7"), "Rueckfall, wenn kein Scope da ist");
+    ctx.setLiveFilter("alle", { silent: true });
+  });
+
+  it("die Reiterleiste ist mit der Tastatur bedienbar (WAI-ARIA)", () => {
+    ctx.setLiveFilter("alle", { silent: true });
+    ctx.renderLiveTabs({ total: 0, abwesend_nach_art: {} });
+    const out = elemente.liveTabs.innerHTML;
+    assert.strictEqual((out.match(/role="tab"/g) || []).length, ctx.LIVE_TAB_ORDER.length);
+    assert.strictEqual((out.match(/aria-selected="true"/g) || []).length, 1, "genau ein Reiter ist gewaehlt");
+    assert.strictEqual((out.match(/tabindex="0"/g) || []).length, 1, "roving tabindex: nur der gewaehlte ist erreichbar");
+    assert.ok(out.includes('aria-controls="liveList"'), "der Reiter benennt den Bereich, den er steuert");
+
+    let verhindert = false;
+    ctx.liveTabKey({ key: "ArrowRight", preventDefault: () => { verhindert = true; } });
+    assert.ok(verhindert, "die Pfeiltaste wird abgefangen, sonst scrollt die Seite");
+    assert.ok(elemente.liveTabs.innerHTML.includes('id="liveTab-abwesend" aria-selected="true"'),
+      "Pfeil rechts waehlt den naechsten Reiter");
+
+    ctx.liveTabKey({ key: "End", preventDefault: () => {} });
+    const letzter = ctx.LIVE_TAB_ORDER[ctx.LIVE_TAB_ORDER.length - 1];
+    assert.ok(elemente.liveTabs.innerHTML.includes('id="liveTab-' + letzter + '" aria-selected="true"'));
+    ctx.setLiveFilter("alle", { silent: true });
+  });
+
+  it("eine abgeschnittene Liste sagt es — sonst liest sich die Deckelung wie Vollstaendigkeit", () => {
+    ctx.renderLiveTruncated(true, { limit: 300 });
+    assert.ok(elemente.liveTruncated.textContent.includes("300"));
+    assert.strictEqual(elemente.liveTruncated.style.display, "");
+    ctx.renderLiveTruncated(false, { limit: 300 });
+    assert.strictEqual(elemente.liveTruncated.style.display, "none");
+  });
+
+  it("der Name ist der Deep-Link auf genau diesen Menschen", () => {
+    const out = render([{ id: "p9", user_id: "u9", first_name: "Ziel", last_name: "Person", live_status: "verfuegbar", open_timesheets: 0 }]);
+    assert.ok(out.includes("openWorkerDetail('p9')"), "auf die Personalakte, nicht auf die Uebersicht");
+    assert.ok(out.includes("Ziel Person"));
+  });
+
+  it("ein Mensch ohne Konto verliert seinen Namen nicht, nur den Verweis", () => {
+    // worker_profiles.user_id darf seit Mig 175 NULL sein. Ein Verweis ins Leere
+    // waere schlimmer als kein Verweis.
+    const out = render([{ id: "", first_name: "Ohne", last_name: "Konto", live_status: "verfuegbar", open_timesheets: 0 }]);
+    assert.ok(out.includes("Ohne Konto"));
+    assert.ok(!out.includes("openWorkerDetail("));
   });
 
   it("der Fehlerfall wird gezeigt, nicht geschluckt", () => {

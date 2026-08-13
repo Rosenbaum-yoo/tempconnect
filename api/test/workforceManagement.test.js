@@ -539,6 +539,34 @@ describe("workforceService — getWorkerLiveBoard", () => {
     assert.ok(/worker_time_submissions[\s\S]*supplier_org_id = \$1/.test(q.sql), 'timesheets org-gebunden');
   });
 
+  /* Welle E4: die Reiter zaehlen die GELADENEN Zeilen. Wird die Menge am Limit
+     abgeschnitten, zaehlen sie zu wenig — und eine stille Deckelung liest sich
+     wie Vollstaendigkeit. Deshalb sagt die Antwort es ausdruecklich. */
+  it("nennt die Obergrenze im Scope statt sie nur im SQL zu verstecken", async () => {
+    const pool = returnPool([]);
+    const res = await getWorkerLiveBoard(pool, 'agency-1');
+    assert.strictEqual(res.scope.limit, 300, 'Standardgrenze');
+    assert.strictEqual(res.truncated, false);
+
+    const eng = await getWorkerLiveBoard(returnPool([]), 'agency-1', { limit: 50 });
+    assert.strictEqual(eng.scope.limit, 50);
+  });
+
+  it("meldet truncated, wenn die Liste genau am Limit endet", async () => {
+    const zeilen = Array.from({ length: 2 }, (_, i) => ({ id: 'p' + i, live_status: 'verfuegbar', open_timesheets: 0 }));
+    const res = await getWorkerLiveBoard(returnPool(zeilen), 'agency-1', { limit: 2 });
+    assert.strictEqual(res.truncated, true,
+      'sonst behaupten die Reiter eine Gesamtzahl, die nur eine Teilmenge ist');
+
+    const weniger = await getWorkerLiveBoard(returnPool(zeilen), 'agency-1', { limit: 3 });
+    assert.strictEqual(weniger.truncated, false);
+  });
+
+  it("die Obergrenze bleibt gedeckelt — auch wenn jemand 99999 anfragt", async () => {
+    const res = await getWorkerLiveBoard(returnPool([]), 'agency-1', { limit: 99999 });
+    assert.strictEqual(res.scope.limit, 500);
+  });
+
   it("Suchfilter fügt ILIKE-Parameter hinzu", async () => {
     const captured = [];
     const pool = mockPool(async (sql, params) => { captured.push({ sql, params }); return { rows: [] }; });
