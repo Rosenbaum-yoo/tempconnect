@@ -26,6 +26,7 @@ import * as workforceSchedulePdf from "../services/workforceSchedulePdfService.j
 import * as complaintSvc from "../services/companyComplaintService.js";
 import * as absenceSvc from "../services/workerAbsenceService.js";
 import * as statusEventSvc from "../services/workerStatusEventService.js";
+import * as profileGovSvc from "../services/workerProfileGovernanceService.js";
 import * as blocklistSvc from "../services/companyBlocklistService.js";
 import { trackProductEventFromRequest } from "../services/productAnalyticsService.js";
 import { swallow } from "../utils/logger.js";
@@ -916,6 +917,51 @@ export function createWorkersRouter(deps) {
         { tage: parseInt(req.query.tage, 10) || undefined, limit: parseInt(req.query.limit, 10) || undefined }
       );
       if (result.error) return res.status(result.status || 400).json(result);
+      res.json(result);
+    } catch (err) { next(err); }
+  });
+
+  /* ── DSGVO fuer Menschen OHNE Konto (P10 Spur D / Welle D6) ──────────────────
+   * Der Einstieg ist ARBEITGEBERSEITIG: wer kein Konto hat, hat keinen Login und
+   * kann selbst nichts ausloesen — das Verlangen erreicht uns ueber die
+   * Zeitarbeitsfirma. Deshalb org-gebunden, rollengeschuetzt und (beim Loeschen)
+   * begruendungspflichtig.
+   * MUSS vor "/workers/:userId" stehen. */
+  router.get("/workers/dsgvo/export", ...base, requireScope("read:workers"), rperm("worker.manage"), async (req, res, next) => {
+    try {
+      const result = await profileGovSvc.exportWorkerProfileData(pool, req.orgId, req.query.worker_profile_id || null);
+      if (result.error) return res.status(result.status || 400).json(result);
+      /* Eine Auskunft ueber eine Person IST ein Vorgang — wer sie wann gezogen
+       * hat, gehoert ins Audit, sonst laesst sich eine Weitergabe spaeter nicht
+       * mehr nachvollziehen. */
+      res.locals.audit = {
+        action: "dsgvo.export_worker_profile", entity_type: "worker_profile",
+        entity_id: req.query.worker_profile_id,
+        details: { responsible_actor_user_id: req.session.userId, hat_konto: result.hat_konto }
+      };
+      res.json(result);
+    } catch (err) { next(err); }
+  });
+
+  router.post("/workers/dsgvo/anonymize", ...base, requireScope("write:workers"), rperm("worker.manage"), async (req, res, next) => {
+    try {
+      const profileId = String(req.body?.worker_profile_id || "").trim();
+      if (!uuidRx.test(profileId)) return res.status(400).json({ error: "VALIDATION", field: "worker_profile_id" });
+
+      const result = await profileGovSvc.anonymizeWorkerProfile(pool, req.orgId, profileId, {
+        actorId: req.session.userId, reason: req.body?.reason || ""
+      });
+      if (result.error) return res.status(result.status || 400).json(result);
+
+      res.locals.audit = {
+        action: "dsgvo.anonymize_worker_profile", entity_type: "worker_profile",
+        entity_id: profileId,
+        details: {
+          reason: String(req.body?.reason || "").trim(),
+          anonymized_tables: result.anonymisierte_tabellen,
+          responsible_actor_user_id: req.session.userId
+        }
+      };
       res.json(result);
     } catch (err) { next(err); }
   });

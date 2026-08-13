@@ -342,7 +342,7 @@ bulkImportWorkers), `billingMetricsService.js`, `routes/workers.js`, `mitarbeite
 
 ---
 
-#### Welle D6 — Auskunft und Löschung für Menschen ohne Konto *(geplant, offen)*
+#### Welle D6 — Auskunft und Löschung für Menschen ohne Konto ✅ *(erledigt 2026-08-13)*
 
 > **Warum eine eigene Welle und nicht ein Nachtrag zu D5.** Das ist ein
 > Lösch-/Compliance-Pfad. Für genau die gilt hier die Erkenntnis vom 2026-08-03: *„Fallback-Pfade
@@ -404,8 +404,68 @@ ist auditiert und begründungspflichtig; ein Fehler in der Anonymisierung führt
 Hartlöschung. Zusätzlich — weil dieser Bereich im Mutation-Plan Prio 7 trägt: **null überlebende
 Mutanten im Entscheidungs-Branch** der neuen Pfade.
 
-> **Owner-Entscheidung D-E3 offen:** Weg (a) zweiter Einstieg — Empfehlung — oder (b)
-> Vereinheitlichung der bestehenden Löschpfade?
+> **Owner-Entscheidung D-E3 ✅ getroffen am 2026-08-13: Weg (a)**, zweiter Einstieg.
+
+### D6 ist erledigt *(2026-08-13)* — und hat einen größeren Defekt freigelegt
+
+**Gate D6 erfüllt**, belegt gegen die echte Datenbank
+(`api/test/integration/dsgvoOhneKonto.flow.test.js`, 8/8).
+
+**D6.1 — die Kartierung, an der Datenbank gemessen.** `information_schema` kennt
+**17 Tabellen**, die einen Mitarbeiter adressieren:
+
+| Bindung | Tabellen |
+|---|---|
+| **am Profil** (`worker_profile_id`) | `worker_absences` · `worker_profile_skills` · `worker_status_events` · `worker_invites` · `capacity_posts` · `capacity_post_pool_members` |
+| **am Konto** (`worker_user_id`) | `worker_assignment_links` · `worker_time_submissions` · `worker_complaints` · `worker_profile_documents` · `company_worker_blocklist` · sechs `assignment_staffing_*` |
+
+Für ein Profil ohne Konto sind die Konto-Tabellen **strukturell leer**. Weglassen
+wäre trotzdem falsch: sobald derselbe Mensch eingeladen wird, hängt sein Profil
+an einem Konto (Mig 176). Die Auskunft liest deshalb beide Seiten — eine
+Funktion, beide Fälle, und `hat_konto` sagt ehrlich, welcher vorliegt.
+
+**D6.3 — gebaut nach Weg (a).** Neuer Dienst
+`api/services/workerProfileGovernanceService.js`, die geprüften Konto-Pfade
+blieben unberührt. Zwei Endpunkte, org-gebunden, rollengeschützt:
+`GET /api/workers/dsgvo/export` und `POST /api/workers/dsgvo/anonymize`
+(Begründung Pflicht, mindestens 10 Zeichen, Audit im selben Transaktionsblock).
+**Kein Fallback:** schlägt etwas fehl, rollt die Transaktion zurück und der
+Fehler steigt auf — niemals ein Hard-Delete als Ersatz. Anonymisiert wird, nicht
+gelöscht: der Abwesenheitszeitraum bleibt als Nachweis (HGB §257), die freie
+Notiz geht — dort steht erfahrungsgemäß Gesundheitliches.
+
+**D6.4 — Retention: keine Lücke.** `getRetentionStatus`/`executeRetentionCleanup`
+arbeiten org-gebunden über `worker_invites`, `notifications`, `session` und
+`idempotency_keys`. `worker_profiles` rühren sie für **niemanden** an — mit oder
+ohne Konto gleich. Ein Sonderweg wäre also kein Nachziehen, sondern ein neues
+Verhalten; nicht gebaut, hier festgehalten.
+
+#### Der Fund: die Konto-Anonymisierung war seit jeher wirkungslos
+
+Beim Bau des Audit-Eintrags fiel auf, dass `audit_log` kein `user_id` führt —
+`anonymizeUser` und `deleteWorkerData` schreiben aber genau dorthin. Die Probe an
+der laufenden Datenbank (ein Wegwerf-Konto, echter Aufruf) zeigte **sechs**
+Schema-Fehler in Folge, jeder für sich tödlich, weil alles in `withTransaction`
+läuft:
+
+| # | Statement | Wirklichkeit |
+|---|---|---|
+| 1 | `users SET is_active = FALSE` | Spalte existiert nicht |
+| 2 | `users SET password_hash = NULL` | Spalte ist `NOT NULL` |
+| 3 | `audit_log (user_id, …)` ×2 | heißt `actor_id` |
+| 4 | `company_contacts WHERE company_profile_id IN (…)` | hängt direkt an `user_id` |
+| 5 | `offers WHERE created_by` | heißt `supplier_company_id` |
+| 6 | `requests WHERE sender_id` | heißt `requester_id` |
+
+**Folge: Art. 17 DSGVO war nicht umgesetzt, sondern eine Absichtserklärung.** Jede
+Kontolöschung rollte vollständig zurück. Alle 111 Bestandstests der Governance
+blieben dabei grün — ihre Mock-Pools nehmen jede Abfrage an. Dieselbe Lektion wie
+bei P1-15: *ein Test, der das Ergebnis prüft statt welche Abfrage lief, beweist
+nichts.*
+
+Repariert; die Sperre entsteht jetzt sauberer als vorher gedacht: ohne gültigen
+Passwort-Hash (`'!anonymisiert'`, gegen den keine Prüfung je bestätigt) ist die
+Anmeldung dauerhaft zu, ohne das Schema weicher zu machen.
 
 ---
 

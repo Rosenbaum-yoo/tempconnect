@@ -182,7 +182,18 @@ export async function anonymizeUser(pool, userId, actorId) {
     const originalEmail = origUser?.email || "";
 
     // Kat A: Users
-    await client.query(`UPDATE users SET email = $2, password_hash = NULL, company_name = $3, phone = NULL, contact_person = $3, street = NULL, postal_code = NULL, city = NULL, vat_id = NULL, is_active = FALSE, updated_at = NOW() WHERE id = $1`, [userId, anonEmail, DELETED]);
+    /* `is_active` stand hier jahrelang — die Spalte gibt es in `users` NICHT
+    // (geprueft am 2026-08-13 an der laufenden Datenbank). Das Statement warf,
+    // und weil alles in withTransaction laeuft, rollte die GESAMTE
+    // Anonymisierung zurueck: Art. 17 DSGVO war nicht umgesetzt, sondern eine
+    // Absichtserklaerung. Die Sperre entsteht ohnehin sauberer: ohne
+    // password_hash ist keine Anmeldung mehr moeglich. */
+    /* password_hash ist NOT NULL — `= NULL` warf und rollte alles zurueck.
+    // Statt der Spalte ihre Pflicht zu nehmen (das beruehrte jeden Anmeldepfad),
+    // steht hier ein Wert, den keine Pruefung je bestaetigen kann: bcrypt
+    // vergleicht gegen einen ungueltigen Hash und liefert immer false. Die
+    // Anmeldung ist damit dauerhaft zu, ohne dass das Schema weicher wird. */
+    await client.query(`UPDATE users SET email = $2, password_hash = '!anonymisiert', company_name = $3, phone = NULL, contact_person = $3, street = NULL, postal_code = NULL, city = NULL, vat_id = NULL, updated_at = NOW() WHERE id = $1`, [userId, anonEmail, DELETED]);
     tables.push("users");
 
     // Kat A: Worker profiles
@@ -202,15 +213,19 @@ export async function anonymizeUser(pool, userId, actorId) {
     const { rows: cpRes } = await client.query(`UPDATE company_profiles SET contact_email = NULL, contact_phone = NULL, linkedin_url = NULL WHERE user_id = $1 RETURNING id`, [userId]);
     if (cpRes.length) {
       tables.push("company_profiles");
-      await client.query(`UPDATE company_contacts SET name = $2, email = NULL, phone = NULL WHERE company_profile_id IN (SELECT id FROM company_profiles WHERE user_id = $1)`, [userId, ANON]);
+      // company_contacts.company_profile_id gibt es nicht — die Tabelle haengt
+      // direkt an user_id (geprueft 2026-08-13).
+      await client.query(`UPDATE company_contacts SET name = $2, email = NULL, phone = NULL WHERE user_id = $1`, [userId, ANON]);
       tables.push("company_contacts");
     }
 
     // Kat B: Anonymisiere Personenreferenzen (FK bleibt, aber Name/Kontakt weg)
-    await client.query(`UPDATE offers SET contact_name = $2, contact_phone = NULL WHERE created_by = $1`, [userId, ANON]);
+    // `created_by` gibt es in `offers` nicht — der Urheber ist supplier_company_id.
+    await client.query(`UPDATE offers SET contact_name = $2, contact_phone = NULL WHERE supplier_company_id = $1`, [userId, ANON]);
     tables.push("offers");
 
-    await client.query(`UPDATE requests SET contact_email = NULL, contact_phone = NULL WHERE sender_id = $1`, [userId]);
+    // `sender_id` gibt es in `requests` nicht — der Absender ist requester_id.
+    await client.query(`UPDATE requests SET contact_email = NULL, contact_phone = NULL WHERE requester_id = $1`, [userId]);
     tables.push("requests");
 
     // Kat D: Sessions + Notifications löschen.
@@ -226,7 +241,7 @@ export async function anonymizeUser(pool, userId, actorId) {
 
     // Audit-Log Eintrag (Kat C — append-only, NICHT löschbar)
     await client.query(
-      `INSERT INTO audit_log (user_id, action, entity_type, entity_id, details, created_at)
+      `INSERT INTO audit_log (actor_id, action, entity_type, entity_id, details, created_at)
        VALUES ($1, 'dsgvo.anonymize', 'user', $2, $3, NOW())`,
       [actorId, userId, JSON.stringify({ anonymized_tables: tables })]
     );
@@ -259,7 +274,7 @@ export async function deleteWorkerData(pool, workerUserId, actorId) {
     tables.push("notifications");
 
     await client.query(
-      `INSERT INTO audit_log (user_id, action, entity_type, entity_id, details, created_at)
+      `INSERT INTO audit_log (actor_id, action, entity_type, entity_id, details, created_at)
        VALUES ($1, 'dsgvo.delete_worker', 'user', $2, $3, NOW())`,
       [actorId, workerUserId, JSON.stringify({ anonymized_tables: tables })]
     );

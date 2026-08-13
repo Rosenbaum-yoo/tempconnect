@@ -79,7 +79,7 @@ Lastabhängig. **Als eigene Aufgabe ausgelagert, nicht nebenbei anfassen.**
 
 | Abschnitt | Spur | Stand |
 |---|---|---|
-| 5 CSV-Import | D | **fertig** — D1–D5 ✅. Offen: **D6** (DSGVO für Mitarbeiter ohne Konto), geplant, braucht **D-E3** |
+| 5 CSV-Import | D | **fertig** — D1–D6 ✅. D6 (DSGVO ohne Konto) am 2026-08-13 nach Weg (a) gebaut; dabei kam heraus, dass die **Konto**-Anonymisierung seit jeher an sechs Schema-Fehlern scheiterte — repariert, siehe P10/D6. |
 | 6 Live-Belegschaft | E | **fertig** — E1 gemessen · E2 Abwesenheit (Mig 177) · E3 Montage (Mig 178) · E4 Reiter · E5 Zustandsprotokoll (Mig 179, Trigger). Gates E2/E3/E5 gegen die echte DB belegt, E4 am gerenderten Markup. Plan: features/E_LIVE_BELEGSCHAFT.md |
 | 7 Systemzeit | F | **fertig** — F1 kartiert (33 Fehler), F2 behoben, F3 Wächter mit Grundlinie 39. Landkarte: features/F1_SYSTEMZEIT_LANDKARTE.md |
 
@@ -108,7 +108,7 @@ onclick-Handler, fehlendes CSRF, Sackgassen-Links. Sie haben den Multi-Agenten-A
 
 > Diese Liste wird per Test gegen die Arbeitspläne abgeglichen.
 
-- **D-E3** — Weg für Welle D6 (DSGVO für Profile ohne Konto): zweiter Einstieg für
+- ~~**D-E3**~~ ✅ entschieden 2026-08-13: **Weg (a)**. Ursprünglich: Weg für Welle D6 (DSGVO für Profile ohne Konto): zweiter Einstieg für
   Profil-IDs **(a, empfohlen)** oder Vereinheitlichung der bestehenden Löschpfade (b).
   *Ein Löschpfad, der heute nachweislich richtig ist, wird nicht umgebaut, um zwei
   Zeilen zu sparen.*
