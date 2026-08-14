@@ -75,6 +75,7 @@ Lastabhängig. **Als eigene Aufgabe ausgelagert, nicht nebenbei anfassen.**
 | [TEAM_UND_ROLLEN.md](TEAM_UND_ROLLEN.md) | Wen dieser Code verlangt: Fachbereiche, Erfahrungsstufen, Minimalbesetzung, Reihenfolge der Einstellung — gemessen, nicht geschaetzt. |
 | [investoren/WIE_WIR_BAUEN.md](investoren/WIE_WIR_BAUEN.md) | Das Dokument zum Zeigen: Ingenieursstandard mit Belegen, inkl. eines Abschnitts „Was noch nicht steht“. **Intern**, bis der Owner ueber Veroeffentlichung entscheidet (DOK-E3). |
 | [qualitaet/mutation/2026-08-14-rbac/](qualitaet/mutation/2026-08-14-rbac/README.md) | Archivierter Mutations-Prüfbericht (voller Lauf, 91,33 %, 1292 Mutanten). Datiert abgelegt, damit der nächste Lauf ihn nicht überschreibt. |
+| [features/P12_MUTATION_AUFRAEUMEN.md](features/P12_MUTATION_AUFRAEUMEN.md) | Aufräum-Wellen M0–M6 für die 112 überlebenden Mutanten. **M0 zuerst** — ohne Kategorien wird aus Aufräumen ein Prozent-Treiben. |
 
 ---
 
@@ -112,6 +113,32 @@ kein Produktionscode angefasst, jeder Kill von Hand gegenkontrolliert.
 Zusätzlich: drei Frontend-Wächter (api/test/frontendVerdrahtung.test.js) — tote
 onclick-Handler, fehlendes CSRF, Sackgassen-Links. Sie haben den Multi-Agenten-Audit
 (docs/FRONTEND_REIFEGRAD_AUDIT.md, 85 Befunde) unabhängig reproduziert.
+
+---
+
+## Wo es weitergeht *(Stand 2026-08-14, Ende der Sitzung)*
+
+**Fertig heute:** P10 Spur D+E+F abgeschlossen (Mig 177–180) · SQL-Schema-Wächter ·
+Doku-Wächter (W2) · Plattform-Register · Team-/Rollenkarte · Investoren-Dokument ·
+Mutations-Bericht neu gemessen und archiviert · Redis auf der Go-Live-Liste.
+
+**Nächster Schritt — eines von beiden, nicht beides gleichzeitig:**
+
+| Spur | Erster Schritt | Warum zuerst |
+|---|---|---|
+| **P12** Mutation aufräumen | **M0** (Kategorien + CI-Job prüfen) | Das Entscheidungs-Gate ist offen; M1–M5 lassen sich ohne M0 nicht priorisieren |
+| **P11** Doku als System | **W3** Generator | W1+W2 stehen; der Generator schreibt die ableitbaren Teile fort |
+
+**Zwei Blocker, unabhängig von beiden Spuren** (aus TEAM_UND_ROLLEN.md, verifiziert):
+OCC-Abmelden wirkt nicht (`Topbar.tsx:18` ruft `/auth/logout`, unter
+`api/routes/occ/` gibt es keinen auth-Router) · `MFA_ENFORCE=true` sperrt den
+Eigentümer aus (kein `428`/`MFA_REQUIRED` im OCC-Frontend). Beide harmlos, solange
+eine Person arbeitet — gefährlich ab der zweiten.
+
+**Drei Lektionen, die diese Sitzung geprägt haben:**
+1. Ein Mock-Test beweist nie, dass SQL zum Schema passt — zwei echte Defekte kamen so durch.
+2. Eine Zusage gehört auf die tiefste Ebene, auf der sie noch gilt: DB-Bedingung > Guard > Wächter-Test.
+3. `… | tail` maskiert den Status der Testsuite. Nie mit Pipe messen.
 
 ---
 
