@@ -108,6 +108,39 @@ onclick-Handler, fehlendes CSRF, Sackgassen-Links. Sie haben den Multi-Agenten-A
 
 ---
 
+## Laufende Arbeit — Mutation-Lauf und Archivierung *(gestartet 2026-08-14)*
+
+Der Prüflauf für das Investoren-Dokument hat ergeben: **der Aggregat-Score von
+91,49 % ist nicht reproduzierbar.** Er steht nur in einer Commit-Nachricht
+(`8e105e8`); der Bericht wurde am 13.08. von einem kleinen Einzellauf
+überschrieben. Reproduzierbar war nur `utils/orgContext.js` (93,94 %).
+
+Der Owner hat einen Neulauf mit Archivierung angewiesen. Er läuft (~2 h,
+`npx stryker run stryker.rbac.conf.json`, ohne Pipe). Vorher entfernt: der
+Sandbox-Rest eines abgebrochenen Laufs und ein etwaiger Inkrementalstand —
+**`incremental: true` würde sonst gegen einen anderen Testumfang gaten.**
+
+**Wenn der Lauf fertig ist, sind das die Schritte:**
+
+1. `api/reports/mutation/rbac/mutation.json` + `index.html` nach
+   `docs/qualitaet/mutation/2026-08-14-rbac/` kopieren — **datiert**, damit der
+   nächste Lauf ihn nicht wieder überschreibt. Genau das ist beim letzten Mal
+   passiert.
+2. Die sechs Einzelscores aus dem Bericht ablesen und die Tabelle unter
+   *Mutation Testing* in dieser Datei korrigieren. **Achtung:** die dort
+   stehenden Werte mischen zwei Messkontexte — 95,04 / 87,82 stammen aus
+   Einzelläufen, im Aggregat waren es 95,87 / 89,10. Künftig nur noch **eine**
+   Quelle nennen: den archivierten Bericht.
+3. `docs/investoren/WIE_WIR_BAUEN.md`, Abschnitt *„Der Unterschied zwischen
+   getestet und geprüft"*: den Absatz **„Was hier nicht belegt ist"** durch die
+   nun belegte Zahl ersetzen — mit Verweis auf den archivierten Bericht und das
+   Laufdatum.
+4. Prüfen, ob `docs/TESTING.md:202` und die Angabe „dreißig Testlücken" auf die
+   zählbare Größe umgestellt werden sollten (belegbar sind **29** neue
+   Testfälle).
+
+---
+
 ## Offene Owner-Entscheidungen
 
 > Diese Liste wird per Test gegen die Arbeitspläne abgeglichen.
