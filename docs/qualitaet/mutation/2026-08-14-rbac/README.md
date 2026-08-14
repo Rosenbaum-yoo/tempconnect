@@ -7,7 +7,7 @@
 
 **Vollständiger Lauf**, kein inkrementeller: der Inkrementalstand wurde vorher
 entfernt, das Protokoll bestätigt es (*„No incremental result file found, a full
-mutation testing run will be performed"*). Dauer: 1 h 47 min.
+mutation testing run will be performed"*). Dauer: **1 h 49 min 38 s** (Protokoll 12:35:06 → 14:24:44; die Berichtsdatei traegt denselben Zeitstempel — unabhaengiger Beleg, dass der Lauf wirklich so lange lief).
 
 ---
 
@@ -91,6 +91,20 @@ Status von `tail`, nicht den des Laufs.
 - Sie sagt nichts über die Oberfläche, über Geld-Mathematik oder über
   Datenschutz-Pfade. Für diese Bereiche steht die Messung in
   [P11](../../../features/P11_DOKUMENTATION_ALS_SYSTEM.md) noch aus.
-- **112 überlebende Mutanten sind keine Fehler im Produktivcode.** Sie sind
-  Stellen ohne Test. Alle bisherigen Wellen haben null Produktionsfehler
+- **112 überlebende Mutanten sind keine Fehler im Produktivcode**, sondern
+  Stellen ohne Test. **Aber sie sind auch nicht alle harmlos** — die Aufteilung
+  nach Art ist entscheidend:
+
+  | Art | Anzahl | Bedeutung |
+  |---|---|---|
+  | `StringLiteral` | 45 | meist Texte/Meldungen — geringe Tragweite |
+  | `ConditionalExpression` | 20 | **Entscheidungszweig** — hier entscheidet sich Zugriff |
+  | `ArrayDeclaration` | 19 | Listen, oft Rollen-/Rechteaufzählungen |
+  | `LogicalOperator` | 8 | **Entscheidungslogik** (`&&` ↔ `\|\|`) |
+  | Rest | 20 | Optional Chaining, Objekte, Regex, Boolean |
+
+  **Rund 28 davon liegen in Entscheidungslogik.** Die Mutation-Direktive dieses
+  Projekts verlangt ausdrücklich *„null überlebende Mutanten im
+  Entscheidungs-Branch"* — dieses Gate ist damit **offen**, obwohl die
+  Prozentschwelle gehalten ist. Die Triage jedes einzelnen Falls steht aus. Alle bisherigen Wellen haben null Produktionsfehler
   ergeben — der Code war richtig, die Tests waren lückenhaft.
