@@ -22,6 +22,32 @@ Angaben in diesem Dokument.)
 
 ---
 
+### 0b. 🔴 Redis ist keine Kür — ohne ihn läuft nichts von allein *(2026-08-14)*
+
+**Der Zustand meldet sich nicht.** Ist Redis beim Start nicht erreichbar, schreibt
+`api/workers/index.js:34-37` die Zeile `Redis not configured — background workers
+disabled` ins Log und fährt fort. Die API antwortet normal, der Healthcheck ist
+grün, die Oberfläche wirkt vollständig — nur im Hintergrund passiert nichts mehr:
+keine Benachrichtigungs-E-Mail, keine Trefferberechnung, keine Einsatz-Einladung,
+und **kein Verfallslauf um 03:00**.
+
+Die letzte Folge ist die teuerste: der Marktplatz zeigt dann Personal an, das es
+nicht mehr gibt. Ein Unternehmen ruft wegen einer Kraft an, die längst weg ist.
+Das meldet niemand als Ausfall — das kommt als Unzuverlässigkeit an.
+
+- [ ] Vor dem Start: Redis erreichbar (`redis-cli ping` → `PONG`).
+- [ ] Nach dem Start: `docker logs tempconnect_api | grep -E "Background workers started|Redis not configured"` zeigt die **erste** Zeile.
+- [ ] Überwachung meldet einen Redis-Ausfall. Ohne Alarm bleibt der stille Zustand wochenlang unbemerkt.
+
+Vollständige Checkliste mit Wirkungstabelle: `docs/launch/C_HETZNER-DEPLOY-RUNBOOK.md` §10a.
+
+*Warum das hier steht:* Der Kommentar in `api/workers/index.js:18-23` hält fest,
+dass genau dieser Zustand schon einmal bestand — den Capacity-Worker gab es,
+eingeplant hat ihn nichts, der Verfall lief nie. Ein Fehler, der sich selbst
+verschweigt, gehört auf eine Liste.
+
+---
+
 ### 1. 🔴 Die CI — Ursache gefunden, eine Owner-Handlung offen
 
 **Was gemessen wurde:** von **62 Läufen in der gesamten Repo-Historie sind alle 62
