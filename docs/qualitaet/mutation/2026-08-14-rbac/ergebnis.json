@@ -1,0 +1,723 @@
+{
+ "erzeugt": "2026-08-14",
+ "werkzeug": "stryker 1.0",
+ "dateien": {
+  "middleware/orgContext.js": {
+   "getoetet": 159,
+   "ueberlebt": 24,
+   "timeout": 1,
+   "score": 86.96
+  },
+  "middleware/rbac.js": {
+   "getoetet": 137,
+   "ueberlebt": 19,
+   "timeout": 0,
+   "score": 87.82
+  },
+  "services/enterpriseSurfaceAccessService.js": {
+   "getoetet": 175,
+   "ueberlebt": 21,
+   "timeout": 0,
+   "score": 89.29
+  },
+  "services/rbacService.js": {
+   "getoetet": 580,
+   "ueberlebt": 25,
+   "timeout": 0,
+   "score": 95.87
+  },
+  "utils/orgBoundary.js": {
+   "getoetet": 97,
+   "ueberlebt": 21,
+   "timeout": 0,
+   "score": 82.2
+  },
+  "utils/orgContext.js": {
+   "getoetet": 31,
+   "ueberlebt": 2,
+   "timeout": 0,
+   "score": 93.94
+  }
+ },
+ "ueberlebende": [
+  {
+   "datei": "middleware/orgContext.js",
+   "zeile": 28,
+   "mutator": "Regex",
+   "ersetzt_durch": "/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i"
+  },
+  {
+   "datei": "middleware/orgContext.js",
+   "zeile": 28,
+   "mutator": "Regex",
+   "ersetzt_durch": "/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i"
+  },
+  {
+   "datei": "middleware/orgContext.js",
+   "zeile": 35,
+   "mutator": "LogicalOperator",
+   "ersetzt_durch": "!orgId && !locationId"
+  },
+  {
+   "datei": "middleware/orgContext.js",
+   "zeile": 35,
+   "mutator": "ConditionalExpression",
+   "ersetzt_durch": "false"
+  },
+  {
+   "datei": "middleware/orgContext.js",
+   "zeile": 54,
+   "mutator": "StringLiteral",
+   "ersetzt_durch": "\"\""
+  },
+  {
+   "datei": "middleware/orgContext.js",
+   "zeile": 59,
+   "mutator": "StringLiteral",
+   "ersetzt_durch": "\"\""
+  },
+  {
+   "datei": "middleware/orgContext.js",
+   "zeile": 63,
+   "mutator": "OptionalChaining",
+   "ersetzt_durch": "req.query.org_id"
+  },
+  {
+   "datei": "middleware/orgContext.js",
+   "zeile": 63,
+   "mutator": "OptionalChaining",
+   "ersetzt_durch": "req.body.org_id"
+  },
+  {
+   "datei": "middleware/orgContext.js",
+   "zeile": 74,
+   "mutator": "ConditionalExpression",
+   "ersetzt_durch": "true"
+  },
+  {
+   "datei": "middleware/orgContext.js",
+   "zeile": 80,
+   "mutator": "ConditionalExpression",
+   "ersetzt_durch": "true"
+  },
+  {
+   "datei": "middleware/orgContext.js",
+   "zeile": 82,
+   "mutator": "ConditionalExpression",
+   "ersetzt_durch": "true"
+  },
+  {
+   "datei": "middleware/orgContext.js",
+   "zeile": 82,
+   "mutator": "ConditionalExpression",
+   "ersetzt_durch": "true"
+  },
+  {
+   "datei": "middleware/orgContext.js",
+   "zeile": 140,
+   "mutator": "LogicalOperator",
+   "ersetzt_durch": "req.orgMembership && membership"
+  },
+  {
+   "datei": "middleware/orgContext.js",
+   "zeile": 154,
+   "mutator": "OptionalChaining",
+   "ersetzt_durch": "req.session._orgCache.defaultLocationId"
+  },
+  {
+   "datei": "middleware/orgContext.js",
+   "zeile": 163,
+   "mutator": "StringLiteral",
+   "ersetzt_durch": "\"\""
+  },
+  {
+   "datei": "middleware/orgContext.js",
+   "zeile": 172,
+   "mutator": "StringLiteral",
+   "ersetzt_durch": "\"\""
+  },
+  {
+   "datei": "middleware/orgContext.js",
+   "zeile": 187,
+   "mutator": "ConditionalExpression",
+   "ersetzt_durch": "true"
+  },
+  {
+   "datei": "middleware/orgContext.js",
+   "zeile": 187,
+   "mutator": "BlockStatement",
+   "ersetzt_durch": "{}"
+  },
+  {
+   "datei": "middleware/orgContext.js",
+   "zeile": 192,
+   "mutator": "ConditionalExpression",
+   "ersetzt_durch": "true"
+  },
+  {
+   "datei": "middleware/orgContext.js",
+   "zeile": 196,
+   "mutator": "BlockStatement",
+   "ersetzt_durch": "{}"
+  },
+  {
+   "datei": "middleware/orgContext.js",
+   "zeile": 204,
+   "mutator": "ConditionalExpression",
+   "ersetzt_durch": "true"
+  },
+  {
+   "datei": "middleware/orgContext.js",
+   "zeile": 204,
+   "mutator": "LogicalOperator",
+   "ersetzt_durch": "!req.locationId || membershipLocationId"
+  },
+  {
+   "datei": "middleware/orgContext.js",
+   "zeile": 206,
+   "mutator": "ConditionalExpression",
+   "ersetzt_durch": "true"
+  },
+  {
+   "datei": "middleware/orgContext.js",
+   "zeile": 227,
+   "mutator": "ConditionalExpression",
+   "ersetzt_durch": "true"
+  },
+  {
+   "datei": "middleware/rbac.js",
+   "zeile": 59,
+   "mutator": "StringLiteral",
+   "ersetzt_durch": "\"\""
+  },
+  {
+   "datei": "middleware/rbac.js",
+   "zeile": 70,
+   "mutator": "ObjectLiteral",
+   "ersetzt_durch": "{}"
+  },
+  {
+   "datei": "middleware/rbac.js",
+   "zeile": 71,
+   "mutator": "StringLiteral",
+   "ersetzt_durch": "\"\""
+  },
+  {
+   "datei": "middleware/rbac.js",
+   "zeile": 86,
+   "mutator": "ObjectLiteral",
+   "ersetzt_durch": "{}"
+  },
+  {
+   "datei": "middleware/rbac.js",
+   "zeile": 87,
+   "mutator": "StringLiteral",
+   "ersetzt_durch": "\"\""
+  },
+  {
+   "datei": "middleware/rbac.js",
+   "zeile": 92,
+   "mutator": "StringLiteral",
+   "ersetzt_durch": "\"\""
+  },
+  {
+   "datei": "middleware/rbac.js",
+   "zeile": 98,
+   "mutator": "ObjectLiteral",
+   "ersetzt_durch": "{}"
+  },
+  {
+   "datei": "middleware/rbac.js",
+   "zeile": 99,
+   "mutator": "StringLiteral",
+   "ersetzt_durch": "\"\""
+  },
+  {
+   "datei": "middleware/rbac.js",
+   "zeile": 104,
+   "mutator": "StringLiteral",
+   "ersetzt_durch": "\"\""
+  },
+  {
+   "datei": "middleware/rbac.js",
+   "zeile": 111,
+   "mutator": "OptionalChaining",
+   "ersetzt_durch": "membership.org_id"
+  },
+  {
+   "datei": "middleware/rbac.js",
+   "zeile": 150,
+   "mutator": "StringLiteral",
+   "ersetzt_durch": "\"\""
+  },
+  {
+   "datei": "middleware/rbac.js",
+   "zeile": 165,
+   "mutator": "ConditionalExpression",
+   "ersetzt_durch": "true"
+  },
+  {
+   "datei": "middleware/rbac.js",
+   "zeile": 165,
+   "mutator": "ObjectLiteral",
+   "ersetzt_durch": "{}"
+  },
+  {
+   "datei": "middleware/rbac.js",
+   "zeile": 165,
+   "mutator": "ConditionalExpression",
+   "ersetzt_durch": "false"
+  },
+  {
+   "datei": "middleware/rbac.js",
+   "zeile": 166,
+   "mutator": "StringLiteral",
+   "ersetzt_durch": "\"\""
+  },
+  {
+   "datei": "middleware/rbac.js",
+   "zeile": 165,
+   "mutator": "LogicalOperator",
+   "ersetzt_durch": "orgId && null"
+  },
+  {
+   "datei": "middleware/rbac.js",
+   "zeile": 177,
+   "mutator": "ObjectLiteral",
+   "ersetzt_durch": "{}"
+  },
+  {
+   "datei": "middleware/rbac.js",
+   "zeile": 178,
+   "mutator": "StringLiteral",
+   "ersetzt_durch": "\"\""
+  },
+  {
+   "datei": "middleware/rbac.js",
+   "zeile": 188,
+   "mutator": "LogicalOperator",
+   "ersetzt_durch": "membership.org_id && orgId"
+  },
+  {
+   "datei": "services/enterpriseSurfaceAccessService.js",
+   "zeile": 20,
+   "mutator": "StringLiteral",
+   "ersetzt_durch": "\"\""
+  },
+  {
+   "datei": "services/enterpriseSurfaceAccessService.js",
+   "zeile": 20,
+   "mutator": "StringLiteral",
+   "ersetzt_durch": "\"\""
+  },
+  {
+   "datei": "services/enterpriseSurfaceAccessService.js",
+   "zeile": 21,
+   "mutator": "StringLiteral",
+   "ersetzt_durch": "\"\""
+  },
+  {
+   "datei": "services/enterpriseSurfaceAccessService.js",
+   "zeile": 21,
+   "mutator": "StringLiteral",
+   "ersetzt_durch": "\"\""
+  },
+  {
+   "datei": "services/enterpriseSurfaceAccessService.js",
+   "zeile": 22,
+   "mutator": "StringLiteral",
+   "ersetzt_durch": "\"\""
+  },
+  {
+   "datei": "services/enterpriseSurfaceAccessService.js",
+   "zeile": 22,
+   "mutator": "StringLiteral",
+   "ersetzt_durch": "\"\""
+  },
+  {
+   "datei": "services/enterpriseSurfaceAccessService.js",
+   "zeile": 39,
+   "mutator": "ConditionalExpression",
+   "ersetzt_durch": "false"
+  },
+  {
+   "datei": "services/enterpriseSurfaceAccessService.js",
+   "zeile": 43,
+   "mutator": "ConditionalExpression",
+   "ersetzt_durch": "false"
+  },
+  {
+   "datei": "services/enterpriseSurfaceAccessService.js",
+   "zeile": 43,
+   "mutator": "StringLiteral",
+   "ersetzt_durch": "\"\""
+  },
+  {
+   "datei": "services/enterpriseSurfaceAccessService.js",
+   "zeile": 43,
+   "mutator": "StringLiteral",
+   "ersetzt_durch": "\"\""
+  },
+  {
+   "datei": "services/enterpriseSurfaceAccessService.js",
+   "zeile": 44,
+   "mutator": "MethodExpression",
+   "ersetzt_durch": "p.endsWith(\"INDIVIDUELL_\")"
+  },
+  {
+   "datei": "services/enterpriseSurfaceAccessService.js",
+   "zeile": 53,
+   "mutator": "StringLiteral",
+   "ersetzt_durch": "\"\""
+  },
+  {
+   "datei": "services/enterpriseSurfaceAccessService.js",
+   "zeile": 54,
+   "mutator": "StringLiteral",
+   "ersetzt_durch": "\"Stryker was here!\""
+  },
+  {
+   "datei": "services/enterpriseSurfaceAccessService.js",
+   "zeile": 54,
+   "mutator": "LogicalOperator",
+   "ersetzt_durch": "orgType && role"
+  },
+  {
+   "datei": "services/enterpriseSurfaceAccessService.js",
+   "zeile": 157,
+   "mutator": "LogicalOperator",
+   "ersetzt_durch": "coMode === \"full\" || isSenior"
+  },
+  {
+   "datei": "services/enterpriseSurfaceAccessService.js",
+   "zeile": 157,
+   "mutator": "ConditionalExpression",
+   "ersetzt_durch": "true"
+  },
+  {
+   "datei": "services/enterpriseSurfaceAccessService.js",
+   "zeile": 158,
+   "mutator": "ConditionalExpression",
+   "ersetzt_durch": "true"
+  },
+  {
+   "datei": "services/enterpriseSurfaceAccessService.js",
+   "zeile": 159,
+   "mutator": "ConditionalExpression",
+   "ersetzt_durch": "true"
+  },
+  {
+   "datei": "services/enterpriseSurfaceAccessService.js",
+   "zeile": 168,
+   "mutator": "StringLiteral",
+   "ersetzt_durch": "\"\""
+  },
+  {
+   "datei": "services/enterpriseSurfaceAccessService.js",
+   "zeile": 168,
+   "mutator": "ObjectLiteral",
+   "ersetzt_durch": "{}"
+  },
+  {
+   "datei": "services/enterpriseSurfaceAccessService.js",
+   "zeile": 169,
+   "mutator": "BooleanLiteral",
+   "ersetzt_durch": "false"
+  },
+  {
+   "datei": "services/rbacService.js",
+   "zeile": 12,
+   "mutator": "ArrayDeclaration",
+   "ersetzt_durch": "[]"
+  },
+  {
+   "datei": "services/rbacService.js",
+   "zeile": 13,
+   "mutator": "ArrayDeclaration",
+   "ersetzt_durch": "[]"
+  },
+  {
+   "datei": "services/rbacService.js",
+   "zeile": 15,
+   "mutator": "ArrayDeclaration",
+   "ersetzt_durch": "[]"
+  },
+  {
+   "datei": "services/rbacService.js",
+   "zeile": 14,
+   "mutator": "ArrayDeclaration",
+   "ersetzt_durch": "[]"
+  },
+  {
+   "datei": "services/rbacService.js",
+   "zeile": 16,
+   "mutator": "ArrayDeclaration",
+   "ersetzt_durch": "[]"
+  },
+  {
+   "datei": "services/rbacService.js",
+   "zeile": 17,
+   "mutator": "ArrayDeclaration",
+   "ersetzt_durch": "[]"
+  },
+  {
+   "datei": "services/rbacService.js",
+   "zeile": 18,
+   "mutator": "ArrayDeclaration",
+   "ersetzt_durch": "[]"
+  },
+  {
+   "datei": "services/rbacService.js",
+   "zeile": 171,
+   "mutator": "ArrayDeclaration",
+   "ersetzt_durch": "[]"
+  },
+  {
+   "datei": "services/rbacService.js",
+   "zeile": 182,
+   "mutator": "ArrayDeclaration",
+   "ersetzt_durch": "[]"
+  },
+  {
+   "datei": "services/rbacService.js",
+   "zeile": 195,
+   "mutator": "ArrayDeclaration",
+   "ersetzt_durch": "[]"
+  },
+  {
+   "datei": "services/rbacService.js",
+   "zeile": 235,
+   "mutator": "ArrayDeclaration",
+   "ersetzt_durch": "[]"
+  },
+  {
+   "datei": "services/rbacService.js",
+   "zeile": 239,
+   "mutator": "ArrayDeclaration",
+   "ersetzt_durch": "[]"
+  },
+  {
+   "datei": "services/rbacService.js",
+   "zeile": 244,
+   "mutator": "StringLiteral",
+   "ersetzt_durch": "\"\""
+  },
+  {
+   "datei": "services/rbacService.js",
+   "zeile": 277,
+   "mutator": "ArrayDeclaration",
+   "ersetzt_durch": "[]"
+  },
+  {
+   "datei": "services/rbacService.js",
+   "zeile": 300,
+   "mutator": "StringLiteral",
+   "ersetzt_durch": "\"\""
+  },
+  {
+   "datei": "services/rbacService.js",
+   "zeile": 303,
+   "mutator": "BooleanLiteral",
+   "ersetzt_durch": "false"
+  },
+  {
+   "datei": "services/rbacService.js",
+   "zeile": 328,
+   "mutator": "ObjectLiteral",
+   "ersetzt_durch": "{}"
+  },
+  {
+   "datei": "services/rbacService.js",
+   "zeile": 342,
+   "mutator": "ConditionalExpression",
+   "ersetzt_durch": "true"
+  },
+  {
+   "datei": "services/rbacService.js",
+   "zeile": 342,
+   "mutator": "StringLiteral",
+   "ersetzt_durch": "\"\""
+  },
+  {
+   "datei": "services/rbacService.js",
+   "zeile": 346,
+   "mutator": "StringLiteral",
+   "ersetzt_durch": "``"
+  },
+  {
+   "datei": "services/rbacService.js",
+   "zeile": 351,
+   "mutator": "ConditionalExpression",
+   "ersetzt_durch": "true"
+  },
+  {
+   "datei": "services/rbacService.js",
+   "zeile": 349,
+   "mutator": "ArrayDeclaration",
+   "ersetzt_durch": "[]"
+  },
+  {
+   "datei": "services/rbacService.js",
+   "zeile": 351,
+   "mutator": "ConditionalExpression",
+   "ersetzt_durch": "false"
+  },
+  {
+   "datei": "services/rbacService.js",
+   "zeile": 351,
+   "mutator": "LogicalOperator",
+   "ersetzt_durch": "rows[0] && null"
+  },
+  {
+   "datei": "services/rbacService.js",
+   "zeile": 401,
+   "mutator": "ArrayDeclaration",
+   "ersetzt_durch": "[]"
+  },
+  {
+   "datei": "utils/orgBoundary.js",
+   "zeile": 17,
+   "mutator": "StringLiteral",
+   "ersetzt_durch": "\"\""
+  },
+  {
+   "datei": "utils/orgBoundary.js",
+   "zeile": 40,
+   "mutator": "StringLiteral",
+   "ersetzt_durch": "\"\""
+  },
+  {
+   "datei": "utils/orgBoundary.js",
+   "zeile": 40,
+   "mutator": "StringLiteral",
+   "ersetzt_durch": "\"\""
+  },
+  {
+   "datei": "utils/orgBoundary.js",
+   "zeile": 41,
+   "mutator": "StringLiteral",
+   "ersetzt_durch": "\"\""
+  },
+  {
+   "datei": "utils/orgBoundary.js",
+   "zeile": 42,
+   "mutator": "StringLiteral",
+   "ersetzt_durch": "\"\""
+  },
+  {
+   "datei": "utils/orgBoundary.js",
+   "zeile": 42,
+   "mutator": "StringLiteral",
+   "ersetzt_durch": "\"\""
+  },
+  {
+   "datei": "utils/orgBoundary.js",
+   "zeile": 53,
+   "mutator": "ArrayDeclaration",
+   "ersetzt_durch": "[]"
+  },
+  {
+   "datei": "utils/orgBoundary.js",
+   "zeile": 56,
+   "mutator": "StringLiteral",
+   "ersetzt_durch": "\"\""
+  },
+  {
+   "datei": "utils/orgBoundary.js",
+   "zeile": 75,
+   "mutator": "StringLiteral",
+   "ersetzt_durch": "\"\""
+  },
+  {
+   "datei": "utils/orgBoundary.js",
+   "zeile": 76,
+   "mutator": "StringLiteral",
+   "ersetzt_durch": "\"\""
+  },
+  {
+   "datei": "utils/orgBoundary.js",
+   "zeile": 82,
+   "mutator": "ArrayDeclaration",
+   "ersetzt_durch": "[]"
+  },
+  {
+   "datei": "utils/orgBoundary.js",
+   "zeile": 85,
+   "mutator": "StringLiteral",
+   "ersetzt_durch": "\"\""
+  },
+  {
+   "datei": "utils/orgBoundary.js",
+   "zeile": 87,
+   "mutator": "StringLiteral",
+   "ersetzt_durch": "\"\""
+  },
+  {
+   "datei": "utils/orgBoundary.js",
+   "zeile": 91,
+   "mutator": "StringLiteral",
+   "ersetzt_durch": "\"\""
+  },
+  {
+   "datei": "utils/orgBoundary.js",
+   "zeile": 101,
+   "mutator": "StringLiteral",
+   "ersetzt_durch": "\"\""
+  },
+  {
+   "datei": "utils/orgBoundary.js",
+   "zeile": 112,
+   "mutator": "StringLiteral",
+   "ersetzt_durch": "``"
+  },
+  {
+   "datei": "utils/orgBoundary.js",
+   "zeile": 113,
+   "mutator": "ArrayDeclaration",
+   "ersetzt_durch": "[]"
+  },
+  {
+   "datei": "utils/orgBoundary.js",
+   "zeile": 116,
+   "mutator": "StringLiteral",
+   "ersetzt_durch": "\"\""
+  },
+  {
+   "datei": "utils/orgBoundary.js",
+   "zeile": 128,
+   "mutator": "ArrayDeclaration",
+   "ersetzt_durch": "[]"
+  },
+  {
+   "datei": "utils/orgBoundary.js",
+   "zeile": 127,
+   "mutator": "StringLiteral",
+   "ersetzt_durch": "``"
+  },
+  {
+   "datei": "utils/orgBoundary.js",
+   "zeile": 131,
+   "mutator": "StringLiteral",
+   "ersetzt_durch": "\"\""
+  },
+  {
+   "datei": "utils/orgContext.js",
+   "zeile": 90,
+   "mutator": "OptionalChaining",
+   "ersetzt_durch": "rows[0].current_org_id"
+  },
+  {
+   "datei": "utils/orgContext.js",
+   "zeile": 91,
+   "mutator": "OptionalChaining",
+   "ersetzt_durch": "rows[0].rls_bypass"
+  }
+ ],
+ "gesamt": {
+  "mutanten": 1292,
+  "getoetet": 1179,
+  "timeout": 1,
+  "ueberlebt": 112,
+  "score": 91.33
+ }
+}

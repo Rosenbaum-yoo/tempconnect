@@ -83,11 +83,12 @@ wie viele davon die Testsuite von allein fängt (*Mutation Testing*).
 - **Null Produktionsfehler gefunden** — der Code war richtig, die *Tests* waren
   lückenhaft
 
-**Was hier nicht belegt ist:** Ein früher gemessener Gesamtwert von 91,49 % steht
-nur in einer Commit-Nachricht; der Prüfbericht wurde später überschrieben.
-Reproduzierbar ist heute eine der sechs Dateien (`utils/orgContext.js`, 93,94 %).
-Vor einer externen Prüfung gehört der Lauf einmal wiederholt und der Bericht
-archiviert. Wir nennen die Zahl deshalb hier **nicht** als Beleg.
+**Der Beleg dazu, datiert und archiviert:** Der vollständige Lauf vom
+2026-08-14 ergab **91,33 %** über alle sechs Dateien — 1180 von 1292 eingebauten
+Fehlern wurden von der Testsuite bemerkt. Der Bericht liegt unter
+[`docs/qualitaet/mutation/2026-08-14-rbac/`](../qualitaet/mutation/2026-08-14-rbac/README.md),
+inklusive aller 112 Stellen, an denen noch ein Test fehlt. Nachrechenbar in rund
+zwei Stunden mit dem dort genannten Befehl.
 
 ---
 
@@ -161,7 +162,9 @@ Ohne diesen Abschnitt wäre der Rest weniger wert.
 - **Zeilenschutz in der Datenbank auf 9 Tabellen**, bei dreien erzwungen. Die
   übrigen rund 170 verlassen sich auf die Anwendungsschicht. Ob der Schutz in der
   Produktionsdatenbank wirklich greift, ist **nicht verifiziert**.
-- **Der Gesamtwert des Mutation Testings ist nicht reproduzierbar** (siehe oben).
+- **Die Messung deckt sechs Dateien ab**, nicht die Plattform: Zugriffskontrolle
+  und Mandantengrenze. Geld-Mathematik, Datenschutz-Pfade und Oberfläche sind
+  noch nicht mutationsgeprüft.
 
 ---
 

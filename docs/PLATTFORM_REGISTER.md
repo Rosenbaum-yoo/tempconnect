@@ -666,7 +666,7 @@ steht jeweils dabei.
 
 **A1 · `frontend/public/timesheet-templates.html` — löschen. Backend im selben Zug entscheiden.**
 Null eingehende Verweise im gesamten realen Baum (`frontend/`, `api/`, `nginx/`, `e2e/`;
-die Kopien unter `.claude/worktrees/` und `api/.stryker-tmp/` sind ausgenommen). Kein
+die Kopien unter `.claude/worktrees/` und das temporäre Stryker-Verzeichnis (nur während eines Laufs vorhanden) sind ausgenommen). Kein
 nginx-Eintrag, kein Test, keine Navigation. Die Seite funktioniert technisch, ist aber für
 keinen Nutzer erreichbar. Zusätzlich dokumentiert `docs/FRONTEND_REIFEGRAD_AUDIT.md:128` einen
 verifizierten Stored-XSS-Pfad genau dort (Ursache: `esc()` in
