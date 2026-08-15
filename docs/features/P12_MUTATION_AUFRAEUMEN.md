@@ -11,11 +11,13 @@
 > Ergebnis, acht Befunde und Wellenreihenfolge:
 > [qualitaet/mutation/2026-08-14-rbac/TRIAGE.md](../qualitaet/mutation/2026-08-14-rbac/TRIAGE.md).
 >
-> **M1 ist erledigt (2026-08-15).** `services/rbacService.js`: alle **19 A-Fälle
-> tot**, gemessen — Score **95,87 % → 99,17 %**, 5 Überlebende, und das sind exakt
-> die fünf Fälle, die M0 nicht als A eingestuft hatte. Produktionscode unverändert.
-> Nächster Schritt ist **M2 — `services/enterpriseSurfaceAccessService.js`**
-> (8 A-Fälle). Stand jederzeit: `cd api && node scripts/mutation-triage.js`.
+> **M1 und M2 sind erledigt (2026-08-15).** `rbacService.js`: 19/19 A-Fälle tot
+> (95,87 % → **99,17 %**). `enterpriseSurfaceAccessService.js`: 8/8 tot
+> (89,29 % → **93,88 %**). In beiden Wellen sind die Überlebenden **exakt** die
+> Fälle, die M0 nicht als A eingestuft hatte — die Einstufung sagt also auch
+> richtig voraus, was übrig bleibt. Produktionscode unverändert.
+> Nächster Schritt ist **M3 — `middleware/orgContext.js`** (6 A-Fälle).
+> Stand jederzeit: `cd api && node scripts/mutation-triage.js`.
 
 ---
 
@@ -136,7 +138,7 @@ Reihenfolge folgt den A-Fällen, und sie unterscheidet sich vom Score.
 | Welle | Datei | A-Fälle |
 |---|---|---|
 | ~~**M1**~~ ✅ *(2026-08-15)* | `services/rbacService.js` | 19 — **alle tot**, Score 95,87 % → **99,17 %** |
-| **M2** | `services/enterpriseSurfaceAccessService.js` | 8 |
+| ~~**M2**~~ ✅ *(2026-08-15)* | `services/enterpriseSurfaceAccessService.js` | 8 — **alle tot**, Score 89,29 % → **93,88 %** |
 | **M3** | `middleware/orgContext.js` | 6 |
 | **M4** | `utils/orgBoundary.js` | 5 |
 | **M5** | `middleware/rbac.js` | 1 |

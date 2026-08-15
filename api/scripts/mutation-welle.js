@@ -56,6 +56,11 @@ const wellenKonfig = {
   htmlReporter: { fileName: `${berichtDir}/index.html` },
   jsonReporter: { fileName: `${berichtDir}/mutation.json` },
   thresholds: { ...konfig.thresholds, break: null },
+  // Ohne diese Zeile kopiert Stryker die Berichte frueherer Laeufe in seine
+  // Sandbox — beim ersten Wellen-Lauf waren das 240 MB HTML/JSON, die es
+  // anschliessend auch noch zu parsen versucht (sichtbare Warnung im Protokoll).
+  // Reine Ausgabe-Artefakte, die kein Test liest.
+  ignorePatterns: [...(konfig.ignorePatterns || []), "reports/**", ".stryker-tmp/**", "uploads/**"],
 };
 delete wellenKonfig.incrementalFile;
 

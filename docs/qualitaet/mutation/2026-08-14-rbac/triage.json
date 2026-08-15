@@ -514,7 +514,12 @@
    "begruendung": "KEIN Text: ADMIN_ROLES ist die Rollenliste, die canVerify/canDelete/canManage/canExport entscheidet. Zwei der drei Eintraege sind unbewiesen — fuer sie ist nicht belegt, dass sie Admin-Rechte erhalten.",
    "kill_durch": "Je Eintrag (platform_admin, owner, admin) ein Aufruf, der genau diese Rolle setzt und isAdmin-abhaengige Flags prueft.",
    "spalte": 24,
-   "mutant_id": "341"
+   "mutant_id": "341",
+   "erledigt": {
+    "welle": "M2",
+    "test": "test/enterpriseSurfaceMutanten.test.js",
+    "am": "2026-08-15"
+   }
   },
   {
    "nr": 44,
@@ -527,7 +532,12 @@
    "begruendung": "Zweiter unbewiesener Eintrag derselben Rollenliste.",
    "kill_durch": "Siehe nr 43 — die drei Rollen einzeln, nicht stellvertretend.",
    "spalte": 51,
-   "mutant_id": "343"
+   "mutant_id": "343",
+   "erledigt": {
+    "welle": "M2",
+    "test": "test/enterpriseSurfaceMutanten.test.js",
+    "am": "2026-08-15"
+   }
   },
   {
    "nr": 45,
@@ -540,7 +550,12 @@
    "begruendung": "SENIOR_ROLES entscheidet ueber executive_dashboard (Umsatz-/Fuehrungszahlen) und canVerify. Zwei Eintraege unbewiesen.",
    "kill_durch": "Je Rolle aus SENIOR_ROLES: executive_dashboard.mode === 'full'.",
    "spalte": 24,
-   "mutant_id": "345"
+   "mutant_id": "345",
+   "erledigt": {
+    "welle": "M2",
+    "test": "test/enterpriseSurfaceMutanten.test.js",
+    "am": "2026-08-15"
+   }
   },
   {
    "nr": 46,
@@ -553,7 +568,12 @@
    "begruendung": "Zweiter unbewiesener Eintrag von SENIOR_ROLES.",
    "kill_durch": "Je Rolle einzeln pruefen, nicht stellvertretend: fuer jede der vier SENIOR_ROLES ein eigener Aufruf mit executive_dashboard.mode === 'full'.",
    "spalte": 51,
-   "mutant_id": "347"
+   "mutant_id": "347",
+   "erledigt": {
+    "welle": "M2",
+    "test": "test/enterpriseSurfaceMutanten.test.js",
+    "am": "2026-08-15"
+   }
   },
   {
    "nr": 47,
@@ -566,7 +586,12 @@
    "begruendung": "MANAGER_ROLES entscheidet ueber vendor_pool/supplier_scorecard (Schreiben, Einladen). Zwei Eintraege unbewiesen.",
    "kill_durch": "Je Rolle aus MANAGER_ROLES: vendor_pool.mode === 'full' und canInvite === true.",
    "spalte": 24,
-   "mutant_id": "350"
+   "mutant_id": "350",
+   "erledigt": {
+    "welle": "M2",
+    "test": "test/enterpriseSurfaceMutanten.test.js",
+    "am": "2026-08-15"
+   }
   },
   {
    "nr": 48,
@@ -579,7 +604,12 @@
    "begruendung": "Zweiter unbewiesener Eintrag von MANAGER_ROLES.",
    "kill_durch": "Je Rolle einzeln pruefen: fuer jede der fuenf MANAGER_ROLES ein eigener Aufruf mit vendor_pool.mode === 'full' und canInvite === true.",
    "spalte": 51,
-   "mutant_id": "352"
+   "mutant_id": "352",
+   "erledigt": {
+    "welle": "M2",
+    "test": "test/enterpriseSurfaceMutanten.test.js",
+    "am": "2026-08-15"
+   }
   },
   {
    "nr": 49,
@@ -636,7 +666,12 @@
    "begruendung": "startsWith -> endsWith: ein Tarif 'INDIVIDUELL_ENTERPRISE' zaehlt nicht mehr als PRO. Damit kippen spend_analytics, rate_cards und data_governance auf plan_locked — bezahlte Faehigkeiten verschwinden, und der umgekehrte Fehler (ein Tarif mit passendem Suffix wird faelschlich freigeschaltet) ist genauso unbemerkt.",
    "kill_durch": "isProPlus('INDIVIDUELL_ENTERPRISE') === true UND isProPlus('X_INDIVIDUELL_') === false.",
    "spalte": 35,
-   "mutant_id": "385"
+   "mutant_id": "385",
+   "erledigt": {
+    "welle": "M2",
+    "test": "test/enterpriseSurfaceMutanten.test.js",
+    "am": "2026-08-15"
+   }
   },
   {
    "nr": 54,
@@ -671,7 +706,12 @@
    "begruendung": "orgType || role -> &&: sind beide gesetzt, gewinnt das ALTE Feld role. Ein Unternehmen mit Alt-Rolle 'agency' bekaeme schlagartig die Agentur-Flaechen (sechs Flaechen org_locked) statt der eigenen — die Flaechenzuordnung kippt komplett.",
    "kill_durch": "resolveEnterpriseSurfaceAccess({orgType:'company', role:'agency'}) muss die Company-Flaechen liefern (vendor_pool != 'org_locked').",
    "spalte": 28,
-   "mutant_id": "393"
+   "mutant_id": "393",
+   "erledigt": {
+    "welle": "M2",
+    "test": "test/enterpriseSurfaceMutanten.test.js",
+    "am": "2026-08-15"
+   }
   },
   {
    "nr": 57,

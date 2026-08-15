@@ -36,7 +36,7 @@ gefährliche Richtung. Warum das so kam, steht unten unter
 | Welle | Datei | Score | überlebt | **A** | erledigt | offen | davon hoch | B | C |
 |---|---|---|---|---|---|---|---|---|---|
 | **M1** ✅ | `services/rbacService.js` | 95,87 % | 25 | **19** | 19 | 0 | 10 | 2 | 4 |
-| **M2** | `services/enterpriseSurfaceAccessService.js` | 89,29 % | 21 | **8** | 0 | 8 | 2 | 0 | 13 |
+| **M2** ✅ | `services/enterpriseSurfaceAccessService.js` | 89,29 % | 21 | **8** | 8 | 0 | 2 | 0 | 13 |
 | **M3** | `middleware/orgContext.js` | 86,96 % | 24 | **6** | 0 | 6 | 2 | 4 | 14 |
 | **M4** | `utils/orgBoundary.js` | 82,20 % | 21 | **5** | 0 | 5 | 5 | 9 | 7 |
 | **M5** | `middleware/rbac.js` | 87,82 % | 19 | **1** | 0 | 1 | 1 | 17 | 1 |
@@ -175,18 +175,25 @@ erreichbar ist.
 
 ---
 
-## M1 ist gemessen — und bestätigt die Einstufung Fall für Fall
+## Die gemessenen Wellen
 
-`node scripts/mutation-welle.js services/rbacService.js`, 54 min 44 s, 605 Mutanten:
+Je Welle ein Lauf über genau diese Datei
+(`node scripts/mutation-welle.js <datei>`), ausgewertet mit
+`node scripts/mutation-triage.js --welle <datei>`:
 
-| | vorher (2026-08-14) | nach M1 (2026-08-15) |
-|---|---|---|
-| Score | 95,87 % | **99,17 %** |
-| getötet | 580 | **600** |
-| überlebt | 25 | **5** |
+| Welle | Datei | Score vorher | **nachher** | überlebt vorher | **nachher** | A-Fälle tot |
+|---|---|---|---|---|---|---|
+| M1 | `rbacService.js` | 95,87 % | **99,17 %** | 25 | **5** | 19/19 |
+| M2 | `enterpriseSurfaceAccessService.js` | 89,29 % | **93,88 %** | 21 | **12** | 8/8 |
 
-**Die fünf Überlebenden sind exakt die fünf Fälle, die M0 nicht als A eingestuft
-hat** — kein einziger mehr, kein einziger weniger:
+In **beiden** Wellen gilt dasselbe: **die Überlebenden sind genau die Fälle, die
+M0 nicht als A eingestuft hat** — keiner mehr, keiner weniger. Die Einstufung
+sagt also nicht nur, was zu tun ist, sondern sagt auch richtig voraus, was nach
+getaner Arbeit übrig bleibt.
+
+### M1 im Detail — der Beleg für die Gegenprüfung
+
+`services/rbacService.js`, 54 min 44 s, 605 Mutanten. Die fünf Überlebenden:
 
 | Stelle | Kategorie | warum er überleben *musste* |
 |---|---|---|
@@ -206,8 +213,30 @@ die als A blieben (`program_manager`, `hiring_manager`, `recruiter`,
 ist mehr wert als eine, die nur plausibel klingt.
 
 **Gate M1 erfüllt:** 19 von 19 A-Fällen tot, Produktionscode unverändert, ein
-B/C-Fall nebenbei mit erschlagen. Nachrechnen:
-`node scripts/mutation-triage.js --welle services/rbacService.js`.
+B/C-Fall nebenbei mit erschlagen.
+
+### M2 im Detail — eine Rollenliste ist keine Textliste
+
+`services/enterpriseSurfaceAccessService.js`, 196 Mutanten. Sechs der acht
+A-Fälle waren Einträge in `ADMIN_ROLES`, `SENIOR_ROLES` und `MANAGER_ROLES` —
+und zwar in **allen drei Listen dieselben zwei**: `platform_admin` und `admin`.
+`owner` starb jedes Mal.
+
+Der Grund steht in der bestehenden Testdatei: Sie prüft die Flächenmatrix
+zeilenweise, aber je Rollenmenge nur mit **einem Vertreter**. Damit ist belegt,
+dass ein `owner` Admin-Rechte bekommt — für `platform_admin`, die Rolle mit den
+weitesten Rechten der Plattform, war es das nicht. Die neuen Tests hängen
+deshalb je Liste an einer Fähigkeit, die **nur** aus ihr folgt:
+`audit_trail.canExport` (ADMIN), `executive_dashboard.mode` (SENIOR),
+`vendor_pool.canInvite` (MANAGER) — sonst würde ein Test mehrere Mutanten
+gleichzeitig treffen oder keinen.
+
+Die beiden übrigen A-Fälle: das Tarif-Präfix `INDIVIDUELL_` wurde nie mit einem
+echten Sondertarif geprüft, und dass `orgType` das alte Feld `role` schlägt,
+stand nirgends — ein Unternehmen mit Alt-Rolle `agency` hätte schlagartig die
+Agentur-Flächen bekommen.
+
+**Gate M2 erfüllt:** 8 von 8 A-Fällen tot, Produktionscode unverändert.
 
 ---
 
@@ -220,7 +249,7 @@ Mutation tötet.
 | Welle | Datei | A | Schwerpunkt |
 |---|---|---|---|
 | ~~**M1**~~ ✅ | `rbacService.js` | 19 | erledigt am 2026-08-15, `test/rbacServiceMutanten.test.js` (20 Tests) |
-| **M2** | `enterpriseSurfaceAccessService.js` | 8 | 6× Rollenlisten einzeln (`platform_admin` und `admin` in allen drei Listen) · 1× Tarif-Alias `INDIVIDUELL_*` · 1× `orgType` schlägt `role` (sonst kippt ein Unternehmen auf die Agentur-Flächen) |
+| ~~**M2**~~ ✅ | `enterpriseSurfaceAccessService.js` | 8 | erledigt am 2026-08-15, `test/enterpriseSurfaceMutanten.test.js` (13 Tests) |
 | **M3** | `middleware/orgContext.js` | 6 | 2× UUID-Anker (`^` und `$`) · 1× Regel 7 (Rückfall auf die eigene Org) · 1× „nur der Header zählt als Absicht" · 2× Regel 6 (Standort-Cache beim Org-Wechsel) |
 | **M4** | `orgBoundary.js` | 5 | 2× SQL-Text mit `org_id`-Klausel (Standort, Abteilung) · 3× Abfrage-Parameter |
 | **M5** | `middleware/rbac.js` | 1 | `req.orgId` darf nach `requireRole` nie `null` werden — sonst schalten sich 45 Grenzprüfungen der Form `if (req.orgId && …)` selbst ab |
