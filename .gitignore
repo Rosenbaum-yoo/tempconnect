@@ -151,6 +151,14 @@ openai-1.pdf
 # nimmt sie mit, und genau das ist an diesem Tag passiert (Commit
 # zurueckgenommen, Historie umgeschrieben). Eine Regel, die nur in einer Doku
 # steht, ist keine Sperre. Diese Zeilen sind die Sperre.
-docs/launch/
+#
+# ACHTUNG, zwei Dateien in docs/launch/ sind ABSICHTLICH versioniert (eigene
+# Commits aus frueheren Sitzungen: G_DEMO-CLOUDFLARE-TUNNEL, H_ARCHITEKTUR-
+# ROADMAP). Deshalb `docs/launch/*` mit Ausnahmen statt `docs/launch/` — ein
+# ignoriertes VERZEICHNIS koennte git gar nicht erst betreten, und die Ausnahmen
+# griffen nicht.
+docs/launch/*
+!docs/launch/G_DEMO-CLOUDFLARE-TUNNEL.md
+!docs/launch/H_ARCHITEKTUR-ROADMAP.md
 docs/aktuellesitzung/
 TempConnect_UG-Gruendung*.pdf
