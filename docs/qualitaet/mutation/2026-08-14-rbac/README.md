@@ -110,8 +110,20 @@ Status von `tail`, nicht den des Laufs.
   ergeben — der Code war richtig, die Tests waren lückenhaft.
 
 > **Nachtrag 2026-08-15 — die Triage liegt vor: [TRIAGE.md](TRIAGE.md).**
-> Alle 112 Fälle sind einzeln eingestuft: **61 müssen einen Test bekommen**, 33
-> bewusst nicht, 18 lohnen nicht. Die Tabelle oben nach Art ist dabei in einem
-> Punkt irreführend: **11 der 45 „StringLiterals" sind kein Text**, sondern
-> Rollennamen, Tabellennamen der Mandantengrenze und SQL-Texte. Wer nach Art
-> aufräumt, hakt sie als harmlos ab.
+> Alle 112 Fälle sind einzeln eingestuft und unabhängig gegengelesen:
+> **39 müssen einen Test bekommen**, 32 bewusst nicht, 41 lohnen nicht (oder sind
+> gleichwertig und damit gar nicht tötbar).
+>
+> **Die Tabelle oben nach Art ist in zwei Punkten irreführend** — sie sortiert nach
+> Bauart, entscheidend ist aber die Wirkung:
+>
+> - **10 der 45 „StringLiterals" sind kein Text**, sondern Rollennamen, SQL-Texte
+>   mit der `org_id`-Klausel und ein Vergleichswert, an dem der
+>   Letzter-Owner-Schutz hängt. Wer nach Art aufräumt, hakt sie als harmlos ab.
+> - **`ArrayDeclaration` ist die gefährlichste Art, nicht `ConditionalExpression`:**
+>   15 von 19 sind Kategorie A, weil die überlebenden Arrays fast alle
+>   Abfrage-Parameter sind. Von den 20 `ConditionalExpression` sind es 7.
+>
+> Auch die Zahl **28** oben zählt nach Bauart: 4 davon sitzen in einer
+> Protokoll-Nutzlast und entscheiden nichts. Nach Wirkung sind es **14** A-Fälle
+> in Verzweigungen, die Verhalten steuern.
