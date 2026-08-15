@@ -110,10 +110,25 @@ export function pruefeTriage(ergebnis = lade(ERGEBNIS_PFAD), triage = lade(TRIAG
       verstoesse.push(`${ort}: keine Entsprechung im Bericht (nr ausserhalb 0..${ueberlebende.length - 1}).`);
       continue;
     }
-    if (roh.datei !== fall.datei || roh.zeile !== fall.zeile || roh.mutator !== fall.mutator) {
+    /*
+     * ZWEI ANKER, NICHT EINER.
+     *
+     * `zeile_bericht` verankert den Fall an der MESSUNG vom 2026-08-14 — die ist
+     * Geschichte und bewegt sich nie. `zeile` zeigt auf den HEUTIGEN Code und
+     * wandert, sobald jemand Zeilen einfuegt (nachgefuehrt von
+     * scripts/mutation-neuverankern.js).
+     *
+     * Bis zum 2026-08-15 war das dasselbe Feld. Das ging gut, solange am
+     * Produktionscode nichts geaendert wurde — und brach in dem Moment, in dem
+     * die drei Befunde M0-B6 bis M0-B8 Kommentare ergaenzten. Wer beide Rollen
+     * in ein Feld legt, muss sich zwischen einem falschen Archiv und einem
+     * blinden Gate entscheiden.
+     */
+    const berichtZeile = fall.zeile_bericht ?? fall.zeile;
+    if (roh.datei !== fall.datei || roh.zeile !== berichtZeile || roh.mutator !== fall.mutator) {
       verstoesse.push(
         `${ort}: Bericht sagt ${roh.datei}:${roh.zeile} (${roh.mutator}), ` +
-          `Einstufung sagt ${fall.datei}:${fall.zeile} (${fall.mutator}). ` +
+          `Einstufung sagt ${fall.datei}:${berichtZeile} (${fall.mutator}). ` +
           `Der Bericht hat sich verschoben — Einstufung neu zuordnen, nicht anpassen.`
       );
     }

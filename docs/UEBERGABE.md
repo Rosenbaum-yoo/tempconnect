@@ -4,7 +4,7 @@
 > sobald in einem Arbeitsplan eine offene Owner-Entscheidung auftaucht, die hier fehlt.
 > Eine Übergabe, die man vergessen kann, ist keine.
 
-**Stand: 2026-08-15** · Branch `release/enterprise-premium-market-ready`
+**Stand: 2026-08-16** · Branch `release/enterprise-premium-market-ready`
 
 ---
 
@@ -128,47 +128,53 @@ onclick-Handler, fehlendes CSRF, Sackgassen-Links. Sie haben den Multi-Agenten-A
 
 ---
 
-## Wo es weitergeht *(Stand 2026-08-15)*
+## Wo es weitergeht *(Stand 2026-08-16)*
 
-**Fertig am 2026-08-14:** P10 Spur D+E+F abgeschlossen (Mig 177–180) ·
-SQL-Schema-Wächter · Doku-Wächter (W2) · Plattform-Register · Team-/Rollenkarte ·
-Investoren-Dokument · Mutations-Bericht neu gemessen und archiviert · Redis auf der
-Go-Live-Liste.
+**P12 ist vollständig abgeschlossen** — M0 bis M6. Alle 39 zugriffsrelevanten
+Fälle sind mit Tests geschlossen, im Aggregat gemessen (**94,43 %**, 1219 von
+1292), und der Wächter läuft ab Montag 04:30 UTC wöchentlich. **Er wird rot, wenn
+ein A-Fall wieder überlebt — nicht, wenn eine Zahl sinkt.**
 
-**Fertig am 2026-08-15:** **P12/M0 + M1.**
-M0: alle 112 überlebenden Mutanten einzeln eingestuft und unabhängig gegengelesen
-(**39 A · 32 B · 41 C**; 23 Korrekturen, alle in dieselbe Richtung),
-Wellenreihenfolge begründet, **acht Befunde**.
-**M1–M5: alle 39 A-Fälle tot**, je Welle gemessen — `rbacService.js`
-95,87 % → **99,17 %** · `enterpriseSurfaceAccessService.js` 89,29 % → **93,88 %** ·
-`middleware/orgContext.js` 86,96 % → **90,22 %** · `orgBoundary.js`
-82,20 % → **88,14 %** · `middleware/rbac.js` 87,82 % → **88,46 %**.
-In **jeder** Welle sind die Überlebenden exakt die Nicht-A-Fälle — die Einstufung
-hat sich fünfmal in Folge vorhergesagt verhalten. Produktionscode unverändert.
-**Das Entscheidungs-Gate der Mutation-Direktive ist geschlossen.**
-Neu: `api/scripts/mutation-triage.js` (Register + Wellen-Gate),
-`api/scripts/mutation-welle.js` (misst eine Datei, ohne das Archiv zu
-überschreiben), `api/test/mutationTriage.test.js`,
-`api/test/rbacServiceMutanten.test.js`,
-[TRIAGE.md](qualitaet/mutation/2026-08-14-rbac/TRIAGE.md).
+**Der Push ist erfolgt** (Owner-Freigabe 2026-08-15): 66 Commits, `origin` ist auf
+Stand, `mutation.yml` liegt auf GitHub. Damit ist M0-B1 geschlossen — der Befund,
+der die ganze Spur ausgelöst hat.
 
-**Nächster Schritt — eines von beiden, nicht beides gleichzeitig:**
+**Nächster Schritt: G1** — die Datenschicht der Abwesenheits-Selbsterfassung
+(features/G_ABWESENHEIT_SELBSTERFASSUNG.md). Acht Owner-Entscheidungen liegen vor,
+die Wellen G1–G6 sind geschnitten. G1 macht eine Meldung des Mitarbeiters von
+einer des Disponenten unterscheidbar und legt den Schalter für die Antragspflicht
+an.
 
-| Spur | Erster Schritt | Warum zuerst |
-|---|---|---|
-| **P12** Mutation aufräumen | ✅ **M0–M6 durch** | 39/39 A-Fälle tot, Aggregat gemessen (**94,43 %**), CI-Job als Matrix gebaut und gepusht. Nächste Bereiche laut Direktive: Geld-Mathematik, DSGVO-Pfade, Auth/Session |
-| **P11** Doku als System | **W3** Generator | W1+W2 stehen; der Generator schreibt die ableitbaren Teile fort |
+### Was am 2026-08-15/16 entstanden ist
 
-**Zwei Blocker, unabhängig von beiden Spuren** (aus TEAM_UND_ROLLEN.md, verifiziert):
-OCC-Abmelden wirkt nicht (`Topbar.tsx:18` ruft `/auth/logout`, unter
-`api/routes/occ/` gibt es keinen auth-Router) · `MFA_ENFORCE=true` sperrt den
-Eigentümer aus (kein `428`/`MFA_REQUIRED` im OCC-Frontend). Beide harmlos, solange
-eine Person arbeitet — gefährlich ab der zweiten.
+| | |
+|---|---|
+| **P12/M0–M6** | 112 Mutanten eingestuft (39 A · 32 B · 41 C), gegengelesen, in fünf Wellen geschlossen, Aggregat gemessen, CI-Job als Matrix neu zugeschnitten |
+| **Drei Produktionscode-Befunde** | M0-B7 war ein echter Defekt (Tabellenliste als Abschrift, 17 statt 22 — fünf Tabellen liefen nie durch die Mandantengrenze); M0-B6 und M0-B8 bleiben mit begründetem Kommentar stehen |
+| **Schema-Wächter repariert** | Der Fingerabdruck hing an den Zeilenenden und konnte nur in einer Welt grün sein. Jetzt vereinheitlicht, in Host **und** Container gegengeprüft |
+| **Neues Werkzeug** | `mutation-welle.js` (misst eine Datei, ohne das Archiv zu überschreiben) · `mutation-archivieren.js` (datierter Auszug, überschreibt nie) · `mutation-neuverankern.js` (führt die Triage nach, wenn Code sich verschiebt) |
+| **Werkzeugkasten** | projektübergreifend unter `Desktop/_QUALITAETS-WERKZEUGKASTEN/` — Wächter und Mutation Testing für alle zwölf Projekte |
 
-**Drei Lektionen, die diese Sitzung geprägt haben:**
-1. Ein Mock-Test beweist nie, dass SQL zum Schema passt — zwei echte Defekte kamen so durch.
-2. Eine Zusage gehört auf die tiefste Ebene, auf der sie noch gilt: DB-Bedingung > Guard > Wächter-Test.
-3. `… | tail` maskiert den Status der Testsuite. Nie mit Pipe messen.
+### Zwei Dinge, die eine neue Sitzung wissen muss
+
+**Das Repo ist öffentlich.** Am 2026-08-15 sind zwölf Geschäftsunterlagen
+versehentlich gepusht worden — nicht durch `git add -A` (die Regel dagegen war
+bekannt), sondern durch **`git add docs/`**. Ein Pfad-Präfix genügt. Inhalt war
+durchweg Platzhalter, die Historie wurde umgeschrieben, `.gitignore` sperrt die
+Pfade jetzt. **Immer einzelne Dateipfade stagen, nie ein Verzeichnis.**
+
+**Wer Produktionscode anfasst, muss die Triage nachführen.** `triage.json` trägt
+zwei Anker: `zeile_bericht` verankert an der Messung vom 14.08. und bewegt sich
+nie, `zeile` zeigt auf den heutigen Code. Nach jeder Codeänderung in den sechs
+gemessenen Dateien:
+
+```bash
+cd api && node scripts/mutation-neuverankern.js --von HEAD~1 --bis HEAD
+cd api && node scripts/mutation-welle.js <datei> && node scripts/mutation-triage.js --welle <datei>
+```
+
+Ohne das meldet der Montags-Lauf „Überlebende, die die Einstufung nicht kennt" —
+ein Fehlalarm, und ein falsch-roter Wächter wird abgeschaltet statt repariert.
 
 ---
 

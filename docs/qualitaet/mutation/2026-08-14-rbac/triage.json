@@ -13,13 +13,16 @@
   "risiko": "nur bei A: hoch = verschiebt Zugriff/Mandantengrenze direkt, mittel = verschiebt Rechte oder Eingangspruefung",
   "kill_durch": "nur bei A: der Test, der genau diese Mutation toetet",
   "spalte": "Startspalte aus dem Rohbericht (mutation.json) — macht den Fall eindeutig, wenn mehrere Mutanten dieselbe Zeile teilen",
-  "mutant_id": "id des Mutanten im Rohbericht — erlaubt den Rueckbezug, solange der Rohbericht vorliegt"
+  "mutant_id": "id des Mutanten im Rohbericht — erlaubt den Rueckbezug, solange der Rohbericht vorliegt",
+  "zeile_bericht": "Zeile im ARCHIVIERTEN Bericht vom 2026-08-14 — unveraenderlich, sie verankert den Fall an der Messung",
+  "spalte_bericht": "Spalte im archivierten Bericht (siehe zeile_bericht)",
+  "zeile": "Zeile im HEUTIGEN Code — bewegt sich, wenn jemand Zeilen einfuegt; nachgefuehrt von scripts/mutation-neuverankern.js"
  },
  "faelle": [
   {
    "nr": 0,
    "datei": "middleware/orgContext.js",
-   "zeile": 28,
+   "zeile": 37,
    "mutator": "Regex",
    "kategorie": "A",
    "entscheidungszweig": true,
@@ -32,12 +35,14 @@
     "welle": "M3",
     "test": "test/orgContextMutanten.test.js",
     "am": "2026-08-15"
-   }
+   },
+   "zeile_bericht": 28,
+   "spalte_bericht": 17
   },
   {
    "nr": 1,
    "datei": "middleware/orgContext.js",
-   "zeile": 28,
+   "zeile": 37,
    "mutator": "Regex",
    "kategorie": "A",
    "entscheidungszweig": true,
@@ -50,78 +55,92 @@
     "welle": "M3",
     "test": "test/orgContextMutanten.test.js",
     "am": "2026-08-15"
-   }
+   },
+   "zeile_bericht": 28,
+   "spalte_bericht": 17
   },
   {
    "nr": 2,
    "datei": "middleware/orgContext.js",
-   "zeile": 35,
+   "zeile": 44,
    "mutator": "LogicalOperator",
    "kategorie": "C",
    "entscheidungszweig": true,
    "begruendung": "Gegengeprueft 2026-08-15 (unabhaengige Zweitpruefung, am Code nachvollzogen): resolveLocation hat genau drei Aufrufer (167, 191, 205), alle hinter dem Frueh-Ausstieg in 146-149 — orgId ist dort immer gesetzt. Bleibt der Fall einer Sitzung mit _locationCache ohne locationId: dann liefe die Abfrage mit id=undefined, was die Datenbank als NULL sieht — null Treffer, also dasselbe Ergebnis wie der Waechter. Gleichwertig gegen eine echte Datenbank.",
    "spalte": 7,
-   "mutant_id": "15"
+   "mutant_id": "15",
+   "zeile_bericht": 35,
+   "spalte_bericht": 7
   },
   {
    "nr": 3,
    "datei": "middleware/orgContext.js",
-   "zeile": 35,
+   "zeile": 44,
    "mutator": "ConditionalExpression",
    "kategorie": "C",
    "entscheidungszweig": true,
    "begruendung": "Gegengeprueft 2026-08-15 (unabhaengige Zweitpruefung, am Code nachvollzogen): gleiche Stelle, Waechter ganz entfernt. Dieselbe Aequivalenz wie nr 2: alle drei Aufrufer liegen hinter dem Frueh-Ausstieg, und ein fehlender Standortwert fuehrt in der Abfrage zu null Treffern statt zu einem falschen Treffer.",
    "spalte": 7,
-   "mutant_id": "14"
+   "mutant_id": "14",
+   "zeile_bericht": 35,
+   "spalte_bericht": 7
   },
   {
    "nr": 4,
    "datei": "middleware/orgContext.js",
-   "zeile": 54,
+   "zeile": 63,
    "mutator": "StringLiteral",
    "kategorie": "B",
    "entscheidungszweig": false,
    "begruendung": "Anzeigetext der 400-Antwort. Der Fehlercode INVALID_ORG_ID ist getestet und traegt die Aussage.",
    "spalte": 71,
-   "mutant_id": "44"
+   "mutant_id": "44",
+   "zeile_bericht": 54,
+   "spalte_bericht": 71
   },
   {
    "nr": 5,
    "datei": "middleware/orgContext.js",
-   "zeile": 59,
+   "zeile": 68,
    "mutator": "StringLiteral",
    "kategorie": "B",
    "entscheidungszweig": false,
    "begruendung": "Anzeigetext der 400-Antwort. Code INVALID_LOCATION_ID ist getestet.",
    "spalte": 76,
-   "mutant_id": "52"
+   "mutant_id": "52",
+   "zeile_bericht": 59,
+   "spalte_bericht": 76
   },
   {
    "nr": 6,
    "datei": "middleware/orgContext.js",
-   "zeile": 63,
+   "zeile": 72,
    "mutator": "OptionalChaining",
    "kategorie": "C",
    "entscheidungszweig": true,
    "begruendung": "Ohne ?. bricht die Middleware ab, wenn req.query fehlt — Verfuegbarkeit, kein Zugriffsgewinn. Express setzt req.query immer; erreichbar nur im Unit-Aufruf. Billig mitzunehmen.",
    "spalte": 23,
-   "mutant_id": "58"
+   "mutant_id": "58",
+   "zeile_bericht": 63,
+   "spalte_bericht": 23
   },
   {
    "nr": 7,
    "datei": "middleware/orgContext.js",
-   "zeile": 63,
+   "zeile": 72,
    "mutator": "OptionalChaining",
    "kategorie": "C",
    "entscheidungszweig": true,
    "begruendung": "Gleiches fuer req.body (bei GET ohne Body-Parser haeufiger undefined). Bricht ab statt zu oeffnen — fail-closed. Billig mitzunehmen.",
    "spalte": 44,
-   "mutant_id": "59"
+   "mutant_id": "59",
+   "zeile_bericht": 63,
+   "spalte_bericht": 44
   },
   {
    "nr": 8,
    "datei": "middleware/orgContext.js",
-   "zeile": 74,
+   "zeile": 83,
    "mutator": "ConditionalExpression",
    "kategorie": "A",
    "entscheidungszweig": true,
@@ -134,12 +153,14 @@
     "welle": "M3",
     "test": "test/orgContextMutanten.test.js",
     "am": "2026-08-15"
-   }
+   },
+   "zeile_bericht": 74,
+   "spalte_bericht": 13
   },
   {
    "nr": 9,
    "datei": "middleware/orgContext.js",
-   "zeile": 80,
+   "zeile": 89,
    "mutator": "ConditionalExpression",
    "kategorie": "A",
    "entscheidungszweig": true,
@@ -152,12 +173,14 @@
     "welle": "M3",
     "test": "test/orgContextMutanten.test.js",
     "am": "2026-08-15"
-   }
+   },
+   "zeile_bericht": 80,
+   "spalte_bericht": 15
   },
   {
    "nr": 10,
    "datei": "middleware/orgContext.js",
-   "zeile": 82,
+   "zeile": 91,
    "mutator": "ConditionalExpression",
    "kategorie": "A",
    "entscheidungszweig": true,
@@ -170,12 +193,14 @@
     "welle": "M3",
     "test": "test/orgContextMutanten.test.js",
     "am": "2026-08-15"
-   }
+   },
+   "zeile_bericht": 82,
+   "spalte_bericht": 17
   },
   {
    "nr": 11,
    "datei": "middleware/orgContext.js",
-   "zeile": 82,
+   "zeile": 91,
    "mutator": "ConditionalExpression",
    "kategorie": "A",
    "entscheidungszweig": true,
@@ -188,139 +213,165 @@
     "welle": "M3",
     "test": "test/orgContextMutanten.test.js",
     "am": "2026-08-15"
-   }
+   },
+   "zeile_bericht": 82,
+   "spalte_bericht": 49
   },
   {
    "nr": 12,
    "datei": "middleware/orgContext.js",
-   "zeile": 140,
+   "zeile": 149,
    "mutator": "LogicalOperator",
    "kategorie": "C",
    "entscheidungszweig": true,
    "begruendung": "Gegengeprueft 2026-08-15 (unabhaengige Zweitpruefung, am Code nachvollzogen): req.orgMembership wird nur in Zeile 78 und 128 gesetzt — beide Male aus derselben Variablen membership, die Zeile 140 liest. Die beiden koennen nicht auseinanderfallen, also liefern 'a || b' und 'a && b' denselben Wert.",
    "spalte": 32,
-   "mutant_id": "105"
+   "mutant_id": "105",
+   "zeile_bericht": 140,
+   "spalte_bericht": 32
   },
   {
    "nr": 13,
    "datei": "middleware/orgContext.js",
-   "zeile": 154,
+   "zeile": 163,
    "mutator": "OptionalChaining",
    "kategorie": "C",
    "entscheidungszweig": true,
    "begruendung": "Ohne ?. bricht die Aufloesung ab, wenn kein _orgCache existiert. Nur erreichbar, wenn die Membership KEINE Standortbindung hat — dann ist org-weit ohnehin richtig. Kein Zugriffsgewinn.",
    "spalte": 9,
-   "mutant_id": "120"
+   "mutant_id": "120",
+   "zeile_bericht": 154,
+   "spalte_bericht": 9
   },
   {
    "nr": 14,
-   "datei": "middleware/orgContext.js",
-   "zeile": 163,
-   "mutator": "StringLiteral",
-   "kategorie": "B",
-   "entscheidungszweig": false,
-   "begruendung": "Anzeigetext der 403. Code LOCATION_ACCESS_DENIED traegt die Aussage und ist getestet.",
-   "spalte": 22,
-   "mutant_id": "134"
-  },
-  {
-   "nr": 15,
    "datei": "middleware/orgContext.js",
    "zeile": 172,
    "mutator": "StringLiteral",
    "kategorie": "B",
    "entscheidungszweig": false,
+   "begruendung": "Anzeigetext der 403. Code LOCATION_ACCESS_DENIED traegt die Aussage und ist getestet.",
+   "spalte": 22,
+   "mutant_id": "134",
+   "zeile_bericht": 163,
+   "spalte_bericht": 22
+  },
+  {
+   "nr": 15,
+   "datei": "middleware/orgContext.js",
+   "zeile": 181,
+   "mutator": "StringLiteral",
+   "kategorie": "B",
+   "entscheidungszweig": false,
    "begruendung": "Anzeigetext der 403. Code LOCATION_NOT_IN_ORG ist getestet.",
    "spalte": 22,
-   "mutant_id": "141"
+   "mutant_id": "141",
+   "zeile_bericht": 172,
+   "spalte_bericht": 22
   },
   {
    "nr": 16,
    "datei": "middleware/orgContext.js",
-   "zeile": 187,
+   "zeile": 196,
    "mutator": "ConditionalExpression",
    "kategorie": "C",
    "entscheidungszweig": true,
    "begruendung": "Gegengeprueft 2026-08-15 (unabhaengige Zweitpruefung, am Code nachvollzogen): spaltengenau aufgeloest: der ueberlebende Mutant ersetzt nur den rechten Vergleich (Spalte 24-66), nicht die ganze Bedingung — die Variante ueber die ganze Bedingung wurde getoetet. Wirkung: bei gebundener Membership wird der Standort-Cache immer verworfen. Direkt danach loest Zeile 204 den gebundenen Standort auf. Gleiches Ergebnis.",
    "spalte": 24,
-   "mutant_id": "151"
+   "mutant_id": "151",
+   "zeile_bericht": 187,
+   "spalte_bericht": 24
   },
   {
    "nr": 17,
    "datei": "middleware/orgContext.js",
-   "zeile": 187,
+   "zeile": 196,
    "mutator": "BlockStatement",
    "kategorie": "C",
    "entscheidungszweig": true,
    "begruendung": "Gegengeprueft 2026-08-15 (unabhaengige Zweitpruefung, am Code nachvollzogen): faellt das Verwerfen aus, wird der veraltete Cache trotzdem nicht benutzt — der else-Zweig laeuft in diesem Fall nicht. Zeile 204 loest anschliessend den gebundenen Standort auf. Zurueck bleibt ein toter Cache-Eintrag, den niemand mehr liest.",
    "spalte": 68,
-   "mutant_id": "153"
+   "mutant_id": "153",
+   "zeile_bericht": 187,
+   "spalte_bericht": 68
   },
   {
    "nr": 18,
    "datei": "middleware/orgContext.js",
-   "zeile": 192,
+   "zeile": 201,
    "mutator": "ConditionalExpression",
    "kategorie": "C",
    "entscheidungszweig": true,
    "begruendung": "Fuehrt bei nicht mehr existierendem Cache-Standort in einen Abbruch statt in den Cache-Reset. Ergebnis in beiden Faellen: kein Standort, org-weite Sicht. Kein Zugriffsgewinn, nur ein nicht aufgeraeumter Cache.",
    "spalte": 15,
-   "mutant_id": "155"
+   "mutant_id": "155",
+   "zeile_bericht": 192,
+   "spalte_bericht": 15
   },
   {
    "nr": 19,
    "datei": "middleware/orgContext.js",
-   "zeile": 196,
+   "zeile": 205,
    "mutator": "BlockStatement",
    "kategorie": "C",
    "entscheidungszweig": false,
    "begruendung": "Der Reset des toten Cache-Eintrags entfaellt. Die naechste Anfrage laeuft in dieselbe Aufloesung und scheitert wieder — Wiederholung ohne Rechteverschiebung.",
    "spalte": 18,
-   "mutant_id": "160"
+   "mutant_id": "160",
+   "zeile_bericht": 196,
+   "spalte_bericht": 18
   },
   {
    "nr": 20,
    "datei": "middleware/orgContext.js",
-   "zeile": 204,
+   "zeile": 213,
    "mutator": "ConditionalExpression",
    "kategorie": "C",
    "entscheidungszweig": true,
    "begruendung": "Praktisch aequivalent: ist membershipLocationId null, gibt resolveLocation ohnehin null zurueck; ist sie gesetzt, ist die Membership gebunden und der Header musste bereits gleich sein (Regel 4).",
    "spalte": 11,
-   "mutant_id": "161"
+   "mutant_id": "161",
+   "zeile_bericht": 204,
+   "spalte_bericht": 11
   },
   {
    "nr": 21,
    "datei": "middleware/orgContext.js",
-   "zeile": 204,
+   "zeile": 213,
    "mutator": "LogicalOperator",
    "kategorie": "C",
    "entscheidungszweig": true,
    "begruendung": "Gleiche Zeile, gleiche Aequivalenz: der zusaetzlich erreichte Pfad endet in resolveLocation(..., null) und damit in null.",
    "spalte": 11,
-   "mutant_id": "163"
+   "mutant_id": "163",
+   "zeile_bericht": 204,
+   "spalte_bericht": 11
   },
   {
    "nr": 22,
    "datei": "middleware/orgContext.js",
-   "zeile": 206,
+   "zeile": 215,
    "mutator": "ConditionalExpression",
    "kategorie": "C",
    "entscheidungszweig": true,
    "begruendung": "Aendert nur, ob req.locationScope am Ende 'org' oder undefined ist. Gemessen: locationScope wird ausserhalb dieser Datei und ihres Tests NIRGENDS gelesen (Befund M0-B3) — kein Verbraucher, keine Wirkung.",
    "spalte": 13,
-   "mutant_id": "166"
+   "mutant_id": "166",
+   "zeile_bericht": 206,
+   "spalte_bericht": 13
   },
   {
    "nr": 23,
    "datei": "middleware/orgContext.js",
-   "zeile": 227,
+   "zeile": 236,
    "mutator": "ConditionalExpression",
    "kategorie": "C",
    "entscheidungszweig": true,
    "begruendung": "Gegengeprueft 2026-08-15 (unabhaengige Zweitpruefung, am Code nachvollzogen): Zeile 227 ist mit leerem req.orgId nur erreichbar, wenn der try-Block vorher geworfen hat — sonst kehrt 146-149 zurueck. In diesem Fall setzt setOrgContext app.current_org_id auf NULL, und die RLS-Politik verweigert seit Migration 120 ohne Kontext. Fail-closed, kein Zugriffsgewinn.",
    "spalte": 9,
-   "mutant_id": "175"
+   "mutant_id": "175",
+   "zeile_bericht": 227,
+   "spalte_bericht": 9
   },
   {
    "nr": 24,
@@ -331,7 +382,9 @@
    "entscheidungszweig": false,
    "begruendung": "Anzeigetext der 403. Code ORG_CONTEXT_MISMATCH traegt die Aussage.",
    "spalte": 20,
-   "mutant_id": "227"
+   "mutant_id": "227",
+   "zeile_bericht": 59,
+   "spalte_bericht": 20
   },
   {
    "nr": 25,
@@ -342,7 +395,9 @@
    "entscheidungszweig": false,
    "begruendung": "Nutzlast einer logger.warn-Zeile. Betriebsprotokoll, kein Audit — der Nachweis fuer Rechteentscheidungen liegt in audit_log.",
    "spalte": 11,
-   "mutant_id": "238"
+   "mutant_id": "238",
+   "zeile_bericht": 70,
+   "spalte_bericht": 11
   },
   {
    "nr": 26,
@@ -353,7 +408,9 @@
    "entscheidungszweig": false,
    "begruendung": "Der Meldungstext derselben logger.warn-Zeile ('RBAC permission denied'). Die Ablehnung selbst ist getestet, der Wortlaut des Protokolls traegt keine Entscheidung.",
    "spalte": 11,
-   "mutant_id": "239"
+   "mutant_id": "239",
+   "zeile_bericht": 71,
+   "spalte_bericht": 11
   },
   {
    "nr": 27,
@@ -364,7 +421,9 @@
    "entscheidungszweig": false,
    "begruendung": "Protokoll-Nutzlast im Primaer-Org-Zweig. Sie wird geschrieben, nachdem die Entscheidung gefallen ist, und beeinflusst den Rueckgabepfad nicht.",
    "spalte": 13,
-   "mutant_id": "251"
+   "mutant_id": "251",
+   "zeile_bericht": 86,
+   "spalte_bericht": 13
   },
   {
    "nr": 28,
@@ -375,7 +434,9 @@
    "entscheidungszweig": false,
    "begruendung": "Meldungstext derselben Protokollzeile im Primaer-Org-Zweig — reiner Betriebstext ohne Verbraucher im Code.",
    "spalte": 13,
-   "mutant_id": "252"
+   "mutant_id": "252",
+   "zeile_bericht": 87,
+   "spalte_bericht": 13
   },
   {
    "nr": 29,
@@ -386,7 +447,9 @@
    "entscheidungszweig": false,
    "begruendung": "Anzeigetext der 403. Code PERMISSION_DENIED ist getestet (SEC-003 verlangt genau diese Nichtssagendheit).",
    "spalte": 22,
-   "mutant_id": "255"
+   "mutant_id": "255",
+   "zeile_bericht": 92,
+   "spalte_bericht": 22
   },
   {
    "nr": 30,
@@ -397,7 +460,9 @@
    "entscheidungszweig": false,
    "begruendung": "Protokoll-Nutzlast im Zweig 'keine Mitgliedschaft'. Die 403 mit Code NO_ORG_MEMBERSHIP ist getestet; die Nutzlast daneben entscheidet nichts.",
    "spalte": 11,
-   "mutant_id": "257"
+   "mutant_id": "257",
+   "zeile_bericht": 98,
+   "spalte_bericht": 11
   },
   {
    "nr": 31,
@@ -408,7 +473,9 @@
    "entscheidungszweig": false,
    "begruendung": "Meldungstext derselben Protokollzeile ('RBAC denied: no org membership') — Betriebstext, kein Wert, den Code vergleicht.",
    "spalte": 11,
-   "mutant_id": "258"
+   "mutant_id": "258",
+   "zeile_bericht": 99,
+   "spalte_bericht": 11
   },
   {
    "nr": 32,
@@ -419,7 +486,9 @@
    "entscheidungszweig": false,
    "begruendung": "Anzeigetext der 403. Code NO_ORG_MEMBERSHIP ist getestet.",
    "spalte": 20,
-   "mutant_id": "261"
+   "mutant_id": "261",
+   "zeile_bericht": 104,
+   "spalte_bericht": 20
   },
   {
    "nr": 33,
@@ -430,7 +499,9 @@
    "entscheidungszweig": true,
    "begruendung": "Aequivalent: an dieser Stelle ist membership immer gesetzt — beide Zweige darueber kehren vorher zurueck, wenn es fehlt. Das ?. ist reine Vorsicht.",
    "spalte": 17,
-   "mutant_id": "270"
+   "mutant_id": "270",
+   "zeile_bericht": 111,
+   "spalte_bericht": 17
   },
   {
    "nr": 34,
@@ -441,7 +512,9 @@
    "entscheidungszweig": false,
    "begruendung": "Anzeigetext der 403 in requireRole (Kopie von Zeile 59).",
    "spalte": 20,
-   "mutant_id": "306"
+   "mutant_id": "306",
+   "zeile_bericht": 150,
+   "spalte_bericht": 20
   },
   {
    "nr": 35,
@@ -452,7 +525,9 @@
    "entscheidungszweig": false,
    "begruendung": "Steht innerhalb der logger.warn-Nutzlast (orgId || null), nicht in einer Zugriffsentscheidung.",
    "spalte": 60,
-   "mutant_id": "319"
+   "mutant_id": "319",
+   "zeile_bericht": 165,
+   "spalte_bericht": 60
   },
   {
    "nr": 36,
@@ -463,7 +538,9 @@
    "entscheidungszweig": false,
    "begruendung": "Die Protokoll-Nutzlast selbst ({allowedRoles, userId, orgId}) in requireRole. Sie wird nur an logger.warn uebergeben, nie ausgewertet.",
    "spalte": 9,
-   "mutant_id": "318"
+   "mutant_id": "318",
+   "zeile_bericht": 165,
+   "spalte_bericht": 9
   },
   {
    "nr": 37,
@@ -474,7 +551,9 @@
    "entscheidungszweig": false,
    "begruendung": "Zweite Richtung desselben Ausdrucks in der Protokoll-Nutzlast.",
    "spalte": 60,
-   "mutant_id": "320"
+   "mutant_id": "320",
+   "zeile_bericht": 165,
+   "spalte_bericht": 60
   },
   {
    "nr": 38,
@@ -485,7 +564,9 @@
    "entscheidungszweig": false,
    "begruendung": "Meldungstext derselben Protokollzeile in requireRole. Die zugehoerige 403 traegt Code NO_ORG_MEMBERSHIP und ist getestet.",
    "spalte": 9,
-   "mutant_id": "322"
+   "mutant_id": "322",
+   "zeile_bericht": 166,
+   "spalte_bericht": 9
   },
   {
    "nr": 39,
@@ -496,7 +577,9 @@
    "entscheidungszweig": false,
    "begruendung": "Ebenfalls innerhalb der Protokoll-Nutzlast.",
    "spalte": 60,
-   "mutant_id": "321"
+   "mutant_id": "321",
+   "zeile_bericht": 165,
+   "spalte_bericht": 60
   },
   {
    "nr": 40,
@@ -507,7 +590,9 @@
    "entscheidungszweig": false,
    "begruendung": "Protokoll-Nutzlast der abgelehnten Rolle. Die Ablehnung selbst (403 ROLE_DENIED) ist getestet, die Nutzlast daneben nicht entscheidungsrelevant.",
    "spalte": 9,
-   "mutant_id": "330"
+   "mutant_id": "330",
+   "zeile_bericht": 177,
+   "spalte_bericht": 9
   },
   {
    "nr": 41,
@@ -518,7 +603,9 @@
    "entscheidungszweig": false,
    "begruendung": "Meldungstext derselben Protokollzeile ('RBAC role denied') — Betriebstext ohne Verbraucher.",
    "spalte": 9,
-   "mutant_id": "331"
+   "mutant_id": "331",
+   "zeile_bericht": 178,
+   "spalte_bericht": 9
   },
   {
    "nr": 42,
@@ -536,7 +623,9 @@
     "welle": "M5",
     "test": "test/rbacMiddlewareMutanten.test.js",
     "am": "2026-08-15"
-   }
+   },
+   "zeile_bericht": 188,
+   "spalte_bericht": 17
   },
   {
    "nr": 43,
@@ -554,7 +643,9 @@
     "welle": "M2",
     "test": "test/enterpriseSurfaceMutanten.test.js",
     "am": "2026-08-15"
-   }
+   },
+   "zeile_bericht": 20,
+   "spalte_bericht": 24
   },
   {
    "nr": 44,
@@ -572,7 +663,9 @@
     "welle": "M2",
     "test": "test/enterpriseSurfaceMutanten.test.js",
     "am": "2026-08-15"
-   }
+   },
+   "zeile_bericht": 20,
+   "spalte_bericht": 51
   },
   {
    "nr": 45,
@@ -590,7 +683,9 @@
     "welle": "M2",
     "test": "test/enterpriseSurfaceMutanten.test.js",
     "am": "2026-08-15"
-   }
+   },
+   "zeile_bericht": 21,
+   "spalte_bericht": 24
   },
   {
    "nr": 46,
@@ -608,7 +703,9 @@
     "welle": "M2",
     "test": "test/enterpriseSurfaceMutanten.test.js",
     "am": "2026-08-15"
-   }
+   },
+   "zeile_bericht": 21,
+   "spalte_bericht": 51
   },
   {
    "nr": 47,
@@ -626,7 +723,9 @@
     "welle": "M2",
     "test": "test/enterpriseSurfaceMutanten.test.js",
     "am": "2026-08-15"
-   }
+   },
+   "zeile_bericht": 22,
+   "spalte_bericht": 24
   },
   {
    "nr": 48,
@@ -644,7 +743,9 @@
     "welle": "M2",
     "test": "test/enterpriseSurfaceMutanten.test.js",
     "am": "2026-08-15"
-   }
+   },
+   "zeile_bericht": 22,
+   "spalte_bericht": 51
   },
   {
    "nr": 49,
@@ -655,7 +756,9 @@
    "entscheidungszweig": true,
    "begruendung": "Aequivalent: ohne den Frueh-Ausstieg wird String(null/undefined) zu 'NULL'/'UNDEFINED' — beides nicht in PRO_PLUS_PLANS, Ergebnis bleibt false.",
    "spalte": 7,
-   "mutant_id": "363"
+   "mutant_id": "363",
+   "zeile_bericht": 39,
+   "spalte_bericht": 7
   },
   {
    "nr": 50,
@@ -666,7 +769,9 @@
    "entscheidungszweig": true,
    "begruendung": "Aequivalent: FREE und DEMO sind beide Nicht-PRO. Der Alias veraendert das Ergebnis dieser Funktion nicht.",
    "spalte": 7,
-   "mutant_id": "378"
+   "mutant_id": "378",
+   "zeile_bericht": 43,
+   "spalte_bericht": 7
   },
   {
    "nr": 51,
@@ -677,7 +782,9 @@
    "entscheidungszweig": false,
    "begruendung": "Aequivalent, siehe nr 50 — der FREE-Alias hat auf das Ergebnis keinen Einfluss.",
    "spalte": 13,
-   "mutant_id": "380"
+   "mutant_id": "380",
+   "zeile_bericht": 43,
+   "spalte_bericht": 13
   },
   {
    "nr": 52,
@@ -688,7 +795,9 @@
    "entscheidungszweig": false,
    "begruendung": "Aequivalent, siehe nr 50 — Zielwert des Alias, ebenfalls Nicht-PRO.",
    "spalte": 25,
-   "mutant_id": "381"
+   "mutant_id": "381",
+   "zeile_bericht": 43,
+   "spalte_bericht": 25
   },
   {
    "nr": 53,
@@ -706,7 +815,9 @@
     "welle": "M2",
     "test": "test/enterpriseSurfaceMutanten.test.js",
     "am": "2026-08-15"
-   }
+   },
+   "zeile_bericht": 44,
+   "spalte_bericht": 35
   },
   {
    "nr": 54,
@@ -717,7 +828,9 @@
    "entscheidungszweig": false,
    "begruendung": "Standardwert plan='DEMO'. Leerwert und DEMO sind beide Nicht-PRO — die Ableitung bleibt identisch. Ein Test darauf pruefte den Namen, nicht die Wirkung.",
    "spalte": 57,
-   "mutant_id": "387"
+   "mutant_id": "387",
+   "zeile_bericht": 53,
+   "spalte_bericht": 57
   },
   {
    "nr": 55,
@@ -728,7 +841,9 @@
    "entscheidungszweig": false,
    "begruendung": "Aequivalent: der Rueckfall-Leerwert wird nur mit 'agency' verglichen; jeder andere Inhalt fuehrt zum selben Zweig.",
    "spalte": 47,
-   "mutant_id": "394"
+   "mutant_id": "394",
+   "zeile_bericht": 54,
+   "spalte_bericht": 47
   },
   {
    "nr": 56,
@@ -746,84 +861,100 @@
     "welle": "M2",
     "test": "test/enterpriseSurfaceMutanten.test.js",
     "am": "2026-08-15"
-   }
+   },
+   "zeile_bericht": 54,
+   "spalte_bericht": 28
   },
   {
    "nr": 57,
    "datei": "services/enterpriseSurfaceAccessService.js",
-   "zeile": 157,
+   "zeile": 178,
    "mutator": "LogicalOperator",
    "kategorie": "C",
    "entscheidungszweig": true,
    "begruendung": "Gegengeprueft 2026-08-15 (unabhaengige Zweitpruefung, am Code nachvollzogen): coMode ist genau dann 'full', wenn isSenior wahr ist (Zeilen 106-109; supplier_user steht nicht in SENIOR_ROLES, die Zweige schliessen sich aus). Damit ist '&& isSenior' redundant, und '||' liefert denselben Wert. Nicht toetbar, solange die Bedingung doppelt gemoppelt ist — siehe Befund M0-B6.",
    "spalte": 18,
-   "mutant_id": "513"
+   "mutant_id": "513",
+   "zeile_bericht": 157,
+   "spalte_bericht": 18
   },
   {
    "nr": 58,
    "datei": "services/enterpriseSurfaceAccessService.js",
-   "zeile": 157,
+   "zeile": 178,
    "mutator": "ConditionalExpression",
    "kategorie": "C",
    "entscheidungszweig": true,
    "begruendung": "Gegengeprueft 2026-08-15 (unabhaengige Zweitpruefung, am Code nachvollzogen): der Mutant ersetzt den linken Teil (Spalte 18-35) durch true, uebrig bleibt isSenior — und das ist nach derselben Ableitung gleichbedeutend mit coMode === 'full'. Gleichwertiger Mutant, siehe Befund M0-B6.",
    "spalte": 18,
-   "mutant_id": "514"
+   "mutant_id": "514",
+   "zeile_bericht": 157,
+   "spalte_bericht": 18
   },
   {
    "nr": 59,
    "datei": "services/enterpriseSurfaceAccessService.js",
-   "zeile": 158,
+   "zeile": 179,
    "mutator": "ConditionalExpression",
    "kategorie": "C",
    "entscheidungszweig": true,
    "begruendung": "Gegengeprueft 2026-08-15 (unabhaengige Zweitpruefung, am Code nachvollzogen): canDelete = 'coMode === full && isAdmin'. Da coMode === 'full' gleichbedeutend mit isSenior ist und ADMIN_ROLES eine Teilmenge von SENIOR_ROLES bildet, ist der linke Teil wirkungslos: uebrig bleibt in beiden Faellen isAdmin. Siehe Befund M0-B6.",
    "spalte": 18,
-   "mutant_id": "520"
+   "mutant_id": "520",
+   "zeile_bericht": 158,
+   "spalte_bericht": 18
   },
   {
    "nr": 60,
    "datei": "services/enterpriseSurfaceAccessService.js",
-   "zeile": 159,
+   "zeile": 180,
    "mutator": "ConditionalExpression",
    "kategorie": "C",
    "entscheidungszweig": true,
    "begruendung": "Gegengeprueft 2026-08-15 (unabhaengige Zweitpruefung, am Code nachvollzogen): canManage, gleiche Form wie nr 59 und aus demselben Grund gleichwertig: isAdmin impliziert isSenior, also entscheidet allein isAdmin.",
    "spalte": 18,
-   "mutant_id": "526"
+   "mutant_id": "526",
+   "zeile_bericht": 159,
+   "spalte_bericht": 18
   },
   {
    "nr": 61,
    "datei": "services/enterpriseSurfaceAccessService.js",
-   "zeile": 168,
+   "zeile": 202,
    "mutator": "StringLiteral",
    "kategorie": "C",
    "entscheidungszweig": false,
    "begruendung": "Gegengeprueft 2026-08-15 (unabhaengige Zweitpruefung, am Code nachvollzogen): surface_access.multi_location hat keinen Leser. Die Standort-Karte im Frontend gatet ueber surfaceKey 'org_settings' (hubVisibility.js:97-102), nicht ueber diese Flaeche. Testbar, aber ohne Wirkung — siehe Befund M0-B8.",
    "spalte": 29,
-   "mutant_id": "533"
+   "mutant_id": "533",
+   "zeile_bericht": 168,
+   "spalte_bericht": 29
   },
   {
    "nr": 62,
    "datei": "services/enterpriseSurfaceAccessService.js",
-   "zeile": 168,
+   "zeile": 202,
    "mutator": "ObjectLiteral",
    "kategorie": "C",
    "entscheidungszweig": false,
    "begruendung": "Gegengeprueft 2026-08-15 (unabhaengige Zweitpruefung, am Code nachvollzogen): dieselbe Flaeche ohne Leser (siehe nr 61): die Faehigkeits-Flags von multi_location werden nirgends ausgewertet.",
    "spalte": 37,
-   "mutant_id": "534"
+   "mutant_id": "534",
+   "zeile_bericht": 168,
+   "spalte_bericht": 37
   },
   {
    "nr": 63,
    "datei": "services/enterpriseSurfaceAccessService.js",
-   "zeile": 169,
+   "zeile": 203,
    "mutator": "BooleanLiteral",
    "kategorie": "C",
    "entscheidungszweig": true,
    "begruendung": "Gegengeprueft 2026-08-15 (unabhaengige Zweitpruefung, am Code nachvollzogen): dieselbe Flaeche ohne Leser (siehe nr 61): auch canRead wird von keiner Oberflaeche und keiner Route gelesen.",
    "spalte": 18,
-   "mutant_id": "535"
+   "mutant_id": "535",
+   "zeile_bericht": 169,
+   "spalte_bericht": 18
   },
   {
    "nr": 64,
@@ -834,7 +965,9 @@
    "entscheidungszweig": false,
    "begruendung": "Gegengeprueft 2026-08-15 (unabhaengige Zweitpruefung, am Code nachvollzogen): mechanisch entschieden: 'admin' steht in jeder Permission-Liste ausdruecklich, hasPermission faellt die Entscheidung deshalb schon in Zeile 135. Kein einziges Recht haengt an dieser Vererbungszeile — gleichwertiger Mutant. Gepruefte Gegenprobe ueber alle 63 Permissions.",
    "spalte": 21,
-   "mutant_id": "556"
+   "mutant_id": "556",
+   "zeile_bericht": 12,
+   "spalte_bericht": 21
   },
   {
    "nr": 65,
@@ -852,7 +985,9 @@
     "welle": "M1",
     "test": "test/rbacServiceMutanten.test.js",
     "am": "2026-08-15"
-   }
+   },
+   "zeile_bericht": 13,
+   "spalte_bericht": 21
   },
   {
    "nr": 66,
@@ -863,7 +998,9 @@
    "entscheidungszweig": false,
    "begruendung": "Gegengeprueft 2026-08-15 (unabhaengige Zweitpruefung, am Code nachvollzogen): mechanisch entschieden wie nr 64: fuer supplier_manager gibt es keine Permission, die nur ueber die Vererbung erreichbar waere. Gleichwertiger Mutant.",
    "spalte": 21,
-   "mutant_id": "570"
+   "mutant_id": "570",
+   "zeile_bericht": 15,
+   "spalte_bericht": 21
   },
   {
    "nr": 67,
@@ -881,7 +1018,9 @@
     "welle": "M1",
     "test": "test/rbacServiceMutanten.test.js",
     "am": "2026-08-15"
-   }
+   },
+   "zeile_bericht": 14,
+   "spalte_bericht": 21
   },
   {
    "nr": 68,
@@ -892,7 +1031,9 @@
    "entscheidungszweig": false,
    "begruendung": "Gegengeprueft 2026-08-15 (unabhaengige Zweitpruefung, am Code nachvollzogen): mechanisch entschieden wie nr 64: fuer finance gibt es keine Permission, die nur ueber die Vererbung erreichbar waere. Gleichwertiger Mutant.",
    "spalte": 21,
-   "mutant_id": "572"
+   "mutant_id": "572",
+   "zeile_bericht": 16,
+   "spalte_bericht": 21
   },
   {
    "nr": 69,
@@ -910,7 +1051,9 @@
     "welle": "M1",
     "test": "test/rbacServiceMutanten.test.js",
     "am": "2026-08-15"
-   }
+   },
+   "zeile_bericht": 17,
+   "spalte_bericht": 21
   },
   {
    "nr": 70,
@@ -928,7 +1071,9 @@
     "welle": "M1",
     "test": "test/rbacServiceMutanten.test.js",
     "am": "2026-08-15"
-   }
+   },
+   "zeile_bericht": 18,
+   "spalte_bericht": 21
   },
   {
    "nr": 71,
@@ -946,7 +1091,9 @@
     "welle": "M1",
     "test": "test/rbacServiceMutanten.test.js",
     "am": "2026-08-15"
-   }
+   },
+   "zeile_bericht": 171,
+   "spalte_bericht": 5
   },
   {
    "nr": 72,
@@ -964,7 +1111,9 @@
     "welle": "M1",
     "test": "test/rbacServiceMutanten.test.js",
     "am": "2026-08-15"
-   }
+   },
+   "zeile_bericht": 182,
+   "spalte_bericht": 47
   },
   {
    "nr": 73,
@@ -982,7 +1131,9 @@
     "welle": "M1",
     "test": "test/rbacServiceMutanten.test.js",
     "am": "2026-08-15"
-   }
+   },
+   "zeile_bericht": 195,
+   "spalte_bericht": 5
   },
   {
    "nr": 74,
@@ -1000,7 +1151,9 @@
     "welle": "M1",
     "test": "test/rbacServiceMutanten.test.js",
     "am": "2026-08-15"
-   }
+   },
+   "zeile_bericht": 235,
+   "spalte_bericht": 7
   },
   {
    "nr": 75,
@@ -1018,7 +1171,9 @@
     "welle": "M1",
     "test": "test/rbacServiceMutanten.test.js",
     "am": "2026-08-15"
-   }
+   },
+   "zeile_bericht": 239,
+   "spalte_bericht": 7
   },
   {
    "nr": 76,
@@ -1029,7 +1184,9 @@
    "entscheidungszweig": false,
    "begruendung": "Bezeichner fuer swallow() im ROLLBACK-Pfad — reine Protokollherkunft.",
    "spalte": 50,
-   "mutant_id": "1013"
+   "mutant_id": "1013",
+   "zeile_bericht": 244,
+   "spalte_bericht": 50
   },
   {
    "nr": 77,
@@ -1047,7 +1204,9 @@
     "welle": "M1",
     "test": "test/rbacServiceMutanten.test.js",
     "am": "2026-08-15"
-   }
+   },
+   "zeile_bericht": 277,
+   "spalte_bericht": 5
   },
   {
    "nr": 78,
@@ -1058,7 +1217,9 @@
    "entscheidungszweig": false,
    "begruendung": "Die message des LAST_OWNER-Fehlers. Gemessen: kein Verbraucher vergleicht die message — Routen und Tests gehen ueber err.code (Befund M0-B4). Der Code selbst ist getestet.",
    "spalte": 35,
-   "mutant_id": "1041"
+   "mutant_id": "1041",
+   "zeile_bericht": 300,
+   "spalte_bericht": 35
   },
   {
    "nr": 79,
@@ -1069,7 +1230,9 @@
    "entscheidungszweig": false,
    "begruendung": "'expose: true' hat gemessen KEINEN Leser im gesamten Backend (Befund M0-B5) — der Fehlerbehandler wertet status/code aus. Wirkungslose Kennzeichnung, deshalb nicht mit einem Test einzementieren.",
    "spalte": 15,
-   "mutant_id": "1044"
+   "mutant_id": "1044",
+   "zeile_bericht": 303,
+   "spalte_bericht": 15
   },
   {
    "nr": 80,
@@ -1087,7 +1250,9 @@
     "welle": "M1",
     "test": "test/rbacServiceMutanten.test.js",
     "am": "2026-08-15"
-   }
+   },
+   "zeile_bericht": 328,
+   "spalte_bericht": 41
   },
   {
    "nr": 81,
@@ -1105,7 +1270,9 @@
     "welle": "M1",
     "test": "test/rbacServiceMutanten.test.js",
     "am": "2026-08-15"
-   }
+   },
+   "zeile_bericht": 342,
+   "spalte_bericht": 7
   },
   {
    "nr": 82,
@@ -1123,7 +1290,9 @@
     "welle": "M1",
     "test": "test/rbacServiceMutanten.test.js",
     "am": "2026-08-15"
-   }
+   },
+   "zeile_bericht": 342,
+   "spalte_bericht": 22
   },
   {
    "nr": 83,
@@ -1141,7 +1310,9 @@
     "welle": "M1",
     "test": "test/rbacServiceMutanten.test.js",
     "am": "2026-08-15"
-   }
+   },
+   "zeile_bericht": 346,
+   "spalte_bericht": 5
   },
   {
    "nr": 84,
@@ -1159,7 +1330,9 @@
     "welle": "M1",
     "test": "test/rbacServiceMutanten.test.js",
     "am": "2026-08-15"
-   }
+   },
+   "zeile_bericht": 351,
+   "spalte_bericht": 10
   },
   {
    "nr": 85,
@@ -1177,7 +1350,9 @@
     "welle": "M1",
     "test": "test/rbacServiceMutanten.test.js",
     "am": "2026-08-15"
-   }
+   },
+   "zeile_bericht": 349,
+   "spalte_bericht": 5
   },
   {
    "nr": 86,
@@ -1195,7 +1370,9 @@
     "welle": "M1",
     "test": "test/rbacServiceMutanten.test.js",
     "am": "2026-08-15"
-   }
+   },
+   "zeile_bericht": 351,
+   "spalte_bericht": 10
   },
   {
    "nr": 87,
@@ -1213,7 +1390,9 @@
     "welle": "M1",
     "test": "test/rbacServiceMutanten.test.js",
     "am": "2026-08-15"
-   }
+   },
+   "zeile_bericht": 351,
+   "spalte_bericht": 10
   },
   {
    "nr": 88,
@@ -1231,7 +1410,9 @@
     "welle": "M1",
     "test": "test/rbacServiceMutanten.test.js",
     "am": "2026-08-15"
-   }
+   },
+   "zeile_bericht": 401,
+   "spalte_bericht": 5
   },
   {
    "nr": 89,
@@ -1242,67 +1423,79 @@
    "entscheidungszweig": false,
    "begruendung": "Vorgabetext von OrgBoundaryError. Code ORG_BOUNDARY_VIOLATION und status 403 tragen die Aussage und sind getestet.",
    "spalte": 25,
-   "mutant_id": "1141"
+   "mutant_id": "1141",
+   "zeile_bericht": 17,
+   "spalte_bericht": 25
   },
   {
    "nr": 90,
    "datei": "utils/orgBoundary.js",
-   "zeile": 40,
+   "zeile": 49,
    "mutator": "StringLiteral",
    "kategorie": "C",
    "entscheidungszweig": false,
    "begruendung": "Gegengeprueft 2026-08-15 (unabhaengige Zweitpruefung, am Code nachvollzogen): der Eintrag ist in Produktion unerreichbar: assertOrgOwnership wird ausschliesslich in routes/requisitions.js aufgerufen, viermal, immer mit dem Literal 'requisitions'. Toetbar bleibt der Mutant — die Tabellenliste in test/orgBoundary.test.js:113-119 ist eine Abschrift, die bei 17 Eintraegen stehengeblieben ist. Siehe Befund M0-B7.",
    "spalte": 3,
-   "mutant_id": "1163"
+   "mutant_id": "1163",
+   "zeile_bericht": 40,
+   "spalte_bericht": 3
   },
   {
    "nr": 91,
    "datei": "utils/orgBoundary.js",
-   "zeile": 40,
+   "zeile": 49,
    "mutator": "StringLiteral",
    "kategorie": "C",
    "entscheidungszweig": false,
    "begruendung": "Gegengeprueft 2026-08-15 (unabhaengige Zweitpruefung, am Code nachvollzogen): wie nr 90: 'rate_card_checks' wird nie an assertOrgOwnership uebergeben, und die Tabellenliste im Test kennt den Eintrag nicht.",
    "spalte": 17,
-   "mutant_id": "1164"
+   "mutant_id": "1164",
+   "zeile_bericht": 40,
+   "spalte_bericht": 17
   },
   {
    "nr": 92,
    "datei": "utils/orgBoundary.js",
-   "zeile": 41,
+   "zeile": 50,
    "mutator": "StringLiteral",
    "kategorie": "C",
    "entscheidungszweig": false,
    "begruendung": "Gegengeprueft 2026-08-15 (unabhaengige Zweitpruefung, am Code nachvollzogen): wie nr 90 — auch 'data_governance_requests' wird nie an assertOrgOwnership uebergeben. Der DSGVO-Pfad sichert seine Mandantengrenze an anderer Stelle; diese Positivliste ist fuer ihn Kulisse.",
    "spalte": 3,
-   "mutant_id": "1165"
+   "mutant_id": "1165",
+   "zeile_bericht": 41,
+   "spalte_bericht": 3
   },
   {
    "nr": 93,
    "datei": "utils/orgBoundary.js",
-   "zeile": 42,
+   "zeile": 51,
    "mutator": "StringLiteral",
    "kategorie": "C",
    "entscheidungszweig": false,
    "begruendung": "Gegengeprueft 2026-08-15 (unabhaengige Zweitpruefung, am Code nachvollzogen): wie nr 90: 'org_locations' laeuft nicht ueber diese Positivliste. Die Standortgrenze haengt an assertLocationBelongsToOrg, das ALLOWED_TABLES gar nicht befragt.",
    "spalte": 3,
-   "mutant_id": "1166"
+   "mutant_id": "1166",
+   "zeile_bericht": 42,
+   "spalte_bericht": 3
   },
   {
    "nr": 94,
    "datei": "utils/orgBoundary.js",
-   "zeile": 42,
+   "zeile": 51,
    "mutator": "StringLiteral",
    "kategorie": "C",
    "entscheidungszweig": false,
    "begruendung": "Gegengeprueft 2026-08-15 (unabhaengige Zweitpruefung, am Code nachvollzogen): wie nr 93: 'org_departments' wird ueber assertDepartmentBelongsToOrg geprueft, nicht ueber diese Positivliste.",
    "spalte": 20,
-   "mutant_id": "1167"
+   "mutant_id": "1167",
+   "zeile_bericht": 42,
+   "spalte_bericht": 20
   },
   {
    "nr": 95,
    "datei": "utils/orgBoundary.js",
-   "zeile": 53,
+   "zeile": 62,
    "mutator": "ArrayDeclaration",
    "kategorie": "A",
    "entscheidungszweig": false,
@@ -1315,100 +1508,118 @@
     "welle": "M4",
     "test": "test/orgBoundaryMutanten.test.js",
     "am": "2026-08-15"
-   }
+   },
+   "zeile_bericht": 53,
+   "spalte_bericht": 5
   },
   {
    "nr": 96,
    "datei": "utils/orgBoundary.js",
-   "zeile": 56,
+   "zeile": 65,
    "mutator": "StringLiteral",
    "kategorie": "B",
    "entscheidungszweig": false,
    "begruendung": "Text des 404. status 404 und code NOT_FOUND sind getestet.",
    "spalte": 27,
-   "mutant_id": "1191"
+   "mutant_id": "1191",
+   "zeile_bericht": 56,
+   "spalte_bericht": 27
   },
   {
    "nr": 97,
    "datei": "utils/orgBoundary.js",
-   "zeile": 75,
+   "zeile": 84,
    "mutator": "StringLiteral",
    "kategorie": "B",
    "entscheidungszweig": false,
    "begruendung": "Text von OrgBoundaryError bei fehlendem Nutzer. Code und status tragen die Aussage.",
    "spalte": 43,
-   "mutant_id": "1201"
+   "mutant_id": "1201",
+   "zeile_bericht": 75,
+   "spalte_bericht": 43
   },
   {
    "nr": 98,
-   "datei": "utils/orgBoundary.js",
-   "zeile": 76,
-   "mutator": "StringLiteral",
-   "kategorie": "B",
-   "entscheidungszweig": false,
-   "begruendung": "Text von OrgBoundaryError bei fehlender Resource-ID.",
-   "spalte": 47,
-   "mutant_id": "1205"
-  },
-  {
-   "nr": 99,
-   "datei": "utils/orgBoundary.js",
-   "zeile": 82,
-   "mutator": "ArrayDeclaration",
-   "kategorie": "C",
-   "entscheidungszweig": false,
-   "begruendung": "Gegengeprueft 2026-08-15 (unabhaengige Zweitpruefung, am Code nachvollzogen): assertUserOwnership hat keinen einzigen Aufrufer in Produktion — nur Tests und der Beispielkommentar im Dateikopf. Die Parameter einer Abfrage, die nie laeuft, sind kein Risiko. Siehe Befund M0-B7.",
-   "spalte": 5,
-   "mutant_id": "1215"
-  },
-  {
-   "nr": 100,
    "datei": "utils/orgBoundary.js",
    "zeile": 85,
    "mutator": "StringLiteral",
    "kategorie": "B",
    "entscheidungszweig": false,
+   "begruendung": "Text von OrgBoundaryError bei fehlender Resource-ID.",
+   "spalte": 47,
+   "mutant_id": "1205",
+   "zeile_bericht": 76,
+   "spalte_bericht": 47
+  },
+  {
+   "nr": 99,
+   "datei": "utils/orgBoundary.js",
+   "zeile": 91,
+   "mutator": "ArrayDeclaration",
+   "kategorie": "C",
+   "entscheidungszweig": false,
+   "begruendung": "Gegengeprueft 2026-08-15 (unabhaengige Zweitpruefung, am Code nachvollzogen): assertUserOwnership hat keinen einzigen Aufrufer in Produktion — nur Tests und der Beispielkommentar im Dateikopf. Die Parameter einer Abfrage, die nie laeuft, sind kein Risiko. Siehe Befund M0-B7.",
+   "spalte": 5,
+   "mutant_id": "1215",
+   "zeile_bericht": 82,
+   "spalte_bericht": 5
+  },
+  {
+   "nr": 100,
+   "datei": "utils/orgBoundary.js",
+   "zeile": 94,
+   "mutator": "StringLiteral",
+   "kategorie": "B",
+   "entscheidungszweig": false,
    "begruendung": "Text des 404 im Nutzer-Pfad ('Resource nicht gefunden.'). status 404 und code NOT_FOUND tragen die Aussage, der Wortlaut nicht.",
    "spalte": 27,
-   "mutant_id": "1220"
+   "mutant_id": "1220",
+   "zeile_bericht": 85,
+   "spalte_bericht": 27
   },
   {
    "nr": 101,
    "datei": "utils/orgBoundary.js",
-   "zeile": 87,
+   "zeile": 96,
    "mutator": "StringLiteral",
    "kategorie": "C",
    "entscheidungszweig": false,
    "begruendung": "Gegengeprueft 2026-08-15 (unabhaengige Zweitpruefung, am Code nachvollzogen): ein Fehlercode ist kein Anzeigetext, deshalb nicht B. Er sitzt aber in assertUserOwnership, das in Produktion niemand aufruft — testbar, ohne Wirkung.",
    "spalte": 16,
-   "mutant_id": "1221"
+   "mutant_id": "1221",
+   "zeile_bericht": 87,
+   "spalte_bericht": 16
   },
   {
    "nr": 102,
    "datei": "utils/orgBoundary.js",
-   "zeile": 91,
+   "zeile": 100,
    "mutator": "StringLiteral",
    "kategorie": "B",
    "entscheidungszweig": false,
    "begruendung": "Text der Nutzer-Grenzverletzung. Code ORG_BOUNDARY_VIOLATION traegt die Aussage.",
    "spalte": 32,
-   "mutant_id": "1226"
+   "mutant_id": "1226",
+   "zeile_bericht": 91,
+   "spalte_bericht": 32
   },
   {
    "nr": 103,
    "datei": "utils/orgBoundary.js",
-   "zeile": 101,
+   "zeile": 110,
    "mutator": "StringLiteral",
    "kategorie": "B",
    "entscheidungszweig": false,
    "begruendung": "Rueckfalltext in sendOrgBoundaryError. Der Code auf derselben Zeile wurde getoetet — die Tests pruefen also den Code, nur der Rueckfalltext ist offen.",
    "spalte": 66,
-   "mutant_id": "1235"
+   "mutant_id": "1235",
+   "zeile_bericht": 101,
+   "spalte_bericht": 66
   },
   {
    "nr": 104,
    "datei": "utils/orgBoundary.js",
-   "zeile": 112,
+   "zeile": 121,
    "mutator": "StringLiteral",
    "kategorie": "A",
    "entscheidungszweig": false,
@@ -1421,12 +1632,14 @@
     "welle": "M4",
     "test": "test/orgBoundaryMutanten.test.js",
     "am": "2026-08-15"
-   }
+   },
+   "zeile_bericht": 112,
+   "spalte_bericht": 5
   },
   {
    "nr": 105,
    "datei": "utils/orgBoundary.js",
-   "zeile": 113,
+   "zeile": 122,
    "mutator": "ArrayDeclaration",
    "kategorie": "A",
    "entscheidungszweig": false,
@@ -1439,23 +1652,27 @@
     "welle": "M4",
     "test": "test/orgBoundaryMutanten.test.js",
     "am": "2026-08-15"
-   }
+   },
+   "zeile_bericht": 113,
+   "spalte_bericht": 5
   },
   {
    "nr": 106,
    "datei": "utils/orgBoundary.js",
-   "zeile": 116,
+   "zeile": 125,
    "mutator": "StringLiteral",
    "kategorie": "B",
    "entscheidungszweig": false,
    "begruendung": "Text der Standort-Grenzverletzung. Code traegt die Aussage.",
    "spalte": 32,
-   "mutant_id": "1246"
+   "mutant_id": "1246",
+   "zeile_bericht": 116,
+   "spalte_bericht": 32
   },
   {
    "nr": 107,
    "datei": "utils/orgBoundary.js",
-   "zeile": 128,
+   "zeile": 137,
    "mutator": "ArrayDeclaration",
    "kategorie": "A",
    "entscheidungszweig": false,
@@ -1468,12 +1685,14 @@
     "welle": "M4",
     "test": "test/orgBoundaryMutanten.test.js",
     "am": "2026-08-15"
-   }
+   },
+   "zeile_bericht": 128,
+   "spalte_bericht": 5
   },
   {
    "nr": 108,
    "datei": "utils/orgBoundary.js",
-   "zeile": 127,
+   "zeile": 136,
    "mutator": "StringLiteral",
    "kategorie": "A",
    "entscheidungszweig": false,
@@ -1486,18 +1705,22 @@
     "welle": "M4",
     "test": "test/orgBoundaryMutanten.test.js",
     "am": "2026-08-15"
-   }
+   },
+   "zeile_bericht": 127,
+   "spalte_bericht": 5
   },
   {
    "nr": 109,
    "datei": "utils/orgBoundary.js",
-   "zeile": 131,
+   "zeile": 140,
    "mutator": "StringLiteral",
    "kategorie": "B",
    "entscheidungszweig": false,
    "begruendung": "Text der Abteilungs-Grenzverletzung. Der Fehler selbst (OrgBoundaryError, 403, Code) traegt die Aussage und ist getestet.",
    "spalte": 32,
-   "mutant_id": "1257"
+   "mutant_id": "1257",
+   "zeile_bericht": 131,
+   "spalte_bericht": 32
   },
   {
    "nr": 110,
@@ -1508,7 +1731,9 @@
    "entscheidungszweig": true,
    "begruendung": "getOrgContextState liest current_setting(...) — die Abfrage liefert immer genau eine Zeile, rows[0] kann nicht fehlen. Aequivalent, und die Funktion dient ohnehin nur Health-Check und Test.",
    "spalte": 21,
-   "mutant_id": "1286"
+   "mutant_id": "1286",
+   "zeile_bericht": 90,
+   "spalte_bericht": 21
   },
   {
    "nr": 111,
@@ -1519,7 +1744,9 @@
    "entscheidungszweig": true,
    "begruendung": "Gleiche Stelle, zweites Feld. Aequivalent aus demselben Grund.",
    "spalte": 21,
-   "mutant_id": "1290"
+   "mutant_id": "1290",
+   "zeile_bericht": 91,
+   "spalte_bericht": 21
   }
  ]
 }
