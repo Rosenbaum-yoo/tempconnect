@@ -196,13 +196,17 @@ nicht als A eingestuft hat** — keiner mehr, keiner weniger, fünfmal in Folge.
 Einstufung sagt also nicht nur, was zu tun ist, sondern sagt auch richtig voraus,
 was nach getaner Arbeit übrig bleibt.
 
-**Was das Aggregat ergeben wird — und warum das hier keine Zahl ist.**
-Rechnerisch ergeben die fünf Läufe zusammen 1223 von 1292 getöteten Mutanten,
-also **rund 94,7 %** gegenüber 91,33 % am 2026-08-14. **Diese Zahl ist bewusst
-nicht als Ergebnis notiert:** Sie ist aus fünf getrennten Läufen zusammengesetzt,
-und genau daran ist der frühere Wert gescheitert (siehe [README](README.md) —
-„die Einzelwerte stammten teils aus getrennten Einzelläufen, teils aus dem
-Aggregat"). Belegt ist sie erst durch **einen** Aggregat-Lauf. Das ist M6.
+**Das Aggregat ist gemessen: [94,43 % am 2026-08-15](../2026-08-15-rbac-nach-wellen/README.md).**
+Ein Lauf über alle sechs Dateien, 2 h 40 min, 1219 von 1292 getötet, 72 übrig.
+Maschinell gegengeprüft: **null A-Fälle leben, null Überlebende, die diese
+Einstufung nicht kennt.**
+
+Die aus den fünf Wellen *gerechnete* Erwartung lag bei 94,66 % — der gemessene
+Wert liegt 0,23 Punkte darunter, und der Unterschied ist erklärt: drei
+B-Mutanten (Meldungstexte) leben wieder, weil die Wellen-Tests sie zunächst
+versehentlich mit erschlagen hatten. Genau deshalb wird eine zusammengerechnete
+Zahl hier nicht als Ergebnis geführt — daran ist der frühere Wert schon einmal
+gescheitert (siehe [README](README.md)).
 
 ### M1 im Detail — der Beleg für die Gegenprüfung
 
