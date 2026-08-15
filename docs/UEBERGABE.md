@@ -4,7 +4,7 @@
 > sobald in einem Arbeitsplan eine offene Owner-Entscheidung auftaucht, die hier fehlt.
 > Eine Übergabe, die man vergessen kann, ist keine.
 
-**Stand: 2026-08-13** · Branch `release/enterprise-premium-market-ready`
+**Stand: 2026-08-15** · Branch `release/enterprise-premium-market-ready`
 
 ---
 
@@ -39,7 +39,7 @@ Abschnitten, die ich in Spuren mit **Wellen und Gates** schneide.
 ```bash
 cd api && node scripts/run-tests.js          # offizieller Runner, ohne Pipe
 ```
-Stand: **8446 Tests** (5 davon DB-gated, laufen nur im Container), davon 13 übersprungen (DB-gated).
+Stand: **8465 Tests** (2026-08-15, voller Lauf ohne Pipe, 0 Fehler), davon 13 übersprungen — die DB-gebundenen, die nur im Container laufen.
 
 Die DB-gestützten Tests laufen im Container, wo `DB_HOST` gesetzt ist — auf dem
 Host überspringen sie sich selbst. Was gegen das echte Schema geprüft sein muss
@@ -75,7 +75,8 @@ Lastabhängig. **Als eigene Aufgabe ausgelagert, nicht nebenbei anfassen.**
 | [TEAM_UND_ROLLEN.md](TEAM_UND_ROLLEN.md) | Wen dieser Code verlangt: Fachbereiche, Erfahrungsstufen, Minimalbesetzung, Reihenfolge der Einstellung — gemessen, nicht geschaetzt. |
 | [investoren/WIE_WIR_BAUEN.md](investoren/WIE_WIR_BAUEN.md) | Das Dokument zum Zeigen: Ingenieursstandard mit Belegen, inkl. eines Abschnitts „Was noch nicht steht“. **Intern**, bis der Owner ueber Veroeffentlichung entscheidet (DOK-E3). |
 | [qualitaet/mutation/2026-08-14-rbac/](qualitaet/mutation/2026-08-14-rbac/README.md) | Archivierter Mutations-Prüfbericht (voller Lauf, 91,33 %, 1292 Mutanten). Datiert abgelegt, damit der nächste Lauf ihn nicht überschreibt. |
-| [features/P12_MUTATION_AUFRAEUMEN.md](features/P12_MUTATION_AUFRAEUMEN.md) | Aufräum-Wellen M0–M6 für die 112 überlebenden Mutanten. **M0 zuerst** — ohne Kategorien wird aus Aufräumen ein Prozent-Treiben. |
+| [features/P12_MUTATION_AUFRAEUMEN.md](features/P12_MUTATION_AUFRAEUMEN.md) | Aufräum-Wellen M0–M6 für die 112 überlebenden Mutanten. **M0 erledigt** (2026-08-15), als nächstes M1. |
+| [qualitaet/mutation/2026-08-14-rbac/TRIAGE.md](qualitaet/mutation/2026-08-14-rbac/TRIAGE.md) | Das Ergebnis von M0: alle 112 Fälle einzeln eingestuft (61 A · 33 B · 18 C), die Wellenreihenfolge und fünf Befunde — darunter, dass der nächtliche Mutations-Job nie gelaufen ist. |
 
 ---
 
@@ -116,17 +117,24 @@ onclick-Handler, fehlendes CSRF, Sackgassen-Links. Sie haben den Multi-Agenten-A
 
 ---
 
-## Wo es weitergeht *(Stand 2026-08-14, Ende der Sitzung)*
+## Wo es weitergeht *(Stand 2026-08-15)*
 
-**Fertig heute:** P10 Spur D+E+F abgeschlossen (Mig 177–180) · SQL-Schema-Wächter ·
-Doku-Wächter (W2) · Plattform-Register · Team-/Rollenkarte · Investoren-Dokument ·
-Mutations-Bericht neu gemessen und archiviert · Redis auf der Go-Live-Liste.
+**Fertig am 2026-08-14:** P10 Spur D+E+F abgeschlossen (Mig 177–180) ·
+SQL-Schema-Wächter · Doku-Wächter (W2) · Plattform-Register · Team-/Rollenkarte ·
+Investoren-Dokument · Mutations-Bericht neu gemessen und archiviert · Redis auf der
+Go-Live-Liste.
+
+**Fertig am 2026-08-15:** **P12/M0** — alle 112 überlebenden Mutanten einzeln
+eingestuft und unabhängig gegengelesen (**39 A · 32 B · 41 C**; 23 Korrekturen, alle
+in dieselbe Richtung), Wellenreihenfolge begründet, **acht Befunde**.
+Neu: `api/scripts/mutation-triage.js`, `api/test/mutationTriage.test.js`,
+[TRIAGE.md](qualitaet/mutation/2026-08-14-rbac/TRIAGE.md).
 
 **Nächster Schritt — eines von beiden, nicht beides gleichzeitig:**
 
 | Spur | Erster Schritt | Warum zuerst |
 |---|---|---|
-| **P12** Mutation aufräumen | **M0** (Kategorien + CI-Job prüfen) | Das Entscheidungs-Gate ist offen; M1–M5 lassen sich ohne M0 nicht priorisieren |
+| **P12** Mutation aufräumen | **M1** — `services/rbacService.js`, 19 A-Fälle | Mehr offene Fälle als die anderen fünf Dateien zusammen; der Ansatz steht je Fall in `triage.json` unter `kill_durch` |
 | **P11** Doku als System | **W3** Generator | W1+W2 stehen; der Generator schreibt die ableitbaren Teile fort |
 
 **Zwei Blocker, unabhängig von beiden Spuren** (aus TEAM_UND_ROLLEN.md, verifiziert):
@@ -157,6 +165,28 @@ eine Person arbeitet — gefährlich ab der zweiten.
 
 ## Offene Befunde ohne Ticket
 
+- **M0-B1 (neu, 2026-08-15)** — **Der nächtliche Mutations-Job ist nie gelaufen.**
+  `.github/workflows/mutation.yml` entstand am 2026-08-12, `origin` steht auf dem
+  Stand vom 2026-08-06 und ist **57 Commits zurück**. Die Übergabe hat ihn bis
+  heute als bestehend geführt. Zwei Folgepunkte: seine Zeitgrenze (90 min) liegt
+  unter der gemessenen Laufzeit (1 h 49 min), und `incremental: true` bringt in CI
+  nichts. Alle drei gehören in Welle M6 — der Push der 57 Commits ist eine
+  Owner-Entscheidung, keine Nebenbei-Aufgabe.
+- **M0-B4/B8 (neu)** — Zwei Werte werden erzeugt und von niemandem gelesen:
+  `req.locationScope` (`middleware/orgContext.js`) und
+  `surface_access.multi_location` (`userService.js:290`; die Standort-Karte gatet
+  über `org_settings`). Kein Fehler nach außen, aber Felder, die Verlässlichkeit
+  vortäuschen.
+- **M0-B7 (neu)** — Die zentrale Mandantengrenze `assertOrgOwnership` erlaubt **23
+  Tabellen und wird genau einmal aufgerufen** (`routes/requisitions.js`, viermal,
+  immer mit `'requisitions'`); `assertUserOwnership` hat **gar keinen** Aufrufer.
+  Das ist derselbe Befund wie [ORG_GRENZE_BEFUND.md](ORG_GRENZE_BEFUND.md) von der
+  anderen Seite und gehört zur offenen Entscheidung **D-M1**.
+- **M0-B6 (neu)** — `enterpriseSurfaceAccessService.js:157-159` prüft doppelt
+  (`coMode === "full"` ist gleichbedeutend mit `isSenior`). Vier Mutanten sind
+  dadurch nicht tötbar — kein Testproblem, ein Codeproblem.
+  *Alle drei berühren Produktionscode und wurden deshalb nicht angefasst: P12
+  verbietet das ausdrücklich.*
 - **Welle 3b** — 80 Mandantengrenzen stehen einzeln in 18 Route-Dateien.
   Braucht Owner-Freigabe, weil ihre Auflösung Produktionscode berührt.
 - **P1-14** `reputationService` hat keinen Aufrufer. Präzisiert am 2026-08-13:

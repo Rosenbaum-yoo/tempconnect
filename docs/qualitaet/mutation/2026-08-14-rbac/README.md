@@ -106,5 +106,12 @@ Status von `tail`, nicht den des Laufs.
   **Rund 28 davon liegen in Entscheidungslogik.** Die Mutation-Direktive dieses
   Projekts verlangt ausdrücklich *„null überlebende Mutanten im
   Entscheidungs-Branch"* — dieses Gate ist damit **offen**, obwohl die
-  Prozentschwelle gehalten ist. Die Triage jedes einzelnen Falls steht aus. Alle bisherigen Wellen haben null Produktionsfehler
+  Prozentschwelle gehalten ist. Alle bisherigen Wellen haben null Produktionsfehler
   ergeben — der Code war richtig, die Tests waren lückenhaft.
+
+> **Nachtrag 2026-08-15 — die Triage liegt vor: [TRIAGE.md](TRIAGE.md).**
+> Alle 112 Fälle sind einzeln eingestuft: **61 müssen einen Test bekommen**, 33
+> bewusst nicht, 18 lohnen nicht. Die Tabelle oben nach Art ist dabei in einem
+> Punkt irreführend: **11 der 45 „StringLiterals" sind kein Text**, sondern
+> Rollennamen, Tabellennamen der Mandantengrenze und SQL-Texte. Wer nach Art
+> aufräumt, hakt sie als harmlos ab.

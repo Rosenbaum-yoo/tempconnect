@@ -1,0 +1,209 @@
+# M0 — die 112 Überlebenden, einzeln eingestuft
+
+> **Stand: 2026-08-15** · Grundlage: [Prüfbericht vom 2026-08-14](README.md) ·
+> Rohdaten: [`ergebnis.json`](ergebnis.json) · Einstufung: [`triage.json`](triage.json)
+> **Nachrechnen:** `cd api && node scripts/mutation-triage.js` — erzwungen durch
+> `api/test/mutationTriage.test.js` bei jedem Suite-Lauf.
+
+M0 war die Vorbereitung: **ohne Aufschlüsselung je Datei lässt sich die Reihenfolge
+der Aufräum-Wellen nicht begründen.** Sie liegt jetzt vor — und sie sagt an drei
+Stellen etwas anderes, als der Prüfbericht nahegelegt hatte.
+
+---
+
+## Das Ergebnis in einem Satz
+
+Von 112 Überlebenden brauchen **39 einen Test** (A), **32 bewusst keinen** (B), und
+**41 könnten einen bekommen, ohne dass es sich lohnt** (C).
+
+| | Anzahl | Bedeutung |
+|---|---|---|
+| **A** | **39** | könnte Zugriff, Geld, Nachweis oder Mandantengrenze verschieben — davon **20 hoch** |
+| **B** | 32 | Anzeigetext, Protokollmeldung, Formatierung — der Fehlercode daneben ist getestet |
+| **C** | 41 | testbar ohne Risiko, oder nachweislich gleichwertig (gar nicht tötbar) |
+
+**Jede Einstufung wurde gegengelesen.** Eine unabhängige Zweitprüfung (je Datei ein
+Prüfer mit dem Auftrag zu widerlegen, jeder Einspruch anschließend von einer dritten
+Instanz beurteilt) hat **23 Fälle nach unten korrigiert** — aus 61 A wurden 39.
+Alle 23 gingen in dieselbe Richtung: *zu streng eingestuft*, keiner in die
+gefährliche Richtung. Warum das so kam, steht unten unter
+[Was die Gegenprüfung geändert hat](#was-die-gegenprüfung-geändert-hat).
+
+---
+
+## Je Datei — und warum die Reihenfolge nicht dem Score folgt
+
+| Welle | Datei | Score | überlebt | **A** | davon hoch | B | C |
+|---|---|---|---|---|---|---|---|
+| **M1** | `services/rbacService.js` | 95,87 % | 25 | **19** | 10 | 2 | 4 |
+| **M2** | `services/enterpriseSurfaceAccessService.js` | 89,29 % | 21 | **8** | 2 | 0 | 13 |
+| **M3** | `middleware/orgContext.js` | 86,96 % | 24 | **6** | 2 | 4 | 14 |
+| **M4** | `utils/orgBoundary.js` | 82,20 % | 21 | **5** | 5 | 9 | 7 |
+| **M5** | `middleware/rbac.js` | 87,82 % | 19 | **1** | 1 | 17 | 1 |
+| — | `utils/orgContext.js` | 93,94 % | 2 | **0** | 0 | 0 | 2 |
+
+**Die Datei mit dem besten Score trägt die meisten offenen Fälle.** `rbacService.js`
+steht bei 95,87 % — und hat 19 A-Fälle, mehr als die anderen fünf zusammen.
+`orgBoundary.js` steht bei 82,20 %, dem schlechtesten Wert, und hat 5. Wer nach
+Score aufgeräumt hätte, hätte mit der falschen Datei angefangen.
+
+Der Grund ist einfach: `rbacService.js` stellt mit 605 Mutanten fast die Hälfte des
+Laufs. 4 % von 605 sind mehr Stück als 18 % von 118. **Ein Prozentwert misst
+Verhältnisse, aufräumen muss man Stück für Stück.**
+
+Die Reihenfolge ist **stabil**: Sie war vor und nach der Gegenprüfung dieselbe,
+obwohl sich 23 Einstufungen verschoben haben.
+
+---
+
+## Je Art — die Aufschlüsselung, die es vorher nicht gab
+
+| Art | A | B | C | gesamt |
+|---|---|---|---|---|
+| `StringLiteral` | **10** | 24 | 11 | 45 |
+| `ConditionalExpression` | 7 | 2 | 11 | 20 |
+| `ArrayDeclaration` | **15** | 0 | 4 | 19 |
+| `LogicalOperator` | 3 | 1 | 4 | 8 |
+| `ObjectLiteral` | 1 | 5 | 1 | 7 |
+| `OptionalChaining` | 0 | 0 | 6 | 6 |
+| `Regex` | 2 | 0 | 0 | 2 |
+| `BlockStatement` · `BooleanLiteral` | 0 | 0 | 4 | 4 |
+| `MethodExpression` | 1 | 0 | 0 | 1 |
+
+**`ArrayDeclaration` ist die gefährlichste Art, nicht `ConditionalExpression`** —
+15 von 19 sind A. Der Grund: die überlebenden Arrays sind fast alle
+**Abfrage-Parameter**. Ein geleertes `[locationId, orgId]` nimmt der Abfrage die
+Mandantengrenze, und ein Test, der nur das Ergebnis des Mock-Pools prüft, merkt
+davon nichts. Das ist dieselbe Lektion, die in dieser Codebasis inzwischen sechsmal
+unabhängig aufgetreten ist: *ein Test, der das Ergebnis prüft statt welche Abfrage
+lief, beweist nichts.*
+
+---
+
+## Drei Annahmen, die sich nicht gehalten haben
+
+### 1. „45 StringLiterals — meist Texte, geringe Tragweite"
+
+**Falsch für 10 davon.** Ein StringLiteral ist nur dann Text, wenn ihn ein Mensch
+liest. Diese zehn liest Code:
+
+- **6 Rollennamen** in `ADMIN_ROLES`, `SENIOR_ROLES`, `MANAGER_ROLES`
+  (`enterpriseSurfaceAccessService.js:20-22`). Spaltengenau sind es in allen drei
+  Listen `platform_admin` und `admin` — für sie ist nicht belegt, dass sie ihre
+  Rechte bekommen. `owner` ist getestet.
+- **3 SQL-Texte** (`rbacService.js:346`, `orgBoundary.js:112` und `:127`). Wird einer
+  geleert, verschwindet mit ihm die Klausel `AND org_id = $2` — die Mandantengrenze
+  selbst. Stryker zählt sie als StringLiteral.
+- **1 Vergleichswert**: das `"owner"` in `if (newRoleKey !== "owner")`
+  (`rbacService.js:342`) entscheidet über den Letzter-Owner-Schutz.
+
+### 2. „Rund 28 liegen in Entscheidungslogik"
+
+Die Zahl stimmt mechanisch (20 `ConditionalExpression` + 8 `LogicalOperator`) — sie
+zählt aber die falschen Dinge. **4 der 28** sitzen in einer `logger.warn`-Nutzlast
+(`middleware/rbac.js:165`) und entscheiden nichts. Umgekehrt sitzen Mutanten in
+echten Verzweigungen, die die Zählung nicht erfasst — siehe den Vergleichswert
+`"owner"` oben.
+
+Nach Beurteilung statt nach Bauart: **37 sitzen in einer Verzweigung, die Verhalten
+steuert; 14 davon sind Kategorie A.** Das ist der Rest, den das Gate der
+Mutation-Direktive meint — nicht 28.
+
+### 3. „Der nächtliche CI-Job existiert"
+
+**Er existiert als Datei und hat noch nie gelaufen.** Siehe M0-B1 — der gewichtigste
+Befund dieser Welle.
+
+---
+
+## Befunde (kein Produktionscode angefasst)
+
+| Nr | Befund | Beleg |
+|---|---|---|
+| **M0-B1** | Der nächtliche Mutations-Job ist **nicht auf `origin`**. `.github/workflows/mutation.yml` entstand am 2026-08-12 (`671b047`); `origin` steht auf dem Stand vom 2026-08-06 und ist **57 Commits zurück**. GitHub kennt die Datei nicht — der Job hat nie ausgelöst und kann es nicht. | `git ls-tree origin/…:.github/workflows` listet nur `ci.yml` |
+| **M0-B2** | Selbst nach dem Push würde er **abgebrochen**: `timeout-minutes: 90`, gemessene Laufzeit **1 h 49 min**. Der Kommentar im Job nennt „~1 h" — das war die Schätzung vor der Messung. | `mutation.yml:41` gegen [README.md](README.md) |
+| **M0-B3** | `incremental: true` steht in `stryker.rbac.conf.json`, aber CI startet aus einem frischen Checkout ohne Zwischenstand. Jeder CI-Lauf ist daher ein **voller** Lauf — die Einstellung spart dort nichts. | `stryker.rbac.conf.json:29` |
+| **M0-B4** | `req.locationScope` wird von `middleware/orgContext.js` gesetzt und **nirgends gelesen** — außer im eigenen Test. Drei C-Einstufungen stützen sich darauf. | Suche über `api/`, `frontend/`, `e2e/`: 2 Treffer, beide in der Datei selbst bzw. ihrem Test |
+| **M0-B5** | `expose: true` am `LAST_OWNER`-Fehler (`rbacService.js:303`) hat **keinen Leser** im Backend. Wirkungslose Kennzeichnung — deshalb C, nicht A. | Suche über `api/`: einziger Treffer ist die Zuweisung selbst |
+| **M0-B6** | In `enterpriseSurfaceAccessService.js:157-159` ist die Bedingung **doppelt gemoppelt**: `coMode === "full"` ist genau dann wahr, wenn `isSenior` wahr ist. Deshalb sind `&& isSenior` und (wegen ADMIN ⊂ SENIOR) `coMode === "full" &&` vor `isAdmin` wirkungslos. Vier Mutanten sind dadurch **nicht tötbar** — kein Testproblem, ein Codeproblem. | Zeilen 106-109 gegen 157-159 |
+| **M0-B7** | Die Mandantengrenze `assertOrgOwnership` hat **23 erlaubte Tabellen und genau einen Aufrufer**: `routes/requisitions.js`, viermal, immer mit `'requisitions'`. `assertUserOwnership` hat **gar keinen** Aufrufer in Produktion. Die Tabellenliste im Test (`test/orgBoundary.test.js:113-119`) ist zudem eine **Abschrift, die bei 17 Einträgen stehengeblieben ist** — genau die 5 fehlenden Namen sind die überlebenden Mutanten. | Suche über `api/routes`, `api/services` |
+| **M0-B8** | `surface_access.multi_location` wird erzeugt (`userService.js:290`), aber **von niemandem gelesen**: die Standort-Karte im Frontend gatet über `surfaceKey: "org_settings"`. | `hubVisibility.js:97-102` |
+
+**M0-B1 ist eine Owner-Entscheidung, keine Aufgabe:** Der Push von 57 Commits gehört
+nicht nebenbei erledigt. Bis dahin gilt: der Mutations-Lauf ist **von Hand gemessen**
+(so wie am 2026-08-14), nicht überwacht.
+
+**M0-B6 und M0-B7 berühren Produktionscode** und werden deshalb *nicht* nebenbei
+behoben — P12 verbietet das ausdrücklich. Sie gehören als eigene Entscheidung auf
+den Tisch. M0-B7 stützt dabei denselben Befund wie
+[ORG_GRENZE_BEFUND.md](../../../ORG_GRENZE_BEFUND.md) von der anderen Seite: der
+zentrale Wächter existiert und wird einmal benutzt, während 80 Grenzprüfungen
+einzeln in den Routen stehen.
+
+---
+
+## Was die Gegenprüfung geändert hat
+
+Die erste Einstufung entstand aus dem archivierten Auszug (`ergebnis.json`), der je
+Fall **Datei, Zeile, Mutator und Ersetzung** kennt. Das reicht nicht immer: teilt
+sich eine Zeile mehrere Mutanten, bleibt offen, *welcher Teil* der Zeile ersetzt
+wurde. Genau daran sind sechs meiner Einstufungen gescheitert — das deutlichste
+Beispiel ist `middleware/orgContext.js:187`, wo der Lauf **zwei**
+`ConditionalExpression`-Mutanten führt: der über die ganze Bedingung wurde getötet,
+überlebt hat der über den rechten Vergleich. Beide sehen im Auszug identisch aus.
+
+Die Zweitprüfung hatte den **Rohbericht** (75 MB, nicht versioniert), der jeden
+Mutanten spaltengenau auflöst. Daraus folgen zwei bleibende Konsequenzen:
+
+1. **`triage.json` trägt jetzt `spalte` und `mutant_id`** je Fall. Die Präzision des
+   Rohberichts ist damit im Archiv, auch wenn die 75 MB längst gelöscht sind.
+2. **`node scripts/mutation-triage.js --roh`** hält den Auszug gegen den Rohbericht,
+   solange dieser noch auf der Maschine liegt. Ergebnis heute: **112 Überlebende,
+   0 Abweichungen.** Ohne Rohbericht wird die Prüfung übersprungen, nicht rot — ein
+   Archiv, das nur mit dem Original prüfbar ist, wäre kein Archiv.
+
+Drei der 23 Korrekturen wurden **mechanisch** entschieden statt nach Urteil: für
+`admin`, `supplier_manager` und `finance` gibt es in der gesamten Rechtematrix keine
+einzige Berechtigung, die nur über die Vererbung erreichbar wäre — ihre Zeile in
+`ROLE_HIERARCHY` ist reine Redundanz, der Mutant damit gleichwertig. Für
+`program_manager`, `hiring_manager`, `recruiter` und `dispatcher` gilt das nicht;
+dort steht in `kill_durch` jetzt die konkrete Berechtigung, die nur über das Erbe
+erreichbar ist.
+
+---
+
+## Was die Wellen M1–M5 tun werden
+
+Je Welle ein Testblock, Produktionscode unverändert. Die Fälle stehen einzeln in
+[`triage.json`](triage.json) mit dem Feld `kill_durch` — dem Test, der genau diese
+Mutation tötet.
+
+| Welle | Datei | A | Schwerpunkt |
+|---|---|---|---|
+| **M1** | `rbacService.js` | 19 | **8× Abfrage-Parameter** (`params` prüfen, nicht das Ergebnis) · 4× Rollen-Vererbung (reine Funktion, billig) · 2× Letzter-Owner-Schutz (inkl. `{ userId }`, dessen Verlust den Schutz stillschweigend abschaltet) · 3× Rückgabevertrag der Rollenänderung · 1× SQL-Text mit `org_id`-Klausel · 1× Vergleichswert `"owner"` |
+| **M2** | `enterpriseSurfaceAccessService.js` | 8 | 6× Rollenlisten einzeln (`platform_admin` und `admin` in allen drei Listen) · 1× Tarif-Alias `INDIVIDUELL_*` · 1× `orgType` schlägt `role` (sonst kippt ein Unternehmen auf die Agentur-Flächen) |
+| **M3** | `middleware/orgContext.js` | 6 | 2× UUID-Anker (`^` und `$`) · 1× Regel 7 (Rückfall auf die eigene Org) · 1× „nur der Header zählt als Absicht" · 2× Regel 6 (Standort-Cache beim Org-Wechsel) |
+| **M4** | `orgBoundary.js` | 5 | 2× SQL-Text mit `org_id`-Klausel (Standort, Abteilung) · 3× Abfrage-Parameter |
+| **M5** | `middleware/rbac.js` | 1 | `req.orgId` darf nach `requireRole` nie `null` werden — sonst schalten sich 45 Grenzprüfungen der Form `if (req.orgId && …)` selbst ab |
+
+`utils/orgContext.js` bekommt **keine Welle**: 0 A-Fälle, beide Überlebenden sind
+gleichwertige Mutanten in einer Health-Check-Funktion.
+
+**Abweichung vom Plan, bewusst:** Der Plan sah vor, jeden B-Fall „mit einer Zeile
+Begründung im Testkopf" zu versehen. Die Begründungen stehen stattdessen vollständig
+in `triage.json` — eine Quelle statt 32 Kopien in Testköpfen, die auseinanderlaufen.
+Die Testköpfe verweisen darauf.
+
+---
+
+## Gate M0
+
+| Bedingung | Stand |
+|---|---|
+| Jeder der 112 Fälle trägt eine Kategorie | ✅ maschinell geprüft, 0 Verstöße |
+| Jede Einstufung unabhängig gegengelesen | ✅ 23 Korrekturen, alle nach unten, keine in der gefährlichen Richtung |
+| Reihenfolge M1–M5 ergibt sich aus A-Fällen, nicht aus dem Score | ✅ und sie unterscheidet sich davon — bleibt aber unter der Korrektur stabil |
+| Aufschlüsselung je Datei × Art liegt vor | ✅ `node scripts/mutation-triage.js` |
+| Auszug deckt sich mit dem Rohbericht | ✅ `--roh`: 112 Überlebende, 0 Abweichungen |
+| Nächtlicher CI-Job verifiziert | ✅ geprüft — **Ergebnis: er läuft nicht** (M0-B1) |
+| Kein Produktionscode angefasst | ✅ nur Doku, Skript und Test |
