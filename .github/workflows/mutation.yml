@@ -1,23 +1,45 @@
 name: Mutation Testing (RBAC & Org-Boundary)
 
 # WARUM EIN EIGENER WORKFLOW
-# Mutation Testing führt für JEDEN Mutanten die gesamte Testmenge aus. Der
-# Aggregat-Lauf über RBAC, Org-Kontext und Org-Grenze umfasst rund 1300
-# Mutanten und braucht etwa eine Stunde. In jedem Pull Request wäre das
-# untragbar — deshalb nachts, plus auf Abruf.
+# Mutation Testing führt für JEDEN Mutanten die gesamte Testmenge aus. Über
+# RBAC, Org-Kontext und Org-Grenze sind das rund 1300 Mutanten. In jedem Pull
+# Request wäre das untragbar — deshalb wöchentlich, plus auf Abruf.
 #
 # WAS ER BEWEIST, das die normale Suite nicht beweist
 # Coverage sagt "Zeile wurde ausgeführt". Dieser Lauf sagt "ein eingebauter Bug
 # wird von einem Test gefangen". Für die Mandantengrenze und die
 # Berechtigungsmatrix ist das der Unterschied zwischen geprüft und gehofft.
 #
-# Vollständiger Plan, Wellen und Gates: _TEMPCONNECT_MUTATION_RBAC_PLAN.md
-# Architektur-Befund zur Org-Grenze: docs/ORG_GRENZE_BEFUND.md
+# ── ZUSCHNITT: EIN JOB JE DATEI, NICHT EIN GROSSER ───────────────────────────
+# Die erste Fassung dieses Workflows lief als EIN Job über alle sechs Dateien,
+# mit `timeout-minutes: 90`. Beides trug nicht:
+#   - Gemessen wurden am 2026-08-14 lokal 1 h 49 min — mit VIER parallelen
+#     Läufern (`concurrency: "50%"` auf einer 4-Kern-Maschine).
+#   - Ein Standard-Runner hat 2 vCPU. Dort ergibt dieselbe Einstellung EINEN
+#     Läufer, also grob die vierfache Laufzeit: über sieben Stunden. Das
+#     Job-Limit von GitHub liegt bei sechs. Der Lauf wäre nicht knapp gewesen,
+#     sondern unmöglich.
+# Deshalb eine Matrix: sechs Jobs, je eine Datei, die parallel laufen. Der
+# größte (rbacService.js, 605 Mutanten) bleibt damit im Ein-Stunden-Bereich.
+#
+# ── DAS GATE IST NICHT DER PROZENTWERT ───────────────────────────────────────
+# Ein Score kann steigen, während genau die Stellen ungetestet bleiben, auf die
+# es ankommt — die Aufräum-Wellen M0–M5 sind aus genau diesem Befund entstanden.
+# Rot wird dieser Lauf deshalb, wenn ein Fall der Kategorie A wieder überlebt:
+# eine Mutation, die Zugriff, Geld, Nachweis oder Mandantengrenze verschieben
+# könnte. Die Einstufung dazu steht versioniert in
+# docs/qualitaet/mutation/2026-08-14-rbac/triage.json, geprüft von
+# api/scripts/mutation-triage.js.
+#
+# Vollständiger Plan: docs/features/P12_MUTATION_AUFRAEUMEN.md
+# Ergebnis der Triage: docs/qualitaet/mutation/2026-08-14-rbac/TRIAGE.md
 
 on:
   schedule:
-    # 03:30 UTC — nach dem wöchentlichen CI-Lauf (02:17 montags), täglich.
-    - cron: '30 3 * * *'
+    # Montags 04:30 UTC — nach dem wöchentlichen CI-Lauf (02:17). Wöchentlich,
+    # nicht nächtlich: sechs Dateien, die sich selten ändern, brauchen keine
+    # tägliche Stunde Rechenzeit.
+    - cron: '30 4 * * 1'
   workflow_dispatch:
     inputs:
       grund:
@@ -33,12 +55,23 @@ env:
   NODE_VERSION: '20'
 
 jobs:
-  mutation-rbac:
-    name: RBAC, Org-Kontext, Org-Grenze
+  mutation:
+    name: ${{ matrix.datei }}
     runs-on: ubuntu-latest
-    # Der Lauf dauert ~1 h. Grosszügig, aber nicht unbegrenzt: ein Lauf, der
-    # 90 Minuten überschreitet, hat ein anderes Problem als Rechenzeit.
-    timeout-minutes: 90
+    # Grosszügig für die größte Datei, aber nicht unbegrenzt. Ein Lauf, der hier
+    # anschlägt, hat ein anderes Problem als Rechenzeit.
+    timeout-minutes: 180
+
+    strategy:
+      fail-fast: false # Eine rote Datei darf die anderen fünf nicht verdecken.
+      matrix:
+        datei:
+          - services/rbacService.js
+          - services/enterpriseSurfaceAccessService.js
+          - middleware/orgContext.js
+          - middleware/rbac.js
+          - utils/orgBoundary.js
+          - utils/orgContext.js
 
     steps:
       - uses: actions/checkout@v4
@@ -53,23 +86,35 @@ jobs:
         working-directory: ./api
         run: npm ci
 
-      # Vorbedingung aus dem Plan: auf einer roten oder flakigen Suite ist jeder
+      # Vorbedingung: auf einer roten oder flakigen Suite ist jeder
       # Mutation-Score wertlos. Deshalb erst die normale Suite, und nur wenn sie
       # grün ist, der teure Lauf.
       #
       # BEWUSST OHNE POSTGRES-DIENST. Dieser Job braucht keine Datenbank: alle
       # Testdateien im Mutations-Kommando sind DB-frei (das ist Bedingung, sonst
-      # wäre der Lauf nichtdeterministisch). Die rund 13 DB-gebundenen Tests der
+      # wäre der Lauf nichtdeterministisch). Die DB-gebundenen Tests der
       # Gesamtsuite werden hier also übersprungen — dieser Vorlauf ist damit ein
-      # schwächeres Gatter als ci.yml und ersetzt es NICHT. Er prüft genau das,
-      # worauf der Mutations-Lauf aufbaut.
+      # schwächeres Gatter als ci.yml und ersetzt es NICHT.
+      #
+      # Ohne Pipe: `… | tail` liefert den Status von `tail`, nicht den des Laufs.
       - name: Suite muss grün sein (ohne DB — siehe Kommentar)
         working-directory: ./api
         run: node scripts/run-tests.js
 
-      - name: Mutation-Lauf
+      # Der Lauf geht über mutation-welle.js statt direkt über Stryker:
+      # das Skript leitet seine Konfiguration aus stryker.rbac.conf.json ab
+      # (Testliste übernommen, nicht abgeschrieben), setzt incremental=false —
+      # in CI startet ohnehin jeder Lauf aus einem frischen Checkout — und
+      # schreibt nach reports/mutation/welle/<datei>/.
+      - name: Mutations-Lauf für ${{ matrix.datei }}
         working-directory: ./api
-        run: npm run test:mutation:rbac
+        run: node scripts/mutation-welle.js ${{ matrix.datei }}
+
+      # DAS eigentliche Gate: lebt wieder ein A-Fall, ist der Lauf rot — auch
+      # wenn der Prozentwert gut aussieht.
+      - name: Gate — kein A-Fall darf überleben
+        working-directory: ./api
+        run: node scripts/mutation-triage.js --welle ${{ matrix.datei }}
 
       # Der Bericht ist das eigentliche Werkzeug: er zeigt je Zeile, welcher
       # eingebaute Bug überlebt hat. Ohne ihn bleibt nur eine Zahl.
@@ -77,6 +122,6 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: mutation-report-rbac
-          path: api/reports/mutation/rbac/
+          name: mutation-report-${{ strategy.job-index }}
+          path: api/reports/mutation/welle/
           retention-days: 30

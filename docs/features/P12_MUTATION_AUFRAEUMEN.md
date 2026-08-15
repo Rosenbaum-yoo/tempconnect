@@ -192,25 +192,42 @@ Je Welle:
 **unverändert**. Muss der Code angefasst werden, ist das ein Befund — dann Stopp
 und Owner fragen, nicht nebenbei ändern.
 
-### M6 — Automatik
+### M6 — Automatik *(gebaut 2026-08-15; scharf erst nach dem Push)*
 
 Erst wenn M1–M5 durch sind, sonst automatisiert man einen roten Zustand.
 
-**M0 hat vorweggenommen, was M6 zu reparieren hat** (Befunde M0-B1 bis M0-B3):
-der Job ist nicht auf `origin`, seine Zeitgrenze liegt unter der gemessenen
-Laufzeit, und `incremental: true` bringt in CI nichts, weil jeder Lauf aus einem
-frischen Checkout startet. Alle drei gehören in diese Welle — nicht früher, sonst
-überwacht man einen Zustand mit 61 offenen A-Fällen.
+**M0 hat vorweggenommen, was M6 zu reparieren hat** (Befunde M0-B1 bis M0-B3).
+Beim Bauen kam ein vierter Punkt dazu, den M0 noch nicht gesehen hatte:
 
-- Voller Lauf **terminiert** (wöchentlich, nicht nächtlich — zwei Stunden pro
-  Nacht für sechs Dateien lohnt nicht).
-- Zeitgrenze über die **gemessene** Laufzeit setzen (1 h 49 min), nicht über die
-  geschätzte („~1 h" stand im Job, bevor gemessen wurde).
-- Bericht **datiert** ablegen wie am 2026-08-14; der Rohbericht (79 MB) bleibt
-  draußen, nur der Auszug wird versioniert.
-- Vor jedem Lauf `rm -rf .stryker-tmp` und den Inkrementalstand — sonst gatet
-  `incremental: true` gegen einen anderen Testumfang.
+> **Der Zuschnitt selbst trug nicht.** Die 1 h 49 min wurden mit **vier**
+> parallelen Läufern gemessen (`concurrency: "50%"` auf vier Kernen). Ein
+> Standard-Runner hat 2 vCPU und damit **einen** Läufer — hochgerechnet über
+> sieben Stunden, bei einem GitHub-Job-Limit von sechs. Eine größere Zeitgrenze
+> hätte den Job nicht gerettet, sondern nur später scheitern lassen.
+
+**Was jetzt steht:**
+
+- **Matrix statt einem Job:** sechs Jobs, je eine Datei, parallel. Der größte
+  (`rbacService.js`, 605 Mutanten) bleibt damit im Ein-Stunden-Bereich.
+  `fail-fast: false` — eine rote Datei darf die anderen fünf nicht verdecken.
+- **Das Gate ist nicht der Prozentwert**, sondern
+  `node scripts/mutation-triage.js --welle <datei>`: rot, sobald ein **A-Fall
+  wieder überlebt**. Ein Score kann steigen, während genau die Stellen offen
+  bleiben, auf die es ankommt — dieser ganze Plan ist aus diesem Befund
+  entstanden.
+- **Wöchentlich** (montags 04:30 UTC, nach dem CI-Lauf um 02:17), nicht nächtlich.
+- Der Lauf geht über `scripts/mutation-welle.js`: leitet die Konfiguration aus
+  der Aggregat-Datei ab, setzt `incremental: false`, räumt `.stryker-tmp` vorher
+  weg und schreibt **nie** ins Archiv. Damit sind M0-B2 und M0-B3 erledigt.
+- **Datiert ablegen** erledigt `scripts/mutation-archivieren.js`: schreibt
+  Scores und jeden Überlebenden mit Datei, Zeile, **Spalte** und Ersetzung nach
+  `docs/qualitaet/mutation/<datum>-<name>/`. Ein bestehendes Datum wird **nie**
+  überschrieben — ein Archiv, das man überschreiben kann, ist keins.
 - **Nie mit Pipe messen:** `… | tail` liefert den Status von `tail`.
+
+**Was offen bleibt — und nicht von mir entschieden wird:** `origin` ist 57
+Commits zurück. Solange nicht gepusht wird, ist dieser Workflow eine Datei auf
+einer Festplatte, kein Wächter (M0-B1).
 
 **Gate M6:** Ein Lauf ohne Änderung erzeugt denselben Score, der Bericht landet
 datiert im Archiv, und ein Absinken unter 86 meldet sich sichtbar.
