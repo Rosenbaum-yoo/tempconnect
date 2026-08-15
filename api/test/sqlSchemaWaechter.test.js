@@ -150,6 +150,7 @@ import fs from "node:fs";
 import path from "node:path";
 import crypto from "node:crypto";
 import { fileURLToPath } from "node:url";
+import { migrationsFingerabdruck } from "../scripts/schema-snapshot.js";
 
 /*
  * hasDb steht hier woertlich statt als Import aus test/integration/helpers.js —
@@ -944,10 +945,13 @@ describe("SQL-Schema-Waechter", () => {
     assert.ok(dateien.length >= 100,
       `nur ${dateien.length} Migrationsdateien unter ${migDir} gefunden — der Pfad zeigt ins Leere`);
 
-    const teile = dateien.map(
-      (f) => `${f}:${crypto.createHash("sha256").update(fs.readFileSync(path.join(migDir, f))).digest("hex")}`
-    );
-    const hash = crypto.createHash("sha256").update(teile.join("\n")).digest("hex");
+    // Die Berechnung kommt aus dem Erzeuger, sie wird NICHT abgeschrieben:
+    // zwei Kopien derselben Formel driften. Genau das ist am 2026-08-15
+    // passiert — der Fingerabdruck haengt an den Zeilenenden (CRLF auf dem
+    // Windows-Host, LF im Container), und die Kopie hier kannte die
+    // Vereinheitlichung nicht, die der Erzeuger inzwischen macht.
+    const { hash } = migrationsFingerabdruck(REPO_ROOT);
+    const teile = dateien;
 
     assert.equal(hash, schema.migrations_fingerabdruck?.hash,
       `Die Migrationen haben sich geaendert (${teile.length} Dateien jetzt, ` +
@@ -963,7 +967,9 @@ describe("SQL-Schema-Waechter", () => {
      */
     const initPfad = path.join(REPO_ROOT, "sql", "init.sql");
     if (fs.existsSync(initPfad)) {
-      const initHash = crypto.createHash("sha256").update(fs.readFileSync(initPfad)).digest("hex");
+      // Auch hier aus dem Erzeuger, nicht abgeschrieben — sonst faellt die
+      // Zeilenenden-Vereinheitlichung an dieser Stelle wieder auseinander.
+      const { init: initHash } = migrationsFingerabdruck(REPO_ROOT);
       assert.equal(initHash, schema.migrations_fingerabdruck?.init,
         "sql/init.sql hat sich geaendert, die Momentaufnahme nicht.\n" +
         "Beheben:  npm run schema:snapshot");

@@ -34,7 +34,7 @@ import { spawnSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
 import crypto from "node:crypto";
-import { fileURLToPath } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const API_DIR = path.resolve(__dirname, "..");
@@ -105,17 +105,34 @@ function psql(sql) {
  * veraltet" — also genau die Sorte Dauer-Rot, nach der ein Test abgeschaltet wird.
  * Getrennt vergleicht jede Seite das, was sie sehen kann.
  */
+/*
+ * ZEILENENDEN WERDEN VEREINHEITLICHT, bevor gehasht wird.
+ *
+ * Ohne diesen Schritt haengt der Fingerabdruck an CRLF gegen LF: git checkt auf
+ * Windows mit CRLF aus, der Linux-Container sieht LF — dieselbe Datei, andere
+ * Bytes, anderer Hash. Der Waechter konnte damit nur in EINER der beiden Welten
+ * gruen sein; am 2026-08-15 stand er auf dem Host rot, weil die Momentaufnahme
+ * im Container erzeugt worden war (und umgekehrt genauso).
+ *
+ * Das ist dieselbe Falle, die der Kommentar darueber fuer init.sql schon
+ * beschreibt — nur eine Ebene tiefer: nicht WELCHE Dateien beide Seiten sehen,
+ * sondern WIE sie sie lesen.
+ */
+function inhaltNormalisiert(pfad) {
+  return Buffer.from(fs.readFileSync(pfad, "utf8").replace(/\r\n/g, "\n"), "utf8");
+}
+
 export function migrationsFingerabdruck(repoRoot) {
   const initPfad = path.join(repoRoot, "sql", "init.sql");
   const init = fs.existsSync(initPfad)
-    ? crypto.createHash("sha256").update(fs.readFileSync(initPfad)).digest("hex")
+    ? crypto.createHash("sha256").update(inhaltNormalisiert(initPfad)).digest("hex")
     : null;
 
   const teile = [];
   const migDir = path.join(repoRoot, "sql", "migrations");
   if (fs.existsSync(migDir)) {
     for (const f of fs.readdirSync(migDir).filter((x) => x.endsWith(".sql")).sort()) {
-      teile.push(`${f}:${crypto.createHash("sha256").update(fs.readFileSync(path.join(migDir, f))).digest("hex")}`);
+      teile.push(`${f}:${crypto.createHash("sha256").update(inhaltNormalisiert(path.join(migDir, f))).digest("hex")}`);
     }
   }
   return {
@@ -125,6 +142,14 @@ export function migrationsFingerabdruck(repoRoot) {
   };
 }
 
+/*
+ * Ab hier laeuft das Skript. Bewusst hinter einem Einstiegspunkt-Check:
+ * `migrationsFingerabdruck` soll von Tests IMPORTIERBAR sein, ohne dass dabei
+ * psql anlaeuft und eine Datenbank verlangt. Genau daran ist es vorher
+ * gescheitert — der Waechter-Test hat die Berechnung deshalb ABGESCHRIEBEN
+ * statt sie zu benutzen, und zwei Kopien derselben Formel driften.
+ */
+function main() {
 const roh = psql(ABFRAGE);
 if (!roh || roh === "null") throw new Error("psql lieferte kein JSON — laeuft der Container?");
 const daten = JSON.parse(roh);
@@ -159,3 +184,8 @@ console.log(
   `[schema-snapshot] ${Object.keys(tabellen).length} Relationen, ${anzSpalten} Spalten, ` +
   `${ausgabe.funktionen.length} Funktionen -> ${path.relative(REPO_ROOT, ZIEL)}`
 );
+}
+
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
+  main();
+}
