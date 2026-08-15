@@ -27,7 +27,12 @@
    "begruendung": "Ohne ^-Anker passiert 'muell-<uuid>' die Eingangspruefung fuer X-Org-Id/X-Location-Id. Regel 1+2 (400 statt stiller Uebernahme) waere damit umgehbar.",
    "kill_durch": "Request mit X-Org-Id='zzz-<gueltige uuid>' muss 400 INVALID_ORG_ID liefern.",
    "spalte": 17,
-   "mutant_id": "0"
+   "mutant_id": "0",
+   "erledigt": {
+    "welle": "M3",
+    "test": "test/orgContextMutanten.test.js",
+    "am": "2026-08-15"
+   }
   },
   {
    "nr": 1,
@@ -40,7 +45,12 @@
    "begruendung": "Ohne $-Anker passiert '<uuid>-angehaengt' die Eingangspruefung. Gleiche Luecke, andere Seite.",
    "kill_durch": "Request mit X-Location-Id='<gueltige uuid>zzz' muss 400 INVALID_LOCATION_ID liefern.",
    "spalte": 17,
-   "mutant_id": "1"
+   "mutant_id": "1",
+   "erledigt": {
+    "welle": "M3",
+    "test": "test/orgContextMutanten.test.js",
+    "am": "2026-08-15"
+   }
   },
   {
    "nr": 2,
@@ -119,7 +129,12 @@
    "begruendung": "Der Zweig 'Mitgliedschaft gefunden?' ist die Stelle, an der Regel 7 haengt (der 2026-07-26 geschlossene Cross-Org-Leck-Pfad). Dass ihn kein Test unterscheidet, heisst: der Rueckfall auf die eigene Org ist unbewiesen.",
    "kill_durch": "Fremde org_id per Header, keine Mitgliedschaft: req.orgId muss die EIGENE Org sein, nicht leer und nicht die fremde.",
    "spalte": 13,
-   "mutant_id": "71"
+   "mutant_id": "71",
+   "erledigt": {
+    "welle": "M3",
+    "test": "test/orgContextMutanten.test.js",
+    "am": "2026-08-15"
+   }
   },
   {
    "nr": 9,
@@ -132,7 +147,12 @@
    "begruendung": "Nur der Header gilt als Absicht. Mit 'true' schriebe auch ?org_id= in den Sitzungs-Cache — der Wunsch aus einer Adresszeile wuerde damit dauerhaft zum Kontext folgender Anfragen.",
    "kill_durch": "Anfrage mit ?org_id=<eigene zweite Org>: req.session._orgCache darf danach unveraendert sein.",
    "spalte": 15,
-   "mutant_id": "74"
+   "mutant_id": "74",
+   "erledigt": {
+    "welle": "M3",
+    "test": "test/orgContextMutanten.test.js",
+    "am": "2026-08-15"
+   }
   },
   {
    "nr": 10,
@@ -145,7 +165,12 @@
    "begruendung": "Regel 6: der Standort-Cache wird nur beim echten Org-Wechsel verworfen. Immer-verwerfen zieht den Nutzer bei jeder Anfrage auf org-weite Sicht zurueck.",
    "kill_durch": "Zweiter Aufruf mit demselben X-Org-Id: _locationCache muss erhalten bleiben.",
    "spalte": 17,
-   "mutant_id": "77"
+   "mutant_id": "77",
+   "erledigt": {
+    "welle": "M3",
+    "test": "test/orgContextMutanten.test.js",
+    "am": "2026-08-15"
+   }
   },
   {
    "nr": 11,
@@ -158,7 +183,12 @@
    "begruendung": "Zweite Bedingung derselben Zeile (Cache-Org != neue Org). Gleiche Wirkung, eigener Mutant — doppelte Logik braucht doppelte Tests.",
    "kill_durch": "Org-Wechsel A->B: _locationCache muss weg sein; A->A: muss bleiben. Beide Richtungen.",
    "spalte": 49,
-   "mutant_id": "81"
+   "mutant_id": "81",
+   "erledigt": {
+    "welle": "M3",
+    "test": "test/orgContextMutanten.test.js",
+    "am": "2026-08-15"
+   }
   },
   {
    "nr": 12,

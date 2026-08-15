@@ -37,7 +37,7 @@ gefährliche Richtung. Warum das so kam, steht unten unter
 |---|---|---|---|---|---|---|---|---|---|
 | **M1** ✅ | `services/rbacService.js` | 95,87 % | 25 | **19** | 19 | 0 | 10 | 2 | 4 |
 | **M2** ✅ | `services/enterpriseSurfaceAccessService.js` | 89,29 % | 21 | **8** | 8 | 0 | 2 | 0 | 13 |
-| **M3** | `middleware/orgContext.js` | 86,96 % | 24 | **6** | 0 | 6 | 2 | 4 | 14 |
+| **M3** ✅ | `middleware/orgContext.js` | 86,96 % | 24 | **6** | 6 | 0 | 2 | 4 | 14 |
 | **M4** | `utils/orgBoundary.js` | 82,20 % | 21 | **5** | 0 | 5 | 5 | 9 | 7 |
 | **M5** | `middleware/rbac.js` | 87,82 % | 19 | **1** | 0 | 1 | 1 | 17 | 1 |
 | — | `utils/orgContext.js` | 93,94 % | 2 | **0** | 0 | 0 | 0 | 0 | 2 |
@@ -185,11 +185,12 @@ Je Welle ein Lauf über genau diese Datei
 |---|---|---|---|---|---|---|
 | M1 | `rbacService.js` | 95,87 % | **99,17 %** | 25 | **5** | 19/19 |
 | M2 | `enterpriseSurfaceAccessService.js` | 89,29 % | **93,88 %** | 21 | **12** | 8/8 |
+| M3 | `middleware/orgContext.js` | 86,96 % | **90,22 %** | 24 | **18** | 6/6 |
 
-In **beiden** Wellen gilt dasselbe: **die Überlebenden sind genau die Fälle, die
-M0 nicht als A eingestuft hat** — keiner mehr, keiner weniger. Die Einstufung
-sagt also nicht nur, was zu tun ist, sondern sagt auch richtig voraus, was nach
-getaner Arbeit übrig bleibt.
+In **jeder** Welle gilt dasselbe: **die Überlebenden sind genau die Fälle, die M0
+nicht als A eingestuft hat** — keiner mehr, keiner weniger. Die Einstufung sagt
+also nicht nur, was zu tun ist, sondern sagt auch richtig voraus, was nach
+getaner Arbeit übrig bleibt. Nach drei Wellen ist das kein Zufall mehr.
 
 ### M1 im Detail — der Beleg für die Gegenprüfung
 
@@ -238,6 +239,27 @@ Agentur-Flächen bekommen.
 
 **Gate M2 erfüllt:** 8 von 8 A-Fällen tot, Produktionscode unverändert.
 
+### M3 im Detail — drei Zusagen, auf die anderer Code sich verlässt
+
+`middleware/orgContext.js`, 184 Mutanten. Die sechs A-Fälle tragen keine
+Fähigkeit, sondern drei Zusagen:
+
+- **Beide Anker des UUID-Musters.** Ohne Anfangsanker passiert `muell<uuid>` die
+  Eingangsprüfung, ohne Endanker `<uuid>muell` — beides Werte, die danach als
+  Org- oder Standort-Kennung weiterverwendet würden. Dass *jeder Anker einzeln*
+  überlebt hat, heißt: geprüft war nur, dass eine saubere UUID durchkommt.
+- **Regel 7 — der Kontext bleibt nie leer.** Nennt jemand eine Organisation, in
+  der er nicht Mitglied ist, fällt der Kontext auf die eigene zurück. Bliebe
+  `req.orgId` leer, schalteten sich 45 Grenzprüfungen der Form
+  `if (req.orgId && fremd) 403` selbst ab. Genau das war bis zum 2026-07-26 ein
+  erreichbares Cross-Org-Leck — der Zweig, der es schloss, war unbewiesen.
+- **Regel 6 — nur der Header ist eine Absicht.** Ein `?org_id=` aus der
+  Adresszeile darf nicht in den Sitzungs-Cache wandern, und der Standort-Cache
+  wird nur bei einem *echten* Org-Wechsel verworfen. Beide Bedingungen der
+  Zeile 82 überlebten einzeln — doppelte Logik braucht doppelte Tests.
+
+**Gate M3 erfüllt:** 6 von 6 A-Fällen tot, Produktionscode unverändert.
+
 ---
 
 ## Was die Wellen M2–M5 tun werden
@@ -250,7 +272,7 @@ Mutation tötet.
 |---|---|---|---|
 | ~~**M1**~~ ✅ | `rbacService.js` | 19 | erledigt am 2026-08-15, `test/rbacServiceMutanten.test.js` (20 Tests) |
 | ~~**M2**~~ ✅ | `enterpriseSurfaceAccessService.js` | 8 | erledigt am 2026-08-15, `test/enterpriseSurfaceMutanten.test.js` (13 Tests) |
-| **M3** | `middleware/orgContext.js` | 6 | 2× UUID-Anker (`^` und `$`) · 1× Regel 7 (Rückfall auf die eigene Org) · 1× „nur der Header zählt als Absicht" · 2× Regel 6 (Standort-Cache beim Org-Wechsel) |
+| ~~**M3**~~ ✅ | `middleware/orgContext.js` | 6 | erledigt am 2026-08-15, `test/orgContextMutanten.test.js` (7 Tests) |
 | **M4** | `orgBoundary.js` | 5 | 2× SQL-Text mit `org_id`-Klausel (Standort, Abteilung) · 3× Abfrage-Parameter |
 | **M5** | `middleware/rbac.js` | 1 | `req.orgId` darf nach `requireRole` nie `null` werden — sonst schalten sich 45 Grenzprüfungen der Form `if (req.orgId && …)` selbst ab |
 
