@@ -9,6 +9,15 @@
  *   req.locationId      — active location UUID (if any)
  *   req.locationName    — location display name
  *   req.locationScope   — 'bound' | 'active' | 'org' | null
+ *                         BEFUND M0-B8 (2026-08-15): Dieses Feld wird derzeit
+ *                         von KEINER Route und keinem Dienst gelesen — geprüft
+ *                         über api/, frontend/ und e2e/. Es bleibt trotzdem
+ *                         stehen: die Reporting-Antworten bauen ihren
+ *                         `scope`-Block heute selbst zusammen, und dieses Feld
+ *                         ist die natürliche Quelle, sobald das vereinheitlicht
+ *                         wird. Wer es entfernt, nimmt die Antwort auf eine
+ *                         Frage weg, die die Enterprise-Regel „Scope-Transparenz"
+ *                         ohnehin stellt.
  *   req.departmentId    — department UUID from membership (if any)
  *
  * Security rules enforced here:

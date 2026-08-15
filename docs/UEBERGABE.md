@@ -79,6 +79,7 @@ Lastabhängig. **Als eigene Aufgabe ausgelagert, nicht nebenbei anfassen.**
 | [ORG_GRENZE_BEFUND.md](ORG_GRENZE_BEFUND.md) | Warum die Mandantengrenze 80-mal einzeln in den Routen steht — versionierte Fassung des wichtigsten Architekturbefunds |
 | [FLAECHEN.md](FLAECHEN.md) | Was gehört ins Staff CC, was ins OCC, was ins Support Center. **Vor jedem neuen Modul lesen**, wird per Test erzwungen. |
 | [TESTING.md](TESTING.md) | Testarchitektur, inkl. Mutation Testing und seiner zwei Fallen |
+| [features/G_ABWESENHEIT_SELBSTERFASSUNG.md](features/G_ABWESENHEIT_SELBSTERFASSUNG.md) | Abwesenheit, vom Mitarbeiter selbst gemeldet — sechs Wellen. Enthaelt die Owner-Entscheidungen G-E1 bis G-E6 (sofort wirksam, Schalter fuer Antragspflicht, alle vier Arten, Einsatzportal + eigener Reiter, absichtliche Huerde, Zeitsperre je Schritt). |
 | [features/P11_DOKUMENTATION_ALS_SYSTEM.md](features/P11_DOKUMENTATION_ALS_SYSTEM.md) | Doku als System: generiert statt gepflegt, drei Leser (Investor/Owner/Technik), Hilfebereich. 11 Wellen, W1 laeuft. **Owner-Grundprinzip fuer alle Projekte.** |
 | [PLATTFORM_REGISTER.md](PLATTFORM_REGISTER.md) | Das Inventar: jede Flaeche, jeder Endpunkt, jede Faehigkeit, mit Beleg und Zustand. Grundlage der Investoren- und Bedienungsdoku. Wird per `dokuWaechter.test.js` gegen den Code gehalten. |
 | [TEAM_UND_ROLLEN.md](TEAM_UND_ROLLEN.md) | Wen dieser Code verlangt: Fachbereiche, Erfahrungsstufen, Minimalbesetzung, Reihenfolge der Einstellung — gemessen, nicht geschaetzt. |
@@ -181,6 +182,17 @@ eine Person arbeitet — gefährlich ab der zweiten.
   Zeilen zu sparen.*
 - ~~E-E1/E-E2/E-E3~~ ✅ entschieden am 2026-08-13 (siehe features/E_LIVE_BELEGSCHAFT.md):
   voller Umfang, Abmeldung ans Profil, echtes Zustands-Protokoll.
+- ~~**G-E1**~~ ~~**G-E2**~~ ~~**G-E3**~~ ~~**G-E4**~~ ~~**G-E5**~~ ~~**G-E6**~~ ~~**G-E7**~~ ~~**G-E8**~~ ✅ entschieden am 2026-08-15 (Selbsterfassung von Abwesenheit,
+  siehe features/G_ABWESENHEIT_SELBSTERFASSUNG.md): **sofort wirksam** statt auf Antrag,
+  mit **Schalter je Zeitarbeitsfirma** für den Rückfall auf Antragspflicht · **alle vier
+  Arten** selbst meldbar · **Einsatzportal UND eigener Reiter**, nicht später · die Meldung
+  ist **absichtlich mehrstufig**, damit sie niemand versehentlich auslöst · **Zeitsperre von
+  einer Minute je Schritt**, serverseitig erzwungen · **auch der Kunde wird benachrichtigt**
+  (Ausfall und Ersatz) — **ohne die Art der Abwesenheit**, weil „krank" ein Gesundheitsdatum
+  nach Art. 9 DSGVO ist und der Kunde ein Dritter · **mindestens 30 Woerter Beschreibung**,
+  erreicht ueber vier strukturierte Fragen statt eines leeren Textfelds — und dieser Text
+  bleibt beim Arbeitgeber.
+
 - **D-M1** — Welle 3b: die 80 Inline-Org-Grenzen konsolidieren oder einen
   Wächter-Test bauen? Erst 3b.2 abwarten (zeigen die Kopien Abweichungen?).
 

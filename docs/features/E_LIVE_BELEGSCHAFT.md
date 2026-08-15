@@ -122,6 +122,9 @@ einsatzgebundene Abmeldung.
    sichtbar ist, **wo** die Kraft fehlt. Folge: Abwesende drücken die
    Auslastungsquote. Das ist gewollt — wer krank ist, bringt keinen Umsatz.
 
+> **Fortsetzung:** Die Selbsterfassung durch den Mitarbeiter ist als eigene Spur
+> geplant — [G_ABWESENHEIT_SELBSTERFASSUNG.md](G_ABWESENHEIT_SELBSTERFASSUNG.md).
+
 **Was E2 offen lässt** — die Abwesenheit wird bisher nur vom Disponenten
 erfasst. Eine Selbstabmeldung durch den Mitarbeiter im Worker-Portal ist
 bewusst *nicht* gebaut: sie ist ein eigener Vertrauens- und

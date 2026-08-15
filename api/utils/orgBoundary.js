@@ -31,7 +31,16 @@ export class OrgBoundaryError extends Error {
  * @param {{ orgColumn?: string }} opts — optional: Name der org_id Spalte (default: 'org_id')
  * @throws {OrgBoundaryError} wenn Resource nicht zur Org gehoert oder nicht existiert
  */
-const ALLOWED_TABLES = new Set([
+/*
+ * EXPORTIERT, damit der Test die Liste nicht ABSCHREIBEN muss.
+ * Bis 2026-08-15 stand in `test/orgBoundary.test.js` eine handkopierte Fassung —
+ * stehengeblieben bei 17 von 22 Eintraegen. Die fuenf fehlenden (rate_cards,
+ * rate_card_checks, data_governance_requests, org_locations, org_departments)
+ * waren damit nie durch die Grenzpruefung gelaufen, und der Mutations-Lauf hat
+ * genau diese fuenf als ueberlebend gemeldet. Zwei Kopien einer Liste driften;
+ * eine Liste mit einem Abgleich-Test nicht.
+ */
+export const ALLOWED_TABLES = new Set([
   "requisitions", "assignments", "contracts", "approval_requests",
   "compliance_documents", "notifications", "org_settings",
   "capacity_posts", "listings", "requests", "ratings",

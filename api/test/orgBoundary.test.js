@@ -14,7 +14,8 @@ import {
   sendOrgBoundaryError,
   assertLocationBelongsToOrg,
   assertDepartmentBelongsToOrg,
-  assertMemberScopeBelongsToOrg
+  assertMemberScopeBelongsToOrg,
+  ALLOWED_TABLES
 } from "../utils/orgBoundary.js";
 
 /* ── Helpers ──────────────────────────────────────────── */
@@ -109,15 +110,40 @@ describe("assertOrgOwnership — Lookup", () => {
   });
 });
 
+/*
+ * DIE POSITIVLISTE — als Inventar gefuehrt, nicht abgeschrieben.
+ *
+ * Bis 2026-08-15 stand hier eine Kopie, die bei 17 Eintraegen stehengeblieben
+ * war, waehrend das Modul auf 22 gewachsen ist. Fuenf Tabellen liefen damit nie
+ * durch die Grenzpruefung — der Mutations-Lauf hat genau sie als ueberlebend
+ * gemeldet (Faelle nr 90-94).
+ *
+ * Zwei Kopien einer Liste driften immer. Deshalb steht hier jetzt die ERWARTUNG,
+ * und ein Abgleich haelt sie gegen die Wirklichkeit: wer eine Tabelle in die
+ * Positivliste aufnimmt, muss sie hier nennen — eine bewusste Entscheidung statt
+ * einer stillen Erweiterung der Mandantengrenze.
+ */
+const ERWARTETE_TABELLEN = [
+  "approval_requests", "assignments", "capacity_posts", "compliance_documents",
+  "contracts", "data_governance_requests", "listings", "notifications",
+  "offers", "org_departments", "org_locations", "org_settings",
+  "payment_sessions", "platform_events", "rate_card_checks", "rate_cards",
+  "ratings", "requests", "requisitions", "sla_search_jobs", "submissions",
+  "vendor_pool"
+];
+
 describe("assertOrgOwnership — erlaubte Tabellen", () => {
-  const tables = [
-    "requisitions", "assignments", "contracts", "approval_requests",
-    "compliance_documents", "notifications", "org_settings",
-    "capacity_posts", "listings", "requests", "ratings",
-    "payment_sessions", "vendor_pool", "platform_events",
-    "sla_search_jobs", "offers", "submissions"
-  ];
-  for (const t of tables) {
+  it("das Inventar deckt sich mit der Positivliste im Modul", () => {
+    assert.deepEqual(
+      [...ALLOWED_TABLES].sort(),
+      [...ERWARTETE_TABELLEN].sort(),
+      "Die Positivliste hat sich geaendert. Sie entscheidet, fuer welche Tabellen die\n" +
+      "Mandantengrenze ueberhaupt geprueft werden KANN — jede Aenderung daran gehoert\n" +
+      "hier bestaetigt, nicht stillschweigend uebernommen."
+    );
+  });
+
+  for (const t of ERWARTETE_TABELLEN) {
     it(`akzeptiert '${t}'`, async () => {
       const pool = mockPool([{ org_id: "org-1" }]);
       await assertOrgOwnership(pool, t, "id-1", "org-1");

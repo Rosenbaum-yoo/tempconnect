@@ -134,6 +134,42 @@ describe("M2 — das Tarif-Praefix wird am Anfang gelesen, nicht am Ende", () =>
   });
 });
 
+/* ═══════════════════════════════════════════════════════════
+ *  Die Invariante, auf der vier nicht toetbare Mutanten beruhen (Befund M0-B6)
+ *
+ *  In compliance_overview stehen Konjunktionen wie `coMode === "full" &&
+ *  isSenior`. Sie sind HEUTE redundant, weil coMode genau dann "full" ist, wenn
+ *  isSenior gilt — deshalb ueberleben dort vier Mutanten, die man gar nicht
+ *  toeten kann (Faelle nr 57-60, Kategorie C).
+ *
+ *  Der Dienst behaelt die Konjunktionen trotzdem: sie sagen, was zugesagt ist,
+ *  nicht was gerade ausreicht. Damit diese Entscheidung nicht auf einer
+ *  Annahme steht, wird die Aequivalenz hier festgenagelt. Bricht sie — etwa
+ *  weil eine Rolle "full" bekommt, ohne senior zu sein —, wird dieser Test rot
+ *  und zeigt auf die Stelle, an der die Konjunktionen dann WIRKLICH tragen.
+ * ═══════════════════════════════════════════════════════════ */
+
+describe("M0-B6 — die Aequivalenz, die die Redundanz erklaert", () => {
+  const ROLLEN = [
+    "platform_admin", "owner", "admin", "program_manager", "supplier_manager",
+    "hiring_manager", "finance", "recruiter", "dispatcher", "member",
+    "supplier_user", "viewer", undefined,
+  ];
+
+  for (const rolle of ROLLEN) {
+    it(`fuer '${rolle ?? "(ohne Rolle)"}': volle Compliance-Flaeche genau dann wie volles Dashboard`, () => {
+      const z = company(rolle);
+      assert.equal(
+        z.compliance_overview.mode === "full",
+        z.executive_dashboard.mode === "full",
+        "Beide leiten sich heute aus isSenior ab. Faellt das auseinander, tragen die " +
+          "Konjunktionen in compliance_overview plötzlich Gewicht — und die vier dort " +
+          "als 'nicht toetbar' eingestuften Mutanten waeren neu zu bewerten."
+      );
+    });
+  }
+});
+
 describe("M2 — die Organisationsart schlaegt das alte Rollenfeld", () => {
   it("nr 56: orgType='company' gewinnt gegen ein Alt-Feld role='agency'", () => {
     const zugriff = resolveEnterpriseSurfaceAccess({

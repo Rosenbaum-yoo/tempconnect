@@ -151,6 +151,27 @@ export function resolveEnterpriseSurfaceAccess({ plan = "DEMO", role, orgType, o
       canRequests:  dgMode === "full"
     }),
 
+    /*
+     * DIE KONJUNKTIONEN HIER SIND HEUTE REDUNDANT — UND BLEIBEN TROTZDEM.
+     *
+     * `coMode === "full"` gilt genau dann, wenn `isSenior` gilt (siehe Ableitung
+     * oben: supplier_user -> role_locked, sonst isSenior -> full, sonst
+     * read_only; supplier_user steht nicht in SENIOR_ROLES). Und weil
+     * ADMIN_ROLES eine Teilmenge von SENIOR_ROLES ist, folgt aus isAdmin bereits
+     * coMode === "full". Rechnerisch koennte also jeweils ein Teil entfallen.
+     *
+     * Sie stehen hier, weil sie die ZUSAGE ausdruecken, nicht die Rechnung:
+     * pruefen und loeschen darf nur, wer die Flaeche voll hat UND die Rolle
+     * mitbringt. Wird coMode je anders abgeleitet — etwa wenn eine Rolle
+     * "full" bekommt, ohne senior zu sein —, faengt die Konjunktion das ab,
+     * waehrend die verkuerzte Fassung stillschweigend zu viel erlaubte.
+     *
+     * Der Preis: vier Mutanten sind hier nicht toetbar (Mutations-Lauf vom
+     * 2026-08-14, Faelle nr 57-60, Kategorie C). Das ist bewusst so. Die
+     * Aequivalenz, auf der das beruht, ist als Invariante festgehalten in
+     * `test/enterpriseSurfaceMutanten.test.js` — bricht sie, wird der Test rot
+     * und zeigt genau hierher.
+     */
     compliance_overview: surface(coMode, {
       canRead:   coMode !== "role_locked",
       canUpload: coMode === "full" || isSupplierUser,  // supplier_user can upload even when role_locked
@@ -165,6 +186,19 @@ export function resolveEnterpriseSurfaceAccess({ plan = "DEMO", role, orgType, o
       canFilter: true
     }),
 
+    /*
+     * BEFUND M0-B8 (2026-08-15): Diese Flaeche wird ERZEUGT, aber von keiner
+     * Route und keiner Oberflaeche GELESEN — die einzigen Leser sind Tests. Die
+     * Standort-Karte im Frontend entscheidet ueber `surfaceKey: "org_settings"`
+     * (hubVisibility.js), nicht hierueber.
+     *
+     * Damit gibt es zwei Antworten auf dieselbe Frage. Solange nur eine gelesen
+     * wird, faellt das nicht auf; wer spaeter diese hier liest, bekommt
+     * moeglicherweise eine andere Antwort als die Karte zeigt. Bewusst NICHT
+     * entfernt (das Feld ist Teil einer ausgelieferten Antwort und koennte von
+     * einem Client gelesen werden) — aber wer es benutzen will, gleicht es
+     * vorher mit dem org_settings-Gate ab.
+     */
     multi_location: surface("full", {
       canRead:   true,
       canWrite:  isAdmin,
