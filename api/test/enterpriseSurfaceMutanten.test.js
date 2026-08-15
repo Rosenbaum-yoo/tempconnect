@@ -10,8 +10,9 @@
  * `platform_admin` und der Eintrag `admin`, waehrend `owner` stirbt.
  *
  * Das ist keine Kleinigkeit. Diese Listen sind kein Text, sondern die
- * Rechtezuteilung selbst: wer hier fehlt, verliert stillschweigend Faehigkeiten
- * auf bis zu zehn Flaechen — und `platform_admin` ist die Rolle mit den
+ * Rechtezuteilung selbst. Gemessen an einem Company-Kontext mit PRO-Tarif
+ * (der Dienst liefert je Aufruf neun Flaechen): faellt ein ADMIN-Eintrag weg,
+ * aendern sich sieben der neun. Und `platform_admin` ist die Rolle mit den
  * weitesten Rechten der Plattform.
  *
  * JEDER TEST HAENGT AN GENAU EINER LISTE.
@@ -49,9 +50,10 @@ describe("M2 — jede Rolle der Admin-Liste bekommt Admin-Rechte", () => {
         `${rolle} steht in ADMIN_ROLES — faellt der Eintrag weg, verliert die Rolle Export, ` +
           `Loeschen und Verwalten auf mehreren Flaechen, ohne dass ein Test es merkt`
       );
-      // Zweite, unabhaengige Folge derselben Liste — sie faellt mit demselben Eintrag.
+      // Zweite Folge derselben Liste. BEWUSST NICHT compliance_overview.canDelete:
+      // das haengt zusaetzlich an coMode und damit an SENIOR_ROLES — die
+      // Zusicherung wuerde dann zwei Listen gleichzeitig treffen.
       assert.equal(zugriff.multi_location.canManage, true);
-      assert.equal(zugriff.compliance_overview.canDelete, true);
     });
   }
 
@@ -113,8 +115,9 @@ describe("M2 — das Tarif-Praefix wird am Anfang gelesen, nicht am Ende", () =>
       "Wird das Praefix am Ende statt am Anfang geprueft, verliert ein bezahlter Sondertarif " +
         "Ausgabenanalyse, Konditionen und Datenschutz-Flaeche"
     );
+    // rate_cards haengt allein am Tarif. data_governance NICHT: es ist zusaetzlich
+    // rollen-gesperrt (Dienst Z. 97-100) und wuerde die Aussage vermischen.
     assert.equal(zugriff.rate_cards.mode, "full");
-    assert.equal(zugriff.data_governance.mode, "full");
   });
 
   it("nr 53 (Gegenrichtung): ein Tarif, der nur so ENDET, zaehlt nicht", () => {

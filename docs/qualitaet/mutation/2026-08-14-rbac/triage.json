@@ -531,7 +531,12 @@
    "begruendung": "req.orgId = membership.org_id && orgId || null liefert im Primaer-Org-Fall (orgId undefined) NULL. Genau der Zustand, in dem sich 45 Routen-Grenzpruefungen der Form 'if (req.orgId && fremd) 403' selbst abschalten — der 2026-07-26 dokumentierte Leck-Mechanismus, hier ueber requireRole.",
    "kill_durch": "requireRole ohne Org-Kontext und ohne ?org_id: req.orgId muss danach die Org der Membership sein, nicht null.",
    "spalte": 17,
-   "mutant_id": "339"
+   "mutant_id": "339",
+   "erledigt": {
+    "welle": "M5",
+    "test": "test/rbacMiddlewareMutanten.test.js",
+    "am": "2026-08-15"
+   }
   },
   {
    "nr": 43,

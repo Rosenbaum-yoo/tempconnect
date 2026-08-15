@@ -1,21 +1,29 @@
 /**
  * M4 — die 5 A-Faelle aus `utils/orgBoundary.js`.
  *
- * ALLE FUENF SIND DIESELBE LUECKE
- * Die bestehenden Tests benutzen einen Mock-Pool, der jede Abfrage gleich
- * beantwortet: `{ query: async () => ({ rows }) }` — ohne Blick auf SQL oder
- * Parameter. Damit ist belegt, dass die Funktion bei gegebenem Ergebnis richtig
- * REAGIERT. Nicht belegt ist, dass sie ueberhaupt die richtige Frage STELLT.
+ * ALLE FUENF SITZEN AN DERSELBEN STELLE: IN DER FRAGE, NICHT IN DER ANTWORT
+ * Der Standard-Mock der bestehenden Datei beantwortet jede Abfrage gleich:
+ * `{ query: async () => ({ rows }) }` — ohne Blick auf SQL oder Parameter. Damit
+ * ist belegt, dass die Funktion bei gegebenem Ergebnis richtig REAGIERT. Nicht
+ * belegt ist, dass sie ueberhaupt die richtige Frage STELLT. (Zwei Testfaelle
+ * dort schauen sehr wohl ins SQL — fuer die eigene Spaltenwahl `orgColumn` /
+ * `userColumn`; deshalb ueberlebt der SQL-Mutant von Zeile 52 auch nicht.)
  *
- * Genau dort sitzen die fuenf Faelle: zweimal der SQL-Text, in dem die Klausel
- * `AND org_id = $2` steht — die Mandantengrenze selbst —, und dreimal die
- * Parameterliste, ohne die die Klausel nichts zu vergleichen hat. Wird eines
- * davon geleert, prueft die Grenze nichts mehr, und kein bestehender Test
- * bemerkt es.
+ * Die fuenf Faelle: zweimal der SQL-Text, in dem `AND org_id = $2` steht — die
+ * Mandantengrenze der Standort- und Abteilungspruefung —, und dreimal die
+ * Parameterliste.
  *
- * Deshalb prueft diese Datei ausschliesslich, WELCHE Abfrage mit WELCHEN
- * Parametern lief. Sie ist damit die Gegenprobe zur bestehenden Datei, nicht
- * ihre Wiederholung.
+ * WAS DIE MUTANTEN GEGEN EINE ECHTE DATENBANK TUN
+ * Sie stuerzen ab, sie oeffnen nicht: ein geleertes Parameter-Array laesst `$1`
+ * im Text stehen (Postgres 42P02), ein geleerter SQL-Text liefert null Zeilen und
+ * damit ein OrgBoundaryError fuer JEDEN. Der Mutant ist also der Extremfall.
+ * Der Wert dieser Tests liegt im realistischen Fall daneben: eine VERTAUSCHTE
+ * Parameterreihenfolge oder eine fehlende `org_id`-Klausel stuerzt nicht ab —
+ * sie vergleicht lautlos das Falsche.
+ *
+ * Diese Datei prueft deshalb ausschliesslich, WELCHE Abfrage mit WELCHEN
+ * Parametern lief. Sie ist die Gegenprobe zur bestehenden Datei, nicht ihre
+ * Wiederholung.
  *
  * Fallnummern (nr) verweisen auf
  * `docs/qualitaet/mutation/2026-08-14-rbac/triage.json`.
@@ -55,10 +63,15 @@ describe("M4 — die Besitzpruefung fragt nach der richtigen Zeile", () => {
     await assertOrgOwnership(p, "requisitions", RES, ORG);
 
     assert.equal(p.abfragen.length, 1);
+    // Hier gibt es KEINE org_id-Klausel im SQL: die Abfrage holt die Zeile, der
+    // Vergleich mit der eigenen Org passiert danach in JS (orgBoundary.js:61).
+    // Die Bindung an die Resource-ID ist damit die einzige Frage, die die
+    // Datenbank ueberhaupt gestellt bekommt.
     assert.deepEqual(
       p.abfragen[0].params,
       [RES],
-      "Ohne Parameter prueft die Grenze eine beliebige Zeile — und der Mock antwortet trotzdem brav"
+      "Eine falsche oder vertauschte Resource-ID holt lautlos die falsche Zeile — " +
+        "und der JS-Vergleich danach prueft dann die Org einer fremden Resource"
     );
   });
 });
@@ -69,9 +82,11 @@ describe("M4 — die Standortgrenze steht im SQL und in den Parametern", () => {
     await assertLocationBelongsToOrg(p, LOC, ORG);
 
     const sql = p.abfragen[0].sql;
+    // Tolerant gegen Schreibweise (Leerzeichen, Platzhalter-Nummer): geprueft
+    // wird, DASS die Klausel da ist — nicht, wie sie formatiert ist.
     assert.match(sql, /FROM org_locations/i);
-    assert.match(sql, /org_id = \$2/, "Ohne diese Klausel gehoert jeder Standort zu jeder Organisation");
-    assert.match(sql, /is_active = TRUE/i, "Ein stillgelegter Standort darf nicht mehr zaehlen");
+    assert.match(sql, /org_id\s*=\s*\$\d/, "Ohne diese Klausel wuerde jeder Standort zu jeder Organisation passen");
+    assert.match(sql, /is_active\s*=\s*TRUE/i, "Ein stillgelegter Standort darf nicht mehr zaehlen");
   });
 
   it("nr 105: die Abfrage traegt Standort UND Organisation als Parameter", async () => {
@@ -83,7 +98,12 @@ describe("M4 — die Standortgrenze steht im SQL und in den Parametern", () => {
 
   it("die Gegenprobe: ein fremder Standort wird abgewiesen", async () => {
     const p = spionPool([]);
-    await assert.rejects(() => assertLocationBelongsToOrg(p, LOC, ORG), /Standort gehoert nicht/);
+    // Auf den CODE pruefen, nicht auf den Meldungstext: der Text ist in
+    // triage.json (nr 106) ausdruecklich als nicht tragend eingestuft.
+    await assert.rejects(
+      () => assertLocationBelongsToOrg(p, LOC, ORG),
+      (err) => err.code === "ORG_BOUNDARY_VIOLATION" && err.status === 403
+    );
   });
 });
 
@@ -94,8 +114,8 @@ describe("M4 — dasselbe fuer die Abteilungsgrenze", () => {
 
     const sql = p.abfragen[0].sql;
     assert.match(sql, /FROM org_departments/i);
-    assert.match(sql, /org_id = \$2/);
-    assert.match(sql, /is_active = TRUE/i);
+    assert.match(sql, /org_id\s*=\s*\$\d/);
+    assert.match(sql, /is_active\s*=\s*TRUE/i);
   });
 
   it("nr 107: die Abfrage traegt Abteilung UND Organisation als Parameter", async () => {
@@ -107,6 +127,9 @@ describe("M4 — dasselbe fuer die Abteilungsgrenze", () => {
 
   it("die Gegenprobe: eine fremde Abteilung wird abgewiesen", async () => {
     const p = spionPool([]);
-    await assert.rejects(() => assertDepartmentBelongsToOrg(p, DEPT, ORG), /Abteilung gehoert nicht/);
+    await assert.rejects(
+      () => assertDepartmentBelongsToOrg(p, DEPT, ORG),
+      (err) => err.code === "ORG_BOUNDARY_VIOLATION" && err.status === 403
+    );
   });
 });

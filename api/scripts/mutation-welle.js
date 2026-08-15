@@ -33,25 +33,32 @@ const AGGREGAT = join(API, "stryker.rbac.conf.json");
 const ziel = process.argv[2];
 if (!ziel) {
   console.error("Aufruf: node scripts/mutation-welle.js <pfad/zur/datei.js>");
+  console.error("        node scripts/mutation-welle.js --alle   (Aggregat, ~2 h)");
   console.error("Beispiel: node scripts/mutation-welle.js services/rbacService.js");
   process.exit(1);
 }
 
 const konfig = JSON.parse(readFileSync(AGGREGAT, "utf8"));
+const alle = ziel === "--alle";
 
-if (!konfig.mutate.includes(ziel)) {
+if (!alle && !konfig.mutate.includes(ziel)) {
   console.error(`'${ziel}' steht nicht in stryker.rbac.conf.json unter "mutate".`);
   console.error(`Bekannt sind:\n  ${konfig.mutate.join("\n  ")}`);
   process.exit(1);
 }
 
-const kurz = basename(ziel, ".js");
+// Der Aggregat-Lauf geht bewusst AUCH ueber dieses Skript und nicht direkt ueber
+// stryker.rbac.conf.json: die Aggregat-Konfiguration schreibt nach
+// reports/mutation/rbac/ — dort liegt der archivierte Rohbericht vom 2026-08-14.
+// Ein direkter Lauf wuerde ihn ueberschreiben. Genau so ist schon einmal ein
+// Beleg verloren gegangen.
+const kurz = alle ? "aggregat" : basename(ziel, ".js");
 const berichtDir = join("reports", "mutation", "welle", kurz);
 mkdirSync(join(API, berichtDir), { recursive: true });
 
 const wellenKonfig = {
   ...konfig,
-  mutate: [ziel],
+  mutate: alle ? konfig.mutate : [ziel],
   incremental: false,
   htmlReporter: { fileName: `${berichtDir}/index.html` },
   jsonReporter: { fileName: `${berichtDir}/mutation.json` },
@@ -71,7 +78,7 @@ writeFileSync(konfigPfad, JSON.stringify(wellenKonfig, null, 2));
 const tmp = join(API, ".stryker-tmp");
 if (existsSync(tmp)) rmSync(tmp, { recursive: true, force: true });
 
-console.log(`Welle: ${ziel}`);
+console.log(alle ? `Aggregat: ${konfig.mutate.length} Dateien` : `Welle: ${ziel}`);
 console.log(`Bericht: api/${berichtDir}/  (das Archiv bleibt unangetastet)`);
 console.log(`Testdateien: aus der Aggregat-Konfiguration uebernommen, nicht abgeschrieben.\n`);
 

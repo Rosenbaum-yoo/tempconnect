@@ -39,7 +39,7 @@ gefährliche Richtung. Warum das so kam, steht unten unter
 | **M2** ✅ | `services/enterpriseSurfaceAccessService.js` | 89,29 % | 21 | **8** | 8 | 0 | 2 | 0 | 13 |
 | **M3** ✅ | `middleware/orgContext.js` | 86,96 % | 24 | **6** | 6 | 0 | 2 | 4 | 14 |
 | **M4** ✅ | `utils/orgBoundary.js` | 82,20 % | 21 | **5** | 5 | 0 | 5 | 9 | 7 |
-| **M5** | `middleware/rbac.js` | 87,82 % | 19 | **1** | 0 | 1 | 1 | 17 | 1 |
+| **M5** ✅ | `middleware/rbac.js` | 87,82 % | 19 | **1** | 1 | 0 | 1 | 17 | 1 |
 | — | `utils/orgContext.js` | 93,94 % | 2 | **0** | 0 | 0 | 0 | 0 | 2 |
 
 *Die Score-Spalte ist der Stand vom 2026-08-14. Nach M1 steht `rbacService.js`
@@ -129,8 +129,8 @@ Befund dieser Welle.
 | **M0-B4** | `req.locationScope` wird von `middleware/orgContext.js` gesetzt und **nirgends gelesen** — außer im eigenen Test. Drei C-Einstufungen stützen sich darauf. | Suche über `api/`, `frontend/`, `e2e/`: 2 Treffer, beide in der Datei selbst bzw. ihrem Test |
 | **M0-B5** | `expose: true` am `LAST_OWNER`-Fehler (`rbacService.js:303`) hat **keinen Leser** im Backend. Wirkungslose Kennzeichnung — deshalb C, nicht A. | Suche über `api/`: einziger Treffer ist die Zuweisung selbst |
 | **M0-B6** | In `enterpriseSurfaceAccessService.js:157-159` ist die Bedingung **doppelt gemoppelt**: `coMode === "full"` ist genau dann wahr, wenn `isSenior` wahr ist. Deshalb sind `&& isSenior` und (wegen ADMIN ⊂ SENIOR) `coMode === "full" &&` vor `isAdmin` wirkungslos. Vier Mutanten sind dadurch **nicht tötbar** — kein Testproblem, ein Codeproblem. | Zeilen 106-109 gegen 157-159 |
-| **M0-B7** | Die Mandantengrenze `assertOrgOwnership` hat **23 erlaubte Tabellen und genau einen Aufrufer**: `routes/requisitions.js`, viermal, immer mit `'requisitions'`. `assertUserOwnership` hat **gar keinen** Aufrufer in Produktion. Die Tabellenliste im Test (`test/orgBoundary.test.js:113-119`) ist zudem eine **Abschrift, die bei 17 Einträgen stehengeblieben ist** — genau die 5 fehlenden Namen sind die überlebenden Mutanten. | Suche über `api/routes`, `api/services` |
-| **M0-B8** | `surface_access.multi_location` wird erzeugt (`userService.js:290`), aber **von niemandem gelesen**: die Standort-Karte im Frontend gatet über `surfaceKey: "org_settings"`. | `hubVisibility.js:97-102` |
+| **M0-B7** | Die Mandantengrenze `assertOrgOwnership` hat **22 erlaubte Tabellen und genau einen Aufrufer**: `routes/requisitions.js`, viermal, immer mit `'requisitions'`. `assertUserOwnership` hat **gar keinen** Aufrufer in Produktion. Die Tabellenliste im Test (`test/orgBoundary.test.js:113-119`) ist zudem eine **Abschrift, die bei 17 Einträgen stehengeblieben ist** — genau die 5 fehlenden Namen sind die überlebenden Mutanten. | Suche über `api/routes`, `api/services` |
+| **M0-B8** | `surface_access.multi_location` entsteht in `enterpriseSurfaceAccessService.js:78/:168` und wird über `userService.js:290` ausgeliefert — **von keiner Route und keiner Oberfläche gelesen**. Die einzigen vier Leser sind Tests. Die Standort-Karte im Frontend gatet über `surfaceKey: "org_settings"`. | `hubVisibility.js:97-102` |
 
 **M0-B1 ist eine Owner-Entscheidung, keine Aufgabe:** Der Push von 57 Commits gehört
 nicht nebenbei erledigt. Bis dahin gilt: der Mutations-Lauf ist **von Hand gemessen**
@@ -187,11 +187,22 @@ Je Welle ein Lauf über genau diese Datei
 | M2 | `enterpriseSurfaceAccessService.js` | 89,29 % | **93,88 %** | 21 | **12** | 8/8 |
 | M3 | `middleware/orgContext.js` | 86,96 % | **90,22 %** | 24 | **18** | 6/6 |
 | M4 | `utils/orgBoundary.js` | 82,20 % | **88,14 %** | 21 | **14** | 5/5 |
+| M5 | `middleware/rbac.js` | 87,82 % | **88,46 %** | 19 | **18** | 1/1 |
+
+**Alle 39 A-Fälle sind tot. Das Gate der Mutation-Direktive ist geschlossen.**
 
 In **jeder** Welle gilt dasselbe: **die Überlebenden sind genau die Fälle, die M0
-nicht als A eingestuft hat** — keiner mehr, keiner weniger. Die Einstufung sagt
-also nicht nur, was zu tun ist, sondern sagt auch richtig voraus, was nach
-getaner Arbeit übrig bleibt. Nach drei Wellen ist das kein Zufall mehr.
+nicht als A eingestuft hat** — keiner mehr, keiner weniger, fünfmal in Folge. Die
+Einstufung sagt also nicht nur, was zu tun ist, sondern sagt auch richtig voraus,
+was nach getaner Arbeit übrig bleibt.
+
+**Was das Aggregat ergeben wird — und warum das hier keine Zahl ist.**
+Rechnerisch ergeben die fünf Läufe zusammen 1223 von 1292 getöteten Mutanten,
+also **rund 94,7 %** gegenüber 91,33 % am 2026-08-14. **Diese Zahl ist bewusst
+nicht als Ergebnis notiert:** Sie ist aus fünf getrennten Läufen zusammengesetzt,
+und genau daran ist der frühere Wert gescheitert (siehe [README](README.md) —
+„die Einzelwerte stammten teils aus getrennten Einzelläufen, teils aus dem
+Aggregat"). Belegt ist sie erst durch **einen** Aggregat-Lauf. Das ist M6.
 
 ### M1 im Detail — der Beleg für die Gegenprüfung
 
@@ -251,7 +262,7 @@ Fähigkeit, sondern drei Zusagen:
   überlebt hat, heißt: geprüft war nur, dass eine saubere UUID durchkommt.
 - **Regel 7 — der Kontext bleibt nie leer.** Nennt jemand eine Organisation, in
   der er nicht Mitglied ist, fällt der Kontext auf die eigene zurück. Bliebe
-  `req.orgId` leer, schalteten sich 45 Grenzprüfungen der Form
+  `req.orgId` leer, schalteten sich 44 Prüfstellen der Form
   `if (req.orgId && fremd) 403` selbst ab. Genau das war bis zum 2026-07-26 ein
   erreichbares Cross-Org-Leck — der Zweig, der es schloss, war unbewiesen.
 - **Regel 6 — nur der Header ist eine Absicht.** Ein `?org_id=` aus der
@@ -290,6 +301,33 @@ Grenze war unbewiesen.
 **Gate M4 erfüllt:** 5 von 5 A-Fällen tot, zwei B/C-Fälle nebenbei mit
 erschlagen, Produktionscode unverändert.
 
+### M5 im Detail — ein Fall unter 19, und der einzige, der zählt
+
+`middleware/rbac.js`, 156 Mutanten. 19 Mutanten hatten hier überlebt, **17 davon
+sind Protokolltexte und Anzeigemeldungen** — die Fehlercodes daneben (`ROLE_DENIED`,
+`NO_ORG_MEMBERSHIP`, `PERMISSION_DENIED`) sind längst getestet. Diese Datei ist
+damit das Gegenstück zu `orgBoundary.js`: dort war fast alles tragend, hier fast
+nichts.
+
+Der eine A-Fall steht am Ende von `requireRole`:
+
+```js
+req.orgId = membership.org_id || orgId || null;
+```
+
+Wird das erste `||` zu `&&`, liefert der Ausdruck `null` — und zwar im
+**häufigsten** Fall: immer dann, wenn die Anfrage keine Organisation ausdrücklich
+nennt und der Kontext über die primäre Mitgliedschaft aufgelöst wurde. Der
+Wachposten verschwindet also nicht mit einem Fehler, sondern lautlos, und
+ausgerechnet hinter einer Middleware, deren Aufgabe das Gegenteil ist.
+
+Genau deshalb ist die Score-Zahl dieser Datei die uninteressanteste der Spur
+(87,82 % → 88,46 %, ein knapper Punkt): **Der Wert misst 19 Fälle, die Aussage
+hängt an einem.** Hätte man nach Prozent aufgeräumt, wäre hier am meisten Arbeit
+für am wenigsten Sicherheit angefallen.
+
+**Gate M5 erfüllt:** 1 von 1 A-Fall tot, Produktionscode unverändert.
+
 ---
 
 ## Was die Wellen M2–M5 tun werden
@@ -303,8 +341,8 @@ Mutation tötet.
 | ~~**M1**~~ ✅ | `rbacService.js` | 19 | erledigt am 2026-08-15, `test/rbacServiceMutanten.test.js` (20 Tests) |
 | ~~**M2**~~ ✅ | `enterpriseSurfaceAccessService.js` | 8 | erledigt am 2026-08-15, `test/enterpriseSurfaceMutanten.test.js` (13 Tests) |
 | ~~**M3**~~ ✅ | `middleware/orgContext.js` | 6 | erledigt am 2026-08-15, `test/orgContextMutanten.test.js` (7 Tests) |
-| ~~**M4**~~ ✅ | `orgBoundary.js` | 5 | erledigt am 2026-08-15, `test/orgBoundaryMutanten.test.js` (9 Tests) |
-| **M5** | `middleware/rbac.js` | 1 | `req.orgId` darf nach `requireRole` nie `null` werden — sonst schalten sich 45 Grenzprüfungen der Form `if (req.orgId && …)` selbst ab |
+| ~~**M4**~~ ✅ | `orgBoundary.js` | 5 | erledigt am 2026-08-15, `test/orgBoundaryMutanten.test.js` (7 Tests) |
+| ~~**M5**~~ ✅ | `middleware/rbac.js` | 1 | erledigt am 2026-08-15, `test/rbacMiddlewareMutanten.test.js` (1 Test) |
 
 `utils/orgContext.js` bekommt **keine Welle**: 0 A-Fälle, beide Überlebenden sind
 gleichwertige Mutanten in einer Health-Check-Funktion.
@@ -316,7 +354,12 @@ Die Testköpfe verweisen darauf.
 
 ---
 
-## Gate M0
+## Gate M0 (und was daraus wurde)
+
+Alle fünf Wellen sind gelaufen; **39 von 39 A-Fällen sind tot**, in jeder Welle
+blieben genau die Nicht-A-Fälle übrig. Offen ist nur noch **M6** (Automatik) —
+und der hängt an der Owner-Entscheidung aus M0-B1: solange die 57 Commits nicht
+auf `origin` stehen, kann kein CI-Job diese Arbeit überwachen.
 
 | Bedingung | Stand |
 |---|---|

@@ -128,9 +128,13 @@ Go-Live-Liste.
 M0: alle 112 überlebenden Mutanten einzeln eingestuft und unabhängig gegengelesen
 (**39 A · 32 B · 41 C**; 23 Korrekturen, alle in dieselbe Richtung),
 Wellenreihenfolge begründet, **acht Befunde**.
-M1: `services/rbacService.js` — **19 von 19 A-Fällen tot**, gemessen
-(95,87 % → **99,17 %**). Die 5 Überlebenden sind exakt die 5 Nicht-A-Fälle: die
-Einstufung hat sich also vorhergesagt verhalten. Produktionscode unverändert.
+**M1–M5: alle 39 A-Fälle tot**, je Welle gemessen — `rbacService.js`
+95,87 % → **99,17 %** · `enterpriseSurfaceAccessService.js` 89,29 % → **93,88 %** ·
+`middleware/orgContext.js` 86,96 % → **90,22 %** · `orgBoundary.js`
+82,20 % → **88,14 %** · `middleware/rbac.js` 87,82 % → **88,46 %**.
+In **jeder** Welle sind die Überlebenden exakt die Nicht-A-Fälle — die Einstufung
+hat sich fünfmal in Folge vorhergesagt verhalten. Produktionscode unverändert.
+**Das Entscheidungs-Gate der Mutation-Direktive ist geschlossen.**
 Neu: `api/scripts/mutation-triage.js` (Register + Wellen-Gate),
 `api/scripts/mutation-welle.js` (misst eine Datei, ohne das Archiv zu
 überschreiben), `api/test/mutationTriage.test.js`,
@@ -141,7 +145,7 @@ Neu: `api/scripts/mutation-triage.js` (Register + Wellen-Gate),
 
 | Spur | Erster Schritt | Warum zuerst |
 |---|---|---|
-| **P12** Mutation aufräumen | **M2** — `services/enterpriseSurfaceAccessService.js`, 8 A-Fälle | M1 ist durch; der Ansatz steht je Fall in `triage.json` unter `kill_durch`, der Ablauf einer Welle im Plan |
+| **P12** Mutation aufräumen | **M6** — Automatik | M0–M5 sind durch, **39/39 A-Fälle tot**. M6 hängt an der Owner-Entscheidung: ohne Push überwacht kein CI-Job diese Arbeit (M0-B1) |
 | **P11** Doku als System | **W3** Generator | W1+W2 stehen; der Generator schreibt die ableitbaren Teile fort |
 
 **Zwei Blocker, unabhängig von beiden Spuren** (aus TEAM_UND_ROLLEN.md, verifiziert):

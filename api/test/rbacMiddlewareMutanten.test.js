@@ -8,17 +8,34 @@
  * DER FALL
  * `requireRole` endet mit
  *     req.orgId = membership.org_id || orgId || null;
- * Wird das erste `||` zu `&&`, liefert der Ausdruck im haeufigsten Fall NULL:
- * naemlich immer dann, wenn die Anfrage keine Organisation ausdruecklich nennt
- * und der Kontext ueber die primaere Mitgliedschaft aufgeloest wurde
- * (`orgId` ist dann undefined, und `X && undefined` ist undefined -> null).
+ * Wird das erste `||` zu `&&`, liefert der Ausdruck NULL, sobald `orgId` leer
+ * ist — also auf dem Rueckfall-Pfad, auf dem die Anfrage keine Organisation
+ * ausdruecklich nennt und der Kontext ueber die primaere Mitgliedschaft
+ * aufgeloest wird (`X && undefined` ist undefined, danach `|| null`).
  *
- * Warum das gefaehrlich ist, steht in `docs/ORG_GRENZE_BEFUND.md`: 45 Routen
- * pruefen die Mandantengrenze als
+ * ZUR REICHWEITE, ehrlich gesagt: Im laufenden Betrieb ist dieser Pfad die
+ * AUSNAHME, nicht die Regel. `orgContextMiddleware` haengt global vor allen
+ * Routern (app.js) und setzt `req.orgId` normalerweise schon vorher; dann
+ * gewinnt `orgId` und der Mutant faellt nicht auf. Der Fall trifft die Luecken:
+ * Sitzungen ohne aufloesbaren Kontext, Aufrufe ausserhalb der ueblichen Kette.
+ * Das macht ihn nicht harmlos, aber es macht ihn selten — und selten ist genau
+ * die Sorte Defekt, die im Betrieb niemandem auffaellt.
+ *
+ * Warum ein leeres `req.orgId` gefaehrlich ist: Die verbreitete Form
  *     if (req.orgId && ressource.org_id !== req.orgId) return 403;
- * — eine Pruefung, die sich bei `null` SELBST ABSCHALTET. Der Wachposten
- * verschwindet also nicht mit einem Fehler, sondern lautlos, und ausgerechnet
- * hinter einer Middleware, deren Aufgabe das Gegenteil ist.
+ * SCHALTET SICH BEI `null` SELBST AB. Der Wachposten verschwindet also nicht mit
+ * einem Fehler, sondern lautlos — hinter einer Middleware, deren Aufgabe das
+ * Gegenteil ist.
+ *
+ * ZUR ZAHL, nachgezaehlt am 2026-08-15: `grep -rn "req.orgId &&" api/routes/`
+ * liefert 45 Treffer in 13 Dateien; einer davon ist keine Grenzpruefung
+ * (`profileVisibility.js:238` vergleicht mit `===` und antwortet 400). Es sind
+ * also **44 Pruefstellen in 12 Route-Dateien**. Der Kommentar in
+ * `middleware/orgContext.js` nennt 45 — die ungefilterte Trefferzahl; er bleibt
+ * hier unangetastet, weil P12 Produktionscode nicht anfasst. Die versionierte
+ * Erhebung in `docs/ORG_GRENZE_BEFUND.md` zaehlt eine andere Menge (80
+ * ORG_BOUNDARY_VIOLATION-Fundstellen in 18 Dateien) und ist kein Widerspruch,
+ * sondern eine andere Frage.
  *
  * Die Begruendung fuer die 17 B-Faelle und den einen C-Fall steht je Fall in
  * `docs/qualitaet/mutation/2026-08-14-rbac/triage.json`.
@@ -72,26 +89,15 @@ describe("M5 — nach requireRole traegt die Anfrage ihre Organisation", () => {
     assert.equal(
       anfrage.orgId,
       ORG,
-      "Bleibt req.orgId null, schalten sich 45 Grenzpruefungen der Form " +
+      "Bleibt req.orgId null, schalten sich die Grenzpruefungen der Form " +
         "'if (req.orgId && fremd) 403' selbst ab — lautlos und genau im Angriffsfall"
     );
     assert.equal(anfrage.orgMembership.org_id, ORG);
   });
 
-  it("die Gegenprobe: eine fremde Rolle kommt nicht durch", async () => {
-    const anfrage = req();
-    const antwort = res();
-    let weiter = false;
-
-    await requireRole(["admin"], {
-      pool: pool({ rows: [{ org_id: ORG }] }, { rows: [{ ...MITGLIED, role_key: "member" }] }),
-      logger,
-    })(anfrage, antwort, () => {
-      weiter = true;
-    });
-
-    assert.equal(weiter, false);
-    assert.equal(antwort._status, 403);
-    assert.equal(antwort._json.error, "ROLE_DENIED");
-  });
+  // KEINE Gegenprobe hier: dass eine nicht erlaubte Rolle mit 403/ROLE_DENIED
+  // scheitert, prueft `test/rbac-middleware.test.js` bereits gruendlicher
+  // (inkl. der SEC-003-Zusicherung, dass die Antwort keine internen Rollennamen
+  // nennt). Eine zweite, schwaechere Fassung desselben Falls kostet in jedem
+  // Mutations-Lauf Zeit und beweist nichts, was dort nicht schon steht.
 });

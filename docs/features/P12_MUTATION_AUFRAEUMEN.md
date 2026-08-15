@@ -11,16 +11,19 @@
 > Ergebnis, acht Befunde und Wellenreihenfolge:
 > [qualitaet/mutation/2026-08-14-rbac/TRIAGE.md](../qualitaet/mutation/2026-08-14-rbac/TRIAGE.md).
 >
-> **M1 bis M4 sind erledigt (2026-08-15).** `rbacService.js` 19/19
-> (95,87 % → **99,17 %**) · `enterpriseSurfaceAccessService.js` 8/8
-> (89,29 % → **93,88 %**) · `middleware/orgContext.js` 6/6
-> (86,96 % → **90,22 %**) · `orgBoundary.js` 5/5 (82,20 % → **88,14 %**).
+> **M1 bis M5 sind erledigt (2026-08-15) — 39 von 39 A-Fällen tot.**
+> `rbacService.js` 19/19 (95,87 % → **99,17 %**) ·
+> `enterpriseSurfaceAccessService.js` 8/8 (89,29 % → **93,88 %**) ·
+> `middleware/orgContext.js` 6/6 (86,96 % → **90,22 %**) ·
+> `orgBoundary.js` 5/5 (82,20 % → **88,14 %**) ·
+> `middleware/rbac.js` 1/1 (87,82 % → **88,46 %**).
 > In **jeder** Welle sind die Überlebenden **exakt** die Fälle, die M0 nicht als
-> A eingestuft hatte — die Einstufung sagt also auch richtig voraus, was übrig
-> bleibt. Produktionscode unverändert.
-> **38 von 39 A-Fällen erledigt**; offen ist nur noch M5
-> (`middleware/rbac.js`, 1). Stand jederzeit:
-> `cd api && node scripts/mutation-triage.js`.
+> A eingestuft hatte — fünfmal in Folge. Produktionscode unverändert.
+>
+> **Das Gate der Mutation-Direktive ist damit geschlossen.** Offen ist nur noch
+> **M6** (Automatik) — und der hängt an der Owner-Entscheidung aus M0-B1: solange
+> die 57 Commits nicht auf `origin` stehen, kann kein CI-Job diese Arbeit
+> überwachen. Stand jederzeit: `cd api && node scripts/mutation-triage.js`.
 
 ---
 
@@ -144,7 +147,7 @@ Reihenfolge folgt den A-Fällen, und sie unterscheidet sich vom Score.
 | ~~**M2**~~ ✅ *(2026-08-15)* | `services/enterpriseSurfaceAccessService.js` | 8 — **alle tot**, Score 89,29 % → **93,88 %** |
 | ~~**M3**~~ ✅ *(2026-08-15)* | `middleware/orgContext.js` | 6 — **alle tot**, Score 86,96 % → **90,22 %** |
 | ~~**M4**~~ ✅ *(2026-08-15)* | `utils/orgBoundary.js` | 5 — **alle tot**, Score 82,20 % → **88,14 %** |
-| **M5** | `middleware/rbac.js` | 1 |
+| ~~**M5**~~ ✅ *(2026-08-15)* | `middleware/rbac.js` | 1 — **tot**, Score 87,82 % → **88,46 %** |
 
 `utils/orgContext.js` bekommt keine Welle: 0 A-Fälle, beide Überlebenden sind
 gleichwertige Mutanten in einer Health-Check-Funktion.
@@ -175,6 +178,15 @@ Je Welle:
 - Zum Schluss die erledigten Fälle in `triage.json` stempeln (`erledigt`:
   Welle, Testdatei, Datum). Nur was der Wellen-Bericht als tot ausweist —
   ein Haken ohne Messung beendet die Suche, ohne das Problem zu lösen.
+
+> **Nicht während eines Mutations-Laufs prüfen lassen.** Am 2026-08-15 meldete
+> `dokuWaechter.test.js` „Service-Dateien: Register sagt 175, gezählt wurden 176",
+> während der M5-Lauf noch aufräumte; unmittelbar danach zählten `ls` und `find`
+> wieder übereinstimmend 175, und der Wächter war grün. Die genaue Ursache ist
+> nicht festgenagelt — belegt ist nur, dass im Verzeichnis zu diesem Zeitpunkt
+> kurzzeitig ein Eintrag mehr lag. **Ein roter Wächter während eines Laufs wird
+> erst nachgeprüft, bevor man ihm glaubt** — sonst jagt die nächste Sitzung einem
+> Gespenst nach, und ein falsch-rotes Gatter kostet mehr Vertrauen als es schützt.
 
 **Gate je Welle:** null A-Fälle übrig, jeder B-Fall begründet, Produktionscode
 **unverändert**. Muss der Code angefasst werden, ist das ein Befund — dann Stopp

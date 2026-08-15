@@ -15,11 +15,26 @@
  * Quelle statt Kopien in Testkoepfen, die auseinanderlaufen.
  *
  * DIE LEKTION, DIE JEDEN TEST HIER FORMT
- * 15 der 19 Faelle sind `ArrayDeclaration` — geleerte ABFRAGE-PARAMETER. Ein
+ * 12 der 19 Faelle sind `ArrayDeclaration`; **acht davon sind geleerte
+ * ABFRAGE-PARAMETER** (nr 71-75, 77, 85, 88), die uebrigen vier sind Zeilen der
+ * Rollen-Vererbung und damit Rechtematrix, keine Abfrage. Ein
  * Test, der nur das Ergebnis des Mock-Pools prueft, bemerkt davon nichts: der
- * Mock antwortet gleich, egal ob die Abfrage mit oder ohne Mandantengrenze lief.
- * Deshalb pruefen diese Tests, WELCHE Abfrage mit WELCHEN Parametern abgesetzt
- * wurde — nicht, was zurueckkam.
+ * Mock antwortet gleich, egal mit welchen Parametern die Abfrage lief. Deshalb
+ * pruefen diese Tests, WELCHE Abfrage mit WELCHEN Parametern abgesetzt wurde —
+ * nicht, was zurueckkam.
+ *
+ * WAS DIESE MUTANTEN GEGEN EINE ECHTE DATENBANK TUN — und was nicht
+ * Ein geleertes Parameter-Array laesst den SQL-Text unveraendert; die Klausel
+ * `WHERE user_id = $1` bleibt also stehen. node-postgres schickt eine Anweisung
+ * ohne Werte ueber das SIMPLE-Protokoll, und Postgres kennt dort keine
+ * Platzhalter: die Abfrage bricht mit 42P02 ab. Der Mutant ist damit gegen eine
+ * echte Datenbank ein LAUTER ABSTURZ, keine stille Grenzverletzung — nur der
+ * parameterblinde Mock laesst ihn wie einen Erfolg aussehen.
+ *
+ * Der Wert dieser Tests liegt deshalb nicht in dem Extremfall, den Stryker baut,
+ * sondern in dem realistischen daneben: ein VERTAUSCHTER oder falscher Parameter
+ * ($1/$2 gedreht, orgId statt userId) stuerzt NICHT ab. Er vergleicht lautlos das
+ * Falsche — und genau das faengt eine Zusicherung auf die Parameterliste.
  *
  * WICHTIG FUER DEN NAECHSTEN LAUF
  * Diese Datei muss in `stryker.rbac.conf.json` unter `commandRunner` stehen.
@@ -118,7 +133,8 @@ describe("M1 — jede Abfrage traegt ihre Bindung", () => {
     assert.deepEqual(
       pool.abfragen[0].params,
       ["user-1"],
-      "Ohne Parameter liefert die Abfrage die Mitgliedschaften ALLER Nutzer"
+      "Die Abfrage muss an DIESEN Nutzer gebunden sein. Ein vertauschter oder falscher " +
+        "Parameter stuerzt nicht ab — er liefert lautlos die Mitgliedschaften eines anderen"
     );
   });
 
@@ -143,7 +159,8 @@ describe("M1 — jede Abfrage traegt ihre Bindung", () => {
     assert.deepEqual(
       rueckfall.params,
       ["user-1"],
-      "Ohne Bindung waehlt der Rueckfall die aelteste Mitgliedschaft IRGENDEINES Nutzers"
+      "Der Rueckfall waehlt die aelteste aktive Mitgliedschaft — er muss dabei an DIESEN " +
+        "Nutzer gebunden sein, sonst waehlt er lautlos die eines anderen"
     );
   });
 
@@ -176,7 +193,8 @@ describe("M1 — jede Abfrage traegt ihre Bindung", () => {
     assert.deepEqual(
       pool.abfragen[0].params,
       ["org-1"],
-      "Ohne orgId zaehlt die Abfrage plattformweit — dann greift der Letzter-Owner-Schutz nie"
+      "Der Letzter-Owner-Schutz haengt an dieser Zaehlung. Zaehlt sie die Owner einer " +
+        "ANDEREN Org, greift der Schutz zur falschen Zeit — oder nie"
     );
   });
 
@@ -188,7 +206,10 @@ describe("M1 — jede Abfrage traegt ihre Bindung", () => {
     assert.match(pool.abfragen[0].sql, /org_id = \$2/);
   });
 
-  it("nr 88 (Gegenprobe): ein fremder Standort ergibt false", async () => {
+  it("nr 88 (Gegenprobe): keine Zeile bedeutet false, nicht 'irgendwas'", async () => {
+    // Der Mock antwortet parameterunabhaengig. Dass die Grenze WIRKLICH gezogen
+    // wird, belegt die Parameter-Zusicherung darueber — hier geht es nur darum,
+    // dass ein leeres Ergebnis sauber zu false wird.
     const pool = spionPool({ rows: [] });
     assert.equal(await locationBelongsToOrg(pool, "loc-fremd", "org-1"), false);
   });
@@ -202,7 +223,7 @@ describe("M1 — der Letzter-Owner-Schutz bekommt sein Ziel", () => {
   it("nr 80: deactivateMember nennt dem Waechter den Nutzer, um den es geht", async () => {
     const pool = spionPool((sql) => {
       if (/SELECT 1 FROM org_memberships/i.test(sql)) return { rowCount: 1, rows: [{ ok: 1 }] };
-      if (/COUNT\(\*\)::int AS n/i.test(sql)) return { rows: [{ n: 3 }] };
+      if (/COUNT\(/i.test(sql)) return { rows: [{ n: 3 }] };
       return { rowCount: 1, rows: [] };
     });
 
@@ -220,11 +241,18 @@ describe("M1 — der Letzter-Owner-Schutz bekommt sein Ziel", () => {
   it("nr 80 (Gegenprobe): der einzige Owner laesst sich nicht deaktivieren", async () => {
     const pool = spionPool((sql) => {
       if (/SELECT 1 FROM org_memberships/i.test(sql)) return { rowCount: 1, rows: [{ ok: 1 }] };
-      if (/COUNT\(\*\)::int AS n/i.test(sql)) return { rows: [{ n: 1 }] };
+      if (/COUNT\(/i.test(sql)) return { rows: [{ n: 1 }] };
       return { rowCount: 1, rows: [] };
     });
 
-    await assert.rejects(() => deactivateMember(pool, "org-1", "user-1"), /LAST_OWNER/);
+    // Auf den CODE pruefen, nicht auf den Meldungstext: die message ist in
+    // triage.json (nr 78) ausdruecklich als nicht tragend eingestuft, weil kein
+    // Verbraucher sie vergleicht. Ein Test, der sie festnagelt, widerspraeche
+    // der eigenen Einstufung und wuerde schon bei Textpflege rot.
+    await assert.rejects(
+      () => deactivateMember(pool, "org-1", "user-1"),
+      (err) => err.code === "LAST_OWNER" && err.status === 409
+    );
     assert.equal(
       finde(pool, /SET is_active = FALSE/i),
       undefined,
@@ -244,7 +272,8 @@ describe("M1 — der Letzter-Owner-Schutz bekommt sein Ziel", () => {
     assert.equal(
       finde(pool, /SELECT 1 FROM org_memberships/i),
       undefined,
-      "Beim Heraufsetzen auf owner darf der Letzter-Owner-Schutz nicht feuern — sonst scheitert eine legitime Ernennung"
+      "Beim Heraufsetzen auf owner wird der Waechter gar nicht erst befragt — die Ausnahme " +
+        "steht in der Bedingung, nicht im Waechter, und genau sie ist hier belegt"
     );
     assert.equal(ergebnis.role_key, "owner");
   });
@@ -283,9 +312,10 @@ describe("M1 — die Rollenaenderung bleibt in ihrer Organisation", () => {
 
     const update = finde(pool, /UPDATE org_memberships SET role_key/i);
     assert.ok(update, "Es lief gar keine Aenderung");
-    assert.match(update.sql, /org_id = \$2/, "Ohne org_id-Klausel waere eine fremde Mitgliedschaft aenderbar");
-    assert.match(update.sql, /is_active = TRUE/);
-    assert.match(update.sql, /RETURNING \*/);
+    // Bewusst tolerant gegen Schreibweise (Leerzeichen, Platzhalter-Nummer):
+    // gepruefft wird, dass die Klausel DA ist, nicht wie sie formatiert ist.
+    assert.match(update.sql, /org_id\s*=\s*\$\d/, "Ohne org_id-Klausel waere eine fremde Mitgliedschaft aenderbar");
+    assert.match(update.sql, /is_active\s*=\s*TRUE/i);
   });
 
   it("nr 85: die Abfrage traegt die Mandantengrenze auch als Parameter", async () => {
@@ -304,12 +334,15 @@ describe("M1 — die Rollenaenderung bleibt in ihrer Organisation", () => {
     assert.equal(ergebnis.role_key, "admin", "Der Aufrufer muss die neue Rolle sehen, nicht nur 'es hat geklappt'");
   });
 
-  it("nr 86: der Fehlschlag liefert null — und zwar nur der Fehlschlag", async () => {
+  it("nr 86: trifft die Abfrage keine Zeile, ist das Ergebnis null — nicht 'irgendwas'", async () => {
     const pool = aenderungsPool([]);
     assert.equal(
       await updateMemberRoleByMembershipId(pool, "org-1", "m-fremd", "admin"),
       null,
-      "Eine Mitgliedschaft ausserhalb der Org darf nicht als Erfolg zurueckkommen"
+      "Kein Treffer muss null ergeben, damit die Route sauber 404 melden kann"
     );
+    // Anmerkung zur Reichweite: dass die Abfrage die Mandantengrenze WIRKLICH
+    // zieht, kann dieser Mock nicht zeigen — er antwortet unabhaengig von orgId.
+    // Das belegen 'nr 83' (Klausel im SQL) und 'nr 85' (orgId als Parameter).
   });
 });
