@@ -39,7 +39,7 @@ Abschnitten, die ich in Spuren mit **Wellen und Gates** schneide.
 ```bash
 cd api && node scripts/run-tests.js          # offizieller Runner, ohne Pipe
 ```
-Stand: **8487 Tests** (2026-08-15, voller Lauf ohne Pipe, 0 Fehler), davon 13 übersprungen — die DB-gebundenen, die nur im Container laufen.
+Stand: **8515 Tests** (2026-08-15, voller Lauf ohne Pipe, 0 Fehler), davon 13 übersprungen — die DB-gebundenen, die nur im Container laufen.
 
 Die DB-gestützten Tests laufen im Container, wo `DB_HOST` gesetzt ist — auf dem
 Host überspringen sie sich selbst. Was gegen das echte Schema geprüft sein muss
@@ -52,6 +52,15 @@ Im Container (nur `api/` und Lese-Mounts sind dort sichtbar):
 ```bash
 docker exec tempconnect_api sh -c "cd /app && node --test --test-force-exit test/X.test.js"
 ```
+
+**Zeilenenden-Falle (gelöst 2026-08-15):** Der SQL-Schema-Wächter hashte die
+Migrationsdateien byteweise und konnte deshalb nur in EINER Welt grün sein —
+Windows checkt CRLF aus, der Container sieht LF. Wer die Momentaufnahme im
+Container erzeugte, machte sie auf dem Host rot. Der Fingerabdruck vereinheitlicht
+die Zeilenenden jetzt, und der Test rechnet nicht mehr selbst, sondern benutzt die
+Funktion des Erzeugers. **Merksatz für jeden neuen Wächter, der Dateien hasht:
+gegen beide Welten prüfen, sonst ist er in einer davon dauerhaft rot — und ein
+dauerhaft roter Test wird abgeschaltet.**
 
 **Bekannte Fragilität:** `test/me.route.coverage.test.js` wird im vollen Lauf als
 fehlgeschlagen gemeldet, obwohl alle 68 Tests darin grün sind. Ursache gefunden:
