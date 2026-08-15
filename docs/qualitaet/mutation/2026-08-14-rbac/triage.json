@@ -1305,7 +1305,12 @@
    "begruendung": "Parameter der Besitzabfrage in assertOrgOwnership. Ohne [resourceId] prueft die Grenze eine beliebige Zeile.",
    "kill_durch": "Mock-Pool: params === [resourceId].",
    "spalte": 5,
-   "mutant_id": "1186"
+   "mutant_id": "1186",
+   "erledigt": {
+    "welle": "M4",
+    "test": "test/orgBoundaryMutanten.test.js",
+    "am": "2026-08-15"
+   }
   },
   {
    "nr": 96,
@@ -1406,7 +1411,12 @@
    "begruendung": "Der SQL-Text von assertLocationBelongsToOrg wird geleert — samt 'org_id = $2 AND is_active = TRUE'. Diese Funktion ist die Standort-Mandantengrenze, die CLAUDE.md ausdruecklich vor jeder Standort-ID verlangt.",
    "kill_durch": "Mock-Pool: SQL enthaelt 'org_id = $2' UND 'is_active = TRUE'.",
    "spalte": 5,
-   "mutant_id": "1240"
+   "mutant_id": "1240",
+   "erledigt": {
+    "welle": "M4",
+    "test": "test/orgBoundaryMutanten.test.js",
+    "am": "2026-08-15"
+   }
   },
   {
    "nr": 105,
@@ -1419,7 +1429,12 @@
    "begruendung": "Die Parameter derselben Abfrage — ohne [locationId, orgId] prueft die Standortgrenze nichts.",
    "kill_durch": "Mock-Pool: params === [locationId, orgId].",
    "spalte": 5,
-   "mutant_id": "1241"
+   "mutant_id": "1241",
+   "erledigt": {
+    "welle": "M4",
+    "test": "test/orgBoundaryMutanten.test.js",
+    "am": "2026-08-15"
+   }
   },
   {
    "nr": 106,
@@ -1443,7 +1458,12 @@
    "begruendung": "Parameter von assertDepartmentBelongsToOrg — die Abteilungs-Mandantengrenze.",
    "kill_durch": "Mock-Pool: params === [departmentId, orgId].",
    "spalte": 5,
-   "mutant_id": "1252"
+   "mutant_id": "1252",
+   "erledigt": {
+    "welle": "M4",
+    "test": "test/orgBoundaryMutanten.test.js",
+    "am": "2026-08-15"
+   }
   },
   {
    "nr": 108,
@@ -1456,7 +1476,12 @@
    "begruendung": "Der SQL-Text derselben Funktion wird geleert — samt org_id-Klausel.",
    "kill_durch": "Mock-Pool: SQL enthaelt 'org_id = $2' UND 'is_active = TRUE'.",
    "spalte": 5,
-   "mutant_id": "1251"
+   "mutant_id": "1251",
+   "erledigt": {
+    "welle": "M4",
+    "test": "test/orgBoundaryMutanten.test.js",
+    "am": "2026-08-15"
+   }
   },
   {
    "nr": 109,

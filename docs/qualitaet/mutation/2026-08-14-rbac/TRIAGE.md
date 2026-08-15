@@ -38,7 +38,7 @@ gefährliche Richtung. Warum das so kam, steht unten unter
 | **M1** ✅ | `services/rbacService.js` | 95,87 % | 25 | **19** | 19 | 0 | 10 | 2 | 4 |
 | **M2** ✅ | `services/enterpriseSurfaceAccessService.js` | 89,29 % | 21 | **8** | 8 | 0 | 2 | 0 | 13 |
 | **M3** ✅ | `middleware/orgContext.js` | 86,96 % | 24 | **6** | 6 | 0 | 2 | 4 | 14 |
-| **M4** | `utils/orgBoundary.js` | 82,20 % | 21 | **5** | 0 | 5 | 5 | 9 | 7 |
+| **M4** ✅ | `utils/orgBoundary.js` | 82,20 % | 21 | **5** | 5 | 0 | 5 | 9 | 7 |
 | **M5** | `middleware/rbac.js` | 87,82 % | 19 | **1** | 0 | 1 | 1 | 17 | 1 |
 | — | `utils/orgContext.js` | 93,94 % | 2 | **0** | 0 | 0 | 0 | 0 | 2 |
 
@@ -186,6 +186,7 @@ Je Welle ein Lauf über genau diese Datei
 | M1 | `rbacService.js` | 95,87 % | **99,17 %** | 25 | **5** | 19/19 |
 | M2 | `enterpriseSurfaceAccessService.js` | 89,29 % | **93,88 %** | 21 | **12** | 8/8 |
 | M3 | `middleware/orgContext.js` | 86,96 % | **90,22 %** | 24 | **18** | 6/6 |
+| M4 | `utils/orgBoundary.js` | 82,20 % | **88,14 %** | 21 | **14** | 5/5 |
 
 In **jeder** Welle gilt dasselbe: **die Überlebenden sind genau die Fälle, die M0
 nicht als A eingestuft hat** — keiner mehr, keiner weniger. Die Einstufung sagt
@@ -260,6 +261,35 @@ Fähigkeit, sondern drei Zusagen:
 
 **Gate M3 erfüllt:** 6 von 6 A-Fällen tot, Produktionscode unverändert.
 
+### M4 im Detail — der Mock, der jede Frage gleich beantwortet
+
+`utils/orgBoundary.js`, 118 Mutanten, der größte Sprung aller Wellen
+(82,20 % → 88,14 %). Alle fünf A-Fälle sind **dieselbe Lücke**: zweimal der
+SQL-Text, in dem `AND org_id = $2` steht — die Mandantengrenze selbst —, und
+dreimal die Parameterliste, ohne die die Klausel nichts zu vergleichen hat.
+
+Die Ursache steht in einer Zeile der bestehenden Testdatei:
+
+```js
+function mockPool(rows = []) {
+  return { query: async () => ({ rows }) };   // ← SQL und Parameter: ignoriert
+}
+```
+
+Damit ist belegt, dass die Funktion auf ein gegebenes Ergebnis richtig
+**reagiert**. Nicht belegt ist, dass sie überhaupt die richtige Frage **stellt**.
+Ein geleerter SQL-Text und eine leere Parameterliste sehen für diesen Mock
+identisch aus wie das Original.
+
+Das ist die Lektion, die in dieser Codebasis inzwischen **siebenmal unabhängig**
+aufgetreten ist — hier zum ersten Mal an der Stelle, an der CLAUDE.md sie
+ausdrücklich verlangt: *„location_id immer via `assertLocationBelongsToOrg`
+validieren."* Die Funktion existierte, wurde aufgerufen, war getestet — und ihre
+Grenze war unbewiesen.
+
+**Gate M4 erfüllt:** 5 von 5 A-Fällen tot, zwei B/C-Fälle nebenbei mit
+erschlagen, Produktionscode unverändert.
+
 ---
 
 ## Was die Wellen M2–M5 tun werden
@@ -273,7 +303,7 @@ Mutation tötet.
 | ~~**M1**~~ ✅ | `rbacService.js` | 19 | erledigt am 2026-08-15, `test/rbacServiceMutanten.test.js` (20 Tests) |
 | ~~**M2**~~ ✅ | `enterpriseSurfaceAccessService.js` | 8 | erledigt am 2026-08-15, `test/enterpriseSurfaceMutanten.test.js` (13 Tests) |
 | ~~**M3**~~ ✅ | `middleware/orgContext.js` | 6 | erledigt am 2026-08-15, `test/orgContextMutanten.test.js` (7 Tests) |
-| **M4** | `orgBoundary.js` | 5 | 2× SQL-Text mit `org_id`-Klausel (Standort, Abteilung) · 3× Abfrage-Parameter |
+| ~~**M4**~~ ✅ | `orgBoundary.js` | 5 | erledigt am 2026-08-15, `test/orgBoundaryMutanten.test.js` (9 Tests) |
 | **M5** | `middleware/rbac.js` | 1 | `req.orgId` darf nach `requireRole` nie `null` werden — sonst schalten sich 45 Grenzprüfungen der Form `if (req.orgId && …)` selbst ab |
 
 `utils/orgContext.js` bekommt **keine Welle**: 0 A-Fälle, beide Überlebenden sind
