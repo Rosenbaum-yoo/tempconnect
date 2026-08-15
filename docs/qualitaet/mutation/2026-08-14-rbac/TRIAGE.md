@@ -114,8 +114,9 @@ Mutation-Direktive meint — nicht 28.
 
 ### 3. „Der nächtliche CI-Job existiert"
 
-**Er existiert als Datei und hat noch nie gelaufen.** Siehe M0-B1 — der gewichtigste
-Befund dieser Welle.
+**Er existierte als Datei und war nie gelaufen** — 57 Commits lagen zwischen ihm
+und GitHub. Der gewichtigste Befund dieser Welle; gelöst am 2026-08-15 durch den
+Push (M0-B1), neu zugeschnitten in M6.
 
 ---
 
@@ -123,7 +124,7 @@ Befund dieser Welle.
 
 | Nr | Befund | Beleg |
 |---|---|---|
-| **M0-B1** | Der nächtliche Mutations-Job ist **nicht auf `origin`**. `.github/workflows/mutation.yml` entstand am 2026-08-12 (`671b047`); `origin` steht auf dem Stand vom 2026-08-06 und ist **57 Commits zurück**. GitHub kennt die Datei nicht — der Job hat nie ausgelöst und kann es nicht. | `git ls-tree origin/…:.github/workflows` listet nur `ci.yml` |
+| ~~**M0-B1**~~ ✅ *(gelöst 2026-08-15)* | Der Mutations-Job war **nicht auf `origin`**: `.github/workflows/mutation.yml` entstand am 2026-08-12 (`671b047`), der Fernstand war der 2026-08-06 — **57 Commits zurück**. GitHub kannte die Datei nicht, der Job hat nie ausgelöst. **Am 2026-08-15 hat der Owner den Push freigegeben: 66 Commits sind hoch, `mutation.yml` liegt auf `origin`, der Rückstand ist 0.** Erster geplanter Lauf: Montag 04:30 UTC. | `git ls-tree origin/…` listet jetzt beide Workflows |
 | ~~**M0-B2**~~ ✅ | Selbst nach dem Push wäre er **abgebrochen**: `timeout-minutes: 90` gegen gemessene **1 h 49 min**. Schlimmer noch — die Messung lief mit **vier** parallelen Läufern; ein Standard-Runner hat 2 vCPU und damit bei `concurrency: "50%"` genau **einen**. Hochgerechnet über sieben Stunden, bei einem GitHub-Job-Limit von sechs: **der Zuschnitt selbst trug nicht.** Behoben in M6 (Matrix, ein Job je Datei, `timeout-minutes: 180`). | `mutation.yml` gegen [README.md](README.md) |
 | ~~**M0-B3**~~ ✅ | `incremental: true` steht in `stryker.rbac.conf.json`, aber CI startet aus einem frischen Checkout ohne Zwischenstand. Behoben in M6: der Lauf geht über `scripts/mutation-welle.js`, das `incremental: false` setzt. | `stryker.rbac.conf.json` |
 | **M0-B4** | `req.locationScope` wird von `middleware/orgContext.js` gesetzt und **nirgends gelesen** — außer im eigenen Test. Drei C-Einstufungen stützen sich darauf. | Suche über `api/`, `frontend/`, `e2e/`: 2 Treffer, beide in der Datei selbst bzw. ihrem Test |

@@ -20,10 +20,15 @@
 > In **jeder** Welle sind die Überlebenden **exakt** die Fälle, die M0 nicht als
 > A eingestuft hatte — fünfmal in Folge. Produktionscode unverändert.
 >
-> **Das Gate der Mutation-Direktive ist damit geschlossen.** Offen ist nur noch
-> **M6** (Automatik) — und der hängt an der Owner-Entscheidung aus M0-B1: solange
-> die 57 Commits nicht auf `origin` stehen, kann kein CI-Job diese Arbeit
-> überwachen. Stand jederzeit: `cd api && node scripts/mutation-triage.js`.
+> **M6 ist erledigt (2026-08-15).** Aggregat-Lauf über alle sechs Dateien:
+> **94,43 %** (1219 von 1292), 72 Überlebende — maschinell geprüft **null
+> A-Fälle**, null Unbekannte. CI-Job als Matrix neu zugeschnitten, Gate ist der
+> A-Fall statt der Prozentwert. **Der Owner hat den Push freigegeben: 66 Commits
+> sind auf `origin`, der Rückstand ist 0** — aus der Datei auf der Festplatte ist
+> ein Wächter geworden (erster Lauf: Montag 04:30 UTC).
+>
+> **P12 ist damit vollständig: M0 bis M6 durch, das Gate der Mutation-Direktive
+> ist geschlossen.** Stand jederzeit: `cd api && node scripts/mutation-triage.js`.
 
 ---
 
@@ -225,9 +230,9 @@ Beim Bauen kam ein vierter Punkt dazu, den M0 noch nicht gesehen hatte:
   überschrieben — ein Archiv, das man überschreiben kann, ist keins.
 - **Nie mit Pipe messen:** `… | tail` liefert den Status von `tail`.
 
-**Was offen bleibt — und nicht von mir entschieden wird:** `origin` ist 57
-Commits zurück. Solange nicht gepusht wird, ist dieser Workflow eine Datei auf
-einer Festplatte, kein Wächter (M0-B1).
+**Der Push ist am 2026-08-15 erfolgt** (66 Commits, Rückstand 0): Aus der Datei
+auf einer Festplatte ist ein Wächter geworden. Erster geplanter Lauf: Montag,
+04:30 UTC. Damit ist auch M0-B1 geschlossen — der Befund, der M0 ausgelöst hat.
 
 **Gate M6:** Ein Lauf ohne Änderung erzeugt denselben Score, der Bericht landet
 datiert im Archiv, und ein Absinken unter 86 meldet sich sichtbar.

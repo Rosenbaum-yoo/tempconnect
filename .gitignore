@@ -144,3 +144,13 @@ api/.stryker-welle.*.conf.json
 
 # Versehentlich abgelegte Datei
 openai-1.pdf
+
+# ── Geschaeftsunterlagen: gehoeren NIE ins Repo ──────────────────────────────
+# Gruendung, Rechtstexte im Entwurf, Deploy-Runbook, Sitzungsnotizen. Sie lagen
+# bis 2026-08-15 nur ungetrackt im Baum — das genuegt nicht: ein `git add docs/`
+# nimmt sie mit, und genau das ist an diesem Tag passiert (Commit
+# zurueckgenommen, Historie umgeschrieben). Eine Regel, die nur in einer Doku
+# steht, ist keine Sperre. Diese Zeilen sind die Sperre.
+docs/launch/
+docs/aktuellesitzung/
+TempConnect_UG-Gruendung*.pdf
