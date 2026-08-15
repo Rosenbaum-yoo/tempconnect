@@ -24,6 +24,8 @@ export default [
         PlanFeatures: "readonly",      // planFeatures.js — IIFE module
         NAV_ITEMS:    "readonly",      // navConfig.js — navigation data
         TC_BRAND:     "readonly",      // branding.js — brand labels
+        TCi18n:       "readonly",      // i18n.js — translation system
+        TCDate:       "readonly",      // dateUtility.js — DACH date helpers
       }
     },
     rules: {
@@ -81,15 +83,10 @@ export default [
   },
 
   // ── Page scripts with HTML onclick exports ─────────────────────
-  // These files define functions called from HTML onclick/onchange handlers.
-  // ESLint can't see the HTML references, so suppress unused-vars warnings.
+  // All page scripts define functions called from HTML onclick/onchange handlers.
+  // ESLint can't see those HTML references, so suppress unused-vars for the whole dir.
   {
-    files: [
-      "public/js/pages/bounties.js",
-      "public/js/pages/dataGovernance.js",
-      "public/js/pages/landing.js",
-      "public/js/pages/slaAbo.js",
-    ],
+    files: ["public/js/pages/*.js"],
     rules: {
       "no-unused-vars": "off",
     }

@@ -96,16 +96,23 @@ function istAusgenommen(rel) {
 }
 
 /*
- * GRUNDLINIE — Stand nach Welle F2 (2026-08-13).
+ * GRUNDLINIE — Stand nach Welle F2 (2026-08-13), CRLF-Korrektur 2026-08-15.
  *
  * Diese Zahl ist KEIN Ziel, sondern eine Obergrenze. Sie umfasst die Stellen,
  * die F1 ausdruecklich als harmlos eingestuft hat: technische UTC-Buckets,
  * Zeitstempel, Idempotenz-Schluessel. Die 33 echten Kalendertag-Fehler sind in
  * F2 behoben.
  *
+ * 2026-08-15: Grundlinie 39 → 36 nach Bugfix im Kommentarstripper (CRLF).
+ * Der Stripper /\/\/.*$/ schlug auf Windows-Repos lautlos fehl, weil `.` kein
+ * `\r` matcht und `$` nicht hinter das `\r` ansteuern kann. Dadurch wurden
+ * 4 Kommentarzeilen (F2-Erlaeuterungskommentare mit toISOString-Beispielen)
+ * faelschlich als Fundstellen gezaehlt. Der Fix (replace(/\r$/, "")) gibt den
+ * korrekten Stand zurueck.
+ *
  * Wer sie ANHEBT, muss das im Commit begruenden. Wer Stellen behebt, senkt sie.
  */
-const GRUNDLINIE = 39;
+const GRUNDLINIE = 36;
 
 /** Sammelt Quelldateien, ohne node_modules und Build-Ausgaben. */
 function dateien(unter, endungen) {
@@ -141,7 +148,11 @@ function fundstellen() {
     const zeilen = fs.readFileSync(datei, "utf8").split("\n");
     zeilen.forEach((zeile, i) => {
       // Kommentare erklaeren das Problem oft — sie sind kein Fehler.
-      const ohneKommentar = zeile.replace(/\/\/.*$/, "").replace(/\/\*[\s\S]*?\*\//g, "");
+      // \r entfernen: CRLF-Repos liefern nach split('\n') ein \r am Zeilenende,
+      // das `$` in `/\/\/.*$/` nicht ansteuern kann (`.` matcht kein \r) —
+      // der Kommentarstreifen schlaegt lautlos fehl und Muster in Kommentaren
+      // werden faelschlich als Treffer gewertet.
+      const ohneKommentar = zeile.replace(/\r$/, "").replace(/\/\/.*$/, "").replace(/\/\*[\s\S]*?\*\//g, "");
       if (MUSTER.some((m) => m.test(ohneKommentar))) {
         treffer.push(rel + ":" + (i + 1));
       }

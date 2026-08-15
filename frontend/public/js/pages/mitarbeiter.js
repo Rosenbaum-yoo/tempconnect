@@ -1,3 +1,4 @@
+/* exported filterLiveBoard */
 "use strict";
 
 /* ══════════════════════════════════════════════════════════
@@ -3383,7 +3384,7 @@ function csvNormalisiereZeile(d) {
   // Geburtsdatum: TT.MM.JJJJ (auch / und -) nach ISO. Zweistellige Jahre NICHT
   // — 1988 oder 2088 ist bei einem Geburtsdatum kein Detail.
   if (d.date_of_birth && !/^\d{4}-\d{2}-\d{2}$/.test(d.date_of_birth)) {
-    var m = /^(\d{1,2})[.\/-](\d{1,2})[.\/-](\d{4})$/.exec(d.date_of_birth);
+    var m = /^(\d{1,2})[./-](\d{1,2})[./-](\d{4})$/.exec(d.date_of_birth);
     if (m) {
       var iso = m[3] + "-" + ("0" + m[2]).slice(-2) + "-" + ("0" + m[1]).slice(-2);
       hinweise.push(TCi18n.t("mit.csv.noticeDate", { from: d.date_of_birth, to: iso }));
