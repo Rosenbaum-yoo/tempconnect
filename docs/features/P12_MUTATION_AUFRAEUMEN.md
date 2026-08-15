@@ -10,7 +10,12 @@
 > nach unten korrigiert — alle in dieselbe Richtung, keiner in die gefährliche).
 > Ergebnis, acht Befunde und Wellenreihenfolge:
 > [qualitaet/mutation/2026-08-14-rbac/TRIAGE.md](../qualitaet/mutation/2026-08-14-rbac/TRIAGE.md).
-> Nächster Schritt ist **M1 — `services/rbacService.js`** (19 A-Fälle).
+>
+> **M1 ist erledigt (2026-08-15).** `services/rbacService.js`: alle **19 A-Fälle
+> tot**, gemessen — Score **95,87 % → 99,17 %**, 5 Überlebende, und das sind exakt
+> die fünf Fälle, die M0 nicht als A eingestuft hatte. Produktionscode unverändert.
+> Nächster Schritt ist **M2 — `services/enterpriseSurfaceAccessService.js`**
+> (8 A-Fälle). Stand jederzeit: `cd api && node scripts/mutation-triage.js`.
 
 ---
 
@@ -130,7 +135,7 @@ Reihenfolge folgt den A-Fällen, und sie unterscheidet sich vom Score.
 
 | Welle | Datei | A-Fälle |
 |---|---|---|
-| **M1** | `services/rbacService.js` | 19 |
+| ~~**M1**~~ ✅ *(2026-08-15)* | `services/rbacService.js` | 19 — **alle tot**, Score 95,87 % → **99,17 %** |
 | **M2** | `services/enterpriseSurfaceAccessService.js` | 8 |
 | **M3** | `middleware/orgContext.js` | 6 |
 | **M4** | `utils/orgBoundary.js` | 5 |
@@ -146,8 +151,25 @@ Je Welle:
   `triage.json` unter `kill_durch`.
 - Die Begründung der B-Fälle steht vollständig in `triage.json`; der Testkopf
   verweist darauf, statt sie zu kopieren. *(Abweichung vom ursprünglichen Plan,
-  bewusst: 33 Kopien in Testköpfen laufen auseinander, eine Quelle nicht.)*
-- Nach der Welle: Lauf **nur für diese Datei** (Minuten statt zwei Stunden).
+  bewusst: 32 Kopien in Testköpfen laufen auseinander, eine Quelle nicht.)*
+- **Die neue Testdatei muss in den `commandRunner`** von `stryker.rbac.conf.json`.
+  Fehlt sie dort, läuft sie im Mutations-Lauf nicht mit: die Suite wäre grün und
+  der Mutant lebte weiter. `mutationTriage.test.js` wird rot, wenn ein erledigter
+  Fall auf eine Testdatei zeigt, die dort fehlt.
+- Nach der Welle: Lauf **nur für diese Datei**, mit
+  `node scripts/mutation-welle.js <datei>`. Das Skript leitet seine Konfiguration
+  aus der Aggregat-Datei ab und schreibt nach `reports/mutation/welle/…` —
+  **niemals ins Archiv**. Mit der Aggregat-Konfiguration direkt zu messen würde
+  den archivierten Rohbericht überschreiben; genau so ging am 2026-08-14 schon
+  einmal ein Beleg verloren.
+- Dann das Gate auswerten: `node scripts/mutation-triage.js --welle <datei>`.
+  Es sagt, welcher A-Fall noch lebt — und benennt in der Fehlermeldung die
+  einzige richtige Antwort darauf: **den Test schärfen, nicht die Einstufung
+  senken.** Ein A-Fall, der trotz grünem Test weiterlebt, ist der Beweis, dass
+  der Test das Ergebnis prüft statt die Mutation.
+- Zum Schluss die erledigten Fälle in `triage.json` stempeln (`erledigt`:
+  Welle, Testdatei, Datum). Nur was der Wellen-Bericht als tot ausweist —
+  ein Haken ohne Messung beendet die Suche, ohne das Problem zu lösen.
 
 **Gate je Welle:** null A-Fälle übrig, jeder B-Fall begründet, Produktionscode
 **unverändert**. Muss der Code angefasst werden, ist das ein Befund — dann Stopp

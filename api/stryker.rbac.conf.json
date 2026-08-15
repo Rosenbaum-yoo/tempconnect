@@ -12,7 +12,7 @@
     "services/enterpriseSurfaceAccessService.js"
   ],
   "commandRunner": {
-    "command": "node --test --test-force-exit test/rbacService.test.js test/rbac.test.js test/rbac-middleware.test.js test/rbac-hardening.test.js test/rbacLastOwner.test.js test/security/permission-bypass.test.js test/security/role-escalation.test.js test/security/rbac-security.test.js test/orgContext.test.js test/rlsTenantIsolation.test.js test/orgBoundary.test.js test/enterpriseSurfaceAccessService.test.js test/visibilityMatrix.test.js test/rateCardAccessGate.test.js"
+    "command": "node --test --test-force-exit test/rbacService.test.js test/rbacServiceMutanten.test.js test/rbac.test.js test/rbac-middleware.test.js test/rbac-hardening.test.js test/rbacLastOwner.test.js test/security/permission-bypass.test.js test/security/role-escalation.test.js test/security/rbac-security.test.js test/orgContext.test.js test/rlsTenantIsolation.test.js test/orgBoundary.test.js test/enterpriseSurfaceAccessService.test.js test/visibilityMatrix.test.js test/rateCardAccessGate.test.js"
   },
   "reporters": [
     "clear-text",

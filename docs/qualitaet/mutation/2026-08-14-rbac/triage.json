@@ -772,7 +772,12 @@
    "begruendung": "ROLE_HIERARCHY.program_manager unbewiesen.",
    "kill_durch": "hasPermission('program_manager','offer.create') === true — dieses Recht ist fuer die Rolle NUR ueber die Vererbung erreichbar (mechanisch ermittelt, 5 solcher Permissions).",
    "spalte": 21,
-   "mutant_id": "564"
+   "mutant_id": "564",
+   "erledigt": {
+    "welle": "M1",
+    "test": "test/rbacServiceMutanten.test.js",
+    "am": "2026-08-15"
+   }
   },
   {
    "nr": 66,
@@ -796,7 +801,12 @@
    "begruendung": "ROLE_HIERARCHY.hiring_manager unbewiesen.",
    "kill_durch": "hasPermission('hiring_manager','worker.view') === true — das einzige Recht, das fuer diese Rolle nur ueber die Vererbung erreichbar ist.",
    "spalte": 21,
-   "mutant_id": "568"
+   "mutant_id": "568",
+   "erledigt": {
+    "welle": "M1",
+    "test": "test/rbacServiceMutanten.test.js",
+    "am": "2026-08-15"
+   }
   },
   {
    "nr": 68,
@@ -820,7 +830,12 @@
    "begruendung": "ROLE_HIERARCHY.recruiter unbewiesen — die Rolle, die Kandidaten einstellt, erbt ihre Grundrechte ueber diese Zeile.",
    "kill_durch": "hasPermission('recruiter','compliance.view') === true — nur ueber die Vererbung erreichbar (zweites: document_center.view).",
    "spalte": 21,
-   "mutant_id": "574"
+   "mutant_id": "574",
+   "erledigt": {
+    "welle": "M1",
+    "test": "test/rbacServiceMutanten.test.js",
+    "am": "2026-08-15"
+   }
   },
   {
    "nr": 70,
@@ -833,7 +848,12 @@
    "begruendung": "ROLE_HIERARCHY.dispatcher unbewiesen — die Rolle, die Einsaetze plant.",
    "kill_durch": "hasPermission('dispatcher','compliance.view') === true — nur ueber die Vererbung erreichbar (zweites: document_center.view).",
    "spalte": 21,
-   "mutant_id": "576"
+   "mutant_id": "576",
+   "erledigt": {
+    "welle": "M1",
+    "test": "test/rbacServiceMutanten.test.js",
+    "am": "2026-08-15"
+   }
   },
   {
    "nr": 71,
@@ -846,7 +866,12 @@
    "begruendung": "Die Parameter der Abfrage 'alle Mitgliedschaften eines Nutzers' verschwinden. Ein Test, der nur das Ergebnis des Mock-Pools prueft, merkt nicht, dass die Abfrage ohne Nutzer-Bindung lief — genau die Lektion, die sich hier fuenfmal wiederholt hat.",
    "kill_durch": "Mock-Pool: params[0] muss die userId sein (params pruefen, nicht das Ergebnis).",
    "spalte": 5,
-   "mutant_id": "956"
+   "mutant_id": "956",
+   "erledigt": {
+    "welle": "M1",
+    "test": "test/rbacServiceMutanten.test.js",
+    "am": "2026-08-15"
+   }
   },
   {
    "nr": 72,
@@ -859,7 +884,12 @@
    "begruendung": "Parameter der Abfrage 'users.org_id' im Schnellpfad von getPrimaryOrg — ohne Bindung an die userId.",
    "kill_durch": "Mock-Pool: erste Abfrage traegt userId als $1.",
    "spalte": 47,
-   "mutant_id": "959"
+   "mutant_id": "959",
+   "erledigt": {
+    "welle": "M1",
+    "test": "test/rbacServiceMutanten.test.js",
+    "am": "2026-08-15"
+   }
   },
   {
    "nr": 73,
@@ -872,7 +902,12 @@
    "begruendung": "Parameter des Rueckfalls 'erste aktive Mitgliedschaft'. Ohne Bindung waehlt die Abfrage die aelteste Mitgliedschaft IRGENDEINES Nutzers.",
    "kill_durch": "Mock-Pool ohne users.org_id: zweite Abfrage traegt userId als $1.",
    "spalte": 5,
-   "mutant_id": "965"
+   "mutant_id": "965",
+   "erledigt": {
+    "welle": "M1",
+    "test": "test/rbacServiceMutanten.test.js",
+    "am": "2026-08-15"
+   }
   },
   {
    "nr": 74,
@@ -885,7 +920,12 @@
    "begruendung": "Parameter des INSERT, der den Gruender zum owner macht. Ohne sie entstuende eine Owner-Mitgliedschaft ohne Nutzer- und Org-Bezug.",
    "kill_durch": "Mock-Pool: INSERT org_memberships traegt [userId, org.id].",
    "spalte": 7,
-   "mutant_id": "1007"
+   "mutant_id": "1007",
+   "erledigt": {
+    "welle": "M1",
+    "test": "test/rbacServiceMutanten.test.js",
+    "am": "2026-08-15"
+   }
   },
   {
    "nr": 75,
@@ -898,7 +938,12 @@
    "begruendung": "Parameter des UPDATE users SET org_id — die Zuordnung Nutzer->Org, also die Wurzel des spaeteren Mandantenkontexts.",
    "kill_durch": "Mock-Pool: UPDATE traegt [org.id, userId] in dieser Reihenfolge.",
    "spalte": 7,
-   "mutant_id": "1009"
+   "mutant_id": "1009",
+   "erledigt": {
+    "welle": "M1",
+    "test": "test/rbacServiceMutanten.test.js",
+    "am": "2026-08-15"
+   }
   },
   {
    "nr": 76,
@@ -922,7 +967,12 @@
    "begruendung": "Parameter von countActiveOwners. Ohne orgId zaehlt die Abfrage die Owner ALLER Organisationen — der Letzter-Owner-Schutz waere dann nie ausgeloest, weil plattformweit immer mehr als einer existiert.",
    "kill_durch": "Mock-Pool: COUNT-Abfrage traegt orgId als $1.",
    "spalte": 5,
-   "mutant_id": "1026"
+   "mutant_id": "1026",
+   "erledigt": {
+    "welle": "M1",
+    "test": "test/rbacServiceMutanten.test.js",
+    "am": "2026-08-15"
+   }
   },
   {
    "nr": 78,
@@ -957,7 +1007,12 @@
    "begruendung": "deactivateMember uebergibt {userId} an den Letzter-Owner-Schutz. Leert man das Objekt, prueft der Waechter auf user_id=undefined, findet nichts und laesst durch — die Organisation kann ihren letzten Owner verlieren. Schutz-Umgehung ohne jede Fehlermeldung.",
    "kill_durch": "Mock-Pool: die Waechter-Abfrage in deactivateMember muss die userId als Parameter tragen; zusaetzlich der Fall 'letzter Owner' -> LAST_OWNER.",
    "spalte": 41,
-   "mutant_id": "1058"
+   "mutant_id": "1058",
+   "erledigt": {
+    "welle": "M1",
+    "test": "test/rbacServiceMutanten.test.js",
+    "am": "2026-08-15"
+   }
   },
   {
    "nr": 81,
@@ -970,7 +1025,12 @@
    "begruendung": "Der Waechter wird auch beim Heraufsetzen AUF owner ausgefuehrt. Eine legitime Ernennung schlaegt dann mit LAST_OWNER fehl — die Rollenaenderung kippt in die falsche Richtung, aber sie kippt.",
    "kill_durch": "updateMemberRoleByMembershipId(..., 'owner') beim einzigen Owner: darf NICHT werfen.",
    "spalte": 7,
-   "mutant_id": "1066"
+   "mutant_id": "1066",
+   "erledigt": {
+    "welle": "M1",
+    "test": "test/rbacServiceMutanten.test.js",
+    "am": "2026-08-15"
+   }
   },
   {
    "nr": 82,
@@ -983,7 +1043,12 @@
    "begruendung": "Gleiche Bedingung ueber den Vergleichswert 'owner'. Wirkung wie nr 81 — der Ausnahmefall der Ernennung ist unbewiesen.",
    "kill_durch": "Wie nr 81, zusaetzlich mit einer Nicht-owner-Rolle: der Waechter MUSS laufen.",
    "spalte": 22,
-   "mutant_id": "1069"
+   "mutant_id": "1069",
+   "erledigt": {
+    "welle": "M1",
+    "test": "test/rbacServiceMutanten.test.js",
+    "am": "2026-08-15"
+   }
   },
   {
    "nr": 83,
@@ -996,7 +1061,12 @@
    "begruendung": "Der komplette SQL-Text von updateMemberRoleByMembershipId wird geleert — samt 'AND org_id = $2'. Genau diese Klausel IST die Mandantengrenze dieser Funktion. Dass ein Leer-SQL ueberlebt, heisst: kein Test prueft, WELCHE Abfrage lief.",
    "kill_durch": "Mock-Pool: der SQL-Text muss 'org_id = $2' und 'is_active = TRUE' enthalten.",
    "spalte": 5,
-   "mutant_id": "1072"
+   "mutant_id": "1072",
+   "erledigt": {
+    "welle": "M1",
+    "test": "test/rbacServiceMutanten.test.js",
+    "am": "2026-08-15"
+   }
   },
   {
    "nr": 84,
@@ -1009,7 +1079,12 @@
    "begruendung": "Rueckgabe 'rows[0] || null' faellt auf true — der Aufrufer bekommt statt der geaenderten Mitgliedschaft einen Wahrheitswert. Eine Rollenaenderung ist eine Rechteaenderung; ihr Ergebnis darf nicht ungeprueft sein.",
    "kill_durch": "Rueckgabe muss die Zeile mit role_key sein, nicht nur wahrheitswertig.",
    "spalte": 10,
-   "mutant_id": "1074"
+   "mutant_id": "1074",
+   "erledigt": {
+    "welle": "M1",
+    "test": "test/rbacServiceMutanten.test.js",
+    "am": "2026-08-15"
+   }
   },
   {
    "nr": 85,
@@ -1022,7 +1097,12 @@
    "begruendung": "Die Parameter derselben Abfrage — darunter die orgId, die die Mandantengrenze traegt. Ohne sie waere eine Mitgliedschaft einer fremden Org aenderbar.",
    "kill_durch": "Mock-Pool: params === [membershipId, orgId, newRoleKey].",
    "spalte": 5,
-   "mutant_id": "1073"
+   "mutant_id": "1073",
+   "erledigt": {
+    "welle": "M1",
+    "test": "test/rbacServiceMutanten.test.js",
+    "am": "2026-08-15"
+   }
   },
   {
    "nr": 86,
@@ -1035,7 +1115,12 @@
    "begruendung": "Andere Richtung: die Rueckgabe ist immer null. Die Route meldet 'nicht gefunden', obwohl die Rolle geaendert wurde — falscher Nachweis nach aussen.",
    "kill_durch": "Erfolgreicher Aufruf muss ein Objekt liefern; erfolgloser null. Beide Richtungen.",
    "spalte": 10,
-   "mutant_id": "1075"
+   "mutant_id": "1075",
+   "erledigt": {
+    "welle": "M1",
+    "test": "test/rbacServiceMutanten.test.js",
+    "am": "2026-08-15"
+   }
   },
   {
    "nr": 87,
@@ -1048,7 +1133,12 @@
    "begruendung": "Dritte Variante derselben Rueckgabe (rows[0] && null). Wirkung wie nr 86.",
    "kill_durch": "Siehe nr 86 — eine Zusicherung auf den Inhalt deckt alle drei.",
    "spalte": 10,
-   "mutant_id": "1076"
+   "mutant_id": "1076",
+   "erledigt": {
+    "welle": "M1",
+    "test": "test/rbacServiceMutanten.test.js",
+    "am": "2026-08-15"
+   }
   },
   {
    "nr": 88,
@@ -1061,7 +1151,12 @@
    "begruendung": "Parameter von locationBelongsToOrg — [locationId, orgId]. Ohne sie ist die Standort-zu-Org-Pruefung wirkungslos, und sie ist der Kern jeder Standort-Grenzpruefung.",
    "kill_durch": "Mock-Pool: params === [locationId, orgId]; zusaetzlich fremde Org -> false.",
    "spalte": 5,
-   "mutant_id": "1108"
+   "mutant_id": "1108",
+   "erledigt": {
+    "welle": "M1",
+    "test": "test/rbacServiceMutanten.test.js",
+    "am": "2026-08-15"
+   }
   },
   {
    "nr": 89,

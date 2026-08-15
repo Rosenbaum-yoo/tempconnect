@@ -39,7 +39,7 @@ Abschnitten, die ich in Spuren mit **Wellen und Gates** schneide.
 ```bash
 cd api && node scripts/run-tests.js          # offizieller Runner, ohne Pipe
 ```
-Stand: **8465 Tests** (2026-08-15, voller Lauf ohne Pipe, 0 Fehler), davon 13 übersprungen — die DB-gebundenen, die nur im Container laufen.
+Stand: **8487 Tests** (2026-08-15, voller Lauf ohne Pipe, 0 Fehler), davon 13 übersprungen — die DB-gebundenen, die nur im Container laufen.
 
 Die DB-gestützten Tests laufen im Container, wo `DB_HOST` gesetzt ist — auf dem
 Host überspringen sie sich selbst. Was gegen das echte Schema geprüft sein muss
@@ -124,17 +124,24 @@ SQL-Schema-Wächter · Doku-Wächter (W2) · Plattform-Register · Team-/Rollenk
 Investoren-Dokument · Mutations-Bericht neu gemessen und archiviert · Redis auf der
 Go-Live-Liste.
 
-**Fertig am 2026-08-15:** **P12/M0** — alle 112 überlebenden Mutanten einzeln
-eingestuft und unabhängig gegengelesen (**39 A · 32 B · 41 C**; 23 Korrekturen, alle
-in dieselbe Richtung), Wellenreihenfolge begründet, **acht Befunde**.
-Neu: `api/scripts/mutation-triage.js`, `api/test/mutationTriage.test.js`,
+**Fertig am 2026-08-15:** **P12/M0 + M1.**
+M0: alle 112 überlebenden Mutanten einzeln eingestuft und unabhängig gegengelesen
+(**39 A · 32 B · 41 C**; 23 Korrekturen, alle in dieselbe Richtung),
+Wellenreihenfolge begründet, **acht Befunde**.
+M1: `services/rbacService.js` — **19 von 19 A-Fällen tot**, gemessen
+(95,87 % → **99,17 %**). Die 5 Überlebenden sind exakt die 5 Nicht-A-Fälle: die
+Einstufung hat sich also vorhergesagt verhalten. Produktionscode unverändert.
+Neu: `api/scripts/mutation-triage.js` (Register + Wellen-Gate),
+`api/scripts/mutation-welle.js` (misst eine Datei, ohne das Archiv zu
+überschreiben), `api/test/mutationTriage.test.js`,
+`api/test/rbacServiceMutanten.test.js`,
 [TRIAGE.md](qualitaet/mutation/2026-08-14-rbac/TRIAGE.md).
 
 **Nächster Schritt — eines von beiden, nicht beides gleichzeitig:**
 
 | Spur | Erster Schritt | Warum zuerst |
 |---|---|---|
-| **P12** Mutation aufräumen | **M1** — `services/rbacService.js`, 19 A-Fälle | Mehr offene Fälle als die anderen fünf Dateien zusammen; der Ansatz steht je Fall in `triage.json` unter `kill_durch` |
+| **P12** Mutation aufräumen | **M2** — `services/enterpriseSurfaceAccessService.js`, 8 A-Fälle | M1 ist durch; der Ansatz steht je Fall in `triage.json` unter `kill_durch`, der Ablauf einer Welle im Plan |
 | **P11** Doku als System | **W3** Generator | W1+W2 stehen; der Generator schreibt die ableitbaren Teile fort |
 
 **Zwei Blocker, unabhängig von beiden Spuren** (aus TEAM_UND_ROLLEN.md, verifiziert):

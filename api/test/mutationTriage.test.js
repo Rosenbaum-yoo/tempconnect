@@ -33,7 +33,15 @@ import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { lade, pruefeTriage, werteAus, ERGEBNIS_PFAD, TRIAGE_PFAD, TRIAGE_MD_PFAD } from "../scripts/mutation-triage.js";
+import {
+  lade,
+  pruefeTriage,
+  werteAus,
+  MUTATIONS_TESTDATEIEN,
+  ERGEBNIS_PFAD,
+  TRIAGE_PFAD,
+  TRIAGE_MD_PFAD,
+} from "../scripts/mutation-triage.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const REPO = path.join(__dirname, "..", "..");
@@ -119,15 +127,22 @@ describe("Mutation-Triage — TRIAGE.md ist gerechnet, nicht getippt", () => {
 
     for (const zeile of tabellenzeilen()) {
       const c = zellen(zeile);
-      // Wellen-Tabelle: | Welle | Datei | Score | ueberlebt | A | davon hoch | B | C |
-      if (c.length !== 8 || !bekannt.has(c[1])) continue;
+      // Wellen-Tabelle:
+      // | Welle | Datei | Score | ueberlebt | A | erledigt | offen | davon hoch | B | C |
+      if (c.length !== 10 || !bekannt.has(c[1])) continue;
       const d = bekannt.get(c[1]);
       gefunden++;
       assert.equal(Number(c[3]), d.gesamt, `${d.datei}: Ueberlebende im Dokument falsch`);
       assert.equal(Number(c[4]), d.A, `${d.datei}: A im Dokument falsch`);
-      assert.equal(Number(c[5]), d.A_hoch, `${d.datei}: 'davon hoch' im Dokument falsch`);
-      assert.equal(Number(c[6]), d.B, `${d.datei}: B im Dokument falsch`);
-      assert.equal(Number(c[7]), d.C, `${d.datei}: C im Dokument falsch`);
+      assert.equal(Number(c[5]), d.A_erledigt, `${d.datei}: 'erledigt' im Dokument falsch`);
+      assert.equal(
+        Number(c[6]),
+        d.A - d.A_erledigt,
+        `${d.datei}: 'offen' im Dokument falsch — es muss A minus erledigt sein`
+      );
+      assert.equal(Number(c[7]), d.A_hoch, `${d.datei}: 'davon hoch' im Dokument falsch`);
+      assert.equal(Number(c[8]), d.B, `${d.datei}: B im Dokument falsch`);
+      assert.equal(Number(c[9]), d.C, `${d.datei}: C im Dokument falsch`);
       // Zahlenvergleich, nicht Textvergleich: das Dokument schreibt deutsch und
       // zweistellig ("82,20 %"), der Bericht speichert 82.2. Gleicher Wert.
       assert.equal(
@@ -144,7 +159,9 @@ describe("Mutation-Triage — TRIAGE.md ist gerechnet, nicht getippt", () => {
     const ausMd = [];
     for (const zeile of tabellenzeilen()) {
       const c = zellen(zeile);
-      if (c.length === 8 && /^M\d+$/.test(c[0])) ausMd.push({ welle: c[0], datei: c[1] });
+      // Eine erledigte Welle traegt einen Haken hinter der Nummer ("M1 ✅").
+      const welle = c[0]?.replace(/[^\w]/g, "");
+      if (c.length === 10 && /^M\d+$/.test(welle)) ausMd.push({ welle, datei: c[1] });
     }
     assert.deepEqual(
       ausMd.map((x) => x.datei),
@@ -163,6 +180,35 @@ describe("Mutation-Triage — TRIAGE.md ist gerechnet, nicht getippt", () => {
     for (const datei of ohneA) {
       assert.ok(!a.reihenfolge.includes(datei), `${datei} hat 0 A-Faelle und darf keine Welle tragen`);
     }
+  });
+});
+
+describe("Mutation-Triage — ein erledigter Fall ist auch wirklich gemessen", () => {
+  it("jeder Erledigt-Vermerk zeigt auf eine Datei, die im Mutations-Lauf mitlaeuft", () => {
+    const imLauf = MUTATIONS_TESTDATEIEN();
+    const kaputt = triage.faelle
+      .filter((f) => f.erledigt)
+      .filter((f) => !imLauf.includes(f.erledigt.test))
+      .map((f) => `nr ${f.nr} -> ${f.erledigt.test}`);
+
+    assert.deepEqual(
+      kaputt,
+      [],
+      "Eine Testdatei, die nicht im commandRunner von stryker.rbac.conf.json steht, laeuft im " +
+        "Mutations-Lauf gar nicht mit. Die Suite waere gruen, der Mutant lebte weiter — und der " +
+        "Haken in der Triage waere eine Falschaussage."
+    );
+  });
+
+  it("die Wellenreihenfolge zeigt auf die Datei mit den meisten OFFENEN A-Faellen", () => {
+    const a = werteAus(ergebnis, triage);
+    const offen = a.dateien.map((d) => d.A - d.A_erledigt);
+    const sortiert = [...offen].sort((x, y) => y - x);
+    assert.deepEqual(
+      offen.filter((n) => n > 0),
+      sortiert.filter((n) => n > 0),
+      "Nach einer abgeschlossenen Welle muss die naechste wieder die groesste offene Menge sein"
+    );
   });
 });
 

@@ -138,6 +138,9 @@ reports/
 api/reports/
 .stryker-tmp/
 api/.stryker-tmp/
+# Wegwerf-Konfiguration eines Wellen-Laufs (scripts/mutation-welle.js erzeugt sie
+# aus der Aggregat-Konfiguration, damit die Testliste nirgends abgeschrieben wird).
+api/.stryker-welle.*.conf.json
 
 # Versehentlich abgelegte Datei
 openai-1.pdf

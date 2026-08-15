@@ -33,14 +33,17 @@ gefährliche Richtung. Warum das so kam, steht unten unter
 
 ## Je Datei — und warum die Reihenfolge nicht dem Score folgt
 
-| Welle | Datei | Score | überlebt | **A** | davon hoch | B | C |
-|---|---|---|---|---|---|---|---|
-| **M1** | `services/rbacService.js` | 95,87 % | 25 | **19** | 10 | 2 | 4 |
-| **M2** | `services/enterpriseSurfaceAccessService.js` | 89,29 % | 21 | **8** | 2 | 0 | 13 |
-| **M3** | `middleware/orgContext.js` | 86,96 % | 24 | **6** | 2 | 4 | 14 |
-| **M4** | `utils/orgBoundary.js` | 82,20 % | 21 | **5** | 5 | 9 | 7 |
-| **M5** | `middleware/rbac.js` | 87,82 % | 19 | **1** | 1 | 17 | 1 |
-| — | `utils/orgContext.js` | 93,94 % | 2 | **0** | 0 | 0 | 2 |
+| Welle | Datei | Score | überlebt | **A** | erledigt | offen | davon hoch | B | C |
+|---|---|---|---|---|---|---|---|---|---|
+| **M1** ✅ | `services/rbacService.js` | 95,87 % | 25 | **19** | 19 | 0 | 10 | 2 | 4 |
+| **M2** | `services/enterpriseSurfaceAccessService.js` | 89,29 % | 21 | **8** | 0 | 8 | 2 | 0 | 13 |
+| **M3** | `middleware/orgContext.js` | 86,96 % | 24 | **6** | 0 | 6 | 2 | 4 | 14 |
+| **M4** | `utils/orgBoundary.js` | 82,20 % | 21 | **5** | 0 | 5 | 5 | 9 | 7 |
+| **M5** | `middleware/rbac.js` | 87,82 % | 19 | **1** | 0 | 1 | 1 | 17 | 1 |
+| — | `utils/orgContext.js` | 93,94 % | 2 | **0** | 0 | 0 | 0 | 0 | 2 |
+
+*Die Score-Spalte ist der Stand vom 2026-08-14. Nach M1 steht `rbacService.js`
+bei **99,17 %** — siehe unten.*
 
 **Die Datei mit dem besten Score trägt die meisten offenen Fälle.** `rbacService.js`
 steht bei 95,87 % — und hat 19 A-Fälle, mehr als die anderen fünf zusammen.
@@ -172,7 +175,43 @@ erreichbar ist.
 
 ---
 
-## Was die Wellen M1–M5 tun werden
+## M1 ist gemessen — und bestätigt die Einstufung Fall für Fall
+
+`node scripts/mutation-welle.js services/rbacService.js`, 54 min 44 s, 605 Mutanten:
+
+| | vorher (2026-08-14) | nach M1 (2026-08-15) |
+|---|---|---|
+| Score | 95,87 % | **99,17 %** |
+| getötet | 580 | **600** |
+| überlebt | 25 | **5** |
+
+**Die fünf Überlebenden sind exakt die fünf Fälle, die M0 nicht als A eingestuft
+hat** — kein einziger mehr, kein einziger weniger:
+
+| Stelle | Kategorie | warum er überleben *musste* |
+|---|---|---|
+| `:12` `ROLE_HIERARCHY.admin` | C | gleichwertig — jedes Recht von `admin` steht ohnehin ausdrücklich in `PERMISSIONS` |
+| `:15` `supplier_manager` | C | dito |
+| `:16` `finance` | C | dito |
+| `:244` `swallow("rbacService")` | B | Protokollherkunft im ROLLBACK-Pfad |
+| `:303` `expose: true` | C | hat gemessen keinen Leser (M0-B5) |
+
+Das ist der eigentliche Wert dieser Welle: **die Vorhersage war prüfbar und ist
+eingetroffen.** Besonders die drei Vererbungszeilen — sie waren in der ersten
+Einstufung A, wurden von der Gegenprüfung mechanisch auf C korrigiert („für diese
+Rollen hängt kein Recht am Erbe"), und genau sie haben überlebt, obwohl die neuen
+Tests `hasPermission` von allen Seiten beanspruchen. Die vier Vererbungszeilen,
+die als A blieben (`program_manager`, `hiring_manager`, `recruiter`,
+`dispatcher`), sind tot. Eine Einstufung, die sich so verhält wie angekündigt,
+ist mehr wert als eine, die nur plausibel klingt.
+
+**Gate M1 erfüllt:** 19 von 19 A-Fällen tot, Produktionscode unverändert, ein
+B/C-Fall nebenbei mit erschlagen. Nachrechnen:
+`node scripts/mutation-triage.js --welle services/rbacService.js`.
+
+---
+
+## Was die Wellen M2–M5 tun werden
 
 Je Welle ein Testblock, Produktionscode unverändert. Die Fälle stehen einzeln in
 [`triage.json`](triage.json) mit dem Feld `kill_durch` — dem Test, der genau diese
@@ -180,7 +219,7 @@ Mutation tötet.
 
 | Welle | Datei | A | Schwerpunkt |
 |---|---|---|---|
-| **M1** | `rbacService.js` | 19 | **8× Abfrage-Parameter** (`params` prüfen, nicht das Ergebnis) · 4× Rollen-Vererbung (reine Funktion, billig) · 2× Letzter-Owner-Schutz (inkl. `{ userId }`, dessen Verlust den Schutz stillschweigend abschaltet) · 3× Rückgabevertrag der Rollenänderung · 1× SQL-Text mit `org_id`-Klausel · 1× Vergleichswert `"owner"` |
+| ~~**M1**~~ ✅ | `rbacService.js` | 19 | erledigt am 2026-08-15, `test/rbacServiceMutanten.test.js` (20 Tests) |
 | **M2** | `enterpriseSurfaceAccessService.js` | 8 | 6× Rollenlisten einzeln (`platform_admin` und `admin` in allen drei Listen) · 1× Tarif-Alias `INDIVIDUELL_*` · 1× `orgType` schlägt `role` (sonst kippt ein Unternehmen auf die Agentur-Flächen) |
 | **M3** | `middleware/orgContext.js` | 6 | 2× UUID-Anker (`^` und `$`) · 1× Regel 7 (Rückfall auf die eigene Org) · 1× „nur der Header zählt als Absicht" · 2× Regel 6 (Standort-Cache beim Org-Wechsel) |
 | **M4** | `orgBoundary.js` | 5 | 2× SQL-Text mit `org_id`-Klausel (Standort, Abteilung) · 3× Abfrage-Parameter |
