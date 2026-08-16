@@ -71,14 +71,31 @@ function zeilenAbbildung(datei) {
     const neuStart = Number(kopf[3]);
     const neuAnzahl = kopf[4] === undefined ? 1 : Number(kopf[4]);
 
-    // Alles VOR diesem Block behaelt den bisherigen Versatz.
-    for (let z = letzteAlt + 1; z < altStart; z++) abbildung.set(z, z + versatz);
-
-    // Die geaenderten alten Zeilen selbst: sie existieren so nicht mehr.
-    for (let z = altStart; z < altStart + altAnzahl; z++) abbildung.set(z, null);
-
-    versatz += neuAnzahl - altAnzahl;
-    letzteAlt = altStart + altAnzahl - 1;
+    /*
+     * REINE EINFUEGUNG vs. AENDERUNG — der Unterschied kostet eine Zeile.
+     *
+     * git schreibt eine Einfuegung als `@@ -5,0 +6,3 @@`: "0 alte Zeilen betroffen,
+     * eingefuegt wird NACH alter Zeile 5". Zeile 5 selbst bleibt also, wo sie ist;
+     * erst ab Zeile 6 verschiebt sich etwas.
+     *
+     * Die erste Fassung hat das uebersehen und Zeile 5 mitverschoben. Aufgefallen
+     * ist es erst bei der Uebertragung in den projektuebergreifenden
+     * Werkzeugkasten — hier hatte es nicht zugeschlagen, weil kein eingestufter
+     * Fall genau auf einer Einfuegegrenze lag. Ein Fehler, der nur an einer
+     * einzigen Zeile je Block sichtbar wird, wartet geduldig.
+     */
+    if (altAnzahl === 0) {
+      // Bis EINSCHLIESSLICH altStart bleibt der bisherige Versatz gueltig.
+      for (let z = letzteAlt + 1; z <= altStart; z++) abbildung.set(z, z + versatz);
+      versatz += neuAnzahl;
+      letzteAlt = altStart;
+    } else {
+      for (let z = letzteAlt + 1; z < altStart; z++) abbildung.set(z, z + versatz);
+      // Die geaenderten alten Zeilen selbst: sie existieren so nicht mehr.
+      for (let z = altStart; z < altStart + altAnzahl; z++) abbildung.set(z, null);
+      versatz += neuAnzahl - altAnzahl;
+      letzteAlt = altStart + altAnzahl - 1;
+    }
     void neuStart;
   }
 
