@@ -1,11 +1,11 @@
 {
-  "_hinweis": "GENERIERT — nicht von Hand bearbeiten. Neu erzeugen mit: npm run schema:snapshot (liest die laufende Datenbank im Container tempconnect_db). Der migrations_fingerabdruck wird zeilenenden-unabhaengig gebildet (CRLF=LF), damit Host und Container denselben Wert sehen.",
-  "erzeugt_am": "2026-08-15T14:52:42.982Z",
+  "_hinweis": "GENERIERT — nicht von Hand bearbeiten. Neu erzeugen mit: npm run schema:snapshot (liest die laufende Datenbank im Container tempconnect_db).",
+  "erzeugt_am": "2026-08-16T12:07:54.690Z",
   "quelle": "docker exec tempconnect_db psql -U tempconnect -d tempconnect",
   "migrations_fingerabdruck": {
     "init": "49a1c9ef343102f593f1267155c30cea987684bf1a93826cf237e61101238c7e",
-    "dateien": 184,
-    "hash": "1273d6ba06ad4ca3a54956e571c6bad636812612b5e5a617408b3307bbd143d8"
+    "dateien": 185,
+    "hash": "2950ec70096bebd3f68a6f13ee0770fede28b085b5d552624a2b8c4b55d0420f"
   },
   "sichten": [
     "activity_feed"
@@ -2509,6 +2509,7 @@
     },
     "org_settings": {
       "spalten": [
+        "abwesenheit_selbstmeldung_freigabepflicht",
         "approval_required",
         "auto_match_enabled",
         "branding",
@@ -2524,6 +2525,7 @@
         "updated_at"
       ],
       "nicht_null": [
+        "abwesenheit_selbstmeldung_freigabepflicht",
         "approval_required",
         "auto_match_enabled",
         "branding",
@@ -5095,22 +5097,30 @@
         "aufgehoben_am",
         "aufgehoben_von",
         "aufhebung_grund",
+        "beschreibung",
         "bis",
+        "entscheidung_grund",
+        "entschieden_am",
+        "entschieden_von",
         "erfasst_am",
         "erfasst_von",
         "id",
         "notiz",
+        "quelle",
         "supplier_org_id",
         "von",
-        "worker_profile_id"
+        "worker_profile_id",
+        "zustand"
       ],
       "nicht_null": [
         "art",
         "erfasst_am",
         "id",
+        "quelle",
         "supplier_org_id",
         "von",
-        "worker_profile_id"
+        "worker_profile_id",
+        "zustand"
       ]
     },
     "worker_assignment_links": {
