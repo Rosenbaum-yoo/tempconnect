@@ -4,7 +4,7 @@
 > sobald in einem Arbeitsplan eine offene Owner-Entscheidung auftaucht, die hier fehlt.
 > Eine Übergabe, die man vergessen kann, ist keine.
 
-**Stand: 2026-08-16** · Branch `release/enterprise-premium-market-ready`
+**Stand: 2026-08-17** · Branch `release/enterprise-premium-market-ready`
 
 ---
 
@@ -39,7 +39,7 @@ Abschnitten, die ich in Spuren mit **Wellen und Gates** schneide.
 ```bash
 cd api && node scripts/run-tests.js          # offizieller Runner, ohne Pipe
 ```
-Stand: **8515 Tests** (2026-08-15, voller Lauf ohne Pipe, 0 Fehler), davon 13 übersprungen — die DB-gebundenen, die nur im Container laufen.
+Stand: **8558 Tests** (2026-08-17, voller Lauf ohne Pipe, 0 Fehler), davon 13 übersprungen — die DB-gebundenen, die nur im Container laufen.
 
 Die DB-gestützten Tests laufen im Container, wo `DB_HOST` gesetzt ist — auf dem
 Host überspringen sie sich selbst. Was gegen das echte Schema geprüft sein muss
@@ -79,13 +79,13 @@ Lastabhängig. **Als eigene Aufgabe ausgelagert, nicht nebenbei anfassen.**
 | [ORG_GRENZE_BEFUND.md](ORG_GRENZE_BEFUND.md) | Warum die Mandantengrenze 80-mal einzeln in den Routen steht — versionierte Fassung des wichtigsten Architekturbefunds |
 | [FLAECHEN.md](FLAECHEN.md) | Was gehört ins Staff CC, was ins OCC, was ins Support Center. **Vor jedem neuen Modul lesen**, wird per Test erzwungen. |
 | [TESTING.md](TESTING.md) | Testarchitektur, inkl. Mutation Testing und seiner zwei Fallen |
-| [features/G_ABWESENHEIT_SELBSTERFASSUNG.md](features/G_ABWESENHEIT_SELBSTERFASSUNG.md) | Abwesenheit, vom Mitarbeiter selbst gemeldet — sechs Wellen. Enthaelt die Owner-Entscheidungen G-E1 bis G-E6 (sofort wirksam, Schalter fuer Antragspflicht, alle vier Arten, Einsatzportal + eigener Reiter, absichtliche Huerde, Zeitsperre je Schritt). |
+| [features/G_ABWESENHEIT_SELBSTERFASSUNG.md](features/G_ABWESENHEIT_SELBSTERFASSUNG.md) | Abwesenheit, vom Mitarbeiter selbst gemeldet — sechs Wellen. **G1-G3 gebaut** (Mig 181/182, Endpunkte, Zeitsperre, Mindestbeschreibung, Verspaetungsweg). Enthaelt die acht Owner-Entscheidungen G-E1 bis G-E8; offen sind G4, G4b, G5, G6. |
 | [features/P11_DOKUMENTATION_ALS_SYSTEM.md](features/P11_DOKUMENTATION_ALS_SYSTEM.md) | Doku als System: generiert statt gepflegt, drei Leser (Investor/Owner/Technik), Hilfebereich. 11 Wellen, W1 laeuft. **Owner-Grundprinzip fuer alle Projekte.** |
 | [PLATTFORM_REGISTER.md](PLATTFORM_REGISTER.md) | Das Inventar: jede Flaeche, jeder Endpunkt, jede Faehigkeit, mit Beleg und Zustand. Grundlage der Investoren- und Bedienungsdoku. Wird per `dokuWaechter.test.js` gegen den Code gehalten. |
 | [TEAM_UND_ROLLEN.md](TEAM_UND_ROLLEN.md) | Wen dieser Code verlangt: Fachbereiche, Erfahrungsstufen, Minimalbesetzung, Reihenfolge der Einstellung — gemessen, nicht geschaetzt. |
 | [investoren/WIE_WIR_BAUEN.md](investoren/WIE_WIR_BAUEN.md) | Das Dokument zum Zeigen: Ingenieursstandard mit Belegen, inkl. eines Abschnitts „Was noch nicht steht“. **Intern**, bis der Owner ueber Veroeffentlichung entscheidet (DOK-E3). |
 | [qualitaet/mutation/2026-08-14-rbac/](qualitaet/mutation/2026-08-14-rbac/README.md) | Archivierter Mutations-Prüfbericht (voller Lauf, 91,33 %, 1292 Mutanten). Datiert abgelegt, damit der nächste Lauf ihn nicht überschreibt. |
-| [features/P12_MUTATION_AUFRAEUMEN.md](features/P12_MUTATION_AUFRAEUMEN.md) | Aufräum-Wellen M0–M6 für die 112 überlebenden Mutanten. **M0 erledigt** (2026-08-15), als nächstes M1. |
+| [features/P12_MUTATION_AUFRAEUMEN.md](features/P12_MUTATION_AUFRAEUMEN.md) | Aufräum-Wellen M0–M6 für die 112 überlebenden Mutanten. **Vollständig abgeschlossen** (2026-08-15): 39/39 A-Fälle geschlossen, Aggregat 94,43 %. |
 | [qualitaet/mutation/2026-08-15-rbac-nach-wellen/](qualitaet/mutation/2026-08-15-rbac-nach-wellen/README.md) | Der Lauf NACH den Wellen: 94,43 %, 72 Überlebende, null A-Fälle. Der Gegenbeleg zum 14.08. |
 | [qualitaet/mutation/2026-08-14-rbac/TRIAGE.md](qualitaet/mutation/2026-08-14-rbac/TRIAGE.md) | Das Ergebnis von M0: alle 112 Fälle einzeln eingestuft und gegengelesen (39 A · 32 B · 41 C), die Wellenreihenfolge und acht Befunde — darunter, dass der nächtliche Mutations-Job nie gelaufen ist. |
 
@@ -105,14 +105,14 @@ Lastabhängig. **Als eigene Aufgabe ausgelagert, nicht nebenbei anfassen.**
 
 ### Mutation Testing
 
-| Datei | Score | Gate |
+| Datei | 2026-08-14 | **nach den Wellen** |
 |---|---|---|
-| `services/rbacService.js` | 95,87 % | ✅ |
-| `utils/orgContext.js` | 93,94 % | ✅ |
-| `services/enterpriseSurfaceAccessService.js` | 89,29 % | ✅ |
-| `middleware/rbac.js` | 87,82 % | ✅ |
-| `middleware/orgContext.js` | 86,96 % | ✅ |
-| `utils/orgBoundary.js` | 82,20 % | ✅ |
+| `services/rbacService.js` | 95,87 % | **99,01 %** |
+| `services/enterpriseSurfaceAccessService.js` | 89,29 % | **93,88 %** |
+| `utils/orgContext.js` | 93,94 % | 93,94 % |
+| `middleware/orgContext.js` | 86,96 % | **90,22 %** |
+| `middleware/rbac.js` | 87,82 % | **88,46 %** |
+| `utils/orgBoundary.js` | 82,20 % | **86,44 %** |
 
 **Aggregat 91,33 %** bei 1292 Mutanten, Break-Schwelle 86 — gemessen im vollen
 Lauf vom **2026-08-14**, Bericht archiviert unter
@@ -128,53 +128,80 @@ onclick-Handler, fehlendes CSRF, Sackgassen-Links. Sie haben den Multi-Agenten-A
 
 ---
 
-## Wo es weitergeht *(Stand 2026-08-16)*
+## Wo es weitergeht *(Stand 2026-08-17)*
 
-**P12 ist vollständig abgeschlossen** — M0 bis M6. Alle 39 zugriffsrelevanten
-Fälle sind mit Tests geschlossen, im Aggregat gemessen (**94,43 %**, 1219 von
-1292), und der Wächter läuft ab Montag 04:30 UTC wöchentlich. **Er wird rot, wenn
-ein A-Fall wieder überlebt — nicht, wenn eine Zahl sinkt.**
+**Nächster Schritt: G4 — die Benachrichtigung ans Büro.**
+Alles davor steht und ist gemessen.
 
-**Der Push ist erfolgt** (Owner-Freigabe 2026-08-15): 66 Commits, `origin` ist auf
-Stand, `mutation.yml` liegt auf GitHub. Damit ist M0-B1 geschlossen — der Befund,
-der die ganze Spur ausgelöst hat.
+### Der unmittelbare Auftrag (G4)
 
-**Nächster Schritt: G1** — die Datenschicht der Abwesenheits-Selbsterfassung
-(features/G_ABWESENHEIT_SELBSTERFASSUNG.md). Acht Owner-Entscheidungen liegen vor,
-die Wellen G1–G6 sind geschnitten. G1 macht eine Meldung des Mitarbeiters von
-einer des Disponenten unterscheidbar und legt den Schalter für die Antragspflicht
-an.
+Owner-Vorgabe: *„wenn der Zeitarbeitschef ins Büro kommt, weiß er direkt Bescheid
+und kann umdisponieren — mit Vorschlägen."* Das sind drei Dinge, und nur das
+erste ist G4:
 
-### Was am 2026-08-15/16 entstanden ist
+1. **Die Meldung selbst, sofort** — nicht erst beim nächsten Laden der Seite.
+2. Die Folgen, vorgerechnet (steht schon: `folgenVorschau()`).
+3. Vorschläge, wer einspringt → das ist **G6**, nicht G4.
+
+**Gate G4:** Der Disponent sieht die Meldung ohne Neuladen, und die
+Benachrichtigung führt **zum betroffenen Einsatz**, nicht auf eine Übersicht.
+
+**Woran anknüpfen — nichts davon neu bauen:**
+
+| Vorhanden | Wo |
+|---|---|
+| Benachrichtigungs-Dienst inkl. Flächen-Zuordnung | `api/services/notification*` — vor dem Bauen prüfen, was es schon kann |
+| Offene Selbstmeldungen (die tägliche Frage des Büros) | Teil-Index `worker_absences_offene_selbstmeldungen_idx` (Mig 181) |
+| Betroffene Einsätze zu einer Meldung | `folgenVorschau()` in `workerAbsenceService.js` |
+| Was der Kunde sehen darf | **`fuerKunde()`** — für G4b zwingend benutzen, siehe unten |
+
+### Danach: G4b → G5 → G6
+
+- **G4b** Kunden-Benachrichtigung (Ausfall + später Ersatz). **Nur über
+  `fuerKunde()`.** Diese Funktion baut ein neues Objekt mit vier Feldern statt
+  Felder zu entfernen — wer sie umgeht, leakt „krank" an einen Dritten (Art. 9
+  DSGVO). Ein Test prüft das bereits mit einem erfundenen Zusatzfeld.
+- **G5** Oberfläche im Einsatzportal: dreistufiger Ablauf + eigener Reiter links.
+  Der dritte Schritt zeigt **echte** Einsatzdaten aus `folgenVorschau()`, keine
+  Platzhalter. Lade-, Leer- und Fehlerzustand sind Pflicht.
+- **G6** Umdisponieren mit Vorschlägen — `assignmentStaffingService` kann
+  Kandidaten bereits bewerten.
+
+### Was schon steht (2026-08-15/17)
 
 | | |
 |---|---|
-| **P12/M0–M6** | 112 Mutanten eingestuft (39 A · 32 B · 41 C), gegengelesen, in fünf Wellen geschlossen, Aggregat gemessen, CI-Job als Matrix neu zugeschnitten |
-| **Drei Produktionscode-Befunde** | M0-B7 war ein echter Defekt (Tabellenliste als Abschrift, 17 statt 22 — fünf Tabellen liefen nie durch die Mandantengrenze); M0-B6 und M0-B8 bleiben mit begründetem Kommentar stehen |
-| **Schema-Wächter repariert** | Der Fingerabdruck hing an den Zeilenenden und konnte nur in einer Welt grün sein. Jetzt vereinheitlicht, in Host **und** Container gegengeprüft |
-| **Neues Werkzeug** | `mutation-welle.js` (misst eine Datei, ohne das Archiv zu überschreiben) · `mutation-archivieren.js` (datierter Auszug, überschreibt nie) · `mutation-neuverankern.js` (führt die Triage nach, wenn Code sich verschiebt) |
-| **Werkzeugkasten** | projektübergreifend unter `Desktop/_QUALITAETS-WERKZEUGKASTEN/` — Wächter und Mutation Testing für alle zwölf Projekte |
+| **P12 vollständig** | M0–M6. 39/39 zugriffsrelevante Fälle geschlossen, Aggregat **94,43 %**, CI-Wächter läuft montags 04:30 UTC. Gate ist der A-Fall, nicht der Prozentwert |
+| **G1** Datenschicht | Mig 181: `quelle`, `zustand`, Freigabepflicht-Schalter je Firma |
+| **G2** Endpunkte | `POST /worker/me/abwesenheit`, `GET …/folgen`. Profil-ID kommt aus der Sitzung, nicht aus der Anfrage |
+| **G2b** Zeitsperre | serverseitig, 1 min je Schritt, `428` ohne Vorgang / `429` zu früh |
+| **G2c** Beschreibung | 30 Wörter über vier Fragen; `fuerKunde()` als Grenze |
+| **G3** Verspätung | Mig 182, eigene Tabelle, Obergrenze 240 min mit Verweis auf den anderen Weg |
 
-### Zwei Dinge, die eine neue Sitzung wissen muss
+**Testlage:** 8558 Tests, 0 Fehler (voller Lauf ohne Pipe). Zusätzlich im
+Container geprüft, wo die DB-gebundenen Tests wirklich laufen.
 
-**Das Repo ist öffentlich.** Am 2026-08-15 sind zwölf Geschäftsunterlagen
-versehentlich gepusht worden — nicht durch `git add -A` (die Regel dagegen war
-bekannt), sondern durch **`git add docs/`**. Ein Pfad-Präfix genügt. Inhalt war
-durchweg Platzhalter, die Historie wurde umgeschrieben, `.gitignore` sperrt die
-Pfade jetzt. **Immer einzelne Dateipfade stagen, nie ein Verzeichnis.**
+### Drei Regeln, die diese Sitzung teuer gelernt hat
 
-**Wer Produktionscode anfasst, muss die Triage nachführen.** `triage.json` trägt
-zwei Anker: `zeile_bericht` verankert an der Messung vom 14.08. und bewegt sich
-nie, `zeile` zeigt auf den heutigen Code. Nach jeder Codeänderung in den sechs
-gemessenen Dateien:
+**Nie ein Verzeichnis stagen.** Das Repo ist **öffentlich**. `git add docs/`
+hat zwölf Geschäftsunterlagen mitgenommen; die Historie musste umgeschrieben
+werden. Immer einzelne Dateipfade.
+
+**Wer Produktionscode anfasst, führt die Triage nach.** Zeilennummern
+verschieben sich, und der Montags-Wächter meldet sonst einen Fehlalarm:
 
 ```bash
 cd api && node scripts/mutation-neuverankern.js --von HEAD~1 --bis HEAD
 cd api && node scripts/mutation-welle.js <datei> && node scripts/mutation-triage.js --welle <datei>
 ```
 
-Ohne das meldet der Montags-Lauf „Überlebende, die die Einstufung nicht kennt" —
-ein Fehlalarm, und ein falsch-roter Wächter wird abgeschaltet statt repariert.
+**Vier Wächter melden sich beim Einchecken einer Migration** — Register,
+NUMBERING.md, Rollback-Hinweis, Schema-Momentaufnahme. Keiner davon war je ein
+Fehlalarm; sie sind schneller bedient als diskutiert:
+
+```bash
+cd api && npm run schema:snapshot
+```
 
 ---
 
