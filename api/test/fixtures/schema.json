@@ -1,11 +1,11 @@
 {
   "_hinweis": "GENERIERT — nicht von Hand bearbeiten. Neu erzeugen mit: npm run schema:snapshot (liest die laufende Datenbank im Container tempconnect_db).",
-  "erzeugt_am": "2026-08-16T12:07:54.690Z",
+  "erzeugt_am": "2026-08-17T15:03:06.802Z",
   "quelle": "docker exec tempconnect_db psql -U tempconnect -d tempconnect",
   "migrations_fingerabdruck": {
     "init": "49a1c9ef343102f593f1267155c30cea987684bf1a93826cf237e61101238c7e",
-    "dateien": 185,
-    "hash": "2950ec70096bebd3f68a6f13ee0770fede28b085b5d552624a2b8c4b55d0420f"
+    "dateien": 186,
+    "hash": "293e2a54d6a370477bf4c23a0a24a45cd83fee6f8f763b46b36bbd8832ea1cb0"
   },
   "sichten": [
     "activity_feed"
@@ -5228,6 +5228,26 @@
         "status",
         "updated_at",
         "worker_user_id"
+      ]
+    },
+    "worker_delays": {
+      "spalten": [
+        "gemeldet_am",
+        "gemeldet_von",
+        "gilt_fuer",
+        "id",
+        "minuten",
+        "notiz",
+        "supplier_org_id",
+        "worker_profile_id"
+      ],
+      "nicht_null": [
+        "gemeldet_am",
+        "gilt_fuer",
+        "id",
+        "minuten",
+        "supplier_org_id",
+        "worker_profile_id"
       ]
     },
     "worker_invites": {

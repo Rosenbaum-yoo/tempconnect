@@ -389,6 +389,57 @@ export function createWorkerPortalRouter(deps) {
     } catch (err) { next(err); }
   });
 
+  /* ── Verspaetung melden: der leichte Weg (Welle G3) ───────────────────────
+   *
+   * KEINE Zeitsperre, KEINE Mindestbeschreibung, KEINE Abwesenheit. Ein Tippen.
+   *
+   * Das ist die Bedingung dafuer, dass die Abwesenheitsmeldung schwer sein darf:
+   * gibt es nur eine Tuer, wird sie fuer alles benutzt — und dann steht jemand
+   * als abwesend im System, der nur zwanzig Minuten spaeter kommt.
+   */
+  const verspaetungSchema = z.object({
+    minuten: z.number().int().min(1).max(600),
+    notiz: z.string().max(500).nullish(),
+    gilt_fuer: z.string().min(8).nullish(),
+  });
+
+  router.post("/worker/me/verspaetung", ...base, async (req, res, next) => {
+    try {
+      const parsed = verspaetungSchema.safeParse(req.body);
+      if (!parsed.success) return res.status(400).json({ error: "VALIDATION", details: parsed.error.issues });
+
+      const profile = await workerService.getWorkerProfile(pool, req.session.userId);
+      if (!profile) return res.status(404).json({ error: "PROFILE_NOT_FOUND" });
+
+      const ergebnis = await abwesenheit.meldeVerspaetung(pool, profile.supplier_org_id, {
+        workerProfileId: profile.id,
+        minuten: parsed.data.minuten,
+        giltFuer: parsed.data.gilt_fuer || null,
+        notiz: parsed.data.notiz || null,
+        gemeldetVon: req.session.userId,
+      });
+
+      /* Die Obergrenze weist nicht nur ab, sie VERWEIST: wer laenger fehlt, hat
+       * ein echtes Anliegen. Ohne Hinweis greift er zum Telefon, und die Meldung
+       * steht wieder ausserhalb des Systems. */
+      if (ergebnis.error) {
+        return res.status(ergebnis.status || 400).json({
+          error: ergebnis.error,
+          max_minuten: ergebnis.max,
+          weiter: ergebnis.hinweis || undefined,
+        });
+      }
+
+      res.locals.audit = {
+        action: "worker.report_delay",
+        entity_type: "worker_delay",
+        entity_id: ergebnis.verspaetung.id,
+        details: { minuten: ergebnis.verspaetung.minuten },
+      };
+      res.status(201).json({ verspaetung: ergebnis.verspaetung });
+    } catch (err) { next(err); }
+  });
+
   /* ── Eigene Fähigkeiten abrufen / setzen (Katalog-gebunden, Welle 1) ───────── */
 
   router.get("/worker/me/skills", ...base, async (req, res, next) => {

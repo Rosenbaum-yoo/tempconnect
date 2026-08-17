@@ -300,3 +300,82 @@ describe("G2 — Selbstmeldung: Schalter, Vorschau, Mandantengrenze", { skip: !h
     assert.equal(r.error, "INVALID_DATE");
   });
 });
+
+/* ═══════════════════════════════════════════════════════════════════════════
+ *  G3 — die Zusage, auf die es ankommt: eine Verspaetung ist keine Abwesenheit
+ * ═══════════════════════════════════════════════════════════════════════════ */
+
+describe("G3 — Verspaetung am realen Schema", { skip: !hasDb && "No database configured" }, () => {
+  let pool;
+  let org;
+  let profil;
+
+  before(async () => {
+    pool = createPool();
+    org = await createSupplierOrg(pool, "G3-Verspaetung");
+    const { rows } = await pool.query(
+      `INSERT INTO worker_profiles (supplier_org_id, first_name, last_name, personnel_number)
+       VALUES ($1, 'Spaet', 'Kommer', $2) RETURNING id`,
+      [org, `G3-${Date.now()}`]
+    );
+    profil = rows[0];
+  });
+
+  after(async () => {
+    if (!pool) return;
+    await pool.query("DELETE FROM worker_delays WHERE supplier_org_id = $1", [org]).catch(() => {});
+    await pool.query("DELETE FROM worker_absences WHERE supplier_org_id = $1", [org]).catch(() => {});
+    await pool.query("DELETE FROM worker_profiles WHERE supplier_org_id = $1", [org]).catch(() => {});
+    await pool.end();
+  });
+
+  it("DIE ZUSAGE: eine Verspaetung erzeugt KEINE Abwesenheit", async () => {
+    const vorher = await pool.query("SELECT count(*)::int AS n FROM worker_absences WHERE supplier_org_id = $1", [org]);
+
+    const r = await dienst.meldeVerspaetung(pool, org, {
+      workerProfileId: profil.id, minuten: 20, giltFuer: "2026-11-02", notiz: "Zug faellt aus",
+    });
+    assert.equal(r.error, undefined, `unerwarteter Fehler: ${r.error}`);
+    assert.equal(r.verspaetung.minuten, 20);
+
+    const nachher = await pool.query("SELECT count(*)::int AS n FROM worker_absences WHERE supplier_org_id = $1", [org]);
+    assert.equal(
+      nachher.rows[0].n,
+      vorher.rows[0].n,
+      "Der Mensch KOMMT ja. Eine Abwesenheitszeile wuerde seine Einsaetze freigeben und " +
+        "das Buero umdisponieren lassen — der Schaden waere groesser als der Anlass"
+    );
+  });
+
+  it("zweimal am selben Tag ist eine Korrektur, kein zweiter Vorgang", async () => {
+    await dienst.meldeVerspaetung(pool, org, { workerProfileId: profil.id, minuten: 15, giltFuer: "2026-11-03" });
+    const zweite = await dienst.meldeVerspaetung(pool, org, { workerProfileId: profil.id, minuten: 45, giltFuer: "2026-11-03" });
+
+    assert.equal(zweite.verspaetung.minuten, 45, "Der spaetere Wert gilt");
+    const { rows } = await pool.query(
+      "SELECT count(*)::int AS n FROM worker_delays WHERE worker_profile_id = $1 AND gilt_fuer = '2026-11-03'",
+      [profil.id]
+    );
+    assert.equal(rows[0].n, 1, "Sonst sammeln sich Dubletten und das Buero weiss nicht, welche Zahl stimmt");
+  });
+
+  it("die Datenbank haelt die Obergrenze auch dann, wenn jemand am Dienst vorbeischreibt", async () => {
+    await assert.rejects(
+      () => pool.query(
+        `INSERT INTO worker_delays (worker_profile_id, supplier_org_id, gilt_fuer, minuten)
+         VALUES ($1, $2, '2026-11-04', 480)`,
+        [profil.id, org]
+      ),
+      (err) => /worker_delays_minuten_chk/.test(err.message),
+      "Die Zusage darf nicht davon abhaengen, welcher Codepfad gerade schreibt"
+    );
+  });
+
+  it("ein fremdes Profil laesst sich nicht bemelden", async () => {
+    const fremd = await createSupplierOrg(pool, "G3-fremde-Firma");
+    const r = await dienst.meldeVerspaetung(pool, fremd, {
+      workerProfileId: profil.id, minuten: 10, giltFuer: "2026-11-05",
+    });
+    assert.equal(r.error, "WORKER_NOT_IN_ORG");
+  });
+});

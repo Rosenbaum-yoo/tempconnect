@@ -470,3 +470,85 @@ export function fuerKunde(absence) {
     faellt_aus: absence.zustand === "wirksam" && !absence.aufgehoben_am,
   };
 }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+ *  Welle G3 — die Verspaetungsmeldung: der leichte Weg
+ *
+ *  Ein Tippen, Minutenangabe, fertig. KEINE Zeitsperre, KEINE 30 Woerter, KEINE
+ *  Abwesenheit — der Mensch kommt ja.
+ *
+ *  Das ist keine Bequemlichkeit, sondern die Bedingung dafuer, dass die schwere
+ *  Tuer schwer sein DARF. Gibt es nur einen Weg, wird er fuer alles benutzt.
+ * ═══════════════════════════════════════════════════════════════════════════ */
+
+/** Ab hier ist es keine Verspaetung mehr, sondern eine Abwesenheit. */
+export const VERSPAETUNG_MAX_MINUTEN = 240;
+
+/**
+ * Ist das noch eine Verspaetung?
+ *
+ * Die Grenze ist der eigentliche Entwurf: ohne sie waere der leichte Weg genau
+ * die Umgehung, gegen die er gebaut wurde — "ich verspaete mich um 480 Minuten"
+ * waere ein freier Tag ohne Begruendung, ohne Wartezeit, ohne Folgenhinweis.
+ *
+ * Die Ablehnung VERWEIST auf den anderen Weg, statt nur nein zu sagen. Wer hier
+ * scheitert, hat ein echtes Anliegen; ihn ohne Hinweis stehen zu lassen treibt
+ * ihn ans Telefon — und dann steht die Meldung wieder ausserhalb des Systems.
+ */
+export function pruefeVerspaetung(minuten, konfig = {}) {
+  const max = konfig.maxMinuten ?? VERSPAETUNG_MAX_MINUTEN;
+  const zahl = Number(minuten);
+
+  if (!Number.isInteger(zahl) || zahl < 1) {
+    return { gueltig: false, status: 400, error: "MINUTEN_UNGUELTIG", max };
+  }
+  if (zahl > max) {
+    return {
+      gueltig: false,
+      status: 400,
+      error: "KEINE_VERSPAETUNG_MEHR",
+      max,
+      hinweis: "abwesenheit_melden",
+    };
+  }
+  return { gueltig: true, minuten: zahl };
+}
+
+/**
+ * Die Verspaetung festhalten. Beruehrt `worker_absences` NICHT — das ist die
+ * Zusage dieser Welle, und ein Test prueft sie, indem er danach nachzaehlt.
+ *
+ * Zweimal am selben Tag ist eine KORREKTUR, kein zweiter Vorgang: der spaetere
+ * Wert gilt. Sonst sammeln sich Dubletten und das Buero weiss nicht, welche
+ * Zahl stimmt.
+ */
+export async function meldeVerspaetung(pool, supplierOrgId, {
+  workerProfileId, minuten, giltFuer = null, notiz = null, gemeldetVon = null
+} = {}) {
+  if (!supplierOrgId || !workerProfileId) return { error: "MISSING_PARAMS", status: 400 };
+
+  const geprueft = pruefeVerspaetung(minuten);
+  if (!geprueft.gueltig) return geprueft;
+
+  const tag = giltFuer ? alsDatum(giltFuer) : todayDE();
+  if (!tag) return { error: "INVALID_DATE", status: 400 };
+
+  const { rows } = await pool.query(
+    /* Mandantengrenze IM Statement, wie bei der Abwesenheit: die Zeile entsteht
+     * nur, wenn das Profil wirklich zu diesem Betrieb gehoert. */
+    `INSERT INTO worker_delays (worker_profile_id, supplier_org_id, gilt_fuer, minuten, notiz, gemeldet_von)
+     SELECT wp.id, wp.supplier_org_id, $3::date, $4, $5, $6
+       FROM worker_profiles wp
+      WHERE wp.id = $2 AND wp.supplier_org_id = $1
+     ON CONFLICT (worker_profile_id, gilt_fuer)
+     DO UPDATE SET minuten = EXCLUDED.minuten,
+                   notiz = EXCLUDED.notiz,
+                   gemeldet_von = EXCLUDED.gemeldet_von,
+                   gemeldet_am = NOW()
+     RETURNING *`,
+    [supplierOrgId, workerProfileId, tag, geprueft.minuten, notiz ? String(notiz).slice(0, 1000) : null, gemeldetVon]
+  );
+
+  if (!rows[0]) return { error: "WORKER_NOT_IN_ORG", status: 404 };
+  return { verspaetung: rows[0] };
+}

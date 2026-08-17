@@ -28,6 +28,8 @@ import {
   pruefeBeschreibung,
   fuerKunde,
   BESCHREIBUNG_FRAGEN,
+  pruefeVerspaetung,
+  VERSPAETUNG_MAX_MINUTEN,
 } from "../services/workerAbsenceService.js";
 
 const MINUTE = 60_000;
@@ -213,5 +215,49 @@ describe("G-E7 — was der Kunde erfaehrt, und was nicht", () => {
     assert.equal(fuerKunde({ ...meldung, aufgehoben_am: new Date().toISOString() }).faellt_aus, false);
     assert.equal(fuerKunde({ ...meldung, zustand: "beantragt" }).faellt_aus, false,
       "Eine erst beantragte Meldung darf beim Kunden keinen Ausfall ausloesen");
+  });
+});
+
+/* ═══════════════════════════════════════════════════════════════════════════
+ *  G3 — die Verspaetung ist keine Abwesenheit
+ * ═══════════════════════════════════════════════════════════════════════════ */
+
+describe("G3 — der leichte Weg, und wo er endet", () => {
+  it("zwanzig Minuten sind eine Verspaetung", () => {
+    const r = pruefeVerspaetung(20);
+    assert.equal(r.gueltig, true);
+    assert.equal(r.minuten, 20);
+  });
+
+  it("acht Stunden sind keine — und die Ablehnung VERWEIST auf den anderen Weg", () => {
+    const r = pruefeVerspaetung(480);
+    assert.equal(r.gueltig, false);
+    assert.equal(r.error, "KEINE_VERSPAETUNG_MEHR");
+    assert.equal(
+      r.hinweis,
+      "abwesenheit_melden",
+      "Ohne Verweis greift der Mensch zum Telefon — und die Meldung steht wieder ausserhalb des Systems"
+    );
+  });
+
+  it("die Grenze ist der eigentliche Entwurf: genau 240 geht, 241 nicht", () => {
+    assert.equal(pruefeVerspaetung(VERSPAETUNG_MAX_MINUTEN).gueltig, true);
+    assert.equal(
+      pruefeVerspaetung(VERSPAETUNG_MAX_MINUTEN + 1).gueltig,
+      false,
+      "Ohne Obergrenze waere dieser Weg die Umgehung, gegen die er gebaut wurde: " +
+        "'ich verspaete mich um 480 Minuten' ist ein freier Tag ohne Begruendung"
+    );
+  });
+
+  it("null, negativ, Bruchteile und Unsinn werden abgewiesen", () => {
+    for (const wert of [0, -30, 12.5, "zwanzig", null, undefined, NaN]) {
+      assert.equal(pruefeVerspaetung(wert).gueltig, false, `sollte abweisen: ${String(wert)}`);
+    }
+  });
+
+  it("die Grenze ist konfigurierbar — Branchen ticken verschieden", () => {
+    assert.equal(pruefeVerspaetung(300, { maxMinuten: 480 }).gueltig, true);
+    assert.equal(pruefeVerspaetung(60, { maxMinuten: 30 }).gueltig, false);
   });
 });
