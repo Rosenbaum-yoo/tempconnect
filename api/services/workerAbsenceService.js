@@ -15,6 +15,7 @@
  */
 
 import { todayDE, dateOnlyDE } from "../utils/dateDE.js";
+import { dispatch, findOrgMembersWithPermission } from "./notificationMatrix.js";
 
 /** Laut CHECK in Migration 177. Reihenfolge = Anzeige-Reihenfolge in der Oberflaeche. */
 export const ABSENCE_ARTEN = Object.freeze(["krank", "urlaub", "termin", "sonstiges"]);
@@ -551,4 +552,197 @@ export async function meldeVerspaetung(pool, supplierOrgId, {
 
   if (!rows[0]) return { error: "WORKER_NOT_IN_ORG", status: 404 };
   return { verspaetung: rows[0] };
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+ *  Welle G4 — die Meldung erreicht das Buero
+ *
+ *  Die Leitfrage des ganzen Abschnitts G lautet nicht "wie bauen wir ein
+ *  Formular", sondern: WIE ERFAEHRT DAS BUERO RECHTZEITIG GENUG, UM NOCH
+ *  UMDISPONIEREN ZU KOENNEN. G1 bis G3 haben den Weg gebaut, auf dem sich
+ *  jemand meldet. Bis hierher endete die Meldung in einer Tabelle.
+ *
+ *  DREI ENTSCHEIDUNGEN, DIE HIER GETROFFEN SIND:
+ *
+ *  1. EMPFAENGER SIND DIE, DIE HANDELN DUERFEN — nicht eine Rollenliste an
+ *     dieser Stelle. `worker.manage` ist die Berechtigung zum Umdisponieren;
+ *     wer sie hat, bekommt die Meldung. Aendert jemand die Rechte-Matrix,
+ *     wandert der Empfaengerkreis automatisch mit. Eine hier abgeschriebene
+ *     Liste ['owner','admin','dispatcher'] waere schon beim naechsten neuen
+ *     Rollennamen still falsch.
+ *
+ *  2. DER LINK FUEHRT ZUM MENSCHEN, NICHT AUF EINE UEBERSICHT. Das ist das
+ *     Gate dieser Welle. `?person=<profil>#live-abwesend` oeffnet die
+ *     Live-Belegschaft, gefiltert auf die Abwesenden, mit der betroffenen
+ *     Zeile hervorgehoben — und in dieser Zeile stehen Kunde, Einsatz und
+ *     Enddatum. Ein Verweis auf die Startseite der Belegschaft haette den
+ *     Disponenten die Suche ein zweites Mal machen lassen.
+ *
+ *  3. DIE 30-WOERTER-BESCHREIBUNG STEHT NICHT IM NACHRICHTENTEXT. Sie ist der
+ *     Grund, warum es die vier Fragen gibt (G-E8) — aber der Text dieser
+ *     Benachrichtigung laeuft ueber Kanaele, die ihn nicht brauchen: die
+ *     Vorschau auf einem Sperrbildschirm, spaeter Slack/Teams ueber
+ *     `dispatchToIntegrations`. Was in die Nachricht gehoert, ist das, was
+ *     zum UMDISPONIEREN noetig ist: wer, welche Art, ab wann, wie viele
+ *     Einsaetze. Die Beschreibung ist einen Klick entfernt, in der Akte des
+ *     Arbeitgebers. Datenminimierung heisst nicht, dass niemand sie sieht —
+ *     sondern dass sie nicht dorthin ausschwaermt, wo sie nichts entscheidet.
+ * ═══════════════════════════════════════════════════════════════════════════ */
+
+/** Wer umdisponieren darf, wird benachrichtigt. Eine Berechtigung, keine Rollenliste. */
+export const BUERO_PERMISSION = "worker.manage";
+
+/** Ziel des Verweises: die Live-Belegschaft, gefiltert, mit hervorgehobener Zeile. */
+export function bueroDeepLink(workerProfileId, filter = "abwesend") {
+  const person = encodeURIComponent(String(workerProfileId || ""));
+  return `/public/mitarbeiter.html?person=${person}#live-${filter}`;
+}
+
+/** "Müller GmbH ab 18.08." — der Einsatz, der zuerst weh tut. */
+function einsatzKlartext(einsatz) {
+  if (!einsatz) return null;
+  const kunde = einsatz.kunde || "Einsatz";
+  const beginnt = einsatz.beginnt ? dateOnlyDE(einsatz.beginnt) : null;
+  return beginnt ? `${kunde} ab ${beginnt}` : String(kunde);
+}
+
+/**
+ * Die Selbstmeldung ins Buero tragen — sofort.
+ *
+ * WARUM DIESE FUNKTION NIE WIRFT: Sie laeuft NACH dem Schreiben der Meldung.
+ * Wer sich krank meldet, hat sich krank gemeldet — auch wenn der Mailserver
+ * klemmt oder niemand mit `worker.manage` in der Firma steht. Ein Zustellweg,
+ * der die fachliche Wahrheit zuruecknehmen kann, waere schlimmer als gar keiner.
+ * Deshalb: jeder Fehler wird zurueckgemeldet (`{ benachrichtigt: 0, grund }`),
+ * nie geworfen. Der Aufrufer entscheidet, ob ihn das interessiert.
+ *
+ * @param {import('pg').Pool} pool
+ * @param {string} supplierOrgId
+ * @param {{anlass:'abwesenheit'|'verspaetung', absence?:object, verspaetung?:object,
+ *          workerProfileId:string, melderUserId?:string|null}} meldung
+ * @returns {Promise<{benachrichtigt:number, empfaenger?:number, grund?:string, linkPath?:string, message?:string}>}
+ */
+export async function benachrichtigeBuero(pool, supplierOrgId, meldung = {}) {
+  const { anlass, absence = null, verspaetung = null, workerProfileId, melderUserId = null } = meldung;
+  if (!pool || !supplierOrgId || !workerProfileId) return { benachrichtigt: 0, grund: "MISSING_PARAMS" };
+  if (anlass !== "abwesenheit" && anlass !== "verspaetung") return { benachrichtigt: 0, grund: "UNBEKANNTER_ANLASS" };
+
+  try {
+    /* Name UND Empfaenger parallel — beide haengen von nichts ab, was der
+     * jeweils andere liefert. Nacheinander waere es die doppelte Latenz auf
+     * einem Pfad, der zwischen "melden" und "Antwort an den Menschen" liegt. */
+    const [nameRes, empfaenger] = await Promise.all([
+      pool.query(
+        /* Die Mandantengrenze steht IM Statement, wie ueberall in diesem Dienst:
+         * ein Profil aus einem fremden Betrieb liefert hier keine Zeile — und
+         * damit auch keinen Namen in einer fremden Benachrichtigung. */
+        `SELECT first_name, last_name, personnel_number
+           FROM worker_profiles WHERE id = $1 AND supplier_org_id = $2`,
+        [workerProfileId, supplierOrgId]
+      ),
+      findOrgMembersWithPermission(pool, supplierOrgId, BUERO_PERMISSION),
+    ]);
+
+    const profil = nameRes.rows[0];
+    if (!profil) return { benachrichtigt: 0, grund: "WORKER_NOT_IN_ORG" };
+
+    /* Der Melder bekommt seine eigene Meldung nicht zurueck. Normalerweise hat
+     * ein Mitarbeiter keine `worker.manage`-Mitgliedschaft — aber in kleinen
+     * Betrieben ist der Disponent manchmal selbst im Einsatz, und dann ist die
+     * Benachrichtigung ueber die eigene Krankmeldung schlicht Unsinn. */
+    const ziele = empfaenger.filter((id) => id && id !== melderUserId);
+    if (!ziele.length) return { benachrichtigt: 0, grund: "KEIN_EMPFAENGER" };
+
+    const name = `${profil.first_name || ""} ${profil.last_name || ""}`.trim()
+      || (profil.personnel_number ? `#${profil.personnel_number}` : "Ein Mitarbeiter");
+
+    let message, linkPath, eventKey, entityType, entityId;
+
+    if (anlass === "verspaetung") {
+      /* Der leichte Weg bleibt leicht — auch in der Benachrichtigung. Keine
+       * Folgen-Abfrage: eine Verspaetung gibt keinen Einsatz frei (Gate G3),
+       * also gibt es nichts vorzurechnen. Wer hier trotzdem `folgenVorschau()`
+       * riefe, kaufte eine Abfrage fuer eine Zahl, die immer 0 bedeutet. */
+      const min = verspaetung && verspaetung.minuten;
+      message = `${name} kommt ${min} Minuten später.`;
+      if (verspaetung && verspaetung.notiz) message += ` ${String(verspaetung.notiz).slice(0, 200)}`;
+      linkPath = bueroDeepLink(workerProfileId, "im_einsatz");
+      eventKey = "worker.delay_reported";
+      entityType = "worker_delay";
+      entityId = verspaetung && verspaetung.id;
+    } else {
+      /* DIESELBE FUNKTION, DIE DEM MENSCHEN DIE FOLGEN GEZEIGT HAT (G-E5).
+       * Das ist der Punkt: Was im dritten Schritt auf seinem Bildschirm stand,
+       * steht jetzt in der Benachrichtigung des Disponenten — dieselbe Quelle,
+       * dieselben Einsaetze. Zwei getrennte Abfragen waeren zwei Wahrheiten,
+       * und die Abweichung faende niemand, weil beide plausibel aussehen. */
+      const folgen = await folgenVorschau(pool, supplierOrgId, {
+        workerProfileId,
+        von: absence && absence.von,
+        bis: (absence && absence.bis) || null,
+      });
+      const einsaetze = (folgen && folgen.einsaetze) || [];
+
+      const von = absence && absence.von ? dateOnlyDE(absence.von) : null;
+      const teile = [`${name}: ${absence && absence.art}`];
+      if (von) teile.push(`ab ${von}`);
+      teile.push(absence && absence.bis ? `bis ${dateOnlyDE(absence.bis)}` : "Ende offen");
+
+      /* Die Zahl der betroffenen Einsaetze ist die eigentliche Nachricht — sie
+       * sagt dem Disponenten, ob er aufstehen muss. Der erste wird NAMENTLICH
+       * genannt, weil "2 Einsätze betroffen" ihn zwingt nachzusehen, um zu
+       * wissen, ob es dringend ist. */
+      if (einsaetze.length) {
+        const erster = einsatzKlartext(einsaetze[0]);
+        teile.push(einsaetze.length === 1
+          ? `Betroffen: ${erster}`
+          : `Betroffen: ${einsaetze.length} Einsätze (${erster} …)`);
+      } else {
+        /* Kein Einsatz betroffen ist eine ECHTE Antwort, kein Fehlen von Daten:
+         * der Mensch ist gerade nicht besetzt. Das zu sagen ist besser, als die
+         * Zeile wegzulassen und den Disponenten raten zu lassen. */
+        teile.push("Kein laufender Einsatz betroffen");
+      }
+
+      /* Beantragt statt wirksam (G-E2, Freigabepflicht-Schalter): der Disponent
+       * muss WISSEN, dass hier noch seine Entscheidung fehlt — sonst wartet er
+       * auf niemanden und der Mensch wartet auf ihn. */
+      if (absence && absence.zustand === "beantragt") teile.push("— wartet auf Freigabe");
+
+      message = teile.join(" · ");
+      linkPath = bueroDeepLink(workerProfileId, "abwesend");
+      eventKey = "worker.absence_reported";
+      entityType = "worker_absence";
+      entityId = absence && absence.id;
+    }
+
+    const ergebnis = await dispatch(pool, eventKey, {
+      recipientUserIds: ziele,
+      orgId: supplierOrgId,
+      entityType,
+      entityId,
+      message,
+      linkPath,
+      /* E-Mail ist ANGEBOTEN, nicht erzwungen. `emailQueue: true` ist die
+       * Erlaubnis; ob wirklich eine Mail rausgeht, entscheidet die Einstellung
+       * des Empfaengers unter `workforce_updates` (Standard: aus).
+       *
+       * WARUM NICHT ALS DRINGEND ERZWUNGEN: `getUserPreferences` kennt einen
+       * Weg, die Einstellung zu uebergehen (urgent/Notdienst bekommen IMMER
+       * Mail). Fuer eine Krankmeldung waere das der falsche Griff — sie ist
+       * nicht selten. Ein nicht abschaltbarer Mailstrom bei jeder Meldung ist
+       * der schnellste Weg dahin, dass der Disponent alle Mails der Plattform
+       * in einen Ordner filtert; dann verliert auch der echte Notdienst seine
+       * Wirkung. Das Gate dieser Welle haengt ohnehin nicht an der Mail: In-App
+       * plus Live-Push plus Glocken-Zaehler erreichen den, der ins Buero kommt. */
+      emailQueue: true,
+      emailSubject: anlass === "verspaetung" ? `Verspätung: ${name}` : `Abwesenheit: ${name}`,
+    });
+
+    return { benachrichtigt: ergebnis.sent || 0, empfaenger: ziele.length, linkPath, message };
+  } catch (e) {
+    /* Bewusst verschluckt — siehe der Kommentar oben. Der Aufrufer bekommt den
+     * Grund zurueck und kann ihn protokollieren; die Meldung selbst steht. */
+    return { benachrichtigt: 0, grund: e && e.message ? e.message : "DISPATCH_FEHLER" };
+  }
 }

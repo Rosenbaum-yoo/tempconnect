@@ -63,6 +63,15 @@ const SURFACE_BY_TYPE = {
   timesheet_rejected: "assignments",
   timesheet_signed: "assignments",
 
+  // Selbstmeldungen des Menschen (Welle G4) — dieselbe Karte wie die
+  // Stundenzettel, und zwar aus einem inhaltlichen Grund: eine Abwesenheit
+  // trifft EINSAETZE. Der Weg dorthin fuehrt ueber "Einsaetze & Zeiten"
+  // (worker-submissions-review.html) zur Live-Belegschaft in mitarbeiter.html.
+  // Ohne diese zwei Zeilen bliebe die dringendste Meldung der Plattform
+  // glockenintern, waehrend die Hub-Karte unauffaellig bleibt.
+  worker_absence_reported: "assignments",
+  worker_delay_reported: "assignments",
+
   // Gamification / Meilensteine → Bounties-Card
   milestone: "bounties",
 

@@ -25,7 +25,11 @@
     vendor_pool: ["vendor_pool_change", "vendor_pool_blocked"],
     trust_center: ["compliance_expiring", "compliance_expired", "compliance_verified"],
     my_company: ["sla_warning", "sla_breached"],
-    assignments: ["timesheet_submitted", "timesheet_approved", "timesheet_rejected", "timesheet_signed"],
+    // worker_absence_reported / worker_delay_reported (Welle G4): die
+    // Selbstmeldung des Menschen zaehlt auf dieselbe Karte wie die
+    // Stundenzettel — eine Abwesenheit trifft Einsaetze.
+    assignments: ["timesheet_submitted", "timesheet_approved", "timesheet_rejected", "timesheet_signed",
+                  "worker_absence_reported", "worker_delay_reported"],
     bounties: ["milestone", "bounty_near", "bounty_earned", "bounty_lost"]
   };
   var SURFACE_FOR_TYPE = {};

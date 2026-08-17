@@ -363,6 +363,48 @@ const MATRIX = {
     title: 'Rabatt entfallen',
     recipientStrategy: 'bounty_owner',
     linkPath: '/public/bounties.html'
+  },
+
+  /* ── Der Mensch meldet sich selbst (Welle G4) ─────────────────
+   *
+   * Empfaenger sind die, die UMDISPONIEREN duerfen — aufgeloest ueber
+   * `findOrgMembersWithPermission(pool, orgId, 'worker.manage')`, nicht ueber
+   * eine Rollenliste an dieser Stelle. Wer benachrichtigt wird, ohne handeln zu
+   * koennen, leitet die Meldung nur weiter; wer handeln darf und nichts hoert,
+   * ist der eigentliche Schaden.
+   *
+   * ZWEI TYPEN, WEIL ZWEI DRINGLICHKEITEN: Die Abwesenheit gibt Einsaetze frei
+   * und verlangt eine Entscheidung — `warning`. Die Verspaetung ist eine
+   * Information, der Mensch kommt ja — `info`. Ein gemeinsamer Typ zwaenge den
+   * Disponenten, jede Meldung zu oeffnen, um zu erfahren, welcher Fall vorliegt.
+   *
+   * Der `linkPath` hier ist nur der RUECKFALL. Wer die Meldung ausloest, gibt
+   * ueber `context.linkPath` den Weg zum konkret betroffenen Einsatz mit — das
+   * ist das Gate dieser Welle (fuehrt zum Einsatz, nicht auf eine Uebersicht).
+   * Der Rueckfall ist trotzdem gefiltert (`#live-abwesend`), nicht die nackte
+   * Seite: auch ohne betroffenen Einsatz landet der Disponent bei den Meldungen.
+   *
+   * WAS HIER NICHT STEHT: die Art ("krank") und die 30-Woerter-Beschreibung.
+   * Der Titel ist bewusst neutral; den Klartext setzt der Aufrufer ueber
+   * `context.message`. Diese Benachrichtigung geht an den ARBEITGEBER und darf
+   * die Art enthalten — dass sie es nicht im TITEL tut, hat einen anderen Grund:
+   * Titel tauchen in Vorschauen, Push-Bannern und Integrationen auf (Slack,
+   * Teams), und deren Empfaengerkreis ist nicht derselbe. Die Kunden-Meldung
+   * (G4b) laeuft ohnehin ausschliesslich ueber `fuerKunde()`.
+   */
+  'worker.absence_reported': {
+    type: 'worker_absence_reported',
+    severity: 'warning',
+    title: 'Abwesenheit gemeldet',
+    recipientStrategy: 'org_worker_managers',
+    linkPath: '/public/mitarbeiter.html#live-abwesend'
+  },
+  'worker.delay_reported': {
+    type: 'worker_delay_reported',
+    severity: 'info',
+    title: 'Verspätung gemeldet',
+    recipientStrategy: 'org_worker_managers',
+    linkPath: '/public/mitarbeiter.html#live-im_einsatz'
   }
 };
 
@@ -407,14 +449,15 @@ export async function dispatch(pool, eventKey, context = {}) {
     // In-app notification (if preference allows)
     if (prefInApp) {
       const linkPath = context.linkPath || config.linkPath || null;
-      const { rowCount } = await pool.query(
+      const { rows: erzeugt } = await pool.query(
         `INSERT INTO notifications (user_id, org_id, type, title, message, entity_type, entity_id, severity, link_path)
          SELECT $1, $2, $3, $4, $5, $6, $7, $8, $9
          WHERE NOT EXISTS (
            SELECT 1 FROM notifications
            WHERE user_id = $1 AND type = $3 AND entity_type = $6 AND entity_id = $7
              AND created_at > NOW() - INTERVAL '1 hour'
-         )`,
+         )
+         RETURNING id, type, title, message, severity, link_path, entity_type, entity_id, created_at`,
         [
           userId, context.orgId || null, config.type,
           config.title, context.message || null,
@@ -422,7 +465,39 @@ export async function dispatch(pool, eventKey, context = {}) {
           config.severity, linkPath
         ]
       );
-      if (rowCount > 0) sent++;
+      if (erzeugt.length > 0) {
+        sent++;
+        /* ── Sofort zustellen, nicht erst beim naechsten Laden (Welle G4) ──
+         *
+         * DAS WAR DIE LUECKE: Der SSE-Strom (`routes/notificationStream.js`)
+         * existierte, war in app.js eingehaengt, der Browser hing daran — und
+         * `pushToUser` hatte KEINEN EINZIGEN AUFRUFER. Jede Benachrichtigung
+         * landete in der Tabelle und wartete darauf, dass jemand die Seite neu
+         * laedt. Fuer eine Krankmeldung um sechs Uhr frueh ist das dasselbe wie
+         * gar keine Benachrichtigung.
+         *
+         * Warum HIER und nicht beim Aufrufer: dispatch() ist die Stelle, durch
+         * die jede Benachrichtigung geht. Am Aufrufer waere der Push eine
+         * Sorgfalt, die man vergessen kann — und dann waere wieder nur die eine
+         * Meldung live, an die jemand gedacht hat.
+         *
+         * FEHLER SIND HIER FOLGENLOS, UND ZWAR ABSICHTLICH: Die Zeile in der
+         * Datenbank ist die Wahrheit, der Push nur die Abkuerzung. Haengt keine
+         * Verbindung, kehrt pushToUser sofort zurueck; faellt das Modul aus,
+         * bleibt die Benachrichtigung trotzdem bestehen und erscheint beim
+         * naechsten Laden. Ein Zustellweg darf das Schreiben nie gefaehrden.
+         *
+         * Der dynamische Import haelt die Richtung service → route lose (dasselbe
+         * Muster wie bei der Queue und den Integrationen weiter unten) und
+         * vermeidet den Zyklus ueber app.js.
+         */
+        try {
+          const { pushToUser } = await import("../routes/notificationStream.js");
+          pushToUser(userId, erzeugt[0]);
+        } catch (e) {
+          logger.warn({ err: e.message }, 'SSE-Push fehlgeschlagen — Benachrichtigung bleibt bestehen');
+        }
+      }
     }
 
     // Email (if preference allows)

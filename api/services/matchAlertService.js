@@ -54,7 +54,15 @@ const EVENT_CATEGORY_MAP = {
   'timesheet.submitted':   'timesheet_updates',
   'timesheet.approved':    'timesheet_updates',
   'timesheet.rejected':    'timesheet_updates',
-  'timesheet.signed':      'timesheet_updates'
+  'timesheet.signed':      'timesheet_updates',
+  /* Selbstmeldungen des Menschen (Welle G4) — EIGENE Kategorie, und das ist
+   * der ganze Punkt dieser zwei Zeilen: Ein hier fehlender Schluessel faellt
+   * unten auf 'match_alerts' zurueck. Dann haette ausgerechnet die Krankmeldung
+   * am Schalter fuer Marktplatz-Treffer gehangen — wer den Marktplatz-Laerm
+   * abstellt, haette ab da keine Krankmeldungen mehr bekommen und es nie
+   * erfahren. Der Rueckfall ist bequem und genau deshalb gefaehrlich. */
+  'worker.absence_reported': 'workforce_updates',
+  'worker.delay_reported':   'workforce_updates'
 };
 
 export { EVENT_CATEGORY_MAP };

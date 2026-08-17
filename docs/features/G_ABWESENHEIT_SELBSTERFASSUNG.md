@@ -182,7 +182,7 @@ Das ist mehr als eine Benachrichtigung. Es sind drei Dinge:
 | **G2c** | Mindestbeschreibung serverseitig: vier strukturierte Fragen, Summe >= 30 Woerter, Pruefung im Backend | Eine Meldung mit zu kurzer Beschreibung wird abgewiesen — auch wenn sie den Browser umgeht; und der Text taucht in KEINER Kunden-Benachrichtigung auf |
 | **G2b** | Zeitsperre serverseitig: Vorgang wird eröffnet, Meldung vor Ablauf → `429` mit Restzeit. Dauer aus der Konfiguration, nicht fest im Code | Eine Meldung, die den Browser umgeht und sofort abgeschickt wird, wird **abgewiesen** — nachgewiesen mit einem Test, der genau das tut |
 | **G3** | Verspätungsmeldung als eigener, leichter Weg — ohne Abwesenheit | Eine Verspätung erzeugt **keine** Zeile in `worker_absences` und gibt keinen Einsatz frei |
-| **G4** | Benachrichtigung ans Büro, sofort, mit den Folgen | Der Disponent sieht die Meldung ohne Neuladen; die Benachrichtigung führt zum betroffenen Einsatz, nicht auf eine Übersicht |
+| **G4** ✅ | Benachrichtigung ans Büro, sofort, mit den Folgen | Der Disponent sieht die Meldung ohne Neuladen; die Benachrichtigung führt zum betroffenen Einsatz, nicht auf eine Übersicht |
 | **G4b** | Benachrichtigung an den Kunden — Ausfall und später Ersatz, **ohne die Art** | Ein Test weist nach, dass die Kunden-Benachrichtigung weder `art` noch `notiz` enthält, auch nicht in Zwischenfeldern; und dass die Ersatz-Meldung erst nach echter Neubesetzung geht |
 | **G5** | Oberfläche im Einsatzportal: der dreistufige Weg + eigener Reiter links | Kein Zustand ohne Anzeige (Lade-, Leer-, Fehlerfall); der dritte Schritt zeigt echte Einsatzdaten, keine Platzhalter |
 | **G6** | Umdisponieren mit Vorschlägen im Büro | Aus der Meldung heraus ist ein Ersatz in ≤ 3 Klicks vorgeschlagen und eingeladen |
@@ -190,6 +190,109 @@ Das ist mehr als eine Benachrichtigung. Es sind drei Dinge:
 **Reihenfolge:** G1 → G2 → G3 → G4 → G5 → G6. Die Oberfläche kommt nach dem
 Endpunkt, weil sie sonst gegen Platzhalter gebaut wird — und die Vorschläge
 zuletzt, weil sie ohne die Meldung nichts anzuzeigen haben.
+
+---
+
+## Welle G4 — was dabei herauskam *(2026-08-17)*
+
+### Der Befund, der die Welle erklärt
+
+Der Live-Weg für Benachrichtigungen war **an drei Stellen tot** — unabhängig
+voneinander, und jedes Mal still:
+
+1. **`pushToUser` hatte keinen einzigen Aufrufer.** Der SSE-Strom
+   (`routes/notificationStream.js`) lief, war in `app.js` eingehängt, der
+   Browser hing mit einer `EventSource` daran und bekam Heartbeats. Gesendet
+   wurde nie etwas. Jede Benachrichtigung der ganzen Plattform landete in der
+   Tabelle und wartete darauf, dass jemand die Seite neu lädt.
+2. **`pageShell.js` rief `TC.toast(...)` als Funktion auf.** `TC.toast` ist ein
+   Objekt (`.success/.error/.warning/.info/.show`). Der Aufruf warf jedes Mal
+   einen `TypeError` — in einem `catch`, das nichts tut. Selbst ein Push wäre
+   unsichtbar geblieben.
+3. **`js/toast.js` wurde von keiner einzigen Seite geladen.** Eine vollständige
+   Toast-Schicht mit Warteschlange, Varianten und Barrierefreiheit — und drei
+   Module, die sie aufrufen (`pageShell.js`, `dealFeedbackModal.js`,
+   `ratingModal.js`), jedes mit einer Wenn-vorhanden-Prüfung davor, die immer
+   falsch war. **Dieser dritte Befund kam erst im Browser heraus**, nachdem die
+   ersten beiden repariert und testgrün waren: `TC.toast` war schlicht
+   `undefined`. Behoben, indem die Shell die Datei selbst nachlädt — ein Ort
+   statt einer `<script>`-Zeile in 49 Seiten.
+
+**Die Lehre, allgemeiner als diese Welle:** Ein `catch`, das nichts tut, macht
+aus einem lauten Fehler eine stille Funktionslücke. Alle drei Stellen sahen im
+Code vollständig aus; aufgedeckt hat sie nicht ein Test, sondern die Frage
+**„wer ruft das eigentlich auf — und wer lädt es?"**. Ein Test auf „es wurde
+eine Zeile geschrieben" hätte alle drei bestätigt, und ein Test auf „steht der
+richtige Aufruf im Code" hätte die dritte durchgelassen: Die Reparatur war
+korrekt und trotzdem wirkungslos, weil das Aufgerufene nie im Browser ankam.
+
+**Erzwungen wird das jetzt** von `g4BenachrichtigungBuero.test.js` → „toast.js
+wird auch WIRKLICH GELADEN". Gegengeprüft mit einer Mutation: Zielpfad auf eine
+nicht existierende Datei geändert → Test rot. Er misst, was er behauptet.
+
+Dazu kam ein dritter, kleinerer: `EVENT_CATEGORY_MAP` fällt für unbekannte
+Schlüssel auf `match_alerts` zurück. Ohne eigenen Eintrag hätte ausgerechnet die
+Krankmeldung am Schalter für Marktplatz-Treffer gehangen — wer den Marktplatz-
+Lärm abstellt, hätte ab da keine Krankmeldungen mehr bekommen und es nie
+erfahren. Neue Kategorie: `workforce_updates`.
+
+### Was gebaut wurde
+
+| Baustein | Wo |
+|---|---|
+| Zwei Meldungstypen im CHECK, additiv aus dem Bestand (Muster 171) | `sql/migrations/183_meldung_erreicht_das_buero.sql` |
+| Zwei Matrix-Einträge (`warning` für Abwesenheit, `info` für Verspätung) | `services/notificationMatrix.js` |
+| **Der SSE-Push nach dem Schreiben** — `RETURNING` + `pushToUser` in `dispatch()` | `services/notificationMatrix.js` |
+| `benachrichtigeBuero()` — Empfänger über `worker.manage`, Folgen über `folgenVorschau()` | `services/workerAbsenceService.js` |
+| Beide Routen verdrahtet, Antwort nennt `buero_benachrichtigt` | `routes/workerPortal.js` |
+| Eigene Einstellungs-Kategorie `workforce_updates` | `services/matchAlertService.js` |
+| Klickbarer Toast (echtes `<a>`, Fokusring) | `frontend/public/js/toast.js` |
+| Der reparierte Aufruf, Auswertung von `link_path`, **Nachladen von `toast.js`** | `frontend/public/js/pageShell.js` |
+| Reiter aus der Adresse, Zeilen-Fokus über `data-person` | `frontend/public/js/pages/mitarbeiter.js` |
+| Hub-Karten-Abzeichen (Spiegel der Surface-Map) | `frontend/public/js/hubCardBadges.js` |
+
+**Beleg:** `api/test/g4BenachrichtigungBuero.test.js` — 30 Tests, die den WEG
+prüfen statt des Ergebnisses: dass der Empfängerkreis aus `rbacService.PERMISSIONS`
+kommt (nicht aus einer abgeschriebenen Rollenliste), dass die Mandantengrenze im
+Statement steht, dass die 30-Wörter-Beschreibung in **keinem** Feld der
+Benachrichtigung auftaucht, dass die Verspätung die Folgen-Vorschau gar nicht
+erst abfragt — und dass `pushToUser` an einer echten, über den Router
+registrierten Verbindung ein gültiges SSE-Bild schreibt.
+
+Dazu `api/test/integration/g4Benachrichtigung.flow.test.js` (5 Tests) **gegen das
+echte Schema**: Ein Mock kann keinen CHECK-Constraint erzwingen — er nimmt jeden
+Typ an, auch einen, den Postgres ablehnt. Genau daran ist diese Codebasis bei
+Migration 139 schon einmal gescheitert. Belegt wird dort, dass die neuen Typen
+wirklich durchgehen, dass ein erfundener Typ weiterhin abgewiesen wird (der
+Constraint lebt noch), und dass die additive Migration den Altbestand nicht
+verloren hat.
+
+### Drei Entscheidungen, die getroffen wurden
+
+- **Der Link führt zur Person, nicht auf eine Übersicht.**
+  `?person=<profil>#live-abwesend` öffnet die Live-Belegschaft, gefiltert, mit
+  hervorgehobener Zeile — und in dieser Zeile stehen Kunde, Einsatz und
+  Enddatum. Welle E4 hatte den Hash-Mechanismus bereits vorgesehen („später aus
+  einer Benachrichtigung"), aber der **Reiter** wurde beim Laden nie
+  umgeschaltet: Wer den Link öffnete, landete auf der Mitarbeiterliste.
+- **Die Beschreibung fährt nicht mit.** Sie ist der Grund, warum es die vier
+  Fragen gibt — aber der Nachrichtentext läuft über Kanäle, die sie nicht
+  brauchen (Sperrbildschirm-Vorschau, später Slack/Teams). In der Nachricht
+  steht, was zum Umdisponieren nötig ist: wer, welche Art, ab wann, wie viele
+  Einsätze, der erste namentlich. Die Beschreibung ist einen Klick entfernt.
+- **E-Mail wird angeboten, nicht erzwungen.** `getUserPreferences` kennt einen
+  Weg, die Einstellung zu übergehen (urgent/Notdienst bekommen immer Mail). Für
+  eine Krankmeldung wäre das der falsche Griff — sie ist nicht selten. Ein nicht
+  abschaltbarer Mailstrom wäre der schnellste Weg dahin, dass der Disponent alle
+  Mails der Plattform in einen Ordner filtert; dann verliert auch der echte
+  Notdienst seine Wirkung.
+
+### Was G4 ausdrücklich NICHT ist
+
+Die Vorschläge, wer einspringt, sind **G6**. Die Owner-Vorgabe nennt drei Dinge
+in einem Satz („weiß direkt Bescheid und kann umdisponieren — mit Vorschlägen");
+G4 ist nur das erste. Die zweite Hälfte — die Folgen, vorgerechnet — stand
+bereits mit `folgenVorschau()` und wird hier nur benutzt, nicht neu gebaut.
 
 ---
 

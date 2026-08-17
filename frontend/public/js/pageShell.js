@@ -1081,9 +1081,7 @@
             var notif = JSON.parse(e.data);
             var current = parseInt(badge.textContent, 10) || 0;
             updateBadge(current + 1);
-            if (notif.title && window.TC && window.TC.toast) {
-              window.TC.toast(notif.title, "info");
-            }
+            zeigeMeldung(notif);
           } catch (_) { /* parse error — ignore */ }
         });
         es.addEventListener("connected", function () { sseErrorCount = 0; });
@@ -1109,6 +1107,85 @@
           .then(function (d) { if (d) updateBadge(d.count || 0); })
           .catch(function () {});
       }, 30000); // Poll every 30 seconds
+    }
+
+    /* ── Die eintreffende Meldung sichtbar machen (Welle G4) ──────────────
+     *
+     * HIER STAND EIN AUFRUF, DER NIE FUNKTIONIEREN KONNTE:
+     *   window.TC.toast(notif.title, "info")
+     * `TC.toast` ist ein OBJEKT (.success/.error/.warning/.info/.show), keine
+     * Funktion. Der Aufruf warf jedes Mal einen TypeError — und weil er in einem
+     * try/catch ohne Ausgabe stand, sah ihn niemand. Zusammen mit der zweiten
+     * Luecke (niemand rief `pushToUser` auf) war der Live-Weg an BEIDEN Enden
+     * tot: es wurde nichts gesendet, und Gesendetes waere nicht angezeigt worden.
+     *
+     * Merksatz: ein `catch`, das nichts tut, macht aus einem lauten Fehler eine
+     * stille Funktionsluecke. Genau deshalb faellt so etwas erst auf, wenn
+     * jemand die Funktion braucht.
+     */
+    /* ── toast.js nachladen — die dritte tote Stelle im selben Weg ─────────
+     *
+     * `frontend/public/js/toast.js` ist eine vollstaendige Toast-Schicht, die
+     * KEINE EINZIGE SEITE eingebunden hat. Drei Module rufen `TC.toast` auf
+     * (dieses hier, dealFeedbackModal.js, ratingModal.js) — alle drei mit einer
+     * Wenn-vorhanden-Pruefung davor, die immer falsch war. Wieder galt: es sah
+     * an jeder Stelle vollstaendig aus, und niemand hat gefragt, wer die Datei
+     * eigentlich LAEDT.
+     *
+     * Warum hier und nicht als <script>-Zeile in die Seiten: 49 Seiten binden
+     * pageShell.js ein. Eine Zeile in jede waere 49 Gelegenheiten, sie bei der
+     * fuenfzigsten Seite zu vergessen — genau die Drift, die dieses Projekt an
+     * anderer Stelle schon zweimal eingeholt hat. Die Shell ist das gemeinsame
+     * Fundament; was sie braucht, holt sie sich selbst.
+     *
+     * Meldungen, die vor dem Laden eintreffen, gehen nicht verloren: sie warten
+     * in `_wartende`. Das Abzeichen zaehlt ohnehin sofort hoch — der Toast ist
+     * die Zugabe, nicht die Zustellung. */
+    var _toastLaedt = false;
+    var _wartende = [];
+
+    function mitToast(fn) {
+      if (window.TC && window.TC.toast && typeof window.TC.toast.show === "function") return fn();
+      _wartende.push(fn);
+      if (_toastLaedt) return;
+      _toastLaedt = true;
+
+      var s = document.createElement("script");
+      s.src = "/public/js/toast.js";
+      s.async = true;
+      s.onload = function () {
+        var offen = _wartende; _wartende = [];
+        offen.forEach(function (cb) { try { cb(); } catch (_) { /* eine kaputte Meldung darf die naechste nicht aufhalten */ } });
+      };
+      s.onerror = function () {
+        /* Kein Toast, aber auch kein stiller Ausfall: das Abzeichen steht, und
+         * die Meldung liegt in der Glocke. Die Warteschlange wird geleert,
+         * damit sie nicht unbegrenzt waechst. */
+        _wartende = [];
+      };
+      document.head.appendChild(s);
+    }
+
+    function zeigeMeldung(notif) {
+      if (!notif || !notif.title) return;
+      mitToast(function () { zeichneMeldung(notif); });
+    }
+
+    function zeichneMeldung(notif) {
+
+      /* severity kommt roh aus der notifications-Tabelle. Unbekannte Werte
+         landen bewusst auf "info" statt zu verschwinden — eine Meldung, deren
+         Dringlichkeit man nicht kennt, ist immer noch eine Meldung. */
+      var STUFE = { success: "success", info: "info", warning: "warning", error: "error", critical: "error" };
+      var variante = STUFE[String(notif.severity || "").toLowerCase()] || "info";
+
+      /* Wer ein Ziel hat, bekommt mehr Zeit: 4,2 s reichen zum Lesen, nicht zum
+         Entscheiden und Klicken. Hovern haelt ihn ohnehin offen. */
+      var href = notif.link_path || notif.linkPath || null;
+      var dauer = href ? 12000 : 4200;
+
+      window.TC.toast.show(variante, notif.title, notif.message || "", dauer,
+        href ? { href: href, ctaLabel: "Öffnen →" } : undefined);
     }
   }
 

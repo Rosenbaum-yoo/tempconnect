@@ -1738,7 +1738,11 @@ function renderLiveList(workers) {
         aktion += '<button class="btn" style="padding:5px 10px;font-size:12px" onclick="openAbsenceModal(\'' + esc(w.id) + '\')">' +
                  esc(TCi18n.t("mit.live.absence.reportBtn")) + '</button>';
       }
-      html += '<div class="card" style="display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:8px">' +
+      /* data-person traegt die Profil-ID an der Zeile. Sie ist der Anker, an dem
+         eine Benachrichtigung landet (Welle G4): ohne sie muesste der Fokus die
+         Zeile ueber ihren angezeigten Text suchen — und der aendert sich mit
+         jeder Uebersetzung und jedem neuen Zusatz. */
+      html += '<div class="card" data-person="' + esc(w.id || "") + '" style="display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:8px">' +
                 '<div><div style="font-weight:700">' + name + '</div>' +
                 (sub.length ? '<div style="font-size:13px;color:var(--wk-text-muted,#64748b)">' + sub.join(" · ") + '</div>' : "") + '</div>' +
                 '<div style="display:flex;gap:8px;align-items:center;flex-shrink:0">' + ts + aktion +
@@ -1747,6 +1751,58 @@ function renderLiveList(workers) {
     });
   });
   el.innerHTML = html;
+  fokussierePerson();
+}
+
+/* ── Wo die Benachrichtigung landet (Welle G4) ─────────────────────────────
+ *
+ * Das Gate dieser Welle heisst: die Benachrichtigung fuehrt ZUM BETROFFENEN
+ * EINSATZ, nicht auf eine Uebersicht. Der Verweis lautet deshalb
+ *   /public/mitarbeiter.html?person=<profil>#live-abwesend
+ * und diese drei Teile muessen alle ankommen:
+ *   1. der REITER "Live-Belegschaft" (sonst steht der Disponent auf der
+ *      Mitarbeiterliste und der Rest der Adresse verpufft),
+ *   2. der FILTER aus dem Hash (den las `startLiveBoard()` schon — aber nur,
+ *      wenn jemand den Reiter vorher von Hand geoeffnet hatte),
+ *   3. die ZEILE des Menschen, hervorgehoben und im Blick.
+ *
+ * Teil 1 fehlte: Welle E4 hatte den Hash-Mechanismus gebaut und im Kommentar
+ * ausdruecklich "spaeter aus einer Benachrichtigung" vorgesehen — nur wurde der
+ * Reiter beim Laden nie umgeschaltet. Wer den Link oeffnete, landete auf der
+ * Gesamtliste. Ein Deep-Link, der nur in die Naehe fuehrt, laesst den Nutzer
+ * die Suche ein zweites Mal machen; genau das soll er verhindern. */
+var _fokusPerson = null;
+
+/** Liest ?person= aus der Adresse. Einmalig beim Laden — danach ist der Wert
+ *  verbraucht, sonst spraenge die Ansicht bei jedem Polling-Lauf zurueck. */
+function leseFokusAusAdresse() {
+  try {
+    var such = new URLSearchParams(window.location.search || "");
+    var p = such.get("person");
+    if (p) _fokusPerson = String(p);
+  } catch (_) { /* alte Browser ohne URLSearchParams: kein Fokus, kein Fehler */ }
+}
+
+function fokussierePerson() {
+  if (!_fokusPerson) return;
+  var ziel = document.querySelector('#liveList [data-person="' + String(_fokusPerson).replace(/"/g, '\\"') + '"]');
+  /* Verbraucht wird der Fokus NUR bei Erfolg. Findet der erste Lauf die Zeile
+     nicht (der Filter stand noch auf einem anderen Reiter, die Liste war noch
+     leer), bekommt der naechste Lauf sie noch. */
+  if (!ziel) return;
+  _fokusPerson = null;
+
+  ziel.style.outline = "2px solid var(--ds-brand,#4a9eff)";
+  ziel.style.outlineOffset = "2px";
+  ziel.scrollIntoView({ behavior: "smooth", block: "center" });
+
+  /* Die Hervorhebung verblasst nach ein paar Sekunden. Bliebe sie, sae­he die
+     Tafel beim naechsten Blick aus, als waere dort dauerhaft etwas besonders —
+     und der Rahmen verloere genau die Bedeutung, wegen der er da ist. */
+  setTimeout(function() {
+    ziel.style.transition = "outline-color .6s ease";
+    ziel.style.outlineColor = "transparent";
+  }, 6000);
 }
 
 /* ── Abwesenheit erfassen (Welle E2) ─────────────────────
@@ -1908,6 +1964,14 @@ function init() {
     loadWorkers();
     loadInvites();
     populateSkillsWorkerSelect();
+
+    /* Aus einer Benachrichtigung direkt in die Live-Belegschaft (Welle G4).
+     * NACH dem /me-Erfolg, nicht davor: wer nicht angemeldet ist, wird oben
+     * weggeleitet, und ein vorher geoeffneter Reiter waere ein kurzes Aufblitzen
+     * von Daten, die dieser Besucher nicht sehen darf. */
+    leseFokusAusAdresse();
+    var hash = String((window.location && window.location.hash) || "");
+    if (hash.indexOf("#live-") === 0 || _fokusPerson) showTab("live");
   }).catch(function() {
     window.location.href = "/";
   });

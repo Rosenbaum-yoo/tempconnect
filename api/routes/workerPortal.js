@@ -372,6 +372,26 @@ export function createWorkerPortalRouter(deps) {
         return res.status(ergebnis.status || 400).json({ error: ergebnis.error, conflict: ergebnis.conflict || undefined });
       }
 
+      /* ── Das Buero erfaehrt es JETZT (Welle G4) ──────────────────────────
+       *
+       * Bewusst `await` und nicht fire-and-forget. Zwei Gruende:
+       *   1. Der Mensch soll in der ANTWORT lesen, dass seine Meldung
+       *      angekommen ist. Wer sich um sechs Uhr frueh krank meldet und nur
+       *      ein stummes OK bekommt, ruft danach trotzdem an — und dann war die
+       *      ganze Selbsterfassung umsonst.
+       *   2. Nur so ist der Zustellweg ueberhaupt pruefbar. Ein abgesetzter
+       *      Aufruf, dessen Ergebnis niemand sieht, ist auch von keinem Test zu
+       *      sehen — und faellt still aus, sobald ihn jemand bricht.
+       *
+       * `benachrichtigeBuero` wirft nie. Die Meldung steht bereits in der
+       * Datenbank; ein klemmender Zustellweg darf sie nicht zuruecknehmen. */
+      const buero = await abwesenheit.benachrichtigeBuero(pool, profile.supplier_org_id, {
+        anlass: "abwesenheit",
+        absence: ergebnis.absence,
+        workerProfileId: profile.id,
+        melderUserId: req.session.userId,
+      });
+
       res.locals.audit = {
         action: "worker.report_absence",
         entity_type: "worker_absence",
@@ -379,13 +399,27 @@ export function createWorkerPortalRouter(deps) {
         // Die ART steht im Audit — es ist die Akte des ARBEITGEBERS. Die
         // Beschreibung nicht: sie ist ausfuehrlicher als noetig, um zu belegen,
         // WAS geschehen ist (Art. 9 DSGVO, Datenminimierung).
-        details: { art: ergebnis.absence.art, zustand: ergebnis.absence.zustand, quelle: "mitarbeiter" },
+        // Die Zustellung steht mit drin: "niemand wurde erreicht" ist genau der
+        // Zustand, den man spaeter rekonstruieren koennen muss.
+        details: {
+          art: ergebnis.absence.art,
+          zustand: ergebnis.absence.zustand,
+          quelle: "mitarbeiter",
+          buero_benachrichtigt: buero.benachrichtigt,
+        },
       };
       /* Vorgang schliessen. Bliebe er offen, waere die Sperre einmalig statt je
        * Meldung — man koennte danach beliebig viele ohne Wartezeit abschicken. */
       delete req.session._abwesenheitVorgang;
 
-      res.status(201).json({ abwesenheit: ergebnis.absence });
+      res.status(201).json({
+        abwesenheit: ergebnis.absence,
+        /* Die ehrliche Zahl, nicht ein pauschales true: Steht niemand mit
+         * `worker.manage` im Betrieb, ist sie 0 — und dann SOLL der Mensch
+         * zusaetzlich anrufen. Eine beschoenigte Bestaetigung waere hier der
+         * gefaehrlichere Zustand. */
+        buero_benachrichtigt: buero.benachrichtigt,
+      });
     } catch (err) { next(err); }
   });
 
@@ -430,13 +464,27 @@ export function createWorkerPortalRouter(deps) {
         });
       }
 
+      /* Auch der leichte Weg meldet sich im Buero (Welle G4) — sonst waere er
+       * genau die Umgehung, gegen die er gebaut wurde: schnell, bequem und
+       * unsichtbar. Der Unterschied liegt in der Dringlichkeit (`info` statt
+       * `warning`), nicht darin, OB das Buero es erfaehrt. */
+      const buero = await abwesenheit.benachrichtigeBuero(pool, profile.supplier_org_id, {
+        anlass: "verspaetung",
+        verspaetung: ergebnis.verspaetung,
+        workerProfileId: profile.id,
+        melderUserId: req.session.userId,
+      });
+
       res.locals.audit = {
         action: "worker.report_delay",
         entity_type: "worker_delay",
         entity_id: ergebnis.verspaetung.id,
-        details: { minuten: ergebnis.verspaetung.minuten },
+        details: { minuten: ergebnis.verspaetung.minuten, buero_benachrichtigt: buero.benachrichtigt },
       };
-      res.status(201).json({ verspaetung: ergebnis.verspaetung });
+      res.status(201).json({
+        verspaetung: ergebnis.verspaetung,
+        buero_benachrichtigt: buero.benachrichtigt,
+      });
     } catch (err) { next(err); }
   });
 

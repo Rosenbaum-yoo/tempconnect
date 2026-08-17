@@ -627,7 +627,7 @@ Bewertung der Attrappe `sla_nachweise.html` weiter unten wichtig.
 | Router-Dateien | 83 | `ls api/routes/ \| wc -l` (inkl. Verzeichnis `api/routes/occ/`) |
 | Service-Dateien | 175 | `ls api/services/ \| wc -l` |
 | Datenbanktabellen | **180** | eindeutige `CREATE TABLE`-Namen in `sql/init.sql` + `sql/migrations/*.sql`, bereinigt um einen Treffer aus einem deutschen Kommentar. Davon 4 aus dem Grundschema (`users`, `listings`, `requests`, `subscriptions`), 176 aus Migrationen |
-| Migrationsdateien | **186** | `ls sql/migrations/*.sql \| wc -l` — nummeriert `001_ratings.sql` bis `182_verspaetungsmeldung.sql`; neun Nummern sind doppelt belegt (`027`/`027b`, `045`/`045b`, `064`, `070`, `074`, `075`, `086`, `130`, `140`). `NUMBERING.md` ist keine Migration |
+| Migrationsdateien | **187** | `ls sql/migrations/*.sql \| wc -l` — nummeriert `001_ratings.sql` bis `183_meldung_erreicht_das_buero.sql`; neun Nummern sind doppelt belegt (`027`/`027b`, `045`/`045b`, `064`, `070`, `074`, `075`, `086`, `130`, `140`). `NUMBERING.md` ist keine Migration |
 | Nutzerflächen | **89** | 77 in `frontend/public/*.html` + 6 `legal/` + 4 `trust/` + `frontend/landing.html` + `frontend/demo.html` |
 | davon reine Weiterleitungen | 9 | je 14 nicht-leere Zeilen, reiner Meta-Refresh |
 | davon Attrappen | 3 | `sla_nachweise.html`, `impressum.html`, `datenschutz.html` (Wurzel) |
@@ -868,7 +868,7 @@ Ehrlichkeit über die eigenen Grenzen gehört in ein Dokument, das später an In
    Bedienungsanleitung des Teams braucht es einen eigenen Durchgang in derselben Tiefe wie für
    die Kundenfläche.
 
-5. **Die Datenbank ist nur gezählt, nicht beschrieben.** 180 Tabellen und 186 Migrationsdateien
+5. **Die Datenbank ist nur gezählt, nicht beschrieben.** 180 Tabellen und 187 Migrationsdateien
    sind belegt; welche Tabellen tot sind, welche redundant, welche ohne Index auf einem heißen
    Lesepfad liegen — offen. Ein Schema-Register wäre der nächste sinnvolle Schritt
    (`api/scripts/schema-snapshot.js` existiert bereits als unversionierte Arbeitsdatei).

@@ -39,7 +39,7 @@ Abschnitten, die ich in Spuren mit **Wellen und Gates** schneide.
 ```bash
 cd api && node scripts/run-tests.js          # offizieller Runner, ohne Pipe
 ```
-Stand: **8558 Tests** (2026-08-17, voller Lauf ohne Pipe, 0 Fehler), davon 13 übersprungen — die DB-gebundenen, die nur im Container laufen.
+Stand: **8588 Tests** (2026-08-17, voller Lauf ohne Pipe, 0 Fehler), davon 13 übersprungen — die DB-gebundenen, die nur im Container laufen.
 
 Die DB-gestützten Tests laufen im Container, wo `DB_HOST` gesetzt ist — auf dem
 Host überspringen sie sich selbst. Was gegen das echte Schema geprüft sein muss
@@ -130,32 +130,34 @@ onclick-Handler, fehlendes CSRF, Sackgassen-Links. Sie haben den Multi-Agenten-A
 
 ## Wo es weitergeht *(Stand 2026-08-17)*
 
-**Nächster Schritt: G4 — die Benachrichtigung ans Büro.**
-Alles davor steht und ist gemessen.
+**Nächster Schritt: G4b — die Benachrichtigung an den Kunden.**
+G4 ist gebaut und belegt (siehe unten).
 
-### Der unmittelbare Auftrag (G4)
+### Der unmittelbare Auftrag (G4b)
 
-Owner-Vorgabe: *„wenn der Zeitarbeitschef ins Büro kommt, weiß er direkt Bescheid
-und kann umdisponieren — mit Vorschlägen."* Das sind drei Dinge, und nur das
-erste ist G4:
+Der Kunde erfährt **zweimal** etwas: wenn die Kraft ausfällt, und wenn Ersatz
+gestellt ist. **Aber nie, warum.**
 
-1. **Die Meldung selbst, sofort** — nicht erst beim nächsten Laden der Seite.
-2. Die Folgen, vorgerechnet (steht schon: `folgenVorschau()`).
-3. Vorschläge, wer einspringt → das ist **G6**, nicht G4.
+**Gate G4b:** Ein Test weist nach, dass die Kunden-Benachrichtigung weder `art`
+noch `notiz` noch die Beschreibung enthält — auch nicht in Zwischenfeldern — und
+dass die Ersatz-Meldung erst nach echter Neubesetzung rausgeht.
 
-**Gate G4:** Der Disponent sieht die Meldung ohne Neuladen, und die
-Benachrichtigung führt **zum betroffenen Einsatz**, nicht auf eine Übersicht.
-
-**Woran anknüpfen — nichts davon neu bauen:**
+**Der Weg ist vorgezeichnet, nichts davon neu bauen:**
 
 | Vorhanden | Wo |
 |---|---|
-| Benachrichtigungs-Dienst inkl. Flächen-Zuordnung | `api/services/notification*` — vor dem Bauen prüfen, was es schon kann |
-| Offene Selbstmeldungen (die tägliche Frage des Büros) | Teil-Index `worker_absences_offene_selbstmeldungen_idx` (Mig 181) |
-| Betroffene Einsätze zu einer Meldung | `folgenVorschau()` in `workerAbsenceService.js` |
-| Was der Kunde sehen darf | **`fuerKunde()`** — für G4b zwingend benutzen, siehe unten |
+| **`fuerKunde()`** — **zwingend**, siehe unten | `workerAbsenceService.js` |
+| Der ganze Zustellweg inkl. Live-Push und Deep-Link | `benachrichtigeBuero()` als Vorlage — dieselbe Bauform, anderer Empfängerkreis |
+| Zwei Meldungstypen im CHECK anlegen | Migration **184**, Muster aus 171/183 (additiv, nie abschreiben) |
+| Vier Register, die zusammenpassen müssen | Matrix · Surface-Map · `hubCardBadges.js` · `EVENT_CATEGORY_MAP` — alle vier werden per Test erzwungen |
 
-### Danach: G4b → G5 → G6
+> **Die Falle bei G4b:** Der Empfänger ist die **Kunden-Org**, nicht die
+> Lieferanten-Org. `findOrgMembersWithPermission` muss mit `a.org_id` aus dem
+> Einsatz aufgerufen werden, nicht mit `supplier_org_id`. Wer das verwechselt,
+> schickt die Ausfallmeldung an den Arbeitgeber und den Kunden gar nichts —
+> und beides sieht in einem Ergebnis-Test gleich aus.
+
+### Danach: G5 → G6
 
 - **G4b** Kunden-Benachrichtigung (Ausfall + später Ersatz). **Nur über
   `fuerKunde()`.** Diese Funktion baut ein neues Objekt mit vier Feldern statt
@@ -167,6 +169,33 @@ Benachrichtigung führt **zum betroffenen Einsatz**, nicht auf eine Übersicht.
 - **G6** Umdisponieren mit Vorschlägen — `assignmentStaffingService` kann
   Kandidaten bereits bewerten.
 
+### G4 ist fertig — und was dabei aufflog *(2026-08-17)*
+
+Der Live-Weg war **an drei Stellen tot**, unabhängig voneinander und jedes Mal
+still:
+
+1. `pushToUser` hatte **keinen einzigen Aufrufer** — der SSE-Strom lief, der
+   Browser hing dran, gesendet wurde nie etwas.
+2. `pageShell.js` rief `TC.toast(...)` als Funktion auf — es ist ein Objekt, der
+   `TypeError` verschwand in einem leeren `catch`.
+3. **`js/toast.js` wurde von keiner Seite geladen.** Das kam erst im Browser
+   heraus, *nachdem* 1 und 2 repariert und testgrün waren: `TC.toast` war
+   schlicht `undefined`. Die Reparatur war korrekt — und trotzdem wirkungslos.
+
+**Die Lehre, die über diese Welle hinausgeht:** Ein `catch`, das nichts tut,
+macht aus einem lauten Fehler eine stille Funktionslücke. Aufgedeckt hat es
+nicht ein Test, sondern die Frage **„wer ruft das eigentlich auf — und wer lädt
+es?"**. Beides gehört ab jetzt zu jeder Bestandsaufnahme, bevor etwas als
+„vorhanden" gilt; ein Quelltext-Test auf „steht der richtige Aufruf da" hätte
+Nummer 3 durchgelassen. **Ein Frontend-Ticket ist nicht fertig, bevor es einmal
+im echten Browser lief** — die CLAUDE.md verlangt das als Verdrahtungs-Check,
+und hier hat genau das den teuersten Befund gefunden.
+
+Vollständig, mit allen Entscheidungen und Belegen:
+[features/G_ABWESENHEIT_SELBSTERFASSUNG.md](features/G_ABWESENHEIT_SELBSTERFASSUNG.md),
+Abschnitt „Welle G4 — was dabei herauskam". Beleg:
+`api/test/g4BenachrichtigungBuero.test.js` (29 Tests).
+
 ### Was schon steht (2026-08-15/17)
 
 | | |
@@ -177,9 +206,10 @@ Benachrichtigung führt **zum betroffenen Einsatz**, nicht auf eine Übersicht.
 | **G2b** Zeitsperre | serverseitig, 1 min je Schritt, `428` ohne Vorgang / `429` zu früh |
 | **G2c** Beschreibung | 30 Wörter über vier Fragen; `fuerKunde()` als Grenze |
 | **G3** Verspätung | Mig 182, eigene Tabelle, Obergrenze 240 min mit Verweis auf den anderen Weg |
+| **G4** Meldung ans Büro | Mig 183, Live-Push in `dispatch()`, Deep-Link auf die Person, Kategorie `workforce_updates` |
 
-**Testlage:** 8558 Tests, 0 Fehler (voller Lauf ohne Pipe). Zusätzlich im
-Container geprüft, wo die DB-gebundenen Tests wirklich laufen.
+**Testlage:** 8588 Tests, 0 Fehler (voller Lauf ohne Pipe, 2026-08-17).
+Zusätzlich im Container geprüft, wo die DB-gebundenen Tests wirklich laufen.
 
 ### Drei Regeln, die diese Sitzung teuer gelernt hat
 

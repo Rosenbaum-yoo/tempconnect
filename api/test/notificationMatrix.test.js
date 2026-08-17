@@ -24,7 +24,15 @@ function capturePool() {
     calls,
     query: async (sql, params) => {
       calls.push({ sql, params });
-      return { rows: [], rowCount: 1 };
+      /* `rows: []` bei `rowCount: 1` war ein Ergebnis, das es bei echtem
+       * Postgres nie gibt — ein INSERT ... RETURNING mit einer betroffenen
+       * Zeile liefert diese Zeile auch. Solange dispatch() nur `rowCount` las,
+       * fiel der Widerspruch nicht auf; seit Welle G4 liest es die Zeile
+       * zurueck, um sie live zustellen zu koennen (`pushToUser`).
+       *
+       * Reine Fixture-Pflege: die Antwort wird an das echte Verhalten des
+       * Treibers angeglichen, keine Assertion dieser Datei aendert sich. */
+      return { rows: [{ id: "n-mock" }], rowCount: 1 };
     }
   };
 }
@@ -113,8 +121,13 @@ describe("notificationMatrix — dispatch", () => {
     const pool = {
       query: async () => {
         callIdx++;
-        // First insert succeeds, second is deduped
-        return { rows: [], rowCount: callIdx === 1 ? 1 : 0 };
+        /* First insert succeeds, second is deduped. Die uebersprungene Zeile
+         * liefert ein LEERES rows — genau daran erkennt dispatch() seit G4,
+         * dass nichts entstanden ist und folglich auch nichts live zugestellt
+         * werden darf. */
+        return callIdx === 1
+          ? { rows: [{ id: "n-1" }], rowCount: 1 }
+          : { rows: [], rowCount: 0 };
       }
     };
     const result = await svc.dispatch(pool, "offer.received", {
@@ -139,7 +152,7 @@ describe("notificationMatrix — dispatch", () => {
 
   it("handles all event types without error", async () => {
     const matrix = svc.getMatrix();
-    const pool = { query: async () => ({ rows: [], rowCount: 1 }) };
+    const pool = { query: async () => ({ rows: [{ id: "n-mock" }], rowCount: 1 }) };
     for (const eventKey of Object.keys(matrix)) {
       const result = await svc.dispatch(pool, eventKey, { recipientUserIds: [1] });
       assert.strictEqual(result.sent, 1, `Failed for event: ${eventKey}`);

@@ -77,6 +77,13 @@ TC.toast = (function () {
       ".tc-toast__msg{font-size:12px;color:var(--ds-text-secondary,#8d9bba);line-height:1.5;margin:2px 0 0}",
       ".tc-toast__close{background:none;border:none;color:var(--ds-text-tertiary,#5f6d8a);cursor:pointer;font-size:14px;padding:2px 4px;line-height:1;flex-shrink:0;opacity:.6;transition:opacity .15s}",
       ".tc-toast__close:hover{opacity:1}",
+      /* Klickbarer Rumpf (opts.href). Der Fokusring ist NICHT dekorativ: der
+         Toast erscheint unangekuendigt, und wer per Tastatur arbeitet, muss
+         sehen koennen, dass er gerade darauf steht. */
+      "a.tc-toast__body{display:block;text-decoration:none;color:inherit;cursor:pointer;border-radius:var(--ds-radius-sm,6px)}",
+      "a.tc-toast__body:hover .tc-toast__title{text-decoration:underline;text-underline-offset:2px}",
+      "a.tc-toast__body:focus-visible{outline:2px solid var(--ds-brand,#4a9eff);outline-offset:3px}",
+      ".tc-toast__cta{font-size:12px;font-weight:700;color:var(--ds-brand,#4a9eff);margin-top:6px}",
       "@media(max-width:480px){.tc-toast-container{right:8px;bottom:8px;left:8px;max-width:none}}"
     ].join("\n");
     var el = document.createElement("style");
@@ -101,13 +108,14 @@ TC.toast = (function () {
 
   /* ── Show / Dismiss ────────────────────────────────────────── */
 
-  function show(variant, title, msg, duration) {
+  function show(variant, title, msg, duration, opts) {
     var cfg = VARIANTS[variant] || VARIANTS.info;
+    opts = opts || {};
     duration = (typeof duration === "number") ? duration : DEFAULT_DURATION;
 
     // Queue if max visible reached
     if (_active.length >= MAX_VISIBLE) {
-      _queue.push({ variant: variant, title: title, msg: msg, duration: duration });
+      _queue.push({ variant: variant, title: title, msg: msg, duration: duration, opts: opts });
       return;
     }
 
@@ -125,8 +133,22 @@ TC.toast = (function () {
     iconEl.style.color = cfg.iconColor;
     iconEl.textContent = cfg.icon;
 
-    var bodyEl = document.createElement("div");
+    /* Der Rumpf ist ein LINK, sobald ein Ziel mitgegeben wurde (opts.href).
+     * Warum ein echtes <a> und kein Klick-Handler auf einem <div>: Nur der Link
+     * ist ohne Zutun tastaturbedienbar, hat einen Fokusring, zeigt sein Ziel in
+     * der Statusleiste und laesst sich mit der mittleren Maustaste in einem
+     * neuen Reiter oeffnen. Ein div mit onclick verlangt all das von Hand —
+     * und genau dort wird es dann vergessen.
+     *
+     * Gebraucht wird das von Welle G4: die Benachrichtigung ueber eine
+     * Krankmeldung muss zum betroffenen Menschen fuehren, nicht nur melden,
+     * dass etwas passiert ist. */
+    var bodyEl = document.createElement(opts.href ? "a" : "div");
     bodyEl.className = "tc-toast__body";
+    if (opts.href) {
+      bodyEl.href = opts.href;
+      bodyEl.className += " tc-toast__body--link";
+    }
 
     var titleEl = document.createElement("div");
     titleEl.className = "tc-toast__title";
@@ -139,6 +161,13 @@ TC.toast = (function () {
       msgEl.className = "tc-toast__msg";
       msgEl.textContent = msg;
       bodyEl.appendChild(msgEl);
+    }
+
+    if (opts.href) {
+      var cta = document.createElement("div");
+      cta.className = "tc-toast__cta";
+      cta.textContent = opts.ctaLabel || "Ansehen →";
+      bodyEl.appendChild(cta);
     }
 
     var closeBtn = document.createElement("button");
@@ -177,7 +206,7 @@ TC.toast = (function () {
         // Process queue
         if (_queue.length > 0) {
           var next = _queue.shift();
-          show(next.variant, next.title, next.msg, next.duration);
+          show(next.variant, next.title, next.msg, next.duration, next.opts);
         }
       }, ANIMATION_MS);
     }
@@ -227,11 +256,11 @@ TC.toast = (function () {
   /* ── Public API ────────────────────────────────────────────── */
 
   return {
-    success: function (title, msg, duration) { return show("success", title, msg, duration); },
-    error:   function (title, msg, duration) { return show("error", title, msg, duration); },
-    warning: function (title, msg, duration) { return show("warning", title, msg, duration); },
-    info:    function (title, msg, duration) { return show("info", title, msg, duration); },
-    /** Low-level: show(variant, title, msg, durationMs) */
+    success: function (title, msg, duration, opts) { return show("success", title, msg, duration, opts); },
+    error:   function (title, msg, duration, opts) { return show("error", title, msg, duration, opts); },
+    warning: function (title, msg, duration, opts) { return show("warning", title, msg, duration, opts); },
+    info:    function (title, msg, duration, opts) { return show("info", title, msg, duration, opts); },
+    /** Low-level: show(variant, title, msg, durationMs, { href, ctaLabel }) */
     show: show,
     /** Dismiss all active toasts */
     clear: function () {
