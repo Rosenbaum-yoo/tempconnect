@@ -1,5 +1,7 @@
 /**
- * G2b — die Zeitsperre der Selbstmeldung (Owner-Entscheidung G-E6).
+ * G2b + G2c — die beiden Huerden der Selbstmeldung, beide SERVERSEITIG:
+ * die Zeitsperre (G-E6) und die Mindestbeschreibung (G-E8) — dazu die Grenze,
+ * an der die Beschreibung haengenbleibt (G-E7: der Kunde erfaehrt sie nie).
  *
  * WAS HIER GEPRUEFT WIRD, UND WARUM OHNE UHR
  * Die Sperre haelt den Weiter-Knopf je Schritt eine Minute zu — drei Minuten bis
@@ -23,6 +25,9 @@ import {
   pruefeZeitsperre,
   SPERRE_SEKUNDEN_JE_SCHRITT,
   SPERRE_SCHRITTE,
+  pruefeBeschreibung,
+  fuerKunde,
+  BESCHREIBUNG_FRAGEN,
 } from "../services/workerAbsenceService.js";
 
 const MINUTE = 60_000;
@@ -94,5 +99,119 @@ describe("G2b — die Zeitsperre liegt hinten, nicht im Browser", () => {
   it("die Vorgabe ist eine Minute je Schritt bei drei Schritten", () => {
     assert.equal(SPERRE_SEKUNDEN_JE_SCHRITT, 60);
     assert.equal(SPERRE_SCHRITTE, 3);
+  });
+});
+
+/* ═══════════════════════════════════════════════════════════════════════════
+ *  G2c — die Mindestbeschreibung (G-E8) und die Grenze zum Kunden (G-E7)
+ * ═══════════════════════════════════════════════════════════════════════════ */
+
+
+const VOLLSTAENDIG = {
+  seit_wann: "Seit heute Nacht gegen drei Uhr, mit Fieber und starken Gliederschmerzen",
+  voraussichtlich_bis: "Voraussichtlich bis Freitag, danach melde ich mich wieder",
+  arzt: "War heute Morgen beim Hausarzt, Krankschreibung kommt per Post",
+  eingeschraenkt_einsetzbar: "Diese Woche gar nicht, ab Montag vermutlich wieder voll",
+};
+
+describe("G2c — die Beschreibung, die das Buero lesen soll", () => {
+  it("vier ausgefuellte Antworten ergeben zusammen genug", () => {
+    const r = pruefeBeschreibung(VOLLSTAENDIG);
+    assert.equal(r.ausreichend, true);
+    assert.ok(r.woerter >= 30, `nur ${r.woerter} Woerter`);
+  });
+
+  it("der zusammengesetzte Text traegt die FRAGEN mit — er wird am Stueck gelesen", () => {
+    const r = pruefeBeschreibung(VOLLSTAENDIG);
+    for (const { frage } of BESCHREIBUNG_FRAGEN) {
+      assert.ok(r.text.includes(frage), `Frage fehlt im Text: ${frage}`);
+    }
+  });
+
+  it("die Fragen zaehlen NICHT zur Laenge — sonst waeren leere Antworten fast genug", () => {
+    const leer = pruefeBeschreibung({ seit_wann: "gestern" });
+    assert.equal(leer.ausreichend, false);
+    assert.equal(
+      leer.woerter,
+      1,
+      "Gezaehlt wird die Antwort, nicht die Frage. Sonst haette der Ablauf sich selbst erfuellt"
+    );
+  });
+
+  it("zu kurz: abgewiesen, und es steht da, wie viel fehlt", () => {
+    const r = pruefeBeschreibung({ seit_wann: "heute frueh", arzt: "nein" });
+    assert.equal(r.ausreichend, false);
+    assert.equal(r.error, "BESCHREIBUNG_ZU_KURZ");
+    assert.equal(r.woerter, 3);
+    assert.equal(r.fehlend, 27, "Eine Ablehnung ohne Zahl laesst den Menschen raten");
+  });
+
+  it("Satzzeichen sind keine Woerter", () => {
+    const r = pruefeBeschreibung({ freitext: ". . . - - - ! ? ... ;;; ,,, ... . . . . . . . . . . . . . . ." });
+    assert.equal(r.ausreichend, false);
+    assert.equal(r.woerter, 0, "Sonst genuegte eine Reihe Punkte, und die Huerde waere ein Witz");
+  });
+
+  it("ein reiner Freitext geht auch — die Fragen sind ein Weg, keine Fessel", () => {
+    const r = pruefeBeschreibung({
+      freitext:
+        "Ich bin heute Nacht mit hohem Fieber aufgewacht und konnte nicht mehr aufstehen. " +
+        "Der Hausarzt hat mich krankgeschrieben, voraussichtlich bis zum Ende der Woche. " +
+        "Ich melde mich, sobald es mir besser geht und ich wieder einsatzfaehig bin.",
+    });
+    assert.equal(r.ausreichend, true);
+  });
+
+  it("die Mindestzahl ist konfigurierbar", () => {
+    const r = pruefeBeschreibung({ seit_wann: "heute" }, { mindestwoerter: 1 });
+    assert.equal(r.ausreichend, true);
+  });
+});
+
+describe("G-E7 — was der Kunde erfaehrt, und was nicht", () => {
+  const meldung = {
+    id: "abs-1",
+    von: "2026-10-01",
+    bis: "2026-10-03",
+    zustand: "wirksam",
+    aufgehoben_am: null,
+    art: "krank",
+    notiz: "Grippe",
+    beschreibung: "Seit heute Nacht Fieber, Hausarzt hat krankgeschrieben.",
+    quelle: "mitarbeiter",
+  };
+
+  it("der Kunde sieht den Ausfall und den Zeitraum", () => {
+    const k = fuerKunde(meldung);
+    assert.equal(k.faellt_aus, true);
+    assert.equal(k.von, "2026-10-01");
+    assert.equal(k.bis, "2026-10-03");
+  });
+
+  it("der Kunde sieht WEDER Art NOCH Notiz NOCH Beschreibung", () => {
+    const k = fuerKunde(meldung);
+    const verraten = ["art", "notiz", "beschreibung", "quelle"].filter((f) => f in k);
+    assert.deepEqual(
+      verraten,
+      [],
+      "'krank' ist ein Gesundheitsdatum nach Art. 9 DSGVO. Das Einsatzunternehmen ist ein " +
+        "Dritter — fuer seine Planung genuegt, DASS jemand ausfaellt und bis wann"
+    );
+  });
+
+  it("kein Feld der Meldung rutscht ungeprueft durch — die Abbildung ist eine Positivliste", () => {
+    const k = fuerKunde({ ...meldung, geheim: "etwas Neues, das jemand spaeter ergaenzt" });
+    assert.equal(
+      "geheim" in k,
+      false,
+      "Wer ein Feld ergaenzt, darf es nicht versehentlich an den Kunden schicken. " +
+        "Deshalb baut fuerKunde() ein neues Objekt, statt Felder zu entfernen"
+    );
+  });
+
+  it("eine zurueckgenommene Meldung faellt nicht mehr aus", () => {
+    assert.equal(fuerKunde({ ...meldung, aufgehoben_am: new Date().toISOString() }).faellt_aus, false);
+    assert.equal(fuerKunde({ ...meldung, zustand: "beantragt" }).faellt_aus, false,
+      "Eine erst beantragte Meldung darf beim Kunden keinen Ausfall ausloesen");
   });
 });

@@ -274,7 +274,14 @@ export function createWorkerPortalRouter(deps) {
     art: z.enum(["krank", "urlaub", "termin", "sonstiges"]),
     von: z.string().min(8),
     bis: z.string().min(8).nullish(),
-    beschreibung: z.string().max(4000).nullish(),
+    /* Die vier Fragen aus G-E8. Einzeln kurz, zusammen aussagekraeftig — und
+     * zusammen lang genug. Ein einzelnes leeres Textfeld waere die schlechtere
+     * Loesung: es misst Aufwand statt Inhalt. */
+    seit_wann: z.string().max(1000).nullish(),
+    voraussichtlich_bis: z.string().max(1000).nullish(),
+    arzt: z.string().max(1000).nullish(),
+    eingeschraenkt_einsetzbar: z.string().max(1000).nullish(),
+    freitext: z.string().max(4000).nullish(),
   });
 
   /* Was kostet die Meldung? Der dritte Schritt zeigt es NAMENTLICH (G-E5). */
@@ -336,6 +343,20 @@ export function createWorkerPortalRouter(deps) {
         });
       }
 
+      /* Die Mindestbeschreibung, ebenfalls hinten geprueft (G-E8, Welle G2c).
+       * Der Browser kann den Zaehler anzeigen; verlassen kann man sich nur auf
+       * diese Pruefung. Sie sagt, wie viele Woerter FEHLEN — eine Ablehnung ohne
+       * Zahl laesst den Menschen raten. */
+      const beschreibung = abwesenheit.pruefeBeschreibung(parsed.data);
+      if (!beschreibung.ausreichend) {
+        return res.status(beschreibung.status).json({
+          error: beschreibung.error,
+          woerter: beschreibung.woerter,
+          fehlend: beschreibung.fehlend,
+          mindestens: abwesenheit.BESCHREIBUNG_MINDESTWOERTER,
+        });
+      }
+
       const profile = await workerService.getWorkerProfile(pool, req.session.userId);
       if (!profile) return res.status(404).json({ error: "PROFILE_NOT_FOUND" });
 
@@ -344,7 +365,7 @@ export function createWorkerPortalRouter(deps) {
         art: parsed.data.art,
         von: parsed.data.von,
         bis: parsed.data.bis || null,
-        beschreibung: parsed.data.beschreibung || null,
+        beschreibung: beschreibung.text,
         erfasstVon: req.session.userId,
       });
       if (ergebnis.error) {

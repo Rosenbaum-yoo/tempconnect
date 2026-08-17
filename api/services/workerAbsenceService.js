@@ -377,3 +377,96 @@ export function pruefeZeitsperre(vorgang, jetztMs, konfig = {}) {
 
   return { erlaubt: true };
 }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+ *  Welle G2c — die Beschreibung, die das Buero lesen soll (G-E8)
+ *
+ *  Owner-Vorgabe: mindestens 30 Woerter, damit der Disponent beim Betreten des
+ *  Bueros versteht, was los ist, statt erst telefonieren zu muessen.
+ *
+ *  UMGESETZT UEBER VIER FRAGEN, NICHT UEBER EIN LEERES TEXTFELD. Eine
+ *  Mindest-Wortzahl misst Aufwand, nicht Inhalt: erzwungene 30 Woerter erzeugen
+ *  Fuellsel ("ich kann heute leider nicht kommen, weil ich krank bin, deshalb
+ *  kann ich heute nicht kommen"), und der Disponent liest anschliessend mehr und
+ *  weiss weniger. Vier kurze Antworten sagen ihm mehr — und ergeben zusammen
+ *  ohnehin die Laenge.
+ * ═══════════════════════════════════════════════════════════════════════════ */
+
+export const BESCHREIBUNG_MINDESTWOERTER = Number(process.env.ABWESENHEIT_MINDESTWOERTER || 30);
+
+/** Die vier Fragen — Reihenfolge ist die der Oberflaeche. */
+export const BESCHREIBUNG_FRAGEN = Object.freeze([
+  { schluessel: "seit_wann", frage: "Seit wann?" },
+  { schluessel: "voraussichtlich_bis", frage: "Voraussichtlich bis wann?" },
+  { schluessel: "arzt", frage: "Arzt aufgesucht oder Krankschreibung zu erwarten?" },
+  { schluessel: "eingeschraenkt_einsetzbar", frage: "Waerst du eingeschraenkt einsetzbar?" },
+]);
+
+/** Woerter zaehlen — was zwischen Leerzeichen steht und mindestens einen
+ *  Buchstaben oder eine Ziffer traegt. Reine Satzzeichen zaehlen nicht, sonst
+ *  waere "... ... ..." eine Antwort. */
+function woerter(text) {
+  return String(text ?? "")
+    .split(/\s+/)
+    .filter((w) => /[\p{L}\p{N}]/u.test(w)).length;
+}
+
+/**
+ * Reicht die Beschreibung?
+ *
+ * @param {Record<string,string>} antworten  je Frage eine Antwort, plus optional `freitext`
+ * @returns {{ausreichend:true, text:string, woerter:number}
+ *          |{ausreichend:false, status:number, error:string, woerter:number, fehlend:number}}
+ */
+export function pruefeBeschreibung(antworten = {}, konfig = {}) {
+  const mindestens = konfig.mindestwoerter ?? BESCHREIBUNG_MINDESTWOERTER;
+
+  const teile = [];
+  for (const { schluessel, frage } of BESCHREIBUNG_FRAGEN) {
+    const antwort = String(antworten[schluessel] ?? "").trim();
+    if (antwort) teile.push(`${frage} ${antwort}`);
+  }
+  const freitext = String(antworten.freitext ?? "").trim();
+  if (freitext) teile.push(freitext);
+
+  /* Gezaehlt werden nur die ANTWORTEN. Die Fragen stehen im zusammengesetzten
+   * Text, damit das Buero ihn am Stueck lesen kann — sie duerfen aber nicht zur
+   * Laenge beitragen, sonst waeren vier leere Antworten schon fast genug. */
+  const anzahl =
+    BESCHREIBUNG_FRAGEN.reduce((n, { schluessel }) => n + woerter(antworten[schluessel]), 0) + woerter(freitext);
+
+  if (anzahl < mindestens) {
+    return {
+      ausreichend: false,
+      status: 400,
+      error: "BESCHREIBUNG_ZU_KURZ",
+      woerter: anzahl,
+      fehlend: mindestens - anzahl,
+    };
+  }
+
+  return { ausreichend: true, text: teile.join("\n"), woerter: anzahl };
+}
+
+/**
+ * Was der KUNDE erfahren darf — und nur das (G-E7).
+ *
+ * Das Einsatzunternehmen ist ein Dritter. Es braucht fuer seine Planung, DASS
+ * jemand ausfaellt und bis wann voraussichtlich. Es braucht NICHT die Art
+ * ("krank" ist ein Gesundheitsdatum, Art. 9 DSGVO), nicht die Notiz und erst
+ * recht nicht die 30-Woerter-Beschreibung.
+ *
+ * WARUM ALS EIGENE FUNKTION UND NICHT ALS SORGFALT AN JEDER STELLE: Sorgfalt
+ * verteilt sich, Funktionen nicht. Wer dem Kunden etwas schickt, nimmt diese
+ * Abbildung — dann kann die Beschreibung gar nicht erst mitrutschen, auch nicht
+ * beim naechsten Feld, das jemand ergaenzt.
+ */
+export function fuerKunde(absence) {
+  if (!absence) return null;
+  return {
+    id: absence.id,
+    von: absence.von,
+    bis: absence.bis,
+    faellt_aus: absence.zustand === "wirksam" && !absence.aufgehoben_am,
+  };
+}
