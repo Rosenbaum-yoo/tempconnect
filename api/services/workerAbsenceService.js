@@ -313,3 +313,67 @@ export async function createSelbstmeldung(pool, supplierOrgId, {
     zustand: freigabepflicht ? "beantragt" : "wirksam",
   });
 }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+ *  Welle G2b — die Zeitsperre (G-E6)
+ *
+ *  Der Weiter-Knopf ist je Schritt eine Minute gesperrt. DIESE REGEL LIEGT
+ *  HINTEN. Eine per JavaScript gesperrte Schaltflaeche ist ueber die
+ *  Entwicklerkonsole in zehn Sekunden frei; der Browser zeigt den Zaehler nur an.
+ *
+ *  Warum eine REINE Funktion und kein Middleware-Geflecht: So laesst sich die
+ *  Regel ohne Sitzung, ohne Datenbank und ohne Uhr pruefen — die Zeit kommt als
+ *  Parameter herein. Ein Test, der eine Sperre pruefen will, darf nicht warten
+ *  muessen; sonst wird er langsam, dann flakig, dann abgeschaltet.
+ * ═══════════════════════════════════════════════════════════════════════════ */
+
+/** Sekunden Sperre je Schritt. Konfigurierbar, weil die Dauer der erste
+ *  Stellhebel ist, wenn Meldungen ausbleiben oder telefonisch vorbeilaufen. */
+export const SPERRE_SEKUNDEN_JE_SCHRITT = Number(process.env.ABWESENHEIT_SPERRE_SEKUNDEN || 60);
+
+/** Anzahl der Schritte des Ablaufs (Art -> Zeitraum/Grund -> Folgen bestaetigen). */
+export const SPERRE_SCHRITTE = 3;
+
+/**
+ * Darf jetzt abgeschickt werden?
+ *
+ * @param {{begonnenMs:number}|null} vorgang  was die Sitzung ueber den Vorgang weiss
+ * @param {number} jetztMs                    Zeitpunkt der Anfrage
+ * @param {{sekundenJeSchritt?:number, schritte?:number}} konfig
+ * @returns {{erlaubt:true} | {erlaubt:false, grund:string, status:number, verbleibendSekunden:number}}
+ */
+export function pruefeZeitsperre(vorgang, jetztMs, konfig = {}) {
+  const jeSchritt = konfig.sekundenJeSchritt ?? SPERRE_SEKUNDEN_JE_SCHRITT;
+  const schritte = konfig.schritte ?? SPERRE_SCHRITTE;
+  const noetigMs = jeSchritt * schritte * 1000;
+
+  /* Kein Vorgang = der Ablauf wurde uebersprungen. Das ist genau der Fall, den
+   * die Sperre treffen soll: wer die Oberflaeche umgeht und direkt abschickt,
+   * hat nie einen eroeffnet. */
+  if (!vorgang || typeof vorgang.begonnenMs !== "number") {
+    return {
+      erlaubt: false,
+      grund: "VORGANG_NICHT_EROEFFNET",
+      status: 428,
+      verbleibendSekunden: Math.ceil(noetigMs / 1000),
+    };
+  }
+
+  /* Eine Uhr, die in der Zukunft startet, ist kein Vorgang, sondern ein Versuch.
+   * (Passiert auch harmlos bei Zeitumstellung — behandelt wird beides gleich.) */
+  const vergangenMs = jetztMs - vorgang.begonnenMs;
+  if (vergangenMs < 0) {
+    return { erlaubt: false, grund: "ZEITSPERRE", status: 429, verbleibendSekunden: Math.ceil(noetigMs / 1000) };
+  }
+
+  if (vergangenMs < noetigMs) {
+    return {
+      erlaubt: false,
+      grund: "ZEITSPERRE",
+      status: 429,
+      verbleibendSekunden: Math.ceil((noetigMs - vergangenMs) / 1000),
+    };
+  }
+
+  return { erlaubt: true };
+}

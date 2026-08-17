@@ -294,10 +294,47 @@ export function createWorkerPortalRouter(deps) {
     } catch (err) { next(err); }
   });
 
+  /* Den Vorgang eroeffnen — hier startet die Uhr (G-E6, Welle G2b).
+   * Der Zeitpunkt liegt in der SITZUNG, nicht im Browser: was der Client
+   * mitschickt, kann er auch faelschen. */
+  router.post("/worker/me/abwesenheit/vorgang", ...base, async (req, res, next) => {
+    try {
+      const profile = await workerService.getWorkerProfile(pool, req.session.userId);
+      if (!profile) return res.status(404).json({ error: "PROFILE_NOT_FOUND" });
+
+      /* Ein laufender Vorgang wird NICHT zurueckgesetzt. Sonst waere die Sperre
+       * mit einem zweiten Klick auf "neu beginnen" jedes Mal umgangen — die Uhr
+       * liefe immer wieder von vorn, aber nie ab. */
+      if (!req.session._abwesenheitVorgang) {
+        req.session._abwesenheitVorgang = { begonnenMs: Date.now() };
+      }
+
+      const wartezeit = abwesenheit.SPERRE_SEKUNDEN_JE_SCHRITT * abwesenheit.SPERRE_SCHRITTE;
+      const pruefung = abwesenheit.pruefeZeitsperre(req.session._abwesenheitVorgang, Date.now());
+      res.status(201).json({
+        sekunden_je_schritt: abwesenheit.SPERRE_SEKUNDEN_JE_SCHRITT,
+        schritte: abwesenheit.SPERRE_SCHRITTE,
+        wartezeit_gesamt_sekunden: wartezeit,
+        verbleibend_sekunden: pruefung.erlaubt ? 0 : pruefung.verbleibendSekunden,
+      });
+    } catch (err) { next(err); }
+  });
+
   router.post("/worker/me/abwesenheit", ...base, async (req, res, next) => {
     try {
       const parsed = abwesenheitSchema.safeParse(req.body);
       if (!parsed.success) return res.status(400).json({ error: "VALIDATION", details: parsed.error.issues });
+
+      /* DIE SPERRE, BEVOR IRGENDETWAS GESCHRIEBEN WIRD. Wer die Oberflaeche
+       * umgeht und sofort abschickt, hat keinen Vorgang eroeffnet und faellt
+       * hier heraus — mit der Restzeit, damit der Browser sie anzeigen kann. */
+      const sperre = abwesenheit.pruefeZeitsperre(req.session._abwesenheitVorgang, Date.now());
+      if (!sperre.erlaubt) {
+        return res.status(sperre.status).json({
+          error: sperre.grund,
+          verbleibend_sekunden: sperre.verbleibendSekunden,
+        });
+      }
 
       const profile = await workerService.getWorkerProfile(pool, req.session.userId);
       if (!profile) return res.status(404).json({ error: "PROFILE_NOT_FOUND" });
@@ -323,6 +360,10 @@ export function createWorkerPortalRouter(deps) {
         // WAS geschehen ist (Art. 9 DSGVO, Datenminimierung).
         details: { art: ergebnis.absence.art, zustand: ergebnis.absence.zustand, quelle: "mitarbeiter" },
       };
+      /* Vorgang schliessen. Bliebe er offen, waere die Sperre einmalig statt je
+       * Meldung — man koennte danach beliebig viele ohne Wartezeit abschicken. */
+      delete req.session._abwesenheitVorgang;
+
       res.status(201).json({ abwesenheit: ergebnis.absence });
     } catch (err) { next(err); }
   });
