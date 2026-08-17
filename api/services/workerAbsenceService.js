@@ -19,6 +19,13 @@ import { todayDE, dateOnlyDE } from "../utils/dateDE.js";
 /** Laut CHECK in Migration 177. Reihenfolge = Anzeige-Reihenfolge in der Oberflaeche. */
 export const ABSENCE_ARTEN = Object.freeze(["krank", "urlaub", "termin", "sonstiges"]);
 
+/* Wer gemeldet hat und ob die Meldung schon gilt — Mig 181, Welle G1.
+ * Die Listen stehen hier UND als CHECK in der Datenbank. Das ist Absicht: der
+ * Dienst gibt eine verstaendliche Meldung, die Datenbank haelt die Zusage auch
+ * dann, wenn jemand an ihm vorbeischreibt. */
+export const ABSENCE_QUELLEN = Object.freeze(["disponent", "mitarbeiter"]);
+export const ABSENCE_ZUSTAENDE = Object.freeze(["wirksam", "beantragt", "abgelehnt"]);
+
 /** Postgres: Verletzung einer EXCLUDE-Bedingung. */
 const PG_EXCLUSION_VIOLATION = "23P01";
 
@@ -56,10 +63,13 @@ async function warumNichtGefunden(pool, supplierOrgId, workerProfileId) {
  * @returns {{absence}|{error:string,status:number,conflict?:object}}
  */
 export async function createAbsence(pool, supplierOrgId, {
-  workerProfileId, art, von, bis = null, notiz = null, erfasstVon = null
+  workerProfileId, art, von, bis = null, notiz = null, erfasstVon = null,
+  quelle = "disponent", zustand = "wirksam", beschreibung = null
 } = {}) {
   if (!supplierOrgId || !workerProfileId) return { error: "MISSING_PARAMS", status: 400 };
   if (!ABSENCE_ARTEN.includes(art)) return { error: "INVALID_ART", status: 400 };
+  if (!ABSENCE_QUELLEN.includes(quelle)) return { error: "INVALID_QUELLE", status: 400 };
+  if (!ABSENCE_ZUSTAENDE.includes(zustand)) return { error: "INVALID_ZUSTAND", status: 400 };
 
   const vonDatum = alsDatum(von);
   const bisDatum = alsDatum(bis);
@@ -80,12 +90,14 @@ export async function createAbsence(pool, supplierOrgId, {
      * uebernommen, nicht aus der Anfrage — so kann sie gar nicht falsch sein. */
     const { rows } = await pool.query(
       `INSERT INTO worker_absences
-         (worker_profile_id, supplier_org_id, art, von, bis, notiz, erfasst_von)
-       SELECT wp.id, wp.supplier_org_id, $3, $4::date, $5::date, $6, $7
+         (worker_profile_id, supplier_org_id, art, von, bis, notiz, erfasst_von,
+          quelle, zustand, beschreibung)
+       SELECT wp.id, wp.supplier_org_id, $3, $4::date, $5::date, $6, $7, $8, $9, $10
          FROM worker_profiles wp
         WHERE wp.id = $2 AND wp.supplier_org_id = $1
        RETURNING *`,
-      [supplierOrgId, workerProfileId, art, vonDatum, bisDatum, text(notiz), erfasstVon]
+      [supplierOrgId, workerProfileId, art, vonDatum, bisDatum, text(notiz), erfasstVon,
+       quelle, zustand, text(beschreibung)]
     );
     if (!rows[0]) return await warumNichtGefunden(pool, supplierOrgId, workerProfileId);
     return { absence: rows[0] };
@@ -212,4 +224,92 @@ export async function cancelAbsence(pool, supplierOrgId, absenceId, { userId = n
   if (!z) return { error: "NOT_FOUND", status: 404 };
   if (z.supplier_org_id !== supplierOrgId) return { error: "ORG_BOUNDARY_VIOLATION", status: 403 };
   return { error: "ALREADY_CANCELLED", status: 409 };
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+ *  Welle G2 — die Selbstmeldung des Mitarbeiters
+ * ═══════════════════════════════════════════════════════════════════════════ */
+
+/**
+ * Was kostet diese Meldung? — die Einsaetze, die dadurch offen werden.
+ *
+ * WARUM DAS EIN EIGENER LESEPFAD IST UND NICHT NUR EINE ANZEIGE
+ * Der dritte Schritt der Meldung zeigt dem Menschen NAMENTLICH, welche Einsaetze
+ * er freigibt (G-E5). Diese Liste muss dieselbe sein, die danach wirklich
+ * betroffen ist — sonst ist die Huerde eine Behauptung. Deshalb EINE Abfrage,
+ * die Vorschau und spaetere Auswertung gemeinsam benutzen.
+ *
+ * EINE FEINHEIT DES SCHEMAS: Abwesenheiten haengen am PROFIL, Einsaetze am
+ * NUTZERKONTO (`worker_assignment_links.worker_user_id`). Ein Profil ohne Konto
+ * — bei Personalnummer-Profilen der Normalfall — hat also keine Einsaetze. Das
+ * ist kein Fehler, sondern die ehrliche Antwort: leere Liste.
+ */
+export async function folgenVorschau(pool, supplierOrgId, { workerProfileId, von, bis = null } = {}) {
+  if (!supplierOrgId || !workerProfileId) return { error: "MISSING_PARAMS", status: 400 };
+
+  const vonDatum = alsDatum(von);
+  if (!vonDatum) return { error: "INVALID_DATE", status: 400 };
+  const bisDatum = alsDatum(bis);
+
+  const { rows } = await pool.query(
+    `SELECT a.id            AS assignment_id,
+            a.status        AS assignment_status,
+            o.name          AS kunde,
+            wal.start_date  AS beginnt,
+            wal.end_date    AS endet,
+            wal.is_montage  AS montage
+       FROM worker_profiles wp
+       JOIN worker_assignment_links wal
+         ON wal.worker_user_id = wp.user_id
+        AND wal.supplier_org_id = $1
+        AND wal.is_active = TRUE
+       JOIN assignments a ON a.id = wal.assignment_id
+       LEFT JOIN organizations o ON o.id = a.org_id
+      WHERE wp.id = $2
+        AND wp.supplier_org_id = $1
+        AND daterange(wal.start_date, wal.end_date, '[]')
+            && daterange($3::date, $4::date, '[]')
+      ORDER BY wal.start_date ASC`,
+    [supplierOrgId, workerProfileId, vonDatum, bisDatum]
+  );
+
+  return { einsaetze: rows, anzahl: rows.length };
+}
+
+/**
+ * Die Meldung des Menschen ueber sich selbst.
+ *
+ * ZWEI DINGE, DIE HIER ANDERS SIND ALS BEIM DISPONENTEN:
+ *   1. `quelle` ist fest 'mitarbeiter'. Sie kommt NICHT aus der Anfrage — wer
+ *      diesen Weg benutzt, meldet sich selbst, und das laesst sich nicht
+ *      umdeklarieren.
+ *   2. Der Zustand haengt am Schalter der Firma (G-E2): standardmaessig sofort
+ *      wirksam, bei eingeschalteter Freigabepflicht zunaechst beantragt. Der
+ *      Schalter wird HIER gelesen und in die Zeile geschrieben — nicht spaeter
+ *      beim Anzeigen ausgewertet. Sonst wuerde ein spaeteres Umlegen laengst
+ *      disponierte Meldungen umwerten.
+ */
+export async function createSelbstmeldung(pool, supplierOrgId, {
+  workerProfileId, art, von, bis = null, beschreibung = null, erfasstVon = null
+} = {}) {
+  if (!supplierOrgId || !workerProfileId) return { error: "MISSING_PARAMS", status: 400 };
+
+  const { rows } = await pool.query(
+    `SELECT COALESCE(abwesenheit_selbstmeldung_freigabepflicht, FALSE) AS pflicht
+       FROM org_settings WHERE org_id = $1`,
+    [supplierOrgId]
+  );
+  // Ohne Zeile in org_settings gilt der Standard (G-E1): sofort wirksam.
+  const freigabepflicht = rows[0] ? rows[0].pflicht === true : false;
+
+  return await createAbsence(pool, supplierOrgId, {
+    workerProfileId,
+    art,
+    von,
+    bis,
+    beschreibung,
+    erfasstVon,
+    quelle: "mitarbeiter",
+    zustand: freigabepflicht ? "beantragt" : "wirksam",
+  });
 }

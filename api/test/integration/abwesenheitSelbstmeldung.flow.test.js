@@ -26,6 +26,7 @@
 import { describe, it, before, after } from "node:test";
 import assert from "node:assert/strict";
 import { hasDb, createPool, createSupplierOrg } from "./helpers.js";
+import * as dienst from "../../services/workerAbsenceService.js";
 
 describe("G1 — Abwesenheit: Quelle, Zustand und Schalter am realen Schema", { skip: !hasDb && "No database configured" }, () => {
   let pool;
@@ -194,5 +195,108 @@ describe("G1 — Abwesenheit: Quelle, Zustand und Schalter am realen Schema", { 
     assert.equal(rows.length, 1, "Ohne Teil-Index ist die taegliche Frage des Bueros ein Scan ueber alle Abwesenheiten");
     assert.match(rows[0].indexdef, /quelle = 'mitarbeiter'/);
     assert.match(rows[0].indexdef, /zustand = 'beantragt'/);
+  });
+});
+
+/* ═══════════════════════════════════════════════════════════════════════════
+ *  G2 — die Selbstmeldung und ihre Folgen-Vorschau, am echten Schema
+ * ═══════════════════════════════════════════════════════════════════════════ */
+
+describe("G2 — Selbstmeldung: Schalter, Vorschau, Mandantengrenze", { skip: !hasDb && "No database configured" }, () => {
+  let pool;
+  let org;
+  let profil;
+
+  before(async () => {
+    pool = createPool();
+    org = await createSupplierOrg(pool, "G2-Selbstmeldung");
+    const { rows } = await pool.query(
+      `INSERT INTO worker_profiles (supplier_org_id, first_name, last_name, personnel_number)
+       VALUES ($1, 'Selbst', 'Melder', $2) RETURNING id`,
+      [org, `G2-${Date.now()}`]
+    );
+    profil = rows[0];
+  });
+
+  after(async () => {
+    if (!pool) return;
+    await pool.query("DELETE FROM worker_absences WHERE supplier_org_id = $1", [org]).catch(() => {});
+    await pool.query("DELETE FROM worker_profiles WHERE supplier_org_id = $1", [org]).catch(() => {});
+    await pool.end();
+  });
+
+  it("G-E1: ohne Freigabepflicht gilt die Selbstmeldung sofort", async () => {
+    const r = await dienst.createSelbstmeldung(pool, org, {
+      workerProfileId: profil.id, art: "krank", von: "2026-10-01", bis: "2026-10-01",
+      beschreibung: "Seit heute Nacht Fieber, war beim Arzt, voraussichtlich bis Freitag.",
+    });
+    assert.equal(r.error, undefined, `unerwarteter Fehler: ${r.error}`);
+    assert.equal(r.absence.quelle, "mitarbeiter", "Die Quelle kommt NICHT aus der Anfrage, sie ist dem Weg eigen");
+    assert.equal(r.absence.zustand, "wirksam");
+    assert.ok(r.absence.beschreibung, "Die Beschreibung bleibt beim Arbeitgeber (G-E8)");
+  });
+
+  it("G-E2: mit Freigabepflicht ist dieselbe Meldung zunaechst nur beantragt", async () => {
+    await pool.query(
+      `INSERT INTO org_settings (org_id, abwesenheit_selbstmeldung_freigabepflicht)
+       VALUES ($1, TRUE)
+       ON CONFLICT (org_id) DO UPDATE SET abwesenheit_selbstmeldung_freigabepflicht = TRUE`,
+      [org]
+    );
+
+    const r = await dienst.createSelbstmeldung(pool, org, {
+      workerProfileId: profil.id, art: "urlaub", von: "2026-10-05", bis: "2026-10-05",
+    });
+    assert.equal(r.error, undefined);
+    assert.equal(
+      r.absence.zustand,
+      "beantragt",
+      "Derselbe Aufruf, anderes Ergebnis — der Unterschied liegt im Schalter der Firma, nicht im Code"
+    );
+  });
+
+  it("der Zustand wird BEIM SCHREIBEN festgelegt, nicht beim Anzeigen", async () => {
+    await pool.query(
+      `UPDATE org_settings SET abwesenheit_selbstmeldung_freigabepflicht = FALSE WHERE org_id = $1`,
+      [org]
+    );
+    const { rows } = await pool.query(
+      `SELECT zustand FROM worker_absences WHERE supplier_org_id = $1 AND von = '2026-10-05'`,
+      [org]
+    );
+    assert.equal(
+      rows[0].zustand,
+      "beantragt",
+      "Das Abschalten der Freigabepflicht darf eine bereits beantragte Meldung nicht rueckwirkend " +
+        "wirksam machen — sonst haengt die Tafel an einer Einstellung statt an den Vorgaengen"
+    );
+  });
+
+  it("ein fremdes Profil laesst sich nicht bemelden — die Org-Grenze steht im Statement", async () => {
+    const fremd = await createSupplierOrg(pool, "G2-fremde-Firma");
+    const r = await dienst.createSelbstmeldung(pool, fremd, {
+      workerProfileId: profil.id, art: "krank", von: "2026-10-09", bis: "2026-10-09",
+    });
+    assert.ok(r.error, "Ein Profil einer anderen Firma darf nicht bemeldet werden koennen");
+    assert.equal(r.absence, undefined);
+  });
+
+  it("die Folgen-Vorschau haelt ein Profil ohne Konto aus — leere Liste statt Fehler", async () => {
+    const r = await dienst.folgenVorschau(pool, org, {
+      workerProfileId: profil.id, von: "2026-10-01", bis: "2026-10-31",
+    });
+    assert.equal(r.error, undefined);
+    assert.deepEqual(
+      r.einsaetze,
+      [],
+      "Einsaetze haengen am Nutzerkonto, Abwesenheiten am Profil. Ein Profil mit " +
+        "Personalnummer und ohne Konto hat keine Einsaetze — das ist die ehrliche Antwort, kein Fehler"
+    );
+    assert.equal(r.anzahl, 0);
+  });
+
+  it("die Vorschau verlangt ein Datum — ohne wuerde sie alles oder nichts zeigen", async () => {
+    const r = await dienst.folgenVorschau(pool, org, { workerProfileId: profil.id, von: "unsinn" });
+    assert.equal(r.error, "INVALID_DATE");
   });
 });

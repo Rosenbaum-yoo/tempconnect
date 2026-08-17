@@ -10,6 +10,7 @@ import path from "path";
 import multer from "multer";
 import * as assignmentStaffingService from "../services/assignmentStaffingService.js";
 import * as workerService from "../services/workerService.js";
+import * as abwesenheit from "../services/workerAbsenceService.js";
 import * as submissionSvc from "../services/workerSubmissionService.js";
 import * as workerNotifications from "../services/workerNotificationService.js";
 import * as availabilitySvc from "../services/workerAvailabilityService.js";
@@ -256,6 +257,73 @@ export function createWorkerPortalRouter(deps) {
       );
       res.locals.audit = { action: "worker.update_profile", entity_type: "worker_profile", entity_id: req.session.userId, details: { changed_fields: Object.keys(parsed.data) } };
       res.json(result);
+    } catch (err) { next(err); }
+  });
+
+  /* ── Abwesenheit: selbst melden (Welle G2) ────────────────────────────────
+   *
+   * DIE PROFIL-ID KOMMT NICHT AUS DER ANFRAGE. Sie wird aus der Sitzung
+   * aufgeloest — ein fremdes Profil laesst sich hier gar nicht erst nennen.
+   * Das ist staerker als eine Pruefung auf 403: was man nicht uebergeben kann,
+   * kann auch keine Luecke haben. Ein mitgeschicktes worker_profile_id im Rumpf
+   * wird ignoriert, nicht abgelehnt — es gibt keinen Grund, dem Angreifer zu
+   * verraten, dass er die richtige Idee hatte.
+   */
+
+  const abwesenheitSchema = z.object({
+    art: z.enum(["krank", "urlaub", "termin", "sonstiges"]),
+    von: z.string().min(8),
+    bis: z.string().min(8).nullish(),
+    beschreibung: z.string().max(4000).nullish(),
+  });
+
+  /* Was kostet die Meldung? Der dritte Schritt zeigt es NAMENTLICH (G-E5). */
+  router.get("/worker/me/abwesenheit/folgen", ...base, async (req, res, next) => {
+    try {
+      const profile = await workerService.getWorkerProfile(pool, req.session.userId);
+      if (!profile) return res.status(404).json({ error: "PROFILE_NOT_FOUND" });
+
+      const ergebnis = await abwesenheit.folgenVorschau(pool, profile.supplier_org_id, {
+        workerProfileId: profile.id,
+        von: req.query.von,
+        bis: req.query.bis || null,
+      });
+      if (ergebnis.error) return res.status(ergebnis.status || 400).json({ error: ergebnis.error });
+
+      res.json(ergebnis);
+    } catch (err) { next(err); }
+  });
+
+  router.post("/worker/me/abwesenheit", ...base, async (req, res, next) => {
+    try {
+      const parsed = abwesenheitSchema.safeParse(req.body);
+      if (!parsed.success) return res.status(400).json({ error: "VALIDATION", details: parsed.error.issues });
+
+      const profile = await workerService.getWorkerProfile(pool, req.session.userId);
+      if (!profile) return res.status(404).json({ error: "PROFILE_NOT_FOUND" });
+
+      const ergebnis = await abwesenheit.createSelbstmeldung(pool, profile.supplier_org_id, {
+        workerProfileId: profile.id,
+        art: parsed.data.art,
+        von: parsed.data.von,
+        bis: parsed.data.bis || null,
+        beschreibung: parsed.data.beschreibung || null,
+        erfasstVon: req.session.userId,
+      });
+      if (ergebnis.error) {
+        return res.status(ergebnis.status || 400).json({ error: ergebnis.error, conflict: ergebnis.conflict || undefined });
+      }
+
+      res.locals.audit = {
+        action: "worker.report_absence",
+        entity_type: "worker_absence",
+        entity_id: ergebnis.absence.id,
+        // Die ART steht im Audit — es ist die Akte des ARBEITGEBERS. Die
+        // Beschreibung nicht: sie ist ausfuehrlicher als noetig, um zu belegen,
+        // WAS geschehen ist (Art. 9 DSGVO, Datenminimierung).
+        details: { art: ergebnis.absence.art, zustand: ergebnis.absence.zustand, quelle: "mitarbeiter" },
+      };
+      res.status(201).json({ abwesenheit: ergebnis.absence });
     } catch (err) { next(err); }
   });
 
