@@ -27,6 +27,34 @@
   PortalApiError.prototype = Object.create(Error.prototype);
   PortalApiError.prototype.constructor = PortalApiError;
 
+  /* ── 429: zwei verschiedene Dinge unter derselben Zahl ───────────
+   *
+   * DAS WAR EINE ECHTE LUECKE (gefunden in Welle G5): Hier stand
+   *   if (r.status === 429) throw new PortalApiError('RATE_LIMITED', 429);
+   * VOR dem Lesen des Rumpfes — ohne drittes Argument, also ohne `details`.
+   * Damit ging jede Zusatzangabe verloren, die der Server mitschickt.
+   *
+   * Und genau daran haengt die Zeitsperre der Selbst-Abmeldung: Der Server
+   * antwortet mit 429 UND `verbleibend_sekunden`, damit die Oberflaeche einen
+   * ehrlichen Zaehler zeigen kann. Diese Zahl erreichte den Browser nie — der
+   * Mensch sah "zu viele Anfragen" und wusste nicht, wie lange er warten soll.
+   *
+   * Unter 429 liegen zwei verschiedene Dinge:
+   *   - die Zeitsperre eines Vorgangs (fachlich, mit verbleibend_sekunden)
+   *   - das allgemeine Anfragenlimit (technisch, RATE_LIMIT)
+   * Sie sind nur an ihrem Rumpf zu unterscheiden. Deshalb wird er gelesen und
+   * der Fehlercode aus ihm genommen, wenn er einen nennt.
+   */
+  async function _zuVieleAnfragen(r) {
+    var rumpf = {};
+    try {
+      var ct = r.headers.get('content-type') || '';
+      if (ct.indexOf('application/json') !== -1) rumpf = await r.json();
+    } catch (e) { /* kein oder kaputter Rumpf: der Code unten faellt zurueck */ }
+    var code = (rumpf && (rumpf.error || rumpf.code)) || 'RATE_LIMITED';
+    return new PortalApiError(code, 429, rumpf);
+  }
+
   /* ── CSRF ──────────────────────────────────────────────────────── */
   async function getCsrf() {
     if (_csrfToken) return _csrfToken;
@@ -43,15 +71,23 @@
   /**
    * Zentraler fetch-Wrapper.
    *
-   * Fehlerverhalten:
-   *   401 → wirft PortalApiError('NOT_AUTH', 401)
-   *   403 → wirft PortalApiError('FORBIDDEN', 403)   (oder CSRF_INVALID → retry)
-   *   404 → wirft PortalApiError('NOT_FOUND', 404)
-   *   409 → wirft PortalApiError(body.error, 409)
-   *   422 → wirft PortalApiError('VALIDATION', 422)
-   *   429 → wirft PortalApiError('RATE_LIMITED', 429)
-   *   500 → wirft PortalApiError('SERVER_ERROR', 500)
-   *   Netzwerkfehler → wirft PortalApiError('NETWORK_ERROR', 0)
+   * Fehlerverhalten — RICHTIGGESTELLT in Welle G5. Hier stand eine Tabelle mit
+   * festen Codes je Status (403→FORBIDDEN, 404→NOT_FOUND, 422→VALIDATION,
+   * 500→SERVER_ERROR), die der Code darunter nie hatte. Sie hat beim Bauen von
+   * G5 zwei Recherchen in die Irre gefuehrt: Es gibt im ganzen Portal keinen
+   * einzigen 422-Pfad — eine zu kurze Beschreibung antwortet mit 400.
+   *
+   *   401 → PortalApiError('NOT_AUTH', 401)             — Sonderweg, ohne Rumpf
+   *   429 → PortalApiError(<code aus dem Rumpf>, 429, rumpf)
+   *          fachlich 'ZEITSPERRE' mit details.verbleibend_sekunden,
+   *          technisch 'RATE_LIMITED' — nur am Rumpf zu unterscheiden
+   *   403 mit CSRF_INVALID → Token neu holen und EINMAL wiederholen
+   *   alles andere → PortalApiError(rumpf.error || rumpf.code || 'HTTP_<status>',
+   *                                 status, rumpf)
+   *          d. h. der Code kommt IMMER aus der Antwort, nicht aus einer Tabelle.
+   *          Beispiele: 400 BESCHREIBUNG_ZU_KURZ (mit woerter/fehlend/mindestens),
+   *          428 VORGANG_NICHT_EROEFFNET, 409 ABSENCE_OVERLAP.
+   *   Netzwerkfehler → PortalApiError('NETWORK_ERROR', 0)
    */
   async function apiJson(path, opts) {
     opts = opts || {};
@@ -97,7 +133,7 @@
     }
 
     if (r.status === 401) throw new PortalApiError('NOT_AUTH', 401);
-    if (r.status === 429) throw new PortalApiError('RATE_LIMITED', 429);
+    if (r.status === 429) throw await _zuVieleAnfragen(r);
 
     var ct = r.headers.get('content-type') || '';
     var resBody;
@@ -149,7 +185,7 @@
       throw new PortalApiError('NETWORK_ERROR', 0, netErr.message);
     }
     if (r.status === 401) throw new PortalApiError('NOT_AUTH', 401);
-    if (r.status === 429) throw new PortalApiError('RATE_LIMITED', 429);
+    if (r.status === 429) throw await _zuVieleAnfragen(r);
     var ct = r.headers.get('content-type') || '';
     var resBody;
     if (ct.indexOf('application/json') !== -1) {

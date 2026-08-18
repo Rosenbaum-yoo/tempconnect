@@ -445,6 +445,49 @@ export function createWorkerPortalRouter(deps) {
     } catch (err) { next(err); }
   });
 
+  /* Die eigenen Meldungen — die QUITTUNG (Welle G5).
+   *
+   * Ohne diesen Weg endet die Abmeldung im Nichts: Der Mensch schickt sie ab und
+   * sieht nie wieder etwas davon. Entscheidend wird das bei eingeschalteter
+   * Freigabepflicht (G-E2): Dann steht die Meldung auf `beantragt` — er hat sich
+   * abgemeldet, ist aber NICHT abgemeldet, und ohne Anzeige erfaehrt er das nicht.
+   *
+   * Die Profil-ID kommt aus der Sitzung, wie ueberall in diesem Bereich: Ein
+   * fremdes Profil laesst sich hier gar nicht erst nennen. `listAbsences` ist
+   * zusaetzlich org-gebunden — beide Grenzen greifen. */
+  router.get("/worker/me/abwesenheiten", ...base, async (req, res, next) => {
+    try {
+      const profile = await workerService.getWorkerProfile(pool, req.session.userId);
+      if (!profile) return res.status(404).json({ error: "PROFILE_NOT_FOUND" });
+
+      const ergebnis = await abwesenheit.listAbsences(pool, profile.supplier_org_id, {
+        workerProfileId: profile.id,
+        /* Auch zurueckgenommene: Wer nachsieht, will die eigene Geschichte
+         * sehen — "habe ich das gemeldet oder nicht?" ist genau die Frage,
+         * die eine gefilterte Liste unbeantwortet laesst. */
+        mitAufgehobenen: true,
+        limit: 50,
+      });
+
+      /* Die ART bleibt drin: Das ist die eigene Akte des Menschen, kein Dritter.
+       * `notiz` und `beschreibung` werden dagegen NICHT zurueckgegeben — sie
+       * braucht niemand zum Nachsehen, und was nicht gesendet wird, kann auch
+       * nicht in einem Zwischenspeicher landen. */
+      const items = (ergebnis.items || []).map((a) => ({
+        id: a.id,
+        art: a.art,
+        von: a.von,
+        bis: a.bis,
+        zustand: a.zustand,
+        quelle: a.quelle,
+        erfasst_am: a.erfasst_am,
+        aufgehoben_am: a.aufgehoben_am,
+      }));
+
+      res.json({ items, total: items.length });
+    } catch (err) { next(err); }
+  });
+
   /* ── Verspaetung melden: der leichte Weg (Welle G3) ───────────────────────
    *
    * KEINE Zeitsperre, KEINE Mindestbeschreibung, KEINE Abwesenheit. Ein Tippen.

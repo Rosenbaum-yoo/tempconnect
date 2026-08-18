@@ -1,0 +1,370 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <script src="/public/js/theme.js"></script>
+  <script src="/public/js/i18n.js"></script>
+  <title data-i18n="ep.abwesenheit.docTitle">Abwesenheit melden – Einsatzportal</title>
+  <link rel="stylesheet" href="einsatzportal.css">
+  <style>
+    /* Schrittanzeige — zeigt, wo man steht und wie viel noch kommt. */
+    .aw-steps { display:flex; gap:6px; margin-bottom:22px; }
+    .aw-step-dot {
+      flex:1; height:4px; border-radius:2px;
+      background:var(--ep-border); transition:background .2s;
+    }
+    .aw-step-dot.done { background:var(--ep-brand); }
+    .aw-step-label { font-size:.78rem; color:var(--ep-text-muted); margin-bottom:6px; }
+
+    /* Art-Wahl: grosse Flaechen, weil der Daumen sie um sechs Uhr treffen muss. */
+    .aw-arten { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+    .aw-art {
+      display:flex; flex-direction:column; align-items:flex-start; gap:4px;
+      padding:16px; min-height:76px;
+      border:2px solid var(--ep-border); border-radius:var(--ep-r);
+      background:var(--ep-bg-mid); color:var(--ep-text);
+      cursor:pointer; text-align:left; transition:border-color .15s, background .15s;
+      font-family:inherit; font-size:.95rem; font-weight:600;
+    }
+    .aw-art:hover { border-color:var(--ep-brand); }
+    .aw-art[aria-pressed="true"] { border-color:var(--ep-brand); background:var(--ep-bg-hi, var(--ep-bg-mid)); }
+    .aw-art:focus-visible { outline:2px solid var(--ep-brand); outline-offset:2px; }
+    .aw-art small { font-weight:400; color:var(--ep-text-muted); font-size:.76rem; line-height:1.35; }
+
+    /* Die vier Fragen. */
+    .aw-frage { margin-bottom:16px; }
+    .aw-frage label { display:block; font-weight:600; margin-bottom:6px; font-size:.9rem; }
+    .aw-frage textarea {
+      width:100%; min-height:64px; padding:10px 12px; resize:vertical;
+      border:1px solid var(--ep-border); border-radius:var(--ep-r-sm);
+      background:var(--ep-bg); color:var(--ep-text);
+      font-family:inherit; font-size:.95rem; line-height:1.45;
+    }
+    .aw-frage textarea:focus-visible { outline:2px solid var(--ep-brand); outline-offset:1px; }
+
+    /* Wortzähler — sagt, wie viele FEHLEN, nicht nur wie viele da sind. */
+    .aw-zaehler { font-size:.82rem; color:var(--ep-text-muted); margin:4px 0 18px; }
+    .aw-zaehler.genug { color:var(--ep-success, #22c55e); font-weight:600; }
+
+    /* Folgen: jeder betroffene Einsatz namentlich. */
+    .aw-einsatz {
+      padding:12px 14px; margin-bottom:8px;
+      border:1px solid var(--ep-border); border-left:3px solid var(--ep-danger);
+      border-radius:var(--ep-r-sm); background:var(--ep-bg-mid);
+    }
+    .aw-einsatz strong { display:block; margin-bottom:2px; }
+    .aw-einsatz span { font-size:.85rem; color:var(--ep-text-muted); }
+
+    .aw-bestaetigen {
+      display:flex; gap:10px; align-items:flex-start;
+      padding:14px; margin:18px 0;
+      border:1px solid var(--ep-border); border-radius:var(--ep-r-sm);
+      background:var(--ep-bg-mid);
+    }
+    .aw-bestaetigen input { margin-top:3px; width:20px; height:20px; flex-shrink:0; }
+    .aw-bestaetigen label { font-size:.9rem; line-height:1.45; cursor:pointer; }
+
+    .aw-nav { display:flex; gap:10px; margin-top:22px; }
+    .aw-nav .ep-btn { flex:1; }
+
+    /* Der Zähler der Zeitsperre. */
+    .aw-sperre {
+      padding:12px 14px; margin-bottom:16px; border-radius:var(--ep-r-sm);
+      background:var(--ep-bg-mid); border:1px solid var(--ep-border);
+      font-size:.88rem; line-height:1.5;
+    }
+    .aw-sperre.frei { border-color:var(--ep-success, #22c55e); }
+
+    @media (max-width:420px) { .aw-arten { grid-template-columns:1fr; } }
+  </style>
+</head>
+<body class="ep-preauth">
+
+<aside class="ep-sidebar">
+  <div class="ep-sidebar-brand">
+    <div class="ep-sidebar-logo">TC</div>
+    <div>
+      <div style="font-weight:800;font-size:.95rem">Einsatzportal</div>
+      <div style="font-size:.7rem;color:var(--ep-text-muted);font-weight:400">TempConnect</div>
+    </div>
+  </div>
+  <nav class="ep-sidebar-nav">
+    <a class="ep-sidebar-item" href="einsatzportal-dashboard.html"><span data-i18n="ep.navlong.start">Dashboard</span></a>
+    <a class="ep-sidebar-item" href="einsatzportal-einsaetze.html"><span data-i18n="ep.navlong.einsaetze">Meine Einsätze</span></a>
+    <a class="ep-sidebar-item" href="einsatzportal-plan.html"><span data-i18n="ep.navlong.plan">Einsatzplan</span></a>
+    <a class="ep-sidebar-item active" href="einsatzportal-abwesenheit.html"><span data-i18n="ep.navlong.abwesenheit">Abwesenheit</span></a>
+    <a class="ep-sidebar-item" href="einsatzportal-stundenzettel.html"><span data-i18n="ep.navlong.stunden">Stundenzettel</span></a>
+    <a class="ep-sidebar-item" href="einsatzportal-benachrichtigungen.html"><span data-i18n="ep.navlong.benachrichtigungen">Benachrichtigungen</span><span class="ep-sidebar-badge" id="sb-badge" style="display:none">0</span></a>
+    <a class="ep-sidebar-item" href="einsatzportal-kontakt.html"><span data-i18n="ep.navlong.kontakt">Kontakt &amp; Hilfe</span></a>
+    <a class="ep-sidebar-item" href="einsatzportal-profil.html"><span data-i18n="ep.navlong.profil">Mein Profil</span></a>
+  </nav>
+  <div class="ep-sidebar-footer">
+    <div class="ep-sidebar-user">
+      <div class="ep-sidebar-avatar" id="sd-ava">?</div>
+      <div>
+        <div class="ep-sidebar-name" id="sd-name" data-i18n="ep.shell.loading">Lädt…</div>
+        <div class="ep-sidebar-role" data-i18n="ep.shell.role">Arbeitnehmer</div>
+      </div>
+    </div>
+    <div style="padding:6px 0"><span data-i18n-switcher></span></div>
+    <button class="ep-sidebar-item" onclick="doLogout()"><span data-i18n="ep.shell.logout">Abmelden</span></button>
+  </div>
+</aside>
+
+<header class="ep-topbar">
+  <a class="ep-topbar-brand" href="einsatzportal-dashboard.html" data-i18n-aria="ep.aria.home" aria-label="Zum Dashboard">
+    <div class="ep-topbar-logo">TC</div>
+    <span data-i18n="ep.abwesenheit.title">Abwesenheit melden</span>
+  </a>
+  <div class="ep-topbar-actions">
+    <a class="ep-bell" href="einsatzportal-benachrichtigungen.html" data-i18n-aria="ep.aria.bell" aria-label="Benachrichtigungen">
+      <span class="ep-bell-badge" id="mob-badge" style="display:none">0</span>
+    </a>
+  </div>
+</header>
+
+<main class="ep-main">
+  <div class="ep-content">
+    <div class="ep-page-header">
+      <h1 class="ep-page-title" data-i18n="ep.abwesenheit.title">Abwesenheit melden</h1>
+      <p class="ep-page-sub" data-i18n="ep.abwesenheit.sub">Wenn Sie nicht arbeiten können. Das Büro wird sofort informiert.</p>
+    </div>
+
+    <div id="loading">
+      <div class="ep-skel" style="height:120px"></div>
+      <div class="ep-skel" style="opacity:.7"></div>
+      <div class="ep-skel" style="opacity:.4"></div>
+    </div>
+
+    <div id="content" style="display:none">
+
+      <!-- Der leichte Weg. Steht ZUERST, damit die schwere Tür nicht für alles
+           benutzt wird: Wer sich nur verspätet, soll hier hängenbleiben. -->
+      <div class="ep-card" id="verspaetungCard">
+        <div class="ep-card-header">
+          <h2 class="ep-card-title" data-i18n="ep.abwesenheit.delay.title">Ich verspäte mich</h2>
+        </div>
+        <p class="ep-page-sub" style="margin:0 0 12px" data-i18n="ep.abwesenheit.delay.sub">Sie kommen, nur später. Eine Angabe, fertig — kein Einsatz wird freigegeben.</p>
+        <div style="display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap">
+          <div style="flex:1;min-width:150px">
+            <label for="delayMin" style="display:block;font-size:.85rem;margin-bottom:5px" data-i18n="ep.abwesenheit.delay.minutes">Um wie viele Minuten?</label>
+            <input type="number" id="delayMin" min="1" max="240" step="5" class="ep-input" style="width:100%" inputmode="numeric">
+          </div>
+          <button class="ep-btn ep-btn-primary" id="delayBtn" onclick="AwPage.verspaetungSenden()" data-i18n="ep.abwesenheit.delay.send">Verspätung melden</button>
+        </div>
+        <div id="delayMsg" class="aw-zaehler" role="status" aria-live="polite"></div>
+      </div>
+
+      <!-- Der schwere Weg: drei Schritte. -->
+      <div class="ep-card">
+        <div class="ep-card-header">
+          <h2 class="ep-card-title" data-i18n="ep.abwesenheit.report.title">Ich kann nicht arbeiten</h2>
+        </div>
+
+        <div class="aw-step-label" id="stepLabel"></div>
+        <div class="aw-steps" aria-hidden="true">
+          <div class="aw-step-dot done" id="dot1"></div>
+          <div class="aw-step-dot" id="dot2"></div>
+          <div class="aw-step-dot" id="dot3"></div>
+        </div>
+
+        <!-- Schritt 1 — Art wählen, keine Vorbelegung. -->
+        <section id="step1">
+          <p style="margin:0 0 14px" data-i18n="ep.abwesenheit.s1.frage">Worum geht es?</p>
+          <div class="aw-arten" id="artenBox" role="group" data-i18n-aria="ep.abwesenheit.s1.aria" aria-label="Art der Abwesenheit"></div>
+        </section>
+
+        <!-- Schritt 2 — Zeitraum und die vier Fragen. -->
+        <section id="step2" style="display:none">
+          <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:18px">
+            <div style="flex:1;min-width:140px">
+              <label for="awVon" style="display:block;font-size:.85rem;margin-bottom:5px;font-weight:600" data-i18n="ep.abwesenheit.s2.from">Ab wann?</label>
+              <input type="date" id="awVon" class="ep-input" style="width:100%">
+            </div>
+            <div style="flex:1;min-width:140px">
+              <label for="awBis" style="display:block;font-size:.85rem;margin-bottom:5px;font-weight:600" data-i18n="ep.abwesenheit.s2.to">Voraussichtlich bis</label>
+              <input type="date" id="awBis" class="ep-input" style="width:100%">
+            </div>
+          </div>
+          <div id="fragenBox"></div>
+          <div class="aw-zaehler" id="wortZaehler" role="status" aria-live="polite"></div>
+        </section>
+
+        <!-- Schritt 3 — die Folgen, namentlich. -->
+        <section id="step3" style="display:none">
+          <div class="aw-sperre" id="sperreBox" role="status" aria-live="polite"></div>
+          <p style="margin:0 0 12px;font-weight:600" data-i18n="ep.abwesenheit.s3.title">Das passiert mit Ihren Einsätzen</p>
+          <div id="folgenBox"></div>
+          <div class="aw-bestaetigen">
+            <input type="checkbox" id="awBestaetigt" onchange="AwPage.pruefeAbsenden()">
+            <label for="awBestaetigt" data-i18n="ep.abwesenheit.s3.confirm">Ich habe gelesen, was mit meinen Einsätzen passiert, und melde mich verbindlich ab.</label>
+          </div>
+          <div id="awFehler" class="ep-alert ep-alert-danger" style="display:none" role="alert"></div>
+        </section>
+
+        <div class="aw-nav">
+          <button class="ep-btn ep-btn-ghost" id="btnZurueck" onclick="AwPage.zurueck()" style="display:none" data-i18n="ep.abwesenheit.nav.back">Zurück</button>
+          <button class="ep-btn ep-btn-primary" id="btnWeiter" onclick="AwPage.weiter()" disabled data-i18n="ep.abwesenheit.nav.next">Weiter</button>
+          <button class="ep-btn ep-btn-primary" id="btnAbsenden" onclick="AwPage.absenden()" style="display:none" disabled data-i18n="ep.abwesenheit.nav.send">Verbindlich abmelden</button>
+        </div>
+      </div>
+
+      <!-- Was schon gemeldet ist. Ohne diese Liste endet der Ablauf ohne Quittung. -->
+      <div class="ep-card">
+        <div class="ep-card-header">
+          <h2 class="ep-card-title" data-i18n="ep.abwesenheit.list.title">Ihre Meldungen</h2>
+        </div>
+        <div id="meineBox"></div>
+      </div>
+
+    </div>
+  </div>
+</main>
+
+<nav class="ep-bottom-nav">
+  <a class="ep-bn-item" href="einsatzportal-dashboard.html"><span data-i18n="ep.nav.start">Start</span></a>
+  <a class="ep-bn-item" href="einsatzportal-einsaetze.html"><span data-i18n="ep.nav.einsaetze">Einsätze</span></a>
+  <a class="ep-bn-item" href="einsatzportal-plan.html"><span data-i18n="ep.nav.plan">Plan</span></a>
+  <a class="ep-bn-item active" href="einsatzportal-abwesenheit.html"><span data-i18n="ep.nav.abwesenheit">Melden</span></a>
+  <a class="ep-bn-item" href="einsatzportal-stundenzettel.html"><span data-i18n="ep.nav.stunden">Stunden</span></a>
+  <a class="ep-bn-item" href="einsatzportal-benachrichtigungen.html"><span data-i18n="ep.nav.info">Info</span><span class="ep-bn-dot" id="bn-dot" style="display:none"></span></a>
+  <a class="ep-bn-item" href="einsatzportal-profil.html"><span data-i18n="ep.nav.profil">Profil</span></a>
+</nav>
+<div id="ep-toast"></div>
+
+<script src="/public/js/dateDE.js"></script>
+<script src="/public/js/workerPortal/portalApi.js"></script>
+<script src="/public/js/workerPortal/portalShell.js"></script>
+<script src="/public/js/workerPortal/portalStatus.js"></script>
+<script src="/public/js/workerPortal/portalAbwesenheit.js"></script>
+<script>
+TCi18n.register('de', {
+  'ep.abwesenheit.docTitle': 'Abwesenheit melden – Einsatzportal',
+  'ep.abwesenheit.title': 'Abwesenheit melden',
+  'ep.abwesenheit.sub': 'Wenn Sie nicht arbeiten können. Das Büro wird sofort informiert.',
+  'ep.abwesenheit.delay.title': 'Ich verspäte mich',
+  'ep.abwesenheit.delay.sub': 'Sie kommen, nur später. Eine Angabe, fertig — kein Einsatz wird freigegeben.',
+  'ep.abwesenheit.delay.minutes': 'Um wie viele Minuten?',
+  'ep.abwesenheit.delay.send': 'Verspätung melden',
+  'ep.abwesenheit.delay.ok': 'Gemeldet. Das Büro weiß Bescheid.',
+  'ep.abwesenheit.delay.okStill': 'Gemeldet — aber es war niemand erreichbar. Bitte rufen Sie zusätzlich an.',
+  'ep.abwesenheit.delay.needed': 'Bitte tragen Sie die Minuten ein.',
+  'ep.abwesenheit.delay.tooLong': 'Mehr als {max} Minuten ist keine Verspätung mehr. Melden Sie sich unten ab — das dauert länger, hat aber einen Grund.',
+  'ep.abwesenheit.report.title': 'Ich kann nicht arbeiten',
+  'ep.abwesenheit.step': 'Schritt {n} von 3',
+  'ep.abwesenheit.s1.frage': 'Worum geht es?',
+  'ep.abwesenheit.s1.aria': 'Art der Abwesenheit',
+  'ep.abwesenheit.art.krank': 'Krank',
+  'ep.abwesenheit.art.krankSub': 'Ich bin nicht arbeitsfähig.',
+  'ep.abwesenheit.art.urlaub': 'Urlaub',
+  'ep.abwesenheit.art.urlaubSub': 'Geplante freie Zeit.',
+  'ep.abwesenheit.art.termin': 'Termin',
+  'ep.abwesenheit.art.terminSub': 'Amt, Arzt, etwas Unaufschiebbares.',
+  'ep.abwesenheit.art.sonstiges': 'Etwas anderes',
+  'ep.abwesenheit.art.sonstigesSub': 'Bitte im nächsten Schritt beschreiben.',
+  'ep.abwesenheit.s2.from': 'Ab wann?',
+  'ep.abwesenheit.s2.to': 'Voraussichtlich bis',
+  'ep.abwesenheit.s2.openEnd': 'Leer lassen, wenn das Ende offen ist.',
+  'ep.abwesenheit.words.missing': 'Noch {n} Wörter. Das Büro soll verstehen, was los ist, ohne anrufen zu müssen.',
+  'ep.abwesenheit.words.enough': '{n} Wörter — das reicht.',
+  'ep.abwesenheit.s3.title': 'Das passiert mit Ihren Einsätzen',
+  'ep.abwesenheit.s3.confirm': 'Ich habe gelesen, was mit meinen Einsätzen passiert, und melde mich verbindlich ab.',
+  'ep.abwesenheit.s3.none': 'Kein laufender Einsatz ist betroffen. Ihre Meldung geht trotzdem ans Büro.',
+  'ep.abwesenheit.s3.loading': 'Ihre Einsätze werden geladen…',
+  'ep.abwesenheit.s3.loadFail': 'Die betroffenen Einsätze konnten nicht geladen werden. Sie können trotzdem melden — das Büro sieht die Folgen ohnehin.',
+  'ep.abwesenheit.s3.releases': 'wird zur Neubesetzung freigegeben',
+  'ep.abwesenheit.s3.from': 'ab {date}',
+  'ep.abwesenheit.s3.till': 'bis {date}',
+  'ep.abwesenheit.s3.openEnd': 'Ende offen',
+  'ep.abwesenheit.lock.waiting': 'Noch {n} Sekunden. Lesen Sie in der Zeit, was Ihre Meldung auslöst.',
+  'ep.abwesenheit.lock.free': 'Sie können jetzt absenden.',
+  'ep.abwesenheit.nav.back': 'Zurück',
+  'ep.abwesenheit.nav.next': 'Weiter',
+  'ep.abwesenheit.nav.send': 'Verbindlich abmelden',
+  'ep.abwesenheit.sent': 'Abgemeldet. Das Büro ist informiert.',
+  'ep.abwesenheit.sentSilent': 'Abgemeldet — aber im Büro war niemand erreichbar. Bitte rufen Sie zusätzlich an.',
+  'ep.abwesenheit.err.tooEarly': 'Noch {n} Sekunden warten.',
+  'ep.abwesenheit.err.noProcess': 'Der Vorgang ist abgelaufen. Bitte beginnen Sie noch einmal.',
+  'ep.abwesenheit.err.tooShort': 'Es fehlen noch {n} Wörter.',
+  'ep.abwesenheit.err.overlap': 'Für diesen Zeitraum ist bereits eine Abwesenheit erfasst.',
+  'ep.abwesenheit.err.date': 'Bitte ein gültiges Datum wählen.',
+  'ep.abwesenheit.err.dateOrder': 'Das Ende darf nicht vor dem Anfang liegen.',
+  'ep.abwesenheit.err.generic': 'Das hat nicht geklappt. Bitte noch einmal versuchen.',
+  'ep.abwesenheit.list.title': 'Ihre Meldungen',
+  'ep.abwesenheit.list.empty': 'Sie haben noch nichts gemeldet.',
+  'ep.abwesenheit.list.pending': 'wartet auf Freigabe durch das Büro',
+  'ep.abwesenheit.list.active': 'gilt',
+  'ep.abwesenheit.list.cancelled': 'zurückgenommen',
+  'ep.abwesenheit.list.fail': 'Ihre Meldungen konnten nicht geladen werden.'
+});
+TCi18n.register('en', {
+  'ep.abwesenheit.docTitle': 'Report absence – Worker portal',
+  'ep.abwesenheit.title': 'Report absence',
+  'ep.abwesenheit.sub': 'When you cannot work. The office is informed immediately.',
+  'ep.abwesenheit.delay.title': 'I will be late',
+  'ep.abwesenheit.delay.sub': 'You are coming, just later. One entry, done — no assignment is released.',
+  'ep.abwesenheit.delay.minutes': 'By how many minutes?',
+  'ep.abwesenheit.delay.send': 'Report delay',
+  'ep.abwesenheit.delay.ok': 'Reported. The office knows.',
+  'ep.abwesenheit.delay.okStill': 'Reported — but nobody was reachable. Please call as well.',
+  'ep.abwesenheit.delay.needed': 'Please enter the minutes.',
+  'ep.abwesenheit.delay.tooLong': 'More than {max} minutes is no longer a delay. Report an absence below — it takes longer, for a reason.',
+  'ep.abwesenheit.report.title': 'I cannot work',
+  'ep.abwesenheit.step': 'Step {n} of 3',
+  'ep.abwesenheit.s1.frage': 'What is this about?',
+  'ep.abwesenheit.s1.aria': 'Type of absence',
+  'ep.abwesenheit.art.krank': 'Sick',
+  'ep.abwesenheit.art.krankSub': 'I am unfit for work.',
+  'ep.abwesenheit.art.urlaub': 'Leave',
+  'ep.abwesenheit.art.urlaubSub': 'Planned time off.',
+  'ep.abwesenheit.art.termin': 'Appointment',
+  'ep.abwesenheit.art.terminSub': 'Authority, doctor, something unavoidable.',
+  'ep.abwesenheit.art.sonstiges': 'Something else',
+  'ep.abwesenheit.art.sonstigesSub': 'Please describe in the next step.',
+  'ep.abwesenheit.s2.from': 'From when?',
+  'ep.abwesenheit.s2.to': 'Expected until',
+  'ep.abwesenheit.s2.openEnd': 'Leave empty if the end is open.',
+  'ep.abwesenheit.words.missing': '{n} words to go. The office should understand the situation without calling you.',
+  'ep.abwesenheit.words.enough': '{n} words — that is enough.',
+  'ep.abwesenheit.s3.title': 'What happens to your assignments',
+  'ep.abwesenheit.s3.confirm': 'I have read what happens to my assignments and report my absence bindingly.',
+  'ep.abwesenheit.s3.none': 'No running assignment is affected. Your report still goes to the office.',
+  'ep.abwesenheit.s3.loading': 'Loading your assignments…',
+  'ep.abwesenheit.s3.loadFail': 'The affected assignments could not be loaded. You can still report — the office sees the consequences anyway.',
+  'ep.abwesenheit.s3.releases': 'will be released for re-staffing',
+  'ep.abwesenheit.s3.from': 'from {date}',
+  'ep.abwesenheit.s3.till': 'until {date}',
+  'ep.abwesenheit.s3.openEnd': 'open end',
+  'ep.abwesenheit.lock.waiting': '{n} seconds to go. Use the time to read what your report triggers.',
+  'ep.abwesenheit.lock.free': 'You can send now.',
+  'ep.abwesenheit.nav.back': 'Back',
+  'ep.abwesenheit.nav.next': 'Next',
+  'ep.abwesenheit.nav.send': 'Report bindingly',
+  'ep.abwesenheit.sent': 'Reported. The office is informed.',
+  'ep.abwesenheit.sentSilent': 'Reported — but nobody was reachable at the office. Please call as well.',
+  'ep.abwesenheit.err.tooEarly': 'Please wait {n} more seconds.',
+  'ep.abwesenheit.err.noProcess': 'The process expired. Please start again.',
+  'ep.abwesenheit.err.tooShort': '{n} words are still missing.',
+  'ep.abwesenheit.err.overlap': 'An absence is already recorded for this period.',
+  'ep.abwesenheit.err.date': 'Please choose a valid date.',
+  'ep.abwesenheit.err.dateOrder': 'The end must not be before the start.',
+  'ep.abwesenheit.err.generic': 'That did not work. Please try again.',
+  'ep.abwesenheit.list.title': 'Your reports',
+  'ep.abwesenheit.list.empty': 'You have not reported anything yet.',
+  'ep.abwesenheit.list.pending': 'waiting for approval by the office',
+  'ep.abwesenheit.list.active': 'in effect',
+  'ep.abwesenheit.list.cancelled': 'withdrawn',
+  'ep.abwesenheit.list.fail': 'Your reports could not be loaded.'
+});
+
+(async () => {
+  var ok = await PortalShell.initShell();
+  if (!ok) return;
+  AwPage.init();
+})();
+</script>
+<script src="/public/js/demoBanner.js" defer></script>
+<script src="/public/js/breadcrumb.js" defer></script>
+</body>
+</html>

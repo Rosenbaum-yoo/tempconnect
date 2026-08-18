@@ -164,6 +164,13 @@
     kontakt:            'M4 5h16v11H9l-5 4z',
     profil:             'M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM4.5 20a7.5 7.5 0 0 1 15 0',
     abmelden:           'M15 17l5-5-5-5M20 12H9M12 4H6a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h6',
+    /* Welle G5. Der Schluessel heisst 'abwesenheit', NICHT 'abmelden' — der Name
+     * ist hier oben schon vergeben, und zwar fuer das Abmelden im Sinne von
+     * Ausloggen (Zeile darueber, benutzt in _setupIcons). Eine Seite
+     * einsatzportal-abmelden.html haette automatisch die Tuer-mit-Pfeil
+     * bekommen und im Englischen "Sign out" geheissen — direkt ueber dem echten
+     * Logout-Knopf. Kalender mit durchgestrichenem Tag statt dessen. */
+    abwesenheit:        'M8 2v4M16 2v4M3 10h18M5 4h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2M9 16l6-6M15 16l-6-6',
     // Zustandssymbole (Welle 2): erledigt / offen. Bewusst hier und nicht als
     // Unicode-Zeichen in der Seite — CLAUDE.md verbietet Emojis in produktiver UI,
     // und der Waechter `api/test/uiNoEmoji.test.js` setzt das durch. Ein Haken als
@@ -224,11 +231,11 @@
     window.TCi18n.register('de', {
       // Kurz = Bottom-Nav (Platz!), lang = Seitenleiste. Zwei Saetze, weil ein
       // gemeinsamer Satz die beschreibenden Seitenleisten-Labels verkuerzt haette.
-      'ep.nav.start': 'Start', 'ep.nav.einsaetze': 'Einsätze', 'ep.nav.plan': 'Plan',
+      'ep.nav.start': 'Start', 'ep.nav.einsaetze': 'Einsätze', 'ep.nav.plan': 'Plan', 'ep.nav.abwesenheit': 'Melden',
       'ep.nav.stunden': 'Stunden', 'ep.nav.info': 'Info', 'ep.nav.profil': 'Profil',
       'ep.nav.kontakt': 'Kontakt', 'ep.nav.benachrichtigungen': 'Benachrichtigungen',
       'ep.navlong.start': 'Dashboard', 'ep.navlong.einsaetze': 'Meine Einsätze',
-      'ep.navlong.plan': 'Einsatzplan', 'ep.navlong.stunden': 'Stundenzettel',
+      'ep.navlong.plan': 'Einsatzplan', 'ep.navlong.abwesenheit': 'Abwesenheit', 'ep.navlong.stunden': 'Stundenzettel',
       'ep.navlong.benachrichtigungen': 'Benachrichtigungen',
       'ep.navlong.kontakt': 'Kontakt & Hilfe', 'ep.navlong.profil': 'Mein Profil',
       'ep.shell.logout': 'Abmelden', 'ep.shell.role': 'Arbeitnehmer',
@@ -239,10 +246,11 @@
     });
     window.TCi18n.register('en', {
       'ep.nav.start': 'Home', 'ep.nav.einsaetze': 'Assignments', 'ep.nav.plan': 'Schedule',
+      'ep.nav.abwesenheit': 'Report',
       'ep.nav.stunden': 'Hours', 'ep.nav.info': 'Updates', 'ep.nav.profil': 'Profile',
       'ep.nav.kontakt': 'Contact', 'ep.nav.benachrichtigungen': 'Notifications',
       'ep.navlong.start': 'Dashboard', 'ep.navlong.einsaetze': 'My assignments',
-      'ep.navlong.plan': 'Schedule', 'ep.navlong.stunden': 'Timesheets',
+      'ep.navlong.plan': 'Schedule', 'ep.navlong.abwesenheit': 'Absence', 'ep.navlong.stunden': 'Timesheets',
       'ep.navlong.benachrichtigungen': 'Notifications',
       'ep.navlong.kontakt': 'Contact & help', 'ep.navlong.profil': 'My profile',
       'ep.shell.logout': 'Sign out', 'ep.shell.role': 'Worker',
@@ -278,7 +286,13 @@
      (`zugang_beschraenkt`) — er weiss als Einziger, ob die Kraft schon einmal
      im Einsatz war. Wer bereits gearbeitet hat, wird nie gesperrt: er muss
      seinen Stundenzettel einreichen koennen, auch mit halbem Profil. */
-  var AUFNAHME_FREI = ['einsatzportal-profil.html', 'einsatzportal-kontakt.html'];
+  /* Seiten, die auch bei unvollstaendiger Aufnahme erreichbar bleiben.
+   *
+   * Die Abwesenheitsmeldung gehoert ZWINGEND dazu (Welle G5): Wer krank ist,
+   * ist krank — unabhaengig davon, ob sein Profil vollstaendig ist. Ihn
+   * ausgerechnet auf dem Notfallweg zur Profilpflege umzuleiten, waere die
+   * schlechteste denkbare Stelle dafuer. */
+  var AUFNAHME_FREI = ['einsatzportal-profil.html', 'einsatzportal-kontakt.html', 'einsatzportal-abwesenheit.html'];
 
   async function _enforceOnboarding() {
     var seite = (location.pathname.split('/').pop() || '').toLowerCase();

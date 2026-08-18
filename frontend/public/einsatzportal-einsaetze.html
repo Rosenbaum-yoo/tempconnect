@@ -22,6 +22,7 @@
     <a class="ep-sidebar-item" href="einsatzportal-dashboard.html"><span data-i18n="ep.navlong.start">Dashboard</span></a>
     <a class="ep-sidebar-item active" href="einsatzportal-einsaetze.html"><span data-i18n="ep.navlong.einsaetze">Meine Einsätze</span></a>
     <a class="ep-sidebar-item" href="einsatzportal-plan.html"><span data-i18n="ep.navlong.plan">Einsatzplan</span></a>
+    <a class="ep-sidebar-item" href="einsatzportal-abwesenheit.html"><span data-i18n="ep.navlong.abwesenheit">Abwesenheit</span></a>
     <a class="ep-sidebar-item" href="einsatzportal-stundenzettel.html"><span data-i18n="ep.navlong.stunden">Stundenzettel</span></a>
     <a class="ep-sidebar-item" href="einsatzportal-benachrichtigungen.html"><span data-i18n="ep.navlong.benachrichtigungen">Benachrichtigungen</span><span class="ep-sidebar-badge" id="sb-badge" style="display:none">0</span></a>
     <a class="ep-sidebar-item" href="einsatzportal-kontakt.html"><span data-i18n="ep.navlong.kontakt">Kontakt &amp; Hilfe</span></a>
@@ -79,6 +80,7 @@
   <a class="ep-bn-item" href="einsatzportal-dashboard.html"><span data-i18n="ep.nav.start">Start</span></a>
   <a class="ep-bn-item active" href="einsatzportal-einsaetze.html"><span data-i18n="ep.nav.einsaetze">Einsätze</span></a>
   <a class="ep-bn-item" href="einsatzportal-plan.html"><span data-i18n="ep.nav.plan">Plan</span></a>
+  <a class="ep-bn-item" href="einsatzportal-abwesenheit.html"><span data-i18n="ep.nav.abwesenheit">Melden</span></a>
   <a class="ep-bn-item" href="einsatzportal-stundenzettel.html"><span data-i18n="ep.nav.stunden">Stunden</span></a>
   <a class="ep-bn-item" href="einsatzportal-benachrichtigungen.html"><span data-i18n="ep.nav.info">Info</span><span class="ep-bn-dot" id="bn-dot" style="display:none"></span></a>
   <a class="ep-bn-item" href="einsatzportal-profil.html"><span data-i18n="ep.nav.profil">Profil</span></a>
@@ -402,20 +404,6 @@ function renderDetail(a) {
           <a href="einsatzportal-plan.html" class="ep-btn ep-btn-ghost ep-btn-sm">${TCi18n.t('ep.einsaetze.viewInPlan')}</a>
           ${canReportUnavailable(a) ? '<button class="ep-btn ep-btn-ghost ep-btn-sm" onclick="showUnavailableForm(\'' + a.id + '\')" style="color:var(--ep-danger,#ef4444)">' + TCi18n.t('ep.einsaetze.reportUnavailable') + '</button>' : ''}
         </div>
-        <div id="unavailableForm-${a.id}" style="display:none;margin-top:12px;padding:14px;background:rgba(239,68,68,.06);border:1px solid rgba(239,68,68,.15);border-radius:10px">
-          <div style="font-weight:700;font-size:.88rem;margin-bottom:6px">${TCi18n.t('ep.einsaetze.unavailTitle')}</div>
-          <div style="font-size:.82rem;color:var(--ep-text-muted);margin-bottom:10px">${TCi18n.t('ep.einsaetze.unavailText')}</div>
-          <label style="font-size:.78rem;font-weight:600;margin-bottom:4px;display:block">${TCi18n.t('ep.einsaetze.unavailFrom')}</label>
-          <!-- Klasse HEUTE_IN_UTC: nachts 00:00-02:00 stand der Vortag im Feld.
-               Der Arbeiter meldete sich damit fuer den falschen Tag ab und die
-               Disposition plante ihn faelschlich ein. -->
-          <input type="date" class="ep-input" id="unavailDate-${a.id}" style="margin-bottom:8px;padding:8px;font-size:.82rem" value="${todayIso()}" />
-          <label style="font-size:.78rem;font-weight:600;margin-bottom:4px;display:block">${TCi18n.t('ep.einsaetze.unavailReasonLabel')}</label>
-          <textarea class="ep-input" id="unavailReason-${a.id}" rows="2" placeholder="${TCi18n.t('ep.einsaetze.unavailReasonPh')}" style="width:100%;margin-bottom:8px;font-size:.82rem;padding:8px;border:1px solid var(--ep-border);border-radius:6px"></textarea>
-          <div style="display:flex;gap:8px">
-            <button class="ep-btn ep-btn-outline ep-btn-sm" onclick="submitUnavailable('${a.id}')" style="color:var(--ep-danger,#ef4444)">${TCi18n.t('ep.einsaetze.unavailSubmit')}</button>
-            <button class="ep-btn ep-btn-ghost ep-btn-sm" onclick="hideUnavailableForm('${a.id}')">${TCi18n.t('ep.einsaetze.cancel')}</button>
-          </div>
         </div>`}
       </div>
     </div>`;
@@ -469,25 +457,25 @@ function canReportUnavailable(a) {
   const cs = a.worker_confirmation_status || 'auto_confirmed';
   return (cs === 'worker_confirmed' || cs === 'auto_confirmed') && isCurrentAssignment(a);
 }
+/* Welle G5 — der alte, leichte Weg fuehrt jetzt ueber die Huerde.
+ *
+ * HIER STAND EIN ZWEITER, VOLLSTAENDIGER ABMELDEWEG: ein Datum, ein Freitext,
+ * abschicken. Keine Zeitsperre, keine Mindestbeschreibung, keine Folgenanzeige,
+ * keine Meldung an den Kunden. Solange er offenstand, war die dreistufige
+ * Huerde aus G-E5 Dekoration — wer es eilig hatte, nahm diese Tuer.
+ *
+ * Der Endpunkt POST /worker/assignments/:id/report-unavailable bleibt bestehen;
+ * er wird an anderer Stelle gebraucht. Was hier verschwindet, ist der Zugang
+ * fuer den Arbeiter: Er landet auf dem Weg, den der Owner entschieden hat.
+ *
+ * Der Einsatz wandert als Kontext mit, damit die Zielseite spaeter darauf
+ * eingehen kann, ohne dass der Mensch ihn erneut auswaehlt. */
 function showUnavailableForm(linkId) {
-  const el = document.getElementById('unavailableForm-' + linkId);
-  if (el) el.style.display = 'block';
+  var ziel = 'einsatzportal-abwesenheit.html';
+  if (linkId) ziel += '?einsatz=' + encodeURIComponent(linkId);
+  location.href = ziel;
 }
-function hideUnavailableForm(linkId) {
-  const el = document.getElementById('unavailableForm-' + linkId);
-  if (el) el.style.display = 'none';
-}
-async function submitUnavailable(linkId) {
-  const dateVal = document.getElementById('unavailDate-' + linkId)?.value;
-  const reason = (document.getElementById('unavailReason-' + linkId)?.value || '').trim();
-  if (!dateVal) { toast(TCi18n.t('ep.einsaetze.toastDateRequired'), 'error'); return; }
-  try {
-    await PortalApi.post(`/worker/assignments/${linkId}/report-unavailable`, { unavailable_from: dateVal, reason });
-    toast(TCi18n.t('ep.einsaetze.toastUnavailDone'));
-    await load();
-    if (selId) await selAsg(selId);
-  } catch(e) { toast(e.message || TCi18n.t('ep.einsaetze.errGeneric'), 'error'); }
-}
+
 async function confirmAsg(linkId) {
   try {
     await PortalApi.post(`/worker/assignments/${linkId}/confirm`, {});

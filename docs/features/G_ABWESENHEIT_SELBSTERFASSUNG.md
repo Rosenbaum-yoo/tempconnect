@@ -184,7 +184,7 @@ Das ist mehr als eine Benachrichtigung. Es sind drei Dinge:
 | **G3** | Verspätungsmeldung als eigener, leichter Weg — ohne Abwesenheit | Eine Verspätung erzeugt **keine** Zeile in `worker_absences` und gibt keinen Einsatz frei |
 | **G4** ✅ | Benachrichtigung ans Büro, sofort, mit den Folgen | Der Disponent sieht die Meldung ohne Neuladen; die Benachrichtigung führt zum betroffenen Einsatz, nicht auf eine Übersicht |
 | **G4b** ✅ | Benachrichtigung an den Kunden — Ausfall und später Ersatz, **ohne die Art** | Ein Test weist nach, dass die Kunden-Benachrichtigung weder `art` noch `notiz` enthält, auch nicht in Zwischenfeldern; und dass die Ersatz-Meldung erst nach echter Neubesetzung geht |
-| **G5** | Oberfläche im Einsatzportal: der dreistufige Weg + eigener Reiter links | Kein Zustand ohne Anzeige (Lade-, Leer-, Fehlerfall); der dritte Schritt zeigt echte Einsatzdaten, keine Platzhalter |
+| **G5** ✅ | Oberfläche im Einsatzportal: der dreistufige Weg + eigener Reiter links | Kein Zustand ohne Anzeige (Lade-, Leer-, Fehlerfall); der dritte Schritt zeigt echte Einsatzdaten, keine Platzhalter |
 | **G6** | Umdisponieren mit Vorschlägen im Büro | Aus der Meldung heraus ist ein Ersatz in ≤ 3 Klicks vorgeschlagen und eingeladen |
 
 **Reihenfolge:** G1 → G2 → G3 → G4 → G5 → G6. Die Oberfläche kommt nach dem
@@ -439,3 +439,124 @@ noch nicht. Das ist die konsequente Fortsetzung und gehört in **G5**, wo die
 Oberflächen ohnehin gebaut werden. Bis dahin trägt die Benachrichtigung selbst
 die Information (Name, Kunde, Zeitraum) — sie ist nicht auf das Ziel angewiesen,
 um verständlich zu sein.
+
+---
+
+## Welle G5 — was dabei herauskam *(2026-08-18)*
+
+### Drei Befunde, die die Welle geformt haben
+
+**1. Der alte, leichte Abmeldeweg stand die ganze Zeit offen.**
+`einsatzportal-einsaetze.html` trug einen Knopf mit exakt demselben Wort
+(„Abwesenheit melden") und führte auf
+`POST /worker/assignments/:id/report-unavailable`: ein Datum, ein optionaler
+Freitext, abschicken. Keine Zeitsperre, keine 30 Wörter, keine Folgenanzeige,
+keine Kundenmeldung. **Solange er offenstand, war die dreistufige Hürde aus
+G-E5 Dekoration** — wer es eilig hatte, nahm diese Tür. Der Knopf leitet jetzt
+auf den neuen Ablauf um; der Endpunkt bleibt für andere Aufrufer bestehen.
+
+**2. `429` verlor seinen Rumpf, bevor der Browser ihn sah.**
+`portalApi.js` warf bei 429 **vor** dem Lesen der Antwort, ohne Detaildaten.
+Damit erreichte `verbleibend_sekunden` den Browser nie — der Zähler der
+Zeitsperre hätte nie eine echte Zahl zeigen können. Und unter 429 liegen zwei
+verschiedene Dinge: die fachliche Zeitsperre (`ZEITSPERRE`) und das technische
+Anfragenlimit (`RATE_LIMIT`), nur am Rumpf zu unterscheiden. Zentral repariert
+— **an beiden Stellen**, die zweite steckte in `upload()`.
+
+**3. Der Slug `abmelden` war bereits vergeben — als Logout-Icon.**
+Eine Seite `einsatzportal-abmelden.html` hätte über `_iconKeyFromHref`
+automatisch die Tür-mit-Pfeil bekommen, im Englischen „Sign out" geheißen und
+in der Seitenleiste direkt über dem echten Abmelden-Knopf gestanden. Der Slug
+heißt deshalb `abwesenheit`. *(Nebenbedingung des Icon-Wächters: der Dateiname
+darf nur `a-z` enthalten — ein Bindestrich fällt lautlos aus der Icon-Pflicht.)*
+
+### Was gebaut wurde
+
+| Baustein | Wo |
+|---|---|
+| Die Seite mit dem dreistufigen Ablauf | `einsatzportal-abwesenheit.html` |
+| Die Logik: Schritte, Zähler, Entwurf, Folgen | `js/workerPortal/portalAbwesenheit.js` |
+| Der leichte Verspätungsweg — **zuerst** auf der Seite | dieselbe Seite |
+| Icon, DE/EN-Beschriftungen, Aufnahme-Ausnahme | `js/workerPortal/portalShell.js` |
+| Der Reiter in **allen acht** Seiten, Seitenleiste + Kurznavigation | alle `einsatzportal-*.html` |
+| Prominenter Zugang direkt unter dem Hero | `einsatzportal-dashboard.html` |
+| Umleitung des alten Weges | `einsatzportal-einsaetze.html` |
+| **`GET /worker/me/abwesenheiten`** — die Quittung | `routes/workerPortal.js` |
+| `429` trägt seinen Rumpf bis in den Browser | `js/workerPortal/portalApi.js` |
+
+### Sechs Entscheidungen, die getroffen wurden
+
+- **Die Uhr startet bei der Art-Wahl**, nicht beim Öffnen der Seite. Wer nur
+  nachsieht, was es gibt, löst keine Sperre aus; wer eine Art wählt, hat
+  begonnen. Die Wartezeit läuft dann während des Tippens ab — genau das meint
+  G-E6: *aus Strafzeit wird Lesezeit*.
+- **Der Absenden-Knopf wird nie hart gesperrt.** Die Zeitsperre liegt hinten und
+  wird dort geprüft. Ein clientseitig gesperrter Knopf wäre eine Attrappe (über
+  die Entwicklerkonsole in zehn Sekunden frei) und würde bei driftendem Zähler
+  jemanden aussperren, der längst darf. Der Server antwortet, die Oberfläche
+  zeigt die Antwort.
+- **Der Zähler gleicht sich bei `visibilitychange` ab.** Ein Mobil-Tab im
+  Hintergrund friert Timer ein; ohne Abgleich zeigt die Seite eine Zahl, die mit
+  dem Server nichts mehr zu tun hat.
+- **Ein Entwurf überlebt den Fehlversuch.** Die vier Antworten liegen in
+  `sessionStorage`. Ohne ihn löschte ein Fehler im dritten Schritt 30 mühsam
+  getippte Wörter — der Ablauf wäre nach dem ersten Fehlversuch unzumutbar.
+- **Leer und fehlgeschlagen sind unterscheidbar.** Schlägt die Folgen-Abfrage
+  fehl, steht das dort — nicht „kein Einsatz betroffen". Sonst meldet sich
+  jemand ab im Glauben, es sei nichts zu verlieren.
+- **Die Erfolgsmeldung beschönigt nicht.** War niemand mit Zuständigkeit
+  erreichbar (`buero_benachrichtigt: 0`), rät die Meldung zum zusätzlichen
+  Anruf. Ein pauschales „erledigt" wäre genau die Beschönigung, die der
+  Route-Kommentar vermeidet.
+
+### Im Browser gemessen, nicht geschätzt
+
+Die Kurznavigation hat jetzt **sieben** Einträge. Bei **320 px** (iPhone SE,
+das schmalste real vorkommende Gerät) teilen sie sich je **45 px**; kein
+Eintrag bricht um, der knappste („Stunden", 36 px) behält 8 px Luft. Ein achter
+Eintrag drängte das unter die Grenze — deshalb ist die Zahl per Test
+festgehalten.
+
+Dabei fiel auf, dass die neue Seite versehentlich `Plan` **ersetzt** statt
+ergänzt hatte und damit eine andere Leiste trug als die übrigen sieben. Die
+Navigation ist in jeder Seite dupliziert; genau deshalb prüft jetzt ein Wächter,
+dass alle acht dieselbe Reihenfolge zeigen.
+
+### Belege
+
+`api/test/g5AbwesenheitOberflaeche.test.js` — 33 Tests. Sie prüfen durchgehend
+**wer etwas aufruft, lädt und erreicht**, nicht wie es aussieht:
+
+- die Seite lädt ihre eigene Logik (die G4-Lehre: `toast.js` war gebaut und von
+  niemandem eingebunden),
+- jeder der drei Zustände hat eine Anzeige — bei **jeder** der drei Listen,
+- `pruefeAbsenden()` wertet die Zeitsperre **nicht** aus,
+- die vier Fragen stehen **wortgleich** in Oberfläche und Dienst (der Server
+  legt seinen Fragetext mit der Antwort in die Akte — Abweichung hieße, der
+  Disponent liest eine andere Frage als die beantwortete),
+- Mindestwortzahl und Verspätungsgrenze werden gegen die Dienst-Konstanten
+  gehalten, nicht gegen Literale,
+- alle acht Seiten führen hin, in identischer Reihenfolge,
+- der alte Weg ist wirklich weg,
+- beide `429`-Stellen sind versorgt.
+
+### Was G5 nicht ist
+
+**Die Kundenansicht zeigt den Ausfall weiterhin nicht.**
+`getCompanyLiveWorkforce` berührt `worker_absences` nach wie vor nicht — der
+Deep-Link der G4b-Kundenmeldung führt auf eine Ansicht, die den Zustand „fällt
+aus" nicht kennt. Das ist bewusst **nicht** in dieser Welle gebaut: G5 ist die
+Oberfläche für den Arbeiter, und die Kundenseite braucht eine eigene
+Entscheidung darüber, wo der Zustand erscheint (Live-Reiter, Stundenzettel oder
+eigene Karte) — mit der Auflage „ohne die Art".
+
+**Ein End-to-End-Durchlauf mit echter Anmeldung fehlt.** Geprüft ist: die Seite
+und ihre Logik werden ausgeliefert, der neue Endpunkt antwortet (401 ohne
+Sitzung), die Navigation misst sich bei 320 px sauber, und die Konsole zeigt
+kein anderes Verhalten als die Bestandsseiten. Nicht geprüft ist der vollständige
+Ablauf mit Anmeldung, drei Minuten Wartezeit und echter Meldung.
+
+**Offener Bestandsbefund:** Alle Portalseiten — auch die bestehenden — werfen
+ohne Anmeldung ein unbehandeltes `PortalApiError: NOT_AUTH` in die Konsole,
+bevor sie korrekt zum Login umleiten. Kein Funktionsfehler, aber die
+Konsolen-Sauberkeit aus CLAUDE.md verlangt eine eigene Runde dafür.

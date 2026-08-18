@@ -199,7 +199,7 @@ suite("Portal-Shell — gemeinsames Woerterbuch (ep.nav/ep.shell)", () => {
 
 const PORTAL_PAGES = [
   "dashboard", "einsaetze", "plan", "stundenzettel", "benachrichtigungen", "kontakt", "profil"
-];
+, "abwesenheit"];
 
 /** Alle Inline-Scripts (ohne src) einer Seite. */
 function inlineScripts(html) {
@@ -410,7 +410,8 @@ suite("Drei-Seiten-Gate — kein eingefrorener Rollenbegriff", () => {
     "einsatzportal-dashboard.html", "einsatzportal-einsaetze.html", "einsatzportal-plan.html",
     "einsatzportal-stundenzettel.html", "einsatzportal-benachrichtigungen.html",
     "einsatzportal-kontakt.html", "einsatzportal-profil.html", "worker-login.html"
-  ];
+  ,
+  "einsatzportal-abwesenheit.html"];
 
   it("Aufforderung und Knopf gehoeren derselben Rolle (Hub-Nudge)", () => {
     // Perspektiv-Audit 04.08.: Der Aktivierungs-Nudge forderte Unternehmen zu

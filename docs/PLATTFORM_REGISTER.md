@@ -460,6 +460,7 @@ Weiterleitung oder für keinen Nutzer erreichbar.
 | `einsatzportal-dashboard.html` | Mitarbeiter | Startseite: nächster Einsatz, offene Aufgaben; Pflichtziel für Rolle `worker` (`js/pageShell.js:138,544`) | aktiv |
 | `einsatzportal-einsaetze.html` | Mitarbeiter | aktuelle und vergangene Einsätze | aktiv |
 | `einsatzportal-plan.html` | Mitarbeiter | Dienstplan: wann und wo | aktiv |
+| `einsatzportal-abwesenheit.html` | Mitarbeiter | sich selbst abmelden (dreistufig, mit Zeitsperre) oder eine Verspätung melden | aktiv |
 | `einsatzportal-stundenzettel.html` | Mitarbeiter | eigene Arbeitszeiten eintragen und einreichen | aktiv |
 | `einsatzportal-profil.html` | Mitarbeiter | Stammdaten, Qualifikationen, Foto pflegen | aktiv |
 | `einsatzportal-benachrichtigungen.html` | Mitarbeiter | Nachrichten und Hinweise | aktiv |

@@ -39,7 +39,7 @@ Abschnitten, die ich in Spuren mit **Wellen und Gates** schneide.
 ```bash
 cd api && node scripts/run-tests.js          # offizieller Runner, ohne Pipe
 ```
-Stand: **8623 Tests** (2026-08-18, voller Lauf ohne Pipe, 0 Fehler), davon 13 übersprungen — die DB-gebundenen, die nur im Container laufen.
+Stand: **8660 Tests** (2026-08-18, voller Lauf ohne Pipe, 0 Fehler), davon 13 übersprungen — die DB-gebundenen, die nur im Container laufen.
 
 Die DB-gestützten Tests laufen im Container, wo `DB_HOST` gesetzt ist — auf dem
 Host überspringen sie sich selbst. Was gegen das echte Schema geprüft sein muss
@@ -79,7 +79,7 @@ Lastabhängig. **Als eigene Aufgabe ausgelagert, nicht nebenbei anfassen.**
 | [ORG_GRENZE_BEFUND.md](ORG_GRENZE_BEFUND.md) | Warum die Mandantengrenze 80-mal einzeln in den Routen steht — versionierte Fassung des wichtigsten Architekturbefunds |
 | [FLAECHEN.md](FLAECHEN.md) | Was gehört ins Staff CC, was ins OCC, was ins Support Center. **Vor jedem neuen Modul lesen**, wird per Test erzwungen. |
 | [TESTING.md](TESTING.md) | Testarchitektur, inkl. Mutation Testing und seiner zwei Fallen |
-| [features/G_ABWESENHEIT_SELBSTERFASSUNG.md](features/G_ABWESENHEIT_SELBSTERFASSUNG.md) | Abwesenheit, vom Mitarbeiter selbst gemeldet — sechs Wellen. **G1-G3 gebaut** (Mig 181/182, Endpunkte, Zeitsperre, Mindestbeschreibung, Verspaetungsweg). Enthaelt die acht Owner-Entscheidungen G-E1 bis G-E8. **G1-G4b gebaut**; offen sind G5 (Oberflaeche) und G6 (Vorschlaege). |
+| [features/G_ABWESENHEIT_SELBSTERFASSUNG.md](features/G_ABWESENHEIT_SELBSTERFASSUNG.md) | Abwesenheit, vom Mitarbeiter selbst gemeldet — sechs Wellen. **G1-G3 gebaut** (Mig 181/182, Endpunkte, Zeitsperre, Mindestbeschreibung, Verspaetungsweg). Enthaelt die acht Owner-Entscheidungen G-E1 bis G-E8. **G1-G5 gebaut**; offen ist nur noch G6 (Vorschlaege). |
 | [features/P11_DOKUMENTATION_ALS_SYSTEM.md](features/P11_DOKUMENTATION_ALS_SYSTEM.md) | Doku als System: generiert statt gepflegt, drei Leser (Investor/Owner/Technik), Hilfebereich. 11 Wellen, W1 laeuft. **Owner-Grundprinzip fuer alle Projekte.** |
 | [PLATTFORM_REGISTER.md](PLATTFORM_REGISTER.md) | Das Inventar: jede Flaeche, jeder Endpunkt, jede Faehigkeit, mit Beleg und Zustand. Grundlage der Investoren- und Bedienungsdoku. Wird per `dokuWaechter.test.js` gegen den Code gehalten. |
 | [TEAM_UND_ROLLEN.md](TEAM_UND_ROLLEN.md) | Wen dieser Code verlangt: Fachbereiche, Erfahrungsstufen, Minimalbesetzung, Reihenfolge der Einstellung — gemessen, nicht geschaetzt. |
@@ -130,8 +130,8 @@ onclick-Handler, fehlendes CSRF, Sackgassen-Links. Sie haben den Multi-Agenten-A
 
 ## Wo es weitergeht *(Stand 2026-08-18)*
 
-**Nächster Schritt: G5 — die Oberfläche im Einsatzportal.**
-G4 und G4b sind gebaut und belegt (siehe unten).
+**Nächster Schritt: G6 — Umdisponieren mit Vorschlägen.**
+G4, G4b und G5 sind gebaut und belegt (siehe unten).
 
 ### Der unmittelbare Auftrag (G5)
 
@@ -146,7 +146,7 @@ Schritt zeigt **echte** Einsatzdaten aus `folgenVorschau()`, keine Platzhalter.
 |---|---|
 | `POST /worker/me/abwesenheit/vorgang` — eröffnet die Zeitsperre, liefert die Restzeit | `routes/workerPortal.js` |
 | `GET /worker/me/abwesenheit/folgen` — die betroffenen Einsätze, namentlich | `routes/workerPortal.js` |
-| `POST /worker/me/abwesenheit` — `428` ohne Vorgang, `429` zu früh, `422` bei zu kurzer Beschreibung | `routes/workerPortal.js` |
+| `POST /worker/me/abwesenheit` — `428` ohne Vorgang, `429 ZEITSPERRE` zu früh, **`400 BESCHREIBUNG_ZU_KURZ`** bei zu kurzer Beschreibung | `routes/workerPortal.js` |
 | `POST /worker/me/verspaetung` — der leichte Weg, ohne Sperre | `routes/workerPortal.js` |
 | Die vier Fragen als Struktur | `BESCHREIBUNG_FRAGEN` im Absence-Service |
 
@@ -240,8 +240,11 @@ Schema).
 | **G3** Verspätung | Mig 182, eigene Tabelle, Obergrenze 240 min mit Verweis auf den anderen Weg |
 | **G4** Meldung ans Büro | Mig 183, Live-Push in `dispatch()`, Deep-Link auf die Person, Kategorie `workforce_updates` |
 | **G4b** Meldung an den Kunden | Mig 184, Ausfall · Entwarnung · Ersatz — **ohne die Art**; Empfänger aus `assignments.org_id`, eigene Kategorie |
+| **G5** Oberfläche | `einsatzportal-abwesenheit.html`, dreistufig + leichter Verspätungsweg, Reiter in allen 8 Seiten, `GET /worker/me/abwesenheiten` als Quittung |
 
-**Testlage:** 8623 Tests, 0 Fehler (voller Lauf ohne Pipe, 2026-08-18).
+**Testlage:** 8660 Tests, 0 echte Fehler (voller Lauf ohne Pipe, 2026-08-18) — der einzige
+rote ist `me.route.coverage.test.js`, die oben beschriebene lastabhängige Fragilität;
+isoliert läuft sie grün.
 Zusätzlich im Container geprüft, wo die DB-gebundenen Tests wirklich laufen.
 
 ### Drei Regeln, die diese Sitzung teuer gelernt hat
