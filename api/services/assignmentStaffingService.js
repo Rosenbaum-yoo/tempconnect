@@ -1336,6 +1336,14 @@ export function getSuggestionQuickAssignState(suggestion) {
     ...(suggestion.already_contacted ? [{
       code: "already_contacted",
       label: "Für diesen Bedarf bereits kontaktiert"
+    }] : []),
+    /* Ein Abwesender darf NIE schnellzuweisbar sein (Welle G6). Der Vorschlag
+     * kann ihn zeigen — mit Begruendung —, aber der Ein-Klick-Weg muss zu
+     * bleiben: Genau dort verlaesst sich der Disponent darauf, dass die Liste
+     * schon geprueft hat. */
+    ...(suggestion.is_absent ? [{
+      code: "worker_absent",
+      label: "Ist im Einsatzzeitraum selbst abwesend"
     }] : [])
   ];
 
@@ -1380,6 +1388,7 @@ function scoreWorkersForAssignment(_client, assignment, workerRows, filters = {}
       return null;
     }
 
+    const absenceConflictCount = toInt(worker.absence_conflict_count, 0);
     const conflictCount = toInt(worker.conflict_count, 0);
     const reservationConflictCount = toInt(worker.reservation_conflict_count, 0);
     const currentAssignmentCount = toInt(worker.current_assignment_count, 0);
@@ -1399,7 +1408,10 @@ function scoreWorkersForAssignment(_client, assignment, workerRows, filters = {}
     const alreadyContacted = historicalInviteCount > 0;
     const hasOpenInvite = openInviteCount > 0;
 
-    if (filters.onlyAvailable && (conflictCount > 0 || reservationConflictCount > 0)) return null;
+    /* `onlyAvailable` hiess bisher nur "nicht doppelt gebucht". Ab jetzt heisst
+     * es auch "nicht abwesend" — sonst traegt der Name eine Zusage, die er
+     * nicht einloest. */
+    if (filters.onlyAvailable && (conflictCount > 0 || reservationConflictCount > 0 || absenceConflictCount > 0)) return null;
 
     const skillOverlap = workerSkills.filter((skill) => requirements.required_skills.includes(skill));
     const missingSkills = requirements.required_skills.filter((required) => !workerSkills.includes(required));
@@ -1593,6 +1605,11 @@ function scoreWorkersForAssignment(_client, assignment, workerRows, filters = {}
       active_assignment_count: activeAssignmentCount,
       confirmed_assignment_count: confirmedAssignmentCount,
       same_client_assignment_count: sameClientAssignmentCount,
+      /* Nach aussen gegeben, damit die Oberflaeche den GRUND nennen kann,
+       * statt jemanden wortlos wegzulassen: "ist selbst abwesend" ist eine
+       * Auskunft, ein fehlender Name ist nur eine Luecke. */
+      absence_conflict_count: absenceConflictCount,
+      is_absent: absenceConflictCount > 0,
       conflict_count: conflictCount,
       reservation_conflict_count: reservationConflictCount,
       current_assignment_count: currentAssignmentCount,
@@ -1679,6 +1696,7 @@ async function queryWorkerSuggestionBase(client, assignment, limit = 50, workerI
             COALESCE(link_stats.current_assignment_count, 0) AS current_assignment_count,
             COALESCE(link_stats.same_client_assignment_count, 0) AS same_client_assignment_count,
             COALESCE(link_stats.confirmed_assignment_count, 0) AS confirmed_assignment_count,
+            COALESCE(absences.absence_conflict_count, 0) AS absence_conflict_count,
             COALESCE(conflicts.conflict_count, 0) AS conflict_count,
             COALESCE(reservations.reservation_conflict_count, 0) AS reservation_conflict_count,
             COALESCE(reservations.current_reservation_count, 0) AS current_reservation_count,
@@ -1717,6 +1735,36 @@ async function queryWorkerSuggestionBase(client, assignment, limit = 50, workerI
        JOIN assignments a ON a.id = wal.assignment_id
        WHERE wal.worker_user_id = wp.user_id
      ) link_stats ON TRUE
+     /* ── Ist der Mensch in diesem Zeitraum ueberhaupt da? (Welle G6) ──────
+      *
+      * DIESER BLOCK HAT GEFEHLT, und das war die gefaehrlichste Luecke der
+      * ganzen Spur: Die Vorschlagsliste kannte "worker_absences" nicht. Ein
+      * krank Gemeldeter wurde als ERSATZ FUER EINEN KRANKEN vorgeschlagen —
+      * und der Disponent verliess sich darauf, bis auch der zweite nicht kam.
+      *
+      * Warum der Konflikt-Block darunter das nicht abdeckt: Er zaehlt
+      * Doppelbelegungen mit anderen EINSAETZEN. Eine Abwesenheit ist aber
+      * kein Einsatz — sie haengt am PROFIL (Mig 177), nicht am Konto, und
+      * erzeugt deshalb keinen einzigen Konflikt.
+      *
+      * Schlimmer als eine fehlende Pruefung war die falsche Zusicherung: Der
+      * Bewertungsfaktor heisst "availabilityMatch" und wiegt 25 Punkte, wertet
+      * aber nur das FREITEXTFELD "availability_note" aus. Die Liste versprach
+      * Verfuegbarkeit und meinte Stichworte.
+      *
+      * Nur WIRKSAME, nicht aufgehobene Meldungen zaehlen: Eine beantragte
+      * (Freigabepflicht, G-E2) ist noch nicht entschieden, und eine
+      * zurueckgenommene ist keine. Dieselbe Bedingung wie in "fuerKunde()". */
+     LEFT JOIN LATERAL (
+       SELECT COUNT(*)::INT AS absence_conflict_count
+       FROM worker_absences ab
+       WHERE ab.worker_profile_id = wp.id
+         AND ab.supplier_org_id = $1
+         AND ab.aufgehoben_am IS NULL
+         AND ab.zustand = 'wirksam'
+         AND ab.von <= $4
+         AND (ab.bis IS NULL OR ab.bis >= $3)
+     ) absences ON TRUE
      LEFT JOIN LATERAL (
        SELECT COUNT(*)::INT AS conflict_count
        FROM worker_assignment_links wal
