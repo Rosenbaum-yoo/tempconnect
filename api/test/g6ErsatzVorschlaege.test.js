@@ -25,7 +25,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { getSuggestionQuickAssignState } from "../services/assignmentStaffingService.js";
+import { getSuggestionQuickAssignState, scoreWorkersForAssignment } from "../services/assignmentStaffingService.js";
 
 const HIER = path.dirname(fileURLToPath(import.meta.url));
 const DIENST = path.join(HIER, "..", "services", "assignmentStaffingService.js");
@@ -146,6 +146,127 @@ describe("G6 — ein Abwesender ist nie schnellzuweisbar", () => {
     const z = getSuggestionQuickAssignState(null);
     assert.equal(z.quick_assign_eligible, false);
     assert.ok(z.quick_assign_blockers.some((b) => b.code === "not_suggested"));
+  });
+});
+
+/* ═══════════════════════════════════════════════════════════════════════════
+ * 3b. Und auch nicht EINLADBAR — die zweite Haelfte des Gates
+ * ═══════════════════════════════════════════════════════════════════════════ */
+
+/**
+ * Eine Kandidatenzeile, wie sie aus queryWorkerSuggestionBase kommt.
+ *
+ * WARUM VERHALTEN STATT QUELLTEXT: Die erste Fassung dieser Gruppe hat im Code
+ * nach der Zeichenkette "absenceConflictCount > 0" gesucht. Eine Mutation zu
+ * `if (false && absenceConflictCount > 0)` UEBERLEBTE das — die Zeichenkette
+ * steht ja weiterhin da. Ein Test, der Quelltext liest, prueft Schreibweise;
+ * geprueft werden muss die Entscheidung.
+ */
+function kandidat(extra) {
+  return Object.assign({
+    user_id: "u1", first_name: "Test", last_name: "Person", is_active: true,
+    skill_tags: [], qualifications: [], verified_doc_names: [],
+    active_assignment_count: 0, current_assignment_count: 0, conflict_count: 0,
+    reservation_conflict_count: 0, current_reservation_count: 0,
+    absence_conflict_count: 0, open_invite_count: 0, historical_invite_count: 0,
+    confirmed_assignment_count: 0, same_client_assignment_count: 0,
+    verified_doc_count: 0, expired_doc_count: 0,
+  }, extra || {});
+}
+
+const EINSATZ = Object.freeze({
+  id: "a1", start_date: "2026-08-20", planned_end_date: "2026-08-25",
+  org_id: "o1", supplier_org_id: "s1",
+});
+
+const bewerte = (extra, filters) =>
+  scoreWorkersForAssignment(null, EINSATZ, [kandidat(extra)], filters || {})[0];
+
+describe("G6 — ein Abwesender ist auch nicht einladbar", () => {
+  it("VERHALTEN: eine Abwesenheit macht is_selectable und can_invite falsch", () => {
+    /* DIE RESTLUECKE DER ERSTEN FASSUNG: Der Zaehler wurde erhoben und die
+     * Schnellzuweisung gesperrt — aber is_selectable und can_invite blieben
+     * wahr. Ein Abwesender ueberlebte hardOnly und includeBlocked=false, konnte
+     * Rang 1 mit "hoch" tragen und wurde an SECHS Stellen als einladbar
+     * behandelt, darunter die Wartelisten-Saat der Kampagne.
+     *
+     * Das Gate verlangt "vorgeschlagen UND EINGELADEN" — die halbe Sperre liess
+     * genau die zweite Haelfte offen. */
+    const abwesend = bewerte({ absence_conflict_count: 1 });
+    assert.equal(abwesend.is_selectable, false,
+      "ein Abwesender ueberlebt includeBlocked=false und steht waehlbar in der Liste");
+    assert.equal(abwesend.can_invite, false,
+      "ein Abwesender laesst sich EINLADEN — genau die Haelfte des Gates, die " +
+      "die erste Fassung offengelassen hat");
+    assert.equal(abwesend.quick_assign_eligible, false);
+    assert.equal(abwesend.is_absent, true);
+  });
+
+  it("VERHALTEN: der Grund steht als harte Sperre drin, nicht nur als Notiz", () => {
+    const abwesend = bewerte({ absence_conflict_count: 1 });
+    assert.ok(abwesend.hard_failures.some((f) => f.code === "worker_absent"),
+      "worker_absent fehlt in den hard_failures — dann erben die sechs " +
+      "can_invite-Filter die Sperre nicht");
+    assert.equal(abwesend.suggestion_status, "blocked");
+  });
+
+  it("VERHALTEN: die Gegenprobe — ohne Abwesenheit bleibt alles offen", () => {
+    /* Ohne diese Probe koennte der Fix alles sperren und der Test bliebe gruen. */
+    const anwesend = bewerte({});
+    assert.equal(anwesend.is_selectable, true);
+    assert.equal(anwesend.can_invite, true);
+    assert.equal(anwesend.quick_assign_eligible, true);
+    assert.equal(anwesend.is_absent, false);
+  });
+
+  it("VERHALTEN: onlyAvailable wirft den Abwesenden ganz aus der Liste", () => {
+    const mitFilter = scoreWorkersForAssignment(
+      null, EINSATZ, [kandidat({ absence_conflict_count: 1 })], { onlyAvailable: true });
+    assert.equal(mitFilter.length, 0,
+      "onlyAvailable behaelt den Abwesenden — der Name traegt eine Zusage, die " +
+      "er nicht einloest");
+    const ohneFilter = scoreWorkersForAssignment(
+      null, EINSATZ, [kandidat({ absence_conflict_count: 1 })], {});
+    assert.equal(ohneFilter.length, 1,
+      "ohne den Filter soll er SICHTBAR bleiben — mit Begruendung, denn ein " +
+      "fehlender Name ist nur eine Luecke, 'ist selbst abwesend' eine Auskunft");
+  });
+
+  it("VERHALTEN: eine Terminkollision sperrt weiterhin unabhaengig davon", () => {
+    const kollision = bewerte({ conflict_count: 1 });
+    assert.equal(kollision.is_selectable, false);
+    assert.ok(kollision.hard_failures.some((f) => f.code === "schedule_conflict"));
+    assert.equal(kollision.is_absent, false, "die neue Flagge faerbt auf fremde Sperren ab");
+  });
+
+  it("QUELLTEXT: is_selectable und can_invite haengen an den harten Sperren", () => {
+    /* DIE RESTLUECKE DER ERSTEN FASSUNG: Der Zaehler wurde erhoben und die
+     * Schnellzuweisung gesperrt — aber `is_selectable` und `can_invite` blieben
+     * wahr. Ein Abwesender ueberlebte `hardOnly` und `includeBlocked=false`,
+     * konnte Rang 1 mit "hoch" tragen und wurde an SECHS Stellen als einladbar
+     * behandelt, darunter die Wartelisten-Saat der Kampagne.
+     *
+     * Das Gate verlangt "vorgeschlagen UND EINGELADEN" — die halbe Sperre liess
+     * genau die zweite Haelfte offen. */
+    /* Die Verbindung, die den Fix an EINER Stelle wirksam macht: Steht die
+     * Abwesenheit in hard_failures, erben alle sechs can_invite-Filter sie —
+     * ohne dass jemand sie einzeln nachziehen muss. Diese eine Kopplung laesst
+     * sich nur im Quelltext festhalten; alles andere darueber prueft Verhalten. */
+    const s = quelle();
+    assert.match(s, /is_selectable: hardFailures\.length === 0/,
+      "is_selectable haengt nicht mehr an den harten Sperren — dann traegt der Fix nicht");
+    assert.match(s, /can_invite: hardFailures\.length === 0/,
+      "can_invite haengt nicht mehr an den harten Sperren");
+  });
+
+  it("der Sperrcode ist derselbe wie bei der Schnellzuweisung", () => {
+    /* Zwei Namen fuer dieselbe Sache waeren zwei Wahrheiten in der Oberflaeche.
+     * dedupeQuickAssignBlockers fasst sie ueber den Code zusammen — der muss
+     * deshalb woertlich uebereinstimmen. */
+    const zustand = getSuggestionQuickAssignState({ is_absent: true });
+    const codes = zustand.quick_assign_blockers.map((b) => b.code);
+    assert.ok(codes.includes("worker_absent"));
+    assert.equal(new Set(codes).size, codes.length, "ein Code wird doppelt gefuehrt");
   });
 });
 

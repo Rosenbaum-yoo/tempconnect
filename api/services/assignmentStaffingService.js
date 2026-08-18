@@ -1337,10 +1337,14 @@ export function getSuggestionQuickAssignState(suggestion) {
       code: "already_contacted",
       label: "Für diesen Bedarf bereits kontaktiert"
     }] : []),
-    /* Ein Abwesender darf NIE schnellzuweisbar sein (Welle G6). Der Vorschlag
-     * kann ihn zeigen — mit Begruendung —, aber der Ein-Klick-Weg muss zu
-     * bleiben: Genau dort verlaesst sich der Disponent darauf, dass die Liste
-     * schon geprueft hat. */
+    /* Ein Abwesender darf NIE schnellzuweisbar sein (Welle G6).
+     *
+     * Seit der Ergaenzung in `scoreWorkersForAssignment` steht `worker_absent`
+     * bereits in den hard_failures und kaeme ueber die Zeile darueber herein.
+     * Diese Klausel bleibt trotzdem: Sie greift auch dann, wenn jemand die
+     * Funktion mit einem selbst gebauten Objekt aufruft — etwa aus einem Test
+     * oder einem anderen Dienst, der nur `is_absent` kennt. Doppelt gefuehrte
+     * Codes fallen in `dedupeQuickAssignBlockers` ohnehin zusammen. */
     ...(suggestion.is_absent ? [{
       code: "worker_absent",
       label: "Ist im Einsatzzeitraum selbst abwesend"
@@ -1354,7 +1358,14 @@ export function getSuggestionQuickAssignState(suggestion) {
   };
 }
 
-function scoreWorkersForAssignment(_client, assignment, workerRows, filters = {}) {
+/* Exportiert, weil sie die einzige Stelle ist, an der aus Zaehlern eine
+ * Entscheidung wird — und weil sie sich dafuer anbietet: rein synchron, der
+ * Client-Parameter ist unbenutzt, kein Datenbankzugriff. Ein Test kann ihr
+ * Kandidatenzeilen hinreichen und pruefen, WAS herauskommt, statt im Quelltext
+ * nach Zeichenketten zu suchen. Genau dieser Unterschied hat in Welle G6 einen
+ * Mutanten ueberleben lassen: `if (false && absenceConflictCount > 0)` enthaelt
+ * die gesuchte Zeichenkette weiterhin. */
+export function scoreWorkersForAssignment(_client, assignment, workerRows, filters = {}) {
   const requirements = deriveAssignmentRequirements(assignment);
   const requiredSkillNeedle = String(filters.requiredSkill || "").trim().toLowerCase();
   const requiredQualificationNeedle = String(filters.requiredQualification || "").trim().toLowerCase();
@@ -1443,6 +1454,27 @@ function scoreWorkersForAssignment(_client, assignment, workerRows, filters = {}
       hardFailures.push({
         code: "schedule_conflict",
         label: "Terminüberschneidung mit laufendem Einsatz oder Reservierung"
+      });
+    }
+    /* Abwesenheit ist eine HARTE Sperre, nicht nur ein Punktabzug (Welle G6).
+     *
+     * Die erste Fassung dieser Welle hat den Zaehler zwar erhoben und die
+     * Schnellzuweisung gesperrt — aber `is_selectable` und `can_invite` blieben
+     * wahr. Damit ueberlebte ein Abwesender `hardOnly` und `includeBlocked=false`,
+     * konnte Rang 1 mit dem Etikett "hoch" tragen und wurde an SECHS Stellen als
+     * einladbar behandelt, darunter die Wartelisten-Saat der Staffing-Kampagne.
+     * Gesperrt war nur der eine Weg, den man sich zuerst ansieht.
+     *
+     * Das Gate dieser Welle verlangt woertlich "vorgeschlagen UND EINGELADEN".
+     * Die halbe Sperre haette genau die zweite Haelfte offengelassen: Man kann
+     * jemanden einladen, der selbst krank gemeldet ist.
+     *
+     * Als hard_failure ist es EINE Aussage an EINER Stelle — jeder der sechs
+     * Filter erbt sie, ohne dass ihn jemand einzeln nachziehen muss. */
+    if (absenceConflictCount > 0) {
+      hardFailures.push({
+        code: "worker_absent",
+        label: "Ist im Einsatzzeitraum selbst abwesend"
       });
     }
     if (missingRequiredQualifications.length > 0) {
