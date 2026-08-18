@@ -1038,3 +1038,99 @@ export async function profilZuNutzer(pool, supplierOrgId, workerUserId) {
       || (r.personnel_number ? "#" + r.personnel_number : null),
   };
 }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+ *  Welle G6 — der Rueckweg: was ist mit dem Ersatz, wenn der Kranke wiederkommt?
+ *
+ *  DER STILLE WIDERSPRUCH, den diese Funktion sichtbar macht:
+ *  `cancelAbsence()` fasst ausschliesslich `worker_absences` an — keine einzige
+ *  Zeile in `worker_assignment_links`. Wird eine Abwesenheit aufgehoben, gilt
+ *  der Mensch wieder als verfuegbar, ABER sein Einsatz ist weg: Der Alt-Link
+ *  steht auf 'worker_unavailable', und auf dem Einsatz sitzt der Ersatz.
+ *
+ *  Seit Welle G4b hat das eine zweite Seite: Der Kunde bekommt beim Aufheben
+ *  eine ENTWARNUNG ("faellt doch nicht aus"). Fuer die Person stimmt sie — fuer
+ *  seinen Einsatz nicht, wenn dort inzwischen jemand anderes steht. Aus einer
+ *  richtigen Meldung wird so eine falsche Auskunft.
+ *
+ *  WARUM HIER NICHTS AUTOMATISCH ZURUECKGEDREHT WIRD:
+ *  Der Arbeitsplan sagt ausdruecklich "Keine automatische Umdisposition. Die
+ *  Plattform schlaegt vor; der Mensch entscheidet. Ein System, das eigenmaechtig
+ *  umbesetzt, verliert das Vertrauen beider Seiten." Beim Zurueckdrehen waere es
+ *  sogar noch schwerer: Der Ersatz hat den Einsatz zugesagt bekommen und
+ *  vielleicht schon Anderes abgesagt. Ihn ohne Rueckfrage wieder herunterzunehmen
+ *  waere genau die Eigenmacht, die auf der anderen Seite verhindert werden soll.
+ *
+ *  Diese Funktion ANTWORTET deshalb nur — sie handelt nicht. Die Antwort geht an
+ *  den Disponenten, der entscheidet.
+ * ═══════════════════════════════════════════════════════════════════════════ */
+
+/**
+ * Wurde fuer diese Abwesenheit ein Ersatz gestellt?
+ *
+ * Die Kette, an der man es erkennt:
+ *   1. ein Link des Abwesenden auf 'worker_unavailable', dessen `unavailable_from`
+ *      in den Zeitraum der Abwesenheit faellt (so setzt ihn `replaceAssignmentWorker`)
+ *   2. ein AKTIVER Link EINER ANDEREN Person auf demselben Einsatz
+ *
+ * Schritt 2 ist noetig, weil `reportUnavailable()` dieselben Felder setzt wie die
+ * Ersetzung: Eine blosse Freistellung ohne Nachfolger sieht am Alt-Link identisch
+ * aus. Ohne den zweiten Schritt meldete die Funktion einen Ersatz, den es nicht
+ * gibt — und der Disponent suchte nach jemandem, der nie eingesetzt wurde.
+ *
+ * @returns {Promise<Array<{assignment_id, kunde, ersatz_name, ersatz_user_id,
+ *                          freigestellt_ab, ersatz_ab}>>}
+ */
+export async function ersatzZuAbwesenheit(pool, supplierOrgId, absence) {
+  if (!pool || !supplierOrgId || !absence || !absence.worker_profile_id) return [];
+
+  const von = alsDatum(absence.von);
+  if (!von) return [];
+  const bis = alsDatum(absence.bis);
+
+  const { rows } = await pool.query(
+    /* Die Mandantengrenze steht IM Statement — an beiden Verknuepfungen, weil
+     * beide Links zu diesem Betrieb gehoeren muessen. Ein Ersatz aus einer
+     * fremden Firma waere kein Ersatz, sondern ein Datenleck. */
+    `SELECT alt.assignment_id,
+            o.name              AS kunde,
+            alt.unavailable_from AS freigestellt_ab,
+            neu.worker_user_id  AS ersatz_user_id,
+            neu.start_date      AS ersatz_ab,
+            TRIM(COALESCE(wpn.first_name, '') || ' ' || COALESCE(wpn.last_name, '')) AS ersatz_name
+       FROM worker_profiles wp
+       JOIN worker_assignment_links alt
+         ON alt.worker_user_id = wp.user_id
+        AND alt.supplier_org_id = $1
+        AND alt.worker_confirmation_status = 'worker_unavailable'
+        AND alt.unavailable_from IS NOT NULL
+        AND alt.unavailable_from >= $3::date
+        AND ($4::date IS NULL OR alt.unavailable_from <= $4::date)
+       /* Der Nachfolger: aktiv, auf demselben Einsatz, eine ANDERE Person —
+        * UND ER MUSS NACH DER FREISTELLUNG BEGONNEN HABEN.
+        *
+        * Die letzte Bedingung fehlte zuerst, und die echten Daten haben es
+        * sofort gezeigt: Bei einem mehrfach besetzten Einsatz standen drei
+        * "Ersaetze" in der Antwort, von denen zwei schon knapp zwei Monate VOR
+        * der Freistellung angefangen hatten. Das sind Kollegen, keine
+        * Nachfolger. Ohne diese Zeile haette der Disponent beim Aufheben einer
+        * Abwesenheit die halbe Stammbesetzung als "Ersatz" praesentiert
+        * bekommen — und in einem Einsatz mit fuenf Leuten waere die Auskunft
+        * schlicht Unsinn. */
+       JOIN worker_assignment_links neu
+         ON neu.assignment_id = alt.assignment_id
+        AND neu.supplier_org_id = $1
+        AND neu.is_active = TRUE
+        AND neu.worker_user_id <> alt.worker_user_id
+        AND neu.start_date >= alt.unavailable_from
+       LEFT JOIN worker_profiles wpn
+         ON wpn.user_id = neu.worker_user_id AND wpn.supplier_org_id = $1
+       JOIN assignments a ON a.id = alt.assignment_id
+       LEFT JOIN organizations o ON o.id = a.org_id
+      WHERE wp.id = $2 AND wp.supplier_org_id = $1
+      ORDER BY alt.unavailable_from ASC`,
+    [supplierOrgId, absence.worker_profile_id, von, bis]
+  );
+
+  return rows;
+}

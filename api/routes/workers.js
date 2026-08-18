@@ -907,8 +907,31 @@ export function createWorkersRouter(deps) {
        * den Betrieb nie verlassen (siehe die Absendebedingung in
        * `benachrichtigeKunde`), und eine Entwarnung fuer etwas, das nie gemeldet
        * wurde, verwirrt mehr, als sie klaert. */
+      /* ── Steht auf dem Einsatz inzwischen jemand anderes? (Welle G6) ────
+       *
+       * `cancelAbsence` fasst nur `worker_absences` an. Die Person gilt wieder
+       * als verfuegbar — aber ihr Einsatz kann laengst neu besetzt sein. Ohne
+       * diesen Blick entstuende ein stiller Widerspruch: Die Tafel zeigt sie
+       * als einsatzbereit, der Einsatz gehoert einem anderen.
+       *
+       * ES WIRD NICHTS ZURUECKGEDREHT. Der Arbeitsplan sagt ausdruecklich
+       * "Keine automatische Umdisposition — die Plattform schlaegt vor, der
+       * Mensch entscheidet". Beim Zurueckdrehen waere es sogar schwerer: Der
+       * Ersatz hat die Zusage und hat vielleicht Anderes abgesagt. Ihn ohne
+       * Rueckfrage herunterzunehmen waere genau die Eigenmacht, die auf der
+       * anderen Seite verhindert werden soll. Die Antwort geht an den
+       * Disponenten; er entscheidet. */
+      const ersatz = result.absence
+        ? await absenceSvc.ersatzZuAbwesenheit(pool, req.orgId, result.absence)
+        : [];
+
+      /* Die Entwarnung an den Kunden NUR, wenn kein Ersatz auf dem Einsatz
+       * sitzt (Welle G4b + G6). Sonst wuerde aus einer richtigen Meldung eine
+       * falsche Auskunft: Fuer die PERSON stimmt "faellt doch nicht aus" — fuer
+       * SEINEN EINSATZ nicht, wenn dort inzwischen jemand anderes steht. Der
+       * Kunde plante sonst mit zwei Leuten auf einer Stelle. */
       let kundeEntwarnt = 0;
-      if (result.absence && result.absence.zustand === "wirksam") {
+      if (result.absence && result.absence.zustand === "wirksam" && ersatz.length === 0) {
         const e = await absenceSvc.benachrichtigeKunde(pool, req.orgId, {
           anlass: "entwarnung",
           absence: result.absence,
@@ -924,9 +947,18 @@ export function createWorkersRouter(deps) {
           grund: grund || null,
           responsible_actor_user_id: req.session.userId,
           kunde_entwarnt: kundeEntwarnt,
+          /* "Es gab einen Ersatz, und deshalb ging keine Entwarnung raus" ist
+           * genau der Zustand, den man spaeter rekonstruieren koennen muss. */
+          ersatz_auf_einsatz: ersatz.length,
         }
       };
-      res.json({ ...result, kunde_entwarnt: kundeEntwarnt });
+      res.json({
+        ...result,
+        kunde_entwarnt: kundeEntwarnt,
+        /* Der Disponent sieht, WAS aus dem Einsatz geworden ist — namentlich,
+         * nicht als Zahl. Ohne den Namen muesste er die Tafel durchsuchen. */
+        ersatz_auf_einsatz: ersatz,
+      });
     } catch (err) { next(err); }
   });
 

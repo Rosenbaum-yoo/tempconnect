@@ -26,6 +26,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { getSuggestionQuickAssignState, scoreWorkersForAssignment } from "../services/assignmentStaffingService.js";
+import { ersatzZuAbwesenheit } from "../services/workerAbsenceService.js";
 
 const HIER = path.dirname(fileURLToPath(import.meta.url));
 const DIENST = path.join(HIER, "..", "services", "assignmentStaffingService.js");
@@ -288,5 +289,110 @@ describe("G6 — availabilityMatch ist keine Verfuegbarkeitspruefung", () => {
     assert.match(s, /tokenizeText\(worker\.availability_note\)/,
       "der Faktor speist sich nicht mehr aus dem Freitext — dann darf dieser " +
       "Test umgeschrieben werden, aber bewusst");
+  });
+});
+
+
+/* ═══════════════════════════════════════════════════════════════════════════
+ * 5. Der Rueckweg — wenn der Kranke frueher wiederkommt
+ * ═══════════════════════════════════════════════════════════════════════════ */
+
+function spionPool(antwort) {
+  const gesehen = [];
+  return {
+    gesehen,
+    pool: {
+      query: async (sql, params) => {
+        gesehen.push({ sql, params });
+        return antwort || { rows: [], rowCount: 0 };
+      },
+    },
+  };
+}
+
+const ABWESENHEIT = Object.freeze({
+  id: "abw-1", worker_profile_id: "p1", von: "2026-08-20", bis: "2026-08-25",
+  zustand: "wirksam", art: "krank",
+});
+
+describe("G6 — beim Aufheben wird sichtbar, wer inzwischen dort steht", () => {
+  it("der Nachfolger muss NACH der Freistellung begonnen haben", async () => {
+    /* Ohne diese Bedingung meldet die Abfrage Kollegen als Ersatz. An den
+     * echten Daten sofort aufgefallen: Bei einem mehrfach besetzten Einsatz
+     * standen drei "Ersaetze" in der Antwort, zwei davon hatten knapp zwei
+     * Monate VOR der Freistellung angefangen. In einem Einsatz mit fuenf Leuten
+     * waere die Auskunft schlicht Unsinn. */
+    const { pool, gesehen } = spionPool({ rows: [], rowCount: 0 });
+    await ersatzZuAbwesenheit(pool, "s1", ABWESENHEIT);
+    const q = gesehen[0];
+    assert.ok(q, "es wurde gar nicht nachgesehen");
+    assert.match(q.sql, /neu\.start_date >= alt\.unavailable_from/,
+      "ohne diese Bedingung gelten Kollegen als Ersatz");
+  });
+
+  it("sie sucht nur ANDERE Personen auf demselben Einsatz", async () => {
+    const { pool, gesehen } = spionPool();
+    await ersatzZuAbwesenheit(pool, "s1", ABWESENHEIT);
+    const sql = gesehen[0].sql;
+    assert.match(sql, /neu\.assignment_id = alt\.assignment_id/, "der Einsatzbezug fehlt");
+    assert.match(sql, /neu\.worker_user_id <> alt\.worker_user_id/,
+      "die Person selbst wuerde als ihr eigener Ersatz gelten");
+    assert.match(sql, /neu\.is_active = TRUE/, "ein abgeloester Ersatz zaehlte weiter mit");
+  });
+
+  it("die Mandantengrenze steht an BEIDEN Verknuepfungen", async () => {
+    /* Ein Ersatz aus einer fremden Firma waere kein Ersatz, sondern ein
+     * Datenleck — der Name einer fremden Kraft in der eigenen Antwort. */
+    const { pool, gesehen } = spionPool();
+    await ersatzZuAbwesenheit(pool, "s1", ABWESENHEIT);
+    const sql = gesehen[0].sql;
+    assert.equal((sql.match(/supplier_org_id = \$1/g) || []).length >= 3, true,
+      "die Org-Bedingung fehlt an mindestens einer der Verknuepfungen");
+    assert.equal(gesehen[0].params[0], "s1");
+  });
+
+  it("nur Freistellungen im Zeitraum DIESER Abwesenheit zaehlen", async () => {
+    const { pool, gesehen } = spionPool();
+    await ersatzZuAbwesenheit(pool, "s1", ABWESENHEIT);
+    const q = gesehen[0];
+    assert.match(q.sql, /alt\.unavailable_from >= \$3::date/, "der Anfang wird nicht begrenzt");
+    assert.deepEqual([q.params[2], q.params[3]], ["2026-08-20", "2026-08-25"]);
+  });
+
+  it("ein offenes Ende begrenzt nicht nach hinten", async () => {
+    const { pool, gesehen } = spionPool();
+    await ersatzZuAbwesenheit(pool, "s1", { ...ABWESENHEIT, bis: null });
+    assert.equal(gesehen[0].params[3], null);
+    assert.match(gesehen[0].sql, /\$4::date IS NULL OR/,
+      "bei offenem Ende wuerde die Bedingung sonst alles ausschliessen");
+  });
+
+  it("fehlende Angaben werden abgewiesen, nicht geraten", async () => {
+    const { pool, gesehen } = spionPool();
+    assert.deepEqual(await ersatzZuAbwesenheit(pool, "s1", null), []);
+    assert.deepEqual(await ersatzZuAbwesenheit(pool, null, ABWESENHEIT), []);
+    assert.deepEqual(await ersatzZuAbwesenheit(pool, "s1", { ...ABWESENHEIT, von: "kein-datum" }), []);
+    assert.equal(gesehen.length, 0, "es wurde trotzdem abgefragt");
+  });
+
+  it("die Aufhebungs-Route entwarnt den Kunden NICHT, wenn ein Ersatz dort steht", () => {
+    /* Sonst wird aus einer richtigen Meldung eine falsche Auskunft: Fuer die
+     * PERSON stimmt "faellt doch nicht aus" — fuer SEINEN EINSATZ nicht, wenn
+     * dort jemand anderes sitzt. Der Kunde plante mit zwei Leuten auf einer
+     * Stelle. */
+    const route = fs.readFileSync(path.join(HIER, "..", "routes", "workers.js"), "utf8");
+    const i = route.indexOf("ersatzZuAbwesenheit");
+    assert.ok(i > 0, "die Route sieht gar nicht nach einem Ersatz");
+    const block = route.slice(i, i + 1400);
+    assert.match(block, /ersatz\.length === 0/,
+      "die Entwarnung geht auch dann raus, wenn der Einsatz neu besetzt ist");
+  });
+
+  it("die Route gibt den Ersatz namentlich zurueck, nicht als Zahl", () => {
+    const route = fs.readFileSync(path.join(HIER, "..", "routes", "workers.js"), "utf8");
+    assert.match(route, /ersatz_auf_einsatz: ersatz,/,
+      "ohne die Namen muesste der Disponent die Tafel durchsuchen");
+    assert.match(route, /ersatz_auf_einsatz: ersatz\.length/,
+      "im Audit fehlt, dass wegen eines Ersatzes keine Entwarnung ging");
   });
 });
