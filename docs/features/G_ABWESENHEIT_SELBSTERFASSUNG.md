@@ -183,7 +183,7 @@ Das ist mehr als eine Benachrichtigung. Es sind drei Dinge:
 | **G2b** | Zeitsperre serverseitig: Vorgang wird eröffnet, Meldung vor Ablauf → `429` mit Restzeit. Dauer aus der Konfiguration, nicht fest im Code | Eine Meldung, die den Browser umgeht und sofort abgeschickt wird, wird **abgewiesen** — nachgewiesen mit einem Test, der genau das tut |
 | **G3** | Verspätungsmeldung als eigener, leichter Weg — ohne Abwesenheit | Eine Verspätung erzeugt **keine** Zeile in `worker_absences` und gibt keinen Einsatz frei |
 | **G4** ✅ | Benachrichtigung ans Büro, sofort, mit den Folgen | Der Disponent sieht die Meldung ohne Neuladen; die Benachrichtigung führt zum betroffenen Einsatz, nicht auf eine Übersicht |
-| **G4b** | Benachrichtigung an den Kunden — Ausfall und später Ersatz, **ohne die Art** | Ein Test weist nach, dass die Kunden-Benachrichtigung weder `art` noch `notiz` enthält, auch nicht in Zwischenfeldern; und dass die Ersatz-Meldung erst nach echter Neubesetzung geht |
+| **G4b** ✅ | Benachrichtigung an den Kunden — Ausfall und später Ersatz, **ohne die Art** | Ein Test weist nach, dass die Kunden-Benachrichtigung weder `art` noch `notiz` enthält, auch nicht in Zwischenfeldern; und dass die Ersatz-Meldung erst nach echter Neubesetzung geht |
 | **G5** | Oberfläche im Einsatzportal: der dreistufige Weg + eigener Reiter links | Kein Zustand ohne Anzeige (Lade-, Leer-, Fehlerfall); der dritte Schritt zeigt echte Einsatzdaten, keine Platzhalter |
 | **G6** | Umdisponieren mit Vorschlägen im Büro | Aus der Meldung heraus ist ein Ersatz in ≤ 3 Klicks vorgeschlagen und eingeladen |
 
@@ -306,3 +306,136 @@ bereits mit `folgenVorschau()` und wird hier nur benutzt, nicht neu gebaut.
 - **Keine automatische Umdisposition.** Die Plattform schlägt vor; der Mensch
   entscheidet. Ein System, das eigenmächtig umbesetzt, verliert das Vertrauen
   beider Seiten.
+
+---
+
+## Welle G4b — was dabei herauskam *(2026-08-18)*
+
+### Der Befund, der die Welle geformt hat
+
+**`fuerKunde()` hatte bis zu dieser Welle keinen einzigen Produktionsaufrufer.**
+Die Funktion stand seit G2c da, mit Test und Kommentar — aber nichts im Code
+zwang irgendeinen Pfad durch sie hindurch. Die Zusage „der Kunde erfährt nicht,
+warum" war reine Absicht. Das ist dieselbe Klasse Befund wie die drei toten
+Stellen aus G4, nur eine Ebene abstrakter: nicht „wer ruft das auf", sondern
+**„was erzwingt, dass es aufgerufen wird".**
+
+**Und `fuerKunde()` allein hätte auch nicht gereicht.** Sie schützt das *Objekt*.
+Der Weg, auf dem die Art tatsächlich entkommen wäre, ist der **Text**:
+`dispatch()` schreibt `context.message` unverändert in die Tabelle, schickt ihn
+als Mailtext und reicht ihn an Slack/Teams weiter. Die Vorlage aus G4 baut ihren
+Text wörtlich aus Name und `absence.art` — wer sie kopiert hätte, hätte „krank"
+in die Kundenmeldung, in dessen Postfach und in dessen Chat geschrieben, während
+`fuerKunde()` danebensteht und formal recht behält.
+
+**Die Antwort darauf:** `kundenNachricht()` nimmt **kein Abwesenheits-Objekt**
+entgegen, sondern nur einzelne, benannte Werte. Was nicht übergeben werden kann,
+kann auch nicht durchrutschen — auch nicht bei dem Feld, das jemand nächstes
+Jahr ergänzt. Das ist eine Stufe strenger als eine Positivliste auf einem
+Objekt: **es gibt kein Objekt.**
+
+### Der Bestandsfehler, der nebenbei auffiel
+
+**Vier Notdienst-Benachrichtigungen konnten nie entstehen.** `notifications.severity`
+erlaubt laut CHECK (Migration 019) nur `info | warning | error | success`; vier
+Einträge der Matrix trugen `urgent`. Gegen die laufende Datenbank verifiziert:
+Der INSERT wird mit `check_violation` abgewiesen. Ausgerechnet der dringlichste
+Fall der Plattform kam nie an — und niemand hat es gemerkt, weil `dispatch()`
+den Fehler nicht meldet.
+
+Behoben durch `severity: 'warning'`, **nicht** durch Erweitern des CHECKs. Der
+Grund ist die Wirkungsrichtung: Das Frontend kennt `urgent` gar nicht — weder
+die Toast-Varianten noch die Stufen-Abbildung der Shell. Eine so markierte
+Meldung wäre auf `info` zurückgefallen und hätte damit **harmloser** ausgesehen
+als eine gewöhnliche Warnung. Die Dringlichkeit geht dabei nicht verloren: Ob
+eine Mail zwingend rausgeht, entscheidet `getUserPreferences` am
+Ereignisschlüssel (`emergency.*`), nicht an der Stufe. Sie steuert die Optik,
+nicht die Zustellung.
+
+### Drei Entscheidungen, die getroffen wurden
+
+- **Der Empfänger kommt aus `assignments.org_id`, nicht aus
+  `worker_assignment_links.org_id`** — obwohl letztere NOT NULL ist und
+  griffbereit wäre. Sie wird in `routes/workers.js` ungeprüft aus dem
+  Anfrage-Rumpf übernommen (`orgId: parsed.data.org_id`) und nie gegen den
+  Einsatz abgeglichen. Wer sie als Empfängerkreis benutzt, lässt den Aufrufer
+  bestimmen, welche fremde Firma eine Ausfallmeldung bekommt.
+  **Verfügbarkeit schlägt nicht Vertrauenswürdigkeit.** Weichen beide
+  voneinander ab, wird gar nicht gesendet (`ORG_DIVERGENZ`).
+
+- **Kunde = Lieferant heißt: keine Meldung.** In den echten Daten betrifft das
+  **6 von 24** Verknüpfungen — interne Einsätze. Ohne diese Prüfung bekäme das
+  Büro dieselbe Sache zweimal: einmal als Arbeitgeber *mit* Art, einmal als
+  „Kunde" ohne. Das ist nicht nur Lärm — es stellt beide Meldungen nebeneinander
+  und macht die Reduktion sichtbar sinnlos.
+
+- **Eine nur beantragte Meldung verlässt den Betrieb nicht.** Bei eingeschalteter
+  Freigabepflicht (G-E2) hat die Firma noch nicht entschieden; das nach außen zu
+  tragen hieße, eine Entscheidung zu melden, die drinnen aussteht. Die
+  Absendebedingung ist exakt `fuerKunde().faellt_aus` — dieselbe Regel, an
+  derselben Stelle kodiert.
+
+### Was gebaut wurde
+
+| Baustein | Wo |
+|---|---|
+| Zwei Kundentypen im CHECK, additiv aus dem Bestand | `sql/migrations/184_der_kunde_erfaehrt_dass_nicht_warum.sql` |
+| `benachrichtigeKunde()` — je betroffenem Einsatz einmal | `services/workerAbsenceService.js` |
+| `kundenNachricht()` — nimmt **nur Primitive** entgegen | `services/workerAbsenceService.js` |
+| `kundeIstEmpfangsberechtigt()` — drei Gründe, nicht zu senden | `services/workerAbsenceService.js` |
+| `folgenVorschau()` um Kunden-Org **und** Verknüpfungs-Org erweitert | `services/workerAbsenceService.js` |
+| `listAbsences()` um `zustand` erweitert — stille Falle geschlossen | `services/workerAbsenceService.js` |
+| Ausfall bei der Selbstmeldung | `routes/workerPortal.js` |
+| **Entwarnung** beim Aufheben | `routes/workers.js` |
+| **Ersatz** nach echter Neubesetzung, nach dem COMMIT | `routes/workers.js` |
+| Vier Notdienst-severities repariert + `ERLAUBTE_SEVERITY` | `services/notificationMatrix.js` |
+| Eigene Einstellungs-Kategorie `client_assignment_updates` | `services/matchAlertService.js` |
+| Aktivitätsliste: G4- **und** G4b-Typen, plus `milestone`/`bounty_*` | `frontend/public/js/pages/activity.js` |
+
+**Die stille Falle in `listAbsences()`:** Die Abfrage selektierte `zustand`
+nicht. `fuerKunde()` auf eine Zeile aus dieser Liste hätte deshalb **immer**
+`faellt_aus: false` geliefert — lautlos, weil `undefined === "wirksam"` schlicht
+falsch ist. Ein Aufrufer, der die Kundenmeldung aus einer Liste speist statt aus
+dem `RETURNING` des INSERT, hätte damit jeden Ausfall als „kein Ausfall"
+gemeldet.
+
+### Das Register hat acht Einträge, nicht vier
+
+G4 hatte vier gepflegt und dabei einen **fünften übersehen**:
+`frontend/public/js/pages/activity.js` kannte die neuen Typen nicht — dort
+erschien der rohe Schlüsselname als Beschriftung, und unter jedem
+Kategoriefilter verschwand die Meldung ganz. Dass dort auch `milestone` und
+`bounty_*` fehlten, belegt: **diese Kopie prüfte kein Wächter.** Seit G4b tut es
+einer, und der G4-Rückstand ist mit nachgetragen.
+
+### Belege
+
+`api/test/g4bKundenBenachrichtigung.test.js` — 35 Tests. Die tragenden:
+
+- **Kein Parameter des INSERTs** trägt Art, Notiz oder Beschreibung — geprüft
+  über den *gesamten* Parametersatz, nicht über die `message` allein, mit einer
+  Wortliste (`krank`, `Grippe`, `Fieber`, `Hausarzt`, …).
+- Auch ein **später ergänztes Feld** (`diagnose_code`, `zusatz`) rutscht nicht
+  durch.
+- Auch **Titel und Typname** verraten nichts — sie erscheinen in Push-Bannern,
+  Betreffzeilen und Filtern, wo der Empfängerkreis ein anderer sein kann.
+- Der Empfängerkreis wird in der **Kunden-Org** gesucht, nicht beim Lieferanten.
+- **Jede `severity` der Matrix** ist ein Wert, den die Datenbank erlaubt — der
+  Wächter, der den Notdienst-Befund aufgedeckt hat. Er importiert
+  `ERLAUBTE_SEVERITY` statt die Liste zu wiederholen.
+
+`api/test/integration/g4bKundenMeldung.flow.test.js` — 8 Tests **gegen das echte
+Schema**: dass beide Typen im CHECK angekommen sind, dass der Altbestand nicht
+verloren ging, dass die Konstante `ERLAUBTE_SEVERITY` mit dem echten CHECK
+übereinstimmt, und dass **jedes** Matrix-Ereignis wirklich durchgeht — der
+Gegenbeweis zum Notdienst-Befund.
+
+### Was G4b nicht ist
+
+Die **Oberfläche des Kunden zeigt den Ausfall noch nicht.**
+`getCompanyLiveWorkforce` berührt `worker_absences` gar nicht — der Deep-Link
+führt auf die Kundenansicht, aber diese Ansicht kennt den Zustand „fällt aus"
+noch nicht. Das ist die konsequente Fortsetzung und gehört in **G5**, wo die
+Oberflächen ohnehin gebaut werden. Bis dahin trägt die Benachrichtigung selbst
+die Information (Name, Kunde, Zeitraum) — sie ist nicht auf das Ziel angewiesen,
+um verständlich zu sein.

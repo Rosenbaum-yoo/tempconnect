@@ -41,6 +41,8 @@
       'doc.act.cat.capacity': 'Personal',
       'doc.act.cat.deal': 'Deals',
       'doc.act.cat.timesheet': 'Timesheets',
+      'doc.act.cat.workforce': 'Belegschaft',
+      'doc.act.cat.bounty': 'Meilensteine',
       'doc.act.cat.system': 'System',
 
       'doc.act.sev.all': 'Alle Stufen',
@@ -85,6 +87,8 @@
       'doc.act.type.deal': 'Deal',
       'doc.act.type.emergency': 'Notdienst',
       'doc.act.type.timesheet': 'Timesheet',
+      'doc.act.type.workforce': 'Belegschaft',
+      'doc.act.type.bounty': 'Meilensteine',
       'doc.act.type.system': 'System',
 
       'doc.act.time.now': 'gerade eben',
@@ -176,6 +180,8 @@
       'doc.act.cat.capacity': 'Staff',
       'doc.act.cat.deal': 'Deals',
       'doc.act.cat.timesheet': 'Timesheets',
+      'doc.act.cat.workforce': 'Workforce',
+      'doc.act.cat.bounty': 'Milestones',
       'doc.act.cat.system': 'System',
 
       'doc.act.sev.all': 'All levels',
@@ -220,6 +226,8 @@
       'doc.act.type.deal': 'Deal',
       'doc.act.type.emergency': 'Emergency cover',
       'doc.act.type.timesheet': 'Timesheet',
+      'doc.act.type.workforce': 'Workforce',
+      'doc.act.type.bounty': 'Milestones',
       'doc.act.type.system': 'System',
 
       'doc.act.time.now': 'just now',
@@ -308,6 +316,15 @@
       deal_offer_sent: "deal", deal_accepted: "deal", deal_confirmed: "deal", deal_completed: "deal", deal_assignment_started: "deal", deal_staffing_ready: "deal",
       emergency_request: "emergency", emergency_escalation: "emergency",
       timesheet_submitted: "timesheet", timesheet_approved: "timesheet", timesheet_rejected: "timesheet", timesheet_signed: "timesheet",
+      /* Belegschaft: Selbstmeldungen (G4, Arbeitgebersicht) und die Kundensicht
+         derselben Sache (G4b). Diese Stelle wurde in G4 UEBERSEHEN — ohne
+         Eintrag zeigt die Liste den rohen Schluesselnamen als Beschriftung, und
+         unter jedem Kategoriefilter verschwindet die Meldung ganz. Dass hier
+         auch milestone und bounty_* fehlten, belegt: diese Kopie prueft kein
+         Waechter. Seit G4b tut es einer. */
+      worker_absence_reported: "workforce", worker_delay_reported: "workforce",
+      assignment_worker_unavailable: "workforce", assignment_worker_replaced: "workforce",
+      milestone: "bounty", bounty_near: "bounty", bounty_earned: "bounty", bounty_lost: "bounty",
       general: "system", system: "system"
     };
     function typeLabel(type) {
@@ -326,6 +343,8 @@
       capacity:    ["capacity_interest", "capacity_expiring", "capacity_match", "capacity_stale", "demand_match"],
       deal:        ["deal_offer_sent", "deal_accepted", "deal_confirmed", "deal_completed", "deal_assignment_started", "deal_staffing_ready"],
       timesheet:   ["timesheet_submitted", "timesheet_approved", "timesheet_rejected", "timesheet_signed"],
+      workforce:   ["worker_absence_reported", "worker_delay_reported", "assignment_worker_unavailable", "assignment_worker_replaced"],
+      bounty:      ["milestone", "bounty_near", "bounty_earned", "bounty_lost"],
       system:      ["general", "system", "vendor_pool_change", "emergency_request", "emergency_escalation"]
     };
 

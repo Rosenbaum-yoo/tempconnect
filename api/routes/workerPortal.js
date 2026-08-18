@@ -392,6 +392,22 @@ export function createWorkerPortalRouter(deps) {
         melderUserId: req.session.userId,
       });
 
+      /* ── Und der Kunde erfaehrt, DASS jemand ausfaellt (Welle G4b) ──────
+       *
+       * NACH der Buero-Meldung, nicht davor: Der Arbeitgeber erfaehrt es
+       * zuerst. Faellt der zweite Weg aus, steht der erste trotzdem — beide
+       * Funktionen werfen nie.
+       *
+       * Was hier NICHT uebergeben wird, ist der eigentliche Punkt: kein `art`,
+       * keine `beschreibung`. `benachrichtigeKunde` bekommt die Abwesenheit
+       * zwar als Objekt, laesst sie aber ausschliesslich durch `fuerKunde()`
+       * laufen und baut den Text aus benannten Einzelwerten. */
+      const kunde = await abwesenheit.benachrichtigeKunde(pool, profile.supplier_org_id, {
+        anlass: "ausfall",
+        absence: ergebnis.absence,
+        workerProfileId: profile.id,
+      });
+
       res.locals.audit = {
         action: "worker.report_absence",
         entity_type: "worker_absence",
@@ -406,6 +422,9 @@ export function createWorkerPortalRouter(deps) {
           zustand: ergebnis.absence.zustand,
           quelle: "mitarbeiter",
           buero_benachrichtigt: buero.benachrichtigt,
+          /* "An wen ging was" ist bei einer Meldung ueber ein Gesundheitsdatum
+           * selbst pruefungsrelevant — die Zahl gehoert in die Akte. */
+          kunde_benachrichtigt: kunde.benachrichtigt,
         },
       };
       /* Vorgang schliessen. Bliebe er offen, waere die Sperre einmalig statt je
@@ -419,6 +438,9 @@ export function createWorkerPortalRouter(deps) {
          * zusaetzlich anrufen. Eine beschoenigte Bestaetigung waere hier der
          * gefaehrlichere Zustand. */
         buero_benachrichtigt: buero.benachrichtigt,
+        /* Der Mensch soll sehen, dass auch der Einsatzbetrieb Bescheid weiss —
+         * das nimmt ihm den Anruf ab, den er sonst sicherheitshalber macht. */
+        kunde_benachrichtigt: kunde.benachrichtigt,
       });
     } catch (err) { next(err); }
   });

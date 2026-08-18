@@ -896,12 +896,37 @@ export function createWorkersRouter(deps) {
       });
       if (result.error) return res.status(result.status || 400).json(result);
 
+      /* ── Entwarnung an den Kunden (Welle G4b) ──────────────────────────
+       *
+       * Eine Meldung nach aussen ist eine Zusage. Wird sie zurueckgenommen und
+       * der Kunde erfaehrt es nicht, plant er weiter mit einem Ausfall, den es
+       * nicht gibt — und stellt womoeglich Ersatz ein, den er nicht braucht.
+       * Das ist teurer als die urspruengliche Meldung.
+       *
+       * NUR wenn die Abwesenheit auch WIRKSAM war: Eine bloss beantragte hat
+       * den Betrieb nie verlassen (siehe die Absendebedingung in
+       * `benachrichtigeKunde`), und eine Entwarnung fuer etwas, das nie gemeldet
+       * wurde, verwirrt mehr, als sie klaert. */
+      let kundeEntwarnt = 0;
+      if (result.absence && result.absence.zustand === "wirksam") {
+        const e = await absenceSvc.benachrichtigeKunde(pool, req.orgId, {
+          anlass: "entwarnung",
+          absence: result.absence,
+          workerProfileId: result.absence.worker_profile_id,
+        });
+        kundeEntwarnt = e.benachrichtigt;
+      }
+
       res.locals.audit = {
         action: "supplier.worker_absence.cancel", entity_type: "worker_absence",
         entity_id: req.params.id,
-        details: { grund: grund || null, responsible_actor_user_id: req.session.userId }
+        details: {
+          grund: grund || null,
+          responsible_actor_user_id: req.session.userId,
+          kunde_entwarnt: kundeEntwarnt,
+        }
       };
-      res.json(result);
+      res.json({ ...result, kunde_entwarnt: kundeEntwarnt });
     } catch (err) { next(err); }
   });
 
@@ -1659,9 +1684,43 @@ export function createWorkersRouter(deps) {
         effectiveFrom: parsed.data.effective_date, reason: parsed.data.reason
       });
 
+      /* ── Ersatz an den Kunden (Welle G4b) ──────────────────────────────
+       *
+       * DAS GATE DIESER WELLE: "die Ersatz-Meldung geht erst nach echter
+       * Neubesetzung raus". Genau hier ist sie echt — `replaceAssignmentWorker`
+       * hat committet, der neue Link steht, `result.replacement_link` ist der
+       * Beleg. Eine Meldung an einer frueheren Stelle (etwa beim Einladen eines
+       * Kandidaten) waere ein Versprechen statt einer Tatsache, und der Kunde
+       * plant auf ein Versprechen hin seine Schicht.
+       *
+       * NACH dem COMMIT, wie die beiden Worker-Benachrichtigungen darueber:
+       * innerhalb der Transaktion waere die Meldung raus, auch wenn danach
+       * zurueckgerollt wird — und eine Zusage laesst sich nicht zurueckrollen. */
+      let kundeInformiert = 0;
+      const ausgefallen = await absenceSvc.profilZuNutzer(pool, req.orgId, result.ailing_worker_user_id);
+      if (ausgefallen) {
+        const ersatz = await absenceSvc.profilZuNutzer(pool, req.orgId, parsed.data.replacement_worker_user_id);
+        const einsatz = await absenceSvc.einsatzFuerKundenmeldung(
+          pool, req.orgId, result.original_link.assignment_id
+        );
+        if (einsatz) {
+          const k = await absenceSvc.benachrichtigeKunde(pool, req.orgId, {
+            anlass: "ersatz",
+            workerProfileId: ausgefallen.id,
+            einsaetze: [einsatz],
+            ersatzName: ersatz ? ersatz.name : null,
+          });
+          kundeInformiert = k.benachrichtigt;
+        }
+      }
+      if (res.locals.audit && res.locals.audit.details) {
+        res.locals.audit.details.kunde_informiert = kundeInformiert;
+      }
+
       res.status(200).json({
         original_link:    result.original_link,
-        replacement_link: result.replacement_link
+        replacement_link: result.replacement_link,
+        kunde_informiert: kundeInformiert
       });
     } catch (err) { next(err); }
   });

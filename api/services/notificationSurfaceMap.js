@@ -72,6 +72,12 @@ const SURFACE_BY_TYPE = {
   worker_absence_reported: "assignments",
   worker_delay_reported: "assignments",
 
+  // Kundenseite derselben Sache (Welle G4b). Dieselbe Karte, und das ist
+  // richtig: Fuer den Kunden ist der Ausfall einer gebuchten Kraft ein
+  // Ereignis an seinem EINSATZ, nicht an einer fremden Personalakte.
+  assignment_worker_unavailable: "assignments",
+  assignment_worker_replaced: "assignments",
+
   // Gamification / Meilensteine → Bounties-Card
   milestone: "bounties",
 

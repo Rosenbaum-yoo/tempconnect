@@ -4,7 +4,7 @@
 > sobald in einem Arbeitsplan eine offene Owner-Entscheidung auftaucht, die hier fehlt.
 > Eine Übergabe, die man vergessen kann, ist keine.
 
-**Stand: 2026-08-17** · Branch `release/enterprise-premium-market-ready`
+**Stand: 2026-08-18** · Branch `release/enterprise-premium-market-ready`
 
 ---
 
@@ -39,7 +39,7 @@ Abschnitten, die ich in Spuren mit **Wellen und Gates** schneide.
 ```bash
 cd api && node scripts/run-tests.js          # offizieller Runner, ohne Pipe
 ```
-Stand: **8588 Tests** (2026-08-17, voller Lauf ohne Pipe, 0 Fehler), davon 13 übersprungen — die DB-gebundenen, die nur im Container laufen.
+Stand: **8623 Tests** (2026-08-18, voller Lauf ohne Pipe, 0 Fehler), davon 13 übersprungen — die DB-gebundenen, die nur im Container laufen.
 
 Die DB-gestützten Tests laufen im Container, wo `DB_HOST` gesetzt ist — auf dem
 Host überspringen sie sich selbst. Was gegen das echte Schema geprüft sein muss
@@ -79,7 +79,7 @@ Lastabhängig. **Als eigene Aufgabe ausgelagert, nicht nebenbei anfassen.**
 | [ORG_GRENZE_BEFUND.md](ORG_GRENZE_BEFUND.md) | Warum die Mandantengrenze 80-mal einzeln in den Routen steht — versionierte Fassung des wichtigsten Architekturbefunds |
 | [FLAECHEN.md](FLAECHEN.md) | Was gehört ins Staff CC, was ins OCC, was ins Support Center. **Vor jedem neuen Modul lesen**, wird per Test erzwungen. |
 | [TESTING.md](TESTING.md) | Testarchitektur, inkl. Mutation Testing und seiner zwei Fallen |
-| [features/G_ABWESENHEIT_SELBSTERFASSUNG.md](features/G_ABWESENHEIT_SELBSTERFASSUNG.md) | Abwesenheit, vom Mitarbeiter selbst gemeldet — sechs Wellen. **G1-G3 gebaut** (Mig 181/182, Endpunkte, Zeitsperre, Mindestbeschreibung, Verspaetungsweg). Enthaelt die acht Owner-Entscheidungen G-E1 bis G-E8; offen sind G4, G4b, G5, G6. |
+| [features/G_ABWESENHEIT_SELBSTERFASSUNG.md](features/G_ABWESENHEIT_SELBSTERFASSUNG.md) | Abwesenheit, vom Mitarbeiter selbst gemeldet — sechs Wellen. **G1-G3 gebaut** (Mig 181/182, Endpunkte, Zeitsperre, Mindestbeschreibung, Verspaetungsweg). Enthaelt die acht Owner-Entscheidungen G-E1 bis G-E8. **G1-G4b gebaut**; offen sind G5 (Oberflaeche) und G6 (Vorschlaege). |
 | [features/P11_DOKUMENTATION_ALS_SYSTEM.md](features/P11_DOKUMENTATION_ALS_SYSTEM.md) | Doku als System: generiert statt gepflegt, drei Leser (Investor/Owner/Technik), Hilfebereich. 11 Wellen, W1 laeuft. **Owner-Grundprinzip fuer alle Projekte.** |
 | [PLATTFORM_REGISTER.md](PLATTFORM_REGISTER.md) | Das Inventar: jede Flaeche, jeder Endpunkt, jede Faehigkeit, mit Beleg und Zustand. Grundlage der Investoren- und Bedienungsdoku. Wird per `dokuWaechter.test.js` gegen den Code gehalten. |
 | [TEAM_UND_ROLLEN.md](TEAM_UND_ROLLEN.md) | Wen dieser Code verlangt: Fachbereiche, Erfahrungsstufen, Minimalbesetzung, Reihenfolge der Einstellung — gemessen, nicht geschaetzt. |
@@ -128,34 +128,39 @@ onclick-Handler, fehlendes CSRF, Sackgassen-Links. Sie haben den Multi-Agenten-A
 
 ---
 
-## Wo es weitergeht *(Stand 2026-08-17)*
+## Wo es weitergeht *(Stand 2026-08-18)*
 
-**Nächster Schritt: G4b — die Benachrichtigung an den Kunden.**
-G4 ist gebaut und belegt (siehe unten).
+**Nächster Schritt: G5 — die Oberfläche im Einsatzportal.**
+G4 und G4b sind gebaut und belegt (siehe unten).
 
-### Der unmittelbare Auftrag (G4b)
+### Der unmittelbare Auftrag (G5)
 
-Der Kunde erfährt **zweimal** etwas: wenn die Kraft ausfällt, und wenn Ersatz
-gestellt ist. **Aber nie, warum.**
+Die Oberfläche im Einsatzportal: der dreistufige Weg + ein eigener Reiter links.
+Das Backend steht vollständig — G5 baut **gegen echte Endpunkte**, nicht gegen
+Platzhalter.
 
-**Gate G4b:** Ein Test weist nach, dass die Kunden-Benachrichtigung weder `art`
-noch `notiz` noch die Beschreibung enthält — auch nicht in Zwischenfeldern — und
-dass die Ersatz-Meldung erst nach echter Neubesetzung rausgeht.
-
-**Der Weg ist vorgezeichnet, nichts davon neu bauen:**
+**Gate G5:** Kein Zustand ohne Anzeige (Lade-, Leer-, Fehlerfall); der dritte
+Schritt zeigt **echte** Einsatzdaten aus `folgenVorschau()`, keine Platzhalter.
 
 | Vorhanden | Wo |
 |---|---|
-| **`fuerKunde()`** — **zwingend**, siehe unten | `workerAbsenceService.js` |
-| Der ganze Zustellweg inkl. Live-Push und Deep-Link | `benachrichtigeBuero()` als Vorlage — dieselbe Bauform, anderer Empfängerkreis |
-| Zwei Meldungstypen im CHECK anlegen | Migration **184**, Muster aus 171/183 (additiv, nie abschreiben) |
-| Vier Register, die zusammenpassen müssen | Matrix · Surface-Map · `hubCardBadges.js` · `EVENT_CATEGORY_MAP` — alle vier werden per Test erzwungen |
+| `POST /worker/me/abwesenheit/vorgang` — eröffnet die Zeitsperre, liefert die Restzeit | `routes/workerPortal.js` |
+| `GET /worker/me/abwesenheit/folgen` — die betroffenen Einsätze, namentlich | `routes/workerPortal.js` |
+| `POST /worker/me/abwesenheit` — `428` ohne Vorgang, `429` zu früh, `422` bei zu kurzer Beschreibung | `routes/workerPortal.js` |
+| `POST /worker/me/verspaetung` — der leichte Weg, ohne Sperre | `routes/workerPortal.js` |
+| Die vier Fragen als Struktur | `BESCHREIBUNG_FRAGEN` im Absence-Service |
 
-> **Die Falle bei G4b:** Der Empfänger ist die **Kunden-Org**, nicht die
-> Lieferanten-Org. `findOrgMembersWithPermission` muss mit `a.org_id` aus dem
-> Einsatz aufgerufen werden, nicht mit `supplier_org_id`. Wer das verwechselt,
-> schickt die Ausfallmeldung an den Arbeitgeber und den Kunden gar nichts —
-> und beides sieht in einem Ergebnis-Test gleich aus.
+> **Die Falle bei G5:** Die Zeitsperre liegt **hinten**. Der Browser zeigt den
+> Zähler nur an — er darf ihn nicht durchsetzen wollen. Wer die Schaltfläche
+> clientseitig sperrt und die Server-Antwort nicht auswertet, baut eine
+> Oberfläche, die bei `429` stumm bleibt und den Menschen raten lässt.
+> Die Restzeit steht in der Antwort (`verbleibend_sekunden`) — sie gehört
+> angezeigt, nicht nachgerechnet.
+
+**Und eine Fortsetzung aus G4b:** Die Kundenansicht zeigt den Ausfall noch nicht
+(`getCompanyLiveWorkforce` berührt `worker_absences` gar nicht). Der Deep-Link
+der Kundenmeldung führt dorthin — die Ansicht sollte in G5 den Zustand
+„fällt aus" kennen, **ohne die Art**.
 
 ### Danach: G5 → G6
 
@@ -194,7 +199,34 @@ und hier hat genau das den teuersten Befund gefunden.
 Vollständig, mit allen Entscheidungen und Belegen:
 [features/G_ABWESENHEIT_SELBSTERFASSUNG.md](features/G_ABWESENHEIT_SELBSTERFASSUNG.md),
 Abschnitt „Welle G4 — was dabei herauskam". Beleg:
-`api/test/g4BenachrichtigungBuero.test.js` (29 Tests).
+`api/test/g4BenachrichtigungBuero.test.js` (30 Tests).
+
+### G4b ist fertig — und deckte einen stillen Ausfall im Notdienst auf *(2026-08-18)*
+
+**`fuerKunde()` hatte bis dahin keinen einzigen Produktionsaufrufer.** Die
+Schutzfunktion stand seit G2c da, mit Test und Kommentar — aber nichts zwang
+irgendeinen Pfad durch sie hindurch. Dieselbe Klasse Befund wie bei G4, eine
+Ebene abstrakter: nicht „wer ruft das auf", sondern **„was erzwingt, dass es
+aufgerufen wird".**
+
+**Und sie hätte allein nicht gereicht:** Sie schützt das *Objekt*, entkommen
+wäre die Art über den *Text* (`context.message` geht in Tabelle, Mail und
+Slack). Deshalb nimmt `kundenNachricht()` **kein Abwesenheits-Objekt** entgegen,
+sondern nur benannte Einzelwerte — was nicht übergeben werden kann, rutscht
+auch nicht durch.
+
+**Nebenbefund, gravierend:** Vier **Notdienst**-Benachrichtigungen konnten nie
+entstehen. `notifications.severity` erlaubt nur `info|warning|error|success`,
+vier Matrix-Einträge trugen `urgent` — der INSERT wurde mit `check_violation`
+abgewiesen, still. Repariert (`warning`), plus `ERLAUBTE_SEVERITY` als
+exportierte Konstante und ein Wächter, der jede severity der Matrix dagegen
+hält. **Nicht** den CHECK erweitert: Das Frontend kennt `urgent` nicht, die
+Meldung wäre auf `info` zurückgefallen — harmloser als eine normale Warnung.
+
+Vollständig: derselbe Plan, Abschnitt „Welle G4b — was dabei herauskam". Belege:
+`api/test/g4bKundenBenachrichtigung.test.js` (35 Tests) und
+`api/test/integration/g4bKundenMeldung.flow.test.js` (8 Tests gegen das echte
+Schema).
 
 ### Was schon steht (2026-08-15/17)
 
@@ -207,8 +239,9 @@ Abschnitt „Welle G4 — was dabei herauskam". Beleg:
 | **G2c** Beschreibung | 30 Wörter über vier Fragen; `fuerKunde()` als Grenze |
 | **G3** Verspätung | Mig 182, eigene Tabelle, Obergrenze 240 min mit Verweis auf den anderen Weg |
 | **G4** Meldung ans Büro | Mig 183, Live-Push in `dispatch()`, Deep-Link auf die Person, Kategorie `workforce_updates` |
+| **G4b** Meldung an den Kunden | Mig 184, Ausfall · Entwarnung · Ersatz — **ohne die Art**; Empfänger aus `assignments.org_id`, eigene Kategorie |
 
-**Testlage:** 8588 Tests, 0 Fehler (voller Lauf ohne Pipe, 2026-08-17).
+**Testlage:** 8623 Tests, 0 Fehler (voller Lauf ohne Pipe, 2026-08-18).
 Zusätzlich im Container geprüft, wo die DB-gebundenen Tests wirklich laufen.
 
 ### Drei Regeln, die diese Sitzung teuer gelernt hat

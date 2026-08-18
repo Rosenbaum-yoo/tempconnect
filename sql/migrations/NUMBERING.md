@@ -8,7 +8,8 @@
 > 179 Zustandsprotokoll an der Quelle (P10/E5, erste Trigger auf worker_*),
 > 180 Notdienst-Antwortpfad (Nachtrag P9/A3, Befund P1-15),
 > 181 Abwesenheit-Selbsterfassung (G1), 182 Verspaetungsmeldung (G3),
-> 183 Meldung erreicht das Buero (G4, zwei Typen im CHECK von `notifications.type`)
+> 183 Meldung erreicht das Buero (G4, zwei Typen im CHECK von `notifications.type`),
+> 184 der Kunde erfaehrt dass nicht warum (G4b, Kunden-Meldung ohne die Art)
 
 This document records known legacy numbering anomalies and establishes the rule
 for all future migrations.
@@ -23,7 +24,7 @@ for all future migrations.
 
 ## Rule: Next migration number
 
-**Next migration MUST start at: 184**
+**Next migration MUST start at: 185**
 
 Format: `<NNN>_<short_description>.sql` (three-digit zero-padded)
 
@@ -99,8 +100,8 @@ alphabetical order within the number (e.g. `064_capacity_…` before `064_strate
 
 ## Checklist for new migrations
 
-1. Use the next sequential number (currently **184**)
-2. File name: `184_<short_snake_case>.sql`
+1. Use the next sequential number (currently **185**)
+2. File name: `185_<short_snake_case>.sql`
 3. Wrap DDL in a transaction if the DB supports transactional DDL
 4. Include a `-- Migration NNN:` comment header with a brief description
 5. Use `SET client_min_messages TO WARNING;` to suppress noise

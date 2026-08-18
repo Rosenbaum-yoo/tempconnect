@@ -62,7 +62,18 @@ const EVENT_CATEGORY_MAP = {
    * abstellt, haette ab da keine Krankmeldungen mehr bekommen und es nie
    * erfahren. Der Rueckfall ist bequem und genau deshalb gefaehrlich. */
   'worker.absence_reported': 'workforce_updates',
-  'worker.delay_reported':   'workforce_updates'
+  'worker.delay_reported':   'workforce_updates',
+  /* Kundenseite bekommt eine EIGENE Kategorie (Welle G4b) — nicht
+   * 'workforce_updates'. Der Grund liegt darin, WO die Einstellung haengt:
+   * an der Person, nicht an der Organisation (getUserPreferences filtert auf
+   * user_id). Wer in beiden Welten Mitglied ist — bei einer Zeitarbeitsfirma
+   * und bei einem Einsatzunternehmen — haette sonst EINEN Schalter fuer zwei
+   * voellig verschiedene Dinge: "mein eigener Mitarbeiter meldet sich ab" und
+   * "die bei mir eingesetzte Fremdkraft faellt aus". Genau diese Kopplung hat
+   * G4 beim Rueckfall auf 'match_alerts' abgelehnt; sie hier einzubauen waere
+   * derselbe Fehler eine Ebene tiefer. */
+  'assignment.worker_unavailable': 'client_assignment_updates',
+  'assignment.worker_replaced':    'client_assignment_updates'
 };
 
 export { EVENT_CATEGORY_MAP };

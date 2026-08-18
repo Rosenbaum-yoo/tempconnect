@@ -175,7 +175,14 @@ export async function listAbsences(pool, supplierOrgId, filters = {}) {
   params.push(Math.min(500, Math.max(1, Number(filters.limit) || 200)));
 
   const { rows } = await pool.query(
+    /* `zustand` und `quelle` MUESSEN mit heraus. Ohne `zustand` liefert
+     * `fuerKunde()` auf einer Zeile aus dieser Liste IMMER `faellt_aus: false`
+     * — still, ohne Fehler, weil `undefined === "wirksam"` schlicht falsch ist.
+     * Ein Aufrufer, der die Kundenmeldung aus einer Liste speist statt aus dem
+     * RETURNING des INSERT, wuerde damit jeden Ausfall als "kein Ausfall"
+     * melden. Genau die Sorte Luecke, die niemand sieht. (Welle G4b) */
     `SELECT a.id, a.worker_profile_id, a.art, a.von, a.bis, a.notiz,
+            a.zustand, a.quelle,
             a.erfasst_von, a.erfasst_am, a.aufgehoben_am, a.aufgehoben_von, a.aufhebung_grund,
             wp.first_name, wp.last_name, wp.personnel_number, wp.user_id AS worker_user_id
        FROM worker_absences a
@@ -253,8 +260,19 @@ export async function folgenVorschau(pool, supplierOrgId, { workerProfileId, von
   const bisDatum = alsDatum(bis);
 
   const { rows } = await pool.query(
+    /* `a.org_id` ist der KUNDE (Besteller), `a.supplier_org_id` der Lieferant —
+     * belegt an der Erzeugerstelle (routes/requests.js: org_id = requesterOrg).
+     *
+     * WARUM NICHT `wal.org_id`, obwohl die Spalte NOT NULL ist und griffbereit
+     * waere: Sie wird in routes/workers.js ungeprueft aus dem Anfrage-Rumpf
+     * uebernommen (`orgId: parsed.data.org_id`) und nie gegen den Einsatz
+     * abgeglichen. Wer sie als Empfaengerkreis benutzt, laesst den Aufrufer
+     * bestimmen, welche fremde Firma eine Ausfallmeldung bekommt.
+     * Verfuegbarkeit schlaegt hier nicht Vertrauenswuerdigkeit. (Welle G4b) */
     `SELECT a.id            AS assignment_id,
             a.status        AS assignment_status,
+            a.org_id        AS kunde_org_id,
+            wal.org_id      AS verknuepfung_org_id,
             o.name          AS kunde,
             wal.start_date  AS beginnt,
             wal.end_date    AS endet,
@@ -745,4 +763,278 @@ export async function benachrichtigeBuero(pool, supplierOrgId, meldung = {}) {
      * Grund zurueck und kann ihn protokollieren; die Meldung selbst steht. */
     return { benachrichtigt: 0, grund: e && e.message ? e.message : "DISPATCH_FEHLER" };
   }
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+ *  Welle G4b — der Kunde erfaehrt, DASS jemand ausfaellt, nie WARUM
+ *
+ *  DIE TRENNLINIE, AN DER DATENSCHUTZVERSTOESSE IN DIESER BRANCHE PASSIEREN:
+ *  Die Zeitarbeitsfirma ist Arbeitgeber und darf "krank" verarbeiten. Das
+ *  Einsatzunternehmen ist ein DRITTER. Fuer seine Planung genuegt, DASS jemand
+ *  ausfaellt und bis wann voraussichtlich — die Art ist ein Gesundheitsdatum
+ *  nach Art. 9 DSGVO und geht ihn nichts an.
+ *
+ *  WARUM fuerKunde() ALLEIN NICHT REICHT — der Befund, der diese Welle geformt
+ *  hat: Die Funktion schuetzt das OBJEKT. Der Weg, auf dem die Art tatsaechlich
+ *  entkaeme, ist aber der TEXT. dispatch() schreibt context.message unveraendert
+ *  in die Tabelle, schickt ihn als Mailtext und reicht ihn an Slack/Teams
+ *  weiter. Und die Vorlage aus G4 baut ihren Text woertlich aus Name und
+ *  absence.art — wer sie kopiert, schreibt "krank" in die Kundenmeldung, in
+ *  dessen Postfach und in dessen Chat, waehrend fuerKunde() danebensteht und
+ *  formal recht behaelt.
+ *
+ *  DIE ANTWORT DARAUF: kundenNachricht() nimmt KEIN Abwesenheits-Objekt
+ *  entgegen, sondern nur einzelne, benannte Werte. Was nicht uebergeben werden
+ *  kann, kann auch nicht durchrutschen — auch nicht bei dem Feld, das jemand
+ *  naechstes Jahr ergaenzt. Das ist eine Stufe strenger als eine Positivliste
+ *  auf einem Objekt: es gibt kein Objekt.
+ * ═══════════════════════════════════════════════════════════════════════════ */
+
+/** Wer beim KUNDEN umdisponieren kann. Nicht assignment.view — das umfasst zehn
+ *  Rollen bis hinunter zum Betrachter; wer nichts tun kann, braucht die Meldung
+ *  nicht, und eine Meldung an alle ist eine an niemanden. */
+export const KUNDE_PERMISSION = "assignment.edit";
+
+/** Die drei Anlaesse, ueber die der Kunde etwas erfaehrt. */
+export const KUNDE_ANLAESSE = Object.freeze(["ausfall", "entwarnung", "ersatz"]);
+
+/** Einsaetze, die nicht mehr laufen, betreffen den Kunden nicht mehr. */
+const EINSATZ_ERLEDIGT = Object.freeze(["completed", "cancelled", "closed"]);
+
+/**
+ * Der Text der Kundenmeldung.
+ *
+ * NIMMT BEWUSST NUR PRIMITIVE. Kein absence, kein link, kein profil — sonst
+ * waere die naechste Ergaenzung an einem dieser Objekte automatisch ein
+ * Kandidat fuer den Text. Wer hier etwas hinzufuegen will, muss es einzeln
+ * benennen, und genau dabei faellt auf, ob es den Kunden angeht.
+ *
+ * @param {{anlass:string, name:string, kunde?:string|null, von?:string|null,
+ *          bis?:string|null, ersatzName?:string|null}} teile
+ */
+export function kundenNachricht(teile = {}) {
+  const { anlass, name, kunde = null, von = null, bis = null, ersatzName = null } = teile;
+  const wer = String(name || "Eine Einsatzkraft").trim();
+  const wo = kunde ? " (" + kunde + ")" : "";
+
+  if (anlass === "entwarnung") {
+    return wer + wo + " faellt doch nicht aus - die Meldung wurde zurueckgenommen.";
+  }
+  if (anlass === "ersatz") {
+    return ersatzName
+      ? "Ersatz fuer " + wer + wo + ": " + String(ersatzName).trim() + " uebernimmt."
+      : "Fuer " + wer + wo + " ist Ersatz gestellt.";
+  }
+
+  /* Ausfall. KEIN Grund, KEINE Art — und das ist keine Auslassung, sondern die
+   * Nachricht: Was der Kunde zum Planen braucht, ist der Zeitraum. */
+  const teil = [wer + wo + " faellt aus"];
+  if (von) teil.push("ab " + von);
+  teil.push(bis ? "voraussichtlich bis " + bis : "Dauer noch offen");
+  return teil.join(" · ") + ".";
+}
+
+/**
+ * Darf dieser Einsatz ueberhaupt eine Kundenmeldung ausloesen?
+ *
+ * Drei Faelle sagen NEIN, und alle drei sind in den echten Daten belegt:
+ *  1. KEIN KUNDE — assignments.org_id ist nullable. Ohne Besteller gibt es
+ *     niemanden zu benachrichtigen.
+ *  2. KUNDE IST DER LIEFERANT — im Bestand betrifft das ein Viertel der
+ *     Verknuepfungen (interne Einsaetze). Ohne diese Pruefung bekaeme das Buero
+ *     dieselbe Sache zweimal: einmal als Arbeitgeber MIT Art, einmal als
+ *     "Kunde" ohne. Das ist nicht nur Laerm — es stellt beide Meldungen
+ *     nebeneinander und macht die Reduktion sichtbar sinnlos.
+ *  3. DIVERGENZ — worker_assignment_links.org_id kommt ungeprueft aus dem
+ *     Anfrage-Rumpf (routes/workers.js: orgId aus dem Body). Weicht sie von
+ *     assignments.org_id ab, ist unklar, wer der Kunde ist: Die Empfaenger
+ *     kaemen aus der einen Quelle, die Ansicht des Kunden filtert aber nach der
+ *     anderen — man benachrichtigte Menschen, die den Einsatz bei sich gar
+ *     nicht sehen. Im Zweifel nicht senden.
+ */
+export function kundeIstEmpfangsberechtigt(einsatz, supplierOrgId) {
+  const kunde = einsatz && einsatz.kunde_org_id;
+  if (!kunde) return { erlaubt: false, grund: "KEIN_KUNDE" };
+  if (kunde === supplierOrgId) return { erlaubt: false, grund: "KUNDE_IST_LIEFERANT" };
+  const verknuepfung = einsatz.verknuepfung_org_id;
+  if (verknuepfung && verknuepfung !== kunde) {
+    return { erlaubt: false, grund: "ORG_DIVERGENZ" };
+  }
+  return { erlaubt: true, kundeOrgId: kunde };
+}
+
+/** Anlass zu Ereignisschluessel. Die Entwarnung teilt sich den Typ mit dem
+ *  Ausfall: es ist dieselbe Sache, nur zurueckgenommen — ein eigener Typ wuerde
+ *  die Zusammengehoerigkeit in Liste und Filter zerreissen. */
+export function kundenEreignis(anlass) {
+  return anlass === "ersatz" ? "assignment.worker_replaced" : "assignment.worker_unavailable";
+}
+
+/** Zum betroffenen Einsatz in der Kundenansicht — nicht auf eine Uebersicht. */
+export function kundenDeepLink(assignmentId) {
+  return "/public/company-timesheets.html?einsatz=" + encodeURIComponent(String(assignmentId || "")) + "#live";
+}
+
+/**
+ * Den Kunden benachrichtigen — je betroffenem Einsatz genau einmal.
+ *
+ * WIRFT NIE, aus demselben Grund wie benachrichtigeBuero(): Die Meldung steht
+ * bereits in der Datenbank; ein klemmender Zustellweg darf sie nicht
+ * zuruecknehmen.
+ *
+ * @param {import('pg').Pool} pool
+ * @param {string} supplierOrgId  die Zeitarbeitsfirma (Absender-Seite)
+ * @param {{anlass:'ausfall'|'entwarnung'|'ersatz', absence?:object,
+ *          workerProfileId:string, einsaetze?:Array, ersatzName?:string|null}} meldung
+ */
+export async function benachrichtigeKunde(pool, supplierOrgId, meldung = {}) {
+  const { anlass, absence = null, workerProfileId, einsaetze = null, ersatzName = null } = meldung;
+
+  if (!pool || !supplierOrgId || !workerProfileId) return { benachrichtigt: 0, grund: "MISSING_PARAMS" };
+  if (!KUNDE_ANLAESSE.includes(anlass)) return { benachrichtigt: 0, grund: "UNBEKANNTER_ANLASS" };
+
+  try {
+    /* DIE FREIGABEPFLICHT IST EINE GRENZE NACH AUSSEN (G-E2, Welle G1).
+     * Eine nur BEANTRAGTE Meldung hat die Firma noch nicht entschieden — sie
+     * dem Kunden zu melden hiesse, eine Entscheidung nach aussen zu tragen, die
+     * drinnen noch aussteht. fuerKunde() kodiert genau das in faellt_aus; hier
+     * wird es zur Absendebedingung. */
+    const sicht = anlass === "ausfall" ? fuerKunde(absence) : null;
+    if (anlass === "ausfall" && (!sicht || !sicht.faellt_aus)) {
+      return { benachrichtigt: 0, grund: "NICHT_WIRKSAM" };
+    }
+
+    /* Die betroffenen Einsaetze: entweder mitgegeben (der Ersatz-Pfad kennt
+     * genau einen) oder aus derselben Quelle wie die Buero-Meldung — dieselben
+     * Einsaetze, damit beide Seiten dasselbe Ereignis meinen. */
+    let liste = einsaetze;
+    if (!liste) {
+      const folgen = await folgenVorschau(pool, supplierOrgId, {
+        workerProfileId,
+        von: absence && absence.von,
+        bis: (absence && absence.bis) || null,
+      });
+      liste = (folgen && folgen.einsaetze) || [];
+    }
+    if (!liste.length) return { benachrichtigt: 0, grund: "KEIN_EINSATZ" };
+
+    const { rows: profilRows } = await pool.query(
+      "SELECT first_name, last_name, personnel_number\n" +
+      "   FROM worker_profiles WHERE id = $1 AND supplier_org_id = $2",
+      [workerProfileId, supplierOrgId]
+    );
+    const profil = profilRows[0];
+    if (!profil) return { benachrichtigt: 0, grund: "WORKER_NOT_IN_ORG" };
+
+    /* Der NAME darf mit: Der Kunde sieht seine Einsatzkraefte ohnehin namentlich
+     * (Stundenzettel, Live-Ansicht). Geschuetzt ist die ART, nicht die Person. */
+    const name = (String(profil.first_name || "") + " " + String(profil.last_name || "")).trim()
+      || (profil.personnel_number ? "#" + profil.personnel_number : "Eine Einsatzkraft");
+
+    let gesamt = 0;
+    const uebersprungen = [];
+
+    for (const einsatz of liste) {
+      const status = String(einsatz.assignment_status || "").toLowerCase();
+      if (EINSATZ_ERLEDIGT.includes(status)) { uebersprungen.push("EINSATZ_ERLEDIGT"); continue; }
+
+      const pruefung = kundeIstEmpfangsberechtigt(einsatz, supplierOrgId);
+      if (!pruefung.erlaubt) { uebersprungen.push(pruefung.grund); continue; }
+
+      const empfaenger = await findOrgMembersWithPermission(pool, pruefung.kundeOrgId, KUNDE_PERMISSION);
+      if (!empfaenger.length) { uebersprungen.push("KEIN_EMPFAENGER"); continue; }
+
+      /* HIER GEHEN NUR PRIMITIVE HINEIN. Kein absence, kein einsatz-Objekt —
+       * siehe der Kopf dieses Abschnitts. sicht ist bereits durch fuerKunde()
+       * gelaufen und traegt ausschliesslich Datum und Zustand. */
+      const message = kundenNachricht({
+        anlass,
+        name,
+        kunde: einsatz.kunde || null,
+        von: sicht ? sicht.von : null,
+        bis: sicht ? sicht.bis : null,
+        ersatzName,
+      });
+
+      const ergebnis = await dispatch(pool, kundenEreignis(anlass), {
+        recipientUserIds: empfaenger,
+        /* org_id ist die EMPFAENGER-Org, nicht die des Absenders: Das Feld
+         * steuert den Org-Filter der Benachrichtigungsliste und die
+         * Integrations-Weiterleitung. Stuende hier die Zeitarbeitsfirma, laege
+         * die Meldung in der Ablage einer fremden Organisation. */
+        orgId: pruefung.kundeOrgId,
+        /* Der Anker ist der EINSATZ, nicht die Abwesenheit. Zwei Gruende: der
+         * Kunde kennt keine Abwesenheits-ID und hat auf sie keinen Zugriff —
+         * und die Dedupe-Klausel in dispatch() greift ueber entity_id, soll
+         * hier aber JE EINSATZ einmal zustellen, nicht je Meldung einmal. */
+        entityType: "assignment",
+        entityId: einsatz.assignment_id,
+        message,
+        linkPath: kundenDeepLink(einsatz.assignment_id),
+        emailQueue: true,
+        emailSubject: anlass === "ersatz" ? "Ersatz gestellt: " + name : "Ausfall: " + name,
+      });
+      gesamt += ergebnis.sent || 0;
+    }
+
+    return { benachrichtigt: gesamt, einsaetze: liste.length, uebersprungen };
+  } catch (e) {
+    return { benachrichtigt: 0, grund: e && e.message ? e.message : "DISPATCH_FEHLER" };
+  }
+}
+
+/**
+ * Genau EIN Einsatz, in der Form, die die Kundenmeldung braucht.
+ *
+ * Warum nicht folgenVorschau() wiederverwenden: Die sucht ueber einen ZEITRAUM
+ * und liefert alles, was sich damit schneidet. Der Ersatz-Pfad kennt dagegen
+ * genau den einen Einsatz, um den es geht — ihn ueber ein Datumsfenster wieder
+ * einzufangen hiesse, ihn mit fremden Einsaetzen desselben Menschen zu
+ * vermischen und dann herauszufiltern. Dieselben Spalten und dieselben Aliase
+ * wie dort, damit `kundeIstEmpfangsberechtigt()` beide Quellen gleich behandelt.
+ *
+ * Die Mandantengrenze steht IM Statement: ein Einsatz eines fremden Betriebs
+ * liefert hier keine Zeile — und damit auch keine Meldung in dessen Namen.
+ */
+export async function einsatzFuerKundenmeldung(pool, supplierOrgId, assignmentId) {
+  if (!pool || !supplierOrgId || !assignmentId) return null;
+  const { rows } = await pool.query(
+    `SELECT a.id       AS assignment_id,
+            a.status   AS assignment_status,
+            a.org_id   AS kunde_org_id,
+            wal.org_id AS verknuepfung_org_id,
+            o.name     AS kunde
+       FROM assignments a
+       JOIN worker_assignment_links wal
+         ON wal.assignment_id = a.id
+        AND wal.supplier_org_id = $1
+       LEFT JOIN organizations o ON o.id = a.org_id
+      WHERE a.id = $2
+      LIMIT 1`,
+    [supplierOrgId, assignmentId]
+  );
+  return rows[0] || null;
+}
+
+/**
+ * Der Name einer Kraft ueber ihr NUTZERKONTO — fuer den Ersatz-Pfad, der mit
+ * user_ids arbeitet, waehrend Abwesenheiten am Profil haengen (Mig 177).
+ * Liefert zusaetzlich die Profil-ID, weil `benachrichtigeKunde()` sie braucht.
+ */
+export async function profilZuNutzer(pool, supplierOrgId, workerUserId) {
+  if (!pool || !supplierOrgId || !workerUserId) return null;
+  const { rows } = await pool.query(
+    `SELECT id, first_name, last_name, personnel_number
+       FROM worker_profiles
+      WHERE user_id = $1 AND supplier_org_id = $2
+      LIMIT 1`,
+    [workerUserId, supplierOrgId]
+  );
+  if (!rows[0]) return null;
+  const r = rows[0];
+  return {
+    id: r.id,
+    name: (String(r.first_name || "") + " " + String(r.last_name || "")).trim()
+      || (r.personnel_number ? "#" + r.personnel_number : null),
+  };
 }

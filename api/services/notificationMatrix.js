@@ -11,6 +11,32 @@ const logger = createServiceLogger("notificationMatrix");
 
 /* ── Event → Notification config ──────────────────────── */
 
+/* ── Erlaubte Dringlichkeitsstufen ─────────────────────────────────────────
+ *
+ * NUR info | warning | error | success. Das ist keine Konvention, sondern ein
+ * CHECK auf `notifications.severity` (Migration 019) — ein anderer Wert laesst
+ * den INSERT scheitern, und dispatch() faengt das nicht ab: die Benachrichtigung
+ * entsteht dann gar nicht, still.
+ *
+ * GENAU DAS WAR HIER DER FALL: Vier Notdienst-Eintraege trugen 'urgent'
+ * (gefunden in Welle G4b, gegen die laufende Datenbank belegt). Ausgerechnet der
+ * dringlichste Fall der Plattform kam nie an. Sie stehen jetzt auf 'warning'.
+ *
+ * WARUM NICHT DEN CHECK UM 'urgent' ERWEITERN: Weil das Frontend den Wert nicht
+ * kennt — weder die Toast-Varianten noch die Stufen-Abbildung der Shell. Eine
+ * so markierte Meldung fiele auf 'info' zurueck und saehe damit HARMLOSER aus
+ * als eine gewoehnliche Warnung. Der Weg waere also nicht nur teurer, sondern
+ * verkehrt herum.
+ *
+ * Die Dringlichkeit selbst geht dabei nicht verloren: Ob eine Mail zwingend
+ * rausgeht, entscheidet `getUserPreferences` am EREIGNISSCHLUESSEL
+ * (`emergency.*`), nicht an dieser Stufe. Sie steuert die Optik, nicht die
+ * Zustellung.
+ *
+ * Erzwungen von `test/g4bKundenBenachrichtigung.test.js`.
+ */
+export const ERLAUBTE_SEVERITY = Object.freeze(["info", "warning", "error", "success"]);
+
 const MATRIX = {
   'requisition.submitted_for_approval': {
     type: 'requisition_approval',
@@ -243,7 +269,7 @@ const MATRIX = {
   },
   'deal.emergency_agreement_created': {
     type: 'deal_offer_sent',
-    severity: 'urgent',
+    severity: 'warning',   // war 'urgent' — vom CHECK nicht erlaubt, siehe Kopf
     title: 'Notdienst-Sofortvereinbarung erstellt',
     recipientStrategy: 'deal_requester',
     linkPath: '/public/deal_management.html'
@@ -280,7 +306,7 @@ const MATRIX = {
   },
   'emergency.commitment_received': {
     type: 'demand_match',
-    severity: 'urgent',
+    severity: 'warning',   // war 'urgent' — vom CHECK nicht erlaubt, siehe Kopf
     title: 'Notdienst: Teilzusage erhalten',
     recipientStrategy: 'demand_creator',
     linkPath: '/public/marketplace.html'
@@ -289,14 +315,14 @@ const MATRIX = {
   // ── Emergency Staffing events ──
   'emergency.request_created': {
     type: 'emergency_request',
-    severity: 'urgent',
+    severity: 'warning',   // war 'urgent' — vom CHECK nicht erlaubt, siehe Kopf
     title: '\u{1F534} NOTDIENST: Dringender Personalbedarf',
     recipientStrategy: 'matching_suppliers',
     linkPath: '/public/marketplace.html'
   },
   'emergency.escalated': {
     type: 'emergency_escalation',
-    severity: 'urgent',
+    severity: 'warning',   // war 'urgent' — vom CHECK nicht erlaubt, siehe Kopf
     title: '\u26A0\uFE0F Eskalation: Dringender Personalbedarf',
     recipientStrategy: 'matching_suppliers',
     linkPath: '/public/marketplace.html'
@@ -405,8 +431,46 @@ const MATRIX = {
     title: 'Verspätung gemeldet',
     recipientStrategy: 'org_worker_managers',
     linkPath: '/public/mitarbeiter.html#live-im_einsatz'
+  },
+
+  /* ── Der Kunde erfaehrt es (Welle G4b) ────────────────────────
+   *
+   * ZWEI TYPEN FUER DREI ANLAESSE: Ausfall und Entwarnung teilen sich
+   * `assignment_worker_unavailable`, weil es dieselbe Sache ist — einmal
+   * gemeldet, einmal zurueckgenommen. Ein eigener Entwarnungs-Typ wuerde die
+   * beiden in Liste und Filter auseinanderreissen, und der Kunde muesste sich
+   * den Zusammenhang selbst denken. Der Ersatz ist dagegen ein eigenes
+   * Ereignis mit eigener Stimmung: `success`, denn das ist die gute Nachricht,
+   * die die erste Meldung ertraeglich macht.
+   *
+   * DIE TITEL SIND TEIL DES DATENSCHUTZES, nicht nur Text. Sie erscheinen in
+   * Vorschauen, Push-Bannern und in der Betreffzeile — dort steht "Einsatzkraft
+   * faellt aus", nie "Krankmeldung". Das Wort "Abwesenheit" kommt in der ganzen
+   * Kundenrichtung nicht vor: Es zeigt auf die Person. Was den Kunden angeht,
+   * ist sein EINSATZ.
+   *
+   * SEVERITY: nur info/warning/error/success sind erlaubt (CHECK aus Migration
+   * 019, gegen die laufende Datenbank geprueft). 'urgent' ist NICHT erlaubt —
+   * vier bestehende Notdienst-Eintraege dieser Matrix verwenden es trotzdem und
+   * scheitern dadurch still. Der Waechter in g4bKundenBenachrichtigung.test.js
+   * haelt jede severity dieser Matrix gegen die erlaubte Liste.
+   */
+  'assignment.worker_unavailable': {
+    type: 'assignment_worker_unavailable',
+    severity: 'warning',
+    title: 'Einsatzkraft fällt aus',
+    recipientStrategy: 'client_org_assignment_managers',
+    linkPath: '/public/company-timesheets.html#live'
+  },
+  'assignment.worker_replaced': {
+    type: 'assignment_worker_replaced',
+    severity: 'success',
+    title: 'Ersatz für Ihren Einsatz',
+    recipientStrategy: 'client_org_assignment_managers',
+    linkPath: '/public/company-timesheets.html#live'
   }
 };
+
 
 /* ── Dispatch ─────────────────────────────────────────── */
 
