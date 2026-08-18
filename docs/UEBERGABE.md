@@ -79,7 +79,7 @@ Lastabhängig. **Als eigene Aufgabe ausgelagert, nicht nebenbei anfassen.**
 | [ORG_GRENZE_BEFUND.md](ORG_GRENZE_BEFUND.md) | Warum die Mandantengrenze 80-mal einzeln in den Routen steht — versionierte Fassung des wichtigsten Architekturbefunds |
 | [FLAECHEN.md](FLAECHEN.md) | Was gehört ins Staff CC, was ins OCC, was ins Support Center. **Vor jedem neuen Modul lesen**, wird per Test erzwungen. |
 | [TESTING.md](TESTING.md) | Testarchitektur, inkl. Mutation Testing und seiner zwei Fallen |
-| [features/G_ABWESENHEIT_SELBSTERFASSUNG.md](features/G_ABWESENHEIT_SELBSTERFASSUNG.md) | Abwesenheit, vom Mitarbeiter selbst gemeldet — sechs Wellen. **G1-G3 gebaut** (Mig 181/182, Endpunkte, Zeitsperre, Mindestbeschreibung, Verspaetungsweg). Enthaelt die acht Owner-Entscheidungen G-E1 bis G-E8. **G1-G5 gebaut**; offen ist nur noch G6 (Vorschlaege). |
+| [features/G_ABWESENHEIT_SELBSTERFASSUNG.md](features/G_ABWESENHEIT_SELBSTERFASSUNG.md) | Abwesenheit, vom Mitarbeiter selbst gemeldet — sechs Wellen. **G1-G3 gebaut** (Mig 181/182, Endpunkte, Zeitsperre, Mindestbeschreibung, Verspaetungsweg). Enthaelt die acht Owner-Entscheidungen G-E1 bis G-E8. **G1-G6 vollstaendig gebaut.** |
 | [features/P11_DOKUMENTATION_ALS_SYSTEM.md](features/P11_DOKUMENTATION_ALS_SYSTEM.md) | Doku als System: generiert statt gepflegt, drei Leser (Investor/Owner/Technik), Hilfebereich. 11 Wellen, W1 laeuft. **Owner-Grundprinzip fuer alle Projekte.** |
 | [PLATTFORM_REGISTER.md](PLATTFORM_REGISTER.md) | Das Inventar: jede Flaeche, jeder Endpunkt, jede Faehigkeit, mit Beleg und Zustand. Grundlage der Investoren- und Bedienungsdoku. Wird per `dokuWaechter.test.js` gegen den Code gehalten. |
 | [TEAM_UND_ROLLEN.md](TEAM_UND_ROLLEN.md) | Wen dieser Code verlangt: Fachbereiche, Erfahrungsstufen, Minimalbesetzung, Reihenfolge der Einstellung — gemessen, nicht geschaetzt. |
@@ -130,37 +130,21 @@ onclick-Handler, fehlendes CSRF, Sackgassen-Links. Sie haben den Multi-Agenten-A
 
 ## Wo es weitergeht *(Stand 2026-08-18)*
 
-**Nächster Schritt: G6 — Umdisponieren mit Vorschlägen.**
-G4, G4b und G5 sind gebaut und belegt (siehe unten).
+**Spur G ist vollständig — G1 bis G6 gebaut und belegt.**
+Der Owner hat angekündigt, dass es Abschnitte bis 12 gibt; der nächste ist
+noch nicht durchgegeben.
 
-### Der unmittelbare Auftrag (G5)
+### Was als Nächstes ansteht
 
-Die Oberfläche im Einsatzportal: der dreistufige Weg + ein eigener Reiter links.
-Das Backend steht vollständig — G5 baut **gegen echte Endpunkte**, nicht gegen
-Platzhalter.
+Spur G ist zu. Offen sind die Punkte, die während der Spur aufgefallen sind und
+bewusst nicht nebenbei erledigt wurden:
 
-**Gate G5:** Kein Zustand ohne Anzeige (Lade-, Leer-, Fehlerfall); der dritte
-Schritt zeigt **echte** Einsatzdaten aus `folgenVorschau()`, keine Platzhalter.
-
-| Vorhanden | Wo |
+| Punkt | Warum eigenständig |
 |---|---|
-| `POST /worker/me/abwesenheit/vorgang` — eröffnet die Zeitsperre, liefert die Restzeit | `routes/workerPortal.js` |
-| `GET /worker/me/abwesenheit/folgen` — die betroffenen Einsätze, namentlich | `routes/workerPortal.js` |
-| `POST /worker/me/abwesenheit` — `428` ohne Vorgang, `429 ZEITSPERRE` zu früh, **`400 BESCHREIBUNG_ZU_KURZ`** bei zu kurzer Beschreibung | `routes/workerPortal.js` |
-| `POST /worker/me/verspaetung` — der leichte Weg, ohne Sperre | `routes/workerPortal.js` |
-| Die vier Fragen als Struktur | `BESCHREIBUNG_FRAGEN` im Absence-Service |
-
-> **Die Falle bei G5:** Die Zeitsperre liegt **hinten**. Der Browser zeigt den
-> Zähler nur an — er darf ihn nicht durchsetzen wollen. Wer die Schaltfläche
-> clientseitig sperrt und die Server-Antwort nicht auswertet, baut eine
-> Oberfläche, die bei `429` stumm bleibt und den Menschen raten lässt.
-> Die Restzeit steht in der Antwort (`verbleibend_sekunden`) — sie gehört
-> angezeigt, nicht nachgerechnet.
-
-**Und eine Fortsetzung aus G4b:** Die Kundenansicht zeigt den Ausfall noch nicht
-(`getCompanyLiveWorkforce` berührt `worker_absences` gar nicht). Der Deep-Link
-der Kundenmeldung führt dorthin — die Ansicht sollte in G5 den Zustand
-„fällt aus" kennen, **ohne die Art**.
+| **Kundensperre im Einladungsweg** | `isWorkerBlockedForCompany` wird an genau **zwei** Stellen geprüft (`workerService.js:1605`, `:1910`). Der Weg `createStaffingCampaignInternal` → `promoteReservationInternal` → `createWorkerAssignmentLink` prüft sie **nirgends** — Einladung → Annahme → Promotion ist ein vollständiger Umgehungsweg. Compliance-Defekt, älter als G6. Der G6-Weg selbst ist **nicht** betroffen (läuft über `replaceAssignmentWorker`, das prüft). |
+| **Kundenansicht zeigt den Ausfall nicht** | `getCompanyLiveWorkforce` berührt `worker_absences` nicht. Der Deep-Link der G4b-Kundenmeldung führt auf eine Ansicht, die den Zustand nicht kennt. Braucht eine Entscheidung, wo er erscheint — mit der Auflage „ohne die Art". |
+| **Portalseiten werfen `NOT_AUTH` in die Konsole** | Alle acht, auch die bestehenden, bevor sie korrekt zum Login umleiten. Kein Funktionsfehler, aber die Konsolen-Sauberkeit aus CLAUDE.md verlangt eine Runde. |
+| **`me.route.coverage.test.js`** | Die bekannte lastabhängige Fragilität, isoliert grün. Oben beschrieben. |
 
 ### Danach: G5 → G6
 
@@ -241,6 +225,7 @@ Schema).
 | **G4** Meldung ans Büro | Mig 183, Live-Push in `dispatch()`, Deep-Link auf die Person, Kategorie `workforce_updates` |
 | **G4b** Meldung an den Kunden | Mig 184, Ausfall · Entwarnung · Ersatz — **ohne die Art**; Empfänger aus `assignments.org_id`, eigene Kategorie |
 | **G5** Oberfläche | `einsatzportal-abwesenheit.html`, dreistufig + leichter Verspätungsweg, Reiter in allen 8 Seiten, `GET /worker/me/abwesenheiten` als Quittung |
+| **G6** Ersatz | Abwesende sind weder vorschlag- noch einladbar; drei Klicks von der Tafel zum Ersatz; Rückweg beim Aufheben |
 
 **Testlage:** 8660 Tests, 0 echte Fehler (voller Lauf ohne Pipe, 2026-08-18) — der einzige
 rote ist `me.route.coverage.test.js`, die oben beschriebene lastabhängige Fragilität;

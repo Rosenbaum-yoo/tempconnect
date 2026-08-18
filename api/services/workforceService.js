@@ -585,7 +585,7 @@ export async function getWorkerLiveBoard(pool, supplierOrgId, filters = {}) {
 
   const { rows } = await pool.query(
     `SELECT wp.id, wp.user_id, wp.first_name, wp.last_name, wp.personnel_number, wp.is_active,
-            cur.assignment_id, cur.assignment_status, cur.client_name, cur.start_date,
+            cur.assignment_id, cur.link_id, cur.assignment_status, cur.client_name, cur.start_date,
             cur.effective_end_date, cur.lifecycle_state,
             abw.id AS absence_id, abw.art AS absence_art,
             abw.von AS absence_von, abw.bis AS absence_bis, abw.notiz AS absence_notiz,
@@ -620,7 +620,13 @@ export async function getWorkerLiveBoard(pool, supplierOrgId, filters = {}) {
           LIMIT 1
        ) abw ON TRUE
        LEFT JOIN LATERAL (
-         SELECT a.id AS assignment_id, a.status AS assignment_status, o.name AS client_name,
+         /* "wal.id" mitgeben (Welle G6): Der Ersatz-Aufruf
+          * (replaceAssignmentWorker) braucht die VERKNUEPFUNG, nicht den
+          * Einsatz — ein Einsatz kann mehrere Kraefte tragen. Ohne diese
+          * Spalte muesste die Oberflaeche sie nachschlagen und dabei raten,
+          * welche der Verknuepfungen gemeint ist. */
+         SELECT a.id AS assignment_id, wal.id AS link_id,
+                a.status AS assignment_status, o.name AS client_name,
                 wal.start_date, wal.is_montage,
                 ${effEndSql} AS effective_end_date, ${lifecycleStateSql} AS lifecycle_state
            FROM worker_assignment_links wal

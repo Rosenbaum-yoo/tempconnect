@@ -185,7 +185,7 @@ Das ist mehr als eine Benachrichtigung. Es sind drei Dinge:
 | **G4** ✅ | Benachrichtigung ans Büro, sofort, mit den Folgen | Der Disponent sieht die Meldung ohne Neuladen; die Benachrichtigung führt zum betroffenen Einsatz, nicht auf eine Übersicht |
 | **G4b** ✅ | Benachrichtigung an den Kunden — Ausfall und später Ersatz, **ohne die Art** | Ein Test weist nach, dass die Kunden-Benachrichtigung weder `art` noch `notiz` enthält, auch nicht in Zwischenfeldern; und dass die Ersatz-Meldung erst nach echter Neubesetzung geht |
 | **G5** ✅ | Oberfläche im Einsatzportal: der dreistufige Weg + eigener Reiter links | Kein Zustand ohne Anzeige (Lade-, Leer-, Fehlerfall); der dritte Schritt zeigt echte Einsatzdaten, keine Platzhalter |
-| **G6** | Umdisponieren mit Vorschlägen im Büro | Aus der Meldung heraus ist ein Ersatz in ≤ 3 Klicks vorgeschlagen und eingeladen |
+| **G6** ✅ | Umdisponieren mit Vorschlägen im Büro | Aus der Meldung heraus ist ein Ersatz in ≤ 3 Klicks vorgeschlagen und eingeladen |
 
 **Reihenfolge:** G1 → G2 → G3 → G4 → G5 → G6. Die Oberfläche kommt nach dem
 Endpunkt, weil sie sonst gegen Platzhalter gebaut wird — und die Vorschläge
@@ -560,3 +560,139 @@ Ablauf mit Anmeldung, drei Minuten Wartezeit und echter Meldung.
 ohne Anmeldung ein unbehandeltes `PortalApiError: NOT_AUTH` in die Konsole,
 bevor sie korrekt zum Login umleiten. Kein Funktionsfehler, aber die
 Konsolen-Sauberkeit aus CLAUDE.md verlangt eine eigene Runde dafür.
+
+---
+
+## Welle G6 — was dabei herauskam *(2026-08-18)*
+
+### Der Befund, der schwerer wog als das Gate
+
+**Die Kandidatenliste kannte `worker_absences` nicht.** Der Dienst, aus dem das
+Büro einen Ersatz wählt, hatte null Referenzen darauf. Ein krank Gemeldeter
+stand im Vorschlag für genau den Einsatz, der durch eine andere Krankmeldung
+frei wurde.
+
+Der bestehende Konflikt-Block deckte das nicht ab, und das ist kein Versehen,
+sondern eine Feinheit des Schemas: **Eine Abwesenheit ist kein Einsatz.** Sie
+hängt am Profil (Mig 177), nicht am Konto, und erzeugt deshalb keinen einzigen
+Konflikt in `worker_assignment_links`.
+
+**Schlimmer als die fehlende Prüfung war die falsche Zusicherung.** Zwei Namen
+versprachen Verfügbarkeit und meinten etwas anderes:
+
+| Name | verspricht | tat |
+|---|---|---|
+| `availabilityMatch`, Gewicht **25** von 100 | Verfügbarkeit | vergleicht Stichworte aus dem **Freitextfeld** `availability_note` |
+| `onlyAvailable: true` | „nur Verfügbare" | prüfte nur Doppelbelegung mit Einsätzen und Reservierungen |
+
+Wer den Filter setzte, glaubte geprüft zu haben.
+
+### Und die Reparatur war zuerst nur halb
+
+Die erste Fassung erhob den Zähler und sperrte die Schnellzuweisung — aber
+`is_selectable` und `can_invite` blieben wahr. Ein Abwesender überlebte damit
+`hardOnly=true` und `includeBlocked=false`, konnte Rang 1 mit dem Etikett „hoch"
+tragen und wurde an **sechs** Stellen als einladbar behandelt, darunter die
+Wartelisten-Saat der Staffing-Kampagne. Gesperrt war nur der eine Weg, den man
+sich zuerst ansieht.
+
+Das Gate verlangt wörtlich „vorgeschlagen **und eingeladen**" — die halbe Sperre
+ließ genau die zweite Hälfte offen. Abwesenheit steht jetzt in den
+`hard_failures`: **eine** Aussage an **einer** Stelle, die alle sechs Filter
+erben.
+
+### Der Testbefund, der mehr wiegt als der Fix
+
+Die erste Testfassung suchte im **Quelltext** nach `absenceConflictCount > 0`.
+Eine Mutation zu `if (false && absenceConflictCount > 0)` **hat das überlebt** —
+die Zeichenkette steht ja weiterhin da. Der Test prüfte Schreibweise, nicht
+Entscheidung.
+
+Das ist dieselbe Lektion wie die durchgehende dieses Repos („ein Test, der das
+Ergebnis prüft statt welche Abfrage lief"), eine Ebene höher. Deshalb ist
+`scoreWorkersForAssignment` jetzt exportiert — rein synchron, der
+Client-Parameter war ohnehin unbenutzt. Sechs Verhaltenstests ersetzen die
+Textsuche; beide Mutationen sterben.
+
+### Der Rückweg — Owner-Entscheidung 2026-08-18
+
+`cancelAbsence` fasst ausschließlich `worker_absences` an. Wird eine Abwesenheit
+aufgehoben, gilt der Mensch wieder als verfügbar, **aber sein Einsatz ist weg**:
+Der Alt-Link steht auf `worker_unavailable`, dort sitzt der Ersatz.
+
+Seit G4b hatte das eine zweite Seite: Der Kunde bekam eine **Entwarnung**
+(„fällt doch nicht aus"). Für die Person stimmte sie — für seinen Einsatz nicht.
+Der Kunde plante mit zwei Leuten auf einer Stelle. Die Entwarnung geht jetzt nur
+noch raus, wenn **kein** Ersatz dort steht.
+
+**Es wird nichts automatisch zurückgedreht.** Der Plan sagt „Keine automatische
+Umdisposition — die Plattform schlägt vor, der Mensch entscheidet". Beim
+Zurückdrehen wäre es sogar schwerer: Der Ersatz hat die Zusage und hat
+vielleicht Anderes abgesagt. Die Route **antwortet** — namentlich, nicht als
+Zahl.
+
+**Was die echten Daten sofort zeigten:** Die erste Fassung meldete bei einem
+mehrfach besetzten Einsatz **drei** „Ersätze", von denen zwei knapp zwei Monate
+*vor* der Freistellung angefangen hatten — Kollegen, keine Nachfolger.
+`reportUnavailable` setzt dieselben Felder wie die Ersetzung; eine bloße
+Freistellung sieht am Alt-Link identisch aus. Mit
+`neu.start_date >= alt.unavailable_from` bleibt der echte übrig (3 → 1).
+
+### Der Weg: drei Klicks, und keiner mehr
+
+| Klick | wo |
+|---|---|
+| 1 | „Ersatz suchen" in der Zeile der abwesenden Person (Live-Belegschaft) |
+| 2 | „Einsetzen" beim gewählten Kandidaten |
+| 3 | „Verbindlich einsetzen" in der Rückfrage |
+
+**Der dritte ist keine Schikane, sondern die einzige Bremse vor einer
+unumkehrbaren Handlung.** Die Zuweisung gilt sofort (`auto_confirmed`), der
+Ersatz bekommt die Zusage, der Kunde eine Meldung — einen automatischen Rückweg
+gibt es nicht. Wer das auf zwei Klicks bringt, macht das Versehen billiger als
+die Absicht.
+
+**Die Begründung wird vorbelegt, nicht getippt.** `replaceAssignmentWorker`
+verlangt einen Grund fürs Audit. Ihn tippen zu lassen kostete den vierten
+Schritt und brächte weniger: *„Ersatz für Max Mustermann, abwesend ab 20.08."*
+ist präziser als jeder Text, den jemand um sechs Uhr früh eingibt — und er
+stimmt immer.
+
+Dazu: `wal.id AS link_id` wandert jetzt bis in die Tafel. Der Ersatz braucht die
+**Verknüpfung**, nicht den Einsatz — ein Einsatz kann mehrere Kräfte tragen.
+
+### Belege
+
+`api/test/g6ErsatzVorschlaege.test.js` — 41 Tests:
+
+- **Verhalten** statt Quelltext, wo es zählt: `scoreWorkersForAssignment` bekommt
+  Kandidatenzeilen und wird an `is_selectable`/`can_invite`/`quick_assign_eligible`
+  gemessen, mit Gegenprobe (ohne Abwesenheit bleibt alles offen)
+- die Rückweg-Abfrage: Nachfolger nur nach der Freistellung, nur andere
+  Personen, Mandantengrenze an beiden Verknüpfungen
+- der Klick-Weg: Klick 1 nur mit `link_id` (sonst Sackgasse), Klick 2 setzt noch
+  nicht ein, kein Eingabefeld für den Grund (das wäre der vierte Schritt),
+  Doppelklick-Schutz, Zustand in Modul-Variablen (die Tafel lädt alle 30 s neu)
+
+Gegen die echte Datenbank ausgeführt: die Rückweg-Abfrage findet die bestehende
+Ersatz-Kette, und `link_id` kommt bis in die Live-Tafel durch.
+
+### Was G6 nicht ist — und ein Befund, der bleibt
+
+**Die Kundensperre wird im Einladungsweg nicht geprüft.**
+`isWorkerBlockedForCompany` wird im gesamten Backend an **zwei** Stellen
+aufgerufen (`workerService.js:1605` und `:1910`). Der Weg
+`createStaffingCampaignInternal` → `promoteReservationInternal` →
+`createWorkerAssignmentLink` prüft sie **nirgends**. Damit ist die Kette
+Einladung → Annahme → Promotion ein vollständiger Umgehungsweg um die
+Kundensperre.
+
+Das ist älter als G6 und unabhängig davon ein Compliance-Defekt. Der hier
+gebaute Weg ist **nicht** betroffen — er läuft über `replaceAssignmentWorker`,
+und das prüft (Zeile 1910). Als eigene Aufgabe ausgelagert, weil ein
+Sicherheitsfix an drei Stellen eigene Sorgfalt braucht.
+
+**Nicht gebaut:** der Einladungsweg (Owner-Entscheidung: Direktzuweisung), ein
+automatischer Rückweg (bewusst: keine Eigenmacht), und ein Durchlauf mit echter
+Anmeldung — geprüft ist, dass Seite, Logik und Kette ausgeliefert werden und
+kein Handler ins Leere zeigt.

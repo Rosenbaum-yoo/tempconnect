@@ -133,6 +133,25 @@ TCi18n.register('de', {
   'mit.live.verlauf.durch.profil': 'ausgelöst durch eine Änderung am Profil',
 
   /* Abwesenheit (Welle E2) — gehört zum Menschen, nicht zum Einsatz */
+  /* Ersatz suchen (Welle G6) */
+  'mit.ersatz.title': 'Ersatz suchen',
+  'mit.ersatz.intro': 'Vorgeschlagen wird, wer im Zeitraum wirklich verfügbar ist. Wer selbst abwesend ist, steht nicht zur Wahl.',
+  'mit.ersatz.btn': 'Ersatz suchen',
+  'mit.ersatz.cancel': 'Abbrechen',
+  'mit.ersatz.loading': 'Passende Kräfte werden gesucht…',
+  'mit.ersatz.empty': 'Für diesen Einsatz ist derzeit niemand verfügbar. Sie können den Einsatz im Marktplatz ausschreiben.',
+  'mit.ersatz.loadFail': 'Die Vorschläge konnten nicht geladen werden.',
+  'mit.ersatz.take': 'Einsetzen',
+  'mit.ersatz.blocked': 'Nicht einsetzbar',
+  'mit.ersatz.fit': 'Eignung {n} %',
+  'mit.ersatz.confirm': '{name} für {kunde} einsetzen?',
+  'mit.ersatz.confirmSub': 'Die Zuweisung gilt sofort. {name} wird benachrichtigt, der Kunde ebenfalls — ohne den Grund des Ausfalls.',
+  'mit.ersatz.yes': 'Verbindlich einsetzen',
+  'mit.ersatz.done': '{name} übernimmt den Einsatz.',
+  'mit.ersatz.failBlocked': 'Diese Kraft ist beim Kunden gesperrt.',
+  'mit.ersatz.failConflict': 'Diese Kraft hat im Zeitraum bereits einen Einsatz.',
+  'mit.ersatz.failGeneric': 'Der Ersatz konnte nicht eingesetzt werden.',
+  'mit.ersatz.noAssignment': 'Zu dieser Person ist kein laufender Einsatz hinterlegt.',
   'mit.live.absence.title': 'Abwesenheit erfassen',
   'mit.live.absence.intro': 'Die Abwesenheit gilt für den Menschen — unabhängig davon, ob gerade ein Einsatz läuft.',
   'mit.live.absence.artLabel': 'Grund',
@@ -711,6 +730,25 @@ TCi18n.register('en', {
   'mit.live.verlauf.durch.einsatz': 'triggered by an assignment',
   'mit.live.verlauf.durch.profil': 'triggered by a profile change',
 
+  /* Replacement search (wave G6) */
+  'mit.ersatz.title': 'Find a replacement',
+  'mit.ersatz.intro': 'Suggested are people genuinely available in that period. Anyone absent themselves is not offered.',
+  'mit.ersatz.btn': 'Find replacement',
+  'mit.ersatz.cancel': 'Cancel',
+  'mit.ersatz.loading': 'Looking for matching people…',
+  'mit.ersatz.empty': 'Nobody is available for this assignment right now. You can post it on the marketplace.',
+  'mit.ersatz.loadFail': 'The suggestions could not be loaded.',
+  'mit.ersatz.take': 'Assign',
+  'mit.ersatz.blocked': 'Not assignable',
+  'mit.ersatz.fit': 'Fit {n} %',
+  'mit.ersatz.confirm': 'Assign {name} to {kunde}?',
+  'mit.ersatz.confirmSub': 'The assignment takes effect immediately. {name} is notified, and so is the client — without the reason for the absence.',
+  'mit.ersatz.yes': 'Assign bindingly',
+  'mit.ersatz.done': '{name} takes over the assignment.',
+  'mit.ersatz.failBlocked': 'This person is blocked by the client.',
+  'mit.ersatz.failConflict': 'This person already has an assignment in that period.',
+  'mit.ersatz.failGeneric': 'The replacement could not be assigned.',
+  'mit.ersatz.noAssignment': 'No running assignment is recorded for this person.',
   'mit.live.absence.title': 'Record an absence',
   'mit.live.absence.intro': 'The absence belongs to the person — whether or not an assignment is currently running.',
   'mit.live.absence.artLabel': 'Reason',
@@ -1732,6 +1770,13 @@ function renderLiveList(workers) {
                   esc(TCi18n.t("mit.live.verlauf.btn")) + '</button>';
       }
       if (w.live_status === "abwesend" && w.absence_id) {
+        /* KLICK 1 von dreien (Welle G6). Nur wenn wirklich ein Einsatz
+           betroffen ist — ohne link_id gaebe es nichts zu ersetzen, und ein
+           Knopf, der das erst nach dem Klick sagt, ist eine Sackgasse. */
+        if (w.link_id) {
+          aktion += '<button class="btn primary" style="padding:5px 10px;font-size:12px" onclick="openErsatzModal(\'' + esc(w.id) + '\')">' +
+                    esc(TCi18n.t("mit.ersatz.btn")) + '</button>';
+        }
         aktion += '<button class="btn" style="padding:5px 10px;font-size:12px" onclick="revokeAbsence(\'' + esc(w.absence_id) + '\')">' +
                  esc(TCi18n.t("mit.live.absence.revokeBtn")) + '</button>';
       } else if (w.live_status !== "inaktiv" && w.id) {
@@ -4166,3 +4211,195 @@ if (document.readyState === "loading") {
 } else {
   init(); csvInitUpload(); renderSkillCatalog();
 }
+
+/* ── Ersatz suchen (Welle G6) ───────────────────────────────────────────────
+ *
+ * DAS GATE: "Aus der Meldung heraus ist ein Ersatz in <= 3 Klicks vorgeschlagen
+ * und eingeladen." Die drei sind:
+ *   1. "Ersatz suchen" in der Zeile der abwesenden Person
+ *   2. "Einsetzen" beim gewaehlten Kandidaten
+ *   3. "Verbindlich einsetzen" in der Rueckfrage
+ *
+ * Der dritte Klick ist keine Schikane, sondern die einzige Bremse vor einer
+ * UNUMKEHRBAREN Handlung: Die Zuweisung gilt sofort (auto_confirmed), der
+ * Ersatz bekommt die Zusage, der Kunde eine Meldung — und einen automatischen
+ * Rueckweg gibt es nicht. Wer das auf zwei Klicks brachte, machte das
+ * Versehen billiger als die Absicht.
+ *
+ * DIE BEGRUENDUNG WIRD VORBELEGT, NICHT GETIPPT. `replaceAssignmentWorker`
+ * verlangt einen Grund (mindestens drei Zeichen) fuer das Audit. Ihn tippen zu
+ * lassen kostete den vierten Schritt und braechte weniger: "Ersatz fuer Max
+ * Mustermann, abwesend ab 20.08." ist praeziser als jeder Text, den jemand um
+ * sechs Uhr frueh eintippt — und er stimmt immer.
+ *
+ * ZUSTAND LIEGT IN MODUL-VARIABLEN, nicht am DOM-Element: Die Tafel schreibt
+ * sich alle 30 Sekunden neu (loadLiveBoard). Wer den gewaehlten Kandidaten am
+ * Knopf haengen laesst, verliert ihn beim naechsten Durchlauf.
+ */
+var _ersatzLinkId = null;
+var _ersatzKunde = null;
+var _ersatzFuer = null;
+var _ersatzAbwesendAb = null;
+var _ersatzLaeuft = false;
+
+function openErsatzModal(profileId) {
+  var w = (_liveWorkers || []).filter(function(x) { return x.id === profileId; })[0];
+  if (!w) return;
+
+  /* Ohne laufenden Einsatz gibt es nichts zu ersetzen — das ist eine Auskunft,
+     kein Fehler. Der Knopf erscheint in diesem Fall gar nicht erst; die
+     Pruefung steht hier trotzdem, weil die Tafel zwischen Rendern und Klick
+     neu geladen worden sein kann. */
+  if (!w.link_id) { toast(TCi18n.t("mit.ersatz.noAssignment"), "err"); return; }
+
+  _ersatzLinkId = w.link_id;
+  _ersatzKunde = w.client_name || "";
+  _ersatzFuer = ((w.first_name || "") + " " + (w.last_name || "")).trim();
+  _ersatzAbwesendAb = w.absence_von || null;
+  _ersatzLaeuft = false;
+
+  var kopf = document.getElementById("ersatzKontext");
+  if (kopf) {
+    kopf.textContent = _ersatzFuer + (_ersatzKunde ? " · " + _ersatzKunde : "");
+  }
+  showErsatzFehler("");
+  document.getElementById("ersatzModal").classList.add("show");
+  ladeErsatzVorschlaege(w.assignment_id);
+}
+
+function closeErsatzModal() {
+  var m = document.getElementById("ersatzModal");
+  if (m) m.classList.remove("show");
+  _ersatzLinkId = null; _ersatzKunde = null; _ersatzFuer = null;
+  _ersatzAbwesendAb = null; _ersatzLaeuft = false;
+}
+
+function showErsatzFehler(msg) {
+  var el = document.getElementById("ersatzFehler");
+  if (!el) return;
+  el.textContent = msg || "";
+  el.style.display = msg ? "" : "none";
+}
+
+function ladeErsatzVorschlaege(assignmentId) {
+  var box = document.getElementById("ersatzListe");
+  if (!box) return;
+  box.innerHTML = '<div style="padding:20px;text-align:center;color:var(--ds-text-muted,#64748b)">' +
+                  esc(TCi18n.t("mit.ersatz.loading")) + "</div>";
+
+  /* only_available=true wirft alle heraus, die im Zeitraum nicht koennen —
+     seit Welle G6 zaehlt dazu auch, wer SELBST abwesend ist. Vorher hiess der
+     Filter so und meinte nur Doppelbelegung. */
+  api("/staffing-assignments/" + encodeURIComponent(assignmentId) +
+      "/suggestions?limit=8&only_available=true&include_blocked=false")
+    .then(function(data) {
+      var liste = (data && data.suggestions) || [];
+      if (!liste.length) {
+        box.innerHTML = '<div class="empty-state" style="padding:24px">' +
+                        esc(TCi18n.t("mit.ersatz.empty")) + "</div>";
+        return;
+      }
+      box.innerHTML = liste.map(zeichneKandidat).join("");
+    })
+    .catch(function() {
+      /* LEER und FEHLGESCHLAGEN duerfen nicht gleich aussehen: Sonst schreibt
+         der Disponent den Einsatz aus, obwohl es Kandidaten gaebe. */
+      box.innerHTML = '<div class="alert danger" style="margin:0">' +
+                      esc(TCi18n.t("mit.ersatz.loadFail")) + "</div>";
+    });
+}
+
+function zeichneKandidat(k) {
+  var name = ((k.first_name || "") + " " + (k.last_name || "")).trim() ||
+             (k.personnel_number ? "#" + k.personnel_number : "—");
+  var punkte = k.score != null ? Number(k.score) : null;
+
+  /* Wer nicht schnellzuweisbar ist, wird MIT GRUND gezeigt statt weggelassen.
+     Ein fehlender Name ist nur eine Luecke; "ist selbst abwesend" ist eine
+     Auskunft, die dem Disponenten das Nachfragen erspart. */
+  var sperren = (k.quick_assign_blockers || []).map(function(b) { return b.label; }).filter(Boolean);
+  var frei = k.quick_assign_eligible === true;
+
+  return '<div class="card" style="display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:8px' +
+           (frei ? "" : ";opacity:.62") + '">' +
+           '<div style="min-width:0">' +
+             '<div style="font-weight:700">' + esc(name) + "</div>" +
+             '<div style="font-size:12.5px;color:var(--ds-text-muted,#64748b)">' +
+               (punkte != null ? esc(TCi18n.t("mit.ersatz.fit", { n: punkte })) : "") +
+               (sperren.length ? (punkte != null ? " · " : "") + esc(sperren.join(" · ")) : "") +
+             "</div>" +
+           "</div>" +
+           (frei
+             ? '<button class="btn primary" style="flex-shrink:0" onclick="waehleErsatz(\'' +
+               esc(k.worker_user_id) + '\',\'' + esc(name).replace(/'/g, "&#39;") + '\')">' +
+               esc(TCi18n.t("mit.ersatz.take")) + "</button>"
+             : '<span class="badge" style="flex-shrink:0">' + esc(TCi18n.t("mit.ersatz.blocked")) + "</span>") +
+         "</div>";
+}
+
+/* Klick 2: Kandidat gewaehlt -> Rueckfrage an derselben Stelle, ohne zweites
+   Fenster. Ein Modal ueber dem Modal waere auf einem Telefon nicht mehr zu
+   ueberblicken. */
+function waehleErsatz(workerUserId, name) {
+  var box = document.getElementById("ersatzListe");
+  if (!box) return;
+  showErsatzFehler("");
+  box.innerHTML =
+    '<div class="card" style="margin:0">' +
+      '<div style="font-weight:700;margin-bottom:6px">' +
+        esc(TCi18n.t("mit.ersatz.confirm", { name: name, kunde: _ersatzKunde || "—" })) + "</div>" +
+      '<div style="font-size:12.5px;color:var(--ds-text-muted,#64748b);margin-bottom:14px">' +
+        esc(TCi18n.t("mit.ersatz.confirmSub", { name: name })) + "</div>" +
+      '<div style="display:flex;gap:8px">' +
+        '<button class="btn primary" id="ersatzJaBtn" onclick="bestaetigeErsatz(\'' +
+          esc(workerUserId) + '\',\'' + esc(name).replace(/'/g, "&#39;") + '\')">' +
+          esc(TCi18n.t("mit.ersatz.yes")) + "</button>" +
+        '<button class="btn" onclick="closeErsatzModal()">' +
+          esc(TCi18n.t("mit.ersatz.cancel")) + "</button>" +
+      "</div>" +
+    "</div>";
+}
+
+/* Klick 3: die unumkehrbare Handlung. */
+function bestaetigeErsatz(workerUserId, name) {
+  if (_ersatzLaeuft || !_ersatzLinkId) return;
+  _ersatzLaeuft = true;
+  var btn = document.getElementById("ersatzJaBtn");
+  if (btn) btn.disabled = true;
+  showErsatzFehler("");
+
+  /* Der Grund wird gebaut, nicht getippt — siehe der Kopf dieses Abschnitts.
+     Er nennt den Anlass praeziser, als es ein Freitext um sechs Uhr frueh
+     taete, und landet unveraendert im Audit. */
+  var grund = "Ersatz für " + (_ersatzFuer || "eine abwesende Kraft") +
+              (_ersatzAbwesendAb ? ", abwesend ab " + formatDateLabel(_ersatzAbwesendAb) : "");
+
+  var abDatum = (window.TCDate && TCDate.todayDE) ? TCDate.todayDE() : null;
+
+  api("/worker-assignment-links/" + encodeURIComponent(_ersatzLinkId) + "/replace", {
+    method: "POST",
+    body: {
+      replacement_worker_user_id: workerUserId,
+      effective_date: abDatum,
+      reason: grund
+    }
+  })
+    .then(function() {
+      closeErsatzModal();
+      toast(TCi18n.t("mit.ersatz.done", { name: name }), "ok");
+      loadLiveBoard();
+    })
+    .catch(function(e) {
+      _ersatzLaeuft = false;
+      if (btn) btn.disabled = false;
+      var code = e && (e.error || e.code);
+      if (code === "BLOCKED_BY_COMPANY") showErsatzFehler(TCi18n.t("mit.ersatz.failBlocked"));
+      else if (code === "SCHEDULE_CONFLICT") showErsatzFehler(TCi18n.t("mit.ersatz.failConflict"));
+      else showErsatzFehler(TCi18n.t("mit.ersatz.failGeneric"));
+    });
+}
+
+window.openErsatzModal = openErsatzModal;
+window.closeErsatzModal = closeErsatzModal;
+window.waehleErsatz = waehleErsatz;
+window.bestaetigeErsatz = bestaetigeErsatz;

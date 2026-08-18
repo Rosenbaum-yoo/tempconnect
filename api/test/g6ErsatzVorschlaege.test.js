@@ -396,3 +396,137 @@ describe("G6 — beim Aufheben wird sichtbar, wer inzwischen dort steht", () => 
       "im Audit fehlt, dass wegen eines Ersatzes keine Entwarnung ging");
   });
 });
+
+
+/* ═══════════════════════════════════════════════════════════════════════════
+ * 6. Der Weg — drei Klicks aus der Meldung heraus  (das Gate)
+ * ═══════════════════════════════════════════════════════════════════════════ */
+
+const PUB = path.join(HIER, "..", "..", "frontend", "public");
+const SEITE = path.join(PUB, "mitarbeiter.html");
+const LOGIK = path.join(PUB, "js", "pages", "mitarbeiter.js");
+const liesF = (p) => fs.readFileSync(p, "utf8");
+
+describe("G6 — der Weg misst genau drei Klicks", () => {
+  it("Klick 1 steht in der Zeile der abwesenden Person", () => {
+    const js = liesF(LOGIK);
+    const block = js.slice(js.indexOf('w.live_status === "abwesend" && w.absence_id'),
+                           js.indexOf("} else if (w.live_status !== "));
+    assert.match(block, /openErsatzModal/, "aus der Tafel fuehrt kein Weg zum Ersatz");
+    assert.match(block, /if \(w\.link_id\)/,
+      "der Knopf erscheint auch ohne laufenden Einsatz — er fuehrte in eine Sackgasse, " +
+      "die erst NACH dem Klick sichtbar wird");
+  });
+
+  it("Klick 2 und 3 sind getrennt — die Rueckfrage ist Pflicht", () => {
+    /* Die Zuweisung gilt sofort (auto_confirmed), der Ersatz bekommt die
+     * Zusage, der Kunde eine Meldung — und einen automatischen Rueckweg gibt
+     * es nicht. Wer das auf zwei Klicks braechte, machte das Versehen billiger
+     * als die Absicht. */
+    const js = liesF(LOGIK);
+    assert.match(js, /function waehleErsatz/, "es fehlt der Auswahl-Schritt");
+    assert.match(js, /function bestaetigeErsatz/, "die Rueckfrage fehlt — ein Klick wuerde zuweisen");
+    const waehle = js.slice(js.indexOf("function waehleErsatz"), js.indexOf("function bestaetigeErsatz"));
+    assert.ok(!/\/worker-assignment-links\//.test(waehle),
+      "die Auswahl setzt bereits ein — dann waeren es zwei Klicks bis zur " +
+      "unumkehrbaren Handlung");
+  });
+
+  it("es sind nicht MEHR als drei: die Begruendung wird vorbelegt, nicht getippt", () => {
+    /* replaceAssignmentWorker verlangt einen Grund fuers Audit. Ihn tippen zu
+     * lassen kostete einen vierten Schritt und braechte weniger: Der gebaute
+     * Text nennt den Anlass praeziser als jeder, den jemand um sechs Uhr frueh
+     * eingibt — und er stimmt immer. */
+    const js = liesF(LOGIK);
+    const block = js.slice(js.indexOf("function bestaetigeErsatz"), js.indexOf("window.openErsatzModal"));
+    assert.match(block, /var grund = "Ersatz f/, "der Grund wird nicht gebaut");
+    assert.ok(!/getElementById\(["'']ersatzGrund/.test(block),
+      "es gibt ein Eingabefeld fuer den Grund — das waere der vierte Schritt");
+    assert.match(block, /reason: grund/, "der gebaute Grund landet nicht im Aufruf");
+  });
+
+  it("der Aufruf nimmt die VERKNUEPFUNG, nicht den Einsatz", () => {
+    /* Ein Einsatz kann mehrere Kraefte tragen. Mit der assignment_id waere
+     * unklar, wen der Ersatz abloest. */
+    const js = liesF(LOGIK);
+    assert.match(js, /worker-assignment-links\/" \+ encodeURIComponent\(_ersatzLinkId\)/,
+      "der Ersatz-Aufruf benutzt die falsche Kennung");
+    assert.match(js, /_ersatzLinkId = w\.link_id/, "die Verknuepfung wird nicht uebernommen");
+  });
+
+  it("die Tafel liefert die Verknuepfung ueberhaupt mit", () => {
+    const dienst = fs.readFileSync(path.join(HIER, "..", "services", "workforceService.js"), "utf8");
+    assert.match(dienst, /wal\.id AS link_id/, "die Tafel kennt die Verknuepfung nicht");
+    assert.match(dienst, /cur\.link_id/, "sie bleibt im LATERAL stecken und kommt nie heraus");
+  });
+
+  it("der Zustand liegt in Modul-Variablen, nicht am DOM-Element", () => {
+    /* Die Tafel schreibt sich alle 30 Sekunden neu. Wer den gewaehlten
+     * Kandidaten am Knopf haengen laesst, verliert ihn beim naechsten Lauf. */
+    const js = liesF(LOGIK);
+    for (const v of ["_ersatzLinkId", "_ersatzKunde", "_ersatzFuer", "_ersatzLaeuft"]) {
+      assert.ok(js.includes("var " + v), v + " ist keine Modul-Variable");
+    }
+  });
+
+  it("Doppelklick auf 'einsetzen' loest nur EINE Zuweisung aus", () => {
+    const js = liesF(LOGIK);
+    const block = js.slice(js.indexOf("function bestaetigeErsatz"), js.indexOf("window.openErsatzModal"));
+    assert.match(block, /if \(_ersatzLaeuft/, "ein zweiter Klick setzt ein zweites Mal ein");
+    assert.match(block, /btn\.disabled = true/, "der Knopf bleibt waehrend des Absendens klickbar");
+  });
+
+  it("nur schnellzuweisbare Kandidaten bekommen den Einsetzen-Knopf", () => {
+    /* Und die anderen werden MIT GRUND gezeigt statt weggelassen: Ein
+     * fehlender Name ist eine Luecke, "ist selbst abwesend" eine Auskunft. */
+    const js = liesF(LOGIK);
+    const block = js.slice(js.indexOf("function zeichneKandidat"), js.indexOf("function waehleErsatz"));
+    assert.match(block, /quick_assign_eligible === true/, "die Sperre der Liste wird ignoriert");
+    assert.match(block, /quick_assign_blockers/, "der Grund wird nicht angezeigt");
+  });
+
+  it("die Vorschlaege werden mit only_available geladen", () => {
+    /* Seit dieser Welle heisst das auch "nicht selbst abwesend". */
+    const js = liesF(LOGIK);
+    assert.match(js, /only_available=true/, "die Liste zeigt auch Nicht-Verfuegbare");
+    assert.match(js, /include_blocked=false/, "gesperrte Kandidaten stehen mit in der Liste");
+  });
+
+  it("Lade-, Leer- und Fehlerzustand sind unterscheidbar", () => {
+    const js = liesF(LOGIK);
+    for (const k of ["mit.ersatz.loading", "mit.ersatz.empty", "mit.ersatz.loadFail"]) {
+      assert.ok(js.includes(k), k + " fehlt");
+    }
+    assert.ok(js.indexOf("mit.ersatz.empty") !== js.indexOf("mit.ersatz.loadFail"),
+      "leer und fehlgeschlagen sehen gleich aus — dann schreibt der Disponent den " +
+      "Einsatz aus, obwohl es Kandidaten gaebe");
+  });
+
+  it("jeder Fehlercode der Ersatz-Route hat einen eigenen Satz", () => {
+    const js = liesF(LOGIK);
+    for (const c of ["BLOCKED_BY_COMPANY", "SCHEDULE_CONFLICT"]) {
+      assert.ok(js.includes(c), c + " wird nicht behandelt");
+    }
+  });
+
+  it("die Beschriftungen stehen in BEIDEN Sprachen", () => {
+    const js = liesF(LOGIK);
+    for (const k of ["mit.ersatz.title", "mit.ersatz.btn", "mit.ersatz.done", "mit.ersatz.empty"]) {
+      const n = (js.match(new RegExp("'" + k.replace(/\./g, "\.") + "'", "g")) || []).length;
+      assert.ok(n >= 2, k + " fehlt in einer der beiden Sprachen (gefunden: " + n + ")");
+    }
+  });
+
+  it("das Modal steht im Markup und die Handler existieren", () => {
+    const html = liesF(SEITE);
+    const js = liesF(LOGIK);
+    assert.match(html, /id="ersatzModal"/, "das Modal fehlt");
+    assert.match(html, /id="ersatzListe"/, "die Kandidatenliste hat keinen Platz");
+    assert.match(html, /id="ersatzFehler"/, "es gibt keinen Ort fuer Fehlermeldungen");
+    for (const m of html.matchAll(/onclick="([A-Za-z_$][\w$]*)\(/g)) {
+      if (!m[1].startsWith("Ersatz") && !/[eE]rsatz/.test(m[1])) continue;
+      assert.ok(js.includes("function " + m[1]) || js.includes("window." + m[1]),
+        m[1] + " wird aufgerufen, ist aber nicht definiert");
+    }
+  });
+});

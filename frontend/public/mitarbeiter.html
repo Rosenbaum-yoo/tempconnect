@@ -723,6 +723,22 @@ Anna;Beispiel;anna@example.com;0157987654;M&uuml;nchen;P002</pre>
   </div>
 
   <!-- Abwesenheit erfassen (Welle E2) — am Menschen, nicht am Einsatz -->
+  <!-- Ersatz suchen (Welle G6). Drei Klicks ab der Tafel: "Ersatz suchen" →
+       Kandidat wählen → bestätigen. Mehr darf es nicht sein; um sechs Uhr früh
+       zählt jeder Schritt. -->
+  <div class="modal-bg" id="ersatzModal">
+    <div class="modal-panel" style="max-width:640px">
+      <h2 data-i18n="mit.ersatz.title">Ersatz suchen</h2>
+      <p id="ersatzKontext" style="font-size:13px;font-weight:700;margin:0 0 4px"></p>
+      <p style="font-size:12.5px;color:var(--ds-text-muted,#64748b);margin:0 0 14px" data-i18n="mit.ersatz.intro">Vorgeschlagen wird, wer im Zeitraum wirklich verfügbar ist. Wer selbst abwesend ist, steht nicht zur Wahl.</p>
+      <div id="ersatzListe" style="max-height:340px;overflow-y:auto"></div>
+      <div id="ersatzFehler" class="alert danger" style="display:none;margin-top:10px"></div>
+      <div class="modal-actions">
+        <button class="btn" onclick="closeErsatzModal()" data-i18n="mit.ersatz.cancel">Abbrechen</button>
+      </div>
+    </div>
+  </div>
+
   <div class="modal-bg" id="absenceModal">
     <div class="modal-panel" style="max-width:520px">
       <h2 data-i18n="mit.live.absence.title">Abwesenheit erfassen</h2>
