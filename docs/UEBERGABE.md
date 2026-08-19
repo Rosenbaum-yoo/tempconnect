@@ -4,7 +4,7 @@
 > sobald in einem Arbeitsplan eine offene Owner-Entscheidung auftaucht, die hier fehlt.
 > Eine Übergabe, die man vergessen kann, ist keine.
 
-**Stand: 2026-08-18** · Branch `release/enterprise-premium-market-ready`
+**Stand: 2026-08-19** · Branch `release/enterprise-premium-market-ready`
 
 ---
 
@@ -79,6 +79,7 @@ Lastabhängig. **Als eigene Aufgabe ausgelagert, nicht nebenbei anfassen.**
 | [ORG_GRENZE_BEFUND.md](ORG_GRENZE_BEFUND.md) | Warum die Mandantengrenze 80-mal einzeln in den Routen steht — versionierte Fassung des wichtigsten Architekturbefunds |
 | [FLAECHEN.md](FLAECHEN.md) | Was gehört ins Staff CC, was ins OCC, was ins Support Center. **Vor jedem neuen Modul lesen**, wird per Test erzwungen. |
 | [TESTING.md](TESTING.md) | Testarchitektur, inkl. Mutation Testing und seiner zwei Fallen |
+| [features/H_KUNDENANSICHT_UND_ORG_GRENZEN.md](features/H_KUNDENANSICHT_UND_ORG_GRENZEN.md) | **Naechste Sitzung.** H1 Kundenansicht (Fortsetzung G4b/G5), H2 die 80 Mandantengrenzen. **H2 enthaelt fuenf Stellen ohne Org-Pruefung — drei mit schreibendem Cross-Org-Zugriff.** Recherche vollstaendig festgehalten. |
 | [features/G_ABWESENHEIT_SELBSTERFASSUNG.md](features/G_ABWESENHEIT_SELBSTERFASSUNG.md) | Abwesenheit, vom Mitarbeiter selbst gemeldet — sechs Wellen. **G1-G3 gebaut** (Mig 181/182, Endpunkte, Zeitsperre, Mindestbeschreibung, Verspaetungsweg). Enthaelt die acht Owner-Entscheidungen G-E1 bis G-E8. **G1-G6 vollstaendig gebaut.** |
 | [features/P11_DOKUMENTATION_ALS_SYSTEM.md](features/P11_DOKUMENTATION_ALS_SYSTEM.md) | Doku als System: generiert statt gepflegt, drei Leser (Investor/Owner/Technik), Hilfebereich. 11 Wellen, W1 laeuft. **Owner-Grundprinzip fuer alle Projekte.** |
 | [PLATTFORM_REGISTER.md](PLATTFORM_REGISTER.md) | Das Inventar: jede Flaeche, jeder Endpunkt, jede Faehigkeit, mit Beleg und Zustand. Grundlage der Investoren- und Bedienungsdoku. Wird per `dokuWaechter.test.js` gegen den Code gehalten. |
@@ -136,125 +137,36 @@ noch nicht durchgegeben.
 
 ### Was als Nächstes ansteht
 
-Spur G ist zu. Offen sind die Punkte, die während der Spur aufgefallen sind und
-bewusst nicht nebenbei erledigt wurden:
+**Arbeitsplan: [features/H_KUNDENANSICHT_UND_ORG_GRENZEN.md](features/H_KUNDENANSICHT_UND_ORG_GRENZEN.md)**
+— H1 zuerst, dann H2 (Owner-Entscheidung 2026-08-19).
 
-| Punkt | Warum eigenständig |
+> **H2 enthält Sicherheitslücken.** Die Recherche fand **fünf Stellen ohne jede
+> Org-Prüfung**: Konditionsrahmen aktivieren/archivieren, operative Rechnungen
+> (issue/paid/void/correction), Freigaben approve/reject samt Historie mit
+> E-Mails, Requisitions-submit, und ein Audit-Endpunkt, der die falsche Kennung
+> bewacht. Drei davon schreiben cross-org. Wer die Reihenfolge umdreht, hat
+> einen Grund.
+
+### Erledigt am 2026-08-19
+
+| Punkt | Ergebnis |
 |---|---|
-| **Kundensperre im Einladungsweg** | `isWorkerBlockedForCompany` wird an genau **zwei** Stellen geprüft (`workerService.js:1605`, `:1910`). Der Weg `createStaffingCampaignInternal` → `promoteReservationInternal` → `createWorkerAssignmentLink` prüft sie **nirgends** — Einladung → Annahme → Promotion ist ein vollständiger Umgehungsweg. Compliance-Defekt, älter als G6. Der G6-Weg selbst ist **nicht** betroffen (läuft über `replaceAssignmentWorker`, das prüft). |
-| **Kundenansicht zeigt den Ausfall nicht** | `getCompanyLiveWorkforce` berührt `worker_absences` nicht. Der Deep-Link der G4b-Kundenmeldung führt auf eine Ansicht, die den Zustand nicht kennt. Braucht eine Entscheidung, wo er erscheint — mit der Auflage „ohne die Art". |
-| **Portalseiten werfen `NOT_AUTH` in die Konsole** | Alle acht, auch die bestehenden, bevor sie korrekt zum Login umleiten. Kein Funktionsfehler, aber die Konsolen-Sauberkeit aus CLAUDE.md verlangt eine Runde. |
-| **`me.route.coverage.test.js`** | Die bekannte lastabhängige Fragilität, isoliert grün. Oben beschrieben. |
+| **Demo-Compose** (`cde6c42`) | War **nie** startfähig (nicht „seit P0-08"): Die Datei entstand einen Monat nach dem Guard, den sie verletzt. Schwerer: Sie wird **ausgeliefert** und öffnete beim Kunden alle Plan-Gates — der CI-Wächter dagegen durchsucht nur `.env*`. Dazu der `release-package.sh`-Fehler, durch den `.claude/` ins Artefakt kam (die `EXCLUDE_LIST` galt nur im Fallback-Zweig). Wächter: `composeStartfaehig.test.js` |
+| **NOT_AUTH** (`61d2091`) | Nicht „alle Portalseiten", sondern **genau die G5-Seite**. Und kein Konsolen-Problem: Sie blieb für Abgemeldete **dauerhaft weiß**, ohne Weg zum Login — ausgerechnet der Notfallweg. Siebenmal kopiert, beim achten Mal vergessen. |
 
-### Danach: G5 → G6
+### Zwei Blocker, die nur der Owner lösen kann
 
-- **G4b** Kunden-Benachrichtigung (Ausfall + später Ersatz). **Nur über
-  `fuerKunde()`.** Diese Funktion baut ein neues Objekt mit vier Feldern statt
-  Felder zu entfernen — wer sie umgeht, leakt „krank" an einen Dritten (Art. 9
-  DSGVO). Ein Test prüft das bereits mit einem erfundenen Zusatzfeld.
-- **G5** Oberfläche im Einsatzportal: dreistufiger Ablauf + eigener Reiter links.
-  Der dritte Schritt zeigt **echte** Einsatzdaten aus `folgenVorschau()`, keine
-  Platzhalter. Lade-, Leer- und Fehlerzustand sind Pflicht.
-- **G6** Umdisponieren mit Vorschlägen — `assignmentStaffingService` kann
-  Kandidaten bereits bewerten.
+**Die gesamte CI läuft seit dem 2026-06-24 nicht.** Selbst über die GitHub-API
+geprüft: alle Jobs enden mit `Schritte: 0`, GitHub sagt wörtlich *„The job was
+not started because your account is locked due to a billing issue."* Kein
+einziger erfolgreicher Lauf seit zwei Monaten.
 
-### G4 ist fertig — und was dabei aufflog *(2026-08-17)*
-
-Der Live-Weg war **an drei Stellen tot**, unabhängig voneinander und jedes Mal
-still:
-
-1. `pushToUser` hatte **keinen einzigen Aufrufer** — der SSE-Strom lief, der
-   Browser hing dran, gesendet wurde nie etwas.
-2. `pageShell.js` rief `TC.toast(...)` als Funktion auf — es ist ein Objekt, der
-   `TypeError` verschwand in einem leeren `catch`.
-3. **`js/toast.js` wurde von keiner Seite geladen.** Das kam erst im Browser
-   heraus, *nachdem* 1 und 2 repariert und testgrün waren: `TC.toast` war
-   schlicht `undefined`. Die Reparatur war korrekt — und trotzdem wirkungslos.
-
-**Die Lehre, die über diese Welle hinausgeht:** Ein `catch`, das nichts tut,
-macht aus einem lauten Fehler eine stille Funktionslücke. Aufgedeckt hat es
-nicht ein Test, sondern die Frage **„wer ruft das eigentlich auf — und wer lädt
-es?"**. Beides gehört ab jetzt zu jeder Bestandsaufnahme, bevor etwas als
-„vorhanden" gilt; ein Quelltext-Test auf „steht der richtige Aufruf da" hätte
-Nummer 3 durchgelassen. **Ein Frontend-Ticket ist nicht fertig, bevor es einmal
-im echten Browser lief** — die CLAUDE.md verlangt das als Verdrahtungs-Check,
-und hier hat genau das den teuersten Befund gefunden.
-
-Vollständig, mit allen Entscheidungen und Belegen:
-[features/G_ABWESENHEIT_SELBSTERFASSUNG.md](features/G_ABWESENHEIT_SELBSTERFASSUNG.md),
-Abschnitt „Welle G4 — was dabei herauskam". Beleg:
-`api/test/g4BenachrichtigungBuero.test.js` (30 Tests).
-
-### G4b ist fertig — und deckte einen stillen Ausfall im Notdienst auf *(2026-08-18)*
-
-**`fuerKunde()` hatte bis dahin keinen einzigen Produktionsaufrufer.** Die
-Schutzfunktion stand seit G2c da, mit Test und Kommentar — aber nichts zwang
-irgendeinen Pfad durch sie hindurch. Dieselbe Klasse Befund wie bei G4, eine
-Ebene abstrakter: nicht „wer ruft das auf", sondern **„was erzwingt, dass es
-aufgerufen wird".**
-
-**Und sie hätte allein nicht gereicht:** Sie schützt das *Objekt*, entkommen
-wäre die Art über den *Text* (`context.message` geht in Tabelle, Mail und
-Slack). Deshalb nimmt `kundenNachricht()` **kein Abwesenheits-Objekt** entgegen,
-sondern nur benannte Einzelwerte — was nicht übergeben werden kann, rutscht
-auch nicht durch.
-
-**Nebenbefund, gravierend:** Vier **Notdienst**-Benachrichtigungen konnten nie
-entstehen. `notifications.severity` erlaubt nur `info|warning|error|success`,
-vier Matrix-Einträge trugen `urgent` — der INSERT wurde mit `check_violation`
-abgewiesen, still. Repariert (`warning`), plus `ERLAUBTE_SEVERITY` als
-exportierte Konstante und ein Wächter, der jede severity der Matrix dagegen
-hält. **Nicht** den CHECK erweitert: Das Frontend kennt `urgent` nicht, die
-Meldung wäre auf `info` zurückgefallen — harmloser als eine normale Warnung.
-
-Vollständig: derselbe Plan, Abschnitt „Welle G4b — was dabei herauskam". Belege:
-`api/test/g4bKundenBenachrichtigung.test.js` (35 Tests) und
-`api/test/integration/g4bKundenMeldung.flow.test.js` (8 Tests gegen das echte
-Schema).
-
-### Was schon steht (2026-08-15/17)
-
-| | |
-|---|---|
-| **P12 vollständig** | M0–M6. 39/39 zugriffsrelevante Fälle geschlossen, Aggregat **94,43 %**, CI-Wächter läuft montags 04:30 UTC. Gate ist der A-Fall, nicht der Prozentwert |
-| **G1** Datenschicht | Mig 181: `quelle`, `zustand`, Freigabepflicht-Schalter je Firma |
-| **G2** Endpunkte | `POST /worker/me/abwesenheit`, `GET …/folgen`. Profil-ID kommt aus der Sitzung, nicht aus der Anfrage |
-| **G2b** Zeitsperre | serverseitig, 1 min je Schritt, `428` ohne Vorgang / `429` zu früh |
-| **G2c** Beschreibung | 30 Wörter über vier Fragen; `fuerKunde()` als Grenze |
-| **G3** Verspätung | Mig 182, eigene Tabelle, Obergrenze 240 min mit Verweis auf den anderen Weg |
-| **G4** Meldung ans Büro | Mig 183, Live-Push in `dispatch()`, Deep-Link auf die Person, Kategorie `workforce_updates` |
-| **G4b** Meldung an den Kunden | Mig 184, Ausfall · Entwarnung · Ersatz — **ohne die Art**; Empfänger aus `assignments.org_id`, eigene Kategorie |
-| **G5** Oberfläche | `einsatzportal-abwesenheit.html`, dreistufig + leichter Verspätungsweg, Reiter in allen 8 Seiten, `GET /worker/me/abwesenheiten` als Quittung |
-| **G6** Ersatz | Abwesende sind weder vorschlag- noch einladbar; drei Klicks von der Tafel zum Ersatz; Rückweg beim Aufheben |
-
-**Testlage:** 8660 Tests, 0 echte Fehler (voller Lauf ohne Pipe, 2026-08-18) — der einzige
-rote ist `me.route.coverage.test.js`, die oben beschriebene lastabhängige Fragilität;
-isoliert läuft sie grün.
-Zusätzlich im Container geprüft, wo die DB-gebundenen Tests wirklich laufen.
-
-### Drei Regeln, die diese Sitzung teuer gelernt hat
-
-**Nie ein Verzeichnis stagen.** Das Repo ist **öffentlich**. `git add docs/`
-hat zwölf Geschäftsunterlagen mitgenommen; die Historie musste umgeschrieben
-werden. Immer einzelne Dateipfade.
-
-**Wer Produktionscode anfasst, führt die Triage nach.** Zeilennummern
-verschieben sich, und der Montags-Wächter meldet sonst einen Fehlalarm:
-
-```bash
-cd api && node scripts/mutation-neuverankern.js --von HEAD~1 --bis HEAD
-cd api && node scripts/mutation-welle.js <datei> && node scripts/mutation-triage.js --welle <datei>
-```
-
-**Vier Wächter melden sich beim Einchecken einer Migration** — Register,
-NUMBERING.md, Rollback-Hinweis, Schema-Momentaufnahme. Keiner davon war je ein
-Fehlalarm; sie sind schneller bedient als diskutiert:
-
-```bash
-cd api && npm run schema:snapshot
-```
-
----
+**`mutation.yml` liegt nicht auf dem Default-Branch.** GitHub feuert `schedule`
+nur dort. `main` steht auf `fd9a3ab` (01.06.) und ist **400 Commits zurück**;
+`gh workflow list` kennt nur `ci.yml`. Der frühere Abschluss-Vermerk zu M0-B1
+(auch in `TRIAGE.md:127`) hat den Branch nicht geprüft, der die Sache
+entscheidet. Die dokumentierten Ursachen (Zeitgrenze 90 min, `incremental`) sind
+dagegen längst behoben — `timeout-minutes: 180`, sechs parallele Matrix-Jobs.
 
 ## Offene Owner-Entscheidungen
 
