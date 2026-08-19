@@ -68,7 +68,7 @@ import { fileURLToPath } from "node:url";
 import { Router } from "express";
 
 import {
-  baseDeps, listRoutes, findHandlerExact, findChainFrom, mockReq, mockRes,
+  baseDeps, listRoutes, listRoutesTief, findHandlerExact, findChainFrom, mockReq, mockRes,
   ORG_A, ORG_B, USER_A, USER_B
 } from "./helpers/security-mocks.js";
 import { pruefeGrenze, istSchreibend, spionPool, pfadPlatzhalter } from "./helpers/orgGrenzenSpion.js";
@@ -123,9 +123,44 @@ const FABRIKEN = {
 
 const schluessel = (r) => `${r.methode || r.method} ${r.pfad || r.path}`;
 
+/**
+ * Standard-Abhaengigkeiten fuer Route-Fabriken ohne Sonderwuensche.
+ * Alle Torwaechter und Limiter sind Durchreichen — sie sind NICHT der
+ * Gegenstand dieser Pruefung; wo eine Eintrittsbedingung geprueft wird,
+ * geschieht das ausdruecklich ueber `torwaechter` im Register.
+ */
+function standardDeps(pool) {
+  const durch = (_q, _s, n) => n();
+  return {
+    ...baseDeps(pool),
+    requireFeature: () => durch,
+    getUserAndPlan: async () => ({ plan: "PRO", id: USER_A }),
+    sendMail: async () => {},
+    requestLimiter: durch,
+    authLimiter: durch,
+    cronRateLimit: durch,
+    occRateLimit: durch,
+    config: {}
+  };
+}
+
+/**
+ * Eine Route-Datei montieren. Steht sie nicht in FABRIKEN, wird ihre einzige
+ * `create*Router`-Ausfuhr mit den Standard-Abhaengigkeiten aufgerufen — sonst
+ * muesste fuer jede der ueber achtzig Dateien eine eigene Zeile stehen, und
+ * eine vergessene Zeile waere eine stille Luecke.
+ */
+async function montiereDatei(datei, pool) {
+  if (FABRIKEN[datei]) return FABRIKEN[datei](pool);
+  const mod = await import(`../routes/${datei}`);
+  const fabrik = Object.keys(mod).find((k) => /^create\w*Router$/.test(k));
+  if (!fabrik) throw new Error(`${datei}: keine create*Router-Ausfuhr gefunden`);
+  return mod[fabrik](standardDeps(pool));
+}
+
 /** Router mit einem leeren Pool montieren — nur fuer die Aufzaehlung. */
 async function montiere(datei) {
-  return FABRIKEN[datei]({ query: async () => ({ rows: [] }) });
+  return montiereDatei(datei, { query: async () => ({ rows: [] }) });
 }
 
 /* ═════════════════════════════════════════════════════════════════════════
@@ -136,7 +171,9 @@ describe("Org-Grenzen-Waechter (A) — jede Platzhalter-Route hat ein Urteil", (
   for (const eintrag of register.abgedeckteRouter) {
     it(`${eintrag.datei}: Register und Router stimmen ueberein`, async () => {
       const router = await montiere(eintrag.datei);
-      const echte = listRoutes(router)
+      // TIEF aufzaehlen: eine Datei, die nur Sub-Router montiert, meldet flach
+      // null Routen und waere still als "nichts zu pruefen" durchgegangen.
+      const echte = listRoutesTief(router)
         .filter((r) => r.path.includes(":"))
         .map(schluessel)
         .sort();
@@ -196,7 +233,7 @@ describe("Org-Grenzen-Waechter (B) — Verhaltensprobe mit Spion-Pool", () => {
         // dort ausgefuehrt — sonst meldet die Probe eine bewachte Route als
         // Luecke (Fallstrick 5 des Plans).
         const baueHandler = async (pool) => {
-          const router = await FABRIKEN[eintrag.datei](pool);
+          const router = await montiereDatei(eintrag.datei, pool);
           return r.grenzeIn
             ? findChainFrom(router, r.methode, r.pfad, r.grenzeIn)
             : findHandlerExact(router, r.methode, r.pfad);
@@ -270,6 +307,14 @@ describe("Org-Grenzen-Waechter (B2) — Torwaechter der Sonderflaechen", () => {
           ohne.push(`${Object.keys(layer.route.methods)[0].toUpperCase()} ${layer.route.path}`);
         }
       }
+      // Sub-Router waeren hier unsichtbar; eine Torwaechter-Flaeche darf keine haben,
+      // solange die Kette nicht auch durch sie hindurch geprueft wird.
+      const montierte = listRoutesTief(router).filter((r) => r.montiert && r.path.includes(":"));
+      assert.deepStrictEqual(
+        montierte.map((r) => `${r.method.toUpperCase()} ${r.path}`), [],
+        "Diese Flaeche montiert Sub-Router mit Platzhalter-Routen — der Torwaechter " +
+        "wird dort nicht mitgeprueft."
+      );
       assert.deepStrictEqual(
         ohne, [],
         `Diese Routen tragen '${tor.middleware}' nicht — auf einer Sonderflaeche ist ` +
@@ -281,7 +326,7 @@ describe("Org-Grenzen-Waechter (B2) — Torwaechter der Sonderflaechen", () => {
       const maengel = [];
       for (const r of eintrag.routen) {
         const pool = spionPool({ zeile: { id: "x" } });
-        const router = await FABRIKEN[eintrag.datei](pool);
+        const router = await montiereDatei(eintrag.datei, pool);
         let kette;
         try {
           kette = findChainFrom(router, r.methode, r.pfad, tor.middleware);
@@ -312,9 +357,21 @@ describe("Org-Grenzen-Waechter (B2) — Torwaechter der Sonderflaechen", () => {
    ═════════════════════════════════════════════════════════════════════════ */
 
 describe("Org-Grenzen-Waechter (C) — das Bestandsbuch der Route-Dateien", () => {
-  const dateien = fs.readdirSync(path.join(API, "routes"))
-    .filter((f) => f.endsWith(".js"))
-    .sort();
+  /* REKURSIV: `routes/occ/` traegt 14 weitere Dateien. Ein Bestandsbuch, das nur
+     die oberste Ebene liest, fuehrt eine ganze Flaeche nicht — und merkt es nie. */
+  function alleRouteDateien(verzeichnis, praefix = "") {
+    const gefunden = [];
+    for (const eintrag of fs.readdirSync(verzeichnis, { withFileTypes: true })) {
+      const rel = praefix ? `${praefix}/${eintrag.name}` : eintrag.name;
+      if (eintrag.isDirectory()) {
+        gefunden.push(...alleRouteDateien(path.join(verzeichnis, eintrag.name), rel));
+      } else if (eintrag.name.endsWith(".js")) {
+        gefunden.push(rel);
+      }
+    }
+    return gefunden;
+  }
+  const dateien = alleRouteDateien(path.join(API, "routes")).sort();
 
   it("jede Route-Datei ist entweder abgedeckt oder mit Begruendung ausgesetzt", () => {
     const abgedeckt = register.abgedeckteRouter.map((e) => e.datei);
@@ -538,6 +595,40 @@ describe("Org-Grenzen-Waechter (D) — Selbstprobe an kaputten Routern", () => {
 
     assert.notEqual(res._status, 401, "der durchwinkende Torwaechter muss auffallen");
     assert.ok(pool.schreibvorgaenge.length > 0, "und er laesst dabei sogar schreiben");
+  });
+
+  it("(l) montierte Sub-Router werden gesehen — der flache Blick sieht sie nicht", () => {
+    // Der Fund, der diese Schicht ausgeloest hat: `ownerControlCenter.js`
+    // definiert KEINE eigene Route, sondern montiert 13 Sub-Router. Flach
+    // gezaehlt meldet die Datei null Routen — und waere im Register still als
+    // "nichts zu pruefen" durchgegangen.
+    const unter = Router();
+    unter.get("/sachen/:id", (_q, r) => r.json({}));
+    const oben = Router();
+    oben.use("/bereich", unter);
+
+    assert.deepStrictEqual(
+      listRoutes(oben), [],
+      "der flache Blick MUSS hier leer sein — sonst prueft die Selbstprobe nichts"
+    );
+    const tief = listRoutesTief(oben);
+    assert.equal(tief.length, 1, "die tiefe Aufzaehlung muss die montierte Route finden");
+    assert.equal(tief[0].path, "/sachen/:id");
+    assert.equal(tief[0].montiert, true, "sie muss als montiert erkennbar sein");
+  });
+
+  it("(m) das Bestandsbuch steigt in Unterverzeichnisse hinab", () => {
+    // `routes/occ/` traegt 14 Dateien. Ein Bestandsbuch, das nur die oberste
+    // Ebene liest, fuehrt eine ganze Flaeche nicht — und merkt es nie.
+    const registriert = new Set([
+      ...register.abgedeckteRouter.map((e) => e.datei),
+      ...Object.keys(register.nichtAbgedeckt || {})
+    ]);
+    const occDateien = [...registriert].filter((d) => d.startsWith("occ/"));
+    assert.ok(
+      occDateien.length >= 14,
+      `das Bestandsbuch kennt nur ${occDateien.length} Dateien unter occ/ — es liest nicht rekursiv`
+    );
   });
 
   it("(e) der Schreib-Erkenner unterscheidet Lesen von Schreiben", () => {
