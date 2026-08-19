@@ -113,9 +113,18 @@ Aufruf kostet eine zusätzliche Abfrage auf einem heißen Pfad.
 > jede Route-Datei ist abgedeckt oder mit Grund ausgesetzt.
 
 Durchgesetzt von `api/test/orgGrenzenWaechter.test.js` bei jedem Lauf von
-`api/scripts/run-tests.js`. Stand 2026-08-19: **5 Dateien / 43 Routen
-verhaltensgeprüft, 77 Dateien ausgesetzt** — eine Sperrklinke verhindert, dass
+`api/scripts/run-tests.js`. Stand 2026-08-19: **11 Dateien / 80 Routen
+verhaltensgeprüft, 71 Dateien ausgesetzt** — eine Sperrklinke verhindert, dass
 die Zahl fällt.
+
+**Ein Nebenertrag, der die Arbeit wert war:** Das Register zwingt dazu, je Route
+zu benennen, WELCHE Spalte die Grenze trägt. Dabei kam heraus, dass mehrere
+Routen bewusst **einseitig** gewähren, wo man zweiseitig vermutet: Rahmenverträge
+darf nur die Käuferorganisation ändern (lesen dürfen beide), den
+Lieferantenpool pflegt nur die Kundenorganisation, und `GET /invoices/:id`
+(Abo-Rechnung, nicht die operative) gewährt über `user_id ODER org_id` — die
+Lieferantenorganisation ist dort kein Empfänger. Diese Modelle standen bisher
+nirgends geschrieben; jetzt stehen sie im Register und werden geprüft.
 
 **Die ehrliche Grenze:** Der Wächter beweist die Entscheidung des Handlers und
 die Parameterübergabe. Er beweist **nicht**, dass ein Service-SQL sein

@@ -211,9 +211,16 @@ aufgezählt über das **Router-Objekt** statt über den Quelltext · (B) Spion-P
 der jede Abfrage mitschreibt (403 · kein Schreibvorgang · Ressourcen-ID in der
 Abfrage · Org und Adressat in derselben Anweisung) plus Gegenprobe mit der
 eigenen Org · (C) Bestandsbuch aller 82 Route-Dateien mit Sperrklinke ·
-(D) Selbstprobe an drei absichtlich kaputten Mini-Routern.
+(D) Selbstprobe an fünf absichtlich kaputten Mini-Routern — plus zwei korrekten,
+die NICHT gemeldet werden dürfen.
 
-**Drei Fallen, die er umgeht — alle real aufgetreten:**
+**Vier Erwartungsarten**, weil die Grenze nicht überall an derselben Stelle
+steht: `403` (Standard) · `sql-grenze` (die Bindung liegt im SQL, geprüft an den
+Parametern, weil ein Mock kein `WHERE` erzwingt) · `zero-state` (die Route siebt
+fremde Zeilen in JS aus — geprüft an der Antwort, die die fremde Org nicht
+enthalten darf) · dazu die **Seitenprobe** für zweiseitige Grenzen.
+
+**Vier Fallen, die er umgeht — alle real aufgetreten:**
 
 1. **Quelltext statt Verhalten.** `if (false && X)` trägt die gesuchte
    Zeichenkette weiterhin. Der Wächter führt aus, statt zu lesen — gemessen:
@@ -224,6 +231,11 @@ eigenen Org · (C) Bestandsbuch aller 82 Route-Dateien mit Sperrklinke ·
    und das Registerfeld `grenzeIn`.
 3. **Pauschales `return 403`.** Ohne Gegenprobe bestünde es jede Prüfung. Sie
    fängt zugleich die stillgelegte Route (`schreibtBeiErfolg`).
+4. **Halbierte zweiseitige Grenze.** Tragen `org_id` und `supplier_org_id` in der
+   Probe immer denselben Besitzer, fällt nicht auf, wenn der Handler nur noch
+   einen Zweig prüft. Die **Seitenprobe** gibt die Zeile je Durchlauf nur über
+   *eine* Trägerspalte an die eigene Org. Gemessen: ohne sie blieb eine Mutation
+   in `contracts.js` unbemerkt.
 
 **Was er nicht kann:** beweisen, dass ein Service-SQL seine `AND org_id`-Klausel
 behalten hat. Diese Hälfte tragen die Grenz-Abschnitte in

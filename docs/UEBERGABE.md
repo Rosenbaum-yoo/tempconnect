@@ -184,14 +184,28 @@ nur `query.org_id`/`params.org_id` liest — der Platzhalter heißt hier `:id`.
 - **(B) Verhalten** — Spion-Pool, der jede Abfrage mitschreibt: 403 · **kein**
   INSERT/UPDATE/DELETE · die Ressourcen-ID stand in der Abfrage · Org und
   Adressat stehen in derselben Anweisung. Dazu die **Gegenprobe** mit der
-  eigenen Org, ohne die ein pauschales `return 403` bestünde.
+  eigenen Org, ohne die ein pauschales `return 403` bestünde — und die
+  **Seitenprobe**: bei einer zweiseitigen Grenze (`org_id ODER supplier_org_id`)
+  wird jede Hälfte einzeln belegt. Ohne sie bleibt eine halbierte Grenze
+  unbemerkt; gemessen an einer Mutation in `contracts.js`, die der Wächter
+  zunächst durchgelassen hat.
 - **(C) Bestandsbuch** — jede der 82 Route-Dateien ist abgedeckt **oder** mit
   Grund ausgesetzt. Damit ist die ehrlichste Zahl sichtbar und wächst nicht mehr
-  stillschweigend: **5 Dateien / 43 Routen verhaltensgeprüft, 77 Dateien offen.**
+  stillschweigend: **11 Dateien / 80 Routen verhaltensgeprüft, 71 Dateien offen.**
   Eine Sperrklinke verhindert, dass die Zahl fällt.
-- **(D) Selbstprobe** — drei absichtlich kaputte Mini-Router (Grenze vergessen ·
-  Grenze **nach** dem Schreiben · Grenze auf dem falschen Parameter) müssen
-  gemeldet werden, eine saubere Route nicht.
+
+  Abgedeckt sind `rateCards` · `invoices` · `approvals` · `requisitions` ·
+  `organizations` · `contracts` · `assignments` · `vendorPool` ·
+  `complianceDocs` · `documentCenter` · `timesheets` — also die elf Dateien mit
+  den meisten Grenzkopien. Vorrangig für die nächste Welle sind laut Register
+  `capacityExchange`, `marketplace`, `workerPortal` und `staffControlCenter`.
+- **(D) Selbstprobe** — fünf absichtlich kaputte Mini-Router (Grenze vergessen ·
+  Grenze **nach** dem Schreiben · Grenze auf dem falschen Parameter · halbierte
+  zweiseitige Grenze · ungefilterte Liste) müssen gemeldet werden — und **zwei
+  korrekte Router dürfen es nicht**, sonst wäre der Prüfer nur streng statt
+  richtig. Dazu zwei Proben auf das Werkzeug selbst: der Schreib-Erkenner
+  verwechselt `deleted_at`/`updated_at` in einem SELECT nicht mit einem
+  Schreibvorgang, und `BEGIN`/`COMMIT` zählen nicht als Abfrage.
 
 **Gegen den echten Bestand mutiert** — nicht nur gegen Mini-Router:
 
@@ -199,8 +213,18 @@ nur `query.org_id`/`params.org_id` liest — der Platzhalter heißt hier `:id`.
 |---|---|---|
 | Grenze mit `if (false && …)` abgeschaltet (der G6-Mutant) | **rot** | — |
 | `sameOrgParam` aus der Kette entfernt | **rot** | — |
+| zweiseitige Grenze halbiert (supplier-Zweig weg) | **rot** | — |
+| JS-Filter einer Listen-Route entschärft | **rot** | — |
+| Grenze auf den falschen Parameter gelegt (die E-5-Klasse) | **rot** | — |
+| Org-Grenze aus `/requisitions/:id/events` entfernt | **rot** | — |
 | `AND org_id = $3` aus dem UPDATE genommen, Parameter bleibt | grün *(dokumentierte Grenze)* | **rot** |
 | Org-Bindung aus der Freigabe-Historie entfernt | grün *(dokumentierte Grenze)* | **rot** |
+
+Die dritte Zeile ist die lehrreichste: sie war beim ersten Anlauf **grün**. Beide
+Trägerspalten trugen immer denselben Besitzer, also fiel nicht auf, dass der
+Handler nur noch einen Zweig prüft. Erst die Seitenprobe macht sie rot — ein
+Wächter, den man nicht gegen den echten Bestand mutiert, misst seine eigene
+Erwartung.
 
 Das ist die **ehrliche Grenze** des Wächters: er beweist die Entscheidung des
 Handlers und die Parameterübergabe, **nicht**, dass ein Service-SQL seine

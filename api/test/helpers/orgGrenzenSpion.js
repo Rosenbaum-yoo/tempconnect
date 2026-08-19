@@ -135,22 +135,31 @@ export async function pruefeGrenze(opts) {
     erwartung = "403",
     traegerspalten = ["org_id"],
     lesenMussZusammen = [],
+    orgPlatzhalter = "id",
+    seitenprobe = true,
     baueReq, baueRes
   } = opts;
 
   const maengel = [];
 
-  async function lauf(besitzerOrg, pfadOrg) {
+  async function lauf(besitzerOrg, pfadOrg, nurSpalte = null) {
     const platzhalter = pfadPlatzhalter(pfad);
     const params = {};
     for (const name of platzhalter) params[name] = ressourceId;
-    if (art === "orgpfad" && platzhalter.includes("id")) params.id = pfadOrg;
+    // Bei art="orgpfad" traegt EIN Platzhalter die Org-Kennung. Er heisst
+    // meist ":id", in complianceDocs aber ":orgId" — deshalb benennbar.
+    if (art === "orgpfad" && platzhalter.includes(orgPlatzhalter)) params[orgPlatzhalter] = pfadOrg;
 
     // Nur die deklarierten Traegerspalten bekommen den Besitzer. Wer
     // `supplier_org_id` blind mitfuellt, macht eine einseitige Grenze
     // unbeabsichtigt zweiseitig — und die Probe blind fuer den Unterschied.
     const datenZeile = { id: ressourceId, ...zeile };
-    for (const spalte of traegerspalten) datenZeile[spalte] = besitzerOrg;
+    for (const spalte of traegerspalten) {
+      // `nurSpalte` gibt die Zeile NUR ueber diese eine Spalte an die eigene
+      // Org; alle anderen Traeger gehören der Gegenseite. So wird jede Hälfte
+      // einer zweiseitigen Grenze einzeln belegt.
+      datenZeile[spalte] = nurSpalte ? (spalte === nurSpalte ? besitzerOrg : orgFremd) : besitzerOrg;
+    }
     const pool = spionPool({ zeile: datenZeile });
     // Der Handler wird UM den Spion herum gebaut, nicht vorher. Ein Router,
     // der seinen Pool ueber die Fabrik einschliesst, wuerde sonst an einem
@@ -195,6 +204,19 @@ export async function pruefeGrenze(opts) {
       fremd.pool.schreibvorgaenge.map((c) => c.sql.trim().slice(0, 50).replace(/\s+/g, " ")).join(" | ")
     );
   }
+  // Manche Listen-Routen laden breit und sieben die fremden Zeilen erst in JS
+  // aus (`items.filter(ts => ts.org_id === req.orgId || ...)`). Kein Leck, aber
+  // auch kein 403 — beweisen laesst sich das nur an der ANTWORT: die fremde Org
+  // darf in ihr nicht vorkommen.
+  if (erwartung === "zero-state") {
+    const koerper = JSON.stringify(fremd.res._json ?? null);
+    if (koerper.includes(String(orgFremd))) {
+      maengel.push(
+        "die Antwort auf den Fremdzugriff enthaelt die fremde Org — der Filter " +
+        "siebt nicht: " + koerper.slice(0, 160)
+      );
+    }
+  }
   if (erwartung === "sql-grenze" && !fremd.pool.lasMit(...[orgEigen, ...lesenMussZusammen])) {
     maengel.push(
       "die Abfrage trug nicht Org UND Adressat zusammen — eine Route ohne 403 " +
@@ -208,7 +230,7 @@ export async function pruefeGrenze(opts) {
   if (eigen.res._status === 403) {
     maengel.push("die EIGENE Org wird ebenfalls mit 403 abgewiesen — die Pruefung urteilt pauschal");
   }
-  if (erwartung === "sql-grenze" && eigen.res._status >= 400) {
+  if ((erwartung === "sql-grenze" || erwartung === "zero-state") && eigen.res._status >= 400) {
     maengel.push(`der eigene Zugriff endet mit ${eigen.res._status} — die Route ist nicht benutzbar`);
   }
 
@@ -217,6 +239,27 @@ export async function pruefeGrenze(opts) {
      Abfrage stellt — dort ist die Abwesenheit der Org kein Mangel, sondern der
      Beweis. Erst wo der Aufruf durchgeht, ist zu zeigen, ueber WELCHE Zeile
      entschieden wurde und ob die Org die Abfrage erreicht. */
+  /* ── Seitenprobe: jede Haelfte einer zweiseitigen Grenze einzeln ──────────
+     Ohne sie bleibt eine halbierte Grenze unbemerkt: stehen BEIDE
+     Traegerspalten immer auf demselben Besitzer, fällt es nicht auf, wenn der
+     Handler nur noch einen der beiden Zweige prueft. Gemessen an einer
+     Mutation in `contracts.js` — der Waechter blieb grün, bis es diese Probe
+     gab. */
+  if (traegerspalten.length > 1 && seitenprobe !== false) {
+    for (const spalte of traegerspalten) {
+      const seite = await lauf(orgEigen, orgEigen, spalte);
+      if (seite.res._status === 403) {
+        maengel.push(
+          `die Zeile gehoert der eigenen Org ueber '${spalte}' (die andere Seite ist fremd) ` +
+          "und wird trotzdem mit 403 abgewiesen — die zweiseitige Grenze prueft nur einen Zweig"
+        );
+      }
+      if (seite.pool.schreibvorgaenge.length === 0 && schreibtBeiErfolg) {
+        maengel.push(`ueber '${spalte}' findet kein Schreibvorgang statt — dieser Zweig ist stillgelegt`);
+      }
+    }
+  }
+
   if (art !== "orgpfad" && !eigen.pool.fragteMit(ressourceId)) {
     maengel.push("keine Abfrage trug die Ressourcen-ID — es wurde ueber eine andere Zeile geurteilt");
   }

@@ -69,7 +69,7 @@ import { Router } from "express";
 
 import {
   baseDeps, listRoutes, findHandlerExact, findChainFrom, mockReq, mockRes,
-  ORG_A, ORG_B
+  ORG_A, ORG_B, USER_A
 } from "./helpers/security-mocks.js";
 import { pruefeGrenze, istSchreibend, spionPool } from "./helpers/orgGrenzenSpion.js";
 
@@ -82,21 +82,35 @@ const REGISTERPFAD = path.join(HIER, "fixtures", "orgGrenzen.json");
 
 const register = JSON.parse(fs.readFileSync(REGISTERPFAD, "utf8"));
 
-/** Router-Fabriken der abgedeckten Dateien. */
+/**
+ * Router-Fabriken der abgedeckten Dateien: Pool rein, montierter Router raus.
+ *
+ * Der Pool wird JE LAUF durchgereicht, weil die Fabriken ihn einschliessen —
+ * ein vorher montierter Router arbeitete sonst an einem anderen Pool als dem,
+ * den der Spion beobachtet.
+ */
 const FABRIKEN = {
-  "rateCards.js":     async () => (await import("../routes/rateCards.js")).createRateCardsRouter,
-  "invoices.js":      async () => (await import("../routes/invoices.js")).createInvoicesRouter,
-  "approvals.js":     async () => (await import("../routes/approvals.js")).createApprovalsRouter,
-  "requisitions.js":  async () => (await import("../routes/requisitions.js")).createRequisitionsRouter,
-  "organizations.js": async () => (await import("../routes/organizations.js")).createOrganizationsRouter
+  "rateCards.js":      async (pool) => (await import("../routes/rateCards.js")).createRateCardsRouter(baseDeps(pool)),
+  "invoices.js":       async (pool) => (await import("../routes/invoices.js")).createInvoicesRouter(baseDeps(pool)),
+  "approvals.js":      async (pool) => (await import("../routes/approvals.js")).createApprovalsRouter(baseDeps(pool)),
+  "requisitions.js":   async (pool) => (await import("../routes/requisitions.js")).createRequisitionsRouter(baseDeps(pool)),
+  "organizations.js":  async (pool) => (await import("../routes/organizations.js")).createOrganizationsRouter(baseDeps(pool)),
+  "contracts.js":      async (pool) => (await import("../routes/contracts.js")).createContractsRouter(baseDeps(pool)),
+  "assignments.js":    async (pool) => (await import("../routes/assignments.js")).createAssignmentsRouter(baseDeps(pool)),
+  "vendorPool.js":     async (pool) => (await import("../routes/vendorPool.js")).createVendorPoolRouter(baseDeps(pool)),
+  "complianceDocs.js": async (pool) => (await import("../routes/complianceDocs.js")).createComplianceDocsRouter(baseDeps(pool)),
+  "documentCenter.js": async (pool) => (await import("../routes/documentCenter.js")).createDocumentCenterRouter(baseDeps(pool)),
+  "timesheets.js":     async (pool) => (await import("../routes/timesheets.js")).createTimesheetsRouter({
+                          ...baseDeps(pool),
+                          getUserAndPlan: async () => ({ plan: "PRO", id: USER_A })
+                        })
 };
 
 const schluessel = (r) => `${r.methode || r.method} ${r.pfad || r.path}`;
 
 /** Router mit einem leeren Pool montieren — nur fuer die Aufzaehlung. */
 async function montiere(datei) {
-  const fabrik = await FABRIKEN[datei]();
-  return fabrik(baseDeps({ query: async () => ({ rows: [] }) }));
+  return FABRIKEN[datei]({ query: async () => ({ rows: [] }) });
 }
 
 /* ═════════════════════════════════════════════════════════════════════════
@@ -154,13 +168,11 @@ describe("Org-Grenzen-Waechter (B) — Verhaltensprobe mit Spion-Pool", () => {
   for (const eintrag of register.abgedeckteRouter) {
     for (const r of eintrag.routen.filter((x) => x.urteil === "verhaltensgeprueft")) {
       it(`${eintrag.datei} · ${schluessel(r)}`, async () => {
-        const fabrik = await FABRIKEN[eintrag.datei]();
-
         // Liegt die Grenze in einem benannten Middleware, wird die Kette ab
         // dort ausgefuehrt — sonst meldet die Probe eine bewachte Route als
         // Luecke (Fallstrick 5 des Plans).
-        const baueHandler = (pool) => {
-          const router = fabrik(baseDeps(pool));
+        const baueHandler = async (pool) => {
+          const router = await FABRIKEN[eintrag.datei](pool);
           return r.grenzeIn
             ? findChainFrom(router, r.methode, r.pfad, r.grenzeIn)
             : findHandlerExact(router, r.methode, r.pfad);
@@ -175,6 +187,8 @@ describe("Org-Grenzen-Waechter (B) — Verhaltensprobe mit Spion-Pool", () => {
           traegerspalten: r.traegerspalten || ["org_id"],
           erwartung: r.erwartung || "403",
           lesenMussZusammen: r.lesenMussZusammen || [],
+          orgPlatzhalter: r.orgPlatzhalter || "id",
+          seitenprobe: r.seitenprobe !== false,
           orgEigen: ORG_A,
           orgFremd: ORG_B,
           schreibtBeiErfolg: r.schreibtBeiErfolg === true,
@@ -335,6 +349,56 @@ describe("Org-Grenzen-Waechter (D) — Selbstprobe an kaputten Routern", () => {
       res.json({ ok: true });
     });
     assert.deepStrictEqual(maengel, [], "eine saubere Route darf nicht gemeldet werden");
+  });
+
+  it("(g) halbierte zweiseitige Grenze — wird gemeldet", async () => {
+    // Die Mutation, die der Waechter zunaechst UEBERLEBT hat: beide
+    // Traegerspalten trugen in der Probe immer denselben Besitzer, also fiel
+    // nicht auf, dass der Handler nur noch einen Zweig prueft.
+    const { maengel } = await probiere(
+      async (req, res) => {
+        const { rows } = await req.pool.query("SELECT * FROM sachen WHERE id = $1", [req.params.id]);
+        if (!rows[0]) return res.status(404).json({ error: "NOT_FOUND" });
+        // Der supplier-Zweig fehlt — genau die Mutation aus contracts.js.
+        if (rows[0].org_id !== req.orgId) {
+          return res.status(403).json({ error: "ORG_BOUNDARY_VIOLATION" });
+        }
+        await req.pool.query("UPDATE sachen SET x = 1 WHERE id = $1 AND org_id = $2", [req.params.id, req.orgId]);
+        res.json({ ok: true });
+      },
+      { traegerspalten: ["org_id", "supplier_org_id"] }
+    );
+    assert.ok(
+      maengel.some((m) => /nur einen Zweig/.test(m)),
+      "eine halbierte zweiseitige Grenze muss auffallen — gemeldet wurde: " + JSON.stringify(maengel)
+    );
+  });
+
+  it("(h) Listen-Route ohne Filter — wird gemeldet", async () => {
+    // Die Grenze mancher Listen-Routen ist ein JS-Filter nach dem Laden. Faellt
+    // er weg, bleibt der Statuscode 200 und nur die ANTWORT verraet das Leck.
+    const { maengel } = await probiere(
+      async (req, res) => {
+        const { rows } = await req.pool.query("SELECT * FROM sachen WHERE eltern_id = $1", [req.params.id]);
+        res.json({ items: rows }); // ungefiltert — die fremde Zeile geht raus
+      },
+      { erwartung: "zero-state", schreibtBeiErfolg: false }
+    );
+    assert.ok(
+      maengel.some((m) => /enthaelt die fremde Org/.test(m)),
+      "eine ungefilterte Liste muss auffallen — gemeldet wurde: " + JSON.stringify(maengel)
+    );
+  });
+
+  it("(i) dieselbe Listen-Route MIT Filter wird nicht gemeldet", async () => {
+    const { maengel } = await probiere(
+      async (req, res) => {
+        const { rows } = await req.pool.query("SELECT * FROM sachen WHERE eltern_id = $1", [req.params.id]);
+        res.json({ items: rows.filter((r) => r.org_id === req.orgId) });
+      },
+      { erwartung: "zero-state", schreibtBeiErfolg: false }
+    );
+    assert.deepStrictEqual(maengel, [], "eine korrekt siebende Liste darf nicht gemeldet werden");
   });
 
   it("(e) der Schreib-Erkenner unterscheidet Lesen von Schreiben", () => {
