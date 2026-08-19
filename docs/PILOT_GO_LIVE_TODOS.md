@@ -21,6 +21,17 @@ Selbstprobe), volle Suite **8804/0**. Vier Mutationen gegen den echten Bestand
 gefahren: Handler-Mutationen macht der Wächter rot, SQL-Mutationen die
 Service-Tests.
 
+### 2026-08-19 — E-12: ein Lesezugriff schrieb ueber die Mandantengrenze
+
+**Status:** erledigt · **Fakt:** `getAssignmentStaffingOverview`
+(`assignmentStaffingService.js`) rief `recalcAssignmentStaffing` — ein
+`UPDATE assignments ... WHERE id = $1` ohne Org-Bindung — VOR der
+Zugehoerigkeitspruefung. `GET /staffing-assignments/:id` auf eine fremde Kennung
+hat damit die fremde Zeile geschrieben und danach 404 geliefert.
+**Aktion:** Zugehoerigkeit zuerst, im SQL (`AND supplier_org_id = $2`), dann
+rechnen. **Verify:** `orgGrenzeLuecken.test.js` Abschnitt E-12 (26/26), inkl.
+Gegenprobe, dass die Neuberechnung fuer die eigene Org weiterhin laeuft.
+
 ### 2026-08-19 — H2 zweite Welle: die vier größten Flächen eingeordnet
 
 **Status:** erledigt · **Fakt:** `capacityExchange` (18), `marketplace` (30),

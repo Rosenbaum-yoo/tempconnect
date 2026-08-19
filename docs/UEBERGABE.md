@@ -263,6 +263,27 @@ Die Folge ist ein Produktbefund, kein Sicherheitsbefund: **ein Kollege derselben
 Organisation kann die Einträge eines Teamkollegen nicht sehen oder bearbeiten.**
 Dasselbe Muster wie D-M4 bei den Requisitions — zusammengefasst als **D-M5**.
 
+### E-12 · Ein Lesezugriff schrieb in die fremde Zeile *(geschlossen)*
+
+`GET /staffing-assignments/:id` rief `getAssignmentStaffingOverview`, und die
+Funktion begann mit `recalcAssignmentStaffing` — einem
+`UPDATE assignments ... WHERE id = $1` **ohne Org-Bindung**. Die
+Zugehörigkeitsprüfung stand in der Zeile **danach**. Ein GET auf eine fremde
+Einsatz-Kennung hat damit Mengen, Besetzungsstatus und Zeitstempel der fremden
+Zeile angefasst und anschließend 404 geliefert: kein Datenabfluss, aber ein
+Schreibvorgang über die Mandantengrenze, ausgelöst von einem bloßen Lesen.
+
+Gefunden hat ihn der Wächter, nicht eine Recherche — und zwar genau über die
+Zusicherung „auf dem Spion steht kein INSERT/UPDATE/DELETE". Ein reiner
+Statuscode-Test hätte den 404 gesehen und nichts gemerkt.
+
+**Geschlossen:** die Zugehörigkeit wird jetzt zuerst geklärt, und zwar im SQL
+(`WHERE id = $1 AND supplier_org_id = $2`), dann wird gerechnet. Beleg:
+`api/test/security/orgGrenzeLuecken.test.js`, Abschnitt E-12 — mit einer
+Gegenprobe, die sicherstellt, dass die Neuberechnung für die **eigene** Org
+weiterhin stattfindet, die Reparatur die Funktion also begrenzt und nicht
+stilllegt.
+
 ### E-11 · `canAccessAsOwner` hat nie funktioniert
 
 `utils/ownerCheck.js:28-33` soll genau diese Lücke schließen: direkter

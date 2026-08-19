@@ -41,6 +41,12 @@ function trackingPool(handler) {
     const text = String(sql);
     if (TX.has(text.trim().toUpperCase())) return { rows: [], rowCount: 0 };
     calls.push({ sql: text, params: params || [] });
+    /* Fixture-Pflege (Befund E-12): die Zugehoerigkeitswache vor der
+       Neuberechnung. Siehe Kommentar in
+       dealStaffingFastTrackService.coverage.test.js. */
+    if (/SELECT 1 FROM assignments\s+WHERE id = \$1 AND supplier_org_id = \$2/i.test(text)) {
+      return { rows: [{ "?column?": 1 }], rowCount: 1 };
+    }
     const out = handler(text, params || []);
     if (out === undefined || out === null) return { rows: [], rowCount: 0 };
     return out;

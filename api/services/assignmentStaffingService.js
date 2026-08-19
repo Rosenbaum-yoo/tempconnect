@@ -2337,6 +2337,23 @@ export async function listClosedDealAssignments(pool, supplierOrgId, { limit = 1
 }
 
 export async function getAssignmentStaffingOverview(pool, assignmentId, supplierOrgId) {
+  /* Befund E-12 (2026-08-19, vom Org-Grenzen-Waechter gefunden): Bis hierher
+     stand `recalcAssignmentStaffing` VOR der Grenzpruefung. Die Funktion
+     schreibt aber — `UPDATE assignments ... WHERE id = $1`, ohne org-Bindung.
+     Ein GET auf eine FREMDE Einsatz-Kennung hat damit die fremde Zeile
+     angefasst (Mengen, Besetzungsstatus, Zeitstempel) und danach 404 geliefert.
+     Kein Datenabfluss, aber ein Schreibvorgang ueber die Mandantengrenze,
+     ausgeloest von einem blossen Lesezugriff.
+
+     Deshalb zuerst die Zugehoerigkeit klaeren, dann rechnen. Die zusaetzliche
+     Abfrage ist ein Index-Treffer auf den Primaerschluessel. */
+  if (supplierOrgId) {
+    const { rows } = await pool.query(
+      "SELECT 1 FROM assignments WHERE id = $1 AND supplier_org_id = $2",
+      [assignmentId, supplierOrgId]
+    );
+    if (!rows[0]) return null;
+  }
   const assignment = await recalcAssignmentStaffing(pool, assignmentId, { writeEvent: false });
   if (!assignment || (supplierOrgId && assignment.supplier_org_id !== supplierOrgId)) return null;
 

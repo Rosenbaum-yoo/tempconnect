@@ -2560,6 +2560,6 @@
     "occ/support.js": "Wird von ownerControlCenter.js montiert und dort TIEF mitgezaehlt (31 Routen, keine mit Platzhalter). Eine :id-Route hier macht den Waechter ueber die Mutterdatei rot.",
     "occ/warp.js": "Wird von ownerControlCenter.js montiert und dort TIEF mitgezaehlt (31 Routen, keine mit Platzhalter). Eine :id-Route hier macht den Waechter ueber die Mutterdatei rot.",
     "occ/_helpers.js": "Helfermodul ohne Router-Fabrik — enthaelt keine Routen.",
-    "workers.js": "in Arbeit (Welle B): 33 Platzhalter-Routen, Grenze durchgehend ueber supplier_org_id"
+    "workers.js": "IN ARBEIT (Welle B), Vorarbeit steht: 33 Platzhalter-Routen; die Grenze laeuft durchgehend ueber supplier_org_id (getScopedWorker, workers.js:568-573), NICHT ueber org_id. 17 Routen waren damit sofort sauber. Offen sind 16, in vier Klassen: (a) Schreibwege, deren WHERE die Grenze selbst traegt (worker_absences, worker_invites) -> schreibenGrenztSelbst; (b) Zod-Koerper fehlen (complaints, worker-assignment-links, quick-assign, campaigns, waitlist, choice-sets); (c) Zustandsautomaten antworten 409 (next-wave, finalize); (d) /public/worker-profiles/:slug ist bewusst oeffentlich. Befund E-12 aus dieser Datei ist bereits geschlossen."
   }
 }

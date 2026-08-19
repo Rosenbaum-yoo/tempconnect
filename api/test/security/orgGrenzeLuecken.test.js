@@ -34,7 +34,7 @@ import assert from "node:assert/strict";
 
 import {
   mockReq, mockRes, noop, baseDeps, findHandlerExact,
-  ORG_A, ORG_B
+  ORG_A, ORG_B, USER_A
 } from "../helpers/security-mocks.js";
 import { spionPool } from "../helpers/orgGrenzenSpion.js";
 
@@ -43,6 +43,7 @@ import { createInvoicesRouter }      from "../../routes/invoices.js";
 import { createApprovalsRouter }     from "../../routes/approvals.js";
 import { createRequisitionsRouter }  from "../../routes/requisitions.js";
 import { createOrganizationsRouter } from "../../routes/organizations.js";
+import { createWorkersRouter }      from "../../routes/workers.js";
 
 /** Keine Zeile darf geschrieben worden sein. */
 function keinSchreibvorgang(pool, was) {
@@ -363,5 +364,75 @@ describe("E-5 · GET /organizations/:id/audit-log/recent-changes — fremde Enti
 
     assert.equal(res._status, 403);
     assert.equal(res._json.error, "ORG_BOUNDARY_VIOLATION");
+  });
+});
+
+/* ═════════════════════════════════════════════════════════════════════════
+   E-12 · Ein LESEZUGRIFF schrieb in die fremde Zeile
+   ═════════════════════════════════════════════════════════════════════════
+
+   Gefunden vom Org-Grenzen-Waechter, nicht von der Recherche.
+   `getAssignmentStaffingOverview` rief `recalcAssignmentStaffing` — ein
+   `UPDATE assignments ... WHERE id = $1` OHNE Org-Bindung — und prueste die
+   Zugehoerigkeit erst in der Zeile DANACH. Ein GET auf eine fremde
+   Einsatz-Kennung hat damit Mengen, Besetzungsstatus und Zeitstempel der
+   fremden Zeile angefasst und anschliessend 404 geliefert: kein Datenabfluss,
+   aber ein Schreibvorgang ueber die Mandantengrenze, ausgeloest von einem
+   blossen Lesezugriff.
+
+   Genau dafuer gibt es die Zusicherung "auf dem Spion steht kein
+   INSERT/UPDATE/DELETE" — ein reiner Statuscode-Test haette den 404 gesehen
+   und nichts gemerkt.                                                        */
+
+describe("E-12 · GET /staffing-assignments/:id — fremder Einsatz", () => {
+  function workersDeps(pool) {
+    return {
+      ...baseDeps(pool),
+      getUserAndPlan: async () => ({ plan: "PRO", id: USER_A }),
+      requestLimiter: (_q, _s, next) => next()
+    };
+  }
+
+  it("schreibt nicht, bevor die Zugehoerigkeit geklaert ist", async () => {
+    /* Der Spion beantwortet sonst JEDE Abfrage mit einer Zeile — auch die
+       klaerende, deren ganzer Sinn ihr WHERE ist. Genau diese eine Abfrage
+       wird deshalb wie eine echte Datenbank beantwortet: fremde Org, kein
+       Treffer. Ohne das prueft der Test die Reparatur nicht, sondern den Mock. */
+    const pool = spionPool({
+      zeile: { id: "asg-fremd", supplier_org_id: ORG_B, status: "active" },
+      antwort: (sql, params) =>
+        /SELECT 1 FROM assignments/i.test(sql) && !params.includes(ORG_B)
+          ? { rows: [] }
+          : undefined
+    });
+    const router = createWorkersRouter(workersDeps(pool));
+    const handler = findHandlerExact(router, "get", "/staffing-assignments/:id");
+
+    const res = mockRes();
+    await handler(mockReq({ orgId: ORG_A, params: { id: "asg-fremd" } }), res, noop);
+
+    keinSchreibvorgang(pool, "staffing-assignments detail");
+    assert.notEqual(res._status, 200, "ein fremder Einsatz darf keine Uebersicht liefern");
+    assert.ok(
+      pool.fragteMit("asg-fremd", ORG_A),
+      "die klaerende Abfrage muss Einsatz UND eigene Org tragen"
+    );
+  });
+
+  it("Gegenprobe: der eigene Einsatz wird geliefert und darf dabei rechnen", async () => {
+    const pool = spionPool({ zeile: { id: "asg-eigen", supplier_org_id: ORG_A, status: "active" } });
+    const router = createWorkersRouter(workersDeps(pool));
+    const handler = findHandlerExact(router, "get", "/staffing-assignments/:id");
+
+    const res = mockRes();
+    await handler(mockReq({ orgId: ORG_A, params: { id: "asg-eigen" } }), res, noop);
+
+    assert.notEqual(res._status, 403);
+    assert.notEqual(res._status, 404);
+    assert.ok(
+      pool.schreibvorgaenge.length > 0,
+      "die Neuberechnung MUSS fuer die eigene Org weiterhin stattfinden — " +
+      "sonst haette die Reparatur die Funktion stillgelegt statt sie zu begrenzen"
+    );
   });
 });
