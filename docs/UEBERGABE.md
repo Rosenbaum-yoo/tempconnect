@@ -39,7 +39,7 @@ Abschnitten, die ich in Spuren mit **Wellen und Gates** schneide.
 ```bash
 cd api && node scripts/run-tests.js          # offizieller Runner, ohne Pipe
 ```
-Stand: **8804 Tests** (2026-08-19, voller Lauf ohne Pipe, 0 Fehler), davon 13 übersprungen — die DB-gebundenen, die nur im Container laufen.
+Stand: **8927 Tests** (2026-08-19, voller Lauf ohne Pipe, 0 Fehler), davon 13 übersprungen — die DB-gebundenen, die nur im Container laufen.
 
 > **Falle beim Arbeiten in einem `git worktree`:** `.agents/`, `frontend/support-ops/`
 > und die ungetrackten Dateien unter `docs/launch/` sind gitignored und fehlen in
@@ -60,6 +60,16 @@ Im Container (nur `api/` und Lese-Mounts sind dort sichtbar):
 ```bash
 docker exec tempconnect_api sh -c "cd /app && node --test --test-force-exit test/X.test.js"
 ```
+
+**`\b` in einem Template-Literal ist ein Backspace, keine Wortgrenze (2026-08-19).**
+Der Org-Grenzen-Wächter erkannte Tabellennamen über ``new RegExp(`\b${tabelle}\b`)``
+— und traf deshalb **nie**. Eine Probe, die nichts trifft, ist still grün: sie
+meldete vier korrekt bewachte Routen als Lücke und hätte umgekehrt eine echte
+durchgelassen. Gelöst durch einen Teilstring-Vergleich statt eines regulären
+Ausdrucks. **Merksatz: wer ein Muster aus einem Template-Literal baut, verdoppelt
+jeden Backslash — oder verzichtet auf den regulären Ausdruck.** Dieselbe Klasse
+wie die Zeilenenden-Falle darunter: ein Prüfer, der leer läuft, sieht aus wie ein
+Prüfer, der nichts findet.
 
 **Zeilenenden-Falle (gelöst 2026-08-15):** Der SQL-Schema-Wächter hashte die
 Migrationsdateien byteweise und konnte deshalb nur in EINER Welt grün sein —
@@ -88,7 +98,7 @@ Lastabhängig. **Als eigene Aufgabe ausgelagert, nicht nebenbei anfassen.**
 | `api/test/fixtures/orgGrenzen.json` | Das **Register der Mandantengrenze**: je Route ein Urteil, je Route-Datei ein Abdeckungsvermerk. Wird von `api/test/orgGrenzenWaechter.test.js` erzwungen. **Vor jeder neuen `:id`-Route lesen.** |
 | [FLAECHEN.md](FLAECHEN.md) | Was gehört ins Staff CC, was ins OCC, was ins Support Center. **Vor jedem neuen Modul lesen**, wird per Test erzwungen. |
 | [TESTING.md](TESTING.md) | Testarchitektur, inkl. Mutation Testing und seiner zwei Fallen |
-| [features/H_KUNDENANSICHT_UND_ORG_GRENZEN.md](features/H_KUNDENANSICHT_UND_ORG_GRENZEN.md) | **Naechste Sitzung.** H1 Kundenansicht (Fortsetzung G4b/G5), H2 die 80 Mandantengrenzen. **H2 enthaelt fuenf Stellen ohne Org-Pruefung — drei mit schreibendem Cross-Org-Zugriff.** Recherche vollstaendig festgehalten. |
+| [features/H_KUNDENANSICHT_UND_ORG_GRENZEN.md](features/H_KUNDENANSICHT_UND_ORG_GRENZEN.md) | **H2 abgeschlossen** (2026-08-19): zehn Cross-Org-Luecken geschlossen, Waechter gebaut, 15 von 82 Route-Dateien eingeordnet. Enthaelt die vollstaendige Recherche und die Korrekturen daran. H1 lief parallel in einem eigenen Baum. |
 | [features/G_ABWESENHEIT_SELBSTERFASSUNG.md](features/G_ABWESENHEIT_SELBSTERFASSUNG.md) | Abwesenheit, vom Mitarbeiter selbst gemeldet — sechs Wellen. **G1-G3 gebaut** (Mig 181/182, Endpunkte, Zeitsperre, Mindestbeschreibung, Verspaetungsweg). Enthaelt die acht Owner-Entscheidungen G-E1 bis G-E8. **G1-G6 vollstaendig gebaut.** |
 | [features/P11_DOKUMENTATION_ALS_SYSTEM.md](features/P11_DOKUMENTATION_ALS_SYSTEM.md) | Doku als System: generiert statt gepflegt, drei Leser (Investor/Owner/Technik), Hilfebereich. 11 Wellen, W1 laeuft. **Owner-Grundprinzip fuer alle Projekte.** |
 | [PLATTFORM_REGISTER.md](PLATTFORM_REGISTER.md) | Das Inventar: jede Flaeche, jeder Endpunkt, jede Faehigkeit, mit Beleg und Zustand. Grundlage der Investoren- und Bedienungsdoku. Wird per `dokuWaechter.test.js` gegen den Code gehalten. |
@@ -189,16 +199,25 @@ nur `query.org_id`/`params.org_id` liest — der Platzhalter heißt hier `:id`.
   wird jede Hälfte einzeln belegt. Ohne sie bleibt eine halbierte Grenze
   unbemerkt; gemessen an einer Mutation in `contracts.js`, die der Wächter
   zunächst durchgelassen hat.
+- **(B2) Torwächter** — für Flächen, die *eine* Eintrittsbedingung statt einer
+  Grenze je Route haben. Geprüft wird, dass der benannte Middleware auf **jeder**
+  Platzhalter-Route steht, dass er ohne die Voraussetzung mit dem erwarteten
+  Status abweist **und** dass dabei nichts geschrieben wird. Der dritte Punkt ist
+  der Grund, warum das kein Struktur-Test ist: ein Torwächter, der dasteht und
+  `next()` ruft, fällt hier durch.
 - **(C) Bestandsbuch** — jede der 82 Route-Dateien ist abgedeckt **oder** mit
   Grund ausgesetzt. Damit ist die ehrlichste Zahl sichtbar und wächst nicht mehr
-  stillschweigend: **11 Dateien / 80 Routen verhaltensgeprüft, 71 Dateien offen.**
-  Eine Sperrklinke verhindert, dass die Zahl fällt.
+  stillschweigend: **15 Dateien · 137 Routen verhaltensgeprüft · 56 belegte
+  Ausnahmen · 67 Dateien offen.** Eine Sperrklinke verhindert, dass die Zahl fällt.
 
-  Abgedeckt sind `rateCards` · `invoices` · `approvals` · `requisitions` ·
-  `organizations` · `contracts` · `assignments` · `vendorPool` ·
-  `complianceDocs` · `documentCenter` · `timesheets` — also die elf Dateien mit
-  den meisten Grenzkopien. Vorrangig für die nächste Welle sind laut Register
-  `capacityExchange`, `marketplace`, `workerPortal` und `staffControlCenter`.
+  | Datei | geprüft | Ausnahmen | Grenzmodell |
+  |---|---|---|---|
+  | `rateCards` `invoices` `approvals` `requisitions` `organizations` | 43 | — | Org |
+  | `contracts` `assignments` `vendorPool` `complianceDocs` `documentCenter` `timesheets` | 37 | — | Org |
+  | `capacityExchange` | 17 | 1 | **Nutzer** |
+  | `marketplace` | 22 | 8 | **Nutzer**, teils offen per Bauart |
+  | `workerPortal` | 18 | — | **Nutzer** + Torwächter `requireWorkerRole` |
+  | `staffControlCenter` | — | 47 | **Staff**, org-übergreifend per Bauart; Torwächter `staffControlAccess` |
 - **(D) Selbstprobe** — fünf absichtlich kaputte Mini-Router (Grenze vergessen ·
   Grenze **nach** dem Schreiben · Grenze auf dem falschen Parameter · halbierte
   zweiseitige Grenze · ungefilterte Liste) müssen gemeldet werden — und **zwei
@@ -230,6 +249,43 @@ Das ist die **ehrliche Grenze** des Wächters: er beweist die Entscheidung des
 Handlers und die Parameterübergabe, **nicht**, dass ein Service-SQL seine
 `AND org_id`-Klausel behalten hat. Diese Hälfte tragen die Service-Tests, die
 das abgesetzte SQL selbst befragen. Beide zusammen, keiner allein.
+
+### Der wichtigste Fund der zweiten Welle: nicht jede Grenze ist eine Org-Grenze
+
+`capacityExchange` und `marketplace` sind **nicht org-gebunden**. Ihre Grenze ist
+der **Nutzer**: `supplier_company_id` / `requester_company_id` werden gegen
+`req.session.userId` verglichen. Eine Probe, die nur die Organisation variiert,
+hätte dort jede Verletzung durchgelassen — sie wechselt schlicht nicht die
+Kennung, über die entschieden wird. Der Wächter kennt deshalb jetzt die
+Dimension `identitaet: "org" | "nutzer"`.
+
+Die Folge ist ein Produktbefund, kein Sicherheitsbefund: **ein Kollege derselben
+Organisation kann die Einträge eines Teamkollegen nicht sehen oder bearbeiten.**
+Dasselbe Muster wie D-M4 bei den Requisitions — zusammengefasst als **D-M5**.
+
+### E-11 · `canAccessAsOwner` hat nie funktioniert
+
+`utils/ownerCheck.js:28-33` soll genau diese Lücke schließen: direkter
+Besitzer **oder** Mitglied derselben Organisation. Zwei Fehler in vier Zeilen:
+
+1. Die Abfrage fragt `org_memberships.status` ab — **diese Spalte gibt es
+   nicht** (sie heißt `is_active`). Gegen die laufende Datenbank ausgeführt:
+   `column "status" does not exist`.
+2. Als `org_id` wird `entityOwnerId` übergeben — eine **Nutzer**-Kennung
+   (`demand_requests.requester_company_id` → `users`), verglichen mit einer
+   **Org**-Kennung (`org_memberships.org_id` → `organizations`). Selbst mit
+   richtiger Spalte könnte das nie treffen.
+
+Der `catch` darunter macht aus dem Fehler stillschweigend ein `false`. Ergebnis:
+an **10 Aufrufstellen** in `emergency.js`, `marketplace.js`, `offerAssets.js` und
+`slaSearchJobs.js` ist die Funktion auf „nur der direkte Besitzer" degradiert —
+seit sie existiert, bei jedem Aufruf mit einer wirkungslosen Datenbankrunde.
+`offerAssets.js:127` trägt sogar den Kommentar „canAccessAsOwner beruecksichtigt
+auch Organisations-Member".
+
+**Kein Leck** — der Fehler ist zu streng, nicht zu lasch. Deshalb ist er
+*nicht* autonom repariert: die Korrektur **weitet Zugriff aus** und ist damit
+eine Owner-Entscheidung. Eintrag **P1-17**.
 
 ### Gegen die echte Datenbank geprüft (was ein Mock nicht zeigen kann)
 
@@ -307,6 +363,13 @@ dagegen längst behoben — `timeout-minutes: 180`, sechs parallele Matrix-Jobs.
   folgenlos (kein Aufrufer). Sobald die Route einen bekommt: strikt lassen
   (kein Leck, leere Historie) **oder** wie die RLS-Policy `org_id IS NULL`
   durchlassen (vollständige Historie, Rest-Leck)? *Owner.*
+- **D-M5 (neu)** — **Nutzer- statt Org-Grenze in `capacityExchange` und
+  `marketplace`.** Beide binden über `req.session.userId`, nicht über die
+  Organisation. Ein Kollege derselben Firma sieht die Einträge seines Teams
+  nicht. Zusammen mit **E-11** (der Helfer, der genau das reparieren sollte und
+  nie funktioniert hat) und **D-M4** ist das *ein* Thema: soll die
+  Zusammenarbeit innerhalb einer Organisation überhaupt möglich sein? Die
+  Antwort entscheidet über drei Stellen gleichzeitig. *Owner.*
 - **D-M4 (neu)** — **`PATCH /requisitions/:id` begrenzt per `created_by`**, nicht
   per Org. Die Org-Grenze steht jetzt zusätzlich davor (E-4), die
   Ersteller-Bedingung ist unangetastet. Nebeneffekt bleibt: ein Kollege

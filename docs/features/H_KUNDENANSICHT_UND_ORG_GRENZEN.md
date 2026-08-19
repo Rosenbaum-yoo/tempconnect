@@ -47,6 +47,36 @@ Organisationsdatensatz selbst. Volle Suite 8804/0.
    Route bricht ab, *bevor* sie die Abfrage stellt. Dort ist die Abwesenheit der
    Org der Beweis, nicht der Mangel.
 
+### Zweite Welle (2026-08-19): die vier vorrangigen Dateien
+
+`capacityExchange` (18) · `marketplace` (30) · `workerPortal` (18) ·
+`staffControlCenter` (47) stehen unter dem Wächter. Abdeckung jetzt **15 von 82
+Dateien, 137 verhaltensgeprüft, 56 belegte Ausnahmen**.
+
+**Kein neuer Cross-Org-Schreibzugriff** — dafür drei Befunde, die der Plan nicht
+vorhergesehen hatte:
+
+1. **Die Leitfrage war zu eng.** Keine dieser vier Dateien trägt eine
+   *Org*-Grenze. `capacityExchange` und `marketplace` binden an den **Nutzer**,
+   `workerPortal` an die Arbeitersitzung, `staffControlCenter` ist
+   org-übergreifend per Bauart. Eine Probe, die nur die Organisation variiert,
+   hätte dort jede Verletzung durchgelassen → neue Dimension
+   `identitaet: "org" | "nutzer"`.
+2. **Flächen mit einer Eintrittsbedingung** brauchen eine eigene Schicht: der
+   Torwächter (`requireWorkerRole`, `staffControlAccess`) muss auf *jeder* Route
+   stehen, ohne Voraussetzung abweisen und dabei nichts schreiben → Schicht
+   **(B2)**, mit eigener Selbstprobe.
+3. **E-11 · `canAccessAsOwner` funktioniert nicht** — falsche Spalte
+   (`status` statt `is_active`, gegen die laufende Datenbank belegt) und eine
+   Nutzer-Kennung, die gegen eine Org-Kennung verglichen wird. 10 Aufrufstellen,
+   seit jeher auf „nur direkter Besitzer" degradiert. **Nicht autonom repariert:
+   die Korrektur weitet Zugriff aus.** → P1-17, D-M5.
+
+**Eine Falle, die 20 Minuten gekostet hat und in jedes Folgeprojekt gehört:**
+``new RegExp(`${name}`)`` — `` ist im Template-Literal ein Backspace, keine
+Wortgrenze. Der Ausdruck traf nie, und ein Prüfer, der leer läuft, sieht aus wie
+einer, der nichts findet.
+
 Vier neue Owner-Entscheidungen stehen in
 [../UEBERGABE.md](../UEBERGABE.md#offene-owner-entscheidungen): **D-M2**
 (Null-Politik), **D-M3** (Audit-Zeilen ohne Org), **D-M4** (`created_by`- statt

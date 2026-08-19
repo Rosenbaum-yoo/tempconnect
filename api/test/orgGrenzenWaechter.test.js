@@ -69,9 +69,9 @@ import { Router } from "express";
 
 import {
   baseDeps, listRoutes, findHandlerExact, findChainFrom, mockReq, mockRes,
-  ORG_A, ORG_B, USER_A
+  ORG_A, ORG_B, USER_A, USER_B
 } from "./helpers/security-mocks.js";
-import { pruefeGrenze, istSchreibend, spionPool } from "./helpers/orgGrenzenSpion.js";
+import { pruefeGrenze, istSchreibend, spionPool, pfadPlatzhalter } from "./helpers/orgGrenzenSpion.js";
 
 /* Pfade IMMER relativ zur Testdatei aufloesen — nie ueber process.cwd().
    Sonst ueberspringt sich der Test je nach Startverzeichnis lautlos, und eine
@@ -103,6 +103,21 @@ const FABRIKEN = {
   "timesheets.js":     async (pool) => (await import("../routes/timesheets.js")).createTimesheetsRouter({
                           ...baseDeps(pool),
                           getUserAndPlan: async () => ({ plan: "PRO", id: USER_A })
+                        }),
+  "capacityExchange.js": async (pool) => (await import("../routes/capacityExchange.js")).createCapacityExchangeRouter({
+                          ...baseDeps(pool),
+                          requireFeature: () => (_q, _s, n) => n(),
+                          getUserAndPlan: async () => ({ plan: "PRO", id: USER_A })
+                        }),
+  "workerPortal.js":   async (pool) => (await import("../routes/workerPortal.js")).createWorkerPortalRouter(baseDeps(pool)),
+  "staffControlCenter.js": async (pool) => (await import("../routes/staffControlCenter.js")).createStaffControlCenterRouter({
+                          ...baseDeps(pool), sendMail: async () => {}
+                        }),
+  "marketplace.js":    async (pool) => (await import("../routes/marketplace.js")).createMarketplaceRouter({
+                          ...baseDeps(pool),
+                          requireFeature: () => (_q, _s, n) => n(),
+                          getUserAndPlan: async () => ({ plan: "PRO", id: USER_A }),
+                          sendMail: async () => {}
                         })
 };
 
@@ -155,6 +170,15 @@ describe("Org-Grenzen-Waechter (A) — jede Platzhalter-Route hat ein Urteil", (
             `${schluessel(r)}: eine Ausnahme ohne Begruendung ist eine Luecke mit Etikett`
           );
         }
+        // Wer eine Zusicherung abschaltet, muss sagen warum — sonst waere jede
+        // unbequeme Route mit einem Schalter statt mit Arbeit zu erledigen.
+        if (r.gegenprobe === false || r.schreibenGrenztSelbst === true) {
+          assert.ok(
+            typeof r.hinweis === "string" && r.hinweis.length >= 30,
+            `${schluessel(r)}: 'gegenprobe:false' bzw. 'schreibenGrenztSelbst:true' ` +
+            "braucht einen 'hinweis', der den Beleg nennt"
+          );
+        }
       }
     });
   }
@@ -189,6 +213,13 @@ describe("Org-Grenzen-Waechter (B) — Verhaltensprobe mit Spion-Pool", () => {
           lesenMussZusammen: r.lesenMussZusammen || [],
           orgPlatzhalter: r.orgPlatzhalter || "id",
           seitenprobe: r.seitenprobe !== false,
+          reqZusatz: r.reqZusatz || {},
+          identitaet: r.identitaet || "org",
+          schreibenGrenztSelbst: r.schreibenGrenztSelbst === true,
+          gegenprobe: r.gegenprobe !== false,
+          leereAntwortFuer: r.leereAntwortFuer || [],
+          nutzerEigen: USER_A,
+          nutzerFremd: USER_B,
           orgEigen: ORG_A,
           orgFremd: ORG_B,
           schreibtBeiErfolg: r.schreibtBeiErfolg === true,
@@ -204,6 +235,75 @@ describe("Org-Grenzen-Waechter (B) — Verhaltensprobe mit Spion-Pool", () => {
         );
       });
     }
+  }
+});
+
+/* ═════════════════════════════════════════════════════════════════════════
+   (B2) TORWAECHTER — Flaechen mit EINER Eintrittsbedingung
+   ═════════════════════════════════════════════════════════════════════════
+
+   Nicht jede Flaeche traegt eine Mandantengrenze je Route. Das Arbeiterportal
+   und das Staff Control Center haben stattdessen EINE Eintrittsbedingung, die
+   auf JEDER Route stehen muss — `requireWorkerRole` bzw. `staffControlAccess`.
+   Fuer sie ist die richtige Frage nicht "403 bei fremder Org?", sondern:
+   **gibt es eine Route, die den Torwaechter nicht traegt?**
+
+   Geprueft wird beides, und zwar ausgefuehrt statt gelesen:
+     1. der Torwaechter steht in JEDER Platzhalter-Route der Datei,
+     2. ohne die Voraussetzung antwortet er mit dem erwarteten Status,
+     3. und es wird dabei nichts geschrieben.
+
+   Punkt 2 ist der Grund, warum das kein Struktur-Test ist: ein Middleware, der
+   dasteht und `next()` ruft, faellt hier durch.                              */
+
+describe("Org-Grenzen-Waechter (B2) — Torwaechter der Sonderflaechen", () => {
+  for (const eintrag of register.abgedeckteRouter.filter((e) => e.torwaechter)) {
+    const tor = eintrag.torwaechter;
+
+    it(`${eintrag.datei}: '${tor.middleware}' steht auf JEDER Platzhalter-Route`, async () => {
+      const router = await montiere(eintrag.datei);
+      const ohne = [];
+      for (const layer of router.stack) {
+        if (!layer.route || !layer.route.path.includes(":")) continue;
+        const namen = layer.route.stack.map((x) => x.handle.name);
+        if (!namen.includes(tor.middleware)) {
+          ohne.push(`${Object.keys(layer.route.methods)[0].toUpperCase()} ${layer.route.path}`);
+        }
+      }
+      assert.deepStrictEqual(
+        ohne, [],
+        `Diese Routen tragen '${tor.middleware}' nicht — auf einer Sonderflaeche ist ` +
+        "das die einzige Eintrittsbedingung, und eine Route ohne sie steht offen."
+      );
+    });
+
+    it(`${eintrag.datei}: '${tor.middleware}' weist ohne Voraussetzung ab und schreibt nichts`, async () => {
+      const maengel = [];
+      for (const r of eintrag.routen) {
+        const pool = spionPool({ zeile: { id: "x" } });
+        const router = await FABRIKEN[eintrag.datei](pool);
+        let kette;
+        try {
+          kette = findChainFrom(router, r.methode, r.pfad, tor.middleware);
+        } catch (err) {
+          maengel.push(`${schluessel(r)}: ${err.message}`);
+          continue;
+        }
+        const req = mockReq({
+          params: Object.fromEntries(pfadPlatzhalter(r.pfad).map((n) => [n, "irgendeine-id"])),
+          ...(tor.ohneVoraussetzung || {})
+        });
+        const res = mockRes();
+        try { await kette(req, res, () => {}); } catch { /* ein Wurf ist auch eine Abweisung */ }
+        if (res._status !== tor.erwarteterStatus) {
+          maengel.push(`${schluessel(r)}: ${res._status} statt ${tor.erwarteterStatus}`);
+        }
+        if (pool.schreibvorgaenge.length > 0) {
+          maengel.push(`${schluessel(r)}: hat ohne Voraussetzung geschrieben`);
+        }
+      }
+      assert.deepStrictEqual(maengel, [], `Torwaechter '${tor.middleware}' greift nicht ueberall`);
+    });
   }
 });
 
@@ -399,6 +499,45 @@ describe("Org-Grenzen-Waechter (D) — Selbstprobe an kaputten Routern", () => {
       { erwartung: "zero-state", schreibtBeiErfolg: false }
     );
     assert.deepStrictEqual(maengel, [], "eine korrekt siebende Liste darf nicht gemeldet werden");
+  });
+
+  it("(j) Torwaechter: eine Route ohne ihn wird gemeldet", () => {
+    // Nachbildung der Sonderflaechen-Pruefung (B2) auf einem Mini-Router, bei
+    // dem GENAU EINE Route den Torwaechter vergisst.
+    function torwaechter(_req, res) { return res.status(401).json({ error: "NEIN" }); }
+    const router = Router();
+    router.get("/a/:id", torwaechter, (_q, r) => r.json({ ok: true }));
+    router.get("/b/:id", (_q, r) => r.json({ ok: true }));   // vergessen
+
+    const ohne = [];
+    for (const layer of router.stack) {
+      if (!layer.route || !layer.route.path.includes(":")) continue;
+      if (!layer.route.stack.map((x) => x.handle.name).includes("torwaechter")) {
+        ohne.push(layer.route.path);
+      }
+    }
+    assert.deepStrictEqual(ohne, ["/b/:id"], "die ungeschuetzte Route muss auffallen");
+  });
+
+  it("(k) Torwaechter: einer, der durchwinkt, wird gemeldet", async () => {
+    // Ein Middleware, der DASTEHT und trotzdem next() ruft, ist der gefaehrlichere
+    // Fall — ein reiner Struktur-Test wuerde ihn nie sehen.
+    function torwaechter(_req, _res, next) { return next(); }
+    const router = Router();
+    router.post("/a/:id", torwaechter, async (req, r) => {
+      await req.pool.query("UPDATE sachen SET x = 1 WHERE id = $1", [req.params.id]);
+      r.json({ ok: true });
+    });
+
+    const pool = spionPool({ zeile: { id: "x" } });
+    const kette = findChainFrom(router, "post", "/a/:id", "torwaechter");
+    const req = mockReq({ params: { id: "irgendeine-id" } });
+    req.pool = pool;
+    const res = mockRes();
+    await kette(req, res, () => {});
+
+    assert.notEqual(res._status, 401, "der durchwinkende Torwaechter muss auffallen");
+    assert.ok(pool.schreibvorgaenge.length > 0, "und er laesst dabei sogar schreiben");
   });
 
   it("(e) der Schreib-Erkenner unterscheidet Lesen von Schreiben", () => {

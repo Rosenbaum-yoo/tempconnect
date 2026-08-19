@@ -113,9 +113,25 @@ Aufruf kostet eine zusätzliche Abfrage auf einem heißen Pfad.
 > jede Route-Datei ist abgedeckt oder mit Grund ausgesetzt.
 
 Durchgesetzt von `api/test/orgGrenzenWaechter.test.js` bei jedem Lauf von
-`api/scripts/run-tests.js`. Stand 2026-08-19: **11 Dateien / 80 Routen
-verhaltensgeprüft, 71 Dateien ausgesetzt** — eine Sperrklinke verhindert, dass
-die Zahl fällt.
+`api/scripts/run-tests.js`. Stand 2026-08-19: **15 Dateien · 137 Routen
+verhaltensgeprüft · 56 belegte Ausnahmen · 67 Dateien ausgesetzt** — eine
+Sperrklinke verhindert, dass die Zahl fällt.
+
+**Die zweite Welle hat die Frage selbst korrigiert.** Der Befund hieß „die
+Org-Grenze steht 80-mal einzeln". Bei den vier größten ungeprüften Dateien
+stellte sich heraus: dort steht sie **gar nicht**, weil es keine Org-Grenze ist.
+`capacityExchange` und `marketplace` binden an den **Nutzer**
+(`supplier_company_id`/`requester_company_id` gegen `req.session.userId`),
+`workerPortal` an die Arbeitersitzung, `staffControlCenter` ist org-übergreifend
+per Bauart. Vier Dateien, vier Grenzmodelle — und keines davon hätte eine
+Konsolidierung der 80 erfasst.
+
+Der Wächter kennt deshalb `identitaet: "org" | "nutzer"` und eine eigene Schicht
+für Flächen mit *einer* Eintrittsbedingung (Torwächter). Was dabei sichtbar
+wurde, stand vorher nirgends geschrieben: **welche Seite eines Geschäfts was
+darf.** Nur der Anfragende nimmt an, nur der Lieferant zieht zurück, nur die
+Kundenorganisation gibt einen Zeitnachweis frei. 56 solcher Entscheidungen sind
+jetzt als bewusste Ausnahme mit Begründung eingetragen statt unausgesprochen.
 
 **Ein Nebenertrag, der die Arbeit wert war:** Das Register zwingt dazu, je Route
 zu benennen, WELCHE Spalte die Grenze trägt. Dabei kam heraus, dass mehrere

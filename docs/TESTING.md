@@ -214,6 +214,18 @@ eigenen Org · (C) Bestandsbuch aller 82 Route-Dateien mit Sperrklinke ·
 (D) Selbstprobe an fünf absichtlich kaputten Mini-Routern — plus zwei korrekten,
 die NICHT gemeldet werden dürfen.
 
+**Nicht jede Grenze ist eine Org-Grenze.** Das Register wählt über
+`identitaet` aus, welche Kennung die Probe variiert: `org` (Standard) oder
+`nutzer`. `capacityExchange`, `marketplace` und `workerPortal` binden über
+`req.session.userId` — eine Probe, die nur die Organisation wechselt, lässt dort
+**jede** Verletzung durch, weil sie die entscheidende Kennung gar nicht anfasst.
+
+**Flächen mit EINER Eintrittsbedingung** (Arbeiterportal, Staff Control Center)
+prüft Schicht **(B2)**: der benannte Torwächter muss auf *jeder*
+Platzhalter-Route stehen, ohne die Voraussetzung mit dem erwarteten Status
+abweisen und dabei nichts schreiben. Der letzte Punkt trennt ihn vom
+Struktur-Test — ein Middleware, der dasteht und `next()` ruft, fällt durch.
+
 **Vier Erwartungsarten**, weil die Grenze nicht überall an derselben Stelle
 steht: `403` (Standard) · `sql-grenze` (die Bindung liegt im SQL, geprüft an den
 Parametern, weil ein Mock kein `WHERE` erzwingt) · `zero-state` (die Route siebt
@@ -231,7 +243,12 @@ enthalten darf) · dazu die **Seitenprobe** für zweiseitige Grenzen.
    und das Registerfeld `grenzeIn`.
 3. **Pauschales `return 403`.** Ohne Gegenprobe bestünde es jede Prüfung. Sie
    fängt zugleich die stillgelegte Route (`schreibtBeiErfolg`).
-4. **Halbierte zweiseitige Grenze.** Tragen `org_id` und `supplier_org_id` in der
+4. **Eine Gegenprobe, die zu viel verlangt.** Hinter der Besitzprüfung liegen
+   Zustandsautomaten, die eine erfundene Zeile nie zufriedenstellen (409 „schon
+   bestätigt", 400 „kein gültiger Übergang"). Die Gegenprobe fragt deshalb nicht
+   „gelingt der Aufruf?", sondern **„antwortet die Route dem Eigentümer anders
+   als dem Fremden?"** — die Frage, die das pauschale Urteil fängt.
+5. **Halbierte zweiseitige Grenze.** Tragen `org_id` und `supplier_org_id` in der
    Probe immer denselben Besitzer, fällt nicht auf, wenn der Handler nur noch
    einen Zweig prüft. Die **Seitenprobe** gibt die Zeile je Durchlauf nur über
    *eine* Trägerspalte an die eigene Org. Gemessen: ohne sie blieb eine Mutation

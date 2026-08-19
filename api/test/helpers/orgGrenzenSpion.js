@@ -137,12 +137,26 @@ export async function pruefeGrenze(opts) {
     lesenMussZusammen = [],
     orgPlatzhalter = "id",
     seitenprobe = true,
+    reqZusatz = {},
+    identitaet = "org",
+    nutzerEigen, nutzerFremd,
+    schreibenGrenztSelbst = false,
+    gegenprobe = true,
+    leereAntwortFuer = [],
     baueReq, baueRes
   } = opts;
 
   const maengel = [];
 
-  async function lauf(besitzerOrg, pfadOrg, nurSpalte = null) {
+  /* Nicht jede Grenze dieser Codebasis ist eine ORG-Grenze. `capacityExchange`
+     bindet an den NUTZER (`supplier_company_id = req.session.userId`), nicht an
+     die Organisation. Eine Probe, die nur die Org variiert, laesst dort jede
+     Verletzung durch — sie wechselt schlicht nicht die Kennung, ueber die
+     entschieden wird. `identitaet` waehlt, welche Kennung variiert. */
+  const eigenKennung  = identitaet === "nutzer" ? nutzerEigen  : orgEigen;
+  const fremdKennung  = identitaet === "nutzer" ? nutzerFremd  : orgFremd;
+
+  async function lauf(besitzerKennung, pfadOrg, nurSpalte = null) {
     const platzhalter = pfadPlatzhalter(pfad);
     const params = {};
     for (const name of platzhalter) params[name] = ressourceId;
@@ -156,11 +170,27 @@ export async function pruefeGrenze(opts) {
     const datenZeile = { id: ressourceId, ...zeile };
     for (const spalte of traegerspalten) {
       // `nurSpalte` gibt die Zeile NUR ueber diese eine Spalte an die eigene
-      // Org; alle anderen Traeger gehören der Gegenseite. So wird jede Hälfte
-      // einer zweiseitigen Grenze einzeln belegt.
-      datenZeile[spalte] = nurSpalte ? (spalte === nurSpalte ? besitzerOrg : orgFremd) : besitzerOrg;
+      // Seite; alle anderen Traeger gehoeren der Gegenseite. So wird jede
+      // Haelfte einer zweiseitigen Grenze einzeln belegt.
+      datenZeile[spalte] = nurSpalte
+        ? (spalte === nurSpalte ? besitzerKennung : fremdKennung)
+        : besitzerKennung;
     }
-    const pool = spionPool({ zeile: datenZeile });
+    /* Der Spion beantwortet jede Abfrage mit der Zeile — auch eine
+       Mitgliedschaftsabfrage. Fuer eine FREMDE Kennung ist das falsch: sie ist
+       eben KEIN Mitglied, und die Route saehe faelschlich einen Treffer.
+       `leereAntwortFuer` nennt die Tabellen, die leer antworten sollen. */
+    const pool = spionPool({
+      zeile: datenZeile,
+      // Absichtlich Teilstring statt regulaerem Ausdruck: '' in einem
+      // Template-Literal ist das Backspace-Zeichen, keine Wortgrenze — die
+      // erste Fassung dieser Zeile hat deshalb nie getroffen und die Probe
+      // still entwertet.
+      antwort: leereAntwortFuer.length
+        ? (sql) => (leereAntwortFuer.some((t) => sql.toLowerCase().includes(String(t).toLowerCase()))
+            ? { rows: [] } : undefined)
+        : undefined
+    });
     // Der Handler wird UM den Spion herum gebaut, nicht vorher. Ein Router,
     // der seinen Pool ueber die Fabrik einschliesst, wuerde sonst an einem
     // anderen Pool arbeiten als dem, den wir beobachten — und die Probe
@@ -168,9 +198,15 @@ export async function pruefeGrenze(opts) {
     const handler = await baueHandler(pool);
     const req = baueReq({
       orgId: orgEigen,
+      // Bei nutzer-gebundenen Grenzen ist die SITZUNG die Kennung, die zaehlt.
+      ...(identitaet === "nutzer" ? { session: { userId: nutzerEigen } } : {}),
       params: { ...params, ...(anfrage.params || {}) },
       query: { ...(anfrage.query || {}) },
-      body: { ...(anfrage.body || {}) }
+      body: { ...(anfrage.body || {}) },
+      // Manche Routen verlangen mehr vom Request als Org und Parameter — etwa
+      // `req.user.role === "agency"`. Ohne das faellt die Route in ihre eigene
+      // Rollenpruefung und die Gegenprobe meldet faelschlich einen Mangel.
+      ...reqZusatz
     });
     // Die echten Router schliessen ihren Pool ueber die Fabrik ein; die
     // Mini-Router der Selbstprobe holen ihn hier ab.
@@ -186,7 +222,7 @@ export async function pruefeGrenze(opts) {
   }
 
   /* ── Fremdlauf ───────────────────────────────────────────────────────── */
-  const fremd = await lauf(orgFremd, orgFremd);
+  const fremd = await lauf(fremdKennung, orgFremd);
 
   // Eine Route, die eine ENTITAET auflistet (statt eine Ressource per ID
   // anzusprechen), kann nicht sinnvoll mit 403 antworten: was man nicht sehen
@@ -198,7 +234,27 @@ export async function pruefeGrenze(opts) {
       (fremd.weitergereicht ? ` (Fehler durchgereicht: ${fremd.weitergereicht.message})` : "")
     );
   }
-  if (fremd.pool.schreibvorgaenge.length > 0) {
+  if (schreibenGrenztSelbst) {
+    /* Traegt die schreibende Anweisung ihre Grenze SELBST
+       (`DELETE ... WHERE company_user_id = $3`), dann ist ein aufgezeichneter
+       Schreibvorgang KEIN Beleg fuer ein Leck: der Spion kann kein WHERE
+       erzwingen, er beantwortet jede Anweisung gleich. Was hier zu zeigen
+       bleibt, ist, dass die eigene Kennung ueberhaupt in der Anweisung steht —
+       fehlt sie, kann die Klausel nicht greifen.
+
+       EHRLICHE GRENZE: dass die Klausel wirklich dasteht, beweist das nicht.
+       Dafuer sind die Service-Tests und `sqlSchemaWaechter` zustaendig. */
+    const ohneKennung = fremd.pool.schreibvorgaenge.filter(
+      (c) => !c.params.some((prm) => String(prm) === String(eigenKennung))
+    );
+    if (ohneKennung.length > 0) {
+      maengel.push(
+        "eine schreibende Anweisung traegt die eigene Kennung nicht in ihren Parametern — " +
+        "die angekuendigte Grenze im WHERE kann so nicht greifen: " +
+        ohneKennung.map((c) => c.sql.trim().slice(0, 50).replace(/\s+/g, " ")).join(" | ")
+      );
+    }
+  } else if (fremd.pool.schreibvorgaenge.length > 0) {
     maengel.push(
       "Fremdzugriff hat geschrieben: " +
       fremd.pool.schreibvorgaenge.map((c) => c.sql.trim().slice(0, 50).replace(/\s+/g, " ")).join(" | ")
@@ -210,28 +266,43 @@ export async function pruefeGrenze(opts) {
   // darf in ihr nicht vorkommen.
   if (erwartung === "zero-state") {
     const koerper = JSON.stringify(fremd.res._json ?? null);
-    if (koerper.includes(String(orgFremd))) {
+    if (koerper.includes(String(fremdKennung))) {
       maengel.push(
         "die Antwort auf den Fremdzugriff enthaelt die fremde Org — der Filter " +
         "siebt nicht: " + koerper.slice(0, 160)
       );
     }
   }
-  if (erwartung === "sql-grenze" && !fremd.pool.lasMit(...[orgEigen, ...lesenMussZusammen])) {
+  if (erwartung === "sql-grenze" &&
+      !fremd.pool.fragteMit(...[eigenKennung, ...(art !== "orgpfad" ? [ressourceId] : []), ...lesenMussZusammen])) {
     maengel.push(
-      "die Abfrage trug nicht Org UND Adressat zusammen — eine Route ohne 403 " +
-      "hat nur ihr SQL als Grenze"
+      "keine Anweisung trug die eigene Kennung zusammen mit dem Adressaten — eine " +
+      "Route ohne 403 hat nur ihr SQL als Grenze, und die ist hier nicht belegt"
     );
   }
 
   /* ── Gegenprobe ──────────────────────────────────────────────────────── */
-  const eigen = await lauf(orgEigen, orgEigen);
+  if (!gegenprobe) return { maengel, fremd, eigen: null };
+
+  const eigen = await lauf(eigenKennung, orgEigen);
 
   if (eigen.res._status === 403) {
-    maengel.push("die EIGENE Org wird ebenfalls mit 403 abgewiesen — die Pruefung urteilt pauschal");
+    maengel.push("die EIGENE Seite wird ebenfalls mit 403 abgewiesen — die Pruefung urteilt pauschal");
   }
-  if ((erwartung === "sql-grenze" || erwartung === "zero-state") && eigen.res._status >= 400) {
-    maengel.push(`der eigene Zugriff endet mit ${eigen.res._status} — die Route ist nicht benutzbar`);
+  if (erwartung === "sql-grenze" || erwartung === "zero-state") {
+    /* Die Gegenprobe fragt nicht "gelingt der Aufruf?", sondern "antwortet die
+       Route dem Eigentuemer ANDERS als dem Fremden?". Das ist die Frage, die
+       das pauschale Urteil faengt — und die einzige, die man einem Mock
+       stellen kann: hinter der Besitzpruefung liegen Zustandsautomaten, die
+       eine erfundene Zeile nie zufriedenstellt (409 "schon bestaetigt",
+       400 "kein gueltiger Uebergang"). Ein Handler, der beiden Seiten
+       dasselbe antwortet, hat nicht unterschieden. */
+    if (eigen.res._status >= 400 && eigen.res._status === fremd.res._status) {
+      maengel.push(
+        `eigener und fremder Zugriff enden beide mit ${eigen.res._status} — ` +
+        "die Route unterscheidet die beiden Faelle nicht"
+      );
+    }
   }
 
   /* Zusicherungen 3 und 4 gehoeren an die GEGENPROBE, nicht an den Fremdlauf:
@@ -247,10 +318,10 @@ export async function pruefeGrenze(opts) {
      gab. */
   if (traegerspalten.length > 1 && seitenprobe !== false) {
     for (const spalte of traegerspalten) {
-      const seite = await lauf(orgEigen, orgEigen, spalte);
+      const seite = await lauf(eigenKennung, orgEigen, spalte);
       if (seite.res._status === 403) {
         maengel.push(
-          `die Zeile gehoert der eigenen Org ueber '${spalte}' (die andere Seite ist fremd) ` +
+          `die Zeile gehoert der eigenen Seite ueber '${spalte}' (die andere ist fremd) ` +
           "und wird trotzdem mit 403 abgewiesen — die zweiseitige Grenze prueft nur einen Zweig"
         );
       }
@@ -269,7 +340,7 @@ export async function pruefeGrenze(opts) {
     // Freigabe-Historie die SELECT-Klausel. Verlangt wird nur, dass Org und
     // Adressat in DERSELBEN Anweisung stehen — sonst beweist die Anwesenheit
     // der Org nichts ueber die Zeile, die angefasst wird.
-    const zusammen = [orgEigen, ...(art !== "orgpfad" ? [ressourceId] : []), ...lesenMussZusammen];
+    const zusammen = [eigenKennung, ...(art !== "orgpfad" ? [ressourceId] : []), ...lesenMussZusammen];
     if (!eigen.pool.fragteMit(...zusammen)) {
       maengel.push(
         "keine Anweisung trug die eigene Org zusammen mit dem Adressaten — " +

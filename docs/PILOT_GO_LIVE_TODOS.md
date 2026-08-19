@@ -21,6 +21,18 @@ Selbstprobe), volle Suite **8804/0**. Vier Mutationen gegen den echten Bestand
 gefahren: Handler-Mutationen macht der Wächter rot, SQL-Mutationen die
 Service-Tests.
 
+### 2026-08-19 — H2 zweite Welle: die vier größten Flächen eingeordnet
+
+**Status:** erledigt · **Fakt:** `capacityExchange` (18), `marketplace` (30),
+`workerPortal` (18) und `staffControlCenter` (47) stehen unter dem Wächter.
+**Kein neuer Cross-Org-Schreibzugriff gefunden** — dafür drei
+Architekturbefunde: die ersten beiden Dateien sind **nutzer-** statt
+org-gebunden (D-M5), das Arbeiterportal und das Staff Control Center haben je
+*eine* Eintrittsbedingung statt einer Grenze je Route (neue Wächter-Schicht B2),
+und `canAccessAsOwner` funktioniert nicht (P1-17).
+**Verify:** `api/test/orgGrenzenWaechter.test.js` 185/185, volle Suite 8927/0.
+Abdeckung 15 von 82 Route-Dateien, 137 verhaltensgeprüft, 56 belegte Ausnahmen.
+
 ### 2026-08-19 — Betriebswissen: gemessen gegen die laufende Datenbank
 
 `rate_cards` und `approval_requests` haben **keine RLS-Policy** (`rls=false`,
@@ -259,6 +271,33 @@ unvollständig ist, ein Passwort fehlt oder der Vorgang vier Stunden dauert.
 - Verify (2026-06-04, prod-aehnliche Wegwerf-DB, init.sql only): Chain 127 Migrationen, 0 Fehler; 116-Policies vorhanden; IS-NULL-Wildcards weg; FORCE RLS aktiv; Phantom-Objekte (deals/vendor_pool_entries/webhook_deliveries/org_integrations/capacity_posts.description) korrekt absent. `sh -n sql/test-fresh-install.sh` OK.
 - Tier-2 erledigt (2026-06-05) via `126_rls_forward_repair.sql`: NICHT-transaktional, EIN per-`to_regclass` abgesicherter `DO`-Block pro Tabelle (requisitions/timesheets/invoices/org_memberships/compliance_documents/subscription_requests/commercial_offers/audit_log; vendor_pool_entries als out-of-scope-Guard) — CREATE OR REPLACE der Helfer `current_org_id()`/`is_staff_context()`, dann je Tabelle ENABLE RLS + DROP der IS-NULL-Wildcards + DROP/CREATE same_org & staff_bypass (USING-Klauseln 1:1 aus 031/116), FORCE RLS nur auf req/ts/inv. Idempotent (DROP IF EXISTS + identisches CREATE), resilient (ein fehlendes Objekt ueberspringt nur SEINEN Block, reisst nie den Backstop mit), auf Bestands-DBs erstmals wirksam, auf frischen DBs folgenloser No-Op. `subscriptions`-RLS-Exclusion bestaetigt (user-skaliert via user_id, kein org_id; eine Membership-Bruecke wuerde persoenliche Billing-Daten cross-org leaken — Schutz bleibt App-Layer). **AKTIVIERUNGS-HINWEIS:** 126 schaltet Deny-by-Default + FORCE RLS beim NAECHSTEN migrate-Lauf gegen Bestands-/Managed-DBs scharf. Lokal ist `tempconnect` Superuser → RLS-inert (kein Breakage); auf Managed-DB (Nicht-Superuser-App-User) wird der Backstop real wirksam = gewollter Mandanten-Schutz.
 ## P1 - Vor Pilotkunde (Summe 2-3 Personentage)
+
+### P1-17 — `canAccessAsOwner` hat nie funktioniert (10 Aufrufstellen)
+
+**Status:** offen · **Fakt:** `utils/ownerCheck.js:28-33` soll „direkter Besitzer
+ODER Mitglied derselben Organisation" prüfen. Zwei Fehler: (1) die Abfrage nennt
+`org_memberships.status` — diese Spalte existiert nicht, sie heißt `is_active`;
+gegen die laufende Datenbank ausgeführt: `column "status" does not exist`.
+(2) Als `org_id` wird eine **Nutzer**-Kennung übergeben
+(`demand_requests.requester_company_id` → `users`), verglichen mit einer
+**Org**-Kennung (`org_memberships.org_id` → `organizations`) — selbst mit
+richtiger Spalte könnte das nie treffen. Der `catch` darunter macht daraus
+stillschweigend `false`. Wirkung an **10 Aufrufstellen** (`emergency.js`,
+`marketplace.js`, `offerAssets.js`, `slaSearchJobs.js`): die Funktion ist auf
+„nur der direkte Besitzer" degradiert, bei jedem Aufruf mit einer wirkungslosen
+Datenbankrunde. `offerAssets.js:127` trägt sogar den Kommentar
+„canAccessAsOwner beruecksichtigt auch Organisations-Member".
+**Kein Leck** — zu streng, nicht zu lasch.
+**Aktion:** Owner entscheidet, denn die Reparatur **weitet Zugriff aus**: soll
+ein Kollege derselben Organisation die Einträge seines Teams sehen und
+bearbeiten? Dieselbe Frage stellt sich bei D-M4 (Requisitions, `created_by`) und
+D-M5 (capacityExchange/marketplace, nutzergebunden) — **eine Entscheidung für
+drei Stellen**. Bei „ja": Besitzer-Nutzer → Org auflösen, dann Mitgliedschaft
+prüfen, Spalte `is_active`. Bei „nein": den toten Zweig entfernen, damit der
+Kommentar nicht weiter etwas verspricht, das nicht gilt.
+**Aufwand:** Entscheidung 15 Minuten, Umsetzung 0,5 Tage ·
+**Verify:** ein Test, der die Org-Kollegin auf einen fremd angelegten Bedarf
+loslaesst — heute rot in der Absicht, nach der Entscheidung eindeutig.
 
 ### P1-16 — Migration 117 existiert nicht (RLS für 28 Tabellen)
 

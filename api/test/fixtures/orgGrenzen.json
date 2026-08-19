@@ -12,10 +12,15 @@
     "schreibtBeiErfolg": "true = die Gegenprobe MUSS einen Schreibvorgang zeigen (faengt stillgelegte Routen)",
     "orgImSql": "true = Org und Adressat muessen in DERSELBEN Anweisung stehen (Lesen oder Schreiben)",
     "lesenMussZusammen": "weitere Werte, die zusammen mit der Org in einer Anweisung stehen muessen",
-    "hinweis": "Klartext fuer den naechsten Leser — warum diese Route so und nicht anders geprueft wird"
+    "hinweis": "Klartext fuer den naechsten Leser — warum diese Route so und nicht anders geprueft wird",
+    "torwaechter": "Sonderflaechen mit EINER Eintrittsbedingung: Name des Middleware, erwarteter Status ohne Voraussetzung, optional der abweichende Request. Wird auf JEDER Platzhalter-Route der Datei ausgefuehrt.",
+    "identitaet": "org (Standard) | nutzer — welche Kennung variiert wird. Nicht jede Grenze ist eine Org-Grenze.",
+    "schreibenGrenztSelbst": "true = die schreibende Anweisung traegt ihre Grenze im eigenen WHERE; ein Spion kann das nicht erzwingen, geprueft wird die Kennung in den Parametern. Braucht einen hinweis.",
+    "gegenprobe": "false = die Gegenprobe ist mit einem Mock nicht stellbar. Braucht einen hinweis.",
+    "leereAntwortFuer": "Tabellen, die der Spion leer beantwortet — z. B. org_memberships, weil eine fremde Kennung eben KEIN Mitglied ist."
   },
   "grundlinie": {
-    "verhaltensgeprueft": 80,
+    "verhaltensgeprueft": 137,
     "hinweis": "Sperrklinke: die Zahl darf wachsen, nicht fallen. Wer eine Route auf 'bewusste-ausnahme' zuruecksetzt, senkt diese Zahl bewusst und mit Begruendung."
   },
   "abgedeckteRouter": [
@@ -942,6 +947,1424 @@
         }
       ],
       "hinweis": "Die Grenze steht datei-privat in `checkOrgBoundary(ts, orgId)` (timesheets.js:67) und ist ZWEISEITIG: org_id ODER supplier_org_id. Sie traegt zugleich die dritte Null-Politik der Codebasis (`if (!orgId) return true`) — siehe Entscheidung D-M2."
+    },
+    {
+      "datei": "capacityExchange.js",
+      "fabrik": "createCapacityExchangeRouter",
+      "routen": [
+        {
+          "methode": "get",
+          "pfad": "/capacity-exchange/workers/:workerProfileId/offer-suggestions",
+          "urteil": "verhaltensgeprueft",
+          "art": "ressource",
+          "reqZusatz": {
+            "user": {
+              "id": "user-alpha-001",
+              "role": "agency",
+              "plan": "PRO"
+            }
+          },
+          "identitaet": "nutzer",
+          "traegerspalten": [
+            "supplier_company_id"
+          ],
+          "erwartung": "zero-state",
+          "gegenprobe": false,
+          "hinweis": "buildOfferSuggestions wirft FORBIDDEN, wenn das Arbeiterprofil nicht zur Org gehoert. Die Gegenprobe laesst sich mit einem Spion-Pool nicht stellen: der Dienst braucht ein vollstaendiges Profil samt Skills, das der Mock nicht liefert — der eigene Zugriff endet dort mit 403 aus einem anderen Grund."
+        },
+        {
+          "methode": "post",
+          "pfad": "/capacity-exchange/workers/:workerProfileId/generate-offers",
+          "urteil": "verhaltensgeprueft",
+          "art": "ressource",
+          "reqZusatz": {
+            "user": {
+              "id": "user-alpha-001",
+              "role": "agency",
+              "plan": "PRO"
+            }
+          },
+          "identitaet": "nutzer",
+          "traegerspalten": [
+            "supplier_company_id"
+          ],
+          "erwartung": "zero-state",
+          "gegenprobe": false,
+          "anfrage": {
+            "body": {
+              "single_skill_ids": [],
+              "include_bundle": true
+            }
+          },
+          "hinweis": "createOffersFromSelection wirft FORBIDDEN bei fremdem Profil. Gegenprobe wie bei offer-suggestions nicht mit Mock stellbar — der Dienst verlangt ein reales Profil mit Skills."
+        },
+        {
+          "methode": "get",
+          "pfad": "/capacity-exchange/demands/:id/coverage",
+          "urteil": "verhaltensgeprueft",
+          "art": "ressource",
+          "reqZusatz": {
+            "user": {
+              "id": "user-alpha-001",
+              "role": "agency",
+              "plan": "PRO"
+            }
+          },
+          "identitaet": "nutzer",
+          "traegerspalten": [
+            "supplier_company_id"
+          ],
+          "erwartung": "zero-state",
+          "hinweis": "Deckungsgrad zu einem Bedarf; die Sichtbarkeit entscheidet der Dienst, nicht die Route."
+        },
+        {
+          "methode": "patch",
+          "pfad": "/capacity-exchange/entries/:id",
+          "urteil": "verhaltensgeprueft",
+          "art": "ressource",
+          "reqZusatz": {
+            "user": {
+              "id": "user-alpha-001",
+              "role": "agency",
+              "plan": "PRO"
+            }
+          },
+          "identitaet": "nutzer",
+          "traegerspalten": [
+            "supplier_company_id"
+          ],
+          "erwartung": "zero-state",
+          "hinweis": "getEntryById laedt ohne Bindung und siebt danach in JS ueber canViewerSeeEntry(entry, viewerUserId) (capacityExchangeService.js:479) — fremde Eintraege werden zu 404, nicht zu 403."
+        },
+        {
+          "methode": "post",
+          "pfad": "/capacity-exchange/entries/:id/activate",
+          "urteil": "verhaltensgeprueft",
+          "art": "ressource",
+          "reqZusatz": {
+            "user": {
+              "id": "user-alpha-001",
+              "role": "agency",
+              "plan": "PRO"
+            }
+          },
+          "identitaet": "nutzer",
+          "traegerspalten": [
+            "supplier_company_id"
+          ],
+          "erwartung": "sql-grenze",
+          "schreibenGrenztSelbst": true,
+          "gegenprobe": false,
+          "hinweis": "handleTransition ruft transitionStatus(pool, id, req.session.userId, ...) — die Bindung ist der Nutzer, nicht die Org. Die Gegenprobe scheitert am Mock: der Dienst validiert den Eintrag fachlich und antwortet mit VALIDATION (400), weil die Spion-Zeile keine echten Kapazitaetsfelder traegt."
+        },
+        {
+          "methode": "post",
+          "pfad": "/capacity-exchange/entries/:id/pause",
+          "urteil": "verhaltensgeprueft",
+          "art": "ressource",
+          "reqZusatz": {
+            "user": {
+              "id": "user-alpha-001",
+              "role": "agency",
+              "plan": "PRO"
+            }
+          },
+          "identitaet": "nutzer",
+          "traegerspalten": [
+            "supplier_company_id"
+          ],
+          "erwartung": "sql-grenze",
+          "schreibenGrenztSelbst": true,
+          "gegenprobe": false,
+          "hinweis": "handleTransition ruft transitionStatus(pool, id, req.session.userId, ...) — die Bindung ist der Nutzer, nicht die Org. Die Gegenprobe scheitert am Mock: der Dienst validiert den Eintrag fachlich und antwortet mit VALIDATION (400), weil die Spion-Zeile keine echten Kapazitaetsfelder traegt."
+        },
+        {
+          "methode": "post",
+          "pfad": "/capacity-exchange/entries/:id/reactivate",
+          "urteil": "verhaltensgeprueft",
+          "art": "ressource",
+          "reqZusatz": {
+            "user": {
+              "id": "user-alpha-001",
+              "role": "agency",
+              "plan": "PRO"
+            }
+          },
+          "identitaet": "nutzer",
+          "traegerspalten": [
+            "supplier_company_id"
+          ],
+          "erwartung": "sql-grenze",
+          "schreibenGrenztSelbst": true,
+          "gegenprobe": false,
+          "hinweis": "handleTransition ruft transitionStatus(pool, id, req.session.userId, ...) — die Bindung ist der Nutzer, nicht die Org. Die Gegenprobe scheitert am Mock: der Dienst validiert den Eintrag fachlich und antwortet mit VALIDATION (400), weil die Spion-Zeile keine echten Kapazitaetsfelder traegt."
+        },
+        {
+          "methode": "post",
+          "pfad": "/capacity-exchange/entries/:id/fill",
+          "urteil": "verhaltensgeprueft",
+          "art": "ressource",
+          "reqZusatz": {
+            "user": {
+              "id": "user-alpha-001",
+              "role": "agency",
+              "plan": "PRO"
+            }
+          },
+          "identitaet": "nutzer",
+          "traegerspalten": [
+            "supplier_company_id"
+          ],
+          "erwartung": "sql-grenze",
+          "schreibenGrenztSelbst": true,
+          "gegenprobe": false,
+          "hinweis": "handleTransition ruft transitionStatus(pool, id, req.session.userId, ...) — die Bindung ist der Nutzer, nicht die Org. Die Gegenprobe scheitert am Mock: der Dienst validiert den Eintrag fachlich und antwortet mit VALIDATION (400), weil die Spion-Zeile keine echten Kapazitaetsfelder traegt."
+        },
+        {
+          "methode": "post",
+          "pfad": "/capacity-exchange/entries/:id/archive",
+          "urteil": "verhaltensgeprueft",
+          "art": "ressource",
+          "reqZusatz": {
+            "user": {
+              "id": "user-alpha-001",
+              "role": "agency",
+              "plan": "PRO"
+            }
+          },
+          "identitaet": "nutzer",
+          "traegerspalten": [
+            "supplier_company_id"
+          ],
+          "erwartung": "sql-grenze",
+          "schreibenGrenztSelbst": true,
+          "gegenprobe": false,
+          "hinweis": "handleTransition ruft transitionStatus(pool, id, req.session.userId, ...) — die Bindung ist der Nutzer, nicht die Org. Die Gegenprobe scheitert am Mock: der Dienst validiert den Eintrag fachlich und antwortet mit VALIDATION (400), weil die Spion-Zeile keine echten Kapazitaetsfelder traegt."
+        },
+        {
+          "methode": "post",
+          "pfad": "/capacity-exchange/entries/:id/confirm",
+          "urteil": "verhaltensgeprueft",
+          "art": "ressource",
+          "reqZusatz": {
+            "user": {
+              "id": "user-alpha-001",
+              "role": "agency",
+              "plan": "PRO"
+            }
+          },
+          "identitaet": "nutzer",
+          "traegerspalten": [
+            "supplier_company_id"
+          ],
+          "erwartung": "sql-grenze",
+          "schreibenGrenztSelbst": true,
+          "hinweis": "confirmFreshness schreibt 'UPDATE capacity_posts ... WHERE id = $1 AND supplier_company_id = $2' (capacityExchangeService.js:462) — die Grenze steht in der Anweisung selbst. Ein Spion kann kein WHERE erzwingen, deshalb ist der aufgezeichnete Schreibvorgang kein Beleg fuer ein Leck; geprueft wird, dass die eigene Kennung in den Parametern steht."
+        },
+        {
+          "methode": "get",
+          "pfad": "/capacity-exchange/entries/:id",
+          "urteil": "verhaltensgeprueft",
+          "art": "ressource",
+          "reqZusatz": {
+            "user": {
+              "id": "user-alpha-001",
+              "role": "agency",
+              "plan": "PRO"
+            }
+          },
+          "identitaet": "nutzer",
+          "traegerspalten": [
+            "supplier_company_id"
+          ],
+          "erwartung": "zero-state",
+          "hinweis": "getEntryById laedt ohne Bindung und siebt danach in JS ueber canViewerSeeEntry(entry, viewerUserId) (capacityExchangeService.js:479) — fremde Eintraege werden zu 404, nicht zu 403."
+        },
+        {
+          "methode": "get",
+          "pfad": "/capacity-exchange/entries/:id/matches",
+          "urteil": "verhaltensgeprueft",
+          "art": "ressource",
+          "reqZusatz": {
+            "user": {
+              "id": "user-alpha-001",
+              "role": "agency",
+              "plan": "PRO"
+            }
+          },
+          "identitaet": "nutzer",
+          "traegerspalten": [
+            "supplier_company_id"
+          ],
+          "erwartung": "zero-state",
+          "hinweis": "Wie /entries/:id — die Sichtbarkeit entscheidet canViewerSeeEntry, das Ergebnis ist 404."
+        },
+        {
+          "methode": "get",
+          "pfad": "/capacity-exchange/entries/:id/interactions",
+          "urteil": "verhaltensgeprueft",
+          "art": "ressource",
+          "reqZusatz": {
+            "user": {
+              "id": "user-alpha-001",
+              "role": "agency",
+              "plan": "PRO"
+            }
+          },
+          "identitaet": "nutzer",
+          "traegerspalten": [
+            "supplier_company_id"
+          ],
+          "erwartung": "zero-state",
+          "hinweis": "Wie /entries/:id — Sichtbarkeitspruefung im Dienst, fremde Eintraege werden zu 404."
+        },
+        {
+          "methode": "get",
+          "pfad": "/capacity-exchange/feed/:id",
+          "urteil": "verhaltensgeprueft",
+          "art": "ressource",
+          "reqZusatz": {
+            "user": {
+              "id": "user-alpha-001",
+              "role": "agency",
+              "plan": "PRO"
+            }
+          },
+          "identitaet": "nutzer",
+          "traegerspalten": [
+            "supplier_company_id"
+          ],
+          "erwartung": "zero-state",
+          "hinweis": "Feed-Detail; die Sichtbarkeit entscheidet der Dienst ueber die Sitzung."
+        },
+        {
+          "methode": "delete",
+          "pfad": "/capacity-exchange/entries/:id/interactions/save",
+          "urteil": "verhaltensgeprueft",
+          "art": "ressource",
+          "reqZusatz": {
+            "user": {
+              "id": "user-alpha-001",
+              "role": "agency",
+              "plan": "PRO"
+            }
+          },
+          "identitaet": "nutzer",
+          "traegerspalten": [
+            "supplier_company_id"
+          ],
+          "erwartung": "sql-grenze",
+          "schreibenGrenztSelbst": true,
+          "hinweis": "entferneMerkung loescht 'WHERE company_user_id = $3' (capacityExchangeService.js:1106) — eine PERSOENLICHE Merkliste. Fremde Merkungen sind darueber nicht erreichbar; der Schreibvorgang auf dem Spion ist ein Mock-Artefakt."
+        },
+        {
+          "methode": "post",
+          "pfad": "/capacity-exchange/entries/:id/interactions",
+          "urteil": "verhaltensgeprueft",
+          "art": "ressource",
+          "reqZusatz": {
+            "user": {
+              "id": "user-alpha-001",
+              "role": "agency",
+              "plan": "PRO"
+            }
+          },
+          "identitaet": "nutzer",
+          "traegerspalten": [
+            "supplier_company_id"
+          ],
+          "erwartung": "zero-state",
+          "schreibenGrenztSelbst": true,
+          "anfrage": {
+            "body": {
+              "interaction_type": "interest",
+              "message": "Interesse"
+            }
+          },
+          "hinweis": "Interaktion an einem FREMDEN Eintrag ist der Normalfall — so entsteht ein Deal; der Absender wird ueber die Sitzung gebunden. Die Gegenprobe laesst sich mit einem Spion nicht stellen: der Dienst antwortet auf die Mock-Zeile mit 409 (fachlicher Konflikt), nicht mit einem Grenzurteil.",
+          "gegenprobe": false
+        },
+        {
+          "methode": "get",
+          "pfad": "/capacity-exchange/entries/:id/analytics",
+          "urteil": "verhaltensgeprueft",
+          "art": "ressource",
+          "reqZusatz": {
+            "user": {
+              "id": "user-alpha-001",
+              "role": "agency",
+              "plan": "PRO"
+            }
+          },
+          "identitaet": "nutzer",
+          "traegerspalten": [
+            "supplier_company_id"
+          ],
+          "erwartung": "zero-state",
+          "hinweis": "Wie /entries/:id — Sichtbarkeitspruefung im Dienst."
+        },
+        {
+          "methode": "post",
+          "pfad": "/capacity-exchange/entries/:id/click",
+          "urteil": "bewusste-ausnahme",
+          "art": "ressource",
+          "reqZusatz": {
+            "user": {
+              "id": "user-alpha-001",
+              "role": "agency",
+              "plan": "PRO"
+            }
+          },
+          "hinweis": "Zaehlt einen Klick. Der Schreibvorgang bindet an die Sitzung; er ist bewusst auch fuer fremde Eintraege erlaubt — ein Klick auf einen fremden Eintrag IST der Normalfall im Marktplatz-Feed.",
+          "begruendung": "Der Klickzaehler ist ABSICHTLICH ungebunden: einen fremden Eintrag anzuklicken ist im Marktplatz-Feed der Normalfall. recordClick schreibt 'INSERT INTO listing_analytics (capacity_post_id, click_count, updated_at)' ohne Akteursbindung (listingAnalyticsService.js:68); der Akteur landet getrennt in platform_events. Kein Mandantenleck — die Zeile traegt keine fremden Daten. Bekannte Nebenwirkung: der Zaehler ist von aussen aufblasbar (Datenqualitaet, nicht Vertraulichkeit)."
+        }
+      ],
+      "hinweis": "Diese Datei ist NICHT org-gebunden. Ihre Grenze ist der NUTZER: die Services binden ueber `supplier_company_id = req.session.userId` (capacityExchangeService.js:462) bzw. filtern in JS ueber `canViewerSeeEntry(entry, viewerUserId)` (:479). Eine Probe, die nur die Org variiert, laesst hier jede Verletzung durch — deshalb identitaet='nutzer'. Ob eine nutzer- statt org-gebundene Grenze das richtige Produktmodell ist, ist Entscheidung D-M5."
+    },
+    {
+      "datei": "marketplace.js",
+      "fabrik": "createMarketplaceRouter",
+      "routen": [
+        {
+          "methode": "post",
+          "pfad": "/marketplace/offers/:id/prepare-signature",
+          "urteil": "verhaltensgeprueft",
+          "art": "ressource",
+          "identitaet": "nutzer",
+          "traegerspalten": [
+            "requester_company_id"
+          ],
+          "hinweis": "Bewusst EINSEITIG: nur der Anfragende darf das. Beleg steht als Kommentar und Vergleich in der Route selbst (requester_company_id !== session.userId)."
+        },
+        {
+          "methode": "post",
+          "pfad": "/marketplace/capacity-posts/:id/accept-deal",
+          "urteil": "bewusste-ausnahme",
+          "identitaet": "nutzer",
+          "begruendung": "Einen fremden Kapazitaetseintrag anzunehmen ist der Zweck des Marktplatzes; der Annehmende wird ueber die Sitzung gebunden."
+        },
+        {
+          "methode": "post",
+          "pfad": "/marketplace/capacity-posts/:id/negotiate-deal",
+          "urteil": "bewusste-ausnahme",
+          "identitaet": "nutzer",
+          "begruendung": "Verhandlung an einem fremden Kapazitaetseintrag — wie accept-deal der Normalfall."
+        },
+        {
+          "methode": "get",
+          "pfad": "/marketplace/demand-requests/:id",
+          "urteil": "verhaltensgeprueft",
+          "art": "ressource",
+          "identitaet": "nutzer",
+          "traegerspalten": [
+            "requester_company_id"
+          ],
+          "hinweis": "Bindung ueber canAccessAsOwner(pool, row.requester_company_id, req.session.userId). ACHTUNG Befund E-11: dessen Org-Zweig ist wirkungslos (utils/ownerCheck.js:28-33 fragt eine Spalte 'status' ab, die es nicht gibt) — wirksam ist nur der direkte Besitzer-Vergleich.",
+          "leereAntwortFuer": [
+            "org_memberships"
+          ]
+        },
+        {
+          "methode": "get",
+          "pfad": "/marketplace/demand-requests/:id/sla-report",
+          "urteil": "verhaltensgeprueft",
+          "art": "ressource",
+          "identitaet": "nutzer",
+          "traegerspalten": [
+            "requester_company_id"
+          ],
+          "hinweis": "Bindung ueber canAccessAsOwner(pool, row.requester_company_id, req.session.userId). ACHTUNG Befund E-11: dessen Org-Zweig ist wirkungslos (utils/ownerCheck.js:28-33 fragt eine Spalte 'status' ab, die es nicht gibt) — wirksam ist nur der direkte Besitzer-Vergleich.",
+          "leereAntwortFuer": [
+            "org_memberships"
+          ]
+        },
+        {
+          "methode": "get",
+          "pfad": "/marketplace/demand-requests/:id/matches",
+          "urteil": "verhaltensgeprueft",
+          "art": "ressource",
+          "identitaet": "nutzer",
+          "traegerspalten": [
+            "requester_company_id"
+          ],
+          "hinweis": "Bindung ueber canAccessAsOwner(pool, row.requester_company_id, req.session.userId). ACHTUNG Befund E-11: dessen Org-Zweig ist wirkungslos (utils/ownerCheck.js:28-33 fragt eine Spalte 'status' ab, die es nicht gibt) — wirksam ist nur der direkte Besitzer-Vergleich.",
+          "leereAntwortFuer": [
+            "org_memberships"
+          ]
+        },
+        {
+          "methode": "post",
+          "pfad": "/marketplace/demand-requests/:id/accept-deal",
+          "urteil": "bewusste-ausnahme",
+          "identitaet": "nutzer",
+          "begruendung": "Eine Agentur nimmt einen FREMDEN Bedarf an — das ist der Zweck. Die Route sperrt ausdruecklich das Gegenteil: `requester_company_id === req.session.userId` liefert SELF_DEAL_FORBIDDEN (marketplace.js:937). Zusaetzlich agency-only."
+        },
+        {
+          "methode": "post",
+          "pfad": "/marketplace/demand-requests/:id/negotiate-deal",
+          "urteil": "bewusste-ausnahme",
+          "identitaet": "nutzer",
+          "begruendung": "Wie accept-deal: Verhandlung ueber einen fremden Bedarf ist der Normalfall, das Eigengeschaeft ist gesperrt."
+        },
+        {
+          "methode": "post",
+          "pfad": "/marketplace/demand-requests/:id/offers",
+          "urteil": "bewusste-ausnahme",
+          "identitaet": "nutzer",
+          "begruendung": "Ein Angebot auf einen FREMDEN Bedarf abzugeben ist der Zweck des Marktplatzes. Die Route bindet den Absender ueber die Sitzung (supplier_company_id); sie gewaehrt keinen Einblick in fremde Daten, sie legt eine eigene Zeile an."
+        },
+        {
+          "methode": "get",
+          "pfad": "/marketplace/demand-requests/:id/offers",
+          "urteil": "verhaltensgeprueft",
+          "art": "ressource",
+          "identitaet": "nutzer",
+          "traegerspalten": [
+            "requester_company_id"
+          ],
+          "hinweis": "Bindung ueber canAccessAsOwner(pool, row.requester_company_id, req.session.userId). ACHTUNG Befund E-11: dessen Org-Zweig ist wirkungslos (utils/ownerCheck.js:28-33 fragt eine Spalte 'status' ab, die es nicht gibt) — wirksam ist nur der direkte Besitzer-Vergleich.",
+          "leereAntwortFuer": [
+            "org_memberships"
+          ]
+        },
+        {
+          "methode": "patch",
+          "pfad": "/marketplace/offers/:id/status",
+          "urteil": "verhaltensgeprueft",
+          "art": "ressource",
+          "identitaet": "nutzer",
+          "traegerspalten": [
+            "requester_company_id"
+          ],
+          "hinweis": "Die Grenze haengt hier am ZIELSTATUS, nicht an der Route: 'sent'/'withdrawn' darf nur der Lieferant, 'accepted'/'rejected'/'countered' nur der Anfragende (marketplaceService.js:842-847). Die Probe faehrt den Zweig 'accepted', also die Anfragenden-Seite; der Lieferanten-Zweig ist ueber /withdraw abgedeckt. Die Mock-Zeile traegt status='sent', sonst greift INVALID_TRANSITION vorher.",
+          "anfrage": {
+            "body": {
+              "status": "accepted"
+            }
+          },
+          "zeile": {
+            "status": "sent"
+          }
+        },
+        {
+          "methode": "post",
+          "pfad": "/marketplace/offers/:id/accept",
+          "urteil": "verhaltensgeprueft",
+          "art": "ressource",
+          "identitaet": "nutzer",
+          "traegerspalten": [
+            "requester_company_id"
+          ],
+          "hinweis": "Bewusst EINSEITIG: annehmen darf nur, wer angefragt hat — die liefernde Agentur nimmt ihr eigenes Angebot nicht an. Die Mock-Zeile traegt status='sent', sonst greift INVALID_TRANSITION (409) vor der Besitzpruefung.",
+          "zeile": {
+            "status": "sent"
+          }
+        },
+        {
+          "methode": "post",
+          "pfad": "/marketplace/offers/:id/counter",
+          "urteil": "verhaltensgeprueft",
+          "art": "ressource",
+          "identitaet": "nutzer",
+          "traegerspalten": [
+            "requester_company_id"
+          ],
+          "hinweis": "Bewusst EINSEITIG: das Gegenangebot kommt vom Anfragenden; der Dienst meldet FORBIDDEN."
+        },
+        {
+          "methode": "post",
+          "pfad": "/marketplace/offers/:id/withdraw",
+          "urteil": "verhaltensgeprueft",
+          "art": "ressource",
+          "identitaet": "nutzer",
+          "traegerspalten": [
+            "supplier_company_id"
+          ],
+          "hinweis": "Bewusst EINSEITIG: ein Angebot zurueckziehen darf nur, wer es abgegeben hat."
+        },
+        {
+          "methode": "get",
+          "pfad": "/marketplace/offers/:id/detail",
+          "urteil": "verhaltensgeprueft",
+          "art": "ressource",
+          "identitaet": "nutzer",
+          "traegerspalten": [
+            "requester_company_id",
+            "supplier_company_id"
+          ],
+          "hinweis": "Zweiseitig: Besteller ODER Lieferant des Angebots, verglichen gegen req.session.userId (marketplace.js:1414). Keine Org-Grenze."
+        },
+        {
+          "methode": "post",
+          "pfad": "/marketplace/offers/:id/create-agreement",
+          "urteil": "verhaltensgeprueft",
+          "art": "ressource",
+          "identitaet": "nutzer",
+          "traegerspalten": [
+            "requester_company_id"
+          ],
+          "hinweis": "Bewusst EINSEITIG: nur der Anfragende darf das. Beleg steht als Kommentar und Vergleich in der Route selbst (requester_company_id !== session.userId)."
+        },
+        {
+          "methode": "post",
+          "pfad": "/marketplace/offers/:id/confirm-agreement",
+          "urteil": "verhaltensgeprueft",
+          "art": "ressource",
+          "identitaet": "nutzer",
+          "traegerspalten": [
+            "supplier_company_id"
+          ],
+          "hinweis": "Bewusst EINSEITIG: nur die liefernde Agentur darf das (supplier_company_id !== session.userId)."
+        },
+        {
+          "methode": "post",
+          "pfad": "/marketplace/offers/:id/activate",
+          "urteil": "verhaltensgeprueft",
+          "art": "ressource",
+          "identitaet": "nutzer",
+          "traegerspalten": [
+            "requester_company_id"
+          ],
+          "hinweis": "Bewusst EINSEITIG: nur der Anfragende darf das. Beleg steht als Kommentar und Vergleich in der Route selbst (requester_company_id !== session.userId)."
+        },
+        {
+          "methode": "get",
+          "pfad": "/marketplace/offers/:id/commitment-preview",
+          "urteil": "verhaltensgeprueft",
+          "art": "ressource",
+          "identitaet": "nutzer",
+          "traegerspalten": [
+            "requester_company_id",
+            "supplier_company_id"
+          ],
+          "hinweis": "Zweiseitig: Besteller ODER Lieferant des Angebots, verglichen gegen req.session.userId (marketplace.js:1414). Keine Org-Grenze."
+        },
+        {
+          "methode": "get",
+          "pfad": "/marketplace/offers/:id/cancellation-impact",
+          "urteil": "verhaltensgeprueft",
+          "art": "ressource",
+          "identitaet": "nutzer",
+          "traegerspalten": [
+            "requester_company_id",
+            "supplier_company_id"
+          ],
+          "hinweis": "Zweiseitig: Besteller ODER Lieferant des Angebots, verglichen gegen req.session.userId (marketplace.js:1414). Keine Org-Grenze."
+        },
+        {
+          "methode": "post",
+          "pfad": "/marketplace/offers/:id/cancel-agreement",
+          "urteil": "verhaltensgeprueft",
+          "art": "ressource",
+          "identitaet": "nutzer",
+          "traegerspalten": [
+            "requester_company_id",
+            "supplier_company_id"
+          ],
+          "hinweis": "Zweiseitig: Besteller ODER Lieferant des Angebots, verglichen gegen req.session.userId (marketplace.js:1414). Keine Org-Grenze."
+        },
+        {
+          "methode": "get",
+          "pfad": "/marketplace/offers/:id/staffing-context",
+          "urteil": "verhaltensgeprueft",
+          "art": "ressource",
+          "identitaet": "nutzer",
+          "traegerspalten": [
+            "requester_company_id",
+            "supplier_company_id"
+          ],
+          "hinweis": "Zweiseitig: Besteller ODER Lieferant des Angebots, verglichen gegen req.session.userId (marketplace.js:1414). Keine Org-Grenze."
+        },
+        {
+          "methode": "post",
+          "pfad": "/marketplace/offers/:id/quick-assign-to-deal",
+          "urteil": "verhaltensgeprueft",
+          "art": "ressource",
+          "identitaet": "nutzer",
+          "traegerspalten": [
+            "supplier_company_id"
+          ],
+          "hinweis": "Bewusst EINSEITIG: nur die liefernde Agentur darf das (supplier_company_id !== session.userId)."
+        },
+        {
+          "methode": "get",
+          "pfad": "/marketplace/offers/:id/document",
+          "urteil": "verhaltensgeprueft",
+          "art": "ressource",
+          "identitaet": "nutzer",
+          "traegerspalten": [
+            "requester_company_id",
+            "supplier_company_id"
+          ],
+          "hinweis": "Zweiseitig: Besteller ODER Lieferant des Angebots, verglichen gegen req.session.userId (marketplace.js:1414). Keine Org-Grenze."
+        },
+        {
+          "methode": "get",
+          "pfad": "/marketplace/offers/:id/dossier",
+          "urteil": "verhaltensgeprueft",
+          "art": "ressource",
+          "identitaet": "nutzer",
+          "traegerspalten": [
+            "requester_company_id",
+            "supplier_company_id"
+          ],
+          "hinweis": "Zweiseitig: Besteller ODER Lieferant des Angebots, verglichen gegen req.session.userId (marketplace.js:1414). Keine Org-Grenze."
+        },
+        {
+          "methode": "get",
+          "pfad": "/marketplace/deals/:id/progress",
+          "urteil": "verhaltensgeprueft",
+          "art": "ressource",
+          "identitaet": "nutzer",
+          "traegerspalten": [
+            "requester_id",
+            "receiver_id"
+          ],
+          "hinweis": "Zweiseitig, aber ueber ANDERE Spalten: der Fortschritt traegt requester_id/receiver_id, nicht requester_company_id/supplier_company_id (marketplace.js:1904)."
+        },
+        {
+          "methode": "get",
+          "pfad": "/marketplace/demand-requests/:id/interactions",
+          "urteil": "verhaltensgeprueft",
+          "art": "ressource",
+          "identitaet": "nutzer",
+          "traegerspalten": [
+            "requester_company_id"
+          ],
+          "hinweis": "Bindung ueber canAccessAsOwner(pool, row.requester_company_id, req.session.userId). ACHTUNG Befund E-11: dessen Org-Zweig ist wirkungslos (utils/ownerCheck.js:28-33 fragt eine Spalte 'status' ab, die es nicht gibt) — wirksam ist nur der direkte Besitzer-Vergleich.",
+          "leereAntwortFuer": [
+            "org_memberships"
+          ]
+        },
+        {
+          "methode": "delete",
+          "pfad": "/marketplace/demand-requests/:id/interactions/save",
+          "urteil": "bewusste-ausnahme",
+          "identitaet": "nutzer",
+          "begruendung": "Entfernt die EIGENE Merkung; die Loeschung bindet ueber company_user_id an die Sitzung, fremde Merkungen sind darueber nicht erreichbar."
+        },
+        {
+          "methode": "post",
+          "pfad": "/marketplace/demand-requests/:id/interactions",
+          "urteil": "bewusste-ausnahme",
+          "identitaet": "nutzer",
+          "begruendung": "Interaktion an einem fremden Bedarf ist der Normalfall — so entsteht der Kontakt. Der Absender wird ueber die Sitzung gebunden."
+        },
+        {
+          "methode": "get",
+          "pfad": "/marketplace/public/demand-requests/:id",
+          "urteil": "bewusste-ausnahme",
+          "identitaet": "nutzer",
+          "begruendung": "Ausdruecklich oeffentliche Ansicht eines Bedarfs (Pfadteil '/public/'). Sie ist der Einstieg fuer noch nicht angemeldete Zeitarbeitsfirmen und liefert bewusst die reduzierte Fassung — keine Mandantengrenze, sondern eine Feldauswahl."
+        }
+      ],
+      "hinweis": "Diese Datei ist NICHT org-gebunden. Ihre Grenze ist der NUTZER (requester_company_id / supplier_company_id gegen req.session.userId). Mehrere Routen sind bewusst offen — ein Marktplatz lebt davon, dass man fremde Eintraege sieht und auf sie antwortet. Siehe Entscheidung D-M5."
+    },
+    {
+      "datei": "workerPortal.js",
+      "fabrik": "createWorkerPortalRouter",
+      "routen": [
+        {
+          "methode": "get",
+          "pfad": "/worker/documents/:documentId/download",
+          "urteil": "verhaltensgeprueft",
+          "art": "ressource",
+          "identitaet": "nutzer",
+          "traegerspalten": [
+            "worker_user_id"
+          ],
+          "erwartung": "zero-state",
+          "reqZusatz": {
+            "session": {
+              "userId": "user-alpha-001",
+              "userRole": "worker"
+            }
+          },
+          "gegenprobe": false,
+          "hinweis": "Die Gegenprobe braucht eine echte Datei auf der Platte: nach der Besitzpruefung faellt die Route auf FILE_MISSING (404). Der Fremdlauf ist unberuehrt davon und belegt die Grenze — geprueft wird, dass eine fremde Zeile gar nicht erst bis zum Dateizugriff kommt."
+        },
+        {
+          "methode": "delete",
+          "pfad": "/worker/documents/:documentId",
+          "urteil": "verhaltensgeprueft",
+          "art": "ressource",
+          "identitaet": "nutzer",
+          "traegerspalten": [
+            "worker_user_id"
+          ],
+          "erwartung": "zero-state",
+          "reqZusatz": {
+            "session": {
+              "userId": "user-alpha-001",
+              "userRole": "worker"
+            }
+          }
+        },
+        {
+          "methode": "post",
+          "pfad": "/worker/staffing-requests/:id/respond",
+          "urteil": "verhaltensgeprueft",
+          "art": "ressource",
+          "identitaet": "nutzer",
+          "traegerspalten": [
+            "worker_user_id"
+          ],
+          "erwartung": "zero-state",
+          "reqZusatz": {
+            "session": {
+              "userId": "user-alpha-001",
+              "userRole": "worker"
+            }
+          },
+          "anfrage": {
+            "body": {
+              "action": "accept"
+            }
+          },
+          "gegenprobe": false,
+          "hinweis": "Zustandsautomat hinter der Besitzpruefung: eine erfundene Zeile kann ihn nicht zufriedenstellen, deshalb enden Eigen- und Fremdlauf mit demselben fachlichen Code. Die Grenze selbst ist belegt — sie steht vor dem Automaten und bindet ueber die Sitzung (worker_user_id === req.session.userId)."
+        },
+        {
+          "methode": "post",
+          "pfad": "/worker/staffing-requests/:id/question",
+          "urteil": "verhaltensgeprueft",
+          "art": "ressource",
+          "identitaet": "nutzer",
+          "traegerspalten": [
+            "worker_user_id"
+          ],
+          "erwartung": "zero-state",
+          "reqZusatz": {
+            "session": {
+              "userId": "user-alpha-001",
+              "userRole": "worker"
+            }
+          },
+          "anfrage": {
+            "body": {
+              "question": "Wann genau beginnt der Einsatz?"
+            }
+          },
+          "gegenprobe": false,
+          "hinweis": "Zustandsautomat hinter der Besitzpruefung: eine erfundene Zeile kann ihn nicht zufriedenstellen, deshalb enden Eigen- und Fremdlauf mit demselben fachlichen Code. Die Grenze selbst ist belegt — sie steht vor dem Automaten und bindet ueber die Sitzung (worker_user_id === req.session.userId)."
+        },
+        {
+          "methode": "post",
+          "pfad": "/worker/staffing-requests/:id/remind",
+          "urteil": "verhaltensgeprueft",
+          "art": "ressource",
+          "identitaet": "nutzer",
+          "traegerspalten": [
+            "worker_user_id"
+          ],
+          "erwartung": "zero-state",
+          "reqZusatz": {
+            "session": {
+              "userId": "user-alpha-001",
+              "userRole": "worker"
+            }
+          },
+          "anfrage": {
+            "body": {
+              "remind_after_minutes": 60
+            }
+          },
+          "gegenprobe": false,
+          "hinweis": "Zustandsautomat hinter der Besitzpruefung: eine erfundene Zeile kann ihn nicht zufriedenstellen, deshalb enden Eigen- und Fremdlauf mit demselben fachlichen Code. Die Grenze selbst ist belegt — sie steht vor dem Automaten und bindet ueber die Sitzung (worker_user_id === req.session.userId)."
+        },
+        {
+          "methode": "post",
+          "pfad": "/worker/staffing-choice-sets/:id/respond",
+          "urteil": "verhaltensgeprueft",
+          "art": "ressource",
+          "identitaet": "nutzer",
+          "traegerspalten": [
+            "worker_user_id"
+          ],
+          "erwartung": "zero-state",
+          "reqZusatz": {
+            "session": {
+              "userId": "user-alpha-001",
+              "userRole": "worker"
+            }
+          },
+          "anfrage": {
+            "body": {
+              "action": "submit_preferences",
+              "primary_option_id": "11111111-1111-4111-a111-111111111111"
+            }
+          }
+        },
+        {
+          "methode": "get",
+          "pfad": "/worker/submissions/:id",
+          "urteil": "verhaltensgeprueft",
+          "art": "ressource",
+          "identitaet": "nutzer",
+          "traegerspalten": [
+            "worker_user_id"
+          ],
+          "erwartung": "zero-state",
+          "reqZusatz": {
+            "session": {
+              "userId": "user-alpha-001",
+              "userRole": "worker"
+            }
+          }
+        },
+        {
+          "methode": "put",
+          "pfad": "/worker/submissions/:id/entries",
+          "urteil": "verhaltensgeprueft",
+          "art": "ressource",
+          "identitaet": "nutzer",
+          "traegerspalten": [
+            "worker_user_id"
+          ],
+          "erwartung": "zero-state",
+          "reqZusatz": {
+            "session": {
+              "userId": "user-alpha-001",
+              "userRole": "worker"
+            }
+          },
+          "anfrage": {
+            "body": {
+              "entries": [
+                {
+                  "work_date": "2026-08-19",
+                  "hours_regular": 8,
+                  "hours_overtime": 0,
+                  "break_minutes": 30
+                }
+              ]
+            }
+          },
+          "zeile": {
+            "status": "draft"
+          },
+          "gegenprobe": false,
+          "hinweis": "Zustandsautomat hinter der Besitzpruefung: eine erfundene Zeile kann ihn nicht zufriedenstellen, deshalb enden Eigen- und Fremdlauf mit demselben fachlichen Code. Die Grenze selbst ist belegt — sie steht vor dem Automaten und bindet ueber die Sitzung (worker_user_id === req.session.userId)."
+        },
+        {
+          "methode": "delete",
+          "pfad": "/worker/submissions/:id/entries/:entryId",
+          "urteil": "verhaltensgeprueft",
+          "art": "ressource",
+          "identitaet": "nutzer",
+          "traegerspalten": [
+            "worker_user_id"
+          ],
+          "erwartung": "zero-state",
+          "reqZusatz": {
+            "session": {
+              "userId": "user-alpha-001",
+              "userRole": "worker"
+            }
+          },
+          "zeile": {
+            "status": "draft"
+          }
+        },
+        {
+          "methode": "post",
+          "pfad": "/worker/submissions/:id/submit",
+          "urteil": "verhaltensgeprueft",
+          "art": "ressource",
+          "identitaet": "nutzer",
+          "traegerspalten": [
+            "worker_user_id"
+          ],
+          "erwartung": "zero-state",
+          "reqZusatz": {
+            "session": {
+              "userId": "user-alpha-001",
+              "userRole": "worker"
+            }
+          }
+        },
+        {
+          "methode": "post",
+          "pfad": "/worker/submissions/:id/correct",
+          "urteil": "verhaltensgeprueft",
+          "art": "ressource",
+          "identitaet": "nutzer",
+          "traegerspalten": [
+            "worker_user_id"
+          ],
+          "erwartung": "zero-state",
+          "reqZusatz": {
+            "session": {
+              "userId": "user-alpha-001",
+              "userRole": "worker"
+            }
+          }
+        },
+        {
+          "methode": "post",
+          "pfad": "/worker/submissions/:id/comment",
+          "urteil": "verhaltensgeprueft",
+          "art": "ressource",
+          "identitaet": "nutzer",
+          "traegerspalten": [
+            "worker_user_id"
+          ],
+          "erwartung": "zero-state",
+          "reqZusatz": {
+            "session": {
+              "userId": "user-alpha-001",
+              "userRole": "worker"
+            }
+          },
+          "anfrage": {
+            "body": {
+              "text": "Bitte pruefen"
+            }
+          },
+          "zeile": {
+            "status": "draft"
+          }
+        },
+        {
+          "methode": "get",
+          "pfad": "/worker/submissions/:id/prefill",
+          "urteil": "verhaltensgeprueft",
+          "art": "ressource",
+          "identitaet": "nutzer",
+          "traegerspalten": [
+            "worker_user_id"
+          ],
+          "erwartung": "zero-state",
+          "reqZusatz": {
+            "session": {
+              "userId": "user-alpha-001",
+              "userRole": "worker"
+            }
+          }
+        },
+        {
+          "methode": "post",
+          "pfad": "/worker/assignments/:id/confirm",
+          "urteil": "verhaltensgeprueft",
+          "art": "ressource",
+          "identitaet": "nutzer",
+          "traegerspalten": [
+            "worker_user_id"
+          ],
+          "erwartung": "zero-state",
+          "reqZusatz": {
+            "session": {
+              "userId": "user-alpha-001",
+              "userRole": "worker"
+            }
+          },
+          "zeile": {
+            "status": "pending"
+          },
+          "gegenprobe": false,
+          "hinweis": "Zustandsautomat hinter der Besitzpruefung: eine erfundene Zeile kann ihn nicht zufriedenstellen, deshalb enden Eigen- und Fremdlauf mit demselben fachlichen Code. Die Grenze selbst ist belegt — sie steht vor dem Automaten und bindet ueber die Sitzung (worker_user_id === req.session.userId)."
+        },
+        {
+          "methode": "post",
+          "pfad": "/worker/assignments/:id/decline",
+          "urteil": "verhaltensgeprueft",
+          "art": "ressource",
+          "identitaet": "nutzer",
+          "traegerspalten": [
+            "worker_user_id"
+          ],
+          "erwartung": "zero-state",
+          "reqZusatz": {
+            "session": {
+              "userId": "user-alpha-001",
+              "userRole": "worker"
+            }
+          },
+          "anfrage": {
+            "body": {
+              "reason": "Nicht verfuegbar"
+            }
+          },
+          "zeile": {
+            "status": "pending"
+          },
+          "gegenprobe": false,
+          "hinweis": "Zustandsautomat hinter der Besitzpruefung: eine erfundene Zeile kann ihn nicht zufriedenstellen, deshalb enden Eigen- und Fremdlauf mit demselben fachlichen Code. Die Grenze selbst ist belegt — sie steht vor dem Automaten und bindet ueber die Sitzung (worker_user_id === req.session.userId)."
+        },
+        {
+          "methode": "post",
+          "pfad": "/worker/assignments/:id/report-unavailable",
+          "urteil": "verhaltensgeprueft",
+          "art": "ressource",
+          "identitaet": "nutzer",
+          "traegerspalten": [
+            "worker_user_id"
+          ],
+          "erwartung": "zero-state",
+          "reqZusatz": {
+            "session": {
+              "userId": "user-alpha-001",
+              "userRole": "worker"
+            }
+          },
+          "anfrage": {
+            "body": {
+              "art": "krank",
+              "grund": "Grippe",
+              "ab": "2026-08-19"
+            }
+          },
+          "zeile": {
+            "status": "active"
+          },
+          "gegenprobe": false,
+          "hinweis": "Zustandsautomat hinter der Besitzpruefung: eine erfundene Zeile kann ihn nicht zufriedenstellen, deshalb enden Eigen- und Fremdlauf mit demselben fachlichen Code. Die Grenze selbst ist belegt — sie steht vor dem Automaten und bindet ueber die Sitzung (worker_user_id === req.session.userId)."
+        },
+        {
+          "methode": "get",
+          "pfad": "/worker/assignments/:id",
+          "urteil": "verhaltensgeprueft",
+          "art": "ressource",
+          "identitaet": "nutzer",
+          "traegerspalten": [
+            "worker_user_id"
+          ],
+          "erwartung": "sql-grenze",
+          "reqZusatz": {
+            "session": {
+              "userId": "user-alpha-001",
+              "userRole": "worker"
+            }
+          },
+          "zeile": {
+            "status": "active"
+          },
+          "hinweis": "Die Grenze steht im SQL: 'WHERE wal.id = $1 AND wal.worker_user_id = $2' (workerService.js:1703). Deshalb sql-grenze statt zero-state — ein Spion kann kein WHERE erzwingen und liefert die Zeile trotzdem; belegt wird, dass Sitzung und Adressat zusammen in der Anweisung stehen."
+        },
+        {
+          "methode": "patch",
+          "pfad": "/worker/notifications/:id/read",
+          "urteil": "verhaltensgeprueft",
+          "art": "ressource",
+          "identitaet": "nutzer",
+          "traegerspalten": [
+            "user_id"
+          ],
+          "erwartung": "zero-state",
+          "reqZusatz": {
+            "session": {
+              "userId": "user-alpha-001",
+              "userRole": "worker"
+            }
+          },
+          "hinweis": "Der Schreibvorgang traegt seine Grenze selbst: 'UPDATE notifications SET is_read=TRUE WHERE id=$1 AND user_id=$2' (workerPortal.js:1359). Ein Spion kann kein WHERE erzwingen, deshalb ist der aufgezeichnete Schreibvorgang kein Beleg fuer ein Leck.",
+          "schreibenGrenztSelbst": true
+        }
+      ],
+      "hinweis": "Arbeiterportal: keine Org-Grenze je Route, sondern EINE Eintrittsbedingung (requireWorkerRole) plus durchgaengige Bindung an die Sitzung. Jede Route loest das Profil ueber req.session.userId auf und vergleicht die Zeile gegen worker_user_id UND profile.supplier_org_id; fremde Zeilen werden zu 404, nicht zu 403 — das ist Absicht, ein 403 wuerde die Existenz bestaetigen.",
+      "torwaechter": {
+        "middleware": "requireWorkerRole",
+        "erwarteterStatus": 403,
+        "ohneVoraussetzung": {
+          "session": {
+            "userId": "user-alpha-001",
+            "userRole": "company"
+          }
+        }
+      }
+    },
+    {
+      "datei": "staffControlCenter.js",
+      "fabrik": "createStaffControlCenterRouter",
+      "routen": [
+        {
+          "methode": "post",
+          "pfad": "/pilots/:orgId/extend",
+          "urteil": "bewusste-ausnahme",
+          "begruendung": "Staff Control Center: org-uebergreifend PER BAUART — das ist die interne Betriebsflaeche von TempConnect, keine Mandantenflaeche. Eine Org-Grenze waere hier falsch. Getragen wird die Flaeche stattdessen vom Torwaechter 'staffControlAccess' (eigene Staff-Sitzung, 401 ohne sie), der auf JEDER Route dieser Datei verhaltensgeprueft ist, plus Step-up, MFA und Begruendungszwang auf den kritischen Wegen."
+        },
+        {
+          "methode": "post",
+          "pfad": "/pilots/:orgId/end",
+          "urteil": "bewusste-ausnahme",
+          "begruendung": "Staff Control Center: org-uebergreifend PER BAUART — das ist die interne Betriebsflaeche von TempConnect, keine Mandantenflaeche. Eine Org-Grenze waere hier falsch. Getragen wird die Flaeche stattdessen vom Torwaechter 'staffControlAccess' (eigene Staff-Sitzung, 401 ohne sie), der auf JEDER Route dieser Datei verhaltensgeprueft ist, plus Step-up, MFA und Begruendungszwang auf den kritischen Wegen."
+        },
+        {
+          "methode": "post",
+          "pfad": "/pilots/:orgId/exception",
+          "urteil": "bewusste-ausnahme",
+          "begruendung": "Staff Control Center: org-uebergreifend PER BAUART — das ist die interne Betriebsflaeche von TempConnect, keine Mandantenflaeche. Eine Org-Grenze waere hier falsch. Getragen wird die Flaeche stattdessen vom Torwaechter 'staffControlAccess' (eigene Staff-Sitzung, 401 ohne sie), der auf JEDER Route dieser Datei verhaltensgeprueft ist, plus Step-up, MFA und Begruendungszwang auf den kritischen Wegen."
+        },
+        {
+          "methode": "post",
+          "pfad": "/preregistrations/:id/status",
+          "urteil": "bewusste-ausnahme",
+          "begruendung": "Staff Control Center: org-uebergreifend PER BAUART — das ist die interne Betriebsflaeche von TempConnect, keine Mandantenflaeche. Eine Org-Grenze waere hier falsch. Getragen wird die Flaeche stattdessen vom Torwaechter 'staffControlAccess' (eigene Staff-Sitzung, 401 ohne sie), der auf JEDER Route dieser Datei verhaltensgeprueft ist, plus Step-up, MFA und Begruendungszwang auf den kritischen Wegen."
+        },
+        {
+          "methode": "get",
+          "pfad": "/customer-requests/:id",
+          "urteil": "bewusste-ausnahme",
+          "begruendung": "Staff Control Center: org-uebergreifend PER BAUART — das ist die interne Betriebsflaeche von TempConnect, keine Mandantenflaeche. Eine Org-Grenze waere hier falsch. Getragen wird die Flaeche stattdessen vom Torwaechter 'staffControlAccess' (eigene Staff-Sitzung, 401 ohne sie), der auf JEDER Route dieser Datei verhaltensgeprueft ist, plus Step-up, MFA und Begruendungszwang auf den kritischen Wegen."
+        },
+        {
+          "methode": "post",
+          "pfad": "/customer-requests/:id/messages",
+          "urteil": "bewusste-ausnahme",
+          "begruendung": "Staff Control Center: org-uebergreifend PER BAUART — das ist die interne Betriebsflaeche von TempConnect, keine Mandantenflaeche. Eine Org-Grenze waere hier falsch. Getragen wird die Flaeche stattdessen vom Torwaechter 'staffControlAccess' (eigene Staff-Sitzung, 401 ohne sie), der auf JEDER Route dieser Datei verhaltensgeprueft ist, plus Step-up, MFA und Begruendungszwang auf den kritischen Wegen."
+        },
+        {
+          "methode": "post",
+          "pfad": "/customer-requests/:id/transition",
+          "urteil": "bewusste-ausnahme",
+          "begruendung": "Staff Control Center: org-uebergreifend PER BAUART — das ist die interne Betriebsflaeche von TempConnect, keine Mandantenflaeche. Eine Org-Grenze waere hier falsch. Getragen wird die Flaeche stattdessen vom Torwaechter 'staffControlAccess' (eigene Staff-Sitzung, 401 ohne sie), der auf JEDER Route dieser Datei verhaltensgeprueft ist, plus Step-up, MFA und Begruendungszwang auf den kritischen Wegen."
+        },
+        {
+          "methode": "post",
+          "pfad": "/customer-requests/:id/assign",
+          "urteil": "bewusste-ausnahme",
+          "begruendung": "Staff Control Center: org-uebergreifend PER BAUART — das ist die interne Betriebsflaeche von TempConnect, keine Mandantenflaeche. Eine Org-Grenze waere hier falsch. Getragen wird die Flaeche stattdessen vom Torwaechter 'staffControlAccess' (eigene Staff-Sitzung, 401 ohne sie), der auf JEDER Route dieser Datei verhaltensgeprueft ist, plus Step-up, MFA und Begruendungszwang auf den kritischen Wegen."
+        },
+        {
+          "methode": "post",
+          "pfad": "/customer-requests/:id/release",
+          "urteil": "bewusste-ausnahme",
+          "begruendung": "Staff Control Center: org-uebergreifend PER BAUART — das ist die interne Betriebsflaeche von TempConnect, keine Mandantenflaeche. Eine Org-Grenze waere hier falsch. Getragen wird die Flaeche stattdessen vom Torwaechter 'staffControlAccess' (eigene Staff-Sitzung, 401 ohne sie), der auf JEDER Route dieser Datei verhaltensgeprueft ist, plus Step-up, MFA und Begruendungszwang auf den kritischen Wegen."
+        },
+        {
+          "methode": "get",
+          "pfad": "/inbox/:id",
+          "urteil": "bewusste-ausnahme",
+          "begruendung": "Staff Control Center: org-uebergreifend PER BAUART — das ist die interne Betriebsflaeche von TempConnect, keine Mandantenflaeche. Eine Org-Grenze waere hier falsch. Getragen wird die Flaeche stattdessen vom Torwaechter 'staffControlAccess' (eigene Staff-Sitzung, 401 ohne sie), der auf JEDER Route dieser Datei verhaltensgeprueft ist, plus Step-up, MFA und Begruendungszwang auf den kritischen Wegen."
+        },
+        {
+          "methode": "patch",
+          "pfad": "/staff-access/:userId/deactivate",
+          "urteil": "bewusste-ausnahme",
+          "begruendung": "Staff Control Center: org-uebergreifend PER BAUART — das ist die interne Betriebsflaeche von TempConnect, keine Mandantenflaeche. Eine Org-Grenze waere hier falsch. Getragen wird die Flaeche stattdessen vom Torwaechter 'staffControlAccess' (eigene Staff-Sitzung, 401 ohne sie), der auf JEDER Route dieser Datei verhaltensgeprueft ist, plus Step-up, MFA und Begruendungszwang auf den kritischen Wegen."
+        },
+        {
+          "methode": "get",
+          "pfad": "/support-vendors/:id",
+          "urteil": "bewusste-ausnahme",
+          "begruendung": "Staff Control Center: org-uebergreifend PER BAUART — das ist die interne Betriebsflaeche von TempConnect, keine Mandantenflaeche. Eine Org-Grenze waere hier falsch. Getragen wird die Flaeche stattdessen vom Torwaechter 'staffControlAccess' (eigene Staff-Sitzung, 401 ohne sie), der auf JEDER Route dieser Datei verhaltensgeprueft ist, plus Step-up, MFA und Begruendungszwang auf den kritischen Wegen."
+        },
+        {
+          "methode": "post",
+          "pfad": "/support-vendors/:id/verify",
+          "urteil": "bewusste-ausnahme",
+          "begruendung": "Staff Control Center: org-uebergreifend PER BAUART — das ist die interne Betriebsflaeche von TempConnect, keine Mandantenflaeche. Eine Org-Grenze waere hier falsch. Getragen wird die Flaeche stattdessen vom Torwaechter 'staffControlAccess' (eigene Staff-Sitzung, 401 ohne sie), der auf JEDER Route dieser Datei verhaltensgeprueft ist, plus Step-up, MFA und Begruendungszwang auf den kritischen Wegen."
+        },
+        {
+          "methode": "post",
+          "pfad": "/support-vendors/:id/status",
+          "urteil": "bewusste-ausnahme",
+          "begruendung": "Staff Control Center: org-uebergreifend PER BAUART — das ist die interne Betriebsflaeche von TempConnect, keine Mandantenflaeche. Eine Org-Grenze waere hier falsch. Getragen wird die Flaeche stattdessen vom Torwaechter 'staffControlAccess' (eigene Staff-Sitzung, 401 ohne sie), der auf JEDER Route dieser Datei verhaltensgeprueft ist, plus Step-up, MFA und Begruendungszwang auf den kritischen Wegen."
+        },
+        {
+          "methode": "post",
+          "pfad": "/support-vendors/:id/ip-allowlist",
+          "urteil": "bewusste-ausnahme",
+          "begruendung": "Staff Control Center: org-uebergreifend PER BAUART — das ist die interne Betriebsflaeche von TempConnect, keine Mandantenflaeche. Eine Org-Grenze waere hier falsch. Getragen wird die Flaeche stattdessen vom Torwaechter 'staffControlAccess' (eigene Staff-Sitzung, 401 ohne sie), der auf JEDER Route dieser Datei verhaltensgeprueft ist, plus Step-up, MFA und Begruendungszwang auf den kritischen Wegen."
+        },
+        {
+          "methode": "post",
+          "pfad": "/support-vendors/agents/:agentId/suspend",
+          "urteil": "bewusste-ausnahme",
+          "begruendung": "Staff Control Center: org-uebergreifend PER BAUART — das ist die interne Betriebsflaeche von TempConnect, keine Mandantenflaeche. Eine Org-Grenze waere hier falsch. Getragen wird die Flaeche stattdessen vom Torwaechter 'staffControlAccess' (eigene Staff-Sitzung, 401 ohne sie), der auf JEDER Route dieser Datei verhaltensgeprueft ist, plus Step-up, MFA und Begruendungszwang auf den kritischen Wegen."
+        },
+        {
+          "methode": "patch",
+          "pfad": "/inbox/:id/assign",
+          "urteil": "bewusste-ausnahme",
+          "begruendung": "Staff Control Center: org-uebergreifend PER BAUART — das ist die interne Betriebsflaeche von TempConnect, keine Mandantenflaeche. Eine Org-Grenze waere hier falsch. Getragen wird die Flaeche stattdessen vom Torwaechter 'staffControlAccess' (eigene Staff-Sitzung, 401 ohne sie), der auf JEDER Route dieser Datei verhaltensgeprueft ist, plus Step-up, MFA und Begruendungszwang auf den kritischen Wegen."
+        },
+        {
+          "methode": "get",
+          "pfad": "/customers/:orgId",
+          "urteil": "bewusste-ausnahme",
+          "begruendung": "Staff Control Center: org-uebergreifend PER BAUART — das ist die interne Betriebsflaeche von TempConnect, keine Mandantenflaeche. Eine Org-Grenze waere hier falsch. Getragen wird die Flaeche stattdessen vom Torwaechter 'staffControlAccess' (eigene Staff-Sitzung, 401 ohne sie), der auf JEDER Route dieser Datei verhaltensgeprueft ist, plus Step-up, MFA und Begruendungszwang auf den kritischen Wegen."
+        },
+        {
+          "methode": "post",
+          "pfad": "/customers/:orgId/suspend",
+          "urteil": "bewusste-ausnahme",
+          "begruendung": "Staff Control Center: org-uebergreifend PER BAUART — das ist die interne Betriebsflaeche von TempConnect, keine Mandantenflaeche. Eine Org-Grenze waere hier falsch. Getragen wird die Flaeche stattdessen vom Torwaechter 'staffControlAccess' (eigene Staff-Sitzung, 401 ohne sie), der auf JEDER Route dieser Datei verhaltensgeprueft ist, plus Step-up, MFA und Begruendungszwang auf den kritischen Wegen."
+        },
+        {
+          "methode": "post",
+          "pfad": "/customers/:orgId/reactivate",
+          "urteil": "bewusste-ausnahme",
+          "begruendung": "Staff Control Center: org-uebergreifend PER BAUART — das ist die interne Betriebsflaeche von TempConnect, keine Mandantenflaeche. Eine Org-Grenze waere hier falsch. Getragen wird die Flaeche stattdessen vom Torwaechter 'staffControlAccess' (eigene Staff-Sitzung, 401 ohne sie), der auf JEDER Route dieser Datei verhaltensgeprueft ist, plus Step-up, MFA und Begruendungszwang auf den kritischen Wegen."
+        },
+        {
+          "methode": "post",
+          "pfad": "/incidents/:id/acknowledge",
+          "urteil": "bewusste-ausnahme",
+          "begruendung": "Staff Control Center: org-uebergreifend PER BAUART — das ist die interne Betriebsflaeche von TempConnect, keine Mandantenflaeche. Eine Org-Grenze waere hier falsch. Getragen wird die Flaeche stattdessen vom Torwaechter 'staffControlAccess' (eigene Staff-Sitzung, 401 ohne sie), der auf JEDER Route dieser Datei verhaltensgeprueft ist, plus Step-up, MFA und Begruendungszwang auf den kritischen Wegen."
+        },
+        {
+          "methode": "post",
+          "pfad": "/incidents/:id/resolve",
+          "urteil": "bewusste-ausnahme",
+          "begruendung": "Staff Control Center: org-uebergreifend PER BAUART — das ist die interne Betriebsflaeche von TempConnect, keine Mandantenflaeche. Eine Org-Grenze waere hier falsch. Getragen wird die Flaeche stattdessen vom Torwaechter 'staffControlAccess' (eigene Staff-Sitzung, 401 ohne sie), der auf JEDER Route dieser Datei verhaltensgeprueft ist, plus Step-up, MFA und Begruendungszwang auf den kritischen Wegen."
+        },
+        {
+          "methode": "get",
+          "pfad": "/subscription-requests/:id",
+          "urteil": "bewusste-ausnahme",
+          "begruendung": "Staff Control Center: org-uebergreifend PER BAUART — das ist die interne Betriebsflaeche von TempConnect, keine Mandantenflaeche. Eine Org-Grenze waere hier falsch. Getragen wird die Flaeche stattdessen vom Torwaechter 'staffControlAccess' (eigene Staff-Sitzung, 401 ohne sie), der auf JEDER Route dieser Datei verhaltensgeprueft ist, plus Step-up, MFA und Begruendungszwang auf den kritischen Wegen."
+        },
+        {
+          "methode": "post",
+          "pfad": "/subscription-requests/:id/transition",
+          "urteil": "bewusste-ausnahme",
+          "begruendung": "Staff Control Center: org-uebergreifend PER BAUART — das ist die interne Betriebsflaeche von TempConnect, keine Mandantenflaeche. Eine Org-Grenze waere hier falsch. Getragen wird die Flaeche stattdessen vom Torwaechter 'staffControlAccess' (eigene Staff-Sitzung, 401 ohne sie), der auf JEDER Route dieser Datei verhaltensgeprueft ist, plus Step-up, MFA und Begruendungszwang auf den kritischen Wegen."
+        },
+        {
+          "methode": "post",
+          "pfad": "/subscription-requests/:id/approve",
+          "urteil": "bewusste-ausnahme",
+          "begruendung": "Staff Control Center: org-uebergreifend PER BAUART — das ist die interne Betriebsflaeche von TempConnect, keine Mandantenflaeche. Eine Org-Grenze waere hier falsch. Getragen wird die Flaeche stattdessen vom Torwaechter 'staffControlAccess' (eigene Staff-Sitzung, 401 ohne sie), der auf JEDER Route dieser Datei verhaltensgeprueft ist, plus Step-up, MFA und Begruendungszwang auf den kritischen Wegen."
+        },
+        {
+          "methode": "post",
+          "pfad": "/subscription-requests/:id/reject",
+          "urteil": "bewusste-ausnahme",
+          "begruendung": "Staff Control Center: org-uebergreifend PER BAUART — das ist die interne Betriebsflaeche von TempConnect, keine Mandantenflaeche. Eine Org-Grenze waere hier falsch. Getragen wird die Flaeche stattdessen vom Torwaechter 'staffControlAccess' (eigene Staff-Sitzung, 401 ohne sie), der auf JEDER Route dieser Datei verhaltensgeprueft ist, plus Step-up, MFA und Begruendungszwang auf den kritischen Wegen."
+        },
+        {
+          "methode": "post",
+          "pfad": "/subscription-requests/:id/activate",
+          "urteil": "bewusste-ausnahme",
+          "begruendung": "Staff Control Center: org-uebergreifend PER BAUART — das ist die interne Betriebsflaeche von TempConnect, keine Mandantenflaeche. Eine Org-Grenze waere hier falsch. Getragen wird die Flaeche stattdessen vom Torwaechter 'staffControlAccess' (eigene Staff-Sitzung, 401 ohne sie), der auf JEDER Route dieser Datei verhaltensgeprueft ist, plus Step-up, MFA und Begruendungszwang auf den kritischen Wegen."
+        },
+        {
+          "methode": "post",
+          "pfad": "/subscription-requests/:id/assign",
+          "urteil": "bewusste-ausnahme",
+          "begruendung": "Staff Control Center: org-uebergreifend PER BAUART — das ist die interne Betriebsflaeche von TempConnect, keine Mandantenflaeche. Eine Org-Grenze waere hier falsch. Getragen wird die Flaeche stattdessen vom Torwaechter 'staffControlAccess' (eigene Staff-Sitzung, 401 ohne sie), der auf JEDER Route dieser Datei verhaltensgeprueft ist, plus Step-up, MFA und Begruendungszwang auf den kritischen Wegen."
+        },
+        {
+          "methode": "get",
+          "pfad": "/subscription-requests/:id/documents",
+          "urteil": "bewusste-ausnahme",
+          "begruendung": "Staff Control Center: org-uebergreifend PER BAUART — das ist die interne Betriebsflaeche von TempConnect, keine Mandantenflaeche. Eine Org-Grenze waere hier falsch. Getragen wird die Flaeche stattdessen vom Torwaechter 'staffControlAccess' (eigene Staff-Sitzung, 401 ohne sie), der auf JEDER Route dieser Datei verhaltensgeprueft ist, plus Step-up, MFA und Begruendungszwang auf den kritischen Wegen."
+        },
+        {
+          "methode": "post",
+          "pfad": "/subscription-requests/:id/documents",
+          "urteil": "bewusste-ausnahme",
+          "begruendung": "Staff Control Center: org-uebergreifend PER BAUART — das ist die interne Betriebsflaeche von TempConnect, keine Mandantenflaeche. Eine Org-Grenze waere hier falsch. Getragen wird die Flaeche stattdessen vom Torwaechter 'staffControlAccess' (eigene Staff-Sitzung, 401 ohne sie), der auf JEDER Route dieser Datei verhaltensgeprueft ist, plus Step-up, MFA und Begruendungszwang auf den kritischen Wegen."
+        },
+        {
+          "methode": "get",
+          "pfad": "/subscription-documents/:id/download",
+          "urteil": "bewusste-ausnahme",
+          "begruendung": "Staff Control Center: org-uebergreifend PER BAUART — das ist die interne Betriebsflaeche von TempConnect, keine Mandantenflaeche. Eine Org-Grenze waere hier falsch. Getragen wird die Flaeche stattdessen vom Torwaechter 'staffControlAccess' (eigene Staff-Sitzung, 401 ohne sie), der auf JEDER Route dieser Datei verhaltensgeprueft ist, plus Step-up, MFA und Begruendungszwang auf den kritischen Wegen."
+        },
+        {
+          "methode": "post",
+          "pfad": "/subscription-requests/:id/offer",
+          "urteil": "bewusste-ausnahme",
+          "begruendung": "Staff Control Center: org-uebergreifend PER BAUART — das ist die interne Betriebsflaeche von TempConnect, keine Mandantenflaeche. Eine Org-Grenze waere hier falsch. Getragen wird die Flaeche stattdessen vom Torwaechter 'staffControlAccess' (eigene Staff-Sitzung, 401 ohne sie), der auf JEDER Route dieser Datei verhaltensgeprueft ist, plus Step-up, MFA und Begruendungszwang auf den kritischen Wegen."
+        },
+        {
+          "methode": "post",
+          "pfad": "/strategic-requests/:id/convert-to-subscription",
+          "urteil": "bewusste-ausnahme",
+          "begruendung": "Staff Control Center: org-uebergreifend PER BAUART — das ist die interne Betriebsflaeche von TempConnect, keine Mandantenflaeche. Eine Org-Grenze waere hier falsch. Getragen wird die Flaeche stattdessen vom Torwaechter 'staffControlAccess' (eigene Staff-Sitzung, 401 ohne sie), der auf JEDER Route dieser Datei verhaltensgeprueft ist, plus Step-up, MFA und Begruendungszwang auf den kritischen Wegen."
+        },
+        {
+          "methode": "get",
+          "pfad": "/support/cases/:id",
+          "urteil": "bewusste-ausnahme",
+          "begruendung": "Staff Control Center: org-uebergreifend PER BAUART — das ist die interne Betriebsflaeche von TempConnect, keine Mandantenflaeche. Eine Org-Grenze waere hier falsch. Getragen wird die Flaeche stattdessen vom Torwaechter 'staffControlAccess' (eigene Staff-Sitzung, 401 ohne sie), der auf JEDER Route dieser Datei verhaltensgeprueft ist, plus Step-up, MFA und Begruendungszwang auf den kritischen Wegen."
+        },
+        {
+          "methode": "get",
+          "pfad": "/data-explorer/:key",
+          "urteil": "bewusste-ausnahme",
+          "begruendung": "Staff Control Center: org-uebergreifend PER BAUART — das ist die interne Betriebsflaeche von TempConnect, keine Mandantenflaeche. Eine Org-Grenze waere hier falsch. Getragen wird die Flaeche stattdessen vom Torwaechter 'staffControlAccess' (eigene Staff-Sitzung, 401 ohne sie), der auf JEDER Route dieser Datei verhaltensgeprueft ist, plus Step-up, MFA und Begruendungszwang auf den kritischen Wegen."
+        },
+        {
+          "methode": "patch",
+          "pfad": "/audit-decisions/:id/revert",
+          "urteil": "bewusste-ausnahme",
+          "begruendung": "Staff Control Center: org-uebergreifend PER BAUART — das ist die interne Betriebsflaeche von TempConnect, keine Mandantenflaeche. Eine Org-Grenze waere hier falsch. Getragen wird die Flaeche stattdessen vom Torwaechter 'staffControlAccess' (eigene Staff-Sitzung, 401 ohne sie), der auf JEDER Route dieser Datei verhaltensgeprueft ist, plus Step-up, MFA und Begruendungszwang auf den kritischen Wegen."
+        },
+        {
+          "methode": "post",
+          "pfad": "/marketplace-visibility/:orgId/approve",
+          "urteil": "bewusste-ausnahme",
+          "begruendung": "Staff Control Center: org-uebergreifend PER BAUART — das ist die interne Betriebsflaeche von TempConnect, keine Mandantenflaeche. Eine Org-Grenze waere hier falsch. Getragen wird die Flaeche stattdessen vom Torwaechter 'staffControlAccess' (eigene Staff-Sitzung, 401 ohne sie), der auf JEDER Route dieser Datei verhaltensgeprueft ist, plus Step-up, MFA und Begruendungszwang auf den kritischen Wegen."
+        },
+        {
+          "methode": "post",
+          "pfad": "/marketplace-visibility/:orgId/reject",
+          "urteil": "bewusste-ausnahme",
+          "begruendung": "Staff Control Center: org-uebergreifend PER BAUART — das ist die interne Betriebsflaeche von TempConnect, keine Mandantenflaeche. Eine Org-Grenze waere hier falsch. Getragen wird die Flaeche stattdessen vom Torwaechter 'staffControlAccess' (eigene Staff-Sitzung, 401 ohne sie), der auf JEDER Route dieser Datei verhaltensgeprueft ist, plus Step-up, MFA und Begruendungszwang auf den kritischen Wegen."
+        },
+        {
+          "methode": "post",
+          "pfad": "/marketplace-visibility/:orgId/suspend",
+          "urteil": "bewusste-ausnahme",
+          "begruendung": "Staff Control Center: org-uebergreifend PER BAUART — das ist die interne Betriebsflaeche von TempConnect, keine Mandantenflaeche. Eine Org-Grenze waere hier falsch. Getragen wird die Flaeche stattdessen vom Torwaechter 'staffControlAccess' (eigene Staff-Sitzung, 401 ohne sie), der auf JEDER Route dieser Datei verhaltensgeprueft ist, plus Step-up, MFA und Begruendungszwang auf den kritischen Wegen."
+        },
+        {
+          "methode": "post",
+          "pfad": "/marketplace-visibility/ratings/:id/approve",
+          "urteil": "bewusste-ausnahme",
+          "begruendung": "Staff Control Center: org-uebergreifend PER BAUART — das ist die interne Betriebsflaeche von TempConnect, keine Mandantenflaeche. Eine Org-Grenze waere hier falsch. Getragen wird die Flaeche stattdessen vom Torwaechter 'staffControlAccess' (eigene Staff-Sitzung, 401 ohne sie), der auf JEDER Route dieser Datei verhaltensgeprueft ist, plus Step-up, MFA und Begruendungszwang auf den kritischen Wegen."
+        },
+        {
+          "methode": "post",
+          "pfad": "/marketplace-visibility/ratings/:id/reject",
+          "urteil": "bewusste-ausnahme",
+          "begruendung": "Staff Control Center: org-uebergreifend PER BAUART — das ist die interne Betriebsflaeche von TempConnect, keine Mandantenflaeche. Eine Org-Grenze waere hier falsch. Getragen wird die Flaeche stattdessen vom Torwaechter 'staffControlAccess' (eigene Staff-Sitzung, 401 ohne sie), der auf JEDER Route dieser Datei verhaltensgeprueft ist, plus Step-up, MFA und Begruendungszwang auf den kritischen Wegen."
+        },
+        {
+          "methode": "post",
+          "pfad": "/marketplace-visibility/bounties/:id/approve",
+          "urteil": "bewusste-ausnahme",
+          "begruendung": "Staff Control Center: org-uebergreifend PER BAUART — das ist die interne Betriebsflaeche von TempConnect, keine Mandantenflaeche. Eine Org-Grenze waere hier falsch. Getragen wird die Flaeche stattdessen vom Torwaechter 'staffControlAccess' (eigene Staff-Sitzung, 401 ohne sie), der auf JEDER Route dieser Datei verhaltensgeprueft ist, plus Step-up, MFA und Begruendungszwang auf den kritischen Wegen."
+        },
+        {
+          "methode": "post",
+          "pfad": "/marketplace-visibility/bounties/:id/activate",
+          "urteil": "bewusste-ausnahme",
+          "begruendung": "Staff Control Center: org-uebergreifend PER BAUART — das ist die interne Betriebsflaeche von TempConnect, keine Mandantenflaeche. Eine Org-Grenze waere hier falsch. Getragen wird die Flaeche stattdessen vom Torwaechter 'staffControlAccess' (eigene Staff-Sitzung, 401 ohne sie), der auf JEDER Route dieser Datei verhaltensgeprueft ist, plus Step-up, MFA und Begruendungszwang auf den kritischen Wegen."
+        },
+        {
+          "methode": "post",
+          "pfad": "/marketplace-visibility/bounties/:id/reject",
+          "urteil": "bewusste-ausnahme",
+          "begruendung": "Staff Control Center: org-uebergreifend PER BAUART — das ist die interne Betriebsflaeche von TempConnect, keine Mandantenflaeche. Eine Org-Grenze waere hier falsch. Getragen wird die Flaeche stattdessen vom Torwaechter 'staffControlAccess' (eigene Staff-Sitzung, 401 ohne sie), der auf JEDER Route dieser Datei verhaltensgeprueft ist, plus Step-up, MFA und Begruendungszwang auf den kritischen Wegen."
+        },
+        {
+          "methode": "post",
+          "pfad": "/marketplace-visibility/abuse-reports/:id/resolve",
+          "urteil": "bewusste-ausnahme",
+          "begruendung": "Staff Control Center: org-uebergreifend PER BAUART — das ist die interne Betriebsflaeche von TempConnect, keine Mandantenflaeche. Eine Org-Grenze waere hier falsch. Getragen wird die Flaeche stattdessen vom Torwaechter 'staffControlAccess' (eigene Staff-Sitzung, 401 ohne sie), der auf JEDER Route dieser Datei verhaltensgeprueft ist, plus Step-up, MFA und Begruendungszwang auf den kritischen Wegen."
+        },
+        {
+          "methode": "post",
+          "pfad": "/marketplace-visibility/abuse-reports/:id/dismiss",
+          "urteil": "bewusste-ausnahme",
+          "begruendung": "Staff Control Center: org-uebergreifend PER BAUART — das ist die interne Betriebsflaeche von TempConnect, keine Mandantenflaeche. Eine Org-Grenze waere hier falsch. Getragen wird die Flaeche stattdessen vom Torwaechter 'staffControlAccess' (eigene Staff-Sitzung, 401 ohne sie), der auf JEDER Route dieser Datei verhaltensgeprueft ist, plus Step-up, MFA und Begruendungszwang auf den kritischen Wegen."
+        },
+        {
+          "methode": "post",
+          "pfad": "/search-moderation/flagged/:id/resolve",
+          "urteil": "bewusste-ausnahme",
+          "begruendung": "Staff Control Center: org-uebergreifend PER BAUART — das ist die interne Betriebsflaeche von TempConnect, keine Mandantenflaeche. Eine Org-Grenze waere hier falsch. Getragen wird die Flaeche stattdessen vom Torwaechter 'staffControlAccess' (eigene Staff-Sitzung, 401 ohne sie), der auf JEDER Route dieser Datei verhaltensgeprueft ist, plus Step-up, MFA und Begruendungszwang auf den kritischen Wegen."
+        }
+      ],
+      "hinweis": "Die einzige Eintrittsbedingung ist eine SEPARATE Staff-Sitzung. Von den 47 Platzhalter-Routen tragen zusaetzlich viele einen Step-up-Zwang, eine MFA-Huerde und eine Pflicht zu Bestaetigung und Begruendung.",
+      "torwaechter": {
+        "middleware": "staffControlAccess",
+        "erwarteterStatus": 401
+      }
     }
   ],
   "nichtAbgedeckt": {
@@ -953,7 +2376,6 @@
     "bounties.js": "noch nicht verhaltensgeprueft — Welle H2 hat elf Dateien abgedeckt (die mit den meisten Grenzkopien); diese wartet auf eine spaetere Welle",
     "capacities.js": "noch nicht verhaltensgeprueft — Welle H2 hat elf Dateien abgedeckt (die mit den meisten Grenzkopien); diese wartet auf eine spaetere Welle",
     "capacityDiscovery.js": "noch nicht verhaltensgeprueft — Welle H2 hat elf Dateien abgedeckt (die mit den meisten Grenzkopien); diese wartet auf eine spaetere Welle",
-    "capacityExchange.js": "vorrangig fuer die naechste Welle — Plan H2 nennt sie als eine der vier dichtesten ungeprueften Flaechen",
     "companyProfile.js": "noch nicht verhaltensgeprueft — Welle H2 hat elf Dateien abgedeckt (die mit den meisten Grenzkopien); diese wartet auf eine spaetere Welle",
     "companyTimesheets.js": "noch nicht verhaltensgeprueft — Welle H2 hat elf Dateien abgedeckt (die mit den meisten Grenzkopien); diese wartet auf eine spaetere Welle",
     "credits.js": "noch nicht verhaltensgeprueft — Welle H2 hat elf Dateien abgedeckt (die mit den meisten Grenzkopien); diese wartet auf eine spaetere Welle",
@@ -968,7 +2390,6 @@
     "internal.js": "noch nicht verhaltensgeprueft — Welle H2 hat elf Dateien abgedeckt (die mit den meisten Grenzkopien); diese wartet auf eine spaetere Welle",
     "internalControlCenter.js": "noch nicht verhaltensgeprueft — Welle H2 hat elf Dateien abgedeckt (die mit den meisten Grenzkopien); diese wartet auf eine spaetere Welle",
     "listings.js": "noch nicht verhaltensgeprueft — Welle H2 hat elf Dateien abgedeckt (die mit den meisten Grenzkopien); diese wartet auf eine spaetere Welle",
-    "marketplace.js": "vorrangig fuer die naechste Welle — Plan H2 nennt sie als eine der vier dichtesten ungeprueften Flaechen",
     "matching.js": "noch nicht verhaltensgeprueft — Welle H2 hat elf Dateien abgedeckt (die mit den meisten Grenzkopien); diese wartet auf eine spaetere Welle",
     "me.js": "noch nicht verhaltensgeprueft — Welle H2 hat elf Dateien abgedeckt (die mit den meisten Grenzkopien); diese wartet auf eine spaetere Welle",
     "mentoring.js": "noch nicht verhaltensgeprueft — Welle H2 hat elf Dateien abgedeckt (die mit den meisten Grenzkopien); diese wartet auf eine spaetere Welle",
@@ -1005,7 +2426,6 @@
     "smartPricing.js": "noch nicht verhaltensgeprueft — Welle H2 hat elf Dateien abgedeckt (die mit den meisten Grenzkopien); diese wartet auf eine spaetere Welle",
     "spendAnalytics.js": "noch nicht verhaltensgeprueft — Welle H2 hat elf Dateien abgedeckt (die mit den meisten Grenzkopien); diese wartet auf eine spaetere Welle",
     "sso.js": "noch nicht verhaltensgeprueft — Welle H2 hat elf Dateien abgedeckt (die mit den meisten Grenzkopien); diese wartet auf eine spaetere Welle",
-    "staffControlCenter.js": "vorrangig fuer die naechste Welle — Plan H2 nennt sie als eine der vier dichtesten ungeprueften Flaechen",
     "strategicCollaboration.js": "noch nicht verhaltensgeprueft — Welle H2 hat elf Dateien abgedeckt (die mit den meisten Grenzkopien); diese wartet auf eine spaetere Welle",
     "subscriptionDocuments.js": "noch nicht verhaltensgeprueft — Welle H2 hat elf Dateien abgedeckt (die mit den meisten Grenzkopien); diese wartet auf eine spaetere Welle",
     "subscriptionRequests.js": "noch nicht verhaltensgeprueft — Welle H2 hat elf Dateien abgedeckt (die mit den meisten Grenzkopien); diese wartet auf eine spaetere Welle",
@@ -1013,7 +2433,6 @@
     "suppliers.js": "noch nicht verhaltensgeprueft — Welle H2 hat elf Dateien abgedeckt (die mit den meisten Grenzkopien); diese wartet auf eine spaetere Welle",
     "support.js": "noch nicht verhaltensgeprueft — Welle H2 hat elf Dateien abgedeckt (die mit den meisten Grenzkopien); diese wartet auf eine spaetere Welle",
     "timesheetTemplates.js": "noch nicht verhaltensgeprueft — Welle H2 hat elf Dateien abgedeckt (die mit den meisten Grenzkopien); diese wartet auf eine spaetere Welle",
-    "workerPortal.js": "vorrangig fuer die naechste Welle — Plan H2 nennt sie als eine der vier dichtesten ungeprueften Flaechen",
     "workers.js": "noch nicht verhaltensgeprueft — Welle H2 hat elf Dateien abgedeckt (die mit den meisten Grenzkopien); diese wartet auf eine spaetere Welle",
     "workforce.js": "noch nicht verhaltensgeprueft — Welle H2 hat elf Dateien abgedeckt (die mit den meisten Grenzkopien); diese wartet auf eine spaetere Welle"
   }
