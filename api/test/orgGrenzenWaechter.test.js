@@ -110,6 +110,11 @@ const FABRIKEN = {
                           getUserAndPlan: async () => ({ plan: "PRO", id: USER_A })
                         }),
   "workerPortal.js":   async (pool) => (await import("../routes/workerPortal.js")).createWorkerPortalRouter(baseDeps(pool)),
+  // SCIM ausdruecklich EINGESCHALTET: mit `config: {}` antwortet `scimGate` mit 404
+  // ("nicht aktiviert") und die Probe pruefte den Aus-Schalter statt des Tores.
+  "scim.js":           async (pool) => (await import("../routes/scim.js")).createScimRouter({
+                          ...baseDeps(pool), config: { SCIM_ENABLED: true }
+                        }),
   "staffControlCenter.js": async (pool) => (await import("../routes/staffControlCenter.js")).createStaffControlCenterRouter({
                           ...baseDeps(pool), sendMail: async () => {}
                         }),

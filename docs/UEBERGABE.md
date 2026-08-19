@@ -218,6 +218,18 @@ nur `query.org_id`/`params.org_id` liest — der Platzhalter heißt hier `:id`.
   | `marketplace` | 22 | 8 | **Nutzer**, teils offen per Bauart |
   | `workerPortal` | 18 | — | **Nutzer** + Torwächter `requireWorkerRole` |
   | `staffControlCenter` | — | 47 | **Staff**, org-übergreifend per Bauart; Torwächter `staffControlAccess` |
+  | `agencyPortal` `admin` `timesheetTemplates` `scim` | — | 30 | **Torwächter** je Fläche |
+  | `companyTimesheets` | 4 | — | Org, Grenze im Middleware `requireCompanySubmission` |
+  | 28 Dateien ohne `:id`-Route | — | — | mit `routen: []` eingetragen — der Wächter **rechnet das nach** |
+
+  **Zwei Namen, die mehr versprechen als sie halten** (im Register vermerkt, keine
+  Lücke, aber der Anfang der E-11-Klasse): `requireAgencyRole` verlangt **keine**
+  Agentur-Rolle — es sperrt nur `userRole === 'worker'` aus; ein Firmennutzer oder
+  einer ganz ohne Rollenfeld kommt durch. Die echte Grenze dieser Flächen sind
+  `rperm('worker.review')` und `requireOwnSubmission`. Und `requireAdmin` kennt
+  einen Bypass `ADMIN_PANEL_OPEN`, der jeden Angemeldeten durchlässt — per
+  Voreinstellung aus, in der laufenden Umgebung `false`, seit Welle G1.5 durch
+  einen eigenen Test abgedeckt.
 - **(D) Selbstprobe** — fünf absichtlich kaputte Mini-Router (Grenze vergessen ·
   Grenze **nach** dem Schreiben · Grenze auf dem falschen Parameter · halbierte
   zweiseitige Grenze · ungefilterte Liste) müssen gemeldet werden — und **zwei
