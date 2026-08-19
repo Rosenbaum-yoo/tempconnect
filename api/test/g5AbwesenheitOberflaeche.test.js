@@ -417,3 +417,65 @@ describe("G5 — nach dem Absenden bleibt etwas sichtbar", () => {
     assert.match(logik, /entwurfLoeschen/, "der Entwurf wird nach Erfolg nie aufgeraeumt");
   });
 });
+
+/* ═══════════════════════════════════════════════════════════════════════════
+ * 8. Kein Portal-Einstieg ohne Umleitung bei abgelaufener Sitzung
+ * ═══════════════════════════════════════════════════════════════════════════ */
+
+describe("Portal — jede Seite bringt Abgemeldete zum Login", () => {
+  it("JEDE Portalseite behandelt NOT_AUTH", () => {
+    /* DER BEFUND, DER DIESEN WAECHTER ERZWUNGEN HAT:
+     * Sieben Seiten trugen dieselbe Behandlung, die achte (diese Welle) nicht —
+     * siebenmal kopiert, beim achten Mal vergessen. Die Folge war schlimmer als
+     * ein Konsoleneintrag: `<body class="ep-preauth">` versteckt die Huelle, und
+     * `_reveal()` laeuft nur nach erfolgreichem /worker/me. Ohne catch blieb die
+     * Seite fuer Abgemeldete DAUERHAFT WEISS — ohne Erklaerung, ohne Weg zum
+     * Login, ausgerechnet auf dem Notfallweg.
+     *
+     * Der Waechter prueft die Behandlung, nicht ihren Wortlaut: Entscheidend
+     * ist, dass NOT_AUTH erkannt wird UND zum Login fuehrt. */
+    const fehlend = [];
+    for (const datei of portalSeiten()) {
+      const html = lies(path.join(PUB, datei));
+      const kenntCode = html.includes("NOT_AUTH");
+      const fuehrtZumLogin = /worker-login\.html/.test(html);
+      if (!kenntCode || !fuehrtZumLogin) {
+        fehlend.push(datei + ": " + (!kenntCode ? "erkennt NOT_AUTH nicht" : "fuehrt nicht zum Login"));
+      }
+    }
+    assert.deepEqual(fehlend, [],
+      "diese Seiten lassen Abgemeldete vor einer weissen Flaeche stehen: " +
+      fehlend.join(" | "));
+  });
+
+  it("der Einstieg faengt Fehler ueberhaupt ab", () => {
+    /* Ein unbehandeltes Promise im Start-IIFE ist der Weg, auf dem der Fehler
+     * ueberhaupt entstehen konnte. */
+    const html = lies(SEITE);
+    const start = html.slice(html.indexOf("(async () =>"));
+    assert.match(start, /try\s*\{/, "der Seiteneinstieg hat kein try");
+    assert.match(start, /catch\s*\(/, "der Seiteneinstieg faengt nichts ab");
+  });
+
+  it("der Einstieg haengt an try/catch, nicht an einem Rueckgabewert", () => {
+    /* Hier stand `if (!ok) return;` — toter Code: initShell() gibt in BEIDEN
+     * Zweigen `me` zurueck, also immer etwas Wahres. Die Seite war gegen einen
+     * Vertrag geschrieben, den die Shell nie hatte. */
+    /* POSITIV formuliert, nicht als Verbot der alten Zeile: Ein Test, der nach
+     * `if (!ok) return;` sucht, schlaegt auf dem Kommentar an, der genau diesen
+     * Fehler ERKLAERT — dieselbe Falle wie in G4 und G6. Geprueft wird deshalb,
+     * dass der Einstieg initShell INNERHALB des try aufruft; dann kann kein
+     * Rueckgabe-Vertrag mehr die Abbruchbedingung tragen. */
+    /* Kommentare zuerst entfernen: Die Begruendung im Code enthaelt selbst die
+     * Woerter "try" und "catch", und ein Slice darauf greift vor dem echten
+     * Block. Zum dritten Mal in dieser Sitzung dieselbe Lehre — ein Waechter,
+     * der Prosa nicht von Code trennt, misst seine eigene Dokumentation. */
+    const html = lies(SEITE).replace(/\/\*[\s\S]*?\*\//g, "");
+    const start = html.slice(html.indexOf("(async () =>"));
+    const tryBlock = start.slice(start.indexOf("try"), start.indexOf("catch"));
+    assert.match(tryBlock, /PortalShell\.initShell\(\)/,
+      "initShell wird nicht im try aufgerufen — ein Fehler dort bliebe unbehandelt");
+    assert.match(tryBlock, /AwPage\.init\(\)/,
+      "der Seitenaufbau steht ausserhalb des try");
+  });
+});

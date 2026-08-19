@@ -359,9 +359,27 @@ TCi18n.register('en', {
 });
 
 (async () => {
-  var ok = await PortalShell.initShell();
-  if (!ok) return;
-  AwPage.init();
+  /* Diese Behandlung stand auf den anderen sieben Portalseiten und fehlte hier
+   * — siebenmal kopiert, beim achten Mal vergessen (Welle G5).
+   *
+   * Die Folge war schlimmer als ein Konsoleneintrag: Ohne catch blieb die Seite
+   * fuer Nicht-Angemeldete DAUERHAFT UNSICHTBAR. `<body class="ep-preauth">`
+   * versteckt die Huelle, und `_reveal()` laeuft nur nach erfolgreichem
+   * /worker/me. Wessen Sitzung abgelaufen war, sah eine weisse Flaeche — ohne
+   * Erklaerung, ohne Weg zum Login. Ausgerechnet auf der Seite, die jemand
+   * aufruft, weil er krank ist.
+   *
+   * `if (!ok) return;` stand hier vorher und war toter Code: initShell() gibt
+   * in BEIDEN Zweigen `me` zurueck, also immer etwas Wahres. Die Seite war
+   * gegen einen Vertrag geschrieben, den die Shell nie hatte. */
+  try {
+    await PortalShell.initShell();
+    AwPage.init();
+  } catch (e) {
+    var code = e.code || e.message;
+    if (code === 'NOT_AUTH') { location.href = 'worker-login.html'; return; }
+    PortalShell.showError(e.message || TCi18n.t('ep.shell.loadError'));
+  }
 })();
 </script>
 <script src="/public/js/demoBanner.js" defer></script>
