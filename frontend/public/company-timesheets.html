@@ -38,6 +38,10 @@
     .ct-tab--active { color:var(--ds-brand,#4a9eff); border-bottom-color:var(--ds-brand,#4a9eff); }
     .ct-badge--live { background:var(--ds-success-muted); color:var(--ds-success); }
     .ct-badge--soon { background:var(--ds-warning-muted); color:var(--ds-warning); }
+    /* Dritter Zustand (Welle H1): eine gebuchte Kraft faellt aus. Bewusst in
+       der Warnfarbe des Design-Systems — der Kunde muss ihn im Ueberfliegen
+       von "Im Einsatz" unterscheiden koennen, ohne zu lesen. */
+    .ct-badge--out { background:var(--ds-danger-muted); color:var(--ds-danger); }
     .ct-live-dot { display:inline-block; width:7px; height:7px; border-radius:50%; background:var(--ds-success); margin-right:5px; }
   </style>
 </head>
@@ -122,6 +126,7 @@
       <div class="ct-kpis">
         <div class="ct-kpi"><div class="ct-kpi__val" id="lwTotal" style="color:var(--ds-success)">–</div><div class="ct-kpi__label" data-i18n="cts.live.kpi.active">Aktuell im Einsatz</div></div>
         <div class="ct-kpi"><div class="ct-kpi__val" id="lwEnds" style="color:var(--ds-warning)">–</div><div class="ct-kpi__label" data-i18n="cts.live.kpi.ending">Endet in Kürze</div></div>
+        <div class="ct-kpi"><div class="ct-kpi__val" id="lwOut">–</div><div class="ct-kpi__label" data-i18n="cts.live.kpi.out">Fällt aus</div></div>
         <div class="ct-kpi"><div class="ct-kpi__val" id="lwAgencies">–</div><div class="ct-kpi__label" data-i18n="cts.live.kpi.agencies">Zeitarbeitsfirmen</div></div>
       </div>
       <div class="ct-toolbar">

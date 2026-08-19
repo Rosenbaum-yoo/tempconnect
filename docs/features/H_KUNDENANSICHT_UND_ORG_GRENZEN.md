@@ -196,6 +196,69 @@ VORSCHLAG FÜR DEN WÄCHTER (Verhalten, nicht Quelltext — die G6-Lehre, dass `
 
 ---
 
+### ✅ H1 gebaut und belegt (2026-08-19)
+
+**Gate erfuellt.** Die Kundenansicht zeigt den Ausfall samt voraussichtlichem
+Ende, nennt die Art nirgends, und der Deep-Link aus der G4b-Meldung landet auf
+der betroffenen Zeile.
+
+| Was | Wo |
+|---|---|
+| Zustand `faellt_aus` + `ausfall_bis`, Projektion ueber eine Positivliste, KPI `faellt_aus` | `api/services/workforceService.js` (getCompanyLiveWorkforce) |
+| `a.id AS assignment_id` — der Anker des Deep-Links | dieselbe SELECT-Liste |
+| Abwesenheits-LATERAL: org-gebunden, nur `zustand='wirksam'`, nicht aufgehoben, laufend | dieselbe Abfrage |
+| `liveBadge()` als Zustandstabelle statt binaerem Ternaer, dritte Klasse `.ct-badge--out`, Statuszelle mit "vsl. bis …" | `frontend/public/js/pages/companyTimesheets.js`, `company-timesheets.html` |
+| `?einsatz=` + `#live` werden gelesen, Reiter oeffnet, Zeile wird hervorgehoben und angescrollt | `companyTimesheets.js` (`leseEinsatzAusAdresse`/`fokussiereEinsatz`) |
+| Vierte Kachel `lwOut`; "Aktuell im Einsatz" zaehlt Ausgefallene nicht mehr mit | `updateLiveKPIs` |
+| 30-Sekunden-Takt, solange der Live-Reiter offen ist (vorher: kein Polling) | `startLivePolling`/`stopLivePolling` |
+| 32 Waechter (Antwort, Positivliste, Abfrageform, gerenderte Oberflaeche, Deep-Link, Takt, DE/EN) | `api/test/h1KundenansichtAusfall.test.js` |
+| 13 Tests gegen das echte Schema (Mandantengrenze, CHECK, DATE-Typ, Fremdschluessel) | `api/test/integration/h1KundeSiehtAusfall.flow.test.js` |
+
+**Was gegenueber der Recherche ANDERS entschieden wurde — und warum:**
+
+> **Fallstricke 1 und 2 beruhten auf einer falschen Schema-Annahme.** Die
+> Recherche hielt `worker_profiles(user_id)` fuer nicht eindeutig und las dafuer
+> den **Index** in `029_worker_module.sql:57-58`. Das inline `UNIQUE` steht aber
+> in **Zeile 35 derselben Datei**; gegen die laufende Datenbank geprueft,
+> existiert `worker_profiles_user_id_key`. Folgen:
+>
+> - **Fallstrick 2 (Zeilenvervielfachung) existiert nicht** — auch nicht latent.
+>   Gemessen: 0 Konten mit mehr als einem Profil (33 Profile im Bestand).
+> - **Fallstrick 1 war halb richtig.** Die Mandantengrenze gehoert an die
+>   **Abwesenheit** (`ab.supplier_org_id = wal.supplier_org_id`), nicht an den
+>   Profil-Join. Weil `worker_absences (worker_profile_id, supplier_org_id)`
+>   zusammengesetzt auf `worker_profiles (id, supplier_org_id)` zeigt
+>   (Mig 177:124-127), schliesst diese **eine** Bedingung die Profil-Firma
+>   zwingend mit ein.
+> - Die zunaechst empfohlene Bedingung am Profil-Join war **zuerst gebaut und
+>   dann wieder entfernt**: sie haette nichts geschuetzt und einen Schaden
+>   angerichtet — weicht die Firma des Profils einmal von der der Verknuepfung
+>   ab (Wechsel der Zeitarbeitsfirma bei laufendem Alt-Einsatz), waere der
+>   **Name** der Kraft aus der Kundenliste gefallen. Ein Integrationstest haelt
+>   genau diesen Fall fest.
+>
+> **Uebertragbare Lehre:** Eine Aussage ueber das Schema wird gegen
+> `pg_constraint`/`pg_indexes` geprueft, nicht gegen die Migrationsdatei —
+> und schon gar nicht gegen eine einzelne Zeile daraus. Ein `CREATE INDEX`
+> neben einer Spalte sagt nichts darueber, ob die Spalte ein `UNIQUE` traegt.
+> Dieselbe Sorgfalt gilt fuer H2: die dortigen fuenf Befunde sind
+> Quelltext-Lesungen und noch nicht gegen die laufende Datenbank belegt.
+
+**Zwei Entscheidungen zur Darstellung** (beide aus Fallstrick 4/5 abgeleitet):
+
+1. `endet_bald` wurde vom Zustand zu einem **eigenen booleschen Feld**. Der
+   Ausfall ueberdeckt es im Abzeichen (er ist die dringendere Auskunft), aber
+   die Kennzahl "Endet in Kuerze" behaelt exakt ihre bisherige Bedeutung und die
+   Zeile sagt beides. Dasselbe Muster wie auf der Agenturtafel.
+2. Die Abwesenheits-Kennung geht **nicht** hinueber. Der Kunde hat auf die
+   Abwesenheit keinen Zugriff; was er nicht oeffnen kann, braucht er nicht zu
+   kennen. In der Zeile stehen genau zwei neue Angaben: Zustand und `bis`.
+
+**Nicht erledigt, bewusst:** Fallstrick 3 (Beantragt-Leak) ist geschlossen,
+Fallstrick 8 (kein Polling) ist geschlossen. Offen bleibt nichts aus H1.
+
+---
+
 ## H2 — Die 80 Mandantengrenzen (offene Entscheidung D-M1)
 
 **Frage:** Die 80 einzelnen Org-Pruefungen in 18 Route-Dateien konsolidieren, oder

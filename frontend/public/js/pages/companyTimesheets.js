@@ -118,7 +118,14 @@
     'cts.live.searchPh': 'Mitarbeiter oder Firma…',
     'cts.live.badge.soon': 'Endet bald',
     'cts.live.badge.active': 'Im Einsatz',
+    'cts.live.badge.out': 'Fällt aus',
+    'cts.live.badge.unknown': 'Zustand unbekannt',
     'cts.live.openEnd': 'offen',
+    'cts.live.out.until': 'vsl. bis {date}',
+    'cts.live.out.openEnd': 'Rückkehr noch offen',
+    'cts.live.out.alsoEnding': 'Einsatz endet ohnehin bald',
+    'cts.live.out.privacy': 'Die Zeitarbeitsfirma hat diese Kraft als ausgefallen gemeldet. Der Grund ist ein Beschäftigtendatum und wird Ihnen bewusst nicht angezeigt.',
+    'cts.live.kpi.out': 'Fällt aus',
 
     'cts.cmp.banner': 'Ihre Meldungen an die Zeitarbeitsfirmen — mit aktuellem Bearbeitungsstand. Der zuständige Disponent wird bei jeder Meldung sofort benachrichtigt und kann Ersatz stellen.',
     'cts.cmp.filter.all': 'Alle Meldungen',
@@ -265,7 +272,14 @@
     'cts.live.searchPh': 'Staff member or company…',
     'cts.live.badge.soon': 'Ending soon',
     'cts.live.badge.active': 'On assignment',
+    'cts.live.badge.out': 'Unavailable',
+    'cts.live.badge.unknown': 'State unknown',
     'cts.live.openEnd': 'open',
+    'cts.live.out.until': 'expected until {date}',
+    'cts.live.out.openEnd': 'Return date still open',
+    'cts.live.out.alsoEnding': 'assignment was ending shortly anyway',
+    'cts.live.out.privacy': 'The staffing firm reported this worker as unavailable. The reason is employee data and is deliberately not shown to you.',
+    'cts.live.kpi.out': 'Unavailable',
 
     'cts.cmp.banner': 'Your reports to the staffing firms — with the current processing status. The responsible scheduler is notified immediately for every report and can provide a replacement.',
     'cts.cmp.filter.all': 'All reports',
@@ -376,7 +390,57 @@
     try { await TC.api.get('/me'); }
     catch (e) { show('paywall'); return; }
     show('main');
+    /* NACH dem /me-Erfolg, nicht davor (Muster mitarbeiter.js): wer nicht
+       angemeldet ist, sieht die Anmeldeflaeche — ein vorher geoeffneter Reiter
+       waere ein kurzes Aufblitzen von Daten fuer genau diesen Besucher. */
+    leseEinsatzAusAdresse();
+    var hash = String((window.location && window.location.hash) || '');
+    if (_fokusEinsatz || hash === '#live') {
+      /* Die Stundenzettel-Liste wird hier bewusst NICHT geladen: wer aus der
+         Ausfallmeldung kommt, will die Live-Belegschaft. Ihre Daten holt der
+         Reiterwechsel nach (ctView laedt jeden Reiter beim ersten Oeffnen). */
+      ctView('live');
+      return;
+    }
     ctLoad();
+  }
+
+  /* ── Der Deep-Link aus der Ausfallmeldung (Welle H1) ────────────────────
+     G4b verschickt '/public/company-timesheets.html?einsatz=<id>#live'. Bis
+     hierher war das eine Sackgasse: die Seite las weder Query noch Hash, und
+     die Zeilen trugen keine Einsatz-Kennung, gegen die man haette vergleichen
+     koennen. Beides ist jetzt da — der Link fuehrt zur ZEILE, nicht auf eine
+     Uebersicht. */
+  var _fokusEinsatz = null;
+
+  /** Liest ?einsatz= aus der Adresse. Einmalig beim Laden; der Wert wird bei
+   *  Erfolg verbraucht, sonst spraenge die Ansicht bei jedem Polling-Lauf
+   *  zurueck an dieselbe Stelle. */
+  function leseEinsatzAusAdresse() {
+    try {
+      var such = new URLSearchParams((window.location && window.location.search) || '');
+      var e = such.get('einsatz');
+      if (e) _fokusEinsatz = String(e);
+    } catch (_) { /* alte Browser ohne URLSearchParams: kein Fokus, kein Fehler */ }
+  }
+
+  function fokussiereEinsatz() {
+    if (!_fokusEinsatz) return;
+    var ziel = document.querySelector('#lwBody tr[data-einsatz="' + String(_fokusEinsatz).replace(/"/g, '\\"') + '"]');
+    /* Verbraucht wird der Fokus NUR bei Erfolg: findet der erste Lauf die
+       Zeile nicht (Liste noch leer, Suchfeld gefuellt), bekommt der naechste
+       sie noch. */
+    if (!ziel) return;
+    _fokusEinsatz = null;
+    ziel.style.outline = '2px solid var(--ds-brand,#4a9eff)';
+    ziel.style.outlineOffset = '-2px';
+    if (ziel.scrollIntoView) ziel.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    /* Die Hervorhebung verblasst. Bliebe sie stehen, saehe die Tafel beim
+       naechsten Blick aus, als waere dort dauerhaft etwas besonders. */
+    setTimeout(function () {
+      ziel.style.transition = 'outline-color .6s ease';
+      ziel.style.outlineColor = 'transparent';
+    }, 6000);
   }
 
   async function ctLoad() {
@@ -525,9 +589,26 @@
       document.getElementById(VIEWS[k]).style.display = (k === mode) ? '' : 'none';
       document.getElementById(TABS[k]).classList.toggle('ct-tab--active', k === mode);
     });
+    if (mode === 'timesheets' && !_tsLoaded) ctLoad();
     if (mode === 'live' && !_liveLoaded) ctLoadLive();
     if (mode === 'blocklist' && !_blocklistLoaded) ctLoadBlocklist();
     if (mode === 'complaints' && !_complaintsLoaded) ctLoadComplaints();
+    if (mode === 'live') startLivePolling(); else stopLivePolling();
+  }
+
+  /* Eine Tafel, die "Live" heisst, muss sich auch von selbst erneuern.
+     Bis Welle H1 tat sie das nicht: der einzige Timer der Seite war der
+     Such-Debounce. Ein Ausfall waere damit so aktuell gewesen wie der letzte
+     Reiterklick — und genau dieser Zustand ist der Grund, aus dem der Kunde
+     ueberhaupt hierher geschickt wird. Getaktet wie die Agenturtafel. */
+  var LIVE_POLL_MS = 30000;
+  var _livePoll = null;
+  function startLivePolling() {
+    stopLivePolling();
+    _livePoll = setInterval(ctLoadLive, LIVE_POLL_MS);
+  }
+  function stopLivePolling() {
+    if (_livePoll) { clearInterval(_livePoll); _livePoll = null; }
   }
   window.ctView = ctView;
 
@@ -551,10 +632,47 @@
   }
   window.ctLoadLive = ctLoadLive;
 
+  /* Die Zustaende stehen in einer TABELLE, nicht in einer Kette von Fragen.
+     Der Grund ist ein konkreter Beinahe-Schaden: bis Welle H1 war das hier ein
+     binaeres Ternaer — alles ausser 'endet_bald' fiel in das gruene
+     "Im Einsatz". Ein serverseitig ergaenzter Zustand haette also nicht
+     GEFEHLT, sondern das Gegenteil behauptet: der Kunde haette eine
+     ausgefallene Kraft als anwesend gesehen und danach disponiert.
+     Deshalb: bekannte Zustaende einzeln, und ein unbekannter wird als
+     unbekannt ausgewiesen statt stillschweigend beschoenigt. */
+  var LIVE_BADGE = {
+    faellt_aus:  { cls: 'ct-badge--out',  key: 'cts.live.badge.out' },
+    endet_bald:  { cls: 'ct-badge--soon', key: 'cts.live.badge.soon' },
+    im_einsatz:  { cls: 'ct-badge--live', key: 'cts.live.badge.active' }
+  };
   function liveBadge(status) {
-    return status === 'endet_bald'
-      ? '<span class="ct-badge ct-badge--soon">' + esc(t('cts.live.badge.soon')) + '</span>'
-      : '<span class="ct-badge ct-badge--live">' + esc(t('cts.live.badge.active')) + '</span>';
+    var def = LIVE_BADGE[status];
+    if (!def) {
+      /* Kein Rueckfall auf einen gruenen Zustand: Wer hier landet, weiss es
+         nicht — und "ich weiss es nicht" ist eine ehrliche Auskunft,
+         "Im Einsatz" waere eine falsche. */
+      return '<span class="ct-badge" title="' + esc(String(status || '')) + '">' +
+             esc(t('cts.live.badge.unknown')) + '</span>';
+    }
+    var titel = (status === 'faellt_aus') ? ' title="' + esc(t('cts.live.out.privacy')) + '"' : '';
+    return '<span class="ct-badge ' + def.cls + '"' + titel + '>' + esc(t(def.key)) + '</span>';
+  }
+
+  /* Die Statuszelle. Bewusst NICHT die Spalte "Bis": die zeigt das Ende des
+     EINSATZES. Das voraussichtliche Ende der Abwesenheit ist eine andere
+     Groesse — beides in dieselbe Zelle zu schreiben laesst den Kunden falsch
+     planen. Und: hier steht ausschliesslich DASS und BIS WANN. Die Art der
+     Abwesenheit kommt vom Server gar nicht erst mit (Art. 9 DSGVO). */
+  function liveStatusCell(r) {
+    var out = liveBadge(r.live_status);
+    if (r.live_status !== 'faellt_aus') return out;
+    var zusatz = r.ausfall_bis
+      ? t('cts.live.out.until', { date: fmtDate(r.ausfall_bis) })
+      : t('cts.live.out.openEnd');
+    /* Das nahende Einsatzende geht nicht verloren, nur weil der Ausfall den
+       Platz im Abzeichen bekommt (dieselbe Regel wie auf der Agenturtafel). */
+    if (r.endet_bald) zusatz += ' · ' + t('cts.live.out.alsoEnding');
+    return out + '<div class="ct-sub">' + esc(zusatz) + '</div>';
   }
   function renderLive(list) {
     _liveRows = list || [];
@@ -566,25 +684,39 @@
     }
     tb.innerHTML = _liveRows.map(function (r) {
       var shift = (r.shift_start && r.shift_end) ? (String(r.shift_start).slice(0, 5) + '–' + String(r.shift_end).slice(0, 5)) : '–';
-      return '<tr>' +
+      /* data-einsatz traegt die Einsatz-Kennung an der Zeile — der Anker, an
+         dem der Deep-Link aus der Ausfallmeldung (G4b) landet. Ohne ihn fuehrt
+         '?einsatz=' nur in die Naehe, und der Kunde sucht ein zweites Mal. */
+      return '<tr data-einsatz="' + esc(r.assignment_id || '') + '">' +
         '<td><div style="font-weight:600">' + esc(workerName(r)) + '</div>' + (r.personnel_number ? '<div class="ct-sub">' + esc(r.personnel_number) + '</div>' : '') + '</td>' +
         '<td>' + esc(r.agency_name || '–') + '</td>' +
         '<td>' + esc(r.role || r.worker_description || '–') + '</td>' +
         '<td>' + shift + '</td>' +
         '<td>' + fmtDate(r.start_date) + '</td>' +
         '<td>' + (r.effective_end_date ? fmtDate(r.effective_end_date) : esc(t('cts.live.openEnd'))) + '</td>' +
-        '<td>' + liveBadge(r.live_status) + '</td>' +
+        '<td>' + liveStatusCell(r) + '</td>' +
         '<td style="text-align:right;white-space:nowrap">' +
           '<button class="ct-btn" style="margin-right:4px" onclick="ctComplain(\'' + esc(r.worker_user_id) + '\')" title="' + esc(t('cts.action.reportTitle')) + '">' + esc(t('cts.action.report')) + '</button>' +
           '<button class="ct-btn ct-btn--rej" onclick="ctBlock(\'' + esc(r.worker_user_id) + '\')" title="' + esc(t('cts.action.blockTitle')) + '">' + esc(t('cts.action.block')) + '</button>' +
         '</td>' +
       '</tr>';
     }).join('');
+    fokussiereEinsatz();
   }
   function updateLiveKPIs(k) {
-    document.getElementById('lwTotal').textContent = (k.total != null) ? k.total : ((k.im_einsatz || 0) + (k.endet_bald || 0));
+    /* "Aktuell im Einsatz" muss stimmen, sonst ist die Kachel schlimmer als
+       keine. Ausgefallene Kraefte zaehlen deshalb NICHT mit — sie stehen in
+       der eigenen, vierten Kachel. Die Summe beider ergibt wieder die
+       gebuchte Belegschaft (k.total). */
+    var gesamt = (k.total != null) ? k.total : ((k.im_einsatz || 0) + (k.faellt_aus || 0));
+    var aus = k.faellt_aus || 0;
+    document.getElementById('lwTotal').textContent = Math.max(0, gesamt - aus);
     document.getElementById('lwEnds').textContent = k.endet_bald || 0;
+    document.getElementById('lwOut').textContent = aus;
     document.getElementById('lwAgencies').textContent = k.agencies || 0;
+    /* Die Ausfall-Kachel wird nur dann rot, wenn es etwas zu sehen gibt —
+       eine dauerhaft alarmierte Kachel liest sich nach kurzer Zeit wie Deko. */
+    document.getElementById('lwOut').style.color = aus > 0 ? 'var(--ds-danger)' : '';
   }
 
   /* ── Sperren-Modal + Sperrliste (P3.3) ───────────────────────────────── */

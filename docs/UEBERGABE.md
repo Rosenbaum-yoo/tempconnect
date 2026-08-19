@@ -39,7 +39,18 @@ Abschnitten, die ich in Spuren mit **Wellen und Gates** schneide.
 ```bash
 cd api && node scripts/run-tests.js          # offizieller Runner, ohne Pipe
 ```
-Stand: **8660 Tests** (2026-08-18, voller Lauf ohne Pipe, 0 Fehler), davon 13 übersprungen — die DB-gebundenen, die nur im Container laufen.
+Stand: **8740 Tests** (2026-08-19, voller Lauf ohne Pipe), davon 13 übersprungen — die
+DB-gebundenen, die nur im Container laufen.
+
+**Im Haupt-Checkout 0 Fehler. In einem `git worktree` drei — und zwar immer.**
+`docsConsistency.test.js` und `dokuWaechter.test.js` scannen `.agents/` und
+`docs/launch/`; beide sind gitignored und local-only, existieren in einem
+Worktree also nicht. Die Verweise aus `SKILL.md` fehlen dort, und vier Dokumente
+wirken dadurch verwaist. **Kein Befund, ein Umgebungsartefakt** — wer in einem
+Worktree arbeitet, prüft diese drei zusätzlich im Haupt-Checkout gegen:
+```bash
+cd api && node --test --test-force-exit test/docsConsistency.test.js test/dokuWaechter.test.js
+```
 
 Die DB-gestützten Tests laufen im Container, wo `DB_HOST` gesetzt ist — auf dem
 Host überspringen sie sich selbst. Was gegen das echte Schema geprüft sein muss
@@ -129,16 +140,25 @@ onclick-Handler, fehlendes CSRF, Sackgassen-Links. Sie haben den Multi-Agenten-A
 
 ---
 
-## Wo es weitergeht *(Stand 2026-08-18)*
+## Wo es weitergeht *(Stand 2026-08-19)*
 
 **Spur G ist vollständig — G1 bis G6 gebaut und belegt.**
-Der Owner hat angekündigt, dass es Abschnitte bis 12 gibt; der nächste ist
-noch nicht durchgegeben.
+**H1 ist gebaut und belegt** (Kundenansicht zeigt den Ausfall, nie die Art;
+Deep-Link führt zur Zeile). Der Owner hat angekündigt, dass es Abschnitte bis 12
+gibt; der nächste ist noch nicht durchgegeben.
 
 ### Was als Nächstes ansteht
 
-**Arbeitsplan: [features/H_KUNDENANSICHT_UND_ORG_GRENZEN.md](features/H_KUNDENANSICHT_UND_ORG_GRENZEN.md)**
-— H1 zuerst, dann H2 (Owner-Entscheidung 2026-08-19).
+**H2** — die 80 Mandantengrenzen, mit den fünf Stellen ohne jede Org-Prüfung.
+Arbeitsplan: [features/H_KUNDENANSICHT_UND_ORG_GRENZEN.md](features/H_KUNDENANSICHT_UND_ORG_GRENZEN.md).
+
+> **Vor H2 lesen:** Die H1-Recherche hatte in zwei von zehn Fallstricken eine
+> falsche Schema-Annahme (`worker_profiles(user_id)` sei nicht eindeutig — es
+> ist es seit Mig 029:35). Gelesen worden war der *Index* zwei Zeilen tiefer.
+> Wäre die Empfehlung ungeprüft gebaut worden, wäre der **Name** der
+> Einsatzkraft aus der Kundenliste gefallen. Die fünf H2-Befunde sind ebenfalls
+> reine Quelltext-Lesungen: **jede Schema-Aussage gegen `pg_constraint` /
+> `pg_indexes` der laufenden Datenbank prüfen, bevor darauf gebaut wird.**
 
 > **H2 enthält Sicherheitslücken.** Die Recherche fand **fünf Stellen ohne jede
 > Org-Prüfung**: Konditionsrahmen aktivieren/archivieren, operative Rechnungen
@@ -151,6 +171,7 @@ noch nicht durchgegeben.
 
 | Punkt | Ergebnis |
 |---|---|
+| **H1 Kundenansicht** | Der Statusbadge war ein **binäres Ternär**: ein neuer Zustand hätte nicht gefehlt, sondern als grünes „Im Einsatz" das Gegenteil behauptet. Deshalb Renderer zuerst, dann das Feld. `getCompanyLiveWorkforce` gibt die Zeile jetzt über eine **Positivliste** heraus statt roh — vorher wäre die nächste SELECT-Spalte ohne Zutun beim Kunden gelandet. `?einsatz=` wurde von der Zielseite gar nicht gelesen und die Zeile trug keine `assignment_id`; beides gebaut. Wächter: `h1KundenansichtAusfall.test.js` (32), `integration/h1KundeSiehtAusfall.flow.test.js` (13). |
 | **Demo-Compose** (`cde6c42`) | War **nie** startfähig (nicht „seit P0-08"): Die Datei entstand einen Monat nach dem Guard, den sie verletzt. Schwerer: Sie wird **ausgeliefert** und öffnete beim Kunden alle Plan-Gates — der CI-Wächter dagegen durchsucht nur `.env*`. Dazu der `release-package.sh`-Fehler, durch den `.claude/` ins Artefakt kam (die `EXCLUDE_LIST` galt nur im Fallback-Zweig). Wächter: `composeStartfaehig.test.js` |
 | **NOT_AUTH** (`61d2091`) | Nicht „alle Portalseiten", sondern **genau die G5-Seite**. Und kein Konsolen-Problem: Sie blieb für Abgemeldete **dauerhaft weiß**, ohne Weg zum Login — ausgerechnet der Notfallweg. Siebenmal kopiert, beim achten Mal vergessen. |
 

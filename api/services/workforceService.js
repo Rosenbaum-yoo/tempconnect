@@ -13,6 +13,11 @@ import {
   normalizeAssignmentLifecycleBucket
 } from "./assignmentLifecycleService.js";
 import { todayDE, dateOnlyDE } from "../utils/dateDE.js";
+/* fuerKunde() ist die EINE Stelle, die entscheidet, was ein Einsatzunternehmen
+ * ueber eine Abwesenheit erfahren darf (G-E7). Sie wird hier BENUTZT und nicht
+ * nachgebaut: eine zweite Fassung derselben Zusage waere genau die Drift,
+ * gegen die sie gebaut wurde. */
+import { fuerKunde } from "./workerAbsenceService.js";
 
 const workforceAssignmentEffectiveEndDateSql = buildAssignmentEffectiveEndDateSql({ assignmentAlias: "a" });
 const workforceAssignmentLifecycleStateSql = buildAssignmentLifecycleStateSql({ assignmentAlias: "a" });
@@ -478,7 +483,7 @@ const LIVE_BOARD_ENDS_SOON_DAYS = 7;
  */
 export async function getCompanyLiveWorkforce(pool, companyOrgId, filters = {}) {
   const scope = { company_org_id: companyOrgId || null, ends_soon_days: LIVE_BOARD_ENDS_SOON_DAYS };
-  const emptyKpis = { total: 0, im_einsatz: 0, endet_bald: 0, agencies: 0 };
+  const emptyKpis = { total: 0, im_einsatz: 0, endet_bald: 0, faellt_aus: 0, agencies: 0 };
   if (!companyOrgId) return { available: false, workers: [], kpis: emptyKpis, scope };
 
   const lifecycleStateSql = buildAssignmentLifecycleStateSql({ assignmentAlias: "a", linkAlias: "wal" });
@@ -494,7 +499,7 @@ export async function getCompanyLiveWorkforce(pool, companyOrgId, filters = {}) 
   const limit = Math.min(500, Math.max(1, Number(filters.limit) || 300));
 
   const { rows } = await pool.query(
-    `SELECT wal.id AS link_id, wal.worker_user_id,
+    `SELECT wal.id AS link_id, a.id AS assignment_id, wal.worker_user_id,
             wp.first_name, wp.last_name, wp.personnel_number,
             wal.role, wal.start_date, ${effEndSql} AS effective_end_date,
             wal.default_shift_start::TEXT AS shift_start,
@@ -502,15 +507,54 @@ export async function getCompanyLiveWorkforce(pool, companyOrgId, filters = {}) 
             so.name AS agency_name, wal.supplier_org_id,
             a.worker_description,
             ${lifecycleStateSql} AS lifecycle_state,
-            CASE
-              WHEN ${effEndSql} IS NOT NULL
-                   AND ${effEndSql} <= CURRENT_DATE + ${LIVE_BOARD_ENDS_SOON_DAYS} THEN 'endet_bald'
-              ELSE 'im_einsatz'
-            END AS live_status
+            (${effEndSql} IS NOT NULL
+             AND ${effEndSql} <= CURRENT_DATE + ${LIVE_BOARD_ENDS_SOON_DAYS}) AS endet_bald,
+            /* NUR Zeitraum und Zustand. Weder art noch notiz noch beschreibung
+             * werden ueberhaupt SELEKTIERT — was nicht geladen wird, kann auch
+             * nicht durchrutschen, auch nicht bei der naechsten Ergaenzung. */
+            abw.id AS abw_id, abw.von AS abw_von, abw.bis AS abw_bis,
+            abw.zustand AS abw_zustand, abw.aufgehoben_am AS abw_aufgehoben_am
        FROM worker_assignment_links wal
        JOIN assignments a ON a.id = wal.assignment_id
        JOIN users u ON u.id = wal.worker_user_id
+       /* DIESER JOIN BLEIBT BEWUSST OHNE ORG-BEDINGUNG — und das ist eine
+        * korrigierte Annahme, kein Versehen. Die Vorabrecherche zu H1 hielt
+        * worker_profiles(user_id) fuer nicht eindeutig (gelesen wurde der
+        * INDEX in Mig 029:57-58) und leitete daraus zwei Befunde ab:
+        * Zeilenvervielfachung und ein Abwesenheits-Join auf die falsche Firma.
+        * Die Spalte traegt aber seit Mig 029:35 ein inline UNIQUE; gegen die
+        * laufende Datenbank geprueft, existiert 'worker_profiles_user_id_key'.
+        * Eine Person hat also hoechstens EIN Profil mit Konto — verdoppeln
+        * kann dieser Join nichts.
+        * Und die Bedingung nachtraeglich anzuhaengen waere ein Rueckschritt:
+        * weicht die Firma des Profils einmal von der der Verknuepfung ab
+        * (Wechsel der Zeitarbeitsfirma bei noch laufendem Alt-Einsatz), fiele
+        * der NAME der Kraft aus der Kundenliste. Die Mandantengrenze gehoert
+        * an die Abwesenheit, nicht an den Namen — und dort steht sie. */
        LEFT JOIN worker_profiles wp ON wp.user_id = wal.worker_user_id
+       /* Die laufende Abwesenheit. Hier liegt die Grenze, und sie liegt hart:
+        * ab.supplier_org_id muss die LIEFERNDE Firma sein. Weil
+        * worker_absences (worker_profile_id, supplier_org_id) zusammengesetzt
+        * auf worker_profiles (id, supplier_org_id) zeigt (Mig 177:124-127),
+        * schliesst diese eine Bedingung die Profil-Firma zwingend mit ein —
+        * eine Meldung, die bei einer anderen Zeitarbeitsfirma liegt, kann
+        * hier gar nicht auftauchen.
+        * Dazu dieselbe Schranke wie beim Versand der Ausfallmeldung (G1):
+        * NUR wirksam, nicht aufgehoben. Eine erst BEANTRAGTE Selbstmeldung
+        * ist eine Entscheidung, die beim Arbeitgeber noch aussteht; sie nach
+        * aussen zu tragen hiesse, sie vorwegzunehmen. */
+       LEFT JOIN LATERAL (
+         SELECT ab.id, ab.von, ab.bis, ab.zustand, ab.aufgehoben_am
+           FROM worker_absences ab
+          WHERE ab.worker_profile_id = wp.id
+            AND ab.supplier_org_id = wal.supplier_org_id
+            AND ab.zustand = 'wirksam'
+            AND ab.aufgehoben_am IS NULL
+            AND ab.von <= CURRENT_DATE
+            AND (ab.bis IS NULL OR ab.bis >= CURRENT_DATE)
+          ORDER BY ab.von DESC
+          LIMIT 1
+       ) abw ON TRUE
        LEFT JOIN organizations so ON so.id = wal.supplier_org_id
       WHERE wal.org_id = $1
         AND wal.is_active = TRUE
@@ -526,14 +570,68 @@ export async function getCompanyLiveWorkforce(pool, companyOrgId, filters = {}) 
 
   const agencies = new Set();
   const kpis = { ...emptyKpis, total: rows.length };
-  rows.forEach((r) => {
-    if (r.live_status === "endet_bald") kpis.endet_bald++;
+
+  /* DIE ANTWORT WIRD GEBAUT, NICHT DURCHGEREICHT.
+   * Frueher gingen die rohen Zeilen hinaus. Das hielt genau so lange, wie
+   * niemand die SELECT-Liste erweiterte — die naechste Spalte waere ohne
+   * Zutun beim Kunden gelandet. Eine Positivliste dreht das um: wer etwas
+   * hinueberreichen will, muss es hier BENENNEN, und genau dabei faellt auf,
+   * ob es den Kunden angeht. Dieselbe Haltung wie kundenNachricht() in
+   * workerAbsenceService.js, nur eine Ebene weiter. */
+  const workers = rows.map((r) => {
+    /* Die Menge ist bereits im SQL gefiltert; fuerKunde() steht trotzdem
+     * davor. Der Filter schuetzt die ZEILEN, diese Funktion die FELDER — und
+     * sie ist die einzige Stelle, an der "faellt aus" definiert ist. */
+    const sicht = fuerKunde(
+      r.abw_id
+        ? { id: r.abw_id, von: r.abw_von, bis: r.abw_bis, zustand: r.abw_zustand, aufgehoben_am: r.abw_aufgehoben_am }
+        : null
+    );
+    const faelltAus = Boolean(sicht && sicht.faellt_aus);
+    const endetBald = Boolean(r.endet_bald);
+
+    /* Rangfolge wie auf der Agenturtafel: der Ausfall schlaegt das nahende
+     * Ende. Wer heute nicht da ist, ist die Auskunft, wegen der der Kunde auf
+     * diese Tafel schaut. Das nahende Ende geht trotzdem nicht verloren — es
+     * steht als eigenes Feld daneben und in der Spalte "Bis". */
+    const liveStatus = faelltAus ? "faellt_aus" : (endetBald ? "endet_bald" : "im_einsatz");
+
+    if (faelltAus) kpis.faellt_aus++;
     else kpis.im_einsatz++;
+    if (endetBald) kpis.endet_bald++;
     if (r.supplier_org_id) agencies.add(r.supplier_org_id);
+
+    return {
+      link_id: r.link_id,
+      /* Ohne assignment_id laesst sich der Deep-Link aus der Ausfallmeldung
+       * (?einsatz=<id>) auf keine Zeile abbilden — dieselbe Begruendung wie
+       * bei link_id auf der Agenturseite (Welle G6). */
+      assignment_id: r.assignment_id,
+      worker_user_id: r.worker_user_id,
+      first_name: r.first_name,
+      last_name: r.last_name,
+      personnel_number: r.personnel_number,
+      role: r.role,
+      start_date: r.start_date,
+      effective_end_date: r.effective_end_date,
+      shift_start: r.shift_start,
+      shift_end: r.shift_end,
+      agency_name: r.agency_name,
+      supplier_org_id: r.supplier_org_id,
+      worker_description: r.worker_description,
+      lifecycle_state: r.lifecycle_state,
+      endet_bald: endetBald,
+      live_status: liveStatus,
+      /* Genau ZWEI neue Angaben gehen hinueber: der Zustand und das
+       * voraussichtliche Ende. NICHT die Abwesenheits-Kennung — der Kunde hat
+       * auf die Abwesenheit keinen Zugriff, und was er nicht oeffnen kann,
+       * braucht er auch nicht zu kennen. */
+      ausfall_bis: faelltAus ? (sicht.bis || null) : null
+    };
   });
   kpis.agencies = agencies.size;
 
-  return { available: true, workers: rows, kpis, scope, generated_at: new Date().toISOString() };
+  return { available: true, workers, kpis, scope, generated_at: new Date().toISOString() };
 }
 
 /* Die Zustaende der Tafel sind AUSSCHLIESSEND — jeder Mensch steht in genau einem.
