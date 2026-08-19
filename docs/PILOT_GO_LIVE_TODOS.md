@@ -21,6 +21,19 @@ Selbstprobe), volle Suite **8804/0**. Vier Mutationen gegen den echten Bestand
 gefahren: Handler-Mutationen macht der Wächter rot, SQL-Mutationen die
 Service-Tests.
 
+### 2026-08-19 — E-13: derselbe Fehler ein zweites Mal, in einer anderen Datei
+
+**Status:** erledigt · **Fakt:** `getStaffingChoiceSet`
+(`assignmentStaffingService.js:3903`) rief `refreshStaffingChoiceSetLifecycle`,
+das `UPDATE assignment_staffing_choice_sets SET status = ...` schreibt, VOR der
+Zugehoerigkeitspruefung. Ein Zugriff mit fremder Auswahl-Kennung hat deren
+Status fortgeschrieben und danach 404 geliefert.
+**Aktion:** Zugehoerigkeit zuerst, im SQL; dann fortschreiben. Zusaetzlich hat
+der Waechter dafuer eine eigene Zusicherung bekommen (`schreibenNachGrenze`),
+die die REIHENFOLGE prueft statt nur das Ergebnis — sie findet die naechste
+Fundstelle dieser Klasse von selbst.
+**Verify:** `orgGrenzeLuecken.test.js` Abschnitt E-13.
+
 ### 2026-08-19 — E-12: ein Lesezugriff schrieb ueber die Mandantengrenze
 
 **Status:** erledigt · **Fakt:** `getAssignmentStaffingOverview`

@@ -47,6 +47,13 @@ function trackingPool(handler) {
     if (/SELECT 1 FROM assignments\s+WHERE id = \$1 AND supplier_org_id = \$2/i.test(text)) {
       return { rows: [{ "?column?": 1 }], rowCount: 1 };
     }
+    /* Fixture-Pflege (Befund E-13): `getStaffingChoiceSet` klaert seit der
+       Reparatur ZUERST die Zugehoerigkeit, bevor der Lebenszyklus
+       fortgeschrieben wird — vorher schrieb ein fremder Zugriff den Status
+       einer fremden Auswahl fort. Diese Tests fahren die passende Kennung. */
+    if (/SELECT 1 FROM assignment_staffing_choice_sets/i.test(text)) {
+      return { rows: [{ "?column?": 1 }], rowCount: 1 };
+    }
     const out = handler(text, params || []);
     if (out === undefined || out === null) return { rows: [], rowCount: 0 };
     return out;

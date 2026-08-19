@@ -296,6 +296,32 @@ Gegenprobe, die sicherstellt, dass die Neuberechnung für die **eigene** Org
 weiterhin stattfindet, die Reparatur die Funktion also begrenzt und nicht
 stilllegt.
 
+### E-13 · Dasselbe Muster, zweite Fundstelle *(geschlossen)*
+
+`getStaffingChoiceSet` rief `refreshStaffingChoiceSetLifecycle` — und das
+**schreibt** (`UPDATE assignment_staffing_choice_sets SET status = …`). Die
+Zugehörigkeitsprüfung stand erst danach. Ein Zugriff mit fremder
+Auswahl-Kennung hat deren Status fortgeschrieben, etwa auf
+`options_presented`, und anschließend 404 geliefert.
+
+Der Wächter hat es gefunden, **nachdem** E-12 dieselbe Klasse in einer anderen
+Datei aufgedeckt hatte. Deshalb gibt es dafür jetzt eine eigene Zusicherung
+statt eines Schalters: `schreibenNachGrenze` prüft die **Reihenfolge** — es
+muss eine lesende Abfrage geben, die Kennung und Adressat zusammen trägt, und
+sie muss **vor** dem ersten Schreibvorgang kommen. Genau das war bei E-12 und
+E-13 verletzt. Geschlossen wie dort: Zugehörigkeit zuerst, im SQL.
+
+### Der Wächter hatte selbst ein falsches Grün eingebaut
+
+`catchAsync` (`utils/routeHandler.js:39-43`) ruft
+`Promise.resolve(fn(…)).catch(next)` und gibt **sofort** zurück — die eigentliche
+Arbeit läuft danach weiter. Die Probe hat also nachgesehen, bevor der Handler
+fertig war, und hätte einen noch nicht erfolgten Schreibvorgang für einen
+unterbliebenen gehalten: **ein falsches Grün für jede `catchAsync`-Route.**
+Aufgefallen ist es, weil eine zusätzliche `await`-Runde im Spion eine zuvor
+grüne Route auf „schreibt nichts" umschlagen ließ. Die Probe wartet jetzt,
+bis der Handler wirklich zu Ende ist.
+
 ### E-11 · `canAccessAsOwner` hat nie funktioniert
 
 `utils/ownerCheck.js:28-33` soll genau diese Lücke schließen: direkter

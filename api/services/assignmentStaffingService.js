@@ -3905,6 +3905,27 @@ export function getStaffingChoiceSet(pool, choiceSetId, {
   supplierOrgId = null
 } = {}) {
   return withTransaction(pool, async (client) => {
+    /* Befund E-13 (2026-08-19, vom Org-Grenzen-Waechter gefunden — dasselbe
+       Muster wie E-12): `refreshStaffingChoiceSetLifecycle` SCHREIBT
+       (`UPDATE assignment_staffing_choice_sets SET status = ...`), und die
+       Zugehoerigkeitspruefung stand erst DANACH. Ein Zugriff mit fremder
+       Auswahl-Kennung hat deren Status fortgeschrieben — etwa auf
+       'options_presented' — und anschliessend 404 geliefert. Kein
+       Datenabfluss, aber eine Zustandsaenderung ueber die Mandantengrenze.
+
+       Deshalb zuerst die Zugehoerigkeit klaeren, und zwar im SQL, dann
+       fortschreiben. Ohne Kennung (interne Aufrufe) bleibt es wie bisher. */
+    if (supplierOrgId || workerUserId) {
+      const bedingungen = ["id = $1"];
+      const werte = [choiceSetId];
+      if (supplierOrgId) { werte.push(supplierOrgId); bedingungen.push(`supplier_org_id = $${werte.length}`); }
+      if (workerUserId) { werte.push(workerUserId); bedingungen.push(`worker_user_id = $${werte.length}`); }
+      const { rows } = await client.query(
+        `SELECT 1 FROM assignment_staffing_choice_sets WHERE ${bedingungen.join(" AND ")}`,
+        werte
+      );
+      if (!rows[0]) return null;
+    }
     const choiceSet = await refreshStaffingChoiceSetLifecycle(client, choiceSetId);
     if (!choiceSet) return null;
     if (workerUserId && choiceSet.worker_user_id !== workerUserId) return null;

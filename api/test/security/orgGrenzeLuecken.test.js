@@ -436,3 +436,54 @@ describe("E-12 · GET /staffing-assignments/:id — fremder Einsatz", () => {
     );
   });
 });
+
+/* ═════════════════════════════════════════════════════════════════════════
+   E-13 · Dasselbe Muster, zweite Fundstelle
+   ═════════════════════════════════════════════════════════════════════════
+
+   `getStaffingChoiceSet` rief `refreshStaffingChoiceSetLifecycle` — und das
+   SCHREIBT (`UPDATE assignment_staffing_choice_sets SET status = ...`). Die
+   Zugehoerigkeitspruefung stand erst danach. Ein Zugriff mit fremder
+   Auswahl-Kennung hat deren Status fortgeschrieben und anschliessend 404
+   geliefert.
+
+   Der Waechter hat das gefunden, nachdem E-12 dieselbe Klasse in einer anderen
+   Datei aufgedeckt hatte — ein Muster, das man einmal kennt, findet man wieder.  */
+
+describe("E-13 · POST /staffing-choice-sets/:id/assign — fremde Auswahl", () => {
+  function workersDeps(pool) {
+    return {
+      ...baseDeps(pool),
+      getUserAndPlan: async () => ({ plan: "PRO", id: USER_A }),
+      requestLimiter: (_q, _s, next) => next()
+    };
+  }
+
+  it("schreibt nicht, bevor die Zugehoerigkeit geklaert ist", async () => {
+    /* Wie bei E-12 wird die eine klaerende Abfrage wie eine echte Datenbank
+       beantwortet — fremde Org, kein Treffer. Sonst prueft der Test den Mock. */
+    const pool = spionPool({
+      zeile: { id: "cs-fremd", supplier_org_id: ORG_B, status: "open", options: [] },
+      antwort: (sql, params) =>
+        /SELECT 1 FROM assignment_staffing_choice_sets/i.test(sql) && !params.includes(ORG_B)
+          ? { rows: [] }
+          : undefined
+    });
+    const router = createWorkersRouter(workersDeps(pool));
+    const handler = findHandlerExact(router, "post", "/staffing-choice-sets/:id/assign");
+
+    const res = mockRes();
+    await handler(mockReq({
+      orgId: ORG_A, params: { id: "cs-fremd" },
+      body: { choice_option_id: "11111111-1111-4111-a111-111111111111" }
+    }), res, noop);
+    for (let i = 0; i < 5; i++) await new Promise((fertig) => setImmediate(fertig));
+
+    keinSchreibvorgang(pool, "staffing-choice-sets assign");
+    assert.notEqual(res._status, 200, "eine fremde Auswahl darf nicht zugewiesen werden");
+    assert.ok(
+      pool.fragteMit("cs-fremd", ORG_A),
+      "die klaerende Abfrage muss Auswahl UND eigene Org tragen"
+    );
+  });
+});

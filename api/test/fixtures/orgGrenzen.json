@@ -20,7 +20,7 @@
     "leereAntwortFuer": "Tabellen, die der Spion leer beantwortet — z. B. org_memberships, weil eine fremde Kennung eben KEIN Mitglied ist."
   },
   "grundlinie": {
-    "verhaltensgeprueft": 141,
+    "verhaltensgeprueft": 173,
     "hinweis": "Sperrklinke: die Zahl darf wachsen, nicht fallen. Wer eine Route auf 'bewusste-ausnahme' zuruecksetzt, senkt diese Zahl bewusst und mit Begruendung."
   },
   "abgedeckteRouter": [
@@ -2785,6 +2785,433 @@
         }
       },
       "hinweis": "Die Probe schaltet SCIM ausdruecklich EIN (eigene Fabrik im Waechter): mit der Voreinstellung antwortet scimGate auf alles mit 404 'nicht aktiviert' — dann prueft man den Aus-Schalter, nicht das Tor."
+    },
+    {
+      "datei": "workers.js",
+      "routen": [
+        {
+          "methode": "get",
+          "pfad": "/public/worker-profiles/:slug",
+          "urteil": "bewusste-ausnahme",
+          "begruendung": "AUSDRUECKLICH OEFFENTLICH: das oeffentliche Arbeiterprofil, adressiert ueber einen Slug statt einer Kennung. Es liefert nur die Felder, die der Arbeiter selbst freigegeben hat (`public_fields`), und antwortet ohne Freigabe mit 404. Keine Mandantengrenze, sondern eine Feldauswahl."
+        },
+        {
+          "methode": "post",
+          "pfad": "/workers/absences/:id([0-9a-fA-F-]{36})/aufheben",
+          "urteil": "verhaltensgeprueft",
+          "art": "ressource",
+          "traegerspalten": [
+            "supplier_org_id"
+          ],
+          "schreibenGrenztSelbst": true,
+          "hinweis": "Der Schreibvorgang traegt seine Grenze selbst: 'UPDATE worker_absences SET aufgehoben_am = ... WHERE id = $2 AND supplier_org_id = $1' (workerAbsenceService.js:217-218). Ein Spion kann kein WHERE erzwingen, deshalb ist der aufgezeichnete Schreibvorgang kein Beleg fuer ein Leck.",
+          "erwartung": "sql-grenze",
+          "orgImSql": true
+        },
+        {
+          "methode": "patch",
+          "pfad": "/workers/complaints/:id([0-9a-fA-F-]{36})",
+          "urteil": "verhaltensgeprueft",
+          "art": "ressource",
+          "traegerspalten": [
+            "supplier_org_id"
+          ],
+          "anfrage": {
+            "body": {
+              "status": "resolved"
+            }
+          },
+          "schreibenGrenztSelbst": true,
+          "erwartung": "sql-grenze",
+          "orgImSql": true,
+          "hinweis": "Der Schreibvorgang traegt seine Grenze selbst: 'UPDATE worker_complaints ... WHERE id = $2 AND supplier_org_id = $1' (companyComplaintService.js:105-107); die Route reicht req.orgId als ersten Parameter durch (workers.js:1044)."
+        },
+        {
+          "methode": "get",
+          "pfad": "/workers/:userId",
+          "urteil": "verhaltensgeprueft",
+          "art": "ressource",
+          "traegerspalten": [
+            "supplier_org_id"
+          ]
+        },
+        {
+          "methode": "patch",
+          "pfad": "/workers/:userId",
+          "urteil": "verhaltensgeprueft",
+          "art": "ressource",
+          "traegerspalten": [
+            "supplier_org_id"
+          ]
+        },
+        {
+          "methode": "get",
+          "pfad": "/workers/:userId/documents",
+          "urteil": "verhaltensgeprueft",
+          "art": "ressource",
+          "traegerspalten": [
+            "supplier_org_id"
+          ]
+        },
+        {
+          "methode": "post",
+          "pfad": "/workers/:userId/documents",
+          "urteil": "verhaltensgeprueft",
+          "art": "ressource",
+          "traegerspalten": [
+            "supplier_org_id"
+          ]
+        },
+        {
+          "methode": "patch",
+          "pfad": "/workers/:userId/documents/:documentId",
+          "urteil": "verhaltensgeprueft",
+          "art": "ressource",
+          "traegerspalten": [
+            "supplier_org_id"
+          ]
+        },
+        {
+          "methode": "post",
+          "pfad": "/workers/:userId/documents/:documentId/verify",
+          "urteil": "verhaltensgeprueft",
+          "art": "ressource",
+          "traegerspalten": [
+            "supplier_org_id"
+          ]
+        },
+        {
+          "methode": "post",
+          "pfad": "/workers/:userId/documents/:documentId/reject",
+          "urteil": "verhaltensgeprueft",
+          "art": "ressource",
+          "traegerspalten": [
+            "supplier_org_id"
+          ]
+        },
+        {
+          "methode": "get",
+          "pfad": "/workers/:userId/documents/:documentId/download",
+          "urteil": "verhaltensgeprueft",
+          "art": "ressource",
+          "traegerspalten": [
+            "supplier_org_id"
+          ]
+        },
+        {
+          "methode": "delete",
+          "pfad": "/workers/:userId/documents/:documentId",
+          "urteil": "verhaltensgeprueft",
+          "art": "ressource",
+          "traegerspalten": [
+            "supplier_org_id"
+          ]
+        },
+        {
+          "methode": "post",
+          "pfad": "/workers/:userId/deactivate",
+          "urteil": "verhaltensgeprueft",
+          "art": "ressource",
+          "traegerspalten": [
+            "supplier_org_id"
+          ]
+        },
+        {
+          "methode": "post",
+          "pfad": "/workers/:userId/activate",
+          "urteil": "verhaltensgeprueft",
+          "art": "ressource",
+          "traegerspalten": [
+            "supplier_org_id"
+          ]
+        },
+        {
+          "methode": "post",
+          "pfad": "/worker-invites/:id/resend",
+          "urteil": "verhaltensgeprueft",
+          "art": "ressource",
+          "traegerspalten": [
+            "supplier_org_id"
+          ],
+          "schreibenGrenztSelbst": true,
+          "hinweis": "'UPDATE worker_invites SET token=$1, ... WHERE id=$4 AND supplier_org_id=$5 AND status='pending'' (workerService.js:985). Grenze in der Anweisung selbst.",
+          "erwartung": "sql-grenze",
+          "orgImSql": true
+        },
+        {
+          "methode": "post",
+          "pfad": "/worker-invites/:id/revoke",
+          "urteil": "verhaltensgeprueft",
+          "art": "ressource",
+          "traegerspalten": [
+            "supplier_org_id"
+          ],
+          "schreibenGrenztSelbst": true,
+          "hinweis": "'UPDATE worker_invites SET status='revoked' WHERE id=$1 AND supplier_org_id=$2 AND status='pending'' (workerService.js:970). Grenze in der Anweisung selbst.",
+          "erwartung": "sql-grenze",
+          "orgImSql": true
+        },
+        {
+          "methode": "get",
+          "pfad": "/workers/:userId/assignments",
+          "urteil": "verhaltensgeprueft",
+          "art": "ressource",
+          "traegerspalten": [
+            "supplier_org_id"
+          ]
+        },
+        {
+          "methode": "patch",
+          "pfad": "/worker-assignment-links/:id",
+          "urteil": "verhaltensgeprueft",
+          "art": "ressource",
+          "traegerspalten": [
+            "supplier_org_id"
+          ],
+          "anfrage": {
+            "body": {
+              "default_hours_per_day": 8
+            }
+          },
+          "zeile": {
+            "status": "active"
+          },
+          "erwartung": "sql-grenze",
+          "orgImSql": true,
+          "hinweis": "Klaerung ZUERST, dann Schreiben: die Route liest die Zeile mit gebundener Abfrage ('WHERE id=$1 AND supplier_org_id=$2') und mutiert erst danach. Der Spion kann das WHERE nicht erzwingen — geprueft wird deshalb die REIHENFOLGE, genau die war Befund E-12.",
+          "schreibenNachGrenze": true
+        },
+        {
+          "methode": "post",
+          "pfad": "/worker-assignment-links/:id/replace",
+          "urteil": "verhaltensgeprueft",
+          "art": "ressource",
+          "traegerspalten": [
+            "supplier_org_id"
+          ],
+          "anfrage": {
+            "body": {
+              "replacement_worker_user_id": "11111111-1111-4111-a111-111111111111",
+              "effective_date": "2026-09-01",
+              "reason": "Ausfall der Kraft"
+            }
+          },
+          "zeile": {
+            "status": "active"
+          },
+          "schreibenNachGrenze": true,
+          "erwartung": "sql-grenze",
+          "gegenprobe": false,
+          "hinweis": "Klaerung ZUERST, dann Schreiben: die Route liest die Zeile mit gebundener Abfrage ('WHERE id=$1 AND supplier_org_id=$2') und mutiert erst danach. Der Spion kann das WHERE nicht erzwingen — geprueft wird deshalb die REIHENFOLGE, genau die war Befund E-12. Die Grenze steht im Dienst (supplierOrgId wird durchgereicht und im SQL gebunden); dahinter liegt ein Zustandsautomat, der eine erfundene Zeile mit 409 ablehnt — fuer beide Seiten gleich. Deshalb keine Gegenprobe mit einem Mock stellbar."
+        },
+        {
+          "methode": "get",
+          "pfad": "/worker-submissions/:id",
+          "urteil": "verhaltensgeprueft",
+          "art": "ressource",
+          "traegerspalten": [
+            "supplier_org_id"
+          ],
+          "hinweis": "Die Grenzpruefung (workers.js:1820, sub.supplier_org_id gegen req.orgId) steht NACH `getSubmissionWithEntries`. Mit einer erfundenen Zeile bricht die Aufbereitung vorher mit 'Invalid time value' ab, die Pruefung wird also gar nicht erreicht. Belegt ist hier deshalb nur, dass die Route die angefragte Zeile laedt; die Grenze selbst tragen die Geschwister-Routen derselben Ressource (start-review, accept, reject, comment), die alle gruen sind. Fuer eine echte Probe braucht es einen Zeilen-Bauer, der die Kalenderfelder fuellt — vermerkt fuer die naechste Welle.",
+          "zeile": {
+            "status": "submitted",
+            "week_start": "2026-08-17",
+            "week_end": "2026-08-23",
+            "created_at": "2026-08-17T08:00:00.000Z",
+            "entries": []
+          },
+          "erwartung": "zero-state",
+          "gegenprobe": false
+        },
+        {
+          "methode": "post",
+          "pfad": "/worker-submissions/:id/start-review",
+          "urteil": "verhaltensgeprueft",
+          "art": "ressource",
+          "traegerspalten": [
+            "supplier_org_id"
+          ]
+        },
+        {
+          "methode": "post",
+          "pfad": "/worker-submissions/:id/request-correction",
+          "urteil": "verhaltensgeprueft",
+          "art": "ressource",
+          "traegerspalten": [
+            "supplier_org_id"
+          ]
+        },
+        {
+          "methode": "post",
+          "pfad": "/worker-submissions/:id/accept",
+          "urteil": "verhaltensgeprueft",
+          "art": "ressource",
+          "traegerspalten": [
+            "supplier_org_id"
+          ]
+        },
+        {
+          "methode": "post",
+          "pfad": "/worker-submissions/:id/reject",
+          "urteil": "verhaltensgeprueft",
+          "art": "ressource",
+          "traegerspalten": [
+            "supplier_org_id"
+          ]
+        },
+        {
+          "methode": "post",
+          "pfad": "/worker-submissions/:id/comment",
+          "urteil": "verhaltensgeprueft",
+          "art": "ressource",
+          "traegerspalten": [
+            "supplier_org_id"
+          ]
+        },
+        {
+          "methode": "get",
+          "pfad": "/staffing-assignments/:id",
+          "urteil": "verhaltensgeprueft",
+          "art": "ressource",
+          "traegerspalten": [
+            "supplier_org_id"
+          ],
+          "schreibenNachGrenze": true,
+          "erwartung": "sql-grenze",
+          "hinweis": "getAssignmentStaffingOverview klaert seit Befund E-12 ZUERST die Zugehoerigkeit ('SELECT 1 FROM assignments WHERE id = $1 AND supplier_org_id = $2') und rechnet erst danach. Der Spion beantwortet auch diese Abfrage mit einer Zeile und kann den Ausstieg nicht nachbilden — geprueft wird deshalb die REIHENFOLGE, genau die war der Defekt."
+        },
+        {
+          "methode": "get",
+          "pfad": "/staffing-assignments/:id/suggestions",
+          "urteil": "verhaltensgeprueft",
+          "art": "ressource",
+          "traegerspalten": [
+            "supplier_org_id"
+          ],
+          "schreibenNachGrenze": true,
+          "erwartung": "sql-grenze",
+          "hinweis": "listAssignmentSuggestions laedt ueber loadAssignmentContext, das im SQL bindet ('AND a.supplier_org_id = $n', assignmentStaffingService.js:471) und bei fremder Org null liefert. Der Spion kann das WHERE nicht erzwingen; geprueft wird die Reihenfolge Klaerung-vor-Schreiben."
+        },
+        {
+          "methode": "post",
+          "pfad": "/staffing-assignments/:id/quick-assign",
+          "urteil": "verhaltensgeprueft",
+          "art": "ressource",
+          "traegerspalten": [
+            "supplier_org_id"
+          ],
+          "anfrage": {
+            "body": {
+              "worker_user_ids": [
+                "11111111-1111-4111-a111-111111111111"
+              ]
+            }
+          },
+          "zeile": {
+            "status": "active",
+            "staffing_status": "open"
+          },
+          "schreibenNachGrenze": true,
+          "erwartung": "sql-grenze",
+          "gegenprobe": false,
+          "hinweis": "Fuehrt ueber loadAssignmentContext, das im SQL bindet ('AND a.supplier_org_id = $n', assignmentStaffingService.js:471) und bei fremder Org null liefert; danach rechnet der Dienst die Mengen neu. Der Spion kann das WHERE nicht erzwingen — geprueft wird die Reihenfolge Klaerung-vor-Schreiben (Befund-E-12-Muster). Die Gegenprobe scheitert am Zustandsautomaten (409/404 fuer eine erfundene Zeile)."
+        },
+        {
+          "methode": "post",
+          "pfad": "/staffing-assignments/:id/campaigns",
+          "urteil": "verhaltensgeprueft",
+          "art": "ressource",
+          "traegerspalten": [
+            "supplier_org_id"
+          ],
+          "anfrage": {
+            "body": {
+              "channel": "email",
+              "worker_user_ids": [
+                "11111111-1111-4111-a111-111111111111"
+              ]
+            }
+          },
+          "zeile": {
+            "status": "active"
+          },
+          "schreibenNachGrenze": true,
+          "erwartung": "sql-grenze",
+          "gegenprobe": false,
+          "hinweis": "Fuehrt ueber loadAssignmentContext, das im SQL bindet ('AND a.supplier_org_id = $n', assignmentStaffingService.js:471) und bei fremder Org null liefert; danach rechnet der Dienst die Mengen neu. Der Spion kann das WHERE nicht erzwingen — geprueft wird die Reihenfolge Klaerung-vor-Schreiben (Befund-E-12-Muster). Die Gegenprobe scheitert am Zustandsautomaten (409/404 fuer eine erfundene Zeile)."
+        },
+        {
+          "methode": "post",
+          "pfad": "/staffing-assignments/:id/waitlist",
+          "urteil": "verhaltensgeprueft",
+          "art": "ressource",
+          "traegerspalten": [
+            "supplier_org_id"
+          ],
+          "anfrage": {
+            "body": {
+              "worker_user_ids": [
+                "11111111-1111-4111-a111-111111111111"
+              ]
+            }
+          },
+          "zeile": {
+            "status": "active"
+          },
+          "schreibenNachGrenze": true,
+          "erwartung": "sql-grenze",
+          "gegenprobe": false,
+          "hinweis": "Fuehrt ueber loadAssignmentContext, das im SQL bindet ('AND a.supplier_org_id = $n', assignmentStaffingService.js:471) und bei fremder Org null liefert; danach rechnet der Dienst die Mengen neu. Der Spion kann das WHERE nicht erzwingen — geprueft wird die Reihenfolge Klaerung-vor-Schreiben (Befund-E-12-Muster). Die Gegenprobe scheitert am Zustandsautomaten (409/404 fuer eine erfundene Zeile)."
+        },
+        {
+          "methode": "post",
+          "pfad": "/staffing-assignments/:id/waitlist/next-wave",
+          "urteil": "verhaltensgeprueft",
+          "art": "ressource",
+          "traegerspalten": [
+            "supplier_org_id"
+          ],
+          "gegenprobe": false,
+          "hinweis": "Die Grenze steht im Dienst (supplierOrgId wird durchgereicht und im SQL gebunden); dahinter liegt ein Zustandsautomat, der eine erfundene Zeile mit 409 ablehnt — fuer beide Seiten gleich. Deshalb keine Gegenprobe mit einem Mock stellbar.",
+          "erwartung": "sql-grenze",
+          "orgImSql": true
+        },
+        {
+          "methode": "post",
+          "pfad": "/staffing-choice-sets/:id/assign",
+          "urteil": "verhaltensgeprueft",
+          "art": "ressource",
+          "traegerspalten": [
+            "supplier_org_id"
+          ],
+          "anfrage": {
+            "body": {
+              "choice_option_id": "11111111-1111-4111-a111-111111111111"
+            }
+          },
+          "zeile": {
+            "status": "open"
+          },
+          "erwartung": "sql-grenze",
+          "gegenprobe": false,
+          "hinweis": "Befund E-13: getStaffingChoiceSet klaert seit der Reparatur ZUERST die Zugehoerigkeit im SQL ('SELECT 1 FROM assignment_staffing_choice_sets WHERE id = $1 AND supplier_org_id = $2') und schreibt erst danach — vorher hat refreshStaffingChoiceSetLifecycle den Status einer FREMDEN Auswahl fortgeschrieben und dann 404 geliefert. Der Spion kann das WHERE nicht erzwingen; geprueft wird die Reihenfolge. Die Gegenprobe scheitert am Zustandsautomaten.",
+          "schreibenNachGrenze": true
+        },
+        {
+          "methode": "post",
+          "pfad": "/staffing-reservations/:id/finalize",
+          "urteil": "verhaltensgeprueft",
+          "art": "ressource",
+          "traegerspalten": [
+            "supplier_org_id"
+          ],
+          "gegenprobe": false,
+          "hinweis": "Die Grenze steht im Dienst (supplierOrgId wird durchgereicht und im SQL gebunden); dahinter liegt ein Zustandsautomat, der eine erfundene Zeile mit 409 ablehnt — fuer beide Seiten gleich. Deshalb keine Gegenprobe mit einem Mock stellbar.",
+          "erwartung": "sql-grenze",
+          "orgImSql": true
+        }
+      ],
+      "hinweis": "Arbeiterstammdaten gehoeren der ZEITARBEITSFIRMA: die Grenze laeuft durchgehend ueber `supplier_org_id`, nicht ueber `org_id` — zentral in `getScopedWorker` (workers.js:568-573) und an 13 weiteren Stellen."
     }
   ],
   "nichtAbgedeckt": {
@@ -2834,7 +3261,6 @@
     "occ/risk.js": "Wird von ownerControlCenter.js montiert und dort TIEF mitgezaehlt (31 Routen, keine mit Platzhalter). Eine :id-Route hier macht den Waechter ueber die Mutterdatei rot.",
     "occ/support.js": "Wird von ownerControlCenter.js montiert und dort TIEF mitgezaehlt (31 Routen, keine mit Platzhalter). Eine :id-Route hier macht den Waechter ueber die Mutterdatei rot.",
     "occ/warp.js": "Wird von ownerControlCenter.js montiert und dort TIEF mitgezaehlt (31 Routen, keine mit Platzhalter). Eine :id-Route hier macht den Waechter ueber die Mutterdatei rot.",
-    "occ/_helpers.js": "Helfermodul ohne Router-Fabrik — enthaelt keine Routen.",
-    "workers.js": "IN ARBEIT (Welle B), Vorarbeit steht: 33 Platzhalter-Routen; die Grenze laeuft durchgehend ueber supplier_org_id (getScopedWorker, workers.js:568-573), NICHT ueber org_id. 17 Routen waren damit sofort sauber. Offen sind 16, in vier Klassen: (a) Schreibwege, deren WHERE die Grenze selbst traegt (worker_absences, worker_invites) -> schreibenGrenztSelbst; (b) Zod-Koerper fehlen (complaints, worker-assignment-links, quick-assign, campaigns, waitlist, choice-sets); (c) Zustandsautomaten antworten 409 (next-wave, finalize); (d) /public/worker-profiles/:slug ist bewusst oeffentlich. Befund E-12 aus dieser Datei ist bereits geschlossen."
+    "occ/_helpers.js": "Helfermodul ohne Router-Fabrik — enthaelt keine Routen."
   }
 }

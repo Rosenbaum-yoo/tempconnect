@@ -68,6 +68,13 @@ export function spionPool({ zeile = null, antwort } = {}) {
       const rows = zeile ? [zeile] : [];
       return { rows, rowCount: rows.length };
     },
+    /* Transaktionen: Routen, die `withTransaction` benutzen, holen sich einen
+       Client. Ohne `connect` bricht der Aufruf mit "pool.connect is not a
+       function" ab — und die Probe haelt einen Absturz fuer eine bestandene
+       Grenze. Der Client schreibt auf DENSELBEN Spion. */
+    async connect() {
+      return { query: (...a) => pool.query(...a), release() {} };
+    },
     /** Alle mitgeschriebenen Abfragen. */
     get calls() { return calls; },
     /** Nur die schreibenden. */
@@ -141,6 +148,7 @@ export async function pruefeGrenze(opts) {
     identitaet = "org",
     nutzerEigen, nutzerFremd,
     schreibenGrenztSelbst = false,
+    schreibenNachGrenze = false,
     gegenprobe = true,
     leereAntwortFuer = [],
     baueReq, baueRes
@@ -218,6 +226,14 @@ export async function pruefeGrenze(opts) {
     } catch (err) {
       weitergereicht = err;
     }
+    /* Nicht jeder Handler ist zu Ende, wenn er zurueckkehrt. `catchAsync`
+       (utils/routeHandler.js:39-43) ruft `Promise.resolve(fn(...)).catch(next)`
+       und gibt SOFORT zurueck — die eigentliche Arbeit laeuft danach weiter.
+       Eine Probe, die hier schon nachsieht, haelt einen noch nicht erfolgten
+       Schreibvorgang fuer einen unterbliebenen: ein falsches Gruen.
+       Bemerkt wurde das, als eine zusaetzliche `await`-Runde im Spion eine
+       zuvor gruene Route auf "schreibt nichts" umschlagen liess. */
+    for (let i = 0; i < 5; i++) await new Promise((fertig) => setImmediate(fertig));
     return { pool, res, weitergereicht };
   }
 
@@ -234,7 +250,34 @@ export async function pruefeGrenze(opts) {
       (fremd.weitergereicht ? ` (Fehler durchgereicht: ${fremd.weitergereicht.message})` : "")
     );
   }
-  if (schreibenGrenztSelbst) {
+  if (schreibenNachGrenze) {
+    /* Manche Routen klaeren die Zugehoerigkeit mit einer eigenen Abfrage und
+       schreiben erst DANACH — der Schreibvorgang ist fuer Fremde unerreichbar,
+       weil die Route vorher aussteigt. Ein Spion kann diesen Ausstieg nicht
+       nachbilden: er beantwortet auch die klaerende Abfrage mit einer Zeile.
+       Pruefbar ist aber die REIHENFOLGE, und genau die war Befund E-12: dort
+       stand der Schreibvorgang VOR der Klaerung.
+
+       Verlangt wird also: es gibt eine lesende Abfrage, die Kennung UND
+       Adressat zusammen traegt, und sie kommt VOR dem ersten Schreibvorgang. */
+    const ersterSchreib = fremd.pool.calls.findIndex((c) => c.schreibend);
+    const klaerung = fremd.pool.calls.findIndex(
+      (c) => !c.schreibend &&
+        c.params.some((prm) => String(prm) === String(eigenKennung)) &&
+        c.params.some((prm) => String(prm) === String(ressourceId))
+    );
+    if (klaerung === -1) {
+      maengel.push(
+        "keine klaerende Abfrage, die eigene Kennung UND Adressat zusammen traegt — " +
+        "die angekuendigte Grenze vor dem Schreiben gibt es nicht"
+      );
+    } else if (ersterSchreib !== -1 && ersterSchreib < klaerung) {
+      maengel.push(
+        "es wurde GESCHRIEBEN, bevor die Zugehoerigkeit geklaert war (Befund-E-12-Muster): " +
+        fremd.pool.calls[ersterSchreib].sql.trim().slice(0, 60).replace(/\s+/g, " ")
+      );
+    }
+  } else if (schreibenGrenztSelbst) {
     /* Traegt die schreibende Anweisung ihre Grenze SELBST
        (`DELETE ... WHERE company_user_id = $3`), dann ist ein aufgezeichneter
        Schreibvorgang KEIN Beleg fuer ein Leck: der Spion kann kein WHERE

@@ -214,10 +214,10 @@ describe("Org-Grenzen-Waechter (A) — jede Platzhalter-Route hat ein Urteil", (
         }
         // Wer eine Zusicherung abschaltet, muss sagen warum — sonst waere jede
         // unbequeme Route mit einem Schalter statt mit Arbeit zu erledigen.
-        if (r.gegenprobe === false || r.schreibenGrenztSelbst === true) {
+        if (r.gegenprobe === false || r.schreibenGrenztSelbst === true || r.schreibenNachGrenze === true) {
           assert.ok(
             typeof r.hinweis === "string" && r.hinweis.length >= 30,
-            `${schluessel(r)}: 'gegenprobe:false' bzw. 'schreibenGrenztSelbst:true' ` +
+            `${schluessel(r)}: 'gegenprobe:false', 'schreibenGrenztSelbst:true' bzw. 'schreibenNachGrenze:true' ` +
             "braucht einen 'hinweis', der den Beleg nennt"
           );
         }
@@ -258,6 +258,7 @@ describe("Org-Grenzen-Waechter (B) — Verhaltensprobe mit Spion-Pool", () => {
           reqZusatz: r.reqZusatz || {},
           identitaet: r.identitaet || "org",
           schreibenGrenztSelbst: r.schreibenGrenztSelbst === true,
+          schreibenNachGrenze: r.schreibenNachGrenze === true,
           gegenprobe: r.gegenprobe !== false,
           leereAntwortFuer: r.leereAntwortFuer || [],
           nutzerEigen: USER_A,
@@ -634,6 +635,43 @@ describe("Org-Grenzen-Waechter (D) — Selbstprobe an kaputten Routern", () => {
       occDateien.length >= 14,
       `das Bestandsbuch kennt nur ${occDateien.length} Dateien unter occ/ — es liest nicht rekursiv`
     );
+  });
+
+  it("(n) Schreiben VOR der Klaerung — wird gemeldet (das E-12/E-13-Muster)", async () => {
+    // Zweimal real aufgetreten: die Route klaert die Zugehoerigkeit, aber eine
+    // Funktion davor schreibt bereits. Der Statuscode am Ende stimmt (404), nur
+    // die fremde Zeile ist da schon angefasst.
+    const { maengel } = await probiere(
+      async (req, res) => {
+        await req.pool.query("UPDATE sachen SET beruehrt = TRUE WHERE id = $1", [req.params.id]);
+        const { rows } = await req.pool.query(
+          "SELECT 1 FROM sachen WHERE id = $1 AND org_id = $2", [req.params.id, req.orgId]
+        );
+        if (!rows[0]) return res.status(404).json({ error: "NOT_FOUND" });
+        res.json({ ok: true });
+      },
+      { schreibenNachGrenze: true, erwartung: "sql-grenze", schreibtBeiErfolg: false }
+    );
+    assert.ok(
+      maengel.some((m) => /bevor die Zugehoerigkeit geklaert war/.test(m)),
+      "der Schreibvorgang vor der Klaerung muss auffallen — gemeldet wurde: " +
+      JSON.stringify(maengel)
+    );
+  });
+
+  it("(o) dieselbe Route mit richtiger Reihenfolge wird NICHT gemeldet", async () => {
+    const { maengel } = await probiere(
+      async (req, res) => {
+        const { rows } = await req.pool.query(
+          "SELECT 1 FROM sachen WHERE id = $1 AND org_id = $2", [req.params.id, req.orgId]
+        );
+        if (!rows[0]) return res.status(404).json({ error: "NOT_FOUND" });
+        await req.pool.query("UPDATE sachen SET beruehrt = TRUE WHERE id = $1", [req.params.id]);
+        res.json({ ok: true });
+      },
+      { schreibenNachGrenze: true, erwartung: "sql-grenze", schreibtBeiErfolg: false }
+    );
+    assert.deepStrictEqual(maengel, [], "die richtige Reihenfolge darf nicht gemeldet werden");
   });
 
   it("(e) der Schreib-Erkenner unterscheidet Lesen von Schreiben", () => {
