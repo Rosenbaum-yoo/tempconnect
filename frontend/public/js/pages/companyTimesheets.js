@@ -126,6 +126,8 @@
     'cts.live.out.alsoEnding': 'Einsatz endet ohnehin bald',
     'cts.live.out.privacy': 'Die Zeitarbeitsfirma hat diese Kraft als ausgefallen gemeldet. Der Grund ist ein Beschäftigtendatum und wird Ihnen bewusst nicht angezeigt.',
     'cts.live.kpi.out': 'Fällt aus',
+    'cts.live.slot.backup': 'Springer',
+    'cts.live.slot.backupTitle': 'Diese Kraft ist als Ersatz auf dem Einsatz, nicht als ursprünglich gebuchte Stammbesetzung.',
 
     'cts.cmp.banner': 'Ihre Meldungen an die Zeitarbeitsfirmen — mit aktuellem Bearbeitungsstand. Der zuständige Disponent wird bei jeder Meldung sofort benachrichtigt und kann Ersatz stellen.',
     'cts.cmp.filter.all': 'Alle Meldungen',
@@ -280,6 +282,8 @@
     'cts.live.out.alsoEnding': 'assignment was ending shortly anyway',
     'cts.live.out.privacy': 'The staffing firm reported this worker as unavailable. The reason is employee data and is deliberately not shown to you.',
     'cts.live.kpi.out': 'Unavailable',
+    'cts.live.slot.backup': 'Stand-in',
+    'cts.live.slot.backupTitle': 'This worker is on the assignment as a replacement, not as the originally booked staffing.',
 
     'cts.cmp.banner': 'Your reports to the staffing firms — with the current processing status. The responsible scheduler is notified immediately for every report and can provide a replacement.',
     'cts.cmp.filter.all': 'All reports',
@@ -658,6 +662,27 @@
     return '<span class="ct-badge ' + def.cls + '"' + titel + '>' + esc(t(def.key)) + '</span>';
   }
 
+  /* Die Spalte "Rolle".
+   *
+   * Sie zeigte bis hierher `wal.role` — und das ist KEINE Taetigkeit, sondern
+   * die Besetzungsart: ein geschlossener CHECK auf 'primary'|'backup'
+   * (Mig 029:99-100), NOT NULL mit Vorgabe 'primary'. Der Kunde las damit unter
+   * "Rolle" das englische Wort "primary", und zwar in JEDER Zeile — im Bestand
+   * tragen alle 24 Verknuepfungen genau diesen Wert. Der Rueckfall
+   * `|| worker_description` konnte nie greifen, weil die Spalte nicht leer sein
+   * kann: eine tote Zeile, die aussah, als sei der Fall bedacht.
+   *
+   * Was hier hingehoert, ist die Taetigkeit (`worker_description` vom Einsatz).
+   * Die Besetzungsart geht nicht verloren, wird aber nur genannt, wenn sie etwas
+   * aussagt: "Springer" bei einem Ersatz. Bei 'primary' — also immer — waere sie
+   * ein Etikett ohne Unterschied und damit Rauschen. */
+  function liveRoleCell(r) {
+    var text = esc(r.worker_description || '–');
+    if (String(r.role || '') !== 'backup') return text;
+    return text + ' <span class="ct-badge ct-badge--soon" title="' +
+           esc(t('cts.live.slot.backupTitle')) + '">' + esc(t('cts.live.slot.backup')) + '</span>';
+  }
+
   /* Die Statuszelle. Bewusst NICHT die Spalte "Bis": die zeigt das Ende des
      EINSATZES. Das voraussichtliche Ende der Abwesenheit ist eine andere
      Groesse — beides in dieselbe Zelle zu schreiben laesst den Kunden falsch
@@ -690,7 +715,7 @@
       return '<tr data-einsatz="' + esc(r.assignment_id || '') + '">' +
         '<td><div style="font-weight:600">' + esc(workerName(r)) + '</div>' + (r.personnel_number ? '<div class="ct-sub">' + esc(r.personnel_number) + '</div>' : '') + '</td>' +
         '<td>' + esc(r.agency_name || '–') + '</td>' +
-        '<td>' + esc(r.role || r.worker_description || '–') + '</td>' +
+        '<td>' + liveRoleCell(r) + '</td>' +
         '<td>' + shift + '</td>' +
         '<td>' + fmtDate(r.start_date) + '</td>' +
         '<td>' + (r.effective_end_date ? fmtDate(r.effective_end_date) : esc(t('cts.live.openEnd'))) + '</td>' +

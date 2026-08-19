@@ -254,6 +254,20 @@ der betroffenen Zeile.
    Abwesenheit keinen Zugriff; was er nicht oeffnen kann, braucht er nicht zu
    kennen. In der Zeile stehen genau zwei neue Angaben: Zustand und `bis`.
 
+**Beim Bauen zusaetzlich gefunden und behoben — die Spalte "Rolle" log:**
+Sie rendert `wal.role`, und das ist keine Taetigkeit, sondern die
+**Besetzungsart**: ein geschlossener CHECK auf `'primary'|'backup'`
+(Mig 029:99-100), NOT NULL mit Vorgabe `'primary'`. Der Kunde las unter
+"Rolle" also das englische Wort **"primary"** — im Bestand tragen **alle 24**
+Verknuepfungen genau diesen Wert, es traf damit **jede Zeile**. Der Rueckfall
+`|| worker_description` konnte nie greifen, weil die Spalte nicht leer sein
+kann: eine tote Zeile, die aussah, als sei der Fall bedacht. Jetzt steht dort
+die Taetigkeit; die Besetzungsart wird nur genannt, wenn sie etwas aussagt
+("Springer" beim Ersatz) — bei `'primary'`, also immer, waere sie ein Etikett
+ohne Unterschied. Drei Waechter dazu, plus eine verschaerfte DE/EN-Pruefung
+ueber das **ganze** Woerterbuch statt ueber eine Liste "neuer" Schluessel (eine
+solche Liste altert, weil niemand sie pflegt).
+
 **Nicht erledigt, bewusst:** Fallstrick 3 (Beantragt-Leak) ist geschlossen,
 Fallstrick 8 (kein Polling) ist geschlossen. Offen bleibt nichts aus H1.
 

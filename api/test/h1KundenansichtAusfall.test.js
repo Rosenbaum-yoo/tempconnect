@@ -464,6 +464,18 @@ suite("H1 · Teil C — die Kundenansicht rendert den Ausfall", () => {
     assert.deepEqual(neu.filter((k) => !woerter.en[k]), [], "diese Schluessel fehlen im englischen Woerterbuch");
   });
 
+  it("JEDER Schluessel steht in beiden Sprachen — nicht nur die neuen", async () => {
+    /* Die staerkere Fassung der Zusage: eine Liste der "neuen" Schluessel
+     * altert, weil niemand sie pflegt. Das ganze Woerterbuch zu pruefen faengt
+     * auch den Schluessel, den die naechste Welle vergisst. */
+    const { woerter } = await sandbox();
+    assert.ok(Object.keys(woerter.de).length > 80, "Gegenprobe: das Woerterbuch wurde geladen");
+    assert.deepEqual(Object.keys(woerter.de).filter((k) => !(k in woerter.en)), [],
+      "diese Schluessel fehlen im englischen Woerterbuch — die englische Oberflaeche faellt dort stumm auf Deutsch zurueck");
+    assert.deepEqual(Object.keys(woerter.en).filter((k) => !(k in woerter.de)), [],
+      "diese Schluessel gibt es nur auf Englisch");
+  });
+
   it("kein Wort der Oberflaeche nennt die Art der Abwesenheit", async () => {
     const { woerter } = await sandbox();
     const alles = JSON.stringify(woerter).toLowerCase();
@@ -526,6 +538,32 @@ suite("H1 · Teil C — die Kundenansicht rendert den Ausfall", () => {
     assert.ok(a.markup.includes("ct-badge--live") && a.markup.includes("Im Einsatz"));
     const b = await rendere([{ ...ZEILE, live_status: "endet_bald" }]);
     assert.ok(b.markup.includes("ct-badge--soon") && b.markup.includes("Endet bald"));
+  });
+
+  /* ── Die Spalte "Rolle" ───────────────────────────────────────────────── */
+
+  it("die Spalte 'Rolle' zeigt die TAETIGKEIT, nie den technischen Besetzungswert", async () => {
+    /* `wal.role` ist ein geschlossener CHECK auf 'primary'|'backup' (Mig 029)
+     * — eine Besetzungsart, keine Taetigkeit. Sie stand unuebersetzt in der
+     * Kundenspalte "Rolle", und zwar in jeder Zeile: die Spalte ist NOT NULL
+     * mit Vorgabe 'primary'. */
+    const { markup } = await rendere([{ ...ZEILE, role: "primary", worker_description: "Kommissionierung" }]);
+    assert.ok(markup.includes("Kommissionierung"), "die Taetigkeit gehoert in die Spalte");
+    assert.ok(!markup.includes("primary"), "der technische Wert darf den Kunden nie erreichen");
+  });
+
+  it("ein ERSATZ wird als solcher benannt — das ist echte Auskunft", async () => {
+    const { markup } = await rendere([{ ...ZEILE, role: "backup", worker_description: "Kommissionierung" }]);
+    assert.ok(markup.includes("Kommissionierung"));
+    assert.ok(markup.includes("Springer"), "der Kunde soll sehen, dass hier jemand vertritt");
+    assert.ok(!markup.includes("backup"), "aber nicht im Rohwert");
+  });
+
+  it("ohne Taetigkeitsangabe steht ein Strich, kein Ersatzwort", async () => {
+    const { markup } = await rendere([{ ...ZEILE, role: "primary", worker_description: null }]);
+    assert.ok(!markup.includes("primary"));
+    const zellen = markup.split("<td");
+    assert.ok((zellen[3] || "").includes("–"), "leere Angabe bleibt leer statt sich etwas auszudenken");
   });
 
   /* ── Die Kacheln ──────────────────────────────────────────────────────── */
