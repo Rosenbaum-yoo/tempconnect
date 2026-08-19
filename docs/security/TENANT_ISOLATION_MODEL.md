@@ -88,6 +88,27 @@ await withStaffContext(pool, async (client) => {
 
 Diese Tabellen haben `org_id`-Spalte und werden bei jedem Request durch Application-Layer org-gefiltert. RLS-Aktivierung ist der nächste Härtungsschritt.
 
+> **Gemessen am 2026-08-19 gegen die laufende Datenbank (nicht gegen einen Mock):**
+> `rate_cards` und `approval_requests` stehen auf `relrowsecurity = false` mit
+> **0 Policies**. Die Einstufung dieser Tabelle stimmt also — mit einer
+> Konsequenz, die man kennen muss: für sie gibt es in **keinem** Deployment
+> einen Backstop in der Datenbank, auch nicht auf einer Managed-DB mit
+> Nicht-Superuser-Rolle. Genau dort lagen die Befunde E-1 (Konditionsrahmen
+> aktivieren/archivieren) und E-3 (Freigaben entscheiden) aus Welle H2 —
+> beide Cross-Org-**Schreibzugriffe** ohne jede Grenze. Sie sind geschlossen;
+> die Grenze steht jetzt in der Route **und** im Service-SQL.
+>
+> **`Migration 117` existiert nicht.** Die Spalte „Nächster Schritt" unten nennt
+> sie für 28 Tabellen; `sql/migrations/` springt von `116_rls_deny_by_default.sql`
+> auf `118_staff_identity_hardening.sql`. Der nächste Härtungsschritt ist also
+> nicht verzögert, sondern nie geschrieben worden — das gehört vor Go-Live
+> entschieden, nicht als erledigt geführt.
+>
+> Solange RLS hier nicht greift, ist die Anwendungsschicht die **einzige**
+> Grenze. Sie wird deshalb seit 2026-08-19 von
+> `api/test/orgGrenzenWaechter.test.js` verhaltensgeprüft (Register:
+> `api/test/fixtures/orgGrenzen.json`).
+
 | Tabelle | org-Spalte(n) | Nächster Schritt |
 |---|---|---|
 | `assignments` | `org_id`, `supplier_org_id` | Migration 117 |

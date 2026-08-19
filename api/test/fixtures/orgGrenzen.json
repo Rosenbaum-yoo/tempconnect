@@ -1,0 +1,614 @@
+{
+  "zweck": "Register der Mandantengrenze. Geprueft von test/orgGrenzenWaechter.test.js. Jede Route mit einem Pfad-Platzhalter in einer abgedeckten Datei braucht hier ein Urteil; jede Route-Datei ist entweder abgedeckt oder mit Grund ausgesetzt. Hintergrund: docs/ORG_GRENZE_BEFUND.md und docs/features/H_KUNDENANSICHT_UND_ORG_GRENZEN.md.",
+  "stand": "2026-08-19",
+  "felder": {
+    "urteil": "verhaltensgeprueft | bewusste-ausnahme (letzteres braucht 'begruendung')",
+    "art": "ressource (:id adressiert eine Zeile) | entitaet (Liste zu einer Fremdkennung) | orgpfad (:id IST die Org-Kennung)",
+    "grenzeIn": "Name des Middleware, in dem die Grenze steht — die Kette wird ab dort ausgefuehrt",
+    "erwartung": "403 (Standard) | sql-grenze (Zero-State statt Fehler, weil eine Entitaet adressiert wird)",
+    "traegerspalten": "welche Spalten die Org tragen — ['org_id'] oder zweiseitig ['org_id','supplier_org_id']",
+    "zeile": "zusaetzliche Felder der vom Spion gelieferten Zeile (Statuswerte fuer Zustandsautomaten)",
+    "anfrage": "params/query/body der Probe — Zod-pflichtige Routen brauchen einen gueltigen Body",
+    "schreibtBeiErfolg": "true = die Gegenprobe MUSS einen Schreibvorgang zeigen (faengt stillgelegte Routen)",
+    "orgImSql": "true = Org und Adressat muessen in DERSELBEN Anweisung stehen (Lesen oder Schreiben)",
+    "lesenMussZusammen": "weitere Werte, die zusammen mit der Org in einer Anweisung stehen muessen",
+    "hinweis": "Klartext fuer den naechsten Leser — warum diese Route so und nicht anders geprueft wird"
+  },
+  "grundlinie": {
+    "verhaltensgeprueft": 43,
+    "hinweis": "Sperrklinke: die Zahl darf wachsen, nicht fallen. Wer eine Route auf 'bewusste-ausnahme' zuruecksetzt, senkt diese Zahl bewusst und mit Begruendung."
+  },
+  "abgedeckteRouter": [
+    {
+      "datei": "rateCards.js",
+      "fabrik": "createRateCardsRouter",
+      "routen": [
+        {
+          "methode": "get",
+          "pfad": "/rate-cards/:id",
+          "urteil": "verhaltensgeprueft",
+          "art": "ressource",
+          "zeile": {
+            "status": "active"
+          }
+        },
+        {
+          "methode": "patch",
+          "pfad": "/rate-cards/:id",
+          "urteil": "verhaltensgeprueft",
+          "art": "ressource",
+          "zeile": {
+            "status": "draft"
+          },
+          "anfrage": {
+            "body": {
+              "notes": "x"
+            }
+          },
+          "schreibtBeiErfolg": true
+        },
+        {
+          "methode": "post",
+          "pfad": "/rate-cards/:id/activate",
+          "urteil": "verhaltensgeprueft",
+          "art": "ressource",
+          "zeile": {
+            "status": "draft"
+          },
+          "schreibtBeiErfolg": true,
+          "orgImSql": true
+        },
+        {
+          "methode": "post",
+          "pfad": "/rate-cards/:id/archive",
+          "urteil": "verhaltensgeprueft",
+          "art": "ressource",
+          "zeile": {
+            "status": "active"
+          },
+          "schreibtBeiErfolg": true,
+          "orgImSql": true
+        }
+      ]
+    },
+    {
+      "datei": "invoices.js",
+      "fabrik": "createInvoicesRouter",
+      "routen": [
+        {
+          "methode": "get",
+          "pfad": "/invoices/:id",
+          "urteil": "verhaltensgeprueft",
+          "art": "ressource",
+          "traegerspalten": [
+            "org_id",
+            "supplier_org_id"
+          ]
+        },
+        {
+          "methode": "post",
+          "pfad": "/invoices/:id/void",
+          "urteil": "verhaltensgeprueft",
+          "art": "ressource",
+          "traegerspalten": [
+            "org_id",
+            "supplier_org_id"
+          ],
+          "zeile": {
+            "status": "open"
+          }
+        },
+        {
+          "methode": "post",
+          "pfad": "/invoices/:id/paid",
+          "urteil": "verhaltensgeprueft",
+          "art": "ressource",
+          "traegerspalten": [
+            "org_id",
+            "supplier_org_id"
+          ],
+          "zeile": {
+            "status": "open"
+          }
+        },
+        {
+          "methode": "get",
+          "pfad": "/invoices/operational/:id",
+          "urteil": "verhaltensgeprueft",
+          "art": "ressource",
+          "traegerspalten": [
+            "org_id",
+            "supplier_org_id"
+          ],
+          "orgImSql": false,
+          "hinweis": "getOperationalInvoice laedt die Zeile ohne Org-Filter und vergleicht org_id/supplier_org_id in JS. Fuer eine Leseroute ausreichend; die Schreibwege derselben Rechnung tragen die Grenze zusaetzlich im SQL."
+        },
+        {
+          "methode": "post",
+          "pfad": "/invoices/operational/:id/issue",
+          "urteil": "verhaltensgeprueft",
+          "art": "ressource",
+          "traegerspalten": [
+            "org_id",
+            "supplier_org_id"
+          ],
+          "zeile": {
+            "status": "draft"
+          },
+          "schreibtBeiErfolg": true,
+          "orgImSql": true
+        },
+        {
+          "methode": "post",
+          "pfad": "/invoices/operational/:id/paid",
+          "urteil": "verhaltensgeprueft",
+          "art": "ressource",
+          "traegerspalten": [
+            "org_id",
+            "supplier_org_id"
+          ],
+          "zeile": {
+            "status": "issued"
+          },
+          "schreibtBeiErfolg": true,
+          "orgImSql": true
+        },
+        {
+          "methode": "post",
+          "pfad": "/invoices/operational/:id/void",
+          "urteil": "verhaltensgeprueft",
+          "art": "ressource",
+          "traegerspalten": [
+            "org_id",
+            "supplier_org_id"
+          ],
+          "zeile": {
+            "status": "draft"
+          },
+          "schreibtBeiErfolg": true,
+          "orgImSql": true
+        },
+        {
+          "methode": "post",
+          "pfad": "/invoices/operational/:id/correction",
+          "urteil": "verhaltensgeprueft",
+          "art": "ressource",
+          "traegerspalten": [
+            "org_id",
+            "supplier_org_id"
+          ],
+          "zeile": {
+            "status": "draft"
+          },
+          "anfrage": {
+            "body": {
+              "description": "Nachlass",
+              "amount_cents": -500
+            }
+          },
+          "schreibtBeiErfolg": true,
+          "orgImSql": true
+        },
+        {
+          "methode": "get",
+          "pfad": "/invoices/operational/:id/export/csv",
+          "urteil": "verhaltensgeprueft",
+          "art": "ressource",
+          "traegerspalten": [
+            "org_id",
+            "supplier_org_id"
+          ],
+          "orgImSql": false,
+          "hinweis": "getOperationalInvoice laedt die Zeile ohne Org-Filter und vergleicht org_id/supplier_org_id in JS. Fuer eine Leseroute ausreichend; die Schreibwege derselben Rechnung tragen die Grenze zusaetzlich im SQL."
+        }
+      ]
+    },
+    {
+      "datei": "approvals.js",
+      "fabrik": "createApprovalsRouter",
+      "routen": [
+        {
+          "methode": "get",
+          "pfad": "/approvals/:id",
+          "urteil": "verhaltensgeprueft",
+          "art": "ressource"
+        },
+        {
+          "methode": "post",
+          "pfad": "/approvals/:id/approve",
+          "urteil": "verhaltensgeprueft",
+          "art": "ressource",
+          "zeile": {
+            "status": "pending",
+            "entity_type": "requisition",
+            "entity_id": "r1"
+          },
+          "anfrage": {
+            "body": {
+              "reason": "Begruendung mit genug Text"
+            }
+          },
+          "schreibtBeiErfolg": true,
+          "orgImSql": true
+        },
+        {
+          "methode": "post",
+          "pfad": "/approvals/:id/reject",
+          "urteil": "verhaltensgeprueft",
+          "art": "ressource",
+          "zeile": {
+            "status": "pending",
+            "entity_type": "requisition",
+            "entity_id": "r1"
+          },
+          "anfrage": {
+            "body": {
+              "reason": "Begruendung mit genug Text"
+            }
+          },
+          "schreibtBeiErfolg": true,
+          "orgImSql": true
+        },
+        {
+          "methode": "get",
+          "pfad": "/approvals/history/:entityType/:entityId",
+          "urteil": "verhaltensgeprueft",
+          "art": "entitaet",
+          "erwartung": "sql-grenze",
+          "orgImSql": true,
+          "hinweis": "Adressiert eine ENTITAET, keine Freigabe-ID: was man nicht sehen darf, existiert hier nicht (Zero-State statt 403)."
+        }
+      ]
+    },
+    {
+      "datei": "requisitions.js",
+      "fabrik": "createRequisitionsRouter",
+      "routen": [
+        {
+          "methode": "get",
+          "pfad": "/requisitions/:id",
+          "urteil": "verhaltensgeprueft",
+          "art": "ressource"
+        },
+        {
+          "methode": "patch",
+          "pfad": "/requisitions/:id",
+          "urteil": "verhaltensgeprueft",
+          "art": "ressource",
+          "anfrage": {
+            "body": {
+              "title": "Neuer Titel"
+            }
+          },
+          "schreibtBeiErfolg": true
+        },
+        {
+          "methode": "post",
+          "pfad": "/requisitions/:id/transition",
+          "urteil": "verhaltensgeprueft",
+          "art": "ressource",
+          "zeile": {
+            "status": "DRAFT"
+          },
+          "anfrage": {
+            "body": {
+              "status": "PENDING_APPROVAL"
+            }
+          },
+          "schreibtBeiErfolg": true
+        },
+        {
+          "methode": "post",
+          "pfad": "/requisitions/:id/submit",
+          "urteil": "verhaltensgeprueft",
+          "art": "ressource",
+          "zeile": {
+            "status": "DRAFT"
+          },
+          "schreibtBeiErfolg": true
+        },
+        {
+          "methode": "post",
+          "pfad": "/requisitions/:id/approve",
+          "urteil": "verhaltensgeprueft",
+          "art": "ressource",
+          "zeile": {
+            "status": "PENDING_APPROVAL"
+          },
+          "schreibtBeiErfolg": true
+        },
+        {
+          "methode": "get",
+          "pfad": "/requisitions/:id/events",
+          "urteil": "verhaltensgeprueft",
+          "art": "ressource"
+        },
+        {
+          "methode": "post",
+          "pfad": "/requisitions/:id/comment",
+          "urteil": "verhaltensgeprueft",
+          "art": "ressource",
+          "anfrage": {
+            "body": {
+              "text": "Kommentar"
+            }
+          },
+          "schreibtBeiErfolg": true
+        },
+        {
+          "methode": "get",
+          "pfad": "/requisitions/:id/candidates",
+          "urteil": "verhaltensgeprueft",
+          "art": "ressource"
+        },
+        {
+          "methode": "post",
+          "pfad": "/requisitions/:id/candidates",
+          "urteil": "verhaltensgeprueft",
+          "art": "ressource",
+          "anfrage": {
+            "body": {
+              "match_score": 50
+            }
+          },
+          "schreibtBeiErfolg": true
+        },
+        {
+          "methode": "patch",
+          "pfad": "/requisitions/:reqId/candidates/:candId",
+          "urteil": "verhaltensgeprueft",
+          "art": "ressource",
+          "anfrage": {
+            "body": {
+              "status": "shortlisted"
+            }
+          },
+          "schreibtBeiErfolg": true
+        }
+      ]
+    },
+    {
+      "datei": "organizations.js",
+      "fabrik": "createOrganizationsRouter",
+      "routen": [
+        {
+          "methode": "get",
+          "pfad": "/organizations/:id",
+          "urteil": "verhaltensgeprueft",
+          "art": "orgpfad"
+        },
+        {
+          "methode": "patch",
+          "pfad": "/organizations/:id",
+          "urteil": "verhaltensgeprueft",
+          "art": "orgpfad",
+          "grenzeIn": "sameOrgParam",
+          "anfrage": {
+            "body": {
+              "name": "Fremde GmbH"
+            }
+          },
+          "schreibtBeiErfolg": true
+        },
+        {
+          "methode": "get",
+          "pfad": "/organizations/:id/locations",
+          "urteil": "verhaltensgeprueft",
+          "art": "orgpfad"
+        },
+        {
+          "methode": "post",
+          "pfad": "/organizations/:id/locations",
+          "urteil": "verhaltensgeprueft",
+          "art": "orgpfad",
+          "grenzeIn": "sameOrgParam",
+          "anfrage": {
+            "body": {
+              "name": "Werk",
+              "city": "Bonn"
+            }
+          },
+          "schreibtBeiErfolg": true
+        },
+        {
+          "methode": "get",
+          "pfad": "/organizations/:id/locations/:locId",
+          "urteil": "verhaltensgeprueft",
+          "art": "orgpfad",
+          "grenzeIn": "sameOrgParam"
+        },
+        {
+          "methode": "put",
+          "pfad": "/organizations/:id/locations/:locId",
+          "urteil": "verhaltensgeprueft",
+          "art": "orgpfad",
+          "grenzeIn": "sameOrgParam",
+          "anfrage": {
+            "body": {
+              "name": "Werk",
+              "city": "Bonn"
+            }
+          },
+          "schreibtBeiErfolg": true
+        },
+        {
+          "methode": "delete",
+          "pfad": "/organizations/:id/locations/:locId",
+          "urteil": "verhaltensgeprueft",
+          "art": "orgpfad",
+          "grenzeIn": "sameOrgParam",
+          "schreibtBeiErfolg": true
+        },
+        {
+          "methode": "get",
+          "pfad": "/organizations/:id/departments",
+          "urteil": "verhaltensgeprueft",
+          "art": "orgpfad"
+        },
+        {
+          "methode": "post",
+          "pfad": "/organizations/:id/departments",
+          "urteil": "verhaltensgeprueft",
+          "art": "orgpfad",
+          "grenzeIn": "sameOrgParam",
+          "anfrage": {
+            "body": {
+              "name": "Einkauf"
+            }
+          },
+          "schreibtBeiErfolg": true
+        },
+        {
+          "methode": "get",
+          "pfad": "/organizations/:id/departments/:deptId",
+          "urteil": "verhaltensgeprueft",
+          "art": "orgpfad",
+          "grenzeIn": "sameOrgParam"
+        },
+        {
+          "methode": "put",
+          "pfad": "/organizations/:id/departments/:deptId",
+          "urteil": "verhaltensgeprueft",
+          "art": "orgpfad",
+          "grenzeIn": "sameOrgParam",
+          "anfrage": {
+            "body": {
+              "name": "Einkauf"
+            }
+          },
+          "schreibtBeiErfolg": true
+        },
+        {
+          "methode": "delete",
+          "pfad": "/organizations/:id/departments/:deptId",
+          "urteil": "verhaltensgeprueft",
+          "art": "orgpfad",
+          "grenzeIn": "sameOrgParam",
+          "schreibtBeiErfolg": true
+        },
+        {
+          "methode": "get",
+          "pfad": "/organizations/:id/members",
+          "urteil": "verhaltensgeprueft",
+          "art": "orgpfad"
+        },
+        {
+          "methode": "post",
+          "pfad": "/organizations/:id/members",
+          "urteil": "verhaltensgeprueft",
+          "art": "orgpfad",
+          "grenzeIn": "sameOrgParam",
+          "anfrage": {
+            "body": {
+              "user_id": "11111111-1111-4111-a111-111111111111",
+              "role_key": "member"
+            }
+          },
+          "schreibtBeiErfolg": true
+        },
+        {
+          "methode": "get",
+          "pfad": "/organizations/:id/audit-log",
+          "urteil": "verhaltensgeprueft",
+          "art": "orgpfad"
+        },
+        {
+          "methode": "get",
+          "pfad": "/organizations/:id/audit-log/recent-changes",
+          "urteil": "verhaltensgeprueft",
+          "art": "orgpfad",
+          "anfrage": {
+            "query": {
+              "entity_type": "timesheet",
+              "entity_id": "ts-fremd"
+            }
+          },
+          "orgImSql": true,
+          "hinweis": "Befund E-5: geprueft wurde der frei waehlbare Pfad, gewaehlt wurde ueber query.entity_id.",
+          "lesenMussZusammen": [
+            "ts-fremd"
+          ]
+        }
+      ]
+    }
+  ],
+  "nichtAbgedeckt": {
+    "activityFeed.js": "noch nicht verhaltensgeprueft — Welle H2 hat die fuenf Dateien der Befunde abgedeckt; diese Datei wartet auf eine spaetere Welle",
+    "admin.js": "noch nicht verhaltensgeprueft — Welle H2 hat die fuenf Dateien der Befunde abgedeckt; diese Datei wartet auf eine spaetere Welle",
+    "agencyPortal.js": "noch nicht verhaltensgeprueft — Welle H2 hat die fuenf Dateien der Befunde abgedeckt; diese Datei wartet auf eine spaetere Welle",
+    "analytics.js": "noch nicht verhaltensgeprueft — Welle H2 hat die fuenf Dateien der Befunde abgedeckt; diese Datei wartet auf eine spaetere Welle",
+    "assignments.js": "noch nicht verhaltensgeprueft — Welle H2 hat die fuenf Dateien der Befunde abgedeckt; diese Datei wartet auf eine spaetere Welle",
+    "auth.js": "noch nicht verhaltensgeprueft — Welle H2 hat die fuenf Dateien der Befunde abgedeckt; diese Datei wartet auf eine spaetere Welle",
+    "bounties.js": "noch nicht verhaltensgeprueft — Welle H2 hat die fuenf Dateien der Befunde abgedeckt; diese Datei wartet auf eine spaetere Welle",
+    "capacities.js": "noch nicht verhaltensgeprueft — Welle H2 hat die fuenf Dateien der Befunde abgedeckt; diese Datei wartet auf eine spaetere Welle",
+    "capacityDiscovery.js": "noch nicht verhaltensgeprueft — Welle H2 hat die fuenf Dateien der Befunde abgedeckt; diese Datei wartet auf eine spaetere Welle",
+    "capacityExchange.js": "vorrangig fuer die naechste Welle — Plan H2 nennt sie als eine der vier dichtesten ungeprueften Flaechen",
+    "companyProfile.js": "noch nicht verhaltensgeprueft — Welle H2 hat die fuenf Dateien der Befunde abgedeckt; diese Datei wartet auf eine spaetere Welle",
+    "companyTimesheets.js": "noch nicht verhaltensgeprueft — Welle H2 hat die fuenf Dateien der Befunde abgedeckt; diese Datei wartet auf eine spaetere Welle",
+    "complianceDocs.js": "noch nicht verhaltensgeprueft — Welle H2 hat die fuenf Dateien der Befunde abgedeckt; diese Datei wartet auf eine spaetere Welle",
+    "contracts.js": "noch nicht verhaltensgeprueft — Welle H2 hat die fuenf Dateien der Befunde abgedeckt; diese Datei wartet auf eine spaetere Welle",
+    "credits.js": "noch nicht verhaltensgeprueft — Welle H2 hat die fuenf Dateien der Befunde abgedeckt; diese Datei wartet auf eine spaetere Welle",
+    "csrf.js": "noch nicht verhaltensgeprueft — Welle H2 hat die fuenf Dateien der Befunde abgedeckt; diese Datei wartet auf eine spaetere Welle",
+    "dataGovernance.js": "noch nicht verhaltensgeprueft — Welle H2 hat die fuenf Dateien der Befunde abgedeckt; diese Datei wartet auf eine spaetere Welle",
+    "dealFeedback.js": "noch nicht verhaltensgeprueft — Welle H2 hat die fuenf Dateien der Befunde abgedeckt; diese Datei wartet auf eine spaetere Welle",
+    "demo.js": "noch nicht verhaltensgeprueft — Welle H2 hat die fuenf Dateien der Befunde abgedeckt; diese Datei wartet auf eine spaetere Welle",
+    "documentCenter.js": "noch nicht verhaltensgeprueft — Welle H2 hat die fuenf Dateien der Befunde abgedeckt; diese Datei wartet auf eine spaetere Welle",
+    "emergency.js": "noch nicht verhaltensgeprueft — Welle H2 hat die fuenf Dateien der Befunde abgedeckt; diese Datei wartet auf eine spaetere Welle",
+    "geo.js": "noch nicht verhaltensgeprueft — Welle H2 hat die fuenf Dateien der Befunde abgedeckt; diese Datei wartet auf eine spaetere Welle",
+    "health.js": "noch nicht verhaltensgeprueft — Welle H2 hat die fuenf Dateien der Befunde abgedeckt; diese Datei wartet auf eine spaetere Welle",
+    "integrations.js": "noch nicht verhaltensgeprueft — Welle H2 hat die fuenf Dateien der Befunde abgedeckt; diese Datei wartet auf eine spaetere Welle",
+    "internal.js": "noch nicht verhaltensgeprueft — Welle H2 hat die fuenf Dateien der Befunde abgedeckt; diese Datei wartet auf eine spaetere Welle",
+    "internalControlCenter.js": "noch nicht verhaltensgeprueft — Welle H2 hat die fuenf Dateien der Befunde abgedeckt; diese Datei wartet auf eine spaetere Welle",
+    "listings.js": "noch nicht verhaltensgeprueft — Welle H2 hat die fuenf Dateien der Befunde abgedeckt; diese Datei wartet auf eine spaetere Welle",
+    "marketplace.js": "vorrangig fuer die naechste Welle — Plan H2 nennt sie als eine der vier dichtesten ungeprueften Flaechen",
+    "matching.js": "noch nicht verhaltensgeprueft — Welle H2 hat die fuenf Dateien der Befunde abgedeckt; diese Datei wartet auf eine spaetere Welle",
+    "me.js": "noch nicht verhaltensgeprueft — Welle H2 hat die fuenf Dateien der Befunde abgedeckt; diese Datei wartet auf eine spaetere Welle",
+    "mentoring.js": "noch nicht verhaltensgeprueft — Welle H2 hat die fuenf Dateien der Befunde abgedeckt; diese Datei wartet auf eine spaetere Welle",
+    "mfa.js": "noch nicht verhaltensgeprueft — Welle H2 hat die fuenf Dateien der Befunde abgedeckt; diese Datei wartet auf eine spaetere Welle",
+    "notificationStream.js": "noch nicht verhaltensgeprueft — Welle H2 hat die fuenf Dateien der Befunde abgedeckt; diese Datei wartet auf eine spaetere Welle",
+    "notifications.js": "noch nicht verhaltensgeprueft — Welle H2 hat die fuenf Dateien der Befunde abgedeckt; diese Datei wartet auf eine spaetere Welle",
+    "oauth.js": "noch nicht verhaltensgeprueft — Welle H2 hat die fuenf Dateien der Befunde abgedeckt; diese Datei wartet auf eine spaetere Welle",
+    "offerAssets.js": "noch nicht verhaltensgeprueft — Welle H2 hat die fuenf Dateien der Befunde abgedeckt; diese Datei wartet auf eine spaetere Welle",
+    "onboarding.js": "noch nicht verhaltensgeprueft — Welle H2 hat die fuenf Dateien der Befunde abgedeckt; diese Datei wartet auf eine spaetere Welle",
+    "orgControlCenter.js": "noch nicht verhaltensgeprueft — Welle H2 hat die fuenf Dateien der Befunde abgedeckt; diese Datei wartet auf eine spaetere Welle",
+    "ownerControlCenter.js": "noch nicht verhaltensgeprueft — Welle H2 hat die fuenf Dateien der Befunde abgedeckt; diese Datei wartet auf eine spaetere Welle",
+    "payment.js": "noch nicht verhaltensgeprueft — Welle H2 hat die fuenf Dateien der Befunde abgedeckt; diese Datei wartet auf eine spaetere Welle",
+    "pilotPreregistration.js": "noch nicht verhaltensgeprueft — Welle H2 hat die fuenf Dateien der Befunde abgedeckt; diese Datei wartet auf eine spaetere Welle",
+    "plans.js": "noch nicht verhaltensgeprueft — Welle H2 hat die fuenf Dateien der Befunde abgedeckt; diese Datei wartet auf eine spaetere Welle",
+    "preferredVendors.js": "noch nicht verhaltensgeprueft — Welle H2 hat die fuenf Dateien der Befunde abgedeckt; diese Datei wartet auf eine spaetere Welle",
+    "productReleases.js": "noch nicht verhaltensgeprueft — Welle H2 hat die fuenf Dateien der Befunde abgedeckt; diese Datei wartet auf eine spaetere Welle",
+    "profileAnalytics.js": "noch nicht verhaltensgeprueft — Welle H2 hat die fuenf Dateien der Befunde abgedeckt; diese Datei wartet auf eine spaetere Welle",
+    "profileBounties.js": "noch nicht verhaltensgeprueft — Welle H2 hat die fuenf Dateien der Befunde abgedeckt; diese Datei wartet auf eine spaetere Welle",
+    "profileRankings.js": "noch nicht verhaltensgeprueft — Welle H2 hat die fuenf Dateien der Befunde abgedeckt; diese Datei wartet auf eine spaetere Welle",
+    "profileVisibility.js": "noch nicht verhaltensgeprueft — Welle H2 hat die fuenf Dateien der Befunde abgedeckt; diese Datei wartet auf eine spaetere Welle",
+    "proofs.js": "noch nicht verhaltensgeprueft — Welle H2 hat die fuenf Dateien der Befunde abgedeckt; diese Datei wartet auf eine spaetere Welle",
+    "publicPlans.js": "noch nicht verhaltensgeprueft — Welle H2 hat die fuenf Dateien der Befunde abgedeckt; diese Datei wartet auf eine spaetere Welle",
+    "ratings.js": "noch nicht verhaltensgeprueft — Welle H2 hat die fuenf Dateien der Befunde abgedeckt; diese Datei wartet auf eine spaetere Welle",
+    "referralProgram.js": "noch nicht verhaltensgeprueft — Welle H2 hat die fuenf Dateien der Befunde abgedeckt; diese Datei wartet auf eine spaetere Welle",
+    "reporting.js": "noch nicht verhaltensgeprueft — Welle H2 hat die fuenf Dateien der Befunde abgedeckt; diese Datei wartet auf eine spaetere Welle",
+    "reports.js": "noch nicht verhaltensgeprueft — Welle H2 hat die fuenf Dateien der Befunde abgedeckt; diese Datei wartet auf eine spaetere Welle",
+    "reputation.js": "noch nicht verhaltensgeprueft — Welle H2 hat die fuenf Dateien der Befunde abgedeckt; diese Datei wartet auf eine spaetere Welle",
+    "requests.js": "noch nicht verhaltensgeprueft — Welle H2 hat die fuenf Dateien der Befunde abgedeckt; diese Datei wartet auf eine spaetere Welle",
+    "scim.js": "noch nicht verhaltensgeprueft — Welle H2 hat die fuenf Dateien der Befunde abgedeckt; diese Datei wartet auf eine spaetere Welle",
+    "search.js": "noch nicht verhaltensgeprueft — Welle H2 hat die fuenf Dateien der Befunde abgedeckt; diese Datei wartet auf eine spaetere Welle",
+    "settings.js": "noch nicht verhaltensgeprueft — Welle H2 hat die fuenf Dateien der Befunde abgedeckt; diese Datei wartet auf eine spaetere Welle",
+    "skills.js": "noch nicht verhaltensgeprueft — Welle H2 hat die fuenf Dateien der Befunde abgedeckt; diese Datei wartet auf eine spaetere Welle",
+    "slaSearchJobs.js": "noch nicht verhaltensgeprueft — Welle H2 hat die fuenf Dateien der Befunde abgedeckt; diese Datei wartet auf eine spaetere Welle",
+    "smartPricing.js": "noch nicht verhaltensgeprueft — Welle H2 hat die fuenf Dateien der Befunde abgedeckt; diese Datei wartet auf eine spaetere Welle",
+    "spendAnalytics.js": "noch nicht verhaltensgeprueft — Welle H2 hat die fuenf Dateien der Befunde abgedeckt; diese Datei wartet auf eine spaetere Welle",
+    "sso.js": "noch nicht verhaltensgeprueft — Welle H2 hat die fuenf Dateien der Befunde abgedeckt; diese Datei wartet auf eine spaetere Welle",
+    "staffControlCenter.js": "vorrangig fuer die naechste Welle — Plan H2 nennt sie als eine der vier dichtesten ungeprueften Flaechen",
+    "strategicCollaboration.js": "noch nicht verhaltensgeprueft — Welle H2 hat die fuenf Dateien der Befunde abgedeckt; diese Datei wartet auf eine spaetere Welle",
+    "subscriptionDocuments.js": "noch nicht verhaltensgeprueft — Welle H2 hat die fuenf Dateien der Befunde abgedeckt; diese Datei wartet auf eine spaetere Welle",
+    "subscriptionRequests.js": "noch nicht verhaltensgeprueft — Welle H2 hat die fuenf Dateien der Befunde abgedeckt; diese Datei wartet auf eine spaetere Welle",
+    "supplierPools.js": "noch nicht verhaltensgeprueft — Welle H2 hat die fuenf Dateien der Befunde abgedeckt; diese Datei wartet auf eine spaetere Welle",
+    "suppliers.js": "noch nicht verhaltensgeprueft — Welle H2 hat die fuenf Dateien der Befunde abgedeckt; diese Datei wartet auf eine spaetere Welle",
+    "support.js": "noch nicht verhaltensgeprueft — Welle H2 hat die fuenf Dateien der Befunde abgedeckt; diese Datei wartet auf eine spaetere Welle",
+    "timesheetTemplates.js": "noch nicht verhaltensgeprueft — Welle H2 hat die fuenf Dateien der Befunde abgedeckt; diese Datei wartet auf eine spaetere Welle",
+    "timesheets.js": "noch nicht verhaltensgeprueft — Welle H2 hat die fuenf Dateien der Befunde abgedeckt; diese Datei wartet auf eine spaetere Welle",
+    "vendorPool.js": "noch nicht verhaltensgeprueft — Welle H2 hat die fuenf Dateien der Befunde abgedeckt; diese Datei wartet auf eine spaetere Welle",
+    "workerPortal.js": "vorrangig fuer die naechste Welle — Plan H2 nennt sie als eine der vier dichtesten ungeprueften Flaechen",
+    "workers.js": "noch nicht verhaltensgeprueft — Welle H2 hat die fuenf Dateien der Befunde abgedeckt; diese Datei wartet auf eine spaetere Welle",
+    "workforce.js": "noch nicht verhaltensgeprueft — Welle H2 hat die fuenf Dateien der Befunde abgedeckt; diese Datei wartet auf eine spaetere Welle"
+  }
+}

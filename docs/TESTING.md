@@ -195,6 +195,46 @@ See [COVERAGE.md](./COVERAGE.md) for thresholds, interpretation, and CI integrat
 
 ---
 
+## Der Org-Grenzen-Wächter — was ein 403-Test nicht beweist
+
+`api/test/orgGrenzenWaechter.test.js` (Register: `api/test/fixtures/orgGrenzen.json`,
+Werkzeug: `api/test/helpers/orgGrenzenSpion.js`).
+
+**Warum er zusätzlich zu `test/security/coreFlowCrossTenant.test.js` existiert:**
+Jener prüft `res._status === 403` — und sonst nichts. Damit besteht ihn auch
+eine Route, die erst schreibt und *danach* 403 meldet, ebenso eine, die über die
+falsche Kennung urteilt. Beide Muster waren real (Befunde E-5 und E-8, siehe
+`docs/features/H_KUNDENANSICHT_UND_ORG_GRENZEN.md`).
+
+**Vier Schichten:** (A) jede `:id`-Route braucht ein Urteil im Register,
+aufgezählt über das **Router-Objekt** statt über den Quelltext · (B) Spion-Pool,
+der jede Abfrage mitschreibt (403 · kein Schreibvorgang · Ressourcen-ID in der
+Abfrage · Org und Adressat in derselben Anweisung) plus Gegenprobe mit der
+eigenen Org · (C) Bestandsbuch aller 82 Route-Dateien mit Sperrklinke ·
+(D) Selbstprobe an drei absichtlich kaputten Mini-Routern.
+
+**Drei Fallen, die er umgeht — alle real aufgetreten:**
+
+1. **Quelltext statt Verhalten.** `if (false && X)` trägt die gesuchte
+   Zeichenkette weiterhin. Der Wächter führt aus, statt zu lesen — gemessen:
+   diese Mutation macht ihn rot.
+2. **Grenze in einer Middleware.** `findHandlerExact` liefert nur den letzten
+   Handler; liegt die Grenze in `sameOrgParam`, meldet eine naive Probe eine
+   bewachte Route als Lücke. Dafür gibt es `findChainFrom(router, ..., mwName)`
+   und das Registerfeld `grenzeIn`.
+3. **Pauschales `return 403`.** Ohne Gegenprobe bestünde es jede Prüfung. Sie
+   fängt zugleich die stillgelegte Route (`schreibtBeiErfolg`).
+
+**Was er nicht kann:** beweisen, dass ein Service-SQL seine `AND org_id`-Klausel
+behalten hat. Diese Hälfte tragen die Grenz-Abschnitte in
+`rateCardService.test.js`, `approvalService.test.js` und
+`operationalInvoice.test.js`, die das abgesetzte SQL selbst befragen.
+
+**Eine neue `:id`-Route anlegen?** Dann wird dieser Test rot, bis sie im Register
+steht. Das ist die Absicht.
+
+---
+
 ## Mutation Testing — was Coverage nicht beweist
 
 Coverage sagt: **„diese Zeile wurde ausgeführt"**. Mutation Testing sagt:

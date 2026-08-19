@@ -124,13 +124,27 @@ export function createRequisitionsRouter(deps) {
   });
 
   /** PATCH /requisitions/:id – Felder aktualisieren */
-  router.patch("/requisitions/:id", requireAuth, requireScope("write:requisitions"), requirePermission("requisition.edit", { pool, logger }), async (req, res) => {
+  router.patch("/requisitions/:id", requireAuth, requireScope("write:requisitions"), requirePermission("requisition.edit", { pool, logger }), async (req, res, next) => {
     const partial = createSchema.partial().safeParse(req.body);
     if (!partial.success) return res.status(400).json({ error: "VALIDATION", details: partial.error.issues });
-    const updated = await requisitionService.updateRequisition(pool, req.params.id, req.session.userId, partial.data);
-    if (!updated) return res.status(404).json({ error: "NOT_FOUND_OR_FORBIDDEN" });
-    res.locals.audit = { action: "requisition.update", entity_type: "requisition", entity_id: req.params.id, details: { changed_fields: Object.keys(partial.data) } };
-    res.json(updated);
+    try {
+      // Org-Boundary (Befund E-4): Der Service begrenzt per
+      // `WHERE id = $1 AND created_by = $2` — eine ERSTELLER-Grenze. Sie deckt
+      // den Cross-Org-Fall zufaellig mit ab (fremde Zeile, fremder Ersteller),
+      // aber sie sagt nicht, was sie meint, und sie antwortet mit einem
+      // irrefuehrenden 404. Die Org-Grenze steht jetzt explizit davor; die
+      // Ersteller-Bedingung bleibt unveraendert bestehen.
+      await assertOrgOwnership(pool, 'requisitions', req.params.id, req.orgId);
+      const updated = await requisitionService.updateRequisition(pool, req.params.id, req.session.userId, partial.data);
+      if (!updated) return res.status(404).json({ error: "NOT_FOUND_OR_FORBIDDEN" });
+      res.locals.audit = { action: "requisition.update", entity_type: "requisition", entity_id: req.params.id, details: { changed_fields: Object.keys(partial.data) } };
+      res.json(updated);
+    } catch (err) {
+      if (err instanceof OrgBoundaryError) {
+        return res.status(403).json({ error: "ORG_BOUNDARY_VIOLATION", message: err.message });
+      }
+      next(err);
+    }
   });
 
   /** POST /requisitions/:id/transition – Status aendern */
@@ -159,17 +173,29 @@ export function createRequisitionsRouter(deps) {
   });
 
   /** POST /requisitions/:id/submit – Zur Freigabe einreichen (Shortcut) */
-  router.post("/requisitions/:id/submit", requireAuth, requireScope("write:requisitions"), async (req, res) => {
+  router.post("/requisitions/:id/submit", requireAuth, requireScope("write:requisitions"), async (req, res, next) => {
     try {
+      // Org-Boundary (Befund E-4, 2026-08-19): /transition und /approve rufen
+      // assertOrgOwnership, /submit nicht — und es landet ueber
+      // submitForApproval in derselben transitionStatus. Zwei von drei Tueren
+      // zum selben Raum waren bewacht.
+      //
+      // Bewusst OHNE `if (req.orgId)`: die vier bestehenden Aufrufstellen
+      // entschaerfen damit die fail-closed Null-Wache des Helfers
+      // (orgBoundary.js:55) zu totem Code. Neuer Code faellt geschlossen aus.
+      await assertOrgOwnership(pool, 'requisitions', req.params.id, req.orgId);
       const result = await requisitionService.submitForApproval(pool, req.params.id, req.session.userId);
       if (result.error) return res.status(404).json({ error: result.error });
       res.locals.audit = { action: "requisition.submit_for_approval", entity_type: "requisition", entity_id: req.params.id };
       res.json(result.requisition);
     } catch (err) {
+      if (err instanceof OrgBoundaryError) {
+        return res.status(403).json({ error: "ORG_BOUNDARY_VIOLATION", message: err.message });
+      }
       if (err instanceof RequisitionTransitionError) {
         return res.status(409).json({ error: "INVALID_TRANSITION", from: err.from, to: err.to });
       }
-      throw err;
+      next(err);
     }
   });
 
@@ -199,26 +225,60 @@ export function createRequisitionsRouter(deps) {
   });
 
   /** GET /requisitions/:id/events – Audit Trail */
-  router.get("/requisitions/:id/events", requireAuth, requireScope("read:requisitions"), requirePermission("requisition.view", { pool, logger }), async (req, res) => {
-    const events = await requisitionService.getRequisitionEvents(pool, req.params.id);
-    res.json({ events });
+  router.get("/requisitions/:id/events", requireAuth, requireScope("read:requisitions"), requirePermission("requisition.view", { pool, logger }), async (req, res, next) => {
+    try {
+      // Org-Boundary (Befund E-6, 2026-08-19, vom Waechter gefunden):
+      // getRequisitionEvents filtert nur nach requisition_id und gibt die
+      // Akteur-E-Mails samt vollstaendiger Statushistorie heraus. Die
+      // Geschwister /transition und /approve pruefen, diese Leseseite nicht.
+      await assertOrgOwnership(pool, 'requisitions', req.params.id, req.orgId);
+      const events = await requisitionService.getRequisitionEvents(pool, req.params.id);
+      res.json({ events });
+    } catch (err) {
+      if (err instanceof OrgBoundaryError) {
+        return res.status(403).json({ error: "ORG_BOUNDARY_VIOLATION", message: err.message });
+      }
+      next(err);
+    }
   });
 
   /** POST /requisitions/:id/comment – Kommentar hinzufuegen */
-  router.post("/requisitions/:id/comment", requireAuth, requireScope("write:requisitions"), async (req, res) => {
+  router.post("/requisitions/:id/comment", requireAuth, requireScope("write:requisitions"), async (req, res, next) => {
     const parsed = commentSchema.safeParse(req.body);
     if (!parsed.success) return res.status(400).json({ error: "VALIDATION", details: parsed.error.issues });
-    await requisitionService.addComment(pool, req.params.id, req.session.userId, parsed.data.text);
-    res.locals.audit = { action: "requisition.comment", entity_type: "requisition", entity_id: req.params.id };
-    res.json({ ok: true });
+    try {
+      // Org-Boundary (Befund E-10, vom Waechter gefunden): addComment schreibt
+      // ein Ereignis an JEDE Requisition — ohne jede Grenze.
+      await assertOrgOwnership(pool, 'requisitions', req.params.id, req.orgId);
+      await requisitionService.addComment(pool, req.params.id, req.session.userId, parsed.data.text);
+      res.locals.audit = { action: "requisition.comment", entity_type: "requisition", entity_id: req.params.id };
+      res.json({ ok: true });
+    } catch (err) {
+      if (err instanceof OrgBoundaryError) {
+        return res.status(403).json({ error: "ORG_BOUNDARY_VIOLATION", message: err.message });
+      }
+      next(err);
+    }
   });
 
   /* ── Candidates / Shortlist ──────────────────────────────── */
 
   /** GET /requisitions/:id/candidates – Kandidatenliste */
-  router.get("/requisitions/:id/candidates", requireAuth, requireScope("read:requisitions"), requirePermission("requisition.view", { pool, logger }), async (req, res) => {
-    const candidates = await requisitionService.listCandidates(pool, req.params.id);
-    res.json({ candidates });
+  router.get("/requisitions/:id/candidates", requireAuth, requireScope("read:requisitions"), requirePermission("requisition.view", { pool, logger }), async (req, res, next) => {
+    try {
+      // Org-Boundary (Befund E-7, vom Waechter gefunden): listCandidates
+      // filtert nur nach requisition_id und gibt Lieferantennamen,
+      // Pruefer-E-Mails und Match-Scores fremder Ausschreibungen heraus.
+      // Die schreibenden Geschwister derselben Ressource pruefen laengst.
+      await assertOrgOwnership(pool, 'requisitions', req.params.id, req.orgId);
+      const candidates = await requisitionService.listCandidates(pool, req.params.id);
+      res.json({ candidates });
+    } catch (err) {
+      if (err instanceof OrgBoundaryError) {
+        return res.status(403).json({ error: "ORG_BOUNDARY_VIOLATION", message: err.message });
+      }
+      next(err);
+    }
   });
 
   /** POST /requisitions/:id/candidates – Kandidat hinzufuegen */

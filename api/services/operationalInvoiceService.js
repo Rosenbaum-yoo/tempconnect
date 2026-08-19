@@ -28,6 +28,20 @@ const VALID_TRANSITIONS = {
 
 /* ── Helpers ──────────────────────────────────────────────── */
 
+/**
+ * Die Mandantengrenze einer operativen Rechnung ist ZWEISEITIG: sie gehoert
+ * dem Kunden (org_id) UND dem Lieferanten (supplier_org_id). Dieselbe Regel
+ * steht in getOperationalInvoice — hier als benannte Funktion, damit die
+ * Schreibwege sie nicht in eigener Schreibweise nachbauen.
+ *
+ * Fail-closed: ohne orgId gehoert die Rechnung niemandem.
+ */
+function gehoertZurOrg(rechnung, orgId) {
+  if (!orgId || !rechnung) return false;
+  return String(rechnung.org_id) === String(orgId)
+      || String(rechnung.supplier_org_id) === String(orgId);
+}
+
 async function nextInvoiceNumber(client) {
   const { rows } = await client.query("SELECT nextval('invoice_number_seq') AS seq");
   const seq = String(rows[0].seq).padStart(6, "0");
@@ -411,14 +425,18 @@ export async function getBillableTimesheets(pool, orgId, filters = {}) {
    ═══════════════════════════════════════════════════════════ */
 
 export async function addCorrectionItem(pool, invoiceId, opts) {
-  const { description, amountCents, actorId } = opts;
+  const { description, amountCents, actorId, orgId } = opts;
 
   // Invoice laden + Status prüfen
   const { rows: inv } = await pool.query(
-    "SELECT id, status, org_id, supplier_org_id FROM invoices WHERE id = $1 AND invoice_type = 'operational'",
-    [invoiceId]
+    "SELECT id, status, org_id, supplier_org_id FROM invoices WHERE id = $1 AND invoice_type = 'operational' AND (org_id = $2 OR supplier_org_id = $2)",
+    [invoiceId, orgId]
   );
   if (!inv[0]) return { error: "NOT_FOUND" };
+  // Befund E-2 (2026-08-19): org_id und supplier_org_id wurden zwar geladen,
+  // aber nie verglichen — die Zeile darueber hat die Grenze jetzt im SQL, hier
+  // steht sie zusaetzlich in JS, damit ein entfernter WHERE-Teil nicht reicht.
+  if (!gehoertZurOrg(inv[0], orgId)) return { error: "ORG_BOUNDARY_VIOLATION" };
   if (inv[0].status !== "draft") return { error: "NOT_EDITABLE", status: inv[0].status };
 
   // Item hinzufügen
@@ -456,12 +474,15 @@ export async function addCorrectionItem(pool, invoiceId, opts) {
    transitionInvoice — Status-Lifecycle mit Audit
    ═══════════════════════════════════════════════════════════ */
 
-export async function transitionInvoice(pool, invoiceId, newStatus, actorId) {
+export async function transitionInvoice(pool, invoiceId, newStatus, actorId, orgId) {
   const { rows: inv } = await pool.query(
-    "SELECT id, status, org_id, supplier_org_id FROM invoices WHERE id = $1 AND invoice_type = 'operational'",
-    [invoiceId]
+    "SELECT id, status, org_id, supplier_org_id FROM invoices WHERE id = $1 AND invoice_type = 'operational' AND (org_id = $2 OR supplier_org_id = $2)",
+    [invoiceId, orgId]
   );
   if (!inv[0]) return { error: "NOT_FOUND" };
+  // Befund E-2 (2026-08-19): siehe addCorrectionItem — die Grenze steht jetzt
+  // doppelt, im SQL oben und hier.
+  if (!gehoertZurOrg(inv[0], orgId)) return { error: "ORG_BOUNDARY_VIOLATION" };
 
   const current = inv[0].status;
   const allowed = VALID_TRANSITIONS[current] || [];
@@ -479,10 +500,18 @@ export async function transitionInvoice(pool, invoiceId, newStatus, actorId) {
   }
 
   const setClause = ["status = $2", "updated_at = NOW()", ...extra].join(", ");
+  params.push(orgId);
+  const orgIdx = params.length;
   const { rows } = await pool.query(
-    `UPDATE invoices SET ${setClause} WHERE id = $1 RETURNING *`,
+    `UPDATE invoices SET ${setClause}
+     WHERE id = $1 AND (org_id = $${orgIdx} OR supplier_org_id = $${orgIdx})
+     RETURNING *`,
     params
   );
+  // Kein Treffer heisst hier: die Zeile gehoert nicht (mehr) zur Org. Ohne
+  // diese Wache liefe der Audit-Eintrag auf eine Rechnung, die nie geschrieben
+  // wurde.
+  if (!rows[0]) return { error: "NOT_FOUND" };
 
   await auditLog.writeAudit(pool, {
     action: `invoice.${newStatus}`,

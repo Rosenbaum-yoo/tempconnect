@@ -356,7 +356,7 @@ describe("operationalInvoiceService — transitionInvoice", () => {
       if (callIdx === 2) return { rows: [{ id: "inv-1", status: "issued" }] };
       return { rows: [] };
     });
-    const result = await transitionInvoice(pool, "inv-1", "issued", "u-1");
+    const result = await transitionInvoice(pool, "inv-1", "issued", "u-1", "org-1");
     assert.ok(result.invoice);
     assert.strictEqual(result.invoice.status, "issued");
   });
@@ -365,24 +365,24 @@ describe("operationalInvoiceService — transitionInvoice", () => {
     let callIdx = 0;
     const pool = mockPool(async (sql) => {
       callIdx++;
-      if (callIdx === 1) return { rows: [{ id: "inv-1", status: "issued" }] };
+      if (callIdx === 1) return { rows: [{ id: "inv-1", status: "issued", org_id: "org-1" }] };
       if (callIdx === 2) return { rows: [{ id: "inv-1", status: "paid" }] };
       return { rows: [] };
     });
-    const result = await transitionInvoice(pool, "inv-1", "paid", "u-1");
+    const result = await transitionInvoice(pool, "inv-1", "paid", "u-1", "org-1");
     assert.strictEqual(result.invoice.status, "paid");
   });
 
   it("rejects invalid transition (paid → draft)", async () => {
-    const pool = mockPool(async () => ({ rows: [{ id: "inv-1", status: "paid" }] }));
-    const result = await transitionInvoice(pool, "inv-1", "draft", "u-1");
+    const pool = mockPool(async () => ({ rows: [{ id: "inv-1", status: "paid", org_id: "org-1" }] }));
+    const result = await transitionInvoice(pool, "inv-1", "draft", "u-1", "org-1");
     assert.strictEqual(result.error, "INVALID_TRANSITION");
     assert.strictEqual(result.from, "paid");
   });
 
   it("returns NOT_FOUND for nonexistent invoice", async () => {
     const pool = returnPool([]);
-    const result = await transitionInvoice(pool, "inv-99", "issued", "u-1");
+    const result = await transitionInvoice(pool, "inv-99", "issued", "u-1", "org-1");
     assert.strictEqual(result.error, "NOT_FOUND");
   });
 
@@ -391,11 +391,11 @@ describe("operationalInvoiceService — transitionInvoice", () => {
       let callIdx = 0;
       const pool = mockPool(async () => {
         callIdx++;
-        if (callIdx === 1) return { rows: [{ id: "inv-1", status }] };
+        if (callIdx === 1) return { rows: [{ id: "inv-1", status, org_id: "org-1" }] };
         if (callIdx === 2) return { rows: [{ id: "inv-1", status: "void" }] };
         return { rows: [] };
       });
-      const result = await transitionInvoice(pool, "inv-1", "void", "u-1");
+      const result = await transitionInvoice(pool, "inv-1", "void", "u-1", "org-1");
       assert.strictEqual(result.invoice.status, "void", `Should void from ${status}`);
     }
   });
@@ -414,20 +414,20 @@ describe("operationalInvoiceService — addCorrectionItem", () => {
       if (callIdx === 2) return { rows: [{ id: "item-new", item_type: "adjustment", total_cents: -5000 }] };
       return { rows: [] };
     });
-    const result = await addCorrectionItem(pool, "inv-1", { description: "Rabatt", amountCents: -5000, actorId: "u-1" });
+    const result = await addCorrectionItem(pool, "inv-1", { description: "Rabatt", amountCents: -5000, actorId: "u-1", orgId: "org-1" });
     assert.ok(result.item);
     assert.strictEqual(result.item.item_type, "adjustment");
   });
 
   it("rejects correction on issued invoice", async () => {
-    const pool = mockPool(async () => ({ rows: [{ id: "inv-1", status: "issued" }] }));
-    const result = await addCorrectionItem(pool, "inv-1", { description: "Test", amountCents: 100, actorId: "u-1" });
+    const pool = mockPool(async () => ({ rows: [{ id: "inv-1", status: "issued", org_id: "org-1" }] }));
+    const result = await addCorrectionItem(pool, "inv-1", { description: "Test", amountCents: 100, actorId: "u-1", orgId: "org-1" });
     assert.strictEqual(result.error, "NOT_EDITABLE");
   });
 
   it("returns NOT_FOUND for nonexistent invoice", async () => {
     const pool = returnPool([]);
-    const result = await addCorrectionItem(pool, "inv-99", { description: "Test", amountCents: 100, actorId: "u-1" });
+    const result = await addCorrectionItem(pool, "inv-99", { description: "Test", amountCents: 100, actorId: "u-1", orgId: "org-1" });
     assert.strictEqual(result.error, "NOT_FOUND");
   });
 });
@@ -483,5 +483,55 @@ describe("operationalInvoiceService — exportOperationalInvoiceCsv", () => {
     };
     const csv = exportOperationalInvoiceCsv(invoice);
     assert.ok(csv.includes('""'));
+  });
+});
+
+// ═══════════════════════════════════════════════════════════════
+// Org-Grenze (Befund E-2, 2026-08-19)
+// ═══════════════════════════════════════════════════════════════
+//
+// transitionInvoice lud org_id und supplier_org_id, verglich sie aber nie.
+// Die Grenze ist ZWEISEITIG: Kunde (org_id) und Lieferant (supplier_org_id).
+
+describe("operationalInvoiceService — Org-Grenze bei den Schreibwegen", () => {
+  function spion(rows) {
+    const calls = [];
+    return { calls, query: async (sql, params) => { calls.push({ sql, params }); return { rows: rows.shift() ?? [] }; } };
+  }
+
+  it("transitionInvoice meldet die Grenze statt zu schreiben", async () => {
+    const pool = spion([[{ id: "inv-1", status: "draft", org_id: "org-fremd", supplier_org_id: "org-fremd" }]]);
+    const result = await transitionInvoice(pool, "inv-1", "issued", "u-1", "org-1");
+    assert.strictEqual(result.error, "ORG_BOUNDARY_VIOLATION");
+    assert.strictEqual(pool.calls.length, 1, "nach der Grenze darf nichts mehr laufen");
+  });
+
+  it("addCorrectionItem meldet die Grenze statt zu schreiben", async () => {
+    const pool = spion([[{ id: "inv-1", status: "draft", org_id: "org-fremd", supplier_org_id: "org-fremd" }]]);
+    const result = await addCorrectionItem(pool, "inv-1", { description: "x", amountCents: 1, actorId: "u-1", orgId: "org-1" });
+    assert.strictEqual(result.error, "ORG_BOUNDARY_VIOLATION");
+    assert.strictEqual(pool.calls.length, 1);
+  });
+
+  it("die Lieferantenseite gilt ebenfalls als eigene Zeile", async () => {
+    const pool = spion([
+      [{ id: "inv-1", status: "draft", org_id: "org-kunde", supplier_org_id: "org-1" }],
+      [{ id: "inv-1", status: "issued" }],
+      []
+    ]);
+    const result = await transitionInvoice(pool, "inv-1", "issued", "u-1", "org-1");
+    assert.ok(result.invoice, "der Lieferant muss seine eigene Rechnung stellen koennen");
+  });
+
+  it("die Org steht in der Lese- UND in der Schreibabfrage", async () => {
+    const pool = spion([
+      [{ id: "inv-1", status: "draft", org_id: "org-1", supplier_org_id: null }],
+      [{ id: "inv-1", status: "issued" }],
+      []
+    ]);
+    await transitionInvoice(pool, "inv-1", "issued", "u-1", "org-1");
+    assert.ok(pool.calls[0].params.includes("org-1"), "Lesen ohne Org-Bindung");
+    assert.ok(/supplier_org_id\s*=\s*\$\d/.test(pool.calls[1].sql), "Schreiben ohne zweiseitige Org-Bindung");
+    assert.ok(pool.calls[1].params.includes("org-1"), "Schreiben ohne Org-Parameter");
   });
 });

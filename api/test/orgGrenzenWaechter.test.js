@@ -1,0 +1,360 @@
+/**
+ * Der Waechter der Mandantengrenze.
+ *
+ * ═══════════════════════════════════════════════════════════════════════════
+ * WARUM ES DIESEN TEST GIBT
+ * ═══════════════════════════════════════════════════════════════════════════
+ *
+ * Die Mandantengrenze steht in dieser Codebasis **80-mal einzeln** in 18
+ * Route-Dateien (docs/ORG_GRENZE_BEFUND.md, 2026-08-11). Die naheliegende
+ * Antwort — konsolidieren — beantwortet die falsche Frage. Die Recherche vom
+ * 2026-08-19 hat die 80 Kopien untereinander als erstaunlich EINHEITLICH
+ * befunden; gefaehrlich waren die Stellen, an denen **gar keine Kopie stand**.
+ * Fuenf davon wurden gefunden, drei mit schreibendem Cross-Org-Zugriff
+ * (Konditionsrahmen, Rechnungen, Freigaben). Eine Konsolidierung der 80 haette
+ * keine einzige davon gefunden — ein Waechter meldet sie beim Anlegen.
+ *
+ * ═══════════════════════════════════════════════════════════════════════════
+ * WIE ER ARBEITET — DREI SCHICHTEN
+ * ═══════════════════════════════════════════════════════════════════════════
+ *
+ * (A) VOLLSTAENDIGKEIT — jede Route mit einem Pfad-Platzhalter in einem
+ *     abgedeckten Router muss im Register stehen, mit einem Urteil. Die
+ *     Aufzaehlung kommt aus dem **Router-Objekt** (`listRoutes`), nicht aus dem
+ *     Quelltext: das ist die Lehre aus Welle G6, wo ein Quelltext-Test einen
+ *     Mutanten ueberleben liess, weil `if (false && X)` die gesuchte
+ *     Zeichenkette weiterhin enthaelt. Wer eine `:id`-Route anlegt und das
+ *     Register nicht anfasst, bekommt hier rot. **Genau das haette E-1 bis E-4
+ *     beim Anlegen gemeldet.**
+ *
+ * (B) VERHALTEN — jede als `verhaltensgeprueft` eingetragene Route laeuft
+ *     gegen einen Spion-Pool, der jede Abfrage mitschreibt und jede Zeile als
+ *     FREMD beantwortet. Vier Zusicherungen, wobei erst 2 bis 4 den Beweis
+ *     tragen (Details in helpers/orgGrenzenSpion.js), dazu die Gegenprobe mit
+ *     der eigenen Org. Das ist strikt mehr als das vorhandene
+ *     `test/security/coreFlowCrossTenant.test.js`, das nur `res._status === 403`
+ *     prueft.
+ *
+ * (C) BESTANDSBUCH — jede Datei in `routes/` ist entweder abgedeckt oder unter
+ *     `nichtAbgedeckt` mit Begruendung eingetragen. Ohne diese Schicht bliebe
+ *     die ehrlichste Zahl der Recherche unsichtbar: geprueft wurden 18 von 82
+ *     Route-Dateien. Eine neue Datei macht diesen Test rot — die Luecke kann
+ *     nicht mehr stillschweigend wachsen.
+ *
+ * (D) SELBSTPROBE — drei absichtlich kaputte Mini-Router (Grenze vergessen /
+ *     Grenze nach dem Schreiben / Grenze auf dem falschen Parameter) MUESSEN
+ *     gemeldet werden. Ohne sie waere ein kaputter Pruefer von einem sauberen
+ *     Bestand nicht zu unterscheiden — dieselbe Begruendung, die
+ *     `sqlSchemaWaechter.test.js` in seinem Punkt (f) fuer sich selbst gibt.
+ *
+ * ═══════════════════════════════════════════════════════════════════════════
+ * WAS ER NICHT BEWEIST (ehrliche Grenze, gehoert ins Gate statt uebertuencht)
+ * ═══════════════════════════════════════════════════════════════════════════
+ *
+ * Er beweist die Entscheidung des Handlers und die Parameteruebergabe. Er
+ * beweist NICHT, dass ein Service-SQL sein `AND org_id = $2` behalten hat:
+ * nimmt jemand die Klausel heraus, uebergibt den Parameter aber weiter, bleibt
+ * Schicht (B) gruen. Diese Luecke deckt `sqlSchemaWaechter.test.js` plus die
+ * Mutationslaeufe auf den Services ab — und die Service-Tests, die das SQL
+ * selbst befragen (siehe die Grenz-Abschnitte in rateCardService.test.js,
+ * approvalService.test.js und operationalInvoice.test.js).
+ */
+
+import { describe, it } from "node:test";
+import assert from "node:assert/strict";
+import fs from "node:fs";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
+import { Router } from "express";
+
+import {
+  baseDeps, listRoutes, findHandlerExact, findChainFrom, mockReq, mockRes,
+  ORG_A, ORG_B
+} from "./helpers/security-mocks.js";
+import { pruefeGrenze, istSchreibend, spionPool } from "./helpers/orgGrenzenSpion.js";
+
+/* Pfade IMMER relativ zur Testdatei aufloesen — nie ueber process.cwd().
+   Sonst ueberspringt sich der Test je nach Startverzeichnis lautlos, und eine
+   gruene Suite prueft weniger, als sie behauptet (CLAUDE.md §0.9). */
+const HIER = path.dirname(fileURLToPath(import.meta.url));
+const API  = path.resolve(HIER, "..");
+const REGISTERPFAD = path.join(HIER, "fixtures", "orgGrenzen.json");
+
+const register = JSON.parse(fs.readFileSync(REGISTERPFAD, "utf8"));
+
+/** Router-Fabriken der abgedeckten Dateien. */
+const FABRIKEN = {
+  "rateCards.js":     async () => (await import("../routes/rateCards.js")).createRateCardsRouter,
+  "invoices.js":      async () => (await import("../routes/invoices.js")).createInvoicesRouter,
+  "approvals.js":     async () => (await import("../routes/approvals.js")).createApprovalsRouter,
+  "requisitions.js":  async () => (await import("../routes/requisitions.js")).createRequisitionsRouter,
+  "organizations.js": async () => (await import("../routes/organizations.js")).createOrganizationsRouter
+};
+
+const schluessel = (r) => `${r.methode || r.method} ${r.pfad || r.path}`;
+
+/** Router mit einem leeren Pool montieren — nur fuer die Aufzaehlung. */
+async function montiere(datei) {
+  const fabrik = await FABRIKEN[datei]();
+  return fabrik(baseDeps({ query: async () => ({ rows: [] }) }));
+}
+
+/* ═════════════════════════════════════════════════════════════════════════
+   (A) VOLLSTAENDIGKEIT — keine :id-Route ohne Urteil
+   ═════════════════════════════════════════════════════════════════════════ */
+
+describe("Org-Grenzen-Waechter (A) — jede Platzhalter-Route hat ein Urteil", () => {
+  for (const eintrag of register.abgedeckteRouter) {
+    it(`${eintrag.datei}: Register und Router stimmen ueberein`, async () => {
+      const router = await montiere(eintrag.datei);
+      const echte = listRoutes(router)
+        .filter((r) => r.path.includes(":"))
+        .map(schluessel)
+        .sort();
+      const registrierte = eintrag.routen.map(schluessel).sort();
+
+      const fehlend = echte.filter((k) => !registrierte.includes(k));
+      const verwaist = registrierte.filter((k) => !echte.includes(k));
+
+      assert.deepStrictEqual(
+        fehlend, [],
+        `Diese Routen tragen einen Platzhalter, stehen aber nicht im Register ` +
+        `(${path.relative(API, REGISTERPFAD)}). Jede von ihnen kann eine fremde ` +
+        `Zeile treffen — sie braucht ein Urteil: "verhaltensgeprueft" oder ` +
+        `"bewusste-ausnahme" mit Begruendung.`
+      );
+      assert.deepStrictEqual(
+        verwaist, [],
+        "Das Register kennt Routen, die es nicht mehr gibt — Karteileichen taeuschen Abdeckung vor."
+      );
+    });
+
+    it(`${eintrag.datei}: jede bewusste Ausnahme traegt eine Begruendung`, () => {
+      for (const r of eintrag.routen) {
+        assert.ok(
+          ["verhaltensgeprueft", "bewusste-ausnahme"].includes(r.urteil),
+          `${schluessel(r)}: unbekanntes Urteil '${r.urteil}'`
+        );
+        if (r.urteil === "bewusste-ausnahme") {
+          assert.ok(
+            typeof r.begruendung === "string" && r.begruendung.length >= 20,
+            `${schluessel(r)}: eine Ausnahme ohne Begruendung ist eine Luecke mit Etikett`
+          );
+        }
+      }
+    });
+  }
+});
+
+/* ═════════════════════════════════════════════════════════════════════════
+   (B) VERHALTEN — die Grenze wird ausgefuehrt, nicht gelesen
+   ═════════════════════════════════════════════════════════════════════════ */
+
+describe("Org-Grenzen-Waechter (B) — Verhaltensprobe mit Spion-Pool", () => {
+  for (const eintrag of register.abgedeckteRouter) {
+    for (const r of eintrag.routen.filter((x) => x.urteil === "verhaltensgeprueft")) {
+      it(`${eintrag.datei} · ${schluessel(r)}`, async () => {
+        const fabrik = await FABRIKEN[eintrag.datei]();
+
+        // Liegt die Grenze in einem benannten Middleware, wird die Kette ab
+        // dort ausgefuehrt — sonst meldet die Probe eine bewachte Route als
+        // Luecke (Fallstrick 5 des Plans).
+        const baueHandler = (pool) => {
+          const router = fabrik(baseDeps(pool));
+          return r.grenzeIn
+            ? findChainFrom(router, r.methode, r.pfad, r.grenzeIn)
+            : findHandlerExact(router, r.methode, r.pfad);
+        };
+
+        const { maengel } = await pruefeGrenze({
+          baueHandler,
+          pfad: r.pfad,
+          art: r.art || "ressource",
+          zeile: r.zeile || {},
+          anfrage: r.anfrage || {},
+          traegerspalten: r.traegerspalten || ["org_id"],
+          erwartung: r.erwartung || "403",
+          lesenMussZusammen: r.lesenMussZusammen || [],
+          orgEigen: ORG_A,
+          orgFremd: ORG_B,
+          schreibtBeiErfolg: r.schreibtBeiErfolg === true,
+          orgImSql: r.orgImSql === true,
+          baueReq: mockReq,
+          baueRes: mockRes
+        });
+
+        assert.deepStrictEqual(
+          maengel, [],
+          `${r.methode.toUpperCase()} ${r.pfad} haelt die Mandantengrenze nicht:\n  - ` +
+          maengel.join("\n  - ")
+        );
+      });
+    }
+  }
+});
+
+/* ═════════════════════════════════════════════════════════════════════════
+   (C) BESTANDSBUCH — die ungeprueften Dateien bleiben sichtbar
+   ═════════════════════════════════════════════════════════════════════════ */
+
+describe("Org-Grenzen-Waechter (C) — das Bestandsbuch der Route-Dateien", () => {
+  const dateien = fs.readdirSync(path.join(API, "routes"))
+    .filter((f) => f.endsWith(".js"))
+    .sort();
+
+  it("jede Route-Datei ist entweder abgedeckt oder mit Begruendung ausgesetzt", () => {
+    const abgedeckt = register.abgedeckteRouter.map((e) => e.datei);
+    const ausgesetzt = Object.keys(register.nichtAbgedeckt || {});
+    const unbekannt = dateien.filter((f) => !abgedeckt.includes(f) && !ausgesetzt.includes(f));
+
+    assert.deepStrictEqual(
+      unbekannt, [],
+      "Neue Route-Dateien, die weder abgedeckt noch ausgesetzt sind. Die " +
+      "Recherche hat 18 von 82 Dateien geprueft; diese Zeile sorgt dafuer, " +
+      "dass die Luecke nicht stillschweigend waechst."
+    );
+
+    const verschwunden = [...abgedeckt, ...ausgesetzt].filter((f) => !dateien.includes(f));
+    assert.deepStrictEqual(verschwunden, [], "Das Bestandsbuch fuehrt Dateien, die es nicht mehr gibt.");
+  });
+
+  it("jede Aussetzung nennt einen Grund", () => {
+    for (const [datei, grund] of Object.entries(register.nichtAbgedeckt || {})) {
+      assert.ok(
+        typeof grund === "string" && grund.length >= 10,
+        `${datei}: eine Aussetzung ohne Grund ist keine Entscheidung, sondern ein Versaeumnis`
+      );
+    }
+  });
+
+  it("die Abdeckung faellt nicht zurueck (Sperrklinke)", () => {
+    const geprueft = register.abgedeckteRouter
+      .reduce((n, e) => n + e.routen.filter((r) => r.urteil === "verhaltensgeprueft").length, 0);
+    assert.ok(
+      geprueft >= register.grundlinie.verhaltensgeprueft,
+      `Verhaltensgeprueft sind ${geprueft} Routen, die Grundlinie fordert ` +
+      `${register.grundlinie.verhaltensgeprueft}. Abdeckung darf wachsen, nicht schrumpfen — ` +
+      "wer eine Route auf 'bewusste-ausnahme' zurueckstuft, hebt die Grundlinie bewusst."
+    );
+  });
+});
+
+/* ═════════════════════════════════════════════════════════════════════════
+   (D) SELBSTPROBE — der Pruefer an drei absichtlichen Fehlern
+   ═════════════════════════════════════════════════════════════════════════
+
+   Ohne diese Schicht waere "alles gruen" nicht von "der Pruefer sieht nichts"
+   zu unterscheiden. Die drei Muster sind genau die, die in der Wirklichkeit
+   aufgetreten sind: E-1/E-3/E-4 hatten gar keine Grenze, und E-5 pruefte den
+   falschen Parameter.                                                        */
+
+describe("Org-Grenzen-Waechter (D) — Selbstprobe an kaputten Routern", () => {
+  /** Mini-Router, dessen Handler eine Zeile laedt und danach schreibt. */
+  function baueMini(handler) {
+    const router = Router();
+    router.post("/probe/:id", handler);
+    return router;
+  }
+
+  async function probiere(handler, extra = {}) {
+    return pruefeGrenze({
+      baueHandler: () => findHandlerExact(baueMini(handler), "post", "/probe/:id"),
+      pfad: "/probe/:id",
+      orgEigen: ORG_A,
+      orgFremd: ORG_B,
+      schreibtBeiErfolg: true,
+      baueReq: mockReq,
+      baueRes: mockRes,
+      ...extra
+    });
+  }
+
+  it("(a) Grenze vergessen — wird gemeldet", async () => {
+    const { maengel } = await probiere(async (req, res) => {
+      const { rows } = await req.pool.query("SELECT * FROM sachen WHERE id = $1", [req.params.id]);
+      if (!rows[0]) return res.status(404).json({ error: "NOT_FOUND" });
+      await req.pool.query("UPDATE sachen SET status = 'aktiv' WHERE id = $1", [req.params.id]);
+      res.json({ ok: true });
+    });
+    assert.ok(maengel.length > 0, "eine Route ganz ohne Grenze muss auffallen");
+    assert.ok(maengel.some((m) => /403/.test(m)), "der fehlende 403 muss benannt werden");
+  });
+
+  it("(b) Grenze NACH dem Schreiben — wird gemeldet", async () => {
+    const { maengel } = await probiere(async (req, res) => {
+      const { rows } = await req.pool.query("SELECT * FROM sachen WHERE id = $1", [req.params.id]);
+      // Der Schreibvorgang steht VOR der Pruefung — der Statuscode stimmt am
+      // Ende trotzdem. Genau diese Route besteht einen reinen 403-Test.
+      await req.pool.query("UPDATE sachen SET status = 'aktiv' WHERE id = $1", [req.params.id]);
+      if (rows[0] && rows[0].org_id !== req.orgId) {
+        return res.status(403).json({ error: "ORG_BOUNDARY_VIOLATION" });
+      }
+      res.json({ ok: true });
+    });
+    assert.ok(
+      maengel.some((m) => /geschrieben/.test(m)),
+      "'erst schreiben, dann 403' muss als Schreibvorgang gemeldet werden — " +
+      "gemeldet wurde: " + JSON.stringify(maengel)
+    );
+  });
+
+  it("(c) Grenze auf dem FALSCHEN Parameter — wird gemeldet", async () => {
+    // Nachbildung von E-5: geprueft wird eine Kennung, die der Nutzer selbst
+    // setzt; geholt wird ueber eine andere.
+    const { maengel } = await probiere(
+      async (req, res) => {
+        if (req.query.org !== req.orgId) {
+          return res.status(403).json({ error: "ORG_BOUNDARY_VIOLATION" });
+        }
+        const { rows } = await req.pool.query(
+          "SELECT * FROM sachen WHERE id = $1", [req.query.ziel]
+        );
+        res.json({ items: rows });
+      },
+      { anfrage: { query: { org: ORG_A, ziel: "eine-fremde-zeile" } }, schreibtBeiErfolg: false }
+    );
+    assert.ok(
+      maengel.some((m) => /Ressourcen-ID/.test(m)),
+      "eine Pruefung auf dem falschen Parameter muss auffallen, weil die " +
+      "angefragte Ressourcen-ID in keiner Abfrage steht — gemeldet wurde: " +
+      JSON.stringify(maengel)
+    );
+  });
+
+  it("(d) eine korrekte Route wird NICHT gemeldet — sonst ist der Pruefer nur streng", async () => {
+    const { maengel } = await probiere(async (req, res) => {
+      const { rows } = await req.pool.query("SELECT * FROM sachen WHERE id = $1", [req.params.id]);
+      if (!rows[0]) return res.status(404).json({ error: "NOT_FOUND" });
+      if (rows[0].org_id !== req.orgId) {
+        return res.status(403).json({ error: "ORG_BOUNDARY_VIOLATION" });
+      }
+      await req.pool.query(
+        "UPDATE sachen SET status = 'aktiv' WHERE id = $1 AND org_id = $2",
+        [req.params.id, req.orgId]
+      );
+      res.json({ ok: true });
+    });
+    assert.deepStrictEqual(maengel, [], "eine saubere Route darf nicht gemeldet werden");
+  });
+
+  it("(e) der Schreib-Erkenner unterscheidet Lesen von Schreiben", () => {
+    // `deleted_at` und `updated_at` enthalten die Schluesselwoerter als
+    // Wortanfang — ein naiver Zeichenketten-Test haelt beide SELECTs fuer
+    // Schreibvorgaenge und macht den ganzen Waechter wertlos.
+    assert.equal(istSchreibend("SELECT * FROM x WHERE deleted_at IS NULL"), false);
+    assert.equal(istSchreibend("SELECT updated_at FROM x"), false);
+    assert.equal(istSchreibend("  \n  -- Kommentar\n  UPDATE x SET a = 1"), true);
+    assert.equal(istSchreibend("INSERT INTO x VALUES (1)"), true);
+    assert.equal(istSchreibend("DELETE FROM x WHERE id = $1"), true);
+    assert.equal(istSchreibend("WITH neu AS (SELECT 1) INSERT INTO x SELECT * FROM neu"), true);
+    assert.equal(istSchreibend("WITH a AS (SELECT 1) SELECT * FROM a"), false);
+  });
+
+  it("(f) der Spion zaehlt Transaktionsklammern nicht als Abfrage", async () => {
+    const pool = spionPool({ zeile: { id: "x" } });
+    await pool.query("BEGIN");
+    await pool.query("SELECT 1");
+    await pool.query("COMMIT");
+    assert.equal(pool.calls.length, 1, "BEGIN/COMMIT sind keine Abfragen im Sinne der Pruefung");
+  });
+});

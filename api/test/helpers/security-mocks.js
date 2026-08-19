@@ -190,3 +190,45 @@ export function listRoutes(router) {
   }
   return routes;
 }
+
+/**
+ * Die Kette einer Route ab einem BENANNTEN Middleware ausfuehren.
+ *
+ * Warum das noetig ist: `findHandlerExact` liefert nur den letzten Handler.
+ * Steht die Mandantengrenze in einem vorgelagerten Middleware (in
+ * `organizations.js` heisst es `sameOrgParam`), sieht eine Probe auf dem
+ * Handler sie nicht — und meldet eine bewachte Route als Luecke. Genau dieser
+ * blinde Fleck steht als Fallstrick 5 im Plan H2.
+ *
+ * Ausgefuehrt wird ab dem benannten Middleware bis zum Ende der Kette, wobei
+ * die dazwischenliegenden anonymen Gates (requirePermission, requireOrgFeature,
+ * requireOrgLimit — sie brauchen eine echte Datenbank) uebersprungen werden.
+ * Der Name ist eine BINDUNG an den Bestand: verschwindet der Middleware aus der
+ * Kette, wirft diese Funktion.
+ */
+export function findChainFrom(router, method, path, mwName) {
+  for (const layer of router.stack) {
+    if (!layer.route || layer.route.path !== path) continue;
+    if (Object.keys(layer.route.methods)[0] !== method) continue;
+
+    const stack = layer.route.stack.map((s) => s.handle);
+    const start = stack.findIndex((h) => h.name === mwName);
+    if (start === -1) {
+      throw new Error(
+        `Route ${method.toUpperCase()} ${path} traegt keinen Middleware '${mwName}' mehr — ` +
+        "das Register behauptet, dort liege die Org-Grenze."
+      );
+    }
+    const kette = [stack[start], stack[stack.length - 1]];
+    return async (req, res, next) => {
+      for (const fn of kette) {
+        let weiter = false;
+        let fehler = null;
+        await fn(req, res, (err) => { if (err) fehler = err; else weiter = true; });
+        if (fehler) return next(fehler);
+        if (!weiter) return;          // dieser Schritt hat geantwortet
+      }
+    };
+  }
+  throw new Error(`Route ${method.toUpperCase()} ${path} not found`);
+}

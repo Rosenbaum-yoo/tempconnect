@@ -3,7 +3,7 @@
  * Protected: requires platform_admin or owner role.
  */
 import { Router } from "express";
-import { queryAuditLog, getRecentChanges } from "../services/auditLog.js";
+import { queryAuditLog, getRecentChangesPlatformWide } from "../services/auditLog.js";
 import { queryActivityFeed, getActionTypes, formatFeedItem } from "../services/activityFeedService.js";
 import * as eventService from "../services/eventTrackingService.js";
 import { getSystemDiagnostics } from "../services/healthService.js";
@@ -439,7 +439,10 @@ export function createAdminRouter(deps) {
       const entityId   = sanitize(req.query.entity_id || "");
       if (!entityType || !entityId) return res.status(400).json({ success: false, error: { code: "MISSING_PARAMS", message: "entity_type und entity_id erforderlich." } });
       const limit = Math.min(50, parseInt(req.query.limit) || 10);
-      const rows = await getRecentChanges(pool, entityType, entityId, limit);
+      // Plattform-Admin arbeitet bewusst mandantenuebergreifend (requireAdmin).
+      // Der explizite Name verhindert, dass die org-gebundene Fassung hier
+      // versehentlich ohne orgId aufgerufen wird — Befund E-5.
+      const rows = await getRecentChangesPlatformWide(pool, entityType, entityId, limit);
       res.json({ success: true, data: { items: rows } });
     } catch (e) { logger.error({ err: e }, "admin recent-changes"); res.status(500).json({ success: false, error: { code: "SERVER_ERROR" } }); }
   });

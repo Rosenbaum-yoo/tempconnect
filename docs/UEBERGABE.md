@@ -39,7 +39,15 @@ Abschnitten, die ich in Spuren mit **Wellen und Gates** schneide.
 ```bash
 cd api && node scripts/run-tests.js          # offizieller Runner, ohne Pipe
 ```
-Stand: **8660 Tests** (2026-08-18, voller Lauf ohne Pipe, 0 Fehler), davon 13 übersprungen — die DB-gebundenen, die nur im Container laufen.
+Stand: **8804 Tests** (2026-08-19, voller Lauf ohne Pipe, 0 Fehler), davon 13 übersprungen — die DB-gebundenen, die nur im Container laufen.
+
+> **Falle beim Arbeiten in einem `git worktree`:** `.agents/`, `frontend/support-ops/`
+> und die ungetrackten Dateien unter `docs/launch/` sind gitignored und fehlen in
+> einem frischen Baum. `dokuWaechter.test.js` und `docsConsistency.test.js` werden
+> dadurch rot, **ohne dass am Code etwas falsch ist**. Wer dort arbeitet,
+> verknüpft die drei Pfade aus dem Hauptbaum (Junction/Symlink), sonst jagt er
+> ein Gespenst. Am 2026-08-19 gemessen und bestätigt: im Hauptbaum grün, im
+> Worktree rot, nach dem Verknüpfen grün.
 
 Die DB-gestützten Tests laufen im Container, wo `DB_HOST` gesetzt ist — auf dem
 Host überspringen sie sich selbst. Was gegen das echte Schema geprüft sein muss
@@ -76,7 +84,8 @@ Lastabhängig. **Als eigene Aufgabe ausgelagert, nicht nebenbei anfassen.**
 |---|---|
 | [features/P10_IMPORT_LIVE_ZEIT.md](features/P10_IMPORT_LIVE_ZEIT.md) | Owner-Abschnitte 5–7: CSV-Import (Spur D), Live-Belegschaft (E), Systemzeit (F) |
 | `_TEMPCONNECT_MUTATION_RBAC_PLAN.md` *(gitignored!)* | Mutation-Testing, Wellen 0–4 + Roadmap für sieben weitere Bereiche |
-| [ORG_GRENZE_BEFUND.md](ORG_GRENZE_BEFUND.md) | Warum die Mandantengrenze 80-mal einzeln in den Routen steht — versionierte Fassung des wichtigsten Architekturbefunds |
+| [ORG_GRENZE_BEFUND.md](ORG_GRENZE_BEFUND.md) | Warum die Mandantengrenze 80-mal einzeln in den Routen steht — versionierte Fassung des wichtigsten Architekturbefunds. **Welle 3b ist abgeschlossen** (2026-08-19). |
+| `api/test/fixtures/orgGrenzen.json` | Das **Register der Mandantengrenze**: je Route ein Urteil, je Route-Datei ein Abdeckungsvermerk. Wird von `api/test/orgGrenzenWaechter.test.js` erzwungen. **Vor jeder neuen `:id`-Route lesen.** |
 | [FLAECHEN.md](FLAECHEN.md) | Was gehört ins Staff CC, was ins OCC, was ins Support Center. **Vor jedem neuen Modul lesen**, wird per Test erzwungen. |
 | [TESTING.md](TESTING.md) | Testarchitektur, inkl. Mutation Testing und seiner zwei Fallen |
 | [features/H_KUNDENANSICHT_UND_ORG_GRENZEN.md](features/H_KUNDENANSICHT_UND_ORG_GRENZEN.md) | **Naechste Sitzung.** H1 Kundenansicht (Fortsetzung G4b/G5), H2 die 80 Mandantengrenzen. **H2 enthaelt fuenf Stellen ohne Org-Pruefung — drei mit schreibendem Cross-Org-Zugriff.** Recherche vollstaendig festgehalten. |
@@ -138,14 +147,79 @@ noch nicht durchgegeben.
 ### Was als Nächstes ansteht
 
 **Arbeitsplan: [features/H_KUNDENANSICHT_UND_ORG_GRENZEN.md](features/H_KUNDENANSICHT_UND_ORG_GRENZEN.md)**
-— H1 zuerst, dann H2 (Owner-Entscheidung 2026-08-19).
+— **H2 ist gebaut** (2026-08-19). H1 lief parallel in einem eigenen Baum.
 
-> **H2 enthält Sicherheitslücken.** Die Recherche fand **fünf Stellen ohne jede
-> Org-Prüfung**: Konditionsrahmen aktivieren/archivieren, operative Rechnungen
-> (issue/paid/void/correction), Freigaben approve/reject samt Historie mit
-> E-Mails, Requisitions-submit, und ein Audit-Endpunkt, der die falsche Kennung
-> bewacht. Drei davon schreiben cross-org. Wer die Reihenfolge umdreht, hat
-> einen Grund.
+### H2 — was daraus geworden ist
+
+**Die Entscheidung D-M1: Wächter bauen, die 80 nicht konsolidieren.** Begründet
+hat sie sich selbst: die fünf Lücken lagen genau dort, wo **keine** der 80
+Kopien stand. Eine Konsolidierung hätte keine einzige gefunden.
+
+**Zehn geschlossene Lücken, nicht fünf.** Die fünf aus der Recherche (E-1 bis
+E-5) plus fünf, die der Wächter beim ersten Lauf selbst fand:
+
+| | Route | Was möglich war |
+|---|---|---|
+| E-1 | `POST /rate-cards/:id/{activate,archive}` | fremden Konditionsrahmen schalten, Sätze per `RETURNING *` zurückbekommen |
+| E-2 | `POST /invoices/operational/:id/{issue,paid,void,correction}` | fremde Rechnungen stellen, auf bezahlt setzen, stornieren |
+| E-3 | `POST /approvals/:id/{approve,reject}` + `/history` | fremde Freigaben entscheiden; Historie mit Antragsteller-/Freigeber-E-Mails lesen |
+| E-4 | `POST /requisitions/:id/submit`, `PATCH /requisitions/:id` | fremde Ausschreibung einreichen |
+| E-5 | `GET /organizations/:id/audit-log/recent-changes` | `old_values`/`new_values` samt Akteur-E-Mail fremder Entitäten |
+| **E-6** | `GET /requisitions/:id/events` | vollständige Statushistorie samt Akteur-E-Mails einer fremden Ausschreibung |
+| **E-7** | `GET /requisitions/:id/candidates` | Lieferantennamen, Prüfer-E-Mails und Match-Scores einer fremden Ausschreibung |
+| **E-8** | `PATCH /organizations/:id` | **den Organisationsdatensatz einer fremden Firma ändern** — Name, `billing_email`, `tax_id`, `parent_org_id`. Die einzige `:id`-Schreibroute der Datei ohne `sameOrgParam`. |
+| **E-9** | `POST /organizations/:id/departments` | eine Abteilung **in** einer fremden Organisation anlegen |
+| **E-10** | `POST /requisitions/:id/comment` | einen Kommentar an eine fremde Ausschreibung schreiben |
+
+E-8 ist der schwerste: `requirePermission` schützt dort nicht, weil es gegen
+`req.orgId` prüft (die eigene Org, in der man Admin ist) und sein `explicitOrg`
+nur `query.org_id`/`params.org_id` liest — der Platzhalter heißt hier `:id`.
+
+**Der Wächter** (`api/test/orgGrenzenWaechter.test.js`, Register
+`api/test/fixtures/orgGrenzen.json`) hat vier Schichten:
+
+- **(A) Vollständigkeit** — jede Route mit Pfad-Platzhalter in einer abgedeckten
+  Datei braucht ein Urteil. Aufgezählt wird über das **Router-Objekt**, nicht
+  über den Quelltext. *Das hätte E-1 bis E-4 beim Anlegen gemeldet.*
+- **(B) Verhalten** — Spion-Pool, der jede Abfrage mitschreibt: 403 · **kein**
+  INSERT/UPDATE/DELETE · die Ressourcen-ID stand in der Abfrage · Org und
+  Adressat stehen in derselben Anweisung. Dazu die **Gegenprobe** mit der
+  eigenen Org, ohne die ein pauschales `return 403` bestünde.
+- **(C) Bestandsbuch** — jede der 82 Route-Dateien ist abgedeckt **oder** mit
+  Grund ausgesetzt. Damit ist die ehrlichste Zahl sichtbar und wächst nicht mehr
+  stillschweigend: **5 Dateien / 43 Routen verhaltensgeprüft, 77 Dateien offen.**
+  Eine Sperrklinke verhindert, dass die Zahl fällt.
+- **(D) Selbstprobe** — drei absichtlich kaputte Mini-Router (Grenze vergessen ·
+  Grenze **nach** dem Schreiben · Grenze auf dem falschen Parameter) müssen
+  gemeldet werden, eine saubere Route nicht.
+
+**Gegen den echten Bestand mutiert** — nicht nur gegen Mini-Router:
+
+| Mutation | Wächter | Service-Test |
+|---|---|---|
+| Grenze mit `if (false && …)` abgeschaltet (der G6-Mutant) | **rot** | — |
+| `sameOrgParam` aus der Kette entfernt | **rot** | — |
+| `AND org_id = $3` aus dem UPDATE genommen, Parameter bleibt | grün *(dokumentierte Grenze)* | **rot** |
+| Org-Bindung aus der Freigabe-Historie entfernt | grün *(dokumentierte Grenze)* | **rot** |
+
+Das ist die **ehrliche Grenze** des Wächters: er beweist die Entscheidung des
+Handlers und die Parameterübergabe, **nicht**, dass ein Service-SQL seine
+`AND org_id`-Klausel behalten hat. Diese Hälfte tragen die Service-Tests, die
+das abgesetzte SQL selbst befragen. Beide zusammen, keiner allein.
+
+### Gegen die echte Datenbank geprüft (was ein Mock nicht zeigen kann)
+
+- `rate_cards` und `approval_requests`: **`rls=false`, 0 Policies** — für E-1 und
+  E-3 gab es in **keinem** Deployment einen Backstop in der Datenbank. Die
+  Vermutung des Plans ist damit gemessen, nicht mehr vermutet.
+- **Migration 117 existiert nicht.** `docs/security/TENANT_ISOLATION_MODEL.md`
+  verweist 28 Tabellen auf sie als „nächsten Schritt"; die Datei wurde nie
+  geschrieben (`sql/migrations/` springt von 116 auf 118).
+- `audit_log`: 2711 Zeilen, davon **1782 ohne `org_id`**; von 920 Entitäten
+  wären **416** unter dem strikten Filter von E-5 unsichtbar. Das ist heute
+  folgenlos — die org-gebundene Route hat **keinen** Aufrufer (das Admin-Panel
+  ruft die plattformweite Fassung). Es ist aber die Zahl, die zur offenen
+  Null-Politik-Entscheidung gehört.
 
 ### Erledigt am 2026-08-19
 
@@ -153,6 +227,7 @@ noch nicht durchgegeben.
 |---|---|
 | **Demo-Compose** (`cde6c42`) | War **nie** startfähig (nicht „seit P0-08"): Die Datei entstand einen Monat nach dem Guard, den sie verletzt. Schwerer: Sie wird **ausgeliefert** und öffnete beim Kunden alle Plan-Gates — der CI-Wächter dagegen durchsucht nur `.env*`. Dazu der `release-package.sh`-Fehler, durch den `.claude/` ins Artefakt kam (die `EXCLUDE_LIST` galt nur im Fallback-Zweig). Wächter: `composeStartfaehig.test.js` |
 | **NOT_AUTH** (`61d2091`) | Nicht „alle Portalseiten", sondern **genau die G5-Seite**. Und kein Konsolen-Problem: Sie blieb für Abgemeldete **dauerhaft weiß**, ohne Weg zum Login — ausgerechnet der Notfallweg. Siebenmal kopiert, beim achten Mal vergessen. |
+| **H2 — Mandantengrenzen** | Die Entscheidung **D-M1 ist gefallen: Wächter, nicht konsolidieren.** Die fünf Lücken des Plans sind geschlossen — **und der Wächter fand beim ersten Lauf fünf weitere**, darunter ein Cross-Org-**Schreibzugriff auf den Organisationsdatensatz selbst** (`PATCH /organizations/:id`, u. a. `parent_org_id`). Zehn Lücken, nicht fünf. Details unten. |
 
 ### Zwei Blocker, die nur der Owner lösen kann
 
@@ -189,8 +264,30 @@ dagegen längst behoben — `timeout-minutes: 180`, sechs parallele Matrix-Jobs.
   erreicht ueber vier strukturierte Fragen statt eines leeren Textfelds — und dieser Text
   bleibt beim Arbeitgeber.
 
-- **D-M1** — Welle 3b: die 80 Inline-Org-Grenzen konsolidieren oder einen
-  Wächter-Test bauen? Erst 3b.2 abwarten (zeigen die Kopien Abweichungen?).
+- ~~**D-M1**~~ ✅ entschieden 2026-08-19: **Wächter, nicht konsolidieren.**
+  Die 80 Kopien sind untereinander einheitlich; alle zehn echten Defekte lagen
+  dort, wo *keine* stand. Der Helfer taugt in heutiger Form nicht als Ziel
+  (22 Tabellen ohne `timesheets`/`invoices`/`worker_profiles`, keine zweiseitige
+  Grenze, eine Extra-Abfrage je Aufruf). Umgesetzt als
+  `api/test/orgGrenzenWaechter.test.js`.
+- **D-M2 (neu)** — **Null-Politik.** Darf eine Anfrage ohne `req.orgId` durch?
+  Heute dreigeteilt: 42 Stellen `if (req.orgId && …)` (fail-open), 14 fail-closed,
+  `timesheets.js:67` mit eigener Legacy-Ausnahme. Der neue Code ist durchgehend
+  fail-closed. Der saubere Ort für eine Vereinheitlichung ist eine Middleware
+  `requireOrgContext`, die vor dem Handler mit 403 abbricht — nicht das
+  Umschreiben von 80 Vergleichen. Vorbild existiert (`suppliers.js:46`,
+  `workforce.js:58`). *Berührt Produktionscode auf breiter Fläche → Owner.*
+- **D-M3 (neu)** — **Audit-Zeilen ohne `org_id`.** `GET /organizations/:id/audit-log/recent-changes`
+  filtert jetzt strikt (`al.org_id = $3`). Gemessen: 1782 von 2711 Audit-Zeilen
+  tragen keine Org, 416 von 920 Entitäten wären damit unsichtbar. Heute
+  folgenlos (kein Aufrufer). Sobald die Route einen bekommt: strikt lassen
+  (kein Leck, leere Historie) **oder** wie die RLS-Policy `org_id IS NULL`
+  durchlassen (vollständige Historie, Rest-Leck)? *Owner.*
+- **D-M4 (neu)** — **`PATCH /requisitions/:id` begrenzt per `created_by`**, nicht
+  per Org. Die Org-Grenze steht jetzt zusätzlich davor (E-4), die
+  Ersteller-Bedingung ist unangetastet. Nebeneffekt bleibt: ein Kollege
+  derselben Org kann die Ausschreibung eines anderen nicht bearbeiten. Absicht
+  oder Altlast? *Produktentscheidung, kein Sicherheitsthema.*
 
 ## Offene Befunde ohne Ticket
 
