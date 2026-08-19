@@ -108,6 +108,22 @@ if command -v git >/dev/null 2>&1 && [ -d "${PROJECT_DIR}/.git" ]; then
   git -C "$PROJECT_DIR" archive --format=tar --prefix="${ARCHIVE_NAME}/" "$SOURCE_REF" \
     | tar -xf - -C "$RELEASE_DIR"
   rm -rf "${STAGING_DIR}/.github"
+  # Die EXCLUDE_LIST galt bisher NUR im Fallback-Zweig unten (rsync/tar).
+  # "git archive" exportiert dagegen alles GETRACKTE — und zwei Eintraege der
+  # Liste sind getrackt: .github (wurde hier einzeln entfernt) und .claude
+  # (wurde vergessen). Genau daran ist release-verify.sh rot geworden, und damit
+  # war der dokumentierte Release-Weg blockiert.
+  #
+  # Statt den einen Fall nachzutragen, wird die Liste jetzt in BEIDEN Zweigen
+  # angewendet. Ein einzelnes rm -rf mehr haette denselben Fehler beim naechsten
+  # getrackten Eintrag wiederholt — und niemand haette es gemerkt, bis die
+  # Pruefung erneut rot wird.
+  for pattern in "${EXCLUDE_LIST[@]}"; do
+    case "$pattern" in
+      *"*"*) continue ;;                      # Glob-Muster greifen hier nicht
+    esac
+    rm -rf "${STAGING_DIR:?}/${pattern}"
+  done
 else
   warn "Git-Archivierung nicht verfügbar — verwende Arbeitsbaum als Fallback."
   mkdir -p "$STAGING_DIR"

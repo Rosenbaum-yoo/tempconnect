@@ -169,8 +169,19 @@ const envSchema = z.object({
  * Validiert process.env und gibt die validierten Werte zurueck.
  * Bei Fehlern: wirft Error mit allen Validierungsfehlern.
  */
-export function validateEnv(logger) {
-  const result = envSchema.safeParse(process.env);
+export function validateEnv(logger, env = process.env) {
+  /* `env` ist ADDITIV und aendert im Betrieb nichts: ohne Argument bleibt es
+   * process.env, genau wie bisher. Der Parameter existiert, damit man die
+   * Funktion mit einer GEBAUTEN Umgebung aufrufen kann — etwa der, die eine
+   * Compose-Kombination erzeugt.
+   *
+   * Gebraucht wird das von `test/composeStartfaehig.test.js`: Der Demo-Stack war
+   * seit seinem ersten Tag startunfaehig (NODE_ENV=production zusammen mit
+   * FEATURE_GATE_BYPASS=true), und kein Test hat es bemerkt — die Unit-Tests
+   * sichern die FUNKTION, niemand sicherte das ARTEFAKT. Ohne diesen Parameter
+   * bliebe nur, process.env im Test zu manipulieren: fragil, mit
+   * Nebenwirkungen auf andere Dateien derselben Suite. */
+  const result = envSchema.safeParse(env);
   if (!result.success) {
     const errors = result.error.issues.map(i => `  ${i.path.join(".")}: ${i.message}`).join("\n");
     const isWarningOnly = result.error.issues.every(i => i.message.startsWith("WARNUNG"));

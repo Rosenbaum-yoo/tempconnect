@@ -29,9 +29,33 @@ services:
   api:
     # KEIN ./api:/app Bind-Mount (Override nicht geladen) → stabiles Image.
     environment:
+      # NODE_ENV bleibt hier stehen und ist NICHT redundant: Die Basis setzt
+      # `NODE_ENV: ${NODE_ENV:-production}` und zieht damit den Wert aus der
+      # lokalen .env — dort steht `development`. Ohne diese Zeile liefe eine
+      # OEFFENTLICH getunnelte Demo mit abgeschalteter Produktionshaertung
+      # (u. a. waere der SSO-Stub-Login wieder erreichbar).
       NODE_ENV: production
       PAYMENT_MODE: demo          # keine echten Zahlungen
-      FEATURE_GATE_BYPASS: "true" # voller Funktionsumfang im Demo sichtbar
+      # FEATURE_GATE_BYPASS war hier "true" — und hat den Stack seit dem ersten
+      # Tag am Booten gehindert: `envValidator` lehnt die Kombination mit
+      # NODE_ENV=production hart ab (featureFlags.js, productionConstraint
+      # "forbidden_when_true"). Die Datei entstand am 2026-07-02, der Guard
+      # existierte seit dem 2026-06-01 — der Demo-Stack war NIE lauffaehig,
+      # nicht "seit P0-08 kaputt".
+      #
+      # Schwerer wiegt, dass diese Datei AUSGELIEFERT wird (git-getrackt, nicht
+      # in der EXCLUDE_LIST von release-package.sh) und der CI-Waechter gegen den
+      # Bypass nur `.env*`-Dateien durchsucht — eine .yml lief unbemerkt durch.
+      # Jeder Kunde bekam damit eine Compose-Datei, die alle Plan-Gates oeffnet.
+      #
+      # Der Kommentar nannte die Absicht: "voller Funktionsumfang im Demo
+      # sichtbar". Das ist eine ENTITLEMENT-Frage (Ebene C), kein
+      # Plattform-Kill-Switch (Ebene B) — der Bypass war das falsche Werkzeug.
+      # Die Demo-Welt vergibt bereits echte Plaene (Mig 052: PLUS + PRO). Wer
+      # mehr zeigen will, hebt dort das Plan-Niveau; der Interessent sieht dann
+      # die ECHTE Gating-Mechanik statt einer Welt, in der alles frei ist.
+      FEATURE_GATE_BYPASS: "false"
+
       # E-Mail-Flows landen im Mailpit-Mock statt echt rauszugehen
       SMTP_HOST: mailpit
       SMTP_PORT: "1025"
