@@ -405,8 +405,26 @@ export async function matchWorkerToAssignments(pool, workerId, opts = {}) {
   const topN = opts.topN || 25;
   const minScore = opts.minScore || 1;
 
-  // Load worker
-  const { rows: wRows } = await pool.query('SELECT * FROM workers WHERE id = $1', [workerId]);
+  /* Befund E-21/E-14 (2026-08-20): `workers` hat KEINE Migration je angelegt —
+     gegen die laufende Datenbank gemessen antwortet Postgres mit 42P01. Dieser
+     Weg endet also seit jeher in einem Fehler; ob er entfernt oder auf
+     `worker_profiles` gebaut wird, ist eine Produktentscheidung (P1-19).
+
+     Die Bindung steht trotzdem JETZT im SQL. Ohne sie waere die Abfrage am Tag,
+     an dem jemand eine `workers`-Tabelle anlegt, sofort ein ungebundener
+     org-uebergreifender Lesezugriff — ein schlafendes Leck, das niemand mehr
+     mit dem Anlegen der Tabelle in Verbindung braechte. Mit ihr kann sie das
+     nicht mehr werden.
+
+     Ohne Betrachter-Org (Hintergrundlauf, Cron) bleibt es beim alten Verhalten:
+     dort gibt es keine Mandantensicht, die man verletzen koennte. */
+  const viewerOrgId = opts.viewerOrgId ?? null;
+  const { rows: wRows } = viewerOrgId
+    ? await pool.query(
+        'SELECT * FROM workers WHERE id = $1 AND supplier_org_id = $2',
+        [workerId, viewerOrgId]
+      )
+    : await pool.query('SELECT * FROM workers WHERE id = $1', [workerId]);
   const worker = wRows[0];
   if (!worker) return [];
 
@@ -507,4 +525,97 @@ export async function logMatch(pool, entry) {
   } catch (_e) {
     // Non-critical — don't break the flow
   }
+}
+/* ═══════════════════════════════════════════════════════════════════════════
+   Befund E-14 (2026-08-20): die Matching-Wege liefen ohne jede Bindung
+   ═══════════════════════════════════════════════════════════════════════════
+
+   `findMatches` und `matchCapacityToRequisitions` luden ihre Quelle mit
+   `WHERE id = $1` — sonst nichts. Jeder Angemeldete mit `requisition.view`
+   konnte die Engine also gegen einen FREMDEN Bedarf laufen lassen und erfuhr,
+   dass es ihn gibt und welche Lieferanten zu ihm passen. Die Geschwister-Route
+   `/matching/instant/:requisitionId` machte es von Anfang an richtig: sie reicht
+   `req.orgId` durch und beantwortet `ORG_BOUNDARY_VIOLATION` mit 403.
+
+   WARUM DIE GRENZE HIER NICHT "eigene Org" HEISST. Ein Bedarf wird im Marktplatz
+   BEWUSST an Lieferanten ausgespielt — eine reine Org-Grenze waere das Ende des
+   Marktplatzes. Die richtige Regel musste also nicht erfunden werden, sie steht
+   bereits im Code: `capacityExchangeService` zeigt einen Bedarf genau dann, wenn
+   er offen ist, noch freie Plaetze hat, keinen Ursprungs-Auftrag traegt und
+   nicht abgelaufen ist (`demandVisibilityWhere`, Zeile 538). Genau diese Regel
+   gilt ab jetzt auch fuers Matching.
+
+   Der Unterschied ist nicht theoretisch: `SELECT * FROM demand_requests WHERE
+   id = $1` erreichte auch `closed`, `cancelled` und `fulfilled` — also Bedarfe,
+   die der Marktplatz absichtlich verbirgt. Das Matching war damit die
+   Hintertuer zu genau den Daten, die die Sichtbarkeitsregel schuetzt.
+
+   Wer den Bedarf SELBST gestellt hat, sieht ihn in jedem Status — sonst koennte
+   niemand sein eigenes abgeschlossenes Gesuch nachvollziehen.
+*/
+
+/** @returns {"OK"|"NOT_FOUND"|"ORG_BOUNDARY_VIOLATION"} */
+export async function darfBedarfSehen(pool, demandId, viewerUserId) {
+  if (!demandId) return "NOT_FOUND";
+  const { rows } = await pool.query(
+    `SELECT dr.requester_company_id,
+            dr.status,
+            dr.end_date,
+            COALESCE(
+              dr.remaining_open_count,
+              GREATEST(COALESCE(dr.required_total_count, dr.headcount, 1)
+                       - COALESCE(dr.currently_committed_count, 0), 0)
+            ) AS offene_plaetze,
+            EXISTS (
+              SELECT 1 FROM offers o
+               WHERE o.demand_request_id = dr.id
+                 AND o.capacity_post_id IS NOT NULL
+            ) AS hat_ursprungsauftrag
+       FROM demand_requests dr
+      WHERE dr.id = $1`,
+    [demandId]
+  );
+  const dr = rows[0];
+  if (!dr) return "NOT_FOUND";
+
+  // Der Steller sieht seinen eigenen Bedarf in jedem Status.
+  if (viewerUserId && String(dr.requester_company_id) === String(viewerUserId)) return "OK";
+
+  // Fuer alle anderen gilt die Sichtbarkeitsregel des Marktplatzes.
+  const sichtbar =
+    ["open", "partially_covered"].includes(String(dr.status)) &&
+    Number(dr.offene_plaetze) > 0 &&
+    !dr.hat_ursprungsauftrag &&
+    (dr.end_date === null || new Date(dr.end_date) >= new Date(new Date().toDateString()));
+
+  return sichtbar ? "OK" : "ORG_BOUNDARY_VIOLATION";
+}
+
+/**
+ * Dieselbe Frage fuer ein Kapazitaetsangebot.
+ *
+ * Die Regel steht in `capacityExchangeService.canViewerSeeEntry` (Zeile 125):
+ * der Anbieter sieht sein Angebot immer, alle anderen nur ein aktives, nicht
+ * privates. `matchCapacityToRequisitions` hat sie nie angewandt.
+ *
+ * @returns {"OK"|"NOT_FOUND"|"ORG_BOUNDARY_VIOLATION"}
+ */
+export async function darfKapazitaetSehen(pool, capacityPostId, viewerUserId, viewerOrgId) {
+  if (!capacityPostId) return "NOT_FOUND";
+  const { rows } = await pool.query(
+    `SELECT supplier_company_id, org_id, status, visibility_status
+       FROM capacity_posts
+      WHERE id = $1`,
+    [capacityPostId]
+  );
+  const cp = rows[0];
+  if (!cp) return "NOT_FOUND";
+
+  const eigen =
+    (viewerUserId && String(cp.supplier_company_id) === String(viewerUserId)) ||
+    (viewerOrgId && cp.org_id && String(cp.org_id) === String(viewerOrgId));
+  if (eigen) return "OK";
+
+  const sichtbar = String(cp.status) === "active" && String(cp.visibility_status) !== "private";
+  return sichtbar ? "OK" : "ORG_BOUNDARY_VIOLATION";
 }

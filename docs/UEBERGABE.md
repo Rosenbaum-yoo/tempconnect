@@ -207,10 +207,10 @@ nur `query.org_id`/`params.org_id` liest — der Platzhalter heißt hier `:id`.
   `next()` ruft, fällt hier durch.
 - **(C) Bestandsbuch** — jede der 82 Route-Dateien ist abgedeckt **oder** mit
   Grund ausgesetzt. Damit ist die ehrlichste Zahl sichtbar und wächst nicht mehr
-  stillschweigend: **81 Dateien · 253 Routen verhaltensgeprüft · 122 belegte
-  Ausnahmen · 15 Dateien ausgesetzt** (die 14 des OCC mit eigener Sicherheitswelt,
-  dazu `matching.js` wegen der offenen Owner-Frage E-14). Eine Sperrklinke
-  verhindert, dass die Zahl fällt.
+  stillschweigend: **82 Dateien · 257 Routen verhaltensgeprüft · 123 belegte
+  Ausnahmen · 0 Dateien ausgesetzt.** Die 14 des Owner Control Centers werden
+  über ihren Einstiegspunkt geführt (Schicht B3), `matching.js` ist seit dem
+  Abschluss von E-14 regulär geprüft. Eine Sperrklinke verhindert, dass die Zahl fällt.
 
   | Datei | geprüft | Ausnahmen | Grenzmodell |
   |---|---|---|---|
@@ -227,7 +227,8 @@ nur `query.org_id`/`params.org_id` liest — der Platzhalter heißt hier `:id`.
   | `internalControlCenter` `productReleases` | — | 19 | **Plattform-Flächen**, org-übergreifend per Bauart |
   | `agencyPortal` `admin` `timesheetTemplates` `scim` `sso` | — | 33 | **Torwächter** je Fläche |
   | `ratings` `reputation` `search` `analytics` `profileVisibility` `dealFeedback` `auth` | — | 41 | **bewusst offen**: Marktplatz-Aggregation bzw. Token-Weg vor der Anmeldung |
-  | `companyTimesheets` | 4 | — | Org, Grenze im Middleware `requireCompanySubmission` |
+  | `matching` | 4 | 1 | **Sichtbarkeitsregel des Marktplatzes** statt Org-Grenze (E-14) |
+| `companyTimesheets` | 4 | — | Org, Grenze im Middleware `requireCompanySubmission` |
   | 28 Dateien ohne `:id`-Route | — | — | mit `routen: []` eingetragen — der Wächter **rechnet das nach** |
 
   **Zwei Namen, die mehr versprechen als sie halten** (im Register vermerkt, keine
@@ -468,32 +469,65 @@ gemeldet. Der Bestohlene sah eine leere Suche und keinen Grund dafür. Dieselbe
 Klasse wie E-12/E-13 (handeln, dann prüfen), nur in ihrer schlimmsten Form.
 **Geschlossen:** Besitzprüfung zuerst, dann aufräumen.
 
-### E-14 · Die Matching-Engine läuft ohne Org *(offen — Owner-Frage)*
+### E-14 · Die Matching-Wege liefen ohne jede Bindung *(geschlossen)*
 
-Alle vier Platzhalter-Routen in `matching.js` rufen die Engine **nur mit der
-Pfad-Kennung**: `engine.findMatches(pool, req.params.id, …)` (`:25`), ebenso
-`matchCapacityToRequisitions` (`:65`), `matchWorkerToAssignments` (`:90`) und
-`smart-explain` (`:178`). `findMatches` lädt
-`SELECT * FROM demand_requests WHERE id = $1` (`matchingEngine.js:353`) — ohne
-Bindung.
+`findMatches` lud `SELECT * FROM demand_requests WHERE id = $1` — sonst nichts.
+Jeder Angemeldete mit `requisition.view` konnte die Engine damit gegen einen
+**fremden** Bedarf laufen lassen und erfuhr, dass es ihn gibt und welche
+Lieferanten zu ihm passen. `logMatch` schrieb den fremden Vorgang zusätzlich
+unter der **eigenen** Org ins ML-Protokoll — die Trainingsdaten des Rankings also
+mit fremder Herkunft. Dasselbe galt für `matchCapacityToRequisitions`.
 
-Die **Geschwister-Route derselben Datei macht es anders**:
-`/matching/instant/:requisitionId` (`:144-151`) reicht `req.orgId` durch und
-mappt `ORG_BOUNDARY_VIOLATION` auf 403. Dasselbe Muster wie bei E-1 bis E-10:
-zwei Türen zum selben Raum, eine bewacht.
+**Warum die Reparatur nicht „eigene Org" heißt.** Ein Bedarf wird im Marktplatz
+*bewusst* an Lieferanten ausgespielt; eine reine Org-Grenze wäre das Ende des
+Marktplatzes. Genau daran hing die Frage bisher als Owner-Entscheidung.
 
-Wirkung: wer angemeldet ist und `requisition.view` hat, kann die Engine gegen
-eine **fremde** Bedarfsmeldung laufen lassen und erfährt, dass es sie gibt und
-wonach sie sucht. Zusätzlich schreibt `logMatch` den fremden Vorgang mit der
-**eigenen** `org_id` ins ML-Protokoll (`matching.js:38`).
+**Die Regel musste nicht erfunden werden — sie stand schon im Code.**
+`capacityExchangeService` zeigt einen Bedarf genau dann, wenn er offen ist, noch
+freie Plätze hat, keinen Ursprungsauftrag trägt und nicht abgelaufen ist
+(`demandVisibilityWhere`, Zeile 538). `WHERE id = $1` erreichte dagegen auch
+`closed`, `cancelled` und `fulfilled`. **Das Matching war die Hintertür zu genau
+den Bedarfen, die die Sichtbarkeitsregel schützt** — und damit war es kein
+Produktkonflikt mehr, sondern eine Inkonsistenz mit einer Regel, die die
+Plattform längst getroffen hatte.
 
-**Nicht autonom repariert**, und das ist hier kein Zögern, sondern die Sache
-selbst: Bedarfsmeldungen werden im Marktplatz **bewusst** an Lieferanten
-ausgespielt — ob dieser Weg offen sein *soll*, ist eine Produktentscheidung. Und
-`demand_requests` gehört einem **Nutzer** (`requester_company_id` → `users`),
-nicht einer Org, was die Frage direkt mit **D-M5** und **E-11** verbindet.
-`matching.js` ist deshalb im Register **zurückgestellt**, mit genau diesem
-Befund als Begründung.
+Geschlossen mit zwei Wächtern im Dienst, `darfBedarfSehen` und
+`darfKapazitaetSehen`, die vor jeder Arbeit klären (Muster aus E-12/E-15). Wer
+den Bedarf selbst gestellt hat, sieht ihn in jedem Status; der Anbieter sieht
+sein Angebot auch privat; ein Kollege derselben Organisation ebenfalls.
+
+**Gegen das echte Schema geprüft, mit der Zusicherung, die zählt:** über alle
+angelegten Bedarfe hinweg zeigen Matching und Marktplatz derselben Agentur
+**dieselbe Menge — null Abweichungen**. Dazu zwölf weitere Prüfungen, alle grün.
+Sechs Mutationen — jede der vier Sichtbarkeitsbedingungen einzeln, die
+Kapazitätsregel, und das Entfernen der Klärung — werden alle rot.
+
+> Die drei Gegenproben wiegen hier schwerer als die Hauptproben. Eine Reparatur,
+> die den Marktplatz zumacht, wäre schlimmer als der Befund gewesen.
+
+### E-21 · `GET /matching/worker/:id` hat nie funktioniert *(gebunden — Rest ist P1-19)*
+
+`matchWorkerToAssignments` liest `FROM workers`. **Diese Tabelle hat keine
+Migration je angelegt** — gegen die laufende Datenbank gemessen antwortet
+Postgres mit `42P01`. Der Weg endet seit jeher in 500. Kein Frontend, kein
+E2E-Lauf und keine Dokumentationsseite ruft ihn auf.
+
+Ob er entfernt oder auf `worker_profiles` gebaut wird, ist eine
+Produktentscheidung (**P1-19**) und wurde hier nicht geraten: `worker_profiles`
+hat weder `role` noch Koordinaten — die Bewertung der Engine liefe ins Leere und
+erzeugte systematisch falsche Treffer.
+
+**Was nicht gewartet hat: die Bindung.** Sie steht jetzt im SQL
+(`AND supplier_org_id = $2`, sobald ein Betrachter bekannt ist). Ohne sie wäre
+die Abfrage an dem Tag, an dem jemand eine `workers`-Tabelle anlegt, sofort ein
+ungebundener org-übergreifender Lesezugriff — ein **schlafendes Leck**, das
+niemand mit dem Anlegen der Tabelle in Verbindung gebracht hätte. Hintergrund-
+und Cron-Läufe ohne Betrachter behalten ihr Verhalten; eine Bindung, die dort
+greift, würde die Hintergrundarbeit stilllegen.
+
+> **Merksatz.** Eine Grenze gehört ins SQL, **bevor** es die Tabelle gibt. Sie
+> nachzurüsten heißt, sich daran erinnern zu müssen — und niemand erinnert sich
+> beim Anlegen einer Tabelle an eine Abfrage, die seit Jahren fehlschlägt.
 
 ### E-13 · Dasselbe Muster, zweite Fundstelle *(geschlossen)*
 
@@ -565,7 +599,7 @@ eine Owner-Entscheidung. Eintrag **P1-17**.
 |---|---|
 | **Demo-Compose** (`cde6c42`) | War **nie** startfähig (nicht „seit P0-08"): Die Datei entstand einen Monat nach dem Guard, den sie verletzt. Schwerer: Sie wird **ausgeliefert** und öffnete beim Kunden alle Plan-Gates — der CI-Wächter dagegen durchsucht nur `.env*`. Dazu der `release-package.sh`-Fehler, durch den `.claude/` ins Artefakt kam (die `EXCLUDE_LIST` galt nur im Fallback-Zweig). Wächter: `composeStartfaehig.test.js` |
 | **NOT_AUTH** (`61d2091`) | Nicht „alle Portalseiten", sondern **genau die G5-Seite**. Und kein Konsolen-Problem: Sie blieb für Abgemeldete **dauerhaft weiß**, ohne Weg zum Login — ausgerechnet der Notfallweg. Siebenmal kopiert, beim achten Mal vergessen. |
-| **H2 — Mandantengrenzen** | Die Entscheidung **D-M1 ist gefallen: Wächter, nicht konsolidieren.** Die fünf Lücken des Plans sind geschlossen — **und der Wächter fand über alle 81 Route-Dateien hinweg elf weitere**. Sechzehn Lücken, nicht fünf. Die schwersten kamen zuletzt und lagen zu dritt in **einer** Datei: DSGVO-Vollexport eines Fremden (E-20), fremdes Konto anonymisieren (E-17), fremde Betroffenenanfrage schließen (E-18); dazu der Verteilplan fremder Ausschreibungen, lesbar **und weiterschaltbar** (E-19). Alle geschlossen und gegen das echte Schema bewiesen — offen bleiben nur E-11 und E-14 als Owner-Fragen. Details unten. |
+| **H2 — Mandantengrenzen** | Die Entscheidung **D-M1 ist gefallen: Wächter, nicht konsolidieren.** Die fünf Lücken des Plans sind geschlossen — **und der Wächter fand über alle 81 Route-Dateien hinweg elf weitere**. Sechzehn Lücken, nicht fünf. Die schwersten kamen zuletzt und lagen zu dritt in **einer** Datei: DSGVO-Vollexport eines Fremden (E-20), fremdes Konto anonymisieren (E-17), fremde Betroffenenanfrage schließen (E-18); dazu der Verteilplan fremder Ausschreibungen, lesbar **und weiterschaltbar** (E-19). Alle geschlossen und gegen das echte Schema bewiesen, ebenso E-14 (Matching) — offen bleibt allein E-11 als Owner-Frage. Details unten. |
 
 ### Zwei Blocker, die nur der Owner lösen kann
 

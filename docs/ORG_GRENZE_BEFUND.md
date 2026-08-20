@@ -150,14 +150,14 @@ fangen die Service-Tests. Keine der beiden Hälften reicht allein.
 
 ## Vollständige Abdeckung (2026-08-20, abgeschlossen)
 
-Die Wellen A bis D haben das Register von 15 auf **81 Route-Dateien** gehoben:
-**253 verhaltensgeprüfte Routen, 122 belegte Ausnahmen**. Ausgesetzt sind noch
-15 Dateien — die 14 des Owner Control Centers (eigene Sicherheitswelt, eigener
-Torwächter `requireOwnerControlAccess`) und `matching.js`, das wegen Befund E-14
-bewusst auf die Owner-Entscheidung wartet.
+Die Wellen A bis D haben das Register von 15 auf **alle 82 Route-Dateien**
+gehoben: **257 verhaltensgeprüfte Routen, 123 belegte Ausnahmen, keine
+ausgesetzte Datei mehr.** Die 14 des Owner Control Centers werden über ihren
+Einstiegspunkt geführt (Schicht B3, weil sie keine Platzhalter-Route haben),
+`matching.js` ist seit dem Abschluss von E-14 regulär geprüft.
 
 **Der teuerste Ertrag stand nicht im Auftrag.** Die Recherche hatte fünf Lücken
-benannt (E-1 bis E-5). Die Ausweitung des Wächters auf alle Dateien hat **elf
+benannt (E-1 bis E-5). Die Ausweitung des Wächters auf alle Dateien hat **zwölf
 weitere** gefunden, und die schwersten kamen zuletzt:
 
 | Befund | Weg | Was möglich war |
@@ -170,6 +170,8 @@ weitere** gefunden, und die schwersten kamen zuletzt:
 | E-18 | `PATCH /data-governance/requests/:id/complete` | fremde DSGVO-Anfrage als erledigt schließen, ohne sie zu erfüllen |
 | E-19 | `GET/POST /supplier-pools/distribution/:requisitionId` | Verteilplan einer fremden Ausschreibung lesen **und weiterschalten** |
 | E-20 | `GET /data-governance/export/user/:userId` | Vollexport eines beliebigen fremden Nutzers |
+| E-14 | `GET /matching/demand/:id`, `/supply/:id` | Engine gegen fremden Bedarf laufen lassen; `logMatch` verbuchte ihn unter der eigenen Org |
+| E-21 | `GET /matching/worker/:id` | *kein Leck, aber ein schlafendes*: liest eine Tabelle, die keine Migration je anlegte |
 
 E-17, E-18 und E-20 lagen in **derselben Datei** — die Datenschutz-Werkzeuge
 waren durchgehend unbewacht, weil das Recht (`data_governance.*`) die eigene
@@ -185,6 +187,23 @@ keine Daten preis, er *zerstört* die eines Dritten), **E-19 der größte
 Wettbewerbsschaden** (wer erfährt, an welche Lieferanten die Ausschreibung eines
 Wettbewerbers in welcher Reihenfolge geht, kennt dessen Vergabe — und konnte sie
 sogar weiterschalten).
+
+
+**E-14 aufgelöst, ohne eine Produktfrage zu beantworten.** `matching.js` lag
+zuletzt als Owner-Entscheidung auf Halde: Bedarfe werden im Marktplatz *bewusst*
+an Lieferanten ausgespielt, eine Org-Grenze wäre dort falsch. Die Auflösung war,
+**nach der Regel zu suchen statt eine zu erfinden** — `capacityExchangeService`
+führt sie seit jeher: offen, freie Plätze, kein Ursprungsauftrag, nicht
+abgelaufen. `findMatches` erreichte dagegen auch `closed`, `cancelled` und
+`fulfilled`. Damit war es kein Produktkonflikt, sondern eine Inkonsistenz mit
+einer Entscheidung, die die Plattform längst getroffen hatte. Gemessen gegen das
+echte Schema zeigen Matching und Marktplatz derselben Agentur jetzt **dieselbe
+Menge, null Abweichungen**.
+
+> **Übertragbar:** Wo eine Grenze wie eine Produktfrage aussieht, lohnt zuerst die
+> Suche nach einer Fläche, die dieselbe Frage schon beantwortet hat. Zwei Wege zu
+> denselben Daten mit *verschiedenen* Sichtbarkeitsregeln sind fast immer ein
+> Versehen — und der strengere Weg ist die Regel, der laxere die Hintertür.
 
 **Bewiesen statt behauptet.** Für E-18/E-19/E-20 wurde dieselbe Anweisung gegen
 das echte Postgres-Schema gefahren, in einer Transaktion mit ROLLBACK: acht

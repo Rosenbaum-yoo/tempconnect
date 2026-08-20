@@ -48,6 +48,8 @@ import { createSlaSearchJobsRouter } from "../../routes/slaSearchJobs.js";
 import { createDataGovernanceRouter } from "../../routes/dataGovernance.js";
 import * as dgSvc from "../../services/dataGovernanceService.js";
 import * as supplierPoolSvc from "../../services/supplierPoolService.js";
+import * as engine from "../../services/matchingEngine.js";
+import { createMatchingRouter } from "../../routes/matching.js";
 
 /** Keine Zeile darf geschrieben worden sein. */
 function keinSchreibvorgang(pool, was) {
@@ -836,5 +838,223 @@ describe("E-20 · GET /data-governance/export/user/:userId — fremder Nutzer", 
     await handler(mockReq({ orgId: ORG_A, params: { userId: "u-eigen" } }), res, noop);
 
     assert.notEqual(res._status, 403, "die eigene Belegschaft muss exportierbar bleiben");
+  });
+});
+
+/* ═════════════════════════════════════════════════════════════════════════
+   E-14 · Die Matching-Wege liefen ohne jede Bindung
+   ═════════════════════════════════════════════════════════════════════════
+
+   `findMatches` lud `SELECT * FROM demand_requests WHERE id = $1`, sonst
+   nichts. Jeder Angemeldete mit `requisition.view` konnte die Engine damit
+   gegen einen FREMDEN Bedarf laufen lassen und erfuhr, dass es ihn gibt und
+   welche Lieferanten zu ihm passen. `logMatch` schrieb den fremden Vorgang
+   zusaetzlich unter der EIGENEN Org ins ML-Protokoll — die Trainingsdaten des
+   Rankings also mit fremder Herkunft.
+
+   WARUM DIE REPARATUR NICHT "eigene Org" HEISST. Ein Bedarf wird im Marktplatz
+   BEWUSST an Lieferanten ausgespielt; eine reine Org-Grenze waere das Ende des
+   Marktplatzes. Die Regel musste deshalb nicht erfunden werden — sie steht seit
+   jeher in `capacityExchangeService` (`demandVisibilityWhere`, Zeile 538): ein
+   Bedarf ist sichtbar, solange er offen ist, freie Plaetze hat, keinen
+   Ursprungsauftrag traegt und nicht abgelaufen ist.
+
+   Der Unterschied ist nicht theoretisch: `WHERE id = $1` erreichte auch
+   `closed`, `cancelled` und `fulfilled`. Das Matching war die Hintertuer zu
+   genau den Bedarfen, die der Marktplatz absichtlich verbirgt.
+
+   Die drei Gegenproben unten sind deshalb wichtiger als die Hauptproben: eine
+   Reparatur, die den Marktplatz zumacht, waere schlimmer als der Befund. */
+
+describe("E-14 · GET /matching/demand/:id — fremder, nicht ausgespielter Bedarf", () => {
+  function mDeps(pool) {
+    return { ...baseDeps(pool), requireFeature: () => (_q, _s, next) => next() };
+  }
+  const BEDARF = (felder) => ({
+    requester_company_id: "u-fremd", status: "open", end_date: null,
+    offene_plaetze: 3, hat_ursprungsauftrag: false, ...felder
+  });
+
+  it("weist ab, ohne die Engine zu starten oder ins ML-Protokoll zu schreiben", async () => {
+    const pool = spionPool({ zeile: BEDARF({ status: "closed", offene_plaetze: 0 }) });
+    const router = createMatchingRouter(mDeps(pool));
+    const handler = findHandlerExact(router, "get", "/matching/demand/:id");
+
+    const res = mockRes();
+    await handler(
+      mockReq({ session: { userId: "u-eigen" }, orgId: ORG_A, params: { id: "bedarf-fremd" } }),
+      res, noop
+    );
+    for (let i = 0; i < 5; i++) await new Promise((f) => setImmediate(f));
+
+    assert.equal(res._status, 403, "ein fremder, nicht ausgespielter Bedarf ist eine Grenze");
+    assert.deepStrictEqual(
+      pool.schreibvorgaenge.map((c) => c.sql.slice(0, 40)), [],
+      "logMatch darf den fremden Vorgang nicht unter der eigenen Org verbuchen"
+    );
+    const kapazitaeten = pool.calls.filter((c) => /FROM capacity_posts/i.test(c.sql));
+    assert.deepStrictEqual(
+      kapazitaeten.map((c) => c.sql.slice(0, 40)), [],
+      "die Engine darf gar nicht erst laufen — Klaerung vor Arbeit"
+    );
+  });
+
+  it("Gegenprobe: der eigene Bedarf bleibt in JEDEM Status erreichbar", async () => {
+    /* Wer seinen Bedarf selbst gestellt hat, muss auch das abgeschlossene
+       Gesuch nachvollziehen koennen. Ohne diese Zusicherung waere die
+       Reparatur eine Funktionssperre. */
+    const pool = spionPool({
+      zeile: BEDARF({ requester_company_id: "u-eigen", status: "closed", offene_plaetze: 0 })
+    });
+    const router = createMatchingRouter(mDeps(pool));
+    const handler = findHandlerExact(router, "get", "/matching/demand/:id");
+
+    const res = mockRes();
+    await handler(
+      mockReq({ session: { userId: "u-eigen" }, orgId: ORG_A, params: { id: "bedarf-eigen" } }),
+      res, noop
+    );
+    for (let i = 0; i < 5; i++) await new Promise((f) => setImmediate(f));
+
+    assert.notEqual(res._status, 403, "der eigene Bedarf ist nie eine Grenzverletzung");
+  });
+
+  it("Gegenprobe: ein AUSGESPIELTER fremder Bedarf bleibt matchbar", async () => {
+    /* Die wichtigste Zusicherung dieser Datei. Ein Lieferant MUSS die offenen
+       Bedarfe anderer matchen koennen — das ist der Marktplatz. Eine
+       Reparatur, die das zumacht, waere schlimmer als der Befund. */
+    const pool = spionPool({ zeile: BEDARF({}) });
+    const router = createMatchingRouter(mDeps(pool));
+    const handler = findHandlerExact(router, "get", "/matching/demand/:id");
+
+    const res = mockRes();
+    await handler(
+      mockReq({ session: { userId: "u-eigen" }, orgId: ORG_A, params: { id: "bedarf-offen" } }),
+      res, noop
+    );
+    for (let i = 0; i < 5; i++) await new Promise((f) => setImmediate(f));
+
+    assert.notEqual(res._status, 403, "ein offen ausgespielter Bedarf ist keine Grenze");
+    assert.notEqual(res._status, 404, "und er existiert");
+  });
+
+  it("die Sichtbarkeitsregel prueft alle vier Bedingungen, nicht nur den Status", async () => {
+    /* Ein Handler, der nur `status === 'open'` prueft, bestuende die Proben
+       oben. Die Regel des Marktplatzes hat aber vier Teile — jeder einzelne
+       muss abweisen koennen, sonst ist die Hintertuer nur schmaler geworden. */
+    const faelle = [
+      ["Status geschlossen",        { status: "closed" }],
+      ["keine freien Plaetze mehr", { offene_plaetze: 0 }],
+      ["Ursprungsauftrag vorhanden",{ hat_ursprungsauftrag: true }],
+      ["Zeitraum abgelaufen",       { end_date: "2020-01-01" }]
+    ];
+    for (const [was, feld] of faelle) {
+      const urteil = await engine.darfBedarfSehen(
+        spionPool({ zeile: BEDARF(feld) }), "bedarf-fremd", "u-eigen"
+      );
+      assert.equal(urteil, "ORG_BOUNDARY_VIOLATION", `${was}: muss abweisen`);
+    }
+    const offen = await engine.darfBedarfSehen(
+      spionPool({ zeile: BEDARF({}) }), "bedarf-offen", "u-eigen"
+    );
+    assert.equal(offen, "OK", "und der offene Bedarf muss durchkommen");
+  });
+});
+
+describe("E-14 · GET /matching/supply/:id — fremdes, nicht ausgespieltes Angebot", () => {
+  function mDeps(pool) {
+    return { ...baseDeps(pool), requireFeature: () => (_q, _s, next) => next() };
+  }
+  const ANGEBOT = (felder) => ({
+    supplier_company_id: "u-fremd", org_id: null,
+    status: "active", visibility_status: "public", ...felder
+  });
+
+  it("weist ein privates fremdes Angebot ab und startet die Engine nicht", async () => {
+    const pool = spionPool({ zeile: ANGEBOT({ visibility_status: "private" }) });
+    const router = createMatchingRouter(mDeps(pool));
+    const handler = findHandlerExact(router, "get", "/matching/supply/:id");
+
+    const res = mockRes();
+    await handler(
+      mockReq({ session: { userId: "u-eigen" }, orgId: ORG_A, params: { id: "angebot-fremd" } }),
+      res, noop
+    );
+    for (let i = 0; i < 5; i++) await new Promise((f) => setImmediate(f));
+
+    assert.equal(res._status, 403);
+    const bedarfe = pool.calls.filter((c) => /FROM (requisitions|demand_requests)/i.test(c.sql));
+    assert.deepStrictEqual(bedarfe.map((c) => c.sql.slice(0, 40)), [],
+      "die Engine darf gar nicht erst laufen");
+  });
+
+  it("Gegenprobe: das EIGENE Angebot bleibt erreichbar, auch privat", async () => {
+    const eigen = await engine.darfKapazitaetSehen(
+      spionPool({ zeile: ANGEBOT({ supplier_company_id: "u-eigen", visibility_status: "private" }) }),
+      "angebot-eigen", "u-eigen", ORG_A
+    );
+    assert.equal(eigen, "OK", "der Anbieter sieht sein Angebot immer");
+
+    const ueberOrg = await engine.darfKapazitaetSehen(
+      spionPool({ zeile: ANGEBOT({ org_id: ORG_A, visibility_status: "private" }) }),
+      "angebot-eigen", "u-eigen", ORG_A
+    );
+    assert.equal(ueberOrg, "OK", "auch ein Kollege derselben Organisation");
+  });
+
+  it("Gegenprobe: ein oeffentliches fremdes Angebot bleibt matchbar", async () => {
+    const offen = await engine.darfKapazitaetSehen(
+      spionPool({ zeile: ANGEBOT({}) }), "angebot-offen", "u-eigen", ORG_A
+    );
+    assert.equal(offen, "OK", "ein aktives, oeffentliches Angebot ist der Marktplatz");
+  });
+});
+
+/* ═════════════════════════════════════════════════════════════════════════
+   E-21 · GET /matching/worker/:id hat nie funktioniert
+   ═════════════════════════════════════════════════════════════════════════
+
+   `matchWorkerToAssignments` liest `FROM workers`. Diese Tabelle hat KEINE
+   Migration je angelegt — gegen die laufende Datenbank gemessen antwortet
+   Postgres mit 42P01 ("relation does not exist"). Der Weg endet seit jeher in
+   500. Kein Frontend, kein E2E-Lauf und keine Dokumentationsseite ruft ihn auf.
+
+   Ob er entfernt oder auf `worker_profiles` gebaut wird, ist eine
+   Produktentscheidung (P1-19) und wird hier nicht geraten: `worker_profiles`
+   hat weder `role` noch Koordinaten, die Bewertung der Engine liefe also ins
+   Leere und wuerde systematisch falsche Treffer erzeugen.
+
+   Was NICHT wartet: die Bindung. Ohne sie waere die Abfrage am Tag, an dem
+   jemand eine `workers`-Tabelle anlegt, sofort ein ungebundener
+   org-uebergreifender Lesezugriff — ein schlafendes Leck, das niemand mit dem
+   Anlegen der Tabelle in Verbindung braechte. */
+
+describe("E-21 · matchWorkerToAssignments — die Bindung steht vor der Tabelle", () => {
+  it("traegt die Org im SQL, sobald ein Betrachter bekannt ist", async () => {
+    const pool = spionPool({ zeile: null });
+    await engine.matchWorkerToAssignments(pool, "w-fremd", { viewerOrgId: ORG_A });
+
+    const abfrage = pool.calls.find((c) => /FROM workers/i.test(c.sql));
+    assert.ok(abfrage, "es muss ueberhaupt gefragt werden");
+    assert.ok(
+      abfrage.params.some((p) => String(p) === String(ORG_A)),
+      "ohne die Org in den Parametern kann die Grenze nicht greifen"
+    );
+    assert.match(
+      abfrage.sql, /supplier_org_id\s*=\s*\$\d/i,
+      "die Bindung gehoert ins WHERE — sie muss VOR der Tabelle da sein, nicht nach ihr"
+    );
+  });
+
+  it("ohne Betrachter (Hintergrundlauf) bleibt es beim alten Verhalten", async () => {
+    /* Cron- und Trigger-Laeufe haben keine Mandantensicht, die man verletzen
+       koennte. Eine Bindung, die dort greift, wuerde die Hintergrundarbeit
+       stilllegen — genau die Sorte Reparatur, die schlimmer ist als der Befund. */
+    const pool = spionPool({ zeile: null });
+    await engine.matchWorkerToAssignments(pool, "w1", {});
+
+    const abfrage = pool.calls.find((c) => /FROM workers/i.test(c.sql));
+    assert.ok(abfrage);
+    assert.deepStrictEqual(abfrage.params, ["w1"], "kein zusaetzlicher Parameter");
   });
 });

@@ -20,13 +20,25 @@ eines beliebigen fremden Nutzers (E-20), die Anonymisierung eines fremden Kontos
 gesetzt; E-18/E-19/E-20 zusätzlich gegen das echte Postgres-Schema bewiesen (acht
 Prüfungen grün, fünf davon rot unter entfernter Bindung).
 
-**Was noch offen ist — und warum es offen bleibt.** Zwei Befunde sind bewusst
-*nicht* autonom repariert, weil beide Reparaturen den Zugriff **weiten** würden
-oder eine Produktentscheidung sind: **E-11** (`canAccessAsOwner` hat nie
-funktioniert, 10 Aufrufstellen → P1-17) und **E-14** (Matching-Engine ohne
-Org-Bindung → P1-18). Beide liegen als Owner-Frage in
-`docs/PILOT_GO_LIVE_TODOS.md`. `matching.js` und die 14 OCC-Dateien sind im
-Register mit Begründung ausgesetzt.
+**Vollständige Abdeckung: 82 von 82 Route-Dateien.** `matching.js` war zuletzt
+ausgesetzt, weil E-14 wie eine Produktentscheidung aussah — Bedarfe werden im
+Marktplatz *bewusst* an Lieferanten ausgespielt. Die Auflösung: die Regel stand
+bereits im Code. `capacityExchangeService` zeigt einen Bedarf nur solange er
+offen ist, freie Plätze hat, keinen Ursprungsauftrag trägt und nicht abgelaufen
+ist; `findMatches` erreichte dagegen auch `closed`, `cancelled` und `fulfilled`.
+Das Matching war die **Hintertür zu genau den Bedarfen, die die
+Sichtbarkeitsregel schützt** — kein Produktkonflikt, sondern eine Inkonsistenz.
+Gegen das echte Schema geprüft zeigen Matching und Marktplatz derselben Agentur
+jetzt **dieselbe Menge, null Abweichungen**. Die 14 OCC-Dateien werden über ihren
+Einstiegspunkt geführt (Schicht B3).
+
+**Was offen bleibt:** allein **E-11** (`canAccessAsOwner` hat nie funktioniert,
+10 Aufrufstellen → P1-17), weil die Reparatur den Zugriff **weiten** würde. Dazu
+**P1-19** aus dem Nebenbefund E-21: `GET /matching/worker/:id` liest eine Tabelle
+(`workers`), die keine Migration je angelegt hat — der Weg endet seit jeher in
+500. Ob er entfernt oder auf `worker_profiles` gebaut wird, ist eine
+Produktentscheidung; die Org-Bindung steht bereits im SQL, damit er nicht am Tag
+des Tabellen-Anlegens zum Leck wird.
 
 | Artefakt | Zweck |
 |---|---|

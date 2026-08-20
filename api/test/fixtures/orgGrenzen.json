@@ -21,7 +21,7 @@
     "flaechenTor": "Flaechen OHNE Platzhalter-Route mit EINEM Tor: Name des Middleware, Montagepfad, erwarteter Status ohne Voraussetzung, Mindestzahl der Routen (sonst wird die Pruefung blind, wenn eine Teilflaeche verschwindet), und die Tabellen, in die das Tor selbst protokollieren darf."
   },
   "grundlinie": {
-    "verhaltensgeprueft": 253,
+    "verhaltensgeprueft": 257,
     "hinweis": "Sperrklinke: die Zahl darf wachsen, nicht fallen. Wer eine Route auf 'bewusste-ausnahme' zuruecksetzt, senkt diese Zahl bewusst und mit Begruendung."
   },
   "abgedeckteRouter": [
@@ -4805,6 +4805,77 @@
           }
         }
       }
+    },
+    {
+      "datei": "matching.js",
+      "hinweis": "Matching-Wege. Befund E-14 ist geschlossen: `findMatches` und `matchCapacityToRequisitions` luden ihre Quelle mit 'WHERE id = $1' und sonst nichts — jeder Angemeldete mit `requisition.view` konnte die Engine gegen einen FREMDEN Bedarf laufen lassen und erfuhr, dass es ihn gibt und welche Lieferanten zu ihm passen; `logMatch` schrieb den fremden Vorgang zusaetzlich unter der EIGENEN Org ins ML-Protokoll. Die Geschwister-Route /matching/instant/:requisitionId machte es von Anfang an richtig. Die Regel musste nicht erfunden werden: ein Bedarf ist genau dann sichtbar, wenn der Marktplatz ihn zeigt (offen, freie Plaetze, kein Ursprungsauftrag, nicht abgelaufen) — 'SELECT * WHERE id = $1' erreichte dagegen auch 'closed', 'cancelled' und 'fulfilled', war also die Hintertuer zu genau den Daten, die die Sichtbarkeitsregel schuetzt.",
+      "routen": [
+        {
+          "methode": "get",
+          "pfad": "/matching/demand/:id",
+          "urteil": "verhaltensgeprueft",
+          "art": "ressource",
+          "identitaet": "nutzer",
+          "traegerspalten": [
+            "requester_company_id"
+          ],
+          "erwartung": "403",
+          "gegenprobe": false,
+          "hinweis": "Befund E-14: Klaerung vor jeder Arbeit, 403 bei fremdem, nicht ausgespieltem Bedarf. Die Grenze ist hier KEINE reine Org-Grenze, sondern die Sichtbarkeitsregel des Marktplatzes — dieselbe, die `capacityExchangeService` fuehrt. Der Spion antwortet wie eine echte Datenbank: die fremde Zeile ist weder eigen noch marktplatz-sichtbar.",
+          "zeile": {
+            "status": "closed",
+            "offene_plaetze": 0,
+            "hat_ursprungsauftrag": false,
+            "end_date": null
+          }
+        },
+        {
+          "methode": "get",
+          "pfad": "/matching/supply/:id",
+          "urteil": "verhaltensgeprueft",
+          "art": "ressource",
+          "identitaet": "nutzer",
+          "traegerspalten": [
+            "supplier_company_id"
+          ],
+          "erwartung": "403",
+          "gegenprobe": false,
+          "hinweis": "Befund E-14: dieselbe Klaerung fuer das Angebot (aktiv und nicht privat). Die Grenze ist hier KEINE reine Org-Grenze, sondern die Sichtbarkeitsregel des Marktplatzes — dieselbe, die `capacityExchangeService` fuehrt. Der Spion antwortet wie eine echte Datenbank: die fremde Zeile ist weder eigen noch marktplatz-sichtbar.",
+          "zeile": {
+            "status": "expired",
+            "visibility_status": "private",
+            "org_id": null
+          }
+        },
+        {
+          "methode": "get",
+          "pfad": "/matching/worker/:id",
+          "urteil": "verhaltensgeprueft",
+          "art": "ressource",
+          "traegerspalten": [
+            "supplier_org_id"
+          ],
+          "erwartung": "sql-grenze",
+          "orgImSql": true,
+          "gegenprobe": false,
+          "hinweis": "Befund E-21: dieser Weg hat NIE funktioniert — die Engine liest 'FROM workers', und diese Tabelle hat keine Migration je angelegt (gegen die laufende Datenbank gemessen: 42P01). Die Org-Bindung steht trotzdem im SQL: ohne sie waere der Weg am Tag, an dem jemand eine 'workers'-Tabelle anlegt, sofort ein ungebundener org-uebergreifender Lesezugriff. Ob er entfernt oder auf 'worker_profiles' gebaut wird, ist eine Produktentscheidung (P1-19)."
+        },
+        {
+          "methode": "get",
+          "pfad": "/matching/instant/:requisitionId",
+          "urteil": "verhaltensgeprueft",
+          "art": "ressource",
+          "erwartung": "403",
+          "gegenprobe": false,
+          "hinweis": "Die Route, die es von Anfang an richtig machte: sie reicht req.orgId durch und beantwortet ORG_BOUNDARY_VIOLATION mit 403. Sie war die Vorlage fuer die Reparatur der drei anderen."
+        },
+        {
+          "methode": "get",
+          "pfad": "/matching/smart-explain/:supplierId",
+          "urteil": "bewusste-ausnahme",
+          "begruendung": "Das Smart-Rank-Profil eines Lieferanten ist eine AGGREGATION fuer die Gegenseite — Erfuellungsquote, SLA-Treue, Rollen-Erfahrung, Aktualitaet — und damit dieselbe Klasse wie die Bewertungskarte in requests.js: die Grundlage der Lieferantenauswahl. Sie ueber eine fremde Kennung abzurufen ist der Zweck, nicht der Fehler. Sie enthaelt keine Einzelvorgaenge, nur verdichtete Kennzahlen; ohne sie kann im Marktplatz niemand einen Lieferanten beurteilen."
+        }
+      ]
     }
   ],
   "nichtAbgedeckt": {
@@ -4821,7 +4892,6 @@
     "occ/risk.js": "Ueber den Einstiegspunkt `ownerControlCenter.js` gefuehrt: die Datei montiert alle 13 Unterrouter hinter EINEM Tor (`ownerControlAuth` auf `/owner-control`). Schicht B3 zaehlt die Routen dieser Datei REKURSIV auf — also auch die aus dieser hier — und prueft, dass jede unter dem Tor liegt und keine Teilflaeche davor montiert ist. Ein eigener Eintrag je Unterrouter wuerde dieselbe Kette ein zweites Mal pruefen, ohne eine zusaetzliche Frage zu stellen. Keine dieser Dateien hat eine Platzhalter-Route.",
     "occ/support.js": "Ueber den Einstiegspunkt `ownerControlCenter.js` gefuehrt: die Datei montiert alle 13 Unterrouter hinter EINEM Tor (`ownerControlAuth` auf `/owner-control`). Schicht B3 zaehlt die Routen dieser Datei REKURSIV auf — also auch die aus dieser hier — und prueft, dass jede unter dem Tor liegt und keine Teilflaeche davor montiert ist. Ein eigener Eintrag je Unterrouter wuerde dieselbe Kette ein zweites Mal pruefen, ohne eine zusaetzliche Frage zu stellen. Keine dieser Dateien hat eine Platzhalter-Route.",
     "occ/warp.js": "Ueber den Einstiegspunkt `ownerControlCenter.js` gefuehrt: die Datei montiert alle 13 Unterrouter hinter EINEM Tor (`ownerControlAuth` auf `/owner-control`). Schicht B3 zaehlt die Routen dieser Datei REKURSIV auf — also auch die aus dieser hier — und prueft, dass jede unter dem Tor liegt und keine Teilflaeche davor montiert ist. Ein eigener Eintrag je Unterrouter wuerde dieselbe Kette ein zweites Mal pruefen, ohne eine zusaetzliche Frage zu stellen. Keine dieser Dateien hat eine Platzhalter-Route.",
-    "occ/_helpers.js": "Ueber den Einstiegspunkt `ownerControlCenter.js` gefuehrt: die Datei montiert alle 13 Unterrouter hinter EINEM Tor (`ownerControlAuth` auf `/owner-control`). Schicht B3 zaehlt die Routen dieser Datei REKURSIV auf — also auch die aus dieser hier — und prueft, dass jede unter dem Tor liegt und keine Teilflaeche davor montiert ist. Ein eigener Eintrag je Unterrouter wuerde dieselbe Kette ein zweites Mal pruefen, ohne eine zusaetzliche Frage zu stellen. Keine dieser Dateien hat eine Platzhalter-Route.",
-    "matching.js": "ZURUECKGESTELLT wegen Befund E-14 (offene Owner-Frage, kein stiller Patch): alle vier Platzhalter-Routen rufen die Matching-Engine NUR mit der Pfad-Kennung, ohne Org — `engine.findMatches(pool, req.params.id, ...)` (matching.js:25), ebenso matchCapacityToRequisitions (:65), matchWorkerToAssignments (:90) und smart-explain (:178). `findMatches` laedt 'SELECT * FROM demand_requests WHERE id = $1' (matchingEngine.js:353) ohne Bindung. Die Geschwister-Route /matching/instant/:requisitionId (:144-151) macht es anders: sie reicht req.orgId durch und mappt ORG_BOUNDARY_VIOLATION auf 403. Damit kann ein Angemeldeter mit requisition.view die Engine gegen eine FREMDE Bedarfsmeldung laufen lassen und erfaehrt, dass es sie gibt und wonach sie sucht; zusaetzlich schreibt logMatch den fremden Vorgang mit der EIGENEN org_id ins ML-Protokoll (matching.js:38). WARUM NICHT AUTONOM REPARIERT: Bedarfsmeldungen werden im Marktplatz bewusst an Lieferanten ausgespielt — ob dieser Weg offen sein SOLL, ist eine Produktentscheidung, keine Ableitung. Und demand_requests gehoert einem NUTZER (requester_company_id -> users), nicht einer Org, was die Frage mit D-M5/E-11 verbindet."
+    "occ/_helpers.js": "Ueber den Einstiegspunkt `ownerControlCenter.js` gefuehrt: die Datei montiert alle 13 Unterrouter hinter EINEM Tor (`ownerControlAuth` auf `/owner-control`). Schicht B3 zaehlt die Routen dieser Datei REKURSIV auf — also auch die aus dieser hier — und prueft, dass jede unter dem Tor liegt und keine Teilflaeche davor montiert ist. Ein eigener Eintrag je Unterrouter wuerde dieselbe Kette ein zweites Mal pruefen, ohne eine zusaetzliche Frage zu stellen. Keine dieser Dateien hat eine Platzhalter-Route."
   }
 }

@@ -22,6 +22,15 @@ export function createMatchingRouter(deps) {
   // GET /api/matching/demand/:id — find capacity posts for a demand/requisition
   router.get("/matching/demand/:id", requireAuth, rperm("requisition.view"), async (req, res) => {
     try {
+      // Befund E-14 (2026-08-20): die Zugehoerigkeit wird VOR jeder Arbeit
+      // geklaert — vorher lief die Engine gegen jeden fremden Bedarf, und
+      // logMatch schrieb den fremden Vorgang unter der EIGENEN Org ins
+      // ML-Protokoll. Die Regel ist die des Marktplatzes, nicht eine neue:
+      // eigener Bedarf immer, fremder nur solange er offen ausgespielt wird.
+      const zugang = await engine.darfBedarfSehen(pool, req.params.id, req.session?.userId);
+      if (zugang === "NOT_FOUND") return res.status(404).json({ error: "NOT_FOUND" });
+      if (zugang !== "OK") return res.status(403).json({ error: "ORG_BOUNDARY_VIOLATION" });
+
       const matches = await engine.findMatches(pool, req.params.id, {
         topN: Number(req.query.limit) || 25,
         minScore: Number(req.query.min_score) || 1
@@ -62,6 +71,15 @@ export function createMatchingRouter(deps) {
   // GET /api/matching/supply/:id — find demands/requisitions for a capacity post
   router.get("/matching/supply/:id", requireAuth, rperm("requisition.view"), async (req, res) => {
     try {
+      // Befund E-14: dieselbe Klaerung fuer das Angebot. Die Regel steht in
+      // `capacityExchangeService.canViewerSeeEntry` — der Anbieter sieht sein
+      // Angebot immer, alle anderen nur ein aktives, nicht privates.
+      const zugang = await engine.darfKapazitaetSehen(
+        pool, req.params.id, req.session?.userId, req.orgId
+      );
+      if (zugang === "NOT_FOUND") return res.status(404).json({ error: "NOT_FOUND" });
+      if (zugang !== "OK") return res.status(403).json({ error: "ORG_BOUNDARY_VIOLATION" });
+
       const matches = await engine.matchCapacityToRequisitions(pool, req.params.id, {
         topN: Number(req.query.limit) || 25,
         minScore: Number(req.query.min_score) || 1
@@ -87,9 +105,20 @@ export function createMatchingRouter(deps) {
   // GET /api/matching/worker/:id — find assignments for a specific worker
   router.get("/matching/worker/:id", requireAuth, rperm("requisition.view"), async (req, res) => {
     try {
+      // Befund E-21 (2026-08-20): dieser Weg hat NIE funktioniert — die Engine
+      // liest `FROM workers`, und diese Tabelle hat keine Migration je angelegt
+      // (gemessen gegen die laufende Datenbank: 42P01). Der Aufruf endet seit
+      // jeher in 500. Ob der Weg entfernt oder auf `worker_profiles` gebaut
+      // wird, ist eine Produktentscheidung (P1-19) und wird hier nicht geraten.
+      //
+      // Was hier dennoch passiert: die Org-Bindung wird JETZT durchgereicht.
+      // Ohne sie waere der Weg am Tag, an dem jemand eine `workers`-Tabelle
+      // anlegt, sofort ein ungebundener org-uebergreifender Lesezugriff — ein
+      // schlafendes Leck. Mit ihr kann er das nicht mehr werden.
       const matches = await engine.matchWorkerToAssignments(pool, req.params.id, {
         topN: Number(req.query.limit) || 25,
-        minScore: Number(req.query.min_score) || 1
+        minScore: Number(req.query.min_score) || 1,
+        viewerOrgId: req.orgId || null
       });
       for (const m of matches.slice(0, 10)) {
         engine.logMatch(pool, {
