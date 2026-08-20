@@ -759,7 +759,6 @@ const BESTAND = new Set([
   "services/platformMetricsService.js::ratings.overall_score",
   "services/onboardingService.js::capacity_posts.user_id",     // richtig: created_by / supplier_company_id
   "routes/matching.js::capacity_posts.supplier_id",            // richtig: supplier_company_id
-  "utils/ownerCheck.js::org_memberships.status",               // richtig: is_active
   /* searchService: Altbestand aus der Zeit vor der Org-Umstellung — users hat
    * weder type noch legal_name noch plan_id, capacity_posts weder description
    * noch hourly_rate. */

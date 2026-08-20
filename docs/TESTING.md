@@ -297,6 +297,36 @@ Textzusicherung einen Nachweis.
 **Eine neue `:id`-Route anlegen?** Dann wird dieser Test rot, bis sie im Register
 steht. Das ist die Absicht.
 
+### Wenn eine Reparatur eine Prüfung blind macht
+
+Der SQL-Schema-Wächter (unten) prüft Spaltennamen nur bei **einrelationalen**
+Anweisungen — `relationen.length !== 1` wird übersprungen, weil ohne
+Alias-Auflöser pro Query-Ebene nicht sicher zuzuordnen ist, zu welcher Tabelle
+eine Spalte gehört.
+
+Das wurde bei Befund E-11 zur Falle. Der Wächter **hatte** den Fehler gefunden
+(`utils/ownerCheck.js::org_memberships.status` stand auf seiner Liste bekannter
+Befunde). Die Reparatur ersetzte die einrelationale Abfrage durch einen JOIN über
+drei Relationen — und schob den Code damit aus dem Sichtfeld des Wächters. Das
+Streichen der Ausnahmezeile sah aus wie ein Fortschritt, bewies aber nichts: die
+Rückmutation auf `status` ließ den Wächter **grün**.
+
+> **Regel.** Wer eine Zeile von einer Ausnahmeliste streicht, muss belegen, dass
+> die Prüfung den Fall danach wirklich sieht — durch Rückmutation, nicht durch
+> Annahme. Eine Prüfung, die einen Fall nicht mehr abdeckt, ist von einer
+> Prüfung, die ihn besteht, nicht zu unterscheiden.
+
+Abgedeckt wird solches SQL durch die zweite Schicht, die das Projekt dafür
+vorsieht: einen billigen Lauf gegen die echte Datenbank mit erfundenen Kennungen
+(`test/integration/ownerCheck.flow.test.js`, `{ skip: !hasDb }`). Es kommen null
+Treffer zurück — aber Postgres **parst und plant** die vollständige Abfrage, und
+jeder Spalten-, Tabellen- oder Aliasfehler fällt auf. Wichtig dabei: der
+Pool-Mantel reicht den Fehler an den Test durch. Ohne ihn verschluckt die
+geprüfte Funktion ihn selbst — genau der Mechanismus, der E-11 sechs Jahre lang
+verborgen hat.
+
+---
+
 ---
 
 ## Mutation Testing — was Coverage nicht beweist

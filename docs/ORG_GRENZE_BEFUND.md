@@ -172,6 +172,7 @@ weitere** gefunden, und die schwersten kamen zuletzt:
 | E-20 | `GET /data-governance/export/user/:userId` | Vollexport eines beliebigen fremden Nutzers |
 | E-14 | `GET /matching/demand/:id`, `/supply/:id` | Engine gegen fremden Bedarf laufen lassen; `logMatch` verbuchte ihn unter der eigenen Org |
 | E-21 | `GET /matching/worker/:id` | *kein Leck, aber ein schlafendes*: liest eine Tabelle, die keine Migration je anlegte |
+| E-11 | `canAccessAsOwner`, 10 Aufrufstellen | *umgekehrtes Vorzeichen*: zu streng statt zu lasch — nur der eine anlegende Mensch kam je durch |
 
 E-17, E-18 und E-20 lagen in **derselben Datei** — die Datenschutz-Werkzeuge
 waren durchgehend unbewacht, weil das Recht (`data_governance.*`) die eigene
@@ -211,6 +212,28 @@ Prüfungen grün. Mit entfernter Bindung wurden **fünf davon rot** — Organisa
 schloss die DSGVO-Anfrage von B (`status = 'completed'`), las deren Verteilplan
 und schaltete deren Vergabe weiter. Ein Mock kann kein `WHERE` erzwingen; erst
 diese Gegenprobe macht aus einer Textzusicherung einen Nachweis.
+
+
+**Ein Befund mit umgekehrtem Vorzeichen.** E-11 ist der einzige der Reihe, bei
+dem die Prüfung nicht zu lasch war, sondern **zu streng**: `canAccessAsOwner`
+sollte „Eigentümer ODER Mitglied derselben Organisation" prüfen, ließ aber immer
+nur den einen Menschen durch, der die Zeile angelegt hatte — wegen zweier
+unabhängiger Fehler (`status` statt `is_active`; Nutzer-Kennung gegen
+`org_memberships.org_id` verglichen). Bei Urlaub oder Personalwechsel war die
+Bedarfsmeldung des Unternehmens für das Unternehmen verloren.
+
+Er gehört trotzdem in diese Liste, weil er dieselbe Ursache hat wie alle anderen:
+**niemand konnte sehen, dass die Grenze nicht das tut, was drandsteht.** Ein
+`catch { return false }` um eine Sicherheitsabfrage macht eine kaputte Abfrage
+von einer verweigerten Berechtigung ununterscheidbar. Fail-closed ist richtig —
+still zu sein ist es nicht.
+
+> **Übertragbar, und teuer gelernt:** Eine Reparatur kann eine Prüfung *blind*
+> machen, ohne sie anzufassen — indem sie den Code aus deren Sichtfeld schiebt.
+> Der SQL-Schema-Wächter hatte E-11 gefunden; die Reparatur (ein JOIN über drei
+> Relationen) verließ aber genau den Bereich, den er prüft (einrelationale
+> Anweisungen). Wer eine Zeile von einer Ausnahmeliste streicht, muss **belegen**,
+> dass die Prüfung den Fall danach wirklich sieht — nicht annehmen.
 
 **Zwei Blindstellen des Wächters selbst wurden dabei sichtbar:**
 

@@ -32,8 +32,16 @@ Gegen das echte Schema geprüft zeigen Matching und Marktplatz derselben Agentur
 jetzt **dieselbe Menge, null Abweichungen**. Die 14 OCC-Dateien werden über ihren
 Einstiegspunkt geführt (Schicht B3).
 
-**Was offen bleibt:** allein **E-11** (`canAccessAsOwner` hat nie funktioniert,
-10 Aufrufstellen → P1-17), weil die Reparatur den Zugriff **weiten** würde. Dazu
+**E-11 ebenfalls geschlossen.** `canAccessAsOwner` hatte zwei unabhängige
+Fehler (`status` statt `is_active`; Nutzer-Kennung gegen `org_memberships.org_id`
+verglichen) und liess deshalb immer nur den EINEN anlegenden Menschen durch —
+bei Urlaub oder Personalwechsel war die Zeile für das Unternehmen verloren. Die
+Weitung endet an der Arbeiterrolle: `org_memberships` führt auch 33 Arbeiter,
+und „gleiche Organisation genügt" hätte ihnen die Dealakten ihrer Agentur
+geöffnet. Gegen das echte Schema gemessen ändern sich **genau die zwei
+Gewährungen, keine einzige Verweigerung**.
+
+**Was offen bleibt:**
 **P1-19** aus dem Nebenbefund E-21: `GET /matching/worker/:id` liest eine Tabelle
 (`workers`), die keine Migration je angelegt hat — der Weg endet seit jeher in
 500. Ob er entfernt oder auf `worker_profiles` gebaut wird, ist eine

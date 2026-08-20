@@ -1360,7 +1360,7 @@
           "traegerspalten": [
             "requester_company_id"
           ],
-          "hinweis": "Bindung ueber canAccessAsOwner(pool, row.requester_company_id, req.session.userId). ACHTUNG Befund E-11: dessen Org-Zweig ist wirkungslos (utils/ownerCheck.js:28-33 fragt eine Spalte 'status' ab, die es nicht gibt) — wirksam ist nur der direkte Besitzer-Vergleich.",
+          "hinweis": "Bindung ueber canAccessAsOwner(pool, row.requester_company_id, req.session.userId). Seit Befund E-11 (geschlossen 2026-08-20) traegt dessen Org-Zweig wirklich: eine Kollegin mit aktiver Mitgliedschaft in DERSELBEN Organisation darf handeln, Arbeiter (`role_key = 'worker'`) ausdruecklich nicht.",
           "leereAntwortFuer": [
             "org_memberships"
           ]
@@ -1374,7 +1374,7 @@
           "traegerspalten": [
             "requester_company_id"
           ],
-          "hinweis": "Bindung ueber canAccessAsOwner(pool, row.requester_company_id, req.session.userId). ACHTUNG Befund E-11: dessen Org-Zweig ist wirkungslos (utils/ownerCheck.js:28-33 fragt eine Spalte 'status' ab, die es nicht gibt) — wirksam ist nur der direkte Besitzer-Vergleich.",
+          "hinweis": "Bindung ueber canAccessAsOwner(pool, row.requester_company_id, req.session.userId). Seit Befund E-11 (geschlossen 2026-08-20) traegt dessen Org-Zweig wirklich: eine Kollegin mit aktiver Mitgliedschaft in DERSELBEN Organisation darf handeln, Arbeiter (`role_key = 'worker'`) ausdruecklich nicht.",
           "leereAntwortFuer": [
             "org_memberships"
           ]
@@ -1388,7 +1388,7 @@
           "traegerspalten": [
             "requester_company_id"
           ],
-          "hinweis": "Bindung ueber canAccessAsOwner(pool, row.requester_company_id, req.session.userId). ACHTUNG Befund E-11: dessen Org-Zweig ist wirkungslos (utils/ownerCheck.js:28-33 fragt eine Spalte 'status' ab, die es nicht gibt) — wirksam ist nur der direkte Besitzer-Vergleich.",
+          "hinweis": "Bindung ueber canAccessAsOwner(pool, row.requester_company_id, req.session.userId). Seit Befund E-11 (geschlossen 2026-08-20) traegt dessen Org-Zweig wirklich: eine Kollegin mit aktiver Mitgliedschaft in DERSELBEN Organisation darf handeln, Arbeiter (`role_key = 'worker'`) ausdruecklich nicht.",
           "leereAntwortFuer": [
             "org_memberships"
           ]
@@ -1423,7 +1423,7 @@
           "traegerspalten": [
             "requester_company_id"
           ],
-          "hinweis": "Bindung ueber canAccessAsOwner(pool, row.requester_company_id, req.session.userId). ACHTUNG Befund E-11: dessen Org-Zweig ist wirkungslos (utils/ownerCheck.js:28-33 fragt eine Spalte 'status' ab, die es nicht gibt) — wirksam ist nur der direkte Besitzer-Vergleich.",
+          "hinweis": "Bindung ueber canAccessAsOwner(pool, row.requester_company_id, req.session.userId). Seit Befund E-11 (geschlossen 2026-08-20) traegt dessen Org-Zweig wirklich: eine Kollegin mit aktiver Mitgliedschaft in DERSELBEN Organisation darf handeln, Arbeiter (`role_key = 'worker'`) ausdruecklich nicht.",
           "leereAntwortFuer": [
             "org_memberships"
           ]
@@ -1632,7 +1632,7 @@
           "traegerspalten": [
             "requester_company_id"
           ],
-          "hinweis": "Bindung ueber canAccessAsOwner(pool, row.requester_company_id, req.session.userId). ACHTUNG Befund E-11: dessen Org-Zweig ist wirkungslos (utils/ownerCheck.js:28-33 fragt eine Spalte 'status' ab, die es nicht gibt) — wirksam ist nur der direkte Besitzer-Vergleich.",
+          "hinweis": "Bindung ueber canAccessAsOwner(pool, row.requester_company_id, req.session.userId). Seit Befund E-11 (geschlossen 2026-08-20) traegt dessen Org-Zweig wirklich: eine Kollegin mit aktiver Mitgliedschaft in DERSELBEN Organisation darf handeln, Arbeiter (`role_key = 'worker'`) ausdruecklich nicht.",
           "leereAntwortFuer": [
             "org_memberships"
           ]
@@ -3741,7 +3741,7 @@
           ]
         }
       ],
-      "hinweis": "Suchauftraege gehoeren einem NUTZER: die Routen pruefen ueber `canAccessAsOwner(pool, job.owner_company_id, req.session.userId)` (slaSearchJobs.js:52). ACHTUNG Befund E-11/P1-17: dessen Org-Zweig ist wirkungslos, wirksam ist nur der direkte Besitzer-Vergleich. Die Grenze ist ein JS-Vergleich nach dem Laden (canAccessAsOwner bzw. ein Besitzvergleich im Handler), nicht das SQL — belegt wird sie daran, dass die Antwort keine fremde Kennung traegt. Der Spion beantwortet SONST auch die Mitgliedschaftsabfrage von `canAccessAsOwner` mit einer Zeile und GEWAEHRT damit Zugriff — in Produktion wirft genau diese Abfrage (Befund E-11/P1-17) und verweigert. `leereAntwortFuer` bildet die Wirklichkeit nach: eine fremde Kennung ist kein Mitglied."
+      "hinweis": "Suchauftraege gehoeren einem NUTZER: die Routen pruefen ueber `canAccessAsOwner(pool, job.owner_company_id, req.session.userId)` (slaSearchJobs.js:52). Seit Befund E-11 (geschlossen 2026-08-20) traegt dessen Org-Zweig wirklich: eine Kollegin mit aktiver Mitgliedschaft in DERSELBEN Organisation darf handeln, Arbeiter (`role_key = 'worker'`) ausdruecklich nicht. Die Grenze ist ein JS-Vergleich nach dem Laden (canAccessAsOwner bzw. ein Besitzvergleich im Handler), nicht das SQL — belegt wird sie daran, dass die Antwort keine fremde Kennung traegt. Der Spion beantwortet SONST auch die Mitgliedschaftsabfrage von `canAccessAsOwner` mit einer Zeile und GEWAEHRT damit Zugriff. `leereAntwortFuer` bildet die Wirklichkeit nach: ein fremder Nutzer teilt keine Organisation. Seit Befund E-11 wiegt das schwerer als vorher — vorher warf die Abfrage in Produktion ohnehin, heute entscheidet sie wirklich, und der Unterschied zwischen Mitglied und Nichtmitglied ist echt."
     },
     {
       "datei": "emergency.js",
@@ -3885,7 +3885,7 @@
           ]
         }
       ],
-      "hinweis": "Notdienst: die Bedarfsmeldung gehoert einem NUTZER (requester_company_id, emergency.js:57), dazu Rollentore (COMPANY_ONLY :84 / AGENCY_ONLY :139). Eine Zusage ABZUGEBEN ist fuer die Gegenseite der Normalfall — deshalb keine Org-Grenze, sondern eine Rollen- und Besitzfrage. Die Grenze ist ein JS-Vergleich nach dem Laden (canAccessAsOwner bzw. ein Besitzvergleich im Handler), nicht das SQL — belegt wird sie daran, dass die Antwort keine fremde Kennung traegt. Der Spion beantwortet SONST auch die Mitgliedschaftsabfrage von `canAccessAsOwner` mit einer Zeile und GEWAEHRT damit Zugriff — in Produktion wirft genau diese Abfrage (Befund E-11/P1-17) und verweigert. `leereAntwortFuer` bildet die Wirklichkeit nach: eine fremde Kennung ist kein Mitglied."
+      "hinweis": "Notdienst: die Bedarfsmeldung gehoert einem NUTZER (requester_company_id, emergency.js:57), dazu Rollentore (COMPANY_ONLY :84 / AGENCY_ONLY :139). Eine Zusage ABZUGEBEN ist fuer die Gegenseite der Normalfall — deshalb keine Org-Grenze, sondern eine Rollen- und Besitzfrage. Die Grenze ist ein JS-Vergleich nach dem Laden (canAccessAsOwner bzw. ein Besitzvergleich im Handler), nicht das SQL — belegt wird sie daran, dass die Antwort keine fremde Kennung traegt. Der Spion beantwortet SONST auch die Mitgliedschaftsabfrage von `canAccessAsOwner` mit einer Zeile und GEWAEHRT damit Zugriff. `leereAntwortFuer` bildet die Wirklichkeit nach: ein fremder Nutzer teilt keine Organisation. Seit Befund E-11 wiegt das schwerer als vorher — vorher warf die Abfrage in Produktion ohnehin, heute entscheidet sie wirklich, und der Unterschied zwischen Mitglied und Nichtmitglied ist echt."
     },
     {
       "datei": "integrations.js",
@@ -4665,7 +4665,7 @@
           "hinweis": "Die Mitgliedschaftsabfrage wird wie eine echte Datenbank beantwortet — sonst gewaehrt der Spion Zugriff."
         }
       ],
-      "hinweis": "Angebots-Anhaenge: nutzer-gebunden ueber `canAccessAsOwner`. ACHTUNG Befund E-11/P1-17 — dessen Org-Zweig ist wirkungslos, wirksam ist nur der direkte Besitzer-Vergleich."
+      "hinweis": "Angebots-Anhaenge: nutzer-gebunden ueber `canAccessAsOwner`. Seit Befund E-11 (geschlossen 2026-08-20) traegt dessen Org-Zweig wirklich: eine Kollegin mit aktiver Mitgliedschaft in DERSELBEN Organisation darf handeln, Arbeiter (`role_key = 'worker'`) ausdruecklich nicht."
     },
     {
       "datei": "preferredVendors.js",

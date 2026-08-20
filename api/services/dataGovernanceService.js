@@ -173,7 +173,8 @@ export async function canDeleteUser(pool, userId) {
  * einen Dritten gerichtet.
  *
  * Die Spalte heisst `is_active`, nicht `status` — genau der Fehler, an dem
- * `utils/ownerCheck.js` seit jeher scheitert (Befund E-11). Hier nicht wiederholt.
+ * `utils/ownerCheck.js` bis zum 2026-08-20 scheiterte (Befund E-11, inzwischen dort
+ * behoben). Hier von Anfang an nicht wiederholt.
  */
 export function istInMeinerOrg(pool, userId, orgId) {
   return gehoertZurOrg(pool, userId, orgId);

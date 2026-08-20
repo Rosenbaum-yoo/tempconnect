@@ -555,29 +555,88 @@ Aufgefallen ist es, weil eine zusätzliche `await`-Runde im Spion eine zuvor
 grüne Route auf „schreibt nichts" umschlagen ließ. Die Probe wartet jetzt,
 bis der Handler wirklich zu Ende ist.
 
-### E-11 · `canAccessAsOwner` hat nie funktioniert
+### E-11 · `canAccessAsOwner` hat nie funktioniert *(geschlossen)*
 
-`utils/ownerCheck.js:28-33` soll genau diese Lücke schließen: direkter
-Besitzer **oder** Mitglied derselben Organisation. Zwei Fehler in vier Zeilen:
+Die Prüfung hatte **zwei voneinander unabhängige Fehler**, von denen jeder
+einzelne schon genügt hätte, den Organisations-Zweig nie greifen zu lassen:
 
-1. Die Abfrage fragt `org_memberships.status` ab — **diese Spalte gibt es
-   nicht** (sie heißt `is_active`). Gegen die laufende Datenbank ausgeführt:
-   `column "status" does not exist`.
-2. Als `org_id` wird `entityOwnerId` übergeben — eine **Nutzer**-Kennung
-   (`demand_requests.requester_company_id` → `users`), verglichen mit einer
-   **Org**-Kennung (`org_memberships.org_id` → `organizations`). Selbst mit
-   richtiger Spalte könnte das nie treffen.
+1. Sie fragte `WHERE ... AND status = 'active'`. Die Spalte heißt `is_active`
+   und ist ein Wahrheitswert — `status` gibt es in `org_memberships` nicht.
+   Postgres antwortete mit `42703`, die Abfrage warf, und der `catch` machte
+   daraus ein stilles `false`.
+2. Sie verglich `WHERE org_id = $1` mit dem übergebenen Eigentümer. Alle **zehn**
+   Aufrufstellen übergeben aber eine **Nutzer**-Kennung
+   (`requester_company_id`, `owner_company_id`, `supplier_company_id` — allesamt
+   Fremdschlüssel auf `users`, gegen das laufende Schema geprüft). Eine
+   Nutzer-Kennung steht nie in `org_memberships.org_id`.
 
-Der `catch` darunter macht aus dem Fehler stillschweigend ein `false`. Ergebnis:
-an **10 Aufrufstellen** in `emergency.js`, `marketplace.js`, `offerAssets.js` und
-`slaSearchJobs.js` ist die Funktion auf „nur der direkte Besitzer" degradiert —
-seit sie existiert, bei jedem Aufruf mit einer wirkungslosen Datenbankrunde.
-`offerAssets.js:127` trägt sogar den Kommentar „canAccessAsOwner beruecksichtigt
-auch Organisations-Member".
+Wirksam war also ausschließlich der direkte Vergleich: **genau ein Mensch** —
+der, der die Zeile angelegt hat — konnte je auf sie zugreifen. Bei Urlaub,
+Krankheit oder Personalwechsel war die Bedarfsmeldung, der Suchauftrag oder die
+Dealakte des Unternehmens für das Unternehmen verloren.
 
-**Kein Leck** — der Fehler ist zu streng, nicht zu lasch. Deshalb ist er
-*nicht* autonom repariert: die Korrektur **weitet Zugriff aus** und ist damit
-eine Owner-Entscheidung. Eintrag **P1-17**.
+Dass es anders **gemeint** war, steht im Quelltext: `offerAssets.js:127` erklärt
+ausdrücklich, `canAccessAsOwner` berücksichtige „auch Organisations-Member und
+nicht nur den direkten Owner". Der Kommentar beschreibt seit Jahren eine
+Fähigkeit, die es nie gab.
+
+**Warum es so lange unsichtbar blieb — der `catch` war der eigentliche Fehler.**
+Ein `catch { return false }` um eine Sicherheitsabfrage sieht vorsichtig aus und
+ist es auch: es schließt zu. Genau deshalb hat niemand etwas gemerkt — **eine
+kaputte Abfrage ist von einer verweigerten Berechtigung nicht zu unterscheiden,
+wenn beide dasselbe antworten.** Fail-closed bleibt richtig, aber nicht still:
+der Fehler wird jetzt protokolliert.
+
+**Wo die Weitung endet — und warum das der heikle Teil war.** Diese Reparatur
+öffnet den Zugriff vom einen Menschen auf seine Kolleginnen und Kollegen. Sie
+darf ihn deshalb nicht weiter öffnen als gemeint: `org_memberships` führt nicht
+nur die Belegschaft einer Organisation, sondern auch ihre **Arbeiter**
+(`role_key = 'worker'` — gegen den Bestand gemessen: **33 Zeilen**). Eine Regel
+„gleiche Organisation genügt" hätte einem Zeitarbeiter die Suchaufträge,
+Angebote und Dealakten seiner Agentur geöffnet. Aus einer wirkungslosen Prüfung
+wäre ein **echtes Leck** geworden.
+
+Der Ausschluss ist keine neue Erfindung: die Plattform trennt die Arbeiterwelt
+ohnehin durchgehend (`hidden_worker` auf allen Flächen, `requireCompanyOrg`
+sperrt `org_type = 'worker'`, `workerService.js:441` benutzt `role_key = 'worker'`
+als genau dieses Kennzeichen).
+
+**Der Beweis hat die Form, die eine Weitung haben muss.** Dieselben elf
+Prüfungen gegen das echte Schema, einmal gegen die alte und einmal gegen die
+neue Fassung:
+
+| | alte Fassung | neue Fassung |
+|---|---|---|
+| Kollegin derselben Organisation darf handeln | **rot** | grün |
+| Eigentümerin selbst | grün | grün |
+| Arbeiter derselben Organisation | grün (verweigert) | grün (verweigert) |
+| ruhende Mitgliedschaft | grün (verweigert) | grün (verweigert) |
+| fremde Organisation | grün (verweigert) | grün (verweigert) |
+| Zeile eines Arbeiters, Belegschaft fragt | grün (verweigert) | grün (verweigert) |
+| nur in einer *anderen* Org Mitglied | grün (verweigert) | grün (verweigert) |
+
+**Genau die zwei Gewährungen ändern sich, keine einzige Verweigerung.** Das ist
+die stärkste Aussage, die eine Weitung über sich machen kann.
+
+**Ein Nebenbefund, der wichtiger ist als er aussieht.** Der SQL-Schema-Wächter
+*hatte* Fehler 1 gefunden — er stand dort auf der Liste bekannter Befunde. Die
+Reparatur hat ihn aber aus dessen Sichtfeld geschoben: `sqlSchemaWaechter` prüft
+Spalten nur bei **einrelationalen** Anweisungen (`relationen.length !== 1 →
+übersprungen`), und die neue Fassung verbindet drei Relationen. Ein Tippfehler in
+einem Spalten- oder Aliasnamen wäre dort ab sofort unsichtbar gewesen.
+
+> **Merksatz.** Eine Reparatur kann eine Prüfung *blind* machen, ohne sie
+> anzufassen — indem sie den Code aus deren Sichtfeld schiebt. Wer eine Zeile von
+> einer Ausnahmeliste streicht, muss belegen, dass die Prüfung den Fall danach
+> wirklich sieht. Bei mir tat sie es nicht.
+
+Geschlossen mit der zweiten Schicht, die das Projekt für genau diesen Fall
+vorsieht (`test/integration/ownerCheck.flow.test.js`): ein billiger Lauf gegen
+die echte Datenbank mit erfundenen Kennungen. Null Treffer — aber Postgres
+**parst und plant** die vollständige Abfrage. Ein Pool-Mantel reicht den Fehler
+an den Test durch, statt ihn verschlucken zu lassen. Gemessen: die Rückmutation
+auf `status` macht ihn rot, mit `42703: column meine.status does not exist` im
+Klartext.
 
 ### Gegen die echte Datenbank geprüft (was ein Mock nicht zeigen kann)
 
@@ -599,7 +658,7 @@ eine Owner-Entscheidung. Eintrag **P1-17**.
 |---|---|
 | **Demo-Compose** (`cde6c42`) | War **nie** startfähig (nicht „seit P0-08"): Die Datei entstand einen Monat nach dem Guard, den sie verletzt. Schwerer: Sie wird **ausgeliefert** und öffnete beim Kunden alle Plan-Gates — der CI-Wächter dagegen durchsucht nur `.env*`. Dazu der `release-package.sh`-Fehler, durch den `.claude/` ins Artefakt kam (die `EXCLUDE_LIST` galt nur im Fallback-Zweig). Wächter: `composeStartfaehig.test.js` |
 | **NOT_AUTH** (`61d2091`) | Nicht „alle Portalseiten", sondern **genau die G5-Seite**. Und kein Konsolen-Problem: Sie blieb für Abgemeldete **dauerhaft weiß**, ohne Weg zum Login — ausgerechnet der Notfallweg. Siebenmal kopiert, beim achten Mal vergessen. |
-| **H2 — Mandantengrenzen** | Die Entscheidung **D-M1 ist gefallen: Wächter, nicht konsolidieren.** Die fünf Lücken des Plans sind geschlossen — **und der Wächter fand über alle 82 Route-Dateien hinweg zwölf weitere**. Siebzehn Lücken, nicht fünf. Die schwersten kamen zuletzt und lagen zu dritt in **einer** Datei: DSGVO-Vollexport eines Fremden (E-20), fremdes Konto anonymisieren (E-17), fremde Betroffenenanfrage schließen (E-18); dazu der Verteilplan fremder Ausschreibungen, lesbar **und weiterschaltbar** (E-19). Alle geschlossen und gegen das echte Schema bewiesen, ebenso E-14 (Matching) — offen bleibt allein E-11 als Owner-Frage. Details unten. |
+| **H2 — Mandantengrenzen** | Die Entscheidung **D-M1 ist gefallen: Wächter, nicht konsolidieren.** Die fünf Lücken des Plans sind geschlossen — **und der Wächter fand über alle 82 Route-Dateien hinweg zwölf weitere**. Siebzehn Lücken, nicht fünf. Die schwersten kamen zuletzt und lagen zu dritt in **einer** Datei: DSGVO-Vollexport eines Fremden (E-20), fremdes Konto anonymisieren (E-17), fremde Betroffenenanfrage schließen (E-18); dazu der Verteilplan fremder Ausschreibungen, lesbar **und weiterschaltbar** (E-19). Alle geschlossen und gegen das echte Schema bewiesen, ebenso E-14 (Matching) und E-11 (`canAccessAsOwner`, das seit jeher nur den einen anlegenden Menschen durchliess). **Kein offener Sicherheitsbefund mehr** — offen ist nur noch P1-19, eine Produktfrage. Details unten. |
 
 ### Zwei Blocker, die nur der Owner lösen kann
 

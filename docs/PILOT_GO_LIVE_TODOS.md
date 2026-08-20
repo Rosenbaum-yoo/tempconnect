@@ -70,7 +70,7 @@ Gegenprobe, dass die Neuberechnung fuer die eigene Org weiterhin laeuft.
 Architekturbefunde: die ersten beiden Dateien sind **nutzer-** statt
 org-gebunden (D-M5), das Arbeiterportal und das Staff Control Center haben je
 *eine* Eintrittsbedingung statt einer Grenze je Route (neue Wächter-Schicht B2),
-und `canAccessAsOwner` funktioniert nicht (P1-17).
+und `canAccessAsOwner` funktionierte nicht (P1-17, seit dem 2026-08-20 behoben).
 **Verify:** `api/test/orgGrenzenWaechter.test.js` 457/457, volle Suite 9210/0.
 Abdeckung **82 von 82** Route-Dateien, 257 verhaltensgeprüft, 123 belegte
 Ausnahmen — dazu Schicht B3 für Flächen ganz ohne Platzhalter-Route (OCC).
@@ -334,32 +334,32 @@ systematisch falsche Treffer. (b) ist also ein Feature, kein Umbenennen.
 **Aufwand:** (a) 30 Minuten · (b) 1–2 Tage ·
 **Verify:** `orgGrenzenWaechter` + `matchingEngine.coverage.test.js`.
 
-### P1-17 — `canAccessAsOwner` hat nie funktioniert (10 Aufrufstellen)
+### ~~P1-17 — `canAccessAsOwner` hat nie funktioniert~~ ✅ ERLEDIGT (2026-08-20)
 
-**Status:** offen · **Fakt:** `utils/ownerCheck.js:28-33` soll „direkter Besitzer
-ODER Mitglied derselben Organisation" prüfen. Zwei Fehler: (1) die Abfrage nennt
-`org_memberships.status` — diese Spalte existiert nicht, sie heißt `is_active`;
-gegen die laufende Datenbank ausgeführt: `column "status" does not exist`.
-(2) Als `org_id` wird eine **Nutzer**-Kennung übergeben
-(`demand_requests.requester_company_id` → `users`), verglichen mit einer
-**Org**-Kennung (`org_memberships.org_id` → `organizations`) — selbst mit
-richtiger Spalte könnte das nie treffen. Der `catch` darunter macht daraus
-stillschweigend `false`. Wirkung an **10 Aufrufstellen** (`emergency.js`,
-`marketplace.js`, `offerAssets.js`, `slaSearchJobs.js`): die Funktion ist auf
-„nur der direkte Besitzer" degradiert, bei jedem Aufruf mit einer wirkungslosen
-Datenbankrunde. `offerAssets.js:127` trägt sogar den Kommentar
-„canAccessAsOwner beruecksichtigt auch Organisations-Member".
-**Kein Leck** — zu streng, nicht zu lasch.
-**Aktion:** Owner entscheidet, denn die Reparatur **weitet Zugriff aus**: soll
-ein Kollege derselben Organisation die Einträge seines Teams sehen und
-bearbeiten? Dieselbe Frage stellt sich bei D-M4 (Requisitions, `created_by`) und
-D-M5 (capacityExchange/marketplace, nutzergebunden) — **eine Entscheidung für
-drei Stellen**. Bei „ja": Besitzer-Nutzer → Org auflösen, dann Mitgliedschaft
-prüfen, Spalte `is_active`. Bei „nein": den toten Zweig entfernen, damit der
-Kommentar nicht weiter etwas verspricht, das nicht gilt.
-**Aufwand:** Entscheidung 15 Minuten, Umsetzung 0,5 Tage ·
-**Verify:** ein Test, der die Org-Kollegin auf einen fremd angelegten Bedarf
-loslaesst — heute rot in der Absicht, nach der Entscheidung eindeutig.
+**Entscheidung des Owners: reparieren, also weiten.** Umgesetzt in
+`utils/ownerCheck.js`. Die Kollegin mit **aktiver** Mitgliedschaft in **derselben**
+Organisation darf jetzt handeln — die Weitung endet aber an der Arbeiterrolle:
+`org_memberships` führt auch 33 Arbeiter (`role_key = 'worker'`), und
+„gleiche Organisation genügt" hätte ihnen die Suchaufträge, Angebote und
+Dealakten ihrer Agentur geöffnet.
+
+Gegen das echte Schema gemessen, alte gegen neue Fassung: **genau die zwei
+Gewährungen ändern sich, keine einzige Verweigerung.** Der `catch` schließt
+weiterhin zu, protokolliert den Fehler aber — sein Schweigen war der Grund, warum
+der Befund sechs Jahre überlebte.
+
+**Nebenbefund mit Folgen für andere Reparaturen:** der SQL-Schema-Wächter hatte
+Fehler 1 gefunden (Ausnahmeliste), aber die Reparatur schob den Code aus seinem
+Sichtfeld — er prüft Spalten nur bei **einrelationalen** Anweisungen, die neue
+Fassung verbindet drei. Abgedeckt durch
+`test/integration/ownerCheck.flow.test.js`: ein Lauf gegen die echte Datenbank
+mit erfundenen Kennungen, bei dem Postgres die volle Abfrage parst und plant.
+Gemessen: die Rückmutation auf `status` macht ihn rot.
+
+**Weiterhin offen sind die Geschwisterfragen D-M4** (Requisitions, `created_by`)
+**und D-M5** (capacityExchange/marketplace, nutzergebunden). Sie stellen dieselbe
+Frage an anderen Stellen; die hier getroffene Antwort ist die naheliegende
+Vorlage, wurde aber bewusst nicht ungefragt übertragen.
 
 ### P1-16 — Migration 117 existiert nicht (RLS für 28 Tabellen)
 
