@@ -128,14 +128,16 @@ export function createRequisitionsRouter(deps) {
     const partial = createSchema.partial().safeParse(req.body);
     if (!partial.success) return res.status(400).json({ error: "VALIDATION", details: partial.error.issues });
     try {
-      // Org-Boundary (Befund E-4): Der Service begrenzt per
-      // `WHERE id = $1 AND created_by = $2` — eine ERSTELLER-Grenze. Sie deckt
-      // den Cross-Org-Fall zufaellig mit ab (fremde Zeile, fremder Ersteller),
-      // aber sie sagt nicht, was sie meint, und sie antwortet mit einem
-      // irrefuehrenden 404. Die Org-Grenze steht jetzt explizit davor; die
-      // Ersteller-Bedingung bleibt unveraendert bestehen.
+      // Org-Boundary (Befund E-4) steht explizit davor und antwortet mit 403
+      // statt mit einem irrefuehrenden 404.
+      //
+      // Entscheidung D-M4 (Owner, 2026-08-20): der Dienst begrenzte zusaetzlich
+      // per `created_by` — eine vierte Einschraenkung ueber drei vorhandenen,
+      // die KEINE andere Mutation an derselben Zeile kennt. Eine Kollegin durfte
+      // die Ausschreibung stornieren, aber keinen Tippfehler korrigieren. Die
+      // Grenze ist jetzt die Organisation, in Handler UND SQL.
       await assertOrgOwnership(pool, 'requisitions', req.params.id, req.orgId);
-      const updated = await requisitionService.updateRequisition(pool, req.params.id, req.session.userId, partial.data);
+      const updated = await requisitionService.updateRequisition(pool, req.params.id, req.session.userId, partial.data, req.orgId);
       if (!updated) return res.status(404).json({ error: "NOT_FOUND_OR_FORBIDDEN" });
       res.locals.audit = { action: "requisition.update", entity_type: "requisition", entity_id: req.params.id, details: { changed_fields: Object.keys(partial.data) } };
       res.json(updated);

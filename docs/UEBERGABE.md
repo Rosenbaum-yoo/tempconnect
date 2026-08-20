@@ -555,6 +555,92 @@ Aufgefallen ist es, weil eine zusätzliche `await`-Runde im Spion eine zuvor
 grüne Route auf „schreibt nichts" umschlagen ließ. Die Probe wartet jetzt,
 bis der Handler wirklich zu Ende ist.
 
+### D-M4 / D-M5 · Zusammenarbeit innerhalb einer Firma *(entschieden und umgesetzt)*
+
+Beide Fragen stellten dasselbe an zwei Stellen: **darf eine Kollegin derselben
+Organisation den Vorgang eines Teammitglieds bearbeiten?** Zusammen mit E-11 war
+es *eine* Entscheidung für drei Flächen — der Owner hat sie am 2026-08-20
+getroffen: **ja, bis zur Org-Grenze und nicht weiter.**
+
+**D-M4 hat der Code selbst beantwortet.** `updateRequisition` band mit
+`WHERE id = $1 AND created_by = $2` — eine *vierte* Einschränkung über drei
+bereits vorhandenen (`requireScope`, `requirePermission("requisition.edit")`,
+`assertOrgOwnership`). Dass sie kein Vorsatz war, zeigt der Nachbar: **keine
+andere Mutation an derselben Zeile kennt sie.** `transitionStatus` schreibt mit
+`WHERE id = $1` — eine Kollegin durfte die Ausschreibung also **stornieren**,
+aber keinen Tippfehler im Titel korrigieren. Eine Regel, die den folgenschweren
+Weg offen lässt und den harmlosen sperrt, ist keine Regel. `created_by` bleibt
+jetzt, was es ist: Herkunft, nicht Besitz. Die Bindung liegt im SQL
+(`AND org_id = $2`), nicht nur im Handler davor.
+
+**D-M5 waren 17 Stellen**, 13 in den Routen (`marketplace` 10,
+`capacityExchange` 3) und 4 in `marketplaceService`. Alle prüften **bloße
+Namensgleichheit** (`supplier_company_id !== req.session.userId`). Alle fragen
+jetzt `canAccessAsOwner` — den Helfer, der genau diese Frage beantwortet und sie
+seit E-11 wirklich trägt. Der direkte Vergleich bleibt der Kurzschluss: der
+häufigste Fall kostet weiterhin keine Abfrage.
+
+**Der Beweis hat wieder die Form, die eine Weitung haben muss.** Neun Prüfungen
+gegen das echte Schema, einmal gegen den Stand davor und einmal danach:
+
+| | vorher | nachher |
+|---|---|---|
+| Kollege ändert fremde Ausschreibung (D-M4) | **rot** | grün |
+| Kollegin der Kundenfirma nimmt Angebot an (D-M5) | **rot** | grün |
+| Kollegin der Agentur zieht Angebot zurück (D-M5) | **rot** | grün |
+| Arbeiter derselben Firma | grün (verweigert) | grün (verweigert) |
+| fremde Organisation | grün (verweigert) | grün (verweigert) |
+| Kundenseite zieht Angebot der Gegenseite zurück | grün (verweigert) | grün (verweigert) |
+| ohne Org im Kontext wird nicht geschrieben | grün | grün |
+
+**Nur Gewährungen ändern sich, keine einzige Verweigerung** — dieselbe Aussage
+wie bei E-11. Besonders wichtig ist die vorletzte Zeile: die Weitung läuft
+entlang der *Organisation*, nicht entlang des Vorgangs. Die beiden Marktseiten
+bleiben getrennt.
+
+Dauerhaft festgehalten in `test/integration/kollegenZugriff.flow.test.js`
+(7 Prüfungen) — bewusst **ohne** `./helpers.js`, weil dessen `createPool` den
+gesamten Express-Aufbau mitimportiert; diese Probe ruft nur zwei
+Dienstfunktionen. Ein Mantel bildet den inneren Transaktionsblock von
+`withTransaction` auf Sicherungspunkte ab, sonst wäre es ein verschachteltes
+`BEGIN` in der Probe-Transaktion.
+
+### Zwei Beobachtungen am Rand, die jemand aufgreifen sollte
+
+**P1-20 — `POST /requisitions/:id/transition` trägt keine Berechtigungsprüfung.**
+Die Route hat `requireAuth` + `requireScope("write:requisitions")` + Org-Grenze,
+aber **kein** `requirePermission`. Die *schwächere* Aktion (Feld ändern) verlangt
+`requisition.edit`, die *folgenschwerere* (Status auf `CANCELLED` setzen)
+verlangt nichts. Bei D-M4 fiel das auf, wurde aber **nicht** mitrepariert:
+eine Berechtigung nachträglich zu fordern **verengt** Zugriff und kann laufende
+Abläufe brechen — das ist eine eigene Entscheidung, kein Nebenbei-Fix.
+
+**M0-B9 — ein roter Integrationstest aus Welle G4b.**
+`g4bKundenMeldung.flow.test.js` → „die erlaubten severity-Werte stimmen mit der
+Konstante überein" schlägt fehl (`expected: true, actual: false`):
+`ERLAUBTE_SEVERITY` und die Datenbank sind auseinandergelaufen. **Nicht** aus
+dieser Welle — nachgewiesen: keiner der H2-Commits berührt
+`workerAbsenceService`, `notificationMatrix` oder diesen Test. Er ist der einzige
+rote in der Integrationssuite (285 von 286 grün).
+
+### Eine Falle dieser Umgebung, teuer gelernt
+
+`docker inspect` zeigt: **`…\12_tempconnect_docker(D)\api` ist als Bind-Mount auf
+`/app` gelegt.** Jedes `docker cp … tempconnect_api:/app/…` schreibt damit
+**direkt in den Arbeitsbaum des Haupt-Repos** — nicht in den Container. Bei den
+Schema-Proben dieser Welle ist genau das passiert: sechs Dateien unter `api/`
+wurden dort überschrieben und vier Hilfsdateien abgelegt.
+
+Wiederhergestellt mit `git checkout -- api/` plus Löschen der vier Streudateien;
+`docs/PILOT_GO_LIVE_TODOS.md` und `support-ops-dist/index.html` blieben
+unangetastet — sie liegen außerhalb des Mounts und stammen nicht aus dieser
+Arbeit.
+
+> **Regel für Prüfungen gegen die echte Datenbank:** den zu prüfenden Code in ein
+> **nicht gemountetes** Verzeichnis des Containers kopieren (`/tmp/wt`, dazu
+> `ln -s /app/node_modules`) und von dort starten. Niemals nach `/app`. Der Mount
+> ist unsichtbar, solange man nicht danach fragt — und `docker cp` warnt nicht.
+
 ### E-11 · `canAccessAsOwner` hat nie funktioniert *(geschlossen)*
 
 Die Prüfung hatte **zwei voneinander unabhängige Fehler**, von denen jeder
@@ -658,7 +744,7 @@ Klartext.
 |---|---|
 | **Demo-Compose** (`cde6c42`) | War **nie** startfähig (nicht „seit P0-08"): Die Datei entstand einen Monat nach dem Guard, den sie verletzt. Schwerer: Sie wird **ausgeliefert** und öffnete beim Kunden alle Plan-Gates — der CI-Wächter dagegen durchsucht nur `.env*`. Dazu der `release-package.sh`-Fehler, durch den `.claude/` ins Artefakt kam (die `EXCLUDE_LIST` galt nur im Fallback-Zweig). Wächter: `composeStartfaehig.test.js` |
 | **NOT_AUTH** (`61d2091`) | Nicht „alle Portalseiten", sondern **genau die G5-Seite**. Und kein Konsolen-Problem: Sie blieb für Abgemeldete **dauerhaft weiß**, ohne Weg zum Login — ausgerechnet der Notfallweg. Siebenmal kopiert, beim achten Mal vergessen. |
-| **H2 — Mandantengrenzen** | Die Entscheidung **D-M1 ist gefallen: Wächter, nicht konsolidieren.** Die fünf Lücken des Plans sind geschlossen — **und der Wächter fand über alle 82 Route-Dateien hinweg zwölf weitere**. Siebzehn Lücken, nicht fünf. Die schwersten kamen zuletzt und lagen zu dritt in **einer** Datei: DSGVO-Vollexport eines Fremden (E-20), fremdes Konto anonymisieren (E-17), fremde Betroffenenanfrage schließen (E-18); dazu der Verteilplan fremder Ausschreibungen, lesbar **und weiterschaltbar** (E-19). Alle geschlossen und gegen das echte Schema bewiesen, ebenso E-14 (Matching) und E-11 (`canAccessAsOwner`, das seit jeher nur den einen anlegenden Menschen durchliess). **Kein offener Sicherheitsbefund mehr** — offen ist nur noch P1-19, eine Produktfrage. Details unten. |
+| **H2 — Mandantengrenzen** | Die Entscheidung **D-M1 ist gefallen: Wächter, nicht konsolidieren.** Die fünf Lücken des Plans sind geschlossen — **und der Wächter fand über alle 82 Route-Dateien hinweg zwölf weitere**. Siebzehn Lücken, nicht fünf. Die schwersten kamen zuletzt und lagen zu dritt in **einer** Datei: DSGVO-Vollexport eines Fremden (E-20), fremdes Konto anonymisieren (E-17), fremde Betroffenenanfrage schließen (E-18); dazu der Verteilplan fremder Ausschreibungen, lesbar **und weiterschaltbar** (E-19). Alle geschlossen und gegen das echte Schema bewiesen, ebenso E-14 (Matching) und E-11 (`canAccessAsOwner`, das seit jeher nur den einen anlegenden Menschen durchliess). **Kein offener Sicherheitsbefund mehr** — offen sind nur noch Produktfragen (P1-19, P1-20) und ein roter Test aus Welle G4b (M0-B9). Details unten. |
 
 ### Zwei Blocker, die nur der Owner lösen kann
 
@@ -714,14 +800,14 @@ dagegen längst behoben — `timeout-minutes: 180`, sechs parallele Matrix-Jobs.
   folgenlos (kein Aufrufer). Sobald die Route einen bekommt: strikt lassen
   (kein Leck, leere Historie) **oder** wie die RLS-Policy `org_id IS NULL`
   durchlassen (vollständige Historie, Rest-Leck)? *Owner.*
-- **D-M5 (neu)** — **Nutzer- statt Org-Grenze in `capacityExchange` und
+- ~~**D-M5**~~ ✅ **entschieden und umgesetzt 2026-08-20** (Details oben) — **Nutzer- statt Org-Grenze in `capacityExchange` und
   `marketplace`.** Beide binden über `req.session.userId`, nicht über die
   Organisation. Ein Kollege derselben Firma sieht die Einträge seines Teams
   nicht. Zusammen mit **E-11** (der Helfer, der genau das reparieren sollte und
   nie funktioniert hat) und **D-M4** ist das *ein* Thema: soll die
   Zusammenarbeit innerhalb einer Organisation überhaupt möglich sein? Die
   Antwort entscheidet über drei Stellen gleichzeitig. *Owner.*
-- **D-M4 (neu)** — **`PATCH /requisitions/:id` begrenzt per `created_by`**, nicht
+- ~~**D-M4**~~ ✅ **entschieden und umgesetzt 2026-08-20** (Details oben) — **`PATCH /requisitions/:id` begrenzte per `created_by`**, nicht
   per Org. Die Org-Grenze steht jetzt zusätzlich davor (E-4), die
   Ersteller-Bedingung ist unangetastet. Nebeneffekt bleibt: ein Kollege
   derselben Org kann die Ausschreibung eines anderen nicht bearbeiten. Absicht

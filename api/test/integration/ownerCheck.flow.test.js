@@ -30,8 +30,27 @@
 
 import { describe, it, before, after } from "node:test";
 import assert from "node:assert/strict";
-import { hasDb, createPool } from "./helpers.js";
+import { Pool } from "pg";
 import { canAccessAsOwner } from "../../utils/ownerCheck.js";
+
+/* Bewusst OHNE `./helpers.js`: dessen `createPool` kommt zusammen mit einem
+ * Import von `../../app.js` — dem gesamten Express-Aufbau samt allen Routen und
+ * Diensten. Diese Probe ruft aber nur zwei Dienstfunktionen auf. Den ganzen
+ * Server dafuer hochzufahren macht den Test langsam, an fremden Teilen zerbrechlich
+ * und in einem nackten `node`-Aufruf sogar unbenutzbar (er kehrt dort nicht zurueck).
+ * Die Gatterbedingung ist dieselbe wie in helpers.js. */
+const hasDb = !!(process.env.DATABASE_URL || (process.env.DB_HOST && process.env.POSTGRES_PASSWORD));
+const createPool = () => new Pool(
+  process.env.DATABASE_URL
+    ? { connectionString: process.env.DATABASE_URL }
+    : {
+        host: process.env.DB_HOST,
+        port: Number(process.env.DB_PORT) || 5432,
+        user: process.env.POSTGRES_USER || process.env.DB_USER,
+        password: process.env.POSTGRES_PASSWORD,
+        database: process.env.POSTGRES_DB || process.env.DB_NAME
+      }
+);
 
 const NIRGENDS_A = "11111111-1111-4111-a111-111111111111";
 const NIRGENDS_B = "22222222-2222-4222-a222-222222222222";

@@ -136,7 +136,30 @@ export async function listRequisitions(pool, filters = {}) {
   return rows;
 }
 
-export async function updateRequisition(pool, id, userId, data) {
+/**
+ * Felder einer Ausschreibung aendern.
+ *
+ * ENTSCHEIDUNG D-M4 (Owner, 2026-08-20): die Grenze ist die ORGANISATION, nicht
+ * der Ersteller. Vorher stand hier `WHERE id = $1 AND created_by = $2` — eine
+ * vierte Einschraenkung ueber drei bereits vorhandenen (`requireScope`,
+ * `requirePermission("requisition.edit")`, `assertOrgOwnership`).
+ *
+ * Dass sie kein Vorsatz war, sagt der Code selbst: KEINE andere Mutation an
+ * derselben Zeile kennt sie. `transitionStatus` schreibt mit `WHERE id = $1`
+ * (Zeile 204) — eine Kollegin durfte die Ausschreibung also STORNIEREN, aber
+ * keinen Tippfehler im Titel korrigieren. Eine Regel, die den folgenschweren
+ * Weg offen laesst und den harmlosen sperrt, ist keine Regel.
+ *
+ * `created_by` bleibt, was es ist: Herkunft, nicht Besitz. Die Zeile gehoert der
+ * Organisation (`requisitions.org_id`), und `userId` schreibt weiterhin das
+ * Ereignis — jetzt steht also im Protokoll, WER geaendert hat, statt dass es
+ * niemand ausser dem Ersteller gekonnt haette.
+ *
+ * @param {string|null} orgId Organisation des Aufrufers. Ohne sie wird nicht
+ *   geschrieben — die Grenze soll im SQL stehen, nicht nur im Handler davor.
+ */
+export async function updateRequisition(pool, id, userId, data, orgId = null) {
+  if (!orgId) return null;
   const allowed = [
     'title', 'description', 'role', 'skill_tags', 'headcount',
     'start_date', 'end_date', 'location_city', 'location_postal',
@@ -161,8 +184,8 @@ export async function updateRequisition(pool, id, userId, data) {
   fields.push('updated_at = NOW()');
 
   const { rows } = await pool.query(
-    `UPDATE requisitions SET ${fields.join(', ')} WHERE id = $1 AND created_by = $2 RETURNING *`,
-    [id, userId, ...values]
+    `UPDATE requisitions SET ${fields.join(', ')} WHERE id = $1 AND org_id = $2 RETURNING *`,
+    [id, orgId, ...values]
   );
   if (rows[0]) {
     await writeEvent(pool, id, 'FIELD_CHANGED', userId, { changed_fields: Object.keys(data) });

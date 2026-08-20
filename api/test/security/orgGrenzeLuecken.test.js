@@ -50,6 +50,7 @@ import * as dgSvc from "../../services/dataGovernanceService.js";
 import * as supplierPoolSvc from "../../services/supplierPoolService.js";
 import * as engine from "../../services/matchingEngine.js";
 import { createMatchingRouter } from "../../routes/matching.js";
+import * as requisitionService from "../../services/requisitionService.js";
 
 /** Keine Zeile darf geschrieben worden sein. */
 function keinSchreibvorgang(pool, was) {
@@ -1056,5 +1057,107 @@ describe("E-21 · matchWorkerToAssignments — die Bindung steht vor der Tabelle
     const abfrage = pool.calls.find((c) => /FROM workers/i.test(c.sql));
     assert.ok(abfrage);
     assert.deepStrictEqual(abfrage.params, ["w1"], "kein zusaetzlicher Parameter");
+  });
+});
+
+/* ═════════════════════════════════════════════════════════════════════════
+   D-M4 · Die Ausschreibung gehoert der Organisation, nicht dem Ersteller
+   ═════════════════════════════════════════════════════════════════════════
+
+   `updateRequisition` band mit `WHERE id = $1 AND created_by = $2` — eine
+   vierte Einschraenkung ueber drei bereits vorhandenen (`requireScope`,
+   `requirePermission("requisition.edit")`, `assertOrgOwnership`).
+
+   Dass sie kein Vorsatz war, sagt der Code selbst: KEINE andere Mutation an
+   derselben Zeile kennt sie. `transitionStatus` schreibt mit `WHERE id = $1`
+   (requisitionService.js:204) — eine Kollegin durfte die Ausschreibung also
+   STORNIEREN, aber keinen Tippfehler im Titel korrigieren. Eine Regel, die den
+   folgenschweren Weg offen laesst und den harmlosen sperrt, ist keine Regel.
+
+   Owner-Entscheidung 2026-08-20: die Grenze ist die Organisation. `created_by`
+   bleibt Herkunft, nicht Besitz.
+
+   Die Gegenproben wiegen hier schwerer als die Hauptprobe: eine Weitung, die
+   ueber die Organisation hinausreicht, waere ein Leck. */
+
+describe("D-M4 · PATCH /requisitions/:id — Org statt Ersteller", () => {
+  function rDeps(pool) {
+    return { ...baseDeps(pool), requireFeature: () => (_q, _s, next) => next() };
+  }
+
+  it("die Kollegin darf die Ausschreibung eines anderen aendern", async () => {
+    const pool = spionPool({ zeile: { id: "req-1", org_id: ORG_A, created_by: "wer-anders" } });
+    const router = createRequisitionsRouter(rDeps(pool));
+    const handler = findHandlerExact(router, "patch", "/requisitions/:id");
+
+    const res = mockRes();
+    await handler(
+      mockReq({ orgId: ORG_A, session: { userId: "kollegin" }, params: { id: "req-1" },
+                body: { title: "Titel korrigiert" } }),
+      res, noop
+    );
+    for (let i = 0; i < 5; i++) await new Promise((f) => setImmediate(f));
+
+    assert.notEqual(res._status, 403, "innerhalb der Organisation ist das keine Grenzverletzung");
+    assert.notEqual(res._status, 404, "und die Zeile ist auch nicht 'nicht gefunden'");
+  });
+
+  it("der schreibende Befehl traegt die Org, NICHT den Ersteller", async () => {
+    const pool = spionPool({ zeile: { id: "req-1", org_id: ORG_A, created_by: "wer-anders" } });
+    const router = createRequisitionsRouter(rDeps(pool));
+    const handler = findHandlerExact(router, "patch", "/requisitions/:id");
+
+    await handler(
+      mockReq({ orgId: ORG_A, session: { userId: "kollegin" }, params: { id: "req-1" },
+                body: { title: "Titel korrigiert" } }),
+      mockRes(), noop
+    );
+    for (let i = 0; i < 5; i++) await new Promise((f) => setImmediate(f));
+
+    const schreiben = pool.schreibvorgaenge.find((c) => /UPDATE requisitions/i.test(c.sql));
+    assert.ok(schreiben, "es muss geschrieben werden");
+    assert.match(schreiben.sql, /org_id\s*=\s*\$2/i,
+      "die Bindung gehoert ins WHERE — nicht nur in den Handler davor");
+    assert.ok(!/created_by\s*=\s*\$/i.test(schreiben.sql),
+      "die Ersteller-Bedingung darf nicht zurueckkehren");
+    assert.ok(schreiben.params.some((p) => String(p) === String(ORG_A)),
+      "und die Org gehoert in die Parameter");
+  });
+
+  it("Gegenprobe: eine FREMDE Organisation bleibt draussen", async () => {
+    const pool = spionPool({ zeile: { id: "req-1", org_id: ORG_B, created_by: "fremd" } });
+    const router = createRequisitionsRouter(rDeps(pool));
+    const handler = findHandlerExact(router, "patch", "/requisitions/:id");
+
+    const res = mockRes();
+    await handler(
+      mockReq({ orgId: ORG_A, session: { userId: "kollegin" }, params: { id: "req-1" },
+                body: { title: "uebernommen" } }),
+      res, noop
+    );
+    for (let i = 0; i < 5; i++) await new Promise((f) => setImmediate(f));
+
+    assert.equal(res._status, 403, "die Weitung reicht bis zur Org-Grenze und nicht weiter");
+    assert.deepStrictEqual(
+      pool.schreibvorgaenge.filter((c) => /UPDATE requisitions/i.test(c.sql))
+        .map((c) => c.sql.slice(0, 40)), [],
+      "und sie schreibt dabei nichts"
+    );
+  });
+
+  it("Gegenprobe: ohne Organisation im Kontext wird nicht geschrieben", async () => {
+    /* Der Dienst muss auch dann dichthalten, wenn ein kuenftiger Aufrufer die
+       Org vergisst. Sonst haette die Reparatur die Grenze nur verschoben, vom
+       Ersteller auf einen Parameter, den man weglassen kann. */
+    const pool = spionPool({ zeile: { id: "req-1", org_id: ORG_A } });
+    const ergebnis = await requisitionService.updateRequisition(
+      pool, "req-1", "wer-auch-immer", { title: "ohne Org" }, null
+    );
+
+    assert.equal(ergebnis, null);
+    assert.deepStrictEqual(
+      pool.schreibvorgaenge.map((c) => c.sql.slice(0, 40)), [],
+      "ohne Org gibt es keine Grenze — also keine Wirkung"
+    );
   });
 });

@@ -334,6 +334,37 @@ systematisch falsche Treffer. (b) ist also ein Feature, kein Umbenennen.
 **Aufwand:** (a) 30 Minuten · (b) 1–2 Tage ·
 **Verify:** `orgGrenzenWaechter` + `matchingEngine.coverage.test.js`.
 
+### P1-20 — Statuswechsel einer Ausschreibung ohne Berechtigungsprüfung
+
+**Status:** offen (Produkt-/Berechtigungsfrage) · **Fakt:**
+`POST /requisitions/:id/transition` (`routes/requisitions.js:151`) trägt
+`requireAuth` + `requireScope("write:requisitions")` + Org-Grenze, aber **kein**
+`requirePermission`. Die schwächere Aktion — ein Feld ändern — verlangt
+`requisition.edit` (`:127`); die folgenschwerere — den Status auf `CANCELLED`
+setzen — verlangt nichts.
+**Warum nicht mitrepariert:** bei D-M4 aufgefallen, aber eine Berechtigung
+nachträglich zu FORDERN verengt Zugriff und kann laufende Abläufe brechen. Das
+ist eine eigene Entscheidung, kein Nebenbei-Fix.
+**Aktion:** Owner entscheidet, welche Berechtigung der Statuswechsel braucht
+(`requisition.edit`? eine eigene `requisition.transition`?) und ob einzelne
+Übergänge — etwa `CANCELLED` — mehr verlangen als die übrigen.
+**Aufwand:** Entscheidung 15 Minuten, Umsetzung 1 Stunde ·
+**Verify:** `rbac-hardening.test.js` um die Route erweitern.
+
+### M0-B9 — Ein roter Integrationstest aus Welle G4b
+
+**Status:** offen · **Fakt:** `test/integration/g4bKundenMeldung.flow.test.js`
+→ „die erlaubten severity-Werte stimmen mit der Konstante überein" schlägt fehl
+(`expected: true, actual: false`). `ERLAUBTE_SEVERITY` in
+`services/notificationMatrix.js` und die Datenbank sind auseinandergelaufen.
+Einziger roter Test der Integrationssuite (**285 von 286 grün**).
+**Nicht aus Welle H2** — nachgewiesen: keiner der H2-Commits berührt
+`workerAbsenceService`, `notificationMatrix` oder diesen Test.
+**Aktion:** Konstante und Datenbank abgleichen — und prüfen, welche Seite recht
+hat, bevor eine an die andere angepasst wird.
+**Aufwand:** 1 Stunde ·
+**Verify:** `node scripts/run-tests.js --suite=integration` (braucht Datenbank).
+
 ### ~~P1-17 — `canAccessAsOwner` hat nie funktioniert~~ ✅ ERLEDIGT (2026-08-20)
 
 **Entscheidung des Owners: reparieren, also weiten.** Umgesetzt in

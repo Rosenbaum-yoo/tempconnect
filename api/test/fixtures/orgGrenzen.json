@@ -1335,7 +1335,10 @@
           "traegerspalten": [
             "requester_company_id"
           ],
-          "hinweis": "Bewusst EINSEITIG: nur der Anfragende darf das. Beleg steht als Kommentar und Vergleich in der Route selbst (requester_company_id !== session.userId)."
+          "hinweis": "Bewusst EINSEITIG: nur der Anfragende darf das. Beleg steht als Kommentar und Vergleich in der Route selbst (requester_company_id !== session.userId). Entscheidung D-M5 (2026-08-20): die Grenze ist weiterhin der NUTZER, wird aber nicht mehr als blosse Namensgleichheit geprueft, sondern ueber `canAccessAsOwner` — Eigentuemer ODER aktives Mitglied DERSELBEN Organisation, Arbeiter nicht. Deshalb `leereAntwortFuer: org_memberships`: der Spion muss die Mitgliedschaftsabfrage beantworten wie eine echte Datenbank, sonst bestaetigt er JEDE Mitgliedschaft und gewaehrt Zugriff — die Probe pruefte dann sich selbst. Seit Befund E-11 wiegt das schwer: die Abfrage entscheidet jetzt wirklich.",
+          "leereAntwortFuer": [
+            "org_memberships"
+          ]
         },
         {
           "methode": "post",
@@ -1437,7 +1440,7 @@
           "traegerspalten": [
             "requester_company_id"
           ],
-          "hinweis": "Die Grenze haengt hier am ZIELSTATUS, nicht an der Route: 'sent'/'withdrawn' darf nur der Lieferant, 'accepted'/'rejected'/'countered' nur der Anfragende (marketplaceService.js:842-847). Die Probe faehrt den Zweig 'accepted', also die Anfragenden-Seite; der Lieferanten-Zweig ist ueber /withdraw abgedeckt. Die Mock-Zeile traegt status='sent', sonst greift INVALID_TRANSITION vorher.",
+          "hinweis": "Die Grenze haengt hier am ZIELSTATUS, nicht an der Route: 'sent'/'withdrawn' darf nur der Lieferant, 'accepted'/'rejected'/'countered' nur der Anfragende (marketplaceService.js:842-847). Die Probe faehrt den Zweig 'accepted', also die Anfragenden-Seite; der Lieferanten-Zweig ist ueber /withdraw abgedeckt. Die Mock-Zeile traegt status='sent', sonst greift INVALID_TRANSITION vorher. Entscheidung D-M5 (2026-08-20): die Grenze ist weiterhin der NUTZER, wird aber nicht mehr als blosse Namensgleichheit geprueft, sondern ueber `canAccessAsOwner` — Eigentuemer ODER aktives Mitglied DERSELBEN Organisation, Arbeiter nicht. Deshalb `leereAntwortFuer: org_memberships`: der Spion muss die Mitgliedschaftsabfrage beantworten wie eine echte Datenbank, sonst bestaetigt er JEDE Mitgliedschaft und gewaehrt Zugriff — die Probe pruefte dann sich selbst. Seit Befund E-11 wiegt das schwer: die Abfrage entscheidet jetzt wirklich.",
           "anfrage": {
             "body": {
               "status": "accepted"
@@ -1445,7 +1448,10 @@
           },
           "zeile": {
             "status": "sent"
-          }
+          },
+          "leereAntwortFuer": [
+            "org_memberships"
+          ]
         },
         {
           "methode": "post",
@@ -1456,10 +1462,13 @@
           "traegerspalten": [
             "requester_company_id"
           ],
-          "hinweis": "Bewusst EINSEITIG: annehmen darf nur, wer angefragt hat — die liefernde Agentur nimmt ihr eigenes Angebot nicht an. Die Mock-Zeile traegt status='sent', sonst greift INVALID_TRANSITION (409) vor der Besitzpruefung.",
+          "hinweis": "Bewusst EINSEITIG: annehmen darf nur, wer angefragt hat — die liefernde Agentur nimmt ihr eigenes Angebot nicht an. Die Mock-Zeile traegt status='sent', sonst greift INVALID_TRANSITION (409) vor der Besitzpruefung. Entscheidung D-M5 (2026-08-20): die Grenze ist weiterhin der NUTZER, wird aber nicht mehr als blosse Namensgleichheit geprueft, sondern ueber `canAccessAsOwner` — Eigentuemer ODER aktives Mitglied DERSELBEN Organisation, Arbeiter nicht. Deshalb `leereAntwortFuer: org_memberships`: der Spion muss die Mitgliedschaftsabfrage beantworten wie eine echte Datenbank, sonst bestaetigt er JEDE Mitgliedschaft und gewaehrt Zugriff — die Probe pruefte dann sich selbst. Seit Befund E-11 wiegt das schwer: die Abfrage entscheidet jetzt wirklich.",
           "zeile": {
             "status": "sent"
-          }
+          },
+          "leereAntwortFuer": [
+            "org_memberships"
+          ]
         },
         {
           "methode": "post",
@@ -1470,7 +1479,10 @@
           "traegerspalten": [
             "requester_company_id"
           ],
-          "hinweis": "Bewusst EINSEITIG: das Gegenangebot kommt vom Anfragenden; der Dienst meldet FORBIDDEN."
+          "hinweis": "Bewusst EINSEITIG: das Gegenangebot kommt vom Anfragenden; der Dienst meldet FORBIDDEN. Entscheidung D-M5 (2026-08-20): die Grenze ist weiterhin der NUTZER, wird aber nicht mehr als blosse Namensgleichheit geprueft, sondern ueber `canAccessAsOwner` — Eigentuemer ODER aktives Mitglied DERSELBEN Organisation, Arbeiter nicht. Deshalb `leereAntwortFuer: org_memberships`: der Spion muss die Mitgliedschaftsabfrage beantworten wie eine echte Datenbank, sonst bestaetigt er JEDE Mitgliedschaft und gewaehrt Zugriff — die Probe pruefte dann sich selbst. Seit Befund E-11 wiegt das schwer: die Abfrage entscheidet jetzt wirklich.",
+          "leereAntwortFuer": [
+            "org_memberships"
+          ]
         },
         {
           "methode": "post",
@@ -1481,7 +1493,10 @@
           "traegerspalten": [
             "supplier_company_id"
           ],
-          "hinweis": "Bewusst EINSEITIG: ein Angebot zurueckziehen darf nur, wer es abgegeben hat."
+          "hinweis": "Bewusst EINSEITIG: ein Angebot zurueckziehen darf nur, wer es abgegeben hat. Entscheidung D-M5 (2026-08-20): die Grenze ist weiterhin der NUTZER, wird aber nicht mehr als blosse Namensgleichheit geprueft, sondern ueber `canAccessAsOwner` — Eigentuemer ODER aktives Mitglied DERSELBEN Organisation, Arbeiter nicht. Deshalb `leereAntwortFuer: org_memberships`: der Spion muss die Mitgliedschaftsabfrage beantworten wie eine echte Datenbank, sonst bestaetigt er JEDE Mitgliedschaft und gewaehrt Zugriff — die Probe pruefte dann sich selbst. Seit Befund E-11 wiegt das schwer: die Abfrage entscheidet jetzt wirklich.",
+          "leereAntwortFuer": [
+            "org_memberships"
+          ]
         },
         {
           "methode": "get",
@@ -1493,7 +1508,10 @@
             "requester_company_id",
             "supplier_company_id"
           ],
-          "hinweis": "Zweiseitig: Besteller ODER Lieferant des Angebots, verglichen gegen req.session.userId (marketplace.js:1414). Keine Org-Grenze."
+          "hinweis": "Zweiseitig: Besteller ODER Lieferant des Angebots, verglichen gegen req.session.userId (marketplace.js:1414). Keine Org-Grenze. Entscheidung D-M5 (2026-08-20): die Grenze ist weiterhin der NUTZER, wird aber nicht mehr als blosse Namensgleichheit geprueft, sondern ueber `canAccessAsOwner` — Eigentuemer ODER aktives Mitglied DERSELBEN Organisation, Arbeiter nicht. Deshalb `leereAntwortFuer: org_memberships`: der Spion muss die Mitgliedschaftsabfrage beantworten wie eine echte Datenbank, sonst bestaetigt er JEDE Mitgliedschaft und gewaehrt Zugriff — die Probe pruefte dann sich selbst. Seit Befund E-11 wiegt das schwer: die Abfrage entscheidet jetzt wirklich.",
+          "leereAntwortFuer": [
+            "org_memberships"
+          ]
         },
         {
           "methode": "post",
@@ -1504,7 +1522,10 @@
           "traegerspalten": [
             "requester_company_id"
           ],
-          "hinweis": "Bewusst EINSEITIG: nur der Anfragende darf das. Beleg steht als Kommentar und Vergleich in der Route selbst (requester_company_id !== session.userId)."
+          "hinweis": "Bewusst EINSEITIG: nur der Anfragende darf das. Beleg steht als Kommentar und Vergleich in der Route selbst (requester_company_id !== session.userId). Entscheidung D-M5 (2026-08-20): die Grenze ist weiterhin der NUTZER, wird aber nicht mehr als blosse Namensgleichheit geprueft, sondern ueber `canAccessAsOwner` — Eigentuemer ODER aktives Mitglied DERSELBEN Organisation, Arbeiter nicht. Deshalb `leereAntwortFuer: org_memberships`: der Spion muss die Mitgliedschaftsabfrage beantworten wie eine echte Datenbank, sonst bestaetigt er JEDE Mitgliedschaft und gewaehrt Zugriff — die Probe pruefte dann sich selbst. Seit Befund E-11 wiegt das schwer: die Abfrage entscheidet jetzt wirklich.",
+          "leereAntwortFuer": [
+            "org_memberships"
+          ]
         },
         {
           "methode": "post",
@@ -1515,7 +1536,10 @@
           "traegerspalten": [
             "supplier_company_id"
           ],
-          "hinweis": "Bewusst EINSEITIG: nur die liefernde Agentur darf das (supplier_company_id !== session.userId)."
+          "hinweis": "Bewusst EINSEITIG: nur die liefernde Agentur darf das (supplier_company_id !== session.userId). Entscheidung D-M5 (2026-08-20): die Grenze ist weiterhin der NUTZER, wird aber nicht mehr als blosse Namensgleichheit geprueft, sondern ueber `canAccessAsOwner` — Eigentuemer ODER aktives Mitglied DERSELBEN Organisation, Arbeiter nicht. Deshalb `leereAntwortFuer: org_memberships`: der Spion muss die Mitgliedschaftsabfrage beantworten wie eine echte Datenbank, sonst bestaetigt er JEDE Mitgliedschaft und gewaehrt Zugriff — die Probe pruefte dann sich selbst. Seit Befund E-11 wiegt das schwer: die Abfrage entscheidet jetzt wirklich.",
+          "leereAntwortFuer": [
+            "org_memberships"
+          ]
         },
         {
           "methode": "post",
@@ -1526,7 +1550,10 @@
           "traegerspalten": [
             "requester_company_id"
           ],
-          "hinweis": "Bewusst EINSEITIG: nur der Anfragende darf das. Beleg steht als Kommentar und Vergleich in der Route selbst (requester_company_id !== session.userId)."
+          "hinweis": "Bewusst EINSEITIG: nur der Anfragende darf das. Beleg steht als Kommentar und Vergleich in der Route selbst (requester_company_id !== session.userId). Entscheidung D-M5 (2026-08-20): die Grenze ist weiterhin der NUTZER, wird aber nicht mehr als blosse Namensgleichheit geprueft, sondern ueber `canAccessAsOwner` — Eigentuemer ODER aktives Mitglied DERSELBEN Organisation, Arbeiter nicht. Deshalb `leereAntwortFuer: org_memberships`: der Spion muss die Mitgliedschaftsabfrage beantworten wie eine echte Datenbank, sonst bestaetigt er JEDE Mitgliedschaft und gewaehrt Zugriff — die Probe pruefte dann sich selbst. Seit Befund E-11 wiegt das schwer: die Abfrage entscheidet jetzt wirklich.",
+          "leereAntwortFuer": [
+            "org_memberships"
+          ]
         },
         {
           "methode": "get",
@@ -1562,7 +1589,10 @@
             "requester_company_id",
             "supplier_company_id"
           ],
-          "hinweis": "Zweiseitig: Besteller ODER Lieferant des Angebots, verglichen gegen req.session.userId (marketplace.js:1414). Keine Org-Grenze."
+          "hinweis": "Zweiseitig: Besteller ODER Lieferant des Angebots, verglichen gegen req.session.userId (marketplace.js:1414). Keine Org-Grenze. Entscheidung D-M5 (2026-08-20): die Grenze ist weiterhin der NUTZER, wird aber nicht mehr als blosse Namensgleichheit geprueft, sondern ueber `canAccessAsOwner` — Eigentuemer ODER aktives Mitglied DERSELBEN Organisation, Arbeiter nicht. Deshalb `leereAntwortFuer: org_memberships`: der Spion muss die Mitgliedschaftsabfrage beantworten wie eine echte Datenbank, sonst bestaetigt er JEDE Mitgliedschaft und gewaehrt Zugriff — die Probe pruefte dann sich selbst. Seit Befund E-11 wiegt das schwer: die Abfrage entscheidet jetzt wirklich.",
+          "leereAntwortFuer": [
+            "org_memberships"
+          ]
         },
         {
           "methode": "get",
@@ -1574,7 +1604,10 @@
             "requester_company_id",
             "supplier_company_id"
           ],
-          "hinweis": "Zweiseitig: Besteller ODER Lieferant des Angebots, verglichen gegen req.session.userId (marketplace.js:1414). Keine Org-Grenze."
+          "hinweis": "Zweiseitig: Besteller ODER Lieferant des Angebots, verglichen gegen req.session.userId (marketplace.js:1414). Keine Org-Grenze. Entscheidung D-M5 (2026-08-20): die Grenze ist weiterhin der NUTZER, wird aber nicht mehr als blosse Namensgleichheit geprueft, sondern ueber `canAccessAsOwner` — Eigentuemer ODER aktives Mitglied DERSELBEN Organisation, Arbeiter nicht. Deshalb `leereAntwortFuer: org_memberships`: der Spion muss die Mitgliedschaftsabfrage beantworten wie eine echte Datenbank, sonst bestaetigt er JEDE Mitgliedschaft und gewaehrt Zugriff — die Probe pruefte dann sich selbst. Seit Befund E-11 wiegt das schwer: die Abfrage entscheidet jetzt wirklich.",
+          "leereAntwortFuer": [
+            "org_memberships"
+          ]
         },
         {
           "methode": "post",
@@ -1585,7 +1618,10 @@
           "traegerspalten": [
             "supplier_company_id"
           ],
-          "hinweis": "Bewusst EINSEITIG: nur die liefernde Agentur darf das (supplier_company_id !== session.userId)."
+          "hinweis": "Bewusst EINSEITIG: nur die liefernde Agentur darf das (supplier_company_id !== session.userId). Entscheidung D-M5 (2026-08-20): die Grenze ist weiterhin der NUTZER, wird aber nicht mehr als blosse Namensgleichheit geprueft, sondern ueber `canAccessAsOwner` — Eigentuemer ODER aktives Mitglied DERSELBEN Organisation, Arbeiter nicht. Deshalb `leereAntwortFuer: org_memberships`: der Spion muss die Mitgliedschaftsabfrage beantworten wie eine echte Datenbank, sonst bestaetigt er JEDE Mitgliedschaft und gewaehrt Zugriff — die Probe pruefte dann sich selbst. Seit Befund E-11 wiegt das schwer: die Abfrage entscheidet jetzt wirklich.",
+          "leereAntwortFuer": [
+            "org_memberships"
+          ]
         },
         {
           "methode": "get",
@@ -1597,7 +1633,10 @@
             "requester_company_id",
             "supplier_company_id"
           ],
-          "hinweis": "Zweiseitig: Besteller ODER Lieferant des Angebots, verglichen gegen req.session.userId (marketplace.js:1414). Keine Org-Grenze."
+          "hinweis": "Zweiseitig: Besteller ODER Lieferant des Angebots, verglichen gegen req.session.userId (marketplace.js:1414). Keine Org-Grenze. Entscheidung D-M5 (2026-08-20): die Grenze ist weiterhin der NUTZER, wird aber nicht mehr als blosse Namensgleichheit geprueft, sondern ueber `canAccessAsOwner` — Eigentuemer ODER aktives Mitglied DERSELBEN Organisation, Arbeiter nicht. Deshalb `leereAntwortFuer: org_memberships`: der Spion muss die Mitgliedschaftsabfrage beantworten wie eine echte Datenbank, sonst bestaetigt er JEDE Mitgliedschaft und gewaehrt Zugriff — die Probe pruefte dann sich selbst. Seit Befund E-11 wiegt das schwer: die Abfrage entscheidet jetzt wirklich.",
+          "leereAntwortFuer": [
+            "org_memberships"
+          ]
         },
         {
           "methode": "get",
@@ -1609,7 +1648,10 @@
             "requester_company_id",
             "supplier_company_id"
           ],
-          "hinweis": "Zweiseitig: Besteller ODER Lieferant des Angebots, verglichen gegen req.session.userId (marketplace.js:1414). Keine Org-Grenze."
+          "hinweis": "Zweiseitig: Besteller ODER Lieferant des Angebots, verglichen gegen req.session.userId (marketplace.js:1414). Keine Org-Grenze. Entscheidung D-M5 (2026-08-20): die Grenze ist weiterhin der NUTZER, wird aber nicht mehr als blosse Namensgleichheit geprueft, sondern ueber `canAccessAsOwner` — Eigentuemer ODER aktives Mitglied DERSELBEN Organisation, Arbeiter nicht. Deshalb `leereAntwortFuer: org_memberships`: der Spion muss die Mitgliedschaftsabfrage beantworten wie eine echte Datenbank, sonst bestaetigt er JEDE Mitgliedschaft und gewaehrt Zugriff — die Probe pruefte dann sich selbst. Seit Befund E-11 wiegt das schwer: die Abfrage entscheidet jetzt wirklich.",
+          "leereAntwortFuer": [
+            "org_memberships"
+          ]
         },
         {
           "methode": "get",
