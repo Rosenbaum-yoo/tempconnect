@@ -26,6 +26,16 @@ function trackingPool(routes = [], { fallback = { rows: [], rowCount: 0 } } = {}
       return { rows: [], rowCount: 0 };
     }
     calls.push({ sql: text, params: params || [] });
+    /* Fixture-Pflege (Befund E-12, 2026-08-19): `getAssignmentStaffingOverview`
+       klaert seit der Reparatur ZUERST die Zugehoerigkeit
+       (`SELECT 1 FROM assignments WHERE id = $1 AND supplier_org_id = $2`) und
+       rechnet erst danach — vorher schrieb ein Lesezugriff in fremde Zeilen.
+       Diese Tests fahren durchweg den passenden Lieferanten; die Wache muss
+       ihnen also einen Treffer liefern. Die Zusicherungen darunter sind
+       unveraendert. */
+    if (/SELECT 1 FROM assignments\s+WHERE id = \$1 AND supplier_org_id = \$2/i.test(text)) {
+      return { rows: [{ "?column?": 1 }], rowCount: 1 };
+    }
     for (const [needle, resp] of routes) {
       if (text.includes(needle)) {
         const r = typeof resp === "function" ? resp(text, params) : resp;

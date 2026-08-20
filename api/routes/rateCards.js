@@ -222,7 +222,15 @@ export function createRateCardsRouter(deps) {
   router.post("/rate-cards/:id/activate", requireAuth, featureGate, rperm("rate_card.update"), async (req, res) => {
     try {
       if (!await ensureCompanyRateCardAccess(req, res, pool)) return;
-      const card = await rateCardService.activateRateCard(pool, req.params.id, req.session.userId);
+      // Org-Boundary (Befund E-1, 2026-08-19): Bis hierher stand die Grenze nur
+      // in GET (:119) und PATCH (:200) derselben Datei. Fail-closed — ohne
+      // Org-Kontext waere ensureCompanyRateCardAccess bereits mit 400 raus.
+      const existing = await rateCardService.getRateCard(pool, req.params.id);
+      if (!existing) return res.status(404).json({ error: "NOT_FOUND" });
+      if (existing.org_id !== req.orgId) {
+        return res.status(403).json({ error: "ORG_BOUNDARY_VIOLATION" });
+      }
+      const card = await rateCardService.activateRateCard(pool, req.params.id, req.session.userId, req.orgId);
       if (!card) {
         return res.status(400).json({ error: "INVALID_STATE", message: "Rate Card ist nicht im Status 'draft'." });
       }
@@ -242,7 +250,13 @@ export function createRateCardsRouter(deps) {
   router.post("/rate-cards/:id/archive", requireAuth, featureGate, rperm("rate_card.update"), async (req, res) => {
     try {
       if (!await ensureCompanyRateCardAccess(req, res, pool)) return;
-      const card = await rateCardService.archiveRateCard(pool, req.params.id, req.session.userId);
+      // Org-Boundary (Befund E-1) — dieselbe Begruendung wie bei /activate.
+      const existing = await rateCardService.getRateCard(pool, req.params.id);
+      if (!existing) return res.status(404).json({ error: "NOT_FOUND" });
+      if (existing.org_id !== req.orgId) {
+        return res.status(403).json({ error: "ORG_BOUNDARY_VIOLATION" });
+      }
+      const card = await rateCardService.archiveRateCard(pool, req.params.id, req.session.userId, req.orgId);
       if (!card) {
         return res.status(400).json({ error: "INVALID_STATE", message: "Rate Card kann nicht archiviert werden." });
       }

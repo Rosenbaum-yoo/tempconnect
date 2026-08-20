@@ -39,18 +39,28 @@ Abschnitten, die ich in Spuren mit **Wellen und Gates** schneide.
 ```bash
 cd api && node scripts/run-tests.js          # offizieller Runner, ohne Pipe
 ```
-Stand: **8740 Tests** (2026-08-19, voller Lauf ohne Pipe), davon 13 übersprungen — die
-DB-gebundenen, die nur im Container laufen.
+Stand: **9109 Tests** (2026-08-20, voller Lauf ohne Pipe nach dem
+Zusammenfuehren von H1 und H2), davon 13 übersprungen — die DB-gebundenen, die
+nur im Container laufen.
 
-**Im Haupt-Checkout 0 Fehler. In einem `git worktree` drei — und zwar immer.**
-`docsConsistency.test.js` und `dokuWaechter.test.js` scannen `.agents/` und
-`docs/launch/`; beide sind gitignored und local-only, existieren in einem
-Worktree also nicht. Die Verweise aus `SKILL.md` fehlen dort, und vier Dokumente
-wirken dadurch verwaist. **Kein Befund, ein Umgebungsartefakt** — wer in einem
-Worktree arbeitet, prüft diese drei zusätzlich im Haupt-Checkout gegen:
-```bash
-cd api && node --test --test-force-exit test/docsConsistency.test.js test/dokuWaechter.test.js
-```
+> **Falle beim Arbeiten in einem `git worktree`:** `.agents/`, `frontend/support-ops/`
+> und die ungetrackten Dateien unter `docs/launch/` sind gitignored und fehlen in
+> einem frischen Baum. `dokuWaechter.test.js` und `docsConsistency.test.js` werden
+> dadurch rot, **ohne dass am Code etwas falsch ist** — vier Dokumente wirken
+> verwaist, weil die Verweise aus `SKILL.md` fehlen. **Zwei Sitzungen sind
+> unabhängig voneinander darauf hereingefallen**, was die Falle gut belegt.
+> Abhilfe: die drei Pfade aus dem Hauptbaum verknüpfen (Junction/Symlink) — am
+> 2026-08-19 gemessen: im Hauptbaum grün, im Worktree rot, nach dem Verknüpfen
+> grün. Wer nicht verknüpft, prüft die beiden Dateien zusätzlich im Hauptbaum:
+>
+> ```bash
+> cd api && node --test --test-force-exit test/docsConsistency.test.js test/dokuWaechter.test.js
+> ```
+>
+> **Wer eine Junction anlegt, entfernt sie vor dem Löschen des Worktrees wieder**
+> — nicht-rekursiv (`[System.IO.Directory]::Delete($pfad, $false)`). Ein
+> `Remove-Item -Recurse` greift sonst durch sie hindurch und räumt das Ziel im
+> Hauptbaum mit ab.
 
 Die DB-gestützten Tests laufen im Container, wo `DB_HOST` gesetzt ist — auf dem
 Host überspringen sie sich selbst. Was gegen das echte Schema geprüft sein muss
@@ -63,6 +73,16 @@ Im Container (nur `api/` und Lese-Mounts sind dort sichtbar):
 ```bash
 docker exec tempconnect_api sh -c "cd /app && node --test --test-force-exit test/X.test.js"
 ```
+
+**`\b` in einem Template-Literal ist ein Backspace, keine Wortgrenze (2026-08-19).**
+Der Org-Grenzen-Wächter erkannte Tabellennamen über ``new RegExp(`\b${tabelle}\b`)``
+— und traf deshalb **nie**. Eine Probe, die nichts trifft, ist still grün: sie
+meldete vier korrekt bewachte Routen als Lücke und hätte umgekehrt eine echte
+durchgelassen. Gelöst durch einen Teilstring-Vergleich statt eines regulären
+Ausdrucks. **Merksatz: wer ein Muster aus einem Template-Literal baut, verdoppelt
+jeden Backslash — oder verzichtet auf den regulären Ausdruck.** Dieselbe Klasse
+wie die Zeilenenden-Falle darunter: ein Prüfer, der leer läuft, sieht aus wie ein
+Prüfer, der nichts findet.
 
 **Zeilenenden-Falle (gelöst 2026-08-15):** Der SQL-Schema-Wächter hashte die
 Migrationsdateien byteweise und konnte deshalb nur in EINER Welt grün sein —
@@ -87,10 +107,11 @@ Lastabhängig. **Als eigene Aufgabe ausgelagert, nicht nebenbei anfassen.**
 |---|---|
 | [features/P10_IMPORT_LIVE_ZEIT.md](features/P10_IMPORT_LIVE_ZEIT.md) | Owner-Abschnitte 5–7: CSV-Import (Spur D), Live-Belegschaft (E), Systemzeit (F) |
 | `_TEMPCONNECT_MUTATION_RBAC_PLAN.md` *(gitignored!)* | Mutation-Testing, Wellen 0–4 + Roadmap für sieben weitere Bereiche |
-| [ORG_GRENZE_BEFUND.md](ORG_GRENZE_BEFUND.md) | Warum die Mandantengrenze 80-mal einzeln in den Routen steht — versionierte Fassung des wichtigsten Architekturbefunds |
+| [ORG_GRENZE_BEFUND.md](ORG_GRENZE_BEFUND.md) | Warum die Mandantengrenze 80-mal einzeln in den Routen steht — versionierte Fassung des wichtigsten Architekturbefunds. **Welle 3b ist abgeschlossen** (2026-08-19). |
+| `api/test/fixtures/orgGrenzen.json` | Das **Register der Mandantengrenze**: je Route ein Urteil, je Route-Datei ein Abdeckungsvermerk. Wird von `api/test/orgGrenzenWaechter.test.js` erzwungen. **Vor jeder neuen `:id`-Route lesen.** |
 | [FLAECHEN.md](FLAECHEN.md) | Was gehört ins Staff CC, was ins OCC, was ins Support Center. **Vor jedem neuen Modul lesen**, wird per Test erzwungen. |
 | [TESTING.md](TESTING.md) | Testarchitektur, inkl. Mutation Testing und seiner zwei Fallen |
-| [features/H_KUNDENANSICHT_UND_ORG_GRENZEN.md](features/H_KUNDENANSICHT_UND_ORG_GRENZEN.md) | **Naechste Sitzung.** H1 Kundenansicht (Fortsetzung G4b/G5), H2 die 80 Mandantengrenzen. **H2 enthaelt fuenf Stellen ohne Org-Pruefung — drei mit schreibendem Cross-Org-Zugriff.** Recherche vollstaendig festgehalten. |
+| [features/H_KUNDENANSICHT_UND_ORG_GRENZEN.md](features/H_KUNDENANSICHT_UND_ORG_GRENZEN.md) | **H2 abgeschlossen** (2026-08-19): zehn Cross-Org-Luecken geschlossen, Waechter gebaut, 15 von 82 Route-Dateien eingeordnet. Enthaelt die vollstaendige Recherche und die Korrekturen daran. H1 lief parallel in einem eigenen Baum. |
 | [features/G_ABWESENHEIT_SELBSTERFASSUNG.md](features/G_ABWESENHEIT_SELBSTERFASSUNG.md) | Abwesenheit, vom Mitarbeiter selbst gemeldet — sechs Wellen. **G1-G3 gebaut** (Mig 181/182, Endpunkte, Zeitsperre, Mindestbeschreibung, Verspaetungsweg). Enthaelt die acht Owner-Entscheidungen G-E1 bis G-E8. **G1-G6 vollstaendig gebaut.** |
 | [features/P11_DOKUMENTATION_ALS_SYSTEM.md](features/P11_DOKUMENTATION_ALS_SYSTEM.md) | Doku als System: generiert statt gepflegt, drei Leser (Investor/Owner/Technik), Hilfebereich. 11 Wellen, W1 laeuft. **Owner-Grundprinzip fuer alle Projekte.** |
 | [PLATTFORM_REGISTER.md](PLATTFORM_REGISTER.md) | Das Inventar: jede Flaeche, jeder Endpunkt, jede Faehigkeit, mit Beleg und Zustand. Grundlage der Investoren- und Bedienungsdoku. Wird per `dokuWaechter.test.js` gegen den Code gehalten. |
@@ -149,23 +170,246 @@ gibt; der nächste ist noch nicht durchgegeben.
 
 ### Was als Nächstes ansteht
 
-**H2** — die 80 Mandantengrenzen, mit den fünf Stellen ohne jede Org-Prüfung.
-Arbeitsplan: [features/H_KUNDENANSICHT_UND_ORG_GRENZEN.md](features/H_KUNDENANSICHT_UND_ORG_GRENZEN.md).
+**Arbeitsplan: [features/H_KUNDENANSICHT_UND_ORG_GRENZEN.md](features/H_KUNDENANSICHT_UND_ORG_GRENZEN.md)**
+— **H1 und H2 sind gebaut** (2026-08-19/20) und in dieser Linie zusammengeführt.
+Sie liefen parallel in getrennten Bäumen; am Code gab es keine Überschneidung.
 
-> **Vor H2 lesen:** Die H1-Recherche hatte in zwei von zehn Fallstricken eine
-> falsche Schema-Annahme (`worker_profiles(user_id)` sei nicht eindeutig — es
-> ist es seit Mig 029:35). Gelesen worden war der *Index* zwei Zeilen tiefer.
-> Wäre die Empfehlung ungeprüft gebaut worden, wäre der **Name** der
-> Einsatzkraft aus der Kundenliste gefallen. Die fünf H2-Befunde sind ebenfalls
-> reine Quelltext-Lesungen: **jede Schema-Aussage gegen `pg_constraint` /
-> `pg_indexes` der laufenden Datenbank prüfen, bevor darauf gebaut wird.**
+> **Eine Lehre aus H1, die für jede weitere Spur gilt:** Die H1-Recherche hatte in
+> zwei von zehn Fallstricken eine falsche Schema-Annahme — `worker_profiles(user_id)`
+> sei nicht eindeutig. Gelesen worden war der *Index* in Mig 029:57-58; das inline
+> `UNIQUE` steht in Zeile 35 derselben Datei. Wäre die Empfehlung ungeprüft gebaut
+> worden, wäre der **Name** der Einsatzkraft aus der Kundenliste gefallen.
+> **Jede Schema-Aussage gegen `pg_constraint` / `pg_indexes` der laufenden
+> Datenbank prüfen, bevor darauf gebaut wird** — eine Migrationszeile belegt nur
+> das, was auf ihr steht.
 
-> **H2 enthält Sicherheitslücken.** Die Recherche fand **fünf Stellen ohne jede
-> Org-Prüfung**: Konditionsrahmen aktivieren/archivieren, operative Rechnungen
-> (issue/paid/void/correction), Freigaben approve/reject samt Historie mit
-> E-Mails, Requisitions-submit, und ein Audit-Endpunkt, der die falsche Kennung
-> bewacht. Drei davon schreiben cross-org. Wer die Reihenfolge umdreht, hat
-> einen Grund.
+### H2 — was daraus geworden ist
+
+**Die Entscheidung D-M1: Wächter bauen, die 80 nicht konsolidieren.** Begründet
+hat sie sich selbst: die fünf Lücken lagen genau dort, wo **keine** der 80
+Kopien stand. Eine Konsolidierung hätte keine einzige gefunden.
+
+**Zehn geschlossene Lücken, nicht fünf.** Die fünf aus der Recherche (E-1 bis
+E-5) plus fünf, die der Wächter beim ersten Lauf selbst fand:
+
+| | Route | Was möglich war |
+|---|---|---|
+| E-1 | `POST /rate-cards/:id/{activate,archive}` | fremden Konditionsrahmen schalten, Sätze per `RETURNING *` zurückbekommen |
+| E-2 | `POST /invoices/operational/:id/{issue,paid,void,correction}` | fremde Rechnungen stellen, auf bezahlt setzen, stornieren |
+| E-3 | `POST /approvals/:id/{approve,reject}` + `/history` | fremde Freigaben entscheiden; Historie mit Antragsteller-/Freigeber-E-Mails lesen |
+| E-4 | `POST /requisitions/:id/submit`, `PATCH /requisitions/:id` | fremde Ausschreibung einreichen |
+| E-5 | `GET /organizations/:id/audit-log/recent-changes` | `old_values`/`new_values` samt Akteur-E-Mail fremder Entitäten |
+| **E-6** | `GET /requisitions/:id/events` | vollständige Statushistorie samt Akteur-E-Mails einer fremden Ausschreibung |
+| **E-7** | `GET /requisitions/:id/candidates` | Lieferantennamen, Prüfer-E-Mails und Match-Scores einer fremden Ausschreibung |
+| **E-8** | `PATCH /organizations/:id` | **den Organisationsdatensatz einer fremden Firma ändern** — Name, `billing_email`, `tax_id`, `parent_org_id`. Die einzige `:id`-Schreibroute der Datei ohne `sameOrgParam`. |
+| **E-9** | `POST /organizations/:id/departments` | eine Abteilung **in** einer fremden Organisation anlegen |
+| **E-10** | `POST /requisitions/:id/comment` | einen Kommentar an eine fremde Ausschreibung schreiben |
+
+E-8 ist der schwerste: `requirePermission` schützt dort nicht, weil es gegen
+`req.orgId` prüft (die eigene Org, in der man Admin ist) und sein `explicitOrg`
+nur `query.org_id`/`params.org_id` liest — der Platzhalter heißt hier `:id`.
+
+**Der Wächter** (`api/test/orgGrenzenWaechter.test.js`, Register
+`api/test/fixtures/orgGrenzen.json`) hat vier Schichten:
+
+- **(A) Vollständigkeit** — jede Route mit Pfad-Platzhalter in einer abgedeckten
+  Datei braucht ein Urteil. Aufgezählt wird über das **Router-Objekt**, nicht
+  über den Quelltext. *Das hätte E-1 bis E-4 beim Anlegen gemeldet.*
+- **(B) Verhalten** — Spion-Pool, der jede Abfrage mitschreibt: 403 · **kein**
+  INSERT/UPDATE/DELETE · die Ressourcen-ID stand in der Abfrage · Org und
+  Adressat stehen in derselben Anweisung. Dazu die **Gegenprobe** mit der
+  eigenen Org, ohne die ein pauschales `return 403` bestünde — und die
+  **Seitenprobe**: bei einer zweiseitigen Grenze (`org_id ODER supplier_org_id`)
+  wird jede Hälfte einzeln belegt. Ohne sie bleibt eine halbierte Grenze
+  unbemerkt; gemessen an einer Mutation in `contracts.js`, die der Wächter
+  zunächst durchgelassen hat.
+- **(B2) Torwächter** — für Flächen, die *eine* Eintrittsbedingung statt einer
+  Grenze je Route haben. Geprüft wird, dass der benannte Middleware auf **jeder**
+  Platzhalter-Route steht, dass er ohne die Voraussetzung mit dem erwarteten
+  Status abweist **und** dass dabei nichts geschrieben wird. Der dritte Punkt ist
+  der Grund, warum das kein Struktur-Test ist: ein Torwächter, der dasteht und
+  `next()` ruft, fällt hier durch.
+- **(C) Bestandsbuch** — jede der 82 Route-Dateien ist abgedeckt **oder** mit
+  Grund ausgesetzt. Damit ist die ehrlichste Zahl sichtbar und wächst nicht mehr
+  stillschweigend: **15 Dateien · 137 Routen verhaltensgeprüft · 56 belegte
+  Ausnahmen · 67 Dateien offen.** Eine Sperrklinke verhindert, dass die Zahl fällt.
+
+  | Datei | geprüft | Ausnahmen | Grenzmodell |
+  |---|---|---|---|
+  | `rateCards` `invoices` `approvals` `requisitions` `organizations` | 43 | — | Org |
+  | `contracts` `assignments` `vendorPool` `complianceDocs` `documentCenter` `timesheets` | 37 | — | Org |
+  | `capacityExchange` | 17 | 1 | **Nutzer** |
+  | `marketplace` | 22 | 8 | **Nutzer**, teils offen per Bauart |
+  | `workerPortal` | 18 | — | **Nutzer** + Torwächter `requireWorkerRole` |
+  | `staffControlCenter` | — | 47 | **Staff**, org-übergreifend per Bauart; Torwächter `staffControlAccess` |
+  | `agencyPortal` `admin` `timesheetTemplates` `scim` | — | 30 | **Torwächter** je Fläche |
+  | `companyTimesheets` | 4 | — | Org, Grenze im Middleware `requireCompanySubmission` |
+  | 28 Dateien ohne `:id`-Route | — | — | mit `routen: []` eingetragen — der Wächter **rechnet das nach** |
+
+  **Zwei Namen, die mehr versprechen als sie halten** (im Register vermerkt, keine
+  Lücke, aber der Anfang der E-11-Klasse): `requireAgencyRole` verlangt **keine**
+  Agentur-Rolle — es sperrt nur `userRole === 'worker'` aus; ein Firmennutzer oder
+  einer ganz ohne Rollenfeld kommt durch. Die echte Grenze dieser Flächen sind
+  `rperm('worker.review')` und `requireOwnSubmission`. Und `requireAdmin` kennt
+  einen Bypass `ADMIN_PANEL_OPEN`, der jeden Angemeldeten durchlässt — per
+  Voreinstellung aus, in der laufenden Umgebung `false`, seit Welle G1.5 durch
+  einen eigenen Test abgedeckt.
+- **(D) Selbstprobe** — fünf absichtlich kaputte Mini-Router (Grenze vergessen ·
+  Grenze **nach** dem Schreiben · Grenze auf dem falschen Parameter · halbierte
+  zweiseitige Grenze · ungefilterte Liste) müssen gemeldet werden — und **zwei
+  korrekte Router dürfen es nicht**, sonst wäre der Prüfer nur streng statt
+  richtig. Dazu zwei Proben auf das Werkzeug selbst: der Schreib-Erkenner
+  verwechselt `deleted_at`/`updated_at` in einem SELECT nicht mit einem
+  Schreibvorgang, und `BEGIN`/`COMMIT` zählen nicht als Abfrage.
+
+**Gegen den echten Bestand mutiert** — nicht nur gegen Mini-Router:
+
+| Mutation | Wächter | Service-Test |
+|---|---|---|
+| Grenze mit `if (false && …)` abgeschaltet (der G6-Mutant) | **rot** | — |
+| `sameOrgParam` aus der Kette entfernt | **rot** | — |
+| zweiseitige Grenze halbiert (supplier-Zweig weg) | **rot** | — |
+| JS-Filter einer Listen-Route entschärft | **rot** | — |
+| Grenze auf den falschen Parameter gelegt (die E-5-Klasse) | **rot** | — |
+| Org-Grenze aus `/requisitions/:id/events` entfernt | **rot** | — |
+| `AND org_id = $3` aus dem UPDATE genommen, Parameter bleibt | grün *(dokumentierte Grenze)* | **rot** |
+| Org-Bindung aus der Freigabe-Historie entfernt | grün *(dokumentierte Grenze)* | **rot** |
+
+Die dritte Zeile ist die lehrreichste: sie war beim ersten Anlauf **grün**. Beide
+Trägerspalten trugen immer denselben Besitzer, also fiel nicht auf, dass der
+Handler nur noch einen Zweig prüft. Erst die Seitenprobe macht sie rot — ein
+Wächter, den man nicht gegen den echten Bestand mutiert, misst seine eigene
+Erwartung.
+
+Das ist die **ehrliche Grenze** des Wächters: er beweist die Entscheidung des
+Handlers und die Parameterübergabe, **nicht**, dass ein Service-SQL seine
+`AND org_id`-Klausel behalten hat. Diese Hälfte tragen die Service-Tests, die
+das abgesetzte SQL selbst befragen. Beide zusammen, keiner allein.
+
+### Der wichtigste Fund der zweiten Welle: nicht jede Grenze ist eine Org-Grenze
+
+`capacityExchange` und `marketplace` sind **nicht org-gebunden**. Ihre Grenze ist
+der **Nutzer**: `supplier_company_id` / `requester_company_id` werden gegen
+`req.session.userId` verglichen. Eine Probe, die nur die Organisation variiert,
+hätte dort jede Verletzung durchgelassen — sie wechselt schlicht nicht die
+Kennung, über die entschieden wird. Der Wächter kennt deshalb jetzt die
+Dimension `identitaet: "org" | "nutzer"`.
+
+Die Folge ist ein Produktbefund, kein Sicherheitsbefund: **ein Kollege derselben
+Organisation kann die Einträge eines Teamkollegen nicht sehen oder bearbeiten.**
+Dasselbe Muster wie D-M4 bei den Requisitions — zusammengefasst als **D-M5**.
+
+### E-12 · Ein Lesezugriff schrieb in die fremde Zeile *(geschlossen)*
+
+`GET /staffing-assignments/:id` rief `getAssignmentStaffingOverview`, und die
+Funktion begann mit `recalcAssignmentStaffing` — einem
+`UPDATE assignments ... WHERE id = $1` **ohne Org-Bindung**. Die
+Zugehörigkeitsprüfung stand in der Zeile **danach**. Ein GET auf eine fremde
+Einsatz-Kennung hat damit Mengen, Besetzungsstatus und Zeitstempel der fremden
+Zeile angefasst und anschließend 404 geliefert: kein Datenabfluss, aber ein
+Schreibvorgang über die Mandantengrenze, ausgelöst von einem bloßen Lesen.
+
+Gefunden hat ihn der Wächter, nicht eine Recherche — und zwar genau über die
+Zusicherung „auf dem Spion steht kein INSERT/UPDATE/DELETE". Ein reiner
+Statuscode-Test hätte den 404 gesehen und nichts gemerkt.
+
+**Geschlossen:** die Zugehörigkeit wird jetzt zuerst geklärt, und zwar im SQL
+(`WHERE id = $1 AND supplier_org_id = $2`), dann wird gerechnet. Beleg:
+`api/test/security/orgGrenzeLuecken.test.js`, Abschnitt E-12 — mit einer
+Gegenprobe, die sicherstellt, dass die Neuberechnung für die **eigene** Org
+weiterhin stattfindet, die Reparatur die Funktion also begrenzt und nicht
+stilllegt.
+
+### E-14 · Die Matching-Engine läuft ohne Org *(offen — Owner-Frage)*
+
+Alle vier Platzhalter-Routen in `matching.js` rufen die Engine **nur mit der
+Pfad-Kennung**: `engine.findMatches(pool, req.params.id, …)` (`:25`), ebenso
+`matchCapacityToRequisitions` (`:65`), `matchWorkerToAssignments` (`:90`) und
+`smart-explain` (`:178`). `findMatches` lädt
+`SELECT * FROM demand_requests WHERE id = $1` (`matchingEngine.js:353`) — ohne
+Bindung.
+
+Die **Geschwister-Route derselben Datei macht es anders**:
+`/matching/instant/:requisitionId` (`:144-151`) reicht `req.orgId` durch und
+mappt `ORG_BOUNDARY_VIOLATION` auf 403. Dasselbe Muster wie bei E-1 bis E-10:
+zwei Türen zum selben Raum, eine bewacht.
+
+Wirkung: wer angemeldet ist und `requisition.view` hat, kann die Engine gegen
+eine **fremde** Bedarfsmeldung laufen lassen und erfährt, dass es sie gibt und
+wonach sie sucht. Zusätzlich schreibt `logMatch` den fremden Vorgang mit der
+**eigenen** `org_id` ins ML-Protokoll (`matching.js:38`).
+
+**Nicht autonom repariert**, und das ist hier kein Zögern, sondern die Sache
+selbst: Bedarfsmeldungen werden im Marktplatz **bewusst** an Lieferanten
+ausgespielt — ob dieser Weg offen sein *soll*, ist eine Produktentscheidung. Und
+`demand_requests` gehört einem **Nutzer** (`requester_company_id` → `users`),
+nicht einer Org, was die Frage direkt mit **D-M5** und **E-11** verbindet.
+`matching.js` ist deshalb im Register **zurückgestellt**, mit genau diesem
+Befund als Begründung.
+
+### E-13 · Dasselbe Muster, zweite Fundstelle *(geschlossen)*
+
+`getStaffingChoiceSet` rief `refreshStaffingChoiceSetLifecycle` — und das
+**schreibt** (`UPDATE assignment_staffing_choice_sets SET status = …`). Die
+Zugehörigkeitsprüfung stand erst danach. Ein Zugriff mit fremder
+Auswahl-Kennung hat deren Status fortgeschrieben, etwa auf
+`options_presented`, und anschließend 404 geliefert.
+
+Der Wächter hat es gefunden, **nachdem** E-12 dieselbe Klasse in einer anderen
+Datei aufgedeckt hatte. Deshalb gibt es dafür jetzt eine eigene Zusicherung
+statt eines Schalters: `schreibenNachGrenze` prüft die **Reihenfolge** — es
+muss eine lesende Abfrage geben, die Kennung und Adressat zusammen trägt, und
+sie muss **vor** dem ersten Schreibvorgang kommen. Genau das war bei E-12 und
+E-13 verletzt. Geschlossen wie dort: Zugehörigkeit zuerst, im SQL.
+
+### Der Wächter hatte selbst ein falsches Grün eingebaut
+
+`catchAsync` (`utils/routeHandler.js:39-43`) ruft
+`Promise.resolve(fn(…)).catch(next)` und gibt **sofort** zurück — die eigentliche
+Arbeit läuft danach weiter. Die Probe hat also nachgesehen, bevor der Handler
+fertig war, und hätte einen noch nicht erfolgten Schreibvorgang für einen
+unterbliebenen gehalten: **ein falsches Grün für jede `catchAsync`-Route.**
+Aufgefallen ist es, weil eine zusätzliche `await`-Runde im Spion eine zuvor
+grüne Route auf „schreibt nichts" umschlagen ließ. Die Probe wartet jetzt,
+bis der Handler wirklich zu Ende ist.
+
+### E-11 · `canAccessAsOwner` hat nie funktioniert
+
+`utils/ownerCheck.js:28-33` soll genau diese Lücke schließen: direkter
+Besitzer **oder** Mitglied derselben Organisation. Zwei Fehler in vier Zeilen:
+
+1. Die Abfrage fragt `org_memberships.status` ab — **diese Spalte gibt es
+   nicht** (sie heißt `is_active`). Gegen die laufende Datenbank ausgeführt:
+   `column "status" does not exist`.
+2. Als `org_id` wird `entityOwnerId` übergeben — eine **Nutzer**-Kennung
+   (`demand_requests.requester_company_id` → `users`), verglichen mit einer
+   **Org**-Kennung (`org_memberships.org_id` → `organizations`). Selbst mit
+   richtiger Spalte könnte das nie treffen.
+
+Der `catch` darunter macht aus dem Fehler stillschweigend ein `false`. Ergebnis:
+an **10 Aufrufstellen** in `emergency.js`, `marketplace.js`, `offerAssets.js` und
+`slaSearchJobs.js` ist die Funktion auf „nur der direkte Besitzer" degradiert —
+seit sie existiert, bei jedem Aufruf mit einer wirkungslosen Datenbankrunde.
+`offerAssets.js:127` trägt sogar den Kommentar „canAccessAsOwner beruecksichtigt
+auch Organisations-Member".
+
+**Kein Leck** — der Fehler ist zu streng, nicht zu lasch. Deshalb ist er
+*nicht* autonom repariert: die Korrektur **weitet Zugriff aus** und ist damit
+eine Owner-Entscheidung. Eintrag **P1-17**.
+
+### Gegen die echte Datenbank geprüft (was ein Mock nicht zeigen kann)
+
+- `rate_cards` und `approval_requests`: **`rls=false`, 0 Policies** — für E-1 und
+  E-3 gab es in **keinem** Deployment einen Backstop in der Datenbank. Die
+  Vermutung des Plans ist damit gemessen, nicht mehr vermutet.
+- **Migration 117 existiert nicht.** `docs/security/TENANT_ISOLATION_MODEL.md`
+  verweist 28 Tabellen auf sie als „nächsten Schritt"; die Datei wurde nie
+  geschrieben (`sql/migrations/` springt von 116 auf 118).
+- `audit_log`: 2711 Zeilen, davon **1782 ohne `org_id`**; von 920 Entitäten
+  wären **416** unter dem strikten Filter von E-5 unsichtbar. Das ist heute
+  folgenlos — die org-gebundene Route hat **keinen** Aufrufer (das Admin-Panel
+  ruft die plattformweite Fassung). Es ist aber die Zahl, die zur offenen
+  Null-Politik-Entscheidung gehört.
 
 ### Erledigt am 2026-08-19
 
@@ -174,6 +418,7 @@ Arbeitsplan: [features/H_KUNDENANSICHT_UND_ORG_GRENZEN.md](features/H_KUNDENANSI
 | **H1 Kundenansicht** | Der Statusbadge war ein **binäres Ternär**: ein neuer Zustand hätte nicht gefehlt, sondern als grünes „Im Einsatz" das Gegenteil behauptet. Deshalb Renderer zuerst, dann das Feld. `getCompanyLiveWorkforce` gibt die Zeile jetzt über eine **Positivliste** heraus statt roh — vorher wäre die nächste SELECT-Spalte ohne Zutun beim Kunden gelandet. `?einsatz=` wurde von der Zielseite gar nicht gelesen und die Zeile trug keine `assignment_id`; beides gebaut. Wächter: `h1KundenansichtAusfall.test.js` (32), `integration/h1KundeSiehtAusfall.flow.test.js` (13). |
 | **Demo-Compose** (`cde6c42`) | War **nie** startfähig (nicht „seit P0-08"): Die Datei entstand einen Monat nach dem Guard, den sie verletzt. Schwerer: Sie wird **ausgeliefert** und öffnete beim Kunden alle Plan-Gates — der CI-Wächter dagegen durchsucht nur `.env*`. Dazu der `release-package.sh`-Fehler, durch den `.claude/` ins Artefakt kam (die `EXCLUDE_LIST` galt nur im Fallback-Zweig). Wächter: `composeStartfaehig.test.js` |
 | **NOT_AUTH** (`61d2091`) | Nicht „alle Portalseiten", sondern **genau die G5-Seite**. Und kein Konsolen-Problem: Sie blieb für Abgemeldete **dauerhaft weiß**, ohne Weg zum Login — ausgerechnet der Notfallweg. Siebenmal kopiert, beim achten Mal vergessen. |
+| **H2 — Mandantengrenzen** | Die Entscheidung **D-M1 ist gefallen: Wächter, nicht konsolidieren.** Die fünf Lücken des Plans sind geschlossen — **und der Wächter fand beim ersten Lauf fünf weitere**, darunter ein Cross-Org-**Schreibzugriff auf den Organisationsdatensatz selbst** (`PATCH /organizations/:id`, u. a. `parent_org_id`). Zehn Lücken, nicht fünf. Details unten. |
 
 ### Zwei Blocker, die nur der Owner lösen kann
 
@@ -210,8 +455,37 @@ dagegen längst behoben — `timeout-minutes: 180`, sechs parallele Matrix-Jobs.
   erreicht ueber vier strukturierte Fragen statt eines leeren Textfelds — und dieser Text
   bleibt beim Arbeitgeber.
 
-- **D-M1** — Welle 3b: die 80 Inline-Org-Grenzen konsolidieren oder einen
-  Wächter-Test bauen? Erst 3b.2 abwarten (zeigen die Kopien Abweichungen?).
+- ~~**D-M1**~~ ✅ entschieden 2026-08-19: **Wächter, nicht konsolidieren.**
+  Die 80 Kopien sind untereinander einheitlich; alle zehn echten Defekte lagen
+  dort, wo *keine* stand. Der Helfer taugt in heutiger Form nicht als Ziel
+  (22 Tabellen ohne `timesheets`/`invoices`/`worker_profiles`, keine zweiseitige
+  Grenze, eine Extra-Abfrage je Aufruf). Umgesetzt als
+  `api/test/orgGrenzenWaechter.test.js`.
+- **D-M2 (neu)** — **Null-Politik.** Darf eine Anfrage ohne `req.orgId` durch?
+  Heute dreigeteilt: 42 Stellen `if (req.orgId && …)` (fail-open), 14 fail-closed,
+  `timesheets.js:67` mit eigener Legacy-Ausnahme. Der neue Code ist durchgehend
+  fail-closed. Der saubere Ort für eine Vereinheitlichung ist eine Middleware
+  `requireOrgContext`, die vor dem Handler mit 403 abbricht — nicht das
+  Umschreiben von 80 Vergleichen. Vorbild existiert (`suppliers.js:46`,
+  `workforce.js:58`). *Berührt Produktionscode auf breiter Fläche → Owner.*
+- **D-M3 (neu)** — **Audit-Zeilen ohne `org_id`.** `GET /organizations/:id/audit-log/recent-changes`
+  filtert jetzt strikt (`al.org_id = $3`). Gemessen: 1782 von 2711 Audit-Zeilen
+  tragen keine Org, 416 von 920 Entitäten wären damit unsichtbar. Heute
+  folgenlos (kein Aufrufer). Sobald die Route einen bekommt: strikt lassen
+  (kein Leck, leere Historie) **oder** wie die RLS-Policy `org_id IS NULL`
+  durchlassen (vollständige Historie, Rest-Leck)? *Owner.*
+- **D-M5 (neu)** — **Nutzer- statt Org-Grenze in `capacityExchange` und
+  `marketplace`.** Beide binden über `req.session.userId`, nicht über die
+  Organisation. Ein Kollege derselben Firma sieht die Einträge seines Teams
+  nicht. Zusammen mit **E-11** (der Helfer, der genau das reparieren sollte und
+  nie funktioniert hat) und **D-M4** ist das *ein* Thema: soll die
+  Zusammenarbeit innerhalb einer Organisation überhaupt möglich sein? Die
+  Antwort entscheidet über drei Stellen gleichzeitig. *Owner.*
+- **D-M4 (neu)** — **`PATCH /requisitions/:id` begrenzt per `created_by`**, nicht
+  per Org. Die Org-Grenze steht jetzt zusätzlich davor (E-4), die
+  Ersteller-Bedingung ist unangetastet. Nebeneffekt bleibt: ein Kollege
+  derselben Org kann die Ausschreibung eines anderen nicht bearbeiten. Absicht
+  oder Altlast? *Produktentscheidung, kein Sicherheitsthema.*
 
 ## Offene Befunde ohne Ticket
 

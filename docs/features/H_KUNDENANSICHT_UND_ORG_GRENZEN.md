@@ -7,7 +7,84 @@
 
 ---
 
-## ⚠️ Vorbemerkung: H2 enthaelt Sicherheitsluecken
+## ✅ Stand 2026-08-19: H2 ist gebaut
+
+**Ergebnis in drei Sätzen.** Die Entscheidung D-M1 ist gefallen: **Wächter, nicht
+konsolidieren** — begründet dadurch, dass alle echten Defekte dort lagen, wo
+*keine* der 80 Kopien stand. Die fünf Lücken der Recherche sind geschlossen, und
+der Wächter fand beim ersten Lauf **fünf weitere** (E-6 bis E-10), darunter mit
+`PATCH /organizations/:id` einen Cross-Org-Schreibzugriff auf den
+Organisationsdatensatz selbst. Volle Suite 8804/0.
+
+| Artefakt | Zweck |
+|---|---|
+| `api/test/security/orgGrenzeLuecken.test.js` | Die zehn Befunde als **Verhalten** nachgestellt — war vor der Reparatur rot |
+| `api/test/orgGrenzenWaechter.test.js` | Der Wächter, vier Schichten inkl. Selbstprobe |
+| `api/test/fixtures/orgGrenzen.json` | Das Register: je Route ein Urteil, je Datei ein Abdeckungsvermerk |
+| `api/test/helpers/orgGrenzenSpion.js` | Spion-Pool + `pruefeGrenze` — dieselbe Funktion für Bestand und Selbstprobe |
+| `api/test/helpers/security-mocks.js` | neu: `findChainFrom` — führt die Kette ab einem benannten Middleware aus |
+
+**Korrekturen an dieser Recherche** (gemessen, nicht vermutet):
+
+1. **Fallstrick 1 erledigt** — alle Befunde sind zur Laufzeit reproduziert, nicht
+   nur am Quelltext belegt.
+2. **Fallstrick 3 bestätigt** — `rate_cards` und `approval_requests` stehen in der
+   laufenden Datenbank auf `rls=false` mit 0 Policies. Dazu neu: **Migration 117,
+   auf die `TENANT_ISOLATION_MODEL.md` 28 Tabellen verweist, existiert nicht.**
+3. **Fallstrick 5 war berechtigt** — aber die Lücke lag näher als vermutet: fünf
+   weitere Befunde fanden sich in denselben fünf Dateien, nicht erst in den
+   übrigen 38. Zwei davon (E-6, E-7) hatte die Heuristik übersehen, drei (E-8,
+   E-9, E-10) lagen außerhalb ihres Suchraums.
+4. **Fallstrick 5, zweite Hälfte** — die Probe darf nicht nur den letzten Handler
+   ausführen: `sameOrgParam` ist ein vorgelagerter Middleware. Ohne
+   `findChainFrom` meldete der Wächter acht korrekt bewachte Routen als Lücke.
+5. **Fallstrick 7 bestätigt** — `ALLOWED_TABLES` hat 22 Einträge, nicht 23.
+6. **Neu gemessen** — `audit_log` trägt 1782 von 2711 Zeilen ohne `org_id`; unter
+   dem strikten Filter von E-5 wären 416 von 920 Entitäten unsichtbar. Heute
+   folgenlos (kein Aufrufer), aber die Grundlage für Entscheidung **D-M3**.
+7. **Abschnitt 5 präzisiert** — Zusicherung 4 („orgId in der Parameterliste")
+   gehört an die **Gegenprobe**, nicht an den Fremdlauf: eine korrekt bewachte
+   Route bricht ab, *bevor* sie die Abfrage stellt. Dort ist die Abwesenheit der
+   Org der Beweis, nicht der Mangel.
+
+### Zweite Welle (2026-08-19): die vier vorrangigen Dateien
+
+`capacityExchange` (18) · `marketplace` (30) · `workerPortal` (18) ·
+`staffControlCenter` (47) stehen unter dem Wächter. Abdeckung jetzt **15 von 82
+Dateien, 137 verhaltensgeprüft, 56 belegte Ausnahmen**.
+
+**Kein neuer Cross-Org-Schreibzugriff** — dafür drei Befunde, die der Plan nicht
+vorhergesehen hatte:
+
+1. **Die Leitfrage war zu eng.** Keine dieser vier Dateien trägt eine
+   *Org*-Grenze. `capacityExchange` und `marketplace` binden an den **Nutzer**,
+   `workerPortal` an die Arbeitersitzung, `staffControlCenter` ist
+   org-übergreifend per Bauart. Eine Probe, die nur die Organisation variiert,
+   hätte dort jede Verletzung durchgelassen → neue Dimension
+   `identitaet: "org" | "nutzer"`.
+2. **Flächen mit einer Eintrittsbedingung** brauchen eine eigene Schicht: der
+   Torwächter (`requireWorkerRole`, `staffControlAccess`) muss auf *jeder* Route
+   stehen, ohne Voraussetzung abweisen und dabei nichts schreiben → Schicht
+   **(B2)**, mit eigener Selbstprobe.
+3. **E-11 · `canAccessAsOwner` funktioniert nicht** — falsche Spalte
+   (`status` statt `is_active`, gegen die laufende Datenbank belegt) und eine
+   Nutzer-Kennung, die gegen eine Org-Kennung verglichen wird. 10 Aufrufstellen,
+   seit jeher auf „nur direkter Besitzer" degradiert. **Nicht autonom repariert:
+   die Korrektur weitet Zugriff aus.** → P1-17, D-M5.
+
+**Eine Falle, die 20 Minuten gekostet hat und in jedes Folgeprojekt gehört:**
+``new RegExp(`${name}`)`` — `` ist im Template-Literal ein Backspace, keine
+Wortgrenze. Der Ausdruck traf nie, und ein Prüfer, der leer läuft, sieht aus wie
+einer, der nichts findet.
+
+Vier neue Owner-Entscheidungen stehen in
+[../UEBERGABE.md](../UEBERGABE.md#offene-owner-entscheidungen): **D-M2**
+(Null-Politik), **D-M3** (Audit-Zeilen ohne Org), **D-M4** (`created_by`- statt
+Org-Grenze bei `PATCH /requisitions/:id`).
+
+---
+
+## ⚠️ Vorbemerkung: H2 enthaelt Sicherheitsluecken *(historisch — geschlossen)*
 
 Die Recherche zu den Mandantengrenzen hat **fuenf Stellen ohne jede Org-Pruefung**
 gefunden, drei davon mit schreibendem Cross-Org-Zugriff (Konditionsrahmen,

@@ -195,6 +195,75 @@ See [COVERAGE.md](./COVERAGE.md) for thresholds, interpretation, and CI integrat
 
 ---
 
+## Der Org-Grenzen-Wächter — was ein 403-Test nicht beweist
+
+`api/test/orgGrenzenWaechter.test.js` (Register: `api/test/fixtures/orgGrenzen.json`,
+Werkzeug: `api/test/helpers/orgGrenzenSpion.js`).
+
+**Warum er zusätzlich zu `test/security/coreFlowCrossTenant.test.js` existiert:**
+Jener prüft `res._status === 403` — und sonst nichts. Damit besteht ihn auch
+eine Route, die erst schreibt und *danach* 403 meldet, ebenso eine, die über die
+falsche Kennung urteilt. Beide Muster waren real (Befunde E-5 und E-8, siehe
+`docs/features/H_KUNDENANSICHT_UND_ORG_GRENZEN.md`).
+
+**Vier Schichten:** (A) jede `:id`-Route braucht ein Urteil im Register,
+aufgezählt über das **Router-Objekt** statt über den Quelltext · (B) Spion-Pool,
+der jede Abfrage mitschreibt (403 · kein Schreibvorgang · Ressourcen-ID in der
+Abfrage · Org und Adressat in derselben Anweisung) plus Gegenprobe mit der
+eigenen Org · (C) Bestandsbuch aller 82 Route-Dateien mit Sperrklinke ·
+(D) Selbstprobe an fünf absichtlich kaputten Mini-Routern — plus zwei korrekten,
+die NICHT gemeldet werden dürfen.
+
+**Nicht jede Grenze ist eine Org-Grenze.** Das Register wählt über
+`identitaet` aus, welche Kennung die Probe variiert: `org` (Standard) oder
+`nutzer`. `capacityExchange`, `marketplace` und `workerPortal` binden über
+`req.session.userId` — eine Probe, die nur die Organisation wechselt, lässt dort
+**jede** Verletzung durch, weil sie die entscheidende Kennung gar nicht anfasst.
+
+**Flächen mit EINER Eintrittsbedingung** (Arbeiterportal, Staff Control Center)
+prüft Schicht **(B2)**: der benannte Torwächter muss auf *jeder*
+Platzhalter-Route stehen, ohne die Voraussetzung mit dem erwarteten Status
+abweisen und dabei nichts schreiben. Der letzte Punkt trennt ihn vom
+Struktur-Test — ein Middleware, der dasteht und `next()` ruft, fällt durch.
+
+**Vier Erwartungsarten**, weil die Grenze nicht überall an derselben Stelle
+steht: `403` (Standard) · `sql-grenze` (die Bindung liegt im SQL, geprüft an den
+Parametern, weil ein Mock kein `WHERE` erzwingt) · `zero-state` (die Route siebt
+fremde Zeilen in JS aus — geprüft an der Antwort, die die fremde Org nicht
+enthalten darf) · dazu die **Seitenprobe** für zweiseitige Grenzen.
+
+**Vier Fallen, die er umgeht — alle real aufgetreten:**
+
+1. **Quelltext statt Verhalten.** `if (false && X)` trägt die gesuchte
+   Zeichenkette weiterhin. Der Wächter führt aus, statt zu lesen — gemessen:
+   diese Mutation macht ihn rot.
+2. **Grenze in einer Middleware.** `findHandlerExact` liefert nur den letzten
+   Handler; liegt die Grenze in `sameOrgParam`, meldet eine naive Probe eine
+   bewachte Route als Lücke. Dafür gibt es `findChainFrom(router, ..., mwName)`
+   und das Registerfeld `grenzeIn`.
+3. **Pauschales `return 403`.** Ohne Gegenprobe bestünde es jede Prüfung. Sie
+   fängt zugleich die stillgelegte Route (`schreibtBeiErfolg`).
+4. **Eine Gegenprobe, die zu viel verlangt.** Hinter der Besitzprüfung liegen
+   Zustandsautomaten, die eine erfundene Zeile nie zufriedenstellen (409 „schon
+   bestätigt", 400 „kein gültiger Übergang"). Die Gegenprobe fragt deshalb nicht
+   „gelingt der Aufruf?", sondern **„antwortet die Route dem Eigentümer anders
+   als dem Fremden?"** — die Frage, die das pauschale Urteil fängt.
+5. **Halbierte zweiseitige Grenze.** Tragen `org_id` und `supplier_org_id` in der
+   Probe immer denselben Besitzer, fällt nicht auf, wenn der Handler nur noch
+   einen Zweig prüft. Die **Seitenprobe** gibt die Zeile je Durchlauf nur über
+   *eine* Trägerspalte an die eigene Org. Gemessen: ohne sie blieb eine Mutation
+   in `contracts.js` unbemerkt.
+
+**Was er nicht kann:** beweisen, dass ein Service-SQL seine `AND org_id`-Klausel
+behalten hat. Diese Hälfte tragen die Grenz-Abschnitte in
+`rateCardService.test.js`, `approvalService.test.js` und
+`operationalInvoice.test.js`, die das abgesetzte SQL selbst befragen.
+
+**Eine neue `:id`-Route anlegen?** Dann wird dieser Test rot, bis sie im Register
+steht. Das ist die Absicht.
+
+---
+
 ## Mutation Testing — was Coverage nicht beweist
 
 Coverage sagt: **„diese Zeile wurde ausgeführt"**. Mutation Testing sagt:

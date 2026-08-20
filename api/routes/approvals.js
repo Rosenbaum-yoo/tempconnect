@@ -244,7 +244,16 @@ export function createApprovalsRouter(deps) {
   router.post("/approvals/:id/approve", requireAuth, requirePermission("approval.decide", { pool, logger }), async (req, res) => {
     const parsed = decisionSchema.safeParse(req.body);
     if (!parsed.success) return res.status(400).json({ error: "VALIDATION", details: parsed.error.issues });
-    const result = await approvalService.approveEntity(pool, req.params.id, req.session.userId, parsed.data.reason);
+    // Org-Boundary (Befund E-3, 2026-08-19): Bis hierher hatte nur das
+    // Geschwister-GET (:234) eine Grenze; approve/reject schrieben ungebremst.
+    // Fail-closed: eine Freigabe ohne org_id gehoert keiner Org und wird hier
+    // nicht entschieden.
+    const bestehend = await approvalService.getApprovalById(pool, req.params.id);
+    if (!bestehend) return res.status(404).json({ error: "NOT_FOUND_OR_ALREADY_DECIDED" });
+    if (!req.orgId || bestehend.org_id !== req.orgId) {
+      return res.status(403).json({ error: "ORG_BOUNDARY_VIOLATION" });
+    }
+    const result = await approvalService.approveEntity(pool, req.params.id, req.session.userId, parsed.data.reason, req.orgId);
     if (!result) return res.status(404).json({ error: "NOT_FOUND_OR_ALREADY_DECIDED" });
     res.locals.audit = { action: "approval.approve", entity_type: "approval_request", entity_id: req.params.id, details: { reason: parsed.data.reason }, old_values: { status: "pending" }, new_values: { status: "approved" } };
     res.json(result);
@@ -253,14 +262,25 @@ export function createApprovalsRouter(deps) {
   router.post("/approvals/:id/reject", requireAuth, requirePermission("approval.decide", { pool, logger }), async (req, res) => {
     const parsed = decisionSchema.safeParse(req.body);
     if (!parsed.success) return res.status(400).json({ error: "VALIDATION", details: parsed.error.issues });
-    const result = await approvalService.rejectEntity(pool, req.params.id, req.session.userId, parsed.data.reason);
+    // Org-Boundary (Befund E-3) — dieselbe Begruendung wie bei /approve.
+    const bestehend = await approvalService.getApprovalById(pool, req.params.id);
+    if (!bestehend) return res.status(404).json({ error: "NOT_FOUND_OR_ALREADY_DECIDED" });
+    if (!req.orgId || bestehend.org_id !== req.orgId) {
+      return res.status(403).json({ error: "ORG_BOUNDARY_VIOLATION" });
+    }
+    const result = await approvalService.rejectEntity(pool, req.params.id, req.session.userId, parsed.data.reason, req.orgId);
     if (!result) return res.status(404).json({ error: "NOT_FOUND_OR_ALREADY_DECIDED" });
     res.locals.audit = { action: "approval.reject", entity_type: "approval_request", entity_id: req.params.id, details: { reason: parsed.data.reason }, old_values: { status: "pending" }, new_values: { status: "rejected" } };
     res.json(result);
   });
 
   router.get("/approvals/history/:entityType/:entityId", requireAuth, requirePermission("approval.view", { pool, logger }), async (req, res) => {
-    const history = await approvalService.getApprovalHistory(pool, req.params.entityType, req.params.entityId);
+    // Org-Boundary (Befund E-3): Diese Route hatte gar keine Grenze und gab
+    // Antragsteller-/Freigeber-E-Mails fremder Organisationen heraus. Die
+    // Bindung liegt im Service-SQL — eine fremde Entitaet hat hier keine
+    // Historie, statt einen 403 zu provozieren (Zero-State-Regel).
+    if (!req.orgId) return res.status(403).json({ error: "ORG_BOUNDARY_VIOLATION" });
+    const history = await approvalService.getApprovalHistory(pool, req.params.entityType, req.params.entityId, req.orgId);
     res.json({ items: history });
   });
 

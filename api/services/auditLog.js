@@ -8,6 +8,8 @@
  * status:      SUCCESS | DENIED | FAILED
  */
 
+import { OrgBoundaryError } from "../utils/orgBoundary.js";
+
 /** Sensitive Felder die niemals in Audit-Details landen duerfen (DSGVO) */
 const SENSITIVE_KEYS = /password|passwd|token|secret|hash|credit_card|iban|ssn|session/i;
 
@@ -301,14 +303,58 @@ export function queryOrgAuditLog(pool, orgId, filters = {}) {
 /**
  * Letzte Aenderungen an einer bestimmten Ressource — fuer UI-Transparenz.
  * Beispiel: "Timesheet genehmigt von Max Mueller am 14.03.2026"
+ *
+ * ═══════════════════════════════════════════════════════════════════════════
+ * BEFUND E-5 (2026-08-19) — WARUM ES ZWEI FUNKTIONEN SIND UND NICHT EINE
+ * ═══════════════════════════════════════════════════════════════════════════
+ *
+ * Diese Abfrage filterte nur nach entity_type/entity_id — ohne org_id. Ihr
+ * org-gebundener Aufrufer (`GET /organizations/:id/audit-log/recent-changes`)
+ * pruefte `req.params.id !== req.orgId`, also die Kennung, die der Nutzer
+ * selbst auf die EIGENE Org setzt; der tatsaechliche Datenwaehler war
+ * `req.query.entity_id` und lief ungebremst. Ergebnis: owner/admin einer
+ * beliebigen Org las old_values/new_values und die Akteur-E-Mail fremder
+ * Entitaeten.
+ *
+ * Ein optionaler `orgId`-Parameter waere der falsche Fix: ein vergessenes
+ * Argument faellt dann still auf "plattformweit" zurueck — genau die
+ * Fail-open-Klasse, die den Befund erst erzeugt hat. Die plattformweite
+ * Variante heisst deshalb, wie sie ist, und kann nicht versehentlich
+ * getroffen werden.
+ *
  * @param {import('pg').Pool} pool
  * @param {string} entityType
  * @param {string} entityId
+ * @param {string} orgId — Pflicht. Fail-closed.
  * @param {number} [limit=10]
  * @returns {Array}
  */
-export async function getRecentChanges(pool, entityType, entityId, limit = 10) {
+export async function getRecentChanges(pool, entityType, entityId, orgId, limit = 10) {
+  if (!orgId) throw new OrgBoundaryError("Keine Organisation zugewiesen.");
+  // Bewusst `await`: der Aufrufer soll eine abgelehnte Zusage bekommen, keinen
+  // synchronen Wurf — die Route faengt ueber try/catch.
+  return await ladeLetzteAenderungen(pool, entityType, entityId, orgId, limit);
+}
+
+/**
+ * Dieselbe Abfrage OHNE Org-Bindung — ausschliesslich fuer das Plattform-Admin
+ * Panel (`/admin/audit-log/recent-changes`, hinter `requireAdmin`), das
+ * mandantenuebergreifend arbeiten MUSS. Der Name ist die Warnung.
+ */
+export async function getRecentChangesPlatformWide(pool, entityType, entityId, limit = 10) {
+  return await ladeLetzteAenderungen(pool, entityType, entityId, null, limit);
+}
+
+/** Eine Abfrage, zwei Einstiege — damit die beiden Fassungen nicht driften. */
+async function ladeLetzteAenderungen(pool, entityType, entityId, orgId, limit) {
   const safeLimit = Math.min(50, Math.max(1, limit));
+  const params = [entityType, String(entityId)];
+  let orgFilter = "";
+  if (orgId) {
+    params.push(orgId);
+    orgFilter = ` AND al.org_id = $${params.length}`;
+  }
+  params.push(safeLimit);
   const { rows } = await pool.query(
     `SELECT al.id, al.action, al.action_type, al.status, al.created_at,
             al.details, al.old_values, al.new_values,
@@ -316,10 +362,10 @@ export async function getRecentChanges(pool, entityType, entityId, limit = 10) {
             u.company_name AS actor_company
      FROM audit_log al
      LEFT JOIN users u ON u.id = al.actor_id
-     WHERE al.entity_type = $1 AND al.entity_id = $2
+     WHERE al.entity_type = $1 AND al.entity_id = $2${orgFilter}
      ORDER BY al.created_at DESC
-     LIMIT $3`,
-    [entityType, String(entityId), safeLimit]
+     LIMIT $${params.length}`,
+    params
   );
   return rows;
 }

@@ -94,7 +94,14 @@ export function createOrganizationsRouter(deps) {
     res.json(org);
   });
 
-  router.patch("/organizations/:id", requireAuth, requirePermission("org.settings", { pool, logger }), async (req, res) => {
+  // Org-Boundary (Befund E-8, 2026-08-19, vom Waechter gefunden): Diese Route
+  // hatte als EINZIGE der :id-Schreibrouten kein sameOrgParam — und
+  // updateOrganization schreibt "UPDATE organizations ... WHERE id = $1".
+  // requirePermission schuetzt nicht: es prueft gegen req.orgId (die eigene
+  // Org, in der man Admin ist), und sein explicitOrg liest nur
+  // query.org_id/params.org_id — der Platzhalter heisst hier :id.
+  // Schreibbar waren u. a. name, billing_email, tax_id und parent_org_id.
+  router.patch("/organizations/:id", requireAuth, sameOrgParam, requirePermission("org.settings", { pool, logger }), async (req, res) => {
     const partial = createOrgSchema.partial().safeParse(req.body);
     if (!partial.success) return res.status(400).json({ error: "VALIDATION", details: partial.error.issues });
     const updated = await orgService.updateOrganization(pool, req.params.id, partial.data);
@@ -168,7 +175,11 @@ export function createOrganizationsRouter(deps) {
     res.json({ items: depts });
   });
 
-  router.post("/organizations/:id/departments", requireAuth, requirePermission("org.departments", { pool, logger }), async (req, res) => {
+  // Org-Boundary (Befund E-9, vom Waechter gefunden): createDepartment fuegt
+  // mit der Org-Kennung aus dem PFAD ein — ohne sameOrgParam entstand die
+  // Abteilung in einer fremden Organisation. GET/PUT/DELETE auf :deptId
+  // haben die Pruefung, das Anlegen hatte sie nicht.
+  router.post("/organizations/:id/departments", requireAuth, sameOrgParam, requirePermission("org.departments", { pool, logger }), async (req, res) => {
     const parsed = deptSchema.safeParse(req.body);
     if (!parsed.success) return res.status(400).json({ error: "VALIDATION", details: parsed.error.issues });
     const dept = await orgService.createDepartment(pool, req.params.id, parsed.data);
@@ -284,7 +295,11 @@ export function createOrganizationsRouter(deps) {
           return res.status(400).json({ error: "MISSING_PARAMS", message: "entity_type und entity_id erforderlich." });
         }
         const limit = Math.min(50, parseInt(req.query.limit) || 10);
-        const rows = await getRecentChanges(pool, entityType, entityId, limit);
+        // Befund E-5 (2026-08-19): Die Pruefung darueber bewacht req.params.id
+        // — die Kennung, die der Nutzer selbst auf die EIGENE Org setzt. Der
+        // echte Datenwaehler ist entity_id, und der lief bis hierher ohne
+        // Org-Bindung. Die Bindung gehoert an die Abfrage, nicht an den Pfad.
+        const rows = await getRecentChanges(pool, entityType, entityId, req.orgId, limit);
         res.json({ items: rows });
       } catch (err) {
         logger.error({ err: err.message }, "org recent-changes");

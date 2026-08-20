@@ -48,13 +48,13 @@ describe("approvalService — approveEntity", () => {
       { rows: [approved] },   // UPDATE approval_requests
       { rows: [] }            // writeAudit → INSERT audit_log
     );
-    const result = await svc.approveEntity(pool, "ap1", "u2", "Looks good");
+    const result = await svc.approveEntity(pool, "ap1", "u2", "Looks good", "o1");
     assert.strictEqual(result.status, "approved");
     assert.strictEqual(result.approved_by, "u2");
   });
 
   it("returns null when already decided", async () => {
-    const result = await svc.approveEntity(returnPool([]), "ap1", "u2", "reason");
+    const result = await svc.approveEntity(returnPool([]), "ap1", "u2", "reason", "o1");
     assert.strictEqual(result, null);
   });
 });
@@ -73,12 +73,12 @@ describe("approvalService — rejectEntity", () => {
       { rows: [rejected] },
       { rows: [] }
     );
-    const result = await svc.rejectEntity(pool, "ap1", "u3", "Not compliant");
+    const result = await svc.rejectEntity(pool, "ap1", "u3", "Not compliant", "o1");
     assert.strictEqual(result.status, "rejected");
   });
 
   it("returns null when already decided", async () => {
-    assert.strictEqual(await svc.rejectEntity(returnPool([]), "ap1", "u2", "reason"), null);
+    assert.strictEqual(await svc.rejectEntity(returnPool([]), "ap1", "u2", "reason", "o1"), null);
   });
 });
 
@@ -115,7 +115,7 @@ describe("approvalService — getApprovalHistory", () => {
       { id: "ap1", status: "approved", requested_by_email: "a@x.de" },
       { id: "ap2", status: "rejected", requested_by_email: "a@x.de" }
     ];
-    assert.strictEqual((await svc.getApprovalHistory(returnPool(rows), "requisition", "r1")).length, 2);
+    assert.strictEqual((await svc.getApprovalHistory(returnPool(rows), "requisition", "r1", "o1")).length, 2);
   });
 });
 
@@ -143,5 +143,46 @@ describe("approvalService — expireOverdue", () => {
   it("returns zero when none expired", async () => {
     const pool = { query: async () => ({ rowCount: 0, rows: [] }) };
     assert.strictEqual((await svc.expireOverdue(pool)).expired, 0);
+  });
+});
+
+// ═══════════════════════════════════════════════════════════════
+// Org-Grenze (Befund E-3, 2026-08-19)
+// ═══════════════════════════════════════════════════════════════
+//
+// approval_requests hat KEINE RLS-Policy — hier gibt es in keinem Deployment
+// einen Backstop in der Datenbank. Die Grenze muss deshalb im SQL stehen.
+
+describe("approvalService — Org-Grenze bei approve/reject/history", () => {
+  function spion(rows = [{ id: "ap1" }]) {
+    const calls = [];
+    return { calls, query: async (sql, params) => { calls.push({ sql, params }); return { rows }; } };
+  }
+
+  it("entscheidet nicht ohne Org-Kontext", async () => {
+    for (const fn of ["approveEntity", "rejectEntity"]) {
+      const pool = spion();
+      await assert.rejects(() => svc[fn](pool, "ap1", "u1", "reason", null), /Organisation/);
+      assert.strictEqual(pool.calls.length, 0, fn + ": es wurde trotzdem abgefragt");
+    }
+  });
+
+  it("liest keine Historie ohne Org-Kontext", async () => {
+    const pool = spion();
+    await assert.rejects(() => svc.getApprovalHistory(pool, "requisition", "r1", null), /Organisation/);
+    assert.strictEqual(pool.calls.length, 0);
+  });
+
+  it("die Org steht in jeder der drei Abfragen", async () => {
+    for (const [fn, args] of [
+      ["approveEntity",      ["ap1", "u1", "reason", "o9"]],
+      ["rejectEntity",       ["ap1", "u1", "reason", "o9"]],
+      ["getApprovalHistory", ["requisition", "r1", "o9"]]
+    ]) {
+      const pool = spion();
+      await svc[fn](pool, ...args);
+      assert.ok(/org_id\s*=\s*\$\d/.test(pool.calls[0].sql), fn + ": org_id fehlt im SQL");
+      assert.ok(pool.calls[0].params.includes("o9"), fn + ": orgId wird nicht als Parameter uebergeben");
+    }
   });
 });

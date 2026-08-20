@@ -240,13 +240,13 @@ describe("rateCardService — activateRateCard", () => {
   it("activates a draft card", async () => {
     const activated = { id: "rc-1", status: "active" };
     const pool = returnPool([activated]);
-    const result = await svc.activateRateCard(pool, "rc-1", "user-1");
+    const result = await svc.activateRateCard(pool, "rc-1", "user-1", "org-1");
     assert.strictEqual(result.status, "active");
   });
 
   it("returns null when card is not in draft status", async () => {
     const pool = returnPool([]);
-    const result = await svc.activateRateCard(pool, "rc-1", "user-1");
+    const result = await svc.activateRateCard(pool, "rc-1", "user-1", "org-1");
     assert.strictEqual(result, null);
   });
 });
@@ -259,13 +259,13 @@ describe("rateCardService — archiveRateCard", () => {
   it("archives an active card", async () => {
     const archived = { id: "rc-1", status: "archived" };
     const pool = returnPool([archived]);
-    const result = await svc.archiveRateCard(pool, "rc-1", "user-1");
+    const result = await svc.archiveRateCard(pool, "rc-1", "user-1", "org-1");
     assert.strictEqual(result.status, "archived");
   });
 
   it("returns null when card cannot be archived", async () => {
     const pool = returnPool([]);
-    const result = await svc.archiveRateCard(pool, "rc-expired", "user-1");
+    const result = await svc.archiveRateCard(pool, "rc-expired", "user-1", "org-1");
     assert.strictEqual(result, null);
   });
 });
@@ -533,5 +533,41 @@ describe("rateCardService — getRateCardStats", () => {
     assert.match(pool.calls[1].sql, /JOIN rate_cards rc/);
     assert.ok(pool.calls[1].params.includes("2026-04-01"));
     assert.ok(pool.calls[1].params.includes("2026-04-30"));
+  });
+});
+
+// ═══════════════════════════════════════════════════════════════
+// Org-Grenze (Befund E-1, 2026-08-19)
+// ═══════════════════════════════════════════════════════════════
+//
+// Der orgId-Parameter allein beweist nichts — ein Service, der ihn entgegen
+// nimmt und ignoriert, besteht jeden Aufruf-Test. Geprueft wird deshalb, dass
+// er (a) fehlend zum Abbruch fuehrt und (b) im SQL landet.
+
+describe("rateCardService — Org-Grenze bei activate/archive", () => {
+  function spion() {
+    const calls = [];
+    return { calls, query: async (sql, params) => { calls.push({ sql, params }); return { rows: [{ id: "rc-1" }] }; } };
+  }
+
+  it("activateRateCard bricht ohne Org-Kontext ab, statt plattformweit zu schreiben", async () => {
+    const pool = spion();
+    await assert.rejects(() => svc.activateRateCard(pool, "rc-1", "user-1", null), /Organisation/);
+    assert.strictEqual(pool.calls.length, 0, "es darf keine Abfrage abgesetzt worden sein");
+  });
+
+  it("archiveRateCard bricht ohne Org-Kontext ab", async () => {
+    const pool = spion();
+    await assert.rejects(() => svc.archiveRateCard(pool, "rc-1", "user-1", undefined), /Organisation/);
+    assert.strictEqual(pool.calls.length, 0);
+  });
+
+  it("die Org steht in der WHERE-Klausel, nicht nur in der Signatur", async () => {
+    for (const fn of ["activateRateCard", "archiveRateCard"]) {
+      const pool = spion();
+      await svc[fn](pool, "rc-1", "user-1", "org-7");
+      assert.ok(/org_id\s*=\s*\$\d/.test(pool.calls[0].sql), fn + ": org_id fehlt im SQL");
+      assert.ok(pool.calls[0].params.includes("org-7"), fn + ": orgId wird nicht als Parameter uebergeben");
+    }
   });
 });

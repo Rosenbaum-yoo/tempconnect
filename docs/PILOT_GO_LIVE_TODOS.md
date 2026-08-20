@@ -1,7 +1,68 @@
 # TempConnect - Pilot/Go-Live TODOs
 Quelle: fundierte Projektbewertung April 2026, abgeleitet aus realem Ist-Zustand (65 Routes, 102 Services, 156 Tests, 98 Migrationen, 6-Job-CI, 289/290 Audit-Coverage).
-Dieses File wird automatisch gepflegt, solange die Regel in `AGENTS.md` ("Pilot-TODO-Pflege") aktiv ist. Erledigte Punkte wandern nach `## Done`. Neue Blocker, die in Sessions auftauchen, werden als P0/P1/P2 angelegt.
-Letzte Aktualisierung: 2026-08-07 — **P8 Deal-Verbindlichkeit (Wellen A-E) abgeschlossen und committet** (`4220693`..`67b0282`). Vier geerbte Defekte dabei gefunden und geschlossen, darunter eine Kennzahl, die das Feed-Ranking steuerte und in Produktion durchgehend NULL war, und ein Bounty, das notorische Kurzfrist-Stornierer mit 3 % Rabatt belohnte. **Neue Betriebs-Pflicht vor Go-Live: Cron `recompute-deal-reliability` einrichten + Migrationen 164/165 einspielen** (siehe Done-Eintrag). Vorher: 2026-07-26 — **P1.0 Schritt (d) erledigt**: `.env.prod.example` kannte `STAFF_SESSION_SECRET` nicht, obwohl die Variable in Produktion ein `fatal()` ausloest — ein Deploy nach dieser Vorlage waere nicht gestartet. Ergaenzt + Waechter `api/test/prodEnvTemplate.test.js`, der Pflichtvariablen aus dem Code gegen die Vorlage prueft. Ebenfalls am 2026-07-26: `docs/AUDIT_BACKLOG.md` vollstaendig abgearbeitet (u. a. ein ausnutzbares Cross-Org-Leck geschlossen). Vorher: 2026-06-13 — **Welle F1 (Code-Schlussarbeiten) abgeschlossen + committet** (`9f37250`/`1044343`/`878b022`/`845b6c9`): Prod-Härtung, Security-Quick-Wins, Hygiene-Sweep, Test-Harness-Folge inkl. eines gefundenen+gefixten requireMfa-SCC-Betriebsblockers; volle Suite 4508/0, Lint 0/0, Builds grün — siehe Abschlussbericht im Worklog. Marktstart-Ziel auf **01.09.2026** aktualisiert (UG-Gründung = kritischer Pfad). Vorher: 2026-06-11 — **Der konsolidierte Vorwaerts-Plan bis zur finalen Abnahme (Wellen F0-F6) liegt in `docs/finalization/FINALISIERUNGSPLAN_ABNAHME.md`** und mappt ALLE offenen Punkte dieses Files (P0.4, P1.0, P1.4, E-01, P2.x) + Gap-Register O-01-O-11 + Audit-Funde 2026-06-11 auf Wellen/Phasen mit Abnahmekriterien. Vorher: 2026-06-05 (Go-Live-Haertung abgeschlossen, „drei wie empfohlen" Owner-approved: P0.6 [052-Demo-Seed-Backdoor] via Env-Flag-Gate `SEED_DEMO_WORLD` [migrate.sh PGOPTIONS-GUC + 052 DO-Guard + Compose-Split base/prod=false, override=true] + Remediation-Migration 125 [Hash-Neutralisierung der 6 Demo-Konten, gegated+idempotent]; P0.7 Tier-2 [Bestands-DB-116-Backstop] via Forward-Repair-Migration 126 [nicht-transaktional, per-Tabelle-to_regclass-guarded, idempotent]; subscriptions-RLS-Exclusion bestaetigt. Verifiziert auf zwei Wegwerf-DBs [beide Flag-Pfade + Nicht-Superuser-Deny-by-Default-Laufzeitbeweis], realer Stack unberuehrt. AKTIVIERUNG: 126 schaltet Deny-by-Default+FORCE RLS beim naechsten migrate-Lauf gegen Bestands-/Managed-DB scharf. Alle Diffs uncommitted = Owner-Commit-Gate. Vorherige offene Owner-Tasks bleiben: P0.4, P1.4-Live-Run, E-01, R2/R9 extern).
+Dieses File wird automatisch gepflegt, solange die Regel in `AGENTS.md` ("Pilot-TODO-Pflege") aktiv ist. Erledigte Punkte wandern nach `## Done
+
+### 2026-08-19 — H2: zehn Cross-Org-Lücken geschlossen + Wächter (Welle 3b)
+
+**Status:** erledigt · **Fakt:** Zehn Routen ohne Mandantengrenze, sechs davon
+schreibend. Die fünf aus der Recherche (Konditionsrahmen aktivieren/archivieren,
+operative Rechnungen issue/paid/void/correction, Freigaben approve/reject +
+Historie, Requisitions submit/PATCH, Audit-`recent-changes` mit der falschen
+Kennung) und fünf, die der neue Wächter selbst fand: Requisitions-`events` und
+-`candidates` (Lesen mit E-Mails), **`PATCH /organizations/:id`** (Schreiben auf
+den Organisationsdatensatz einer fremden Firma, inkl. `parent_org_id`),
+`POST /organizations/:id/departments` (Abteilung in fremder Org anlegen) und
+`POST /requisitions/:id/comment`.
+**Aktion:** Grenze in Route **und** Service-SQL; `getRecentChanges` in eine
+org-gebundene und eine ausdrücklich benannte plattformweite Fassung getrennt.
+**Verify:** `api/test/security/orgGrenzeLuecken.test.js` (24 Fälle, vor der
+Reparatur rot), `api/test/orgGrenzenWaechter.test.js` (62 Fälle inkl.
+Selbstprobe), volle Suite **8804/0**. Vier Mutationen gegen den echten Bestand
+gefahren: Handler-Mutationen macht der Wächter rot, SQL-Mutationen die
+Service-Tests.
+
+### 2026-08-19 — E-13: derselbe Fehler ein zweites Mal, in einer anderen Datei
+
+**Status:** erledigt · **Fakt:** `getStaffingChoiceSet`
+(`assignmentStaffingService.js:3903`) rief `refreshStaffingChoiceSetLifecycle`,
+das `UPDATE assignment_staffing_choice_sets SET status = ...` schreibt, VOR der
+Zugehoerigkeitspruefung. Ein Zugriff mit fremder Auswahl-Kennung hat deren
+Status fortgeschrieben und danach 404 geliefert.
+**Aktion:** Zugehoerigkeit zuerst, im SQL; dann fortschreiben. Zusaetzlich hat
+der Waechter dafuer eine eigene Zusicherung bekommen (`schreibenNachGrenze`),
+die die REIHENFOLGE prueft statt nur das Ergebnis — sie findet die naechste
+Fundstelle dieser Klasse von selbst.
+**Verify:** `orgGrenzeLuecken.test.js` Abschnitt E-13.
+
+### 2026-08-19 — E-12: ein Lesezugriff schrieb ueber die Mandantengrenze
+
+**Status:** erledigt · **Fakt:** `getAssignmentStaffingOverview`
+(`assignmentStaffingService.js`) rief `recalcAssignmentStaffing` — ein
+`UPDATE assignments ... WHERE id = $1` ohne Org-Bindung — VOR der
+Zugehoerigkeitspruefung. `GET /staffing-assignments/:id` auf eine fremde Kennung
+hat damit die fremde Zeile geschrieben und danach 404 geliefert.
+**Aktion:** Zugehoerigkeit zuerst, im SQL (`AND supplier_org_id = $2`), dann
+rechnen. **Verify:** `orgGrenzeLuecken.test.js` Abschnitt E-12 (26/26), inkl.
+Gegenprobe, dass die Neuberechnung fuer die eigene Org weiterhin laeuft.
+
+### 2026-08-19 — H2 zweite Welle: die vier größten Flächen eingeordnet
+
+**Status:** erledigt · **Fakt:** `capacityExchange` (18), `marketplace` (30),
+`workerPortal` (18) und `staffControlCenter` (47) stehen unter dem Wächter.
+**Kein neuer Cross-Org-Schreibzugriff gefunden** — dafür drei
+Architekturbefunde: die ersten beiden Dateien sind **nutzer-** statt
+org-gebunden (D-M5), das Arbeiterportal und das Staff Control Center haben je
+*eine* Eintrittsbedingung statt einer Grenze je Route (neue Wächter-Schicht B2),
+und `canAccessAsOwner` funktioniert nicht (P1-17).
+**Verify:** `api/test/orgGrenzenWaechter.test.js` 185/185, volle Suite 8927/0.
+Abdeckung 15 von 82 Route-Dateien, 137 verhaltensgeprüft, 56 belegte Ausnahmen.
+
+### 2026-08-19 — Betriebswissen: gemessen gegen die laufende Datenbank
+
+`rate_cards` und `approval_requests` haben **keine RLS-Policy** (`rls=false`,
+0 Policies) — für diese Tabellen gibt es in keinem Deployment einen
+DB-Backstop. `audit_log` trägt 1782 von 2711 Zeilen ohne `org_id`.`. Neue Blocker, die in Sessions auftauchen, werden als P0/P1/P2 angelegt.
+Letzte Aktualisierung: 2026-08-19 — **Welle H2 (Mandantengrenzen) abgeschlossen: zehn Cross-Org-Lücken geschlossen, Wächter gebaut.** Neuer P1-Eintrag: Migration 117 existiert nicht, obwohl 28 Tabellen in `TENANT_ISOLATION_MODEL.md` auf sie verweisen. Vorher: 2026-08-07 — **P8 Deal-Verbindlichkeit (Wellen A-E) abgeschlossen und committet** (`4220693`..`67b0282`). Vier geerbte Defekte dabei gefunden und geschlossen, darunter eine Kennzahl, die das Feed-Ranking steuerte und in Produktion durchgehend NULL war, und ein Bounty, das notorische Kurzfrist-Stornierer mit 3 % Rabatt belohnte. **Neue Betriebs-Pflicht vor Go-Live: Cron `recompute-deal-reliability` einrichten + Migrationen 164/165 einspielen** (siehe Done-Eintrag). Vorher: 2026-07-26 — **P1.0 Schritt (d) erledigt**: `.env.prod.example` kannte `STAFF_SESSION_SECRET` nicht, obwohl die Variable in Produktion ein `fatal()` ausloest — ein Deploy nach dieser Vorlage waere nicht gestartet. Ergaenzt + Waechter `api/test/prodEnvTemplate.test.js`, der Pflichtvariablen aus dem Code gegen die Vorlage prueft. Ebenfalls am 2026-07-26: `docs/AUDIT_BACKLOG.md` vollstaendig abgearbeitet (u. a. ein ausnutzbares Cross-Org-Leck geschlossen). Vorher: 2026-06-13 — **Welle F1 (Code-Schlussarbeiten) abgeschlossen + committet** (`9f37250`/`1044343`/`878b022`/`845b6c9`): Prod-Härtung, Security-Quick-Wins, Hygiene-Sweep, Test-Harness-Folge inkl. eines gefundenen+gefixten requireMfa-SCC-Betriebsblockers; volle Suite 4508/0, Lint 0/0, Builds grün — siehe Abschlussbericht im Worklog. Marktstart-Ziel auf **01.09.2026** aktualisiert (UG-Gründung = kritischer Pfad). Vorher: 2026-06-11 — **Der konsolidierte Vorwaerts-Plan bis zur finalen Abnahme (Wellen F0-F6) liegt in `docs/finalization/FINALISIERUNGSPLAN_ABNAHME.md`** und mappt ALLE offenen Punkte dieses Files (P0.4, P1.0, P1.4, E-01, P2.x) + Gap-Register O-01-O-11 + Audit-Funde 2026-06-11 auf Wellen/Phasen mit Abnahmekriterien. Vorher: 2026-06-05 (Go-Live-Haertung abgeschlossen, „drei wie empfohlen" Owner-approved: P0.6 [052-Demo-Seed-Backdoor] via Env-Flag-Gate `SEED_DEMO_WORLD` [migrate.sh PGOPTIONS-GUC + 052 DO-Guard + Compose-Split base/prod=false, override=true] + Remediation-Migration 125 [Hash-Neutralisierung der 6 Demo-Konten, gegated+idempotent]; P0.7 Tier-2 [Bestands-DB-116-Backstop] via Forward-Repair-Migration 126 [nicht-transaktional, per-Tabelle-to_regclass-guarded, idempotent]; subscriptions-RLS-Exclusion bestaetigt. Verifiziert auf zwei Wegwerf-DBs [beide Flag-Pfade + Nicht-Superuser-Deny-by-Default-Laufzeitbeweis], realer Stack unberuehrt. AKTIVIERUNG: 126 schaltet Deny-by-Default+FORCE RLS beim naechsten migrate-Lauf gegen Bestands-/Managed-DB scharf. Alle Diffs uncommitted = Owner-Commit-Gate. Vorherige offene Owner-Tasks bleiben: P0.4, P1.4-Live-Run, E-01, R2/R9 extern).
 ## Owner-Aufgaben im Klartext (Stand 2026-07-26)
 
 > **Warum dieser Abschnitt existiert:** die Punkte unten stehen weiter unten schon als P0.4 /
@@ -234,6 +295,69 @@ unvollständig ist, ein Passwort fehlt oder der Vorgang vier Stunden dauert.
 - Verify (2026-06-04, prod-aehnliche Wegwerf-DB, init.sql only): Chain 127 Migrationen, 0 Fehler; 116-Policies vorhanden; IS-NULL-Wildcards weg; FORCE RLS aktiv; Phantom-Objekte (deals/vendor_pool_entries/webhook_deliveries/org_integrations/capacity_posts.description) korrekt absent. `sh -n sql/test-fresh-install.sh` OK.
 - Tier-2 erledigt (2026-06-05) via `126_rls_forward_repair.sql`: NICHT-transaktional, EIN per-`to_regclass` abgesicherter `DO`-Block pro Tabelle (requisitions/timesheets/invoices/org_memberships/compliance_documents/subscription_requests/commercial_offers/audit_log; vendor_pool_entries als out-of-scope-Guard) — CREATE OR REPLACE der Helfer `current_org_id()`/`is_staff_context()`, dann je Tabelle ENABLE RLS + DROP der IS-NULL-Wildcards + DROP/CREATE same_org & staff_bypass (USING-Klauseln 1:1 aus 031/116), FORCE RLS nur auf req/ts/inv. Idempotent (DROP IF EXISTS + identisches CREATE), resilient (ein fehlendes Objekt ueberspringt nur SEINEN Block, reisst nie den Backstop mit), auf Bestands-DBs erstmals wirksam, auf frischen DBs folgenloser No-Op. `subscriptions`-RLS-Exclusion bestaetigt (user-skaliert via user_id, kein org_id; eine Membership-Bruecke wuerde persoenliche Billing-Daten cross-org leaken — Schutz bleibt App-Layer). **AKTIVIERUNGS-HINWEIS:** 126 schaltet Deny-by-Default + FORCE RLS beim NAECHSTEN migrate-Lauf gegen Bestands-/Managed-DBs scharf. Lokal ist `tempconnect` Superuser → RLS-inert (kein Breakage); auf Managed-DB (Nicht-Superuser-App-User) wird der Backstop real wirksam = gewollter Mandanten-Schutz.
 ## P1 - Vor Pilotkunde (Summe 2-3 Personentage)
+
+### P1-18 — Matching-Engine laeuft ohne Org-Bindung (4 Routen)
+
+**Status:** offen · **Fakt:** `matching.js` ruft die Engine auf vier Routen nur
+mit der Pfad-Kennung (`:25`, `:65`, `:90`, `:178`); `findMatches` laedt
+`SELECT * FROM demand_requests WHERE id = $1` ohne Bindung
+(`matchingEngine.js:353`). Die Geschwister-Route `/matching/instant/:requisitionId`
+(`:144-151`) reicht dagegen `req.orgId` durch und mappt 403. Wer angemeldet ist
+und `requisition.view` hat, kann die Engine gegen eine fremde Bedarfsmeldung
+laufen lassen; `logMatch` schreibt den fremden Vorgang zudem mit der eigenen
+org_id ins ML-Protokoll.
+**Aktion:** Owner entscheidet, denn es ist eine Produktfrage: Bedarfsmeldungen
+werden im Marktplatz bewusst an Lieferanten ausgespielt. Soll dieser Weg offen
+sein? Bei "nein": die Org in der Route pruefen wie bei /matching/instant. Bei
+"ja": im Register als bewusste Ausnahme festschreiben, damit es niemand fuer ein
+Versehen haelt. Haengt mit D-M5 und P1-17 zusammen (demand_requests gehoert
+einem NUTZER, nicht einer Org).
+**Aufwand:** Entscheidung 15 Minuten, Umsetzung 2 Stunden ·
+**Verify:** `orgGrenzenWaechter` mit matching.js im abgedeckten Satz.
+
+### P1-17 — `canAccessAsOwner` hat nie funktioniert (10 Aufrufstellen)
+
+**Status:** offen · **Fakt:** `utils/ownerCheck.js:28-33` soll „direkter Besitzer
+ODER Mitglied derselben Organisation" prüfen. Zwei Fehler: (1) die Abfrage nennt
+`org_memberships.status` — diese Spalte existiert nicht, sie heißt `is_active`;
+gegen die laufende Datenbank ausgeführt: `column "status" does not exist`.
+(2) Als `org_id` wird eine **Nutzer**-Kennung übergeben
+(`demand_requests.requester_company_id` → `users`), verglichen mit einer
+**Org**-Kennung (`org_memberships.org_id` → `organizations`) — selbst mit
+richtiger Spalte könnte das nie treffen. Der `catch` darunter macht daraus
+stillschweigend `false`. Wirkung an **10 Aufrufstellen** (`emergency.js`,
+`marketplace.js`, `offerAssets.js`, `slaSearchJobs.js`): die Funktion ist auf
+„nur der direkte Besitzer" degradiert, bei jedem Aufruf mit einer wirkungslosen
+Datenbankrunde. `offerAssets.js:127` trägt sogar den Kommentar
+„canAccessAsOwner beruecksichtigt auch Organisations-Member".
+**Kein Leck** — zu streng, nicht zu lasch.
+**Aktion:** Owner entscheidet, denn die Reparatur **weitet Zugriff aus**: soll
+ein Kollege derselben Organisation die Einträge seines Teams sehen und
+bearbeiten? Dieselbe Frage stellt sich bei D-M4 (Requisitions, `created_by`) und
+D-M5 (capacityExchange/marketplace, nutzergebunden) — **eine Entscheidung für
+drei Stellen**. Bei „ja": Besitzer-Nutzer → Org auflösen, dann Mitgliedschaft
+prüfen, Spalte `is_active`. Bei „nein": den toten Zweig entfernen, damit der
+Kommentar nicht weiter etwas verspricht, das nicht gilt.
+**Aufwand:** Entscheidung 15 Minuten, Umsetzung 0,5 Tage ·
+**Verify:** ein Test, der die Org-Kollegin auf einen fremd angelegten Bedarf
+loslaesst — heute rot in der Absicht, nach der Entscheidung eindeutig.
+
+### P1-16 — Migration 117 existiert nicht (RLS für 28 Tabellen)
+
+**Status:** offen · **Fakt:** `docs/security/TENANT_ISOLATION_MODEL.md` führt 28
+Tabellen unter „RLS noch nicht aktiv" und nennt als nächsten Schritt jeweils
+„Migration 117". Diese Datei wurde nie geschrieben — `sql/migrations/` springt
+von `116_rls_deny_by_default.sql` auf `118_staff_identity_hardening.sql`. Am
+2026-08-19 gegen die laufende Datenbank bestätigt: `rate_cards` und
+`approval_requests` stehen auf `relrowsecurity = false` mit 0 Policies.
+**Aktion:** Owner entscheidet: Migration 117 nachziehen **oder** die Doku auf
+den tatsächlichen Stand bringen und die Anwendungsschicht ausdrücklich als
+alleinige Grenze führen. Solange sie das ist, trägt sie
+`api/test/orgGrenzenWaechter.test.js`.
+**Aufwand:** Entscheidung 15 Minuten, Migration 0,5–1 Tag ·
+**Verify:** `SELECT relname, relrowsecurity FROM pg_class WHERE relname IN (...)`
+gegen die Ziel-DB; `docs/security/TENANT_ISOLATION_MODEL.md` stimmt mit dem
+Messwert überein.
 ### P1.0 - Staff Control Center produktiv schalten
 - Status: **Schritt (d) ERLEDIGT (2026-07-26) — dabei einen Startblocker gefunden.** Rest bleibt Ops/Owner.
 - Fakt: SCC-Stack ist live im Code (Migrationen 095+096, Router `/staff/api`, Frontend `/public/staff/`, Tests gruen). Ops-Schritte fehlen: Nginx-VHost `staff.tempconnect.de`, ENV `STAFF_USER_IDS` (2 UUIDs: Betreiber-Team), `STAFF_SESSION_SECRET`, optional `HETZNER_CLOUD_TOKEN`.

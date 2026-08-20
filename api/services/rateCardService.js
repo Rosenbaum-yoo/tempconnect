@@ -8,7 +8,7 @@
  *   - Batch-Expiry für abgelaufene Cards
  */
 
-import { assertLocationBelongsToOrg, assertDepartmentBelongsToOrg } from "../utils/orgBoundary.js";
+import { assertLocationBelongsToOrg, assertDepartmentBelongsToOrg, OrgBoundaryError } from "../utils/orgBoundary.js";
 import { todayDE } from "../utils/dateDE.js";
 
 function appendRateCardWindowFilters(where, params, filters = {}, alias = "rc") {
@@ -234,28 +234,41 @@ export async function listRateCards(pool, orgId, filters = {}) {
 
 /**
  * Activate a draft Rate Card.
+ *
+ * Befund E-1 (2026-08-19): Bis hierher stand die Grenze nur in den Geschwistern
+ * GET/PATCH derselben Route-Datei, nicht auf diesem Weg. `rate_cards` hat keine
+ * RLS-Policy — es gab in KEINEM Deployment einen Backstop in der Datenbank.
+ * Die Org-Bindung steht deshalb jetzt zweimal: in der Route (fuer den richtigen
+ * Statuscode) und hier im SQL (damit ein vergessener Routen-Check nicht reicht).
+ *
+ * @param {string} orgId — Pflicht. Ohne Org-Kontext wird nichts geschrieben.
  */
-export async function activateRateCard(pool, id, actorId) {
+export async function activateRateCard(pool, id, actorId, orgId) {
+  if (!orgId) throw new OrgBoundaryError("Keine Organisation zugewiesen.");
   const { rows: [row] } = await pool.query(
     `UPDATE rate_cards
      SET status = 'active', updated_by = $2, updated_at = NOW()
-     WHERE id = $1 AND status = 'draft'
+     WHERE id = $1 AND org_id = $3 AND status = 'draft'
      RETURNING *`,
-    [id, actorId]
+    [id, actorId, orgId]
   );
   return row || null;
 }
 
 /**
  * Archive an active Rate Card.
+ * Org-Bindung wie bei activateRateCard — siehe Befund E-1 dort.
+ *
+ * @param {string} orgId — Pflicht.
  */
-export async function archiveRateCard(pool, id, actorId) {
+export async function archiveRateCard(pool, id, actorId, orgId) {
+  if (!orgId) throw new OrgBoundaryError("Keine Organisation zugewiesen.");
   const { rows: [row] } = await pool.query(
     `UPDATE rate_cards
      SET status = 'archived', updated_by = $2, updated_at = NOW()
-     WHERE id = $1 AND status IN ('draft', 'active')
+     WHERE id = $1 AND org_id = $3 AND status IN ('draft', 'active')
      RETURNING *`,
-    [id, actorId]
+    [id, actorId, orgId]
   );
   return row || null;
 }
