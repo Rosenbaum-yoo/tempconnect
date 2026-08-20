@@ -47,6 +47,7 @@ import { createWorkersRouter }      from "../../routes/workers.js";
 import { createSlaSearchJobsRouter } from "../../routes/slaSearchJobs.js";
 import { createDataGovernanceRouter } from "../../routes/dataGovernance.js";
 import * as dgSvc from "../../services/dataGovernanceService.js";
+import * as supplierPoolSvc from "../../services/supplierPoolService.js";
 
 /** Keine Zeile darf geschrieben worden sein. */
 function keinSchreibvorgang(pool, was) {
@@ -637,5 +638,203 @@ describe("E-17 · POST /data-governance/anonymize/user/:userId — fremder Nutze
 
     assert.equal(res._status, 403,
       "sonst verraet die Pruefung, dass es den Nutzer gibt und was ihn blockiert");
+  });
+});
+
+/* ═════════════════════════════════════════════════════════════════════════
+   E-18 · Eine FREMDE Betroffenenanfrage konnte geschlossen werden
+   ═════════════════════════════════════════════════════════════════════════
+
+   `PATCH /data-governance/requests/:id/complete` markiert eine DSGVO-Anfrage
+   als erledigt. `completeDataRequest` band bis hierher nur an die Kennung und
+   den Status: `WHERE id = $1 AND status IN (...)`. Das Tor davor
+   (`rperm("data_governance.requests")`) prueft ausschliesslich, ob der Aufrufer
+   das Recht in SEINER Organisation hat.
+
+   Damit konnte ein Org-Admin die Auskunfts- oder Loeschanfrage einer FREMDEN
+   Organisation als erledigt schliessen — ohne sie zu erfuellen. Der Schaden
+   liegt nicht im Datenabfluss, sondern in der Frist: die fremde Organisation
+   glaubt, ihre Art.-15/17-Pflicht sei erledigt, waehrend die Uhr weiterlaeuft. */
+
+describe("E-18 · PATCH /data-governance/requests/:id/complete — fremde Org", () => {
+  function dgDeps(pool) {
+    return { ...baseDeps(pool), requireFeature: () => (_q, _s, next) => next() };
+  }
+
+  it("schliesst die fremde Anfrage nicht und schreibt nichts Ungebundenes", async () => {
+    const pool = spionPool({ zeile: null });
+    const router = createDataGovernanceRouter(dgDeps(pool));
+    const handler = findHandlerExact(router, "patch", "/data-governance/requests/:id/complete");
+
+    const res = mockRes();
+    await handler(
+      mockReq({ orgId: ORG_A, params: { id: "anfrage-fremd" },
+                body: { result_summary: { erledigt: true } } }),
+      res, noop
+    );
+
+    assert.notEqual(res._status, 200, "eine fremde Anfrage darf nicht als erledigt gelten");
+    for (const c of pool.schreibvorgaenge) {
+      assert.ok(
+        c.params.some((p) => String(p) === String(ORG_A)),
+        "ein Schreibvorgang ohne die eigene Org-Kennung kann die Grenze nicht fuehren: " +
+        c.sql.slice(0, 120)
+      );
+    }
+  });
+
+  it("Gegenprobe: der Dienst traegt die Org in die schreibende Anweisung", async () => {
+    /* Ohne diese Gegenprobe wuerde ein Dienst, der GAR NICHTS mehr tut,
+       ebenfalls gruen erscheinen. */
+    const pool = spionPool({ zeile: { id: "anfrage-eigen", status: "completed" } });
+    const ergebnis = await dgSvc.completeDataRequest(
+      pool, "anfrage-eigen", "admin-1", { erledigt: true }, ORG_A
+    );
+
+    assert.ok(ergebnis, "die eigene Anfrage muss schliessbar bleiben");
+    const anweisung = pool.schreibvorgaenge.find((c) => /data_governance_requests/i.test(c.sql));
+    assert.ok(anweisung, "es muss ueberhaupt geschrieben werden");
+    assert.ok(
+      anweisung.params.some((p) => String(p) === String(ORG_A)),
+      "die Org gehoert in die Parameter der schreibenden Anweisung"
+    );
+    assert.match(
+      anweisung.sql, /org_id\s*=\s*\$\d/i,
+      "die Bindung gehoert ins WHERE, nicht in einen Vergleich davor"
+    );
+  });
+
+  it("ohne Organisation im Kontext wird gar nicht geschrieben", async () => {
+    const pool = spionPool({ zeile: { id: "x" } });
+    const ergebnis = await dgSvc.completeDataRequest(pool, "irgendeine", "admin-1", null, null);
+
+    assert.equal(ergebnis, null, "ohne Org gibt es keine Grenze — also keine Wirkung");
+    assert.deepStrictEqual(
+      pool.schreibvorgaenge.map((c) => c.sql.slice(0, 60)), [],
+      "ein Schreibvorgang ohne Org waere genau die Luecke"
+    );
+  });
+});
+
+/* ═════════════════════════════════════════════════════════════════════════
+   E-19 · Der Verteilplan einer FREMDEN Ausschreibung war lesbar
+   ═════════════════════════════════════════════════════════════════════════
+
+   `getDistributionPlan(pool, requisitionId)` lud die Verteilstufen allein ueber
+   die Ausschreibungs-Kennung. `GET /supplier-pools/distribution/:requisitionId`
+   trug dazu nur `requireAuth`. Damit konnte JEDER Angemeldete lesen, an welche
+   Lieferanten eine fremde Ausschreibung geht, in welcher Reihenfolge und wo sie
+   gerade steht — die Wettbewerbsinformation schlechthin in einem Marktplatz.
+
+   Schwerer noch: `advanceDistribution` haengt am selben Plan. Ein Fremder
+   konnte die Ausschreibung eines Wettbewerbers auf die naechste Lieferantenstufe
+   weiterschalten und damit dessen Vergabe steuern. */
+
+describe("E-19 · GET /supplier-pools/distribution/:requisitionId — fremde Org", () => {
+  it("liefert keine Stufen und nennt die Org in der Abfrage", async () => {
+    const pool = spionPool({ zeile: null });
+    const plan = await supplierPoolSvc.getDistributionPlan(pool, "req-fremd", ORG_A);
+
+    assert.deepStrictEqual(plan.stages, [], "eine fremde Ausschreibung hat fuer uns keine Stufen");
+    const abfrage = pool.calls.find((c) => /requisition_distribution_stages/i.test(c.sql));
+    assert.ok(abfrage, "es muss ueberhaupt gefragt werden");
+    assert.ok(
+      abfrage.params.some((p) => String(p) === String(ORG_A)),
+      "ohne die Org in den Parametern kann die Grenze nicht greifen"
+    );
+    assert.match(
+      abfrage.sql, /requisitions\s+r[\s\S]*r\.org_id\s*=\s*\$\d/i,
+      "die Bindung laeuft ueber die Ausschreibung — dort steht die Org"
+    );
+  });
+
+  it("ohne Organisation wird gar nicht erst gefragt", async () => {
+    const pool = spionPool({ zeile: { id: "s1", stage_number: 1, status: "active" } });
+    const plan = await supplierPoolSvc.getDistributionPlan(pool, "req-fremd", null);
+
+    assert.deepStrictEqual(plan.stages, []);
+    assert.equal(plan.active_stage, null);
+    assert.deepStrictEqual(
+      pool.calls.map((c) => c.sql.slice(0, 40)), [],
+      "eine Abfrage ohne Org waere die Luecke selbst"
+    );
+  });
+
+  it("das Weiterschalten einer fremden Verteilung schreibt nichts", async () => {
+    const pool = spionPool({ zeile: null });
+    const naechste = await supplierPoolSvc.advanceDistribution(pool, "req-fremd", "actor-1", ORG_A);
+
+    assert.equal(naechste, null, "ohne Treffer gibt es keine aktive Stufe");
+    assert.deepStrictEqual(
+      pool.schreibvorgaenge.map((c) => c.sql.slice(0, 60)), [],
+      "die Vergabe eines Wettbewerbers darf sich nicht weiterschalten lassen"
+    );
+  });
+});
+
+/* ═════════════════════════════════════════════════════════════════════════
+   E-20 · Der DSGVO-VOLLEXPORT eines fremden Nutzers stand offen
+   ═════════════════════════════════════════════════════════════════════════
+
+   `GET /data-governance/export/user/:userId` rief `exportUserDataFull` allein
+   mit der Kennung aus dem Pfad. Das Recht `data_governance.export` halten
+   `owner` und `admin` JEDER Kundenorganisation — fuer die eigene Belegschaft.
+
+   Damit konnte ein beliebiger Org-Admin den vollstaendigen Datensatz eines
+   beliebigen fremden Nutzers ziehen: Mailadresse, Telefon, Anschrift,
+   Steuernummer, dazu alle Anzeigen, Anfragen, Bewertungen, Angebote, Einsaetze
+   und Stundenzettel. Von den drei Befunden dieser Runde ist das der mit dem
+   groessten Datenabfluss — ein Werkzeug fuer die Art.-15-Auskunft, auf Dritte
+   gerichtet.
+
+   Die Geschwister-Route `/export/org` machte es von Anfang an richtig: sie
+   nimmt `req.orgId` und keine Kennung aus dem Pfad. */
+
+describe("E-20 · GET /data-governance/export/user/:userId — fremder Nutzer", () => {
+  function dgDeps(pool) {
+    return { ...baseDeps(pool), requireFeature: () => (_q, _s, next) => next() };
+  }
+
+  it("verweigert den Export und liest keine Personendaten", async () => {
+    /* Die Mitgliedschaftsabfrage antwortet wie eine echte Datenbank: der fremde
+       Nutzer ist kein Mitglied. Sonst prueft der Test den Mock. */
+    const pool = spionPool({
+      zeile: { id: "u-fremd", email: "opfer@fremde-firma.de", phone: "0170 1234567" },
+      antwort: (sql) => (/FROM org_memberships/i.test(sql) ? { rows: [] } : undefined)
+    });
+    const router = createDataGovernanceRouter(dgDeps(pool));
+    const handler = findHandlerExact(router, "get", "/data-governance/export/user/:userId");
+
+    const res = mockRes();
+    await handler(mockReq({ orgId: ORG_A, params: { userId: "u-fremd" } }), res, noop);
+
+    assert.equal(res._status, 403, "der Vollexport eines Fremden ist ein Grenzbruch");
+    assert.ok(
+      !JSON.stringify(res._json ?? null).includes("opfer@fremde-firma.de"),
+      "keine Personendaten in der Absage"
+    );
+    const gelesen = pool.calls.filter((c) => /FROM users\b/i.test(c.sql));
+    assert.deepStrictEqual(
+      gelesen.map((c) => c.sql.slice(0, 60)), [],
+      "die Absage muss VOR dem Laden der Personendaten fallen — sonst liegen sie schon vor"
+    );
+  });
+
+  it("Gegenprobe: der eigene Nutzer wird weiterhin exportiert", async () => {
+    /* Ohne sie waere eine Route, die IMMER 403 antwortet, ebenfalls gruen —
+       und das Auskunftsrecht der eigenen Belegschaft waere kaputt. */
+    const pool = spionPool({
+      zeile: { id: "u-eigen", email: "kollege@eigene-firma.de" },
+      antwort: (sql) => (/FROM org_memberships/i.test(sql)
+        ? { rows: [{ id: "m1", user_id: "u-eigen", org_id: ORG_A }] }
+        : undefined)
+    });
+    const router = createDataGovernanceRouter(dgDeps(pool));
+    const handler = findHandlerExact(router, "get", "/data-governance/export/user/:userId");
+
+    const res = mockRes();
+    await handler(mockReq({ orgId: ORG_A, params: { userId: "u-eigen" } }), res, noop);
+
+    assert.notEqual(res._status, 403, "die eigene Belegschaft muss exportierbar bleiben");
   });
 });

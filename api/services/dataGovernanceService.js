@@ -430,13 +430,24 @@ export async function listDataRequests(pool, orgId, filters = {}) {
   return { items: rows, total: countRow?.total || 0 };
 }
 
-export async function completeDataRequest(pool, requestId, actorId, resultSummary = null) {
+/**
+ * @param {string} orgId — Organisation des Aufrufers. PFLICHT.
+ *
+ * Befund E-18 (2026-08-20): Die Klausel lautete nur
+ * `WHERE id = $1 AND status IN (...)` — ohne Org. Das Tor der Route ist
+ * `rperm('data_governance.requests')`, und das prueft gegen die EIGENE
+ * Organisation. Ein Org-Administrator konnte damit die
+ * Betroffenenanfrage einer FREMDEN Organisation als erledigt schliessen,
+ * ohne sie zu erfuellen — ein Vorgang mit Aufsichtsrelevanz.
+ */
+export async function completeDataRequest(pool, requestId, actorId, resultSummary = null, orgId = null) {
+  if (!orgId) return null;
   const { rows: [row] } = await pool.query(
     `UPDATE data_governance_requests
      SET status = 'completed', completed_by = $2, completed_at = NOW(), result_summary = $3
-     WHERE id = $1 AND status IN ('pending', 'in_progress')
+     WHERE id = $1 AND org_id = $4 AND status IN ('pending', 'in_progress')
      RETURNING *`,
-    [requestId, actorId, resultSummary ? JSON.stringify(resultSummary) : null]
+    [requestId, actorId, resultSummary ? JSON.stringify(resultSummary) : null, orgId]
   );
   return row || null;
 }

@@ -207,18 +207,26 @@ nur `query.org_id`/`params.org_id` liest — der Platzhalter heißt hier `:id`.
   `next()` ruft, fällt hier durch.
 - **(C) Bestandsbuch** — jede der 82 Route-Dateien ist abgedeckt **oder** mit
   Grund ausgesetzt. Damit ist die ehrlichste Zahl sichtbar und wächst nicht mehr
-  stillschweigend: **15 Dateien · 137 Routen verhaltensgeprüft · 56 belegte
-  Ausnahmen · 67 Dateien offen.** Eine Sperrklinke verhindert, dass die Zahl fällt.
+  stillschweigend: **81 Dateien · 253 Routen verhaltensgeprüft · 122 belegte
+  Ausnahmen · 15 Dateien ausgesetzt** (die 14 des OCC mit eigener Sicherheitswelt,
+  dazu `matching.js` wegen der offenen Owner-Frage E-14). Eine Sperrklinke
+  verhindert, dass die Zahl fällt.
 
   | Datei | geprüft | Ausnahmen | Grenzmodell |
   |---|---|---|---|
   | `rateCards` `invoices` `approvals` `requisitions` `organizations` | 43 | — | Org |
   | `contracts` `assignments` `vendorPool` `complianceDocs` `documentCenter` `timesheets` | 37 | — | Org |
+  | `workers` `orgControlCenter` `suppliers` | 53 | — | Org, Grenze im Dienst-SQL |
   | `capacityExchange` | 17 | 1 | **Nutzer** |
   | `marketplace` | 22 | 8 | **Nutzer**, teils offen per Bauart |
   | `workerPortal` | 18 | — | **Nutzer** + Torwächter `requireWorkerRole` |
+  | `listings` `mentoring` `slaSearchJobs` `companyProfile` `emergency` `offerAssets` `notifications` | 26 | 6 | **Nutzer** (`owner_id`, `mentor_id`/`mentee_id`, `owner_company_id`, `user_id`) |
+  | `dataGovernance` `supplierPools` `strategicCollaboration` `subscriptionDocuments` `capacities` `integrations` `preferredVendors` | 21 | 4 | Org — vier davon erst durch E-17 bis E-20 gebunden |
   | `staffControlCenter` | — | 47 | **Staff**, org-übergreifend per Bauart; Torwächter `staffControlAccess` |
-  | `agencyPortal` `admin` `timesheetTemplates` `scim` | — | 30 | **Torwächter** je Fläche |
+  | `support` | — | 14 | **Torwächter am Präfix** `supportAuth`; Zuschnitt aus dem Agenten-Datensatz (Warteschlange, Fallart, `data_scope`) |
+  | `internalControlCenter` `productReleases` | — | 19 | **Plattform-Flächen**, org-übergreifend per Bauart |
+  | `agencyPortal` `admin` `timesheetTemplates` `scim` `sso` | — | 33 | **Torwächter** je Fläche |
+  | `ratings` `reputation` `search` `analytics` `profileVisibility` `dealFeedback` `auth` | — | 41 | **bewusst offen**: Marktplatz-Aggregation bzw. Token-Weg vor der Anmeldung |
   | `companyTimesheets` | 4 | — | Org, Grenze im Middleware `requireCompanySubmission` |
   | 28 Dateien ohne `:id`-Route | — | — | mit `routen: []` eingetragen — der Wächter **rechnet das nach** |
 
@@ -295,6 +303,98 @@ Statuscode-Test hätte den 404 gesehen und nichts gemerkt.
 Gegenprobe, die sicherstellt, dass die Neuberechnung für die **eigene** Org
 weiterhin stattfindet, die Reparatur die Funktion also begrenzt und nicht
 stilllegt.
+
+### E-20 · Der DSGVO-Vollexport eines fremden Nutzers stand offen *(geschlossen)*
+
+**Der größte Datenabfluss dieser Arbeit.** `GET /data-governance/export/user/:userId`
+rief `exportUserDataFull(pool, req.params.userId)` — allein mit der Kennung aus
+dem Pfad. Das Recht `data_governance.export` halten `owner` und `admin` **jeder**
+Kundenorganisation, für die eigene Belegschaft.
+
+Damit konnte ein beliebiger Org-Admin den vollständigen Datensatz eines
+beliebigen fremden Nutzers ziehen: Mailadresse, Telefon, Anschrift, Steuernummer,
+dazu alle Anzeigen, Anfragen, Bewertungen, Angebote, Einsätze und Stundenzettel.
+Ein Werkzeug für die Art.-15-Auskunft, auf Dritte gerichtet.
+
+Die **Geschwister-Route** `/export/org` in derselben Datei machte es von Anfang
+an richtig: sie nimmt `req.orgId` und akzeptiert gar keine Kennung aus dem Pfad.
+Zwei Wege, eine Datei, zwei Bauarten — das ist das Muster, an dem man diese
+Klasse künftig zuerst sucht.
+
+**Geschlossen** mit derselben Bindung wie E-17 (`istInMeinerOrg`, über
+`is_active`): eigene Organisation ja, fremde 403 — und die Absage fällt **vor**
+dem Laden der Personendaten, was der Test eigens prüft. Der Selbstexport läuft
+über `GET /me/data-export` und bleibt unberührt.
+
+### E-19 · Der Verteilplan einer fremden Ausschreibung war lesbar *(geschlossen)*
+
+`getDistributionPlan(pool, requisitionId)` lud die Verteilstufen allein über die
+Ausschreibungs-Kennung; `GET /supplier-pools/distribution/:requisitionId` trug
+dazu nur `requireAuth`. Jeder Angemeldete konnte damit lesen, an **welche**
+Lieferanten die Ausschreibung eines Wettbewerbers geht, in welcher Reihenfolge
+und wo sie gerade steht — die Wettbewerbsinformation schlechthin in einem
+Marktplatz.
+
+Schwerer noch: `advanceDistribution` hängt am selben Plan. Ein Fremder konnte die
+Ausschreibung eines Wettbewerbers auf die nächste Lieferantenstufe
+**weiterschalten** und damit dessen Vergabe steuern.
+
+**Geschlossen** über die Ausschreibung, wo die Organisation steht:
+`JOIN requisitions r ON r.id = ds.requisition_id AND r.org_id = $2`. Ohne
+Organisation im Kontext wird gar nicht erst gefragt.
+
+### E-18 · Eine fremde DSGVO-Anfrage ließ sich schließen *(geschlossen)*
+
+`completeDataRequest` band nur an Kennung und Status
+(`WHERE id = $1 AND status IN (...)`). Das Tor davor prüft ausschließlich, ob der
+Aufrufer das Recht in **seiner** Organisation hat. Ein Org-Admin konnte damit die
+Auskunfts- oder Löschanfrage einer fremden Organisation als erledigt schließen,
+ohne sie zu erfüllen. Der Schaden liegt nicht im Abfluss, sondern in der
+**Frist**: die fremde Organisation glaubt, ihre Art.-15/17-Pflicht sei erledigt,
+während die Uhr weiterläuft. **Geschlossen** mit `AND org_id = $4` im WHERE.
+
+> **Drei Befunde in einer Datei.** E-17, E-18 und E-20 liegen alle in
+> `dataGovernance.js`. Die Datenschutz-Werkzeuge waren durchgehend unbewacht,
+> weil das Recht die eigene Organisation prüft, die Kennung im Pfad aber eine
+> beliebige sein durfte. Wo eine Datei *ein* solches Muster zeigt, lohnt es,
+> **jeden** Weg darin zu prüfen statt nur den gemeldeten.
+
+### Warum diese drei gegen die echte Datenbank geprüft wurden
+
+Ein Spion-Pool kann kein `WHERE` erzwingen. Die Zusicherung „das SQL enthält
+`org_id = $n`" fällt damit in dieselbe Klasse wie ein Quelltext-Test — und die
+Lehre aus Welle G6 lautet, dass `if (false && X)` die gesuchte Zeichenkette
+weiterhin enthält.
+
+Deshalb lief für E-18/E-19/E-20 dieselbe Anweisung gegen das echte
+Postgres-Schema, in einer Transaktion mit `ROLLBACK`: **acht Prüfungen grün**.
+Mit entfernter Bindung wurden **fünf davon rot** — Organisation A schloss die
+DSGVO-Anfrage von B (`status = 'completed'`), las deren Verteilplan und schaltete
+deren Vergabe weiter. Erst diese Gegenprobe macht aus einer Textzusicherung einen
+Nachweis.
+
+### Zwei Blindstellen des Wächters selbst
+
+**Anonyme Torwächter sind unsichtbar.** `supportAuth` war eine namenlose Closure
+aus `requireSupportAccess(deps)`. Für jede Strukturprüfung und jede Stapelspur
+unsichtbar — der Wächter konnte nicht belegen, dass die einzige
+Eintrittsbedingung der **gesamten** Support-Fläche überhaupt noch montiert ist.
+Der Name ist jetzt Teil der Absicherung, nicht Kosmetik.
+
+**Präfix-Tore sahen aus wie Lücken.** `support.js` montiert sein Tor einmal auf
+`/support` statt je Route. Das ist die **strengere** Bauart — auf einer neuen
+Route kann man es nicht vergessen —, aber ein Test, der nur `route.stack` liest,
+meldet die Fläche als ungeschützt. Genau die Falschmeldung, vor der die
+Arbeitsregel warnt („positiv formulieren"). Der Wächter kennt jetzt beide Formen
+(`findPrefixMiddleware`, Register-Feld `alsPraefix`) und prüft bei der Präfix-Form
+zusätzlich, dass der Montagepfad **jede** Route darunter wirklich deckt.
+
+### Merksatz für die Folgeprojekte
+
+> **Wo ein Recht die eigene Organisation prüft, die Kennung im Pfad aber eine
+> beliebige sein darf, steht die Tür offen.** Das ist die Klasse hinter E-17,
+> E-18 und E-20 — und sie sieht in jeder Datei gleich aus: eine Route nimmt
+> `req.orgId`, die Geschwister-Route daneben nimmt `req.params.<etwas>Id`.
 
 ### E-17 · Ein Org-Admin konnte einen FREMDEN Nutzer anonymisieren *(geschlossen)*
 
@@ -443,7 +543,7 @@ eine Owner-Entscheidung. Eintrag **P1-17**.
 |---|---|
 | **Demo-Compose** (`cde6c42`) | War **nie** startfähig (nicht „seit P0-08"): Die Datei entstand einen Monat nach dem Guard, den sie verletzt. Schwerer: Sie wird **ausgeliefert** und öffnete beim Kunden alle Plan-Gates — der CI-Wächter dagegen durchsucht nur `.env*`. Dazu der `release-package.sh`-Fehler, durch den `.claude/` ins Artefakt kam (die `EXCLUDE_LIST` galt nur im Fallback-Zweig). Wächter: `composeStartfaehig.test.js` |
 | **NOT_AUTH** (`61d2091`) | Nicht „alle Portalseiten", sondern **genau die G5-Seite**. Und kein Konsolen-Problem: Sie blieb für Abgemeldete **dauerhaft weiß**, ohne Weg zum Login — ausgerechnet der Notfallweg. Siebenmal kopiert, beim achten Mal vergessen. |
-| **H2 — Mandantengrenzen** | Die Entscheidung **D-M1 ist gefallen: Wächter, nicht konsolidieren.** Die fünf Lücken des Plans sind geschlossen — **und der Wächter fand beim ersten Lauf fünf weitere**, darunter ein Cross-Org-**Schreibzugriff auf den Organisationsdatensatz selbst** (`PATCH /organizations/:id`, u. a. `parent_org_id`). Zehn Lücken, nicht fünf. Details unten. |
+| **H2 — Mandantengrenzen** | Die Entscheidung **D-M1 ist gefallen: Wächter, nicht konsolidieren.** Die fünf Lücken des Plans sind geschlossen — **und der Wächter fand über alle 81 Route-Dateien hinweg elf weitere**. Sechzehn Lücken, nicht fünf. Die schwersten kamen zuletzt und lagen zu dritt in **einer** Datei: DSGVO-Vollexport eines Fremden (E-20), fremdes Konto anonymisieren (E-17), fremde Betroffenenanfrage schließen (E-18); dazu der Verteilplan fremder Ausschreibungen, lesbar **und weiterschaltbar** (E-19). Alle geschlossen und gegen das echte Schema bewiesen — offen bleiben nur E-11 und E-14 als Owner-Fragen. Details unten. |
 
 ### Zwei Blocker, die nur der Owner lösen kann
 

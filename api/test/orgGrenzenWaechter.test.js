@@ -68,7 +68,7 @@ import { fileURLToPath } from "node:url";
 import { Router } from "express";
 
 import {
-  baseDeps, listRoutes, listRoutesTief, findHandlerExact, findChainFrom, mockReq, mockRes,
+  baseDeps, listRoutes, listRoutesTief, findHandlerExact, findChainFrom, findPrefixMiddleware, mockReq, mockRes,
   ORG_A, ORG_B, USER_A, USER_B
 } from "./helpers/security-mocks.js";
 import { pruefeGrenze, istSchreibend, spionPool, pfadPlatzhalter } from "./helpers/orgGrenzenSpion.js";
@@ -305,13 +305,24 @@ describe("Org-Grenzen-Waechter (B2) — Torwaechter der Sonderflaechen", () => {
 
     it(`${eintrag.datei}: '${tor.middleware}' steht auf JEDER Platzhalter-Route`, async () => {
       const router = await montiere(eintrag.datei);
+      /* Zwei Bauarten sind zulaessig: das Tor steht auf JEDER Route, oder es
+         steht einmal auf dem PRAEFIX und deckt dadurch jede Route darunter.
+         Die zweite ist die strengere — auf einer neuen Route kann man sie nicht
+         vergessen —, deshalb darf der Waechter sie nicht als Luecke melden. */
+      const praefixTor = tor.alsPraefix ? findPrefixMiddleware(router, tor.middleware) : null;
+      if (tor.alsPraefix) {
+        assert.ok(
+          praefixTor,
+          `Das Register sagt, '${tor.middleware}' haenge am Praefix — dort steht es nicht mehr.`
+        );
+      }
       const ohne = [];
       for (const layer of router.stack) {
         if (!layer.route || !layer.route.path.includes(":")) continue;
         const namen = layer.route.stack.map((x) => x.handle.name);
-        if (!namen.includes(tor.middleware)) {
-          ohne.push(`${Object.keys(layer.route.methods)[0].toUpperCase()} ${layer.route.path}`);
-        }
+        if (namen.includes(tor.middleware)) continue;
+        if (praefixTor && praefixTor.deckt(layer.route.path)) continue;
+        ohne.push(`${Object.keys(layer.route.methods)[0].toUpperCase()} ${layer.route.path}`);
       }
       // Sub-Router waeren hier unsichtbar; eine Torwaechter-Flaeche darf keine haben,
       // solange die Kette nicht auch durch sie hindurch geprueft wird.

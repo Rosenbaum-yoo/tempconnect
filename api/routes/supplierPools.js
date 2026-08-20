@@ -38,7 +38,7 @@ export function createSupplierPoolsRouter(deps) {
 
   /** GET /supplier-pools/distribution/:requisitionId — get distribution plan */
   router.get("/supplier-pools/distribution/:requisitionId", requireAuth, async (req, res) => {
-    const plan = await supplierPoolService.getDistributionPlan(pool, req.params.requisitionId);
+    const plan = await supplierPoolService.getDistributionPlan(pool, req.params.requisitionId, req.orgId);
     res.json(plan);
   });
 
@@ -46,7 +46,7 @@ export function createSupplierPoolsRouter(deps) {
   router.post("/supplier-pools/distribution/:requisitionId/advance", requireAuth, requirePermission("requisition.manage", { pool, logger }), async (req, res) => {
     try {
       const nextStage = await supplierPoolService.advanceDistribution(
-        pool, req.params.requisitionId, req.session.userId
+        pool, req.params.requisitionId, req.session.userId, req.orgId
       );
       if (!nextStage) {
         res.locals.audit = { action: "supplier_pool.advance", entity_type: "distribution_plan", entity_id: req.params.requisitionId, details: { result: "all_completed" } };
@@ -67,7 +67,7 @@ export function createSupplierPoolsRouter(deps) {
 
     if (!stage) {
       // Use current active stage
-      const plan = await supplierPoolService.getDistributionPlan(pool, req.params.requisitionId);
+      const plan = await supplierPoolService.getDistributionPlan(pool, req.params.requisitionId, req.orgId);
       stage = plan.active_stage?.stage_number;
     }
     if (!stage) return res.json({ suppliers: [], stage: null });

@@ -210,7 +210,7 @@ falsche Kennung urteilt. Beide Muster waren real (Befunde E-5 und E-8, siehe
 aufgezählt über das **Router-Objekt** statt über den Quelltext · (B) Spion-Pool,
 der jede Abfrage mitschreibt (403 · kein Schreibvorgang · Ressourcen-ID in der
 Abfrage · Org und Adressat in derselben Anweisung) plus Gegenprobe mit der
-eigenen Org · (C) Bestandsbuch aller 82 Route-Dateien mit Sperrklinke ·
+eigenen Org · (C) Bestandsbuch aller 82 Route-Dateien mit Sperrklinke (Stand: 81 abgedeckt, 253 Routen verhaltensgeprüft) ·
 (D) Selbstprobe an fünf absichtlich kaputten Mini-Routern — plus zwei korrekten,
 die NICHT gemeldet werden dürfen.
 
@@ -220,11 +220,26 @@ die NICHT gemeldet werden dürfen.
 `req.session.userId` — eine Probe, die nur die Organisation wechselt, lässt dort
 **jede** Verletzung durch, weil sie die entscheidende Kennung gar nicht anfasst.
 
-**Flächen mit EINER Eintrittsbedingung** (Arbeiterportal, Staff Control Center)
-prüft Schicht **(B2)**: der benannte Torwächter muss auf *jeder*
+**Flächen mit EINER Eintrittsbedingung** (Arbeiterportal, Staff Control Center,
+Support) prüft Schicht **(B2)**: der benannte Torwächter muss auf *jeder*
 Platzhalter-Route stehen, ohne die Voraussetzung mit dem erwarteten Status
 abweisen und dabei nichts schreiben. Der letzte Punkt trennt ihn vom
 Struktur-Test — ein Middleware, der dasteht und `next()` ruft, fällt durch.
+
+**Zwei zulässige Bauarten des Torwächters.** Er steht auf *jeder* Route — oder
+einmal auf dem **Präfix** (`router.use("/support", …, supportAuth)`, Registerfeld
+`alsPraefix`). Die zweite ist die **strengere**, weil man sie auf einer neuen
+Route nicht vergessen kann; ein Test, der nur `route.stack` liest, meldet sie
+aber als Lücke. `findPrefixMiddleware` kennt beide Formen und prüft bei der
+Präfix-Bauart zusätzlich, dass der Montagepfad jede Route darunter wirklich
+deckt.
+
+> **Torwächter müssen einen Namen haben.** `supportAuth` war eine namenlose
+> Closure aus `requireSupportAccess(deps)` — für jede Strukturprüfung und jede
+> Stapelspur unsichtbar. Der Wächter konnte nicht belegen, dass die einzige
+> Eintrittsbedingung der gesamten Support-Fläche überhaupt noch montiert ist. Ein
+> `return async function name(req, res, next)` statt `return async (req, res, next)`
+> ist deshalb Teil der Absicherung, nicht Kosmetik.
 
 **Vier Erwartungsarten**, weil die Grenze nicht überall an derselben Stelle
 steht: `403` (Standard) · `sql-grenze` (die Bindung liegt im SQL, geprüft an den
@@ -255,9 +270,15 @@ enthalten darf) · dazu die **Seitenprobe** für zweiseitige Grenzen.
    in `contracts.js` unbemerkt.
 
 **Was er nicht kann:** beweisen, dass ein Service-SQL seine `AND org_id`-Klausel
-behalten hat. Diese Hälfte tragen die Grenz-Abschnitte in
-`rateCardService.test.js`, `approvalService.test.js` und
-`operationalInvoice.test.js`, die das abgesetzte SQL selbst befragen.
+behalten hat. Ein Spion-Pool kann kein `WHERE` erzwingen — die Zusicherung „das
+SQL enthält `org_id = $n`" fällt damit in dieselbe Klasse wie ein Quelltext-Test
+(Falle 1). Diese Hälfte tragen die Grenz-Abschnitte in `rateCardService.test.js`,
+`approvalService.test.js` und `operationalInvoice.test.js`, die das abgesetzte SQL
+selbst befragen — und, wo der Befund schwer wiegt, eine Probe gegen die **echte
+Datenbank**: dieselbe Anweisung gegen Postgres, in einer Transaktion mit
+`ROLLBACK`. Für E-18/E-19/E-20 waren das acht Prüfungen grün und fünf davon rot,
+sobald man die Bindung entfernt. Erst diese Gegenprobe macht aus einer
+Textzusicherung einen Nachweis.
 
 **Eine neue `:id`-Route anlegen?** Dann wird dieser Test rot, bis sie im Register
 steht. Das ist die Absicht.

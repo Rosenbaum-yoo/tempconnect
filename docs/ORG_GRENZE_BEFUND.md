@@ -148,6 +148,70 @@ die Parameterübergabe. Er beweist **nicht**, dass ein Service-SQL sein
 Bestand: die beiden Handler-Mutationen macht er rot, die beiden SQL-Mutationen
 fangen die Service-Tests. Keine der beiden Hälften reicht allein.
 
+## Vollständige Abdeckung (2026-08-20, abgeschlossen)
+
+Die Wellen A bis D haben das Register von 15 auf **81 Route-Dateien** gehoben:
+**253 verhaltensgeprüfte Routen, 122 belegte Ausnahmen**. Ausgesetzt sind noch
+15 Dateien — die 14 des Owner Control Centers (eigene Sicherheitswelt, eigener
+Torwächter `requireOwnerControlAccess`) und `matching.js`, das wegen Befund E-14
+bewusst auf die Owner-Entscheidung wartet.
+
+**Der teuerste Ertrag stand nicht im Auftrag.** Die Recherche hatte fünf Lücken
+benannt (E-1 bis E-5). Die Ausweitung des Wächters auf alle Dateien hat **elf
+weitere** gefunden, und die schwersten kamen zuletzt:
+
+| Befund | Weg | Was möglich war |
+|---|---|---|
+| E-12 | `GET /assignments/:id/staffing` | Besetzungsübersicht eines fremden Einsatzes, mit Schreibvorgang vor der Klärung |
+| E-13 | `getStaffingChoiceSet` | Lebenszyklus einer fremden Auswahlmenge fortgeschrieben |
+| E-15 | `DELETE /sla/search-jobs/:id` | drei ungebundene DELETEs **vor** der Besitzprüfung |
+| E-16 | `POST /mentoring/sessions/:id/feedback` | jeder Unbeteiligte galt stillschweigend als Mentee |
+| E-17 | `POST /data-governance/anonymize/user/:userId` | fremdes Konto unwiderruflich anonymisieren |
+| E-18 | `PATCH /data-governance/requests/:id/complete` | fremde DSGVO-Anfrage als erledigt schließen, ohne sie zu erfüllen |
+| E-19 | `GET/POST /supplier-pools/distribution/:requisitionId` | Verteilplan einer fremden Ausschreibung lesen **und weiterschalten** |
+| E-20 | `GET /data-governance/export/user/:userId` | Vollexport eines beliebigen fremden Nutzers |
+
+E-17, E-18 und E-20 lagen in **derselben Datei** — die Datenschutz-Werkzeuge
+waren durchgehend unbewacht, weil das Recht (`data_governance.*`) die eigene
+Organisation prüft, die Kennung im Pfad aber eine beliebige sein durfte. Die
+Geschwister-Route `/export/org` machte es von Anfang an richtig: sie nimmt
+`req.orgId` und keine Kennung aus dem Pfad. Zwei Wege in einer Datei, zwei
+Bauarten, sechs Jahre unbemerkt.
+
+**E-20 ist der größte Datenabfluss dieser Arbeit** (Mailadresse, Telefon,
+Anschrift, Steuernummer, alle Anzeigen, Anfragen, Bewertungen, Angebote,
+Einsätze, Stundenzettel eines Dritten), **E-17 der größte Schaden** (er gibt
+keine Daten preis, er *zerstört* die eines Dritten), **E-19 der größte
+Wettbewerbsschaden** (wer erfährt, an welche Lieferanten die Ausschreibung eines
+Wettbewerbers in welcher Reihenfolge geht, kennt dessen Vergabe — und konnte sie
+sogar weiterschalten).
+
+**Bewiesen statt behauptet.** Für E-18/E-19/E-20 wurde dieselbe Anweisung gegen
+das echte Postgres-Schema gefahren, in einer Transaktion mit ROLLBACK: acht
+Prüfungen grün. Mit entfernter Bindung wurden **fünf davon rot** — Organisation A
+schloss die DSGVO-Anfrage von B (`status = 'completed'`), las deren Verteilplan
+und schaltete deren Vergabe weiter. Ein Mock kann kein `WHERE` erzwingen; erst
+diese Gegenprobe macht aus einer Textzusicherung einen Nachweis.
+
+**Zwei Blindstellen des Wächters selbst wurden dabei sichtbar:**
+
+1. *Anonyme Torwächter.* `supportAuth` war eine namenlose Closure aus
+   `requireSupportAccess(deps)`. Für jede Strukturprüfung und jede Stapelspur
+   unsichtbar — der Wächter konnte nicht belegen, dass die einzige
+   Eintrittsbedingung der gesamten Support-Fläche überhaupt noch montiert ist.
+   Der Name ist jetzt Teil der Absicherung.
+2. *Präfix-Tore.* `support.js` montiert sein Tor einmal auf `/support` statt je
+   Route. Das ist die **strengere** Bauart — auf einer neuen Route kann man es
+   nicht vergessen —, aber ein Test, der nur `route.stack` liest, meldet die
+   Fläche als ungeschützt. Der Wächter kennt jetzt beide Formen.
+
+**Vier Grenzmodelle, nicht eins.** Über 81 Dateien hinweg hat sich bestätigt,
+was die zweite Welle andeutete: `org` (Organisation gegen `req.orgId`), `nutzer`
+(`owner_id`/`agency_id`/`mentor_id` gegen die Sitzung), *Torwächter* (eine
+Eintrittsbedingung je Fläche) und *bewusst offen* (Marktplatz per Bauart —
+Bewertungen, Ruf, aktive Kapazitätsanzeigen). Eine Konsolidierung der 80 Kopien
+hätte drei dieser vier Modelle nicht einmal berührt.
+
 ## Übertragbar auf die Folgeprojekte
 
 Die Mandantengrenze ist die teuerste Einzelentscheidung eines

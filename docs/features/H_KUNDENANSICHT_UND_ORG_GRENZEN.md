@@ -7,14 +7,26 @@
 
 ---
 
-## ✅ Stand 2026-08-19: H2 ist gebaut
+## ✅ Stand 2026-08-20: H2 ist gebaut und vollständig ausgerollt
 
 **Ergebnis in drei Sätzen.** Die Entscheidung D-M1 ist gefallen: **Wächter, nicht
 konsolidieren** — begründet dadurch, dass alle echten Defekte dort lagen, wo
 *keine* der 80 Kopien stand. Die fünf Lücken der Recherche sind geschlossen, und
-der Wächter fand beim ersten Lauf **fünf weitere** (E-6 bis E-10), darunter mit
-`PATCH /organizations/:id` einen Cross-Org-Schreibzugriff auf den
-Organisationsdatensatz selbst. Volle Suite 8804/0.
+der Wächter fand über alle **81 Route-Dateien** hinweg **elf weitere** (E-6 bis
+E-10 im ersten Lauf, E-12 bis E-20 beim Ausrollen) — darunter der DSGVO-Vollexport
+eines beliebigen fremden Nutzers (E-20), die Anonymisierung eines fremden Kontos
+(E-17) und der Verteilplan fremder Ausschreibungen, lesbar **und weiterschaltbar**
+(E-19). **253 Routen verhaltensgeprüft, 122 belegte Ausnahmen**, Sperrklinke
+gesetzt; E-18/E-19/E-20 zusätzlich gegen das echte Postgres-Schema bewiesen (acht
+Prüfungen grün, fünf davon rot unter entfernter Bindung).
+
+**Was noch offen ist — und warum es offen bleibt.** Zwei Befunde sind bewusst
+*nicht* autonom repariert, weil beide Reparaturen den Zugriff **weiten** würden
+oder eine Produktentscheidung sind: **E-11** (`canAccessAsOwner` hat nie
+funktioniert, 10 Aufrufstellen → P1-17) und **E-14** (Matching-Engine ohne
+Org-Bindung → P1-18). Beide liegen als Owner-Frage in
+`docs/PILOT_GO_LIVE_TODOS.md`. `matching.js` und die 14 OCC-Dateien sind im
+Register mit Begründung ausgesetzt.
 
 | Artefakt | Zweck |
 |---|---|
@@ -22,7 +34,7 @@ Organisationsdatensatz selbst. Volle Suite 8804/0.
 | `api/test/orgGrenzenWaechter.test.js` | Der Wächter, vier Schichten inkl. Selbstprobe |
 | `api/test/fixtures/orgGrenzen.json` | Das Register: je Route ein Urteil, je Datei ein Abdeckungsvermerk |
 | `api/test/helpers/orgGrenzenSpion.js` | Spion-Pool + `pruefeGrenze` — dieselbe Funktion für Bestand und Selbstprobe |
-| `api/test/helpers/security-mocks.js` | neu: `findChainFrom` — führt die Kette ab einem benannten Middleware aus |
+| `api/test/helpers/security-mocks.js` | neu: `findChainFrom` (führt die Kette ab einem benannten Middleware aus), `listRoutesTief` (steigt in montierte Sub-Router ab), `findPrefixMiddleware` (findet Torwächter, die per `router.use(präfix, …)` hängen) |
 
 **Korrekturen an dieser Recherche** (gemessen, nicht vermutet):
 

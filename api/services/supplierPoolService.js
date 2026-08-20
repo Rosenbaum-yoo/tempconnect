@@ -64,13 +64,25 @@ export async function createDistributionPlan(pool, requisitionId, stages, actorI
 
 /* ── Get Distribution Plan ────────────────────────────── */
 
-export async function getDistributionPlan(pool, requisitionId) {
+/**
+ * @param {string} orgId — Organisation des Aufrufers. PFLICHT.
+ *
+ * Befund E-19 (2026-08-20): Der Verteilplan wurde allein ueber die
+ * Ausschreibungs-Kennung geladen, und die Route trug ausser `requireAuth` kein
+ * Tor. Jeder Angemeldete konnte damit lesen, an WELCHE Lieferanten die
+ * Ausschreibung einer fremden Organisation in welcher Reihenfolge geht — reine
+ * Wettbewerbsinformation. Die Bindung laeuft ueber die Ausschreibung selbst
+ * (`requisitions.org_id`), denn die Stufen-Tabelle traegt keine eigene Org.
+ */
+export async function getDistributionPlan(pool, requisitionId, orgId = null) {
+  if (!orgId) return { stages: [], active_stage: null };
   const { rows } = await pool.query(
     `SELECT ds.*
      FROM requisition_distribution_stages ds
+     JOIN requisitions r ON r.id = ds.requisition_id AND r.org_id = $2
      WHERE ds.requisition_id = $1
      ORDER BY ds.stage_number ASC`,
-    [requisitionId]
+    [requisitionId, orgId]
   );
   const activeStage = rows.find(s => s.status === 'active') || null;
   return { stages: rows, active_stage: activeStage };
@@ -82,8 +94,17 @@ export async function getDistributionPlan(pool, requisitionId) {
  * Complete the current active stage and activate the next one.
  * Returns the newly active stage or null if all stages completed.
  */
-export async function advanceDistribution(pool, requisitionId, actorId) {
-  const { stages, active_stage } = await getDistributionPlan(pool, requisitionId);
+/**
+ * @param {string} orgId — Organisation des Aufrufers. PFLICHT (Befund E-19).
+ *
+ * Die Grenze traegt der Plan: `getDistributionPlan` liefert fuer eine fremde
+ * Ausschreibung nichts, damit gibt es keine aktive Stufe und es wird nichts
+ * geschrieben. Vorher konnte ein Fremder die Verteilung einer fremden
+ * Ausschreibung eine Stufe weiterschalten — also deren Angebot verfrueht an den
+ * naechsten Lieferantenkreis geben.
+ */
+export async function advanceDistribution(pool, requisitionId, actorId, orgId = null) {
+  const { stages, active_stage } = await getDistributionPlan(pool, requisitionId, orgId);
   if (!active_stage) return null;
 
   // Complete current stage

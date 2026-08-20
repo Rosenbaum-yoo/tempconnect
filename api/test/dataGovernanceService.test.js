@@ -459,13 +459,13 @@ describe("dataGovernanceService — completeDataRequest", () => {
   it("completes a pending request", async () => {
     const completed = { id: "req-1", status: "completed", completed_by: "admin1" };
     const pool = returnPool([completed]);
-    const result = await svc.completeDataRequest(pool, "req-1", "admin1", { exported: true });
+    const result = await svc.completeDataRequest(pool, "req-1", "admin1", { exported: true }, "o1");
     assert.strictEqual(result.status, "completed");
   });
 
   it("returns null when request not found or already completed", async () => {
     const pool = returnPool([]);
-    const result = await svc.completeDataRequest(pool, "missing", "admin1");
+    const result = await svc.completeDataRequest(pool, "missing", "admin1", null, "o1");
     assert.strictEqual(result, null);
   });
 });
