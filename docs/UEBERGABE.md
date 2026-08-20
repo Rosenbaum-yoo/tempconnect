@@ -296,6 +296,56 @@ Gegenprobe, die sicherstellt, dass die Neuberechnung für die **eigene** Org
 weiterhin stattfindet, die Reparatur die Funktion also begrenzt und nicht
 stilllegt.
 
+### E-17 · Ein Org-Admin konnte einen FREMDEN Nutzer anonymisieren *(geschlossen)*
+
+**Der schwerste Fund dieser Arbeit.** `data_governance.anonymize` halten laut
+`services/rbacService.js:121` die Rollen **`owner` und `admin`** — also jede
+Kundenorganisation für sich selbst, nicht die Plattform. `anonymizeUser` hat die
+Organisation des Ziels aber **nie geprüft**: `canDeleteUser` sieht nur
+Betriebsblocker (offene Einsätze, Stundenzettel, Rechnungen), alle am *Ziel*.
+
+Damit konnte der Inhaber einer beliebigen Kundenorganisation das Konto eines
+beliebigen **fremden** Nutzers unwiderruflich anonymisieren: E-Mail, Name,
+Passwort-Hash und Personenbezüge überschrieben. Art.-17-Maschinerie auf einen
+Dritten gerichtet. Er gibt keine Daten preis — er **zerstört** die eines Dritten.
+
+**Geschlossen** an der Wurzel: `anonymizeUser` verlangt jetzt die Organisation
+des Aufrufers und prüft die Mitgliedschaft des Ziels; die Vorbedingungsprüfung
+(`/check`) ebenso, weil sie sonst verraten hätte, dass es den fremden Nutzer gibt
+und was ihn blockiert. Die Abfrage nutzt **`is_active`, nicht `status`** — genau
+der Fehler, an dem `utils/ownerCheck.js` seit jeher scheitert (E-11); hier nicht
+wiederholt. Beleg: `orgGrenzeLuecken.test.js`, Abschnitt E-17.
+
+> **Falls die Plattform je einen org-übergreifenden Weg braucht** (Support,
+> Rechtsabteilung): der gehört hinter das Staff-Tor, nicht hinter eine
+> Berechtigung, die jede Kundenorganisation selbst vergibt.
+
+### E-16 · Fremde Mentoring-Sitzungen waren bewertbar *(geschlossen)*
+
+`addFeedback` ermittelte `isMentor = mentor_id === userId` — und wer **weder**
+Mentor noch Mentee war, galt damit stillschweigend als **Mentee**. Das UPDATE band
+nur `WHERE id = $3`. Jeder Angemeldete konnte also Bewertung und Note auf eine
+fremde Sitzung schreiben; die Note zählt auf den Ruf des Mentors.
+**Geschlossen:** wer nicht beteiligt ist, bekommt `null`, und das UPDATE bindet
+`AND (mentor_id = $4 OR mentee_id = $4)`.
+
+### E-15 · Fremde Daten wurden GELÖSCHT *(geschlossen)*
+
+`deleteSearchJob` räumte erst auf und prüfte dann den Besitzer:
+
+```
+DELETE FROM sla_search_matches WHERE search_job_id = $1     <- ohne Bindung
+DELETE FROM sla_search_events  WHERE search_job_id = $1     <- ohne Bindung
+DELETE FROM match_alerts       WHERE job_id = $1            <- ohne Bindung
+DELETE FROM sla_search_jobs    WHERE id = $1 AND owner_company_id = $2
+```
+
+Ein `DELETE /sla/search-jobs/<fremde-id>` hat damit Treffer, Ereignisse und
+Treffermeldungen einer fremden Suche gelöscht — und dem Aufrufer danach **404**
+gemeldet. Der Bestohlene sah eine leere Suche und keinen Grund dafür. Dieselbe
+Klasse wie E-12/E-13 (handeln, dann prüfen), nur in ihrer schlimmsten Form.
+**Geschlossen:** Besitzprüfung zuerst, dann aufräumen.
+
 ### E-14 · Die Matching-Engine läuft ohne Org *(offen — Owner-Frage)*
 
 Alle vier Platzhalter-Routen in `matching.js` rufen die Engine **nur mit der

@@ -207,19 +207,40 @@ describe("updateSearchJob", () => {
 // ═══════════════════════════════════════════════════════════════
 
 describe("deleteSearchJob", () => {
-  it("deletes matches+events+alerts then the job; returns true on rowCount>0", async () => {
+  /* GEAENDERT wegen Befund E-15 (2026-08-20) — und zwar der TEST, nicht der Code:
+     Er hat die alte Reihenfolge festgeschrieben und damit den Defekt als Soll
+     kodiert. Die drei Aufraeum-Loeschungen liefen OHNE Bindung und standen VOR
+     der Besitzpruefung; ein DELETE auf eine fremde Kennung hat deren Treffer,
+     Ereignisse und Meldungen geloescht und danach 404 gemeldet. Die Zusicherung
+     ist jetzt staerker als vorher: sie haelt fest, dass GEKLAERT wird, BEVOR
+     geloescht wird. */
+  it("klaert den Besitz ZUERST, loescht dann Treffer, Ereignisse, Meldungen und den Auftrag", async () => {
     const pool = trackingPool((sql) => {
+      if (sql.includes("SELECT 1 FROM sla_search_jobs")) return { rows: [{ eins: 1 }], rowCount: 1 };
       if (sql.includes("DELETE FROM sla_search_jobs")) return { rows: [], rowCount: 1 };
       return { rows: [], rowCount: 0 };
     });
     const ok = await deleteSearchJob(pool, JOB, OWNER);
     assert.strictEqual(ok, true);
-    assert.strictEqual(pool.calls.length, 4);
-    assert.match(pool.calls[0].sql, /DELETE FROM sla_search_matches WHERE search_job_id = \$1/);
-    assert.match(pool.calls[1].sql, /DELETE FROM sla_search_events WHERE search_job_id = \$1/);
-    assert.match(pool.calls[2].sql, /DELETE FROM match_alerts WHERE job_id = \$1/);
-    assert.match(pool.calls[3].sql, /DELETE FROM sla_search_jobs WHERE id = \$1 AND owner_company_id = \$2/);
-    assert.deepStrictEqual(pool.calls[3].params, [JOB, OWNER]);
+    assert.strictEqual(pool.calls.length, 5);
+    assert.match(pool.calls[0].sql, /SELECT 1 FROM sla_search_jobs WHERE id = \$1 AND owner_company_id = \$2/);
+    assert.deepStrictEqual(pool.calls[0].params, [JOB, OWNER], "die Klaerung traegt Auftrag UND Besitzer");
+    assert.match(pool.calls[1].sql, /DELETE FROM sla_search_matches WHERE search_job_id = \$1/);
+    assert.match(pool.calls[2].sql, /DELETE FROM sla_search_events WHERE search_job_id = \$1/);
+    assert.match(pool.calls[3].sql, /DELETE FROM match_alerts WHERE job_id = \$1/);
+    assert.match(pool.calls[4].sql, /DELETE FROM sla_search_jobs WHERE id = \$1 AND owner_company_id = \$2/);
+    assert.deepStrictEqual(pool.calls[4].params, [JOB, OWNER]);
+  });
+
+  it("loescht bei fremdem Besitzer GAR NICHTS (Befund E-15)", async () => {
+    const pool = trackingPool(() => ({ rows: [], rowCount: 0 }));
+    const ok = await deleteSearchJob(pool, JOB, OWNER);
+    assert.strictEqual(ok, false);
+    assert.strictEqual(
+      pool.calls.length, 1,
+      "nach der erfolglosen Klaerung darf keine einzige Loeschung folgen — " +
+      "genau das war der Defekt"
+    );
   });
 
   it("returns false when the job row did not match owner (rowCount 0)", async () => {

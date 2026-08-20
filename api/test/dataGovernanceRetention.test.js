@@ -79,7 +79,7 @@ describe("anonymizeUser — Reihenfolge + Praezision", () => {
 
   it("sichert die Original-E-Mail VOR dem users-UPDATE und loescht Invites damit", async () => {
     const pool = anonymizePool();
-    const r = await svc.anonymizeUser(pool, "u1", "actor1");
+    const r = await svc.anonymizeUser(pool, "u1", "actor1", "o1");
     assert.equal(r.success, true);
     const sqls = pool.calls.map((c) => c.sql);
     const emailIdx = sqls.findIndex((s) => s.includes("SELECT email FROM users"));
@@ -93,7 +93,7 @@ describe("anonymizeUser — Reihenfolge + Praezision", () => {
 
   it("Session-Delete nutzt den JSON-Pfad statt LIKE ueber den Blob (P5.1)", async () => {
     const pool = anonymizePool();
-    await svc.anonymizeUser(pool, "u1", "actor1");
+    await svc.anonymizeUser(pool, "u1", "actor1", "o1");
     const sessDel = pool.calls.find((c) => c.sql.includes("DELETE FROM session"));
     assert.match(sessDel.sql, /sess->>'userId' = \$1/);
     assert.doesNotMatch(sessDel.sql, /LIKE/);

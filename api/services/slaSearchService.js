@@ -136,7 +136,21 @@ export async function updateSearchJob(pool, id, ownerId, data) {
 }
 
 export async function deleteSearchJob(pool, id, ownerId) {
-  // Delete matches and events first, then the job
+  /* Befund E-15 (2026-08-20, vom Org-Grenzen-Waechter gefunden — die schwerste
+     Auspraegung des E-12/E-13-Musters): Die drei Aufraeum-Loeschungen liefen
+     OHNE jede Bindung, nur die vierte Anweisung prueft den Besitzer. Ein
+     `DELETE /sla/search-jobs/<fremde-id>` hat damit Treffer, Ereignisse und
+     Treffermeldungen einer FREMDEN Suche geloescht und danach "nicht gefunden"
+     gemeldet — der Bestohlene sah eine leere Suche, der Aufrufer ein 404.
+
+     Kein Datenabfluss, sondern DATENVERLUST bei einem Dritten. Deshalb steht
+     die Besitzpruefung jetzt vorn: ohne Treffer wird nichts angefasst. */
+  const { rows } = await pool.query(
+    "SELECT 1 FROM sla_search_jobs WHERE id = $1 AND owner_company_id = $2",
+    [id, ownerId]
+  );
+  if (!rows[0]) return false;
+
   await pool.query("DELETE FROM sla_search_matches WHERE search_job_id = $1", [id]);
   await pool.query("DELETE FROM sla_search_events WHERE search_job_id = $1", [id]);
   await pool.query("DELETE FROM match_alerts WHERE job_id = $1", [id]);

@@ -21,6 +21,23 @@ Selbstprobe), volle Suite **8804/0**. Vier Mutationen gegen den echten Bestand
 gefahren: Handler-Mutationen macht der Wächter rot, SQL-Mutationen die
 Service-Tests.
 
+### 2026-08-20 — E-15/E-16/E-17: drei weitere Cross-Org-Schreibzugriffe geschlossen
+
+**Status:** erledigt · **Fakt:** (E-17, der schwerste) `data_governance.anonymize`
+halten owner/admin JEDER Kundenorganisation (rbacService.js:121), und
+`anonymizeUser` prueste die Organisation des Ziels nie — ein Org-Inhaber konnte
+das Konto eines FREMDEN Nutzers unwiderruflich anonymisieren.
+(E-15) `deleteSearchJob` loeschte Treffer, Ereignisse und Meldungen OHNE Bindung
+und prueste den Besitzer erst in der vierten Anweisung — Datenverlust bei einem
+Dritten, mit 404 quittiert.
+(E-16) `addFeedback` behandelte jeden Unbeteiligten als Mentee und schrieb
+Bewertung samt Note auf eine fremde Sitzung.
+**Aktion:** alle drei an der Wurzel geschlossen (Zugehoerigkeit bzw. Beteiligung
+zuerst, Bindung im SQL). E-17 zusaetzlich auf dem /check-Weg, der sonst die
+Existenz und die Blocker eines fremden Nutzers verraten haette.
+**Verify:** `orgGrenzeLuecken.test.js` Abschnitte E-15/E-16/E-17, je mit
+Gegenprobe, dass der eigene Weg weiterhin funktioniert.
+
 ### 2026-08-19 — E-13: derselbe Fehler ein zweites Mal, in einer anderen Datei
 
 **Status:** erledigt · **Fakt:** `getStaffingChoiceSet`

@@ -162,7 +162,47 @@ export async function canDeleteUser(pool, userId) {
  * Kat C: NICHT berührt
  * Kat D: Gelöscht
  */
-export async function anonymizeUser(pool, userId, actorId) {
+/**
+ * Gehoert `userId` zur Organisation `orgId`?
+ *
+ * Befund E-17 (2026-08-20): `anonymizeUser` hat die Organisation des Ziels NIE
+ * geprueft, und `data_governance.anonymize` haelt laut rbacService.js:121 jeder
+ * `owner`/`admin` JEDER Kundenorganisation. Ein Org-Administrator konnte damit
+ * das Konto eines FREMDEN Nutzers unwiderruflich anonymisieren: E-Mail, Name,
+ * Passwort-Hash und Personenbezuege ueberschrieben, Art.-17-Maschinerie auf
+ * einen Dritten gerichtet.
+ *
+ * Die Spalte heisst `is_active`, nicht `status` — genau der Fehler, an dem
+ * `utils/ownerCheck.js` seit jeher scheitert (Befund E-11). Hier nicht wiederholt.
+ */
+export function istInMeinerOrg(pool, userId, orgId) {
+  return gehoertZurOrg(pool, userId, orgId);
+}
+
+async function gehoertZurOrg(pool, userId, orgId) {
+  if (!orgId) return false;
+  const { rows } = await pool.query(
+    "SELECT 1 FROM org_memberships WHERE user_id = $1 AND org_id = $2 AND is_active = TRUE LIMIT 1",
+    [userId, orgId]
+  );
+  return rows.length > 0;
+}
+
+/**
+ * @param {string} orgId — Organisation des Aufrufers. PFLICHT: ohne sie wird
+ *   nichts anonymisiert. Braucht die Plattform je einen org-uebergreifenden Weg
+ *   (Support, Rechtsabteilung), gehoert er hinter das Staff-Tor, nicht hinter
+ *   eine Berechtigung, die jede Kundenorganisation selbst vergibt.
+ */
+export async function anonymizeUser(pool, userId, actorId, orgId) {
+  /* SELBSTLOESCHUNG ist immer erlaubt — `DELETE /me` ist das Art.-17-Recht des
+     Nutzers an seinen EIGENEN Daten und darf an keiner Org-Grenze scheitern
+     (er kann auch gar keiner Organisation mehr angehoeren). Die Grenze gilt
+     nur, wenn jemand einen ANDEREN anonymisiert. */
+  const selbst = String(userId) === String(actorId);
+  if (!selbst && !(await gehoertZurOrg(pool, userId, orgId))) {
+    return { success: false, reason: "ORG_BOUNDARY_VIOLATION" };
+  }
   const check = await canDeleteUser(pool, userId);
   if (!check.canDelete) {
     return { success: false, reason: "BLOCKERS", blockers: check.blockers };

@@ -37,12 +37,18 @@ export async function addFeedback(pool, sessionId, userId, feedback, rating) {
     "SELECT mentor_id, mentee_id FROM mentoring_sessions WHERE id = $1", [sessionId]
   );
   if (!session[0]) return null;
+  /* Befund E-16 (2026-08-20): Hier stand nur `const isMentor = mentor_id === userId`
+     — wer weder Mentor noch Mentee war, galt damit stillschweigend als MENTEE und
+     schrieb Bewertung und Note auf eine fremde Sitzung; das UPDATE band nur
+     `WHERE id = $3`. Wer nicht beteiligt ist, hat hier nichts zu schreiben. */
   const isMentor = session[0].mentor_id === userId;
+  const isMentee = session[0].mentee_id === userId;
+  if (!isMentor && !isMentee) return null;
   const field = isMentor ? "feedback_mentor" : "feedback_mentee";
   const { rows } = await pool.query(
     `UPDATE mentoring_sessions SET ${field} = $1, rating = COALESCE($2, rating), updated_at = NOW()
-     WHERE id = $3 RETURNING *`,
-    [feedback, rating || null, sessionId]
+     WHERE id = $3 AND (mentor_id = $4 OR mentee_id = $4) RETURNING *`,
+    [feedback, rating || null, sessionId, userId]
   );
   return rows[0] || null;
 }

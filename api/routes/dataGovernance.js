@@ -48,6 +48,11 @@ export function createDataGovernanceRouter(deps) {
   /** GET /data-governance/anonymize/user/:userId/check — Vorbedingungsprüfung */
   router.get("/data-governance/anonymize/user/:userId/check", requireAuth, featureGate, rperm("data_governance.anonymize"), async (req, res) => {
     try {
+      // Befund E-17: auch die Vorbedingungspruefung verraet sonst, ob es einen
+      // fremden Nutzer gibt und was ihn blockiert (offene Einsaetze, Rechnungen).
+      if (!await dgSvc.istInMeinerOrg(pool, req.params.userId, req.orgId)) {
+        return res.status(403).json({ error: "ORG_BOUNDARY_VIOLATION" });
+      }
       const result = await dgSvc.canDeleteUser(pool, req.params.userId);
       res.json({ success: true, data: result });
     } catch (e) {
@@ -59,7 +64,11 @@ export function createDataGovernanceRouter(deps) {
   /** POST /data-governance/anonymize/user/:userId — Anonymisierung durchführen */
   router.post("/data-governance/anonymize/user/:userId", requireAuth, featureGate, rperm("data_governance.anonymize"), async (req, res) => {
     try {
-      const result = await dgSvc.anonymizeUser(pool, req.params.userId, req.session.userId);
+      const result = await dgSvc.anonymizeUser(pool, req.params.userId, req.session.userId, req.orgId);
+      if (result.reason === "ORG_BOUNDARY_VIOLATION") {
+        // Befund E-17: das Ziel gehoert nicht zur eigenen Organisation.
+        return res.status(403).json({ error: "ORG_BOUNDARY_VIOLATION" });
+      }
       if (!result.success) {
         return res.status(400).json({ error: "ANONYMIZATION_BLOCKED", data: result });
       }

@@ -192,17 +192,19 @@ describe("dataGovernanceService — canDeleteUser", () => {
 describe("dataGovernanceService — anonymizeUser", () => {
   it("blocks anonymization when canDeleteUser returns blockers", async () => {
     const pool = sequencePool(
+      { rows: [{ mitglied: 1 }] },   // Befund E-17: Zugehoerigkeitspruefung (neu, zuerst)
       { rows: [{ c: 2 }] },   // active assignments blocker
       { rows: [{ c: 0 }] },
       { rows: [{ c: 0 }] }
     );
-    const result = await svc.anonymizeUser(pool, "u1", "actor1");
+    const result = await svc.anonymizeUser(pool, "u1", "actor1", "o1");
     assert.strictEqual(result.success, false);
     assert.strictEqual(result.reason, "BLOCKERS");
   });
 
   it("performs anonymization when no blockers", async () => {
     const pool = sequencePool(
+      { rows: [{ mitglied: 1 }] },   // Befund E-17: Zugehoerigkeitspruefung (neu, zuerst)
       // canDeleteUser queries
       { rows: [{ c: 0 }] },   // assignments
       { rows: [{ c: 0 }] },   // timesheets
@@ -219,7 +221,7 @@ describe("dataGovernanceService — anonymizeUser", () => {
       { rows: [] },            // DELETE notifications
       { rows: [] }             // INSERT audit_log
     );
-    const result = await svc.anonymizeUser(pool, "u1", "actor1");
+    const result = await svc.anonymizeUser(pool, "u1", "actor1", "o1");
     assert.strictEqual(result.success, true);
     assert.strictEqual(result.user_id, "u1");
     // Original-Adresse (VOR dem users-UPDATE gelesen) — Vertrag fuer die
@@ -231,13 +233,14 @@ describe("dataGovernanceService — anonymizeUser", () => {
 
   it("includes session and notifications in Kat D cleanup", async () => {
     const pool = sequencePool(
+      { rows: [{ mitglied: 1 }] },   // Befund E-17: Zugehoerigkeitspruefung (neu, zuerst)
       { rows: [{ c: 0 }] },
       { rows: [{ c: 0 }] },
       { rows: [{ c: 0 }] },
       { rows: [{ email: "max@firma.de" }] }, // SELECT Original-E-Mail
       ...Array(9).fill({ rows: [] })
     );
-    const result = await svc.anonymizeUser(pool, "u1", "actor1");
+    const result = await svc.anonymizeUser(pool, "u1", "actor1", "o1");
     assert.ok(result.anonymized_tables.includes("session"));
     assert.ok(result.anonymized_tables.includes("notifications"));
   });
@@ -365,10 +368,12 @@ describe("dataGovernanceService — SQL-Form (Schema-Drift-Wächter)", () => {
   it("anonymizeUser löscht Invites nur über die VOR der Anonymisierung gelesene E-Mail", async () => {
     const pool = recordingPool((sql) => {
       if (sql.includes("COUNT(*)")) return { rows: [{ c: 0 }] };
+      // Befund E-17: die neue Zugehoerigkeitspruefung steht VOR allem anderen.
+      if (sql.includes("FROM org_memberships")) return { rows: [{ mitglied: 1 }] };
       if (sql.startsWith("SELECT email FROM users")) return { rows: [{ email: "Worker@Firma.de" }] };
       return { rows: [] };
     });
-    await svc.anonymizeUser(pool, "u1", "actor1");
+    await svc.anonymizeUser(pool, "u1", "actor1", "o1");
     const del = pool.calls.find((c) => c.sql.includes("DELETE FROM worker_invites"));
     assert.ok(del, "Invite-DELETE fehlt");
     assert.ok(!del.sql.includes("created_by"), "created_by existiert auf worker_invites nicht (Spalte heißt invited_by)");
@@ -383,10 +388,12 @@ describe("dataGovernanceService — SQL-Form (Schema-Drift-Wächter)", () => {
   it("anonymizeUser löscht Sessions über den JSON-Pfad statt LIKE", async () => {
     const pool = recordingPool((sql) => {
       if (sql.includes("COUNT(*)")) return { rows: [{ c: 0 }] };
+      // Befund E-17: die neue Zugehoerigkeitspruefung steht VOR allem anderen.
+      if (sql.includes("FROM org_memberships")) return { rows: [{ mitglied: 1 }] };
       if (sql.startsWith("SELECT email FROM users")) return { rows: [{ email: "a@b.de" }] };
       return { rows: [] };
     });
-    await svc.anonymizeUser(pool, "u1", "actor1");
+    await svc.anonymizeUser(pool, "u1", "actor1", "o1");
     const del = pool.calls.find((c) => c.sql.includes("DELETE FROM session"));
     assert.ok(del, "Session-DELETE fehlt");
     assert.ok(del.sql.includes("sess->>'userId'"), "präziser JSON-Pfad statt LIKE-Volltextsuche");

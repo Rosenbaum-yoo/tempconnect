@@ -34,7 +34,7 @@ import assert from "node:assert/strict";
 
 import {
   mockReq, mockRes, noop, baseDeps, findHandlerExact,
-  ORG_A, ORG_B, USER_A
+  ORG_A, ORG_B, USER_A, USER_B
 } from "../helpers/security-mocks.js";
 import { spionPool } from "../helpers/orgGrenzenSpion.js";
 
@@ -44,6 +44,9 @@ import { createApprovalsRouter }     from "../../routes/approvals.js";
 import { createRequisitionsRouter }  from "../../routes/requisitions.js";
 import { createOrganizationsRouter } from "../../routes/organizations.js";
 import { createWorkersRouter }      from "../../routes/workers.js";
+import { createSlaSearchJobsRouter } from "../../routes/slaSearchJobs.js";
+import { createDataGovernanceRouter } from "../../routes/dataGovernance.js";
+import * as dgSvc from "../../services/dataGovernanceService.js";
 
 /** Keine Zeile darf geschrieben worden sein. */
 function keinSchreibvorgang(pool, was) {
@@ -485,5 +488,154 @@ describe("E-13 · POST /staffing-choice-sets/:id/assign — fremde Auswahl", () 
       pool.fragteMit("cs-fremd", ORG_A),
       "die klaerende Abfrage muss Auswahl UND eigene Org tragen"
     );
+  });
+});
+
+/* ═════════════════════════════════════════════════════════════════════════
+   E-15 · Der schwerste Fall: fremde Daten wurden GELOESCHT
+   ═════════════════════════════════════════════════════════════════════════
+
+   `deleteSearchJob` raeumte erst auf und prueste dann den Besitzer:
+
+       DELETE FROM sla_search_matches WHERE search_job_id = $1     <- ohne Bindung
+       DELETE FROM sla_search_events  WHERE search_job_id = $1     <- ohne Bindung
+       DELETE FROM match_alerts       WHERE job_id = $1            <- ohne Bindung
+       DELETE FROM sla_search_jobs    WHERE id = $1 AND owner_company_id = $2
+
+   Ein `DELETE /sla/search-jobs/<fremde-id>` hat damit Treffer, Ereignisse und
+   Treffermeldungen einer FREMDEN Suche geloescht — und dem Aufrufer danach 404
+   gemeldet. Der Bestohlene sah eine leere Suche und keinen Grund dafuer.
+
+   Das ist dieselbe Klasse wie E-12 und E-13 (handeln, dann pruefen), nur in
+   ihrer schlimmsten Form: kein Datenabfluss, sondern DATENVERLUST bei einem
+   Dritten.                                                                   */
+
+describe("E-15 · DELETE /sla/search-jobs/:id — fremder Suchauftrag", () => {
+  it("loescht nichts, bevor der Besitz geklaert ist", async () => {
+    /* Die klaerende Abfrage wird wie eine echte Datenbank beantwortet: fremder
+       Besitzer, kein Treffer. Sonst prueft der Test den Mock statt der Reparatur. */
+    const pool = spionPool({
+      zeile: { id: "job-fremd", owner_company_id: USER_B, status: "open" },
+      antwort: (sql, params) =>
+        /SELECT 1 FROM sla_search_jobs/i.test(sql) && !params.includes(USER_B)
+          ? { rows: [] }
+          : undefined
+    });
+    const router = createSlaSearchJobsRouter({
+      ...baseDeps(pool),
+      requireFeature: () => (_q, _s, next) => next(),
+      getUserAndPlan: async () => ({ plan: "PRO", id: USER_A })
+    });
+    const handler = findHandlerExact(router, "delete", "/sla/search-jobs/:id");
+
+    const res = mockRes();
+    await handler(mockReq({ orgId: ORG_A, params: { id: "job-fremd" } }), res, noop);
+    for (let i = 0; i < 5; i++) await new Promise((fertig) => setImmediate(fertig));
+
+    keinSchreibvorgang(pool, "sla-search-jobs delete");
+    assert.notEqual(res._status, 200, "ein fremder Suchauftrag darf nicht loeschbar sein");
+    assert.ok(
+      pool.fragteMit("job-fremd", USER_A),
+      "die klaerende Abfrage muss Auftrag UND eigene Kennung tragen"
+    );
+  });
+
+  it("Gegenprobe: der eigene Suchauftrag wird samt Anhang geloescht", async () => {
+    const pool = spionPool({ zeile: { id: "job-eigen", owner_company_id: USER_A, status: "open" } });
+    const router = createSlaSearchJobsRouter({
+      ...baseDeps(pool),
+      requireFeature: () => (_q, _s, next) => next(),
+      getUserAndPlan: async () => ({ plan: "PRO", id: USER_A })
+    });
+    const handler = findHandlerExact(router, "delete", "/sla/search-jobs/:id");
+
+    const res = mockRes();
+    await handler(mockReq({ orgId: ORG_A, params: { id: "job-eigen" } }), res, noop);
+    for (let i = 0; i < 5; i++) await new Promise((fertig) => setImmediate(fertig));
+
+    assert.ok(
+      pool.schreibvorgaenge.length >= 4,
+      "der eigene Auftrag muss weiterhin samt Treffern, Ereignissen und Meldungen " +
+      "verschwinden — die Reparatur begrenzt die Funktion, sie legt sie nicht still"
+    );
+  });
+});
+
+/* ═════════════════════════════════════════════════════════════════════════
+   E-17 · Ein Org-Admin konnte einen FREMDEN Nutzer anonymisieren
+   ═════════════════════════════════════════════════════════════════════════
+
+   `data_governance.anonymize` halten laut `services/rbacService.js:121` die
+   Rollen `owner` und `admin` — also jede KUNDENorganisation fuer sich selbst,
+   nicht die Plattform. `anonymizeUser` hat die Organisation des Ziels aber nie
+   geprueft: `canDeleteUser` sieht nur Betriebsblocker (offene Einsaetze,
+   Stundenzettel, Rechnungen), alle am ZIEL-Nutzer.
+
+   Damit konnte der Inhaber einer beliebigen Kundenorganisation das Konto eines
+   beliebigen fremden Nutzers unwiderruflich anonymisieren: E-Mail, Name,
+   Passwort-Hash, Personenbezuege ueberschrieben. Art.-17-Maschinerie auf einen
+   Dritten gerichtet — der schwerste Fund dieser Arbeit, weil er nicht Daten
+   preisgibt, sondern die eines Dritten ZERSTOERT.
+
+   Die Pruefung nutzt `is_active`, NICHT `status` — genau der Fehler, an dem
+   `utils/ownerCheck.js` seit jeher scheitert (Befund E-11). Hier nicht wiederholt. */
+
+describe("E-17 · POST /data-governance/anonymize/user/:userId — fremder Nutzer", () => {
+  function dgDeps(pool) {
+    return { ...baseDeps(pool), requireFeature: () => (_q, _s, next) => next() };
+  }
+
+  it("verweigert die Anonymisierung und fasst nichts an", async () => {
+    /* Die Mitgliedschaftsabfrage wird wie eine echte Datenbank beantwortet:
+       fremder Nutzer, kein Treffer. Sonst prueft der Test den Mock. */
+    const pool = spionPool({
+      zeile: { id: "u-fremd", email: "opfer@fremde-firma.de" },
+      antwort: (sql) => (/FROM org_memberships/i.test(sql) ? { rows: [] } : undefined)
+    });
+    const router = createDataGovernanceRouter(dgDeps(pool));
+    const handler = findHandlerExact(router, "post", "/data-governance/anonymize/user/:userId");
+
+    const res = mockRes();
+    await handler(mockReq({ orgId: ORG_A, params: { userId: "u-fremd" } }), res, noop);
+    for (let i = 0; i < 5; i++) await new Promise((fertig) => setImmediate(fertig));
+
+    assert.equal(res._status, 403, "ein fremder Nutzer darf nicht anonymisierbar sein");
+    assert.equal(res._json.error, "ORG_BOUNDARY_VIOLATION");
+    keinSchreibvorgang(pool, "dsgvo-anonymisierung");
+    assert.ok(
+      pool.fragteMit("u-fremd", ORG_A),
+      "die Zugehoerigkeitsabfrage muss Nutzer UND eigene Org tragen"
+    );
+  });
+
+  it("Gegenprobe: die SELBSTloeschung bleibt moeglich", async () => {
+    /* `DELETE /me` ist das Art.-17-Recht des Nutzers an seinen EIGENEN Daten.
+       Es darf an keiner Org-Grenze scheitern — er kann sogar gar keiner
+       Organisation mehr angehoeren. Ohne diese Gegenprobe haette die Reparatur
+       das legitime Recht mit erschlagen. */
+    const pool = spionPool({
+      zeile: { c: 0 },
+      antwort: (sql) => (/FROM org_memberships/i.test(sql) ? { rows: [] } : undefined)
+    });
+    const ergebnis = await dgSvc.anonymizeUser(pool, USER_A, USER_A, null);
+    assert.notEqual(
+      ergebnis.reason, "ORG_BOUNDARY_VIOLATION",
+      "wer sich selbst loescht, braucht keine Organisation"
+    );
+  });
+
+  it("auch die Vorbedingungspruefung verraet nichts ueber Fremde", async () => {
+    const pool = spionPool({
+      zeile: { c: 0 },
+      antwort: (sql) => (/FROM org_memberships/i.test(sql) ? { rows: [] } : undefined)
+    });
+    const router = createDataGovernanceRouter(dgDeps(pool));
+    const handler = findHandlerExact(router, "get", "/data-governance/anonymize/user/:userId/check");
+
+    const res = mockRes();
+    await handler(mockReq({ orgId: ORG_A, params: { userId: "u-fremd" } }), res, noop);
+
+    assert.equal(res._status, 403,
+      "sonst verraet die Pruefung, dass es den Nutzer gibt und was ihn blockiert");
   });
 });
