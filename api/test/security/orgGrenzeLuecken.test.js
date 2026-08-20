@@ -33,7 +33,7 @@ import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 
 import {
-  mockReq, mockRes, noop, baseDeps, findHandlerExact,
+  mockReq, mockRes, noop, baseDeps, findHandlerExact, findChainFrom,
   ORG_A, ORG_B, USER_A, USER_B
 } from "../helpers/security-mocks.js";
 import { spionPool } from "../helpers/orgGrenzenSpion.js";
@@ -1158,6 +1158,136 @@ describe("D-M4 · PATCH /requisitions/:id — Org statt Ersteller", () => {
     assert.deepStrictEqual(
       pool.schreibvorgaenge.map((c) => c.sql.slice(0, 40)), [],
       "ohne Org gibt es keine Grenze — also keine Wirkung"
+    );
+  });
+});
+
+/* ═════════════════════════════════════════════════════════════════════════
+   P1-20 · Der Statuswechsel verlangte weniger als die Titelaenderung
+   ═════════════════════════════════════════════════════════════════════════
+
+   `POST /requisitions/:id/transition` trug keine Berechtigungspruefung.
+   `requireScope("write:requisitions")` sieht nach einer aus, prueft aber
+   ausschliesslich API-Key-Scopes und laesst jede SITZUNG ungefragt durch
+   (`apiKeyAuth.js:153`). Fuer einen angemeldeten Nutzer stand dort also nur
+   `requireAuth` plus die Org-Grenze.
+
+   Das Ergebnis war eine umgekehrte Rangfolge: ein Feld zu aendern verlangte
+   `requisition.edit`, den Status auf CANCELLED zu setzen verlangte nichts. Jede
+   Mitgliedschaft der Organisation — bis hinunter zu `viewer` — konnte die
+   Ausschreibung durch ihren gesamten Lebenszyklus schieben und sie beenden.
+
+   Dass das kein Vorsatz war, sagt der Katalog: `requisition.cancel` steht dort
+   seit jeher mit einer EIGENEN, engeren Rollenliste (ohne `recruiter`) und war
+   an keiner einzigen Stelle verdrahtet. Die Berechtigung existierte, sie hing
+   nur an nichts.
+
+   Diese Reparatur VERENGT Zugriff. Die Gegenproben unten halten deshalb fest,
+   wer weiterhin durchkommt — sonst waere aus einer Luecke eine Sperre geworden. */
+
+describe("P1-20 · Requisitionen — die Wache passt zur Schwere der Handlung", () => {
+  function rDeps(pool) {
+    return { ...baseDeps(pool), requireFeature: () => (_q, _s, next) => next() };
+  }
+  const ZEILE = { id: "req-1", org_id: ORG_A, created_by: "wer-anders", status: "OPEN" };
+
+  /** Baut einen Aufruf mit einer bestimmten Org-Rolle. */
+  async function ruf(pfad, rolle, koerper, methode = "post") {
+    /* `requirePermission` holt die Mitgliedschaft aus der DATENBANK und
+       ueberschreibt damit, was am Request steht. Der Spion muss die Rolle also
+       dort liefern — sonst prueft dieser Test nicht die Berechtigung, sondern
+       eine Zeile ohne `role_key`. */
+    const pool = spionPool({
+      zeile: ZEILE,
+      antwort: (sql) => (/org_memberships/i.test(String(sql))
+        ? { rows: [{ id: "m1", org_id: ORG_A, user_id: "wer-auch-immer", role_key: rolle, is_active: true }] }
+        : undefined)
+    });
+    const router = createRequisitionsRouter(rDeps(pool));
+    const kette = findChainFrom(router, methode, pfad, "requirePermissionMiddleware");
+    const res = mockRes();
+    const req = mockReq({
+      orgId: ORG_A, session: { userId: "wer-auch-immer" },
+      params: { id: "req-1" }, body: koerper,
+      orgRole: rolle, orgMembership: { role_key: rolle }
+    });
+    await kette(req, res, () => {});
+    for (let i = 0; i < 5; i++) await new Promise((f) => setImmediate(f));
+    return { status: res._status, koerper: res._json, pool };
+  }
+
+  it("ein 'viewer' kann die Ausschreibung nicht mehr weiterschalten", async () => {
+    const { status } = await ruf("/requisitions/:id/transition", "viewer", { status: "IN_REVIEW" });
+    assert.equal(status, 403, "vorher ging das — die Route verlangte gar nichts");
+  });
+
+  it("ein 'viewer' kann sie erst recht nicht stornieren", async () => {
+    const { status } = await ruf("/requisitions/:id/transition", "viewer", { status: "CANCELLED" });
+    assert.equal(status, 403);
+  });
+
+  it("Stornieren verlangt MEHR als die uebrigen Uebergaenge", async () => {
+    /* Der Kern des Befundes. `recruiter` haelt `requisition.edit`, aber NICHT
+       `requisition.cancel` — der Katalog unterscheidet die beiden seit jeher.
+       Genau diese Unterscheidung war nie wirksam. */
+    const weiter = await ruf("/requisitions/:id/transition", "recruiter", { status: "IN_REVIEW" });
+    assert.notEqual(weiter.status, 403, "der Recruiter darf die Ausschreibung fuehren");
+
+    const beenden = await ruf("/requisitions/:id/transition", "recruiter", { status: "CANCELLED" });
+    assert.equal(beenden.status, 403, "aber nicht beenden");
+    assert.equal(beenden.koerper?.required, "requisition.cancel",
+      "und die Antwort nennt die Berechtigung, die fehlt");
+  });
+
+  it("Gegenprobe: wer stornieren darf, storniert weiterhin", async () => {
+    /* Ohne diese Zusicherung waere eine Route, die IMMER 403 antwortet,
+       ebenfalls gruen — und die Stornierung waere kaputt. */
+    for (const rolle of ["owner", "admin", "program_manager", "hiring_manager"]) {
+      const { status } = await ruf("/requisitions/:id/transition", rolle, { status: "CANCELLED" });
+      assert.notEqual(status, 403, `${rolle} haelt requisition.cancel und muss durchkommen`);
+    }
+  });
+
+  it("das Einreichen zur Freigabe ist eine Bearbeitung", async () => {
+    const gesperrt = await ruf("/requisitions/:id/submit", "viewer", {});
+    assert.equal(gesperrt.status, 403);
+
+    const erlaubt = await ruf("/requisitions/:id/submit", "hiring_manager", {});
+    assert.notEqual(erlaubt.status, 403, "wer bearbeiten darf, reicht auch ein");
+  });
+
+  it("Kommentieren bleibt der Lesenden-Kreis — bewusst weiter gefasst", async () => {
+    /* Kommentieren ist Zusammenarbeit, keine Bearbeitung. `requisition.edit` zu
+       verlangen wuerde Einkauf, Disposition und Lieferantenbetreuung
+       aussperren, die genau dafuer da sind. Diese Zusicherung haelt fest, dass
+       die Verengung dort NICHT stattgefunden hat. */
+    for (const rolle of ["finance", "dispatcher", "supplier_manager", "member", "viewer"]) {
+      const { status } = await ruf("/requisitions/:id/comment", rolle, { text: "Rueckfrage" });
+      assert.notEqual(status, 403, `${rolle} darf die Ausschreibung sehen und kommentieren`);
+    }
+    const ohne = await ruf("/requisitions/:id/comment", "worker", { text: "Rueckfrage" });
+    assert.equal(ohne.status, 403, "wer sie nicht sehen darf, schreibt auch nicht hinein");
+  });
+
+  it("jede schreibende Requisitions-Route traegt eine Berechtigungspruefung", async () => {
+    /* Der eigentliche Waechter gegen die Rueckkehr dieses Befundes: nicht
+       einzelne Routen aufzaehlen, sondern die REGEL pruefen. `requireScope`
+       zaehlt dabei ausdruecklich NICHT — es laesst jede Sitzung durch. */
+    const router = createRequisitionsRouter(rDeps(spionPool({ zeile: ZEILE })));
+    const ohne = [];
+    for (const schicht of router.stack) {
+      if (!schicht.route) continue;
+      const methode = Object.keys(schicht.route.methods)[0];
+      if (methode === "get") continue;
+      const namen = schicht.route.stack.map((x) => x.handle.name);
+      if (!namen.includes("requirePermissionMiddleware")) {
+        ohne.push(`${methode.toUpperCase()} ${schicht.route.path}`);
+      }
+    }
+    assert.deepStrictEqual(
+      ohne, [],
+      "Diese schreibenden Routen tragen keine Berechtigungspruefung. `requireScope` " +
+      "ist keine: es prueft nur API-Key-Scopes und laesst jede Sitzung durch."
     );
   });
 });

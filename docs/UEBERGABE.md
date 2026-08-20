@@ -555,6 +555,82 @@ Aufgefallen ist es, weil eine zusätzliche `await`-Runde im Spion eine zuvor
 grüne Route auf „schreibt nichts" umschlagen ließ. Die Probe wartet jetzt,
 bis der Handler wirklich zu Ende ist.
 
+### P1-20 · Der Statuswechsel verlangte weniger als die Titeländerung *(geschlossen)*
+
+`POST /requisitions/:id/transition` trug **keine** Berechtigungsprüfung.
+`requireScope("write:requisitions")` sieht nach einer aus — es prüft aber
+ausschließlich API-Key-Scopes und lässt **jede Sitzung ungefragt durch**
+(`apiKeyAuth.js:153`: `if (!req.isApiKeyAuth) return next();`). Für einen
+angemeldeten Nutzer stand dort also nur `requireAuth` plus die Org-Grenze.
+
+Das Ergebnis war eine **umgekehrte Rangfolge**: ein Feld zu ändern verlangte
+`requisition.edit`, den Status auf `CANCELLED` zu setzen verlangte nichts. Jede
+Mitgliedschaft der Organisation — bis hinunter zu `viewer` — konnte die
+Ausschreibung durch ihren gesamten Lebenszyklus schieben und sie beenden.
+
+**Dass das kein Vorsatz war, sagt der Katalog.** `requisition.cancel` steht dort
+seit jeher, mit einer **eigenen, engeren** Rollenliste (`rbacService.js:30` —
+`owner, admin, program_manager, hiring_manager`, ohne `recruiter`) — und war an
+**keiner einzigen Stelle** verdrahtet. Die Berechtigung fürs Stornieren
+existierte, sie hing nur an nichts. Damit war es keine Produktfrage mehr,
+sondern eine unverdrahtete Wache.
+
+Drei Routen trugen die Lücke; sie sind unterschiedlich geschlossen, weil sie
+unterschiedlich schwer wiegen:
+
+| Route | jetzt | Begründung |
+|---|---|---|
+| `/transition` | `requisition.edit`, für `CANCELLED` zusätzlich `requisition.cancel` | Stornieren beendet den Vorgang — der Katalog unterscheidet das seit jeher |
+| `/submit` | `requisition.edit` | landet über `submitForApproval` in derselben `transitionStatus` |
+| `/comment` | `requisition.view` | **bewusst weiter**: Kommentieren ist Zusammenarbeit, keine Bearbeitung |
+
+Bei `/comment` wäre `requisition.edit` der Fehler in die andere Richtung
+gewesen: es hätte Einkauf, Disposition und Lieferantenbetreuung ausgesperrt, die
+genau dafür da sind. Geschlossen wird trotzdem etwas — wer **gar keine**
+Requisitions-Berechtigung hat (Arbeiter, Lieferantenkonten), schreibt nicht mehr
+in die Ausschreibungen einer fremden Organisation.
+
+Drei Mutationen — Wache auf `/transition` entfernen, die Storno-Sonderprüfung
+entfernen, die Kommentar-Wache entfernen — machen die Tests alle rot.
+
+### Die vierte anonyme Wache — und diesmal die zentrale
+
+`requirePermission` gab eine **namenlose** Closure zurück. Das ist derselbe Fund
+wie bei `supportAuth`, `ownerControlAuth` und dem Präfix-Tor — nur trifft er hier
+die Berechtigungsprüfung der **gesamten Plattform**.
+
+Die Folge ist im Bestand zu besichtigen: `rbac-hardening.test.js` konnte nicht
+fragen *„trägt diese Route eine Berechtigungsprüfung?"*, sondern nur Middleware
+**zählen** — `assert.ok(names.length >= 2)`. Eine Route ohne Prüfung sah damit
+aus wie eine mit. **Genau deshalb blieb P1-20 so lange unentdeckt.**
+
+`requirePermission` und `requireRole` sind jetzt benannt. Erst dadurch ist der
+neue Wächter überhaupt formulierbar: *jede schreibende Requisitions-Route trägt
+`requirePermissionMiddleware`* — eine Regel statt einer Aufzählung.
+
+> **Merksatz, viermal in einer Welle bestätigt:** Ein Middleware ohne Namen ist
+> für jede Strukturprüfung unsichtbar. `return async function name(req, res, next)`
+> statt `return async (req, res, next)` ist Teil der Absicherung, nicht Kosmetik.
+
+### P1-21 — was die Messung *nicht* sagt
+
+Mit dem Namen ließ sich erstmals zählen: **27 von 82 Route-Dateien** rufen
+`requirePermission` überhaupt auf; über den ganzen Bestand tragen mehrere hundert
+schreibende Routen keine.
+
+**Diese Zahl ist kein Befund.** Die meisten dieser Routen sind korrekt bewacht,
+nur anders: `staffControlCenter` (50) hängt an `staffControlAccess`,
+`workerPortal` (25) an `requireWorkerRole`, `internal` (28) an den
+`internal.*`-Rechten, `me.js` (13) betrifft nur eigene Daten, `marketplace` (20)
+und `capacityExchange` (14) binden über `canAccessAsOwner`. Ein Wächter, der
+pauschal `requirePermission` einfordert, produziert dort Falschmeldungen — genau
+die Falle, vor der die Arbeitsregel dieser Welle warnt.
+
+Was es bräuchte, ist dieselbe Arbeit wie beim Org-Grenzen-Register: **je Fläche
+benennen, welche Wache dort die richtige ist**, und das prüfbar machen. Das ist
+eine eigene Welle, kein Nebenbei-Schritt — deshalb steht sie als P1-21 in
+`docs/PILOT_GO_LIVE_TODOS.md` und nicht in diesem Commit.
+
 ### D-M4 / D-M5 · Zusammenarbeit innerhalb einer Firma *(entschieden und umgesetzt)*
 
 Beide Fragen stellten dasselbe an zwei Stellen: **darf eine Kollegin derselben
@@ -607,13 +683,8 @@ Dienstfunktionen. Ein Mantel bildet den inneren Transaktionsblock von
 
 ### Zwei Beobachtungen am Rand, die jemand aufgreifen sollte
 
-**P1-20 — `POST /requisitions/:id/transition` trägt keine Berechtigungsprüfung.**
-Die Route hat `requireAuth` + `requireScope("write:requisitions")` + Org-Grenze,
-aber **kein** `requirePermission`. Die *schwächere* Aktion (Feld ändern) verlangt
-`requisition.edit`, die *folgenschwerere* (Status auf `CANCELLED` setzen)
-verlangt nichts. Bei D-M4 fiel das auf, wurde aber **nicht** mitrepariert:
-eine Berechtigung nachträglich zu fordern **verengt** Zugriff und kann laufende
-Abläufe brechen — das ist eine eigene Entscheidung, kein Nebenbei-Fix.
+**P1-20** — bei D-M4 aufgefallen, inzwischen **geschlossen** (eigener Abschnitt
+oben): `POST /requisitions/:id/transition` trug keine Berechtigungsprüfung.
 
 **M0-B9 — ein roter Integrationstest aus Welle G4b.**
 `g4bKundenMeldung.flow.test.js` → „die erlaubten severity-Werte stimmen mit der
@@ -744,7 +815,7 @@ Klartext.
 |---|---|
 | **Demo-Compose** (`cde6c42`) | War **nie** startfähig (nicht „seit P0-08"): Die Datei entstand einen Monat nach dem Guard, den sie verletzt. Schwerer: Sie wird **ausgeliefert** und öffnete beim Kunden alle Plan-Gates — der CI-Wächter dagegen durchsucht nur `.env*`. Dazu der `release-package.sh`-Fehler, durch den `.claude/` ins Artefakt kam (die `EXCLUDE_LIST` galt nur im Fallback-Zweig). Wächter: `composeStartfaehig.test.js` |
 | **NOT_AUTH** (`61d2091`) | Nicht „alle Portalseiten", sondern **genau die G5-Seite**. Und kein Konsolen-Problem: Sie blieb für Abgemeldete **dauerhaft weiß**, ohne Weg zum Login — ausgerechnet der Notfallweg. Siebenmal kopiert, beim achten Mal vergessen. |
-| **H2 — Mandantengrenzen** | Die Entscheidung **D-M1 ist gefallen: Wächter, nicht konsolidieren.** Die fünf Lücken des Plans sind geschlossen — **und der Wächter fand über alle 82 Route-Dateien hinweg zwölf weitere**. Siebzehn Lücken, nicht fünf. Die schwersten kamen zuletzt und lagen zu dritt in **einer** Datei: DSGVO-Vollexport eines Fremden (E-20), fremdes Konto anonymisieren (E-17), fremde Betroffenenanfrage schließen (E-18); dazu der Verteilplan fremder Ausschreibungen, lesbar **und weiterschaltbar** (E-19). Alle geschlossen und gegen das echte Schema bewiesen, ebenso E-14 (Matching) und E-11 (`canAccessAsOwner`, das seit jeher nur den einen anlegenden Menschen durchliess). **Kein offener Sicherheitsbefund mehr** — offen sind nur noch Produktfragen (P1-19, P1-20) und ein roter Test aus Welle G4b (M0-B9). Details unten. |
+| **H2 — Mandantengrenzen** | Die Entscheidung **D-M1 ist gefallen: Wächter, nicht konsolidieren.** Die fünf Lücken des Plans sind geschlossen — **und der Wächter fand über alle 82 Route-Dateien hinweg zwölf weitere**. Siebzehn Lücken, nicht fünf. Die schwersten kamen zuletzt und lagen zu dritt in **einer** Datei: DSGVO-Vollexport eines Fremden (E-20), fremdes Konto anonymisieren (E-17), fremde Betroffenenanfrage schließen (E-18); dazu der Verteilplan fremder Ausschreibungen, lesbar **und weiterschaltbar** (E-19). Alle geschlossen und gegen das echte Schema bewiesen, ebenso E-14 (Matching) und E-11 (`canAccessAsOwner`, das seit jeher nur den einen anlegenden Menschen durchliess). **Kein offener Sicherheitsbefund mehr** — offen sind nur noch P1-19 (Produktfrage), P1-21 (eigene Welle) und ein roter Test aus Welle G4b (M0-B9). Details unten. |
 
 ### Zwei Blocker, die nur der Owner lösen kann
 

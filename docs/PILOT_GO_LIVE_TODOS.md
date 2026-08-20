@@ -334,22 +334,46 @@ systematisch falsche Treffer. (b) ist also ein Feature, kein Umbenennen.
 **Aufwand:** (a) 30 Minuten · (b) 1–2 Tage ·
 **Verify:** `orgGrenzenWaechter` + `matchingEngine.coverage.test.js`.
 
-### P1-20 — Statuswechsel einer Ausschreibung ohne Berechtigungsprüfung
+### ~~P1-20 — Statuswechsel einer Ausschreibung ohne Berechtigungsprüfung~~ ✅ ERLEDIGT (2026-08-20)
 
-**Status:** offen (Produkt-/Berechtigungsfrage) · **Fakt:**
-`POST /requisitions/:id/transition` (`routes/requisitions.js:151`) trägt
-`requireAuth` + `requireScope("write:requisitions")` + Org-Grenze, aber **kein**
-`requirePermission`. Die schwächere Aktion — ein Feld ändern — verlangt
-`requisition.edit` (`:127`); die folgenschwerere — den Status auf `CANCELLED`
-setzen — verlangt nichts.
-**Warum nicht mitrepariert:** bei D-M4 aufgefallen, aber eine Berechtigung
-nachträglich zu FORDERN verengt Zugriff und kann laufende Abläufe brechen. Das
-ist eine eigene Entscheidung, kein Nebenbei-Fix.
-**Aktion:** Owner entscheidet, welche Berechtigung der Statuswechsel braucht
-(`requisition.edit`? eine eigene `requisition.transition`?) und ob einzelne
-Übergänge — etwa `CANCELLED` — mehr verlangen als die übrigen.
-**Aufwand:** Entscheidung 15 Minuten, Umsetzung 1 Stunde ·
-**Verify:** `rbac-hardening.test.js` um die Route erweitern.
+**Es war keine Produktfrage.** `requisition.cancel` steht seit jeher im
+Berechtigungskatalog (`rbacService.js:30`) — mit einer eigenen, engeren
+Rollenliste — und war an **keiner einzigen Stelle** verdrahtet. Die Wache
+existierte, sie hing nur an nichts.
+
+Dazu kam: `requireScope("write:requisitions")` sieht wie eine Prüfung aus, lässt
+aber **jede Sitzung** durch (`apiKeyAuth.js:153`) — es gilt nur für API-Keys.
+Drei Routen standen damit offen: `/transition`, `/submit`, `/comment`.
+Geschlossen mit `requisition.edit` (Statuswechsel, Einreichen),
+`requisition.cancel` zusätzlich für `CANCELLED`, und bewusst nur
+`requisition.view` fürs Kommentieren.
+
+**Vierte anonyme Wache dieser Welle:** `requirePermission` gab eine namenlose
+Closure zurück. Deshalb konnte `rbac-hardening.test.js` nur Middleware **zählen**
+(`assert.ok(names.length >= 2)`) statt sie zu benennen — eine Route ohne Prüfung
+sah aus wie eine mit. `requirePermission` und `requireRole` sind jetzt benannt.
+
+### P1-21 — Welche Wache gehört auf welche Fläche? (eigene Welle)
+
+**Status:** offen · **Fakt:** Mit dem Namen liess sich erstmals zählen: **27 von
+82** Route-Dateien rufen `requirePermission` überhaupt auf; mehrere hundert
+schreibende Routen tragen keine.
+
+**Diese Zahl ist ausdrücklich KEIN Befund.** Die meisten dieser Routen sind
+korrekt bewacht, nur anders: `staffControlCenter` (50) hängt an
+`staffControlAccess`, `workerPortal` (25) an `requireWorkerRole`, `internal` (28)
+an den `internal.*`-Rechten, `me.js` (13) betrifft nur eigene Daten,
+`marketplace` (20) und `capacityExchange` (14) binden über `canAccessAsOwner`.
+Ein Wächter, der pauschal `requirePermission` einfordert, produziert dort
+Falschmeldungen — genau die Falle, vor der die Arbeitsregel von Welle H2 warnt
+(„Wächter positiv formulieren").
+
+**Aktion:** dieselbe Arbeit wie beim Org-Grenzen-Register — je Fläche benennen,
+welche Wache dort die richtige ist, und das prüfbar machen. Das Register
+`api/test/fixtures/orgGrenzen.json` ist die Vorlage: es beantwortet dieselbe
+Frage für die Mandantengrenze und führt 82 von 82 Dateien.
+**Aufwand:** eine Welle (vergleichbar mit H2) ·
+**Verify:** ein Berechtigungs-Register mit Sperrklinke, analog zum Org-Register.
 
 ### M0-B9 — Ein roter Integrationstest aus Welle G4b
 
