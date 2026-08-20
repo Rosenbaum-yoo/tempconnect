@@ -1012,51 +1012,35 @@ describe("E-14 · GET /matching/supply/:id — fremdes, nicht ausgespieltes Ange
 });
 
 /* ═════════════════════════════════════════════════════════════════════════
-   E-21 · GET /matching/worker/:id hat nie funktioniert
+   E-21 · GET /matching/worker/:id hat nie funktioniert — ENTFERNT
    ═════════════════════════════════════════════════════════════════════════
 
-   `matchWorkerToAssignments` liest `FROM workers`. Diese Tabelle hat KEINE
-   Migration je angelegt — gegen die laufende Datenbank gemessen antwortet
-   Postgres mit 42P01 ("relation does not exist"). Der Weg endet seit jeher in
-   500. Kein Frontend, kein E2E-Lauf und keine Dokumentationsseite ruft ihn auf.
+   Hier standen zwei Zusicherungen darauf, dass `matchWorkerToAssignments` die
+   Org im SQL traegt — eine Vorsichtsmassnahme fuer den Tag, an dem jemand die
+   fehlende Tabelle `workers` anlegt.
 
-   Ob er entfernt oder auf `worker_profiles` gebaut wird, ist eine
-   Produktentscheidung (P1-19) und wird hier nicht geraten: `worker_profiles`
-   hat weder `role` noch Koordinaten, die Bewertung der Engine liefe also ins
-   Leere und wuerde systematisch falsche Treffer erzeugen.
+   Mit Befund P1-19 ist der Weg entfernt statt abgesichert: er hat nie
+   funktioniert (keine Migration hat `workers` je angelegt), niemand rief ihn
+   auf, und der SQL-Schema-Waechter fuehrte ihn selbst als "Altbestand — die
+   Arbeiterdaten liegen in worker_profiles". Damit ist auch das schlafende Leck
+   weg, statt nur bewacht.
 
-   Was NICHT wartet: die Bindung. Ohne sie waere die Abfrage am Tag, an dem
-   jemand eine `workers`-Tabelle anlegt, sofort ein ungebundener
-   org-uebergreifender Lesezugriff — ein schlafendes Leck, das niemand mit dem
-   Anlegen der Tabelle in Verbindung braechte. */
+   Die Frage wandert dorthin, wo sie ab jetzt hingehoert: kommt der tote Weg
+   zurueck? Vier Zusicherungen antworten darauf —
+   `matchingEngine.coverage.test.js` (zweimal), `rbac-hardening.test.js`,
+   `security/rbac-security.test.js` und `sqlSchemaWaechter.test.js`. Gemessen an
+   einer simulierten Rueckkehr werden alle rot.
 
-describe("E-21 · matchWorkerToAssignments — die Bindung steht vor der Tabelle", () => {
-  it("traegt die Org im SQL, sobald ein Betrachter bekannt ist", async () => {
-    const pool = spionPool({ zeile: null });
-    await engine.matchWorkerToAssignments(pool, "w-fremd", { viewerOrgId: ORG_A });
+   Die eine Zusicherung, die hier bleibt, ist die, die den Befund selbst
+   festhaelt: es gibt kein SQL mehr gegen diese Tabelle. */
 
-    const abfrage = pool.calls.find((c) => /FROM workers/i.test(c.sql));
-    assert.ok(abfrage, "es muss ueberhaupt gefragt werden");
-    assert.ok(
-      abfrage.params.some((p) => String(p) === String(ORG_A)),
-      "ohne die Org in den Parametern kann die Grenze nicht greifen"
+describe("E-21 · matchWorkerToAssignments — entfernt statt abgesichert", () => {
+  it("die Engine bietet die Funktion nicht mehr an", () => {
+    assert.equal(
+      engine.matchWorkerToAssignments, undefined,
+      "Wer sie wieder einfuehrt, baut ein Feature: `worker_profiles` hat weder " +
+      "`role` noch Koordinaten, die Bewertung der Engine liefe ins Leere."
     );
-    assert.match(
-      abfrage.sql, /supplier_org_id\s*=\s*\$\d/i,
-      "die Bindung gehoert ins WHERE — sie muss VOR der Tabelle da sein, nicht nach ihr"
-    );
-  });
-
-  it("ohne Betrachter (Hintergrundlauf) bleibt es beim alten Verhalten", async () => {
-    /* Cron- und Trigger-Laeufe haben keine Mandantensicht, die man verletzen
-       koennte. Eine Bindung, die dort greift, wuerde die Hintergrundarbeit
-       stilllegen — genau die Sorte Reparatur, die schlimmer ist als der Befund. */
-    const pool = spionPool({ zeile: null });
-    await engine.matchWorkerToAssignments(pool, "w1", {});
-
-    const abfrage = pool.calls.find((c) => /FROM workers/i.test(c.sql));
-    assert.ok(abfrage);
-    assert.deepStrictEqual(abfrage.params, ["w1"], "kein zusaetzlicher Parameter");
   });
 });
 

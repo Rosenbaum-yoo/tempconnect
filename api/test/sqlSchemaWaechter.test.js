@@ -698,8 +698,6 @@ const BESTAND = new Set([
    * eines Lieferantenpools werfen beim Schreiben UND beim Lesen. */
   "services/vendorPoolService.js::vendor_pool_history",
   "services/vendorPoolService.js::vendor_pool_notes",
-  /* workers: Altbestand. Die Arbeiterdaten liegen in worker_profiles. */
-  "services/matchingEngine.js::workers",
   /* state_transitions: fehlt; der Aufruf steht in try/catch und liefert damit
    * stumm eine LEERE Zeitleiste statt eines Fehlers — die gefaehrlichste
    * Variante, weil die Oberflaeche plausibel aussieht. */
@@ -738,8 +736,6 @@ const BESTAND = new Set([
   "services/capacityExchangeService.js::supplier_reputation.score",
   "services/instantMatchService.js::supplier_reputation.org_id",
   "services/instantMatchService.js::supplier_reputation.overall_score",
-  "services/matchingEngine.js::supplier_reputation.org_id",
-  "services/matchingEngine.js::supplier_reputation.overall_score",
 
   /* ── Stundenzettel-Vorlagen: is_default gibt es nicht (weder Lesen noch
    * Schreiben), timesheet_template_fields heisst field_label statt label und

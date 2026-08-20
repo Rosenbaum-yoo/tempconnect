@@ -102,41 +102,27 @@ export function createMatchingRouter(deps) {
     }
   });
 
-  // GET /api/matching/worker/:id — find assignments for a specific worker
-  router.get("/matching/worker/:id", requireAuth, rperm("requisition.view"), async (req, res) => {
-    try {
-      // Befund E-21 (2026-08-20): dieser Weg hat NIE funktioniert — die Engine
-      // liest `FROM workers`, und diese Tabelle hat keine Migration je angelegt
-      // (gemessen gegen die laufende Datenbank: 42P01). Der Aufruf endet seit
-      // jeher in 500. Ob der Weg entfernt oder auf `worker_profiles` gebaut
-      // wird, ist eine Produktentscheidung (P1-19) und wird hier nicht geraten.
-      //
-      // Was hier dennoch passiert: die Org-Bindung wird JETZT durchgereicht.
-      // Ohne sie waere der Weg am Tag, an dem jemand eine `workers`-Tabelle
-      // anlegt, sofort ein ungebundener org-uebergreifender Lesezugriff — ein
-      // schlafendes Leck. Mit ihr kann er das nicht mehr werden.
-      const matches = await engine.matchWorkerToAssignments(pool, req.params.id, {
-        topN: Number(req.query.limit) || 25,
-        minScore: Number(req.query.min_score) || 1,
-        viewerOrgId: req.orgId || null
-      });
-      for (const m of matches.slice(0, 10)) {
-        engine.logMatch(pool, {
-          match_type: "worker_assignment",
-          source_id: req.params.id,
-          target_id: m.entity?.id,
-          score: m.score,
-          reasons: m.reasons,
-          outcome: "suggested",
-          org_id: req.orgId || null
-        }).catch(swallow("matching"));
-      }
-      res.json({ worker_id: req.params.id, count: matches.length, matches: attachExplanations(matches) });
-    } catch (err) {
-      logger.error({ err: err.message }, "GET /matching/worker/:id");
-      res.status(500).json({ error: "SERVER_ERROR" });
-    }
-  });
+  /* Befund P1-19 (entfernt 2026-08-20): hier lag `GET /matching/worker/:id`.
+     Die Route rief `matchWorkerToAssignments`, und diese las `FROM workers` —
+     eine Tabelle, die KEINE Migration je angelegt hat. Gegen die laufende
+     Datenbank gemessen antwortete Postgres mit 42703; der Weg endete seit jeher
+     in 500. Kein Frontend, kein E2E-Lauf und keine Dokumentationsseite rief ihn
+     auf.
+
+     Nicht repariert, sondern entfernt — aus drei Gruenden:
+       1. Der Schema-Waechter fuehrte den Fall selbst als "workers: Altbestand.
+          Die Arbeiterdaten liegen in worker_profiles." Das Projekt hatte die
+          Frage also laengst beantwortet.
+       2. Auf `worker_profiles` zu bauen waere kein Umbenennen, sondern ein
+          Feature: dort gibt es weder `role` noch Koordinaten, und die Bewertung
+          der Engine (Rollen- und Geo-Treffer) liefe ins Leere. CLAUDE.md
+          verbietet spekulative Features.
+       3. Eine Route, die dauerhaft 500 antwortet, ist ein toter Pfad — und war
+          zugleich ein schlafendes Leck: am Tag, an dem jemand eine
+          `workers`-Tabelle anlegt, waere daraus ein ungebundener
+          org-uebergreifender Lesezugriff geworden.
+
+     Dass sie nicht zurueckkehrt, haelt `matchingEngine.coverage.test.js` fest. */
 
   /* ═══════════════════════════════════════════════════════
      Instant Match — Premium Enriched Matching

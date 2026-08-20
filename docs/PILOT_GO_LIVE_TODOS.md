@@ -314,25 +314,23 @@ unvollständig ist, ein Passwort fehlt oder der Vorgang vier Stunden dauert.
 - Tier-2 erledigt (2026-06-05) via `126_rls_forward_repair.sql`: NICHT-transaktional, EIN per-`to_regclass` abgesicherter `DO`-Block pro Tabelle (requisitions/timesheets/invoices/org_memberships/compliance_documents/subscription_requests/commercial_offers/audit_log; vendor_pool_entries als out-of-scope-Guard) — CREATE OR REPLACE der Helfer `current_org_id()`/`is_staff_context()`, dann je Tabelle ENABLE RLS + DROP der IS-NULL-Wildcards + DROP/CREATE same_org & staff_bypass (USING-Klauseln 1:1 aus 031/116), FORCE RLS nur auf req/ts/inv. Idempotent (DROP IF EXISTS + identisches CREATE), resilient (ein fehlendes Objekt ueberspringt nur SEINEN Block, reisst nie den Backstop mit), auf Bestands-DBs erstmals wirksam, auf frischen DBs folgenloser No-Op. `subscriptions`-RLS-Exclusion bestaetigt (user-skaliert via user_id, kein org_id; eine Membership-Bruecke wuerde persoenliche Billing-Daten cross-org leaken — Schutz bleibt App-Layer). **AKTIVIERUNGS-HINWEIS:** 126 schaltet Deny-by-Default + FORCE RLS beim NAECHSTEN migrate-Lauf gegen Bestands-/Managed-DBs scharf. Lokal ist `tempconnect` Superuser → RLS-inert (kein Breakage); auf Managed-DB (Nicht-Superuser-App-User) wird der Backstop real wirksam = gewollter Mandanten-Schutz.
 ## P1 - Vor Pilotkunde (Summe 2-3 Personentage)
 
-### P1-19 — `GET /matching/worker/:id` liest eine Tabelle, die es nicht gibt
+### ~~P1-19 — `GET /matching/worker/:id` liest eine Tabelle, die es nicht gibt~~ ✅ ERLEDIGT (2026-08-20)
 
-**Status:** offen (Produktfrage) · **Fakt:** `matchWorkerToAssignments` liest
-`FROM workers` (`matchingEngine.js:409`). **Keine Migration hat diese Tabelle je
-angelegt** — gegen die laufende Datenbank gemessen antwortet Postgres mit
-`42P01`. Der Weg endet seit jeher in 500. Kein Frontend, kein E2E-Lauf und keine
-Dokumentationsseite ruft ihn auf.
-**Was bereits erledigt ist:** die Org-Bindung steht im SQL
-(`AND supplier_org_id = $2`, sobald ein Betrachter bekannt ist). Ohne sie wäre
-die Abfrage an dem Tag, an dem jemand eine `workers`-Tabelle anlegt, sofort ein
-ungebundener org-übergreifender Lesezugriff — ein schlafendes Leck. Das ist
-unabhängig von der Produktfrage und deshalb nicht vertagt worden.
-**Aktion:** Owner entscheidet zwischen (a) Route und Engine-Funktion entfernen —
-sauber, weil nichts sie aufruft — oder (b) auf `worker_profiles` bauen. Bei (b)
-ist zu beachten: `worker_profiles` hat weder `role` noch Koordinaten; die
-Bewertung der Engine (Rollen- und Geo-Treffer) liefe ins Leere und erzeugte
-systematisch falsche Treffer. (b) ist also ein Feature, kein Umbenennen.
-**Aufwand:** (a) 30 Minuten · (b) 1–2 Tage ·
-**Verify:** `orgGrenzenWaechter` + `matchingEngine.coverage.test.js`.
+**Entfernt, nicht gebaut.** Ausschlaggebend war, dass das Projekt die Frage
+längst beantwortet hatte: der SQL-Schema-Wächter führte den Fall selbst als
+„workers: Altbestand. Die Arbeiterdaten liegen in `worker_profiles`." Es war kein
+unfertiges Feature, sondern ein Rest. Auf `worker_profiles` zu bauen wäre ein
+Feature gewesen — dort gibt es weder `role` noch Koordinaten, und die Bewertung
+der Engine ruht auf genau diesen beiden.
+
+Mit der Funktion fiel `getReputationScore` weg (kein anderer Aufrufer), und mit
+beiden drei Einträge der Ausnahmeliste des Schema-Wächters — den er **selbst
+eingefordert** hat, weil er Einträge meldet, die nicht mehr auftreten. Das ist
+der Beweis, der bei P1-17 fehlte.
+
+Die neun Coverage-Tests wurden nicht gelöscht, sondern umgestellt auf die Frage,
+die ab jetzt zählt: kommt der tote Weg zurück? Vier Zusicherungen antworten
+darauf, gemessen an einer simulierten Rückkehr — alle vier werden rot.
 
 ### ~~P1-20 — Statuswechsel einer Ausschreibung ohne Berechtigungsprüfung~~ ✅ ERLEDIGT (2026-08-20)
 

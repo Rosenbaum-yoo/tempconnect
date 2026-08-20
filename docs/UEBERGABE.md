@@ -505,7 +505,7 @@ Kapazitätsregel, und das Entfernen der Klärung — werden alle rot.
 > Die drei Gegenproben wiegen hier schwerer als die Hauptproben. Eine Reparatur,
 > die den Marktplatz zumacht, wäre schlimmer als der Befund gewesen.
 
-### E-21 · `GET /matching/worker/:id` hat nie funktioniert *(gebunden — Rest ist P1-19)*
+### E-21 · `GET /matching/worker/:id` hat nie funktioniert *(geschlossen: entfernt, siehe P1-19)*
 
 `matchWorkerToAssignments` liest `FROM workers`. **Diese Tabelle hat keine
 Migration je angelegt** — gegen die laufende Datenbank gemessen antwortet
@@ -554,6 +554,63 @@ unterbliebenen gehalten: **ein falsches Grün für jede `catchAsync`-Route.**
 Aufgefallen ist es, weil eine zusätzliche `await`-Runde im Spion eine zuvor
 grüne Route auf „schreibt nichts" umschlagen ließ. Die Probe wartet jetzt,
 bis der Handler wirklich zu Ende ist.
+
+### P1-19 · `GET /matching/worker/:id` — entfernt statt repariert *(erledigt)*
+
+Die Route rief `matchWorkerToAssignments`, und diese las `FROM workers` — eine
+Tabelle, die **keine Migration je angelegt hat**. Gegen die laufende Datenbank
+gemessen: `42703`. Der Weg endete seit jeher in 500; kein Frontend, kein
+E2E-Lauf und keine Dokumentationsseite rief ihn auf.
+
+**Entfernt, nicht gebaut** — aus drei Gründen, von denen der erste der stärkste
+ist:
+
+1. **Das Projekt hatte die Frage längst beantwortet.** Der SQL-Schema-Wächter
+   führte den Fall selbst, mit Begründung: *„workers: Altbestand. Die
+   Arbeiterdaten liegen in `worker_profiles`."* Es war kein unfertiges Feature,
+   sondern ein Rest.
+2. **Auf `worker_profiles` zu bauen wäre kein Umbenennen, sondern ein Feature.**
+   Dort gibt es weder `role` noch Koordinaten; die Bewertung der Engine ruht auf
+   genau diesen beiden (Rollen- und Geo-Treffer) und liefe ins Leere. CLAUDE.md
+   verbietet spekulative Features ausdrücklich.
+3. **Eine Route, die dauerhaft 500 antwortet, ist ein toter Pfad** — und war
+   zugleich ein *schlafendes* Leck: am Tag, an dem jemand eine `workers`-Tabelle
+   anlegt, wäre daraus ein ungebundener org-übergreifender Lesezugriff geworden.
+
+Mit der Funktion fiel auch `getReputationScore` weg — sie hatte keinen anderen
+Aufrufer.
+
+**Der Wächter hat die Aufräumung erzwungen und bewiesen.** Der SQL-Schema-Wächter
+meldet Einträge seiner Ausnahmeliste, die *nicht mehr auftreten*. Nach der
+Entfernung nannte er von sich aus genau die drei, die jetzt stale waren:
+
+```
+services/matchingEngine.js::workers
+services/matchingEngine.js::supplier_reputation.org_id
+services/matchingEngine.js::supplier_reputation.overall_score
+```
+
+**Das ist der Beweis, der bei P1-17 fehlte.** Dort hatte ich eine Ausnahmezeile
+gestrichen und nichts damit belegt — die Prüfung sah den Fall danach gar nicht
+mehr. Hier fordert sie die Streichung selbst ein.
+
+**Die Tests wurden nicht gelöscht, sondern umgestellt.** Neun Prüfungen in
+`matchingEngine.coverage.test.js` prüften die Arithmetik einer Funktion, die in
+Wirklichkeit nach ihrer ersten Abfrage abbrach — grün nur, weil der Mock-Pool
+jede Tabelle bestätigt. An ihre Stelle tritt die Frage, die ab jetzt zählt:
+**kommt der tote Weg zurück?** Vier Zusicherungen antworten darauf, gemessen an
+einer simulierten Rückkehr — alle vier werden rot:
+
+| Zusicherung | fängt |
+|---|---|
+| `matchingEngine.coverage`: „die Engine bietet die Funktion nicht mehr an" | die Funktion kehrt zurück |
+| `matchingEngine.coverage`: „keine Abfrage liest mehr `FROM workers`" | das SQL kehrt zurück |
+| `rbac-hardening`: „die Route gibt es nicht mehr" | die Route kehrt zurück |
+| `sqlSchemaWaechter` | jede Abfrage gegen eine unbekannte Tabelle |
+
+Die Sperrklinke des Org-Registers sinkt dabei von 257 auf 256 — bewusst und
+begründet im Register vermerkt: **eine Route, die es nicht mehr gibt, kann nicht
+geprüft werden.**
 
 ### P1-20 · Der Statuswechsel verlangte weniger als die Titeländerung *(geschlossen)*
 
@@ -815,7 +872,7 @@ Klartext.
 |---|---|
 | **Demo-Compose** (`cde6c42`) | War **nie** startfähig (nicht „seit P0-08"): Die Datei entstand einen Monat nach dem Guard, den sie verletzt. Schwerer: Sie wird **ausgeliefert** und öffnete beim Kunden alle Plan-Gates — der CI-Wächter dagegen durchsucht nur `.env*`. Dazu der `release-package.sh`-Fehler, durch den `.claude/` ins Artefakt kam (die `EXCLUDE_LIST` galt nur im Fallback-Zweig). Wächter: `composeStartfaehig.test.js` |
 | **NOT_AUTH** (`61d2091`) | Nicht „alle Portalseiten", sondern **genau die G5-Seite**. Und kein Konsolen-Problem: Sie blieb für Abgemeldete **dauerhaft weiß**, ohne Weg zum Login — ausgerechnet der Notfallweg. Siebenmal kopiert, beim achten Mal vergessen. |
-| **H2 — Mandantengrenzen** | Die Entscheidung **D-M1 ist gefallen: Wächter, nicht konsolidieren.** Die fünf Lücken des Plans sind geschlossen — **und der Wächter fand über alle 82 Route-Dateien hinweg zwölf weitere**. Siebzehn Lücken, nicht fünf. Die schwersten kamen zuletzt und lagen zu dritt in **einer** Datei: DSGVO-Vollexport eines Fremden (E-20), fremdes Konto anonymisieren (E-17), fremde Betroffenenanfrage schließen (E-18); dazu der Verteilplan fremder Ausschreibungen, lesbar **und weiterschaltbar** (E-19). Alle geschlossen und gegen das echte Schema bewiesen, ebenso E-14 (Matching) und E-11 (`canAccessAsOwner`, das seit jeher nur den einen anlegenden Menschen durchliess). **Kein offener Sicherheitsbefund mehr** — offen sind nur noch P1-19 (Produktfrage), P1-21 (eigene Welle) und ein roter Test aus Welle G4b (M0-B9). Details unten. |
+| **H2 — Mandantengrenzen** | Die Entscheidung **D-M1 ist gefallen: Wächter, nicht konsolidieren.** Die fünf Lücken des Plans sind geschlossen — **und der Wächter fand über alle 82 Route-Dateien hinweg zwölf weitere**. Siebzehn Lücken, nicht fünf. Die schwersten kamen zuletzt und lagen zu dritt in **einer** Datei: DSGVO-Vollexport eines Fremden (E-20), fremdes Konto anonymisieren (E-17), fremde Betroffenenanfrage schließen (E-18); dazu der Verteilplan fremder Ausschreibungen, lesbar **und weiterschaltbar** (E-19). Alle geschlossen und gegen das echte Schema bewiesen, ebenso E-14 (Matching) und E-11 (`canAccessAsOwner`, das seit jeher nur den einen anlegenden Menschen durchliess). **Kein offener Sicherheitsbefund mehr** — offen sind nur noch P1-21 (eigene Welle) und ein roter Test aus Welle G4b (M0-B9). Details unten. |
 
 ### Zwei Blocker, die nur der Owner lösen kann
 

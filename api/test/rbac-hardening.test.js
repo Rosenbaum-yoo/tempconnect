@@ -834,9 +834,16 @@ describe("F-009: Matching — structural RBAC on all endpoints", () => {
     assert.ok(names.length >= 2);
   });
 
-  it("GET /matching/worker/:id has requirePermission middleware", () => {
-    const names = getMiddlewareNamesExact(router, "get", "/matching/worker/:id");
-    assert.ok(names.length >= 2);
+  it("GET /matching/worker/:id gibt es nicht mehr (Befund P1-19)", () => {
+    /* Die Route las ueber `matchWorkerToAssignments` eine Tabelle, die keine
+       Migration je angelegt hat, und endete seit jeher in 500. Diese Zusicherung
+       ersetzt die alte ("traegt requirePermission") und haelt fest, dass der
+       tote Weg nicht zurueckkehrt. */
+    const pfade = router.stack.filter((l) => l.route).map((l) => l.route.path);
+    assert.ok(
+      !pfade.includes("/matching/worker/:id"),
+      "Wer sie wieder einfuehrt, braucht zuerst eine Datenquelle — siehe P1-19."
+    );
   });
 });
 

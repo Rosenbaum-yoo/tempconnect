@@ -377,125 +377,19 @@ export async function findMatches(pool, requestId, opts = {}) {
  * demand_requests and requisitions.
  * ═══════════════════════════════════════════════════════════════ */
 
-/**
- * Load reputation score for a supplier org from supplier_reputation.
- * Returns 0-10 numeric value; 0 if not found.
- */
-async function getReputationScore(pool, orgId) {
-  if (!orgId) return 0;
-  try {
-    const { rows } = await pool.query(
-      `SELECT overall_score FROM supplier_reputation WHERE org_id = $1 ORDER BY updated_at DESC LIMIT 1`,
-      [orgId]
-    );
-    return rows[0]?.overall_score ?? 0;
-  } catch {
-    return 0;
-  }
-}
-
-/**
- * Match a worker (by ID) against open demand requests + requisitions.
- * Worker profile is mapped to a capacity-like object; demands are scored.
- * @param {import('pg').Pool} pool
- * @param {string} workerId
- * @param {Object} [opts] - { topN, minScore }
- */
-export async function matchWorkerToAssignments(pool, workerId, opts = {}) {
-  const topN = opts.topN || 25;
-  const minScore = opts.minScore || 1;
-
-  /* Befund E-21/E-14 (2026-08-20): `workers` hat KEINE Migration je angelegt —
-     gegen die laufende Datenbank gemessen antwortet Postgres mit 42P01. Dieser
-     Weg endet also seit jeher in einem Fehler; ob er entfernt oder auf
-     `worker_profiles` gebaut wird, ist eine Produktentscheidung (P1-19).
-
-     Die Bindung steht trotzdem JETZT im SQL. Ohne sie waere die Abfrage am Tag,
-     an dem jemand eine `workers`-Tabelle anlegt, sofort ein ungebundener
-     org-uebergreifender Lesezugriff — ein schlafendes Leck, das niemand mehr
-     mit dem Anlegen der Tabelle in Verbindung braechte. Mit ihr kann sie das
-     nicht mehr werden.
-
-     Ohne Betrachter-Org (Hintergrundlauf, Cron) bleibt es beim alten Verhalten:
-     dort gibt es keine Mandantensicht, die man verletzen koennte. */
-  const viewerOrgId = opts.viewerOrgId ?? null;
-  const { rows: wRows } = viewerOrgId
-    ? await pool.query(
-        'SELECT * FROM workers WHERE id = $1 AND supplier_org_id = $2',
-        [workerId, viewerOrgId]
-      )
-    : await pool.query('SELECT * FROM workers WHERE id = $1', [workerId]);
-  const worker = wRows[0];
-  if (!worker) return [];
-
-  // Build capacity-like object from worker
-  const cap = {
-    role: worker.role || worker.position || '',
-    skill_tags: worker.skill_tags || worker.skills || [],
-    location_lat: worker.latitude ?? worker.location_lat,
-    location_lng: worker.longitude ?? worker.location_lng,
-    location_city: worker.city || worker.location_city || '',
-    radius_km: worker.radius_km || 50,
-    availability_from: worker.available_from || worker.availability_from,
-    availability_to: worker.available_to || worker.availability_to
-  };
-
-  // Reputation bonus for worker's org
-  const repScore = await getReputationScore(pool, worker.org_id || worker.supplier_org_id);
-  const repBonus = Math.round(repScore / 2); // 0-5 bonus points
-
-  // Load open demands + requisitions
-  const { rows: demands } = await pool.query(
-    `SELECT *, 'demand_request' AS _source FROM demand_requests WHERE status = 'open'`
-  );
-  const { rows: reqs } = await pool.query(
-    `SELECT *, 'requisition' AS _source FROM requisitions WHERE status IN ('OPEN','IN_REVIEW','SHORTLISTED')`
-  );
-
-  const scored = [];
-
-  // Einmal je Lauf, nicht je Kandidat (Welle 11).
-  const skillIndex = opts.skillIndex !== undefined ? opts.skillIndex : await loadSkillIndex(pool);
-
-  for (const dr of demands) {
-    const demand = {
-      role: dr.role,
-      skill_tags: dr.skill_tags || [],
-      latitude: dr.location_lat, longitude: dr.location_lng,
-      location_city: dr.location_city, radius_km: dr.radius_km,
-      start_date: dr.start_date, end_date: dr.end_date
-    };
-    let { score, reasons } = scoreMatch(demand, cap, { skillIndex });
-    if (repBonus > 0) {
-      score = Math.min(100, score + repBonus);
-      reasons.push({ factor: 'reputation', points: repBonus, max: 5, detail: `Reputation ${repScore}/10` });
-    }
-    if (score >= minScore) {
-      scored.push({ type: 'demand_request', entity: dr, score, reasons });
-    }
-  }
-
-  for (const req of reqs) {
-    const demand = {
-      role: req.role,
-      skill_tags: req.skill_tags || [],
-      latitude: req.latitude, longitude: req.longitude,
-      location_city: req.location_city, radius_km: req.radius_km,
-      start_date: req.start_date, end_date: req.end_date
-    };
-    let { score, reasons } = scoreMatch(demand, cap, { skillIndex });
-    if (repBonus > 0) {
-      score = Math.min(100, score + repBonus);
-      reasons.push({ factor: 'reputation', points: repBonus, max: 5, detail: `Reputation ${repScore}/10` });
-    }
-    if (score >= minScore) {
-      scored.push({ type: 'requisition', entity: req, score, reasons });
-    }
-  }
-
-  scored.sort((a, b) => b.score - a.score);
-  return scored.slice(0, topN);
-}
+/* Befund P1-19 (entfernt 2026-08-20): hier lagen `matchWorkerToAssignments` und
+ * ihr einziger Nutzer `getReputationScore`.
+ *
+ * `matchWorkerToAssignments` las `FROM workers` — eine Tabelle, die keine
+ * Migration je angelegt hat (gegen die laufende Datenbank gemessen: 42703). Der
+ * Schema-Waechter fuehrte sie als "Altbestand. Die Arbeiterdaten liegen in
+ * worker_profiles". Mit der Funktion faellt auch `getReputationScore` weg: sie
+ * hatte keinen anderen Aufrufer.
+ *
+ * Die drei Ausnahmen, die der Schema-Waechter fuer diese Stellen fuehrte
+ * (`workers`, `supplier_reputation.org_id`, `supplier_reputation.overall_score`),
+ * sind mit dem Code gestrichen. Der Waechter erzwingt das: ein Eintrag, der
+ * nicht mehr auftritt, macht ihn rot. */
 
 /* ═══════════════════════════════════════════════════════════════
  * ML Match Logging

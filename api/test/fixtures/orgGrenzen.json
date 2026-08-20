@@ -21,8 +21,8 @@
     "flaechenTor": "Flaechen OHNE Platzhalter-Route mit EINEM Tor: Name des Middleware, Montagepfad, erwarteter Status ohne Voraussetzung, Mindestzahl der Routen (sonst wird die Pruefung blind, wenn eine Teilflaeche verschwindet), und die Tabellen, in die das Tor selbst protokollieren darf."
   },
   "grundlinie": {
-    "verhaltensgeprueft": 257,
-    "hinweis": "Sperrklinke: die Zahl darf wachsen, nicht fallen. Wer eine Route auf 'bewusste-ausnahme' zuruecksetzt, senkt diese Zahl bewusst und mit Begruendung."
+    "verhaltensgeprueft": 256,
+    "hinweis": "Sperrklinke: die Zahl darf wachsen, nicht fallen. Wer eine Route auf 'bewusste-ausnahme' zuruecksetzt, senkt diese Zahl bewusst und mit Begruendung. Am 2026-08-20 von 257 auf 256 gesenkt, weil /matching/worker/:id mit Befund P1-19 ENTFERNT wurde — eine Route, die es nicht mehr gibt, kann nicht geprueft werden. Drei andere Zusicherungen halten stattdessen fest, dass sie nicht zurueckkehrt."
   },
   "abgedeckteRouter": [
     {
@@ -4850,7 +4850,7 @@
     },
     {
       "datei": "matching.js",
-      "hinweis": "Matching-Wege. Befund E-14 ist geschlossen: `findMatches` und `matchCapacityToRequisitions` luden ihre Quelle mit 'WHERE id = $1' und sonst nichts — jeder Angemeldete mit `requisition.view` konnte die Engine gegen einen FREMDEN Bedarf laufen lassen und erfuhr, dass es ihn gibt und welche Lieferanten zu ihm passen; `logMatch` schrieb den fremden Vorgang zusaetzlich unter der EIGENEN Org ins ML-Protokoll. Die Geschwister-Route /matching/instant/:requisitionId machte es von Anfang an richtig. Die Regel musste nicht erfunden werden: ein Bedarf ist genau dann sichtbar, wenn der Marktplatz ihn zeigt (offen, freie Plaetze, kein Ursprungsauftrag, nicht abgelaufen) — 'SELECT * WHERE id = $1' erreichte dagegen auch 'closed', 'cancelled' und 'fulfilled', war also die Hintertuer zu genau den Daten, die die Sichtbarkeitsregel schuetzt.",
+      "hinweis": "Matching-Wege. Befund E-14 ist geschlossen: `findMatches` und `matchCapacityToRequisitions` luden ihre Quelle mit 'WHERE id = $1' und sonst nichts — jeder Angemeldete mit `requisition.view` konnte die Engine gegen einen FREMDEN Bedarf laufen lassen und erfuhr, dass es ihn gibt und welche Lieferanten zu ihm passen; `logMatch` schrieb den fremden Vorgang zusaetzlich unter der EIGENEN Org ins ML-Protokoll. Die Geschwister-Route /matching/instant/:requisitionId machte es von Anfang an richtig. Die Regel musste nicht erfunden werden: ein Bedarf ist genau dann sichtbar, wenn der Marktplatz ihn zeigt (offen, freie Plaetze, kein Ursprungsauftrag, nicht abgelaufen) — 'SELECT * WHERE id = $1' erreichte dagegen auch 'closed', 'cancelled' und 'fulfilled', war also die Hintertuer zu genau den Daten, die die Sichtbarkeitsregel schuetzt. Der Weg /matching/worker/:id ist mit Befund P1-19 ENTFERNT: er las 'FROM workers', eine Tabelle, die keine Migration je angelegt hat, und endete seit jeher in 500. Dass er nicht zurueckkehrt, halten drei Zusicherungen fest (matchingEngine.coverage, rbac-hardening, sqlSchemaWaechter).",
       "routen": [
         {
           "methode": "get",
@@ -4888,19 +4888,6 @@
             "visibility_status": "private",
             "org_id": null
           }
-        },
-        {
-          "methode": "get",
-          "pfad": "/matching/worker/:id",
-          "urteil": "verhaltensgeprueft",
-          "art": "ressource",
-          "traegerspalten": [
-            "supplier_org_id"
-          ],
-          "erwartung": "sql-grenze",
-          "orgImSql": true,
-          "gegenprobe": false,
-          "hinweis": "Befund E-21: dieser Weg hat NIE funktioniert — die Engine liest 'FROM workers', und diese Tabelle hat keine Migration je angelegt (gegen die laufende Datenbank gemessen: 42P01). Die Org-Bindung steht trotzdem im SQL: ohne sie waere der Weg am Tag, an dem jemand eine 'workers'-Tabelle anlegt, sofort ein ungebundener org-uebergreifender Lesezugriff. Ob er entfernt oder auf 'worker_profiles' gebaut wird, ist eine Produktentscheidung (P1-19)."
         },
         {
           "methode": "get",
