@@ -375,11 +375,33 @@ Nachweis.
 
 ### Zwei Blindstellen des Wächters selbst
 
-**Anonyme Torwächter sind unsichtbar.** `supportAuth` war eine namenlose Closure
-aus `requireSupportAccess(deps)`. Für jede Strukturprüfung und jede Stapelspur
+**Anonyme Torwächter sind unsichtbar.** `supportAuth` **und** `ownerControlAuth`
+waren namenlose Closures. Für jede Strukturprüfung und jede Stapelspur
 unsichtbar — der Wächter konnte nicht belegen, dass die einzige
-Eintrittsbedingung der **gesamten** Support-Fläche überhaupt noch montiert ist.
-Der Name ist jetzt Teil der Absicherung, nicht Kosmetik.
+Eintrittsbedingung der **gesamten** Support- bzw. **Owner-Fläche** überhaupt noch
+montiert ist. Der Name ist jetzt Teil der Absicherung, nicht Kosmetik.
+
+**Und eine dritte, die schwerer wog als beide.** Das Owner Control Center hat
+**keine einzige** Platzhalter-Route — es adressiert alles über Abfrageparameter.
+Damit war die privilegierteste Fläche des Systems für den gesamten Wächter
+unsichtbar: `ownerControlCenter.js` stand mit `routen: []` im Register und galt
+als abgedeckt, während seine 13 montierten Unterrouter mit 31 Wegen niemand
+anfasste. Die neue Schicht **(B3)** prüft solche Flächen als Ganzes: jede Route
+liegt unter dem Montagepfad des Tores, das Tor hängt **vor** allen Teilflächen,
+und ohne Owner-Freigabe weist es mit 403 ab, ohne etwas anderes zu schreiben als
+sein eigenes Zugriffsprotokoll. Vier Mutationen an der Montage — Teilfläche vor
+dem Tor, Teilfläche daneben, Tor lässt durch, Tor wieder anonym — werden jede von
+genau der Zusicherung rot, die sie fangen soll.
+
+**Ein Helferfehler, der die neue Schicht wertlos gemacht hätte.** `listRoutesTief`
+gab die **inneren** Pfade zurück (`/bootstrap`) statt der aufrufbaren
+(`/owner-control/bootstrap`) — Express behält den rohen Montagepfad nicht, nur
+die daraus gebaute Regexp. Eine Prüfung „liegt jede Route unter dem Tor?" hätte
+gegen einen Pfad verglichen, den es nach außen gar nicht gibt: grün und blind.
+Der Pfad wird jetzt zurückgewonnen — und wo der Montagepfad selbst einen
+Platzhalter trägt, **weggelassen statt geraten**, weil ein falsches Präfix eine
+ungeschützte Route als geschützt ausweisen würde. Beides hält eine eigene
+Selbstprobe fest ((l) und (l2)).
 
 **Präfix-Tore sahen aus wie Lücken.** `support.js` montiert sein Tor einmal auf
 `/support` statt je Route. Das ist die **strengere** Bauart — auf einer neuen

@@ -370,6 +370,129 @@ describe("Org-Grenzen-Waechter (B2) — Torwaechter der Sonderflaechen", () => {
 });
 
 /* ═════════════════════════════════════════════════════════════════════════
+   (B3) GESAMTFLAECHEN-TORWAECHTER — Flaechen ganz ohne Platzhalter-Route
+   ═════════════════════════════════════════════════════════════════════════
+
+   Schicht (A) und (B) hangeln sich an Routen mit `:id` entlang, (B2) ebenso.
+   Das Owner Control Center hat davon **keine einzige** — es adressiert alles
+   ueber Abfrageparameter. Damit war die privilegierteste Flaeche des Systems
+   fuer den gesamten Waechter unsichtbar: `ownerControlCenter.js` stand mit
+   `routen: []` im Register und galt als abgedeckt, waehrend die 13 montierten
+   Unterrouter mit 31 Wegen gar nicht angefasst wurden.
+
+   Diese Schicht stellt deshalb die einzige Frage, die dort zaehlt:
+     1. liegt JEDE Route der zusammengesetzten Flaeche unter dem Montagepfad
+        des Tores — auch die aus montierten Unterroutern,
+     2. weist das Tor ohne die Voraussetzung mit dem erwarteten Status ab,
+     3. und schreibt dabei nichts.
+
+   Punkt 1 braucht den zusammengesetzten Pfad. `listRoutesTief` gewinnt ihn aus
+   der Express-Regexp zurueck; ohne das meldete es '/bootstrap' statt
+   '/owner-control/bootstrap' — und ein Praefix-Vergleich gegen einen Pfad, den
+   es nach aussen nicht gibt, waere wertlos. */
+
+describe("Org-Grenzen-Waechter (B3) — Torwaechter ganzer Flaechen", () => {
+  for (const eintrag of register.abgedeckteRouter.filter((e) => e.flaechenTor)) {
+    const tor = eintrag.flaechenTor;
+
+    it(`${eintrag.datei}: JEDE Route liegt unter '${tor.montiertAuf}'`, async () => {
+      const router = await montiere(eintrag.datei);
+      const alle = listRoutesTief(router);
+
+      assert.ok(
+        alle.length >= tor.mindestens,
+        `Nur ${alle.length} Routen gefunden, erwartet wurden mindestens ` +
+        `${tor.mindestens}. Entweder ist eine Teilflaeche nicht mehr montiert ` +
+        "oder die Aufzaehlung sieht sie nicht mehr — beides macht diese Pruefung blind."
+      );
+
+      const daneben = alle
+        .filter((r) => !r.path.startsWith(tor.montiertAuf))
+        .map((r) => `${r.method.toUpperCase()} ${r.path}`);
+      assert.deepStrictEqual(
+        daneben, [],
+        `Diese Routen liegen AUSSERHALB von '${tor.montiertAuf}' und damit ` +
+        `ausserhalb des Tores '${tor.middleware}'.`
+      );
+    });
+
+    it(`${eintrag.datei}: '${tor.middleware}' haengt vor allen Teilflaechen`, async () => {
+      const router = await montiere(eintrag.datei);
+
+      const torIndex = router.stack.findIndex(
+        (l) => !l.route && l.handle?.name === tor.middleware
+      );
+      assert.notEqual(
+        torIndex, -1,
+        `'${tor.middleware}' ist nicht mehr montiert — oder es ist wieder eine ` +
+        "namenlose Closure und damit fuer jede Strukturpruefung unsichtbar."
+      );
+
+      /* REIHENFOLGE: express arbeitet die use-Schichten von oben nach unten ab.
+         Eine Teilflaeche, die VOR dem Tor montiert wird, ist offen — und zwar
+         still, weil sie funktioniert. Genau das faengt diese Zusicherung. */
+      const davor = router.stack
+        .slice(0, torIndex)
+        .filter((l) => !l.route && Array.isArray(l.handle?.stack) && l.handle.stack.length > 0)
+        .map((_l, i) => `Unterrouter #${i}`);
+      assert.deepStrictEqual(
+        davor, [],
+        `Diese Teilflaechen sind VOR dem Tor '${tor.middleware}' montiert und ` +
+        "damit ohne Eintrittsbedingung erreichbar."
+      );
+    });
+
+    it(`${eintrag.datei}: '${tor.middleware}' weist ohne Voraussetzung ab und schreibt nichts`, async () => {
+      const maengel = [];
+      const stichprobe = await (async () => {
+        const router = await montiereDatei(eintrag.datei, spionPool({ zeile: null }));
+        return listRoutesTief(router);
+      })();
+
+      for (const r of stichprobe) {
+        const pool = spionPool({ zeile: null, antwort: () => ({ rows: [], rowCount: 0 }) });
+        const router = await montiereDatei(eintrag.datei, pool);
+        const torSchicht = router.stack.find(
+          (l) => !l.route && l.handle?.name === tor.middleware
+        );
+        if (!torSchicht) { maengel.push(`${r.path}: Tor nicht gefunden`); continue; }
+
+        const req = mockReq({
+          params: {},
+          ...(tor.ohneVoraussetzung || {})
+        });
+        const res = mockRes();
+        try {
+          await torSchicht.handle(req, res, () => {
+            maengel.push(`${r.method.toUpperCase()} ${r.path}: das Tor hat DURCHGELASSEN`);
+          });
+        } catch { /* ein Wurf ist auch eine Abweisung */ }
+
+        if (res._status !== tor.erwarteterStatus) {
+          maengel.push(`${r.method.toUpperCase()} ${r.path}: ${res._status} statt ${tor.erwarteterStatus}`);
+        }
+        if (pool.schreibvorgaenge.length > 0) {
+          /* Das OCC-Tor PROTOKOLLIERT die Abweisung — das ist gewollt und der
+             einzige zulaessige Schreibvorgang. Alles andere waere ein Leck. */
+          const fremd = pool.schreibvorgaenge.filter(
+            (c) => !(tor.darfSchreibenIn || []).some((t) => c.sql.includes(t))
+          );
+          if (fremd.length > 0) {
+            maengel.push(
+              `${r.method.toUpperCase()} ${r.path}: hat ohne Voraussetzung geschrieben: ` +
+              fremd[0].sql.slice(0, 90)
+            );
+          }
+        }
+        break;   // ein Durchlauf genuegt: das Tor ist fuer alle Wege dasselbe
+      }
+
+      assert.deepStrictEqual(maengel, [], `Flaechentor '${tor.middleware}' greift nicht`);
+    });
+  }
+});
+
+/* ═════════════════════════════════════════════════════════════════════════
    (C) BESTANDSBUCH — die ungeprueften Dateien bleiben sichtbar
    ═════════════════════════════════════════════════════════════════════════ */
 
@@ -630,8 +753,36 @@ describe("Org-Grenzen-Waechter (D) — Selbstprobe an kaputten Routern", () => {
     );
     const tief = listRoutesTief(oben);
     assert.equal(tief.length, 1, "die tiefe Aufzaehlung muss die montierte Route finden");
-    assert.equal(tief[0].path, "/sachen/:id");
     assert.equal(tief[0].montiert, true, "sie muss als montiert erkennbar sein");
+    assert.equal(tief[0].innerPath, "/sachen/:id", "der innere Pfad bleibt erhalten");
+
+    /* Der AUFRUFBARE Pfad ist der zusammengesetzte. Ohne ihn meldete die
+       Aufzaehlung '/bootstrap' statt '/owner-control/bootstrap' — und Schicht
+       B3, die fragt "liegt jede Route unter dem Tor?", verglaeche gegen einen
+       Pfad, den es nach aussen gar nicht gibt. Sie waere gruen und blind. */
+    assert.equal(
+      tief[0].path, "/bereich/sachen/:id",
+      "der Montagepfad muss vorne stehen — sonst ist jede Praefix-Pruefung wertlos"
+    );
+  });
+
+  it("(l2) ein geratener Montagepfad ist schlimmer als keiner", () => {
+    /* Traegt der MONTAGEPFAD selbst einen Platzhalter, laesst er sich aus der
+       Express-Regexp nicht zuverlaessig zurueckgewinnen. Dann muss die
+       Aufzaehlung ihn WEGLASSEN statt zu raten: ein falsches Praefix wuerde eine
+       ungeschuetzte Route als geschuetzt ausweisen — der Fehler, der eine
+       Sicherheitspruefung ins Gegenteil verkehrt. */
+    const unter = Router();
+    unter.get("/details", (_q, r) => r.json({}));
+    const oben = Router();
+    oben.use("/mandant/:mandantId", unter);
+
+    const tief = listRoutesTief(oben);
+    assert.equal(tief.length, 1);
+    assert.equal(
+      tief[0].path, "/details",
+      "bei einem Platzhalter im Montagepfad wird kein Praefix geraten"
+    );
   });
 
   it("(m) das Bestandsbuch steigt in Unterverzeichnisse hinab", () => {

@@ -226,6 +226,19 @@ Platzhalter-Route stehen, ohne die Voraussetzung mit dem erwarteten Status
 abweisen und dabei nichts schreiben. Der letzte Punkt trennt ihn vom
 Struktur-Test — ein Middleware, der dasteht und `next()` ruft, fällt durch.
 
+**Flächen ganz ohne `:id`-Route** prüft Schicht **(B3)**. Das Owner Control
+Center adressiert alles über Abfrageparameter und hat **keine einzige**
+Platzhalter-Route — damit war die privilegierteste Fläche des Systems für A, B
+und B2 unsichtbar: `ownerControlCenter.js` stand mit `routen: []` im Register und
+galt als abgedeckt, während die 13 montierten Unterrouter mit 31 Wegen niemand
+anfasste. (B3) stellt die drei Fragen, die dort zählen: liegt **jede** Route
+unter dem Montagepfad des Tores (rekursiv, mit zusammengesetztem Pfad) · hängt
+das Tor **vor** allen Teilflächen · weist es ohne die Voraussetzung ab, ohne zu
+schreiben (außer in die Tabellen, in die es selbst protokollieren darf). Gemessen
+an vier Mutationen — Teilfläche vor dem Tor, Teilfläche daneben montiert, Tor
+lässt durch, Tor wieder anonym — wird jede von genau der Zusicherung rot, die sie
+fangen soll.
+
 **Zwei zulässige Bauarten des Torwächters.** Er steht auf *jeder* Route — oder
 einmal auf dem **Präfix** (`router.use("/support", …, supportAuth)`, Registerfeld
 `alsPraefix`). Die zweite ist die **strengere**, weil man sie auf einer neuen
@@ -234,8 +247,9 @@ aber als Lücke. `findPrefixMiddleware` kennt beide Formen und prüft bei der
 Präfix-Bauart zusätzlich, dass der Montagepfad jede Route darunter wirklich
 deckt.
 
-> **Torwächter müssen einen Namen haben.** `supportAuth` war eine namenlose
-> Closure aus `requireSupportAccess(deps)` — für jede Strukturprüfung und jede
+> **Torwächter müssen einen Namen haben.** `supportAuth` und `ownerControlAuth`
+> waren namenlose Closures aus `requireSupportAccess(deps)` bzw.
+> `requireOwnerControlAccess(deps)` — für jede Strukturprüfung und jede
 > Stapelspur unsichtbar. Der Wächter konnte nicht belegen, dass die einzige
 > Eintrittsbedingung der gesamten Support-Fläche überhaupt noch montiert ist. Ein
 > `return async function name(req, res, next)` statt `return async (req, res, next)`

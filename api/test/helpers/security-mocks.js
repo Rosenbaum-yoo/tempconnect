@@ -285,14 +285,45 @@ export function findChainFrom(router, method, path, mwName) {
  * welchem Praefix sie haengen. Deshalb `montiert: true` statt eines geratenen
  * Pfades.
  */
-export function listRoutesTief(router, tiefe = 0) {
+/**
+ * Den Montagepfad aus der Express-Regexp zurueckgewinnen.
+ *
+ * Express behaelt den rohen Pfad einer `router.use(pfad, ...)`-Schicht nicht —
+ * nur die daraus gebaute Regexp. Ohne diese Rueckgewinnung meldet
+ * `listRoutesTief` die INNEREN Pfade ("/bootstrap") statt der aufrufbaren
+ * ("/owner-control/bootstrap"). Jede Pruefung der Form "liegt diese Route unter
+ * dem Tor?" waere damit wertlos: sie verglaeche gegen einen Pfad, den es nach
+ * aussen gar nicht gibt.
+ *
+ * Nur statische Praefixe werden zurueckgegeben. Traegt der Montagepfad selbst
+ * einen Platzhalter, gibt es hier "" zurueck — lieber kein Praefix als ein
+ * falsches, denn ein falsches Praefix wuerde eine ungeschuetzte Route als
+ * geschuetzt ausweisen.
+ */
+function montagepfad(layer) {
+  const quelle = layer?.regexp?.source;
+  if (!quelle) return "";
+  // Form: ^\/owner-control\/?(?=\/|$)   bzw.  ^\/?(?=\/|$)  fuer die Wurzel
+  const kern = quelle
+    .replace(/^\^/, "")
+    .replace(/\\\/\?\(\?=\\\/\|\$\)$/, "")
+    .replace(/\$$/, "");
+  if (!kern || kern === "\\/") return "";
+  const pfad = kern.replace(/\\(.)/g, "$1");
+  // Ein Platzhalter im Montagepfad (Regexp-Sonderzeichen uebrig) waere geraten.
+  if (/[()[\]{}*+?|^$]/.test(pfad)) return "";
+  return pfad.startsWith("/") ? pfad : "";
+}
+
+export function listRoutesTief(router, tiefe = 0, praefix = "") {
   const routen = [];
   if (tiefe > 5) return routen;                 // Schleifenschutz
   for (const layer of router.stack || []) {
     if (layer.route) {
       routen.push({
         method: Object.keys(layer.route.methods)[0],
-        path: layer.route.path,
+        path: praefix + layer.route.path,
+        innerPath: layer.route.path,
         middlewareCount: layer.route.stack.length,
         montiert: tiefe > 0
       });
@@ -301,7 +332,7 @@ export function listRoutesTief(router, tiefe = 0) {
     // Ein montierter Sub-Router: express legt ihn als handle mit eigenem stack ab.
     const unter = layer.handle;
     if (unter && typeof unter === "function" && Array.isArray(unter.stack)) {
-      routen.push(...listRoutesTief(unter, tiefe + 1));
+      routen.push(...listRoutesTief(unter, tiefe + 1, praefix + montagepfad(layer)));
     }
   }
   return routen;
