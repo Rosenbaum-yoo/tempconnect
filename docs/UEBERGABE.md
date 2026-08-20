@@ -296,6 +296,33 @@ Gegenprobe, die sicherstellt, dass die Neuberechnung für die **eigene** Org
 weiterhin stattfindet, die Reparatur die Funktion also begrenzt und nicht
 stilllegt.
 
+### E-14 · Die Matching-Engine läuft ohne Org *(offen — Owner-Frage)*
+
+Alle vier Platzhalter-Routen in `matching.js` rufen die Engine **nur mit der
+Pfad-Kennung**: `engine.findMatches(pool, req.params.id, …)` (`:25`), ebenso
+`matchCapacityToRequisitions` (`:65`), `matchWorkerToAssignments` (`:90`) und
+`smart-explain` (`:178`). `findMatches` lädt
+`SELECT * FROM demand_requests WHERE id = $1` (`matchingEngine.js:353`) — ohne
+Bindung.
+
+Die **Geschwister-Route derselben Datei macht es anders**:
+`/matching/instant/:requisitionId` (`:144-151`) reicht `req.orgId` durch und
+mappt `ORG_BOUNDARY_VIOLATION` auf 403. Dasselbe Muster wie bei E-1 bis E-10:
+zwei Türen zum selben Raum, eine bewacht.
+
+Wirkung: wer angemeldet ist und `requisition.view` hat, kann die Engine gegen
+eine **fremde** Bedarfsmeldung laufen lassen und erfährt, dass es sie gibt und
+wonach sie sucht. Zusätzlich schreibt `logMatch` den fremden Vorgang mit der
+**eigenen** `org_id` ins ML-Protokoll (`matching.js:38`).
+
+**Nicht autonom repariert**, und das ist hier kein Zögern, sondern die Sache
+selbst: Bedarfsmeldungen werden im Marktplatz **bewusst** an Lieferanten
+ausgespielt — ob dieser Weg offen sein *soll*, ist eine Produktentscheidung. Und
+`demand_requests` gehört einem **Nutzer** (`requester_company_id` → `users`),
+nicht einer Org, was die Frage direkt mit **D-M5** und **E-11** verbindet.
+`matching.js` ist deshalb im Register **zurückgestellt**, mit genau diesem
+Befund als Begründung.
+
 ### E-13 · Dasselbe Muster, zweite Fundstelle *(geschlossen)*
 
 `getStaffingChoiceSet` rief `refreshStaffingChoiceSetLifecycle` — und das

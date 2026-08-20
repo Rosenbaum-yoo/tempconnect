@@ -296,6 +296,25 @@ unvollständig ist, ein Passwort fehlt oder der Vorgang vier Stunden dauert.
 - Tier-2 erledigt (2026-06-05) via `126_rls_forward_repair.sql`: NICHT-transaktional, EIN per-`to_regclass` abgesicherter `DO`-Block pro Tabelle (requisitions/timesheets/invoices/org_memberships/compliance_documents/subscription_requests/commercial_offers/audit_log; vendor_pool_entries als out-of-scope-Guard) — CREATE OR REPLACE der Helfer `current_org_id()`/`is_staff_context()`, dann je Tabelle ENABLE RLS + DROP der IS-NULL-Wildcards + DROP/CREATE same_org & staff_bypass (USING-Klauseln 1:1 aus 031/116), FORCE RLS nur auf req/ts/inv. Idempotent (DROP IF EXISTS + identisches CREATE), resilient (ein fehlendes Objekt ueberspringt nur SEINEN Block, reisst nie den Backstop mit), auf Bestands-DBs erstmals wirksam, auf frischen DBs folgenloser No-Op. `subscriptions`-RLS-Exclusion bestaetigt (user-skaliert via user_id, kein org_id; eine Membership-Bruecke wuerde persoenliche Billing-Daten cross-org leaken — Schutz bleibt App-Layer). **AKTIVIERUNGS-HINWEIS:** 126 schaltet Deny-by-Default + FORCE RLS beim NAECHSTEN migrate-Lauf gegen Bestands-/Managed-DBs scharf. Lokal ist `tempconnect` Superuser → RLS-inert (kein Breakage); auf Managed-DB (Nicht-Superuser-App-User) wird der Backstop real wirksam = gewollter Mandanten-Schutz.
 ## P1 - Vor Pilotkunde (Summe 2-3 Personentage)
 
+### P1-18 — Matching-Engine laeuft ohne Org-Bindung (4 Routen)
+
+**Status:** offen · **Fakt:** `matching.js` ruft die Engine auf vier Routen nur
+mit der Pfad-Kennung (`:25`, `:65`, `:90`, `:178`); `findMatches` laedt
+`SELECT * FROM demand_requests WHERE id = $1` ohne Bindung
+(`matchingEngine.js:353`). Die Geschwister-Route `/matching/instant/:requisitionId`
+(`:144-151`) reicht dagegen `req.orgId` durch und mappt 403. Wer angemeldet ist
+und `requisition.view` hat, kann die Engine gegen eine fremde Bedarfsmeldung
+laufen lassen; `logMatch` schreibt den fremden Vorgang zudem mit der eigenen
+org_id ins ML-Protokoll.
+**Aktion:** Owner entscheidet, denn es ist eine Produktfrage: Bedarfsmeldungen
+werden im Marktplatz bewusst an Lieferanten ausgespielt. Soll dieser Weg offen
+sein? Bei "nein": die Org in der Route pruefen wie bei /matching/instant. Bei
+"ja": im Register als bewusste Ausnahme festschreiben, damit es niemand fuer ein
+Versehen haelt. Haengt mit D-M5 und P1-17 zusammen (demand_requests gehoert
+einem NUTZER, nicht einer Org).
+**Aufwand:** Entscheidung 15 Minuten, Umsetzung 2 Stunden ·
+**Verify:** `orgGrenzenWaechter` mit matching.js im abgedeckten Satz.
+
 ### P1-17 — `canAccessAsOwner` hat nie funktioniert (10 Aufrufstellen)
 
 **Status:** offen · **Fakt:** `utils/ownerCheck.js:28-33` soll „direkter Besitzer
