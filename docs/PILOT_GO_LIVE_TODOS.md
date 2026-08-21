@@ -457,6 +457,21 @@ einem Fehlschlag, `?payment=cancelled` und `?payment=success` zeigen ihre
 Meldungen, und das Warten auf die Gutschrift endet nach rund 20 Sekunden
 **ehrlich** statt endlos zu drehen. Keine JS-Konsolenfehler.
 
+**Die Navigation steht** (2026-08-21): `credits.html` hängt am Menüpunkt
+*Steuerung* (`match`-Eintrag in `pageShell.js`, sonst hätte auf der Seite **kein**
+Punkt geleuchtet und der Nutzer hätte seinen Ort verloren), ist über die Suche
+findbar („guthaben", „credits", „aufladen", …) und von zwei Seiten verlinkt:
+`sla_abo.html` (Teaser neben dem Bounty-Teaser — beide berühren den Preis, aber
+von verschiedenen Seiten) und `bounties.html` (die Schwesterwährung). Im Browser
+geprüft: die Zuordnungsregel des Shells trifft den Pfad, der Suchtreffer
+erscheint live, beide Links stehen.
+
+Bewusst **keine** Hub-Karte auf `enterprise.html`: die hängt an einer *Surface*
+der Sichtbarkeitsmatrix, und eine neue Surface ist eine RBAC-nahe Entscheidung
+(wer sie sieht, hängt an `allowed_org_types` und der Surface-Zugriffslogik).
+Wenn Guthaben prominenter werden soll, ist das der nächste Schritt — und einer
+mit Owner-Freigabe.
+
 **Offen bleibt allein der Betrieb:** `STRIPE_SECRET_KEY` und
 `STRIPE_WEBHOOK_SECRET` setzen. Die Rückkehr-URLs zeigen standardmäßig auf
 `/public/credits.html` und sind über `STRIPE_CREDITS_SUCCESS_URL` /

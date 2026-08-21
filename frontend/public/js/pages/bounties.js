@@ -30,6 +30,8 @@ TCi18n.register('de', {
   'rst.a.discount.capPre': 'Max. ',
   'rst.a.discount.capPost': '% Rabatt moeglich',
 
+  'rst.a.credits.hint': 'Guthaben sammeln Sie ebenfalls hier — ansehen und aufstocken koennen Sie es unter',
+  'rst.a.credits.link': 'Guthaben',
   'rst.a.tiers.title': 'Ihr Status-Abzeichen',
   'rst.a.tiers.subtitle': 'Je mehr Bounties Sie verdienen, desto hoeher steigt Ihr Status — und Ihr maximaler Rabatt.',
   'rst.a.tier.current': 'Aktuell',
@@ -206,6 +208,8 @@ TCi18n.register('en', {
   'rst.a.discount.capPre': 'Up to ',
   'rst.a.discount.capPost': '% discount possible',
 
+  'rst.a.credits.hint': 'You also collect credits here — view and top them up under',
+  'rst.a.credits.link': 'Credits',
   'rst.a.tiers.title': 'Your status badge',
   'rst.a.tiers.subtitle': 'The more bounties you earn, the higher your status climbs — and your maximum discount with it.',
   'rst.a.tier.current': 'Current',
