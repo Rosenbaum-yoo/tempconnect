@@ -52,128 +52,128 @@ await withStaffContext(pool, async (client) => { /* ... */ }, {
 
 ## Tabellen-Klassifikation
 
-### 🔴 TENANT-SCOPED — RLS aktiv (10 Tabellen)
+<!-- MANDANTEN-MODELL:START — generiert, nicht von Hand pflegen -->
 
-Diese Tabellen haben `ALTER TABLE ... ENABLE ROW LEVEL SECURITY` und werden durch die `*_same_org` + `*_staff_bypass` Policies geschützt.
+> **Gemessen am 2026-08-21 gegen die laufende Datenbank** — nicht gegen die Migrationen, die beiden laufen auseinander. Erhebung: Fremdschluessel mit Ziel `organizations`, dazu Zeilen- und `NULL`-Zaehlung je Traegerspalte. Quelle: `api/test/fixtures/mandantenTabellen.json`, erzwungen durch `api/test/mandantenModellWaechter.test.js`.
+>
+> **Dieser Abschnitt wird generiert.** Von Hand geaendert haelt er nicht: der Waechter vergleicht ihn Zeichen fuer Zeichen mit der Registry. Neu rendern mit `node scripts/render-mandanten-modell.js --write`.
 
-| Tabelle | org-Spalte(n) | FORCE RLS | Policy |
+**78 Tabellen** tragen einen Fremdschluessel auf `organizations`. 8 Backstop steht · 18 Backstop moeglich · 25 Backstop moeglich, aber nicht nachweisbar · 10 Backstop NICHT moeglich · 17 Kein Mandantentraeger.
+
+### 🔴 Backstop steht — RLS aktiv (8)
+
+Eine Verbindung ohne Org-Kontext und ohne Staff-Bypass sieht hier nichts. Angelegt von `116_rls_deny_by_default.sql`, auf Bestands-Datenbanken nachgezogen von `126_rls_forward_repair.sql`.
+
+| Tabelle | Traegerspalte(n) | Bestand | Anmerkung |
 |---|---|---|---|
-| `requisitions` | `org_id` | **JA** | `req_same_org`, `req_staff_bypass` |
-| `timesheets` | `org_id`, `supplier_org_id` | **JA** | `ts_same_org`, `ts_staff_bypass` |
-| `invoices` | `org_id` | **JA** | `inv_same_org`, `inv_staff_bypass` |
-| `org_memberships` | `org_id` | Nein | `om_same_org`, `om_staff_bypass` |
-| `vendor_pool_entries` | `org_id`, `supplier_org_id` | Nein | `vpe_same_org`, `vpe_staff_bypass` |
-| `compliance_documents` | `org_id`, `supplier_org_id` | Nein | `cd_same_org`, `cd_staff_bypass` |
-| `subscriptions` | `org_id` | Nein | `sub_same_org`, `sub_staff_bypass` |
-| `subscription_requests` | `org_id` | Nein | `subreq_same_org`, `subreq_staff_bypass` |
-| `commercial_offers` | `buyer_org_id`, `seller_org_id` | Nein | `co_same_org`, `co_staff_bypass` |
-| `audit_log` | `org_id` (nullable) | Nein | `al_same_org`, `al_staff_bypass` |
+| `audit_log` | `org_id` | **1796 von 2740 ohne Org** | Policies: `al_same_org`, `al_staff_bypass` |
+| `commercial_offers` | `org_id` | leer | Policies: `co_same_org`, `co_staff_bypass` |
+| `compliance_documents` | `org_id` | 5 Zeilen, lueckenlos | Policies: `cd_same_org`, `cd_staff_bypass` |
+| `invoices` | `org_id`, `supplier_org_id` | leer | Policies: `inv_same_org`, `inv_staff_bypass` · FORCE |
+| `org_memberships` | `org_id` | 251 Zeilen, lueckenlos | Policies: `om_same_org`, `om_staff_bypass` |
+| `requisitions` | `org_id` | 73 Zeilen, lueckenlos | Policies: `req_same_org`, `req_staff_bypass` · FORCE |
+| `subscription_requests` | `org_id` | 11 Zeilen, lueckenlos | Policies: `subreq_same_org`, `subreq_staff_bypass` |
+| `timesheets` | `org_id`, `supplier_org_id` | 10 Zeilen, lueckenlos | Policies: `ts_same_org`, `ts_staff_bypass` · FORCE |
 
-**Zugriffsmuster:**
-```javascript
-// Lesen: withOrgContext pflicht
-await withOrgContext(pool, orgId, async (client) => {
-  const { rows } = await client.query("SELECT * FROM requisitions WHERE ...");
-});
+### 🟡 Backstop moeglich — Traegerspalte ist lueckenlos gefuellt (18)
 
-// Staff liest cross-org:
-await withStaffContext(pool, async (client) => {
-  const { rows } = await client.query("SELECT * FROM requisitions");
-}, { reason: "support_investigation_case_123" });
-```
+Mandanten-privat, und die Traegerspalte steht in **jeder** Zeile. RLS kann hier aktiviert werden, ohne dass Zeilen verschwinden.
 
----
+| Tabelle | Traegerspalte(n) | Bestand | Anmerkung |
+|---|---|---|---|
+| `assignment_staffing_campaigns` | `org_id`, `supplier_org_id` | 1 Zeilen, lueckenlos | Traegerspalte in allen 1 Zeilen gefuellt; Mandanten-privat. RLS ohne Datenausfall moeglich. |
+| `assignment_staffing_invites` | `org_id`, `supplier_org_id` | 1 Zeilen, lueckenlos | Traegerspalte in allen 1 Zeilen gefuellt; Mandanten-privat. RLS ohne Datenausfall moeglich. |
+| `assignment_staffing_waitlist` | `org_id`, `supplier_org_id` | 1 Zeilen, lueckenlos | Traegerspalte in allen 1 Zeilen gefuellt; Mandanten-privat. RLS ohne Datenausfall moeglich. |
+| `assignments` | `org_id`, `supplier_org_id` | 68 Zeilen, lueckenlos | Traegerspalte in allen 68 Zeilen gefuellt; Mandanten-privat. RLS ohne Datenausfall moeglich. |
+| `contracts` | `buyer_org_id`, `supplier_org_id` | 3 Zeilen, lueckenlos | Traegerspalte in allen 3 Zeilen gefuellt; Mandanten-privat. RLS ohne Datenausfall moeglich. |
+| `document_center` | `org_id` | 158 Zeilen, lueckenlos | Traegerspalte in allen 158 Zeilen gefuellt; Mandanten-privat. RLS ohne Datenausfall moeglich. |
+| `org_api_keys` | `org_id` | 4 Zeilen, lueckenlos | Traegerspalte in allen 4 Zeilen gefuellt; Mandanten-privat. RLS ohne Datenausfall moeglich. |
+| `org_departments` | `org_id` | 4 Zeilen, lueckenlos | Traegerspalte in allen 4 Zeilen gefuellt; Mandanten-privat. RLS ohne Datenausfall moeglich. |
+| `org_invitations` | `org_id` | 1 Zeilen, lueckenlos | Traegerspalte in allen 1 Zeilen gefuellt; Mandanten-privat. RLS ohne Datenausfall moeglich. |
+| `org_locations` | `org_id` | 4 Zeilen, lueckenlos | Traegerspalte in allen 4 Zeilen gefuellt; Mandanten-privat. RLS ohne Datenausfall moeglich. |
+| `org_settings` | `org_id` | 18 Zeilen, lueckenlos | Traegerspalte in allen 18 Zeilen gefuellt; Mandanten-privat. RLS ohne Datenausfall moeglich. |
+| `rate_cards` | `org_id`, `supplier_org_id` | 4 Zeilen, lueckenlos | Traegerspalte in allen 4 Zeilen gefuellt; Mandanten-privat. RLS ohne Datenausfall moeglich. |
+| `search_history` | `org_id` | 36 Zeilen, lueckenlos | Traegerspalte in allen 36 Zeilen gefuellt; Mandanten-privat. RLS ohne Datenausfall moeglich. |
+| `worker_assignment_links` | `org_id`, `supplier_org_id` | 24 Zeilen, lueckenlos | Traegerspalte in allen 24 Zeilen gefuellt; Mandanten-privat. RLS ohne Datenausfall moeglich. |
+| `worker_billing_snapshots` | `org_id` | 1 Zeilen, lueckenlos | Traegerspalte in allen 1 Zeilen gefuellt; Mandanten-privat. RLS ohne Datenausfall moeglich. |
+| `worker_invites` | `supplier_org_id` | 7 Zeilen, lueckenlos | Traegerspalte in allen 7 Zeilen gefuellt; Mandanten-privat. RLS ohne Datenausfall moeglich. |
+| `worker_profiles` | `supplier_org_id` | 33 Zeilen, lueckenlos | Traegerspalte in allen 33 Zeilen gefuellt; Mandanten-privat. RLS ohne Datenausfall moeglich. |
+| `worker_time_submissions` | `org_id`, `supplier_org_id` | 19 Zeilen, lueckenlos | Traegerspalte in allen 19 Zeilen gefuellt; Mandanten-privat. RLS ohne Datenausfall moeglich. |
 
-### 🟡 TENANT-SCOPED — RLS noch nicht aktiv (geplant)
+### ⚪ Backstop moeglich, aber nicht nachweisbar — Tabelle ist leer (25)
 
-Diese Tabellen haben `org_id`-Spalte und werden bei jedem Request durch Application-Layer org-gefiltert. RLS-Aktivierung ist der nächste Härtungsschritt.
+Traegerspalte vorhanden, noch keine Zeilen. Technisch aktivierbar; an echten Daten laesst sich die Trennung heute nicht zeigen.
 
-> **Gemessen am 2026-08-19 gegen die laufende Datenbank (nicht gegen einen Mock):**
-> `rate_cards` und `approval_requests` stehen auf `relrowsecurity = false` mit
-> **0 Policies**. Die Einstufung dieser Tabelle stimmt also — mit einer
-> Konsequenz, die man kennen muss: für sie gibt es in **keinem** Deployment
-> einen Backstop in der Datenbank, auch nicht auf einer Managed-DB mit
-> Nicht-Superuser-Rolle. Genau dort lagen die Befunde E-1 (Konditionsrahmen
-> aktivieren/archivieren) und E-3 (Freigaben entscheiden) aus Welle H2 —
-> beide Cross-Org-**Schreibzugriffe** ohne jede Grenze. Sie sind geschlossen;
-> die Grenze steht jetzt in der Route **und** im Service-SQL.
->
-> **`Migration 117` existiert nicht.** Die Spalte „Nächster Schritt" unten nennt
-> sie für 28 Tabellen; `sql/migrations/` springt von `116_rls_deny_by_default.sql`
-> auf `118_staff_identity_hardening.sql`. Der nächste Härtungsschritt ist also
-> nicht verzögert, sondern nie geschrieben worden — das gehört vor Go-Live
-> entschieden, nicht als erledigt geführt.
->
-> Solange RLS hier nicht greift, ist die Anwendungsschicht die **einzige**
-> Grenze. Sie wird deshalb seit 2026-08-19 von
-> `api/test/orgGrenzenWaechter.test.js` verhaltensgeprüft (Register:
-> `api/test/fixtures/orgGrenzen.json`).
+| Tabelle | Traegerspalte(n) | Bestand | Anmerkung |
+|---|---|---|---|
+| `ai_match_rankings` | `org_id` | leer | Traegerspalte vorhanden, noch keine Zeilen — RLS technisch moeglich, aber an echten Daten nicht nachweisbar. |
+| `approval_requests` | `org_id` | leer | Traegerspalte vorhanden, noch keine Zeilen — RLS technisch moeglich, aber an echten Daten nicht nachweisbar. |
+| `assignment_staffing_choice_options` | `supplier_org_id` | leer | Traegerspalte vorhanden, noch keine Zeilen — RLS technisch moeglich, aber an echten Daten nicht nachweisbar. |
+| `assignment_staffing_choice_sets` | `supplier_org_id` | leer | Traegerspalte vorhanden, noch keine Zeilen — RLS technisch moeglich, aber an echten Daten nicht nachweisbar. |
+| `assignment_staffing_reservations` | `org_id`, `supplier_org_id` | leer | Traegerspalte vorhanden, noch keine Zeilen — RLS technisch moeglich, aber an echten Daten nicht nachweisbar. |
+| `billing_usage_metrics` | `org_id` | leer | Traegerspalte vorhanden, noch keine Zeilen — RLS technisch moeglich, aber an echten Daten nicht nachweisbar. |
+| `data_governance_requests` | `org_id` | leer | Traegerspalte vorhanden, noch keine Zeilen — RLS technisch moeglich, aber an echten Daten nicht nachweisbar. |
+| `flagged_search_queries` | `org_id` | leer | Traegerspalte vorhanden, noch keine Zeilen — RLS technisch moeglich, aber an echten Daten nicht nachweisbar. |
+| `match_logs` | `org_id` | leer | Traegerspalte vorhanden, noch keine Zeilen — RLS technisch moeglich, aber an echten Daten nicht nachweisbar. |
+| `org_active_addons` | `org_id` | leer | Traegerspalte vorhanden, noch keine Zeilen — RLS technisch moeglich, aber an echten Daten nicht nachweisbar. |
+| `org_erp_mappings` | `org_id` | leer | Traegerspalte vorhanden, noch keine Zeilen — RLS technisch moeglich, aber an echten Daten nicht nachweisbar. |
+| `org_integrations` | `org_id` | leer | Traegerspalte vorhanden, noch keine Zeilen — RLS technisch moeglich, aber an echten Daten nicht nachweisbar. |
+| `org_sso_config` | `org_id` | leer | Traegerspalte vorhanden, noch keine Zeilen — RLS technisch moeglich, aber an echten Daten nicht nachweisbar. |
+| `premium_listing_charges` | `org_id` | leer | Traegerspalte vorhanden, noch keine Zeilen — RLS technisch moeglich, aber an echten Daten nicht nachweisbar. |
+| `profile_bounties` | `org_id` | leer | Traegerspalte vorhanden, noch keine Zeilen — RLS technisch moeglich, aber an echten Daten nicht nachweisbar. |
+| `profile_ranking_snapshots` | `org_id` | leer | Traegerspalte vorhanden, noch keine Zeilen — RLS technisch moeglich, aber an echten Daten nicht nachweisbar. |
+| `profile_visibility_settings` | `org_id` | leer | Traegerspalte vorhanden, noch keine Zeilen — RLS technisch moeglich, aber an echten Daten nicht nachweisbar. |
+| `rate_card_checks` | `org_id`, `supplier_org_id` | leer | Traegerspalte vorhanden, noch keine Zeilen — RLS technisch moeglich, aber an echten Daten nicht nachweisbar. |
+| `requisition_candidates` | `supplier_org_id` | leer | Traegerspalte vorhanden, noch keine Zeilen — RLS technisch moeglich, aber an echten Daten nicht nachweisbar. |
+| `sso_sessions` | `org_id` | leer | Traegerspalte vorhanden, noch keine Zeilen — RLS technisch moeglich, aber an echten Daten nicht nachweisbar. |
+| `submissions` | `supplier_org_id` | leer | Traegerspalte vorhanden, noch keine Zeilen — RLS technisch moeglich, aber an echten Daten nicht nachweisbar. |
+| `timesheet_template_assignments` | `org_id`, `supplier_org_id` | leer | Traegerspalte vorhanden, noch keine Zeilen — RLS technisch moeglich, aber an echten Daten nicht nachweisbar. |
+| `timesheet_templates` | `supplier_org_id` | leer | Traegerspalte vorhanden, noch keine Zeilen — RLS technisch moeglich, aber an echten Daten nicht nachweisbar. |
+| `worker_delays` | `supplier_org_id` | leer | Traegerspalte vorhanden, noch keine Zeilen — RLS technisch moeglich, aber an echten Daten nicht nachweisbar. |
+| `worker_profile_documents` | `supplier_org_id` | leer | Traegerspalte vorhanden, noch keine Zeilen — RLS technisch moeglich, aber an echten Daten nicht nachweisbar. |
 
-| Tabelle | org-Spalte(n) | Nächster Schritt |
-|---|---|---|
-| `assignments` | `org_id`, `supplier_org_id` | Migration 117 |
-| `contracts` | `org_id` | Migration 117 |
-| `rate_cards` | `org_id` | Migration 117 |
-| `rate_card_checks` | `org_id` | Migration 117 |
-| `capacities` | `org_id` | Migration 117 |
-| `capacity_posts` | `org_id` | Migration 117 |
-| `capacity_reservations` | `org_id` | Migration 117 |
-| `org_locations` | `org_id` | Migration 117 |
-| `org_departments` | `org_id` | Migration 117 |
-| `org_settings` | `org_id` | Migration 117 |
-| `org_api_keys` | `org_id` | Migration 117 |
-| `org_sso_config` | `org_id` | Migration 117 |
-| `org_active_addons` | `org_id` | Migration 117 |
-| `approval_requests` | `org_id` | Migration 117 |
-| `demand_requests` | `org_id` | Migration 117 |
-| `demand_sla_events` | `org_id` | Migration 117 |
-| `matches` | `org_id` | Migration 117 |
-| `worker_invites` | `org_id` | Migration 117 |
-| `compliance_policies` | `org_id` | Migration 117 |
-| `notifications` | `user_id` / `org_id` | Migration 117 |
-| `notification_preferences` | `user_id` | Migration 117 |
-| `offers` | `org_id` | Migration 117 |
-| `offer_assets` | via `offer_id` | Migration 117 |
-| `proofs` | `org_id` | Migration 117 |
-| `ratings` | `org_id` | Migration 117 |
-| `match_alerts` | `org_id` | Migration 117 |
-| `timesheet_entries` | via `timesheet_id` | Migration 117 |
-| `timesheet_templates` | `org_id` | Migration 117 |
-| `timesheet_template_fields` | via `template_id` | Migration 117 |
-| `timesheet_template_assignments` | via `template_id` | Migration 117 |
-| `invoice_items` | via `invoice_id` | Migration 117 |
-| `subscription_documents` | `org_id` | Migration 117 |
-| `subscription_notification_log` | `org_id` | Migration 117 |
-| `subscription_request_status_history` | via `request_id` | Migration 117 |
-| `deal_documents` | `org_id` | Migration 117 |
-| `data_governance_requests` | `org_id` | Migration 117 |
-| `listing_analytics` | `org_id` | Migration 117 |
-| `supplier_metrics` | `org_id` | Migration 117 |
-| `supplier_reputation` | `org_id` | Migration 117 |
-| `assignment_staffing_campaigns` | `org_id` | Migration 117 |
-| `assignment_staffing_invites` | `org_id` | Migration 117 |
-| `assignment_staffing_messages` | `org_id` | Migration 117 |
-| `assignment_staffing_reservations` | `org_id` | Migration 117 |
-| `assignment_staffing_waitlist` | `org_id` | Migration 117 |
-| `assignment_staffing_choice_sets` | via `campaign_id` | Migration 117 |
-| `assignment_staffing_choice_options` | via `choice_set_id` | Migration 117 |
-| `assignment_staffing_events` | via `campaign_id` | Migration 117 |
-| `worker_profiles` | `org_id` (supplier) | Migration 117 |
-| `worker_profile_documents` | via `worker_profile_id` | Migration 117 |
-| `worker_billing_snapshots` | `org_id` | Migration 117 |
-| `worker_time_submissions` | `org_id` | Migration 117 |
-| `worker_time_submission_entries` | via `submission_id` | Migration 117 |
-| `worker_submission_events` | via `submission_id` | Migration 117 |
-| `worker_assignment_links` | `org_id` | Migration 117 |
-| `bounties` | `org_id` | Migration 117 |
-| `user_bounties` | `user_id` + `org_id` | Migration 117 |
-| `emergency_provider_commitments` | `org_id` | Migration 117 |
-| `emergency_provider_commitment_events` | via `commitment_id` | Migration 117 |
-| `support_cases` | `org_id` | Migration 117 |
-| `support_case_events` | via `case_id` | Migration 117 |
-| `support_case_notes` | via `case_id` | Migration 117 |
-| `support_tickets` | `org_id` | Migration 117 |
-| `support_escalations` | `org_id` | Migration 117 |
+### 🟠 Backstop NICHT moeglich — die Traegerspalte ist nicht gefuellt (10)
+
+Hier ist RLS kein Schutz, sondern ein Datenausfall: Zeilen mit `NULL` in der Traegerspalte waeren fuer **jeden** unsichtbar, auch fuer den Eigentuemer. Erst die Schreibseite reparieren, dann sichern. Derselbe Defekt wie in Abschnitt 8.1.1 des Plans I (`audit_log`).
+
+| Tabelle | Traegerspalte(n) | Bestand | Anmerkung |
+|---|---|---|---|
+| `capacity_posts` | `org_id` | **3 von 33 ohne Org** | Die Org-Spalte ist in 3 von 33 Zeilen NULL. RLS wuerde diese Zeilen fuer JEDEN unsichtbar machen — ein Datenausfall, kein Schutz. Erst die Schreibseite reparieren. |
+| `csv_import_field_aliases` | `org_id` | **95 von 95 ohne Org** | Die Org-Spalte ist in 95 von 95 Zeilen NULL. RLS wuerde diese Zeilen fuer JEDEN unsichtbar machen — ein Datenausfall, kein Schutz. Erst die Schreibseite reparieren. |
+| `notifications` | `org_id` | **731 von 765 ohne Org** | Die Org-Spalte ist in 731 von 765 Zeilen NULL. RLS wuerde diese Zeilen fuer JEDEN unsichtbar machen — ein Datenausfall, kein Schutz. Erst die Schreibseite reparieren. |
+| `payment_sessions` | `org_id` | **33 von 33 ohne Org** | Die Org-Spalte ist in 33 von 33 Zeilen NULL. RLS wuerde diese Zeilen fuer JEDEN unsichtbar machen — ein Datenausfall, kein Schutz. Erst die Schreibseite reparieren. |
+| `product_analytics_events` | `org_id` | **2132 von 6024 ohne Org** | Die Org-Spalte ist in 2132 von 6024 Zeilen NULL. RLS wuerde diese Zeilen fuer JEDEN unsichtbar machen — ein Datenausfall, kein Schutz. Erst die Schreibseite reparieren. |
+| `product_analytics_sessions` | `org_id` | **612 von 4504 ohne Org** | Die Org-Spalte ist in 612 von 4504 Zeilen NULL. RLS wuerde diese Zeilen fuer JEDEN unsichtbar machen — ein Datenausfall, kein Schutz. Erst die Schreibseite reparieren. |
+| `ratings` | `org_id` | **11 von 11 ohne Org** | Die Org-Spalte ist in 11 von 11 Zeilen NULL. RLS wuerde diese Zeilen fuer JEDEN unsichtbar machen — ein Datenausfall, kein Schutz. Erst die Schreibseite reparieren. |
+| `requests` | `org_id` | **47 von 47 ohne Org** | Die Org-Spalte ist in 47 von 47 Zeilen NULL. RLS wuerde diese Zeilen fuer JEDEN unsichtbar machen — ein Datenausfall, kein Schutz. Erst die Schreibseite reparieren. |
+| `subscription_documents` | `org_id` | **12 von 19 ohne Org** | Die Org-Spalte ist in 12 von 19 Zeilen NULL. RLS wuerde diese Zeilen fuer JEDEN unsichtbar machen — ein Datenausfall, kein Schutz. Erst die Schreibseite reparieren. |
+| `user_onboarding_progress` | `org_id` | **29 von 195 ohne Org** | Die Org-Spalte ist in 29 von 195 Zeilen NULL. RLS wuerde diese Zeilen fuer JEDEN unsichtbar machen — ein Datenausfall, kein Schutz. Erst die Schreibseite reparieren. |
+
+### 🔵 Kein Mandantentraeger — org-RLS waere das falsche Modell (17)
+
+Die Fremdschluessel auf `organizations` sind hier Selbstbezug, globaler Katalog, die Gegenseite eines zweiseitigen Vorgangs oder eine Staff-/Owner-Flaeche. Dieselbe Begruendung, mit der `116` schon `subscriptions` ausgenommen hat: eine Mitgliedschaftsbruecke wuerde fremde Daten erst recht offenlegen.
+
+| Tabelle | Traegerspalte(n) | Bestand | Anmerkung |
+|---|---|---|---|
+| `company_worker_blocklist` | `company_org_id`, `supplier_org_id` | leer | company_org_id/supplier_org_id sind zwei Mandanten an einem Vorgang. |
+| `deal_feedback` | `rated_org_id`, `rater_org_id` | leer | rated_org_id/rater_org_id sind zwei Mandanten an einem Vorgang. |
+| `listings` | `org_id` | **23 von 23 ohne Org** | Marktplatz-Anzeigen sind absichtlich org-uebergreifend sichtbar; org_id ist heute zudem in allen 23 Zeilen NULL. |
+| `occ_decisions` | `org_id` | leer | org_id ist der Bezug einer OWNER-Entscheidung; die Akte gehoert dem Owner Control Center. |
+| `organizations` | `parent_org_id` | **1804 von 1804 ohne Org** | parent_org_id ist der Selbstbezug der Org-Hierarchie, kein Mandantentraeger. |
+| `platform_events` | `org_id`, `target_org_id` | **3 von 3 ohne Org** | org_id/target_org_id sind Bezuege eines plattformweiten Ereignisstroms (Staff Center). |
+| `platform_skills` | `proposed_by_org_id` | **162 von 162 ohne Org** | proposed_by_org_id vermerkt den Einreicher eines GLOBALEN Katalogs — der Katalog gilt fuer alle. |
+| `profile_abuse_reports` | `reported_org_id`, `reporter_org_id` | leer | reported_org_id ist die gemeldete Gegenseite; die Meldung gehoert dem Staff Center. |
+| `profile_favorites` | `favorited_org_id` | leer | favorited_org_id ist die Gegenseite einer oeffentlichen Profilhandlung. |
+| `profile_likes` | `liked_org_id`, `liker_org_id` | leer | liked_org_id/liker_org_id sind beide Seiten einer oeffentlichen Profilhandlung. |
+| `profile_view_events` | `viewed_org_id`, `viewer_org_id` | leer | viewed_org_id/viewer_org_id sind beide Seiten eines oeffentlichen Profilaufrufs. |
+| `strategic_collaboration_requests` | `requester_org_id`, `target_org_id` | **11 von 12 ohne Org** | requester_org_id/target_org_id sind zwei Mandanten an einem Vorgang. |
+| `support_cases` | `reporter_org_id` | leer | reporter_org_id ist der Melder; die Fallakte gehoert dem Support Center (siehe docs/FLAECHEN.md). |
+| `support_tickets` | `org_id` | leer | org_id ist der Melder; das Ticket gehoert dem Support Center (siehe docs/FLAECHEN.md). |
+| `users` | `org_id` | **158 von 395 ohne Org** | org_id ist heute in 158 von 395 Zeilen NULL; Kontodaten sind nutzer-, nicht mandantenskaliert. |
+| `vendor_pool` | `client_org_id`, `supplier_org_id` | leer | client_org_id/supplier_org_id sind zwei Mandanten an einem Vorgang. |
+| `worker_complaints` | `company_org_id`, `supplier_org_id` | leer | company_org_id/supplier_org_id sind zwei Mandanten an einem Vorgang. |
+
+<!-- MANDANTEN-MODELL:ENDE -->
 
 ---
 
@@ -247,7 +247,7 @@ Kein Kunden-Zugriff. Zugriff ausschließlich über `staffControlAccess`-Middlewa
 
 | Tabelle | RLS | Beschreibung |
 |---|---|---|
-| `subscriptions` | **JA** (Migration 116) | Aktive Abonnements |
+| `subscriptions` | **Nein** | Aktive Abonnements. **Korrigiert 2026-08-21:** hier stand „JA (Migration 116)“ — 116 nimmt `subscriptions` ausdrücklich aus (nutzer-, nicht mandantenskaliert), und die Datenbank zeigt `relrowsecurity = false`. |
 | `subscription_requests` | **JA** (Migration 116) | Abo-Änderungsanträge |
 | `commercial_offers` | **JA** (Migration 116) | Kommerzielle Angebote |
 | `billing_usage_metrics` | Nein (geplant) | Nutzungsmetriken für Abrechnung |
@@ -313,11 +313,39 @@ COMMIT;
 
 ## Roadmap: Nächste RLS-Aktivierungen
 
-**Migration 117** (nächste Härtungswelle):
-- Priorität 1: `assignments`, `contracts`, `rate_cards` — geschäftskritisch
-- Priorität 2: `org_locations`, `org_departments`, `org_settings` — Org-Konfiguration
-- Priorität 3: `capacities`, `capacity_posts`, `capacity_reservations` — Marketplace
-- Priorität 4: Child-Tabellen (cascade via Parent-FK-Join statt eigene Policy)
+> **Eine Migration mit der Nummer 117 gibt es nicht — und es hat sie nie gegeben.**
+> `sql/migrations/` springt von `116_rls_deny_by_default.sql` auf
+> `118_staff_identity_hardening.sql`. Dieses Dokument hat sie für 63 Tabellen als
+> nächsten Schritt geführt; wer das las, hörte auf zu suchen. Der Verweis ist am
+> 2026-08-21 durch den gemessenen Ist-Stand oben ersetzt worden (Befund P1-16).
+
+**Was die Messung ergeben hat — und warum die alte Reihenfolge nicht funktioniert
+hätte:**
+
+1. **Zuerst die Schreibseite, dann der Backstop.** Bei 10 Tabellen ist die
+   Trägerspalte gar nicht oder nur teilweise gefüllt — `requests`, `ratings` und
+   `listings` zu **100 %**, `notifications` zu 96 %. RLS wäre dort kein Schutz,
+   sondern ein Datenausfall: die Zeilen würden für **jeden** unsichtbar, auch für
+   den Eigentümer. Das ist derselbe Defekt wie in Abschnitt 8.1.1 des Plans I
+   (`audit_log`: 1796 von 2740 Zeilen ohne `org_id`) — **8.1.1 gehört deshalb
+   VOR die RLS-Aktivierung dieser Tabellen**, nicht danach.
+2. **Die alte Priorität 3 war unmöglich.** `capacities`, `capacity_reservations`
+   und der ganze Marktplatz tragen überhaupt keinen Fremdschlüssel auf
+   `organizations`: `capacities.agency_id`, `demand_requests.requester_company_id`
+   und `offers.supplier_company_id` zeigen auf **`users`** (nachgemessen: 39 von
+   39 bzw. 38 von 38 Werten treffen `users`, null treffen `organizations`). Eine
+   Policy `org_id = current_org_id()` hätte dort auf eine nicht existente Spalte
+   verwiesen — genau der Fehler, der `116` in den Rollback riss.
+3. **Priorität 1 und 2 sind dagegen sofort möglich.** `assignments`, `contracts`,
+   `rate_cards`, `org_locations`, `org_departments`, `org_settings` stehen oben
+   unter „Backstop möglich“: Trägerspalte lückenlos gefüllt, mandanten-privat.
+
+**Offene Owner-Entscheidung:** Welche der 18 bereiten und 25 leeren Tabellen in
+der ersten Aktivierungswelle scharf geschaltet werden. Die Wirkung tritt nur auf
+einer Managed-DB mit Nicht-Superuser-Rolle ein — lokal läuft die Anwendung als
+Superuser, RLS ist dort wirkungslos und ein Fehler würde von der Testsuite
+**nicht** bemerkt. Deshalb gehört jede Tabelle einzeln an einer Wegwerf-Datenbank
+mit Nicht-Superuser-Rolle nachgewiesen, bevor sie aktiviert wird.
 
 **Empfehlung für Child-Tabellen:** Statt eigenständige RLS-Policies zu erstellen, Joins über Parent-Tabellen verwenden (die bereits RLS haben). Beispiel:
 ```sql

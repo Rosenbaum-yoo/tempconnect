@@ -1,0 +1,1092 @@
+{
+  "zweck": "Welche Tabellen tragen einen Mandanten, und wo steht der Datenbank-Backstop (RLS) wirklich? Gemessen gegen die LAUFENDE Datenbank, nicht gegen die Migrationen — die beiden laufen auseinander (Erkenntnis M0-B9). Grundlage fuer docs/security/TENANT_ISOLATION_MODEL.md; api/test/mandantenModellWaechter.test.js haelt Dokument und Wirklichkeit zusammen.",
+  "stand": "2026-08-21",
+  "erhebung": "FK-Ziel organizations (pg_constraint.confrelid), plus Zeilen- und NULL-Zaehlung je Traegerspalte.",
+  "einstufungen": {
+    "geschuetzt": "RLS aktiv — der Backstop steht.",
+    "bereit": "Traegerspalte in ALLEN Zeilen gefuellt und Mandanten-privat: RLS kann ohne Datenausfall aktiviert werden.",
+    "bereit_ohne_daten": "Traegerspalte vorhanden, Tabelle leer: technisch moeglich, an echten Daten nicht nachweisbar.",
+    "blockiert_daten": "Traegerspalte teilweise oder ganz NULL: RLS wuerde diese Zeilen fuer jeden unsichtbar machen. Erst die Schreibseite reparieren.",
+    "kein_mandantentraeger": "Die org-FK ist Selbstbezug, globaler Katalog, Gegenseite eines zweiseitigen Vorgangs oder eine Staff-/Owner-Flaeche — org-RLS waere hier das falsche Modell (dieselbe Begruendung wie fuer subscriptions in Migration 116)."
+  },
+  "zusammenfassung": {
+    "bereit_ohne_daten": 25,
+    "bereit": 18,
+    "geschuetzt": 8,
+    "blockiert_daten": 10,
+    "kein_mandantentraeger": 17
+  },
+  "tabellen": [
+    {
+      "tabelle": "ai_match_rankings",
+      "orgSpalten": [
+        "org_id"
+      ],
+      "zeilen": 0,
+      "ohneOrg": 0,
+      "rls": false,
+      "force": false,
+      "policies": [],
+      "einstufung": "bereit_ohne_daten",
+      "begruendung": "Traegerspalte vorhanden, noch keine Zeilen — RLS technisch moeglich, aber an echten Daten nicht nachweisbar."
+    },
+    {
+      "tabelle": "approval_requests",
+      "orgSpalten": [
+        "org_id"
+      ],
+      "zeilen": 0,
+      "ohneOrg": 0,
+      "rls": false,
+      "force": false,
+      "policies": [],
+      "einstufung": "bereit_ohne_daten",
+      "begruendung": "Traegerspalte vorhanden, noch keine Zeilen — RLS technisch moeglich, aber an echten Daten nicht nachweisbar."
+    },
+    {
+      "tabelle": "assignment_staffing_campaigns",
+      "orgSpalten": [
+        "org_id",
+        "supplier_org_id"
+      ],
+      "zeilen": 1,
+      "ohneOrg": 0,
+      "rls": false,
+      "force": false,
+      "policies": [],
+      "einstufung": "bereit",
+      "begruendung": "Traegerspalte in allen 1 Zeilen gefuellt; Mandanten-privat. RLS ohne Datenausfall moeglich."
+    },
+    {
+      "tabelle": "assignment_staffing_choice_options",
+      "orgSpalten": [
+        "supplier_org_id"
+      ],
+      "zeilen": 0,
+      "ohneOrg": 0,
+      "rls": false,
+      "force": false,
+      "policies": [],
+      "einstufung": "bereit_ohne_daten",
+      "begruendung": "Traegerspalte vorhanden, noch keine Zeilen — RLS technisch moeglich, aber an echten Daten nicht nachweisbar."
+    },
+    {
+      "tabelle": "assignment_staffing_choice_sets",
+      "orgSpalten": [
+        "supplier_org_id"
+      ],
+      "zeilen": 0,
+      "ohneOrg": 0,
+      "rls": false,
+      "force": false,
+      "policies": [],
+      "einstufung": "bereit_ohne_daten",
+      "begruendung": "Traegerspalte vorhanden, noch keine Zeilen — RLS technisch moeglich, aber an echten Daten nicht nachweisbar."
+    },
+    {
+      "tabelle": "assignment_staffing_invites",
+      "orgSpalten": [
+        "org_id",
+        "supplier_org_id"
+      ],
+      "zeilen": 1,
+      "ohneOrg": 0,
+      "rls": false,
+      "force": false,
+      "policies": [],
+      "einstufung": "bereit",
+      "begruendung": "Traegerspalte in allen 1 Zeilen gefuellt; Mandanten-privat. RLS ohne Datenausfall moeglich."
+    },
+    {
+      "tabelle": "assignment_staffing_reservations",
+      "orgSpalten": [
+        "org_id",
+        "supplier_org_id"
+      ],
+      "zeilen": 0,
+      "ohneOrg": 0,
+      "rls": false,
+      "force": false,
+      "policies": [],
+      "einstufung": "bereit_ohne_daten",
+      "begruendung": "Traegerspalte vorhanden, noch keine Zeilen — RLS technisch moeglich, aber an echten Daten nicht nachweisbar."
+    },
+    {
+      "tabelle": "assignment_staffing_waitlist",
+      "orgSpalten": [
+        "org_id",
+        "supplier_org_id"
+      ],
+      "zeilen": 1,
+      "ohneOrg": 0,
+      "rls": false,
+      "force": false,
+      "policies": [],
+      "einstufung": "bereit",
+      "begruendung": "Traegerspalte in allen 1 Zeilen gefuellt; Mandanten-privat. RLS ohne Datenausfall moeglich."
+    },
+    {
+      "tabelle": "assignments",
+      "orgSpalten": [
+        "org_id",
+        "supplier_org_id"
+      ],
+      "zeilen": 68,
+      "ohneOrg": 0,
+      "rls": false,
+      "force": false,
+      "policies": [],
+      "einstufung": "bereit",
+      "begruendung": "Traegerspalte in allen 68 Zeilen gefuellt; Mandanten-privat. RLS ohne Datenausfall moeglich."
+    },
+    {
+      "tabelle": "audit_log",
+      "orgSpalten": [
+        "org_id"
+      ],
+      "zeilen": 2740,
+      "ohneOrg": 1796,
+      "rls": true,
+      "force": false,
+      "policies": [
+        "al_same_org",
+        "al_staff_bypass"
+      ],
+      "einstufung": "geschuetzt",
+      "begruendung": "RLS aktiv (Migration 116/126)."
+    },
+    {
+      "tabelle": "billing_usage_metrics",
+      "orgSpalten": [
+        "org_id"
+      ],
+      "zeilen": 0,
+      "ohneOrg": 0,
+      "rls": false,
+      "force": false,
+      "policies": [],
+      "einstufung": "bereit_ohne_daten",
+      "begruendung": "Traegerspalte vorhanden, noch keine Zeilen — RLS technisch moeglich, aber an echten Daten nicht nachweisbar."
+    },
+    {
+      "tabelle": "capacity_posts",
+      "orgSpalten": [
+        "org_id"
+      ],
+      "zeilen": 33,
+      "ohneOrg": 3,
+      "rls": false,
+      "force": false,
+      "policies": [],
+      "einstufung": "blockiert_daten",
+      "begruendung": "Die Org-Spalte ist in 3 von 33 Zeilen NULL. RLS wuerde diese Zeilen fuer JEDEN unsichtbar machen — ein Datenausfall, kein Schutz. Erst die Schreibseite reparieren."
+    },
+    {
+      "tabelle": "commercial_offers",
+      "orgSpalten": [
+        "org_id"
+      ],
+      "zeilen": 0,
+      "ohneOrg": 0,
+      "rls": true,
+      "force": false,
+      "policies": [
+        "co_same_org",
+        "co_staff_bypass"
+      ],
+      "einstufung": "geschuetzt",
+      "begruendung": "RLS aktiv (Migration 116/126)."
+    },
+    {
+      "tabelle": "company_worker_blocklist",
+      "orgSpalten": [
+        "company_org_id",
+        "supplier_org_id"
+      ],
+      "zeilen": 0,
+      "ohneOrg": 0,
+      "rls": false,
+      "force": false,
+      "policies": [],
+      "einstufung": "kein_mandantentraeger",
+      "begruendung": "company_org_id/supplier_org_id sind zwei Mandanten an einem Vorgang."
+    },
+    {
+      "tabelle": "compliance_documents",
+      "orgSpalten": [
+        "org_id"
+      ],
+      "zeilen": 5,
+      "ohneOrg": 0,
+      "rls": true,
+      "force": false,
+      "policies": [
+        "cd_same_org",
+        "cd_staff_bypass"
+      ],
+      "einstufung": "geschuetzt",
+      "begruendung": "RLS aktiv (Migration 116/126)."
+    },
+    {
+      "tabelle": "contracts",
+      "orgSpalten": [
+        "buyer_org_id",
+        "supplier_org_id"
+      ],
+      "zeilen": 3,
+      "ohneOrg": 0,
+      "rls": false,
+      "force": false,
+      "policies": [],
+      "einstufung": "bereit",
+      "begruendung": "Traegerspalte in allen 3 Zeilen gefuellt; Mandanten-privat. RLS ohne Datenausfall moeglich."
+    },
+    {
+      "tabelle": "csv_import_field_aliases",
+      "orgSpalten": [
+        "org_id"
+      ],
+      "zeilen": 95,
+      "ohneOrg": 95,
+      "rls": false,
+      "force": false,
+      "policies": [],
+      "einstufung": "blockiert_daten",
+      "begruendung": "Die Org-Spalte ist in 95 von 95 Zeilen NULL. RLS wuerde diese Zeilen fuer JEDEN unsichtbar machen — ein Datenausfall, kein Schutz. Erst die Schreibseite reparieren."
+    },
+    {
+      "tabelle": "data_governance_requests",
+      "orgSpalten": [
+        "org_id"
+      ],
+      "zeilen": 0,
+      "ohneOrg": 0,
+      "rls": false,
+      "force": false,
+      "policies": [],
+      "einstufung": "bereit_ohne_daten",
+      "begruendung": "Traegerspalte vorhanden, noch keine Zeilen — RLS technisch moeglich, aber an echten Daten nicht nachweisbar."
+    },
+    {
+      "tabelle": "deal_feedback",
+      "orgSpalten": [
+        "rated_org_id",
+        "rater_org_id"
+      ],
+      "zeilen": 0,
+      "ohneOrg": 0,
+      "rls": false,
+      "force": false,
+      "policies": [],
+      "einstufung": "kein_mandantentraeger",
+      "begruendung": "rated_org_id/rater_org_id sind zwei Mandanten an einem Vorgang."
+    },
+    {
+      "tabelle": "document_center",
+      "orgSpalten": [
+        "org_id"
+      ],
+      "zeilen": 158,
+      "ohneOrg": 0,
+      "rls": false,
+      "force": false,
+      "policies": [],
+      "einstufung": "bereit",
+      "begruendung": "Traegerspalte in allen 158 Zeilen gefuellt; Mandanten-privat. RLS ohne Datenausfall moeglich."
+    },
+    {
+      "tabelle": "flagged_search_queries",
+      "orgSpalten": [
+        "org_id"
+      ],
+      "zeilen": 0,
+      "ohneOrg": 0,
+      "rls": false,
+      "force": false,
+      "policies": [],
+      "einstufung": "bereit_ohne_daten",
+      "begruendung": "Traegerspalte vorhanden, noch keine Zeilen — RLS technisch moeglich, aber an echten Daten nicht nachweisbar."
+    },
+    {
+      "tabelle": "invoices",
+      "orgSpalten": [
+        "org_id",
+        "supplier_org_id"
+      ],
+      "zeilen": 0,
+      "ohneOrg": 0,
+      "rls": true,
+      "force": true,
+      "policies": [
+        "inv_same_org",
+        "inv_staff_bypass"
+      ],
+      "einstufung": "geschuetzt",
+      "begruendung": "RLS aktiv (Migration 116/126)."
+    },
+    {
+      "tabelle": "listings",
+      "orgSpalten": [
+        "org_id"
+      ],
+      "zeilen": 23,
+      "ohneOrg": 23,
+      "rls": false,
+      "force": false,
+      "policies": [],
+      "einstufung": "kein_mandantentraeger",
+      "begruendung": "Marktplatz-Anzeigen sind absichtlich org-uebergreifend sichtbar; org_id ist heute zudem in allen 23 Zeilen NULL."
+    },
+    {
+      "tabelle": "match_logs",
+      "orgSpalten": [
+        "org_id"
+      ],
+      "zeilen": 0,
+      "ohneOrg": 0,
+      "rls": false,
+      "force": false,
+      "policies": [],
+      "einstufung": "bereit_ohne_daten",
+      "begruendung": "Traegerspalte vorhanden, noch keine Zeilen — RLS technisch moeglich, aber an echten Daten nicht nachweisbar."
+    },
+    {
+      "tabelle": "notifications",
+      "orgSpalten": [
+        "org_id"
+      ],
+      "zeilen": 765,
+      "ohneOrg": 731,
+      "rls": false,
+      "force": false,
+      "policies": [],
+      "einstufung": "blockiert_daten",
+      "begruendung": "Die Org-Spalte ist in 731 von 765 Zeilen NULL. RLS wuerde diese Zeilen fuer JEDEN unsichtbar machen — ein Datenausfall, kein Schutz. Erst die Schreibseite reparieren."
+    },
+    {
+      "tabelle": "occ_decisions",
+      "orgSpalten": [
+        "org_id"
+      ],
+      "zeilen": 0,
+      "ohneOrg": 0,
+      "rls": false,
+      "force": false,
+      "policies": [],
+      "einstufung": "kein_mandantentraeger",
+      "begruendung": "org_id ist der Bezug einer OWNER-Entscheidung; die Akte gehoert dem Owner Control Center."
+    },
+    {
+      "tabelle": "org_active_addons",
+      "orgSpalten": [
+        "org_id"
+      ],
+      "zeilen": 0,
+      "ohneOrg": 0,
+      "rls": false,
+      "force": false,
+      "policies": [],
+      "einstufung": "bereit_ohne_daten",
+      "begruendung": "Traegerspalte vorhanden, noch keine Zeilen — RLS technisch moeglich, aber an echten Daten nicht nachweisbar."
+    },
+    {
+      "tabelle": "org_api_keys",
+      "orgSpalten": [
+        "org_id"
+      ],
+      "zeilen": 4,
+      "ohneOrg": 0,
+      "rls": false,
+      "force": false,
+      "policies": [],
+      "einstufung": "bereit",
+      "begruendung": "Traegerspalte in allen 4 Zeilen gefuellt; Mandanten-privat. RLS ohne Datenausfall moeglich."
+    },
+    {
+      "tabelle": "org_departments",
+      "orgSpalten": [
+        "org_id"
+      ],
+      "zeilen": 4,
+      "ohneOrg": 0,
+      "rls": false,
+      "force": false,
+      "policies": [],
+      "einstufung": "bereit",
+      "begruendung": "Traegerspalte in allen 4 Zeilen gefuellt; Mandanten-privat. RLS ohne Datenausfall moeglich."
+    },
+    {
+      "tabelle": "org_erp_mappings",
+      "orgSpalten": [
+        "org_id"
+      ],
+      "zeilen": 0,
+      "ohneOrg": 0,
+      "rls": false,
+      "force": false,
+      "policies": [],
+      "einstufung": "bereit_ohne_daten",
+      "begruendung": "Traegerspalte vorhanden, noch keine Zeilen — RLS technisch moeglich, aber an echten Daten nicht nachweisbar."
+    },
+    {
+      "tabelle": "org_integrations",
+      "orgSpalten": [
+        "org_id"
+      ],
+      "zeilen": 0,
+      "ohneOrg": 0,
+      "rls": false,
+      "force": false,
+      "policies": [],
+      "einstufung": "bereit_ohne_daten",
+      "begruendung": "Traegerspalte vorhanden, noch keine Zeilen — RLS technisch moeglich, aber an echten Daten nicht nachweisbar."
+    },
+    {
+      "tabelle": "org_invitations",
+      "orgSpalten": [
+        "org_id"
+      ],
+      "zeilen": 1,
+      "ohneOrg": 0,
+      "rls": false,
+      "force": false,
+      "policies": [],
+      "einstufung": "bereit",
+      "begruendung": "Traegerspalte in allen 1 Zeilen gefuellt; Mandanten-privat. RLS ohne Datenausfall moeglich."
+    },
+    {
+      "tabelle": "org_locations",
+      "orgSpalten": [
+        "org_id"
+      ],
+      "zeilen": 4,
+      "ohneOrg": 0,
+      "rls": false,
+      "force": false,
+      "policies": [],
+      "einstufung": "bereit",
+      "begruendung": "Traegerspalte in allen 4 Zeilen gefuellt; Mandanten-privat. RLS ohne Datenausfall moeglich."
+    },
+    {
+      "tabelle": "org_memberships",
+      "orgSpalten": [
+        "org_id"
+      ],
+      "zeilen": 251,
+      "ohneOrg": 0,
+      "rls": true,
+      "force": false,
+      "policies": [
+        "om_same_org",
+        "om_staff_bypass"
+      ],
+      "einstufung": "geschuetzt",
+      "begruendung": "RLS aktiv (Migration 116/126)."
+    },
+    {
+      "tabelle": "org_settings",
+      "orgSpalten": [
+        "org_id"
+      ],
+      "zeilen": 18,
+      "ohneOrg": 0,
+      "rls": false,
+      "force": false,
+      "policies": [],
+      "einstufung": "bereit",
+      "begruendung": "Traegerspalte in allen 18 Zeilen gefuellt; Mandanten-privat. RLS ohne Datenausfall moeglich."
+    },
+    {
+      "tabelle": "org_sso_config",
+      "orgSpalten": [
+        "org_id"
+      ],
+      "zeilen": 0,
+      "ohneOrg": 0,
+      "rls": false,
+      "force": false,
+      "policies": [],
+      "einstufung": "bereit_ohne_daten",
+      "begruendung": "Traegerspalte vorhanden, noch keine Zeilen — RLS technisch moeglich, aber an echten Daten nicht nachweisbar."
+    },
+    {
+      "tabelle": "organizations",
+      "orgSpalten": [
+        "parent_org_id"
+      ],
+      "zeilen": 1804,
+      "ohneOrg": 1804,
+      "rls": false,
+      "force": false,
+      "policies": [],
+      "einstufung": "kein_mandantentraeger",
+      "begruendung": "parent_org_id ist der Selbstbezug der Org-Hierarchie, kein Mandantentraeger."
+    },
+    {
+      "tabelle": "payment_sessions",
+      "orgSpalten": [
+        "org_id"
+      ],
+      "zeilen": 33,
+      "ohneOrg": 33,
+      "rls": false,
+      "force": false,
+      "policies": [],
+      "einstufung": "blockiert_daten",
+      "begruendung": "Die Org-Spalte ist in 33 von 33 Zeilen NULL. RLS wuerde diese Zeilen fuer JEDEN unsichtbar machen — ein Datenausfall, kein Schutz. Erst die Schreibseite reparieren."
+    },
+    {
+      "tabelle": "platform_events",
+      "orgSpalten": [
+        "org_id",
+        "target_org_id"
+      ],
+      "zeilen": 3,
+      "ohneOrg": 3,
+      "rls": false,
+      "force": false,
+      "policies": [],
+      "einstufung": "kein_mandantentraeger",
+      "begruendung": "org_id/target_org_id sind Bezuege eines plattformweiten Ereignisstroms (Staff Center)."
+    },
+    {
+      "tabelle": "platform_skills",
+      "orgSpalten": [
+        "proposed_by_org_id"
+      ],
+      "zeilen": 162,
+      "ohneOrg": 162,
+      "rls": false,
+      "force": false,
+      "policies": [],
+      "einstufung": "kein_mandantentraeger",
+      "begruendung": "proposed_by_org_id vermerkt den Einreicher eines GLOBALEN Katalogs — der Katalog gilt fuer alle."
+    },
+    {
+      "tabelle": "premium_listing_charges",
+      "orgSpalten": [
+        "org_id"
+      ],
+      "zeilen": 0,
+      "ohneOrg": 0,
+      "rls": false,
+      "force": false,
+      "policies": [],
+      "einstufung": "bereit_ohne_daten",
+      "begruendung": "Traegerspalte vorhanden, noch keine Zeilen — RLS technisch moeglich, aber an echten Daten nicht nachweisbar."
+    },
+    {
+      "tabelle": "product_analytics_events",
+      "orgSpalten": [
+        "org_id"
+      ],
+      "zeilen": 6024,
+      "ohneOrg": 2132,
+      "rls": false,
+      "force": false,
+      "policies": [],
+      "einstufung": "blockiert_daten",
+      "begruendung": "Die Org-Spalte ist in 2132 von 6024 Zeilen NULL. RLS wuerde diese Zeilen fuer JEDEN unsichtbar machen — ein Datenausfall, kein Schutz. Erst die Schreibseite reparieren."
+    },
+    {
+      "tabelle": "product_analytics_sessions",
+      "orgSpalten": [
+        "org_id"
+      ],
+      "zeilen": 4504,
+      "ohneOrg": 612,
+      "rls": false,
+      "force": false,
+      "policies": [],
+      "einstufung": "blockiert_daten",
+      "begruendung": "Die Org-Spalte ist in 612 von 4504 Zeilen NULL. RLS wuerde diese Zeilen fuer JEDEN unsichtbar machen — ein Datenausfall, kein Schutz. Erst die Schreibseite reparieren."
+    },
+    {
+      "tabelle": "profile_abuse_reports",
+      "orgSpalten": [
+        "reported_org_id",
+        "reporter_org_id"
+      ],
+      "zeilen": 0,
+      "ohneOrg": 0,
+      "rls": false,
+      "force": false,
+      "policies": [],
+      "einstufung": "kein_mandantentraeger",
+      "begruendung": "reported_org_id ist die gemeldete Gegenseite; die Meldung gehoert dem Staff Center."
+    },
+    {
+      "tabelle": "profile_bounties",
+      "orgSpalten": [
+        "org_id"
+      ],
+      "zeilen": 0,
+      "ohneOrg": 0,
+      "rls": false,
+      "force": false,
+      "policies": [],
+      "einstufung": "bereit_ohne_daten",
+      "begruendung": "Traegerspalte vorhanden, noch keine Zeilen — RLS technisch moeglich, aber an echten Daten nicht nachweisbar."
+    },
+    {
+      "tabelle": "profile_favorites",
+      "orgSpalten": [
+        "favorited_org_id"
+      ],
+      "zeilen": 0,
+      "ohneOrg": 0,
+      "rls": false,
+      "force": false,
+      "policies": [],
+      "einstufung": "kein_mandantentraeger",
+      "begruendung": "favorited_org_id ist die Gegenseite einer oeffentlichen Profilhandlung."
+    },
+    {
+      "tabelle": "profile_likes",
+      "orgSpalten": [
+        "liked_org_id",
+        "liker_org_id"
+      ],
+      "zeilen": 0,
+      "ohneOrg": 0,
+      "rls": false,
+      "force": false,
+      "policies": [],
+      "einstufung": "kein_mandantentraeger",
+      "begruendung": "liked_org_id/liker_org_id sind beide Seiten einer oeffentlichen Profilhandlung."
+    },
+    {
+      "tabelle": "profile_ranking_snapshots",
+      "orgSpalten": [
+        "org_id"
+      ],
+      "zeilen": 0,
+      "ohneOrg": 0,
+      "rls": false,
+      "force": false,
+      "policies": [],
+      "einstufung": "bereit_ohne_daten",
+      "begruendung": "Traegerspalte vorhanden, noch keine Zeilen — RLS technisch moeglich, aber an echten Daten nicht nachweisbar."
+    },
+    {
+      "tabelle": "profile_view_events",
+      "orgSpalten": [
+        "viewed_org_id",
+        "viewer_org_id"
+      ],
+      "zeilen": 0,
+      "ohneOrg": 0,
+      "rls": false,
+      "force": false,
+      "policies": [],
+      "einstufung": "kein_mandantentraeger",
+      "begruendung": "viewed_org_id/viewer_org_id sind beide Seiten eines oeffentlichen Profilaufrufs."
+    },
+    {
+      "tabelle": "profile_visibility_settings",
+      "orgSpalten": [
+        "org_id"
+      ],
+      "zeilen": 0,
+      "ohneOrg": 0,
+      "rls": false,
+      "force": false,
+      "policies": [],
+      "einstufung": "bereit_ohne_daten",
+      "begruendung": "Traegerspalte vorhanden, noch keine Zeilen — RLS technisch moeglich, aber an echten Daten nicht nachweisbar."
+    },
+    {
+      "tabelle": "rate_card_checks",
+      "orgSpalten": [
+        "org_id",
+        "supplier_org_id"
+      ],
+      "zeilen": 0,
+      "ohneOrg": 0,
+      "rls": false,
+      "force": false,
+      "policies": [],
+      "einstufung": "bereit_ohne_daten",
+      "begruendung": "Traegerspalte vorhanden, noch keine Zeilen — RLS technisch moeglich, aber an echten Daten nicht nachweisbar."
+    },
+    {
+      "tabelle": "rate_cards",
+      "orgSpalten": [
+        "org_id",
+        "supplier_org_id"
+      ],
+      "zeilen": 4,
+      "ohneOrg": 0,
+      "rls": false,
+      "force": false,
+      "policies": [],
+      "einstufung": "bereit",
+      "begruendung": "Traegerspalte in allen 4 Zeilen gefuellt; Mandanten-privat. RLS ohne Datenausfall moeglich."
+    },
+    {
+      "tabelle": "ratings",
+      "orgSpalten": [
+        "org_id"
+      ],
+      "zeilen": 11,
+      "ohneOrg": 11,
+      "rls": false,
+      "force": false,
+      "policies": [],
+      "einstufung": "blockiert_daten",
+      "begruendung": "Die Org-Spalte ist in 11 von 11 Zeilen NULL. RLS wuerde diese Zeilen fuer JEDEN unsichtbar machen — ein Datenausfall, kein Schutz. Erst die Schreibseite reparieren."
+    },
+    {
+      "tabelle": "requests",
+      "orgSpalten": [
+        "org_id"
+      ],
+      "zeilen": 47,
+      "ohneOrg": 47,
+      "rls": false,
+      "force": false,
+      "policies": [],
+      "einstufung": "blockiert_daten",
+      "begruendung": "Die Org-Spalte ist in 47 von 47 Zeilen NULL. RLS wuerde diese Zeilen fuer JEDEN unsichtbar machen — ein Datenausfall, kein Schutz. Erst die Schreibseite reparieren."
+    },
+    {
+      "tabelle": "requisition_candidates",
+      "orgSpalten": [
+        "supplier_org_id"
+      ],
+      "zeilen": 0,
+      "ohneOrg": 0,
+      "rls": false,
+      "force": false,
+      "policies": [],
+      "einstufung": "bereit_ohne_daten",
+      "begruendung": "Traegerspalte vorhanden, noch keine Zeilen — RLS technisch moeglich, aber an echten Daten nicht nachweisbar."
+    },
+    {
+      "tabelle": "requisitions",
+      "orgSpalten": [
+        "org_id"
+      ],
+      "zeilen": 73,
+      "ohneOrg": 0,
+      "rls": true,
+      "force": true,
+      "policies": [
+        "req_same_org",
+        "req_staff_bypass"
+      ],
+      "einstufung": "geschuetzt",
+      "begruendung": "RLS aktiv (Migration 116/126)."
+    },
+    {
+      "tabelle": "search_history",
+      "orgSpalten": [
+        "org_id"
+      ],
+      "zeilen": 36,
+      "ohneOrg": 0,
+      "rls": false,
+      "force": false,
+      "policies": [],
+      "einstufung": "bereit",
+      "begruendung": "Traegerspalte in allen 36 Zeilen gefuellt; Mandanten-privat. RLS ohne Datenausfall moeglich."
+    },
+    {
+      "tabelle": "sso_sessions",
+      "orgSpalten": [
+        "org_id"
+      ],
+      "zeilen": 0,
+      "ohneOrg": 0,
+      "rls": false,
+      "force": false,
+      "policies": [],
+      "einstufung": "bereit_ohne_daten",
+      "begruendung": "Traegerspalte vorhanden, noch keine Zeilen — RLS technisch moeglich, aber an echten Daten nicht nachweisbar."
+    },
+    {
+      "tabelle": "strategic_collaboration_requests",
+      "orgSpalten": [
+        "requester_org_id",
+        "target_org_id"
+      ],
+      "zeilen": 12,
+      "ohneOrg": 11,
+      "rls": false,
+      "force": false,
+      "policies": [],
+      "einstufung": "kein_mandantentraeger",
+      "begruendung": "requester_org_id/target_org_id sind zwei Mandanten an einem Vorgang."
+    },
+    {
+      "tabelle": "submissions",
+      "orgSpalten": [
+        "supplier_org_id"
+      ],
+      "zeilen": 0,
+      "ohneOrg": 0,
+      "rls": false,
+      "force": false,
+      "policies": [],
+      "einstufung": "bereit_ohne_daten",
+      "begruendung": "Traegerspalte vorhanden, noch keine Zeilen — RLS technisch moeglich, aber an echten Daten nicht nachweisbar."
+    },
+    {
+      "tabelle": "subscription_documents",
+      "orgSpalten": [
+        "org_id"
+      ],
+      "zeilen": 19,
+      "ohneOrg": 12,
+      "rls": false,
+      "force": false,
+      "policies": [],
+      "einstufung": "blockiert_daten",
+      "begruendung": "Die Org-Spalte ist in 12 von 19 Zeilen NULL. RLS wuerde diese Zeilen fuer JEDEN unsichtbar machen — ein Datenausfall, kein Schutz. Erst die Schreibseite reparieren."
+    },
+    {
+      "tabelle": "subscription_requests",
+      "orgSpalten": [
+        "org_id"
+      ],
+      "zeilen": 11,
+      "ohneOrg": 0,
+      "rls": true,
+      "force": false,
+      "policies": [
+        "subreq_same_org",
+        "subreq_staff_bypass"
+      ],
+      "einstufung": "geschuetzt",
+      "begruendung": "RLS aktiv (Migration 116/126)."
+    },
+    {
+      "tabelle": "support_cases",
+      "orgSpalten": [
+        "reporter_org_id"
+      ],
+      "zeilen": 0,
+      "ohneOrg": 0,
+      "rls": false,
+      "force": false,
+      "policies": [],
+      "einstufung": "kein_mandantentraeger",
+      "begruendung": "reporter_org_id ist der Melder; die Fallakte gehoert dem Support Center (siehe docs/FLAECHEN.md)."
+    },
+    {
+      "tabelle": "support_tickets",
+      "orgSpalten": [
+        "org_id"
+      ],
+      "zeilen": 0,
+      "ohneOrg": 0,
+      "rls": false,
+      "force": false,
+      "policies": [],
+      "einstufung": "kein_mandantentraeger",
+      "begruendung": "org_id ist der Melder; das Ticket gehoert dem Support Center (siehe docs/FLAECHEN.md)."
+    },
+    {
+      "tabelle": "timesheet_template_assignments",
+      "orgSpalten": [
+        "org_id",
+        "supplier_org_id"
+      ],
+      "zeilen": 0,
+      "ohneOrg": 0,
+      "rls": false,
+      "force": false,
+      "policies": [],
+      "einstufung": "bereit_ohne_daten",
+      "begruendung": "Traegerspalte vorhanden, noch keine Zeilen — RLS technisch moeglich, aber an echten Daten nicht nachweisbar."
+    },
+    {
+      "tabelle": "timesheet_templates",
+      "orgSpalten": [
+        "supplier_org_id"
+      ],
+      "zeilen": 0,
+      "ohneOrg": 0,
+      "rls": false,
+      "force": false,
+      "policies": [],
+      "einstufung": "bereit_ohne_daten",
+      "begruendung": "Traegerspalte vorhanden, noch keine Zeilen — RLS technisch moeglich, aber an echten Daten nicht nachweisbar."
+    },
+    {
+      "tabelle": "timesheets",
+      "orgSpalten": [
+        "org_id",
+        "supplier_org_id"
+      ],
+      "zeilen": 10,
+      "ohneOrg": 0,
+      "rls": true,
+      "force": true,
+      "policies": [
+        "ts_same_org",
+        "ts_staff_bypass"
+      ],
+      "einstufung": "geschuetzt",
+      "begruendung": "RLS aktiv (Migration 116/126)."
+    },
+    {
+      "tabelle": "user_onboarding_progress",
+      "orgSpalten": [
+        "org_id"
+      ],
+      "zeilen": 195,
+      "ohneOrg": 29,
+      "rls": false,
+      "force": false,
+      "policies": [],
+      "einstufung": "blockiert_daten",
+      "begruendung": "Die Org-Spalte ist in 29 von 195 Zeilen NULL. RLS wuerde diese Zeilen fuer JEDEN unsichtbar machen — ein Datenausfall, kein Schutz. Erst die Schreibseite reparieren."
+    },
+    {
+      "tabelle": "users",
+      "orgSpalten": [
+        "org_id"
+      ],
+      "zeilen": 395,
+      "ohneOrg": 158,
+      "rls": false,
+      "force": false,
+      "policies": [],
+      "einstufung": "kein_mandantentraeger",
+      "begruendung": "org_id ist heute in 158 von 395 Zeilen NULL; Kontodaten sind nutzer-, nicht mandantenskaliert."
+    },
+    {
+      "tabelle": "vendor_pool",
+      "orgSpalten": [
+        "client_org_id",
+        "supplier_org_id"
+      ],
+      "zeilen": 0,
+      "ohneOrg": 0,
+      "rls": false,
+      "force": false,
+      "policies": [],
+      "einstufung": "kein_mandantentraeger",
+      "begruendung": "client_org_id/supplier_org_id sind zwei Mandanten an einem Vorgang."
+    },
+    {
+      "tabelle": "worker_assignment_links",
+      "orgSpalten": [
+        "org_id",
+        "supplier_org_id"
+      ],
+      "zeilen": 24,
+      "ohneOrg": 0,
+      "rls": false,
+      "force": false,
+      "policies": [],
+      "einstufung": "bereit",
+      "begruendung": "Traegerspalte in allen 24 Zeilen gefuellt; Mandanten-privat. RLS ohne Datenausfall moeglich."
+    },
+    {
+      "tabelle": "worker_billing_snapshots",
+      "orgSpalten": [
+        "org_id"
+      ],
+      "zeilen": 1,
+      "ohneOrg": 0,
+      "rls": false,
+      "force": false,
+      "policies": [],
+      "einstufung": "bereit",
+      "begruendung": "Traegerspalte in allen 1 Zeilen gefuellt; Mandanten-privat. RLS ohne Datenausfall moeglich."
+    },
+    {
+      "tabelle": "worker_complaints",
+      "orgSpalten": [
+        "company_org_id",
+        "supplier_org_id"
+      ],
+      "zeilen": 0,
+      "ohneOrg": 0,
+      "rls": false,
+      "force": false,
+      "policies": [],
+      "einstufung": "kein_mandantentraeger",
+      "begruendung": "company_org_id/supplier_org_id sind zwei Mandanten an einem Vorgang."
+    },
+    {
+      "tabelle": "worker_delays",
+      "orgSpalten": [
+        "supplier_org_id"
+      ],
+      "zeilen": 0,
+      "ohneOrg": 0,
+      "rls": false,
+      "force": false,
+      "policies": [],
+      "einstufung": "bereit_ohne_daten",
+      "begruendung": "Traegerspalte vorhanden, noch keine Zeilen — RLS technisch moeglich, aber an echten Daten nicht nachweisbar."
+    },
+    {
+      "tabelle": "worker_invites",
+      "orgSpalten": [
+        "supplier_org_id"
+      ],
+      "zeilen": 7,
+      "ohneOrg": 0,
+      "rls": false,
+      "force": false,
+      "policies": [],
+      "einstufung": "bereit",
+      "begruendung": "Traegerspalte in allen 7 Zeilen gefuellt; Mandanten-privat. RLS ohne Datenausfall moeglich."
+    },
+    {
+      "tabelle": "worker_profile_documents",
+      "orgSpalten": [
+        "supplier_org_id"
+      ],
+      "zeilen": 0,
+      "ohneOrg": 0,
+      "rls": false,
+      "force": false,
+      "policies": [],
+      "einstufung": "bereit_ohne_daten",
+      "begruendung": "Traegerspalte vorhanden, noch keine Zeilen — RLS technisch moeglich, aber an echten Daten nicht nachweisbar."
+    },
+    {
+      "tabelle": "worker_profiles",
+      "orgSpalten": [
+        "supplier_org_id"
+      ],
+      "zeilen": 33,
+      "ohneOrg": 0,
+      "rls": false,
+      "force": false,
+      "policies": [],
+      "einstufung": "bereit",
+      "begruendung": "Traegerspalte in allen 33 Zeilen gefuellt; Mandanten-privat. RLS ohne Datenausfall moeglich."
+    },
+    {
+      "tabelle": "worker_time_submissions",
+      "orgSpalten": [
+        "org_id",
+        "supplier_org_id"
+      ],
+      "zeilen": 19,
+      "ohneOrg": 0,
+      "rls": false,
+      "force": false,
+      "policies": [],
+      "einstufung": "bereit",
+      "begruendung": "Traegerspalte in allen 19 Zeilen gefuellt; Mandanten-privat. RLS ohne Datenausfall moeglich."
+    }
+  ],
+  "rlsAktivLautDatenbank": [
+    "audit_log",
+    "commercial_offers",
+    "compliance_documents",
+    "invoices",
+    "org_memberships",
+    "requisitions",
+    "subscription_requests",
+    "timesheets"
+  ],
+  "rlsAktivHinweis": "Am 2026-08-21 gegen die laufende Datenbank gemessen. Jede Stelle im Modell, die fuer eine Tabelle RLS behauptet (**JA**), muss hier stehen. Das Dokument fuehrte `subscriptions` als RLS-geschuetzt — Migration 116 nimmt sie ausdruecklich aus, und die Datenbank zeigt relrowsecurity=false. Eine behauptete Sicherung ist schlimmer als eine fehlende."
+}
