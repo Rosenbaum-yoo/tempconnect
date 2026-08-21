@@ -76,9 +76,12 @@ BEGIN
   /* Eindeutig heisst: genau EINE Mitgliedschaft. Bei mehreren laesst sich im
    * Nachhinein nicht sagen, in welcher gehandelt wurde — dann ist NULL die
    * ehrliche Antwort, nicht die wahrscheinlichste. */
+  /* `min(uuid)` gibt es in Postgres nicht (beim ersten Lauf aufgeschlagen).
+   * `array_agg(...)[1]` ist hier gleichwertig und ehrlicher: der Wert wird nur
+   * genommen, wenn es genau EINEN gibt. */
   UPDATE audit_log al
      SET org_id = (
-       SELECT CASE WHEN count(*) = 1 THEN min(m.org_id) ELSE NULL END
+       SELECT CASE WHEN count(*) = 1 THEN (array_agg(m.org_id))[1] ELSE NULL END
        FROM org_memberships m WHERE m.user_id = al.actor_id
      )
    FROM falsch f
@@ -99,7 +102,7 @@ BEGIN
   UPDATE audit_log al
      SET org_id = e.org_id
     FROM (
-      SELECT m.user_id, min(m.org_id) AS org_id
+      SELECT m.user_id, (array_agg(m.org_id))[1] AS org_id
       FROM org_memberships m
       GROUP BY m.user_id
       HAVING count(*) = 1

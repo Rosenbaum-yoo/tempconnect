@@ -226,15 +226,56 @@ in einer Datei sind der Anfang des nächsten Lecks.
 man sie nicht versehentlich trifft (Befund E-5). Das Staff Center bekommt die
 Fläche, die die Kunden-Fläche heute fälschlich bietet.
 
-### Verifikation (Pflicht)
+### Verifikation — **geführt am 2026-08-21**
 
-- **Verhaltensprobe** wie in H2: zwei Organisationen, ein Eintrag je Seite,
-  Kreuzabruf → 403 bzw. leere Menge, **gegen das echte Schema**.
-- **Bestandsprobe:** die Abfrage „Akteur nicht Mitglied der eingetragenen Org"
-  muss **0** liefern — sie liefert heute 135. Diese Zahl ist die Abnahme.
-- **Gegenprobe:** der eigene Admin sieht seine Org weiterhin vollständig.
-  Eine Trennung, die das eigene Audit leert, ist keine Reparatur.
-- Beide Register (`orgGrenzen.json`, `wachen.json`) nachziehen.
+**Bestandsprobe (die Abnahme).** Migration 187 eingespielt:
+
+| | vorher | nachher |
+|---|---|---|
+| Zeilen mit **fremder** Organisation | **139** | **0** |
+| Zeilen **ohne** Organisation | 1797 | 495 |
+| Zeilen gesamt | 2740 | 2742 (nichts gelöscht, 2 aus laufendem Verkehr) |
+| Policy `al_same_org` | `org_id = current_org_id() OR org_id IS NULL` | `org_id = current_org_id()` |
+
+Jede der 495 verbliebenen org-losen Zeilen hat einen Grund: 253 ohne Akteur
+(Systemläufe), 242 mit einem Akteur ohne Mitgliedschaft. Keine einzige ist
+eindeutig zuordenbar und trotzdem org-los — das prüft der Wächter mit.
+
+**Idempotenz:** zweiter Lauf der Migration → 0 und 0 Zeilen geändert.
+
+**Verhaltensprobe gegen das echte Schema**, mit einer Wegwerf-Rolle **ohne
+Superuser und ohne `BYPASSRLS`** (nur so greift RLS überhaupt) — die beiden
+Organisationen aus dem Screenshot:
+
+| Probe | Ergebnis |
+|---|---|
+| ohne Org-Kontext | **0 Zeilen** (Deny-by-Default) |
+| Org A (*Zeitarbeit*) | **303** — ausschließlich eigene |
+| Org A sieht Fremdes | **0** |
+| Org B (*Unternehmen*) | **140** — ausschließlich eigene |
+| Org B sieht Fremdes | **0** |
+| Staff-Bypass | **2742** (alle) |
+| org-lose Zeilen für Org A | **0** |
+
+**Gegenprobe bestanden:** Das eigene Audit ist nicht leer — Org A sieht ihre
+303 Zeilen weiterhin vollständig. Eine Trennung, die das eigene Audit leert,
+wäre keine Reparatur.
+
+**Rückmutation (dreifach), damit die Prüfung nicht leer läuft:**
+1. Alte Policy zurückgesetzt → dieselbe Abfrage sah wieder **495 fremde
+   Zeilen**; mit der neuen 0.
+2. `org_id: req.orgId` an der Schreibstelle wieder eingebaut → der Quelltext-
+   Riegel wird rot.
+3. Policy-Mutation gegen die Datenbank → die Abnahme-Schicht wird rot.
+
+**Wächter:** `api/test/auditMandantenGrenze.test.js`, zwei Schichten — ohne
+Datenbank der Quelltext-Riegel (kein Rückfall auf `req.orgId`, Demo-Login
+regeneriert **vor** dem Eintragen, Zwischenspeicher trägt seinen Nutzer), mit
+Datenbank die Abnahme selbst. Host 6/6, Container **10/10**.
+
+**Noch offen:** die Register `orgGrenzen.json` und `wachen.json` nachziehen, und
+die Teile (c) bis (e) — die drei getrennten Sichten, der Admin-Bereich und die
+Plattformsicht im Staff Center.
 
 ---
 
