@@ -56,6 +56,9 @@ Dominanter Einstiegs-ICP: groessere Einsatzunternehmen mit wiederkehrenden Zeita
 | [HETZNER_HA_RUNBOOK.md](HETZNER_HA_RUNBOOK.md) | Hochverfügbarkeit auf Hetzner: Aufbau und Umschaltung. |
 | [BACKUP_DISASTER_RECOVERY.md](BACKUP_DISASTER_RECOVERY.md) | Sicherung und Wiederanlauf — inklusive Wiederherstellungsprobe. |
 | [SECURITY_INCIDENTS.md](SECURITY_INCIDENTS.md) | Vorgehen bei Sicherheitsvorfällen: melden, eindämmen, aufarbeiten. |
+| [DEPLOYMENT_HETZNER.md](DEPLOYMENT_HETZNER.md) | Deployment auf Hetzner Cloud von Grund auf: Server, DNS, Docker-Stack, SSL, erste Inbetriebnahme. |
+| [releases/RELEASE_PROCESS.md](releases/RELEASE_PROCESS.md) | SemVer und Changelog: wann MAJOR/MINOR/PATCH, welche Schritte ein Release durchläuft. |
+| [releases/WAVE16_BURNIN_RUNBOOK.md](releases/WAVE16_BURNIN_RUNBOOK.md) | Der ≥7-Tage-Burn-in vor dem Marktstart: Preprod-Aufbau, tägliche Prüfungen, Abbruchkriterien. |
 | [UEBERGABE.md](UEBERGABE.md) | **Zuerst lesen, wenn eine neue Sitzung beginnt:** Stand, eiserne Regeln, offene Owner-Entscheidungen. Wird per Test gegen die Arbeitspläne abgeglichen. |
 | [FRONTEND_REIFEGRAD_AUDIT.md](FRONTEND_REIFEGRAD_AUDIT.md) | 85 belegte Befunde: wo das Frontend hinter dem mutationsgeprueften Backend zurueckbleibt. Tote Knoepfe, verschluckte 403, rund 90 Endpunkte ohne Oberflaeche. |
 | [ORG_GRENZE_BEFUND.md](ORG_GRENZE_BEFUND.md) | Die Mandantengrenze steht 80-mal einzeln in den Routen statt einmal im Helfer. Befund, Folgen und der Plan für Welle 3b. |
@@ -66,6 +69,7 @@ Dominanter Einstiegs-ICP: groessere Einsatzunternehmen mit wiederkehrenden Zeita
 |----------|--------|
 | [ARCHITEKTUR.md](ARCHITEKTUR.md) | Gesamtaufbau der Plattform auf Deutsch. |
 | [FLAECHEN.md](FLAECHEN.md) | **Vor jedem neuen Modul lesen:** was gehört ins Staff Control Center, was ins Owner Control Center, was ins Support Center. Wird per Test erzwungen. |
+| [security/TENANT_ISOLATION_MODEL.md](security/TENANT_ISOLATION_MODEL.md) | Jede Tabelle nach Isolationsstufe klassifiziert und welcher RLS-Mechanismus greift. **Achtung:** verweist für 28 Tabellen auf Migration 117, die es nicht gibt — offener Befund P1-16. |
 | [features/E_LIVE_BELEGSCHAFT.md](features/E_LIVE_BELEGSCHAFT.md) | Live-Belegschaft: gemessener Ist-Stand der Zustaende, die drei Owner-Entscheidungen und die Wellen E2-E5. |
 | [features/F1_SYSTEMZEIT_LANDKARTE.md](features/F1_SYSTEMZEIT_LANDKARTE.md) | 33 belegte Datumsfehler und ihre Ursache: pg liefert DATE als lokale Mitternacht, der UTC-Schnitt ergibt ganztaegig den Vortag. |
 | [features/P10_IMPORT_LIVE_ZEIT.md](features/P10_IMPORT_LIVE_ZEIT.md) | **Nächste Sitzung startet hier:** CSV-Import (Spur D), echte Live-Belegschaft (E), Systemzeit im Einsatzportal (F) — mit Wellen, Gates und Ist-Stand. |

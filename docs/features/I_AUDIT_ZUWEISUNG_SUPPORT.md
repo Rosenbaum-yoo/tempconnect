@@ -14,7 +14,7 @@
 
 | | Abschnitt | Art | Aufwand |
 |---|---|---|---|
-| **V** | Vorlauf: RLS-Backstop, Doku-Wächter | Sicherheit + Werkzeug | 1 Welle + 1 h |
+| **V** | Vorlauf: RLS-Backstop, ~~Doku-Wächter~~ (V-2 erledigt) | Sicherheit + Werkzeug | 1 Welle |
 | **1** | **8.1.1** Audit-Log hart trennen | **Sicherheitsbefund, aktiv** | 1 Welle |
 | **2** | **8.1.2** Aktive Sitzungen im Audit | Sicherheit + Produkt | 3–4 h |
 | **3** | **8.2** Ersatz-Zuweisung vereinfachen | Produkt/UX | 1 Welle |
@@ -51,13 +51,40 @@ im Modell genannte Tabelle gegen die Wirklichkeit prüft.
 **Verify:** eine Nicht-Superuser-Verbindung ohne Org-Kontext sieht **nichts** —
 je Tabelle einzeln nachgewiesen.
 
-### V-2 — Die Doku-Wächter im Worktree (P2-W1)
+### V-2 — Die Doku-Wächter im Worktree (P2-W1) — **erledigt 2026-08-21**
 
-`docsConsistency` und `dokuWaechter` leiten aus einem **fehlenden** Pfad einen
-Befund ab. Zwei Sitzungen sind unabhängig hineingelaufen. Sie sollen eine
-fehlende Scan-Wurzel als **nicht geprüft** melden („2 von 3 Wurzeln geprüft,
-`.agents/` fehlt"), statt rot zu werden.
-**Aufwand:** ~1 h. Danach kostet es keine Sitzung mehr Zeit.
+`docsConsistency` und `dokuWaechter` leiteten aus einem **fehlenden** Pfad einen
+Befund ab. Zwei Sitzungen sind unabhängig hineingelaufen.
+
+**Es waren drei Wächter, nicht zwei.** `releaseSecretScan` verlangte
+`deploy/.env` — ebenfalls gitignored, ebenfalls nur im Haupt-Checkout. Der volle
+Lauf hat ihn gefunden, nicht das Nachdenken.
+
+**Und der Fehler wirkte in beide Richtungen.** Die ignorierte
+`docs/launch/C_HETZNER-DEPLOY-RUNBOOK.md` liess im Haupt-Checkout vier echte
+Dokumente als verlinkt erscheinen, die im Repo in keinem Index standen —
+darunter ausgerechnet `docs/security/TENANT_ISOLATION_MODEL.md`, das Dokument
+aus V-1. Falsch rot hier, falsch grün dort.
+
+**Gebaut:** Die Wächter prüfen den **git-Index** statt des Dateibaums
+(`api/test/helpers/repoBestand.js`). Was git bewusst nicht trägt, wird als
+*nicht geprüft* benannt und gezählt („1 von 2 Wurzeln geprüft (docs), 261
+getrackte Markdown-Dateien. Nicht geprüft, weil nicht Teil des Repos:
+`.agents`."), nie als Fund. Die vier Dokumente stehen jetzt in `docs/README.md`;
+die Ratsche ist dabei von 154 auf 146 geschrumpft, ohne einen einzigen neuen
+Eintrag.
+
+**Keine Hintür:** `git check-ignore` befragt den Index mit — eine getrackte
+Datei gilt nie als ignoriert. Man wird einen Befund also nicht dadurch los, dass
+man den Pfad in `.gitignore` einträgt. `api/test/repoBestand.test.js` weist das
+per Rückmutation nach, samt der git-Falle, dass ein abschliessender
+Schrägstrich (`docs/README.md/`) den Index-Abgleich aushängt und **jeden** Pfad
+als ignoriert meldet.
+
+**Verifiziert in drei Umgebungen mit identischem Urteil:** Worktree, frischer
+`git clone` (trägt keine ignorierten Dateien) und ein Baum, in dem sie liegen.
+Voller Lauf **9524/0** (13 übersprungen) — der erste grüne Gate-Lauf in diesem
+Worktree überhaupt.
 
 ---
 

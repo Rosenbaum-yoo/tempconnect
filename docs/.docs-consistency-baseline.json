@@ -1,6 +1,8 @@
 {
   "_hinweis": "Bestandsliste fuer api/test/docsConsistency.test.js. Ratsche: Eintraege duerfen nur ENTFERNT werden (Datei verlinkt oder geloescht), nie ergaenzt, ausser ein Dokument soll bewusst unverlinkt bleiben.",
   "_erfasst_am": "2026-07-26",
+  "_neu_erfasst_am": "2026-08-21",
+  "_neu_erfasst_warum": "P2-W1: Der Waechter las frueher den Dateibaum und damit auch git-ignorierte Dateien, die nur im Haupt-Checkout liegen. Acht docs/launch/*-Eintraege waren deshalb in jedem Worktree und in jedem frischen Klon \"erledigt\" und machten den Test rot. Seit dem Umbau auf git ls-files zaehlt nur getracktes Markdown. Dabei fielen die acht Eintraege weg; vier Dokumente (DEPLOYMENT_HETZNER, releases/RELEASE_PROCESS, releases/WAVE16_BURNIN_RUNBOOK, security/TENANT_ISOLATION_MODEL) waren nur ueber eine ignorierte Datei verlinkt und wurden in docs/README.md aufgenommen statt hier eingetragen. 154 -> 146, die Ratsche ist nur enger geworden.",
   "orphans": [
     "docs/ABO-GATING-TEST.md",
     "docs/ACTIVITY_CENTER.md",
@@ -115,14 +117,6 @@
     "docs/finalization/proposal_incident_model_owner_gate.md",
     "docs/frontend/PAGE_OWNERSHIP.md",
     "docs/integrations/SCIM_FIELD_MAPPING.md",
-    "docs/launch/A_FIRMENDATEN-SLOTS.md",
-    "docs/launch/B_rechtstexte/agb.md",
-    "docs/launch/B_rechtstexte/avv-toms.md",
-    "docs/launch/B_rechtstexte/datenschutz.md",
-    "docs/launch/B_rechtstexte/impressum.md",
-    "docs/launch/C_HETZNER-DEPLOY-RUNBOOK.md",
-    "docs/launch/E_NOTARTERMIN-CHECKLISTE.md",
-    "docs/launch/F_HOLDING-STRUKTUR-ENTSCHEIDUNG.md",
     "docs/launch/G_DEMO-CLOUDFLARE-TUNNEL.md",
     "docs/launch/H_ARCHITEKTUR-ROADMAP.md",
     "docs/occ/implementation-state.md",

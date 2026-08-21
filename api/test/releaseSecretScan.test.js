@@ -32,6 +32,7 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { getrackteDateien, ignoriertePfade } from "./helpers/repoBestand.js";
 
 import {
   pruefeZeile,
@@ -291,10 +292,33 @@ describe("Secret-Scan — die ausgelieferten Dateien sind sauber", () => {
     "deploy/.env",
   ];
 
+  /*
+   * NICHT DA ist nicht dasselbe wie GELOESCHT (P2-W1, dritter Fall).
+   *
+   * `deploy/.env` steht auf dieser Liste, weil die alte Pruefung seine
+   * Platzhalter gemeldet hat. Die Datei ist aber git-ignoriert (`*.env`): sie
+   * liegt im Haupt-Checkout und fehlt in jedem Worktree, jedem frischen Klon und
+   * in CI. Der Test war dort dauerhaft rot — ohne dass etwas kaputt war.
+   *
+   * Dieselbe Unterscheidung wie in `docsConsistency` und `dokuWaechter`: was das
+   * Repo bewusst nicht traegt, wird benannt statt bewertet. Fehlt dagegen eine
+   * GETRACKTE Datei, bleibt es ein Fehler — dann ist die Liste veraltet, und
+   * genau dafuer wurde die Zusicherung geschrieben.
+   *
+   * Die vier Platzhalter-Zeilen aus `deploy/.env` haengen nicht an der Datei:
+   * sie stehen oben woertlich in FEHLALARME und werden ueberall geprueft.
+   */
+  const NICHT_IM_REPO = ignoriertePfade(REPO, GEMELDETE.filter((rel) => !fs.existsSync(path.join(REPO, rel))));
+  const GETRACKT = new Set(getrackteDateien(REPO));
+
   for (const rel of GEMELDETE) {
-    it(`${rel} meldet nichts mehr`, () => {
+    it(`${rel} meldet nichts mehr`, (t) => {
       const abs = path.join(REPO, rel);
       if (!fs.existsSync(abs)) {
+        if (NICHT_IM_REPO.has(rel) && !GETRACKT.has(rel)) {
+          t.diagnostic(`${rel} nicht geprueft — dieses Repo traegt die Datei bewusst nicht (git-ignoriert)`);
+          return;
+        }
         assert.fail(`${rel} fehlt — die Liste passt nicht mehr zum Repo`);
       }
       const funde = pruefeDatei(fs.readFileSync(abs, "utf8"));
@@ -303,6 +327,22 @@ describe("Secret-Scan — die ausgelieferten Dateien sind sauber", () => {
         funde.map((f) => `Z${f.zeile} "${f.wert}" (${f.grund})`).join(", "));
     });
   }
+
+  it("die Ausnahme greift nur fuer ignorierte Dateien — nie fuer versionierte", () => {
+    /* Rueckmutation zur Ausnahme darueber. Ohne diese Probe koennte jemand die
+     * Bedingung lockern und damit eine geloeschte VERSIONIERTE Datei stumm
+     * schalten — der Fall, fuer den die Zusicherung ueberhaupt geschrieben wurde. */
+    assert.deepEqual(
+      [...NICHT_IM_REPO].filter((rel) => GETRACKT.has(rel)), [],
+      "Eine versionierte Datei darf nie als 'nicht im Repo' durchgehen"
+    );
+    assert.deepEqual(
+      GEMELDETE.filter((rel) => !GETRACKT.has(rel) && !NICHT_IM_REPO.has(rel)), [],
+      "Diese Eintraege sind weder versioniert noch bewusst ignoriert — die Liste ist veraltet"
+    );
+    assert.ok(GEMELDETE.filter((rel) => GETRACKT.has(rel)).length >= 18,
+      "Fast alle Eintraege muessen versioniert und damit echt geprueft sein");
+  });
 
   it("diese Testdatei meldet sich nicht selbst", () => {
     /* Der peinlichste Befund des ersten Laufs: Die gepflanzten Werte dieser

@@ -39,28 +39,39 @@ Abschnitten, die ich in Spuren mit **Wellen und Gates** schneide.
 ```bash
 cd api && node scripts/run-tests.js          # offizieller Runner, ohne Pipe
 ```
-Stand: **9513 Tests** (2026-08-21, voller Lauf ohne Pipe nach dem
-vollstaendigen Zusammenfuehren von H1 und H2), davon 13 übersprungen — die DB-gebundenen, die
-nur im Container laufen.
+Stand: **9524 Tests, 0 Fehler** (2026-08-21, voller Lauf ohne Pipe nach V-2),
+davon 13 übersprungen — die DB-gebundenen, die nur im Container laufen.
+Vorher 9513; die 11 neuen sind die Selbstprobe des Index-Helfers und die
+Rückmutationen zu seinen Ausnahmen.
 
-> **Falle beim Arbeiten in einem `git worktree`:** `.agents/`, `frontend/support-ops/`
-> und die ungetrackten Dateien unter `docs/launch/` sind gitignored und fehlen in
-> einem frischen Baum. `dokuWaechter.test.js` und `docsConsistency.test.js` werden
-> dadurch rot, **ohne dass am Code etwas falsch ist** — vier Dokumente wirken
-> verwaist, weil die Verweise aus `SKILL.md` fehlen. **Zwei Sitzungen sind
-> unabhängig voneinander darauf hereingefallen**, was die Falle gut belegt.
-> Abhilfe: die drei Pfade aus dem Hauptbaum verknüpfen (Junction/Symlink) — am
-> 2026-08-19 gemessen: im Hauptbaum grün, im Worktree rot, nach dem Verknüpfen
-> grün. Wer nicht verknüpft, prüft die beiden Dateien zusätzlich im Hauptbaum:
+> **Ein Worktree ist kein halbes Repo mehr (behoben 2026-08-21, P2-W1).**
+> `.agents/`, `frontend/support-ops/`, die ungetrackten Dateien unter
+> `docs/launch/` und `deploy/.env` sind gitignored und fehlen in jedem frischen
+> Baum. Drei Wächter leiteten daraus einen Befund ab und waren im Worktree
+> dauerhaft rot, **ohne dass am Code etwas falsch war** — zwei Sitzungen sind
+> unabhängig voneinander hineingelaufen. Sie prüfen jetzt den **git-Index**
+> statt des Dateibaums und melden Ignoriertes als *nicht geprüft* statt als
+> Fund (`api/test/helpers/repoBestand.js`). **Die Junction-Krücke von früher
+> ist damit überflüssig** — wer noch eine hat, kann sie entfernen
+> (nicht-rekursiv: `[System.IO.Directory]::Delete($pfad, $false)`; ein
+> `Remove-Item -Recurse` greift durch sie hindurch und räumt das Ziel im
+> Hauptbaum mit ab).
 >
-> ```bash
-> cd api && node --test --test-force-exit test/docsConsistency.test.js test/dokuWaechter.test.js
+> Nachgewiesen in drei Umgebungen mit identischem Urteil: Worktree, frischer
+> `git clone` (trägt gar keine ignorierten Dateien) und ein Baum, in dem sie
+> liegen. `api/test/repoBestand.test.js` nagelt die Regel fest — samt der
+> git-Falle, dass ein abschließender Schrägstrich (`docs/README.md/`) den
+> Index-Abgleich aushängt und **jeden** Pfad als ignoriert meldet.
+>
+> **Was ein Worktree wirklich braucht:** `api/node_modules`. Es ist gitignored,
+> also fehlt es — und ohne es bricht die halbe Suite mit `ERR_MODULE_NOT_FOUND`
+> ab (207 Fehler, die wie Testbrüche aussehen). Einmalig verknüpfen:
+>
+> ```powershell
+> New-Item -ItemType Junction -Path <worktree>pi
+ode_modules -Target <hauptbaum>pi
+ode_modules
 > ```
->
-> **Wer eine Junction anlegt, entfernt sie vor dem Löschen des Worktrees wieder**
-> — nicht-rekursiv (`[System.IO.Directory]::Delete($pfad, $false)`). Ein
-> `Remove-Item -Recurse` greift sonst durch sie hindurch und räumt das Ziel im
-> Hauptbaum mit ab.
 
 Die DB-gestützten Tests laufen im Container, wo `DB_HOST` gesetzt ist — auf dem
 Host überspringen sie sich selbst. Was gegen das echte Schema geprüft sein muss
