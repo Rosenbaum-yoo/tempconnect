@@ -1011,6 +1011,23 @@ nur dort. `main` steht auf `fd9a3ab` (01.06.) und ist **400 Commits zurück**;
 entscheidet. Die dokumentierten Ursachen (Zeitgrenze 90 min, `incremental`) sind
 dagegen längst behoben — `timeout-minutes: 180`, sechs parallele Matrix-Jobs.
 
+## Der Plan fuer die naechsten Sitzungen
+
+`docs/features/I_AUDIT_ZUWEISUNG_SUPPORT.md` — Owner-Vorgabe vom 2026-08-21:
+Audit-Trennung (8.1.1), aktive Sitzungen (8.1.2), Ersatz-Zuweisung (8.2),
+Support-Weg Kunde → TempConnect (10) und die Entscheidung zu Kunde ↔ Kunde (10b).
+Davor ein Vorlauf aus dem, was H2 offen gelassen hat (RLS-Backstop P1-16,
+Doku-Waechter P2-W1).
+
+> **Abschnitt 8.1.1 ist ein aktiver Sicherheitsbefund, an der Quelle gemessen.**
+> Ein Konto der Organisation *Unternehmen* sieht im eigenen Audit-Log einen
+> `auth.login` eines Kontos der Organisation *Zeitarbeit*. Der Lesepfad ist
+> dabei sauber (`al.org_id = $n`) — falsch ist das **Schreiben**: **135 Zeilen**
+> tragen eine `org_id`, deren Akteur nie Mitglied dieser Organisation war.
+> Dazu die Gegenrichtung: **1796 von 2740 Zeilen tragen gar keine `org_id`** und
+> sind damit in *keinem* Org-Audit sichtbar. Details, Messung und Abnahmekriterium
+> im Plan.
+
 ## Offene Owner-Entscheidungen
 
 > Diese Liste wird per Test gegen die Arbeitspläne abgeglichen.
