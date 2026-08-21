@@ -706,6 +706,138 @@ describe("GET /admin/audit-log", () => {
 
 /* ── GET /admin/audit-log/recent-changes ───────────────────────────────── */
 
+describe("Admin-Audit — die Mandantengrenze", () => {
+  /*
+   * DER BEFUND, am 2026-08-21 gegen die laufende Datenbank gemessen:
+   *
+   * `requireAdmin` laesst jeden mit der ORG-Rolle `owner` oder `admin` durch —
+   * das sind **201 von 395 Konten**, davon 142 in Unternehmens- und 59 in
+   * Zeitarbeits-Organisationen. Kein einziges gehoert TempConnect.
+   *
+   * Die drei Audit-Routen dieser Datei uebergaben `org_id: req.query.org_id ||
+   * null` an `queryAuditLog`. Ohne Angabe hiess das: **die gesamte Plattform**.
+   * Inklusive CSV-Ausfuhr. Owner-Vorgabe: "Firmen duerfen nur Zugang zu den
+   * Daten der eigenen Mitarbeiter haben."
+   *
+   * `/admin/users` machte es laengst richtig — die Audit-Routen hatten die
+   * Frage nie gestellt. Diese Proben halten das fest.
+   */
+
+  /** Ein Kunden-Admin: Org-Rolle owner, Legacy-Rolle company. Genau die 142+59. */
+  const kunde = (extra = {}) => mockReq({
+    orgRole: "owner",
+    orgId: "org-A",
+    orgMembership: { org_id: "org-A", role_key: "owner" },
+    session: { userId: "u-kunde", userRole: "company" },
+    ...extra,
+  });
+
+  function auditPool() {
+    return trackingPool([
+      { match: (s) => s.includes("COUNT(") && s.toLowerCase().includes("audit"),
+        respond: { rows: [{ total: 0 }] } },
+      { match: (s) => s.toLowerCase().includes("audit"), respond: { rows: [] } },
+    ]);
+  }
+
+  it("ein Kunden-Admin liest im Audit-Log nur die eigene Organisation", async () => {
+    const pool = auditPool();
+    const handler = getHandler(createAdminRouter(makeDeps(pool)), "get", "/admin/audit-log");
+    const res = mockRes();
+    await handler(kunde(), res);
+
+    assert.strictEqual(res._status, 200);
+    const params = pool.calls.flatMap((c) => c.params);
+    assert.ok(params.includes("org-A"),
+      "die eigene Org muss als Filter in der Abfrage stehen — sonst laeuft sie plattformweit");
+  });
+
+  it("ein Kunden-Admin kann den Umfang mit ?org_id NICHT erweitern", async () => {
+    /* Der Angriffsfall. `org_id` aus der Anfrage darf nur verengen, nie oeffnen. */
+    const pool = auditPool();
+    const handler = getHandler(createAdminRouter(makeDeps(pool)), "get", "/admin/audit-log");
+    const res = mockRes();
+    await handler(kunde({ query: { org_id: "org-FREMD" } }), res);
+
+    const params = pool.calls.flatMap((c) => c.params);
+    assert.ok(!params.includes("org-FREMD"), "die fremde Org darf die Abfrage nie erreichen");
+    assert.ok(params.includes("org-A"), "es bleibt bei der eigenen Org");
+  });
+
+  it("die CSV-Ausfuhr ist ebenso begrenzt — sie traegt die Zeilen ausser Haus", async () => {
+    const pool = auditPool();
+    const handler = getHandler(createAdminRouter(makeDeps(pool)), "get", "/admin/audit-log/export/csv");
+    const res = mockRes();
+    await handler(kunde({ query: { org_id: "org-FREMD" } }), res);
+
+    const params = pool.calls.flatMap((c) => c.params);
+    assert.ok(params.includes("org-A"), "die Ausfuhr muss auf die eigene Org begrenzt sein");
+    assert.ok(!params.includes("org-FREMD"), "die fremde Org darf die Ausfuhr nie erreichen");
+  });
+
+  it("recent-changes nimmt fuer Kunden die org-gebundene Fassung", async () => {
+    /* `getRecentChangesPlatformWide` ist bewusst so benannt, dass man sie nicht
+     * versehentlich trifft (Befund E-5) — sie wurde hier trotzdem fuer jeden
+     * `requireAdmin`-Passierer aufgerufen. */
+    const pool = trackingPool([{ match: () => true, respond: { rows: [] } }]);
+    const handler = getHandler(createAdminRouter(makeDeps(pool)), "get", "/admin/audit-log/recent-changes");
+    const res = mockRes();
+    await handler(kunde({ query: { entity_type: "timesheet", entity_id: "ts-1" } }), res);
+
+    assert.strictEqual(res._status, 200);
+    const params = pool.calls.flatMap((c) => c.params);
+    assert.ok(params.includes("org-A"), "ohne die eigene Org waere es wieder die Plattformsicht");
+  });
+
+  it("ohne Organisationskontext gibt es keine Ersatz-Plattformsicht, sondern 403", async () => {
+    /* Fail-closed. Frueher fiel der Aufruf hier auf `null` zurueck — und `null`
+     * heisst in `queryAuditLog` "kein Filter", also alles. */
+    const pool = auditPool();
+    const handler = getHandler(createAdminRouter(makeDeps(pool)), "get", "/admin/audit-log");
+    const res = mockRes();
+    await handler(mockReq({
+      orgRole: "owner", orgId: null, orgMembership: null,
+      session: { userId: "u-ohne-org", userRole: "company" },
+    }), res);
+
+    assert.strictEqual(res._status, 403);
+    assert.strictEqual(res._json.error.code, "ORG_CONTEXT_REQUIRED");
+  });
+
+  it("die Legacy-Rolle owner oeffnet die Plattformsicht nicht mehr", async () => {
+    /*
+     * `isGlobalAdminScope` liess frueher `session.userRole` in
+     * ('platform_admin','admin','owner') plattformweit lesen. Gemessen traegt
+     * KEIN Konto einen dieser Werte in `users.role` — ein Tor, das heute
+     * niemand passiert und morgen jeder.
+     */
+    const pool = auditPool();
+    const handler = getHandler(createAdminRouter(makeDeps(pool)), "get", "/admin/audit-log");
+    const res = mockRes();
+    await handler(mockReq({
+      orgRole: null, orgId: null, orgMembership: null,
+      session: { userId: "u-legacy", userRole: "owner" },
+    }), res);
+
+    assert.strictEqual(res._status, 403, "die Legacy-Rolle darf nicht mehr plattformweit lesen");
+    assert.strictEqual(res._json.error.code, "ORG_CONTEXT_REQUIRED");
+  });
+
+  it("der platform_admin sieht weiterhin die ganze Plattform", async () => {
+    /* Gegenprobe: eine Trennung, die auch die Plattformsicht schliesst, waere
+     * keine Reparatur, sondern ein Ausfall. */
+    const pool = auditPool();
+    const handler = getHandler(createAdminRouter(makeDeps(pool)), "get", "/admin/audit-log");
+    const res = mockRes();
+    await handler(mockReq({ orgRole: "platform_admin", query: { org_id: "org-BELIEBIG" } }), res);
+
+    assert.strictEqual(res._status, 200);
+    const params = pool.calls.flatMap((c) => c.params);
+    assert.ok(params.includes("org-BELIEBIG"),
+      "der Plattform-Admin darf weiterhin gezielt jede Org waehlen");
+  });
+});
+
 describe("GET /admin/audit-log/recent-changes", () => {
   it("400 MISSING_PARAMS when entity_type/entity_id absent", async () => {
     const handler = getHandler(createAdminRouter(makeDeps(trackingPool())), "get", "/admin/audit-log/recent-changes");

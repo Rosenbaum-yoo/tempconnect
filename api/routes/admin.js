@@ -3,7 +3,7 @@
  * Protected: requires platform_admin or owner role.
  */
 import { Router } from "express";
-import { queryAuditLog, getRecentChangesPlatformWide } from "../services/auditLog.js";
+import { queryAuditLog, getRecentChanges, getRecentChangesPlatformWide } from "../services/auditLog.js";
 import { queryActivityFeed, getActionTypes, formatFeedItem } from "../services/activityFeedService.js";
 import * as eventService from "../services/eventTrackingService.js";
 import { getSystemDiagnostics } from "../services/healthService.js";
@@ -50,12 +50,52 @@ export function createAdminRouter(deps) {
     return Math.min(max, Math.max(min, parsed));
   }
 
+  /**
+   * Darf dieser Aufrufer PLATTFORMWEIT sehen — also ueber alle Mandanten hinweg?
+   *
+   * Nur `platform_admin`. Frueher galten hier zusaetzlich die Legacy-Werte
+   * `admin` und `owner` aus `users.role`. Das war ein Schlupf ohne Nutzen:
+   * am 2026-08-21 gemessen traegt KEIN einziges Konto einen dieser Werte
+   * (`users.role` kennt nur company/agency/worker), waehrend 200 Konten in
+   * `org_memberships.role_key` auf `owner` stehen — allesamt Kunden.
+   * Ein Tor, das heute niemand passiert und morgen jeder, ist eine Falle.
+   */
   function isGlobalAdminScope(req) {
     const role = req.orgRole || req.orgMembership?.role_key || null;
     if (role === "platform_admin") return true;
-    return req.session?.userRole === "platform_admin"
-      || req.session?.userRole === "admin"
-      || req.session?.userRole === "owner";
+    return req.session?.userRole === "platform_admin";
+  }
+
+  /**
+   * Auf welche Organisation ist dieser Aufruf begrenzt? `null` = plattformweit.
+   *
+   * BEFUND 8.1.1 (d), gemessen am 2026-08-21: die drei Audit-Routen dieser Datei
+   * haben diese Frage gar nicht gestellt. `queryAuditLog` bekam
+   * `org_id: req.query.org_id || null` — ohne Angabe also **die gesamte
+   * Plattform**. Durch `requireAdmin` kommt aber jeder Kunde mit der Org-Rolle
+   * `owner` oder `admin`: **201 von 395 Konten**, davon 142 in Unternehmens- und
+   * 59 in Zeitarbeits-Organisationen. Kein einziges davon gehoert TempConnect.
+   *
+   * Damit war das plattformweite Audit-Log fuer Kunden lesbar — inklusive
+   * CSV-Ausfuhr. Owner-Vorgabe: "Firmen duerfen nur Zugang zu den Daten der
+   * eigenen Mitarbeiter haben."
+   *
+   * `/admin/users` machte es bereits richtig; diese Funktion hebt dasselbe
+   * Muster heraus, damit es nicht ein drittes Mal vergessen wird.
+   *
+   * @returns {{ plattformweit: boolean, orgId: string|null, fehler: object|null }}
+   */
+  function bestimmeAdminUmfang(req) {
+    if (isGlobalAdminScope(req)) return { plattformweit: true, orgId: null, fehler: null };
+    const orgId = req.orgId || req.orgMembership?.org_id || null;
+    if (!orgId) {
+      return {
+        plattformweit: false,
+        orgId: null,
+        fehler: { code: "ORG_CONTEXT_REQUIRED", message: "Organisationskontext erforderlich." }
+      };
+    }
+    return { plattformweit: false, orgId, fehler: null };
   }
 
   function buildAdminUsersWhereClause({ search, scopedOrgId, paramOffset = 0 }) {
@@ -404,10 +444,15 @@ export function createAdminRouter(deps) {
   /* ── Audit Log (mit Pagination + erweiterten Filtern) ─────────── */
   router.get("/admin/audit-log", requireAuth, requireAdmin, async (req, res) => {
     try {
+      /* Ohne diese Begrenzung liest ein Kunden-Admin die GANZE Plattform
+       * (Befund 8.1.1 d). `org_id` aus der Anfrage darf den Umfang nur noch
+       * VERENGEN, nie erweitern. */
+      const umfang = bestimmeAdminUmfang(req);
+      if (umfang.fehler) return res.status(403).json({ success: false, error: umfang.fehler });
       const limit = Math.min(500, parseInt(req.query.limit) || 100);
       const offset = parseInt(req.query.offset) || 0;
       const result = await queryAuditLog(pool, {
-        org_id:      req.query.org_id      || null,
+        org_id:      umfang.plattformweit ? (req.query.org_id || null) : umfang.orgId,
         actor_id:    req.query.actor_id    || null,
         actor_search: sanitize(req.query.actor_search || "") || null,
         org_search:   sanitize(req.query.org_search || "") || null,
@@ -439,10 +484,15 @@ export function createAdminRouter(deps) {
       const entityId   = sanitize(req.query.entity_id || "");
       if (!entityType || !entityId) return res.status(400).json({ success: false, error: { code: "MISSING_PARAMS", message: "entity_type und entity_id erforderlich." } });
       const limit = Math.min(50, parseInt(req.query.limit) || 10);
-      // Plattform-Admin arbeitet bewusst mandantenuebergreifend (requireAdmin).
-      // Der explizite Name verhindert, dass die org-gebundene Fassung hier
-      // versehentlich ohne orgId aufgerufen wird — Befund E-5.
-      const rows = await getRecentChangesPlatformWide(pool, entityType, entityId, limit);
+      /* Die plattformweite Fassung ist bewusst so benannt, dass man sie nicht
+       * versehentlich trifft (Befund E-5). Sie wurde hier trotzdem fuer JEDEN
+       * `requireAdmin`-Passierer aufgerufen — also auch fuer Kunden-Admins
+       * (Befund 8.1.1 d). Jetzt entscheidet der Umfang, welche Fassung laeuft. */
+      const umfang = bestimmeAdminUmfang(req);
+      if (umfang.fehler) return res.status(403).json({ success: false, error: umfang.fehler });
+      const rows = umfang.plattformweit
+        ? await getRecentChangesPlatformWide(pool, entityType, entityId, limit)
+        : await getRecentChanges(pool, entityType, entityId, umfang.orgId, limit);
       res.json({ success: true, data: { items: rows } });
     } catch (e) { logger.error({ err: e }, "admin recent-changes"); res.status(500).json({ success: false, error: { code: "SERVER_ERROR" } }); }
   });
@@ -609,9 +659,13 @@ export function createAdminRouter(deps) {
   /* ── Audit Log CSV Export ────────────────── */
   router.get("/admin/audit-log/export/csv", requireAuth, requireAdmin, exportLimiter, async (req, res) => {
     try {
+      /* Die Ausfuhr war der schwerere Teil desselben Befunds: sie liefert die
+       * Zeilen als Datei ausser Haus (8.1.1 d). */
+      const umfang = bestimmeAdminUmfang(req);
+      if (umfang.fehler) return res.status(403).json({ success: false, error: umfang.fehler });
       const { exportAuditLogCsv } = await import("../services/exportService.js");
       const result = await queryAuditLog(pool, {
-        org_id:      req.query.org_id      || null,
+        org_id:      umfang.plattformweit ? (req.query.org_id || null) : umfang.orgId,
         actor_id:    req.query.actor_id    || null,
         actor_search: sanitize(req.query.actor_search || "") || null,
         org_search:   sanitize(req.query.org_search || "") || null,
