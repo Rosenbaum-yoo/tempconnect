@@ -39,8 +39,8 @@ Abschnitten, die ich in Spuren mit **Wellen und Gates** schneide.
 ```bash
 cd api && node scripts/run-tests.js          # offizieller Runner, ohne Pipe
 ```
-Stand: **9109 Tests** (2026-08-20, voller Lauf ohne Pipe nach dem
-Zusammenfuehren von H1 und H2), davon 13 übersprungen — die DB-gebundenen, die
+Stand: **9520 Tests** (2026-08-21, voller Lauf ohne Pipe nach dem
+vollstaendigen Zusammenfuehren von H1 und H2), davon 13 übersprungen — die DB-gebundenen, die
 nur im Container laufen.
 
 > **Falle beim Arbeiten in einem `git worktree`:** `.agents/`, `frontend/support-ops/`
