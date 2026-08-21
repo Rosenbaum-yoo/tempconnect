@@ -40,6 +40,9 @@ TCi18n.register('de', {
   'pr.b.bounty.title': 'Bis zu 20% Bounty-Rabatt verdienen',
   'pr.b.bounty.desc': 'Gute Leistung zahlt sich aus — sammeln Sie Bounties durch Performance, Aktivitaet und Treue und senken Sie dauerhaft Ihren Abo-Preis.',
   'pr.b.bounty.cta': 'Bounties ansehen',
+  'pr.b.credits.title': 'Guthaben dazukaufen',
+  'pr.b.credits.desc': 'Guthaben sammeln Sie durch Praemien und Empfehlungen — oder Sie kaufen Pakete dazu. Groessere Pakete enthalten einen Bonus.',
+  'pr.b.credits.cta': 'Guthaben ansehen',
 
   'pr.b.ref.title': 'Empfehlungsprogramm',
   'pr.b.ref.pilotBadge': 'Pilotkunde',
@@ -285,6 +288,9 @@ TCi18n.register('en', {
   'pr.b.bounty.title': 'Earn up to 20% bounty discount',
   'pr.b.bounty.desc': 'Good performance pays off — collect bounties through performance, activity and loyalty and permanently lower your subscription price.',
   'pr.b.bounty.cta': 'View bounties',
+  'pr.b.credits.title': 'Buy additional credits',
+  'pr.b.credits.desc': 'You earn credits through bounties and referrals — or you buy packages. Larger packages include a bonus.',
+  'pr.b.credits.cta': 'View credits',
 
   'pr.b.ref.title': 'Referral programme',
   'pr.b.ref.pilotBadge': 'Pilot customer',

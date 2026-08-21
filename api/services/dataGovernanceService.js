@@ -162,7 +162,48 @@ export async function canDeleteUser(pool, userId) {
  * Kat C: NICHT berührt
  * Kat D: Gelöscht
  */
-export async function anonymizeUser(pool, userId, actorId) {
+/**
+ * Gehoert `userId` zur Organisation `orgId`?
+ *
+ * Befund E-17 (2026-08-20): `anonymizeUser` hat die Organisation des Ziels NIE
+ * geprueft, und `data_governance.anonymize` haelt laut rbacService.js:121 jeder
+ * `owner`/`admin` JEDER Kundenorganisation. Ein Org-Administrator konnte damit
+ * das Konto eines FREMDEN Nutzers unwiderruflich anonymisieren: E-Mail, Name,
+ * Passwort-Hash und Personenbezuege ueberschrieben, Art.-17-Maschinerie auf
+ * einen Dritten gerichtet.
+ *
+ * Die Spalte heisst `is_active`, nicht `status` — genau der Fehler, an dem
+ * `utils/ownerCheck.js` bis zum 2026-08-20 scheiterte (Befund E-11, inzwischen dort
+ * behoben). Hier von Anfang an nicht wiederholt.
+ */
+export function istInMeinerOrg(pool, userId, orgId) {
+  return gehoertZurOrg(pool, userId, orgId);
+}
+
+async function gehoertZurOrg(pool, userId, orgId) {
+  if (!orgId) return false;
+  const { rows } = await pool.query(
+    "SELECT 1 FROM org_memberships WHERE user_id = $1 AND org_id = $2 AND is_active = TRUE LIMIT 1",
+    [userId, orgId]
+  );
+  return rows.length > 0;
+}
+
+/**
+ * @param {string} orgId — Organisation des Aufrufers. PFLICHT: ohne sie wird
+ *   nichts anonymisiert. Braucht die Plattform je einen org-uebergreifenden Weg
+ *   (Support, Rechtsabteilung), gehoert er hinter das Staff-Tor, nicht hinter
+ *   eine Berechtigung, die jede Kundenorganisation selbst vergibt.
+ */
+export async function anonymizeUser(pool, userId, actorId, orgId) {
+  /* SELBSTLOESCHUNG ist immer erlaubt — `DELETE /me` ist das Art.-17-Recht des
+     Nutzers an seinen EIGENEN Daten und darf an keiner Org-Grenze scheitern
+     (er kann auch gar keiner Organisation mehr angehoeren). Die Grenze gilt
+     nur, wenn jemand einen ANDEREN anonymisiert. */
+  const selbst = String(userId) === String(actorId);
+  if (!selbst && !(await gehoertZurOrg(pool, userId, orgId))) {
+    return { success: false, reason: "ORG_BOUNDARY_VIOLATION" };
+  }
   const check = await canDeleteUser(pool, userId);
   if (!check.canDelete) {
     return { success: false, reason: "BLOCKERS", blockers: check.blockers };
@@ -390,13 +431,24 @@ export async function listDataRequests(pool, orgId, filters = {}) {
   return { items: rows, total: countRow?.total || 0 };
 }
 
-export async function completeDataRequest(pool, requestId, actorId, resultSummary = null) {
+/**
+ * @param {string} orgId — Organisation des Aufrufers. PFLICHT.
+ *
+ * Befund E-18 (2026-08-20): Die Klausel lautete nur
+ * `WHERE id = $1 AND status IN (...)` — ohne Org. Das Tor der Route ist
+ * `rperm('data_governance.requests')`, und das prueft gegen die EIGENE
+ * Organisation. Ein Org-Administrator konnte damit die
+ * Betroffenenanfrage einer FREMDEN Organisation als erledigt schliessen,
+ * ohne sie zu erfuellen — ein Vorgang mit Aufsichtsrelevanz.
+ */
+export async function completeDataRequest(pool, requestId, actorId, resultSummary = null, orgId = null) {
+  if (!orgId) return null;
   const { rows: [row] } = await pool.query(
     `UPDATE data_governance_requests
      SET status = 'completed', completed_by = $2, completed_at = NOW(), result_summary = $3
-     WHERE id = $1 AND status IN ('pending', 'in_progress')
+     WHERE id = $1 AND org_id = $4 AND status IN ('pending', 'in_progress')
      RETURNING *`,
-    [requestId, actorId, resultSummary ? JSON.stringify(resultSummary) : null]
+    [requestId, actorId, resultSummary ? JSON.stringify(resultSummary) : null, orgId]
   );
   return row || null;
 }

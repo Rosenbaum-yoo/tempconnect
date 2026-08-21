@@ -25,7 +25,12 @@ export function requireOwnerControlAccess(deps) {
     }
   }
 
-  return async (req, res, next) => {
+  // BENANNT statt anonym: dieses Tor ist die EINZIGE Eintrittsbedingung der
+  // gesamten Owner-Flaeche — der privilegiertesten des Systems. Anonym ist es in
+  // Stapelspuren und fuer jede Strukturpruefung unsichtbar; kein Test konnte
+  // belegen, dass es ueberhaupt noch montiert ist. Der Name ist Teil der
+  // Absicherung, nicht Kosmetik (gleiche Lehre wie bei `supportAuth`).
+  return async function ownerControlAuth(req, res, next) {
     if (!req.session?.userId) {
       return res.status(401).json({
         success: false,

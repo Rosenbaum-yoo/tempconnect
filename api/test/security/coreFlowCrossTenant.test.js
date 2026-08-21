@@ -52,7 +52,19 @@ const SUPP_UUID  = "cccccccc-cccc-4ccc-cccc-cccccccccccc";
 
 /** Pool that returns the same row for every query. */
 function poolWith(row) {
-  return { query: async () => ({ rows: row ? [row] : [] }) };
+  return {
+    query: async (sql) => {
+      /* Die Mitgliedschaftsabfrage wird beantwortet wie eine echte Datenbank:
+         ein AUSSENSTEHENDER teilt keine Organisation mit dem Eigentuemer.
+         Ohne diese Zeile bestaetigt der Mock JEDE Mitgliedschaft — seit
+         Entscheidung D-M5 fragt der Marktplatz `canAccessAsOwner`, und der
+         Aussenstehende kaeme bis zum Zustandsautomaten durch (409 statt 403).
+         Die Zusicherungen der Tests bleiben unveraendert; korrigiert wird der
+         Mock, der die Wirklichkeit nicht mehr abbildete. */
+      if (/FROM org_memberships/i.test(String(sql))) return { rows: [] };
+      return { rows: row ? [row] : [] };
+    }
+  };
 }
 
 /** Deps for timesheets router — getUserAndPlan required by the constructor. */

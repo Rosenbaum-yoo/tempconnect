@@ -7,14 +7,46 @@
 
 ---
 
-## ✅ Stand 2026-08-19: H2 ist gebaut
+## ✅ Stand 2026-08-20: H2 ist gebaut und vollständig ausgerollt
 
 **Ergebnis in drei Sätzen.** Die Entscheidung D-M1 ist gefallen: **Wächter, nicht
 konsolidieren** — begründet dadurch, dass alle echten Defekte dort lagen, wo
 *keine* der 80 Kopien stand. Die fünf Lücken der Recherche sind geschlossen, und
-der Wächter fand beim ersten Lauf **fünf weitere** (E-6 bis E-10), darunter mit
-`PATCH /organizations/:id` einen Cross-Org-Schreibzugriff auf den
-Organisationsdatensatz selbst. Volle Suite 8804/0.
+der Wächter fand über alle **81 Route-Dateien** hinweg **elf weitere** (E-6 bis
+E-10 im ersten Lauf, E-12 bis E-20 beim Ausrollen) — darunter der DSGVO-Vollexport
+eines beliebigen fremden Nutzers (E-20), die Anonymisierung eines fremden Kontos
+(E-17) und der Verteilplan fremder Ausschreibungen, lesbar **und weiterschaltbar**
+(E-19). **253 Routen verhaltensgeprüft, 122 belegte Ausnahmen**, Sperrklinke
+gesetzt; E-18/E-19/E-20 zusätzlich gegen das echte Postgres-Schema bewiesen (acht
+Prüfungen grün, fünf davon rot unter entfernter Bindung).
+
+**Vollständige Abdeckung: 82 von 82 Route-Dateien.** `matching.js` war zuletzt
+ausgesetzt, weil E-14 wie eine Produktentscheidung aussah — Bedarfe werden im
+Marktplatz *bewusst* an Lieferanten ausgespielt. Die Auflösung: die Regel stand
+bereits im Code. `capacityExchangeService` zeigt einen Bedarf nur solange er
+offen ist, freie Plätze hat, keinen Ursprungsauftrag trägt und nicht abgelaufen
+ist; `findMatches` erreichte dagegen auch `closed`, `cancelled` und `fulfilled`.
+Das Matching war die **Hintertür zu genau den Bedarfen, die die
+Sichtbarkeitsregel schützt** — kein Produktkonflikt, sondern eine Inkonsistenz.
+Gegen das echte Schema geprüft zeigen Matching und Marktplatz derselben Agentur
+jetzt **dieselbe Menge, null Abweichungen**. Die 14 OCC-Dateien werden über ihren
+Einstiegspunkt geführt (Schicht B3).
+
+**E-11 ebenfalls geschlossen.** `canAccessAsOwner` hatte zwei unabhängige
+Fehler (`status` statt `is_active`; Nutzer-Kennung gegen `org_memberships.org_id`
+verglichen) und liess deshalb immer nur den EINEN anlegenden Menschen durch —
+bei Urlaub oder Personalwechsel war die Zeile für das Unternehmen verloren. Die
+Weitung endet an der Arbeiterrolle: `org_memberships` führt auch 33 Arbeiter,
+und „gleiche Organisation genügt" hätte ihnen die Dealakten ihrer Agentur
+geöffnet. Gegen das echte Schema gemessen ändern sich **genau die zwei
+Gewährungen, keine einzige Verweigerung**.
+
+**Was offen bleibt:**
+**P1-19** aus dem Nebenbefund E-21: `GET /matching/worker/:id` liest eine Tabelle
+(`workers`), die keine Migration je angelegt hat — der Weg endet seit jeher in
+500. Ob er entfernt oder auf `worker_profiles` gebaut wird, ist eine
+Produktentscheidung; die Org-Bindung steht bereits im SQL, damit er nicht am Tag
+des Tabellen-Anlegens zum Leck wird.
 
 | Artefakt | Zweck |
 |---|---|
@@ -22,7 +54,7 @@ Organisationsdatensatz selbst. Volle Suite 8804/0.
 | `api/test/orgGrenzenWaechter.test.js` | Der Wächter, vier Schichten inkl. Selbstprobe |
 | `api/test/fixtures/orgGrenzen.json` | Das Register: je Route ein Urteil, je Datei ein Abdeckungsvermerk |
 | `api/test/helpers/orgGrenzenSpion.js` | Spion-Pool + `pruefeGrenze` — dieselbe Funktion für Bestand und Selbstprobe |
-| `api/test/helpers/security-mocks.js` | neu: `findChainFrom` — führt die Kette ab einem benannten Middleware aus |
+| `api/test/helpers/security-mocks.js` | neu: `findChainFrom` (führt die Kette ab einem benannten Middleware aus), `listRoutesTief` (steigt in montierte Sub-Router ab), `findPrefixMiddleware` (findet Torwächter, die per `router.use(präfix, …)` hängen) |
 
 **Korrekturen an dieser Recherche** (gemessen, nicht vermutet):
 

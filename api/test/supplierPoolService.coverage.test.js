@@ -190,13 +190,18 @@ describe("getDistributionPlan", () => {
     ];
     const pool = trackingPool((sql, params) => {
       if (has(sql, "FROM requisition_distribution_stages")) {
-        assert.deepEqual(params, ["req-1"]);
+        // Befund E-19 (2026-08-20): der Plan wurde allein ueber die
+        // Ausschreibungs-Kennung geladen — jeder Angemeldete konnte lesen, an
+        // welche Lieferanten eine FREMDE Ausschreibung in welcher Reihenfolge
+        // geht. Die Abfrage traegt jetzt zusaetzlich die Organisation.
+        assert.deepEqual(params, ["req-1", "org-1"], "die Org muss in der Abfrage stehen");
+        assert.ok(has(sql, "r.org_id = $2"), "die Bindung gehoert ins SQL, nicht in den Handler");
         return { rows: stages };
       }
       return undefined;
     });
 
-    const result = await svc.getDistributionPlan(pool, "req-1");
+    const result = await svc.getDistributionPlan(pool, "req-1", "org-1");
     assert.equal(result.stages.length, 3);
     assert.ok(result.active_stage);
     assert.equal(result.active_stage.id, "b");
@@ -213,14 +218,14 @@ describe("getDistributionPlan", () => {
       }
       return undefined;
     });
-    const result = await svc.getDistributionPlan(pool, "req-2");
+    const result = await svc.getDistributionPlan(pool, "req-2", "org-1");
     assert.equal(result.active_stage, null);
     assert.equal(result.stages.length, 1);
   });
 
   it("returns empty stages + null active_stage for unknown requisition", async () => {
     const pool = trackingPool(() => ({ rows: [] }));
-    const result = await svc.getDistributionPlan(pool, "missing");
+    const result = await svc.getDistributionPlan(pool, "missing", "org-1");
     assert.deepEqual(result.stages, []);
     assert.equal(result.active_stage, null);
   });
@@ -240,7 +245,7 @@ describe("advanceDistribution", () => {
       return undefined;
     });
 
-    const next = await svc.advanceDistribution(pool, "req-1", "actor-1");
+    const next = await svc.advanceDistribution(pool, "req-1", "actor-1", "org-1");
     assert.ok(next);
     assert.equal(next.stage_number, 2);
     assert.equal(next.pool_tier, "SECONDARY");
@@ -273,7 +278,7 @@ describe("advanceDistribution", () => {
       }
       return undefined;
     });
-    const next = await svc.advanceDistribution(pool, "req-2", "a");
+    const next = await svc.advanceDistribution(pool, "req-2", "a", "org-1");
     assert.equal(next, null);
     // no completed/activate UPDATE should have fired
     const upd = pool.calls.find(c => has(c.sql, "UPDATE requisition_distribution_stages"));
@@ -291,7 +296,7 @@ describe("advanceDistribution", () => {
       return undefined;
     });
 
-    const next = await svc.advanceDistribution(pool, "req-3", "a");
+    const next = await svc.advanceDistribution(pool, "req-3", "a", "org-1");
     assert.equal(next, null, "no stage 4 → null");
 
     // last active stage still gets completed

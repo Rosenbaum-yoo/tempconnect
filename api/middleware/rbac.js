@@ -32,7 +32,13 @@ export function requireOrgContext(req, res, next) {
  */
 export function requirePermission(permission, deps) {
   const { pool, logger } = deps;
-  return async (req, res, next) => {
+  // BENANNT statt anonym: das ist die zentrale Berechtigungspruefung der
+  // Plattform. Anonym ist sie in Stapelspuren unsichtbar, und kein Test kann
+  // fragen "traegt DIESE Route eine Berechtigungspruefung?" — er kann nur
+  // Middleware ZAEHLEN, was `rbac-hardening.test.js` bis hierher auch tat
+  // (`assert.ok(names.length >= 2)`). Genau deshalb blieb Befund P1-20 so lange
+  // unentdeckt: eine Route ohne Pruefung sah aus wie eine mit.
+  return async function requirePermissionMiddleware(req, res, next) {
     if (!req.session?.userId) {
       return res.status(401).json({ error: "NOT_AUTHENTICATED" });
     }
@@ -123,7 +129,8 @@ export function requirePermission(permission, deps) {
  */
 export function requireRole(allowedRoles, deps) {
   const { pool, logger } = deps;
-  return async (req, res, next) => {
+  // Benannt aus demselben Grund wie `requirePermissionMiddleware`.
+  return async function requireRoleMiddleware(req, res, next) {
     if (!req.session?.userId) {
       return res.status(401).json({ error: "NOT_AUTHENTICATED" });
     }

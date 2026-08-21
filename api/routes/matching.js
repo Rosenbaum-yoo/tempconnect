@@ -22,6 +22,15 @@ export function createMatchingRouter(deps) {
   // GET /api/matching/demand/:id — find capacity posts for a demand/requisition
   router.get("/matching/demand/:id", requireAuth, rperm("requisition.view"), async (req, res) => {
     try {
+      // Befund E-14 (2026-08-20): die Zugehoerigkeit wird VOR jeder Arbeit
+      // geklaert — vorher lief die Engine gegen jeden fremden Bedarf, und
+      // logMatch schrieb den fremden Vorgang unter der EIGENEN Org ins
+      // ML-Protokoll. Die Regel ist die des Marktplatzes, nicht eine neue:
+      // eigener Bedarf immer, fremder nur solange er offen ausgespielt wird.
+      const zugang = await engine.darfBedarfSehen(pool, req.params.id, req.session?.userId);
+      if (zugang === "NOT_FOUND") return res.status(404).json({ error: "NOT_FOUND" });
+      if (zugang !== "OK") return res.status(403).json({ error: "ORG_BOUNDARY_VIOLATION" });
+
       const matches = await engine.findMatches(pool, req.params.id, {
         topN: Number(req.query.limit) || 25,
         minScore: Number(req.query.min_score) || 1
@@ -62,6 +71,15 @@ export function createMatchingRouter(deps) {
   // GET /api/matching/supply/:id — find demands/requisitions for a capacity post
   router.get("/matching/supply/:id", requireAuth, rperm("requisition.view"), async (req, res) => {
     try {
+      // Befund E-14: dieselbe Klaerung fuer das Angebot. Die Regel steht in
+      // `capacityExchangeService.canViewerSeeEntry` — der Anbieter sieht sein
+      // Angebot immer, alle anderen nur ein aktives, nicht privates.
+      const zugang = await engine.darfKapazitaetSehen(
+        pool, req.params.id, req.session?.userId, req.orgId
+      );
+      if (zugang === "NOT_FOUND") return res.status(404).json({ error: "NOT_FOUND" });
+      if (zugang !== "OK") return res.status(403).json({ error: "ORG_BOUNDARY_VIOLATION" });
+
       const matches = await engine.matchCapacityToRequisitions(pool, req.params.id, {
         topN: Number(req.query.limit) || 25,
         minScore: Number(req.query.min_score) || 1
@@ -84,30 +102,27 @@ export function createMatchingRouter(deps) {
     }
   });
 
-  // GET /api/matching/worker/:id — find assignments for a specific worker
-  router.get("/matching/worker/:id", requireAuth, rperm("requisition.view"), async (req, res) => {
-    try {
-      const matches = await engine.matchWorkerToAssignments(pool, req.params.id, {
-        topN: Number(req.query.limit) || 25,
-        minScore: Number(req.query.min_score) || 1
-      });
-      for (const m of matches.slice(0, 10)) {
-        engine.logMatch(pool, {
-          match_type: "worker_assignment",
-          source_id: req.params.id,
-          target_id: m.entity?.id,
-          score: m.score,
-          reasons: m.reasons,
-          outcome: "suggested",
-          org_id: req.orgId || null
-        }).catch(swallow("matching"));
-      }
-      res.json({ worker_id: req.params.id, count: matches.length, matches: attachExplanations(matches) });
-    } catch (err) {
-      logger.error({ err: err.message }, "GET /matching/worker/:id");
-      res.status(500).json({ error: "SERVER_ERROR" });
-    }
-  });
+  /* Befund P1-19 (entfernt 2026-08-20): hier lag `GET /matching/worker/:id`.
+     Die Route rief `matchWorkerToAssignments`, und diese las `FROM workers` —
+     eine Tabelle, die KEINE Migration je angelegt hat. Gegen die laufende
+     Datenbank gemessen antwortete Postgres mit 42703; der Weg endete seit jeher
+     in 500. Kein Frontend, kein E2E-Lauf und keine Dokumentationsseite rief ihn
+     auf.
+
+     Nicht repariert, sondern entfernt — aus drei Gruenden:
+       1. Der Schema-Waechter fuehrte den Fall selbst als "workers: Altbestand.
+          Die Arbeiterdaten liegen in worker_profiles." Das Projekt hatte die
+          Frage also laengst beantwortet.
+       2. Auf `worker_profiles` zu bauen waere kein Umbenennen, sondern ein
+          Feature: dort gibt es weder `role` noch Koordinaten, und die Bewertung
+          der Engine (Rollen- und Geo-Treffer) liefe ins Leere. CLAUDE.md
+          verbietet spekulative Features.
+       3. Eine Route, die dauerhaft 500 antwortet, ist ein toter Pfad — und war
+          zugleich ein schlafendes Leck: am Tag, an dem jemand eine
+          `workers`-Tabelle anlegt, waere daraus ein ungebundener
+          org-uebergreifender Lesezugriff geworden.
+
+     Dass sie nicht zurueckkehrt, haelt `matchingEngine.coverage.test.js` fest. */
 
   /* ═══════════════════════════════════════════════════════
      Instant Match — Premium Enriched Matching

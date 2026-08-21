@@ -186,8 +186,20 @@ describe("RBAC-STRUCT: matching routes", () => {
   assertProtected(router, [
     { method: "get", path: "/matching/demand/:id",  label: "GET /matching/demand/:id (requisition.view)" },
     { method: "get", path: "/matching/supply/:id",  label: "GET /matching/supply/:id (requisition.view)" },
-    { method: "get", path: "/matching/worker/:id",  label: "GET /matching/worker/:id (requisition.view)" },
   ]);
+
+  it("GET /matching/worker/:id gibt es nicht mehr (Befund P1-19)", () => {
+    /* Die Route stand hier bis zum 2026-08-20. Sie las ueber
+       `matchWorkerToAssignments` die Tabelle `workers`, die keine Migration je
+       angelegt hat, und endete seit jeher in 500. Die Zusicherung wird nicht
+       geloescht, sondern umgedreht: sie haelt jetzt fest, dass der tote Weg
+       nicht zurueckkehrt. */
+    const pfade = router.stack.filter((l) => l.route).map((l) => l.route.path);
+    assert.ok(
+      !pfade.includes("/matching/worker/:id"),
+      "Wer sie wieder einfuehrt, braucht zuerst eine Datenquelle — siehe P1-19."
+    );
+  });
 });
 
 // ── Meta: ensure no route is unprotected (zero middleware) ──────────────────

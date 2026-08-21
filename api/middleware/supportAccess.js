@@ -263,7 +263,11 @@ export function ipAllowed(ip, cidrs) {
 export function requireSupportAccess(deps) {
   const { pool, logger, config } = deps;
 
-  return async (req, res, next) => {
+  // BENANNT statt anonym: dieser Torwaechter ist die EINZIGE Eintrittsbedingung
+  // der gesamten Support-Flaeche. Anonym ist er in Stapelspuren und fuer jede
+  // Strukturpruefung unsichtbar — der Org-Grenzen-Waechter konnte nicht belegen,
+  // dass er ueberhaupt noch montiert ist. Der Name ist Teil der Absicherung.
+  return async function supportAuth(req, res, next) {
     const supportOpsEnabled = parseEnabled(config?.SUPPORT_OPS_ENABLED, true);
     if (!supportOpsEnabled) {
       return res.status(503).json({

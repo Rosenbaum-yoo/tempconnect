@@ -75,18 +75,52 @@ describe("Welle G4b — Kundenmeldung am realen Schema", { skip: !hasDb && "No d
 
   it("die erlaubten severity-Werte stimmen mit der Konstante ueberein", async () => {
     /* Die Konstante im Code ist eine BEHAUPTUNG ueber die Datenbank. Hier wird
-     * sie geprueft — sonst driftet sie beim naechsten CHECK-Umbau lautlos. */
+     * sie geprueft — sonst driftet sie beim naechsten CHECK-Umbau lautlos.
+     *
+     * BEFUND M0-B9 (2026-08-21): dieser Test war wochenlang rot, und zwar aus
+     * einem anderen Grund als dem, den er melden wollte. Er suchte die Werte
+     * als `'info'` — mit Anfuehrungszeichen — im Text des Constraints. Postgres
+     * gibt ihn aber je nach Schreibweise unterschiedlich aus:
+     *     CHECK (severity IN ('a','b'))        -> ... = ANY (ARRAY['a'::text, ...])
+     *     CHECK (severity = ANY ('{a,b}'))     -> ... = ANY ('{a,b}'::text[])
+     * In der zweiten Form steht KEIN einziger Wert in Anfuehrungszeichen. Die
+     * erste Zusicherung schlug also schon bei `info` fehl — und verdeckte damit
+     * genau den Befund, den die zweite finden sollte: die laufende Datenbank
+     * erlaubte ein fuenftes `urgent`, das keine Migration je gewaehrt hat.
+     *
+     * Jetzt werden die Werte AUSGELESEN statt gesucht, und beide Richtungen
+     * geprueft. Das ist strenger als vorher: es faellt nicht nur auf, wenn ein
+     * bekannter Wert fehlt, sondern auch, wenn ein unbekannter dazukommt —
+     * gleich welcher. */
     const { rows } = await pool.query(
       `SELECT pg_get_constraintdef(oid) AS def FROM pg_constraint
         WHERE conrelid='notifications'::regclass AND conname='notifications_severity_check'`
     );
     assert.ok(rows[0], "der severity-CHECK fehlt ganz");
-    for (const s of ERLAUBTE_SEVERITY) {
-      assert.ok(rows[0].def.includes(`'${s}'`), `${s} steht in der Konstante, aber nicht im CHECK`);
+    const def = rows[0].def;
+
+    // Beide Schreibweisen: 'wert'::text und der blanke Inhalt von '{a,b}'.
+    const erlaubt = new Set();
+    for (const t of def.matchAll(/'([^']+)'(?:::text)?/g)) {
+      const wert = t[1];
+      if (wert.startsWith("{") && wert.endsWith("}")) {
+        wert.slice(1, -1).split(",").map((x) => x.trim()).filter(Boolean)
+          .forEach((x) => erlaubt.add(x));
+      } else {
+        erlaubt.add(wert);
+      }
     }
-    assert.ok(!rows[0].def.includes("'urgent'"),
-      "der CHECK kennt jetzt 'urgent' — dann darf ERLAUBTE_SEVERITY das auch, " +
-      "und Toast-Varianten sowie Stufen-Abbildung im Frontend brauchen den Wert");
+    assert.ok(erlaubt.size > 0, `aus dem CHECK liess sich kein Wert lesen: ${def}`);
+
+    const fehlend = ERLAUBTE_SEVERITY.filter((s) => !erlaubt.has(s));
+    assert.deepEqual(fehlend, [],
+      `steht in der Konstante, aber nicht im CHECK: ${fehlend.join(", ")} — CHECK ist ${def}`);
+
+    const zuviel = [...erlaubt].filter((s) => !ERLAUBTE_SEVERITY.includes(s));
+    assert.deepEqual(zuviel, [],
+      `der CHECK erlaubt mehr als die Konstante kennt: ${zuviel.join(", ")}. Dann darf ` +
+      "ERLAUBTE_SEVERITY das auch — und Toast-Varianten sowie Stufen-Abbildung im " +
+      "Frontend brauchen den Wert. Siehe Migration 185 und Befund M0-B9.");
   });
 
   it("jede severity der Matrix geht wirklich durch", async () => {

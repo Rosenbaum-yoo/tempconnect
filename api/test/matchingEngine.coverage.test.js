@@ -10,6 +10,7 @@
  * driven by a substring-routing tracking pool so the whole call graph runs.
  */
 import assert from "node:assert/strict";
+import { readFile } from "node:fs/promises";
 import { describe, it } from "node:test";
 import * as svc from "../services/matchingEngine.js";
 
@@ -403,67 +404,45 @@ describe("findMatches", () => {
 });
 
 /* ──────────────────────────────────────────────────────────
- * matchWorkerToAssignments (+ getReputationScore)
+ * matchWorkerToAssignments — ENTFERNT (Befund P1-19, 2026-08-20)
+ *
+ * Hier standen neun Pruefungen fuer eine Funktion, die NIE funktioniert hat:
+ * sie las `FROM workers`, und diese Tabelle hat keine Migration je angelegt
+ * (gegen die laufende Datenbank gemessen: 42703). Die Tests waren gruen, weil
+ * ihr Mock-Pool jede Tabelle bestaetigt — sie pruefte also die Arithmetik einer
+ * Funktion, die in Wirklichkeit nach der ersten Abfrage abbrach.
+ *
+ * Sie werden nicht ersatzlos geloescht, sondern durch die Frage ersetzt, die
+ * ab jetzt zaehlt: kommt der tote Weg zurueck?
  * ────────────────────────────────────────────────────────── */
-describe("matchWorkerToAssignments", () => {
-  it("returns [] when worker not found", async () => {
-    const pool = trackingPool([{ match: "FROM workers WHERE id", rows: [] }]);
-    const res = await svc.matchWorkerToAssignments(pool, "ghost");
-    assert.deepEqual(res, []);
+describe("matchWorkerToAssignments — bleibt entfernt", () => {
+  it("die Engine bietet die Funktion nicht mehr an", () => {
+    assert.equal(
+      svc.matchWorkerToAssignments, undefined,
+      "Wer sie wieder einfuehrt, baut ein Feature — nicht eine Reparatur: " +
+      "`worker_profiles` hat weder `role` noch Koordinaten, die Bewertung der " +
+      "Engine liefe ins Leere. Siehe P1-19 in docs/PILOT_GO_LIVE_TODOS.md."
+    );
   });
 
-  it("scores worker against demands+requisitions and adds reputation bonus", async () => {
-    const pool = trackingPool([
-      { match: "FROM workers WHERE id", rows: [{ id: "w1", role: "koch", org_id: "o1" }] },
-      { match: "FROM supplier_reputation", rows: [{ overall_score: 8 }] }, // repBonus = round(8/2)=4
-      { match: "FROM demand_requests WHERE status = 'open'", rows: [{ id: "d1", role: "koch" }] },
-      { match: "FROM requisitions WHERE status IN", rows: [{ id: "r1", role: "koch" }] }
-    ]);
-    const res = await svc.matchWorkerToAssignments(pool, "w1");
-    assert.equal(res.length, 2);
-    // each should carry the reputation reason and score = 30(role) + 4(rep) = 34
-    for (const m of res) {
-      const rep = m.reasons.find(r => r.factor === "reputation");
-      assert.equal(rep.points, 4);
-      assert.equal(m.score, 34);
-    }
-  });
-
-  it("skips reputation reason when score is zero (no org / not found)", async () => {
-    const pool = trackingPool([
-      { match: "FROM workers WHERE id", rows: [{ id: "w1", role: "koch" }] }, // no org_id
-      { match: "FROM supplier_reputation", rows: [] },
-      { match: "FROM demand_requests WHERE status = 'open'", rows: [{ id: "d1", role: "koch" }] },
-      { match: "FROM requisitions WHERE status IN", rows: [] }
-    ]);
-    const res = await svc.matchWorkerToAssignments(pool, "w1");
-    assert.equal(res.length, 1);
-    assert.equal(res[0].reasons.find(r => r.factor === "reputation"), undefined);
-    assert.equal(res[0].score, 30);
-  });
-
-  it("swallows reputation query errors and proceeds with bonus 0", async () => {
-    const pool = trackingPool([
-      { match: "FROM workers WHERE id", rows: [{ id: "w1", role: "koch", org_id: "o1" }] },
-      { match: "FROM supplier_reputation", error: new Error("db down") },
-      { match: "FROM demand_requests WHERE status = 'open'", rows: [{ id: "d1", role: "koch" }] },
-      { match: "FROM requisitions WHERE status IN", rows: [] }
-    ]);
-    const res = await svc.matchWorkerToAssignments(pool, "w1");
-    assert.equal(res.length, 1);
-    assert.equal(res[0].score, 30); // no reputation bonus
-  });
-
-  it("honours topN and minScore", async () => {
-    const demands = Array.from({ length: 4 }, (_, i) => ({ id: `d${i}`, role: "koch" }));
-    const pool = trackingPool([
-      { match: "FROM workers WHERE id", rows: [{ id: "w1", role: "koch" }] },
-      { match: "FROM supplier_reputation", rows: [] },
-      { match: "FROM demand_requests WHERE status = 'open'", rows: demands },
-      { match: "FROM requisitions WHERE status IN", rows: [] }
-    ]);
-    const res = await svc.matchWorkerToAssignments(pool, "w1", { topN: 2 });
-    assert.equal(res.length, 2);
+  it("keine Abfrage der Engine liest mehr `FROM workers`", async () => {
+    /* Der eigentliche Grund fuer die Entfernung war nicht der tote Weg, sondern
+       das schlafende Leck: eine ungebundene Abfrage auf eine Tabelle, die es
+       noch nicht gibt. Am Tag ihrer Anlage waere daraus ein
+       org-uebergreifender Lesezugriff geworden. */
+    const quelle = await readFile(
+      new URL("../services/matchingEngine.js", import.meta.url), "utf8"
+    );
+    const zeilen = quelle.split(String.fromCharCode(10));
+    const sucht = new RegExp(String.raw`\bFROM\s+workers\b`, "i");
+    const treffer = zeilen.filter(
+      (z) => sucht.test(z) && !z.trimStart().startsWith("*")
+    );
+    assert.deepStrictEqual(
+      treffer, [],
+      "`workers` existiert nicht. Der Schema-Waechter fuehrte den Fall als " +
+      "\"Altbestand — die Arbeiterdaten liegen in worker_profiles\"."
+    );
   });
 });
 

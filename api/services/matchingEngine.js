@@ -377,107 +377,19 @@ export async function findMatches(pool, requestId, opts = {}) {
  * demand_requests and requisitions.
  * ═══════════════════════════════════════════════════════════════ */
 
-/**
- * Load reputation score for a supplier org from supplier_reputation.
- * Returns 0-10 numeric value; 0 if not found.
- */
-async function getReputationScore(pool, orgId) {
-  if (!orgId) return 0;
-  try {
-    const { rows } = await pool.query(
-      `SELECT overall_score FROM supplier_reputation WHERE org_id = $1 ORDER BY updated_at DESC LIMIT 1`,
-      [orgId]
-    );
-    return rows[0]?.overall_score ?? 0;
-  } catch {
-    return 0;
-  }
-}
-
-/**
- * Match a worker (by ID) against open demand requests + requisitions.
- * Worker profile is mapped to a capacity-like object; demands are scored.
- * @param {import('pg').Pool} pool
- * @param {string} workerId
- * @param {Object} [opts] - { topN, minScore }
- */
-export async function matchWorkerToAssignments(pool, workerId, opts = {}) {
-  const topN = opts.topN || 25;
-  const minScore = opts.minScore || 1;
-
-  // Load worker
-  const { rows: wRows } = await pool.query('SELECT * FROM workers WHERE id = $1', [workerId]);
-  const worker = wRows[0];
-  if (!worker) return [];
-
-  // Build capacity-like object from worker
-  const cap = {
-    role: worker.role || worker.position || '',
-    skill_tags: worker.skill_tags || worker.skills || [],
-    location_lat: worker.latitude ?? worker.location_lat,
-    location_lng: worker.longitude ?? worker.location_lng,
-    location_city: worker.city || worker.location_city || '',
-    radius_km: worker.radius_km || 50,
-    availability_from: worker.available_from || worker.availability_from,
-    availability_to: worker.available_to || worker.availability_to
-  };
-
-  // Reputation bonus for worker's org
-  const repScore = await getReputationScore(pool, worker.org_id || worker.supplier_org_id);
-  const repBonus = Math.round(repScore / 2); // 0-5 bonus points
-
-  // Load open demands + requisitions
-  const { rows: demands } = await pool.query(
-    `SELECT *, 'demand_request' AS _source FROM demand_requests WHERE status = 'open'`
-  );
-  const { rows: reqs } = await pool.query(
-    `SELECT *, 'requisition' AS _source FROM requisitions WHERE status IN ('OPEN','IN_REVIEW','SHORTLISTED')`
-  );
-
-  const scored = [];
-
-  // Einmal je Lauf, nicht je Kandidat (Welle 11).
-  const skillIndex = opts.skillIndex !== undefined ? opts.skillIndex : await loadSkillIndex(pool);
-
-  for (const dr of demands) {
-    const demand = {
-      role: dr.role,
-      skill_tags: dr.skill_tags || [],
-      latitude: dr.location_lat, longitude: dr.location_lng,
-      location_city: dr.location_city, radius_km: dr.radius_km,
-      start_date: dr.start_date, end_date: dr.end_date
-    };
-    let { score, reasons } = scoreMatch(demand, cap, { skillIndex });
-    if (repBonus > 0) {
-      score = Math.min(100, score + repBonus);
-      reasons.push({ factor: 'reputation', points: repBonus, max: 5, detail: `Reputation ${repScore}/10` });
-    }
-    if (score >= minScore) {
-      scored.push({ type: 'demand_request', entity: dr, score, reasons });
-    }
-  }
-
-  for (const req of reqs) {
-    const demand = {
-      role: req.role,
-      skill_tags: req.skill_tags || [],
-      latitude: req.latitude, longitude: req.longitude,
-      location_city: req.location_city, radius_km: req.radius_km,
-      start_date: req.start_date, end_date: req.end_date
-    };
-    let { score, reasons } = scoreMatch(demand, cap, { skillIndex });
-    if (repBonus > 0) {
-      score = Math.min(100, score + repBonus);
-      reasons.push({ factor: 'reputation', points: repBonus, max: 5, detail: `Reputation ${repScore}/10` });
-    }
-    if (score >= minScore) {
-      scored.push({ type: 'requisition', entity: req, score, reasons });
-    }
-  }
-
-  scored.sort((a, b) => b.score - a.score);
-  return scored.slice(0, topN);
-}
+/* Befund P1-19 (entfernt 2026-08-20): hier lagen `matchWorkerToAssignments` und
+ * ihr einziger Nutzer `getReputationScore`.
+ *
+ * `matchWorkerToAssignments` las `FROM workers` — eine Tabelle, die keine
+ * Migration je angelegt hat (gegen die laufende Datenbank gemessen: 42703). Der
+ * Schema-Waechter fuehrte sie als "Altbestand. Die Arbeiterdaten liegen in
+ * worker_profiles". Mit der Funktion faellt auch `getReputationScore` weg: sie
+ * hatte keinen anderen Aufrufer.
+ *
+ * Die drei Ausnahmen, die der Schema-Waechter fuer diese Stellen fuehrte
+ * (`workers`, `supplier_reputation.org_id`, `supplier_reputation.overall_score`),
+ * sind mit dem Code gestrichen. Der Waechter erzwingt das: ein Eintrag, der
+ * nicht mehr auftritt, macht ihn rot. */
 
 /* ═══════════════════════════════════════════════════════════════
  * ML Match Logging
@@ -507,4 +419,97 @@ export async function logMatch(pool, entry) {
   } catch (_e) {
     // Non-critical — don't break the flow
   }
+}
+/* ═══════════════════════════════════════════════════════════════════════════
+   Befund E-14 (2026-08-20): die Matching-Wege liefen ohne jede Bindung
+   ═══════════════════════════════════════════════════════════════════════════
+
+   `findMatches` und `matchCapacityToRequisitions` luden ihre Quelle mit
+   `WHERE id = $1` — sonst nichts. Jeder Angemeldete mit `requisition.view`
+   konnte die Engine also gegen einen FREMDEN Bedarf laufen lassen und erfuhr,
+   dass es ihn gibt und welche Lieferanten zu ihm passen. Die Geschwister-Route
+   `/matching/instant/:requisitionId` machte es von Anfang an richtig: sie reicht
+   `req.orgId` durch und beantwortet `ORG_BOUNDARY_VIOLATION` mit 403.
+
+   WARUM DIE GRENZE HIER NICHT "eigene Org" HEISST. Ein Bedarf wird im Marktplatz
+   BEWUSST an Lieferanten ausgespielt — eine reine Org-Grenze waere das Ende des
+   Marktplatzes. Die richtige Regel musste also nicht erfunden werden, sie steht
+   bereits im Code: `capacityExchangeService` zeigt einen Bedarf genau dann, wenn
+   er offen ist, noch freie Plaetze hat, keinen Ursprungs-Auftrag traegt und
+   nicht abgelaufen ist (`demandVisibilityWhere`, Zeile 538). Genau diese Regel
+   gilt ab jetzt auch fuers Matching.
+
+   Der Unterschied ist nicht theoretisch: `SELECT * FROM demand_requests WHERE
+   id = $1` erreichte auch `closed`, `cancelled` und `fulfilled` — also Bedarfe,
+   die der Marktplatz absichtlich verbirgt. Das Matching war damit die
+   Hintertuer zu genau den Daten, die die Sichtbarkeitsregel schuetzt.
+
+   Wer den Bedarf SELBST gestellt hat, sieht ihn in jedem Status — sonst koennte
+   niemand sein eigenes abgeschlossenes Gesuch nachvollziehen.
+*/
+
+/** @returns {"OK"|"NOT_FOUND"|"ORG_BOUNDARY_VIOLATION"} */
+export async function darfBedarfSehen(pool, demandId, viewerUserId) {
+  if (!demandId) return "NOT_FOUND";
+  const { rows } = await pool.query(
+    `SELECT dr.requester_company_id,
+            dr.status,
+            dr.end_date,
+            COALESCE(
+              dr.remaining_open_count,
+              GREATEST(COALESCE(dr.required_total_count, dr.headcount, 1)
+                       - COALESCE(dr.currently_committed_count, 0), 0)
+            ) AS offene_plaetze,
+            EXISTS (
+              SELECT 1 FROM offers o
+               WHERE o.demand_request_id = dr.id
+                 AND o.capacity_post_id IS NOT NULL
+            ) AS hat_ursprungsauftrag
+       FROM demand_requests dr
+      WHERE dr.id = $1`,
+    [demandId]
+  );
+  const dr = rows[0];
+  if (!dr) return "NOT_FOUND";
+
+  // Der Steller sieht seinen eigenen Bedarf in jedem Status.
+  if (viewerUserId && String(dr.requester_company_id) === String(viewerUserId)) return "OK";
+
+  // Fuer alle anderen gilt die Sichtbarkeitsregel des Marktplatzes.
+  const sichtbar =
+    ["open", "partially_covered"].includes(String(dr.status)) &&
+    Number(dr.offene_plaetze) > 0 &&
+    !dr.hat_ursprungsauftrag &&
+    (dr.end_date === null || new Date(dr.end_date) >= new Date(new Date().toDateString()));
+
+  return sichtbar ? "OK" : "ORG_BOUNDARY_VIOLATION";
+}
+
+/**
+ * Dieselbe Frage fuer ein Kapazitaetsangebot.
+ *
+ * Die Regel steht in `capacityExchangeService.canViewerSeeEntry` (Zeile 125):
+ * der Anbieter sieht sein Angebot immer, alle anderen nur ein aktives, nicht
+ * privates. `matchCapacityToRequisitions` hat sie nie angewandt.
+ *
+ * @returns {"OK"|"NOT_FOUND"|"ORG_BOUNDARY_VIOLATION"}
+ */
+export async function darfKapazitaetSehen(pool, capacityPostId, viewerUserId, viewerOrgId) {
+  if (!capacityPostId) return "NOT_FOUND";
+  const { rows } = await pool.query(
+    `SELECT supplier_company_id, org_id, status, visibility_status
+       FROM capacity_posts
+      WHERE id = $1`,
+    [capacityPostId]
+  );
+  const cp = rows[0];
+  if (!cp) return "NOT_FOUND";
+
+  const eigen =
+    (viewerUserId && String(cp.supplier_company_id) === String(viewerUserId)) ||
+    (viewerOrgId && cp.org_id && String(cp.org_id) === String(viewerOrgId));
+  if (eigen) return "OK";
+
+  const sichtbar = String(cp.status) === "active" && String(cp.visibility_status) !== "private";
+  return sichtbar ? "OK" : "ORG_BOUNDARY_VIOLATION";
 }

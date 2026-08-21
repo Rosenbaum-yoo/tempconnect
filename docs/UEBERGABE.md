@@ -231,19 +231,28 @@ nur `query.org_id`/`params.org_id` liest — der Platzhalter heißt hier `:id`.
   `next()` ruft, fällt hier durch.
 - **(C) Bestandsbuch** — jede der 82 Route-Dateien ist abgedeckt **oder** mit
   Grund ausgesetzt. Damit ist die ehrlichste Zahl sichtbar und wächst nicht mehr
-  stillschweigend: **15 Dateien · 137 Routen verhaltensgeprüft · 56 belegte
-  Ausnahmen · 67 Dateien offen.** Eine Sperrklinke verhindert, dass die Zahl fällt.
+  stillschweigend: **82 Dateien · 257 Routen verhaltensgeprüft · 123 belegte
+  Ausnahmen · 0 Dateien ausgesetzt.** Die 14 des Owner Control Centers werden
+  über ihren Einstiegspunkt geführt (Schicht B3), `matching.js` ist seit dem
+  Abschluss von E-14 regulär geprüft. Eine Sperrklinke verhindert, dass die Zahl fällt.
 
   | Datei | geprüft | Ausnahmen | Grenzmodell |
   |---|---|---|---|
   | `rateCards` `invoices` `approvals` `requisitions` `organizations` | 43 | — | Org |
   | `contracts` `assignments` `vendorPool` `complianceDocs` `documentCenter` `timesheets` | 37 | — | Org |
+  | `workers` `orgControlCenter` `suppliers` | 53 | — | Org, Grenze im Dienst-SQL |
   | `capacityExchange` | 17 | 1 | **Nutzer** |
   | `marketplace` | 22 | 8 | **Nutzer**, teils offen per Bauart |
   | `workerPortal` | 18 | — | **Nutzer** + Torwächter `requireWorkerRole` |
+  | `listings` `mentoring` `slaSearchJobs` `companyProfile` `emergency` `offerAssets` `notifications` | 26 | 6 | **Nutzer** (`owner_id`, `mentor_id`/`mentee_id`, `owner_company_id`, `user_id`) |
+  | `dataGovernance` `supplierPools` `strategicCollaboration` `subscriptionDocuments` `capacities` `integrations` `preferredVendors` | 21 | 4 | Org — vier davon erst durch E-17 bis E-20 gebunden |
   | `staffControlCenter` | — | 47 | **Staff**, org-übergreifend per Bauart; Torwächter `staffControlAccess` |
-  | `agencyPortal` `admin` `timesheetTemplates` `scim` | — | 30 | **Torwächter** je Fläche |
-  | `companyTimesheets` | 4 | — | Org, Grenze im Middleware `requireCompanySubmission` |
+  | `support` | — | 14 | **Torwächter am Präfix** `supportAuth`; Zuschnitt aus dem Agenten-Datensatz (Warteschlange, Fallart, `data_scope`) |
+  | `internalControlCenter` `productReleases` | — | 19 | **Plattform-Flächen**, org-übergreifend per Bauart |
+  | `agencyPortal` `admin` `timesheetTemplates` `scim` `sso` | — | 33 | **Torwächter** je Fläche |
+  | `ratings` `reputation` `search` `analytics` `profileVisibility` `dealFeedback` `auth` | — | 41 | **bewusst offen**: Marktplatz-Aggregation bzw. Token-Weg vor der Anmeldung |
+  | `matching` | 4 | 1 | **Sichtbarkeitsregel des Marktplatzes** statt Org-Grenze (E-14) |
+| `companyTimesheets` | 4 | — | Org, Grenze im Middleware `requireCompanySubmission` |
   | 28 Dateien ohne `:id`-Route | — | — | mit `routen: []` eingetragen — der Wächter **rechnet das nach** |
 
   **Zwei Namen, die mehr versprechen als sie halten** (im Register vermerkt, keine
@@ -320,32 +329,229 @@ Gegenprobe, die sicherstellt, dass die Neuberechnung für die **eigene** Org
 weiterhin stattfindet, die Reparatur die Funktion also begrenzt und nicht
 stilllegt.
 
-### E-14 · Die Matching-Engine läuft ohne Org *(offen — Owner-Frage)*
+### E-20 · Der DSGVO-Vollexport eines fremden Nutzers stand offen *(geschlossen)*
 
-Alle vier Platzhalter-Routen in `matching.js` rufen die Engine **nur mit der
-Pfad-Kennung**: `engine.findMatches(pool, req.params.id, …)` (`:25`), ebenso
-`matchCapacityToRequisitions` (`:65`), `matchWorkerToAssignments` (`:90`) und
-`smart-explain` (`:178`). `findMatches` lädt
-`SELECT * FROM demand_requests WHERE id = $1` (`matchingEngine.js:353`) — ohne
-Bindung.
+**Der größte Datenabfluss dieser Arbeit.** `GET /data-governance/export/user/:userId`
+rief `exportUserDataFull(pool, req.params.userId)` — allein mit der Kennung aus
+dem Pfad. Das Recht `data_governance.export` halten `owner` und `admin` **jeder**
+Kundenorganisation, für die eigene Belegschaft.
 
-Die **Geschwister-Route derselben Datei macht es anders**:
-`/matching/instant/:requisitionId` (`:144-151`) reicht `req.orgId` durch und
-mappt `ORG_BOUNDARY_VIOLATION` auf 403. Dasselbe Muster wie bei E-1 bis E-10:
-zwei Türen zum selben Raum, eine bewacht.
+Damit konnte ein beliebiger Org-Admin den vollständigen Datensatz eines
+beliebigen fremden Nutzers ziehen: Mailadresse, Telefon, Anschrift, Steuernummer,
+dazu alle Anzeigen, Anfragen, Bewertungen, Angebote, Einsätze und Stundenzettel.
+Ein Werkzeug für die Art.-15-Auskunft, auf Dritte gerichtet.
 
-Wirkung: wer angemeldet ist und `requisition.view` hat, kann die Engine gegen
-eine **fremde** Bedarfsmeldung laufen lassen und erfährt, dass es sie gibt und
-wonach sie sucht. Zusätzlich schreibt `logMatch` den fremden Vorgang mit der
-**eigenen** `org_id` ins ML-Protokoll (`matching.js:38`).
+Die **Geschwister-Route** `/export/org` in derselben Datei machte es von Anfang
+an richtig: sie nimmt `req.orgId` und akzeptiert gar keine Kennung aus dem Pfad.
+Zwei Wege, eine Datei, zwei Bauarten — das ist das Muster, an dem man diese
+Klasse künftig zuerst sucht.
 
-**Nicht autonom repariert**, und das ist hier kein Zögern, sondern die Sache
-selbst: Bedarfsmeldungen werden im Marktplatz **bewusst** an Lieferanten
-ausgespielt — ob dieser Weg offen sein *soll*, ist eine Produktentscheidung. Und
-`demand_requests` gehört einem **Nutzer** (`requester_company_id` → `users`),
-nicht einer Org, was die Frage direkt mit **D-M5** und **E-11** verbindet.
-`matching.js` ist deshalb im Register **zurückgestellt**, mit genau diesem
-Befund als Begründung.
+**Geschlossen** mit derselben Bindung wie E-17 (`istInMeinerOrg`, über
+`is_active`): eigene Organisation ja, fremde 403 — und die Absage fällt **vor**
+dem Laden der Personendaten, was der Test eigens prüft. Der Selbstexport läuft
+über `GET /me/data-export` und bleibt unberührt.
+
+### E-19 · Der Verteilplan einer fremden Ausschreibung war lesbar *(geschlossen)*
+
+`getDistributionPlan(pool, requisitionId)` lud die Verteilstufen allein über die
+Ausschreibungs-Kennung; `GET /supplier-pools/distribution/:requisitionId` trug
+dazu nur `requireAuth`. Jeder Angemeldete konnte damit lesen, an **welche**
+Lieferanten die Ausschreibung eines Wettbewerbers geht, in welcher Reihenfolge
+und wo sie gerade steht — die Wettbewerbsinformation schlechthin in einem
+Marktplatz.
+
+Schwerer noch: `advanceDistribution` hängt am selben Plan. Ein Fremder konnte die
+Ausschreibung eines Wettbewerbers auf die nächste Lieferantenstufe
+**weiterschalten** und damit dessen Vergabe steuern.
+
+**Geschlossen** über die Ausschreibung, wo die Organisation steht:
+`JOIN requisitions r ON r.id = ds.requisition_id AND r.org_id = $2`. Ohne
+Organisation im Kontext wird gar nicht erst gefragt.
+
+### E-18 · Eine fremde DSGVO-Anfrage ließ sich schließen *(geschlossen)*
+
+`completeDataRequest` band nur an Kennung und Status
+(`WHERE id = $1 AND status IN (...)`). Das Tor davor prüft ausschließlich, ob der
+Aufrufer das Recht in **seiner** Organisation hat. Ein Org-Admin konnte damit die
+Auskunfts- oder Löschanfrage einer fremden Organisation als erledigt schließen,
+ohne sie zu erfüllen. Der Schaden liegt nicht im Abfluss, sondern in der
+**Frist**: die fremde Organisation glaubt, ihre Art.-15/17-Pflicht sei erledigt,
+während die Uhr weiterläuft. **Geschlossen** mit `AND org_id = $4` im WHERE.
+
+> **Drei Befunde in einer Datei.** E-17, E-18 und E-20 liegen alle in
+> `dataGovernance.js`. Die Datenschutz-Werkzeuge waren durchgehend unbewacht,
+> weil das Recht die eigene Organisation prüft, die Kennung im Pfad aber eine
+> beliebige sein durfte. Wo eine Datei *ein* solches Muster zeigt, lohnt es,
+> **jeden** Weg darin zu prüfen statt nur den gemeldeten.
+
+### Warum diese drei gegen die echte Datenbank geprüft wurden
+
+Ein Spion-Pool kann kein `WHERE` erzwingen. Die Zusicherung „das SQL enthält
+`org_id = $n`" fällt damit in dieselbe Klasse wie ein Quelltext-Test — und die
+Lehre aus Welle G6 lautet, dass `if (false && X)` die gesuchte Zeichenkette
+weiterhin enthält.
+
+Deshalb lief für E-18/E-19/E-20 dieselbe Anweisung gegen das echte
+Postgres-Schema, in einer Transaktion mit `ROLLBACK`: **acht Prüfungen grün**.
+Mit entfernter Bindung wurden **fünf davon rot** — Organisation A schloss die
+DSGVO-Anfrage von B (`status = 'completed'`), las deren Verteilplan und schaltete
+deren Vergabe weiter. Erst diese Gegenprobe macht aus einer Textzusicherung einen
+Nachweis.
+
+### Zwei Blindstellen des Wächters selbst
+
+**Anonyme Torwächter sind unsichtbar.** `supportAuth` **und** `ownerControlAuth`
+waren namenlose Closures. Für jede Strukturprüfung und jede Stapelspur
+unsichtbar — der Wächter konnte nicht belegen, dass die einzige
+Eintrittsbedingung der **gesamten** Support- bzw. **Owner-Fläche** überhaupt noch
+montiert ist. Der Name ist jetzt Teil der Absicherung, nicht Kosmetik.
+
+**Und eine dritte, die schwerer wog als beide.** Das Owner Control Center hat
+**keine einzige** Platzhalter-Route — es adressiert alles über Abfrageparameter.
+Damit war die privilegierteste Fläche des Systems für den gesamten Wächter
+unsichtbar: `ownerControlCenter.js` stand mit `routen: []` im Register und galt
+als abgedeckt, während seine 13 montierten Unterrouter mit 31 Wegen niemand
+anfasste. Die neue Schicht **(B3)** prüft solche Flächen als Ganzes: jede Route
+liegt unter dem Montagepfad des Tores, das Tor hängt **vor** allen Teilflächen,
+und ohne Owner-Freigabe weist es mit 403 ab, ohne etwas anderes zu schreiben als
+sein eigenes Zugriffsprotokoll. Vier Mutationen an der Montage — Teilfläche vor
+dem Tor, Teilfläche daneben, Tor lässt durch, Tor wieder anonym — werden jede von
+genau der Zusicherung rot, die sie fangen soll.
+
+**Ein Helferfehler, der die neue Schicht wertlos gemacht hätte.** `listRoutesTief`
+gab die **inneren** Pfade zurück (`/bootstrap`) statt der aufrufbaren
+(`/owner-control/bootstrap`) — Express behält den rohen Montagepfad nicht, nur
+die daraus gebaute Regexp. Eine Prüfung „liegt jede Route unter dem Tor?" hätte
+gegen einen Pfad verglichen, den es nach außen gar nicht gibt: grün und blind.
+Der Pfad wird jetzt zurückgewonnen — und wo der Montagepfad selbst einen
+Platzhalter trägt, **weggelassen statt geraten**, weil ein falsches Präfix eine
+ungeschützte Route als geschützt ausweisen würde. Beides hält eine eigene
+Selbstprobe fest ((l) und (l2)).
+
+**Präfix-Tore sahen aus wie Lücken.** `support.js` montiert sein Tor einmal auf
+`/support` statt je Route. Das ist die **strengere** Bauart — auf einer neuen
+Route kann man es nicht vergessen —, aber ein Test, der nur `route.stack` liest,
+meldet die Fläche als ungeschützt. Genau die Falschmeldung, vor der die
+Arbeitsregel warnt („positiv formulieren"). Der Wächter kennt jetzt beide Formen
+(`findPrefixMiddleware`, Register-Feld `alsPraefix`) und prüft bei der Präfix-Form
+zusätzlich, dass der Montagepfad **jede** Route darunter wirklich deckt.
+
+### Merksatz für die Folgeprojekte
+
+> **Wo ein Recht die eigene Organisation prüft, die Kennung im Pfad aber eine
+> beliebige sein darf, steht die Tür offen.** Das ist die Klasse hinter E-17,
+> E-18 und E-20 — und sie sieht in jeder Datei gleich aus: eine Route nimmt
+> `req.orgId`, die Geschwister-Route daneben nimmt `req.params.<etwas>Id`.
+
+### E-17 · Ein Org-Admin konnte einen FREMDEN Nutzer anonymisieren *(geschlossen)*
+
+**Der schwerste Fund dieser Arbeit.** `data_governance.anonymize` halten laut
+`services/rbacService.js:121` die Rollen **`owner` und `admin`** — also jede
+Kundenorganisation für sich selbst, nicht die Plattform. `anonymizeUser` hat die
+Organisation des Ziels aber **nie geprüft**: `canDeleteUser` sieht nur
+Betriebsblocker (offene Einsätze, Stundenzettel, Rechnungen), alle am *Ziel*.
+
+Damit konnte der Inhaber einer beliebigen Kundenorganisation das Konto eines
+beliebigen **fremden** Nutzers unwiderruflich anonymisieren: E-Mail, Name,
+Passwort-Hash und Personenbezüge überschrieben. Art.-17-Maschinerie auf einen
+Dritten gerichtet. Er gibt keine Daten preis — er **zerstört** die eines Dritten.
+
+**Geschlossen** an der Wurzel: `anonymizeUser` verlangt jetzt die Organisation
+des Aufrufers und prüft die Mitgliedschaft des Ziels; die Vorbedingungsprüfung
+(`/check`) ebenso, weil sie sonst verraten hätte, dass es den fremden Nutzer gibt
+und was ihn blockiert. Die Abfrage nutzt **`is_active`, nicht `status`** — genau
+der Fehler, an dem `utils/ownerCheck.js` seit jeher scheitert (E-11); hier nicht
+wiederholt. Beleg: `orgGrenzeLuecken.test.js`, Abschnitt E-17.
+
+> **Falls die Plattform je einen org-übergreifenden Weg braucht** (Support,
+> Rechtsabteilung): der gehört hinter das Staff-Tor, nicht hinter eine
+> Berechtigung, die jede Kundenorganisation selbst vergibt.
+
+### E-16 · Fremde Mentoring-Sitzungen waren bewertbar *(geschlossen)*
+
+`addFeedback` ermittelte `isMentor = mentor_id === userId` — und wer **weder**
+Mentor noch Mentee war, galt damit stillschweigend als **Mentee**. Das UPDATE band
+nur `WHERE id = $3`. Jeder Angemeldete konnte also Bewertung und Note auf eine
+fremde Sitzung schreiben; die Note zählt auf den Ruf des Mentors.
+**Geschlossen:** wer nicht beteiligt ist, bekommt `null`, und das UPDATE bindet
+`AND (mentor_id = $4 OR mentee_id = $4)`.
+
+### E-15 · Fremde Daten wurden GELÖSCHT *(geschlossen)*
+
+`deleteSearchJob` räumte erst auf und prüfte dann den Besitzer:
+
+```
+DELETE FROM sla_search_matches WHERE search_job_id = $1     <- ohne Bindung
+DELETE FROM sla_search_events  WHERE search_job_id = $1     <- ohne Bindung
+DELETE FROM match_alerts       WHERE job_id = $1            <- ohne Bindung
+DELETE FROM sla_search_jobs    WHERE id = $1 AND owner_company_id = $2
+```
+
+Ein `DELETE /sla/search-jobs/<fremde-id>` hat damit Treffer, Ereignisse und
+Treffermeldungen einer fremden Suche gelöscht — und dem Aufrufer danach **404**
+gemeldet. Der Bestohlene sah eine leere Suche und keinen Grund dafür. Dieselbe
+Klasse wie E-12/E-13 (handeln, dann prüfen), nur in ihrer schlimmsten Form.
+**Geschlossen:** Besitzprüfung zuerst, dann aufräumen.
+
+### E-14 · Die Matching-Wege liefen ohne jede Bindung *(geschlossen)*
+
+`findMatches` lud `SELECT * FROM demand_requests WHERE id = $1` — sonst nichts.
+Jeder Angemeldete mit `requisition.view` konnte die Engine damit gegen einen
+**fremden** Bedarf laufen lassen und erfuhr, dass es ihn gibt und welche
+Lieferanten zu ihm passen. `logMatch` schrieb den fremden Vorgang zusätzlich
+unter der **eigenen** Org ins ML-Protokoll — die Trainingsdaten des Rankings also
+mit fremder Herkunft. Dasselbe galt für `matchCapacityToRequisitions`.
+
+**Warum die Reparatur nicht „eigene Org" heißt.** Ein Bedarf wird im Marktplatz
+*bewusst* an Lieferanten ausgespielt; eine reine Org-Grenze wäre das Ende des
+Marktplatzes. Genau daran hing die Frage bisher als Owner-Entscheidung.
+
+**Die Regel musste nicht erfunden werden — sie stand schon im Code.**
+`capacityExchangeService` zeigt einen Bedarf genau dann, wenn er offen ist, noch
+freie Plätze hat, keinen Ursprungsauftrag trägt und nicht abgelaufen ist
+(`demandVisibilityWhere`, Zeile 538). `WHERE id = $1` erreichte dagegen auch
+`closed`, `cancelled` und `fulfilled`. **Das Matching war die Hintertür zu genau
+den Bedarfen, die die Sichtbarkeitsregel schützt** — und damit war es kein
+Produktkonflikt mehr, sondern eine Inkonsistenz mit einer Regel, die die
+Plattform längst getroffen hatte.
+
+Geschlossen mit zwei Wächtern im Dienst, `darfBedarfSehen` und
+`darfKapazitaetSehen`, die vor jeder Arbeit klären (Muster aus E-12/E-15). Wer
+den Bedarf selbst gestellt hat, sieht ihn in jedem Status; der Anbieter sieht
+sein Angebot auch privat; ein Kollege derselben Organisation ebenfalls.
+
+**Gegen das echte Schema geprüft, mit der Zusicherung, die zählt:** über alle
+angelegten Bedarfe hinweg zeigen Matching und Marktplatz derselben Agentur
+**dieselbe Menge — null Abweichungen**. Dazu zwölf weitere Prüfungen, alle grün.
+Sechs Mutationen — jede der vier Sichtbarkeitsbedingungen einzeln, die
+Kapazitätsregel, und das Entfernen der Klärung — werden alle rot.
+
+> Die drei Gegenproben wiegen hier schwerer als die Hauptproben. Eine Reparatur,
+> die den Marktplatz zumacht, wäre schlimmer als der Befund gewesen.
+
+### E-21 · `GET /matching/worker/:id` hat nie funktioniert *(geschlossen: entfernt, siehe P1-19)*
+
+`matchWorkerToAssignments` liest `FROM workers`. **Diese Tabelle hat keine
+Migration je angelegt** — gegen die laufende Datenbank gemessen antwortet
+Postgres mit `42P01`. Der Weg endet seit jeher in 500. Kein Frontend, kein
+E2E-Lauf und keine Dokumentationsseite ruft ihn auf.
+
+Ob er entfernt oder auf `worker_profiles` gebaut wird, ist eine
+Produktentscheidung (**P1-19**) und wurde hier nicht geraten: `worker_profiles`
+hat weder `role` noch Koordinaten — die Bewertung der Engine liefe ins Leere und
+erzeugte systematisch falsche Treffer.
+
+**Was nicht gewartet hat: die Bindung.** Sie steht jetzt im SQL
+(`AND supplier_org_id = $2`, sobald ein Betrachter bekannt ist). Ohne sie wäre
+die Abfrage an dem Tag, an dem jemand eine `workers`-Tabelle anlegt, sofort ein
+ungebundener org-übergreifender Lesezugriff — ein **schlafendes Leck**, das
+niemand mit dem Anlegen der Tabelle in Verbindung gebracht hätte. Hintergrund-
+und Cron-Läufe ohne Betrachter behalten ihr Verhalten; eine Bindung, die dort
+greift, würde die Hintergrundarbeit stilllegen.
+
+> **Merksatz.** Eine Grenze gehört ins SQL, **bevor** es die Tabelle gibt. Sie
+> nachzurüsten heißt, sich daran erinnern zu müssen — und niemand erinnert sich
+> beim Anlegen einer Tabelle an eine Abfrage, die seit Jahren fehlschlägt.
 
 ### E-13 · Dasselbe Muster, zweite Fundstelle *(geschlossen)*
 
@@ -373,29 +579,425 @@ Aufgefallen ist es, weil eine zusätzliche `await`-Runde im Spion eine zuvor
 grüne Route auf „schreibt nichts" umschlagen ließ. Die Probe wartet jetzt,
 bis der Handler wirklich zu Ende ist.
 
-### E-11 · `canAccessAsOwner` hat nie funktioniert
+### P1-19 · `GET /matching/worker/:id` — entfernt statt repariert *(erledigt)*
 
-`utils/ownerCheck.js:28-33` soll genau diese Lücke schließen: direkter
-Besitzer **oder** Mitglied derselben Organisation. Zwei Fehler in vier Zeilen:
+Die Route rief `matchWorkerToAssignments`, und diese las `FROM workers` — eine
+Tabelle, die **keine Migration je angelegt hat**. Gegen die laufende Datenbank
+gemessen: `42703`. Der Weg endete seit jeher in 500; kein Frontend, kein
+E2E-Lauf und keine Dokumentationsseite rief ihn auf.
 
-1. Die Abfrage fragt `org_memberships.status` ab — **diese Spalte gibt es
-   nicht** (sie heißt `is_active`). Gegen die laufende Datenbank ausgeführt:
-   `column "status" does not exist`.
-2. Als `org_id` wird `entityOwnerId` übergeben — eine **Nutzer**-Kennung
-   (`demand_requests.requester_company_id` → `users`), verglichen mit einer
-   **Org**-Kennung (`org_memberships.org_id` → `organizations`). Selbst mit
-   richtiger Spalte könnte das nie treffen.
+**Entfernt, nicht gebaut** — aus drei Gründen, von denen der erste der stärkste
+ist:
 
-Der `catch` darunter macht aus dem Fehler stillschweigend ein `false`. Ergebnis:
-an **10 Aufrufstellen** in `emergency.js`, `marketplace.js`, `offerAssets.js` und
-`slaSearchJobs.js` ist die Funktion auf „nur der direkte Besitzer" degradiert —
-seit sie existiert, bei jedem Aufruf mit einer wirkungslosen Datenbankrunde.
-`offerAssets.js:127` trägt sogar den Kommentar „canAccessAsOwner beruecksichtigt
-auch Organisations-Member".
+1. **Das Projekt hatte die Frage längst beantwortet.** Der SQL-Schema-Wächter
+   führte den Fall selbst, mit Begründung: *„workers: Altbestand. Die
+   Arbeiterdaten liegen in `worker_profiles`."* Es war kein unfertiges Feature,
+   sondern ein Rest.
+2. **Auf `worker_profiles` zu bauen wäre kein Umbenennen, sondern ein Feature.**
+   Dort gibt es weder `role` noch Koordinaten; die Bewertung der Engine ruht auf
+   genau diesen beiden (Rollen- und Geo-Treffer) und liefe ins Leere. CLAUDE.md
+   verbietet spekulative Features ausdrücklich.
+3. **Eine Route, die dauerhaft 500 antwortet, ist ein toter Pfad** — und war
+   zugleich ein *schlafendes* Leck: am Tag, an dem jemand eine `workers`-Tabelle
+   anlegt, wäre daraus ein ungebundener org-übergreifender Lesezugriff geworden.
 
-**Kein Leck** — der Fehler ist zu streng, nicht zu lasch. Deshalb ist er
-*nicht* autonom repariert: die Korrektur **weitet Zugriff aus** und ist damit
-eine Owner-Entscheidung. Eintrag **P1-17**.
+Mit der Funktion fiel auch `getReputationScore` weg — sie hatte keinen anderen
+Aufrufer.
+
+**Der Wächter hat die Aufräumung erzwungen und bewiesen.** Der SQL-Schema-Wächter
+meldet Einträge seiner Ausnahmeliste, die *nicht mehr auftreten*. Nach der
+Entfernung nannte er von sich aus genau die drei, die jetzt stale waren:
+
+```
+services/matchingEngine.js::workers
+services/matchingEngine.js::supplier_reputation.org_id
+services/matchingEngine.js::supplier_reputation.overall_score
+```
+
+**Das ist der Beweis, der bei P1-17 fehlte.** Dort hatte ich eine Ausnahmezeile
+gestrichen und nichts damit belegt — die Prüfung sah den Fall danach gar nicht
+mehr. Hier fordert sie die Streichung selbst ein.
+
+**Die Tests wurden nicht gelöscht, sondern umgestellt.** Neun Prüfungen in
+`matchingEngine.coverage.test.js` prüften die Arithmetik einer Funktion, die in
+Wirklichkeit nach ihrer ersten Abfrage abbrach — grün nur, weil der Mock-Pool
+jede Tabelle bestätigt. An ihre Stelle tritt die Frage, die ab jetzt zählt:
+**kommt der tote Weg zurück?** Vier Zusicherungen antworten darauf, gemessen an
+einer simulierten Rückkehr — alle vier werden rot:
+
+| Zusicherung | fängt |
+|---|---|
+| `matchingEngine.coverage`: „die Engine bietet die Funktion nicht mehr an" | die Funktion kehrt zurück |
+| `matchingEngine.coverage`: „keine Abfrage liest mehr `FROM workers`" | das SQL kehrt zurück |
+| `rbac-hardening`: „die Route gibt es nicht mehr" | die Route kehrt zurück |
+| `sqlSchemaWaechter` | jede Abfrage gegen eine unbekannte Tabelle |
+
+Die Sperrklinke des Org-Registers sinkt dabei von 257 auf 256 — bewusst und
+begründet im Register vermerkt: **eine Route, die es nicht mehr gibt, kann nicht
+geprüft werden.**
+
+### P1-20 · Der Statuswechsel verlangte weniger als die Titeländerung *(geschlossen)*
+
+`POST /requisitions/:id/transition` trug **keine** Berechtigungsprüfung.
+`requireScope("write:requisitions")` sieht nach einer aus — es prüft aber
+ausschließlich API-Key-Scopes und lässt **jede Sitzung ungefragt durch**
+(`apiKeyAuth.js:153`: `if (!req.isApiKeyAuth) return next();`). Für einen
+angemeldeten Nutzer stand dort also nur `requireAuth` plus die Org-Grenze.
+
+Das Ergebnis war eine **umgekehrte Rangfolge**: ein Feld zu ändern verlangte
+`requisition.edit`, den Status auf `CANCELLED` zu setzen verlangte nichts. Jede
+Mitgliedschaft der Organisation — bis hinunter zu `viewer` — konnte die
+Ausschreibung durch ihren gesamten Lebenszyklus schieben und sie beenden.
+
+**Dass das kein Vorsatz war, sagt der Katalog.** `requisition.cancel` steht dort
+seit jeher, mit einer **eigenen, engeren** Rollenliste (`rbacService.js:30` —
+`owner, admin, program_manager, hiring_manager`, ohne `recruiter`) — und war an
+**keiner einzigen Stelle** verdrahtet. Die Berechtigung fürs Stornieren
+existierte, sie hing nur an nichts. Damit war es keine Produktfrage mehr,
+sondern eine unverdrahtete Wache.
+
+Drei Routen trugen die Lücke; sie sind unterschiedlich geschlossen, weil sie
+unterschiedlich schwer wiegen:
+
+| Route | jetzt | Begründung |
+|---|---|---|
+| `/transition` | `requisition.edit`, für `CANCELLED` zusätzlich `requisition.cancel` | Stornieren beendet den Vorgang — der Katalog unterscheidet das seit jeher |
+| `/submit` | `requisition.edit` | landet über `submitForApproval` in derselben `transitionStatus` |
+| `/comment` | `requisition.view` | **bewusst weiter**: Kommentieren ist Zusammenarbeit, keine Bearbeitung |
+
+Bei `/comment` wäre `requisition.edit` der Fehler in die andere Richtung
+gewesen: es hätte Einkauf, Disposition und Lieferantenbetreuung ausgesperrt, die
+genau dafür da sind. Geschlossen wird trotzdem etwas — wer **gar keine**
+Requisitions-Berechtigung hat (Arbeiter, Lieferantenkonten), schreibt nicht mehr
+in die Ausschreibungen einer fremden Organisation.
+
+Drei Mutationen — Wache auf `/transition` entfernen, die Storno-Sonderprüfung
+entfernen, die Kommentar-Wache entfernen — machen die Tests alle rot.
+
+### Die vierte anonyme Wache — und diesmal die zentrale
+
+`requirePermission` gab eine **namenlose** Closure zurück. Das ist derselbe Fund
+wie bei `supportAuth`, `ownerControlAuth` und dem Präfix-Tor — nur trifft er hier
+die Berechtigungsprüfung der **gesamten Plattform**.
+
+Die Folge ist im Bestand zu besichtigen: `rbac-hardening.test.js` konnte nicht
+fragen *„trägt diese Route eine Berechtigungsprüfung?"*, sondern nur Middleware
+**zählen** — `assert.ok(names.length >= 2)`. Eine Route ohne Prüfung sah damit
+aus wie eine mit. **Genau deshalb blieb P1-20 so lange unentdeckt.**
+
+`requirePermission` und `requireRole` sind jetzt benannt. Erst dadurch ist der
+neue Wächter überhaupt formulierbar: *jede schreibende Requisitions-Route trägt
+`requirePermissionMiddleware`* — eine Regel statt einer Aufzählung.
+
+> **Merksatz, viermal in einer Welle bestätigt:** Ein Middleware ohne Namen ist
+> für jede Strukturprüfung unsichtbar. `return async function name(req, res, next)`
+> statt `return async (req, res, next)` ist Teil der Absicherung, nicht Kosmetik.
+
+### M0-B9 · Die laufende Datenbank war weiter als jede Migration *(geschlossen)*
+
+Der rote Test aus Welle G4b hat **richtig gemeldet und wurde falsch
+verstanden.** Zwei Dinge lagen übereinander.
+
+**Die Prüfung suchte eine Schreibweise, die Postgres nicht ausgibt.** Sie suchte
+die erlaubten Werte als `'info'` — mit Anführungszeichen — im Text des
+Constraints. Postgres rendert ihn aber je nach Schreibweise unterschiedlich; in
+der Array-Form (`= ANY ('{a,b}'::text[])`) steht **kein einziger** Wert in
+Anführungszeichen. Die erste Zusicherung schlug also schon bei `info` fehl — und
+verdeckte damit genau den Befund, den die zweite finden sollte.
+
+**Der Befund selbst:** `notifications.severity` wird an genau einer Stelle
+definiert (Migration 019, vier Werte). Die laufende Datenbank erlaubte **fünf**.
+Gesucht in allen 184 Migrationen, in `init.sql`, in den Seeds: **keine Quelle.**
+Der fünfte Wert ist an `sql/` vorbei entstanden.
+
+Das ist der Kern, nicht der fehlende Wert: **das Schema war aus `sql/` nicht mehr
+reproduzierbar.** Eine frische Installation und die laufende Datenbank hätten
+sich unterschieden — und nichts hätte es gemeldet, weil der eine Test, der es
+gekonnt hätte, aus einem anderen Grund rot war und deshalb als bekannt-rot galt.
+
+Zurück statt vor, weil `urgent` keinen Nutzer hat: kein Dienst schreibt es dorthin,
+keine der 765 Zeilen trägt es, das Frontend kennt es nicht.
+`match_alerts.severity` ist eine **andere** Spalte und benutzt `urgent` sehr wohl.
+Migration `185`, mit Sicherheitsnetz und Rollback im Kopf; die Prüfung liest die
+Werte jetzt **aus** statt sie zu suchen und vergleicht **Mengen in beide
+Richtungen**. Gemessen: Drift wieder hergestellt → Test wird rot und nennt
+`urgent` beim Namen.
+
+> **Ein rotes Testergebnis, das man kennt, ist ein blinder Fleck.** Dieser Test
+> war seit Wochen rot und galt als bekannt — also hat niemand mehr hingesehen,
+> was er eigentlich sagt. Er sagte die ganze Zeit etwas anderes als das, wofür
+> man ihn hielt.
+
+> **Übertragbar:** Ein Test, der eine Zusicherung als Zeichenkette im generierten
+> SQL sucht, prüft die Schreibweise des Datenbanksystems mit — und die ändert
+> sich, ohne dass jemand etwas falsch macht. Werte auslesen, Mengen vergleichen.
+
+### P1-21 · Das Wachregister — welche Wache gehört auf welchen Weg *(gebaut)*
+
+Erst als fünf Wächter-Erzeuger Namen hatten, liess sich die Frage überhaupt
+stellen. Das Ergebnis ist ein Register nach dem Vorbild des Org-Grenzen-Registers:
+**415 schreibende Wege, alle mit Urteil und Begründung.**
+
+| Wachart | Wege | was sie trägt |
+|---|---|---|
+| `berechtigung` | 161 | `requirePermission` / `requireRole` / `requireInternalPermission` |
+| `eigene-daten` | 67 | kein fremdes Ziel erreichbar (`/me`, MFA, eigenes Profil) |
+| `besitz` | 65 | Bindung am Vorgang — vom Org-Grenzen-Wächter **ausgeführt** geprüft |
+| `flaechentor` | 64 | eine Eintrittsbedingung je Fläche |
+| `cron` | 28 | Zeitplan-Geheimnis |
+| `oeffentlich` | 19 | bewusst ohne Mandant |
+| `inline-rolle` | 10 | Rolle oder Geheimnis im Handler |
+| `BEFUND` | 1 | P1-22 |
+
+**Die wichtigste Entscheidung war, was der Wächter NICHT fordert.** Hätte er
+pauschal `requirePermission` verlangt, wären es 254 Falschmeldungen gewesen —
+und ein Wächter, der falsch meldet, wird abgeschaltet. Genau davor warnt die
+Arbeitsregel dieser Welle. Er verlangt stattdessen ein **Urteil mit Begründung**
+und prüft die `berechtigung`-Klasse **ausgeführt**: der Aufruf läuft mit einem
+Rollenschlüssel, den der Katalog nicht kennt — wer trotzdem durchkommt, hat
+keine wirksame Prüfung. 161 Wege, 161 Proben.
+
+Vier Mutationen werden rot: Wache von einer Route nehmen · neue schreibende
+Route ohne Registereintrag · Urteil ohne Begründung · Route auf eine
+schwächere Wachart zurücksetzen.
+
+**Der fünfte anonyme Wächter.** `requireInternalPermission` trägt die gesamte
+interne Steuerungsfläche und gab eine namenlose Closure zurück. In der
+Bestandsaufnahme fielen ihre Routen als „ohne Wache" auf, obwohl sie bewacht
+sind — dieselbe Blindstelle wie bei `supportAuth`, `ownerControlAuth`,
+`requirePermission` und dem Präfix-Tor. **Fünf in einer Welle.**
+
+### N-1 · nginx sendet eine gefaltete Kopfzeile *(geschlossen)*
+
+**Beim Verdrahtungs-Check der Guthabenseite gefunden — und der Fund ist größer
+als die Seite.** `nginx/nginx.conf` schrieb die Content-Security-Policy über elf
+Zeilen: lesbar, ordentlich eingerückt, und falsch. nginx gibt den Wert
+**verbatim** aus; über die Leitung ging eine **gefaltete** Kopfzeile (obs-fold).
+
+RFC 7230 §3.2.4 hat diese Faltung abgeschafft — Sender dürfen sie nicht
+erzeugen, Empfänger **müssen** die Nachricht ablehnen. Gemessen: Nodes
+Standard-HTTP-Parser bricht mit *„Parse Error: Invalid header value char"* ab und
+kann damit **keine einzige** Antwort dieses Servers lesen.
+
+> **Browser und curl sind nachsichtig — und genau deshalb hat es überlebt.**
+> Der Defekt betraf jede Antwort der Plattform, war aber nur zu sehen, wenn ein
+> strenger Client zuhörte. Aufgefallen ist er erst, als ein Node-Prozess die API
+> sprechen sollte.
+
+Behoben (Wert in einer Zeile), gehalten von `api/test/nginxKopfzeilen.test.js`.
+
+**Am 2026-08-21 auch scharf geschaltet.** Der laufende Container mountet
+`nginx/nginx.conf` aus dem **Haupt-Checkout**, nicht aus diesem Worktree — die
+Korrektur wurde dort auf Zuruf des Owners nachgezogen (genau diese eine Zeile,
+sonst nichts; `diff` vorher gezeigt) und nginx neu geladen. Gemessen danach: ein
+Aufruf mit Nodes **strengem** Standard-Parser liefert 200 und 525 Bytes, wo er
+vorher abbrach; im Wert der Kopfzeile steht kein Zeilenumbruch mehr.
+
+Die Aenderung liegt im Haupt-Checkout **uncommitted** — beim Merge dieses
+Branches kommt derselbe Inhalt regulaer nach. Wer vorher `git checkout` darauf
+anwendet, holt sich den Defekt zurueck.
+
+### P1-22 · Guthaben nur gegen Zahlung — Owner-Entscheidung Stripe *(geschlossen)*
+
+Bei der Bestandsaufnahme zu P1-21 aufgefallen: `POST /credits/purchase` trug nur
+`requireAuth` und schrieb ein **bepreistes** Paket gut, ohne jeden Bezahlschritt.
+Kein aktives Leck, weil `spendCredits` keinen Aufrufer hatte — aber ein
+schlafender Defekt, der am Tag der ersten Ausgabe aufgewacht wäre.
+
+**Der Owner hat entschieden: Stripe.** Der Kauf geht jetzt denselben Weg wie die
+Abos — Sitzung erzeugen, Kunde zahlt, der signaturgeprüfte Webhook schreibt gut.
+Die Aufteilung in zwei Funktionen ist die eigentliche Absicherung: es gibt keine
+Funktion mehr, die „gutschreiben" heißt und ohne Zahlungsnachweis aufrufbar ist.
+Ohne gesetzten Stripe-Schlüssel antwortet die Route **503** statt auf einen
+kostenlosen Ersatzweg zu fallen — dieser Ersatzweg *war* der Befund.
+
+**Migration 186** legt den Riegel dorthin, wo Gleichzeitigkeit entschieden wird:
+ein eindeutiger, partieller Index auf der Kauf-Referenz. Stripe stellt Webhooks
+*wiederholt* zu — Zusicherung des Anbieters, kein Fehler. Eine Idempotenz aus
+„erst SELECT, dann INSERT" hält zwei gleichzeitige Zustellungen nicht auf.
+
+> **Der Lauf gegen die echte Datenbank hat einen echten Fehler gefangen — meinen.**
+> Die erste Fassung schrieb über `earnCredits` gut, und diese Funktion erhöht
+> **zuerst** den Saldo und schreibt **danach** die Buchung. Der Index feuerte also
+> erst, als das Guthaben schon oben war: eine wiederholte Zustellung kam auf den
+> **doppelten** Stand. Die Mock-Tests waren dabei grün — ein Mock kennt keine
+> Indizes. Repariert: die Buchung ist der erste Schritt, beides in einer
+> Transaktion.
+
+Sechs Prüfungen gegen das echte Schema, neun gegen Mocks. Was **nicht** gebaut
+ist, weil es Betrieb ist und nicht Code: die Schlüssel und die
+Erfolgs-/Abbruchseite. Solange nichts gesetzt ist, antwortet die Route 503 —
+niemand bekommt etwas geschenkt.
+
+
+> **Das Muster hinter P1-19 und P1-22:** Ein halb gebautes Feature ist kein
+> halbes Risiko — es ist ein volles, das auf sein fehlendes Stück wartet. Wo man
+> es nicht fertigstellen darf und nicht entfernen will, gehört ein Draht daran,
+> der beim Fertigstellen reißt.
+
+### D-M4 / D-M5 · Zusammenarbeit innerhalb einer Firma *(entschieden und umgesetzt)*
+
+Beide Fragen stellten dasselbe an zwei Stellen: **darf eine Kollegin derselben
+Organisation den Vorgang eines Teammitglieds bearbeiten?** Zusammen mit E-11 war
+es *eine* Entscheidung für drei Flächen — der Owner hat sie am 2026-08-20
+getroffen: **ja, bis zur Org-Grenze und nicht weiter.**
+
+**D-M4 hat der Code selbst beantwortet.** `updateRequisition` band mit
+`WHERE id = $1 AND created_by = $2` — eine *vierte* Einschränkung über drei
+bereits vorhandenen (`requireScope`, `requirePermission("requisition.edit")`,
+`assertOrgOwnership`). Dass sie kein Vorsatz war, zeigt der Nachbar: **keine
+andere Mutation an derselben Zeile kennt sie.** `transitionStatus` schreibt mit
+`WHERE id = $1` — eine Kollegin durfte die Ausschreibung also **stornieren**,
+aber keinen Tippfehler im Titel korrigieren. Eine Regel, die den folgenschweren
+Weg offen lässt und den harmlosen sperrt, ist keine Regel. `created_by` bleibt
+jetzt, was es ist: Herkunft, nicht Besitz. Die Bindung liegt im SQL
+(`AND org_id = $2`), nicht nur im Handler davor.
+
+**D-M5 waren 17 Stellen**, 13 in den Routen (`marketplace` 10,
+`capacityExchange` 3) und 4 in `marketplaceService`. Alle prüften **bloße
+Namensgleichheit** (`supplier_company_id !== req.session.userId`). Alle fragen
+jetzt `canAccessAsOwner` — den Helfer, der genau diese Frage beantwortet und sie
+seit E-11 wirklich trägt. Der direkte Vergleich bleibt der Kurzschluss: der
+häufigste Fall kostet weiterhin keine Abfrage.
+
+**Der Beweis hat wieder die Form, die eine Weitung haben muss.** Neun Prüfungen
+gegen das echte Schema, einmal gegen den Stand davor und einmal danach:
+
+| | vorher | nachher |
+|---|---|---|
+| Kollege ändert fremde Ausschreibung (D-M4) | **rot** | grün |
+| Kollegin der Kundenfirma nimmt Angebot an (D-M5) | **rot** | grün |
+| Kollegin der Agentur zieht Angebot zurück (D-M5) | **rot** | grün |
+| Arbeiter derselben Firma | grün (verweigert) | grün (verweigert) |
+| fremde Organisation | grün (verweigert) | grün (verweigert) |
+| Kundenseite zieht Angebot der Gegenseite zurück | grün (verweigert) | grün (verweigert) |
+| ohne Org im Kontext wird nicht geschrieben | grün | grün |
+
+**Nur Gewährungen ändern sich, keine einzige Verweigerung** — dieselbe Aussage
+wie bei E-11. Besonders wichtig ist die vorletzte Zeile: die Weitung läuft
+entlang der *Organisation*, nicht entlang des Vorgangs. Die beiden Marktseiten
+bleiben getrennt.
+
+Dauerhaft festgehalten in `test/integration/kollegenZugriff.flow.test.js`
+(7 Prüfungen) — bewusst **ohne** `./helpers.js`, weil dessen `createPool` den
+gesamten Express-Aufbau mitimportiert; diese Probe ruft nur zwei
+Dienstfunktionen. Ein Mantel bildet den inneren Transaktionsblock von
+`withTransaction` auf Sicherungspunkte ab, sonst wäre es ein verschachteltes
+`BEGIN` in der Probe-Transaktion.
+
+### Zwei Beobachtungen am Rand, die jemand aufgreifen sollte
+
+**P1-20** — bei D-M4 aufgefallen, inzwischen **geschlossen** (eigener Abschnitt
+oben): `POST /requisitions/:id/transition` trug keine Berechtigungsprüfung.
+
+**M0-B9 — ein roter Integrationstest aus Welle G4b.**
+`g4bKundenMeldung.flow.test.js` → „die erlaubten severity-Werte stimmen mit der
+Konstante überein" schlägt fehl (`expected: true, actual: false`):
+`ERLAUBTE_SEVERITY` und die Datenbank sind auseinandergelaufen. **Nicht** aus
+dieser Welle — nachgewiesen: keiner der H2-Commits berührt
+`workerAbsenceService`, `notificationMatrix` oder diesen Test. Er ist der einzige
+rote in der Integrationssuite (285 von 286 grün).
+
+### Eine Falle dieser Umgebung, teuer gelernt
+
+`docker inspect` zeigt: **`…\12_tempconnect_docker(D)\api` ist als Bind-Mount auf
+`/app` gelegt.** Jedes `docker cp … tempconnect_api:/app/…` schreibt damit
+**direkt in den Arbeitsbaum des Haupt-Repos** — nicht in den Container. Bei den
+Schema-Proben dieser Welle ist genau das passiert: sechs Dateien unter `api/`
+wurden dort überschrieben und vier Hilfsdateien abgelegt.
+
+Wiederhergestellt mit `git checkout -- api/` plus Löschen der vier Streudateien;
+`docs/PILOT_GO_LIVE_TODOS.md` und `support-ops-dist/index.html` blieben
+unangetastet — sie liegen außerhalb des Mounts und stammen nicht aus dieser
+Arbeit.
+
+> **Regel für Prüfungen gegen die echte Datenbank:** den zu prüfenden Code in ein
+> **nicht gemountetes** Verzeichnis des Containers kopieren (`/tmp/wt`, dazu
+> `ln -s /app/node_modules`) und von dort starten. Niemals nach `/app`. Der Mount
+> ist unsichtbar, solange man nicht danach fragt — und `docker cp` warnt nicht.
+
+### E-11 · `canAccessAsOwner` hat nie funktioniert *(geschlossen)*
+
+Die Prüfung hatte **zwei voneinander unabhängige Fehler**, von denen jeder
+einzelne schon genügt hätte, den Organisations-Zweig nie greifen zu lassen:
+
+1. Sie fragte `WHERE ... AND status = 'active'`. Die Spalte heißt `is_active`
+   und ist ein Wahrheitswert — `status` gibt es in `org_memberships` nicht.
+   Postgres antwortete mit `42703`, die Abfrage warf, und der `catch` machte
+   daraus ein stilles `false`.
+2. Sie verglich `WHERE org_id = $1` mit dem übergebenen Eigentümer. Alle **zehn**
+   Aufrufstellen übergeben aber eine **Nutzer**-Kennung
+   (`requester_company_id`, `owner_company_id`, `supplier_company_id` — allesamt
+   Fremdschlüssel auf `users`, gegen das laufende Schema geprüft). Eine
+   Nutzer-Kennung steht nie in `org_memberships.org_id`.
+
+Wirksam war also ausschließlich der direkte Vergleich: **genau ein Mensch** —
+der, der die Zeile angelegt hat — konnte je auf sie zugreifen. Bei Urlaub,
+Krankheit oder Personalwechsel war die Bedarfsmeldung, der Suchauftrag oder die
+Dealakte des Unternehmens für das Unternehmen verloren.
+
+Dass es anders **gemeint** war, steht im Quelltext: `offerAssets.js:127` erklärt
+ausdrücklich, `canAccessAsOwner` berücksichtige „auch Organisations-Member und
+nicht nur den direkten Owner". Der Kommentar beschreibt seit Jahren eine
+Fähigkeit, die es nie gab.
+
+**Warum es so lange unsichtbar blieb — der `catch` war der eigentliche Fehler.**
+Ein `catch { return false }` um eine Sicherheitsabfrage sieht vorsichtig aus und
+ist es auch: es schließt zu. Genau deshalb hat niemand etwas gemerkt — **eine
+kaputte Abfrage ist von einer verweigerten Berechtigung nicht zu unterscheiden,
+wenn beide dasselbe antworten.** Fail-closed bleibt richtig, aber nicht still:
+der Fehler wird jetzt protokolliert.
+
+**Wo die Weitung endet — und warum das der heikle Teil war.** Diese Reparatur
+öffnet den Zugriff vom einen Menschen auf seine Kolleginnen und Kollegen. Sie
+darf ihn deshalb nicht weiter öffnen als gemeint: `org_memberships` führt nicht
+nur die Belegschaft einer Organisation, sondern auch ihre **Arbeiter**
+(`role_key = 'worker'` — gegen den Bestand gemessen: **33 Zeilen**). Eine Regel
+„gleiche Organisation genügt" hätte einem Zeitarbeiter die Suchaufträge,
+Angebote und Dealakten seiner Agentur geöffnet. Aus einer wirkungslosen Prüfung
+wäre ein **echtes Leck** geworden.
+
+Der Ausschluss ist keine neue Erfindung: die Plattform trennt die Arbeiterwelt
+ohnehin durchgehend (`hidden_worker` auf allen Flächen, `requireCompanyOrg`
+sperrt `org_type = 'worker'`, `workerService.js:441` benutzt `role_key = 'worker'`
+als genau dieses Kennzeichen).
+
+**Der Beweis hat die Form, die eine Weitung haben muss.** Dieselben elf
+Prüfungen gegen das echte Schema, einmal gegen die alte und einmal gegen die
+neue Fassung:
+
+| | alte Fassung | neue Fassung |
+|---|---|---|
+| Kollegin derselben Organisation darf handeln | **rot** | grün |
+| Eigentümerin selbst | grün | grün |
+| Arbeiter derselben Organisation | grün (verweigert) | grün (verweigert) |
+| ruhende Mitgliedschaft | grün (verweigert) | grün (verweigert) |
+| fremde Organisation | grün (verweigert) | grün (verweigert) |
+| Zeile eines Arbeiters, Belegschaft fragt | grün (verweigert) | grün (verweigert) |
+| nur in einer *anderen* Org Mitglied | grün (verweigert) | grün (verweigert) |
+
+**Genau die zwei Gewährungen ändern sich, keine einzige Verweigerung.** Das ist
+die stärkste Aussage, die eine Weitung über sich machen kann.
+
+**Ein Nebenbefund, der wichtiger ist als er aussieht.** Der SQL-Schema-Wächter
+*hatte* Fehler 1 gefunden — er stand dort auf der Liste bekannter Befunde. Die
+Reparatur hat ihn aber aus dessen Sichtfeld geschoben: `sqlSchemaWaechter` prüft
+Spalten nur bei **einrelationalen** Anweisungen (`relationen.length !== 1 →
+übersprungen`), und die neue Fassung verbindet drei Relationen. Ein Tippfehler in
+einem Spalten- oder Aliasnamen wäre dort ab sofort unsichtbar gewesen.
+
+> **Merksatz.** Eine Reparatur kann eine Prüfung *blind* machen, ohne sie
+> anzufassen — indem sie den Code aus deren Sichtfeld schiebt. Wer eine Zeile von
+> einer Ausnahmeliste streicht, muss belegen, dass die Prüfung den Fall danach
+> wirklich sieht. Bei mir tat sie es nicht.
+
+Geschlossen mit der zweiten Schicht, die das Projekt für genau diesen Fall
+vorsieht (`test/integration/ownerCheck.flow.test.js`): ein billiger Lauf gegen
+die echte Datenbank mit erfundenen Kennungen. Null Treffer — aber Postgres
+**parst und plant** die vollständige Abfrage. Ein Pool-Mantel reicht den Fehler
+an den Test durch, statt ihn verschlucken zu lassen. Gemessen: die Rückmutation
+auf `status` macht ihn rot, mit `42703: column meine.status does not exist` im
+Klartext.
 
 ### Gegen die echte Datenbank geprüft (was ein Mock nicht zeigen kann)
 
@@ -418,7 +1020,7 @@ eine Owner-Entscheidung. Eintrag **P1-17**.
 | **H1 Kundenansicht** | Der Statusbadge war ein **binäres Ternär**: ein neuer Zustand hätte nicht gefehlt, sondern als grünes „Im Einsatz" das Gegenteil behauptet. Deshalb Renderer zuerst, dann das Feld. `getCompanyLiveWorkforce` gibt die Zeile jetzt über eine **Positivliste** heraus statt roh — vorher wäre die nächste SELECT-Spalte ohne Zutun beim Kunden gelandet. `?einsatz=` wurde von der Zielseite gar nicht gelesen und die Zeile trug keine `assignment_id`; beides gebaut. Wächter: `h1KundenansichtAusfall.test.js` (32), `integration/h1KundeSiehtAusfall.flow.test.js` (13). |
 | **Demo-Compose** (`cde6c42`) | War **nie** startfähig (nicht „seit P0-08"): Die Datei entstand einen Monat nach dem Guard, den sie verletzt. Schwerer: Sie wird **ausgeliefert** und öffnete beim Kunden alle Plan-Gates — der CI-Wächter dagegen durchsucht nur `.env*`. Dazu der `release-package.sh`-Fehler, durch den `.claude/` ins Artefakt kam (die `EXCLUDE_LIST` galt nur im Fallback-Zweig). Wächter: `composeStartfaehig.test.js` |
 | **NOT_AUTH** (`61d2091`) | Nicht „alle Portalseiten", sondern **genau die G5-Seite**. Und kein Konsolen-Problem: Sie blieb für Abgemeldete **dauerhaft weiß**, ohne Weg zum Login — ausgerechnet der Notfallweg. Siebenmal kopiert, beim achten Mal vergessen. |
-| **H2 — Mandantengrenzen** | Die Entscheidung **D-M1 ist gefallen: Wächter, nicht konsolidieren.** Die fünf Lücken des Plans sind geschlossen — **und der Wächter fand beim ersten Lauf fünf weitere**, darunter ein Cross-Org-**Schreibzugriff auf den Organisationsdatensatz selbst** (`PATCH /organizations/:id`, u. a. `parent_org_id`). Zehn Lücken, nicht fünf. Details unten. |
+| **H2 — Mandantengrenzen** | Die Entscheidung **D-M1 ist gefallen: Wächter, nicht konsolidieren.** Die fünf Lücken des Plans sind geschlossen — **und der Wächter fand über alle 82 Route-Dateien hinweg zwölf weitere**. Siebzehn Lücken, nicht fünf. Die schwersten kamen zuletzt und lagen zu dritt in **einer** Datei: DSGVO-Vollexport eines Fremden (E-20), fremdes Konto anonymisieren (E-17), fremde Betroffenenanfrage schließen (E-18); dazu der Verteilplan fremder Ausschreibungen, lesbar **und weiterschaltbar** (E-19). Alle geschlossen und gegen das echte Schema bewiesen, ebenso E-14 (Matching) und E-11 (`canAccessAsOwner`, das seit jeher nur den einen anlegenden Menschen durchliess). **Kein offener Sicherheitsbefund mehr** — **kein offener Punkt mehr** — P1-22 ist mit der Owner-Entscheidung Stripe umgesetzt, die Oberflaeche steht, und der beim Pruefen gefundene nginx-Befund N-1 ist geschlossen. Offen ist nur noch der Betrieb: die beiden Stripe-Schluessel setzen. Details unten. |
 
 ### Zwei Blocker, die nur der Owner lösen kann
 
@@ -433,6 +1035,23 @@ nur dort. `main` steht auf `fd9a3ab` (01.06.) und ist **400 Commits zurück**;
 (auch in `TRIAGE.md:127`) hat den Branch nicht geprüft, der die Sache
 entscheidet. Die dokumentierten Ursachen (Zeitgrenze 90 min, `incremental`) sind
 dagegen längst behoben — `timeout-minutes: 180`, sechs parallele Matrix-Jobs.
+
+## Der Plan fuer die naechsten Sitzungen
+
+`docs/features/I_AUDIT_ZUWEISUNG_SUPPORT.md` — Owner-Vorgabe vom 2026-08-21:
+Audit-Trennung (8.1.1), aktive Sitzungen (8.1.2), Ersatz-Zuweisung (8.2),
+Support-Weg Kunde → TempConnect (10) und die Entscheidung zu Kunde ↔ Kunde (10b).
+Davor ein Vorlauf aus dem, was H2 offen gelassen hat (RLS-Backstop P1-16,
+Doku-Waechter P2-W1).
+
+> **Abschnitt 8.1.1 ist ein aktiver Sicherheitsbefund, an der Quelle gemessen.**
+> Ein Konto der Organisation *Unternehmen* sieht im eigenen Audit-Log einen
+> `auth.login` eines Kontos der Organisation *Zeitarbeit*. Der Lesepfad ist
+> dabei sauber (`al.org_id = $n`) — falsch ist das **Schreiben**: **135 Zeilen**
+> tragen eine `org_id`, deren Akteur nie Mitglied dieser Organisation war.
+> Dazu die Gegenrichtung: **1796 von 2740 Zeilen tragen gar keine `org_id`** und
+> sind damit in *keinem* Org-Audit sichtbar. Details, Messung und Abnahmekriterium
+> im Plan.
 
 ## Offene Owner-Entscheidungen
 
@@ -474,18 +1093,40 @@ dagegen längst behoben — `timeout-minutes: 180`, sechs parallele Matrix-Jobs.
   folgenlos (kein Aufrufer). Sobald die Route einen bekommt: strikt lassen
   (kein Leck, leere Historie) **oder** wie die RLS-Policy `org_id IS NULL`
   durchlassen (vollständige Historie, Rest-Leck)? *Owner.*
-- **D-M5 (neu)** — **Nutzer- statt Org-Grenze in `capacityExchange` und
+- ~~**D-M5**~~ ✅ **entschieden und umgesetzt 2026-08-20** (Details oben) — **Nutzer- statt Org-Grenze in `capacityExchange` und
   `marketplace`.** Beide binden über `req.session.userId`, nicht über die
   Organisation. Ein Kollege derselben Firma sieht die Einträge seines Teams
   nicht. Zusammen mit **E-11** (der Helfer, der genau das reparieren sollte und
   nie funktioniert hat) und **D-M4** ist das *ein* Thema: soll die
   Zusammenarbeit innerhalb einer Organisation überhaupt möglich sein? Die
   Antwort entscheidet über drei Stellen gleichzeitig. *Owner.*
-- **D-M4 (neu)** — **`PATCH /requisitions/:id` begrenzt per `created_by`**, nicht
+- ~~**D-M4**~~ ✅ **entschieden und umgesetzt 2026-08-20** (Details oben) — **`PATCH /requisitions/:id` begrenzte per `created_by`**, nicht
   per Org. Die Org-Grenze steht jetzt zusätzlich davor (E-4), die
   Ersteller-Bedingung ist unangetastet. Nebeneffekt bleibt: ein Kollege
   derselben Org kann die Ausschreibung eines anderen nicht bearbeiten. Absicht
   oder Altlast? *Produktentscheidung, kein Sicherheitsthema.*
+
+- **D-N1 (neu, 2026-08-21)** — **Hub-Karte fuer Guthaben auf `enterprise.html`?**
+  Bewusst offen gelassen, nicht vergessen. Die Guthabenseite ist erreichbar
+  (Menuepunkt *Steuerung* leuchtet, Suche findet sie, `sla_abo.html` und
+  `bounties.html` verlinken sie) — was fehlt, ist die **prominente** Flaeche auf
+  dem Hub, wie sie `bounties` hat.
+
+  *Warum es nicht nebenbei geht:* Eine Hub-Karte traegt `data-surface="…"` und
+  haengt damit an einer **Surface** der Sichtbarkeitsmatrix
+  (`api/config/visibilityMatrix.js`, `enterprise.html` fuehrt heute acht). Wer
+  sie sieht, entscheidet sich dort ueber `allowed_org_types` und die
+  Surface-Zugriffslogik (`enterpriseSurfaceAccessService`) — also eine
+  RBAC-Entscheidung, keine Gestaltungsfrage.
+
+  *Was zu entscheiden waere:* Sollen **beide** Org-Typen sie sehen (wie
+  `bounties`) oder nur Kunden? Und: soll sie ein Abzeichen tragen, wenn der
+  Stand niedrig ist (`hubCardBadges.js`, `TYPES_BY_SURFACE`) — das waere die
+  erste Karte, deren Abzeichen aus einem **Kontostand** statt aus einer
+  Ereigniszahl kommt.
+
+  *Aufwand:* Entscheidung 15 Minuten, Umsetzung 2 Stunden (Matrix-Eintrag,
+  Karte, Registereintrag, Wächterlauf). *Owner.*
 
 ## Offene Befunde ohne Ticket
 

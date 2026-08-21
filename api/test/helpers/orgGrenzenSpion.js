@@ -261,14 +261,19 @@ export async function pruefeGrenze(opts) {
        Verlangt wird also: es gibt eine lesende Abfrage, die Kennung UND
        Adressat zusammen traegt, und sie kommt VOR dem ersten Schreibvorgang. */
     const ersterSchreib = fremd.pool.calls.findIndex((c) => c.schreibend);
+    /* Die klaerende Anweisung darf selbst ein Schreibvorgang sein: manche Routen
+       beginnen mit einem gebundenen `UPDATE ... WHERE id = $1 AND owner = $2` und
+       steigen aus, wenn es keine Zeile trifft. Entscheidend ist nicht, ob gelesen
+       oder geschrieben wird, sondern dass VOR der bindenden Anweisung nichts
+       Ungebundenes geschrieben wurde — genau das war bei E-12, E-13 und E-15 der
+       Defekt. */
     const klaerung = fremd.pool.calls.findIndex(
-      (c) => !c.schreibend &&
-        c.params.some((prm) => String(prm) === String(eigenKennung)) &&
-        c.params.some((prm) => String(prm) === String(ressourceId))
+      (c) => c.params.some((prm) => String(prm) === String(eigenKennung)) &&
+             c.params.some((prm) => String(prm) === String(ressourceId))
     );
     if (klaerung === -1) {
       maengel.push(
-        "keine klaerende Abfrage, die eigene Kennung UND Adressat zusammen traegt — " +
+        "keine Anweisung, die eigene Kennung UND Adressat zusammen traegt — " +
         "die angekuendigte Grenze vor dem Schreiben gibt es nicht"
       );
     } else if (ersterSchreib !== -1 && ersterSchreib < klaerung) {

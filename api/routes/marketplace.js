@@ -314,7 +314,7 @@ export function createMarketplaceRouter(deps) {
     try {
       const full = await dealAgreementService.getAgreementDetails(pool, req.params.id);
       if (!full) return res.status(404).json({ error: "NOT_FOUND" });
-      if (full.requester_company_id !== req.session.userId) {
+      if (!await canAccessAsOwner(pool, full.requester_company_id, req.session.userId)) {
         return res.status(403).json({ error: "FORBIDDEN", message: "Nur der Anfragende darf die Signaturstrecke vorbereiten." });
       }
 
@@ -1411,7 +1411,7 @@ export function createMarketplaceRouter(deps) {
     try {
       const offer = await dealAgreementService.getAgreementDetails(pool, req.params.id);
       if (!offer) return res.status(404).json({ error: "NOT_FOUND" });
-      if (offer.requester_company_id !== req.session.userId && offer.supplier_company_id !== req.session.userId) {
+      if (!await canAccessAsOwner(pool, offer.requester_company_id, req.session.userId) && !await canAccessAsOwner(pool, offer.supplier_company_id, req.session.userId)) {
         return res.status(403).json({ error: "FORBIDDEN" });
       }
       const action = dealAgreementService.getActionRequired(offer, req.session.userId);
@@ -1428,7 +1428,7 @@ export function createMarketplaceRouter(deps) {
       // Ownership: nur Requester darf Agreement erstellen
       const full = await dealAgreementService.getAgreementDetails(pool, req.params.id);
       if (!full) return res.status(404).json({ error: "NOT_FOUND" });
-      if (full.requester_company_id !== req.session.userId) {
+      if (!await canAccessAsOwner(pool, full.requester_company_id, req.session.userId)) {
         return res.status(403).json({ error: "FORBIDDEN", message: "Nur der Anfragende darf die Einsatzvereinbarung erstellen." });
       }
 
@@ -1458,7 +1458,7 @@ export function createMarketplaceRouter(deps) {
       // Ownership: nur Supplier darf bestätigen
       const full = await dealAgreementService.getAgreementDetails(pool, req.params.id);
       if (!full) return res.status(404).json({ error: "NOT_FOUND" });
-      if (full.supplier_company_id !== req.session.userId) {
+      if (!await canAccessAsOwner(pool, full.supplier_company_id, req.session.userId)) {
         return res.status(403).json({ error: "FORBIDDEN", message: "Nur die liefernde Agentur darf die Vereinbarung best\u00e4tigen." });
       }
 
@@ -1488,7 +1488,7 @@ export function createMarketplaceRouter(deps) {
       // Ownership: nur Requester darf aktivieren
       const full = await dealAgreementService.getAgreementDetails(pool, req.params.id);
       if (!full) return res.status(404).json({ error: "NOT_FOUND" });
-      if (full.requester_company_id !== req.session.userId) {
+      if (!await canAccessAsOwner(pool, full.requester_company_id, req.session.userId)) {
         return res.status(403).json({ error: "FORBIDDEN", message: "Nur der Anfragende darf den Einsatz aktivieren." });
       }
 
@@ -1596,7 +1596,7 @@ export function createMarketplaceRouter(deps) {
       const full = await dealAgreementService.getAgreementDetails(pool, req.params.id);
       if (!full) return res.status(404).json({ error: "NOT_FOUND" });
       // Nur Beteiligte d\u00fcrfen stornieren
-      if (full.requester_company_id !== req.session.userId && full.supplier_company_id !== req.session.userId) {
+      if (!await canAccessAsOwner(pool, full.requester_company_id, req.session.userId) && !await canAccessAsOwner(pool, full.supplier_company_id, req.session.userId)) {
         return res.status(403).json({ error: "FORBIDDEN" });
       }
 
@@ -1679,7 +1679,7 @@ export function createMarketplaceRouter(deps) {
     try {
       const offer = await dealAgreementService.getAgreementDetails(pool, req.params.id);
       if (!offer) return res.status(404).json({ error: "NOT_FOUND" });
-      if (offer.requester_company_id !== req.session.userId && offer.supplier_company_id !== req.session.userId) {
+      if (!await canAccessAsOwner(pool, offer.requester_company_id, req.session.userId) && !await canAccessAsOwner(pool, offer.supplier_company_id, req.session.userId)) {
         return res.status(403).json({ error: "FORBIDDEN" });
       }
       const isSupplier = offer.supplier_company_id === req.session.userId;
@@ -1780,7 +1780,7 @@ export function createMarketplaceRouter(deps) {
     try {
       const offer = await dealAgreementService.getAgreementDetails(pool, req.params.id);
       if (!offer) return res.status(404).json({ error: "NOT_FOUND" });
-      if (offer.supplier_company_id !== req.session.userId) {
+      if (!await canAccessAsOwner(pool, offer.supplier_company_id, req.session.userId)) {
         return res.status(403).json({
           error: "FORBIDDEN",
           message: "Nur die liefernde Agentur darf Worker direkt aus der Dealakte zuweisen."
@@ -1853,7 +1853,7 @@ export function createMarketplaceRouter(deps) {
     try {
       const offer = await dealAgreementService.getAgreementDetails(pool, req.params.id);
       if (!offer) return res.status(404).json({ error: "NOT_FOUND" });
-      if (offer.requester_company_id !== req.session.userId && offer.supplier_company_id !== req.session.userId) {
+      if (!await canAccessAsOwner(pool, offer.requester_company_id, req.session.userId) && !await canAccessAsOwner(pool, offer.supplier_company_id, req.session.userId)) {
         return res.status(403).json({ error: "FORBIDDEN" });
       }
       const type = req.query.type || "conditions";
@@ -1881,7 +1881,7 @@ export function createMarketplaceRouter(deps) {
       const full = await dealAgreementService.getAgreementDetails(pool, req.params.id);
       if (!full) return res.status(404).json({ error: "NOT_FOUND" });
       // Nur Beteiligte duerfen die Dealakte sehen
-      if (full.requester_company_id !== req.session.userId && full.supplier_company_id !== req.session.userId) {
+      if (!await canAccessAsOwner(pool, full.requester_company_id, req.session.userId) && !await canAccessAsOwner(pool, full.supplier_company_id, req.session.userId)) {
         return res.status(403).json({ error: "FORBIDDEN" });
       }
       const dossier = await dealDossierService.getDossier(pool, req.params.id);

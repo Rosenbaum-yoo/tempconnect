@@ -22,6 +22,7 @@ import { canInteractWithCapacity } from "../services/capacityInteractionPolicy.j
 import { requireOrgLimit } from "../middleware/entitlementGuard.js";
 import { requireScope } from "../middleware/apiKeyAuth.js";
 import { swallow } from "../utils/logger.js";
+import { canAccessAsOwner } from "../utils/ownerCheck.js";
 
 /* ── Zod Schemas ──────────────────────────────────── */
 
@@ -481,7 +482,7 @@ export function createCapacityExchangeRouter(deps) {
       // Verify ownership
       const entry = await capacityExchangeService.getEntryById(pool, req.params.id, req.session.userId);
       if (!entry) return res.status(404).json({ error: "NOT_FOUND" });
-      if (entry.supplier_company_id !== req.session.userId) {
+      if (!await canAccessAsOwner(pool, entry.supplier_company_id, req.session.userId)) {
         return res.status(403).json({ error: "FORBIDDEN" });
       }
 
@@ -503,7 +504,7 @@ export function createCapacityExchangeRouter(deps) {
     try {
       const entry = await capacityExchangeService.getEntryById(pool, req.params.id, req.session.userId);
       if (!entry) return res.status(404).json({ error: "NOT_FOUND" });
-      if (entry.supplier_company_id !== req.session.userId) {
+      if (!await canAccessAsOwner(pool, entry.supplier_company_id, req.session.userId)) {
         return res.status(403).json({ error: "FORBIDDEN" });
       }
       const interactions = await capacityExchangeService.listInteractions(pool, req.params.id);
@@ -695,7 +696,7 @@ export function createCapacityExchangeRouter(deps) {
     try {
       const entry = await capacityExchangeService.getEntryById(pool, req.params.id, req.session.userId);
       if (!entry) return res.status(404).json({ error: "NOT_FOUND" });
-      if (entry.supplier_company_id !== req.session.userId) {
+      if (!await canAccessAsOwner(pool, entry.supplier_company_id, req.session.userId)) {
         return res.status(403).json({ error: "FORBIDDEN" });
       }
       const stats = await listingAnalytics.getListingStats(pool, req.params.id);
