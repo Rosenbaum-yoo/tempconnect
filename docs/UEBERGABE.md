@@ -761,8 +761,17 @@ kann damit **keine einzige** Antwort dieses Servers lesen.
 > sprechen sollte.
 
 Behoben (Wert in einer Zeile), gehalten von `api/test/nginxKopfzeilen.test.js`.
-Wirksam nach dem Merge: der laufende Container mountet die Konfiguration aus dem
-Haupt-Repo.
+
+**Am 2026-08-21 auch scharf geschaltet.** Der laufende Container mountet
+`nginx/nginx.conf` aus dem **Haupt-Checkout**, nicht aus diesem Worktree — die
+Korrektur wurde dort auf Zuruf des Owners nachgezogen (genau diese eine Zeile,
+sonst nichts; `diff` vorher gezeigt) und nginx neu geladen. Gemessen danach: ein
+Aufruf mit Nodes **strengem** Standard-Parser liefert 200 und 525 Bytes, wo er
+vorher abbrach; im Wert der Kopfzeile steht kein Zeilenumbruch mehr.
+
+Die Aenderung liegt im Haupt-Checkout **uncommitted** — beim Merge dieses
+Branches kommt derselbe Inhalt regulaer nach. Wer vorher `git checkout` darauf
+anwendet, holt sich den Defekt zurueck.
 
 ### P1-22 · Guthaben nur gegen Zahlung — Owner-Entscheidung Stripe *(geschlossen)*
 
@@ -1054,6 +1063,28 @@ dagegen längst behoben — `timeout-minutes: 180`, sechs parallele Matrix-Jobs.
   Ersteller-Bedingung ist unangetastet. Nebeneffekt bleibt: ein Kollege
   derselben Org kann die Ausschreibung eines anderen nicht bearbeiten. Absicht
   oder Altlast? *Produktentscheidung, kein Sicherheitsthema.*
+
+- **D-N1 (neu, 2026-08-21)** — **Hub-Karte fuer Guthaben auf `enterprise.html`?**
+  Bewusst offen gelassen, nicht vergessen. Die Guthabenseite ist erreichbar
+  (Menuepunkt *Steuerung* leuchtet, Suche findet sie, `sla_abo.html` und
+  `bounties.html` verlinken sie) — was fehlt, ist die **prominente** Flaeche auf
+  dem Hub, wie sie `bounties` hat.
+
+  *Warum es nicht nebenbei geht:* Eine Hub-Karte traegt `data-surface="…"` und
+  haengt damit an einer **Surface** der Sichtbarkeitsmatrix
+  (`api/config/visibilityMatrix.js`, `enterprise.html` fuehrt heute acht). Wer
+  sie sieht, entscheidet sich dort ueber `allowed_org_types` und die
+  Surface-Zugriffslogik (`enterpriseSurfaceAccessService`) — also eine
+  RBAC-Entscheidung, keine Gestaltungsfrage.
+
+  *Was zu entscheiden waere:* Sollen **beide** Org-Typen sie sehen (wie
+  `bounties`) oder nur Kunden? Und: soll sie ein Abzeichen tragen, wenn der
+  Stand niedrig ist (`hubCardBadges.js`, `TYPES_BY_SURFACE`) — das waere die
+  erste Karte, deren Abzeichen aus einem **Kontostand** statt aus einer
+  Ereigniszahl kommt.
+
+  *Aufwand:* Entscheidung 15 Minuten, Umsetzung 2 Stunden (Matrix-Eintrag,
+  Karte, Registereintrag, Wächterlauf). *Owner.*
 
 ## Offene Befunde ohne Ticket
 

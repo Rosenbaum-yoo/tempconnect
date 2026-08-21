@@ -373,9 +373,12 @@ macht den Test rot.
 > erweitert, bricht sie mit hoher Wahrscheinlichkeit wieder um — und merkt
 > nichts, weil der Browser weiterläuft. Deshalb ein Test und kein Kommentar.
 
-**Wirksam wird es erst nach dem Merge:** der laufende `tempconnect_frontend`
-mountet `nginx/nginx.conf` aus dem **Haupt-Repo**; dieser Worktree ist repariert,
-der Container läuft noch mit der alten Fassung.
+**Scharf geschaltet am 2026-08-21.** Der laufende `tempconnect_frontend` mountet
+`nginx/nginx.conf` aus dem **Haupt-Checkout**; die Korrektur wurde dort auf
+Zuruf nachgezogen (nur diese eine Zeile) und nginx neu geladen. Gemessen: ein
+Aufruf mit Nodes strengem Parser liefert 200/525 Bytes, wo er vorher abbrach.
+Die Änderung liegt im Haupt-Checkout **uncommitted** — beim Merge dieses
+Branches kommt derselbe Inhalt regulär nach.
 
 ### ~~P1-21 — Welche Wache gehört auf welche Fläche?~~ ✅ ERLEDIGT (2026-08-21)
 
