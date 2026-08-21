@@ -58,6 +58,25 @@ export function createDemoRouter(deps) {
       });
     }
     const user = rows[0];
+
+    /*
+     * Sitzung neu erzeugen, BEVOR der Demo-Nutzer eingetragen wird (8.1.1,
+     * gemessen 2026-08-21).
+     *
+     * `/auth/login` tut das seit SEC-001 gegen Session-Fixation — hier fehlte es.
+     * Die Folge war groesser als Fixation: die alte Sitzung behielt ihren
+     * `_orgCache`, und `req.orgId` zeigte fuer den Demo-Nutzer weiter auf die
+     * Organisation des zuvor angemeldeten Kontos. Damit lief nicht nur das Audit
+     * falsch (102 `notification.mark_read` und 4 `demo.login` in einer fremden
+     * Org), sondern auch die Mandantengrenze von 45 Routen, die als
+     * `if (req.orgId && ressource.org_id !== req.orgId)` gebaut ist.
+     *
+     * `regenerate` verwirft den alten Sitzungsinhalt vollstaendig; alles unten
+     * Gesetzte gehoert danach zur neuen Sitzung.
+     */
+    await new Promise((resolve, reject) =>
+      req.session.regenerate((err) => (err ? reject(err) : resolve()))
+    );
     req.session.userId   = user.id;
     req.session.userRole = user.role;
     req.session.isDemo   = true;

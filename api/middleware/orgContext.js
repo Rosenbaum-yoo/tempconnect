@@ -92,6 +92,7 @@ export function orgContextMiddleware(pool) {
               delete req.session._locationCache;
             }
             req.session._orgCache = {
+              userId: req.session.userId,   // gilt nur fuer diesen Nutzer (8.1.1)
               orgId: membership.org_id,
               role:  membership.role_key,
               name:  membership.org_name,
@@ -120,8 +121,34 @@ export function orgContextMiddleware(pool) {
       // ungueltiger UUID-Wert, und der Kontext faellt auf die eigene Org zurueck.
       // Die Grenzpruefungen der Routen laufen dann wieder und antworten sauber mit
       // ORG_BOUNDARY_VIOLATION statt Daten auszuliefern.
+      /*
+       * Der Sitzungs-Zwischenspeicher gilt nur fuer DEN Nutzer, fuer den er
+       * aufgeloest wurde (8.1.1, gemessen 2026-08-21).
+       *
+       * Vorher stand hier nur `if (req.session._orgCache)`. Wer die Sitzung
+       * uebernimmt, ohne sie neu zu erzeugen, erbt damit die Organisation seines
+       * Vorgaengers: `routes/demo.js` setzte `req.session.userId` ohne
+       * `session.regenerate()`, und ab da zeigte `req.orgId` fuer den Demo-Nutzer
+       * auf die Org des zuvor angemeldeten Kontos. Das ist kein Schoenheitsfehler:
+       * 45 Routen pruefen die Mandantengrenze als
+       *     if (req.orgId && ressource.org_id !== req.orgId) return 403;
+       * — sie pruefen dann gegen eine FREMDE Org. Im Audit-Log liess sich der
+       * Effekt zaehlen: 102 `notification.mark_read` und 4 `demo.login` trugen
+       * eine Organisation, in der der Handelnde nie Mitglied war.
+       *
+       * `demo.js` erzeugt die Sitzung inzwischen neu; diese Bindung ist der
+       * Riegel dahinter, der auch jeden kuenftigen Pfad ohne `regenerate` faengt.
+       */
+      const zwischenspeicherGiltFuer = req.session._orgCache?.userId ?? null;
+      const zwischenspeicherBrauchbar =
+        Boolean(req.session._orgCache) && zwischenspeicherGiltFuer === req.session.userId;
+      if (!zwischenspeicherBrauchbar && req.session._orgCache) {
+        delete req.session._orgCache;
+        delete req.session._locationCache;
+      }
+
       if (!req.orgId) {
-        if (req.session._orgCache) {
+        if (zwischenspeicherBrauchbar) {
           // Session cache: org already resolved, skip DB
           req.orgId   = req.session._orgCache.orgId;
           req.orgRole = req.session._orgCache.role;
@@ -136,6 +163,7 @@ export function orgContextMiddleware(pool) {
             req.orgName = membership.org_name;
             req.orgMembership = membership;
             req.session._orgCache = {
+              userId: req.session.userId,   // gilt nur fuer diesen Nutzer (8.1.1)
               orgId: membership.org_id,
               role:  membership.role_key,
               name:  membership.org_name,
@@ -144,6 +172,13 @@ export function orgContextMiddleware(pool) {
           }
         }
       }
+
+      /* Fuer WEN gilt `req.orgId`? Das Audit stempelt sonst die Org des
+       * Anfragekontexts auf den Eintrag eines anderen Handelnden — genau der
+       * Weg, auf dem `auth.login`-Zeilen in fremden Organisationen landeten
+       * (der Kontext wird VOR dem Login aufgeloest, die Sitzung erst danach neu
+       * erzeugt). Siehe `middleware/auditWrite.js`. */
+      req.orgIdGiltFuerNutzer = req.orgId ? req.session.userId : null;
 
       // ── Set departmentId from membership ──────────────────────────────────
       const activeMembership = req.orgMembership || membership;

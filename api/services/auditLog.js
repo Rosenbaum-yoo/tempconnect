@@ -113,6 +113,53 @@ export function resolveAuditActor(req) {
  * @param {object|null} machine
  * @returns {object|null}
  */
+/**
+ * Welche Organisation gehoert auf einen Audit-Eintrag?
+ *
+ * NICHT die des Anfragekontexts (8.1.1, gemessen 2026-08-21). `req.orgId` wird
+ * aufgeloest, BEVOR die Route laeuft — bei `/auth/login` und `/auth/register`
+ * also, bevor es den angemeldeten Nutzer ueberhaupt gibt. Was dort steht, stammt
+ * aus der vorherigen Sitzung desselben Browsers. Gemessen: 139 Zeilen trugen
+ * eine Organisation, in der der Handelnde nie Mitglied war (103
+ * `notification.mark_read`, 16 `auth.register`, 13 `auth.login`, 4 `demo.login`,
+ * 3 `subscription_request.apply_approved_change`).
+ *
+ * Die Regel ist dieselbe wie in Welle H2: **die Grenze gehoert an die Quelle der
+ * Wahrheit, nicht an den Kontext des Aufrufers.**
+ *
+ *   1. Ein ausdruecklich uebergebenes `org_id` gewinnt — der Aufrufer kennt die
+ *      Ressource (`requisitions.org_id`, `timesheets.org_id`, …).
+ *   2. Sonst `req.orgId` — aber NUR, wenn der Kontext fuer denselben Handelnden
+ *      aufgeloest wurde. `orgContext` vermerkt das in `req.orgIdGiltFuerNutzer`.
+ *   2b. Maschinen-Auth (API-Key/M2M): die Org steht im Schluessel und ist damit
+ *      belegt — ein Sitzungsnutzer, an den sie zu binden waere, existiert nicht.
+ *   3. Sonst `null`. Ein Eintrag ohne Org ist richtig, wenn die Handlung keine
+ *      hat — beim Anmelden gibt es noch keine Organisation. Falsch waere, eine
+ *      zu raten.
+ *
+ * Punkt 3 ist kein Datenverlust: der Eintrag wird geschrieben, nur ohne
+ * Mandantenstempel. Ein Audit-Eintrag, der verschwindet, waere schlimmer als
+ * einer, der keine Org traegt.
+ *
+ * @param {import('express').Request} req
+ * @param {string|null} actorId  der Handelnde, wie ihn `resolveAuditActor` bestimmt
+ * @param {string|null|undefined} explizit  ausdruecklich uebergebenes `org_id`
+ * @returns {string|null}
+ */
+export function bestimmeAuditOrg(req, actorId, explizit) {
+  if (explizit) return explizit;
+  if (!req?.orgId) return null;
+  /* Maschinen-Auth: die Organisation steht im Schluessel selbst und ist damit
+   * belegt — es gibt hier keinen Sitzungsnutzer, an den sie gebunden waere.
+   * `middleware/apiKeyAuth.js` setzt `isApiKeyAuth`. */
+  if (req.isApiKeyAuth) return req.orgId;
+  /* Ohne Vermerk laesst sich nicht sagen, fuer wen der Kontext gilt — dann lieber
+   * keine Org als die falsche. Faellt nur bei Aufrufern an, die an
+   * `orgContext` vorbeigehen. */
+  if (!req.orgIdGiltFuerNutzer) return null;
+  return req.orgIdGiltFuerNutzer === actorId ? req.orgId : null;
+}
+
 export function withMachineActor(details, machine) {
   if (!machine) return details ?? null;
   // Nicht-Objekte (Array/String) bleiben unangetastet — gleiche Regel wie withResponsibleActor.
@@ -203,10 +250,11 @@ export function writeAuditEnhanced(pool, req, params) {
   // Akteur zentral: deckt Session UND Maschinen-Auth (API-Key/M2M) ab. Ein ausdruecklich
   // uebergebener actor_id hat weiterhin Vorrang (Handelnder ≠ Verantwortlicher).
   const { actor_id, machine } = resolveAuditActor(req);
+  const handelnder = params.actor_id ?? actor_id;
   return writeAudit(pool, {
     ...params,
-    actor_id: params.actor_id ?? actor_id,
-    org_id: params.org_id ?? req.orgId ?? null,
+    actor_id: handelnder,
+    org_id: bestimmeAuditOrg(req, handelnder, params.org_id),
     details: withMachineActor(params.details ?? null, machine),
     ip_address: params.ip_address ?? req.ip ?? null,
     user_agent: params.user_agent ?? (req.headers?.['user-agent'] || '').slice(0, 500) ?? null

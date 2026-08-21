@@ -47,7 +47,7 @@ export function apiKeyAuthMiddleware(pool, { logger, config = {} }) {
             // erst bei JWT-exp, bis zu 1h später). Spiegelt den strengen tc_live_-Pfad (lookupByHash).
             const key = await lookupById(pool, payload.sub).catch(() => null);
             if (key && key.org_id === payload.org_id) {
-              req.orgId = payload.org_id;
+              req.orgId = payload.org_id;   // belegt durch den Schluessel selbst (8.1.1)
               // Effektive Scopes = Token-Grant ∩ aktueller Key-Stand (scope-hierarchie-bewusst):
               // ein auf dem Key entzogener Scope greift dadurch sofort, auch im noch gültigen Token.
               const tokenScopes = (payload.scope || "").split(" ").filter(Boolean);

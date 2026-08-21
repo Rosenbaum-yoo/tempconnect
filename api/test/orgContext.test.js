@@ -352,7 +352,7 @@ describe("orgContextMiddleware — explicit org via header", () => {
       query: { org_id: ORG_ID_B },
       session: {
         userId:    USER_ID,
-        _orgCache: { orgId: ORG_ID, role: "owner", name: "Erste", defaultLocationId: null }
+        _orgCache: { userId: USER_ID, orgId: ORG_ID, role: "owner", name: "Erste", defaultLocationId: null }
       }
     });
 
@@ -404,7 +404,7 @@ describe("orgContextMiddleware — session cache", () => {
     const req = mockReq({
       session: {
         userId: USER_ID,
-        _orgCache: { orgId: ORG_ID, role: "admin", name: "Cached GmbH", defaultLocationId: null }
+        _orgCache: { userId: USER_ID, orgId: ORG_ID, role: "admin", name: "Cached GmbH", defaultLocationId: null }
       }
     });
     let nextCalled = false;
@@ -865,7 +865,7 @@ describe("orgContextMiddleware — die Standortbindung ueberlebt den Request", (
       headers: { "x-location-id": LOC_B },
       session: {
         userId: USER_ID,
-        _orgCache: { orgId: ORG_ID, role: "member", name: "Test GmbH", defaultLocationId: LOC_A }
+        _orgCache: { userId: USER_ID, orgId: ORG_ID, role: "member", name: "Test GmbH", defaultLocationId: LOC_A }
       }
     });
     const res = mockRes();
@@ -883,7 +883,7 @@ describe("orgContextMiddleware — die Standortbindung ueberlebt den Request", (
       headers: { "x-location-id": LOC_A },
       session: {
         userId: USER_ID,
-        _orgCache: { orgId: ORG_ID, role: "member", name: "Test GmbH", defaultLocationId: LOC_A }
+        _orgCache: { userId: USER_ID, orgId: ORG_ID, role: "member", name: "Test GmbH", defaultLocationId: LOC_A }
       }
     });
     const res = mockRes();

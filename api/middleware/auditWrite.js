@@ -13,7 +13,7 @@
  * Wenn res.locals.audit nicht gesetzt ist UND die Methode mutierend ist, wird ein Fallback-Log geschrieben.
  */
 
-import { writeAudit, deriveActionType, resolveAuditActor, withMachineActor } from "../services/auditLog.js";
+import { writeAudit, deriveActionType, resolveAuditActor, withMachineActor, bestimmeAuditOrg } from "../services/auditLog.js";
 
 const MUTATING_METHODS = new Set(["POST", "PUT", "PATCH", "DELETE"]);
 
@@ -63,6 +63,10 @@ export function auditWriteMiddleware(pool, opts = {}) {
       // war von einem Systemlauf nicht zu unterscheiden (Produktionspfeiler 5).
       const { actor_id, machine } = resolveAuditActor(req);
 
+        /* Die Organisation kommt aus der Quelle der Wahrheit, nicht aus dem
+         * Anfragekontext (8.1.1). Eine Route, die es besser weiss, uebergibt
+         * `res.locals.audit.org_id`. Begruendung: `bestimmeAuditOrg`. */
+
       try {
         await writeAudit(pool, {
           action: audit.action,
@@ -71,7 +75,7 @@ export function auditWriteMiddleware(pool, opts = {}) {
           entity_type: audit.entity_type || "unknown",
           entity_id: audit.entity_id ? String(audit.entity_id) : null,
           actor_id,
-          org_id: req.orgId || null,
+          org_id: bestimmeAuditOrg(req, actor_id, audit.org_id),
           details: withMachineActor(audit.details || null, machine),
           old_values: audit.old_values || null,
           new_values: audit.new_values || null,

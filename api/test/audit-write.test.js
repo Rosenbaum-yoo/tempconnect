@@ -26,7 +26,12 @@ function mockReq(method = "POST", path = "/api/test") {
     ip: "127.0.0.1",
     headers: { "user-agent": "test-agent" },
     session: { userId: "user-123" },
-    orgId: "org-456"
+    orgId: "org-456",
+    /* `orgContext` vermerkt, fuer WEN es `req.orgId` aufgeloest hat. Ohne diesen
+     * Vermerk stempelt das Audit nichts mehr (8.1.1): `req.orgId` wird VOR der
+     * Route aufgeloest — bei `/auth/login` also fuer den Nutzer der VORHERIGEN
+     * Sitzung. Genau so trugen 139 Zeilen eine fremde Organisation. */
+    orgIdGiltFuerNutzer: "user-123"
   };
 }
 
@@ -76,6 +81,59 @@ describe("auditWriteMiddleware", () => {
     assert.ok(params.some(p => p === "c-789"), "entity_id ist 'c-789'");
     assert.ok(params.some(p => p === "user-123"), "actor_id ist 'user-123'");
     assert.ok(params.some(p => p === "org-456"), "org_id ist 'org-456'");
+  });
+
+  it("stempelt KEINE Organisation, die zu einem anderen Handelnden gehoert", async () => {
+    /*
+     * Der Kern von 8.1.1. `req.orgId` wird aufgeloest, BEVOR die Route laeuft —
+     * bei `/auth/login` und `/auth/register` also, bevor es den angemeldeten
+     * Nutzer ueberhaupt gibt. Was dort steht, stammt aus der vorherigen Sitzung
+     * desselben Browsers. Gemessen am 2026-08-21: 139 Zeilen trugen eine
+     * Organisation, in der der Handelnde nie Mitglied war.
+     *
+     * Der Eintrag wird trotzdem GESCHRIEBEN — nur ohne Mandantenstempel. Ein
+     * Audit-Eintrag, der verschwindet, waere schlimmer als einer ohne Org.
+     */
+    const pool = mockPool();
+    const mw = auditWriteMiddleware(pool, { logger: null });
+    const req = mockReq("POST", "/api/auth/login");
+    req.session.userId = "user-NEU";            // hat sich waehrend der Anfrage angemeldet
+    req.orgIdGiltFuerNutzer = "user-VORHER";    // Kontext stammt vom Vorgaenger
+    const res = mockRes(200);
+
+    mw(req, res, () => {});
+    res.locals.audit = { action: "auth.login", entity_type: "user", entity_id: "user-NEU" };
+    res.emit("finish");
+    await nextTick();
+
+    assert.strictEqual(pool.written.length, 1, "der Eintrag wird geschrieben, nicht verworfen");
+    const params = pool.written[0].params;
+    assert.ok(params.some((p) => p === "auth.login"), "die Handlung steht drin");
+    assert.ok(params.some((p) => p === "user-NEU"), "der Handelnde steht drin");
+    assert.ok(!params.some((p) => p === "org-456"),
+      "die Organisation des Vorgaengers darf NICHT gestempelt werden — genau das war der Befund");
+  });
+
+  it("stempelt die Organisation eines Maschinen-Schluessels sehr wohl", async () => {
+    /* Gegenprobe zur Regel darueber: bei API-Key/M2M steht die Org IM Schluessel
+     * und ist damit belegt — ein Sitzungsnutzer, an den sie zu binden waere,
+     * existiert gar nicht. Ohne diese Ausnahme haette SCIM seine Org verloren. */
+    const pool = mockPool();
+    const mw = auditWriteMiddleware(pool, { logger: null });
+    const req = mockReq("PATCH", "/api/scim/v2/Users/u1");
+    delete req.session;
+    delete req.orgIdGiltFuerNutzer;
+    req.isApiKeyAuth = true;
+    const res = mockRes(200);
+
+    mw(req, res, () => {});
+    res.locals.audit = { action: "scim.user.update", entity_type: "user", entity_id: "u1" };
+    res.emit("finish");
+    await nextTick();
+
+    const params = pool.written[0].params;
+    assert.ok(params.some((p) => p === "org-456"),
+      "die Org des Schluessels gehoert auf den Eintrag");
   });
 
   it("skips audit for GET requests", async () => {
