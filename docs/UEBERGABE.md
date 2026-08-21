@@ -669,6 +669,45 @@ neue Wächter überhaupt formulierbar: *jede schreibende Requisitions-Route trä
 > für jede Strukturprüfung unsichtbar. `return async function name(req, res, next)`
 > statt `return async (req, res, next)` ist Teil der Absicherung, nicht Kosmetik.
 
+### M0-B9 · Die laufende Datenbank war weiter als jede Migration *(geschlossen)*
+
+Der rote Test aus Welle G4b hat **richtig gemeldet und wurde falsch
+verstanden.** Zwei Dinge lagen übereinander.
+
+**Die Prüfung suchte eine Schreibweise, die Postgres nicht ausgibt.** Sie suchte
+die erlaubten Werte als `'info'` — mit Anführungszeichen — im Text des
+Constraints. Postgres rendert ihn aber je nach Schreibweise unterschiedlich; in
+der Array-Form (`= ANY ('{a,b}'::text[])`) steht **kein einziger** Wert in
+Anführungszeichen. Die erste Zusicherung schlug also schon bei `info` fehl — und
+verdeckte damit genau den Befund, den die zweite finden sollte.
+
+**Der Befund selbst:** `notifications.severity` wird an genau einer Stelle
+definiert (Migration 019, vier Werte). Die laufende Datenbank erlaubte **fünf**.
+Gesucht in allen 184 Migrationen, in `init.sql`, in den Seeds: **keine Quelle.**
+Der fünfte Wert ist an `sql/` vorbei entstanden.
+
+Das ist der Kern, nicht der fehlende Wert: **das Schema war aus `sql/` nicht mehr
+reproduzierbar.** Eine frische Installation und die laufende Datenbank hätten
+sich unterschieden — und nichts hätte es gemeldet, weil der eine Test, der es
+gekonnt hätte, aus einem anderen Grund rot war und deshalb als bekannt-rot galt.
+
+Zurück statt vor, weil `urgent` keinen Nutzer hat: kein Dienst schreibt es dorthin,
+keine der 765 Zeilen trägt es, das Frontend kennt es nicht.
+`match_alerts.severity` ist eine **andere** Spalte und benutzt `urgent` sehr wohl.
+Migration `185`, mit Sicherheitsnetz und Rollback im Kopf; die Prüfung liest die
+Werte jetzt **aus** statt sie zu suchen und vergleicht **Mengen in beide
+Richtungen**. Gemessen: Drift wieder hergestellt → Test wird rot und nennt
+`urgent` beim Namen.
+
+> **Ein rotes Testergebnis, das man kennt, ist ein blinder Fleck.** Dieser Test
+> war seit Wochen rot und galt als bekannt — also hat niemand mehr hingesehen,
+> was er eigentlich sagt. Er sagte die ganze Zeit etwas anderes als das, wofür
+> man ihn hielt.
+
+> **Übertragbar:** Ein Test, der eine Zusicherung als Zeichenkette im generierten
+> SQL sucht, prüft die Schreibweise des Datenbanksystems mit — und die ändert
+> sich, ohne dass jemand etwas falsch macht. Werte auslesen, Mengen vergleichen.
+
 ### P1-21 · Das Wachregister — welche Wache gehört auf welchen Weg *(gebaut)*
 
 Erst als fünf Wächter-Erzeuger Namen hatten, liess sich die Frage überhaupt
@@ -915,7 +954,7 @@ Klartext.
 |---|---|
 | **Demo-Compose** (`cde6c42`) | War **nie** startfähig (nicht „seit P0-08"): Die Datei entstand einen Monat nach dem Guard, den sie verletzt. Schwerer: Sie wird **ausgeliefert** und öffnete beim Kunden alle Plan-Gates — der CI-Wächter dagegen durchsucht nur `.env*`. Dazu der `release-package.sh`-Fehler, durch den `.claude/` ins Artefakt kam (die `EXCLUDE_LIST` galt nur im Fallback-Zweig). Wächter: `composeStartfaehig.test.js` |
 | **NOT_AUTH** (`61d2091`) | Nicht „alle Portalseiten", sondern **genau die G5-Seite**. Und kein Konsolen-Problem: Sie blieb für Abgemeldete **dauerhaft weiß**, ohne Weg zum Login — ausgerechnet der Notfallweg. Siebenmal kopiert, beim achten Mal vergessen. |
-| **H2 — Mandantengrenzen** | Die Entscheidung **D-M1 ist gefallen: Wächter, nicht konsolidieren.** Die fünf Lücken des Plans sind geschlossen — **und der Wächter fand über alle 82 Route-Dateien hinweg zwölf weitere**. Siebzehn Lücken, nicht fünf. Die schwersten kamen zuletzt und lagen zu dritt in **einer** Datei: DSGVO-Vollexport eines Fremden (E-20), fremdes Konto anonymisieren (E-17), fremde Betroffenenanfrage schließen (E-18); dazu der Verteilplan fremder Ausschreibungen, lesbar **und weiterschaltbar** (E-19). Alle geschlossen und gegen das echte Schema bewiesen, ebenso E-14 (Matching) und E-11 (`canAccessAsOwner`, das seit jeher nur den einen anlegenden Menschen durchliess). **Kein offener Sicherheitsbefund mehr** — offen sind nur noch P1-22 (Abrechnungsentscheidung, per Stolperdraht gehalten) und ein roter Test aus Welle G4b (M0-B9). Details unten. |
+| **H2 — Mandantengrenzen** | Die Entscheidung **D-M1 ist gefallen: Wächter, nicht konsolidieren.** Die fünf Lücken des Plans sind geschlossen — **und der Wächter fand über alle 82 Route-Dateien hinweg zwölf weitere**. Siebzehn Lücken, nicht fünf. Die schwersten kamen zuletzt und lagen zu dritt in **einer** Datei: DSGVO-Vollexport eines Fremden (E-20), fremdes Konto anonymisieren (E-17), fremde Betroffenenanfrage schließen (E-18); dazu der Verteilplan fremder Ausschreibungen, lesbar **und weiterschaltbar** (E-19). Alle geschlossen und gegen das echte Schema bewiesen, ebenso E-14 (Matching) und E-11 (`canAccessAsOwner`, das seit jeher nur den einen anlegenden Menschen durchliess). **Kein offener Sicherheitsbefund mehr** — offen ist nur noch P1-22 (Abrechnung: Owner-Entscheidung Stripe, Umsetzung folgt). Details unten. |
 
 ### Zwei Blocker, die nur der Owner lösen kann
 

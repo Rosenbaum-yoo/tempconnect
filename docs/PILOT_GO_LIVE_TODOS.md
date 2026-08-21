@@ -411,19 +411,53 @@ und bindet die Gutschrift daran, **bevor** `spendCredits` einen Aufrufer bekommt
 **Aufwand:** Entscheidung 15 Minuten, Umsetzung je nach Weg ·
 **Verify:** der Stolperdraht — er soll rot werden und dann ersetzt.
 
-### M0-B9 — Ein roter Integrationstest aus Welle G4b
+### ~~M0-B9 — Ein roter Integrationstest aus Welle G4b~~ ✅ ERLEDIGT (2026-08-21)
 
-**Status:** offen · **Fakt:** `test/integration/g4bKundenMeldung.flow.test.js`
-→ „die erlaubten severity-Werte stimmen mit der Konstante überein" schlägt fehl
-(`expected: true, actual: false`). `ERLAUBTE_SEVERITY` in
-`services/notificationMatrix.js` und die Datenbank sind auseinandergelaufen.
-Einziger roter Test der Integrationssuite (**285 von 286 grün**).
-**Nicht aus Welle H2** — nachgewiesen: keiner der H2-Commits berührt
-`workerAbsenceService`, `notificationMatrix` oder diesen Test.
-**Aktion:** Konstante und Datenbank abgleichen — und prüfen, welche Seite recht
-hat, bevor eine an die andere angepasst wird.
-**Aufwand:** 1 Stunde ·
-**Verify:** `node scripts/run-tests.js --suite=integration` (braucht Datenbank).
+**Er hat richtig gemeldet und wurde falsch verstanden.** Zwei Dinge lagen
+uebereinander:
+
+**1. Die Pruefung suchte eine Schreibweise, die Postgres nicht ausgibt.** Sie
+suchte die Werte als `'info'` — mit Anfuehrungszeichen — im Text des
+Constraints. Postgres rendert ihn aber je nach Schreibweise anders:
+
+```
+CHECK (severity IN ('a','b'))       ->  ... = ANY (ARRAY['a'::text, ...])
+CHECK (severity = ANY ('{a,b}'))    ->  ... = ANY ('{a,b}'::text[])
+```
+
+In der zweiten Form steht **kein einziger** Wert in Anfuehrungszeichen. Die
+erste Zusicherung schlug also schon bei `info` fehl — und verdeckte damit genau
+den Befund, den die zweite finden sollte. Repariert: die Werte werden jetzt
+**ausgelesen** statt gesucht, und **beide Richtungen** geprueft. Das ist strenger
+als vorher — es faellt nicht nur auf, wenn ein bekannter Wert fehlt, sondern
+auch, wenn ein unbekannter dazukommt, gleich welcher.
+
+**2. Der eigentliche Befund: die laufende Datenbank war weiter als jede
+Migration.** `notifications.severity` wird an genau einer Stelle definiert
+(Migration 019, vier Werte). Die laufende Datenbank erlaubte fünf — zusätzlich
+`urgent`. Gesucht wurde in allen 184 Migrationen, in `init.sql` und in den Seeds:
+**keine Quelle.** Der Wert ist an `sql/` vorbei entstanden.
+
+Das ist der Kern, nicht der fehlende Wert: **das Schema war aus `sql/` nicht mehr
+reproduzierbar.** Eine frische Installation und die laufende Datenbank hätten
+sich unterschieden.
+
+**Zurück statt vor**, weil `urgent` keinen Nutzer hat: kein Dienst schreibt es
+nach `notifications`, keine der 765 Zeilen trägt es (warning 660, info 54,
+success 50, error 1), und das Frontend kennt es weder in den Toast-Varianten noch
+in der Stufen-Abbildung. `match_alerts.severity` ist eine **andere** Spalte
+(Migration 027) und benutzt `urgent` sehr wohl — dort bleibt alles.
+
+Migration `185_severity_zurueck_auf_die_vier.sql`, mit Sicherheitsnetz (bricht
+mit klarer Meldung ab, falls doch eine Zeile `urgent` trägt) und Rollback im
+Kopf. Gemessen: gefahren, Test 8/8 grün; Drift wieder hergestellt, Test wird rot
+mit *„der CHECK erlaubt mehr als die Konstante kennt: urgent"*; Migration erneut
+gefahren, wieder grün.
+
+> **Übertragbar:** Ein Test, der eine Zusicherung als **Zeichenkette** im
+> generierten SQL sucht, prüft die Schreibweise des Datenbanksystems mit — und
+> die ändert sich, ohne dass jemand etwas falsch macht. Werte auslesen und
+> **Mengen** vergleichen, nicht Text suchen.
 
 ### ~~P1-17 — `canAccessAsOwner` hat nie funktioniert~~ ✅ ERLEDIGT (2026-08-20)
 
