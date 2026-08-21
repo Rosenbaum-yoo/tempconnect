@@ -2,7 +2,13 @@ import * as internalControlCenterService from "../services/internalControlCenter
 
 export function requireInternalPermission(permission, deps) {
   const { pool, logger } = deps;
-  return async (req, res, next) => {
+  // BENANNT statt anonym — die fuenfte Wache dieser Welle, die keinen Namen
+  // hatte. Sie traegt die gesamte interne Steuerungsflaeche
+  // (`internal.*`-Rechte) und war fuer jede Strukturpruefung unsichtbar; bei
+  // der Bestandsaufnahme zu P1-21 fielen ihre Routen als "ohne Wache" auf,
+  // obwohl sie bewacht sind. Vergleiche `requirePermissionMiddleware`,
+  // `supportAuth`, `ownerControlAuth`.
+  return async function requireInternalPermissionMiddleware(req, res, next) {
     if (!req.session?.userId) {
       return res.status(401).json({ success: false, error: { code: "NOT_AUTHENTICATED" } });
     }

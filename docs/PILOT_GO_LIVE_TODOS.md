@@ -351,27 +351,65 @@ Closure zurück. Deshalb konnte `rbac-hardening.test.js` nur Middleware **zähle
 (`assert.ok(names.length >= 2)`) statt sie zu benennen — eine Route ohne Prüfung
 sah aus wie eine mit. `requirePermission` und `requireRole` sind jetzt benannt.
 
-### P1-21 — Welche Wache gehört auf welche Fläche? (eigene Welle)
+### ~~P1-21 — Welche Wache gehört auf welche Fläche?~~ ✅ ERLEDIGT (2026-08-21)
 
-**Status:** offen · **Fakt:** Mit dem Namen liess sich erstmals zählen: **27 von
-82** Route-Dateien rufen `requirePermission` überhaupt auf; mehrere hundert
-schreibende Routen tragen keine.
+**Gebaut:** `api/test/fixtures/wachen.json` + `api/test/wachenWaechter.test.js`,
+nach dem Vorbild des Org-Grenzen-Registers.
 
-**Diese Zahl ist ausdrücklich KEIN Befund.** Die meisten dieser Routen sind
-korrekt bewacht, nur anders: `staffControlCenter` (50) hängt an
-`staffControlAccess`, `workerPortal` (25) an `requireWorkerRole`, `internal` (28)
-an den `internal.*`-Rechten, `me.js` (13) betrifft nur eigene Daten,
-`marketplace` (20) und `capacityExchange` (14) binden über `canAccessAsOwner`.
-Ein Wächter, der pauschal `requirePermission` einfordert, produziert dort
-Falschmeldungen — genau die Falle, vor der die Arbeitsregel von Welle H2 warnt
-(„Wächter positiv formulieren").
+**415 schreibende Wege, alle mit Urteil und Begründung:**
 
-**Aktion:** dieselbe Arbeit wie beim Org-Grenzen-Register — je Fläche benennen,
-welche Wache dort die richtige ist, und das prüfbar machen. Das Register
-`api/test/fixtures/orgGrenzen.json` ist die Vorlage: es beantwortet dieselbe
-Frage für die Mandantengrenze und führt 82 von 82 Dateien.
-**Aufwand:** eine Welle (vergleichbar mit H2) ·
-**Verify:** ein Berechtigungs-Register mit Sperrklinke, analog zum Org-Register.
+| Wachart | Wege | was sie trägt |
+|---|---|---|
+| `berechtigung` | 161 | `requirePermission` / `requireRole` / `requireInternalPermission` |
+| `eigene-daten` | 67 | kein fremdes Ziel erreichbar (`/me`, MFA, eigenes Profil) |
+| `besitz` | 65 | Bindung am Vorgang — vom Org-Grenzen-Wächter **ausgeführt** geprüft |
+| `flaechentor` | 64 | eine Eintrittsbedingung je Fläche (Staff, Arbeiter, Support, Owner, …) |
+| `cron` | 28 | Zeitplan-Geheimnis (`checkCronAuth`) |
+| `oeffentlich` | 19 | bewusst ohne Mandant (Anmeldung, Webhooks, Kostenvorschau) |
+| `inline-rolle` | 10 | Rolle oder Geheimnis im Handler statt als Middleware |
+| `BEFUND` | 1 | P1-22 (siehe unten) |
+
+**Der Wächter fordert ausdrücklich NICHT pauschal `requirePermission`** — das
+wären 254 Falschmeldungen gewesen, und ein Wächter, der falsch meldet, wird
+abgeschaltet. Er verlangt ein *Urteil mit Begründung* und prüft die
+`berechtigung`-Klasse **ausgeführt**: der Aufruf läuft mit einem Rollenschlüssel,
+den der Katalog nicht kennt — wer trotzdem durchkommt, hat keine wirksame
+Prüfung.
+
+Vier Mutationen werden rot: Wache von einer Route nehmen · neue schreibende
+Route ohne Registereintrag · Urteil ohne Begründung · Route auf eine
+schwächere Wachart zurücksetzen.
+
+**Fünfter anonymer Wächter gefunden und benannt:** `requireInternalPermission`
+trägt die gesamte interne Steuerungsfläche und war unsichtbar — ihre Routen
+fielen in der Bestandsaufnahme als „ohne Wache" auf, obwohl sie bewacht sind.
+
+### P1-22 — Guthaben werden ohne Bezahlschritt gutgeschrieben (schlafend)
+
+**Status:** offen (Produkt-/Abrechnungsentscheidung) · **Fakt:**
+`POST /credits/purchase` (`routes/credits.js:30`) trägt nur `requireAuth` und
+schreibt über `creditService.purchasePackage` ein **bepreistes** Paket gut —
+ohne jeden Bezahlschritt. In der laufenden Datenbank stehen drei Pakete
+(9,99 / 39,99 / 129,99 EUR).
+
+**Warum es trotzdem kein aktives Leck ist:** `spendCredits` hat **keinen
+einzigen Aufrufer**. Guthaben lassen sich nirgends ausgeben — die kostenlose
+Gutschrift ist eine Währung, die nichts kauft. Kein Frontend ruft die Wege auf.
+**Schlafender Defekt**, dieselbe Klasse wie der entfernte Matching-Weg (P1-19).
+
+**Warum weder gepatcht noch gelöscht:** Die Reparatur wäre eine Bezahlstrecke —
+CLAUDE.md verbietet sie ausdrücklich („Kein Code für Auto-Billing, solange
+manuelle Rechnung Default ist"). Die Route zu entfernen wäre ebenfalls falsch:
+drei bepreiste Pakete stehen in der Produktionsdatenbank, das System ist
+offenbar gewollt, nur unfertig.
+
+**Stattdessen ein Stolperdraht:** `api/test/security/guthabenStolperdraht.test.js`
+wird in dem Moment rot, in dem jemand `spendCredits` verdrahtet, ohne vorher die
+Gutschrift an eine Zahlung zu binden. Gemessen: das Verdrahten macht ihn rot.
+**Aktion:** Owner entscheidet, wie gekauft wird (Stripe? manuelle Rechnung?) —
+und bindet die Gutschrift daran, **bevor** `spendCredits` einen Aufrufer bekommt.
+**Aufwand:** Entscheidung 15 Minuten, Umsetzung je nach Weg ·
+**Verify:** der Stolperdraht — er soll rot werden und dann ersetzt.
 
 ### M0-B9 — Ein roter Integrationstest aus Welle G4b
 

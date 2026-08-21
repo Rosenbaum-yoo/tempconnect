@@ -669,24 +669,67 @@ neue Wächter überhaupt formulierbar: *jede schreibende Requisitions-Route trä
 > für jede Strukturprüfung unsichtbar. `return async function name(req, res, next)`
 > statt `return async (req, res, next)` ist Teil der Absicherung, nicht Kosmetik.
 
-### P1-21 — was die Messung *nicht* sagt
+### P1-21 · Das Wachregister — welche Wache gehört auf welchen Weg *(gebaut)*
 
-Mit dem Namen ließ sich erstmals zählen: **27 von 82 Route-Dateien** rufen
-`requirePermission` überhaupt auf; über den ganzen Bestand tragen mehrere hundert
-schreibende Routen keine.
+Erst als fünf Wächter-Erzeuger Namen hatten, liess sich die Frage überhaupt
+stellen. Das Ergebnis ist ein Register nach dem Vorbild des Org-Grenzen-Registers:
+**415 schreibende Wege, alle mit Urteil und Begründung.**
 
-**Diese Zahl ist kein Befund.** Die meisten dieser Routen sind korrekt bewacht,
-nur anders: `staffControlCenter` (50) hängt an `staffControlAccess`,
-`workerPortal` (25) an `requireWorkerRole`, `internal` (28) an den
-`internal.*`-Rechten, `me.js` (13) betrifft nur eigene Daten, `marketplace` (20)
-und `capacityExchange` (14) binden über `canAccessAsOwner`. Ein Wächter, der
-pauschal `requirePermission` einfordert, produziert dort Falschmeldungen — genau
-die Falle, vor der die Arbeitsregel dieser Welle warnt.
+| Wachart | Wege | was sie trägt |
+|---|---|---|
+| `berechtigung` | 161 | `requirePermission` / `requireRole` / `requireInternalPermission` |
+| `eigene-daten` | 67 | kein fremdes Ziel erreichbar (`/me`, MFA, eigenes Profil) |
+| `besitz` | 65 | Bindung am Vorgang — vom Org-Grenzen-Wächter **ausgeführt** geprüft |
+| `flaechentor` | 64 | eine Eintrittsbedingung je Fläche |
+| `cron` | 28 | Zeitplan-Geheimnis |
+| `oeffentlich` | 19 | bewusst ohne Mandant |
+| `inline-rolle` | 10 | Rolle oder Geheimnis im Handler |
+| `BEFUND` | 1 | P1-22 |
 
-Was es bräuchte, ist dieselbe Arbeit wie beim Org-Grenzen-Register: **je Fläche
-benennen, welche Wache dort die richtige ist**, und das prüfbar machen. Das ist
-eine eigene Welle, kein Nebenbei-Schritt — deshalb steht sie als P1-21 in
-`docs/PILOT_GO_LIVE_TODOS.md` und nicht in diesem Commit.
+**Die wichtigste Entscheidung war, was der Wächter NICHT fordert.** Hätte er
+pauschal `requirePermission` verlangt, wären es 254 Falschmeldungen gewesen —
+und ein Wächter, der falsch meldet, wird abgeschaltet. Genau davor warnt die
+Arbeitsregel dieser Welle. Er verlangt stattdessen ein **Urteil mit Begründung**
+und prüft die `berechtigung`-Klasse **ausgeführt**: der Aufruf läuft mit einem
+Rollenschlüssel, den der Katalog nicht kennt — wer trotzdem durchkommt, hat
+keine wirksame Prüfung. 161 Wege, 161 Proben.
+
+Vier Mutationen werden rot: Wache von einer Route nehmen · neue schreibende
+Route ohne Registereintrag · Urteil ohne Begründung · Route auf eine
+schwächere Wachart zurücksetzen.
+
+**Der fünfte anonyme Wächter.** `requireInternalPermission` trägt die gesamte
+interne Steuerungsfläche und gab eine namenlose Closure zurück. In der
+Bestandsaufnahme fielen ihre Routen als „ohne Wache" auf, obwohl sie bewacht
+sind — dieselbe Blindstelle wie bei `supportAuth`, `ownerControlAuth`,
+`requirePermission` und dem Präfix-Tor. **Fünf in einer Welle.**
+
+### P1-22 · Guthaben ohne Bezahlschritt — ein zweiter schlafender Defekt *(Stolperdraht)*
+
+Bei der Bestandsaufnahme aufgefallen: `POST /credits/purchase` trägt nur
+`requireAuth` und schreibt ein **bepreistes** Paket gut, ohne jeden
+Bezahlschritt. Drei Pakete stehen in der laufenden Datenbank (9,99 / 39,99 /
+129,99 EUR).
+
+**Kein aktives Leck — und das ist der Kern des Befundes:** `spendCredits` hat
+**keinen einzigen Aufrufer**. Guthaben lassen sich nirgends ausgeben, die
+kostenlose Gutschrift ist also eine Währung, die nichts kauft. Kein Frontend
+ruft die Wege auf.
+
+Dieselbe Klasse wie der entfernte Matching-Weg: harmlos, solange ein Teil fehlt —
+und ein echtes Leck an dem Tag, an dem jemand diesen Teil ergänzt.
+
+**Weder gepatcht noch gelöscht.** Die Reparatur wäre eine Bezahlstrecke, und
+CLAUDE.md verbietet sie ausdrücklich, solange die manuelle Rechnung der Standard
+ist. Löschen wäre ebenfalls falsch: drei bepreiste Pakete stehen in Produktion,
+das System ist gewollt, nur unfertig. Stattdessen ein **Stolperdraht**
+(`test/security/guthabenStolperdraht.test.js`), der in dem Moment rot wird, in
+dem jemand `spendCredits` verdrahtet. Gemessen: das Verdrahten macht ihn rot.
+
+> **Das Muster hinter P1-19 und P1-22:** Ein halb gebautes Feature ist kein
+> halbes Risiko — es ist ein volles, das auf sein fehlendes Stück wartet. Wo man
+> es nicht fertigstellen darf und nicht entfernen will, gehört ein Draht daran,
+> der beim Fertigstellen reißt.
 
 ### D-M4 / D-M5 · Zusammenarbeit innerhalb einer Firma *(entschieden und umgesetzt)*
 
@@ -872,7 +915,7 @@ Klartext.
 |---|---|
 | **Demo-Compose** (`cde6c42`) | War **nie** startfähig (nicht „seit P0-08"): Die Datei entstand einen Monat nach dem Guard, den sie verletzt. Schwerer: Sie wird **ausgeliefert** und öffnete beim Kunden alle Plan-Gates — der CI-Wächter dagegen durchsucht nur `.env*`. Dazu der `release-package.sh`-Fehler, durch den `.claude/` ins Artefakt kam (die `EXCLUDE_LIST` galt nur im Fallback-Zweig). Wächter: `composeStartfaehig.test.js` |
 | **NOT_AUTH** (`61d2091`) | Nicht „alle Portalseiten", sondern **genau die G5-Seite**. Und kein Konsolen-Problem: Sie blieb für Abgemeldete **dauerhaft weiß**, ohne Weg zum Login — ausgerechnet der Notfallweg. Siebenmal kopiert, beim achten Mal vergessen. |
-| **H2 — Mandantengrenzen** | Die Entscheidung **D-M1 ist gefallen: Wächter, nicht konsolidieren.** Die fünf Lücken des Plans sind geschlossen — **und der Wächter fand über alle 82 Route-Dateien hinweg zwölf weitere**. Siebzehn Lücken, nicht fünf. Die schwersten kamen zuletzt und lagen zu dritt in **einer** Datei: DSGVO-Vollexport eines Fremden (E-20), fremdes Konto anonymisieren (E-17), fremde Betroffenenanfrage schließen (E-18); dazu der Verteilplan fremder Ausschreibungen, lesbar **und weiterschaltbar** (E-19). Alle geschlossen und gegen das echte Schema bewiesen, ebenso E-14 (Matching) und E-11 (`canAccessAsOwner`, das seit jeher nur den einen anlegenden Menschen durchliess). **Kein offener Sicherheitsbefund mehr** — offen sind nur noch P1-21 (eigene Welle) und ein roter Test aus Welle G4b (M0-B9). Details unten. |
+| **H2 — Mandantengrenzen** | Die Entscheidung **D-M1 ist gefallen: Wächter, nicht konsolidieren.** Die fünf Lücken des Plans sind geschlossen — **und der Wächter fand über alle 82 Route-Dateien hinweg zwölf weitere**. Siebzehn Lücken, nicht fünf. Die schwersten kamen zuletzt und lagen zu dritt in **einer** Datei: DSGVO-Vollexport eines Fremden (E-20), fremdes Konto anonymisieren (E-17), fremde Betroffenenanfrage schließen (E-18); dazu der Verteilplan fremder Ausschreibungen, lesbar **und weiterschaltbar** (E-19). Alle geschlossen und gegen das echte Schema bewiesen, ebenso E-14 (Matching) und E-11 (`canAccessAsOwner`, das seit jeher nur den einen anlegenden Menschen durchliess). **Kein offener Sicherheitsbefund mehr** — offen sind nur noch P1-22 (Abrechnungsentscheidung, per Stolperdraht gehalten) und ein roter Test aus Welle G4b (M0-B9). Details unten. |
 
 ### Zwei Blocker, die nur der Owner lösen kann
 
