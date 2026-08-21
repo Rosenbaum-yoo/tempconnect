@@ -31,25 +31,72 @@ laufenden Datenabfluss.
 Zwei Dinge aus H2, die vor den neuen Abschnitten gehören, weil sie jede
 folgende Arbeit tragen.
 
-### V-1 — Der fehlende RLS-Backstop (P1-16)
+### V-1 — Der fehlende RLS-Backstop (P1-16) — **gemessen 2026-08-21, Aktivierung owner-gated**
 
-`docs/security/TENANT_ISOLATION_MODEL.md` verweist für **28 Tabellen** auf
-Migration 117. **Diese Migration existiert nicht.** Gemessen: `rate_cards` und
-`approval_requests` stehen auf `rls=false` mit null Policies.
+`docs/security/TENANT_ISOLATION_MODEL.md` verwies für 63 Tabellen auf eine
+Migration 117. **Die gibt es nicht** — `sql/migrations/` springt von 116 auf 118.
 
-> **Die Dokumentation behauptet einen Schutz, den es nicht gibt.** Das ist
+> **Die Dokumentation behauptete einen Schutz, den es nicht gibt.** Das ist
 > schlimmer als kein Schutz — wer sie liest, hört auf zu suchen.
 
-Das zählt besonders für 8.1.1: Wenn die Anwendungsgrenze an einer Stelle
-versagt, ist RLS die zweite Linie. Beim Audit-Log gibt es sie nicht.
+**Gegen die laufende Datenbank nachgemessen war das Dokument in beide Richtungen
+falsch** (Commit `cc2be0a`):
 
-**Vorgehen:** Ist-Aufnahme gegen die **laufende** Datenbank (nicht gegen die
-Migrationen — M0-B9 hat gezeigt, dass die beiden auseinanderlaufen), je Tabelle
-die Trägerspalte aus `orgGrenzen.json` übernehmen, Migration nach dem Muster von
-126 (nicht-transaktional, `to_regclass`-geschützt, idempotent), Wächter der jede
-im Modell genannte Tabelle gegen die Wirklichkeit prüft.
-**Verify:** eine Nicht-Superuser-Verbindung ohne Org-Kontext sieht **nichts** —
-je Tabelle einzeln nachgewiesen.
+- **18 der genannten Tabellen haben die behauptete Spalte `org_id` nicht.**
+  `capacities.agency_id`, `demand_requests.requester_company_id` und
+  `offers.supplier_company_id` zeigen auf **`users`**, nicht auf `organizations`
+  (39/39 bzw. 38/38 Werte treffen `users`, null treffen `organizations`). Eine
+  aus dem Dokument geschriebene Migration wäre an genau dem Fehler gescheitert,
+  der schon `116` in den Rollback riss — und `116` wurde trotzdem als
+  „applied“ verbucht.
+- **Der Abschnitt „RLS AKTIV“ war ebenfalls falsch:** `subscriptions` stand dort
+  als geschützt, obwohl `116` sie ausdrücklich ausnimmt und die Datenbank
+  `relrowsecurity = false` zeigt; `vendor_pool_entries` existiert gar nicht. Die
+  gefährlichere Hälfte des Dokuments war die, die Schutz behauptete.
+- **Umgekehrt fehlten 60 Tabellen**, die sehr wohl einen Mandanten tragen: es
+  sind **78**, nicht 28. Nur 8 haben RLS, nur 3 davon FORCE.
+
+**Warum die Migration nicht einfach nachzutragen ist — und was das für die
+Reihenfolge bedeutet:**
+
+Bei **10 Tabellen ist die Trägerspalte gar nicht oder kaum gefüllt** —
+`requests`, `ratings` und `listings` zu **100 %**, `notifications` zu **96 %**
+(731 von 765). RLS wäre dort **kein Schutz, sondern ein Datenausfall**: die
+Zeilen würden für *jeden* unsichtbar, auch für den Eigentümer.
+
+> Das ist **derselbe Defekt wie in 8.1.1** (`audit_log`: 1796 von 2740 Zeilen
+> ohne `org_id`). Die Schreibseite trägt den Mandanten nicht ein. **8.1.1 gehört
+> deshalb VOR die RLS-Aktivierung dieser Tabellen**, nicht danach — die im
+> Kopf dieses Plans notierte Reihenfolge dreht sich an dieser Stelle um.
+
+**Gebaut und verifiziert:**
+- `api/test/fixtures/mandantenTabellen.json` — alle 78 Tabellen mit
+  Trägerspalte, Zeilen-/`NULL`-Zählung und Einstufung samt Begründung:
+  **8 geschützt · 18 bereit · 25 bereit-ohne-Daten · 10 durch Daten blockiert ·
+  17 kein Mandantenträger.**
+- Der Zustandsteil des Modells wird **gerendert statt gepflegt**
+  (`node scripts/render-mandanten-modell.js --write`).
+- `api/test/mandantenModellWaechter.test.js` in zwei Schichten: ohne Datenbank
+  Dokument gegen Registry Zeichen für Zeichen, samt der Probe, dass das Modell
+  keine Migration und kein RLS mehr behauptet, das es nicht gibt; mit Datenbank
+  die Registry gegen die Wirklichkeit, in beide Richtungen. Host 8/8, Container
+  11/11. Rückmutation: erfundene Trägerspalte + falsche RLS-Behauptung → 3 Tests
+  rot.
+
+**Owner-Entscheidung 2026-08-21:**
+
+1. **8.1.1 zuerst, RLS danach.** Die Schreibseite wird repariert, bevor der
+   Backstop gesetzt wird — sonst sichert man leere Trägerspalten ab und macht
+   Daten unsichtbar statt sie zu schützen.
+2. **Nachweis je Tabelle einzeln an einer Wegwerf-Datenbank** mit
+   Nicht-Superuser-Rolle: zwei echte Organisationen; ohne Kontext 0 Zeilen, mit
+   Org A nur A, mit Staff-Bypass alles. Kein Sammelnachweis, keine Aktivierung
+   ohne diesen Beweis — lokal läuft die Anwendung als Superuser, RLS ist dort
+   wirkungslos und ein Fehler würde von der Testsuite **nicht** bemerkt.
+
+Die 18 bereiten und 25 leeren Tabellen stehen benannt in
+`api/test/fixtures/mandantenTabellen.json` und warten damit auf eine eigene
+Welle nach 8.1.1.
 
 ### V-2 — Die Doku-Wächter im Worktree (P2-W1) — **erledigt 2026-08-21**
 
