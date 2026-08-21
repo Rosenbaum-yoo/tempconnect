@@ -351,6 +351,32 @@ Closure zurück. Deshalb konnte `rbac-hardening.test.js` nur Middleware **zähle
 (`assert.ok(names.length >= 2)`) statt sie zu benennen — eine Route ohne Prüfung
 sah aus wie eine mit. `requirePermission` und `requireRole` sind jetzt benannt.
 
+### N-1 — nginx sendet eine gefaltete Kopfzeile ✅ ERLEDIGT (2026-08-21)
+
+**Beim Verdrahtungs-Check der Guthabenseite gefunden.** `nginx/nginx.conf`
+schrieb die Content-Security-Policy über elf Zeilen — lesbar, ordentlich
+eingerückt, und falsch: nginx gibt den Wert **verbatim** aus. Über die Leitung
+ging eine **gefaltete** Kopfzeile (obs-fold).
+
+RFC 7230 §3.2.4 hat diese Faltung abgeschafft: Sender dürfen sie nicht erzeugen,
+Empfänger **müssen** die Nachricht ablehnen. Gemessen: Nodes Standard-HTTP-Parser
+bricht mit *„Parse Error: Invalid header value char"* ab — er kann damit **keine
+einzige** Antwort dieses Servers lesen. Browser und curl sind nachsichtig und
+verdecken es vollständig; aufgefallen ist es erst, als ein Node-Prozess die API
+sprechen sollte.
+
+Behoben (Wert in einer Zeile) und gehalten von `api/test/nginxKopfzeilen.test.js`:
+kein `add_header` darf über mehrere Zeilen laufen. Gemessen: die alte Fassung
+macht den Test rot.
+
+> **Der Fehler sieht wie guter Stil aus.** Wer die CSP das nächste Mal
+> erweitert, bricht sie mit hoher Wahrscheinlichkeit wieder um — und merkt
+> nichts, weil der Browser weiterläuft. Deshalb ein Test und kein Kommentar.
+
+**Wirksam wird es erst nach dem Merge:** der laufende `tempconnect_frontend`
+mountet `nginx/nginx.conf` aus dem **Haupt-Repo**; dieser Worktree ist repariert,
+der Container läuft noch mit der alten Fassung.
+
 ### ~~P1-21 — Welche Wache gehört auf welche Fläche?~~ ✅ ERLEDIGT (2026-08-21)
 
 **Gebaut:** `api/test/fixtures/wachen.json` + `api/test/wachenWaechter.test.js`,
@@ -422,11 +448,20 @@ Index ist partiell · `bounty` darf seine Referenz weiterhin wiederholen.
 Dazu neun Mock-Prüfungen in `test/security/guthabenNurGegenZahlung.test.js`, die
 den Stolperdraht ablösen.
 
-**Noch nicht gebaut, weil es Betrieb ist, nicht Code:** `STRIPE_SECRET_KEY` und
-`STRIPE_WEBHOOK_SECRET` müssen gesetzt sein, und die Erfolgs-/Abbruchseite
-(`/public/credits.html`) existiert noch nicht — die URLs sind über
-`STRIPE_CREDITS_SUCCESS_URL` / `STRIPE_CREDITS_CANCEL_URL` überschreibbar.
-Solange nichts gesetzt ist, antwortet die Route 503; niemand bekommt etwas
+**Die Oberfläche steht** (2026-08-21): `frontend/public/credits.html` +
+`js/pages/credits.js` — Stand, Verlauf, Paketauswahl, Weiterleitung zu Stripe
+und die Deutung der Rückkehr. Im Browser gegen den laufenden Stapel geprüft:
+Pakete laden mit echten Preisen (Bonus, Währungsformat, Stückpreis), 401 wird
+als eigener Zustand benannt statt als Ladefehler, der Kaufknopf erholt sich nach
+einem Fehlschlag, `?payment=cancelled` und `?payment=success` zeigen ihre
+Meldungen, und das Warten auf die Gutschrift endet nach rund 20 Sekunden
+**ehrlich** statt endlos zu drehen. Keine JS-Konsolenfehler.
+
+**Offen bleibt allein der Betrieb:** `STRIPE_SECRET_KEY` und
+`STRIPE_WEBHOOK_SECRET` setzen. Die Rückkehr-URLs zeigen standardmäßig auf
+`/public/credits.html` und sind über `STRIPE_CREDITS_SUCCESS_URL` /
+`STRIPE_CREDITS_CANCEL_URL` überschreibbar. Solange nichts gesetzt ist,
+antwortet die Route 503 und die Seite sagt das auch — niemand bekommt etwas
 geschenkt.
 
 ### ~~M0-B9 — Ein roter Integrationstest aus Welle G4b~~ ✅ ERLEDIGT (2026-08-21)

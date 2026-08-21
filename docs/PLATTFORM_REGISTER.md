@@ -277,8 +277,11 @@ strategische Zusammenarbeit.
 Abwanderung nach dem ersten Monat.
 *Beleg:* `api/routes/bounties.js` (6), `api/routes/referralProgram.js` (6),
 `api/routes/mentoring.js` (5), `api/routes/strategicCollaboration.js` (5),
-`api/routes/credits.js` (4). Oberfläche: `bounties.html`.
-*Einschränkung, belegt:* `/credits/*` (4 Endpunkte) hat null Treffer im Frontend.
+`api/routes/credits.js` (4). Oberfläche: `bounties.html`, `credits.html`.
+*Nachtrag 2026-08-21:* Die Einschränkung „`/credits/*` hat null Treffer im
+Frontend" gilt nicht mehr — `credits.html` bedient alle vier Endpunkte. Der Kauf
+läuft seit Befund P1-22 über Stripe; gutgeschrieben wird ausschließlich im
+signaturgeprüften Webhook.
 
 ### 17. Tarife, Abonnement und Abrechnung
 
@@ -488,6 +491,7 @@ Weiterleitung oder für keinen Nutzer erreichbar.
 | `sla_abo.html` | beide | Tarifauswahl und Buchung; Ziel jeder Bezahlschranke der Plattform | aktiv |
 | `enterprise_anfrage.html` | Unternehmen | Konfigurator für den individuellen Tarif | aktiv |
 | `bounties.html` | beide | Aufgaben, mit denen Kunden sich Rabatte erarbeiten | aktiv |
+| `credits.html` | beide | Guthabenstand, Verlauf und Kauf über Stripe (Befund P1-22) | aktiv |
 | `organization.html` | beide (Admin) | Mitglieder, API-Schlüssel, Sicherheitseinstellungen, Finanz-Export | aktiv |
 | `org-invite.html` | neue Mitglieder | Einladung aus der E-Mail annehmen; bewusst ohne Navigation | aktiv |
 | `integrations.html` | beide | Slack/Teams, DATEV, SAP, zvoove anbinden | aktiv |

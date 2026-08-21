@@ -1,16 +1,16 @@
 import crypto from "node:crypto";
 import { Router } from "express";
-import Stripe from "stripe";
 import * as creditService from "../services/creditService.js";
 
 export function createCreditsRouter(deps) {
-  const { pool, requireAuth, logger, config = {} } = deps;
+  const { pool, requireAuth, logger, config = {}, stripe = null } = deps;
   const router = Router();
 
   /* Befund P1-22, Owner-Entscheidung 2026-08-21: Guthaben gibt es nur gegen
-     Zahlung, und der Weg dorthin ist Stripe — derselbe, den die Abos gehen. */
-  const STRIPE_SECRET_KEY = config.STRIPE_SECRET_KEY || "";
-  const stripe = STRIPE_SECRET_KEY ? new Stripe(STRIPE_SECRET_KEY) : null;
+     Zahlung, und der Weg dorthin ist Stripe — derselbe, den die Abos gehen.
+     Der Klient kommt aus `deps`: `app.js:147` baut ihn einmal fuer die ganze
+     Anwendung. Ein zweiter waere eine zweite Wahrheit ueber denselben
+     Schluessel — und wuerde beim naechsten Schluesselwechsel auseinanderlaufen. */
   const BASE_URL = (config.BASE_URL || "http://localhost:8080").replace(/\/$/, "");
   const erfolgUrl = (config.STRIPE_CREDITS_SUCCESS_URL || "").trim()
     || `${BASE_URL}/public/credits.html?payment=success&session_id={CHECKOUT_SESSION_ID}`;

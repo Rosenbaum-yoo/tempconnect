@@ -743,6 +743,27 @@ Bestandsaufnahme fielen ihre Routen als „ohne Wache" auf, obwohl sie bewacht
 sind — dieselbe Blindstelle wie bei `supportAuth`, `ownerControlAuth`,
 `requirePermission` und dem Präfix-Tor. **Fünf in einer Welle.**
 
+### N-1 · nginx sendet eine gefaltete Kopfzeile *(geschlossen)*
+
+**Beim Verdrahtungs-Check der Guthabenseite gefunden — und der Fund ist größer
+als die Seite.** `nginx/nginx.conf` schrieb die Content-Security-Policy über elf
+Zeilen: lesbar, ordentlich eingerückt, und falsch. nginx gibt den Wert
+**verbatim** aus; über die Leitung ging eine **gefaltete** Kopfzeile (obs-fold).
+
+RFC 7230 §3.2.4 hat diese Faltung abgeschafft — Sender dürfen sie nicht
+erzeugen, Empfänger **müssen** die Nachricht ablehnen. Gemessen: Nodes
+Standard-HTTP-Parser bricht mit *„Parse Error: Invalid header value char"* ab und
+kann damit **keine einzige** Antwort dieses Servers lesen.
+
+> **Browser und curl sind nachsichtig — und genau deshalb hat es überlebt.**
+> Der Defekt betraf jede Antwort der Plattform, war aber nur zu sehen, wenn ein
+> strenger Client zuhörte. Aufgefallen ist er erst, als ein Node-Prozess die API
+> sprechen sollte.
+
+Behoben (Wert in einer Zeile), gehalten von `api/test/nginxKopfzeilen.test.js`.
+Wirksam nach dem Merge: der laufende Container mountet die Konfiguration aus dem
+Haupt-Repo.
+
 ### P1-22 · Guthaben nur gegen Zahlung — Owner-Entscheidung Stripe *(geschlossen)*
 
 Bei der Bestandsaufnahme zu P1-21 aufgefallen: `POST /credits/purchase` trug nur
@@ -965,7 +986,7 @@ Klartext.
 |---|---|
 | **Demo-Compose** (`cde6c42`) | War **nie** startfähig (nicht „seit P0-08"): Die Datei entstand einen Monat nach dem Guard, den sie verletzt. Schwerer: Sie wird **ausgeliefert** und öffnete beim Kunden alle Plan-Gates — der CI-Wächter dagegen durchsucht nur `.env*`. Dazu der `release-package.sh`-Fehler, durch den `.claude/` ins Artefakt kam (die `EXCLUDE_LIST` galt nur im Fallback-Zweig). Wächter: `composeStartfaehig.test.js` |
 | **NOT_AUTH** (`61d2091`) | Nicht „alle Portalseiten", sondern **genau die G5-Seite**. Und kein Konsolen-Problem: Sie blieb für Abgemeldete **dauerhaft weiß**, ohne Weg zum Login — ausgerechnet der Notfallweg. Siebenmal kopiert, beim achten Mal vergessen. |
-| **H2 — Mandantengrenzen** | Die Entscheidung **D-M1 ist gefallen: Wächter, nicht konsolidieren.** Die fünf Lücken des Plans sind geschlossen — **und der Wächter fand über alle 82 Route-Dateien hinweg zwölf weitere**. Siebzehn Lücken, nicht fünf. Die schwersten kamen zuletzt und lagen zu dritt in **einer** Datei: DSGVO-Vollexport eines Fremden (E-20), fremdes Konto anonymisieren (E-17), fremde Betroffenenanfrage schließen (E-18); dazu der Verteilplan fremder Ausschreibungen, lesbar **und weiterschaltbar** (E-19). Alle geschlossen und gegen das echte Schema bewiesen, ebenso E-14 (Matching) und E-11 (`canAccessAsOwner`, das seit jeher nur den einen anlegenden Menschen durchliess). **Kein offener Sicherheitsbefund mehr** — **kein offener Punkt mehr** — P1-22 ist mit der Owner-Entscheidung Stripe umgesetzt. Details unten. |
+| **H2 — Mandantengrenzen** | Die Entscheidung **D-M1 ist gefallen: Wächter, nicht konsolidieren.** Die fünf Lücken des Plans sind geschlossen — **und der Wächter fand über alle 82 Route-Dateien hinweg zwölf weitere**. Siebzehn Lücken, nicht fünf. Die schwersten kamen zuletzt und lagen zu dritt in **einer** Datei: DSGVO-Vollexport eines Fremden (E-20), fremdes Konto anonymisieren (E-17), fremde Betroffenenanfrage schließen (E-18); dazu der Verteilplan fremder Ausschreibungen, lesbar **und weiterschaltbar** (E-19). Alle geschlossen und gegen das echte Schema bewiesen, ebenso E-14 (Matching) und E-11 (`canAccessAsOwner`, das seit jeher nur den einen anlegenden Menschen durchliess). **Kein offener Sicherheitsbefund mehr** — **kein offener Punkt mehr** — P1-22 ist mit der Owner-Entscheidung Stripe umgesetzt, die Oberflaeche steht, und der beim Pruefen gefundene nginx-Befund N-1 ist geschlossen. Offen ist nur noch der Betrieb: die beiden Stripe-Schluessel setzen. Details unten. |
 
 ### Zwei Blocker, die nur der Owner lösen kann
 
