@@ -102,37 +102,51 @@ else
   info "Keine private_key-Dateien im Release"
 fi
 
-# --- Secret-Pattern-Scan (HIGH CONFIDENCE: echte Werte, keine Platzhalter) ---
-SECRET_HITS=0
-while IFS= read -r -d '' srcfile; do
-  basename="$(basename "$srcfile")"
-  # .example-Dateien sind erlaubt
-  [[ "$basename" == *.example ]] && continue
-  # Nur in relevanten Dateitypen scannen
-  [[ "$srcfile" =~ \.(js|ts|json|yml|yaml|sh|env|conf|config|ini|toml)$ ]] || \
-    [[ "$basename" == ".env" ]] || [[ "$basename" == "Makefile" ]] || continue
+# --- Secret-Scan ---
+#
+# Die Regel lebt in scripts/lib/secretScan.mjs, nicht hier. Zwei Gruende:
+#
+# 1. BEWEISBARKEIT. Die fruehere Fassung stand als Regex an dieser Stelle und
+#    meldete 18 Treffer, von denen KEINER ein Secret war — darunter ihr eigener
+#    Kommentar zwei Zeilen weiter oben. Aufgefallen ist das erst beim Packen,
+#    weil eine Shell-Regex nur beim Release laeuft und dann niemand mehr fragt.
+#    Als Modul wird dieselbe Regel von api/test/releaseSecretScan.test.js mit
+#    69 Faellen gefuettert: echte Fehlalarme UND gepflanzte echte Schluessel.
+#
+# 2. TEMPO. Die alte Schleife startete ZWEI grep-Prozesse pro ZEILE. Der Scan
+#    war damit der langsamste Schritt der gesamten Pruefung.
+#
+# Einzelne Zeilen koennen mit dem Kommentar `secret-scan: erlaubt` freigegeben
+# werden — sichtbar an der Fundstelle statt in einer Ausnahmeliste.
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+SCANNER=""
+for kandidat in "${SCRIPT_DIR}/lib/secretScan.mjs" "${TARGET_DIR}/scripts/lib/secretScan.mjs"; do
+  [ -f "$kandidat" ] && { SCANNER="$kandidat"; break; }
+done
 
-  # Suche nach verdaechtig realistisch aussehenden Secrets
-  # (mehr als 20 Zeichen nach dem = , keine typischen Platzhalter-Werte)
-  while IFS= read -r line; do
-    # Überspringe offensichtliche Platzhalter
-    if echo "$line" | grep -qE '(PLATZHALTER|placeholder|CHANGE_ME|your_|<.*>|EXAMPLE|DUMMY|HIER_|ENTER_|REPLACE|TODO|xxx|yyy|zzz)'; then
-      continue
-    fi
-    # Warnung bei verdaechtig langen Werten nach SECRET=, TOKEN=, PASSWORD=, KEY=
-    if echo "$line" | grep -qE '(SECRET|TOKEN|PASSWORD|PRIVATE_KEY|API_KEY)\s*=\s*.{20,}'; then
-      relpath="${srcfile#$TARGET_DIR/}"
-      warn "MOEGLICHES SECRET in: ${relpath}"
-      SECRET_HITS=$((SECRET_HITS + 1))
-    fi
-  done < "$srcfile"
-done < <(find "$TARGET_DIR" -type f -print0 2>/dev/null)
-
-if [ "$SECRET_HITS" -gt 0 ]; then
-  warn "${SECRET_HITS} moegliche Secret-Treffer gefunden — bitte manuell pruefen"
-  VIOLATIONS=$((VIOLATIONS + SECRET_HITS))
+if [ -z "$SCANNER" ]; then
+  # Kein stilles Ueberspringen: Eine uebersprungene Sicherheitspruefung sieht im
+  # Protokoll aus wie eine bestandene.
+  warn "SECRET-SCAN NICHT MOEGLICH: scripts/lib/secretScan.mjs nicht gefunden"
+  VIOLATIONS=$((VIOLATIONS + 1))
+elif ! command -v node >/dev/null 2>&1; then
+  warn "SECRET-SCAN NICHT MOEGLICH: node ist nicht verfuegbar"
+  VIOLATIONS=$((VIOLATIONS + 1))
 else
-  info "Kein High-Confidence Secret-Treffer gefunden"
+  SECRET_HITS=0
+  while IFS= read -r fund; do
+    [ -n "$fund" ] || continue
+    # Format: pfad:zeile:grund:wert — der Wert wird NICHT ausgegeben.
+    warn "SECRET in: ${fund%%:*}:$(echo "$fund" | cut -d: -f2) — $(echo "$fund" | cut -d: -f3)"
+    SECRET_HITS=$((SECRET_HITS + 1))
+  done < <(node "$SCANNER" "$TARGET_DIR" 2>/dev/null)
+
+  if [ "$SECRET_HITS" -gt 0 ]; then
+    warn "${SECRET_HITS} echte Zugangsdaten im Paket — Release blockiert"
+    VIOLATIONS=$((VIOLATIONS + SECRET_HITS))
+  else
+    info "Keine Zugangsdaten im Paket"
+  fi
 fi
 
 # --- Ergebnis ---

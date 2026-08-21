@@ -110,8 +110,13 @@ function apiUmgebung(datei) {
  * Platzhalter sind — ein Fehlalarm, der mit diesem Test nichts zu tun hat.)
  */
 const STARKE_BASIS = Object.freeze({
-  SESSION_SECRET: "u7Qf2xLp9vRt4Nz8Ka3Wd6Yb1Mc5Hj0Gs7Er4Tv2Pn9Lq6Zx3Bw8Fd5Rk1Jm",
-  JWT_SECRET: "Zx3Bw8Fd5Rk1Jm7Qf2xLp9vRt4Nz8Ka3Wd6Yb1Mc5Hj0Gs7Er4Tv2Pn9Lq6U",
+  /* Die beiden Freigaben sind noetig, weil diese Werte ihren Zweck nur
+   * erfuellen, wenn sie ECHT stark sind — der Test schickt sie durch denselben
+   * Validator wie die Produktion. Damit sind sie zwangslaeufig auch fuer den
+   * Release-Scan von einem echten Schluessel nicht zu unterscheiden.
+   * Siehe scripts/lib/secretScan.mjs. */
+  SESSION_SECRET: "u7Qf2xLp9vRt4Nz8Ka3Wd6Yb1Mc5Hj0Gs7Er4Tv2Pn9Lq6Zx3Bw8Fd5Rk1Jm", // secret-scan: erlaubt
+  JWT_SECRET: "Zx3Bw8Fd5Rk1Jm7Qf2xLp9vRt4Nz8Ka3Wd6Yb1Mc5Hj0Gs7Er4Tv2Pn9Lq6U", // secret-scan: erlaubt
   DATABASE_URL: "postgres://u:p@db:5432/tempconnect",
 });
 
