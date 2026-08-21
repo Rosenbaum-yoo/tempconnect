@@ -1,6 +1,6 @@
 {
   "zweck": "Register der Mandantengrenze. Geprueft von test/orgGrenzenWaechter.test.js. Jede Route mit einem Pfad-Platzhalter in einer abgedeckten Datei braucht hier ein Urteil; jede Route-Datei ist entweder abgedeckt oder mit Grund ausgesetzt. Hintergrund: docs/ORG_GRENZE_BEFUND.md und docs/features/H_KUNDENANSICHT_UND_ORG_GRENZEN.md.",
-  "stand": "2026-08-19",
+  "stand": "2026-08-21",
   "felder": {
     "urteil": "verhaltensgeprueft | bewusste-ausnahme (letzteres braucht 'begruendung')",
     "art": "ressource (:id adressiert eine Zeile) | entitaet (Liste zu einer Fremdkennung) | orgpfad (:id IST die Org-Kennung)",
@@ -516,7 +516,11 @@
           "methode": "get",
           "pfad": "/organizations/:id/audit-log",
           "urteil": "verhaltensgeprueft",
-          "art": "orgpfad"
+          "art": "orgpfad",
+          "traegerspalten": [
+            "org_id"
+          ],
+          "hinweis": "Die Kundensicht auf das Audit — dieselbe Route fuer Zeitarbeitsfirma UND Unternehmen, der Unterschied ist der Mandant, nicht die Rolle (Owner-Vorgabe 8.1.1 c). Der Lesepfad war immer sauber: queryAuditLog filtert mit al.org_id = $n, das kann NULL nicht treffen. Undicht war das SCHREIBEN — 139 Zeilen trugen eine fremde org_id. Behoben an der Quelle, Bestand repariert von Migration 187, Abnahme in test/auditMandantenGrenze.test.js."
         },
         {
           "methode": "get",
@@ -4922,5 +4926,6 @@
     "occ/support.js": "Ueber den Einstiegspunkt `ownerControlCenter.js` gefuehrt: die Datei montiert alle 13 Unterrouter hinter EINEM Tor (`ownerControlAuth` auf `/owner-control`). Schicht B3 zaehlt die Routen dieser Datei REKURSIV auf — also auch die aus dieser hier — und prueft, dass jede unter dem Tor liegt und keine Teilflaeche davor montiert ist. Ein eigener Eintrag je Unterrouter wuerde dieselbe Kette ein zweites Mal pruefen, ohne eine zusaetzliche Frage zu stellen. Keine dieser Dateien hat eine Platzhalter-Route.",
     "occ/warp.js": "Ueber den Einstiegspunkt `ownerControlCenter.js` gefuehrt: die Datei montiert alle 13 Unterrouter hinter EINEM Tor (`ownerControlAuth` auf `/owner-control`). Schicht B3 zaehlt die Routen dieser Datei REKURSIV auf — also auch die aus dieser hier — und prueft, dass jede unter dem Tor liegt und keine Teilflaeche davor montiert ist. Ein eigener Eintrag je Unterrouter wuerde dieselbe Kette ein zweites Mal pruefen, ohne eine zusaetzliche Frage zu stellen. Keine dieser Dateien hat eine Platzhalter-Route.",
     "occ/_helpers.js": "Ueber den Einstiegspunkt `ownerControlCenter.js` gefuehrt: die Datei montiert alle 13 Unterrouter hinter EINEM Tor (`ownerControlAuth` auf `/owner-control`). Schicht B3 zaehlt die Routen dieser Datei REKURSIV auf — also auch die aus dieser hier — und prueft, dass jede unter dem Tor liegt und keine Teilflaeche davor montiert ist. Ein eigener Eintrag je Unterrouter wuerde dieselbe Kette ein zweites Mal pruefen, ohne eine zusaetzliche Frage zu stellen. Keine dieser Dateien hat eine Platzhalter-Route."
-  }
+  },
+  "praemisse": "Dieses Register prueft, ob eine Route die Org-Grenze RICHTIG ZIEHT — also ob sie req.orgId gegen das Ziel haelt. Es setzt damit voraus, dass req.orgId dem Anfragenden ueberhaupt GEHOERT. Genau diese Voraussetzung war bis zum 2026-08-21 verletzt (Befund 8.1.1): routes/demo.js setzte req.session.userId ohne session.regenerate(), die uebernommene Sitzung behielt ihren _orgCache, und req.orgId zeigte fuer den neuen Nutzer auf die Organisation seines Vorgaengers. Jede der hier als verhaltensgeprueft gefuehrten Routen zog ihre Grenze dann korrekt — gegen den falschen Mandanten. Der Riegel sitzt seitdem in middleware/orgContext.js (der Zwischenspeicher traegt den Nutzer, fuer den er aufgeloest wurde) und wird von test/auditMandantenGrenze.test.js festgehalten. Merksatz: ein Register ueber Grenzen ist nur so viel wert wie die Herkunft der Kennung, gegen die gemessen wird."
 }

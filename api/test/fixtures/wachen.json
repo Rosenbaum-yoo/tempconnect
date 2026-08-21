@@ -2,7 +2,8 @@
   "felder": {
     "wachart": "berechtigung (requirePermission/requireRole) | flaechentor (eine Eintrittsbedingung je Flaeche) | cron (Zeitplan-Geheimnis) | besitz (Bindung am Vorgang, vom Org-Waechter ausgefuehrt geprueft) | eigene-daten (kein fremdes Ziel erreichbar) | inline-rolle (Rolle/Geheimnis im Handler) | oeffentlich (bewusst ohne Mandant) | BEFUND (offener Punkt)",
     "begruendung": "Warum diese Art hier die richtige ist. Pflicht bei allem ausser 'berechtigung'.",
-    "orgGeprueft": "true, wenn der Org-Grenzen-Waechter diesen Weg ausgefuehrt geprueft hat."
+    "orgGeprueft": "true, wenn der Org-Grenzen-Waechter diesen Weg ausgefuehrt geprueft hat.",
+    "hinweis": "Klartext fuer den naechsten Leser. Nicht vom Waechter geprueft — aber die Stelle, an der eine teuer gelernte Lektion haengen bleibt."
   },
   "wege": [
     {
@@ -195,7 +196,8 @@
       "methode": "post",
       "pfad": "/auth/login",
       "wachart": "oeffentlich",
-      "begruendung": "Anmeldung, Registrierung und Ruecksetzung laufen VOR jedem Mandantenkontext. Es gibt hier keine Rolle, gegen die man pruefen koennte."
+      "begruendung": "Anmeldung, Registrierung und Ruecksetzung laufen VOR jedem Mandantenkontext. Es gibt hier keine Rolle, gegen die man pruefen koennte.",
+      "hinweis": "Regeneriert die Sitzung seit SEC-001 (Session-Fixation). Dass derselbe Schutz in demo.js fehlte, war der Ausgangspunkt von Befund 8.1.1 — ein Schutz, den eine Schwesterroute nicht hat, ist kein Schutz der Flaeche."
     },
     {
       "datei": "auth.js",
@@ -607,7 +609,8 @@
       "methode": "post",
       "pfad": "/auth/demo-login",
       "wachart": "oeffentlich",
-      "begruendung": "Demo-Zugang und -Ruecksetzung: ausdruecklich ohne Konto erreichbar, sonst waere die Demo keine."
+      "begruendung": "Demo-Zugang und -Ruecksetzung: ausdruecklich ohne Konto erreichbar, sonst waere die Demo keine.",
+      "hinweis": "BEFUND 8.1.1 (2026-08-21): \"oeffentlich\" heisst NICHT \"ohne Mandantenfolgen\". Diese Route setzte req.session.userId ohne session.regenerate(). Die uebernommene Sitzung behielt ihren _orgCache, und req.orgId zeigte fuer den Demo-Nutzer die ganze Sitzung lang auf die Organisation des zuvor angemeldeten Kontos — gemessen an 102 Audit-Zeilen. Betroffen war damit die Mandantengrenze JEDER Route, die req.orgId vertraut, nicht nur das Audit. Regel fuer jeden neuen oeffentlichen Einstiegspunkt: erst regenerate(), dann den Nutzer eintragen."
     },
     {
       "datei": "demo.js",
@@ -1322,7 +1325,8 @@
       "pfad": "/notifications/:id/read",
       "wachart": "eigene-daten",
       "begruendung": "Eigene Benachrichtigungen und deren Einstellungen.",
-      "orgGeprueft": true
+      "orgGeprueft": true,
+      "hinweis": "Die Route selbst war immer richtig (WHERE user_id = req.session.userId). Trotzdem trugen 102 ihrer Audit-Zeilen eine fremde Organisation — nicht die Route war undicht, sondern der AUDIT-STEMPEL, der req.orgId nahm. Merksatz: eine korrekt bewachte Route kann eine falsch gestempelte Spur hinterlassen. Siehe 8.1.1 und api/services/auditLog.js bestimmeAuditOrg()."
     },
     {
       "datei": "notifications.js",
@@ -2929,6 +2933,6 @@
   "grundlinie": {
     "wege": 415,
     "berechtigung": 161,
-    "hinweis": "Sperrklinke: die Gesamtzahl der eingetragenen Wege darf wachsen, nicht fallen, und die Zahl der per Berechtigung bewachten ebenso. Wer eine Route auf eine schwaechere Wachart zuruecksetzt, senkt diese Zahl bewusst und mit Begruendung."
+    "hinweis": "Sperrklinke: die Gesamtzahl der eingetragenen Wege darf wachsen, nicht fallen, und die Zahl der per Berechtigung bewachten ebenso. Wer eine Route auf eine schwaechere Wachart zuruecksetzt, senkt diese Zahl bewusst und mit Begruendung. Am 2026-08-21 unveraendert (415/161): 8.1.1 hat keine Wachart geaendert, sondern die Sitzungsuebernahme in einem oeffentlichen Einstiegspunkt geschlossen."
   }
 }
