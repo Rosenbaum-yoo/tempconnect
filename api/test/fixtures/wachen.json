@@ -558,8 +558,8 @@
       "datei": "credits.js",
       "methode": "post",
       "pfad": "/credits/purchase",
-      "wachart": "BEFUND",
-      "begruendung": "Befund P1-22: `POST /credits/purchase` traegt nur `requireAuth` und schreibt ein BEPREISTES Paket ohne Bezahlschritt gut. Schlafend, weil `spendCredits` keinen Aufrufer hat — Guthaben lassen sich nirgends ausgeben. Gehalten von `test/security/guthabenStolperdraht.test.js`."
+      "wachart": "eigene-daten",
+      "begruendung": "Guthaben gehoeren dem eigenen Konto. Der Kauf erzeugt seit Befund P1-22 nur noch eine Stripe-Sitzung; gutgeschrieben wird ausschliesslich im signaturgeprueften Webhook, gegen den tatsaechlich gezahlten Betrag und einmalig (eindeutiger Index, Migration 186)."
     },
     {
       "datei": "dataGovernance.js",

@@ -743,27 +743,38 @@ Bestandsaufnahme fielen ihre Routen als „ohne Wache" auf, obwohl sie bewacht
 sind — dieselbe Blindstelle wie bei `supportAuth`, `ownerControlAuth`,
 `requirePermission` und dem Präfix-Tor. **Fünf in einer Welle.**
 
-### P1-22 · Guthaben ohne Bezahlschritt — ein zweiter schlafender Defekt *(Stolperdraht)*
+### P1-22 · Guthaben nur gegen Zahlung — Owner-Entscheidung Stripe *(geschlossen)*
 
-Bei der Bestandsaufnahme aufgefallen: `POST /credits/purchase` trägt nur
-`requireAuth` und schreibt ein **bepreistes** Paket gut, ohne jeden
-Bezahlschritt. Drei Pakete stehen in der laufenden Datenbank (9,99 / 39,99 /
-129,99 EUR).
+Bei der Bestandsaufnahme zu P1-21 aufgefallen: `POST /credits/purchase` trug nur
+`requireAuth` und schrieb ein **bepreistes** Paket gut, ohne jeden Bezahlschritt.
+Kein aktives Leck, weil `spendCredits` keinen Aufrufer hatte — aber ein
+schlafender Defekt, der am Tag der ersten Ausgabe aufgewacht wäre.
 
-**Kein aktives Leck — und das ist der Kern des Befundes:** `spendCredits` hat
-**keinen einzigen Aufrufer**. Guthaben lassen sich nirgends ausgeben, die
-kostenlose Gutschrift ist also eine Währung, die nichts kauft. Kein Frontend
-ruft die Wege auf.
+**Der Owner hat entschieden: Stripe.** Der Kauf geht jetzt denselben Weg wie die
+Abos — Sitzung erzeugen, Kunde zahlt, der signaturgeprüfte Webhook schreibt gut.
+Die Aufteilung in zwei Funktionen ist die eigentliche Absicherung: es gibt keine
+Funktion mehr, die „gutschreiben" heißt und ohne Zahlungsnachweis aufrufbar ist.
+Ohne gesetzten Stripe-Schlüssel antwortet die Route **503** statt auf einen
+kostenlosen Ersatzweg zu fallen — dieser Ersatzweg *war* der Befund.
 
-Dieselbe Klasse wie der entfernte Matching-Weg: harmlos, solange ein Teil fehlt —
-und ein echtes Leck an dem Tag, an dem jemand diesen Teil ergänzt.
+**Migration 186** legt den Riegel dorthin, wo Gleichzeitigkeit entschieden wird:
+ein eindeutiger, partieller Index auf der Kauf-Referenz. Stripe stellt Webhooks
+*wiederholt* zu — Zusicherung des Anbieters, kein Fehler. Eine Idempotenz aus
+„erst SELECT, dann INSERT" hält zwei gleichzeitige Zustellungen nicht auf.
 
-**Weder gepatcht noch gelöscht.** Die Reparatur wäre eine Bezahlstrecke, und
-CLAUDE.md verbietet sie ausdrücklich, solange die manuelle Rechnung der Standard
-ist. Löschen wäre ebenfalls falsch: drei bepreiste Pakete stehen in Produktion,
-das System ist gewollt, nur unfertig. Stattdessen ein **Stolperdraht**
-(`test/security/guthabenStolperdraht.test.js`), der in dem Moment rot wird, in
-dem jemand `spendCredits` verdrahtet. Gemessen: das Verdrahten macht ihn rot.
+> **Der Lauf gegen die echte Datenbank hat einen echten Fehler gefangen — meinen.**
+> Die erste Fassung schrieb über `earnCredits` gut, und diese Funktion erhöht
+> **zuerst** den Saldo und schreibt **danach** die Buchung. Der Index feuerte also
+> erst, als das Guthaben schon oben war: eine wiederholte Zustellung kam auf den
+> **doppelten** Stand. Die Mock-Tests waren dabei grün — ein Mock kennt keine
+> Indizes. Repariert: die Buchung ist der erste Schritt, beides in einer
+> Transaktion.
+
+Sechs Prüfungen gegen das echte Schema, neun gegen Mocks. Was **nicht** gebaut
+ist, weil es Betrieb ist und nicht Code: die Schlüssel und die
+Erfolgs-/Abbruchseite. Solange nichts gesetzt ist, antwortet die Route 503 —
+niemand bekommt etwas geschenkt.
+
 
 > **Das Muster hinter P1-19 und P1-22:** Ein halb gebautes Feature ist kein
 > halbes Risiko — es ist ein volles, das auf sein fehlendes Stück wartet. Wo man
@@ -954,7 +965,7 @@ Klartext.
 |---|---|
 | **Demo-Compose** (`cde6c42`) | War **nie** startfähig (nicht „seit P0-08"): Die Datei entstand einen Monat nach dem Guard, den sie verletzt. Schwerer: Sie wird **ausgeliefert** und öffnete beim Kunden alle Plan-Gates — der CI-Wächter dagegen durchsucht nur `.env*`. Dazu der `release-package.sh`-Fehler, durch den `.claude/` ins Artefakt kam (die `EXCLUDE_LIST` galt nur im Fallback-Zweig). Wächter: `composeStartfaehig.test.js` |
 | **NOT_AUTH** (`61d2091`) | Nicht „alle Portalseiten", sondern **genau die G5-Seite**. Und kein Konsolen-Problem: Sie blieb für Abgemeldete **dauerhaft weiß**, ohne Weg zum Login — ausgerechnet der Notfallweg. Siebenmal kopiert, beim achten Mal vergessen. |
-| **H2 — Mandantengrenzen** | Die Entscheidung **D-M1 ist gefallen: Wächter, nicht konsolidieren.** Die fünf Lücken des Plans sind geschlossen — **und der Wächter fand über alle 82 Route-Dateien hinweg zwölf weitere**. Siebzehn Lücken, nicht fünf. Die schwersten kamen zuletzt und lagen zu dritt in **einer** Datei: DSGVO-Vollexport eines Fremden (E-20), fremdes Konto anonymisieren (E-17), fremde Betroffenenanfrage schließen (E-18); dazu der Verteilplan fremder Ausschreibungen, lesbar **und weiterschaltbar** (E-19). Alle geschlossen und gegen das echte Schema bewiesen, ebenso E-14 (Matching) und E-11 (`canAccessAsOwner`, das seit jeher nur den einen anlegenden Menschen durchliess). **Kein offener Sicherheitsbefund mehr** — offen ist nur noch P1-22 (Abrechnung: Owner-Entscheidung Stripe, Umsetzung folgt). Details unten. |
+| **H2 — Mandantengrenzen** | Die Entscheidung **D-M1 ist gefallen: Wächter, nicht konsolidieren.** Die fünf Lücken des Plans sind geschlossen — **und der Wächter fand über alle 82 Route-Dateien hinweg zwölf weitere**. Siebzehn Lücken, nicht fünf. Die schwersten kamen zuletzt und lagen zu dritt in **einer** Datei: DSGVO-Vollexport eines Fremden (E-20), fremdes Konto anonymisieren (E-17), fremde Betroffenenanfrage schließen (E-18); dazu der Verteilplan fremder Ausschreibungen, lesbar **und weiterschaltbar** (E-19). Alle geschlossen und gegen das echte Schema bewiesen, ebenso E-14 (Matching) und E-11 (`canAccessAsOwner`, das seit jeher nur den einen anlegenden Menschen durchliess). **Kein offener Sicherheitsbefund mehr** — **kein offener Punkt mehr** — P1-22 ist mit der Owner-Entscheidung Stripe umgesetzt. Details unten. |
 
 ### Zwei Blocker, die nur der Owner lösen kann
 

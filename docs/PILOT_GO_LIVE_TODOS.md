@@ -384,32 +384,50 @@ schwächere Wachart zurücksetzen.
 trägt die gesamte interne Steuerungsfläche und war unsichtbar — ihre Routen
 fielen in der Bestandsaufnahme als „ohne Wache" auf, obwohl sie bewacht sind.
 
-### P1-22 — Guthaben werden ohne Bezahlschritt gutgeschrieben (schlafend)
+### ~~P1-22 — Guthaben werden ohne Bezahlschritt gutgeschrieben~~ ✅ ERLEDIGT (2026-08-21)
 
-**Status:** offen (Produkt-/Abrechnungsentscheidung) · **Fakt:**
-`POST /credits/purchase` (`routes/credits.js:30`) trägt nur `requireAuth` und
-schreibt über `creditService.purchasePackage` ein **bepreistes** Paket gut —
-ohne jeden Bezahlschritt. In der laufenden Datenbank stehen drei Pakete
-(9,99 / 39,99 / 129,99 EUR).
+**Owner-Entscheidung: Stripe.** Der Kauf geht jetzt denselben Weg wie die Abos —
+`POST /credits/purchase` erzeugt nur noch eine Checkout-Sitzung, gutgeschrieben
+wird ausschließlich im **signaturgeprüften Webhook**.
 
-**Warum es trotzdem kein aktives Leck ist:** `spendCredits` hat **keinen
-einzigen Aufrufer**. Guthaben lassen sich nirgends ausgeben — die kostenlose
-Gutschrift ist eine Währung, die nichts kauft. Kein Frontend ruft die Wege auf.
-**Schlafender Defekt**, dieselbe Klasse wie der entfernte Matching-Weg (P1-19).
+Die Aufteilung in zwei Funktionen ist die eigentliche Absicherung: es gibt keine
+Funktion mehr, die „gutschreiben" heißt und ohne Zahlungsnachweis aufrufbar ist.
 
-**Warum weder gepatcht noch gelöscht:** Die Reparatur wäre eine Bezahlstrecke —
-CLAUDE.md verbietet sie ausdrücklich („Kein Code für Auto-Billing, solange
-manuelle Rechnung Default ist"). Die Route zu entfernen wäre ebenfalls falsch:
-drei bepreiste Pakete stehen in der Produktionsdatenbank, das System ist
-offenbar gewollt, nur unfertig.
+| | |
+|---|---|
+| `startPurchase` | schlägt nach, was das Paket kostet und enthält — schreibt **nichts** |
+| `grantPurchasedPackage` | nur aus dem Webhook: prüft den **gezahlten Betrag** und die **Einmaligkeit** |
 
-**Stattdessen ein Stolperdraht:** `api/test/security/guthabenStolperdraht.test.js`
-wird in dem Moment rot, in dem jemand `spendCredits` verdrahtet, ohne vorher die
-Gutschrift an eine Zahlung zu binden. Gemessen: das Verdrahten macht ihn rot.
-**Aktion:** Owner entscheidet, wie gekauft wird (Stripe? manuelle Rechnung?) —
-und bindet die Gutschrift daran, **bevor** `spendCredits` einen Aufrufer bekommt.
-**Aufwand:** Entscheidung 15 Minuten, Umsetzung je nach Weg ·
-**Verify:** der Stolperdraht — er soll rot werden und dann ersetzt.
+**Ohne Stripe kein Kauf:** ist kein Schlüssel gesetzt, antwortet die Route mit
+**503** statt auf einen kostenlosen Ersatzweg zu fallen. Genau dieser Ersatzweg
+*war* der Befund.
+
+**Migration 186** legt den Riegel dorthin, wo Gleichzeitigkeit entschieden wird:
+ein **eindeutiger Index** auf der Kauf-Referenz (partiell, nur für
+`source = 'purchase'`). Stripe stellt Webhooks *wiederholt* zu — das ist die
+Zusicherung des Anbieters, kein Fehler. Eine Idempotenz aus „erst SELECT, dann
+INSERT" hält zwei gleichzeitige Zustellungen nicht auf.
+
+> **Der Lauf gegen die echte Datenbank hat einen echten Fehler gefangen.** Die
+> erste Fassung schrieb über `earnCredits` gut — und diese Funktion erhöht
+> **zuerst** den Saldo und schreibt **danach** die Buchung. Der Index feuerte
+> also erst, als das Guthaben schon oben war: eine wiederholte Zustellung kam auf
+> den **doppelten** Stand. Die Mock-Tests waren dabei grün. Repariert: die
+> Buchung ist der erste Schritt, und beides läuft in einer Transaktion.
+
+Gemessen (`test/integration/guthabenKauf.flow.test.js`, sechs Prüfungen gegen das
+echte Schema): zu wenig gezahlt → nichts · bezahlt → 500 + 10 % Bonus ·
+Wiederholung → Stand unverändert · **zweiter** Kauf → wird gutgeschrieben · der
+Index ist partiell · `bounty` darf seine Referenz weiterhin wiederholen.
+Dazu neun Mock-Prüfungen in `test/security/guthabenNurGegenZahlung.test.js`, die
+den Stolperdraht ablösen.
+
+**Noch nicht gebaut, weil es Betrieb ist, nicht Code:** `STRIPE_SECRET_KEY` und
+`STRIPE_WEBHOOK_SECRET` müssen gesetzt sein, und die Erfolgs-/Abbruchseite
+(`/public/credits.html`) existiert noch nicht — die URLs sind über
+`STRIPE_CREDITS_SUCCESS_URL` / `STRIPE_CREDITS_CANCEL_URL` überschreibbar.
+Solange nichts gesetzt ist, antwortet die Route 503; niemand bekommt etwas
+geschenkt.
 
 ### ~~M0-B9 — Ein roter Integrationstest aus Welle G4b~~ ✅ ERLEDIGT (2026-08-21)
 

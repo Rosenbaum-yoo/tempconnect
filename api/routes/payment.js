@@ -13,6 +13,7 @@ import { PLAN } from "../config/planFeatures.js";
 import { requireMfa } from "../middleware/requireMfa.js";
 import { requireCompanyOrg, requireOrgNotSuspended } from "../middleware/orgAccess.js";
 import * as orgAccessSuspensionService from "../services/orgAccessSuspensionService.js";
+import * as creditService from "../services/creditService.js";
 
 export function createPaymentRouter(deps) {
   const { pool, config, stripe, sendMail, getUserAndPlan, requireAuth, logger } = deps;
@@ -596,6 +597,37 @@ export function createPaymentRouter(deps) {
     // Provider-unabhängige Event-Semantik (billingProviderService) – EINE Stelle
     // entscheidet, was ein Event bedeutet. Seiteneffekte unverändert (preserve-first).
     const intent = mapStripeEvent(event);
+    /* Befund P1-22 (Owner-Entscheidung 2026-08-21: Stripe): Guthaben werden
+       AUSSCHLIESSLICH hier gutgeschrieben — nach geprueftem Signaturnachweis und
+       gegen den tatsaechlich gezahlten Betrag. `POST /credits/purchase` erzeugt
+       nur noch die Sitzung; es gibt keinen Weg mehr von dort zur Gutschrift.
+
+       Die Pruefung steht VOR dem Aktivierungszweig: ein Guthabenkauf traegt
+       weder `plan` noch `request_id` und wuerde dort sonst stillschweigend
+       durchfallen. */
+    if (intent.kind === "activation" && intent.credit_package_id) {
+      const ergebnis = await creditService.grantPurchasedPackage(pool, {
+        userId: intent.user_id,
+        packageId: intent.credit_package_id,
+        referenz: intent.checkout_id,
+        // Netto, wie beim Manipulationsschutz der INDIVIDUELL-Aktivierung:
+        // der Preis im Paket ist ein Nettopreis.
+        bezahltCent: Number.isFinite(intent.amount_subtotal)
+          ? intent.amount_subtotal
+          : intent.amount_total
+      });
+      if (ergebnis?.error) {
+        // NICHT gutschreiben und den Vorgang sichtbar machen. Ein stiller
+        // Fehlschlag waere hier das Schlimmste: der Kunde hat gezahlt.
+        logger.error(
+          { fehler: ergebnis, checkout_id: intent.checkout_id, user_id: intent.user_id },
+          "Guthabenkauf konnte nicht gutgeschrieben werden"
+        );
+      } else if (ergebnis?.bereits_gutgeschrieben) {
+        logger.info({ checkout_id: intent.checkout_id }, "Guthabenkauf war bereits gutgeschrieben");
+      }
+      return res.json({ received: true });
+    }
     if (intent.kind === "activation" && intent.request_id) {
       // Self-Service-INDIVIDUELL (Slice C): Aktivierung NUR nach im Webhook
       // verifizierter Zahlung gegen den eingefrorenen Vertragspreis.
